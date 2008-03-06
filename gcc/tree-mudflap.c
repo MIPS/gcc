@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
@@ -125,9 +125,7 @@ mf_varname_tree (tree decl)
     const char *sourcefile;
     unsigned sourceline = xloc.line;
     unsigned sourcecolumn = 0;
-#ifdef USE_MAPPED_LOCATION
     sourcecolumn = xloc.column;
-#endif
     sourcefile = xloc.file;
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
       sourcefile = DECL_SOURCE_FILE (current_function_decl);
@@ -220,11 +218,9 @@ mf_file_function_line_tree (location_t location)
 
   if (xloc.line > 0)
     {
-#ifdef USE_MAPPED_LOCATION
       if (xloc.column > 0)
         sprintf (linecolbuf, "%d:%d", xloc.line, xloc.column);
       else
-#endif
         sprintf (linecolbuf, "%d", xloc.line);
       colon = ":";
       line = linecolbuf;
@@ -475,7 +471,7 @@ mf_decl_cache_locals (void)
   /* Build initialization nodes for the cache vars.  We just load the
      globals into the cache variables.  */
   g = gimple_build_assign (mf_cache_shift_decl_l, mf_cache_shift_decl);
-  gimple_set_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  gimple_set_location (g, DECL_SOURCE_LOCATION (current_function_decl));
   /* FIXME tuples.  */
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
@@ -484,7 +480,7 @@ mf_decl_cache_locals (void)
 #endif
 
   g = gimple_build_assign (mf_cache_mask_decl_l, mf_cache_mask_decl);
-  gimple_set_locus (g, DECL_SOURCE_LOCATION (current_function_decl));
+  gimple_set_location (g, DECL_SOURCE_LOCATION (current_function_decl));
   /* FIXME tuples.  */
 #if 0
   insert_edge_copies (g, ENTRY_BLOCK_PTR);
@@ -509,7 +505,7 @@ mf_decl_clear_locals (void)
 static void
 mf_build_check_statement_for (tree base, tree limit,
                               block_stmt_iterator *instr_bsi,
-                              location_t *locus, tree dirflag)
+                              location_t *location, tree dirflag)
 {
   tree_stmt_iterator head, tsi;
   block_stmt_iterator bsi;
@@ -569,7 +565,7 @@ mf_build_check_statement_for (tree base, tree limit,
   t = build_gimple_modify_stmt (mf_base,
 				fold_convert (mf_uintptr_type,
 					      unshare_expr (base)));
-  SET_EXPR_LOCUS (t, locus);
+  SET_EXPR_LOCUS (t, location);
 #if 0
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
@@ -583,7 +579,7 @@ mf_build_check_statement_for (tree base, tree limit,
   t = build_gimple_modify_stmt (mf_limit,
 				fold_convert (mf_uintptr_type,
 					      unshare_expr (limit)));
-  SET_EXPR_LOCUS (t, locus);
+  SET_EXPR_LOCUS (t, location);
 #if 0
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
@@ -605,7 +601,7 @@ mf_build_check_statement_for (tree base, tree limit,
               mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
   t = build_gimple_modify_stmt (mf_elem, t);
-  SET_EXPR_LOCUS (t, locus);
+  SET_EXPR_LOCUS (t, location);
 #if 0
   /* FIXME tuples.  This whole function needs to be converted.  */
   gimplify_to_stmt_list (&t);
@@ -667,7 +663,7 @@ mf_build_check_statement_for (tree base, tree limit,
   /* Build the conditional jump.  'cond' is just a temporary so we can
      simply build a void COND_EXPR.  We do need labels in both arms though.  */
   t = build3 (COND_EXPR, void_type_node, cond, NULL_TREE, NULL_TREE);
-  SET_EXPR_LOCUS (t, locus);
+  SET_EXPR_LOCUS (t, location);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* At this point, after so much hard work, we have only constructed
@@ -697,7 +693,7 @@ mf_build_check_statement_for (tree base, tree limit,
 
      This is the body of the conditional.  */
 
-  u = mf_file_function_line_tree (locus == NULL ? UNKNOWN_LOCATION : *locus);
+  u = mf_file_function_line_tree (location == NULL ? UNKNOWN_LOCATION : *location);
   /* NB: we pass the overall [base..limit] range to mf_check.  */
   v = fold_build2 (PLUS_EXPR, integer_type_node,
 		   fold_build2 (MINUS_EXPR, mf_uintptr_type, mf_limit, mf_base),
@@ -764,7 +760,7 @@ mf_decl_eligible_p (tree decl)
 #if 0
 static void
 mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
-                   location_t *locus, tree dirflag)
+                   location_t *location, tree dirflag)
 {
   tree type, base, limit, addr, size, t;
 
@@ -943,7 +939,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       return;
     }
 
-  mf_build_check_statement_for (base, limit, iter, locus, dirflag);
+  mf_build_check_statement_for (base, limit, iter, location, dirflag);
 }
 #endif
 

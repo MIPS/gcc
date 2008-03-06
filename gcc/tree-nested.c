@@ -183,6 +183,10 @@ insert_field_into_struct (tree type, tree field)
 
   TREE_CHAIN (field) = *p;
   *p = field;
+
+  /* Set correct alignment for frame struct type.  */
+  if (TYPE_ALIGN (type) < DECL_ALIGN (field))
+    TYPE_ALIGN (type) = DECL_ALIGN (field);
 }
 
 /* Build or return the RECORD_TYPE that describes the frame state that is
@@ -362,7 +366,7 @@ init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
   t = create_tmp_var_for (info, TREE_TYPE (TREE_TYPE (gimple_call_fn (call))),
                           NULL);
   gimple_call_set_lhs (call, t);
-  gimple_set_locus (call, gimple_locus (gsi_stmt (*gsi)));
+  gimple_set_location (call, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_before (gsi, call, GSI_SAME_STMT);
 
   return t;
@@ -380,7 +384,7 @@ init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
-  gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
+  gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -410,7 +414,7 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
-  gimple_set_locus (stmt, gimple_locus (gsi_stmt (*gsi)));
+  gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_after (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -1783,7 +1787,8 @@ convert_gimple_call (gimple_stmt_iterator *gsi, void *data)
 	      break;
 	  if (c == NULL)
 	    {
-	      c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
+	      c = build_omp_clause (i ? OMP_CLAUSE_FIRSTPRIVATE
+				      : OMP_CLAUSE_SHARED);
 	      OMP_CLAUSE_DECL (c) = decl;
 	      OMP_CLAUSE_CHAIN (c) = gimple_omp_parallel_clauses (stmt);
 	      gimple_omp_parallel_set_clauses (stmt, c);
@@ -1938,7 +1943,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   if (stmt_list)
     {
       gimple bind;
-      annotate_all_with_locus (stmt_list, DECL_SOURCE_LOCATION (context));
+      annotate_all_with_location (stmt_list, DECL_SOURCE_LOCATION (context));
       bind = gimple_seq_first_stmt (gimple_body (context));
       gimple_seq_add_seq (&stmt_list, gimple_bind_body (bind));
       gimple_bind_set_body (bind, stmt_list);

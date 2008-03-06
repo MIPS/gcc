@@ -1837,7 +1837,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   if (warn)
     {
       const char *wording;
-      location_t loc = gimple_locus (stmt);
+      location_t loc = gimple_location (stmt);
   
       /* We can provide a more specific warning if one of the operator is
 	 constant and the other advances by +1 or -1.  */

@@ -149,24 +149,8 @@ along with GCC; see the file COPYING3.  If not see
 /* FIXME tuples.  */
 #if 0
 /*************************************************************************
-  Simple Loop Peeling Utilities
- *************************************************************************/
-static void slpeel_update_phis_for_duplicate_loop 
-  (struct loop *, struct loop *, bool after);
-static void slpeel_update_phi_nodes_for_guard1 
-  (edge, struct loop *, bool, basic_block *, bitmap *); 
-static void slpeel_update_phi_nodes_for_guard2 
-  (edge, struct loop *, bool, basic_block *);
-static edge slpeel_add_loop_guard (basic_block, tree, basic_block, basic_block);
-
-static void rename_use_op (use_operand_p);
-static void rename_variables_in_bb (basic_block);
-static void rename_variables_in_loop (struct loop *);
-
-/*************************************************************************
   General Vectorization Utilities
  *************************************************************************/
-static void vect_set_dump_settings (void);
 
 /* vect_dump will be set to stderr or dump_file if exist.  */
 FILE *vect_dump;
@@ -243,7 +227,7 @@ rename_variables_in_bb (basic_block bb)
 
 /* Renames variables in new generated LOOP.  */
 
-static void
+void
 rename_variables_in_loop (struct loop *loop)
 {
   unsigned i;
@@ -808,7 +792,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
 /* Given LOOP this function generates a new copy of it and puts it 
    on E which is either the entry or exit of LOOP.  */
 
-static struct loop *
+struct loop *
 slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
 {
   struct loop *new_loop;
@@ -873,6 +857,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
   if (at_exit) /* Add the loop copy at exit.  */
     {
       redirect_edge_and_branch_force (e, new_loop->header);
+      PENDING_STMT (e) = NULL;
       set_immediate_dominator (CDI_DOMINATORS, new_loop->header, e->src);
       if (was_imm_dom)
 	set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
@@ -890,6 +875,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
 	new_exit_e = EDGE_SUCC (new_loop->header, 1); 
 
       redirect_edge_and_branch_force (new_exit_e, loop->header);
+      PENDING_STMT (new_exit_e) = NULL;
       set_immediate_dominator (CDI_DOMINATORS, loop->header,
 			       new_exit_e->src);
 
@@ -903,6 +889,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
 	}    
 
       redirect_edge_and_branch_force (entry_e, new_loop->header);
+      PENDING_STMT (entry_e) = NULL;
       set_immediate_dominator (CDI_DOMINATORS, new_loop->header, preheader);
     }
 
@@ -2004,7 +1991,13 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       *dt = vect_invariant_def;
       return true;
    }
-    
+
+  if (TREE_CODE (operand) == PAREN_EXPR)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "non-associatable copy.");
+      operand = TREE_OPERAND (operand, 0);
+    }
   if (TREE_CODE (operand) != SSA_NAME)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
@@ -2344,7 +2337,7 @@ reduction_code_for_scalar_code (enum tree_code code,
 
 /* Function vect_is_simple_reduction
 
-   Detect a cross-iteration def-use cucle that represents a simple
+   Detect a cross-iteration def-use cycle that represents a simple
    reduction computation. We look for the following pattern:
 
    loop_header:

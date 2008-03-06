@@ -603,13 +603,13 @@ maybe_find_missing_stmts (tree object1, bool is_ptr1,
 {
   if (object1 && object2)
     {
-      if (!*alias_site || gimple_locus_empty_p (*alias_site))
+      if (!*alias_site || !gimple_has_location (*alias_site))
 	*alias_site = find_alias_site (object1, is_ptr1, object2, is_ptr2);
 
-      if (!*deref_site1 || gimple_locus_empty_p (*deref_site1))
+      if (!*deref_site1 || !gimple_has_location (*deref_site1))
 	*deref_site1 = reference_site (object1, is_ptr1);
 
-      if (!*deref_site2 || gimple_locus_empty_p (*deref_site2))
+      if (!*deref_site2 || !gimple_has_location (*deref_site2))
 	*deref_site2 = reference_site (object2, is_ptr2);
     }
 
@@ -776,18 +776,18 @@ strict_aliasing_warn (gimple alias_site,
   maybe_find_missing_stmts (object1, is_ptr1, object2, is_ptr2, &alias_site,
                             &ref_site1, &ref_site2);
 
-  if (!gimple_locus_empty_p (alias_site))
-    alias_loc = gimple_locus (alias_site);
+  if (gimple_has_location (alias_site))
+    alias_loc = gimple_location (alias_site);
   else
     return false;
 
-  if (!gimple_locus_empty_p (ref_site1))
-    ref1_loc = gimple_locus (ref_site1);
+  if (gimple_has_location (ref_site1))
+    ref1_loc = gimple_location (ref_site1);
   else
     ref1_loc = alias_loc;
 
-  if (!gimple_locus_empty_p (ref_site2))
-    ref2_loc = gimple_locus (ref_site2);
+  if (gimple_has_location (ref_site2))
+    ref2_loc = gimple_location (ref_site2);
   else
     ref2_loc = alias_loc;
 

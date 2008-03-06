@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -229,7 +229,7 @@ gimple_to_tree (gimple stmt)
     ann->rn = rn;
   }
 
-  SET_EXPR_LOCATION (t, gimple_locus (stmt));
+  SET_EXPR_LOCATION (t, gimple_location (stmt));
 
   return t;
 }
@@ -1494,9 +1494,9 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
-  if (!gimple_locus_empty_p (stmt))
+  if (gimple_has_location (stmt))
     {
-      set_curr_insn_source_location (gimple_locus (stmt));
+      set_curr_insn_source_location (gimple_location (stmt));
       set_curr_insn_block (gimple_block (stmt));
     }
 
@@ -1511,7 +1511,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       jumpif (pred, label_rtx_for_bb (true_edge->dest));
       add_reg_br_prob_note (last, true_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
-      if (!IS_LOCATION_EMPTY (true_edge->goto_locus))
+      if (true_edge->goto_locus)
   	set_curr_insn_source_location (true_edge->goto_locus);
       false_edge->flags |= EDGE_FALLTHRU;
       return NULL;
@@ -1521,7 +1521,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       jumpifnot (pred, label_rtx_for_bb (false_edge->dest));
       add_reg_br_prob_note (last, false_edge->probability);
       maybe_dump_rtl_for_gimple_stmt (stmt, last);
-      if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+      if (false_edge->goto_locus)
   	set_curr_insn_source_location (false_edge->goto_locus);
       true_edge->flags |= EDGE_FALLTHRU;
       return NULL;
@@ -1552,7 +1552,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
 
   maybe_dump_rtl_for_gimple_stmt (stmt, last2);
 
-  if (!IS_LOCATION_EMPTY (false_edge->goto_locus))
+  if (false_edge->goto_locus)
     set_curr_insn_source_location (false_edge->goto_locus);
 
   return new_bb;
@@ -1812,7 +1812,7 @@ expand_gimple_basic_block (basic_block bb)
   if (e && e->dest != bb->next_bb)
     {
       emit_jump (label_rtx_for_bb (e->dest));
-      if (!IS_LOCATION_EMPTY (e->goto_locus))
+      if (e->goto_locus)
         set_curr_insn_source_location (e->goto_locus);
       e->flags &= ~EDGE_FALLTHRU;
     }
@@ -1913,11 +1913,7 @@ construct_exit_block (void)
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
-#ifdef USE_MAPPED_LOCATION
   if (cfun->function_end_locus != UNKNOWN_LOCATION)
-#else
-  if (cfun->function_end_locus.file)
-#endif
     input_location = cfun->function_end_locus;
 
   /* The following insns belong to the top scope.  */

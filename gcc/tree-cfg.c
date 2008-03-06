@@ -656,11 +656,10 @@ make_cond_expr_edges (basic_block bb)
   else_stmt = first_stmt (else_bb);
 
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-  e->goto_locus = gimple_locus (then_stmt);
-
+  e->goto_locus = gimple_location (then_stmt);
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
-    e->goto_locus = gimple_locus (else_stmt);
+    e->goto_locus = gimple_location (else_stmt);
 
   /* We do not need the labels anymore.  */
   gimple_cond_set_true_label (entry, NULL_TREE);
@@ -848,7 +847,7 @@ make_goto_expr_edges (basic_block bb)
     {
       tree dest = gimple_goto_dest (goto_t);
       edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
-      e->goto_locus = gimple_locus (goto_t);
+      e->goto_locus = gimple_location (goto_t);
       gsi_remove (&last, true);
       return;
     }
@@ -1482,9 +1481,9 @@ remove_useless_stmts_warn_notreached (gimple_seq stmts)
     {
       gimple stmt = gsi_stmt (gsi);
 
-      if (!gimple_locus_empty_p (stmt))
+      if (gimple_has_location (stmt))
         {
-          location_t loc = gimple_locus (stmt);
+          location_t loc = gimple_location (stmt);
           if (LOCATION_LINE (loc) > 0)
 	    {
               warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
@@ -2085,11 +2084,7 @@ static void
 remove_bb (basic_block bb)
 {
   gimple_stmt_iterator i;
-#ifdef USE_MAPPED_LOCATION
   source_location loc = UNKNOWN_LOCATION;
-#else
-  location_t loc = UNKNOWN_LOCATION;
-#endif
 
   if (dump_file)
     {
@@ -2155,8 +2150,10 @@ remove_bb (basic_block bb)
 	     jump threading, thus resulting in bogus warnings.  Not great,
 	     since this way we lose warnings for gotos in the original
 	     program that are indeed unreachable.  */
-	  if (gimple_code (stmt) != GIMPLE_GOTO)
-	    loc = gimple_locus (stmt);
+	  if (gimple_code (stmt) != GIMPLE_GOTO
+	      && gimple_has_location (stmt)
+	      && !loc)
+	    loc = gimple_location (stmt);
 	}
     }
 
@@ -2164,13 +2161,8 @@ remove_bb (basic_block bb)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-#ifdef USE_MAPPED_LOCATION
   if (loc > BUILTINS_LOCATION && LOCATION_LINE (loc) > 0)
     warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
-#else
-  if (IS_LOCATION_EMPTY (loc))
-    warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
-#endif
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
   bb->il.gimple = NULL;
@@ -2980,8 +2972,12 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 	  else if (TREE_CODE (t) == BIT_FIELD_REF)
 	    {
-	      CHECK_OP (1, "invalid operand to BIT_FIELD_REF");
-	      CHECK_OP (2, "invalid operand to BIT_FIELD_REF");
+	      if (!host_integerp (TREE_OPERAND (t, 1), 1)
+		  || !host_integerp (TREE_OPERAND (t, 2), 1))
+		{
+		  error ("invalid position or size operand to BIT_FIELD_REF");
+		  return t;
+		}
 	    }
 
 	  t = TREE_OPERAND (t, 0);
@@ -5342,22 +5338,30 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 /* Marks virtual operands of all statements in basic blocks BBS for
    renaming.  */
 
-static void
-mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs ATTRIBUTE_UNUSED)
+void
+mark_virtual_ops_in_bb (basic_block bb)
 {
   tree phi;
   block_stmt_iterator bsi;
+
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+    mark_virtual_ops_for_renaming (phi);
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    mark_virtual_ops_for_renaming (bsi_stmt (bsi));
+}
+
+/* Marks virtual operands of all statements in basic blocks BBS for
+   renaming.  */
+
+static void
+mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
+{
   basic_block bb;
   unsigned i;
 
   for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
-    {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	mark_virtual_ops_for_renaming (phi);
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	mark_virtual_ops_for_renaming (bsi_stmt (bsi));
-    }
+    mark_virtual_ops_in_bb (bb);
 }
 #endif
 
@@ -6628,7 +6632,7 @@ gimplify_val (gimple_stmt_iterator *gsi, tree type, tree exp)
   new_stmt = gimple_build_assign (t, exp);
 
   orig_stmt = gsi_stmt (*gsi);
-  gimple_set_locus (new_stmt, gimple_locus (orig_stmt));
+  gimple_set_location (new_stmt, gimple_location (orig_stmt));
   gimple_set_block (new_stmt, gimple_block (orig_stmt));
 
   gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
@@ -6691,11 +6695,7 @@ gimplify_build1 (gimple_stmt_iterator *gsi, enum tree_code code, tree type,
 static unsigned int
 execute_warn_function_return (void)
 {
-#ifdef USE_MAPPED_LOCATION
   source_location location;
-#else
-  location_t *locus;
-#endif
   gimple last;
   edge e;
   edge_iterator ei;
@@ -6704,31 +6704,17 @@ execute_warn_function_return (void)
   if (TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0)
     {
-#ifdef USE_MAPPED_LOCATION
       location = UNKNOWN_LOCATION;
-#else
-      locus = NULL;
-#endif
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  last = last_stmt (e->src);
 	  if (gimple_code (last) == GIMPLE_RETURN
-#ifdef USE_MAPPED_LOCATION
-	      && (location = gimple_locus (last)) != UNKNOWN_LOCATION)
-#else
-	      && (locus = EXPR_LOCUS (last)) != NULL)
-#endif
+	      && (location = gimple_location (last)) != UNKNOWN_LOCATION)
 	    break;
 	}
-#ifdef USE_MAPPED_LOCATION
       if (location == UNKNOWN_LOCATION)
 	location = cfun->function_end_locus;
       warning (0, "%H%<noreturn%> function does return", &location);
-#else
-      if (!locus)
-	locus = &cfun->function_end_locus;
-      warning (0, "%H%<noreturn%> function does return", locus);
-#endif
     }
 
   /* If we see "return;" in some basic block, then we do reach the end
@@ -6745,17 +6731,10 @@ execute_warn_function_return (void)
 	      && gimple_return_retval (last) == NULL
 	      && !gimple_no_warning_p (last))
 	    {
-#ifdef USE_MAPPED_LOCATION
-	      location = gimple_locus (last);
+	      location = gimple_location (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
 	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", &location);
-#else
-	      locus = EXPR_LOCUS (last);
-	      if (!locus)
-		locus = &cfun->function_end_locus;
-	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", locus);
-#endif
 	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;
 	    }

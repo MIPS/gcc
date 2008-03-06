@@ -1041,9 +1041,9 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_STMTADDR)
     pp_printf (buffer, "<&%p> ", (void *) gs);
 
-  if ((flags & TDF_LINENO) && !gimple_locus_empty_p (gs))
+  if ((flags & TDF_LINENO) && gimple_has_location (gs))
     {
-      expanded_location xloc = expand_location (gimple_locus (gs));
+      expanded_location xloc = expand_location (gimple_location (gs));
       pp_character (buffer, '[');
       if (xloc.file)
 	{
@@ -1341,19 +1341,11 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
       INDENT (indent);
 
       if ((flags & TDF_LINENO)
-#ifdef USE_MAPPED_LOCATION
 	  && e->goto_locus != UNKNOWN_LOCATION
-#else
-	  && !IS_LOCATION_EMPTY (e->goto_locus)
-#endif
 	  )
 	{
 	  expanded_location goto_xloc;
-#ifdef USE_MAPPED_LOCATION
 	  goto_xloc = expand_location (e->goto_locus);
-#else
-	  goto_xloc = e->goto_locus;
-#endif
 	  pp_character (buffer, '[');
 	  if (goto_xloc.file)
 	    {

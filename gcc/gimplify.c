@@ -771,10 +771,10 @@ gimple_add_tmp_var (tree tmp)
     }
 }
 
-/* Determines whether to assign a locus to the statement GS.  */
+/* Determines whether to assign a location to the statement GS.  */
 
 static bool
-should_carry_locus_p (gimple gs)
+should_carry_location_p (gimple gs)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
@@ -788,7 +788,7 @@ should_carry_locus_p (gimple gs)
 /* Same, but for a tree.  */
 
 static bool
-tree_should_carry_locus_p (const_tree stmt)
+tree_should_carry_location_p (const_tree stmt)
 {
   /* Don't emit a line note for a label.  We particularly don't want to
      emit one for the break label, since it doesn't actually correspond
@@ -806,27 +806,27 @@ tree_should_carry_locus_p (const_tree stmt)
 /* Set the location for gimple statement GS to LOCUS.  */
 
 static void
-annotate_one_with_locus (gimple gs, location_t locus)
+annotate_one_with_location (gimple gs, location_t location)
 {
   /* All gimple statements have location.  */
-  if (gimple_locus_empty_p (gs) && should_carry_locus_p (gs))
-    gimple_set_locus (gs, locus);
+  if (!gimple_has_location (gs) && should_carry_location_p (gs))
+    gimple_set_location (gs, location);
 }
 
 /* Same, but for tree T.  */
 
 static void
-tree_annotate_one_with_locus (tree t, location_t locus)
+tree_annotate_one_with_location (tree t, location_t location)
 {
   if (CAN_HAVE_LOCATION_P (t)
-      && ! EXPR_HAS_LOCATION (t) && tree_should_carry_locus_p (t))
-    SET_EXPR_LOCATION (t, locus);
+      && ! EXPR_HAS_LOCATION (t) && tree_should_carry_location_p (t))
+    SET_EXPR_LOCATION (t, location);
 }
 
 /* Set the location for all the statements in a sequence STMT_P to LOCUS.  */
 
 void
-annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
+annotate_all_with_location (gimple_seq stmt_p, location_t location)
 {
   gimple_stmt_iterator i;
 
@@ -836,14 +836,14 @@ annotate_all_with_locus (gimple_seq stmt_p, location_t locus)
   for (i = gsi_start (stmt_p); !gsi_end_p (i); gsi_next (&i))
     {
       gimple gs = gsi_stmt (i);
-      annotate_one_with_locus (gs, locus);
+      annotate_one_with_location (gs, location);
     }
 }
 
 /* Same, but for statement or statement list in *STMT_P.  */
 
 void
-tree_annotate_all_with_locus (tree *stmt_p, location_t locus)
+tree_annotate_all_with_location (tree *stmt_p, location_t location)
 {
   tree_stmt_iterator i;
 
@@ -859,7 +859,7 @@ tree_annotate_all_with_locus (tree *stmt_p, location_t locus)
       gcc_assert (TREE_CODE (t) != STATEMENT_LIST
 		  && TREE_CODE (t) != COMPOUND_EXPR);
 
-      tree_annotate_one_with_locus (t, locus);
+      tree_annotate_one_with_location (t, location);
     }
 }
 
@@ -2279,7 +2279,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  --nargs;
 	  *expr_p = build_call_array (TREE_TYPE (call), CALL_EXPR_FN (call),
 				      nargs, CALL_EXPR_ARGP (call));
-	  /* Copy all CALL_EXPR flags, locus and block, except
+	  /* Copy all CALL_EXPR flags, location and block, except
 	     CALL_EXPR_VA_ARG_PACK flag.  */
 	  CALL_EXPR_STATIC_CHAIN (*expr_p) = CALL_EXPR_STATIC_CHAIN (call);
 	  CALL_EXPR_TAILCALL (*expr_p) = CALL_EXPR_TAILCALL (call);
@@ -6433,7 +6433,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	}
 
       if (!gimple_seq_empty_p (*pre_p))
-	annotate_all_with_locus (*pre_p, input_location);
+	annotate_all_with_location (*pre_p, input_location);
 
       goto out;
     }
@@ -6540,7 +6540,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
   if (!gimple_seq_empty_p (internal_post))
     {
-      annotate_all_with_locus (internal_post, input_location);
+      annotate_all_with_location (internal_post, input_location);
       gimple_seq_add_seq (pre_p, internal_post);
     }
 

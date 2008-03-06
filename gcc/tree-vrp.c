@@ -3770,7 +3770,11 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
 
       if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
 	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
-	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
+	      /* For BIT_IOR_EXPR only if NAME == 0 both operands have
+		 necessarily zero value.  */
+	      || (comp_code == EQ_EXPR
+		  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1))
+		        == BIT_IOR_EXPR))))
 	{
 	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
 	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
@@ -4354,7 +4358,7 @@ insert_range_assertions (void)
    IGNORE_OFF_BY_ONE is true if the ARRAY_REF is inside a ADDR_EXPR.  */
 
 static void
-check_array_ref (tree ref, location_t* locus, bool ignore_off_by_one)
+check_array_ref (tree ref, location_t *location, bool ignore_off_by_one)
 {
   value_range_t* vr = NULL;
   tree low_sub, up_sub;
@@ -4394,7 +4398,7 @@ check_array_ref (tree ref, location_t* locus, bool ignore_off_by_one)
           && tree_int_cst_lt (low_sub, low_bound))
         {
           warning (OPT_Warray_bounds,
-                   "%Harray subscript is outside array bounds", locus);
+                   "%Harray subscript is outside array bounds", location);
           TREE_NO_WARNING (ref) = 1;
         }
     }
@@ -4409,14 +4413,14 @@ check_array_ref (tree ref, location_t* locus, bool ignore_off_by_one)
                                        up_sub)))
     {
       warning (OPT_Warray_bounds, "%Harray subscript is above array bounds",
-               locus);
+               location);
       TREE_NO_WARNING (ref) = 1;
     }
   else if (TREE_CODE (low_sub) == INTEGER_CST
            && tree_int_cst_lt (low_sub, low_bound))
     {
       warning (OPT_Warray_bounds, "%Harray subscript is below array bounds",
-               locus);
+               location);
       TREE_NO_WARNING (ref) = 1;
     }
 }
@@ -5080,13 +5084,55 @@ vrp_evaluate_conditional (tree cond, tree stmt)
 
       if (issue_strict_overflow_warning (wc))
 	{
-	  location_t locus;
+	  location_t location;
 
 	  if (!EXPR_HAS_LOCATION (stmt))
-	    locus = input_location;
+	    location = input_location;
 	  else
-	    locus = EXPR_LOCATION (stmt);
-	  warning (OPT_Wstrict_overflow, "%H%s", &locus, warnmsg);
+	    location = EXPR_LOCATION (stmt);
+	  warning (OPT_Wstrict_overflow, "%H%s", &location, warnmsg);
+	}
+    }
+
+  if (warn_type_limits
+      && ret
+      && TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison)
+    {
+      /* If the comparison is being folded and the operand on the LHS
+	 is being compared against a constant value that is outside of
+	 the natural range of OP0's type, then the predicate will
+	 always fold regardless of the value of OP0.  If -Wtype-limits
+	 was specified, emit a warning.  */
+      const char *warnmsg = NULL;
+      tree op0 = TREE_OPERAND (cond, 0);
+      tree op1 = TREE_OPERAND (cond, 1);
+      tree type = TREE_TYPE (op0);
+      value_range_t *vr0 = get_value_range (op0);
+
+      if (vr0->type != VR_VARYING
+	  && INTEGRAL_TYPE_P (type)
+	  && vrp_val_is_min (vr0->min)
+	  && vrp_val_is_max (vr0->max)
+	  && is_gimple_min_invariant (op1))
+	{
+	  if (integer_zerop (ret))
+	    warnmsg = G_("comparison always false due to limited range of "
+		         "data type");
+	  else
+	    warnmsg = G_("comparison always true due to limited range of "
+			 "data type");
+	}
+
+      if (warnmsg)
+	{
+	  location_t location;
+
+	  if (!EXPR_HAS_LOCATION (stmt))
+	    location = input_location;
+	  else
+	    location = EXPR_LOCATION (stmt);
+
+	  warning (OPT_Wtype_limits, "%H%s", &location, warnmsg);
 	}
     }
 
@@ -5577,16 +5623,16 @@ simplify_div_or_mod_using_ranges (tree stmt, tree rhs, enum tree_code rhs_code)
 	  && integer_onep (val)
 	  && issue_strict_overflow_warning (WARN_STRICT_OVERFLOW_MISC))
 	{
-	  location_t locus;
+	  location_t location;
 
 	  if (!EXPR_HAS_LOCATION (stmt))
-	    locus = input_location;
+	    location = input_location;
 	  else
-	    locus = EXPR_LOCATION (stmt);
+	    location = EXPR_LOCATION (stmt);
 	  warning (OPT_Wstrict_overflow,
 		   ("%Hassuming signed overflow does not occur when "
 		    "simplifying / or %% to >> or &"),
-		   &locus);
+		   &location);
 	}
     }
 
@@ -5657,16 +5703,16 @@ simplify_abs_using_ranges (tree stmt, tree rhs)
 
 	  if (sop && issue_strict_overflow_warning (WARN_STRICT_OVERFLOW_MISC))
 	    {
-	      location_t locus;
+	      location_t location;
 
 	      if (!EXPR_HAS_LOCATION (stmt))
-		locus = input_location;
+		location = input_location;
 	      else
-		locus = EXPR_LOCATION (stmt);
+		location = EXPR_LOCATION (stmt);
 	      warning (OPT_Wstrict_overflow,
 		       ("%Hassuming signed overflow does not occur when "
 			"simplifying abs (X) to X or -X"),
-		       &locus);
+		       &location);
 	    }
 
 	  if (integer_onep (val))

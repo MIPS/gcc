@@ -313,7 +313,7 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
   if (stmt == orig_stmt)
     return;
 
-  gimple_set_locus (stmt, gimple_locus (orig_stmt));
+  gimple_set_location (stmt, gimple_location (orig_stmt));
   gimple_set_bb (stmt, gsi_bb (*gsi));
 
   /* Preserve EH region information from the original statement, if

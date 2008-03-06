@@ -1395,8 +1395,8 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
   if (wi)
     wi->gsi = *gsi;
 
-  if (wi && wi->want_locations && !gimple_locus_empty_p (stmt))
-    input_location = gimple_locus (stmt);
+  if (wi && wi->want_locations && gimple_has_location (stmt))
+    input_location = gimple_location (stmt);
 
   ret = NULL_TREE;
 

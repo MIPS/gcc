@@ -1,6 +1,6 @@
 /* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -131,7 +131,7 @@ lower_function_body (void)
 			           data.return_statements)->stmt) != NULL))
     {
       x = gimple_build_return (NULL);
-      gimple_set_locus (x, cfun->function_end_locus);
+      gimple_set_location (x, cfun->function_end_locus);
       gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
     }
 
@@ -155,7 +155,7 @@ lower_function_body (void)
       /* Remove the line number from the representative return statement.
 	 It now fills in for many such returns.  Failure to remove this
 	 will result in incorrect results for coverage analysis.  */
-      gimple_set_locus (t.stmt, UNKNOWN_LOCATION);
+      gimple_set_location (t.stmt, UNKNOWN_LOCATION);
       gsi_insert_after (&i, t.stmt, GSI_CONTINUE_LINKING);
     }
 
@@ -669,7 +669,7 @@ lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
   /* Generate a goto statement and remove the return statement.  */
  found:
   t = gimple_build_goto (tmp_rs.label);
-  gimple_set_locus (t, gimple_locus (stmt));
+  gimple_set_location (t, gimple_location (stmt));
   gsi_insert_before (gsi, t, GSI_SAME_STMT);
   gsi_remove (gsi, false);
 }
@@ -746,7 +746,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_SETUP];
   g = gimple_build_call (t, 2, gimple_call_arg (stmt, 0), arg);
-  gimple_set_locus (g, gimple_locus (stmt));
+  gimple_set_location (g, gimple_location (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 0' and insert.  */
@@ -754,7 +754,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
     {
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_zero_node));
-      gimple_set_locus (g, gimple_locus (stmt));
+      gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 
@@ -770,7 +770,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   arg = build_addr (next_label, current_function_decl);
   t = implicit_built_in_decls[BUILT_IN_SETJMP_RECEIVER];
   g = gimple_build_call (t, 1, arg);
-  gimple_set_locus (g, gimple_locus (stmt));
+  gimple_set_location (g, gimple_location (stmt));
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
   /* Build 'DEST = 1' and insert.  */
@@ -778,7 +778,7 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
     {
       g = gimple_build_assign (dest, fold_convert (TREE_TYPE (dest),
 						   integer_one_node));
-      gimple_set_locus (g, gimple_locus (stmt));
+      gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (gsi, g, GSI_SAME_STMT);
     }
 

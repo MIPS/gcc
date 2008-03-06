@@ -241,7 +241,12 @@ tree_linear_transform (void)
   if (number_of_loops () <= 1)
     return 0;
 
+  /* FIXME tuples.  */
+#if 0
   linear_transform_loops ();
+#else
+  gimple_unreachable ();
+#endif
   return 0;
 }
 

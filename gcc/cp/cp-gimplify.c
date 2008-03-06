@@ -258,7 +258,7 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
   append_to_statement_list (entry, &stmt_list);
   append_to_statement_list (exit, &stmt_list);
 
-  tree_annotate_all_with_locus (&stmt_list, stmt_locus);
+  tree_annotate_all_with_location (&stmt_list, stmt_locus);
 
   return finish_bc_block (bc_break, break_block, stmt_list);
 }
@@ -858,7 +858,8 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       if (arg2)
 	argarray[i++] = p2;
       /* Handle default arguments.  */
-      for (parm = defparm; parm != void_list_node; parm = TREE_CHAIN (parm), i++)
+      for (parm = defparm; parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm), i++)
 	argarray[i] = convert_default_arg (TREE_VALUE (parm),
 					   TREE_PURPOSE (parm), fn, i);
       t = build_call_a (fn, i, argarray);
@@ -889,7 +890,7 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       if (arg2)
 	argarray[i++] = build_fold_addr_expr (arg2);
       /* Handle default arguments.  */
-      for (parm = defparm; parm != void_list_node;
+      for (parm = defparm; parm && parm != void_list_node;
 	   parm = TREE_CHAIN (parm), i++)
 	argarray[i] = convert_default_arg (TREE_VALUE (parm),
 					   TREE_PURPOSE (parm),

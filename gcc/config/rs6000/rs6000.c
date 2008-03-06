@@ -171,7 +171,7 @@ int rs6000_long_double_type_size;
 /* IEEE quad extended precision long double. */
 int rs6000_ieeequad;
 
-/* Whether -mabi=altivec has appeared.  */
+/* Nonzero to use AltiVec ABI.  */
 int rs6000_altivec_abi;
 
 /* Nonzero if we want SPE ABI extensions.  */
@@ -262,12 +262,14 @@ int rs6000_alignment_flags;
 struct {
   bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
   bool alignment;		/* True if -malign- was used.  */
-  bool abi;			/* True if -mabi=spe/nospe was used.  */
+  bool spe_abi;			/* True if -mabi=spe/no-spe was used.  */
+  bool altivec_abi;		/* True if -mabi=altivec/no-altivec used.  */
   bool spe;			/* True if -mspe= was used.  */
   bool float_gprs;		/* True if -mfloat-gprs= was used.  */
   bool isel;			/* True if -misel was used. */
   bool long_double;	        /* True if -mlong-double- was used.  */
   bool ieee;			/* True if -mabi=ieee/ibmlongdouble used.  */
+  bool vrsave;			/* True if -mvrsave was used.  */
 } rs6000_explicit_options;
 
 struct builtin_description
@@ -356,7 +358,7 @@ struct processor_costs rios1_cost = {
   COSTS_N_INSNS (2),    /* dmul */
   COSTS_N_INSNS (19),   /* sdiv */
   COSTS_N_INSNS (19),   /* ddiv */
-  128,
+  128,			/* cache line size */
   64,			/* l1 cache */
   512,			/* l2 cache */
   0,			/* streams */
@@ -375,7 +377,7 @@ struct processor_costs rios2_cost = {
   COSTS_N_INSNS (2),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
-  256,
+  256,			/* cache line size */
   256,			/* l1 cache */
   1024,			/* l2 cache */
   0,			/* streams */
@@ -394,7 +396,7 @@ struct processor_costs rs64a_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (31),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
-  128,
+  128,			/* cache line size */
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
@@ -413,7 +415,7 @@ struct processor_costs mpccore_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (10),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
-  32,
+  32,			/* cache line size */
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
@@ -432,7 +434,7 @@ struct processor_costs ppc403_cost = {
   COSTS_N_INSNS (11),   /* dmul */
   COSTS_N_INSNS (11),   /* sdiv */
   COSTS_N_INSNS (11),   /* ddiv */
-  32,
+  32,			/* cache line size */
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
@@ -451,7 +453,7 @@ struct processor_costs ppc405_cost = {
   COSTS_N_INSNS (11),   /* dmul */
   COSTS_N_INSNS (11),   /* sdiv */
   COSTS_N_INSNS (11),   /* ddiv */
-  32,
+  32,			/* cache line size */
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
@@ -470,7 +472,7 @@ struct processor_costs ppc440_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (19),   /* sdiv */
   COSTS_N_INSNS (33),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
@@ -489,7 +491,7 @@ struct processor_costs ppc601_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
@@ -508,7 +510,7 @@ struct processor_costs ppc603_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (33),   /* ddiv */
-  32,
+  32,			/* cache line size */
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
@@ -527,7 +529,7 @@ struct processor_costs ppc604_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
-  32,
+  32,			/* cache line size */
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
@@ -546,7 +548,7 @@ struct processor_costs ppc604e_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
@@ -565,7 +567,7 @@ struct processor_costs ppc620_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (18),   /* sdiv */
   COSTS_N_INSNS (32),   /* ddiv */
-  128,
+  128,			/* cache line size */
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
@@ -584,7 +586,7 @@ struct processor_costs ppc630_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (21),   /* ddiv */
-  128,
+  128,			/* cache line size */
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
@@ -604,7 +606,7 @@ struct processor_costs ppccell_cost = {
   COSTS_N_INSNS (10/2),   /* dmul */
   COSTS_N_INSNS (74/2),   /* sdiv */
   COSTS_N_INSNS (74/2),   /* ddiv */
-  128,
+  128,			/* cache line size */
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
@@ -623,7 +625,7 @@ struct processor_costs ppc750_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (31),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
@@ -642,7 +644,7 @@ struct processor_costs ppc7450_cost = {
   COSTS_N_INSNS (5),    /* dmul */
   COSTS_N_INSNS (21),   /* sdiv */
   COSTS_N_INSNS (35),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
@@ -661,9 +663,28 @@ struct processor_costs ppc8540_cost = {
   COSTS_N_INSNS (4),    /* dmul */
   COSTS_N_INSNS (29),   /* sdiv */
   COSTS_N_INSNS (29),   /* ddiv */
-  32,
+  32,			/* cache line size */
   32,			/* l1 cache */
   256,			/* l2 cache */
+  1,			/* prefetch streams /*/
+};
+
+/* Instruction costs on E300C2 and E300C3 cores.  */
+static const
+struct processor_costs ppce300c2c3_cost = {
+  COSTS_N_INSNS (4),    /* mulsi */
+  COSTS_N_INSNS (4),    /* mulsi_const */
+  COSTS_N_INSNS (4),    /* mulsi_const9 */
+  COSTS_N_INSNS (4),    /* muldi */
+  COSTS_N_INSNS (19),   /* divsi */
+  COSTS_N_INSNS (19),   /* divdi */
+  COSTS_N_INSNS (3),    /* fp */
+  COSTS_N_INSNS (4),    /* dmul */
+  COSTS_N_INSNS (18),   /* sdiv */
+  COSTS_N_INSNS (33),   /* ddiv */
+  32,
+  16,			/* l1 cache */
+  16,			/* l2 cache */
   1,			/* prefetch streams /*/
 };
 
@@ -680,7 +701,7 @@ struct processor_costs power4_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (17),   /* sdiv */
   COSTS_N_INSNS (17),   /* ddiv */
-  128,
+  128,			/* cache line size */
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
@@ -699,7 +720,7 @@ struct processor_costs power6_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (13),   /* sdiv */
   COSTS_N_INSNS (16),   /* ddiv */
-  128,
+  128,			/* cache line size */
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
@@ -1418,6 +1439,8 @@ rs6000_override_options (const char *default_cpu)
 	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
 	 /* 8548 has a dummy entry for now.  */
 	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
+	 {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
+	 {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -1524,6 +1547,14 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_E500)
     rs6000_isel = 1;
 
+  if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3)
+    {
+      if (TARGET_ALTIVEC)
+	error ("AltiVec not supported in this target");
+      if (TARGET_SPE)
+	error ("Spe not supported in this target");
+    }
+
   /* If we are optimizing big endian systems for space, use the load/store
      multiple and string instructions.  */
   if (BYTES_BIG_ENDIAN && optimize_size)
@@ -1590,11 +1621,18 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_XCOFF && TARGET_ALTIVEC)
     rs6000_altivec_abi = 1;
 
-  /* Set Altivec ABI as default for PowerPC64 Linux.  */
-  if (TARGET_ELF && TARGET_64BIT)
+  /* The AltiVec ABI is the default for PowerPC-64 GNU/Linux.  For
+     PowerPC-32 GNU/Linux, -maltivec implies the AltiVec ABI.  It can
+     be explicitly overridden in either case.  */
+  if (TARGET_ELF)
     {
-      rs6000_altivec_abi = 1;
-      TARGET_ALTIVEC_VRSAVE = 1;
+      if (!rs6000_explicit_options.altivec_abi
+	  && (TARGET_64BIT || TARGET_ALTIVEC))
+	rs6000_altivec_abi = 1;
+
+      /* Enable VRSAVE for AltiVec ABI, unless explicitly overridden.  */
+      if (!rs6000_explicit_options.vrsave)
+	TARGET_ALTIVEC_VRSAVE = rs6000_altivec_abi;
     }
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  */
@@ -1638,7 +1676,7 @@ rs6000_override_options (const char *default_cpu)
       /* For the powerpc-eabispe configuration, we set all these by
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
-      if (!rs6000_explicit_options.abi)
+      if (!rs6000_explicit_options.spe_abi)
 	rs6000_spe_abi = 0;
       if (!rs6000_explicit_options.spe)
 	rs6000_spe = 0;
@@ -1834,6 +1872,11 @@ rs6000_override_options (const char *default_cpu)
 
       case PROCESSOR_PPC8540:
 	rs6000_cost = &ppc8540_cost;
+	break;
+
+      case PROCESSOR_PPCE300C2:
+      case PROCESSOR_PPCE300C3:
+	rs6000_cost = &ppce300c2c3_cost;
 	break;
 
       case PROCESSOR_POWER4:
@@ -2131,6 +2174,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 
     case OPT_mvrsave_:
+      rs6000_explicit_options.vrsave = true;
       rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
       break;
 
@@ -2188,19 +2232,20 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mabi_:
       if (!strcmp (arg, "altivec"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.altivec_abi = true;
 	  rs6000_altivec_abi = 1;
+
+	  /* Enabling the AltiVec ABI turns off the SPE ABI.  */
 	  rs6000_spe_abi = 0;
 	}
       else if (! strcmp (arg, "no-altivec"))
 	{
-	  /* ??? Don't set rs6000_explicit_options.abi here, to allow
-	     the default for rs6000_spe_abi to be chosen later.  */
+	  rs6000_explicit_options.altivec_abi = true;
 	  rs6000_altivec_abi = 0;
 	}
       else if (! strcmp (arg, "spe"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.spe_abi = true;
 	  rs6000_spe_abi = 1;
 	  rs6000_altivec_abi = 0;
 	  if (!TARGET_SPE_ABI)
@@ -2208,7 +2253,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 	}
       else if (! strcmp (arg, "no-spe"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.spe_abi = true;
 	  rs6000_spe_abi = 0;
 	}
 
@@ -3619,19 +3664,29 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       /* We accept [reg + reg] and [reg + OFFSET].  */
 
       if (GET_CODE (x) == PLUS)
-	{
-	  rtx op1 = XEXP (x, 0);
-	  rtx op2 = XEXP (x, 1);
+       {
+         rtx op1 = XEXP (x, 0);
+         rtx op2 = XEXP (x, 1);
+         rtx y;
 
-	  op1 = force_reg (Pmode, op1);
+         op1 = force_reg (Pmode, op1);
 
-	  if (GET_CODE (op2) != REG
-	      && (GET_CODE (op2) != CONST_INT
-		  || !SPE_CONST_OFFSET_OK (INTVAL (op2))))
-	    op2 = force_reg (Pmode, op2);
+         if (GET_CODE (op2) != REG
+             && (GET_CODE (op2) != CONST_INT
+                 || !SPE_CONST_OFFSET_OK (INTVAL (op2))
+                 || (GET_MODE_SIZE (mode) > 8
+                     && !SPE_CONST_OFFSET_OK (INTVAL (op2) + 8))))
+           op2 = force_reg (Pmode, op2);
 
-	  return gen_rtx_PLUS (Pmode, op1, op2);
-	}
+         /* We can't always do [reg + reg] for these, because [reg +
+            reg + offset] is not a legitimate addressing mode.  */
+         y = gen_rtx_PLUS (Pmode, op1, op2);
+
+         if (GET_MODE_SIZE (mode) > 8 && REG_P (op2))
+           return force_reg (Pmode, y);
+         else
+           return y;
+       }
 
       return force_reg (Pmode, x);
     }
@@ -9168,6 +9223,10 @@ rs6000_init_builtins (void)
   if (built_in_decls [BUILT_IN_CLOG])
     set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
 #endif
+
+#ifdef SUBTARGET_INIT_BUILTINS
+  SUBTARGET_INIT_BUILTINS;
+#endif
 }
 
 /* Search through a set of builtins and enable the mask bits.
@@ -11198,8 +11257,7 @@ rs6000_alloc_sdmode_stack_slot (void)
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	tree ret = walk_gimple_stmt (gsi_stmt (gsi), NULL, rs6000_check_sdmode,
-				     NULL);
+	tree ret = walk_gimple_op (gsi_stmt (gsi), rs6000_check_sdmode, NULL);
 	if (ret)
 	  {
 	    rtx stack = assign_stack_local (DDmode, GET_MODE_SIZE (DDmode), 0);
@@ -18504,6 +18562,8 @@ rs6000_issue_rate (void)
   case CPU_PPC7400:
   case CPU_PPC8540:
   case CPU_CELL:
+  case CPU_PPCE300C2:
+  case CPU_PPCE300C3:
     return 2;
   case CPU_RIOS2:
   case CPU_PPC604:

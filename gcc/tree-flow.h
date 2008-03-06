@@ -749,6 +749,7 @@ extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
 void remove_edge_and_dominated_blocks (edge);
+void mark_virtual_ops_in_bb (basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -778,6 +779,7 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
+extern bool stmt_references_abnormal_ssa_name (gimple);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -1001,6 +1003,8 @@ bool gimple_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
 					 edge, VEC (edge, heap) **,
 					 int);
+struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
+void rename_variables_in_loop (struct loop *);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);

@@ -684,7 +684,11 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       stmt2 = gimple_build_assign (var, t);
       name = make_ssa_name (var, stmt2);
       gimple_assign_set_lhs (stmt2, name);
+
+      /* Replace the SSA_NAME we compare against zero.  Adjust
+	 the type of zero accordingly.  */
       SET_USE (use, name);
+      gimple_cond_set_rhs (use_stmt, build_int_cst_type (TREE_TYPE (name), 0));
 
       gsi_insert_before (bsi, stmt1, GSI_SAME_STMT);
       gsi_replace (bsi, stmt2, true);

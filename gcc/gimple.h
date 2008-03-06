@@ -224,7 +224,7 @@ struct gimple_statement_base GTY(())
   struct basic_block_def *bb;
 
   /* Locus information for debug info.  */
-  location_t locus;
+  location_t location;
 
   /* Lexical block holding this statement.  FIXME, needed?  */
   tree block;
@@ -638,34 +638,30 @@ gimple_set_block (gimple g, tree block)
 }
 
 
-/* Return locus information for statement G.  */
+/* Return location information for statement G.  */
 
 static inline location_t
-gimple_locus (const_gimple g)
+gimple_location (const_gimple g)
 {
-  return g->gsbase.locus;
+  return g->gsbase.location;
 }
 
 
-/* Set locus information for statement G.  */
+/* Set location information for statement G.  */
 
 static inline void
-gimple_set_locus (gimple g, location_t locus)
+gimple_set_location (gimple g, location_t location)
 {
-  g->gsbase.locus = locus;
+  g->gsbase.location = location;
 }
 
 
-/* Return true if G contains no locus information.  */
+/* Return true if G contains no location information.  */
 
 static inline bool
-gimple_locus_empty_p (const_gimple g)
+gimple_has_location (const_gimple g)
 {
-#ifdef USE_MAPPED_LOCATION
-  return gimple_locus (g) == UNKNOWN_LOCATION;
-#else
-  return gimple_locus (g).file == NULL && gimple_locus (g).line == 0;
-#endif
+  return gimple_location (g) != UNKNOWN_LOCATION;
 }
 
 
@@ -674,7 +670,7 @@ gimple_locus_empty_p (const_gimple g)
 static inline const char *
 gimple_filename (const_gimple stmt)
 {
-  return LOCATION_FILE (location_from_locus (gimple_locus (stmt)));
+  return LOCATION_FILE (gimple_location (stmt));
 }
 
 
@@ -683,7 +679,7 @@ gimple_filename (const_gimple stmt)
 static inline int
 gimple_lineno (const_gimple stmt)
 {
-  return LOCATION_LINE (location_from_locus (gimple_locus (stmt)));
+  return LOCATION_LINE (gimple_location (stmt));
 }
 
 

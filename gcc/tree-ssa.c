@@ -1419,7 +1419,7 @@ warn_uninit (tree t, const char *gmsgid, void *data)
 {
   tree var = SSA_NAME_VAR (t);
   gimple context = (gimple) data;
-  location_t locus;
+  location_t location;
   expanded_location xloc, floc;
 
   if (!ssa_undefined_value_p (t))
@@ -1430,11 +1430,11 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   if (TREE_NO_WARNING (var))
     return;
 
-  locus = (context != NULL && !gimple_locus_empty_p (context))
-	   ? gimple_locus (context)
-	   : DECL_SOURCE_LOCATION (var);
-  warning (OPT_Wuninitialized, gmsgid, &locus, var);
-  xloc = expand_location (locus);
+  location = (context != NULL && gimple_has_location (context))
+	     ? gimple_location (context)
+	     : DECL_SOURCE_LOCATION (var);
+  warning (OPT_Wuninitialized, gmsgid, &location, var);
+  xloc = expand_location (location);
   floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
   if (xloc.file != floc.file
       || xloc.line < floc.line

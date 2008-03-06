@@ -1,3 +1,96 @@
+2008-03-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* gnatfind.adb, gnatxref.adb: Fix argument parsing typos.
+	* s-auxdec-empty.adb, s-auxdec.adb: Fix typos in copyright
+	statement.
+	* a-ngcoar.adb, a-ngrear.adb, g-awk.adb, g-debpoo.adb,
+	gprep.adb, make.adb, makegpr.adb, par-ch6.adb, prj-nmsc.adb,
+	sem_attr.adb, sem_ch4.adb, sem_ch8.adb: Fix typos in ada source
+	code output strings.
+	* sem_type.adb, system-vms-ia64.ads, system-vms.ads,
+	system-vms_64.ads: Fix typos in ada source code comments.
+	* sinfo-cn.adb: Remove incomplete sentence.
+
+	PR documentation/15479
+	* gnat_rm.texi, gnat_ugn.texi: Avoid standalone `non' word.
+
+2008-02-27  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/22255
+	* s-fileio.adb (Reset): Do not raise Use_Error if mode isn't changed.
+
+2008-02-27  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/34799
+	* sem_ch13.adb (Analyze_Record_Representation_Clause): Check
+	that underlying type is present.
+
+2008-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* misc.c (internal_error_function): Remove test of
+	USE_MAPPED_LOCATION.
+	* trans.c (gigi): Remove test of USE_MAPPED_LOCATION.
+	(Sloc_to_locus): Remove old location code.
+
+2008-02-25  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* gnat_rm.texi, gnat_ugn.texi: Fix spacing after `e.g.' and
+	`i.e.' by adding comma or `@:' as appropriate.
+	* gnat_rm.texi (Pragma Wide_Character_Encoding): Instead of
+	plain characters `C', use `@samp{C}'.
+	* gnat_ugn.texi (File Naming Rules, About gnatkr)
+	(Krunching Method): Likewise.
+
+	* gnat_ugn.texi (Conventions): List environment variables and
+	metasyntactic variables.
+	(Compiling Programs): Fix notation of metasyntactic variables.
+	Add @file where appropriate.  Use @file for file extensions,
+	@samp for strings.
+	* gnat_rm.texi, gnat_ugn.texi: Where appropriate, use @samp
+	instead of @file, @env instead of @code.
+
+2008-02-24  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/15479
+	* gnat_rm.texi, gnat_ugn.texi: Where appropriate, replace `..'
+	and `...' with `@dots{}' or `@enddots{}'.
+
+	PR documentation/15479
+	* gnat_rm.texi, gnat_ugn.texi: Where appropriate, add @command,
+	use @command instead of @code, @option instead of @samp or @code,
+	@code instead of @var, @samp instead of @file.
+
+	PR documentation/15479
+	* gnat_ugn.texi (Using gnatmake in a Makefile): Do not ignore errors
+	in Makefile rules, by using `&&' rather than `;'.
+
+2008-02-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/15479
+	* gnat_ugn.texi: In non-code, avoid space before colon.
+	(Regular Expressions in gnatfind and gnatxref): Fix indentation.
+	(Examples of gnatxref Usage): Use @command{vi} instead of
+	@file{vi}.
+	(Character Set Control): Do not use @code for UTF-8.
+	(Validity Checking): Fix typo "NaNs" instead of "NaN's".  Do not
+	use @code for IEEE.
+	* gnat_rm.texi (Aggregates with static bounds): Fix typo in code
+	sample.
+	* gnat_rm.texi, gnat_ugn.texi: Fix typos.  Bump copyright years.
+
+2008-02-11  Joel Sherrill <joel.sherrill@oarcorp.com>
+
+	PR ada/35143
+	* env.c: Add __rtems__ to if defined.
+	* s-osinte-rtems.adb: Add To_Target_Priority.  Fix formatting.
+	* s-osinte-rtems.ads: Add To_Target_Priority prototype and
+	PTHREAD_SCOPE_PROCESS/PTHREAD_SCOPE_SYSTEM constants.  Add
+	pragma Convention as required.
+	* gsocket.h: Make compile in and out of RTS.
+	* Makefile.in: Add system-rtems.ads.  Build DEC extensions.
+	Use g-soccon-rtems.ads.
+	* g-soccon-rtems.ads, system-rtems.ads: New files.
+
 2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	PR other/35107

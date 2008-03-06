@@ -440,7 +440,7 @@ check_counter (gimple stmt, const char *name, gcov_type all, gcov_type bb_count)
     {
       location_t locus;
       locus = (stmt != NULL)
-	       ? gimple_locus (stmt)
+	       ? gimple_location (stmt)
 	       : DECL_SOURCE_LOCATION (current_function_decl);
       error ("%HCorrupted value profile: %s profiler overall count (%d) "
 	     "does not match BB count (%d)", &locus, name, (int)all,

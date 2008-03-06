@@ -271,8 +271,8 @@ get_lineno (const_gimple stmt)
   if (!stmt)
     return -1;
 
-  loc = gimple_locus (stmt);
-  if (IS_LOCATION_EMPTY (loc))
+  loc = gimple_location (stmt);
+  if (loc != UNKNOWN_LOCATION)
     return -1;
 
   return LOCATION_LINE (loc);
@@ -415,7 +415,7 @@ next_readonly_imm_use (imm_use_iterator *imm)
 
   imm->imm_use = old->next;
   if (end_readonly_imm_use_p (imm))
-    return old;
+    return NULL_USE_OPERAND_P;
   return imm->imm_use;
 }
 

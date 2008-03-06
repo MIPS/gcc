@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
@@ -803,7 +803,7 @@ branch_prob (void)
 	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
 	      last = gsi_stmt (gsi);
-	      if (!gimple_locus_empty_p (last))
+	      if (gimple_has_location (last))
 		break;
 	    }
 
@@ -812,19 +812,14 @@ branch_prob (void)
 	     Don't do that when the locuses match, so 
 	     if (blah) goto something;
 	     is not computed twice.  */
-	  if (last && !gimple_locus_empty_p (last)
-	      && !IS_LOCATION_EMPTY (e->goto_locus)
+	  if (last
+	      && gimple_has_location (last)
+	      && e->goto_locus != UNKNOWN_LOCATION
 	      && !single_succ_p (bb)
-#ifdef USE_MAPPED_LOCATION
 	      && (LOCATION_FILE (e->goto_locus)
-	          != LOCATION_FILE (gimple_locus (last))
+	          != LOCATION_FILE (gimple_location (last))
 		  || (LOCATION_LINE (e->goto_locus)
-		      != LOCATION_LINE (gimple_locus  (last)))))
-#else
-	      && (LOCATION_FILE (e->goto_locus) != gimple_locus (last)->file
-		  || (LOCATION_LINE (e->goto_locus)
-		      != EXPR_LOCUS (last)->line)))
-#endif
+		      != LOCATION_LINE (gimple_location  (last)))))
 	    {
 	      basic_block new = split_edge (e);
 	      single_succ_edge (new)->goto_locus = e->goto_locus;
@@ -1004,7 +999,7 @@ branch_prob (void)
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
 	      gimple stmt = gsi_stmt (gsi);
-	      if (!gimple_locus_empty_p (stmt))
+	      if (gimple_has_location (stmt))
 		output_location (gimple_filename (stmt), gimple_lineno (stmt),
 				 &offset, bb);
 	    }
@@ -1012,7 +1007,7 @@ branch_prob (void)
 	  /* Notice GOTO expressions we eliminated while constructing the
 	     CFG.  */
 	  if (single_succ_p (bb)
-	      && !IS_LOCATION_EMPTY (single_succ_edge (bb)->goto_locus))
+	      && single_succ_edge (bb)->goto_locus != UNKNOWN_LOCATION)
 	    {
 	      location_t curr_location = single_succ_edge (bb)->goto_locus;
 	      /* ??? The FILE/LINE API is inconsistent for these cases.  */

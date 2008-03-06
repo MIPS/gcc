@@ -1140,10 +1140,10 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 	}
     }
 
-  /* Reset the locus of the goto since we're moving
+  /* Reset the location of the goto since we're moving
      goto to a different block which might be on a different line. */
   gcc_assert (!tf->goto_queue[0].is_label);
-  gimple_set_locus (tf->goto_queue[0].cont_stmt.g, 0);
+  gimple_set_location (tf->goto_queue[0].cont_stmt.g, 0);
   gimple_seq_add_stmt (&tf->top_p_seq, tf->goto_queue[0].cont_stmt.g);
   maybe_record_in_goto_queue (state, tf->goto_queue[0].cont_stmt.g);
 }

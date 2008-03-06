@@ -167,15 +167,14 @@ is_complex_reg (tree lhs)
 static void
 init_parameter_lattice_values (void)
 {
-  tree parm;
+  tree parm, ssa_name;
 
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
-    if (is_complex_reg (parm) && var_ann (parm) != NULL)
-      {
-	tree ssa_name = gimple_default_def (cfun, parm);
-	VEC_replace (complex_lattice_t, complex_lattice_values,
-		     SSA_NAME_VERSION (ssa_name), VARYING);
-      }
+    if (is_complex_reg (parm)
+	&& var_ann (parm) != NULL
+	&& (ssa_name = gimple_default_def (cfun, parm)) != NULL_TREE)
+      VEC_replace (complex_lattice_t, complex_lattice_values,
+		   SSA_NAME_VERSION (ssa_name), VARYING);
 }
 
 /* Initialize simulation state for each statement.  Return false if we
@@ -806,7 +805,9 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (gimple_code (stmt) == GIMPLE_CALL)
+      else if (gimple_code (stmt) == GIMPLE_CALL
+	       || gimple_has_side_effects (stmt)
+	       || gimple_subcode (stmt) == PAREN_EXPR)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
@@ -1125,7 +1126,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
-      e = split_block (gsi_bb (*gsi), cond);
+      e = split_block (gsi_bb (*gsi), stmt);
       bb_cond = e->src;
       bb_join = e->dest;
       bb_true = create_empty_bb (bb_cond);

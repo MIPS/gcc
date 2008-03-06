@@ -2868,7 +2868,7 @@ fold_gimple_call (gimple_stmt_iterator *gsi)
 
             STRIP_USELESS_TYPE_CONVERSION (result);
             new_stmt = gimple_build_assign (lhs, result);
-            gimple_set_locus (new_stmt, gimple_locus (stmt));
+            gimple_set_location (new_stmt, gimple_location (stmt));
             gsi_replace (gsi, new_stmt, false);
             return true;
           }
@@ -2970,7 +2970,7 @@ fold_stmt (gimple_stmt_iterator *gsi)
   if (!gimple_has_side_effects (stmt))
     {
       gimple new_stmt = gimple_build_nop ();
-      gimple_set_locus (new_stmt, gimple_locus (stmt));
+      gimple_set_location (new_stmt, gimple_location (stmt));
       gsi_replace (gsi, new_stmt, false);
       return true;
     }
@@ -3195,7 +3195,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr, bool ignore)
   pop_gimplify_context (NULL);
 
   if (EXPR_HAS_LOCATION (stmt))
-    annotate_all_with_locus (&stmts, EXPR_LOCATION (stmt));
+    annotate_all_with_location (&stmts, EXPR_LOCATION (stmt));
 
   /* The replacement can expose previously unreferenced variables.  */
   for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))

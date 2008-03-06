@@ -243,9 +243,12 @@ static VEC (tree, heap) *sccstack;
 DEF_VEC_P(vn_ssa_aux_t);
 DEF_VEC_ALLOC_P(vn_ssa_aux_t, heap);
 
-/* Table of vn_ssa_aux_t's, one per ssa_name.  */
+/* Table of vn_ssa_aux_t's, one per ssa_name.  The vn_ssa_aux_t objects
+   are allocated on an obstack for locality reasons, and to free them
+   without looping over the VEC.  */
 
 static VEC (vn_ssa_aux_t, heap) *vn_ssa_aux_table;
+static struct obstack vn_ssa_aux_obstack;
 
 /* Return the value numbering information for a given SSA name.  */
 
@@ -266,13 +269,16 @@ VN_INFO_SET (tree name, vn_ssa_aux_t value)
 	       SSA_NAME_VERSION (name), value);
 }
 
-/* Get the value numbering info for a given SSA name, creating it if
-   it does not exist.  */
+/* Initialize the value numbering info for a given SSA name.
+   This should be called just once for every SSA name.  */
 
 vn_ssa_aux_t
 VN_INFO_GET (tree name)
 {
-  vn_ssa_aux_t newinfo = XCNEW (struct vn_ssa_aux);
+  vn_ssa_aux_t newinfo;
+
+  newinfo = obstack_alloc (&vn_ssa_aux_obstack, sizeof (struct vn_ssa_aux));
+  memset (newinfo, 0, sizeof (struct vn_ssa_aux));
   if (SSA_NAME_VERSION (name) >= VEC_length (vn_ssa_aux_t, vn_ssa_aux_table))
     VEC_safe_grow (vn_ssa_aux_t, heap, vn_ssa_aux_table,
 		   SSA_NAME_VERSION (name) + 1);
@@ -1227,6 +1233,8 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
     {
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
+      if (TREE_CODE (op) == SSA_NAME)
+	op = SSA_VAL (op);
       resultsame = expressions_equal_p (result, op);
     }
 
@@ -1253,7 +1261,10 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	  changed |= set_ssa_val_to (vdef, vdef);
 	}
 
-      vn_reference_insert (lhs, op, vdefs);
+      /* Do not insert structure copies into the tables.  */
+      if (is_gimple_min_invariant (op)
+	  || is_gimple_reg (op))
+        vn_reference_insert (lhs, op, vdefs);
     }
   else
     {
@@ -1491,13 +1502,15 @@ simplify_unary_expression (tree rhs)
   else if (TREE_CODE (rhs) == NOP_EXPR
 	   || TREE_CODE (rhs) == CONVERT_EXPR
 	   || TREE_CODE (rhs) == REALPART_EXPR
-	   || TREE_CODE (rhs) == IMAGPART_EXPR)
+	   || TREE_CODE (rhs) == IMAGPART_EXPR
+	   || TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
     {
       /* We want to do tree-combining on conversion-like expressions.
          Make sure we feed only SSA_NAMEs or constants to fold though.  */
       tree tem = valueize_expr (VN_INFO (op0)->expr);
       if (UNARY_CLASS_P (tem)
 	  || BINARY_CLASS_P (tem)
+	  || TREE_CODE (tem) == VIEW_CONVERT_EXPR
 	  || TREE_CODE (tem) == SSA_NAME
 	  || is_gimple_min_invariant (tem))
 	op0 = tem;
@@ -1523,13 +1536,10 @@ simplify_unary_expression (tree rhs)
 static tree
 try_to_simplify (tree stmt, tree rhs)
 {
+  /* For stores we can end up simplifying a SSA_NAME rhs.  Just return
+     in this case, there is no point in doing extra work.  */
   if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      if (is_gimple_min_invariant (SSA_VAL (rhs)))
-	return SSA_VAL (rhs);
-      else if (VN_INFO (rhs)->has_constants)
-	return VN_INFO (rhs)->expr;
-    }
+    return rhs;
   else
     {
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
@@ -1546,15 +1556,14 @@ try_to_simplify (tree stmt, tree rhs)
 
 	    /* Fallthrough. */
 	case tcc_reference:
-	  {
-	    tree result = vn_reference_lookup (rhs,
-					       shared_vuses_from_stmt (stmt));
-	    if (result)
-	      return result;
-	  }
-	  /* Fallthrough for some codes.  */
+	  /* Do not do full-blown reference lookup here.
+	     ???  But like for tcc_declaration, we should simplify
+		  from constant initializers.  */
+
+	  /* Fallthrough for some codes that can operate on registers.  */
 	  if (!(TREE_CODE (rhs) == REALPART_EXPR
-	        || TREE_CODE (rhs) == IMAGPART_EXPR))
+	        || TREE_CODE (rhs) == IMAGPART_EXPR
+		|| TREE_CODE (rhs) == VIEW_CONVERT_EXPR))
 	    break;
 	  /* We could do a little more with unary ops, if they expand
 	     into binary ops, but it's debatable whether it is worth it. */
@@ -2009,6 +2018,8 @@ init_scc_vn (void)
   /* VEC_alloc doesn't actually grow it to the right size, it just
      preallocates the space to do so.  */
   VEC_safe_grow (vn_ssa_aux_t, heap, vn_ssa_aux_table, num_ssa_names + 1);
+  gcc_obstack_init (&vn_ssa_aux_obstack);
+
   shared_lookup_phiargs = NULL;
   shared_lookup_vops = NULL;
   shared_lookup_references = NULL;
@@ -2022,7 +2033,7 @@ init_scc_vn (void)
   for (j = 0; j < n_basic_blocks - NUM_FIXED_BLOCKS; j++)
     rpo_numbers[rpo_numbers_temp[j]] = j;
 
-  free (rpo_numbers_temp);
+  XDELETE (rpo_numbers_temp);
 
   VN_TOP = create_tmp_var_raw (void_type_node, "vn_top");
 
@@ -2073,19 +2084,18 @@ free_scc_vn (void)
   VEC_free (tree, gc, shared_lookup_vops);
   VEC_free (vn_reference_op_s, heap, shared_lookup_references);
   XDELETEVEC (rpo_numbers);
+
   for (i = 0; i < num_ssa_names; i++)
     {
       tree name = ssa_name (i);
-      if (name)
-	{
-	  XDELETE (VN_INFO (name));
-	  if (SSA_NAME_VALUE (name) &&
-	      TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
-	    SSA_NAME_VALUE (name) = NULL;
-	}
+      if (name
+	  && SSA_NAME_VALUE (name)
+	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+	SSA_NAME_VALUE (name) = NULL;
     }
-
+  obstack_free (&vn_ssa_aux_obstack, NULL);
   VEC_free (vn_ssa_aux_t, heap, vn_ssa_aux_table);
+
   VEC_free (tree, heap, sccstack);
   free_vn_table (valid_info);
   XDELETE (valid_info);

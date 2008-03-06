@@ -1,3 +1,32 @@
+2008-03-06  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @132948
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-03-06  Diego Novillo  <dnovillo@google.com>
+
+	* config/rs6000/rs6000.c (rs6000_alloc_sdmode_stack_slot):
+	Call walk_gimple_op.
+	* tree-complex.c (expand_complex_div_wide): Call
+	split_block with STMT.
+
+2008-03-06  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (struct gimple_statement_base): Rename field
+	'locus' to 'location'.  Update all users.
+	(gimple_location): Rename from gimple_locus.  Update all
+	users.
+	(gimple_set_location): Rename from gimple_set_locus.
+	Update all users.
+	(gimple_has_location): Rename from gimple_location_empty_p.
+	Change sign of return value.  Update all users.
+	* gimplify.c (tree_annotate_all_with_location): Rename
+	from tree_annotate_all_with_locus.
+	(annotate_all_with_location): Rename from
+	annotate_all_with_locus.
+
 2008-03-05  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c (gimple_set_lhs): Remove return keywords.

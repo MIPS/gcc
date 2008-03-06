@@ -910,7 +910,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 					       CALL_EXPR_FN (call),
 					       nargs + call_expr_nargs (call),
 					       argarray);
-		  /* Copy all CALL_EXPR flags, locus and block, except
+		  /* Copy all CALL_EXPR flags, location and block, except
 		     CALL_EXPR_VA_ARG_PACK flag.  */
 		  CALL_EXPR_STATIC_CHAIN (new_call)
 		    = CALL_EXPR_STATIC_CHAIN (call);
@@ -1976,7 +1976,6 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, void *wip)
 	    /* We cannot inline functions that take a variable number of
 	       arguments.  */
 	  case BUILT_IN_VA_START:
-	  case BUILT_IN_STDARG_START:
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
 	    inline_forbidden_reason
@@ -2245,6 +2244,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case RANGE_EXPR:
     case CONVERT_EXPR:
     case COMPLEX_EXPR:
+    case PAREN_EXPR:
     case NOP_EXPR:
     case NON_LVALUE_EXPR:
       return 0;
@@ -2431,6 +2431,11 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_CALL:
       {
 	tree decl = gimple_call_fndecl (stmt);
+	tree addr = gimple_call_fn (stmt);
+	tree funtype = TREE_TYPE (addr);
+
+	if (POINTER_TYPE_P (funtype))
+	  funtype = TREE_TYPE (funtype);
 
 	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_MD)
 	  cost = weights->target_builtin_call_cost;
@@ -2455,22 +2460,31 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	      break;
 	    }
 
+	if (decl)
+	  funtype = TREE_TYPE (decl);
+
 	/* Our cost must be kept in sync with
 	   cgraph_estimate_size_after_inlining that does use function
 	   declaration to figure out the arguments.  */
-	if (!decl)
+	if (decl && DECL_ARGUMENTS (decl))
+	  {
+	    tree arg;
+	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
+	      cost += estimate_move_cost (TREE_TYPE (arg));
+	  }
+	else if (funtype && prototype_p (funtype))
+	  {
+	    tree t;
+	    for (t = TYPE_ARG_TYPES (funtype); t; t = TREE_CHAIN (t))
+	      cost += estimate_move_cost (TREE_VALUE (t));
+	  }
+	else
 	  {
 	    for (i = 0; i < gimple_call_num_args (stmt); i++)
 	      {
 		tree arg = gimple_call_arg (stmt, i);
 		cost += estimate_move_cost (TREE_TYPE (arg));
 	      }
-	  }
-	else
-	  {
-	    tree arg;
-	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
-	      cost += estimate_move_cost (TREE_TYPE (arg));
 	  }
 
 	break;
@@ -3750,6 +3764,8 @@ build_duplicate_type (tree type)
   type = remap_type_1 (type, &id);
 
   pointer_map_destroy (id.decl_map);
+
+  TYPE_CANONICAL (type) = type;
 
   return type;
 }
