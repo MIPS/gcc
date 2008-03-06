@@ -1117,6 +1117,9 @@ setup_eliminable_regset (void)
 
 
 
+/* The length of the following two arrays.  */
+int reg_equiv_len;
+
 /* The element value is nonzero if the corresponding regno value is
    invariant.  */
 int *reg_equiv_invariant_p;
@@ -1200,7 +1203,8 @@ setup_reg_renumber (void)
 	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				      call_used_reg_set))
 	{
-	  ira_assert (flag_caller_saves || reg_equiv_const [regno]
+	  ira_assert (flag_caller_saves || regno >= reg_equiv_len
+		      || reg_equiv_const [regno]
 		      || reg_equiv_invariant_p [regno]);
 	  caller_save_needed = 1;
 	}
@@ -1568,6 +1572,7 @@ ira (FILE *f)
   bitmap_obstack_initialize (&ira_bitmap_obstack);
 
   max_regno = max_reg_num ();
+  reg_equiv_len = max_regno;
   reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (int));
   memset (reg_equiv_invariant_p, 0, max_regno * sizeof (int));
   reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
@@ -1672,6 +1677,8 @@ ira (FILE *f)
   spilled_reg_stack_slots_num = 0;
   spilled_reg_stack_slots
     = ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
+  memset (spilled_reg_stack_slots, 0,
+	  max_regno * sizeof (struct spilled_reg_stack_slot));
 
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain ();

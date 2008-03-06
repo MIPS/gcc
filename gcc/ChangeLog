@@ -1,3 +1,39 @@
+2008-03-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.h (sort_regnos_for_alter_reg): Add parameter.
+	
+	* reload1.c (reload): Pass additional argument to
+	sort_regnos_for_alter_reg.
+
+	* ira-int.h (reg_equiv_len): New global variable.
+
+	* ira-emit.c (change_loop): Add assertion.
+
+	* ira.c (reg_equiv_len): New global variable.
+	(setup_reg_renumber): Use reg_equiv_len in assertion.
+	(ira): Initialize reg_equiv_len and spilled_reg_stack_slots.
+
+	* ira-color.c (coalesced_pseudo_reg_compare): Rename to
+	coalesced_pseudo_reg_freq_compare.
+	(coalesced_pseudo_reg_slot_compare,
+	setup_coalesced_allocno_costs_and_nums,
+	collect_spilled_coalesced_allocnos, coalesce_spill_slots): New
+	functions.
+	(coalesced_allocno_conflict_p): Add new parameter.  Use live
+	ranges to find conflicts for the reload.
+	(coalesce_allocnos): Don't coalesce allocnos with equivalences.
+	(color_pass): Check reg_quiv_len.
+	(regno_max_ref_width): New variable.
+	(sort_regnos_for_alter_reg): Add secondary coalescing spilled
+	allocnos.  Assign stack slot numbers.  Use costs instead of
+	frequencies.
+	(mark_allocation_change): Set up allocno hard regno.
+	(allocno_reload_assign): Ditto.
+	(reuse_stack_slot): Use stack slot numbers.
+	(mark_new_stack_slot): Set up allocno slot number.
+
+	* doc/passes.texi: Add more info about IRA.
+	
 2008-03-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c (allocno_conflict_p): Rename to

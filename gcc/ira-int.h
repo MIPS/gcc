@@ -192,7 +192,10 @@ struct allocno
   /* Final rtx representation of the allocno.  */
   rtx reg;
   /* Hard register assigned to given allocno.  Negative value means
-     that memory was allocated to the allocno.  */
+     that memory was allocated to the allocno.  During the reload,
+     spilled allocno has value the corresponding stack slot number (0,
+     ...) - 2.  Value -1 is used for allonos spilled by the reload
+     which did not get stack slot yet.  */
   int hard_regno;
   /* Allocnos with the same regno are linked by the following member.
      Allocnos corresponding to inner loops are first in the list
@@ -592,6 +595,9 @@ extern void print_disposition (FILE *);
 extern void debug_disposition (void);
 extern void debug_class_cover (void);
 extern void init_register_move_cost (enum machine_mode);
+
+/* Length of the two following arrays.  */
+extern int reg_equiv_len;
 
 /* Regno invariant flags.  */
 extern int *reg_equiv_invariant_p;

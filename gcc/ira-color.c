@@ -64,7 +64,7 @@ static void setup_allocno_left_conflicts_num (allocno_t);
 static void put_allocno_into_bucket (allocno_t);
 static int copy_freq_compare_func (const void *, const void *);
 static void merge_allocnos (allocno_t, allocno_t);
-static int coalesced_allocno_conflict_p (allocno_t, allocno_t);
+static int coalesced_allocno_conflict_p (allocno_t, allocno_t, int);
 static void coalesce_allocnos (int);
 static void color_allocnos (void);
 
@@ -76,9 +76,14 @@ static void do_coloring (void);
 
 static void move_spill_restore (void);
 
-static int coalesced_pseudo_reg_compare (const void *, const void *);
-
 static void setup_curr_costs (allocno_t);
+
+static int coalesced_pseudo_reg_freq_compare (const void *, const void *);
+static int coalesced_pseudo_reg_slot_compare (const void *, const void *);
+static void setup_coalesced_allocno_costs_and_nums (int *, int);
+static int collect_spilled_coalesced_allocnos (int *, int, allocno_t *);
+static int coalesce_spill_slots (allocno_t *, int);
+
 static int pseudo_reg_compare (const void *, const void *);
 
 static int calculate_spill_cost (int *, rtx, rtx, rtx,
@@ -1098,7 +1103,7 @@ copy_freq_compare_func (const void *v1p, const void *v2p)
 }
 
 /* The function merges two sets of coalesced allocnos given by
-   allocnos A1 and A2.  */
+   allocnos A1 and A2 (more accurately merging A2 into A1).  */
 static void
 merge_allocnos (allocno_t a1, allocno_t a2)
 {
@@ -1121,10 +1126,10 @@ merge_allocnos (allocno_t a1, allocno_t a2)
 }
 
 /* The function returns non-zero if there are conflicting allocnos
-   from two sets of coalesced allocnos given by allocnos A1 and
-   A2.  */
+   from two sets of coalesced allocnos given by allocnos A1 and A2.
+   If RELOAD_P is true, we use live ranges to find conflicts.  */
 static int
-coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2)
+coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2, int reload_p)
 {
   allocno_t a, conflict_allocno, *allocno_vec;
   int i;
@@ -1143,20 +1148,36 @@ coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2)
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a2);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-      for (i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
-	if (conflict_allocno == a1
-	    || (allocno_coalesced_p
-		&& bitmap_bit_p (processed_coalesced_allocno_bitmap,
-				 ALLOCNO_NUM (conflict_allocno))))
-	  return TRUE;
+      if (reload_p)
+	{
+	  for (conflict_allocno = ALLOCNO_NEXT_COALESCED_ALLOCNO (a1);;
+	       conflict_allocno
+		 = ALLOCNO_NEXT_COALESCED_ALLOCNO (conflict_allocno))
+	    {
+	      if (allocno_live_ranges_intersect_p (a, conflict_allocno))
+		return TRUE;
+	      if (conflict_allocno == a1)
+		break;
+	    }
+	}
+      else
+	{
+	  allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
+	  for (i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
+	    if (conflict_allocno == a1
+		|| (allocno_coalesced_p
+		    && bitmap_bit_p (processed_coalesced_allocno_bitmap,
+				     ALLOCNO_NUM (conflict_allocno))))
+	      return TRUE;
+	}
       if (a == a2)
 	break;
     }
   return FALSE;
 }
 
-/* The major function for aggressive coalescing.  */
+/* The major function for aggressive coalescing.  For the reload
+   (RELOAD_P) we coalesce only spilled allocnos.  */
 static void
 coalesce_allocnos (int reload_p)
 {
@@ -1165,7 +1186,7 @@ coalesce_allocnos (int reload_p)
   enum reg_class cover_class;
   enum machine_mode mode;
   unsigned int j;
-  int i, n, cp_num;
+  int i, n, cp_num, regno;
   bitmap_iterator bi;
 
   sorted_copies = ira_allocate (copies_num * sizeof (copy_t));
@@ -1175,9 +1196,13 @@ coalesce_allocnos (int reload_p)
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, j, bi)
     {
       a = allocnos [j];
+      regno = ALLOCNO_REGNO (a);
       if ((! reload_p && ALLOCNO_ASSIGNED_P (a))
 	  || (reload_p
-	      && (! ALLOCNO_ASSIGNED_P (a) || ALLOCNO_HARD_REGNO (a) >= 0)))
+	      && (! ALLOCNO_ASSIGNED_P (a) || ALLOCNO_HARD_REGNO (a) >= 0
+		  || (regno < reg_equiv_len
+		      && (reg_equiv_const [regno] != NULL_RTX
+			  || reg_equiv_invariant_p [regno])))))
 	continue;
       cover_class = ALLOCNO_COVER_CLASS (a);
       mode = ALLOCNO_MODE (a);
@@ -1186,14 +1211,18 @@ coalesce_allocnos (int reload_p)
 	  if (cp->first == a)
 	    {
 	      next_cp = cp->next_first_allocno_copy;
+	      regno = ALLOCNO_REGNO (cp->second);
 	      if ((reload_p
 		   || (ALLOCNO_COVER_CLASS (cp->second) == cover_class
 		       && ALLOCNO_MODE (cp->second) == mode))
-		  && (reload_p || cp->insn != NULL)
+		  && cp->insn != NULL
 		  && ((! reload_p && ! ALLOCNO_ASSIGNED_P (cp->second))
 		      || (reload_p
 			  && ALLOCNO_ASSIGNED_P (cp->second)
-			  && ALLOCNO_HARD_REGNO (cp->second) < 0)))
+			  && ALLOCNO_HARD_REGNO (cp->second) < 0
+			  && (regno >= reg_equiv_len
+			      || (! reg_equiv_invariant_p [regno]
+				  && reg_equiv_const [regno] == NULL_RTX)))))
 		sorted_copies [cp_num++] = cp;
 	    }
 	  else if (cp->second == a)
@@ -1208,15 +1237,16 @@ coalesce_allocnos (int reload_p)
       for (i = 0; i < cp_num; i++)
 	{
 	  cp = sorted_copies [i];
-	  if (! coalesced_allocno_conflict_p (cp->first, cp->second))
+	  if (! coalesced_allocno_conflict_p (cp->first, cp->second, reload_p))
 	    {
 	      allocno_coalesced_p = TRUE;
 	      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
-		fprintf (ira_dump_file,
-			 "      Coalescing copy %d:a%dr%d-a%dr%d (freq=%d)\n",
-			 ALLOCNO_NUM (cp->first), ALLOCNO_REGNO (cp->first),
-			 ALLOCNO_NUM (cp->second), ALLOCNO_REGNO (cp->second),
-			 cp->num, cp->freq);
+		fprintf
+		  (ira_dump_file,
+		   "      Coalescing copy %d:a%dr%d-a%dr%d (freq=%d)\n",
+		   cp->num, ALLOCNO_NUM (cp->first), ALLOCNO_REGNO (cp->first),
+		   ALLOCNO_NUM (cp->second), ALLOCNO_REGNO (cp->second),
+		   cp->freq);
 	      merge_allocnos (cp->first, cp->second);
 	      i++;
 	      break;
@@ -1395,6 +1425,7 @@ color_pass (loop_tree_node_t loop_tree_node)
 		}
 	      exit_freq = loop_edge_freq (subloop_node, regno, TRUE);
 	      enter_freq = loop_edge_freq (subloop_node, regno, FALSE);
+	      ira_assert (regno < reg_equiv_len);
 	      if (reg_equiv_invariant_p [regno]
 		  || reg_equiv_const [regno] != NULL_RTX)
 		{
@@ -1657,94 +1688,6 @@ move_spill_restore (void)
 
 
 
-/* Usage frequency and order number of coalesced allocno set to which
-   given pseudo register belongs to.  */
-static int *regno_coalesced_allocno_freq;
-static int *regno_coalesced_allocno_num;
-
-/* The function is used to sort pseudos according frequencies of
-   coalesced allocnos they belong to (putting most frequently ones
-   first when the frame pointer is needed or the last otherwise), and
-   according to coalesced allocno numbers.  */
-static int
-coalesced_pseudo_reg_compare (const void *v1p, const void *v2p)
-{
-  int regno1 = *(int *) v1p;
-  int regno2 = *(int *) v2p;
-  int diff;
-
-  if ((diff = (regno_coalesced_allocno_freq [regno2]
-	       - regno_coalesced_allocno_freq [regno1])) != 0)
-    return frame_pointer_needed ? diff : -diff;
-  if ((diff = (regno_coalesced_allocno_num [regno1]
-	       - regno_coalesced_allocno_num [regno2])) != 0)
-    return frame_pointer_needed ? diff : -diff;
-  return frame_pointer_needed ? regno1 - regno2 : regno2 - regno1;
-}
-
-/* The function sorts pseudo-register numbers in array PSEUDO_REGNOS
-   of length N for subsequent assigning stack slots to them in the
-   reload.  */
-void
-sort_regnos_for_alter_reg (int *pseudo_regnos, int n)
-{
-  int max_regno = max_reg_num ();
-  int i, regno, num, assign_p, freq;
-  allocno_t allocno, a;
-
-  coloring_allocno_bitmap = ira_allocate_bitmap ();
-  for (i = 0; i < n; i++)
-    {
-      regno = pseudo_regnos [i];
-      allocno = regno_allocno_map [regno];
-      if (allocno != NULL)
-	bitmap_set_bit (coloring_allocno_bitmap,
-			ALLOCNO_NUM (allocno));
-    }
-  allocno_coalesced_p = FALSE;
-  processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
-  coalesce_allocnos (TRUE);
-  ira_free_bitmap (processed_coalesced_allocno_bitmap);
-  ira_free_bitmap (coloring_allocno_bitmap);
-  allocno_coalesced_p = FALSE;
-  regno_coalesced_allocno_freq = ira_allocate (max_regno * sizeof (int));
-  regno_coalesced_allocno_num = ira_allocate (max_regno * sizeof (int));
-  memset (regno_coalesced_allocno_num, 0, max_regno * sizeof (int));
-  for (num = i = 0; i < n; i++)
-    {
-      regno = pseudo_regnos [i];
-      allocno = regno_allocno_map [regno];
-      if (allocno == NULL)
-	{
-	  regno_coalesced_allocno_freq [regno] = 0;
-	  regno_coalesced_allocno_num [regno] = ++num;
-	  continue;
-	}
-      assign_p = regno_coalesced_allocno_num [regno] == 0;
-      if (assign_p)
-	num++;
-      for (freq = 0, a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
-	   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
-	{
-	  if (assign_p)
-	    regno_coalesced_allocno_num [ALLOCNO_REGNO (a)] = num;
-	  freq += ALLOCNO_FREQ (a);
-	  if (a == allocno)
-	    break;
-	}
-      regno_coalesced_allocno_freq [regno] = freq;
-    }
-  /* Uncoalesce allocnos which is necessary for (re)assigning during
-     the reload.  */
-  for (i = 0; i < allocnos_num; i++)
-    ALLOCNO_NEXT_COALESCED_ALLOCNO (allocnos [i]) = allocnos [i];
-  qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_compare);
-  ira_free (regno_coalesced_allocno_num);
-  ira_free (regno_coalesced_allocno_freq);
-}
-
-
-
 /* Set up current hard reg costs and current conflict hard reg costs
    for allocno A.  */
 static void
@@ -1873,6 +1816,274 @@ reassign_conflict_allocnos (int start_regno, int no_call_cross_p)
 
 
 
+/* Usage cost and order number of coalesced allocno set to which
+   given pseudo register belongs to.  */
+static int *regno_coalesced_allocno_cost;
+static int *regno_coalesced_allocno_num;
+
+/* The function is used to sort pseudos according frequencies of
+   coalesced allocnos they belong to (putting most frequently ones
+   first), and according to coalesced allocno numbers.  */
+static int
+coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
+{
+  int regno1 = *(int *) v1p;
+  int regno2 = *(int *) v2p;
+  int diff;
+
+  if ((diff = (regno_coalesced_allocno_cost [regno2]
+	       - regno_coalesced_allocno_cost [regno1])) != 0)
+    return diff;
+  if ((diff = (regno_coalesced_allocno_num [regno1]
+	       - regno_coalesced_allocno_num [regno2])) != 0)
+    return diff;
+  return regno1 - regno2;
+}
+
+/* Widest width in which each pseudo reg is referred to (via subreg).
+   It is used for sorting pseudo registers.  */
+static unsigned int *regno_max_ref_width;
+
+/* The function is used to sort pseudos according their slot numbers
+  (putting ones with smaller numbers first, or last when the frame
+  pointer is not needed).  */
+static int
+coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
+{
+  int regno1 = *(int *) v1p;
+  int regno2 = *(int *) v2p;
+  allocno_t a1 = regno_allocno_map [regno1];
+  allocno_t a2 = regno_allocno_map [regno2];
+  int diff, slot_num1, slot_num2;
+  int total_size1, total_size2;
+
+  if (a1 == NULL || ALLOCNO_HARD_REGNO (a1) >= 0)
+    {
+      if (a2 == NULL || ALLOCNO_HARD_REGNO (a2) >= 0)
+	return (int *) v1p - (int *) v2p; /* Save the order. */
+      return 1;
+    }
+  else if (a2 == NULL || ALLOCNO_HARD_REGNO (a2) >= 0)
+    return -1;
+  slot_num1 = -ALLOCNO_HARD_REGNO (a1);
+  slot_num2 = -ALLOCNO_HARD_REGNO (a2);
+  if ((diff = slot_num1 - slot_num2) != 0)
+    return frame_pointer_needed ? diff : -diff;
+  total_size1 = MAX (PSEUDO_REGNO_BYTES (regno1), regno_max_ref_width [regno1]);
+  total_size2 = MAX (PSEUDO_REGNO_BYTES (regno2), regno_max_ref_width [regno2]);
+  if ((diff = total_size2 - total_size1) != 0)
+    return diff;
+  return (int *) v1p - (int *) v2p; /* Save the order. */
+}
+
+/* Setup REGNO_COALESCED_ALLOCNO_COST and REGNO_COALESCED_ALLOCNO_NUM
+   for allocnos represented by their regnos given in array
+   PSEUDO_REGNOS of length N.  */
+static void
+setup_coalesced_allocno_costs_and_nums (int *pseudo_regnos, int n)
+{
+  int i, num, regno, cost;
+  allocno_t allocno, a;
+
+  for (num = i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos [i];
+      allocno = regno_allocno_map [regno];
+      if (allocno == NULL)
+	{
+	  regno_coalesced_allocno_cost [regno] = 0;
+	  regno_coalesced_allocno_num [regno] = ++num;
+	  continue;
+	}
+      if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno)
+	continue;
+      num++;
+      for (cost = 0, a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
+	   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+	{
+	  cost += ALLOCNO_FREQ (a);
+	  if (a == allocno)
+	    break;
+	}
+      for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
+	   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+	{
+	  regno_coalesced_allocno_num [ALLOCNO_REGNO (a)] = num;
+	  regno_coalesced_allocno_cost [ALLOCNO_REGNO (a)] = cost;
+	  if (a == allocno)
+	    break;
+	}
+    }
+}
+
+/* The function collects spilled allocnos representing coalesced
+   allocnos (the first coalseced allocno) in array
+   SPILLED_COALESCED_ALLOCNOS and returns the number of the collected
+   allocnos.  The allocnos are given by their regnos in array
+   PSEUDO_REGNOS of length N.  */
+static int
+collect_spilled_coalesced_allocnos (int *pseudo_regnos, int n,
+				    allocno_t *spilled_coalesced_allocnos)
+{
+  int i, num, regno;
+  allocno_t allocno;
+
+  for (num = i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos [i];
+      allocno = regno_allocno_map [regno];
+      if (allocno == NULL || ALLOCNO_HARD_REGNO (allocno) >= 0
+	  || ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno)
+	continue;
+      spilled_coalesced_allocnos [num++] = allocno;
+    }
+  return num;
+}
+
+/* Coalesce allocnos whose in array SPILLED_COALESCED_ALLOCNOS of
+   length NUM.  Return TRUE if some allocnos were really
+   coalesced.  */
+static int
+coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
+{
+  int i, j;
+  allocno_t allocno, a;
+  int merged_p = FALSE;
+
+  /* Further coalescing spilled allocnos.  */
+  /* Coalesce non-conflicting spilled allocnos preferring most
+     frequently used.  */
+  for (i = 0; i < num; i++)
+    {
+      allocno = spilled_coalesced_allocnos [i];
+      if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno
+	  || (ALLOCNO_REGNO (allocno) < reg_equiv_len
+	      && (reg_equiv_invariant_p [ALLOCNO_REGNO (allocno)]
+		  || reg_equiv_const [ALLOCNO_REGNO (allocno)] != NULL_RTX)))
+	continue;
+      for (j = 0; j < i; j++)
+	{
+	  a = spilled_coalesced_allocnos [j];
+	  if (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) != a
+	      || (ALLOCNO_REGNO (a) < reg_equiv_len
+		  && (reg_equiv_invariant_p [ALLOCNO_REGNO (a)]
+		      || reg_equiv_const [ALLOCNO_REGNO (a)] != NULL_RTX))
+	      || coalesced_allocno_conflict_p (allocno, a, TRUE))
+	    continue;
+	  allocno_coalesced_p = TRUE;
+	  merged_p = TRUE;
+	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	    fprintf (ira_dump_file,
+		     "      Coalescing spilled allocnos a%dr%d->a%dr%d\n",
+		     ALLOCNO_NUM (allocno), ALLOCNO_REGNO (allocno),
+		     ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
+	  merge_allocnos (a, allocno);
+	  ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a);
+	}
+    }
+  return merged_p;
+}
+
+/* The function sorts pseudo-register numbers in array PSEUDO_REGNOS
+   of length N for subsequent assigning stack slots to them in the
+   reload.  */
+void
+sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
+			   unsigned int *reg_max_ref_width)
+{
+  int max_regno = max_reg_num ();
+  int i, regno, num, slot_num;
+  allocno_t allocno, a;
+  allocno_t *spilled_coalesced_allocnos;
+
+  processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
+  /* Set up allocnos can be coalesced.  */
+  coloring_allocno_bitmap = ira_allocate_bitmap ();
+  for (i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos [i];
+      allocno = regno_allocno_map [regno];
+      if (allocno != NULL)
+	bitmap_set_bit (coloring_allocno_bitmap,
+			ALLOCNO_NUM (allocno));
+    }
+  allocno_coalesced_p = FALSE;
+  coalesce_allocnos (TRUE);
+  ira_free_bitmap (coloring_allocno_bitmap);
+  regno_coalesced_allocno_cost = ira_allocate (max_regno * sizeof (int));
+  regno_coalesced_allocno_num = ira_allocate (max_regno * sizeof (int));
+  memset (regno_coalesced_allocno_num, 0, max_regno * sizeof (int));
+  setup_coalesced_allocno_costs_and_nums (pseudo_regnos, n);
+  /* Sort regnos according frequencies of the corresponding coalesced
+     allocnos.  */
+  qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_freq_compare);
+  spilled_coalesced_allocnos
+    = ira_allocate (allocnos_num * sizeof (allocno_t));
+  /* Collect allocnos representing spilled coalesced allocnos.  */
+  num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
+					    spilled_coalesced_allocnos);
+  if (flag_ira_share_spill_slots
+      && coalesce_spill_slots (spilled_coalesced_allocnos, num))
+    {
+      setup_coalesced_allocno_costs_and_nums (pseudo_regnos, n);
+      qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_freq_compare);
+      num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
+						spilled_coalesced_allocnos);
+    }
+  ira_free_bitmap (processed_coalesced_allocno_bitmap);
+  allocno_coalesced_p = FALSE;
+  /* Assign stack slot numbers to spilled allocnos, use smaller
+     numbers for most frequently used coalesced allocnos.  -1 is
+     reserved for dynamic search of stack slots for pseudos spilled by
+     the reload.  */
+  slot_num = 1;
+  for (i = 0; i < num; i++)
+    {
+      allocno = spilled_coalesced_allocnos [i];
+      if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno
+	  || ALLOCNO_HARD_REGNO (allocno) >= 0
+	  || (ALLOCNO_REGNO (allocno) < reg_equiv_len
+	      && (reg_equiv_invariant_p [ALLOCNO_REGNO (allocno)]
+		  || reg_equiv_const [ALLOCNO_REGNO (allocno)] != NULL_RTX)))
+	continue;
+      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, "      Slot %d (freq,size):", slot_num);
+      slot_num++;
+      for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
+	   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+	{
+	  ira_assert (ALLOCNO_HARD_REGNO (a) < 0);
+	  ALLOCNO_HARD_REGNO (a) = -slot_num;
+	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	    fprintf (ira_dump_file, " a%dr%d(%d,%d)",
+		     ALLOCNO_NUM (a), ALLOCNO_REGNO (a), ALLOCNO_FREQ (a),
+		     MAX (PSEUDO_REGNO_BYTES (ALLOCNO_REGNO (a)),
+			  reg_max_ref_width [ALLOCNO_REGNO (a)]));
+	      
+	  if (a == allocno)
+	    break;
+	}
+      if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, "\n");
+    }
+  spilled_reg_stack_slots_num = slot_num - 1;
+  ira_free (spilled_coalesced_allocnos);
+  /* Sort regnos according the slot numbers.  */
+  regno_max_ref_width = reg_max_ref_width;
+  qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_slot_compare);
+  /* Uncoalesce allocnos which is necessary for (re)assigning during
+     the reload.  */
+  for (i = 0; i < allocnos_num; i++)
+    {
+      ALLOCNO_FIRST_COALESCED_ALLOCNO (allocnos [i]) = allocnos [i];
+      ALLOCNO_NEXT_COALESCED_ALLOCNO (allocnos [i]) = allocnos [i];
+    }
+  ira_free (regno_coalesced_allocno_num);
+  ira_free (regno_coalesced_allocno_cost);
+}
+
+
+
 /* The function called from the reload to mark changes in the
    allocation of REGNO made by the reload.  */
 void
@@ -1900,7 +2111,10 @@ mark_allocation_change (int regno)
   overall_cost -= cost;
   ALLOCNO_HARD_REGNO (a) = hard_regno;
   if (hard_regno < 0)
-    cost += ALLOCNO_MEMORY_COST (a);
+    {
+      ALLOCNO_HARD_REGNO (a) = -1;
+      cost += ALLOCNO_MEMORY_COST (a);
+    }
   else if (class_hard_reg_index [cover_class] [hard_regno] >= 0)
     {
       cost += (ALLOCNO_HARD_REG_COSTS (a) == NULL
@@ -1948,7 +2162,9 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
   assign_hard_reg (a, TRUE);
   hard_regno = ALLOCNO_HARD_REGNO (a);
   reg_renumber [regno] = hard_regno;
-  if (hard_regno >= 0)
+  if (hard_regno < 0)
+    ALLOCNO_HARD_REGNO (a) = -1;
+  else
     {
       ira_assert (class_hard_reg_index [cover_class] [hard_regno] >= 0);
       overall_cost -= (ALLOCNO_MEMORY_COST (a)
@@ -2102,38 +2318,36 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 		  unsigned int total_size)
 {
   unsigned int i;
-  int n;
-  int freq, best_freq = -1;
-  struct spilled_reg_stack_slot *best_slot = NULL;
-  allocno_t another_allocno, allocno = regno_allocno_map [regno];
+  int slot_num, best_slot_num;
+  int cost, best_cost;
   copy_t cp, next_cp;
+  allocno_t another_allocno, allocno = regno_allocno_map [regno];
   rtx x;
   bitmap_iterator bi;
   struct spilled_reg_stack_slot *slot = NULL;
 
   ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
-	      && inherent_size <= total_size);
+	      && inherent_size <= total_size
+	      && ALLOCNO_HARD_REGNO (allocno) < 0);
   if (! flag_ira_share_spill_slots)
     return NULL_RTX;
-  x = NULL_RTX;
-  if (flag_omit_frame_pointer)
-    n = spilled_reg_stack_slots_num - 1;
-  else
-    n = 0;
-  if (x == NULL_RTX)
+  slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
+  if (slot_num != -1)
     {
-      for (;;)
+      slot = &spilled_reg_stack_slots [slot_num];
+      x = slot->mem;
+    }
+  else
+    {
+      best_cost = best_slot_num = -1;
+      x = NULL_RTX;
+      /* It means that the pseudo was spilled by the reload, try to
+	 reuse a slot.  */
+      for (slot_num = 0; slot_num < spilled_reg_stack_slots_num; slot_num++)
 	{
-	  if (flag_omit_frame_pointer)
-	    {
-	      if (n < 0)
-		break;
-	      slot = &spilled_reg_stack_slots [n--];
-	    }
-	  else if (n >= spilled_reg_stack_slots_num)
-	    break;
-	  else
-	    slot = &spilled_reg_stack_slots [n++];
+	  slot = &spilled_reg_stack_slots [slot_num];
+	  if (slot->mem == NULL_RTX)
+	    continue;
 	  if (slot->width < total_size
 	      || GET_MODE_SIZE (GET_MODE (slot->mem)) < inherent_size)
 	    continue;
@@ -2141,10 +2355,11 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 	  EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
-	      if (pseudo_live_ranges_intersect_p (regno, i))
+	      another_allocno = regno_allocno_map [i];
+	      if (allocno_live_ranges_intersect_p (allocno, another_allocno))
 		goto cont;
 	    }
-	  for (freq = 0, cp = ALLOCNO_COPIES (allocno);
+	  for (cost = 0, cp = ALLOCNO_COPIES (allocno);
 	       cp != NULL;
 	       cp = next_cp)
 	    {
@@ -2160,29 +2375,41 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 		}
 	      else
 		gcc_unreachable ();
+	      if (cp->insn == NULL_RTX)
+		continue;
 	      if (bitmap_bit_p (&slot->spilled_regs,
 				ALLOCNO_REGNO (another_allocno)))
-		freq += cp->freq;
+		cost += cp->freq;
 	    }
-	  if (freq > best_freq)
+	  if (cost > best_cost)
 	    {
-	      best_freq = freq;
-	      best_slot = slot;
+	      best_cost = cost;
+	      best_slot_num = slot_num;
 	    }
 	cont:
 	  ;
 	}
-      if (best_freq >= 0)
+      if (best_cost >= 0)
 	{
-	  SET_REGNO_REG_SET (&best_slot->spilled_regs, regno);
-	  x = best_slot->mem;
+	  slot = &spilled_reg_stack_slots [best_slot_num];
+	  SET_REGNO_REG_SET (&slot->spilled_regs, regno);
+	  x = slot->mem;
+	  ALLOCNO_HARD_REGNO (allocno) = -best_slot_num - 2;
 	}
     }
-  if (x)
+  if (x != NULL_RTX)
     {
+      ira_assert (slot->width >= total_size);
+      EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
+				FIRST_PSEUDO_REGISTER, i, bi)
+	{
+	  ira_assert (! pseudo_live_ranges_intersect_p (regno, i));
+	}
+      SET_REGNO_REG_SET (&slot->spilled_regs, regno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file)
 	{
-	  fprintf (ira_dump_file, "      Assigning %d slot of", regno);
+	  fprintf (ira_dump_file, "      Assigning %d(freq=%d) slot %d of",
+		   regno, REG_FREQ (regno), slot_num);
 	  EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
@@ -2201,15 +2428,25 @@ void
 mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
 {
   struct spilled_reg_stack_slot *slot;
+  int slot_num;
+  allocno_t allocno;
 
   ira_assert (flag_ira && PSEUDO_REGNO_BYTES (regno) <= total_size);
-  slot = &spilled_reg_stack_slots [spilled_reg_stack_slots_num++];
+  allocno = regno_allocno_map [regno];
+  slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
+  if (slot_num == -1)
+    {
+      slot_num = spilled_reg_stack_slots_num++;
+      ALLOCNO_HARD_REGNO (allocno) = -slot_num - 2;
+    }
+  slot = &spilled_reg_stack_slots [slot_num];
   INIT_REG_SET (&slot->spilled_regs);
   SET_REGNO_REG_SET (&slot->spilled_regs, regno);
   slot->mem = x;
   slot->width = total_size;
   if (internal_flag_ira_verbose > 3 && ira_dump_file)
-    fprintf (ira_dump_file, "      Assigning %d a new slot\n", regno);
+    fprintf (ira_dump_file, "      Assigning %d(freq=%d) a new slot %d\n",
+	     regno, REG_FREQ (regno), slot_num);
 }
 
 

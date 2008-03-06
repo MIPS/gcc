@@ -386,6 +386,7 @@ change_loop (loop_tree_node_t node)
 	  regno = ALLOCNO_REGNO (allocno);
 	  cover_class = ALLOCNO_COVER_CLASS (allocno);
 	  father_allocno = map [regno];
+	  ira_assert (regno < reg_equiv_len);
 	  /* We generate the same register move because the reload can
 	     put a allocno into memory in this case we will have live
 	     range splitting.  If it does not happen such the same

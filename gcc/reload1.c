@@ -897,7 +897,7 @@ reload (rtx first, int global)
     temp_pseudo_reg_arr [n++] = i;
   
   if (flag_ira)
-    sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n);
+    sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n, reg_max_ref_width);
 
   for (i = 0; i < n; i++)
     alter_reg (temp_pseudo_reg_arr [i], -1, false);
