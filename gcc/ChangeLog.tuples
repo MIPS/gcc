@@ -1,3 +1,7 @@
+2008-03-05  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c (gimple_set_lhs): Remove return keywords.
+
 2008-03-05  David Daney  <ddaney@avtrex.com>
 
 	* builtins.c (expand_builtin___clear_cache): Disable call to

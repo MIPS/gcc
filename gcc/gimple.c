@@ -1749,9 +1749,9 @@ gimple_set_lhs (gimple stmt, tree lhs)
   enum tree_code code = gimple_code (stmt);
 
   if (code == GIMPLE_ASSIGN)
-    return gimple_assign_set_lhs (stmt, lhs);
+    gimple_assign_set_lhs (stmt, lhs);
   else if (code == GIMPLE_CALL)
-    return gimple_call_set_lhs (stmt, lhs);
+    gimple_call_set_lhs (stmt, lhs);
   else
     gcc_unreachable();
 }
