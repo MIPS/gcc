@@ -1,3 +1,97 @@
+2008-03-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35189
+	* config/i386/i386.c (OPTION_MASK_ISA_MMX_SET): New.
+	(OPTION_MASK_ISA_3DNOW_SET): Likewise.
+	(OPTION_MASK_ISA_SSE_SET): Likewise.
+	(OPTION_MASK_ISA_SSE2_SET): Likewise.
+	(OPTION_MASK_ISA_SSE3_SET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4_SET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_SET): Likewise.
+	(OPTION_MASK_ISA_SSE5_SET): Likewise.
+	(OPTION_MASK_ISA_3DNOW_A_UNSET): Likewise.
+	(OPTION_MASK_ISA_MMX_UNSET): Updated.
+	(OPTION_MASK_ISA_3DNOW_UNSET): Updated.
+	(OPTION_MASK_ISA_SSE_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSSE3_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_1_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4_2_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4A_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE5_UNSET): Likewise.
+	(OPTION_MASK_ISA_SSE4): Removed.
+	(ix86_handle_option): Turn on bits in ix86_isa_flags and
+	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for
+	-mXXX.
+	(override_options): Don't turn on implied SSE/MMX bits in
+	ix86_isa_flags.
+
+2008-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (goa_lhs_expr_p): Allow different ADDR_EXPR nodes
+	for the same VAR_DECL.
+
+2008-03-06  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* expmed.c (extract_bit_field): Always use adjust_address for MEM.
+
+2008-03-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/33963
+	* tree.c (handle_dll_attribute): Disallow TYPE_DECLs for types
+	other than structures and unions.
+
+2008-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.3.1.
+	* DEV-PHASE: Set to prerelease.
+
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
+2008-03-05  Serge Belyshev  <belyshev@depni.sinp.msu.ru>
+
+	* doc/install.texi (Testing): Correct quoting for the RUNTESTFLAGS
+	examples.  Truncate option-names then causing overfull hbox.
+
+2008-03-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/35222
+	* configure.ac (CONFIG_SJLJ_EXCEPTIONS): Force SJLJ exceptions
+	on hpux10.
+	* configure: Rebuilt.
+
+2008-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35453
+	* config/i386/smmintrin.h (SIDD_XXX): Renamed to ...
+	(_SIDD_XXX): This.
+
+2008-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/35420
+	* gcc.c (process_command): Update copyright notice dates.
+	* gcov.c (print_version): Likewise.
+	* gcov-dump.c (print_version): Likewise.
+	* mips-tfile.c (main): Likewise.
+	* mips-tdump.c (main): Likewise.
+
+2008-02-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/35315
+	* tree-inline.c (build_duplicate_type): When we make a
+	duplicate type, make it unique in the canonical types system.
+
 2008-02-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline:

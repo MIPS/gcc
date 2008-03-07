@@ -1,3 +1,100 @@
+2008-03-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35189
+	* gcc.target/i386/isa-1.c: New.
+	* gcc.target/i386/isa-2.c: Likewise.
+	* gcc.target/i386/isa-3.c: Likewise.
+	* gcc.target/i386/isa-4.c: Likewise.
+	* gcc.target/i386/isa-5.c: Likewise.
+	* gcc.target/i386/isa-6.c: Likewise.
+	* gcc.target/i386/isa-7.c: Likewise.
+	* gcc.target/i386/isa-8.c: Likewise.
+	* gcc.target/i386/isa-9.c: Likewise.
+	* gcc.target/i386/isa-10.c: Likewise.
+	* gcc.target/i386/isa-11.c: Likewise.
+	* gcc.target/i386/isa-12.c: Likewise.
+	* gcc.target/i386/isa-13.c: Likewise.
+	* gcc.target/i386/isa-14.c: Likewise.
+
+2008-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35028
+	* g++.dg/gomp/pr35028.C: New test.
+
+	PR c++/34964
+	PR c++/35244
+	* gcc.dg/gomp/pr34964.c: New test.
+	* g++.dg/gomp/pr34964.C: New test.
+	* gcc.dg/gomp/pr35244.c: New test.
+	* g++.dg/gomp/pr35244.C: New test.
+
+	PR c++/35078
+	* g++.dg/gomp/pr35078.C: New test.
+
+2008-03-06  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc.c-torture/execute/20080222-1.c: New test.
+
+2008-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35323
+	* g++.dg/lookup/crash7.C: New.
+
+2008-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35333
+	* g++.dg/other/error26.C: New.
+
+2008-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/35338
+	* g++.dg/other/error25.C: New.
+	
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
+2008-03-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/tree-ssa/loop-1.c: Handle i?86-*-mingw* i?86-*-cygwin* as
+	targets declaring functions in assembly.
+
+2008-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35453
+	* gcc.target/i386/sse4_2-pcmpestri-1.c: Replace SIDD_XXX with
+	_SIDD_XXX.
+	* gcc.target/i386/sse4_2-pcmpestri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpestrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistri-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-1.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpistrm-2.c: Likewise.
+	* gcc.target/i386/sse4_2-pcmpstr.h: Likewise.
+
+2008-03-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-02-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/vect-99.c: Include stdlib.h and tree-vect.h.
+	(main): Call check_vect and foo.  Check array values after
+	the call to foo.
+	* gcc.dg/vect/vect-117.c: Call check_vect.
+	* gcc.dg/vect/no-vfa-pr29145.c: Ditto.
+
+2008-02-29  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/35315
+	* g++.dg/ext/attrib32.C: New.
+
 2008-02-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline:

@@ -1,3 +1,26 @@
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
+2008-03-04  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Use regexp
+	instead of string match when checking for linux targets.
+
+2008-03-03  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/tools/classes/gnu/classpath/tools/orbd/Main.class,
+	classpath/lib/gnu/java/locale/LocaleData.class
+	classpath/lib/gnu/java/rmi/registry/RegistryImpl.class
+	classpath/lib/gnu/gcj/convert/Convert.class
+	classpath/lib/gnu/gcj/tools/gcj_dbtool/Main.class: Regenerate.
+
+2008-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnu/gcj/convert/Convert.java (version): Update copyright notice
+	dates.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Likewise.
+
 2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	PR libgcj/33085
