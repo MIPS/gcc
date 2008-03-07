@@ -956,6 +956,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ">");
       break;
 
+    case BIT_FIELD_EXPR:
+      pp_string (buffer, "BIT_FIELD_EXPR <");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 3), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       op0 = TREE_OPERAND (node, 0);
@@ -1487,6 +1499,48 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case IMAGPART_EXPR:
       pp_string (buffer, "IMAGPART_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+
+    case MEM_REF:
+    case INDIRECT_MEM_REF:
+      /* MEM <type {alias-set}, ptr + offset {align}>.  */
+      if (TREE_CODE (node) == MEM_REF)
+	pp_string (buffer, "MEM <");
+      else
+	pp_string (buffer, "IMEM <");
+      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, flags);
+      if (1)
+	{
+	  char tmp[16];
+	  snprintf (tmp, 16, " {%lu}", (unsigned long)MEM_REF_ALIAS_SET (node));
+	  pp_string (buffer, tmp);
+	}
+      pp_string (buffer, ", ");
+      if (TREE_CODE (node) == MEM_REF)
+	pp_string (buffer, "&");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, flags);
+      if (!integer_zerop (TREE_OPERAND (node, 1)))
+	{
+	  pp_string (buffer, " + ");
+	  dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, flags);
+	}
+      if (MEM_REF_ALIGN (node) != 1)
+	{
+	  char tmp[16];
+	  snprintf (tmp, 16, " {%lu}", (unsigned long)MEM_REF_ALIGN (node));
+	  pp_string (buffer, tmp);
+	}
+      pp_string (buffer, ">");
+      break;
+
+    case IDX_EXPR:
+      pp_string (buffer, "IDX <");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, flags);
+      pp_string (buffer, " + ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, flags);
+      pp_string (buffer, " * ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 2), spc, flags, flags);
       pp_string (buffer, ">");
       break;
 

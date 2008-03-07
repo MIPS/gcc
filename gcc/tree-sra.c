@@ -3677,7 +3677,7 @@ tree_sra_early (void)
 static bool
 gate_sra (void)
 {
-  return flag_tree_sra != 0;
+  return 0 /* ???  MEM_REF */ && flag_tree_sra != 0;
 }
 
 struct tree_opt_pass pass_sra_early =

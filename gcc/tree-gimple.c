@@ -74,6 +74,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case VECTOR_CST:
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
+    case IDX_EXPR:
       return true;
 
     default:
@@ -164,7 +165,8 @@ bool
 is_gimple_addressable (tree t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
-	  || INDIRECT_REF_P (t));
+	  || INDIRECT_REF_P (t) || TREE_CODE (t) == INDIRECT_MEM_REF
+	  || TREE_CODE (t) == MEM_REF);
 }
 
 /* Return true if T is a GIMPLE minimal invariant.  It's a restricted
@@ -177,6 +179,14 @@ is_gimple_min_invariant (const_tree t)
     {
     case ADDR_EXPR:
       return TREE_INVARIANT (t);
+
+    case POINTER_PLUS_EXPR:
+      /* ???  MEM_REF.  Until we have ADDR_PLUS_EXPR we allow nested
+	 invariant ADDR_EXPRs inside POINTER_PLUS_EXRP.  But only
+	 with constant offset.  */
+      return (TREE_INVARIANT (t)
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (t, 1)) == INTEGER_CST);
 
     case INTEGER_CST:
     case REAL_CST:
@@ -288,10 +298,9 @@ is_gimple_reg_type (tree type)
   /* In addition to aggregate types, we also exclude complex types if not
      optimizing because they can be subject to partial stores in GNU C by
      means of the __real__ and __imag__ operators and we cannot promote
-     them to total stores (see gimplify_modify_expr_complex_part).  */
-  return !(AGGREGATE_TYPE_P (type)
-	   || (TREE_CODE (type) == COMPLEX_TYPE && !optimize));
-
+     them to total stores (see gimplify_modify_expr_complex_part).
+     ???  But not for MEM_REF.  */
+  return !(AGGREGATE_TYPE_P (type));
 }
 
 /* Return true if T is a non-aggregate register variable.  */
@@ -420,7 +429,7 @@ bool
 is_gimple_min_lval (tree t)
 {
   return (is_gimple_id (t)
-	  || TREE_CODE (t) == INDIRECT_REF);
+	  || TREE_CODE (t) == INDIRECT_REF || TREE_CODE (t) == INDIRECT_MEM_REF);
 }
 
 /* Return true if T is a typecast operation.  */
@@ -477,7 +486,9 @@ get_base_address (tree t)
   if (SSA_VAR_P (t)
       || TREE_CODE (t) == STRING_CST
       || TREE_CODE (t) == CONSTRUCTOR
-      || INDIRECT_REF_P (t))
+      || INDIRECT_REF_P (t)
+      /* ???  This isn't really the base address.  */
+      || TREE_CODE (t) == INDIRECT_MEM_REF)
     return t;
   else
     return NULL_TREE;
@@ -516,6 +527,7 @@ recalculate_side_effects (tree t)
     case tcc_binary:      /* a binary arithmetic expression */
     case tcc_reference:   /* a reference */
     case tcc_vl_exp:        /* a function call */
+    case IDX_EXPR:
       TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
       for (i = 0; i < len; ++i)
 	{

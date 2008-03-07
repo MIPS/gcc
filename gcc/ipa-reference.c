@@ -319,7 +319,7 @@ check_tree (ipa_reference_local_vars_info_t local, tree t, bool checking_write)
 	 || TREE_CODE (t) == IMAGPART_EXPR
 	 || handled_component_p (t))
     {
-      if (TREE_CODE (t) == ARRAY_REF)
+      if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == MEM_REF)
 	check_operand (local, TREE_OPERAND (t, 1), false);
       t = TREE_OPERAND (t, 0);
     }
@@ -330,7 +330,7 @@ check_tree (ipa_reference_local_vars_info_t local, tree t, bool checking_write)
 
   /*  if (INDIRECT_REF_P (t) || TREE_CODE (t) == MEM_REF) */
   /* FIXME when we have array_ref's of pointers.  */
-  if (INDIRECT_REF_P (t))
+  if (INDIRECT_REF_P (t) || TREE_CODE (t) == INDIRECT_MEM_REF)
     check_tree (local, TREE_OPERAND (t, 0), false);
 
   if (SSA_VAR_P (t))
@@ -342,6 +342,9 @@ check_tree (ipa_reference_local_vars_info_t local, tree t, bool checking_write)
 static void 
 look_for_address_of (tree t)
 {
+  /* ???  With MEM_REF we get invariant &a +p CST.  */
+  if (TREE_CODE (t) == POINTER_PLUS_EXPR)
+    t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == ADDR_EXPR)
     {
       tree x = get_base_var (t);

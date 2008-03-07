@@ -3224,6 +3224,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	case BIT_FIELD_REF:
 	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2);
 
+	case MEM_REF:
+	case INDIRECT_MEM_REF:
+	  /* ???  Maybe we can ignore alignment here.  */
+	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2) && OP_SAME (3);
+
 	default:
 	  return 0;
 	}
@@ -3250,6 +3255,12 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 				   TREE_OPERAND (arg1, 1), flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
 				      TREE_OPERAND (arg1, 0), flags));
+
+	case IDX_EXPR:
+	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2);
+
+	case BIT_FIELD_EXPR:
+	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2) && OP_SAME (3);
 
 	default:
 	  return 0;
@@ -7533,6 +7544,11 @@ build_fold_addr_expr_with_type_1 (tree t, tree ptrtype, bool in_fold)
       if (TREE_TYPE (t) != ptrtype)
 	t = build1 (NOP_EXPR, ptrtype, t);
     }
+  else if (TREE_CODE (t) == INDIRECT_MEM_REF)
+    {
+      return fold_build2 (POINTER_PLUS_EXPR, ptrtype,
+			  TREE_OPERAND (t, 0), TREE_OPERAND (t, 1));
+    }
   else if (!in_fold)
     {
       tree base = t;
@@ -7896,8 +7912,9 @@ fold_unary (enum tree_code code, tree type, tree op0)
 
       /* Convert (T1)(X p+ Y) into ((T1)X p+ Y), for pointer type,
          when one of the new casts will fold away. Conservatively we assume
-	 that this happens when X or Y is NOP_EXPR or Y is INTEGER_CST. */
-      if (POINTER_TYPE_P (type)
+	 that this happens when X or Y is NOP_EXPR or Y is INTEGER_CST.
+	 ???  For MEM_REF we now do the opposite.  */
+      if (0 && POINTER_TYPE_P (type)
 	  && TREE_CODE (arg0) == POINTER_PLUS_EXPR
 	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	      || TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
@@ -9292,9 +9309,31 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
 	return fold_build2 (PLUS_EXPR, type, arg0, fold_convert (type, arg1));
 
-     /* Try replacing &a[i1] +p c * i2 with &a[i1 + i2], if c is step
-	of the array.  Loop optimizer sometimes produce this type of
-	expressions.  */
+      /* (T *)PTR +p CST -> (T *)(PTR +p CST)
+	 ???  We do this for MEM_REF to not get conversions inside a
+	 invariant &x +p CST expression.  */
+      if ((TREE_CODE (op0) == NOP_EXPR
+	   || TREE_CODE (op0) == CONVERT_EXPR)
+	  && POINTER_TYPE_P (TREE_TYPE (arg0))
+	  && TREE_CODE (arg1) == INTEGER_CST)
+	return fold_convert (type,
+			     fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (arg0),
+					  arg0, arg1));
+
+      /* PTR p+ -(sizetype)PTR  ->  0.  */
+      if (TREE_CODE (arg1) == NEGATE_EXPR
+	  && (TREE_CODE (TREE_OPERAND (arg1, 0)) == NOP_EXPR
+	      || TREE_CODE (TREE_OPERAND (arg1, 0)) == CONVERT_EXPR))
+	{
+	  tree arg100 = TREE_OPERAND (TREE_OPERAND (arg1, 0), 0);
+	  if (operand_equal_p (arg0, arg100, 0))
+	    return omit_two_operands (type, build_int_cst (type, 0),
+				      arg0, arg100);
+	}
+
+      /* Try replacing &a[i1] +p c * i2 with &a[i1 + i2], if c is step
+	 of the array.  Loop optimizer sometimes produce this type of
+	 expressions.  */
       if (TREE_CODE (arg0) == ADDR_EXPR)
 	{
 	  tem = try_move_mult_to_index (arg0, fold_convert (sizetype, arg1));
@@ -9767,6 +9806,18 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	        return fold_build2 (PLUS_EXPR, type, tmp, arg01);
 	    }
 	}
+
+      /* INT - PTR -> (INT)(PTR p+ -INT) if INT is easily negatable.  */
+      if (POINTER_TYPE_P (TREE_TYPE (arg1))
+	  && INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+	  && negate_expr_p (arg0))
+	{
+	  tree tmp = fold_convert (sizetype, negate_expr (arg0));
+	  return fold_convert (type, fold_build2 (POINTER_PLUS_EXPR,
+						  TREE_TYPE (arg1),
+						  arg1, tmp));
+	}
+
       /* A - (-B) -> A + B */
       if (TREE_CODE (arg1) == NEGATE_EXPR)
 	return fold_build2 (PLUS_EXPR, type, op0,
@@ -12644,6 +12695,19 @@ contains_label_p (tree st)
   return (walk_tree (&st, contains_label_1 , NULL, NULL) != NULL_TREE);
 }
 
+/* Builds and returns a mask of integral type TYPE for masking out
+   BITSIZE bits at bit position BITPOS in a word of type TYPE.
+   The mask has the bits set from bit BITPOS to BITPOS + BITSIZE - 1.  */
+
+tree
+build_bit_mask (tree type, unsigned int bitsize, unsigned int bitpos)
+{
+  tree mask = double_int_to_tree (type, double_int_mask (bitsize));
+  mask = const_binop (LSHIFT_EXPR, mask, size_int (bitpos), 0);
+
+  return mask;
+}
+
 /* Fold a ternary expression of code CODE and type TYPE with operands
    OP0, OP1, and OP2.  Return the folded expression if folding is
    successful.  Otherwise, return NULL_TREE.  */
@@ -12964,11 +13028,110 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 		return fold_convert (type, integer_zero_node);
 	    }
 	}
+      else if (TREE_CODE (arg0) == INTEGER_CST
+	       && INTEGRAL_TYPE_P (type))
+	{
+	  unsigned HOST_WIDE_INT bitpos = tree_low_cst (op2, 1);
+	  unsigned HOST_WIDE_INT bitsize = tree_low_cst (arg1, 1);
+	  tree wtype = TREE_TYPE (arg0);
+	  tree bits;
+	  if (BYTES_BIG_ENDIAN)
+	    bitpos = TYPE_PRECISION (wtype) - bitsize - bitpos;
+	  /* shift and mask out the bits.  */
+	  bits = const_binop (BIT_AND_EXPR,
+			      const_binop (RSHIFT_EXPR,
+					   arg0, size_int (bitpos), 0),
+			      build_bit_mask (wtype, bitsize,
+					      TYPE_PRECISION (wtype) - bitsize), 0);
+	  return fold_convert (type, bits);
+	}
+
+      return NULL_TREE;
+
+    case IDX_EXPR:
+      /* Do constant folding, but only if the whole IDX_EXPR is constant.  */
+      if (TREE_CODE (op0) == INTEGER_CST
+	  && TREE_CODE (op1) == INTEGER_CST
+	  && TREE_CODE (op2) == INTEGER_CST)
+	{
+	  tree tem = size_binop (MULT_EXPR, fold_convert (sizetype, op1),
+				 fold_convert (sizetype, op2));
+	  return size_binop (PLUS_EXPR, op0, tem);
+	}
       return NULL_TREE;
 
     default:
       return NULL_TREE;
     } /* switch (code) */
+}
+
+/* Fold a quaternary expression of code CODE and type TYPE with operands
+   OP0, OP1, OP2, and OP3.  Return the folded expression if folding is
+   successful.  Otherwise, return NULL_TREE.  */
+
+tree
+fold_quaternary (enum tree_code code, tree type, tree op0, tree op1,
+		 tree op2, tree op3)
+{
+  tree arg0 = NULL_TREE, arg1 = NULL_TREE;
+  enum tree_code_class kind = TREE_CODE_CLASS (code);
+
+  gcc_assert (IS_EXPR_CODE_CLASS (kind)
+	      && TREE_CODE_LENGTH (code) == 4);
+
+  /* Strip any conversions that don't change the mode.  This is safe
+     for every expression, except for a comparison expression because
+     its signedness is derived from its operands.  So, in the latter
+     case, only strip conversions that don't change the signedness.
+
+     Note that this is done as an internal manipulation within the
+     constant folder, in order to find the simplest representation of
+     the arguments so that their form can be studied.  In any cases,
+     the appropriate type conversions should be put back in the tree
+     that will get out of the constant folder.  */
+  if (op0)
+    {
+      arg0 = op0;
+      STRIP_NOPS (arg0);
+    }
+
+  if (op1)
+    {
+      arg1 = op1;
+      STRIP_NOPS (arg1);
+    }
+
+  switch (code)
+    {
+    case BIT_FIELD_EXPR:
+      /* Constant fold BIT_FIELD_EXPR.  */
+      if (TREE_CODE (arg0) == INTEGER_CST)
+	{
+	  unsigned bitpos = (unsigned) TREE_INT_CST_LOW (op3);
+	  unsigned bitsize = (unsigned) TREE_INT_CST_LOW (op2);
+	  tree bits, mask;
+	  if (BYTES_BIG_ENDIAN)
+	    bitpos = TYPE_PRECISION (type) - bitsize - bitpos;
+	  /* build a mask to mask/clear the bits in the word.  */
+	  mask = build_bit_mask (type, bitsize, bitpos);
+	  /* extend the bits to the word type, shift them to the right
+	     place and mask the bits.  */
+	  bits = fold_convert (type, arg1);
+	  bits = fold_build2 (BIT_AND_EXPR, type,
+			      fold_build2 (LSHIFT_EXPR, type,
+					   bits, size_int (bitpos)), mask);
+	  /* switch to clear mask and do the composition.  */
+	  mask = fold_build1 (BIT_NOT_EXPR, type, mask);
+	  return fold_build2 (BIT_IOR_EXPR, type,
+			      const_binop (BIT_AND_EXPR, arg0, mask, 0),
+			      bits);
+	}
+
+      return NULL_TREE;
+
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Perform constant folding and related simplification of EXPR.
@@ -13012,7 +13175,7 @@ fold (tree expr)
       || IS_GIMPLE_STMT_CODE_CLASS (kind))
     {
       tree type = TREE_TYPE (t);
-      tree op0, op1, op2;
+      tree op0, op1, op2, op3;
 
       switch (TREE_CODE_LENGTH (code))
 	{
@@ -13030,6 +13193,13 @@ fold (tree expr)
 	  op1 = TREE_OPERAND (t, 1);
 	  op2 = TREE_OPERAND (t, 2);
 	  tem = fold_ternary (code, type, op0, op1, op2);
+	  return tem ? tem : expr;
+	case 4:
+	  op0 = TREE_OPERAND (t, 0);
+	  op1 = TREE_OPERAND (t, 1);
+	  op2 = TREE_OPERAND (t, 2);
+	  op3 = TREE_OPERAND (t, 3);
+	  tem = fold_quaternary (code, type, op0, op1, op2, op3);
 	  return tem ? tem : expr;
 	default:
 	  break;
@@ -13437,6 +13607,91 @@ fold_build3_stat (enum tree_code code, tree type, tree op0, tree op1, tree op2
 
   if (memcmp (checksum_before_op2, checksum_after_op2, 16))
     fold_check_failed (op2, tem);
+#endif
+  return tem;
+}
+
+/* Fold a quaternary tree expression with code CODE of type TYPE with
+   operands OP0, OP1, OP2 and OP4.  Return a folded expression if
+   successful.  Otherwise, return a tree expression with code CODE of
+   type TYPE with operands OP0, OP1, OP2 and OP3 */
+
+tree
+fold_build4_stat (enum tree_code code, tree type, tree op0, tree op1,
+		  tree op2, tree op3 MEM_STAT_DECL)
+{
+  tree tem;
+#ifdef ENABLE_FOLD_CHECKING
+  unsigned char checksum_before_op0[16],
+                checksum_before_op1[16],
+                checksum_before_op2[16],
+                checksum_before_op3[16],
+		checksum_after_op0[16],
+		checksum_after_op1[16],
+		checksum_after_op2[16];
+		checksum_after_op3[16];
+  struct md5_ctx ctx;
+  htab_t ht;
+
+  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op0, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_op0);
+  htab_empty (ht);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op1, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_op1);
+  htab_empty (ht);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op2, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_op2);
+  htab_empty (ht);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op3, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_before_op3);
+  htab_empty (ht);
+#endif
+
+  gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
+  tem = fold_quaternary (code, type, op0, op1, op2, op3);
+  if (!tem)
+    tem =  build4_stat (code, type, op0, op1, op2, op3 PASS_MEM_STAT);
+
+#ifdef ENABLE_FOLD_CHECKING
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op0, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_op0);
+  htab_empty (ht);
+
+  if (memcmp (checksum_before_op0, checksum_after_op0, 16))
+    fold_check_failed (op0, tem);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op1, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_op1);
+  htab_empty (ht);
+
+  if (memcmp (checksum_before_op1, checksum_after_op1, 16))
+    fold_check_failed (op1, tem);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op2, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_op2);
+  htab_delete (ht);
+
+  if (memcmp (checksum_before_op2, checksum_after_op2, 16))
+    fold_check_failed (op2, tem);
+
+  md5_init_ctx (&ctx);
+  fold_checksum_tree (op3, &ctx, ht);
+  md5_finish_ctx (&ctx, checksum_after_op3);
+  htab_delete (ht);
+
+  if (memcmp (checksum_before_op3, checksum_after_op3, 16))
+    fold_check_failed (op3, tem);
 #endif
   return tem;
 }

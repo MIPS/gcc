@@ -880,7 +880,13 @@ get_value_loaded_by (tree stmt, prop_value_t *values)
       prev_val = val;
     }
 
-  return val;
+  /* Only ok if we can substitute the RHS with the loaded value.  */
+  if (!val || !val->value
+      || useless_type_conversion_p (TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 1)),
+				    TREE_TYPE (val->value)))
+    return val;
+
+  return NULL;
 }
 
 

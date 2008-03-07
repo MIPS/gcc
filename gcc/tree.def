@@ -379,6 +379,20 @@ DEFTREECODE (TRANSLATION_UNIT_DECL, "translation_unit_decl",\
 
 /* References to storage.  */
 
+/* A memory reference with the specified type at the specified location.
+   Operand 0 is the object that is used as the base for the reference.
+   Operand 1 is the offset in bytes relative to the base.
+   Operand 3 is the effective alias set of this memory reference.
+   Operand 4 is the minimal alignment of the memory address.
+   Access to operands 3 and 4 is supposed to go through MEM_REF_ALIAS_SET
+   and MEM_REF_ALIGN as their representation is likely to change.  The
+   former returns an alias_set_type while the latter returns a
+   unsigned int.  */
+DEFTREECODE (MEM_REF, "mem_ref", tcc_reference, 4)
+
+/* Like MEM_REF, but the base object is dereferenced.  */
+DEFTREECODE (INDIRECT_MEM_REF, "indirect_mem_ref", tcc_reference, 4)
+
 /* Value is structure or union component.
    Operand 0 is the structure or union (an expression).
    Operand 1 is the field (a node of type FIELD_DECL).
@@ -621,6 +635,14 @@ DEFTREECODE (PLUS_EXPR, "plus_expr", tcc_binary, 2)
 DEFTREECODE (MINUS_EXPR, "minus_expr", tcc_binary, 2)
 DEFTREECODE (MULT_EXPR, "mult_expr", tcc_binary, 2)
 
+/* Multiply-add expression with non-communtative operands.  IDX_EXPRs
+   should be not re-associated, nor should its operands.
+   Operand 0 is a tree for the first summand;
+   Operand 1 is a tree for the first multiplicand of the second summand;
+   Operand 2 is a tree for the second multiplicand of the second summand.
+   The expression computed is op0 + op1 * op2.  */
+DEFTREECODE (IDX_EXPR, "idx_expr", tcc_expression, 3)
+
 /* Pointer addition.  The first operand is always a pointer and the
    second operand is an integer of type sizetype.  */
 DEFTREECODE (POINTER_PLUS_EXPR, "pointer_plus_expr", tcc_binary, 2)
@@ -778,6 +800,18 @@ DEFTREECODE (ADDR_EXPR, "addr_expr", tcc_expression, 1)
 /* Operand0 is a function constant; result is part N of a function
    descriptor of type ptr_mode.  */
 DEFTREECODE (FDESC_EXPR, "fdesc_expr", tcc_expression, 2)
+
+/* Given a word, a value and a bitfield position and size within
+   the word, produce the value that results if replacing the
+   described parts of word with value.
+   Operand 0 is a tree for the word of integral type;
+   Operand 1 is a tree for the value of integral type;
+   Operand 2 is a tree giving the constant number of bits being
+   referenced which is less or equal to the precision of the value;
+   Operand 3 is a tree giving the constant position of the first referenced
+   bit such that the sum of operands 2 and 3 is less or equal to the
+   precision of the word.  */
+DEFTREECODE (BIT_FIELD_EXPR, "bitfield_expr", tcc_expression, 4)
 
 /* Given two real or integer operands of the same type,
    returns a complex value of the corresponding complex type.  */

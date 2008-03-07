@@ -196,6 +196,18 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	    return false;
 	  break;
 
+	case MEM_REF:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  if (!cbck (*addr_p, &TREE_OPERAND (*addr_p, 1), data))
+	    return false;
+	  break;
+
+	case INDIRECT_MEM_REF:
+	  nxt = &TREE_OPERAND (*addr_p, 0);
+	  if (!cbck (*addr_p, &TREE_OPERAND (*addr_p, 1), data))
+	    return false;
+	  return cbck (*addr_p, nxt, data);
+
 	case VAR_DECL:
 	case PARM_DECL:
 	case STRING_CST:
@@ -1060,6 +1072,12 @@ gen_lsm_tmp_name (tree ref)
 
   switch (TREE_CODE (ref))
     {
+    case MEM_REF:
+    case INDIRECT_MEM_REF:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_MR");
+      break;
+
     case MISALIGNED_INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:

@@ -188,7 +188,7 @@ check_tree (funct_state local, tree t, bool checking_write)
 
   /* The bottom of an indirect reference can only be read, not
      written.  */
-  if (INDIRECT_REF_P (t))
+  if (INDIRECT_REF_P (t) || TREE_CODE (t) == INDIRECT_MEM_REF)
     {
       check_tree (local, TREE_OPERAND (t, 0), false);
       

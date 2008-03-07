@@ -506,6 +506,10 @@ get_alias_set (tree t)
     {
       tree inner = t;
 
+      if (TREE_CODE (t) == MEM_REF
+	  || TREE_CODE (t) == INDIRECT_MEM_REF)
+	return MEM_REF_ALIAS_SET (t);
+
       /* Remove any nops, then give the language a chance to do
 	 something with this tree before we look at it.  */
       STRIP_NOPS (t);

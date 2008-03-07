@@ -554,7 +554,9 @@ tree_ssa_loop_ivopts (void)
 static bool
 gate_tree_ssa_loop_ivopts (void)
 {
-  return flag_ivopts != 0;
+  return flag_ivopts != 0
+	 /* ???  MEM_REF  */
+	 && !(cfun->curr_properties & PROP_gimple_lmem);
 }
 
 struct tree_opt_pass pass_iv_optimize =

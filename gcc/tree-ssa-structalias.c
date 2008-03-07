@@ -2892,6 +2892,17 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 	      do_deref (results);
 	      return;
 	    }
+	  case INDIRECT_MEM_REF:
+	    {
+	      /* ???  That's extremely lame.  */
+	      get_constraint_for (build2 (POINTER_PLUS_EXPR,
+					  TREE_TYPE (TREE_OPERAND (t, 0)),
+					  TREE_OPERAND (t, 0),
+					  TREE_OPERAND (t, 1)), results);
+	      do_deref (results);
+	      return;
+	    }
+	  case MEM_REF:
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	  case COMPONENT_REF:

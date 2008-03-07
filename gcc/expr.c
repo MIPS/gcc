@@ -5995,6 +5995,14 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	    goto done;
 	  break;
 
+	case MEM_REF:
+	  offset = size_binop (PLUS_EXPR, offset, TREE_OPERAND (exp, 1));
+	  break;
+
+	/* ???  For INDIRECT_MEM_REF we have an offset, but cannot really
+	   just return operand0 as base object.  Return the complete
+	   INDIRECT_MEM_REF as base for now.  */
+
 	default:
 	  goto done;
 	}
@@ -6178,6 +6186,8 @@ handled_component_p (const_tree t)
     case VIEW_CONVERT_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    /* ???  For INDIRECT_MEM_REF see problems in get_inner_reference.  */
+    case MEM_REF:
       return 1;
 
     default:
@@ -7484,6 +7494,71 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
       return expand_constructor (exp, target, modifier, false);
 
+    case INDIRECT_MEM_REF:
+    case MEM_REF:
+	if (code == INDIRECT_MEM_REF)
+	  op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX,
+			     VOIDmode, EXPAND_SUM);
+	else
+	  op0 = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), NULL_RTX,
+					 Pmode, modifier);
+	op0 = memory_address (mode, op0);
+	op0 = gen_rtx_MEM (mode, op0);
+	if (! integer_zerop (TREE_OPERAND (exp, 1)))
+	  {
+	    rtx offset_rtx = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
+					  VOIDmode, EXPAND_SUM);
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	    if (GET_MODE (offset_rtx) != Pmode)
+	      offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
+#else
+	    if (GET_MODE (offset_rtx) != ptr_mode)
+	      offset_rtx = convert_to_mode (ptr_mode, offset_rtx, 0);
+#endif
+
+	    op0 = offset_address (op0, offset_rtx,
+				  highest_pow2_factor (TREE_OPERAND (exp, 1)));
+	  }
+
+	set_mem_attributes (op0, exp, 0);
+
+      return op0;
+
+    case BIT_FIELD_EXPR:
+      {
+        unsigned bitpos = (unsigned) TREE_INT_CST_LOW (TREE_OPERAND (exp, 3));
+        unsigned bitsize = (unsigned) TREE_INT_CST_LOW (TREE_OPERAND (exp, 2));
+        tree bits, mask;
+        if (BYTES_BIG_ENDIAN)
+          bitpos = TYPE_PRECISION (type) - bitsize - bitpos;
+        /* build a mask to mask/clear the bits in the word.  */
+        mask = build_bit_mask (type, bitsize, bitpos);
+        /* extend the bits to the word type, shift them to the right
+           place and mask the bits.  */
+        bits = fold_convert (type, TREE_OPERAND (exp, 1));
+        bits = fold_build2 (BIT_AND_EXPR, type,
+                            fold_build2 (LSHIFT_EXPR, type,
+                                         bits, size_int (bitpos)), mask);
+        /* switch to clear mask and do the composition.  */
+        mask = fold_build1 (BIT_NOT_EXPR, type, mask);
+        return expand_normal (fold_build2 (BIT_IOR_EXPR, type,
+                              fold_build2 (BIT_AND_EXPR, type,
+					   TREE_OPERAND (exp, 0), mask),
+                              bits));
+      }
+
+    case IDX_EXPR:
+      /* ???  Fancy expansion possible?  Expansion from inside
+	 a MEM_REF could be done like expansion of TARGET_MEM_REF.
+	 ???  The conversion of index * step is done at expansion time.  */
+      return expand_expr (fold_build2 (PLUS_EXPR, TREE_TYPE (exp),
+				      TREE_OPERAND (exp, 0),
+				      fold_build2 (MULT_EXPR, TREE_TYPE (exp),
+						   fold_convert (TREE_TYPE (exp), TREE_OPERAND (exp, 1)),
+						   fold_convert (TREE_TYPE (exp), TREE_OPERAND (exp, 2)))),
+			  target, tmode, modifier);
+
     case MISALIGNED_INDIRECT_REF:
     case ALIGN_INDIRECT_REF:
     case INDIRECT_REF:
@@ -7853,13 +7928,22 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  }
 
 	/* The following code doesn't handle CONCAT.
-	   Assume only bitpos == 0 can be used for CONCAT, due to
+	   Handle the special cases of extracting one component or
+	   assume only bitpos == 0 can be used for CONCAT, due to
 	   one element arrays having the same mode as its element.  */
 	if (GET_CODE (op0) == CONCAT)
 	  {
-	    gcc_assert (bitpos == 0
-			&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)));
-	    return op0;
+	    if (bitpos == 0
+		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
+	      return op0;
+	    else if (bitpos == 0
+		     && bitsize == GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0))))
+	      return XEXP (op0, 0);
+	    else if (bitpos == GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0)))
+		     && bitsize == GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 1))))
+	      return XEXP (op0, 1);
+
+	    gcc_unreachable ();
 	  }
 
 	/* In cases where an aligned union has an unaligned object

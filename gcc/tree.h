@@ -1644,6 +1644,10 @@ struct tree_constructor GTY(())
 #define TMR_ORIGINAL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 5))
 #define TMR_TAG(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 6))
 
+/* MEM_REF and INDIRECT_MEM_REF accessors.  */
+#define MEM_REF_ALIAS_SET(NODE) ((alias_set_type)TREE_INT_CST_LOW (TREE_OPERAND ((NODE), 2)))
+#define MEM_REF_ALIGN(NODE) ((unsigned int)TREE_INT_CST_LOW (TREE_OPERAND ((NODE), 3)))
+
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
 #define BIND_EXPR_BODY(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 1))
@@ -4741,12 +4745,15 @@ extern tree fold (tree);
 extern tree fold_unary (enum tree_code, tree, tree);
 extern tree fold_binary (enum tree_code, tree, tree, tree);
 extern tree fold_ternary (enum tree_code, tree, tree, tree, tree);
+extern tree fold_quaternary (enum tree_code, tree, tree, tree, tree, tree);
 extern tree fold_build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
 #define fold_build1(c,t1,t2) fold_build1_stat (c, t1, t2 MEM_STAT_INFO)
 extern tree fold_build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
 #define fold_build2(c,t1,t2,t3) fold_build2_stat (c, t1, t2, t3 MEM_STAT_INFO)
 extern tree fold_build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 #define fold_build3(c,t1,t2,t3,t4) fold_build3_stat (c, t1, t2, t3, t4 MEM_STAT_INFO)
+extern tree fold_build4_stat (enum tree_code, tree, tree, tree, tree, tree MEM_STAT_DECL);
+#define fold_build4(c,t1,t2,t3,t4,t5) fold_build3_stat (c, t1, t2, t3, t4, t5 MEM_STAT_INFO)
 extern tree fold_build1_initializer (enum tree_code, tree, tree);
 extern tree fold_build2_initializer (enum tree_code, tree, tree, tree);
 extern tree fold_build3_initializer (enum tree_code, tree, tree, tree, tree);
@@ -4826,6 +4833,7 @@ extern tree build_fold_indirect_ref (tree);
 extern tree fold_indirect_ref (tree);
 extern tree constant_boolean_node (int, tree);
 extern tree build_low_bits_mask (tree, unsigned);
+extern tree build_bit_mask (tree type, unsigned int, unsigned int);
 
 extern bool tree_swap_operands_p (const_tree, const_tree, bool);
 extern void swap_tree_operands (tree, tree *, tree *);

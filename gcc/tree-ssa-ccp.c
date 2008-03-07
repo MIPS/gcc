@@ -2118,7 +2118,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	return t;
       *walk_subtrees = 0;
 
-      if (POINTER_TYPE_P (TREE_TYPE (expr))
+      /* ???  In lowered memory form we never should need to fold anything
+	 here.  */
+      if (!(cfun->curr_properties & PROP_gimple_lmem)
+	  && POINTER_TYPE_P (TREE_TYPE (expr))
 	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)))
 	  && (t = maybe_fold_offset_to_reference
 		      (TREE_OPERAND (expr, 0),
@@ -2145,6 +2148,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	t = NULL;
       break;
 
+    /* ???  We don't yet handle lowered memory form.  */
     case ADDR_EXPR:
       *inside_addr_expr_p = true;
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
@@ -2168,7 +2172,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	return t;
       *walk_subtrees = 0;
 
-      t = maybe_fold_stmt_addition (expr);
+      /* ???  In lowered memory form we never should need to fold anything
+	 with POINTER_PLUS_EXPR (maybe zero offset).  */
+      if (!(cfun->curr_properties & PROP_gimple_lmem))
+        t = maybe_fold_stmt_addition (expr);
       break;
 
     case COMPONENT_REF:
@@ -2194,6 +2201,47 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 
     case TARGET_MEM_REF:
       t = maybe_fold_tmr (expr);
+      break;
+
+    case INDIRECT_MEM_REF:
+      /* Handle substituted invariant addresses, &x and &x +p CST.  */
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
+	{
+	  t = build_gimple_mem_ref (MEM_REF, TREE_TYPE (expr),
+				    TREE_OPERAND (TREE_OPERAND (expr, 0), 0),
+				    TREE_OPERAND (expr, 1),
+				    MEM_REF_ALIAS_SET (expr),
+				    MEM_REF_ALIGN (expr));
+	  *walk_subtrees = 0;
+        }
+      else if (TREE_CODE (TREE_OPERAND (expr, 0)) == POINTER_PLUS_EXPR)
+	{
+	  tree new_offset;
+	  /* We should only get invariant addresses substituted here.  */
+	  gcc_assert (TREE_CODE (TREE_OPERAND (TREE_OPERAND (expr, 0), 1))
+		      == INTEGER_CST);
+	  new_offset = size_binop (PLUS_EXPR,
+				   TREE_OPERAND (expr, 1),
+				   TREE_OPERAND (TREE_OPERAND (expr, 0), 1));
+	  if (TREE_CODE (new_offset) != INTEGER_CST)
+	    {
+	      block_stmt_iterator bsi = bsi_for_stmt (fold_stmt_r_data->stmt);
+	      tree pstmt;
+	      pstmt = build_gimple_modify_stmt (NULL_TREE, new_offset);
+	      new_offset = make_ssa_name (SSA_NAME_VAR (TREE_OPERAND (expr, 1)),
+					  pstmt);
+	      GIMPLE_STMT_OPERAND (pstmt, 0) = new_offset;
+	      bsi_insert_before (&bsi, pstmt, BSI_SAME_STMT);
+	    }
+	  t = build_gimple_mem_ref (INDIRECT_MEM_REF, TREE_TYPE (expr),
+				    TREE_OPERAND (TREE_OPERAND (expr, 0), 0),
+				    new_offset,
+				    MEM_REF_ALIAS_SET (expr),
+				    MEM_REF_ALIGN (expr));
+	  *walk_subtrees = 0;
+	}
+      else
+	t = NULL_TREE;
       break;
 
     case COND_EXPR:

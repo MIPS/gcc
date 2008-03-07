@@ -1893,7 +1893,8 @@ count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
       return NULL_TREE;
     }
 
-  if (INDIRECT_REF_P (*tp) && TREE_OPERAND (*tp, 0) == count_p->ptr)
+  if ((INDIRECT_REF_P (*tp) || TREE_CODE (*tp) == INDIRECT_MEM_REF)
+      && TREE_OPERAND (*tp, 0) == count_p->ptr)
     count_p->count++;
 
   return NULL_TREE;
@@ -3984,6 +3985,7 @@ find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case MEM_REF:
     case ARRAY_REF:
       {
 	HOST_WIDE_INT bitsize;

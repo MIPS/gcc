@@ -188,7 +188,8 @@ is_hidden_global_store (tree stmt)
 	    return true;
 
 	}
-      else if (INDIRECT_REF_P (lhs))
+      else if (INDIRECT_REF_P (lhs)
+	       || TREE_CODE (lhs) == INDIRECT_MEM_REF)
 	{
 	  tree ptr = TREE_OPERAND (lhs, 0);
 	  struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);

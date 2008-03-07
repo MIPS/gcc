@@ -92,6 +92,7 @@ static sbitmap blocks_visited;
 
 /* Value range array.  After propagation, VR_VALUE[I] holds the range
    of values that SSA name N_I may take.  */
+static unsigned nr_vr_value;
 static value_range_t **vr_value;
 
 /* For a PHI node which sets SSA name N_I, VR_COUNTS[I] holds the
@@ -4626,6 +4627,7 @@ vrp_initialize (void)
 {
   basic_block bb;
 
+  nr_vr_value = num_ssa_names;
   vr_value = XCNEWVEC (value_range_t *, num_ssa_names);
   vr_phi_edge_counts = XCNEWVEC (int, num_ssa_names);
 
@@ -6082,7 +6084,7 @@ vrp_finalize (void)
   identify_jump_threads ();
 
   /* Free allocated memory.  */
-  for (i = 0; i < num_ssa_names; i++)
+  for (i = 0; i < nr_vr_value; i++)
     if (vr_value[i])
       {
 	BITMAP_FREE (vr_value[i]->equiv);

@@ -574,6 +574,8 @@ extract_component (block_stmt_iterator *bsi, tree t, bool imagpart_p,
     case INDIRECT_REF:
     case COMPONENT_REF:
     case ARRAY_REF:
+    case MEM_REF:
+    case INDIRECT_MEM_REF:
       {
 	tree inner_type = TREE_TYPE (TREE_TYPE (t));
 
@@ -784,19 +786,27 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
       r = extract_component (bsi, rhs, 0, false);
       i = extract_component (bsi, rhs, 1, false);
 
-      x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
+      if (cfun->curr_properties & PROP_gimple_lmem)
+	x = build_gimple_mem_ref (MEM_REF, inner_type, unshare_expr (lhs),
+				  size_zero_node, get_alias_set (lhs), 1);
+      else
+	x = build1 (REALPART_EXPR, inner_type, unshare_expr (lhs));
       x = build_gimple_modify_stmt (x, r);
       bsi_insert_before (bsi, x, BSI_SAME_STMT);
 
+      if (cfun->curr_properties & PROP_gimple_lmem)
+	x = build_gimple_mem_ref (MEM_REF, inner_type, unshare_expr (lhs),
+				  TYPE_SIZE_UNIT (inner_type),
+				  get_alias_set (lhs), 1);
+      else
+	x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
       if (stmt == bsi_stmt (*bsi))
 	{
-	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
 	  GIMPLE_STMT_OPERAND (stmt, 0) = x;
 	  GIMPLE_STMT_OPERAND (stmt, 1) = i;
 	}
       else
 	{
-	  x = build1 (IMAGPART_EXPR, inner_type, unshare_expr (lhs));
 	  x = build_gimple_modify_stmt (x, i);
 	  bsi_insert_before (bsi, x, BSI_SAME_STMT);
 

@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "pointer-set.h"
 #include "splay-tree.h"
+#include "tree-pass.h"
 
 
 enum gimplify_omp_var_data
@@ -3451,6 +3452,58 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
     return GS_ALL_DONE;
 }
 
+/* Build a MEM_REF or INDIRECT_MEM_REF of type TYPE with BASE, OFFSET,
+   ALIAS_SET and ALIGN.  Performs simple combining on the specified base.  */
+
+tree
+build_gimple_mem_ref (enum tree_code code, tree type, tree base, tree offset,
+		      alias_set_type alias_set, unsigned int align)
+{
+  gcc_assert (code == MEM_REF || code == INDIRECT_MEM_REF);
+  gcc_assert (useless_type_conversion_p (sizetype, TREE_TYPE (offset)));
+  gcc_assert (code == MEM_REF || POINTER_TYPE_P (TREE_TYPE (base)));
+
+  /* ???  In the end these simplifications should not be done here.
+     They for now stay for documentation purposes.  */
+  STRIP_NOPS (base);
+
+  /* MEM_REF <*p> -> INDIRECT_MEM_REF <p>.  */
+  if (code == MEM_REF
+      && TREE_CODE (base) == INDIRECT_REF)
+    return build_gimple_mem_ref (INDIRECT_MEM_REF, type,
+				 TREE_OPERAND (base, 0), offset,
+				 alias_set, align);
+  /* INDIRECT_MEM_REF <&o> -> MEM_REF <o>.  */
+  else if (code == INDIRECT_MEM_REF
+	   && TREE_CODE (base) == ADDR_EXPR)
+    return build_gimple_mem_ref (MEM_REF, type,
+				 TREE_OPERAND (base, 0), offset,
+				 alias_set, align);
+  /* INDIRECT_MEM_REF <p + off1, off2> -> INDIRECT_MEM_REF <p, off2 + off1>  */
+  else if (code == INDIRECT_MEM_REF
+	   && TREE_CODE (base) == POINTER_PLUS_EXPR)
+    return build_gimple_mem_ref (INDIRECT_MEM_REF, type,
+				 TREE_OPERAND (base, 0),
+				 fold_build2 (PLUS_EXPR, sizetype,
+					      TREE_OPERAND (base, 1), offset),
+				 alias_set, align);
+  /* MEM_REF <MEM_REF <o, off1>, off2> -> MEM_REF <o, off2 + off1>
+     MEM_REF <INDIRECT_MEM_REF <p, off1>, off2>
+       -> INDIRECT_MEM_REF <p, off2 + off1> */
+  else if (code == MEM_REF
+	   && (TREE_CODE (base) == MEM_REF
+	       || TREE_CODE (base) == INDIRECT_MEM_REF))
+    return build_gimple_mem_ref (TREE_CODE (base), type,
+				 TREE_OPERAND (base, 0),
+				 fold_build2 (PLUS_EXPR, sizetype,
+					      TREE_OPERAND (base, 1), offset),
+				 alias_set, align);
+
+  return build4 (code, type, base, offset,
+		 build_int_cst (integer_type_node, alias_set),
+		 build_int_cst (integer_type_node, align));
+}
+
 /* Given a pointer value OP0, return a simplified version of an
    indirection through OP0, or NULL_TREE if no simplification is
    possible.  Note that the resulting type may be different from
@@ -5656,12 +5709,49 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 					fallback != fb_none);
 	  break;
 
-	case ARRAY_REF:
-	case ARRAY_RANGE_REF:
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
-	case COMPONENT_REF:
+	  if (cfun->curr_properties & PROP_gimple_lmem)
+	    {
+	      /* After memory IL lowering gimplify these to MEM_REF
+		 if they operate on memory.  */
+	      if (!is_gimple_reg (TREE_OPERAND (*expr_p, 0)))
+		{
+		  tree type = TREE_TYPE (*expr_p);
+		  tree offset = (TREE_CODE (*expr_p) == REALPART_EXPR
+				 ? size_zero_node : TYPE_SIZE_UNIT (type));
+		  *expr_p = build_gimple_mem_ref (MEM_REF, type,
+						  TREE_OPERAND (*expr_p, 0),
+						  offset,
+						  get_alias_set (*expr_p), 1);
+		}
+	      break;
+	    }
+
+	  /* Fallthrough.  */
 	case VIEW_CONVERT_EXPR:
+	  if (cfun->curr_properties & PROP_gimple_lmem)
+	    {
+	      /* After memory IL lowering gimplify these to take a
+		 register or constant argument.  If that doesn't work,
+		 lower to a memory access.  */
+	      ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+				   is_gimple_val, fb_rvalue);
+	      if (!is_gimple_min_invariant (TREE_OPERAND (*expr_p, 0))
+		  && !is_gimple_reg (TREE_OPERAND (*expr_p, 0)))
+		{
+		  *expr_p = build_gimple_mem_ref (MEM_REF, TREE_TYPE (*expr_p),
+						  TREE_OPERAND (*expr_p, 0),
+						  size_zero_node,
+						  get_alias_set (*expr_p), 1);
+		}
+	      break;
+	    }
+
+	  /* Fallthrough.  */
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	case COMPONENT_REF:
 	  ret = gimplify_compound_lval (expr_p, pre_p, post_p,
 					fallback ? fallback : fb_rvalue);
 	  break;
@@ -5772,6 +5862,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case INDIRECT_REF:
+	  if (cfun->curr_properties & PROP_gimple_lmem)
+	    {
+	      *expr_p = build_gimple_mem_ref (INDIRECT_MEM_REF, TREE_TYPE (*expr_p),
+					      TREE_OPERAND (*expr_p, 0),
+					      size_zero_node,
+					      get_alias_set (*expr_p), 1);
+	      break;
+	    }
 	  *expr_p = fold_indirect_ref (*expr_p);
 	  if (*expr_p != save_expr)
 	    break;
@@ -5781,6 +5879,34 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 			       is_gimple_reg, fb_rvalue);
 	  recalculate_side_effects (*expr_p);
+	  break;
+
+	case INDIRECT_MEM_REF:
+	  {
+	    enum gimplify_status r0, r1;
+
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+				is_gimple_val, fb_rvalue);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+				is_gimple_val, fb_rvalue);
+	    recalculate_side_effects (*expr_p);
+
+	    ret = MIN (r0, r1);
+	  }
+	  break;
+
+	case MEM_REF:
+	  {
+	    enum gimplify_status r0, r1;
+
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+				is_gimple_lvalue, fb_either);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p,
+				is_gimple_val, fb_rvalue);
+	    recalculate_side_effects (*expr_p);
+
+	    ret = MIN (r0, r1);
+	  }
 	  break;
 
 	  /* Constants need not be gimplified.  */
@@ -6028,10 +6154,42 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case IDX_EXPR:
+	  {
+	    enum gimplify_status r0, r1, r2;
+
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+
+	    ret = MIN (MIN (r0, r1), r2);
+	    break;
+	  }
+
+	case BIT_FIELD_EXPR:
+	  /* Arguments 3 and 4 are constants.  */
+	  goto expr_2;
+
 	case POINTER_PLUS_EXPR:
+	  /* If we are in lowered memory form preserve invariant
+	     POINTER_PLUS_EXPRs and not do fancy folding.  */
+	  if (cfun->curr_properties & PROP_gimple_lmem)
+	    {
+	      if (is_gimple_min_invariant (*expr_p))
+		{
+		  ret = GS_ALL_DONE;
+		  break;
+		}
+	      TREE_INVARIANT (*expr_p) = 0;
+	      goto expr_2;
+	    }
           /* Convert ((type *)A)+offset into &A->field_of_type_and_offset.
 	     The second is gimple immediate saving a need for extra statement.
 	   */
+	  TREE_INVARIANT (*expr_p) = 0;
 	  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
 	      && (tmp = maybe_fold_offset_to_reference
 			 (TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),

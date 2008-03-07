@@ -3993,7 +3993,8 @@ do_pre (void)
 static bool
 gate_pre (void)
 {
-  return flag_tree_pre != 0;
+  return !(cfun->curr_properties & PROP_gimple_lmem) /* ???  MEM_REF  */
+	 && flag_tree_pre != 0;
 }
 
 struct tree_opt_pass pass_pre =

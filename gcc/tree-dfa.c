@@ -905,6 +905,20 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
      In the following it will only grow (or become -1).  */
   maxsize = bitsize;
 
+  /* First handle MEM_REF trees, ideally we would walk the SSA
+     chain to constrain maxsize if the offset is not constant.  */
+  if (TREE_CODE (exp) == MEM_REF)
+    {
+      if (host_integerp (TREE_OPERAND (exp, 1), 0))
+	bit_offset = TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT;
+      else
+	maxsize = -1;
+      exp = TREE_OPERAND (exp, 0);
+
+      /* As there is no nesting with MEM_REFs there is no need to loop.  */
+      goto done;
+    }
+
   /* Compute cumulative bit-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
   while (1)

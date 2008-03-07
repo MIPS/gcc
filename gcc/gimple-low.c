@@ -805,3 +805,543 @@ struct tree_opt_pass pass_mark_used_blocks =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
+
+
+/* Main worker for the memlower pass.  Analyzes the reference EXP and
+   compiles the access bitsize *PBITSIZE, bit position *PBITPOS,
+   byte position *POFFSET, various flags like *PUNSIGNEDP, *PVOLATILEP,
+   if the access is a bitfield access *PBITREFP, the effective type
+   of the memory access *TYPEP and its alignment *ALIGNP.  */
+
+static tree
+lm_get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
+			HOST_WIDE_INT *pbitpos, tree *poffset,
+			enum machine_mode *pmode, int *punsignedp,
+			int *pvolatilep, int *pbitrefp, tree *typep,
+			unsigned int *alignp)
+{
+  tree size_tree = 0;
+  enum machine_mode mode = VOIDmode;
+  tree offset = size_zero_node;
+  tree bit_offset = bitsize_zero_node;
+
+  /* ???  Extract alignment information.  */
+  *alignp = 1;
+  *typep = TREE_TYPE (exp);
+
+  /* First get the mode, signedness, and size.  We do this from just the
+     outermost expression.  */
+  if (TREE_CODE (exp) == COMPONENT_REF)
+    {
+      size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
+      if (! DECL_BIT_FIELD (TREE_OPERAND (exp, 1)))
+	mode = DECL_MODE (TREE_OPERAND (exp, 1));
+      else
+	{
+	  /* For a reference to a bitfield enlarge the base type to
+	     cover the whole bitfield with a single load.  */
+	  tree field = TREE_OPERAND (exp, 1);
+	  unsigned HOST_WIDE_INT bf_end = TYPE_PRECISION (TREE_TYPE (field));
+	  unsigned HOST_WIDE_INT off = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	  /* First align the bit field offset to multiples of the
+	     precision of the declared type of the bitfield (but
+	     at a minimum the width of QImode).  */
+	  *typep = DECL_BIT_FIELD_TYPE (field);
+	  if (TYPE_PRECISION (*typep) < BITS_PER_UNIT)
+	    *typep = lang_hooks.types.type_for_mode (QImode, 1);
+	  off = off % TYPE_PRECISION (*typep);
+	  /* Then look for a type convering the whole bitfield reference.  */
+	  bf_end += off;
+	  while (bf_end > TYPE_PRECISION (*typep))
+	    *typep = lang_hooks.types.type_for_size (2 * TYPE_PRECISION (*typep), 1);
+	}
+
+      *punsignedp = DECL_UNSIGNED (TREE_OPERAND (exp, 1));
+    }
+  else if (TREE_CODE (exp) == BIT_FIELD_REF)
+    {
+      size_tree = TREE_OPERAND (exp, 1);
+      *punsignedp = (! INTEGRAL_TYPE_P (TREE_TYPE (exp))
+		     || TYPE_UNSIGNED (TREE_TYPE (exp)));
+
+      /* For vector types, with the correct size of access, use the mode of
+	 inner type.  */
+      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == VECTOR_TYPE
+	  && TREE_TYPE (exp) == TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  && tree_int_cst_equal (size_tree, TYPE_SIZE (TREE_TYPE (exp))))
+	{
+	  mode = TYPE_MODE (TREE_TYPE (exp));
+	  *typep = TREE_TYPE (exp);
+	}
+      else
+	{
+      /* ???  BIT_FIELD_REFs are created from fold during optimizing of bitfield
+	 compares.  The following type ends up being a structure type for
+	 this reason sometimes.  We should stop fold from creating such
+	 references (see gcc.c-torture/execute/bf64-1.c).  */
+      *typep = TREE_TYPE (TREE_OPERAND (exp, 0));
+
+      /* ???  So in the above case simply fall back to an integral type.  */
+      if (!INTEGRAL_TYPE_P (*typep))
+	{
+	  gcc_assert (host_integerp (TREE_OPERAND (exp, 1), 1)
+		      && host_integerp (TREE_OPERAND (exp, 2), 1));
+	  *typep = lang_hooks.types.type_for_size (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)), 1);
+	  gcc_assert (*typep);
+	}
+	}
+    }
+  else
+    {
+      mode = TYPE_MODE (TREE_TYPE (exp));
+      *punsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
+
+      if (mode == BLKmode)
+	size_tree = TYPE_SIZE (TREE_TYPE (exp));
+      else
+	*pbitsize = GET_MODE_BITSIZE (mode);
+    }
+
+  if (size_tree != 0)
+    {
+      if (! host_integerp (size_tree, 1))
+	mode = BLKmode, *pbitsize = -1;
+      else
+	*pbitsize = tree_low_cst (size_tree, 1);
+    }
+
+  *pmode = mode;
+  *pbitrefp = 0;
+  *pvolatilep = 0;
+
+  /* Compute cumulative bit-offset for nested component-refs and array-refs,
+     and find the ultimate containing object.  */
+  while (1)
+    {
+      switch (TREE_CODE (exp))
+	{
+	case BIT_FIELD_REF:
+	  {
+	    double_int words, bytes, bits;
+
+	    words = double_int_udivmod (tree_to_double_int (TREE_OPERAND (exp, 2)),
+			      tree_to_double_int (TYPE_SIZE (*typep)),
+			      TRUNC_DIV_EXPR, &bits);
+	    bytes = double_int_mul (words, tree_to_double_int (TYPE_SIZE_UNIT (*typep)));
+	    offset = size_binop (PLUS_EXPR, offset,
+				 double_int_to_tree (sizetype, bytes));
+	    bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				     double_int_to_tree (bitsizetype, bits));
+	    gcc_assert (!*pbitrefp);  /* ??? */
+	    if (!integer_zerop (bit_offset)
+		|| *pbitsize != GET_MODE_PRECISION (mode))
+	      *pbitrefp = 1;
+	  }
+	  break;
+
+	case COMPONENT_REF:
+	  {
+	    tree field = TREE_OPERAND (exp, 1);
+	    tree this_offset = component_ref_field_offset (exp);
+	    double_int bytes, bits;
+
+	    offset = size_binop (PLUS_EXPR, offset, this_offset);
+
+	    /* We actually do not care about all the fancy
+	       DECL_OFFSET_ALIGN - simply account exceeding
+	       alignment to the regular offset here.  */
+	    gcc_assert (TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST);
+	    bytes = double_int_udivmod (tree_to_double_int (DECL_FIELD_BIT_OFFSET (field)),
+			      DECL_BIT_FIELD (field)
+			      ? tree_to_double_int (TYPE_SIZE (*typep))
+			      : uhwi_to_double_int (BITS_PER_UNIT),
+			      TRUNC_DIV_EXPR, &bits);
+	    if (DECL_BIT_FIELD (field))
+	      {
+		bytes = double_int_mul (bytes,
+		  tree_to_double_int (TYPE_SIZE_UNIT (*typep)));
+	        bit_offset = size_binop (PLUS_EXPR, bit_offset,
+					 double_int_to_tree (bitsizetype, bits));
+
+		gcc_assert (!*pbitrefp);  /* ??? */
+		*pbitrefp = 1;
+	      }
+	    else
+	      gcc_assert (double_int_zero_p (bits));
+	    offset = size_binop (PLUS_EXPR, offset, double_int_to_tree (sizetype, bytes));
+	  }
+	  break;
+
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  {
+	    tree index = TREE_OPERAND (exp, 1);
+	    tree low_bound = array_ref_low_bound (exp);
+	    tree unit_size = array_ref_element_size (exp);
+	    tree tem;
+
+	    /* We assume all arrays have sizes that are a multiple of a byte.
+	       First subtract the lower bound, if any, in the type of the
+	       index, then convert to sizetype and multiply by the size of
+	       the array element.  */
+	    if (! integer_zerop (low_bound))
+	      index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				   index, fold_convert (TREE_TYPE (index),
+							low_bound));
+
+	    tem = size_binop (MULT_EXPR,
+			      fold_convert (sizetype, index), unit_size);
+	    /* Build this IDX expr here if not everything collapses down
+	       to a constant.  */
+	    if (TREE_CODE (tem) != INTEGER_CST
+		|| TREE_CODE (offset) != INTEGER_CST)
+	      {
+		/* ???  convert to sizetype introduces extra IVs, but
+		   mixed-type IDX chaining introduces other problems.
+		   ???  for now (as in the proposal) we do the conversion
+		   to sizetype implicitly at expansion time.  */
+		offset = build3 (IDX_EXPR, sizetype, offset,
+				 index, unit_size);
+	      }
+	    else
+	      offset = size_binop (PLUS_EXPR, offset, tem);
+	  }
+	  break;
+
+	case REALPART_EXPR:
+	  break;
+
+	case IMAGPART_EXPR:
+	  offset = size_binop (PLUS_EXPR, offset,
+			       TYPE_SIZE_UNIT (TREE_TYPE (exp)));
+	  break;
+
+	case VIEW_CONVERT_EXPR:
+	  break;
+
+	default:
+	  goto done;
+	}
+
+      /* If any reference in the chain is volatile, the effect is volatile.  */
+      if (TREE_THIS_VOLATILE (exp))
+	*pvolatilep = 1;
+
+      exp = TREE_OPERAND (exp, 0);
+    }
+ done:
+
+  *pbitpos = tree_low_cst (bit_offset, 0);
+  *poffset = offset;
+
+  return exp;
+}
+
+/* Lower the lvalue reference tree *EXPR_P which is assigned to from *RHS_P
+   in a statement pointed to by TSI.  Apart from the regular lowering
+   this performs bitfield store rewriting to a read-modify-write cycle.  */
+
+static void
+lower_mem_lvalue (tree *expr_p, tree *rhs_p, tree_stmt_iterator tsi)
+{
+  tree ref = *expr_p;
+  tree type, base, offset, pre = NULL_TREE, post = NULL_TREE;
+  HOST_WIDE_INT bitpos, bitsize;
+  unsigned int align;
+  enum machine_mode mode;
+  int uns, vol = 0, bitf;
+
+  if (!REFERENCE_CLASS_P (ref))
+    return;
+
+  /* get base and offset */
+  base = lm_get_inner_reference (ref, &bitsize, &bitpos, &offset,
+				 &mode, &uns, &vol, &bitf, &type, &align);
+  if (vol)
+    gcc_assert (!bitf);
+
+  /* Do not lower gimple register accesses.  */
+  if (is_gimple_reg (base))
+    return;
+
+  if (DECL_P (base))
+    TREE_ADDRESSABLE (base) = 1;
+
+  /* If we have a bitfield access, lower it.  */
+  if (bitf)
+    {
+      tree tmp, ref, stmt;
+
+      /* Load the word containing the bitfield.  */
+      tmp = create_tmp_var (type, "MEML");
+      ref = build_gimple_mem_ref (MEM_REF, type, base,
+				  offset, get_alias_set (*expr_p), align);
+      stmt = build_gimple_modify_stmt (tmp, ref);
+
+      /* Gimplify the offset part and add the word load.  */
+      push_gimplify_context ();
+      gimplify_expr (&TREE_OPERAND (ref, 1), &pre, &post,
+		     is_gimple_val, fb_rvalue);
+      pop_gimplify_context (NULL);
+      gcc_assert (!post);
+      if (pre)
+	tsi_link_before (&tsi, pre, TSI_SAME_STMT);
+      tsi_link_before (&tsi, stmt, TSI_SAME_STMT);
+
+      /* Combine the word with the bitfield to write.  */
+      stmt = build_gimple_modify_stmt (tmp,
+	build4 (BIT_FIELD_EXPR, type, tmp, *rhs_p,
+		bitsize_int (bitsize), bitsize_int (bitpos)));
+      tsi_link_before (&tsi, stmt, TSI_SAME_STMT);
+
+      /* Replace the bitfield write with a write of the full word.  */
+      *expr_p = unshare_expr (ref);
+      *rhs_p = tmp;
+
+      return;
+    }
+
+  gcc_assert (bitpos == 0);
+  *expr_p = build_gimple_mem_ref (MEM_REF, TREE_TYPE (*expr_p), base,
+				  offset, get_alias_set (*expr_p), align);
+  if (vol)
+    TREE_THIS_VOLATILE (*expr_p) = true;
+
+  /* We need to gimplify the offset part.  */
+  push_gimplify_context ();
+  gimplify_expr (&TREE_OPERAND (*expr_p, 1), &pre, &post,
+		 is_gimple_val, fb_rvalue);
+  pop_gimplify_context (NULL);
+  gcc_assert (!post);
+  if (pre)
+    tsi_link_before (&tsi, pre, TSI_SAME_STMT);
+}
+
+/* Lower the rvalue reference tree *EXPR_P from the statement pointed to
+   by TSI.  Apart from the regular lowering this performs bitfield load
+   rewriting to a read-extract cycle.  */
+
+static void
+lower_mem_rvalue (tree *expr_p, tree_stmt_iterator tsi)
+{
+  tree ref = *expr_p;
+  tree type, base, offset, pre = NULL_TREE, post = NULL_TREE;
+  HOST_WIDE_INT bitpos, bitsize;
+  unsigned int align;
+  enum machine_mode mode;
+  int uns, vol = 0, bitf;
+
+  if (TREE_CODE (ref) == WITH_SIZE_EXPR)
+    {
+      expr_p = &TREE_OPERAND (ref, 0);
+      ref = TREE_OPERAND (ref, 0);
+    }
+  if (!REFERENCE_CLASS_P (ref))
+    return;
+
+  /* get base and offset */
+  base = lm_get_inner_reference (ref, &bitsize, &bitpos, &offset,
+				 &mode, &uns, &vol, &bitf, &type, &align);
+  if (vol)
+    gcc_assert (!bitf);
+
+  /* Do not lower gimple register accesses.  */
+  if (is_gimple_reg (base))
+    return;
+
+  if (DECL_P (base))
+    TREE_ADDRESSABLE (base) = 1;
+
+  /* If we have a bitfield load, lower it to a word load and a
+     bitfield extract.  */
+  if (bitf)
+    {
+      tree tmp, ref, stmt;
+
+      tmp = create_tmp_var (type, "MEML");
+      ref = build_gimple_mem_ref (MEM_REF, type, base,
+				  offset, get_alias_set (*expr_p), align);
+      stmt = build_gimple_modify_stmt (tmp, ref);
+
+      /* Gimplify the offset part and add the word load.  */
+      push_gimplify_context ();
+      gimplify_expr (&TREE_OPERAND (ref, 1), &pre, &post,
+		     is_gimple_val, fb_rvalue);
+      pop_gimplify_context (NULL);
+      gcc_assert (!post);
+      if (pre)
+	tsi_link_before (&tsi, pre, TSI_SAME_STMT);
+      tsi_link_before (&tsi, stmt, TSI_SAME_STMT);
+
+      /* Replace the bitfield access with the bitfield extract.  */
+      *expr_p = build3 (BIT_FIELD_REF, TREE_TYPE (*expr_p),
+			tmp, bitsize_int (bitsize), bitsize_int (bitpos));
+
+      return;
+    }
+
+  gcc_assert (bitpos == 0);
+  *expr_p = build_gimple_mem_ref (MEM_REF, TREE_TYPE (*expr_p), base,
+				  offset, get_alias_set (*expr_p), align);
+  if (vol)
+    TREE_THIS_VOLATILE (*expr_p) = true;
+
+  /* We need to gimplify the offset part.  */
+  push_gimplify_context ();
+  gimplify_expr (&TREE_OPERAND (*expr_p, 1), &pre, &post,
+		 is_gimple_val, fb_rvalue);
+  pop_gimplify_context (NULL);
+  gcc_assert (!post);
+  if (pre)
+    tsi_link_before (&tsi, pre, TSI_SAME_STMT);
+}
+
+/* Lower the ADDR_EXPR in *EXPR_P from the statement pointed to by TSI.
+   This converts recursive reference trees in the ADDR_EXPR argument
+   to an offset applied using POINTER_PLUS_EXPR.  */
+
+static void
+lower_mem_address (tree *expr_p, tree_stmt_iterator tsi)
+{
+  tree ref, type, base, offset, pre = NULL_TREE, post = NULL_TREE;
+  HOST_WIDE_INT bitpos, bitsize;
+  unsigned int align;
+  enum machine_mode mode;
+  int uns, vol = 0, bitf;
+  bool invariant;
+
+  ref = TREE_OPERAND (*expr_p, 0);
+  if (!REFERENCE_CLASS_P (ref))
+    return;
+
+  /* get base and offset */
+  base = lm_get_inner_reference (ref, &bitsize, &bitpos, &offset,
+				 &mode, &uns, &vol, &bitf, &type, &align);
+
+  gcc_assert (!bitf && bitpos == 0);
+
+  /* If we lower an ADDR_EXPR we need to make sure to preserve
+     its invariantness.  */
+  invariant = TREE_INVARIANT (*expr_p);
+  if (TREE_CODE (base) == INDIRECT_REF)
+    base = TREE_OPERAND (base, 0);
+  else
+    {
+      if (DECL_P (base))
+	TREE_ADDRESSABLE (base) = 1;
+      /* ???  Strictly speaking this is usually the wrong type.  */
+      base = build1 (ADDR_EXPR, TREE_TYPE (*expr_p), base);
+    }
+  /* We might just have stripped a zero-offset ARRAY_REF here.  */
+  if (integer_zerop (offset))
+    {
+      *expr_p = base;
+      TREE_INVARIANT (*expr_p) = invariant;
+      return;
+    }
+  /* Do not fold the POINTER_PLUS_EXPR to simplify re-gimplification
+     below.  */
+  *expr_p = build2 (POINTER_PLUS_EXPR, TREE_TYPE (*expr_p), base, offset);
+  /* ???  recompute_tree_invariant_for_addr_expr doesn't handle
+     POINTER_PLUS_EXPR yet, nor is it structured to recurse into
+     its both arguments.  Just copy over the flag for now.  */
+  TREE_INVARIANT (*expr_p) = invariant;
+
+  /* We need to gimplify the offset part.  */
+  push_gimplify_context ();
+  gimplify_expr (&TREE_OPERAND (*expr_p, 1), &pre, &post,
+		 is_gimple_val, fb_rvalue);
+  pop_gimplify_context (NULL);
+  gcc_assert (!post);
+  if (pre)
+    tsi_link_before (&tsi, pre, TSI_SAME_STMT);
+}
+
+/* Helper for lower_mem_address, forwarding from walk_tree.  */
+
+static tree
+lower_mem_address_r (tree *tp, int *walk_subtrees, void *data)
+{
+  tree_stmt_iterator *tsi = (tree_stmt_iterator *)data;
+  tree expr = *tp;
+
+  if (TREE_CODE (expr) == ADDR_EXPR)
+    {
+      lower_mem_address (tp, *tsi);
+      *walk_subtrees = 0;
+    }
+
+  return NULL_TREE;
+}
+
+/* memlower pass entry point.  Lowers reference class trees and address
+   taking to lowered memory form.  */
+
+static unsigned int
+lower_mem_exprs (void)
+{
+  tree stmts = DECL_SAVED_TREE (cfun->decl);
+  tree_stmt_iterator tsi;
+
+  for (tsi = tsi_start (stmts); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      tree stmt = tsi_stmt (tsi);
+
+      switch (TREE_CODE (stmt))
+	{
+	case GIMPLE_MODIFY_STMT:
+	  lower_mem_rvalue (&GIMPLE_STMT_OPERAND (stmt, 1), tsi);
+	  if (REFERENCE_CLASS_P (GIMPLE_STMT_OPERAND (stmt, 0)))
+	    lower_mem_lvalue (&GIMPLE_STMT_OPERAND (stmt, 0),
+			      &GIMPLE_STMT_OPERAND (stmt, 1), tsi);
+	  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) != CALL_EXPR)
+	    break;
+
+	  /* Falltrough.  */
+	case CALL_EXPR:
+	  {
+	    tree call = get_call_expr_in (stmt);
+	    int i;
+
+	    for (i = 0; i < call_expr_nargs (call); ++i)
+	      lower_mem_rvalue (&CALL_EXPR_ARG (call, i), tsi);
+	  }
+	  break;
+
+	case ASM_EXPR:
+	  {
+	    tree link;
+
+	    for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
+	      lower_mem_rvalue (&TREE_VALUE (link), tsi);
+	    for (link = ASM_OUTPUTS (stmt); link; link = TREE_CHAIN (link))
+	      lower_mem_rvalue (&TREE_VALUE (link), tsi);
+	  }
+	  break;
+
+	default:;
+	}
+
+      walk_tree (&stmt, lower_mem_address_r, &tsi, NULL);
+    }
+
+  return 0;
+}
+
+struct tree_opt_pass pass_lower_mem =
+{
+  "memlower",				/* name */
+  NULL,					/* gate */
+  lower_mem_exprs,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_lcf,			/* properties_required */
+  PROP_gimple_lmem,			/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+

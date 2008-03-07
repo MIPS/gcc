@@ -152,6 +152,7 @@ struct dump_file_info
 #define PROP_rtl		(1 << 7)
 #define PROP_alias		(1 << 8)
 #define PROP_gimple_lomp	(1 << 9)	/* lowered OpenMP directives */
+#define PROP_gimple_lmem	(1 << 10)	/* lowered memory form */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -244,6 +245,7 @@ extern struct tree_opt_pass pass_mudflap_1;
 extern struct tree_opt_pass pass_mudflap_2;
 extern struct tree_opt_pass pass_remove_useless_stmts;
 extern struct tree_opt_pass pass_lower_cf;
+extern struct tree_opt_pass pass_lower_mem;
 extern struct tree_opt_pass pass_refactor_eh;
 extern struct tree_opt_pass pass_lower_eh;
 extern struct tree_opt_pass pass_build_cfg;

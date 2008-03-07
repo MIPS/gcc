@@ -184,7 +184,13 @@ dump_data_reference (FILE *outf,
 		     struct data_reference *dr)
 {
   unsigned int i;
-  
+
+  if (dr == NULL)
+    {
+      fprintf (outf, "(Data Ref: NULL)\n");
+      return;
+    }
+
   fprintf (outf, "(Data Ref: \n  stmt: ");
   print_generic_stmt (outf, DR_STMT (dr), 0);
   fprintf (outf, "  ref: ");

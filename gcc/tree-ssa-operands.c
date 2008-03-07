@@ -1209,7 +1209,12 @@ access_can_touch_variable (tree ref, tree alias, HOST_WIDE_INT offset,
      disambiguate them right now.  */
   if (ref && TREE_CODE (ref) == TARGET_MEM_REF)
     return true;
-  
+
+  /* MEM_REF is regular enough to be handled below.  Glob INDIRECT_MEM_REF
+     handling here to not clutter up the stuff below even more.  */
+  if (ref && TREE_CODE (ref) == INDIRECT_MEM_REF)
+    return true;
+
   /* If ALIAS is an SFT, it can't be touched if the offset     
      and size of the access is not overlapping with the SFT offset and
      size.  This is only true if we are accessing through a pointer
@@ -2146,6 +2151,71 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_tmr_operands (stmt, expr, flags);
       return;
 
+    case MEM_REF:
+    case INDIRECT_MEM_REF:
+      {
+	tree ref;
+	HOST_WIDE_INT offset, size, maxsize;
+	bool none = true;
+
+	if (TREE_THIS_VOLATILE (expr))
+	  s_ann->has_volatile_ops = true;
+
+	if (code == MEM_REF)
+	  add_to_addressable_set (TREE_OPERAND (expr, 0),
+				  &s_ann->addresses_taken);
+
+	/* This component reference becomes an access to all of the
+	   subvariables it can touch, if we can determine that, but
+	   *NOT* the real one.  If we can't determine which fields we
+	   could touch, the recursion will eventually get to a
+	   variable and add *all* of its subvars, or whatever is the
+	   minimum correct subset.  */
+	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
+
+	if (code == MEM_REF
+	    && SSA_VAR_P (ref) && get_subvars_for_var (ref))
+	  {
+	    subvar_t svars = get_subvars_for_var (ref);
+	    unsigned int i;
+	    tree subvar;
+
+	    for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
+	      {
+		bool exact;
+
+		if (overlap_subvar (offset, maxsize, subvar, &exact))
+		  {
+	            int subvar_flags = flags;
+		    none = false;
+		    add_stmt_operand (&subvar, s_ann, subvar_flags);
+		  }
+	      }
+
+	    if (!none)
+	      flags = opf_use;
+
+	    if ((DECL_P (ref) && TREE_THIS_VOLATILE (ref))
+		|| (TREE_CODE (ref) == SSA_NAME
+		    && TREE_THIS_VOLATILE (SSA_NAME_VAR (ref))))
+	      s_ann->has_volatile_ops = true;
+	  }
+	else if (code == INDIRECT_MEM_REF)
+	  {
+	    get_indirect_ref_operands (stmt, expr, flags, expr, offset,
+		                       maxsize, false);
+	    flags = opf_use;
+	  }
+
+	/* Even if we found subvars above we need to ensure to see
+	   immediate uses for d in s.a[d].  In case of s.a having
+	   a subvar or we would miss it otherwise.  */
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+
+	return;
+      }
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
     case COMPONENT_REF:
@@ -2264,6 +2334,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
+    case BIT_FIELD_EXPR:
+      gcc_assert (TREE_CODE (TREE_OPERAND (expr, 2)) == INTEGER_CST
+		   && TREE_CODE (TREE_OPERAND (expr, 3)) == INTEGER_CST);
+      /* Fallthrough.  */
+
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
@@ -2274,6 +2349,14 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       {
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+	return;
+      }
+
+    case IDX_EXPR:
+      {
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 2), flags);
 	return;
       }
 

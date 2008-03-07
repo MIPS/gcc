@@ -950,32 +950,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 tree
 build_low_bits_mask (tree type, unsigned bits)
 {
-  unsigned HOST_WIDE_INT low;
-  HOST_WIDE_INT high;
-  unsigned HOST_WIDE_INT all_ones = ~(unsigned HOST_WIDE_INT) 0;
-
-  gcc_assert (bits <= TYPE_PRECISION (type));
-
-  if (bits == TYPE_PRECISION (type)
-      && !TYPE_UNSIGNED (type))
-    {
-      /* Sign extended all-ones mask.  */
-      low = all_ones;
-      high = -1;
-    }
-  else if (bits <= HOST_BITS_PER_WIDE_INT)
-    {
-      low = all_ones >> (HOST_BITS_PER_WIDE_INT - bits);
-      high = 0;
-    }
-  else
-    {
-      bits -= HOST_BITS_PER_WIDE_INT;
-      low = all_ones;
-      high = all_ones >> (HOST_BITS_PER_WIDE_INT - bits);
-    }
-
-  return build_int_cst_wide (type, low, high);
+  return double_int_to_tree (type, double_int_mask (bits));
 }
 
 /* Checks that X is integer constant that can be expressed in (unsigned)
@@ -2868,7 +2843,9 @@ stabilize_reference_1 (tree e)
   TREE_READONLY (result) = TREE_READONLY (e);
   TREE_SIDE_EFFECTS (result) = TREE_SIDE_EFFECTS (e);
   TREE_THIS_VOLATILE (result) = TREE_THIS_VOLATILE (e);
-  TREE_INVARIANT (result) = 1;
+  /* Unconditionally setting TREE_INVARIANT on addresses is bad.  */
+  TREE_INVARIANT (result) = TREE_CODE (e) == POINTER_PLUS_EXPR
+			    ? TREE_INVARIANT (e) : 1;
 
   return result;
 }

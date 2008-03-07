@@ -979,13 +979,16 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		  continue;
 		}
 
-	      if (TREE_CODE (rhs) == ADDR_EXPR
+	      if (!(cfun->curr_properties & PROP_gimple_lmem)
+		  /* ???  ADDR_EXPR propagation needs to be re-written
+		     for MEM_REF.  */
+		  && (TREE_CODE (rhs) == ADDR_EXPR
 		  /* Handle pointer conversions on invariant addresses
 		     as well, as this is valid gimple.  */
 		  || ((TREE_CODE (rhs) == NOP_EXPR
 		       || TREE_CODE (rhs) == CONVERT_EXPR)
 		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-		      && POINTER_TYPE_P (TREE_TYPE (rhs))))
+		      && POINTER_TYPE_P (TREE_TYPE (rhs)))))
 		{
 		  STRIP_NOPS (rhs);
 		  if (!stmt_references_abnormal_ssa_name (stmt)

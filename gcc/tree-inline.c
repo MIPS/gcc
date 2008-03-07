@@ -723,6 +723,39 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      return NULL;
 	    }
 	}
+      else if (TREE_CODE (*tp) == INDIRECT_MEM_REF)
+	{
+	  /* Get rid of *& from inline substitutions that can happen when a
+	     pointer argument is an ADDR_EXPR.  */
+	  tree decl = TREE_OPERAND (*tp, 0), op1 = TREE_OPERAND (*tp, 1);
+	  tree *n, *op1p;
+
+	  op1p = (tree *) pointer_map_contains (id->decl_map, op1);
+	  if (op1p)
+	    op1 = *op1p;
+	  n = (tree *) pointer_map_contains (id->decl_map, decl);
+	  if (n)
+	    {
+	      tree new;
+	      tree old;
+	      /* If we happen to get an ADDR_EXPR in n->value, strip
+	         it manually here as we'll eventually get ADDR_EXPRs
+		 which lie about their types pointed to.  In this case
+		 build_fold_indirect_ref wouldn't strip the INDIRECT_REF,
+		 but we absolutely rely on that.  As fold_indirect_ref
+	         does other useful transformations, try that first, though.  */
+	      new = unshare_expr (*n);
+	      old = *tp;
+	      *tp = build_gimple_mem_ref (INDIRECT_MEM_REF, TREE_TYPE (*tp),
+                                          unshare_expr (*n),
+                                          unshare_expr (op1),
+                                          MEM_REF_ALIAS_SET (*tp),
+                                          MEM_REF_ALIGN (*tp));
+	      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+	      *walk_subtrees = 0;
+	      return NULL;
+	    }
+	}
 
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
@@ -1729,7 +1762,8 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 					  &offset,
 					  &mode, &unsignedp, &volatilep,
 					  false);
-	      if (TREE_CODE (base) == INDIRECT_REF)
+	      if (TREE_CODE (base) == INDIRECT_REF
+		  || TREE_CODE (base) == INDIRECT_MEM_REF)
 		base = TREE_OPERAND (base, 0);
 	      if (TREE_CODE (base) == SSA_NAME)
 		base = SSA_NAME_VAR (base);
@@ -2198,7 +2232,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     }
   /* Assume that constants and references counts nothing.  These should
      be majorized by amount of operations among them we count later
-     and are common target of CSE and similar optimizations.  */
+     and are common target of CSE and similar optimizations.
+     ???  This is no longer true with MEM_REF and INDIRECT_MEM_REF.  */
   else if (CONSTANT_CLASS_P (x) || REFERENCE_CLASS_P (x))
     return NULL;
 
@@ -2406,6 +2441,16 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
     case RESX_EXPR:
       d->count += 1;
+      break;
+
+    case IDX_EXPR:
+      d->count += 2;
+      break;
+
+    case BIT_FIELD_EXPR:
+      /* This one is possibly quite expensive, as it requires masking,
+	 shifting and oring.  */
+      d->count += 3;
       break;
 
     case SWITCH_EXPR:

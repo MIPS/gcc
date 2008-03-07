@@ -43,6 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
+#include "tree-pass.h"
+#include "tree-flow.h"
 
 #include "gcov-io.c"
 
@@ -439,8 +441,42 @@ tree_coverage_counter_ref (unsigned counter, unsigned no)
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
-  return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
-		 build_int_cst (NULL_TREE, no), NULL, NULL);
+  if (cfun->curr_properties & PROP_gimple_lmem)
+    return build_gimple_mem_ref (MEM_REF, gcov_type_node,
+				 tree_ctr_tables[counter],
+				 size_binop (MULT_EXPR, size_int (no),
+					     TYPE_SIZE_UNIT (gcov_type_node)),
+				 get_alias_set (gcov_type_node), 1);
+  else
+    return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
+		   build_int_cst (NULL_TREE, no), NULL, NULL);
+}
+
+/* Generate a tree to access the address of COUNTER NO.  */
+
+tree
+tree_coverage_counter_addr (unsigned counter, unsigned no)
+{
+  tree gcov_type_node = get_gcov_type ();
+
+  gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
+  no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
+
+  /* "no" here is an array index, scaled to bytes later.  */
+  if (cfun->curr_properties & PROP_gimple_lmem)
+    {
+      tree ptr_type = build_pointer_type (gcov_type_node);
+      tree addr = build1 (ADDR_EXPR, ptr_type, tree_ctr_tables[counter]);
+      TREE_INVARIANT (addr) = 1;
+      return fold_build2 (POINTER_PLUS_EXPR, ptr_type, addr,
+			  size_binop (MULT_EXPR, size_int (no),
+				      TYPE_SIZE_UNIT (gcov_type_node)));
+    }
+  else
+    return build_fold_addr_expr (build4 (ARRAY_REF, gcov_type_node,
+					 tree_ctr_tables[counter],
+					 build_int_cst (NULL_TREE, no),
+					 NULL, NULL));
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current

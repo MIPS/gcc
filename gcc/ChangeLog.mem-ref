@@ -1,0 +1,129 @@
+2008-03-07  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.in (gimplify.o): Add tree-pass.h dependency.
+
+	* tree.def (MEM_REF): New tree code for memory accesses.
+	(INDIRECT_MEM_REF): New tree code for indirect memory accesses.
+	(IDX_EXPR): New tree code for memory index computation.
+	(BIT_FIELD_EXPR): New tree code for bitfield composition.
+	* tree.h (MEM_REF_ALIAS_SET): Define.
+	(MEM_REF_ALIGN): Likewise.
+	(fold_quaternary): Declare.
+	(fold_build4_stat): Likewise.
+	(fold_build4): Define.
+	(build_bit_mask): Declare.
+	* tree.c (build_low_bits_mask): Simply wrap double_int_to_tree.
+	(stabilize_reference_1): Do not set TREE_INVARIANT on
+	POINTER_PLUS_EXPR.
+	* tree-pretty-print.c (dump_generic_node): Handle BIT_FIELD_EXPR,
+	MEM_REF, INDIRECT_MEM_REF and IDX_EXPR.
+	* gimple-low.c (lm_get_inner_reference): New function.
+	(lower_mem_lvalue): New function.
+	(lower_mem_rvalue): New function.
+	(lower_mem_address): New function.
+	(lower_mem_address_r): New function.
+	(lower_mem_exprs): New function.
+	(pass_lower_mem): New pass for lowering memory form.
+	* tree-pass.h (PROP_gimple_lmem): New property, lowered memory form.
+	* passes.c (init_optimization_passes): Schedule pass_lower_mem
+	after pass_lower_eh.
+
+	* tree-gimple.c (is_gimple_formal_tmp_rhs): Allow IDX_EXPR.
+	(is_gimple_addressable): Add MEM_REF and INDIRECT_MEM_REF.
+	(is_gimple_min_invariant): Allow &a p+ CST as invariants.
+	(is_gimple_reg_type): COMPLEX_TYPEs can be registers even if
+	not optimizing.
+	(is_gimple_min_lval): Add INDIRECT_MEM_REF.
+	(get_base_address): Return INDIRECT_MEM_REF if appearing.
+	(recalculate_side_effects): Handle IDX_EXPR.
+	* tree-flow.h (build_gimple_mem_ref): Declare.
+	* gimplify.c (build_gimple_mem_ref): New helper function for
+	simplifying and building MEM_REF and INDIRECT_MEM_REF.
+	(gimplify_expr): Add code to re-gimplify REALPART_EXPR,
+	IMAGPART_EXPR, VIEW_CONVERT_EXPR and INDIRECT_REF to lowered
+	memory form.  Preserve invariant POINTER_PLUS_EXPR.
+	Handle MEM_REF, INDIRECT_MEM_REF, IDX_EXPR and BIT_FIELD_EXPR.
+	* fold-const.c (operand_equal_p): Handle MEM_REF, INDIRECT_MEM_REF,
+	IDX_EXPR and BIT_FIELD_EXPR.
+	(build_fold_addr_expr_with_type_1): Fold &INDIRECT_MEM_REF to
+	POINTER_PLUS_EXPR.
+	(fold_unary): Disable folding of (T1)(X p+ Y) into ((T1)X p+ Y).
+	(fold_binary): Fold ((T1)X p+ Y) to (T1)(X p+ Y).
+	Fold PTR p+ -(sizetype)PTR to zero.
+	Fold INT - PTR to (INT)(PTR p+ -INT) if INT is easily negatable.
+	(build_bit_mask): New function.
+	(fold_ternary): Fold BIT_FIELD_REF of integral constants.
+	Fold constant IDX_EXPR.
+	(fold_quaternary): New folder.  Fold BIT_FIELD_EXPR with constant
+	destination.
+	(fold): Handle quaternary expressions.
+	(fold_build4_stat): New function.
+	* tree-ssa-ccp.c (fold_stmt_r): Disable memory tree foldings if
+	in lowered memory form.  Handle propagations into INDIRECT_MEM_REF.
+
+	* expr.c (get_inner_reference): Handle MEM_REF.
+	(handled_component_p): Likewise.
+	(expand_expr_real_1): Add expansion for INDIRECT_MEM_REF,
+	MEM_REF, BIT_FIELD_EXPR and IDX_EXPR.
+	Handle CONCAT properly.
+	* tree-dfa.c (get_ref_base_and_extent): Handle MEM_REF.
+	* alias.c (get_alias_set): For MEM_REF and INDIRECT_MEM_REF
+	return MEM_REF_ALIAS_SET.
+	* tree-eh.c (tree_could_trap_p): Handle MEM_REF and
+	INDIRECT_MEM_REF.
+	* tree-ssa-sink.c (is_hidden_global_store): Handle
+	INDIRECT_MEM_REF.
+	* tree-ssa-propagate.c (get_value_loaded_by): Make sure the
+	loaded value can replace the load.
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): For MEM_REF and
+	INDIRECT_MEM_REF take alignment from MEM_REF_ALIGN.
+
+	* tree-inline.c (copy_body_r): Handle substitution into
+	INDIRECT_MEM_REF.
+	(declare_return_variable): Handle INDIRECT_MEM_REF.
+	(estimate_num_insns_1): Handle IDX_EXPR and BIT_FIELD_EXPR.
+
+	* tree-ssa-operands.c (access_can_touch_variable): Bail out
+	for INDIRECT_MEM_REF.
+	(get_expr_operands): Handle MEM_REF, INDIRECT_MEM_REF,
+	BIT_FIELD_EXPR and IDX_EXPR.
+	* tree-ssa-alias.c (count_ptr_derefs): Handle INDIRECT_MEM_REF.
+	(find_used_portions): Handle MEM_REF.
+	* tree-ssa-structalias.c (get_constraint_for): Handle
+	INDIRECT_MEM_REF and MEM_REF.
+
+        * coverage.h (tree_coverage_counter_addr): Declare.
+        * coverage.c (tree_coverage_counter_addr): New function.
+        * tree-profile.c (tree_gen_edge_profiler): Unshare counter
+        before using again.
+        (tree_gen_pow2_profiler): Use tree_coverage_counter_addr.
+        (tree_gen_one_value_profiler): Likewise.
+        (tree_gen_ic_profiler): Likewise.
+        (tree_gen_average_profiler): Likewise.
+        (tree_gen_ior_profiler): Likewise.
+        * tree-data-ref.c (dump_data_reference): Print NULL if
+        the DR is NULL instead of segfaulting.
+
+	* tree-ssa-loop-im.c (for_each_index): Handle MEM_REF and
+	INDIRECT_MEM_REF.
+	(gen_lsm_tmp_name): Likewise.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Likewise.
+	* ipa-reference.c (check_tree): Handle MEM_REF and INDIRECT_MEM_REF.
+	(look_for_address_of): Look inside POINTER_PLUS_EXPR.
+	* ipa-pure-const.c (check_tree): Handle INDIRECT_MEM_REF.
+	* tree-cfg.c (verify_expr): Verify lower memory form properties.
+	(verify_stmt): Show the stmt with the error.
+	(gimplify_val): Use force_gimple_operand_bsi instead of open-coding it.
+	* tree-complex.c (extract_component): Handle MEM_REF and
+	INDIRECT_MEM_REF.
+	(expand_complex_move): Build MEM_REF if in lowered memory form.
+	* tree-vrp.c (nr_vr_value): New global static.
+	(vrp_initialize): Initialize it.
+	(vrp_finalize): Only free vr_values that have been allocated.
+
+	* tree-sra.c (gate_sra): Disable if in lowered memory form.
+	* tree-ssa-pre.c (gate_pre): Disable if in lowered memory form.
+	* tree-ssa-loop.c (gate_tree_ssa_loop_ivopts): Likewise.
+	* tree-ssa-forwprop.c (gate_forwprop): Disable address propagation
+	if in lowered memory form.
+

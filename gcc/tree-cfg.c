@@ -3196,6 +3196,21 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    return t;
 	  }
 
+	/* Stop recursing and verifying invariant ADDR_EXPRs, they tend
+	   to become arbitrary complicated.  */
+	if (is_gimple_min_invariant (t))
+	  {
+	    *walk_subtrees = 0;
+
+	    /* But make sure we didn't pick up disallowed trees again.  */
+	    if (cfun->curr_properties & PROP_gimple_lmem)
+	      if (!is_gimple_id (TREE_OPERAND (t, 0)))
+		{
+		  error ("illegal operand of ADDR_EXPR in lowered memory form");
+		  return t;
+		}
+	  }
+
 	/* Skip any references (they will be checked when we recurse down the
 	   tree) and ensure that any variable used as a prefix is marked
 	   addressable.  */
@@ -3206,16 +3221,12 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
 	if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
 	  return NULL;
+
 	if (!TREE_ADDRESSABLE (x))
 	  {
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
-
-	/* Stop recursing and verifying invariant ADDR_EXPRs, they tend
-	   to become arbitrary complicated.  */
-	if (is_gimple_min_invariant (t))
-	  *walk_subtrees = 0;
 	break;
       }
 
@@ -3245,13 +3256,62 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       CHECK_OP (0, "invalid operand to unary operator");
       break;
 
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
+    case MEM_REF:
+      if ((!DECL_P (TREE_OPERAND (t, 0))
+	   || (!TREE_ADDRESSABLE (TREE_OPERAND (t, 0))
+	       /* Static decls are automatically addressable, but
+		  ipa-reference removes the addressable bit.  */
+	       && !TREE_STATIC (TREE_OPERAND (t, 0))))
+	  /* Constants slip through here.  */
+	  && !TREE_CONSTANT (TREE_OPERAND (t, 0)))
+	{
+	  error ("referenced object not addressable");
+	  return TREE_OPERAND (t, 0);
+	}
+      CHECK_OP (1, "invalid offset operand");
+      break;
+
+    case INDIRECT_MEM_REF:
+      CHECK_OP (0, "invalid pointer operand");
+      CHECK_OP (1, "invalid offset operand");
+      break;
+
+    case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
+    case TARGET_MEM_REF:
+      /* In lowered memory form the above may no longer appear.  */
+      if (cfun->curr_properties & PROP_gimple_lmem)
+	{
+	  error ("illegal reference tree in lowered memory form");
+	  return t;
+	}
+      break;
+
     case COMPONENT_REF:
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
+      /* In lowered memory form the above may no longer appear.  */
+      if (cfun->curr_properties & PROP_gimple_lmem)
+	{
+	  error ("illegal reference tree in lowered memory form");
+	  return t;
+	}
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case BIT_FIELD_REF:
     case VIEW_CONVERT_EXPR:
+      /* In lowered memory form the above may only operate on registers
+	 or on constants, which we not always can constant fold.  */
+      if (cfun->curr_properties & PROP_gimple_lmem)
+	{
+	  if (!is_gimple_min_invariant (TREE_OPERAND (t, 0))
+	      && !is_gimple_reg (TREE_OPERAND (t, 0)))
+	    {
+	      error ("invalid non-register operand");
+	      return t;
+	    }
+	}
       /* We have a nest of references.  Verify that each of the operands
 	 that determine where to reference is either a constant or a variable,
 	 verify that the base is valid, and then show we've already checked
@@ -3305,6 +3365,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       *walk_subtrees = 0;
       break;
+
     case PLUS_EXPR:
     case MINUS_EXPR:
       /* PLUS_EXPR and MINUS_EXPR don't work on pointers, they should be done using
@@ -3332,6 +3393,14 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	{
 	  error ("invalid operand to pointer plus, second operand is not an "
 		 "integer with type of sizetype.");
+	  return t;
+	}
+      /* Check invariantness.  */
+      if (TREE_INVARIANT (t)
+	  && (! TREE_INVARIANT (TREE_OPERAND (t, 0))
+	      || ! TREE_INVARIANT (TREE_OPERAND (t, 1))))
+	{
+	  error ("invariant POINTER_PLUS_EXPR with non-invariant operands");
 	  return t;
 	}
       /* FALLTHROUGH */
@@ -4159,6 +4228,11 @@ verify_stmt (tree stmt, bool last_in_block)
   if (addr)
     {
       debug_generic_stmt (addr);
+      if (addr != stmt)
+	{
+	  inform ("in statement");
+	  debug_generic_stmt (stmt);
+	}
       return true;
     }
 
@@ -6921,23 +6995,13 @@ struct tree_opt_pass pass_split_crit_edges =
 tree
 gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
 {
-  tree t, new_stmt, orig_stmt;
+  tree t;
 
   if (is_gimple_val (exp))
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build_gimple_modify_stmt (t, exp);
-
-  orig_stmt = bsi_stmt (*bsi);
-  SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));
-  TREE_BLOCK (new_stmt) = TREE_BLOCK (orig_stmt);
-
-  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    mark_symbols_for_renaming (new_stmt);
-
-  return t;
+  return force_gimple_operand_bsi (bsi, exp, false, t, true, BSI_SAME_STMT);
 }
 
 /* Build a ternary operation and gimplify it.  Emit code before BSI.
