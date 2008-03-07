@@ -1436,6 +1436,7 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
     case OMP_FOR:
     case OMP_SECTIONS:
     case OMP_SINGLE:
+    case CALL_EXPR:
       for (; ctx != NULL; ctx = ctx->outer)
 	switch (TREE_CODE (ctx->stmt))
 	  {
@@ -1444,8 +1445,17 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
 	  case OMP_SINGLE:
 	  case OMP_ORDERED:
 	  case OMP_MASTER:
+	  case OMP_TASK:
+	    if (TREE_CODE (t) == CALL_EXPR)
+	      {
+		warning (0, "barrier region may not be closely nested inside "
+			    "of work-sharing, critical, ordered, master or "
+			    "explicit task region");
+		return;
+	      }
 	    warning (0, "work-sharing region may not be closely nested inside "
-			"of work-sharing, critical, ordered or master region");
+			"of work-sharing, critical, ordered, master or explicit "
+			"task region");
 	    return;
 	  case OMP_PARALLEL:
 	    return;
@@ -1460,8 +1470,9 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
 	  case OMP_FOR:
 	  case OMP_SECTIONS:
 	  case OMP_SINGLE:
+	  case OMP_TASK:
 	    warning (0, "master region may not be closely nested inside "
-			"of work-sharing region");
+			"of work-sharing or explicit task region");
 	    return;
 	  case OMP_PARALLEL:
 	    return;
@@ -1474,8 +1485,9 @@ check_omp_nesting_restrictions (tree t, omp_context *ctx)
 	switch (TREE_CODE (ctx->stmt))
 	  {
 	  case OMP_CRITICAL:
+	  case OMP_TASK:
 	    warning (0, "ordered region may not be closely nested inside "
-			"of critical region");
+			"of critical or explicit task region");
 	    return;
 	  case OMP_FOR:
 	    if (find_omp_clause (OMP_CLAUSES (ctx->stmt),
@@ -1518,8 +1530,18 @@ scan_omp_1 (tree *tp, int *walk_subtrees, void *data)
     input_location = EXPR_LOCATION (t);
 
   /* Check the OpenMP nesting restrictions.  */
-  if (OMP_DIRECTIVE_P (t) && ctx != NULL)
-    check_omp_nesting_restrictions (t, ctx);
+  if (ctx != NULL)
+    {
+      if (OMP_DIRECTIVE_P (t))
+	check_omp_nesting_restrictions (t, ctx);
+      else if (TREE_CODE (t) == CALL_EXPR)
+	{
+	  tree fndecl = get_callee_fndecl (t);
+	  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_GOMP_BARRIER)
+	    check_omp_nesting_restrictions (t, ctx);
+	}
+    }
 
   *walk_subtrees = 0;
   switch (TREE_CODE (t))

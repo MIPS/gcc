@@ -1,3 +1,11 @@
+2008-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/appendix-a/a.35.4.c: Add dg-warning.
+	* gcc.dg/gomp/appendix-a/a.35.6.c: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.35.4.f90: Likewise.
+	* gfortran.dg/gomp/appendix-a/a.35.6.f90: Likewise.
+	* gcc.dg/gomp/nesting-1.c: New test.
+
 2008-02-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/appendix-a/a.33.4.f90: Remove dg-error

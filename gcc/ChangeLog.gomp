@@ -1,3 +1,13 @@
+2008-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (check_omp_nesting_restrictions): Warn if work-sharing,
+	barrier, master or ordered region is closely nested inside OMP_TASK.
+	Add warnings for barrier if closely nested inside of work-sharing,
+	ordered, or master region.
+	(scan_omp_1): Call check_omp_nesting_restrictions even for
+	GOMP_barrier calls.
+	* gimplify.c (gimplify_expr): Handle OMP_SECTIONS_SWITCH.
+
 2008-02-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* langhooks.h (lang_hooks_for_decls): Add omp_private_outer_ref

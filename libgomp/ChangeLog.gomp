@@ -1,3 +1,11 @@
+2008-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/vla4.f90: Add dg-warning.
+	* testsuite/libgomp.fortran/vla5.f90: Likewise.
+	* testsuite/libgomp.c/pr26943-2.c: Likewise.
+	* testsuite/libgomp.c/pr26943-3.c: Likewise.
+	* testsuite/libgomp.c/pr26943-4.c: Likewise.
+
 2008-02-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* team.c (gomp_thread_start): Initialize ts.active_level.

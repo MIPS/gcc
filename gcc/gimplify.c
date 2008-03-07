@@ -6161,8 +6161,9 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_RETURN:
 	case OMP_CONTINUE:
-        case OMP_ATOMIC_LOAD:
-        case OMP_ATOMIC_STORE:
+	case OMP_ATOMIC_LOAD:
+	case OMP_ATOMIC_STORE:
+	case OMP_SECTIONS_SWITCH:
 
 	  ret = GS_ALL_DONE;
 	  break;
