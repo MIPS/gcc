@@ -1,3 +1,16 @@
+2008-03-06  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (give_name_to_class): Call find_sourcefile to find
+	full pathname of source file.
+
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
+2008-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* jcf-dump.c (version): Update copyright notice dates.
+
 2008-01-04  Andrew Haley  <aph@redhat.com>
 
 	PR java/17779

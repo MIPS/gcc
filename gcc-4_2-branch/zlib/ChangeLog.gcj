@@ -1,3 +1,7 @@
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
 2007-04-14  Steve Ellcey  <sje@cup.hp.com>
 
 	* Makefile.am: Add -I .. to ACLOCAL_AMFLAGS.
