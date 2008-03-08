@@ -1,3 +1,29 @@
+2008-03-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/22152
+	* gcc.target/i386/pr22152.c: New test.
+	* gcc.target/i386/sse2-mmx.c: Ditto.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/uninit_func.adb: New test.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack4.adb: New test.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/small_alignment.adb: New test.
+
+2008-03-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/alignment2.ads: New test.
+
+2008-03-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack3.adb: New test.
+
 2008-03-07  Peter O'Gorman  <pogma@thewrittenword.com>
 
 	PR c++/20366
