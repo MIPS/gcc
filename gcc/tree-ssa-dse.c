@@ -325,11 +325,15 @@ dse_possible_dead_store_p (tree stmt,
       if (TREE_CODE (temp) == GIMPLE_MODIFY_STMT)
 	{
 	  tree base1 = get_base_address (GIMPLE_STMT_OPERAND (stmt, 0));
-	  tree base2 =  get_base_address (GIMPLE_STMT_OPERAND (temp, 0));
+	  tree base2 = get_base_address (GIMPLE_STMT_OPERAND (temp, 0));
 
-	  while (base1 && INDIRECT_REF_P (base1))
+	  while (base1
+		 && (INDIRECT_REF_P (base1)
+		     || TREE_CODE (base1) == INDIRECT_MEM_REF))
 	    base1 = TREE_OPERAND (base1, 0);
-	  while (base2 && INDIRECT_REF_P (base2))
+	  while (base2
+		 && (INDIRECT_REF_P (base2)
+		     || TREE_CODE (base2) == INDIRECT_MEM_REF))
 	    base2 = TREE_OPERAND (base2, 0);
 
 	  if (base1 != base2)

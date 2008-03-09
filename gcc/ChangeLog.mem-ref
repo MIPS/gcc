@@ -1,3 +1,68 @@
+2008-03-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Handle
+	INDIRECT_MEM_REF.
+
+2008-03-09  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20030530-2.c: Adjust patterns.
+	* gcc.dg/tree-ssa/20030703-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030710-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-2.c: Likewise.
+	* gcc.dg/tree-ssa/20030711-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030729-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030807-5.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-4.c: Likewise.
+	* gcc.dg/tree-ssa/20030814-5.c: Likewise.
+	* gcc.dg/tree-ssa/20031021-1.c: Likewise.
+	* gcc.dg/tree-ssa/20031022-1.c: Likewise.
+	* gcc.dg/tree-ssa/20040729-1.c: Likewise.
+	* gcc.dg/tree-ssa/20050314-1.c: Likewise.
+	* gcc.dg/tree-ssa/alias-6.c: Likewise.
+	* gcc.dg/tree-ssa/complex-3.c: Likewise.
+	* gcc.dg/tree-ssa/foldaddr-2.c: Likewise.
+	* gcc.dg/tree-ssa/foldaddr-3.c: Likewise.
+
+2008-03-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-operands.c (get_expr_operands): Cleanup handing of
+	MEM_REF and INDIRECT_MEM_REF.
+	* tree-def.c (IDX_EXPR): Fix typos.
+	(BIT_FIELD_EXPR): Likewise.
+	* gimple-low.c (lm_get_inner_reference): Handle large bit-field
+	references with unaligned accesses.
+	* tree-ssa-pre.c (phi_translate_1): Add support for IDX_EXPR,
+	MEM_REF and INDIRECT_MEM_REF.
+	(valid_in_sets): Likewise.
+	(create_expression_by_pieces): Likewise.
+	(can_value_number_operation): Likewise.  Exclude invariant
+	POINTER_PLUS_EXPRs.
+	(can_PRE_operation): Likewise.
+	(create_value_expr_from): Add support for IDX_EXPR.
+	(poolify_tree): Add support for INDIRECT_MEM_REF.
+	(insert_fake_stores): Likewise.
+	(gate_pre): Enable.
+	* tree-ssa-loop-im.c (stmt_cost): Give IDX_EXPR the same cost
+	as MULT_EXPR.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Handle
+	invariant addresses with POINTER_PLUS_EXPR.
+	(visit_unary_op): Merge with visit_binary_op as visit_nary_op.
+	(simplify_binary_expression): Rewrite to handle all nary
+	expressions.
+	(try_to_simplify): Adjust accordingly.  Add more tcc_expression
+	trees as supported.
+	(visit_use): Likewise.
+	* tree-vn.c (vn_add): Handle IDX_EXPR.
+	(vn_lookup): Likewise.
+
+	* gcc.dg/tree-ssa/ssa-fre-1.c: Adjust pattern.
+	* gcc.dg/tree-ssa/loadpre19.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre22.c: Likewise.
+
 2008-03-07  Richard Guenther  <rguenther@suse.de>
 
 	* Makefile.in (gimplify.o): Add tree-pass.h dependency.
