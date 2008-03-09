@@ -24,5 +24,5 @@ t ()
   return (int *) &a;
 }
 
-/* { dg-final { scan-tree-dump "a.s2.c" "optimized"} } */
+/* { dg-final { scan-tree-dump "return &a;" "optimized"} } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

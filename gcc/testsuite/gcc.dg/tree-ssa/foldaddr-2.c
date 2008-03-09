@@ -9,5 +9,5 @@ t()
 {
 	return (int *)&a;
 }
-/* { dg-final { scan-tree-dump "a.a" "optimized"} } */
+/* { dg-final { scan-tree-dump "return &a;" "optimized"} } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

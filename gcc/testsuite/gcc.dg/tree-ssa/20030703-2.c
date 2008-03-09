@@ -29,7 +29,7 @@ get_alias_set (t)
 
 /* There should be precisely one load of {t,__t}->code.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->code" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <int .*, t_" 1 "dom3"} } */
                                                                                 
 /* There should be precisely one load of tree_code_type.  If there is
    more than one, then the dominator optimizations failed.  */

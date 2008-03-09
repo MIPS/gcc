@@ -45,10 +45,9 @@ readonly_fields_p (type)
 /* A good optimizer would realize that the cast to (unsigned int) is
    useless as the earlier cast of the same value of (unsigned char) will
    always produce the same result.  */
-/* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "\\(unsigned int\\)" 0 "dom3" } } */
  
-/* There should be one load of ->common.code.  We currently fail this
-   because we load from ->common.code using different types.  */
-/* { dg-final { scan-tree-dump-times "common\.code" 1 "dom3"} } */
+/* There should be one load of ->common.code, two loads in total.  */
+/* { dg-final { scan-tree-dump-times "MEM" 2 "dom3" } } */
 
 /* { dg-final { cleanup-tree-dump "dom3" } } */

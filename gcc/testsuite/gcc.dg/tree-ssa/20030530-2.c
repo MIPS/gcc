@@ -16,11 +16,16 @@ rs6000_emit_prologue (int i, rs6000_stack_t *info)
 
 /* There should be precisely one load of first_gp_reg_save.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "first_gp_reg_save" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <int .*, info" 1 "dom3"} } */
 
 /* There should be precisely one addition.  If there is more than one, then
    the dominator optimizations failed, most likely due to not handling
    commutative operands correctly.  */
+/* ???  MEM_REF: We have
+   D.1189_4 = D.1188_2 + i_3(D);
+   D.1193_5 = IDX <0 + D.1189_4 * 1>;
+   D.1190_6 = MEM <char {0}, &regs_ever_live + D.1193_5>;
+   and preserve IDX even for stride == 1 case.  */
 /* { dg-final { scan-tree-dump-times "\\+" 1 "dom3"} } */
  
 /* { dg-final { cleanup-tree-dump "dom3" } } */

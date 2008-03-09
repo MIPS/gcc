@@ -17,5 +17,5 @@ int main()
 }
 
 /* We should only store to a.i, not load from it.  */
-/* { dg-final { scan-tree-dump-times "a.i" 1 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "MEM <.*, &a" 1 "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -14,6 +14,6 @@ int bar(void)
   return a[0] + *p.a;
 }
 
-/* { dg-final { scan-tree-dump "return \\*p\\.a \\\+ a.0.;" "optimized" } } */
+/* { dg-final { scan-tree-dump "MEM <int ..., MEM <int \\\* ..., \\\&p>> \\\+ MEM <int ..., \\\&a>;" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */
 

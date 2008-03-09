@@ -29,8 +29,9 @@ foo ()
 }
 
 /* There should be precisely one load of ->code.  If there is
-   more than, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "->code" 1 "dom3"} } */
+   more than, then the dominator optimizations failed.
+   There are two loads in total, one for unchanging as well.  */
+/* { dg-final { scan-tree-dump-times "MEM <" 2 "dom3"} } */
 
 /* There should be two IF statements.  One for 'current_sym_addr->code == 42'.
    The other one for '(EXPR)->unchanging'.  */

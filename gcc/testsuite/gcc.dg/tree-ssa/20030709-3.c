@@ -36,11 +36,11 @@ record_component_aliases (type)
 
 /* There should be precisely one load of type.binfo.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "type\\.binfo" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <union tree_node" 1 "dom3"} } */
  
 /* There should be precisely one load of common.code.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "common\\.code" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <int " 1 "dom3"} } */
  
 /* There should be one IF conditional.  */
 /* { dg-final { scan-tree-dump-times "if " 1 "dom3"} } */

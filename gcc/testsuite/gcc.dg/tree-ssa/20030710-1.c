@@ -46,10 +46,11 @@ record_component_aliases (type)
 /* There should be two IF conditionals.  */
 /* { dg-final { scan-tree-dump-times "if " 2 "dom3"} } */
                                                                                 
-/* There should be a single load of type.binfo.  */
-/* { dg-final { scan-tree-dump-times "type\\.binfo" 1 "dom3"} } */
+/* There should be two loads of a tree node, type.binfo and
+   type.binfo->vec.a[4].  */
+/* { dg-final { scan-tree-dump-times "MEM <union tree_node" 2 "dom3"} } */
 
 /* There should be two loads of vec.length.  */
-/* { dg-final { scan-tree-dump-times "vec.length" 2 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <int " 2 "dom3"} } */
 
 /* { dg-final { cleanup-tree-dump "dom3" } } */

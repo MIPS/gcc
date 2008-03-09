@@ -17,5 +17,5 @@ void xxx (void)
 /* Store motion may be applied to the assignment to a[k], since sinf
    cannot read nor write the memory.  */
 
-/* { dg-final { scan-tree-dump-times "Moving statement" 1 "lim" } } */
+/* { dg-final { scan-tree-dump-times "Executing store motion" 1 "lim" } } */
 /* { dg-final { cleanup-tree-dump "lim" } } */

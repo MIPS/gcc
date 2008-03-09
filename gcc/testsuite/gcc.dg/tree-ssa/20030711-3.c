@@ -50,12 +50,12 @@ get_alias_set (t)
 /* { dg-final { scan-tree-dump-times "if " 2 "dom3"} } */
                                                                                 
 /* There should be one load of decl.rtl.  */
-/* { dg-final { scan-tree-dump-times "decl\\.rtl" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <struct rtx_def" 1 "dom3"} } */
   
 /* There should be two loads of rtmem.  */
-/* { dg-final { scan-tree-dump-times "rtmem" 2 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <struct mem_attrs" 2 "dom3"} } */
 
 /* There should be one load of alias.  */
-/* { dg-final { scan-tree-dump-times "->alias" 1 "dom3"} } */
+/* { dg-final { scan-tree-dump-times "MEM <long \|MEM <int " 1 "dom3"} } */
 
 /* { dg-final { cleanup-tree-dump "dom3" } } */
