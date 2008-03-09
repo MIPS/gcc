@@ -2152,31 +2152,29 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       return;
 
     case MEM_REF:
-    case INDIRECT_MEM_REF:
       {
 	tree ref;
 	HOST_WIDE_INT offset, size, maxsize;
 	bool none = true;
+	subvar_t svars;
 
 	if (TREE_THIS_VOLATILE (expr))
 	  s_ann->has_volatile_ops = true;
 
-	if (code == MEM_REF)
-	  add_to_addressable_set (TREE_OPERAND (expr, 0),
-				  &s_ann->addresses_taken);
+	add_to_addressable_set (TREE_OPERAND (expr, 0),
+				&s_ann->addresses_taken);
 
-	/* This component reference becomes an access to all of the
-	   subvariables it can touch, if we can determine that, but
-	   *NOT* the real one.  If we can't determine which fields we
+	/* This memory reference becomes an access to all of the
+	   subvariables it can touch, if it has any.
+	   If we can't determine which fields we
 	   could touch, the recursion will eventually get to a
 	   variable and add *all* of its subvars, or whatever is the
 	   minimum correct subset.  */
 	ref = get_ref_base_and_extent (expr, &offset, &size, &maxsize);
 
-	if (code == MEM_REF
-	    && SSA_VAR_P (ref) && get_subvars_for_var (ref))
+	if (SSA_VAR_P (ref)
+	    && (svars = get_subvars_for_var (ref)))
 	  {
-	    subvar_t svars = get_subvars_for_var (ref);
 	    unsigned int i;
 	    tree subvar;
 
@@ -2192,25 +2190,32 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		  }
 	      }
 
-	    if (!none)
-	      flags = opf_use;
+	    if (none)
+	      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
 	    if ((DECL_P (ref) && TREE_THIS_VOLATILE (ref))
 		|| (TREE_CODE (ref) == SSA_NAME
 		    && TREE_THIS_VOLATILE (SSA_NAME_VAR (ref))))
 	      s_ann->has_volatile_ops = true;
 	  }
-	else if (code == INDIRECT_MEM_REF)
-	  {
-	    get_indirect_ref_operands (stmt, expr, flags, expr, offset,
-		                       maxsize, false);
-	    flags = opf_use;
-	  }
+	else
+	  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 
-	/* Even if we found subvars above we need to ensure to see
-	   immediate uses for d in s.a[d].  In case of s.a having
-	   a subvar or we would miss it otherwise.  */
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
+	/* See the immediate uses in the offset part.  */
+        get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+
+	return;
+      }
+
+    case INDIRECT_MEM_REF:
+      {
+	if (TREE_THIS_VOLATILE (expr))
+	  s_ann->has_volatile_ops = true;
+
+	get_addr_dereference_operands (stmt, &TREE_OPERAND (expr, 0), flags,
+				       expr, 0, -1, true);
+
+	/* See the immediate uses in the offset part.  */
         get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
 
 	return;

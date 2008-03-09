@@ -852,8 +852,11 @@ lm_get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	  off = off % TYPE_PRECISION (*typep);
 	  /* Then look for a type convering the whole bitfield reference.  */
 	  bf_end += off;
-	  while (bf_end > TYPE_PRECISION (*typep))
+	  while (*typep && bf_end > TYPE_PRECISION (*typep))
 	    *typep = lang_hooks.types.type_for_size (2 * TYPE_PRECISION (*typep), 1);
+	  /* Duh, so mis-aligning it.  */
+	  if (!*typep)
+	    *typep = lang_hooks.types.type_for_mode (QImode, 1);
 	}
 
       *punsignedp = DECL_UNSIGNED (TREE_OPERAND (exp, 1));
@@ -962,7 +965,10 @@ lm_get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 		  tree_to_double_int (TYPE_SIZE_UNIT (*typep)));
 	        bit_offset = size_binop (PLUS_EXPR, bit_offset,
 					 double_int_to_tree (bitsizetype, bits));
-
+		while (*typep && bits.low + *pbitsize > TYPE_PRECISION (*typep))
+		  *typep = lang_hooks.types.type_for_size (2 * TYPE_PRECISION (*typep), 1);
+		gcc_assert (*typep);
+		*pmode = TYPE_MODE (*typep);
 		gcc_assert (!*pbitrefp);  /* ??? */
 		*pbitrefp = 1;
 	      }

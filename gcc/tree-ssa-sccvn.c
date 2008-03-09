@@ -563,6 +563,12 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case VIEW_CONVERT_EXPR:
 	case ADDR_EXPR:
 	  break;
+	case POINTER_PLUS_EXPR:
+	  /* ???  It happens that we end up with INDIRECT_MEM_REF
+	     of for example &"foo" + 1.  */
+	  gcc_assert (is_gimple_min_invariant (ref));
+	  temp.op0 = TREE_OPERAND (ref, 1);
+	  break;
 	default:
 	  gcc_unreachable ();
 
@@ -1041,33 +1047,11 @@ visit_copy (tree lhs, tree rhs)
   return set_ssa_val_to (lhs, rhs);
 }
 
-/* Visit a unary operator RHS, value number it, and return true if the
+/* Visit a nary operator RHS, value number it, and return true if the
    value number of LHS has changed as a result.  */
 
 static bool
-visit_unary_op (tree lhs, tree op)
-{
-  bool changed = false;
-  tree result = vn_nary_op_lookup (op);
-
-  if (result)
-    {
-      changed = set_ssa_val_to (lhs, result);
-    }
-  else
-    {
-      changed = set_ssa_val_to (lhs, lhs);
-      vn_nary_op_insert (op, lhs);
-    }
-
-  return changed;
-}
-
-/* Visit a binary operator RHS, value number it, and return true if the
-   value number of LHS has changed as a result.  */
-
-static bool
-visit_binary_op (tree lhs, tree op)
+visit_nary_op (tree lhs, tree op)
 {
   bool changed = false;
   tree result = vn_nary_op_lookup (op);
@@ -1340,56 +1324,73 @@ valueize_expr (tree expr)
   return expr;
 }
 
-/* Simplify the binary expression RHS, and return the result if
-   simplified. */
+/* Simplify the nary expression RHS, and return the result if
+   simplified.  */
 
 static tree
-simplify_binary_expression (tree stmt, tree rhs)
+simplify_nary_expression (tree stmt, tree rhs)
 {
-  tree result = NULL_TREE;
-  tree op0 = TREE_OPERAND (rhs, 0);
-  tree op1 = TREE_OPERAND (rhs, 1);
+  tree result, op[4];
+  unsigned length = TREE_CODE_LENGTH (TREE_CODE (rhs));
+  bool changed = false;
+  unsigned i;
 
   /* This will not catch every single case we could combine, but will
      catch those with constants.  The goal here is to simultaneously
      combine constants between expressions, but avoid infinite
      expansion of expressions during simplification.  */
-  if (TREE_CODE (op0) == SSA_NAME)
+  for (i = 0; i < length; ++i)
     {
-      if (VN_INFO (op0)->has_constants)
-	op0 = valueize_expr (VN_INFO (op0)->expr);
-      else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
-	op0 = SSA_VAL (op0);
-    }
-
-  if (TREE_CODE (op1) == SSA_NAME)
-    {
-      if (VN_INFO (op1)->has_constants)
-	op1 = valueize_expr (VN_INFO (op1)->expr);
-      else if (SSA_VAL (op1) != VN_TOP && SSA_VAL (op1) != op1)
-	op1 = SSA_VAL (op1);
+      tree tem = TREE_OPERAND (rhs, i);
+      if (TREE_CODE (tem) == SSA_NAME)
+	{
+	  if (VN_INFO (tem)->has_constants)
+	    tem = valueize_expr (VN_INFO (tem)->expr);
+	  else if (SSA_VAL (tem) != VN_TOP)
+	    tem = SSA_VAL (tem);
+	}
+      if (tem != TREE_OPERAND (rhs, i))
+	changed = true;
+      op[i] = tem;
     }
 
   /* Avoid folding if nothing changed.  */
-  if (op0 == TREE_OPERAND (rhs, 0)
-      && op1 == TREE_OPERAND (rhs, 1))
-    return NULL_TREE;
+  if (!changed)
+    return rhs;
 
   fold_defer_overflow_warnings ();
 
-  result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs), op0, op1);
-
-  fold_undefer_overflow_warnings (result && valid_gimple_expression_p (result),
-				  stmt, 0);
+  switch (length)
+    {
+    case 2:
+      result = fold_binary (TREE_CODE (rhs), TREE_TYPE (rhs),
+			    op[0], op[1]);
+      break;
+    case 3:
+      result = fold_ternary (TREE_CODE (rhs), TREE_TYPE (rhs),
+			     op[0], op[1], op[2]);
+      break;
+    case 4:
+      result = fold_quaternary (TREE_CODE (rhs), TREE_TYPE (rhs),
+				op[0], op[1], op[2], op[3]);
+      break;
+    default:
+      result = NULL_TREE;
+    }
 
   /* Make sure result is not a complex expression consisting
      of operators of operators (IE (a + b) + (a + c))
      Otherwise, we will end up with unbounded expressions if
      fold does anything at all.  */
-  if (result && valid_gimple_expression_p (result))
+  if (result && !valid_gimple_expression_p (result))
+    result = NULL_TREE;
+
+  fold_undefer_overflow_warnings (result != NULL_TREE, stmt, 0);
+
+  if (result)
     return result;
 
-  return NULL_TREE;
+  return rhs;
 }
 
 /* Simplify the unary expression RHS, and return the result if
@@ -1479,7 +1480,21 @@ try_to_simplify (tree stmt, tree rhs)
 	  break;
 	case tcc_comparison:
 	case tcc_binary:
-	  return simplify_binary_expression (stmt, rhs);
+	  return simplify_nary_expression (stmt, rhs);
+	  break;
+	case tcc_expression:
+	  if (TREE_CODE (rhs) == ADDR_EXPR
+	      || TREE_CODE (rhs) == TRUTH_NOT_EXPR)
+	    return simplify_unary_expression (rhs);
+	  else if (TREE_CODE (rhs) == TRUTH_ANDIF_EXPR
+		   || TREE_CODE (rhs) == TRUTH_ORIF_EXPR
+		   || TREE_CODE (rhs) == TRUTH_AND_EXPR
+		   || TREE_CODE (rhs) == TRUTH_OR_EXPR
+		   || TREE_CODE (rhs) == TRUTH_XOR_EXPR
+		   || TREE_CODE (rhs) == IDX_EXPR
+		   || TREE_CODE (rhs) == COND_EXPR
+		   || TREE_CODE (rhs) == BIT_FIELD_EXPR)
+	    return simplify_nary_expression (stmt, rhs);
 	  break;
 	default:
 	  break;
@@ -1631,10 +1646,9 @@ visit_use (tree use)
 		  switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
 		    {
 		    case tcc_unary:
-		      changed = visit_unary_op (lhs, rhs);
-		      break;
+		    case tcc_comparison:
 		    case tcc_binary:
-		      changed = visit_binary_op (lhs, rhs);
+		      changed = visit_nary_op (lhs, rhs);
 		      break;
 		      /* If tcc_vl_expr ever encompasses more than
 			 CALL_EXPR, this will need to be changed.  */
@@ -1646,12 +1660,29 @@ visit_use (tree use)
 		      break;
 		    case tcc_declaration:
 		    case tcc_reference:
+		      if (TREE_CODE (rhs) == BIT_FIELD_REF
+			  || TREE_CODE (rhs) == REALPART_EXPR
+			  || TREE_CODE (rhs) == IMAGPART_EXPR
+			  || TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
+			{
+			  changed = visit_nary_op (lhs, rhs);
+			  goto done;
+			}
 		      changed = visit_reference_op_load (lhs, rhs, stmt);
 		      break;
 		    case tcc_expression:
-		      if (TREE_CODE (rhs) == ADDR_EXPR)
+		      if (TREE_CODE (rhs) == ADDR_EXPR
+			  || TREE_CODE (rhs) == IDX_EXPR
+			  || TREE_CODE (rhs) == BIT_FIELD_EXPR
+			  || TREE_CODE (rhs) == COND_EXPR
+			  || TREE_CODE (rhs) == TRUTH_ANDIF_EXPR
+			  || TREE_CODE (rhs) == TRUTH_ORIF_EXPR
+			  || TREE_CODE (rhs) == TRUTH_AND_EXPR
+			  || TREE_CODE (rhs) == TRUTH_OR_EXPR
+			  || TREE_CODE (rhs) == TRUTH_XOR_EXPR
+			  || TREE_CODE (rhs) == TRUTH_NOT_EXPR)
 			{
-			  changed = visit_unary_op (lhs, rhs);
+			  changed = visit_nary_op (lhs, rhs);
 			  goto done;
 			}
 		      /* Fallthrough.  */

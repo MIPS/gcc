@@ -635,7 +635,7 @@ DEFTREECODE (PLUS_EXPR, "plus_expr", tcc_binary, 2)
 DEFTREECODE (MINUS_EXPR, "minus_expr", tcc_binary, 2)
 DEFTREECODE (MULT_EXPR, "mult_expr", tcc_binary, 2)
 
-/* Multiply-add expression with non-communtative operands.  IDX_EXPRs
+/* Multiply-add expression with non-commutative operands.  IDX_EXPRs
    should be not re-associated, nor should its operands.
    Operand 0 is a tree for the first summand;
    Operand 1 is a tree for the first multiplicand of the second summand;
@@ -809,7 +809,7 @@ DEFTREECODE (FDESC_EXPR, "fdesc_expr", tcc_expression, 2)
    Operand 2 is a tree giving the constant number of bits being
    referenced which is less or equal to the precision of the value;
    Operand 3 is a tree giving the constant position of the first referenced
-   bit such that the sum of operands 2 and 3 is less or equal to the
+   bit such that the sum of operands 2 and 3 is less than or equal to the
    precision of the word.  */
 DEFTREECODE (BIT_FIELD_EXPR, "bitfield_expr", tcc_expression, 4)
 

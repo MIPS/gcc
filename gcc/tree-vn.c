@@ -199,7 +199,8 @@ vn_add (tree expr, tree val)
 	  SSA_NAME_VALUE (expr) = val;
 	  break;
 	}
-      else if (TREE_CODE (expr) == ADDR_EXPR)
+      else if (TREE_CODE (expr) == ADDR_EXPR
+	       || TREE_CODE (expr) == IDX_EXPR)
 	{
 	  vn_nary_op_insert (expr, val);
 	  break;
@@ -267,7 +268,8 @@ vn_lookup (tree expr)
 	return vn_reference_lookup (expr, NULL);
       else if (TREE_CODE (expr) == SSA_NAME)
 	return SSA_NAME_VALUE (expr);
-      else if (TREE_CODE (expr) == ADDR_EXPR)
+      else if (TREE_CODE (expr) == ADDR_EXPR
+	       || TREE_CODE (expr) == IDX_EXPR)
 	return vn_nary_op_lookup (expr);
       /* FALLTHROUGH */
     default:

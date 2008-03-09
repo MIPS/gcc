@@ -1004,7 +1004,59 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_expression:
-      return NULL;
+      if (TREE_CODE (expr) != IDX_EXPR)
+	return NULL;
+      {
+      	tree oldop1 = TREE_OPERAND (expr, 0);
+	tree oldval1 = oldop1;
+	tree oldop2 = TREE_OPERAND (expr, 1);
+	tree oldval2 = oldop2;
+	tree oldop3 = TREE_OPERAND (expr, 2);
+	tree oldval3 = oldop3;
+	tree newop1;
+	tree newop2;
+	tree newop3;
+	tree newexpr;
+
+	oldop1 = find_leader_in_sets (oldop1, set1, set2);
+	newop1 = phi_translate_1 (oldop1, set1, set2, pred, phiblock, seen);
+	if (newop1 == NULL)
+	  return NULL;
+
+	oldop2 = find_leader_in_sets (oldop2, set1, set2);
+	newop2 = phi_translate_1 (oldop2, set1, set2, pred, phiblock, seen);
+	if (newop2 == NULL)
+	  return NULL;
+
+	oldop3 = find_leader_in_sets (oldop3, set1, set2);
+	newop3 = phi_translate_1 (oldop3, set1, set2, pred, phiblock, seen);
+	if (newop3 == NULL)
+	  return NULL;
+
+	if (newop1 != oldop1 || newop2 != oldop2 || newop3 != oldop3)
+	  {
+	    tree t;
+	    newexpr = (tree) pool_alloc (reference_node_pool);
+	    memcpy (newexpr, expr, tree_size (expr));
+	    TREE_OPERAND (newexpr, 0) = newop1 == oldop1 ? oldval1 : get_value_handle (newop1);
+	    TREE_OPERAND (newexpr, 1) = newop2 == oldop2 ? oldval2 : get_value_handle (newop2);
+	    TREE_OPERAND (newexpr, 2) = newop3 == oldop3 ? oldval3 : get_value_handle (newop3);
+	    t = fully_constant_expression (newexpr);
+	    if (t != newexpr)
+	      {
+		pool_free (reference_node_pool, newexpr);
+		newexpr = t;
+	      }
+	    else
+	      {
+		newexpr->base.ann = NULL;
+		vn_lookup_or_add (newexpr);
+	      }
+	    expr = newexpr;
+	  }
+	phi_trans_add (oldexpr, expr, pred, NULL);
+      }
+      return expr;
 
     case tcc_vl_exp:
       {
@@ -1145,6 +1197,8 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 	VEC (tree, gc) * newvuses = NULL;
 
 	if (TREE_CODE (expr) != INDIRECT_REF
+	    && TREE_CODE (expr) != MEM_REF
+	    && TREE_CODE (expr) != INDIRECT_MEM_REF
 	    && TREE_CODE (expr) != COMPONENT_REF
 	    && TREE_CODE (expr) != ARRAY_REF)
 	  return NULL;
@@ -1182,6 +1236,16 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		  return NULL;
 	      }
 	  }
+	else if (TREE_CODE (expr) == INDIRECT_MEM_REF
+	         || TREE_CODE (expr) == MEM_REF)
+	  {
+	    oldop1 = TREE_OPERAND (expr, 1);
+	    oldop1 = find_leader_in_sets (oldop1, set1, set2);
+	    newop1 = phi_translate_1 (oldop1, set1, set2, pred, phiblock, seen);
+
+	    if (newop1 == NULL)
+	      return NULL;
+	  }
 
 	oldvuses = get_expression_vuses (expr);
 	if (oldvuses)
@@ -1206,6 +1270,9 @@ phi_translate_1 (tree expr, bitmap_set_t set1, bitmap_set_t set2,
 		if (newop3)
 		  TREE_OPERAND (newexpr, 3) = get_value_handle (newop3);
 	      }
+	    else if (TREE_CODE (expr) == MEM_REF
+		     || TREE_CODE (expr) == INDIRECT_MEM_REF)
+	      TREE_OPERAND (newexpr, 1) = get_value_handle (newop1);
 
 	    t = fully_constant_expression (newexpr);
 
@@ -1499,7 +1566,17 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, tree expr,
       }
 
     case tcc_expression:
-      return false;
+      if (TREE_CODE (expr) != IDX_EXPR)
+	return false;
+      {
+	tree op1 = TREE_OPERAND (expr, 0);
+	tree op2 = TREE_OPERAND (expr, 1);
+	tree op3 = TREE_OPERAND (expr, 2);
+
+	return union_contains_value (set1, set2, op1)
+	  && union_contains_value (set1, set2, op2)
+	  && union_contains_value (set1, set2, op3);
+      }
 
     case tcc_vl_exp:
       {
@@ -1529,6 +1606,8 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, tree expr,
     case tcc_reference:
       {
 	if (TREE_CODE (expr) == INDIRECT_REF
+	    || TREE_CODE (expr) == MEM_REF
+	    || TREE_CODE (expr) == INDIRECT_MEM_REF
 	    || TREE_CODE (expr) == COMPONENT_REF
 	    || TREE_CODE (expr) == ARRAY_REF)
 	  {
@@ -1556,7 +1635,16 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, tree expr,
 		if (op3
 		    && !union_contains_value (set1, set2, op3))
 		  return false;
-	    }
+	      }
+	    else if (TREE_CODE (expr) == MEM_REF
+		     || TREE_CODE (expr) == INDIRECT_MEM_REF)
+	      {
+		tree op1 = TREE_OPERAND (expr, 1);
+		gcc_assert (is_gimple_min_invariant (op1)
+			    || TREE_CODE (op1) == VALUE_HANDLE);
+		if (!union_contains_value (set1, set2, op1))
+		  return false;
+	      }
 	    return !value_dies_in_block_x (expr, block);
 	  }
       }
@@ -2088,11 +2176,14 @@ can_value_number_operation (tree op)
 {
   return (UNARY_CLASS_P (op)
 	  && !is_exception_related (TREE_OPERAND (op, 0)))
-    || BINARY_CLASS_P (op)
+    || (BINARY_CLASS_P (op)
+	&& (TREE_CODE (op) != POINTER_PLUS_EXPR
+	    || !is_gimple_min_invariant (op)))
     || COMPARISON_CLASS_P (op)
     || REFERENCE_CLASS_P (op)
     || (TREE_CODE (op) == CALL_EXPR
-	&& can_value_number_call (op));
+	&& can_value_number_call (op))
+    || TREE_CODE (op) == IDX_EXPR;
 }
 
 
@@ -2104,9 +2195,14 @@ static bool
 can_PRE_operation (tree op)
 {
   return UNARY_CLASS_P (op)
-    || BINARY_CLASS_P (op)
+    || (BINARY_CLASS_P (op)
+	&& (TREE_CODE (op) != POINTER_PLUS_EXPR
+	    || !is_gimple_min_invariant (op)))
     || COMPARISON_CLASS_P (op)
+    || TREE_CODE (op) == IDX_EXPR
     || TREE_CODE (op) == INDIRECT_REF
+    || TREE_CODE (op) == INDIRECT_MEM_REF
+    || TREE_CODE (op) == MEM_REF
     || TREE_CODE (op) == COMPONENT_REF
     || TREE_CODE (op) == CALL_EXPR
     || TREE_CODE (op) == ARRAY_REF;
@@ -2320,6 +2416,22 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  {
 	    folded = create_component_ref_by_pieces (block, expr, stmts);
 	  }
+	else if (TREE_CODE (expr) == INDIRECT_MEM_REF
+	    	 || TREE_CODE (expr) == MEM_REF)
+	  {
+	    tree op1 = TREE_OPERAND (expr, 0);
+	    tree op2 = TREE_OPERAND (expr, 1);
+	    tree genop2, genop1;
+	    if (TREE_CODE (expr) == INDIRECT_MEM_REF)
+	      genop1 = find_or_generate_expression (block, op1, stmts);
+	    else
+	      genop1 = create_component_ref_by_pieces (block, op1, stmts);
+	    genop2 = find_or_generate_expression (block, op2, stmts);
+	    folded = build_gimple_mem_ref (TREE_CODE (expr), TREE_TYPE (expr),
+			      		   genop1, genop2,
+			      		   MEM_REF_ALIAS_SET (expr),
+			      		   MEM_REF_ALIGN (expr));
+	  }
 	else
 	  {
 	    tree op1 = TREE_OPERAND (expr, 0);
@@ -2328,6 +2440,20 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	    folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr),
 				  genop1);
 	  }
+	break;
+      }
+
+    case tcc_expression:
+      gcc_assert (TREE_CODE (expr) == IDX_EXPR);
+      {
+      	tree op1 = TREE_OPERAND (expr, 0);
+	tree op2 = TREE_OPERAND (expr, 1);
+	tree op3 = TREE_OPERAND (expr, 2);
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	tree genop2 = find_or_generate_expression (block, op2, stmts);
+	tree genop3 = find_or_generate_expression (block, op3, stmts);
+	folded = fold_build3 (TREE_CODE (expr), TREE_TYPE (expr),
+			      genop1, genop2, genop3);
 	break;
       }
 
@@ -2999,6 +3125,8 @@ create_value_expr_from (tree expr, basic_block block, VEC (tree, gc) *vuses)
     pool = binary_node_pool;
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     pool = comparison_node_pool;
+  else if (code == IDX_EXPR)
+    pool = reference_node_pool;
   else
     gcc_assert (code == CALL_EXPR);
 
@@ -3060,6 +3188,15 @@ poolify_tree (tree node)
 	tree temp = (tree) pool_alloc (reference_node_pool);
 	memcpy (temp, node, tree_size (node));
 	TREE_OPERAND (temp, 0) = poolify_tree (TREE_OPERAND (temp, 0));
+	return temp;
+      }
+      break;
+    case INDIRECT_MEM_REF:
+      {
+	tree temp = (tree) pool_alloc (reference_node_pool);
+	memcpy (temp, node, tree_size (node));
+	TREE_OPERAND (temp, 0) = poolify_tree (TREE_OPERAND (temp, 0));
+	TREE_OPERAND (temp, 1) = poolify_tree (TREE_OPERAND (temp, 1));
 	return temp;
       }
       break;
@@ -3134,7 +3271,8 @@ insert_fake_stores (void)
 	     virtual uses occur in abnormal phis.  */
 
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == INDIRECT_REF
+	      && (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == INDIRECT_REF
+		  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == INDIRECT_MEM_REF)
 	      && !AGGREGATE_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0)))
 	      && TREE_CODE (TREE_TYPE (GIMPLE_STMT_OPERAND
 					(stmt, 0))) != COMPLEX_TYPE)
@@ -3993,8 +4131,7 @@ do_pre (void)
 static bool
 gate_pre (void)
 {
-  return !(cfun->curr_properties & PROP_gimple_lmem) /* ???  MEM_REF  */
-	 && flag_tree_pre != 0;
+  return flag_tree_pre != 0;
 }
 
 struct tree_opt_pass pass_pre =
