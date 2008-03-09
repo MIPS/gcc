@@ -5,30 +5,6 @@
 
 2008-03-09  Richard Guenther  <rguenther@suse.de>
 
-	* gcc.dg/tree-ssa/20030530-2.c: Adjust patterns.
-	* gcc.dg/tree-ssa/20030703-2.c: Likewise.
-	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
-	* gcc.dg/tree-ssa/20030709-3.c: Likewise.
-	* gcc.dg/tree-ssa/20030710-1.c: Likewise.
-	* gcc.dg/tree-ssa/20030711-1.c: Likewise.
-	* gcc.dg/tree-ssa/20030711-2.c: Likewise.
-	* gcc.dg/tree-ssa/20030711-3.c: Likewise.
-	* gcc.dg/tree-ssa/20030729-1.c: Likewise.
-	* gcc.dg/tree-ssa/20030807-5.c: Likewise.
-	* gcc.dg/tree-ssa/20030814-1.c: Likewise.
-	* gcc.dg/tree-ssa/20030814-4.c: Likewise.
-	* gcc.dg/tree-ssa/20030814-5.c: Likewise.
-	* gcc.dg/tree-ssa/20031021-1.c: Likewise.
-	* gcc.dg/tree-ssa/20031022-1.c: Likewise.
-	* gcc.dg/tree-ssa/20040729-1.c: Likewise.
-	* gcc.dg/tree-ssa/20050314-1.c: Likewise.
-	* gcc.dg/tree-ssa/alias-6.c: Likewise.
-	* gcc.dg/tree-ssa/complex-3.c: Likewise.
-	* gcc.dg/tree-ssa/foldaddr-2.c: Likewise.
-	* gcc.dg/tree-ssa/foldaddr-3.c: Likewise.
-
-2008-03-09  Richard Guenther  <rguenther@suse.de>
-
 	* tree-ssa-operands.c (get_expr_operands): Cleanup handing of
 	MEM_REF and INDIRECT_MEM_REF.
 	* tree-def.c (IDX_EXPR): Fix typos.
@@ -58,10 +34,6 @@
 	(visit_use): Likewise.
 	* tree-vn.c (vn_add): Handle IDX_EXPR.
 	(vn_lookup): Likewise.
-
-	* gcc.dg/tree-ssa/ssa-fre-1.c: Adjust pattern.
-	* gcc.dg/tree-ssa/loadpre19.c: Likewise.
-	* gcc.dg/tree-ssa/loadpre22.c: Likewise.
 
 2008-03-07  Richard Guenther  <rguenther@suse.de>
 
