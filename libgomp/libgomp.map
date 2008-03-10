@@ -80,6 +80,26 @@ OMP_3.0 {
 	omp_get_team_size_8_;
 	omp_get_active_level;
 	omp_get_active_level_;
+	omp_init_lock;
+	omp_init_nest_lock;
+	omp_destroy_lock;
+	omp_destroy_nest_lock;
+	omp_set_lock;
+	omp_set_nest_lock;
+	omp_unset_lock;
+	omp_unset_nest_lock;
+	omp_test_lock;
+	omp_test_nest_lock;
+	omp_destroy_lock_;
+	omp_destroy_nest_lock_;
+	omp_init_lock_;
+	omp_init_nest_lock_;
+	omp_set_lock_;
+	omp_set_nest_lock_;
+	omp_test_lock_;
+	omp_test_nest_lock_;
+	omp_unset_lock_;
+	omp_unset_nest_lock_;
 } OMP_2.0;
 
 GOMP_1.0 {

@@ -380,6 +380,53 @@ extern void gomp_work_share_end_nowait (void);
 #define _LIBGOMP_OMP_LOCK_DEFINED 1
 #include "omp.h.in"
 
+#if !defined (HAVE_ATTRIBUTE_VISIBILITY) \
+    || !defined (HAVE_ATTRIBUTE_ALIAS) \
+    || !defined (PIC)
+# undef LIBGOMP_GNU_SYMBOL_VERSIONING
+#endif
+
+#ifdef LIBGOMP_GNU_SYMBOL_VERSIONING
+extern void gomp_init_lock_30 (omp_lock_t *) __GOMP_NOTHROW;
+extern void gomp_destroy_lock_30 (omp_lock_t *) __GOMP_NOTHROW;
+extern void gomp_set_lock_30 (omp_lock_t *) __GOMP_NOTHROW;
+extern void gomp_unset_lock_30 (omp_lock_t *) __GOMP_NOTHROW;
+extern int gomp_test_lock_30 (omp_lock_t *) __GOMP_NOTHROW;
+extern void gomp_init_nest_lock_30 (omp_nest_lock_t *) __GOMP_NOTHROW;
+extern void gomp_destroy_nest_lock_30 (omp_nest_lock_t *) __GOMP_NOTHROW;
+extern void gomp_set_nest_lock_30 (omp_nest_lock_t *) __GOMP_NOTHROW;
+extern void gomp_unset_nest_lock_30 (omp_nest_lock_t *) __GOMP_NOTHROW;
+extern int gomp_test_nest_lock_30 (omp_nest_lock_t *) __GOMP_NOTHROW;
+
+extern void gomp_init_lock_25 (omp_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_destroy_lock_25 (omp_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_set_lock_25 (omp_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_unset_lock_25 (omp_lock_25_t *) __GOMP_NOTHROW;
+extern int gomp_test_lock_25 (omp_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_init_nest_lock_25 (omp_nest_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_destroy_nest_lock_25 (omp_nest_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_set_nest_lock_25 (omp_nest_lock_25_t *) __GOMP_NOTHROW;
+extern void gomp_unset_nest_lock_25 (omp_nest_lock_25_t *) __GOMP_NOTHROW;
+extern int gomp_test_nest_lock_25 (omp_nest_lock_25_t *) __GOMP_NOTHROW;
+
+# define strong_alias(fn, al) \
+  extern __typeof (fn) al __attribute__ ((alias (#fn)));
+# define omp_lock_symver(fn) \
+  __asm (".symver g" #fn "_30, " #fn "@@OMP_3.0"); \
+  __asm (".symver g" #fn "_25, " #fn "@OMP_1.0");
+#else
+# define gomp_init_lock_30 omp_init_lock
+# define gomp_destroy_lock_30 omp_destroy_lock
+# define gomp_set_lock_30 omp_set_lock
+# define gomp_unset_lock_30 omp_unset_lock
+# define gomp_test_lock_30 omp_test_lock
+# define gomp_init_nest_lock_30 omp_init_nest_lock
+# define gomp_destroy_nest_lock_30 omp_destroy_nest_lock
+# define gomp_set_nest_lock_30 omp_set_nest_lock
+# define gomp_unset_nest_lock_30 omp_unset_nest_lock
+# define gomp_test_nest_lock_30 omp_test_nest_lock
+#endif
+
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # define attribute_hidden __attribute__ ((visibility ("hidden")))
 #else

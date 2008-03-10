@@ -1,3 +1,54 @@
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/lock.c: Rewrite to make locks task owned,
+	for backwards compatibility provide the old entrypoints
+	if symbol versioning.
+	* config/linux/omp-lock.h (omp_lock_25_t, omp_nest_lock_25_t): New
+	types.
+	(omp_nest_lock_t): Change owner into void *, add lock field.
+	* config/posix95/lock.c: Rewrite to make locks task owned,
+	for backwards compatibility provide the old entrypoints
+	if symbol versioning.
+	* config/posix95/omp-lock.h: Include semaphore.h.
+	(omp_lock_25_t, omp_nest_lock_25_t): New types.
+	(omp_lock_t): Use sem_t instead of mutex if semaphores
+	aren't broken.
+	(omp_nest_lock_t): Likewise.  Change owner to void *.
+	* config/posix/lock.c: Rewrite to make locks task owned,
+	for backwards compatibility provide the old entrypoints
+	if symbol versioning.
+	* config/posix/omp-lock.h: Include semaphore.h.
+	(omp_lock_25_t, omp_nest_lock_25_t): New types.
+	(omp_lock_t): Use sem_t instead of mutex if semaphores
+	aren't broken.
+	(omp_nest_lock_t): Likewise.  Add owner field.
+	* libgomp_f.h.in (omp_lock_25_arg_t, omp_nest_lock_25_arg_t): New
+	types.
+	(omp_lock_25_arg, omp_nest_lock_25_arg): New macros.
+	(omp_check_defines): Check even the compat defines.
+	* libgomp.h (LIBGOMP_GNU_SYMBOL_VERSIONING): Undef if no visibility
+	or no alias support, or if not PIC.
+	(gomp_init_lock_30, gomp_destroy_lock_30, gomp_set_lock_30,
+	gomp_unset_lock_30, gomp_test_lock_30, gomp_init_nest_lock_30,
+	gomp_destroy_nest_lock_30, gomp_set_nest_lock_30,
+	gomp_unset_nest_lock_30, gomp_test_nest_lock_30, gomp_init_lock_25,
+	gomp_destroy_lock_25, gomp_set_lock_25, gomp_unset_lock_25,
+	gomp_test_lock_25, gomp_init_nest_lock_25, gomp_destroy_nest_lock_25,
+	gomp_set_nest_lock_25, gomp_unset_nest_lock_25,
+	gomp_test_nest_lock_25): New prototypes.
+	(omp_lock_symver, strong_alias): Define.
+	* fortran.c: Rewrite lock wrappers, if symbol versioning provide
+	both wrappers for compatibility and new locks.
+	* libgomp.map: Export lock routines also @@OMP_2.0.
+	* configure.ac (LIBGOMP_GNU_SYMBOL_VERSIONING): New AC_DEFINE.
+	Substitute also OMP_*LOCK_25*.
+	* configure: Regenerated.
+	* config.h.in: Regenerated.
+	* testsuite/libgomp.fortran/lock-1.f90: New test.
+	* testsuite/libgomp.fortran/lock-2.f90: New test.
+	* testsuite/libgomp.c/lock-1.c: New test.
+	* testsuite/libgomp.c/lock-2.c: New test.
+
 2008-03-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.fortran/vla4.f90: Add dg-warning.
