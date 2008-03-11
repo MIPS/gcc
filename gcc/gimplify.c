@@ -1654,7 +1654,8 @@ gimplify_conversion (tree *expr_p)
   /* Attempt to avoid NOP_EXPR by producing reference to a subtype.
      For example this fold (subclass *)&A into &A->subclass avoiding
      a need for statement.  */
-  if (TREE_CODE (*expr_p) == NOP_EXPR
+  if (!(cfun->curr_properties & PROP_gimple_lmem)
+      && TREE_CODE (*expr_p) == NOP_EXPR
       && POINTER_TYPE_P (TREE_TYPE (*expr_p))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
       && (tem = maybe_fold_offset_to_reference
@@ -3460,6 +3461,7 @@ build_gimple_mem_ref (enum tree_code code, tree type, tree base, tree offset,
 		      alias_set_type alias_set, unsigned int align)
 {
   gcc_assert (code == MEM_REF || code == INDIRECT_MEM_REF);
+  gcc_assert (base != NULL_TREE && offset != NULL_TREE);
   gcc_assert (useless_type_conversion_p (sizetype, TREE_TYPE (offset)));
   gcc_assert (code == MEM_REF || POINTER_TYPE_P (TREE_TYPE (base)));
 

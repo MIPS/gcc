@@ -322,8 +322,11 @@ valid_mem_ref_p (enum machine_mode mode, struct mem_address *addr)
    TARGET_MEM_REF.  */
 
 static tree
-create_mem_ref_raw (tree type, struct mem_address *addr)
+create_mem_ref_raw (block_stmt_iterator *bsi,
+		    tree type, struct mem_address *addr)
 {
+  tree ref, idx, offset;
+
   if (!valid_mem_ref_p (TYPE_MODE (type), addr))
     return NULL_TREE;
 
@@ -333,9 +336,42 @@ create_mem_ref_raw (tree type, struct mem_address *addr)
   if (addr->offset && integer_zerop (addr->offset))
     addr->offset = NULL_TREE;
 
-  return build7 (TARGET_MEM_REF, type,
-		 addr->symbol, addr->base, addr->index,
-		 addr->step, addr->offset, NULL, NULL);
+  if (!(cfun->curr_properties & PROP_gimple_lmem))
+    return build7 (TARGET_MEM_REF, type,
+		   addr->symbol, addr->base, addr->index,
+		   addr->step, addr->offset, NULL, NULL);
+
+  /* If required, build an IDX_EXPR for the MEM_REF.  */
+  if (addr->symbol && addr->base && addr->offset)
+    return NULL_TREE;
+  if (addr->symbol && addr->base)
+    offset = addr->base;
+  else
+    offset = addr->offset;
+  idx = NULL_TREE;
+  if (addr->index != NULL_TREE)
+    {
+      tree step = addr->step;
+      if (step == NULL_TREE)
+	step = size_one_node;
+      if (offset == NULL_TREE)
+	offset = size_zero_node;
+      idx = fold_build3 (IDX_EXPR, sizetype,
+			 offset, addr->index, step);
+    }
+  if (idx == NULL_TREE)
+    idx = offset;
+  if (idx == NULL_TREE)
+    idx = size_zero_node;
+  if (addr->symbol)
+    ref = build_gimple_mem_ref (MEM_REF, type, addr->symbol, idx,
+				get_alias_set (type), 1);
+  else
+    ref = build_gimple_mem_ref (INDIRECT_MEM_REF, type, addr->base, idx,
+				get_alias_set (type), 1);
+  ref = force_gimple_operand_bsi (bsi, ref, false, NULL_TREE,
+				  true, BSI_SAME_STMT);
+  return ref;
 }
 
 /* Returns true if OBJ is an object whose address is a link time constant.  */
@@ -576,7 +612,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 
   addr_to_parts (addr, &parts);
   gimplify_mem_ref_parts (bsi, &parts);
-  mem_ref = create_mem_ref_raw (type, &parts);
+  mem_ref = create_mem_ref_raw (bsi, type, &parts);
   if (mem_ref)
     return mem_ref;
 
@@ -592,7 +628,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 				true, NULL_TREE, true, BSI_SAME_STMT);
       parts.step = NULL_TREE;
   
-      mem_ref = create_mem_ref_raw (type, &parts);
+      mem_ref = create_mem_ref_raw (bsi, type, &parts);
       if (mem_ref)
 	return mem_ref;
     }
@@ -627,7 +663,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 	parts.base = tmp;
       parts.symbol = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, &parts);
+      mem_ref = create_mem_ref_raw (bsi, type, &parts);
       if (mem_ref)
 	return mem_ref;
     }
@@ -648,7 +684,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 	parts.base = parts.index;
       parts.index = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, &parts);
+      mem_ref = create_mem_ref_raw (bsi, type, &parts);
       if (mem_ref)
 	return mem_ref;
     }
@@ -670,7 +706,7 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 
       parts.offset = NULL_TREE;
 
-      mem_ref = create_mem_ref_raw (type, &parts);
+      mem_ref = create_mem_ref_raw (bsi, type, &parts);
       if (mem_ref)
 	return mem_ref;
     }
@@ -759,7 +795,7 @@ maybe_fold_tmr (tree ref)
   if (!changed)
     return NULL_TREE;
   
-  ret = create_mem_ref_raw (TREE_TYPE (ref), &addr);
+  ret = create_mem_ref_raw (NULL, TREE_TYPE (ref), &addr);
   if (!ret)
     return NULL_TREE;
 

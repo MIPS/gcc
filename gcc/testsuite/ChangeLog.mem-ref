@@ -1,5 +1,9 @@
 2008-03-09  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.c-torture/compile/genautomata.c: New testcase.
+
+2008-03-09  Richard Guenther  <rguenther@suse.de>
+
 	* gcc.dg/tree-ssa/complex-3.c: Revert last change.
 	* gcc.dg/tree-ssa/foldaddr-2.c: Remove.
 	* gcc.dg/tree-ssa/foldaddr-3.c: Likewise.

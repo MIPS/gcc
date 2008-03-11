@@ -1,3 +1,19 @@
+2008-03-11  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (gimplify_conversion): Only do fancy folding
+	if not in lowered memory form.
+	(build_gimple_mem_ref): Assert that we get a base and an offset.
+	* tree-ssa-address.c (create_mem_ref_raw): Take bsi argument,
+	built MEM_REF or INDIRECT_MEM_REF properly with optionally
+	building an IDX_EXPR.
+	(create_mem_ref): Pass bsi to create_mem_ref_raw.
+	(maybe_fold_tmr): Likewise.
+	* tree-ssa-loop-ivopts.c (copy_ref_info): Copy alias-set
+	and alignment information from old MEM_REF, merge alias
+	info of the two bases of INDIRECT_MEM_REFs.
+	* tree-ssa-loop.c (gate_tree_ssa_loop_ivopts): Enable again.
+	Re-build alias information.
+
 2008-03-09  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-dse.c (dse_possible_dead_store_p): Handle

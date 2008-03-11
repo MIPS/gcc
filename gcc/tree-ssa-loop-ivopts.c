@@ -5202,6 +5202,20 @@ copy_ref_info (tree new_ref, tree old_ref)
 {
   if (TREE_CODE (old_ref) == TARGET_MEM_REF)
     copy_mem_ref_info (new_ref, old_ref);
+  else if (cfun->curr_properties & PROP_gimple_lmem)
+    {
+      /* Copy MEM_REF_ALIAS_SET and MEM_REF_ALIGN.  */
+      TREE_OPERAND (new_ref, 2) = TREE_OPERAND (old_ref, 2);
+      TREE_OPERAND (new_ref, 3) = TREE_OPERAND (old_ref, 3);
+      /* As we recompute alias information after IVOPTs the
+	 otherwise necessary merging of alias information can be omitted.  */
+#if 0
+      if (TREE_CODE (new_ref) == INDIRECT_MEM_REF
+	  && TREE_CODE (old_ref) == INDIRECT_MEM_REF)
+	merge_alias_info (TREE_OPERAND (old_ref, 0),
+			  TREE_OPERAND (new_ref, 0));
+#endif
+    }
   else
     {
       TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
