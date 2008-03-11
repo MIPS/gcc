@@ -1591,7 +1591,7 @@ parse_class_file (void)
   {
     /* Re-enter the current file.  */
     expanded_location loc = expand_location (input_location);
-    linemap_add (line_table, LC_ENTER, 0, loc.file, loc.line);
+    linemap_add (line_table, LC_ENTER, 0, 0, loc.file, loc.line);
   }
 #endif
   file_start_location = input_location;

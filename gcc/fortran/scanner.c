@@ -1413,7 +1413,7 @@ preprocessor_line (char *c)
       add_file_change (NULL, line);
       current_file = current_file->up;
 #ifdef USE_MAPPED_LOCATION
-      linemap_add (line_table, LC_RENAME, false, current_file->filename,
+      linemap_add (line_table, LC_RENAME, false, false, current_file->filename,
 		   current_file->line);
 #endif
     }
