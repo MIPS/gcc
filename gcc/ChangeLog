@@ -1,3 +1,9 @@
+2008-03-11  Tom Tromey  <tromey@redhat.com>
+
+	* dwarf2out.c (hash_type_die_entry): Use TYPE_UID.
+	(reference_to_unused): Use seen_decl_p.
+	(gen_type_die_with_usage): Use seen_decl_p and mark_decl.
+
 2008-03-05  Tom Tromey  <tromey@redhat.com>
 
 	* c-opts.c (finish_options): Set input_location.

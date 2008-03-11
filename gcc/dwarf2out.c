@@ -5787,7 +5787,7 @@ static hashval_t
 hash_type_die_entry (const void *ep)
 {
   const struct type_die_entry *entry = (const struct type_die_entry *) ep;
-  return htab_hash_pointer (entry->type);
+  return TYPE_UID (entry->type);
 }
 
 /* Compare two struct type_die_entry's for equality.  */
@@ -10465,7 +10465,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
       if (!node->output)
 	return *tp;
     }
-  else if (TREE_CODE (*tp) == STRING_CST && !TREE_ASM_WRITTEN (*tp))
+  else if (TREE_CODE (*tp) == STRING_CST && !seen_decl_p (*tp))
     return *tp;
 
   return NULL_TREE;
@@ -13368,12 +13368,12 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
     }
 
   /* If this is an array type with hidden descriptor, handle it first.  */
-  if (!TREE_ASM_WRITTEN (type)
+  if (!seen_decl_p (type)
       && lang_hooks.types.get_array_descr_info
       && lang_hooks.types.get_array_descr_info (type, &info))
     {
       gen_descr_array_type_die (type, &info, context_die);
-      TREE_ASM_WRITTEN (type) = 1;
+      mark_decl (type);
       return;
     }
 
