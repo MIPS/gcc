@@ -39,7 +39,7 @@ Target Report Mask(ALIGN_DOUBLE)
 Align some doubles on dword boundary
 
 malign-functions=
-Target RejectNegative Joined Var(ix86_align_funcs_string)
+Target RejectNegative Joined Var(ix86_align_funcs_string) 
 Function starts are aligned to this power of 2
 
 malign-jumps=
@@ -55,7 +55,7 @@ Target RejectNegative Report InverseMask(NO_ALIGN_STRINGOPS, ALIGN_STRINGOPS)
 Align destination of the string operations
 
 march=
-Target RejectNegative Joined Var(ix86_arch_string)
+Target RejectNegative Joined Var(ix86_arch_string) Attribute
 Generate code for given CPU
 
 masm=
@@ -179,7 +179,7 @@ Target Report Mask(TLS_DIRECT_SEG_REFS)
 Use direct references against %gs when accessing tls data
 
 mtune=
-Target RejectNegative Joined Var(ix86_tune_string)
+Target RejectNegative Joined Var(ix86_tune_string) Attribute
 Schedule code for given CPU
 
 mveclibabi=
@@ -189,63 +189,63 @@ Vector library ABI to use
 ;; ISA support
 
 m32
-Target RejectNegative Negative(m64) Report InverseMask(ISA_64BIT) Var(ix86_isa_flags) VarExists
+Target RejectNegative Negative(m64) Report InverseMask(ISA_64BIT) Var(ix86_isa_flags) Init(TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_ISA_DEFAULT) Attribute
 Generate 32bit i386 code
 
 m64
-Target RejectNegative Negative(m32) Report Mask(ISA_64BIT) Var(ix86_isa_flags) VarExists
+Target RejectNegative Negative(m32) Report Mask(ISA_64BIT) Var(ix86_isa_flags) VarExists Attribute
 Generate 64bit x86-64 code
 
 mmmx
-Target Report Mask(ISA_MMX) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_MMX) Var(ix86_isa_flags) VarExists Attribute
 Support MMX built-in functions
 
 m3dnow
-Target Report Mask(ISA_3DNOW) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_3DNOW) Var(ix86_isa_flags) VarExists Attribute
 Support 3DNow! built-in functions
 
 m3dnowa
-Target Undocumented Mask(ISA_3DNOW_A) Var(ix86_isa_flags) VarExists
+Target Undocumented Mask(ISA_3DNOW_A) Var(ix86_isa_flags) VarExists Attribute
 Support Athlon 3Dnow! built-in functions
 
 msse
-Target Report Mask(ISA_SSE) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE) Var(ix86_isa_flags) VarExists Attribute
 Support MMX and SSE built-in functions and code generation
 
 msse2
-Target Report Mask(ISA_SSE2) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE2) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE and SSE2 built-in functions and code generation
 
 msse3
-Target Report Mask(ISA_SSE3) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE3) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation
 
 mssse3
-Target Report Mask(ISA_SSSE3) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSSE3) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
 
 msse4.1
-Target Report Mask(ISA_SSE4_1) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE4_1) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2, SSE3, SSSE3 and SSE4.1 built-in functions and code generation
 
 msse4.2
-Target Report Mask(ISA_SSE4_2) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE4_2) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1 and SSE4.2 built-in functions and code generation
 
 msse4
-Target RejectNegative Report Mask(ISA_SSE4_2) MaskExists Var(ix86_isa_flags) VarExists
+Target RejectNegative Report Mask(ISA_SSE4_2) MaskExists Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1 and SSE4.2 built-in functions and code generation
 
 mno-sse4
-Target RejectNegative Report InverseMask(ISA_SSE4_1) MaskExists Var(ix86_isa_flags) VarExists
+Target RejectNegative Report InverseMask(ISA_SSE4_1) MaskExists Var(ix86_isa_flags) VarExists Attribute
 Do not support SSE4.1 and SSE4.2 built-in functions and code generation
 
 msse4a
-Target Report Mask(ISA_SSE4A) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE4A) Var(ix86_isa_flags) VarExists Attribute
 Support MMX, SSE, SSE2, SSE3 and SSE4A built-in functions and code generation
 
 msse5
-Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists
+Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Attribute
 Support SSE5 built-in functions and code generation
 
 ;; Instruction support

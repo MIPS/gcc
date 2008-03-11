@@ -68,44 +68,90 @@ print "#endif /* GCC_DRIVER */"
 print ""
 
 for (i = 0; i < n_opts; i++) {
+        name = var_name(flags[i]);
+        if (name == "")
+                continue;
+
+	if (flag_set_p("Attribute", flags[i])) {
+		attr_flags[name] ++
+		continue;
+	}
+
+        if (flag_set_p("VarExists", flags[i])) {
+                # Need it for the gcc driver.
+                if (name in var_written_seen)
+                        continue;
+        	if (name in attr_flags)
+                	continue;
+                init = ""
+                gcc_driver = 1
+        }
+        else {
+                init = opt_args("Init", flags[i])
+                if (init == "") {
+                	if (name in var_written_seen)
+                        	continue;
+        		if (name in attr_flags)
+                		continue;
+		}
+                gcc_driver = 0
+        }
+
+	type = var_type(flags[i])
+
+	if (init != "") 
+		 init = " = " init
+
+        if (gcc_driver == 1)
+                print "#ifdef GCC_DRIVER"
+        print "/* Set by -" opts[i] "."
+        print "   " help[i] "  */"
+        print type " " name init ";"
+        if (gcc_driver == 1)
+                print "#endif /* GCC_DRIVER */"
+        print ""
+
+        var_written_seen[name] = 1;
+}
+
+print ""
+
+print "/* Resets attribute options to default values */"
+print "void initialize_attribute_options(void) {\n"
+for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i]);
 	if (name == "")
 		continue;
 
-	if (flag_set_p("VarExists", flags[i])) {
-		# Need it for the gcc driver.
-		if (name in var_seen)
-			continue;
-		init = ""
-		gcc_driver = 1
-	}
-	else {
+	if (name in attr_flags) {
+		if (name in attr_var_written_seen) continue;
+
 		init = opt_args("Init", flags[i])
-		if (init != "")
-			init = " = " init;
-		else if (name in var_seen)
-			continue;
-		gcc_driver = 0
+		type = var_type(flags[i])
+
+		if (init == "") {
+			if(type=="int") init = " = 0 "
+			else init = " = NULL "
+		}
+		else
+			 init = " = " init
+
+		print "/* Set by -" opts[i] "."
+		print "   " help[i] "  */"
+		print name init ";"
+		print ""
+
+		attr_var_written_seen[name] ++
 	}
-
-	if (gcc_driver == 1)
-		print "#ifdef GCC_DRIVER"
-	print "/* Set by -" opts[i] "."
-	print "   " help[i] "  */"
-	print var_type(flags[i]) name init ";"
-	if (gcc_driver == 1)
-		print "#endif /* GCC_DRIVER */"
-	print ""
-
-	var_seen[name] = 1;
 }
+print "}"
 
 print ""
 print "/* Local state variables.  */"
 for (i = 0; i < n_opts; i++) {
 	name = static_var(opts[i], flags[i]);
 	if (name != "")
-		print "static " var_type(flags[i]) name ";"
+		print "static " var_type(flags[i]) " " name ";"
 }
 print ""
 
@@ -118,6 +164,10 @@ for (i = 0; i < n_langs; i++) {
     }
 
 print "  0\n};\n"
+
+print "union cl_option_stor cl_option_stors[N_OPTS_STOR];\n"
+print "const unsigned int cl_option_stors_count = N_OPTS_STOR;\n"
+
 print "const unsigned int cl_options_count = N_OPTS;\n"
 print "const unsigned int cl_lang_count = " n_langs ";\n"
 

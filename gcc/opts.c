@@ -339,7 +339,7 @@ enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 /* Disable unit-at-a-time for frontends that might be still broken in this
    respect.  */
 
-bool no_unit_at_a_time_default;
+int no_unit_at_a_time_default;
 
 /* Global visibility options.  */
 struct visibility_flags visibility_options;
@@ -372,7 +372,6 @@ static int common_handle_option (size_t scode, const char *arg, int value,
 				 unsigned int lang_mask);
 static void handle_param (const char *);
 static void set_Wextra (int);
-static unsigned int handle_option (const char **argv, unsigned int lang_mask);
 static char *write_langs (unsigned int lang_mask);
 static void complain_wrong_lang (const char *, const struct cl_option *,
 				 unsigned int lang_mask);
@@ -444,8 +443,10 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
 
 /* Handle the switch beginning at ARGV for the language indicated by
    LANG_MASK.  Returns the number of switches consumed.  */
-static unsigned int
-handle_option (const char **argv, unsigned int lang_mask)
+unsigned int
+handle_option (const char **argv,
+	       unsigned int lang_mask,
+	       unsigned int check_attribute)
 {
   size_t opt_index;
   const char *opt, *arg = 0;
@@ -482,6 +483,14 @@ handle_option (const char **argv, unsigned int lang_mask)
      unrecognized.  */
   if (!value && (option->flags & CL_REJECT_NEGATIVE))
     goto done;
+
+  /* Set only attribute options. */ 
+  if (check_attribute && !(option->flags & CL_ATTRIBUTE))
+    {
+      error ("\"%s\" is not an attribute option",
+	     option->opt_text);
+      goto done;
+    }
 
   /* We've recognized this switch.  */
   result = 1;
@@ -720,7 +729,7 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
 	  continue;
 	}
 
-      n = handle_option (argv + i, lang_mask);
+      n = handle_option (argv + i, lang_mask, 0);
 
       if (!n)
 	{
@@ -1990,11 +1999,11 @@ option_enabled (int opt_idx)
 /* Fill STATE with the current state of option OPTION.  Return true if
    there is some state to store.  */
 
-bool
+int
 get_option_state (int option, struct cl_option_state *state)
 {
   if (cl_options[option].flag_var == 0)
-    return false;
+    return 0;
 
   switch (cl_options[option].var_type)
     {
@@ -2018,7 +2027,7 @@ get_option_state (int option, struct cl_option_state *state)
       state->size = strlen (state->data) + 1;
       break;
     }
-  return true;
+  return 1;
 }
 
 /* Enable a warning option as an error.  This is used by -Werror= and

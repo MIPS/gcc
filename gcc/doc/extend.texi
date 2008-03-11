@@ -1797,7 +1797,7 @@ attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{aligned}, @code{alloc_size}, @code{noreturn},
 @code{returns_twice}, @code{noinline}, @code{always_inline},
-@code{flatten}, @code{pure}, @code{const}, @code{nothrow},
+@code{flatten}, @code{pure}, @code{option}, @code{const}, @code{nothrow},
 @code{sentinel}, @code{format}, @code{format_arg},
 @code{no_instrument_function}, @code{section}, @code{constructor},
 @code{destructor}, @code{used}, @code{unused}, @code{deprecated},
@@ -1973,6 +1973,11 @@ On the Intel 386, the @code{cdecl} attribute causes the compiler to
 assume that the calling function will pop off the stack space used to
 pass arguments.  This is
 useful to override the effects of the @option{-mrtd} switch.
+
+@item option
+@cindex @code{option} function attribute
+This is used to set specific compilation options for a particular function. 
+It will usually work for target options.
 
 @item const
 @cindex @code{const} function attribute

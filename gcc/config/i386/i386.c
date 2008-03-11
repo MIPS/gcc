@@ -1760,9 +1760,6 @@ static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 #define DEFAULT_PCC_STRUCT_RETURN 1
 #endif
 
-/* Bit flags that specify the ISA we are compiling for.  */
-int ix86_isa_flags = TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_ISA_DEFAULT;
-
 /* A mask of ix86_isa_flags that includes bit X if X
    was set or cleared on the command line.  */
 static int ix86_isa_flags_explicit;
@@ -2153,7 +2150,9 @@ override_options (void)
 	  else
 	    ix86_tune_string = "generic32";
 	}
-      else if (!strncmp (ix86_tune_string, "generic", 7))
+      else if ((strcmp (ix86_tune_string, "generic64") || !TARGET_64BIT)
+	       && strcmp (ix86_tune_string, "generic32")
+	       && !strncmp (ix86_tune_string, "generic", 7))
 	error ("bad value (%s) for -mtune= switch", ix86_tune_string);
     }
   else
@@ -2208,8 +2207,10 @@ override_options (void)
 
   if (!strcmp (ix86_arch_string, "generic"))
     error ("generic CPU can be used only for -mtune= switch");
-  if (!strncmp (ix86_arch_string, "generic", 7))
-    error ("bad value (%s) for -march= switch", ix86_arch_string);
+  else if ((strcmp (ix86_arch_string, "generic64") || !TARGET_64BIT)
+	   && strcmp (ix86_arch_string, "generic32")
+	   && !strncmp (ix86_arch_string, "generic", 7))
+    error ("bad value (%s) for -march= switch", ix86_tune_string);
 
   if (ix86_cmodel_string != 0)
     {

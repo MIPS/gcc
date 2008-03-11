@@ -1988,7 +1988,7 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
-  /* We cannot reassociate if we want traps or signed zeros.  */
+  /* We cannot reassociate if we want traps or signed zeros. Â */
   if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
     {
       warning (0, "-fassociative-math disabled; other options take precedence");
@@ -2262,6 +2262,9 @@ int
 toplev_main (unsigned int argc, const char **argv)
 {
   save_argv = argv;
+
+  /* We require for new options system. */
+  initialize_attribute_options ();
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);

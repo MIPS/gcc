@@ -450,6 +450,8 @@ extern struct tree_opt_pass pass_inline_parameters;
 extern struct tree_opt_pass pass_apply_inline;
 extern struct tree_opt_pass pass_all_early_optimizations;
 extern struct tree_opt_pass pass_update_address_taken;
+extern struct tree_opt_pass pass_push_set_options;
+extern struct tree_opt_pass pass_pop_options;
 
 /* The root of the compilation pass tree, once constructed.  */
 extern struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;

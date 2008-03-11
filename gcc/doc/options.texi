@@ -221,4 +221,10 @@ The option should only be accepted if preprocessor condition
 option will be present even if @var{cond} is false; @var{cond} simply
 controls whether the option is accepted and whether it is printed in
 the @option{--help} output.
+
+@item Attribute
+The variable specified by the @code{Var} is now transferred to a 
+structure which is dynamically modified according to a function's
+attributes or appropriate pragmas. The option is now usable in 
+function attributes and pragmas as well.
 @end table

@@ -60,17 +60,48 @@ print ""
 print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
+print "#include " quote "opts.h" quote 
+print ""
 print "extern int target_flags;"
 print "extern int target_flags_explicit;"
 print ""
 
 for (i = 0; i < n_opts; i++) {
-	name = var_name(flags[i]);
-	if (name == "")
+	name = var_name(flags[i])
+	if(name == "") 
 		continue;
 
-	print "extern " var_type(flags[i]) name ";"
+	if(name in var_written_seen) continue;
+	var_written_seen[name] ++	
+
+	if (!flag_set_p("Attribute", flags[i])) {
+		print "extern " var_type(flags[i]) " " name";"
+		continue;
+	} 
+
+	decl = var_decl(flags[i])
+	reduced_var_names [name] = "#define " name " (cl_option_stors [ OPTS_" name " ]" decl ")"
 }
+print ""
+
+print "enum optstor_code"
+print "{"
+for (reduced_var_name in reduced_var_names) {
+	if(reduced_var_name == "")
+		continue;
+	print "  OPTS_"reduced_var_name comma
+}
+#For avoiding zero-sized arrays.
+print "  OPTS_dummyindex" comma
+print "  N_OPTS_STOR"
+print "};\n"
+
+for (reduced_var_name in reduced_var_names) {
+	if(reduced_var_name == "") 
+		continue;
+	print reduced_var_names[reduced_var_name]
+}
+
 print ""
 
 for (i = 0; i < n_opts; i++) {

@@ -79,7 +79,8 @@ function switch_flags (flags)
 	  test_flag("Undocumented", flags,  " | CL_UNDOCUMENTED") \
 	  test_flag("Warning", flags,  " | CL_WARNING") \
 	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION") \
-	  test_flag("Report", flags, " | CL_REPORT")
+	  test_flag("Report", flags, " | CL_REPORT") \
+	  test_flag("Attribute", flags, " | CL_ATTRIBUTE")
 	sub( "^0 \\| ", "", result )
 	return result
 }
@@ -121,11 +122,22 @@ function static_var(name, flags)
 function var_type(flags)
 {
 	if (!flag_set_p("Joined.*", flags))
-		return "int "
+		return "int"
 	else if (flag_set_p("UInteger", flags))
-		return "int "
+		return "int"
 	else
 		return "const char *"
+}
+
+# Return the declaration of variable that should be associated with the given flags.
+function var_decl(flags)
+{
+	if (!flag_set_p("Joined.*", flags))
+		return ".ival"
+	else if (flag_set_p("UInteger", flags))
+		return ".ival"
+	else
+		return ".pcval"
 }
 
 # Given that an option has flags FLAGS, return an initializer for the

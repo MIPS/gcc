@@ -47,11 +47,11 @@ along with GCC; see the file COPYING3.  If not see
    front end in question wins.  If there is no match for the current
    front end, the longest match for a different front end is returned
    (or N_OPTS if none) and the caller emits an error message.  */
-size_t
+unsigned long
 find_opt (const char *input, int lang_mask)
 {
-  size_t mn, mx, md, opt_len;
-  size_t match_wrong_lang;
+  unsigned long mn, mx, md, opt_len;
+  unsigned long match_wrong_lang;
   int comp;
 
   mn = 0;
@@ -234,3 +234,53 @@ done:
 
   free (options);
 }
+
+typedef union cl_option_stor *cl_option_storp;
+
+struct cl_option_stors_stack
+{
+  cl_option_storp stor;
+  struct cl_option_stors_stack *prev;	
+};
+
+static struct cl_option_stors_stack *top = NULL;
+
+/* Save Attribute settable options to stack */
+void push_attribute_options(void)
+{
+  unsigned int i;
+  cl_option_storp cl_option_stors_copy = xmalloc (sizeof(union cl_option_stor)
+						  * cl_option_stors_count);
+  struct cl_option_stors_stack *ptr
+    = xmalloc (sizeof(struct cl_option_stors_stack));
+
+  for(i = 0; i < cl_option_stors_count; ++i)
+    cl_option_stors_copy[i] = cl_option_stors[i];
+
+  ptr->prev = top;
+  ptr->stor = cl_option_stors_copy;	
+  top = ptr;
+}
+
+/* Restore Attribute options from stack */
+void pop_attribute_options(void)
+{
+  unsigned int i;
+  cl_option_storp cl_option_stors_copy;
+  struct cl_option_stors_stack *ptr = top;
+
+  if (ptr)
+    {
+      cl_option_stors_copy = ptr->stor;
+      if (cl_option_stors_copy)
+	{
+	  for (i = 0; i < cl_option_stors_count; ++i)
+	    cl_option_stors[i] = cl_option_stors_copy[i];
+
+	  free (cl_option_stors_copy);
+	}
+      top = ptr->prev;
+      free (ptr);
+    }
+}
+

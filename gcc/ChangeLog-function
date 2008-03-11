@@ -1,3 +1,79 @@
+2008-03-11  Michael Meissner  <michael.meissner@amd.com>
+
+	* opts-common.c (cl_option_stors_stack): Fix spacing.
+	(cl_option_stors_stack): Ditto.
+	(push_attribute_options): Ditto.
+	(pop_attribute_options): Ditto.
+
+	* toplev.c (toplev_main): Fix spacing.
+
+	* opts.c (handle_option): Fix spacing.
+	(handle_options): Ditto.
+
+	* opts.h (cl_option_stor): Fix spacing.
+	(cl_option): Ditto.
+	(handle_option): Ditto.
+
+	* c-common.c (handle_option_attribute): Fix spacing.
+
+	* config/i386/i386.c (override_options): Fix spacing.
+
+2008-03-06  Karthik Kumar  <karthikkumar@gmail.com>
+
+	* tree-opt.c (function-specific-branch): Implemented pass_push_set_options
+	and pass_pop_options which can handle attribute versioning.
+	* passes.c (function-specific-branch): Position pass_push_set_options and
+	and pass_pop_options around rest_of_compilation. 
+	* tree-pass.h (function-specific-branch): Declare pass_push_set_options
+	and pass_pop_options.
+
+2008-01-14  Karthik Kumar  <karthikkumar@gmail.com>
+
+	* c-common.c (function-specific-branch): Implemented attribute handler
+	* opts.h (function-specific-branch): Made handle_option public so 
+	it can be reused in other code. Modified its signature to enable attribute
+	checking.
+	* opts.c (function-specific-branch): Modified to implement attribute
+	checking.
+	* config/i386/i386.c (function-specific-branch): Rewrite parts of 
+	override_options.
+	* docs/extend.texi (function-specific-branch): Document the 
+	implemented attributes.
+
+2008-01-05  Karthik Kumar  <karthikkumar@gmail.com>
+
+	* opts.h (function-specific-branch): Added union to store
+	modifiable flags; Changed bool and size_t types to enable
+	compilation of libgcc; Added declarations for 
+	initialize_attribute_options(), push_attribute_options()
+	and pop_attribute_options() and CL_ATTRIBUTE; Changed 
+	signedness of masks.
+	* opts-common.c (function-specific-branch): Modified to match
+	declarations in opts.h; Added push_attribute_options() and
+	pop_attribute_options(); Implemented a custom stack.
+	* opts.c (function-specific-branch): Modified to match
+	declarations in opts.h.
+	* toplev.c (function-specific-branch): Make a call to 
+	initialize_attribute_options in toplev_main()
+	* opt-functions.awk (function-specific-branch): Added var_decl(),
+	modified var_type() to remove trailing space to "int"; Modified
+	switch_flags to accomodate CL_ATTRIBUTE.
+	* optc-gen.awk (function-specific-branch): Modify to use attributes
+	and add initialize_attribute_options().
+	* opth-gen.awk (function-specific-branch): Modify to use attributes
+	and generate #define s for such flags.
+	* config/linux.opt (function-specific-branch): Reorder the flags
+	to generate only one definition in options.c.
+	* config/i386/i386.opt (function-specific-branch): Make all options
+	based on ix86_isa_flags use Attribute; Moved ix86_isa_flags
+	initialization into this file.
+	* config/i386/i386.h (function-specific-branch): Remove extern
+	declaration of ix86_isa_flags.
+	* config/i386/i386.c (function-specific-branch): Remove declaration of 
+	ix86_isa_flags, pushed initialization to i386.opt.
+	* docs/options.texi (function-specific-branch): Document the 
+	Attribute flag.
+
 2008-01-02  Michael Meissner  <michael.meissner@amd.com>
 
 Merged up to revision 131261 

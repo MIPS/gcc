@@ -510,6 +510,7 @@ static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
+static tree handle_option_attribute (tree *, tree, tree, int, bool *);
 static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
@@ -600,6 +601,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_unused_attribute },
   { "externally_visible",     0, 0, true,  false, false,
 			      handle_externally_visible_attribute },
+  /* For handling options specific to GCC.  */
+  { "option",                 1, 2, true, false, false, /* XXX FIXME */
+			      handle_option_attribute },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute },
@@ -4970,6 +4974,25 @@ handle_externally_visible_attribute (tree *pnode, tree name,
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* For handling "option" attribute. arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_option_attribute (tree *node,
+			 tree ARG_UNUSED (name),
+			 tree ARG_UNUSED (args),
+			 int ARG_UNUSED (flags),
+			 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "option attribute ignored");
+      *no_add_attrs=true;
     }
 
   return NULL_TREE;
