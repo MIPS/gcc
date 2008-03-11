@@ -1,3 +1,10 @@
+2008-03-12  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (build_gimple_mem_ref): Fold read from constant
+	strings.
+	* tree-ssa-ccp.c (ccp_fold): Return invariant POINTER_PLUS_EXPRs.
+	(fold_const_aggregate_ref): Handle MEM_REF and constant strings.
+
 2008-03-11  Richard Guenther  <rguenther@suse.de>
 
 	* gimplify.c (gimplify_conversion): Only do fancy folding

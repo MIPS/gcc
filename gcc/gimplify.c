@@ -3500,6 +3500,17 @@ build_gimple_mem_ref (enum tree_code code, tree type, tree base, tree offset,
 				 fold_build2 (PLUS_EXPR, sizetype,
 					      TREE_OPERAND (base, 1), offset),
 				 alias_set, align);
+  /* Fold read from a constant string.  */
+  else if (code == MEM_REF
+	   && TREE_CODE (base) == STRING_CST
+	   && TREE_CODE (offset) == INTEGER_CST
+	   && TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (TREE_TYPE (base)))
+	   && (GET_MODE_CLASS (TYPE_MODE (TREE_TYPE (TREE_TYPE (base))))
+	       == MODE_INT)
+	   && GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (base)))) == 1
+	   && compare_tree_int (offset, TREE_STRING_LENGTH (base)) < 0)
+    return build_int_cst_type (type, (TREE_STRING_POINTER (base)
+				      [TREE_INT_CST_LOW (offset)]));
 
   return build4 (code, type, base, offset,
 		 build_int_cst (integer_type_node, alias_set),

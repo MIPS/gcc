@@ -977,6 +977,19 @@ ccp_fold (tree stmt)
 	    op1 = val->value;
 	}
 
+      /* Make sure to mark invariant POINTER_PLUS_EXPRs as such, so
+	 that it gets propagated further.  This effectively does
+	 parts of the forwprop job.  */
+      if (code == POINTER_PLUS_EXPR
+	  && TREE_CODE (op0) == ADDR_EXPR
+	  && TREE_INVARIANT (op0)
+	  && TREE_CODE (op1) == INTEGER_CST)
+	{
+	  tree tem = fold_build2 (code, TREE_TYPE (rhs), op0, op1);
+	  TREE_INVARIANT (tem) = 1;
+	  return tem;
+	}
+
       return fold_binary (code, TREE_TYPE (rhs), op0, op1);
     }
 
@@ -1037,6 +1050,7 @@ fold_const_aggregate_ref (tree t)
   switch (TREE_CODE (t))
     {
     case ARRAY_REF:
+    case MEM_REF:
       /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
 	 DECL_INITIAL.  If BASE is a nested reference into another
 	 ARRAY_REF or COMPONENT_REF, make a recursive call to resolve
@@ -1103,6 +1117,10 @@ fold_const_aggregate_ref (tree t)
 					[TREE_INT_CST_LOW (idx)]));
 	  return NULL_TREE;
 	}
+
+      /* ???  We cannot easily byte-access CONSTRUCTORs.  */
+      if (TREE_CODE (t) == MEM_REF)
+	break;
 
       /* Whoo-hoo!  I'll fold ya baby.  Yeah!  */
       FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
