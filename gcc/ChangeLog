@@ -1,3 +1,116 @@
+2008-03-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31358
+	* tree-ssa-loop-manip.c (create_iv): Call force_gimple_operand for
+	the step with a NULL_TREE.
+	* tree-ssa-loop-ivopts.c (find_bivs): Convert the step
+	to sizetype if type is a pointer type.
+	(add_candidate_1): Don't convert the base and step to
+	the generic type if the orginal type is a pointer type.
+	(add_iv_value_candidates): Use sizetype for the step
+	if type is a pointer type.
+	(cand_value_at): Likewise.
+	* tree-ssa-address.c (add_to_parts): Use POINTER_PLUS_EXPR
+	for pointer types.
+	* tree-affine.c (tree_to_aff_combination <POINTER_PLUS_EXPR>):
+	Don't convert the tem affine to the type.
+	(add_elt_to_tree): Use sizetype for the step if a pointer.
+	Use POINTER_PLUS_EXPR for pointers.
+	(aff_combination_to_tree): Use sizetype for the step if a
+	pointer.
+
+2008-03-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/sse.md (ssse3_pmaddubswv8hi3, ssse3_pmaddubswv4hi3):
+	Remove commutativity hint.
+
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35438
+	PR c/35439
+	* c-parser.c (c_parser_omp_threadprivate): Don't add vars with
+	errorneous type.  Check that v is a VAR_DECL.
+
+	PR middle-end/35099
+	* tree-cfg.c (new_label_mapper): Update cfun->last_label_uid.
+
+2008-03-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/35494
+	* tree-ssa-ccp.c (get_symbol_constant_value): Check if value
+	may be overriden at link and run time.
+
+2008-03-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34677
+	* tree-ssa-pre.c (modify_expr_node_pool): Remove.
+	(poolify_tree): Likewise.
+	(modify_expr_template): Likewise.
+	(poolify_modify_stmt): Likewise.
+	(insert_fake_stores): Handle all component-ref style stores
+	in addition to INDIRECT_REF.  Also handle complex types.
+	Do not poolify the inserted load.
+	(realify_fake_stores): Do not rebuild the tree but only
+	make it a SSA_NAME copy.
+	(init_pre): Remove initialzation of modify_expr_template.
+	Do not allocate modify_expr_node_pool.
+	(fini_pre): Do not free modify_expr_node_pool.
+
+2008-03-10  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.md (UNSPEC_STACK_ALIGN, UNSPEC_PIC_OFFSET): Renumber
+	to avoid conflicts.
+
+2008-03-10  Paul Brook  <paul@codesourcery.com>
+	Mark Shinwell  <shinwell@codesourcery.com>
+
+	* config/arm/cortex-r4.md: New.
+	* config/arm/thumb2.md (divsi3, udivsi3): Annotate with
+	insn attributes.
+	* config/arm/arm.md: Include cortex-r4.md.
+	(insn): Add smmls, sdiv and udiv values.
+	(generic_sched): Don't use generic scheduling for Cortex-R4.
+	(arm_issue_rate): New function.
+	(TARGET_SCHED_ISSUE_RATE): Define.
+
+2008-03-10  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* doc/invoke.texi (-ftree-loop-distribution): Add an example.
+
+2008-03-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (get_sccvn_value): Simplify.
+	(compute_avail): Do not add stmt uses to AVAIL_OUT.
+
+2008-03-10  Paolo Bonzini  <bonzini@gnu.org>
+
+	* langhooks-def.h (LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS):
+	Set default to true.
+
+2008-03-09  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* c.opt (Wsynth): Deprecate.
+	* doc/invoke.texi (Option Summary, Warning Options): Document
+	-Wno-format-contains-nul.
+
+2008-03-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35496
+	* config/i386/i386.c (ix86_constant_alignment): Compute alignment using
+	ALIGN_MODE_128 for VECTOR_CST and INTEGER_CST in addition to REAL_CST.
+
+2008-03-09  Ira Rosen  <irar@il.ibm.com>
+
+	* config/rs6000/rs6000.c (builtin_description): Rename vector
+	left shift operations.
+	* config/rs6000/altivec.md (UNSPEC_VSL): Remove.
+	(altivec_vsl<VI_char>): Rename to ...
+	(ashl<mode>3): ... new name.
+	(mulv4sf3, mulv4si3, negv4sf2): Replace gen_altivec_vslw with
+	gen_ashlv4si3.
+	(absv4sf2): Convert to use ashift:V4SI instead of UNSPEC_VSL.
+
 2008-03-08  Richard Guenther  <rguenther@suse.de>
 
 	* coverage.h (tree_coverage_counter_addr): Declare.
@@ -379,7 +492,6 @@
 	transformations for modes that have signed zeros.
 	* ifcvt.c (noce_try_abs): Ditto.
 
->>>>>>> .r132956
 2008-03-04  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/i386/i386.c (override_options): Force
@@ -1735,8 +1847,7 @@
 	(OPTION_MASK_ISA_SSE5_UNSET): Likewise.
 	(OPTION_MASK_ISA_SSE4): Removed.
 	(ix86_handle_option): Turn on bits in ix86_isa_flags and
-	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for
-	-mXXX.
+	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for -mXXX.
 	(override_options): Don't turn on implied SSE/MMX bits in
 	ix86_isa_flags.
 

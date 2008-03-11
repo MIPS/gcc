@@ -1,3 +1,59 @@
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35328
+	* g++.dg/gomp/pr35328.C: New test.
+
+	PR c++/35337
+	* g++.dg/gomp/pr35337.C: New test.
+
+	PR c/35438
+	PR c/35439
+	* gcc.dg/gomp/pr35438.c: New test.
+	* gcc.dg/gomp/pr35439.c: New test.
+
+	PR middle-end/35099
+	* g++.dg/gomp/pr35099.C: New test.
+
+2008-03-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/range_check2.adb: New test.
+
+2008-03-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/35494
+	* g++.dg/tree-ssa/ssa-store-ccp-1.C: New.
+	* gcc.dg/tree-ssa/ssa-store-ccp-2.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-store-ccp-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-store-ccp-4.c: Likewise.
+
+2008-03-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34677
+	* gcc.dg/tree-ssa/loadpre23.c: New testcase.
+	* gcc.dg/tree-ssa/loadpre24.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre25.c: Likewise.
+
+2008-03-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35474
+	* gfortran.dg/module_commons_2.f90: New test.
+
+2008-03-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/frame_overflow.adb: Improve portability.
+
+2008-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35350
+	* gcc.target/i386/isa-1.c: Add -march=x86-64.
+	* gcc.target/i386/isa-2.c: Likewise.
+	* gcc.target/i386/isa-3.c: Likewise.
+	* gcc.target/i386/isa-10.c: Likewise.
+	* gcc.target/i386/isa-11.c: Likewise.
+	* gcc.target/i386/isa-12.c: Likewise.
+	* gcc.target/i386/isa-13.c: Likewise.
+	* gcc.target/i386/isa-14.c: Likewise.
+
 2008-03-08  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/22152

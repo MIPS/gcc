@@ -235,7 +235,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wempty-body  -Wno-endif-labels @gol
 -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
--Wno-format-extra-args -Wformat-nonliteral @gol
+-Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
 -Wformat-security  -Wformat-y2k @gol
 -Wframe-larger-than=@var{len} -Wignored-qualifiers @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
@@ -2810,6 +2810,12 @@ aspects of format checking, the options @option{-Wformat-y2k},
 @opindex Wno-format-y2k
 If @option{-Wformat} is specified, also warn about @code{strftime}
 formats which may yield only a two-digit year.
+
+@item -Wno-format-contains-nul
+@opindex Wno-format-contains-nul
+@opindex Wformat-contains-nul
+If @option{-Wformat} is specified, do not warn about format strings that
+contain NUL bytes.
 
 @item -Wno-format-extra-args
 @opindex Wno-format-extra-args
@@ -5931,7 +5937,22 @@ is used for debugging the data dependence analyzers.
 @item -ftree-loop-distribution
 Perform loop distribution.  This flag can improve cache performance on
 big loop bodies and allow further loop optimizations, like
-parallelization or vectorization, to take place.
+parallelization or vectorization, to take place.  For example, the loop
+@smallexample
+DO I = 1, N
+  A(I) = B(I) + C
+  D(I) = E(I) * F
+ENDDO
+@end smallexample
+is transformed to
+@smallexample
+DO I = 1, N
+   A(I) = B(I) + C
+ENDDO
+DO I = 1, N
+   D(I) = E(I) * F
+ENDDO
+@end smallexample
 
 @item -ftree-loop-im
 @opindex ftree-loop-im
