@@ -157,8 +157,11 @@ allocate_phi_node (size_t len)
       phi = ggc_alloc (size);
 #ifdef GATHER_STATISTICS
       phi_nodes_created++;
-      tree_node_counts[(int) phi_kind]++;
-      tree_node_sizes[(int) phi_kind] += size;
+	{
+	  enum gimple_alloc_kind kind = gimple_alloc_kind (GIMPLE_PHI);
+          gimple_alloc_counts[(int) kind]++;
+          gimple_alloc_sizes[(int) kind] += size;
+	}
 #endif
     }
 

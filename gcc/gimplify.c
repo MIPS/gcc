@@ -6833,6 +6833,15 @@ gimplify_function_tree (tree fndecl)
 
   current_function_decl = oldfn;
   pop_cfun ();
+#ifdef GATHER_STATISTICS
+  if (mem_report)
+    {
+      fprintf (stderr, "Memory consumption after gimplification for [%s]\n",
+	  IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+      dump_tree_statistics ();
+      dump_gimple_statistics ();
+    }
+#endif
 }
 
 

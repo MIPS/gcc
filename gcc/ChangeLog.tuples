@@ -1,3 +1,19 @@
+2008-03-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-phinodes.c (allocate_phi_node): Update for tuples.
+	* gimplify.c (gimplify_function_tree): Dump memory stats.
+	* gimple.c:  Declare gimple_alloc_counts, gimple_alloc_sizes,
+	and gimple_alloc_kind_names.
+	(gimple_alloc): Gather statistics for tuples.
+	(gimple_build_asm_1): Same.
+	(gimple_seq_alloc): Same.
+	(dump_gimple_statistics): New.
+	* gimple.h: Define gimple_alloc_kind.
+	(gimple_alloc_kind): New.
+	(dump_gimple_statistics): Protoize.
+	* tree-ssa-copy.c (replace_exp_1): Mark for_propagation as unused
+	(merged from mainline).
+
 2008-03-11  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @133081.

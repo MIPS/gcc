@@ -302,7 +302,8 @@ merge_alias_info (tree orig_name, tree new_name)
    replacement is done to propagate a value or not.  */
 
 static void
-replace_exp_1 (use_operand_p op_p, tree val, bool for_propagation)
+replace_exp_1 (use_operand_p op_p, tree val,
+    	       bool for_propagation ATTRIBUTE_UNUSED)
 {
   tree op = USE_FROM_PTR (op_p);
 

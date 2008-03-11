@@ -42,6 +42,23 @@ const char *const gimple_code_name[] = {
 };
 #undef DEFGSCODE
 
+#ifdef GATHER_STATISTICS
+/* Gimple stats.  */
+
+int gimple_alloc_counts[(int) gimple_alloc_kind_all];
+int gimple_alloc_sizes[(int) gimple_alloc_kind_all];
+
+/* Keep in sync with gimple.h:enum gimple_alloc_kind.  */
+static const char * const gimple_alloc_kind_names[] = {
+    "assignments",
+    "phi nodes",
+    "conditionals",
+    "sequences",
+    "everything else"
+};
+
+#endif /* GATHER_STATISTICS */
+
 /* Keep function bodies in the array GIMPLE_BODIES_VEC and use the
    pointer map GIMPLE_BODIES_MAP to quickly map a given FUNCTION_DECL
    to its corresponding position in the array of GIMPLE bodies.  */
@@ -173,6 +190,15 @@ static gimple
 gimple_alloc (enum gimple_code code)
 {
   size_t size = gimple_size (code);
+
+#ifdef GATHER_STATISTICS
+  enum gimple_alloc_kind kind = gimple_alloc_kind (code);
+
+  gimple_alloc_counts[(int) kind]++;
+  /* Statements with operands take more space.  Add that later.  */
+  gimple_alloc_sizes[(int) kind] += size;
+#endif
+
   gimple stmt = ggc_alloc_cleared (size);
   gimple_set_code (stmt, code);
   return stmt;
@@ -186,9 +212,14 @@ gimple_alloc (enum gimple_code code)
 static void
 gimple_alloc_ops (gimple stmt, size_t num_ops)
 {
-  stmt->with_ops.op = ggc_alloc_cleared (sizeof (tree) * num_ops);
+  unsigned int size = sizeof (tree) * num_ops;
+
+  stmt->with_ops.op = ggc_alloc_cleared (size);
   stmt->with_ops.num_ops = num_ops;
   stmt->with_ops.modified = 1;
+#ifdef GATHER_STATISTICS
+  gimple_alloc_sizes[(int) gimple_alloc_kind (gimple_code (stmt))] += size;
+#endif
 }
 
 
@@ -485,12 +516,17 @@ gimple_build_asm_1 (const char *string, size_t ninputs, size_t noutputs,
                     size_t nclobbers)
 {
   gimple p;
+  int size = strlen (string);
+
   p = gimple_build_with_ops (GIMPLE_ASM, 0, ninputs + noutputs + nclobbers);
 
   p->gimple_asm.ni = ninputs;
   p->gimple_asm.no = noutputs;
   p->gimple_asm.nc = nclobbers;
-  p->gimple_asm.string = ggc_alloc_string (string, -1);
+  p->gimple_asm.string = ggc_alloc_string (string, size);
+#ifdef GATHER_STATISTICS
+  gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
+#endif
   
   return p;
 }
@@ -1006,7 +1042,13 @@ gimple_seq_alloc (void)
       memset (seq, 0, sizeof (*seq));
     }
   else
-    seq = (gimple_seq) ggc_alloc_cleared (sizeof (*seq));
+    {
+      seq = (gimple_seq) ggc_alloc_cleared (sizeof (*seq));
+#ifdef GATHER_STATISTICS
+      gimple_alloc_counts[(int) gimple_alloc_kind_seq]++;
+      gimple_alloc_sizes[(int) gimple_alloc_kind_seq] += sizeof (*seq);
+#endif
+    }
 
   return seq;
 }
@@ -1952,6 +1994,33 @@ gimple_could_trap_p (gimple s)
       return false;
     }
 
+}
+
+
+/* Print debugging information for gimple stmts generated.  */
+
+void
+dump_gimple_statistics (void)
+{
+#ifdef GATHER_STATISTICS
+  int i, total_tuples = 0, total_bytes = 0;
+
+  fprintf (stderr, "\nGIMPLE statements\n");
+  fprintf (stderr, "Kind                   Stmts      Bytes\n");
+  fprintf (stderr, "---------------------------------------\n");
+  for (i = 0; i < (int) gimple_alloc_kind_all; ++i)
+    {
+      fprintf (stderr, "%-20s %7d %10d\n", gimple_alloc_kind_names[i],
+	  gimple_alloc_counts[i], gimple_alloc_sizes[i]);
+      total_tuples += gimple_alloc_counts[i];
+      total_bytes += gimple_alloc_sizes[i];
+    }
+  fprintf (stderr, "---------------------------------------\n");
+  fprintf (stderr, "%-20s %7d %10d\n", "Total", total_tuples, total_bytes);
+  fprintf (stderr, "---------------------------------------\n");
+#else
+  fprintf (stderr, "No gimple statistics\n");
+#endif
 }
 
 #include "gt-gimple.h"

@@ -201,6 +201,7 @@ dse.o-warn = -Wno-uninitialized
 ebitmap.o-warn = -Wno-uninitialized
 lower-subreg.o-warn = -Wno-uninitialized
 tree-chrec.o-warn = -Wno-uninitialized
+tree-ssa-structalias.o-warn = -Wno-uninitialized
 varasm.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
