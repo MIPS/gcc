@@ -183,7 +183,7 @@ tree_gen_edge_profiler (int edgeno ATTRIBUTE_UNUSED, edge e ATTRIBUTE_UNUSED)
   stmt2 = build_gimple_modify_stmt (gcov_type_tmp_var,
 				    build2 (PLUS_EXPR, gcov_type_node,
 					    gcov_type_tmp_var, one));
-  stmt3 = build_gimple_modify_stmt (ref, gcov_type_tmp_var);
+  stmt3 = build_gimple_modify_stmt (unshare_expr (ref), gcov_type_tmp_var);
   bsi_insert_on_edge (e, stmt1);
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
@@ -246,11 +246,10 @@ tree_gen_pow2_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATT
 #if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
   tree call, val;
   
-  ref_ptr = force_gimple_operand_bsi (&bsi,
-				      build_addr (ref, current_function_decl),
+  ref_ptr = force_gimple_operand_bsi (&bsi, ref_ptr,
 				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_pow2_profiler_fn, 2, ref_ptr, val);
@@ -271,11 +270,10 @@ tree_gen_one_value_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned ta
 #if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
   tree call, val;
   
-  ref_ptr = force_gimple_operand_bsi (&bsi,
-				      build_addr (ref, current_function_decl),
+  ref_ptr = force_gimple_operand_bsi (&bsi, ref_ptr,
 				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_one_value_profiler_fn, 2, ref_ptr, val);
@@ -300,10 +298,9 @@ tree_gen_ic_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTRI
   tree tmp1, stmt1, stmt2, stmt3;
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
 
-  ref_ptr = force_gimple_operand_bsi (&bsi,
-				      build_addr (ref, current_function_decl),
+  ref_ptr = force_gimple_operand_bsi (&bsi, ref_ptr,
 				      true, NULL_TREE, true, BSI_SAME_STMT);
 
   /* Insert code:
@@ -402,11 +399,10 @@ tree_gen_average_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag 
 #if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
   tree call, val;
   
-  ref_ptr = force_gimple_operand_bsi (&bsi,
-				      build_addr (ref, current_function_decl),
+  ref_ptr = force_gimple_operand_bsi (&bsi, ref_ptr,
 				      true, NULL_TREE,
 				      true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
@@ -428,11 +424,10 @@ tree_gen_ior_profiler (histogram_value value ATTRIBUTE_UNUSED, unsigned tag ATTR
 #if 0
   tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
-  tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
+  tree ref_ptr = tree_coverage_counter_addr (tag, base);
   tree call, val;
   
-  ref_ptr = force_gimple_operand_bsi (&bsi,
-				      build_addr (ref, current_function_decl),
+  ref_ptr = force_gimple_operand_bsi (&bsi, ref_ptr,
 				      true, NULL_TREE, true, BSI_SAME_STMT);
   val = prepare_instrumented_value (&bsi, value);
   call = build_call_expr (tree_ior_profiler_fn, 2, ref_ptr, val);

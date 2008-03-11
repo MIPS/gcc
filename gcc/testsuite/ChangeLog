@@ -1,3 +1,96 @@
+2008-03-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34677
+	* tree-ssa-pre.c (modify_expr_node_pool): Remove.
+	(poolify_tree): Likewise.
+	(modify_expr_template): Likewise.
+	(poolify_modify_stmt): Likewise.
+	(insert_fake_stores): Handle all component-ref style stores
+	in addition to INDIRECT_REF.  Also handle complex types.
+	Do not poolify the inserted load.
+	(realify_fake_stores): Do not rebuild the tree but only
+	make it a SSA_NAME copy.
+	(init_pre): Remove initialzation of modify_expr_template.
+	Do not allocate modify_expr_node_pool.
+	(fini_pre): Do not free modify_expr_node_pool.
+
+	* gcc.dg/tree-ssa/loadpre23.c: New testcase.
+	* gcc.dg/tree-ssa/loadpre24.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre25.c: Likewise.
+
+2008-03-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35474
+	* gfortran.dg/module_commons_2.f90: New test.
+
+2008-03-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/frame_overflow.adb: Improve portability.
+
+2008-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35350
+	* gcc.target/i386/isa-1.c: Add -march=x86-64.
+	* gcc.target/i386/isa-2.c: Likewise.
+	* gcc.target/i386/isa-3.c: Likewise.
+	* gcc.target/i386/isa-10.c: Likewise.
+	* gcc.target/i386/isa-11.c: Likewise.
+	* gcc.target/i386/isa-12.c: Likewise.
+	* gcc.target/i386/isa-13.c: Likewise.
+	* gcc.target/i386/isa-14.c: Likewise.
+
+2008-03-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/22152
+	* gcc.target/i386/pr22152.c: New test.
+	* gcc.target/i386/sse2-mmx.c: Ditto.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/uninit_func.adb: New test.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack4.adb: New test.
+
+2008-03-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/small_alignment.adb: New test.
+
+2008-03-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/alignment2.ads: New test.
+
+2008-03-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack3.adb: New test.
+
+2008-03-07  Peter O'Gorman  <pogma@thewrittenword.com>
+
+	PR c++/20366
+	* g++.dg/other/pr20366.C: New test.
+
+2008-03-06  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/35402
+	* gcc.dg/tree-ssa/ssa-store-ccp-1.c: New test.
+
+2008-03-06  Markus Milleder  <markus.milleder@generali.at>
+
+	PR preprocessor/35458
+	* gcc.dg/cpp/cmdlne-M-2.c: New file.
+	* gcc.dg/cpp/cmdlne-M-2#.h: New file.
+	* gcc.dg/cpp/#cmdlne-M-2.h: New file.
+
+2008-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* lib/treelang-dg.exp, lib/treelang.exp: Delete.
+	* treelang: Delete.
+
+2008-03-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/pack33.ads: New test.
+
 2008-03-05  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/35472

@@ -1,3 +1,31 @@
+2008-03-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35474
+	* module.c (mio_symtree_ref): After providing a symbol for a
+	missing equivalence member, resolve and NULL the fixups.
+
+2008-03-09  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* invoke.texi (Error and Warning Options): Document
+	-Wline-truncation.
+
+2008-03-08  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/34956
+	* trans-array.c (gfc_conv_ss_startstride): Fix the logic to avoid
+	checking bounds of absent optional arguments.
+
+2008-03-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33197
+	* intrinsic.c (add_functions): Add simplification routines for
+	ERF, DERF, ERFC and DERFC.
+	* decl.c (gfc_match_suffix, gfc_match_subroutine): Change GNU
+	extensions into Fortran 2008 features.
+	* intrinsic.h (gfc_simplify_erf, gfc_simplify_erfc): New
+	prototypes.
+	* simplify.c (gfc_simplify_erf, gfc_simplify_erfc): New functions.
+
 2008-03-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/33197
