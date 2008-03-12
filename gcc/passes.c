@@ -335,7 +335,7 @@ do_nothing_but_lower (void)
    but is a place where we can hang TODO_set_props.  */
 static struct tree_opt_pass pass_do_nothing_but_lower =
 {
-  "nothingbutlower",			/* name */
+  NULL,					/* name */
   NULL,					/* gate */
   do_nothing_but_lower,			/* execute */
   NULL,					/* sub */
@@ -346,7 +346,7 @@ static struct tree_opt_pass pass_do_nothing_but_lower =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  0,					/* todo_flags_finish */
   0					/* letter */
 };
 

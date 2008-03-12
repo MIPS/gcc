@@ -1,5 +1,11 @@
 2008-03-12  Tom Tromey  <tromey@redhat.com>
 
+	* passes.c (pass_do_nothing_but_lower) <name>: Set to NULL.
+	<todo_flags_finish>: Set to 0.
+	* tree-pass.h (struct tree_opt_pass) <name>: Document NULL.
+
+2008-03-12  Tom Tromey  <tromey@redhat.com>
+
 	* passes.c (do_nothing_but_lower): New function.
 	(pass_do_nothing_but_lower): New global.
 	(init_optimization_passes): Add pass_do_nothing_but_lower at

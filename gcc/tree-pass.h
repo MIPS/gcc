@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -91,7 +91,9 @@ extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
 /* Describe one pass.  */
 struct tree_opt_pass
 {
-  /* Terse name of the pass used as a fragment of the dump file name.  */
+  /* Terse name of the pass used as a fragment of the dump file name.
+     This can be NULL, in which case no dump file will be created for
+     this pass.  */
   const char *name;
 
   /* If non-null, this pass and all sub-passes are executed only if
