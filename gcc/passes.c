@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -325,6 +325,31 @@ struct tree_opt_pass pass_postreload =
 };
 
 
+static unsigned int
+do_nothing_but_lower (void)
+{
+  return 0;
+}
+
+/* We need an initial pass for all_lowering_passes that does nothing
+   but is a place where we can hang TODO_set_props.  */
+static struct tree_opt_pass pass_do_nothing_but_lower =
+{
+  "nothingbutlower",			/* name */
+  NULL,					/* gate */
+  do_nothing_but_lower,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_gimple_any,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
+
 
 /* The root of the compilation pass tree, once constructed.  */
 struct tree_opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
@@ -476,6 +501,7 @@ init_optimization_passes (void)
     backend might produce already lowered functions that are not processed
     by these passes.  */
   p = &all_lowering_passes;
+  NEXT_PASS (pass_do_nothing_but_lower);
   if (lang_hooks.post_gimplify_pass)
     NEXT_PASS (*lang_hooks.post_gimplify_pass);
   NEXT_PASS (pass_diagnose_omp_blocks);
