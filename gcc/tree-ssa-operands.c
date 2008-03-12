@@ -2657,15 +2657,10 @@ swap_tree_operands (gimple stmt, tree *exp0, tree *exp1)
   *exp1 = op0;
 }
 
-
-/* Add the base address of REF to the set of addresses taken by STMT.
-   REF may be a single variable whose address has been taken or any
-   other valid GIMPLE memory reference (structure reference, array,
-   etc).  If the base address of REF is a decl that has sub-variables,
-   also add all of its sub-variables.  */
+/* Add the base address of REF to SET.  */
 
 void
-gimple_add_to_addresses_taken (gimple stmt, tree ref)
+add_to_addressable_set (tree ref, bitmap *set)
 {
   tree var;
   subvar_t svars;
@@ -2680,10 +2675,10 @@ gimple_add_to_addresses_taken (gimple stmt, tree ref)
     {
       bitmap b;
 
-      if (gimple_addresses_taken (stmt) == NULL)
-	stmt->with_ops.addresses_taken = BITMAP_ALLOC (&operands_bitmap_obstack);
+      if (*set == NULL)
+	*set = BITMAP_ALLOC (&operands_bitmap_obstack);
 
-      b = gimple_addresses_taken (stmt);
+      b = *set;
 
       if (var_can_have_subvars (var)
 	  && (svars = get_subvars_for_var (var)))
@@ -2702,6 +2697,20 @@ gimple_add_to_addresses_taken (gimple stmt, tree ref)
 	  TREE_ADDRESSABLE (var) = 1;
 	}
     }
+}
+
+
+/* Add the base address of REF to the set of addresses taken by STMT.
+   REF may be a single variable whose address has been taken or any
+   other valid GIMPLE memory reference (structure reference, array,
+   etc).  If the base address of REF is a decl that has sub-variables,
+   also add all of its sub-variables.  */
+
+void
+gimple_add_to_addresses_taken (gimple stmt, tree ref)
+{
+  gcc_assert (gimple_has_ops (stmt));
+  add_to_addressable_set (ref, &stmt->with_ops.addresses_taken);
 }
 
 

@@ -1,3 +1,12 @@
+2008-03-11  Diego Novillo <dnovillo@google.com>
+
+	* tree-ssa-operands.h: Added declaration of add_to_addressable_set.
+	* tree-ssa-operands.h (add_to_addressable_set): New function.
+	(gimple_add_to_addresses_taken): Moved most of the logic to
+	add_addressable_set.
+	* tree-ssa-structalias.c (update_alias_info): Record the variables
+	whose address is taken inside a phi node.
+
 2008-03-11  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-phinodes.c (allocate_phi_node): Update for tuples.
