@@ -1,3 +1,20 @@
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_TASK_EXPLICIT_START): Define.
+	* omp-low.c (task_shared_vars): New variable.
+	(use_pointer_for_field): In OMP_TASK disallow copy-in/out
+	sharing.
+	(lower_send_shared_vars): Don't copy-out if TREE_READONLY,
+	only copy-in.
+	(lower_rec_input_clauses): Set OMP_TASK_EXPLICIT_START
+	if firstprivate or allocatable private needs to copy data from
+	outer task.  Emit GOMP_task_wait call if so.
+	(expand_task_call): Change last GOMP_task argument to bitmask.
+	* builtin-types.def (BT_FN_VOID_OMPFN_PTR_BOOL_BOOL): Remove.
+	(BT_FN_VOID_OMPFN_PTR_BOOL_UINT): New.
+	* omp-builtins.def (BUILT_IN_GOMP_TASK_START): New.
+	(BUILT_IN_GOMP_TASK): Change type of last argument.
+
 2008-03-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (check_omp_nesting_restrictions): Warn if work-sharing,

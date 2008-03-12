@@ -1,4 +1,4 @@
-/* Copyright (C) 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -63,7 +63,7 @@ gomp_end_task (void)
 void
 GOMP_task (void (*fn) (void *), void *data,
 	   bool if_clause __attribute__((unused)),
-	   bool untied __attribute__((unused)))
+	   unsigned flags __attribute__((unused)))
 {
   struct gomp_thread *thr = gomp_thread ();
   thr->task = gomp_new_task (thr->task, gomp_icv ());
@@ -73,6 +73,17 @@ GOMP_task (void (*fn) (void *), void *data,
   fn (data);
 
   gomp_end_task ();
+}
+
+/* Called after a task has been initialized.  Only should be called if
+   GOMP_task was called with GOMP_task_flag_explicit_start bit set,
+   after all firstprivate etc. copying is done.  The copying will
+   happen immediately, in the thread that created the task, afterwards
+   it can be suspended and/or moved to another thread, even if not untied.  */
+
+void
+GOMP_task_start (void)
+{
 }
 
 /* Called when encountering a taskwait directive.  */

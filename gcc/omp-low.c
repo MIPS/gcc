@@ -118,6 +118,7 @@ struct omp_for_data
 static splay_tree all_contexts;
 static int taskreg_nesting_level;
 struct omp_region *root_omp_region;
+static bitmap task_shared_vars;
 
 static void scan_omp (tree *, omp_context *);
 static void lower_omp (tree *, omp_context *);
@@ -627,11 +628,11 @@ use_pointer_for_field (const_tree decl, omp_context *shared_ctx)
 	    if (maybe_lookup_decl (decl, up))
 	      break;
 
-	  if (up && is_parallel_ctx (up))
+	  if (up && is_taskreg_ctx (up))
 	    {
 	      tree c;
 
-	      for (c = OMP_PARALLEL_CLAUSES (up->stmt);
+	      for (c = OMP_TASKREG_CLAUSES (up->stmt);
 		   c; c = OMP_CLAUSE_CHAIN (c))
 		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED
 		    && OMP_CLAUSE_DECL (c) == decl)
@@ -640,6 +641,24 @@ use_pointer_for_field (const_tree decl, omp_context *shared_ctx)
 	      if (c)
 		return true;
 	    }
+	}
+
+      /* For tasks copy-out is not possible, so force by_ref.  */
+      if (!TREE_READONLY (decl)
+	  && TREE_CODE (shared_ctx->stmt) == OMP_TASK)
+	{
+	  tree outer = maybe_lookup_decl_in_outer_ctx (decl, shared_ctx);
+	  if (is_gimple_reg (outer))
+	    {
+	      /* Taking address of OUTER in lower_send_shared_vars
+		 might need regimplification of everything that uses the
+		 variable.  */
+	      if (!task_shared_vars)
+		task_shared_vars = BITMAP_ALLOC (NULL);
+	      bitmap_set_bit (task_shared_vars, DECL_UID (outer));
+	      TREE_ADDRESSABLE (outer) = 1;
+	    }
+	  return true;
 	}
     }
 
@@ -1099,11 +1118,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  gcc_assert (is_taskreg_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
 	  gcc_assert (!is_variable_sized (decl));
-	  by_ref = use_pointer_for_field (decl, ctx);
 	  /* Global variables don't need to be copied,
 	     the receiver side will use them directly.  */
 	  if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx)))
 	    break;
+	  by_ref = use_pointer_for_field (decl, ctx);
 	  if (! TREE_READONLY (decl)
 	      || TREE_ADDRESSABLE (decl)
 	      || by_ref
@@ -1987,7 +2006,12 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	    case OMP_CLAUSE_PRIVATE:
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_PRIVATE
 		  || OMP_CLAUSE_PRIVATE_OUTER_REF (c))
-		x = build_outer_var_ref (var, ctx);
+		{
+		  x = build_outer_var_ref (var, ctx);
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		      && TREE_CODE (ctx->stmt) == OMP_TASK)
+		    OMP_TASK_EXPLICIT_START (ctx->stmt) = 1;
+		}
 	      else
 		x = NULL;
 	      x = lang_hooks.decls.omp_clause_default_ctor (c, new_var, x);
@@ -2009,6 +2033,14 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      x = build_outer_var_ref (var, ctx);
 	      x = lang_hooks.decls.omp_clause_copy_ctor (c, new_var, x);
 	      gimplify_and_add (x, ilist);
+	      if (TREE_CODE (ctx->stmt) == OMP_TASK)
+		{
+		  if (is_global_var (maybe_lookup_decl_in_outer_ctx (var,
+								     ctx))
+		      || is_variable_sized (var)
+		      || use_pointer_for_field (var, NULL))
+		    OMP_TASK_EXPLICIT_START (ctx->stmt) = 1;
+		}
 	      goto do_dtor;
 	      break;
 
@@ -2068,6 +2100,14 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
      happens after firstprivate copying in all threads.  */
   if (copyin_by_ref || lastprivate_firstprivate)
     gimplify_and_add (build_omp_barrier (), ilist);
+
+  if (TREE_CODE (ctx->stmt) == OMP_TASK
+      && OMP_TASK_EXPLICIT_START (ctx->stmt))
+    {
+      x = built_in_decls[BUILT_IN_GOMP_TASK_START];
+      x = build_call_expr (x, 0);
+      gimplify_and_add (x, ilist);
+    }
 }
 
 
@@ -2401,9 +2441,12 @@ lower_send_shared_vars (tree *ilist, tree *olist, omp_context *ctx)
 	  x = build_gimple_modify_stmt (x, var);
 	  gimplify_and_add (x, ilist);
 
-	  x = build_sender_ref (ovar, ctx);
-	  x = build_gimple_modify_stmt (var, x);
-	  gimplify_and_add (x, olist);
+	  if (!TREE_READONLY (var))
+	    {
+	      x = build_sender_ref (ovar, ctx);
+	      x = build_gimple_modify_stmt (var, x);
+	      gimplify_and_add (x, olist);
+	    }
 	}
     }
 }
@@ -2583,7 +2626,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 static void
 expand_task_call (basic_block bb, tree entry_stmt)
 {
-  tree t, t1, t2, untied, cond, c, clauses;
+  tree t, t1, t2, flags, cond, c, clauses;
   block_stmt_iterator si;
 
   clauses = OMP_TASK_CLAUSES (entry_stmt);
@@ -2595,7 +2638,9 @@ expand_task_call (basic_block bb, tree entry_stmt)
     cond = boolean_true_node;
 
   c = find_omp_clause (clauses, OMP_CLAUSE_UNTIED);
-  untied = c ? boolean_true_node : boolean_false_node;
+  flags = build_int_cst (unsigned_type_node,
+			 (c ? 1 : 0)
+			 | (OMP_TASK_EXPLICIT_START (entry_stmt) ? 2 : 0));
 
   si = bsi_last (bb);
   t = OMP_TASK_DATA_ARG (entry_stmt);
@@ -2606,7 +2651,7 @@ expand_task_call (basic_block bb, tree entry_stmt)
   t2 = build_fold_addr_expr (OMP_TASK_FN (entry_stmt));
 
   t = build_call_expr (built_in_decls[BUILT_IN_GOMP_TASK], 4, t2, t1,
-		       cond, untied);
+		       cond, flags);
 
   force_gimple_operand_bsi (&si, t, true, NULL_TREE,
 			    false, BSI_CONTINUE_LINKING);
@@ -5491,7 +5536,9 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case VAR_DECL:
-      if (ctx && DECL_HAS_VALUE_EXPR_P (t))
+      if ((ctx && DECL_HAS_VALUE_EXPR_P (t))
+	  || (task_shared_vars
+	      && bitmap_bit_p (task_shared_vars, DECL_UID (t))))
 	{
 	  lower_regimplify (&t, wi);
 	  if (wi->val_only)
@@ -5506,7 +5553,7 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case ADDR_EXPR:
-      if (ctx)
+      if (ctx || task_shared_vars)
 	lower_regimplify (tp, wi);
       break;
 
@@ -5516,12 +5563,12 @@ lower_omp_1 (tree *tp, int *walk_subtrees, void *data)
     case IMAGPART_EXPR:
     case COMPONENT_REF:
     case VIEW_CONVERT_EXPR:
-      if (ctx)
+      if (ctx || task_shared_vars)
 	lower_regimplify (tp, wi);
       break;
 
     case INDIRECT_REF:
-      if (ctx)
+      if (ctx || task_shared_vars)
 	{
 	  wi->is_lhs = false;
 	  wi->val_only = true;
@@ -5564,13 +5611,20 @@ execute_lower_omp (void)
   gcc_assert (taskreg_nesting_level == 0);
 
   if (all_contexts->root)
-    lower_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
+    {
+      if (task_shared_vars)
+	push_gimplify_context ();
+      lower_omp (&DECL_SAVED_TREE (current_function_decl), NULL);
+      if (task_shared_vars)
+	pop_gimplify_context (NULL);
+    }
 
   if (all_contexts)
     {
       splay_tree_delete (all_contexts);
       all_contexts = NULL;
     }
+  BITMAP_FREE (task_shared_vars);
   return 0;
 }
 

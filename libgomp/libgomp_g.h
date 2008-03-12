@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -95,7 +95,10 @@ extern void GOMP_parallel_end (void);
 
 /* team.c */
 
-extern void GOMP_task (void (*) (void *), void *, bool, bool);
+#define GOMP_task_flag_untied 	      1 /* UNTIED clause present.  */
+#define GOMP_task_flag_explicit_start 2 /* Explicit GOMP_task_start needed.  */
+extern void GOMP_task (void (*) (void *), void *, bool, unsigned);
+extern void GOMP_task_start (void);
 extern void GOMP_taskwait (void);
 
 /* sections.c */

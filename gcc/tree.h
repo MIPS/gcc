@@ -501,6 +501,8 @@ struct gimple_stmt GTY(())
 	   OMP_SECTION
        OMP_PARALLEL_COMBINED in
 	   OMP_PARALLEL
+       OMP_TASK_EXPLICIT_START in
+	   OMP_TASK
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
 
@@ -1802,6 +1804,11 @@ struct tree_constructor GTY(())
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
   TREE_PRIVATE (OMP_PARALLEL_CHECK (NODE))
+
+/* True on an OMP_TASK statement if explicit GOMP_task_start call
+   is needed after privatized variable initialization.  */
+#define OMP_TASK_EXPLICIT_START(NODE) \
+  TREE_PRIVATE (OMP_TASK_CHECK (NODE))
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point

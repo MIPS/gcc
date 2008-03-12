@@ -154,5 +154,6 @@ GOMP_1.0 {
 GOMP_2.0 {
   global:
 	GOMP_task;
+	GOMP_task_start;
 	GOMP_taskwait;
 } GOMP_1.0;

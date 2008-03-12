@@ -1,3 +1,13 @@
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp_g.h (GOMP_task_flag_untied,
+	GOMP_task_flag_explicit_start): Define.
+	* libgomp.map (GOMP_task_start): Export @@GOMP_2.0.
+	* task.c (GOMP_task): Change last argument.
+	(GOMP_task_start): New function.
+	* testsuite/libgomp.c/task-3.c: New test.
+	* testsuite/libgomp.c++/task-2.C: New test.
+
 2008-03-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/linux/lock.c: Rewrite to make locks task owned,
