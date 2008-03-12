@@ -1020,7 +1020,7 @@ void tree_transform_and_unroll_loop (struct loop *, unsigned,
 				     transform_callback, void *);
 bool contains_abnormal_ssa_name_p (tree);
 bool stmt_dominates_stmt_p (gimple, gimple);
-void mark_virtual_ops_for_renaming (tree);
+void mark_virtual_ops_for_renaming (gimple);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);

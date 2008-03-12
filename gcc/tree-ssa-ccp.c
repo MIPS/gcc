@@ -561,7 +561,7 @@ likely_value (gimple stmt)
      is_gimple_min_invariant, so we do not consider calls or
      other forms of assignment.  */
   if (code == GIMPLE_ASSIGN
-      && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+      && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
           == GIMPLE_SINGLE_RHS)
       && is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
     return CONSTANT;
@@ -591,7 +591,7 @@ likely_value (gimple stmt)
     return UNDEFINED;
   else if (code == GIMPLE_ASSIGN && has_undefined_operand)
     {
-      switch (gimple_assign_subcode (stmt))
+      switch (gimple_assign_rhs_code (stmt))
 	{
 	/* Unary operators are handled with all_undefined_operands.  */
 	case PLUS_EXPR:
@@ -907,7 +907,7 @@ ccp_fold (gimple stmt)
     {
     case GIMPLE_ASSIGN:
       {
-        enum tree_code subcode = gimple_assign_subcode (stmt);
+        enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
         switch (get_gimple_rhs_class (subcode))
           {
@@ -1221,7 +1221,7 @@ evaluate_stmt (gimple stmt)
       enum tree_code code = gimple_code (stmt);
       if (code == GIMPLE_ASSIGN)
         {
-          enum tree_code subcode = gimple_assign_subcode (stmt);
+          enum tree_code subcode = gimple_assign_rhs_code (stmt);
           
           /* Other cases cannot satisfy is_gimple_min_invariant
              without folding.  */
@@ -1245,7 +1245,7 @@ evaluate_stmt (gimple stmt)
      or COMPONENT_REF may not occur as a switch index.  */
   else if (!simplified)
     if (gimple_code (stmt) == GIMPLE_ASSIGN
-        && get_gimple_rhs_class (gimple_assign_subcode (stmt))
+        && get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
         == GIMPLE_SINGLE_RHS)
       simplified = fold_const_aggregate_ref (gimple_assign_rhs1 (stmt));
 
@@ -2732,7 +2732,7 @@ ccp_fold_builtin (gimple stmt)
 static bool
 fold_gimple_assign (gimple stmt)
 {
-  enum tree_code subcode = gimple_assign_subcode (stmt);
+  enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
   tree result = NULL;
 

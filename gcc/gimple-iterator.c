@@ -613,6 +613,24 @@ gsi_insert_on_edge_immediate (edge e, gimple stmt)
   return new_bb;
 }
 
+/* Insert STMTS on edge E.  If a new block has to be created, it
+   is returned.  */
+
+basic_block
+gsi_insert_seq_on_edge_immediate (edge e, gimple_seq stmts)
+{
+  gimple_stmt_iterator gsi;
+  basic_block new_bb = NULL;
+
+  gcc_assert (!PENDING_STMT (e));
+
+  if (gimple_find_edge_insert_loc (e, &gsi, &new_bb))
+    gsi_insert_seq_after (&gsi, stmts, GSI_NEW_STMT);
+  else
+    gsi_insert_seq_before (&gsi, stmts, GSI_NEW_STMT);
+
+  return new_bb;
+}
 
 /* This routine will commit all pending edge insertions, creating any new
    basic blocks which are necessary.  */

@@ -400,7 +400,7 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return;
 
-  code = gimple_assign_subcode (stmt);
+  code = gimple_assign_rhs_code (stmt);
   rhs_class = get_gimple_rhs_class (code);
 
   if(rhs_class != GIMPLE_UNARY_RHS && rhs_class != GIMPLE_BINARY_RHS)

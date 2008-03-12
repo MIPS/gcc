@@ -1687,12 +1687,12 @@ gimple_fold (const_gimple stmt)
 
     case GIMPLE_ASSIGN:
       if (gimple_num_ops (stmt) > 2)
-	return fold_binary (gimple_assign_subcode (stmt),
+	return fold_binary (gimple_assign_rhs_code (stmt),
 			    TREE_TYPE (gimple_assign_lhs (stmt)),
 			    gimple_assign_rhs1 (stmt),
 			    gimple_assign_rhs2 (stmt));
       else
-	return fold_unary (gimple_assign_subcode (stmt),
+	return fold_unary (gimple_assign_rhs_code (stmt),
 			   TREE_TYPE (gimple_assign_lhs (stmt)),
 			   gimple_assign_rhs1 (stmt));
       break;
@@ -1749,7 +1749,7 @@ gimple_assign_set_rhs_with_ops (gimple stmt, enum tree_code code, tree op1,
   size_t num_ops = get_gimple_rhs_num_ops (code);
 
   /* Reallocate the memory operands vector, if necessary.  */
-  if (get_gimple_rhs_num_ops (gimple_assign_subcode (stmt)) != num_ops)
+  if (get_gimple_rhs_num_ops (gimple_assign_rhs_code (stmt)) != num_ops)
     {
       tree lhs = gimple_assign_lhs (stmt);
       gimple_alloc_ops (stmt, num_ops + 1);

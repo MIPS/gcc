@@ -756,7 +756,7 @@ stmt_makes_single_load (gimple stmt)
 
   /* Only a GIMPLE_SINGLE_RHS assignment may have a
      declaration or reference as its RHS.  */
-  if (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
       != GIMPLE_SINGLE_RHS)
     return false;
 
@@ -1213,7 +1213,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
               /* FIXME tuples.  Do we need to handle GIMPLE_GOTO
                  destination here?  Function in GIMPLE_CALL?  */
               if (gimple_code (stmt) == GIMPLE_ASSIGN
-                  && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+                  && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
                       == GIMPLE_SINGLE_RHS))
               {
                 tree rhs = gimple_assign_rhs1 (stmt);

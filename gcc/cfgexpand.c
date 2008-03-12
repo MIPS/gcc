@@ -65,14 +65,14 @@ gimple_to_tree (gimple stmt)
       {
 	enum gimple_rhs_class class;
 	
-	class = get_gimple_rhs_class (gimple_subcode (stmt));
+	class = get_gimple_rhs_class (gimple_assign_rhs_code (stmt));
 	if (class == GIMPLE_BINARY_RHS)
-	  t = build2 (gimple_assign_subcode (stmt),
+	  t = build2 (gimple_assign_rhs_code (stmt),
 		      TREE_TYPE (gimple_assign_lhs (stmt)),
 		      gimple_assign_rhs1 (stmt),
 		      gimple_assign_rhs2 (stmt));
 	else if (class == GIMPLE_UNARY_RHS)
-	  t = build1 (gimple_assign_subcode (stmt),
+	  t = build1 (gimple_assign_rhs_code (stmt),
 		      TREE_TYPE (gimple_assign_lhs (stmt)),
 		      gimple_assign_rhs1 (stmt));
 	else if (class == GIMPLE_SINGLE_RHS)

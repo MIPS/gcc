@@ -38,8 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-inline.h"
 
-/* FIXME tuples.  */
-#if 0
 /* Creates an induction variable with value BASE + STEP * iteration in LOOP.
    It is expected that neither BASE nor STEP are shared with other expressions
    (unless the sharing rules allow this).  Use VAR as a base var_decl for it
@@ -51,10 +49,12 @@ along with GCC; see the file COPYING3.  If not see
 
 void
 create_iv (tree base, tree step, tree var, struct loop *loop,
-	   block_stmt_iterator *incr_pos, bool after,
+	   gimple_stmt_iterator *incr_pos, bool after,
 	   tree *var_before, tree *var_after)
 {
-  tree stmt, initial, step1, stmts;
+  gimple stmt;
+  tree initial, step1;
+  gimple_seq stmts;
   tree vb, va;
   enum tree_code incr_op = PLUS_EXPR;
   edge pe = loop_preheader_edge (loop);
@@ -65,10 +65,10 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
       add_referenced_var (var);
     }
 
-  vb = make_ssa_name (var, NULL_TREE);
+  vb = make_ssa_name (var, NULL);
   if (var_before)
     *var_before = vb;
-  va = make_ssa_name (var, NULL_TREE);
+  va = make_ssa_name (var, NULL);
   if (var_after)
     *var_after = va;
 
@@ -108,27 +108,24 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
      loop (i.e. the step should be loop invariant).  */
   step = force_gimple_operand (step, &stmts, true, var);
   if (stmts)
-    bsi_insert_on_edge_immediate (pe, stmts);
+    gsi_insert_seq_on_edge_immediate (pe, stmts);
 
-  stmt = build_gimple_modify_stmt (va,
-				   build2 (incr_op, TREE_TYPE (base),
-					   vb, step));
+  stmt = gimple_build_assign_with_ops (incr_op, va, vb, step);
   SSA_NAME_DEF_STMT (va) = stmt;
   if (after)
-    bsi_insert_after (incr_pos, stmt, BSI_NEW_STMT);
+    gsi_insert_after (incr_pos, stmt, GSI_NEW_STMT);
   else
-    bsi_insert_before (incr_pos, stmt, BSI_NEW_STMT);
+    gsi_insert_before (incr_pos, stmt, GSI_NEW_STMT);
 
   initial = force_gimple_operand (base, &stmts, true, var);
   if (stmts)
-    bsi_insert_on_edge_immediate (pe, stmts);
+    gsi_insert_seq_on_edge_immediate (pe, stmts);
 
   stmt = create_phi_node (vb, loop->header);
   SSA_NAME_DEF_STMT (vb) = stmt;
   add_phi_arg (stmt, initial, loop_preheader_edge (loop));
   add_phi_arg (stmt, va, loop_latch_edge (loop));
 }
-#endif
 
 /* Add exit phis for the USE on EXIT.  */
 
@@ -499,8 +496,6 @@ split_loop_exit_edge (edge exit)
   return bb;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Returns the basic block in that statements should be emitted for induction
    variables incremented at the end of the LOOP.  */
 
@@ -516,7 +511,7 @@ ip_end_pos (struct loop *loop)
 basic_block
 ip_normal_pos (struct loop *loop)
 {
-  tree last;
+  gimple last;
   basic_block bb;
   edge exit;
 
@@ -526,7 +521,7 @@ ip_normal_pos (struct loop *loop)
   bb = single_pred (loop->latch);
   last = last_stmt (bb);
   if (!last
-      || TREE_CODE (last) != COND_EXPR)
+      || gimple_code (last) != GIMPLE_COND)
     return NULL;
 
   exit = EDGE_SUCC (bb, 0);
@@ -545,21 +540,21 @@ ip_normal_pos (struct loop *loop)
    the increment should be inserted after *BSI.  */
 
 void
-standard_iv_increment_position (struct loop *loop, block_stmt_iterator *bsi,
+standard_iv_increment_position (struct loop *loop, gimple_stmt_iterator *bsi,
 				bool *insert_after)
 {
   basic_block bb = ip_normal_pos (loop), latch = ip_end_pos (loop);
-  tree last = last_stmt (latch);
+  gimple last = last_stmt (latch);
 
   if (!bb
-      || (last && TREE_CODE (last) != LABEL_EXPR))
+      || (last && gimple_code (last) != GIMPLE_LABEL))
     {
-      *bsi = bsi_last (latch);
+      *bsi = gsi_last_bb (latch);
       *insert_after = true;
     }
   else
     {
-      *bsi = bsi_last (bb);
+      *bsi = gsi_last_bb (bb);
       *insert_after = false;
     }
 }
@@ -681,7 +676,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
 			   tree *exit_base, tree *exit_step,
 			   enum tree_code *exit_cmp, tree *exit_bound)
 {
-  tree stmts;
+  gimple_seq stmts;
   tree base = desc->control.base;
   tree step = desc->control.step;
   tree bound = desc->bound;
@@ -756,7 +751,7 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
 
   cond = force_gimple_operand (unshare_expr (cond), &stmts, false, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
+    gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
   /* cond now may be a gimple comparison, which would be OK, but also any
      other gimple rhs (say a && b).  In this case we need to force it to
      operand.  */
@@ -764,16 +759,16 @@ determine_exit_conditions (struct loop *loop, struct tree_niter_desc *desc,
     {
       cond = force_gimple_operand (cond, &stmts, true, NULL_TREE);
       if (stmts)
-	bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
+	gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
     }
   *enter_cond = cond;
 
   base = force_gimple_operand (unshare_expr (base), &stmts, true, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
+    gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
   bound = force_gimple_operand (unshare_expr (bound), &stmts, true, NULL_TREE);
   if (stmts)
-    bsi_insert_on_edge_immediate (loop_preheader_edge (loop), stmts);
+    gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
 
   *exit_base = base;
   *exit_step = bigstep;
@@ -867,15 +862,18 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 				transform_callback transform,
 				void *data)
 {
-  tree  exit_if, ctr_before, ctr_after;
+  gimple exit_if;
+  tree ctr_before, ctr_after;
   tree enter_main_cond, exit_base, exit_step, exit_bound;
   enum tree_code exit_cmp;
-  tree phi_old_loop, phi_new_loop, phi_rest, init, next, new_init, var;
+  gimple phi_old_loop, phi_new_loop, phi_rest;
+  gimple_stmt_iterator psi_old_loop, psi_new_loop;
+  tree init, next, new_init, var;
   struct loop *new_loop;
   basic_block rest, exit_bb;
   edge old_entry, new_entry, old_latch, precond_edge, new_exit;
   edge new_nonexit, e;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
   use_operand_p op;
   bool ok;
   unsigned est_niter, prob_entry, scale_unrolled, scale_rest, freq_e, freq_h;
@@ -945,11 +943,12 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 				  REG_BR_PROB_BASE,
 				  REG_BR_PROB_BASE - exit->probability);
 
-  bsi = bsi_last (exit_bb);
-  exit_if = build3 (COND_EXPR, void_type_node, boolean_true_node,
-		    NULL_TREE, NULL_TREE);
+  bsi = gsi_last_bb (exit_bb);
+  exit_if = gimple_build_cond (EQ_EXPR, integer_zero_node,
+			       integer_zero_node,
+			       NULL_TREE, NULL_TREE);
 
-  bsi_insert_after (&bsi, exit_if, BSI_NEW_STMT);
+  gsi_insert_after (&bsi, exit_if, GSI_NEW_STMT);
   new_exit = make_edge (exit_bb, rest, EDGE_FALSE_VALUE | irr);
   rescan_loop_exit (new_exit, true, false);
 
@@ -970,12 +969,14 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   old_entry = loop_preheader_edge (loop);
   new_entry = loop_preheader_edge (new_loop);
   old_latch = loop_latch_edge (loop);
-  for (phi_old_loop = phi_nodes (loop->header),
-       phi_new_loop = phi_nodes (new_loop->header);
-       phi_old_loop;
-       phi_old_loop = PHI_CHAIN (phi_old_loop),
-       phi_new_loop = PHI_CHAIN (phi_new_loop))
+  for (psi_old_loop = gsi_start (phi_nodes (loop->header)),
+       psi_new_loop = gsi_start (phi_nodes (new_loop->header));
+       !gsi_end_p (psi_old_loop);
+       gsi_next (&psi_old_loop), gsi_next (&psi_new_loop))
     {
+      phi_old_loop = gsi_stmt (psi_old_loop);
+      phi_new_loop = gsi_stmt (psi_new_loop);
+
       init = PHI_ARG_DEF_FROM_EDGE (phi_old_loop, old_entry);
       op = PHI_ARG_DEF_PTR_FROM_EDGE (phi_new_loop, new_entry);
       gcc_assert (operand_equal_for_phi_arg_p (init, USE_FROM_PTR (op)));
@@ -994,7 +995,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 	  add_referenced_var (var);
 	}
 
-      new_init = make_ssa_name (var, NULL_TREE);
+      new_init = make_ssa_name (var, NULL);
       phi_rest = create_phi_node (new_init, rest);
       SSA_NAME_DEF_STMT (new_init) = phi_rest;
 
@@ -1015,7 +1016,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   sbitmap_ones (wont_exit);
   RESET_BIT (wont_exit, factor - 1);
 
-  ok = tree_duplicate_loop_to_header_edge
+  ok = gimple_duplicate_loop_to_header_edge
 	  (loop, loop_latch_edge (loop), factor - 1,
 	   wont_exit, new_exit, &to_remove, DLTHE_FLAG_UPDATE_FREQ);
   free (wont_exit);
@@ -1057,12 +1058,13 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 
   /* Finally create the new counter for number of iterations and add the new
      exit instruction.  */
-  bsi = bsi_last (exit_bb);
-  exit_if = bsi_stmt (bsi);
+  bsi = gsi_last_bb (exit_bb);
+  exit_if = gsi_stmt (bsi);
   create_iv (exit_base, exit_step, NULL_TREE, loop,
 	     &bsi, false, &ctr_before, &ctr_after);
-  COND_EXPR_COND (exit_if) = build2 (exit_cmp, boolean_type_node, ctr_after,
-				     exit_bound);
+  gimple_cond_set_code (exit_if, exit_cmp);
+  gimple_cond_set_lhs (exit_if, ctr_after);
+  gimple_cond_set_rhs (exit_if, exit_bound);
   update_stmt (exit_if);
 
 #ifdef ENABLE_CHECKING
@@ -1084,4 +1086,3 @@ tree_unroll_loop (struct loop *loop, unsigned factor,
   tree_transform_and_unroll_loop (loop, factor, exit, desc,
 				  NULL, NULL);
 }
-#endif

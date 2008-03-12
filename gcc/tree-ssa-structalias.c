@@ -3494,7 +3494,7 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, gimple expr)
   unsigned int rhsoffset = 0;
   bool unknown_addend = false;
 
-  if (gimple_assign_subcode (expr) != POINTER_PLUS_EXPR)
+  if (gimple_assign_rhs_code (expr) != POINTER_PLUS_EXPR)
     return false;
 
   op0 = gimple_assign_rhs1 (expr);

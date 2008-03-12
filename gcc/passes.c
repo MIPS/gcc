@@ -552,7 +552,10 @@ init_optimization_passes (void)
 #if 0
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
+#endif
           NEXT_PASS (pass_profile);
+/* FIXME tuples.  */
+#if 0
 	  NEXT_PASS (pass_release_ssa_names);
 #endif
 	}
@@ -672,7 +675,9 @@ init_optimization_passes (void)
 #if 0
 	  NEXT_PASS (pass_empty_loop);
 	  NEXT_PASS (pass_record_bounds);
+#endif
 	  NEXT_PASS (pass_check_data_deps);
+#if 0
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_linear_transform);
 	  NEXT_PASS (pass_iv_canon);
@@ -685,7 +690,9 @@ init_optimization_passes (void)
 	    }
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_parallelize_loops);
+#endif
 	  NEXT_PASS (pass_loop_prefetch);
+#if 0
 	  NEXT_PASS (pass_iv_optimize);
 #endif
 	  NEXT_PASS (pass_tree_loop_done);

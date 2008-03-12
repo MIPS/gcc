@@ -112,23 +112,27 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   update_stmt (cond);
 }
 
+#endif
+
 /* Computes an estimated number of insns in LOOP, weighted by WEIGHTS.  */
 
 unsigned
 tree_num_loop_insns (struct loop *loop, eni_weights *weights)
 {
   basic_block *body = get_loop_body (loop);
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
   unsigned size = 1, i;
 
   for (i = 0; i < loop->num_nodes; i++)
-    for (bsi = bsi_start (body[i]); !bsi_end_p (bsi); bsi_next (&bsi))
-      size += estimate_num_insns (bsi_stmt (bsi), weights);
+    for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
+      size += estimate_num_insns (gsi_stmt (bsi), weights);
   free (body);
 
   return size;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Estimate number of insns of completely unrolled loop.  We assume
    that the size of the unrolled loop is decreased in the
    following way (the numbers of insns are based on what

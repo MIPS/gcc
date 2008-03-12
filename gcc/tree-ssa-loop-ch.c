@@ -226,7 +226,7 @@ copy_loop_headers (void)
 		    gimple_set_no_warning (stmt, true);
 		  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
 		    {
-		      enum tree_code rhs_code = gimple_assign_subcode (stmt);
+		      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 		      if (TREE_CODE_CLASS (rhs_code) == tcc_comparison)
 			gimple_set_no_warning (stmt, true);
 		    }

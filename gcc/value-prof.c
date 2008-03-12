@@ -611,7 +611,7 @@ gimple_divmod_fixed_value_transform (gimple stmt)
   if (!INTEGRAL_TYPE_P (TREE_TYPE (op)))
     return false;
 
-  code = gimple_assign_subcode (stmt);
+  code = gimple_assign_rhs_code (stmt);
   
   if (code != TRUNC_DIV_EXPR && code != TRUNC_MOD_EXPR)
     return false;

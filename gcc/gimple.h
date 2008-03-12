@@ -208,10 +208,10 @@ struct gimple_statement_base GTY(())
      structure grow an additional word on 32bit hosts.  */
   unsigned int no_warning	: 1;
   unsigned int visited		: 1;
+  unsigned int nontemporal_move	: 1;
   unsigned int unused_1		: 1;
   unsigned int unused_2		: 1;
   unsigned int unused_3		: 1;
-  unsigned int unused_4		: 1;
 
   /* Pass local flags.  These flags are free for any pass to use as
      they see fit.  Passes should not assume that these flags contain
@@ -1040,17 +1040,6 @@ gimple_addresses_taken (gimple stmt)
 }
 
 
-/* Return the code of the expression computed on the RHS of assignment
-   statement GS.  */
-
-static inline enum tree_code
-gimple_assign_subcode (const_gimple gs)
-{
-  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
-  return gimple_subcode (gs);
-}
-
-
 /* Return the LHS of assignment statement GS.  */
 
 static inline tree
@@ -1112,14 +1101,20 @@ gimple_assign_set_rhs1 (gimple gs, tree rhs)
 }
 
 
-/* Return the second operand on the RHS of assignment statement GS.  */
+/* Return the second operand on the RHS of assignment statement GS.
+   If GS does not have two operands, NULL is returned instead.  */
 
 static inline tree
 gimple_assign_rhs2 (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
-  return gimple_op (gs, 2);
+
+  if (gimple_num_ops (gs) >= 3)
+    return gimple_op (gs, 2);
+  else
+    return NULL_TREE;
 }
+
 
 /* Return a pointer to the second operand on the RHS of assignment
    statement GS.  */
@@ -1142,6 +1137,23 @@ gimple_assign_set_rhs2 (gimple gs, tree rhs)
   gimple_set_op (gs, 2, rhs);
 }
 
+/* Returns true if GS is a nontemporal move.  */
+
+static inline bool
+gimple_assign_nontemporal_move_p (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return gs->gsbase.nontemporal_move;
+}
+
+/* Sets nontemporal move flag of GS to NONTEMPORAL.  */
+
+static inline void
+gimple_assign_set_nontemporal_move (gimple gs, bool nontemporal)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  gs->gsbase.nontemporal_move = nontemporal;
+}
 
 /* Return true if S is an type-cast assignment.  */
 
@@ -3015,6 +3027,7 @@ void gsi_move_to_bb_end (gimple_stmt_iterator *, struct basic_block_def *);
 void gsi_insert_on_edge (edge, gimple);
 void gsi_insert_seq_on_edge (edge, gimple_seq);
 basic_block gsi_insert_on_edge_immediate (edge, gimple);
+basic_block gsi_insert_seq_on_edge_immediate (edge, gimple_seq);
 void gsi_commit_one_edge_insert (edge, basic_block *);
 void gsi_commit_edge_inserts (void);
 

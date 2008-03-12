@@ -99,6 +99,23 @@ get_gimple_rhs_class (enum tree_code code)
   return GIMPLE_INVALID_RHS;
 }
 
+/* Return the code of the expression computed on the rhs of assignment
+   statement GS.  In case that the rhs is a single object, returns the
+   tree code of the object.  */
+
+enum tree_code
+gimple_assign_rhs_code (const_gimple gs)
+{
+  enum tree_code code;
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+
+  code = gimple_subcode (gs);
+  if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
+    code = TREE_CODE (gimple_assign_rhs1 (gs));
+
+  return code;
+}
+
 
 /* Return the number of operands needed on the RHS of a GIMPLE
    assignment for an expression with tree code CODE.  */

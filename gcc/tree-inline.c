@@ -2412,7 +2412,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       else
 	cost = estimate_move_cost (TREE_TYPE (lhs));
 
-      cost += estimate_operator_cost (gimple_assign_subcode (stmt), weights);
+      cost += estimate_operator_cost (gimple_assign_rhs_code (stmt), weights);
       break;
 
     case GIMPLE_COND:

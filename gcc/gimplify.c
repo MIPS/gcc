@@ -4023,6 +4023,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	 we're probably modified it twice.  Not good.  */
       gcc_assert (TREE_CODE (*to_p) != SSA_NAME);
       *to_p = make_ssa_name (*to_p, assign);
+      gimple_assign_set_lhs (assign, *to_p);
     }
 
   if (want_value)

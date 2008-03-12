@@ -360,6 +360,7 @@ iv_cand (struct ivopts_data *data, unsigned i)
 {
   return VEC_index (iv_cand_p, data->iv_candidates, i);
 }
+#endif
 
 /* The single loop exit if it dominates the latch, NULL otherwise.  */
 
@@ -377,6 +378,8 @@ single_dom_exit (struct loop *loop)
   return exit;
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Dumps information about the induction variable IV to FILE.  */
 
 extern void dump_iv (FILE *, struct iv *);

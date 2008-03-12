@@ -465,7 +465,7 @@ stmt_cost (gimple stmt)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return cost;
 
-  switch (gimple_assign_subcode (stmt))
+  switch (gimple_assign_rhs_code (stmt))
     {
     case MULT_EXPR:
     case TRUNC_DIV_EXPR:
@@ -646,8 +646,8 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
     return stmt;
 
   /* There is a conversion in between possibly inserted by fold.  */
-  if (gimple_assign_subcode (stmt1) == NOP_EXPR
-      || gimple_assign_subcode (stmt1) == CONVERT_EXPR)
+  if (gimple_assign_rhs_code (stmt1) == NOP_EXPR
+      || gimple_assign_rhs_code (stmt1) == CONVERT_EXPR)
     {
       t = gimple_assign_rhs1 (stmt1);
       if (TREE_CODE (t) != SSA_NAME
@@ -660,7 +660,7 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
 
   /* Verify that B is loop invariant but A is not.  Verify that with
      all the stmt walking we are still in the same loop.  */
-  if (gimple_assign_subcode (stmt1) != RSHIFT_EXPR
+  if (gimple_assign_rhs_code (stmt1) != RSHIFT_EXPR
       || loop_containing_stmt (stmt1) != loop_containing_stmt (stmt))
     return stmt;
 
@@ -738,7 +738,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	}
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN
-	  && (get_gimple_rhs_class (gimple_assign_subcode (stmt))
+	  && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 	      == GIMPLE_BINARY_RHS))
 	{
 	  tree op0 = gimple_assign_rhs1 (stmt);
@@ -749,7 +749,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  /* If divisor is invariant, convert a/b to a*(1/b), allowing reciprocal
 	     to be hoisted out of loop, saving expensive divide.  */
 	  if (pos == MOVE_POSSIBLE
-	      && gimple_assign_subcode (stmt) == RDIV_EXPR
+	      && gimple_assign_rhs_code (stmt) == RDIV_EXPR
 	      && flag_unsafe_math_optimizations
 	      && !flag_trapping_math
 	      && ol1 != NULL
@@ -760,7 +760,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	     A & (1 << B) allowing the bit mask to be hoisted out of the loop
 	     saving an expensive shift.  */
 	  if (pos == MOVE_POSSIBLE
-	      && gimple_assign_subcode (stmt) == BIT_AND_EXPR
+	      && gimple_assign_rhs_code (stmt) == BIT_AND_EXPR
 	      && integer_onep (op1)
 	      && TREE_CODE (op0) == SSA_NAME
 	      && has_single_use (op0))
@@ -1324,7 +1324,7 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     goto fail;
 
   lhs = gimple_assign_lhs_ptr (stmt);
-  rhs_code = gimple_assign_subcode (stmt);
+  rhs_code = gimple_assign_rhs_code (stmt);
   if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
     rhs = gimple_assign_rhs1_ptr (stmt);
   else

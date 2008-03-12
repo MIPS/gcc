@@ -1386,6 +1386,8 @@ get_init_expr (chain_p chain, unsigned index)
     return VEC_index (tree, chain->inits, index);
 }
 
+#endif
+
 /* Marks all virtual operands of statement STMT for renaming.  */
 
 void
@@ -1394,7 +1396,7 @@ mark_virtual_ops_for_renaming (gimple stmt)
   ssa_op_iter iter;
   tree var;
 
-  if (gimple_code (stmt) == GIMPLE_PI)
+  if (gimple_code (stmt) == GIMPLE_PHI)
     {
       var = PHI_RESULT (stmt);
       if (is_gimple_reg (var))
@@ -1416,6 +1418,8 @@ mark_virtual_ops_for_renaming (gimple stmt)
     }
 }
 
+   /* FIXME tuples.  */
+#if 0
 /* Calls mark_virtual_ops_for_renaming for all members of LIST.  */
 
 static void

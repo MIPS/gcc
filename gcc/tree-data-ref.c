@@ -93,9 +93,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 
-/* FIXME tuples.  */
-#if 0
-
 static struct datadep_stats
 {
   int num_dependence_tests;
@@ -189,7 +186,7 @@ dump_data_reference (FILE *outf,
   unsigned int i;
   
   fprintf (outf, "(Data Ref: \n  stmt: ");
-  print_generic_stmt (outf, DR_STMT (dr), 0);
+  print_gimple_stmt (outf, DR_STMT (dr), 0, 0);
   fprintf (outf, "  ref: ");
   print_generic_stmt (outf, DR_REF (dr), 0);
   fprintf (outf, "  base_object: ");
@@ -500,68 +497,64 @@ dump_ddrs (FILE *file, VEC (ddr_p, heap) *ddrs)
   fprintf (file, "\n\n");
 }
 
-/* Expresses EXP as VAR + OFF, where off is a constant.  The type of OFF
-   will be ssizetype.  */
+/* Helper function for split_constant_offset.  Expresses OP0 CODE OP1
+   (the type of the result is TYPE) as VAR + OFF, where OFF is a nonzero
+   constant of type ssizetype, and returns true.  If we cannot do this
+   with OFF nonzero, OFF and VAR are set to NULL_TREE instead and false
+   is returned.  */
 
-void
-split_constant_offset (tree exp, tree *var, tree *off)
+static bool
+split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
+			 tree *var, tree *off)
 {
-  tree type = TREE_TYPE (exp), otype;
   tree var0, var1;
   tree off0, off1;
-  enum tree_code code;
 
-  *var = exp;
-  STRIP_NOPS (exp);
-  otype = TREE_TYPE (exp);
-  code = TREE_CODE (exp);
+  *var = NULL_TREE;
+  *off = NULL_TREE;
 
   switch (code)
     {
     case INTEGER_CST:
       *var = build_int_cst (type, 0);
-      *off = fold_convert (ssizetype, exp);
-      return;
+      *off = fold_convert (ssizetype, op0);
+      return true;
 
     case POINTER_PLUS_EXPR:
       code = PLUS_EXPR;
       /* FALLTHROUGH */
     case PLUS_EXPR:
     case MINUS_EXPR:
-      split_constant_offset (TREE_OPERAND (exp, 0), &var0, &off0);
-      split_constant_offset (TREE_OPERAND (exp, 1), &var1, &off1);
-      *var = fold_convert (type, fold_build2 (TREE_CODE (exp), otype, 
-					      var0, var1));
+      split_constant_offset (op0, &var0, &off0);
+      split_constant_offset (op1, &var1, &off1);
+      *var = fold_build2 (code, type, var0, var1);
       *off = size_binop (code, off0, off1);
-      return;
+      return true;
 
     case MULT_EXPR:
-      off1 = TREE_OPERAND (exp, 1);
-      if (TREE_CODE (off1) != INTEGER_CST)
-	break;
+      if (TREE_CODE (op1) != INTEGER_CST)
+	return false;
 
-      split_constant_offset (TREE_OPERAND (exp, 0), &var0, &off0);
-      *var = fold_convert (type, fold_build2 (MULT_EXPR, otype,
-					      var0, off1));
-      *off = size_binop (MULT_EXPR, off0, fold_convert (ssizetype, off1));
-      return;
+      split_constant_offset (op0, &var0, &off0);
+      *var = fold_build2 (MULT_EXPR, type, var0, op1);
+      *off = size_binop (MULT_EXPR, off0, fold_convert (ssizetype, op1));
+      return true;
 
     case ADDR_EXPR:
       {
-	tree op, base, poffset;
+	tree base, poffset;
 	HOST_WIDE_INT pbitsize, pbitpos;
 	enum machine_mode pmode;
 	int punsignedp, pvolatilep;
 
-	op = TREE_OPERAND (exp, 0);
-	if (!handled_component_p (op))
-	  break;
+	if (!handled_component_p (op0))
+	  return false;
 
-	base = get_inner_reference (op, &pbitsize, &pbitpos, &poffset,
+	base = get_inner_reference (op0, &pbitsize, &pbitpos, &poffset,
 				    &pmode, &punsignedp, &pvolatilep, false);
 
 	if (pbitpos % BITS_PER_UNIT != 0)
-	  break;
+	  return false;
 	base = build_fold_addr_expr (base);
 	off0 = ssize_int (pbitpos / BITS_PER_UNIT);
 
@@ -595,40 +588,53 @@ split_constant_offset (tree exp, tree *var, tree *off)
 	while (POINTER_TYPE_P (type))
 	  type = TREE_TYPE (type);
 	if (int_size_in_bytes (type) < 0)
-	  break;
+	  return false;
 
 	*var = var0;
 	*off = off0;
-	return;
+	return true;
       }
 
     case SSA_NAME:
       {
-	tree def_stmt = SSA_NAME_DEF_STMT (exp);
-	if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT)
-	  {
-	    tree def_stmt_rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	gimple def_stmt = SSA_NAME_DEF_STMT (op0);
+	enum tree_code subcode;
 
-	    if (!TREE_SIDE_EFFECTS (def_stmt_rhs) 
-		&& EXPR_P (def_stmt_rhs)
-		&& !REFERENCE_CLASS_P (def_stmt_rhs)
-		&& !get_call_expr_in (def_stmt_rhs))
-	      {
-		split_constant_offset (def_stmt_rhs, &var0, &off0);
-		var0 = fold_convert (type, var0);
-		*var = var0;
-		*off = off0;
-		return;
-	      }
-	  }
-	break;
+	if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
+	  return false;
+
+	var0 = gimple_assign_rhs1 (def_stmt);
+	subcode = gimple_assign_rhs_code (def_stmt);
+	var1 = gimple_assign_rhs2 (def_stmt);
+
+	return split_constant_offset_1 (type, var0, subcode, var1, var, off);
       }
 
     default:
-      break;
+      return false;
     }
+}
 
-  *off = ssize_int (0);
+/* Expresses EXP as VAR + OFF, where off is a constant.  The type of OFF
+   will be ssizetype.  */
+
+void
+split_constant_offset (tree exp, tree *var, tree *off)
+{
+  tree type = TREE_TYPE (exp), otype, op0, op1;
+  enum tree_code code;
+
+  STRIP_NOPS (exp);
+  otype = TREE_TYPE (exp);
+  code = TREE_CODE (exp);
+  extract_ops_from_tree (exp, &code, &op0, &op1);
+  if (split_constant_offset_1 (otype, op0, code, op1, var, off))
+    *var = fold_convert (type, *var);
+  else
+    {
+      *var = exp;
+      *off = ssize_int (0);
+    }
 }
 
 /* Returns the address ADDR of an object in a canonical shape (without nop
@@ -658,7 +664,7 @@ canonicalize_base_object_address (tree addr)
 void
 dr_analyze_innermost (struct data_reference *dr)
 {
-  tree stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   struct loop *loop = loop_containing_stmt (stmt);
   tree ref = DR_REF (dr);
   HOST_WIDE_INT pbitsize, pbitpos;
@@ -729,7 +735,7 @@ dr_analyze_innermost (struct data_reference *dr)
 static void
 dr_analyze_indices (struct data_reference *dr, struct loop *nest)
 {
-  tree stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   struct loop *loop = loop_containing_stmt (stmt);
   VEC (tree, heap) *access_fns = NULL;
   tree ref = unshare_expr (DR_REF (dr)), aref = ref, op;
@@ -773,7 +779,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
 static void
 dr_analyze_alias (struct data_reference *dr)
 {
-  tree stmt = DR_STMT (dr);
+  gimple stmt = DR_STMT (dr);
   tree ref = DR_REF (dr);
   tree base = get_base_address (ref), addr, smt = NULL_TREE;
   ssa_op_iter it;
@@ -836,7 +842,7 @@ free_data_ref (data_reference_p dr)
    loop nest in that the reference should be analyzed.  */
 
 struct data_reference *
-create_data_ref (struct loop *nest, tree memref, tree stmt, bool is_read)
+create_data_ref (struct loop *nest, tree memref, gimple stmt, bool is_read)
 {
   struct data_reference *dr;
 
@@ -1522,8 +1528,8 @@ analyze_ziv_subscript (tree chrec_a,
     fprintf (dump_file, "(analyze_ziv_subscript \n");
 
   type = signed_type_for_types (TREE_TYPE (chrec_a), TREE_TYPE (chrec_b));
-  chrec_a = chrec_convert (type, chrec_a, NULL_TREE);
-  chrec_b = chrec_convert (type, chrec_b, NULL_TREE);
+  chrec_a = chrec_convert (type, chrec_a, NULL);
+  chrec_b = chrec_convert (type, chrec_b, NULL);
   difference = chrec_fold_minus (type, chrec_a, chrec_b);
   
   switch (TREE_CODE (difference))
@@ -1653,8 +1659,8 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
   tree type, difference, tmp;
 
   type = signed_type_for_types (TREE_TYPE (chrec_a), TREE_TYPE (chrec_b));
-  chrec_a = chrec_convert (type, chrec_a, NULL_TREE);
-  chrec_b = chrec_convert (type, chrec_b, NULL_TREE);
+  chrec_a = chrec_convert (type, chrec_a, NULL);
+  chrec_b = chrec_convert (type, chrec_b, NULL);
   difference = chrec_fold_minus (type, initial_condition (chrec_b), chrec_a);
   
   if (!chrec_is_positive (initial_condition (difference), &value0))
@@ -2324,7 +2330,7 @@ can_use_analyze_subscript_affine_affine (tree *chrec_a, tree *chrec_b)
 
   type = chrec_type (*chrec_a);
   left_a = CHREC_LEFT (*chrec_a);
-  left_b = chrec_convert (type, CHREC_LEFT (*chrec_b), NULL_TREE);
+  left_b = chrec_convert (type, CHREC_LEFT (*chrec_b), NULL);
   diff = chrec_fold_minus (type, left_a, left_b);
 
   if (!evolution_function_is_constant_p (diff))
@@ -2335,7 +2341,7 @@ can_use_analyze_subscript_affine_affine (tree *chrec_a, tree *chrec_b)
 
   *chrec_a = build_polynomial_chrec (CHREC_VARIABLE (*chrec_a), 
 				     diff, CHREC_RIGHT (*chrec_a));
-  right_b = chrec_convert (type, CHREC_RIGHT (*chrec_b), NULL_TREE);
+  right_b = chrec_convert (type, CHREC_RIGHT (*chrec_b), NULL);
   *chrec_b = build_polynomial_chrec (CHREC_VARIABLE (*chrec_b),
 				     build_int_cst (type, 0),
 				     right_b);
@@ -2481,8 +2487,8 @@ analyze_miv_subscript (tree chrec_a,
     fprintf (dump_file, "(analyze_miv_subscript \n");
 
   type = signed_type_for_types (TREE_TYPE (chrec_a), TREE_TYPE (chrec_b));
-  chrec_a = chrec_convert (type, chrec_a, NULL_TREE);
-  chrec_b = chrec_convert (type, chrec_b, NULL_TREE);
+  chrec_a = chrec_convert (type, chrec_a, NULL);
+  chrec_b = chrec_convert (type, chrec_b, NULL);
   difference = chrec_fold_minus (type, chrec_a, chrec_b);
   
   if (eq_evolutions_p (chrec_a, chrec_b))
@@ -3432,8 +3438,8 @@ omega_setup_subscript (tree access_fun_a, tree access_fun_b,
   int eq;
   tree type = signed_type_for_types (TREE_TYPE (access_fun_a),
 				     TREE_TYPE (access_fun_b));
-  tree fun_a = chrec_convert (type, access_fun_a, NULL_TREE);
-  tree fun_b = chrec_convert (type, access_fun_b, NULL_TREE);
+  tree fun_a = chrec_convert (type, access_fun_a, NULL);
+  tree fun_b = chrec_convert (type, access_fun_b, NULL);
   tree difference = chrec_fold_minus (type, fun_a, fun_b);
 
   /* When the fun_a - fun_b is not constant, the dependence is not
@@ -3793,9 +3799,9 @@ compute_affine_dependence (struct data_dependence_relation *ddr,
     {
       fprintf (dump_file, "(compute_affine_dependence\n");
       fprintf (dump_file, "  (stmt_a = \n");
-      print_generic_expr (dump_file, DR_STMT (dra), 0);
+      print_gimple_stmt (dump_file, DR_STMT (dra), 0, 0);
       fprintf (dump_file, ")\n  (stmt_b = \n");
-      print_generic_expr (dump_file, DR_STMT (drb), 0);
+      print_gimple_stmt (dump_file, DR_STMT (drb), 0, 0);
       fprintf (dump_file, ")\n");
     }
 
@@ -3945,31 +3951,31 @@ compute_all_dependences (VEC (data_reference_p, heap) *datarefs,
    true if STMT clobbers memory, false otherwise.  */
 
 bool
-get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
+get_references_in_stmt (gimple stmt, VEC (data_ref_loc, heap) **references)
 {
   bool clobbers_memory = false;
   data_ref_loc *ref;
-  tree *op0, *op1, call;
+  tree *op0, *op1;
+  enum gimple_code stmt_code = gimple_code (stmt);
 
   *references = NULL;
 
   /* ASM_EXPR and CALL_EXPR may embed arbitrary side effects.
      Calls have side-effects, except those to const or pure
      functions.  */
-  call = get_call_expr_in (stmt);
-  if ((call
-       && !(call_expr_flags (call) & (ECF_CONST | ECF_PURE)))
-      || (TREE_CODE (stmt) == ASM_EXPR
-	  && ASM_VOLATILE_P (stmt)))
+  if ((stmt_code == GIMPLE_CALL
+       && !(gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
+      || (stmt_code == GIMPLE_ASM
+	  && gimple_asm_volatile_p (stmt)))
     clobbers_memory = true;
 
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return clobbers_memory;
 
-  if (TREE_CODE (stmt) ==  GIMPLE_MODIFY_STMT)
+  if (stmt_code == GIMPLE_ASSIGN)
     {
-      op0 = &GIMPLE_STMT_OPERAND (stmt, 0);
-      op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
+      op0 = gimple_assign_lhs_ptr (stmt);
+      op1 = gimple_assign_rhs1_ptr (stmt);
 		
       if (DECL_P (*op1)
 	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
@@ -3987,14 +3993,13 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 	  ref->is_read = false;
 	}
     }
-
-  if (call)
+  else if (stmt_code == GIMPLE_CALL)
     {
-      unsigned i, n = call_expr_nargs (call);
+      unsigned i, n = gimple_call_num_args (stmt);
 
       for (i = 0; i < n; i++)
 	{
-	  op0 = &CALL_EXPR_ARG (call, i);
+	  op0 = gimple_call_arg_ptr (stmt, i);
 
 	  if (DECL_P (*op0)
 	      || (REFERENCE_CLASS_P (*op0) && get_base_address (*op0)))
@@ -4014,7 +4019,7 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
    loop of the loop nest in that the references should be analyzed.  */
 
 static bool
-find_data_references_in_stmt (struct loop *nest, tree stmt,
+find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      VEC (data_reference_p, heap) **datarefs)
 {
   unsigned i;
@@ -4064,7 +4069,7 @@ find_data_references_in_loop (struct loop *loop,
 {
   basic_block bb, *bbs;
   unsigned int i;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
   bbs = get_loop_body_in_dom_order (loop);
 
@@ -4072,9 +4077,9 @@ find_data_references_in_loop (struct loop *loop,
     {
       bb = bbs[i];
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  tree stmt = bsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (bsi);
 
 	  if (!find_data_references_in_stmt (loop, stmt, datarefs))
 	    {
@@ -4295,7 +4300,6 @@ analyze_all_data_dependences (struct loop *loop)
   free_dependence_relations (dependence_relations);
   free_data_refs (datarefs);
 }
-#endif
 
 /* Computes all the data dependences and check that the results of
    several analyzers are the same.  */
@@ -4303,20 +4307,13 @@ analyze_all_data_dependences (struct loop *loop)
 void
 tree_check_data_deps (void)
 {
-  /* FIXME tuples.  */
-#if 0
   loop_iterator li;
   struct loop *loop_nest;
 
   FOR_EACH_LOOP (li, loop_nest, 0)
     analyze_all_data_dependences (loop_nest);
-#else
-  gimple_unreachable ();
-#endif
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Free the memory used by a data dependence relation DDR.  */
 
 void
@@ -4400,7 +4397,7 @@ dump_rdg_vertex (FILE *file, struct graph *rdg, int i)
       fprintf (file, " %d", e->dest);
 
   fprintf (file, ") \n");
-  print_generic_stmt (file, RDGV_STMT (v), TDF_VOPS|TDF_MEMSYMS);
+  print_gimple_stmt (file, RDGV_STMT (v), 0, TDF_VOPS|TDF_MEMSYMS);
   fprintf (file, ")\n");
 }
 
@@ -4536,14 +4533,14 @@ dot_rdg (struct graph *rdg)
 
 struct rdg_vertex_info GTY(())
 {
-  tree stmt;
+  gimple stmt;
   int index;
 };
 
 /* Returns the index of STMT in RDG.  */
 
 int
-rdg_vertex_for_stmt (struct graph *rdg, tree stmt)
+rdg_vertex_for_stmt (struct graph *rdg, gimple stmt)
 {
   struct rdg_vertex_info rvi, *slot;
 
@@ -4647,12 +4644,12 @@ create_rdg_edges (struct graph *rdg, VEC (ddr_p, heap) *ddrs)
 /* Build the vertices of the reduced dependence graph RDG.  */
 
 static void
-create_rdg_vertices (struct graph *rdg, VEC (tree, heap) *stmts)
+create_rdg_vertices (struct graph *rdg, VEC (gimple, heap) *stmts)
 {
   int i, j;
-  tree stmt;
+  gimple stmt;
 
-  for (i = 0; VEC_iterate (tree, stmts, i, stmt); i++)
+  for (i = 0; VEC_iterate (gimple, stmts, i, stmt); i++)
     {
       VEC (data_ref_loc, heap) *references;
       data_ref_loc *ref;
@@ -4674,7 +4671,7 @@ create_rdg_vertices (struct graph *rdg, VEC (tree, heap) *stmts)
 
       RDG_MEM_WRITE_STMT (rdg, i) = false;
       RDG_MEM_READS_STMT (rdg, i) = false;
-      if (TREE_CODE (stmt) == PHI_NODE)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	continue;
 
       get_references_in_stmt (stmt, &references);
@@ -4695,23 +4692,26 @@ create_rdg_vertices (struct graph *rdg, VEC (tree, heap) *stmts)
    identifying statements. */
 
 static void
-stmts_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
+stmts_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
 {
   unsigned int i;
   basic_block *bbs = get_loop_body_in_dom_order (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      tree phi, stmt;
       basic_block bb = bbs[i];
-      block_stmt_iterator bsi;
+      gimple_stmt_iterator bsi;
+      gimple stmt;
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	VEC_safe_push (tree, heap, *stmts, phi);
+      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+	VEC_safe_push (gimple, heap, *stmts, gsi_stmt (bsi));
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	if (TREE_CODE (stmt = bsi_stmt (bsi)) != LABEL_EXPR)
-	  VEC_safe_push (tree, heap, *stmts, stmt);
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	{
+	  stmt = gsi_stmt (bsi);
+	  if (gimple_code (stmt) != GIMPLE_LABEL)
+	    VEC_safe_push (gimple, heap, *stmts, stmt);
+	}
     }
 
   free (bbs);
@@ -4738,7 +4738,7 @@ static hashval_t
 hash_stmt_vertex_info (const void *elt)
 {
   struct rdg_vertex_info *rvi = (struct rdg_vertex_info *) elt;
-  tree stmt = rvi->stmt;
+  gimple stmt = rvi->stmt;
 
   return htab_hash_pointer (stmt);
 }
@@ -4773,7 +4773,7 @@ build_rdg (struct loop *loop)
   struct graph *rdg = NULL;
   VEC (ddr_p, heap) *dependence_relations;
   VEC (data_reference_p, heap) *datarefs;
-  VEC (tree, heap) *stmts = VEC_alloc (tree, heap, nb_data_refs);
+  VEC (gimple, heap) *stmts = VEC_alloc (gimple, heap, nb_data_refs);
   
   dependence_relations = VEC_alloc (ddr_p, heap, nb_data_refs * nb_data_refs) ;
   datarefs = VEC_alloc (data_reference_p, heap, nb_data_refs);
@@ -4786,7 +4786,7 @@ build_rdg (struct loop *loop)
     goto end_rdg;
 
   stmts_from_loop (loop, &stmts);
-  rdg = new_graph (VEC_length (tree, stmts));
+  rdg = new_graph (VEC_length (gimple, stmts));
 
   rdg->indices = htab_create (nb_data_refs, hash_stmt_vertex_info,
 			      eq_stmt_vertex_info, hash_stmt_vertex_del);
@@ -4796,7 +4796,7 @@ build_rdg (struct loop *loop)
  end_rdg:
   free_dependence_relations (dependence_relations);
   free_data_refs (datarefs);
-  VEC_free (tree, heap, stmts);
+  VEC_free (gimple, heap, stmts);
 
   return rdg;
 }
@@ -4819,7 +4819,7 @@ free_rdg (struct graph *rdg)
    store to memory.  */
 
 void
-stores_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
+stores_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
 {
   unsigned int i;
   basic_block *bbs = get_loop_body_in_dom_order (loop);
@@ -4827,11 +4827,11 @@ stores_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
-      block_stmt_iterator bsi;
+      gimple_stmt_iterator bsi;
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	if (!ZERO_SSA_OPERANDS (bsi_stmt (bsi), SSA_OP_VDEF))
-	  VEC_safe_push (tree, heap, *stmts, bsi_stmt (bsi));
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	if (!ZERO_SSA_OPERANDS (gsi_stmt (bsi), SSA_OP_VDEF))
+	  VEC_safe_push (gimple, heap, *stmts, gsi_stmt (bsi));
     }
 
   free (bbs);
@@ -4841,7 +4841,7 @@ stores_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
    address or NULL_TREE if the base is not determined.  */
 
 static inline tree
-ref_base_address (tree stmt, data_ref_loc *ref)
+ref_base_address (gimple stmt, data_ref_loc *ref)
 {
   tree base = NULL_TREE;
   tree base_address;
@@ -4877,7 +4877,7 @@ ref_base_address (tree stmt, data_ref_loc *ref)
 bool
 rdg_defs_used_in_other_loops_p (struct graph *rdg, int v)
 {
-  tree stmt = RDG_STMT (rdg, v);
+  gimple stmt = RDG_STMT (rdg, v);
   struct loop *loop = loop_containing_stmt (stmt);
   use_operand_p imm_use_p;
   imm_use_iterator iterator;
@@ -4905,7 +4905,7 @@ rdg_defs_used_in_other_loops_p (struct graph *rdg, int v)
    ref_base_address is the same.  */
 
 bool
-have_similar_memory_accesses (tree s1, tree s2)
+have_similar_memory_accesses (gimple s1, gimple s2)
 {
   bool res = false;
   unsigned i, j;
@@ -4939,7 +4939,7 @@ have_similar_memory_accesses (tree s1, tree s2)
 static int
 have_similar_memory_accesses_1 (const void *s1, const void *s2)
 {
-  return have_similar_memory_accesses ((tree) s1, (tree) s2);
+  return have_similar_memory_accesses ((gimple) s1, (gimple) s2);
 }
 
 /* Helper function for the hashtab.  */
@@ -4947,7 +4947,7 @@ have_similar_memory_accesses_1 (const void *s1, const void *s2)
 static hashval_t
 ref_base_address_1 (const void *s)
 {
-  tree stmt = (tree) s;
+  gimple stmt = (gimple) s;
   unsigned i;
   VEC (data_ref_loc, heap) *refs;
   data_ref_loc *ref;
@@ -4969,21 +4969,21 @@ ref_base_address_1 (const void *s)
 /* Try to remove duplicated write data references from STMTS.  */
 
 void
-remove_similar_memory_refs (VEC (tree, heap) **stmts)
+remove_similar_memory_refs (VEC (gimple, heap) **stmts)
 {
   unsigned i;
-  tree stmt;
-  htab_t seen = htab_create (VEC_length (tree, *stmts), ref_base_address_1,
+  gimple stmt;
+  htab_t seen = htab_create (VEC_length (gimple, *stmts), ref_base_address_1,
 			     have_similar_memory_accesses_1, NULL);
 
-  for (i = 0; VEC_iterate (tree, *stmts, i, stmt); )
+  for (i = 0; VEC_iterate (gimple, *stmts, i, stmt); )
     {
       void **slot;
 
       slot = htab_find_slot (seen, stmt, INSERT);
 
       if (*slot)
-	VEC_ordered_remove (tree, *stmts, i);
+	VEC_ordered_remove (gimple, *stmts, i);
       else
 	{
 	  *slot = (void *) stmt;
@@ -4993,4 +4993,3 @@ remove_similar_memory_refs (VEC (tree, heap) **stmts)
 
   htab_delete (seen);
 }
-#endif

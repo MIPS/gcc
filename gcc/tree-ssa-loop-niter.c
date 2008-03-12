@@ -1436,7 +1436,7 @@ expand_simple_operations (tree expr)
     return expr;
 
   e = gimple_assign_rhs1 (stmt);
-  code = gimple_assign_subcode (stmt);
+  code = gimple_assign_rhs_code (stmt);
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
     {
       if (is_gimple_min_invariant (e))
@@ -1953,6 +1953,7 @@ chain_of_csts_start (struct loop *loop, tree x)
   gimple stmt = SSA_NAME_DEF_STMT (x);
   tree use;
   basic_block bb = gimple_bb (stmt);
+  enum tree_code code;
 
   if (!bb
       || !flow_bb_inside_loop_p (loop, bb))
@@ -1969,9 +1970,15 @@ chain_of_csts_start (struct loop *loop, tree x)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return NULL;
 
-  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
-    return NULL;
-  if (SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF) == NULL_DEF_OPERAND_P)
+  code = gimple_assign_rhs_code (stmt);
+  if (stmt_references_memory_p (stmt)
+      /* Before alias information is computed, operand scanning marks
+	 statements that write memory volatile.  However, the statements
+	 that only read memory are not marked, thus stmt_references_memory_p
+	 returns false for them.  */
+      || TREE_CODE_CLASS (code) == tcc_reference
+      || TREE_CODE_CLASS (code) == tcc_declaration
+      || SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF) == NULL_DEF_OPERAND_P)
     return NULL;
 
   use = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_USE);
@@ -2043,6 +2050,8 @@ get_val_for (tree x, tree base)
   stmt = SSA_NAME_DEF_STMT (x);
   if (gimple_code (stmt) == GIMPLE_PHI)
     return base;
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
 
   FOR_EACH_SSA_USE_OPERAND (op, stmt, iter, SSA_OP_USE)
     {
@@ -2206,10 +2215,9 @@ static double_int derive_constant_upper_bound_ops (tree, tree,
 static double_int
 derive_constant_upper_bound_assign (gimple stmt)
 {
-  enum tree_code code = gimple_assign_subcode (stmt);
+  enum tree_code code = gimple_assign_rhs_code (stmt);
   tree op0 = gimple_assign_rhs1 (stmt);
-  tree op1 = (get_gimple_rhs_class (code) == GIMPLE_BINARY_RHS
-	      ? gimple_assign_rhs2 (stmt) : NULL_TREE);
+  tree op1 = gimple_assign_rhs2 (stmt);
 
   return derive_constant_upper_bound_ops (TREE_TYPE (gimple_assign_lhs (stmt)),
 					  op0, code, op1);

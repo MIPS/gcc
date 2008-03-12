@@ -861,7 +861,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	    {
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs1 = gimple_assign_rhs1 (stmt);
-	      if (get_gimple_rhs_num_ops (gimple_assign_subcode (stmt)) == 1
+	      if (gimple_assign_copy_p (stmt)
                   && TREE_CODE (lhs) == SSA_NAME
                   && TREE_CODE (rhs1) == SSA_NAME)
 		live_track_clear_var (live, rhs1);
@@ -1042,7 +1042,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		tree lhs = gimple_assign_lhs (stmt);
 		tree rhs1 = gimple_assign_rhs1 (stmt);
 
-		if (get_gimple_rhs_num_ops (gimple_assign_subcode (stmt)) == 1
+		if (gimple_assign_copy_p (stmt)
                     && TREE_CODE (lhs) == SSA_NAME
 		    && TREE_CODE (rhs1) == SSA_NAME
 		    && SSA_NAME_VAR (lhs) == SSA_NAME_VAR (rhs1))

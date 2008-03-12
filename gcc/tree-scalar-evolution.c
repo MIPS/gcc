@@ -1188,7 +1188,7 @@ follow_ssa_edge_in_rhs (struct loop *loop, gimple stmt,
 			gimple halting_phi, tree *evolution_of_loop, int limit)
 {
   tree type = TREE_TYPE (gimple_assign_lhs (stmt));
-  enum tree_code code = gimple_assign_subcode (stmt);
+  enum tree_code code = gimple_assign_rhs_code (stmt);
 
   switch (get_gimple_rhs_class (code))
     {
@@ -1704,6 +1704,9 @@ interpret_expr (struct loop *loop, gimple at_stmt, tree expr)
   if (automatically_generated_chrec_p (expr))
     return expr;
 
+  if (TREE_CODE (expr) == POLYNOMIAL_CHREC)
+    return chrec_dont_know;
+
   extract_ops_from_tree (expr, &code, &op0, &op1);
 
   return interpret_rhs_expr (loop, at_stmt, type,
@@ -1716,22 +1719,11 @@ static tree
 interpret_gimple_assign (struct loop *loop, gimple stmt)
 {
   tree type = TREE_TYPE (gimple_assign_lhs (stmt));
-  enum tree_code code = gimple_assign_subcode (stmt);
+  enum tree_code code = gimple_assign_rhs_code (stmt);
 
-  switch (get_gimple_rhs_class (code))
-    {
-    case GIMPLE_BINARY_RHS:
-      return interpret_rhs_expr (loop, stmt, type,
-				 gimple_assign_rhs1 (stmt), code,
-				 gimple_assign_rhs2 (stmt));
-    case GIMPLE_UNARY_RHS:
-    case GIMPLE_SINGLE_RHS:
-      return interpret_rhs_expr (loop, stmt, type,
-				 gimple_assign_rhs1 (stmt), code, NULL_TREE);
-
-    default:
-      return chrec_dont_know;
-    }
+  return interpret_rhs_expr (loop, stmt, type,
+			     gimple_assign_rhs1 (stmt), code,
+			     gimple_assign_rhs2 (stmt));
 }
 
 

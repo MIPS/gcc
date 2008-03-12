@@ -229,7 +229,7 @@ dump_gimple_fmt (pretty_printer *buffer, int spc, int flags,
 static void
 dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  enum tree_code rhs_code = gimple_assign_subcode (gs);
+  enum tree_code rhs_code = gimple_assign_rhs_code (gs);
   tree lhs = gimple_assign_lhs (gs);
   tree rhs = gimple_assign_rhs1 (gs);
 
@@ -284,7 +284,7 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  switch (gimple_assign_subcode (gs))
+  switch (gimple_assign_rhs_code (gs))
     {
     case COMPLEX_EXPR:
       pp_string (buffer, "COMPLEX_EXPR <");
@@ -297,7 +297,7 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
     default:
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
       pp_space (buffer);
-      pp_string (buffer, op_symbol_code (gimple_assign_subcode (gs)));
+      pp_string (buffer, op_symbol_code (gimple_assign_rhs_code (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
     }
@@ -321,7 +321,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
         gcc_unreachable ();
 
       dump_gimple_fmt (buffer, spc, flags, "%G <%s, %T, %T, %T>", gs,
-                       tree_code_name[gimple_assign_subcode (gs)],
+                       tree_code_name[gimple_assign_rhs_code (gs)],
                        gimple_assign_lhs (gs), gimple_assign_rhs1 (gs), last);
     }
   else
@@ -329,6 +329,8 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
       pp_space (buffer);
       pp_character (buffer, '=');
+      if (gimple_assign_nontemporal_move_p (gs))
+	pp_string (buffer, "{nt}");
       pp_space (buffer);
 
       if (gimple_num_ops (gs) == 2)

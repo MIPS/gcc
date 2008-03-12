@@ -3294,7 +3294,7 @@ verify_types_in_gimple_cond (gimple stmt)
 static bool
 verify_types_in_gimple_assign (gimple stmt)
 {
-  enum tree_code rhs_code = gimple_assign_subcode (stmt);
+  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
   tree rhs1 = gimple_assign_rhs1 (stmt);
   tree rhs2 = (gimple_num_ops (stmt) == 3) ? gimple_assign_rhs2 (stmt) : NULL;
@@ -6498,13 +6498,13 @@ gimple_execute_on_shrinking_pred (edge e)
    additional edge 'e' that new_head to second edge received as part of edge
    splitting.  */
 
-/* FIXME tuples.  */
-#if 0
 static void
 gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
-				basic_block new_head, edge e)
+				  basic_block new_head, edge e)
 {
-  tree phi1, phi2;
+  gimple phi1, phi2;
+  gimple_stmt_iterator psi1, psi2;
+  tree def;
   edge e2 = find_edge (new_head, second);
 
   /* Because NEW_HEAD has been created by splitting SECOND's incoming
@@ -6514,11 +6514,14 @@ gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
   /* Browse all 'second' basic block phi nodes and add phi args to
      edge 'e' for 'first' head. PHI args are always in correct order.  */
 
-  for (phi2 = phi_nodes (second), phi1 = phi_nodes (first);
-       phi2 && phi1;
-       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
+  for (psi2 = gsi_start (phi_nodes (second)),
+       psi1 = gsi_start (phi_nodes (first));
+       !gsi_end_p (psi2) && !gsi_end_p (psi1);
+       gsi_next (&psi2),  gsi_next (&psi1))
     {
-      tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+      phi1 = gsi_stmt (psi1);
+      phi2 = gsi_stmt (psi2);
+      def = PHI_ARG_DEF (phi2, e2->dest_idx);
       add_phi_arg (phi1, def, e);
     }
 }
@@ -6529,28 +6532,28 @@ gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
 
 static void
 gimple_lv_add_condition_to_bb (basic_block first_head ATTRIBUTE_UNUSED,
-			     basic_block second_head ATTRIBUTE_UNUSED,
-			     basic_block cond_bb, void *cond_e)
+			       basic_block second_head ATTRIBUTE_UNUSED,
+			       basic_block cond_bb, void *cond_e)
 {
   gimple_stmt_iterator gsi;
-  tree new_cond_expr = NULL_TREE;
+  gimple new_cond_expr;
   tree cond_expr = (tree) cond_e;
   edge e0;
 
   /* Build new conditional expr */
-  new_cond_expr = build3 (COND_EXPR, void_type_node, cond_expr,
-			  NULL_TREE, NULL_TREE);
+  new_cond_expr = gimple_build_cond_from_tree (cond_expr,
+					       NULL_TREE, NULL_TREE);
 
   /* Add new cond in cond_bb.  */
-  gsi = gsi_start (cond_bb);
+  gsi = gsi_last_bb (cond_bb);
   gsi_insert_after (&gsi, new_cond_expr, GSI_NEW_STMT);
+
   /* Adjust edges appropriately to connect new head with first head
      as well as second head.  */
   e0 = single_succ_edge (cond_bb);
   e0->flags &= ~EDGE_FALLTHRU;
   e0->flags |= EDGE_FALSE_VALUE;
 }
-#endif
 
 struct cfg_hooks gimple_cfg_hooks = {
   "gimple",
@@ -6578,8 +6581,8 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_execute_on_growing_pred,	/* execute_on_growing_pred */
   gimple_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
   gimple_duplicate_loop_to_header_edge, /* duplicate loop for trees */
-  0 /* FIXME tuples gimple_lv_add_condition_to_bb */, /* lv_add_condition_to_bb */
-  0 /* FIXME tuples gimple_lv_adjust_loop_header_phi */, /* lv_adjust_loop_header_phi*/
+  gimple_lv_add_condition_to_bb, /* lv_add_condition_to_bb */
+  gimple_lv_adjust_loop_header_phi, /* lv_adjust_loop_header_phi*/
   extract_true_false_edges_from_block, /* extract_cond_bb_edges */
   flush_pending_stmts		/* flush_pending_stmts */
 };

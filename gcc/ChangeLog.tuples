@@ -1,3 +1,71 @@
+2008-03-12  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-loop-im.c (stmt_cost, rewrite_bittest,
+	determine_invariantness_stmt, gather_mem_refs_stmt):
+	Use gimple_assign_rhs_code.
+	* cfgexpand.c (gimple_to_tree): Ditto.
+	* tree-inline.c (estimate_num_insns): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Ditto.
+	* tree-ssa-ccp.c (likely_value, ccp_fold, evaluate_stmt,
+	* gimple.c (gimple_fold, gimple_assign_set_rhs_with_ops): Ditto.
+	* tree-ssa-structalias.c (handle_ptr_arith): Ditto.
+	fold_gimple_assign): Ditto.
+	* value-prof.c (gimple_divmod_fixed_value_transform): Ditto.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Ditto.
+	* tree-ssa-propagate.c (stmt_makes_single_load,
+	substitute_and_fold): Ditto.
+	* tree-ssa-loop-niter.c (chain_of_csts_start): Exclude memory loads.
+	(get_val_for): Assert that the statement is an assignment.
+	(derive_constant_upper_bound_assign,
+	expand_simple_operations): Use gimple_assign_rhs_code.
+	* tree-ssa-loop-manip.c (create_iv, ip_normal_pos,
+	standard_iv_increment_position, determine_exit_conditions,
+	tree_transform_and_unroll_loop): Tuplify.
+	* tree-scalar-evolution.c (interpret_expr): Fail for chrecs.
+	(interpret_gimple_assign, follow_ssa_edge_in_rhs): Use
+	gimple_assign_rhs_code.
+	* tree-gimple.c (gimple_assign_rhs_code): New function.
+	* tree-gimple.h (gimple_assign_rhs_code): Declare.
+	* tree-ssa-loop-ivopts.c (single_dom_exit): Enable.
+	* gimple-dummy.c (compute_data_dependences_for_loop, dump_ddrs,
+	free_data_refs, free_dependence_relations,
+	gimple_duplicate_loop_to_header_edge, tree_ssa_prefetch_arrays,
+	estimated_loop_iterations_int): Removed.
+	* tree-ssa-loop-ivcanon.c (tree_num_loop_insns): Tuplify.
+	* predict.c, tree-data-ref.c, tree-ssa-loop-prefetch.c: Tuplify.
+	* tree-data-ref.h (struct data_reference, struct rdg_vertex): Change
+	the type of stmt to gimple.
+	(get_references_in_stmt, create_data_ref, rdg_vertex_for_stmt,
+	stores_from_loop, remove_similar_memory_refs,
+	have_similar_memory_accesses): Declaration changed.
+	* gimple-iterator.c (gsi_insert_seq_on_edge_immediate): New.
+	* gimple-pretty-print.c (dump_gimple_assign): Dump nontemporal
+	move.  Use gimple_assign_rhs_code.
+	(dump_unary_rhs, dump_binary_rhs): Use gimple_assign_rhs_code.
+	* gimplify.c (gimplify_modify_expr): Set lhs of the assignment to
+	the new SSA name.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph,
+	create_outofssa_var_map): Use gimple_assign_copy_p.
+	* tree-predcom.c (mark_virtual_ops_for_renaming): Enable.
+	* tree-inline.c (estimate_num_insns): Use gimple_assign_rhs_code.
+	* tree-flow.h (mark_virtual_ops_for_renaming): Declaration changed.
+	* gimple.h (struct gimple_statement_base): Change unused_4 flag
+	to nontemporal_move flag.
+	(gimple_assign_nontemporal_move_p, gimple_assign_set_nontemporal_move):
+	New functions.
+	(gsi_insert_seq_on_edge_immediate): Declare.
+	(gimple_assign_rhs2): Return NULL if the statement does not have two
+	operands.
+	(gimple_assign_subcode): Removed.
+	* tree-cfg.c (verify_types_in_gimple_assign): Use
+	gimple_assign_rhs_code.
+	(gimple_lv_adjust_loop_header_phi, gimple_lv_add_condition_to_bb):
+	Tuplify.
+	(gimple_cfg_hooks): Enable lv_add_condition_to_bb and
+	lv_adjust_loop_header_phi hooks.
+	* passes.c (init_optimization_passes): Enable pass_profile,
+	pass_check_data_deps and pass_loop_prefetch.
+
 2008-03-11  Diego Novillo <dnovillo@google.com>
 
 	* tree-ssa-operands.h: Added declaration of add_to_addressable_set.
