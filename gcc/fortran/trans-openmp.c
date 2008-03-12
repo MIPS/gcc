@@ -1089,7 +1089,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 
   if (TREE_CODE (TREE_TYPE (rhs)) == COMPLEX_TYPE
       && TREE_CODE (type) != COMPLEX_TYPE)
-    x = build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (rhs)), x);
+    x = fold_build1 (REALPART_EXPR, TREE_TYPE (TREE_TYPE (rhs)), x);
 
   x = build2_v (OMP_ATOMIC, lhsaddr, convert (type, x));
   gfc_add_expr_to_block (&block, x);
@@ -1204,8 +1204,8 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
       if (simple)
 	{
 	  TREE_VEC_ELT (init, i) = build2_v (GIMPLE_MODIFY_STMT, dovar, from);
-	  TREE_VEC_ELT (cond, i) = build2 (simple > 0 ? LE_EXPR : GE_EXPR,
-					   boolean_type_node, dovar, to);
+	  TREE_VEC_ELT (cond, i) = fold_build2 (simple > 0 ? LE_EXPR : GE_EXPR,
+						boolean_type_node, dovar, to);
 	  TREE_VEC_ELT (incr, i) = fold_build2 (PLUS_EXPR, type, dovar, step);
 	  TREE_VEC_ELT (incr, i) = fold_build2 (GIMPLE_MODIFY_STMT, type, dovar,
 						TREE_VEC_ELT (incr, i));
@@ -1226,8 +1226,8 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 	  count = gfc_create_var (type, "count");
 	  TREE_VEC_ELT (init, i) = build2_v (GIMPLE_MODIFY_STMT, count,
 					     build_int_cst (type, 0));
-	  TREE_VEC_ELT (cond, i) = build2 (LT_EXPR, boolean_type_node,
-					   count, tmp);
+	  TREE_VEC_ELT (cond, i) = fold_build2 (LT_EXPR, boolean_type_node,
+						count, tmp);
 	  TREE_VEC_ELT (incr, i) = fold_build2 (PLUS_EXPR, type, count,
 						build_int_cst (type, 1));
 	  TREE_VEC_ELT (incr, i) = fold_build2 (GIMPLE_MODIFY_STMT, type,
@@ -1235,7 +1235,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 
 	  /* Initialize DOVAR.  */
 	  tmp = fold_build2 (MULT_EXPR, type, count, step);
-	  tmp = build2 (PLUS_EXPR, type, from, tmp);
+	  tmp = fold_build2 (PLUS_EXPR, type, from, tmp);
 	  dovar_init = tree_cons (dovar, tmp, dovar_init);
 	}
 
@@ -1259,7 +1259,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 		 than value after iterator increment.  */
 	      tmp = gfc_evaluate_now (step, pblock);
 	      tmp = fold_build2 (PLUS_EXPR, type, dovar, tmp);
-	      tmp = build2 (GIMPLE_MODIFY_STMT, type, dovar, tmp);
+	      tmp = fold_build2 (GIMPLE_MODIFY_STMT, type, dovar, tmp);
 	      for (c = omp_clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
 		    && OMP_CLAUSE_DECL (c) == dovar)

@@ -559,7 +559,7 @@ lookup_decl (tree var, omp_context *ctx)
 }
 
 static inline tree
-maybe_lookup_decl (tree var, omp_context *ctx)
+maybe_lookup_decl (const_tree var, omp_context *ctx)
 {
   tree *n;
   n = (tree *) pointer_map_contains (ctx->cb.decl_map, var);
@@ -582,18 +582,18 @@ maybe_lookup_field (tree var, omp_context *ctx)
   return n ? (tree) n->value : NULL_TREE;
 }
 
-/* Return true if DECL should be copied by pointer.  SHARED_P is true
-   if DECL is to be shared.  */
+/* Return true if DECL should be copied by pointer.  SHARED_CTX is
+   the parallel context if DECL is to be shared.  */
 
 static bool
-use_pointer_for_field (const_tree decl, bool shared_p)
+use_pointer_for_field (const_tree decl, omp_context *shared_ctx)
 {
   if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
     return true;
 
   /* We can only use copy-in/copy-out semantics for shared variables
      when we know the value is not accessible from an outer scope.  */
-  if (shared_p)
+  if (shared_ctx)
     {
       /* ??? Trivially accessible from anywhere.  But why would we even
 	 be passing an address in this case?  Should we simply assert
@@ -613,6 +613,34 @@ use_pointer_for_field (const_tree decl, bool shared_p)
 	 address taken.  */
       if (TREE_ADDRESSABLE (decl))
 	return true;
+
+      /* Disallow copy-in/out in nested parallel if
+	 decl is shared in outer parallel, otherwise
+	 each thread could store the shared variable
+	 in its own copy-in location, making the
+	 variable no longer really shared.  */
+      if (!TREE_READONLY (decl) && shared_ctx->is_nested)
+	{
+	  omp_context *up;
+
+	  for (up = shared_ctx->outer; up; up = up->outer)
+	    if (maybe_lookup_decl (decl, up))
+	      break;
+
+	  if (up && is_parallel_ctx (up))
+	    {
+	      tree c;
+
+	      for (c = OMP_PARALLEL_CLAUSES (up->stmt);
+		   c; c = OMP_CLAUSE_CHAIN (c))
+		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED
+		    && OMP_CLAUSE_DECL (c) == decl)
+		  break;
+
+	      if (c)
+		return true;
+	    }
+	}
     }
 
   return false;
@@ -699,7 +727,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
     }
   else if (is_taskreg_ctx (ctx))
     {
-      bool by_ref = use_pointer_for_field (var, false);
+      bool by_ref = use_pointer_for_field (var, NULL);
       x = build_receiver_ref (var, by_ref, ctx);
     }
   else if (ctx->outer)
@@ -1071,7 +1099,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  gcc_assert (is_taskreg_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
 	  gcc_assert (!is_variable_sized (decl));
-	  by_ref = use_pointer_for_field (decl, true);
+	  by_ref = use_pointer_for_field (decl, ctx);
 	  /* Global variables don't need to be copied,
 	     the receiver side will use them directly.  */
 	  if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx)))
@@ -1106,7 +1134,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		   && ! is_global_var (maybe_lookup_decl_in_outer_ctx (decl,
 								       ctx)))
 	    {
-	      by_ref = use_pointer_for_field (decl, false);
+	      by_ref = use_pointer_for_field (decl, NULL);
 	      install_var_field (decl, by_ref, ctx);
 	    }
 	  install_var_local (decl, ctx);
@@ -1119,7 +1147,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_COPYIN:
 	  decl = OMP_CLAUSE_DECL (c);
-	  by_ref = use_pointer_for_field (decl, false);
+	  by_ref = use_pointer_for_field (decl, NULL);
 	  install_var_field (decl, by_ref, ctx);
 	  break;
 
@@ -1937,7 +1965,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      /* Set up the DECL_VALUE_EXPR for shared variables now.  This
 		 needs to be delayed until after fixup_child_record_type so
 		 that we get the correct type during the dereference.  */
-	      by_ref = use_pointer_for_field (var, true);
+	      by_ref = use_pointer_for_field (var, ctx);
 	      x = build_receiver_ref (var, by_ref, ctx);
 	      SET_DECL_VALUE_EXPR (new_var, x);
 	      DECL_HAS_VALUE_EXPR_P (new_var) = 1;
@@ -1985,7 +2013,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	      break;
 
 	    case OMP_CLAUSE_COPYIN:
-	      by_ref = use_pointer_for_field (var, false);
+	      by_ref = use_pointer_for_field (var, NULL);
 	      x = build_receiver_ref (var, by_ref, ctx);
 	      x = lang_hooks.decls.omp_clause_assign_op (c, new_var, x);
 	      append_to_statement_list (x, &copyin_seq);
@@ -2229,7 +2257,7 @@ lower_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
-      by_ref = use_pointer_for_field (var, false);
+      by_ref = use_pointer_for_field (var, NULL);
 
       ref = build_sender_ref (var, ctx);
       x = lookup_decl_in_outer_ctx (var, ctx);
@@ -2285,7 +2313,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	continue;
       if (is_variable_sized (val))
 	continue;
-      by_ref = use_pointer_for_field (val, false);
+      by_ref = use_pointer_for_field (val, NULL);
 
       switch (OMP_CLAUSE_CODE (c))
 	{
@@ -2360,7 +2388,7 @@ lower_send_shared_vars (tree *ilist, tree *olist, omp_context *ctx)
 	 mapping for OVAR.  */
       var = lookup_decl_in_outer_ctx (ovar, ctx);
 
-      if (use_pointer_for_field (ovar, true))
+      if (use_pointer_for_field (ovar, ctx))
 	{
 	  x = build_sender_ref (ovar, ctx);
 	  var = build_fold_addr_expr (var);

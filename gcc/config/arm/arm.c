@@ -1,6 +1,6 @@
 /* Output routines for GCC for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -188,6 +188,7 @@ static void arm_target_help (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 static bool arm_cannot_copy_insn_p (rtx);
 static bool arm_tls_symbol_p (rtx x);
+static int arm_issue_rate (void);
 static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 
 
@@ -358,6 +359,9 @@ static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM arm_cannot_force_const_mem
 
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE arm_issue_rate
+
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE arm_mangle_type
 
@@ -460,6 +464,7 @@ static int thumb_call_reg_needed;
 #define FL_FOR_ARCH6Z	FL_FOR_ARCH6
 #define FL_FOR_ARCH6ZK	FL_FOR_ARCH6K
 #define FL_FOR_ARCH6T2	(FL_FOR_ARCH6 | FL_THUMB2)
+#define FL_FOR_ARCH6M	(FL_FOR_ARCH6 & ~FL_NOTM)
 #define FL_FOR_ARCH7	(FL_FOR_ARCH6T2 &~ FL_NOTM)
 #define FL_FOR_ARCH7A	(FL_FOR_ARCH7 | FL_NOTM)
 #define FL_FOR_ARCH7R	(FL_FOR_ARCH7A | FL_DIV)
@@ -632,6 +637,7 @@ static const struct processors all_architectures[] =
   {"armv6z",  arm1176jzs, "6Z",  FL_CO_PROC |             FL_FOR_ARCH6Z, NULL},
   {"armv6zk", arm1176jzs, "6ZK", FL_CO_PROC |             FL_FOR_ARCH6ZK, NULL},
   {"armv6t2", arm1156t2s, "6T2", FL_CO_PROC |             FL_FOR_ARCH6T2, NULL},
+  {"armv6-m", cortexm1,	  "6M",				  FL_FOR_ARCH6M, NULL},
   {"armv7",   cortexa8,	  "7",	 FL_CO_PROC |		  FL_FOR_ARCH7, NULL},
   {"armv7-a", cortexa8,	  "7A",	 FL_CO_PROC |		  FL_FOR_ARCH7A, NULL},
   {"armv7-r", cortexr4,	  "7R",	 FL_CO_PROC |		  FL_FOR_ARCH7R, NULL},
@@ -1656,7 +1662,8 @@ use_return_insn (int iscond, rtx sibling)
       || current_function_calls_alloca
       /* Or if there is a stack adjustment.  However, if the stack pointer
 	 is saved on the stack, we can use a pre-incrementing stack load.  */
-      || !(stack_adjust == 0 || (frame_pointer_needed && stack_adjust == 4)))
+      || !(stack_adjust == 0 || (TARGET_APCS_FRAME && frame_pointer_needed
+				 && stack_adjust == 4)))
     return 0;
 
   saved_int_regs = arm_compute_save_reg_mask ();
@@ -10700,25 +10707,14 @@ arm_compute_save_reg0_reg12_mask (void)
     }
   else
     {
-      /* In arm mode we handle r11 (FP) as a special case.  */
-      unsigned last_reg = TARGET_ARM ? 10 : 11;
-      
       /* In the normal case we only need to save those registers
 	 which are call saved and which are used by this function.  */
-      for (reg = 0; reg <= last_reg; reg++)
+      for (reg = 0; reg <= 11; reg++)
 	if (df_regs_ever_live_p (reg) && ! call_used_regs[reg])
 	  save_reg_mask |= (1 << reg);
 
       /* Handle the frame pointer as a special case.  */
-      if (! TARGET_APCS_FRAME
-	  && ! frame_pointer_needed
-	  && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
-	  && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
-	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
-      else if (! TARGET_APCS_FRAME
-	       && ! frame_pointer_needed
-	       && df_regs_ever_live_p (HARD_FRAME_POINTER_REGNUM)
-	       && ! call_used_regs[HARD_FRAME_POINTER_REGNUM])
+      if (frame_pointer_needed)
 	save_reg_mask |= 1 << HARD_FRAME_POINTER_REGNUM;
 
       /* If we aren't loading the PIC register,
@@ -10769,7 +10765,7 @@ arm_compute_save_reg_mask (void)
 
   /* If we are creating a stack frame, then we must save the frame pointer,
      IP (which will hold the old stack pointer), LR and the PC.  */
-  if (frame_pointer_needed && TARGET_ARM)
+  if (TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
     save_reg_mask |=
       (1 << ARM_HARD_FRAME_POINTER_REGNUM)
       | (1 << IP_REGNUM)
@@ -11300,7 +11296,7 @@ arm_output_epilogue (rtx sibling)
     if (saved_regs_mask & (1 << reg))
       floats_offset += 4;
 
-  if (frame_pointer_needed && TARGET_ARM)
+  if (TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
     {
       /* This variable is for the Virtual Frame Pointer, not VFP regs.  */
       int vfp_offset = offsets->frame;
@@ -11446,32 +11442,60 @@ arm_output_epilogue (rtx sibling)
     }
   else
     {
+      /* This branch is executed for ARM mode (non-apcs frames) and
+	 Thumb-2 mode. Frame layout is essentially the same for those
+	 cases, except that in ARM mode frame pointer points to the
+	 first saved register, while in Thumb-2 mode the frame pointer points
+	 to the last saved register.
+
+	 It is possible to make frame pointer point to last saved
+	 register in both cases, and remove some conditionals below.
+	 That means that fp setup in prologue would be just "mov fp, sp"
+	 and sp restore in epilogue would be just "mov sp, fp", whereas
+	 now we have to use add/sub in those cases. However, the value
+	 of that would be marginal, as both mov and add/sub are 32-bit
+	 in ARM mode, and it would require extra conditionals
+	 in arm_expand_prologue to distingish ARM-apcs-frame case
+	 (where frame pointer is required to point at first register)
+	 and ARM-non-apcs-frame. Therefore, such change is postponed
+	 until real need arise.  */
       HOST_WIDE_INT amount;
       int rfe;
       /* Restore stack pointer if necessary.  */
-      if (frame_pointer_needed)
+      if (TARGET_ARM && frame_pointer_needed)
 	{
-	  /* For Thumb-2 restore sp from the frame pointer.
-	     Operand restrictions mean we have to increment FP, then copy
-	     to SP.  */
-	  amount = offsets->locals_base - offsets->saved_regs;
-	  operands[0] = hard_frame_pointer_rtx;
+	  operands[0] = stack_pointer_rtx;
+	  operands[1] = hard_frame_pointer_rtx;
+	  
+	  operands[2] = GEN_INT (offsets->frame - offsets->saved_regs);
+	  output_add_immediate (operands);
 	}
       else
 	{
-	  operands[0] = stack_pointer_rtx;
-	  amount = offsets->outgoing_args - offsets->saved_regs;
+	  if (frame_pointer_needed)
+	    {
+	      /* For Thumb-2 restore sp from the frame pointer.
+		 Operand restrictions mean we have to incrememnt FP, then copy
+		 to SP.  */
+	      amount = offsets->locals_base - offsets->saved_regs;
+	      operands[0] = hard_frame_pointer_rtx;
+	    }
+	  else
+	    {
+	      operands[0] = stack_pointer_rtx;
+	      amount = offsets->outgoing_args - offsets->saved_regs;
+	    }
+	  
+	  if (amount)
+	    {
+	      operands[1] = operands[0];
+	      operands[2] = GEN_INT (amount);
+	      output_add_immediate (operands);
+	    }
+	  if (frame_pointer_needed)
+	    asm_fprintf (f, "\tmov\t%r, %r\n",
+			 SP_REGNUM, HARD_FRAME_POINTER_REGNUM);
 	}
-
-      if (amount)
-	{
-	  operands[1] = operands[0];
-	  operands[2] = GEN_INT (amount);
-	  output_add_immediate (operands);
-	}
-      if (frame_pointer_needed)
-	asm_fprintf (f, "\tmov\t%r, %r\n",
-		     SP_REGNUM, HARD_FRAME_POINTER_REGNUM);
 
       if (arm_fpu_arch == FPUTYPE_FPA_EMU2)
 	{
@@ -12229,9 +12253,20 @@ thumb_set_frame_pointer (arm_stack_offsets *offsets)
   else
     {
       emit_insn (gen_movsi (hard_frame_pointer_rtx, GEN_INT (amount)));
-      insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
-				    hard_frame_pointer_rtx,
-				    stack_pointer_rtx));
+      /* Thumb-2 RTL patterns expect sp as the first input.  Thumb-1
+         expects the first two operands to be the same.  */
+      if (TARGET_THUMB2)
+	{
+	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+					stack_pointer_rtx,
+					hard_frame_pointer_rtx));
+	}
+      else
+	{
+	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+					hard_frame_pointer_rtx,
+					stack_pointer_rtx));
+	}
       dwarf = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
 			   plus_constant (stack_pointer_rtx, amount));
       RTX_FRAME_RELATED_P (dwarf) = 1;
@@ -12303,7 +12338,10 @@ arm_expand_prologue (void)
       emit_insn (gen_movsi (stack_pointer_rtx, r1));
     }
 
-  if (frame_pointer_needed && TARGET_ARM)
+  /* For APCS frames, if IP register is clobbered
+     when creating frame, save that register in a special
+     way.  */
+  if (TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
     {
       if (IS_INTERRUPT (func_type))
 	{
@@ -12402,13 +12440,13 @@ arm_expand_prologue (void)
     }
 
   /* If this is an interrupt service routine, and the link register
-     is going to be pushed, and we are not creating a stack frame,
-     (which would involve an extra push of IP and a pop in the epilogue)
+     is going to be pushed, and we're not generating extra
+     push of IP (needed when frame is needed and frame layout if apcs),
      subtracting four from LR now will mean that the function return
      can be done with a single instruction.  */
   if ((func_type == ARM_FT_ISR || func_type == ARM_FT_FIQ)
       && (live_regs_mask & (1 << LR_REGNUM)) != 0
-      && ! frame_pointer_needed
+      && !(frame_pointer_needed && TARGET_APCS_FRAME)
       && TARGET_ARM)
     {
       rtx lr = gen_rtx_REG (SImode, LR_REGNUM);
@@ -12429,6 +12467,7 @@ arm_expand_prologue (void)
   if (frame_pointer_needed && TARGET_ARM)
     {
       /* Create the new frame pointer.  */
+      if (TARGET_APCS_FRAME)
 	{
 	  insn = GEN_INT (-(4 + args_to_push + fp_offset));
 	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx, ip_rtx, insn));
@@ -12449,6 +12488,13 @@ arm_expand_prologue (void)
 	      /* Add a USE to stop propagate_one_insn() from barfing.  */
 	      emit_insn (gen_prologue_use (ip_rtx));
 	    }
+	}
+      else
+	{
+	  insn = GEN_INT (saved_regs - 4);
+	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
+					stack_pointer_rtx, insn));
+	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
 
@@ -17628,12 +17674,23 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
                     ? 1 : 0);
   if (mi_delta < 0)
     mi_delta = - mi_delta;
-  /* When generating 16-bit thumb code, thunks are entered in arm mode.  */
+
   if (TARGET_THUMB1)
     {
       int labelno = thunk_label++;
       ASM_GENERATE_INTERNAL_LABEL (label, "LTHUMBFUNC", labelno);
-      fputs ("\tldr\tr12, ", file);
+      /* Thunks are entered in arm mode when avaiable.  */
+      if (TARGET_THUMB1_ONLY)
+	{
+	  /* push r3 so we can use it as a temporary.  */
+	  /* TODO: Omit this save if r3 is not used.  */
+	  fputs ("\tpush {r3}\n", file);
+	  fputs ("\tldr\tr3, ", file);
+	}
+      else
+	{
+	  fputs ("\tldr\tr12, ", file);
+	}
       assemble_name (file, label);
       fputc ('\n', file);
       if (flag_pic)
@@ -17647,29 +17704,63 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 
 	     Note that we have "+ 1" because some versions of GNU ld
 	     don't set the low bit of the result for R_ARM_REL32
-	     relocations against thumb function symbols.  */
+	     relocations against thumb function symbols.
+	     On ARMv6M this is +4, not +8.  */
 	  ASM_GENERATE_INTERNAL_LABEL (labelpc, "LTHUNKPC", labelno);
 	  assemble_name (file, labelpc);
 	  fputs (":\n", file);
-	  fputs ("\tadd\tr12, pc, r12\n", file);
+	  if (TARGET_THUMB1_ONLY)
+	    {
+	      /* This is 2 insns after the start of the thunk, so we know it
+	         is 4-byte aligned.  */
+	      fputs ("\tadd\tr3, pc, r3\n", file);
+	      fputs ("\tmov r12, r3\n", file);
+	    }
+	  else
+	    fputs ("\tadd\tr12, pc, r12\n", file);
+	}
+      else if (TARGET_THUMB1_ONLY)
+	fputs ("\tmov r12, r3\n", file);
+    }
+  if (TARGET_THUMB1_ONLY)
+    {
+      if (mi_delta > 255)
+	{
+	  fputs ("\tldr\tr3, ", file);
+	  assemble_name (file, label);
+	  fputs ("+4\n", file);
+	  asm_fprintf (file, "\t%s\t%r, %r, r3\n",
+		       mi_op, this_regno, this_regno);
+	}
+      else if (mi_delta != 0)
+	{
+	  asm_fprintf (file, "\t%s\t%r, %r, #%d\n",
+		       mi_op, this_regno, this_regno,
+		       mi_delta);
 	}
     }
-  /* TODO: Use movw/movt for large constants when available.  */
-  while (mi_delta != 0)
+  else
     {
-      if ((mi_delta & (3 << shift)) == 0)
-        shift += 2;
-      else
-        {
-          asm_fprintf (file, "\t%s\t%r, %r, #%d\n",
-                       mi_op, this_regno, this_regno,
-                       mi_delta & (0xff << shift));
-          mi_delta &= ~(0xff << shift);
-          shift += 8;
-        }
+      /* TODO: Use movw/movt for large constants when available.  */
+      while (mi_delta != 0)
+	{
+	  if ((mi_delta & (3 << shift)) == 0)
+	    shift += 2;
+	  else
+	    {
+	      asm_fprintf (file, "\t%s\t%r, %r, #%d\n",
+			   mi_op, this_regno, this_regno,
+			   mi_delta & (0xff << shift));
+	      mi_delta &= ~(0xff << shift);
+	      shift += 8;
+	    }
+	}
     }
   if (TARGET_THUMB1)
     {
+      if (TARGET_THUMB1_ONLY)
+	fputs ("\tpop\t{r3}\n", file);
+
       fprintf (file, "\tbx\tr12\n");
       ASM_OUTPUT_ALIGN (file, 2);
       assemble_name (file, label);
@@ -17688,6 +17779,9 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       else
 	/* Output ".word .LTHUNKn".  */
 	assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
+
+      if (TARGET_THUMB1_ONLY && mi_delta > 255)
+	assemble_integer (GEN_INT(mi_delta), 4, BITS_PER_WORD, 1);
     }
   else
     {
@@ -18646,6 +18740,22 @@ thumb2_output_casesi (rtx *operands)
 	}
     default:
       gcc_unreachable ();
+    }
+}
+
+/* Most ARM cores are single issue, but some newer ones can dual issue.
+   The scheduler descriptions rely on this being correct.  */
+static int
+arm_issue_rate (void)
+{
+  switch (arm_tune)
+    {
+    case cortexr4:
+    case cortexa8:
+      return 2;
+
+    default:
+      return 1;
     }
 }
 

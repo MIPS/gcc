@@ -1899,7 +1899,6 @@ inline_forbidden_p_1 (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 	    /* We cannot inline functions that take a variable number of
 	       arguments.  */
 	  case BUILT_IN_VA_START:
-	  case BUILT_IN_STDARG_START:
 	  case BUILT_IN_NEXT_ARG:
 	  case BUILT_IN_VA_END:
 	    inline_forbidden_reason
@@ -2222,6 +2221,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case COMPOUND_EXPR:
     case BIND_EXPR:
     case WITH_CLEANUP_EXPR:
+    case PAREN_EXPR:
     case NOP_EXPR:
     case CONVERT_EXPR:
     case VIEW_CONVERT_EXPR:
@@ -3723,6 +3723,8 @@ build_duplicate_type (tree type)
   type = remap_type_1 (type, &id);
 
   pointer_map_destroy (id.decl_map);
+
+  TYPE_CANONICAL (type) = type;
 
   return type;
 }

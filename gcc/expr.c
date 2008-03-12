@@ -552,15 +552,15 @@ convert_move (rtx to, rtx from, int unsignedp)
 	       && ((code = can_extend_p (to_mode, word_mode, unsignedp))
 		   != CODE_FOR_nothing))
 	{
+	  rtx word_to = gen_reg_rtx (word_mode);
 	  if (REG_P (to))
 	    {
 	      if (reg_overlap_mentioned_p (to, from))
 		from = force_reg (from_mode, from);
 	      emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
 	    }
-	  convert_move (gen_lowpart (word_mode, to), from, unsignedp);
-	  emit_unop_insn (code, to,
-			  gen_lowpart (word_mode, to), equiv_code);
+	  convert_move (word_to, from, unsignedp);
+	  emit_unop_insn (code, to, word_to, equiv_code);
 	  return;
 	}
 
@@ -4654,7 +4654,8 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	      temp = convert_to_mode (GET_MODE (target), temp, unsignedp);
 	      emit_move_insn (target, temp);
 	    }
-	  else if (GET_MODE (target) == BLKmode)
+	  else if (GET_MODE (target) == BLKmode
+		   || GET_MODE (temp) == BLKmode)
 	    emit_block_move (target, temp, expr_size (exp),
 			     (call_param_p
 			      ? BLOCK_OP_CALL_PARM
@@ -5893,7 +5894,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
       size_tree = TREE_OPERAND (exp, 1);
-      *punsignedp = BIT_FIELD_REF_UNSIGNED (exp);
+      *punsignedp = (! INTEGRAL_TYPE_P (TREE_TYPE (exp))
+		     || TYPE_UNSIGNED (TREE_TYPE (exp)));
 
       /* For vector types, with the correct size of access, use the mode of
 	 inner type.  */
@@ -8049,6 +8051,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       }
       return expand_call (exp, target, ignore);
 
+    case PAREN_EXPR:
     case NON_LVALUE_EXPR:
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -8897,10 +8900,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case BIT_XOR_EXPR:
       goto binop;
 
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+      /* The expansion code only handles expansion of mode precision
+	 rotates.  */
+      gcc_assert (GET_MODE_PRECISION (TYPE_MODE (type))
+		  == TYPE_PRECISION (type));
+
+      /* Falltrough.  */
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
       /* If this is a fixed-point operation, then we cannot use the code
 	 below because "expand_shift" doesn't support sat/no-sat fixed-point
          shifts.   */

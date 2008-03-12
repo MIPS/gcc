@@ -1,5 +1,5 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -106,7 +106,10 @@ resolve_formal_arglist (gfc_symbol *proc)
   if (gfc_elemental (proc)
       || sym->attr.pointer || sym->attr.allocatable
       || (sym->as && sym->as->rank > 0))
-    proc->attr.always_explicit = 1;
+    {
+      proc->attr.always_explicit = 1;
+      sym->attr.always_explicit = 1;
+    }
 
   formal_arg_flag = 1;
 
@@ -187,7 +190,11 @@ resolve_formal_arglist (gfc_symbol *proc)
       if ((sym->as && sym->as->rank > 0 && sym->as->type == AS_ASSUMED_SHAPE)
 	  || sym->attr.pointer || sym->attr.allocatable || sym->attr.target
 	  || sym->attr.optional)
-	proc->attr.always_explicit = 1;
+	{
+	  proc->attr.always_explicit = 1;
+	  if (proc->result)
+	    proc->result->attr.always_explicit = 1;
+	}
 
       /* If the flavor is unknown at this point, it has to be a variable.
 	 A procedure specification would have already set the type.  */

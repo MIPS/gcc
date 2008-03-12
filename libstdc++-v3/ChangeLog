@@ -1,3 +1,73 @@
+2008-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/pre/gnu.ver: Move <system_error> related
+	symbols to GLIBCXX_3.4.11 symbol version.
+	* testsuite/util/testsuite_abi.cc (check_version): Allow
+	GLIBCXX_3.4.11.
+
+2008-03-06  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/35480
+	* include/tr1/tuple (operator==, operator<): Fix.
+	* include/std/tuple (operator==, operator<): Likewise.
+	* testsuite/tr1/6_containers/tuple/comparison_operators/35480.cc: New.
+	* testsuite/20_util/tuple/comparison_operators/35480.cc: Likewise.
+
+2008-03-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* crossconfig.m4 (*-mingw32*): Define HAVE_STRTOF and
+	HAVE_STRTOLD.
+	* configure: Regenerate.
+
+2008-03-02  Hans-Peter Nilsson  <hp@axis.com>
+
+	* testsuite/20_util/shared_ptr/assign/shared_ptr_neg.cc,
+	testsuite/tr1/2_general_utilities/shared_ptr/assign/shared_ptr_neg.cc:
+	Mark changed error message prelude, adding "in file included from",
+	using dg-excess-errors.
+
+2008-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Likewise.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+
+2008-02-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/pre/gnu.ver: Remove
+	_ZNKSt3tr14hashIgEclEg@@GLIBCXX_3.4.10 and
+	_ZNKSt4hashIgEclEg@@GLIBCXX_3.4.10 export.
+	* config/os/gnu-linux/ldbl-extra.ver: Export
+	_ZNKSt3tr14hashIgEclEg@@GLIBCXX_LDBL_3.4.10
+	and _ZNKSt4hashIgEclEg@@GLIBCXX_LDBL_3.4.10.
+	* src/hash.cc: Only define long double hash specialization if
+	_GLIBCXX_LONG_DOUBLE_COMPAT_IMPL is defined.
+	* src/compatibility-ldbl.cc: Include "hash.cc".
+	(_GLIBCXX_LONG_DOUBLE_COMPAT_IMPL): Define.
+	(_ZNKSt4hashIeEclEe): New alias.
+	* testsuite/util/testsuite_abi.cc (check_version): Support
+	GLIBCXX_LDBL_3.4.10. 
+
+2008-02-25  Jan Beulich  <jbeulich@novell.com>
+
+	* acinclude.m4: Also check for EIDRM and ETXTBSY.
+	* configure: Re-generate.
+	* config/os/generic/error_constants.h (namespace posix_error):
+	Also wrap uses of EIDRM and ETXTBSY in conditionals.
+	* testsuite/19_diagnostics/headers/system_error/types_std_c++0x.cc:
+	Likewise.
+
+2008-02-20  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/c++config: Use 'inline namespace' instead of 
+	strong using.
+
 2008-02-18  Pedro Lamarao <pedro.lamarao@mndfck.org>
 
 	* include/std/tuple: Fixes for moveable, non-copyable types.
