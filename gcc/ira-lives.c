@@ -587,8 +587,7 @@ process_single_reg_class_operands (int in_p, int freq)
 			     ? register_move_cost [mode] [cover_class] [cl]
 			     : register_move_cost [mode] [cl] [cover_class]);
 	      allocate_and_set_costs
-		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a),
-		 class_hard_regs_num [cover_class], 0);
+		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a), cover_class, 0);
 	      ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
 		[class_hard_reg_index [cover_class] [class_hard_regs [cl] [0]]]
 		-= cost;

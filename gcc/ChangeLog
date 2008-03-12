@@ -1,3 +1,63 @@
+2008-03-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (allocno_pool, copy_pool, allocno_live_range_pool):
+	Remove external definitions.
+	(free_allocno_updated_costs, allocate_cost_vector,
+	free_cost_vector): New prototypes.
+	(allocate_and_set_costs, allocate_and_copy_costs,
+	allocate_and_set_or_copy_costs): Change prototypes.  Use
+	allocate_cost_vector instead of ira_allocate.
+
+	* ira-conflicts.c (add_insn_allocno_copies): Pass register class
+	to allocate_and_set_costs.
+
+	* ira-color.c (update_copy_costs_1): Pass register class to
+	allocate_and_set_or_copy_costs.
+	(assign_hard_reg): Pass register class to allocate_and_copy_costs.
+	Free updated costs.
+	(pop_allocnos_from_stack, color_allocnos): Check updated costs.
+	(color_pass): Pass register class to allocate_and_set_costs.  Free
+	updated costs.
+	(move_spill_restore): Check reg equivalences.
+	(setup_curr_costs): Pass register class to
+	allocate_and_set_or_copy_costs.
+	(reassign_conflict_allocnos, allocno_reload_assign): Check updated
+	costs.
+	(calculate_spill_cost): Use REG_N_REFS after checking regno.
+
+	* ira-lives.c (process_single_reg_class_operands): Pass register
+	class to allocate_and_set_costs.
+
+	* ira-build.c (allocno_pool, allocno_live_range_pool): New
+	variables.
+	(initiate_allocnos): Initiate the pools.
+	(free_allocno_updated_costs): New function.
+	(finish_allocno): Use free_cost_vector.  Free the pools.
+	(copy_pool): New variable.
+	(initiate_copies): Initiate the pool.
+	(cost_vector_pool): New variable.
+	(initiate_cost_vectors, allocate_cost_vector, free_cost_vector,
+	finish_cost_vectors): New functions.
+	(ira_flattening): Call free_allocno_updated_costs.  Check updated
+	costs.
+	(ira_build): Call initiate_cost_vectors.
+	(ira_destroy): Call finish_cost_vectors.
+
+	* ira.c (find_reg_equiv_invariant_const): Check read only memory.
+	(setup_reg_renumber, setup_allocno_assignment_flags): Call
+	free_allocno_updated_costs.
+	(ira): Remove initializations and freeing allocno_pool, copy_pool,
+	and allocno_live_range_pool.  Call generate_setjmp_warnings.
+
+	* ira-costs.c (process_bb_node_for_hard_reg_moves,
+	tune_allocno_costs_and_cover_classes): Pass register class to
+	allocate_and_set_costs.
+
+	* caller-save.c (save_slots_num, save_slots): New variables.
+	(init_save_areas): Initiate save_slots_num.
+	(setup_save_areas): Use stack slots from the previous reload
+	iteration independetly what slot was used on the previous pass.
+	
 2008-03-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/i386/sse.md (ssse3_pmaddubswv8hi3, ssse3_pmaddubswv4hi3):

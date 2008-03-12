@@ -1161,7 +1161,7 @@ find_reg_equiv_invariant_const (void)
 		 reg_equiv_* arrays were originally legitimate, we
 		 ignore such REG_EQUIV notes.  */
 	      if (memory_operand (x, VOIDmode))
-		continue;
+		invariant_p = MEM_READONLY_P (x);
 	      else if (function_invariant_p (x))
 		{
 		  if (GET_CODE (x) == PLUS
@@ -1179,8 +1179,8 @@ find_reg_equiv_invariant_const (void)
 
 
 
-/* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED used by
-   reload from the allocation found by IRA.  */
+/* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED (used by
+   reload) from the allocation found by IRA.  */
 static void
 setup_reg_renumber (void)
 {
@@ -1194,8 +1194,10 @@ setup_reg_renumber (void)
       /* There are no caps at this point.  */
       ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
       if (! ALLOCNO_ASSIGNED_P (a))
+	/* It can happen if A is not referenced but partially anticipated
+	   somewhere in a region.  */
 	ALLOCNO_ASSIGNED_P (a) = TRUE;
-      ira_assert (ALLOCNO_ASSIGNED_P (a));
+      free_allocno_updated_costs (a);
       hard_regno = ALLOCNO_HARD_REGNO (a);
       regno = (int) REGNO (ALLOCNO_REG (a));
       reg_renumber [regno] = (hard_regno < 0 ? -1 : hard_regno);
@@ -1222,6 +1224,10 @@ setup_allocno_assignment_flags (void)
   for (i = 0; i < allocnos_num; i++)
     {
       a = allocnos [i];
+      if (! ALLOCNO_ASSIGNED_P (a))
+	/* It can happen if A is not referenced but partially anticipated
+	   somewhere in a region.  */
+	free_allocno_updated_costs (a);
       hard_regno = ALLOCNO_HARD_REGNO (a);
       /* Don't assign hard registers to allocnos which are destination
 	 of removed store at the end of loop.  It has a few sense to
@@ -1555,13 +1561,15 @@ ira (FILE *f)
 
   df_clear_flags (DF_NO_INSN_RESCAN);
 
-  allocno_pool = create_alloc_pool ("allocnos", sizeof (struct allocno), 100);
-  copy_pool = create_alloc_pool ("copies", sizeof (struct allocno_copy), 100);
-  allocno_live_range_pool
-    = create_alloc_pool ("allocno live ranges",
-			 sizeof (struct allocno_live_range), 100);
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
+
+  /* If we are not optimizing, then this is the only place before
+     register allocation where dataflow is done.  And that is needed
+     to generate these warnings.  */
+  if (warn_clobbered)
+    generate_setjmp_warnings ();
+
   rebuild_p = update_equiv_regs ();
   regstat_free_n_sets_and_refs ();
   regstat_free_ri ();
@@ -1713,10 +1721,6 @@ ira (FILE *f)
 
   ira_free (reg_equiv_invariant_p);
   ira_free (reg_equiv_const);
-  
-  free_alloc_pool (allocno_live_range_pool);
-  free_alloc_pool (copy_pool);
-  free_alloc_pool (allocno_pool);
 
   bitmap_obstack_release (&ira_bitmap_obstack);
 #ifndef IRA_NO_OBSTACK

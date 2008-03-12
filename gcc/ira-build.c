@@ -73,6 +73,9 @@ static void print_allocno_copies (FILE *, allocno_t);
 static void finish_copy (copy_t);
 static void finish_copies (void);
 
+static void initiate_cost_vectors (void);
+static void finish_cost_vectors (void);
+
 static void create_insn_allocnos (rtx, int);
 static void create_bb_allocnos (loop_tree_node_t);
 static void create_loop_allocnos (edge);
@@ -455,6 +458,9 @@ finish_calls (void)
 
 
 
+/* Pools for allocnos and allocno live ranges.  */
+static alloc_pool allocno_pool, allocno_live_range_pool;
+
 /* Varray containing references to all created allocnos.  It is a
    container of array allocnos.  */
 static varray_type allocno_varray;
@@ -463,6 +469,10 @@ static varray_type allocno_varray;
 static void
 initiate_allocnos (void)
 {
+  allocno_live_range_pool
+    = create_alloc_pool ("allocno live ranges",
+			 sizeof (struct allocno_live_range), 100);
+  allocno_pool = create_alloc_pool ("allocnos", sizeof (struct allocno), 100);
   VARRAY_GENERIC_PTR_NOGC_INIT
     (allocno_varray, max_reg_num () * 2, "allocnos");
   allocnos = NULL;
@@ -705,7 +715,8 @@ create_cap_allocno (allocno_t a)
 static void
 propagate_info_to_cap (allocno_t cap)
 {
-  int i, regno, hard_regs_num, conflicts_num;
+  int i, regno, conflicts_num;
+  enum reg_class cover_class;
   allocno_t a, conflict_allocno, conflict_father_allocno;
   allocno_t another_a, father_a;
   allocno_t *allocno_vec;
@@ -718,12 +729,11 @@ propagate_info_to_cap (allocno_t cap)
 	      && ALLOCNO_CALLS_CROSSED_NUM (cap) == 0);
   a = ALLOCNO_CAP_MEMBER (cap);
   father = ALLOCNO_LOOP_TREE_NODE (cap);
-  hard_regs_num = class_hard_regs_num [ALLOCNO_COVER_CLASS (cap)];
+  cover_class = ALLOCNO_COVER_CLASS (cap);
   allocate_and_copy_costs
-    (&ALLOCNO_HARD_REG_COSTS (cap), hard_regs_num,
-     ALLOCNO_HARD_REG_COSTS (a));
+    (&ALLOCNO_HARD_REG_COSTS (cap), cover_class, ALLOCNO_HARD_REG_COSTS (a));
   allocate_and_copy_costs
-    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (cap), hard_regs_num,
+    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (cap), cover_class,
      ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
   ALLOCNO_NREFS (cap) = ALLOCNO_NREFS (a);
   ALLOCNO_FREQ (cap) = ALLOCNO_FREQ (a);
@@ -865,22 +875,39 @@ finish_allocno_live_range (allocno_live_range_t r)
   pool_free (allocno_live_range_pool, r);
 }
 
+void
+free_allocno_updated_costs (allocno_t a)
+{
+  enum reg_class cover_class;
+
+  cover_class = ALLOCNO_COVER_CLASS (a);
+  if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) != NULL)
+    free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), cover_class);
+  ALLOCNO_UPDATED_HARD_REG_COSTS (a) = NULL;
+  if (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) != NULL)
+    free_cost_vector (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
+		      cover_class);
+  ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
+}
+
 /* The function frees memory allocated for allocno A.  */
 static void
 finish_allocno (allocno_t a)
 {
   allocno_live_range_t r, next_r;
+  enum reg_class cover_class = ALLOCNO_COVER_CLASS (a);
 
   if (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) != NULL)
     ira_free (ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
   if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
-    ira_free (ALLOCNO_HARD_REG_COSTS (a));
+    free_cost_vector (ALLOCNO_HARD_REG_COSTS (a), cover_class);
   if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL)
-    ira_free (ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
+    free_cost_vector (ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class);
   if (ALLOCNO_UPDATED_HARD_REG_COSTS (a) != NULL)
-    ira_free (ALLOCNO_UPDATED_HARD_REG_COSTS (a));
+    free_cost_vector (ALLOCNO_UPDATED_HARD_REG_COSTS (a), cover_class);
   if (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) != NULL)
-    ira_free (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a));
+    free_cost_vector (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
+		      cover_class);
   for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = next_r)
     {
       next_r = r->next;
@@ -899,9 +926,14 @@ finish_allocnos (void)
     finish_allocno (allocnos [i]);
   ira_free (regno_allocno_map);
   VARRAY_FREE (allocno_varray);
+  free_alloc_pool (allocno_pool);
+  free_alloc_pool (allocno_live_range_pool);
 }
 
 
+
+/* Pools for copies.  */
+static alloc_pool copy_pool;
 
 /* Varray containing references to all created copies.  It is a
    container of array copies.  */
@@ -911,6 +943,7 @@ static varray_type copy_varray;
 static void
 initiate_copies (void)
 {
+  copy_pool = create_alloc_pool ("copies", sizeof (struct allocno_copy), 100);
   VARRAY_GENERIC_PTR_NOGC_INIT (copy_varray, get_max_uid (), "copies");
   copies = NULL;
   copies_num = 0;
@@ -1133,6 +1166,61 @@ finish_copies (void)
   for (i = 0; i < copies_num; i++)
     finish_copy (copies [i]);
   VARRAY_FREE (copy_varray);
+  free_alloc_pool (copy_pool);
+}
+
+
+
+/* Pools for cost vectors.  */
+static alloc_pool cost_vector_pool [N_REG_CLASSES];
+
+/* The function initiates work with hard register cost vectors.  It
+   creates allocation pool for each cover class.  */
+static void
+initiate_cost_vectors (void)
+{
+  int i;
+  enum reg_class cover_class;
+
+  for (i = 0; i < reg_class_cover_size; i++)
+    {
+      cover_class = reg_class_cover [i];
+      cost_vector_pool [cover_class]
+	= create_alloc_pool ("cost vectors",
+			     sizeof (int) * class_hard_regs_num [cover_class] + 32,
+			     100);
+    }
+}
+
+/* The function allocates and returns cost vector VEC for
+   COVER_CLASS.  */
+int *
+allocate_cost_vector (enum reg_class cover_class)
+{
+  return pool_alloc (cost_vector_pool [cover_class]);
+}
+
+/* The function frees cost vector VEC for COVER_CLASS.  */
+void
+free_cost_vector (int *vec, enum reg_class cover_class)
+{
+  ira_assert (vec != NULL);
+  pool_free (cost_vector_pool [cover_class], vec);
+}
+
+/* The function finishes work with hard register cost vectors.  It
+   releases allocation pool for each cover class.  */
+static void
+finish_cost_vectors (void)
+{
+  int i;
+  enum reg_class cover_class;
+
+  for (i = 0; i < reg_class_cover_size; i++)
+    {
+      cover_class = reg_class_cover [i];
+      free_alloc_pool (cost_vector_pool [cover_class]);
+    }
 }
 
 
@@ -1899,6 +1987,11 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
       if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "      Enumerate a%dr%d to a%d\n",
 		 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)), free);
+      ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
+      if (! ALLOCNO_ASSIGNED_P (a))
+	free_allocno_updated_costs (a);
+      ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
+      ira_assert (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) == NULL);
       ALLOCNO_NUM (a) = free;
       allocnos [free++] = a;
     }
@@ -2004,6 +2097,7 @@ ira_build (int loops_p)
 
   CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
   initiate_calls ();
+  initiate_cost_vectors ();
   initiate_allocnos ();
   initiate_copies ();
   create_loop_tree_nodes (loops_p);
@@ -2061,5 +2155,6 @@ ira_destroy (void)
   finish_copies ();
   finish_allocnos ();
   finish_calls ();
+  finish_cost_vectors ();
   finish_allocno_live_ranges ();
 }

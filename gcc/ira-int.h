@@ -53,9 +53,6 @@ extern int internal_flag_ira_verbose;
 /* Dump file of the allocator if it is not NULL.  */
 extern FILE *ira_dump_file;
 
-/* Pools for allocnos, copies, allocno live ranges.  */
-extern alloc_pool allocno_pool, copy_pool, allocno_live_range_pool;
-
 /* Allocno live range, allocno, and copy of allocnos.  */
 typedef struct loop_tree_node *loop_tree_node_t;
 typedef struct allocno_live_range *allocno_live_range_t;
@@ -626,12 +623,16 @@ extern void print_expanded_allocno (allocno_t);
 extern allocno_live_range_t create_allocno_live_range (allocno_t, int, int,
 						       allocno_live_range_t);
 extern void finish_allocno_live_range (allocno_live_range_t);
+extern void free_allocno_updated_costs (allocno_t);
 extern copy_t create_copy (allocno_t, allocno_t, int, rtx, loop_tree_node_t);
 extern void add_allocno_copy_to_list (copy_t);
 extern void swap_allocno_copy_ends_if_necessary (copy_t);
 extern void remove_allocno_copy_from_list (copy_t);
 extern copy_t add_allocno_copy (allocno_t, allocno_t, int, rtx,
 				loop_tree_node_t);
+
+extern int *allocate_cost_vector (enum reg_class);
+extern void free_cost_vector (int *, enum reg_class);
 
 extern void ira_flattening (int, int);
 extern int ira_build (int);
@@ -696,13 +697,15 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
 /* Allocate cost vector *VEC and initialize the elements by VAL if it
    is necessary */
 static inline void
-allocate_and_set_costs (int **vec, int len, int val)
+allocate_and_set_costs (int **vec, enum reg_class cover_class, int val)
 {
   int i, *reg_costs;
+  int len;
 
   if (*vec != NULL)
     return;
-  *vec = reg_costs = ira_allocate (sizeof (int) * len);
+  *vec = reg_costs = allocate_cost_vector (cover_class);
+  len = class_hard_regs_num [cover_class];
   for (i = 0; i < len; i++)
     reg_costs [i] = val;
 }
@@ -710,24 +713,30 @@ allocate_and_set_costs (int **vec, int len, int val)
 /* Allocate cost vector *VEC and copy values of SRC into the vector if
    it is necessary */
 static inline void
-allocate_and_copy_costs (int **vec, int len, int *src)
+allocate_and_copy_costs (int **vec, enum reg_class cover_class, int *src)
 {
+  int len;
+
   if (*vec != NULL || src == NULL)
     return;
-  *vec = ira_allocate (sizeof (int) * len);
+  *vec = allocate_cost_vector (cover_class);
+  len = class_hard_regs_num [cover_class];
   memcpy (*vec, src, sizeof (int) * len);
 }
 
 /* Allocate cost vector *VEC and copy values of SRC into the vector or
    initialize it by VAL (if SRC is null).  */
 static inline void
-allocate_and_set_or_copy_costs (int **vec, int len, int val, int *src)
+allocate_and_set_or_copy_costs (int **vec, enum reg_class cover_class,
+				int val, int *src)
 {
   int i, *reg_costs;
+  int len;
 
   if (*vec != NULL)
     return;
-  *vec = reg_costs = ira_allocate (sizeof (int) * len);
+  *vec = reg_costs = allocate_cost_vector (cover_class);
+  len = class_hard_regs_num [cover_class];
   if (src != NULL)
     memcpy (reg_costs, src, sizeof (int) * len);
   else

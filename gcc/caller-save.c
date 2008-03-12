@@ -68,6 +68,12 @@ static enum machine_mode
 static rtx
   regno_save_mem[FIRST_PSEUDO_REGISTER][MAX_MOVE_MAX / MIN_UNITS_PER_WORD + 1];
 
+/* The number of elements in the subsequent array.  */
+static int save_slots_num;
+
+/* Allocated slots so far.  */
+static rtx save_slots [FIRST_PSEUDO_REGISTER];
+
 /* We will only make a register eligible for caller-save if it can be
    saved in its widest mode with a simple SET insn as long as the memory
    address is valid.  We record the INSN_CODE is those insns here since
@@ -289,6 +295,8 @@ init_save_areas (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     for (j = 1; j <= MOVE_MAX_WORDS; j++)
       regno_save_mem[i][j] = 0;
+  save_slots_num = 0;
+    
 }
 
 /* The structure represents a hard register which should be saved
@@ -447,6 +455,9 @@ setup_save_areas (void)
       struct saved_hard_reg *call_saved_regs [FIRST_PSEUDO_REGISTER];
       HARD_REG_SET hard_regs_to_save, used_regs, this_insn_sets;
       reg_set_iterator rsi;
+      int best_slot_num;
+      int prev_save_slots_num;
+      rtx prev_save_slots [FIRST_PSEUDO_REGISTER];
       
       initiate_saved_hard_regs ();
       /* Create hard reg saved regs.  */
@@ -504,6 +515,7 @@ setup_save_areas (void)
 		      hard_reg_map [r]->call_freq += freq;
 		    else
 		      saved_reg = new_saved_hard_reg (r, freq);
+		    SET_HARD_REG_BIT (hard_regs_to_save, r);
 		  }
 	    }
 	}
@@ -576,10 +588,16 @@ setup_save_areas (void)
       /* Sort saved hard regs.  */
       qsort (all_saved_regs, saved_regs_num, sizeof (struct saved_hard_reg *),
 	     saved_hard_reg_compare_func);
+      /* Initiate slots available from the previous reload
+	 iteration.  */
+      prev_save_slots_num = save_slots_num;
+      memcpy (prev_save_slots, save_slots, save_slots_num * sizeof (rtx));
+      save_slots_num = 0;
       /* Allocate stack slots for the saved hard registers.  */
       for (i = 0; i < saved_regs_num; i++)
 	{
 	  saved_reg = all_saved_regs [i];
+	  regno = saved_reg->hard_regno;
 	  for (j = 0; j < i; j++)
 	    {
 	      saved_reg2 = all_saved_regs [j];
@@ -595,44 +613,56 @@ setup_save_areas (void)
 		    break;
 		}
 	      if (k < 0
-		  && (GET_MODE_SIZE (regno_save_mode
-				     [saved_reg->hard_regno] [1])
+		  && (GET_MODE_SIZE (regno_save_mode [regno] [1])
 		      <= GET_MODE_SIZE (regno_save_mode
 					[saved_reg2->hard_regno] [1])))
 		{
 		  saved_reg->slot = slot;
-		  regno_save_mem [saved_reg->hard_regno] [1] = slot;
+		  regno_save_mem [regno] [1] = slot;
 		  saved_reg->next = saved_reg2->next;
 		  saved_reg2->next = i;
 		  if (dump_file != NULL)
 		    fprintf (dump_file, "%d uses slot of %d\n",
-			     saved_reg->hard_regno, saved_reg2->hard_regno);
+			     regno, saved_reg2->hard_regno);
 		  break;
 		}
 	    }
 	  if (j == i)
 	    {
 	      saved_reg->first_p = TRUE;
-	      if (regno_save_mem [saved_reg->hard_regno] [1] != NULL_RTX)
+	      for (best_slot_num = -1, j = 0; j < prev_save_slots_num; j++)
 		{
-		  saved_reg->slot = regno_save_mem [saved_reg->hard_regno] [1];
+		  slot = prev_save_slots [j];
+		  if (slot == NULL_RTX)
+		    continue;
+		  if (GET_MODE_SIZE (regno_save_mode [regno] [1])
+		      <= GET_MODE_SIZE (GET_MODE (slot))
+		      && best_slot_num < 0)
+		    best_slot_num = j;
+		  if (GET_MODE (slot) == regno_save_mode [regno] [1])
+		    break;
+		}
+	      if (best_slot_num >= 0)
+		{
+		  saved_reg->slot = prev_save_slots [best_slot_num];
 		  if (dump_file != NULL)
 		    fprintf (dump_file,
-			     "%d uses slot from prev iteration\n",
-			     saved_reg->hard_regno);
+			     "%d uses a slot from prev iteration\n", regno);
+		  prev_save_slots [best_slot_num] = NULL_RTX;
+		  if (best_slot_num + 1 == prev_save_slots_num)
+		    prev_save_slots_num--;
 		}
 	      else
 		{
 		  saved_reg->slot
 		    = assign_stack_local
-		      (regno_save_mode [saved_reg->hard_regno] [1],
-		       GET_MODE_SIZE (regno_save_mode
-				      [saved_reg->hard_regno] [1]), 0);
-		  regno_save_mem [saved_reg->hard_regno] [1] = saved_reg->slot;
+		      (regno_save_mode [regno] [1],
+		       GET_MODE_SIZE (regno_save_mode [regno] [1]), 0);
 		  if (dump_file != NULL)
-		    fprintf (dump_file, "%d uses a new slot\n",
-			     saved_reg->hard_regno);
+		    fprintf (dump_file, "%d uses a new slot\n", regno);
 		}
+	      regno_save_mem [regno] [1] = saved_reg->slot;
+	      save_slots [save_slots_num++] = saved_reg->slot;
 	    }
 	}
       free (saved_reg_conflicts);
@@ -1335,11 +1365,9 @@ save_call_clobbered_regs (void)
     free_aux_for_blocks ();
 }
 
-/* Here from note_stores, or directly from save_call_clobbered_regs, when
-   an insn stores a value in a register.
-   Set the proper bit or bits in this_insn_sets.  All pseudos that have
-   been assigned hard regs have had their register number changed already,
-   so we can ignore pseudos.  */
+/* Here from note_stores, or directly from save_call_clobbered_regs,
+   when an insn stores a value in a register.  Set the proper bit or
+   bits in this_insn_sets.  */
 static void
 mark_set_regs (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
@@ -1349,16 +1377,34 @@ mark_set_regs (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *data)
   if (GET_CODE (reg) == SUBREG)
     {
       rtx inner = SUBREG_REG (reg);
-      if (!REG_P (inner) || REGNO (inner) >= FIRST_PSEUDO_REGISTER)
+      if (!REG_P (inner))
 	return;
-      regno = subreg_regno (reg);
-      endregno = regno + subreg_nregs (reg);
+      if ((regno = REGNO (inner)) >= FIRST_PSEUDO_REGISTER)
+	{
+	  if (reg_renumber [regno] < 0)
+	    return;
+	  regno = reg_renumber [regno];
+	  endregno
+	    = hard_regno_nregs [regno] [PSEUDO_REGNO_MODE (REGNO (inner))];
+	}
+      else
+	{
+	  regno = subreg_regno (reg);
+	  endregno = regno + subreg_nregs (reg);
+	}
     }
-  else if (REG_P (reg)
-	   && REGNO (reg) < FIRST_PSEUDO_REGISTER)
+  else if (REG_P (reg))
     {
-      regno = REGNO (reg);
-      endregno = END_HARD_REGNO (reg);
+      if ((regno = REGNO (reg)) < FIRST_PSEUDO_REGISTER)
+	endregno = END_HARD_REGNO (reg);
+      else
+	{
+	  if (reg_renumber [regno] < 0)
+	    return;
+	  regno = reg_renumber [regno];
+	  endregno
+	    = hard_regno_nregs [regno] [PSEUDO_REGNO_MODE (REGNO (reg))];
+	}
     }
   else
     return;
@@ -1405,7 +1451,7 @@ add_stored_regs (rtx reg, const_rtx setter, void *data)
     SET_REGNO_REG_SET ((regset) data, i);
 }
 
-/* Walk X and record all referenced registers in REFERENCED_REGS.  */
+/* Walk X and record all referenced registers in REFERENCED_REG.  */
 static void
 mark_referenced_regs (rtx x)
 {

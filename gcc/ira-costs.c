@@ -1328,9 +1328,9 @@ find_allocno_class_costs (void)
 static void
 process_bb_node_for_hard_reg_moves (loop_tree_node_t loop_tree_node)
 {
-  int i, freq, cost, src_regno, dst_regno, hard_regno, to_p, hard_regs_num;
+  int i, freq, cost, src_regno, dst_regno, hard_regno, to_p;
   allocno_t a;
-  enum reg_class class, hard_reg_class;
+  enum reg_class class, cover_class, hard_reg_class;
   enum machine_mode mode;
   basic_block bb;
   rtx insn, set, src, dst;
@@ -1380,11 +1380,9 @@ process_bb_node_for_hard_reg_moves (loop_tree_node_t loop_tree_node)
       hard_reg_class = REGNO_REG_CLASS (hard_regno);
       cost = (to_p ? register_move_cost [mode] [hard_reg_class] [class]
 	      : register_move_cost [mode] [class] [hard_reg_class]) * freq;
-      hard_regs_num = class_hard_regs_num [class];
-      allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), hard_regs_num,
+      allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), class,
 			      ALLOCNO_COVER_CLASS_COST (a));
-      allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-			      hard_regs_num, 0);
+      allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), class, 0);
       ALLOCNO_HARD_REG_COSTS (a) [i] -= cost;
       ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [i] -= cost;
       ALLOCNO_COVER_CLASS_COST (a) = MIN (ALLOCNO_COVER_CLASS_COST (a),
@@ -1401,12 +1399,12 @@ process_bb_node_for_hard_reg_moves (loop_tree_node_t loop_tree_node)
 	        break;
 	      if ((a = father->regno_allocno_map [regno]) == NULL)
 		break;
-	      hard_regs_num = class_hard_regs_num [ALLOCNO_COVER_CLASS (a)];
+	      cover_class = ALLOCNO_COVER_CLASS (a);
 	      allocate_and_set_costs
-		(&ALLOCNO_HARD_REG_COSTS (a), hard_regs_num,
+		(&ALLOCNO_HARD_REG_COSTS (a), cover_class,
 		 ALLOCNO_COVER_CLASS_COST (a));
 	      allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-				      hard_regs_num, 0);
+				      cover_class, 0);
 	      ALLOCNO_HARD_REG_COSTS (a) [i] -= cost;
 	      ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [i] -= cost;
 	      ALLOCNO_COVER_CLASS_COST (a)
@@ -1449,7 +1447,7 @@ setup_allocno_cover_class_and_costs (void)
 	{
 	  n = class_hard_regs_num [cover_class];
 	  ALLOCNO_HARD_REG_COSTS (a)
-	    = reg_costs = ira_allocate (n * sizeof (int));
+	    = reg_costs = allocate_cost_vector (cover_class);
 	  for (j = n - 1; j >= 0; j--)
 	    {
 	      regno = class_hard_regs [cover_class] [j];
@@ -1588,7 +1586,8 @@ tune_allocno_costs_and_cover_classes (void)
       if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	{
 	  allocate_and_set_costs
-	    (&ALLOCNO_HARD_REG_COSTS (a), n, ALLOCNO_COVER_CLASS_COST (a));
+	    (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
+	     ALLOCNO_COVER_CLASS_COST (a));
 	  reg_costs = ALLOCNO_HARD_REG_COSTS (a);
 	  for (j = n - 1; j >= 0; j--)
 	    {
