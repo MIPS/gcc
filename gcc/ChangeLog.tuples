@@ -1,3 +1,9 @@
+2008-03-12  Diego Novillo  <dnovillo@google.com>
+	    Oleg Ryjkov  <olegr@google.com>
+
+	* cfgexpand.c (gimple_to_tree): Record the correct type when
+	converting GIMPLE_CALL.
+
 2008-03-12  Zdenek Dvorak  <ook@ucw.cz>
 
 	* tree-ssa-loop-im.c (stmt_cost, rewrite_bittest,

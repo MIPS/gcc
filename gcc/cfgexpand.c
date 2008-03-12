@@ -159,17 +159,13 @@ gimple_to_tree (gimple stmt)
 
         fn = gimple_call_fn (stmt);
         if (TREE_CODE (fn) == FUNCTION_DECL)
-          {
-            CALL_EXPR_FN (t) = build1 (ADDR_EXPR,
-                                       build_pointer_type (TREE_TYPE (fn)),
-                                       fn);
-            TREE_TYPE (t) = TREE_TYPE (TREE_TYPE (fn));
-          }
+          CALL_EXPR_FN (t) = build1 (ADDR_EXPR,
+                                     build_pointer_type (TREE_TYPE (fn)),
+                                     fn);
         else
-          {
-            CALL_EXPR_FN (t) = fn;
-            TREE_TYPE (t) = TREE_TYPE (fn);
-          }
+          CALL_EXPR_FN (t) = fn;
+        
+        TREE_TYPE (t) = gimple_call_return_type (stmt);
 
 	CALL_EXPR_STATIC_CHAIN (t) = gimple_call_chain (stmt);
 
