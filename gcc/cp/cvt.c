@@ -379,7 +379,7 @@ warn_ref_binding (tree reftype, tree intype, tree decl)
 	  msg = "conversion to non-const reference type %q#T from"
 	    " rvalue of type %qT";
 
-      pedwarn (msg, reftype, intype);
+      permerror (msg, reftype, intype);
     }
 }
 
@@ -449,8 +449,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
 	  if (! (convtype & CONV_CONST)
 		   && !at_least_as_qualified_p (ttl, ttr))
-	    pedwarn ("conversion from %qT to %qT discards qualifiers",
-		     ttr, reftype);
+	    permerror ("conversion from %qT to %qT discards qualifiers",
+		       ttr, reftype);
 	}
 
       return build_up_reference (reftype, expr, flags, decl);
@@ -596,13 +596,9 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 
   e = integral_constant_value (e);
 
-  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
-      /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
-	 don't go through finish_struct, so they don't have the synthesized
-	 constructors.  So don't force a temporary.  */
-      && TYPE_HAS_CONSTRUCTOR (type))
+  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
-  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e)))
+  else if (same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (e)))
     {
       if (same_type_p (type, TREE_TYPE (e)))
 	/* The call to fold will not always remove the NOP_EXPR as
@@ -619,10 +615,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
-	     type of the temporary.  Only allow this for cv-qual changes,
-	     though.  */
-	  gcc_assert (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
-				   TYPE_MAIN_VARIANT (type)));
+	     type of the temporary.  */
 	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
 	  return e;
 	}
@@ -653,9 +646,9 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	      || TREE_CODE (intype) == POINTER_TYPE))
 	{
 	  if (flags & LOOKUP_COMPLAIN)
-	    pedwarn ("conversion from %q#T to %q#T", intype, type);
+	    permerror ("conversion from %q#T to %q#T", intype, type);
 
-	  if (flag_pedantic_errors)
+	  if (!flag_permissive)
 	    return error_mark_node;
 	}
       if (IS_AGGR_TYPE (intype))
@@ -899,8 +892,8 @@ convert_to_void (tree expr, const char *implicit)
       {
 	/* [over.over] enumerates the places where we can take the address
 	   of an overloaded function, and this is not one of them.  */
-	pedwarn ("%s cannot resolve address of overloaded function",
-		    implicit ? implicit : "void cast");
+	error ("%s cannot resolve address of overloaded function",
+	       implicit ? implicit : "void cast");
 	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))

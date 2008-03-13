@@ -121,7 +121,7 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 	$(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_CC) ./$@ || true
 
 if ENABLE_PARALLEL
-parallel_sources = parallel_list.cc 
+parallel_sources = parallel_list.cc parallel_settings.cc
 else
 parallel_sources =
 endif
@@ -147,7 +147,7 @@ sources = \
 	hash_c++0x.cc \
 	globals_io.cc \
 	hashtable.cc \
-	hashtable_c++0x.cc \	
+	hashtable_c++0x.cc \
 	ios.cc \
 	ios_failure.cc \
 	ios_init.cc \
@@ -214,11 +214,17 @@ concept-inst.lo: concept-inst.cc
 concept-inst.o: concept-inst.cc
 	$(CXXCOMPILE) -D_GLIBCXX_CONCEPT_CHECKS -fimplicit-templates -c $<
 
-# Use special rules for parallel_list.cc compile.
+# Use special rules for parallel mode compilation.
+PARALLEL_FLAGS = -fopenmp -D_GLIBCXX_PARALLEL -I$(glibcxx_builddir)/../libgomp
 parallel_list.lo: parallel_list.cc
-	$(LTCXXCOMPILE) -I$(glibcxx_builddir)/../libgomp -c $<
+	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 parallel_list.o: parallel_list.cc
-	$(CXXCOMPILE) -I$(glibcxx_builddir)/../libgomp -c $<
+	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+
+parallel_settings.lo: parallel_settings.cc
+	$(LTCXXCOMPILE) $(PARALLEL_FLAGS) -c $<
+parallel_settings.o: parallel_settings.cc
+	$(CXXCOMPILE) $(PARALLEL_FLAGS) -c $<
 
 # Use special rules for the C++0x sources so that the proper flags are passed.
 system_error.lo: system_error.cc

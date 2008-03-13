@@ -107,45 +107,29 @@ along with GCC; see the file COPYING3.  If not see
 
 typedef struct vn_tables_s
 {
-  htab_t unary;
-  htab_t binary;
+  htab_t nary;
   htab_t phis;
   htab_t references;
-  alloc_pool unary_op_pool;
-  alloc_pool binary_op_pool;
+  struct obstack nary_obstack;
   alloc_pool phis_pool;
   alloc_pool references_pool;
 } *vn_tables_t;
 
-/* Binary operations in the hashtable consist of two operands, an
+/* Nary operations in the hashtable consist of length operands, an
    opcode, and a type.  Result is the value number of the operation,
    and hashcode is stored to avoid having to calculate it
    repeatedly.  */
 
-typedef struct vn_binary_op_s
+typedef struct vn_nary_op_s
 {
-  enum tree_code opcode;
-  tree type;
-  tree op0;
-  tree op1;
+  ENUM_BITFIELD(tree_code) opcode : 16;
+  unsigned length : 16;
   hashval_t hashcode;
   tree result;
-} *vn_binary_op_t;
-typedef const struct vn_binary_op_s *const_vn_binary_op_t;
-
-/* Unary operations in the hashtable consist of a single operand, an
-   opcode, and a type.  Result is the value number of the operation,
-   and hashcode is stored to avoid having to calculate it repeatedly. */
-
-typedef struct vn_unary_op_s
-{
-  enum tree_code opcode;
   tree type;
-  tree op0;
-  hashval_t hashcode;
-  tree result;
-} *vn_unary_op_t;
-typedef const struct vn_unary_op_s *const_vn_unary_op_t;
+  tree op[4];
+} *vn_nary_op_t;
+typedef const struct vn_nary_op_s *const_vn_nary_op_t;
 
 /* Phi nodes in the hashtable consist of their non-VN_TOP phi
    arguments, and the basic block the phi is in. Result is the value
@@ -174,7 +158,6 @@ typedef struct vn_reference_op_struct
   tree type;
   tree op0;
   tree op1;
-  tree op2;
 } vn_reference_op_s;
 typedef vn_reference_op_s *vn_reference_op_t;
 typedef const vn_reference_op_s *const_vn_reference_op_t;
@@ -241,9 +224,12 @@ static VEC (tree, heap) *sccstack;
 DEF_VEC_P(vn_ssa_aux_t);
 DEF_VEC_ALLOC_P(vn_ssa_aux_t, heap);
 
-/* Table of vn_ssa_aux_t's, one per ssa_name.  */
+/* Table of vn_ssa_aux_t's, one per ssa_name.  The vn_ssa_aux_t objects
+   are allocated on an obstack for locality reasons, and to free them
+   without looping over the VEC.  */
 
 static VEC (vn_ssa_aux_t, heap) *vn_ssa_aux_table;
+static struct obstack vn_ssa_aux_obstack;
 
 /* Return the value numbering information for a given SSA name.  */
 
@@ -264,13 +250,16 @@ VN_INFO_SET (tree name, vn_ssa_aux_t value)
 	       SSA_NAME_VERSION (name), value);
 }
 
-/* Get the value numbering info for a given SSA name, creating it if
-   it does not exist.  */
+/* Initialize the value numbering info for a given SSA name.
+   This should be called just once for every SSA name.  */
 
 vn_ssa_aux_t
 VN_INFO_GET (tree name)
 {
-  vn_ssa_aux_t newinfo = XCNEW (struct vn_ssa_aux);
+  vn_ssa_aux_t newinfo;
+
+  newinfo = obstack_alloc (&vn_ssa_aux_obstack, sizeof (struct vn_ssa_aux));
+  memset (newinfo, 0, sizeof (struct vn_ssa_aux));
   if (SSA_NAME_VERSION (name) >= VEC_length (vn_ssa_aux_t, vn_ssa_aux_table))
     VEC_safe_grow (vn_ssa_aux_t, heap, vn_ssa_aux_table,
 		   SSA_NAME_VERSION (name) + 1);
@@ -279,6 +268,24 @@ VN_INFO_GET (tree name)
   return newinfo;
 }
 
+
+/* Free a phi operation structure VP.  */
+
+static void
+free_phi (void *vp)
+{
+  vn_phi_t phi = vp;
+  VEC_free (tree, heap, phi->phiargs);
+}
+
+/* Free a reference operation structure VP.  */
+
+static void
+free_reference (void *vp)
+{
+  vn_reference_t vr = vp;
+  VEC_free (vn_reference_op_s, heap, vr->operands);
+}
 
 /* Compare two reference operands P1 and P2 for equality.  return true if
    they are equal, and false otherwise.  */
@@ -291,8 +298,7 @@ vn_reference_op_eq (const void *p1, const void *p2)
   return vro1->opcode == vro2->opcode
     && vro1->type == vro2->type
     && expressions_equal_p (vro1->op0, vro2->op0)
-    && expressions_equal_p (vro1->op1, vro2->op1)
-    && expressions_equal_p (vro1->op2, vro2->op2);
+    && expressions_equal_p (vro1->op1, vro2->op1);
 }
 
 /* Compute the hash for a reference operand VRO1  */
@@ -301,8 +307,7 @@ static hashval_t
 vn_reference_op_compute_hash (const vn_reference_op_t vro1)
 {
   return iterative_hash_expr (vro1->op0, vro1->opcode)
-    + iterative_hash_expr (vro1->op1, vro1->opcode)
-    + iterative_hash_expr (vro1->op2, vro1->opcode);
+    + iterative_hash_expr (vro1->op1, vro1->opcode);
 }
 
 /* Return the hashcode for a given reference operation P1.  */
@@ -389,11 +394,11 @@ vuses_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
-    VEC_safe_push (tree, gc, *result, vuse);
+  VEC_reserve_exact (tree, gc, *result,
+		     num_ssa_operands (stmt, SSA_OP_VIRTUAL_USES));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vuse, stmt, iter, SSA_OP_VIRTUAL_USES)
+    VEC_quick_push (tree, *result, vuse);
 }
 
 
@@ -421,11 +426,10 @@ vdefs_to_vec (tree stmt, VEC (tree, gc) **result)
   if (!stmt)
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-    VEC_safe_push (tree, gc, *result, vdef);
+  *result = VEC_alloc (tree, gc, num_ssa_operands (stmt, SSA_OP_VIRTUAL_DEFS));
 
-  if (VEC_length (tree, *result) > 1)
-    sort_vuses (*result);
+  FOR_EACH_SSA_TREE_OPERAND (vdef, stmt, iter, SSA_OP_VIRTUAL_DEFS)
+    VEC_quick_push (tree, *result, vdef);
 }
 
 /* Copy the names of vdef results in STMT into a vector, and return
@@ -535,6 +539,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	case COMPLEX_CST:
 	case VECTOR_CST:
 	case REAL_CST:
+	case CONSTRUCTOR:
 	case VALUE_HANDLE:
 	case VAR_DECL:
 	case PARM_DECL:
@@ -692,122 +697,68 @@ vn_reference_insert (tree op, tree result, VEC (tree, gc) *vuses)
      the other lookup functions, you cannot gcc_assert (!*slot)
      here.  */
 
+  /* But free the old slot in case of a collision.  */
+  if (*slot)
+    free_reference (*slot);
 
   *slot = vr1;
 }
 
-
-/* Return the stored hashcode for a unary operation.  */
-
-static hashval_t
-vn_unary_op_hash (const void *p1)
-{
-  const_vn_unary_op_t const vuo1 = (const_vn_unary_op_t) p1;
-  return vuo1->hashcode;
-}
-
-/* Hash a unary operation P1 and return the result.  */
+/* Compute and return the hash value for nary operation VBO1.  */
 
 static inline hashval_t
-vn_unary_op_compute_hash (const vn_unary_op_t vuo1)
+vn_nary_op_compute_hash (const vn_nary_op_t vno1)
 {
-  return iterative_hash_expr (vuo1->op0, vuo1->opcode);
+  hashval_t hash = 0;
+  unsigned i;
+
+  for (i = 0; i < vno1->length; ++i)
+    if (TREE_CODE (vno1->op[i]) == SSA_NAME)
+      vno1->op[i] = SSA_VAL (vno1->op[i]);
+
+  if (vno1->length == 2
+      && commutative_tree_code (vno1->opcode)
+      && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
+    {
+      tree temp = vno1->op[0];
+      vno1->op[0] = vno1->op[1];
+      vno1->op[1] = temp;
+    }
+
+  for (i = 0; i < vno1->length; ++i)
+    hash += iterative_hash_expr (vno1->op[i], vno1->opcode);
+
+  return hash;
 }
 
-/* Return true if P1 and P2, two unary operations, are equivalent.  */
-
-static int
-vn_unary_op_eq (const void *p1, const void *p2)
-{
-  const_vn_unary_op_t const vuo1 = (const_vn_unary_op_t) p1;
-  const_vn_unary_op_t const vuo2 = (const_vn_unary_op_t) p2;
-  return vuo1->opcode == vuo2->opcode
-    && vuo1->type == vuo2->type
-    && expressions_equal_p (vuo1->op0, vuo2->op0);
-}
-
-/* Lookup OP in the current hash table, and return the resulting
-   value number if it exists in the hash table.  Return NULL_TREE if
-   it does not exist in the hash table. */
-
-tree
-vn_unary_op_lookup (tree op)
-{
-  void **slot;
-  struct vn_unary_op_s vuo1;
-
-  vuo1.opcode = TREE_CODE (op);
-  vuo1.type = TREE_TYPE (op);
-  vuo1.op0 = TREE_OPERAND (op, 0);
-
-  if (TREE_CODE (vuo1.op0) == SSA_NAME)
-    vuo1.op0 = SSA_VAL (vuo1.op0);
-
-  vuo1.hashcode = vn_unary_op_compute_hash (&vuo1);
-  slot = htab_find_slot_with_hash (current_info->unary, &vuo1, vuo1.hashcode,
-				   NO_INSERT);
-  if (!slot && current_info == optimistic_info)
-    slot = htab_find_slot_with_hash (valid_info->unary, &vuo1, vuo1.hashcode,
-				     NO_INSERT);
-  if (!slot)
-    return NULL_TREE;
-  return ((vn_unary_op_t)*slot)->result;
-}
-
-/* Insert OP into the current hash table with a value number of
-   RESULT.  */
-
-void
-vn_unary_op_insert (tree op, tree result)
-{
-  void **slot;
-  vn_unary_op_t vuo1 = (vn_unary_op_t) pool_alloc (current_info->unary_op_pool);
-
-  vuo1->opcode = TREE_CODE (op);
-  vuo1->type = TREE_TYPE (op);
-  vuo1->op0 = TREE_OPERAND (op, 0);
-  vuo1->result = result;
-
-  if (TREE_CODE (vuo1->op0) == SSA_NAME)
-    vuo1->op0 = SSA_VAL (vuo1->op0);
-
-  vuo1->hashcode = vn_unary_op_compute_hash (vuo1);
-  slot = htab_find_slot_with_hash (current_info->unary, vuo1, vuo1->hashcode,
-				   INSERT);
-  gcc_assert (!*slot);
-  *slot = vuo1;
-}
-
-/* Compute and return the hash value for binary operation VBO1.  */
-
-static inline hashval_t
-vn_binary_op_compute_hash (const vn_binary_op_t vbo1)
-{
-  return iterative_hash_expr (vbo1->op0, vbo1->opcode)
-    + iterative_hash_expr (vbo1->op1, vbo1->opcode);
-}
-
-/* Return the computed hashcode for binary operation P1.  */
+/* Return the computed hashcode for nary operation P1.  */
 
 static hashval_t
-vn_binary_op_hash (const void *p1)
+vn_nary_op_hash (const void *p1)
 {
-  const_vn_binary_op_t const vbo1 = (const_vn_binary_op_t) p1;
-  return vbo1->hashcode;
+  const_vn_nary_op_t const vno1 = (const_vn_nary_op_t) p1;
+  return vno1->hashcode;
 }
 
-/* Compare binary operations P1 and P2 and return true if they are
+/* Compare nary operations P1 and P2 and return true if they are
    equivalent.  */
 
 static int
-vn_binary_op_eq (const void *p1, const void *p2)
+vn_nary_op_eq (const void *p1, const void *p2)
 {
-  const_vn_binary_op_t const vbo1 = (const_vn_binary_op_t) p1;
-  const_vn_binary_op_t const vbo2 = (const_vn_binary_op_t) p2;
-  return vbo1->opcode == vbo2->opcode
-    && vbo1->type == vbo2->type
-    && expressions_equal_p (vbo1->op0, vbo2->op0)
-    && expressions_equal_p (vbo1->op1, vbo2->op1);
+  const_vn_nary_op_t const vno1 = (const_vn_nary_op_t) p1;
+  const_vn_nary_op_t const vno2 = (const_vn_nary_op_t) p2;
+  unsigned i;
+
+  if (vno1->opcode != vno2->opcode
+      || vno1->type != vno2->type)
+    return false;
+
+  for (i = 0; i < vno1->length; ++i)
+    if (!expressions_equal_p (vno1->op[i], vno2->op[i]))
+      return false;
+
+  return true;
 }
 
 /* Lookup OP in the current hash table, and return the resulting
@@ -815,74 +766,54 @@ vn_binary_op_eq (const void *p1, const void *p2)
    it does not exist in the hash table. */
 
 tree
-vn_binary_op_lookup (tree op)
+vn_nary_op_lookup (tree op)
 {
   void **slot;
-  struct vn_binary_op_s vbo1;
+  struct vn_nary_op_s vno1;
+  unsigned i;
 
-  vbo1.opcode = TREE_CODE (op);
-  vbo1.type = TREE_TYPE (op);
-  vbo1.op0 = TREE_OPERAND (op, 0);
-  vbo1.op1 = TREE_OPERAND (op, 1);
-
-  if (TREE_CODE (vbo1.op0) == SSA_NAME)
-    vbo1.op0 = SSA_VAL (vbo1.op0);
-  if (TREE_CODE (vbo1.op1) == SSA_NAME)
-    vbo1.op1 = SSA_VAL (vbo1.op1);
-
-  if (tree_swap_operands_p (vbo1.op0, vbo1.op1, false)
-      && commutative_tree_code (vbo1.opcode))
-    {
-      tree temp = vbo1.op0;
-      vbo1.op0 = vbo1.op1;
-      vbo1.op1 = temp;
-    }
-
-  vbo1.hashcode = vn_binary_op_compute_hash (&vbo1);
-  slot = htab_find_slot_with_hash (current_info->binary, &vbo1, vbo1.hashcode,
+  vno1.opcode = TREE_CODE (op);
+  vno1.length = TREE_CODE_LENGTH (TREE_CODE (op));
+  vno1.type = TREE_TYPE (op);
+  for (i = 0; i < vno1.length; ++i)
+    vno1.op[i] = TREE_OPERAND (op, i);
+  vno1.hashcode = vn_nary_op_compute_hash (&vno1);
+  slot = htab_find_slot_with_hash (current_info->nary, &vno1, vno1.hashcode,
 				   NO_INSERT);
   if (!slot && current_info == optimistic_info)
-    slot = htab_find_slot_with_hash (valid_info->binary, &vbo1, vbo1.hashcode,
+    slot = htab_find_slot_with_hash (valid_info->nary, &vno1, vno1.hashcode,
 				     NO_INSERT);
   if (!slot)
     return NULL_TREE;
-  return ((vn_binary_op_t)*slot)->result;
+  return ((vn_nary_op_t)*slot)->result;
 }
 
 /* Insert OP into the current hash table with a value number of
    RESULT.  */
 
 void
-vn_binary_op_insert (tree op, tree result)
+vn_nary_op_insert (tree op, tree result)
 {
+  unsigned length = TREE_CODE_LENGTH (TREE_CODE (op));
   void **slot;
-  vn_binary_op_t vbo1;
-  vbo1 = (vn_binary_op_t) pool_alloc (current_info->binary_op_pool);
+  vn_nary_op_t vno1;
+  unsigned i;
 
-  vbo1->opcode = TREE_CODE (op);
-  vbo1->type = TREE_TYPE (op);
-  vbo1->op0 = TREE_OPERAND (op, 0);
-  vbo1->op1 = TREE_OPERAND (op, 1);
-  vbo1->result = result;
-
-  if (TREE_CODE (vbo1->op0) == SSA_NAME)
-    vbo1->op0 = SSA_VAL (vbo1->op0);
-  if (TREE_CODE (vbo1->op1) == SSA_NAME)
-    vbo1->op1 = SSA_VAL (vbo1->op1);
-
-  if (tree_swap_operands_p (vbo1->op0, vbo1->op1, false)
-      && commutative_tree_code (vbo1->opcode))
-    {
-      tree temp = vbo1->op0;
-      vbo1->op0 = vbo1->op1;
-      vbo1->op1 = temp;
-    }
-  vbo1->hashcode = vn_binary_op_compute_hash (vbo1);
-  slot = htab_find_slot_with_hash (current_info->binary, vbo1, vbo1->hashcode,
+  vno1 = obstack_alloc (&current_info->nary_obstack,
+			(sizeof (struct vn_nary_op_s)
+			 - sizeof (tree) * (4 - length)));
+  vno1->opcode = TREE_CODE (op);
+  vno1->length = length;
+  vno1->type = TREE_TYPE (op);
+  for (i = 0; i < vno1->length; ++i)
+    vno1->op[i] = TREE_OPERAND (op, i);
+  vno1->result = result;
+  vno1->hashcode = vn_nary_op_compute_hash (vno1);
+  slot = htab_find_slot_with_hash (current_info->nary, vno1, vno1->hashcode,
 				   INSERT);
   gcc_assert (!*slot);
 
-  *slot = vbo1;
+  *slot = vno1;
 }
 
 /* Compute a hashcode for PHI operation VP1 and return it.  */
@@ -1112,7 +1043,7 @@ static bool
 visit_unary_op (tree lhs, tree op)
 {
   bool changed = false;
-  tree result = vn_unary_op_lookup (op);
+  tree result = vn_nary_op_lookup (op);
 
   if (result)
     {
@@ -1121,7 +1052,7 @@ visit_unary_op (tree lhs, tree op)
   else
     {
       changed = set_ssa_val_to (lhs, lhs);
-      vn_unary_op_insert (op, lhs);
+      vn_nary_op_insert (op, lhs);
     }
 
   return changed;
@@ -1134,7 +1065,7 @@ static bool
 visit_binary_op (tree lhs, tree op)
 {
   bool changed = false;
-  tree result = vn_binary_op_lookup (op);
+  tree result = vn_nary_op_lookup (op);
 
   if (result)
     {
@@ -1143,7 +1074,7 @@ visit_binary_op (tree lhs, tree op)
   else
     {
       changed = set_ssa_val_to (lhs, lhs);
-      vn_binary_op_insert (op, lhs);
+      vn_nary_op_insert (op, lhs);
     }
 
   return changed;
@@ -1204,6 +1135,8 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
     {
       if (TREE_CODE (result) == SSA_NAME)
 	result = SSA_VAL (result);
+      if (TREE_CODE (op) == SSA_NAME)
+	op = SSA_VAL (op);
       resultsame = expressions_equal_p (result, op);
     }
 
@@ -1230,7 +1163,10 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
 	  changed |= set_ssa_val_to (vdef, vdef);
 	}
 
-      vn_reference_insert (lhs, op, vdefs);
+      /* Do not insert structure copies into the tables.  */
+      if (is_gimple_min_invariant (op)
+	  || is_gimple_reg (op))
+        vn_reference_insert (lhs, op, vdefs);
     }
   else
     {
@@ -1468,13 +1404,15 @@ simplify_unary_expression (tree rhs)
   else if (TREE_CODE (rhs) == NOP_EXPR
 	   || TREE_CODE (rhs) == CONVERT_EXPR
 	   || TREE_CODE (rhs) == REALPART_EXPR
-	   || TREE_CODE (rhs) == IMAGPART_EXPR)
+	   || TREE_CODE (rhs) == IMAGPART_EXPR
+	   || TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
     {
       /* We want to do tree-combining on conversion-like expressions.
          Make sure we feed only SSA_NAMEs or constants to fold though.  */
       tree tem = valueize_expr (VN_INFO (op0)->expr);
       if (UNARY_CLASS_P (tem)
 	  || BINARY_CLASS_P (tem)
+	  || TREE_CODE (tem) == VIEW_CONVERT_EXPR
 	  || TREE_CODE (tem) == SSA_NAME
 	  || is_gimple_min_invariant (tem))
 	op0 = tem;
@@ -1500,13 +1438,10 @@ simplify_unary_expression (tree rhs)
 static tree
 try_to_simplify (tree stmt, tree rhs)
 {
+  /* For stores we can end up simplifying a SSA_NAME rhs.  Just return
+     in this case, there is no point in doing extra work.  */
   if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      if (is_gimple_min_invariant (SSA_VAL (rhs)))
-	return SSA_VAL (rhs);
-      else if (VN_INFO (rhs)->has_constants)
-	return VN_INFO (rhs)->expr;
-    }
+    return rhs;
   else
     {
       switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
@@ -1523,15 +1458,14 @@ try_to_simplify (tree stmt, tree rhs)
 
 	    /* Fallthrough. */
 	case tcc_reference:
-	  {
-	    tree result = vn_reference_lookup (rhs,
-					       shared_vuses_from_stmt (stmt));
-	    if (result)
-	      return result;
-	  }
-	  /* Fallthrough for some codes.  */
+	  /* Do not do full-blown reference lookup here.
+	     ???  But like for tcc_declaration, we should simplify
+		  from constant initializers.  */
+
+	  /* Fallthrough for some codes that can operate on registers.  */
 	  if (!(TREE_CODE (rhs) == REALPART_EXPR
-	        || TREE_CODE (rhs) == IMAGPART_EXPR))
+	        || TREE_CODE (rhs) == IMAGPART_EXPR
+		|| TREE_CODE (rhs) == VIEW_CONVERT_EXPR))
 	    break;
 	  /* We could do a little more with unary ops, if they expand
 	     into binary ops, but it's debatable whether it is worth it. */
@@ -1589,7 +1523,8 @@ visit_use (tree use)
 	  changed = visit_phi (stmt);
 	}
       else if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-	       || (ann && ann->has_volatile_ops))
+	       || (ann && ann->has_volatile_ops)
+	       || tree_could_throw_p (stmt))
 	{
 	  changed = defs_to_varying (stmt);
 	}
@@ -1812,12 +1747,11 @@ process_scc (VEC (tree, heap) *scc)
 	{
 	  changed = false;
 	  iterations++;
-	  htab_empty (optimistic_info->unary);
-	  htab_empty (optimistic_info->binary);
+	  htab_empty (optimistic_info->nary);
 	  htab_empty (optimistic_info->phis);
 	  htab_empty (optimistic_info->references);
-	  empty_alloc_pool (optimistic_info->unary_op_pool);
-	  empty_alloc_pool (optimistic_info->binary_op_pool);
+	  obstack_free (&optimistic_info->nary_obstack, NULL);
+	  gcc_obstack_init (&optimistic_info->nary_obstack);
 	  empty_alloc_pool (optimistic_info->phis_pool);
 	  empty_alloc_pool (optimistic_info->references_pool);
 	  for (i = 0; VEC_iterate (tree, scc, i, var); i++)
@@ -1928,40 +1862,17 @@ DFS (tree name)
   return true;
 }
 
-static void
-free_phi (void *vp)
-{
-  vn_phi_t phi = vp;
-  VEC_free (tree, heap, phi->phiargs);
-}
-
-
-/* Free a reference operation structure VP.  */
-
-static void
-free_reference (void *vp)
-{
-  vn_reference_t vr = vp;
-  VEC_free (vn_reference_op_s, heap, vr->operands);
-}
-
 /* Allocate a value number table.  */
 
 static void
 allocate_vn_table (vn_tables_t table)
 {
   table->phis = htab_create (23, vn_phi_hash, vn_phi_eq, free_phi);
-  table->unary = htab_create (23, vn_unary_op_hash, vn_unary_op_eq, NULL);
-  table->binary = htab_create (23, vn_binary_op_hash, vn_binary_op_eq, NULL);
+  table->nary = htab_create (23, vn_nary_op_hash, vn_nary_op_eq, NULL);
   table->references = htab_create (23, vn_reference_hash, vn_reference_eq,
 				   free_reference);
 
-  table->unary_op_pool = create_alloc_pool ("VN unary operations",
-					    sizeof (struct vn_unary_op_s),
-					    30);
-  table->binary_op_pool = create_alloc_pool ("VN binary operations",
-					     sizeof (struct vn_binary_op_s),
-					     30);
+  gcc_obstack_init (&table->nary_obstack);
   table->phis_pool = create_alloc_pool ("VN phis",
 					sizeof (struct vn_phi_s),
 					30);
@@ -1976,11 +1887,9 @@ static void
 free_vn_table (vn_tables_t table)
 {
   htab_delete (table->phis);
-  htab_delete (table->unary);
-  htab_delete (table->binary);
+  htab_delete (table->nary);
   htab_delete (table->references);
-  free_alloc_pool (table->unary_op_pool);
-  free_alloc_pool (table->binary_op_pool);
+  obstack_free (&table->nary_obstack, NULL);
   free_alloc_pool (table->phis_pool);
   free_alloc_pool (table->references_pool);
 }
@@ -2002,6 +1911,8 @@ init_scc_vn (void)
   /* VEC_alloc doesn't actually grow it to the right size, it just
      preallocates the space to do so.  */
   VEC_safe_grow (vn_ssa_aux_t, heap, vn_ssa_aux_table, num_ssa_names + 1);
+  gcc_obstack_init (&vn_ssa_aux_obstack);
+
   shared_lookup_phiargs = NULL;
   shared_lookup_vops = NULL;
   shared_lookup_references = NULL;
@@ -2015,7 +1926,7 @@ init_scc_vn (void)
   for (j = 0; j < n_basic_blocks - NUM_FIXED_BLOCKS; j++)
     rpo_numbers[rpo_numbers_temp[j]] = j;
 
-  free (rpo_numbers_temp);
+  XDELETE (rpo_numbers_temp);
 
   VN_TOP = create_tmp_var_raw (void_type_node, "vn_top");
 
@@ -2066,19 +1977,18 @@ free_scc_vn (void)
   VEC_free (tree, gc, shared_lookup_vops);
   VEC_free (vn_reference_op_s, heap, shared_lookup_references);
   XDELETEVEC (rpo_numbers);
+
   for (i = 0; i < num_ssa_names; i++)
     {
       tree name = ssa_name (i);
-      if (name)
-	{
-	  XDELETE (VN_INFO (name));
-	  if (SSA_NAME_VALUE (name) &&
-	      TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
-	    SSA_NAME_VALUE (name) = NULL;
-	}
+      if (name
+	  && SSA_NAME_VALUE (name)
+	  && TREE_CODE (SSA_NAME_VALUE (name)) == VALUE_HANDLE)
+	SSA_NAME_VALUE (name) = NULL;
     }
-
+  obstack_free (&vn_ssa_aux_obstack, NULL);
   VEC_free (vn_ssa_aux_t, heap, vn_ssa_aux_table);
+
   VEC_free (tree, heap, sccstack);
   free_vn_table (valid_info);
   XDELETE (valid_info);

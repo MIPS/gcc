@@ -1,5 +1,5 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -779,6 +779,7 @@ simplify_cmplx (const char *name, gfc_expr *x, gfc_expr *y, int kind)
   if (x->is_boz)
     {
       gfc_typespec ts;
+      gfc_clear_ts (&ts);
       ts.kind = result->ts.kind;
       ts.type = BT_REAL;
       if (!gfc_convert_boz (x, &ts))
@@ -789,6 +790,7 @@ simplify_cmplx (const char *name, gfc_expr *x, gfc_expr *y, int kind)
   if (y && y->is_boz)
     {
       gfc_typespec ts;
+      gfc_clear_ts (&ts);
       ts.kind = result->ts.kind;
       ts.type = BT_REAL;
       if (!gfc_convert_boz (y, &ts))
@@ -960,6 +962,7 @@ gfc_simplify_dble (gfc_expr *e)
   if (e->ts.type == BT_INTEGER && e->is_boz)
     {
       gfc_typespec ts;
+      gfc_clear_ts (&ts);
       ts.type = BT_REAL;
       ts.kind = gfc_default_double_kind;
       result = gfc_copy_expr (e);
@@ -1058,6 +1061,38 @@ gfc_simplify_dprod (gfc_expr *x, gfc_expr *y)
 
 
 gfc_expr *
+gfc_simplify_erf (gfc_expr *x)
+{
+  gfc_expr *result;
+
+  if (x->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+
+  mpfr_erf (result->value.real, x->value.real, GFC_RND_MODE);
+
+  return range_check (result, "ERF");
+}
+
+
+gfc_expr *
+gfc_simplify_erfc (gfc_expr *x)
+{
+  gfc_expr *result;
+
+  if (x->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+
+  mpfr_erfc (result->value.real, x->value.real, GFC_RND_MODE);
+
+  return range_check (result, "ERFC");
+}
+
+
+gfc_expr *
 gfc_simplify_epsilon (gfc_expr *e)
 {
   gfc_expr *result;
@@ -1148,6 +1183,7 @@ gfc_simplify_float (gfc_expr *a)
   if (a->is_boz)
     {
       gfc_typespec ts;
+      gfc_clear_ts (&ts);
 
       ts.type = BT_REAL;
       ts.kind = gfc_default_real_kind;
@@ -1276,6 +1312,21 @@ gfc_simplify_huge (gfc_expr *e)
   return result;
 }
 
+
+gfc_expr *
+gfc_simplify_hypot (gfc_expr *x, gfc_expr *y)
+{
+  gfc_expr *result;
+
+  if (x->expr_type != EXPR_CONSTANT || y->expr_type != EXPR_CONSTANT)
+    return NULL;
+
+  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+  mpfr_hypot (result->value.real, x->value.real, y->value.real, GFC_RND_MODE);
+  return range_check (result, "HYPOT");
+}
+
+
 /* We use the processor's collating sequence, because all
    systems that gfortran currently works on are ASCII.  */
 
@@ -1359,7 +1410,7 @@ gfc_simplify_ibclr (gfc_expr *x, gfc_expr *y)
   convert_mpz_to_signed (result->value.integer,
 			 gfc_integer_kinds[k].bit_size);
 
-  return range_check (result, "IBCLR");
+  return result;
 }
 
 
@@ -1400,6 +1451,8 @@ gfc_simplify_ibits (gfc_expr *x, gfc_expr *y, gfc_expr *z)
     }
 
   result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+  convert_mpz_to_unsigned (result->value.integer,
+			   gfc_integer_kinds[k].bit_size);
 
   bits = gfc_getmem (bitsize * sizeof (int));
 
@@ -1421,7 +1474,10 @@ gfc_simplify_ibits (gfc_expr *x, gfc_expr *y, gfc_expr *z)
 
   gfc_free (bits);
 
-  return range_check (result, "IBITS");
+  convert_mpz_to_signed (result->value.integer,
+			 gfc_integer_kinds[k].bit_size);
+
+  return result;
 }
 
 
@@ -1459,7 +1515,7 @@ gfc_simplify_ibset (gfc_expr *x, gfc_expr *y)
   convert_mpz_to_signed (result->value.integer,
 			 gfc_integer_kinds[k].bit_size);
 
-  return range_check (result, "IBSET");
+  return result;
 }
 
 
@@ -3020,6 +3076,7 @@ gfc_simplify_real (gfc_expr *e, gfc_expr *k)
   if (e->ts.type == BT_INTEGER && e->is_boz)
     {
       gfc_typespec ts;
+      gfc_clear_ts (&ts);
       ts.type = BT_REAL;
       ts.kind = kind;
       result = gfc_copy_expr (e);
@@ -3164,6 +3221,30 @@ gfc_simplify_repeat (gfc_expr *e, gfc_expr *n)
 }
 
 
+/* Test that the expression is an constant array.  */
+
+static bool
+is_constant_array_expr (gfc_expr *e)
+{
+  gfc_constructor *c;
+
+  if (e == NULL)
+    return true;
+
+  if (e->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (e))
+    return false;
+  
+  if (e->value.constructor == NULL)
+    return false;
+  
+  for (c = e->value.constructor; c; c = c->next)
+    if (c->expr->expr_type != EXPR_CONSTANT)
+      return false;
+
+  return true;
+}
+
+
 /* This one is a bear, but mainly has to do with shuffling elements.  */
 
 gfc_expr *
@@ -3178,21 +3259,20 @@ gfc_simplify_reshape (gfc_expr *source, gfc_expr *shape_exp,
   size_t nsource;
   gfc_expr *e;
 
-  /* Unpack the shape array.  */
-  if (source->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (source))
+  /* Check that argument expression types are OK.  */
+  if (!is_constant_array_expr (source))
     return NULL;
 
-  if (shape_exp->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (shape_exp))
+  if (!is_constant_array_expr (shape_exp))
     return NULL;
 
-  if (pad != NULL
-      && (pad->expr_type != EXPR_ARRAY || !gfc_is_constant_expr (pad)))
+  if (!is_constant_array_expr (pad))
     return NULL;
 
-  if (order_exp != NULL
-      && (order_exp->expr_type != EXPR_ARRAY
-	  || !gfc_is_constant_expr (order_exp)))
+  if (!is_constant_array_expr (order_exp))
     return NULL;
+
+  /* Proceed with simplification, unpacking the array.  */
 
   mpz_init (index);
   rank = 0;
@@ -3691,7 +3771,11 @@ gfc_simplify_shape (gfc_expr *source)
   int n;
   try t;
 
-  if (source->rank == 0 || source->expr_type != EXPR_VARIABLE)
+  if (source->rank == 0)
+    return gfc_start_constructor (BT_INTEGER, gfc_default_integer_kind,
+				  &source->where);
+
+  if (source->expr_type != EXPR_VARIABLE)
     return NULL;
 
   result = gfc_start_constructor (BT_INTEGER, gfc_default_integer_kind,
@@ -4121,11 +4205,17 @@ gfc_simplify_transfer (gfc_expr *source, gfc_expr *mold, gfc_expr *size)
   /* Set result character length, if needed.  Note that this needs to be
      set even for array expressions, in order to pass this information into 
      gfc_target_interpret_expr.  */
-  if (result->ts.type == BT_CHARACTER)
+  if (result->ts.type == BT_CHARACTER && gfc_is_constant_expr (mold_element))
     result->value.character.length = mold_element->value.character.length;
   
   /* Set the number of elements in the result, and determine its size.  */
   result_elt_size = gfc_target_expr_size (mold_element);
+  if (result_elt_size == 0)
+    {
+      gfc_free_expr (result);
+      return NULL;
+    }
+
   if (mold->expr_type == EXPR_ARRAY || mold->rank || size)
     {
       int result_length;

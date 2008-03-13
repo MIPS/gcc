@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1024,14 +1024,17 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
 	  cons = NULL;
 	  goto depart;
 	}
-
-      /* Check the bounds.  */
-      if (ar->as->upper[i]
-	  && (mpz_cmp (e->value.integer, ar->as->upper[i]->value.integer) > 0
-	      || mpz_cmp (e->value.integer,
-			  ar->as->lower[i]->value.integer) < 0))
+        /* Check the bounds.  */
+      if ((ar->as->upper[i]
+	     && ar->as->upper[i]->expr_type == EXPR_CONSTANT
+	     && mpz_cmp (e->value.integer,
+			 ar->as->upper[i]->value.integer) > 0)
+		||
+	  (ar->as->lower[i]->expr_type == EXPR_CONSTANT
+	     && mpz_cmp (e->value.integer,
+			 ar->as->lower[i]->value.integer) < 0))
 	{
-	  gfc_error ("index in dimension %d is out of bounds "
+	  gfc_error ("Index in dimension %d is out of bounds "
 		     "at %L", i + 1, &ar->c_where[i]);
 	  cons = NULL;
 	  t = FAILURE;
@@ -1048,18 +1051,19 @@ find_array_element (gfc_constructor *cons, gfc_array_ref *ar,
       mpz_mul (span, span, tmp);
     }
 
-  if (cons)
-    {
-      for (nelemen = mpz_get_ui (offset); nelemen > 0; nelemen--)
-	{
-	  if (cons->iterator)
-	    {
-	      cons = NULL;
-	      goto depart;
-	    }
-	  cons = cons->next;
-	}
-    }
+    for (nelemen = mpz_get_ui (offset); nelemen > 0; nelemen--)
+      {
+        if (cons)
+	  {
+	    if (cons->iterator)
+	      {
+	        cons = NULL;
+	      
+	        goto depart;
+	      }
+	    cons = cons->next;
+	  }
+      }
 
 depart:
   mpz_clear (delta);
@@ -1338,7 +1342,7 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 	  cons = base;
 	}
 
-      while (mpz_cmp (ptr, index) > 0)
+      while (cons && cons->next && mpz_cmp (ptr, index) > 0)
 	{
 	  mpz_add_ui (index, index, one);
 	  cons = cons->next;
@@ -2106,7 +2110,8 @@ check_elemental (gfc_expr *e)
       || !e->value.function.isym->elemental)
     return MATCH_NO;
 
-  if ((e->ts.type != BT_INTEGER || e->ts.type != BT_CHARACTER)
+  if (e->ts.type != BT_INTEGER
+      && e->ts.type != BT_CHARACTER
       && gfc_notify_std (GFC_STD_F2003, "Extension: Evaluation of "
 			"nonstandard initialization expression at %L",
 			&e->where) == FAILURE)
@@ -2496,6 +2501,7 @@ check_restricted (gfc_expr *e)
       if (sym->attr.in_common
 	  || sym->attr.use_assoc
 	  || sym->attr.dummy
+	  || sym->attr.implied_index
 	  || sym->ns != gfc_current_ns
 	  || (sym->ns->proc_name != NULL
 	      && sym->ns->proc_name->attr.flavor == FL_MODULE)
@@ -2700,6 +2706,15 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
 	    bad_proc = true;
 	}
 
+      /* (iv) Host associated and not the function symbol or the
+	      parent result.  This picks up sibling references, which
+	      cannot be entries.  */
+      if (!sym->attr.entry
+	    && sym->ns == gfc_current_ns->parent
+	    && sym != gfc_current_ns->proc_name
+	    && sym != gfc_current_ns->parent->proc_name->result)
+	bad_proc = true;
+
       if (bad_proc)
 	{
 	  gfc_error ("'%s' at %L is not a VALUE", sym->name, &lvalue->where);
@@ -2811,8 +2826,8 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return SUCCESS;
 
-      gfc_error ("Incompatible types in assignment at %L, %s to %s",
-		 &rvalue->where, gfc_typename (&rvalue->ts),
+      gfc_error ("Incompatible types in assignment at %L; attempted assignment "
+		 "of %s to %s", &rvalue->where, gfc_typename (&rvalue->ts),
 		 gfc_typename (&lvalue->ts));
 
       return FAILURE;
@@ -2895,8 +2910,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 
   if (!gfc_compare_types (&lvalue->ts, &rvalue->ts))
     {
-      gfc_error ("Different types in pointer assignment at %L",
-		 &lvalue->where);
+      gfc_error ("Different types in pointer assignment at %L; attempted "
+		 "assignment of %s to %s", &lvalue->where, 
+		 gfc_typename (&rvalue->ts), gfc_typename (&lvalue->ts));
       return FAILURE;
     }
 

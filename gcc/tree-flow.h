@@ -792,6 +792,7 @@ extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
 void remove_edge_and_dominated_blocks (edge);
+void mark_virtual_ops_in_bb (basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -822,6 +823,7 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
+extern bool stmt_references_abnormal_ssa_name (tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -877,7 +879,30 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 /* In tree-ssa-alias-warnings.c  */
 extern void strict_aliasing_warning_backend (void);
 
+
 /* In tree-ssa.c  */
+
+/* Mapping for redirected edges.  */
+struct _edge_var_map GTY(())
+{
+  tree result;			/* PHI result.  */
+  tree def;			/* PHI arg definition.  */
+};
+typedef struct _edge_var_map edge_var_map;
+
+DEF_VEC_O(edge_var_map);
+DEF_VEC_ALLOC_O(edge_var_map, heap);
+
+/* A vector of var maps.  */
+typedef VEC(edge_var_map, heap) *edge_var_map_vector;
+
+extern void redirect_edge_var_map_add (edge, tree, tree);
+extern void redirect_edge_var_map_clear (edge);
+extern void redirect_edge_var_map_dup (edge, edge);
+extern edge_var_map_vector redirect_edge_var_map_vector (edge);
+extern void redirect_edge_var_map_destroy (void);
+
+
 extern void init_tree_ssa (void);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
@@ -889,6 +914,7 @@ extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
 extern bool ssa_undefined_value_p (tree);
+
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -1013,7 +1039,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 basic_block split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -1022,6 +1047,8 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
 					 edge, VEC (edge, heap) **,
 					 int);
+struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
+void rename_variables_in_loop (struct loop *);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
@@ -1125,6 +1152,7 @@ extern void register_jump_thread (edge, edge);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
 			       bool, enum bsi_iterator_update);
+tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);

@@ -1,6 +1,6 @@
 /* Tree lowering pass.  This pass converts the GENERIC functions-as-trees
    tree representation into the GIMPLE form.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
@@ -2633,7 +2633,11 @@ gimplify_cond_expr (tree *expr_p, tree *pre_p, fallback_t fallback)
     {
       tree result;
 
-      if ((fallback & fb_lvalue) == 0)
+      /* If an rvalue is ok or we do not require an lvalue, avoid creating
+	 an addressable temporary.  */
+      if (((fallback & fb_rvalue)
+	   || !(fallback & fb_lvalue))
+	  && !TREE_ADDRESSABLE (type))
 	{
 	  if (gimplify_ctxp->allow_rhs_cond_expr
 	      /* If either branch has side effects or could trap, it can't be
@@ -3092,6 +3096,10 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 
       if (array_elt_type)
 	{
+	  /* Do not use bitsizetype for ARRAY_REF indices.  */
+	  if (TYPE_DOMAIN (TREE_TYPE (object)))
+	    purpose = fold_convert (TREE_TYPE (TYPE_DOMAIN (TREE_TYPE (object))),
+				    purpose);
 	  cref = build4 (ARRAY_REF, array_elt_type, unshare_expr (object),
 			 purpose, NULL_TREE, NULL_TREE);
 	}
@@ -3119,11 +3127,18 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 
    Note that we still need to clear any elements that don't have explicit
    initializers, so if not all elements are initialized we keep the
-   original MODIFY_EXPR, we just remove all of the constructor elements.  */
+   original MODIFY_EXPR, we just remove all of the constructor elements.
+
+   If NOTIFY_TEMP_CREATION is true, do not gimplify, just return
+   GS_ERROR if we would have to create a temporary when gimplifying
+   this constructor.  Otherwise, return GS_OK.
+
+   If NOTIFY_TEMP_CREATION is false, just do the gimplification.  */
 
 static enum gimplify_status
 gimplify_init_constructor (tree *expr_p, tree *pre_p,
-			   tree *post_p, bool want_value)
+			   tree *post_p, bool want_value,
+			   bool notify_temp_creation)
 {
   tree object;
   tree ctor = GENERIC_TREE_OPERAND (*expr_p, 1);
@@ -3134,10 +3149,13 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
   if (TREE_CODE (ctor) != CONSTRUCTOR)
     return GS_UNHANDLED;
 
-  ret = gimplify_expr (&GENERIC_TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-		       is_gimple_lvalue, fb_lvalue);
-  if (ret == GS_ERROR)
-    return ret;
+  if (!notify_temp_creation)
+    {
+      ret = gimplify_expr (&GENERIC_TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			   is_gimple_lvalue, fb_lvalue);
+      if (ret == GS_ERROR)
+	return ret;
+    }
   object = GENERIC_TREE_OPERAND (*expr_p, 0);
 
   elts = CONSTRUCTOR_ELTS (ctor);
@@ -3159,7 +3177,11 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	   individual elements.  The exception is that a CONSTRUCTOR node
 	   with no elements indicates zero-initialization of the whole.  */
 	if (VEC_empty (constructor_elt, elts))
-	  break;
+	  {
+	    if (notify_temp_creation)
+	      return GS_OK;
+	    break;
+	  }
 
 	/* Fetch information about the constructor to direct later processing.
 	   We might want to make static versions of it in various cases, and
@@ -3175,6 +3197,8 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	    && TREE_READONLY (object)
 	    && TREE_CODE (object) == VAR_DECL)
 	  {
+	    if (notify_temp_creation)
+	      return GS_ERROR;
 	    DECL_INITIAL (object) = ctor;
 	    TREE_STATIC (object) = 1;
 	    if (!DECL_NAME (object))
@@ -3251,7 +3275,12 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 	    if (size > 0 && !can_move_by_pieces (size, align))
 	      {
-		tree new = create_tmp_var_raw (type, "C");
+		tree new;
+
+		if (notify_temp_creation)
+		  return GS_ERROR;
+
+		new = create_tmp_var_raw (type, "C");
 
 		gimple_add_tmp_var (new);
 		TREE_STATIC (new) = 1;
@@ -3272,6 +3301,9 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 		return GS_UNHANDLED;
 	      }
 	  }
+
+	if (notify_temp_creation)
+	  return GS_OK;
 
 	/* If there are nonzero elements, pre-evaluate to capture elements
 	   overlapping with the lhs into temporaries.  We must do this before
@@ -3312,6 +3344,9 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
       {
 	tree r, i;
 
+	if (notify_temp_creation)
+	  return GS_OK;
+
 	/* Extract the real and imaginary parts out of the ctor.  */
 	gcc_assert (VEC_length (constructor_elt, elts) == 2);
 	r = VEC_index (constructor_elt, elts, 0)->value;
@@ -3347,6 +3382,9 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
       {
 	unsigned HOST_WIDE_INT ix;
 	constructor_elt *ce;
+
+	if (notify_temp_creation)
+	  return GS_OK;
 
 	/* Go ahead and simplify constant constructors to VECTOR_CST.  */
 	if (TREE_CONSTANT (ctor))
@@ -3415,13 +3453,12 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 
 /* Given a pointer value OP0, return a simplified version of an
    indirection through OP0, or NULL_TREE if no simplification is
-   possible.  This may only be applied to a rhs of an expression.
-   Note that the resulting type may be different from the type pointed
-   to in the sense that it is still compatible from the langhooks
-   point of view. */
+   possible.  Note that the resulting type may be different from
+   the type pointed to in the sense that it is still compatible
+   from the langhooks point of view. */
 
-static tree
-fold_indirect_ref_rhs (tree t)
+tree
+gimple_fold_indirect_ref (tree t)
 {
   tree type = TREE_TYPE (TREE_TYPE (t));
   tree sub = t;
@@ -3439,9 +3476,10 @@ fold_indirect_ref_rhs (tree t)
       /* *&p => p */
       if (useless_type_conversion_p (type, optype))
         return op;
+
       /* *(foo *)&fooarray => fooarray[0] */
-      else if (TREE_CODE (optype) == ARRAY_TYPE
-	       && useless_type_conversion_p (type, TREE_TYPE (optype)))
+      if (TREE_CODE (optype) == ARRAY_TYPE
+	  && useless_type_conversion_p (type, TREE_TYPE (optype)))
        {
          tree type_domain = TYPE_DOMAIN (optype);
          tree min_val = size_zero_node;
@@ -3458,7 +3496,7 @@ fold_indirect_ref_rhs (tree t)
       tree type_domain;
       tree min_val = size_zero_node;
       tree osub = sub;
-      sub = fold_indirect_ref_rhs (sub);
+      sub = gimple_fold_indirect_ref (sub);
       if (! sub)
 	sub = build1 (INDIRECT_REF, TREE_TYPE (subtype), osub);
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
@@ -3468,6 +3506,19 @@ fold_indirect_ref_rhs (tree t)
     }
 
   return NULL_TREE;
+}
+
+/* Given a pointer value OP0, return a simplified version of an
+   indirection through OP0, or NULL_TREE if no simplification is
+   possible.  This may only be applied to a rhs of an expression.
+   Note that the resulting type may be different from the type pointed
+   to in the sense that it is still compatible from the langhooks
+   point of view. */
+
+static tree
+gimple_fold_indirect_ref_rhs (tree t)
+{
+  return gimple_fold_indirect_ref (t);
 }
 
 /* Subroutine of gimplify_modify_expr to do simplifications of
@@ -3488,10 +3539,27 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	   constructor expression to the RHS of the MODIFY_EXPR.  */
 	if (DECL_INITIAL (*from_p)
 	    && TYPE_READONLY (TREE_TYPE (*from_p))
+	    && !TREE_THIS_VOLATILE (*from_p)
 	    && TREE_CODE (DECL_INITIAL (*from_p)) == CONSTRUCTOR)
 	  {
-	    *from_p = DECL_INITIAL (*from_p);
-	    ret = GS_OK;
+	    tree old_from = *from_p;
+
+	    /* Move the constructor into the RHS.  */
+	    *from_p = unshare_expr (DECL_INITIAL (*from_p));
+
+	    /* Let's see if gimplify_init_constructor will need to put
+	       it in memory.  If so, revert the change.  */
+	    ret = gimplify_init_constructor (expr_p, NULL, NULL, false, true);
+	    if (ret == GS_ERROR)
+	      {
+		*from_p = old_from;
+		/* Fall through.  */
+	      }
+	    else
+	      {
+		ret = GS_OK;
+		break;
+	      }
 	  }
 	ret = GS_UNHANDLED;
 	break;
@@ -3506,7 +3574,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	     This kind of code arises in C++ when an object is bound
 	     to a const reference, and if "x" is a TARGET_EXPR we want
 	     to take advantage of the optimization below.  */
-	  tree t = fold_indirect_ref_rhs (TREE_OPERAND (*from_p, 0));
+	  tree t = gimple_fold_indirect_ref_rhs (TREE_OPERAND (*from_p, 0));
 	  if (t)
 	    {
 	      *from_p = t;
@@ -3551,7 +3619,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
       case CONSTRUCTOR:
 	/* If we're initializing from a CONSTRUCTOR, break this into
 	   individual MODIFY_EXPRs.  */
-	return gimplify_init_constructor (expr_p, pre_p, post_p, want_value);
+	return gimplify_init_constructor (expr_p, pre_p, post_p, want_value,
+					  false);
 
       case COND_EXPR:
 	/* If we're assigning to a non-register type, push the assignment
@@ -5265,6 +5334,10 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
   else
     var = decl;
 
+  /* If OMP_FOR is re-gimplified, ensure all variables in pre-body
+     are noticed.  */
+  gimplify_stmt (&OMP_FOR_PRE_BODY (for_stmt));
+
   ret |= gimplify_expr (&GENERIC_TREE_OPERAND (t, 1),
 			&OMP_FOR_PRE_BODY (for_stmt),
 			NULL, is_gimple_val, fb_rvalue);
@@ -5391,7 +5464,11 @@ goa_lhs_expr_p (tree expr, tree addr)
 	  expr = TREE_OPERAND (expr, 0);
 	  addr = TREE_OPERAND (addr, 0);
 	}
-      return expr == addr;
+      if (expr == addr)
+	return true;
+      return (TREE_CODE (addr) == ADDR_EXPR
+	      && TREE_CODE (expr) == ADDR_EXPR
+	      && TREE_OPERAND (addr, 0) == TREE_OPERAND (expr, 0));
     }
   if (TREE_CODE (addr) == ADDR_EXPR && expr == TREE_OPERAND (addr, 0))
     return true;

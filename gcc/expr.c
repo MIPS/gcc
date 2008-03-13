@@ -552,15 +552,15 @@ convert_move (rtx to, rtx from, int unsignedp)
 	       && ((code = can_extend_p (to_mode, word_mode, unsignedp))
 		   != CODE_FOR_nothing))
 	{
+	  rtx word_to = gen_reg_rtx (word_mode);
 	  if (REG_P (to))
 	    {
 	      if (reg_overlap_mentioned_p (to, from))
 		from = force_reg (from_mode, from);
 	      emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
 	    }
-	  convert_move (gen_lowpart (word_mode, to), from, unsignedp);
-	  emit_unop_insn (code, to,
-			  gen_lowpart (word_mode, to), equiv_code);
+	  convert_move (word_to, from, unsignedp);
+	  emit_unop_insn (code, to, word_to, equiv_code);
 	  return;
 	}
 
@@ -2116,6 +2116,7 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
   rtx src = NULL, dst = NULL;
   unsigned HOST_WIDE_INT bitsize = MIN (TYPE_ALIGN (type), BITS_PER_WORD);
   unsigned HOST_WIDE_INT bitpos, xbitpos, padding_correction = 0;
+  enum machine_mode copy_mode;
 
   if (tgtblk == 0)
     {
@@ -2149,11 +2150,23 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
     padding_correction
       = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD) * BITS_PER_UNIT));
 
-  /* Copy the structure BITSIZE bites at a time.
+  /* Copy the structure BITSIZE bits at a time.  If the target lives in
+     memory, take care of not reading/writing past its end by selecting
+     a copy mode suited to BITSIZE.  This should always be possible given
+     how it is computed.
 
      We could probably emit more efficient code for machines which do not use
      strict alignment, but it doesn't seem worth the effort at the current
      time.  */
+
+  copy_mode = word_mode;
+  if (MEM_P (tgtblk))
+    {
+      enum machine_mode mem_mode = mode_for_size (bitsize, MODE_INT, 1);
+      if (mem_mode != BLKmode)
+	copy_mode = mem_mode;
+    }
+
   for (bitpos = 0, xbitpos = padding_correction;
        bitpos < bytes * BITS_PER_UNIT;
        bitpos += bitsize, xbitpos += bitsize)
@@ -2172,11 +2185,11 @@ copy_blkmode_from_reg (rtx tgtblk, rtx srcreg, tree type)
 	dst = operand_subword (tgtblk, bitpos / BITS_PER_WORD, 1, BLKmode);
 
       /* Use xbitpos for the source extraction (right justified) and
-	 xbitpos for the destination store (left justified).  */
-      store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, word_mode,
+	 bitpos for the destination store (left justified).  */
+      store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, copy_mode,
 		       extract_bit_field (src, bitsize,
 					  xbitpos % BITS_PER_WORD, 1,
-					  NULL_RTX, word_mode, word_mode));
+					  NULL_RTX, copy_mode, copy_mode));
     }
 
   return tgtblk;
@@ -4641,7 +4654,8 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	      temp = convert_to_mode (GET_MODE (target), temp, unsignedp);
 	      emit_move_insn (target, temp);
 	    }
-	  else if (GET_MODE (target) == BLKmode)
+	  else if (GET_MODE (target) == BLKmode
+		   || GET_MODE (temp) == BLKmode)
 	    emit_block_move (target, temp, expr_size (exp),
 			     (call_param_p
 			      ? BLOCK_OP_CALL_PARM
@@ -4962,14 +4976,7 @@ count_type_elements (const_tree type, bool allow_flexarr)
 
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      {
-	/* Ho hum.  How in the world do we guess here?  Clearly it isn't
-	   right to count the fields.  Guess based on the number of words.  */
-        HOST_WIDE_INT n = int_size_in_bytes (type);
-	if (n < 0)
-	  return -1;
-	return n / UNITS_PER_WORD;
-      }
+      return -1;
 
     case COMPLEX_TYPE:
       return 2;
@@ -5887,7 +5894,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
       size_tree = TREE_OPERAND (exp, 1);
-      *punsignedp = BIT_FIELD_REF_UNSIGNED (exp);
+      *punsignedp = (! INTEGRAL_TYPE_P (TREE_TYPE (exp))
+		     || TYPE_UNSIGNED (TREE_TYPE (exp)));
 
       /* For vector types, with the correct size of access, use the mode of
 	 inner type.  */
@@ -8043,6 +8051,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       }
       return expand_call (exp, target, ignore);
 
+    case PAREN_EXPR:
     case NON_LVALUE_EXPR:
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -8891,10 +8900,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case BIT_XOR_EXPR:
       goto binop;
 
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
     case LROTATE_EXPR:
     case RROTATE_EXPR:
+      /* The expansion code only handles expansion of mode precision
+	 rotates.  */
+      gcc_assert (GET_MODE_PRECISION (TYPE_MODE (type))
+		  == TYPE_PRECISION (type));
+
+      /* Falltrough.  */
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
       /* If this is a fixed-point operation, then we cannot use the code
 	 below because "expand_shift" doesn't support sat/no-sat fixed-point
          shifts.   */
@@ -8907,8 +8922,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	target = 0;
       op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget,
 			 VOIDmode, EXPAND_NORMAL);
-      return expand_shift (code, mode, op0, TREE_OPERAND (exp, 1), target,
+      temp = expand_shift (code, mode, op0, TREE_OPERAND (exp, 1), target,
 			   unsignedp);
+      if (code == LSHIFT_EXPR)
+	temp = REDUCE_BIT_FIELD (temp);
+      return temp;
 
       /* Could determine the answer when only additive constants differ.  Also,
 	 the addition of one can be handled by changing the condition.  */

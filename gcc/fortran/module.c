@@ -1,6 +1,6 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -2310,6 +2310,12 @@ mio_symtree_ref (gfc_symtree **stp)
 	  p->u.rsym.symtree->n.sym = p->u.rsym.sym;
 	  p->u.rsym.symtree->n.sym->refs++;
 	  p->u.rsym.referenced = 1;
+
+	  /* If the symbol is PRIVATE and in COMMON, load_commons will
+	     generate a fixup symbol, which must be associated.  */
+	  if (p->fixup)
+	    resolve_fixups (p->fixup, p->u.rsym.sym);
+	  p->fixup = NULL;
 	}
       
       if (p->type == P_UNKNOWN)
@@ -3308,13 +3314,19 @@ load_generic_interfaces (void)
 
 	  if (!sym)
 	    {
-	      /* Make symtree inaccessible by renaming if the symbol has
-		 been added by a USE statement without an ONLY(11.3.2).  */
+	      /* Make the symbol inaccessible if it has been added by a USE
+		 statement without an ONLY(11.3.2).  */
 	      if (st && only_flag
 		     && !st->n.sym->attr.use_only
 		     && !st->n.sym->attr.use_rename
 		     && strcmp (st->n.sym->module, module_name) == 0)
-		st->name = gfc_get_string ("hidden.%s", name);
+		{
+		  sym = st->n.sym;
+		  gfc_delete_symtree (&gfc_current_ns->sym_root, name);
+		  st = gfc_get_unique_symtree (gfc_current_ns);
+		  st->n.sym = sym;
+		  sym = NULL;
+		}
 	      else if (st)
 		{
 		  sym = st->n.sym;
@@ -3525,6 +3537,12 @@ load_needed (pointer_info *p)
 	  associate_integer_pointer (q, ns);
 	}
 
+      /* Use the module sym as 'proc_name' so that gfc_get_symbol_decl
+	 doesn't go pear-shaped if the symbol is used.  */
+      if (!ns->proc_name)
+	gfc_find_symbol (p->u.rsym.module, gfc_current_ns,
+				 1, &ns->proc_name);
+
       sym = gfc_new_symbol (p->u.rsym.true_name, ns);
       sym->module = gfc_get_string (p->u.rsym.module);
       strcpy (sym->binding_label, p->u.rsym.binding_label);
@@ -3727,21 +3745,21 @@ read_module (void)
 	    {
 	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
 
-	      /* Make symtree inaccessible by renaming if the symbol has
-		 been added by a USE statement without an ONLY(11.3.2).  */
-	      if (st && only_flag
+	      /* Delete the symtree if the symbol has been added by a USE
+		 statement without an ONLY(11.3.2). Remember that the rsym
+		 will be the same as the symbol found in the symtree, for
+		 this case.*/
+	      if (st && (only_flag || info->u.rsym.renamed)
 		     && !st->n.sym->attr.use_only
 		     && !st->n.sym->attr.use_rename
-		     && st->n.sym->module
-		     && strcmp (st->n.sym->module, module_name) == 0)
-		st->name = gfc_get_string ("hidden.%s", name);
+		     && info->u.rsym.sym == st->n.sym)
+		gfc_delete_symtree (&gfc_current_ns->sym_root, name);
 
 	      /* Create a symtree node in the current namespace for this
 		 symbol.  */
 	      st = check_unique_name (p)
 		   ? gfc_get_unique_symtree (gfc_current_ns)
 		   : gfc_new_symtree (&gfc_current_ns->sym_root, p);
-
 	      st->ambiguous = ambiguous;
 
 	      sym = info->u.rsym.sym;
@@ -3762,6 +3780,9 @@ read_module (void)
 
 	      st->n.sym = sym;
 	      st->n.sym->refs++;
+
+	      if (strcmp (name, p) != 0)
+		sym->attr.use_rename = 1;
 
 	      /* Store the symtree pointing to this symbol.  */
 	      info->u.rsym.symtree = st;
@@ -4170,13 +4191,22 @@ write_operator (gfc_user_op *uop)
 }
 
 
-/* Write generic interfaces associated with a symbol.  */
+/* Write generic interfaces from the namespace sym_root.  */
 
 static void
-write_generic (gfc_symbol *sym)
+write_generic (gfc_symtree *st)
 {
-  const char *p;
-  int nuse, j;
+  gfc_symbol *sym;
+
+  if (st == NULL)
+    return;
+
+  write_generic (st->left);
+  write_generic (st->right);
+
+  sym = st->n.sym;
+  if (!sym || check_unique_name (st->name))
+    return;
 
   if (sym->generic == NULL
       || !gfc_check_access (sym->attr.access, sym->ns->default_access))
@@ -4185,21 +4215,7 @@ write_generic (gfc_symbol *sym)
   if (sym->module == NULL)
     sym->module = gfc_get_string (module_name);
 
-  /* See how many use names there are.  If none, use the symbol name.  */
-  nuse = number_use_names (sym->name, false);
-  if (nuse == 0)
-    {
-      mio_symbol_interface (&sym->name, &sym->module, &sym->generic);
-      return;
-    }
-
-  for (j = 1; j <= nuse; j++)
-    {
-      /* Get the jth local name for this symbol.  */
-      p = find_use_name_n (sym->name, &j, false);
-
-      mio_symbol_interface (&p, &sym->module, &sym->generic);
-    }
+  mio_symbol_interface (&st->name, &sym->module, &sym->generic);
 }
 
 
@@ -4257,7 +4273,7 @@ write_module (void)
   write_char ('\n');
 
   mio_lparen ();
-  gfc_traverse_ns (gfc_current_ns, write_generic);
+  write_generic (gfc_current_ns->sym_root);
   mio_rparen ();
   write_char ('\n');
   write_char ('\n');

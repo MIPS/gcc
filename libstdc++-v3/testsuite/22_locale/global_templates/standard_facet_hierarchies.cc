@@ -1,4 +1,4 @@
-// Copyright (C) 2007 Free Software Foundation
+// Copyright (C) 2007, 2008 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,7 +18,6 @@
 
 #include <string>
 #include <locale>
-#include <cassert>
 #include <testsuite_hooks.h>
 
 // Based on Langer Kreft "Standard C++ IOStreams and Locales" p 316-318
@@ -37,8 +36,6 @@ int main()
   locale loc_c = locale::classic();
   locale loc_base = loc_c;
   locale loc_derived(loc_c, new derived_facet("C"));
-
-  bool b;
 
   // Standard base facet.
   VERIFY( has_facet<base_facet>(loc_c) );

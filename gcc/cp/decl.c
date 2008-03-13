@@ -1,6 +1,7 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -356,12 +357,7 @@ pop_label (tree label, tree old_value)
 	  location_t location;
 
 	  error ("label %q+D used but not defined", label);
-#ifdef USE_MAPPED_LOCATION
 	  location = input_location; /* FIXME want (input_filename, (line)0) */
-#else
-	  location.file = input_filename;
-	  location.line = 0;
-#endif
 	  /* Avoid crashing later.  */
 	  define_label (location, DECL_NAME (label));
 	}
@@ -1674,6 +1670,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		= DECL_INTERFACE_KNOWN (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
+
 	    }
 	  else
 	    {
@@ -1681,6 +1680,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		|= DECL_INLINE (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		|= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
 	      check_redeclaration_exception_specification (newdecl, olddecl);
 	    }
 	}
@@ -1804,6 +1805,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
 	  TREE_NOTHROW (newdecl) |= TREE_NOTHROW (olddecl);
 	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
+	  DECL_IS_OPERATOR_NEW (newdecl) |= DECL_IS_OPERATOR_NEW (olddecl);
 	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
 	  /* Keep the old RTL.  */
 	  COPY_DECL_RTL (olddecl, newdecl);
@@ -3684,7 +3686,7 @@ fixup_anonymous_aggr (tree t)
   tree *q;
 
   /* Wipe out memory of synthesized methods.  */
-  TYPE_HAS_CONSTRUCTOR (t) = 0;
+  TYPE_HAS_USER_CONSTRUCTOR (t) = 0;
   TYPE_HAS_DEFAULT_CONSTRUCTOR (t) = 0;
   TYPE_HAS_INIT_REF (t) = 0;
   TYPE_HAS_CONST_INIT_REF (t) = 0;
@@ -3903,11 +3905,15 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
   attrs = type_specifiers->attributes;
   type_specifiers->attributes = NULL_TREE;
   type = grokdeclarator (declarator, type_specifiers, TYPENAME, 0, &attrs);
-  if (attrs)
+  if (attrs && type != error_mark_node)
     {
       if (CLASS_TYPE_P (type))
-	warning (OPT_Wattributes, "ignoring attributes applied to class type "
-		 "outside of definition");
+	warning (OPT_Wattributes, "ignoring attributes applied to class type %qT "
+		 "outside of definition", type);
+      else if (IS_AGGR_TYPE (type))
+	/* A template type parameter or other dependent type.  */
+	warning (OPT_Wattributes, "ignoring attributes applied to dependent "
+		 "type %qT without an associated declaration", type);
       else
 	cplus_decl_attributes (&type, attrs, 0);
     }
@@ -3941,6 +3947,7 @@ start_decl (const cp_declarator *declarator,
   tree type;
   tree context;
   bool was_public;
+  int flags;
 
   *pushed_scope_p = NULL_TREE;
 
@@ -4002,8 +4009,17 @@ start_decl (const cp_declarator *declarator,
 	TREE_STATIC (decl) = 1;
     }
 
+  /* If this is a typedef that names the class for linkage purposes
+     (7.1.3p8), apply any attributes directly to the type.  */
+  if (TREE_CODE (decl) == TYPE_DECL
+      && TAGGED_TYPE_P (TREE_TYPE (decl))
+      && decl == TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
+    flags = ATTR_FLAG_TYPE_IN_PLACE;
+  else
+    flags = 0;
+
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  cplus_decl_attributes (&decl, attributes, 0);
+  cplus_decl_attributes (&decl, attributes, flags);
 
   /* Dllimported symbols cannot be defined.  Static data members (which
      can be initialized in-class and dllimported) go through grokfield,
@@ -4984,11 +5000,11 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
       if (type == error_mark_node)
 	return NULL_TREE;
 
-      if (TYPE_HAS_CONSTRUCTOR (type) || TYPE_NEEDS_CONSTRUCTING (type))
+      if (TREE_CODE (type) == ARRAY_TYPE && TYPE_NEEDS_CONSTRUCTING (type))
+	goto initialize_aggr;
+      else if (CLASS_TYPE_P (type))
 	{
-	  if (TREE_CODE (type) == ARRAY_TYPE)
-	    goto initialize_aggr;
-	  else if (TREE_CODE (init) == CONSTRUCTOR)
+	  if (TREE_CODE (init) == CONSTRUCTOR)
 	    {
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
@@ -5163,7 +5179,10 @@ wrap_cleanups_r (tree *stmt_p, int *walk_subtrees, void *data)
       tree tcleanup = TARGET_EXPR_CLEANUP (*stmt_p);
 
       tcleanup = build2 (TRY_CATCH_EXPR, void_type_node, tcleanup, guard);
-
+      /* Tell honor_protect_cleanup_actions to handle this as a separate
+	 cleanup.  */
+      TRY_CATCH_IS_CLEANUP (tcleanup) = 1;
+ 
       TARGET_EXPR_CLEANUP (*stmt_p) = tcleanup;
     }
 
@@ -5173,7 +5192,18 @@ wrap_cleanups_r (tree *stmt_p, int *walk_subtrees, void *data)
 /* We're initializing a local variable which has a cleanup GUARD.  If there
    are any temporaries used in the initializer INIT of this variable, we
    need to wrap their cleanups with TRY_CATCH_EXPR (, GUARD) so that the
-   variable will be cleaned up properly if one of them throws.  */
+   variable will be cleaned up properly if one of them throws.
+
+   Unfortunately, there's no way to express this properly in terms of
+   nesting, as the regions for the temporaries overlap the region for the
+   variable itself; if there are two temporaries, the variable needs to be
+   the first thing destroyed if either of them throws.  However, we only
+   want to run the variable's cleanup if it actually got constructed.  So
+   we need to guard the temporary cleanups with the variable's cleanup if
+   they are run on the normal path, but not if they are run on the
+   exceptional path.  We implement this by telling
+   honor_protect_cleanup_actions to strip the variable cleanup from the
+   exceptional path.  */
 
 static void
 wrap_temporary_cleanups (tree init, tree guard)
@@ -5364,6 +5394,12 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	add_decl_expr (decl);
 
       type_dependent_p = dependent_type_p (type);
+
+      if (check_for_bare_parameter_packs (init))
+	{
+	  init = NULL_TREE;
+	  DECL_INITIAL (decl) = NULL_TREE;
+	}
 
       if (init && init_const_expr_p)
 	{
@@ -6983,12 +7019,7 @@ compute_array_index_type (tree name, tree size)
     {
       /* Check to see if the array bound overflowed.  Make that an
 	 error, no matter how generous we're being.  */
-      int old_flag_pedantic_errors = flag_pedantic_errors;
-      int old_pedantic = pedantic;
-      pedantic = flag_pedantic_errors = 1;
-      constant_expression_warning (size);
-      pedantic = old_pedantic;
-      flag_pedantic_errors = old_flag_pedantic_errors;
+      constant_expression_error (size);
 
       /* An array must have a positive number of elements.  */
       if (INT_CST_LT (size, integer_zero_node))
@@ -8018,7 +8049,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (type_quals != TYPE_UNQUALIFIED)
 	      {
 		if (SCALAR_TYPE_P (type) || VOID_TYPE_P (type))
-		  warning (OPT_Wreturn_type,
+		  warning (OPT_Wignored_qualifiers,
 			   "type qualifiers ignored on function return type");
 		/* We now know that the TYPE_QUALS don't apply to the
 		   decl, but to its return type.  */
@@ -8520,8 +8551,6 @@ grokdeclarator (const cp_declarator *declarator,
 	  && TYPE_NAME (type)
 	  && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
 	  && TYPE_ANONYMOUS_P (type)
-	  /* Don't do this if there are attributes.  */
-	  && (!attrlist || !*attrlist)
 	  && cp_type_quals (type) == TYPE_UNQUALIFIED)
 	{
 	  tree oldname = TYPE_NAME (type);
@@ -9553,7 +9582,8 @@ move_fn_p (const_tree d)
 
 /* Remember any special properties of member function DECL.  */
 
-void grok_special_member_properties (tree decl)
+void
+grok_special_member_properties (tree decl)
 {
   tree class_type;
 
@@ -9565,7 +9595,8 @@ void grok_special_member_properties (tree decl)
     {
       int ctor = copy_fn_p (decl);
 
-      TYPE_HAS_CONSTRUCTOR (class_type) = 1;
+      if (!DECL_ARTIFICIAL (decl))
+	TYPE_HAS_USER_CONSTRUCTOR (class_type) = 1;
 
       if (ctor > 0)
 	{
@@ -9761,7 +9792,10 @@ grok_op_properties (tree decl, bool complain)
     }
 
   if (operator_code == NEW_EXPR || operator_code == VEC_NEW_EXPR)
-    TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl));
+    {
+      TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl));
+      DECL_IS_OPERATOR_NEW (decl) = 1;
+    }
   else if (operator_code == DELETE_EXPR || operator_code == VEC_DELETE_EXPR)
     TREE_TYPE (decl) = coerce_delete_type (TREE_TYPE (decl));
   else
@@ -11761,14 +11795,10 @@ finish_function (int flags)
 	  /* Hack.  We don't want the middle-end to warn that this
 	     return is unreachable, so put the statement on the
 	     special line 0.  */
-#ifdef USE_MAPPED_LOCATION
 	  {
 	    location_t linezero = linemap_line_start (line_table, 0, 1);
 	    SET_EXPR_LOCATION (stmt, linezero);
 	  }
-#else
-	  annotate_with_file_line (stmt, input_filename, 0);
-#endif
 	}
 
       if (use_eh_spec_block (current_function_decl))

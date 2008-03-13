@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2530,8 +2530,8 @@ substitute_in_expr (tree exp, tree f, tree r)
 	{
 	  tree copy = NULL_TREE;
 	  int i;
-	  int n = TREE_OPERAND_LENGTH (exp);
-	  for (i = 1; i < n; i++)
+
+	  for (i = 1; i < TREE_OPERAND_LENGTH (exp); i++)
 	    {
 	      tree op = TREE_OPERAND (exp, i);
 	      tree newop = SUBSTITUTE_IN_EXPR (op, f, r);
@@ -2546,6 +2546,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	  else
 	    return exp;
 	}
+	break;
 
       default:
 	gcc_unreachable ();
@@ -3018,11 +3019,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
   TREE_SET_CODE (t, code);
 
   TREE_TYPE (t) = type;
-#ifdef USE_MAPPED_LOCATION
   SET_EXPR_LOCATION (t, UNKNOWN_LOCATION);
-#else
-  SET_EXPR_LOCUS (t, NULL);
-#endif
   TREE_OPERAND (t, 0) = node;
   TREE_BLOCK (t) = NULL_TREE;
   if (node && !TYPE_P (node))
@@ -3384,13 +3381,6 @@ build_block (tree vars, tree subblocks, tree supercontext, tree chain)
   return block;
 }
 
-#if 1 /* ! defined(USE_MAPPED_LOCATION) */
-/* ??? gengtype doesn't handle conditionals */
-static GTY(()) source_locus last_annotated_node;
-#endif
-
-#ifdef USE_MAPPED_LOCATION
-
 expanded_location
 expand_location (source_location loc)
 {
@@ -3411,53 +3401,6 @@ expand_location (source_location loc)
   return xloc;
 }
 
-#else
-
-/* Record the exact location where an expression or an identifier were
-   encountered.  */
-
-void
-annotate_with_file_line (tree node, const char *file, int line)
-{
-  location_t *new_loc;
-
-  /* Roughly one percent of the calls to this function are to annotate
-     a node with the same information already attached to that node!
-     Just return instead of wasting memory.  */
-  if (EXPR_LOCUS (node)
-      && EXPR_LINENO (node) == line
-      && (EXPR_FILENAME (node) == file
-	  || !strcmp (EXPR_FILENAME (node), file)))
-    {
-      last_annotated_node = EXPR_LOCUS (node);
-      return;
-    }
-
-  /* In heavily macroized code (such as GCC itself) this single
-     entry cache can reduce the number of allocations by more
-     than half.  */
-  if (last_annotated_node
-      && last_annotated_node->line == line
-      && (last_annotated_node->file == file
-	  || !strcmp (last_annotated_node->file, file)))
-    {
-      SET_EXPR_LOCUS (node, last_annotated_node);
-      return;
-    }
-
-  new_loc = GGC_NEW (location_t);
-  new_loc->file = file;
-  new_loc->line = line;
-  SET_EXPR_LOCUS (node, new_loc);
-  last_annotated_node = new_loc;
-}
-
-void
-annotate_with_locus (tree node, location_t locus)
-{
-  annotate_with_file_line (node, locus.file, locus.line);
-}
-#endif
 
 /* Source location accessor functions.  */
 
@@ -3468,71 +3411,39 @@ annotate_with_locus (tree node, location_t locus)
 location_t
 expr_location (const_tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
     return GIMPLE_STMT_LOCUS (node);
   return EXPR_P (node) ? node->exp.locus : UNKNOWN_LOCATION;
-#else
-  if (GIMPLE_STMT_P (node))
-    return EXPR_HAS_LOCATION (node)
-      ? *GIMPLE_STMT_LOCUS (node) : UNKNOWN_LOCATION;
-  return EXPR_HAS_LOCATION (node) ? *node->exp.locus : UNKNOWN_LOCATION;
-#endif
 }
 
 void
 set_expr_location (tree node, location_t locus)
 {
-#ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
     GIMPLE_STMT_LOCUS (node) = locus;
   else
     EXPR_CHECK (node)->exp.locus = locus;
-#else
-      annotate_with_locus (node, locus);
-#endif
 }
 
 bool
 expr_has_location (const_tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   return expr_location (node) != UNKNOWN_LOCATION;
-#else
-  return expr_locus (node) != NULL;
-#endif
 }
 
-#ifdef USE_MAPPED_LOCATION
 source_location *
-#else
-source_locus
-#endif
 expr_locus (const_tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   if (GIMPLE_STMT_P (node))
     return CONST_CAST (source_location *, &GIMPLE_STMT_LOCUS (node));
   return (EXPR_P (node)
 	  ? CONST_CAST (source_location *, &node->exp.locus)
 	  : (source_location *) NULL);
-#else
-  if (GIMPLE_STMT_P (node))
-    return GIMPLE_STMT_LOCUS (node);
-  return EXPR_P (node) ? node->exp.locus : (source_locus) NULL;
-#endif
 }
 
 void
-set_expr_locus (tree node,
-#ifdef USE_MAPPED_LOCATION
-		source_location *loc
-#else
-		source_locus loc
-#endif
-		)
+set_expr_locus (tree node, source_location *loc)
 {
-#ifdef USE_MAPPED_LOCATION
   if (loc == NULL)
     {
       if (GIMPLE_STMT_P (node))
@@ -3547,12 +3458,6 @@ set_expr_locus (tree node,
       else
 	EXPR_CHECK (node)->exp.locus = *loc;
     }
-#else
-  if (GIMPLE_STMT_P (node))
-    GIMPLE_STMT_LOCUS (node) = loc;
-  else
-    EXPR_CHECK (node)->exp.locus = loc;
-#endif
 }
 
 /* Return the file name of the location of NODE.  */
@@ -3560,8 +3465,8 @@ const char *
 expr_filename (const_tree node)
 {
   if (GIMPLE_STMT_P (node))
-    return LOCATION_FILE (location_from_locus (GIMPLE_STMT_LOCUS (node)));
-  return LOCATION_FILE (location_from_locus (EXPR_CHECK (node)->exp.locus));
+    return LOCATION_FILE (GIMPLE_STMT_LOCUS (node));
+  return LOCATION_FILE (EXPR_CHECK (node)->exp.locus);
 }
 
 /* Return the line number of the location of NODE.  */
@@ -3569,8 +3474,8 @@ int
 expr_lineno (const_tree node)
 {
   if (GIMPLE_STMT_P (node))
-    return LOCATION_LINE (location_from_locus (GIMPLE_STMT_LOCUS (node)));
-  return LOCATION_LINE (location_from_locus (EXPR_CHECK (node)->exp.locus));
+    return LOCATION_LINE (GIMPLE_STMT_LOCUS (node));
+  return LOCATION_LINE (EXPR_CHECK (node)->exp.locus);
 }
 
 
@@ -3700,8 +3605,9 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
-	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
-					    hashcode);
+	  if (TYPE_DOMAIN (ntype))
+	    hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
+					      hashcode);
 	  break;
 	case INTEGER_TYPE:
 	  hashcode = iterative_hash_object
@@ -3734,6 +3640,8 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 
       ttype = build_qualified_type (ntype, quals);
     }
+  else if (TYPE_QUALS (ttype) != quals)
+    ttype = build_qualified_type (ttype, quals);
 
   return ttype;
 }
@@ -4063,6 +3971,16 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       return NULL_TREE;
     }
 
+  if (TREE_CODE (node) == TYPE_DECL
+      && TREE_CODE (TREE_TYPE (node)) != RECORD_TYPE
+      && TREE_CODE (TREE_TYPE (node)) != UNION_TYPE)
+    {
+      *no_add_attrs = true;
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
+      return NULL_TREE;
+    }
+
   /* Report error on dllimport ambiguities seen now before they cause
      any damage.  */
   else if (is_attribute_p ("dllimport", name))
@@ -4150,7 +4068,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
-/* Returns true iff cand is equivalent to base with type_quals.  */
+/* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
 
 bool
 check_qualified_type (const_tree cand, const_tree base, int type_quals)
@@ -4946,7 +4864,8 @@ host_integerp (const_tree t, int pos)
 	      || (! pos && TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
 		  && (!TYPE_UNSIGNED (TREE_TYPE (t))
-		      || TYPE_IS_SIZETYPE (TREE_TYPE (t))))
+		      || (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE
+			  && TYPE_IS_SIZETYPE (TREE_TYPE (t)))))
 	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
 }
 
@@ -7627,6 +7546,11 @@ reconstruct_complex_type (tree type, tree bottom)
 	     inner,
 	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
     }
+  else if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
+    }
   else
     return bottom;
 
@@ -8035,21 +7959,26 @@ find_compatible_field (tree record, tree orig_field)
   return orig_field;
 }
 
-/* Return value of a constant X.  */
+/* Return value of a constant X and sign-extend it.  */
 
 HOST_WIDE_INT
 int_cst_value (const_tree x)
 {
   unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
   unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
-  bool negative = ((val >> (bits - 1)) & 1) != 0;
 
-  gcc_assert (bits <= HOST_BITS_PER_WIDE_INT);
+  /* Make sure the sign-extended value will fit in a HOST_WIDE_INT.  */
+  gcc_assert (TREE_INT_CST_HIGH (x) == 0
+	      || TREE_INT_CST_HIGH (x) == -1);
 
-  if (negative)
-    val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
-  else
-    val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+  if (bits < HOST_BITS_PER_WIDE_INT)
+    {
+      bool negative = ((val >> (bits - 1)) & 1) != 0;
+      if (negative)
+	val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+      else
+	val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+    }
 
   return val;
 }

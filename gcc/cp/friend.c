@@ -413,6 +413,13 @@ do_friend (tree ctype, tree declarator, tree decl,
   /* Every decl that gets here is a friend of something.  */
   DECL_FRIEND_P (decl) = 1;
 
+  /* Unfortunately, we have to handle attributes here.  Normally we would
+     handle them in start_decl_1, but since this is a friend decl start_decl_1
+     never gets to see it.  */
+
+  /* Set attributes here so if duplicate decl, will have proper attributes.  */
+  cplus_decl_attributes (&decl, attrlist, 0);
+
   if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
     {
       declarator = TREE_OPERAND (declarator, 0);
@@ -468,7 +475,7 @@ do_friend (tree ctype, tree declarator, tree decl,
 	 the process of being defined.  */
       if (class_template_depth
 	  || COMPLETE_TYPE_P (ctype)
-	  || TYPE_BEING_DEFINED (ctype))
+	  || (CLASS_TYPE_P (ctype) && TYPE_BEING_DEFINED (ctype)))
 	{
 	  if (DECL_TEMPLATE_INFO (decl))
 	    /* DECL is a template specialization.  No need to
@@ -526,11 +533,25 @@ do_friend (tree ctype, tree declarator, tree decl,
 	       is instantiated.  */
 	    decl = push_template_decl_real (decl, /*is_friend=*/true);
 	  else if (current_function_decl)
-	    /* This must be a local class, so pushdecl will be ok, and
-	       insert an unqualified friend into the local scope
-	       (rather than the containing namespace scope, which the
-	       next choice will do).  */
-	    decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+	    {
+	      /* This must be a local class.  11.5p11:
+
+		 If a friend declaration appears in a local class (9.8) and
+		 the name specified is an unqualified name, a prior
+		 declaration is looked up without considering scopes that
+		 are outside the innermost enclosing non-class scope. For a
+		 friend function declaration, if there is no prior
+		 declaration, the program is ill-formed.  */
+	      tree t = lookup_name_innermost_nonclass_level (DECL_NAME (decl));
+	      if (t)
+		decl = pushdecl_maybe_friend (decl, /*is_friend=*/true);
+	      else
+		{
+		  error ("friend declaration %qD in local class without "
+			 "prior declaration", decl);
+		  return error_mark_node;
+		}
+	    }
 	  else
 	    {
 	      /* We can't use pushdecl, as we might be in a template
@@ -567,13 +588,6 @@ do_friend (tree ctype, tree declarator, tree decl,
 		  /*complain=*/true);
       DECL_FRIEND_P (decl) = 1;
     }
-
-  /* Unfortunately, we have to handle attributes here.  Normally we would
-     handle them in start_decl_1, but since this is a friend decl start_decl_1
-     never gets to see it.  */
-
-  /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  cplus_decl_attributes (&decl, attrlist, 0);
 
   return decl;
 }

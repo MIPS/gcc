@@ -554,7 +554,8 @@ static void delete_reg_equiv (unsigned int);
 static int mention_regs (rtx);
 static int insert_regs (rtx, struct table_elt *, int);
 static void remove_from_table (struct table_elt *, unsigned);
-static struct table_elt *lookup	(rtx, unsigned, enum machine_mode);
+static void remove_pseudo_from_table (rtx, unsigned);
+static struct table_elt *lookup (rtx, unsigned, enum machine_mode);
 static struct table_elt *lookup_for_remove (rtx, unsigned, enum machine_mode);
 static rtx lookup_as_function (rtx, enum rtx_code);
 static struct table_elt *insert (rtx, struct table_elt *, unsigned,
@@ -1288,6 +1289,19 @@ remove_from_table (struct table_elt *elt, unsigned int hash)
   free_element_chain = elt;
 }
 
+/* Same as above, but X is a pseudo-register.  */
+
+static void
+remove_pseudo_from_table (rtx x, unsigned int hash)
+{
+  struct table_elt *elt;
+
+  /* Because a pseudo-register can be referenced in more than one
+     mode, we might have to remove more than one table entry.  */
+  while ((elt = lookup_for_remove (x, hash, VOIDmode)))
+    remove_from_table (elt, hash);
+}
+
 /* Look up X in the hash table and return its table element,
    or 0 if X is not in the table.
 
@@ -1605,7 +1619,10 @@ merge_equiv_classes (struct table_elt *class1, struct table_elt *class2)
 	      delete_reg_equiv (REGNO (exp));
 	    }
 
-	  remove_from_table (elt, hash);
+	  if (REG_P (exp) && REGNO (exp) >= FIRST_PSEUDO_REGISTER)
+	    remove_pseudo_from_table (exp, hash);
+	  else
+	    remove_from_table (elt, hash);
 
 	  if (insert_regs (exp, class1, 0) || need_rehash)
 	    {
@@ -1701,14 +1718,7 @@ invalidate (rtx x, enum machine_mode full_mode)
 	SUBREG_TICKED (regno) = -1;
 
 	if (regno >= FIRST_PSEUDO_REGISTER)
-	  {
-	    /* Because a register can be referenced in more than one mode,
-	       we might have to remove more than one table entry.  */
-	    struct table_elt *elt;
-
-	    while ((elt = lookup_for_remove (x, hash, GET_MODE (x))))
-	      remove_from_table (elt, hash);
-	  }
+	  remove_pseudo_from_table (x, hash);
 	else
 	  {
 	    HOST_WIDE_INT in_table
@@ -4743,6 +4753,23 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      src_elt_cost = MAX_COST;
 	    }
 
+	  /* Avoid creation of overlapping memory moves.  */
+	  if (MEM_P (trial) && MEM_P (SET_DEST (sets[i].rtl)))
+	    {
+	      rtx src, dest;
+
+	      /* BLKmode moves are not handled by cse anyway.  */
+	      if (GET_MODE (trial) == BLKmode)
+		break;
+
+	      src = canon_rtx (trial);
+	      dest = canon_rtx (SET_DEST (sets[i].rtl));
+
+	      if (!MEM_P (src) || !MEM_P (dest)
+		  || !nonoverlapping_memrefs_p (src, dest))
+		break;
+	    }
+
 	  /* We don't normally have an insn matching (set (pc) (pc)), so
 	     check for this separately here.  We will delete such an
 	     insn below.
@@ -5965,6 +5992,21 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
       int no_conflict = 0;
 
       bb = ebb_data->path[path_entry].bb;
+
+      /* Invalidate recorded information for eh regs if there is an EH
+	 edge pointing to that bb.  */
+      if (bb_has_eh_pred (bb))
+	{
+	  struct df_ref **def_rec;
+
+	  for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+		invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
+	    }
+	}
+
       FOR_BB_INSNS (bb, insn)
 	{
 	  /* If we have processed 1,000 insns, flush the hash table to

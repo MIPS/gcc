@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1064,11 +1064,7 @@ gfc_gobble_whitespace (void)
 	 line will be scanned multiple times.  */
       if (!gfc_option.warn_tabs && c == '\t')
 	{
-#ifdef USE_MAPPED_LOCATION
 	  int cur_linenum = LOCATION_LINE (gfc_current_locus.lb->location);
-#else
-	  int cur_linenum = gfc_current_locus.lb->linenum;
-#endif
 	  if (cur_linenum != linenum)
 	    {
 	      linenum = cur_linenum;
@@ -1106,6 +1102,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
   int trunc_flag = 0, seen_comment = 0;
   int seen_printable = 0, seen_ampersand = 0;
   char *buffer;
+  bool found_tab = false;
 
   /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
@@ -1176,7 +1173,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	    seen_ampersand = 1;
 	}
 
-      if ((c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+      if ((c != '&' && c != '!' && c != ' ') || (c == '!' && !seen_ampersand))
 	seen_printable = 1;
 
       /* Is this a fixed-form comment?  */
@@ -1184,17 +1181,30 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	  && (c == '*' || c == 'c' || c == 'd'))
 	seen_comment = 1;
 
-      if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
+      /* Vendor extension: "<tab>1" marks a continuation line.  */
+      if (found_tab)
 	{
+	  found_tab = false;
+	  if (c >= '1' && c <= '9')
+	    {
+	      *(buffer-1) = c;
+	      continue;
+	    }
+	}
+
+      if (gfc_current_form == FORM_FIXED && c == '\t' && i < 6)
+	{
+	  found_tab = true;
+
 	  if (!gfc_option.warn_tabs && seen_comment == 0
 	      && current_line != linenum)
 	    {
 	      linenum = current_line;
-	      gfc_warning_now ("Nonconforming tab character in column 1 "
-			       "of line %d", linenum);
+	      gfc_warning_now ("Nonconforming tab character in column %d "
+			       "of line %d", i+1, linenum);
 	    }
 
-	  while (i <= 6)
+	  while (i < 6)
 	    {
 	      *buffer++ = ' ';
 	      i++;
@@ -1271,9 +1281,7 @@ get_file (const char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
   if (current_file != NULL)
     f->inclusion_line = current_file->line;
 
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, reason, false, f->filename, 1);
-#endif
 
   return f;
 }
@@ -1398,10 +1406,8 @@ preprocessor_line (char *c)
 
       add_file_change (NULL, line);
       current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
       linemap_add (line_table, LC_RENAME, false, current_file->filename,
 		   current_file->line);
-#endif
     }
 
   /* The name of the file can be a temporary file produced by
@@ -1631,12 +1637,8 @@ load_file (const char *filename, bool initial)
 
       b = gfc_getmem (gfc_linebuf_header_size + len + 1);
 
-#ifdef USE_MAPPED_LOCATION
       b->location
 	= linemap_line_start (line_table, current_file->line++, 120);
-#else
-      b->linenum = current_file->line++;
-#endif
       b->file = current_file;
       b->truncated = trunc;
       strcpy (b->line, line);
@@ -1660,9 +1662,7 @@ load_file (const char *filename, bool initial)
   if (!initial)
     add_file_change (NULL, current_file->inclusion_line + 1);
   current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, LC_LEAVE, 0, NULL, 0);
-#endif
   return SUCCESS;
 }
 
@@ -1685,13 +1685,8 @@ gfc_new_file (void)
 #if 0 /* Debugging aid.  */
   for (; line_head; line_head = line_head->next)
     gfc_status ("%s:%3d %s\n",
-#ifdef USE_MAPPED_LOCATION
 		LOCATION_FILE (line_head->location),
 		LOCATION_LINE (line_head->location),
-#else
-		line_head->file->filename, 
-		line_head->linenum,
-#endif
 		line_head->line);
 
   exit (0);

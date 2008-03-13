@@ -1078,7 +1078,6 @@ enum mips_code_readable_setting {
 #endif
 
 #define DBX_DEBUGGING_INFO 1		/* generate stabs (OSF/rose) */
-#define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
 #define DWARF2_DEBUGGING_INFO 1         /* dwarf2 debugging info */
 
 #ifndef PREFERRED_DEBUGGING_TYPE
@@ -1372,7 +1371,7 @@ enum mips_code_readable_setting {
    - 3 fake registers:
 	- ARG_POINTER_REGNUM
 	- FRAME_POINTER_REGNUM
-	- FAKE_CALL_REGNO (see the comment above load_callsi for details)
+	- GOT_VERSION_REGNUM (see the comment above load_call<mode> for details)
    - 3 dummy entries that were used at various times in the past.
    - 6 DSP accumulator registers (3 hi-lo pairs) for MIPS DSP ASE
    - 6 DSP control registers  */
@@ -1452,7 +1451,7 @@ enum mips_code_readable_setting {
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   /* Others.  */                                                        \
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,			\
   /* COP0 registers */							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
@@ -2089,8 +2088,12 @@ typedef struct mips_args {
 
 /* Say that the epilogue uses the return address register.  Note that
    in the case of sibcalls, the values "used by the epilogue" are
-   considered live at the start of the called function.  */
-#define EPILOGUE_USES(REGNO) ((REGNO) == 31)
+   considered live at the start of the called function.
+
+   If using a GOT, say that the epilogue also uses GOT_VERSION_REGNUM.
+   See the comment above load_call<mode> for details.  */
+#define EPILOGUE_USES(REGNO) \
+  ((REGNO) == 31 || (TARGET_USE_GOT && (REGNO) == GOT_VERSION_REGNUM))
 
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */

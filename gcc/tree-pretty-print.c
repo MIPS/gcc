@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
@@ -127,7 +127,7 @@ print_generic_decl (FILE *file, tree decl, int flags)
 }
 
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
-   to show in the dump.  See TDF_* in tree.h.  */
+   to show in the dump.  See TDF_* in tree-pass.h.  */
 
 void
 print_generic_stmt (FILE *file, tree t, int flags)
@@ -138,7 +138,7 @@ print_generic_stmt (FILE *file, tree t, int flags)
 }
 
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
-   to show in the dump.  See TDF_* in tree.h.  The output is indented by
+   to show in the dump.  See TDF_* in tree-pass.h.  The output is indented by
    INDENT spaces.  */
 
 void
@@ -155,7 +155,7 @@ print_generic_stmt_indented (FILE *file, tree t, int flags, int indent)
 }
 
 /* Print a single expression T on file FILE.  FLAGS specifies details to show
-   in the dump.  See TDF_* in tree.h.  */
+   in the dump.  See TDF_* in tree-pass.h.  */
 
 void
 print_generic_expr (FILE *file, tree t, int flags)
@@ -1444,6 +1444,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, ">(");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_character (buffer, ')');
+      break;
+
+    case PAREN_EXPR:
+      pp_string (buffer, "((");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (buffer, "))");
       break;
 
     case NON_LVALUE_EXPR:
@@ -3106,20 +3112,10 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
     {
       INDENT (indent);
 
-      if ((flags & TDF_LINENO)
-#ifdef USE_MAPPED_LOCATION
-	  && e->goto_locus != UNKNOWN_LOCATION
-#else
-	  && e->goto_locus
-#endif
-	  )
+      if ((flags & TDF_LINENO) && e->goto_locus != UNKNOWN_LOCATION)
 	{
 	  expanded_location goto_xloc;
-#ifdef USE_MAPPED_LOCATION
 	  goto_xloc = expand_location (e->goto_locus);
-#else
-	  goto_xloc = *e->goto_locus;
-#endif
 	  pp_character (buffer, '[');
 	  if (goto_xloc.file)
 	    {

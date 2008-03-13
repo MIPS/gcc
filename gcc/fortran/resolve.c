@@ -1,5 +1,5 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -106,7 +106,10 @@ resolve_formal_arglist (gfc_symbol *proc)
   if (gfc_elemental (proc)
       || sym->attr.pointer || sym->attr.allocatable
       || (sym->as && sym->as->rank > 0))
-    proc->attr.always_explicit = 1;
+    {
+      proc->attr.always_explicit = 1;
+      sym->attr.always_explicit = 1;
+    }
 
   formal_arg_flag = 1;
 
@@ -187,7 +190,11 @@ resolve_formal_arglist (gfc_symbol *proc)
       if ((sym->as && sym->as->rank > 0 && sym->as->type == AS_ASSUMED_SHAPE)
 	  || sym->attr.pointer || sym->attr.allocatable || sym->attr.target
 	  || sym->attr.optional)
-	proc->attr.always_explicit = 1;
+	{
+	  proc->attr.always_explicit = 1;
+	  if (proc->result)
+	    proc->result->attr.always_explicit = 1;
+	}
 
       /* If the flavor is unknown at this point, it has to be a variable.
 	 A procedure specification would have already set the type.  */
@@ -222,6 +229,14 @@ resolve_formal_arglist (gfc_symbol *proc)
 	    {
 	      gfc_error ("Argument '%s' of elemental procedure at %L cannot "
 			 "have the POINTER attribute", sym->name,
+			 &sym->declared_at);
+	      continue;
+	    }
+
+	  if (sym->attr.flavor == FL_PROCEDURE)
+	    {
+	      gfc_error ("Dummy procedure '%s' not allowed in elemental "
+			 "procedure '%s' at %L", sym->name, proc->name,
 			 &sym->declared_at);
 	      continue;
 	    }
@@ -488,7 +503,8 @@ resolve_entries (gfc_namespace *ns)
 	      || (el->sym->result->attr.pointer
 		  != ns->entries->sym->result->attr.pointer))
 	    break;
-	  else if (as && fas && gfc_compare_array_spec (as, fas) == 0)
+	  else if (as && fas && ns->entries->sym->result != el->sym->result
+		      && gfc_compare_array_spec (as, fas) == 0)
 	    gfc_error ("Function %s at %L has entries with mismatched "
 		       "array specifications", ns->entries->sym->name,
 		       &ns->entries->sym->declared_at);
@@ -638,23 +654,27 @@ has_default_initializer (gfc_symbol *der)
   return c != NULL;
 }
 
-
-/* Resolve common blocks.  */
+/* Resolve common variables.  */
 static void
-resolve_common_blocks (gfc_symtree *common_root)
+resolve_common_vars (gfc_symbol *sym, bool named_common)
 {
-  gfc_symbol *sym, *csym;
+  gfc_symbol *csym = sym;
 
-  if (common_root == NULL)
-    return;
-
-  if (common_root->left)
-    resolve_common_blocks (common_root->left);
-  if (common_root->right)
-    resolve_common_blocks (common_root->right);
-
-  for (csym = common_root->n.common->head; csym; csym = csym->common_next)
+  for (; csym; csym = csym->common_next)
     {
+      if (csym->value || csym->attr.data)
+	{
+	  if (!csym->ns->is_block_data)
+	    gfc_notify_std (GFC_STD_GNU, "Variable '%s' at %L is in COMMON "
+			    "but only in BLOCK DATA initialization is "
+			    "allowed", csym->name, &csym->declared_at);
+	  else if (!named_common)
+	    gfc_notify_std (GFC_STD_GNU, "Initialized variable '%s' at %L is "
+			    "in a blank COMMON but initialization is only "
+			    "allowed in named common blocks", csym->name,
+			    &csym->declared_at);
+	}
+
       if (csym->ts.type != BT_DERIVED)
 	continue;
 
@@ -672,6 +692,23 @@ resolve_common_blocks (gfc_symtree *common_root)
 		       "may not have default initializer", csym->name,
 		       &csym->declared_at);
     }
+}
+
+/* Resolve common blocks.  */
+static void
+resolve_common_blocks (gfc_symtree *common_root)
+{
+  gfc_symbol *sym;
+
+  if (common_root == NULL)
+    return;
+
+  if (common_root->left)
+    resolve_common_blocks (common_root->left);
+  if (common_root->right)
+    resolve_common_blocks (common_root->right);
+
+  resolve_common_vars (common_root->n.common->head, true);
 
   gfc_find_symbol (common_root->name, gfc_current_ns, 0, &sym);
   if (sym == NULL)
@@ -984,6 +1021,7 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
   gfc_symbol *sym;
   gfc_symtree *parent_st;
   gfc_expr *e;
+  int save_need_full_assumed_size;
 
   for (; arg; arg = arg->next)
     {
@@ -1012,8 +1050,12 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 
       if (e->ts.type != BT_PROCEDURE)
 	{
+	  save_need_full_assumed_size = need_full_assumed_size;
+	  if (e->expr_type != FL_VARIABLE)
+	    need_full_assumed_size = 0;
 	  if (gfc_resolve_expr (e) != SUCCESS)
 	    return FAILURE;
+	  need_full_assumed_size = save_need_full_assumed_size;
 	  goto argument_list;
 	}
 
@@ -1152,8 +1194,12 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype)
 	 primary.c (match_actual_arg). If above code determines that it
 	 is a  variable instead, it needs to be resolved as it was not
 	 done at the beginning of this function.  */
+      save_need_full_assumed_size = need_full_assumed_size;
+      if (e->expr_type != FL_VARIABLE)
+	need_full_assumed_size = 0;
       if (gfc_resolve_expr (e) != SUCCESS)
 	return FAILURE;
+      need_full_assumed_size = save_need_full_assumed_size;
 
     argument_list:
       /* Check argument list functions %VAL, %LOC and %REF.  There is
@@ -4825,6 +4871,81 @@ check_symbols:
   return SUCCESS;
 }
 
+static void
+resolve_allocate_deallocate (gfc_code *code, const char *fcn)
+{
+  gfc_symbol *s = NULL;
+  gfc_alloc *a;
+  bool is_variable;
+
+  if (code->expr)
+    s = code->expr->symtree->n.sym;
+
+  if (s)
+    {
+      if (s->attr.intent == INTENT_IN)
+	gfc_error ("STAT variable '%s' of %s statement at %C cannot "
+		   "be INTENT(IN)", s->name, fcn);
+
+      if (gfc_pure (NULL) && gfc_impure_variable (s))
+	gfc_error ("Illegal STAT variable in %s statement at %C "
+		   "for a PURE procedure", fcn);
+
+      is_variable = false;
+      if (s->attr.flavor == FL_VARIABLE)
+	is_variable = true;
+      else if (s->attr.function && s->result == s
+		 && (gfc_current_ns->proc_name == s
+			||
+		    (gfc_current_ns->parent
+		       && gfc_current_ns->parent->proc_name == s)))
+	is_variable = true;
+      else if (gfc_current_ns->entries && s->result == s)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->entries; el; el = el->next)
+	    if (el->sym == s)
+	      {
+		is_variable = true;
+	      }
+	}
+      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
+	         && s->result == s)
+	{
+	  gfc_entry_list *el;
+	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
+	    if (el->sym == s)
+	      {
+		is_variable = true;
+	      }
+	}
+
+      if (s->attr.flavor == FL_UNKNOWN
+	    && gfc_add_flavor (&s->attr, FL_VARIABLE,
+			       s->name, NULL) == SUCCESS)
+	is_variable = true;
+
+      if (!is_variable)
+	gfc_error ("STAT tag in %s statement at %L must be "
+		   "a variable", fcn, &code->expr->where);
+
+    }
+
+  if (s && code->expr->ts.type != BT_INTEGER)
+	gfc_error ("STAT tag in %s statement at %L must be "
+		       "of type INTEGER", fcn, &code->expr->where);
+
+  if (strcmp (fcn, "ALLOCATE") == 0)
+    {
+      for (a = code->ext.alloc_list; a; a = a->next)
+	resolve_allocate_expr (a->expr, code);
+    }
+  else
+    {
+      for (a = code->ext.alloc_list; a; a = a->next)
+	resolve_deallocate_expr (a->expr);
+    }
+}
 
 /************ SELECT CASE resolution subroutines ************/
 
@@ -5617,6 +5738,9 @@ resolve_where (gfc_code *code, gfc_expr *mask)
   
 	    case EXEC_ASSIGN_CALL:
 	      resolve_call (cnext);
+	      if (!cnext->resolved_sym->attr.elemental)
+		gfc_error("Non-ELEMENTAL user-defined assignment in WHERE at %L",
+			  &cnext->ext.actual->expr->where);
 	      break;
 
 	    /* WHERE or WHERE construct is part of a where-body-construct */
@@ -5699,6 +5823,9 @@ gfc_resolve_where_code_in_forall (gfc_code *code, int nvar,
 	    /* WHERE operator assignment statement */
 	    case EXEC_ASSIGN_CALL:
 	      resolve_call (cnext);
+	      if (!cnext->resolved_sym->attr.elemental)
+		gfc_error("Non-ELEMENTAL user-defined assignment in WHERE at %L",
+			  &cnext->ext.actual->expr->where);
 	      break;
 
 	    /* WHERE or WHERE construct is part of a where-body-construct */
@@ -6045,7 +6172,6 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
   int omp_workshare_save;
   int forall_save;
   code_stack frame;
-  gfc_alloc *a;
   try t;
 
   frame.prev = cs_base;
@@ -6230,25 +6356,14 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	  break;
 
 	case EXEC_ALLOCATE:
-	  if (t == SUCCESS && code->expr != NULL
-	      && code->expr->ts.type != BT_INTEGER)
-	    gfc_error ("STAT tag in ALLOCATE statement at %L must be "
-		       "of type INTEGER", &code->expr->where);
-
-	  for (a = code->ext.alloc_list; a; a = a->next)
-	    resolve_allocate_expr (a->expr, code);
+	  if (t == SUCCESS)
+	    resolve_allocate_deallocate (code, "ALLOCATE");
 
 	  break;
 
 	case EXEC_DEALLOCATE:
-	  if (t == SUCCESS && code->expr != NULL
-	      && code->expr->ts.type != BT_INTEGER)
-	    gfc_error
-	      ("STAT tag in DEALLOCATE statement at %L must be of type "
-	       "INTEGER", &code->expr->where);
-
-	  for (a = code->ext.alloc_list; a; a = a->next)
-	    resolve_deallocate_expr (a->expr);
+	  if (t == SUCCESS)
+	    resolve_allocate_deallocate (code, "DEALLOCATE");
 
 	  break;
 
@@ -8526,6 +8641,14 @@ resolve_equivalence_derived (gfc_symbol *derived, gfc_symbol *sym, gfc_expr *e)
       return FAILURE;
     }
 
+  if (sym->attr.in_common && has_default_initializer (sym->ts.derived))
+    {
+      gfc_error ("Derived type variable '%s' at %L with default "
+		 "initialization cannot be in EQUIVALENCE with a variable "
+		 "in COMMON", sym->name, &e->where);
+      return FAILURE;
+    }
+
   for (; c ; c = c->next)
     {
       d = c->ts.derived;
@@ -8923,6 +9046,7 @@ resolve_types (gfc_namespace *ns)
 
   resolve_entries (ns);
 
+  resolve_common_vars (ns->blank_common.head, false);
   resolve_common_blocks (ns->common_root);
 
   resolve_contained_functions (ns);

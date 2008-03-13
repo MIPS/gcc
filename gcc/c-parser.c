@@ -1,6 +1,7 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -1069,7 +1070,7 @@ c_parser_translation_unit (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_EOF))
     {
       if (pedantic)
-	pedwarn ("%HISO C forbids an empty source file",
+	pedwarn ("%HISO C forbids an empty translation unit",
 		 &c_parser_peek_token (parser)->location);
     }
   else
@@ -7547,6 +7548,8 @@ c_parser_omp_for_loop (c_parser *parser)
       decl = check_for_loop_decls ();
       if (decl == NULL)
 	goto error_init;
+      if (DECL_INITIAL (decl) == error_mark_node)
+	decl = error_mark_node;
       init = decl;
     }
   else if (c_parser_next_token_is (parser, CPP_NAME)
@@ -7597,7 +7600,7 @@ c_parser_omp_for_loop (c_parser *parser)
   c_break_label = save_break;
   c_cont_label = save_cont;
 
-  /* Only bother calling c_finish_omp_for if we havn't already generated
+  /* Only bother calling c_finish_omp_for if we haven't already generated
      an error from the initialization parsing.  */
   if (decl != NULL && decl != error_mark_node && init != error_mark_node)
     return c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
@@ -7962,10 +7965,14 @@ c_parser_omp_threadprivate (c_parser *parser)
 
       /* If V had already been marked threadprivate, it doesn't matter
 	 whether it had been used prior to this point.  */
-      if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
+      if (TREE_CODE (v) != VAR_DECL)
+	error ("%qD is not a variable", v);
+      else if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
 	error ("%qE declared %<threadprivate%> after first use", v);
       else if (! TREE_STATIC (v) && ! DECL_EXTERNAL (v))
 	error ("automatic variable %qE cannot be %<threadprivate%>", v);
+      else if (TREE_TYPE (v) == error_mark_node)
+	;
       else if (! COMPLETE_TYPE_P (TREE_TYPE (v)))
 	error ("%<threadprivate%> %qE has incomplete type", v);
       else

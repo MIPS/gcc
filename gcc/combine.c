@@ -2751,12 +2751,17 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 
   if (i1 && GET_CODE (newpat) != CLOBBER)
     {
-      /* Before we can do this substitution, we must redo the test done
-	 above (see detailed comments there) that ensures  that I1DEST
-	 isn't mentioned in any SETs in NEWPAT that are field assignments.  */
-
-      if (! combinable_i3pat (NULL_RTX, &newpat, i1dest, NULL_RTX,
-			      0, (rtx*) 0))
+      /* Check that an autoincrement side-effect on I1 has not been lost.
+	 This happens if I1DEST is mentioned in I2 and dies there, and
+	 has disappeared from the new pattern.  */
+      if ((FIND_REG_INC_NOTE (i1, NULL_RTX) != 0
+	   && !i1_feeds_i3
+	   && dead_or_set_p (i2, i1dest)
+	   && !reg_overlap_mentioned_p (i1dest, newpat))
+	  /* Before we can do this substitution, we must redo the test done
+	     above (see detailed comments there) that ensures  that I1DEST
+	     isn't mentioned in any SETs in NEWPAT that are field assignments.  */
+          || !combinable_i3pat (NULL_RTX, &newpat, i1dest, NULL_RTX, 0, 0))
 	{
 	  undo_all ();
 	  return 0;
@@ -3967,6 +3972,15 @@ find_split_point (rtx *loc, rtx insn)
 			 && OBJECT_P (SUBREG_REG (XEXP (XEXP (x, 0), 0)))))
 	    return &XEXP (XEXP (x, 0), 0);
 	}
+
+      /* If we have a PLUS whose first operand is complex, try computing it
+         separately by making a split there.  */
+      if (GET_CODE (XEXP (x, 0)) == PLUS
+          && ! memory_address_p (GET_MODE (x), XEXP (x, 0))
+          && ! OBJECT_P (XEXP (XEXP (x, 0), 0))
+          && ! (GET_CODE (XEXP (XEXP (x, 0), 0)) == SUBREG
+                && OBJECT_P (SUBREG_REG (XEXP (XEXP (x, 0), 0)))))
+        return &XEXP (XEXP (x, 0), 0);
       break;
 
     case SET:
@@ -5379,9 +5393,10 @@ simplify_if_then_else (rtx x)
   /* Look for cases where we have (abs x) or (neg (abs X)).  */
 
   if (GET_MODE_CLASS (mode) == MODE_INT
+      && comparison_p
+      && XEXP (cond, 1) == const0_rtx
       && GET_CODE (false_rtx) == NEG
       && rtx_equal_p (true_rtx, XEXP (false_rtx, 0))
-      && comparison_p
       && rtx_equal_p (true_rtx, XEXP (cond, 0))
       && ! side_effects_p (true_rtx))
     switch (true_code)

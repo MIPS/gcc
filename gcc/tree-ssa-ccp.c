@@ -300,12 +300,21 @@ get_symbol_constant_value (tree sym)
 {
   if (TREE_STATIC (sym)
       && TREE_READONLY (sym)
-      && !MTAG_P (sym))
+      && !MTAG_P (sym)
+      /* Check if a read-only definition may be overridden at
+	 link and run time.  */
+      && targetm.binds_local_p (sym))
     {
       tree val = DECL_INITIAL (sym);
       if (val
 	  && ccp_decl_initial_min_invariant (val))
 	return val;
+      /* Variables declared 'const' without an initializer
+	 have zero as the intializer.  */
+      if (!val
+          && (INTEGRAL_TYPE_P (TREE_TYPE (sym))
+	       || SCALAR_FLOAT_TYPE_P (TREE_TYPE (sym))))
+        return fold_convert (TREE_TYPE (sym), integer_zero_node);
     }
 
   return NULL_TREE;
@@ -1588,6 +1597,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 {
   tree min_idx, idx, idx_type, elt_offset = integer_zero_node;
   tree array_type, elt_type, elt_size;
+  tree domain_type;
 
   /* If BASE is an ARRAY_REF, we can pick up another offset (this time
      measured in units of the size of elements type) from that ARRAY_REF).
@@ -1659,9 +1669,10 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
      low bound, if any, convert the index into that type, and add the
      low bound.  */
   min_idx = build_int_cst (idx_type, 0);
-  if (TYPE_DOMAIN (array_type))
+  domain_type = TYPE_DOMAIN (array_type);
+  if (domain_type)
     {
-      idx_type = TYPE_DOMAIN (array_type);
+      idx_type = domain_type;
       if (TYPE_MIN_VALUE (idx_type))
 	min_idx = TYPE_MIN_VALUE (idx_type);
       else
@@ -1680,6 +1691,24 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 
   /* Make sure to possibly truncate late after offsetting.  */
   idx = fold_convert (idx_type, idx);
+
+  /* We don't want to construct access past array bounds. For example
+     char *(c[4]);
+
+     c[3][2]; should not be simplified into (*c)[14] or tree-vrp will give false
+     warning.  */
+  if (domain_type && TYPE_MAX_VALUE (domain_type) 
+      && TREE_CODE (TYPE_MAX_VALUE (domain_type)) == INTEGER_CST)
+    {
+      tree up_bound = TYPE_MAX_VALUE (domain_type);
+
+      if (tree_int_cst_lt (up_bound, idx)
+	  /* Accesses after the end of arrays of size 0 (gcc
+	     extension) and 1 are likely intentional ("struct
+	     hack").  */
+	  && compare_tree_int (up_bound, 1) > 0)
+	return NULL_TREE;
+    }
 
   return build4 (ARRAY_REF, elt_type, base, idx, NULL_TREE, NULL_TREE);
 }

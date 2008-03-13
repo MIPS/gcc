@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -2668,6 +2668,11 @@ if (condition) \
       io_constraint (dt->rec != NULL,
 		     "REC tag at %L is incompatible with internal file",
 		     &dt->rec->where);
+
+      io_constraint (dt->format_expr == NULL && dt->format_label == NULL
+		     && dt->namelist == NULL,
+		     "Unformatted I/O not allowed with internal unit at %L",
+		     &dt->io_unit->where);
 
       if (dt->namelist != NULL)
 	{

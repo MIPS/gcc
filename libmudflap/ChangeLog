@@ -1,3 +1,27 @@
+2008-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* mf-runtime.c (__mf_usage): Update copyright notice dates.
+
+2008-02-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libmudflap.c/fail8-frag.c: Adjust scan pattern for
+	mudflap dead object.
+	* testsuite/libmudflap.c/fail9-frag.c: Ditto.
+
+2008-01-24  David Edelsohn  <edelsohn@gnu.org>
+
+	* configure: Regenerate.
+
+2008-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/34618
+	* testsuite/libmudflap.c/pass62-frag.c: New test.
+
+2008-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/34619
+	* testsuite/libmudflap.c++/pass61-frag.cxx: New test.
+
 2008-01-01  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR libmudflap/26442

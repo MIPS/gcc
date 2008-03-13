@@ -1,5 +1,5 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -2153,8 +2153,8 @@ gfc_new_symtree (gfc_symtree **root, const char *name)
 
 /* Delete a symbol from the tree.  Does not free the symbol itself!  */
 
-static void
-delete_symtree (gfc_symtree **root, const char *name)
+void
+gfc_delete_symtree (gfc_symtree **root, const char *name)
 {
   gfc_symtree st, *st0;
 
@@ -2582,7 +2582,34 @@ gfc_undo_symbols (void)
       if (p->new)
 	{
 	  /* Symbol was new.  */
-	  delete_symtree (&p->ns->sym_root, p->name);
+	  if (p->attr.in_common && p->common_block->head)
+	    {
+	      /* If the symbol was added to any common block, it
+		 needs to be removed to stop the resolver looking
+		 for a (possibly) dead symbol.  */
+
+	      if (p->common_block->head == p)
+	        p->common_block->head = p->common_next;
+	      else
+		{
+		  gfc_symbol *cparent, *csym;
+
+		  cparent = p->common_block->head;
+		  csym = cparent->common_next;
+
+		  while (csym != p)
+		    {
+		      cparent = csym;
+		      csym = csym->common_next;
+		    }
+
+		  gcc_assert(cparent->common_next == p);
+
+		  cparent->common_next = csym->common_next;
+		}
+	    }
+
+	  gfc_delete_symtree (&p->ns->sym_root, p->name);
 
 	  p->refs--;
 	  if (p->refs < 0)

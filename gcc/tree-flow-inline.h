@@ -190,23 +190,28 @@ fill_referenced_var_vec (VEC (tree, heap) **vec)
 static inline var_ann_t
 var_ann (const_tree t)
 {
-  gcc_assert (t);
-  gcc_assert (DECL_P (t));
-  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
-  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
+  var_ann_t ann;
+
+  if (!MTAG_P (t)
+      && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
       struct static_var_ann_d *sann
         = ((struct static_var_ann_d *)
 	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
       if (!sann)
 	return NULL;
-      gcc_assert (sann->ann.common.type == VAR_ANN);
-      return &sann->ann;
+      ann = &sann->ann;
     }
-  gcc_assert (!t->base.ann
-	      || t->base.ann->common.type == VAR_ANN);
+  else
+    {
+      if (!t->base.ann)
+	return NULL;
+      ann = (var_ann_t) t->base.ann;
+    }
 
-  return (var_ann_t) t->base.ann;
+  gcc_assert (ann->common.type == VAR_ANN);
+
+  return ann;
 }
 
 /* Return the variable annotation for T, which must be a _DECL node.
@@ -507,7 +512,7 @@ next_readonly_imm_use (imm_use_iterator *imm)
 
   imm->imm_use = old->next;
   if (end_readonly_imm_use_p (imm))
-    return old;
+    return NULL_USE_OPERAND_P;
   return imm->imm_use;
 }
 
@@ -1720,7 +1725,30 @@ var_can_have_subvars (const_tree v)
   return false;
 }
 
-  
+
+/* Return true, if the two ranges [POS1, SIZE1] and [POS2, SIZE2]
+   overlap.  SIZE1 and/or SIZE2 can be (unsigned)-1 in which case the
+   range is open-ended.  Otherwise return false.  */
+
+static inline bool
+ranges_overlap_p (unsigned HOST_WIDE_INT pos1,
+		  unsigned HOST_WIDE_INT size1,
+		  unsigned HOST_WIDE_INT pos2,
+		  unsigned HOST_WIDE_INT size2)
+{
+  if (pos1 >= pos2
+      && (size2 == (unsigned HOST_WIDE_INT)-1
+	  || pos1 < (pos2 + size2)))
+    return true;
+  if (pos2 >= pos1
+      && (size1 == (unsigned HOST_WIDE_INT)-1
+	  || pos2 < (pos1 + size1)))
+    return true;
+
+  return false;
+}
+
+
 /* Return true if OFFSET and SIZE define a range that overlaps with some
    portion of the range of SV, a subvar.  If there was an exact overlap,
    *EXACT will be set to true upon return. */
@@ -1836,5 +1864,21 @@ static inline struct mem_ref_stats_d *
 gimple_mem_ref_stats (const struct function *fn)
 {
   return &fn->gimple_df->mem_ref_stats;
+}
+
+/* Given an edge_var_map V, return the PHI arg definition.  */
+
+static inline tree
+redirect_edge_var_map_def (edge_var_map *v)
+{
+  return v->def;
+}
+
+/* Given an edge_var_map V, return the PHI result.  */
+
+static inline tree
+redirect_edge_var_map_result (edge_var_map *v)
+{
+  return v->result;
 }
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -1,4 +1,4 @@
-! { dg-do run }
+! { dg-do run { target fd_truncate } }
 !
 ! PR fortran/34530
 !
@@ -23,7 +23,7 @@ program gfcbug77
   write(nnml,*) "/"
   rewind(nnml)
   read (nnml, nml=BLACKLIST)
-  close(nnml)
+  close(nnml,status="delete")
   if(file /= "myfile" .or. default) call abort()
 !  write (*,nml=BLACKLIST)
 end program gfcbug77

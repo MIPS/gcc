@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1468,6 +1468,20 @@ instantiate_virtual_regs_in_insn (rtx insn)
 
 	    start_sequence ();
 	    x = replace_equiv_address (x, addr);
+	    /* It may happen that the address with the virtual reg
+	       was valid (e.g. based on the virtual stack reg, which might
+	       be acceptable to the predicates with all offsets), whereas
+	       the address now isn't anymore, for instance when the address
+	       is still offsetted, but the base reg isn't virtual-stack-reg
+	       anymore.  Below we would do a force_reg on the whole operand,
+	       but this insn might actually only accept memory.  Hence,
+	       before doing that last resort, try to reload the address into
+	       a register, so this operand stays a MEM.  */
+	    if (!safe_insn_predicate (insn_code, i, x))
+	      {
+		addr = force_reg (GET_MODE (addr), addr);
+		x = replace_equiv_address (x, addr);
+	      }
 	    seq = get_insns ();
 	    end_sequence ();
 	    if (seq)
@@ -1568,8 +1582,8 @@ instantiate_virtual_regs_in_insn (rtx insn)
 /* Subroutine of instantiate_decls.  Given RTL representing a decl,
    do any instantiation required.  */
 
-static void
-instantiate_decl (rtx x)
+void
+instantiate_decl_rtl (rtx x)
 {
   rtx addr;
 
@@ -1579,8 +1593,8 @@ instantiate_decl (rtx x)
   /* If this is a CONCAT, recurse for the pieces.  */
   if (GET_CODE (x) == CONCAT)
     {
-      instantiate_decl (XEXP (x, 0));
-      instantiate_decl (XEXP (x, 1));
+      instantiate_decl_rtl (XEXP (x, 0));
+      instantiate_decl_rtl (XEXP (x, 1));
       return;
     }
 
@@ -1610,7 +1624,7 @@ instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     {
       *walk_subtrees = 0;
       if (DECL_P (t) && DECL_RTL_SET_P (t))
-	instantiate_decl (DECL_RTL (t));
+	instantiate_decl_rtl (DECL_RTL (t));
     }
   return NULL;
 }
@@ -1626,7 +1640,7 @@ instantiate_decls_1 (tree let)
   for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
     {
       if (DECL_RTL_SET_P (t))
-	instantiate_decl (DECL_RTL (t));
+	instantiate_decl_rtl (DECL_RTL (t));
       if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
 	{
 	  tree v = DECL_VALUE_EXPR (t);
@@ -1650,8 +1664,8 @@ instantiate_decls (tree fndecl)
   /* Process all parameters of the function.  */
   for (decl = DECL_ARGUMENTS (fndecl); decl; decl = TREE_CHAIN (decl))
     {
-      instantiate_decl (DECL_RTL (decl));
-      instantiate_decl (DECL_INCOMING_RTL (decl));
+      instantiate_decl_rtl (DECL_RTL (decl));
+      instantiate_decl_rtl (DECL_INCOMING_RTL (decl));
       if (DECL_HAS_VALUE_EXPR_P (decl))
 	{
 	  tree v = DECL_VALUE_EXPR (decl);
@@ -1714,6 +1728,8 @@ instantiate_virtual_regs (void)
 
   /* Instantiate the virtual registers in the DECLs for debugging purposes.  */
   instantiate_decls (current_function_decl);
+
+  targetm.instantiate_decls ();
 
   /* Indicate that, from now on, assign_stack_local should use
      frame_pointer_rtx.  */
@@ -3434,7 +3450,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
     sp_offset = 0;
 #endif
 
-  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+  if (boundary > PARM_BOUNDARY)
     {
       save_var = offset_ptr->var;
       save_constant = offset_ptr->constant;
@@ -3460,7 +3476,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	  offset_ptr->var = size_binop (MINUS_EXPR, rounded, sp_offset_tree);
 	  /* ARGS_SIZE_TREE includes constant term.  */
 	  offset_ptr->constant = 0;
-	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	  if (boundary > PARM_BOUNDARY)
 	    alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
 					     save_var);
 	}
@@ -3472,7 +3488,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 #else
 	    CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
 #endif
-	    if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	    if (boundary > PARM_BOUNDARY)
 	      alignment_pad->constant = offset_ptr->constant - save_constant;
 	}
     }
@@ -5681,7 +5697,9 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
   rtx op = SET_SRC (p_sets[0]);
   int ninputs = ASM_OPERANDS_INPUT_LENGTH (op);
   rtvec inputs = ASM_OPERANDS_INPUT_VEC (op);
+  bool *output_matched = alloca (noutputs * sizeof (bool));
 
+  memset (output_matched, 0, noutputs * sizeof (bool));
   for (i = 0; i < ninputs; i++)
     {
       rtx input, output, insns;
@@ -5710,6 +5728,20 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
 	  break;
       if (j != ninputs)
 	continue;
+
+      /* Avoid changing the same input several times.  For
+	 asm ("" : "=mr" (out1), "=mr" (out2) : "0" (in), "1" (in));
+	 only change in once (to out1), rather than changing it
+	 first to out1 and afterwards to out2.  */
+      if (i > 0)
+	{
+	  for (j = 0; j < noutputs; j++)
+	    if (output_matched[j] && input == SET_DEST (p_sets[j]))
+	      break;
+	  if (j != noutputs)
+	    continue;
+	}
+      output_matched[match] = true;
 
       start_sequence ();
       emit_move_insn (output, input);

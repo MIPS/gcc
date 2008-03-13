@@ -1,6 +1,6 @@
 /* Form lists of pseudo register references for autoinc optimization
    for GNU compiler.  This is part of flow optimization.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -117,14 +117,18 @@ enum df_ref_flags
     DF_REF_MUST_CLOBBER = 1 << 7,
 
 
-    /* This flag is set if this ref is inside a pre/post modify.  */
-    DF_REF_PRE_POST_MODIFY = 1 << 8,
+    /* If the ref has one of the following two flags set, then the
+       struct df_ref can be cast to struct df_ref_extract to access
+       the width and offset fields.  */
+ 
+    /* This flag is set if the ref contains a SIGN_EXTRACT.  */
+    DF_REF_SIGN_EXTRACT = 1 << 8,
 
-    /* This flag is set if the ref contains a ZERO_EXTRACT or SIGN_EXTRACT.  */
-    DF_REF_EXTRACT = 1 << 9,
+    /* This flag is set if the ref contains a ZERO_EXTRACT.  */
+    DF_REF_ZERO_EXTRACT = 1 << 9,
 
-    /* This flag is set if the ref contains a STRICT_LOWER_PART.  */
-    DF_REF_STRICT_LOWER_PART = 1 << 10,
+    /* This flag is set if the ref contains a STRICT_LOW_PART.  */
+    DF_REF_STRICT_LOW_PART = 1 << 10,
 
     /* This flag is set if the ref contains a SUBREG.  */
     DF_REF_SUBREG = 1 << 11,
@@ -138,7 +142,11 @@ enum df_ref_flags
     DF_REF_CALL_STACK_USAGE = 1 << 13,
 
     /* This flag is used for verification of existing refs. */
-    DF_REF_REG_MARKER = 1 << 14
+    DF_REF_REG_MARKER = 1 << 14,
+
+    /* This flag is set if this ref is inside a pre/post modify.  */
+    DF_REF_PRE_POST_MODIFY = 1 << 15
+
   };
 
 /* The possible ordering of refs within the df_ref_info.  */
@@ -381,6 +389,17 @@ struct df_ref
   struct df_ref *prev_reg;     /* Prev ref with same regno and type.  */
 };
 
+/* A df_ref_extract is just a df_ref with a width and offset field at
+   the end of it.  It is used to hold this information if the ref was
+   wrapped by a SIGN_EXTRACT or a ZERO_EXTRACT and to pass this info
+   to passes that wish to process partial regs precisely.  */
+struct df_ref_extract
+{
+  struct df_ref ref;
+  int width;
+  int offset;
+};
+
 /* These links are used for two purposes:
    1) def-use or use-def chains. 
    2) Multiword hard registers that underly a single hardware register.  */
@@ -402,22 +421,23 @@ enum df_changeable_flags
 {
   /* Scanning flags.  */
   /* Flag to control the running of dce as a side effect of building LR.  */
-  DF_LR_RUN_DCE           =  1, /* Run DCE.  */
-  DF_NO_HARD_REGS         =  2, /* Skip hard registers in RD and CHAIN Building.  */
-  DF_EQ_NOTES             =  4, /* Build chains with uses present in EQUIV/EQUAL notes. */
-  DF_NO_REGS_EVER_LIVE    =  8, /* Do not compute the regs_ever_live.  */
+  DF_LR_RUN_DCE           = 1 << 0, /* Run DCE.  */
+  DF_NO_HARD_REGS         = 1 << 1, /* Skip hard registers in RD and CHAIN Building.  */
+
+  DF_EQ_NOTES             = 1 << 2, /* Build chains with uses present in EQUIV/EQUAL notes. */
+  DF_NO_REGS_EVER_LIVE    = 1 << 3, /* Do not compute the regs_ever_live.  */
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return immediately.  This is used by passes that know how to update
   the scanning them selves.  */
-  DF_NO_INSN_RESCAN       = 16,
+  DF_NO_INSN_RESCAN       = 1 << 4,
 
   /* Cause df_insn_rescan df_notes_rescan and df_insn_delete, to
   return after marking the insn for later processing.  This allows all
   rescans to be batched.  */
-  DF_DEFER_INSN_RESCAN    = 32,
+  DF_DEFER_INSN_RESCAN    = 1 << 5,
 
-  DF_VERIFY_SCHEDULED     = 64
+  DF_VERIFY_SCHEDULED     = 1 << 6
 };
 
 /* Two of these structures are inline in df, one for the uses and one
@@ -597,7 +617,10 @@ struct df
 #define DF_REF_IS_REG_MARKED(REF) (DF_REF_FLAGS_IS_SET ((REF),DF_REF_REG_MARKER))
 #define DF_REF_NEXT_REG(REF) ((REF)->next_reg)
 #define DF_REF_PREV_REG(REF) ((REF)->prev_reg)
-
+/* The following two macros may only be applied if one of 
+   DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT is true. */ 
+#define DF_REF_WIDTH(REF) (((struct df_ref_extract *)(REF))->width)
+#define DF_REF_OFFSET(REF) (((struct df_ref_extract *)(REF))->offset)
 /* Macros to determine the reference type.  */
 
 #define DF_REF_REG_DEF_P(REF) (DF_REF_TYPE (REF) == DF_REF_REG_DEF)
@@ -705,11 +728,10 @@ struct df_scan_bb_info
 
 
 /* Reaching definitions.  All bitmaps are indexed by the id field of
-   the ref except sparse_kill (see above).  */
+   the ref except sparse_kill which is indexed by regno.  */
 struct df_rd_bb_info 
 {
-  /* Local sets to describe the basic blocks.  See the note in the RU
-     datastructures for kill and sparse_kill.  */
+  /* Local sets to describe the basic blocks.   */
   bitmap kill;  
   bitmap sparse_kill;
   bitmap gen;   /* The set of defs generated in this block.  */
@@ -862,7 +884,8 @@ extern void df_grow_reg_info (void);
 extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block, 
-				     enum df_ref_type, enum df_ref_flags);
+				     enum df_ref_type, enum df_ref_flags,
+				     int, int);
 extern void df_ref_remove (struct df_ref *);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);
@@ -871,7 +894,7 @@ extern bool df_insn_rescan (rtx);
 extern void df_insn_rescan_all (void);
 extern void df_process_deferred_rescans (void);
 extern void df_recompute_luids (basic_block);
-extern void df_insn_change_bb (rtx);
+extern void df_insn_change_bb (rtx, basic_block);
 extern void df_maybe_reorganize_use_refs (enum df_ref_order);
 extern void df_maybe_reorganize_def_refs (enum df_ref_order);
 extern void df_ref_change_reg_with_loc (int, int, rtx);

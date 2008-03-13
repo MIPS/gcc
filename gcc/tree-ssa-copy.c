@@ -1,5 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -61,6 +61,17 @@ may_propagate_copy (tree dest, tree orig)
 {
   tree type_d = TREE_TYPE (dest);
   tree type_o = TREE_TYPE (orig);
+
+  /* If ORIG flows in from an abnormal edge, it cannot be propagated.  */
+  if (TREE_CODE (orig) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
+    return false;
+
+  /* If DEST is an SSA_NAME that flows from an abnormal edge, then it
+     cannot be replaced.  */
+  if (TREE_CODE (dest) == SSA_NAME
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest))
+    return false;
 
   /* For memory partitions, copies are OK as long as the memory symbol
      belongs to the partition.  */
@@ -132,6 +143,11 @@ may_propagate_copy (tree dest, tree orig)
       else if (get_alias_set (TREE_TYPE (type_d)) != 
 	       get_alias_set (TREE_TYPE (type_o)))
 	return false;
+      else if (!MTAG_P (SSA_NAME_VAR (dest))
+	       && !MTAG_P (SSA_NAME_VAR (orig))
+	       && (DECL_NO_TBAA_P (SSA_NAME_VAR (dest))
+		   != DECL_NO_TBAA_P (SSA_NAME_VAR (orig))))
+	return false;
 
       /* Also verify flow-sensitive information is compatible.  */
       if (SSA_NAME_PTR_INFO (orig) && SSA_NAME_PTR_INFO (dest))
@@ -163,17 +179,6 @@ may_propagate_copy (tree dest, tree orig)
 	 operand.  Reject these.  */
       return false;
     }
-
-  /* If ORIG flows in from an abnormal edge, it cannot be propagated.  */
-  if (TREE_CODE (orig) == SSA_NAME
-      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
-    return false;
-
-  /* If DEST is an SSA_NAME that flows from an abnormal edge, then it
-     cannot be replaced.  */
-  if (TREE_CODE (dest) == SSA_NAME
-      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest))
-    return false;
 
   /* Anything else is OK.  */
   return true;

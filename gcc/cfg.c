@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "df.h"
 #include "cfgloop.h"
+#include "tree-flow.h"
 
 /* The obstack on which the flow graph components are allocated.  */
 
@@ -359,6 +360,9 @@ remove_edge_raw (edge e)
   disconnect_src (e);
   disconnect_dest (e);
 
+  /* This is probably not needed, but it doesn't hurt.  */
+  redirect_edge_var_map_clear (e);
+
   free_edge (e);
 }
 
@@ -395,6 +399,7 @@ redirect_edge_succ_nodup (edge e, basic_block new_succ)
 	s->probability = REG_BR_PROB_BASE;
       s->count += e->count;
       remove_edge (e);
+      redirect_edge_var_map_dup (s, e);
       e = s;
     }
   else
@@ -613,6 +618,8 @@ dump_reg_info (FILE *file)
 	fprintf (file, "; crosses 1 call");
       else if (REG_N_CALLS_CROSSED (i))
 	fprintf (file, "; crosses %d calls", REG_N_CALLS_CROSSED (i));
+      if (REG_FREQ_CALLS_CROSSED (i))
+	fprintf (file, "; crosses call with %d frequency", REG_FREQ_CALLS_CROSSED (i));
       if (regno_reg_rtx[i] != NULL
 	  && PSEUDO_REGNO_BYTES (i) != UNITS_PER_WORD)
 	fprintf (file, "; %d bytes", PSEUDO_REGNO_BYTES (i));

@@ -1,6 +1,6 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1524,6 +1524,15 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
       TREE_ASM_WRITTEN (DECL_INITIAL (current_function_decl)) = 1;
     }
 
+  if (warn_frame_larger_than
+    && get_frame_size () > frame_larger_than_size)
+  {
+      /* Issue a warning */
+      warning (OPT_Wframe_larger_than_,
+               "the frame size of %wd bytes is larger than %wd bytes",
+               get_frame_size (), frame_larger_than_size);
+  }
+
   /* First output the function prologue: code to set up the stack frame.  */
   targetm.asm_out.function_prologue (file, get_frame_size ());
 
@@ -1777,7 +1786,13 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
 	  in_cold_section_p = !in_cold_section_p;
-	  (*debug_hooks->switch_text_section) ();
+#ifdef DWARF2_UNWIND_INFO
+	  if (dwarf2out_do_frame ())
+	    dwarf2out_switch_text_section ();
+	  else
+#endif
+	    (*debug_hooks->switch_text_section) ();
+
 	  switch_to_section (current_function_section ());
 	  break;
 
@@ -2177,12 +2192,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		    fputs (ASM_APP_ON, file);
 		    app_on = 1;
 		  }
-#ifdef USE_MAPPED_LOCATION
 		loc = expand_location (ASM_INPUT_SOURCE_LOCATION (body));
-#else
-		loc.file = ASM_INPUT_SOURCE_FILE (body);
-		loc.line = ASM_INPUT_SOURCE_LINE (body);
-#endif
 		if (*loc.file && loc.line)
 		  fprintf (asm_out_file, "%s %i \"%s\" 1\n",
 			   ASM_COMMENT_START, loc.line, loc.file);
@@ -3487,6 +3497,7 @@ output_addr_const (FILE *file, rtx x)
     case ZERO_EXTEND:
     case SIGN_EXTEND:
     case SUBREG:
+    case TRUNCATE:
       output_addr_const (file, XEXP (x, 0));
       break;
 
