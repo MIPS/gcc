@@ -8625,6 +8625,14 @@ hand_off_decls (htab_t map, VEC (tree, heap) *globals)
 	       when a tentative file-scope definition is seen.
 	       But at end of compilation, do output code for them.  */
 	    DECL_DEFER_OUTPUT (decl) = 1;
+	  else
+	    {
+	      bool save = c_override_global_bindings_to_false;
+	      c_override_global_bindings_to_false = true;
+	      walk_tree (&DECL_INITIAL (decl), rewrite_types_and_globals,
+			 map, NULL);
+	      c_override_global_bindings_to_false = save;
+	    }
 	  rest_of_decl_compilation (decl, true, false);
 	  break;
 

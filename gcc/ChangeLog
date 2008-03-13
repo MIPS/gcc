@@ -1,3 +1,8 @@
+2008-03-13  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (hand_off_decls) <VAR_DECL>: Call
+	rewrite_types_and_globals on the DECL_INITIAL.
+
 2008-03-12  Tom Tromey  <tromey@redhat.com>
 
 	* passes.c (pass_do_nothing_but_lower) <name>: Set to NULL.
