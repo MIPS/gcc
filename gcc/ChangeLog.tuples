@@ -1,3 +1,9 @@
+2008-03-13  Diego Novillo  <dnovillo@google.com>
+	    Oleg Ryjkov  <olegr@google.com>
+
+	* tree-ssa-operands.c (get_expr_operands): Handle FILTER_EXPR and
+	EXC_PTR_EXPR.
+
 2008-03-12  Diego Novillo  <dnovillo@google.com>
 	    Oleg Ryjkov  <olegr@google.com>
 
