@@ -587,7 +587,7 @@ maybe_lookup_field (tree var, omp_context *ctx)
    the parallel context if DECL is to be shared.  */
 
 static bool
-use_pointer_for_field (const_tree decl, omp_context *shared_ctx)
+use_pointer_for_field (tree decl, omp_context *shared_ctx)
 {
   if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
     return true;
@@ -643,7 +643,10 @@ use_pointer_for_field (const_tree decl, omp_context *shared_ctx)
 	    }
 	}
 
-      /* For tasks copy-out is not possible, so force by_ref.  */
+      /* For tasks avoid using copy-in/out, unless they are readonly
+	 (in which case just copy-in is used).  As tasks can be
+	 deferred or executed in different thread, when GOMP_task
+	 returns, the task hasn't necessarily terminated.  */
       if (!TREE_READONLY (decl)
 	  && TREE_CODE (shared_ctx->stmt) == OMP_TASK)
 	{
