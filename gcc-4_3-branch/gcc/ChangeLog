@@ -1,3 +1,130 @@
+2008-03-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-02-19  Richard Guenther  <rguenther@suse.de>
+
+        PR tree-optimization/34989
+        * tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Re-structure.
+        Allow propagation to INDIRECT_REF if we can simplify only.
+
+2008-03-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34000
+	PR target/35553
+	* config/i386/xmmintrin.h:  Change all static inline functions to
+	extern inline and add __gnu_inline__ attribute.
+	* config/i386/bmintrin.h: Ditto.
+	* config/i386/smmintrin.h: Ditto.
+	* config/i386/tmmintrin.h: Ditto.
+	* config/i386/mmintrin-common.h: Ditto.
+	* config/i386/ammintrin.h: Ditto.
+	* config/i386/emmintrin.h: Ditto.
+	* config/i386/pmmintrin.h: Ditto.
+	* config/i386/mmintrin.h: Ditto.
+	* config/i386/mm3dnow.h: Ditto.
+
+2008-03-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35185
+	* omp-low.c (lower_regimplify, init_tmp_var, save_tmp_var): Removed.
+	(lower_omp_2): New function.
+	(lower_omp_1, lower_omp): Rewritten.
+
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35549
+	* omp-low.c (maybe_lookup_decl): Constify first argument.
+	(use_pointer_for_field): Change last argument from bool to
+	omp_context *.  Disallow shared copy-in/out in nested
+	parallel if decl is shared in outer parallel too.
+	(build_outer_var_ref, scan_sharing_clauses,
+	lower_rec_input_clauses, lower_copyprivate_clauses,
+	lower_send_clauses, lower_send_shared_vars): Adjust callers.
+
+2008-03-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35540
+	* config/i386/i386.md (paritysi2, paritydi2): Use register_operand
+	constraint for operand 1.
+	(paritysi2_cmp): Use register_operand constraint for operand 2.
+	Use earlyclobber modifier for operand 1.  Remove support for
+	memory operands.
+	(paritydi2_cmp): Use register_operand constraint for operand 3.
+	Use earlyclobber modifier for operand 1.  Remove support for
+	memory operands.
+
+2008-03-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/35526
+	* expr.c (store_expr): Call emit_block_move if the mode
+	of "temp" RTX is BLKmode.
+
+2008-03-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/sse.md (ssse3_pmaddubswv8hi3, ssse3_pmaddubswv4hi3):
+	Remove commutativity hint.
+
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35438
+	PR c/35439
+	* c-parser.c (c_parser_omp_threadprivate): Don't add vars with
+	errorneous type.  Check that v is a VAR_DECL.
+
+	PR middle-end/35099
+	* tree-cfg.c (new_label_mapper): Update cfun->last_label_uid.
+
+2008-03-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-03-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35496
+	* config/i386/i386.c (ix86_constant_alignment): Compute alignment using
+	ALIGN_MODE_128 for VECTOR_CST and INTEGER_CST in addition to REAL_CST.
+
+	2008-03-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/35456
+	* fold-const.c (fold_cond_expr_with_comparison): Prevent
+	transformations for modes that have signed zeros.
+	* ifcvt.c (noce_try_abs): Ditto.
+
+2008-03-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/35225
+	* config/sh/sh.c (find_barrier): Don't go past 'from' argument.
+
+2008-03-09  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/35190
+	* config/sh/sh.md (jump_compact): Disable for crossing jumps.
+
+	* config/sh/sh.c (find_barrier): Don't go past
+	NOTE_INSN_SWITCH_TEXT_SECTIONS note.
+
+2008-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35498
+	* config/rs6000/rs6000.c (rs6000_expand_compare_and_swapqhi): Shift
+	wdst back after sync_compare_and_swapqhi_internal.
+
+2008-03-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/include/texinfo.tex: Update to version 2008-03-07.10.
+
+2008-03-07  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35472
+	* tree-ssa-dse.c (dse_optimize_stmt): Do not delete a store
+	whose single use_stmt has a overlapping set of loaded and
+	stored symbols as that use_stmt might be a noop assignment then.
+
 2008-03-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
@@ -27,8 +154,7 @@
 	(OPTION_MASK_ISA_SSE5_UNSET): Likewise.
 	(OPTION_MASK_ISA_SSE4): Removed.
 	(ix86_handle_option): Turn on bits in ix86_isa_flags and
-	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for
-	-mXXX.
+	ix86_isa_flags_explicit with OPTION_MASK_ISA_XXX_SET for -mXXX.
 	(override_options): Don't turn on implied SSE/MMX bits in
 	ix86_isa_flags.
 
@@ -110,12 +236,12 @@
 		    Uros Bizjak <ubizjak@gmail.com>
 
 	PR target/25477
-	* gcc/config/darwin-protos.h: Add darwin_patch_builtins prototype.
-	* gcc/config/darwin-ppc-ldouble-patch.def: New file.
-	* gcc/config/rs6000/darwin.h (SUBTARGET_INIT_BUILTINS): New macro.
-	* gcc/config/rs6000/rs6000.c (rs6000_init_builtins): Call
+	* config/darwin-protos.h: Add darwin_patch_builtins prototype.
+	* config/darwin-ppc-ldouble-patch.def: New file.
+	* config/rs6000/darwin.h (SUBTARGET_INIT_BUILTINS): New macro.
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Call
 	SUBTARGET_INIT_BUILTINS if defined.
-	* gcc/config/darwin.c (darwin_patch_builtin,
+	* config/darwin.c (darwin_patch_builtin,
 	darwin_patch_builtins): New functions. 
 
 2008-02-27  Richard Guenther  <rguenther@suse.de>
@@ -2176,7 +2302,7 @@
 2008-01-02  Arthur Norman <acn1@cam.ac.uk>
 
 	PR target/34013
-	* gcc/config/i386/i386.c (ix86_expand_prologue): Save red-zone
+	* config/i386/i386.c (ix86_expand_prologue): Save red-zone
 	while stack probing.
 
 2008-01-01  Douglas Gregor  <doug.gregor@gmail.com>

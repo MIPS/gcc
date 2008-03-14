@@ -1,3 +1,96 @@
+2008-03-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-02-19  Richard Guenther  <rguenther@suse.de>
+
+        PR tree-optimization/34989
+        * gcc.dg/pr34989-1.c: New testcase.
+        * gcc.dg/pr34989-2.c: Likewise.
+
+2008-03-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/34000
+	PR target/35553
+	* g++.dg/other/i386-3.C: New test.
+	* gcc.target/i386/sse-13.c: Redefine extern instead of static.
+	* gcc.target/i386/sse-14.c: Ditto.
+	* gcc.target/i386/mmx-1.c: Ditto.
+	* gcc.target/i386/mmx-2.c: Ditto.
+	* gcc.target/i386/3dnow-1.c: Ditto.
+	* gcc.target/i386/3dnow-2.c: Ditto.
+	* gcc.target/i386/3dnowA-1.c: Ditto.
+	* gcc.target/i386/3dnowA-2.c: Ditto.
+
+2008-03-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35474
+	* gfortran.dg/module_commons_2.f90 : New test.
+
+2008-03-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35540
+	* gcc.target/i386/pr35540.c: New test.
+
+2008-03-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/inherit/override-attribs.C: Require ilp32 x86 target.
+
+2008-03-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/35526
+	* g++.dg/torture/pr35526.C: New test.
+
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35328
+	* g++.dg/gomp/pr35328.C: New test.
+
+	PR c++/35337
+	* g++.dg/gomp/pr35337.C: New test.
+
+	PR c/35438
+	PR c/35439
+	* gcc.dg/gomp/pr35438.c: New test.
+	* gcc.dg/gomp/pr35439.c: New test.
+
+	PR middle-end/35099
+	* g++.dg/gomp/pr35099.C: New test.
+
+2008-03-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-03-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/35456
+	* gcc.c-torture/execute/pr35456.c: New test.
+
+2008-03-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/frame_overflow.adb: Improve portability.
+
+2008-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35350
+	* gcc.target/i386/isa-1.c: Add -march=x86-64.
+	* gcc.target/i386/isa-2.c: Likewise.
+	* gcc.target/i386/isa-3.c: Likewise.
+	* gcc.target/i386/isa-10.c: Likewise.
+	* gcc.target/i386/isa-11.c: Likewise.
+	* gcc.target/i386/isa-12.c: Likewise.
+	* gcc.target/i386/isa-13.c: Likewise.
+	* gcc.target/i386/isa-14.c: Likewise.
+
+2008-03-07  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35472
+	* gcc.c-torture/execute/pr35472.c: New testcase.
+
 2008-03-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
