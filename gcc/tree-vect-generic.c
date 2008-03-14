@@ -248,7 +248,8 @@ expand_vector_parallel (gimple_stmt_iterator *gsi, elem_op_func f, tree type,
       result = expand_vector_piecewise (gsi, f,
 				        word_type, TREE_TYPE (word_type),
 					a, b, code);
-      result = gimplify_val (gsi, word_type, result);
+      result = force_gimple_operand_gsi (gsi, result, true, NULL, true,
+                                         GSI_SAME_STMT);
     }
   else
     {

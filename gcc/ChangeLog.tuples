@@ -1,3 +1,12 @@
+2008-03-13  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-cfg.c (gimplify_val): Removed.
+	(gimplify_build1, gimplify_build2, gimplify_build3): Use
+	force_gimple_operand_gsi instead of gimplify_val.
+	* tree-complex.c (extract_component): Use force_gimple_operand_gsi
+	instead of gimplify_val.
+	* tree-vect-generic.c (expand_vector_parallel): Ditto.
+
 2008-03-13  Diego Novillo  <dnovillo@google.com>
 	    Oleg Ryjkov  <olegr@google.com>
 

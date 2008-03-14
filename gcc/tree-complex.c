@@ -595,7 +595,8 @@ extract_component (gimple_stmt_iterator *gsi, tree t, bool imagpart_p,
 		    inner_type, unshare_expr (t));
 
 	if (gimple_p)
-	  t = gimplify_val (gsi, inner_type, t);
+	  t = force_gimple_operand_gsi (gsi, t, true, NULL, true,
+                                        GSI_SAME_STMT);
 
 	return t;
       }

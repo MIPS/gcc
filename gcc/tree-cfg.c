@@ -6630,37 +6630,6 @@ struct tree_opt_pass pass_split_crit_edges =
   0                              /* letter */
 };
 
-
-/* Return EXP if it is a valid GIMPLE rvalue, else gimplify it into
-   a temporary, make sure and register it to be renamed if necessary,
-   and finally return the temporary.  Put the statements to compute
-   EXP before the current statement in GSI.  */
-
-tree
-gimplify_val (gimple_stmt_iterator *gsi, tree type, tree exp)
-{
-  tree t;
-  gimple new_stmt, orig_stmt;
-
-  if (is_gimple_val (exp))
-    return exp;
-
-  gcc_assert (is_gimple_formal_tmp_rhs (exp));
-
-  t = make_rename_temp (type, NULL);
-  new_stmt = gimple_build_assign (t, exp);
-
-  orig_stmt = gsi_stmt (*gsi);
-  gimple_set_location (new_stmt, gimple_location (orig_stmt));
-  gimple_set_block (new_stmt, gimple_block (orig_stmt));
-
-  gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    mark_symbols_for_renaming (new_stmt);
-
-  return t;
-}
-
 
 /* Build a ternary operation and gimplify it.  Emit code before GSI.
    Return the gimple_val holding the result.  */
@@ -6674,7 +6643,8 @@ gimplify_build3 (gimple_stmt_iterator *gsi, enum tree_code code,
   ret = fold_build3 (code, type, a, b, c);
   STRIP_NOPS (ret);
 
-  return gimplify_val (gsi, type, ret);
+  return force_gimple_operand_gsi (gsi, ret, true, NULL, true,
+                                   GSI_SAME_STMT);
 }
 
 /* Build a binary operation and gimplify it.  Emit code before GSI.
@@ -6689,7 +6659,8 @@ gimplify_build2 (gimple_stmt_iterator *gsi, enum tree_code code,
   ret = fold_build2 (code, type, a, b);
   STRIP_NOPS (ret);
 
-  return gimplify_val (gsi, type, ret);
+  return force_gimple_operand_gsi (gsi, ret, true, NULL, true,
+                                   GSI_SAME_STMT);
 }
 
 /* Build a unary operation and gimplify it.  Emit code before GSI.
@@ -6704,7 +6675,8 @@ gimplify_build1 (gimple_stmt_iterator *gsi, enum tree_code code, tree type,
   ret = fold_build1 (code, type, a);
   STRIP_NOPS (ret);
 
-  return gimplify_val (gsi, type, ret);
+  return force_gimple_operand_gsi (gsi, ret, true, NULL, true,
+                                   GSI_SAME_STMT);
 }
 
 
