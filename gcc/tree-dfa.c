@@ -797,9 +797,11 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
 }
 
 void
-find_new_referenced_vars (tree *stmt_p)
+find_new_referenced_vars (gimple_stmt_iterator *gsi)
 {
-  walk_tree (stmt_p, find_new_referenced_vars_1, NULL, NULL);
+  /* Invoke callback on each operand, in both the statement
+     referenced by GSI and in any embedded statements.  */
+  walk_gimple_op (gsi_stmt (*gsi), find_new_referenced_vars_1, NULL);
 }
 
 
@@ -987,4 +989,3 @@ stmt_references_abnormal_ssa_name (gimple stmt)
 
   return false;
 }
-

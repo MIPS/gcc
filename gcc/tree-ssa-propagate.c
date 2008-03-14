@@ -835,13 +835,10 @@ struct prop_stats_d
 static struct prop_stats_d prop_stats;
 
 /* Replace USE references in statement STMT with the values stored in
-   PROP_VALUE. Return true if at least one reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
+   PROP_VALUE. Return true if at least one reference was replaced.  */
 
-bool
-replace_uses_in (gimple stmt, bool *replaced_addresses_p,
-		 prop_value_t *prop_value)
+static bool
+replace_uses_in (gimple stmt, prop_value_t *prop_value)
 {
   bool replaced = false;
   use_operand_p use;
@@ -870,8 +867,6 @@ replace_uses_in (gimple stmt, bool *replaced_addresses_p,
       propagate_value (use, val);
 
       replaced = true;
-      if (POINTER_TYPE_P (TREE_TYPE (tuse)) && replaced_addresses_p)
-	*replaced_addresses_p = true;
     }
 
   return replaced;
@@ -879,9 +874,7 @@ replace_uses_in (gimple stmt, bool *replaced_addresses_p,
 
 
 /* Replace the VUSE references in statement STMT with the values
-   stored in PROP_VALUE.  Return true if a reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.
+   stored in PROP_VALUE.  Return true if a reference was replaced.
 
    Replacing VUSE operands is slightly more complex than replacing
    regular USEs.  We are only interested in two types of replacements
@@ -940,8 +933,7 @@ replace_uses_in (gimple stmt, bool *replaced_addresses_p,
       replace_uses_in.  */
 
 static bool
-replace_vuses_in (gimple stmt, bool *replaced_addresses_p,
-                  prop_value_t *prop_value)
+replace_vuses_in (gimple stmt, prop_value_t *prop_value)
 {
   bool replaced = false;
   ssa_op_iter iter;
@@ -961,13 +953,6 @@ replace_vuses_in (gimple stmt, bool *replaced_addresses_p,
 	      || is_gimple_min_invariant (val->value))
 	  && simple_cst_equal (rhs, val->mem_ref) == 1)
 	{
-	  /* If we are replacing a constant address, inform our
-	     caller.  */
-	  if (TREE_CODE (val->value) != SSA_NAME
-	      && POINTER_TYPE_P (TREE_TYPE (rhs))
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
-
 	  /* We can only perform the substitution if the load is done
 	     from the same memory location as the original store.
 	     Since we already know that there are no intervening
@@ -1157,7 +1142,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
-          bool replaced_address, did_replace;
+          bool did_replace;
 	  gimple prev_stmt = NULL;
 	  gimple stmt = gsi_stmt (i);
 
@@ -1174,7 +1159,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  /* Replace the statement with its folded version and mark it
 	     folded.  */
 	  did_replace = false;
-	  replaced_address = false;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
  	    prev_stmt = gimple_copy_no_def_use (stmt);
 
@@ -1190,11 +1174,9 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		 information is not collected on virtuals, so we only
 		 need to check this for real uses).  */
 	      if (!did_replace)
-		did_replace |= replace_uses_in (stmt, &replaced_address,
-		                                prop_value);
+		did_replace |= replace_uses_in (stmt, prop_value);
 
-	      did_replace |= replace_vuses_in (stmt, &replaced_address,
-		                               prop_value);
+	      did_replace |= replace_vuses_in (stmt, prop_value);
 	    }
 
 	  /* If we made a replacement, fold and cleanup the statement.  */

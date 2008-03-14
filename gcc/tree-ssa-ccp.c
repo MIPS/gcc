@@ -566,6 +566,15 @@ likely_value (gimple stmt)
       && is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
     return CONSTANT;
 
+  if (code == GIMPLE_COND
+      && is_gimple_min_invariant (gimple_cond_lhs (stmt))
+      && is_gimple_min_invariant (gimple_cond_rhs (stmt)))
+    return CONSTANT;
+
+  if (code == GIMPLE_SWITCH
+      && is_gimple_min_invariant (gimple_switch_index (stmt)))
+    return CONSTANT;
+
   /* Arrive here for more complex cases.  */
 
   has_constant_operand = false;
@@ -652,8 +661,6 @@ surely_varying_stmt_p (gimple stmt)
   /* Anything other than assignments and conditional jumps are not
      interesting for CCP.  */
   if (gimple_code (stmt) != GIMPLE_ASSIGN
-      && !(gimple_code (stmt) == GIMPLE_RETURN
-           && gimple_return_retval (stmt) != NULL_TREE)
       && (gimple_code (stmt) != GIMPLE_COND)
       && (gimple_code (stmt) != GIMPLE_SWITCH))
     return true;
@@ -991,7 +998,7 @@ ccp_fold (gimple stmt)
             }
 
           default:
-            gcc_unreachable();
+            gcc_unreachable ();
           }
       }
       break;
@@ -1000,7 +1007,7 @@ ccp_fold (gimple stmt)
       /* It may be possible to fold away calls to builtin functions if
          their arguments are constants.  At present, such folding will not
          be attempted, as likely_value classifies all calls as VARYING.  */
-      gcc_unreachable();
+      gcc_unreachable ();
       break;
 
     case GIMPLE_COND:
@@ -1043,7 +1050,7 @@ ccp_fold (gimple stmt)
       }
 
     default:
-      gcc_unreachable();
+      gcc_unreachable ();
     }
 }
 
@@ -2251,6 +2258,26 @@ valid_gimple_rhs_p (tree expr)
   return true;
 }
 
+/* Return true if EXPR is a CALL_EXPR suitable for representation
+   as a single GIMPLE_CALL statement.  If the arguments require
+   further gimplification, return false.  */
+
+static bool
+valid_gimple_call_p (tree expr)
+{
+  unsigned i, nargs;
+
+  if (TREE_CODE (expr) != CALL_EXPR)
+    return false;
+
+  nargs = call_expr_nargs (expr);
+  for (i = 0; i < nargs; i++)
+    if (! is_gimple_operand (CALL_EXPR_ARG (expr, i)))
+      return false;
+
+  return true;
+}
+
 /* For passing state through walk_tree into fold_stmt_r and its
    children.  */
 
@@ -2483,14 +2510,13 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
     {
       case GIMPLE_ASSIGN:
 	{
-	  tree rhs;
-
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
-          if (gimple_num_ops (def_stmt) == 2)
+          if (get_gimple_rhs_class (gimple_subcode (def_stmt))
+              == GIMPLE_SINGLE_RHS)
             {
-              rhs = gimple_assign_rhs1 (def_stmt);
+              tree rhs = gimple_assign_rhs1 (def_stmt);
               return get_maxval_strlen (rhs, length, visited, type);
             }
         }
@@ -2548,18 +2574,15 @@ ccp_fold_builtin (gimple stmt)
 
   ignore = (gimple_call_lhs (stmt) == NULL);
 
-  /* FIXME tuples.  */
-#if 0
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
-  result = fold_call_expr (fn, ignore);
+  result = fold_call_stmt (stmt, ignore);
   if (result)
     {
       if (ignore)
 	STRIP_NOPS (result);
       return result;
     }
-#endif
 
   /* Ignore MD builtins.  */
   callee = gimple_call_fndecl (stmt);
@@ -2708,12 +2731,9 @@ ccp_fold_builtin (gimple stmt)
 
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
-    /* FIXME tuples.  */
-#if 0
       if (val[1] && is_gimple_val (val[1]))
-	result = fold_builtin_snprintf_chk (fn, val[1],
-					    DECL_FUNCTION_CODE (callee));
-#endif
+	result = gimple_fold_builtin_snprintf_chk (stmt, val[1],
+                                                   DECL_FUNCTION_CODE (callee));
       break;
 
     default:
@@ -2808,7 +2828,7 @@ fold_gimple_assign (gimple stmt)
       break;
 
     case GIMPLE_INVALID_RHS:
-      gcc_unreachable();
+      gcc_unreachable ();
     }
 
   return false;
@@ -2840,6 +2860,124 @@ fold_gimple_cond (gimple stmt)
   return false;
 }
 
+
+/* Make SSA names defined by OLD_STMT point to NEW_STMT
+   as their defining statement.  */
+
+static void
+move_ssa_defining_stmt_for_defs (gimple new_stmt, gimple old_stmt)
+{
+  tree var;
+  ssa_op_iter iter;
+
+  if (gimple_in_ssa_p (cfun))
+    {
+      /* Make defined SSA_NAMEs point to the new
+         statement as their definition.  */
+      FOR_EACH_SSA_TREE_OPERAND (var, old_stmt, iter, SSA_OP_ALL_DEFS)
+        {
+          if (TREE_CODE (var) == SSA_NAME)
+            SSA_NAME_DEF_STMT (var) = new_stmt;
+        }
+    }
+}
+
+
+/* Update a GIMPLE_CALL statement at iterator *SI_P to reflect the
+   value of EXPR, which is expected to be the result of folding the
+   call.  This can only be done if EXPR is a CALL_EXPR with valid
+   GIMPLE operands as arguments, or if it is a suitable RHS expression
+   for a GIMPLE_ASSIGN.  More complex expressions will require
+   gimplification, which will introduce addtional statements.  In this
+   event, no update is performed, and the function returns false.
+   Note that we cannot mutate a GIMPLE_CALL in-place, so we always
+   replace the statement at *SI_P with an entirely new statement.
+   The new statement need not be a call, e.g., if the original call
+   folded to a constant.  */
+
+static bool
+update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
+{
+  tree lhs;
+
+  gimple stmt = gsi_stmt (*si_p);
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+
+  lhs = gimple_call_lhs (stmt);
+
+  if (valid_gimple_call_p (expr))
+    {
+      /* The call has simplified to another call.  */
+      tree fn = CALL_EXPR_FN (expr);
+      unsigned i;
+      unsigned nargs = call_expr_nargs (expr);
+      VEC(tree, gc) *args = NULL;
+      gimple new_stmt;
+
+      if (nargs > 0)
+        {
+          args = VEC_alloc (tree, gc, nargs);
+          VEC_safe_grow (tree, gc, args, nargs);
+      
+          for (i = 0; i < nargs; i++)
+            VEC_replace (tree, args, i, CALL_EXPR_ARG (expr, i));
+        }
+
+      new_stmt = gimple_build_call_vec (fn, args);
+      gimple_call_set_lhs (new_stmt, lhs);
+      copy_virtual_operands (new_stmt, stmt);
+      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+      gimple_set_location (new_stmt, gimple_location (stmt));
+      gsi_replace (si_p, new_stmt, false);
+      return true;
+    }
+  else if (valid_gimple_rhs_p (expr))
+    {
+      gimple new_stmt;
+
+      /* The call has simplified to an expression
+         that cannot be represented as a GIMPLE_CALL. */
+      if (lhs)
+        {
+          /* A value is expected.
+             Introduce a new GIMPLE_ASSIGN statement.  */
+          STRIP_USELESS_TYPE_CONVERSION (expr);
+          new_stmt = gimple_build_assign (lhs, expr);
+          copy_virtual_operands (new_stmt, stmt);
+          move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+        }
+      else if (!TREE_SIDE_EFFECTS (expr))
+        {
+          /* No value is expected, and EXPR has no effect.
+             Replace it with an empty statement.  */
+          new_stmt = gimple_build_nop ();
+        }
+      else
+        {
+          /* No value is expected, but EXPR has an effect,
+             e.g., it could be a reference to a volatile
+             variable.  Create an assignment statement
+             with a dummy (unused) lhs variable.  */
+          STRIP_USELESS_TYPE_CONVERSION (expr);
+          lhs = create_tmp_var (TREE_TYPE (expr), NULL);
+          new_stmt = gimple_build_assign (lhs, expr);
+          add_referenced_var (lhs);
+          lhs = make_ssa_name (lhs, new_stmt);
+          gimple_assign_set_lhs (new_stmt, lhs);
+          copy_virtual_operands (new_stmt, stmt);
+          move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+        }
+      gimple_set_location (new_stmt, gimple_location (stmt));
+      gsi_replace (si_p, new_stmt, false);
+      return true;
+    }
+  else
+    /* The call simplified to an expression that is
+       not a valid GIMPLE RHS.  */
+    return false;
+}
+
 /* Attempt to fold a call statement referenced by the statement iterator GSI.
    The statement may be replaced by another statement, e.g., if the call
    simplifies to a constant value. Return true if any changes were made.
@@ -2858,33 +2996,8 @@ fold_gimple_call (gimple_stmt_iterator *gsi)
     {
       tree result = ccp_fold_builtin (stmt);
 
-      if (result) {
-        if (TREE_CODE (result) == CALL_EXPR)
-          {
-            /* FIXME tuples.  Replace statement with the new call.  */
-            return false;
-          }
-        else if (valid_gimple_rhs_p (result))
-          {
-            /* The call has simplified to an expression
-               that cannot be represented as a GIMPLE_CALL.
-               Introduce a new GIMPLE_ASSIGN statement.  */
-            gimple new_stmt;
-            tree lhs = gimple_call_lhs (stmt);
-
-            STRIP_USELESS_TYPE_CONVERSION (result);
-            new_stmt = gimple_build_assign (lhs, result);
-            gimple_set_location (new_stmt, gimple_location (stmt));
-            gsi_replace (gsi, new_stmt, false);
-            return true;
-          }
-        else
-          /* The call simplified to an expression that is
-             not a valid GIMPLE RHS.  */
-          return false;
-        }
-      else
-        return false;
+      if (result)
+        return update_call_from_tree (gsi, result);
     }
   else
     {
@@ -2929,7 +3042,7 @@ fold_gimple_call (gimple_stmt_iterator *gsi)
 bool
 fold_stmt (gimple_stmt_iterator *gsi)
 {
-
+  tree res;
   struct fold_stmt_r_data fold_stmt_r_data;
   struct walk_stmt_info wi;
 
@@ -2947,7 +3060,8 @@ fold_stmt (gimple_stmt_iterator *gsi)
 
   /* Fold the individual operands.
      For example, fold instances of *&VAR into VAR, etc.  */
-  gcc_assert (!walk_gimple_op (stmt, fold_stmt_r, &wi));
+  res = walk_gimple_op (stmt, fold_stmt_r, &wi);
+  gcc_assert (!res);
 
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))
@@ -2993,6 +3107,7 @@ fold_stmt (gimple_stmt_iterator *gsi)
 bool
 fold_stmt_inplace (gimple stmt)
 {
+  tree res;
   struct fold_stmt_r_data fold_stmt_r_data;
   struct walk_stmt_info wi;
 
@@ -3014,7 +3129,8 @@ fold_stmt_inplace (gimple stmt)
      signal that the entire statement should be replaced with
      a call to _builtin_trap.  This functionality is currently
      disabled, as noted in a FIXME, and cannot be supported here.  */
-  walk_gimple_op (stmt, fold_stmt_r, &wi);
+  res = walk_gimple_op (stmt, fold_stmt_r, &wi);
+  gcc_assert (!res);
 
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))
@@ -3033,9 +3149,6 @@ fold_stmt_inplace (gimple stmt)
   return changed;
 }
 
-/* FIXME tuples.  */
-#if 0
-
 /* Try to optimize out __builtin_stack_restore.  Optimize it out
    if there is another __builtin_stack_restore in the same basic
    block and no calls or ASM_EXPRs are in between, or if this block's
@@ -3043,28 +3156,30 @@ fold_stmt_inplace (gimple stmt)
    ASM_EXPRs after this __builtin_stack_restore.  */
 
 static tree
-optimize_stack_restore (basic_block bb, tree call, block_stmt_iterator i)
+optimize_stack_restore (gimple_stmt_iterator i)
 {
-  tree stack_save, stmt, callee;
+  tree callee, rhs;
+  gimple stmt, stack_save;
+  gimple_stmt_iterator stack_save_gsi;
 
-  if (TREE_CODE (call) != CALL_EXPR
-      || call_expr_nargs (call) != 1
-      || TREE_CODE (CALL_EXPR_ARG (call, 0)) != SSA_NAME
-      || !POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_ARG (call, 0))))
+  basic_block bb = gsi_bb (i);
+  gimple call = gsi_stmt (i);
+
+  if (gimple_code (call) != GIMPLE_CALL
+      || gimple_call_num_args (call) != 1
+      || TREE_CODE (gimple_call_arg (call, 0)) != SSA_NAME
+      || !POINTER_TYPE_P (TREE_TYPE (gimple_call_arg (call, 0))))
     return NULL_TREE;
 
-  for (bsi_next (&i); !bsi_end_p (i); bsi_next (&i))
+  for (gsi_next (&i); !gsi_end_p (i); gsi_next (&i))
     {
-      tree call;
-
-      stmt = bsi_stmt (i);
-      if (TREE_CODE (stmt) == ASM_EXPR)
+      stmt = gsi_stmt (i);
+      if (gimple_code (stmt) == GIMPLE_ASM)
 	return NULL_TREE;
-      call = get_call_expr_in (stmt);
-      if (call == NULL)
+      if (gimple_code (stmt) != GIMPLE_CALL)
 	continue;
 
-      callee = get_callee_fndecl (call);
+      callee = gimple_call_fndecl (stmt);
       if (!callee || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL)
 	return NULL_TREE;
 
@@ -3072,79 +3187,78 @@ optimize_stack_restore (basic_block bb, tree call, block_stmt_iterator i)
 	break;
     }
 
-  if (bsi_end_p (i)
+  if (gsi_end_p (i)
       && (! single_succ_p (bb)
 	  || single_succ_edge (bb)->dest != EXIT_BLOCK_PTR))
     return NULL_TREE;
 
-  stack_save = SSA_NAME_DEF_STMT (CALL_EXPR_ARG (call, 0));
-  if (TREE_CODE (stack_save) != GIMPLE_MODIFY_STMT
-      || GIMPLE_STMT_OPERAND (stack_save, 0) != CALL_EXPR_ARG (call, 0)
-      || TREE_CODE (GIMPLE_STMT_OPERAND (stack_save, 1)) != CALL_EXPR
-      || tree_could_throw_p (stack_save)
-      || !has_single_use (CALL_EXPR_ARG (call, 0)))
+  stack_save = SSA_NAME_DEF_STMT (gimple_call_arg (call, 0));
+  if (gimple_code (stack_save) != GIMPLE_CALL
+      || gimple_call_lhs (stack_save) != gimple_call_arg (call, 0)
+      || stmt_could_throw_p (stack_save)
+      || !has_single_use (gimple_call_arg (call, 0)))
     return NULL_TREE;
 
-  callee = get_callee_fndecl (GIMPLE_STMT_OPERAND (stack_save, 1));
+  callee = gimple_call_fndecl (stack_save);
   if (!callee
       || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
       || DECL_FUNCTION_CODE (callee) != BUILT_IN_STACK_SAVE
-      || call_expr_nargs (GIMPLE_STMT_OPERAND (stack_save, 1)) != 0)
+      || gimple_call_num_args (stack_save) != 0)
     return NULL_TREE;
 
-  stmt = stack_save;
-  push_stmt_changes (&stmt);
-  if (!set_rhs (&stmt,
-		build_int_cst (TREE_TYPE (CALL_EXPR_ARG (call, 0)), 0)))
+  stack_save_gsi = gsi_for_stmt (stack_save);
+  push_stmt_changes (gsi_stmt_ptr (&stack_save_gsi));
+  rhs = build_int_cst (TREE_TYPE (gimple_call_arg (call, 0)), 0);
+  if (!update_call_from_tree (&stack_save_gsi, rhs))
     {
-      discard_stmt_changes (&stmt);
+      discard_stmt_changes (gsi_stmt_ptr (&stack_save_gsi));
       return NULL_TREE;
     }
-  gcc_assert (stmt == stack_save);
-  pop_stmt_changes (&stmt);
+  pop_stmt_changes (gsi_stmt_ptr (&stack_save_gsi));
 
+  /* No effect, so the statement will be deleted.  */
   return integer_zero_node;
 }
-
+
 /* If va_list type is a simple pointer and nothing special is needed,
    optimize __builtin_va_start (&ap, 0) into ap = __builtin_next_arg (0),
    __builtin_va_end (&ap) out as NOP and __builtin_va_copy into a simple
    pointer assignment.  */
 
 static tree
-optimize_stdarg_builtin (tree call)
+optimize_stdarg_builtin (gimple call)
 {
   tree callee, lhs, rhs;
   bool va_list_simple_ptr;
 
-  if (TREE_CODE (call) != CALL_EXPR)
+  if (gimple_code (call) != GIMPLE_CALL)
     return NULL_TREE;
 
   va_list_simple_ptr = POINTER_TYPE_P (va_list_type_node)
 		       && (TREE_TYPE (va_list_type_node) == void_type_node
 			   || TREE_TYPE (va_list_type_node) == char_type_node);
 
-  callee = get_callee_fndecl (call);
+  callee = gimple_call_fndecl (call);
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_VA_START:
       if (!va_list_simple_ptr
 	  || targetm.expand_builtin_va_start != NULL
-	  || built_in_decls[BUILT_IN_NEXT_ARG] == NULL)
+          || built_in_decls[BUILT_IN_NEXT_ARG] == NULL)
 	return NULL_TREE;
 
-      if (call_expr_nargs (call) != 2)
+      if (gimple_call_num_args (call) != 2)
 	return NULL_TREE;
 
-      lhs = CALL_EXPR_ARG (call, 0);
+      lhs = gimple_call_arg (call, 0);
       if (!POINTER_TYPE_P (TREE_TYPE (lhs))
 	  || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (lhs)))
 	     != TYPE_MAIN_VARIANT (va_list_type_node))
 	return NULL_TREE;
-
+      
       lhs = build_fold_indirect_ref (lhs);
       rhs = build_call_expr (built_in_decls[BUILT_IN_NEXT_ARG],
-			     1, integer_zero_node);
+                             1, integer_zero_node);
       rhs = fold_convert (TREE_TYPE (lhs), rhs);
       return build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
 
@@ -3152,17 +3266,17 @@ optimize_stdarg_builtin (tree call)
       if (!va_list_simple_ptr)
 	return NULL_TREE;
 
-      if (call_expr_nargs (call) != 2)
+      if (gimple_call_num_args (call) != 2)
 	return NULL_TREE;
 
-      lhs = CALL_EXPR_ARG (call, 0);
+      lhs = gimple_call_arg (call, 0);
       if (!POINTER_TYPE_P (TREE_TYPE (lhs))
 	  || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (lhs)))
 	     != TYPE_MAIN_VARIANT (va_list_type_node))
 	return NULL_TREE;
 
       lhs = build_fold_indirect_ref (lhs);
-      rhs = CALL_EXPR_ARG (call, 1);
+      rhs = gimple_call_arg (call, 1);
       if (TYPE_MAIN_VARIANT (TREE_TYPE (rhs))
 	  != TYPE_MAIN_VARIANT (va_list_type_node))
 	return NULL_TREE;
@@ -3171,51 +3285,71 @@ optimize_stdarg_builtin (tree call)
       return build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
 
     case BUILT_IN_VA_END:
+      /* No effect, so the statement will be deleted.  */
       return integer_zero_node;
 
     default:
       gcc_unreachable ();
     }
 }
-
+
 /* Convert EXPR into a GIMPLE value suitable for substitution on the
    RHS of an assignment.  Insert the necessary statements before
-   iterator *SI_P. 
-   When IGNORE is set, don't worry about the return value.  */
+   iterator *SI_P.  The statement at *SI_P, which must be a GIMPLE_CALL
+   is replaced.  If the call is expected to produces a result, then it
+   is replaced by an assignment of the new RHS to the result variable.
+   If the result is to be ignored, then the call is replaced by a
+   GIMPLE_NOP.  */
 
-static tree
-convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr, bool ignore)
+static void
+gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 {
-  tree_stmt_iterator ti;
-  tree stmt = bsi_stmt (*si_p);
-  tree tmp, stmts = NULL;
+  tree lhs;
+  tree tmp = NULL_TREE;  /* Silence warning.  */
+  gimple stmt, new_stmt;
+  gimple_stmt_iterator i;
+  gimple_seq stmts = gimple_seq_alloc();
+
+  stmt = gsi_stmt (*si_p);
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+
+  lhs = gimple_call_lhs (stmt);
 
   push_gimplify_context ();
-  if (ignore)
-    {
-      tmp = build_empty_stmt ();
-      gimplify_and_add (expr, &stmts);
-    }
-  else
+
+  if (lhs == NULL_TREE)
+    gimplify_and_add (expr, &stmts);
+  else 
     tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+
   pop_gimplify_context (NULL);
 
-  if (EXPR_HAS_LOCATION (stmt))
-    annotate_all_with_location (&stmts, EXPR_LOCATION (stmt));
+  if (gimple_has_location (stmt))
+    annotate_all_with_location (stmts, gimple_location (stmt));
 
   /* The replacement can expose previously unreferenced variables.  */
-  for (ti = tsi_start (stmts); !tsi_end_p (ti); tsi_next (&ti))
+  for (i = gsi_start (stmts); !gsi_end_p (i); gsi_next (&i))
+  {
+    new_stmt = gsi_stmt (i);
+    find_new_referenced_vars (&i);
+    gsi_insert_before (si_p, new_stmt, GSI_NEW_STMT);
+    mark_symbols_for_renaming (new_stmt);
+    gsi_next (si_p);
+  }
+
+  if (lhs == NULL_TREE)
+    new_stmt = gimple_build_nop ();
+  else
     {
-      tree new_stmt = tsi_stmt (ti);
-      find_new_referenced_vars (tsi_stmt_ptr (ti));
-      bsi_insert_before (si_p, new_stmt, BSI_NEW_STMT);
-      mark_symbols_for_renaming (new_stmt);
-      bsi_next (si_p);
+      new_stmt = gimple_build_assign (lhs, tmp);
+      copy_virtual_operands (new_stmt, stmt);
+      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
     }
 
-  return tmp;
+  gimple_set_location (new_stmt, gimple_location (stmt));
+  gsi_replace (si_p, new_stmt, false);
 }
-
 
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
@@ -3229,29 +3363,29 @@ execute_fold_all_builtins (void)
   
   FOR_EACH_BB (bb)
     {
-      block_stmt_iterator i;
-      for (i = bsi_start (bb); !bsi_end_p (i); )
+      gimple_stmt_iterator i;
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); )
 	{
-	  tree *stmtp = bsi_stmt_ptr (i);
-	  tree old_stmt = *stmtp;
-	  tree call = get_rhs (*stmtp);
+          gimple stmt, old_stmt;
 	  tree callee, result;
 	  enum built_in_function fcode;
 
-	  if (!call || TREE_CODE (call) != CALL_EXPR)
+	  stmt = gsi_stmt (i);
+
+          if (gimple_code (stmt) != GIMPLE_CALL)
 	    {
-	      bsi_next (&i);
+	      gsi_next (&i);
 	      continue;
 	    }
-	  callee = get_callee_fndecl (call);
+	  callee = gimple_call_fndecl (stmt);
 	  if (!callee || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL)
 	    {
-	      bsi_next (&i);
+	      gsi_next (&i);
 	      continue;
 	    }
 	  fcode = DECL_FUNCTION_CODE (callee);
 
-	  result = ccp_fold_builtin (*stmtp, call);
+	  result = ccp_fold_builtin (stmt);
 	  if (!result)
 	    switch (DECL_FUNCTION_CODE (callee))
 	      {
@@ -3259,77 +3393,71 @@ execute_fold_all_builtins (void)
 		/* Resolve __builtin_constant_p.  If it hasn't been
 		   folded to integer_one_node by now, it's fairly
 		   certain that the value simply isn't constant.  */
-		result = integer_zero_node;
+                result = integer_zero_node;
 		break;
 
 	      case BUILT_IN_STACK_RESTORE:
-		result = optimize_stack_restore (bb, *stmtp, i);
+		result = optimize_stack_restore (i);
 		if (result)
 		  break;
-		bsi_next (&i);
+		gsi_next (&i);
 		continue;
 
 	      case BUILT_IN_VA_START:
 	      case BUILT_IN_VA_END:
 	      case BUILT_IN_VA_COPY:
 		/* These shouldn't be folded before pass_stdarg.  */
-		result = optimize_stdarg_builtin (*stmtp);
+		result = optimize_stdarg_builtin (stmt);
 		if (result)
 		  break;
 		/* FALLTHRU */
 
 	      default:
-		bsi_next (&i);
+		gsi_next (&i);
 		continue;
 	      }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Simplified\n  ");
-	      print_generic_stmt (dump_file, *stmtp, dump_flags);
+	      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
 	    }
 
-	  push_stmt_changes (stmtp);
+          old_stmt = stmt;
+	  push_stmt_changes (gsi_stmt_ptr (&i));
 
-	  if (!set_rhs (stmtp, result))
-	    {
-	      result = convert_to_gimple_builtin (&i, result,
-			      			  TREE_CODE (old_stmt)
-						  != GIMPLE_MODIFY_STMT);
-	      if (result)
-		{
-		  bool ok = set_rhs (stmtp, result);
-		  gcc_assert (ok);
-		  todoflags |= TODO_rebuild_alias;
-		}
-	    }
+          if (!update_call_from_tree (&i, result))
+            {
+              gimplify_and_update_call_from_tree (&i, result);
+              todoflags |= TODO_rebuild_alias;
+            }
 
-	  pop_stmt_changes (stmtp);
+	  stmt = gsi_stmt (i);
+	  pop_stmt_changes (gsi_stmt_ptr (&i));
 
-	  if (maybe_clean_or_replace_eh_stmt (old_stmt, *stmtp)
-	      && tree_purge_dead_eh_edges (bb))
+	  if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt)
+	      && gimple_purge_dead_eh_edges (bb))
 	    cfg_changed = true;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "to\n  ");
-	      print_generic_stmt (dump_file, *stmtp, dump_flags);
+	      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
 
 	  /* Retry the same statement if it changed into another
 	     builtin, there might be new opportunities now.  */
-	  call = get_rhs (*stmtp);
-	  if (!call || TREE_CODE (call) != CALL_EXPR)
+          if (gimple_code (stmt) != GIMPLE_CALL)
 	    {
-	      bsi_next (&i);
+	      gsi_next (&i);
 	      continue;
 	    }
-	  callee = get_callee_fndecl (call);
+	  callee = gimple_call_fndecl (stmt);
 	  if (!callee
-	      || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
+              || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
 	      || DECL_FUNCTION_CODE (callee) == fcode)
-	    bsi_next (&i);
+	    gsi_next (&i);
 	}
     }
   
@@ -3359,4 +3487,3 @@ struct tree_opt_pass pass_fold_builtins =
     | TODO_update_ssa,			/* todo_flags_finish */
   0					/* letter */
 };
-#endif

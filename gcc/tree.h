@@ -4814,6 +4814,8 @@ extern tree build_va_arg_indirect_ref (tree);
 extern tree build_string_literal (int, const char *);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 extern int get_pointer_alignment (tree, unsigned int);
+extern tree fold_call_stmt (gimple, bool);
+extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
 
 /* In convert.c */
 extern tree strip_float_extensions (tree);

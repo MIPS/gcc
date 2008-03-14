@@ -131,7 +131,6 @@ tree first_vdef (gimple);
 bool stmt_makes_single_load (gimple);
 bool stmt_makes_single_store (gimple);
 prop_value_t *get_value_loaded_by (gimple, prop_value_t *);
-bool replace_uses_in (gimple, bool *, prop_value_t *);
 bool substitute_and_fold (prop_value_t *, bool);
 
 #endif /* _TREE_SSA_PROPAGATE_H  */

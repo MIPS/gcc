@@ -245,11 +245,7 @@ gimple_build_with_ops (enum gimple_code code, enum tree_code subcode,
 gimple
 gimple_build_return (tree retval)
 {
-  gimple s;
-  gcc_assert (retval == NULL_TREE
-              || TREE_CODE (retval) == RESULT_DECL
-	      || is_gimple_val (retval));
-  s = gimple_build_with_ops (GIMPLE_RETURN, 0, 1);
+  gimple s = gimple_build_with_ops (GIMPLE_RETURN, 0, 1);
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;

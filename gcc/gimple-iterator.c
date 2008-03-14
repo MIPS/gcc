@@ -29,6 +29,31 @@ Boston, MA 02110-1301, USA.  */
 #include "value-prof.h"
 
 
+/* Mark the statement STMT as modified, and update it.  */
+
+static inline void
+update_modified_stmt (gimple stmt)
+{
+  if (!ssa_operands_active ())
+    return;
+  update_stmt_if_modified (stmt);
+}
+
+
+/* Mark the statements in SEQ as modified, and update them.  */
+
+static void
+update_modified_stmts (gimple_seq seq)
+{
+  gimple_stmt_iterator gsi;
+ 
+  if (!ssa_operands_active ())
+    return;  
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
+    update_stmt_if_modified (gsi_stmt (gsi));
+}
+
+
 /* Set BB to be the basic block for all the statements in the list
    starting at FIRST and LAST.  */
 
@@ -108,11 +133,16 @@ gsi_insert_seq_nodes_before (gimple_stmt_iterator *i,
 
 /* Inserts the sequence of statements SEQ before the statement pointed
    by iterator I.  MODE indicates what to do with the iterator after
-   insertion (see enum gsi_iterator_update).  */
+   insertion (see enum gsi_iterator_update).
+
+   This function does not scan for new operands.  It is provided for
+   the use of the gimplifier, which manipulates statements for which
+   def/use information has not yet been constructed.  Most callers
+   should use gsi_insert_seq_before.  */
 
 void
-gsi_insert_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
-		       enum gsi_iterator_update mode)
+gsi_insert_seq_before_without_update (gimple_stmt_iterator *i, gimple_seq seq,
+                                      enum gsi_iterator_update mode)
 {
   gimple_seq_node first, last;
 
@@ -134,6 +164,20 @@ gsi_insert_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
     }
 
   gsi_insert_seq_nodes_before (i, first, last, mode);
+}
+
+
+/* Inserts the sequence of statements SEQ before the statement pointed
+   by iterator I.  MODE indicates what to do with the iterator after
+   insertion (see enum gsi_iterator_update). Scan the statements in SEQ
+   for new operands.  */
+
+void
+gsi_insert_seq_before (gimple_stmt_iterator *i, gimple_seq seq,
+		       enum gsi_iterator_update mode)
+{
+  update_modified_stmts (seq);
+  gsi_insert_seq_before_without_update (i, seq, mode);
 }
 
 
@@ -197,11 +241,16 @@ gsi_insert_seq_nodes_after (gimple_stmt_iterator *i,
 
 
 /* Links sequence SEQ after the statement pointed-to by iterator I.
-   MODE is as in gsi_insert_after.  */
+   MODE is as in gsi_insert_after.
+
+   This function does not scan for new operands.  It is provided for
+   the use of the gimplifier, which manipulates statements for which
+   def/use information has not yet been constructed.  Most callers
+   should use gsi_insert_seq_after.  */
 
 void
-gsi_insert_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
-		      enum gsi_iterator_update mode)
+gsi_insert_seq_after_without_update (gimple_stmt_iterator *i, gimple_seq seq,
+                                     enum gsi_iterator_update mode)
 {
   gimple_seq_node first, last;
 
@@ -223,6 +272,19 @@ gsi_insert_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
     }
 
   gsi_insert_seq_nodes_after (i, first, last, mode);
+}
+
+
+/* Links sequence SEQ after the statement pointed-to by iterator I.
+   MODE is as in gsi_insert_after.  Scan the statements in SEQ
+   for new operands.  */
+
+void
+gsi_insert_seq_after (gimple_stmt_iterator *i, gimple_seq seq,
+		      enum gsi_iterator_update mode)
+{
+  update_modified_stmts (seq);
+  gsi_insert_seq_after_without_update (i, seq, mode);
 }
 
 
@@ -289,17 +351,6 @@ gsi_split_seq_before (gimple_stmt_iterator *i)
 }
 
 
-/* Mark the statement T as modified, and update it.  */
-
-static inline void
-update_modified_stmt (gimple t)
-{
-  if (!ssa_operands_active ())
-    return;
-  update_stmt_if_modified (t);
-}
-
-
 /* Replace the statement pointed-to by GSI to STMT.  If UPDATE_EH_INFO
    is true, the exception handling information of the original
    statement is moved to the new statement.  */
@@ -337,18 +388,20 @@ gsi_replace (gimple_stmt_iterator *gsi, gimple stmt, bool update_eh_info)
 }
 
 
-/* Insert statement STMT before the statement pointed-to by iterator
-   I, update STMT's basic block and scan it for new operands.  M
-   specifies how to update iterator I after insertion (see enum
-   gsi_iterator_update).  */
+/* Insert statement STMT before the statement pointed-to by iterator I.
+   M specifies how to update iterator I after insertion (see enum
+   gsi_iterator_update).
+
+   This function does not scan for new operands.  It is provided for
+   the use of the gimplifier, which manipulates statements for which
+   def/use information has not yet been constructed.  Most callers
+   should use gsi_insert_before.  */
 
 void
-gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
-		   enum gsi_iterator_update m)
+gsi_insert_before_without_update (gimple_stmt_iterator *i, gimple stmt,
+                                  enum gsi_iterator_update m)
 {
   gimple_seq_node n;
-  
-  update_modified_stmt (stmt);
 
   n = ggc_alloc (sizeof (*n));
   n->prev = n->next = NULL;
@@ -356,9 +409,44 @@ gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
   gsi_insert_seq_nodes_before (i, n, n, m);
 }
 
+/* Insert statement STMT before the statement pointed-to by iterator I.
+   Update STMT's basic block and scan it for new operands.  M
+   specifies how to update iterator I after insertion (see enum
+   gsi_iterator_update).  */
 
-/* Insert statement STMT after the statement pointed-to by iterator I,
-   update STMT's basic block and scan it for new operands.  M
+void
+gsi_insert_before (gimple_stmt_iterator *i, gimple stmt,
+                   enum gsi_iterator_update m)
+{
+  update_modified_stmt (stmt);
+  gsi_insert_before_without_update (i, stmt, m);
+}
+
+
+/* Insert statement STMT after the statement pointed-to by iterator I.
+   M specifies how to update iterator I after insertion (see enum
+   gsi_iterator_update).
+
+   This function does not scan for new operands.  It is provided for
+   the use of the gimplifier, which manipulates statements for which
+   def/use information has not yet been constructed.  Most callers
+   should use gsi_insert_after.  */
+
+void
+gsi_insert_after_without_update (gimple_stmt_iterator *i, gimple stmt,
+                                 enum gsi_iterator_update m)
+{
+  gimple_seq_node n;
+
+  n = ggc_alloc (sizeof (*n));
+  n->prev = n->next = NULL;
+  n->stmt = stmt;
+  gsi_insert_seq_nodes_after (i, n, n, m);
+}
+
+
+/* Insert statement STMT after the statement pointed-to by iterator I.
+   Update STMT's basic block and scan it for new operands.  M
    specifies how to update iterator I after insertion (see enum
    gsi_iterator_update).  */
 
@@ -366,14 +454,8 @@ void
 gsi_insert_after (gimple_stmt_iterator *i, gimple stmt,
 		  enum gsi_iterator_update m)
 {
-  gimple_seq_node n;
-
   update_modified_stmt (stmt);
-
-  n = ggc_alloc (sizeof (*n));
-  n->prev = n->next = NULL;
-  n->stmt = stmt;
-  gsi_insert_seq_nodes_after (i, n, n, m);
+  gsi_insert_after_without_update (i, stmt, m);
 }
 
 

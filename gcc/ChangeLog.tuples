@@ -1,3 +1,74 @@
+2008-03-13  Bill Maddox  <maddox@google.com>
+
+	* tree.h (fold_call_stmt, gimple_fold_builtin_snprintf_chk):
+	Declare new functions.
+	* builtins.c (fold_builtin_object_size): Disable call to
+	compute_builtin_object_size, which has not been converted.
+	(gimple_rewrite_call_expr, gimple_fold_builtin_sprintf_chk,
+	gimple_fold_builtin_snprintf_chk, gimple_fold_builtin_varargs,
+	fold_call_stmt): New functions.
+	* tree-chrec.h (build_polynomial_chrec): Silence uninitialized
+	variable warning.
+	* tree-ssa-ccp.c (likely_value): Recognize additional cases
+	of constant values.
+	(surely_varying_stmt_p): Note that return statements are not
+	interesting to CCP as they no longer contain assignments.
+	(ccp_fold): Add missing spaces.
+	(valid_gimple_call_p): New function.
+	(get_maxval_strlen): Don't trip over unary operator.
+	(ccp_fold_builtin): Use fold_call_stmt and
+	gimple_fold_builtin_snprintf_chk.  Enable disabled
+	call now that target has been converted for tuples.
+	Add missing spaces.
+	(move_ssa_defining_stmt_for_defs): New function.
+	(update_call_from_tree): New function.
+	(fold_gimple_call): Use update_call_from_tree.
+	(fold_stmt_inplace): Assert that operand folding tree
+	walk goes to completion, i.e., does not return non-null.
+	(optimize_stack_restore, optimize_stdarg_builtin):
+	Convert to tuples
+	(convert_to_gimple_builtin): Removed.
+	(gimplify_and_update_call_from_tree): New function.
+	Replaces convert_to_gimple_builtin.
+	(execute_fold_all_builtins): Convert to tuples.
+	* tree-ssa-propagate.c (replace_uses_in): Removed
+	replaced_address argument.  Made function static.
+	(replace_vuses_in): Removed replaced_address argument.
+	(substitute_and_fold): Removed replaced_address boolean,
+	which was set but never examined.
+	* tree-ssa-propagate.h (replace_uses_in): Removed declaration.
+	* gimple-iterator.c (update_modified_stmt): Moved to
+	head of file to avoid a forward declaration.
+	(update_modified_stmts): New function.
+	(gsi_insert_seq_before_without_update,
+	gsi_insert_before_without_update,
+	gsi_insert_seq_after_without_update,
+	gsi_insert_after_without_update): New functions.
+	(gsi_insert_before, gsi_insert_seq_before,
+	gsi_insert_after, gsi_insert_seq_after): Call the
+	_without_update variants.
+	* gimplify.c (gimplify_seq_add_stmt, gimplify_seq_add_seq):
+	New functions.
+	(gimple_pop_condition, gimplify_return_expr, gimplify_loop_expr,
+	gimplify_switch_expr, gimplify_case_label_expr,
+	gimplify_self_mod_expr, gimplify_call_expr,
+	gimplify_modify_expr_to_memcpy, gimplify_modify_expr_to_memset,
+	gimplify_init_ctor_eval_range, gimpllify_modify_expr_complex_part,
+	gimplify_modify_expr, gimplify_asm_expr, gimplify_cleanup_point_expr,
+	gimple_push_cleanup, gimplify_omp_parallel, gimplify_omp_atomic,
+	gimplify_expr, gimplify_body, gimplify_function_tree): When adding
+	to statement sequences in the gimplifier, do not update operands.
+	* tree-dfa.c (find_new_referenced_vars): Convert to tuples.
+	* tree-flow.h (find_new_referenced_vars): Declare with new signature.
+	* gimple.h (gimple_return_set_retval): Fix argument validation.
+	(gsi_insert_seq_before_without_update,
+	gsi_insert_before_without_update,
+	gsi_insert_seq_after_without_update,
+	gsi_insert_after_without_update): Declare new functions.
+	* gimple.c (gimple_build_return): Rely on gimple_return_set_retval
+	to perform argument validation.
+	* passes.c (init_optimization_passes): Enable pass_fold_builtins.
+	
 2008-03-13  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-cfg.c (gimplify_val): Removed.

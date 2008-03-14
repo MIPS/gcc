@@ -575,6 +575,13 @@ bool gimple_has_side_effects (gimple);
 bool gimple_seq_has_side_effects (gimple_seq);
 bool gimple_could_trap_p (gimple);
 
+/* FIXME tuples.
+   Break a circular include dependency with tree-gimple.h.
+   We need to use some of the operand predicates declared there
+   for validating arguments in inline functions defined here.
+   We should merge gimple.[hc] and tree-gimple.[hc].  */
+extern bool is_gimple_val (tree);
+
 /* In builtins.c  */
 extern bool validate_arglist (const_gimple, ...);
 
@@ -2722,7 +2729,9 @@ gimple_return_set_retval (gimple gs, tree retval)
 {
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gcc_assert (gs->with_ops.num_ops == 1);
-  gcc_assert (is_gimple_operand (retval));
+  gcc_assert (retval == NULL_TREE
+              || TREE_CODE (retval) == RESULT_DECL
+	      || is_gimple_val (retval));
   gimple_set_op (gs, 0, retval);
 }
 
@@ -3013,12 +3022,20 @@ gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 void gsi_replace (gimple_stmt_iterator *, gimple, bool);
 void gsi_insert_before (gimple_stmt_iterator *, gimple,
 			enum gsi_iterator_update);
+void gsi_insert_before_without_update (gimple_stmt_iterator *, gimple,
+                                       enum gsi_iterator_update);
 void gsi_insert_seq_before (gimple_stmt_iterator *, gimple_seq,
-		       enum gsi_iterator_update);
+                            enum gsi_iterator_update);
+void gsi_insert_seq_before_without_update (gimple_stmt_iterator *, gimple_seq,
+                                           enum gsi_iterator_update);
 void gsi_insert_after (gimple_stmt_iterator *, gimple,
 		       enum gsi_iterator_update);
+void gsi_insert_after_without_update (gimple_stmt_iterator *, gimple,
+                                      enum gsi_iterator_update);
 void gsi_insert_seq_after (gimple_stmt_iterator *, gimple_seq,
 			   enum gsi_iterator_update);
+void gsi_insert_seq_after_without_update (gimple_stmt_iterator *, gimple_seq,
+                                          enum gsi_iterator_update);
 void gsi_remove (gimple_stmt_iterator *, bool);
 gimple_stmt_iterator gsi_for_stmt (gimple);
 void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
