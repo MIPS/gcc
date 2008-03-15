@@ -36,27 +36,41 @@
 void
 gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
-  if (state)
+  if (__builtin_expect ((state & 1) != 0, 0))
     {
-      bar->generation++;
-      futex_wake (&bar->generation, INT_MAX);
+      /* Next time we'll be awaiting TOTAL threads again.  */
+      bar->awaited = bar->total;
+      atomic_write_barrier ();
+      bar->generation += 2;
+      futex_wake ((int *) &bar->generation, INT_MAX);
     }
   else
     {
-      unsigned int generation = bar->generation;
+      unsigned int generation = state;
 
-      gomp_mutex_unlock (&bar->mutex);
       do
 	do_wait ((int *) &bar->generation, generation);
       while (bar->generation == generation);
     }
-
-  if (__sync_add_and_fetch (&bar->arrived, -1) == 0)
-    gomp_mutex_unlock (&bar->mutex);
 }
 
 void
 gomp_barrier_wait (gomp_barrier_t *barrier)
 {
   gomp_barrier_wait_end (barrier, gomp_barrier_wait_start (barrier));
+}
+
+/* Like gomp_barrier_wait, except that if the encountering thread
+   is not the last one to hit the barrier, it returns immediately.
+   The intended usage is that a thread which intends to gomp_barrier_destroy
+   this barrier calls gomp_barrier_wait, while all other threads
+   call gomp_barrier_wait_last.  When gomp_barrier_wait returns,
+   the barrier can be safely destroyed.  */
+
+void
+gomp_barrier_wait_last (gomp_barrier_t *barrier)
+{
+  gomp_barrier_state_t state = gomp_barrier_wait_start (barrier);
+  if (state & 1)
+    gomp_barrier_wait_end (barrier, state);
 }

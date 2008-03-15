@@ -1,4 +1,15 @@
 2008-03-15  Jakub Jelinek  <jakub@redhat.com>
+	    Ulrich Drepper  <drepper@redhat.com>
+
+	* config/linux/bar.h (gomp_barrier_state_t): Rewritten.
+	(gomp_barrier_state_t): Change to unsigned int.
+	(gomp_barrier_init, gomp_barrier_reinit, gomp_barrier_destroy,
+	gomp_barrier_wait_start, gomp_barrier_last_thread): Rewritten.
+	(gomp_barrier_wait_last): Prototype rather than inline.
+	* config/linux/bar.c (gomp_barrier_wait_end): Rewritten.
+	(gomp_barrier_wait_last): New function.
+
+2008-03-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* team.c (gomp_thread_start): Use gomp_barrier_wait_last instead
 	of gomp_barrier_wait.
