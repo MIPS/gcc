@@ -1,3 +1,59 @@
+2008-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_thread_start): Use gomp_barrier_wait_last instead
+	of gomp_barrier_wait.
+	* env.c (gomp_block_time_var, gomp_spin_count_var): New variables.
+	(parse_millis): New function.
+	(initialize_env): Handle GOMP_BLOCKTIME env var.
+	* libgomp.h (struct gomp_team): Move close to the end of the struct.
+	(gomp_spin_count_var): New extern var decl.
+	* work.c (gomp_work_share_end): Use gomp_barrier_state_t bstate
+	var instead of bool last, call gomp_barrier_last_thread to check
+	for last thread, pass bstate to gomp_barrier_wait_end.
+	* parallel.c (gomp_resolve_num_threads, GOMP_parallel_end): Add
+	__builtin_expect.
+	* config/linux/wait.h: New file.
+	* config/linux/mutex.c: Include wait.h instead of libgomp.h and
+	futex.h.
+	(gomp_mutex_lock_slow): Call do_wait instead of futex_wait.
+	* config/linux/bar.c: Include wait.h instead of libgomp.h and
+	futex.h.
+	(gomp_barrier_wait_end): Change second argument to
+	gomp_barrier_state_t.  Call do_wait instead of futex_wait.
+	* config/linux/sem.c: Include wait.h instead of libgomp.h and
+	futex.h.
+	(gomp_sem_wait_slow): Call do_wait instead of futex_wait.
+	* config/linux/lock.c: Include wait.h instead of libgomp.h and
+	futex.h.
+	(gomp_set_nest_lock_25): Call do_wait instead of futex_wait.
+	* config/linux/affinity.c: Assume HAVE_SYNC_BUILTINS.
+	* config/linux/bar.h (gomp_barrier_state_t): New typedef.
+	(gomp_barrier_wait_end): Change second argument to
+	gomp_barrier_state_t.
+	(gomp_barrier_wait_start): Return gomp_barrier_state_t.
+	(gomp_barrier_last_thread, gomp_barrier_wait_last): New static
+	inlines.
+	* config/linux/powerpc/futex.h (cpu_relax, atomic_write_barrier): New
+	static inlines.
+	* config/linux/alpha/futex.h (cpu_relax, atomic_write_barrier):
+	Likewise.
+	* config/linux/x86/futex.h (cpu_relax, atomic_write_barrier):
+	Likewise.
+	* config/linux/s390/futex.h (cpu_relax, atomic_write_barrier):
+	Likewise.
+	* config/linux/ia64/futex.h (cpu_relax, atomic_write_barrier):
+	Likewise.
+	* config/linux/sparc/futex.h (cpu_relax, atomic_write_barrier):
+	Likewise.
+	* config/posix/bar.c (gomp_barrier_wait_end): Change second argument
+	to gomp_barrier_state_t.
+	* config/posix/bar.h (gomp_barrier_state_t): New typedef.
+	(gomp_barrier_wait_end): Change second argument to
+	gomp_barrier_state_t.
+	(gomp_barrier_wait_start): Return gomp_barrier_state_t.
+	(gomp_barrier_last_thread, gomp_barrier_wait_last): New static
+	inlines.
+
 2008-03-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp_g.h (GOMP_task_flag_untied,

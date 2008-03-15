@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -77,4 +77,24 @@ static inline void
 futex_wake (int *addr, int count)
 {
   sys_futex0 (addr, FUTEX_WAKE, count);
+}
+
+static inline void
+cpu_relax (void)
+{
+#if defined __arch64__ || defined  __sparc_v9__
+  __asm volatile ("membar #LoadLoad" : : : "memory");
+#else
+  __asm volatile ("" : : : "memory");
+#endif
+}
+
+static inline void
+atomic_write_barrier (void)
+{
+#if defined __arch64__ || defined __sparc_v9__
+  __asm volatile ("membar #WriteWrite" : : : "memory");
+#else
+  __sync_synchronize ();
+#endif
 }

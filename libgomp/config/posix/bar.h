@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -46,18 +46,32 @@ typedef struct
   unsigned total;
   unsigned arrived;
 } gomp_barrier_t;
+typedef bool gomp_barrier_state_t;
 
 extern void gomp_barrier_init (gomp_barrier_t *, unsigned);
 extern void gomp_barrier_reinit (gomp_barrier_t *, unsigned);
 extern void gomp_barrier_destroy (gomp_barrier_t *);
 
 extern void gomp_barrier_wait (gomp_barrier_t *);
-extern void gomp_barrier_wait_end (gomp_barrier_t *, bool);
+extern void gomp_barrier_wait_end (gomp_barrier_t *, gomp_barrier_state_t);
 
-static inline bool gomp_barrier_wait_start (gomp_barrier_t *bar)
+static inline gomp_barrier_state_t
+gomp_barrier_wait_start (gomp_barrier_t *bar)
 {
   gomp_mutex_lock (&bar->mutex1);
   return ++bar->arrived == bar->total;
+}
+
+static inline bool
+gomp_barrier_last_thread (gomp_barrier_state_t state)
+{
+  return state;
+}
+
+static inline void
+gomp_barrier_wait_last (gomp_barrier_t *bar)
+{
+  gomp_barrier_wait (bar);
 }
 
 #endif /* GOMP_BARRIER_H */

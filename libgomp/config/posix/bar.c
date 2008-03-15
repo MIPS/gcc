@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -70,7 +70,7 @@ gomp_barrier_reinit (gomp_barrier_t *bar, unsigned count)
 }
 
 void
-gomp_barrier_wait_end (gomp_barrier_t *bar, bool last)
+gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t last)
 {
   unsigned int n;
 

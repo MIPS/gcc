@@ -65,6 +65,8 @@ unsigned long gomp_remaining_threads_count;
 #ifndef HAVE_SYNC_BUILTINS
 gomp_mutex_t gomp_remaining_threads_lock;
 #endif
+static unsigned long gomp_block_time_var;
+unsigned long long gomp_spin_count_var;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -230,6 +232,80 @@ parse_stacksize (const char *name, unsigned long *pvalue)
     goto invalid;
 
   *pvalue = value << shift;
+  return true;
+
+ invalid:
+  gomp_error ("Invalid value for environment variable %s", name);
+  return false;
+}
+
+/* Parse the GOMP_BLOCKTIME environment varible.  Return true if one was
+   present and it was successfully parsed.  */
+
+static bool
+parse_millis (const char *name, unsigned long *pvalue)
+{
+  char *env, *end;
+  unsigned long value, mult = 1;
+
+  env = getenv (name);
+  if (env == NULL)
+    return false;
+
+  while (isspace ((unsigned char) *env))
+    ++env;
+  if (*env == '\0')
+    goto invalid;
+
+  if (strncasecmp (env, "infinite", 8) != 0
+      || strncasecmp (env, "infinity", 8) != 0
+      || strncasecmp (env, "unexpire", 8) != 0)
+    {
+      value = ULONG_MAX;
+      end = env + 8;
+      goto check_tail;
+    }
+
+  errno = 0;
+  value = strtoul (env, &end, 10);
+  if (errno)
+    goto invalid;
+
+  while (isspace ((unsigned char) *end))
+    ++end;
+  if (*end != '\0')
+    {
+      switch (tolower (*end))
+	{
+	case 's':
+	  mult = 1000;
+	  break;
+	case 'm':
+	  mult = 60 * 1000;
+	  break;
+	case 'h':
+	  mult = 60 * 60 * 1000;
+	  break;
+	case 'd':
+	  mult = 24 * 60 * 60 * 1000;
+	  break;
+	default:
+	  goto invalid;
+	}
+      ++end;
+     check_tail:
+      while (isspace ((unsigned char) *end))
+	++end;
+      if (*end != '\0')
+	goto invalid;
+    }
+
+  if (value > ULONG_MAX / mult)
+    value = ULONG_MAX;
+  else
+    value *= mult;
+
+  *pvalue = value;
   return true;
 
  invalid:
@@ -417,6 +493,19 @@ initialize_env (void)
     gomp_init_num_threads ();
   if (parse_affinity ())
     gomp_init_affinity ();
+  if (!parse_millis ("GOMP_BLOCKTIME", &gomp_block_time_var))
+    {
+      if (gomp_active_wait_policy)
+	gomp_block_time_var = 200; /* 200ms */
+    }
+  if (gomp_block_time_var > 0)
+    {
+      if (gomp_block_time_var == ULONG_MAX)
+	gomp_spin_count_var = ~0ULL;
+      else
+	/* Estimate translation of gomp_block_time_var in milliseconds to
+	   spin count.  */;
+    }
 
   /* Not strictly environment related, but ordering constructors is tricky.  */
   pthread_attr_init (&gomp_thread_attr);

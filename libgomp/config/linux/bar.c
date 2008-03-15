@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -29,15 +29,14 @@
    mechanism for libgomp.  This type is private to the library.  This 
    implementation uses atomic instructions and the futex syscall.  */
 
-#include "libgomp.h"
-#include "futex.h"
 #include <limits.h>
+#include "wait.h"
 
 
 void
-gomp_barrier_wait_end (gomp_barrier_t *bar, bool last)
+gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
-  if (last)
+  if (state)
     {
       bar->generation++;
       futex_wake (&bar->generation, INT_MAX);
@@ -47,9 +46,8 @@ gomp_barrier_wait_end (gomp_barrier_t *bar, bool last)
       unsigned int generation = bar->generation;
 
       gomp_mutex_unlock (&bar->mutex);
-
       do
-	futex_wait (&bar->generation, generation);
+	do_wait ((int *) &bar->generation, generation);
       while (bar->generation == generation);
     }
 

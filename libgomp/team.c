@@ -96,7 +96,7 @@ gomp_thread_start (void *xdata)
     {
       gomp_barrier_wait (&thr->ts.team->barrier);
       local_fn (local_data);
-      gomp_barrier_wait (&thr->ts.team->barrier);
+      gomp_barrier_wait_last (&thr->ts.team->barrier);
     }
   else
     {
@@ -123,7 +123,7 @@ gomp_thread_start (void *xdata)
 	  thr->ts.work_share_generation = 0;
 	  thr->ts.static_trip = 0;
 
-	  gomp_barrier_wait (&team->barrier);
+	  gomp_barrier_wait_last (&team->barrier);
 	  gomp_barrier_wait (&gomp_threads_dock);
 
 	  local_fn = thr->fn;

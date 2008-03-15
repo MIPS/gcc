@@ -29,11 +29,10 @@
    primitives.  This implementation uses atomic instructions and the futex
    syscall.  */
 
-#include "libgomp.h"
 #include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
-#include "futex.h"
+#include "wait.h"
 
 
 /* The internal gomp_mutex_t and the external non-recursive omp_lock_t
@@ -200,7 +199,7 @@ gomp_set_nest_lock_25 (omp_nest_lock_25_t *lock)
 	  return;
 	}
 
-      futex_wait (&lock->owner, otid);
+      do_wait (&lock->owner, otid);
     }
 }
 

@@ -76,7 +76,8 @@ gomp_resolve_num_threads (unsigned specified, unsigned count)
     }
 
   /* ULONG_MAX stands for infinity.  */
-  if (gomp_thread_limit_var == ULONG_MAX || max_num_threads == 1)
+  if (__builtin_expect (gomp_thread_limit_var == ULONG_MAX, 1)
+      || max_num_threads == 1)
     return max_num_threads;
 
 #ifdef HAVE_SYNC_BUILTINS
@@ -112,7 +113,7 @@ GOMP_parallel_start (void (*fn) (void *), void *data, unsigned num_threads)
 void
 GOMP_parallel_end (void)
 {
-  if (gomp_thread_limit_var != ULONG_MAX)
+  if (__builtin_expect (gomp_thread_limit_var != ULONG_MAX, 0))
     {
       struct gomp_thread *thr = gomp_thread ();
       struct gomp_team *team = thr->ts.team;

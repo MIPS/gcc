@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
+/* Copyright (C) 2008 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -13,7 +13,7 @@
    FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
    more details.
 
-   You should have received a copy of the GNU Lesser General Public License
+   You should have received a copy of the GNU Lesser General Public License 
    along with libgomp; see the file COPYING.LIB.  If not, write to the
    Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
    MA 02110-1301, USA.  */
@@ -25,52 +25,26 @@
    any other reasons why the executable file might be covered by the GNU
    General Public License.  */
 
-/* Provide target-specific access to the futex system call.  */
+/* This is a Linux specific implementation of a mutex synchronization
+   mechanism for libgomp.  This type is private to the library.  This
+   implementation uses atomic instructions and the futex syscall.  */
 
-#include <sys/syscall.h>
-#define FUTEX_WAIT	0
-#define FUTEX_WAKE	1
+#ifndef GOMP_WAIT_H
+#define GOMP_WAIT_H 1
 
-static inline void
-sys_futex0 (int *addr, int op, int val)
+#include "libgomp.h"
+#include "futex.h"
+
+static inline void do_wait (int *addr, int val)
 {
-  register long int gpr2  __asm__ ("2");
-  register long int gpr3  __asm__ ("3");
-  register long int gpr4  __asm__ ("4");
-  register long int gpr5  __asm__ ("5");
+  unsigned long long i, count = gomp_spin_count_var;
 
-  gpr2 = (long) addr;
-  gpr3 = op;
-  gpr4 = val;
-  gpr5 = 0;
-
-  __asm volatile ("svc %b1"
-		  : "=d" (gpr2)
-		  : "i" (SYS_futex),
-		    "0" (gpr2), "d" (gpr3), "d" (gpr4), "d" (gpr5)
-		  : "memory");
+  for (i = 0; i < count; i++)
+    if (__builtin_expect (*addr != val, 0))
+      return;
+    else
+      cpu_relax ();
+  futex_wait (addr, val);
 }
 
-static inline void
-futex_wait (int *addr, int val)
-{
-  sys_futex0 (addr, FUTEX_WAIT, val);
-}
-
-static inline void
-futex_wake (int *addr, int count)
-{
-  sys_futex0 (addr, FUTEX_WAKE, count);
-}
-
-static inline void
-cpu_relax (void)
-{
-  __asm volatile ("" : : : "memory");
-}
-
-static inline void
-atomic_write_barrier (void)
-{
-  __sync_synchronize ();
-}
+#endif /* GOMP_WAIT_H */

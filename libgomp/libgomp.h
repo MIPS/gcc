@@ -195,13 +195,13 @@ struct gomp_team
      the current thread was created.  */
   struct gomp_team_state prev_ts;
 
-  /* This barrier is used for most synchronization of the team.  */
-  gomp_barrier_t barrier;
-
   /* This semaphore should be used by the master thread instead of its
      "native" semaphore in the thread structure.  Required for nested
      parallels, as the master is a member of two teams.  */
   gomp_sem_t master_release;
+
+  /* This barrier is used for most synchronization of the team.  */
+  gomp_barrier_t barrier;
 
   /* This array contains pointers to the release semaphore of the threads
      in the team.  */
@@ -230,6 +230,7 @@ extern gomp_mutex_t gomp_remaining_threads_lock;
 #endif
 extern unsigned long gomp_max_active_levels_var;
 extern bool gomp_active_wait_policy;
+extern unsigned long long gomp_spin_count_var;
 
 /* This structure describes a "task" to be run by a thread.  At present
    we implement only synchronous tasks, i.e. no tasks are deferred or

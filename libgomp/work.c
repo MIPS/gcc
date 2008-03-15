@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -148,7 +148,7 @@ gomp_work_share_end (void)
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
   struct gomp_work_share *ws = thr->ts.work_share;
-  bool last;
+  gomp_barrier_state_t bstate;
 
   thr->ts.work_share = NULL;
 
@@ -159,9 +159,9 @@ gomp_work_share_end (void)
       return;
     }
 
-  last = gomp_barrier_wait_start (&team->barrier);
+  bstate = gomp_barrier_wait_start (&team->barrier);
 
-  if (last)
+  if (gomp_barrier_last_thread (bstate))
     {
       unsigned ws_index;
 
@@ -173,7 +173,7 @@ gomp_work_share_end (void)
       free_work_share (ws);
     }
 
-  gomp_barrier_wait_end (&team->barrier, last);
+  gomp_barrier_wait_end (&team->barrier, bstate);
 }
 
 
