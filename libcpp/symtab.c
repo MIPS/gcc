@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001, 2003, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -120,13 +120,7 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
       if (node->hash_value == hash
 	  && HT_LEN (node) == (unsigned int) len
 	  && !memcmp (HT_STR (node), str, len))
-	{
-	  if (insert == HT_ALLOCED)
-	    /* The string we search for was placed at the end of the
-	       obstack.  Release it.  */
-	    obstack_free (&table->stack, (void *) str);
-	  return node;
-	}
+	return node;
 
       /* hash2 must be odd, so we're guaranteed to visit every possible
 	 location in the table during rehashing.  */
@@ -143,13 +137,7 @@ ht_lookup_with_hash (hash_table *table, const unsigned char *str,
 	  if (node->hash_value == hash
 	      && HT_LEN (node) == (unsigned int) len
 	      && !memcmp (HT_STR (node), str, len))
-	    {
-	      if (insert == HT_ALLOCED)
-	      /* The string we search for was placed at the end of the
-		 obstack.  Release it.  */
-		obstack_free (&table->stack, (void *) str);
-	      return node;
-	    }
+	    return node;
 	}
     }
 

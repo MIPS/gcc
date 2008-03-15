@@ -1,3 +1,8 @@
+2008-03-14  Tom Tromey  <tromey@redhat.com>
+
+	* symtab.c (ht_lookup_with_hash): Remove HT_ALLOCED code.
+	* include/symtab.h (enum ht_lookup_option) <HT_ALLOCED>: Remove.
+
 2008-03-05  Tom Tromey  <tromey@redhat.com>
 
 	* internal.h (struct cpp_reader) <entered_main_file>: New field.

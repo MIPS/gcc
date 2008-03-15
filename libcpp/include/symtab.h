@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001, 2003, 2004, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2003, 2004, 2007, 2008 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -39,7 +39,7 @@ struct ht_identifier GTY(())
 typedef struct ht hash_table;
 typedef struct ht_identifier *hashnode;
 
-enum ht_lookup_option {HT_NO_INSERT = 0, HT_ALLOC, HT_ALLOCED};
+enum ht_lookup_option {HT_NO_INSERT = 0, HT_ALLOC};
 
 /* An identifier hash table for cpplib and the front ends.  */
 struct ht
