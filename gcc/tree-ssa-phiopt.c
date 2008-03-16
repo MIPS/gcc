@@ -392,6 +392,7 @@ blocks_in_phiopt_order (void)
 #undef VISITED_P
 }
 
+#endif
 
 /* Return TRUE if block BB has no executable statements, otherwise return
    FALSE.  */
@@ -399,21 +400,12 @@ blocks_in_phiopt_order (void)
 bool
 empty_block_p (basic_block bb)
 {
-  block_stmt_iterator bsi;
-
   /* BB must have no executable statements.  */
-  bsi = bsi_start (bb);
-  while (!bsi_end_p (bsi)
-	  && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
-	      || gimple_nop_p (bsi_stmt (bsi))))
-    bsi_next (&bsi);
-
-  if (!bsi_end_p (bsi))
-    return false;
-
-  return true;
+  return gsi_end_p (gsi_after_labels (bb));
 }
 
+/* FIXME tuples.  */
+#if 0
 /* Replace PHI node element whose edge is E in block BB with variable NEW.
    Remove the edge from COND_BLOCK which does not lead to BB (COND_BLOCK
    is known to have two edges, one of which must reach BB).  */

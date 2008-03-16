@@ -92,8 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "target.h"
 
-/* FIXME tuples.  */
-#if 0
 /* The infinite cost.  */
 #define INFTY 10000000
 
@@ -164,7 +162,7 @@ struct iv_use
   unsigned id;		/* The id of the use.  */
   enum use_type type;	/* Type of the use.  */
   struct iv *iv;	/* The induction variable it is based on.  */
-  tree stmt;		/* Statement in that it occurs.  */
+  gimple stmt;		/* Statement in that it occurs.  */
   tree *op_p;		/* The place where it occurs.  */
   bitmap related_cands;	/* The set of "related" iv candidates, plus the common
 			   important ones.  */
@@ -192,7 +190,7 @@ struct iv_cand
   bool important;	/* Whether this is an "important" candidate, i.e. such
 			   that it should be considered by all uses.  */
   enum iv_position pos;	/* Where it is computed.  */
-  tree incremented_at;	/* For original biv, the statement where it is
+  gimple incremented_at;/* For original biv, the statement where it is
 			   incremented.  */
   tree var_before;	/* The variable used for it before increment.  */
   tree var_after;	/* The variable used for it after increment.  */
@@ -360,7 +358,6 @@ iv_cand (struct ivopts_data *data, unsigned i)
 {
   return VEC_index (iv_cand_p, data->iv_candidates, i);
 }
-#endif
 
 /* The single loop exit if it dominates the latch, NULL otherwise.  */
 
@@ -378,8 +375,6 @@ single_dom_exit (struct loop *loop)
   return exit;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Dumps information about the induction variable IV to FILE.  */
 
 extern void dump_iv (FILE *, struct iv *);
@@ -452,7 +447,7 @@ dump_use (FILE *file, struct iv_use *use)
     }
 
   fprintf (file, "  in statement ");
-  print_generic_expr (file, use->stmt, TDF_SLIM);
+  print_gimple_stmt (file, use->stmt, 0, 0);
   fprintf (file, "\n");
 
   fprintf (file, "  at position ");
@@ -548,7 +543,7 @@ name_info (struct ivopts_data *data, tree name)
    emitted in LOOP.  */
 
 static bool
-stmt_after_ip_normal_pos (struct loop *loop, tree stmt)
+stmt_after_ip_normal_pos (struct loop *loop, gimple stmt)
 {
   basic_block bb = ip_normal_pos (loop), sbb = gimple_bb (stmt);
 
@@ -567,11 +562,11 @@ stmt_after_ip_normal_pos (struct loop *loop, tree stmt)
    variable CAND is incremented.  */
 
 static bool
-stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
+stmt_after_ip_original_pos (struct iv_cand *cand, gimple stmt)
 {
   basic_block cand_bb = gimple_bb (cand->incremented_at);
   basic_block stmt_bb = gimple_bb (stmt);
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
   if (!dominated_by_p (CDI_DOMINATORS, stmt_bb, cand_bb))
     return false;
@@ -581,11 +576,11 @@ stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
 
   /* Scan the block from the end, since the original ivs are usually
      incremented at the end of the loop body.  */
-  for (bsi = bsi_last (stmt_bb); ; bsi_prev (&bsi))
+  for (bsi = gsi_last_bb (stmt_bb); ; gsi_prev (&bsi))
     {
-      if (bsi_stmt (bsi) == cand->incremented_at)
+      if (gsi_stmt (bsi) == cand->incremented_at)
 	return false;
-      if (bsi_stmt (bsi) == stmt)
+      if (gsi_stmt (bsi) == stmt)
 	return true;
     }
 }
@@ -594,7 +589,7 @@ stmt_after_ip_original_pos (struct iv_cand *cand, tree stmt)
    CAND is incremented in LOOP.  */
 
 static bool
-stmt_after_increment (struct loop *loop, struct iv_cand *cand, tree stmt)
+stmt_after_increment (struct loop *loop, struct iv_cand *cand, gimple stmt)
 {
   switch (cand->pos)
     {
@@ -611,7 +606,6 @@ stmt_after_increment (struct loop *loop, struct iv_cand *cand, tree stmt)
       gcc_unreachable ();
     }
 }
-#endif
 
 /* Returns true if EXP is a ssa name that occurs in an abnormal phi node.  */
 
@@ -693,8 +687,6 @@ contains_abnormal_ssa_name_p (tree expr)
   return false;
 }
 
-/* FIXME tuples.  */
-#if 0
 /*  Returns tree describing number of iterations determined from
     EXIT of DATA->current_loop, or NULL if something goes wrong.  */
 
@@ -880,7 +872,7 @@ get_iv (struct ivopts_data *data, tree var)
    not define a simple affine biv with nonzero step.  */
 
 static tree
-determine_biv_step (tree phi)
+determine_biv_step (gimple phi)
 {
   struct loop *loop = gimple_bb (phi)->loop_father;
   tree name = PHI_RESULT (phi);
@@ -900,12 +892,18 @@ determine_biv_step (tree phi)
 static bool
 find_bivs (struct ivopts_data *data)
 {
-  tree phi, step, type, base;
+  gimple phi;
+  tree step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
+  gimple_stmt_iterator psi;
 
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start (phi_nodes (loop->header)); 
+       !gsi_end_p (psi);
+       gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
+
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
 	continue;
 
@@ -936,13 +934,19 @@ find_bivs (struct ivopts_data *data)
 static void
 mark_bivs (struct ivopts_data *data)
 {
-  tree phi, var;
+  gimple phi;
+  tree var;
   struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
+  gimple_stmt_iterator psi;
 
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start (phi_nodes (loop->header)); 
+       !gsi_end_p (psi);
+       gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
+
       iv = get_iv (data, PHI_RESULT (phi));
       if (!iv)
 	continue;
@@ -967,7 +971,7 @@ mark_bivs (struct ivopts_data *data)
    parameters to IV.  */
 
 static bool
-find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt, affine_iv *iv)
+find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
 {
   tree lhs;
   struct loop *loop = data->current_loop;
@@ -975,14 +979,14 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt, affine_iv *iv)
   iv->base = NULL_TREE;
   iv->step = NULL_TREE;
 
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
-  lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+  lhs = gimple_assign_lhs (stmt);
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, GIMPLE_STMT_OPERAND (stmt, 1), iv, true))
+  if (!simple_iv (loop, stmt, lhs, iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 
@@ -996,14 +1000,14 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt, affine_iv *iv)
 /* Finds general ivs in statement STMT.  */
 
 static void
-find_givs_in_stmt (struct ivopts_data *data, tree stmt)
+find_givs_in_stmt (struct ivopts_data *data, gimple stmt)
 {
   affine_iv iv;
 
   if (!find_givs_in_stmt_scev (data, stmt, &iv))
     return;
 
-  set_iv (data, GIMPLE_STMT_OPERAND (stmt, 0), iv.base, iv.step);
+  set_iv (data, gimple_assign_lhs (stmt), iv.base, iv.step);
 }
 
 /* Finds general ivs in basic block BB.  */
@@ -1011,10 +1015,10 @@ find_givs_in_stmt (struct ivopts_data *data, tree stmt)
 static void
 find_givs_in_bb (struct ivopts_data *data, basic_block bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator bsi;
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    find_givs_in_stmt (data, bsi_stmt (bsi));
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+    find_givs_in_stmt (data, gsi_stmt (bsi));
 }
 
 /* Finds general ivs.  */
@@ -1073,7 +1077,7 @@ find_induction_variables (struct ivopts_data *data)
 
 static struct iv_use *
 record_use (struct ivopts_data *data, tree *use_p, struct iv *iv,
-	    tree stmt, enum use_type use_type)
+	    gimple stmt, enum use_type use_type)
 {
   struct iv_use *use = XCNEW (struct iv_use);
 
@@ -1130,7 +1134,7 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
 {
   struct iv *iv;
   struct iv *civ;
-  tree stmt;
+  gimple stmt;
   struct iv_use *use;
 
   if (TREE_CODE (op) != SSA_NAME)
@@ -1159,8 +1163,8 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
   *civ = *iv;
 
   stmt = SSA_NAME_DEF_STMT (op);
-  gcc_assert (TREE_CODE (stmt) == PHI_NODE
-	      || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT);
+  gcc_assert (gimple_code (stmt) == GIMPLE_PHI
+	      || gimple_code (stmt) == GIMPLE_ASSIGN);
 
   use = record_use (data, NULL, civ, stmt, USE_NONLINEAR_EXPR);
   iv->use_id = use->id;
@@ -1168,47 +1172,40 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
   return use;
 }
 
-/* Given a condition *COND_P, checks whether it is a compare of an induction
-   variable and an invariant.  If this is the case, CONTROL_VAR is set
-   to location of the iv, BOUND to the location of the invariant,
-   IV_VAR and IV_BOUND are set to the corresponding induction variable
-   descriptions, and true is returned.  If this is not the case,
-   CONTROL_VAR and BOUND are set to the arguments of the condition and
-   false is returned.  */
+/* Given a condition in statement STMT, checks whether it is a compare
+   of an induction variable and an invariant.  If this is the case,
+   CONTROL_VAR is set to location of the iv, BOUND to the location of
+   the invariant, IV_VAR and IV_BOUND are set to the corresponding
+   induction variable descriptions, and true is returned.  If this is not
+   the case, CONTROL_VAR and BOUND are set to the arguments of the
+   condition and false is returned.  */
 
 static bool
-extract_cond_operands (struct ivopts_data *data, tree *cond_p,
+extract_cond_operands (struct ivopts_data *data, gimple stmt,
 		       tree **control_var, tree **bound,
 		       struct iv **iv_var, struct iv **iv_bound)
 {
-  /* The nodes returned when COND has just one operand.  Note that you should
-     not modify anything in BOUND or IV_BOUND because of this.  */
+  /* The objects returned when COND has constant operands.  */
   static struct iv const_iv;
   static tree zero;
-  tree cond = *cond_p;
   tree *op0 = &zero, *op1 = &zero, *tmp_op;
   struct iv *iv0 = &const_iv, *iv1 = &const_iv, *tmp_iv;
   bool ret = false;
 
+  if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      op0 = gimple_cond_lhs_ptr (stmt);
+      op1 = gimple_cond_rhs_ptr (stmt);
+    }
+  else
+    {
+      op0 = gimple_assign_rhs1_ptr (stmt);
+      op1 = gimple_assign_rhs2_ptr (stmt);
+    }
+
   zero = integer_zero_node;
   const_iv.step = integer_zero_node;
 
-  if (TREE_CODE (cond) == SSA_NAME)
-    {
-      op0 = cond_p;
-      iv0 = get_iv (data, cond);
-      ret = (iv0 && !integer_zerop (iv0->step));
-      goto end;
-    }
-
-  if (!COMPARISON_CLASS_P (cond))
-    {
-      op0 = cond_p;
-      goto end;
-    }
-
-  op0 = &TREE_OPERAND (cond, 0);
-  op1 = &TREE_OPERAND (cond, 1);
   if (TREE_CODE (*op0) == SSA_NAME)
     iv0 = get_iv (data, *op0);
   if (TREE_CODE (*op1) == SSA_NAME)
@@ -1240,16 +1237,16 @@ end:
   return ret;
 }
 
-/* Checks whether the condition *COND_P in STMT is interesting
-   and if so, records it.  */
+/* Checks whether the condition in STMT is interesting and if so,
+   records it.  */
 
 static void
-find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
+find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
 {
   tree *var_p, *bound_p;
   struct iv *var_iv, *civ;
 
-  if (!extract_cond_operands (data, cond_p, &var_p, &bound_p, &var_iv, NULL))
+  if (!extract_cond_operands (data, stmt, &var_p, &bound_p, &var_iv, NULL))
     {
       find_interesting_uses_op (data, *var_p);
       find_interesting_uses_op (data, *bound_p);
@@ -1258,10 +1255,8 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
 
   civ = XNEW (struct iv);
   *civ = *var_iv;
-  record_use (data, cond_p, civ, stmt, USE_COMPARE);
+  record_use (data, NULL, civ, stmt, USE_COMPARE);
 }
-
-#endif
 
 /* Returns true if expression EXPR is obviously invariant in LOOP,
    i.e. if all its operands are defined outside of the LOOP.  LOOP
@@ -1299,9 +1294,6 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   return true;
 }
 
-/* FIXME tuples.  */
-#if 0
-
 /* Cumulates the steps of indices into DATA and replaces their values with the
    initial ones.  Returns false when the value of the index cannot be determined.
    Callback for for_each_index.  */
@@ -1309,7 +1301,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
 struct ifs_ivopts_data
 {
   struct ivopts_data *ivopts_data;
-  tree stmt;
+  gimple stmt;
   tree step;
 };
 
@@ -1563,7 +1555,7 @@ may_be_nonaddressable_p (tree expr)
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
-find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
+find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p)
 {
   tree base = *op_p, step = build_int_cst (sizetype, 0);
   struct iv *civ;
@@ -1571,7 +1563,7 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
   /* Do not play with volatile memory references.  A bit too conservative,
      perhaps, but safe.  */
-  if (stmt_ann (stmt)->has_volatile_ops)
+  if (gimple_has_volatile_ops (stmt))
     goto fail;
 
   /* Ignore bitfields for now.  Not really something terribly complicated
@@ -1667,7 +1659,7 @@ fail:
 /* Finds and records invariants used in STMT.  */
 
 static void
-find_invariants_stmt (struct ivopts_data *data, tree stmt)
+find_invariants_stmt (struct ivopts_data *data, gimple stmt)
 {
   ssa_op_iter iter;
   use_operand_p use_p;
@@ -1683,61 +1675,55 @@ find_invariants_stmt (struct ivopts_data *data, tree stmt)
 /* Finds interesting uses of induction variables in the statement STMT.  */
 
 static void
-find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
+find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 {
   struct iv *iv;
-  tree op, lhs, rhs;
+  tree op, *lhs, *rhs;
   ssa_op_iter iter;
   use_operand_p use_p;
+  enum tree_code code;
 
   find_invariants_stmt (data, stmt);
 
-  if (TREE_CODE (stmt) == COND_EXPR)
+  if (gimple_code (stmt) == GIMPLE_COND)
     {
-      find_interesting_uses_cond (data, stmt, &COND_EXPR_COND (stmt));
+      find_interesting_uses_cond (data, stmt);
       return;
     }
 
-  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
     {
-      lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+      lhs = gimple_assign_lhs_ptr (stmt);
+      rhs = gimple_assign_rhs1_ptr (stmt);
 
-      if (TREE_CODE (lhs) == SSA_NAME)
+      if (TREE_CODE (*lhs) == SSA_NAME)
 	{
 	  /* If the statement defines an induction variable, the uses are not
 	     interesting by themselves.  */
 
-	  iv = get_iv (data, lhs);
+	  iv = get_iv (data, *lhs);
 
 	  if (iv && !integer_zerop (iv->step))
 	    return;
 	}
 
-      switch (TREE_CODE_CLASS (TREE_CODE (rhs)))
+      code = gimple_assign_rhs_code (stmt);
+      if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS
+	  && (REFERENCE_CLASS_P (*rhs)
+	      || is_gimple_val (*rhs)))
 	{
-	case tcc_comparison:
-	  find_interesting_uses_cond (data, stmt,
-	      			      &GIMPLE_STMT_OPERAND (stmt, 1));
-	  return;
+	  if (REFERENCE_CLASS_P (*rhs))
+	    find_interesting_uses_address (data, stmt, rhs);
+	  else
+	    find_interesting_uses_op (data, *rhs);
 
-	case tcc_reference:
-	  find_interesting_uses_address (data, stmt,
-					 &GIMPLE_STMT_OPERAND (stmt, 1));
-	  if (REFERENCE_CLASS_P (lhs))
-	    find_interesting_uses_address (data, stmt,
-					   &GIMPLE_STMT_OPERAND (stmt, 0));
+	  if (REFERENCE_CLASS_P (*lhs))
+	    find_interesting_uses_address (data, stmt, lhs);
 	  return;
-
-	default: ;
 	}
-
-      if (REFERENCE_CLASS_P (lhs)
-	  && is_gimple_val (rhs))
+      else if (TREE_CODE_CLASS (code) == tcc_comparison)
 	{
-	  find_interesting_uses_address (data, stmt,
-					 &GIMPLE_STMT_OPERAND (stmt, 0));
-	  find_interesting_uses_op (data, rhs);
+	  find_interesting_uses_cond (data, stmt);
 	  return;
 	}
 
@@ -1750,11 +1736,10 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 	 call (memory).  */
     }
 
-  if (TREE_CODE (stmt) == PHI_NODE
+  if (gimple_code (stmt) == GIMPLE_PHI
       && gimple_bb (stmt) == data->current_loop->header)
     {
-      lhs = PHI_RESULT (stmt);
-      iv = get_iv (data, lhs);
+      iv = get_iv (data, PHI_RESULT (stmt));
 
       if (iv && !integer_zerop (iv->step))
 	return;
@@ -1781,10 +1766,15 @@ find_interesting_uses_stmt (struct ivopts_data *data, tree stmt)
 static void
 find_interesting_uses_outside (struct ivopts_data *data, edge exit)
 {
-  tree phi, def;
+  gimple phi;
+  gimple_stmt_iterator psi;
+  tree def;
 
-  for (phi = phi_nodes (exit->dest); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start (phi_nodes (exit->dest)); 
+       !gsi_end_p (psi);
+       gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
       def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       if (is_gimple_reg (def))
 	find_interesting_uses_op (data, def);
@@ -1797,8 +1787,7 @@ static void
 find_interesting_uses (struct ivopts_data *data)
 {
   basic_block bb;
-  block_stmt_iterator bsi;
-  tree phi;
+  gimple_stmt_iterator bsi;
   basic_block *body = get_loop_body (data->current_loop);
   unsigned i;
   struct version_info *info;
@@ -1817,10 +1806,10 @@ find_interesting_uses (struct ivopts_data *data)
 	    && !flow_bb_inside_loop_p (data->current_loop, e->dest))
 	  find_interesting_uses_outside (data, e);
 
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	find_interesting_uses_stmt (data, phi);
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	find_interesting_uses_stmt (data, bsi_stmt (bsi));
+      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+	find_interesting_uses_stmt (data, gsi_stmt (bsi));
+      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+	find_interesting_uses_stmt (data, gsi_stmt (bsi));
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2043,7 +2032,7 @@ find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
 static struct iv_cand *
 add_candidate_1 (struct ivopts_data *data,
 		 tree base, tree step, bool important, enum iv_position pos,
-		 struct iv_use *use, tree incremented_at)
+		 struct iv_use *use, gimple incremented_at)
 {
   unsigned i;
   struct iv_cand *cand = NULL;
@@ -2165,10 +2154,10 @@ add_candidate (struct ivopts_data *data,
 	       tree base, tree step, bool important, struct iv_use *use)
 {
   if (ip_normal_pos (data->current_loop))
-    add_candidate_1 (data, base, step, important, IP_NORMAL, use, NULL_TREE);
+    add_candidate_1 (data, base, step, important, IP_NORMAL, use, NULL);
   if (ip_end_pos (data->current_loop)
       && allow_ip_end_pos_p (data->current_loop))
-    add_candidate_1 (data, base, step, important, IP_END, use, NULL_TREE);
+    add_candidate_1 (data, base, step, important, IP_END, use, NULL);
 }
 
 /* Add a standard "0 + 1 * iteration" iv candidate for a
@@ -2201,7 +2190,8 @@ add_standard_iv_candidates (struct ivopts_data *data)
 static void
 add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
 {
-  tree phi, def;
+  gimple phi;
+  tree def;
   struct iv_cand *cand;
 
   add_candidate (data, iv->base, iv->step, true, NULL);
@@ -2212,7 +2202,7 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
 		 iv->step, true, NULL);
 
   phi = SSA_NAME_DEF_STMT (iv->ssa_name);
-  if (TREE_CODE (phi) == PHI_NODE)
+  if (gimple_code (phi) == GIMPLE_PHI)
     {
       /* Additionally record the possibility of leaving the original iv
 	 untouched.  */
@@ -2647,15 +2637,13 @@ computation_cost (tree expr)
 /* Returns variable containing the value of candidate CAND at statement AT.  */
 
 static tree
-var_at_stmt (struct loop *loop, struct iv_cand *cand, tree stmt)
+var_at_stmt (struct loop *loop, struct iv_cand *cand, gimple stmt)
 {
   if (stmt_after_increment (loop, cand, stmt))
     return cand->var_after;
   else
     return cand->var_before;
 }
-
-#endif
 
 /* Return the most significant (sign) bit of T.  Similar to tree_int_cst_msb,
    but the bit is determined from TYPE_PRECISION, not MODE_BITSIZE.  */
@@ -2677,8 +2665,6 @@ tree_int_cst_sign_bit (const_tree t)
   return (w >> bitno) & 1;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* If A is (TYPE) BA and B is (TYPE) BB, and the types of BA and BB have the
    same precision that is at least as wide as the precision of TYPE, stores
    BA to A and BB to B, and returns the type of BA.  Otherwise, returns the
@@ -2723,7 +2709,7 @@ determine_common_wider_type (tree *a, tree *b)
 
 static bool
 get_computation_aff (struct loop *loop,
-		     struct iv_use *use, struct iv_cand *cand, tree at,
+		     struct iv_use *use, struct iv_cand *cand, gimple at,
 		     struct affine_tree_combination *aff)
 {
   tree ubase = use->iv->base;
@@ -2798,7 +2784,7 @@ get_computation_aff (struct loop *loop,
 
 static tree
 get_computation_at (struct loop *loop,
-		    struct iv_use *use, struct iv_cand *cand, tree at)
+		    struct iv_use *use, struct iv_cand *cand, gimple at)
 {
   aff_tree aff;
   tree type = TREE_TYPE (use->iv->base);
@@ -3468,7 +3454,7 @@ difference_cost (struct ivopts_data *data,
 static comp_cost
 get_computation_cost_at (struct ivopts_data *data,
 			 struct iv_use *use, struct iv_cand *cand,
-			 bool address_p, bitmap *depends_on, tree at)
+			 bool address_p, bitmap *depends_on, gimple at)
 {
   tree ubase = use->iv->base, ustep = use->iv->step;
   tree cbase, cstep;
@@ -3682,7 +3668,7 @@ determine_use_iv_cost_address (struct ivopts_data *data,
    stores it to VAL.  */
 
 static void
-cand_value_at (struct loop *loop, struct iv_cand *cand, tree at, tree niter,
+cand_value_at (struct loop *loop, struct iv_cand *cand, gimple at, tree niter,
 	       aff_tree *val)
 {
   aff_tree step, delta, nit;
@@ -3761,9 +3747,8 @@ may_eliminate_iv (struct ivopts_data *data,
      for other conditions inside loop body.  */
   ex_bb = gimple_bb (use->stmt);
   if (use->stmt != last_stmt (ex_bb)
-      || TREE_CODE (use->stmt) != COND_EXPR)
-    return false;
-  if (!dominated_by_p (CDI_DOMINATORS, loop->latch, ex_bb))
+      || gimple_code (use->stmt) != GIMPLE_COND
+      || !dominated_by_p (CDI_DOMINATORS, loop->latch, ex_bb))
     return false;
 
   exit = EDGE_SUCC (ex_bb, 0);
@@ -3828,7 +3813,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 
   /* Try expressing the original giv.  If it is compared with an invariant,
      note that we cannot get rid of it.  */
-  ok = extract_cond_operands (data, use->op_p, NULL, NULL, NULL, &cmp_iv);
+  ok = extract_cond_operands (data, use->stmt, NULL, NULL, NULL, &cmp_iv);
   gcc_assert (ok);
 
   express_cost = get_computation_cost (data, use, cand, false,
@@ -4044,7 +4029,9 @@ static void
 determine_set_costs (struct ivopts_data *data)
 {
   unsigned j, n;
-  tree phi, op;
+  gimple phi;
+  gimple_stmt_iterator psi;
+  tree op;
   struct loop *loop = data->current_loop;
   bitmap_iterator bi;
 
@@ -4077,8 +4064,11 @@ determine_set_costs (struct ivopts_data *data)
     }
 
   n = 0;
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start (phi_nodes (loop->header));
+       !gsi_end_p (psi);
+       gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
       op = PHI_RESULT (phi);
 
       if (!is_gimple_reg (op))
@@ -4919,7 +4909,7 @@ find_optimal_iv_set (struct ivopts_data *data)
 static void
 create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
 {
-  block_stmt_iterator incr_pos;
+  gimple_stmt_iterator incr_pos;
   tree base;
   bool after = false;
 
@@ -4929,11 +4919,11 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
   switch (cand->pos)
     {
     case IP_NORMAL:
-      incr_pos = bsi_last (ip_normal_pos (data->current_loop));
+      incr_pos = gsi_last_bb (ip_normal_pos (data->current_loop));
       break;
 
     case IP_END:
-      incr_pos = bsi_last (ip_end_pos (data->current_loop));
+      incr_pos = gsi_last_bb (ip_end_pos (data->current_loop));
       after = true;
       break;
 
@@ -4978,17 +4968,15 @@ create_new_ivs (struct ivopts_data *data, struct iv_ca *set)
    is true, remove also the ssa name defined by the statement.  */
 
 static void
-remove_statement (tree stmt, bool including_defined_name)
+remove_statement (gimple stmt, bool including_defined_name)
 {
-  if (TREE_CODE (stmt) == PHI_NODE)
-    {
-      remove_phi_node (stmt, NULL_TREE, including_defined_name);
-    }
+  gimple_stmt_iterator bsi = gsi_for_stmt (stmt);
+
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    remove_phi_node (&bsi, including_defined_name);
   else
     {
-      block_stmt_iterator bsi = bsi_for_stmt (stmt);
-
-      bsi_remove (&bsi, true);
+      gsi_remove (&bsi, true);
       release_defs (stmt); 
     }
 }
@@ -5001,8 +4989,9 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 			    struct iv_use *use, struct iv_cand *cand)
 {
   tree comp;
-  tree op, tgt, ass;
-  block_stmt_iterator bsi;
+  tree op, tgt;
+  gimple ass;
+  gimple_stmt_iterator bsi;
 
   /* An important special case -- if we are asked to express value of
      the original iv by itself, just exit; there is no need to
@@ -5012,10 +5001,10 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       && cand->incremented_at == use->stmt)
     {
       tree step, ctype, utype;
-      enum tree_code incr_code = PLUS_EXPR;
+      enum tree_code incr_code = PLUS_EXPR, old_code;
 
-      gcc_assert (TREE_CODE (use->stmt) == GIMPLE_MODIFY_STMT);
-      gcc_assert (GIMPLE_STMT_OPERAND (use->stmt, 0) == cand->var_after);
+      gcc_assert (gimple_code (use->stmt) == GIMPLE_ASSIGN);
+      gcc_assert (gimple_assign_lhs (use->stmt) == cand->var_after);
 
       step = cand->iv->step;
       ctype = TREE_TYPE (step);
@@ -5031,16 +5020,16 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	 computations in the loop -- otherwise, the computation
 	 we rely upon may be removed in remove_unused_ivs,
 	 thus leading to ICE.  */
-      op = GIMPLE_STMT_OPERAND (use->stmt, 1);
-      if (TREE_CODE (op) == PLUS_EXPR
-	  || TREE_CODE (op) == MINUS_EXPR
-	  || TREE_CODE (op) == POINTER_PLUS_EXPR)
+      old_code = gimple_assign_rhs_code (use->stmt);
+      if (old_code == PLUS_EXPR
+	  || old_code == MINUS_EXPR
+	  || old_code == POINTER_PLUS_EXPR)
 	{
-	  if (TREE_OPERAND (op, 0) == cand->var_before)
-	    op = TREE_OPERAND (op, 1);
-	  else if (TREE_CODE (op) != MINUS_EXPR
-		   && TREE_OPERAND (op, 1) == cand->var_before)
-	    op = TREE_OPERAND (op, 0);
+	  if (gimple_assign_rhs1 (use->stmt) == cand->var_before)
+	    op = gimple_assign_rhs2 (use->stmt);
+	  else if (old_code != MINUS_EXPR
+		   && gimple_assign_rhs2 (use->stmt) == cand->var_before)
+	    op = gimple_assign_rhs1 (use->stmt);
 	  else
 	    op = NULL_TREE;
 	}
@@ -5065,39 +5054,39 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       gcc_assert (comp != NULL_TREE);
     }
 
-  switch (TREE_CODE (use->stmt))
+  switch (gimple_code (use->stmt))
     {
-    case PHI_NODE:
+    case GIMPLE_PHI:
       tgt = PHI_RESULT (use->stmt);
 
       /* If we should keep the biv, do not replace it.  */
       if (name_info (data, tgt)->preserve_biv)
 	return;
 
-      bsi = bsi_after_labels (gimple_bb (use->stmt));
+      bsi = gsi_after_labels (gimple_bb (use->stmt));
       break;
 
-    case GIMPLE_MODIFY_STMT:
-      tgt = GIMPLE_STMT_OPERAND (use->stmt, 0);
-      bsi = bsi_for_stmt (use->stmt);
+    case GIMPLE_ASSIGN:
+      tgt = gimple_assign_lhs (use->stmt);
+      bsi = gsi_for_stmt (use->stmt);
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  op = force_gimple_operand_bsi (&bsi, comp, false, SSA_NAME_VAR (tgt),
-				 true, BSI_SAME_STMT);
+  op = force_gimple_operand_gsi (&bsi, comp, false, SSA_NAME_VAR (tgt),
+				 true, GSI_SAME_STMT);
 
-  if (TREE_CODE (use->stmt) == PHI_NODE)
+  if (gimple_code (use->stmt) == GIMPLE_PHI)
     {
-      ass = build_gimple_modify_stmt (tgt, op);
-      bsi_insert_before (&bsi, ass, BSI_SAME_STMT);
+      ass = gimple_build_assign (tgt, op);
+      gsi_insert_before (&bsi, ass, GSI_SAME_STMT);
       remove_statement (use->stmt, false);
       SSA_NAME_DEF_STMT (tgt) = ass;
     }
   else
-    GIMPLE_STMT_OPERAND (use->stmt, 1) = op;
+    gimple_assign_set_rhs_from_tree (use->stmt, op);
 }
 
 /* Replaces ssa name in index IDX by its basic variable.  Callback for
@@ -5219,7 +5208,7 @@ rewrite_use_address (struct ivopts_data *data,
 		     struct iv_use *use, struct iv_cand *cand)
 {
   aff_tree aff;
-  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
+  gimple_stmt_iterator bsi = gsi_for_stmt (use->stmt);
   tree ref;
   bool ok;
 
@@ -5240,7 +5229,7 @@ rewrite_use_compare (struct ivopts_data *data,
 		     struct iv_use *use, struct iv_cand *cand)
 {
   tree comp, *var_p, op, bound;
-  block_stmt_iterator bsi = bsi_for_stmt (use->stmt);
+  gimple_stmt_iterator bsi = gsi_for_stmt (use->stmt);
   enum tree_code compare;
   struct cost_pair *cp = get_use_iv_cost (data, use, cand);
   bool ok;
@@ -5253,10 +5242,12 @@ rewrite_use_compare (struct ivopts_data *data,
 
       compare = iv_elimination_compare (data, use);
       bound = unshare_expr (fold_convert (var_type, bound));
-      op = force_gimple_operand_bsi (&bsi, bound, true, NULL_TREE,
-				     true, BSI_SAME_STMT);
+      op = force_gimple_operand_gsi (&bsi, bound, true, NULL_TREE,
+				     true, GSI_SAME_STMT);
 
-      *use->op_p = build2 (compare, boolean_type_node, var, op);
+      gimple_cond_set_lhs (use->stmt, var);
+      gimple_cond_set_code (use->stmt, compare);
+      gimple_cond_set_rhs (use->stmt, op);
       return;
     }
 
@@ -5265,11 +5256,11 @@ rewrite_use_compare (struct ivopts_data *data,
   comp = get_computation (data->current_loop, use, cand);
   gcc_assert (comp != NULL_TREE);
 
-  ok = extract_cond_operands (data, use->op_p, &var_p, NULL, NULL, NULL);
+  ok = extract_cond_operands (data, use->stmt, &var_p, NULL, NULL, NULL);
   gcc_assert (ok);
 
-  *var_p = force_gimple_operand_bsi (&bsi, comp, true, SSA_NAME_VAR (*var_p),
-				     true, BSI_SAME_STMT);
+  *var_p = force_gimple_operand_gsi (&bsi, comp, true, SSA_NAME_VAR (*var_p),
+				     true, GSI_SAME_STMT);
 }
 
 /* Rewrites USE using candidate CAND.  */
@@ -5449,7 +5440,7 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
 	{
 	  fprintf (dump_file, "  single exit %d -> %d, exit condition ",
 		   exit->src->index, exit->dest->index);
-	  print_generic_expr (dump_file, last_stmt (exit->src), TDF_SLIM);
+	  print_gimple_stmt (dump_file, last_stmt (exit->src), 0, TDF_SLIM);
 	  fprintf (dump_file, "\n");
 	}
 
@@ -5523,4 +5514,3 @@ tree_ssa_iv_optimize (void)
 
   tree_ssa_iv_optimize_finalize (&data);
 }
-#endif

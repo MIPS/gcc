@@ -1,3 +1,15 @@
+2008-03-16  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-ssa-loop-ivopts.c: Tuplify.
+	* gimple-dummy.c (multiplier_allowed_in_address_p, multiply_by_cost,
+	tree_ssa_iv_optimize): Removed.
+	* tree-ssa-phiopt.c (empty_block_p): Tuplify.
+	* gimple.h (gimple_cond_lhs_ptr, gimple_cond_rhs_ptr): New.
+	* passes.c (init_optimization_passes): Enable pass_iv_optimize.
+
+	* gimplify.c (gimplify_omp_workshare, gimplify_expr): Avoid using
+	uninitialized sequence.
+
 2008-03-13  Bill Maddox  <maddox@google.com>
 
 	* tree.h (fold_call_stmt, gimple_fold_builtin_snprintf_chk):

@@ -5542,7 +5542,7 @@ static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 {
   tree stmt = *expr_p;
-  gimple_seq body;
+  gimple_seq body = NULL;
 
   gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
 
@@ -6246,7 +6246,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OMP_ORDERED:
 	case OMP_CRITICAL:
 	  {
-	    gimple_seq body;
+	    gimple_seq body = NULL;
 	    gimple g;
 
 	    gimplify_and_add (OMP_BODY (*expr_p), &body);

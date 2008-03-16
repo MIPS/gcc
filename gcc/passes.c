@@ -695,9 +695,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_parallelize_loops);
 #endif
 	  NEXT_PASS (pass_loop_prefetch);
-#if 0
 	  NEXT_PASS (pass_iv_optimize);
-#endif
 	  NEXT_PASS (pass_tree_loop_done);
 	}
 #if 0

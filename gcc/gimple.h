@@ -1418,6 +1418,15 @@ gimple_cond_lhs (const_gimple gs)
   return gimple_op (gs, 0);
 }
 
+/* Return the pointer to the LHS of the predicate computed by conditional
+   statement GS.  */
+
+static inline tree *
+gimple_cond_lhs_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gimple_op_ptr (gs, 0);
+}
 
 /* Set LHS to be the LHS operand of the predicate computed by
    conditional statement GS.  */
@@ -1438,6 +1447,16 @@ gimple_cond_rhs (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
   return gimple_op (gs, 1);
+}
+
+/* Return the pointer to the RHS operand of the predicate computed by
+   conditional GS.  */
+
+static inline tree *
+gimple_cond_rhs_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_COND);
+  return gimple_op_ptr (gs, 1);
 }
 
 
