@@ -952,7 +952,6 @@ static_execute (void)
     unsigned int index;
     bitmap_iterator bi;
     bitmap module_statics_readonly = BITMAP_ALLOC (&ipa_obstack);
-    bitmap module_statics_const = BITMAP_ALLOC (&ipa_obstack);
     bitmap bm_temp = BITMAP_ALLOC (&ipa_obstack);
 
     EXECUTE_IF_SET_IN_BITMAP (module_statics_escape, 0, index, bi)
@@ -1002,14 +1001,6 @@ static_execute (void)
 	      fprintf (dump_file, "read-only var %s\n", 
 		       get_static_name (index));
 	  }
-	if (DECL_INITIAL (var)
-	    && is_gimple_min_invariant (DECL_INITIAL (var)))
-	  {
- 	    bitmap_set_bit (module_statics_const, index);
-	    if (dump_file)
-	      fprintf (dump_file, "read-only constant %s\n",
-		       get_static_name (index));
-	  }
       }
 
     BITMAP_FREE(module_statics_escape);
@@ -1039,7 +1030,6 @@ static_execute (void)
       }
 
     BITMAP_FREE(module_statics_readonly);
-    BITMAP_FREE(module_statics_const);
     BITMAP_FREE(bm_temp);
   }
 

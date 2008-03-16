@@ -376,15 +376,15 @@ static struct
 } pre_stats;
 
 static bool do_partial_partial;
-static tree bitmap_find_leader (bitmap_set_t, tree);
+static tree bitmap_find_leader (bitmap_set_t, tree, tree);
 static void bitmap_value_insert_into_set (bitmap_set_t, tree);
 static void bitmap_value_replace_in_set (bitmap_set_t, tree);
 static void bitmap_set_copy (bitmap_set_t, bitmap_set_t);
 static bool bitmap_set_contains_value (bitmap_set_t, tree);
 static void bitmap_insert_into_set (bitmap_set_t, tree);
 static bitmap_set_t bitmap_set_new (void);
-static tree create_expression_by_pieces (basic_block, tree, tree);
-static tree find_or_generate_expression (basic_block, tree, tree);
+static tree create_expression_by_pieces (basic_block, tree, tree, tree);
+static tree find_or_generate_expression (basic_block, tree, tree, tree);
 
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
@@ -954,9 +954,9 @@ find_leader_in_sets (tree expr, bitmap_set_t set1, bitmap_set_t set2)
 {
   tree result;
 
-  result = bitmap_find_leader (set1, expr);
+  result = bitmap_find_leader (set1, expr, NULL_TREE);
   if (!result && set2)
-    result = bitmap_find_leader (set2, expr);
+    result = bitmap_find_leader (set2, expr, NULL_TREE);
   return result;
 }
 
@@ -1461,11 +1461,12 @@ phi_translate_set (bitmap_set_t dest, bitmap_set_t set, basic_block pred,
 }
 
 /* Find the leader for a value (i.e., the name representing that
-   value) in a given set, and return it.  Return NULL if no leader is
-   found.  */
+   value) in a given set, and return it.  If STMT is non-NULL it
+   makes sure the defining statement for the leader dominates it.
+   Return NULL if no leader is found.  */
 
 static tree
-bitmap_find_leader (bitmap_set_t set, tree val)
+bitmap_find_leader (bitmap_set_t set, tree val, tree stmt)
 {
   if (val == NULL)
     return NULL;
@@ -1492,7 +1493,18 @@ bitmap_find_leader (bitmap_set_t set, tree val)
 
       EXECUTE_IF_AND_IN_BITMAP (exprset->expressions,
 				set->expressions, 0, i, bi)
-	return expression_for_id (i);
+	{
+	  tree val = expression_for_id (i);
+	  if (stmt)
+	    {
+	      tree def_stmt = SSA_NAME_DEF_STMT (val);
+	      if (TREE_CODE (def_stmt) != PHI_NODE
+		  && bb_for_stmt (def_stmt) == bb_for_stmt (stmt)
+		  && stmt_ann (def_stmt)->uid >= stmt_ann (stmt)->uid)
+		continue;
+	    }
+	  return val;
+	}
     }
   return NULL;
 }
@@ -2203,6 +2215,7 @@ can_PRE_operation (tree op)
     || TREE_CODE (op) == INDIRECT_MEM_REF
     || TREE_CODE (op) == MEM_REF
     || TREE_CODE (op) == COMPONENT_REF
+    || TREE_CODE (op) == VIEW_CONVERT_EXPR
     || TREE_CODE (op) == CALL_EXPR
     || TREE_CODE (op) == ARRAY_REF;
 }
@@ -2232,14 +2245,15 @@ static VEC(tree, heap) *need_creation;
    are doing.
 */
 static tree
-create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
+create_component_ref_by_pieces (basic_block block, tree expr, tree stmts,
+				tree domstmt)
 {
   tree genop = expr;
   tree folded;
 
   if (TREE_CODE (genop) == VALUE_HANDLE)
     {
-      tree found = bitmap_find_leader (AVAIL_OUT (block), expr);
+      tree found = bitmap_find_leader (AVAIL_OUT (block), expr, domstmt);
       if (found)
 	return found;
     }
@@ -2259,16 +2273,18 @@ create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
 	tree op1, op2, op3;
 	op0 = create_component_ref_by_pieces (block,
 					      TREE_OPERAND (genop, 0),
-					      stmts);
+					      stmts, domstmt);
 	op1 = TREE_OPERAND (genop, 1);
 	if (TREE_CODE (op1) == VALUE_HANDLE)
-	  op1 = find_or_generate_expression (block, op1, stmts);
+	  op1 = find_or_generate_expression (block, op1, stmts, domstmt);
 	op2 = TREE_OPERAND (genop, 2);
 	if (op2 && TREE_CODE (op2) == VALUE_HANDLE)
-	  op2 = find_or_generate_expression (block, op2, stmts);
+	  op2 = find_or_generate_expression (block, op2, stmts, domstmt);
 	op3 = TREE_OPERAND (genop, 3);
 	if (op3 && TREE_CODE (op3) == VALUE_HANDLE)
-	  op3 = find_or_generate_expression (block, op3, stmts);
+	  op3 = find_or_generate_expression (block, op3, stmts, domstmt);
+	if (!op0 || !op1)
+	  return NULL_TREE;
 	folded = build4 (ARRAY_REF, TREE_TYPE (genop), op0, op1,
 			      op2, op3);
 	return folded;
@@ -2279,7 +2295,9 @@ create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
 	tree op1;
 	op0 = create_component_ref_by_pieces (block,
 					      TREE_OPERAND (genop, 0),
-					      stmts);
+					      stmts, domstmt);
+	if (!op0)
+	  return NULL_TREE;
 	/* op1 should be a FIELD_DECL, which are represented by
 	   themselves.  */
 	op1 = TREE_OPERAND (genop, 1);
@@ -2291,7 +2309,9 @@ create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
     case INDIRECT_REF:
       {
 	tree op1 = TREE_OPERAND (genop, 0);
-	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	tree genop1 = find_or_generate_expression (block, op1, stmts, domstmt);
+	if (!genop1)
+	  return NULL_TREE;
 
 	folded = fold_build1 (TREE_CODE (genop), TREE_TYPE (genop),
 			      genop1);
@@ -2318,12 +2338,17 @@ create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
    EXPR is the expression to find a leader or generate for.
    STMTS is the statement list to put the inserted expressions on.
    Returns the SSA_NAME of the LHS of the generated expression or the
-   leader.  */
+   leader.
+   DOMSTMT if non-NULL is a statement that should be dominated by
+   all uses in the generated expression.  If DOMSTMT is non-NULL this
+   routine can fail and return NULL_TREE.  Otherwise it will assert
+   on failure.  */
 
 static tree
-find_or_generate_expression (basic_block block, tree expr, tree stmts)
+find_or_generate_expression (basic_block block, tree expr, tree stmts,
+			     tree domstmt)
 {
-  tree genop = bitmap_find_leader (AVAIL_OUT (block), expr);
+  tree genop = bitmap_find_leader (AVAIL_OUT (block), expr, domstmt);
 
   /* If it's still NULL, it must be a complex expression, so generate
      it recursively.  */
@@ -2343,10 +2368,14 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
 	  if (can_PRE_operation (genop))
 	    {
 	      handled = true;
-	      genop = create_expression_by_pieces (block, genop, stmts);
+	      genop = create_expression_by_pieces (block, genop, stmts,
+						   domstmt);
 	      break;
 	    }
 	}
+      if (!handled && domstmt)
+	return NULL_TREE;
+
       gcc_assert (handled);
     }
   return genop;
@@ -2365,10 +2394,15 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
    partially or fully redundant.  Those that are will be either made
    fully redundant during the next iteration of insert (for partially
    redundant ones), or eliminated by eliminate (for fully redundant
-   ones).  */
+   ones).
+
+   If DOMSTMT is non-NULL then we make sure that all uses in the
+   expressions dominate that statement.  In this case the function
+   can return NULL_TREE to signal failure.  */
 
 static tree
-create_expression_by_pieces (basic_block block, tree expr, tree stmts)
+create_expression_by_pieces (basic_block block, tree expr, tree stmts,
+			     tree domstmt)
 {
   tree temp, name;
   tree folded, forced_stmts, newexpr;
@@ -2389,7 +2423,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	fn = CALL_EXPR_FN (expr);
 	sc = CALL_EXPR_STATIC_CHAIN (expr);
 
-	genfn = find_or_generate_expression (block, fn, stmts);
+	genfn = find_or_generate_expression (block, fn, stmts, domstmt);
+	if (!genfn)
+	  return NULL_TREE;
 
 	nargs = call_expr_nargs (expr);
 	buffer = (tree*) alloca (nargs * sizeof (tree));
@@ -2397,13 +2433,20 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	for (i = 0; i < nargs; i++)
 	  {
 	    tree arg = CALL_EXPR_ARG (expr, i);
-	    buffer[i] = find_or_generate_expression (block, arg, stmts);
+	    buffer[i] = find_or_generate_expression (block, arg, stmts,
+						     domstmt);
+	    if (!buffer[i])
+	      return NULL_TREE;
 	  }
 
 	folded = build_call_array (TREE_TYPE (expr), genfn, nargs, buffer);
 	if (sc)
-	  CALL_EXPR_STATIC_CHAIN (folded) =
-	    find_or_generate_expression (block, sc, stmts);
+	  {
+	    CALL_EXPR_STATIC_CHAIN (folded) =
+	      find_or_generate_expression (block, sc, stmts, domstmt);
+	    if (!CALL_EXPR_STATIC_CHAIN (folded))
+	      return NULL_TREE;
+	  }
 	folded = fold (folded);
 	break;
       }
@@ -2413,7 +2456,10 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	if (TREE_CODE (expr) == COMPONENT_REF
 	    || TREE_CODE (expr) == ARRAY_REF)
 	  {
-	    folded = create_component_ref_by_pieces (block, expr, stmts);
+	    folded = create_component_ref_by_pieces (block, expr, stmts,
+						     domstmt);
+	    if (!folded)
+	      return NULL_TREE;
 	  }
 	else if (TREE_CODE (expr) == INDIRECT_MEM_REF
 	    	 || TREE_CODE (expr) == MEM_REF)
@@ -2422,10 +2468,11 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	    tree op2 = TREE_OPERAND (expr, 1);
 	    tree genop2, genop1;
 	    if (TREE_CODE (expr) == INDIRECT_MEM_REF)
-	      genop1 = find_or_generate_expression (block, op1, stmts);
+	      genop1 = find_or_generate_expression (block, op1, stmts, domstmt);
 	    else
-	      genop1 = create_component_ref_by_pieces (block, op1, stmts);
-	    genop2 = find_or_generate_expression (block, op2, stmts);
+	      genop1 = create_component_ref_by_pieces (block, op1,
+		  				       stmts, domstmt);
+	    genop2 = find_or_generate_expression (block, op2, stmts, domstmt);
 	    folded = build_gimple_mem_ref (TREE_CODE (expr), TREE_TYPE (expr),
 			      		   genop1, genop2,
 			      		   MEM_REF_ALIAS_SET (expr),
@@ -2434,7 +2481,10 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	else
 	  {
 	    tree op1 = TREE_OPERAND (expr, 0);
-	    tree genop1 = find_or_generate_expression (block, op1, stmts);
+	    tree genop1 = find_or_generate_expression (block, op1, stmts,
+						       domstmt);
+	    if (!genop1)
+	      return NULL_TREE;
 
 	    folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr),
 				  genop1);
@@ -2448,9 +2498,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
 	tree op3 = TREE_OPERAND (expr, 2);
-	tree genop1 = find_or_generate_expression (block, op1, stmts);
-	tree genop2 = find_or_generate_expression (block, op2, stmts);
-	tree genop3 = find_or_generate_expression (block, op3, stmts);
+	tree genop1 = find_or_generate_expression (block, op1, stmts, domstmt);
+	tree genop2 = find_or_generate_expression (block, op2, stmts, domstmt);
+	tree genop3 = find_or_generate_expression (block, op3, stmts, domstmt);
 	folded = fold_build3 (TREE_CODE (expr), TREE_TYPE (expr),
 			      genop1, genop2, genop3);
 	break;
@@ -2461,8 +2511,10 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
-	tree genop1 = find_or_generate_expression (block, op1, stmts);
-	tree genop2 = find_or_generate_expression (block, op2, stmts);
+	tree genop1 = find_or_generate_expression (block, op1, stmts, domstmt);
+	tree genop2 = find_or_generate_expression (block, op2, stmts, domstmt);
+	if (!genop1 || !genop2)
+	  return NULL_TREE;
 	folded = fold_build2 (TREE_CODE (expr), TREE_TYPE (expr),
 			      genop1, genop2);
 	break;
@@ -2471,7 +2523,9 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
     case tcc_unary:
       {
 	tree op1 = TREE_OPERAND (expr, 0);
-	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	tree genop1 = find_or_generate_expression (block, op1, stmts, domstmt);
+	if (!genop1)
+	  return NULL_TREE;
 	folded = fold_build1 (TREE_CODE (expr), TREE_TYPE (expr),
 			      genop1);
 	break;
@@ -2547,7 +2601,8 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   vn_add (name, v);
   VN_INFO_GET (name)->valnum = name;
   get_or_alloc_expression_id (name);
-  bitmap_value_replace_in_set (NEW_SETS (block), name);
+  if (!in_fre)
+    bitmap_value_replace_in_set (NEW_SETS (block), name);
   bitmap_value_replace_in_set (AVAIL_OUT (block), name);
 
   pre_stats.insertions++;
@@ -2623,7 +2678,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 	{
 	  builtexpr = create_expression_by_pieces (bprime,
 						   eprime,
-						   stmts);
+						   stmts, NULL_TREE);
 	  gcc_assert (!(pred->flags & EDGE_ABNORMAL));
 	  bsi_insert_on_edge (pred, stmts);
 	  avail[bprime->index] = builtexpr;
@@ -2785,7 +2840,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 	      vprime = get_value_handle (eprime);
 	      gcc_assert (vprime);
 	      edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
-						 vprime);
+						 vprime, NULL_TREE);
 	      if (edoubleprime == NULL)
 		{
 		  avail[bprime->index] = eprime;
@@ -2914,7 +2969,7 @@ do_partial_partial_insertion (basic_block block, basic_block dom)
 	      vprime = get_value_handle (eprime);
 	      gcc_assert (vprime);
 	      edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
-						 vprime);
+						 vprime, NULL_TREE);
 	      if (edoubleprime == NULL)
 		{
 		  by_all = false;
@@ -3096,10 +3151,14 @@ find_existing_value_expr (tree t, VEC (tree, gc) *vuses)
    replaced with the value handles of each of the operands of EXPR.
 
    VUSES represent the virtual use operands associated with EXPR (if
-   any). Insert EXPR's operands into the EXP_GEN set for BLOCK. */
+   any).  Insert EXPR's operands into the EXP_GEN set for BLOCK.
+
+   If CHECK_AVAIL is true, checks availability of each operand in
+   BLOCKs AVAIL_OUT set.  */
 
 static inline tree
-create_value_expr_from (tree expr, basic_block block, VEC (tree, gc) *vuses)
+create_value_expr_from (tree expr, basic_block block, VEC (tree, gc) *vuses,
+			bool check_avail)
 {
   int i;
   enum tree_code code = TREE_CODE (expr);
@@ -3149,7 +3208,7 @@ create_value_expr_from (tree expr, basic_block block, VEC (tree, gc) *vuses)
       /* Recursively value-numberize reference ops and tree lists.  */
       if (REFERENCE_CLASS_P (op))
 	{
-	  tree tempop = create_value_expr_from (op, block, vuses);
+	  tree tempop = create_value_expr_from (op, block, vuses, check_avail);
 	  op = tempop ? tempop : op;
 	  val = vn_lookup_or_add_with_vuses (op, vuses);
 	  set_expression_vuses (op, vuses);
@@ -3165,6 +3224,11 @@ create_value_expr_from (tree expr, basic_block block, VEC (tree, gc) *vuses)
 	TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
 
       TREE_OPERAND (vexpr, i) = val;
+
+      if (check_avail
+	  && TREE_CODE (val) == VALUE_HANDLE
+	  && !bitmap_set_contains_value (AVAIL_OUT (block), val))
+	return NULL_TREE;
     }
   efi = find_existing_value_expr (vexpr, vuses);
   if (efi)
@@ -3401,12 +3465,13 @@ make_values_for_stmt (tree stmt, basic_block block)
   vuses = copy_vuses_from_stmt (stmt);
   STRIP_USELESS_TYPE_CONVERSION (rhs);
   if (can_value_number_operation (rhs)
-      && (!lhsval || !is_gimple_min_invariant (lhsval)))
+      && (!lhsval || !is_gimple_min_invariant (lhsval))
+      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
     {
       /* For value numberable operation, create a
 	 duplicate expression with the operands replaced
 	 with the value handles of the original RHS.  */
-      tree newt = create_value_expr_from (rhs, block, vuses);
+      tree newt = create_value_expr_from (rhs, block, vuses, false);
       if (newt)
 	{
 	  set_expression_vuses (newt, vuses);
@@ -3610,8 +3675,6 @@ compute_avail (void)
 	  else if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 		   && !ann->has_volatile_ops
 		   && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
-		   && (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-		       (GIMPLE_STMT_OPERAND (stmt, 0)))
 		   && !tree_could_throw_p (stmt))
 	    {
 	      if (make_values_for_stmt (stmt, block))
@@ -3640,6 +3703,36 @@ compute_avail (void)
   free (worklist);
 }
 
+/* Insert the expression for SSA_VN that SCCVN thought would be simpler
+   than the available expressions for it.  The insertion point is
+   right before the first use in STMT.  Returns the SSA_NAME that should
+   be used for replacement.  */
+
+static tree
+do_SCCVN_insertion (tree stmt, tree ssa_vn)
+{
+  basic_block bb = bb_for_stmt (stmt);
+  block_stmt_iterator bsi;
+  tree expr, stmts;
+
+  /* First create a value expression from the expression we want
+     to insert and associate it with the value handle for SSA_VN.  */
+  expr = create_value_expr_from (VN_INFO (ssa_vn)->expr, bb, NULL, true);
+  if (expr == NULL_TREE)
+    return NULL_TREE;
+  set_value_handle (expr, get_value_handle (ssa_vn));
+
+  /* Then use create_expression_by_pieces to generate a valid
+     expression to insert at this point of the IL stream.  */
+  stmts = alloc_stmt_list ();
+  expr = create_expression_by_pieces (bb, expr, stmts, stmt);
+  if (expr == NULL_TREE)
+    return NULL_TREE;
+  bsi = bsi_for_stmt (stmt);
+  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+
+  return expr;
+}
 
 /* Eliminate fully redundant computations.  */
 
@@ -3670,7 +3763,20 @@ eliminate (void)
 	      tree sprime;
 
 	      sprime = bitmap_find_leader (AVAIL_OUT (b),
-					   get_value_handle (lhs));
+					   get_value_handle (lhs), NULL_TREE);
+
+	      /* If there is no existing usable leader but SCCVN thinks
+		 it has an expression it wants to use as replacement,
+		 insert that.  */
+	      if (!sprime
+		  || sprime == lhs)
+		{
+		  tree val = VN_INFO (lhs)->valnum;
+		  if (val != VN_TOP
+		      && VN_INFO (val)->needs_insertion
+		      && can_PRE_operation (VN_INFO (val)->expr))
+		    sprime = do_SCCVN_insertion (stmt, val);
+		}
 
 	      if (sprime
 		  && sprime != lhs
@@ -3967,7 +4073,7 @@ execute_pre (bool do_fre)
     insert_fake_stores ();
 
   /* Collect and value number expressions computed in each basic block.  */
-  if (!run_scc_vn ())
+  if (!run_scc_vn (do_fre))
     {
       if (!do_fre)
 	remove_dead_inserted_code ();
@@ -4015,8 +4121,8 @@ execute_pre (bool do_fre)
     }
   bsi_commit_edge_inserts ();
 
-  free_scc_vn ();
   clear_expression_ids ();
+  free_scc_vn ();
   if (!do_fre)
     {
       remove_dead_inserted_code ();
