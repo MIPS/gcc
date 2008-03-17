@@ -164,6 +164,40 @@ struct gomp_team_state
   unsigned long static_trip;
 };
 
+/* These are the OpenMP 3.0 Internal Control Variables described in
+   section 2.3.1.  Those described as having one copy per task are
+   stored within the structure; those described as having one copy
+   for the whole program are (naturally) global variables.  */
+
+struct gomp_task_icv
+{
+  unsigned long nthreads_var;
+  enum gomp_schedule_type run_sched_var;
+  int run_sched_modifier;
+  bool dyn_var;
+  bool nest_var;
+};
+
+extern struct gomp_task_icv gomp_global_icv;
+extern unsigned long gomp_thread_limit_var;
+extern unsigned long gomp_remaining_threads_count;
+#ifndef HAVE_SYNC_BUILTINS
+extern gomp_mutex_t gomp_remaining_threads_lock;
+#endif
+extern unsigned long gomp_max_active_levels_var;
+extern bool gomp_active_wait_policy;
+extern unsigned long long gomp_spin_count_var;
+
+/* This structure describes a "task" to be run by a thread.  At present
+   we implement only synchronous tasks, i.e. no tasks are deferred or
+   untied.  As such, all we need is the state of the ICVs.  */
+
+struct gomp_task
+{
+  struct gomp_task *prev;
+  struct gomp_task_icv icv;
+};
+
 /* This structure describes a "team" of threads.  These are the threads
    that are spawned by a PARALLEL constructs, as well as the work sharing
    constructs that the team encounters.  */
@@ -200,46 +234,17 @@ struct gomp_team
      parallels, as the master is a member of two teams.  */
   gomp_sem_t master_release;
 
+  /* This points to an array with pointers to the release semaphore
+     of the threads in the team.  */
+  gomp_sem_t **ordered_release;
+
+  struct gomp_work_share *init_work_shares[4];
+
   /* This barrier is used for most synchronization of the team.  */
   gomp_barrier_t barrier;
 
-  /* This array contains pointers to the release semaphore of the threads
-     in the team.  */
-  gomp_sem_t *ordered_release[];
-};
-
-/* These are the OpenMP 3.0 Internal Control Variables described in
-   section 2.3.1.  Those described as having one copy per task are
-   stored within the structure; those described as having one copy
-   for the whole program are (naturally) global variables.  */
-
-struct gomp_task_icv
-{
-  unsigned long nthreads_var;
-  enum gomp_schedule_type run_sched_var;
-  int run_sched_modifier;
-  bool dyn_var;
-  bool nest_var;
-};
-
-extern struct gomp_task_icv gomp_global_icv;
-extern unsigned long gomp_thread_limit_var;
-extern unsigned long gomp_remaining_threads_count;
-#ifndef HAVE_SYNC_BUILTINS
-extern gomp_mutex_t gomp_remaining_threads_lock;
-#endif
-extern unsigned long gomp_max_active_levels_var;
-extern bool gomp_active_wait_policy;
-extern unsigned long long gomp_spin_count_var;
-
-/* This structure describes a "task" to be run by a thread.  At present
-   we implement only synchronous tasks, i.e. no tasks are deferred or
-   untied.  As such, all we need is the state of the ICVs.  */
-
-struct gomp_task
-{
-  struct gomp_task *prev;
-  struct gomp_task_icv icv;
+  /* This array contains structures for implicit tasks.  */
+  struct gomp_task implicit_task[];
 };
 
 /* This structure contains all data that is private to libgomp and is
@@ -352,8 +357,8 @@ extern unsigned gomp_dynamic_max_threads (void);
 
 /* task.c */
 
-extern struct gomp_task *gomp_new_task (struct gomp_task *,
-					struct gomp_task_icv *);
+extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
+			    struct gomp_task_icv *);
 extern void gomp_end_task (void);
 
 /* team.c */

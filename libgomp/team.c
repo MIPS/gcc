@@ -144,20 +144,22 @@ new_team (unsigned nthreads, struct gomp_work_share *work_share)
   struct gomp_team *team;
   size_t size;
 
-  size = sizeof (*team) + nthreads * sizeof (team->ordered_release[0]);
+  size = sizeof (*team) + nthreads * (sizeof (team->ordered_release[0])
+				      + sizeof (team->implicit_task[0]));
   team = gomp_malloc (size);
   gomp_mutex_init (&team->work_share_lock);
 
-  team->work_shares = gomp_malloc (4 * sizeof (struct gomp_work_share *));
+  team->work_shares = team->init_work_shares;
   team->generation_mask = 3;
   team->oldest_live_gen = work_share == NULL;
   team->num_live_gen = work_share != NULL;
-  team->work_shares[0] = work_share;
+  team->init_work_shares[0] = work_share;
 
   team->nthreads = nthreads;
   gomp_barrier_init (&team->barrier, nthreads);
 
   gomp_sem_init (&team->master_release, 0);
+  team->ordered_release = (void *) &team->implicit_task[nthreads];
   team->ordered_release[0] = &team->master_release;
 
   return team;
@@ -169,7 +171,8 @@ new_team (unsigned nthreads, struct gomp_work_share *work_share)
 static void
 free_team (struct gomp_team *team)
 {
-  free (team->work_shares);
+  if (__builtin_expect (team->work_shares != team->init_work_shares, 0))
+    free (team->work_shares);
   gomp_mutex_destroy (&team->work_share_lock);
   gomp_barrier_destroy (&team->barrier);
   gomp_sem_destroy (&team->master_release);
@@ -212,7 +215,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
     ++thr->ts.active_level;
   thr->ts.work_share_generation = 0;
   thr->ts.static_trip = 0;
-  thr->task = gomp_new_task (task, icv);
+  thr->task = &team->implicit_task[0];
+  gomp_init_task (thr->task, task, icv);
 
   if (nthreads == 1)
     return;
@@ -260,7 +264,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	  nthr->ts.active_level = thr->ts.active_level;
 	  nthr->ts.work_share_generation = 0;
 	  nthr->ts.static_trip = 0;
-	  nthr->task = gomp_new_task (task, icv);
+	  nthr->task = &team->implicit_task[i];
+	  gomp_init_task (nthr->task, task, icv);
 	  nthr->fn = fn;
 	  nthr->data = data;
 	  team->ordered_release[i] = &nthr->release;
@@ -311,7 +316,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->ts.active_level = thr->ts.active_level;
       start_data->ts.work_share_generation = 0;
       start_data->ts.static_trip = 0;
-      start_data->task = gomp_new_task (task, icv);
+      start_data->task = &team->implicit_task[i];
+      gomp_init_task (start_data->task, task, icv);
       start_data->nested = nested;
 
       if (gomp_cpu_affinity != NULL)

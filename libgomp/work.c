@@ -109,9 +109,17 @@ gomp_work_share_start (bool ordered)
   /* Resize the work shares queue if we've run out of space.  */
   if (team->num_live_gen++ == team->generation_mask)
     {
-      team->work_shares = gomp_realloc (team->work_shares,
-					2 * team->num_live_gen
-					* sizeof (*team->work_shares));
+      if (team->work_shares == team->init_work_shares)
+	{
+	  team->work_shares = gomp_malloc (2 * team->num_live_gen
+					   * sizeof (*team->work_shares));
+	  memcpy (team->work_shares, team->init_work_shares,
+		  sizeof (team->init_work_shares));
+	}
+      else
+	team->work_shares = gomp_realloc (team->work_shares,
+					  2 * team->num_live_gen
+					  * sizeof (*team->work_shares));
 
       /* Unless oldest_live_gen is zero, the sequence of live elements
 	 wraps around the end of the array.  If we do nothing, we break

@@ -34,14 +34,12 @@
 
 /* Create a new task data structure.  */
 
-struct gomp_task *
-gomp_new_task (struct gomp_task *prev_task, struct gomp_task_icv *prev_icv)
+void
+gomp_init_task (struct gomp_task *task, struct gomp_task *prev_task,
+		struct gomp_task_icv *prev_icv)
 {
-  struct gomp_task *task = gomp_malloc (sizeof (struct gomp_task));
   task->prev = prev_task;
   task->icv = *prev_icv;
-
-  return task;
 }
 
 /* Clean up and free a task, after completing it.  */
@@ -53,7 +51,6 @@ gomp_end_task (void)
   struct gomp_task *task = thr->task;
 
   thr->task = task->prev;
-  free (task);
 }
 
 /* Called when encountering an explicit task directive.  If IF_CLAUSE is
@@ -66,7 +63,9 @@ GOMP_task (void (*fn) (void *), void *data,
 	   unsigned flags __attribute__((unused)))
 {
   struct gomp_thread *thr = gomp_thread ();
-  thr->task = gomp_new_task (thr->task, gomp_icv ());
+  struct gomp_task task;
+  gomp_init_task (&task, thr->task, gomp_icv ());
+  thr->task = &task;
 
   /* We only implement synchronous tasks at the moment, which means that
      we cannot defer or untie the task.  Which means we execute it now.  */

@@ -1,3 +1,23 @@
+2008-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_team): Change ordered_release field
+	into gomp_sem_t ** from flexible array member.  Add implicit_task
+	and initial_work_shares fields.
+	(gomp_new_task): Removed.
+	(gomp_init_task): New prototype.
+	* team.c (new_team): Allocate implicit_task for each thread
+	and initial work_shares together with gomp_team allocation.
+	(free_team): Only free work_shares if it is not init_work_shares.
+	(gomp_team_start): Use gomp_init_task instead of gomp_new_task,
+	set thr->task to the corresponding implicit_task array entry.
+	* task.c (gomp_new_task): Removed.
+	(gomp_init_task): New function.
+	(gomp_end_task): Don't free the task.
+	(GOMP_task): Allocate struct gomp_task on the stack, call
+	gomp_init_task rather than gomp_new_task.
+	* work.c (gomp_work_share_start): If work_shares ==
+	init_work_shares, gomp_malloc + memcpy rather than gomp_realloc.
+
 2008-03-15  Jakub Jelinek  <jakub@redhat.com>
 	    Ulrich Drepper  <drepper@redhat.com>
 
