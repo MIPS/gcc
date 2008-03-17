@@ -513,7 +513,7 @@ gsi_for_stmt (gimple stmt)
   basic_block bb = gimple_bb (stmt);
 
   if (gimple_code (stmt) == GIMPLE_PHI)
-    i = gsi_start (phi_nodes (bb));
+    i = gsi_start_phis (bb);
   else
     i = gsi_start_bb (bb);
 
@@ -753,4 +753,12 @@ gsi_commit_one_edge_insert (edge e, basic_block *new_bb)
       else
 	gsi_insert_seq_before (&gsi, seq, GSI_NEW_STMT);
     }
+}
+
+/* Returns iterator at the start of the list of phi nodes of BB.  */
+
+gimple_stmt_iterator
+gsi_start_phis (basic_block bb)
+{
+  return gsi_start (phi_nodes (bb));
 }

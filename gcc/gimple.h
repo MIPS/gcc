@@ -3036,6 +3036,7 @@ enum gsi_iterator_update
 };
 
 /* In gimple-iterator.c  */
+gimple_stmt_iterator gsi_start_phis (basic_block);
 gimple_seq gsi_split_seq_after (gimple_stmt_iterator);
 gimple_seq gsi_split_seq_before (gimple_stmt_iterator *);
 void gsi_replace (gimple_stmt_iterator *, gimple, bool);

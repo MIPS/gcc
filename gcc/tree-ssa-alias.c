@@ -3408,7 +3408,7 @@ dump_points_to_info (FILE *file ATTRIBUTE_UNUSED)
   /* Dump points-to information for every pointer defined in the program.  */
   FOR_EACH_BB (bb)
     {
-      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
+      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	{
 	  gimple phi = gsi_stmt (si);
 	  tree ptr = PHI_RESULT (phi);
@@ -4063,7 +4063,7 @@ create_structure_vars (void)
       gimple_stmt_iterator gsi;
       gimple phi;
       
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  use_operand_p use;
 	  ssa_op_iter iter;

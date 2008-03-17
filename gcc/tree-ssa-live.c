@@ -597,7 +597,7 @@ remove_unused_locals (void)
 	for (i = 0; i < gimple_num_ops (gsi_stmt (gsi)); i++)
 	  mark_all_vars_used (gimple_op_ptr (gsi_stmt (gsi), i), NULL);
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {
           use_operand_p arg_p;
           ssa_op_iter i;
@@ -904,7 +904,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
       size_t i;
 
       /* Mark the PHI arguments which are live on exit to the pred block.  */
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
@@ -1141,7 +1141,7 @@ verify_live_on_entry (tree_live_info_p live)
 		size_t z;
 		bool ok = false;
 		gimple_stmt_iterator gsi;
-		for (gsi = gsi_start (phi_nodes (e->dest));
+		for (gsi = gsi_start_phis (e->dest);
 		     !gsi_end_p (gsi) && !ok;
 		     gsi_next (&gsi))
 		  {

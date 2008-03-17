@@ -191,7 +191,7 @@ init_dont_simulate_again (void)
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
 	  prop_set_simulate_again (phi,
@@ -702,7 +702,7 @@ update_phi_components (basic_block bb)
 {
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
 

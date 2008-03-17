@@ -318,7 +318,7 @@ eliminate_build (elim_graph g, basic_block B)
 
   clear_elim_graph (g);
   
-  for (gsi = gsi_start (phi_nodes (B)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (B); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
 
@@ -617,7 +617,7 @@ eliminate_virtual_phis (void)
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); )
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
         {
 	  gimple phi = gsi_stmt (gsi);
 	  if (!is_gimple_reg (SSA_NAME_VAR (gimple_phi_result (phi))))
@@ -671,7 +671,7 @@ rewrite_trees (var_map map, tree *values)
      create incorrect code.  */
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree T0 = var_to_partition_to_var (map, gimple_phi_result (phi));
@@ -1339,7 +1339,7 @@ remove_ssa_form (bool perform_ter)
 
   /* Remove PHI nodes which have been translated back to real variables.  */
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);)
+    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);)
       remove_phi_node (&gsi, true);
 
   /* If any copies were inserted on edges, analyze and insert them now.  */
@@ -1366,7 +1366,7 @@ insert_backedge_copies (void)
 
   FOR_EACH_BB (bb)
     {
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  tree result = gimple_phi_result (phi);

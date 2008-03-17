@@ -177,7 +177,7 @@ ssa_redirect_edge (edge e, basic_block dest)
   redirect_edge_var_map_clear (e);
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree def;
 
@@ -212,7 +212,7 @@ flush_pending_stmts (edge e)
   if (!v)
     return;
 
-  for (gsi = gsi_start (phi_nodes (e->dest)), i = 0;
+  for (gsi = gsi_start_phis (e->dest), i = 0;
        !gsi_end_p (gsi) && VEC_iterate (edge_var_map, v, i, vm);
        gsi_next (&gsi), i++)
     {
@@ -786,7 +786,7 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
 	  if (verify_phi_args (phi, bb, definition_block))
@@ -1532,7 +1532,7 @@ execute_late_warn_uninitialized (void)
   execute_early_warn_uninitialized ();
 
   FOR_EACH_BB (bb)
-    for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       warn_uninitialized_phi (gsi_stmt (gsi));
 
   return 0;
@@ -1602,7 +1602,7 @@ execute_update_addresses_taken (void)
 	    bitmap_ior_into (addresses_taken, taken);
 	}
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  size_t i;
 	  gimple phi = gsi_stmt (gsi);

@@ -318,7 +318,7 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
   int n2 = e2->dest_idx;
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (dest)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
       tree val1 = gimple_phi_arg_def (phi, n1);
@@ -414,7 +414,7 @@ remove_forwarder_block (basic_block bb)
 	{
 	  /* Create arguments for the phi nodes, since the edge was not
 	     here before.  */
-	  for (gsi = gsi_start (phi_nodes (dest));
+	  for (gsi = gsi_start_phis (dest);
 	       !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
@@ -752,7 +752,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 
       /* Add to the PHI nodes at DEST each PHI argument removed at the
 	 destination of E.  */
-      for (gsi = gsi_start (phi_nodes (dest));
+      for (gsi = gsi_start_phis (dest);
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
@@ -877,7 +877,7 @@ merge_phi_nodes (void)
 	     can handle.  If the result of every PHI in BB is used
 	     only by a PHI in DEST, then we can trivially merge the
 	     PHI nodes from BB into DEST.  */
-	  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);
+	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
 	      gimple phi = gsi_stmt (gsi);

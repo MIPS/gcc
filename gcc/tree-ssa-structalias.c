@@ -5356,7 +5356,7 @@ compute_points_to_sets (struct alias_info *ai)
     {
       gimple_stmt_iterator gsi;
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 
@@ -5542,7 +5542,7 @@ ipa_pta_execute (void)
 	    {
 	      gimple_stmt_iterator gsi;
 
-	      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi);
+	      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 		   gsi_next (&gsi))
 		{
 		  gimple phi = gsi_stmt (gsi);

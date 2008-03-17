@@ -335,8 +335,7 @@ rename_ssa_copies (void)
   FOR_EACH_BB (bb)
     {
       /* Treat PHI nodes as copies between the result and each argument.  */
-      gimple_seq phi_seq = phi_nodes (bb);
-      for (gsi = gsi_start (phi_seq); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {
           size_t i;
 	  tree res;

@@ -417,7 +417,7 @@ simulate_block (basic_block block)
 
   /* Always simulate PHI nodes, even if we have simulated this block
      before.  */
-  for (gsi = gsi_start (phi_nodes (block)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (block); !gsi_end_p (gsi); gsi_next (&gsi))
     simulate_stmt (gsi_stmt (gsi));
 
   /* If this is the first time we've simulated this block, then we
@@ -513,7 +513,7 @@ ssa_prop_init (void)
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	gimple_set_plf (gsi_stmt (si), STMT_IN_SSA_EDGE_WORKLIST, false);
     
-      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
+      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	gimple_set_plf (gsi_stmt (si), STMT_IN_SSA_EDGE_WORKLIST, false);
 
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1137,7 +1137,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
       /* Propagate known values into PHI nodes.  */
       if (prop_value)
-	for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (&i))
+	for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
 	  replace_phi_args_in (gsi_stmt (i), prop_value);
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))

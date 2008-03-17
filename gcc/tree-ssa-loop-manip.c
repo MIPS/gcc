@@ -289,9 +289,7 @@ find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks, bitmap need_phis)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (bsi = gsi_start (phi_nodes (e->dest)); 
-	 !gsi_end_p (bsi);
-	 gsi_next (&bsi))
+    for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
       find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (gsi_stmt (bsi), e),
 			       use_blocks, need_phis);
  
@@ -446,7 +444,7 @@ verify_loop_closed_ssa (void)
 
   FOR_EACH_BB (bb)
     {
-      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
 	  phi = gsi_stmt (bsi);
 	  FOR_EACH_EDGE (e, ei, bb->preds)
@@ -472,7 +470,7 @@ split_loop_exit_edge (edge exit)
   use_operand_p op_p;
   gimple_stmt_iterator psi;
 
-  for (psi = gsi_start (phi_nodes (dest)); !gsi_end_p (psi); gsi_next (&psi))
+  for (psi = gsi_start_phis (dest); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (bb));
@@ -969,8 +967,8 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   old_entry = loop_preheader_edge (loop);
   new_entry = loop_preheader_edge (new_loop);
   old_latch = loop_latch_edge (loop);
-  for (psi_old_loop = gsi_start (phi_nodes (loop->header)),
-       psi_new_loop = gsi_start (phi_nodes (new_loop->header));
+  for (psi_old_loop = gsi_start_phis (loop->header),
+       psi_new_loop = gsi_start_phis (new_loop->header);
        !gsi_end_p (psi_old_loop);
        gsi_next (&psi_old_loop), gsi_next (&psi_new_loop))
     {

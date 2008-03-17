@@ -567,11 +567,10 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, VEC (edge, h
 {
   edge e, latch = VEC_index (edge, latches, 0);
   unsigned i;
-  /* FIXME tuples.  */
-#if 0
-  tree phi, lop;
+  gimple phi;
+  gimple_stmt_iterator psi;
+  tree lop;
   basic_block bb;
-#endif
 
   /* Find the candidate for the latch edge.  */
   for (i = 1; VEC_iterate (edge, latches, i, e); i++)
@@ -585,10 +584,9 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, VEC (edge, h
 
   /* Check for a phi node that would deny that this is a latch edge of
      a subloop.  */
-  /* FIXME tuples.  */
-#if 0
-  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+  for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
+      phi = gsi_stmt (psi);
       lop = PHI_ARG_DEF_FROM_EDGE (phi, latch);
 
       /* Ignore the values that are not changed inside the subloop.  */
@@ -604,9 +602,6 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, VEC (edge, h
 	    && PHI_ARG_DEF_FROM_EDGE (phi, e) == lop)
 	  return NULL;
     }
-#else
-  gimple_unreachable ();
-#endif
 
   if (dump_file)
     fprintf (dump_file,

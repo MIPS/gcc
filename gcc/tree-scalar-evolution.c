@@ -1957,9 +1957,7 @@ loop_closed_phi_def (tree var)
   if (!exit)
     return NULL_TREE;
 
-  for (psi = gsi_start (phi_nodes (exit->dest));
-       !gsi_end_p (psi);
-       gsi_next (&psi))
+  for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
       if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == var)
@@ -2560,7 +2558,7 @@ analyze_scalar_evolution_for_all_loop_phi_nodes (VEC(gimple,heap) **exit_conditi
       loop = loop_containing_stmt (cond);
       bb = loop->header;
       
-      for (psi = gsi_start (phi_nodes (bb)); !gsi_end_p (psi); gsi_next (&psi))
+      for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
 	  phi = gsi_stmt (psi);
 	  if (is_gimple_reg (PHI_RESULT (phi)))
@@ -2797,7 +2795,7 @@ scev_const_prop (void)
     {
       loop = bb->loop_father;
 
-      for (psi = gsi_start (phi_nodes (bb)); !gsi_end_p (psi); gsi_next (&psi))
+      for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
 	  phi = gsi_stmt (psi);
 	  name = PHI_RESULT (phi);
@@ -2879,7 +2877,7 @@ scev_const_prop (void)
       ex_loop = superloop_at_depth (loop,
 				    loop_depth (exit->dest->loop_father) + 1);
 
-      for (psi = gsi_start (phi_nodes (exit->dest)); !gsi_end_p (psi); )
+      for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); )
 	{
 	  phi = gsi_stmt (psi);
 	  rslt = PHI_RESULT (phi);

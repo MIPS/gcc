@@ -1,3 +1,52 @@
+2008-03-17  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gimple-iterator.c (gsi_for_stmt): Use gsi_start_phis.
+	(gsi_start_phis): New function.
+	* gimple.h (gsi_start_phis): Declare.
+	* tree-into-ssa.c (initialize_flags_in_bb, rewrite_initialize_block,
+	rewrite_add_phi_arguments, rewrite_update_init_block,
+	prepare_block_for_update): Use gsi_start_phis.
+	* tree-complex.c (init_dont_simulate_again, update_phi_components):
+	Ditto.
+	* tree-ssa-loop-manip.c (find_uses_to_rename_bb,
+	verify_loop_closed_ssa, split_loop_exit_edge,
+	tree_transform_and_unroll_loop): Ditto.
+	* tree-scalar-evolution.c (loop_closed_phi_def,
+	analyze_scalar_evolution_for_all_loop_phi_nodes, scev_const_prop):
+	Ditto.
+	* tree-phinodes.c (reserve_phi_args_for_new_edge, remove_phi_args):
+	Ditto.
+	* tree-ssa-copyrename.c (rename_ssa_copies): Ditto.
+	* tree-ssa-ccp.c (ccp_initialize): Ditto.
+	* tree-ssa-loop-ivopts.c (find_bivs, mark_bivs,
+	find_interesting_uses_outside, find_interesting_uses,
+	determine_set_costs): Ditto.
+	* tree-ssa-propagate.c (simulate_block, ssa_prop_init,
+	substitute_and_fold): Ditto.
+	* tree-ssa-alias.c (dump_points_to_info, create_structure_vars): Ditto.
+	* gimple-pretty-print.c (dump_phi_nodes): Ditto.
+	* tree-data-ref.c (stmts_from_loop): Ditto.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph,
+	create_outofssa_var_map, coalesce_partitions): Ditto.
+	* tree-dfa.c (collect_dfa_stats): Ditto.
+	* tree-cfgcleanup.c (phi_alternatives_equal, remove_forwarder_block,
+	remove_forwarder_block_with_phi, merge_phi_nodes): Ditto.
+	* tree-ssa-live.c (remove_unused_locals, calculate_live_on_exit,
+	verify_live_on_entry): Ditto.
+	* tree-ssa.c (ssa_redirect_edge, flush_pending_stmts, verify_ssa,
+	execute_late_warn_uninitialized, execute_update_addresses_taken):
+	Ditto.
+	* tree-outof-ssa.c (eliminate_build, eliminate_virtual_phis,
+	rewrite_trees, remove_ssa_form, insert_backedge_copies):
+	Ditto.
+	* cfgloop.c (find_subloop_latch_edge_by_ivs): Ditto.
+	* tree-ssa-structalias.c (compute_points_to_sets, ipa_pta_execute):
+	Ditto.
+	* tree-cfg.c (remove_phi_nodes_and_edges_for_unreachable_block,
+	reinstall_phi_args, verify_stmts, gimple_make_forwarder_block,
+	add_phi_args_after_copy_edge, gimple_lv_adjust_loop_header_phi):
+	Ditto.
+
 2008-03-16  Zdenek Dvorak  <ook@ucw.cz>
 
 	* tree-ssa-loop-ivopts.c: Tuplify.

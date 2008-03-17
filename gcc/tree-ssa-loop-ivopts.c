@@ -898,9 +898,7 @@ find_bivs (struct ivopts_data *data)
   struct loop *loop = data->current_loop;
   gimple_stmt_iterator psi;
 
-  for (psi = gsi_start (phi_nodes (loop->header)); 
-       !gsi_end_p (psi);
-       gsi_next (&psi))
+  for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
 
@@ -941,9 +939,7 @@ mark_bivs (struct ivopts_data *data)
   basic_block incr_bb;
   gimple_stmt_iterator psi;
 
-  for (psi = gsi_start (phi_nodes (loop->header)); 
-       !gsi_end_p (psi);
-       gsi_next (&psi))
+  for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
 
@@ -1770,9 +1766,7 @@ find_interesting_uses_outside (struct ivopts_data *data, edge exit)
   gimple_stmt_iterator psi;
   tree def;
 
-  for (psi = gsi_start (phi_nodes (exit->dest)); 
-       !gsi_end_p (psi);
-       gsi_next (&psi))
+  for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
       def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
@@ -1806,7 +1800,7 @@ find_interesting_uses (struct ivopts_data *data)
 	    && !flow_bb_inside_loop_p (data->current_loop, e->dest))
 	  find_interesting_uses_outside (data, e);
 
-      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	find_interesting_uses_stmt (data, gsi_stmt (bsi));
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	find_interesting_uses_stmt (data, gsi_stmt (bsi));
@@ -4064,9 +4058,7 @@ determine_set_costs (struct ivopts_data *data)
     }
 
   n = 0;
-  for (psi = gsi_start (phi_nodes (loop->header));
-       !gsi_end_p (psi);
-       gsi_next (&psi))
+  for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = gsi_stmt (psi);
       op = PHI_RESULT (phi);

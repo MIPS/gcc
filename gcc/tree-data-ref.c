@@ -4703,7 +4703,7 @@ stmts_from_loop (struct loop *loop, VEC (gimple, heap) **stmts)
       gimple_stmt_iterator bsi;
       gimple stmt;
 
-      for (bsi = gsi_start (phi_nodes (bb)); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	VEC_safe_push (gimple, heap, *stmts, gsi_stmt (bsi));
 
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))

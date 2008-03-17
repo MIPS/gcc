@@ -457,7 +457,7 @@ initialize_flags_in_bb (basic_block bb)
   gimple stmt;
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi = gsi_stmt (gsi);
       set_rewrite_uses (phi, false);
@@ -1343,7 +1343,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree result;
 
@@ -1447,7 +1447,7 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       gimple phi;
       gimple_stmt_iterator gsi;
 
-      for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi);
+      for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
 	  tree currdef;
@@ -1856,7 +1856,7 @@ rewrite_update_init_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
      register it as a new definition for its corresponding name.  Also
      register definitions for names whose underlying symbols are
      marked for renaming.  */
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree lhs, lhs_sym;
       gimple phi = gsi_stmt (gsi);
@@ -2451,7 +2451,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
   /* Process PHI nodes marking interesting those that define or use
      the symbols that we are interested in.  */
-  for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       gimple phi = gsi_stmt (si);
       tree lhs_sym, lhs = gimple_phi_result (phi);

@@ -711,7 +711,7 @@ ccp_initialize (void)
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start (phi_nodes (bb)); !gsi_end_p (i); gsi_next (&i))
+      for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
         {
           gimple phi = gsi_stmt (i);
 

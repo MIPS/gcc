@@ -534,7 +534,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
     {
       gimple_stmt_iterator si;
 
-      for (si = gsi_start (phi_nodes (bb)); !gsi_end_p (si); gsi_next (&si))
+      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	{
 	  gimple phi = gsi_stmt (si);
 	  dfa_stats_p->num_phis++;

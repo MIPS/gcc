@@ -319,7 +319,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
   size_t cap = ideal_phi_node_len (len + 4);
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple *loc = gsi_stmt_ptr (&gsi);
 
@@ -445,7 +445,7 @@ remove_phi_args (edge e)
 {
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (phi_nodes (e->dest)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     remove_phi_arg_num (gsi_stmt (gsi), e->dest_idx);
 }
 

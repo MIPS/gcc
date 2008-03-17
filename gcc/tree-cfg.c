@@ -2067,7 +2067,7 @@ remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
 
   /* Since this block is no longer reachable, we can just delete all
      of its PHI nodes.  */
-  for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); )
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
     remove_phi_node (&gsi, true);
 
   set_phi_nodes (bb, NULL);
@@ -2740,7 +2740,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
   if (!v)
     return;
   
-  for (i = 0, phis = gsi_start (phi_nodes (new_edge->dest));
+  for (i = 0, phis = gsi_start_phis (new_edge->dest);
        VEC_iterate (edge_var_map, v, i, vm) && !gsi_end_p (phis);
        i++, gsi_next (&phis))
     {
@@ -3966,7 +3966,7 @@ verify_stmts (void)
       gimple phi;
       size_t i;
 
-      for (gsi = gsi_start (phi_nodes (bb)); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
 	  pointer_set_insert (visited_stmts, phi);
@@ -4379,7 +4379,7 @@ gimple_make_forwarder_block (edge fallthru)
 
   /* If we redirected a branch we must create new PHI nodes at the
      start of BB.  */
-  for (gsi = gsi_start (phi_nodes (dummy)); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gsi = gsi_start_phis (dummy); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple phi, new_phi;
       
@@ -4777,8 +4777,8 @@ add_phi_args_after_copy_edge (edge e_copy)
       gcc_assert (e != NULL);
     }
 
-  for (psi = gsi_start (phi_nodes (e->dest)),
-       psi_copy = gsi_start (phi_nodes (e_copy->dest));
+  for (psi = gsi_start_phis (e->dest),
+       psi_copy = gsi_start_phis (e_copy->dest);
        !gsi_end_p (psi);
        gsi_next (&psi), gsi_next (&psi_copy))
     {
@@ -6514,8 +6514,8 @@ gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
   /* Browse all 'second' basic block phi nodes and add phi args to
      edge 'e' for 'first' head. PHI args are always in correct order.  */
 
-  for (psi2 = gsi_start (phi_nodes (second)),
-       psi1 = gsi_start (phi_nodes (first));
+  for (psi2 = gsi_start_phis (second),
+       psi1 = gsi_start_phis (first);
        !gsi_end_p (psi2) && !gsi_end_p (psi1);
        gsi_next (&psi2),  gsi_next (&psi1))
     {
