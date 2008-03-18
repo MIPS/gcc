@@ -1,3 +1,18 @@
+2008-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_work_share): Add mode field.  Put lock and
+	next into a different cache line from most of the write-once fields.
+	* loop.c: Include limits.h.
+	(gomp_loop_init): For GFS_DYNAMIC, multiply ws->chunk_size by incr.
+	If adding ws->chunk_size nthreads + 1 times after end won't
+	overflow, set ws->mode to 1.
+	* iter.c (gomp_iter_dynamic_next_locked): Don't multiply
+	ws->chunk_size by incr.
+	(gomp_iter_dynamic_next): Likewise.  If ws->mode, use more efficient
+	code.
+	* work.c: Include stddef.h.
+	(gomp_new_work_share): Use offsetof rather than sizeof.
+
 2008-03-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct gomp_team): Change ordered_release field

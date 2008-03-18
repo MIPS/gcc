@@ -71,6 +71,8 @@ struct gomp_work_share
      If this is a SECTIONS construct, this value will always be DYNAMIC.  */
   enum gomp_schedule_type sched;
 
+  int mode;
+
   /* This is the chunk_size argument to the SCHEDULE clause.  */
   long chunk_size;
 
@@ -82,8 +84,11 @@ struct gomp_work_share
      is always 1.  */
   long incr;
 
+  /* The above fields are written once during gomp_loop_init.  Make sure
+     the following fields are in a different cache line.  */
+
   /* This lock protects the update of the following members.  */
-  gomp_mutex_t lock;
+  gomp_mutex_t lock __attribute__((aligned (64)));
 
   union {
     /* This is the next iteration value to be allocated.  In the case of

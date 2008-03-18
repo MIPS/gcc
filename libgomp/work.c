@@ -29,6 +29,7 @@
    of threads.  */
 
 #include "libgomp.h"
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,7 +42,7 @@ gomp_new_work_share (bool ordered, unsigned nthreads)
   struct gomp_work_share *ws;
   size_t size;
 
-  size = sizeof (*ws);
+  size = offsetof (struct gomp_work_share, ordered_team_ids);
   if (ordered)
     size += nthreads * sizeof (ws->ordered_team_ids[0]);
 

@@ -27,8 +27,9 @@
 
 /* This file handles the LOOP (FOR/DO) construct.  */
 
-#include "libgomp.h"
+#include <limits.h>
 #include <stdlib.h>
+#include "libgomp.h"
 
 
 /* Initialize the given work share construct from the given arguments.  */
@@ -44,6 +45,23 @@ gomp_loop_init (struct gomp_work_share *ws, long start, long end, long incr,
 	    ? start : end;
   ws->incr = incr;
   ws->next = start;
+  if (sched == GFS_DYNAMIC)
+    {
+#ifdef HAVE_SYNC_BUILTINS
+      /* For dynamic scheduling prepare things to make each iteration
+	 faster.  */
+      struct gomp_thread *thr = gomp_thread ();
+      struct gomp_team *team = thr->ts.team;
+      unsigned long nthreads = team ? team->nthreads : 1;
+
+      if (incr > 0)
+	ws->mode = ws->end < LONG_MAX - (nthreads + 1) * chunk_size;
+      else
+	ws->mode = ws->end > (nthreads + 1) * chunk_size - LONG_MAX;
+#endif
+
+      ws->chunk_size *= incr;
+    }
 }
 
 /* The *_start routines are called when first encountering a loop construct
