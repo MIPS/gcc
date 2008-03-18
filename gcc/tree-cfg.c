@@ -1642,7 +1642,7 @@ remove_useless_stmts_tf (gimple_stmt_iterator *gsi, struct rus_data *data)
 
   /* If the body is empty, then we can emit the FINALLY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  if (!gimple_seq_has_side_effects (eval_seq))
+  if (gimple_seq_empty_p (eval_seq))
     {
       gsi_insert_seq_before (gsi, cleanup_seq, GSI_SAME_STMT);
       gsi_remove (gsi, false);
@@ -1651,7 +1651,7 @@ remove_useless_stmts_tf (gimple_stmt_iterator *gsi, struct rus_data *data)
 
   /* If the handler is empty, then we can emit the TRY block without
      the enclosing TRY_FINALLY_EXPR.  */
-  else if (!gimple_seq_has_side_effects (cleanup_seq))
+  else if (gimple_seq_empty_p (cleanup_seq))
     {
       gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
       gsi_remove (gsi, false);
@@ -1757,7 +1757,7 @@ remove_useless_stmts_tc (gimple_stmt_iterator *gsi, struct rus_data *data)
 
       /* If the cleanup is empty, then we can emit the TRY block without
 	 the enclosing TRY_CATCH_EXPR.  */
-      if (!gimple_seq_has_side_effects (cleanup_seq))
+      if (gimple_seq_empty_p (cleanup_seq))
 	{
           gsi_insert_seq_before (gsi, eval_seq, GSI_SAME_STMT);
           gsi_remove(gsi, false);

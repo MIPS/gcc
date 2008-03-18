@@ -1,3 +1,16 @@
+2008-03-18  Diego Novillo  <dnovillo@google.com>
+            Oleg Ryjkov  <olegr@google.com>
+
+        * gimplify.c (gimplify_body): Copy the block information from
+        the tree function body to gimple function body.
+        (gimplify_function_tree): Correctly wrap the function body
+        into the try/finally block if creating one.
+        * gimple.c (gimple_seq_has_side_effects): Removed.
+        * gimple.h (gimple_seq_has_side_effects): Removed declaration.
+        * tree-cfg.c (remove_useless_stmts_tf, remove_useless_stmts_tc):
+        Modified to use gimple_seq_empty_p instead of
+        gimple_seq_has_side_effects.
+
 2008-03-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.c (walk_gimple_stmt): Collapse common code.

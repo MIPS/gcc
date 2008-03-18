@@ -6784,6 +6784,9 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
   else
     outer_bind = gimple_build_bind (NULL_TREE, seq);
 
+  /* Copy the containing block, if body_p had one.  */
+  if (TREE_CODE (*body_p) == BIND_EXPR)
+    gimple_set_block (outer_bind, BIND_EXPR_BLOCK (*body_p));
   *body_p = NULL_TREE;
 
   /* If we had callee-copies statements, insert them at the beginning
@@ -6847,7 +6850,12 @@ gimplify_function_tree (tree fndecl)
     DECL_GIMPLE_REG_P (ret) = 1;
 
   bind = gimplify_body (&DECL_SAVED_TREE (fndecl), fndecl, true);
-  seq = gimple_bind_body (bind);
+
+  /* The tree body of the function is no longer needed, replace it
+     with the new GIMPLE body.  */
+  seq = gimple_seq_alloc ();
+  gimple_seq_add_stmt (&seq, bind);
+  gimple_set_body (fndecl, seq);
 
   /* If we're instrumenting function entry/exit, then prepend the call to
      the entry hook and wrap the whole function in a TRY_FINALLY_EXPR to
@@ -6869,13 +6877,14 @@ gimplify_function_tree (tree fndecl)
       gimplify_seq_add_stmt (&body, gimple_build_call (x, 0));
       gimplify_seq_add_stmt (&body, tf);
       bind = gimple_build_bind (NULL, body);
+
+      /* Replace the current function body with the body
+         wrapped in the try/finally TF.  */
+      seq = gimple_seq_alloc ();
+      gimple_seq_add_stmt (&seq, bind);
+      gimple_set_body (fndecl, seq);
     }
 
-  /* The tree body of the function is no longer needed, replace it
-     with the new GIMPLE body.  */
-  seq = gimple_seq_alloc ();
-  gimplify_seq_add_stmt (&seq, bind);
-  gimple_set_body (fndecl, seq);
   DECL_SAVED_TREE (fndecl) = NULL_TREE;
 
   current_function_decl = oldfn;

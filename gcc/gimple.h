@@ -572,7 +572,6 @@ void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple, tree);
 bool gimple_has_side_effects (gimple);
-bool gimple_seq_has_side_effects (gimple_seq);
 bool gimple_could_trap_p (gimple);
 
 /* FIXME tuples.

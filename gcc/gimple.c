@@ -1914,20 +1914,6 @@ gimple_has_side_effects (gimple s)
   return false;
 }
 
-/* Return true if any statement in STMTS has side effects.  */
-
-bool
-gimple_seq_has_side_effects (gimple_seq stmts)
-{
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start (stmts); !gsi_end_p (gsi); gsi_next (&gsi))
-    if (gimple_has_side_effects (gsi_stmt (gsi)))
-      return true;
-
-  return false;
-}
-
 /* Return true if statement S can trap.  */
 
 bool
