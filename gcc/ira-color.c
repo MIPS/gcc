@@ -50,6 +50,9 @@ static void update_copy_costs (allocno_t, int);
 static int assign_hard_reg (allocno_t, int);
 
 static void add_allocno_to_bucket (allocno_t, allocno_t *);
+static void get_coalesced_allocnos_attributes (allocno_t, int *, int *);
+static int bucket_allocno_compare_func (const void *, const void *);
+static void sort_bucket (allocno_t *);
 static void add_allocno_to_ordered_bucket (allocno_t, allocno_t *);
 static void delete_allocno_from_bucket (allocno_t, allocno_t *);
 static void push_allocno_to_stack (allocno_t);
@@ -109,6 +112,9 @@ static bitmap processed_coalesced_allocno_bitmap;
 
 /* All allocnos sorted accoring their priorities.  */
 static allocno_t *sorted_allocnos;
+
+/* Array used to sort allocnos to choose an allocno for spilling.  */
+static allocno_t *sorted_allocnos_for_spilling;
 
 
 
@@ -277,8 +283,6 @@ assign_hard_reg (allocno_t allocno, int retry_p)
   class_size = class_hard_regs_num [cover_class];
   mode = ALLOCNO_MODE (allocno);
   COPY_HARD_REG_SET (conflicting_regs, no_alloc_regs);
-  IOR_HARD_REG_SET (conflicting_regs,
-		    prohibited_class_mode_regs [cover_class] [mode]);
   IOR_COMPL_HARD_REG_SET (conflicting_regs, reg_class_contents [cover_class]);
   best_hard_regno = -1;
   memset (full_costs, 0, sizeof (int) * class_size);
@@ -406,7 +410,9 @@ assign_hard_reg (allocno_t allocno, int retry_p)
 	  && FIRST_STACK_REG <= hard_regno && hard_regno <= LAST_STACK_REG)
 	continue;
 #endif
-      if (! hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs))
+      if (! hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs)
+	  || TEST_HARD_REG_BIT (prohibited_class_mode_regs [cover_class] [mode],
+				hard_regno))
 	continue;
       cost = costs [i];
       full_cost = full_costs [i];
@@ -505,58 +511,89 @@ add_allocno_to_bucket (allocno_t allocno, allocno_t *bucket_ptr)
   *bucket_ptr = allocno;
 }
 
-/* The function returns best class and frequency for allocnos
-   coalesced with ALLOCNO.  */
+/* The function returns frequency and number of available hard
+   registers for allocnos coalesced with ALLOCNO.  */
 static void
-get_coalesced_allocnos_best_class_and_freq (allocno_t allocno,
-					    enum reg_class *best_class,
-					    int *freq)
+get_coalesced_allocnos_attributes (allocno_t allocno, int *freq, int *num)
 {
   allocno_t a;
 
   *freq = 0;
-  *best_class = ALL_REGS;
+  *num = 0;
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
       *freq += ALLOCNO_FREQ (a);
-      *best_class
-	= reg_class_intersect [ALLOCNO_BEST_CLASS (a)] [*best_class];
+      *num += ALLOCNO_AVAILABLE_REGS_NUM (a);
       if (a == allocno)
 	break;
     }
 }
 
+/* The function compares two allocnos to define what allocno should be
+   pushed first into the coloring stack.  If the function returns a
+   negative number, the allocno given by the first parameter will be
+   pushed first.  In this case such allocno has less priority than the
+   second one and the hard register will be assigned to it after
+   assignment to the second one.  As the result of such assignment
+   order, the second allocno has a better chance to get the best hard
+   register.  */
+static int
+bucket_allocno_compare_func (const void *v1p, const void *v2p)
+{
+  allocno_t a1 = *(const allocno_t *) v1p, a2 = *(const allocno_t *) v2p;
+  int diff, a1_freq, a2_freq, a1_num, a2_num;
+
+  if ((diff = (int) ALLOCNO_COVER_CLASS (a2) - ALLOCNO_COVER_CLASS (a1)) != 0)
+    return diff;
+  get_coalesced_allocnos_attributes (a1, &a1_freq, &a1_num);
+  get_coalesced_allocnos_attributes (a2, &a2_freq, &a2_num);
+  if ((diff = a2_num - a1_num) != 0)
+    return diff;
+  else if ((diff = a1_freq - a2_freq) != 0)
+    return diff;
+  return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
+}
+
+/* Function sorts a given bucket and returns the result through
+   BUCKET_PTR.  */
+static void
+sort_bucket (allocno_t *bucket_ptr)
+{
+  allocno_t a, head;
+  int n;
+
+  for (n = 0, a = *bucket_ptr; a != NULL; a = ALLOCNO_NEXT_BUCKET_ALLOCNO (a))
+    sorted_allocnos [n++] = a;
+  if (n <= 1)
+    return;
+  qsort (sorted_allocnos, n, sizeof (allocno_t), bucket_allocno_compare_func);
+  head = NULL;
+  for (n--; n >= 0; n--)
+    {
+      a = sorted_allocnos [n];
+      ALLOCNO_NEXT_BUCKET_ALLOCNO (a) = head;
+      ALLOCNO_PREV_BUCKET_ALLOCNO (a) = NULL;
+      if (head != NULL)
+	ALLOCNO_PREV_BUCKET_ALLOCNO (head) = a;
+      head = a;
+    }
+  *bucket_ptr = head;
+}
+
 /* Add ALLOCNO to *BUCKET_PTR bucket maintaining the order according
-   their frequency.  ALLOCNO should be not in a bucket before the
+   their priority.  ALLOCNO should be not in a bucket before the
    call.  */
 static void
 add_allocno_to_ordered_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 {
   allocno_t before, after;
-  enum reg_class cover_class, best_class, best_class_before;
-  int freq, freq_before, nregs;
 
-  cover_class = ALLOCNO_COVER_CLASS (allocno);
-  nregs = reg_class_nregs [cover_class] [ALLOCNO_MODE (allocno)];
-  get_coalesced_allocnos_best_class_and_freq (allocno, &best_class, &freq);
   for (before = *bucket_ptr, after = NULL;
        before != NULL;
        after = before, before = ALLOCNO_NEXT_BUCKET_ALLOCNO (before))
-    {
-      if (ALLOCNO_COVER_CLASS (before) < cover_class)
-	continue;
-      if (ALLOCNO_COVER_CLASS (before) > cover_class)
-	break;
-      get_coalesced_allocnos_best_class_and_freq
-	(before, &best_class_before, &freq_before);
-      if (strict_class_subset_p [best_class_before] [best_class])
-	break;
-      else if (strict_class_subset_p [best_class] [best_class_before])
-	;
-      else if (freq_before > freq)
-	break;
-    }
+    if (bucket_allocno_compare_func (&allocno, &before) < 0)
+      break;
   ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno) = before;
   ALLOCNO_PREV_BUCKET_ALLOCNO (allocno) = after;
   if (after == NULL)
@@ -689,7 +726,7 @@ remove_allocno_from_bucket_and_push (allocno_t allocno, int colorable_p)
 static void
 push_only_colorable (void)
 {
-  /* ??? sort here instead of putting it into ordered bucket.  */
+  sort_bucket (&colorable_allocno_bucket);
   for (;colorable_allocno_bucket != NULL;)
     remove_allocno_from_bucket_and_push (colorable_allocno_bucket, TRUE);
 }
@@ -781,7 +818,7 @@ calculate_allocno_spill_cost (allocno_t a)
   return cost;
 }
 
-/* Push allocnos on the coloring stack.  The order of allocnos in the
+/* Push allocnos to the coloring stack.  The order of allocnos in the
    stack defines the order for the subsequent coloring.  */
 static void
 push_allocnos_to_stack (void)
@@ -817,7 +854,8 @@ push_allocnos_to_stack (void)
       cover_class = reg_class_cover [i];
       if (cover_class_allocnos_num [cover_class] != 0)
 	{
-	  cover_class_allocnos [cover_class] = sorted_allocnos + num;
+	  cover_class_allocnos [cover_class]
+	    = sorted_allocnos_for_spilling + num;
 	  num += cover_class_allocnos_num [cover_class];
 	  cover_class_allocnos_num [cover_class] = 0;
 	}
@@ -954,7 +992,7 @@ pop_allocnos_from_stack (void)
 static void
 setup_allocno_available_regs_num (allocno_t allocno)
 {
-  int i, n;
+  int i, n, hard_regs_num;
   enum reg_class cover_class;
   allocno_t a;
   HARD_REG_SET temp_set;
@@ -965,6 +1003,7 @@ setup_allocno_available_regs_num (allocno_t allocno)
     return;
   CLEAR_HARD_REG_SET (temp_set);
   ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) == allocno);
+  hard_regs_num = class_hard_regs_num [cover_class];
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
@@ -972,7 +1011,7 @@ setup_allocno_available_regs_num (allocno_t allocno)
       if (a == allocno)
 	break;
     }
-  for (n = 0, i = class_hard_regs_num [cover_class] - 1; i >= 0; i--)
+  for (n = 0, i = hard_regs_num - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (temp_set, class_hard_regs [cover_class] [i]))
       n++;
   if (internal_flag_ira_verbose > 2 && n > 0 && ira_dump_file != NULL)
@@ -1085,7 +1124,7 @@ put_allocno_into_bucket (allocno_t allocno)
   if (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
       + reg_class_nregs [cover_class] [ALLOCNO_MODE (allocno)]
       <= ALLOCNO_AVAILABLE_REGS_NUM (allocno))
-    add_allocno_to_ordered_bucket (allocno, &colorable_allocno_bucket);
+    add_allocno_to_bucket (allocno, &colorable_allocno_bucket);
   else
     add_allocno_to_bucket (allocno, &uncolorable_allocno_bucket);
 }
@@ -2599,6 +2638,8 @@ void
 initiate_ira_assign (void)
 {
   sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  sorted_allocnos_for_spilling
+    = ira_allocate (sizeof (allocno_t) * allocnos_num);
   consideration_allocno_bitmap = ira_allocate_bitmap ();
   initiate_cost_update ();
   allocno_priorities = ira_allocate (sizeof (int) * allocnos_num);
@@ -2608,6 +2649,7 @@ initiate_ira_assign (void)
 void
 finish_ira_assign (void)
 {
+  ira_free (sorted_allocnos_for_spilling);
   ira_free (sorted_allocnos);
   ira_free_bitmap (consideration_allocno_bitmap);
   finish_cost_update ();

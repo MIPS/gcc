@@ -632,7 +632,7 @@ Use integrated register allocator.
 
 fira-algorithm=
 Common Joined RejectNegative
--fira-algorithm=[regional|CB|mixed|priority] Set the used IRA algorithm
+-fira-algorithm=[regional|CB|mixed] Set the used IRA algorithm
 
 fira-coalesce
 Common Report Var(flag_ira_coalesce) Init(0)

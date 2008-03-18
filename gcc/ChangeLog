@@ -1,3 +1,40 @@
+2008-03-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fira-algorithm): Fix description
+
+	* ira-int.h (allocno): Remove best_class.
+	(ALLOCNO_BEST_CLASS): Remove.
+	(strict_class_subset_p): Remove.
+	
+	* ira-color.c (get_coalesced_allocnos_best_class_and_freq): Rename
+	to get_coalesced_allocnos_attributes.  Change prototype.
+	Calculate available regs.
+	(bucket_allocno_compare_func, sort_bucket): New functions.
+	(sorted_allocnos_for_spilling): New variable.
+	(assign_hard_reg): Don't add prohibited_class_mode_regs to
+	conflicting_regs.  Use it in loop for finding the best hard
+	register.
+	(add_allocno_to_ordered_bucket): Use bucket_allocno_compare_func.
+	(push_only_colorable): Call sort_bucket.
+	(push_allocnos_to_stack): Use sorted_allocnos_for_spilling instead
+	of sorted_allocnos.
+	(put_allocno_into_bucket): Use add_allocno_to_bucket instead of
+	add_allocno_to_ordered_bucket.
+	(initiate_ira_assign): Allocate sorted_allocnos_for_spilling.
+	(finish_ira_assign): Free sorted_allocnos_for_spilling.
+
+	* ira-emit.c (modify_move_list): Remove setting ALLOCNO_BEST_CLASS
+	up.
+	
+	* ira-build.c (create_allocno, create_cap_allocno): Ditto.
+	
+	* ira.c (strict_class_subset_p): Remove.
+	(setup_class_subset_and_memory_move_costs): Remove setting
+	strict_class_subset_p up.
+	
+	* ira-costs.c (setup_allocno_cover_class_and_costs): Remove
+	setting ALLOCNO_BEST_CLASS up.
+	
 2008-03-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (allocno_pool, copy_pool, allocno_live_range_pool):

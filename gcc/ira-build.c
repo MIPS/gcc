@@ -534,7 +534,6 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_LEFT_CONFLICTS_NUM (a) = -1;
   ALLOCNO_COVER_CLASS (a) = NO_REGS;
-  ALLOCNO_BEST_CLASS (a) = NO_REGS;
   ALLOCNO_COVER_CLASS_COST (a) = 0;
   ALLOCNO_MEMORY_COST (a) = 0;
   ALLOCNO_UPDATED_MEMORY_COST (a) = 0;
@@ -692,7 +691,6 @@ create_cap_allocno (allocno_t a)
   /* We just need to set a mode giving the same size.  */
   ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
   ALLOCNO_COVER_CLASS (cap) = ALLOCNO_COVER_CLASS (a);
-  ALLOCNO_BEST_CLASS (cap) = ALLOCNO_BEST_CLASS (a);
   ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
   ALLOCNO_CAP_MEMBER (cap) = a;
   bitmap_set_bit (father->mentioned_allocnos, ALLOCNO_NUM (cap));

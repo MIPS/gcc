@@ -208,9 +208,6 @@ struct allocno
   /* Register class which should be used for allocation for given
      allocno.  NO_REGS means that we should use memory.  */
   enum reg_class cover_class;
-  /* The biggest register class with minimal cost usage for given
-     allocno.  */
-  enum reg_class best_class;
   /* Minimal accumulated cost of usage register of the cover class for
      the allocno.  */
   int cover_class_cost;
@@ -355,7 +352,6 @@ struct allocno
 #define ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS(A) \
   ((A)->updated_conflict_hard_reg_costs)
 #define ALLOCNO_LEFT_CONFLICTS_NUM(A) ((A)->left_conflicts_num)
-#define ALLOCNO_BEST_CLASS(A) ((A)->best_class)
 #define ALLOCNO_COVER_CLASS(A) ((A)->cover_class)
 #define ALLOCNO_COVER_CLASS_COST(A) ((A)->cover_class_cost)
 #define ALLOCNO_MEMORY_COST(A) ((A)->memory_cost)
@@ -519,9 +515,8 @@ extern move_table *register_may_move_in_cost [MAX_MACHINE_MODE];
    into account) so in that case the cost is zero.  */
 extern move_table *register_may_move_out_cost [MAX_MACHINE_MODE];
 
-/* Register class (strict) subset relation.  */
+/* Register class subset relation.  */
 extern int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
-extern int strict_class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
 
 /* Hard registers which can be used for the allocation of given
    register class.  */

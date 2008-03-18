@@ -184,10 +184,6 @@ move_table *register_may_move_out_cost [MAX_MACHINE_MODE];
    1st class is a subset of the 2nd class.  */
 int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
 
-/* Nonzero value of element of the following array means that the
-   1st class is a strict subset of the 2nd class.  */
-int strict_class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
-
 /* Temporary hard reg set used for different calculation.  */
 static HARD_REG_SET temp_hard_regset;
 
@@ -325,8 +321,7 @@ setup_alloc_regs (int use_hard_frame_p)
 
 
 
-/* The function sets up MEMORY_MOVE_COST, REGISTER_MOVE_COST and
-   CLASS_SUBSET_P and STRICT_CLASS_SUBSET_P.  */
+/* The function sets up MEMORY_MOVE_COST, REGISTER_MOVE_COST.  */
 static void
 setup_class_subset_and_memory_move_costs (void)
 {
@@ -350,10 +345,6 @@ setup_class_subset_and_memory_move_costs (void)
 	  AND_COMPL_HARD_REG_SET (temp_hard_regset2, no_unit_alloc_regs);
 	  class_subset_p [cl] [cl2]
 	    = hard_reg_set_subset_p (temp_hard_regset, temp_hard_regset2);
-	  strict_class_subset_p [cl] [cl2] = class_subset_p [cl] [cl2];
-	  if (class_subset_p [cl] [cl2]
-	      && hard_reg_set_equal_p (temp_hard_regset, temp_hard_regset2))
-	    strict_class_subset_p [cl] [cl2] = FALSE;
 	}
     }
 }
