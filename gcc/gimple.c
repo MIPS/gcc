@@ -1487,51 +1487,31 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 	return ret;
       break;
 
-    case GIMPLE_OMP_CRITICAL:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return ret;
-      break;
-
-    case GIMPLE_OMP_CONTINUE:
-    case GIMPLE_OMP_MASTER:
-    case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_SECTION:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return ret;
-      break;
-
     case GIMPLE_OMP_FOR:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return ret;
       ret = walk_gimple_seq (gimple_omp_for_pre_body (stmt), callback_stmt,
 		             callback_op, wi);
       if (ret)
 	return ret;
-      break;
 
+      /* FALL THROUGH.  */
+
+    case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_CONTINUE:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_PARALLEL:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return ret;
-      break;
-
     case GIMPLE_OMP_SECTIONS:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
-	                     wi);
-      if (ret)
-	return ret;
-      break;
-
     case GIMPLE_OMP_SINGLE:
       ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
 	                     wi);
+      if (ret)
+	return ret;
+      break;
+
+    case GIMPLE_WITH_CLEANUP_EXPR:
+      ret = walk_gimple_seq (gimple_wce_cleanup (stmt), callback_stmt,
+			     callback_op, wi);
       if (ret)
 	return ret;
       break;

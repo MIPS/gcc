@@ -1,3 +1,8 @@
+2008-03-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimple.c (walk_gimple_stmt): Collapse common code.
+	Add case for GIMPLE_WITH_CLEANUP_EXPR.
+
 2008-03-17  Zdenek Dvorak  <ook@ucw.cz>
 
 	* gimple-iterator.c (gsi_for_stmt): Use gsi_start_phis.
