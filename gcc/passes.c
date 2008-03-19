@@ -646,8 +646,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
-      NEXT_PASS (pass_object_sizes);
 #endif
+      NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
       /* FIXME tuples.  */
 #if 0

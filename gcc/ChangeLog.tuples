@@ -1,3 +1,36 @@
+2008-03-18  Bill Maddox  <maddox@google.com>
+
+	* builtins.c (fold_builtin_object_size):
+	Enable call to compute_builtin_object_size, previously
+	stubbed out awaiting tuplification.
+	* tree-ssa-ccp.c (valid_gimple_rhs_p, valid_gimple_call_p,
+	move_ssa_defining_stmt_for_defs, update_call_from_tree):
+	Deleted, moved to tree-ssa-propagate.c.
+	(get_maxval_strlen): Use gimple_assign_single_p.
+	Handle assignment with unary NOP correctly.
+	* tree-ssa-propagate.c (valid_gimple_rhs_p, valid_gimple_call_p,
+	move_ssa_defining_stmt_for_defs, update_call_from_tree):
+	Moved here from tree-ssa-ccp.c.
+	* tree-ssa-propagate.h (valid_gimple_rhs_p, valid_gimple_call_p,
+	move_ssa_defining_stmt_for_defs, update_call_from_tree): Declared.
+	* gimple-dummy.c (compute_builtin_object_size): Removed dummy.
+	* tree_object_size.c (addr_object_size, alloc_object_size)
+	Tuplified.
+	(pass_through_call, compute_builtin_object_size): Tuplified.
+	(expr_object_size): Tuplified.  Some cases broken out.
+	(plus_expr_object_size): Deleted.
+	(call_object_size, unknown_object_size, plus_stmt_object_size):
+	New functions.  Handle cases broken out from expr_object_size.
+	(cond_expr_object_size): Fix comment.
+	(collect_object_sizes_for): Tuplify.
+	(check_for_plus_in_loops_1, check_for_plus_in_loops): Tuplify.
+	(compute_object_sizes): Tuplify.
+	* gimple.c (gimple_assign_single_p, gimple_assign_unary_nop_p):
+	New functions.
+	* gimple.h (gimple_assign_single_p, gimple_assign_unary_nop_p):
+	Declare.
+	* passes.c (init_optimization_passes): Enable pass_object_sizes.
+
 2008-03-18  Diego Novillo  <dnovillo@google.com>
             Oleg Ryjkov  <olegr@google.com>
 

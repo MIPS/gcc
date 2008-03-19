@@ -18,7 +18,6 @@ DUMMY_VAR (memory_identifier_string);
 
 
 DUMMY_FN (canonicalize_induction_variables)
-DUMMY_FN (compute_builtin_object_size)
 DUMMY_FN (get_type)
 DUMMY_FN (ipa_add_method)
 DUMMY_FN (ipa_callsite_callee)

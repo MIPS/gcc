@@ -558,6 +558,8 @@ void gimple_seq_add_seq (gimple_seq *, gimple_seq);
 gimple_seq gimple_seq_deep_copy (gimple_seq);
 int gimple_call_flags (gimple);
 bool gimple_assign_copy_p (gimple);
+bool gimple_assign_single_p (gimple);
+bool gimple_assign_unary_nop_p (gimple);
 void gimple_set_bb (gimple, struct basic_block_def *);
 tree gimple_fold (const_gimple);
 void gimple_assign_set_rhs_from_tree (gimple, tree);

@@ -1604,6 +1604,44 @@ gimple_assign_copy_p (gimple gs)
 	 && is_gimple_val (gimple_op (gs, 1));
 }
 
+/* Return true if GS is an assignment with a singleton RHS, i.e.,
+   there is no operator associated with the assignment itself.
+   Unlike gimple_assign_copy_p, this predicate returns true for
+   any RHS operand, including those that perform an operation
+   and do not have the semantics of a copy, such as COND_EXPR.  */
+
+bool
+gimple_assign_single_p (gimple gs)
+{
+  return (gimple_code (gs) == GIMPLE_ASSIGN
+          && get_gimple_rhs_class (gimple_subcode (gs)) == GIMPLE_SINGLE_RHS);
+}
+
+/* Return true if GS is an assignment with a unary RHS, but the
+   operator has no effect on the assigned value.  The logic is adapted
+   from STRIP_NOPS.  This predicate is intended to be used in tuplifying
+   instances in which STRIP_NOPS was previously applied to the RHS of
+   an assignment.
+
+   NOTE: In the use cases that led to the creation of this function
+   and of gimple_assign_single_p, it is typical to test for either
+   condition and to proceed in the same manner.  In each case, the
+   assigned value is represented by the single RHS operand of the
+   assignment.  I suspect there may be cases where gimple_assign_copy_p,
+   gimple_assign_single_p, or equivalent logic is used where a similar
+   treatment of unary NOPs is appropriate.  */
+   
+bool
+gimple_assign_unary_nop_p (gimple gs)
+{
+  return (gimple_code (gs) == GIMPLE_ASSIGN
+          && (gimple_subcode (gs) == NOP_EXPR
+              || gimple_subcode (gs) == CONVERT_EXPR
+              || gimple_subcode (gs) == NON_LVALUE_EXPR)
+          && gimple_assign_rhs1 (gs) != error_mark_node
+          && (TYPE_MODE (TREE_TYPE (gimple_assign_lhs (gs)))
+              == TYPE_MODE (GENERIC_TREE_TYPE (gimple_assign_rhs1 (gs)))));
+}
 
 /* Set BB to be the basic block holding G.  */
 

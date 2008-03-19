@@ -2162,122 +2162,6 @@ maybe_fold_stmt_addition (tree expr)
   return t;
 }
 
-/* Return true if EXPR is an acceptable right-hand-side for a
-   GIMPLE assignment.  We validate the entire tree, not just
-   the root node, thus catching expressions that embed complex
-   operands that are not permitted in GIMPLE.  This function
-   is needed because the folding routines in fold-const.c
-   may return such expressions in some cases, e.g., an array
-   access with an embedded index addition.  It may make more
-   sense to have folding routines that are sensitive to the
-   constraints on GIMPLE operands, rather than abandoning any
-   any attempt to fold if the usual folding turns out to be too
-   aggressive.  */
-
-static bool
-valid_gimple_rhs_p (tree expr)
-{
-  enum tree_code code = TREE_CODE (expr);
-
-  switch (TREE_CODE_CLASS (code))
-    {
-    case tcc_declaration:
-      if (!is_gimple_variable (expr))
-	return false;
-      break;
-
-    case tcc_constant:
-      /* All constants are ok.  */
-      break;
-
-    case tcc_binary:
-    case tcc_comparison:
-      if (!is_gimple_val (TREE_OPERAND (expr, 0))
-	  || !is_gimple_val (TREE_OPERAND (expr, 1)))
-	return false;
-      break;
-
-    case tcc_unary:
-      if (!is_gimple_val (TREE_OPERAND (expr, 0)))
-	return false;
-      break;
-
-    case tcc_expression:
-      switch (code)
-        {
-        case ADDR_EXPR:
-          {
-            tree t = TREE_OPERAND (expr, 0);
-            while (handled_component_p (t))
-              {
-                /* ??? More checks needed, see the GIMPLE verifier.  */
-                if ((TREE_CODE (t) == ARRAY_REF
-                     || TREE_CODE (t) == ARRAY_RANGE_REF)
-                    && !is_gimple_val (TREE_OPERAND (t, 1)))
-                  return false;
-                t = TREE_OPERAND (t, 0);
-              }
-            if (!is_gimple_id (t))
-              return false;
-          }
-          break;
-
-	case TRUTH_NOT_EXPR:
-	  if (!is_gimple_val (TREE_OPERAND (expr, 0)))
-	    return false;
-	  break;
-
-	case TRUTH_AND_EXPR:
-	case TRUTH_XOR_EXPR:
-	case TRUTH_OR_EXPR:
-	  if (!is_gimple_val (TREE_OPERAND (expr, 0))
-	      || !is_gimple_val (TREE_OPERAND (expr, 1)))
-	    return false;
-	  break;
-
-	case EXC_PTR_EXPR:
-	case FILTER_EXPR:
-	  break;
-
-	default:
-	  return false;
-	}
-      break;
-
-    case tcc_vl_exp:
-      return false;
-
-    case tcc_exceptional:
-      if (code != SSA_NAME)
-        return false;
-
-    default:
-      return false;
-    }
-
-  return true;
-}
-
-/* Return true if EXPR is a CALL_EXPR suitable for representation
-   as a single GIMPLE_CALL statement.  If the arguments require
-   further gimplification, return false.  */
-
-static bool
-valid_gimple_call_p (tree expr)
-{
-  unsigned i, nargs;
-
-  if (TREE_CODE (expr) != CALL_EXPR)
-    return false;
-
-  nargs = call_expr_nargs (expr);
-  for (i = 0; i < nargs; i++)
-    if (! is_gimple_operand (CALL_EXPR_ARG (expr, i)))
-      return false;
-
-  return true;
-}
-
 /* For passing state through walk_tree into fold_stmt_r and its
    children.  */
 
@@ -2444,7 +2328,6 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-
 /* Return the string length, maximum string length or maximum value of
    ARG in LENGTH.
    If ARG is an SSA name variable, follow its use-def chains.  If LENGTH
@@ -2509,17 +2392,15 @@ get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
   switch (gimple_code (def_stmt))
     {
       case GIMPLE_ASSIGN:
-	{
-	  /* The RHS of the statement defining VAR must either have a
-	     constant length or come from another SSA_NAME with a constant
-	     length.  */
-          if (get_gimple_rhs_class (gimple_subcode (def_stmt))
-              == GIMPLE_SINGLE_RHS)
-            {
-              tree rhs = gimple_assign_rhs1 (def_stmt);
-              return get_maxval_strlen (rhs, length, visited, type);
-            }
-        }
+        /* The RHS of the statement defining VAR must either have a
+           constant length or come from another SSA_NAME with a constant
+           length.  */
+        if (gimple_assign_single_p (def_stmt)
+            || gimple_assign_unary_nop_p (def_stmt))
+          {
+            tree rhs = gimple_assign_rhs1 (def_stmt);
+            return get_maxval_strlen (rhs, length, visited, type);
+          }
         return false;
 
       case GIMPLE_PHI:
@@ -2860,123 +2741,6 @@ fold_gimple_cond (gimple stmt)
   return false;
 }
 
-
-/* Make SSA names defined by OLD_STMT point to NEW_STMT
-   as their defining statement.  */
-
-static void
-move_ssa_defining_stmt_for_defs (gimple new_stmt, gimple old_stmt)
-{
-  tree var;
-  ssa_op_iter iter;
-
-  if (gimple_in_ssa_p (cfun))
-    {
-      /* Make defined SSA_NAMEs point to the new
-         statement as their definition.  */
-      FOR_EACH_SSA_TREE_OPERAND (var, old_stmt, iter, SSA_OP_ALL_DEFS)
-        {
-          if (TREE_CODE (var) == SSA_NAME)
-            SSA_NAME_DEF_STMT (var) = new_stmt;
-        }
-    }
-}
-
-
-/* Update a GIMPLE_CALL statement at iterator *SI_P to reflect the
-   value of EXPR, which is expected to be the result of folding the
-   call.  This can only be done if EXPR is a CALL_EXPR with valid
-   GIMPLE operands as arguments, or if it is a suitable RHS expression
-   for a GIMPLE_ASSIGN.  More complex expressions will require
-   gimplification, which will introduce addtional statements.  In this
-   event, no update is performed, and the function returns false.
-   Note that we cannot mutate a GIMPLE_CALL in-place, so we always
-   replace the statement at *SI_P with an entirely new statement.
-   The new statement need not be a call, e.g., if the original call
-   folded to a constant.  */
-
-static bool
-update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
-{
-  tree lhs;
-
-  gimple stmt = gsi_stmt (*si_p);
-
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
-
-  lhs = gimple_call_lhs (stmt);
-
-  if (valid_gimple_call_p (expr))
-    {
-      /* The call has simplified to another call.  */
-      tree fn = CALL_EXPR_FN (expr);
-      unsigned i;
-      unsigned nargs = call_expr_nargs (expr);
-      VEC(tree, gc) *args = NULL;
-      gimple new_stmt;
-
-      if (nargs > 0)
-        {
-          args = VEC_alloc (tree, gc, nargs);
-          VEC_safe_grow (tree, gc, args, nargs);
-      
-          for (i = 0; i < nargs; i++)
-            VEC_replace (tree, args, i, CALL_EXPR_ARG (expr, i));
-        }
-
-      new_stmt = gimple_build_call_vec (fn, args);
-      gimple_call_set_lhs (new_stmt, lhs);
-      copy_virtual_operands (new_stmt, stmt);
-      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-      gimple_set_location (new_stmt, gimple_location (stmt));
-      gsi_replace (si_p, new_stmt, false);
-      return true;
-    }
-  else if (valid_gimple_rhs_p (expr))
-    {
-      gimple new_stmt;
-
-      /* The call has simplified to an expression
-         that cannot be represented as a GIMPLE_CALL. */
-      if (lhs)
-        {
-          /* A value is expected.
-             Introduce a new GIMPLE_ASSIGN statement.  */
-          STRIP_USELESS_TYPE_CONVERSION (expr);
-          new_stmt = gimple_build_assign (lhs, expr);
-          copy_virtual_operands (new_stmt, stmt);
-          move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-        }
-      else if (!TREE_SIDE_EFFECTS (expr))
-        {
-          /* No value is expected, and EXPR has no effect.
-             Replace it with an empty statement.  */
-          new_stmt = gimple_build_nop ();
-        }
-      else
-        {
-          /* No value is expected, but EXPR has an effect,
-             e.g., it could be a reference to a volatile
-             variable.  Create an assignment statement
-             with a dummy (unused) lhs variable.  */
-          STRIP_USELESS_TYPE_CONVERSION (expr);
-          lhs = create_tmp_var (TREE_TYPE (expr), NULL);
-          new_stmt = gimple_build_assign (lhs, expr);
-          add_referenced_var (lhs);
-          lhs = make_ssa_name (lhs, new_stmt);
-          gimple_assign_set_lhs (new_stmt, lhs);
-          copy_virtual_operands (new_stmt, stmt);
-          move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-        }
-      gimple_set_location (new_stmt, gimple_location (stmt));
-      gsi_replace (si_p, new_stmt, false);
-      return true;
-    }
-  else
-    /* The call simplified to an expression that is
-       not a valid GIMPLE RHS.  */
-    return false;
-}
 
 /* Attempt to fold a call statement referenced by the statement iterator GSI.
    The statement may be replaced by another statement, e.g., if the call

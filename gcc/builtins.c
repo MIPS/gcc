@@ -12154,8 +12154,6 @@ fold_builtin_object_size (tree ptr, tree ost)
   if (TREE_SIDE_EFFECTS (ptr))
     return build_int_cst_type (size_type_node, object_size_type < 2 ? -1 : 0);
 
-  /* FIXME tuples.  */
-#if 0
   if (TREE_CODE (ptr) == ADDR_EXPR)
     ret = build_int_cstu (size_type_node,
 			  compute_builtin_object_size (ptr, object_size_type));
@@ -12172,9 +12170,6 @@ fold_builtin_object_size (tree ptr, tree ost)
 					     ? -1 : 0))
 	ret = build_int_cstu (size_type_node, bytes);
     }
-#else
-  ret = NULL_TREE;
-#endif
 
   if (ret)
     {

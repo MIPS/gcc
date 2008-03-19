@@ -127,6 +127,10 @@ void ssa_propagate (ssa_prop_visit_stmt_fn, ssa_prop_visit_phi_fn);
 tree get_rhs (gimple);				/* FIXME tuples.  Depecrate.  */
 bool valid_gimple_expression_p (tree expr);	/* FIXME tuples.  Depecrate.  */
 bool set_rhs (gimple *, tree);			/* FIXME tuples.  Depecrate.  */
+bool valid_gimple_rhs_p (tree);
+bool valid_gimple_call_p (tree);
+void move_ssa_defining_stmt_for_defs (gimple, gimple);
+bool update_call_from_tree (gimple_stmt_iterator *, tree);
 tree first_vdef (gimple);
 bool stmt_makes_single_load (gimple);
 bool stmt_makes_single_store (gimple);
