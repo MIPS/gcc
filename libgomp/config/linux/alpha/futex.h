@@ -30,8 +30,6 @@
 #ifndef SYS_futex
 #define SYS_futex               394
 #endif
-#define FUTEX_WAIT              0
-#define FUTEX_WAKE              1
 
 
 static inline void
@@ -45,7 +43,7 @@ futex_wait (int *addr, int val)
 
   sc_0 = SYS_futex;
   sc_16 = (long) addr;
-  sc_17 = FUTEX_WAIT;
+  sc_17 = gomp_futex_wait;
   sc_18 = val;
   sc_19 = 0;
   __asm volatile ("callsys"
@@ -53,6 +51,20 @@ futex_wait (int *addr, int val)
 		  : "0"(sc_0), "r" (sc_16), "r"(sc_17), "r"(sc_18), "1"(sc_19)
 		  : "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",
 		    "$22", "$23", "$24", "$25", "$27", "$28", "memory");
+  if (__builtin_expect (sc_19, 0) && sc_0 == ENOSYS)
+    {
+      gomp_futex_wait &= ~FUTEX_PRIVATE_FLAG;
+      gomp_futex_wake &= ~FUTEX_PRIVATE_FLAG;
+      sc_0 = SYS_futex;
+      sc_17 &= ~FUTEX_PRIVATE_FLAG;
+      sc_19 = 0;
+      __asm volatile ("callsys"
+		      : "=r" (sc_0), "=r"(sc_19)
+		      : "0"(sc_0), "r" (sc_16), "r"(sc_17), "r"(sc_18),
+			"1"(sc_19)
+		      : "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",
+			"$22", "$23", "$24", "$25", "$27", "$28", "memory");
+    }
 }
 
 static inline void
@@ -66,13 +78,25 @@ futex_wake (int *addr, int count)
 
   sc_0 = SYS_futex;
   sc_16 = (long) addr;
-  sc_17 = FUTEX_WAKE;
+  sc_17 = gomp_futex_wake;
   sc_18 = count;
   __asm volatile ("callsys"
 		  : "=r" (sc_0), "=r"(sc_19)
 		  : "0"(sc_0), "r" (sc_16), "r"(sc_17), "r"(sc_18)
 		  : "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",
 		    "$22", "$23", "$24", "$25", "$27", "$28", "memory");
+  if (__builtin_expect (sc_19, 0) && sc_0 == ENOSYS)
+    {
+      gomp_futex_wait &= ~FUTEX_PRIVATE_FLAG;
+      gomp_futex_wake &= ~FUTEX_PRIVATE_FLAG;
+      sc_0 = SYS_futex;
+      sc_17 &= ~FUTEX_PRIVATE_FLAG;
+      __asm volatile ("callsys"
+		      : "=r" (sc_0), "=r"(sc_19)
+		      : "0"(sc_0), "r" (sc_16), "r"(sc_17), "r"(sc_18)
+		      : "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8",
+			"$22", "$23", "$24", "$25", "$27", "$28", "memory");
+    }
 }
 
 static inline void

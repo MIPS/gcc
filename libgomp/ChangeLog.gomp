@@ -1,3 +1,34 @@
+2008-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/wait.h: Include errno.h.
+	(FUTEX_WAIT, FUTEX_WAKE, FUTEX_PRIVATE_FLAG): Define.
+	(gomp_futex_wake, gomp_futex_wait): New extern decls.
+	* config/linux/mutex.c (gomp_futex_wake, gomp_futex_wait): New
+	variables.
+	* config/linux/powerpc/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(sys_futex0): Return error code.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+	* config/linux/alpha/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+	* config/linux/x86/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(sys_futex0): Return error code.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+	* config/linux/s390/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(sys_futex0): Return error code.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+	* config/linux/ia64/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(sys_futex0): Return error code.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+	* config/linux/sparc/futex.h (FUTEX_WAIT, FUTEX_WAKE): Remove.
+	(sys_futex0): Return error code.
+	(futex_wake, futex_wait): If ENOSYS was returned, clear
+	FUTEX_PRIVATE_FLAG in gomp_futex_wa{ke,it} and retry.
+
 2008-03-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct gomp_work_share): Add mode field.  Put lock and

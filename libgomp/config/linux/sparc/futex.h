@@ -28,10 +28,8 @@
 /* Provide target-specific access to the futex system call.  */
 
 #include <sys/syscall.h>
-#define FUTEX_WAIT	0
-#define FUTEX_WAKE	1
 
-static inline void
+static inline long
 sys_futex0 (int *addr, int op, int val)
 {
   register long int g1  __asm__ ("g1");
@@ -47,9 +45,9 @@ sys_futex0 (int *addr, int op, int val)
   o3 = 0;
 
 #ifdef __arch64__
-# define SYSCALL_STRING "ta\t0x6d"
+# define SYSCALL_STRING "ta\t0x6d; bcs,a,pt %%xcc, 1f; sub %%g0, %%o0, %%o0; 1:"
 #else
-# define SYSCALL_STRING "ta\t0x10"
+# define SYSCALL_STRING "ta\t0x10; bcs,a 1f; sub %%g0, %%o0, %%o0; 1:"
 #endif
 
   __asm volatile (SYSCALL_STRING
@@ -65,18 +63,31 @@ sys_futex0 (int *addr, int op, int val)
 		    "f48", "f50", "f52", "f54", "f56", "f58", "f60", "f62",
 #endif
 		    "cc", "memory");
+  return o0;
 }
 
 static inline void
 futex_wait (int *addr, int val)
 {
-  sys_futex0 (addr, FUTEX_WAIT, val);
+  long err = sys_futex0 (addr, gomp_futex_wait, val);
+  if (__builtin_expect (err == ENOSYS, 0))
+    {
+      gomp_futex_wait &= ~FUTEX_PRIVATE_FLAG;
+      gomp_futex_wake &= ~FUTEX_PRIVATE_FLAG;
+      sys_futex0 (addr, gomp_futex_wait, val);
+    }
 }
 
 static inline void
 futex_wake (int *addr, int count)
 {
-  sys_futex0 (addr, FUTEX_WAKE, count);
+  long err = sys_futex0 (addr, gomp_futex_wake, count);
+  if (__builtin_expect (err == ENOSYS, 0))
+    {
+      gomp_futex_wait &= ~FUTEX_PRIVATE_FLAG;
+      gomp_futex_wake &= ~FUTEX_PRIVATE_FLAG;
+      sys_futex0 (addr, gomp_futex_wake, count);
+    }
 }
 
 static inline void

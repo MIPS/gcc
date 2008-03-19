@@ -33,6 +33,18 @@
 #define GOMP_WAIT_H 1
 
 #include "libgomp.h"
+#include <errno.h>
+
+#define FUTEX_WAIT	0
+#define FUTEX_WAKE	1
+#define FUTEX_PRIVATE_FLAG	128L
+
+#ifdef HAVE_ATTRIBUTE_VISIBILITY
+# pragma GCC visibility push(hidden)
+#endif
+
+extern long int gomp_futex_wait, gomp_futex_wake;
+
 #include "futex.h"
 
 static inline void do_wait (int *addr, int val)
@@ -46,5 +58,9 @@ static inline void do_wait (int *addr, int val)
       cpu_relax ();
   futex_wait (addr, val);
 }
+
+#ifdef HAVE_ATTRIBUTE_VISIBILITY
+# pragma GCC visibility pop
+#endif
 
 #endif /* GOMP_WAIT_H */
