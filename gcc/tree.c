@@ -1,6 +1,6 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -341,7 +341,8 @@ decl_assembler_name_equal (tree decl, tree asmname)
 
 /* Compute the number of bytes occupied by a tree with code CODE.
    This function cannot be used for nodes that have variable sizes,
-   including TREE_VEC, PHI_NODE, STRING_CST, and CALL_EXPR.  */
+   including TREE_VEC, PHI_NODE, STRING_CST, IDENTIFIER_NODE, and
+   CALL_EXPR.  */
 size_t
 tree_code_size (enum tree_code code)
 {
@@ -411,12 +412,12 @@ tree_code_size (enum tree_code code)
     case tcc_exceptional:  /* something random, like an identifier.  */
       switch (code)
 	{
-	case IDENTIFIER_NODE:	return lang_hooks.identifier_size;
 	case TREE_LIST:		return sizeof (struct tree_list);
 
 	case ERROR_MARK:
 	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
 
+	case IDENTIFIER_NODE:
 	case TREE_VEC:
 	case OMP_CLAUSE:
 	case PHI_NODE:		gcc_unreachable ();

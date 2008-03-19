@@ -1101,8 +1101,6 @@ compile_file (void)
 {
   /* Initialize yet another pass.  */
 
-  ggc_protect_identifiers = true;
-
   init_cgraph ();
   init_final (main_input_filename);
   coverage_init (aux_base_name);
@@ -2381,6 +2379,8 @@ do_compile (void)
   if (time_report || !quiet_flag  || flag_detailed_statistics)
     timevar_init ();
   timevar_start (TV_TOTAL);
+
+  ggc_protect_identifiers = true;
 
   process_options ();
 

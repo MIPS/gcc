@@ -1497,7 +1497,7 @@ struct tree_vector GTY(())
 struct tree_identifier GTY(())
 {
   struct tree_common common;
-  /* Note that every front end's tree_identifier must include an
+  /* Note that every front end's lang_identifier must include an
      ht_identifier structure at the end.  */
 };
 

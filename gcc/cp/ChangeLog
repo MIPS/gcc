@@ -1,5 +1,9 @@
 2008-03-19  Tom Tromey  <tromey@redhat.com>
 
+	* mangle.c (finish_mangling_get_identifier): Fix typo.
+
+2008-03-19  Tom Tromey  <tromey@redhat.com>
+
 	* lex.c (handle_pragma_interface): Don't copy the filename.
 	(handle_pragma_implementation): Copy filename using xstrdup.
 

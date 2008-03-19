@@ -1,3 +1,10 @@
+2008-03-19  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (do_compile): Set ggc_protect_identifiers here...
+	(compile_file): ... not here.
+	* tree.h (struct tree_identifier): Fix typo.
+	* tree.c (tree_code_size): Disallow identifiers.
+
 2008-03-13  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (hand_off_decls) <VAR_DECL>: Call
