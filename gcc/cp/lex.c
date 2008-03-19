@@ -524,7 +524,7 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
   else if (fname == 0)
     filename = lbasename (input_filename);
   else
-    filename = ggc_strdup (TREE_STRING_POINTER (fname));
+    filename = TREE_STRING_POINTER (fname);
 
   finfo = get_fileinfo (input_filename);
 
@@ -594,7 +594,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   if (ifiles == 0)
     {
       ifiles = XNEW (struct impl_files);
-      ifiles->filename = filename;
+      ifiles->filename = xstrdup (filename);
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
     }

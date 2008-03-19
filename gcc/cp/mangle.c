@@ -2561,7 +2561,7 @@ finish_mangling_get_identifier (const bool warn)
 {
   finish_mangling_internal (warn);
   /* Don't obstack_finish here, and the next start_mangling will
-     remove the identifer.  */
+     remove the identifier.  */
   return get_identifier ((const char *) name_base);
 }
 
