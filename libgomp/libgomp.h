@@ -190,8 +190,8 @@ extern unsigned long gomp_remaining_threads_count;
 extern gomp_mutex_t gomp_remaining_threads_lock;
 #endif
 extern unsigned long gomp_max_active_levels_var;
-extern bool gomp_active_wait_policy;
-extern unsigned long long gomp_spin_count_var;
+extern unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
+extern unsigned long gomp_available_cpus, gomp_managed_threads;
 
 /* This structure describes a "task" to be run by a thread.  At present
    we implement only synchronous tasks, i.e. no tasks are deferred or

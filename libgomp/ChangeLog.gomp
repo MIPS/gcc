@@ -1,5 +1,26 @@
 2008-03-19  Jakub Jelinek  <jakub@redhat.com>
 
+	* libgomp.h (gomp_active_wait_policy): Remove decl.
+	(gomp_throttled_spin_count_var, gomp_available_cpus,
+	gomp_managed_threads): New extern decls.
+	* team.c (gomp_team_start, gomp_team_end): If number of threads
+	changed, adjust atomically gomp_managed_threads.
+	* env.c (gomp_active_wait_policy, gomp_block_time_var): Remove.
+	(gomp_throttled_spin_count_var, gomp_available_cpus,
+	gomp_managed_threads): New variables.
+	(parse_millis): Removed.
+	(parse_spincount): New function.
+	(parse_wait_policy): Return -1/0/1 instead of setting
+	gomp_active_wait_policy.
+	(initialize_env): Call gomp_init_num_threads unconditionally.
+	Initialize gomp_available_cpus.  Call parse_spincount instead
+	of parse_millis, initialize gomp_{,throttled_}spin_count_var
+	depending on presence and value of OMP_WAIT_POLICY and
+	GOMP_SPINCOUNT env vars.
+	* config/linux/wait.h (do_wait): Use gomp_throttled_spin_count_var
+	instead of gomp_spin_count_var if gomp_managed_threads >
+	gomp_available_cpus.
+
 	* config/linux/wait.h: Include errno.h.
 	(FUTEX_WAIT, FUTEX_WAKE, FUTEX_PRIVATE_FLAG): Define.
 	(gomp_futex_wake, gomp_futex_wait): New extern decls.

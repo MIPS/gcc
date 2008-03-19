@@ -287,8 +287,24 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	}
     }
 
+  if (__builtin_expect (nthreads > old_threads_used, 0))
+    {
+      long diff = (long) nthreads - (long) old_threads_used;
+
+      if (old_threads_used == 0)
+	--diff;
+
+#ifdef HAVE_SYNC_BUILTINS
+      __sync_fetch_and_add (&gomp_managed_threads, diff);
+#else
+      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_managed_threads += diff;
+      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+#endif
+    }
+
   attr = &gomp_thread_attr;
-  if (gomp_cpu_affinity != NULL)
+  if (__builtin_expect (gomp_cpu_affinity != NULL, 0))
     {
       size_t stacksize;
       pthread_attr_init (&thread_attr);
@@ -328,7 +344,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	gomp_fatal ("Thread creation failed: %s", strerror (err));
     }
 
-  if (gomp_cpu_affinity != NULL)
+  if (__builtin_expect (gomp_cpu_affinity != NULL, 0))
     pthread_attr_destroy (&thread_attr);
 
  do_release:
@@ -338,8 +354,20 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
      that should arrive back at the end of this team.  The extra
      threads should be exiting.  Note that we arrange for this test
      to never be true for nested teams.  */
-  if (nthreads < old_threads_used)
-    gomp_barrier_reinit (&gomp_threads_dock, nthreads);
+  if (__builtin_expect (nthreads < old_threads_used, 0))
+    {
+      long diff = (long) nthreads - (long) old_threads_used;
+
+      gomp_barrier_reinit (&gomp_threads_dock, nthreads);
+
+#ifdef HAVE_SYNC_BUILTINS
+      __sync_fetch_and_add (&gomp_managed_threads, diff);
+#else
+      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_managed_threads += diff;
+      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+#endif
+    }
 }
 
 
@@ -356,6 +384,17 @@ gomp_team_end (void)
 
   gomp_end_task ();
   thr->ts = team->prev_ts;
+
+  if (__builtin_expect (thr->ts.team != NULL, 0))
+    {
+#ifdef HAVE_SYNC_BUILTINS
+      __sync_fetch_and_add (&gomp_managed_threads, 1L - team->nthreads);
+#else
+      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_managed_threads -= team->nthreads - 1L;
+      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+#endif
+    }
 
   free_team (team);
 }

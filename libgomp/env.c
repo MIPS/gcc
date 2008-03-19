@@ -57,7 +57,6 @@ struct gomp_task_icv gomp_global_icv = {
 };
 
 unsigned short *gomp_cpu_affinity;
-bool gomp_active_wait_policy = false;
 size_t gomp_cpu_affinity_len;
 unsigned long gomp_max_active_levels_var = INT_MAX;
 unsigned long gomp_thread_limit_var = ULONG_MAX;
@@ -65,8 +64,8 @@ unsigned long gomp_remaining_threads_count;
 #ifndef HAVE_SYNC_BUILTINS
 gomp_mutex_t gomp_remaining_threads_lock;
 #endif
-static unsigned long gomp_block_time_var;
-unsigned long long gomp_spin_count_var;
+unsigned long gomp_available_cpus = 1, gomp_managed_threads = 1;
+unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
 
 /* Parse the OMP_SCHEDULE environment variable.  */
 
@@ -239,14 +238,14 @@ parse_stacksize (const char *name, unsigned long *pvalue)
   return false;
 }
 
-/* Parse the GOMP_BLOCKTIME environment varible.  Return true if one was
+/* Parse the GOMP_SPINCOUNT environment varible.  Return true if one was
    present and it was successfully parsed.  */
 
 static bool
-parse_millis (const char *name, unsigned long *pvalue)
+parse_spincount (const char *name, unsigned long long *pvalue)
 {
   char *env, *end;
-  unsigned long value, mult = 1;
+  unsigned long long value, mult = 1;
 
   env = getenv (name);
   if (env == NULL)
@@ -257,17 +256,16 @@ parse_millis (const char *name, unsigned long *pvalue)
   if (*env == '\0')
     goto invalid;
 
-  if (strncasecmp (env, "infinite", 8) != 0
-      || strncasecmp (env, "infinity", 8) != 0
-      || strncasecmp (env, "unexpire", 8) != 0)
+  if (strncasecmp (env, "infinite", 8) == 0
+      || strncasecmp (env, "infinity", 8) == 0)
     {
-      value = ULONG_MAX;
+      value = ~0ULL;
       end = env + 8;
       goto check_tail;
     }
 
   errno = 0;
-  value = strtoul (env, &end, 10);
+  value = strtoull (env, &end, 10);
   if (errno)
     goto invalid;
 
@@ -277,17 +275,17 @@ parse_millis (const char *name, unsigned long *pvalue)
     {
       switch (tolower (*end))
 	{
-	case 's':
-	  mult = 1000;
+	case 'k':
+	  mult = 1000LL;
 	  break;
 	case 'm':
-	  mult = 60 * 1000;
+	  mult = 1000LL * 1000LL;
 	  break;
-	case 'h':
-	  mult = 60 * 60 * 1000;
+	case 'g':
+	  mult = 1000LL * 1000LL * 1000LL;
 	  break;
-	case 'd':
-	  mult = 24 * 60 * 60 * 1000;
+	case 't':
+	  mult = 1000LL * 1000LL * 1000LL * 1000LL;
 	  break;
 	default:
 	  goto invalid;
@@ -300,8 +298,8 @@ parse_millis (const char *name, unsigned long *pvalue)
 	goto invalid;
     }
 
-  if (value > ULONG_MAX / mult)
-    value = ULONG_MAX;
+  if (value > ~0ULL / mult)
+    value = ~0ULL;
   else
     value *= mult;
 
@@ -348,33 +346,36 @@ parse_boolean (const char *name, bool *value)
 /* Parse the OMP_WAIT_POLICY environment variable and store the
    result in gomp_active_wait_policy.  */
 
-static void
+static int
 parse_wait_policy (void)
 {
   const char *env;
+  int ret = -1;
 
   env = getenv ("OMP_WAIT_POLICY");
   if (env == NULL)
-    return;
+    return -1;
 
   while (isspace ((unsigned char) *env))
     ++env;
   if (strncasecmp (env, "active", 6) == 0)
     {
-      gomp_active_wait_policy = true;
+      ret = 1;
       env += 6;
     }
   else if (strncasecmp (env, "passive", 7) == 0)
     {
-      gomp_active_wait_policy = false;
+      ret = 0;
       env += 7;
     }
   else
     env = "X";
   while (isspace ((unsigned char) *env))
     ++env;
-  if (*env != '\0')
-    gomp_error ("Invalid value for environment variable OMP_WAIT_POLICY");
+  if (*env == '\0')
+    return ret;
+  gomp_error ("Invalid value for environment variable OMP_WAIT_POLICY");
+  return -1;
 }
 
 /* Parse the GOMP_CPU_AFFINITY environment varible.  Return true if one was
@@ -472,6 +473,7 @@ static void __attribute__((constructor))
 initialize_env (void)
 {
   unsigned long stacksize;
+  int wait_policy;
 
   /* Do a compile time check that mkomp_h.pl did good job.  */
   omp_check_defines ();
@@ -479,7 +481,6 @@ initialize_env (void)
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
-  parse_wait_policy ();
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var);
   parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var);
   if (gomp_thread_limit_var != ULONG_MAX)
@@ -489,23 +490,34 @@ initialize_env (void)
       gomp_mutex_init (&gomp_remaining_threads_lock);
 #endif
     }
+  gomp_init_num_threads ();
+  gomp_available_cpus = gomp_global_icv.nthreads_var;
   if (!parse_unsigned_long ("OMP_NUM_THREADS", &gomp_global_icv.nthreads_var))
-    gomp_init_num_threads ();
+    gomp_global_icv.nthreads_var = gomp_available_cpus;
   if (parse_affinity ())
     gomp_init_affinity ();
-  if (!parse_millis ("GOMP_BLOCKTIME", &gomp_block_time_var))
+  wait_policy = parse_wait_policy ();
+  if (!parse_spincount ("GOMP_SPINCOUNT", &gomp_spin_count_var))
     {
-      if (gomp_active_wait_policy)
-	gomp_block_time_var = 200; /* 200ms */
+      /* Using a rough estimation of 100000 spins per msec,
+	 use 5 min blocking for OMP_WAIT_POLICY=active,
+	 200 msec blocking when OMP_WAIT_POLICY is not specificed
+	 and 0 when OMP_WAIT_POLICY=passive.
+	 Depending on the CPU speed, this can be e.g. 5 times longer
+	 or 5 times shorter.  */
+      if (wait_policy > 0)
+	gomp_spin_count_var = 30000000000LL;
+      else if (wait_policy < 0)
+	gomp_spin_count_var = 20000000LL;
     }
-  if (gomp_block_time_var > 0)
-    {
-      if (gomp_block_time_var == ULONG_MAX)
-	gomp_spin_count_var = ~0ULL;
-      else
-	/* Estimate translation of gomp_block_time_var in milliseconds to
-	   spin count.  */;
-    }
+  /* gomp_throttled_spin_count_var is used when there are more libgomp
+     managed threads than available CPUs.  Use very short spinning.  */
+  if (wait_policy > 0)
+    gomp_throttled_spin_count_var = 1000LL;
+  else if (wait_policy < 0)
+    gomp_throttled_spin_count_var = 100LL;
+  if (gomp_throttled_spin_count_var > gomp_spin_count_var)
+    gomp_throttled_spin_count_var = gomp_spin_count_var;
 
   /* Not strictly environment related, but ordering constructors is tricky.  */
   pthread_attr_init (&gomp_thread_attr);
