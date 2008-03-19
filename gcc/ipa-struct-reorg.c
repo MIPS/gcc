@@ -555,25 +555,15 @@ add_bb_info (basic_block bb, tree stmt_list)
     }
 }
 
-/* This function looks for the variable of NEW_TYPE type, stored in VAR.
-   It returns it, if found, and NULL_TREE otherwise.  */
+/* This function looks for the variable stored in
+   the new vars vector, and returns it.  */
 
 static tree
-find_var_in_new_vars_vec (new_var var, tree new_type)
+find_var_in_new_vars_vec (new_var var, int cluster)
 {
-  tree n_var;
-  unsigned i;
-
-  for (i = 0; VEC_iterate (tree, var->new_vars, i, n_var); i++)
-    {
-      tree type = strip_type(get_type_of_var (n_var));
-      gcc_assert (type);
-      
-      if (type == new_type)
-	return n_var;
-    }
-
-  return NULL_TREE;
+  tree n_var = VEC_index (tree, var->new_vars, cluster);
+  gcc_assert (n_var);
+  return n_var;
 }
 
 /* This function returns new_var node, the orig_var of which is DECL.
@@ -588,13 +578,13 @@ is_in_new_vars_htab (tree decl, htab_t new_vars_htab)
 }
 
 /* Given original varaiable ORIG_VAR, this function returns
-   new variable corresponding to it of NEW_TYPE type. */
+   new variable corresponding to it.  */
 
 static tree
-find_new_var_of_type (tree orig_var, tree new_type)
+find_new_var_of_type (tree orig_var, int cluster)
 {
   new_var var;
-  gcc_assert (orig_var && new_type);
+  gcc_assert (orig_var && (cluster != -1));
 
   if (TREE_CODE (orig_var) == SSA_NAME)
     orig_var = SSA_NAME_VAR (orig_var);
@@ -603,7 +593,7 @@ find_new_var_of_type (tree orig_var, tree new_type)
   if (!var)
     var = is_in_new_vars_htab (orig_var, new_local_vars);
   gcc_assert (var);
-  return find_var_in_new_vars_vec (var, new_type);
+  return find_var_in_new_vars_vec (var, cluster);
 }
 
 /* This function generates stmt:
@@ -643,18 +633,18 @@ gen_size (tree num, tree type, tree *res)
 }
 
 /* This function generates and returns a statement, that cast variable 
-   BEFORE_CAST to NEW_TYPE. The cast result variable is stored 
+   BEFORE_CAST to its new type. The cast result variable is stored
    into RES_P. ORIG_CAST_STMT is the original cast statement.  */
 
 static tree
-gen_cast_stmt (tree before_cast, tree new_type, tree orig_cast_stmt,
-	       tree *res_p)
+gen_cast_stmt (tree before_cast, tree orig_cast_stmt,
+	       tree *res_p, int cluster)
 {
   tree lhs, new_lhs, new_stmt;
   gcc_assert (TREE_CODE (orig_cast_stmt) == GIMPLE_MODIFY_STMT);
     
   lhs = GIMPLE_STMT_OPERAND (orig_cast_stmt, 0);
-  new_lhs = find_new_var_of_type (lhs, new_type);
+  new_lhs = find_new_var_of_type (lhs, cluster);
   gcc_assert (new_lhs);
 
   new_stmt = build_gimple_modify_stmt (new_lhs, 
@@ -953,7 +943,7 @@ DEF_VEC_ALLOC_O (type_wrapper_t, heap);
    field access of structure type NEW_TYPE.  */
 
 static void
-replace_field_acc (struct field_access_site *acc, tree new_type)
+replace_field_acc (struct field_access_site *acc, tree new_type, int cluster)
 {
   tree ref_var = acc->ref;
   tree new_ref;
@@ -984,7 +974,7 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
       ref_var = TREE_OPERAND (ref_var, 0);
     }
 
-  new_ref = find_new_var_of_type (ref_var, new_type);
+  new_ref = find_new_var_of_type (ref_var, cluster);
   finalize_global_creation (new_ref);
 
   while (VEC_length (type_wrapper_t, wrapper) != 0)
@@ -1034,13 +1024,13 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
    of structure type NEW_TYPE.  */
 
 static void
-replace_field_access_stmt (struct field_access_site *acc, tree new_type)
+replace_field_access_stmt (struct field_access_site *acc, tree new_type, int cluster)
 {
 
   if (TREE_CODE (acc->ref) == INDIRECT_REF
       ||TREE_CODE (acc->ref) == ARRAY_REF
       ||TREE_CODE (acc->ref) == VAR_DECL)
-    replace_field_acc (acc, new_type);
+    replace_field_acc (acc, new_type, cluster);
   else
     gcc_unreachable ();
 }
@@ -1065,14 +1055,14 @@ find_structure (tree type)
 }
 
 /* In this function we create new statements that have the same
-   form as ORIG_STMT, but of type NEW_TYPE. The statements 
+   form as ORIG_STMT, but of a new type. The statements
    treated by this function are simple assignments, 
    like assignments:  p.8_7 = p; or statements with rhs of 
    tree codes PLUS_EXPR and MINUS_EXPR.  */
 
 static tree
-create_base_plus_offset (tree orig_stmt, tree new_type, 
-			 tree offset)
+create_base_plus_offset (tree orig_stmt,
+			 tree offset, int cluster)
 {
   tree lhs, rhs;
   tree new_lhs, new_rhs;
@@ -1086,7 +1076,7 @@ create_base_plus_offset (tree orig_stmt, tree new_type,
   gcc_assert (TREE_CODE (lhs) == VAR_DECL
 	      || TREE_CODE (lhs) == SSA_NAME);
   
-  new_lhs = find_new_var_of_type (lhs, new_type);
+  new_lhs = find_new_var_of_type (lhs, cluster);
   gcc_assert (new_lhs);
   finalize_var_creation (new_lhs);
 
@@ -1108,9 +1098,9 @@ create_base_plus_offset (tree orig_stmt, tree new_type,
 	gcc_assert ((str0 != length) || (str1 != length));
 	
 	if (str0 != length)
-	  new_op0 = find_new_var_of_type (op0, new_type);
+	  new_op0 = find_new_var_of_type (op0, cluster);
 	if (str1 != length)
-	  new_op1 = find_new_var_of_type (op1, new_type);
+	  new_op1 = find_new_var_of_type (op1, cluster);
 
 	if (!new_op0)
 	  new_op0 = offset;
@@ -1137,9 +1127,10 @@ create_base_plus_offset (tree orig_stmt, tree new_type,
 
 static void
 create_new_field_access (struct field_access_site *f_acc,
-			 struct field_entry field)
+			 struct field_entry field, tree field_type)
 {
-  tree new_type = field.field_mapping;
+  tree new_type = field_type;
+  int cluster = field.cluster;
   tree new_stmt;
   tree size_res;
   tree mult_stmt, cast_stmt;
@@ -1153,8 +1144,8 @@ create_new_field_access (struct field_access_site *f_acc,
 
   if (f_acc->cast_stmt)
     {
-      cast_stmt = gen_cast_stmt (size_res, new_type, 
-				 f_acc->cast_stmt, &cast_res);
+      cast_stmt = gen_cast_stmt (size_res,
+				 f_acc->cast_stmt, &cast_res, cluster);
       insert_after_stmt (f_acc->cast_stmt, cast_stmt);
     }
 
@@ -1167,13 +1158,13 @@ create_new_field_access (struct field_access_site *f_acc,
 	offset = size_res;
 
       new_stmt = create_base_plus_offset (f_acc->ref_def_stmt, 
-					  new_type, offset);
+					  offset, cluster);
       insert_after_stmt (f_acc->ref_def_stmt, new_stmt);
     }
 
   /* In stmt D.2163_19 = D.2162_18->b; we replace variable
    D.2162_18 by an appropriate variable of new_type type.  */
-  replace_field_access_stmt (f_acc, new_type);
+  replace_field_access_stmt (f_acc, new_type, cluster);
 }
 
 /* This function creates a new condition statement 
@@ -1234,7 +1225,7 @@ create_new_stmts_for_cond_expr (tree stmt)
   unsigned str0, str1;
   bool s0, s1;
   d_str str;
-  tree type;
+  cluster *iter;
   bool pos;
   int i;
   unsigned length = VEC_length (structure, structures);
@@ -1261,11 +1252,11 @@ create_new_stmts_for_cond_expr (tree stmt)
   arg = integer_zerop (arg0) ? arg1 : arg0;
   pos = integer_zerop (arg0) ? 1 : 0;
   
-  for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
+  for (i = 0; VEC_iterate (cluster, str->new_types, i, iter); i++)
     {
       tree new_arg;
 
-      new_arg = find_new_var_of_type (arg, type);
+      new_arg = find_new_var_of_type (arg, i);
       create_new_stmts_for_cond_expr_1 (new_arg, stmt, pos);
     }
 }
@@ -1274,7 +1265,7 @@ create_new_stmts_for_cond_expr (tree stmt)
    for structure type NEW_TYPE.  */
 
 static tree
-create_general_new_stmt (struct access_site *acc, tree new_type)
+create_general_new_stmt (struct access_site *acc, tree new_type, int cluster)
 {
   tree old_stmt = acc->stmt;
   tree var;
@@ -1285,7 +1276,7 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
   for (i = 0; VEC_iterate (tree, acc->vars, i, var); i++)
     {
       tree *pos;
-      tree new_var = find_new_var_of_type (var, new_type);
+      tree new_var = find_new_var_of_type (var, cluster);
       tree lhs, rhs;
 
       gcc_assert (new_var);
@@ -1342,15 +1333,15 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
 static void
 create_new_stmts_for_general_acc (struct access_site *acc, d_str str)
 {
-  tree type;
+  cluster *iter;
   tree stmt = acc->stmt;
   unsigned i;
 
-  for (i = 0; VEC_iterate (tree, str->new_types, i, type); i++)
+  for (i = 0; VEC_iterate (cluster, str->new_types, i, iter); i++)
     {
       tree new_stmt;
 
-      new_stmt = create_general_new_stmt (acc, type);
+      new_stmt = create_general_new_stmt (acc, iter->type, i);
       insert_after_stmt (stmt, new_stmt);
     }
 }
@@ -1408,7 +1399,11 @@ create_new_field_acc (void **slot, void *data)
   int i = ((struct create_acc_data *)data)->field_index;
 
   if (bb_for_stmt (f_acc->stmt) == bb)
-    create_new_field_access (f_acc, str->fields[i]);
+    {
+      int index = str->fields[i].cluster;
+      cluster *iter = VEC_index (cluster, str->new_types, index);
+      create_new_field_access (f_acc, str->fields[i], iter->type);
+    }
   return 1;
 }
 
@@ -1721,7 +1716,7 @@ update_cgraph_with_malloc_call (tree malloc_stmt, tree context)
    call to malloc is returned. MALLOC_STMT is an original call to malloc.  */
 
 static tree
-create_new_malloc (tree malloc_stmt, tree new_type, tree *new_stmts, tree num)
+create_new_malloc (tree malloc_stmt, tree new_type, tree *new_stmts, tree num, int cluster)
 {
   tree new_malloc_size;
   tree call_expr, malloc_fn_decl;
@@ -1752,7 +1747,7 @@ create_new_malloc (tree malloc_stmt, tree new_type, tree *new_stmts, tree num)
   /* Create new cast statement. */
   final_stmt = get_final_alloc_stmt (malloc_stmt);
   gcc_assert (final_stmt);
-  new_stmt = gen_cast_stmt (malloc_res, new_type, final_stmt, &cast_res);
+  new_stmt = gen_cast_stmt (malloc_res, final_stmt, &cast_res, cluster);
   append_to_statement_list (new_stmt, new_stmts);
  
   return call_stmt;      
@@ -1983,7 +1978,7 @@ create_new_var_node (tree var, d_str str)
 
   node = (new_var) xmalloc (sizeof (struct new_var_data));
   node->orig_var = var;
-  node->new_vars = VEC_alloc (tree, heap, VEC_length (tree, str->new_types));
+  node->new_vars = VEC_alloc (tree, heap, VEC_length (cluster, str->new_types));
   return node;
 }
 
@@ -2074,19 +2069,19 @@ dump_acc (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-/* This function frees memory allocated for strcuture clusters, 
-   starting from CLUSTER.  */
+/* This function frees memory allocated for clusters.  */
 
 static void
-free_struct_cluster (struct field_cluster* cluster)
+free_cluster (VEC(cluster, heap) *free_vec)
 {
-  if (cluster)
+  if (free_vec)
     {
-      if (cluster->fields_in_cluster)
-	sbitmap_free (cluster->fields_in_cluster);	    
-      if (cluster->sibling)
-	free_struct_cluster (cluster->sibling);
-      free (cluster);
+      int i;
+      cluster *iter;
+      
+      for (i = 0; VEC_iterate (cluster, free_vec, i, iter); i++)
+	sbitmap_free (iter->cluster);
+      VEC_free (cluster, heap, free_vec);
     }
 }
 
@@ -2118,11 +2113,8 @@ free_data_struct (d_str d_node)
   if (d_node->accs)
      free_accesses (d_node->accs);
 
-  if (d_node->struct_clustering)
-    free_struct_cluster (d_node->struct_clustering);
-
   if (d_node->new_types)
-    VEC_free (tree, heap, d_node->new_types);
+    free_cluster (d_node->new_types);
 }
 
 /* This function creates new general and field accesses in BB.  */
@@ -2155,7 +2147,7 @@ create_new_alloc_sites (fallocs_t m_data, tree context)
       tree new_stmts = NULL_TREE;
       tree last_stmt = get_final_alloc_stmt (stmt);
       unsigned i;
-      tree type;
+      cluster *iter;
 
       num = gen_num_of_structs_in_malloc (stmt, str->decl, &new_stmts);
       if (new_stmts)
@@ -2166,13 +2158,13 @@ create_new_alloc_sites (fallocs_t m_data, tree context)
       
       /* Generate an allocation sites for each new structure type.  */      
       for (i = 0; 
-	   VEC_iterate (tree, str->new_types, i, type); i++)	
+	   VEC_iterate (cluster, str->new_types, i, iter); i++)
 	{
 	  tree new_malloc_stmt = NULL_TREE;
 	  tree last_stmt_tmp = NULL_TREE;
 
 	  new_stmts = NULL_TREE;
-	  new_malloc_stmt = create_new_malloc (stmt, type, &new_stmts, num);
+	  new_malloc_stmt = create_new_malloc (stmt, iter->type, &new_stmts, num, i);
 	  last_stmt_tmp = tsi_stmt (tsi_last (new_stmts));
 	  insert_after_stmt (last_stmt, new_stmts);
 	  update_cgraph_with_malloc_call (new_malloc_stmt, context);
@@ -2203,15 +2195,17 @@ static void
 create_new_var_1 (tree orig_decl, d_str str, new_var node)
 {
   unsigned i;
+  cluster *iter;
   tree type;
 
   for (i = 0; 
-       VEC_iterate (tree, str->new_types, i, type); i++)
+       VEC_iterate (cluster, str->new_types, i, iter); i++)
     {
       tree new_decl = NULL;
       tree new_name;
 
       new_name = gen_var_name (orig_decl, i);
+      type = copy_node (iter->type);
       type = gen_struct_type (orig_decl, type); 
 
       if (is_global_var (orig_decl))
@@ -2329,7 +2323,7 @@ get_fields (tree struct_decl, int num_fields)
 	list[idx].acc_sites = 
 	  htab_create (32, field_acc_hash, field_acc_eq, NULL);
 	list[idx].count = 0;
-	list[idx].field_mapping = NULL_TREE;
+	list[idx].cluster = -1;
       }
 
   return list;
@@ -2730,17 +2724,17 @@ print_shift (unsigned HOST_WIDE_INT shift)
     fprintf (dump_file, " ");    
 }
 
-/* This function updates field_mapping of FIELDS in CLUSTER with NEW_TYPE.  */
+/* This function updates the index of FIELDS with CLUSTER.  */
 
 static inline void
-update_fields_mapping (struct field_cluster *cluster, tree new_type,
-		       struct field_entry * fields, int num_fields)
+update_fields_index (sbitmap cluster_d,
+		     struct field_entry * fields, int num_fields, int cluster)
 {
   int i;
 
   for (i = 0; i < num_fields; i++)
-    if (TEST_BIT (cluster->fields_in_cluster, i))
-	fields[i].field_mapping = new_type;  
+    if (TEST_BIT (cluster_d, i))
+      fields[i].cluster = cluster;
 }
 
 /* This functions builds structure with FIELDS, 
@@ -2778,7 +2772,7 @@ build_basic_struct (tree fields, tree name, tree orig_struct)
    generated fields.  */
 
 static tree
-create_fields (struct field_cluster * cluster, 
+create_fields (sbitmap cluster,
 	       struct field_entry * fields, int num_fields)
 {
   int i;
@@ -2786,7 +2780,7 @@ create_fields (struct field_cluster * cluster,
   tree last = NULL_TREE;
 
   for (i = 0; i < num_fields; i++)
-    if (TEST_BIT (cluster->fields_in_cluster, i))
+    if (TEST_BIT (cluster, i))
       {
 	tree new_decl = unshare_expr (fields[i].decl);
 
@@ -2999,9 +2993,8 @@ add_structure (tree type)
   node.decl = type;
   node.num_fields = num_fields;
   node.fields = get_fields (type, num_fields);
-  node.struct_clustering = NULL;
   node.accs = htab_create (32, acc_hash, acc_eq, NULL);
-  node.new_types = VEC_alloc (tree, heap, num_fields);
+  node.new_types = VEC_alloc (cluster, heap, num_fields);
   node.count = 0;
 
   VEC_safe_push (structure, heap, structures, &node);
@@ -3187,13 +3180,11 @@ collect_accesses_in_bb (basic_block bb)
 static void
 gen_cluster (sbitmap fields, d_str str)
 {
-  struct field_cluster *crr_cluster = NULL;
+  cluster iter;
+  iter.cluster = fields;
+  iter.type = NULL;
 
-  crr_cluster = 
-    (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
-  crr_cluster->sibling = str->struct_clustering;
-  str->struct_clustering = crr_cluster;
-  crr_cluster->fields_in_cluster = fields;
+  VEC_safe_push (cluster, heap, str->new_types, &iter);
 }
 
 /* This function peels a field with the index I from the structure DS.  */
@@ -3201,16 +3192,13 @@ gen_cluster (sbitmap fields, d_str str)
 static void
 peel_field (int i, d_str ds)
 {
-  struct field_cluster *crr_cluster = NULL;
+  cluster iter;
 
-  crr_cluster = 
-    (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
-  crr_cluster->sibling = ds->struct_clustering;
-  ds->struct_clustering = crr_cluster;
-  crr_cluster->fields_in_cluster =
-    sbitmap_alloc ((unsigned int) ds->num_fields);
-  sbitmap_zero (crr_cluster->fields_in_cluster);
-  SET_BIT (crr_cluster->fields_in_cluster, i);  
+  iter.cluster = sbitmap_alloc ((unsigned int) ds->num_fields);
+  iter.type = NULL;
+  sbitmap_zero (iter.cluster);
+  SET_BIT (iter.cluster, i);
+  VEC_safe_push (cluster, heap, ds->new_types, &iter);
 }
 
 /* This function calculates maximum field count in 
@@ -3303,25 +3291,23 @@ static void
 create_new_type (d_str str, int *str_num)
 {
   int cluster_num = 0;
-
-  struct field_cluster *cluster = str->struct_clustering;
-  while (cluster)
-    {	  
+  int i;
+  cluster *iter;
+  
+  for (i = 0; VEC_iterate (cluster, str->new_types, i, iter); i++)
+    {
       tree  name = gen_cluster_name (str->decl, cluster_num, 
 				     *str_num);
       tree fields;
       tree new_type;
       cluster_num++;
 	   
-      fields = create_fields (cluster, str->fields, 
+      fields = create_fields (iter->cluster, str->fields,
 			      str->num_fields);
       new_type = build_basic_struct (fields, name, str->decl);
-	  
-      update_fields_mapping (cluster, new_type, 
-			     str->fields, str->num_fields);
-
-      VEC_safe_push (tree, heap, str->new_types, new_type);
-      cluster = cluster->sibling; 
+      update_fields_index (iter->cluster,
+			   str->fields, str->num_fields, i);
+      iter->type = copy_node (new_type);
     }
   (*str_num)++;
 }
@@ -3681,7 +3667,7 @@ peel_hot_fields (d_str str)
   max_field_count = 
     (gcov_type) (get_max_field_count (str)/100)*90;
 
-  str->struct_clustering = NULL;
+  str->new_types = VEC_alloc (cluster, heap, str->num_fields);
 
   for (i = 0; i < str->num_fields; i++)
     {
@@ -3770,7 +3756,7 @@ static void
 dump_new_types (void)
 {
   d_str str;
-  tree type;
+  cluster *iter;
   unsigned i, j;
 
   if (!dump_file)
@@ -3786,10 +3772,10 @@ dump_new_types (void)
 	  fprintf (dump_file, "\nFor type ");
 	  dump_struct_type (str->decl, 2, 0);
 	  fprintf (dump_file, "\nthe number of new types is %d\n",
-		   VEC_length (tree, str->new_types));
+		   VEC_length (cluster, str->new_types));
 	}      
-      for (j = 0; VEC_iterate (tree, str->new_types, j, type); j++)
-	dump_struct_type (type, 2, 0); 
+      for (j = 0; VEC_iterate (cluster, str->new_types, j, iter); j++)
+	dump_struct_type (iter->type, 2, 0);
     }
 }
 

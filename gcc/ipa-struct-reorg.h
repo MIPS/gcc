@@ -66,20 +66,20 @@ struct field_entry
   /* Number of times the field is accessed (according to profiling).  */
   gcov_type count;
   tree decl;
-  /* A type of a new structure this field belongs to.  */
-  tree field_mapping;
+  /* An index to the cluster this field belongs to.  */
+  int cluster;
   htab_t acc_sites;
 };
 
-/* This structure represents a result of the structure peeling.
-   The original structure is decomposed into substructures, or clusters.  */
-struct field_cluster
+/* This structure saves peeling information.  */
+typedef struct cluster
 {
-  /* A bitmap of field indices. The set bit indicates that the field 
-     corresponding to it is a part of this cluster.  */
-  sbitmap fields_in_cluster;
-  struct field_cluster *sibling;
-};
+  sbitmap cluster;
+  tree type;
+} cluster;
+
+DEF_VEC_O (cluster);
+DEF_VEC_ALLOC_O (cluster, heap);
 
 /* An information about an individual structure type (RECORD_TYPE) required
    by struct-reorg optimizations to perform a transformation.  */
@@ -101,11 +101,9 @@ struct data_structure
   /* Non-field accesses of the structure.  */
   htab_t accs;
 
-  /* A data structure representing a reorganization decision.  */
-  struct field_cluster *struct_clustering;
-
-  /* New types to replace an the original structure type.  */
-  VEC(tree, heap) *new_types;
+  /* This data structure represents a reorganization decision and
+     includes new types to replace the original structure type.  */
+  VEC (cluster, heap) *new_types;
 };
 
 typedef struct data_structure * d_str;
