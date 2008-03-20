@@ -1,3 +1,17 @@
+2008-03-19  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* dwarf2out.c (CUR_FDE): New.
+	(reg_save_with_expression): Likewise.
+	(dw_fde_struct): Add drap_regnum, stack_realignment,
+	is_stack_realign, is_drap and is_drap_reg_saved.
+	(add_cfi): If stack is realigned, call reg_save_with_expression
+	to represent the location of stored vars.
+	(dwarf2out_frame_debug_expr): Add rules 16-19 to handle stack
+	realign.
+	(output_cfa_loc): Handle DW_CFA_expression.
+	(based_loc_descr): Update assert for stack realign.
+
 2008-02-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386-modes.def: Use 8 byte alignment on DI for

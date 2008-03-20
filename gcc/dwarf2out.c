@@ -110,6 +110,9 @@ static void dwarf2out_source_line (unsigned int, const char *);
 #define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
 #endif
 
+/* Define the current fde_table entry we should use. */
+#define CUR_FDE fde_table[fde_table_in_use - 1]
+
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
@@ -239,9 +242,18 @@ typedef struct dw_fde_struct GTY(())
   bool dw_fde_switched_sections;
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
+  /* If it is drap, which register is employed. */
+  int drap_regnum;
+  HOST_WIDE_INT stack_realignment;
   unsigned all_throwers_are_sibcalls : 1;
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
+  /* Whether we did stack realign in this call frame.*/
+  unsigned is_stack_realign : 1;
+  /* Whether stack realign is drap. */
+  unsigned is_drap : 1;
+  /* Whether we saved this drap register. */
+  unsigned is_drap_reg_saved : 1;
 }
 dw_fde_node;
 
@@ -381,6 +393,7 @@ static void get_cfa_from_loc_descr (dw_cfa_location *,
 static struct dw_loc_descr_struct *build_cfa_loc
   (dw_cfa_location *, HOST_WIDE_INT);
 static void def_cfa_1 (const char *, dw_cfa_location *);
+static void reg_save_with_expression (dw_cfi_ref);
 
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
@@ -617,6 +630,13 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
   /* Find the end of the chain.  */
   for (p = list_head; (*p) != NULL; p = &(*p)->dw_cfi_next)
     ;
+
+  /* If stack is realigned, accessing the stored register via CFA+offset will
+     be invalid. Here we will use a series of expressions in dwarf2 to simulate
+     the stack realign and represent the location of the stored register. */
+  if (fde_table_in_use && (CUR_FDE.is_stack_realign || CUR_FDE.is_drap) 
+      && cfi->dw_cfi_opc == DW_CFA_offset)
+    reg_save_with_expression (cfi);
 
   *p = cfi;
 }
@@ -1435,6 +1455,10 @@ static dw_cfa_location cfa_temp;
   Rules 10-14: Save a register to the stack.  Define offset as the
 	       difference of the original location and cfa_store's
 	       location (or cfa_temp's location if cfa_temp is used).
+  
+  Rules 16-19: If AND operation happens on sp in prologue, we assume stack is
+               realigned. We will use a group of DW_OP_?? expressions to represent
+               the location of the stored register instead of CFA+offset.
 
   The Rules
 
@@ -1529,7 +1553,32 @@ static dw_cfa_location cfa_temp;
 
   Rule 15:
   (set <reg> {unspec, unspec_volatile})
-  effects: target-dependent  */
+  effects: target-dependent  
+  
+  Rule 16:
+  (set sp (and: sp <const_int>))
+  effects: CUR_FDE.is_stack_realign = 1
+           cfa_store.offset = 0
+
+           if cfa_store.offset >= UNITS_PER_WORD
+             effects: CUR_FDE.is_drap_reg_saved = 1
+
+  Rule 17:
+  (set (mem ({pre_inc, pre_dec} sp)) (mem (plus (cfa.reg) (const_int))))
+  effects: cfa_store.offset += -/+ mode_size(mem)
+  
+  Rule 18:
+  (set (mem({pre_inc, pre_dec} sp)) fp)
+  constraints: CUR_FDE.is_stack_realign == 1
+  effects: CUR_FDE.is_stack_realign = 0
+           CUR_FDE.is_drap = 1
+           CUR_FDE.drap_regnum = cfa.reg
+
+  Rule 19:
+  (set fp sp)
+  constraints: CUR_FDE.is_drap == 1
+  effects: cfa.reg = fp
+           cfa.offset = cfa_store.offset */
 
 static void
 dwarf2out_frame_debug_expr (rtx expr, const char *label)
@@ -1607,7 +1656,20 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      cfa_temp.reg = cfa.reg;
 	      cfa_temp.offset = cfa.offset;
 	    }
-	  else
+            /* Rule 19 */
+            /* Eachtime when setting FP to SP under the condition of that the stack
+               is realigned we assume the realign is drap and the drap register is
+               the current cfa's register. We update cfa's register to FP. */
+	  else if (fde_table_in_use && CUR_FDE.is_drap 
+                   && REGNO (src) == STACK_POINTER_REGNUM 
+                   && REGNO (dest) == HARD_FRAME_POINTER_REGNUM)
+            {
+              cfa.reg = REGNO (dest);
+              cfa.offset = cfa_store.offset;
+              cfa_temp.reg = cfa.reg;
+              cfa_temp.offset = cfa.offset;
+            }
+          else
 	    {
 	      /* Saving a register in a register.  */
 	      gcc_assert (!fixed_regs [REGNO (dest)]
@@ -1747,6 +1809,22 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
 	  return;
 
+	  /* Rule 16 */
+	case AND:
+          /* If this AND operation happens on stack pointer in prologue, we 
+             assume the stack is realigned and we extract the alignment. */
+          if (XEXP (src, 0) == stack_pointer_rtx && fde_table_in_use)
+            {
+              CUR_FDE.is_stack_realign = 1;
+              CUR_FDE.stack_realignment = INTVAL (XEXP (src, 1));
+              /* If we didn't push anything to stack before stack is realigned,
+                  we assume the drap register isn't saved. */
+              if (cfa_store.offset > UNITS_PER_WORD)
+                CUR_FDE.is_drap_reg_saved = 1;
+              cfa_store.offset = 0;
+            }
+          return;
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -1755,7 +1833,6 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
       break;
 
     case MEM:
-      gcc_assert (REG_P (src));
 
       /* Saving a register to the stack.  Make sure dest is relative to the
 	 CFA register.  */
@@ -1788,6 +1865,17 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 	  gcc_assert (REGNO (XEXP (XEXP (dest, 0), 0)) == STACK_POINTER_REGNUM
 		      && cfa_store.reg == STACK_POINTER_REGNUM);
+          
+          /* Rule 18 */
+          /* If we push FP after stack is realigned, we assume this realignment
+             is drap, we will recorde the drap register. */
+          if (fde_table_in_use && CUR_FDE.is_stack_realign
+              && REGNO (src) == HARD_FRAME_POINTER_REGNUM)
+            {
+              CUR_FDE.is_stack_realign = 0;
+              CUR_FDE.is_drap = 1;
+              CUR_FDE.drap_regnum = DWARF_FRAME_REGNUM (cfa.reg);
+            }            
 
 	  cfa_store.offset += offset;
 	  if (cfa.reg == STACK_POINTER_REGNUM)
@@ -1882,6 +1970,12 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      break;
 	    }
 	}
+        /* Rule 17 */
+        /* If the source operand of this MEM operation is not a register, 
+           basically the source is return address. Here we just care how 
+           much stack grew and ignore to save it. */ 
+      if (!REG_P (src))
+        break;
 
       def_cfa_1 (label, &cfa);
       {
@@ -3547,6 +3641,9 @@ output_cfa_loc (dw_cfi_ref cfi)
 {
   dw_loc_descr_ref loc;
   unsigned long size;
+
+  if (cfi->dw_cfi_opc == DW_CFA_expression)
+    dw2_asm_output_data (1, cfi->dw_cfi_oprnd2.dw_cfi_reg_num, NULL);
 
   /* Output the size of the block.  */
   loc = cfi->dw_cfi_oprnd1.dw_cfi_loc;
@@ -9018,8 +9115,9 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 	      offset += INTVAL (XEXP (elim, 1));
 	      elim = XEXP (elim, 0);
 	    }
-	  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
-		      : stack_pointer_rtx));
+	  gcc_assert (stack_realign_fp
+	              || elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		                                       : stack_pointer_rtx));
 	  offset += frame_pointer_fb_offset;
 
 	  return new_loc_descr (DW_OP_fbreg, offset, 0);
@@ -11005,9 +11103,10 @@ compute_frame_pointer_to_fb_displacement (HOST_WIDE_INT offset)
       offset += INTVAL (XEXP (elim, 1));
       elim = XEXP (elim, 0);
     }
-  gcc_assert (elim == (frame_pointer_needed ? hard_frame_pointer_rtx
-		       : stack_pointer_rtx));
 
+  gcc_assert (stack_realign_fp 
+              || elim == (frame_pointer_needed ? hard_frame_pointer_rtx
+		       : stack_pointer_rtx));
   frame_pointer_fb_offset = -offset;
 }
 
@@ -15232,6 +15331,63 @@ dwarf2out_finish (const char *filename)
      table too.  */
   if (debug_str_hash)
     htab_traverse (debug_str_hash, output_indirect_string, NULL);
+}
+
+/* In this function we use a series of DW_OP_?? expression which simulates
+   how stack is realigned to represent the location of the stored register.*/
+static void
+reg_save_with_expression (dw_cfi_ref cfi)
+{
+  struct dw_loc_descr_struct *head, *tmp;
+  HOST_WIDE_INT alignment = CUR_FDE.stack_realignment;
+  HOST_WIDE_INT offset = cfi->dw_cfi_oprnd2.dw_cfi_offset * UNITS_PER_WORD;
+  int reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
+  unsigned int dwarf_sp = (unsigned)DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
+  
+  if (CUR_FDE.is_stack_realign)
+    {
+      head = tmp = new_loc_descr (DW_OP_const4s, 2 * UNITS_PER_WORD, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_const4s, alignment, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_and, 0, 0);
+
+      /* If stack grows upward, the offset will be a negative. */
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_const4s, offset, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);  
+   
+      cfi->dw_cfi_opc = DW_CFA_expression;
+      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg; 
+      cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
+    }
+
+  /* We need restore drap register through dereference. If we needn't to restore
+     the drap register we just ignore. */
+  if (CUR_FDE.is_drap && reg == CUR_FDE.drap_regnum)
+    {
+       
+      dw_cfi_ref cfi2 = new_cfi();
+
+      cfi->dw_cfi_opc = DW_CFA_expression;
+      head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+      if (CUR_FDE.is_drap_reg_saved)
+        {
+          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_deref, 0, 0);
+          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_const4s, 
+                                                  2 * UNITS_PER_WORD, 0);
+          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+        }
+      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg;
+      cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
+
+      /* We also need restore the sp. */
+      head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+      cfi2->dw_cfi_opc = DW_CFA_expression;
+      cfi2->dw_cfi_oprnd2.dw_cfi_reg_num = dwarf_sp;
+      cfi2->dw_cfi_oprnd1.dw_cfi_loc = head;
+      cfi->dw_cfi_next = cfi2;
+    }  
 }
 #else
 
