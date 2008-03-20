@@ -1,3 +1,17 @@
+2008-03-20  Jakub Staszak  <kuba@et.pl>
+            Oleg Ryjkov  <olegr@google.com>
+
+	* tree-ssa-sink.c (is_hidden_global_store): Tuplified.
+	* tree-ssa-dce.c (mark_stmt_necessary, mark_operand_necessary,
+	mark_stmt_if_obviously_necessary,
+	mark_control_dependent_edges_necessary,
+	find_obviously_necessary_stmts, propagate_necessity,
+	remove_dead_phis, eliminate_unnecessary_stmts, tree_dce_init,
+	tree_dce_done): Tuplified.
+	* tree-flow.h (is_hidden_global_store): Tuplified the declaration.
+	* passes.c (init_optimization_passes): Enabled pass_dce and
+	pass_cd_dce.
+
 2008-03-20  Oleg Ryjkov <olegr@google.com>
 
 	* tree-complex.c (init_dont_simulate_again, complex_visit_stmt,

@@ -1087,7 +1087,7 @@ tree vn_lookup (tree);
 tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
 
 /* In tree-ssa-sink.c  */
-bool is_hidden_global_store (tree);
+bool is_hidden_global_store (gimple);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree, basic_block);

@@ -545,8 +545,8 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
-	  NEXT_PASS (pass_dce);
 #endif
+	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_update_address_taken);
 /* FIXME tuples.  */
 #if 0
@@ -605,12 +605,16 @@ init_optimization_passes (void)
 #if 0
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
+#endif
       NEXT_PASS (pass_dce);
+#if 0
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
+#endif
       NEXT_PASS (pass_dce);
+#if 0  
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
@@ -640,9 +644,10 @@ init_optimization_passes (void)
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-
       NEXT_PASS (pass_reassoc);
+#endif
       NEXT_PASS (pass_dce);
+#if 0
       NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
@@ -711,8 +716,9 @@ init_optimization_passes (void)
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-
+#endif
       NEXT_PASS (pass_cd_dce);
+#if 0
       NEXT_PASS (pass_tracer);
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
