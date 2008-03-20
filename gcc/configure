@@ -869,7 +869,6 @@ Optional Features:
 			  Categories are: yes,no,all,none,release.
 			  Flags are: assert,df,fold,gc,gcac,misc,
 			  rtlflag,rtl,runtime,tree,valgrind,types.
-  --enable-mapped-location   location_t is fileline integer cookie
   --enable-coverage=LEVEL
 			  enable compiler's code coverage collection.
 			  Use to measure compiler performance and locate
@@ -6895,22 +6894,6 @@ fi
 
 
 
-# Check whether --enable-mapped-location or --disable-mapped-location was given.
-if test "${enable_mapped_location+set}" = set; then
-  enableval="$enable_mapped_location"
-
-else
-  enable_mapped_location=yes
-fi;
-
-if test "$enable_mapped_location" = yes ; then
-
-cat >>confdefs.h <<\_ACEOF
-#define USE_MAPPED_LOCATION 1
-_ACEOF
-
-fi
-
 # Enable code coverage collection
 # Check whether --enable-coverage or --disable-coverage was given.
 if test "${enable_coverage+set}" = set; then
@@ -12217,13 +12200,35 @@ objext='.o'
 # Check whether --enable-sjlj-exceptions or --disable-sjlj-exceptions was given.
 if test "${enable_sjlj_exceptions+set}" = set; then
   enableval="$enable_sjlj_exceptions"
+  case $target in
+  *-*-hpux10*)
+    if test $enableval != yes; then
+      { echo "$as_me:$LINENO: WARNING: dwarf2 exceptions not supported, sjlj exceptions forced" >&5
+echo "$as_me: WARNING: dwarf2 exceptions not supported, sjlj exceptions forced" >&2;}
+      enableval=yes
+    fi
+    ;;
+esac
+force_sjlj_exceptions=yes
+else
+  case $target in
+  *-*-hpux10*)
+    force_sjlj_exceptions=yes
+    enableval=yes
+    ;;
+  *)
+    force_sjlj_exceptions=no
+    ;;
+esac
+fi;
+if test $force_sjlj_exceptions = yes; then
   sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
 
 cat >>confdefs.h <<_ACEOF
 #define CONFIG_SJLJ_EXCEPTIONS $sjlj
 _ACEOF
 
-fi;
+fi
 
 # For platforms with the unwind ABI which includes an unwind library,
 # libunwind, we can choose to use the system libunwind.

@@ -160,7 +160,7 @@ type_unknown_p (const_tree exp)
 
 
 /* Return the common type of two parameter lists.
-   We assume that cp_comptypes has already been done and returned 1;
+   We assume that comptypes has already been done and returned 1;
    if that isn't so, this may crash.
 
    As an optimization, free the space we allocate if the parameter
@@ -573,7 +573,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
 }
 
 /* Return the merged type of two types.
-   We assume that cp_comptypes has already been done and returned 1;
+   We assume that comptypes has already been done and returned 1;
    if that isn't so, this may crash.
 
    This just combines attributes and default arguments; any other
@@ -735,7 +735,7 @@ merge_types (tree t1, tree t2)
 }
 
 /* Return the common type of two types.
-   We assume that cp_comptypes has already been done and returned 1;
+   We assume that comptypes has already been done and returned 1;
    if that isn't so, this may crash.
 
    This is the type for the result of most arithmetic operations
@@ -926,7 +926,7 @@ comp_array_types (const_tree t1, const_tree t2, bool allow_redeclaration)
   return true;
 }
 
-/* Subroutine in cp_comptypes.  */
+/* Subroutine in comptypes.  */
 
 static bool
 structural_comptypes (tree t1, tree t2, int strict)
@@ -962,6 +962,8 @@ structural_comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != ARRAY_TYPE
       && TYPE_QUALS (t1) != TYPE_QUALS (t2))
     return false;
+  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
+    return false;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -970,9 +972,6 @@ structural_comptypes (tree t1, tree t2, int strict)
   if (TREE_CODE (t1) != ARRAY_TYPE
       && TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return true;
-
-  if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
-    return false;
 
   /* Compare the types.  Break out if they could be the same.  */
   switch (TREE_CODE (t1))
@@ -1034,8 +1033,8 @@ structural_comptypes (tree t1, tree t2, int strict)
       return false;
 
     case OFFSET_TYPE:
-      if (!cp_comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
-                         strict & ~COMPARE_REDECLARATION))
+      if (!comptypes (TYPE_OFFSET_BASETYPE (t1), TYPE_OFFSET_BASETYPE (t2),
+		      strict & ~COMPARE_REDECLARATION))
 	return false;
       if (!same_type_p (TREE_TYPE (t1), TREE_TYPE (t2)))
 	return false;
@@ -1123,22 +1122,11 @@ structural_comptypes (tree t1, tree t2, int strict)
   return targetm.comp_type_attributes (t1, t2);
 }
 
-extern int comptypes (tree, tree);
-
-/* Type comparison function that matches the signature of comptypes
-   from c-tree.h, which is used by the C front end and some of the
-   C/C++ common bits.  */
-int
-comptypes (tree t1, tree t2)
-{
-  return cp_comptypes (t1, t2, COMPARE_STRICT);
-}
-
 /* Return true if T1 and T2 are related as allowed by STRICT.  STRICT
    is a bitwise-or of the COMPARE_* flags.  */
 
 bool
-cp_comptypes (tree t1, tree t2, int strict)
+comptypes (tree t1, tree t2, int strict)
 {
   if (strict == COMPARE_STRICT)
     {
@@ -1235,7 +1223,7 @@ comp_cv_qual_signature (tree type1, tree type2)
     return 0;
 }
 
-/* Subroutines of `cp_comptypes'.  */
+/* Subroutines of `comptypes'.  */
 
 /* Return true if two parameter type lists PARMS1 and PARMS2 are
    equivalent in the sense that functions with those parameter types
@@ -1934,9 +1922,11 @@ build_class_member_access_expr (tree object, tree member,
 	  && !DECL_FIELD_IS_BASE (member)
 	  && !skip_evaluation)
 	{
-	  warning (0, "invalid access to non-static data member %qD of NULL object",
-		   member);
-	  warning (0, "(perhaps the %<offsetof%> macro was used incorrectly)");
+	  warning (OPT_Winvalid_offsetof, 
+                   "invalid access to non-static data member %qD "
+                   " of NULL object", member);
+	  warning (OPT_Winvalid_offsetof, 
+                   "(perhaps the %<offsetof%> macro was used incorrectly)");
 	}
 
       /* If MEMBER is from an anonymous aggregate, we have converted
@@ -4842,18 +4832,38 @@ build_compound_expr (tree lhs, tree rhs)
 }
 
 /* Issue a diagnostic message if casting from SRC_TYPE to DEST_TYPE
-   casts away constness.  DIAG_FN gives the function to call if we
-   need to issue a diagnostic; if it is NULL, no diagnostic will be
-   issued.  DESCRIPTION explains what operation is taking place.  */
+   casts away constness.  CAST gives the type of cast.  */
 
 static void
 check_for_casting_away_constness (tree src_type, tree dest_type,
-				  void (*diag_fn)(const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2),
-				  const char *description)
+				  enum tree_code cast)
 {
-  if (diag_fn && casts_away_constness (src_type, dest_type))
-    diag_fn ("%s from type %qT to type %qT casts away constness",
-	     description, src_type, dest_type);
+  /* C-style casts are allowed to cast away constness.  With
+     WARN_CAST_QUAL, we still want to issue a warning.  */
+  if (cast == CAST_EXPR && !warn_cast_qual)
+      return;
+  
+  if (casts_away_constness (src_type, dest_type))
+    switch (cast)
+      {
+      case CAST_EXPR:
+	warning (OPT_Wcast_qual, 
+                 "cast from type %qT to type %qT casts away constness",
+		 src_type, dest_type);
+	return;
+	
+      case STATIC_CAST_EXPR:
+	error ("static_cast from type %qT to type %qT casts away constness",
+	       src_type, dest_type);
+	return;
+	
+      case REINTERPRET_CAST_EXPR:
+	error ("reinterpret_cast from type %qT to type %qT casts away constness",
+	       src_type, dest_type);
+	return;
+      default:
+	gcc_unreachable();
+      }
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -4939,8 +4949,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
   tree intype;
   tree result;
   tree orig;
-  void (*diag_fn)(const char*, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
-  const char *desc;
 
   /* Assume the cast is valid.  */
   *valid_p = true;
@@ -4949,21 +4957,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 
   /* Save casted types in the function's used types hash table.  */
   used_types_insert (type);
-
-  /* Determine what to do when casting away constness.  */
-  if (c_cast_p)
-    {
-      /* C-style casts are allowed to cast away constness.  With
-	 WARN_CAST_QUAL, we still want to issue a warning.  */
-      diag_fn = warn_cast_qual ? warning0 : NULL;
-      desc = "cast";
-    }
-  else
-    {
-      /* A static_cast may not cast away constness.  */
-      diag_fn = error;
-      desc = "static_cast";
-    }
 
   /* [expr.static.cast]
 
@@ -5089,7 +5082,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       tree base;
 
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, diag_fn, desc);
+	check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
       base = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
 			  c_cast_p ? ba_unique : ba_check,
 			  NULL);
@@ -5124,8 +5117,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       if (can_convert (t1, t2) || can_convert (t2, t1))
 	{
 	  if (!c_cast_p)
-	    check_for_casting_away_constness (intype, type, diag_fn,
-					      desc);
+	    check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
 	  return convert_ptrmem (type, expr, /*allow_inverse_p=*/1,
 				 c_cast_p);
 	}
@@ -5142,7 +5134,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && TYPE_PTROB_P (type))
     {
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, diag_fn, desc);
+	check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
       return build_nop (type, expr);
     }
 
@@ -5260,8 +5252,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	 "B" are related class types; the reinterpret_cast does not
 	 adjust the pointer.  */
       if (TYPE_PTR_P (intype)
-	  && (cp_comptypes (TREE_TYPE (intype), TREE_TYPE (type),
-                            COMPARE_BASE | COMPARE_DERIVED)))
+	  && (comptypes (TREE_TYPE (intype), TREE_TYPE (type),
+			 COMPARE_BASE | COMPARE_DERIVED)))
 	warning (0, "casting %qT to %qT does not dereference pointer",
 		 intype, type);
 
@@ -5327,8 +5319,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       tree sexpr = expr;
 
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, error,
-					  "reinterpret_cast");
+	check_for_casting_away_constness (intype, type, REINTERPRET_CAST_EXPR);
       /* Warn about possible alignment problems.  */
       if (STRICT_ALIGNMENT && warn_cast_align
 	  && !VOID_TYPE_P (type)
@@ -5336,9 +5327,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && COMPLETE_TYPE_P (TREE_TYPE (type))
 	  && COMPLETE_TYPE_P (TREE_TYPE (intype))
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (intype)))
-	warning (0, "cast from %qT to %qT increases required alignment of "
-		 "target type",
-		 intype, type);
+	warning (OPT_Wcast_align, "cast from %qT to %qT "
+                 "increases required alignment of target type", intype, type);
 
       /* We need to strip nops here, because the front end likes to
 	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
@@ -5483,10 +5473,7 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
 	  *valid_p = true;
 	  /* This cast is actually a C-style cast.  Issue a warning if
 	     the user is making a potentially unsafe cast.  */
-	  if (warn_cast_qual)
-	    check_for_casting_away_constness (src_type, dst_type,
-					      warning0,
-					      "cast");
+	  check_for_casting_away_constness (src_type, dst_type, CAST_EXPR);
 	}
       if (reference_type)
 	{
@@ -6924,9 +6911,9 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	return 0;
 
       if (TREE_CODE (from) == OFFSET_TYPE
-	  && cp_comptypes (TYPE_OFFSET_BASETYPE (to),
-                           TYPE_OFFSET_BASETYPE (from),
-                           COMPARE_BASE | COMPARE_DERIVED))
+	  && comptypes (TYPE_OFFSET_BASETYPE (to),
+			TYPE_OFFSET_BASETYPE (from),
+			COMPARE_BASE | COMPARE_DERIVED))
 	continue;
 
       if (TREE_CODE (to) == VECTOR_TYPE
@@ -6941,7 +6928,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	return 1;
 
       if (TREE_CODE (to) != POINTER_TYPE)
-	return cp_comptypes
+	return comptypes
 	  (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
 	   COMPARE_BASE | COMPARE_DERIVED);
     }

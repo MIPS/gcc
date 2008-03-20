@@ -1,3 +1,38 @@
+2008-03-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* config.rpath: Add AIX 6 support.
+
+2008-03-13  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (stageprofile).  Remove -fprofile-generate
+	from stage_libcflags.
+	* Makefile.in: Regenerate.
+
+2008-03-13  Ben Elliston  <bje@au.ibm.com>
+
+	* config.sub, config.guess: Update from upstream sources.
+
+2008-03-06  Tom Tromey  <tromey@redhat.com>
+
+	* MAINTAINERS: Update for treelang deletion.
+
+2008-03-03  James E. Wilson  <wilson@tuliptree.org>
+
+	* MAINTAINERS: Update my email address.
+
+2008-03-03  Stan Shebs  <stanshebs@earthlink.net>
+
+	* MAINTAINERS (darwin port): Add myself as a maintainer.
+	(objective-c/c++): Add myself as a maintainer.
+
+2008-03-03  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* MAINTAINERS (Write After Approval): Update my email address.
+
+2008-02-25  Tomas Bily  <tbily@suse.cz>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2008-02-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* MAINTAINERS (OpenMP): Add myself.
