@@ -213,6 +213,11 @@ init_dont_simulate_again (void)
 
 	  switch (gimple_code (stmt))
 	    {
+	    case GIMPLE_CALL:
+	      if (gimple_call_lhs (stmt))
+	        sim_again_p = is_complex_reg (gimple_call_lhs (stmt));
+	      break;
+
 	    case GIMPLE_ASSIGN:
 	      sim_again_p = is_complex_reg (gimple_assign_lhs (stmt));
 	      op0 = gimple_assign_rhs1 (stmt);
@@ -286,10 +291,10 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   unsigned int ver;
   tree lhs;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  lhs = gimple_get_lhs (stmt);
+  /* Skip anything but GIMPLE_ASSIGN and GIMPLE_CALL with a lhs.  */
+  if (!lhs)
     return SSA_PROP_VARYING;
-
-  lhs = gimple_assign_lhs (stmt);
 
   /* These conditions should be satisfied due to the initial filter
      set up in init_dont_simulate_again.  */
@@ -618,12 +623,7 @@ update_complex_components (gimple_stmt_iterator *gsi, gimple stmt, tree r,
   tree lhs;
   gimple_seq list;
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
-    lhs = gimple_assign_lhs (stmt);
-  else if (gimple_code (stmt) == GIMPLE_CALL)
-    lhs = gimple_call_lhs (stmt);
-  else
-    gcc_unreachable ();
+  lhs = gimple_get_lhs (stmt);
 
   list = set_component_ssa_name (lhs, false, r);
   if (list)
@@ -1395,13 +1395,13 @@ static void
 expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  tree type, inner_type;
+  tree type, inner_type, lhs;
   tree ac, ar, ai, bc, br, bi;
   complex_lattice_t al, bl;
   enum tree_code code;
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN
-      && gimple_code (stmt) != GIMPLE_COND)
+  lhs = gimple_get_lhs (stmt);
+  if (!lhs && gimple_code (stmt) != GIMPLE_COND)
     return;
 
   type = TREE_TYPE (gimple_op (stmt, 0));
@@ -1436,20 +1436,19 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 
     default:
       {
-	tree lhs, rhs;
+	tree rhs;
 
 	/* GIMPLE_COND may also fallthru here, but we do not need to
 	   do anything with it.  */
-	if (gimple_code (stmt) != GIMPLE_ASSIGN)
+	if (gimple_code (stmt) == GIMPLE_COND)
 	  return;
-
-	lhs = gimple_assign_lhs (stmt);
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (gsi, type);
+        /* Only GIMPLE_ASSIGN will have gimple_subcode set.  */
 	else if ((gimple_subcode (stmt) == REALPART_EXPR
 		  || gimple_subcode (stmt) == IMAGPART_EXPR)
-		 && TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
+		 && TREE_CODE (lhs) == SSA_NAME)
 	  {
 	    rhs = gimple_assign_rhs1 (stmt);
 	    rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
@@ -1469,6 +1468,7 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
       ac = gimple_assign_rhs1 (stmt);
       bc = (gimple_num_ops (stmt) > 2) ? gimple_assign_rhs2 (stmt) : NULL;
     }
+  /* GIMPLE_CALL can not get here.  */
   else
     {
       ac = gimple_cond_lhs (stmt);

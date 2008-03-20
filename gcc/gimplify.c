@@ -686,28 +686,6 @@ get_initialized_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p)
   return internal_get_tmp_var (val, pre_p, post_p, false);
 }
 
-/* Create a temporary variable to be used as the LHS of the given GIMPLE
-   statement STMT. STMT must be GIMPLE_ASSIGN or GIMPLE_CALL.  */
-
-static tree
-get_tmp_var_for (gimple stmt)
-{
-  tree lhs;
-  enum gimple_code code = gimple_code (stmt);
-
-  /* FIXME tuples, add support for formal temporaries (worth it?)  */
-  if (code == GIMPLE_ASSIGN)
-    lhs = create_tmp_from_val (gimple_op (stmt, 1));
-  else if (code == GIMPLE_CALL)
-    lhs = create_tmp_var (gimple_call_return_type (stmt),
-			   get_name (gimple_call_fn (stmt)));
-  else
-    gcc_unreachable ();
-
-  return lhs;
-}
-
-
 /* Declares all the variables in VARS in SCOPE.  If DEBUG_INFO is
    true, generate debug info for them; otherwise don't.  */
 
@@ -2385,8 +2363,19 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   gimplify_seq_add_stmt (pre_p, call);
   if (want_value)
     {
-      tree lhs = get_tmp_var_for (call);
+      /* FIXME tuples: we want to use internal_get_tmp_var here,
+         but can't because it wants a value that it gimplifies and the new
+         call is not a tree expression.  internal_get_tmp_var needs to be
+         rewritten to support this and still use the formal temporary table.
+         */
+      tree lhs = create_tmp_var (gimple_call_return_type (call),
+                                 get_name (gimple_call_fn (call)));
       gimple_call_set_lhs (call, lhs);
+
+      if (TREE_CODE (gimple_call_return_type (call)) == COMPLEX_TYPE
+          || TREE_CODE (gimple_call_return_type (call)) == VECTOR_TYPE)
+        DECL_GIMPLE_REG_P (lhs) = 1;
+
       *expr_p = lhs;
     }
   else

@@ -1,3 +1,12 @@
+2008-03-20  Oleg Ryjkov <olegr@google.com>
+
+	* tree-complex.c (init_dont_simulate_again, complex_visit_stmt,
+	update_complex_components, expand_complex_operations_1): Consider
+	GIMPLE_CALLs with a lhs, not only GIMPLE_ASSIGNs.
+	* gimplify.c (get_tmp_var_for): Removed.
+	(gimplify_call_expr): Remove call to get_tmp_var_for, set
+	gimple_register on a new lhs in some cases.
+
 2008-03-20  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133162.
