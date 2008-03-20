@@ -2704,7 +2704,7 @@ floating point arguments on the stack.
 The @code{force_align_arg_pointer} attribute may be applied to
 individual function definitions, assuming that the runtime stack is
 aligned according to the psABI and generating an alternate
-prologue/aepilogue that realigns the runtime stack if necessary. 
+prologue/epilogue that realigns the runtime stack if necessary. 
 On the Intel x86, this supports mixing codes that keep a 4-byte aligned
 stack, as specified by i386 psABI, with codes that need a 16-byte
 aligned stack, as required by SSE instructions. 

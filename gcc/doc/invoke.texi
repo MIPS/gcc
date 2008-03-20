@@ -10721,7 +10721,7 @@ the default is 4 (16 bytes or 128 bits).
 
 @item -mincoming-stack-boundary=@var{num}
 @opindex mincoming-stack-boundary
-Assume the incoming stack aligned to a 2 raised to @var{num} byte
+Assume the incoming stack is aligned to a 2 raised to @var{num} byte
 boundary.  If @option{-mincoming-stack-boundary} is not specified,
 the one specified by @option{-mpreferred-stack-boundary} will be used.
 
