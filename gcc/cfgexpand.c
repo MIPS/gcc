@@ -161,8 +161,23 @@ get_decl_align_unit (tree decl)
 
   align = DECL_ALIGN (decl);
   align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
-  if (align > PREFERRED_STACK_BOUNDARY)
-    align = PREFERRED_STACK_BOUNDARY;
+
+  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+    {
+      if (cfun->stack_alignment_estimated < align)
+	{
+	  gcc_assert(!cfun->stack_realign_processed);
+          cfun->stack_alignment_estimated = align;
+	}
+    }
+  else
+    {
+      if (align > PREFERRED_STACK_BOUNDARY)
+	align = PREFERRED_STACK_BOUNDARY;
+    }
+
+  /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.
+     So here we only make sure stack_alignment_needed >= align.  */
   if (cfun->stack_alignment_needed < align)
     cfun->stack_alignment_needed = align;
 
@@ -748,6 +763,29 @@ defer_stack_allocation (tree var, bool toplevel)
 static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
+  if (MAX_VECTORIZE_STACK_ALIGNMENT && TREE_CODE (var) == VAR_DECL)
+    {
+      unsigned int align;
+
+      /* Because we don't know if VAR will be in register or on stack,
+	 we conservatively assume it will be on stack even if VAR is
+	 eventually put into register after RA pass.  For non-automatic
+	 variables, which won't be on stack, we collect alignment of
+	 type and ignore user specified alignment.  */
+      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+	align = TYPE_ALIGN (TREE_TYPE (var));
+      else
+	align = DECL_ALIGN (var);
+
+      if (cfun->stack_alignment_estimated < align)
+        {
+          /* stack_alignment_estimated shouldn't change after stack
+             realign decision made */
+          gcc_assert(!cfun->stack_realign_processed);
+	  cfun->stack_alignment_estimated = align;
+	}
+    }
+
   if (TREE_CODE (var) != VAR_DECL)
     {
       if (really_expand)
@@ -2002,4 +2040,132 @@ struct tree_opt_pass pass_expand =
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
   'r'					/* letter */
+};
+
+static bool
+gate_stack_realign (void)
+{
+  if (!MAX_VECTORIZE_STACK_ALIGNMENT)
+    return false;
+  else
+    {
+      gcc_assert (!cfun->stack_realign_processed);
+      return true;
+    }
+}
+
+/* Collect accurate info for stack realign.  */
+
+static unsigned int
+collect_stackrealign_info (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  if (cfun->has_nonlocal_label)
+    cfun->need_drap = true;
+
+  FOR_EACH_BB (bb)
+    for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	tree stmt = bsi_stmt (bsi);
+	tree call = get_call_expr_in (stmt);
+	tree decl, type;
+	int flags;
+
+	if (!call)
+	  continue;
+
+	flags = call_expr_flags (call);
+	if (flags & ECF_MAY_BE_ALLOCA)
+	  cfun->need_drap = true;
+
+	decl = get_callee_fndecl (call);
+	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	  switch (DECL_FUNCTION_CODE (decl))
+	    {
+	    case BUILT_IN_NONLOCAL_GOTO:
+	    case BUILT_IN_APPLY:
+	    case BUILT_IN_LONGJMP:
+	      cfun->need_drap = true;
+	      break;
+	    default:
+	      break;
+	    }
+
+	type = TREE_TYPE (call);
+	if (!type || VOID_TYPE_P (type))
+          continue;
+
+	/* FIXME: Do we need DRAP when the result is returned on
+	   stack?  */
+	if (aggregate_value_p (type, decl))
+	  cfun->need_drap = true;
+      }  
+
+  return 0;
+}
+
+struct tree_opt_pass pass_collect_stackrealign_info =
+{   
+  "stack_realign_info",                 /* name */
+  gate_stack_realign,                   /* gate */
+  collect_stackrealign_info,            /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_numbler */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+/* New pass handle_drap. 
+   This pass first checks if DRAP is needed.
+   If yes, it will set current_function_internal_arg_pointer to that
+   virtual register. Later lregs pass will replace
+   virtual_incoming_args_rtx to that virtual reg */
+static unsigned int
+handle_drap (void)
+{
+  /* Call targetm.calls.internal_arg_pointer again. This time it will
+     return a virtual reg if DRAP is needed */
+  rtx internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
+
+  /* Assertion to check internal_arg_pointer is set to the right rtx here */
+  gcc_assert (current_function_internal_arg_pointer == 
+             virtual_incoming_args_rtx);
+
+  /* Do nothing if needn't replace virtual incoming arg rtx */
+  if (current_function_internal_arg_pointer != internal_arg_rtx)
+    {
+      current_function_internal_arg_pointer = internal_arg_rtx;
+
+      /* Call fixup_tail_casss to clean up REG_EQUIV note 
+         if DRAP is needed. */
+      fixup_tail_calls ();
+    }
+
+  return 0;
+}
+
+struct tree_opt_pass pass_handle_drap =
+{
+  "handle_drap",			/* name */
+  gate_stack_realign,                   /* gate */
+  handle_drap,			        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,				        /* tv_id */
+  /* ??? If TER is enabled, we actually receive GENERIC.  */
+  0,                                    /* properties_required */
+  PROP_rtl,                             /* properties_provided */
+  0,				        /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0					/* letter */
 };

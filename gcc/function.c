@@ -403,17 +403,19 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 {
   rtx x, addr;
   int bigend_correction = 0;
-  unsigned int alignment;
+  unsigned int alignment, mode_alignment;
   int frame_off, frame_alignment, frame_phase;
+
+  if (mode == BLKmode)
+    mode_alignment = BIGGEST_ALIGNMENT;
+  else
+    mode_alignment = GET_MODE_ALIGNMENT (mode);
 
   if (align == 0)
     {
       tree type;
 
-      if (mode == BLKmode)
-	alignment = BIGGEST_ALIGNMENT;
-      else
-	alignment = GET_MODE_ALIGNMENT (mode);
+      alignment = mode_alignment;
 
       /* Allow the target to (possibly) increase the alignment of this
 	 stack slot.  */
@@ -436,10 +438,37 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   if (FRAME_GROWS_DOWNWARD)
     function->x_frame_offset -= size;
 
-  /* Ignore alignment we can't do with expected alignment of the boundary.  */
-  if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
-    alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-
+  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+    {
+      if (function->stack_alignment_estimated < alignment * BITS_PER_UNIT)
+	{
+          if (!function->stack_realign_processed)
+            function->stack_alignment_estimated
+	      = alignment * BITS_PER_UNIT;
+          else
+	    {
+	      gcc_assert (!function->stack_realign_finalized);
+	      if (!function->stack_realign_needed)
+		{
+		  /* It is OK to reduce the alignment as long as the
+		     requested size is 0 or the estimated stack
+		     alignment >= mode alignment.  */
+		  gcc_assert (size == 0
+			      || (function->stack_alignment_estimated
+				  >= mode_alignment));
+		  alignment = (function->stack_alignment_estimated
+			       / BITS_PER_UNIT);
+		}
+	    }
+	}
+    }
+  else
+    {
+      /* Ignore alignment we can't do with expected alignment of the
+	 boundary.  */
+      if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
+	alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+    }
   if (function->stack_alignment_needed < alignment * BITS_PER_UNIT)
     function->stack_alignment_needed = alignment * BITS_PER_UNIT;
 
@@ -1240,7 +1269,17 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
   HOST_WIDE_INT offset;
 
   if (x == virtual_incoming_args_rtx)
-    new = arg_pointer_rtx, offset = in_arg_offset;
+    {
+      /* Replace vitural_incoming_args_rtx to internal arg pointer here */
+      if (current_function_internal_arg_pointer != virtual_incoming_args_rtx)
+        {
+          gcc_assert (stack_realign_drap);
+          new = current_function_internal_arg_pointer;
+          offset = 0;
+        }
+      else
+        new = arg_pointer_rtx, offset = in_arg_offset;
+    }
   else if (x == virtual_stack_vars_rtx)
     new = frame_pointer_rtx, offset = var_offset;
   else if (x == virtual_stack_dynamic_rtx)
@@ -3037,6 +3076,20 @@ assign_parms (tree fndecl)
 	  continue;
 	}
 
+      /* Estimate stack alignment from parameter alignment */
+      if (MAX_VECTORIZE_STACK_ALIGNMENT)
+        {
+          unsigned int align = FUNCTION_ARG_BOUNDARY (data.promoted_mode,
+						      data.passed_type);
+	  if (TYPE_ALIGN (data.nominal_type) > align)
+	    align = TYPE_ALIGN (data.passed_type);
+	  if (cfun->stack_alignment_estimated < align)
+	    {
+	      gcc_assert (!cfun->stack_realign_processed);
+	      cfun->stack_alignment_estimated = align;
+	    }
+	}
+	
       if (current_function_stdarg && !TREE_CHAIN (parm))
 	assign_parms_setup_varargs (&all, &data, false);
 
@@ -3073,6 +3126,28 @@ assign_parms (tree fndecl)
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
   emit_insn (all.first_conversion_insn);
+
+  /* Estimate reload stack alignment from scalar return mode.  */
+  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+    {
+      if (DECL_RESULT (fndecl))
+	{
+	  tree type = TREE_TYPE (DECL_RESULT (fndecl));
+	  enum machine_mode mode = TYPE_MODE (type);
+
+	  if (mode != BLKmode
+	      && mode != VOIDmode
+	      && !AGGREGATE_TYPE_P (type))
+	    {
+	      unsigned int align = GET_MODE_ALIGNMENT (mode);
+	      if (cfun->stack_alignment_estimated < align)
+		{
+		  gcc_assert (!cfun->stack_realign_processed);
+		  cfun->stack_alignment_estimated = align;
+		}
+	    }
+	} 
+    }
 
   /* If we are receiving a struct value address as the first argument, set up
      the RTL for the function result. As this might require code to convert
@@ -3351,10 +3426,28 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   locate->where_pad = where_pad;
   locate->boundary = boundary;
 
-  /* Remember if the outgoing parameter requires extra alignment on the
-     calling function side.  */
-  if (boundary > PREFERRED_STACK_BOUNDARY)
-    boundary = PREFERRED_STACK_BOUNDARY;
+  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+    {
+      /* stack_alignment_estimated can't change after stack has been
+	 realigned.  */
+      if (cfun->stack_alignment_estimated < boundary)
+        {
+          if (!cfun->stack_realign_processed)
+	    cfun->stack_alignment_estimated = boundary;
+	  else
+	    {
+	      gcc_assert (!cfun->stack_realign_finalized
+			  && cfun->stack_realign_needed);
+	    }
+	}
+    }
+  else
+    {
+      /* Remember if the outgoing parameter requires extra alignment on
+         the calling function side.  */
+      if (boundary > PREFERRED_STACK_BOUNDARY)
+        boundary = PREFERRED_STACK_BOUNDARY;
+    }
   if (cfun->stack_alignment_needed < boundary)
     cfun->stack_alignment_needed = boundary;
 
@@ -3912,6 +4005,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
   cfun->stack_alignment_needed = STACK_BOUNDARY;
+  cfun->stack_alignment_estimated = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
   current_function_funcdef_no = get_next_funcdef_no ();
@@ -4687,7 +4781,8 @@ get_arg_pointer_save_area (struct function *f)
 	 generated stack slot may not be a valid memory address, so we
 	 have to check it and fix it if necessary.  */
       start_sequence ();
-      emit_move_insn (validize_mem (ret), virtual_incoming_args_rtx);
+      emit_move_insn (validize_mem (ret),
+                      current_function_internal_arg_pointer);
       seq = get_insns ();
       end_sequence ();
 

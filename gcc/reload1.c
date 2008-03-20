@@ -2280,7 +2280,13 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 	  if (offsets_at[CODE_LABEL_NUMBER (x) - first_label_num][i]
 	      != (initial_p ? reg_eliminate[i].initial_offset
 		  : reg_eliminate[i].offset))
-	    reg_eliminate[i].can_eliminate = 0;
+            {
+	      /* Must not disable reg eliminate because stack realignment
+	         must eliminate frame pointer to stack pointer.  */
+	      gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+			  || ! stack_realign_fp);
+	      reg_eliminate[i].can_eliminate = 0;
+            }
 
       return;
 
@@ -2359,7 +2365,13 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 	 offset because we are doing a jump to a variable address.  */
       for (p = reg_eliminate; p < &reg_eliminate[NUM_ELIMINABLE_REGS]; p++)
 	if (p->offset != p->initial_offset)
-	  p->can_eliminate = 0;
+	  {
+	    /* Must not disable reg eliminate because stack realignment
+	       must eliminate frame pointer to stack pointer.  */
+	    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+			|| ! stack_realign_fp);
+	    p->can_eliminate = 0;
+	  }
       break;
 
     default:
@@ -2850,7 +2862,13 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
       /* If we modify the source of an elimination rule, disable it.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == XEXP (x, 0))
-	  ep->can_eliminate = 0;
+	  {
+	    /* Must not disable reg eliminate because stack realignment
+	       must eliminate frame pointer to stack pointer.  */
+	    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+			|| ! stack_realign_fp);
+	    ep->can_eliminate = 0;
+	  }
 
       /* If we modify the target of an elimination rule by adding a constant,
 	 update its offset.  If we modify the target in any other way, we'll
@@ -2876,7 +2894,14 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 		    && CONST_INT_P (XEXP (XEXP (x, 1), 1)))
 		  ep->offset -= INTVAL (XEXP (XEXP (x, 1), 1));
 		else
-		  ep->can_eliminate = 0;
+		  {
+		    /* Must not disable reg eliminate because stack
+		       realignment must eliminate frame pointer to
+		       stack pointer.  */
+		    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+				|| ! stack_realign_fp);
+		    ep->can_eliminate = 0;
+		  }
 	      }
 	  }
 
@@ -2919,7 +2944,13 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	 know how this register is used.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == XEXP (x, 0))
-	  ep->can_eliminate = 0;
+	  {
+	    /* Must not disable reg eliminate because stack realignment
+	       must eliminate frame pointer to stack pointer.  */
+	    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+			|| ! stack_realign_fp);
+	    ep->can_eliminate = 0;
+	  }
 
       elimination_effects (XEXP (x, 0), mem_mode);
       return;
@@ -2930,7 +2961,13 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	 be performed.  Otherwise, we need not be concerned about it.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->to_rtx == XEXP (x, 0))
-	  ep->can_eliminate = 0;
+	  {
+	    /* Must not disable reg eliminate because stack realignment
+	       must eliminate frame pointer to stack pointer.  */
+	    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+			|| ! stack_realign_fp);
+	    ep->can_eliminate = 0;
+	  }
 
       elimination_effects (XEXP (x, 0), mem_mode);
       return;
@@ -2964,7 +3001,14 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 		    && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		  ep->offset -= INTVAL (XEXP (src, 1));
 		else
-		  ep->can_eliminate = 0;
+		  {
+		    /* Must not disable reg eliminate because stack
+		       realignment must eliminate frame pointer to
+		       stack pointer.  */
+		    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+				|| ! stack_realign_fp);
+		    ep->can_eliminate = 0;
+		  }
 	      }
 	}
 
@@ -3293,7 +3337,14 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 		   ep++)
 		if (ep->from_rtx == orig_operand[i])
-		  ep->can_eliminate = 0;
+		  {
+		    /* Must not disable reg eliminate because stack
+		       realignment must eliminate frame pointer to
+		       stack pointer.  */
+		    gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+				|| ! stack_realign_fp);
+		    ep->can_eliminate = 0;
+		  }
 	    }
 
 	  /* Companion to the above plus substitution, we can allow
@@ -3423,7 +3474,13 @@ eliminate_regs_in_insn (rtx insn, int replace)
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       if (ep->previous_offset != ep->offset && ep->ref_outside_mem)
-	ep->can_eliminate = 0;
+	{
+	  /* Must not disable reg eliminate because stack realignment
+	     must eliminate frame pointer to stack pointer.  */
+	  gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+		      || ! stack_realign_fp);
+	  ep->can_eliminate = 0;
+	}
 
       ep->ref_outside_mem = 0;
 
@@ -3499,6 +3556,11 @@ mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 	    || XEXP (SET_SRC (x), 0) != dest
 	    || GET_CODE (XEXP (SET_SRC (x), 1)) != CONST_INT))
       {
+	/* Must not disable reg eliminate because stack realignment
+	   must eliminate frame pointer to stack pointer.  */
+	gcc_assert (! MAX_VECTORIZE_STACK_ALIGNMENT
+		    || ! stack_realign_fp);
+
 	reg_eliminate[i].can_eliminate_previous
 	  = reg_eliminate[i].can_eliminate = 0;
 	num_eliminable--;
@@ -3669,8 +3731,11 @@ update_eliminables (HARD_REG_SET *pset)
   frame_pointer_needed = 1;
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
-      if (ep->can_eliminate && ep->from == FRAME_POINTER_REGNUM
-	  && ep->to != HARD_FRAME_POINTER_REGNUM)
+      if (ep->can_eliminate
+	  && ep->from == FRAME_POINTER_REGNUM
+	  && ep->to != HARD_FRAME_POINTER_REGNUM
+	  && (! MAX_VECTORIZE_STACK_ALIGNMENT
+	      || ! cfun->stack_realign_needed))
 	frame_pointer_needed = 0;
 
       if (! ep->can_eliminate && ep->can_eliminate_previous)
@@ -3714,18 +3779,8 @@ init_elim_table (void)
   if (!reg_eliminate)
     reg_eliminate = xcalloc (sizeof (struct elim_table), NUM_ELIMINABLE_REGS);
 
-  /* Does this function require a frame pointer?  */
-
-  frame_pointer_needed = (! flag_omit_frame_pointer
-			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
-			     and restore sp for alloca.  So we can't eliminate
-			     the frame pointer in that case.  At some point,
-			     we should improve this by emitting the
-			     sp-adjusting insns for this case.  */
-			  || (current_function_calls_alloca
-			      && EXIT_IGNORE_STACK)
-			  || current_function_accesses_prior_frames
-			  || FRAME_POINTER_REQUIRED);
+  /* frame_pointer_needed should has been set.  */
+  gcc_assert (cfun->need_frame_pointer_set);
 
   num_eliminable = 0;
 
@@ -3737,7 +3792,10 @@ init_elim_table (void)
       ep->to = ep1->to;
       ep->can_eliminate = ep->can_eliminate_previous
 	= (CAN_ELIMINATE (ep->from, ep->to)
-	   && ! (ep->to == STACK_POINTER_REGNUM && frame_pointer_needed));
+	   && ! (ep->to == STACK_POINTER_REGNUM
+		 && frame_pointer_needed 
+		 && (! MAX_VECTORIZE_STACK_ALIGNMENT
+		     || ! stack_realign_fp)));
     }
 #else
   reg_eliminate[0].from = reg_eliminate_1[0].from;

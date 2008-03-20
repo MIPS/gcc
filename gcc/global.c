@@ -247,10 +247,20 @@ compute_regsets (HARD_REG_SET *elim_set,
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
   size_t i;
 #endif
+
+  /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
+     sp for alloca.  So we can't eliminate the frame pointer in that
+     case.  At some point, we should improve this by emitting the
+     sp-adjusting insns for this case.  */
   int need_fp
     = (! flag_omit_frame_pointer
        || (current_function_calls_alloca && EXIT_IGNORE_STACK)
-       || FRAME_POINTER_REQUIRED);
+       || FRAME_POINTER_REQUIRED
+       || current_function_accesses_prior_frames
+       || cfun->stack_realign_needed);
+
+  frame_pointer_needed = need_fp;
+  cfun->need_frame_pointer_set = 1;
 
   max_regno = max_reg_num ();
   compact_blocks ();
@@ -271,7 +281,10 @@ compute_regsets (HARD_REG_SET *elim_set,
     {
       bool cannot_elim
 	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
-	   || (eliminables[i].to == STACK_POINTER_REGNUM && need_fp));
+	   || (eliminables[i].to == STACK_POINTER_REGNUM
+	       && need_fp 
+	       && (! MAX_VECTORIZE_STACK_ALIGNMENT
+		   || ! stack_realign_fp)));
 
       if (!regs_asm_clobbered[eliminables[i].from])
 	{

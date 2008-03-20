@@ -1,3 +1,136 @@
+2008-03-19  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* builtins.c (expand_builtin_setjmp_receiver): Replace
+	virtual_incoming_args_rtx with
+	current_function_internal_arg_pointer.
+	(expand_builtin_apply_args_1): Likewise.
+
+	* calls.c (expand_call): Don't calculate preferred stack
+	boundary according to incoming stack boundary. Replace 
+	virtual_incoming_args_rtx with
+	current_function_internal_arg_pointer.
+
+	* cfgexpand.c (get_decl_align_unit): Estimate stack variable
+	alignment and store to stack_alignment_estimated.
+	(expand_one_var): Likewise.
+	(gate_stack_realign): Gate new pass pass_collect_stackrealign_info
+	and pass_handle_drap.
+	(collect_stackrealign_info): Execute new pass
+	pass_collect_stackrealign_info.
+	(pass_collect_stackrealign_info): Define new pass.
+	(handle_drap): Execute new pass pass_handle_drap.
+	(pass_handle_drap): Define new pass.
+
+	* defaults.h (MAX_VECTORIZE_STACK_ALIGNMENT): New.
+
+	* dojump.c (clear_pending_stack_adjust): Leave an FIXME in
+	comments in case pending stack ajustment is discard when stack 
+	realign is needed.
+
+	* flags.h (frame_pointer_needed): Removed.
+	* final.c (frame_pointer_needed): Likewise.
+
+	* function.c (assign_stack_local_1): Estimate stack variable 
+	alignment and store to stack_alignment_estimated.
+	(instantiate_new_reg): Instantiate virtual incoming args rtx to
+	vDRAP if stack realignment and DRAP is needed.
+	(assign_parms): Collect parameter/return type alignment and 
+	contribute to stack_alignment_estimated.
+	(locate_and_pad_parm): Likewise.
+	(allocate_struct_function): Init stack_alignment_estimated.
+	(get_arg_pointer_save_area): Replace virtual_incoming_args_rtx
+	with current_function_internal_arg_pointer.
+
+	* function.h (function): Add drap_reg, stack_alignment_estimated,
+	need_frame_pointer, need_frame_pointer_set, stack_realign_needed,
+	stack_realign_really, need_drap, save_param_ptr_reg,
+	stack_realign_processed, and stack_realign_finalized.
+	(frame_pointer_needed): New.
+	(stack_realign_fp): Likewise.
+	(stack_realign_drap): Likewise.
+
+	* global.c (compute_regsets): Set frame_pointer_needed cannot_elim
+	wrt stack_realign_needed.
+
+	* stmt.c (expand_nl_goto_receiver): Replace 
+	virtual_incoming_args_rtx with
+	current_function_internal_arg_pointer.
+
+	* passes.c (pass_collect_stackrealign_info): Insert this new pass
+	immediately before expand.
+	(pass_handle_drap): Insert this new pass immediately after expand.
+
+	* tree-inline.c (expand_call_inline): Estimate stack variable
+	alignment and store to stack_alignment_estimated.
+
+	* tree-pass.h (pass_handle_drap): New.
+	(pass_collect_stackrealign_info): Likewise.
+
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p): Estimate
+	stack variable alignment and store to stack_alignment_estimated.
+
+	* reload1.c (set_label_offsets): Assert that frame pointer must be
+	elimiated to stack pointer in case stack realignment is estimated
+	to happen without DRAP.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+	(mark_not_eliminable): Likewise.
+	(update_eliminables): Frame pointer is needed in case of stack
+	realignment needed.
+	(init_elim_table): Don't set frame_pointer_needed here.
+
+	* config/i386/i386.c (ix86_force_align_arg_pointer_string): Break
+	long line.
+	(ix86_user_incoming_stack_boundary): New.
+	(ix86_default_incoming_stack_boundary): Likewise.
+	(ix86_incoming_stack_boundary): Likewise.
+	(find_drap_reg): Likewise.
+	(override_options): Overide option value for new options.
+	(ix86_function_ok_for_sibcall): Sibcall is OK even stack need
+	realigning.
+	(ix86_handle_cconv_attribute): Stack realign no longer impacts
+	number of regparm.
+	(ix86_function_regparm): Likewise.
+	(setup_incoming_varargs_64): Remove the logic to set
+	stack_alignment_needed here.
+	(ix86_va_start): Replace virtual_incoming_args_rtx with
+	current_function_internal_arg_pointer.
+	(ix86_save_reg): Replace force_align_arg_pointer with drap_reg.
+	(ix86_compute_frame_layout): Compute frame layout wrt stack
+	realignment.
+	(ix86_internal_arg_pointer): Estimate if stack realignment is
+	needed and returns appropriate arg pointer rtx accordingly.
+	(ix86_expand_prologue): Finally decide if stack realignment
+	is needed and generate prologue code accordingly.
+	(ix86_expand_epilogue): Generate epilogue code wrt stack
+	realignment is really needed or not.
+
+	* config/i386/i386.h (MAIN_STACK_BOUNDARY): New.
+	(ABI_STACK_BOUNDARY): Likewise.
+	PREFERRED_STACK_BOUNDARY_DEFAULT): Likewise.
+	(STACK_REALIGN_DEFAULT): Likewise.
+	(INCOMING_STACK_BOUNDARY): Likewise.
+	(MAX_VECTORIZE_STACK_ALIGNMENT): Likewise.
+	(ix86_incoming_stack_boundary): Likewise.
+	(REAL_PIC_OFFSET_TABLE_REGNUM): Updated to use BX_REG.
+	(CAN_ELIMINATE): Redefine the macro to eliminate frame pointer to
+	stack pointer and arg pointer to hard frame pointer in case of
+	stack realignment without DRAP.
+	(machine_function): Remove force_align_arg_pointer.
+
+	* config/i386/i386.md (BX_REG): New.
+	(R13_REG): Likewise.
+
+	* config/i386/i386.opt (mforce_drap): New.
+	(mincoming-stack-boundary): Likewise.
+	(mstackrealign): Updated.
+
+	* doc/extend.texi: Update force_align_arg_pointer.
+	* doc/invoke.texi: Document -mincoming-stack-boundary.  Update
+	-mstackrealign.
+
 2008-03-19  Xuepeng Guo  <xuepeng.guo@intel.com>
 	    Joey Ye  <joey.ye@intel.com>
 

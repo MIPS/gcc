@@ -2099,7 +2099,10 @@ expand_call (tree exp, rtx target, int ignore)
 
   /* Figure out the amount to which the stack should be aligned.  */
   preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-  if (fndecl)
+
+  /* With automatic stack realignment, we align stack in prologue when
+     needed and there is no need to update preferred_stack_boundary.  */
+  if (!MAX_VECTORIZE_STACK_ALIGNMENT && fndecl)
     {
       struct cgraph_rtl_info *i = cgraph_rtl_info (fndecl);
       if (i && i->preferred_incoming_stack_boundary)
@@ -2401,7 +2404,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 incoming argument block.  */
       if (pass == 0)
 	{
-	  argblock = virtual_incoming_args_rtx;
+	  argblock = current_function_internal_arg_pointer;
 	  argblock
 #ifdef STACK_GROWS_DOWNWARD
 	    = plus_constant (argblock, current_function_pretend_args_size);

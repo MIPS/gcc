@@ -64,7 +64,10 @@ discard_pending_stack_adjust (void)
    so the adjustment won't get done.
 
    Note, if the current function calls alloca, then it must have a
-   frame pointer regardless of the value of flag_omit_frame_pointer.  */
+   frame pointer regardless of the value of flag_omit_frame_pointer.  
+
+   When stack realign is needed, we can't discard pending stack adjustment,
+   in which stack pointer must be restored in epilogue. */
 
 void
 clear_pending_stack_adjust (void)

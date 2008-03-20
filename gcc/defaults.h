@@ -940,4 +940,8 @@ along with GCC; see the file COPYING3.  If not see
 #define OUTGOING_REG_PARM_STACK_SPACE 0
 #endif
 
+#ifndef MAX_VECTORIZE_STACK_ALIGNMENT
+#define MAX_VECTORIZE_STACK_ALIGNMENT 0
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

@@ -255,6 +255,9 @@ struct function GTY(())
      needed by inner routines.  */
   rtx x_arg_pointer_save_area;
 
+  /* Dynamic Realign Argument Pointer used for realigning stack.  */
+  rtx drap_reg;
+
   /* Offset to end of allocated area of stack frame.
      If stack grows down, this is the address of the last stack slot allocated.
      If stack grows up, this is the address for the next slot.  */
@@ -294,6 +297,9 @@ struct function GTY(())
 
   /* The largest alignment of slot allocated on the stack.  */
   unsigned int stack_alignment_needed;
+
+  /* The estimated stack alignment.  */
+  unsigned int stack_alignment_estimated;
 
   /* Preferred alignment of the end of stack frame.  */
   unsigned int preferred_stack_boundary;
@@ -463,6 +469,38 @@ struct function GTY(())
 
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
+
+/* Nonzero if current function must be given a frame pointer.
+   Set in global.c if anything is allocated on the stack there.  */
+  unsigned int need_frame_pointer : 1;
+
+  /* Nonzero if need_frame_pointer has been set.  */
+  unsigned int need_frame_pointer_set : 1;
+
+  /* Nonzero if, by estimation, current function stack needs realignment. */
+  unsigned int stack_realign_needed : 1;
+
+  /* Nonzero if function stack realignment is really needed. This flag
+     will be set after reload if by then criteria of stack realignment
+     is still true. Its value may be contridition to stack_realign_needed
+     since the latter was set before reload. This flag is more accurate
+     than stack_realign_needed so prologue/epilogue should be generated
+     according to both flags  */
+  unsigned int stack_realign_really : 1;
+
+  /* Nonzero if function being compiled needs dynamic realigned
+     argument pointer (drap) if stack needs realigning.  */
+  unsigned int need_drap : 1;
+
+  /* Nonzero if current function needs to save/restore parameter
+     pointer register in prolog, because it is a callee save reg.  */
+  unsigned int save_param_ptr_reg : 1;
+
+  /* Nonzero if function stack realignment estimatoin is done.  */
+  unsigned int stack_realign_processed : 1;
+
+  /* Nonzero if function stack realignment has been finalized.  */
+  unsigned int stack_realign_finalized : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -537,6 +575,9 @@ extern void instantiate_decl_rtl (rtx x);
 #define dom_computed (cfun->cfg->x_dom_computed)
 #define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
+#define frame_pointer_needed (cfun->need_frame_pointer)
+#define stack_realign_fp (cfun->stack_realign_needed && !cfun->need_drap)
+#define stack_realign_drap (cfun->stack_realign_needed && cfun->need_drap)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
