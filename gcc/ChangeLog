@@ -1,3 +1,68 @@
+2008-03-13  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR 35054
+	* doc/extend.texi (Structure-Packing Pragmas): Replace "Win32"
+	with the phrase "Microsoft Windows compilers".
+	(Push/Pop Macro Pragmas): New subsection. Document
+	#pragma push_macro and pragma pop_macro.
+
+2008-03-12  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (output_move_double): Prefer LDRD to LDM.
+
+2008-03-12  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/thumb2.md: Extend peephole to cover 3-arg subs.
+	(thumb2_alusi3_short): Exclude PLUS and MINUS.
+	(thumb2_addsi_shortim): Rename ...
+	(thumb2_addsi_short): ... to this.  Allow register operands.
+	(thumb2_subsi_short): New pattern.
+	(thumb2_one_cmplsi2_short,
+	thumb2_negsi2_short): New patterns and peepholes.
+
+2008-03-12  Paul Brook  <paul@codesourcery.com>
+
+	gcc/
+	* config/arm/arm.c (arm_size_rtx_costs): Use ARM costs for Thumb-2.
+
+2008-03-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (int_cond): New code iterator.
+	(fp_cond): Ditto.
+	("s<code>"): Macroize expander from seq, sne, sgt, sgtu, slt, sltu,
+	sge, sgeu, sle and sleu expanders usign int_cond code iterator.
+	("s<code>"): Macroize expander from sunordered, sordered, suneq, sunge,
+	sungt, sunle, sunlt and sltgt expanders usign fp_cond code iterator.
+	("b<code>"): Macroize expander from beq, bne, bgt, bgtu, blt, bltu,
+	bge, bgeu, ble and bleu expanders usign int_cond code iterator.
+	("b<code>"): Macroize expander from bunordered, bordered, buneq, bunge,
+	bungt, bunle, bunlt and bltgt expanders usign fp_cond code iterator.
+
+2008-03-12  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (use_return_insn): Use offsets->saved_regs_mask
+	instead of {arm,thumb}_compute_save_reg_mask.
+	(output_return_instruction): Ditto.
+	(thumb_unexpanded_epilogue): Ditto.
+	(thumb1_expand_prologue): Ditto.
+	(thumb1_output_function_prologue): Ditto.
+	(arm_set_return_address): Ditto.
+	(thumb_set_return_address): Ditto.
+	(arm_get_frame_offsets): Set offsets->saved_regs_mask.  Push extra
+	regs to achieve stack alignment.
+	(thumb1_compute_save_reg_mask): Fix compiler warning.
+	(arm_output_epilogue): Use offsets->saved_regs_mask.
+	Adjust stack pointer by poping call clobered registers.
+	(arm_expand_prologue): Use offsets->saved_regs_mask.
+	Adjust stack pointer by pushing extra registers.
+	* gcc/config/arm.h (arm_stack_offsets): Add saved_regs_mask.
+
+2008-03-12  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-opt/35422
+	* fold-const.c (fold_unary) <NOP_EXPR>: Distribute a narrowing
+	conversion to the operands of a multiplication.
+
 2008-03-12  Richard Guenther  <rguenther@suse.de>
 
 	* Makefile.in (OBJS-common): Add tree-ssa-phiprop.o
