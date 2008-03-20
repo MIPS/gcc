@@ -3633,6 +3633,9 @@ vectorizable_conversion (tree stmt, block_stmt_iterator *bsi,
       *vec_stmt = STMT_VINFO_VEC_STMT (stmt_info);
     }
 
+  if (vec_oprnds0)
+    VEC_free (tree, heap, vec_oprnds0); 
+
   return true;
 }
 
@@ -4584,11 +4587,8 @@ vect_permute_store_chain (VEC(tree,heap) *dr_chain,
   tree scalar_dest, tmp;
   int i;
   unsigned int j;
-  VEC(tree,heap) *first, *second;
   
   scalar_dest = GIMPLE_STMT_OPERAND (stmt, 0);
-  first = VEC_alloc (tree, heap, length/2);
-  second = VEC_alloc (tree, heap, length/2);
 
   /* Check that the operation is supported.  */
   if (!vect_strided_store_supported (vectype))
@@ -4970,6 +4970,11 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 	    break;
 	}
     }
+
+  VEC_free (tree, heap, dr_chain);  
+  VEC_free (tree, heap, oprnds);  
+  if (result_chain)
+    VEC_free (tree, heap, result_chain);  
 
   return true;
 }
@@ -5476,6 +5481,8 @@ vect_transform_strided_load (tree stmt, VEC(tree,heap) *dr_chain, int size,
 	    break;
         }
     }
+
+  VEC_free (tree, heap, result_chain);
   return true;
 }
 
@@ -5913,6 +5920,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 	  if (!vect_transform_strided_load (stmt, dr_chain, group_size, bsi))
 	    return false;	  
 	  *vec_stmt = STMT_VINFO_VEC_STMT (stmt_info);
+          VEC_free (tree, heap, dr_chain);
 	  dr_chain = VEC_alloc (tree, heap, group_size);
 	}
       else
@@ -5924,6 +5932,9 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
 	}
     }
+
+  if (dr_chain)
+    VEC_free (tree, heap, dr_chain);
 
   return true;
 }
@@ -7261,10 +7272,8 @@ vect_loop_versioning (loop_vec_info loop_vinfo)
 static void
 vect_remove_stores (tree first_stmt)
 {
-  stmt_ann_t ann;
   tree next = first_stmt;
   tree tmp;
-  stmt_vec_info next_stmt_info;
   block_stmt_iterator next_si;
 
   while (next)
@@ -7272,11 +7281,8 @@ vect_remove_stores (tree first_stmt)
       /* Free the attached stmt_vec_info and remove the stmt.  */
       next_si = bsi_for_stmt (next);
       bsi_remove (&next_si, true);
-      next_stmt_info = vinfo_for_stmt (next);
-      ann = stmt_ann (next);
-      tmp = DR_GROUP_NEXT_DR (next_stmt_info);
-      free (next_stmt_info);
-      set_stmt_info (ann, NULL);
+      tmp = DR_GROUP_NEXT_DR (vinfo_for_stmt (next));
+      free_stmt_vec_info (next);
       next = tmp;
     }
 }
@@ -7375,7 +7381,7 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   int nbbs = loop->num_nodes;
-  block_stmt_iterator si, next_si;
+  block_stmt_iterator si;
   int i;
   tree ratio = NULL;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -7540,37 +7546,19 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	  is_store = vect_transform_stmt (stmt, &si, &strided_store, NULL);
           if (is_store)
             {
-	      stmt_ann_t ann;
 	      if (STMT_VINFO_STRIDED_ACCESS (stmt_info))
 		{
 		  /* Interleaving. If IS_STORE is TRUE, the vectorization of the
 		     interleaving chain was completed - free all the stores in
 		     the chain.  */
-		  tree next = DR_GROUP_FIRST_DR (stmt_info);
-		  tree tmp;
-		  stmt_vec_info next_stmt_info;
-
-		  while (next)
-		    {
-		      next_si = bsi_for_stmt (next);
-		      next_stmt_info = vinfo_for_stmt (next);
-		      /* Free the attached stmt_vec_info and remove the stmt.  */
-		      ann = stmt_ann (next);
-		      tmp = DR_GROUP_NEXT_DR (next_stmt_info);
-		      free (next_stmt_info);
-		      set_stmt_info (ann, NULL);
-		      bsi_remove (&next_si, true);
-		      next = tmp;
-		    }
+		  vect_remove_stores (DR_GROUP_FIRST_DR (stmt_info));
 		  bsi_remove (&si, true);
 		  continue;
 		}
 	      else
 		{
 		  /* Free the attached stmt_vec_info and remove the stmt.  */
-		  ann = stmt_ann (stmt);
-		  free (stmt_info);
-		  set_stmt_info (ann, NULL);
+		  free_stmt_vec_info (stmt);
 		  bsi_remove (&si, true);
 		  continue;
 		}

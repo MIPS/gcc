@@ -1,3 +1,134 @@
+2008-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35549
+	* omp-low.c (maybe_lookup_decl): Constify first argument.
+	(use_pointer_for_field): Change last argument from bool to
+	omp_context *.  Disallow shared copy-in/out in nested
+	parallel if decl is shared in outer parallel too.
+	(build_outer_var_ref, scan_sharing_clauses,
+	lower_rec_input_clauses, lower_copyprivate_clauses,
+	lower_send_clauses, lower_send_shared_vars): Adjust callers.
+
+2008-03-12  Victor Kaplansky  <victork@il.ibm.com>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c (free_stmt_vec_info): New function.
+	(destroy_loop_vec_info): Move code to free_stmt_vec_info().
+	Call free_stmt_vec_info(). Free LOOP_VINFO_STRIDED_STORES..
+	* tree-vectorizer.h (free_stmt_vec_info): Declare.
+	* tree-vect-transform.c (vectorizable_conversion): Free
+	vec_oprnds0 if it was allocated.
+	(vect_permute_store_chain): Remove unused VECs.
+	(vectorizable_store): Free VECs that are allocated in the..
+	function.
+	(vect_transform_strided_load, vectorizable_load): Likewise.
+	(vect_remove_stores): Simplify the code.
+	(vect_transform_loop): Move code to vect_remove_stores().
+	Call vect_remove_stores() and free_stmt_vec_info().
+
+2008-03-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.h (TARGET_LONG_PIC_SDIFF_CALL): Conditionalize define on
+	TARGET_HPUX.  Revise comment.
+	(TARGET_LONG_PIC_PCREL_CALL): Revise comment.
+	* pa.c (output_call): Update for revised TARGET_LONG_PIC_SDIFF_CALL.
+	Use sr4 variant of `be' instruction when not generating PIC code.
+	(attr_length_call): Adjust for above change.
+
+2008-03-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* ipa-reference.c (static_execute): Remove module_statics_const and
+	associated setting code.
+
+2008-03-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35540
+	* config/i386/i386.md (paritysi2, paritydi2): Use register_operand
+	constraint for operand 1.
+	(paritysi2_cmp): Use register_operand constraint for operand 2.
+	Use earlyclobber modifier for operand 1.  Remove support for
+	memory operands.
+	(paritydi2_cmp): Use register_operand constraint for operand 3.
+	Use earlyclobber modifier for operand 1.  Remove support for
+	memory operands.
+
+2008-03-11  Paul Brook  <paul@codesourcery.com>
+	    Vladimir Prus  <vladimir@codesourcery.com>
+
+	* config/arm/arm.c (use_return_insn): Check TARGET_APCS_FRAME.
+	(arm_compute_save_reg0_reg12_mask): Always
+	check if register 11 must be saved.  Always safe hard frame pointer
+	when frame_pointer_needeed.
+	(arm_compute_save_reg_mask): Save IP and PC
+	only with apcs frames.
+	(arm_output_epilogue): Adjust Thumb2 codepath to
+	be also invoked and work for ARM non-apcs frames.
+	(arm_expand_prologue): Don't bother saving IP
+	for non-apcs frame, since it's not clobbered by
+	prologue code.  Implement non-apcs frame
+	layout.
+
+2008-03-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/35281
+	* expr.c (convert_move): Use a new pseudo for the intermediate
+	from_mode->word_mode result.
+
+2008-03-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* langhooks-def.h (LANG_HOOKS_CLEAR_BINDING_STACK): Delete.
+	* langhooks.h (struct lang_hooks): Delete clear_binding_stack member.
+	* toplev.c (compile_file): Don't call it.
+
+2008-03-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/35526
+	* expr.c (store_expr): Call emit_block_move if the mode
+	of "temp" RTX is BLKmode.
+
+2008-03-11  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/31358
+	* tree-ssa-loop-manip.c (create_iv): Call force_gimple_operand for
+	the step with a NULL_TREE.
+	* tree-ssa-loop-ivopts.c (find_bivs): Convert the step
+	to sizetype if type is a pointer type.
+	(add_candidate_1): Don't convert the base and step to
+	the generic type if the orginal type is a pointer type.
+	(add_iv_value_candidates): Use sizetype for the step
+	if type is a pointer type.
+	(cand_value_at): Likewise.
+	* tree-ssa-address.c (add_to_parts): Use POINTER_PLUS_EXPR
+	for pointer types.
+	* tree-affine.c (tree_to_aff_combination <POINTER_PLUS_EXPR>):
+	Don't convert the tem affine to the type.
+	(add_elt_to_tree): Use sizetype for the step if a pointer.
+	Use POINTER_PLUS_EXPR for pointers.
+	(aff_combination_to_tree): Use sizetype for the step if a
+	pointer.
+
+2008-03-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/sse.md (ssse3_pmaddubswv8hi3, ssse3_pmaddubswv4hi3):
+	Remove commutativity hint.
+
+2008-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35438
+	PR c/35439
+	* c-parser.c (c_parser_omp_threadprivate): Don't add vars with
+	errorneous type.  Check that v is a VAR_DECL.
+
+	PR middle-end/35099
+	* tree-cfg.c (new_label_mapper): Update cfun->last_label_uid.
+
+2008-03-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/35494
+	* tree-ssa-ccp.c (get_symbol_constant_value): Check if value
+	may be overriden at link and run time.
+
 2008-03-10  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/34677
@@ -20,7 +151,7 @@
 	to avoid conflicts.
 
 2008-03-10  Paul Brook  <paul@codesourcery.com>
-	Mark Shinwell  <shinwell@codesourcery.com>
+	    Mark Shinwell  <shinwell@codesourcery.com>
 
 	* config/arm/cortex-r4.md: New.
 	* config/arm/thumb2.md (divsi3, udivsi3): Annotate with
@@ -535,7 +666,7 @@
 	__absvsi2, __absvDI2): Use unsigned arithmetic.
 
 2008-03-02  Andi Kleen  <ak@suse.de>
-	Richard Guenther  <rguenther@suse.de>
+	    Richard Guenther  <rguenther@suse.de>
 
 	* struct-equiv.c: Remove file.
 	* cfg_cleanup.c (condjump_equiv_p): Remove.

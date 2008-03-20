@@ -1,3 +1,10 @@
+2008-03-20  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133138.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-18  Bill Maddox  <maddox@google.com>
 
 	* builtins.c (fold_builtin_object_size):
