@@ -237,15 +237,15 @@ struct allocno
      the list are not intersected and ordered by decreasing their
      program points*.  */
   allocno_live_range_t live_ranges;
-  /* Vector of conflicting allocnos with NULL end marker (first
-     initial and then accumulated conflict allocnos).  Only allocnos
-     with the same cover class are in the vector.  */
-  allocno_t *conflict_allocno_vec;
+  /* Vector of conflicting allocnos with NULL end marker if
+     CONFLICT_VEC_P is true or conflict bit vector otherwise.  Only
+     allocnos with the same cover class are in the vector or in the
+     bit vector.  */
+  void *conflict_allocno_array;
   /* Allocated size of the previous array.  */
-  int conflict_allocno_vec_size;
-  /* Numbers of initial and total (with) accumulated conflicts in the
-     previous array.  */
-  int conflict_allocnos_num, total_conflict_allocnos_num;
+  unsigned int conflict_allocno_array_size;
+  /* Number of accumulated conflicts in the previous array.  */
+  int conflict_allocnos_num;
   /* Initial and accumulated hard registers conflicting with this
      allocno and as a consequences can not be assigned to the
      allocno.  */
@@ -268,6 +268,9 @@ struct allocno
   /* TRUE if the correspdonding pseudo-register has disjoint live
      ranges and the other allocnos except this one changed regno.  */
   unsigned int somewhere_renamed_p : 1;
+  /* TRUE if the allocno child has been renamed, in other words, got a
+     new pseudo-register.  */
+  unsigned int child_renamed_p : 1;
   /* In the reload, we should not reassign a hard register to the
      allocno got memory if the flag value is TRUE.  */
   unsigned int dont_reassign_p : 1;
@@ -285,6 +288,10 @@ struct allocno
   /* TRUE if it is put on the stack to make other allocnos
      colorable.  */
   unsigned int may_be_spilled_p : 1;
+  /* TRUE if conflicts for given allocno are represented by vector of
+     pointer to the allocnos.  Otherwise, we use a bit vector where a
+     bit with given index represents allocno with the same number.  */
+  unsigned int conflict_vec_p : 1;
   /* Array of additional costs (accumulated and the one updated during
      coloring) for hard regno of allocno cover class.  If given
      allocno represents a set of allocnos the current costs represents
@@ -319,11 +326,11 @@ struct allocno
 #define ALLOCNO_LOOP_TREE_NODE(A) ((A)->loop_tree_node)
 #define ALLOCNO_CAP(A) ((A)->cap)
 #define ALLOCNO_CAP_MEMBER(A) ((A)->cap_member)
-#define ALLOCNO_CONFLICT_ALLOCNO_VEC(A) ((A)->conflict_allocno_vec)
-#define ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE(A) ((A)->conflict_allocno_vec_size)
-#define ALLOCNO_CONFLICT_ALLOCNOS_NUM(A) ((A)->conflict_allocnos_num)
-#define ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM(A) \
-  ((A)->total_conflict_allocnos_num)
+#define ALLOCNO_CONFLICT_ALLOCNO_ARRAY(A) ((A)->conflict_allocno_array)
+#define ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE(A) \
+  ((A)->conflict_allocno_array_size)
+#define ALLOCNO_CONFLICT_ALLOCNOS_NUM(A) \
+  ((A)->conflict_allocnos_num)
 #define ALLOCNO_CONFLICT_HARD_REGS(A) ((A)->conflict_hard_regs)
 #define ALLOCNO_TOTAL_CONFLICT_HARD_REGS(A) ((A)->total_conflict_hard_regs)
 #define ALLOCNO_NREFS(A) ((A)->nrefs)
@@ -335,6 +342,7 @@ struct allocno
 #define ALLOCNO_MEM_OPTIMIZED_DEST(A) ((A)->mem_optimized_dest)
 #define ALLOCNO_MEM_OPTIMIZED_DEST_P(A) ((A)->mem_optimized_dest_p)
 #define ALLOCNO_SOMEWHERE_RENAMED_P(A) ((A)->somewhere_renamed_p)
+#define ALLOCNO_CHILD_RENAMED_P(A) ((A)->child_renamed_p)
 #define ALLOCNO_DONT_REASSIGN_P(A) ((A)->dont_reassign_p)
 #ifdef STACK_REGS
 #define ALLOCNO_NO_STACK_REG_P(A) ((A)->no_stack_reg_p)
@@ -343,6 +351,7 @@ struct allocno
 #define ALLOCNO_IN_GRAPH_P(A) ((A)->in_graph_p)
 #define ALLOCNO_ASSIGNED_P(A) ((A)->assigned_p)
 #define ALLOCNO_MAY_BE_SPILLED_P(A) ((A)->may_be_spilled_p)
+#define ALLOCNO_CONFLICT_VEC_P(A) ((A)->conflict_vec_p)
 #define ALLOCNO_MODE(A) ((A)->mode)
 #define ALLOCNO_COPIES(A) ((A)->allocno_copies)
 #define ALLOCNO_HARD_REG_COSTS(A) ((A)->hard_reg_costs)
@@ -369,7 +378,8 @@ struct allocno
 extern allocno_t *regno_allocno_map;
 
 /* Array of references to all allocnos.  The order number of the
-   allocno corresponds to the index in the array.  */
+   allocno corresponds to the index in the array.  Removed allocnos
+   have NULL element value.  */
 extern allocno_t *allocnos;
 
 /* Sizes of the previous array.  */
@@ -403,7 +413,8 @@ struct allocno_copy
 };
 
 /* Array of references to copies.  The order number of the copy
-   corresponds to the index in the array.  */
+   corresponds to the index in the array.  Removed allocnos
+   have NULL element value.  */
 extern copy_t *copies;
 
 /* Size of the previous array.  */
@@ -465,26 +476,81 @@ extern int max_nregs;
   ((R) [(unsigned) (I) / INT_BITS]				\
    & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
-/* For each allocno set in ALLOCNO_SET, set ALLOCNO to that
-   allocno, and execute CODE.  */
-#define EXECUTE_IF_SET_IN_ALLOCNO_SET(ALLOCNO_SET, ALLOCNO, CODE)	\
-do {									\
-  int i_;								\
-  int allocno_;								\
-  INT_TYPE *p_ = (ALLOCNO_SET);						\
-									\
-  for (i_ = allocno_set_words - 1, allocno_ = 0; i_ >= 0;		\
-       i_--, allocno_ += INT_BITS)					\
-    {									\
-      unsigned INT_TYPE word_ = (unsigned INT_TYPE) *p_++;		\
-									\
-      for ((ALLOCNO) = allocno_; word_; word_ >>= 1, (ALLOCNO)++)	\
-	{								\
-	  if (word_ & 1)						\
-	    {CODE;}							\
-	}								\
-    }									\
-} while (0)
+
+/* The iterator for allocno set.  */
+typedef struct {
+
+  /* The allocno bit vector.  */
+  INT_TYPE *vec;
+
+  /* The number of the current element in the vector (of type
+     allocno_t or INT_TYPE).  */
+  unsigned int word_num;
+
+  /* The number of element (bits) in the bit vector.  */
+  unsigned int nel;
+
+  /* The current bit index of bit vector.  */
+  unsigned int bit_num;
+
+  /* The word of bit vector currently visited.  */
+  unsigned INT_TYPE word;
+} allocno_set_iterator;
+
+/* Initialize the iterator I for allocnos bit vector VEC of length
+   NEL.  */
+static inline void
+allocno_set_iter_init (allocno_set_iterator *i, INT_TYPE *vec, int nel)
+{
+  i->vec = vec;
+  i->word_num = 0;
+  i->nel = nel;
+  i->bit_num = 0;
+  i->word = nel == 0 ? 0 : vec [0];
+}
+
+/* Return TRUE if we have more allocnos to visit, in which case *N is
+   set to the allocno number to be visited.  Otherwise, return
+   FALSE.  */
+static inline int
+allocno_set_iter_cond (allocno_set_iterator *i, int *n)
+{
+  /* Skip words that are zeros.  */
+  for (; i->word == 0; i->word = i->vec [i->word_num])
+    {
+      i->word_num++;
+      i->bit_num = i->word_num * INT_BITS;
+      
+      /* If we have reached the end, break.  */
+      if (i->bit_num >= i->nel)
+	return FALSE;
+    }
+  
+  /* Skip bits that are zero.  */
+  for (; (i->word & 1) == 0; i->word >>= 1)
+    i->bit_num++;
+  
+  *n = (int) i->bit_num;
+  
+  return TRUE;
+}
+
+/* Advance to the next allocno.  */
+static inline void
+allocno_set_iter_next (allocno_set_iterator *i)
+{
+  i->word >>= 1;
+  i->bit_num++;
+}
+
+/* Loop over all elements of ALLOCNO set given by VEC and NEL.  In
+   each iteration, N is set to the number of next allocno.  ITER is an
+   instance of allocno_set_iterator used to iterate the allocnos in
+   the set.  */
+#define FOR_EACH_ALLOCNO_IN_SET(VEC, NEL, N, ITER)		\
+  for (allocno_set_iter_init (&(ITER), (VEC), (NEL));		\
+       allocno_set_iter_cond (&(ITER), &(N));			\
+       allocno_set_iter_next (&(ITER)))
 
 /* ira.c: */
 
@@ -612,6 +678,8 @@ extern void traverse_loop_tree (int, loop_tree_node_t,
 				void (*) (loop_tree_node_t),
 				void (*) (loop_tree_node_t));
 extern allocno_t create_allocno (int, int, loop_tree_node_t);
+extern int conflict_vector_profitable_p (allocno_t, int);
+extern void allocate_allocno_conflict_vec (allocno_t, int);
 extern void allocate_allocno_conflicts (allocno_t, int);
 extern void add_allocno_conflict (allocno_t, allocno_t);
 extern void print_expanded_allocno (allocno_t);
@@ -668,6 +736,190 @@ extern void ira_color (void);
 
 /* ira-emit.c */
 extern void ira_emit (int);
+
+
+
+/* The iterator for all allocnos.  */
+typedef struct {
+  /* The number of the current element in ALLOCNOS.  */
+  int n;
+} allocno_iterator;
+
+/* Initialize the iterator I.  */
+static inline void
+allocno_iter_init (allocno_iterator *i)
+{
+  i->n = 0;
+}
+
+/* Return TRUE if we have more allocnos to visit, in which case *A is
+   set to the allocno to be visited.  Otherwise, return FALSE.  */
+static inline int
+allocno_iter_cond (allocno_iterator *i, allocno_t *a)
+{
+  int n;
+
+  for (n = i->n; n < allocnos_num; n++)
+    if (allocnos [n] != NULL)
+      {
+	*a = allocnos [n];
+	i->n = n + 1;
+	return TRUE;
+      }
+  return FALSE;
+}
+
+/* Loop over all allocnos.  In each iteration, A is set to the next
+   allocno.  ITER is an instance of allocno_iterator used to iterate
+   the allocnos.  */
+#define FOR_EACH_ALLOCNO(A, ITER)			\
+  for (allocno_iter_init (&(ITER));			\
+       allocno_iter_cond (&(ITER), &(A));)
+
+
+
+
+/* The iterator for copies.  */
+typedef struct {
+  /* The number of the current element in COPIES.  */
+  int n;
+} copy_iterator;
+
+/* Initialize the iterator I.  */
+static inline void
+copy_iter_init (copy_iterator *i)
+{
+  i->n = 0;
+}
+
+/* Return TRUE if we have more copies to visit, in which case *CP is
+   set to the copy to be visited.  Otherwise, return FALSE.  */
+static inline int
+copy_iter_cond (copy_iterator *i, copy_t *cp)
+{
+  int n;
+
+  for (n = i->n; n < copies_num; n++)
+    if (copies [n] != NULL)
+      {
+	*cp = copies [n];
+	i->n = n + 1;
+	return TRUE;
+      }
+  return FALSE;
+}
+
+/* Loop over all copies.  In each iteration, C is set to the next
+   copy.  ITER is an instance of copy_iterator used to iterate
+   the copies.  */
+#define FOR_EACH_COPY(C, ITER)				\
+  for (copy_iter_init (&(ITER));			\
+       copy_iter_cond (&(ITER), &(C));)
+
+
+
+
+/* The iterator for allocno conflicts.  */
+typedef struct {
+
+  /* TRUE if the conflicts are represented by vectors of allocnos.  */
+  int allocno_conflict_vec_p;
+
+  /* The conflict vector or conflict bit vector.  */
+  void *vec;
+
+  /* The number of the current element in the vector (of type
+     allocno_t or INT_TYPE).  */
+  unsigned int word_num;
+
+  /* The bit vector size.  */
+  unsigned int size;
+
+  /* The current bit index of bit vector.  */
+  unsigned int bit_num;
+
+  /* The word of bit vector currently visited.  */
+  unsigned INT_TYPE word;
+} allocno_conflict_iterator;
+
+/* Initialize the iterator I with ALLOCNO conflicts.  */
+static inline void
+allocno_conflict_iter_init (allocno_conflict_iterator *i, allocno_t allocno)
+{
+  i->allocno_conflict_vec_p = ALLOCNO_CONFLICT_VEC_P (allocno);
+  i->vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (allocno);
+  i->word_num = 0;
+  if (i->allocno_conflict_vec_p)
+    i->size = i->bit_num = i->word = 0;
+  else
+    {
+      i->size
+	= MIN (((allocnos_num + INT_BITS - 1) / INT_BITS) * sizeof (INT_TYPE),
+	       ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (allocno));
+      i->bit_num = 0;
+      i->word = ((INT_TYPE *) i->vec) [0];
+    }
+}
+
+/* Return TRUE if we have more allocnos to visit, in which case *A is
+   set to the allocno to be visited.  Otherwise, return FALSE.  */
+static inline int
+allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
+{
+  allocno_t conflict_allocno;
+
+  if (i->allocno_conflict_vec_p)
+    {
+      conflict_allocno = ((allocno_t *) i->vec) [i->word_num];
+      if (conflict_allocno == NULL)
+	return FALSE;
+      *a = conflict_allocno;
+      return TRUE;
+    }
+  else
+    {
+      /* Skip words that are zeros.  */
+      for (; i->word == 0; i->word = ((INT_TYPE *) i->vec) [i->word_num])
+	{
+	  i->word_num++;
+	  
+	  /* If we have reached the end, break.  */
+	  if (i->word_num * sizeof (INT_TYPE) >= i->size)
+	    return FALSE;
+	  
+	  i->bit_num = i->word_num * INT_BITS;
+	}
+      
+      /* Skip bits that are zero.  */
+      for (; (i->word & 1) == 0; i->word >>= 1)
+	i->bit_num++;
+      
+      *a = allocnos [i->bit_num];
+      
+      return TRUE;
+    }
+}
+
+/* Advance to the next conflicting allocno.  */
+static inline void
+allocno_conflict_iter_next (allocno_conflict_iterator *i)
+{
+  if (i->allocno_conflict_vec_p)
+    i->word_num++;
+  else
+    {
+      i->word >>= 1;
+      i->bit_num++;
+    }
+}
+
+/* Loop over all elements of ALLOCNO conflicts.  In each iteration, A
+   is set to the next conflicting allocno.  ITER is an instance of
+   allocno_conflict_iterator used to iterate the conflicts.  */
+#define FOR_EACH_ALLOCNO_CONFLICT(ALLOCNO, A, ITER)			\
+  for (allocno_conflict_iter_init (&(ITER), (ALLOCNO));			\
+       allocno_conflict_iter_cond (&(ITER), &(A));			\
+       allocno_conflict_iter_next (&(ITER)))
 
 
 

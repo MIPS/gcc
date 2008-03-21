@@ -100,16 +100,17 @@ make_regno_born (int regno)
   int i;
   allocno_t a;
   allocno_live_range_t p;
+  allocno_set_iterator asi;
 
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       SET_HARD_REG_BIT (hard_regs_live, regno);
-      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
+      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
         {
 	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (allocnos [i]), regno);
 	  SET_HARD_REG_BIT (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (allocnos [i]),
 			    regno);
-	});
+	}
       return;
     }
   a = ira_curr_regno_allocno_map [regno];
@@ -204,6 +205,7 @@ clear_allocno_live (allocno_t a)
 {
   int i;
   enum reg_class cover_class;
+  allocno_set_iterator asi;
 
   if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
     {
@@ -215,10 +217,10 @@ clear_allocno_live (allocno_t a)
 	  && (curr_reg_pressure [cover_class]
 	      <= available_class_regs [cover_class]))
 	{
-	  EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
+	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 	    {
 	      update_allocno_pressure_excess_length (allocnos [i]);
-	    });
+	    }
 	  high_pressure_start_point [cover_class] = -1;
 	}
     }
@@ -348,6 +350,7 @@ mark_reg_death (rtx reg)
 {
   int i;
   int regno = REGNO (reg);
+  allocno_set_iterator asi;
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
@@ -376,10 +379,10 @@ mark_reg_death (rtx reg)
 		  && (curr_reg_pressure [cover_class]
 		      <= available_class_regs [cover_class]))
 		{
-		  EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
+		  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 		    {
 		      update_allocno_pressure_excess_length (allocnos [i]);
-		    });
+		    }
 		  high_pressure_start_point [cover_class] = -1;
 		}
 	      ira_assert (curr_reg_pressure [cover_class] >= 0);
@@ -547,6 +550,7 @@ process_single_reg_class_operands (int in_p, int freq)
   enum reg_class cl, cover_class;
   rtx operand;
   allocno_t operand_a, a;
+  allocno_set_iterator asi;
 
   for (i = 0; i < recog_data.n_operands; i++)
     {
@@ -594,7 +598,7 @@ process_single_reg_class_operands (int in_p, int freq)
 	    }
 	}
 
-      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, px,
+      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
         {
 	  a = allocnos [px];
 	  cover_class = ALLOCNO_COVER_CLASS (a);
@@ -608,7 +612,7 @@ process_single_reg_class_operands (int in_p, int freq)
 	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 				reg_class_contents [cl]);
 	    }
-	});
+	}
     }
 }
 
@@ -625,6 +629,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
   edge_iterator ei;
   bitmap_iterator bi;
   bitmap reg_live_in;
+  allocno_set_iterator asi;
   int px = 0;
 
   bb = loop_tree_node->bb;
@@ -694,11 +699,11 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       if (e != NULL)
 	{
 #ifdef STACK_REGS
-	  EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, px,
+	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
 	    {
 	      ALLOCNO_NO_STACK_REG_P (allocnos [px]) = TRUE;
 	      ALLOCNO_TOTAL_NO_STACK_REG_P (allocnos [px]) = TRUE;
-	    });
+	    }
 	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
 	    make_regno_born_and_died (px);
 #endif
@@ -753,7 +758,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      
 	      get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
 	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
-	      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
+	      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 	        {
 		  allocno_t a = allocnos [i];
 		  
@@ -769,7 +774,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 		      SET_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
 		      SET_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
 		    }
-		});
+		}
 	    }
 	  
 	  /* Mark any allocnos set in INSN as live, and mark them as
@@ -830,10 +835,10 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	    }
 	  curr_point++;
 	}
-      EXECUTE_IF_SET_IN_ALLOCNO_SET (allocnos_live, i,
+      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
        {
 	 make_regno_dead (ALLOCNO_REGNO (allocnos [i]));
-       });
+       }
       curr_point++;
     }
   /* Propagate register pressure: */
@@ -853,8 +858,8 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 static void
 create_start_finish_chains (void)
 {
-  int i;
   allocno_t a;
+  allocno_iterator ai;
   allocno_live_range_t r;
 
   start_point_ranges
@@ -863,9 +868,8 @@ create_start_finish_chains (void)
   finish_point_ranges
     = ira_allocate (max_point * sizeof (allocno_live_range_t));
   memset (finish_point_ranges, 0, max_point * sizeof (allocno_live_range_t));
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	{
 	  r->start_next = start_point_ranges [r->start];
@@ -914,10 +918,11 @@ debug_allocno_live_ranges (allocno_t a)
 static void
 print_live_ranges (FILE *f)
 {
-  int i;
+  allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
-    print_allocno_live_ranges (f, allocnos [i]);
+  FOR_EACH_ALLOCNO (a, ai)
+    print_allocno_live_ranges (f, a);
 }
 
 void

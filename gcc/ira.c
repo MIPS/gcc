@@ -1175,13 +1175,13 @@ find_reg_equiv_invariant_const (void)
 static void
 setup_reg_renumber (void)
 {
-  int i, regno, hard_regno;
+  int regno, hard_regno;
   allocno_t a;
+  allocno_iterator ai;
 
   caller_save_needed = 0;
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       /* There are no caps at this point.  */
       ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
       if (! ALLOCNO_ASSIGNED_P (a))
@@ -1209,12 +1209,12 @@ setup_reg_renumber (void)
 static void
 setup_allocno_assignment_flags (void)
 {
-  int i, hard_regno;
+  int hard_regno;
   allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (! ALLOCNO_ASSIGNED_P (a))
 	/* It can happen if A is not referenced but partially anticipated
 	   somewhere in a region.  */
@@ -1241,13 +1241,13 @@ setup_allocno_assignment_flags (void)
 static void
 calculate_allocation_cost (void)
 {
-  int i, hard_regno, cost;
+  int hard_regno, cost;
   allocno_t a;
+  allocno_iterator ai;
 
   overall_cost = reg_cost = mem_cost = 0;
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       hard_regno = ALLOCNO_HARD_REGNO (a);
       ira_assert (hard_regno < 0
 		  || ! hard_reg_not_in_set_p
@@ -1290,18 +1290,18 @@ calculate_allocation_cost (void)
 static void
 check_allocation (void)
 {
-  allocno_t a, conflict_a, *allocno_vec;
-  int i, hard_regno, conflict_hard_regno, j, nregs, conflict_nregs;
-  
-  for (i = 0; i < allocnos_num; i++)
+  allocno_t a, conflict_a;
+  int hard_regno, conflict_hard_regno, nregs, conflict_nregs;
+  allocno_conflict_iterator aci;
+  allocno_iterator ai;
+
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (ALLOCNO_CAP_MEMBER (a) != NULL
 	  || (hard_regno = ALLOCNO_HARD_REGNO (a)) < 0)
 	continue;
       nregs = hard_regno_nregs [hard_regno] [ALLOCNO_MODE (a)];
-      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-      for (j = 0; (conflict_a = allocno_vec [j]) != NULL; j++)
+      FOR_EACH_ALLOCNO_CONFLICT (a, conflict_a, aci)
 	if ((conflict_hard_regno = ALLOCNO_HARD_REGNO (conflict_a)) >= 0)
 	  {
 	    conflict_nregs
@@ -1374,13 +1374,13 @@ fix_reg_equiv_init (void)
 static void
 print_redundant_copies (void)
 {
-  int i, hard_regno;
+  int hard_regno;
   allocno_t a;
   copy_t cp, next_cp;
+  allocno_iterator ai;
   
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	/* It is a cap. */
 	continue;
@@ -1409,13 +1409,12 @@ print_redundant_copies (void)
 static void
 setup_preferred_alternate_classes (void)
 {
-  int i;
   enum reg_class cover_class;
   allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       cover_class = ALLOCNO_COVER_CLASS (a);
       if (cover_class == NO_REGS)
 	cover_class = GENERAL_REGS;

@@ -54,8 +54,10 @@ static void compress_calls (void);
 static void finish_calls (void);
 
 static void initiate_allocnos (void);
-static void check_allocno_conflict_vec (allocno_t, int);
-static void add_to_allocno_conflict_vec (allocno_t, allocno_t);
+static void allocate_allocno_conflict_bit_vec (allocno_t);
+static void add_to_allocno_conflicts (allocno_t, allocno_t);
+static void remove_wrong_conflicts (allocno_t);
+static void change_allocno_conflicts (allocno_t, allocno_t *);
 static void compress_allocno_conflict_vec (allocno_t);
 static void compress_conflict_vecs (void);
 static allocno_t create_cap_allocno (allocno_t);
@@ -88,7 +90,7 @@ static allocno_live_range_t merge_ranges (allocno_live_range_t,
 					  allocno_live_range_t);
 static loop_tree_node_t common_loop_tree_node_dominator (loop_tree_node_t,
 							 loop_tree_node_t);
-static void check_and_add_conflicts (allocno_t, allocno_t *);
+static void check_and_add_conflicts (allocno_t, allocno_t);
 static void add_conflict_with_underlying_allocnos (allocno_t,
 						   loop_tree_node_t, int);
 
@@ -110,12 +112,14 @@ loop_tree_node_t ira_loop_nodes;
 allocno_t *regno_allocno_map;
 
 /* Array of references to all allocnos and their size.  The order
-   number of the allocno corresponds to the index in the array.  */
+   number of the allocno corresponds to the index in the array.
+   Removed allocnos have NULL element value.  */
 allocno_t *allocnos;
 int allocnos_num;
 
 /* Array of references to copies and its size.  The order number of
-   the copy corresponds to the index in the array.  */
+   the copy corresponds to the index in the array.  Removed allocnos
+   have NULL element value.  */
 copy_t *copies;
 int copies_num;
 
@@ -342,10 +346,11 @@ static void
 rebuild_regno_allocno_maps (void)
 {
   unsigned int l;
-  int i, max_regno, regno;
+  int max_regno, regno;
   allocno_t a;
   loop_tree_node_t loop_tree_node;
   loop_p loop;
+  allocno_iterator ai;
 
   max_regno = max_reg_num ();
   for (l = 0; VEC_iterate (loop_p, ira_loops.larray, l, loop); l++)
@@ -360,9 +365,8 @@ rebuild_regno_allocno_maps (void)
   ira_free (regno_allocno_map);
   regno_allocno_map = ira_allocate (max_regno * sizeof (allocno_t));
   memset (regno_allocno_map, 0, max_regno * sizeof (allocno_t));
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	continue;
       regno = ALLOCNO_REGNO (a);
@@ -504,9 +508,8 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_CAP (a) = NULL;
   ALLOCNO_CAP_MEMBER (a) = NULL;
   ALLOCNO_NUM (a) = allocnos_num;
-  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) = NULL;
+  ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = NULL;
   ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
-  ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) = 0;
   CLEAR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
   CLEAR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
   ALLOCNO_NREFS (a) = 0;
@@ -522,10 +525,12 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
   ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = FALSE;
   ALLOCNO_SOMEWHERE_RENAMED_P (a) = FALSE;
+  ALLOCNO_CHILD_RENAMED_P (a) = FALSE;
   ALLOCNO_DONT_REASSIGN_P (a) = FALSE;
   ALLOCNO_IN_GRAPH_P (a) = FALSE;
   ALLOCNO_ASSIGNED_P (a) = FALSE;
   ALLOCNO_MAY_BE_SPILLED_P (a) = FALSE;
+  ALLOCNO_CONFLICT_VEC_P (a) = FALSE;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
   ALLOCNO_COPIES (a) = NULL;
   ALLOCNO_HARD_REG_COSTS (a) = NULL;
@@ -549,62 +554,213 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   return a;
 }
 
-/* The function allocates conflict vector of A for NUM allocnos.  */
+/* The function returns TRUE if conflict vector with NUM elemnents is
+   more profitable than conflict bit vector for A.  */
+int
+conflict_vector_profitable_p (allocno_t a ATTRIBUTE_UNUSED, int num)
+{
+  int nw = (allocnos_num + INT_BITS - 1) / INT_BITS;
+
+  return sizeof (allocno_t) * num < 2 * nw * sizeof (INT_TYPE);
+}
+
+/* The function allocates and initialize conflict vector of A for NUM
+   allocnos.  */
+void
+allocate_allocno_conflict_vec (allocno_t a, int num)
+{
+  int size;
+  allocno_t *vec;
+
+  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) == NULL);
+  num++; /* for NULL end marker  */
+  size = sizeof (allocno_t) * num;
+  vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = ira_allocate (size);
+  vec [0] = NULL;
+  ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
+  ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) = size;
+  ALLOCNO_CONFLICT_VEC_P (a) = TRUE;
+}
+
+/* The function allocates and initializes conflict bit vector of A.  */
+static void
+allocate_allocno_conflict_bit_vec (allocno_t a)
+{
+  unsigned int size;
+
+  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) == NULL);
+  size = (allocnos_num + INT_BITS - 1) / INT_BITS * sizeof (INT_TYPE);
+  ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = ira_allocate (size);
+  memset (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a), 0, size);
+  ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) = size;
+  ALLOCNO_CONFLICT_VEC_P (a) = FALSE;
+}
+
+/* The function allocates and initializes conflict vector or conflict
+   bit vector of A for NUM allocnos whatever is more profitable.  */
 void
 allocate_allocno_conflicts (allocno_t a, int num)
 {
-  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) == NULL);
-  ALLOCNO_CONFLICT_ALLOCNO_VEC (a)
-    = ira_allocate (sizeof (allocno_t) * (num + 1));
-  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) [0] = NULL;
-  ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
-  ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) = 0;
-  ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) = num;
+  if (conflict_vector_profitable_p (a, num))
+    allocate_allocno_conflict_vec (a, num);
+  else
+    allocate_allocno_conflict_bit_vec (a);
 }
 
-/* The function checks that conflict vector of A has enough space to
-   contain NUM allocno references.  If the space is not enough, the
-   function expands the conflict vector.  */
+/* The function adds A2 to to the conflicts of A1.  */
 static void
-check_allocno_conflict_vec (allocno_t a, int num)
+add_to_allocno_conflicts (allocno_t a1, allocno_t a2)
 {
-  int size;
-  allocno_t *vec;
+  int num;
+  unsigned int size;
 
-  ira_assert (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) != NULL);
-  if (ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) >= num)
-    return;
-  size = 3 * num / 2 + 1;
-  vec = ira_allocate (sizeof (allocno_t) * (size + 1));
-  memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_VEC (a),
-	  sizeof (allocno_t)
-	  * (ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) + 1));
-  ira_free (ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
-  ALLOCNO_CONFLICT_ALLOCNO_VEC (a) = vec;
-  ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE (a) = size;
-}
+  if (ALLOCNO_CONFLICT_VEC_P (a1))
+    {
+      allocno_t *vec;
 
-/* The function adds A2 to conflict vector of A1.  */
-static void
-add_to_allocno_conflict_vec (allocno_t a1, allocno_t a2)
-{
-  int size;
-  allocno_t *vec;
+      num = ALLOCNO_CONFLICT_ALLOCNOS_NUM (a1) + 2;
+      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1) >=  num * sizeof (allocno_t))
+	vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
+      else
+	{
+	  size = (3 * num / 2 + 1) * sizeof (allocno_t);
+	  vec = ira_allocate (size);
+	  memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1),
+		  sizeof (allocno_t) * ALLOCNO_CONFLICT_ALLOCNOS_NUM (a1));
+	  ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1));
+	  ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1) = vec;
+	  ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1) = size;
+	}
+      vec [num - 2] = a2;
+      vec [num - 1] = NULL;
+      ALLOCNO_CONFLICT_ALLOCNOS_NUM (a1)++;
+    }
+  else
+    {
+      int nw;
+      INT_TYPE *vec;
 
-  size = ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a1);
-  check_allocno_conflict_vec (a1, size + 1);
-  vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a1);
-  vec [size] = a2;
-  vec [size + 1] = NULL;
-  ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a1)++;
+      num = ALLOCNO_NUM (a2);
+      nw = num / INT_BITS + 1;
+      size = nw * sizeof (INT_TYPE);
+      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1) >= size)
+	vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
+      else
+	{
+	  size = (3 * nw / 2 + 1) * sizeof (INT_TYPE);
+	  vec = ira_allocate (size);
+	  memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1),
+		  ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1));
+	  memset ((char *) vec + ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1),
+		  0, size - ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1));
+	  ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1));
+	  ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1) = vec;
+	  ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1) = size;
+	}
+      SET_ALLOCNO_SET_BIT (vec, num);
+    }
 }
 
 /* The function adds A1 to conflict vector of A2 and vise versa.  */
 void
 add_allocno_conflict (allocno_t a1, allocno_t a2)
 {
-  add_to_allocno_conflict_vec (a1, a2);
-  add_to_allocno_conflict_vec (a2, a1);
+  add_to_allocno_conflicts (a1, a2);
+  add_to_allocno_conflicts (a2, a1);
+}
+
+/* Remove conflicts of A which are wrong now.  */
+static void
+remove_wrong_conflicts (allocno_t a)
+{
+  int n, i;
+  allocno_t conflict_a;
+
+  if (ALLOCNO_CONFLICT_VEC_P (a))
+    {
+      allocno_t *allocno_vec;
+
+      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+      for (n = i = 0; (conflict_a = allocno_vec [i]) != NULL; i++)
+	{
+	  if (allocno_live_ranges_intersect_p (a, conflict_a))
+	    allocno_vec [n++] = conflict_a;
+	  else
+	    {
+	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
+		fprintf (ira_dump_file,
+			 "      Remove conflict a%dr%d -> a%dr%d\n",
+			 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
+			 ALLOCNO_NUM (conflict_a),
+			 REGNO (ALLOCNO_REG (conflict_a)));
+	      
+	    }
+	}
+      allocno_vec [n] = NULL;
+      ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = n;
+    }
+  else
+    {
+      INT_TYPE *allocno_bit_vec;
+      allocno_set_iterator asi;
+
+      allocno_bit_vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+      n = MIN (allocnos_num,
+	       (int) ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) * CHAR_BIT);
+      FOR_EACH_ALLOCNO_IN_SET (allocno_bit_vec, n, i, asi)
+	{
+	  conflict_a = allocnos [i];
+	  if (! allocno_live_ranges_intersect_p (a, conflict_a))
+	    {
+	      CLEAR_ALLOCNO_SET_BIT (allocno_bit_vec, i);
+	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
+		fprintf (ira_dump_file,
+			 "      Remove conflict a%dr%d -> a%dr%d\n",
+			 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
+			 ALLOCNO_NUM (conflict_a),
+			 REGNO (ALLOCNO_REG (conflict_a)));
+	    }
+	}
+    }
+}
+
+/* Temporary bit vector used to change conflicts.  */
+static INT_TYPE *temp_change_bit_vec;
+
+/* Change conflicts of A according to regno map REGNO_ALLOCNO_MAP.  */
+static void
+change_allocno_conflicts (allocno_t a, allocno_t *regno_allocno_map)
+{
+  int n, i;
+  allocno_t conflict_a;
+
+  if (ALLOCNO_CONFLICT_VEC_P (a))
+    {
+      allocno_t *allocno_vec;
+
+      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+      for (i = 0; (conflict_a = allocno_vec [i]) != NULL; i++)
+	allocno_vec [i] = regno_allocno_map [REGNO (ALLOCNO_REG (conflict_a))];
+    }
+  else
+    {
+      int nw;
+      INT_TYPE *allocno_bit_vec;
+      allocno_set_iterator asi;
+
+      allocno_bit_vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+      n = MIN (allocnos_num,
+	       (int) ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) * CHAR_BIT);
+      nw = (n + INT_BITS - 1) / INT_BITS;
+      memcpy (temp_change_bit_vec, allocno_bit_vec, nw * sizeof (INT_TYPE)); 
+      memset (allocno_bit_vec, 0, nw * sizeof (INT_TYPE)); 
+      FOR_EACH_ALLOCNO_IN_SET (temp_change_bit_vec, n, i, asi)
+	{
+	  conflict_a = allocnos [i];
+	  conflict_a = regno_allocno_map [REGNO (ALLOCNO_REG (conflict_a))];
+	  SET_ALLOCNO_SET_BIT (allocno_bit_vec, ALLOCNO_NUM (conflict_a));
+	}
+    }
 }
 
 /* The array used to find duplications in conflict vecs of
@@ -621,12 +777,11 @@ compress_allocno_conflict_vec (allocno_t a)
   allocno_t *vec, conflict_a;
   int i, j;
 
-  vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
+  ira_assert (ALLOCNO_CONFLICT_VEC_P (a));
+  vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
   curr_allocno_conflict_check_tick++;
   for (i = j = 0; (conflict_a = vec [i]) != NULL; i++)
     {
-      if (ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) == i)
-	ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = j;
       if (allocno_conflict_check [ALLOCNO_NUM (conflict_a)]
 	  != curr_allocno_conflict_check_tick)
 	{
@@ -635,9 +790,7 @@ compress_allocno_conflict_vec (allocno_t a)
 	  vec [j++] = conflict_a;
 	}
     }
-  if (ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) == i)
-    ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = j;
-  ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) = j;
+  ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = j;
   vec [j] = NULL;
 }
 
@@ -646,13 +799,15 @@ compress_allocno_conflict_vec (allocno_t a)
 static void
 compress_conflict_vecs (void)
 {
-  int i;
+  allocno_t a;
+  allocno_iterator ai;
 
   allocno_conflict_check = ira_allocate (sizeof (int) * allocnos_num);
   memset (allocno_conflict_check, 0, sizeof (int) * allocnos_num);
   curr_allocno_conflict_check_tick = 0;
-  for (i = 0; i < allocnos_num; i++)
-    compress_allocno_conflict_vec (allocnos [i]);
+  FOR_EACH_ALLOCNO (a, ai)
+    if (ALLOCNO_CONFLICT_VEC_P (a))
+      compress_allocno_conflict_vec (a);
   ira_free (allocno_conflict_check);
 }
 
@@ -713,17 +868,17 @@ create_cap_allocno (allocno_t a)
 static void
 propagate_info_to_cap (allocno_t cap)
 {
-  int i, regno, conflicts_num;
+  int regno, conflicts_num;
   enum reg_class cover_class;
   allocno_t a, conflict_allocno, conflict_father_allocno;
   allocno_t another_a, father_a;
-  allocno_t *allocno_vec;
   loop_tree_node_t father;
   copy_t cp, next_cp;
+  allocno_conflict_iterator aci;
 
   ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (cap) == cap
 	      && ALLOCNO_NEXT_COALESCED_ALLOCNO (cap) == cap
-	      && ALLOCNO_CONFLICT_ALLOCNO_VEC (cap) == NULL
+	      && ALLOCNO_CONFLICT_ALLOCNO_ARRAY (cap) == NULL
 	      && ALLOCNO_CALLS_CROSSED_NUM (cap) == 0);
   a = ALLOCNO_CAP_MEMBER (cap);
   father = ALLOCNO_LOOP_TREE_NODE (cap);
@@ -773,25 +928,20 @@ propagate_info_to_cap (allocno_t cap)
 	add_allocno_copy (cap, father_a, cp->freq, cp->insn,
 			  cp->loop_tree_node);
     }
-  allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-  if (allocno_vec != NULL)
+  if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
     {
       conflicts_num = 0;
-      for (i = 0;
-	   (conflict_allocno = allocno_vec [i]) != NULL;
-	   i++)
+      FOR_EACH_ALLOCNO_CONFLICT (a, conflict_allocno, aci)
 	conflicts_num++;
       allocate_allocno_conflicts (cap, conflicts_num);
-      for (conflicts_num = i = 0;
-	   (conflict_allocno = allocno_vec [i]) != NULL;
-	   i++)
+      FOR_EACH_ALLOCNO_CONFLICT (a, conflict_allocno, aci)
 	{
 	  regno = ALLOCNO_REGNO (conflict_allocno);
 	  conflict_father_allocno = father->regno_allocno_map [regno];
 	  if (conflict_father_allocno == NULL)
 	    conflict_father_allocno = ALLOCNO_CAP (conflict_allocno);
 	  if (conflict_father_allocno != NULL
-	      && (ALLOCNO_CONFLICT_ALLOCNO_VEC (conflict_father_allocno)
+	      && (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (conflict_father_allocno)
 		  != NULL))
 	    add_allocno_conflict (cap, conflict_father_allocno);
 	}
@@ -800,11 +950,10 @@ propagate_info_to_cap (allocno_t cap)
     {
       fprintf (ira_dump_file, "    Propagate info to cap ");
       print_expanded_allocno (cap);
-      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (cap);
-      if (allocno_vec != NULL)
+      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (cap) != NULL)
 	{
 	  fprintf (ira_dump_file, "\n      Conflicts:");
-	  for (i = 0; (conflict_allocno = allocno_vec [i]) != NULL; i++)
+	  FOR_EACH_ALLOCNO_CONFLICT (cap, conflict_allocno, aci)
 	    {
 	      fprintf (ira_dump_file, " a%d(r%d,",
 		       ALLOCNO_NUM (conflict_allocno),
@@ -895,8 +1044,8 @@ finish_allocno (allocno_t a)
   allocno_live_range_t r, next_r;
   enum reg_class cover_class = ALLOCNO_COVER_CLASS (a);
 
-  if (ALLOCNO_CONFLICT_ALLOCNO_VEC (a) != NULL)
-    ira_free (ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
+  if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
+    ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a));
   if (ALLOCNO_HARD_REG_COSTS (a) != NULL)
     free_cost_vector (ALLOCNO_HARD_REG_COSTS (a), cover_class);
   if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL)
@@ -918,10 +1067,11 @@ finish_allocno (allocno_t a)
 static void
 finish_allocnos (void)
 {
-  int i;
+  allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
-    finish_allocno (allocnos [i]);
+  FOR_EACH_ALLOCNO (a, ai)
+    finish_allocno (a);
   ira_free (regno_allocno_map);
   VARRAY_FREE (allocno_varray);
   free_alloc_pool (allocno_pool);
@@ -1159,10 +1309,11 @@ finish_copy (copy_t cp)
 static void
 finish_copies (void)
 {
-  int i;
+  copy_t cp;
+  copy_iterator ci;
 
-  for (i = 0; i < copies_num; i++)
-    finish_copy (copies [i]);
+  FOR_EACH_COPY (cp, ci)
+    finish_copy (cp);
   VARRAY_FREE (copy_varray);
   free_alloc_pool (copy_pool);
 }
@@ -1593,23 +1744,23 @@ common_loop_tree_node_dominator (loop_tree_node_t n1, loop_tree_node_t n2)
 static allocno_t *regno_top_level_allocno_map;
 
 
-/* The function check conflicts A with allocnos from CONFLICT_VECT and
-   add them (more accurately corresponding final IR allocnos) if it is
-   necessary.  */
+/* The function check conflicts A with allocnos conflicting with
+   OTHER_ALLOCNO and add them (more accurately corresponding final IR
+   allocnos) if it is necessary.  */
 static void
-check_and_add_conflicts (allocno_t a, allocno_t *conflict_vec)
+check_and_add_conflicts (allocno_t a, allocno_t other_allocno)
 {
   allocno_t conflict_a;
-  int i;
+  allocno_conflict_iterator aci;
 
-  for (i = 0; (conflict_a = conflict_vec [i]) != NULL; i++)
+  FOR_EACH_ALLOCNO_CONFLICT (other_allocno, conflict_a, aci)
     {
       conflict_a
 	= regno_top_level_allocno_map [REGNO (ALLOCNO_REG (conflict_a))];
       if (allocno_live_ranges_intersect_p (conflict_a, a))
 	{
-	  add_to_allocno_conflict_vec (conflict_a, a);
-	  add_to_allocno_conflict_vec (a, conflict_a);
+	  add_to_allocno_conflicts (conflict_a, a);
+	  add_to_allocno_conflicts (a, conflict_a);
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file,
 		     "      Add underlying conflict a%dr%d-a%dr%d\n",
@@ -1646,7 +1797,7 @@ add_conflict_with_underlying_allocnos (allocno_t a,
 	  && subloop_a == regno_top_level_allocno_map [REGNO (ALLOCNO_REG
 							      (subloop_a))])
 	continue;
-      check_and_add_conflicts (a, ALLOCNO_CONFLICT_ALLOCNO_VEC (subloop_a));
+      check_and_add_conflicts (a, subloop_a);
       add_conflict_with_underlying_allocnos (a, subloop_node, go_deeper_p);
     }
 }
@@ -1658,18 +1809,20 @@ add_conflict_with_underlying_allocnos (allocno_t a,
 void
 ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 {
-  int i, j, k, free, propagate_p, stop_p, keep_p;
-  int hard_regs_num, new_allocnos_p, renamed_p, start;
+  int i, j, propagate_p, stop_p, keep_p;
+  int hard_regs_num, new_allocnos_p, renamed_p;
   unsigned int n;
   enum reg_class cover_class;
   rtx call, *allocno_calls;
   allocno_t a, father_a, conflict_a, first, second, node_first, node_second;
-  allocno_t dominator_a, *allocno_vec;
+  allocno_t dominator_a;
   copy_t cp;
   loop_tree_node_t father, node, dominator;
   allocno_live_range_t r;
   bitmap live_allocnos;
   bitmap_iterator bi;
+  allocno_iterator ai;
+  copy_iterator ci;
 
   regno_top_level_allocno_map
     = ira_allocate (max_reg_num () * sizeof (allocno_t));
@@ -1826,9 +1979,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
     {
       /* Fix final allocnos attributes concerning calls.  */
       compress_calls ();
-      for (i = 0; i < allocnos_num; i++)
+      FOR_EACH_ALLOCNO (a, ai)
 	{
-	  a = allocnos [i];
 	  if (a != regno_top_level_allocno_map [REGNO (ALLOCNO_REG (a))]
 	      || ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
@@ -1838,9 +1990,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	}
     }
   /* Mark copies for removing and change allocnos in copies.  */
-  for (i = 0; i < copies_num; i++)
+  FOR_EACH_COPY (cp, ci)
     {
-      cp = copies [i];
       if (ALLOCNO_CAP_MEMBER (cp->first) != NULL
 	  || ALLOCNO_CAP_MEMBER (cp->second) != NULL)
 	{
@@ -1902,9 +2053,8 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	 stored in memory and the value is not changed in the loop.
 	 In this case the allocno lives in the loop and can conflict
 	 with allocnos inside the loop.  */
-      for (i = 0; i < allocnos_num; i++)
+      FOR_EACH_ALLOCNO (a, ai)
 	{
-	  a = allocnos [i];
 	  if (a != regno_top_level_allocno_map [REGNO (ALLOCNO_REG (a))]
 	      || ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
@@ -1913,96 +2063,57 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  if ((first = ALLOCNO_MEM_OPTIMIZED_DEST (a)) != NULL)
 	    {
 	      first = regno_top_level_allocno_map [REGNO (ALLOCNO_REG (first))];
-	      check_and_add_conflicts
-		(first, ALLOCNO_CONFLICT_ALLOCNO_VEC (a));
+	      check_and_add_conflicts (first, a);
 	      add_conflict_with_underlying_allocnos
 		(first, ALLOCNO_LOOP_TREE_NODE (a), TRUE);
 	    }
 	}
     }
   /* Change allocnos regno, conflicting allocnos, and range allocnos.  */
-  for (i = 0; i < allocnos_num; i++)
+  temp_change_bit_vec = ira_allocate (((allocnos_num + INT_BITS - 1) / INT_BITS)
+				      * sizeof (INT_TYPE));
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (a != regno_top_level_allocno_map [REGNO (ALLOCNO_REG (a))]
 	  || ALLOCNO_CAP_MEMBER (a) != NULL)
 	continue;
       ALLOCNO_LOOP_TREE_NODE (a) = ira_loop_tree_root;
       ALLOCNO_REGNO (a) = REGNO (ALLOCNO_REG (a));
-      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-      for (j = 0; (conflict_a = allocno_vec [j]) != NULL; j++)
-	allocno_vec [j]
-	  = regno_top_level_allocno_map [REGNO (ALLOCNO_REG (conflict_a))];
+      change_allocno_conflicts (a, regno_top_level_allocno_map);
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	r->allocno = a;
     }
+  ira_free (temp_change_bit_vec);
   /* Remove allocnos on lower levels of the loop tree and
      enumerate allocnos.  */
-  for (free = 0, i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (ALLOCNO_LOOP_TREE_NODE (a) != ira_loop_tree_root
 	  || ALLOCNO_CAP_MEMBER (a) != NULL)
 	{
 	  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 	    fprintf (ira_dump_file, "      Remove a%dr%d\n",
 		     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)));
+	  allocnos [ALLOCNO_NUM (a)] = NULL;
 	  finish_allocno (a);
 	  continue;
 	}
       ALLOCNO_CAP (a) = NULL;
-      if (new_allocnos_p || ALLOCNO_SOMEWHERE_RENAMED_P (a))
-	{
-	  /* Remove conflicts.  */
-	  allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-	  start = (ALLOCNO_SOMEWHERE_RENAMED_P (a)
-		   ? 0 : ALLOCNO_CONFLICT_ALLOCNOS_NUM (a));
-	  for (k = j = start;
-	       (conflict_a = allocno_vec [j]) != NULL;
-	       j++)
-	    {
-	      if (allocno_live_ranges_intersect_p (a, conflict_a))
-		allocno_vec [k++] = conflict_a;
-	      else
-		{
-		  if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
-		    fprintf (ira_dump_file,
-			     "      Remove conflict a%dr%d - a%dr%d\n",
-			     ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
-			     ALLOCNO_NUM (conflict_a),
-			     REGNO (ALLOCNO_REG (conflict_a)));
-		  
-		}
-	    }
-	  allocno_vec [k] = NULL;
-	  ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) = k;
-	}
-      if (i == free)
-	{
-	  free++;
-	  continue;
-	}
-      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
-	fprintf (ira_dump_file, "      Enumerate a%dr%d to a%d\n",
-		 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)), free);
+      if (ALLOCNO_CHILD_RENAMED_P (a) /*new_allocnos_p*/
+	  || ALLOCNO_SOMEWHERE_RENAMED_P (a))
+	remove_wrong_conflicts (a);
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
       if (! ALLOCNO_ASSIGNED_P (a))
 	free_allocno_updated_costs (a);
       ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
       ira_assert (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) == NULL);
-      ALLOCNO_NUM (a) = free;
-      allocnos [free++] = a;
     }
-  for (i = free; i < allocnos_num; i++)
-    VARRAY_POP (allocno_varray);
-  allocnos = (allocno_t *) &VARRAY_GENERIC_PTR (allocno_varray, 0);
-  allocnos_num = VARRAY_ACTIVE_SIZE (allocno_varray);
   /* Remove unnecessary copies, and enumerate copies.  */
-  for (free = i = 0; i < copies_num; i++)
+  FOR_EACH_COPY (cp, ci)
     {
-      cp = copies [i];
       if (cp->loop_tree_node == NULL)
 	{
+	  copies [cp->num] = NULL;
 	  finish_copy (cp);
 	  continue;
 	}
@@ -2011,21 +2122,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	 && ALLOCNO_LOOP_TREE_NODE (cp->second) == ira_loop_tree_root);
       add_allocno_copy_to_list (cp);
       swap_allocno_copy_ends_if_necessary (cp);
-      if (i == free)
-	{
-	  free++;
-	  continue;
-	}
-      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
-	fprintf (ira_dump_file,
-		 "      Enumerate cp%d to cp%d\n", cp->num, free);
-      cp->num = free;
-      copies [free++] = cp;
     }
-  for (i = free; i < copies_num; i++)
-    VARRAY_POP (copy_varray);
-  copies = (copy_t *) &VARRAY_GENERIC_PTR (copy_varray, 0);
-  copies_num = VARRAY_ACTIVE_SIZE (copy_varray);
   rebuild_regno_allocno_maps ();
   rebuild_start_finish_chains ();
   ira_free (regno_top_level_allocno_map);
@@ -2053,7 +2150,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 				 ALLOCNO_NUM (conflict_a),
 				 REGNO (ALLOCNO_REG (conflict_a)),
 				 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)));
-		      add_to_allocno_conflict_vec (a, conflict_a);
+		      add_to_allocno_conflicts (a, conflict_a);
 		      if (internal_flag_ira_verbose > 4
 			  && ira_dump_file != NULL)
 			fprintf (ira_dump_file,
@@ -2061,7 +2158,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 				 ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
 				 ALLOCNO_NUM (conflict_a),
 				 REGNO (ALLOCNO_REG (conflict_a)));
-		      add_to_allocno_conflict_vec (conflict_a, a);
+		      add_to_allocno_conflicts (conflict_a, a);
 		    }
 		}
 	      bitmap_set_bit (live_allocnos, j);
@@ -2114,14 +2211,18 @@ ira_build (int loops_p)
   ira_build_conflicts ();
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     {
-      int i, n, nr;
+      int n, nr;
+      allocno_t a;
       allocno_live_range_t r;
+      allocno_iterator ai;
 
-      for (nr = n = i = 0; i < allocnos_num; i++)
-	  n += ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (allocnos [i]);
-      for (nr = i = 0; i < allocnos_num; i++)
-	for (r = ALLOCNO_LIVE_RANGES (allocnos [i]); r != NULL; r = r->next)
-	    nr++;
+      n = 0;
+      FOR_EACH_ALLOCNO (a, ai)
+	n += ALLOCNO_CONFLICT_ALLOCNOS_NUM (a);
+      nr = 0;
+      FOR_EACH_ALLOCNO (a, ai)
+	for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
+	  nr++;
       fprintf (ira_dump_file, "  regions=%d, blocks=%d, points=%d\n",
 	       VEC_length (loop_p, ira_loops.larray), n_basic_blocks,
 	       max_point);

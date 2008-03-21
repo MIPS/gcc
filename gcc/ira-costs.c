@@ -1049,16 +1049,18 @@ scan_one_insn (rtx insn)
 static void
 print_costs (FILE *f)
 {
-  int i, k;
+  int k;
+  allocno_t a;
+  allocno_iterator ai;
 
   fprintf (f, "\n");
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      int class;
+      int i, class;
       basic_block bb;
-      allocno_t a = allocnos [i];
       int regno = ALLOCNO_REGNO (a);
 
+      i = ALLOCNO_NUM (a);
       fprintf (f, "  a%d(r%d,", i, regno);
       if ((bb = ALLOCNO_LOOP_TREE_NODE (a)->bb) != NULL)
 	fprintf (f, "b%d", bb->index);
@@ -1426,10 +1428,11 @@ setup_allocno_cover_class_and_costs (void)
   enum reg_class cover_class, class;
   enum machine_mode mode;
   allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
+      i = ALLOCNO_NUM (a);
       mode = ALLOCNO_MODE (a);
       cover_class = class_translate [allocno_pref [i]];
       ira_assert (allocno_pref [i] == NO_REGS || cover_class != NO_REGS);
@@ -1542,7 +1545,8 @@ finish_ira_costs_once (void)
 void
 ira_costs (void)
 {
-  int i;
+  allocno_t a;
+  allocno_iterator ai;
 
   total_costs = ira_allocate (max_struct_costs_size * allocnos_num);
   allocno_pref_buffer = ira_allocate (sizeof (enum reg_class) * allocnos_num);
@@ -1550,9 +1554,9 @@ ira_costs (void)
   setup_allocno_cover_class_and_costs ();
   /* Because we could process operands only as subregs, check mode of
      the registers themselves too.  */
-  for (i = 0; i < allocnos_num; i++)
-    if (register_move_cost [ALLOCNO_MODE (allocnos [i])] == NULL)
-      init_register_move_cost (ALLOCNO_MODE (allocnos [i]));
+  FOR_EACH_ALLOCNO (a, ai)
+    if (register_move_cost [ALLOCNO_MODE (a)] == NULL)
+      init_register_move_cost (ALLOCNO_MODE (a));
   ira_free (allocno_pref_buffer);
   ira_free (total_costs);
 }
@@ -1565,17 +1569,17 @@ ira_costs (void)
 void
 tune_allocno_costs_and_cover_classes (void)
 {
-  int i, j, k, n, regno, freq;
+  int j, k, n, regno, freq;
   int cost, min_cost, *reg_costs;
   enum reg_class cover_class, class;
   enum machine_mode mode;
   allocno_t a;
   rtx call, *allocno_calls;
   HARD_REG_SET clobbered_regs;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       cover_class = ALLOCNO_COVER_CLASS (a);
       if (cover_class == NO_REGS)
 	continue;

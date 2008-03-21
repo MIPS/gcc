@@ -1,3 +1,106 @@
+2008-03-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (allocno): Rename conflict_allocno_vec and
+	conflict_allocno_vec_size into conflict_allocno_array and
+	conflict_allocno_array_size.  Remove conflict_allocnos_num.
+	Rename total_conflict_allocnos_num into conflict_allocnos_num New
+	members child_renamed_p and conflict_vec_p.
+	(ALLOCNO_CONFLICT_ALLOCNO_VEC): Rename to
+	ALLOCNO_CONFLICT_ALLOCNO_ARRAY.
+	(ALLOCNO_CONFLICT_ALLOCNO_VEC_SIZE): Rename to
+	ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE.
+	(ALLOCNO_CHILD_RENAMED_P, ALLOCNO_CONFLICT_VEC_P): New macros.
+	(EXECUTE_IF_SET_IN_ALLOCNO_SET): Change to
+	FOR_EACH_ALLOCNO_IN_SET.
+	(allocno_set_iterator): New typedef.
+	(allocno_set_iter_init, allocno_set_iter_cond,
+	allocno_set_iter_next): New functions.
+	(conflict_vector_profitable_p, allocate_allocno_conflict_vec): New
+	prototypes.
+	(allocno_iterator): New typedef.
+	(allocno_iter_init, allocno_iter_cond): New functions.
+	(FOR_EACH_ALLOCNO): New macro.
+	(copy_iterator): New typedef.
+	(copy_iter_init, copy_iter_cond): New functions.
+	(FOR_EACH_COPY): New macro.
+	(allocno_conflict_iterator): New typedef.
+	(allocno_conflict_iter_init, allocno_conflict_iter_cond,
+	allocno_conflict_iter_next): New functions.
+	(conflict_vector_profitable_p, allocate_allocno_conflict_vec): New
+	prototypes.
+	(FOR_EACH_ALLOCNO_CONFLICT): New macro.
+
+	* ira-conflicts.c (conflicts): Change type.
+	(CONFLICT_P): Use one more index for conflicts.
+	(build_conflict_bit_table): Change allocation and initialization
+	of conflicts.
+	(mirror_conflicts): Rewrite.
+	(remove_conflict_allocno_copies): Use FOR_EACH_ALLOCNO.
+	(build_allocno_conflict_vects): Rename to build_allocno_conflicts.
+	Rewrite it.
+	(print_conflicts): Use FOR_EACH_ALLOCNO, don't print star.
+	(ira_build_conflicts): Use FOR_EACH_ALLOCNO.
+
+	* ira-color.c (assign_hard_reg): Use FOR_EACH_ALLOCNO_CONFLICT.
+	Use min_full_cost for finding register profitability.
+	(push_allocno_to_stack): Use FOR_EACH_ALLOCNO_CONFLICT.
+	(setup_allocno_left_conflicts_num, coalesced_allocno_conflict_p):
+	Ditto.
+	(move_spill_restore): Use FOR_EACH_ALLOCNO.
+	(reassign_conflict_allocnos): Ditto.  Use
+	FOR_EACH_ALLOCNO_CONFLICT.
+	(sort_regnos_for_alter_reg): Use FOR_EACH_ALLOCNO.
+	(reassign_pseudos): Use FOR_EACH_ALLOCNO_CONFLICT.
+
+	* ira-lives.c (make_regno_born, clear_allocno_live,
+	mark_reg_death, process_single_reg_class_operands,
+	process_bb_node_lives): Use FOR_EACH_ALLOCNO_IN_SET.
+	(create_start_finish_chains, print_live_ranges): Use
+	FOR_EACH_ALLOCNO.
+
+	* ira-emit.c (set_allocno_reg): Set up ALLOCNO_CHILD_RENAMED_P.
+	(set_allocno_somewhere_renamed_p): Use
+	ALLOCNO_CONFLICT_ALLOCNO_ARRAY.
+	(ira_emit): Use FOR_EACH_ALLOCNO.
+
+	* ira.c (setup_reg_renumber, setup_allocno_assignment_flags,
+	calculate_allocation_cost, check_allocation,
+	print_redundant_copies, setup_preferred_alternate_classes): Use
+	FOR_EACH_ALLOCNO.
+
+	* ira-costs.c (print_costs, setup_allocno_cover_class_and_costs,
+	ira_costs, tune_allocno_costs_and_cover_classes): Use
+	FOR_EACH_ALLOCNO.
+
+	* ira-build.c (check_allocno_conflict_vec): Remove.
+	(add_to_allocno_conflict_vec): Rename to
+	allocate_allocno_conflicts.  Rewrite.
+	(allocate_allocno_conflict_bit_vec, allocate_allocno_conflicts,
+	remove_wrong_conflicts, change_allocno_conflicts): New functions.
+	(rebuild_regno_allocno_maps): Use FOR_EACH_ALLOCNO.
+	(create_allocno): Initialize ALLOCNO_CHILD_RENAMED_P and
+	ALLOCNO_CONFLICT_VEC_P.
+	(conflict_vector_profitable_p): New function.
+	(compress_allocno_conflict_vec): Use
+	ALLOCNO_CONFLICT_ALLOCNO_ARRAY and don't use
+	ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM.
+	(compress_conflict_vecs): Use FOR_EACH_ALLOCNO.  Check
+	ALLOCNO_CONFLICT_VEC_P.
+	(propagate_info_to_cap): Use FOR_EACH_ALLOCNO_CONFLICT.
+	(finish_allocnos): Use FOR_EACH_ALLOCNO.
+	(finish_copies): Use FOR_EACH_COPY.
+	(check_and_add_conflicts): Change second parameter.  Use
+	add_to_allocno_conflicts instead of add_to_allocno_conflict_vec.
+	(temp_change_bit_vec): New variable.
+	(ira_flattening): Use FOR_EACH_ALLOCNO and FOR_EACH_COPY.  Use
+	remove_wrong_conflicts, change_allocno_conflicts.  Allocate and
+	free temp_change_bit_vec.  Nullify `allocnos' elements for removed
+	allocnos.  Check ALLOCNO_CHILD_RENAMED_P for removing obsolete
+	conflicts.  Don't compress and enumerate allocnos and copies.
+	Nullify `copies' elements for removed copies.  Use
+	add_to_allocno_conflicts instead of add_to_allocno_conflict_vec.
+	(ira_build): Use FOR_EACH_ALLOCNO.
+	
 2008-03-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* common.opt (fira-algorithm): Fix description

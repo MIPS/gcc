@@ -51,7 +51,7 @@ static void add_copies (loop_tree_node_t);
 static void propagate_allocno_info (allocno_t);
 static void propagate_info (void);
 static void remove_conflict_allocno_copies (void);
-static void build_allocno_conflict_vects (void);
+static void build_allocno_conflicts (void);
 static void propagate_modified_regnos (loop_tree_node_t);
 static void print_hard_reg_set (FILE *, const char *, HARD_REG_SET);
 static void print_conflicts (FILE *, int);
@@ -62,15 +62,15 @@ static void print_conflicts (FILE *, int);
 #define CLEAR_ALLOCNO_LIVE(I) CLEAR_ALLOCNO_SET_BIT (allocnos_live, I)
 #define TEST_ALLOCNO_LIVE(I) TEST_ALLOCNO_SET_BIT (allocnos_live, I)
 
-/* allocnos_num by allocnos_num array of bits, recording whether two
-   allocno's conflict (can't go in the same hardware register).
+/* allocnos_num array of allocnos_num array of bits, recording whether
+   two allocno's conflict (can't go in the same hardware register).
 
    `conflicts' is symmetric after the call to mirror_conflicts.  */
-static INT_TYPE *conflicts;
+static INT_TYPE **conflicts;
 
 /* Two macros to test 1 in an element of `conflicts'.  */
 #define CONFLICT_P(I, J)						\
- (conflicts[(I) * allocno_set_words + (unsigned) (J) / INT_BITS]	\
+ (conflicts[(I)] [(unsigned) (J) / INT_BITS]				\
   & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
 /* Bit mask for allocnos live at current point in the scan.  */
@@ -83,26 +83,34 @@ static INT_TYPE *allocnos_live;
 static void
 build_conflict_bit_table (void)
 {
-  int i, j, pn, pn_prod;
+  int i, j, num;
+  enum reg_class cover_class;
   allocno_live_range_t r;
+  allocno_set_iterator asi;
 
   allocno_set_words = (allocnos_num + INT_BITS - 1) / INT_BITS;
   allocnos_live = ira_allocate (sizeof (INT_TYPE) * allocno_set_words);
   memset (allocnos_live, 0, sizeof (INT_TYPE) * allocno_set_words);
-  conflicts = ira_allocate (sizeof (INT_TYPE)
-			    * allocnos_num * allocno_set_words);
-  memset (conflicts, 0, sizeof (INT_TYPE) * allocnos_num * allocno_set_words);
+  conflicts = ira_allocate (sizeof (INT_TYPE *) * allocnos_num);
+  for (i = 0; i < allocnos_num; i++)
+    {
+      conflicts [i] = ira_allocate (sizeof (INT_TYPE) * allocno_set_words);
+      memset (conflicts [i], 0, sizeof (INT_TYPE) * allocno_set_words);
+    }
   for (i = 0; i < max_point; i++)
     {
       for (r = start_point_ranges [i]; r != NULL; r = r->start_next)
 	{
-	  pn = ALLOCNO_NUM (r->allocno);
-	  SET_ALLOCNO_LIVE (pn);
-	  pn_prod = pn * allocno_set_words;
-	  for (j = allocno_set_words - 1; j >= 0; j--)
-	    conflicts [pn_prod + j] |= allocnos_live [j];
+	  num = ALLOCNO_NUM (r->allocno);
+	  cover_class = ALLOCNO_COVER_CLASS (r->allocno);
+	  SET_ALLOCNO_LIVE (num);
+	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, j, asi)
+	    {
+	      if (cover_class == ALLOCNO_COVER_CLASS (allocnos[j]))
+		SET_ALLOCNO_SET_BIT (conflicts [num], j);
+	    }
 	  /* Don't set up conflict for the allocno with itself.  */
-	  CLEAR_ALLOCNO_SET_BIT (conflicts + pn_prod, pn);
+	  CLEAR_ALLOCNO_SET_BIT (conflicts [num], num);
 	}
 	  
       for (r = finish_point_ranges [i]; r != NULL; r = r->finish_next)
@@ -114,32 +122,25 @@ build_conflict_bit_table (void)
 static void
 mirror_conflicts (void)
 {
-  int i, j;
+  int i, j, k, start, nw;
   unsigned INT_TYPE mask;
-  int rw = allocno_set_words;
-  int rwb = rw * INT_BITS;
-  INT_TYPE *p = conflicts;
-  INT_TYPE *q0 = conflicts;
-  INT_TYPE *q1, *q2;
+  INT_TYPE *p;
 
-  for (i = allocnos_num - 1, mask = 1; i >= 0; i--, mask <<= 1)
+  for (i = nw = 0, mask = 1; i < allocnos_num; i++, mask <<= 1)
     {
+      p = conflicts [i];
       if (! mask)
 	{
 	  mask = 1;
-	  q0++;
+	  nw++;
 	}
-      for (j = allocno_set_words - 1, q1 = q0; j >= 0; j--, q1 += rwb)
+      for (start = j = 0; j < allocno_set_words; j++, start += INT_BITS)
 	{
 	  unsigned INT_TYPE word;
 
-	  for (word = (unsigned INT_TYPE) *p++, q2 = q1;
-	       word;
-	       word >>= 1, q2 += rw)
-	    {
-	      if (word & 1)
-		*q2 |= mask;
-	    }
+	  for (word = (unsigned INT_TYPE) *p++, k = 0; word; word >>= 1, k++)
+	    if (word & 1)
+	      conflicts [start + k] [nw] |= mask;
 	}
     }
 }
@@ -701,14 +702,14 @@ remove_conflict_allocno_copies (void)
 {
   int i;
   allocno_t a;
+  allocno_iterator ai;
   copy_t cp, next_cp;
   varray_type conflict_allocno_copy_varray;
 
   VARRAY_GENERIC_PTR_NOGC_INIT (conflict_allocno_copy_varray, get_max_uid (),
 				"copies of conflicting allocnos");
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	if (cp->first == a)
 	  next_cp = cp->next_first_allocno_copy;
@@ -727,95 +728,76 @@ remove_conflict_allocno_copies (void)
   VARRAY_FREE (conflict_allocno_copy_varray);
 }
 
-/* The function builds conflict vectors of all allocnos from the
-   conflict table.  */
+/* The function builds conflict vectors or bit conflict vectors of all
+   allocnos from the conflict table.  */
 static void
-build_allocno_conflict_vects (void)
+build_allocno_conflicts (void)
 {
-  int i, j, level, px, another_father_pn, conflict_allocnos_num;
-  int *level_init_p;
-  enum reg_class cover_class;
+  int i, j, px, father_num, another_father_num, free_p;
   loop_tree_node_t father;
   allocno_t a, father_a, another_a, another_father_a, *conflict_allocnos, *vec;
-  INT_TYPE *accumulated_conflicts, *allocno_conflicts, *propagate_conflicts;
+  INT_TYPE *allocno_conflicts;
+  allocno_set_iterator asi;
 
   conflict_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
-  level_init_p = ira_allocate (ira_loop_tree_height * sizeof (int));
-  memset (level_init_p, 0, ira_loop_tree_height * sizeof (int));
-  accumulated_conflicts
-    = ira_allocate (ira_loop_tree_height
-		    * allocno_set_words * sizeof (INT_TYPE));
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     for (a = regno_allocno_map [i];
 	 a != NULL;
 	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       {
-	cover_class = ALLOCNO_COVER_CLASS (a);
-	level = ALLOCNO_LOOP_TREE_NODE (a)->level;
-	allocno_conflicts = conflicts + ALLOCNO_NUM (a) * allocno_set_words;
+	allocno_conflicts = conflicts [ALLOCNO_NUM (a)];
 	px = 0;
-	EXECUTE_IF_SET_IN_ALLOCNO_SET (allocno_conflicts, j,
+	FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts, allocnos_num, j, asi)
 	  {
 	    another_a = allocnos [j];
-	    if (cover_class == ALLOCNO_COVER_CLASS (another_a))
-	      conflict_allocnos [px++] = another_a;
-	  });
-	conflict_allocnos_num = px;
-	if (! level_init_p [level])
-	  propagate_conflicts = allocno_conflicts;
+	    ira_assert (ALLOCNO_COVER_CLASS (a)
+			== ALLOCNO_COVER_CLASS (another_a));
+	    conflict_allocnos [px++] = another_a;
+	  }
+	if (conflict_vector_profitable_p (a, px))
+	  {
+	    free_p = TRUE;
+	    allocate_allocno_conflict_vec (a, px);
+	    vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+	    memcpy (vec, conflict_allocnos, sizeof (allocno_t) * px);
+	    vec [px] = NULL;
+	    ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = px;
+	  }
 	else
 	  {
-	    propagate_conflicts
-	      = accumulated_conflicts + level * allocno_set_words;
-	    EXECUTE_IF_SET_IN_ALLOCNO_SET (propagate_conflicts, j,
-	      {
-		another_a = allocnos [j];
-		ira_assert (cover_class == ALLOCNO_COVER_CLASS (another_a));
-		if (! TEST_ALLOCNO_SET_BIT (allocno_conflicts, j))
-		  conflict_allocnos [px++] = another_a;
-	      });
-	    for (j = 0; j < allocno_set_words; j++)
-	      propagate_conflicts [j] |= allocno_conflicts [j];
+	    free_p = FALSE;
+	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = conflicts [ALLOCNO_NUM (a)];
+	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a)
+	      = allocno_set_words * sizeof (INT_TYPE);
 	  }
-	allocate_allocno_conflicts (a, px);
-	vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-	memcpy (vec, conflict_allocnos, sizeof (allocno_t) * px);
-	vec [px] = NULL;
-	ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = conflict_allocnos_num;
-	ALLOCNO_TOTAL_CONFLICT_ALLOCNOS_NUM (a) = px;
-	level_init_p [level] = FALSE;
 	if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
 	    || (father_a = father->regno_allocno_map [i]) == NULL)
-	  continue;
-	level--;
-	ira_assert (level == ALLOCNO_LOOP_TREE_NODE (father_a)->level
-		    && cover_class == ALLOCNO_COVER_CLASS (father_a));
-	if (! level_init_p [level])
 	  {
-	    level_init_p [level] = TRUE;
-	    memset (accumulated_conflicts + level * allocno_set_words, 0,
-		    allocno_set_words * sizeof (INT_TYPE));
+	    if (free_p)
+	      ira_free (conflicts [ALLOCNO_NUM (a)]);
+	    continue;
 	  }
-	EXECUTE_IF_SET_IN_ALLOCNO_SET (propagate_conflicts, j,
+	ira_assert (ALLOCNO_COVER_CLASS (a) == ALLOCNO_COVER_CLASS (father_a));
+	father_num = ALLOCNO_NUM (father_a);
+	FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts, allocnos_num, j, asi)
 	  {
 	    another_a = allocnos [j];
+	    ira_assert (ALLOCNO_COVER_CLASS (a)
+			== ALLOCNO_COVER_CLASS (another_a));
 	    if ((another_father_a = (father->regno_allocno_map
 				     [ALLOCNO_REGNO (another_a)])) == NULL)
 	      continue;
-	    another_father_pn = ALLOCNO_NUM (another_father_a);
-	    if (another_father_pn < 0)
-	      continue;
+	    another_father_num = ALLOCNO_NUM (another_father_a);
+	    ira_assert (another_father_num >= 0);
 	    ira_assert (ALLOCNO_COVER_CLASS (another_a)
 			== ALLOCNO_COVER_CLASS (another_father_a));
-	    if (cover_class == ALLOCNO_COVER_CLASS (another_a))
-	      SET_ALLOCNO_SET_BIT
-		(accumulated_conflicts + allocno_set_words * level,
-		 another_father_pn);
-	  });
+	    SET_ALLOCNO_SET_BIT (conflicts [father_num], another_father_num);
+	  }
+	if (free_p)
+	  ira_free (conflicts [ALLOCNO_NUM (a)]);
       }
-  ira_free (accumulated_conflicts);
-  ira_free (level_init_p);
   ira_free (conflict_allocnos);
+  ira_free (conflicts);
 }
 
 
@@ -867,15 +849,15 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
 static void
 print_conflicts (FILE *file, int reg_p)
 {
-  int i;
+  allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      int j;
-      allocno_t a, conflict_a, *allocno_vec;
+      allocno_t conflict_a;
+      allocno_conflict_iterator aci;
       basic_block bb;
 
-      a = allocnos [i];
       if (reg_p)
 	fprintf (file, ";; r%d", ALLOCNO_REGNO (a));
       else
@@ -888,9 +870,8 @@ print_conflicts (FILE *file, int reg_p)
 	  fprintf (file, ")");
 	}
       fprintf (file, " conflicts:");
-      allocno_vec = ALLOCNO_CONFLICT_ALLOCNO_VEC (a);
-      if (allocno_vec != NULL)
-	for (j = 0; (conflict_a = allocno_vec [j]) != NULL; j++)
+      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
+	FOR_EACH_ALLOCNO_CONFLICT (a, conflict_a, aci)
 	  {
 	    if (reg_p)
 	      fprintf (file, " r%d,", ALLOCNO_REGNO (conflict_a));
@@ -904,8 +885,6 @@ print_conflicts (FILE *file, int reg_p)
 		  fprintf (file, "l%d)",
 			   ALLOCNO_LOOP_TREE_NODE (conflict_a)->loop->num);
 	      }
-	    if (j + 1 == ALLOCNO_CONFLICT_ALLOCNOS_NUM (a))
-	      fprintf (file, "*");
 	  }
       print_hard_reg_set (file, "\n;;     total conflict hard regs:",
 			  ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
@@ -929,8 +908,8 @@ debug_conflicts (int reg_p)
 void
 ira_build_conflicts (void)
 {
-  int i;
   allocno_t a;
+  allocno_iterator ai;
 
   build_conflict_bit_table ();
   mirror_conflicts ();
@@ -940,10 +919,9 @@ ira_build_conflicts (void)
     propagate_info ();
   /* We need finished conflict table for the subsequent call.  */
   remove_conflict_allocno_copies ();
-  build_allocno_conflict_vects ();
-  for (i = 0; i < allocnos_num; i++)
+  build_allocno_conflicts ();
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = allocnos [i];
       if (ALLOCNO_CALLS_CROSSED_NUM (a) == 0)
 	continue;
       if (! flag_caller_saves)

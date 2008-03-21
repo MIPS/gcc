@@ -251,6 +251,7 @@ subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
 static void
 set_allocno_reg (allocno_t allocno, rtx reg)
 {
+  int regno;
   allocno_t a;
   loop_tree_node_t node;
 
@@ -260,6 +261,20 @@ set_allocno_reg (allocno_t allocno, rtx reg)
        a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
     if (subloop_tree_node_p (ALLOCNO_LOOP_TREE_NODE (a), node))
       ALLOCNO_REG (a) = reg;
+  regno = ALLOCNO_REGNO (allocno);
+  for (a = allocno;;)
+    {
+      if ((a = ALLOCNO_CAP (a)) == NULL)
+	{
+	  node = node->father;
+	  if (node == NULL)
+	    break;
+	  a = node->regno_allocno_map [regno];
+	}
+      if (a == NULL || ALLOCNO_CHILD_RENAMED_P (a))
+	break;
+      ALLOCNO_CHILD_RENAMED_P (a) = TRUE;
+    }
 }
 
 /* The following function returns nonzero if move insn of SRC_ALLOCNO
@@ -446,13 +461,12 @@ change_loop (loop_tree_node_t node)
 static void
 set_allocno_somewhere_renamed_p (void)
 {
-  int i;
   unsigned int regno;
   allocno_t allocno;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
+  FOR_EACH_ALLOCNO (allocno, ai)
     {
-      allocno = allocnos [i];
       regno = ALLOCNO_REGNO (allocno);
       if (bitmap_bit_p (renamed_regno_bitmap, regno)
 	  && REGNO (ALLOCNO_REG (allocno)) == regno)
@@ -830,12 +844,11 @@ add_range_and_copies_from_move_list (struct move *list, loop_tree_node_t node,
     {
       from = move->from;
       to = move->to;
-      if (ALLOCNO_CONFLICT_ALLOCNO_VEC (to) == NULL)
+      if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (to) == NULL)
 	{
 	  if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
-	    fprintf (ira_dump_file,
-		     "    Allocate conflict vector of size %d for a%dr%d\n",
-		     n, ALLOCNO_NUM (to), REGNO (ALLOCNO_REG (to)));
+	    fprintf (ira_dump_file, "    Allocate conflicts for a%dr%d\n",
+		     ALLOCNO_NUM (to), REGNO (ALLOCNO_REG (to)));
 	  allocate_allocno_conflicts (to, n);
 	}
       bitmap_clear_bit (live_through, ALLOCNO_REGNO (from));
@@ -942,13 +955,14 @@ add_ranges_and_copies (void)
 void
 ira_emit (int loops_p)
 {
-  int i;
   basic_block bb;
   edge_iterator ei;
   edge e;
+  allocno_t a;
+  allocno_iterator ai;
 
-  for (i = 0; i < allocnos_num; i++)
-    ALLOCNO_REG (allocnos [i]) = regno_reg_rtx [ALLOCNO_REGNO (allocnos [i])];
+  FOR_EACH_ALLOCNO (a, ai)
+    ALLOCNO_REG (a) = regno_reg_rtx [ALLOCNO_REGNO (a)];
   if (! loops_p)
     return;
   at_bb_start = ira_allocate (sizeof (struct move *) * last_basic_block);
