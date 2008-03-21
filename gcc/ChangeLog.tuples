@@ -1,3 +1,10 @@
+2008-03-21  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133167.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-20  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-eh.c (lower_try_finally): Correctly set the lowered sequence.
