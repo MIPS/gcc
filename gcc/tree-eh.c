@@ -1546,7 +1546,10 @@ lower_try_finally (struct leh_state *state, gimple tp)
 
   /* If the FINALLY block is not reachable, dike it out.  */
   if (ndests == 0)
+    {
+      gimple_seq_add_seq (&this_tf.top_p_seq, gimple_try_eval (tp));
       gimple_try_set_cleanup (tp, NULL);
+    }
   /* If the finally block doesn't fall through, then any destination
      we might try to impose there isn't reached either.  There may be
      some minor amount of cleanup and redirection still needed.  */

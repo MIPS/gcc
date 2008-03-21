@@ -1,3 +1,7 @@
+2008-03-20  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-eh.c (lower_try_finally): Correctly set the lowered sequence.
+
 2008-03-20  Jakub Staszak  <kuba@et.pl>
             Oleg Ryjkov  <olegr@google.com>
 
