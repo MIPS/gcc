@@ -1776,8 +1776,10 @@ instantiate_virtual_regs (void)
   return 0;
 }
 
-struct tree_opt_pass pass_instantiate_virtual_regs =
+struct rtl_opt_pass pass_instantiate_virtual_regs =
 {
+ {
+  RTL_PASS,
   "vregs",                              /* name */
   NULL,                                 /* gate */
   instantiate_virtual_regs,             /* execute */
@@ -1789,8 +1791,8 @@ struct tree_opt_pass pass_instantiate_virtual_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 
@@ -4136,8 +4138,10 @@ init_function_for_compilation (void)
   return 0;
 }
 
-struct tree_opt_pass pass_init_function =
+struct rtl_opt_pass pass_init_function =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */   
   init_function_for_compilation,        /* execute */       
@@ -4149,8 +4153,8 @@ struct tree_opt_pass pass_init_function =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -5690,8 +5694,10 @@ used_types_insert (tree t)
     used_types_insert_helper (t, cfun);
 }
 
-struct tree_opt_pass pass_leaf_regs =
+struct rtl_opt_pass pass_leaf_regs =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   rest_of_handle_check_leaf_regs,       /* execute */
@@ -5703,8 +5709,8 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -5721,8 +5727,10 @@ rest_of_handle_thread_prologue_and_epilogue (void)
   return 0;
 }
 
-struct tree_opt_pass pass_thread_prologue_and_epilogue =
+struct rtl_opt_pass pass_thread_prologue_and_epilogue =
 {
+ {
+  RTL_PASS,
   "pro_and_epilogue",                   /* name */
   NULL,                                 /* gate */
   rest_of_handle_thread_prologue_and_epilogue, /* execute */
@@ -5737,8 +5745,8 @@ struct tree_opt_pass pass_thread_prologue_and_epilogue =
   TODO_dump_func |
   TODO_df_verify |
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 
@@ -5918,8 +5926,10 @@ rest_of_match_asm_constraints (void)
   return TODO_df_finish;
 }
 
-struct tree_opt_pass pass_match_asm_constraints =
+struct rtl_opt_pass pass_match_asm_constraints =
 {
+ {
+  RTL_PASS,
   "asmcons",				/* name */
   NULL,					/* gate */
   rest_of_match_asm_constraints,	/* execute */
@@ -5931,8 +5941,8 @@ struct tree_opt_pass pass_match_asm_constraints =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                       /* todo_flags_finish */
+ }
 };
 
 

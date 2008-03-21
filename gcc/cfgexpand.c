@@ -2024,8 +2024,10 @@ tree_expand_cfg (void)
   return 0;
 }
 
-struct tree_opt_pass pass_expand =
+struct gimple_opt_pass pass_expand =
 {
+ {
+  GIMPLE_PASS,
   "expand",				/* name */
   NULL,                                 /* gate */
   tree_expand_cfg,			/* execute */
@@ -2039,7 +2041,7 @@ struct tree_opt_pass pass_expand =
   PROP_trees,				/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
-  'r'					/* letter */
+ }
 };
 
 static bool
@@ -2106,8 +2108,10 @@ collect_stackrealign_info (void)
   return 0;
 }
 
-struct tree_opt_pass pass_collect_stackrealign_info =
-{   
+struct gimple_opt_pass pass_collect_stackrealign_info =
+{
+ {
+  GIMPLE_PASS,
   "stack_realign_info",                 /* name */
   gate_stack_realign,                   /* gate */
   collect_stackrealign_info,            /* execute */
@@ -2120,7 +2124,7 @@ struct tree_opt_pass pass_collect_stackrealign_info =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 /* New pass handle_drap. 
@@ -2152,8 +2156,10 @@ handle_drap (void)
   return 0;
 }
 
-struct tree_opt_pass pass_handle_drap =
+struct gimple_opt_pass pass_handle_drap =
 {
+ {
+  GIMPLE_PASS,
   "handle_drap",			/* name */
   gate_stack_realign,                   /* gate */
   handle_drap,			        /* execute */
@@ -2167,5 +2173,5 @@ struct tree_opt_pass pass_handle_drap =
   0,				        /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
-  0					/* letter */
+ }
 };

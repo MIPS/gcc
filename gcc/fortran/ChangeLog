@@ -1,3 +1,15 @@
+2008-03-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35152
+	* interface.c (gfc_procedure_use): Check for keyworded arguments in
+	procedures without explicit interfaces.
+
+2008-03-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35470
+	* resolve.c (check_assumed_size_reference):  Only visit the
+	first reference and look directly at the highest dimension.
+
 2008-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/35184

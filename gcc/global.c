@@ -1796,7 +1796,7 @@ rest_of_handle_global_alloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+  if (dump_enabled_p (pass_global_alloc.pass.static_pass_number))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -1830,8 +1830,10 @@ rest_of_handle_global_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_global_alloc =
+struct rtl_opt_pass pass_global_alloc =
 {
+ {
+  RTL_PASS,
   "greg",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_global_alloc,          /* execute */
@@ -1844,7 +1846,7 @@ struct tree_opt_pass pass_global_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_verify_rtl_sharing
-  | TODO_ggc_collect,                   /* todo_flags_finish */
-  'g'                                   /* letter */
+  | TODO_ggc_collect                    /* todo_flags_finish */
+ }
 };
 
