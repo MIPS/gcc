@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -572,7 +572,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
     }
   else
     {
-      filename = ggc_strdup (TREE_STRING_POINTER (fname));
+      filename = TREE_STRING_POINTER (fname);
 #ifdef USE_MAPPED_LOCATION
       /* We currently cannot give this diagnostic, as we reach this point
 	 only after cpplib has scanned the entire translation unit, so

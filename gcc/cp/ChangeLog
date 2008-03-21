@@ -1,3 +1,7 @@
+2008-03-21  Tom Tromey  <tromey@redhat.com>
+
+	* lex.c (handle_pragma_implementation): Don't call ggc_strdup.
+
 2008-03-19  Tom Tromey  <tromey@redhat.com>
 
 	* mangle.c (finish_mangling_get_identifier): Fix typo.
