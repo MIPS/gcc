@@ -3258,7 +3258,23 @@ ix86_function_regparm (const_tree type, const_tree decl)
 
   attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
   if (attr)
-    return TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+    {
+      regparm
+	= TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+
+      if (decl && TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  /* We can't use regparm(3) for nested functions as these use
+	     static chain pointer in third argument.  */
+	  if (regparm == 3
+	      && (decl_function_context (decl)
+		  || ix86_force_align_arg_pointer)
+	      && !DECL_NO_STATIC_CHAIN (decl))
+	    regparm = 2;
+	}
+
+      return regparm;
+    }
 
   if (lookup_attribute ("fastcall", TYPE_ATTRIBUTES (type)))
     return 2;
