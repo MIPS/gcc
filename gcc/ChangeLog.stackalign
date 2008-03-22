@@ -1,3 +1,8 @@
+2008-03-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_function_regparm): Remove check
+	ix86_force_align_arg_pointer in the last patch.
+
 2008-03-22  Uros Bizjak  <ubizjak@gmail.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
