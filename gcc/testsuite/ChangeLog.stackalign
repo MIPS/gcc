@@ -1,3 +1,7 @@
+2008-03-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/torture/stackalign/regparm-1.c: New.
+
 2008-03-22  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/12329
