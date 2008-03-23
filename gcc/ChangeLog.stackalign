@@ -1,3 +1,18 @@
+2008-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2008-03-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-modes.def: Use 4 byte alignment on DI for
+	32bit host.
+
+	2008-03-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35496
+	* stor-layout.c (update_alignment_for_field): Set minimum alignment
+	of the underlying type of a MS bitfield layout to the natural
+	alignment of the type.
+
 2008-03-22  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_function_regparm): Remove check
