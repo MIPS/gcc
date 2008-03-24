@@ -457,9 +457,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 		  gcc_assert (size == 0
 			      || (function->stack_alignment_estimated
 				  >= mode_alignment));
-		  alignment = (function->stack_alignment_estimated
-			       / BITS_PER_UNIT);
-		  alignment_in_bits = alignment * BITS_PER_UNIT;
+		  alignment_in_bits = function->stack_alignment_estimated;
+		  alignment = alignment_in_bits / BITS_PER_UNIT;
 		}
 	    }
 	}
