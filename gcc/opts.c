@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
@@ -41,6 +41,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "debug.h"
+
+/* We save the default values of options using this type.  */
+typedef union
+{
+  const char *strvalue;
+  int intvalue;
+} option_value;
+
+static option_value default_values[N_OPTS];
+
+static bool defaults_saved;
+
+static bool verbose = false;
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -386,6 +399,8 @@ static void complain_wrong_lang (const char *, const struct cl_option *,
 static void handle_options (unsigned int, const char **, unsigned int);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
+static void save_default_option_values (void);
+static void restore_default_option_values (void);
 
 /* If ARG is a non-negative integer made up solely of digits, return its
    value, otherwise return -1.  */
@@ -782,6 +797,9 @@ clean_up (void)
       in_fnames = NULL;
       num_in_fnames = 0;
     }
+
+  restore_default_option_values ();
+  reset_params ();
 }
 
 /* Parse command line options and set default flag values.  Do minimal
@@ -791,8 +809,16 @@ decode_options (unsigned int argc, const char **argv)
 {
   unsigned int i, lang_mask;
 
-  /* Clean up from previous run.  */
-  clean_up ();
+  if (! defaults_saved)
+    {
+      save_default_option_values ();
+      defaults_saved = true;
+    }
+  else
+    {
+      /* Clean up from previous run.  */
+      clean_up ();
+    }
 
   /* Perform language-specific options initialization.  */
   lang_mask = lang_hooks.init_options (argc, argv);
@@ -1368,7 +1394,6 @@ static int
 common_handle_option (size_t scode, const char *arg, int value,
 		      unsigned int lang_mask)
 {
-  static bool verbose = false;
   enum opt_code code = (enum opt_code) scode;
 
   switch (code)
@@ -2020,13 +2045,13 @@ fast_math_flags_set_p (void)
 	  && !flag_errno_math);
 }
 
+static bool type_explicit;
+
 /* Handle a debug output -g switch.  EXTENDED is true or false to support
    extended output (2 is special and means "-ggdb" was given).  */
 static void
 set_debug_level (enum debug_info_type type, int extended, const char *arg)
 {
-  static bool type_explicit;
-
   use_gnu_debug_info_extensions = extended;
 
   if (type == NO_DEBUG)
@@ -2166,4 +2191,87 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask)
 	*(int *) cl_options[option_index].flag_var = 1;
     }
   free (new_option);
+}
+
+/* Save the default values of all options.  */
+static void
+save_default_option_values (void)
+{
+  int i;
+  for (i = 0; i < N_OPTS; ++i)
+    {
+      if (! cl_options[i].flag_var)
+	continue;
+      if (cl_options[i].var_type == CLVC_STRING)
+	default_values[i].strvalue = *(const char **) cl_options[i].flag_var;
+      else
+	{
+	  /* All others have type int.  */
+	  default_values[i].intvalue = *(int *) cl_options[i].flag_var;
+	}
+    }
+}
+
+/* Restore the default values of all options.  */
+static void
+restore_default_option_values (void)
+{
+  int i;
+  gcc_assert (defaults_saved);
+  for (i = 0; i < N_OPTS; ++i)
+    {
+      if (! cl_options[i].flag_var)
+	continue;
+      if (cl_options[i].var_type == CLVC_STRING)
+	*(const char **) cl_options[i].flag_var = default_values[i].strvalue;
+      else
+	{
+	  /* All others have type int.  */
+	  *(int *) cl_options[i].flag_var = default_values[i].intvalue;
+	}
+    }
+
+  /* Reset option variables which are not described in cl_options.  */
+  verbose = false;
+  g_switch_value = 0;
+  g_switch_set = false;
+  extra_warnings = false;
+  warn_larger_than = 0;
+  larger_than_size = 0;
+  warn_frame_larger_than = false;
+  frame_larger_than_size = 0;
+  maybe_warn_unused_parameter = false;
+  write_symbols = NO_DEBUG;
+  debug_info_level = DINFO_LEVEL_NONE;
+
+  debug_struct_ordinary[0] = DINFO_STRUCT_FILE_ANY;
+  debug_struct_ordinary[1] = DINFO_STRUCT_FILE_ANY;
+  debug_struct_ordinary[2] = DINFO_STRUCT_FILE_ANY;
+  debug_struct_generic[0] = DINFO_STRUCT_FILE_ANY;
+  debug_struct_generic[1] = DINFO_STRUCT_FILE_ANY;
+  debug_struct_generic[2] = DINFO_STRUCT_FILE_ANY;
+
+  use_gnu_debug_info_extensions = false;
+  default_visibility = VISIBILITY_DEFAULT;
+
+  no_unit_at_a_time_default = false;
+
+  memset (&visibility_options, 0, sizeof (struct visibility_flags));
+
+  profile_arc_flag_set = flag_profile_values_set = false;
+  flag_unroll_loops_set = flag_tracer_set = false;
+  flag_value_profile_transformations_set = false;
+  flag_peel_loops_set = flag_branch_probabilities_set = false;
+  flag_inline_functions_set = false;
+
+  VEC_free (char_p, heap, flag_instrument_functions_exclude_functions);
+  VEC_free (char_p, heap, flag_instrument_functions_exclude_files);
+  VEC_free (const_char_p, heap, ignored_options);
+
+  type_explicit = false;
+
+  optimize = 0;
+  optimize_size = 0;
+
+  stack_limit_rtx = NULL_RTX;
 }

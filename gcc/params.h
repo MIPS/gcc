@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -43,6 +43,7 @@ typedef struct param_info
   /* The name used with the `--param <name>=<value>' switch to set this
      value.  */
   const char *const option;
+
   /* The associated value.  */
   int value;
 
@@ -55,6 +56,9 @@ typedef struct param_info
   /* Maximum acceptable value, if greater than minimum  */
   int max_value;
   
+  /* The default value.  */
+  int default_value;
+
   /* A short description of the option.  */
   const char *const help;
 } param_info;
@@ -71,6 +75,9 @@ extern void add_params (const param_info params[], size_t n);
 /* Set the VALUE associated with the parameter given by NAME.  */
 
 extern void set_param_value (const char *name, int value);
+
+/* Reset the all params to their default values.  */
+extern void reset_params (void);
 
 
 /* The parameters in use by language-independent code.  */

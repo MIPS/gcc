@@ -1,3 +1,21 @@
+2008-03-24  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (lang_independent_params): Update for params.h change.
+	(DEFPARAM): Likewise.
+	* opts.c (option_value): New typedef.
+	(default_values, defaults_saved): New globals.
+	(verbose): Move out of function scope.
+	(type_explicit): Likewise.
+	(clean_up): Call restore_default_option_values, reset_params.
+	(decode_options): Call save_default_option_values.
+	(common_handle_option): Move 'verbose' to file scope.
+	(set_debug_level): Move 'type_explicit' to file scope.
+	(save_default_option_values): New function.
+	(restore_default_option_values): Likewise.
+	* params.c (reset_params): New function.
+	* params.h (param_info) <default_value>: New field.
+	(reset_params): Declare.
+
 2008-03-19  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (do_compile): Set ggc_protect_identifiers here...
