@@ -180,6 +180,8 @@ get_decl_align_unit (tree decl)
      So here we only make sure stack_alignment_needed >= align.  */
   if (cfun->stack_alignment_needed < align)
     cfun->stack_alignment_needed = align;
+  if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
+    cfun->stack_alignment_used = cfun->stack_alignment_needed;
 
   return align / BITS_PER_UNIT;
 }

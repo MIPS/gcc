@@ -1,3 +1,22 @@
+2008-03-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (get_decl_align_unit): Update stack_alignment_used.
+	* function.c (assign_stack_local_1): Likewise.
+	(locate_and_pad_parm): Likewise.
+	(allocate_struct_function): Initialize stack_alignment_used.
+
+	* function.h (function): Update stack_alignment_needed
+	comment.  Add stack_alignment_used.
+
+	* config/i386/i386.c (ix86_expand_prologue): For leaf
+	function, check stack_alignment_used stack_realign_really.
+
+2008-03-24  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_select_alt_pic_regnum): Check
+	DRAP register.
+
 2008-03-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	Revert:

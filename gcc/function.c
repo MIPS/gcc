@@ -403,7 +403,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 {
   rtx x, addr;
   int bigend_correction = 0;
-  unsigned int alignment, mode_alignment;
+  unsigned int alignment, mode_alignment, alignment_in_bits;
   int frame_off, frame_alignment, frame_phase;
 
   if (mode == BLKmode)
@@ -435,16 +435,17 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   else
     alignment = align / BITS_PER_UNIT;
 
+  alignment_in_bits = alignment * BITS_PER_UNIT;
+
   if (FRAME_GROWS_DOWNWARD)
     function->x_frame_offset -= size;
 
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
     {
-      if (function->stack_alignment_estimated < alignment * BITS_PER_UNIT)
+      if (function->stack_alignment_estimated < alignment_in_bits)
 	{
           if (!function->stack_realign_processed)
-            function->stack_alignment_estimated
-	      = alignment * BITS_PER_UNIT;
+            function->stack_alignment_estimated = alignment_in_bits;
           else
 	    {
 	      gcc_assert (!function->stack_realign_finalized);
@@ -458,6 +459,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 				  >= mode_alignment));
 		  alignment = (function->stack_alignment_estimated
 			       / BITS_PER_UNIT);
+		  alignment_in_bits = alignment * BITS_PER_UNIT;
 		}
 	    }
 	}
@@ -469,8 +471,10 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
       if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
 	alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
     }
-  if (function->stack_alignment_needed < alignment * BITS_PER_UNIT)
-    function->stack_alignment_needed = alignment * BITS_PER_UNIT;
+  if (function->stack_alignment_needed < alignment_in_bits)
+    function->stack_alignment_needed = alignment_in_bits;
+  if (function->stack_alignment_used < function->stack_alignment_needed)
+    function->stack_alignment_used = function->stack_alignment_needed;
 
   /* Calculate how many bytes the start of local variables is off from
      stack alignment.  */
@@ -3452,6 +3456,8 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     }
   if (cfun->stack_alignment_needed < boundary)
     cfun->stack_alignment_needed = boundary;
+  if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
+    cfun->stack_alignment_used = cfun->stack_alignment_needed;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -4007,6 +4013,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
   cfun->stack_alignment_needed = STACK_BOUNDARY;
+  cfun->stack_alignment_used = STACK_BOUNDARY;
   cfun->stack_alignment_estimated = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 

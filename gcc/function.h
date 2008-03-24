@@ -295,8 +295,12 @@ struct function GTY(())
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
 
-  /* The largest alignment of slot allocated on the stack.  */
+  /* The largest alignment needed on the stack, including requirement
+     for outgoing stack alignment.  */
   unsigned int stack_alignment_needed;
+
+  /* The largest alignment of slot allocated on the stack.  */
+  unsigned int stack_alignment_used;
 
   /* The estimated stack alignment.  */
   unsigned int stack_alignment_estimated;

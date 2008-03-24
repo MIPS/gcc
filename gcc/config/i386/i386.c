@@ -5949,9 +5949,14 @@ ix86_select_alt_pic_regnum (void)
   if (current_function_is_leaf && !current_function_profile
       && !ix86_current_function_calls_tls_descriptor)
     {
-      int i;
+      int i, drap;
+      /* Can't use the same register for both PIC and DRAP.  */
+      if (cfun->drap_reg)
+	drap = REGNO (cfun->drap_reg);
+      else
+	drap = -1;
       for (i = 2; i >= 0; --i)
-        if (!df_regs_ever_live_p (i))
+        if (i != drap && !df_regs_ever_live_p (i))
 	  return i;
     }
 
@@ -6435,8 +6440,10 @@ ix86_expand_prologue (void)
 
   /* Check if stack realign is really needed after reload, and 
      stores result in cfun */
-  cfun->stack_realign_really = ix86_incoming_stack_boundary 
-                               < cfun->stack_alignment_needed;
+  cfun->stack_realign_really = (ix86_incoming_stack_boundary
+				< (current_function_is_leaf
+				   ? cfun->stack_alignment_used
+				   : cfun->stack_alignment_needed));
 
   cfun->stack_realign_finalized = true;
 
