@@ -8311,12 +8311,13 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	{
 	  if (comp_target_types (type0, type1))
 	    {
+	      tree typetype0 = C_SMASHED_TYPE_VARIANT (TREE_TYPE (type0));
+	      tree typetype1 = C_SMASHED_TYPE_VARIANT (TREE_TYPE (type1));
 	      result_type = common_pointer_type (type0, type1);
-	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
-		  != !COMPLETE_TYPE_P (TREE_TYPE (type1)))
+	      if (!COMPLETE_TYPE_P (typetype0) != !COMPLETE_TYPE_P (typetype1))
 		pedwarn ("comparison of complete and incomplete pointers");
 	      else if (pedantic
-		       && TREE_CODE (TREE_TYPE (type0)) == FUNCTION_TYPE)
+		       && TREE_CODE (typetype0) == FUNCTION_TYPE)
 		pedwarn ("ISO C forbids ordered comparisons of pointers to functions");
 	    }
 	  else
