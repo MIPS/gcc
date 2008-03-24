@@ -1418,7 +1418,7 @@ c_parser_lex_all (c_parser *parser, c_token *token)
   c_set_cpp_error_callback (parse_in);
 
   parser->buffer = buffer;
-  parser->buffer_length = pos + 1;
+  parser->buffer_length = pos;
 
   timevar_pop (TV_LEX);
 }
@@ -2257,7 +2257,14 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
   if (update_parser)
     {
       parser->first_hunk = info.self_iter;
-      parser->next_token = info.self_iter->start_token;
+      if (info.self_iter)
+	parser->next_token = info.self_iter->start_token;
+      else
+	{
+	  /* There might not be a next hunk, so point to the EOF
+	     marker.  */
+	  parser->next_token = parser->buffer_length - 1;
+	}
     }
   /* FIXME: ... hmm... */
   parser->tokens_avail = 0;

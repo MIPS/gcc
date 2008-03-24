@@ -1,5 +1,10 @@
 2008-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_lex_all): Fix off-by-one error.
+	(can_reuse_hunk): Handle end-of-file.
+
+2008-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* c-typeck.c (build_binary_op) <LE_EXPR>: Look at smashed type
 	variant.
 
