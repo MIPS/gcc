@@ -662,7 +662,10 @@ init_optimization_passes (void)
       /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_cse_sincos);
+#endif
       NEXT_PASS (pass_split_crit_edges);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
 #endif
