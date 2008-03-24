@@ -1,3 +1,73 @@
+2008-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34172
+	* gcc.dg/tree-ssa/ssa-fre-11.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-12.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-13.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-14.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-15.c: Likewise.
+	* gcc.dg/tree-ssa/20031106-4.c: Remove XFAIL.
+
+2008-03-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libcpp/35322:
+	* gcc.dg/cpp/pr35322.c: Add dg-error line.
+
+2008-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34043
+	PR tree-optimization/33989
+	* gcc.dg/tree-ssa/ssa-fre-7.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-8.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-9.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-10.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-17.c: Likewise.
+
+2008-03-14  H.J. Lu  <hongjiu.lu@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/35538 
+	* gcc.dg/tree-ssa/ssa-store-ccp-3.c: Support PIC targets.
+	Skip *-*-darwin*.
+	* gcc.dg/tree-ssa/ssa-store-ccp-4.c: Skip *-*-darwin*.
+
+2008-03-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/35406
+	* gcc.dg/tree-ssa/ldist-4.c: Update expected scan match
+	count from 0 to 1 for lp64 targets.
+	* gfortran.dg/ldist-1.f90: Update test to check
+	for 5 loops distributed instead of 4 for lp64 targets.
+
+2008-03-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35475
+	* gfortran.dg/derived_sub.f90: New test.
+
+2008-03-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/35558
+	* g++.dg/tls/static-1.C: Move dg-additional-sources after
+	dg-require-effective-target.
+	* g++.dg/tls/static-1a.cc: Likewise.
+
+2008-03-13  Tom Tromey  <tromey@redhat.com>
+
+	PR libcpp/35322:
+	* gcc.dg/cpp/pr35322.c: New file.
+
+2008-03-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/vect-align-2.c: Remove dg-do run directive.
+	(main): Call check_vect.
+
+2008-03-13  Alon Dayan  <alond@il.ibm.com>
+	    Olga Golovanevsky  <olga@il.ibm.com>
+	
+	PR tree-optimization/35041
+	* gcc.dg/struct/wo_prof_double_malloc.c: New test.
+
 2008-03-13  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/34000
