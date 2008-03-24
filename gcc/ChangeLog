@@ -1,5 +1,9 @@
 2008-03-24  Tom Tromey  <tromey@redhat.com>
 
+	* c-opts.c (clean_up): Clear more globals.
+
+2008-03-24  Tom Tromey  <tromey@redhat.com>
+
 	* c-parser.c (c_parser_lex_all): Fix off-by-one error.
 	(can_reuse_hunk): Handle end-of-file.
 

@@ -213,6 +213,10 @@ clean_up (void)
     }
   out_fname = NULL;
   out_stream = NULL;
+  deps_append = false;
+  deps_seen = false;
+  verbose = false;
+  lang_fortran = false;
   deps_file = NULL;
   iprefix = NULL;
   imultilib = NULL;
@@ -220,7 +224,6 @@ clean_up (void)
   std_inc = true;
   std_cxx_inc = true;
   quote_chain_split = false;
-  /* FIXME: reset all warning options, etc.  */
   deferred_count = 0;
   include_cursor = 0;
   if (deferred_opts)
