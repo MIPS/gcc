@@ -1,3 +1,10 @@
+2008-03-25  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133257.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-25  Oleg Ryjkov  <olegr@google.com>
 
 	* gimple.c (gimple_build_bind): Added a new parameter - the 

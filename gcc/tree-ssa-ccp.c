@@ -928,6 +928,8 @@ ccp_fold (gimple stmt)
           case GIMPLE_SINGLE_RHS:
             {
               tree rhs = gimple_assign_rhs1 (stmt);
+              enum tree_code_class kind = TREE_CODE_CLASS (subcode);
+
               if (TREE_CODE (rhs) == SSA_NAME)
                 {
                   /* If the RHS is an SSA_NAME, return its known constant value,
@@ -951,8 +953,12 @@ ccp_fold (gimple stmt)
                           && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
                         return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
                     }
-                  return NULL_TREE;
                 }
+
+              if (kind == tcc_reference)
+                return fold_const_aggregate_ref (rhs);
+              else if (kind == tcc_declaration)
+                return get_symbol_constant_value (rhs);
               return rhs;
             }
             
@@ -1098,6 +1104,11 @@ fold_const_aggregate_ref (tree t)
 	  ctor = fold_const_aggregate_ref (base);
 	  break;
 
+	case STRING_CST:
+	case CONSTRUCTOR:
+	  ctor = base;
+	  break;
+
 	default:
 	  return NULL_TREE;
 	}
@@ -1198,7 +1209,18 @@ fold_const_aggregate_ref (tree t)
 	  return fold_build1 (TREE_CODE (t), TREE_TYPE (t), c);
 	break;
       }
-    
+
+    case INDIRECT_REF:
+      {
+	tree base = TREE_OPERAND (t, 0);
+	if (TREE_CODE (base) == SSA_NAME
+	    && (value = get_value (base))
+	    && value->lattice_val == CONSTANT
+	    && TREE_CODE (value->value) == ADDR_EXPR)
+	  return fold_const_aggregate_ref (TREE_OPERAND (value->value, 0));
+	break;
+      }
+
     default:
       break;
     }
@@ -1230,7 +1252,7 @@ evaluate_stmt (gimple stmt)
     simplified = ccp_fold (stmt);
   /* If the statement is likely to have a VARYING result, then do not
      bother folding the statement.  */
-  if (likelyvalue == VARYING)
+  else if (likelyvalue == VARYING)
     {
       enum tree_code code = gimple_code (stmt);
       if (code == GIMPLE_ASSIGN)
@@ -1251,17 +1273,6 @@ evaluate_stmt (gimple stmt)
         /* These cannot satisfy is_gimple_min_invariant without folding.  */
         gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);
     }
-  /* If the statement is an ARRAY_REF or COMPONENT_REF into constant
-     aggregates, extract the referenced constant.  Otherwise the
-     statement is likely to have an UNDEFINED value, and there will be
-     nothing to do.  Note that fold_const_aggregate_ref returns
-     NULL_TREE if the first case does not match.  Note that an ARRAY_REF
-     or COMPONENT_REF may not occur as a switch index.  */
-  else if (!simplified)
-    if (gimple_code (stmt) == GIMPLE_ASSIGN
-        && get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
-        == GIMPLE_SINGLE_RHS)
-      simplified = fold_const_aggregate_ref (gimple_assign_rhs1 (stmt));
 
   is_constant = simplified && is_gimple_min_invariant (simplified);
 
