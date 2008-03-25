@@ -296,23 +296,22 @@ ccp_decl_initial_min_invariant (tree t)
 /* If SYM is a constant variable with known value, return the value.
    NULL_TREE is returned otherwise.  */
 
-static tree
+tree
 get_symbol_constant_value (tree sym)
 {
   if (TREE_STATIC (sym)
       && TREE_READONLY (sym)
-      && !MTAG_P (sym)
-      /* Check if a read-only definition may be overridden at
-	 link and run time.  */
-      && targetm.binds_local_p (sym))
+      && !MTAG_P (sym))
     {
       tree val = DECL_INITIAL (sym);
       if (val
 	  && ccp_decl_initial_min_invariant (val))
 	return val;
       /* Variables declared 'const' without an initializer
-	 have zero as the intializer.  */
+	 have zero as the intializer if they may not be
+	 overridden at link or run time.  */
       if (!val
+	  && targetm.binds_local_p (sym)
           && (INTEGRAL_TYPE_P (TREE_TYPE (sym))
 	       || SCALAR_FLOAT_TYPE_P (TREE_TYPE (sym))))
         return fold_convert (TREE_TYPE (sym), integer_zero_node);
@@ -411,8 +410,12 @@ get_default_value (tree var)
 static inline prop_value_t *
 get_value (tree var)
 {
-  prop_value_t *val = &const_val[SSA_NAME_VERSION (var)];
+  prop_value_t *val;
 
+  if (const_val == NULL)
+    return NULL;
+
+  val = &const_val[SSA_NAME_VERSION (var)];
   if (val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
 
@@ -739,6 +742,7 @@ ccp_finalize (void)
   bool something_changed = substitute_and_fold (const_val, false);
 
   free (const_val);
+  const_val = NULL;
   return something_changed;;
 }
 
@@ -1062,7 +1066,7 @@ ccp_fold (gimple stmt)
    ARRAY_REF or COMPONENT_REF into constant aggregates.  Return
    NULL_TREE otherwise.  */
 
-static tree
+tree
 fold_const_aggregate_ref (tree t)
 {
   prop_value_t *value;

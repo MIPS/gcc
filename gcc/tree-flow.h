@@ -896,6 +896,8 @@ void set_current_def (tree, tree);
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (gimple_stmt_iterator *);
 bool fold_stmt_inplace (gimple);
+tree get_symbol_constant_value (tree);
+tree fold_const_aggregate_ref (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
