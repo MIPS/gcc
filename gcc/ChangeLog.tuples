@@ -1,3 +1,13 @@
+2008-03-25  Bill Maddox  <maddox@google.com>
+
+	* tree-ssa-dom.c (loop_depth_of_name): Tuplify.
+	* tree-ssa-copy.c (stmt_may_generate_copy,
+	copy_prop_visit_assignment, copy_prop_visi_cond_stmt,
+	copy_prop_visit_stmt, copy_prop_visit_phi_node,
+	init_copy_prop, execute_copy_prop): Tuplify.
+	* passes.c (init_optimization_passes):
+	Enable pass_copy_prop.
+
 2008-03-25  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133257.

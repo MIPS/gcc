@@ -1090,7 +1090,7 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
   VEC_quick_push (tree, const_and_copies_stack, prev_x);
   VEC_quick_push (tree, const_and_copies_stack, x);
 }
-
+#endif
 
 /* Return the loop depth of the basic block of the defining statement of X.
    This number should not be treated as absolutely correct because the loop
@@ -1101,7 +1101,7 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
 int
 loop_depth_of_name (tree x)
 {
-  tree defstmt;
+  gimple defstmt;
   basic_block defbb;
 
   /* If it's not an SSA_NAME, we have no clue where the definition is.  */
@@ -1119,7 +1119,8 @@ loop_depth_of_name (tree x)
   return defbb->loop_depth;
 }
 
-
+/* FIXME tuples.  */
+#if 0
 /* Record that X is equal to Y in const_and_copies.  Record undo
    information in the block-local vector.  */
 

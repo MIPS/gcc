@@ -543,7 +543,10 @@ init_optimization_passes (void)
 #if 0
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
+#endif
 	  NEXT_PASS (pass_copy_prop);
+/* FIXME tuples.  */
+#if 0
 	  NEXT_PASS (pass_merge_phi);
 #endif
 	  NEXT_PASS (pass_dce);
@@ -609,7 +612,10 @@ init_optimization_passes (void)
       NEXT_PASS (pass_dce);
 #if 0
       NEXT_PASS (pass_forwprop);
+#endif
       NEXT_PASS (pass_copy_prop);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
 #endif
@@ -654,10 +660,7 @@ init_optimization_passes (void)
 #endif
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_copy_prop);
-#endif
       NEXT_PASS (pass_fold_builtins);
       /* FIXME tuples.  */
 #if 0
@@ -673,8 +676,8 @@ init_optimization_passes (void)
 	{
 	  struct tree_opt_pass **p = &pass_tree_loop.sub;
 	  NEXT_PASS (pass_tree_loop_init);
-#if 0
 	  NEXT_PASS (pass_copy_prop);
+#if 0
 	  NEXT_PASS (pass_dce_loop);
 #endif
 	  NEXT_PASS (pass_lim);
