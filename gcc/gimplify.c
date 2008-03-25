@@ -1148,7 +1148,8 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	DECL_GIMPLE_REG_P (t) = 1;
     }
 
-  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL);
+  gimple_bind = gimple_build_bind (BIND_EXPR_VARS (bind_expr), NULL,
+                                   BIND_EXPR_BLOCK (bind_expr));
   gimple_push_bind_expr (gimple_bind);
 
   gimplify_ctxp->save_stack = false;
@@ -6771,11 +6772,8 @@ gimplify_body (tree *body_p, tree fndecl, bool do_parms)
       && gimple_seq_first (seq) == gimple_seq_last (seq))
     ;
   else
-    outer_bind = gimple_build_bind (NULL_TREE, seq);
+    outer_bind = gimple_build_bind (NULL_TREE, seq, NULL);
 
-  /* Copy the containing block, if body_p had one.  */
-  if (TREE_CODE (*body_p) == BIND_EXPR)
-    gimple_set_block (outer_bind, BIND_EXPR_BLOCK (*body_p));
   *body_p = NULL_TREE;
 
   /* If we had callee-copies statements, insert them at the beginning
@@ -6855,6 +6853,7 @@ gimplify_function_tree (tree fndecl)
       && !flag_instrument_functions_exclude_p (fndecl))
     {
       tree x;
+      gimple new_bind;
       gimple tf;
       gimple_seq cleanup = NULL, body = NULL;
 
@@ -6865,12 +6864,15 @@ gimplify_function_tree (tree fndecl)
       x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
       gimplify_seq_add_stmt (&body, gimple_build_call (x, 0));
       gimplify_seq_add_stmt (&body, tf);
-      bind = gimple_build_bind (NULL, body);
+      new_bind = gimple_build_bind (NULL, body, gimple_block (bind));
+      /* Clear the block for BIND, since it is no longer directly inside
+         the function, but within a try block.  */
+      gimple_set_block (bind, NULL);
 
       /* Replace the current function body with the body
          wrapped in the try/finally TF.  */
       seq = gimple_seq_alloc ();
-      gimple_seq_add_stmt (&seq, bind);
+      gimple_seq_add_stmt (&seq, new_bind);
       gimple_set_body (fndecl, seq);
     }
 

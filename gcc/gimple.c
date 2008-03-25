@@ -486,16 +486,17 @@ gimple_build_nop (void)
 
 
 /* Build a GIMPLE_BIND statement.
-
-   VARS are the variables in BODY.  */
+   VARS are the variables in BODY.
+   BLOCK is the containing block.  */
 
 gimple
-gimple_build_bind (tree vars, gimple_seq body)
+gimple_build_bind (tree vars, gimple_seq body, tree block)
 {
   gimple p = gimple_alloc (GIMPLE_BIND);
   gimple_bind_set_vars (p, vars);
   if (body)
     gimple_bind_set_body (p, body);
+  gimple_set_block (p, block);
   return p;
 }
 

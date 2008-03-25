@@ -521,7 +521,7 @@ gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
-gimple gimple_build_bind (tree, gimple_seq);
+gimple gimple_build_bind (tree, gimple_seq, tree);
 gimple gimple_build_asm (const char *, size_t, size_t, size_t, ...);
 gimple gimple_build_asm_vec (const char *, VEC(tree,gc) *, VEC(tree,gc) *,
                              VEC(tree,gc) *);

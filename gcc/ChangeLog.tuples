@@ -1,3 +1,13 @@
+2008-03-25  Oleg Ryjkov  <olegr@google.com>
+
+	* gimple.c (gimple_build_bind): Added a new parameter - the 
+	containing block.
+	* gimple.h (gimple_build_bind): Changed the header accordingly.
+	* gimplify.c (gimplify_bind_expr, gimplify_function_tree): Updated
+	the callers of gimple_build_bind.
+	(gimplify_body): Updated the call to gimple_build_bind and moved
+	the copying of block information into gimplify_bind_expr.
+
 2008-03-25  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133255.
