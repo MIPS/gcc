@@ -77,7 +77,6 @@ extern char *lto_get_section_data (struct lto_file_decl_data *, enum lto_section
 
 #ifdef LTO_STREAM_DEBUGGING
 extern void lto_debug_in_fun (struct lto_debug_context *, char);
-extern void dump_debug_stream (struct lto_input_block *, char, char);
 #endif
 
 #endif  /* GCC_LTO_SECTION_IN_H  */

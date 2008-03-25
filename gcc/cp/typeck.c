@@ -1,6 +1,6 @@
 /* Build expressions with type checking for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 
 static tree pfn_from_ptrmemfunc (tree);
+static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree);
@@ -975,6 +976,30 @@ structural_comptypes (tree t1, tree t2, int strict)
   /* Compare the types.  Break out if they could be the same.  */
   switch (TREE_CODE (t1))
     {
+    case VOID_TYPE:
+    case BOOLEAN_TYPE:
+      /* All void and bool types are the same.  */
+      break;
+
+    case INTEGER_TYPE:
+    case FIXED_POINT_TYPE:
+    case REAL_TYPE:
+      /* With these nodes, we can't determine type equivalence by
+	 looking at what is stored in the nodes themselves, because
+	 two nodes might have different TYPE_MAIN_VARIANTs but still
+	 represent the same type.  For example, wchar_t and int could
+	 have the same properties (TYPE_PRECISION, TYPE_MIN_VALUE,
+	 TYPE_MAX_VALUE, etc.), but have different TYPE_MAIN_VARIANTs
+	 and are distinct types. On the other hand, int and the
+	 following typedef
+
+           typedef int INT __attribute((may_alias));
+
+	 have identical properties, different TYPE_MAIN_VARIANTs, but
+	 represent the same type.  The canonical type system keeps
+	 track of equivalence in this case, so we fall back on it.  */
+      return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       if (TEMPLATE_TYPE_IDX (t1) != TEMPLATE_TYPE_IDX (t2)
@@ -1418,7 +1443,9 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
   switch (TREE_CODE (exp))
     {
     case COND_EXPR:
-      if (!is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 1)))
+      if (!is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 1)
+					       ? TREE_OPERAND (exp, 1)
+					       : TREE_OPERAND (exp, 0)))
 	return NULL_TREE;
       return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 2));
 
@@ -1441,6 +1468,13 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	  return NULL_TREE;
 	return DECL_BIT_FIELD_TYPE (field);
       }
+
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  == TYPE_MAIN_VARIANT (TREE_TYPE (exp)))
+	return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 0));
+      /* Fallthrough.  */
 
     default:
       return NULL_TREE;
@@ -1797,7 +1831,7 @@ build_class_member_access_expr (tree object, tree member,
 	warn_deprecated_use (member);
     }
   else
-    member_scope = BINFO_TYPE (BASELINK_BINFO (member));
+    member_scope = BINFO_TYPE (BASELINK_ACCESS_BINFO (member));
   /* If MEMBER is from an anonymous aggregate, MEMBER_SCOPE will
      presently be the anonymous union.  Go outwards until we find a
      type related to OBJECT_TYPE.  */
@@ -1888,9 +1922,11 @@ build_class_member_access_expr (tree object, tree member,
 	  && !DECL_FIELD_IS_BASE (member)
 	  && !skip_evaluation)
 	{
-	  warning (0, "invalid access to non-static data member %qD of NULL object",
-		   member);
-	  warning (0, "(perhaps the %<offsetof%> macro was used incorrectly)");
+	  warning (OPT_Winvalid_offsetof, 
+                   "invalid access to non-static data member %qD "
+                   " of NULL object", member);
+	  warning (OPT_Winvalid_offsetof, 
+                   "(perhaps the %<offsetof%> macro was used incorrectly)");
 	}
 
       /* If MEMBER is from an anonymous aggregate, we have converted
@@ -2586,7 +2622,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 
       /* Start by extracting all the information from the PMF itself.  */
       e3 = pfn_from_ptrmemfunc (function);
-      delta = build_ptrmemfunc_access_expr (function, delta_identifier);
+      delta = delta_from_ptrmemfunc (function);
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
@@ -3054,10 +3090,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
      Also implies COMMON.  */
   int short_compare = 0;
 
-  /* Nonzero if this is a right-shift operation, which can be computed on the
-     original short and then promoted if the operand is a promoted short.  */
-  int short_shift = 0;
-
   /* Nonzero means set RESULT_TYPE to the common type of the args.  */
   int common = 0;
 
@@ -3259,8 +3291,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		warning (0, "right shift count is negative");
 	      else
 		{
-		  if (! integer_zerop (op1))
-		    short_shift = 1;
 		  if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		    warning (0, "right shift count >= width of type");
 		}
@@ -3319,7 +3349,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
     case EQ_EXPR:
     case NE_EXPR:
-      if (code0 == REAL_TYPE || code1 == REAL_TYPE)
+      if (FLOAT_TYPE_P (type0) || FLOAT_TYPE_P (type1))
 	warning (OPT_Wfloat_equal,
 		 "comparing floating point with == or != is unsafe");
       if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
@@ -3370,8 +3400,7 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      == ptrmemfunc_vbit_in_delta)
 	    {
 	      tree pfn0 = pfn_from_ptrmemfunc (op0);
-	      tree delta0 = build_ptrmemfunc_access_expr (op0,
-			 	 			  delta_identifier);
+	      tree delta0 = delta_from_ptrmemfunc (op0);
 	      tree e1 = cp_build_binary_op (EQ_EXPR,
 	  			            pfn0,	
 				      	    fold_convert (TREE_TYPE (pfn0),
@@ -3392,9 +3421,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	}
       else if (TYPE_PTRMEMFUNC_P (type1) && null_ptr_cst_p (op0))
 	return cp_build_binary_op (code, op1, op0);
-      else if (TYPE_PTRMEMFUNC_P (type0) && TYPE_PTRMEMFUNC_P (type1)
-	       && same_type_p (type0, type1))
+      else if (TYPE_PTRMEMFUNC_P (type0) && TYPE_PTRMEMFUNC_P (type1))
 	{
+	  tree type;
 	  /* E will be the final comparison.  */
 	  tree e;
 	  /* E1 and E2 are for scratch.  */
@@ -3405,6 +3434,16 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	  tree delta0;
 	  tree delta1;
 
+	  type = composite_pointer_type (type0, type1, op0, op1, "comparison");
+
+	  if (!same_type_p (TREE_TYPE (op0), type))
+	    op0 = cp_convert_and_check (type, op0);
+	  if (!same_type_p (TREE_TYPE (op1), type))
+	    op1 = cp_convert_and_check (type, op1);
+
+	  if (op0 == error_mark_node || op1 == error_mark_node)
+	    return error_mark_node;
+
 	  if (TREE_SIDE_EFFECTS (op0))
 	    op0 = save_expr (op0);
 	  if (TREE_SIDE_EFFECTS (op1))
@@ -3412,10 +3451,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
 	  pfn0 = pfn_from_ptrmemfunc (op0);
 	  pfn1 = pfn_from_ptrmemfunc (op1);
-	  delta0 = build_ptrmemfunc_access_expr (op0,
-						 delta_identifier);
-	  delta1 = build_ptrmemfunc_access_expr (op1,
-						 delta_identifier);
+	  delta0 = delta_from_ptrmemfunc (op0);
+	  delta1 = delta_from_ptrmemfunc (op1);
 	  if (TARGET_PTRMEMFUNC_VBIT_LOCATION
 	      == ptrmemfunc_vbit_in_delta)
 	    {
@@ -3666,45 +3703,6 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 		       (unsigned0, TREE_TYPE (arg0)),
 		       int_fits_type_p (arg1, type)))
 	    result_type = type;
-	}
-
-      /* Shifts can be shortened if shifting right.  */
-
-      if (short_shift)
-	{
-	  int unsigned_arg;
-	  tree arg0 = get_narrower (op0, &unsigned_arg);
-
-	  final_type = result_type;
-
-	  if (arg0 == op0 && final_type == TREE_TYPE (op0))
-	    unsigned_arg = TYPE_UNSIGNED (TREE_TYPE (op0));
-
-	  if (TYPE_PRECISION (TREE_TYPE (arg0)) < TYPE_PRECISION (result_type)
-	      /* We can shorten only if the shift count is less than the
-		 number of bits in the smaller type size.  */
-	      && compare_tree_int (op1, TYPE_PRECISION (TREE_TYPE (arg0))) < 0
-	      /* If arg is sign-extended and then unsigned-shifted,
-		 we can simulate this with a signed shift in arg's type
-		 only if the extended result is at least twice as wide
-		 as the arg.  Otherwise, the shift could use up all the
-		 ones made by sign-extension and bring in zeros.
-		 We can't optimize that case at all, but in most machines
-		 it never happens because available widths are 2**N.  */
-	      && (!TYPE_UNSIGNED (final_type)
-		  || unsigned_arg
-		  || (((unsigned) 2 * TYPE_PRECISION (TREE_TYPE (arg0)))
-		      <= TYPE_PRECISION (result_type))))
-	    {
-	      /* Do an unsigned shift if the operand was zero-extended.  */
-	      result_type
-		= c_common_signed_or_unsigned_type (unsigned_arg,
-						    TREE_TYPE (arg0));
-	      /* Convert value-to-be-shifted to that type.  */
-	      if (TREE_TYPE (op0) != result_type)
-		op0 = cp_convert (result_type, op0);
-	      converted = 1;
-	    }
 	}
 
       /* Comparison operations are shortened too but differently.
@@ -4632,7 +4630,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
     if (TREE_CODE (targ) == SAVE_EXPR)
       targ = TREE_OPERAND (targ, 0);
 
-    if (TREE_CODE (targ) == CALL_EXPR && IS_AGGR_TYPE (TREE_TYPE (targ)))
+    if (TREE_CODE (targ) == CALL_EXPR && MAYBE_CLASS_TYPE_P (TREE_TYPE (targ)))
       {
 	if (TREE_CODE (arg) == SAVE_EXPR)
 	  targ = arg;
@@ -4834,18 +4832,38 @@ build_compound_expr (tree lhs, tree rhs)
 }
 
 /* Issue a diagnostic message if casting from SRC_TYPE to DEST_TYPE
-   casts away constness.  DIAG_FN gives the function to call if we
-   need to issue a diagnostic; if it is NULL, no diagnostic will be
-   issued.  DESCRIPTION explains what operation is taking place.  */
+   casts away constness.  CAST gives the type of cast.  */
 
 static void
 check_for_casting_away_constness (tree src_type, tree dest_type,
-				  void (*diag_fn)(const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2),
-				  const char *description)
+				  enum tree_code cast)
 {
-  if (diag_fn && casts_away_constness (src_type, dest_type))
-    diag_fn ("%s from type %qT to type %qT casts away constness",
-	     description, src_type, dest_type);
+  /* C-style casts are allowed to cast away constness.  With
+     WARN_CAST_QUAL, we still want to issue a warning.  */
+  if (cast == CAST_EXPR && !warn_cast_qual)
+      return;
+  
+  if (casts_away_constness (src_type, dest_type))
+    switch (cast)
+      {
+      case CAST_EXPR:
+	warning (OPT_Wcast_qual, 
+                 "cast from type %qT to type %qT casts away constness",
+		 src_type, dest_type);
+	return;
+	
+      case STATIC_CAST_EXPR:
+	error ("static_cast from type %qT to type %qT casts away constness",
+	       src_type, dest_type);
+	return;
+	
+      case REINTERPRET_CAST_EXPR:
+	error ("reinterpret_cast from type %qT to type %qT casts away constness",
+	       src_type, dest_type);
+	return;
+      default:
+	gcc_unreachable();
+      }
 }
 
 /* Convert EXPR (an expression with pointer-to-member type) to TYPE
@@ -4931,8 +4949,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
   tree intype;
   tree result;
   tree orig;
-  void (*diag_fn)(const char*, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
-  const char *desc;
 
   /* Assume the cast is valid.  */
   *valid_p = true;
@@ -4941,21 +4957,6 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 
   /* Save casted types in the function's used types hash table.  */
   used_types_insert (type);
-
-  /* Determine what to do when casting away constness.  */
-  if (c_cast_p)
-    {
-      /* C-style casts are allowed to cast away constness.  With
-	 WARN_CAST_QUAL, we still want to issue a warning.  */
-      diag_fn = warn_cast_qual ? warning0 : NULL;
-      desc = "cast";
-    }
-  else
-    {
-      /* A static_cast may not cast away constness.  */
-      diag_fn = error;
-      desc = "static_cast";
-    }
 
   /* [expr.static.cast]
 
@@ -5081,7 +5082,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       tree base;
 
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, diag_fn, desc);
+	check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
       base = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
 			  c_cast_p ? ba_unique : ba_check,
 			  NULL);
@@ -5116,8 +5117,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       if (can_convert (t1, t2) || can_convert (t2, t1))
 	{
 	  if (!c_cast_p)
-	    check_for_casting_away_constness (intype, type, diag_fn,
-					      desc);
+	    check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
 	  return convert_ptrmem (type, expr, /*allow_inverse_p=*/1,
 				 c_cast_p);
 	}
@@ -5134,7 +5134,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && TYPE_PTROB_P (type))
     {
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, diag_fn, desc);
+	check_for_casting_away_constness (intype, type, STATIC_CAST_EXPR);
       return build_nop (type, expr);
     }
 
@@ -5319,8 +5319,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       tree sexpr = expr;
 
       if (!c_cast_p)
-	check_for_casting_away_constness (intype, type, error,
-					  "reinterpret_cast");
+	check_for_casting_away_constness (intype, type, REINTERPRET_CAST_EXPR);
       /* Warn about possible alignment problems.  */
       if (STRICT_ALIGNMENT && warn_cast_align
 	  && !VOID_TYPE_P (type)
@@ -5328,9 +5327,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	  && COMPLETE_TYPE_P (TREE_TYPE (type))
 	  && COMPLETE_TYPE_P (TREE_TYPE (intype))
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (intype)))
-	warning (0, "cast from %qT to %qT increases required alignment of "
-		 "target type",
-		 intype, type);
+	warning (OPT_Wcast_align, "cast from %qT to %qT "
+                 "increases required alignment of target type", intype, type);
 
       /* We need to strip nops here, because the front end likes to
 	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
@@ -5475,10 +5473,7 @@ build_const_cast_1 (tree dst_type, tree expr, bool complain,
 	  *valid_p = true;
 	  /* This cast is actually a C-style cast.  Issue a warning if
 	     the user is making a potentially unsafe cast.  */
-	  if (warn_cast_qual)
-	    check_for_casting_away_constness (src_type, dst_type,
-					      warning0,
-					      "cast");
+	  check_for_casting_away_constness (src_type, dst_type, CAST_EXPR);
 	}
       if (reference_type)
 	{
@@ -5756,7 +5751,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	  TREE_SIDE_EFFECTS (result) = 1;
 	  return result;
 	}
-      else if (! IS_AGGR_TYPE (lhstype))
+      else if (! MAYBE_CLASS_TYPE_P (lhstype))
 	/* Do the default thing.  */;
       else
 	{
@@ -5777,7 +5772,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       if (modifycode == NOP_EXPR)
 	{
 	  /* `operator=' is not an inheritable operator.  */
-	  if (! IS_AGGR_TYPE (lhstype))
+	  if (! MAYBE_CLASS_TYPE_P (lhstype))
 	    /* Do the default thing.  */;
 	  else
 	    {
@@ -5795,8 +5790,10 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	  /* A binary op has been requested.  Combine the old LHS
 	     value with the RHS producing the value we should actually
 	     store into the LHS.  */
+	  gcc_assert (!((TREE_CODE (lhstype) == REFERENCE_TYPE
+			 && MAYBE_CLASS_TYPE_P (TREE_TYPE (lhstype)))
+			|| MAYBE_CLASS_TYPE_P (lhstype)));
 
-	  gcc_assert (!PROMOTES_TO_AGGR_TYPE (lhstype, REFERENCE_TYPE));
 	  lhs = stabilize_reference (lhs);
 	  newrhs = cp_build_binary_op (modifycode, lhs, rhs);
 	  if (newrhs == error_mark_node)
@@ -6290,6 +6287,25 @@ pfn_from_ptrmemfunc (tree t)
   return build_ptrmemfunc_access_expr (t, pfn_identifier);
 }
 
+/* Return an expression for DELTA from the pointer-to-member function
+   given by T.  */
+
+static tree
+delta_from_ptrmemfunc (tree t)
+{
+  if (TREE_CODE (t) == PTRMEM_CST)
+    {
+      tree delta;
+      tree pfn;
+
+      expand_ptrmemfunc_cst (t, &delta, &pfn);
+      if (delta)
+	return delta;
+    }
+
+  return build_ptrmemfunc_access_expr (t, delta_identifier);
+}
+
 /* Convert value RHS to type TYPE as preparation for an assignment to
    an lvalue of type TYPE.  ERRTYPE is a string to use in error
    messages: "assignment", "return", etc.  If FNDECL is non-NULL, we
@@ -6498,7 +6514,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
 
   type = complete_type (type);
 
-  if (IS_AGGR_TYPE (type))
+  if (MAYBE_CLASS_TYPE_P (type))
     return ocp_convert (type, rhs, CONV_IMPLICIT|CONV_FORCE_TEMP, flags);
 
   return convert_for_assignment (type, rhs, errtype, fndecl, parmnum);
@@ -6613,7 +6629,8 @@ check_return_expr (tree retval, bool *no_warning)
   if (processing_template_decl)
     {
       current_function_returns_value = 1;
-      check_for_bare_parameter_packs (&retval);
+      if (check_for_bare_parameter_packs (retval))
+        retval = error_mark_node;
       return retval;
     }
 

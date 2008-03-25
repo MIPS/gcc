@@ -23,10 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This is the default version which does not support libraries.
---  All subprograms are dummies, because they are never called,
---  except Support_For_Libraries which returns None.
-
 with MLib.Fil;
 with Prj.Com;
 
@@ -503,4 +499,5 @@ package body MLib.Tgt is
    begin
       return Full;
    end Support_For_Libraries_Default;
+
 end MLib.Tgt;

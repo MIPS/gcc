@@ -77,3 +77,19 @@ extern void lto_field_ref (tree field, lto_out_ref *ref);
 /* Upon return, *REF contains a reference to TDECL, which must be a
    TYPE_DECL.  */
 extern void lto_typedecl_ref (tree tdecl, lto_out_ref *ref);
+
+struct array_descr_info
+{
+  int ndimensions;
+  tree element_type;
+  tree base_decl;
+  tree data_location;
+  tree allocated;
+  tree associated;
+  struct array_descr_dimen
+    {
+      tree lower_bound;
+      tree upper_bound;
+      tree stride;
+    } dimen[10];
+};

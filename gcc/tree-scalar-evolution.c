@@ -360,7 +360,7 @@ chrec_contains_symbols_defined_in_loop (const_tree chrec, unsigned loop_nb)
   if (chrec == NULL_TREE)
     return false;
 
-  if (TREE_INVARIANT (chrec))
+  if (is_gimple_min_invariant (chrec))
     return false;
 
   if (TREE_CODE (chrec) == VAR_DECL
@@ -1971,6 +1971,7 @@ instantiate_parameters_1 (struct loop *loop, tree chrec, int flags, htab_t cache
       /* A parameter (or loop invariant and we do not want to include
 	 evolutions in outer loops), nothing to do.  */
       if (!def_bb
+	  || loop_depth (def_bb->loop_father) == 0
 	  || (!(flags & INSERT_SUPERLOOP_CHRECS)
 	      && !flow_bb_inside_loop_p (loop, def_bb)))
 	return chrec;
@@ -2376,7 +2377,7 @@ number_of_iterations_for_all_loops (VEC(tree,heap) **exit_conditions)
       fprintf (dump_file, "-----------------------------------------\n");
       fprintf (dump_file, ")\n\n");
       
-      print_loop_ir (dump_file);
+      print_loops (dump_file, 3);
     }
 }
 
@@ -2608,6 +2609,16 @@ scev_initialize (void)
     }
 }
 
+/* Clean the scalar evolution analysis cache, but preserve the cached
+   numbers of iterations for the loops.  */
+
+void
+scev_reset_except_niters (void)
+{
+  if (scalar_evolution_info)
+    htab_empty (scalar_evolution_info);
+}
+
 /* Cleans up the information cached by the scalar evolutions analysis.  */
 
 void
@@ -2619,7 +2630,8 @@ scev_reset (void)
   if (!scalar_evolution_info || !current_loops)
     return;
 
-  htab_empty (scalar_evolution_info);
+  scev_reset_except_niters ();
+
   FOR_EACH_LOOP (li, loop, 0)
     {
       loop->nb_iterations = NULL_TREE;

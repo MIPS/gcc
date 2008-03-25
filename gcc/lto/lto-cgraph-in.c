@@ -236,6 +236,7 @@ lto_input_cgraph (struct lto_file_decl_data* file_data, const void *data)
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.current_data = &debug_main;
   lto_debug_context.indent = 0;
+  lto_debug_context.stream_name = "cgraph";
   lto_debug_context.tag_names = LTO_cgraph_tag_names;
 #endif
   /* Read in the cgraph for this file and merge it into the main

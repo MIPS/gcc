@@ -1,6 +1,6 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -433,8 +433,27 @@ type_assertion_hash (const void *p)
   const type_assertion *k_p = p;
   hashval_t hash = iterative_hash (&k_p->assertion_code, sizeof
 				   k_p->assertion_code, 0);
-  hash = iterative_hash (&k_p->op1, sizeof k_p->op1, hash);
-  return iterative_hash (&k_p->op2, sizeof k_p->op2, hash);
+
+  switch (k_p->assertion_code)
+    {
+    case JV_ASSERT_TYPES_COMPATIBLE:
+      hash = iterative_hash (&TYPE_UID (k_p->op2), sizeof TYPE_UID (k_p->op2),
+			     hash);
+      /* Fall through.  */
+
+    case JV_ASSERT_IS_INSTANTIABLE:
+      hash = iterative_hash (&TYPE_UID (k_p->op1), sizeof TYPE_UID (k_p->op1),
+			     hash);
+      /* Fall through.  */
+
+    case JV_ASSERT_END_OF_TABLE:
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return hash;
 }
 
 /* Add an entry to the type assertion table for the given class.  
@@ -2632,17 +2651,6 @@ build_jni_stub (tree method)
       TREE_CHAIN (env_var) = res_var;
     }
 
-  meth_var = build_decl (VAR_DECL, get_identifier ("meth"), ptr_type_node);
-  TREE_STATIC (meth_var) = 1;
-  TREE_PUBLIC (meth_var) = 0;
-  DECL_EXTERNAL (meth_var) = 0;
-  DECL_CONTEXT (meth_var) = method;
-  DECL_ARTIFICIAL (meth_var) = 1;
-  DECL_INITIAL (meth_var) = null_pointer_node;
-  TREE_USED (meth_var) = 1;
-  chainon (env_var, meth_var);
-  build_result_decl (method);
-
   method_args = DECL_ARGUMENTS (method);
   block = build_block (env_var, NULL_TREE, method_args, NULL_TREE);
   TREE_SIDE_EFFECTS (block) = 1;
@@ -2706,23 +2714,40 @@ build_jni_stub (tree method)
 
   jni_func_type = build_pointer_type (tem);
 
-  jnifunc = build3 (COND_EXPR, ptr_type_node,
+  /* Use the actual function type, rather than a generic pointer type,
+     such that this decl keeps the actual pointer type from being
+     garbage-collected.  If it is, we end up using canonical types
+     with different uids for equivalent function types, and this in
+     turn causes utf8 identifiers and output order to vary.  */
+  meth_var = build_decl (VAR_DECL, get_identifier ("meth"), jni_func_type);
+  TREE_STATIC (meth_var) = 1;
+  TREE_PUBLIC (meth_var) = 0;
+  DECL_EXTERNAL (meth_var) = 0;
+  DECL_CONTEXT (meth_var) = method;
+  DECL_ARTIFICIAL (meth_var) = 1;
+  DECL_INITIAL (meth_var) = null_pointer_node;
+  TREE_USED (meth_var) = 1;
+  chainon (env_var, meth_var);
+  build_result_decl (method);
+
+  jnifunc = build3 (COND_EXPR, jni_func_type,
 		    build2 (NE_EXPR, boolean_type_node,
 			    meth_var, build_int_cst (TREE_TYPE (meth_var), 0)),
 		    meth_var,
-		    build2 (MODIFY_EXPR, ptr_type_node, meth_var,
-			    build_call_nary (ptr_type_node,
-					     build_address_of
-					       (soft_lookupjnimethod_node),
-					     4,
-					     jniarg0, jniarg1,
-					     jniarg2, jniarg3)));
+		    build2 (MODIFY_EXPR, jni_func_type, meth_var,
+			    build1
+			    (NOP_EXPR, jni_func_type,
+			     build_call_nary (ptr_type_node,
+					      build_address_of
+					      (soft_lookupjnimethod_node),
+					      4,
+					      jniarg0, jniarg1,
+					      jniarg2, jniarg3))));
 
   /* Now we make the actual JNI call via the resulting function
      pointer.    */
   call = build_call_list (TREE_TYPE (TREE_TYPE (method)),
-			  build1 (NOP_EXPR, jni_func_type, jnifunc),
-			  args);
+			  jnifunc, args);
 
   /* If the JNI call returned a result, capture it here.  If we had to
      unwrap JNI object results, we would do that here.  */
@@ -3107,6 +3132,7 @@ expand_byte_code (JCF *jcf, tree method)
   int dead_code_index = -1;
   unsigned char* byte_ops;
   long length = DECL_CODE_LENGTH (method);
+  location_t max_location = input_location;
 
   stack_pointer = 0;
   JCF_SEEK (jcf, DECL_CODE_OFFSET (method));
@@ -3193,11 +3219,9 @@ expand_byte_code (JCF *jcf, tree method)
 	      if (pc == PC)
 		{
 		  int line = GET_u2 (linenumber_pointer - 2);
-#ifdef USE_MAPPED_LOCATION
 		  input_location = linemap_line_start (line_table, line, 1);
-#else
-		  input_location.line = line;
-#endif
+		  if (input_location > max_location)
+		    max_location = input_location;
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3217,6 +3241,8 @@ expand_byte_code (JCF *jcf, tree method)
 	warning (0, "unreachable bytecode from %d to the end of the method", 
 		 dead_code_index);
     }
+
+  DECL_FUNCTION_LAST_LINE (method) = max_location;
 }
 
 static void

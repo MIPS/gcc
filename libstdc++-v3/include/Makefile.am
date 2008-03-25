@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -33,6 +33,7 @@ std_headers = \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
 	${std_srcdir}/complex \
+	${std_srcdir}/date_time \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
 	${std_srcdir}/functional \
@@ -77,6 +78,7 @@ bits_headers = \
 	${bits_srcdir}/basic_string.h \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
+	${bits_srcdir}/boost_sp_shared_count.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
@@ -515,6 +517,7 @@ tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/bessel_function.tcc \
 	${tr1_srcdir}/beta_function.tcc \
+	${tr1_srcdir}/boost_sp_shared_count.h \
 	${tr1_srcdir}/ccomplex \
 	${tr1_srcdir}/cctype \
 	${tr1_srcdir}/cfenv \
@@ -575,6 +578,7 @@ tr1_impl_builddir = ./tr1_impl
 tr1_impl_headers = \
 	${tr1_impl_srcdir}/array \
 	${tr1_impl_srcdir}/boost_shared_ptr.h \
+	${tr1_impl_srcdir}/boost_sp_counted_base.h \
 	${tr1_impl_srcdir}/cctype \
 	${tr1_impl_srcdir}/cfenv \
 	${tr1_impl_srcdir}/cinttypes \
@@ -592,9 +596,7 @@ tr1_impl_headers = \
 	${tr1_impl_srcdir}/random \
 	${tr1_impl_srcdir}/random.tcc \
 	${tr1_impl_srcdir}/regex \
-	${tr1_impl_srcdir}/tuple \
 	${tr1_impl_srcdir}/type_traits \
-	${tr1_impl_srcdir}/type_traitsfwd.h \
 	${tr1_impl_srcdir}/unordered_map \
 	${tr1_impl_srcdir}/unordered_set \
 	${tr1_impl_srcdir}/utility
@@ -744,7 +746,6 @@ parallel_headers = \
         ${parallel_srcdir}/settings.h \
         ${parallel_srcdir}/sort.h \
         ${parallel_srcdir}/tags.h \
-        ${parallel_srcdir}/tree.h \
         ${parallel_srcdir}/types.h \
         ${parallel_srcdir}/unique_copy.h \
         ${parallel_srcdir}/workstealing.h 

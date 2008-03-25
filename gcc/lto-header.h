@@ -98,6 +98,7 @@ struct lto_debug_context
   void * ssa_names_data;
   void * cfg_data;
   void * main_data;
+  const char * stream_name;
   const char ** tag_names;
 };
 

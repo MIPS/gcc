@@ -623,12 +623,6 @@ do {									\
 	    }								\
 	  TARGET_CBRANCHDI4 = 0;					\
 	}								\
-      /* -fprofile-arcs needs a working libgcov .  In unified tree	\
-	 configurations with newlib, this requires to configure with	\
-	 --with-newlib --with-headers.  But there is no way to check	\
-	 here we have a working libgcov, so just assume that we have.  */\
-      if (profile_flag)							\
-	warning (0, "profiling is still experimental for this target");\
     }									\
   else									\
     {									\
@@ -2075,10 +2069,6 @@ struct sh_args {
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
-
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  sh_va_start (valist, nextarg)
 
 /* Call the function profiler with a given profile label.
    We use two .aligns, so as to make sure that both the .long is aligned

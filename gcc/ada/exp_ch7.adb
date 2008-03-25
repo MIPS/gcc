@@ -123,7 +123,7 @@ package body Exp_Ch7 is
    --------------------------------------------------
 
    function Find_Node_To_Be_Wrapped (N : Node_Id) return Node_Id;
-   --  N is a node wich may generate a transient scope. Loop over the
+   --  N is a node which may generate a transient scope. Loop over the
    --  parent pointers of N until it find the appropriate node to
    --  wrap. It it returns Empty, it means that no transient scope is
    --  needed in this context.
@@ -138,7 +138,7 @@ package body Exp_Ch7 is
       Is_Protected_Subprogram    : Boolean;
       Is_Task_Allocation_Block   : Boolean;
       Is_Asynchronous_Call_Block : Boolean) return Node_Id;
-   --  Expand a the clean-up procedure for controlled and/or transient
+   --  Expand the clean-up procedure for controlled and/or transient
    --  block, and/or task master or task body, or blocks used to
    --  implement task allocation or asynchronous entry calls, or
    --  procedures used to implement protected procedures. Clean is the
@@ -245,7 +245,7 @@ package body Exp_Ch7 is
    -- Finalization Management --
    -----------------------------
 
-   --  This part describe how Initialization/Adjusment/Finalization procedures
+   --  This part describe how Initialization/Adjustment/Finalization procedures
    --  are generated and called. Two cases must be considered, types that are
    --  Controlled (Is_Controlled flag set) and composite types that contain
    --  controlled components (Has_Controlled_Component flag set). In the first
@@ -262,7 +262,7 @@ package body Exp_Ch7 is
    --  controlled components changes during execution. This controller
    --  component is itself controlled and is attached to the upper-level
    --  finalization chain. Its adjust primitive is in charge of calling adjust
-   --  on the components and adusting the finalization pointer to match their
+   --  on the components and adjusting the finalization pointer to match their
    --  new location (see a-finali.adb).
 
    --  It is not possible to use a similar technique for arrays that have
@@ -990,9 +990,7 @@ package body Exp_Ch7 is
 
       Ftyp := Etype (Fent);
 
-      if Nkind (Arg) = N_Type_Conversion
-        or else Nkind (Arg) = N_Unchecked_Type_Conversion
-      then
+      if Nkind_In (Arg, N_Type_Conversion, N_Unchecked_Type_Conversion) then
          Atyp := Entity (Subtype_Mark (Arg));
       else
          Atyp := Etype (Arg);
@@ -1015,8 +1013,7 @@ package body Exp_Ch7 is
       --  Make_Init_Call, set the target type to the type of the formal
       --  directly, to avoid spurious typing problems.
 
-      elsif (Nkind (Arg) = N_Unchecked_Type_Conversion
-              or else Nkind (Arg) = N_Type_Conversion)
+      elsif Nkind_In (Arg, N_Unchecked_Type_Conversion, N_Type_Conversion)
         and then not Is_Class_Wide_Type (Atyp)
       then
          Set_Subtype_Mark (Arg, New_Occurrence_Of (Ftyp, Sloc (Arg)));
@@ -1033,7 +1030,7 @@ package body Exp_Ch7 is
    -------------------------------
 
    --  This procedure is called each time a transient block has to be inserted
-   --  that is to say for each call to a function with unconstrained ot tagged
+   --  that is to say for each call to a function with unconstrained or tagged
    --  result. It creates a new scope on the stack scope in order to enclose
    --  all transient variables generated
 
@@ -1582,7 +1579,7 @@ package body Exp_Ch7 is
 
          --  Build dispatch tables of library level tagged types
 
-         if Is_Compilation_Unit (Ent) then
+         if Is_Library_Level_Entity (Ent) then
             Build_Static_Dispatch_Tables (N);
          end if;
 
@@ -1851,12 +1848,9 @@ package body Exp_Ch7 is
             when N_Entry_Call_Statement     |
                  N_Procedure_Call_Statement =>
                if Nkind (Parent (The_Parent)) = N_Entry_Call_Alternative
-                 and then
-                   (Nkind (Parent (Parent (The_Parent)))
-                     = N_Timed_Entry_Call
-                   or else
-                     Nkind (Parent (Parent (The_Parent)))
-                       = N_Conditional_Entry_Call)
+                 and then Nkind_In (Parent (Parent (The_Parent)),
+                                    N_Timed_Entry_Call,
+                                    N_Conditional_Entry_Call)
                then
                   return Parent (Parent (The_Parent));
                else
@@ -3393,19 +3387,35 @@ package body Exp_Ch7 is
          --  exit but it doesn't matter. It cannot be done when the
          --  call initializes a renaming object though because in this
          --  case, the object becomes a pointer to the temporary and thus
-         --  increases its life span.
+         --  increases its life span. Ditto if this is a renaming of a
+         --  component of an expression (such as a function call). .
+         --  Note that there is a problem if an actual in the call needs
+         --  finalization, because in that case the call itself is the master,
+         --  and the actual should be finalized on return from the call ???
 
          if Nkind (N) = N_Object_Renaming_Declaration
            and then Controlled_Type (Etype (Defining_Identifier (N)))
          then
             null;
 
+         elsif Nkind (N) = N_Object_Renaming_Declaration
+           and then
+             Nkind_In (Renamed_Object (Defining_Identifier (N)),
+                       N_Selected_Component,
+                       N_Indexed_Component)
+           and then
+             Controlled_Type
+               (Etype (Prefix (Renamed_Object (Defining_Identifier (N)))))
+         then
+            null;
+
          else
             Nodes :=
-              Make_Final_Call (
-                   Ref         => New_Reference_To (LC, Loc),
-                   Typ         => Etype (LC),
-                   With_Detach => New_Reference_To (Standard_False, Loc));
+              Make_Final_Call
+                (Ref         => New_Reference_To (LC, Loc),
+                 Typ         => Etype (LC),
+                 With_Detach => New_Reference_To (Standard_False, Loc));
+
             if Present (Next_N) then
                Insert_List_Before_And_Analyze (Next_N, Nodes);
             else

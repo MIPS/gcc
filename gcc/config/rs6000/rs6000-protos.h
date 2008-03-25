@@ -28,7 +28,6 @@
 
 #ifdef TREE_CODE
 extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, int, int, int);
-extern void rs6000_va_start (tree, rtx);
 #endif /* TREE_CODE */
 
 extern bool easy_altivec_constant (rtx, enum machine_mode);
@@ -104,6 +103,7 @@ extern void rs6000_fatal_bad_address (rtx);
 extern rtx create_TOC_reference (rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
+extern rtx rs6000_secondary_memory_needed_rtx (enum machine_mode);
 extern rtx rs6000_legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx rs6000_legitimize_reload_address (rtx, enum machine_mode,
 					     int, int, int, int *);

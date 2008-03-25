@@ -1,5 +1,5 @@
 ;; GCC machine description for Tensilica's Xtensa architecture.
-;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
 ;; Free Software Foundation, Inc.
 ;; Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
@@ -35,6 +35,7 @@
   (UNSPECV_MEMW		3)
   (UNSPECV_S32RI	4)
   (UNSPECV_S32C1I	5)
+  (UNSPECV_EH_RETURN	6)
 ])
 
 ;; This code iterator allows signed and unsigned widening multiplications
@@ -927,7 +928,7 @@
 	(plus:SI (match_dup 1) (match_dup 2)))]
   "TARGET_HARD_FLOAT"
 {
-  if (volatile_refs_p (PATTERN (insn)))
+  if (TARGET_SERIALIZE_VOLATILE && volatile_refs_p (PATTERN (insn)))
     output_asm_insn ("memw", operands);
   return "lsiu\t%0, %1, %2";
 }
@@ -943,7 +944,7 @@
 	(plus:SI (match_dup 0) (match_dup 1)))]
   "TARGET_HARD_FLOAT"
 {
-  if (volatile_refs_p (PATTERN (insn)))
+  if (TARGET_SERIALIZE_VOLATILE && volatile_refs_p (PATTERN (insn)))
     output_asm_insn ("memw", operands);
   return "ssiu\t%2, %0, %1";
 }
@@ -1600,6 +1601,26 @@
   DONE;
 })
 
+;; Stuff an address into the return address register along with the window
+;; size in the high bits.  Because we don't have the window size of the
+;; previous frame, assume the function called out with a CALL8 since that
+;; is what compilers always use.  Note: __builtin_frob_return_addr has
+;; already been applied to the handler, but the generic version doesn't
+;; allow us to frob it quite enough, so we just frob here.
+
+(define_insn_and_split "eh_return"
+  [(set (reg:SI A0_REG)
+	(unspec_volatile:SI [(match_operand:SI 0 "register_operand" "r")]
+			    UNSPECV_EH_RETURN))
+   (clobber (match_scratch:SI 1 "=r"))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 1) (ashift:SI (match_dup 0) (const_int 2)))
+   (set (match_dup 1) (plus:SI (match_dup 1) (const_int 2)))
+   (set (reg:SI A0_REG) (rotatert:SI (match_dup 1) (const_int 2)))]
+  "")
+
 ;; Setting up a frame pointer is tricky for Xtensa because GCC doesn't
 ;; know if a frame pointer is required until the reload pass, and
 ;; because there may be an incoming argument value in the hard frame
@@ -1644,21 +1665,6 @@
   [(set_attr "type"	"nop")
    (set_attr "mode"	"none")
    (set_attr "length"	"0")])
-
-;; The fix_return_addr pattern sets the high 2 bits of an address in a
-;; register to match the high bits of the current PC.
-(define_insn "fix_return_addr"
-  [(set (match_operand:SI 0 "register_operand" "=a")
-	(unspec:SI [(match_operand:SI 1 "register_operand" "r")]
-		   UNSPEC_RET_ADDR))
-   (clobber (match_scratch:SI 2 "=r"))
-   (clobber (match_scratch:SI 3 "=r"))]
-  ""
-  "mov\t%2, a0\;call0\t0f\;.align\t4\;0:\;mov\t%3, a0\;mov\ta0, %2\;\
-srli\t%3, %3, 30\;slli\t%0, %1, 2\;ssai\t2\;src\t%0, %3, %0"
-  [(set_attr "type"	"multi")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"24")])
 
 
 ;; Instructions for the Xtensa "boolean" option.

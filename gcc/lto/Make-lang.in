@@ -70,7 +70,7 @@ lto.stagefeedback:
 
 $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-		$(LTO_OBJS) $(BACKEND) $(LIBS) -lelf
+		$(LTO_OBJS) $(BACKEND) $(LIBS) $(GMPLIBS) -lelf
 
 ########################################################################
 # Dependencies

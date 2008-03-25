@@ -302,7 +302,8 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
    and it belongs to basic block BB.
    PHI is not if-convertible
    - if it has more than 2 arguments.
-   - Virtual PHI is immediately used in another PHI node.  */
+   - Virtual PHI is immediately used in another PHI node.
+   - Virtual PHI on BB other than header.  */
 
 static bool
 if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
@@ -324,6 +325,13 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, tree phi)
     {
       imm_use_iterator imm_iter;
       use_operand_p use_p;
+
+      if (bb != loop->header)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Virtual phi not on loop header.\n");
+	  return false;
+	}
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, PHI_RESULT (phi))
 	{
 	  if (TREE_CODE (USE_STMT (use_p)) == PHI_NODE)
@@ -1152,8 +1160,10 @@ gate_tree_if_conversion (void)
   return flag_tree_vectorize != 0;
 }
 
-struct tree_opt_pass pass_if_conversion =
+struct gimple_opt_pass pass_if_conversion =
 {
+ {
+  GIMPLE_PASS,
   "ifcvt",				/* name */
   gate_tree_if_conversion,		/* gate */
   main_tree_if_conversion,		/* execute */
@@ -1165,7 +1175,7 @@ struct tree_opt_pass pass_if_conversion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops | TODO_verify_stmts | TODO_verify_flow,	
+  TODO_dump_func | TODO_verify_loops | TODO_verify_stmts | TODO_verify_flow
                                         /* todo_flags_finish */
-  0					/* letter */
+ }
 };

@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -75,6 +75,15 @@ static FILE *gfc_src_file;
 static char *gfc_src_preprocessor_lines[2];
 
 extern int pedantic;
+
+static struct gfc_file_change
+{
+  const char *filename;
+  gfc_linebuf *lb;
+  int line;
+} *file_changes;
+size_t file_changes_cur, file_changes_count;
+size_t file_changes_allocated;
 
 /* Main scanner initialization.  */
 
@@ -299,48 +308,60 @@ gfc_at_eol (void)
   return (*gfc_current_locus.nextc == '\0');
 }
 
-
-struct file_entered_chainon
-{
-  gfc_file *file;
-  struct file_entered_chainon *prev;
-};
-
-static struct file_entered_chainon *last_file_entered = NULL;
-
 static void
-start_source_file (int line, gfc_file *file)
+add_file_change (const char *filename, int line)
 {
-  struct file_entered_chainon *f = gfc_getmem (sizeof
-                                       (struct file_entered_chainon));
-
-  f->file = file;
-  f->prev = last_file_entered;
-  last_file_entered = f;
-
-  (*debug_hooks->start_source_file) (line, file->filename);
-}
-
-static void
-end_source_file (int line)
-{
-  gcc_assert (last_file_entered);
-  last_file_entered = last_file_entered->prev;
-  (*debug_hooks->end_source_file) (line);
-}
-
-static void
-exit_remaining_files (void)
-{
-  struct file_entered_chainon *f = last_file_entered;
-  while (f)
+  if (file_changes_count == file_changes_allocated)
     {
-      /* The line number doesn't matter much, because we're at the end of
-         the toplevel file anyway.  */
-      (*debug_hooks->end_source_file) (0);
-
-      f = f->prev;
+      if (file_changes_allocated)
+	file_changes_allocated *= 2;
+      else
+	file_changes_allocated = 16;
+      file_changes
+	= xrealloc (file_changes,
+		    file_changes_allocated * sizeof (*file_changes));
     }
+  file_changes[file_changes_count].filename = filename;
+  file_changes[file_changes_count].lb = NULL;
+  file_changes[file_changes_count++].line = line;
+}
+
+static void
+report_file_change (gfc_linebuf *lb)
+{
+  size_t c = file_changes_cur;
+  while (c < file_changes_count
+	 && file_changes[c].lb == lb)
+    {
+      if (file_changes[c].filename)
+	(*debug_hooks->start_source_file) (file_changes[c].line,
+					   file_changes[c].filename);
+      else
+	(*debug_hooks->end_source_file) (file_changes[c].line);
+      ++c;
+    }
+  file_changes_cur = c;
+}
+
+void
+gfc_start_source_files (void)
+{
+  /* If the debugger wants the name of the main source file,
+     we give it.  */
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->start_source_file) (0, gfc_source_file);
+
+  file_changes_cur = 0;
+  report_file_change (gfc_current_locus.lb);
+}
+
+void
+gfc_end_source_files (void)
+{
+  report_file_change (NULL);
+
+  if (debug_hooks->start_end_main_source_file)
+    (*debug_hooks->end_source_file) (0);
 }
 
 /* Advance the current line pointer to the next line.  */
@@ -349,10 +370,7 @@ void
 gfc_advance_line (void)
 {
   if (gfc_at_end ())
-    {
-      exit_remaining_files ();
-      return;
-    }
+    return;
 
   if (gfc_current_locus.lb == NULL) 
     {
@@ -361,24 +379,10 @@ gfc_advance_line (void)
     } 
 
   if (gfc_current_locus.lb->next
-      && gfc_current_locus.lb->next->file != gfc_current_locus.lb->file)
+      && !gfc_current_locus.lb->next->dbg_emitted)
     {
-      if (gfc_current_locus.lb->next->file
-	  && !gfc_current_locus.lb->next->dbg_emitted
-	  && gfc_current_locus.lb->file->up == gfc_current_locus.lb->next->file)
-	{
-	  /* We exit from an included file. */
-	  end_source_file (gfc_linebuf_linenum (gfc_current_locus.lb->next));
-	  gfc_current_locus.lb->next->dbg_emitted = true;
-	}
-      else if (gfc_current_locus.lb->next->file != gfc_current_locus.lb->file
-	       && !gfc_current_locus.lb->next->dbg_emitted)
-	{
-	  /* We enter into a new file.  */
-	  start_source_file (gfc_linebuf_linenum (gfc_current_locus.lb),
-			     gfc_current_locus.lb->next->file);
-	  gfc_current_locus.lb->next->dbg_emitted = true;
-	}
+      report_file_change (gfc_current_locus.lb->next);
+      gfc_current_locus.lb->next->dbg_emitted = true;
     }
 
   gfc_current_locus.lb = gfc_current_locus.lb->next;
@@ -1060,11 +1064,7 @@ gfc_gobble_whitespace (void)
 	 line will be scanned multiple times.  */
       if (!gfc_option.warn_tabs && c == '\t')
 	{
-#ifdef USE_MAPPED_LOCATION
 	  int cur_linenum = LOCATION_LINE (gfc_current_locus.lb->location);
-#else
-	  int cur_linenum = gfc_current_locus.lb->linenum;
-#endif
 	  if (cur_linenum != linenum)
 	    {
 	      linenum = cur_linenum;
@@ -1102,6 +1102,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
   int trunc_flag = 0, seen_comment = 0;
   int seen_printable = 0, seen_ampersand = 0;
   char *buffer;
+  bool found_tab = false;
 
   /* Determine the maximum allowed line length.  */
   if (gfc_current_form == FORM_FREE)
@@ -1172,7 +1173,7 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	    seen_ampersand = 1;
 	}
 
-      if ((c != '&' && c != '!') || (c == '!' && !seen_ampersand))
+      if ((c != '&' && c != '!' && c != ' ') || (c == '!' && !seen_ampersand))
 	seen_printable = 1;
 
       /* Is this a fixed-form comment?  */
@@ -1180,17 +1181,30 @@ load_line (FILE *input, char **pbuf, int *pbuflen)
 	  && (c == '*' || c == 'c' || c == 'd'))
 	seen_comment = 1;
 
-      if (gfc_current_form == FORM_FIXED && c == '\t' && i <= 6)
+      /* Vendor extension: "<tab>1" marks a continuation line.  */
+      if (found_tab)
 	{
+	  found_tab = false;
+	  if (c >= '1' && c <= '9')
+	    {
+	      *(buffer-1) = c;
+	      continue;
+	    }
+	}
+
+      if (gfc_current_form == FORM_FIXED && c == '\t' && i < 6)
+	{
+	  found_tab = true;
+
 	  if (!gfc_option.warn_tabs && seen_comment == 0
 	      && current_line != linenum)
 	    {
 	      linenum = current_line;
-	      gfc_warning_now ("Nonconforming tab character in column 1 "
-			       "of line %d", linenum);
+	      gfc_warning_now ("Nonconforming tab character in column %d "
+			       "of line %d", i+1, linenum);
 	    }
 
-	  while (i <= 6)
+	  while (i < 6)
 	    {
 	      *buffer++ = ' ';
 	      i++;
@@ -1263,13 +1277,11 @@ get_file (const char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
   f->next = file_head;
   file_head = f;
 
-  f->included_by = current_file;
+  f->up = current_file;
   if (current_file != NULL)
     f->inclusion_line = current_file->line;
 
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, reason, false, f->filename, 1);
-#endif
 
   return f;
 }
@@ -1375,7 +1387,7 @@ preprocessor_line (char *c)
   if (flag[1]) /* Starting new file.  */
     {
       f = get_file (filename, LC_RENAME);
-      f->up = current_file;
+      add_file_change (f->filename, f->inclusion_line);
       current_file = f;
     }
 
@@ -1392,11 +1404,10 @@ preprocessor_line (char *c)
 	  return;
 	}
 
+      add_file_change (NULL, line);
       current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
       linemap_add (line_table, LC_RENAME, false, current_file->filename,
 		   current_file->line);
-#endif
     }
 
   /* The name of the file can be a temporary file produced by
@@ -1543,7 +1554,8 @@ load_file (const char *filename, bool initial)
   /* Load the file.  */
 
   f = get_file (filename, initial ? LC_RENAME : LC_ENTER);
-  f->up = current_file;
+  if (!initial)
+    add_file_change (f->filename, f->inclusion_line);
   current_file = f;
   current_file->line = 1;
   line = NULL;
@@ -1625,12 +1637,8 @@ load_file (const char *filename, bool initial)
 
       b = gfc_getmem (gfc_linebuf_header_size + len + 1);
 
-#ifdef USE_MAPPED_LOCATION
       b->location
 	= linemap_line_start (line_table, current_file->line++, 120);
-#else
-      b->linenum = current_file->line++;
-#endif
       b->file = current_file;
       b->truncated = trunc;
       strcpy (b->line, line);
@@ -1641,6 +1649,9 @@ load_file (const char *filename, bool initial)
 	line_tail->next = b;
 
       line_tail = b;
+
+      while (file_changes_cur < file_changes_count)
+	file_changes[file_changes_cur++].lb = b;
     }
 
   /* Release the line buffer allocated in load_line.  */
@@ -1648,10 +1659,10 @@ load_file (const char *filename, bool initial)
 
   fclose (input);
 
+  if (!initial)
+    add_file_change (NULL, current_file->inclusion_line + 1);
   current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, LC_LEAVE, 0, NULL, 0);
-#endif
   return SUCCESS;
 }
 
@@ -1674,13 +1685,8 @@ gfc_new_file (void)
 #if 0 /* Debugging aid.  */
   for (; line_head; line_head = line_head->next)
     gfc_status ("%s:%3d %s\n",
-#ifdef USE_MAPPED_LOCATION
 		LOCATION_FILE (line_head->location),
 		LOCATION_LINE (line_head->location),
-#else
-		line_head->file->filename, 
-		line_head->linenum,
-#endif
 		line_head->line);
 
   exit (0);

@@ -782,6 +782,7 @@ build_install_headers_dir
 build_xm_file_list
 build_xm_include_list
 build_xm_defines
+build_file_translate
 check_languages
 cpp_install_dir
 xmake_file
@@ -1426,7 +1427,6 @@ Optional Features:
 			  Categories are: yes,no,all,none,release.
 			  Flags are: assert,df,fold,gc,gcac,misc,
 			  rtlflag,rtl,runtime,tree,valgrind,types.
-  --enable-mapped-location   location_t is fileline integer cookie
   --enable-coverage=LEVEL
 			  enable compiler's code coverage collection.
 			  Use to measure compiler performance and locate
@@ -7117,7 +7117,7 @@ do
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;
-			ac_types_checking= ;;
+			ac_types_checking=1 ;;
 	no|none)	ac_assert_checking= ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
@@ -7558,22 +7558,6 @@ fi
 
 
 
-# Check whether --enable-mapped-location was given.
-if test "${enable_mapped_location+set}" = set; then
-  enableval=$enable_mapped_location;
-else
-  enable_mapped_location=yes
-fi
-
-
-if test "$enable_mapped_location" = yes ; then
-
-cat >>confdefs.h <<\_ACEOF
-#define USE_MAPPED_LOCATION 1
-_ACEOF
-
-fi
-
 # Enable code coverage collection
 # Check whether --enable-coverage was given.
 if test "${enable_coverage+set}" = set; then
@@ -7718,7 +7702,16 @@ else
 
   case $target in
     mips*-*-*)
-      enable_fixed_point=yes
+      case $host in
+	mips*-sgi-irix*)
+	  { echo "$as_me:$LINENO: WARNING: fixed-point is not supported on IRIX" >&5
+echo "$as_me: WARNING: fixed-point is not supported on IRIX" >&2;}
+	  enable_fixed_point=no
+	  ;;
+	*)
+	  enable_fixed_point=yes
+	  ;;
+      esac
       ;;
     *)
       { echo "$as_me:$LINENO: WARNING: fixed-point is not supported for this target" >&5
@@ -12827,14 +12820,36 @@ objext='.o'
 # With Setjmp/Longjmp based exception handling.
 # Check whether --enable-sjlj-exceptions was given.
 if test "${enable_sjlj_exceptions+set}" = set; then
-  enableval=$enable_sjlj_exceptions; sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
+  enableval=$enable_sjlj_exceptions; case $target in
+  *-*-hpux10*)
+    if test $enableval != yes; then
+      { echo "$as_me:$LINENO: WARNING: dwarf2 exceptions not supported, sjlj exceptions forced" >&5
+echo "$as_me: WARNING: dwarf2 exceptions not supported, sjlj exceptions forced" >&2;}
+      enableval=yes
+    fi
+    ;;
+esac
+force_sjlj_exceptions=yes
+else
+  case $target in
+  *-*-hpux10*)
+    force_sjlj_exceptions=yes
+    enableval=yes
+    ;;
+  *)
+    force_sjlj_exceptions=no
+    ;;
+esac
+fi
+
+if test $force_sjlj_exceptions = yes; then
+  sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
 
 cat >>confdefs.h <<_ACEOF
 #define CONFIG_SJLJ_EXCEPTIONS $sjlj
 _ACEOF
 
 fi
-
 
 # For platforms with the unwind ABI which includes an unwind library,
 # libunwind, we can choose to use the system libunwind.
@@ -14572,11 +14587,7 @@ else
   ld_ver=`$gcc_cv_ld --version 2>/dev/null | sed 1q`
   if echo "$ld_ver" | grep GNU > /dev/null; then
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     ld_date=`echo $ld_ver | sed -n 's,^.*\([2-9][0-9][0-9][0-9]\)[-]*\([01][0-9]\)[-]*\([0-3][0-9]\).*$,\1\2\3,p'`
     ld_vers_major=`expr "$ld_vers" : '\([0-9]*\)'`
     ld_vers_minor=`expr "$ld_vers" : '[0-9]*\.\([0-9]*\)'`
@@ -14659,13 +14670,7 @@ L2:' > conftest.s
   as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
   if echo "$as_ver" | grep GNU > /dev/null; then
     as_vers=`echo $as_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
-	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 -].*$,\1,p'`
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
     as_major=`expr "$as_vers" : '\([0-9]*\)'`
     as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
     if test $as_major -eq 2 && test $as_minor -lt 11
@@ -17197,8 +17202,14 @@ else
 	     && $EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+([1-9][0-9]|[4-9])' \
 	     $glibc_header_dir/features.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
+	elif $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC__[ 	]+1' \
+	     $glibc_header_dir/features.h > /dev/null && \
+	     test -f $glibc_header_dir/bits/uClibc_config.h && \
+	     $EGREP '^[ 	]*#[ 	]*define[ 	]+__UCLIBC_HAS_SSP__[ 	]+1' \
+	     $glibc_header_dir/bits/uClibc_config.h > /dev/null; then
+	  gcc_cv_libc_provides_ssp=yes
 	fi
-        fi
+      fi
 	;;
        *-*-darwin*)
 	 { echo "$as_me:$LINENO: checking for __stack_chk_fail" >&5
@@ -17622,6 +17633,7 @@ fi
 
 
 # Substitute configuration variables
+
 
 
 
@@ -18556,6 +18568,7 @@ build_install_headers_dir!$build_install_headers_dir$ac_delim
 build_xm_file_list!$build_xm_file_list$ac_delim
 build_xm_include_list!$build_xm_include_list$ac_delim
 build_xm_defines!$build_xm_defines$ac_delim
+build_file_translate!$build_file_translate$ac_delim
 check_languages!$check_languages$ac_delim
 cpp_install_dir!$cpp_install_dir$ac_delim
 xmake_file!$xmake_file$ac_delim
@@ -18577,7 +18590,6 @@ out_host_hook_obj!$out_host_hook_obj$ac_delim
 install!$install$ac_delim
 lang_opt_files!$lang_opt_files$ac_delim
 lang_specs_files!$lang_specs_files$ac_delim
-lang_tree_files!$lang_tree_files$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -18619,6 +18631,7 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+lang_tree_files!$lang_tree_files$ac_delim
 local_prefix!$local_prefix$ac_delim
 md_file!$md_file$ac_delim
 objc_boehm_gc!$objc_boehm_gc$ac_delim
@@ -18642,7 +18655,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 21; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 22; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

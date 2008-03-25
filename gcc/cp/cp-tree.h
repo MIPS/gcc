@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -91,11 +91,11 @@ struct diagnostic_info;
 
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
-   1: TYPE_HAS_CONSTRUCTOR.
+   1: TYPE_HAS_USER_CONSTRUCTOR.
    2: Unused
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
-   5: IS_AGGR_TYPE.
+   5: CLASS_TYPE_P.
    6: TYPE_DEPENDENT_P_VALID
 
    Usage of DECL_LANG_FLAG_?:
@@ -958,11 +958,9 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Nonzero if T is a class (or struct or union) type.  Also nonzero
    for template type parameters, typename types, and instantiated
-   template template parameters.  Despite its name,
-   this macro has nothing to do with the definition of aggregate given
-   in the standard.  Think of this macro as MAYBE_CLASS_TYPE_P.  Keep
-   these checks in ascending code order.  */
-#define IS_AGGR_TYPE(T)					\
+   template template parameters.  Keep these checks in ascending code
+   order.  */
+#define MAYBE_CLASS_TYPE_P(T)					\
   (TREE_CODE (T) == TEMPLATE_TYPE_PARM			\
    || TREE_CODE (T) == TYPENAME_TYPE			\
    || TREE_CODE (T) == TYPEOF_TYPE			\
@@ -970,22 +968,22 @@ enum languages { lang_c, lang_cplusplus, lang_java };
    || TREE_CODE (T) == DECLTYPE_TYPE			\
    || TYPE_LANG_FLAG_5 (T))
 
-/* Set IS_AGGR_TYPE for T to VAL.  T must be a class, struct, or
+/* Set CLASS_TYPE_P for T to VAL.  T must be a class, struct, or
    union type.  */
-#define SET_IS_AGGR_TYPE(T, VAL) \
+#define SET_CLASS_TYPE_P(T, VAL) \
   (TYPE_LANG_FLAG_5 (T) = (VAL))
 
 /* Nonzero if T is a class type.  Zero for template type parameters,
    typename types, and so forth.  */
 #define CLASS_TYPE_P(T) \
-  (IS_AGGR_TYPE_CODE (TREE_CODE (T)) && TYPE_LANG_FLAG_5 (T))
+  (RECORD_OR_UNION_CODE_P (TREE_CODE (T)) && TYPE_LANG_FLAG_5 (T))
 
 /* Nonzero if T is a class type but not an union.  */
 #define NON_UNION_CLASS_TYPE_P(T) \
   (CLASS_TYPE_P (T) && TREE_CODE (T) != UNION_TYPE)
 
 /* Keep these checks in ascending code order.  */
-#define IS_AGGR_TYPE_CODE(T)	\
+#define RECORD_OR_UNION_CODE_P(T)	\
   ((T) == RECORD_TYPE || (T) == UNION_TYPE)
 #define TAGGED_TYPE_P(T) \
   (CLASS_TYPE_P (T) || TREE_CODE (T) == ENUMERAL_TYPE)
@@ -1033,11 +1031,6 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Similarly, but for DECL_ARGUMENTS.  */
 #define FUNCTION_FIRST_USER_PARM(NODE) \
   skip_artificial_parms_for ((NODE), DECL_ARGUMENTS (NODE))
-
-#define PROMOTES_TO_AGGR_TYPE(NODE, CODE)	\
-  (((CODE) == TREE_CODE (NODE)			\
-    && IS_AGGR_TYPE (TREE_TYPE (NODE)))		\
-   || IS_AGGR_TYPE (NODE))
 
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
@@ -1655,11 +1648,11 @@ struct lang_decl GTY(())
       {
 	/* In an overloaded operator, this is the value of
 	   DECL_OVERLOADED_OPERATOR_P.  */
-	ENUM_BITFIELD (tree_code) operator_code : 8;
+	ENUM_BITFIELD (tree_code) operator_code : 16;
 
 	unsigned u3sel : 1;
 	unsigned pending_inline_p : 1;
-	unsigned spare : 22;
+	unsigned spare : 14;
 
 	/* For a non-thunk function decl, this is a tree list of
 	   friendly classes. For a thunk function decl, it is the
@@ -2709,7 +2702,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Nonzero for a class type means that the class type has a
    user-declared constructor.  */
-#define TYPE_HAS_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
+#define TYPE_HAS_USER_CONSTRUCTOR(NODE) (TYPE_LANG_FLAG_1 (NODE))
 
 /* When appearing in an INDIRECT_REF, it means that the tree structure
    underneath is actually a call to a constructor.  This is needed
@@ -2746,7 +2739,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define CLASSTYPE_NON_AGGREGATE(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->non_aggregate)
 #define TYPE_NON_AGGREGATE_CLASS(NODE) \
-  (IS_AGGR_TYPE (NODE) && CLASSTYPE_NON_AGGREGATE (NODE))
+  (MAYBE_CLASS_TYPE_P (NODE) && CLASSTYPE_NON_AGGREGATE (NODE))
 
 /* Nonzero if there is a user-defined X::op=(x&) for this class.  */
 #define TYPE_HAS_COMPLEX_ASSIGN_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_complex_assign_ref)
@@ -4157,6 +4150,7 @@ extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
+extern bool type_has_user_nondefault_constructor (tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -4343,9 +4337,10 @@ extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, bool);
 extern tree expand_member_init			(tree);
 extern void emit_mem_initializers		(tree);
 extern tree build_aggr_init			(tree, tree, int);
-extern int is_aggr_type				(tree, int);
+extern int is_class_type			(tree, int);
 extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
+extern tree build_value_init			(tree);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, bool, int);
@@ -4372,7 +4367,7 @@ extern void retrofit_lang_decl			(tree);
 extern tree copy_decl				(tree);
 extern tree copy_type				(tree);
 extern tree cxx_make_type			(enum tree_code);
-extern tree make_aggr_type			(enum tree_code);
+extern tree make_class_type			(enum tree_code);
 extern void yyerror				(const char *);
 extern void yyhook				(int);
 extern bool cxx_init				(void);
@@ -4435,7 +4430,7 @@ extern int comp_template_parms			(const_tree, const_tree);
 extern bool uses_parameter_packs                (tree);
 extern bool template_parameter_pack_p           (const_tree);
 extern tree make_pack_expansion                 (tree);
-extern bool check_for_bare_parameter_packs      (tree*);
+extern bool check_for_bare_parameter_packs      (tree);
 extern tree get_template_info			(tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);

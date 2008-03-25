@@ -388,13 +388,13 @@ layout_decl (tree decl, unsigned int known_align)
 	    {
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
+	      unsigned int xalign = GET_MODE_ALIGNMENT (xmode);
 
 	      if (xmode != BLKmode
-		  && (known_align == 0
-		      || known_align >= GET_MODE_ALIGNMENT (xmode)))
+		  && !(xalign > BITS_PER_UNIT && DECL_PACKED (decl))
+		  && (known_align == 0 || known_align >= xalign))
 		{
-		  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
-					   DECL_ALIGN (decl));
+		  DECL_ALIGN (decl) = MAX (xalign, DECL_ALIGN (decl));
 		  DECL_MODE (decl) = xmode;
 		  DECL_BIT_FIELD (decl) = 0;
 		}
@@ -464,9 +464,9 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning (OPT_Wlarger_than_, "size of %q+D is %d bytes", decl, size_as_int);
+	    warning (OPT_Wlarger_than_eq, "size of %q+D is %d bytes", decl, size_as_int);
 	  else
-	    warning (OPT_Wlarger_than_, "size of %q+D is larger than %wd bytes",
+	    warning (OPT_Wlarger_than_eq, "size of %q+D is larger than %wd bytes",
                      decl, larger_than_size);
 	}
     }
@@ -496,17 +496,6 @@ relayout_decl (tree decl)
   layout_decl (decl, 0);
 }
 
-/* Hook for a front-end function that can modify the record layout as needed
-   immediately before it is finalized.  */
-
-static void (*lang_adjust_rli) (record_layout_info) = 0;
-
-void
-set_lang_adjust_rli (void (*f) (record_layout_info))
-{
-  lang_adjust_rli = f;
-}
-
 /* Begin laying out type T, which may be a RECORD_TYPE, UNION_TYPE, or
    QUAL_UNION_TYPE.  Return a pointer to a struct record_layout_info which
    is to be passed to all other layout functions for this record.  It is the
@@ -1865,9 +1854,6 @@ layout_type (tree type)
 
 	if (TREE_CODE (type) == QUAL_UNION_TYPE)
 	  TYPE_FIELDS (type) = nreverse (TYPE_FIELDS (type));
-
-	if (lang_adjust_rli)
-	  (*lang_adjust_rli) (rli);
 
 	/* Finish laying out the record.  */
 	finish_record_layout (rli, /*free_p=*/true);

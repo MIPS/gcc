@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008  Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -308,7 +308,7 @@ grok_array_decl (tree array_expr, tree index_exp)
   type = non_reference (type);
 
   /* If they have an `operator[]', use that.  */
-  if (IS_AGGR_TYPE (type) || IS_AGGR_TYPE (TREE_TYPE (index_exp)))
+  if (MAYBE_CLASS_TYPE_P (type) || MAYBE_CLASS_TYPE_P (TREE_TYPE (index_exp)))
     expr = build_new_op (ARRAY_REF, LOOKUP_NORMAL,
 			 array_expr, index_exp, NULL_TREE,
 			 /*overloaded_p=*/NULL);
@@ -443,7 +443,7 @@ check_member_template (tree tmpl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       || (TREE_CODE (decl) == TYPE_DECL
-	  && IS_AGGR_TYPE (TREE_TYPE (decl))))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (decl))))
     {
       /* The parser rejects template declarations in local classes.  */
       gcc_assert (!current_function_decl);
@@ -985,17 +985,32 @@ is_late_template_attribute (tree attr, tree decl)
   tree name = TREE_PURPOSE (attr);
   tree args = TREE_VALUE (attr);
   const struct attribute_spec *spec = lookup_attribute_spec (name);
+  tree arg;
 
   if (!spec)
     /* Unknown attribute.  */
     return false;
 
-  if (is_attribute_p ("aligned", name)
-      && args
-      && value_dependent_expression_p (TREE_VALUE (args)))
-    /* Can't apply this until we know the desired alignment.  */
+  /* Attribute vector_size handling wants to dive into the back end array
+     building code, which breaks during template processing.  */
+  if (is_attribute_p ("vector_size", name)
+      /* Attribute weak handling wants to write out assembly right away.  */
+      || is_attribute_p ("weak", name))
     return true;
-  else if (TREE_CODE (decl) == TYPE_DECL || spec->type_required)
+
+  /* If any of the arguments are dependent expressions, we can't evaluate
+     the attribute until instantiation time.  */
+  for (arg = args; arg; arg = TREE_CHAIN (arg))
+    {
+      tree t = TREE_VALUE (arg);
+      if (value_dependent_expression_p (t)
+	  || type_dependent_expression_p (t))
+	return true;
+    }
+
+  if (TREE_CODE (decl) == TYPE_DECL
+      || TYPE_P (decl)
+      || spec->type_required)
     {
       tree type = TYPE_P (decl) ? decl : TREE_TYPE (decl);
 
@@ -1005,6 +1020,13 @@ is_late_template_attribute (tree attr, tree decl)
       if (code == TEMPLATE_TYPE_PARM
 	  || code == BOUND_TEMPLATE_TEMPLATE_PARM
 	  || code == TYPENAME_TYPE)
+	return true;
+      /* Also defer most attributes on dependent types.  This is not
+	 necessary in all cases, but is the better default.  */
+      else if (dependent_type_p (type)
+	       /* But attribute visibility specifically works on
+		  templates.  */
+	       && !is_attribute_p ("visibility", name))
 	return true;
       else
 	return false;
@@ -1053,6 +1075,7 @@ save_template_attributes (tree *attr_p, tree *decl_p)
 {
   tree late_attrs = splice_template_attributes (attr_p, *decl_p);
   tree *q;
+  tree old_attrs = NULL_TREE;
 
   if (!late_attrs)
     return;
@@ -1075,9 +1098,26 @@ save_template_attributes (tree *attr_p, tree *decl_p)
   else
     q = &TYPE_ATTRIBUTES (*decl_p);
 
-  if (*q)
-    q = &TREE_CHAIN (tree_last (*q));
+  old_attrs = *q;
+
+  /* Place the late attributes at the beginning of the attribute
+     list.  */
+  TREE_CHAIN (tree_last (late_attrs)) = *q;
   *q = late_attrs;
+
+  if (!DECL_P (*decl_p) && *decl_p == TYPE_MAIN_VARIANT (*decl_p))
+    {
+      /* We've added new attributes directly to the main variant, so
+	 now we need to update all of the other variants to include
+	 these new attributes.  */
+      tree variant;
+      for (variant = TYPE_NEXT_VARIANT (*decl_p); variant;
+	   variant = TYPE_NEXT_VARIANT (variant))
+	{
+	  gcc_assert (TYPE_ATTRIBUTES (variant) == old_attrs);
+	  TYPE_ATTRIBUTES (variant) = TYPE_ATTRIBUTES (*decl_p);
+	}
+    }
 }
 
 /* Like decl_attributes, but handle C++ complexity.  */
@@ -1092,6 +1132,9 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   if (processing_template_decl)
     {
+      if (check_for_bare_parameter_packs (attributes))
+	return;
+
       save_template_attributes (&attributes, decl);
       if (attributes == NULL_TREE)
 	return;
@@ -1986,7 +2029,7 @@ constrain_class_visibility (tree type)
 %qT has a field %qD whose type uses the anonymous namespace",
 		       type, t);
 	  }
-	else if (IS_AGGR_TYPE (ftype)
+	else if (MAYBE_CLASS_TYPE_P (ftype)
 		 && vis < VISIBILITY_HIDDEN
 		 && subvis >= VISIBILITY_HIDDEN)
 	  warning (OPT_Wattributes, "\
@@ -2230,7 +2273,8 @@ import_export_decl (tree decl)
     {
       /* DECL is an implicit instantiation of a function or static
 	 data member.  */
-      if (flag_implicit_templates
+      if ((flag_implicit_templates
+	   && !flag_use_repository)
 	  || (flag_implicit_inline_templates
 	      && TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_DECLARED_INLINE_P (decl)))
@@ -2951,11 +2995,8 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   size_t i;
 
   input_location = *locus;
-#ifdef USE_MAPPED_LOCATION
   /* ??? */
-#else
-  locus->line++;
-#endif
+  /* Was: locus->line++; */
 
   /* We use `I' to indicate initialization and `D' to indicate
      destruction.  */
@@ -3135,13 +3176,7 @@ cp_write_global_declarations (void)
   if (pch_file)
     c_common_write_pch ();
 
-#ifdef USE_MAPPED_LOCATION
-  /* FIXME - huh? */
-#else
-  /* Otherwise, GDB can get confused, because in only knows
-     about source for LINENO-1 lines.  */
-  input_line -= 1;
-#endif
+  /* FIXME - huh?  was  input_line -= 1;*/
 
   /* We now have to write out all the stuff we put off writing out.
      These include:
@@ -3274,11 +3309,7 @@ cp_write_global_declarations (void)
 	     instantiations, etc.  */
 	  reconsider = true;
 	  ssdf_count++;
-#ifdef USE_MAPPED_LOCATION
-	  /* ??? */
-#else
-	  locus.line++;
-#endif
+	  /* ??? was:  locus.line++; */
 	}
 
       /* Go through the set of inline functions whose bodies have not
@@ -3359,7 +3390,9 @@ cp_write_global_declarations (void)
       /* Static data members are just like namespace-scope globals.  */
       for (i = 0; VEC_iterate (tree, pending_statics, i, decl); ++i)
 	{
-	  if (var_finalized_p (decl) || DECL_REALLY_EXTERN (decl))
+	  if (var_finalized_p (decl) || DECL_REALLY_EXTERN (decl)
+	      /* Don't write it out if we haven't seen a definition.  */
+	      || DECL_IN_AGGR_P (decl))
 	    continue;
 	  import_export_decl (decl);
 	  /* If this static data member is needed, provide it to the

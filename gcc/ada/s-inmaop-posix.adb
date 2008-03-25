@@ -60,8 +60,9 @@ package body System.Interrupt_Management.Operations is
    Initial_Action : array (Signal) of aliased struct_sigaction;
 
    Default_Action : aliased struct_sigaction;
+   pragma Warnings (Off, Default_Action);
 
-   Ignore_Action  : aliased struct_sigaction;
+   Ignore_Action : aliased struct_sigaction;
 
    ----------------------------
    -- Thread_Block_Interrupt --
@@ -77,7 +78,7 @@ package body System.Interrupt_Management.Operations is
       pragma Assert (Result = 0);
       Result := sigaddset (Mask'Access, Signal (Interrupt));
       pragma Assert (Result = 0);
-      Result := pthread_sigmask (SIG_BLOCK, Mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_BLOCK, Mask'Access, null);
       pragma Assert (Result = 0);
    end Thread_Block_Interrupt;
 
@@ -95,7 +96,7 @@ package body System.Interrupt_Management.Operations is
       pragma Assert (Result = 0);
       Result := sigaddset (Mask'Access, Signal (Interrupt));
       pragma Assert (Result = 0);
-      Result := pthread_sigmask (SIG_UNBLOCK, Mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_UNBLOCK, Mask'Access, null);
       pragma Assert (Result = 0);
    end Thread_Unblock_Interrupt;
 
@@ -136,11 +137,11 @@ package body System.Interrupt_Management.Operations is
    --------------------
 
    function Interrupt_Wait
-     (Mask : access Interrupt_Mask)
-      return Interrupt_ID
+     (Mask : access Interrupt_Mask) return Interrupt_ID
    is
       Result : Interfaces.C.int;
       Sig    : aliased Signal;
+
    begin
       Result := sigwait (Mask, Sig'Access);
 
@@ -286,7 +287,7 @@ begin
 
       for Sig in 1 .. Signal'Last loop
          Result := sigaction
-           (Sig, null, Initial_Action (Sig)'Unchecked_Access);
+           (Sig, null, Initial_Action (Sig)'Access);
 
          --  ??? [assert 1]
          --  we can't check Result here since sigaction will fail on
@@ -326,12 +327,12 @@ begin
 
       --  The Keep_Unmasked signals should be unmasked for Environment task
 
-      Result := pthread_sigmask (SIG_UNBLOCK, mask'Unchecked_Access, null);
+      Result := pthread_sigmask (SIG_UNBLOCK, mask'Access, null);
       pragma Assert (Result = 0);
 
       --  Get the signal mask of the Environment Task
 
-      Result := pthread_sigmask (SIG_SETMASK, null, mask'Unchecked_Access);
+      Result := pthread_sigmask (SIG_SETMASK, null, mask'Access);
       pragma Assert (Result = 0);
 
       --  Setup the constants exported

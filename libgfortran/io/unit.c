@@ -204,6 +204,16 @@ insert_unit (int n)
 }
 
 
+/* destroy_unit_mutex()-- Destroy the mutex and free memory of unit.  */
+
+static void
+destroy_unit_mutex (gfc_unit * u)
+{
+  __gthread_mutex_destroy (&u->lock);
+  free_mem (u);
+}
+
+
 static gfc_unit *
 delete_root (gfc_unit * t)
 {
@@ -341,7 +351,7 @@ found:
 	  __gthread_mutex_lock (&unit_lock);
 	  __gthread_mutex_unlock (&p->lock);
 	  if (predec_waiting_locked (p) == 0)
-	    free_mem (p);
+	    destroy_unit_mutex (p);
 	  goto retry;
 	}
 
@@ -369,6 +379,7 @@ gfc_unit *
 get_internal_unit (st_parameter_dt *dtp)
 {
   gfc_unit * iunit;
+  gfc_offset start_record = 0;
 
   /* Allocate memory for a unit structure.  */
 
@@ -405,12 +416,15 @@ get_internal_unit (st_parameter_dt *dtp)
       iunit->ls = (array_loop_spec *)
 	get_mem (iunit->rank * sizeof (array_loop_spec));
       dtp->internal_unit_len *=
-	init_loop_spec (dtp->internal_unit_desc, iunit->ls);
+	init_loop_spec (dtp->internal_unit_desc, iunit->ls, &start_record);
+
+      start_record *= iunit->recl;
     }
 
   /* Set initial values for unit parameters.  */
 
-  iunit->s = open_internal (dtp->internal_unit, dtp->internal_unit_len);
+  iunit->s = open_internal (dtp->internal_unit - start_record,
+			    dtp->internal_unit_len, -start_record);
   iunit->bytes_left = iunit->recl;
   iunit->last_record=0;
   iunit->maxrec=0;
@@ -451,14 +465,18 @@ free_internal_unit (st_parameter_dt *dtp)
   if (!is_internal_unit (dtp))
     return;
 
-  if (dtp->u.p.current_unit->ls != NULL)
-      free_mem (dtp->u.p.current_unit->ls);
-  
-  sclose (dtp->u.p.current_unit->s);
-
   if (dtp->u.p.current_unit != NULL)
-    free_mem (dtp->u.p.current_unit);
+    {
+      if (dtp->u.p.current_unit->ls != NULL)
+	free_mem (dtp->u.p.current_unit->ls);
+  
+      if (dtp->u.p.current_unit->s)
+	free_mem (dtp->u.p.current_unit->s);
+  
+      destroy_unit_mutex (dtp->u.p.current_unit);
+    }
 }
+      
 
 
 /* get_unit()-- Returns the unit structure associated with the integer
@@ -581,27 +599,8 @@ close_unit_1 (gfc_unit *u, int locked)
 
   /* If there are previously written bytes from a write with ADVANCE="no"
      Reposition the buffer before closing.  */
-  if (u->saved_pos > 0)
-    {
-      char *p;
-
-      p = salloc_w (u->s, &u->saved_pos);
-
-      if (!(u->unit_number == options.stdout_unit
-	    || u->unit_number == options.stderr_unit))
-	{
-	  size_t len;
-
-	  const char crlf[] = "\r\n";
-#ifdef HAVE_CRLF
-	  len = 2;
-#else
-	  len = 1;
-#endif
-	  if (swrite (u->s, &crlf[2-len], &len) != 0)
-	    os_error ("Close after ADVANCE_NO failed");
-	}
-    }
+  if (u->previous_nonadvancing_write)
+    finish_last_advance_record (u);
 
   rc = (u->s == NULL) ? 0 : sclose (u->s) == FAILURE;
 
@@ -627,7 +626,7 @@ close_unit_1 (gfc_unit *u, int locked)
      avoid freeing the memory, the last such thread will free it
      instead.  */
   if (u->waiting == 0)
-    free_mem (u);
+    destroy_unit_mutex (u);
 
   if (!locked)
     __gthread_mutex_unlock (&unit_lock);
@@ -716,5 +715,29 @@ filename_from_unit (int n)
     }
   else
     return (char *) NULL;
+}
+
+void
+finish_last_advance_record (gfc_unit *u)
+{
+  char *p;
+
+  if (u->saved_pos > 0)
+    p = salloc_w (u->s, &u->saved_pos);
+
+  if (!(u->unit_number == options.stdout_unit
+	|| u->unit_number == options.stderr_unit))
+    {
+      size_t len;
+
+      const char crlf[] = "\r\n";
+#ifdef HAVE_CRLF
+      len = 2;
+#else
+      len = 1;
+#endif
+      if (swrite (u->s, &crlf[2-len], &len) != 0)
+	os_error ("Completing record after ADVANCE_NO failed");
+    }
 }
 

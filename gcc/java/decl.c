@@ -1,7 +1,7 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2007,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1850,13 +1850,8 @@ finish_method (tree fndecl)
   if (DECL_STRUCT_FUNCTION (fndecl))
     set_cfun (DECL_STRUCT_FUNCTION (fndecl));
   else
-    allocate_struct_function (fndecl);
-#ifdef USE_MAPPED_LOCATION
+    allocate_struct_function (fndecl, false);
   cfun->function_end_locus = DECL_FUNCTION_LAST_LINE (fndecl);
-#else
-  cfun->function_end_locus.file = DECL_SOURCE_FILE (fndecl);
-  cfun->function_end_locus.line = DECL_FUNCTION_LAST_LINE (fndecl);
-#endif
 
   /* Defer inlining and expansion to the cgraph optimizers.  */
   cgraph_finalize_function (fndecl, false);
@@ -1890,18 +1885,27 @@ java_mark_decl_local (tree decl)
 static void
 java_mark_cni_decl_local (tree decl)
 {
-  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the mangler.
-     We expect that we should not yet have referenced this decl in a 
-     context that requires it.  Check this invariant even if we don't have
-     support for hidden aliases.  */
-  gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
-
 #if !defined(HAVE_GAS_HIDDEN) || !defined(ASM_OUTPUT_DEF)
   return;
 #endif
 
   DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
   DECL_LOCAL_CNI_METHOD_P (decl) = 1;
+
+  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the
+     mangler.  We might have already referenced this native method and
+     therefore created its name, but even if we have it won't hurt.
+     We'll just go via its externally visible name, rather than its
+     hidden alias.  However, we must force things so that the correct
+     mangling is done.  */
+
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    java_mangle_decl (decl);
+  if (DECL_RTL_SET_P (decl))
+    {
+      SET_DECL_RTL (decl, 0);
+      make_decl_rtl (decl);
+    }
 }
 
 /* Use the preceding two functions and mark all members of the class.  */

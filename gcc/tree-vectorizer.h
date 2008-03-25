@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -23,19 +23,11 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-data-ref.h"
 
-#ifdef USE_MAPPED_LOCATION
-  typedef source_location LOC;
-  #define UNKNOWN_LOC UNKNOWN_LOCATION
-  #define EXPR_LOC(e) EXPR_LOCATION(e)
-  #define LOC_FILE(l) LOCATION_FILE (l)
-  #define LOC_LINE(l) LOCATION_LINE (l)
-#else
-  typedef source_locus LOC;
-  #define UNKNOWN_LOC NULL
-  #define EXPR_LOC(e) EXPR_LOCUS(e)
-  #define LOC_FILE(l) (l)->file
-  #define LOC_LINE(l) (l)->line
-#endif
+typedef source_location LOC;
+#define UNKNOWN_LOC UNKNOWN_LOCATION
+#define EXPR_LOC(e) EXPR_LOCATION(e)
+#define LOC_FILE(l) LOCATION_FILE (l)
+#define LOC_LINE(l) LOCATION_LINE (l)
 
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
@@ -75,6 +67,7 @@ enum verbosity_levels {
   REPORT_NONE,
   REPORT_VECTORIZED_LOOPS,
   REPORT_UNVECTORIZED_LOOPS,
+  REPORT_COST,
   REPORT_ALIGNMENT,
   REPORT_DR_DETAILS,
   REPORT_BAD_FORM_LOOPS,
@@ -166,6 +159,7 @@ typedef struct _loop_vec_info {
 
   /* Number of iterations.  */
   tree num_iters;
+  tree num_iters_unchanged;
 
   /* Minimum number of iterations below which vectorization is expected to
      not be profitable (as estimated by the cost model). 
@@ -230,6 +224,9 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_LOOP(L)            (L)->loop
 #define LOOP_VINFO_BBS(L)             (L)->bbs
 #define LOOP_VINFO_NITERS(L)          (L)->num_iters
+/* Since LOOP_VINFO_NITERS can change after prologue peeling
+   retain total unchanged scalar loop iterations for cost model.  */
+#define LOOP_VINFO_NITERS_UNCHANGED(L)          (L)->num_iters_unchanged
 #define LOOP_VINFO_COST_MODEL_MIN_ITERS(L)	(L)->min_profitable_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L)  (L)->vectorizable
 #define LOOP_VINFO_VECT_FACTOR(L)     (L)->vectorization_factor
@@ -632,7 +629,10 @@ extern bitmap vect_memsyms_to_rename;
    divide by the vectorization factor, and to peel the first few iterations
    to force the alignment of data references in the loop.  */
 extern struct loop *slpeel_tree_peel_loop_to_edge 
-  (struct loop *, edge, tree, tree, bool, unsigned int);
+  (struct loop *, edge, tree, tree, bool, unsigned int, bool);
+extern void set_prologue_iterations (basic_block, tree,
+				     struct loop *, unsigned int);
+struct loop *tree_duplicate_loop_on_edge (struct loop *, edge);
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
 #ifdef ENABLE_CHECKING
@@ -662,6 +662,7 @@ extern bool supportable_narrowing_operation (enum tree_code, const_tree,
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info, bool);
 extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
+extern void free_stmt_vec_info (tree stmt);
 
 
 /** In tree-vect-analyze.c  **/

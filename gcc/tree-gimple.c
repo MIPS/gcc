@@ -61,6 +61,7 @@ is_gimple_formal_tmp_rhs (tree t)
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
+    case COND_EXPR:
     case ADDR_EXPR:
     case CALL_EXPR:
     case CONSTRUCTOR:
@@ -166,17 +167,13 @@ is_gimple_addressable (tree t)
 	  || INDIRECT_REF_P (t));
 }
 
-/* Return true if T is a GIMPLE minimal invariant.  It's a restricted
-   form of function invariant.  */
+/* Return true if T is a valid gimple constant.  */
 
 bool
-is_gimple_min_invariant (const_tree t)
+is_gimple_constant (const_tree t)
 {
   switch (TREE_CODE (t))
     {
-    case ADDR_EXPR:
-      return TREE_INVARIANT (t);
-
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
@@ -195,6 +192,87 @@ is_gimple_min_invariant (const_tree t)
     default:
       return false;
     }
+}
+
+/* Return true if T is a gimple invariant address.  */
+
+bool
+is_gimple_invariant_address (const_tree t)
+{
+  tree op;
+
+  if (TREE_CODE (t) != ADDR_EXPR)
+    return false;
+
+  op = TREE_OPERAND (t, 0);
+  while (handled_component_p (op))
+    {
+      switch (TREE_CODE (op))
+	{
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  if (!is_gimple_constant (TREE_OPERAND (op, 1))
+	      || TREE_OPERAND (op, 2) != NULL_TREE
+	      || TREE_OPERAND (op, 3) != NULL_TREE)
+	    return false;
+	  break;
+
+	case COMPONENT_REF:
+	  if (TREE_OPERAND (op, 2) != NULL_TREE)
+	    return false;
+	  break;
+
+	default:;
+	}
+      op = TREE_OPERAND (op, 0);
+    }
+
+  if (CONSTANT_CLASS_P (op))
+    return true;
+
+  if (INDIRECT_REF_P (op))
+    return false;
+
+  switch (TREE_CODE (op))
+    {
+    case PARM_DECL:
+    case RESULT_DECL:
+    case LABEL_DECL:
+    case FUNCTION_DECL:
+      return true;
+
+    case VAR_DECL:
+      if (((TREE_STATIC (op) || DECL_EXTERNAL (op))
+	   && ! DECL_DLLIMPORT_P (op))
+	  || DECL_THREAD_LOCAL_P (op)
+	  || DECL_CONTEXT (op) == current_function_decl
+	  || decl_function_context (op) == current_function_decl)
+	return true;
+      break;
+
+    case CONST_DECL:
+      if ((TREE_STATIC (op) || DECL_EXTERNAL (op))
+	  || decl_function_context (op) == current_function_decl)
+	return true;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return false;
+}
+
+/* Return true if T is a GIMPLE minimal invariant.  It's a restricted
+   form of function invariant.  */
+
+bool
+is_gimple_min_invariant (const_tree t)
+{
+  if (TREE_CODE (t) == ADDR_EXPR)
+    return is_gimple_invariant_address (t);
+
+  return is_gimple_constant (t);
 }
 
 /* Return true if T looks like a valid GIMPLE statement.  */
@@ -247,6 +325,7 @@ is_gimple_stmt (tree t)
 
     case CALL_EXPR:
     case GIMPLE_MODIFY_STMT:
+    case PREDICT_EXPR:
       /* These are valid regardless of their type.  */
       return true;
 
@@ -284,7 +363,13 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg_type (tree type)
 {
-  return !AGGREGATE_TYPE_P (type);
+  /* In addition to aggregate types, we also exclude complex types if not
+     optimizing because they can be subject to partial stores in GNU C by
+     means of the __real__ and __imag__ operators and we cannot promote
+     them to total stores (see gimplify_modify_expr_complex_part).  */
+  return !(AGGREGATE_TYPE_P (type)
+	   || (TREE_CODE (type) == COMPLEX_TYPE && !optimize));
+
 }
 
 /* Return true if T is a non-aggregate register variable.  */
@@ -327,8 +412,8 @@ is_gimple_reg (tree t)
   if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
     return false;
 
-  /* Complex values must have been put into ssa form.  That is, no 
-     assignments to the individual components.  */
+  /* Complex and vector values must have been put into SSA-like form.
+     That is, no assignments to the individual components.  */
   if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
       || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
     return DECL_GIMPLE_REG_P (t);

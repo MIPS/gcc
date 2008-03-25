@@ -2444,28 +2444,33 @@ lto_materialize_function (struct cgraph_node *node)
 
   if (data)
     {
+      struct function *fn;
+
       /* This function has a definition.  */
       TREE_STATIC (decl) = 1;
       DECL_EXTERNAL (decl) = 0;
 
-      allocate_struct_function (decl);
+      allocate_struct_function (decl, false);
       lto_input_function_body (file_data, decl, data);
+      fn = DECL_STRUCT_FUNCTION (decl);
       free ((char *)data);
+
+      /* Look for initializers of constant variables and private
+	 statics.  */
+      for (step = fn->unexpanded_var_list;
+	   step;
+	   step = TREE_CHAIN (step))
+	{
+	  tree decl = TREE_VALUE (step);
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+	      && flag_unit_at_a_time)
+	    varpool_finalize_decl (decl);
+	}
     }
   else
     DECL_EXTERNAL (decl) = 1;
 
-  /* Look for initializers of constant variables and private statics.  */
-  for (step = cfun->unexpanded_var_list;
-       step;
-       step = TREE_CHAIN (step))
-    {
-      tree decl = TREE_VALUE (step);
-      if (TREE_CODE (decl) == VAR_DECL
-	  && (TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-	  && flag_unit_at_a_time)
-	varpool_finalize_decl (decl);
-    }
   /* Let the middle end know about the function.  */
   rest_of_decl_compilation (decl,
                             /*top_level=*/1,

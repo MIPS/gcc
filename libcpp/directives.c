@@ -1,7 +1,7 @@
 /* CPP Library. (Directive handling.)
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2007 Free Software Foundation, Inc.
+   2007, 2008 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -475,7 +475,7 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
     _cpp_backup_tokens (pfile, 1);
 
   end_directive (pfile, skip);
-  if (was_parsing_args)
+  if (was_parsing_args && !pfile->state.in_deferred_pragma)
     {
       /* Restore state when within macro args.  */
       pfile->state.parsing_args = 2;
@@ -864,9 +864,12 @@ do_line (cpp_reader *pfile)
       || strtoul_for_line (token->val.str.text, token->val.str.len,
 			   &new_lineno))
     {
-      cpp_error (pfile, CPP_DL_ERROR,
-		 "\"%s\" after #line is not a positive integer",
-		 cpp_token_as_text (pfile, token));
+      if (token->type == CPP_EOF)
+	cpp_error (pfile, CPP_DL_ERROR, "unexpected end of file after #line");
+      else
+	cpp_error (pfile, CPP_DL_ERROR,
+		   "\"%s\" after #line is not a positive integer",
+		   cpp_token_as_text (pfile, token));
       return;
     }
 
@@ -920,6 +923,8 @@ do_linemarker (cpp_reader *pfile)
       || strtoul_for_line (token->val.str.text, token->val.str.len,
 			   &new_lineno))
     {
+      /* Unlike #line, there does not seem to be a way to get an EOF
+	 here.  So, it should be safe to always spell the token.  */
       cpp_error (pfile, CPP_DL_ERROR,
 		 "\"%s\" after # is not a positive integer",
 		 cpp_token_as_text (pfile, token));
@@ -1502,6 +1507,7 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
   tokenrun *saved_cur_run;
   cpp_token *toks;
   int count;
+  const struct directive *save_directive;
 
   dest = result = (char *) alloca (in->len - 1);
   src = in->text + 1 + (in->text[0] == 'L');
@@ -1542,8 +1548,11 @@ destringize_and_run (cpp_reader *pfile, const cpp_string *in)
 
   start_directive (pfile);
   _cpp_clean_line (pfile);
+  save_directive = pfile->directive;
+  pfile->directive = &dtable[T_PRAGMA];
   do_pragma (pfile);
   end_directive (pfile, 1);
+  pfile->directive = save_directive;
 
   /* We always insert at least one token, the directive result.  It'll
      either be a CPP_PADDING or a CPP_PRAGMA.  In the later case, we 

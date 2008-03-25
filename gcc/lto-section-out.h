@@ -57,6 +57,7 @@ do { \
   ob-> STREAM = xcalloc (1, sizeof (struct lto_output_stream)); \
   lto_debug_context. CONTEXT = ob-> STREAM; \
   lto_debug_context.current_data = ob-> STREAM; \
+  lto_debug_context.stream_name = #CONTEXT; \
   gcc_assert (lto_debug_context.indent == 0);  \
 } while (0)
 #define LTO_CLEAR_DEBUGGING_STREAM(STREAM) \

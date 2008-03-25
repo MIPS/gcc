@@ -404,6 +404,7 @@ global_alloc (void)
       allocno[i].reg = regno;
       allocno[i].size = PSEUDO_REGNO_SIZE (regno);
       allocno[i].calls_crossed += REG_N_CALLS_CROSSED (regno);
+      allocno[i].freq_calls_crossed += REG_FREQ_CALLS_CROSSED (regno);
       allocno[i].throwing_calls_crossed
 	+= REG_N_THROWING_CALLS_CROSSED (regno);
       allocno[i].n_refs += REG_N_REFS (regno);
@@ -1010,6 +1011,21 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
     IOR_HARD_REG_SET (used1, losers);
 
   IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[(int) class]);
+
+#ifdef EH_RETURN_DATA_REGNO
+  if (allocno[num].no_eh_reg)
+    {
+      unsigned int j;
+      for (j = 0; ; ++j)
+	{
+	  unsigned int regno = EH_RETURN_DATA_REGNO (j);
+	  if (regno == INVALID_REGNUM)
+	    break;
+	  SET_HARD_REG_BIT (used1, regno);
+	}
+    }
+#endif
+
   COPY_HARD_REG_SET (used2, used1);
 
   IOR_HARD_REG_SET (used1, allocno[num].hard_reg_conflicts);
@@ -1164,8 +1180,9 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
       if (! accept_call_clobbered
 	  && allocno[num].calls_crossed != 0
 	  && allocno[num].throwing_calls_crossed == 0
-	  && CALLER_SAVE_PROFITABLE (allocno[num].n_refs,
-				     allocno[num].calls_crossed))
+	  && CALLER_SAVE_PROFITABLE (optimize_size ? allocno[num].n_refs : allocno[num].freq,
+				     optimize_size ? allocno[num].calls_crossed
+				     : allocno[num].freq_calls_crossed))
 	{
 	  HARD_REG_SET new_losers;
 	  if (! losers)
@@ -1473,7 +1490,7 @@ build_insn_chain (void)
 			/* We can model subregs, but not if they are
 			   wrapped in ZERO_EXTRACTS.  */
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
+			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_ZERO_EXTRACT))
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1484,6 +1501,17 @@ build_insn_chain (void)
 						  live_subregs, 
 						  live_subregs_used,
 						  regno, reg);
+
+			    if (!DF_REF_FLAGS_IS_SET
+				(def, DF_REF_STRICT_LOW_PART))
+			      {
+				/* Expand the range to cover entire words.
+				   Bytes added here are "don't care".  */
+				start = start / UNITS_PER_WORD * UNITS_PER_WORD;
+				last = ((last + UNITS_PER_WORD - 1)
+					/ UNITS_PER_WORD * UNITS_PER_WORD);
+			      }
+
 			    /* Ignore the paradoxical bits.  */
 			    if ((int)last > live_subregs_used[regno])
 			      last = live_subregs_used[regno];
@@ -1538,7 +1566,7 @@ build_insn_chain (void)
 		       precisely so we do not need to look at the
 		       fabricated use. */
 		    if (DF_REF_FLAGS_IS_SET (use, DF_REF_READ_WRITE) 
-			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT) 
+			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_ZERO_EXTRACT) 
 			&& DF_REF_FLAGS_IS_SET (use, DF_REF_SUBREG))
 		      continue;
 		    
@@ -1557,7 +1585,8 @@ build_insn_chain (void)
 		    if (regno < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
 		      {
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT)) 
+			    && !DF_REF_FLAGS_IS_SET (use,
+						     DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT)) 
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1754,7 +1783,7 @@ rest_of_handle_global_alloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+  if (dump_enabled_p (pass_global_alloc.pass.static_pass_number))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -1771,7 +1800,7 @@ rest_of_handle_global_alloc (void)
   reload_completed = !failure;
 
   /* The world has changed so much that at this point we might as well
-     just rescan everything.  Not that df_rescan_all_insns is not
+     just rescan everything.  Note that df_rescan_all_insns is not
      going to help here because it does not touch the artificial uses
      and defs.  */
   df_finish_pass (true);
@@ -1788,8 +1817,10 @@ rest_of_handle_global_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_global_alloc =
+struct rtl_opt_pass pass_global_alloc =
 {
+ {
+  RTL_PASS,
   "greg",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_global_alloc,          /* execute */
@@ -1802,7 +1833,7 @@ struct tree_opt_pass pass_global_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_verify_rtl_sharing
-  | TODO_ggc_collect,                   /* todo_flags_finish */
-  'g'                                   /* letter */
+  | TODO_ggc_collect                    /* todo_flags_finish */
+ }
 };
 

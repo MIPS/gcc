@@ -550,7 +550,10 @@ attempt_change (rtx new_addr, rtx inc_reg)
   switch (inc_insn.form)
     {
     case FORM_PRE_ADD:
-      mov_insn = insert_move_insn_before (mem_insn.insn, 
+      /* Replace the addition with a move.  Do it at the location of
+	 the addition since the operand of the addition may change
+	 before the memory reference.  */
+      mov_insn = insert_move_insn_before (inc_insn.insn, 
 					  inc_insn.reg_res, inc_insn.reg0);
       move_dead_notes (mov_insn, inc_insn.insn, inc_insn.reg0);
 
@@ -673,7 +676,7 @@ try_merge (void)
     }
 
   /* Look to see if the inc register is dead after the memory
-     reference.  If it is do not do the combination.  */
+     reference.  If it is, do not do the combination.  */
   if (find_regno_note (last_insn, REG_DEAD, REGNO (inc_reg)))
     {
       if (dump_file)
@@ -1537,8 +1540,10 @@ gate_auto_inc_dec (void)
 }
 
 
-struct tree_opt_pass pass_inc_dec =
+struct rtl_opt_pass pass_inc_dec =
 {
+ {
+  RTL_PASS,
   "auto-inc-dec",                       /* name */
   gate_auto_inc_dec,                    /* gate */
   rest_of_handle_auto_inc_dec,          /* execute */
@@ -1552,6 +1557,6 @@ struct tree_opt_pass pass_inc_dec =
   0,                                    /* todo_flags_start */
   TODO_dump_func | 
   TODO_df_finish,                       /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 

@@ -91,6 +91,7 @@ extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
 extern void ix86_split_convert_uns_si_sse (rtx[]);
 extern void ix86_expand_convert_uns_didf_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_sixf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sidf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sisf_sse (rtx, rtx);
 extern void ix86_expand_convert_sign_didf_sse (rtx, rtx);
@@ -137,8 +138,6 @@ extern bool ix86_function_arg_regno_p (int);
 extern int ix86_function_arg_boundary (enum machine_mode, tree);
 extern int ix86_return_in_memory (const_tree);
 extern int ix86_sol10_return_in_memory (const_tree);
-extern void ix86_va_start (tree, rtx);
-extern rtx ix86_va_arg (tree, tree);
 
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);

@@ -41,28 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "recog.h"
 
-/* Main analysis functions.  */
-static bool vect_analyze_data_refs (loop_vec_info);
-static bool vect_mark_stmts_to_be_vectorized (loop_vec_info);
-static void vect_analyze_scalar_cycles (loop_vec_info);
-static bool vect_analyze_data_ref_accesses (loop_vec_info);
-static bool vect_analyze_data_ref_dependences (loop_vec_info);
-static bool vect_analyze_data_refs_alignment (loop_vec_info);
-static bool vect_compute_data_refs_alignment (loop_vec_info);
-static bool vect_enhance_data_refs_alignment (loop_vec_info);
-static bool vect_analyze_operations (loop_vec_info);
-static bool vect_determine_vectorization_factor (loop_vec_info);
-
-/* Utility functions for the analyses.  */
-static bool exist_non_indexing_operands_for_use_p (tree, tree);
-static tree vect_get_loop_niters (struct loop *, tree *);
-static bool vect_analyze_data_ref_dependence
-  (struct data_dependence_relation *, loop_vec_info);
-static bool vect_compute_data_ref_alignment (struct data_reference *); 
-static bool vect_analyze_data_ref_access (struct data_reference *);
 static bool vect_can_advance_ivs_p (loop_vec_info);
-static void vect_update_misalignment_for_peel
-  (struct data_reference *, struct data_reference *, int npeel);
 
 /* Function vect_determine_vectorization_factor
 
@@ -602,6 +581,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
   min_profitable_iters = vect_estimate_min_profitable_iters (loop_vinfo);
   LOOP_VINFO_COST_MODEL_MIN_ITERS (loop_vinfo) = min_profitable_iters;
+
   if (min_profitable_iters < 0)
     {
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
@@ -4216,6 +4196,7 @@ vect_analyze_loop_form (struct loop *loop)
 
   loop_vinfo = new_loop_vec_info (loop);
   LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
+  LOOP_VINFO_NITERS_UNCHANGED (loop_vinfo) = number_of_iterations;
 
   STMT_VINFO_TYPE (vinfo_for_stmt (loop_cond)) = loop_exit_ctrl_vec_info_type;
 

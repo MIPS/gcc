@@ -316,6 +316,8 @@ along with GCC; see the file COPYING3.  If not see
 #define STRICT_ALIGNMENT (TARGET_STRICT_ALIGNMENT)
 #define M68K_HONOR_TARGET_STRICT_ALIGNMENT 1
 
+#define DWARF_CIE_DATA_ALIGNMENT -2
+
 #define INT_TYPE_SIZE (TARGET_SHORT ? 16 : 32)
 
 /* Define these to avoid dependence on meaning of `int'.  */
@@ -755,9 +757,7 @@ __transfer_from_trampoline ()					\
     }									\
   while (0)
 
-/* Don't call memory_address_noforce for the address to fetch
-   the switch offset.  This address is ok as it stands,
-   but memory_address_noforce would alter it.  */
+/* This address is OK as it stands.  */
 #define PIC_CASE_VECTOR_ADDRESS(index) index
 
 /* For the 68000, we handle X+REG by loading X into a register R and

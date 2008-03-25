@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -101,7 +101,6 @@ static void gnat_parse_file		(int);
 static rtx gnat_expand_expr		(tree, rtx, enum machine_mode, int,
 					 rtx *);
 static void internal_error_function	(const char *, va_list *);
-static void gnat_adjust_rli		(record_layout_info);
 static tree gnat_type_max_size		(const_tree);
 
 /* Definitions for our language-specific hooks.  */
@@ -127,11 +126,9 @@ static tree gnat_type_max_size		(const_tree);
 #undef  LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL		gnat_return_tree
 #undef  LANG_HOOKS_WRITE_GLOBALS
-#define LANG_HOOKS_WRITE_GLOBALS      gnat_write_global_declarations
+#define LANG_HOOKS_WRITE_GLOBALS	gnat_write_global_declarations
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
-#undef	LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
-#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_EXPAND_EXPR
@@ -250,7 +247,7 @@ gnat_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
    from ARGV that it successfully decoded; 0 indicates failure.  */
 
 static int
-gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
+gnat_handle_option (size_t scode, const char *arg, int value)
 {
   const struct cl_option *option = &cl_options[scode];
   enum opt_code code = (enum opt_code) scode;
@@ -272,8 +269,16 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
       gnat_argc++;
       break;
 
-      /* All front ends are expected to accept this.  */
     case OPT_Wall:
+      set_Wunused (value);
+
+      /* We save the value of warn_uninitialized, since if they put
+	 -Wuninitialized on the command line, we need to generate a
+	 warning about not using it without also specifying -O.  */
+      if (warn_uninitialized != 1)
+	warn_uninitialized = (value ? 2 : 0);
+      break;
+
       /* These are used in the GCC Makefile.  */
     case OPT_Wmissing_prototypes:
     case OPT_Wstrict_prototypes:
@@ -296,9 +301,9 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
 
     case OPT_feliminate_unused_debug_types:
       /* We arrange for post_option to be able to only set the corresponding
-         flag to 1 when explicitely requested by the user.  We expect the
-         default flag value to be either 0 or positive, and expose a positive
-         -f as a negative value to post_option.  */
+	 flag to 1 when explicitely requested by the user.  We expect the
+	 default flag value to be either 0 or positive, and expose a positive
+	 -f as a negative value to post_option.  */
       flag_eliminate_unused_debug_types = -value;
       break;
 
@@ -358,6 +363,9 @@ gnat_init_options (unsigned int argc, const char **argv)
 bool
 gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
+  /* ??? The warning machinery is outsmarted by Ada.  */
+  warn_unused_parameter = 0;
+
   flag_inline_trees = 1;
 
   if (!flag_no_inline)
@@ -413,11 +421,9 @@ internal_error_function (const char *msgid, va_list *ap)
   fp.Array = buffer;
 
   s = expand_location (input_location);
-#ifdef USE_MAPPED_LOCATION
   if (flag_show_column && s.column != 0)
     asprintf (&loc, "%s:%d:%d", s.file, s.line, s.column);
   else
-#endif
     asprintf (&loc, "%s:%d", s.file, s.line);
   temp_loc.Low_Bound = 1;
   temp_loc.High_Bound = strlen (loc);
@@ -433,9 +439,6 @@ internal_error_function (const char *msgid, va_list *ap)
 static bool
 gnat_init (void)
 {
-  /* Initialize translations and the outer statement group.  */
-  gnat_init_stmt_group ();
-
   /* Performs whatever initialization steps needed by the language-dependent
      lexical analyzer.  */
   gnat_init_decl_processing ();
@@ -449,8 +452,6 @@ gnat_init (void)
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
-
-  set_lang_adjust_rli (gnat_adjust_rli);
 
   return true;
 }
@@ -524,7 +525,6 @@ gnat_init_gcc_eh (void)
      marked as "cannot trap" if the flag is not set (see emit_libcall_block).
      We should not let this be since it is possible for such calls to actually
      raise in Ada.  */
-
   flag_exceptions = 1;
   flag_non_call_exceptions = 1;
 
@@ -612,6 +612,14 @@ gnat_print_type (FILE *file, tree node, int indent)
 }
 
 static const char *
+gnat_dwarf_name (tree t, int verbosity ATTRIBUTE_UNUSED)
+{
+  gcc_assert (DECL_P (t));
+
+  return (const char *) IDENTIFIER_POINTER (DECL_NAME (t));
+}
+
+static const char *
 gnat_printable_name (tree decl, int verbosity)
 {
   const char *coded_name = IDENTIFIER_POINTER (DECL_NAME (decl));
@@ -626,14 +634,6 @@ gnat_printable_name (tree decl, int verbosity)
     }
 
   return (const char *) ada_name;
-}
-
-static const char *
-gnat_dwarf_name (tree t, int verbosity ATTRIBUTE_UNUSED)
-{
-  gcc_assert (DECL_P (t));
-
-  return (const char *) IDENTIFIER_POINTER (DECL_NAME (t));
 }
 
 /* Expands GNAT-specific GCC tree nodes.  The only ones we support
@@ -673,35 +673,6 @@ gnat_expand_expr (tree exp, rtx target, enum machine_mode tmode,
     }
 
   return expand_expr_real (new, target, tmode, modifier, alt_rtl);
-}
-
-/* Adjusts the RLI used to layout a record after all the fields have been
-   added.  We only handle the packed case and cause it to use the alignment
-   that will pad the record at the end.  */
-
-static void
-gnat_adjust_rli (record_layout_info rli ATTRIBUTE_UNUSED)
-{
-#if 0
-  /* ??? This code seems to have no actual effect; record_align should already
-     reflect the largest alignment desired by a field.  jason 2003-04-01  */
-  unsigned int record_align = rli->unpadded_align;
-  tree field;
-
-  /* If an alignment has been specified, don't use anything larger unless we
-     have to.  */
-  if (TYPE_ALIGN (rli->t) != 0 && TYPE_ALIGN (rli->t) < record_align)
-    record_align = MAX (rli->record_align, TYPE_ALIGN (rli->t));
-
-  /* If any fields have variable size, we need to force the record to be at
-     least as aligned as the alignment of that type.  */
-  for (field = TYPE_FIELDS (rli->t); field; field = TREE_CHAIN (field))
-    if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST)
-      record_align = MAX (record_align, DECL_ALIGN (field));
-
-  if (TYPE_PACKED (rli->t))
-    rli->record_align = record_align;
-#endif
 }
 
 /* Do nothing (return the tree node passed).  */

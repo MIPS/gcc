@@ -367,8 +367,10 @@ gate_dominator (void)
   return flag_tree_dom != 0;
 }
 
-struct tree_opt_pass pass_dominator = 
+struct gimple_opt_pass pass_dominator = 
 {
+ {
+  GIMPLE_PASS,
   "dom",				/* name */
   gate_dominator,			/* gate */
   tree_ssa_dominator_optimize,		/* execute */
@@ -383,8 +385,8 @@ struct tree_opt_pass pass_dominator =
   TODO_dump_func
     | TODO_update_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 
 
@@ -1144,11 +1146,12 @@ record_equality (tree x, tree y)
      (by depth), then use that.
      Otherwise it doesn't matter which value we choose, just so
      long as we canonicalize on one value.  */
-  if (TREE_INVARIANT (y))
+  if (is_gimple_min_invariant (y))
     ;
-  else if (TREE_INVARIANT (x) || (loop_depth_of_name (x) <= loop_depth_of_name (y)))
+  else if (is_gimple_min_invariant (x)
+	   || (loop_depth_of_name (x) <= loop_depth_of_name (y)))
     prev_x = x, x = y, y = prev_x, prev_x = prev_y;
-  else if (prev_x && TREE_INVARIANT (prev_x))
+  else if (prev_x && is_gimple_min_invariant (prev_x))
     x = y, y = prev_x, prev_x = prev_y;
   else if (prev_y && TREE_CODE (prev_y) != VALUE_HANDLE)
     y = prev_y;
@@ -1618,7 +1621,7 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  new_stmt = build_gimple_modify_stmt (rhs, lhs);
 
-	  create_ssa_artificial_load_stmt (new_stmt, stmt);
+	  create_ssa_artificial_load_stmt (new_stmt, stmt, true);
 
 	  /* Finally enter the statement into the available expression
 	     table.  */
@@ -2533,8 +2536,10 @@ eliminate_degenerate_phis (void)
   return 0;
 }
 
-struct tree_opt_pass pass_phi_only_cprop =
+struct gimple_opt_pass pass_phi_only_cprop =
 {
+ {
+  GIMPLE_PASS,
   "phicprop",                           /* name */
   gate_dominator,                       /* gate */
   eliminate_degenerate_phis,            /* execute */
@@ -2551,6 +2556,6 @@ struct tree_opt_pass pass_phi_only_cprop =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_stmts
-    | TODO_update_ssa,			/* todo_flags_finish */
-  0                                     /* letter */
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
 };

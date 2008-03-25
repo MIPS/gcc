@@ -320,15 +320,39 @@ is_cfg_nonregular (void)
   FOR_EACH_BB (b)
     FOR_BB_INSNS (b, insn)
       {
-	/* Check for labels referred to but (at least not directly) as
-	   jump targets.  */
-	if (INSN_P (insn)
-	    && find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX))
-	  return 1;
+	rtx note, next, set, dest;
 
 	/* If this function has a computed jump, then we consider the cfg
 	   not well structured.  */
 	if (JUMP_P (insn) && computed_jump_p (insn))
+	  return 1;
+
+	if (!INSN_P (insn))
+	  continue;
+
+	note = find_reg_note (insn, REG_LABEL_OPERAND, NULL_RTX);
+	if (note == NULL_RTX)
+	  continue;
+
+	/* For that label not to be seen as a referred-to label, this
+	   must be a single-set which is feeding a jump *only*.  This
+	   could be a conditional jump with the label split off for
+	   machine-specific reasons or a casesi/tablejump.  */
+	next = next_nonnote_insn (insn);
+	if (next == NULL_RTX
+	    || !JUMP_P (next)
+	    || (JUMP_LABEL (next) != XEXP (note, 0)
+		&& find_reg_note (next, REG_LABEL_TARGET,
+				  XEXP (note, 0)) == NULL_RTX)
+	    || BLOCK_FOR_INSN (insn) != BLOCK_FOR_INSN (next))
+	  return 1;
+
+	set = single_set (insn);
+	if (set == NULL_RTX)
+	  return 1;
+
+	dest = SET_DEST (set);
+	if (!REG_P (dest) || !dead_or_set_p (next, dest))
 	  return 1;
       }
 
@@ -3168,8 +3192,10 @@ rest_of_handle_sched2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sched =
+struct rtl_opt_pass pass_sched =
 {
+ {
+  RTL_PASS,
   "sched1",                             /* name */
   gate_handle_sched,                    /* gate */
   rest_of_handle_sched,                 /* execute */
@@ -3184,12 +3210,14 @@ struct tree_opt_pass pass_sched =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'S'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sched2 =
+struct rtl_opt_pass pass_sched2 =
 {
+ {
+  RTL_PASS,
   "sched2",                             /* name */
   gate_handle_sched2,                   /* gate */
   rest_of_handle_sched2,                /* execute */
@@ -3204,7 +3232,7 @@ struct tree_opt_pass pass_sched2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'R'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

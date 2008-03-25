@@ -718,9 +718,12 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
       /* Don't allow constant propagation to modify jumps
 	 during this pass.  */
-      timevar_push (TV_CPROP1);
-      changed = one_cprop_pass (pass + 1, false, false);
-      timevar_pop (TV_CPROP1);
+      if (dbg_cnt (cprop1))
+	{
+	  timevar_push (TV_CPROP1);
+	  changed = one_cprop_pass (pass + 1, false, false);
+	  timevar_pop (TV_CPROP1);
+	}
 
       if (optimize_size)
 	/* Do nothing.  */ ;
@@ -783,13 +786,17 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
   /* Do one last pass of copy propagation, including cprop into
      conditional jumps.  */
 
-  max_gcse_regno = max_reg_num ();
-  alloc_gcse_mem ();
-  /* This time, go ahead and allow cprop to alter jumps.  */
-  timevar_push (TV_CPROP2);
-  one_cprop_pass (pass + 1, true, true);
-  timevar_pop (TV_CPROP2);
-  free_gcse_mem ();
+  if (dbg_cnt (cprop2))
+    {
+      max_gcse_regno = max_reg_num ();
+      alloc_gcse_mem ();
+
+      /* This time, go ahead and allow cprop to alter jumps.  */
+      timevar_push (TV_CPROP2);
+      one_cprop_pass (pass + 1, true, true);
+      timevar_pop (TV_CPROP2);
+      free_gcse_mem ();
+    }
 
   if (dump_file)
     {
@@ -2665,7 +2672,8 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      with our replacement.  */
   if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     set_unique_reg_note (insn, REG_EQUAL,
-			 simplify_replace_rtx (XEXP (note, 0), from, to));
+			 simplify_replace_rtx (XEXP (note, 0), from,
+			 copy_rtx (to)));
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
     {
       /* If above failed and this is a single set, try to simplify the source of
@@ -2820,7 +2828,7 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
          to one computed by setcc.  */
       if (setcc && modified_in_p (new, setcc))
 	return 0;
-      if (! validate_change (jump, &SET_SRC (set), new, 0))
+      if (! validate_unshare_change (jump, &SET_SRC (set), new, 0))
 	{
 	  /* When (some) constants are not valid in a comparison, and there
 	     are two registers to be replaced by constants before the entire
@@ -4613,18 +4621,16 @@ add_label_notes (rtx x, rtx insn)
 	 We no longer ignore such label references (see LABEL_REF handling in
 	 mark_jump_label for additional information).  */
 
-	if (reg_mentioned_p (XEXP (x, 0), insn))
-	  {
-	    /* There's no reason for current users to emit jump-insns
-	       with such a LABEL_REF, so we don't have to handle
-	       REG_LABEL_TARGET notes.  */
-	    gcc_assert (!JUMP_P (insn));
-	    REG_NOTES (insn)
-	      = gen_rtx_INSN_LIST (REG_LABEL_OPERAND, XEXP (x, 0),
-				   REG_NOTES (insn));
-	    if (LABEL_P (XEXP (x, 0)))
-	      LABEL_NUSES (XEXP (x, 0))++;
-	  }
+      /* There's no reason for current users to emit jump-insns with
+	 such a LABEL_REF, so we don't have to handle REG_LABEL_TARGET
+	 notes.  */
+      gcc_assert (!JUMP_P (insn));
+      REG_NOTES (insn)
+	= gen_rtx_INSN_LIST (REG_LABEL_OPERAND, XEXP (x, 0),
+			     REG_NOTES (insn));
+      if (LABEL_P (XEXP (x, 0)))
+	LABEL_NUSES (XEXP (x, 0))++;
+
       return;
     }
 
@@ -6667,7 +6673,8 @@ is_too_expensive (const char *pass)
 static bool
 gate_handle_jump_bypass (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (jump_bypass);
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
@@ -6684,8 +6691,10 @@ rest_of_handle_jump_bypass (void)
   return 0;
 }
 
-struct tree_opt_pass pass_jump_bypass =
+struct rtl_opt_pass pass_jump_bypass =
 {
+ {
+  RTL_PASS,
   "bypass",                             /* name */
   gate_handle_jump_bypass,              /* gate */   
   rest_of_handle_jump_bypass,           /* execute */       
@@ -6698,15 +6707,16 @@ struct tree_opt_pass pass_jump_bypass =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_ggc_collect | TODO_verify_flow   /* todo_flags_finish */
+ }
 };
 
 
 static bool
 gate_handle_gcse (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (gcse);
 }
 
 
@@ -6752,8 +6762,10 @@ rest_of_handle_gcse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_gcse =
+struct rtl_opt_pass pass_gcse =
 {
+ {
+  RTL_PASS,
   "gcse1",                              /* name */
   gate_handle_gcse,                     /* gate */   
   rest_of_handle_gcse,			/* execute */       
@@ -6767,8 +6779,8 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
+ }
 };
 
 

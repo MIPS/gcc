@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
    Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "flags.h"
 #include "gfortran.h"
+#include "arith.h"
 #include "trans.h"
 #include "trans-const.h"
 #include "trans-types.h"
@@ -43,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dependency.h"
 
 static tree gfc_trans_structure_assign (tree dest, gfc_expr * expr);
-static int gfc_apply_interface_mapping_to_expr (gfc_interface_mapping *,
+static void gfc_apply_interface_mapping_to_expr (gfc_interface_mapping *,
 						 gfc_expr *);
 
 /* Copy the scalarization loop variables.  */
@@ -138,30 +139,45 @@ gfc_conv_expr_present (gfc_symbol * sym)
              || GFC_ARRAY_TYPE_P (TREE_TYPE (decl)));
       decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
     }
-  return build2 (NE_EXPR, boolean_type_node, decl,
-		 fold_convert (TREE_TYPE (decl), null_pointer_node));
+  return fold_build2 (NE_EXPR, boolean_type_node, decl,
+		      fold_convert (TREE_TYPE (decl), null_pointer_node));
 }
 
 
 /* Converts a missing, dummy argument into a null or zero.  */
 
 void
-gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts)
+gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts, int kind)
 {
   tree present;
   tree tmp;
 
   present = gfc_conv_expr_present (arg->symtree->n.sym);
-  tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
-		fold_convert (TREE_TYPE (se->expr), integer_zero_node));
 
-  tmp = gfc_evaluate_now (tmp, &se->pre);
-  se->expr = tmp;
+  if (kind > 0)
+    {
+      /* Create a temporary and convert it to the correct type.  */
+      tmp = gfc_get_int_type (kind);
+      tmp = fold_convert (tmp, build_fold_indirect_ref (se->expr));
+    
+      /* Test for a NULL value.  */
+      tmp = build3 (COND_EXPR, TREE_TYPE (tmp), present, tmp, integer_one_node);
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->expr = build_fold_addr_expr (tmp);
+    }
+  else
+    {
+      tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
+		    fold_convert (TREE_TYPE (se->expr), integer_zero_node));
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->expr = tmp;
+    }
+
   if (ts.type == BT_CHARACTER)
     {
       tmp = build_int_cst (gfc_charlen_type_node, 0);
-      tmp = build3 (COND_EXPR, gfc_charlen_type_node, present,
-		    se->string_length, tmp);
+      tmp = fold_build3 (COND_EXPR, gfc_charlen_type_node,
+			 present, se->string_length, tmp);
       tmp = gfc_evaluate_now (tmp, &se->pre);
       se->string_length = tmp;
     }
@@ -362,7 +378,7 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
   field = c->backend_decl;
   gcc_assert (TREE_CODE (field) == FIELD_DECL);
   decl = se->expr;
-  tmp = build3 (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL_TREE);
+  tmp = fold_build3 (COMPONENT_REF, TREE_TYPE (field), decl, field, NULL_TREE);
 
   se->expr = tmp;
 
@@ -497,7 +513,8 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
           /* Dereference scalar hidden result.  */
 	  if (gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX
 	      && (sym->attr.function || sym->attr.result)
-	      && !sym->attr.dimension && !sym->attr.pointer)
+	      && !sym->attr.dimension && !sym->attr.pointer
+	      && !sym->attr.always_explicit)
 	    se->expr = build_fold_indirect_ref (se->expr);
 
           /* Dereference non-character pointer variables. 
@@ -591,10 +608,10 @@ gfc_conv_unary_op (enum tree_code code, gfc_se * se, gfc_expr * expr)
      We must convert it to a compare to 0 (e.g. EQ_EXPR (op1, 0)).
      All other unary operators have an equivalent GIMPLE unary operator.  */
   if (code == TRUTH_NOT_EXPR)
-    se->expr = build2 (EQ_EXPR, type, operand.expr,
-		       build_int_cst (type, 0));
+    se->expr = fold_build2 (EQ_EXPR, type, operand.expr,
+			    build_int_cst (type, 0));
   else
-    se->expr = build1 (code, type, operand.expr);
+    se->expr = fold_build1 (code, type, operand.expr);
 
 }
 
@@ -732,25 +749,27 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   /* If rhs < 0 and lhs is an integer, the result is -1, 0 or 1.  */
   if ((sgn == -1) && (TREE_CODE (type) == INTEGER_TYPE))
     {
-      tmp = build2 (EQ_EXPR, boolean_type_node, lhs,
-		    build_int_cst (TREE_TYPE (lhs), -1));
-      cond = build2 (EQ_EXPR, boolean_type_node, lhs,
-		     build_int_cst (TREE_TYPE (lhs), 1));
+      tmp = fold_build2 (EQ_EXPR, boolean_type_node,
+			 lhs, build_int_cst (TREE_TYPE (lhs), -1));
+      cond = fold_build2 (EQ_EXPR, boolean_type_node,
+			  lhs, build_int_cst (TREE_TYPE (lhs), 1));
 
       /* If rhs is even,
 	 result = (lhs == 1 || lhs == -1) ? 1 : 0.  */
       if ((n & 1) == 0)
         {
-	  tmp = build2 (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
-	  se->expr = build3 (COND_EXPR, type, tmp, build_int_cst (type, 1),
-			     build_int_cst (type, 0));
+	  tmp = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
+	  se->expr = fold_build3 (COND_EXPR, type,
+				  tmp, build_int_cst (type, 1),
+				  build_int_cst (type, 0));
 	  return 1;
 	}
       /* If rhs is odd,
 	 result = (lhs == 1) ? 1 : (lhs == -1) ? -1 : 0.  */
-      tmp = build3 (COND_EXPR, type, tmp, build_int_cst (type, -1),
-		    build_int_cst (type, 0));
-      se->expr = build3 (COND_EXPR, type, cond, build_int_cst (type, 1), tmp);
+      tmp = fold_build3 (COND_EXPR, type, tmp, build_int_cst (type, -1),
+			 build_int_cst (type, 0));
+      se->expr = fold_build3 (COND_EXPR, type,
+			      cond, build_int_cst (type, 1), tmp);
       return 1;
     }
 
@@ -759,7 +778,7 @@ gfc_conv_cst_int_power (gfc_se * se, tree lhs, tree rhs)
   if (sgn == -1)
     {
       tmp = gfc_build_const (type, integer_one_node);
-      vartmp[1] = build2 (RDIV_EXPR, type, tmp, vartmp[1]);
+      vartmp[1] = fold_build2 (RDIV_EXPR, type, tmp, vartmp[1]);
     }
 
   se->expr = gfc_conv_powi (se, n, vartmp);
@@ -919,16 +938,14 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
       switch (kind)
 	{
 	case 4:
-	  fndecl = gfor_fndecl_math_cpowf;
+	  fndecl = built_in_decls[BUILT_IN_CPOWF];
 	  break;
 	case 8:
-	  fndecl = gfor_fndecl_math_cpow;
+	  fndecl = built_in_decls[BUILT_IN_CPOW];
 	  break;
 	case 10:
-	  fndecl = gfor_fndecl_math_cpowl10;
-	  break;
 	case 16:
-	  fndecl = gfor_fndecl_math_cpowl16;
+	  fndecl = built_in_decls[BUILT_IN_CPOWL];
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -1055,8 +1072,17 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   lop = 0;
   switch (expr->value.op.operator)
     {
-    case INTRINSIC_UPLUS:
     case INTRINSIC_PARENTHESES:
+      if (expr->ts.type == BT_REAL
+	  || expr->ts.type == BT_COMPLEX)
+	{
+	  gfc_conv_unary_op (PAREN_EXPR, se, expr);
+	  gcc_assert (FLOAT_TYPE_P (TREE_TYPE (se->expr)));
+	  return;
+	}
+
+      /* Fallthrough.  */
+    case INTRINSIC_UPLUS:
       gfc_conv_expr (se, expr->value.op.op1);
       return;
 
@@ -1249,6 +1275,7 @@ gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr)
       if ((*expr)->expr_type == EXPR_CONSTANT)
         {
 	  gfc_typespec ts;
+          gfc_clear_ts (&ts);
 
 	  *expr = gfc_int_expr ((int)(*expr)->value.character.string[0]);
 	  if ((*expr)->ts.kind != gfc_c_int_kind)
@@ -1408,6 +1435,7 @@ gfc_free_interface_mapping (gfc_interface_mapping * mapping)
     {
       nextsym = sym->next;
       gfc_free_symbol (sym->new->n.sym);
+      gfc_free_expr (sym->expr);
       gfc_free (sym->new);
       gfc_free (sym);
     }
@@ -1512,7 +1540,8 @@ gfc_set_interface_mapping_bounds (stmtblock_t * block, tree type, tree desc)
 
 void
 gfc_add_interface_mapping (gfc_interface_mapping * mapping,
-			   gfc_symbol * sym, gfc_se * se)
+			   gfc_symbol * sym, gfc_se * se,
+			   gfc_expr *expr)
 {
   gfc_interface_sym_mapping *sm;
   tree desc;
@@ -1530,6 +1559,7 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   new_sym->attr.pointer = sym->attr.pointer;
   new_sym->attr.allocatable = sym->attr.allocatable;
   new_sym->attr.flavor = sym->attr.flavor;
+  new_sym->attr.function = sym->attr.function;
 
   /* Create a fake symtree for it.  */
   root = NULL;
@@ -1542,25 +1572,31 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   sm->next = mapping->syms;
   sm->old = sym;
   sm->new = new_symtree;
+  sm->expr = gfc_copy_expr (expr);
   mapping->syms = sm;
 
   /* Stabilize the argument's value.  */
-  se->expr = gfc_evaluate_now (se->expr, &se->pre);
+  if (!sym->attr.function && se)
+    se->expr = gfc_evaluate_now (se->expr, &se->pre);
 
   if (sym->ts.type == BT_CHARACTER)
     {
       /* Create a copy of the dummy argument's length.  */
       new_sym->ts.cl = gfc_get_interface_mapping_charlen (mapping, sym->ts.cl);
+      sm->expr->ts.cl = new_sym->ts.cl;
 
       /* If the length is specified as "*", record the length that
 	 the caller is passing.  We should use the callee's length
 	 in all other cases.  */
-      if (!new_sym->ts.cl->length)
+      if (!new_sym->ts.cl->length && se)
 	{
 	  se->string_length = gfc_evaluate_now (se->string_length, &se->pre);
 	  new_sym->ts.cl->backend_decl = se->string_length;
 	}
     }
+
+  if (!se)
+    return;
 
   /* Use the passed value as-is if the argument is a function.  */
   if (sym->attr.flavor == FL_PROCEDURE)
@@ -1697,21 +1733,161 @@ gfc_apply_interface_mapping_to_ref (gfc_interface_mapping * mapping,
 }
 
 
+/* Convert intrinsic function calls into result expressions.  */
+static bool
+gfc_map_intrinsic_function (gfc_expr *expr, gfc_interface_mapping * mapping)
+{
+  gfc_symbol *sym;
+  gfc_expr *new_expr;
+  gfc_expr *arg1;
+  gfc_expr *arg2;
+  int d, dup;
+
+  arg1 = expr->value.function.actual->expr;
+  if (expr->value.function.actual->next)
+    arg2 = expr->value.function.actual->next->expr;
+  else
+    arg2 = NULL;
+
+  sym  = arg1->symtree->n.sym;
+
+  if (sym->attr.dummy)
+    return false;
+
+  new_expr = NULL;
+
+  switch (expr->value.function.isym->id)
+    {
+    case GFC_ISYM_LEN:
+      /* TODO figure out why this condition is necessary.  */
+      if (sym->attr.function
+	    && arg1->ts.cl->length->expr_type != EXPR_CONSTANT
+	    && arg1->ts.cl->length->expr_type != EXPR_VARIABLE)
+	return false;
+
+      new_expr = gfc_copy_expr (arg1->ts.cl->length);
+      break;
+
+    case GFC_ISYM_SIZE:
+      if (!sym->as)
+	return false;
+
+      if (arg2 && arg2->expr_type == EXPR_CONSTANT)
+	{
+	  dup = mpz_get_si (arg2->value.integer);
+	  d = dup - 1;
+	}
+      else
+	{
+	  dup = sym->as->rank;
+	  d = 0;
+	}
+
+      for (; d < dup; d++)
+	{
+	  gfc_expr *tmp;
+	  tmp = gfc_add (gfc_copy_expr (sym->as->upper[d]), gfc_int_expr (1));
+	  tmp = gfc_subtract (tmp, gfc_copy_expr (sym->as->lower[d]));
+	  if (new_expr)
+	    new_expr = gfc_multiply (new_expr, tmp);
+	  else
+	    new_expr = tmp;
+	}
+      break;
+
+    case GFC_ISYM_LBOUND:
+    case GFC_ISYM_UBOUND:
+	/* TODO These implementations of lbound and ubound do not limit if
+	   the size < 0, according to F95's 13.14.53 and 13.14.113.  */
+
+      if (!sym->as)
+	return false;
+
+      if (arg2 && arg2->expr_type == EXPR_CONSTANT)
+	d = mpz_get_si (arg2->value.integer) - 1;
+      else
+	/* TODO: If the need arises, this could produce an array of
+	   ubound/lbounds.  */
+	gcc_unreachable ();
+
+      if (expr->value.function.isym->id == GFC_ISYM_LBOUND)
+	new_expr = gfc_copy_expr (sym->as->lower[d]);
+      else
+	new_expr = gfc_copy_expr (sym->as->upper[d]);
+      break;
+
+    default:
+      break;
+    }
+
+  gfc_apply_interface_mapping_to_expr (mapping, new_expr);
+  if (!new_expr)
+    return false;
+
+  gfc_replace_expr (expr, new_expr);
+  return true;
+}
+
+
+static void
+gfc_map_fcn_formal_to_actual (gfc_expr *expr, gfc_expr *map_expr,
+			      gfc_interface_mapping * mapping)
+{
+  gfc_formal_arglist *f;
+  gfc_actual_arglist *actual;
+
+  actual = expr->value.function.actual;
+  f = map_expr->symtree->n.sym->formal;
+
+  for (; f && actual; f = f->next, actual = actual->next)
+    {
+      if (!actual->expr)
+	continue;
+
+      gfc_add_interface_mapping (mapping, f->sym, NULL, actual->expr);
+    }
+
+  if (map_expr->symtree->n.sym->attr.dimension)
+    {
+      int d;
+      gfc_array_spec *as;
+
+      as = gfc_copy_array_spec (map_expr->symtree->n.sym->as);
+
+      for (d = 0; d < as->rank; d++)
+	{
+	  gfc_apply_interface_mapping_to_expr (mapping, as->lower[d]);
+	  gfc_apply_interface_mapping_to_expr (mapping, as->upper[d]);
+	}
+
+      expr->value.function.esym->as = as;
+    }
+
+  if (map_expr->symtree->n.sym->ts.type == BT_CHARACTER)
+    {
+      expr->value.function.esym->ts.cl->length
+	= gfc_copy_expr (map_expr->symtree->n.sym->ts.cl->length);
+
+      gfc_apply_interface_mapping_to_expr (mapping,
+			expr->value.function.esym->ts.cl->length);
+    }
+}
+
+
 /* EXPR is a copy of an expression that appeared in the interface
    associated with MAPPING.  Walk it recursively looking for references to
    dummy arguments that MAPPING maps to actual arguments.  Replace each such
    reference with a reference to the associated actual argument.  */
 
-static int
+static void
 gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
 				     gfc_expr * expr)
 {
   gfc_interface_sym_mapping *sym;
   gfc_actual_arglist *actual;
-  int seen_result = 0;
 
   if (!expr)
-    return 0;
+    return;
 
   /* Copying an expression does not copy its length, so do that here.  */
   if (expr->ts.type == BT_CHARACTER && expr->ts.cl)
@@ -1724,17 +1900,21 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
   gfc_apply_interface_mapping_to_ref (mapping, expr->ref);
 
   /* ...and to the expression's symbol, if it has one.  */
-  if (expr->symtree)
-    for (sym = mapping->syms; sym; sym = sym->next)
-      if (sym->old == expr->symtree->n.sym)
-	expr->symtree = sym->new;
+  /* TODO Find out why the condition on expr->symtree had to be moved into
+     the loop rather than being ouside it, as originally.  */
+  for (sym = mapping->syms; sym; sym = sym->next)
+    if (expr->symtree && sym->old == expr->symtree->n.sym)
+      {
+	if (sym->new->n.sym->backend_decl)
+	  expr->symtree = sym->new;
+	else if (sym->expr)
+	  gfc_replace_expr (expr, gfc_copy_expr (sym->expr));
+      }
 
-  /* ...and to subexpressions in expr->value.  */
+      /* ...and to subexpressions in expr->value.  */
   switch (expr->expr_type)
     {
     case EXPR_VARIABLE:
-      if (expr->symtree->n.sym->attr.result)
-	seen_result = 1;
     case EXPR_CONSTANT:
     case EXPR_NULL:
     case EXPR_SUBSTRING:
@@ -1746,27 +1926,22 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
       break;
 
     case EXPR_FUNCTION:
+      for (actual = expr->value.function.actual; actual; actual = actual->next)
+	gfc_apply_interface_mapping_to_expr (mapping, actual->expr);
+
       if (expr->value.function.esym == NULL
 	    && expr->value.function.isym != NULL
-	    && expr->value.function.isym->id == GFC_ISYM_LEN
-	    && expr->value.function.actual->expr->expr_type == EXPR_VARIABLE
-	    && gfc_apply_interface_mapping_to_expr (mapping,
-			expr->value.function.actual->expr))
-	{
-	  gfc_expr *new_expr;
-	  new_expr = gfc_copy_expr (expr->value.function.actual->expr->ts.cl->length);
-	  *expr = *new_expr;
-	  gfc_free (new_expr);
-	  gfc_apply_interface_mapping_to_expr (mapping, expr);
-	  break;
-	}
+	    && expr->value.function.actual->expr->symtree
+	    && gfc_map_intrinsic_function (expr, mapping))
+	break;
 
       for (sym = mapping->syms; sym; sym = sym->next)
 	if (sym->old == expr->value.function.esym)
-	  expr->value.function.esym = sym->new->n.sym;
-
-      for (actual = expr->value.function.actual; actual; actual = actual->next)
-	gfc_apply_interface_mapping_to_expr (mapping, actual->expr);
+	  {
+	    expr->value.function.esym = sym->new->n.sym;
+	    gfc_map_fcn_formal_to_actual (expr, sym->expr, mapping);
+	    expr->value.function.esym->result = sym->new->n.sym;
+	  }
       break;
 
     case EXPR_ARRAY:
@@ -1774,7 +1949,8 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
       gfc_apply_interface_mapping_to_cons (mapping, expr->value.constructor);
       break;
     }
-  return seen_result;
+
+  return;
 }
 
 
@@ -2075,6 +2251,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   stringargs = NULL_TREE;
   var = NULL_TREE;
   len = NULL_TREE;
+  gfc_clear_ts (&ts);
 
   if (sym->from_intmod == INTMOD_ISO_C_BINDING)
     {
@@ -2098,6 +2275,13 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      argss = gfc_walk_expr (arg->expr);
 	      gfc_conv_array_parameter (se, arg->expr, argss, f);
 	    }
+
+	  /* TODO -- the following two lines shouldn't be necessary, but
+	    they're removed a bug is exposed later in the codepath.
+	    This is workaround was thus introduced, but will have to be
+	    removed; please see PR 35150 for details about the issue.  */
+	  se->expr = convert (pvoid_type_node, se->expr);
+	  se->expr = gfc_evaluate_now (se->expr, &se->pre);
 
 	  return 0;
 	}
@@ -2127,9 +2311,9 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  if (arg->next == NULL)
 	    /* Only given one arg so generate a null and do a
 	       not-equal comparison against the first arg.  */
-	    se->expr = build2 (NE_EXPR, boolean_type_node, arg1se.expr,
-			       fold_convert (TREE_TYPE (arg1se.expr),
-					     null_pointer_node));
+	    se->expr = fold_build2 (NE_EXPR, boolean_type_node, arg1se.expr,
+				    fold_convert (TREE_TYPE (arg1se.expr),
+						  null_pointer_node));
 	  else
 	    {
 	      tree eq_expr;
@@ -2142,16 +2326,16 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      gfc_add_block_to_block (&se->post, &arg2se.post);
 
 	      /* Generate test to compare that the two args are equal.  */
-	      eq_expr = build2 (EQ_EXPR, boolean_type_node, arg1se.expr,
-				arg2se.expr);
+	      eq_expr = fold_build2 (EQ_EXPR, boolean_type_node,
+				     arg1se.expr, arg2se.expr);
 	      /* Generate test to ensure that the first arg is not null.  */
-	      not_null_expr = build2 (NE_EXPR, boolean_type_node, arg1se.expr,
-				      null_pointer_node);
+	      not_null_expr = fold_build2 (NE_EXPR, boolean_type_node,
+					   arg1se.expr, null_pointer_node);
 
 	      /* Finally, the generated test must check that both arg1 is not
 		 NULL and that it is equal to the second arg.  */
-	      se->expr = build2 (TRUTH_AND_EXPR, boolean_type_node,
-				 not_null_expr, eq_expr);
+	      se->expr = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+				      not_null_expr, eq_expr);
 	    }
 
 	  return 0;
@@ -2322,7 +2506,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	     check its presence and substitute a null if absent.  */
 	  if (e->expr_type == EXPR_VARIABLE
 	      && e->symtree->n.sym->attr.optional)
-	    gfc_conv_missing_dummy (&parmse, e, fsym ? fsym->ts : e->ts);
+	    gfc_conv_missing_dummy (&parmse, e, fsym ? fsym->ts : e->ts,
+				    e->representation.length);
 	}
 
       if (fsym && e)
@@ -2340,8 +2525,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	}
 
-      if (fsym && need_interface_mapping)
-	gfc_add_interface_mapping (&mapping, fsym, &parmse);
+      if (fsym && need_interface_mapping && e)
+	gfc_add_interface_mapping (&mapping, fsym, &parmse, e);
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
       gfc_add_block_to_block (&post, &parmse.post);
@@ -2390,8 +2575,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
         }
 
       /* Character strings are passed as two parameters, a length and a
-         pointer.  */
-      if (parmse.string_length != NULL_TREE)
+         pointer - except for Bind(c) which only passes the pointer.  */
+      if (parmse.string_length != NULL_TREE && !sym->attr.is_bind_c)
         stringargs = gfc_chainon_list (stringargs, parmse.string_length);
 
       arglist = gfc_chainon_list (arglist, parmse.expr);
@@ -2399,7 +2584,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   gfc_finish_interface_mapping (&mapping, &se->pre, &se->post);
 
   ts = sym->ts;
-  if (ts.type == BT_CHARACTER)
+  if (ts.type == BT_CHARACTER && !sym->attr.is_bind_c)
     {
       if (sym->ts.cl->length == NULL)
 	{
@@ -2494,13 +2679,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	     character pointers.  */
 	  if (sym->attr.pointer || sym->attr.allocatable)
 	    {
-	      /* Build char[0:len-1] * pstr.  */
-	      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
-				 build_int_cst (gfc_charlen_type_node, 1));
-	      tmp = build_range_type (gfc_array_index_type,
-				      gfc_index_zero_node, tmp);
-	      tmp = build_array_type (gfc_character1_type_node, tmp);
-	      var = gfc_create_var (build_pointer_type (tmp), "pstr");
+	      var = gfc_create_var (type, "pstr");
 
 	      /* Provide an address expression for the function arguments.  */
 	      var = build_fold_addr_expr (var);
@@ -2637,7 +2816,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
 /* Generate code to copy a string.  */
 
-static void
+void
 gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 		       tree slength, tree src)
 {
@@ -2651,12 +2830,34 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   tree tmp4;
   stmtblock_t tempblock;
 
-  dlen = fold_convert (size_type_node, gfc_evaluate_now (dlength, block));
-  slen = fold_convert (size_type_node, gfc_evaluate_now (slength, block));
+  if (slength != NULL_TREE)
+    {
+      slen = fold_convert (size_type_node, gfc_evaluate_now (slength, block));
+      ssc = gfc_to_single_character (slen, src);
+    }
+  else
+    {
+      slen = build_int_cst (size_type_node, 1);
+      ssc =  src;
+    }
 
-  /* Deal with single character specially.  */
-  dsc = gfc_to_single_character (dlen, dest);
-  ssc = gfc_to_single_character (slen, src);
+  if (dlength != NULL_TREE)
+    {
+      dlen = fold_convert (size_type_node, gfc_evaluate_now (dlength, block));
+      dsc = gfc_to_single_character (slen, dest);
+    }
+  else
+    {
+      dlen = build_int_cst (size_type_node, 1);
+      dsc =  dest;
+    }
+
+  if (slength != NULL_TREE && POINTER_TYPE_P (TREE_TYPE (src)))
+    ssc = gfc_to_single_character (slen, src);
+  if (dlength != NULL_TREE && POINTER_TYPE_P (TREE_TYPE (dest)))
+    dsc = gfc_to_single_character (dlen, dest);
+
+
   if (dsc != NULL_TREE && ssc != NULL_TREE)
     {
       gfc_add_modify_expr (block, dsc, ssc);
@@ -2689,7 +2890,17 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
 
      We're now doing it here for better optimization, but the logic
      is the same.  */
-  
+
+  if (dlength)
+    dest = fold_convert (pvoid_type_node, dest);
+  else
+    dest = gfc_build_addr_expr (pvoid_type_node, dest);
+
+  if (slength)
+    src = fold_convert (pvoid_type_node, src);
+  else
+    src = gfc_build_addr_expr (pvoid_type_node, src);
+
   /* Truncate string if source is too long.  */
   cond2 = fold_build2 (GE_EXPR, boolean_type_node, slen, dlen);
   tmp2 = build_call_expr (built_in_decls[BUILT_IN_MEMMOVE],
@@ -2699,7 +2910,7 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   tmp3 = build_call_expr (built_in_decls[BUILT_IN_MEMMOVE],
 			  3, dest, src, slen);
 
-  tmp4 = fold_build2 (POINTER_PLUS_EXPR, pchar_type_node, dest,
+  tmp4 = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (dest), dest,
 		      fold_convert (sizetype, slen));
   tmp4 = build_call_expr (built_in_decls[BUILT_IN_MEMSET], 3,
 			  tmp4, 
@@ -3212,7 +3423,8 @@ gfc_trans_structure_assign (tree dest, gfc_expr * expr)
 	}
       
       field = cm->backend_decl;
-      tmp = build3 (COMPONENT_REF, TREE_TYPE (field), dest, field, NULL_TREE);
+      tmp = fold_build3 (COMPONENT_REF, TREE_TYPE (field),
+			 dest, field, NULL_TREE);
       tmp = gfc_trans_subcomponent_assign (tmp, cm, c->expr);
       gfc_add_expr_to_block (&block, tmp);
     }
@@ -3263,6 +3475,11 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl, val);
     }
   se->expr = build_constructor (type, v);
+  if (init) 
+    {
+      TREE_CONSTANT(se->expr) = 1;
+      TREE_INVARIANT(se->expr) = 1;
+    }
 }
 
 
@@ -3400,7 +3617,7 @@ gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
     }
 }
 
-/* Helper to translate and expression and convert it to a particular type.  */
+/* Helper to translate an expression and convert it to a particular type.  */
 void
 gfc_conv_expr_type (gfc_se * se, gfc_expr * expr, tree type)
 {
@@ -3597,8 +3814,15 @@ gfc_conv_string_parameter (gfc_se * se)
   type = TREE_TYPE (se->expr);
   if (TYPE_STRING_FLAG (type))
     {
-      gcc_assert (TREE_CODE (se->expr) != INDIRECT_REF);
-      se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
+      if (TREE_CODE (se->expr) != INDIRECT_REF)
+        se->expr = gfc_build_addr_expr (pchar_type_node, se->expr);
+      else
+	{
+	  type = gfc_get_character_type_len (gfc_default_character_kind,
+					     se->string_length);
+	  type = build_pointer_type (type);
+	  se->expr = gfc_build_addr_expr (type, se->expr);
+	}
     }
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (se->expr)));
@@ -3622,17 +3846,25 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 
   if (ts.type == BT_CHARACTER)
     {
-      gcc_assert (lse->string_length != NULL_TREE
-	      && rse->string_length != NULL_TREE);
+      tree rlen = NULL;
+      tree llen = NULL;
 
-      gfc_conv_string_parameter (lse);
-      gfc_conv_string_parameter (rse);
+      if (lse->string_length != NULL_TREE)
+	{
+	  gfc_conv_string_parameter (lse);
+	  gfc_add_block_to_block (&block, &lse->pre);
+	  llen = lse->string_length;
+	}
 
-      gfc_add_block_to_block (&block, &lse->pre);
-      gfc_add_block_to_block (&block, &rse->pre);
+      if (rse->string_length != NULL_TREE)
+	{
+	  gcc_assert (rse->string_length != NULL_TREE);
+	  gfc_conv_string_parameter (rse);
+	  gfc_add_block_to_block (&block, &rse->pre);
+	  rlen = rse->string_length;
+	}
 
-      gfc_trans_string_copy (&block, lse->string_length, lse->expr,
-			     rse->string_length, rse->expr);
+      gfc_trans_string_copy (&block, llen, lse->expr, rlen, rse->expr);
     }
   else if (ts.type == BT_DERIVED && ts.derived->attr.alloc_comp)
     {

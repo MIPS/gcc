@@ -616,9 +616,6 @@ extern rtx eliminate_constant_term (rtx, rtx *);
    by emitting insns to perform arithmetic if nec.  */
 extern rtx memory_address (enum machine_mode, rtx);
 
-/* Like `memory_address' but pretend `flag_force_addr' is 0.  */
-extern rtx memory_address_noforce (enum machine_mode, rtx);
-
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.
    (VOIDmode means don't change the mode.
@@ -747,6 +744,7 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
+extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);
 

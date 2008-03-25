@@ -1,5 +1,6 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -224,7 +225,10 @@ pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
 void
 pp_c_type_qualifier_list (c_pretty_printer *pp, tree t)
 {
-   int qualifiers;
+  int qualifiers;
+
+  if (!t || t == error_mark_node)
+    return;
 
   if (!TYPE_P (t))
     t = TREE_TYPE (t);
@@ -1737,10 +1741,14 @@ pp_c_and_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_exclusive_or_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == BIT_XOR_EXPR)
+  if (TREE_CODE (e) == BIT_XOR_EXPR
+      || TREE_CODE (e) == TRUTH_XOR_EXPR)
     {
       pp_c_exclusive_or_expression (pp, TREE_OPERAND (e, 0));
-      pp_c_maybe_whitespace (pp);
+      if (TREE_CODE (e) == BIT_XOR_EXPR)
+	pp_c_maybe_whitespace (pp);
+      else
+	pp_c_whitespace (pp);
       pp_carret (pp);
       pp_c_whitespace (pp);
       pp_c_and_expression (pp, TREE_OPERAND (e, 1));
@@ -1775,7 +1783,8 @@ pp_c_inclusive_or_expression (c_pretty_printer *pp, tree e)
 static void
 pp_c_logical_and_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR)
+  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR
+      || TREE_CODE (e) == TRUTH_AND_EXPR)
     {
       pp_c_logical_and_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
@@ -1794,7 +1803,8 @@ pp_c_logical_and_expression (c_pretty_printer *pp, tree e)
 void
 pp_c_logical_or_expression (c_pretty_printer *pp, tree e)
 {
-  if (TREE_CODE (e) == TRUTH_ORIF_EXPR)
+  if (TREE_CODE (e) == TRUTH_ORIF_EXPR
+      || TREE_CODE (e) == TRUTH_OR_EXPR)
     {
       pp_c_logical_or_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
@@ -1963,6 +1973,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case BIT_XOR_EXPR:
+    case TRUTH_XOR_EXPR:
       pp_c_exclusive_or_expression (pp, e);
       break;
 
@@ -1971,10 +1982,12 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case TRUTH_ANDIF_EXPR:
+    case TRUTH_AND_EXPR:
       pp_c_logical_and_expression (pp, e);
       break;
 
     case TRUTH_ORIF_EXPR:
+    case TRUTH_OR_EXPR:
       pp_c_logical_or_expression (pp, e);
       break;
 

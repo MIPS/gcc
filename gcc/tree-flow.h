@@ -743,9 +743,13 @@ extern basic_block debug_tree_bb_n (int);
 extern void dump_tree_cfg (FILE *, int);
 extern void debug_tree_cfg (int);
 extern void dump_cfg_stats (FILE *);
+extern void dot_cfg (void);
 extern void debug_cfg_stats (void);
-extern void debug_loop_ir (void);
-extern void print_loop_ir (FILE *);
+extern void debug_loops (int);
+extern void debug_loop (struct loop *, int);
+extern void debug_loop_num (unsigned, int);
+extern void print_loops (FILE *, int);
+extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
 extern tree first_stmt (basic_block);
@@ -791,6 +795,7 @@ extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
 				           basic_block);
 void remove_edge_and_dominated_blocks (edge);
+void mark_virtual_ops_in_bb (basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bitmap cfgcleanup_altered_bbs;
@@ -822,6 +827,11 @@ extern void find_new_referenced_vars (tree *);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
+extern bool stmt_references_abnormal_ssa_name (tree);
+extern bool refs_may_alias_p (tree, tree);
+extern tree get_single_def_stmt (tree);
+extern tree get_single_def_stmt_from_phi (tree, tree);
+extern tree get_single_def_stmt_with_phi (tree, tree);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -877,8 +887,31 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 /* In tree-ssa-alias-warnings.c  */
 extern void strict_aliasing_warning_backend (void);
 
+
 /* In tree-ssa.c  */
+
+/* Mapping for redirected edges.  */
+struct _edge_var_map GTY(())
+{
+  tree result;			/* PHI result.  */
+  tree def;			/* PHI arg definition.  */
+};
+typedef struct _edge_var_map edge_var_map;
+
+DEF_VEC_O(edge_var_map);
+DEF_VEC_ALLOC_O(edge_var_map, heap);
+
+/* A vector of var maps.  */
+typedef VEC(edge_var_map, heap) *edge_var_map_vector;
+
 extern void init_tree_ssa (struct function *);
+extern void redirect_edge_var_map_add (edge, tree, tree);
+extern void redirect_edge_var_map_clear (edge);
+extern void redirect_edge_var_map_dup (edge, edge);
+extern edge_var_map_vector redirect_edge_var_map_vector (edge);
+extern void redirect_edge_var_map_destroy (void);
+
+
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
@@ -888,6 +921,8 @@ extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern bool stmt_references_memory_p (tree);
+extern bool ssa_undefined_value_p (tree);
+
 
 /* In tree-into-ssa.c  */
 void update_ssa (unsigned);
@@ -909,6 +944,8 @@ void set_current_def (tree, tree);
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
 bool fold_stmt_inplace (tree);
+tree get_symbol_constant_value (tree);
+tree fold_const_aggregate_ref (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
@@ -1012,7 +1049,6 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 void create_iv (tree, tree, tree, struct loop *, block_stmt_iterator *, bool,
 		tree *, tree *);
 basic_block split_loop_exit_edge (edge);
-unsigned force_expr_to_var_cost (tree);
 void standard_iv_increment_position (struct loop *, block_stmt_iterator *,
 				     bool *);
 basic_block ip_end_pos (struct loop *);
@@ -1021,6 +1057,8 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge,
 					 unsigned int, sbitmap,
 					 edge, VEC (edge, heap) **,
 					 int);
+struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
+void rename_variables_in_loop (struct loop *);
 struct loop *tree_ssa_loop_version (struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
@@ -1124,6 +1162,7 @@ extern void register_jump_thread (edge, edge);
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree,
 			       bool, enum bsi_iterator_update);
+tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
@@ -1163,22 +1202,21 @@ struct fieldoff
   /* Field.  */
   tree decl;
 
-  /* Nesting level.  This number represents how many structures are
-     wrapping this field.  */
-  unsigned nesting_level;
-
   /* Offset from the base of the base containing object to this field.  */
   HOST_WIDE_INT offset;  
 
   /* Alias set for the field.  */
   alias_set_type alias_set;
+
+  /* True, if this offset can be a base for further component accesses.  */
+  unsigned base_for_components : 1;
 };
 typedef struct fieldoff fieldoff_s;
 
 DEF_VEC_O(fieldoff_s);
 DEF_VEC_ALLOC_O(fieldoff_s,heap);
-int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **, HOST_WIDE_INT,
-				 bool *, tree, unsigned);
+int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
+				 HOST_WIDE_INT, bool *, tree);
 void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);

@@ -483,6 +483,15 @@
 /* libm includes ldexpl */
 #undef HAVE_LDEXPL
 
+/* libm includes lgamma */
+#undef HAVE_LGAMMA
+
+/* libm includes lgammaf */
+#undef HAVE_LGAMMAF
+
+/* libm includes lgammal */
+#undef HAVE_LGAMMAL
+
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
 
@@ -705,6 +714,15 @@
 /* libm includes tanl */
 #undef HAVE_TANL
 
+/* libm includes tgamma */
+#undef HAVE_TGAMMA
+
+/* libm includes tgammaf */
+#undef HAVE_TGAMMAF
+
+/* libm includes tgammal */
+#undef HAVE_TGAMMAL
+
 /* Define to 1 if you have the `time' function. */
 #undef HAVE_TIME
 
@@ -787,19 +805,19 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* The size of a `char', as computed by sizeof. */
+/* The size of `char', as computed by sizeof. */
 #undef SIZEOF_CHAR
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
-/* The size of a `void *', as computed by sizeof. */
+/* The size of `void *', as computed by sizeof. */
 #undef SIZEOF_VOID_P
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -817,5 +835,5 @@
 /* Define for large files, on AIX-style hosts. */
 #undef _LARGE_FILES
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t

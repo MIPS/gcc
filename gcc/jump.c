@@ -122,8 +122,10 @@ cleanup_barriers (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cleanup_barriers =
+struct rtl_opt_pass pass_cleanup_barriers =
 {
+ {
+  RTL_PASS,
   "barriers",                           /* name */
   NULL,                                 /* gate */
   cleanup_barriers,                     /* execute */
@@ -135,8 +137,8 @@ struct tree_opt_pass pass_cleanup_barriers =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 
@@ -1051,6 +1053,9 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
 	if (insn)
 	  {
 	    if (is_target
+		/* Do not change a previous setting of JUMP_LABEL.  If the
+		   JUMP_LABEL slot is occupied by a different label,
+		   create a note for this label.  */
 		&& (JUMP_LABEL (insn) == NULL || JUMP_LABEL (insn) == label))
 	      JUMP_LABEL (insn) = label;
 	    else

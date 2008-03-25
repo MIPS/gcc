@@ -2805,8 +2805,10 @@ set_nothrow_function_flags (void)
   return 0;
 }
 
-struct tree_opt_pass pass_set_nothrow_function_flags =
+struct rtl_opt_pass pass_set_nothrow_function_flags =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   set_nothrow_function_flags,           /* execute */
@@ -2819,7 +2821,7 @@ struct tree_opt_pass pass_set_nothrow_function_flags =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 
@@ -3332,8 +3334,10 @@ convert_to_eh_region_ranges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_convert_to_eh_region_ranges =
+struct rtl_opt_pass pass_convert_to_eh_region_ranges =
 {
+ {
+  RTL_PASS,
   "eh-ranges",                          /* name */
   NULL,                                 /* gate */
   convert_to_eh_region_ranges,          /* execute */
@@ -3346,7 +3350,7 @@ struct tree_opt_pass pass_convert_to_eh_region_ranges =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 
@@ -3594,6 +3598,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 }
 
 
+#if 0
 /* This call is for the generation of lto function information.  The
    five output functions are used as callbacks to output each of the
    five flavors of eh_region.  */
@@ -3670,7 +3675,7 @@ output_eh_records (void *ob, struct function * cfun,
 	}
     }
 }
-
+#endif
 
 void
 output_function_exception_table (const char * ARG_UNUSED (fnname))
@@ -4034,8 +4039,10 @@ rest_of_handle_eh (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_eh =
+struct rtl_opt_pass pass_rtl_eh =
 {
+ {
+  RTL_PASS,
   "eh",                                 /* name */
   gate_handle_eh,                       /* gate */
   rest_of_handle_eh,			/* execute */
@@ -4047,8 +4054,8 @@ struct tree_opt_pass pass_rtl_eh =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'h'                                   /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 #include "gt-except.h"

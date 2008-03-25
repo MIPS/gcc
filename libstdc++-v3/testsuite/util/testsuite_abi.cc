@@ -1,6 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License as
@@ -35,6 +35,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -191,8 +192,10 @@ check_version(symbol& test, bool added)
       known_versions.push_back("GLIBCXX_3.4.8");
       known_versions.push_back("GLIBCXX_3.4.9");
       known_versions.push_back("GLIBCXX_3.4.10");
+      known_versions.push_back("GLIBCXX_3.4.11");
       known_versions.push_back("GLIBCXX_LDBL_3.4");
       known_versions.push_back("GLIBCXX_LDBL_3.4.7");
+      known_versions.push_back("GLIBCXX_LDBL_3.4.10");
       known_versions.push_back("CXXABI_1.3");
       known_versions.push_back("CXXABI_1.3.1");
       known_versions.push_back("CXXABI_1.3.2");
@@ -351,6 +354,16 @@ compare_symbols(const char* baseline_file, const char* test_file,
       exit(2);
     }
 
+  // Check to see if any long double compatibility symbols are produced.
+  bool ld_version_found(false);
+  symbol_objects::iterator li(test_objects.begin());
+  while (!ld_version_found && li != test_objects.end())
+    {
+      if (li->second.version_name.find("GLIBCXX_LDBL_") != std::string::npos)
+	ld_version_found = true;
+      ++li;
+    }
+
   // Sort out names.
   // Assuming baseline_names, test_names are both unique w/ no duplicates.
   //
@@ -386,8 +399,17 @@ compare_symbols(const char* baseline_file, const char* test_file,
   for (size_t j = 0; j < missing_size; ++j)
     {
       symbol& base = baseline_objects[missing_names[j]];
-      base.status = symbol::subtracted;
-      incompatible.push_back(symbol_pair(base, base));
+      
+      // Iff no test long double symbols at all and the symbol missing
+      // is a baseline long double symbol, skip.
+      if (!ld_version_found
+	  && base.version_name.find("GLIBCXX_LDBL_") != std::string::npos)
+	continue;
+      else
+	{
+	  base.status = symbol::subtracted;
+	  incompatible.push_back(symbol_pair(base, base));
+	}
     }
 
   // Check shared names for compatibility.

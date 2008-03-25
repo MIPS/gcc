@@ -43,7 +43,7 @@
 
 #pragma GCC system_header
 
-#include <bits/algorithmfwd.h>   // std::copy, std::fill_n
+#include <bits/stl_algobase.h>  // std::copy, std::fill_n
 #include <bits/postypes.h>      // For streampos
 #include <cstdio>               // For EOF
 #include <cwchar>               // For WEOF, wmemmove, wmemset, etc.
@@ -78,7 +78,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
    *  right, but the int_type and state_type typedefs, and the eof()
    *  member function, are likely to be wrong.)  The reason this class
    *  exists is so users can specialize it.  Classes in namespace std
-   *  may not be specialized for fundamentl types, but classes in
+   *  may not be specialized for fundamental types, but classes in
    *  namespace __gnu_cxx may be.
    *
    *  See http://gcc.gnu.org/onlinedocs/libstdc++/21_strings/howto.html#5

@@ -60,6 +60,18 @@
 #define TARGET_PAIRED_FLOAT 0
 #endif
 
+#ifdef HAVE_AS_POPCNTB
+#define ASM_CPU_POWER5_SPEC "-mpower5"
+#else
+#define ASM_CPU_POWER5_SPEC "-mpower4"
+#endif
+
+#ifdef HAVE_AS_DFP
+#define ASM_CPU_POWER6_SPEC "-mpower6 -maltivec"
+#else
+#define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
+#endif
+
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -76,10 +88,10 @@
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
-%{mcpu=power5: -mpower4} \
-%{mcpu=power5+: -mpower4} \
-%{mcpu=power6: -mpower4 -maltivec} \
-%{mcpu=power6x: -mpower4 -maltivec} \
+%{mcpu=power5: %(asm_cpu_power5)} \
+%{mcpu=power5+: %(asm_cpu_power5)} \
+%{mcpu=power6: %(asm_cpu_power6) -maltivec} \
+%{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -116,6 +128,9 @@
 %{mcpu=970: -mpower4 -maltivec} \
 %{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
+%{mcpu=8548: -me500} \
+%{mcpu=e300c2: -me300} \
+%{mcpu=e300c3: -me300} \
 %{maltivec: -maltivec} \
 -many"
 
@@ -140,6 +155,8 @@
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
+  { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
+  { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 /* -mcpu=native handling only makes sense with compiler running on
@@ -261,6 +278,8 @@ enum processor_type
    PROCESSOR_PPC7400,
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
+   PROCESSOR_PPCE300C2,
+   PROCESSOR_PPCE300C3,
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
@@ -559,7 +578,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
-    (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 : \
+    (TARGET_E500_DOUBLE						\
+     && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 : \
     ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
      && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
         && TREE_CODE (TYPE) == VECTOR_TYPE \
@@ -585,7 +605,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    fit into 1, whereas DI still needs two.  */
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
   ((TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE) \
-   || (TARGET_E500_DOUBLE && (MODE) == DFmode))
+   || (TARGET_E500_DOUBLE && ((MODE) == DFmode || (MODE) == DDmode)))
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
@@ -594,6 +614,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Make vector constants quadword aligned.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
   (TREE_CODE (EXP) == STRING_CST	                         \
+   && (STRICT_ALIGNMENT || !optimize_size)                       \
    && (ALIGN) < BITS_PER_WORD                                    \
    ? BITS_PER_WORD                                               \
    : (ALIGN))
@@ -604,7 +625,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
   (TREE_CODE (TYPE) == VECTOR_TYPE ? ((TARGET_SPE_ABI \
    || TARGET_PAIRED_FLOAT) ? 64 : 128)	\
-   : (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 \
+   : (TARGET_E500_DOUBLE			\
+      && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
@@ -619,7 +641,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
-	|| (MODE) == DDmode || (MODE) == TDmode				\
+	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
 	|| (MODE) == DImode)						\
        && (ALIGN) < 32))
 
@@ -1170,6 +1192,13 @@ enum reg_class
 			   || (CLASS1) == ALTIVEC_REGS			\
 			   || (CLASS2) == ALTIVEC_REGS))
 
+/* For cpus that cannot load/store SDmode values from the 64-bit
+   FP registers without using a full 64-bit load/store, we need
+   to allocate a full 64-bit stack slot for them.  */
+
+#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
+  rs6000_secondary_memory_needed_rtx (MODE)
+
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
@@ -1178,7 +1207,8 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
  (((CLASS) == FLOAT_REGS) 						\
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-  : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS && (MODE) == DFmode) \
+  : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS			\
+     && ((MODE) == DFmode || (MODE) == DDmode))				\
   ? 1                                                                   \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
@@ -1192,6 +1222,8 @@ enum reg_class
    : (((TARGET_E500_DOUBLE						\
 	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
 	    || (((TO) == TFmode) + ((FROM) == TFmode)) == 1		\
+	    || (((TO) == DDmode) + ((FROM) == DDmode)) == 1		\
+	    || (((TO) == TDmode) + ((FROM) == TDmode)) == 1		\
 	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
        || (TARGET_SPE							\
 	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
@@ -1493,10 +1525,6 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   function_arg_boundary (MODE, TYPE)
 
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
-  rs6000_va_start (valist, nextarg)
-
 #define PAD_VARARGS_DOWN \
    (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
 
@@ -1717,11 +1745,11 @@ typedef struct rs6000_args
    refers to a constant pool entry of an address (or the sum of it
    plus a constant), a short (16-bit signed) constant plus a register,
    the sum of two registers, or a register indirect, possibly with an
-   auto-increment.  For DFmode and DImode with a constant plus register,
-   we must ensure that both words are addressable or PowerPC64 with offset
-   word aligned.
+   auto-increment.  For DFmode, DDmode and DImode with a constant plus
+   register, we must ensure that both words are addressable or PowerPC64
+   with offset word aligned.
 
-   For modes spanning multiple registers (DFmode in 32-bit GPRs,
+   For modes spanning multiple registers (DFmode and DDmode in 32-bit GPRs,
    32-bit DImode, TImode), indexed addressing cannot be used because
    adjacent memory cells are accessed by adding word-sized offsets
    during assembly output.  */

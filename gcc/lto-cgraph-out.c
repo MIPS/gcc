@@ -343,8 +343,10 @@ lto_output_cgraph (void)
   return 0;
 }
 
-struct tree_opt_pass pass_ipa_lto_cgraph_out =
+struct simple_ipa_opt_pass pass_ipa_lto_cgraph_out =
 {
+ {
+  SIMPLE_IPA_PASS,
   "lto_cgraph_out",	                /* name */
   gate_lto_out,			        /* gate */
   lto_output_cgraph,		        /* execute */
@@ -356,7 +358,7 @@ struct tree_opt_pass pass_ipa_lto_cgraph_out =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,            			/* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 

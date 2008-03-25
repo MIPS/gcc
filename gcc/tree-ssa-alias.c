@@ -3791,7 +3791,7 @@ get_or_create_used_part_for (size_t uid)
 static tree
 create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
 	    unsigned HOST_WIDE_INT size, alias_set_type alias_set,
-	    unsigned nesting_level)
+	    bool base_for_components)
 {
   tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
@@ -3811,7 +3811,8 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   SFT_OFFSET (subvar) = offset;
   SFT_SIZE (subvar) = size;
   SFT_ALIAS_SET (subvar) = alias_set;
-  SFT_NESTING_LEVEL (subvar) = nesting_level;
+  SFT_BASE_FOR_COMPONENTS_P (subvar) = base_for_components;
+  SFT_UNPARTITIONABLE_P (subvar) = false;
 
   return subvar;
 }
@@ -3833,8 +3834,11 @@ create_overlap_variables_for (tree var)
     return;
 
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL,
-			       TREE_TYPE (var), 0);
-  if (VEC_length (fieldoff_s, fieldstack) != 0)
+			       TREE_TYPE (var));
+  /* Make sure to not create SFTs for structs we won't generate variable
+     infos for.  See tree-ssa-structalias.c:create_variable_info_for ().  */
+  if (VEC_length (fieldoff_s, fieldstack) > 1
+      && VEC_length (fieldoff_s, fieldstack) <= MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
       subvar_t *subvars;
       fieldoff_s *fo;
@@ -3916,6 +3920,7 @@ create_overlap_variables_for (tree var)
 	     field, skip it.  Note that we always need the field at
 	     offset 0 so we can properly handle pointers to the
 	     structure.  */
+
 	  if ((fo->offset != 0
 	       && ((fo->offset <= up->minused
 		    && fo->offset + fosize <= up->minused)
@@ -3924,9 +3929,8 @@ create_overlap_variables_for (tree var)
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
 	    continue;
-
-	  subvar = create_sft (var, fo->type, fo->offset, fosize,
-			       fo->alias_set, fo->nesting_level);
+	  subvar = create_sft (var, fo->type, fo->offset,
+			       fosize, fo->alias_set, fo->base_for_components);
 	  VEC_quick_push (tree, *subvars, subvar);
 
 	  if (dump_file)
@@ -3937,8 +3941,7 @@ create_overlap_variables_for (tree var)
 		       SFT_OFFSET (subvar));
 	      fprintf (dump_file, " size " HOST_WIDE_INT_PRINT_DEC,
 		       SFT_SIZE (subvar));
-	      fprintf (dump_file, " nesting level %d\n",
-		       SFT_NESTING_LEVEL (subvar));
+	      fprintf (dump_file, "\n");
 	    }
 	  
 	  lastfotype = currfotype;
@@ -4202,8 +4205,10 @@ gate_structure_vars (void)
   return flag_tree_salias != 0;
 }
 
-struct tree_opt_pass pass_create_structure_vars = 
+struct gimple_opt_pass pass_create_structure_vars = 
 {
+ {
+  GIMPLE_PASS,
   "salias",		 /* name */
   gate_structure_vars,	 /* gate */
   create_structure_vars, /* execute */
@@ -4215,8 +4220,8 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
-  TODO_dump_func,	 /* todo_flags_finish */
-  0			 /* letter */
+  TODO_dump_func	 /* todo_flags_finish */
+ }
 };
 
 /* Reset the call_clobbered flags on our referenced vars.  In
@@ -4233,8 +4238,10 @@ reset_cc_flags (void)
   return 0;
 }
 
-struct tree_opt_pass pass_reset_cc_flags =
+struct gimple_opt_pass pass_reset_cc_flags =
 {
+ {
+  GIMPLE_PASS,
   NULL,		 /* name */
   NULL,  	 /* gate */
   reset_cc_flags, /* execute */
@@ -4246,6 +4253,32 @@ struct tree_opt_pass pass_reset_cc_flags =
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
-  0,         	         /* todo_flags_finish */
-  0			 /* letter */
+  0         	         /* todo_flags_finish */
+ }
+};
+
+static bool
+gate_build_alias (void)
+{
+  return !gate_structure_vars();
+}
+
+
+struct gimple_opt_pass pass_build_alias =
+{
+ {
+  GIMPLE_PASS,
+  "build_alias",            /* name */
+  gate_build_alias,         /* gate */
+  NULL,                     /* execute */
+  NULL,                     /* sub */
+  NULL,                     /* next */
+  0,                        /* static_pass_number */
+  0,                        /* tv_id */
+  PROP_cfg | PROP_ssa,      /* properties_required */
+  PROP_alias,               /* properties_provided */
+  0,                        /* properties_destroyed */
+  0,                        /* todo_flags_start */
+  TODO_rebuild_alias        /* todo_flags_finish */
+ }
 };

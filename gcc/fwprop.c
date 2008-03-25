@@ -642,17 +642,25 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
     {
       struct df_ref *use = *use_rec;
       struct df_ref *orig_use = use, *new_use;
+      int width = -1;
+      int offset = -1;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
       use_rec++;
 
       if (!new_loc)
 	continue;
 
+      if (DF_REF_FLAGS_IS_SET (orig_use, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
+	{
+	  width = DF_REF_WIDTH (orig_use);
+	  offset = DF_REF_OFFSET (orig_use);
+	}
+
       /* Add a new insn use.  Use the original type, because it says if the
          use was within a MEM.  */
       new_use = df_ref_create (DF_REF_REG (orig_use), new_loc,
 			       insn, BLOCK_FOR_INSN (insn),
-			       type, DF_REF_FLAGS (orig_use) | new_flags);
+			       type, DF_REF_FLAGS (orig_use) | new_flags, width, offset);
 
       /* Set up the use-def chain.  */
       df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
@@ -697,7 +705,8 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       ok = false;
     }
 
-  else if (rtx_cost (SET_SRC (set), SET) > old_cost)
+  else if (DF_REF_TYPE (use) == DF_REF_REG_USE
+	   && rtx_cost (SET_SRC (set), SET) > old_cost)
     {
       if (dump_file)
 	fprintf (dump_file, "Changes to insn %d not profitable\n",
@@ -728,9 +737,12 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
     {
       cancel_changes (0);
 
-      /* Can also record a simplified value in a REG_EQUAL note, making a
-	 new one if one does not already exist.  */
-      if (set_reg_equal)
+      /* Can also record a simplified value in a REG_EQUAL note,
+	 making a new one if one does not already exist.
+	 Don't do this if the insn has a REG_RETVAL note, because the
+	 combined presence means that the REG_EQUAL note refers to the
+	 (full) contents of the libcall value.  */
+      if (set_reg_equal && !find_reg_note (insn, REG_RETVAL, NULL_RTX))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
@@ -1009,8 +1021,10 @@ fwprop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop =
+struct rtl_opt_pass pass_rtl_fwprop =
 {
+ {
+  RTL_PASS,
   "fwprop1",                            /* name */
   gate_fwprop,				/* gate */
   fwprop,				/* execute */
@@ -1023,8 +1037,8 @@ struct tree_opt_pass pass_rtl_fwprop =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -1051,8 +1065,10 @@ fwprop_addr (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop_addr =
+struct rtl_opt_pass pass_rtl_fwprop_addr =
 {
+ {
+  RTL_PASS,
   "fwprop2",                            /* name */
   gate_fwprop,				/* gate */
   fwprop_addr,				/* execute */
@@ -1065,6 +1081,6 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };

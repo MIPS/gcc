@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -103,6 +103,8 @@ int bfin_si_revision;
 /* The workarounds enabled */
 unsigned int bfin_workarounds = 0;
 
+static bool cputype_selected = false;
+
 struct bfin_cpu
 {
   const char *name;
@@ -114,85 +116,97 @@ struct bfin_cpu
 struct bfin_cpu bfin_cpus[] =
 {
   {"bf522", BFIN_CPU_BF522, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
+
+  {"bf523", BFIN_CPU_BF523, 0x0000,
+   WA_SPECULATIVE_LOADS | WA_RETS},
+
+  {"bf524", BFIN_CPU_BF524, 0x0000,
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf525", BFIN_CPU_BF525, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
+
+  {"bf526", BFIN_CPU_BF526, 0x0000,
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf527", BFIN_CPU_BF527, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf531", BFIN_CPU_BF531, 0x0005,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf531", BFIN_CPU_BF531, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf531", BFIN_CPU_BF531, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf532", BFIN_CPU_BF532, 0x0005,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf532", BFIN_CPU_BF532, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf532", BFIN_CPU_BF532, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf533", BFIN_CPU_BF533, 0x0005,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf533", BFIN_CPU_BF533, 0x0004,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf533", BFIN_CPU_BF533, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf534", BFIN_CPU_BF534, 0x0003,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf534", BFIN_CPU_BF534, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf534", BFIN_CPU_BF534, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf536", BFIN_CPU_BF536, 0x0003,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf536", BFIN_CPU_BF536, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf536", BFIN_CPU_BF536, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf537", BFIN_CPU_BF537, 0x0003,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf537", BFIN_CPU_BF537, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf537", BFIN_CPU_BF537, 0x0001,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {"bf538", BFIN_CPU_BF538, 0x0004,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf538", BFIN_CPU_BF538, 0x0003,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf539", BFIN_CPU_BF539, 0x0004,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf539", BFIN_CPU_BF539, 0x0003,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
   {"bf539", BFIN_CPU_BF539, 0x0002,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf542", BFIN_CPU_BF542, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf544", BFIN_CPU_BF544, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
+
+  {"bf547", BFIN_CPU_BF547, 0x0000,
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf548", BFIN_CPU_BF548, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
   {"bf549", BFIN_CPU_BF549, 0x0000,
-   WA_SPECULATIVE_LOADS},
+   WA_SPECULATIVE_LOADS | WA_RETS},
 
-  {"bf561", BFIN_CPU_BF561, 0x0005, 0},
+  {"bf561", BFIN_CPU_BF561, 0x0005, WA_RETS},
   {"bf561", BFIN_CPU_BF561, 0x0003,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
   {"bf561", BFIN_CPU_BF561, 0x0002,
-   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS},
+   WA_SPECULATIVE_LOADS | WA_SPECULATIVE_SYNCS | WA_RETS},
 
   {NULL, 0, 0, 0}
 };
@@ -340,22 +354,15 @@ legitimize_pic_address (rtx orig, rtx reg, rtx picreg)
 
 /* Stack frame layout. */
 
-/* Compute the number of DREGS to save with a push_multiple operation.
-   This could include registers that aren't modified in the function,
-   since push_multiple only takes a range of registers.
-   If IS_INTHANDLER, then everything that is live must be saved, even
-   if normally call-clobbered.  */
-
-static int
-n_dregs_to_save (bool is_inthandler)
+/* For a given REGNO, determine whether it must be saved in the function
+   prologue.  IS_INTHANDLER specifies whether we're generating a normal
+   prologue or an interrupt/exception one.  */
+static bool
+must_save_p (bool is_inthandler, unsigned regno)
 {
-  unsigned i;
-
-  for (i = REG_R0; i <= REG_R7; i++)
+  if (D_REGNO_P (regno))
     {
-      if (df_regs_ever_live_p (i) && (is_inthandler || ! call_used_regs[i]))
-	return REG_R7 - i + 1;
-
+      bool is_eh_return_reg = false;
       if (current_function_calls_eh_return)
 	{
 	  unsigned j;
@@ -364,30 +371,71 @@ n_dregs_to_save (bool is_inthandler)
 	      unsigned test = EH_RETURN_DATA_REGNO (j);
 	      if (test == INVALID_REGNUM)
 		break;
-	      if (test == i)
-		return REG_R7 - i + 1;
+	      if (test == regno)
+		is_eh_return_reg = true;
 	    }
 	}
 
+      return (is_eh_return_reg
+	      || (df_regs_ever_live_p (regno)
+		  && !fixed_regs[regno]
+		  && (is_inthandler || !call_used_regs[regno])));
     }
-  return 0;
+  else if (P_REGNO_P (regno))
+    {
+      return ((df_regs_ever_live_p (regno)
+	       && !fixed_regs[regno]
+	       && (is_inthandler || !call_used_regs[regno]))
+	      || (!TARGET_FDPIC
+		  && regno == PIC_OFFSET_TABLE_REGNUM
+		  && (current_function_uses_pic_offset_table
+		      || (TARGET_ID_SHARED_LIBRARY && !current_function_is_leaf))));
+    }
+  else
+    return ((is_inthandler || !call_used_regs[regno])
+	    && (df_regs_ever_live_p (regno)
+		|| (!leaf_function_p () && call_used_regs[regno])));
+
+}
+
+/* Compute the number of DREGS to save with a push_multiple operation.
+   This could include registers that aren't modified in the function,
+   since push_multiple only takes a range of registers.
+   If IS_INTHANDLER, then everything that is live must be saved, even
+   if normally call-clobbered.
+   If CONSECUTIVE, return the number of registers we can save in one
+   instruction with a push/pop multiple instruction.  */
+
+static int
+n_dregs_to_save (bool is_inthandler, bool consecutive)
+{
+  int count = 0;
+  unsigned i;
+
+  for (i = REG_R7 + 1; i-- != REG_R0;)
+    {
+      if (must_save_p (is_inthandler, i))
+	count++;
+      else if (consecutive)
+	return count;
+    }
+  return count;
 }
 
 /* Like n_dregs_to_save, but compute number of PREGS to save.  */
 
 static int
-n_pregs_to_save (bool is_inthandler)
+n_pregs_to_save (bool is_inthandler, bool consecutive)
 {
+  int count = 0;
   unsigned i;
 
-  for (i = REG_P0; i <= REG_P5; i++)
-    if ((df_regs_ever_live_p (i) && (is_inthandler || ! call_used_regs[i]))
-	|| (!TARGET_FDPIC
-	    && i == PIC_OFFSET_TABLE_REGNUM
-	    && (current_function_uses_pic_offset_table
-		|| (TARGET_ID_SHARED_LIBRARY && ! current_function_is_leaf))))
-      return REG_P5 - i + 1;
-  return 0;
+  for (i = REG_P5 + 1; i-- != REG_P0;)
+    if (must_save_p (is_inthandler, i))
+      count++;
+    else if (consecutive)
+      return count;
+  return count;
 }
 
 /* Determine if we are going to save the frame pointer in the prologue.  */
@@ -418,61 +466,85 @@ expand_prologue_reg_save (rtx spreg, int saveall, bool is_inthandler)
 {
   rtx predec1 = gen_rtx_PRE_DEC (SImode, spreg);
   rtx predec = gen_rtx_MEM (SImode, predec1);
-  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler);
-  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler);
-  int dregno = REG_R7 + 1 - ndregs;
-  int pregno = REG_P5 + 1 - npregs;
-  int total = ndregs + npregs;
-  int i;
-  rtx pat, insn, val;
+  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler, false);
+  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler, false);
+  int ndregs_consec = saveall ? 8 : n_dregs_to_save (is_inthandler, true);
+  int npregs_consec = saveall ? 6 : n_pregs_to_save (is_inthandler, true);
+  int dregno, pregno;
+  int total_consec = ndregs_consec + npregs_consec;
+  int i, d_to_save;
 
   if (saveall || is_inthandler)
     {
-      insn = emit_move_insn (predec, gen_rtx_REG (SImode, REG_ASTAT));
+      rtx insn = emit_move_insn (predec, gen_rtx_REG (SImode, REG_ASTAT));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
-  if (total == 0 && !saveall)
-    return;
-
-  val = GEN_INT (-total * 4);
-  pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (total + 2));
-  XVECEXP (pat, 0, 0) = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, val),
-					UNSPEC_PUSH_MULTIPLE);
-  XVECEXP (pat, 0, total + 1) = gen_rtx_SET (VOIDmode, spreg,
-					     gen_rtx_PLUS (Pmode, spreg,
-							   val));
-  RTX_FRAME_RELATED_P (XVECEXP (pat, 0, total + 1)) = 1;
-  for (i = 0; i < total; i++)
+  if (total_consec != 0)
     {
-      rtx memref = gen_rtx_MEM (word_mode,
-				gen_rtx_PLUS (Pmode, spreg,
-					      GEN_INT (- i * 4 - 4)));
-      rtx subpat;
-      if (ndregs > 0)
+      rtx insn;
+      rtx val = GEN_INT (-total_consec * 4);
+      rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (total_consec + 2));
+
+      XVECEXP (pat, 0, 0) = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, val),
+					    UNSPEC_PUSH_MULTIPLE);
+      XVECEXP (pat, 0, total_consec + 1) = gen_rtx_SET (VOIDmode, spreg,
+							gen_rtx_PLUS (Pmode,
+								      spreg,
+								      val));
+      RTX_FRAME_RELATED_P (XVECEXP (pat, 0, total_consec + 1)) = 1;
+      d_to_save = ndregs_consec;
+      dregno = REG_R7 + 1 - ndregs_consec;
+      pregno = REG_P5 + 1 - npregs_consec;
+      for (i = 0; i < total_consec; i++)
 	{
-	  subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
-							       dregno++));
+	  rtx memref = gen_rtx_MEM (word_mode,
+				    gen_rtx_PLUS (Pmode, spreg,
+						  GEN_INT (- i * 4 - 4)));
+	  rtx subpat;
+	  if (d_to_save > 0)
+	    {
+	      subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
+								   dregno++));
+	      d_to_save--;
+	    }
+	  else
+	    {
+	      subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
+								   pregno++));
+	    }
+	  XVECEXP (pat, 0, i + 1) = subpat;
+	  RTX_FRAME_RELATED_P (subpat) = 1;
+	}
+      insn = emit_insn (pat);
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
+
+  for (dregno = REG_R0; ndregs != ndregs_consec; dregno++)
+    {
+      if (must_save_p (is_inthandler, dregno))
+	{
+	  rtx insn = emit_move_insn (predec, gen_rtx_REG (word_mode, dregno));
+	  RTX_FRAME_RELATED_P (insn) = 1;
 	  ndregs--;
 	}
-      else
-	{
-	  subpat = gen_rtx_SET (VOIDmode, memref, gen_rtx_REG (word_mode,
-							       pregno++));
-	  npregs++;
-	}
-      XVECEXP (pat, 0, i + 1) = subpat;
-      RTX_FRAME_RELATED_P (subpat) = 1;
     }
-  insn = emit_insn (pat);
-  RTX_FRAME_RELATED_P (insn) = 1;
-
+  for (pregno = REG_P0; npregs != npregs_consec; pregno++)
+    {
+      if (must_save_p (is_inthandler, pregno))
+	{
+	  rtx insn = emit_move_insn (predec, gen_rtx_REG (word_mode, pregno));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  npregs--;
+	}
+    }
   for (i = REG_P7 + 1; i < REG_CC; i++)
     if (saveall 
 	|| (is_inthandler
 	    && (df_regs_ever_live_p (i)
 		|| (!leaf_function_p () && call_used_regs[i]))))
       {
+	rtx insn;
 	if (i == REG_A0 || i == REG_A1)
 	  insn = emit_move_insn (gen_rtx_MEM (PDImode, predec1),
 				 gen_rtx_REG (PDImode, i));
@@ -493,11 +565,13 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
   rtx postinc1 = gen_rtx_POST_INC (SImode, spreg);
   rtx postinc = gen_rtx_MEM (SImode, postinc1);
 
-  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler);
-  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler);
-  int total = ndregs + npregs;
+  int ndregs = saveall ? 8 : n_dregs_to_save (is_inthandler, false);
+  int npregs = saveall ? 6 : n_pregs_to_save (is_inthandler, false);
+  int ndregs_consec = saveall ? 8 : n_dregs_to_save (is_inthandler, true);
+  int npregs_consec = saveall ? 6 : n_pregs_to_save (is_inthandler, true);
+  int total_consec = ndregs_consec + npregs_consec;
   int i, regno;
-  rtx pat, insn;
+  rtx insn;
 
   /* A slightly crude technique to stop flow from trying to delete "dead"
      insns.  */
@@ -519,40 +593,59 @@ expand_epilogue_reg_restore (rtx spreg, bool saveall, bool is_inthandler)
 	  emit_move_insn (gen_rtx_REG (SImode, i), postinc);
       }
 
-  if (total == 0)
-    return;
-
-  pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (total + 1));
-  XVECEXP (pat, 0, 0) = gen_rtx_SET (VOIDmode, spreg,
-				     gen_rtx_PLUS (Pmode, spreg,
-						   GEN_INT (total * 4)));
-
-  if (npregs > 0)
-    regno = REG_P5 + 1;
-  else
-    regno = REG_R7 + 1;
-
-  for (i = 0; i < total; i++)
+  regno = REG_P5 - npregs_consec;
+  for (; npregs != npregs_consec; regno--)
     {
-      rtx addr = (i > 0
-		  ? gen_rtx_PLUS (Pmode, spreg, GEN_INT (i * 4))
-		  : spreg);
-      rtx memref = gen_rtx_MEM (word_mode, addr);
-
-      regno--;
-      XVECEXP (pat, 0, i + 1)
-	= gen_rtx_SET (VOIDmode, gen_rtx_REG (word_mode, regno), memref);
-
-      if (npregs > 0)
+      if (must_save_p (is_inthandler, regno))
 	{
-	  if (--npregs == 0)
-	    regno = REG_R7 + 1;
+	  emit_move_insn (gen_rtx_REG (word_mode, regno), postinc);
+	  npregs--;
+	}
+    }
+  regno = REG_R7 - ndregs_consec;
+  for (; ndregs != ndregs_consec; regno--)
+    {
+      if (must_save_p (is_inthandler, regno))
+	{
+	  emit_move_insn (gen_rtx_REG (word_mode, regno), postinc);
+	  ndregs--;
 	}
     }
 
-  insn = emit_insn (pat);
-  RTX_FRAME_RELATED_P (insn) = 1;
+  if (total_consec != 0)
+    {
+      rtx pat = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (total_consec + 1));
+      XVECEXP (pat, 0, 0)
+	= gen_rtx_SET (VOIDmode, spreg,
+		       gen_rtx_PLUS (Pmode, spreg,
+				     GEN_INT (total_consec * 4)));
 
+      if (npregs_consec > 0)
+	regno = REG_P5 + 1;
+      else
+	regno = REG_R7 + 1;
+
+      for (i = 0; i < total_consec; i++)
+	{
+	  rtx addr = (i > 0
+		      ? gen_rtx_PLUS (Pmode, spreg, GEN_INT (i * 4))
+		      : spreg);
+	  rtx memref = gen_rtx_MEM (word_mode, addr);
+
+	  regno--;
+	  XVECEXP (pat, 0, i + 1)
+	    = gen_rtx_SET (VOIDmode, gen_rtx_REG (word_mode, regno), memref);
+
+	  if (npregs_consec > 0)
+	    {
+	      if (--npregs_consec == 0)
+		regno = REG_R7 + 1;
+	    }
+	}
+
+      insn = emit_insn (pat);
+      RTX_FRAME_RELATED_P (insn) = 1;
+    }
   if (saveall || is_inthandler)
     emit_move_insn (gen_rtx_REG (SImode, REG_ASTAT), postinc);
 }
@@ -636,8 +729,8 @@ n_regs_saved_by_prologue (void)
   tree attrs = TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl));
   bool all = (lookup_attribute ("saveall", attrs) != NULL_TREE
 	      || (is_inthandler && !current_function_is_leaf));
-  int ndregs = all ? 8 : n_dregs_to_save (is_inthandler);
-  int npregs = all ? 6 : n_pregs_to_save (is_inthandler);  
+  int ndregs = all ? 8 : n_dregs_to_save (is_inthandler, false);
+  int npregs = all ? 6 : n_pregs_to_save (is_inthandler, false);
   int n = ndregs + npregs;
   int i;
 
@@ -2284,6 +2377,8 @@ bfin_handle_option (size_t code, const char *arg, int value)
 
 	q = arg + strlen (p);
 
+	cputype_selected = true;
+
 	if (*q == '\0')
 	  {
 	    bfin_si_revision = bfin_cpus[i].si_revision;
@@ -2364,15 +2459,15 @@ override_options (void)
   else if (bfin_specld_anomaly == 0)
     bfin_workarounds &= ~WA_SPECULATIVE_LOADS;
 
+  if (!cputype_selected)
+    bfin_workarounds |= WA_RETS;
+
   if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
 
   /* Library identification */
   if (bfin_lib_id_given && ! TARGET_ID_SHARED_LIBRARY)
     error ("-mshared-library-id= specified without -mid-shared-library");
-
-  if (TARGET_ID_SHARED_LIBRARY && flag_pic == 0)
-    flag_pic = 1;
 
   if (stack_limit_rtx && TARGET_STACK_CHECK_L1)
     error ("Can't use multiple stack checking methods together.");
@@ -2387,6 +2482,9 @@ override_options (void)
   /* ... internally, however, it's nearly the same.  */
   if (TARGET_SEP_DATA)
     target_flags |= MASK_ID_SHARED_LIBRARY | MASK_LEAF_ID_SHARED_LIBRARY;
+
+  if (TARGET_ID_SHARED_LIBRARY && flag_pic == 0)
+    flag_pic = 1;
 
   /* There is no single unaligned SI op for PIC code.  Sometimes we
      need to use ".4byte" and sometimes we need to use ".picptr".
@@ -3297,6 +3395,8 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
   if (dep_insn_type == TYPE_MOVE || dep_insn_type == TYPE_MCLD)
     {
       rtx pat = PATTERN (dep_insn);
+      if (GET_CODE (pat) == PARALLEL)
+	pat = XVECEXP (pat, 0, 0);
       rtx dest = SET_DEST (pat);
       rtx src = SET_SRC (pat);
       if (! ADDRESS_REGNO_P (REGNO (dest))
@@ -4684,6 +4784,9 @@ bfin_reorg (void)
   /* Second pass: for predicted-true branches, see if anything at the
      branch destination needs extra nops.  */
   if (! ENABLE_WA_SPECULATIVE_SYNCS)
+    return;
+
+  if (! ENABLE_WA_RETS)
     return;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))

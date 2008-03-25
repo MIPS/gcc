@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory, header.
-   Copyright (C) 2007
+   Copyright (C) 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #define GFC_TARGET_MEMORY_H
 
 #include "gfortran.h"
+
+/* Convert a BOZ to REAL or COMPLEX.  */
+bool gfc_convert_boz (gfc_expr *, gfc_typespec *);
 
 /* Return the size of an expression in its target representation.  */
 size_t gfc_target_expr_size (gfc_expr *);

@@ -166,7 +166,14 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
     {
       readlen = *length;
       q = salloc_r (dtp->u.p.current_unit->s, &readlen);
-      memcpy (p, q, readlen);
+      if (readlen < *length)
+	{
+	  generate_error (&dtp->common, LIBERROR_END, NULL);
+	  return NULL;
+	}
+	
+      if (q != NULL)
+        memcpy (p, q, readlen);
       goto done;
     }
 
@@ -272,8 +279,10 @@ read_block (st_parameter_dt *dtp, int *length)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_END, NULL);
 	  return NULL;
@@ -357,8 +366,10 @@ read_block_direct (st_parameter_dt *dtp, void *buf, size_t *nbytes)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_END, NULL);
 	  return;
@@ -533,8 +544,10 @@ write_block (st_parameter_dt *dtp, int length)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return NULL;
@@ -595,8 +608,10 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
 
   if (is_stream_io (dtp))
     {
-      if (sseek (dtp->u.p.current_unit->s,
-		 dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
+      if (dtp->u.p.current_unit->strm_pos - 1
+	  != file_position (dtp->u.p.current_unit->s)
+	  && sseek (dtp->u.p.current_unit->s,
+		    dtp->u.p.current_unit->strm_pos - 1) == FAILURE)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
 	  return FAILURE;
@@ -623,6 +638,14 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
 	  return FAILURE;
 	}
 
+      if (buf == NULL && nbytes == 0)
+	{
+	   char *p;
+	   p = write_block (dtp, dtp->u.p.current_unit->recl);
+	   memset (p, 0, dtp->u.p.current_unit->recl);
+	   return SUCCESS;
+	}
+
       if (swrite (dtp->u.p.current_unit->s, buf, &nbytes) != 0)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
@@ -633,7 +656,6 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
       dtp->u.p.current_unit->bytes_left -= (gfc_offset) nbytes;
 
       return SUCCESS;
-
     }
 
   /* Unformatted sequential.  */
@@ -894,8 +916,8 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
      the entire field has been read.  The next read field will start right after
      the comma in the stream.  (Set to 0 for character reads).  */
   dtp->u.p.sf_read_comma = 1;
-
   dtp->u.p.line_buffer = scratch;
+
   for (;;)
     {
       /* If reversion has occurred and there is another real data item,
@@ -933,9 +955,12 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	{
 	  if (dtp->u.p.skips > 0)
 	    {
+	      int tmp;
 	      write_x (dtp, dtp->u.p.skips, dtp->u.p.pending_spaces);
-	      dtp->u.p.max_pos = (int)(dtp->u.p.current_unit->recl
-				       - dtp->u.p.current_unit->bytes_left);
+	      tmp = (int)(dtp->u.p.current_unit->recl
+			  - dtp->u.p.current_unit->bytes_left);
+	      dtp->u.p.max_pos = 
+		dtp->u.p.max_pos > tmp ? dtp->u.p.max_pos : tmp;
 	    }
 	  if (dtp->u.p.skips < 0)
 	    {
@@ -1249,6 +1274,11 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	      else
 		read_x (dtp, dtp->u.p.skips);
 	    }
+	  else
+	    {
+	      if (dtp->u.p.skips < 0)
+		flush (dtp->u.p.current_unit->s);
+	    }
 
 	  break;
 
@@ -1489,9 +1519,15 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
       extent[n] = desc->dim[n].ubound + 1 - desc->dim[n].lbound;
 
       /* If the extent of even one dimension is zero, then the entire
-	 array section contains zero elements, so we return.  */
+	 array section contains zero elements, so we return after writing
+	 a zero array record.  */
       if (extent[n] <= 0)
-	return;
+	{
+	  data = NULL;
+	  tsize = 0;
+	  dtp->u.p.transfer (dtp, iotype, data, kind, size, tsize);
+	  return;
+	}
     }
 
   stride0 = stride[0];
@@ -1883,6 +1919,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   if (read_flag)
     {
+      dtp->u.p.current_unit->previous_nonadvancing_write = 0;
+
       if ((cf & IOPARM_EOR) != 0 && dtp->u.p.advance_status != ADVANCE_NO)
 	{
 	  generate_error (&dtp->common, LIBERROR_MISSING_OPTION,
@@ -1947,12 +1985,12 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       if (dtp->u.p.mode == READING
 	  && dtp->u.p.current_unit->mode == WRITING
 	  && !is_internal_unit (dtp))
-	 flush(dtp->u.p.current_unit->s);
+	flush(dtp->u.p.current_unit->s);
 
       /* Check whether the record exists to be read.  Only
 	 a partial record needs to exist.  */
 
-      if (dtp->u.p.mode == READING && (dtp->rec -1)
+      if (dtp->u.p.mode == READING && (dtp->rec - 1)
 	  * dtp->u.p.current_unit->recl >= file_length (dtp->u.p.current_unit->s))
 	{
 	  generate_error (&dtp->common, LIBERROR_BAD_OPTION,
@@ -1974,6 +2012,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	dtp->u.p.current_unit->strm_pos = dtp->rec;
 
     }
+  else
+    dtp->rec = 0;
 
   /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
@@ -2051,42 +2091,63 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 }
 
 /* Initialize an array_loop_spec given the array descriptor.  The function
-   returns the index of the last element of the array.  */
+   returns the index of the last element of the array, and also returns
+   starting record, where the first I/O goes to (necessary in case of
+   negative strides).  */
    
 gfc_offset
-init_loop_spec (gfc_array_char *desc, array_loop_spec *ls)
+init_loop_spec (gfc_array_char *desc, array_loop_spec *ls,
+		gfc_offset *start_record)
 {
   int rank = GFC_DESCRIPTOR_RANK(desc);
   int i;
   gfc_offset index; 
+  int empty;
 
+  empty = 0;
   index = 1;
+  *start_record = 0;
+
   for (i=0; i<rank; i++)
     {
       ls[i].idx = desc->dim[i].lbound;
       ls[i].start = desc->dim[i].lbound;
       ls[i].end = desc->dim[i].ubound;
       ls[i].step = desc->dim[i].stride;
-      
-      index += (desc->dim[i].ubound - desc->dim[i].lbound)
-                      * desc->dim[i].stride;
+      empty = empty || (desc->dim[i].ubound < desc->dim[i].lbound);
+
+      if (desc->dim[i].stride > 0)
+	{
+	  index += (desc->dim[i].ubound - desc->dim[i].lbound)
+	    * desc->dim[i].stride;
+	}
+      else
+	{
+	  index -= (desc->dim[i].ubound - desc->dim[i].lbound)
+	    * desc->dim[i].stride;
+	  *start_record -= (desc->dim[i].ubound - desc->dim[i].lbound)
+	    * desc->dim[i].stride;
+	}
     }
-  return index;
+
+  if (empty)
+    return 0;
+  else
+    return index;
 }
 
 /* Determine the index to the next record in an internal unit array by
-   by incrementing through the array_loop_spec.  TODO:  Implement handling
-   negative strides. */
+   by incrementing through the array_loop_spec.  */
    
 gfc_offset
-next_array_record (st_parameter_dt *dtp, array_loop_spec *ls)
+next_array_record (st_parameter_dt *dtp, array_loop_spec *ls, int *finished)
 {
   int i, carry;
   gfc_offset index;
   
   carry = 1;
   index = 0;
-  
+
   for (i = 0; i < dtp->u.p.current_unit->rank; i++)
     {
       if (carry)
@@ -2102,6 +2163,8 @@ next_array_record (st_parameter_dt *dtp, array_loop_spec *ls)
         }
       index = index + (ls[i].idx - ls[i].start) * ls[i].step;
     }
+
+  *finished = carry;
 
   return index;
 }
@@ -2224,7 +2287,10 @@ next_record_r (st_parameter_dt *dtp)
 	{
 	  if (is_array_io (dtp))
 	    {
-	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+	      int finished;
+
+	      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+					  &finished);
 
 	      /* Now seek to this record.  */
 	      record = record * dtp->u.p.current_unit->recl;
@@ -2443,6 +2509,8 @@ next_record_w (st_parameter_dt *dtp, int done)
 	{
 	  if (is_array_io (dtp))
 	    {
+	      int finished;
+
 	      length = (int) dtp->u.p.current_unit->bytes_left;
 	      
 	      /* If the farthest position reached is greater than current
@@ -2466,8 +2534,9 @@ next_record_w (st_parameter_dt *dtp, int done)
 
 	      /* Now that the current record has been padded out,
 		 determine where the next record in the array is. */
-	      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
-	      if (record == 0)
+	      record = next_array_record (dtp, dtp->u.p.current_unit->ls,
+					  &finished);
+	      if (finished)
 		dtp->u.p.current_unit->endfile = AT_ENDFILE;
 	      
 	      /* Now seek to this record */
@@ -2511,21 +2580,19 @@ next_record_w (st_parameter_dt *dtp, int done)
 	}
       else
 	{
-	  /* If this is the last call to next_record move to the farthest
-	  position reached in preparation for completing the record.
-	  (for file unit) */
-	  if (done)
-	    {
-	      m = dtp->u.p.current_unit->recl -
-			dtp->u.p.current_unit->bytes_left;
-	      if (max_pos > m)
-		{
-		  length = (int) (max_pos - m);
-		  p = salloc_w (dtp->u.p.current_unit->s, &length);
-		}
- 	    }
 	  size_t len;
 	  const char crlf[] = "\r\n";
+
+	  /* Move to the farthest position reached in preparation for
+	  completing the record.  (for file unit) */
+	  m = dtp->u.p.current_unit->recl -
+	    dtp->u.p.current_unit->bytes_left;
+	  if (max_pos > m)
+	    {
+	      length = (int) (max_pos - m);
+	      sseek (dtp->u.p.current_unit->s,
+		     file_position (dtp->u.p.current_unit->s) + length);
+	    }
 #ifdef HAVE_CRLF
 	  len = 2;
 #else
@@ -2535,7 +2602,12 @@ next_record_w (st_parameter_dt *dtp, int done)
 	    goto io_error;
 	  
 	  if (is_stream_io (dtp))
-	    dtp->u.p.current_unit->strm_pos += len;
+	    {
+	      dtp->u.p.current_unit->strm_pos += len;
+	      if (dtp->u.p.current_unit->strm_pos
+		  < file_length (dtp->u.p.current_unit->s))
+		struncate (dtp->u.p.current_unit->s);
+	    }
 	}
 
       break;
@@ -2636,12 +2708,22 @@ finalize_transfer (st_parameter_dt *dtp)
       return;
     }
 
+  if (dtp->u.p.mode == WRITING)
+    dtp->u.p.current_unit->previous_nonadvancing_write
+      = dtp->u.p.advance_status == ADVANCE_NO;
+
   if (is_stream_io (dtp))
     {
-      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED)
+      if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED
+	  && dtp->u.p.advance_status != ADVANCE_NO)
 	next_record (dtp, 1);
-      flush (dtp->u.p.current_unit->s);
-      sfree (dtp->u.p.current_unit->s);
+
+      if (dtp->u.p.current_unit->flags.form == FORM_UNFORMATTED
+	  && file_position (dtp->u.p.current_unit->s) >= dtp->rec)
+	{
+	  flush (dtp->u.p.current_unit->s);
+	  sfree (dtp->u.p.current_unit->s);
+	}
       return;
     }
 

@@ -465,6 +465,25 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	  vuse_vec_p vv;
 	  tree stmt_lhs;
 
+	  /* If use_stmt is or might be a nop assignment, e.g. for
+	     struct { ... } S a, b, *p; ...
+	     b = a; b = b;
+	     or
+	     b = a; b = *p; where p might be &b,
+	     or
+	     *p = a; *p = b; where p might be &b,
+	     or
+	     *p = *u; *p = *v; where p might be v, then USE_STMT
+	     acts as a use as well as definition, so store in STMT
+	     is not dead.  */
+	  if (LOADED_SYMS (use_stmt)
+	      && bitmap_intersect_p (LOADED_SYMS (use_stmt),
+				     STORED_SYMS (use_stmt)))
+	    {
+	      record_voperand_set (dse_gd->stores, &bd->stores, ann->uid);
+	      return;
+	    }
+
 	  if (dump_file && (dump_flags & TDF_DETAILS))
             {
               fprintf (dump_file, "  Deleted dead store '");
@@ -598,7 +617,10 @@ gate_dse (void)
   return flag_tree_dse != 0;
 }
 
-struct tree_opt_pass pass_dse = {
+struct gimple_opt_pass pass_dse = 
+{
+ {
+  GIMPLE_PASS,
   "dse",			/* name */
   gate_dse,			/* gate */
   tree_ssa_dse,			/* execute */
@@ -614,8 +636,8 @@ struct tree_opt_pass pass_dse = {
   0,				/* todo_flags_start */
   TODO_dump_func
     | TODO_ggc_collect
-    | TODO_verify_ssa,		/* todo_flags_finish */
-  0				/* letter */
+    | TODO_verify_ssa		/* todo_flags_finish */
+ }
 };
 
 /* A very simple dead store pass eliminating write only local variables.
@@ -735,8 +757,10 @@ execute_simple_dse (void)
   return todo;
 }
 
-struct tree_opt_pass pass_simple_dse =
+struct gimple_opt_pass pass_simple_dse =
 {
+ {
+  GIMPLE_PASS,
   "sdse",				/* name */
   NULL,					/* gate */
   execute_simple_dse,			/* execute */
@@ -748,6 +772,6 @@ struct tree_opt_pass pass_simple_dse =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,          	        /* todo_flags_finish */
-  0				        /* letter */
+  TODO_dump_func          	        /* todo_flags_finish */
+ }
 };

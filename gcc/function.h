@@ -1,6 +1,7 @@
 /* Structure for saving state for a nested function.
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -363,14 +364,6 @@ struct function GTY(())
      probabilities pass.  */
   ENUM_BITFIELD (function_frequency) function_frequency : 2;
 
-  /* Nonzero if function being compiled needs to be given an address
-     where the value should be stored.  */
-  unsigned int returns_struct : 1;
-
-  /* Nonzero if function being compiled needs to
-     return the address of where it has put a structure value.  */
-  unsigned int returns_pcc_struct : 1;
-
   /* Nonzero if function being compiled can call setjmp.  */
   unsigned int calls_setjmp : 1;
 
@@ -459,6 +452,20 @@ struct function GTY(())
      function has been gimplified, so we can make sure we're not
      creating non GIMPLE tuples after gimplification.  */
   unsigned int gimplified : 1;
+
+  /* Fields below this point are not set for abstract functions; see
+     allocate_struct_function.  */
+
+  /* Nonzero if function being compiled needs to be given an address
+     where the value should be stored.  */
+  unsigned int returns_struct : 1;
+
+  /* Nonzero if function being compiled needs to
+     return the address of where it has put a structure value.  */
+  unsigned int returns_pcc_struct : 1;
+
+  /* Nonzero if pass_tree_profile was run on this function.  */
+  unsigned int after_tree_profile : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -468,6 +475,11 @@ struct function GTY(())
 
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
+
+/* In order to ensure that cfun is not set directly, we redefine it so
+   that it is not an lvalue.  Rather than assign to cfun, use
+   push_cfun or set_cfun.  */
+#define cfun (cfun + 0)
 
 /* Pointer to chain of `struct function' for containing functions.  */
 extern GTY(()) struct function *outer_function_chain;
@@ -482,6 +494,7 @@ extern int trampolines_created;
 extern void set_cfun (struct function *new_cfun);
 extern void push_cfun (struct function *new_cfun);
 extern void pop_cfun (void);
+extern void instantiate_decl_rtl (rtx x);
 
 /* For backward compatibility... eventually these should all go away.  */
 #define current_function_pops_args (cfun->pops_args)

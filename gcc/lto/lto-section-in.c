@@ -330,16 +330,17 @@ lto_read_decls (lto_info_fd *fd,
 
 /* Dump the debug STREAM, and two characters B and C.  */
 
-void 
-dump_debug_stream (struct lto_input_block *stream, char b, char c)
+static void 
+dump_debug_stream (struct lto_input_block *stream, 
+		   const char *stream_name, char b, char c)
 {
   unsigned int i = 0;
   bool new_line = true;
   int chars = 0;
   int hit_pos = -1;
   fprintf (stderr, 
-	   "stream failure: looking for a '%c'[0x%x] in the debug stream.\nHowever the data translated into a '%c'[0x%x]at position%d\n\n",
-	   c, c, b, b, stream->p);
+	   "stream failure: looking for a '%c'[0x%x] in the %s debug stream.\nHowever the data translated into a '%c'[0x%x]at position%d\n\n",
+	   c, c, stream_name, b, b, stream->p);
   
   while (i < stream->len)
     {
@@ -398,7 +399,7 @@ lto_debug_in_fun (struct lto_debug_context *context, char c)
 
   if (b != c)
     {
-      dump_debug_stream (stream, b, c);
+      dump_debug_stream (stream, context->stream_name, b, c);
       gcc_unreachable ();
     }
 }

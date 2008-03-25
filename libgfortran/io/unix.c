@@ -706,16 +706,28 @@ fd_truncate (unix_stream * s)
 
   /* Using ftruncate on a seekable special file (like /dev/null)
      is undefined, so we treat it as if the ftruncate succeeded.  */
+  if (!s->special_file
+      && (
 #ifdef HAVE_FTRUNCATE
-  if (s->special_file || ftruncate (s->fd, s->logical_offset))
+	  ftruncate (s->fd, s->logical_offset) != 0
+#elif defined HAVE_CHSIZE
+	  chsize (s->fd, s->logical_offset) != 0
 #else
-#ifdef HAVE_CHSIZE
-  if (s->special_file || chsize (s->fd, s->logical_offset))
+	  /* If we have neither, always fail and exit, noisily.  */
+	  runtime_error ("required ftruncate or chsize support not present"), 1
 #endif
-#endif
+	  ))
     {
-      s->physical_offset = s->file_length = 0;
-      return SUCCESS;
+      /* The truncation failed and we need to handle this gracefully.
+	 The file length remains the same, but the file-descriptor
+	 offset needs adjustment per the successful lseek above.
+	 (Similarly, the contents of the buffer isn't valid anymore.)
+	 A ftruncate call does not affect the physical (file-descriptor)
+	 offset, according to the ftruncate manual, so neither should a
+	 failed call.  */
+      s->physical_offset = s->logical_offset;
+      s->active = 0;
+      return FAILURE;
     }
 
   s->physical_offset = s->file_length = s->logical_offset;
@@ -1078,7 +1090,7 @@ empty_internal_buffer(stream *strm)
 /* open_internal()-- Returns a stream structure from an internal file */
 
 stream *
-open_internal (char *base, int length)
+open_internal (char *base, int length, gfc_offset offset)
 {
   int_stream *s;
 
@@ -1086,7 +1098,7 @@ open_internal (char *base, int length)
   memset (s, '\0', sizeof (int_stream));
 
   s->buffer = base;
-  s->buffer_offset = 0;
+  s->buffer_offset = offset;
 
   s->logical_offset = 0;
   s->active = s->file_length = length;
@@ -1806,7 +1818,7 @@ inquire_sequential (const char *string, int len)
 
   if (S_ISREG (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode) || S_ISBLK (statbuf.st_mode))
     return no;
@@ -1829,7 +1841,7 @@ inquire_direct (const char *string, int len)
     return unknown;
 
   if (S_ISREG (statbuf.st_mode) || S_ISBLK (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
@@ -1855,7 +1867,7 @@ inquire_formatted (const char *string, int len)
   if (S_ISREG (statbuf.st_mode) ||
       S_ISBLK (statbuf.st_mode) ||
       S_ISCHR (statbuf.st_mode) || S_ISFIFO (statbuf.st_mode))
-    return yes;
+    return unknown;
 
   if (S_ISDIR (statbuf.st_mode))
     return no;

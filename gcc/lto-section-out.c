@@ -508,8 +508,10 @@ gate_lto_out (void)
 }
 
 
-struct tree_opt_pass pass_ipa_lto_finish_out =
+struct simple_ipa_opt_pass pass_ipa_lto_finish_out =
 {
+ {
+  SIMPLE_IPA_PASS,
   "lto_decls_out",	                /* name */
   gate_lto_out,			        /* gate */
   produce_asm_for_decls,        	/* execute */
@@ -521,8 +523,8 @@ struct tree_opt_pass pass_ipa_lto_finish_out =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,            			/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0					/* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 

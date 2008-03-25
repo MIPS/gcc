@@ -107,19 +107,6 @@ set_value_handle (tree e, tree v)
     gcc_assert (is_gimple_min_invariant (e));
 }
 
-/* A comparison function for use in qsort to compare vuses.  Simply
-   subtracts version numbers.  */
-
-static int
-vuses_compare (const void *pa, const void *pb)
-{
-  const tree vusea = *((const tree *)pa);
-  const tree vuseb = *((const tree *)pb);
-  int sn = SSA_NAME_VERSION (vusea) - SSA_NAME_VERSION (vuseb);
-
-  return sn;
-}
-
 /* Print out the "Created value <x> for <Y>" statement to the
    dump_file.
    This is factored because both versions of lookup use it, and it
@@ -161,7 +148,7 @@ sort_vuses (VEC (tree,gc) *vuses)
     qsort (VEC_address (tree, vuses),
 	   VEC_length (tree, vuses),
 	   sizeof (tree),
-	   vuses_compare);
+	   operand_build_cmp);
 }
 
 /* Sort the VUSE array so that we can do equality comparisons
@@ -174,7 +161,7 @@ sort_vuses_heap (VEC (tree,heap) *vuses)
     qsort (VEC_address (tree, vuses),
 	   VEC_length (tree, vuses),
 	   sizeof (tree),
-	   vuses_compare);
+	   operand_build_cmp);
 }
 /* Insert EXPR into VALUE_TABLE with value VAL, and add expression
    EXPR to the value set for value VAL.  */
@@ -186,10 +173,10 @@ vn_add (tree expr, tree val)
     {
     case tcc_comparison:
     case tcc_binary:
-      vn_binary_op_insert (expr, val);
+      vn_nary_op_insert (expr, val);
       break;
     case tcc_unary:
-      vn_unary_op_insert (expr, val);
+      vn_nary_op_insert (expr, val);
       break;
       /* In the case of array-refs of constants, for example, we can
 	 end up with no vuses.  */
@@ -214,7 +201,7 @@ vn_add (tree expr, tree val)
 	}
       else if (TREE_CODE (expr) == ADDR_EXPR)
 	{
-	  vn_unary_op_insert (expr, val);
+	  vn_nary_op_insert (expr, val);
 	  break;
 	}
       /* FALLTHROUGH */
@@ -261,9 +248,9 @@ vn_lookup (tree expr)
     {
     case tcc_comparison:
     case tcc_binary:
-      return vn_binary_op_lookup (expr);
+      return vn_nary_op_lookup (expr);
     case tcc_unary:
-      return vn_unary_op_lookup (expr);
+      return vn_nary_op_lookup (expr);
       break;
       /* In the case of array-refs of constants, for example, we can
 	 end up with no vuses.  */
@@ -281,7 +268,7 @@ vn_lookup (tree expr)
       else if (TREE_CODE (expr) == SSA_NAME)
 	return SSA_NAME_VALUE (expr);
       else if (TREE_CODE (expr) == ADDR_EXPR)
-	return vn_unary_op_lookup (expr);
+	return vn_nary_op_lookup (expr);
       /* FALLTHROUGH */
     default:
       gcc_unreachable ();

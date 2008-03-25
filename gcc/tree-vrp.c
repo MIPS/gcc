@@ -2636,6 +2636,13 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
   if (vr->type == VR_ANTI_RANGE)
     return;
 
+  /* Ensure that there are not values in the scev cache based on assumptions
+     on ranges of ssa names that were changed
+     (in set_value_range/set_value_range_to_varying).  Preserve cached numbers
+     of iterations, that were computed before the start of VRP (we do not
+     recompute these each time to save the compile time).  */
+  scev_reset_except_niters ();
+
   chrec = instantiate_parameters (loop, analyze_scalar_evolution (loop, var));
 
   /* Like in PR19590, scev can return a constant function.  */
@@ -3746,7 +3753,11 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si, tree cond)
 
       if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
 	  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == TRUTH_OR_EXPR
-	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == BIT_IOR_EXPR))
+	      /* For BIT_IOR_EXPR only if NAME == 0 both operands have
+		 necessarily zero value.  */
+	      || (comp_code == EQ_EXPR
+		  && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1))
+		        == BIT_IOR_EXPR))))
 	{
 	  tree op0 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 0);
 	  tree op1 = TREE_OPERAND (GIMPLE_STMT_OPERAND (def_stmt, 1), 1);
@@ -3818,8 +3829,7 @@ find_conditional_asserts (basic_block bb, tree last)
       /* Traverse the strictly dominated sub-graph rooted at E->DEST
 	 to determine if any of the operands in the conditional
 	 predicate are used.  */
-      if (e->dest != bb)
-	need_assert |= find_assert_locations (e->dest);
+      need_assert |= find_assert_locations (e->dest);
 
       /* Register the necessary assertions for each operand in the
 	 conditional predicate.  */
@@ -4339,7 +4349,7 @@ check_array_ref (tree ref, location_t* locus, bool ignore_off_by_one)
 
   low_sub = up_sub = TREE_OPERAND (ref, 1);
 
-  if (!up_bound || !locus || TREE_NO_WARNING (ref)
+  if (!up_bound || TREE_NO_WARNING (ref)
       || TREE_CODE (up_bound) != INTEGER_CST
       /* Can not check flexible arrays.  */
       || (TYPE_SIZE (TREE_TYPE (ref)) == NULL_TREE
@@ -4440,6 +4450,12 @@ check_array_bounds (tree *tp, int *walk_subtree, void *data)
   tree t = *tp;
   tree stmt = (tree)data;
   location_t *location = EXPR_LOCUS (stmt);
+
+  if (!EXPR_HAS_LOCATION (stmt))
+    {
+      *walk_subtree = FALSE;
+      return NULL_TREE;
+    }
 
   *walk_subtree = TRUE;
 
@@ -5058,6 +5074,48 @@ vrp_evaluate_conditional (tree cond, tree stmt)
 	  else
 	    locus = EXPR_LOCATION (stmt);
 	  warning (OPT_Wstrict_overflow, "%H%s", &locus, warnmsg);
+	}
+    }
+
+  if (warn_type_limits
+      && ret
+      && TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison)
+    {
+      /* If the comparison is being folded and the operand on the LHS
+	 is being compared against a constant value that is outside of
+	 the natural range of OP0's type, then the predicate will
+	 always fold regardless of the value of OP0.  If -Wtype-limits
+	 was specified, emit a warning.  */
+      const char *warnmsg = NULL;
+      tree op0 = TREE_OPERAND (cond, 0);
+      tree op1 = TREE_OPERAND (cond, 1);
+      tree type = TREE_TYPE (op0);
+      value_range_t *vr0 = get_value_range (op0);
+
+      if (vr0->type != VR_VARYING
+	  && INTEGRAL_TYPE_P (type)
+	  && vrp_val_is_min (vr0->min)
+	  && vrp_val_is_max (vr0->max)
+	  && is_gimple_min_invariant (op1))
+	{
+	  if (integer_zerop (ret))
+	    warnmsg = G_("comparison always false due to limited range of "
+		         "data type");
+	  else
+	    warnmsg = G_("comparison always true due to limited range of "
+			 "data type");
+	}
+
+      if (warnmsg)
+	{
+	  location_t locus;
+
+	  if (!EXPR_HAS_LOCATION (stmt))
+	    locus = input_location;
+	  else
+	    locus = EXPR_LOCATION (stmt);
+
+	  warning (OPT_Wtype_limits, "%H%s", &locus, warnmsg);
 	}
     }
 
@@ -6041,6 +6099,20 @@ vrp_finalize (void)
   vr_phi_edge_counts = NULL;
 }
 
+/* Calculates number of iterations for all loops, to ensure that they are
+   cached.  */
+
+static void
+record_numbers_of_iterations (void)
+{
+  loop_iterator li;
+  struct loop *loop;
+
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      number_of_latch_executions (loop);
+    }
+}
 
 /* Main entry point to VRP (Value Range Propagation).  This pass is
    loosely based on J. R. C. Patterson, ``Accurate Static Branch
@@ -6095,6 +6167,17 @@ execute_vrp (void)
 
   insert_range_assertions ();
 
+  /* Compute the # of iterations for each loop before we start the VRP
+     analysis.  The value ranges determined by VRP are used in expression
+     simplification, that is also used by the # of iterations analysis.
+     However, in the middle of the VRP analysis, the value ranges do not take
+     all the possible paths in CFG into account, so they do not have to be
+     correct, and the # of iterations analysis can obtain wrong results.
+     This is a problem, since the results of the # of iterations analysis
+     are cached, so these mistakes would not be corrected when the value
+     ranges are corrected.  */
+  record_numbers_of_iterations ();
+
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
   vrp_finalize ();
@@ -6124,8 +6207,10 @@ gate_vrp (void)
   return flag_tree_vrp != 0;
 }
 
-struct tree_opt_pass pass_vrp =
+struct gimple_opt_pass pass_vrp =
 {
+ {
+  GIMPLE_PASS,
   "vrp",				/* name */
   gate_vrp,				/* gate */
   execute_vrp,				/* execute */
@@ -6141,6 +6226,6 @@ struct tree_opt_pass pass_vrp =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_dump_func
-    | TODO_update_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
 };

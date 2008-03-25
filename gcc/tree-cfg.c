@@ -1,5 +1,5 @@
 /* Control flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -227,8 +227,10 @@ execute_build_cfg (void)
   return 0;
 }
 
-struct tree_opt_pass pass_build_cfg =
+struct gimple_opt_pass pass_build_cfg =
 {
+ {
+  GIMPLE_PASS,
   "cfg",				/* name */
   NULL,					/* gate */
   execute_build_cfg,			/* execute */
@@ -240,8 +242,8 @@ struct tree_opt_pass pass_build_cfg =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_stmts | TODO_cleanup_cfg,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_verify_stmts | TODO_cleanup_cfg	/* todo_flags_finish */
+ }
 };
 
 /* Search the CFG for any computed gotos.  If found, factor them to a
@@ -559,14 +561,19 @@ make_edges (void)
 	      switch (cur_region->type)
 		{
 		case OMP_FOR:
+		  /* Mark all OMP_FOR and OMP_CONTINUE succs edges as abnormal
+		     to prevent splitting them.  */
+		  single_succ_edge (cur_region->entry)->flags |= EDGE_ABNORMAL;
 		  /* Make the loopback edge.  */
-		  make_edge (bb, single_succ (cur_region->entry), 0);
-	      
+		  make_edge (bb, single_succ (cur_region->entry),
+			     EDGE_ABNORMAL);
+
 		  /* Create an edge from OMP_FOR to exit, which corresponds to
 		     the case that the body of the loop is not executed at
 		     all.  */
-		  make_edge (cur_region->entry, bb->next_bb, 0);
-		  fallthru = true;
+		  make_edge (cur_region->entry, bb->next_bb, EDGE_ABNORMAL);
+		  make_edge (bb, bb->next_bb, EDGE_FALLTHRU | EDGE_ABNORMAL);
+		  fallthru = false;
 		  break;
 
 		case OMP_SECTIONS:
@@ -638,20 +645,10 @@ make_cond_expr_edges (basic_block bb)
   else_bb = label_to_block (else_label);
 
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-#ifdef USE_MAPPED_LOCATION
   e->goto_locus = EXPR_LOCATION (COND_EXPR_THEN (entry));
-#else
-  e->goto_locus = EXPR_LOCUS (COND_EXPR_THEN (entry));
-#endif
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
-    {
-#ifdef USE_MAPPED_LOCATION
-      e->goto_locus = EXPR_LOCATION (COND_EXPR_ELSE (entry));
-#else
-      e->goto_locus = EXPR_LOCUS (COND_EXPR_ELSE (entry));
-#endif
-    }
+    e->goto_locus = EXPR_LOCATION (COND_EXPR_ELSE (entry));
 
   /* We do not need the gotos anymore.  */
   COND_EXPR_THEN (entry) = NULL_TREE;
@@ -845,11 +842,7 @@ make_goto_expr_edges (basic_block bb)
     {
       tree dest = GOTO_DESTINATION (goto_t);
       edge e = make_edge (bb, label_to_block (dest), EDGE_FALLTHRU);
-#ifdef USE_MAPPED_LOCATION
       e->goto_locus = EXPR_LOCATION (goto_t);
-#else
-      e->goto_locus = EXPR_LOCUS (goto_t);
-#endif
       bsi_remove (&last, true);
       return;
     }
@@ -1337,7 +1330,21 @@ tree_merge_blocks (basic_block a, basic_block b)
 	}
       else
         {
-          replace_uses_by (def, use);
+	  /* If we deal with a PHI for virtual operands, we can simply
+	     propagate these without fussing with folding or updating
+	     the stmt.  */
+	  if (!is_gimple_reg (def))
+	    {
+	      imm_use_iterator iter;
+	      use_operand_p use_p;
+	      tree stmt;
+
+	      FOR_EACH_IMM_USE_STMT (stmt, iter, def)
+		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+		  SET_USE (use_p, use);
+	    }
+	  else
+            replace_uses_by (def, use);
           remove_phi_node (phi, NULL, true);
         }
     }
@@ -1943,8 +1950,10 @@ remove_useless_stmts (void)
 }
 
 
-struct tree_opt_pass pass_remove_useless_stmts =
+struct gimple_opt_pass pass_remove_useless_stmts =
 {
+ {
+  GIMPLE_PASS,
   "useless",				/* name */
   NULL,					/* gate */
   remove_useless_stmts,			/* execute */
@@ -1956,8 +1965,8 @@ struct tree_opt_pass pass_remove_useless_stmts =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 /* Remove PHI nodes associated with basic block BB and all edges out of BB.  */
@@ -1989,11 +1998,7 @@ static void
 remove_bb (basic_block bb)
 {
   block_stmt_iterator i;
-#ifdef USE_MAPPED_LOCATION
   source_location loc = UNKNOWN_LOCATION;
-#else
-  source_locus loc = 0;
-#endif
 
   if (dump_file)
     {
@@ -2061,15 +2066,8 @@ remove_bb (basic_block bb)
 	     program that are indeed unreachable.  */
 	  if (TREE_CODE (stmt) != GOTO_EXPR && EXPR_HAS_LOCATION (stmt) && !loc)
 	    {
-#ifdef USE_MAPPED_LOCATION
 	      if (EXPR_HAS_LOCATION (stmt))
 		loc = EXPR_LOCATION (stmt);
-#else
-	      source_locus t;
-	      t = EXPR_LOCUS (stmt);
-	      if (t && LOCATION_LINE (*t) > 0)
-		loc = t;
-#endif
 	    }
 	}
     }
@@ -2078,13 +2076,8 @@ remove_bb (basic_block bb)
      block is unreachable.  We walk statements backwards in the
      loop above, so the last statement we process is the first statement
      in the block.  */
-#ifdef USE_MAPPED_LOCATION
   if (loc > BUILTINS_LOCATION && LOCATION_LINE (loc) > 0)
     warning (OPT_Wunreachable_code, "%Hwill never be executed", &loc);
-#else
-  if (loc)
-    warning (OPT_Wunreachable_code, "%Hwill never be executed", loc);
-#endif
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
   bb->il.tree = NULL;
@@ -3057,24 +3050,28 @@ bsi_insert_on_edge_immediate (edge e, tree stmt)
 static void
 reinstall_phi_args (edge new_edge, edge old_edge)
 {
-  tree var, phi;
+  tree phi;
+  edge_var_map_vector v;
+  edge_var_map *vm;
+  int i;
 
-  if (!PENDING_STMT (old_edge))
+  v = redirect_edge_var_map_vector (old_edge);
+  if (!v)
     return;
 
-  for (var = PENDING_STMT (old_edge), phi = phi_nodes (new_edge->dest);
-       var && phi;
-       var = TREE_CHAIN (var), phi = PHI_CHAIN (phi))
+  for (i = 0, phi = phi_nodes (new_edge->dest);
+       VEC_iterate (edge_var_map, v, i, vm) && phi;
+       i++, phi = PHI_CHAIN (phi))
     {
-      tree result = TREE_PURPOSE (var);
-      tree arg = TREE_VALUE (var);
+      tree result = redirect_edge_var_map_result (vm);
+      tree arg = redirect_edge_var_map_def (vm);
 
       gcc_assert (result == PHI_RESULT (phi));
 
       add_phi_arg (phi, arg, new_edge);
     }
 
-  PENDING_STMT (old_edge) = NULL;
+  redirect_edge_var_map_clear (old_edge);
 }
 
 /* Returns the basic block after which the new basic block created
@@ -3190,7 +3187,14 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	   we may be missing "valid" checks, but what can you do?
 	   This was PR19217.  */
         if (in_phi)
-	  break;
+	  {
+	    if (!is_gimple_min_invariant (t))
+	      {
+		error ("non-invariant address expression in PHI argument");
+		return t;
+	      }
+	    break;
+	  }
 
 	old_invariant = TREE_INVARIANT (t);
 	old_constant = TREE_CONSTANT (t);
@@ -3233,6 +3237,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    error ("address taken, but ADDRESSABLE bit not set");
 	    return x;
 	  }
+
 	break;
       }
 
@@ -3288,14 +3293,34 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    }
 	  else if (TREE_CODE (t) == BIT_FIELD_REF)
 	    {
-	      CHECK_OP (1, "invalid operand to BIT_FIELD_REF");
-	      CHECK_OP (2, "invalid operand to BIT_FIELD_REF");
+	      if (!host_integerp (TREE_OPERAND (t, 1), 1)
+		  || !host_integerp (TREE_OPERAND (t, 2), 1))
+		{
+		  error ("invalid position or size operand to BIT_FIELD_REF");
+		  return t;
+		}
+	      else if (INTEGRAL_TYPE_P (TREE_TYPE (t))
+		       && (TYPE_PRECISION (TREE_TYPE (t))
+			   != TREE_INT_CST_LOW (TREE_OPERAND (t, 1))))
+		{
+		  error ("integral result type precision does not match "
+			 "field size of BIT_FIELD_REF");
+		  return t;
+		}
+	      if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
+		  && (GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (t)))
+		      != TREE_INT_CST_LOW (TREE_OPERAND (t, 1))))
+		{
+		  error ("mode precision of non-integral result does not "
+			 "match field size of BIT_FIELD_REF");
+		  return t;
+		}
 	    }
 
 	  t = TREE_OPERAND (t, 0);
 	}
 
-      if (!CONSTANT_CLASS_P (t) && !is_gimple_lvalue (t))
+      if (!is_gimple_min_invariant (t) && !is_gimple_lvalue (t))
 	{
 	  error ("invalid reference prefix");
 	  return t;
@@ -4056,6 +4081,7 @@ verify_gimple_stmt (tree stmt)
     case NOP_EXPR:
     case CHANGE_DYNAMIC_TYPE_EXPR:
     case ASM_EXPR:
+    case PREDICT_EXPR:
       return false;
 
     default:
@@ -5667,22 +5693,30 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
 /* Marks virtual operands of all statements in basic blocks BBS for
    renaming.  */
 
-static void
-mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
+void
+mark_virtual_ops_in_bb (basic_block bb)
 {
   tree phi;
   block_stmt_iterator bsi;
+
+  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+    mark_virtual_ops_for_renaming (phi);
+
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+    mark_virtual_ops_for_renaming (bsi_stmt (bsi));
+}
+
+/* Marks virtual operands of all statements in basic blocks BBS for
+   renaming.  */
+
+static void
+mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
+{
   basic_block bb;
   unsigned i;
 
   for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
-    {
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	mark_virtual_ops_for_renaming (phi);
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	mark_virtual_ops_for_renaming (bsi_stmt (bsi));
-    }
+    mark_virtual_ops_in_bb (bb);
 }
 
 /* Move basic block BB from function CFUN to function DEST_FN.  The
@@ -5884,6 +5918,8 @@ new_label_mapper (tree decl, void *data)
   m->base.from = decl;
   m->to = create_artificial_label ();
   LABEL_DECL_UID (m->to) = LABEL_DECL_UID (decl);
+  if (LABEL_DECL_UID (m->to) >= cfun->last_label_uid)
+    cfun->last_label_uid = LABEL_DECL_UID (m->to) + 1;
 
   slot = htab_find_slot_with_hash (hash, m, m->hash, INSERT);
   gcc_assert (*slot == NULL);
@@ -6210,12 +6246,6 @@ debug_function (tree fn, int flags)
 }
 
 
-/* Pretty print of the loops intermediate representation.  */
-static void print_loop (FILE *, struct loop *, int);
-static void print_pred_bbs (FILE *, basic_block bb);
-static void print_succ_bbs (FILE *, basic_block bb);
-
-
 /* Print on FILE the indexes for the predecessors of basic_block BB.  */
 
 static void
@@ -6241,11 +6271,42 @@ print_succ_bbs (FILE *file, basic_block bb)
     fprintf (file, "bb_%d ", e->dest->index);
 }
 
+/* Print to FILE the basic block BB following the VERBOSITY level.  */
 
-/* Pretty print LOOP on FILE, indented INDENT spaces.  */
+void 
+print_loops_bb (FILE *file, basic_block bb, int indent, int verbosity)
+{
+  char *s_indent = (char *) alloca ((size_t) indent + 1);
+  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent[indent] = '\0';
+
+  /* Print basic_block's header.  */
+  if (verbosity >= 2)
+    {
+      fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
+      print_pred_bbs (file, bb);
+      fprintf (file, "}, succs = {");
+      print_succ_bbs (file, bb);
+      fprintf (file, "})\n");
+    }
+
+  /* Print basic_block's body.  */
+  if (verbosity >= 3)
+    {
+      fprintf (file, "%s  {\n", s_indent);
+      tree_dump_bb (bb, file, indent + 4);
+      fprintf (file, "%s  }\n", s_indent);
+    }
+}
+
+static void print_loop_and_siblings (FILE *, struct loop *, int, int);
+
+/* Pretty print LOOP on FILE, indented INDENT spaces.  Following
+   VERBOSITY level this outputs the contents of the loop, or just its
+   structure.  */
 
 static void
-print_loop (FILE *file, struct loop *loop, int indent)
+print_loop (FILE *file, struct loop *loop, int indent, int verbosity)
 {
   char *s_indent;
   basic_block bb;
@@ -6257,55 +6318,90 @@ print_loop (FILE *file, struct loop *loop, int indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  /* Print the loop's header.  */
-  fprintf (file, "%sloop_%d\n", s_indent, loop->num);
+  /* Print loop's header.  */
+  fprintf (file, "%sloop_%d (header = %d, latch = %d", s_indent, 
+	   loop->num, loop->header->index, loop->latch->index);
+  fprintf (file, ", niter = ");
+  print_generic_expr (file, loop->nb_iterations, 0);
 
-  /* Print the loop's body.  */
-  fprintf (file, "%s{\n", s_indent);
-  FOR_EACH_BB (bb)
-    if (bb->loop_father == loop)
-      {
-	/* Print the basic_block's header.  */
-	fprintf (file, "%s  bb_%d (preds = {", s_indent, bb->index);
-	print_pred_bbs (file, bb);
-	fprintf (file, "}, succs = {");
-	print_succ_bbs (file, bb);
-	fprintf (file, "})\n");
+  if (loop->any_upper_bound)
+    {
+      fprintf (file, ", upper_bound = ");
+      dump_double_int (file, loop->nb_iterations_upper_bound, true);
+    }
 
-	/* Print the basic_block's body.  */
-	fprintf (file, "%s  {\n", s_indent);
-	tree_dump_bb (bb, file, indent + 4);
-	fprintf (file, "%s  }\n", s_indent);
-      }
+  if (loop->any_estimate)
+    {
+      fprintf (file, ", estimate = ");
+      dump_double_int (file, loop->nb_iterations_estimate, true);
+    }
+  fprintf (file, ")\n");
 
-  print_loop (file, loop->inner, indent + 2);
-  fprintf (file, "%s}\n", s_indent);
-  print_loop (file, loop->next, indent);
+  /* Print loop's body.  */
+  if (verbosity >= 1)
+    {
+      fprintf (file, "%s{\n", s_indent);
+      FOR_EACH_BB (bb)
+	if (bb->loop_father == loop)
+	  print_loops_bb (file, bb, indent, verbosity);
+
+      print_loop_and_siblings (file, loop->inner, indent + 2, verbosity);
+      fprintf (file, "%s}\n", s_indent);
+    }
 }
 
+/* Print the LOOP and its sibling loops on FILE, indented INDENT
+   spaces.  Following VERBOSITY level this outputs the contents of the
+   loop, or just its structure.  */
+
+static void
+print_loop_and_siblings (FILE *file, struct loop *loop, int indent, int verbosity)
+{
+  if (loop == NULL)
+    return;
+
+  print_loop (file, loop, indent, verbosity);
+  print_loop_and_siblings (file, loop->next, indent, verbosity);
+}
 
 /* Follow a CFG edge from the entry point of the program, and on entry
    of a loop, pretty print the loop structure on FILE.  */
 
 void
-print_loop_ir (FILE *file)
+print_loops (FILE *file, int verbosity)
 {
   basic_block bb;
 
   bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
-    print_loop (file, bb->loop_father, 0);
+    print_loop_and_siblings (file, bb->loop_father, 0, verbosity);
 }
 
 
-/* Debugging loops structure at tree level.  */
+/* Debugging loops structure at tree level, at some VERBOSITY level.  */
 
 void
-debug_loop_ir (void)
+debug_loops (int verbosity)
 {
-  print_loop_ir (stderr);
+  print_loops (stderr, verbosity);
 }
 
+/* Print on stderr the code of LOOP, at some VERBOSITY level.  */
+
+void
+debug_loop (struct loop *loop, int verbosity)
+{
+  print_loop (stderr, loop, 0, verbosity);
+}
+
+/* Print on stderr the code of loop number NUM, at some VERBOSITY
+   level.  */
+
+void
+debug_loop_num (unsigned num, int verbosity)
+{
+  debug_loop (get_loop (num), verbosity);
+}
 
 /* Return true if BB ends with a call, possibly followed by some
    instructions that must stay with the call.  Return false,
@@ -6831,8 +6927,10 @@ split_critical_edges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_split_crit_edges =
+struct gimple_opt_pass pass_split_crit_edges =
 {
+ {
+  GIMPLE_PASS,
   "crited",                          /* name */
   NULL,                          /* gate */
   split_critical_edges,          /* execute */
@@ -6844,8 +6942,8 @@ struct tree_opt_pass pass_split_crit_edges =
   PROP_no_crit_edges,            /* properties_provided */
   0,                             /* properties_destroyed */
   0,                             /* todo_flags_start */
-  TODO_dump_func,                /* todo_flags_finish */
-  0                              /* letter */
+  TODO_dump_func                 /* todo_flags_finish */
+ }
 };
 
 
@@ -6928,11 +7026,7 @@ gimplify_build1 (block_stmt_iterator *bsi, enum tree_code code, tree type,
 static unsigned int
 execute_warn_function_return (void)
 {
-#ifdef USE_MAPPED_LOCATION
   source_location location;
-#else
-  location_t *locus;
-#endif
   tree last;
   edge e;
   edge_iterator ei;
@@ -6941,31 +7035,17 @@ execute_warn_function_return (void)
   if (TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0)
     {
-#ifdef USE_MAPPED_LOCATION
       location = UNKNOWN_LOCATION;
-#else
-      locus = NULL;
-#endif
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  last = last_stmt (e->src);
 	  if (TREE_CODE (last) == RETURN_EXPR
-#ifdef USE_MAPPED_LOCATION
 	      && (location = EXPR_LOCATION (last)) != UNKNOWN_LOCATION)
-#else
-	      && (locus = EXPR_LOCUS (last)) != NULL)
-#endif
 	    break;
 	}
-#ifdef USE_MAPPED_LOCATION
       if (location == UNKNOWN_LOCATION)
 	location = cfun->function_end_locus;
       warning (0, "%H%<noreturn%> function does return", &location);
-#else
-      if (!locus)
-	locus = &cfun->function_end_locus;
-      warning (0, "%H%<noreturn%> function does return", locus);
-#endif
     }
 
   /* If we see "return;" in some basic block, then we do reach the end
@@ -6982,17 +7062,10 @@ execute_warn_function_return (void)
 	      && TREE_OPERAND (last, 0) == NULL
 	      && !TREE_NO_WARNING (last))
 	    {
-#ifdef USE_MAPPED_LOCATION
 	      location = EXPR_LOCATION (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
 	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", &location);
-#else
-	      locus = EXPR_LOCUS (last);
-	      if (!locus)
-		locus = &cfun->function_end_locus;
-	      warning (OPT_Wreturn_type, "%Hcontrol reaches end of non-void function", locus);
-#endif
 	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;
 	    }
@@ -7026,8 +7099,10 @@ extract_true_false_edges_from_block (basic_block b,
     }
 }
 
-struct tree_opt_pass pass_warn_function_return =
+struct gimple_opt_pass pass_warn_function_return =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   execute_warn_function_return,		/* execute */
@@ -7039,8 +7114,8 @@ struct tree_opt_pass pass_warn_function_return =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Emit noreturn warnings.  */
@@ -7058,8 +7133,10 @@ execute_warn_function_noreturn (void)
   return 0;
 }
 
-struct tree_opt_pass pass_warn_function_noreturn =
+struct gimple_opt_pass pass_warn_function_noreturn =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   execute_warn_function_noreturn,	/* execute */
@@ -7071,6 +7148,6 @@ struct tree_opt_pass pass_warn_function_noreturn =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };

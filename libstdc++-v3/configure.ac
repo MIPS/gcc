@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:10:0
+libtool_VERSION=6:11:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -295,8 +295,9 @@ else
 
   # Assume we have _Unwind_GetIPInfo for cross-compiles.
   AC_DEFINE(HAVE_GETIPINFO)
-
 fi
+
+GCC_LINUX_FUTEX([AC_DEFINE(HAVE_LINUX_FUTEX, 1, [Define if futex syscall is available.])])
 
 # This depends on GLIBCXX CHECK_LINKER_FEATURES, but without it assumes no.
 GLIBCXX_ENABLE_SYMVERS([yes])

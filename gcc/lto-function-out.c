@@ -208,9 +208,7 @@ struct output_block
      something into the stream and fix these up.  */
   const char *current_file;
   int current_line;
-#ifdef USE_MAPPED_LOCATION  
   int current_col;
-#endif
 };
 
 
@@ -225,9 +223,7 @@ clear_line_info (struct output_block *ob)
 {
   ob->current_file = NULL;
   ob->current_line = 0;
-#ifdef USE_MAPPED_LOCATION  
   ob->current_col = 0;
-#endif
 }
 
 
@@ -453,9 +449,7 @@ output_tree_flags (struct output_block *ob,
   lto_flags_type flags = 0;
   const char *file_to_write = NULL;
   int line_to_write = -1;
-#ifdef USE_MAPPED_LOCATION
   int col_to_write = -1;
-#endif
 
   if (code == 0 || TEST_BIT (lto_flags_needed_for, code))
     {
@@ -520,9 +514,7 @@ output_tree_flags (struct output_block *ob,
 	{
 	  const char *current_file = NULL;
 	  int current_line = 0;
-#ifdef USE_MAPPED_LOCATION
 	  int current_col = 0;
-#endif
 	  if (EXPR_P (expr) || GIMPLE_STMT_P (expr))
 	    {
 	      if (EXPR_HAS_LOCATION (expr))
@@ -532,9 +524,7 @@ output_tree_flags (struct output_block *ob,
 
 		  current_file = xloc.file;
 		  current_line = xloc.line;
-#ifdef USE_MAPPED_LOCATION
 		  current_col = xloc.column;
-#endif
 		  flags |= LTO_SOURCE_HAS_LOC;
 		}
 	    }
@@ -551,9 +541,7 @@ output_tree_flags (struct output_block *ob,
 		{
 		  current_file = xloc.file;
 		  current_line = xloc.line;
-#ifdef USE_MAPPED_LOCATION
 		  current_col = xloc.column;
-#endif
 		  flags |= LTO_SOURCE_HAS_LOC;
 		}
 	    }
@@ -573,7 +561,6 @@ output_tree_flags (struct output_block *ob,
 	      ob->current_line = current_line;
 	      flags |= LTO_SOURCE_LINE;
 	    }
-#ifdef USE_MAPPED_LOCATION
 	  if (current_col != 0
 	      && ob->current_col != current_col)
 	    {
@@ -581,7 +568,6 @@ output_tree_flags (struct output_block *ob,
 	      ob->current_col = current_col;
 	      flags |= LTO_SOURCE_COL;
 	    }
-#endif
 	}
 
       LTO_DEBUG_TOKEN ("flags");
@@ -599,13 +585,11 @@ output_tree_flags (struct output_block *ob,
 	  LTO_DEBUG_TOKEN ("line");
 	  output_uleb128 (ob, line_to_write);
 	}
-#ifdef USE_MAPPED_LOCATION
       if (col_to_write != -1)
 	{
 	  LTO_DEBUG_TOKEN ("col");
 	  output_uleb128 (ob, col_to_write);
 	}
-#endif
     }
 }
 
@@ -2128,8 +2112,10 @@ lto_output (void)
   return 0;
 }
 
-struct tree_opt_pass pass_ipa_lto_gimple_out =
+struct simple_ipa_opt_pass pass_ipa_lto_gimple_out =
 {
+ {
+  SIMPLE_IPA_PASS,
   "lto_gimple_out",	                /* name */
   gate_lto_out,			        /* gate */
   lto_output,		        	/* execute */
@@ -2141,8 +2127,8 @@ struct tree_opt_pass pass_ipa_lto_gimple_out =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,            			/* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 

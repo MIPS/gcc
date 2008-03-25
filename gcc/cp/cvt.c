@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -82,7 +82,7 @@ cp_convert_to_pointer (tree type, tree expr)
   if (intype == error_mark_node)
     return error_mark_node;
 
-  if (IS_AGGR_TYPE (intype))
+  if (MAYBE_CLASS_TYPE_P (intype))
     {
       intype = complete_type (intype);
       if (!COMPLETE_TYPE_P (intype))
@@ -127,8 +127,8 @@ cp_convert_to_pointer (tree type, tree expr)
       if (TYPE_MAIN_VARIANT (type) != intype
 	  && TREE_CODE (type) == POINTER_TYPE
 	  && TREE_CODE (TREE_TYPE (type)) == RECORD_TYPE
-	  && IS_AGGR_TYPE (TREE_TYPE (type))
-	  && IS_AGGR_TYPE (TREE_TYPE (intype))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (type))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (intype))
 	  && TREE_CODE (TREE_TYPE (intype)) == RECORD_TYPE)
 	{
 	  enum tree_code code = PLUS_EXPR;
@@ -256,8 +256,8 @@ convert_to_pointer_force (tree type, tree expr)
 
       if (TYPE_MAIN_VARIANT (type) != intype
 	  && TREE_CODE (TREE_TYPE (type)) == RECORD_TYPE
-	  && IS_AGGR_TYPE (TREE_TYPE (type))
-	  && IS_AGGR_TYPE (TREE_TYPE (intype))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (type))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (intype))
 	  && TREE_CODE (TREE_TYPE (intype)) == RECORD_TYPE)
 	{
 	  enum tree_code code = PLUS_EXPR;
@@ -332,8 +332,8 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
 
   if ((flags & LOOKUP_PROTECT)
       && TYPE_MAIN_VARIANT (argtype) != TYPE_MAIN_VARIANT (target_type)
-      && IS_AGGR_TYPE (argtype)
-      && IS_AGGR_TYPE (target_type))
+      && MAYBE_CLASS_TYPE_P (argtype)
+      && MAYBE_CLASS_TYPE_P (target_type))
     {
       /* We go through lookup_base for the access control.  */
       tree binfo = lookup_base (argtype, target_type, ba_check, NULL);
@@ -379,7 +379,7 @@ warn_ref_binding (tree reftype, tree intype, tree decl)
 	  msg = "conversion to non-const reference type %q#T from"
 	    " rvalue of type %qT";
 
-      pedwarn (msg, reftype, intype);
+      permerror (msg, reftype, intype);
     }
 }
 
@@ -418,7 +418,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
   can_convert_intype_to_type = can_convert (type, intype);
   if (!can_convert_intype_to_type
-      && (convtype & CONV_IMPLICIT) && IS_AGGR_TYPE (intype)
+      && (convtype & CONV_IMPLICIT) && MAYBE_CLASS_TYPE_P (intype)
       && ! (flags & LOOKUP_NO_CONVERSION))
     {
       /* Look for a user-defined conversion to lvalue that we can use.  */
@@ -449,8 +449,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
 	  if (! (convtype & CONV_CONST)
 		   && !at_least_as_qualified_p (ttl, ttr))
-	    pedwarn ("conversion from %qT to %qT discards qualifiers",
-		     ttr, reftype);
+	    permerror ("conversion from %qT to %qT discards qualifiers",
+		       ttr, reftype);
 	}
 
       return build_up_reference (reftype, expr, flags, decl);
@@ -530,7 +530,7 @@ convert_from_reference (tree val)
 tree
 force_rvalue (tree expr)
 {
-  if (IS_AGGR_TYPE (TREE_TYPE (expr)) && TREE_CODE (expr) != TARGET_EXPR)
+  if (MAYBE_CLASS_TYPE_P (TREE_TYPE (expr)) && TREE_CODE (expr) != TARGET_EXPR)
     expr = ocp_convert (TREE_TYPE (expr), expr,
 			CONV_IMPLICIT|CONV_FORCE_TEMP, LOOKUP_NORMAL);
   else
@@ -596,13 +596,9 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 
   e = integral_constant_value (e);
 
-  if (IS_AGGR_TYPE (type) && (convtype & CONV_FORCE_TEMP)
-      /* Some internal structures (vtable_entry_type, sigtbl_ptr_type)
-	 don't go through finish_struct, so they don't have the synthesized
-	 constructors.  So don't force a temporary.  */
-      && TYPE_HAS_CONSTRUCTOR (type))
+  if (MAYBE_CLASS_TYPE_P (type) && (convtype & CONV_FORCE_TEMP))
     /* We need a new temporary; don't take this shortcut.  */;
-  else if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (e)))
+  else if (same_type_ignoring_top_level_qualifiers_p (type, TREE_TYPE (e)))
     {
       if (same_type_p (type, TREE_TYPE (e)))
 	/* The call to fold will not always remove the NOP_EXPR as
@@ -619,10 +615,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
 	  /* Don't build a NOP_EXPR of class type.  Instead, change the
-	     type of the temporary.  Only allow this for cv-qual changes,
-	     though.  */
-	  gcc_assert (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (e)),
-				   TYPE_MAIN_VARIANT (type)));
+	     type of the temporary.  */
 	  TREE_TYPE (e) = TREE_TYPE (TARGET_EXPR_SLOT (e)) = type;
 	  return e;
 	}
@@ -653,12 +646,12 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	      || TREE_CODE (intype) == POINTER_TYPE))
 	{
 	  if (flags & LOOKUP_COMPLAIN)
-	    pedwarn ("conversion from %q#T to %q#T", intype, type);
+	    permerror ("conversion from %q#T to %q#T", intype, type);
 
-	  if (flag_pedantic_errors)
+	  if (!flag_permissive)
 	    return error_mark_node;
 	}
-      if (IS_AGGR_TYPE (intype))
+      if (MAYBE_CLASS_TYPE_P (intype))
 	{
 	  tree rval;
 	  rval = build_type_conversion (type, e);
@@ -678,7 +671,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   if (code == VECTOR_TYPE)
     {
       tree in_vtype = TREE_TYPE (e);
-      if (IS_AGGR_TYPE (in_vtype))
+      if (MAYBE_CLASS_TYPE_P (in_vtype))
 	{
 	  tree ret_val;
 	  ret_val = build_type_conversion (type, e);
@@ -692,7 +685,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
     }
   if (code == REAL_TYPE || code == COMPLEX_TYPE)
     {
-      if (IS_AGGR_TYPE (TREE_TYPE (e)))
+      if (MAYBE_CLASS_TYPE_P (TREE_TYPE (e)))
 	{
 	  tree rval;
 	  rval = build_type_conversion (type, e);
@@ -712,7 +705,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
   /* New C++ semantics:  since assignment is now based on
      memberwise copying,  if the rhs type is derived from the
      lhs type, then we may still do a conversion.  */
-  if (IS_AGGR_TYPE_CODE (code))
+  if (RECORD_OR_UNION_CODE_P (code))
     {
       tree dtype = TREE_TYPE (e);
       tree ctor = NULL_TREE;
@@ -732,7 +725,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags)
 	return error_mark_node;
 
       if ((flags & LOOKUP_ONLYCONVERTING)
-	  && ! (IS_AGGR_TYPE (dtype) && DERIVED_FROM_P (type, dtype)))
+	  && ! (MAYBE_CLASS_TYPE_P (dtype) && DERIVED_FROM_P (type, dtype)))
 	/* For copy-initialization, first we create a temp of the proper type
 	   with a user-defined conversion sequence, then we direct-initialize
 	   the target with the temp (see [dcl.init]).  */
@@ -899,8 +892,8 @@ convert_to_void (tree expr, const char *implicit)
       {
 	/* [over.over] enumerates the places where we can take the address
 	   of an overloaded function, and this is not one of them.  */
-	pedwarn ("%s cannot resolve address of overloaded function",
-		    implicit ? implicit : "void cast");
+	error ("%s cannot resolve address of overloaded function",
+	       implicit ? implicit : "void cast");
 	expr = void_zero_node;
       }
     else if (implicit && probe == expr && is_overloaded_fn (probe))
@@ -1072,7 +1065,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (basetype == error_mark_node)
     return error_mark_node;
 
-  if (! IS_AGGR_TYPE (basetype))
+  if (! MAYBE_CLASS_TYPE_P (basetype))
     switch (TREE_CODE (basetype))
       {
       case INTEGER_TYPE:

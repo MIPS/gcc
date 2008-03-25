@@ -346,8 +346,10 @@ release_dead_ssa_names (void)
   return 0;
 }
 
-struct tree_opt_pass pass_release_ssa_names =
+struct gimple_opt_pass pass_release_ssa_names =
 {
+ {
+  GIMPLE_PASS,
   "release_ssa",			/* name */
   NULL,					/* gate */
   release_dead_ssa_names,		/* execute */
@@ -359,6 +361,6 @@ struct tree_opt_pass pass_release_ssa_names =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func 			/* todo_flags_finish */
+ }
 };

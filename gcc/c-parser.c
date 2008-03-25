@@ -1,6 +1,7 @@
 /* Parser for C and Objective-C.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -280,6 +281,8 @@ typedef struct c_parser GTY(())
   /* True if we're processing a pragma, and shouldn't automatically
      consume CPP_PRAGMA_EOL.  */
   BOOL_BITFIELD in_pragma : 1;
+  /* True if we're parsing the outermost block of an if statement.  */
+  BOOL_BITFIELD in_if_block : 1;
   /* True if we want to lex an untranslated string.  */
   BOOL_BITFIELD lex_untranslated_string : 1;
   /* Objective-C specific parser/lexer information.  */
@@ -1067,7 +1070,7 @@ c_parser_translation_unit (c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_EOF))
     {
       if (pedantic)
-	pedwarn ("%HISO C forbids an empty source file",
+	pedwarn ("%HISO C forbids an empty translation unit",
 		 &c_parser_peek_token (parser)->location);
     }
   else
@@ -2499,7 +2502,7 @@ c_parser_direct_declarator_inner (c_parser *parser, bool id_present,
 					   star_seen);
       if (declarator == NULL)
 	return NULL;
-      inner = set_array_declarator_inner (declarator, inner, !id_present);
+      inner = set_array_declarator_inner (declarator, inner);
       return c_parser_direct_declarator_inner (parser, id_present, inner);
     }
   else if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
@@ -3541,6 +3544,20 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  c_parser_error (parser, "expected declaration or statement");
 	  return;
 	}
+      else if (c_parser_next_token_is_keyword (parser, RID_ELSE))
+        {
+          if (parser->in_if_block) 
+            {
+              error ("%H""expected %<}%> before %<else%>", &loc);
+              return;
+            }
+          else 
+            {
+              error ("%H%<else%> without a previous %<if%>", &loc);
+              c_parser_consume_token (parser);
+              continue;
+            }
+        }
       else
 	{
 	statement:
@@ -3622,7 +3639,20 @@ c_parser_label (c_parser *parser)
 	}
     }
   if (label)
-    SET_EXPR_LOCATION (label, loc1);
+    {
+      SET_EXPR_LOCATION (label, loc1);
+      if (c_parser_next_token_starts_declspecs (parser)
+	  && !(c_parser_next_token_is (parser, CPP_NAME)
+	       && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
+	{
+	  error ("%Ha label can only be part of a statement and "
+		 "a declaration is not a statement",
+		 &c_parser_peek_token (parser)->location);
+	  c_parser_declaration_or_fndef (parser, /*fndef_ok*/ false, 
+					 /*nested*/ true, /*empty_ok*/ false,
+					 /*start_attr_ok*/ true);
+	}
+    }
 }
 
 /* Parse a statement (C90 6.6, C99 6.8).
@@ -3740,6 +3770,8 @@ c_parser_statement_after_labels (c_parser *parser)
 {
   location_t loc = c_parser_peek_token (parser)->location;
   tree stmt = NULL_TREE;
+  bool in_if_block = parser->in_if_block;
+  parser->in_if_block = false;
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_OPEN_BRACE:
@@ -3846,16 +3878,6 @@ c_parser_statement_after_labels (c_parser *parser)
       break;
     default:
     expr_stmt:
-      if (c_parser_next_token_starts_declspecs (parser)) 
-	{
-	  error ("%Ha label can only be part of a statement and "
-		 "a declaration is not a statement",
-		 &c_parser_peek_token (parser)->location);
-	  c_parser_declaration_or_fndef (parser, /*fndef_ok*/ false, 
-					 /*nested*/ true, /*empty_ok*/ false,
-					 /*start_attr_ok*/ true);
-	  return;
-	}
       stmt = c_finish_expr_stmt (c_parser_expression_conv (parser).value);
     expect_semicolon:
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
@@ -3873,6 +3895,8 @@ c_parser_statement_after_labels (c_parser *parser)
      earlier?  */
   if (stmt && CAN_HAVE_LOCATION_P (stmt))
     SET_EXPR_LOCATION (stmt, loc);
+
+  parser->in_if_block = in_if_block;
 }
 
 /* Parse a parenthesized condition from an if, do or while statement.
@@ -3906,11 +3930,13 @@ c_parser_c99_block_statement (c_parser *parser)
   return c_end_compound_stmt (block, flag_isoc99);
 }
 
-/* Parse the body of an if statement or the else half thereof.  This
-   is just parsing a statement but (a) it is a block in C99, (b) we
-   track whether the body is an if statement for the sake of
-   -Wparentheses warnings, (c) we handle an empty body specially for
-   the sake of -Wempty-body warnings.  */
+/* Parse the body of an if statement.  This is just parsing a
+   statement but (a) it is a block in C99, (b) we track whether the
+   body is an if statement for the sake of -Wparentheses warnings, (c)
+   we handle an empty body specially for the sake of -Wempty-body
+   warnings, and (d) we call parser_compound_statement directly
+   because c_parser_statement_after_labels resets
+   parser->in_if_block.  */
 
 static tree
 c_parser_if_body (c_parser *parser, bool *if_p)
@@ -3923,8 +3949,37 @@ c_parser_if_body (c_parser *parser, bool *if_p)
     c_parser_label (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
-    add_stmt (build_empty_stmt ());
-  c_parser_statement_after_labels (parser);
+    {
+      add_stmt (build_empty_stmt ());
+      c_parser_consume_token (parser);
+    }
+  else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+    add_stmt (c_parser_compound_statement (parser));
+  else
+    c_parser_statement_after_labels (parser);
+  return c_end_compound_stmt (block, flag_isoc99);
+}
+
+/* Parse the else body of an if statement.  This is just parsing a
+   statement but (a) it is a block in C99, (b) we handle an empty body
+   specially for the sake of -Wempty-body warnings.  */
+
+static tree
+c_parser_else_body (c_parser *parser)
+{
+  tree block = c_begin_compound_stmt (flag_isoc99);
+  while (c_parser_next_token_is_keyword (parser, RID_CASE)
+	 || c_parser_next_token_is_keyword (parser, RID_DEFAULT)
+	 || (c_parser_next_token_is (parser, CPP_NAME)
+	     && c_parser_peek_2nd_token (parser)->type == CPP_COLON))
+    c_parser_label (parser);
+  if (c_parser_next_token_is (parser, CPP_SEMICOLON))
+    {
+      add_stmt (build_empty_stmt ());
+      c_parser_consume_token (parser);
+    }
+  else 
+    c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (block, flag_isoc99);
 }
 
@@ -3941,18 +3996,23 @@ c_parser_if_statement (c_parser *parser)
   tree block;
   location_t loc;
   tree cond;
-  bool first_if = false, second_if = false;
+  bool first_if = false;
   tree first_body, second_body;
+  bool in_if_block;
+
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_IF));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
   cond = c_parser_paren_condition (parser);
+  in_if_block = parser->in_if_block;
+  parser->in_if_block = true;
   first_body = c_parser_if_body (parser, &first_if);
+  parser->in_if_block = in_if_block;
   if (c_parser_next_token_is_keyword (parser, RID_ELSE))
     {
       c_parser_consume_token (parser);
-      second_body = c_parser_if_body (parser, &second_if);
+      second_body = c_parser_else_body (parser);
     }
   else
     second_body = NULL_TREE;
@@ -7203,13 +7263,21 @@ c_parser_omp_all_clauses (c_parser *parser, unsigned int mask,
 			  const char *where)
 {
   tree clauses = NULL;
+  bool first = true;
 
   while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
     {
-      location_t here = c_parser_peek_token (parser)->location;
-      const pragma_omp_clause c_kind = c_parser_omp_clause_name (parser);
+      location_t here;
+      pragma_omp_clause c_kind;
       const char *c_name;
       tree prev = clauses;
+
+      if (!first && c_parser_next_token_is (parser, CPP_COMMA))
+	c_parser_consume_token (parser);
+
+      first = false;
+      here = c_parser_peek_token (parser)->location;
+      c_kind = c_parser_omp_clause_name (parser);
 
       switch (c_kind)
 	{
@@ -7480,6 +7548,8 @@ c_parser_omp_for_loop (c_parser *parser)
       decl = check_for_loop_decls ();
       if (decl == NULL)
 	goto error_init;
+      if (DECL_INITIAL (decl) == error_mark_node)
+	decl = error_mark_node;
       init = decl;
     }
   else if (c_parser_next_token_is (parser, CPP_NAME)
@@ -7530,7 +7600,7 @@ c_parser_omp_for_loop (c_parser *parser)
   c_break_label = save_break;
   c_cont_label = save_cont;
 
-  /* Only bother calling c_finish_omp_for if we havn't already generated
+  /* Only bother calling c_finish_omp_for if we haven't already generated
      an error from the initialization parsing.  */
   if (decl != NULL && decl != error_mark_node && init != error_mark_node)
     return c_finish_omp_for (loc, decl, init, cond, incr, body, NULL);
@@ -7895,10 +7965,14 @@ c_parser_omp_threadprivate (c_parser *parser)
 
       /* If V had already been marked threadprivate, it doesn't matter
 	 whether it had been used prior to this point.  */
-      if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
+      if (TREE_CODE (v) != VAR_DECL)
+	error ("%qD is not a variable", v);
+      else if (TREE_USED (v) && !C_DECL_THREADPRIVATE_P (v))
 	error ("%qE declared %<threadprivate%> after first use", v);
       else if (! TREE_STATIC (v) && ! DECL_EXTERNAL (v))
 	error ("automatic variable %qE cannot be %<threadprivate%>", v);
+      else if (TREE_TYPE (v) == error_mark_node)
+	;
       else if (! COMPLETE_TYPE_P (TREE_TYPE (v)))
 	error ("%<threadprivate%> %qE has incomplete type", v);
       else

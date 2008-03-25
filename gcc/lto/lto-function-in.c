@@ -91,9 +91,7 @@ struct data_in
   unsigned int num_named_labels;  
   const char *current_file;
   int current_line;
-#ifdef USE_MAPPED_LOCATION  
   int current_col;
-#endif
 };
 
 
@@ -367,7 +365,6 @@ static bool
 input_line_info (struct lto_input_block *ib, struct data_in *data_in, 
 		 lto_flags_type flags)
 {
-#ifdef USE_MAPPED_LOCATION  
   if (flags & LTO_SOURCE_FILE)
     {
       unsigned int len;
@@ -394,20 +391,6 @@ input_line_info (struct lto_input_block *ib, struct data_in *data_in,
       LTO_DEBUG_TOKEN ("col");
       data_in->current_col = lto_input_uleb128 (ib);
     }
-#else
-  if (flags & LTO_SOURCE_FILE)
-    {
-      unsigned int len;
-      LTO_DEBUG_TOKEN ("file");
-      data_in->current_file 
-	= input_string_internal (data_in, lto_input_uleb128 (ib), &len);
-    }
-  if (flags & LTO_SOURCE_LINE)
-    {
-      LTO_DEBUG_TOKEN ("line");
-      data_in->current_line = lto_input_uleb128 (ib);
-    }
-#endif
   return (flags & LTO_SOURCE_HAS_LOC) != 0;
 }
 
@@ -417,24 +400,12 @@ input_line_info (struct lto_input_block *ib, struct data_in *data_in,
 static void
 set_line_info (struct data_in *data_in, tree node)
 {
-#ifdef USE_MAPPED_LOCATION
   if (EXPR_P (node))
-    LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col)
+    LINEMAP_POSITION_FOR_COLUMN (EXPR_CHECK (node)->exp.locus, line_table, data_in->current_col);
   else if (GIMPLE_STMT_P (node))
-    LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col)
+    LINEMAP_POSITION_FOR_COLUMN (GIMPLE_STMT_LOCUS (node), line_table, data_in->current_col);
   else if (DECL_P (node))
-    LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col)
-#else
-  if (EXPR_P (node) || GIMPLE_STMT_P (node))
-    annotate_with_file_line (node, 
-			     canon_file_name (data_in->current_file), 
-			     data_in->current_line);
-  else if (DECL_P (node))
-    {
-      DECL_SOURCE_LOCATION (node).file = canon_file_name (data_in->current_file);
-      DECL_SOURCE_LOCATION (node).line = data_in->current_line;
-    }
-#endif
+    LINEMAP_POSITION_FOR_COLUMN (DECL_SOURCE_LOCATION (node), line_table, data_in->current_col);
 }
 
 
@@ -443,13 +414,11 @@ set_line_info (struct data_in *data_in, tree node)
 static void
 clear_line_info (struct data_in *data_in)
 {
-#ifdef USE_MAPPED_LOCATION  
   if (data_in->current_file)
     linemap_add (line_table, LC_LEAVE, false, NULL, 0);
-  data_in->current_col = 0;
-#endif
   data_in->current_file = NULL;
   data_in->current_line = 0;
+  data_in->current_col = 0;
 }
 
 

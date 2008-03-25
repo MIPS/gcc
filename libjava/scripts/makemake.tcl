@@ -139,8 +139,6 @@ makearray properties_map
 
 # logging.properties is installed and is editable.
 set properties_map(java/util/logging) _
-# We haven't merged locale resources yet.
-set properties_map(gnu/java/locale) _
 
 # We want to be able to load xerces if it is on the class path.  So,
 # we have to avoid compiling in the XML-related service files.
@@ -317,7 +315,9 @@ proc emit_bc_rule {package} {
   if {$package_map($package) == "bc"} {
     puts -nonewline "-fjni "
   }
-  puts "-findirect-dispatch -fno-indirect-classes -c -o $loname @$tname"
+  # Unless bc is disabled with --disable-libgcj-bc, $(LIBGCJ_BC_FLAGS) is:
+  #   -findirect-dispatch -fno-indirect-classes
+  puts "\$(LIBGCJ_BC_FLAGS) -c -o $loname @$tname"
   puts "\t@rm -f $tname"
   puts ""
 
