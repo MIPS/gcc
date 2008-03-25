@@ -4904,6 +4904,12 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       /* Fall through */
 
     case PLUS:
+      if (arm_arch6 && mode == SImode
+	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
+	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
+	return 1 + (GET_CODE (XEXP (XEXP (x, 0), 0)) == MEM ? 10 : 0)
+		 + (GET_CODE (XEXP (x, 1)) == MEM ? 10 : 0);
+
       if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  extra_cost = rtx_cost (XEXP (x, 0), code);
@@ -5002,12 +5008,17 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       return 4 + (mode == DImode ? 4 : 0);
 
     case SIGN_EXTEND:
-      /* ??? value extensions are cheaper on armv6. */
+      if (arm_arch_thumb2 && mode == SImode)
+	return 1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0);
+
       if (GET_MODE (XEXP (x, 0)) == QImode)
 	return (4 + (mode == DImode ? 4 : 0)
 		+ (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
       /* Fall through */
     case ZERO_EXTEND:
+      if (arm_arch6 && mode == SImode)
+	return 1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0);
+
       switch (GET_MODE (XEXP (x, 0)))
 	{
 	case QImode:
@@ -18622,6 +18633,11 @@ arm_unwind_emit (FILE * asm_out_file, rtx insn)
   if (!ARM_EABI_UNWIND_TABLES)
     return;
 
+  if (!(flag_unwind_tables || cfun->uses_eh_lsda)
+      && (TREE_NOTHROW (current_function_decl)
+	  || cfun->all_throwers_are_sibcalls))
+    return;
+
   if (GET_CODE (insn) == NOTE || !RTX_FRAME_RELATED_P (insn))
     return;
 
@@ -18702,7 +18718,17 @@ arm_output_fn_unwind (FILE * f, bool prologue)
   if (prologue)
     fputs ("\t.fnstart\n", f);
   else
-    fputs ("\t.fnend\n", f);
+    {
+      /* If this function will never be unwound, then mark it as such.
+         The came condition is used in arm_unwind_emit to suppress
+	 the frame annotations.  */
+      if (!(flag_unwind_tables || cfun->uses_eh_lsda)
+	  && (TREE_NOTHROW (current_function_decl)
+	      || cfun->all_throwers_are_sibcalls))
+	fputs("\t.cantunwind\n", f);
+
+      fputs ("\t.fnend\n", f);
+    }
 }
 
 static bool

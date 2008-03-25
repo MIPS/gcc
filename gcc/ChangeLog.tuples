@@ -1,3 +1,10 @@
+2008-03-25  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133306.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-25  Bill Maddox  <maddox@google.com>
 
 	* tree-ssa-dom.c (loop_depth_of_name): Tuplify.

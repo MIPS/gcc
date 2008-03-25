@@ -1,3 +1,40 @@
+2008-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35617
+	* gfortran.dg/namelist_45.f90: New test.
+
+2008-03-17  James E. Wilson  <wilson@tuliptree.org>
+
+	PR testsuite/35512
+	* gcc.target/ia64/visibility-1.c (foo): Change return type to void.
+	Write variables instead of reading them.
+
+2008-03-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35548
+	* g++.dg/init/ref16.C: New testcase.
+
+2008-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/19637
+	* g++.dg/tree-ssa/pr19637.C: New testcase.
+
+2008-03-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35470
+	* gfortran.dg/subref_array_pointer_3.f90 : New test.
+
+2008-03-16  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35607
+	* gcc.c-torture/compile/pr35607.c: New testcase.
+	* gcc.dg/tree-ssa/loop-19.c: Use -O2 to avoid vectorization.
+
+2008-03-16  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35582
+	* gfortran.dg/write_invalid_format.f90: New test.
+
 2008-03-15  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/ssa-ccp-16.c: New testcase.
@@ -5,7 +42,7 @@
 2008-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR testsuite/35184
-	gfortran.dg/elemental_subroutine_6.f90: New test.
+	* gfortran.dg/elemental_subroutine_6.f90: New test.
 
 2008-03-15  Richard Guenther  <rguenther@suse.de>
 
@@ -21,7 +58,7 @@
 2008-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR testsuite/35478
-	gfortran.dg/generic_16.f90: New test.
+	* gfortran.dg/generic_16.f90: New test.
 
 2008-03-15  Hans-Peter Nilsson  <hp@axis.com>
 
@@ -31,7 +68,7 @@
 2008-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR testsuite/33296
-	gfortran.dg/nearest_4.f90: New test.
+	* gfortran.dg/nearest_4.f90: New test.
 
 2008-03-14  Richard Guenther  <rguenther@suse.de>
 
