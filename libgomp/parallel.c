@@ -94,10 +94,11 @@ gomp_resolve_num_threads (unsigned specified, unsigned count)
 #else
   gomp_mutex_lock (&gomp_remaining_threads_lock);
   num_threads = max_num_threads;
-  if (num_threads > gomp_remaining_threads_count)
-    num_threads = gomp_remaining_threads_count + 1;
+  remaining = gomp_remaining_threads_count;
+  if (num_threads > remaining)
+    num_threads = remaining + 1;
   gomp_remaining_threads_count -= num_threads - 1;
-  gomp_mutex_unlock (&gomp_remaining_threads_unlock);
+  gomp_mutex_unlock (&gomp_remaining_threads_lock);
 #endif
 
   return num_threads;
@@ -107,7 +108,7 @@ void
 GOMP_parallel_start (void (*fn) (void *), void *data, unsigned num_threads)
 {
   num_threads = gomp_resolve_num_threads (num_threads, 0);
-  gomp_team_start (fn, data, num_threads, NULL);
+  gomp_team_start (fn, data, num_threads, gomp_new_team (num_threads));
 }
 
 void

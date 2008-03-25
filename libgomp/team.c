@@ -117,11 +117,10 @@ gomp_thread_start (void *xdata)
 	  thr->data = NULL;
 	  thr->ts.team = NULL;
 	  thr->ts.work_share = NULL;
+	  thr->ts.last_work_share = NULL;
 	  thr->ts.team_id = 0;
 	  thr->ts.level = 0;
 	  thr->ts.active_level = 0;
-	  thr->ts.work_share_generation = 0;
-	  thr->ts.static_trip = 0;
 
 	  gomp_barrier_wait_last (&team->barrier);
 	  gomp_barrier_wait (&gomp_threads_dock);
@@ -138,22 +137,25 @@ gomp_thread_start (void *xdata)
 
 /* Create a new team data structure.  */
 
-static struct gomp_team *
-new_team (unsigned nthreads, struct gomp_work_share *work_share)
+struct gomp_team *
+gomp_new_team (unsigned nthreads)
 {
   struct gomp_team *team;
   size_t size;
+  int i;
 
   size = sizeof (*team) + nthreads * (sizeof (team->ordered_release[0])
 				      + sizeof (team->implicit_task[0]));
   team = gomp_malloc (size);
-  gomp_mutex_init (&team->work_share_lock);
 
-  team->work_shares = team->init_work_shares;
-  team->generation_mask = 3;
-  team->oldest_live_gen = work_share == NULL;
-  team->num_live_gen = work_share != NULL;
-  team->init_work_shares[0] = work_share;
+  team->work_share_chunk = 8;
+  gomp_init_work_share (&team->work_shares[0], false, nthreads);
+  team->work_shares[0].next_alloc = NULL;
+  team->work_share_list_free = NULL;
+  team->work_share_list_alloc = &team->work_shares[1];
+  for (i = 1; i < 7; i++)
+    team->work_shares[i].next_free = &team->work_shares[i + 1];
+  team->work_shares[i].next_free = NULL;
 
   team->nthreads = nthreads;
   gomp_barrier_init (&team->barrier, nthreads);
@@ -171,9 +173,17 @@ new_team (unsigned nthreads, struct gomp_work_share *work_share)
 static void
 free_team (struct gomp_team *team)
 {
-  if (__builtin_expect (team->work_shares != team->init_work_shares, 0))
-    free (team->work_shares);
-  gomp_mutex_destroy (&team->work_share_lock);
+  if (__builtin_expect (team->work_shares[0].next_alloc != NULL, 0))
+    {
+      struct gomp_work_share *ws = team->work_shares[0].next_alloc;
+      do
+	{
+	  struct gomp_work_share *next_ws = ws->next_alloc;
+	  free (ws);
+	  ws = next_ws;
+	}
+      while (ws != NULL);
+    }
   gomp_barrier_destroy (&team->barrier);
   gomp_sem_destroy (&team->master_release);
   free (team);
@@ -184,11 +194,10 @@ free_team (struct gomp_team *team)
 
 void
 gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
-		 struct gomp_work_share *work_share)
+		 struct gomp_team *team)
 {
   struct gomp_thread_start_data *start_data;
   struct gomp_thread *thr, *nthr;
-  struct gomp_team *team;
   struct gomp_task *task;
   struct gomp_task_icv *icv;
   bool nested;
@@ -200,20 +209,18 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   task = thr->task;
   icv = task ? &task->icv : &gomp_global_icv;
 
-  team = new_team (nthreads, work_share);
-
   /* Always save the previous state, even if this isn't a nested team.
      In particular, we should save any work share state from an outer
      orphaned work share construct.  */
   team->prev_ts = thr->ts;
 
   thr->ts.team = team;
-  thr->ts.work_share = work_share;
   thr->ts.team_id = 0;
   ++thr->ts.level;
   if (nthreads > 1)
     ++thr->ts.active_level;
-  thr->ts.work_share_generation = 0;
+  thr->ts.work_share = &team->work_shares[0];
+  thr->ts.last_work_share = NULL;
   thr->ts.static_trip = 0;
   thr->task = &team->implicit_task[0];
   gomp_init_task (thr->task, task, icv);
@@ -258,11 +265,11 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	{
 	  nthr = gomp_threads[i];
 	  nthr->ts.team = team;
-	  nthr->ts.work_share = work_share;
+	  nthr->ts.work_share = &team->work_shares[0];
+	  nthr->ts.last_work_share = NULL;
 	  nthr->ts.team_id = i;
 	  nthr->ts.level = team->prev_ts.level + 1;
 	  nthr->ts.active_level = thr->ts.active_level;
-	  nthr->ts.work_share_generation = 0;
 	  nthr->ts.static_trip = 0;
 	  nthr->task = &team->implicit_task[i];
 	  gomp_init_task (nthr->task, task, icv);
@@ -326,11 +333,11 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->fn = fn;
       start_data->fn_data = data;
       start_data->ts.team = team;
-      start_data->ts.work_share = work_share;
+      start_data->ts.work_share = &team->work_shares[0];
+      start_data->ts.last_work_share = NULL;
       start_data->ts.team_id = i;
       start_data->ts.level = team->prev_ts.level + 1;
       start_data->ts.active_level = thr->ts.active_level;
-      start_data->ts.work_share_generation = 0;
       start_data->ts.static_trip = 0;
       start_data->task = &team->implicit_task[i];
       gomp_init_task (start_data->task, task, icv);
@@ -381,6 +388,8 @@ gomp_team_end (void)
   struct gomp_team *team = thr->ts.team;
 
   gomp_barrier_wait (&team->barrier);
+
+  gomp_fini_work_share (thr->ts.work_share);
 
   gomp_end_task ();
   thr->ts = team->prev_ts;

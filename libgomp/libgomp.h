@@ -50,6 +50,7 @@
 #include "sem.h"
 #include "mutex.h"
 #include "bar.h"
+#include "ptrlock.h"
 
 
 /* This structure contains the data to control one work-sharing construct,
@@ -84,11 +85,44 @@ struct gomp_work_share
      is always 1.  */
   long incr;
 
-  /* The above fields are written once during gomp_loop_init.  Make sure
-     the following fields are in a different cache line.  */
+  /* This is a circular queue that details which threads will be allowed
+     into the ordered region and in which order.  When a thread allocates
+     iterations on which it is going to work, it also registers itself at
+     the end of the array.  When a thread reaches the ordered region, it
+     checks to see if it is the one at the head of the queue.  If not, it
+     blocks on its RELEASE semaphore.  */
+  unsigned *ordered_team_ids;
+
+  /* This is the number of threads that have registered themselves in
+     the circular queue ordered_team_ids.  */
+  unsigned ordered_num_used;
+
+  /* This is the team_id of the currently acknowledged owner of the ordered
+     section, or -1u if the ordered section has not been acknowledged by
+     any thread.  This is distinguished from the thread that is *allowed*
+     to take the section next.  */
+  unsigned ordered_owner;
+
+  /* This is the index into the circular queue ordered_team_ids of the
+     current thread that's allowed into the ordered reason.  */
+  unsigned ordered_cur;
+
+  /* This is a chain of allocated gomp_work_share blocks, valid only
+     in the first gomp_work_share struct in the block.  */
+  struct gomp_work_share *next_alloc;
+
+  /* The above fields are written once during workshare initialization,
+     or related to ordered worksharing.  Make sure the following fields
+     are in a different cache line.  */
 
   /* This lock protects the update of the following members.  */
   gomp_mutex_t lock __attribute__((aligned (64)));
+
+  /* This is the count of the number of threads that have exited the work
+     share construct.  If the construct was marked nowait, they have moved on
+     to other work; otherwise they're blocked on a barrier.  The last member
+     of the team to exit the work share construct must deallocate it.  */
+  unsigned threads_completed;
 
   union {
     /* This is the next iteration value to be allocated.  In the case of
@@ -99,33 +133,19 @@ struct gomp_work_share
     void *copyprivate;
   };
 
-  /* This is the count of the number of threads that have exited the work
-     share construct.  If the construct was marked nowait, they have moved on
-     to other work; otherwise they're blocked on a barrier.  The last member
-     of the team to exit the work share construct must deallocate it.  */
-  unsigned threads_completed;
+  union {
+    /* Link to gomp_work_share struct for next work sharing construct
+       encountered after this one.  */
+    gomp_ptrlock_t next_ws;
 
-  /* This is the index into the circular queue ordered_team_ids of the 
-     current thread that's allowed into the ordered reason.  */
-  unsigned ordered_cur;
+    /* gomp_work_share structs are chained in the free work share cache
+       through this.  */
+    struct gomp_work_share *next_free;
+  };
 
-  /* This is the number of threads that have registered themselves in
-     the circular queue ordered_team_ids.  */
-  unsigned ordered_num_used;
-
-  /* This is the team_id of the currently acknoledged owner of the ordered
-     section, or -1u if the ordered section has not been acknowledged by
-     any thread.  This is distinguished from the thread that is *allowed*
-     to take the section next.  */
-  unsigned ordered_owner;
-
-  /* This is a circular queue that details which threads will be allowed
-     into the ordered region and in which order.  When a thread allocates
-     iterations on which it is going to work, it also registers itself at
-     the end of the array.  When a thread reaches the ordered region, it
-     checks to see if it is the one at the head of the queue.  If not, it
-     blocks on its RELEASE semaphore.  */
-  unsigned ordered_team_ids[];
+  /* If only few threads are in the team, ordered_team_ids can point
+     to this array which fills the padding at the end of this struct.  */
+  unsigned inline_ordered_team_ids[0];
 };
 
 /* This structure contains all of the thread-local data associated with 
@@ -139,9 +159,14 @@ struct gomp_team_state
 
   /* This is the work share construct which this thread is currently
      processing.  Recall that with NOWAIT, not all threads may be 
-     processing the same construct.  This value is NULL when there
-     is no construct being processed.  */
+     processing the same construct.  */
   struct gomp_work_share *work_share;
+
+  /* This is the previous work share construct or NULL if there wasn't any.
+     When all threads are done with the current work sharing construct,
+     the previous one can be freed.  The current one can't, as its
+     next_ws field is used.  */
+  struct gomp_work_share *last_work_share;
 
   /* This is the ID of this thread within the team.  This value is
      guaranteed to be between 0 and N-1, where N is the number of
@@ -153,13 +178,6 @@ struct gomp_team_state
 
   /* Active nesting level.  Only active parallel regions are counted.  */
   unsigned active_level;
-
-  /* The work share "generation" is a number that increases by one for
-     each work share construct encountered in the dynamic flow of the
-     program.  It is used to find the control data for the work share
-     when encountering it for the first time.  This particular number
-     reflects the generation of the work_share member of this struct.  */
-  unsigned work_share_generation;
 
   /* For GFS_RUNTIME loops that resolved to GFS_STATIC, this is the
      trip number through the loop.  So first time a particular loop
@@ -209,26 +227,12 @@ struct gomp_task
 
 struct gomp_team
 {
-  /* This lock protects access to the following work shares data structures.  */
-  gomp_mutex_t work_share_lock;
-
-  /* This is a dynamically sized array containing pointers to the control
-     structs for all "live" work share constructs.  Here "live" means that
-     the construct has been encountered by at least one thread, and not
-     completed by all threads.  */
-  struct gomp_work_share **work_shares;
-
-  /* The work_shares array is indexed by "generation & generation_mask".
-     The mask will be 2**N - 1, where 2**N is the size of the array.  */
-  unsigned generation_mask;
-
-  /* These two values define the bounds of the elements of the work_shares
-     array that are currently in use.  */
-  unsigned oldest_live_gen;
-  unsigned num_live_gen;
-
   /* This is the number of threads in the current team.  */
   unsigned nthreads;
+
+  /* This is number of gomp_work_share structs that have been allocated
+     as a block last time.  */
+  unsigned work_share_chunk;
 
   /* This is the saved team state that applied to a master thread before
      the current thread was created.  */
@@ -243,10 +247,25 @@ struct gomp_team
      of the threads in the team.  */
   gomp_sem_t **ordered_release;
 
-  struct gomp_work_share *init_work_shares[4];
+  /* List of gomp_work_share structs chained through next_free fields.
+     This is populated and taken off only by the first thread in the
+     team encountering a new work sharing construct, in a critical
+     section.  */
+  struct gomp_work_share *work_share_list_alloc;
+
+  /* List of gomp_work_share structs freed by free_work_share.  New
+     entries are atomically added to the start of the list, and
+     alloc_work_share can safely only move all but the first entry
+     to work_share_list alloc, as free_work_share can happen concurrently
+     with alloc_work_share.  */
+  struct gomp_work_share *work_share_list_free;
 
   /* This barrier is used for most synchronization of the team.  */
   gomp_barrier_t barrier;
+
+  /* Initial work shares, to avoid allocating any gomp_work_share
+     structs in the common case.  */
+  struct gomp_work_share work_shares[8];
 
   /* This array contains structures for implicit tasks.  */
   struct gomp_task implicit_task[];
@@ -368,16 +387,26 @@ extern void gomp_end_task (void);
 
 /* team.c */
 
+extern struct gomp_team *gomp_new_team (unsigned);
 extern void gomp_team_start (void (*) (void *), void *, unsigned,
-			     struct gomp_work_share *);
+			     struct gomp_team *);
 extern void gomp_team_end (void);
 
 /* work.c */
 
-extern struct gomp_work_share * gomp_new_work_share (bool, unsigned);
+extern void gomp_init_work_share (struct gomp_work_share *, bool, unsigned);
+extern void gomp_fini_work_share (struct gomp_work_share *);
 extern bool gomp_work_share_start (bool);
 extern void gomp_work_share_end (void);
 extern void gomp_work_share_end_nowait (void);
+
+static inline void
+gomp_work_share_init_done (void)
+{
+  struct gomp_thread *thr = gomp_thread ();
+  if (__builtin_expect (thr->ts.last_work_share != NULL, 1))
+    gomp_ptrlock_set (&thr->ts.last_work_share->next_ws, thr->ts.work_share);
+}
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility pop

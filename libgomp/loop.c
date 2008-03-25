@@ -86,10 +86,13 @@ gomp_loop_static_start (long start, long end, long incr, long chunk_size,
 {
   struct gomp_thread *thr = gomp_thread ();
 
+  thr->ts.static_trip = 0;
   if (gomp_work_share_start (false))
-    gomp_loop_init (thr->ts.work_share, start, end, incr,
-		    GFS_STATIC, chunk_size);
-  gomp_mutex_unlock (&thr->ts.work_share->lock);
+    {
+      gomp_loop_init (thr->ts.work_share, start, end, incr,
+		      GFS_STATIC, chunk_size);
+      gomp_work_share_init_done ();
+    }
 
   return !gomp_iter_static_next (istart, iend);
 }
@@ -102,13 +105,16 @@ gomp_loop_dynamic_start (long start, long end, long incr, long chunk_size,
   bool ret;
 
   if (gomp_work_share_start (false))
-    gomp_loop_init (thr->ts.work_share, start, end, incr,
-		    GFS_DYNAMIC, chunk_size);
+    {
+      gomp_loop_init (thr->ts.work_share, start, end, incr,
+		      GFS_DYNAMIC, chunk_size);
+      gomp_work_share_init_done ();
+    }
 
 #ifdef HAVE_SYNC_BUILTINS
-  gomp_mutex_unlock (&thr->ts.work_share->lock);
   ret = gomp_iter_dynamic_next (istart, iend);
 #else
+  gomp_mutex_lock (&thr->ts.work_share->lock);
   ret = gomp_iter_dynamic_next_locked (istart, iend);
   gomp_mutex_unlock (&thr->ts.work_share->lock);
 #endif
@@ -124,13 +130,16 @@ gomp_loop_guided_start (long start, long end, long incr, long chunk_size,
   bool ret;
 
   if (gomp_work_share_start (false))
-    gomp_loop_init (thr->ts.work_share, start, end, incr,
-		    GFS_GUIDED, chunk_size);
+    {
+      gomp_loop_init (thr->ts.work_share, start, end, incr,
+		      GFS_GUIDED, chunk_size);
+      gomp_work_share_init_done ();
+    }
 
 #ifdef HAVE_SYNC_BUILTINS
-  gomp_mutex_unlock (&thr->ts.work_share->lock);
   ret = gomp_iter_guided_next (istart, iend);
 #else
+  gomp_mutex_lock (&thr->ts.work_share->lock);
   ret = gomp_iter_guided_next_locked (istart, iend);
   gomp_mutex_unlock (&thr->ts.work_share->lock);
 #endif
@@ -168,13 +177,14 @@ gomp_loop_ordered_static_start (long start, long end, long incr,
 {
   struct gomp_thread *thr = gomp_thread ();
 
+  thr->ts.static_trip = 0;
   if (gomp_work_share_start (true))
     {
       gomp_loop_init (thr->ts.work_share, start, end, incr,
 		      GFS_STATIC, chunk_size);
       gomp_ordered_static_init ();
+      gomp_work_share_init_done ();
     }
-  gomp_mutex_unlock (&thr->ts.work_share->lock);
 
   return !gomp_iter_static_next (istart, iend);
 }
@@ -187,8 +197,14 @@ gomp_loop_ordered_dynamic_start (long start, long end, long incr,
   bool ret;
 
   if (gomp_work_share_start (true))
-    gomp_loop_init (thr->ts.work_share, start, end, incr,
-		    GFS_DYNAMIC, chunk_size);
+    {
+      gomp_loop_init (thr->ts.work_share, start, end, incr,
+		      GFS_DYNAMIC, chunk_size);
+      gomp_mutex_lock (&thr->ts.work_share->lock);
+      gomp_work_share_init_done ();
+    }
+  else
+    gomp_mutex_lock (&thr->ts.work_share->lock);
 
   ret = gomp_iter_dynamic_next_locked (istart, iend);
   if (ret)
@@ -206,8 +222,14 @@ gomp_loop_ordered_guided_start (long start, long end, long incr,
   bool ret;
 
   if (gomp_work_share_start (true))
-    gomp_loop_init (thr->ts.work_share, start, end, incr,
-		    GFS_GUIDED, chunk_size);
+    {
+      gomp_loop_init (thr->ts.work_share, start, end, incr,
+		      GFS_GUIDED, chunk_size);
+      gomp_mutex_lock (&thr->ts.work_share->lock);
+      gomp_work_share_init_done ();
+    }
+  else
+    gomp_mutex_lock (&thr->ts.work_share->lock);
 
   ret = gomp_iter_guided_next_locked (istart, iend);
   if (ret)
@@ -395,12 +417,12 @@ gomp_parallel_loop_start (void (*fn) (void *), void *data,
 			  long incr, enum gomp_schedule_type sched,
 			  long chunk_size)
 {
-  struct gomp_work_share *ws;
+  struct gomp_team *team;
 
   num_threads = gomp_resolve_num_threads (num_threads, 0);
-  ws = gomp_new_work_share (false, num_threads);
-  gomp_loop_init (ws, start, end, incr, sched, chunk_size);
-  gomp_team_start (fn, data, num_threads, ws);
+  team = gomp_new_team (num_threads);
+  gomp_loop_init (&team->work_shares[0], start, end, incr, sched, chunk_size);
+  gomp_team_start (fn, data, num_threads, team);
 }
 
 void

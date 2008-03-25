@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -38,7 +38,8 @@ bool
 GOMP_single_start (void)
 {
   bool ret = gomp_work_share_start (false);
-  gomp_mutex_unlock (&gomp_thread ()->ts.work_share->lock);
+  if (ret)
+    gomp_work_share_init_done ();
   gomp_work_share_end_nowait ();
   return ret;
 }
@@ -57,10 +58,12 @@ GOMP_single_copy_start (void)
   void *ret;
 
   first = gomp_work_share_start (false);
-  gomp_mutex_unlock (&thr->ts.work_share->lock);
   
   if (first)
-    ret = NULL;
+    {
+      gomp_work_share_init_done ();
+      ret = NULL;
+    }
   else
     {
       gomp_barrier_wait (&thr->ts.team->barrier);

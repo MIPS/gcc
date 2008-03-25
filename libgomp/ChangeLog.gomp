@@ -1,3 +1,84 @@
+2008-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* team.c (gomp_thread_start): Don't clear ts.static_trip here.
+	* loop.c (gomp_loop_static_start, gomp_loop_dynamic_start): Clear
+	ts.static_trip here.
+	* work.c (gomp_work_share_start): Don't clear ts.static_trip here.
+
+2008-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h: Include ptrlock.h.
+	(struct gomp_work_share): Reshuffle fields.  Add next_alloc,
+	next_ws, next_free and inline_ordered_team_ids fields, change
+	ordered_team_ids into pointer from flexible array member.
+	(struct gomp_team_state): Add last_work_share field, remove
+	work_share_generation.
+	(struct gomp_team): Remove work_share_lock, generation_mask,
+	oldest_live_gen, num_live_gen and init_work_shares fields, add
+	work work_share_list_alloc, work_share_list_free and work_share_chunk
+	fields.  Change work_shares from pointer to pointers into an array.
+	(gomp_new_team): New prototype.
+	(gomp_team_start): Change type of last argument.
+	(gomp_new_work_share): Removed.
+	(gomp_init_work_share, gomp_fini_work_share): New prototypes.
+	(gomp_work_share_init_done): New static inline.
+	* team.c (gomp_thread_start): Clear ts.last_work_share, don't clear
+	ts.work_share_generation.
+	(new_team): Removed.
+	(gomp_new_team): New function.
+	(free_team): Free gomp_work_share blocks chained through next_alloc,
+	instead of freeing work_shares and destroying work_share_lock.
+	(gomp_team_start): Change last argument from ws to team, don't create
+	new team, set ts.work_share to &team->work_shares[0] and clear
+	ts.last_work_share.  Don't clear ts.work_share_generation.
+	(gomp_team_end): Call gomp_fini_work_share.
+	* work.c (gomp_new_work_share): Removed.
+	(alloc_work_share, gomp_init_work_share, gomp_fini_work_share): New
+	functions.
+	(free_work_share): Add team argument.  Call gomp_fini_work_share
+	and then either free ws if orphaned, or put it into
+	work_share_list_free list of the current team.
+	(gomp_work_share_start, gomp_work_share_end,
+	gomp_work_share_end_nowait): Rewritten.
+	* sections.c (GOMP_sections_start): Call gomp_work_share_init_done
+	after gomp_sections_init.  If HAVE_SYNC_BUILTINS, call
+	gomp_iter_dynamic_next instead of the _locked variant and don't take
+	lock around it, otherwise acquire it before calling
+	gomp_iter_dynamic_next_locked.
+	(GOMP_sections_next): If HAVE_SYNC_BUILTINS, call
+	gomp_iter_dynamic_next instead of the _locked variant and don't take
+	lock around it.
+	(GOMP_parallel_sections_start): Call gomp_new_team instead of
+	gomp_new_work_share.  Call gomp_sections_init on &team->work_shares[0].
+	Adjust gomp_team_start caller.
+	* loop.c (gomp_loop_static_start, gomp_loop_ordered_static_start): Call
+	gomp_work_share_init_done after gomp_loop_init.  Don't unlock ws->lock.
+	(gomp_loop_dynamic_start, gomp_loop_guided_start): Call
+	gomp_work_share_init_done after gomp_loop_init.  If HAVE_SYNC_BUILTINS,
+	don't unlock ws->lock, otherwise lock it.
+	(gomp_loop_ordered_dynamic_start, gomp_loop_ordered_guided_start): Call
+	gomp_work_share_init_done after gomp_loop_init.  Lock ws->lock.
+	(gomp_parallel_loop_start): Call gomp_new_team instead of
+	gomp_new_work_share.  Call gomp_loop_init on &team->work_shares[0].
+	Adjust gomp_team_start caller.
+	* single.c (GOMP_single_start, GOMP_single_copy_start): Call
+	gomp_work_share_init_done if gomp_work_share_start returned true.
+	Don't unlock ws->lock.
+	* parallel.c (gomp_resolve_num_threads): Fix non-HAVE_SYNC_BUILTINS
+	case.
+	(GOMP_parallel_start): Call gomp_new_team and pass that as last
+	argument to gomp_team_start.
+	* config/linux/ptrlock.c: New file.
+	* config/linux/ptrlock.h: New file.
+	* config/posix/ptrlock.c: New file.
+	* config/posix/ptrlock.h: New file.
+	* Makefile.am (libgomp_la_SOURCES): Add ptrlock.c.
+	* Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
+	* testsuite/libgomp.c++/collapse-1.C (main): Make k private in second
+	omp for loop.
+
 2008-03-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (gomp_active_wait_policy): Remove decl.
