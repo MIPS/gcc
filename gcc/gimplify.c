@@ -6269,14 +6269,23 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OMP_RETURN:
 	case OMP_CONTINUE:
-        case OMP_ATOMIC_LOAD:
-        case OMP_ATOMIC_STORE:
+	case OMP_ATOMIC_STORE:
 	  /* We don't need to handle these, as they are merely markers
 	     which are generated en route after gimplification, thus
 	     they should be generated as tuples not trees.  */
 	  gcc_unreachable ();
 
 	  ret = GS_ALL_DONE;
+	  break;
+
+	case OMP_ATOMIC_LOAD:
+	  gcc_unreachable ();
+
+	  if (gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, NULL,
+	      is_gimple_val, fb_rvalue) != GS_ALL_DONE)
+	    ret = GS_ERROR;
+	  else
+	    ret = GS_ALL_DONE;
 	  break;
 
 	case POINTER_PLUS_EXPR:
