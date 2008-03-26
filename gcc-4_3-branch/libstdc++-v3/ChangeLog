@@ -1,3 +1,25 @@
+2008-03-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* doc/xml/faq.xml: Fix various links.
+	* doc/xml/api.xml: Likewise.
+	* doc/xml/manual/parallel_mode.xml: Likewise.
+	* doc/html/faq.html: Regenerate.
+	* doc/html/api.html: Likewise.
+	* doc/html/manual/bk01pt12ch31s03.html: Likewise.
+
+2008-03-20  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/35637
+	* include/tr1_impl/type_traits (struct __in_array): Add back.
+	(is_function): Use it.
+	* testsuite/tr1/4_metaprogramming/is_function/35637.cc: New.
+
+2008-03-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/35256
+	* doc/xml/manual/parallel_mode.xml: Correct configuration documentation.
+	* doc/html/manual/bk01pt12ch31s04.html: Regenerate.
+
 2008-03-13  Dennis Czeremin  <dennis.czeremin@smiths-heimann.com>
 
 	PR libstdc++/35566

@@ -1,11 +1,114 @@
+2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35332
+	* g++.dg/other/error27.C: New test.
+
+2008-03-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35609
+	* gcc.dg/testsuite/uninit-15.c: New testcase.
+	* gcc.dg/testsuite/uninit-16.c: Likewise.
+
+2008-03-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34813
+	* gfortran.dg/null_3.f90 : New test
+
+	PR fortran/33295
+	* gfortran.dg/module_function_type_1.f90 : New test
+
+2008-03-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-03-20  Victor Kaplansky  <victork@gcc.gnu.org>
+		    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/34168
+	* lib/target-supports.exp (check_sse2_hw_available): New procedure.
+	* gcc.dg/vect/vect.exp: Set dg-do-what-default to "compile"
+	if SSE2 hardware is not available.
+	* g++.dg/vect/vect.exp: Update target-dependent overrides to match
+	gcc.dg/vect/vect.exp.
+	* gfortran.dg/vect/vect.exp: Ditto.
+	(check_effective_target_lp64_or_vect_no_align): Remove procedure.
+
+	2008-03-20  Uros Bizjak  <ubizjak@gmail.com>
+
+        * gcc.dg/gomp/pr34692.c: Cleanup gimple dump file.
+
+2008-03-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk:
+	PR libfortran/35627
+	* gfortran.dg/namelist_46.f90: New test.
+
+	PR libfortran/35617
+	* gfortran.dg/namelist_45.f90: New test.
+
+2008-03-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-03-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/35621
+	* gcc.target/i386/ssse3-pabsb.c: Add -fno-strict-aliasing.
+	* gcc.target/i386/ssse3-pabsd.c: Likewise.
+	* gcc.target/i386/ssse3-pabsw.c: Likewise.
+	* gcc.target/i386/ssse3-palignr.c: Likewise.
+	* gcc.target/i386/ssse3-phaddd.c: Likewise.
+	* gcc.target/i386/ssse3-phaddsw.c: Likewise.
+	* gcc.target/i386/ssse3-phaddw.c: Likewise.
+	* gcc.target/i386/ssse3-phsubd.c: Likewise.
+	* gcc.target/i386/ssse3-phsubsw.c: Likewise.
+	* gcc.target/i386/ssse3-phsubw.c: Likewise.
+	* gcc.target/i386/ssse3-pmaddubsw.c: Likewise.
+	* gcc.target/i386/ssse3-pmulhrsw.c: Likewise.
+	* gcc.target/i386/ssse3-pshufb.c: Likewise.
+	* gcc.target/i386/ssse3-psignb.c: Likewise.
+	* gcc.target/i386/ssse3-psignd.c: Likewise.
+	* gcc.target/i386/ssse3-psignw.c: Likewise.
+
+2008-03-19  Michael Matz  <matz@suse.de>
+
+	Backport from mainline:
+	2008-03-19  Michael Matz  <matz@suse.de>
+
+	PR middle-end/35616
+	* gcc.dg/pr35616.c: New test.
+
+2008-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/pr35258.c: New testcase.
+
+2008-03-18  Mikulas Patocka  <mikulas@artax.karlin.mff.cuni.cz>
+
+	PR target/35504
+	* g++.dg/other/pr35504.C: New test.
+
+2008-03-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35593
+	* g++.dg/warn/Warray-bounds-3.C: New testcase.
+
+2008-03-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35548
+	* g++.dg/init/ref16.C: New testcase.
+
 2008-03-14  Richard Guenther  <rguenther@suse.de>
 
 	Backport from mainline:
 	2008-02-19  Richard Guenther  <rguenther@suse.de>
 
-        PR tree-optimization/34989
-        * gcc.dg/pr34989-1.c: New testcase.
-        * gcc.dg/pr34989-2.c: Likewise.
+	PR tree-optimization/34989
+	* gcc.dg/pr34989-1.c: New testcase.
+	* gcc.dg/pr34989-2.c: Likewise.
 
 2008-03-14  Uros Bizjak  <ubizjak@gmail.com>
 

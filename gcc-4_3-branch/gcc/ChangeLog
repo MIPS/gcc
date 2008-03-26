@@ -1,3 +1,83 @@
+2008-03-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35609
+	* tree-ssa.c (walk_data): New structure.
+	(warn_uninitialized_var): If not always_executed warn with "maybe"
+	instead of "is".
+	(execute_early_warn_uninitialized): Compute post-dominators.
+	Initialize always_executed before processing each basic block.
+
+2008-03-20  Ira Rosen  <irar@il.ibm.com>
+
+	* doc/invoke.texi (-O3): Add -ftree-vectorize to the list of
+	optimizations turned on under -O3.
+	(ftree-vectorize): Add that the flag is turned on with -O3.	
+
+2008-03-19  Michael Matz  <matz@suse.de>
+
+	Backport from mainline:
+	2008-03-19  Michael Matz  <matz@suse.de>
+
+	PR middle-end/35616
+	* calls.c (expand_call): Check overlap of arguments with call
+	address for sibcalls.
+
+2008-03-19  Michael Matz  <matz@suse.de>
+
+	* gcov-io.h (__gcov_merge_ior, __gcov_fork): Mark hidden.
+
+2008-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* cse.c (cse_insn): Avoid creation of overlapping MEMs.
+	* alias.c (nonoverlapping_memrefs_p): Export for use in other modules.
+	* alias.h (nonoverlapping_memrefs_p): Likewise.
+
+2008-03-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* cse.c (cse_extended_basic_block): Invalidate artificial defs
+	at bb start.
+
+2008-03-18  Mikulas Patocka  <mikulas@artax.karlin.mff.cuni.cz>
+
+	PR target/35504
+	* config/i386/i386.c (x86_this_parameter): Calculate correct location
+	of "this" pointer when "regparm = N" or "fastcall" is in effect.
+
+2008-03-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35593
+	* tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): Make sure
+	to not produce negative array indices if not allowed.  Add
+	parameter to indicate that.
+	(maybe_fold_offset_to_component_ref): Allow negative array
+	indices only for the first member of a structure.
+	(maybe_fold_offset_to_reference): Allow negative array indices.
+	(maybe_fold_stmt_addition): Likewise.
+
+2008-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/35611
+	* gimplify.c (gimplify_expr): Gimplify second operand of
+	OMP_ATOMIC_LOAD.
+
+2008-03-16  James E. Wilson  <wilson@tuliptree.org>
+
+	PR debug/31510
+	* dbxout.c (dbxout_expand_expr, case VAR_DECL): Return NULL for
+	emulated thread local variables.
+
+2008-03-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/extend.texi (Alignment): Say that the ABI controls
+	the __alignof__ for non-strict-alignment targets rather
+	than being a recommendation.
+
 2008-03-14  Richard Guenther  <rguenther@suse.de>
 
 	Backport from mainline:
