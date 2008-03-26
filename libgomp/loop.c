@@ -47,20 +47,36 @@ gomp_loop_init (struct gomp_work_share *ws, long start, long end, long incr,
   ws->next = start;
   if (sched == GFS_DYNAMIC)
     {
-#ifdef HAVE_SYNC_BUILTINS
-      /* For dynamic scheduling prepare things to make each iteration
-	 faster.  */
-      struct gomp_thread *thr = gomp_thread ();
-      struct gomp_team *team = thr->ts.team;
-      unsigned long nthreads = team ? team->nthreads : 1;
-
-      if (incr > 0)
-	ws->mode = ws->end < LONG_MAX - (nthreads + 1) * chunk_size;
-      else
-	ws->mode = ws->end > (nthreads + 1) * chunk_size - LONG_MAX;
-#endif
-
       ws->chunk_size *= incr;
+
+#ifdef HAVE_SYNC_BUILTINS
+      {
+	/* For dynamic scheduling prepare things to make each iteration
+	   faster.  */
+	struct gomp_thread *thr = gomp_thread ();
+	struct gomp_team *team = thr->ts.team;
+	long nthreads = team ? team->nthreads : 1;
+
+	if (__builtin_expect (incr > 0, 1))
+	  {
+	    /* Cheap overflow protection.  */
+	    if (__builtin_expect ((nthreads | ws->chunk_size)
+				  >= 1UL << (sizeof (long)
+					     * __CHAR_BIT__ / 2 - 1), 0))
+	      ws->mode = 0;
+	    else
+	      ws->mode = ws->end < (LONG_MAX
+				    - (nthreads + 1) * ws->chunk_size);
+	  }
+	/* Cheap overflow protection.  */
+	else if (__builtin_expect ((nthreads | -ws->chunk_size)
+				   >= 1UL << (sizeof (long)
+					      * __CHAR_BIT__ / 2 - 1), 0))
+	  ws->mode = 0;
+	else
+	  ws->mode = ws->end > (nthreads + 1) * -ws->chunk_size - LONG_MAX;
+      }
+#endif
     }
 }
 

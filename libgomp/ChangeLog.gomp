@@ -1,5 +1,8 @@
 2008-03-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* loop.c (gomp_loop_init): Fix GFS_DYNAMIC ws->mode setting.
+	* testsuite/libgomp.c/loop-4.c: New test.
+
 	* libgomp.h (struct gomp_team_state): Add single_count field.
 	(struct gomp_team): Likewise.
 	* team.c (gomp_new_team): Clear single_count.
