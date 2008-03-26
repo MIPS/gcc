@@ -540,8 +540,8 @@ init_optimization_passes (void)
 #endif
 	  NEXT_PASS (pass_update_address_taken);
 /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_simple_dse);
+#if 0
 	  NEXT_PASS (pass_sra_early);
 #endif
 	  NEXT_PASS (pass_copy_prop);
@@ -552,8 +552,8 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_update_address_taken);
 /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_simple_dse);
+#if 0
 	  NEXT_PASS (pass_tail_recursion);
 #endif
           NEXT_PASS (pass_profile);
@@ -653,8 +653,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_reassoc);
 #endif
       NEXT_PASS (pass_dce);
-#if 0
       NEXT_PASS (pass_dse);
+#if 0
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
 #endif
@@ -737,7 +737,9 @@ init_optimization_passes (void)
 	 variable.  Using a representation like Gated Single Assignment
 	 may help.  */
       NEXT_PASS (pass_late_warn_uninitialized);
+#endif
       NEXT_PASS (pass_dse);
+#if 0
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_calls);

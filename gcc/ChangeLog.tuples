@@ -1,3 +1,16 @@
+2008-03-26 Jakub Staszak <kuba@et.pl>
+
+	* gimple.h (gimple_uid, gimple_set_uid): Defined.
+	(gimple_statement_base): Field UID added.
+	* tree-ssa-dse.c (execute_simple_dse): #if 0 removed, bitmap_empty_p
+	condition added. (memory_ssa_name_same, memory_address_same,
+	get_kill_of_stmt_lhs, dse_possible_dead_store_p, dse_optimize_stmt,
+	dse_record_phis, dse_finalize_block, tree_ssa_dse): Tuplified.
+	* passes.c (init_optimization_passes): pass_simple_dse and pass_dse
+	enabled.
+	* testsuite/gcc.dg/tree-ssa/ssa-dse-10.c: {dg-final} changed.
+	* testsuite/gcc.dg/tree-ssa/pr30375.c: {dg-final} changed.
+
 2008-03-26  Rafael Espindola <espindola@google.com>
 	* gcc/tree-ssa-operands.c (ssa_operands_active): Assert that cfun is
 	not NULL.

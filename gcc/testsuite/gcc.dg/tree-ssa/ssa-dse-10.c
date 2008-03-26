@@ -1519,5 +1519,5 @@ void func_encode(void)
     test_encodeCRLDistPoints(0x00000001);
 }
 
-/* { dg-final { scan-tree-dump-times " xxxinfo = {}" 1 "dse1"} } */
+/* { dg-final { scan-tree-dump-times " xxxinfo = \\\[constructor\\] {}" 1 "dse1"} } */
 /* { dg-final { cleanup-tree-dump "dse\[1-2\]" } } */

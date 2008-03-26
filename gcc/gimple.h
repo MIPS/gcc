@@ -228,6 +228,9 @@ struct gimple_statement_base GTY(())
 
   /* Lexical block holding this statement.  FIXME, needed?  */
   tree block;
+  
+  /* Uid of this statement.  */
+  unsigned uid;
 };
 
 
@@ -751,6 +754,24 @@ static inline unsigned int
 gimple_plf (gimple stmt, enum plf_mask plf)
 {
   return stmt->gsbase.plf & ((unsigned int) plf);
+}
+
+
+/* Set the uid of statement  */
+
+static inline void
+gimple_set_uid (gimple g, unsigned uid)
+{
+  g->gsbase.uid = uid;
+}
+
+
+/* Return the uid of statement  */
+
+static inline unsigned
+gimple_uid (const_gimple g)
+{
+  return g->gsbase.uid;
 }
 
 
