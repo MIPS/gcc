@@ -1,3 +1,11 @@
+2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_team_state): Add single_count field.
+	(struct gomp_team): Likewise.
+	* team.c (gomp_new_team): Clear single_count.
+	(gomp_team_start): Likewise.
+	* single.c (GOMP_single_start): Rewritten if HAVE_SYNC_BUILTINS.
+
 2008-03-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* team.c (gomp_thread_start): Don't clear ts.static_trip here.
