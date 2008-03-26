@@ -260,6 +260,7 @@ operand_build_sort_virtual (VEC(tree,heap) *list)
 bool
 ssa_operands_active (void)
 {
+  gcc_assert (cfun);
   return cfun->gimple_df && gimple_ssa_operands (cfun)->ops_active;
 }
 

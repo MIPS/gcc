@@ -1,3 +1,9 @@
+2008-03-26  Rafael Espindola <espindola@google.com>
+	* gcc/tree-ssa-operands.c (ssa_operands_active): Assert that cfun is
+	not NULL.
+	* gcc/tree-nested.c (init_tmp_var): Use
+	gsi_insert_before_without_update instead of gsi_insert_before.
+
 2008-03-25  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133309.
