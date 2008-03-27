@@ -1,3 +1,8 @@
+2008-03-27  Rafael Espindola <espindola@google.com>
+
+	* gcc/tree-nested.c (save_tmp_var): Use gsi_insert_after_without_update
+	instead of gsi_insert_after.
+
 2008-03-26 Jakub Staszak <kuba@et.pl>
 
 	* gimple.h (gimple_uid, gimple_set_uid): Defined.

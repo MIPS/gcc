@@ -415,7 +415,7 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
   gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
-  gsi_insert_after (gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_after_without_update (gsi, stmt, GSI_SAME_STMT);
 
   return t;
 }
