@@ -2550,8 +2550,8 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
 
   /* The diagnostic machinery doesn't need this, but pex does.  Also
      GCC itself seems to write to stderr a lot ... */
-  saved_stderr = dup (2);
-  dup2 (fd, 2);
+  saved_stderr = dup (fileno (stderr));
+  dup2 (fd, fileno (stderr));
 
   /* FIXME: make a new global_dc.  Arrange to unlink assembler output
      file on error.  */
@@ -2588,7 +2588,7 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
   /* Make sure to close dup'd stderr (by overwriting it), so that
      client will terminate properly.  The server loop will take care
      of the fd we were passed.  */
-  dup2 (saved_stderr, 2);
+  dup2 (saved_stderr, fileno (stderr));
   close (saved_stderr);
 
   return server_back_end_status && ! (errorcount || sorrycount);

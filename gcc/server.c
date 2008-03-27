@@ -164,8 +164,8 @@ server_start (char *program)
 	close (fds[0]);
 	/* Don't need these any more -- but keep stderr while
 	   debugging.  */
-	close (0);
-	close (1);
+	close (fileno (stdin));
+	close (fileno (stdout));
 	execv (args[0], args);
 	error ("exec of server failed: %s", xstrerror (errno));
 	exit (FATAL_EXIT_CODE);

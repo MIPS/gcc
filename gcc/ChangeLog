@@ -1,3 +1,8 @@
+2008-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* server.c (server_start): Use fileno.
+	* toplev.c (server_callback): Use fileno.
+
 2008-03-24  Tom Tromey  <tromey@redhat.com>
 
 	* c-opts.c (clean_up): Clear more globals.
