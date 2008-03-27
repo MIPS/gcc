@@ -1,5 +1,13 @@
 2008-03-27  Tom Tromey  <tromey@redhat.com>
 
+	* c-tree.h (c_parser_print_job_statistics): Declare.
+	* c-parser.c (struct job_statistics): New struct.
+	(update_shared_from_hunk): New function.
+	(update_shared_from_job): Likewise.
+	(c_parser_print_job_statistics): Likewise.
+
+2008-03-27  Tom Tromey  <tromey@redhat.com>
+
 	* server.c (server_start): Use fileno.
 	* toplev.c (server_callback): Use fileno.
 

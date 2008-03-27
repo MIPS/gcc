@@ -460,6 +460,8 @@ extern tree c_parser_find_binding (tree);
 extern void c_parser_lookup_callback (tree, tree, bool);
 extern void c_parse_file_wrapper (int);
 
+extern void c_parser_print_job_statistics (void);
+
 extern htab_t c_parser_create_smash_map (void);
 
 /* Only for use by the GC.  */

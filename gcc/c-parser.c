@@ -9442,6 +9442,84 @@ copy_used_hunks (htab_t used)
   htab_traverse_noresize (used, insert_single_binding, NULL);
 }
 
+/* User data structure for statistics gathering.  */
+struct job_statistics
+{
+  /* False if we are updating reference counts; true if we are
+     updating decl counts.  */
+  bool update_decls;
+
+  /* This maps hunk bindings to a reference count.  */
+  struct pointer_map_t *binding_refc;
+
+  /* Counters used to compute the number of shared and unshared decls
+     in a given job.  */
+  int shared;
+  int unshared;
+};
+
+/* Helper for statistics printer.  */
+static int
+update_shared_from_hunk (void **slot, void *user_data)
+{
+  struct hunk_binding *hunk = (struct hunk_binding *) *slot;
+  struct job_statistics *stats = (struct job_statistics *) user_data;
+
+  if (stats->update_decls)
+    {
+      int num = htab_elements (hunk->binding_map);
+      void **slot = pointer_map_contains (stats->binding_refc, hunk);
+      if ((int) *slot == 1)
+	stats->unshared += num;
+      else
+	stats->shared += num;
+    }
+  else
+    {
+      /* Update the reference count info.  */
+      void **slot = pointer_map_insert (stats->binding_refc, hunk);
+      *slot = (void *) ((int) *slot + 1);
+    }
+
+  return 1;
+}
+
+/* Helper for statistics printer.  */
+static int
+update_shared_from_job (void **slot, void *user_data)
+{
+  struct c_compile_job *job = (struct c_compile_job *) *slot;
+  struct job_statistics *stats = (struct job_statistics *) user_data;
+  stats->shared = 0;
+  stats->unshared = 0;
+  htab_traverse_noresize (job->hunks, update_shared_from_hunk, stats);
+  if (stats->update_decls)
+    fprintf (stderr, "%-20s %10d %10d\n", lbasename (job->object_file_name),
+	     stats->shared, stats->unshared);
+  return 1;
+}
+
+/* Print some statistics about the current compile jobs.  */
+void
+c_parser_print_job_statistics (void)
+{
+  struct job_statistics stats;
+
+  stats.update_decls = false;
+  stats.binding_refc = pointer_map_create ();
+  stats.shared = 0;
+
+  htab_traverse_noresize (all_compile_jobs, update_shared_from_job, &stats);
+
+  fprintf (stderr, "%-20s %10s %10s\n", "Filename", "Shared", "Unshared");
+  fprintf (stderr, "%-20s %10s %10s\n", "========", "======", "========");
+
+  stats.update_decls = true;
+  htab_traverse_noresize (all_compile_jobs, update_shared_from_job, &stats);
+
+  pointer_map_destroy (stats.binding_refc);
+}
+
 
 /* Parse a single source file.  */
 
