@@ -3974,11 +3974,14 @@ get_references_in_stmt (gimple stmt, VEC (data_ref_loc, heap) **references)
 
   if (stmt_code == GIMPLE_ASSIGN)
     {
+      tree base;
       op0 = gimple_assign_lhs_ptr (stmt);
       op1 = gimple_assign_rhs1_ptr (stmt);
 		
       if (DECL_P (*op1)
-	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
+	  || (REFERENCE_CLASS_P (*op1)
+	      && (base = get_base_address (*op1))
+	      && TREE_CODE (base) != SSA_NAME))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op1;

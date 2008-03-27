@@ -1,5 +1,12 @@
 2008-03-27  Rafael Espindola <espindola@google.com>
 
+	Merge with mainline @133311.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-03-27  Rafael Espindola <espindola@google.com>
+
 	* gcc/tree-nested.c (save_tmp_var): Use gsi_insert_after_without_update
 	instead of gsi_insert_after.
 

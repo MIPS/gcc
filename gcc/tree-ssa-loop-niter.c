@@ -1442,10 +1442,6 @@ expand_simple_operations (tree expr)
       if (is_gimple_min_invariant (e))
 	return e;
 
-      /* Do not expand random invariants.  */
-      if (TREE_INVARIANT (e))
-	return expr;
-
       if (code == SSA_NAME)
 	return expand_simple_operations (e);
 
