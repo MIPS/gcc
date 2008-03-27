@@ -663,7 +663,7 @@ struct omp_region
   tree ws_args;
 
   /* The code for the omp directive of this region.  */
-  enum tree_code type;
+  enum gimple_code type;
 
   /* Schedule kind, only used for OMP_FOR type regions.  */
   enum omp_clause_schedule_kind sched_kind;
@@ -673,7 +673,7 @@ struct omp_region
 };
 
 extern struct omp_region *root_omp_region;
-extern struct omp_region *new_omp_region (basic_block, enum tree_code,
+extern struct omp_region *new_omp_region (basic_block, enum gimple_code,
 					  struct omp_region *);
 extern void free_omp_regions (void);
 void omp_expand_local (basic_block);

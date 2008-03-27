@@ -1109,6 +1109,38 @@ gimple_seq_add_seq (gimple_seq *dst_p, gimple_seq src)
 }
 
 
+/* Helper function of empty_body_p.  Return true if STMT is an empty
+   statement.  */
+
+static bool
+empty_stmt_p (gimple stmt)
+{
+  if (gimple_code (stmt) == GIMPLE_NOP)
+    return true;
+  if (gimple_code (stmt) == GIMPLE_BIND)
+    return empty_body_p (gimple_bind_body (stmt));
+  return false;
+}
+
+
+/* Return true if BODY contains nothing but empty statements.  */
+
+bool
+empty_body_p (gimple_seq body)
+{
+  gimple_stmt_iterator i;
+
+
+  if (gimple_seq_empty_p (body))
+    return true;
+  for (i = gsi_start (body); !gsi_end_p (i); gsi_next (&i))
+    if (!empty_stmt_p (gsi_stmt (i)))
+      return false;
+
+  return true;
+}
+
+
 /* Perform a deep copy of sequence SRC and return the result.  */
 
 gimple_seq

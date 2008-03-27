@@ -1,3 +1,66 @@
+2008-03-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.c (empty_body_p): Remove.
+	* tree.h (empty_body_p): Remove prototype.
+	* omp-low.c (struct omp_context): Convert to tuples.
+	(struct omp_context): Comment and convert to tuples.
+	(scan_omp_op): New.
+	(is_parallel_ctx): Convert to tuples.
+	(extract_omp_for_data): Same.
+	(workshare_safe_to_combine_p): Same.
+	(get_ws_args_for): Same.
+	(determine_parallel_type): Same.
+	(use_pointer_for_field): Same.
+	(dump_omp_region): Same.
+	(debug_all_omp_regions): Same.
+	(new_omp_region): Same.
+	(new_omp_context): Same.
+	(scan_sharing_clauses): Same.
+	(create_omp_child_function): Same.
+	(scan_omp_parallel): Same.
+	(scan_omp_for): Same.
+	(scan_omp_sections): Same.
+	(scan_omp_single): Same.
+	(check_omp_nesting_restrictions): Same.
+	(scan_omp_1_op): New.
+	(scan_omp_1_stmt): Rename from scan_omp_1.  Rewrite for tuples.
+	(scan_omp): Convert to tuples.
+	(build_omp_barrier): Same.
+	(maybe_lookup_ctx): Same.
+	(lower_rec_input_clauses): Same.
+	(lower_lastprivate_clauses): Same.
+	(lower_reduction_clauses): Same.
+	(lower_copyprivate_clauses): Same.
+	(lower_send_clauses): Same.
+	(lower_send_shared_vars): Same.
+	(expand_parallel_call): Same.
+	(remove_exit_barrier): Same.
+	(remove_exit_barriers): Same.
+	(optimize_omp_library_calls): Same.
+	(expand_omp_parallel): Same.
+	(expand_omp_for_generic): Comment out, and convert to tuples.
+	(expand_omp_for_static_nochunk): Convert to tuples.
+	(expand_omp_for_static_chunk): Same.
+	(expand_omp_for): Same.
+	(expand_omp_sections): Same.
+	(expand_omp_synch): Same.
+	(expand_omp_atomic_fetch_op): Same.
+	(expand_omp_atomic_pipeline): Same.
+	(expand_omp_atomic_mutex): Same.
+	(expand_omp_atomic): Same.
+	(expand_omp): Same.
+	(build_omp_regions_1): Same. 
+	(execute_expand_omp): Enable.
+	(execute_lower_omp): Enable and convert to tuples.
+	* gimple-dummy.c (omp_reduction_init): Remove.
+	* tree-flow.h (struct omp_region): Convert 'type' to tuples.
+	(new_omp_region): Adjust prototype for tuples.
+	* gimple.c (empty_stmt_p): New.
+	(empty_body_p): New.
+	* gimple.h (empty_body_p): New prototype.
+	(gimple_has_location): Remove fixmes.
+	* tree-cfg.c (gimple_block_label): Remove ATTRIBUTE_UNUSED.
+
 2008-03-27  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133311.

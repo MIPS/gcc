@@ -578,6 +578,7 @@ gimple gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple, tree);
 bool gimple_has_side_effects (gimple);
 bool gimple_could_trap_p (gimple);
+bool empty_body_p (gimple_seq);
 
 /* FIXME tuples.
    Break a circular include dependency with tree-gimple.h.
@@ -667,7 +668,7 @@ gimple_set_location (gimple g, location_t location)
 }
 
 
-/* Return true if G contains no location information.  */
+/* Return true if G contains location information.  */
 
 static inline bool
 gimple_has_location (const_gimple g)
@@ -2792,8 +2793,8 @@ is_gimple_omp (const_gimple stmt)
 	  || gimple_code (stmt) == GIMPLE_OMP_ORDERED
 	  || gimple_code (stmt) == GIMPLE_OMP_CRITICAL
 	  || gimple_code (stmt) == GIMPLE_OMP_RETURN
-	  /* FIXME tuples: || gimple_code (stmt) == OMP_ATOMIC_LOAD */
-	  /* FIXME tuples: || gimple_code (stmt) == OMP_ATOMIC_STORE */
+	  || gimple_code (stmt) == OMP_ATOMIC_LOAD
+	  || gimple_code (stmt) == OMP_ATOMIC_STORE
 	  || gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
 }
 

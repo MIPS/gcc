@@ -4406,7 +4406,7 @@ gimple_make_forwarder_block (edge fallthru)
    Create one if it doesn't exist.  */
 
 tree
-gimple_block_label (basic_block bb ATTRIBUTE_UNUSED)
+gimple_block_label (basic_block bb)
 {
   gimple_stmt_iterator i, s = gsi_start_bb (bb);
   bool first = true;
