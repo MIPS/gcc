@@ -1,3 +1,20 @@
+2008-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_team_state): Remove single_count field
+	ifndef HAVE_SYNC_BUILTINS.
+	(struct gomp_team): Likewise.  Add work_share_list_free_lock
+	ifndef HAVE_SYNC_BUILTINS.
+	* team.c (gomp_new_team): If HAVE_SYNC_BUILTINS is not defined,
+	don't initialize single_count, but instead initialize
+	work_share_list_free_lock.
+	(free_team): Destroy work_share_list_free_lock ifndef
+	HAVE_SYNC_BUILTINS.
+	(gomp_team_start): Don't initialize ts.single_count ifndef
+	HAVE_SYNC_BUILTINS.
+	* work.c (alloc_work_share, free_work_share): Use
+	work_share_list_free_lock instead of atomic chaining ifndef
+	HAVE_SYNC_BUILTINS.
+
 2008-03-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* loop.c (gomp_loop_init): Fix GFS_DYNAMIC ws->mode setting.

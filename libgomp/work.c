@@ -51,6 +51,7 @@ alloc_work_share (struct gomp_team *team)
       return ws;
     }
 
+#ifdef HAVE_SYNC_BUILTINS
   ws = team->work_share_list_free;
   /* We need atomic read from work_share_list_free,
      as free_work_share can be called concurrently.  */
@@ -63,6 +64,18 @@ alloc_work_share (struct gomp_team *team)
       team->work_share_list_alloc = next->next_free;
       return next;
     }
+#else
+  gomp_mutex_lock (&team->work_share_list_free_lock);
+  ws = team->work_share_list_free;
+  if (ws)
+    {
+      team->work_share_list_alloc = ws->next_free;
+      team->work_share_list_free = NULL;
+      gomp_mutex_unlock (&team->work_share_list_free_lock);
+      return ws;
+    }
+  gomp_mutex_unlock (&team->work_share_list_free_lock);
+#endif
 
   team->work_share_chunk *= 2;
   ws = gomp_malloc (team->work_share_chunk * sizeof (struct gomp_work_share));
@@ -131,6 +144,7 @@ free_work_share (struct gomp_team *team, struct gomp_work_share *ws)
   else
     {
       struct gomp_work_share *next_ws;
+#ifdef HAVE_SYNC_BUILTINS
       do
 	{
 	  next_ws = team->work_share_list_free;
@@ -138,6 +152,13 @@ free_work_share (struct gomp_team *team, struct gomp_work_share *ws)
 	}
       while (!__sync_bool_compare_and_swap (&team->work_share_list_free,
 					    next_ws, ws));
+#else
+      gomp_mutex_lock (&team->work_share_list_free_lock);
+      next_ws = team->work_share_list_free;
+      ws->next_free = next_ws;
+      team->work_share_list_free = ws;
+      gomp_mutex_unlock (&team->work_share_list_free_lock);
+#endif
     }
 }
 

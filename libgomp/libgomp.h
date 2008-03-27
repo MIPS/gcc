@@ -179,8 +179,10 @@ struct gomp_team_state
   /* Active nesting level.  Only active parallel regions are counted.  */
   unsigned active_level;
 
+#ifdef HAVE_SYNC_BUILTINS
   /* Number of single stmts encountered.  */
   unsigned long single_count;
+#endif
 
   /* For GFS_RUNTIME loops that resolved to GFS_STATIC, this is the
      trip number through the loop.  So first time a particular loop
@@ -263,9 +265,14 @@ struct gomp_team
      with alloc_work_share.  */
   struct gomp_work_share *work_share_list_free;
 
+#ifdef HAVE_SYNC_BUILTINS
   /* Number of simple single regions encountered by threads in this
      team.  */
   unsigned long single_count;
+#else
+  /* Mutex protecting addition of workshares to work_share_list_free.  */
+  gomp_mutex_t work_share_list_free_lock;
+#endif
 
   /* This barrier is used for most synchronization of the team.  */
   gomp_barrier_t barrier;

@@ -149,7 +149,11 @@ gomp_new_team (unsigned nthreads)
   team = gomp_malloc (size);
 
   team->work_share_chunk = 8;
+#ifdef HAVE_SYNC_BUILTINS
   team->single_count = 0;
+#else
+  gomp_mutex_init (&team->work_share_list_free_lock);
+#endif
   gomp_init_work_share (&team->work_shares[0], false, nthreads);
   team->work_shares[0].next_alloc = NULL;
   team->work_share_list_free = NULL;
@@ -187,6 +191,9 @@ free_team (struct gomp_team *team)
     }
   gomp_barrier_destroy (&team->barrier);
   gomp_sem_destroy (&team->master_release);
+#ifndef HAVE_SYNC_BUILTINS
+  gomp_mutex_destroy (&team->work_share_list_free_lock);
+#endif
   free (team);
 }
 
@@ -222,7 +229,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
     ++thr->ts.active_level;
   thr->ts.work_share = &team->work_shares[0];
   thr->ts.last_work_share = NULL;
+#ifdef HAVE_SYNC_BUILTINS
   thr->ts.single_count = 0;
+#endif
   thr->ts.static_trip = 0;
   thr->task = &team->implicit_task[0];
   gomp_init_task (thr->task, task, icv);
@@ -272,7 +281,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	  nthr->ts.team_id = i;
 	  nthr->ts.level = team->prev_ts.level + 1;
 	  nthr->ts.active_level = thr->ts.active_level;
+#ifdef HAVE_SYNC_BUILTINS
 	  nthr->ts.single_count = 0;
+#endif
 	  nthr->ts.static_trip = 0;
 	  nthr->task = &team->implicit_task[i];
 	  gomp_init_task (nthr->task, task, icv);
@@ -341,7 +352,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->ts.team_id = i;
       start_data->ts.level = team->prev_ts.level + 1;
       start_data->ts.active_level = thr->ts.active_level;
+#ifdef HAVE_SYNC_BUILTINS
       start_data->ts.single_count = 0;
+#endif
       start_data->ts.static_trip = 0;
       start_data->task = &team->implicit_task[i];
       gomp_init_task (start_data->task, task, icv);
