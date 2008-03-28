@@ -3515,7 +3515,9 @@ expand_omp_for (struct omp_region *region)
 static void
 expand_omp_sections (struct omp_region *region)
 {
-  tree label_vec, t, u, vin = NULL, vmain, vnext, l1, l2;
+  /* FIXME tuples: vnext is initialized to avoid a compiler warning caused
+     by disabled code.  Remove this when tuplification is complete.  */
+  tree label_vec, t, u, vin = NULL, vmain, vnext = NULL, l1, l2;
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
   gimple_stmt_iterator si;
