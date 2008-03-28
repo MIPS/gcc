@@ -98,7 +98,29 @@ static int n_regs_saved;
 static HARD_REG_SET referenced_regs;
 
 
+static int reg_save_code (int, enum machine_mode);
+static int reg_restore_code (int, enum machine_mode);
+
+struct saved_hard_reg;
+static void initiate_saved_hard_regs (void);
+static struct saved_hard_reg *new_saved_hard_reg (int, int);
+static void finish_saved_hard_regs (void);
+static int saved_hard_reg_compare_func (const void *, const void *);
+static void calculate_local_save_info (void);
+static void set_up_bb_rts_numbers (void);
+static int rpost_cmp (const void *, const void *);
+static void calculate_save_in_out (void);
+static int calculate_save_here (void);
+static void make_global_save_analysis (void);
+static void print_hard_reg_set_and_mode (FILE *, HARD_REG_SET,
+					 unsigned char *);
+static void print_hard_reg_set (FILE *, HARD_REG_SET);
+static void print_save_data (FILE *);
+static void set_hard_reg_saved (HARD_REG_SET, unsigned char *,
+				enum machine_mode *);
+
 static void mark_set_regs (rtx, const_rtx, void *);
+static void add_stored_regs (rtx, const_rtx, void *);
 static void mark_referenced_regs (rtx);
 static int insert_save (struct insn_chain *, int, int, HARD_REG_SET *,
 			enum machine_mode *);
@@ -107,7 +129,9 @@ static int insert_restore (struct insn_chain *, int, int, int,
 static struct insn_chain *insert_one_insn (struct insn_chain *, int, int,
 					   rtx);
 static void add_stored_regs (rtx, const_rtx, void *);
+
 
+
 static GTY(()) rtx savepat;
 static GTY(()) rtx restpat;
 static GTY(()) rtx test_reg;
@@ -300,7 +324,8 @@ init_save_areas (void)
 }
 
 /* The structure represents a hard register which should be saved
-   through the call.  */
+   through the call.  It is used when the integrated register
+   allocator (IRA) is used and sharing save slots is on.  */
 struct saved_hard_reg
 {
   /* Order number starting with 0.  */
@@ -315,20 +340,21 @@ struct saved_hard_reg
   /* True if it is first hard register in the chain of hard registers
      sharing the same stack slot.  */
   int first_p;
-  /* Order number of the next hard register with the same slot in the
-     chain.  -1 represents end of the chain.  */
+  /* Order number of the next hard register structure with the same
+     slot in the chain.  -1 represents end of the chain.  */
   int next;
 };
 
 /* Map: hard register number to the corresponding structure.  */
 static struct saved_hard_reg *hard_reg_map [FIRST_PSEUDO_REGISTER];
 
-/* The number of all structures representing hard register should be
-   saved.  */
+/* The number of all structures representing hard registers should be
+   saved, in order words, the number of used elements in the following
+   array.  */
 static int saved_regs_num;
 
 /* Pointers to all the structures.  Index is the order number of the
-   structure.  */
+   corresponding structure.  */
 static struct saved_hard_reg *all_saved_regs [FIRST_PSEUDO_REGISTER];
 
 /* First called function for work with saved hard registers.  */
@@ -369,8 +395,8 @@ finish_saved_hard_regs (void)
     free (all_saved_regs [i]);
 }
 
-/* The function is used to sort the saved hard registers according
-   their frequency.  */
+/* The function is used to sort the saved hard register structures
+   according their frequency.  */
 static int
 saved_hard_reg_compare_func (const void *v1p, const void *v2p)
 {
@@ -395,7 +421,8 @@ saved_hard_reg_compare_func (const void *v1p, const void *v2p)
    used as spill registers), but it should not be significant.
 
    For IRA we use priority coloring to decrease stack slots needed for
-   saving hard registers through calls.
+   saving hard registers through calls.  We build conflicts for them
+   to do coloring.
 
    Future work:
 
@@ -480,8 +507,7 @@ setup_save_areas (void)
 	     isn't.  */
 	  CLEAR_HARD_REG_SET (this_insn_sets);
 	  note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
-	  /* Sibcalls are considered to set the return value,
-	     compare flow.c:propagate_one_insn.  */
+	  /* Sibcalls are considered to set the return value.  */
 	  if (SIBLING_CALL_P (insn) && current_function_return_rtx)
 	    mark_set_regs (current_function_return_rtx, NULL_RTX,
 			   &this_insn_sets);
@@ -726,7 +752,11 @@ setup_save_areas (void)
       if (regno_save_mem[i][j] != 0)
 	set_mem_alias_set (regno_save_mem[i][j], get_frame_alias_set ());
 }
+
 
+
+/* This page contains code for global analysis for better placement
+   save/restore insn when IRA is used.  */
 
 /* The following structure contains basic block data flow information
    used to calculate hard registers to save at BB ends.  Data flow
@@ -736,10 +766,11 @@ struct bb_info
 {
   /* The basic block reverse post-order number.  */
   int rts_number;
-  /* True if save_in should empty for this block.  */
+  /* True if save_in should be empty for this block.  */
   int empty_save_in_p;
-  /* Hard registers correspondingly used (or set) and should be saved but
-     not used (or used) afterward in the basic block.  */
+  /* Hard registers should be saved through calls in the basic block
+     and correspondingly mentioned in the BB but not used after the BB
+     and set in the BB and used after the BB.  */
   HARD_REG_SET kill, gen;
   /* Registers needed to be saved at the start and end of the basic
      block.  */
@@ -747,7 +778,7 @@ struct bb_info
   /* Hard registers living at the start of the basic block.  */
   HARD_REG_SET live_at_start;
   /* We don't want to generate save/restore insns on edges because it
-     changes CFG during reload.  To prevent this we use the following
+     changes CFG during the reload.  To prevent this we use the following
      set.  This set defines what hard registers should be saved at the
      end of basic block. */
   HARD_REG_SET save_here;
@@ -824,6 +855,8 @@ calculate_local_save_info (void)
 		  int nregs;
 		  enum machine_mode mode;
 		  
+		  /* Remember live_throughout can contain spilled
+		     registers when IRA is used.  */
 		  if (flag_ira && r < 0)
 		    continue;
 		  gcc_assert (r >= 0);
@@ -853,8 +886,7 @@ calculate_local_save_info (void)
 		 that is set isn't.  */
 	      CLEAR_HARD_REG_SET (this_insn_sets);
 	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
-	      /* Sibcalls are considered to set the return value,
-		 compare flow.c:propagate_one_insn.  */
+	      /* Sibcalls are considered to set the return value.  */
 	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
 		mark_set_regs (current_function_return_rtx, NULL_RTX,
 			       &this_insn_sets);
@@ -886,6 +918,7 @@ calculate_local_save_info (void)
 	    }
 	  COPY_HARD_REG_SET (bb_info->kill, kill);
 	  SET_HARD_REG_SET (bb_info->save_out);
+	  /* We don't use LIVE for IRA.  */
 	  REG_SET_TO_HARD_REG_SET
 	    (bb_info->live_at_start,
 	     flag_ira ? DF_LR_IN (bb) : DF_LIVE_IN (bb));
@@ -942,8 +975,8 @@ rpost_cmp (const void *bb1, const void *bb2)
                  | ^ (pred.save_out - pred.save_here) ^ bb.live_at_start
      bb.save_out = (bb.save_in - bb.kill) U bb.gen.
 
-   See function calculate_save_here to know how SAVE_HERE is
-   calculated  */
+   The function also calculates save_in_mode and save_out_mode.
+*/
 static void
 calculate_save_in_out (void)
 {
@@ -1083,12 +1116,12 @@ calculate_save_here (void)
   return changed_p;
 }
 
-/* The function calculates global save information used to put
+/* The function calculates the global save information used to put
    save/restore code without generating new blocks.  This is a
    bidirectional data flow problem (calculation of SAVE_IN and
-   SAVE_OUT is a forward data flow problem and SAVE_HERE is a backward
-   one).  It is complicated by calculation of modes for
-   saving/restoring call used hard registers.  */
+   SAVE_OUT is a forward data flow problem and SAVE_HERE is backward
+   one).  It is complicated by necessity of calculation of modes for
+   saving/restoring callee clobbered hard registers.  */
 static void
 make_global_save_analysis (void)
 {
@@ -1131,7 +1164,7 @@ print_hard_reg_set (FILE *f, HARD_REG_SET set)
       fprintf (f, " %d %s", i, reg_names [i]);
 }
 
-/* Print save information for each block to file F.  */  
+/* Print the save information for each block to file F.  */  
 static void
 print_save_data (FILE *f)
 {
@@ -1159,12 +1192,13 @@ print_save_data (FILE *f)
     }
 }
 
-/* Print save information for each block to stderr.  */  
+/* Print the save information for each block to stderr.  */  
 void
 debug_save_data (void)
 {
   print_save_data (stderr);
 }
+
 
 /* Setup hard registers in SET to save.  Setup also their save modes
    in SAVE_MODE from FROM_SAVE_MODE.  */  
@@ -1186,6 +1220,8 @@ set_hard_reg_saved (HARD_REG_SET set, unsigned char *from_saved_mode,
       save_mode [regno] = VOIDmode;
 }
 
+
+
 /* Find the places where hard regs are live across calls and save them.  */
 
 void
@@ -1199,6 +1235,7 @@ save_call_clobbered_regs (void)
 
   if (flag_ira && flag_ira_move_spills)
     {
+      /* Do global analysis for better placement of spill code. */
       alloc_aux_for_blocks (sizeof (struct bb_info));
       make_global_save_analysis ();
     }
@@ -1282,6 +1319,8 @@ save_call_clobbered_regs (void)
 		  int nregs;
 		  enum machine_mode mode;
 
+		  /* Remember live_throughout can contain spilled
+		     registers when IRA is used.  */
 		  if (flag_ira && r < 0)
 		    continue;
 		  gcc_assert (r >= 0);

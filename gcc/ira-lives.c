@@ -1,4 +1,4 @@
-/* IRA processing allocno lives.
+/* IRA processing allocno lives to build allocno live ranges.
    Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
@@ -38,11 +38,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "ira-int.h"
 
-/* The file contains code is analogous to one in global but the code
-   works on the allocno basis.  */
+/* The code in this file is similar to one in global but the code
+   works on the allocno basis and creates live ranges instead of
+   pseudo-register conflicts.  */
 
 static void make_regno_born (int);
 static void update_allocno_pressure_excess_length (allocno_t);
+static void make_regno_dead (int);
+static void make_regno_born_and_dead (int);
 static void set_allocno_live (allocno_t);
 static void clear_allocno_live (allocno_t);
 static void mark_reg_store (rtx, const_rtx, void *);
@@ -53,9 +56,15 @@ static enum reg_class single_reg_class (const char *, rtx op, rtx);
 static enum reg_class single_reg_operand_class (int);
 static void process_single_reg_class_operands (int, int);
 static void process_bb_node_lives (loop_tree_node_t);
+static void create_start_finish_chains (void);
+static void print_allocno_live_ranges (FILE *, allocno_t);
+static void print_live_ranges (FILE *);
 
-/* Program points are enumerated by number from range
-   0..MAX_POINT-1.  */
+/* Program points are enumerated by number from range 0..MAX_POINT-1.
+   There are approximately tow times more program points than insns.
+   One program points correspond points between subsequent insns and
+   other ones correspond to points after usage of input operands but
+   before setting the output operands in insns.  */
 int max_point;
 
 /* Arrays of size MAX_POINT mapping a program point to the allocno
@@ -65,11 +74,16 @@ allocno_live_range_t *start_point_ranges, *finish_point_ranges;
 /* Number of the current program point.  */
 static int curr_point;
 
-/* Point where register pressure excess started of -1 if there is no
-   register pressure excess.  */
+/* Point where register pressure excess started or -1 if there is no
+   register pressure excess.  Excess pressure for a register class at
+   some point means that there are more allocnos of given register
+   class living at the point than number of hard-registers of the
+   class available for the allocation.  It is defined only for cover
+   classes.  */
 static int high_pressure_start_point [N_REG_CLASSES];
 
-/* Number of ints required to hold allocnos_num bits.  */
+/* Number of ints of type INT_TYPE required to hold allocnos_num
+   bits.  */
 int allocno_set_words;
 
 /* Set, clear or test bit number I in `allocnos_live',
@@ -78,22 +92,22 @@ int allocno_set_words;
 #define CLEAR_ALLOCNO_LIVE(I) CLEAR_ALLOCNO_SET_BIT (allocnos_live, I)
 #define TEST_ALLOCNO_LIVE(I) TEST_ALLOCNO_SET_BIT (allocnos_live, I)
 
-/* Bit mask for allocnos live at current point in the scan.  */
+/* Bit vector for allocnos live at current point in the scan.  */
 static INT_TYPE *allocnos_live;
 
-/* The same as previous but as bitmap.  */
+/* The same as previous but as a bitmap.  */
 static bitmap allocnos_live_bitmap;
 
-/* Set of hard regs (except eliminable ones) currently live (during
-   scan of all insns).  */
+/* Set of hard regs (except eliminable ones) currently live.  */
 static HARD_REG_SET hard_regs_live;
 
-/* Loop tree node corresponding to the current basic block.  */
+/* The loop tree node corresponding to the current basic block.  */
 static loop_tree_node_t curr_bb_node;
 
 /* The function processing birth of register REGNO.  It updates living
    hard regs and conflict hard regs for living allocnos or starts a
-   new live range for allocno corresponding to REGNO.  */
+   new live range for the allocno corresponding to REGNO if it is
+   necessary.  */
 static void
 make_regno_born (int regno)
 {
@@ -141,7 +155,7 @@ update_allocno_pressure_excess_length (allocno_t a)
 }
 
 /* The function processing death of register REGNO.  It updates live
-   hard regs or finish the current live range for allocno
+   hard regs or finish the current live range for the allocno
    corresponding to REGNO.  */
 static void
 make_regno_dead (int regno)
@@ -166,16 +180,20 @@ make_regno_dead (int regno)
 /* The function processing birth and, right after then, death of
    register REGNO.  */
 static void
-make_regno_born_and_died (int regno)
+make_regno_born_and_dead (int regno)
 {
   make_regno_born (regno);
   make_regno_dead (regno);
 }
 
-/* The current pressure for the current basic block.  */
+/* The current register pressures for each cover class for the current
+   basic block.  */
 static int curr_reg_pressure [N_REG_CLASSES];
 
-/* The function marks allocno A as currently living.  */
+/* The function marks allocno A as currently living and updates
+   current register pressure, maximal register pressure for the
+   current BB, start point of the register pressure excess, and
+   conflicting hard registers of A.  */
 static void
 set_allocno_live (allocno_t a)
 {
@@ -199,7 +217,10 @@ set_allocno_live (allocno_t a)
     curr_bb_node->reg_pressure [cover_class] = curr_reg_pressure [cover_class];
 }
 
-/* The function marks allocno A as currently not living.  */
+/* The function marks allocno A as currently not living and updates
+   current register pressure, start point of the register pressure
+   excess, and register pressure excess length for living
+   allocnos.  */
 static void
 clear_allocno_live (allocno_t a)
 {
@@ -233,11 +254,10 @@ clear_allocno_live (allocno_t a)
 static VEC(rtx, heap) *regs_set;
 
 /* Handle the case where REG is set by the insn being scanned, during
-   the scan to accumulate conflicts.  Store a 1 in hard_regs_live or
-   allocnos_live for this register or the
-   corresponding allocno, record how many consecutive hardware
-   registers it actually needs, and record a conflict with all other
-   reg allocnos already live.
+   the scan to build live ranges and calculate reg pressure info.
+   Store a 1 in hard_regs_live or allocnos_live for this register or
+   the corresponding allocno, record how many consecutive hardware
+   registers it actually needs.
 
    Note that even if REG does not remain alive after this insn, we
    must mark it here as live, to ensure a conflict between REG and any
@@ -312,9 +332,10 @@ mark_reg_clobber (rtx reg, const_rtx setter, void *data)
     mark_reg_store (reg, setter, data);
 }
 
-/* Record that REG (or the corresponding allocno) has conflicts with
-   all the allocno currently live.  Do not mark REG (or the allocno)
-   itself as live.  */
+/* Record that hard register REG (if it is a hard register) has
+   conflicts with all the allocno currently live or the corresponding
+   allocno lives at just the current program point.  Do not mark REG
+   (or the allocno) itself as live.  */
 static void
 mark_reg_conflicts (rtx reg)
 {
@@ -329,14 +350,14 @@ mark_reg_conflicts (rtx reg)
   regno = REGNO (reg);
 
   if (regno >= FIRST_PSEUDO_REGISTER)
-    make_regno_born_and_died (regno);
+    make_regno_born_and_dead (regno);
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
       int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
 
       while (regno < last)
 	{
-	  make_regno_born_and_died (regno);
+	  make_regno_born_and_dead (regno);
 	  regno++;
 	}
     }
@@ -344,7 +365,7 @@ mark_reg_conflicts (rtx reg)
 
 /* Mark REG (or the corresponding allocno) as being dead (following
    the insn being scanned now).  Store a 0 in hard_regs_live or
-   allocnos_live for this register.  */
+   allocnos_live for the register.  */
 static void
 mark_reg_death (rtx reg)
 {
@@ -395,9 +416,7 @@ mark_reg_death (rtx reg)
 
 /* The function checks that CONSTRAINTS permits to use only one hard
    register.  If it is so, the function returns the class of the hard
-   register.  Otherwise it returns NO_REGS.
-
-   EQUIV_COSNT ??? */
+   register.  Otherwise it returns NO_REGS.  */
 static enum reg_class
 single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 {
@@ -539,10 +558,10 @@ single_reg_operand_class (int op_num)
 			   recog_data.operand [op_num], NULL_RTX);
 }
 
-/* The function processes input (if IN_P) or output operands of insn
-   with FREQ to find allocno which can use only one hard register and
-   makes other currently living reg allocnos conflicting with the hard
-   register.  */
+/* The function processes input operands, if IN_P, or output operands
+   otherwise of the current insn with FREQ to find allocno which can
+   use only one hard register and makes other currently living
+   allocnos conflicting with the hard register.  */
 static void
 process_single_reg_class_operands (int in_p, int freq)
 {
@@ -617,7 +636,10 @@ process_single_reg_class_operands (int in_p, int freq)
 }
 
 /* The function processes insns of the basic block given by its
-   LOOP_TREE_NODE to update allocno conflict table.  */
+   LOOP_TREE_NODE to update allocno live ranges, allocno hard register
+   conflicts, intersected calls, and register pressure info for
+   allocnos for the basic block for and regions containing the basic
+   block.  */
 static void
 process_bb_node_lives (loop_tree_node_t loop_tree_node)
 {
@@ -645,7 +667,6 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       memset (allocnos_live, 0, allocno_set_words * sizeof (INT_TYPE));
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
-      /* ??? !!!! No alloc regs for pressure */
       AND_COMPL_HARD_REG_SET (hard_regs_live, no_alloc_regs);
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (hard_regs_live, i))
@@ -682,16 +703,16 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      
 	      if (regno == INVALID_REGNUM)
 		break;
-	      make_regno_born_and_died (regno);
+	      make_regno_born_and_dead (regno);
 	    }
 	}
 #endif
       
-      /* Reg allocnos can't go in stack regs at the start of a basic block
+      /* Allocnos can't go in stack regs at the start of a basic block
 	 that is reached by an abnormal edge. Likewise for call
 	 clobbered regs, because caller-save, fixup_abnormal_edges and
 	 possibly the table driven EH machinery are not quite ready to
-	 handle such reg allocnos live across such edges.  */
+	 handle such allocnos live across such edges.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  break;
@@ -705,7 +726,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      ALLOCNO_TOTAL_NO_STACK_REG_P (allocnos [px]) = TRUE;
 	    }
 	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
-	    make_regno_born_and_died (px);
+	    make_regno_born_and_dead (px);
 #endif
 	  /* No need to record conflicts for call clobbered regs if we
 	     have nonlocal labels around, as we don't ever try to
@@ -713,12 +734,11 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	  if (! current_function_has_nonlocal_label)
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
 	      if (call_used_regs [px])
-		make_regno_born_and_died (px);
+		make_regno_born_and_dead (px);
 	}
   
       /* Scan the code of this basic block, noting which allocnos and
-	 hard regs are born or die.  When one is born, record a
-	 conflict with all others currently live.  */
+	 hard regs are born or die.  */
       FOR_BB_INSNS (bb, insn)
 	{
 	  rtx link;
@@ -752,6 +772,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      mark_reg_death (XEXP (link, 0));
 	  
 	  curr_point++;
+
 	  if (CALL_P (insn))
 	    {
 	      HARD_REG_SET clobbered_regs;
@@ -777,10 +798,9 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 		}
 	    }
 	  
-	  /* Mark any allocnos set in INSN as live, and mark them as
-	     conflicting with all other live reg allocnos.  Clobbers are
-	     processed again, so they conflict with the reg allocnos that
-	     are set.  */
+	  /* Mark any allocnos set in INSN as live.  Clobbers are
+	     processed again, so they will conflict with the reg
+	     allocnos that are set.  */
 	  note_stores (PATTERN (insn), mark_reg_store, NULL);
 	  
 #ifdef AUTO_INC_DEC
@@ -839,9 +859,11 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
        {
 	 make_regno_dead (ALLOCNO_REGNO (allocnos [i]));
        }
+
       curr_point++;
+
     }
-  /* Propagate register pressure: */
+  /* Propagate register pressure to upper loop tree nodes: */
   if (loop_tree_node != ira_loop_tree_root)
     for (i = 0; i < reg_class_cover_size; i++)
       {
@@ -855,6 +877,8 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       }
 }
 
+/* The function creates and sets up START_POINT_RANGES and
+   FINISH_POINT_RANGES.  */
 static void
 create_start_finish_chains (void)
 {
@@ -880,6 +904,9 @@ create_start_finish_chains (void)
     }
 }
 
+/* The function is used to rebuild START_POINT_RANGES and
+   FINISH_POINT_RANGES after new live ranges and program points were
+   added as a result if new insn generation.  */
 void
 rebuild_start_finish_chains (void)
 {
@@ -888,6 +915,7 @@ rebuild_start_finish_chains (void)
   create_start_finish_chains ();
 }
 
+/* The function prints live ranges R to file F.  */
 void
 print_live_range_list (FILE *f, allocno_live_range_t r)
 {
@@ -896,12 +924,14 @@ print_live_range_list (FILE *f, allocno_live_range_t r)
   fprintf (f, "\n");
 }
 
+/* The function prints live ranges R to stderr.  */
 void
 debug_live_range_list (allocno_live_range_t r)
 {
   print_live_range_list (stderr, r);
 }
 
+/* The function prints live ranges of allocno A to file F.  */
 static void
 print_allocno_live_ranges (FILE *f, allocno_t a)
 {
@@ -909,12 +939,14 @@ print_allocno_live_ranges (FILE *f, allocno_t a)
   print_live_range_list (f, ALLOCNO_LIVE_RANGES (a));
 }
 
+/* The function prints live ranges of allocno A to stderr.  */
 void
 debug_allocno_live_ranges (allocno_t a)
 {
   print_allocno_live_ranges (stderr, a);
 }
 
+/* The function prints live ranges of all allocnos to file F.  */
 static void
 print_live_ranges (FILE *f)
 {
@@ -925,16 +957,16 @@ print_live_ranges (FILE *f)
     print_allocno_live_ranges (f, a);
 }
 
+/* The function prints live ranges of all allocnos to stderr.  */
 void
 debug_live_ranges (void)
 {
   print_live_ranges (stderr);
 }
 
-/* The function creates live ranges, set up CONFLICT_HARD_REGS and
-   TOTAL_CONFLICT_HARD_REGS for allocnos.  It also modifies hard reg
-   costs for allocnos whose hard register is actually fixed in an
-   insn.  */
+/* The main entry function creates live ranges, set up
+   CONFLICT_HARD_REGS and TOTAL_CONFLICT_HARD_REGS for allocnos, and
+   calculate register pressure info.  */
 void
 create_allocno_live_ranges (void)
 {
@@ -955,6 +987,8 @@ create_allocno_live_ranges (void)
   ira_free (allocnos_live);
 }
 
+/* The function frees arrays START_POINT_RANGES and
+   FINISH_POINT_RANGES.  */
 void
 finish_allocno_live_ranges (void)
 {

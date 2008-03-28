@@ -1,3 +1,59 @@
+2008-03-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c, global.c, regmove.c, function.c,
+	ira-emit.c, alias.c, reload1.c: Add comments, fix comments.
+
+	* reload.h: Add 2008 to the Copyright.
+	
+	* caller-save.c: Add comments.
+	(reg_save_code, reg_restore_code, initiate_saved_hard_regs,
+	new_saved_hard_reg, finish_saved_hard_regs,
+	saved_hard_reg_compare_func, calculate_local_save_info,
+	set_up_bb_rts_numbers, rpost_cmp, calculate_save_in_out,
+	calculate_save_here, make_global_save_analysis,
+	print_hard_reg_set_and_mode, print_hard_reg_set, print_save_data,
+	set_hard_reg_saved, add_stored_regs): Add prototypes.
+	
+	* df-scan.c (df_get_call_refs): Use
+	get_call_invalidated_used_regs.
+
+	* ira-int.h: Add comments.
+	(loop_tree_node): Rename inner to children.
+	(ira_allocate_regset, ira_free_regset): Remove.
+	(reassign_conflict_allocnos): Remove one parameter.
+
+	* ira-color.c: Add comments.
+	(setup_curr_costs): Rename to update_curr_costs.
+	(allocno_cost_compare_func, print_coalesced_allocno,
+	allocno_reload_assign): Add prototypes.
+	(reassign_conflict_allocnos): Remove one parameter.
+
+	* ira-lives.c: Add comments.
+	(make_regno_dead, make_regno_born_and_dead,
+	create_start_finish_chains, print_allocno_live_ranges,
+	print_live_ranges): Add protoypes.
+
+	* ira-build.c: Add comments.
+	(copy_allocno_live_range_list): Make it static.
+
+	* ira.c: Add comments.
+	(setup_cover_classes): Rename to
+	setup_cover_and_important_classes.
+	(free_register_move_costs, chain_freq_compare, chain_bb_compare,
+	ira): New prototypes.
+	(mode_inner_mode, setup_inner_mode, ira_allocate_regset,
+	ira_free_regset): Remove.
+
+	* ira.h: Add comments.
+	(SECONDARY_INPUT_RELOAD_CLASS,
+	SECONDARY_OUTPUT_RELOAD_CLASS, HAVE_SECONDARY_RELOADS,
+	MEMORY_MOVE_COST, reg_equiv_memory_loc_varray, reg_equiv_constant,
+	reg_equiv_memory_loc, reg_equiv_address, reg_equiv_mem, ira):
+	Remove.
+	
+	* ira-costs.c: Add comments.
+	(find_allocno_class_costs): Make common class a cover class.
+	
 2008-03-20  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (allocno): Rename conflict_allocno_vec and

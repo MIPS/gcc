@@ -2016,9 +2016,9 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y)
 
   if (flag_ira && reload_completed)
     {
-      /* We need this code for IRA because stack slot sharing.  RTL in
-	 decl can be different than RTL used in insns.  It is safe
-	 code although it can be conservative sometime.  */
+      /* We need this code for IRA because of stack slot sharing.  RTL
+	 in decl can be different than RTL used in insns.  It is a
+	 safe code although it can be conservative sometime.  */
       x_addr = canon_rtx (get_addr (XEXP (x, 0)));
       y_addr = canon_rtx (get_addr (XEXP (y, 0)));
       

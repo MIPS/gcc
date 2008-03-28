@@ -5603,7 +5603,7 @@ get_call_invalidated_used_regs (const_rtx insn, HARD_REG_SET *regs,
   node = decl == NULL ? NULL : cgraph_node (decl);
   if (! flag_ira || ! flag_ira_ipra || node == NULL
       /* This is a call of the function itself.  We don't know used
-	 register yet.  So take the worst case.  */
+	 registers yet.  So take the worst case.  */
       || node->decl == cfun->decl)
     {
       if (clobbered_p)

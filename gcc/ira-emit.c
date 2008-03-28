@@ -45,7 +45,37 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "ira-int.h"
 
-struct move;
+
+/* The structure represents an allocno move.  The both allocnos have
+   the same origional regno but different allocation.  */
+struct move
+{
+  /* The allocnos involved in the move.  */
+  allocno_t from, to;
+  /* The next move in the move sequence.  */
+  struct move *next;
+  /* Used for finding dependencies.  */
+  int visited_p;
+  /* The size of the following array. */
+  int deps_num;
+  /* Moves on which given move depends on.  Dependency can be cyclic.
+     It means we need a temporary to generates the moves.  Sequence
+     A1->A2, B1->B2 where A1 and B2 are assigned to reg R1 and A2 and
+     B1 are assigned to reg R2 is an example of the cyclic
+     dependencies.  */
+  struct move **deps;
+  /* First insn generated for the move.  */
+  rtx insn;
+};
+
+/* Array of moves (indexed by BB index) which should be put at the
+   start/end of the corresponding basic blocks.  */
+static struct move **at_bb_start, **at_bb_end;
+
+/* Max regno before renaming some pseudo-registers.  For example, the
+   same pseudo-register can be renamed in a loop if its allocation is
+   different outside the loop.  */
+static int max_regno_before_changing;
 
 static struct move *create_move (allocno_t, allocno_t);
 static void free_move (struct move *);
@@ -71,33 +101,6 @@ static void add_range_and_copies_from_move_list (struct move *,
 						 loop_tree_node_t,
 						 bitmap, int);
 static void add_ranges_and_copies (void);
-
-/* The structure represents allocno shuffling.  */
-struct move
-{
-  /* The shuffled allocnos.  */
-  allocno_t from, to;
-  /* The next move in the sequence.  */
-  struct move *next;
-  /* Use for finding dependencies.  */
-  int visited_p;
-  /* The size of the following array. */
-  int deps_num;
-  /* Moves on which given move depends on.  Dependency can be cyclic.
-     It means we need a temporary to generates the moves.  */
-  struct move **deps;
-  /* First insn generated for the move.  */
-  rtx insn;
-};
-
-/* Array of moves (indexed by BB index) which should be put at the
-   start/end of the corresponding blocks.  */
-static struct move **at_bb_start, **at_bb_end;
-
-/* Max regno before renaming some pseudo-registers.  For example, the
-   same pseudo-register can be renamed in loop if its allocation is
-   different outside the loop.  */
-static int max_regno_before_changing;
 
 /* The function returns new move of allocnos TO and FROM.  */
 static struct move *
@@ -140,7 +143,7 @@ free_move_list (struct move *head)
 }
 
 /* The function returns nonzero if the the move list LIST1 and LIST2
-   are equal (two moves are equal if they shuffles the same
+   are equal (two moves are equal if they involve the same
    allocnos).  */
 static int
 eq_move_lists_p (struct move *list1, struct move *list2)
@@ -153,30 +156,29 @@ eq_move_lists_p (struct move *list1, struct move *list2)
 }
 
 /* This recursive function changes pseudo-registers in *LOC if it is
-   necessary.  The function returns non-zero if a change was done.  */
+   necessary.  The function returns TRUE if a change was done.  */
 static int
 change_regs (rtx *loc)
 {
-  int i, regno, result = 0;
+  int i, regno, result = FALSE;
   const char *fmt;
   enum rtx_code code;
 
   if (*loc == NULL_RTX)
-    return 0;
+    return FALSE;
   code = GET_CODE (*loc);
   if (code == REG)
     {
       regno = REGNO (*loc);
       if (regno < FIRST_PSEUDO_REGISTER)
-	return 0;
+	return FALSE;
       if (regno >= max_regno_before_changing)
 	/* It is a shared register which was changed already.  */
-	return 0;
-      /* ??? That is for reg_equal.  */
-      if (ira_curr_loop_tree_node->regno_allocno_map [regno] == NULL)
-	return 0;
-      *loc = ALLOCNO_REG (ira_curr_loop_tree_node->regno_allocno_map [regno]);
-      return 1;
+	return FALSE;
+      if (ira_curr_regno_allocno_map [regno] == NULL)
+	return FALSE;
+      *loc = ALLOCNO_REG (ira_curr_regno_allocno_map [regno]);
+      return TRUE;
     }
 
   fmt = GET_RTX_FORMAT (code);
@@ -234,7 +236,7 @@ create_new_reg (rtx original_reg)
   return new_reg;
 }
 
-/* The function returns non-zero if loop given by SUBNODE inside the
+/* The function returns TRUE if loop given by SUBNODE inside the
    loop given by NODE.  */
 static int
 subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
@@ -245,7 +247,7 @@ subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
   return FALSE;
 }
 
-/* The function sets up field `reg' to REG for allocnos which has the
+/* The function sets up member `reg' to REG for allocnos which has the
    same regno as ALLOCNO and which are inside the loop corresponding to
    ALLOCNO. */
 static void
@@ -277,8 +279,10 @@ set_allocno_reg (allocno_t allocno, rtx reg)
     }
 }
 
-/* The following function returns nonzero if move insn of SRC_ALLOCNO
-   to DEST_ALLOCNO does not change value of the destination.  */
+/* The following function returns TRUE if move of SRC_ALLOCNO to
+   DEST_ALLOCNO does not change value of the destination.  One possible
+   reason for this is the situation when SRC_ALLOCNO is not modified
+   in the corresponding loop.  */
 static int
 not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
 {
@@ -302,7 +306,7 @@ not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
 
 /* The function generates and attaches moves to the edge E.  It looks
    at the final regnos of allocnos living on the edge with the same
-   original regno to find what moves should be generated.  */
+   original regno to figure out when moves should be generated.  */
 static void
 generate_edge_moves (edge e)
 {
@@ -351,13 +355,14 @@ generate_edge_moves (edge e)
 /* Bitmap of allocnos local for the current loop.  */
 static bitmap local_allocno_bitmap;
 
-/* This bitmap is used to find that we need to generate and use a new
-   pseudo-register when processing allocnos with the same original
+/* This bitmap is used to find that we need to generate and to use a
+   new pseudo-register when processing allocnos with the same original
    regno.  */
 static bitmap used_regno_bitmap;
 
 /* This bitmap contains regnos of allocnos which were renamed locally
-   because the allocnos correspond to disjoint live ranges.  */
+   because the allocnos correspond to disjoint live ranges in loops
+   with a common parent.  */
 static bitmap renamed_regno_bitmap;
 
 /* The following function changes (if necessary) pseudo-registers
@@ -402,12 +407,12 @@ change_loop (loop_tree_node_t node)
 	  cover_class = ALLOCNO_COVER_CLASS (allocno);
 	  father_allocno = map [regno];
 	  ira_assert (regno < reg_equiv_len);
-	  /* We generate the same register move because the reload can
-	     put a allocno into memory in this case we will have live
-	     range splitting.  If it does not happen such the same
-	     hard register moves will be removed.  The worst case when
-	     the both allocnos are put into memory by the reload is
-	     very rare.  */
+	  /* We generate the same hard register move because the
+	     reload pass can put an allocno into memory in this case
+	     we will have live range splitting.  If it does not happen
+	     such the same hard register moves will be removed.  The
+	     worst case when the both allocnos are put into memory by
+	     the reload is very rare.  */
 	  if (father_allocno != NULL
 	      && (ALLOCNO_HARD_REGNO (allocno)
 		  == ALLOCNO_HARD_REGNO (father_allocno))
@@ -457,7 +462,7 @@ change_loop (loop_tree_node_t node)
     }
 }
 
-/* The function sets up flag somewhere_renamed_p.  */
+/* The function processes to set up flag somewhere_renamed_p.  */
 static void
 set_allocno_somewhere_renamed_p (void)
 {
@@ -474,8 +479,8 @@ set_allocno_somewhere_renamed_p (void)
     }
 }
 
-/* The function returns nonzero if move lists on all edges in vector
-   VEC are equal.  */
+/* The function returns nonzero if move lists on all edges given in
+   vector VEC are equal.  */
 static int
 eq_edge_move_lists_p (VEC(edge,gc) *vec)
 {
@@ -489,10 +494,10 @@ eq_edge_move_lists_p (VEC(edge,gc) *vec)
   return TRUE;
 }
 
-/* The function looks at all enter edges (if START_P) or exit edges of
+/* The function looks at all entry edges (if START_P) or exit edges of
    basic block BB and puts move lists at the BB start or end if it is
    possible.  In other words, it decreases code duplication of
-   shuffling allocnos.  */
+   allocno moves.  */
 static void
 unify_moves (basic_block bb, int start_p)
 {
@@ -546,8 +551,8 @@ static varray_type move_varray;
    `allocno_last_set_check'.  */
 static int curr_tick;
 
-/* This recursive function traverses dependecies of MOVE and do
-   toplogical sorting (in depth-first order).  */
+/* This recursive function traverses dependencies of MOVE and produces
+   topological sorting (in depth-first order).  */
 static void
 traverse_moves (struct move *move)
 {
@@ -641,7 +646,8 @@ modify_move_list (struct move *list)
 		set_move = hard_regno_last_set [hard_regno + i];
 		/* It does not matter what loop_tree_node (of TO or
 		   FROM) to use for the new allocno because of
-		   subsequent IR flattening.  */
+		   subsequent IRA internal representation
+		   flattening.  */
 		new_allocno
 		  = create_allocno (ALLOCNO_REGNO (set_move->to), FALSE,
 				    ALLOCNO_LOOP_TREE_NODE (set_move->to));
@@ -682,8 +688,8 @@ modify_move_list (struct move *list)
   return first;
 }
 
-/* The function generates rtx move insns from the move list LIST.  It
-   updates allocation cost using move execution frequency FERQ.  */
+/* The function generates RTX move insns from the move list LIST.  It
+   updates allocation cost using move execution frequency FREQ.  */
 static rtx
 emit_move_list (struct move *list, int freq)
 {
@@ -737,7 +743,7 @@ emit_move_list (struct move *list, int freq)
   return result;
 }
 
-/* The function generates rtx move insns from move lists attached to
+/* The function generates RTX move insns from move lists attached to
    basic blocks and edges.  */
 static void
 emit_moves (void)
@@ -793,8 +799,9 @@ emit_moves (void)
     }
 }
 
-/* Update costs of A and its parents from reading (if READ_P) or
-   writing A on an execution path with FREQ.  */
+/* Update costs of A and corresponding allocnos on upper levels on the
+   loop tree from reading (if READ_P) or writing A on an execution
+   path with FREQ.  */
 static void
 update_costs (allocno_t a, int read_p, int freq)
 {
@@ -814,9 +821,9 @@ update_costs (allocno_t a, int read_p, int freq)
 }
 
 /* The function processes moves from LIST with execution FREQ to add
-   ranges, copies, and modify costs.  All regnos living through the
-   list is in LIVE_THROUGH, and the loop tree node used to find
-   corresponding allocnos is NODE.  */
+   ranges, copies, and modify costs for allocnos involved in the
+   moves.  All regnos living through the list is in LIVE_THROUGH, and
+   the loop tree node used to find corresponding allocnos is NODE.  */
 static void
 add_range_and_copies_from_move_list (struct move *list, loop_tree_node_t node,
 				     bitmap live_through, int freq)
@@ -916,7 +923,7 @@ add_range_and_copies_from_move_list (struct move *list, loop_tree_node_t node,
 }
 
 /* The function processes all move list to add ranges, conflicts,
-   copies, and modify costs.  */
+   copies, and modify costs for allocnos involved in the moves.  */
 static void
 add_ranges_and_copies (void)
 {
@@ -950,8 +957,9 @@ add_ranges_and_copies (void)
   ira_free_bitmap (live_through);
 }
 
-/* Entry function changing code and generating allocno shuffling for
-   the regional (LOOPS_P is TRUE in this case) register allocation.  */
+/* The entry function changes code and generates shuffling allocnos on
+   region borders for the regional (LOOPS_P is TRUE in this case)
+   register allocation.  */
 void
 ira_emit (int loops_p)
 {

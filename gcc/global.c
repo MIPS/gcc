@@ -1378,6 +1378,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
+      /* We don't use LIVE info in IRA.  */
       regset r = (flag_ira ? DF_LR_IN (bb) : DF_LIVE_IN (bb));
       if (REGNO_REG_SET_P (r, from))
 	{
@@ -1452,6 +1453,9 @@ build_insn_chain (void)
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb), FIRST_PSEUDO_REGISTER, i, bi)
 	{
+	  /* Consider spilled pseudos too for IRA because they still
+	     have a chance to get hard-registers in the reload when
+	     IRA is used.  */
 	  if (reg_renumber[i] >= 0 || flag_ira)
 	    bitmap_set_bit (live_relevant_regs, i);
 	}
@@ -1489,6 +1493,10 @@ build_insn_chain (void)
 			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
+			/* Consider spilled pseudos too for IRA
+			   because they still have a chance to get
+			   hard-registers in the reload when IRA is
+			   used.  */
 			else if (reg_renumber[regno] >= 0 || flag_ira)
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
@@ -1590,11 +1598,19 @@ build_insn_chain (void)
 			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
+			/* Consider spilled pseudos too for IRA
+			   because they still have a chance to get
+			   hard-registers in the reload when IRA is
+			   used.  */
 			else if (reg_renumber[regno] >= 0 || flag_ira)
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
 		    
 		    if (regno < FIRST_PSEUDO_REGISTER
+			/* Consider spilled pseudos too for IRA
+			   because they still have a chance to get
+			   hard-registers in the reload when IRA is
+			   used.  */
 			|| reg_renumber[regno] >= 0 || flag_ira)
 		      {
 			if (GET_CODE (reg) == SUBREG

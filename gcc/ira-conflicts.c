@@ -38,8 +38,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "df.h"
 #include "ira-int.h"
 
-/* The file contains code is analogous to one in global but the code
-   works on the allocno basis.  */
+/* This file contains code responsible for allocno conflict creation,
+   allocno copy creation and allocno info accumulation on upper level
+   regions.  */
 
 static void build_conflict_bit_table (void);
 static void mirror_conflicts (void);
@@ -65,7 +66,10 @@ static void print_conflicts (FILE *, int);
 /* allocnos_num array of allocnos_num array of bits, recording whether
    two allocno's conflict (can't go in the same hardware register).
 
-   `conflicts' is symmetric after the call to mirror_conflicts.  */
+   `conflicts' is symmetric after the call to mirror_conflicts.
+
+   Some arrays will be used as conflict bit vector of the
+   corresponding allocnos see function build_allocno_conflicts.  */
 static INT_TYPE **conflicts;
 
 /* Two macros to test 1 in an element of `conflicts'.  */
@@ -73,7 +77,7 @@ static INT_TYPE **conflicts;
  (conflicts[(I)] [(unsigned) (J) / INT_BITS]				\
   & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
-/* Bit mask for allocnos live at current point in the scan.  */
+/* Bit vector for allocnos live at the current program point.  */
 static INT_TYPE *allocnos_live;
 
 
@@ -167,6 +171,8 @@ commutative_constraint_p (const char *str)
 	ignore_p = FALSE;
       else if (! ignore_p)
 	{
+	  /* Usually `%' is the first constraint character but the
+	     documentation does not require this.  */
 	  if (c == '%')
 	    return TRUE;
 	}
@@ -554,6 +560,10 @@ add_insn_allocno_copies (rtx insn)
 		      }
 		    else
 		      {
+			/* This copy is created to decrease register
+			   shuffling.  The copy will not correspond to
+			   a real move insn, so make the frequency
+			   smaller.  */
 			cp = add_allocno_copy
 			     (ira_curr_regno_allocno_map [REGNO (dup)],
 			      ira_curr_regno_allocno_map [REGNO (operand)],
@@ -568,7 +578,7 @@ add_insn_allocno_copies (rtx insn)
     }
 }
 
-/* The function adds copies originated from bb given by
+/* The function adds copies originated from BB given by
    LOOP_TREE_NODE.  */
 static void
 add_copies (loop_tree_node_t loop_tree_node)
@@ -584,10 +594,11 @@ add_copies (loop_tree_node_t loop_tree_node)
       add_insn_allocno_copies (insn);
 }
 
-/* The function propagates info about allocno A to the corresponding
+/* The function propagates some info about allocno A (see comments
+   about accumulated info in allocno definition) to the corresponding
    allocno on upper loop tree level.  So allocnos on upper levels
    accumulate information about the corresponding allocnos in nested
-   loops.  */
+   regions.  */
 static void
 propagate_allocno_info (allocno_t a)
 {
@@ -636,8 +647,8 @@ propagate_allocno_info (allocno_t a)
     }
 }
 
-/* The function propagates info about allocnos to the corresponding
-   allocnos on upper loop tree level.  */
+/* The function propagates some info about allocnos to the
+   corresponding allocnos on upper loop tree level.  */
 static void
 propagate_info (void)
 {
@@ -652,8 +663,8 @@ propagate_info (void)
 }
 
 /* The function returns TRUE if live ranges of allocnos A1 and A2
-   intersect.  It checks intersection of the corresponding live ranges
-   for this.  */
+   intersect.  It is used to find a conflict for new allocnos or
+   allocnos with the different cover classes.  */
 int
 allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
 {
@@ -665,6 +676,7 @@ allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
       && (ORIGINAL_REGNO (ALLOCNO_REG (a1))
 	  == ORIGINAL_REGNO (ALLOCNO_REG (a2))))
     return FALSE;
+  /* Remember the ranges are always kept ordered.  */
   for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
        r1 != NULL && r2 != NULL;)
     {
@@ -680,7 +692,7 @@ allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
 
 /* The function returns TRUE if live ranges of pseudo-registers REGNO1
    and REGNO2 intersect.  It should be used when there is only one
-   region.  */
+   region.  Currently it is used during the reload work.  */
 int
 pseudo_live_ranges_intersect_p (int regno1, int regno2)
 {
@@ -696,7 +708,9 @@ pseudo_live_ranges_intersect_p (int regno1, int regno2)
   return allocno_live_ranges_intersect_p (a1, a2);
 }
 
-/* Remove copies involving conflicting allocnos.  */
+/* Remove copies involving conflicting allocnos.  We can not do this
+   at the copy creation time because there are no conflicts at that
+   time yet.  */
 static void
 remove_conflict_allocno_copies (void)
 {
@@ -728,8 +742,9 @@ remove_conflict_allocno_copies (void)
   VARRAY_FREE (conflict_allocno_copy_varray);
 }
 
-/* The function builds conflict vectors or bit conflict vectors of all
-   allocnos from the conflict table.  */
+/* The function builds conflict vectors or bit conflict vectors
+   (whatever is more profitable) of all allocnos from the conflict
+   table.  */
 static void
 build_allocno_conflicts (void)
 {
@@ -803,7 +818,7 @@ build_allocno_conflicts (void)
 
 
 /* The function propagates information about allocnos modified inside
-   the loops.  */
+   the loop given by its LOOP_TREE_NODE to its father.  */
 static void
 propagate_modified_regnos (loop_tree_node_t loop_tree_node)
 {
@@ -844,8 +859,8 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
   fprintf (file, "\n");
 }
 
-/* The function outputs information about allocno or regno (if REG_P)
-   conflicts to FILE.  */
+/* The function prints information about allocno or only regno (if
+   REG_P) conflicts to FILE.  */
 static void
 print_conflicts (FILE *file, int reg_p)
 {
@@ -894,8 +909,8 @@ print_conflicts (FILE *file, int reg_p)
   fprintf (file, "\n");
 }
 
-/* The function outputs information about allocno or regno (if REG_P)
-   conflicts to stderr.  */
+/* The function prints information about allocno or only regno (if
+   REG_P) conflicts to stderr.  */
 void
 debug_conflicts (int reg_p)
 {
@@ -904,7 +919,8 @@ debug_conflicts (int reg_p)
 
 
 
-/* Entry function which builds allocno conflicts.  */
+/* Entry function which builds allocno conflicts and allocno copies
+   and accumulate some allocno info on upper level regions.  */
 void
 ira_build_conflicts (void)
 {

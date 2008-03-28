@@ -1,4 +1,4 @@
-/* Compute cover class of the allocnos and their hard register costs.
+/* IRA hard register and memory cost calculation for allocnos.
    Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
@@ -39,27 +39,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "ira-int.h"
 
-/* The file contains code is analogous to one in regclass but the code
+/* The file contains code is similar to one in regclass but the code
    works on the allocno basis.  */
-
-struct costs;
-
-static void record_reg_classes (int, int, rtx *, enum machine_mode *,
-				const char **, rtx, struct costs **,
-				enum reg_class *);
-static inline int ok_for_index_p_nonstrict (rtx);
-static inline int ok_for_base_p_nonstrict (rtx, enum machine_mode,
-					   enum rtx_code, enum rtx_code);
-static void record_address_regs (enum machine_mode, rtx x, int,
-				 enum rtx_code, enum rtx_code, int scale);
-static void record_operand_costs (rtx, struct costs **, enum reg_class *);
-static rtx scan_one_insn (rtx);
-static void print_costs (FILE *);
-static void process_bb_node_for_costs (loop_tree_node_t);
-static void find_allocno_class_costs (void);
-static void process_bb_node_for_hard_reg_moves (loop_tree_node_t);
-static void setup_allocno_cover_class_and_costs (void);
-static void free_ira_costs (void);
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 /* Indexed by n, is nonzero if (REG n) is used in an auto-inc or
@@ -67,17 +48,20 @@ static void free_ira_costs (void);
 static char *in_inc_dec;
 #endif
 
-/* The `costs' struct records the cost of using a hard register of
-   each class and of using memory for each allocno.  We use this data
-   to set up register and costs.  */
+/* The `costs' struct records the cost of using hard registers of each
+   class considered for the calculation and of using memory for each
+   allocno.  */
 struct costs
 {
   int mem_cost;
-  /* Costs for important register classes start here.  */
+  /* Costs for register classes start here.  We process only some
+     register classes (cover classes on the 1st cost calculation
+     iteration and important classes on the 2nd iteration).  */
   int cost [1];
 };
 
-/* Initialized once.  It is a size of the allocated struct costs.  */
+/* Initialized once.  It is a maximal possible size of the allocated
+   struct costs.  */
 static int max_struct_costs_size;
 
 /* Allocated and initialized once, and used to initialize cost values
@@ -95,13 +79,15 @@ static struct costs *this_op_costs [MAX_RECOG_OPERANDS];
    allocno.  */
 static struct costs *total_costs;
 
-/* Classes used for cost calculation.  */
+/* Classes used for cost calculation.  They may be different on
+   different iterations of the cost calculations.  */
 static enum reg_class *cost_classes;
 
 /* The size of the previous array.  */
 static int cost_classes_num;
 
-/* The array containing order numbers of cost classes.  */
+/* Map: cost class -> order number (they start with 0) of the cost
+   class.  */
 static int cost_class_nums [N_REG_CLASSES];
 
 /* It is the current size of struct costs.  */
@@ -112,14 +98,37 @@ static int struct_costs_size;
 #define COSTS_OF_ALLOCNO(arr, num) \
   ((struct costs *) ((char *) (arr) + (num) * struct_costs_size))
 
-/* Record register class preferences of each allocno.  */
+/* Record register class preferences of each allocno.  Null value
+   means no preferences.  It happens on the 1st iteration of the cost
+   calculation.  */
 static enum reg_class *allocno_pref;
 
 /* Allocated buffers for allocno_pref.  */
 static enum reg_class *allocno_pref_buffer;
 
-/* Frequency of executions of the current insn.  */
+/* Execution frequency of the current insn.  */
 static int frequency;
+
+static int copy_cost (rtx, enum machine_mode, enum reg_class, int,
+		      secondary_reload_info *);
+static void record_reg_classes (int, int, rtx *, enum machine_mode *,
+				const char **, rtx, struct costs **,
+				enum reg_class *);
+static inline int ok_for_index_p_nonstrict (rtx);
+static inline int ok_for_base_p_nonstrict (rtx, enum machine_mode,
+					   enum rtx_code, enum rtx_code);
+static void record_address_regs (enum machine_mode, rtx x, int,
+				 enum rtx_code, enum rtx_code, int scale);
+static void record_operand_costs (rtx, struct costs **, enum reg_class *);
+static rtx scan_one_insn (rtx);
+static void print_costs (FILE *);
+static void process_bb_node_for_costs (loop_tree_node_t);
+static void find_allocno_class_costs (void);
+static void process_bb_node_for_hard_reg_moves (loop_tree_node_t);
+static void setup_allocno_cover_class_and_costs (void);
+static void free_ira_costs (void);
+
+
 
 /* Compute the cost of loading X into (if TO_P is nonzero) or from (if
    TO_P is zero) a register of class CLASS in mode MODE.  X must not
@@ -171,8 +180,8 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class class, int to_p,
 
 
 
-/* Record the cost of using memory or registers of various classes for
-   the operands in INSN.
+/* Record the cost of using memory or hard registers of various
+   classes for the operands in INSN.
 
    N_ALTS is the number of alternatives.
    N_OPS is the number of operands.
@@ -269,7 +278,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	      else if (! REG_P (ops [j])
 		       || REGNO (ops [j]) < FIRST_PSEUDO_REGISTER)
 		{
-		  /* This op is a allocno but the one it matches is
+		  /* This op is an allocno but the one it matches is
 		     not.  */
 
 		  /* If we can't put the other operand into a
@@ -278,7 +287,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  if (classes [j] == NO_REGS)
 		    alt_fail = 1;
 		  /* Otherwise, add to the cost of this alternative
-		     the cost to copy the other operand to the
+		     the cost to copy the other operand to the hard
 		     register used for this operand.  */
 		  else
 		    alt_cost
@@ -289,7 +298,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  /* The costs of this operand are not the same as the
 		     other operand since move costs are not symmetric.
 		     Moreover, if we cannot tie them, this alternative
-		     needs to do a copy, which is one instruction.  */
+		     needs to do a copy, which is one insn.  */
 		  struct costs *pp = this_op_costs [i];
 
 		  if (register_move_cost [mode] == NULL)
@@ -500,8 +509,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		      if (address_operand (op, GET_MODE (op)))
 			win = 1;
 		      /* We know this operand is an address, so we
-			 want it to be allocated to a register that
-			 can be the base of an address,
+			 want it to be allocated to a hard register
+			 that can be the base of an address,
 			 i.e. BASE_REG_CLASS.  */
 		      classes [i]
 			= reg_class_union [classes [i]]
@@ -648,15 +657,15 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
     }
 
   /* If this insn is a single set copying operand 1 to operand 0 and
-     one operand is a allocno with the other a hard reg or a allocno
-     that prefers a register that is in its own register class then we
-     may want to adjust the cost of that register class to -1.
+     one operand is an allocno with the other a hard reg or an allocno
+     that prefers a hard register that is in its own register class
+     then we may want to adjust the cost of that register class to -1.
 
      Avoid the adjustment if the source does not die to avoid
      stressing of register allocator by preferrencing two colliding
      registers into single class.
 
-     Also avoid the adjustment if a copy between registers of the
+     Also avoid the adjustment if a copy between hard registers of the
      class is expensive (ten times the cost of a default copy is
      considered arbitrarily expensive).  This avoids losing when the
      preferred class is very expensive as the source of a copy
@@ -711,8 +720,8 @@ ok_for_index_p_nonstrict (rtx reg)
   return regno >= FIRST_PSEUDO_REGISTER || REGNO_OK_FOR_INDEX_P (regno);
 }
 
-/* A version of regno_ok_for_base_p for use during regclass, when all
-   allocnos should count as OK.  Arguments as for
+/* A version of regno_ok_for_base_p for use here, when all
+   pseudo-registers should count as OK.  Arguments as for
    regno_ok_for_base_p.  */
 static inline int
 ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode,
@@ -852,7 +861,7 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
       }
       break;
 
-      /* Double the importance of a allocno that is incremented or
+      /* Double the importance of an allocno that is incremented or
 	 decremented, since it would take two extra insns if it ends
 	 up in the wrong place.  */
     case POST_MODIFY:
@@ -868,7 +877,7 @@ record_address_regs (enum machine_mode mode, rtx x, int context,
     case PRE_INC:
     case POST_DEC:
     case PRE_DEC:
-      /* Double the importance of a allocno that is incremented or
+      /* Double the importance of an allocno that is incremented or
 	 decremented, since it would take two extra insns if it ends
 	 up in the wrong place.  If the operand is a pseudo-register,
 	 show it is being used in an INC_DEC context.  */
@@ -1045,7 +1054,7 @@ scan_one_insn (rtx insn)
 
 
 
-/* Dump allocnos costs.  */
+/* Print allocnos costs to file F.  */
 static void
 print_costs (FILE *f)
 {
@@ -1086,8 +1095,8 @@ print_costs (FILE *f)
     }
 }
 
-/* The function traverses basic blocks represented by LOOP_TREE_NODE
-   to find the costs of the allocnos.  */
+/* The function traverses BB represented by LOOP_TREE_NODE to update
+   the allocno costs.  */
 static void
 process_bb_node_for_costs (loop_tree_node_t loop_tree_node)
 {
@@ -1104,8 +1113,8 @@ process_bb_node_for_costs (loop_tree_node_t loop_tree_node)
     insn = scan_one_insn (insn);
 }
 
-/* Entry function to find costs of each class for pesudos and their
-   best classes. */
+/* Find costs of register classes and memory for allocnos and their
+   best costs. */
 static void
 find_allocno_class_costs (void)
 {
@@ -1120,7 +1129,7 @@ find_allocno_class_costs (void)
 
   allocno_pref = NULL;
   /* Normally we scan the insns once and determine the best class to
-     use for each allocno.  However, if -fexpensive_optimizations are
+     use for each allocno.  However, if -fexpensive-optimizations are
      on, we do so twice, the second time using the tentative best
      classes to guide the selection.  */
   for (pass = 0; pass <= flag_expensive_optimizations; pass++)
@@ -1130,6 +1139,8 @@ find_allocno_class_costs (void)
 		 pass);
       if (pass != flag_expensive_optimizations)
 	{
+	  /* On the 1st iteration we calculates costs only for cover
+	     classes.  */
 	  for (cost_classes_num = 0;
 	       cost_classes_num < reg_class_cover_size;
 	       cost_classes_num++)
@@ -1168,11 +1179,11 @@ find_allocno_class_costs (void)
       traverse_loop_tree (FALSE, ira_loop_tree_root,
 			  process_bb_node_for_costs, NULL);
 
-      /* Now for each allocno look at how desirable each class is and
-	 find which class is preferred.  */
       if (pass == 0)
 	allocno_pref = allocno_pref_buffer;
 
+      /* Now for each allocno look at how desirable each class is and
+	 find which class is preferred.  */
       for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
 	{
 	  allocno_t a, father_a;
@@ -1187,6 +1198,7 @@ find_allocno_class_costs (void)
 	  if (regno_allocno_map [i] == NULL)
 	    continue;
 	  memset (temp_costs, 0, struct_costs_size);
+	  /* Find cost of all allocnos with the same regno.  */
 	  for (a = regno_allocno_map [i];
 	       a != NULL;
 	       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
@@ -1197,6 +1209,8 @@ find_allocno_class_costs (void)
 		  && (father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
 		  && (father_a = father->regno_allocno_map [i]) != NULL)
 		{
+		  /* Propagate costs to upper levels in the region
+		     tree.  */
 		  father_a_num = ALLOCNO_NUM (father_a);
 		  for (k = 0; k < cost_classes_num; k++)
 		    COSTS_OF_ALLOCNO (total_costs, father_a_num)->cost [k]
@@ -1216,6 +1230,8 @@ find_allocno_class_costs (void)
 	    }
 	  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
 	  best = ALL_REGS;
+	  /* Find best common class for all allocnos with the same
+	     regno.  */
 	  for (k = 0; k < cost_classes_num; k++)
 	    {
 	      class = cost_classes [k];
@@ -1242,11 +1258,10 @@ find_allocno_class_costs (void)
 	  if (best_cost > temp_costs->mem_cost)
 	    common_class = NO_REGS;
 	  else
-	    {
-	      common_class = best;
-	      if (class_subset_p [best] [class_translate [best]])
-		common_class = class_translate [best];
-	    }
+	    /* Make the common class a cover class.  Remember all
+	       allocnos with the same regno should have the same cover
+	       class.  */
+	    common_class = class_translate [best];
 	  for (a = regno_allocno_map [i];
 	       a != NULL;
 	       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
@@ -1256,8 +1271,8 @@ find_allocno_class_costs (void)
 		best = NO_REGS;
 	      else
 		{	      
-		  /* Finding best class which is cover class for the
-		     register.  */
+		  /* Finding best class which is subset of the common
+		     class.  */
 		  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
 		  best = ALL_REGS;
 		  for (k = 0; k < cost_classes_num; k++)
@@ -1325,8 +1340,8 @@ find_allocno_class_costs (void)
 /* Process moves involving hard regs to modify allocno hard register
    costs.  We can do this only after determining allocno cover class.
    If a hard register forms a register class, than moves with the hard
-   register are already taken into account slightly in class costs for
-   the allocno.  */
+   register are already taken into account in class costs for the
+   allocno.  */
 static void
 process_bb_node_for_hard_reg_moves (loop_tree_node_t loop_tree_node)
 {
@@ -1392,6 +1407,8 @@ process_bb_node_for_hard_reg_moves (loop_tree_node_t loop_tree_node)
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
 	{
+	  /* Propagate changes to the upper levels in the region
+	     tree.  */
 	  loop_tree_node_t father;
 	  int regno = ALLOCNO_REGNO (a);
 	  
@@ -1465,8 +1482,7 @@ setup_allocno_cover_class_and_costs (void)
 
 
 
-/* Function called once during compiler work.  It sets up init_cost
-   whose values don't depend on the compiled function.  */
+/* Function called once during compiler work.  */
 void
 init_ira_costs_once (void)
 {
@@ -1482,7 +1498,7 @@ init_ira_costs_once (void)
   cost_classes = NULL;
 }
 
-/* The function frees different cost vectors.  */
+/* The function frees allocated temporary cost vectors.  */
 static void
 free_ira_costs (void)
 {
@@ -1564,8 +1580,8 @@ ira_costs (void)
 
 
 /* This function changes hard register costs for allocnos which lives
-   trough function calls.  The function is called only when we found
-   all intersected calls during building allocno conflicts.  */
+   through function calls.  The function is called only when we found
+   all intersected calls during building allocno live ranges.  */
 void
 tune_allocno_costs_and_cover_classes (void)
 {
