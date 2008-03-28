@@ -2160,6 +2160,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   int i, nargs;
   VEC(tree, gc) *args = NULL;
   gimple call;
+  bool builtin_va_start_p = FALSE;
 
   gcc_assert (TREE_CODE (*expr_p) == CALL_EXPR);
 
@@ -2197,6 +2198,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_VA_START)
         {
+	  builtin_va_start_p = TRUE;
 	  if (call_expr_nargs (*expr_p) < 2)
 	    {
 	      error ("too few arguments to function %<va_start%>");
@@ -2209,9 +2211,6 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	      *expr_p = build_empty_stmt ();
 	      return GS_OK;
 	    }
-	  /* Avoid gimplifying the second argument to va_start, which needs
-	     to be the plain PARM_DECL.  */
-	  return gimplify_arg (&CALL_EXPR_ARG (*expr_p, 0), pre_p);
 	}
     }
 
@@ -2329,10 +2328,15 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       {
 	enum gimplify_status t;
 
-	t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
+	/* Avoid gimplifying the second argument to va_start, which needs
+           to be the plain PARM_DECL.  */
+        if ((i != 1) || !builtin_va_start_p)
+	  {
+	    t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
 
-	if (t == GS_ERROR)
-	  ret = GS_ERROR;
+	    if (t == GS_ERROR)
+	      ret = GS_ERROR;
+	  }
 
 	VEC_replace (tree, args, i, CALL_EXPR_ARG (*expr_p, i));
       }

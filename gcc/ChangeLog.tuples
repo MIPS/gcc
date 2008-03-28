@@ -1,3 +1,9 @@
+2008-03-27  Doug Kwan  <dougkwan@google.com>
+
+	* c-decl.c (merge_decls): Also copy gimple bodies of decls.
+	* gimplify.c (gimplify_call_expr): Do not exit early when
+	gimplifying __builtin_va_start().
+
 2008-03-27  Oleg Ryjkov  <olegr@google.com>
 
 	* gimple.c (walk_gimple_op): Add a check for assignments with more

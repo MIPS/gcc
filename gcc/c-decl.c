@@ -1853,6 +1853,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
+	  gimple_set_body (newdecl, gimple_body (olddecl));
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 
 	  /* Set DECL_INLINE on the declaration if we've got a body
@@ -1887,6 +1888,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	    sizeof (struct tree_decl_common) - sizeof (struct tree_common));
     switch (TREE_CODE (olddecl))
       {
+      case FUNCTION_DECL:
+	gimple_set_body (olddecl, gimple_body (newdecl));
+	/* fall through */
+
       case FIELD_DECL:
       case VAR_DECL:
       case PARM_DECL:
@@ -1894,7 +1899,6 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       case RESULT_DECL:
       case CONST_DECL:
       case TYPE_DECL:
-      case FUNCTION_DECL:
 	memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		(char *) newdecl + sizeof (struct tree_decl_common),
 		tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
