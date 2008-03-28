@@ -6025,6 +6025,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			  gimple_build_goto (GOTO_DESTINATION (*expr_p)));
 	  break;
 
+	  /* Predictions are always gimplified.  */
+	case PREDICT_EXPR:
+	  goto out;
+
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))

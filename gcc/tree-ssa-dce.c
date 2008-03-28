@@ -273,6 +273,8 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
      can then remove the block and labels.  */
   switch (gimple_code (stmt))
     {
+    /* FIXME tuples: case PREDICT_EXPR:*/
+    /* FIXME tuples: remove GIMPLE_BIND*/
     case GIMPLE_BIND:
     case GIMPLE_LABEL:
       mark_stmt_necessary (stmt, false);

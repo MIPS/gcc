@@ -385,6 +385,7 @@ is_gimple_stmt (tree t)
 
     case CALL_EXPR:
     case GIMPLE_MODIFY_STMT:
+    case PREDICT_EXPR:
       /* These are valid regardless of their type.  */
       return true;
 

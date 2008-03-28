@@ -2354,6 +2354,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case CASE_LABEL_EXPR:
     case FILTER_EXPR:
     case EXC_PTR_EXPR:
+    case PREDICT_EXPR:
       /* Expressions that make no memory references.  */
       return;
 

@@ -1,3 +1,10 @@
+2008-03-28  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133313.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-27  Doug Kwan  <dougkwan@google.com>
 
 	* c-decl.c (merge_decls): Also copy gimple bodies of decls.

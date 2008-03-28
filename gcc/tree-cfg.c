@@ -3733,6 +3733,7 @@ verify_types_in_gimple_stmt (gimple stmt)
       return verify_types_in_gimple_return (stmt);
 
     case GIMPLE_ASM:
+    case PREDICT_EXPR:
       return false;
 
     case GIMPLE_PHI:
