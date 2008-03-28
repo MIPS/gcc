@@ -1,3 +1,243 @@
+2008-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.c-torture/execute/multi-ix.c: Limit CHUNK size between 1 and 500.
+	(main): Exit early for CHUNK less than 40 to avoid stack corruption.
+
+2008-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR c/32511
+	* gcc.dg/attr-weak-1.c: New testcase.
+
+2008-03-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/32810
+	* gcc.dg/tree-ssa/ssa-ccp-18.c: New testcase.
+
+2008-03-27  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/variadic91.C: New.
+
+2008-03-27  Zdenek Dvorak  <ook@ucw.cz>
+
+	* gcc.dg/tree-ssa/loop-32.c: New testcase.
+	* gcc.dg/tree-ssa/loop-33.c: Likewise.
+
+2008-03-27  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/fold-addr-1.c: New testcase.
+
+2008-03-27  Andrew Pinski  <pinskia@gmail.com>
+
+	PR middle-end/35429
+	* gcc.c-torture/compile/complex-5.c: New test.
+
+2008-03-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/uninit-16.c (decode_reloc): Mark static.
+
+2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35546
+	* g++.dg/ext/attrib33.C: New test.
+
+2008-03-26  Richard Guenther  <rguenther@suse.de>
+
+	Revert:
+	2008-03-26  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/fold-addr-1.c: New testcase.
+
+2008-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-13.c: Include <mm_malloc.h>
+	before redefinitions of extern and __inline.
+	* gcc.target/i386/sse-13.c: Ditto.
+
+2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35332
+	* g++.dg/other/error27.C: New test.
+
+2008-03-26  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/fold-addr-1.c: New testcase.
+
+2008-03-26  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20030731-2.c: Scan dce1 dump.
+	* gcc.dg/tree-ssa/20030917-1.c: Scan optimized dump.
+	* gcc.dg/tree-ssa/20030917-3.c: Scan ccp1 dump.
+	* gcc.dg/tree-ssa/20040721-1.c: Test linking, do not disable DOM.
+	* gcc.dg/tree-ssa/pr21574.c: Scan the fre dump.
+	* gcc.dg/tree-ssa/ssa-ccp-1.c: Scan ccp1 dump.
+	* gcc.dg/tree-ssa/ssa-ccp-3.c: Scan ccp2 dump.
+
+2008-03-26  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/variadic84.C: Update to reflect the change in
+	variadic template template parameter binding semantics.
+	* g++.dg/cpp0x/variadic85.C: Ditto.
+	* g++.dg/cpp0x/variadic88.C: New.
+	* g++.dg/cpp0x/variadic89.C: New.
+	* g++.dg/cpp0x/variadic90.C: New.
+	* g++.dg/cpp0x/variadic-ex14.C: Update to reflect the change in
+	variadic template template parameter binding semantics.
+	* g++.dg/cpp0x/variadic-lambda.C: New.
+
+2008-03-25  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/31558
+	* g++.dg/ext/altivec-15.C: New testcase.
+
+2008-03-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/29197
+	* objc.dg/method-20.m: New testcase.
+	
+2008-03-25  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	PR rtl-optimization/35232
+	* gcc.target/mips/pr35232.c: New test.
+
+2008-03-25  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/template/sfinae4.C: New.
+	* g++.dg/template/sfinae5.C: New.
+	* g++.dg/template/sfinae6.C: New.
+	* g++.dg/template/sfinae6_neg.C: New.
+	* g++.dg/template/sfinae7.C: New.
+	* g++.dg/template/sfinae8.C: New.
+	* g++.dg/template/sfinae9.C: New.
+	* g++.dg/template/sfinae10.C: New.
+	* g++.dg/template/sfinae11.C: New.
+	* g++.dg/template/sfinae12.C: New.
+	* g++.dg/template/sfinae13.C: New.
+	* g++.dg/template/sfinae14C: New.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-bclr.c: New test.
+	* gcc.target/sh/sh2a-bset.c: New test.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-movrt.c: New test.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-prefetch.c: New test.
+
+2008-03-25  Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-movi20s.c: New test.
+
+2008-03-25  Anil Paranjape  <anil.paranjape@kpitcummins.com>
+	    Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-resbank.c: New test.
+	* gcc.target/sh/sh2a-tbr-jump.c: New test.
+	* gcc.target/sh/sh2a-jsrn.c: New test.
+	* gcc.target/sh/sh2a-rtsn.c: New test.
+
+2008-03-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-17.c: Include sse2-check.h.
+	(main): Change to void and rename to sse2_test.
+	* gcc.dg/vect/costmodel/i386/i386-costmodel-vect.exp: Set
+	dg-do-what-default to "compile" if SSE2 hardware is not available.
+	* gcc.dg/vect/costmodel/i386/x86_64-costmodel-vect.exp: Ditto.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-reduc-1char.c: Remove
+	xfail vect_no_int_max from "vectorization not profitable" check.
+
+2008-03-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/26222
+	* gcc.dg/torture/pr26222.c: New testcase.
+
+2008-03-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34813
+	* gfortran.dg/null_3.f90 : New test
+
+	PR fortran/33295
+	* gfortran.dg/module_function_type_1.f90 : New test
+
+2007-03-23  Thomas Koenig  <tkoenig@gcc.gnu.org
+
+	PR libfortran/32972
+	* gfortran.dg/intrinsic_unpack_1.f90:  New test case.
+	* gfortran.dg/intrinsic_unpack_2.f90:  New test case.
+	* gfortran.dg/intrinsic_unpack_3.f90:  New test case.
+
+2008-03-22  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* gcc.target/mips/dse-1.c: Add checks for zeros.
+
+2008-03-21  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/27946
+	* gcc.target/powerpc/ppc64-double-1.c: New testcase.
+
+2008-03-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32972
+	* internal_pack_1.f90:  New test case.
+	* internal_pack_2.f90:  New test case.
+	* internal_pack_3.f90:  New test case.
+
+2008-03-21  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/empty_vector_length.adb: New testcase.
+
+2008-03-20  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-ccp-17.c: New testcase.
+
+2008-03-20  Victor Kaplansky  <victork@gcc.gnu.org>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/34168
+	* lib/target-supports.exp (check_sse2_hw_available): New procedure.
+	* gcc.dg/vect/vect.exp: Set dg-do-what-default to "compile"
+	if SSE2 hardware is not available.
+	* g++.dg/vect/vect.exp: Update target-dependent overrides to match
+	gcc.dg/vect/vect.exp.
+	* gfortran.dg/vect/vect.exp: Ditto.
+	(check_effective_target_lp64_or_vect_no_align): Remove procedure.
+
+2008-03-20  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/cpp/cmdlne-dD-M.c: Fix test for makefile rule and remove
+	xfail.
+
+2008-03-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/gomp/pr34692.c: Cleanup gimple dump file.
+	* gcc.dg/tree-ssa/ssa-lim-3.c: Remove -fdump-tree-optimized
+	from dg-options.
+
+2008-03-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/35621
+	* gcc.target/i386/ssse3-pabsb.c: Add -fno-strict-aliasing.
+	* gcc.target/i386/ssse3-pabsd.c: Likewise.
+	* gcc.target/i386/ssse3-pabsw.c: Likewise.
+	* gcc.target/i386/ssse3-palignr.c: Likewise.
+	* gcc.target/i386/ssse3-phaddd.c: Likewise.
+	* gcc.target/i386/ssse3-phaddsw.c: Likewise.
+	* gcc.target/i386/ssse3-phaddw.c: Likewise.
+	* gcc.target/i386/ssse3-phsubd.c: Likewise.
+	* gcc.target/i386/ssse3-phsubsw.c: Likewise.
+	* gcc.target/i386/ssse3-phsubw.c: Likewise.
+	* gcc.target/i386/ssse3-pmaddubsw.c: Likewise.
+	* gcc.target/i386/ssse3-pmulhrsw.c: Likewise.
+	* gcc.target/i386/ssse3-pshufb.c: Likewise.
+	* gcc.target/i386/ssse3-psignb.c: Likewise.
+	* gcc.target/i386/ssse3-psignd.c: Likewise.
+	* gcc.target/i386/ssse3-psignw.c: Likewise.
+
 2008-03-20  Andreas Schwab  <schwab@suse.de>
 
 	PR testsuite/35647

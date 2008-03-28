@@ -4609,7 +4609,8 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
     align = GET_MODE_ALIGNMENT (mode);
   if (align < PARM_BOUNDARY)
     align = PARM_BOUNDARY;
-  if (!TARGET_64BIT)
+  /* Decimal floating point is aligned to its natural boundary.  */
+  if (!TARGET_64BIT && !VALID_DFP_MODE_P (mode))
     {
       /* i386 ABI defines all arguments to be 4 byte aligned.  We have to
 	 make an exception for SSE modes since these require 128bit
@@ -4631,8 +4632,8 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
 	    align = PARM_BOUNDARY;
 	}
     }
-  if (align > 128)
-    align = 128;
+  if (align > BIGGEST_ALIGNMENT)
+    align = BIGGEST_ALIGNMENT;
   return align;
 }
 
@@ -11104,6 +11105,14 @@ ix86_expand_convert_uns_didf_sse (rtx target, rtx input)
     }
 
   ix86_expand_vector_extract (false, target, fp_xmm, 0);
+}
+
+/* Not used, but eases macroization of patterns.  */
+void
+ix86_expand_convert_uns_sixf_sse (rtx target ATTRIBUTE_UNUSED,
+				  rtx input ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
 }
 
 /* Convert an unsigned SImode value into a DFmode.  Only currently used
@@ -24506,7 +24515,7 @@ void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
   e2 = gen_reg_rtx (mode);
   e3 = gen_reg_rtx (mode);
 
-  real_arithmetic (&r, NEGATE_EXPR, &dconst3, NULL);
+  real_from_integer (&r, VOIDmode, -3, -1, 0);
   mthree = CONST_DOUBLE_FROM_REAL_VALUE (r, SFmode);
 
   real_arithmetic (&r, NEGATE_EXPR, &dconsthalf, NULL);
