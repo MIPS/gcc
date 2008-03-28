@@ -1,3 +1,8 @@
+2008-03-27  Oleg Ryjkov  <olegr@google.com>
+
+	* gimple.c (walk_gimple_op): Add a check for assignments with more
+	than one operand on the LHS.
+
 2008-03-27  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.c (empty_body_p): Remove.

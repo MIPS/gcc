@@ -1287,7 +1287,10 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	 may use a COMPONENT_REF on the LHS.  */
       if (wi)
 	{
-	  wi->val_only = !is_gimple_mem_rhs (gimple_assign_rhs1 (stmt));
+          /* If the RHS has more than 1 operand, it is not appropriate
+             for the memory.  */
+	  wi->val_only = !is_gimple_mem_rhs (gimple_assign_rhs1 (stmt))
+                         || !gimple_assign_single_p (stmt);
 	  wi->is_lhs = true;
 	}
 
