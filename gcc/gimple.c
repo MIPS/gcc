@@ -724,7 +724,7 @@ gimple_build_switch (size_t nlabels, tree index, tree default_label, ...)
 /* Build a GIMPLE_SWITCH statement.
 
    INDEX is the switch's index.
-   NLABELS is the number of labels in the switch excluding the default. 
+   DEFAULT_LABEL is the default label
    ARGS is a vector of labels excluding the default.  */
 
 gimple

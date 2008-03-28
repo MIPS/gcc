@@ -383,11 +383,14 @@ struct leh_tf_state
      that are seen to escape this GIMPLE_TRY_FINALLY node.
      The idea is to record a gimple statement for everything except for 
      the conditionals, which get their labels recorded. Since labels are of
-     type 'tree', we need this node to store both gimple and tree objects. */
+     type 'tree', we need this node to store both gimple and tree objects.
+     REPL_STMT is the sequence used to replace the goto/return statement.
+     CONT_STMT is used to store the statement that allows the return/goto to
+     jump to the original destination. */
   struct goto_queue_node {
     treemple stmt;
     gimple_seq repl_stmt;
-    treemple cont_stmt;
+    gimple cont_stmt;
     int index;
     /* this is used when index >= 0 to indicate that stmt is a label(as
        opposed to a goto stmt) */
@@ -512,16 +515,20 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
 {
   gimple_seq seq;
   treemple temp;
+  temp.g = NULL;
 
   switch (gimple_code (stmt))
     {
     case GIMPLE_GOTO:
+      /* For gotos we recorded the destination label.  */
+      temp.t = gimple_goto_dest (stmt);
     case GIMPLE_RETURN:
-      temp.g = stmt;
+      if (!temp.g)
+        temp.g = stmt;
       seq = find_goto_replacement (tf, temp);
       if (seq)
 	{
-	  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
+	  gsi_insert_seq_before (gsi, gimple_seq_deep_copy (seq), GSI_SAME_STMT);
 	  gsi_remove (gsi, false);
 	  return;
 	}
@@ -584,6 +591,7 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   treemple new_stmt;
   size_t active, size;
   int index;
+  int is_label = 0;
 
   if (!tf)
     return;
@@ -625,7 +633,8 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
         /* In the case of a GOTO we want to record the destination label,
 	   since with a GIMPLE_COND we have an easy access to the then/else
 	   labels. */
-        new_stmt.g = stmt;
+        new_stmt.t = lab;
+        is_label = 1;
       }
       break;
 
@@ -657,6 +666,7 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   memset (q, 0, sizeof (*q));
   q->stmt = new_stmt;
   q->index = index;
+  q->is_label = is_label;
 }
 
 #ifdef ENABLE_CHECKING
@@ -706,13 +716,12 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
 
   if (ret_expr)
     {
-
       if (!*return_value_p)
         *return_value_p = ret_expr;
       else
         gcc_assert (*return_value_p == ret_expr);
-      q->cont_stmt = q->stmt;
-	      /* The nasty part about redirecting the return value is that the
+      q->cont_stmt = q->stmt.g;
+      /* The nasty part about redirecting the return value is that the
 	 return value itself is to be computed before the FINALLY block
 	 is executed.  e.g.
 
@@ -740,14 +749,14 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
 	    *return_value_p = ret_expr;
 	  else
 	    gcc_assert (*return_value_p == ret_expr);
-	  q->cont_stmt = q->stmt;
+	  q->cont_stmt = q->stmt.g;
 	}
       else
 	  gcc_unreachable ();
     }
   else
       /* If we don't return a value, all return statements are the same.  */
-      q->cont_stmt = q->stmt;
+      q->cont_stmt = q->stmt.g;
 
   if (!q->repl_stmt)
     q->repl_stmt = gimple_seq_alloc ();
@@ -766,9 +775,12 @@ do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod)
 {
   gimple x;
 
+  gcc_assert (q->is_label);
   if (!q->repl_stmt)
     q->repl_stmt = gimple_seq_alloc ();
-  q->cont_stmt = q->stmt;
+
+  q->cont_stmt = gimple_build_goto (q->stmt.t);
+
   if (mod)
     gimple_seq_add_seq (&q->repl_stmt, mod);
 
@@ -1140,12 +1152,11 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 	}
     }
 
-  /* Reset the location of the goto since we're moving
-     goto to a different block which might be on a different line. */
-  gcc_assert (!tf->goto_queue[0].is_label);
-  gimple_set_location (tf->goto_queue[0].cont_stmt.g, 0);
-  gimple_seq_add_stmt (&tf->top_p_seq, tf->goto_queue[0].cont_stmt.g);
-  maybe_record_in_goto_queue (state, tf->goto_queue[0].cont_stmt.g);
+  /* Place the original return/goto to the original destination
+     immediately after the finally block. */
+  x = tf->goto_queue[0].cont_stmt;
+  gimple_seq_add_stmt (&tf->top_p_seq, x);
+  maybe_record_in_goto_queue (state, x);
 }
 
 /* A subroutine of lower_try_finally.  There are multiple edges incoming
@@ -1235,9 +1246,8 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	  lower_eh_constructs_1 (state, seq);
           gimple_seq_add_seq (&new_stmt, seq);
 
-	  gcc_assert (!q->is_label);
-          gimple_seq_add_stmt (&new_stmt, q->cont_stmt.g);
-	  maybe_record_in_goto_queue (state, q->cont_stmt.g);
+          gimple_seq_add_stmt (&new_stmt, q->cont_stmt);
+	  maybe_record_in_goto_queue (state, q->cont_stmt);
 	}
 
       for (q = tf->goto_queue; q < qe; q++)
@@ -1286,6 +1296,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   tree tmp;
   gimple switch_stmt;
   gimple_seq finally;
+  struct pointer_map_t *cont_map = NULL;
 
   switch_body = gimple_seq_alloc ();
 
@@ -1306,6 +1317,9 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   finally_tmp = create_tmp_var (integer_type_node, "finally_tmp");
   finally_label = create_artificial_label ();
 
+  /* We use VEC_quick_push on case_label_vec throughout this function,
+     since we know the size in advance and allocate precisely as muce
+     space as needed.  */
   case_label_vec = VEC_alloc (tree, heap, ndests);
   last_case = NULL;
   last_case_index = 0;
@@ -1330,7 +1344,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case = build3 (CASE_LABEL_EXPR, void_type_node,
 			  build_int_cst (NULL_TREE, fallthru_index), NULL,
 			  create_artificial_label ());
-      VEC_replace (tree, case_label_vec, last_case_index, last_case);
+      VEC_quick_push (tree, case_label_vec, last_case);
       last_case_index++;
 
       x = gimple_build_label (CASE_LABEL (last_case));
@@ -1353,7 +1367,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
       last_case = build3 (CASE_LABEL_EXPR, void_type_node,
 			  build_int_cst (NULL_TREE, eh_index), NULL,
 			  create_artificial_label ());
-      VEC_replace (tree, case_label_vec, last_case_index, last_case);
+      VEC_quick_push (tree, case_label_vec, last_case);
       last_case_index++;
 
       x = gimple_build_label (CASE_LABEL (last_case));
@@ -1376,7 +1390,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   for (; q < qe; ++q)
     {
       gimple_seq mod;
-      int switch_id, case_index;
+      int switch_id;
+      unsigned int case_index;
 
       mod = gimple_seq_alloc ();
 
@@ -1399,41 +1414,53 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	}
 
       case_index = j + q->index;
-      if (!VEC_index (tree, case_label_vec, case_index))
+      if (VEC_length (tree, case_label_vec) <= case_index
+          || !VEC_index (tree, case_label_vec, case_index))
         {
-	  VEC_replace (tree, case_label_vec, case_index,
-	      build3 (CASE_LABEL_EXPR, void_type_node,
-		      build_int_cst (NULL_TREE, switch_id), NULL,
-		      /* We store the cont_stmt in the
-		         CASE_LABEL, so that we can recover it
-			 in the loop below.  We don't create
-			 the new label while walking the
-			 goto_queue because pointers don't
-			 offer a stable order.  */
-		      q->cont_stmt.t));
-	}
+          tree case_lab;
+          void **slot;
+          case_lab = build3 (CASE_LABEL_EXPR, void_type_node,
+                             build_int_cst (NULL_TREE, switch_id), NULL,
+                             NULL);
+          /* We store the cont_stmt in the pointer map, so that we can recover
+             it in the loop below.  We don't create the new label while
+             walking the goto_queue because pointers don't offer a stable 
+             order.  */
+          if (!cont_map)
+            cont_map = pointer_map_create ();
+          slot = pointer_map_insert (cont_map, case_lab);
+          *slot = q->cont_stmt;
+          VEC_quick_push (tree, case_label_vec, case_lab);
+        }
     }
   for (j = last_case_index; j < last_case_index + nlabels; j++)
     {
       tree label;
-      treemple cont_stmt;
+      gimple cont_stmt;
+      void **slot;
 
       last_case = VEC_index (tree, case_label_vec, j);
 
       gcc_assert (last_case);
+      gcc_assert (cont_map);
 
+      slot = pointer_map_contains (cont_map, last_case);
       /* As the comment above suggests, CASE_LABEL (last_case) was just a
          placeholder, it does not store an actual label, yet. */
-      cont_stmt.g = gimple_build_label (CASE_LABEL (last_case));
+      gcc_assert (slot);
+      cont_stmt = *(gimple *) slot;
 
       label = create_artificial_label ();
       CASE_LABEL (last_case) = label;
 
       x = gimple_build_label (label);
       gimple_seq_add_stmt (&switch_body, x);
-      gimple_seq_add_stmt (&switch_body, cont_stmt.g);
-      maybe_record_in_goto_queue (state, cont_stmt.g);
+      gimple_seq_add_stmt (&switch_body, cont_stmt);
+      maybe_record_in_goto_queue (state, cont_stmt);
     }
+  if (cont_map)
+    pointer_map_destroy (cont_map);
+
   replace_goto_queue (tf);
 
   /* Make sure that the last case is the default label, as one is required.
@@ -1441,7 +1468,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   CASE_LOW (last_case) = NULL;
   sort_case_labels (case_label_vec);
 
-  /* We'll set the default label at the end. */
+  /* Build the switch statement, setting last_case to be the default
+     label.  */
   switch_stmt = gimple_build_switch_vec (finally_tmp, last_case,
                                          case_label_vec);
 
@@ -1559,7 +1587,6 @@ lower_try_finally (struct leh_state *state, gimple tp)
   /* We can easily special-case redirection to a single destination.  */
   else if (ndests == 1)
     lower_try_finally_onedest (state, &this_tf);
-
   else if (decide_copy_try_finally (ndests, gimple_try_cleanup (tp)))
     lower_try_finally_copy (state, &this_tf);
   else

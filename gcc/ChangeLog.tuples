@@ -1,3 +1,17 @@
+2008-03-28  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-eh.c (replace_goto_queue_1): Do a deep copy of the replacement
+	sequence.
+	(maybe_record_in_goto_queue): Set is_label flag when recording
+	GIMPLE_GOTOs.
+	(do_return_redirection, do_return_redirection): Changed to set
+	cont_stmt.
+	(lower_try_finally_onedest): Fix the code that assumes that gotos
+	themselves(instead of the labels) are recorded in the goto_queue.
+	(lower_try_finally_copy): Likewise.
+	(lower_try_finally_switch): Likewise, also fix the VEC_* operations.
+	* gimple.h (gimple_build_switch): Fixed comment.
+
 2008-03-28  Doug Kwan  <dougkwan@google.com>
 
 	* omp-low.c (expand_omp_sections): Fix build breakage due to an
