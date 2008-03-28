@@ -1,3 +1,10 @@
+2008-03-28  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133341.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-03-28  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-eh.c (replace_goto_queue_1): Do a deep copy of the replacement
