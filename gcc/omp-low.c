@@ -3197,7 +3197,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 {
   tree n, s0, e0, e, t;
   tree trip_var, trip_init, trip_main, trip_back, nthreads, threadid;
-  tree type, v_main, v_back, v_extra;
+  tree type, v_main = NULL, v_back = NULL, v_extra;
   basic_block entry_bb, exit_bb, body_bb, seq_start_bb, iter_part_bb;
   basic_block trip_update_bb, cont_bb, fin_bb;
   gimple_stmt_iterator si;
@@ -3515,7 +3515,7 @@ expand_omp_for (struct omp_region *region)
 static void
 expand_omp_sections (struct omp_region *region)
 {
-  tree label_vec, t, u, vin, vmain, vnext, l1, l2;
+  tree label_vec, t, u, vin = NULL, vmain, vnext, l1, l2;
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
   gimple_stmt_iterator si;
