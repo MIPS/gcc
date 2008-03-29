@@ -1,3 +1,20 @@
+2008-03-25  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Backport from mainline:
+	2008-01-26  Maxim Kuvyrkov  <maxim@codesourcery.com>
+	
+	PR middle-end/34688
+	* final.c (output_addr_const): Handle TRUNCATE.
+
+2008-03-25  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-02-12  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35163
+	* fold-const.c (fold_widened_comparison): Use get_unwidened in
+	value-preserving mode.  Disallow final truncation.
+
 2008-03-13  David Edelsohn  <edelsohn@gnu.org>
 
 	Backport from mainline:
