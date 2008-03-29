@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC.
    Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1469,6 +1469,20 @@ instantiate_virtual_regs_in_insn (rtx insn)
 
 	    start_sequence ();
 	    x = replace_equiv_address (x, addr);
+	    /* It may happen that the address with the virtual reg
+	       was valid (e.g. based on the virtual stack reg, which might
+	       be acceptable to the predicates with all offsets), whereas
+	       the address now isn't anymore, for instance when the address
+	       is still offsetted, but the base reg isn't virtual-stack-reg
+	       anymore.  Below we would do a force_reg on the whole operand,
+	       but this insn might actually only accept memory.  Hence,
+	       before doing that last resort, try to reload the address into
+	       a register, so this operand stays a MEM.  */
+	    if (!safe_insn_predicate (insn_code, i, x))
+	      {
+		addr = force_reg (GET_MODE (addr), addr);
+		x = replace_equiv_address (x, addr);
+	      }
 	    seq = get_insns ();
 	    end_sequence ();
 	    if (seq)
@@ -1724,8 +1738,10 @@ instantiate_virtual_regs (void)
   return 0;
 }
 
-struct tree_opt_pass pass_instantiate_virtual_regs =
+struct rtl_opt_pass pass_instantiate_virtual_regs =
 {
+ {
+  RTL_PASS,
   "vregs",                              /* name */
   NULL,                                 /* gate */
   instantiate_virtual_regs,             /* execute */
@@ -1737,8 +1753,8 @@ struct tree_opt_pass pass_instantiate_virtual_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 
@@ -3437,7 +3453,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
     sp_offset = 0;
 #endif
 
-  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+  if (boundary > PARM_BOUNDARY)
     {
       save_var = offset_ptr->var;
       save_constant = offset_ptr->constant;
@@ -3463,7 +3479,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	  offset_ptr->var = size_binop (MINUS_EXPR, rounded, sp_offset_tree);
 	  /* ARGS_SIZE_TREE includes constant term.  */
 	  offset_ptr->constant = 0;
-	  if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	  if (boundary > PARM_BOUNDARY)
 	    alignment_pad->var = size_binop (MINUS_EXPR, offset_ptr->var,
 					     save_var);
 	}
@@ -3475,7 +3491,7 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 #else
 	    CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
 #endif
-	    if (boundary > PARM_BOUNDARY && boundary > STACK_BOUNDARY)
+	    if (boundary > PARM_BOUNDARY)
 	      alignment_pad->constant = offset_ptr->constant - save_constant;
 	}
     }
@@ -4029,8 +4045,10 @@ init_function_for_compilation (void)
   return 0;
 }
 
-struct tree_opt_pass pass_init_function =
+struct rtl_opt_pass pass_init_function =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */   
   init_function_for_compilation,        /* execute */       
@@ -4042,8 +4060,8 @@ struct tree_opt_pass pass_init_function =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -5659,8 +5677,10 @@ used_types_insert (tree t)
     used_types_insert_helper (t, cfun);
 }
 
-struct tree_opt_pass pass_leaf_regs =
+struct rtl_opt_pass pass_leaf_regs =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   rest_of_handle_check_leaf_regs,       /* execute */
@@ -5672,8 +5692,8 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -5690,8 +5710,10 @@ rest_of_handle_thread_prologue_and_epilogue (void)
   return 0;
 }
 
-struct tree_opt_pass pass_thread_prologue_and_epilogue =
+struct rtl_opt_pass pass_thread_prologue_and_epilogue =
 {
+ {
+  RTL_PASS,
   "pro_and_epilogue",                   /* name */
   NULL,                                 /* gate */
   rest_of_handle_thread_prologue_and_epilogue, /* execute */
@@ -5706,8 +5728,8 @@ struct tree_opt_pass pass_thread_prologue_and_epilogue =
   TODO_dump_func |
   TODO_df_verify |
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 
@@ -5761,7 +5783,9 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
   rtx op = SET_SRC (p_sets[0]);
   int ninputs = ASM_OPERANDS_INPUT_LENGTH (op);
   rtvec inputs = ASM_OPERANDS_INPUT_VEC (op);
+  bool *output_matched = alloca (noutputs * sizeof (bool));
 
+  memset (output_matched, 0, noutputs * sizeof (bool));
   for (i = 0; i < ninputs; i++)
     {
       rtx input, output, insns;
@@ -5790,6 +5814,20 @@ match_asm_constraints_1 (rtx insn, rtx *p_sets, int noutputs)
 	  break;
       if (j != ninputs)
 	continue;
+
+      /* Avoid changing the same input several times.  For
+	 asm ("" : "=mr" (out1), "=mr" (out2) : "0" (in), "1" (in));
+	 only change in once (to out1), rather than changing it
+	 first to out1 and afterwards to out2.  */
+      if (i > 0)
+	{
+	  for (j = 0; j < noutputs; j++)
+	    if (output_matched[j] && input == SET_DEST (p_sets[j]))
+	      break;
+	  if (j != noutputs)
+	    continue;
+	}
+      output_matched[match] = true;
 
       start_sequence ();
       emit_move_insn (output, input);
@@ -5871,8 +5909,10 @@ rest_of_match_asm_constraints (void)
   return TODO_df_finish;
 }
 
-struct tree_opt_pass pass_match_asm_constraints =
+struct rtl_opt_pass pass_match_asm_constraints =
 {
+ {
+  RTL_PASS,
   "asmcons",				/* name */
   NULL,					/* gate */
   rest_of_match_asm_constraints,	/* execute */
@@ -5884,8 +5924,8 @@ struct tree_opt_pass pass_match_asm_constraints =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                       /* todo_flags_finish */
+ }
 };
 
 

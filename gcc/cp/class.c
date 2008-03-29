@@ -1,6 +1,6 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -284,7 +284,7 @@ build_base_path (enum tree_code code,
 
   if (!want_pointer)
     /* This must happen before the call to save_expr.  */
-    expr = build_unary_op (ADDR_EXPR, expr, 0);
+    expr = cp_build_unary_op (ADDR_EXPR, expr, 0, tf_warning_or_error);
 
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
@@ -345,7 +345,7 @@ build_base_path (enum tree_code code,
 	 interesting to the optimizers anyway.  */
       && !has_empty)
     {
-      expr = build_indirect_ref (expr, NULL);
+      expr = cp_build_indirect_ref (expr, NULL, tf_warning_or_error);
       expr = build_simple_base_path (expr, binfo);
       if (want_pointer)
 	expr = build_address (expr);
@@ -370,10 +370,12 @@ build_base_path (enum tree_code code,
 	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build_indirect_ref (v_offset, NULL);
+	  v_offset = cp_build_indirect_ref (v_offset, NULL, 
+                                            tf_warning_or_error);
 	}
       else
-	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
+	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, NULL,
+                                                            tf_warning_or_error),
 				     TREE_TYPE (TREE_TYPE (expr)));
 
       v_offset = build2 (POINTER_PLUS_EXPR, TREE_TYPE (v_offset),
@@ -381,7 +383,7 @@ build_base_path (enum tree_code code,
       v_offset = build1 (NOP_EXPR,
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
-      v_offset = build_indirect_ref (v_offset, NULL);
+      v_offset = cp_build_indirect_ref (v_offset, NULL, tf_warning_or_error);
       TREE_CONSTANT (v_offset) = 1;
       TREE_INVARIANT (v_offset) = 1;
 
@@ -425,7 +427,7 @@ build_base_path (enum tree_code code,
     null_test = NULL;
 
   if (!want_pointer)
-    expr = build_indirect_ref (expr, NULL);
+    expr = cp_build_indirect_ref (expr, NULL, tf_warning_or_error);
 
  out:
   if (null_test)
@@ -459,7 +461,7 @@ build_simple_base_path (tree expr, tree binfo)
 	 in the back end.  */
       temp = unary_complex_lvalue (ADDR_EXPR, expr);
       if (temp)
-	expr = build_indirect_ref (temp, NULL);
+	expr = cp_build_indirect_ref (temp, NULL, tf_warning_or_error);
 
       return expr;
     }
@@ -551,7 +553,8 @@ convert_to_base_statically (tree expr, tree base)
 	 when processing a template because they do not handle C++-specific
 	 trees.  */
       gcc_assert (!processing_template_decl);
-      expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
+      expr = cp_build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1, 
+                             tf_warning_or_error);
       if (!integer_zerop (BINFO_OFFSET (base)))
         expr = fold_build2 (POINTER_PLUS_EXPR, pointer_type, expr,
 			    fold_convert (sizetype, BINFO_OFFSET (base)));
@@ -648,13 +651,16 @@ build_vfn_ref (tree instance_ptr, tree idx)
 {
   tree aref;
 
-  aref = build_vtbl_ref_1 (build_indirect_ref (instance_ptr, 0), idx);
+  aref = build_vtbl_ref_1 (cp_build_indirect_ref (instance_ptr, 0,
+                                                  tf_warning_or_error), 
+                           idx);
 
   /* When using function descriptors, the address of the
      vtable entry is treated as a function pointer.  */
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     aref = build1 (NOP_EXPR, TREE_TYPE (aref),
-		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
+		   cp_build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1,
+                                   tf_warning_or_error));
 
   /* Remember this as a method reference, for later devirtualization.  */
   aref = build3 (OBJ_TYPE_REF, TREE_TYPE (aref), aref, instance_ptr, idx);
@@ -2493,27 +2499,27 @@ finish_struct_anon (tree t)
 	      if (TREE_CODE (elt) != FIELD_DECL)
 		{
 		  if (is_union)
-		    pedwarn ("%q+#D invalid; an anonymous union can "
-			     "only have non-static data members", elt);
+		    permerror ("%q+#D invalid; an anonymous union can "
+			       "only have non-static data members", elt);
 		  else
-		    pedwarn ("%q+#D invalid; an anonymous struct can "
-			     "only have non-static data members", elt);
+		    permerror ("%q+#D invalid; an anonymous struct can "
+			       "only have non-static data members", elt);
 		  continue;
 		}
 
 	      if (TREE_PRIVATE (elt))
 		{
 		  if (is_union)
-		    pedwarn ("private member %q+#D in anonymous union", elt);
+		    permerror ("private member %q+#D in anonymous union", elt);
 		  else
-		    pedwarn ("private member %q+#D in anonymous struct", elt);
+		    permerror ("private member %q+#D in anonymous struct", elt);
 		}
 	      else if (TREE_PROTECTED (elt))
 		{
 		  if (is_union)
-		    pedwarn ("protected member %q+#D in anonymous union", elt);
+		    permerror ("protected member %q+#D in anonymous union", elt);
 		  else
-		    pedwarn ("protected member %q+#D in anonymous struct", elt);
+		    permerror ("protected member %q+#D in anonymous struct", elt);
 		}
 
 	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
@@ -3044,7 +3050,7 @@ check_field_decls (tree t, tree *access_decls,
 	 user-defined constructor.  */
       if (constructor_name_p (DECL_NAME (x), t)
 	  && TYPE_HAS_USER_CONSTRUCTOR (t))
-	pedwarn ("field %q+#D with same name as class", x);
+	permerror ("field %q+#D with same name as class", x);
 
       /* We set DECL_C_BIT_FIELD in grokbitfield.
 	 If the type and width are valid, we'll also set DECL_BIT_FIELD.  */
@@ -4039,6 +4045,28 @@ clone_constructors_and_destructors (tree t)
     clone_function_decl (OVL_CURRENT (fns), /*update_method_vec_p=*/1);
 }
 
+/* Returns true iff class T has a user-defined constructor other than
+   the default constructor.  */
+
+bool
+type_has_user_nondefault_constructor (tree t)
+{
+  tree fns;
+
+  if (!TYPE_HAS_USER_CONSTRUCTOR (t))
+    return false;
+
+  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  && skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn)) != NULL_TREE)
+	return true;
+    }
+
+  return false;
+}
+
 /* Remove all zero-width bit-fields from T.  */
 
 static void
@@ -4904,7 +4932,7 @@ layout_class_type (tree t, tree *virtuals_p)
   remove_zero_width_bit_fields (t);
 
   /* Create the version of T used for virtual bases.  We do not use
-     make_aggr_type for this version; this is an artificial type.  For
+     make_class_type for this version; this is an artificial type.  For
      a POD type, we just reuse T.  */
   if (CLASSTYPE_NON_POD_P (t) || CLASSTYPE_EMPTY_P (t))
     {
@@ -5064,7 +5092,7 @@ finish_struct_1 (tree t)
 
   if (COMPLETE_TYPE_P (t))
     {
-      gcc_assert (IS_AGGR_TYPE (t));
+      gcc_assert (MAYBE_CLASS_TYPE_P (t));
       error ("redefinition of %q#T", t);
       popclass ();
       return;
@@ -5410,7 +5438,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
     case VAR_DECL:
     case FIELD_DECL:
       if (TREE_CODE (TREE_TYPE (instance)) == ARRAY_TYPE
-	  && IS_AGGR_TYPE (TREE_TYPE (TREE_TYPE (instance))))
+	  && MAYBE_CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (instance))))
 	{
 	  if (nonnull)
 	    *nonnull = 1;
@@ -5420,7 +5448,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
     case TARGET_EXPR:
     case PARM_DECL:
     case RESULT_DECL:
-      if (IS_AGGR_TYPE (TREE_TYPE (instance)))
+      if (MAYBE_CLASS_TYPE_P (TREE_TYPE (instance)))
 	{
 	  if (nonnull)
 	    *nonnull = 1;
@@ -6050,10 +6078,10 @@ resolve_address_of_overloaded_function (tree target_type,
       if (!(flags & tf_error))
 	return error_mark_node;
 
-      pedwarn ("assuming pointer to member %qD", fn);
+      permerror ("assuming pointer to member %qD", fn);
       if (!explained)
 	{
-	  pedwarn ("(a pointer to member can only be formed with %<&%E%>)", fn);
+	  inform ("(a pointer to member can only be formed with %<&%E%>)", fn);
 	  explained = 1;
 	}
     }
@@ -6076,10 +6104,10 @@ resolve_address_of_overloaded_function (tree target_type,
     }
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
-    return build_unary_op (ADDR_EXPR, fn, 0);
+    return cp_build_unary_op (ADDR_EXPR, fn, 0, flags);
   else
     {
-      /* The target must be a REFERENCE_TYPE.  Above, build_unary_op
+      /* The target must be a REFERENCE_TYPE.  Above, cp_build_unary_op
 	 will mark the function as addressed, but here we must do it
 	 explicitly.  */
       cxx_mark_addressable (fn);
@@ -6321,7 +6349,7 @@ is_empty_class (tree type)
   if (type == error_mark_node)
     return 0;
 
-  if (! IS_AGGR_TYPE (type))
+  if (! MAYBE_CLASS_TYPE_P (type))
     return 0;
 
   /* In G++ 3.2, whether or not a class was empty was determined by
@@ -6413,8 +6441,8 @@ note_name_declared_in_class (tree name, tree decl)
 	 A name N used in a class S shall refer to the same declaration
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
-      pedwarn ("declaration of %q#D", decl);
-      pedwarn ("changes meaning of %qD from %q+#D",
+      permerror ("declaration of %q#D", decl);
+      permerror ("changes meaning of %qD from %q+#D",
 	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }

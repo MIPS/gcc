@@ -426,6 +426,7 @@ extern int __gthr_win32_recursive_mutex_lock (__gthread_recursive_mutex_t *);
 extern int
   __gthr_win32_recursive_mutex_trylock (__gthread_recursive_mutex_t *);
 extern int __gthr_win32_recursive_mutex_unlock (__gthread_recursive_mutex_t *);
+extern void __gthr_win32_mutex_destroy (__gthread_mutex_t *);
 
 static inline int
 __gthread_once (__gthread_once_t *once, void (*func) (void))
@@ -464,6 +465,12 @@ static inline void
 __gthread_mutex_init_function (__gthread_mutex_t *mutex)
 {
   __gthr_win32_mutex_init_function (mutex);
+}
+
+static inline void
+__gthread_mutex_destroy (__gthread_mutex_t *mutex)
+{
+  __gthr_win32_mutex_destroy (mutex);
 }
 
 static inline int
@@ -619,7 +626,7 @@ __gthread_mutex_init_function (__gthread_mutex_t *mutex)
 }
 
 static inline void
-__gthread_mutex_destroy_function (__gthread_mutex_t *mutex)
+__gthread_mutex_destroy (__gthread_mutex_t *mutex)
 {
   CloseHandle ((HANDLE) mutex->sema);
 }

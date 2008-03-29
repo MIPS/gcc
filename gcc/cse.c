@@ -4755,6 +4755,23 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      src_elt_cost = MAX_COST;
 	    }
 
+	  /* Avoid creation of overlapping memory moves.  */
+	  if (MEM_P (trial) && MEM_P (SET_DEST (sets[i].rtl)))
+	    {
+	      rtx src, dest;
+
+	      /* BLKmode moves are not handled by cse anyway.  */
+	      if (GET_MODE (trial) == BLKmode)
+		break;
+
+	      src = canon_rtx (trial);
+	      dest = canon_rtx (SET_DEST (sets[i].rtl));
+
+	      if (!MEM_P (src) || !MEM_P (dest)
+		  || !nonoverlapping_memrefs_p (src, dest))
+		break;
+	    }
+
 	  /* We don't normally have an insn matching (set (pc) (pc)), so
 	     check for this separately here.  We will delete such an
 	     insn below.
@@ -5977,6 +5994,21 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
       int no_conflict = 0;
 
       bb = ebb_data->path[path_entry].bb;
+
+      /* Invalidate recorded information for eh regs if there is an EH
+	 edge pointing to that bb.  */
+      if (bb_has_eh_pred (bb))
+	{
+	  struct df_ref **def_rec;
+
+	  for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+		invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
+	    }
+	}
+
       FOR_BB_INSNS (bb, insn)
 	{
 	  /* If we have processed 1,000 insns, flush the hash table to
@@ -6981,8 +7013,10 @@ rest_of_handle_cse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cse =
+struct rtl_opt_pass pass_cse =
 {
+ {
+  RTL_PASS,
   "cse1",                               /* name */
   gate_handle_cse,                      /* gate */   
   rest_of_handle_cse,			/* execute */       
@@ -6998,7 +7032,7 @@ struct tree_opt_pass pass_cse =
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
-  's'                                   /* letter */
+ }
 };
 
 
@@ -7042,8 +7076,10 @@ rest_of_handle_cse2 (void)
 }
 
 
-struct tree_opt_pass pass_cse2 =
+struct rtl_opt_pass pass_cse2 =
 {
+ {
+  RTL_PASS,
   "cse2",                               /* name */
   gate_handle_cse2,                     /* gate */   
   rest_of_handle_cse2,			/* execute */       
@@ -7058,7 +7094,7 @@ struct tree_opt_pass pass_cse2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
-  't'                                   /* letter */
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
 };
 

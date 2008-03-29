@@ -1,5 +1,5 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -106,7 +106,10 @@ resolve_formal_arglist (gfc_symbol *proc)
   if (gfc_elemental (proc)
       || sym->attr.pointer || sym->attr.allocatable
       || (sym->as && sym->as->rank > 0))
-    proc->attr.always_explicit = 1;
+    {
+      proc->attr.always_explicit = 1;
+      sym->attr.always_explicit = 1;
+    }
 
   formal_arg_flag = 1;
 
@@ -187,7 +190,11 @@ resolve_formal_arglist (gfc_symbol *proc)
       if ((sym->as && sym->as->rank > 0 && sym->as->type == AS_ASSUMED_SHAPE)
 	  || sym->attr.pointer || sym->attr.allocatable || sym->attr.target
 	  || sym->attr.optional)
-	proc->attr.always_explicit = 1;
+	{
+	  proc->attr.always_explicit = 1;
+	  if (proc->result)
+	    proc->result->attr.always_explicit = 1;
+	}
 
       /* If the flavor is unknown at this point, it has to be a variable.
 	 A procedure specification would have already set the type.  */
@@ -827,6 +834,16 @@ resolve_structure_cons (gfc_expr *expr)
 	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
 	}
 
+      if (cons->expr->expr_type == EXPR_NULL
+	    && !(comp->pointer || comp->allocatable))
+	{
+	  t = FAILURE;
+	  gfc_error ("The NULL in the derived type constructor at %L is "
+		     "being applied to component '%s', which is neither "
+		     "a POINTER nor ALLOCATABLE", &cons->expr->where,
+		     comp->name);
+	}
+
       if (!comp->pointer || cons->expr->expr_type == EXPR_NULL)
 	continue;
 
@@ -947,20 +964,12 @@ static int need_full_assumed_size = 0;
 static bool
 check_assumed_size_reference (gfc_symbol *sym, gfc_expr *e)
 {
-  gfc_ref *ref;
-  int dim;
-  int last = 1;
-
   if (need_full_assumed_size || !(sym->as && sym->as->type == AS_ASSUMED_SIZE))
       return false;
 
-  for (ref = e->ref; ref; ref = ref->next)
-    if (ref->type == REF_ARRAY)
-      for (dim = 0; dim < ref->u.ar.as->rank; dim++)
-	last = (ref->u.ar.end[dim] == NULL)
-	       && (ref->u.ar.type == DIMEN_ELEMENT);
-
-  if (last)
+  if ((e->ref->u.ar.end[e->ref->u.ar.as->rank - 1] == NULL)
+	  && (e->ref->u.ar.as->type == AS_ASSUMED_SIZE)
+	       && (e->ref->u.ar.type == DIMEN_ELEMENT))
     {
       gfc_error ("The upper bound in the last dimension must "
 		 "appear in the reference to the assumed size "
@@ -5589,7 +5598,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 
   if (code->here == label)
     {
-      gfc_warning ("Branch at %L causes an infinite loop", &code->loc);
+      gfc_warning ("Branch at %L may result in an infinite loop", &code->loc);
       return;
     }
 
@@ -7972,6 +7981,29 @@ resolve_symbol (gfc_symbol *sym)
 		  &sym->declared_at, sym->ts.derived->name);
       sym->ts.type = BT_UNKNOWN;
       return;
+    }
+
+  /* Make sure that the derived type has been resolved and that the
+     derived type is visible in the symbol's namespace, if it is a
+     module function and is not PRIVATE.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ts.derived->attr.use_assoc
+	&& sym->ns->proc_name->attr.flavor == FL_MODULE)
+    {
+      gfc_symbol *ds;
+
+      if (resolve_fl_derived (sym->ts.derived) == FAILURE)
+	return;
+
+      gfc_find_symbol (sym->ts.derived->name, sym->ns, 1, &ds);
+      if (!ds && sym->attr.function
+	    && gfc_check_access (sym->attr.access, sym->ns->default_access))
+	{
+	  symtree = gfc_new_symtree (&sym->ns->sym_root,
+				     sym->ts.derived->name);
+	  symtree->n.sym = sym->ts.derived;
+	  sym->ts.derived->refs++;
+	}
     }
 
   /* Unless the derived-type declaration is use associated, Fortran 95

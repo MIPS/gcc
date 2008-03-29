@@ -1943,8 +1943,10 @@ rest_of_handle_regrename (void)
   return 0;
 }
 
-struct tree_opt_pass pass_regrename =
+struct rtl_opt_pass pass_regrename =
 {
+ {
+  RTL_PASS,
   "rnreg",                              /* name */
   gate_handle_regrename,                /* gate */
   rest_of_handle_regrename,             /* execute */
@@ -1957,8 +1959,8 @@ struct tree_opt_pass pass_regrename =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  'n'                                   /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static bool
@@ -1976,8 +1978,10 @@ rest_of_handle_cprop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cprop_hardreg =
+struct rtl_opt_pass pass_cprop_hardreg =
 {
+ {
+  RTL_PASS,
   "cprop_hardreg",                      /* name */
   gate_handle_cprop,                    /* gate */
   rest_of_handle_cprop,                 /* execute */
@@ -1989,7 +1993,7 @@ struct tree_opt_pass pass_cprop_hardreg =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
-  'n'                                   /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 

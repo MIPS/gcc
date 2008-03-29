@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "cfgloop.h"
+#include "flags.h"
 
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
@@ -598,8 +599,10 @@ eliminate_using_constants (enum tree_code opcode,
 			   VEC(operand_entry_t, heap) **ops)
 {
   operand_entry_t oelast = VEC_last (operand_entry_t, *ops);
+  tree type = TREE_TYPE (oelast->op);
 
-  if (oelast->rank == 0 && INTEGRAL_TYPE_P (TREE_TYPE (oelast->op)))
+  if (oelast->rank == 0
+      && (INTEGRAL_TYPE_P (type) || FLOAT_TYPE_P (type)))
     {
       switch (opcode)
 	{
@@ -660,7 +663,11 @@ eliminate_using_constants (enum tree_code opcode,
 	    }
 	  break;
 	case MULT_EXPR:
-	  if (integer_zerop (oelast->op))
+	  if (integer_zerop (oelast->op)
+	      || (FLOAT_TYPE_P (type)
+		  && !HONOR_NANS (TYPE_MODE (type))
+		  && !HONOR_SIGNED_ZEROS (TYPE_MODE (type))
+		  && real_zerop (oelast->op)))
 	    {
 	      if (VEC_length (operand_entry_t, *ops) != 1)
 		{
@@ -675,7 +682,10 @@ eliminate_using_constants (enum tree_code opcode,
 		  return;
 		}
 	    }
-	  else if (integer_onep (oelast->op))
+	  else if (integer_onep (oelast->op)
+		   || (FLOAT_TYPE_P (type)
+		       && !HONOR_SNANS (TYPE_MODE (type))
+		       && real_onep (oelast->op)))
 	    {
 	      if (VEC_length (operand_entry_t, *ops) != 1)
 		{
@@ -690,7 +700,11 @@ eliminate_using_constants (enum tree_code opcode,
 	case BIT_XOR_EXPR:
 	case PLUS_EXPR:
 	case MINUS_EXPR:
-	  if (integer_zerop (oelast->op))
+	  if (integer_zerop (oelast->op)
+	      || (FLOAT_TYPE_P (type)
+		  && (opcode == PLUS_EXPR || opcode == MINUS_EXPR)
+		  && fold_real_zero_addition_p (type, oelast->op,
+						opcode == MINUS_EXPR)))
 	    {
 	      if (VEC_length (operand_entry_t, *ops) != 1)
 		{
@@ -1514,8 +1528,10 @@ gate_tree_ssa_reassoc (void)
   return flag_tree_reassoc != 0;
 }
 
-struct tree_opt_pass pass_reassoc =
+struct gimple_opt_pass pass_reassoc =
 {
+ {
+  GIMPLE_PASS,
   "reassoc",				/* name */
   gate_tree_ssa_reassoc,		/* gate */
   execute_reassoc,			/* execute */
@@ -1527,6 +1543,6 @@ struct tree_opt_pass pass_reassoc =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+ }
 };

@@ -1,6 +1,6 @@
 /* Control flow graph manipulation code for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -427,8 +427,10 @@ free_bb_for_insn (void)
   return 0;
 }
 
-struct tree_opt_pass pass_free_cfg =
+struct rtl_opt_pass pass_free_cfg =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   free_bb_for_insn,                     /* execute */
@@ -441,7 +443,7 @@ struct tree_opt_pass pass_free_cfg =
   PROP_cfg,                             /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 /* Return RTX to emit after when we want to emit code on the entry of function.  */
@@ -477,13 +479,8 @@ update_bb_for_insn_chain (rtx begin, rtx end, basic_block bb)
 
   end = NEXT_INSN (end);
   for (insn = begin; insn != end; insn = NEXT_INSN (insn))
-    {
-      if (!BARRIER_P (insn))
-	{
-	  set_block_for_insn (insn, bb);
-	  df_insn_change_bb (insn);
-	}
-    }
+    if (!BARRIER_P (insn))
+      df_insn_change_bb (insn, bb);
 }
 
 /* Update BLOCK_FOR_INSN of insns in BB to BB,

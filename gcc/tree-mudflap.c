@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
@@ -121,9 +121,7 @@ mf_varname_tree (tree decl)
     const char *sourcefile;
     unsigned sourceline = xloc.line;
     unsigned sourcecolumn = 0;
-#ifdef USE_MAPPED_LOCATION
     sourcecolumn = xloc.column;
-#endif
     sourcefile = xloc.file;
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
       sourcefile = DECL_SOURCE_FILE (current_function_decl);
@@ -214,11 +212,9 @@ mf_file_function_line_tree (location_t location)
 
   if (xloc.line > 0)
     {
-#ifdef USE_MAPPED_LOCATION
       if (xloc.column > 0)
         sprintf (linecolbuf, "%d:%d", xloc.line, xloc.column);
       else
-#endif
         sprintf (linecolbuf, "%d", xloc.line);
       colon = ":";
       line = linecolbuf;
@@ -861,7 +857,8 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       break;
 
     case ARRAY_RANGE_REF:
-      warning (0, "mudflap checking not yet implemented for ARRAY_RANGE_REF");
+      warning (OPT_Wmudflap,
+	       "mudflap checking not yet implemented for ARRAY_RANGE_REF");
       return;
 
     case BIT_FIELD_REF:
@@ -1047,7 +1044,8 @@ mx_register_decls (tree decl, tree *stmt_list)
           if (tsi_end_p (initially_stmts))
 	    {
 	      if (!DECL_ARTIFICIAL (decl))
-		warning (0, "mudflap cannot track %qs in stub function",
+		warning (OPT_Wmudflap,
+			 "mudflap cannot track %qs in stub function",
 			 IDENTIFIER_POINTER (DECL_NAME (decl)));
 	    }
 	  else
@@ -1276,7 +1274,8 @@ mudflap_finish_file (void)
 
           if (! COMPLETE_TYPE_P (TREE_TYPE (obj)))
             {
-              warning (0, "mudflap cannot track unknown size extern %qs",
+              warning (OPT_Wmudflap,
+		       "mudflap cannot track unknown size extern %qs",
                        IDENTIFIER_POINTER (DECL_NAME (obj)));
               continue;
             }
@@ -1307,8 +1306,10 @@ gate_mudflap (void)
   return flag_mudflap != 0;
 }
 
-struct tree_opt_pass pass_mudflap_1 = 
+struct gimple_opt_pass pass_mudflap_1 = 
 {
+ {
+  GIMPLE_PASS,
   "mudflap1",                           /* name */
   gate_mudflap,                         /* gate */
   execute_mudflap_function_decls,       /* execute */
@@ -1320,12 +1321,14 @@ struct tree_opt_pass pass_mudflap_1 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_mudflap_2 = 
+struct gimple_opt_pass pass_mudflap_2 = 
 {
+ {
+  GIMPLE_PASS,
   "mudflap2",                           /* name */
   gate_mudflap,                         /* gate */
   execute_mudflap_function_ops,         /* execute */
@@ -1338,8 +1341,8 @@ struct tree_opt_pass pass_mudflap_2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_dump_func,                     /* todo_flags_finish */
-  0					/* letter */
+  | TODO_dump_func                      /* todo_flags_finish */
+ }
 };
 
 #include "gt-tree-mudflap.h"

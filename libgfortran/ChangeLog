@@ -1,3 +1,270 @@
+2008-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35721
+	* intrinsics/associated.c (associated): Ignore different
+	stride of pointer vs. target if only one element is referred.
+
+2008-03-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* io/unix.c (fd_close):  Do not close STDIN.
+
+2007-03-23  Thomas Koenig  <tkoenig@gcc.gnu.org
+
+	PR libfortran/32972
+	* Makefile.am:  Add new variable, i_unpack_c, containing
+	unpack_i1.c, unpack_i2.c, unpack_i4.c, unpack_i8.c,
+	unpack_i16.c, unpack_r4.c, unpack_r8.c, unpack_r10.c,
+	unpack_r16.c, unpack_c4.c, unpack_c8.c, unpack_c10.c
+	and unpack_c16.c
+	Add i_unpack_c to gfor_built_src.
+	Add rule to generate i_unpack_c from m4/unpack.m4.
+	* Makefile.in:  Regenerated.
+	* libgfortran.h: Add prototypes for unpack0_i1, unpack0_i2,
+	unpack0_i4, unpack0_i8, unpack0_i16, unpack0_r4, unpack0_r8,
+	unpack0_r10, unpack0_r16, unpack0_c4, unpack0_c8, unpack0_c10,
+	unpack0_c16, unpack1_i1, unpack1_i2, unpack1_i4, unpack1_i8,
+	unpack1_i16, unpack1_r4, unpack1_r8, unpack1_r10, unpack1_r16,
+	unpack1_c4, unpack1_c8, unpack1_c10 and unpack1_c16.
+	* intrinsics/pack_generic.c (unpack1):  Add calls to specific
+	unpack1 functions.
+	(unpack0):  Add calls to specific unpack0 functions.
+	* m4/unpack.m4:  New file.
+	* generated/unpack_i1.c:  New file.
+	* generated/unpack_i2.c:  New file.
+	* generated/unpack_i4.c:  New file.
+	* generated/unpack_i8.c:  New file.
+	* generated/unpack_i16.c:  New file.
+	* generated/unpack_r4.c:  New file.
+	* generated/unpack_r8.c:  New file.
+	* generated/unpack_r10.c:  New file.
+	* generated/unpack_r16.c:  New file.
+	* generated/unpack_c4.c:  New file.
+	* generated/unpack_c8.c:  New file.
+	* generated/unpack_c10.c:  New file.
+	* generated/unpack_c16.c:  New file.
+
+2008-03-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35632
+	* io/transfer.c (data_transfer_init):  Fix whitespace.
+	(next_record_w): Truncate the file only if the stream
+	position is short of the file end.
+
+2008-03-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* intrinsics/pack_generic.c:  Fix typo.
+
+2008-03-21  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* gfortran.map: Move erfc_scaled symbols to new symbol node
+	GFORTRAN_1.1, thereby fixing ABI bug introduced in r132846.
+
+2008-03-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32972
+	* runtime/in_pack_generic.c (internal_pack):  Call correct
+	function, pack_i16, for GFC_INTEGER_16.
+
+2008-03-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32972
+	* Makefile.am:  Add new variable, i_pack_c, containing
+	pack_i1.c, pack_i2.c, pack_i4.c, pack_i8.c, pack_i16.c,
+	pack_r4.c, pack_r8.c, pack_r10.c, pack_r16.c, pack_c4.c,
+	pack_c8.c, pack_c10.c, pack_c16.c.
+	Add m4/pack.m4 to m4_files.
+	Add i_pack_c to gfor_built_src.
+	Add rule to generate i_pack_c from m4/pack.m4.
+	* Makefile.in:  Regenerated.
+	* libgfortran.h: Add prototypes for pack_i1, pack_i2, pack_i4,
+	pack_i8, pack_i16, pack_r4, pack_r8, pack_c4, pack_c8,
+	pack_c10, pack_c16.
+	* intrinsics/pack_generic.c:  Add calls to specific
+	pack functions.
+	* m4/pack.m4:  New file.
+	* generated/pack_i1.c:  New file.
+	* generated/pack_i2.c:  New file.
+	* generated/pack_i4.c:  New file.
+	* generated/pack_i8.c:  New file.
+	* generated/pack_i16.c:  New file.
+	* generated/pack_r4.c:  New file.
+	* generated/pack_r8.c:  New file.
+	* generated/pack_r10.c:  New file.
+	* generated/pack_r16.c:  New file.
+	* generated/pack_c4.c:  New file.
+	* generated/pack_c8.c:  New file.
+	* generated/pack_c10.c:  New file.
+	* generated/pack_c16.c:  New file.
+
+2008-03-19  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35627
+	* io/list_read.c (free_line): Clear the line buffer enable flag and
+	reset the index into line_buffer, aka item_count.
+	(next_char): Cleanup whitespace.
+	(read_logical): Use unget_char to assure that the first character of the
+	bad logical is saved in case it is part of an object name. Remove the
+	clearing of index and flag that is now in free_line.
+	(read_real): Likewise.
+
+2008-03-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32972
+	* runtime/in_pack_generic.c (internal_pack):  Fix typo in
+	last commit.
+
+2008-03-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/32972
+	* Makefile.am (in_pack_c): Add in_pack_i1.c, in_pack_i2.c,
+	in_pack_r4.c, in_pack_r8.c, in_pack_r10.c and in_pack_r16.c.
+	(in_unpack_c): Add in_unpack_i1.c, in_unpack_i2.c,
+	in_unpack_r4.c, in_unpack_r8.c, in_unpack_r10.c and
+	in_unpack_r16.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h:  Add prototypes for internal_pack_1,
+	internal_pack_2, internal_pack_16, internal_pack_r4,
+	internal_pack_r8, internal_pack_r10, internal_pack_r16,
+	internal_pack_c10 and internal_pack_c16.  Add prototypes for
+	internal_unpack_1, internal_unpack_2, internal_unpack_16,
+	internal_unpack_r4, internal_unpack_r8, internal_unpack_r10,
+	internal_unpack_r16, internal_unpack_c10 and
+	internal_unpack_c16.
+	* runtime/in_pack_generic.c (internal_pack): Use sizeof instead
+	of hardwired sizes.
+	Add calls to internal_pack_1, internal_pack_2,
+	internal_pack_16, internal_pack_r4, internal_pack_r8,
+	internal_pack_r10, internal_pack_r16, internal_pack_c10 and
+	internal_pack_c16.
+	* runtime/in_unpack_generic.c (internal_unpack):  Use sizeof
+	instead of hardwired sizes.
+	Add calls to internal_unpack_1, internal_unpack_2,
+	internal_unpack_16, internal_unpack_r4, internal_unpack_r8,
+	internal_unpack_r10, internal_unpack_r16, internal_unpack_c10
+	and internal_unpack_c16.
+	* generated/in_pack_r4.c:  New file.
+	* generated/in_pack_i2.c:  New file.
+	* generated/in_unpack_i1.c:  New file.
+	* generated/in_pack_r10.c:  New file.
+	* generated/in_unpack_r4.c:  New file.
+	* generated/in_unpack_i2.c:  New file.
+	* generated/in_unpack_r16.c:  New file.
+	* generated/in_pack_r8.c:  New file.
+	* generated/in_unpack_r10.c:  New file.
+	* generated/in_unpack_r8.c:  New file.
+	* generated/in_pack_r16.c:  New file.
+	* generated/in_pack_i1.c:  New file.
+
+2008-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35617
+	* io/list_read.c (eat_separator): If next character after eatline is '!'
+	then eatline again. 
+
+2008-03-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* aclocal.m4: Regenerate.
+	* configure: Likewise.
+	* Makefile.in: Likewise.
+
+2008-03-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/35524
+	* intrinsics/erfc_scaled_inc.c: Only define the long double
+	variant of erfc_scaled if expl is available.
+
+2008-03-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/32812
+	* intrinsics/random.c (scramble_seed, unscramble_seed): New
+	functions.
+	(random_seed_i4): Scramble the seed the user gives us before
+	storing it, and unscramble it when we return it back later.
+
+2008-03-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR libfortran/35293
+	* io/unix.c (fd_truncate): Fold s->special_file case into
+	success case of ftruncate/chsize call instead of the failure case.
+	Make failure case actually return failure.  Properly update stream
+	pointers on failure.  Call runtime_error for targets without
+	neither ftruncate nor chsize where such a call would be needed.
+
+2008-03-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/33197
+	* intrinsics/erfc_scaled_inc.c: New file.
+	* intrinsics/erfc_scaled.c: New file.
+	* gfortran.map (GFORTRAN_1.0): Add _gfortran_erfc_scaled_r*.
+	* Makefile.am: Add intrinsics/erfc_scaled.c.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2008-03-01  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/35355
+	* intrinsics/time_1.h (__time_1): Fix calculation of user_usec
+	for mingw.
+
+2008-03-01  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/35063
+	* io/unit.c (destroy_unit_mutex): Call __gthread_mutex_destroy
+	instead of macro kludge.
+	
+2008-02-25  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/29549
+	* Makefile.am: Add -fcx-fortran-rules to AM_CFLAGS for all of
+	libgfortran.
+	* Makefile.in: Regenerated.
+
+2008-02-25  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* m4/ifunction_logical.m4: Add casts to get rid of warnings.
+	* generated/all_l1.c: Regenerate.
+	* generated/all_l2.c: Regenerate.
+	* generated/all_l4.c: Regenerate.
+	* generated/all_l8.c: Regenerate.
+	* generated/all_l16.c: Regenerate.
+	* generated/any_l1.c: Regenerate.
+	* generated/any_l2.c: Regenerate.
+	* generated/any_l4.c: Regenerate.
+	* generated/any_l8.c: Regenerate.
+	* generated/any_l16.c: Regenerate.
+	* generated/count_1_l.c: Regenerate.
+	* generated/count_2_l.c: Regenerate.
+	* generated/count_4_l.c: Regenerate.
+	* generated/count_8_l.c: Regenerate.
+	* generated/count_16_l.c: Regenerate.
+
+2008-02-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/32841
+	* acinclude.m4: Don't use HAVE_MATH_H.
+	* configure: Regenerate.
+
+2008-02-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35132
+	* io/transfer.c (next_record_w): Truncate after the last record for
+	STREAM I/O.
+
+	PR libfortran/34954
+	* io/transfer.c (data_transfer_init): Initialize dtp->rec if writing.
+
+	PR libfortran/34974
+	* io/transfer.c (formatted_transfer_scalar): Flush the buffer if skips
+	is less than zero. (next_record_w): Use sseek to position the file to
+	the max position reached.
+
+2008-02-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/35036
+	* write_float.def (output_float):  Add error checks for zero digits
+	after decimal point in E and D format specifiers.
+	
 2008-02-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/35063

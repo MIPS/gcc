@@ -1,6 +1,6 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -100,14 +100,8 @@ rtx const_true_rtx;
 REAL_VALUE_TYPE dconst0;
 REAL_VALUE_TYPE dconst1;
 REAL_VALUE_TYPE dconst2;
-REAL_VALUE_TYPE dconst3;
-REAL_VALUE_TYPE dconst10;
 REAL_VALUE_TYPE dconstm1;
-REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
-REAL_VALUE_TYPE dconstthird;
-REAL_VALUE_TYPE dconstsqrt2;
-REAL_VALUE_TYPE dconste;
 
 /* Record fixed-point constant 0 and 1.  */
 FIXED_VALUE_TYPE fconst0[MAX_FCONST0];
@@ -2182,8 +2176,10 @@ unshare_all_rtl (void)
   return 0;
 }
 
-struct tree_opt_pass pass_unshare_all_rtl =
+struct rtl_opt_pass pass_unshare_all_rtl =
 {
+ {
+  RTL_PASS,
   "unshare",                            /* name */
   NULL,                                 /* gate */
   unshare_all_rtl,                      /* execute */
@@ -2195,8 +2191,8 @@ struct tree_opt_pass pass_unshare_all_rtl =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 
 
@@ -3738,10 +3734,7 @@ reorder_insns (rtx from, rtx to, rtx after)
 
       for (x = from; x != NEXT_INSN (to); x = NEXT_INSN (x))
 	if (!BARRIER_P (x))
-	  {
-	    set_block_for_insn (x, bb);
-	    df_insn_change_bb (x);
-	  }
+	  df_insn_change_bb (x, bb);
     }
 }
 
@@ -4534,11 +4527,7 @@ emit_note (enum insn_note kind)
 void
 force_next_line_note (void)
 {
-#ifdef USE_MAPPED_LOCATION
   last_location = -1;
-#else
-  last_location.line = -1;
-#endif
 }
 
 /* Place a note of KIND on insn INSN with DATUM as the datum. If a
@@ -5251,26 +5240,16 @@ init_emit_once (int line_numbers)
   REAL_VALUE_FROM_INT (dconst0,   0,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst1,   1,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst2,   2,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconst3,   3,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconst10, 10,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconstm1, -1, -1, double_mode);
-  REAL_VALUE_FROM_INT (dconstm2, -2, -1, double_mode);
+
+  dconstm1 = dconst1;
+  dconstm1.sign = 1;
 
   dconsthalf = dconst1;
   SET_REAL_EXP (&dconsthalf, REAL_EXP (&dconsthalf) - 1);
 
-  real_arithmetic (&dconstthird, RDIV_EXPR, &dconst1, &dconst3);
-
-  /* Initialize mathematical constants for constant folding builtins.
-     These constants need to be given to at least 160 bits precision.  */
-  real_from_string (&dconstsqrt2,
-    "1.4142135623730950488016887242096980785696718753769480731766797379907");
-  real_from_string (&dconste,
-    "2.7182818284590452353602874713526624977572470936999595749669676277241");
-
   for (i = 0; i < (int) ARRAY_SIZE (const_tiny_rtx); i++)
     {
-      REAL_VALUE_TYPE *r =
+      const REAL_VALUE_TYPE *const r =
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);

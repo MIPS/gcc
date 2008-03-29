@@ -609,10 +609,15 @@ extern void reshape_packed (char *, index_type, const char *, index_type,
 			    const char *, index_type);
 internal_proto(reshape_packed);
 
-/* Repacking functions.  */
+/* Repacking functions.  These are called internally by internal_pack
+   and internal_unpack.  */
 
-/* ??? These aren't currently used by the compiler, though we
-   certainly could do so.  */
+GFC_INTEGER_1 *internal_pack_1 (gfc_array_i1 *);
+internal_proto(internal_pack_1);
+
+GFC_INTEGER_2 *internal_pack_2 (gfc_array_i2 *);
+internal_proto(internal_pack_2);
+
 GFC_INTEGER_4 *internal_pack_4 (gfc_array_i4 *);
 internal_proto(internal_pack_4);
 
@@ -622,6 +627,22 @@ internal_proto(internal_pack_8);
 #if defined HAVE_GFC_INTEGER_16
 GFC_INTEGER_16 *internal_pack_16 (gfc_array_i16 *);
 internal_proto(internal_pack_16);
+#endif
+
+GFC_REAL_4 *internal_pack_r4 (gfc_array_r4 *);
+internal_proto(internal_pack_r4);
+
+GFC_REAL_8 *internal_pack_r8 (gfc_array_r8 *);
+internal_proto(internal_pack_r8);
+
+#if defined HAVE_GFC_REAL_10
+GFC_REAL_10 *internal_pack_r10 (gfc_array_r10 *);
+internal_proto(internal_pack_r10);
+#endif
+
+#if defined HAVE_GFC_REAL_16
+GFC_REAL_16 *internal_pack_r16 (gfc_array_r16 *);
+internal_proto(internal_pack_r16);
 #endif
 
 GFC_COMPLEX_4 *internal_pack_c4 (gfc_array_c4 *);
@@ -635,6 +656,17 @@ GFC_COMPLEX_10 *internal_pack_c10 (gfc_array_c10 *);
 internal_proto(internal_pack_c10);
 #endif
 
+#if defined HAVE_GFC_COMPLEX_16
+GFC_COMPLEX_16 *internal_pack_c16 (gfc_array_c16 *);
+internal_proto(internal_pack_c16);
+#endif
+
+extern void internal_unpack_1 (gfc_array_i1 *, const GFC_INTEGER_1 *);
+internal_proto(internal_unpack_1);
+
+extern void internal_unpack_2 (gfc_array_i2 *, const GFC_INTEGER_2 *);
+internal_proto(internal_unpack_2);
+
 extern void internal_unpack_4 (gfc_array_i4 *, const GFC_INTEGER_4 *);
 internal_proto(internal_unpack_4);
 
@@ -644,6 +676,22 @@ internal_proto(internal_unpack_8);
 #if defined HAVE_GFC_INTEGER_16
 extern void internal_unpack_16 (gfc_array_i16 *, const GFC_INTEGER_16 *);
 internal_proto(internal_unpack_16);
+#endif
+
+extern void internal_unpack_r4 (gfc_array_r4 *, const GFC_REAL_4 *);
+internal_proto(internal_unpack_r4);
+
+extern void internal_unpack_r8 (gfc_array_r8 *, const GFC_REAL_8 *);
+internal_proto(internal_unpack_r8);
+
+#if defined HAVE_GFC_REAL_10
+extern void internal_unpack_r10 (gfc_array_r10 *, const GFC_REAL_10 *);
+internal_proto(internal_unpack_r10);
+#endif
+
+#if defined HAVE_GFC_REAL_16
+extern void internal_unpack_r16 (gfc_array_r16 *, const GFC_REAL_16 *);
+internal_proto(internal_unpack_r16);
 #endif
 
 extern void internal_unpack_c4 (gfc_array_c4 *, const GFC_COMPLEX_4 *);
@@ -660,6 +708,206 @@ internal_proto(internal_unpack_c10);
 #if defined HAVE_GFC_COMPLEX_16
 extern void internal_unpack_c16 (gfc_array_c16 *, const GFC_COMPLEX_16 *);
 internal_proto(internal_unpack_c16);
+#endif
+
+/* Internal auxiliary functions for the pack intrinsic.  */
+
+extern void pack_i1 (gfc_array_i1 *, const gfc_array_i1 *,
+		     const gfc_array_l1 *, const gfc_array_i1 *);
+internal_proto(pack_i1);
+
+extern void pack_i2 (gfc_array_i2 *, const gfc_array_i2 *,
+		     const gfc_array_l1 *, const gfc_array_i2 *);
+internal_proto(pack_i2);
+
+extern void pack_i4 (gfc_array_i4 *, const gfc_array_i4 *,
+		     const gfc_array_l1 *, const gfc_array_i4 *);
+internal_proto(pack_i4);
+
+extern void pack_i8 (gfc_array_i8 *, const gfc_array_i8 *,
+		     const gfc_array_l1 *, const gfc_array_i8 *);
+internal_proto(pack_i8);
+
+#ifdef HAVE_GFC_INTEGER_16
+extern void pack_i16 (gfc_array_i16 *, const gfc_array_i16 *,
+		     const gfc_array_l1 *, const gfc_array_i16 *);
+internal_proto(pack_i16);
+#endif
+
+extern void pack_r4 (gfc_array_r4 *, const gfc_array_r4 *,
+		     const gfc_array_l1 *, const gfc_array_r4 *);
+internal_proto(pack_r4);
+
+extern void pack_r8 (gfc_array_r8 *, const gfc_array_r8 *,
+		     const gfc_array_l1 *, const gfc_array_r8 *);
+internal_proto(pack_r8);
+
+#ifdef HAVE_GFC_REAL_10
+extern void pack_r10 (gfc_array_r10 *, const gfc_array_r10 *,
+		     const gfc_array_l1 *, const gfc_array_r10 *);
+internal_proto(pack_r10);
+#endif
+
+#ifdef HAVE_GFC_REAL_16
+extern void pack_r16 (gfc_array_r16 *, const gfc_array_r16 *,
+		     const gfc_array_l1 *, const gfc_array_r16 *);
+internal_proto(pack_r16);
+#endif
+
+extern void pack_c4 (gfc_array_c4 *, const gfc_array_c4 *,
+		     const gfc_array_l1 *, const gfc_array_c4 *);
+internal_proto(pack_c4);
+
+extern void pack_c8 (gfc_array_c8 *, const gfc_array_c8 *,
+		     const gfc_array_l1 *, const gfc_array_c8 *);
+internal_proto(pack_c8);
+
+#ifdef HAVE_GFC_REAL_10
+extern void pack_c10 (gfc_array_c10 *, const gfc_array_c10 *,
+		     const gfc_array_l1 *, const gfc_array_c10 *);
+internal_proto(pack_c10);
+#endif
+
+#ifdef HAVE_GFC_REAL_16
+extern void pack_c16 (gfc_array_c16 *, const gfc_array_c16 *,
+		     const gfc_array_l1 *, const gfc_array_c16 *);
+internal_proto(pack_c16);
+#endif
+
+/* Internal auxiliary functions for the unpack intrinsic.  */
+
+extern void unpack0_i1 (gfc_array_i1 *, const gfc_array_i1 *,
+			const gfc_array_l1 *, const GFC_INTEGER_1 *);
+internal_proto(unpack0_i1);
+
+extern void unpack0_i2 (gfc_array_i2 *, const gfc_array_i2 *,
+			const gfc_array_l1 *, const GFC_INTEGER_2 *);
+internal_proto(unpack0_i2);
+
+extern void unpack0_i4 (gfc_array_i4 *, const gfc_array_i4 *,
+			const gfc_array_l1 *, const GFC_INTEGER_4 *);
+internal_proto(unpack0_i4);
+
+extern void unpack0_i8 (gfc_array_i8 *, const gfc_array_i8 *,
+			const gfc_array_l1 *, const GFC_INTEGER_8 *);
+internal_proto(unpack0_i8);
+
+#ifdef HAVE_GFC_INTEGER_16
+
+extern void unpack0_i16 (gfc_array_i16 *, const gfc_array_i16 *,
+			 const gfc_array_l1 *, const GFC_INTEGER_16 *);
+internal_proto(unpack0_i16);
+
+#endif
+
+extern void unpack0_r4 (gfc_array_r4 *, const gfc_array_r4 *,
+			const gfc_array_l1 *, const GFC_REAL_4 *);
+internal_proto(unpack0_r4);
+
+extern void unpack0_r8 (gfc_array_r8 *, const gfc_array_r8 *,
+			const gfc_array_l1 *, const GFC_REAL_8 *);
+internal_proto(unpack0_r8);
+
+#ifdef HAVE_GFC_REAL_10
+
+extern void unpack0_r10 (gfc_array_r10 *, const gfc_array_r10 *,
+			 const gfc_array_l1 *, const GFC_REAL_10 *);
+internal_proto(unpack0_r10);
+
+#endif
+
+#ifdef HAVE_GFC_REAL_16
+
+extern void unpack0_r16 (gfc_array_r16 *, const gfc_array_r16 *,
+			 const gfc_array_l1 *, const GFC_REAL_16 *);
+internal_proto(unpack0_r16);
+
+#endif
+
+extern void unpack0_c4 (gfc_array_c4 *, const gfc_array_c4 *,
+			const gfc_array_l1 *, const GFC_COMPLEX_4 *);
+internal_proto(unpack0_c4);
+
+extern void unpack0_c8 (gfc_array_c8 *, const gfc_array_c8 *,
+			const gfc_array_l1 *, const GFC_COMPLEX_8 *);
+internal_proto(unpack0_c8);
+
+#ifdef HAVE_GFC_COMPLEX_10
+
+extern void unpack0_c10 (gfc_array_c10 *, const gfc_array_c10 *,
+			 const gfc_array_l1 *mask, const GFC_COMPLEX_10 *);
+internal_proto(unpack0_c10);
+
+#endif
+
+#ifdef HAVE_GFC_COMPLEX_16
+
+extern void unpack0_c16 (gfc_array_c16 *, const gfc_array_c16 *,
+			 const gfc_array_l1 *, const GFC_COMPLEX_16 *);
+internal_proto(unpack0_c16);
+
+#endif
+
+extern void unpack1_i1 (gfc_array_i1 *, const gfc_array_i1 *,
+			const gfc_array_l1 *, const gfc_array_i1 *);
+internal_proto(unpack1_i1);
+
+extern void unpack1_i2 (gfc_array_i2 *, const gfc_array_i2 *,
+			const gfc_array_l1 *, const gfc_array_i2 *);
+internal_proto(unpack1_i2);
+
+extern void unpack1_i4 (gfc_array_i4 *, const gfc_array_i4 *,
+			const gfc_array_l1 *, const gfc_array_i4 *);
+internal_proto(unpack1_i4);
+
+extern void unpack1_i8 (gfc_array_i8 *, const gfc_array_i8 *,
+			const gfc_array_l1 *, const gfc_array_i8 *);
+internal_proto(unpack1_i8);
+
+#ifdef HAVE_GFC_INTEGER_16
+extern void unpack1_i16 (gfc_array_i16 *, const gfc_array_i16 *,
+			 const gfc_array_l1 *, const gfc_array_i16 *);
+internal_proto(unpack1_i16);
+#endif
+
+extern void unpack1_r4 (gfc_array_r4 *, const gfc_array_r4 *,
+			const gfc_array_l1 *, const gfc_array_r4 *);
+internal_proto(unpack1_r4);
+
+extern void unpack1_r8 (gfc_array_r8 *, const gfc_array_r8 *,
+			const gfc_array_l1 *, const gfc_array_r8 *);
+internal_proto(unpack1_r8);
+
+#ifdef HAVE_GFC_REAL_10
+extern void unpack1_r10 (gfc_array_r10 *, const gfc_array_r10 *,
+			 const gfc_array_l1 *, const gfc_array_r10 *);
+internal_proto(unpack1_r10);
+#endif
+
+#ifdef HAVE_GFC_REAL_16
+extern void unpack1_r16 (gfc_array_r16 *, const gfc_array_r16 *,
+			 const gfc_array_l1 *, const gfc_array_r16 *);
+internal_proto(unpack1_r16);
+#endif
+
+extern void unpack1_c4 (gfc_array_c4 *, const gfc_array_c4 *,
+			const gfc_array_l1 *, const gfc_array_c4 *);
+internal_proto(unpack1_c4);
+
+extern void unpack1_c8 (gfc_array_c8 *, const gfc_array_c8 *,
+			const gfc_array_l1 *, const gfc_array_c8 *);
+internal_proto(unpack1_c8);
+
+#ifdef HAVE_GFC_COMPLEX_10
+extern void unpack1_c10 (gfc_array_c10 *, const gfc_array_c10 *,
+			 const gfc_array_l1 *, const gfc_array_c10 *);
+internal_proto(unpack1_c10);
+#endif
+
+#ifdef HAVE_GFC_COMPLEX_16
+extern void unpack1_c16 (gfc_array_c16 *, const gfc_array_c16 *,
+			 const gfc_array_l1 *, const gfc_array_c16 *);
+internal_proto(unpack1_c16);
 #endif
 
 /* string_intrinsics.c */

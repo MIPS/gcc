@@ -2640,8 +2640,10 @@ rest_of_handle_local_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_local_alloc =
+struct rtl_opt_pass pass_local_alloc =
 {
+ {
+  RTL_PASS,
   "lreg",                               /* name */
   gate_handle_local_alloc,              /* gate */
   rest_of_handle_local_alloc,           /* execute */
@@ -2654,7 +2656,7 @@ struct tree_opt_pass pass_local_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'l'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

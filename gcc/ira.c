@@ -1739,8 +1739,10 @@ rest_of_handle_ira (void)
   return 0;
 }
 
-struct tree_opt_pass pass_ira =
+struct rtl_opt_pass pass_ira =
 {
+ {
+  RTL_PASS,
   "ira",                                /* name */
   gate_ira,                             /* gate */
   rest_of_handle_ira,		        /* execute */
@@ -1753,6 +1755,6 @@ struct tree_opt_pass pass_ira =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'y'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };

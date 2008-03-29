@@ -13038,8 +13038,10 @@ rest_of_handle_combine (void)
   return 0;
 }
 
-struct tree_opt_pass pass_combine =
+struct rtl_opt_pass pass_combine =
 {
+ {
+  RTL_PASS,
   "combine",                            /* name */
   gate_handle_combine,                  /* gate */
   rest_of_handle_combine,               /* execute */
@@ -13054,6 +13056,6 @@ struct tree_opt_pass pass_combine =
   TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
-  'c'                                   /* letter */
+ }
 };
 

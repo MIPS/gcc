@@ -28,6 +28,9 @@ AM_CPPFLAGS = -iquote$(srcdir)/io -I$(srcdir)/$(MULTISRCTOP)../gcc \
 	      -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
 	      -I$(MULTIBUILDTOP)../../$(host_subdir)/gcc -D_GNU_SOURCE
 
+# Fortran rules for complex multiplication and division
+AM_CFLAGS += -fcx-fortran-rules
+
 gfor_io_src= \
 io/close.c \
 io/file_pos.c \
@@ -64,6 +67,7 @@ intrinsics/dtime.c \
 intrinsics/env.c \
 intrinsics/eoshift0.c \
 intrinsics/eoshift2.c \
+intrinsics/erfc_scaled.c \
 intrinsics/etime.c \
 intrinsics/exit.c \
 intrinsics/fnum.c \
@@ -376,18 +380,30 @@ $(srcdir)/generated/cshift1_8.c \
 $(srcdir)/generated/cshift1_16.c
 
 in_pack_c = \
+$(srcdir)/generated/in_pack_i1.c \
+$(srcdir)/generated/in_pack_i2.c \
 $(srcdir)/generated/in_pack_i4.c \
 $(srcdir)/generated/in_pack_i8.c \
 $(srcdir)/generated/in_pack_i16.c \
+$(srcdir)/generated/in_pack_r4.c \
+$(srcdir)/generated/in_pack_r8.c \
+$(srcdir)/generated/in_pack_r10.c \
+$(srcdir)/generated/in_pack_r16.c \
 $(srcdir)/generated/in_pack_c4.c \
 $(srcdir)/generated/in_pack_c8.c \
 $(srcdir)/generated/in_pack_c10.c \
 $(srcdir)/generated/in_pack_c16.c
 
 in_unpack_c = \
+$(srcdir)/generated/in_unpack_i1.c \
+$(srcdir)/generated/in_unpack_i2.c \
 $(srcdir)/generated/in_unpack_i4.c \
 $(srcdir)/generated/in_unpack_i8.c \
 $(srcdir)/generated/in_unpack_i16.c \
+$(srcdir)/generated/in_unpack_r4.c \
+$(srcdir)/generated/in_unpack_r8.c \
+$(srcdir)/generated/in_unpack_r10.c \
+$(srcdir)/generated/in_unpack_r16.c \
 $(srcdir)/generated/in_unpack_c4.c \
 $(srcdir)/generated/in_unpack_c8.c \
 $(srcdir)/generated/in_unpack_c10.c \
@@ -460,6 +476,36 @@ $(srcdir)/generated/pow_c8_i16.c \
 $(srcdir)/generated/pow_c10_i16.c \
 $(srcdir)/generated/pow_c16_i16.c
 
+i_pack_c = \
+$(srcdir)/generated/pack_i1.c \
+$(srcdir)/generated/pack_i2.c \
+$(srcdir)/generated/pack_i4.c \
+$(srcdir)/generated/pack_i8.c \
+$(srcdir)/generated/pack_i16.c \
+$(srcdir)/generated/pack_r4.c \
+$(srcdir)/generated/pack_r8.c \
+$(srcdir)/generated/pack_r10.c \
+$(srcdir)/generated/pack_r16.c \
+$(srcdir)/generated/pack_c4.c \
+$(srcdir)/generated/pack_c8.c \
+$(srcdir)/generated/pack_c10.c \
+$(srcdir)/generated/pack_c16.c
+
+i_unpack_c = \
+$(srcdir)/generated/unpack_i1.c \
+$(srcdir)/generated/unpack_i2.c \
+$(srcdir)/generated/unpack_i4.c \
+$(srcdir)/generated/unpack_i8.c \
+$(srcdir)/generated/unpack_i16.c \
+$(srcdir)/generated/unpack_r4.c \
+$(srcdir)/generated/unpack_r8.c \
+$(srcdir)/generated/unpack_r10.c \
+$(srcdir)/generated/unpack_r16.c \
+$(srcdir)/generated/unpack_c4.c \
+$(srcdir)/generated/unpack_c8.c \
+$(srcdir)/generated/unpack_c10.c \
+$(srcdir)/generated/unpack_c16.c
+
 m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/any.m4 m4/count.m4 m4/maxloc0.m4 m4/maxloc1.m4 m4/maxval.m4 \
     m4/minloc0.m4 m4/minloc1.m4 m4/minval.m4 m4/product.m4 m4/sum.m4 \
@@ -468,7 +514,8 @@ m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/specific.m4 m4/specific2.m4 m4/head.m4 m4/shape.m4 m4/reshape.m4 \
     m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4 m4/exponent.m4 \
     m4/fraction.m4 m4/nearest.m4 m4/set_exponent.m4 m4/pow.m4 \
-    m4/misc_specifics.m4 m4/rrspacing.m4 m4/spacing.m4
+    m4/misc_specifics.m4 m4/rrspacing.m4 m4/spacing.m4 m4/pack.m4 \
+    m4/unpack.m4
 
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
@@ -476,7 +523,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_matmul_c) $(i_matmull_c) $(i_transpose_c) $(i_shape_c) $(i_eoshift1_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
-    $(i_pow_c) $(i_rrspacing_c) $(i_spacing_c) \
+    $(i_pow_c) $(i_rrspacing_c) $(i_spacing_c) $(i_pack_c) $(i_unpack_c) \
     selected_int_kind.inc selected_real_kind.inc kinds.h \
     kinds.inc c99_protos.inc fpu-target.h
 
@@ -791,6 +838,12 @@ $(i_set_exponent_c): m4/set_exponent.m4 m4/mtype.m4
 
 $(i_pow_c): m4/pow.m4 $(I_M4_DEPS)
 	$(M4) -Dfile=$@ -I$(srcdir)/m4 pow.m4 > $@
+
+$(i_pack_c): m4/pack.m4 $(I_M4_DEPS)
+	$(M4) -Dfile=$@ -I$(srcdir)/m4 pack.m4 > $@
+
+$(i_unpack_c): m4/unpack.m4 $(I_M4_DEPS)
+	$(M4) -Dfile=$@ -I$(srcdir)/m4 unpack.m4 > $@
 
 $(gfor_built_specific_src): m4/specific.m4 m4/head.m4
 	$(M4) -Dfile=$@ -I$(srcdir)/m4 specific.m4 > $@

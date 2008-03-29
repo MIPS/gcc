@@ -1,5 +1,5 @@
 /* Definitions for C++ name lookup routines.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
@@ -1737,7 +1737,7 @@ constructor_name_p (tree name, tree type)
 {
   tree ctor_name;
 
-  gcc_assert (IS_AGGR_TYPE (type));
+  gcc_assert (MAYBE_CLASS_TYPE_P (type));
 
   if (!name)
     return false;
@@ -1916,10 +1916,10 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
       if (TREE_CODE (old) == TYPE_DECL && DECL_ARTIFICIAL (old))
 	{
 	  tree t = TREE_TYPE (old);
-	  if (IS_AGGR_TYPE (t) && warn_shadow
+	  if (MAYBE_CLASS_TYPE_P (t) && warn_shadow
 	      && (! DECL_IN_SYSTEM_HEADER (decl)
 		  || ! DECL_IN_SYSTEM_HEADER (old)))
-	    warning (0, "%q#D hides constructor for %q#T", decl, t);
+	    warning (OPT_Wshadow, "%q#D hides constructor for %q#T", decl, t);
 	  old = NULL_TREE;
 	}
       else if (is_overloaded_fn (old))
@@ -2826,7 +2826,7 @@ do_class_using_decl (tree scope, tree name)
       error ("%<%T::%D%> names destructor", scope, name);
       return NULL_TREE;
     }
-  if (IS_AGGR_TYPE (scope) && constructor_name_p (name, scope))
+  if (MAYBE_CLASS_TYPE_P (scope) && constructor_name_p (name, scope))
     {
       error ("%<%T::%D%> names constructor", scope, name);
       return NULL_TREE;
@@ -3765,7 +3765,7 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
       if (qualified_lookup_using_namespace (name, scope, &binding, flags))
 	t = binding.value;
     }
-  else if (is_aggr_type (scope, complain))
+  else if (is_class_type (scope, complain))
     t = lookup_member (scope, name, 2, is_type_p);
 
   if (!t)
@@ -4419,6 +4419,13 @@ arg_assoc_namespace (struct arg_lookup *k, tree scope)
     if (arg_assoc_namespace (k, TREE_PURPOSE (value)))
       return true;
 
+  /* Also look down into inline namespaces.  */
+  for (value = DECL_NAMESPACE_USING (scope); value;
+       value = TREE_CHAIN (value))
+    if (is_associated_namespace (scope, TREE_PURPOSE (value)))
+      if (arg_assoc_namespace (k, TREE_PURPOSE (value)))
+	return true;
+
   value = namespace_binding (k->name, scope);
   if (!value)
     return false;
@@ -4594,6 +4601,7 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case BOOLEAN_TYPE:
+    case FIXED_POINT_TYPE:
       return false;
     case RECORD_TYPE:
       if (TYPE_PTRMEMFUNC_P (type))
@@ -4818,7 +4826,8 @@ maybe_process_template_type_declaration (tree type, int is_friend,
     ;
   else
     {
-      gcc_assert (IS_AGGR_TYPE (type) || TREE_CODE (type) == ENUMERAL_TYPE);
+      gcc_assert (MAYBE_CLASS_TYPE_P (type)
+		  || TREE_CODE (type) == ENUMERAL_TYPE);
 
       if (processing_template_decl)
 	{

@@ -718,9 +718,12 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
       /* Don't allow constant propagation to modify jumps
 	 during this pass.  */
-      timevar_push (TV_CPROP1);
-      changed = one_cprop_pass (pass + 1, false, false);
-      timevar_pop (TV_CPROP1);
+      if (dbg_cnt (cprop1))
+	{
+	  timevar_push (TV_CPROP1);
+	  changed = one_cprop_pass (pass + 1, false, false);
+	  timevar_pop (TV_CPROP1);
+	}
 
       if (optimize_size)
 	/* Do nothing.  */ ;
@@ -783,13 +786,17 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
   /* Do one last pass of copy propagation, including cprop into
      conditional jumps.  */
 
-  max_gcse_regno = max_reg_num ();
-  alloc_gcse_mem ();
-  /* This time, go ahead and allow cprop to alter jumps.  */
-  timevar_push (TV_CPROP2);
-  one_cprop_pass (pass + 1, true, true);
-  timevar_pop (TV_CPROP2);
-  free_gcse_mem ();
+  if (dbg_cnt (cprop2))
+    {
+      max_gcse_regno = max_reg_num ();
+      alloc_gcse_mem ();
+
+      /* This time, go ahead and allow cprop to alter jumps.  */
+      timevar_push (TV_CPROP2);
+      one_cprop_pass (pass + 1, true, true);
+      timevar_pop (TV_CPROP2);
+      free_gcse_mem ();
+    }
 
   if (dump_file)
     {
@@ -6678,7 +6685,8 @@ is_too_expensive (const char *pass)
 static bool
 gate_handle_jump_bypass (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (jump_bypass);
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
@@ -6695,8 +6703,10 @@ rest_of_handle_jump_bypass (void)
   return 0;
 }
 
-struct tree_opt_pass pass_jump_bypass =
+struct rtl_opt_pass pass_jump_bypass =
 {
+ {
+  RTL_PASS,
   "bypass",                             /* name */
   gate_handle_jump_bypass,              /* gate */   
   rest_of_handle_jump_bypass,           /* execute */       
@@ -6709,15 +6719,16 @@ struct tree_opt_pass pass_jump_bypass =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_ggc_collect | TODO_verify_flow   /* todo_flags_finish */
+ }
 };
 
 
 static bool
 gate_handle_gcse (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (gcse);
 }
 
 
@@ -6763,8 +6774,10 @@ rest_of_handle_gcse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_gcse =
+struct rtl_opt_pass pass_gcse =
 {
+ {
+  RTL_PASS,
   "gcse1",                              /* name */
   gate_handle_gcse,                     /* gate */   
   rest_of_handle_gcse,			/* execute */       
@@ -6778,8 +6791,8 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
+ }
 };
 
 
