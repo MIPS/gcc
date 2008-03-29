@@ -1,3 +1,8 @@
+2008-03-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-lives (process_single_reg_class_operands): Fix typo in
+	setting up cover_class.
+
 2008-03-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c, global.c, regmove.c, function.c,

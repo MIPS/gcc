@@ -597,7 +597,7 @@ process_single_reg_class_operands (int in_p, int freq)
 
 	  operand_a = ira_curr_regno_allocno_map [regno];
 	  mode = ALLOCNO_MODE (operand_a);
-	  cover_class = ALLOCNO_MODE (operand_a);
+	  cover_class = ALLOCNO_COVER_CLASS (operand_a);
 	  if (class_subset_p [cl] [cover_class]
 	      && class_hard_regs_num [cl] != 0
 	      && class_hard_reg_index [cover_class] [class_hard_regs
