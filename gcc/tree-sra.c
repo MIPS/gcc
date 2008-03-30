@@ -3706,8 +3706,10 @@ gate_sra (void)
   return flag_tree_sra != 0;
 }
 
-struct tree_opt_pass pass_sra_early =
+struct gimple_opt_pass pass_sra_early =
 {
+ {
+  GIMPLE_PASS,
   "esra",				/* name */
   gate_sra,				/* gate */
   tree_sra_early,			/* execute */
@@ -3722,12 +3724,14 @@ struct tree_opt_pass pass_sra_early =
   TODO_dump_func
   | TODO_update_ssa
   | TODO_ggc_collect
-  | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sra =
+struct gimple_opt_pass pass_sra =
 {
+ {
+  GIMPLE_PASS,
   "sra",				/* name */
   gate_sra,				/* gate */
   tree_sra,				/* execute */
@@ -3742,6 +3746,6 @@ struct tree_opt_pass pass_sra =
   TODO_dump_func
   | TODO_update_ssa
   | TODO_ggc_collect
-  | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };

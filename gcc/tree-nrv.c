@@ -230,8 +230,10 @@ tree_nrv (void)
   return 0;
 }
 
-struct tree_opt_pass pass_nrv = 
+struct gimple_opt_pass pass_nrv = 
 {
+ {
+  GIMPLE_PASS,
   "nrv",				/* name */
   NULL,					/* gate */
   tree_nrv,				/* execute */
@@ -243,8 +245,8 @@ struct tree_opt_pass pass_nrv =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_ggc_collect			/* todo_flags_finish */
+ }
 };
 
 /* Determine (pessimistically) whether DEST is available for NRV
@@ -330,8 +332,10 @@ execute_return_slot_opt (void)
 #endif
 }
 
-struct tree_opt_pass pass_return_slot = 
+struct gimple_opt_pass pass_return_slot = 
 {
+ {
+  GIMPLE_PASS,
   "retslot",				/* name */
   NULL,					/* gate */
   execute_return_slot_opt,		/* execute */
@@ -343,6 +347,6 @@ struct tree_opt_pass pass_return_slot =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };

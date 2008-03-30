@@ -174,8 +174,10 @@ build_cgraph_edges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_build_cgraph_edges =
+struct gimple_opt_pass pass_build_cgraph_edges =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   build_cgraph_edges,			/* execute */
@@ -187,8 +189,8 @@ struct tree_opt_pass pass_build_cgraph_edges =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Record references to functions and other variables present in the
@@ -242,8 +244,10 @@ rebuild_cgraph_edges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rebuild_cgraph_edges =
+struct gimple_opt_pass pass_rebuild_cgraph_edges =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   rebuild_cgraph_edges,			/* execute */
@@ -256,5 +260,5 @@ struct tree_opt_pass pass_rebuild_cgraph_edges =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
-  0					/* letter */
+ }
 };

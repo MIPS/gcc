@@ -574,8 +574,10 @@ gate_sink (void)
   return flag_tree_sink != 0;
 }
 
-struct tree_opt_pass pass_sink_code =
+struct gimple_opt_pass pass_sink_code =
 {
+ {
+  GIMPLE_PASS,
   "sink",				/* name */
   gate_sink,				/* gate */
   do_sink,				/* execute */
@@ -591,7 +593,7 @@ struct tree_opt_pass pass_sink_code =
   TODO_update_ssa 
     | TODO_dump_func
     | TODO_ggc_collect
-    | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 #endif

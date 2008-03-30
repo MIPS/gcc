@@ -1881,8 +1881,10 @@ lower_eh_constructs (void)
   return 0;
 }
 
-struct tree_opt_pass pass_lower_eh =
+struct gimple_opt_pass pass_lower_eh =
 {
+ {
+  GIMPLE_PASS,
   "eh",					/* name */
   NULL,					/* gate */
   lower_eh_constructs,			/* execute */
@@ -1894,8 +1896,8 @@ struct tree_opt_pass pass_lower_eh =
   PROP_gimple_leh,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 
@@ -2585,8 +2587,10 @@ refactor_eh (void)
   return 0;
 }
 
-struct tree_opt_pass pass_refactor_eh =
+struct gimple_opt_pass pass_refactor_eh =
 {
+ {
+  GIMPLE_PASS,
   "ehopt",				/* name */
   NULL,					/* gate */
   refactor_eh,				/* execute */
@@ -2598,6 +2602,6 @@ struct tree_opt_pass pass_refactor_eh =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };

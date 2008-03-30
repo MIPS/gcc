@@ -45,8 +45,10 @@ gate_tree_loop (void)
   return flag_tree_loop_optimize != 0;
 }
 
-struct tree_opt_pass pass_tree_loop = 
+struct gimple_opt_pass pass_tree_loop = 
 {
+ {
+  GIMPLE_PASS,
   "loop",				/* name */
   gate_tree_loop,			/* gate */
   NULL,					/* execute */
@@ -58,8 +60,8 @@ struct tree_opt_pass pass_tree_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_ggc_collect,			/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
+ }
 };
 
 /* Loop optimizer initialization.  */
@@ -78,8 +80,10 @@ tree_ssa_loop_init (void)
   return 0;
 }
   
-struct tree_opt_pass pass_tree_loop_init = 
+struct gimple_opt_pass pass_tree_loop_init = 
 {
+ {
+  GIMPLE_PASS,
   "loopinit",				/* name */
   NULL,					/* gate */
   tree_ssa_loop_init,			/* execute */
@@ -91,8 +95,8 @@ struct tree_opt_pass pass_tree_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_loops	/* todo_flags_finish */
+ }
 };
 
 /* Loop invariant motion pass.  */
@@ -113,8 +117,10 @@ gate_tree_ssa_loop_im (void)
   return flag_tree_loop_im != 0;
 }
 
-struct tree_opt_pass pass_lim = 
+struct gimple_opt_pass pass_lim = 
 {
+ {
+  GIMPLE_PASS,
   "lim",				/* name */
   gate_tree_ssa_loop_im,		/* gate */
   tree_ssa_loop_im,			/* execute */
@@ -126,8 +132,8 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_loops	/* todo_flags_finish */
+ }
 };
 
 /* Loop unswitching pass.  */
@@ -147,8 +153,10 @@ gate_tree_ssa_loop_unswitch (void)
   return flag_unswitch_loops != 0;
 }
 
-struct tree_opt_pass pass_tree_unswitch = 
+struct gimple_opt_pass pass_tree_unswitch = 
 {
+ {
+  GIMPLE_PASS,
   "unswitch",				/* name */
   gate_tree_ssa_loop_unswitch,		/* gate */
   tree_ssa_loop_unswitch,		/* execute */
@@ -161,8 +169,8 @@ struct tree_opt_pass pass_tree_unswitch =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_ggc_collect | TODO_dump_func
-    | TODO_verify_loops,		/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_loops		 	/* todo_flags_finish */
+ }
 };
 
 /* Predictive commoning.  */
@@ -183,8 +191,10 @@ gate_tree_predictive_commoning (void)
   return flag_predictive_commoning != 0;
 }
 
-struct tree_opt_pass pass_predcom = 
+struct gimple_opt_pass pass_predcom = 
 {
+ {
+  GIMPLE_PASS,
   "pcom",				/* name */
   gate_tree_predictive_commoning,	/* gate */
   run_tree_predictive_commoning,	/* execute */
@@ -197,8 +207,8 @@ struct tree_opt_pass pass_predcom =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops
-    | TODO_update_ssa_only_virtuals,	/* todo_flags_finish */
-  0					/* letter */
+    | TODO_update_ssa_only_virtuals	/* todo_flags_finish */
+ }
 };
 
 /* Loop autovectorization.  */
@@ -215,8 +225,10 @@ gate_tree_vectorize (void)
   return flag_tree_vectorize && number_of_loops () > 1;
 }
 
-struct tree_opt_pass pass_vectorize =
+struct gimple_opt_pass pass_vectorize =
 {
+ {
+  GIMPLE_PASS,
   "vect",                               /* name */
   gate_tree_vectorize,                  /* gate */
   tree_vectorize,                       /* execute */
@@ -229,8 +241,8 @@ struct tree_opt_pass pass_vectorize =
   0,                                    /* properties_destroyed */
   TODO_verify_loops,			/* todo_flags_start */
   TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_ggc_collect			/* todo_flags_finish */
+ }
 };
 
 /* Loop nest optimizations.  */
@@ -256,8 +268,10 @@ gate_tree_linear_transform (void)
   return flag_tree_loop_linear != 0;
 }
 
-struct tree_opt_pass pass_linear_transform =
+struct gimple_opt_pass pass_linear_transform =
 {
+ {
+  GIMPLE_PASS,
   "ltrans",				/* name */
   gate_tree_linear_transform,		/* gate */
   tree_linear_transform,       		/* execute */
@@ -271,8 +285,8 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops
     | TODO_update_ssa_only_virtuals
-    | TODO_ggc_collect,			/* todo_flags_finish */
-  0				        /* letter */	
+    | TODO_ggc_collect			/* todo_flags_finish */
+ }
 };
 
 /* Check the correctness of the data dependence analyzers.  */
@@ -293,8 +307,10 @@ gate_check_data_deps (void)
   return flag_check_data_deps != 0;
 }
 
-struct tree_opt_pass pass_check_data_deps =
+struct gimple_opt_pass pass_check_data_deps =
 {
+ {
+  GIMPLE_PASS,
   "ckdd",				/* name */
   gate_check_data_deps,	        	/* gate */
   check_data_deps,       		/* execute */
@@ -306,8 +322,8 @@ struct tree_opt_pass pass_check_data_deps =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
-  0				        /* letter */	
+  TODO_dump_func                	/* todo_flags_finish */
+ }
 };
 
 /* Canonical induction variable creation pass.  */
@@ -327,8 +343,10 @@ gate_tree_ssa_loop_ivcanon (void)
   return flag_tree_loop_ivcanon != 0;
 }
 
-struct tree_opt_pass pass_iv_canon =
+struct gimple_opt_pass pass_iv_canon =
 {
+ {
+  GIMPLE_PASS,
   "ivcanon",				/* name */
   gate_tree_ssa_loop_ivcanon,		/* gate */
   tree_ssa_loop_ivcanon,	       	/* execute */
@@ -340,8 +358,8 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_loops	/* todo_flags_finish */
+ }
 };
 
 /* Propagation of constants using scev.  */
@@ -352,8 +370,10 @@ gate_scev_const_prop (void)
   return flag_tree_scev_cprop;
 }
 
-struct tree_opt_pass pass_scev_cprop =
+struct gimple_opt_pass pass_scev_cprop =
 {
+ {
+  GIMPLE_PASS,
   "sccp",				/* name */
   gate_scev_const_prop,			/* gate */
   scev_const_prop,	       		/* execute */
@@ -366,9 +386,9 @@ struct tree_opt_pass pass_scev_cprop =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_cleanup_cfg
-    | TODO_update_ssa_only_virtuals,
+    | TODO_update_ssa_only_virtuals
 					/* todo_flags_finish */
-  0					/* letter */
+ }
 };
 
 /* Remove empty loops.  */
@@ -382,8 +402,10 @@ tree_ssa_empty_loop (void)
   return remove_empty_loops ();
 }
 
-struct tree_opt_pass pass_empty_loop =
+struct gimple_opt_pass pass_empty_loop =
 {
+ {
+  GIMPLE_PASS,
   "empty",				/* name */
   NULL,					/* gate */
   tree_ssa_empty_loop,		       	/* execute */
@@ -396,8 +418,8 @@ struct tree_opt_pass pass_empty_loop =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops 
-    | TODO_ggc_collect,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_ggc_collect			/* todo_flags_finish */
+ }
 };
 
 /* Record bounds on numbers of iterations of loops.  */
@@ -413,8 +435,10 @@ tree_ssa_loop_bounds (void)
   return 0;
 }
 
-struct tree_opt_pass pass_record_bounds =
+struct gimple_opt_pass pass_record_bounds =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   tree_ssa_loop_bounds,		       	/* execute */
@@ -426,8 +450,8 @@ struct tree_opt_pass pass_record_bounds =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,			              	/* todo_flags_finish */
-  0					/* letter */
+  0			              	/* todo_flags_finish */
+ }
 };
 
 /* Complete unrolling of loops.  */
@@ -449,8 +473,10 @@ gate_tree_complete_unroll (void)
   return true;
 }
 
-struct tree_opt_pass pass_complete_unroll =
+struct gimple_opt_pass pass_complete_unroll =
 {
+ {
+  GIMPLE_PASS,
   "cunroll",				/* name */
   gate_tree_complete_unroll,		/* gate */
   tree_complete_unroll,		       	/* execute */
@@ -463,8 +489,8 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops
-    | TODO_ggc_collect,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_ggc_collect			/* todo_flags_finish */
+ }
 };
 
 /* Parallelization.  */
@@ -486,8 +512,10 @@ tree_parallelize_loops (void)
   return 0;
 }
 
-struct tree_opt_pass pass_parallelize_loops =
+struct gimple_opt_pass pass_parallelize_loops =
 {
+ {
+  GIMPLE_PASS,
   "parloops",				/* name */
   gate_tree_parallelize_loops,		/* gate */
   tree_parallelize_loops,      		/* execute */
@@ -499,8 +527,8 @@ struct tree_opt_pass pass_parallelize_loops =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
-  0				        /* letter */	
+  TODO_dump_func | TODO_verify_loops	/* todo_flags_finish */
+ }
 };
 
 /* Prefetching.  */
@@ -520,8 +548,10 @@ gate_tree_ssa_loop_prefetch (void)
   return flag_prefetch_loop_arrays != 0;
 }
 
-struct tree_opt_pass pass_loop_prefetch =
+struct gimple_opt_pass pass_loop_prefetch =
 {
+ {
+  GIMPLE_PASS,
   "aprefetch",				/* name */
   gate_tree_ssa_loop_prefetch,		/* gate */
   tree_ssa_loop_prefetch,	       	/* execute */
@@ -533,8 +563,8 @@ struct tree_opt_pass pass_loop_prefetch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_loops	/* todo_flags_finish */
+ }
 };
 
 /* Induction variable optimizations.  */
@@ -555,8 +585,10 @@ gate_tree_ssa_loop_ivopts (void)
   return flag_ivopts != 0;
 }
 
-struct tree_opt_pass pass_iv_optimize =
+struct gimple_opt_pass pass_iv_optimize =
 {
+ {
+  GIMPLE_PASS,
   "ivopts",				/* name */
   gate_tree_ssa_loop_ivopts,		/* gate */
   tree_ssa_loop_ivopts,		       	/* execute */
@@ -569,8 +601,8 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops
-  | TODO_update_ssa | TODO_ggc_collect,	/* todo_flags_finish */
-  0					/* letter */
+  | TODO_update_ssa | TODO_ggc_collect	/* todo_flags_finish */
+ }
 };
 
 /* Loop optimizer finalization.  */
@@ -584,8 +616,10 @@ tree_ssa_loop_done (void)
   return 0;
 }
   
-struct tree_opt_pass pass_tree_loop_done = 
+struct gimple_opt_pass pass_tree_loop_done = 
 {
+ {
+  GIMPLE_PASS,
   "loopdone",				/* name */
   NULL,					/* gate */
   tree_ssa_loop_done,			/* execute */
@@ -597,6 +631,6 @@ struct tree_opt_pass pass_tree_loop_done =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_cleanup_cfg | TODO_dump_func	/* todo_flags_finish */
+ }
 };

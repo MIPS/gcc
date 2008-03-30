@@ -2343,8 +2343,10 @@ rewrite_into_ssa (void)
 }
 
 
-struct tree_opt_pass pass_build_ssa = 
+struct gimple_opt_pass pass_build_ssa = 
 {
+ {
+  GIMPLE_PASS,
   "ssa",				/* name */
   NULL,					/* gate */
   rewrite_into_ssa,			/* execute */
@@ -2358,8 +2360,8 @@ struct tree_opt_pass pass_build_ssa =
   0,					/* todo_flags_start */
   TODO_dump_func
     | TODO_verify_ssa
-    | TODO_remove_unused_locals,	/* todo_flags_finish */
-  0					/* letter */
+    | TODO_remove_unused_locals		/* todo_flags_finish */
+ }
 };
 
 

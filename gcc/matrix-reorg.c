@@ -2316,7 +2316,10 @@ gate_matrix_reorg (void)
   return flag_ipa_matrix_reorg && flag_whole_program;
 }
 
-struct tree_opt_pass pass_ipa_matrix_reorg = {
+struct simple_ipa_opt_pass pass_ipa_matrix_reorg = 
+{
+ {
+  SIMPLE_IPA_PASS,
   "matrix-reorg",		/* name */
   gate_matrix_reorg,		/* gate */
   matrix_reorg,			/* execute */
@@ -2328,7 +2331,7 @@ struct tree_opt_pass pass_ipa_matrix_reorg = {
   PROP_trees,			/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_cgraph | TODO_dump_func,	/* todo_flags_finish */
-  0				/* letter */
+  TODO_dump_cgraph | TODO_dump_func	/* todo_flags_finish */
+ }
 };
 #endif

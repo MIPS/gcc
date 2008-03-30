@@ -376,8 +376,10 @@ gate_dominator (void)
   return flag_tree_dom != 0;
 }
 
-struct tree_opt_pass pass_dominator = 
+struct gimple_opt_pass pass_dominator = 
 {
+ {
+  GIMPLE_PASS,
   "dom",				/* name */
   gate_dominator,			/* gate */
   tree_ssa_dominator_optimize,		/* execute */
@@ -392,8 +394,8 @@ struct tree_opt_pass pass_dominator =
   TODO_dump_func
     | TODO_update_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 
 
@@ -2552,8 +2554,10 @@ eliminate_degenerate_phis (void)
 #endif
 }
 
-struct tree_opt_pass pass_phi_only_cprop =
+struct gimple_opt_pass pass_phi_only_cprop =
 {
+ {
+  GIMPLE_PASS,
   "phicprop",                           /* name */
   gate_dominator,                       /* gate */
   eliminate_degenerate_phis,            /* execute */
@@ -2570,6 +2574,6 @@ struct tree_opt_pass pass_phi_only_cprop =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_stmts
-    | TODO_update_ssa,			/* todo_flags_finish */
-  0                                     /* letter */
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
 };

@@ -1467,8 +1467,10 @@ rewrite_out_of_ssa (void)
 
 /* Define the parameters of the out of SSA pass.  */
 
-struct tree_opt_pass pass_del_ssa = 
+struct gimple_opt_pass pass_del_ssa = 
 {
+ {
+  GIMPLE_PASS,
   "optimized",				/* name */
   NULL,					/* gate */
   rewrite_out_of_ssa,			/* execute */
@@ -1491,6 +1493,6 @@ struct tree_opt_pass pass_del_ssa =
     | TODO_verify_stmts,		/* todo_flags_start */
   TODO_dump_func
   | TODO_ggc_collect
-  | TODO_remove_unused_locals,		/* todo_flags_finish */
-  0					/* letter */
+  | TODO_remove_unused_locals		/* todo_flags_finish */
+ }
 };

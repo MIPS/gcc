@@ -1156,8 +1156,10 @@ gate_tree_loop_distribution (void)
   return flag_tree_loop_distribution != 0;
 }
 
-struct tree_opt_pass pass_loop_distribution =
+struct gimple_opt_pass pass_loop_distribution =
 {
+ {
+  GIMPLE_PASS,
   "ldist",			/* name */
   gate_tree_loop_distribution,  /* gate */
   tree_loop_distribution,       /* execute */
@@ -1169,7 +1171,7 @@ struct tree_opt_pass pass_loop_distribution =
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_func | TODO_verify_loops,            /* todo_flags_finish */
-  0                             /* letter */  
+  TODO_dump_func | TODO_verify_loops            /* todo_flags_finish */
+ }
 };
 #endif

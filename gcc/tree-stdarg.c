@@ -906,8 +906,10 @@ finish:
 }
 
 
-struct tree_opt_pass pass_stdarg =
+struct gimple_opt_pass pass_stdarg =
 {
+ {
+  GIMPLE_PASS,
   "stdarg",				/* name */
   gate_optimize_stdarg,			/* gate */
   execute_optimize_stdarg,		/* execute */
@@ -919,7 +921,7 @@ struct tree_opt_pass pass_stdarg =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 #endif

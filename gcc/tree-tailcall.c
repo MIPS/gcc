@@ -1019,8 +1019,10 @@ execute_tail_calls (void)
   return tree_optimize_tail_calls_1 (true);
 }
 
-struct tree_opt_pass pass_tail_recursion = 
+struct gimple_opt_pass pass_tail_recursion = 
 {
+ {
+  GIMPLE_PASS,
   "tailr",				/* name */
   gate_tail_calls,			/* gate */
   execute_tail_recursion,		/* execute */
@@ -1032,12 +1034,14 @@ struct tree_opt_pass pass_tail_recursion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_tail_calls = 
+struct gimple_opt_pass pass_tail_calls = 
 {
+ {
+  GIMPLE_PASS,
   "tailc",				/* name */
   gate_tail_calls,			/* gate */
   execute_tail_calls,			/* execute */
@@ -1049,7 +1053,7 @@ struct tree_opt_pass pass_tail_calls =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };
 #endif

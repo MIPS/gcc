@@ -2171,8 +2171,10 @@ gimple_expand_cfg (void)
   return 0;
 }
 
-struct tree_opt_pass pass_expand =
+struct gimple_opt_pass pass_expand =
 {
+ {
+  GIMPLE_PASS,
   "expand",				/* name */
   NULL,                                 /* gate */
   gimple_expand_cfg,			/* execute */
@@ -2186,5 +2188,5 @@ struct tree_opt_pass pass_expand =
   PROP_trees,				/* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
-  'r'					/* letter */
+ }
 };
