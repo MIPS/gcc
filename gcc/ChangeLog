@@ -1,3 +1,8 @@
+2008-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser_translation_unit): Clear
+	current_hunk_binding after finishing hunk.
+
 2008-03-27  Tom Tromey  <tromey@redhat.com>
 
 	* c-tree.h (c_parser_print_job_statistics): Declare.

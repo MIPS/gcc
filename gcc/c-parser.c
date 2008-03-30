@@ -2339,6 +2339,8 @@ c_parser_translation_unit (c_parser *parser)
 		  finish_current_hunk (parser, parser->prev_hunk, last_used,
 				       parser->current_hset);
 		  parsed_any = false;
+		  /* Don't register lookups until we open a new hunk.  */
+		  parser->current_hunk_binding = NULL;
 		  /* Defensiveness.  */
 		  parser->current_hset = NULL;
 		}
@@ -2389,6 +2391,8 @@ c_parser_translation_unit (c_parser *parser)
 			finish_current_hunk (parser, &isolani, &isolani,
 					     parser->current_hset);
 		    }
+		  /* Don't register lookups until we open a new hunk.  */
+		  parser->current_hunk_binding = NULL;
 		  /* Defensiveness.  */
 		  parser->current_hset = NULL;
 		}
@@ -2399,6 +2403,7 @@ c_parser_translation_unit (c_parser *parser)
 		     in a hunk.  We do this to avoid confusing the
 		     "parsed_any" logic in the containing loop.  */
 		  /* FIXME: should be recording pragma state.  */
+		  parser->current_hunk_binding = NULL;
 		  c_parser_external_declaration (parser);
 		}
 
