@@ -1,5 +1,11 @@
 2008-03-31  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_find_binding): Rename 'decl' argument.
+	Register hunk dependency if update is found.
+	* c-tree.h (C_SMASHED_TYPE_VARIANT): Update comment.
+
+2008-03-31  Tom Tromey  <tromey@redhat.com>
+
 	* gcc.c (main): Disable server if input comes from stdin.
 
 2008-03-29  Tom Tromey  <tromey@redhat.com>

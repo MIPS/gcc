@@ -478,8 +478,10 @@ extern int c_parser_mark_hunk_set (const void *);
    convert between smashed types.  */
 #define C_SMASHED_P(T) TREE_LANG_FLAG_5 (T)
 
-/* Return the smashed variant of TYPE.  This will look up the
-   canonical type if it exists.  FIXME: better comment here.  */
+/* Return the smashed variant of TYPE.  If TYPE has been redeclared in
+   the current compilation, the appropriate redeclared variant will be
+   returned.  Note that this may have a side effect on the parser's
+   prerequisite state.  */
 #define C_SMASHED_TYPE_VARIANT(TYPE)					\
   (C_SMASHED_P (TYPE_MAIN_VARIANT (TYPE))				\
    ? build_qualified_type (c_parser_find_binding (TYPE_MAIN_VARIANT (TYPE)), \

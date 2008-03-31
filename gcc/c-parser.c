@@ -1101,28 +1101,37 @@ eq_smash_entry (const void *e1, const void *e2)
   return se1->key == se2->key;
 }
 
-/* Given a decl (or a type), find its smashed variant.  If no smashed
+/* Given a decl or a type, find its smashed variant.  If no smashed
    variant is found, return the argument.  */
 tree
-c_parser_find_binding (tree decl)
+c_parser_find_binding (tree obj)
 {
   struct smash_entry **slot;
   struct smash_entry temp;
 
   if (! global_smash_map)
-    return decl;
+    return obj;
 
-  temp.key = decl;
+  temp.key = obj;
   temp.value = NULL;
   slot = (struct smash_entry **) htab_find_slot (global_smash_map,
 						 &temp, NO_INSERT);
   if (slot != NULL)
     {
-      decl = (*slot)->value->value;
-      gcc_assert (decl);
+      obj = (*slot)->value->value;
+      gcc_assert (obj);
+
+      /* If we found an update to a named type, we must make sure to
+	 register a dependency on the new type for the current hunk.
+	 This ensures that future re-use of this hunk will also
+	 require this update to be in place.  */
+      if (TREE_CODE_CLASS (TREE_CODE (obj)) == tcc_type
+	  && TYPE_NAME (TYPE_MAIN_VARIANT (obj)))
+	c_parser_lookup_callback (TYPE_NAME (TYPE_MAIN_VARIANT (obj)),
+				  obj, true);
     }
 
-  return decl;
+  return obj;
 }
 
 /* Hash function for c_tree_map_entry.  */
