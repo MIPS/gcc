@@ -1458,10 +1458,13 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 {
   tree switch_expr = *expr_p;
   gimple_seq switch_body_seq = NULL;
-  
-  gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, is_gimple_val,
-                 fb_rvalue);
-  
+  enum gimplify_status ret;
+
+  ret = gimplify_expr (&SWITCH_COND (switch_expr), pre_p, NULL, is_gimple_val,
+                       fb_rvalue);
+  if (ret == GS_ERROR || ret == GS_UNHANDLED)
+    return ret;
+
   if (SWITCH_BODY (switch_expr))
     {
       VEC (tree,heap) *labels;

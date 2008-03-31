@@ -1,3 +1,8 @@
+2008-03-31  Oleg Ryjkov  <olegr@google.com>
+
+	* gimplify.c (gimplify_switch_expr): Verify the return value from
+	gimplify_expr.
+
 2008-03-31  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133452.
