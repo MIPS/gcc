@@ -1,3 +1,116 @@
+2008-03-21  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-data-ref.c (dump_data_dependence_relation): Avoid data
+	reference dumps if ddr is NULL or dependence is unknown.
+
+2008-03-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/linux-atomic.asm (ATOMIC_TEST_AND_SET): Take
+	unsigned extension into account.
+	(ATOMIC_COMPARE_AND_SWAP): Likewise.
+	(ATOMIC_FETCH_AND_OP, ATOMIC_FETCH_AND_COMBOP): Likewise.
+	Do computations on a scratch register.
+
+2008-03-21  Richard Guenther  <rguenther@suse.de>
+
+	* tree-scalar-evolution.c (chrec_contains_symbols_defined_in_loop):
+	Use is_gimple_min_invariant instead of TREE_INVARIANT.
+	* tree-ssa-loop-ivopts.c (force_expr_to_var_cost): Likewise.
+	* tree-ssa-dom.c (record_equality): Likewise.
+	* tree-inline.c (copy_body_r): Likewise.
+	* tree-ssa-pre.c (make_values_for_stmt): Remove test for
+	TREE_INVARIANT.
+
+2008-03-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (split_branches): Pass zero to	redirect_jump
+	as 'delete_unused' argument.
+
+2008-03-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Remove
+	special casing of constant qualifiers.
+	* tree-ssa.c (useless_type_conversion_p_1): Instead do not
+	care about them in general.
+	* tree-ssa-ccp.c (ccp_fold): Addresses are constant or not
+	regardless of their type.
+	(fold_stmt_r): Forcefully fold *& if we end up with that.
+
+2008-03-20  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc (arm*-*-uclinux*): Remove duplicate arm/uclinux-elf.h.
+	* config/arm/uclinux-eabi.h (SUBTARGET_EXTRA_LINK_SPEC): Add extra
+	linker flags.
+	* config/arm/bpabi.h (SUBTARGET_EXTRA_LINK_SPEC): Provide default
+	definition.
+	(LINK_SPEC): Use SUBTARGET_EXTRA_LINK_SPEC.
+	* config/arm/unwind-arm.h (_Unwind_decode_target2): Add uClinux.
+
+2008-03-20  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* common.opt (Wmudflap): New option.
+	* tree-mudflap.c (mf_xform_derefs_1): Guard warning by OPT_Wmudflap.
+	(mx_register_decls): Likewise.
+	(mudflap_finish_file): Likewise.
+	* doc/invoke.texi: Document -Wno-mudflap.
+
+2008-03-20  Kai Tietz  <kai.tietz@onevision.com>
+
+	* c-format.c (replace_format_name_to_system_name): New.
+	(cmp_attribs): New.
+	(convert_format_name_to_system_name): New.
+	(decode_format_attr): Add use of convert_format_name_to_system_name.
+	(format_types_orig): Add gnu_ prefix to names.
+	(check_format_info_main): Special treating of \0 escaped names for
+	supporting multi-character format specifiers as I32, I64.
+	(TARGET_OVERRIDES_FORMAT_ATTRIBUTES): Use of user defined attributes.
+	(gnu_target_overrides_format_attributes): New.
+	* c-format.h: Add structure target_ovr_attr to hold
+	system specific formatter names.
+	* config.gcc: Add for x86&x86_64 cygwin and mingw32 targets the
+	msformat-c.o file to c_target_objs and cxx_target_objs.
+	* config/i386/mingw32.h (TARGET_OVERRIDES_FORMAT_ATTRIBUTES): New.
+	(TARGET_OVERRIDES_FORMAT_ATTRIBUTES_COUNT): New.
+	(TARGET_N_FORMAT_TYPES): New.
+	* config/i386/msformat-c.c: New.
+	* config/i386/t-cygming: Add build rule for msformat-c.o.
+	* doc/extend.texi: Add new format names gnu_* and ms_* and
+	further details.
+	* doc/tm.texi: (TARGET_OVERRIDES_FORMAT_ATTRIBUTES): New.
+
+2008-03-20  Ira Rosen  <irar@il.ibm.com>
+
+	* doc/invoke.texi (-O3): Add -ftree-vectorize to the list of
+	optimizations turned on under -O3.
+	(ftree-vectorize): Add that the flag is turned on with -O3.
+
+2008-03-20  Ben Elliston  <bje@au.ibm.com>
+
+	* regmove.c (try_auto_increment): Fix spelling error in comment.
+	* final.c (final_scan_insn): Likewise.
+
+2008-03-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/14552
+	* config/i386/mmx.md (*mov<mode>_internal_rex64"): Adjust register
+	allocator preferences for "y" and "r" class registers.
+	("*mov<mode>_internal"): Ditto.
+	("*movv2sf_internal_rex64"): Ditto.
+	("*movv2sf_internal"): Ditto.
+
+2008-03-19  Michael Matz  <matz@suse.de>
+
+	PR middle-end/35616
+	* calls.c (expand_call): Check overlap of arguments with call
+	address for sibcalls.
+
+2008-03-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35496
+	* stor-layout.c (update_alignment_for_field): Set minimum alignment
+	of the underlying type of a MS bitfield layout to the natural
+	alignment of the type.
+
 2008-03-19  Jan Hubicka  <jh@suse.cz>
 
 	PR other/35094
@@ -283,7 +396,7 @@
 	(maybe_fold_stmt_addition): Likewise.
 
 2008-03-15  Bjoern Haase  <bjoern.m.haase@web.de>
-            Anatoly Sokolov <aesok@post.ru>
+	    Anatoly Sokolov <aesok@post.ru>
 
 	* gcc/gcc/config/avr/avr.c (avr_arch_types): Add avr6 entry.
 	(avr_arch): Add ARCH_AVR6.
@@ -573,11 +686,11 @@
 
 	PR target/35540
 	* config/i386/i386.md (paritysi2, paritydi2): Use register_operand
-	constraint for operand 1.
-	(paritysi2_cmp): Use register_operand constraint for operand 2.
+	predicate for operand 1.
+	(paritysi2_cmp): Use register_operand predicate for operand 2.
 	Use earlyclobber modifier for operand 1.  Remove support for
 	memory operands.
-	(paritydi2_cmp): Use register_operand constraint for operand 3.
+	(paritydi2_cmp): Use register_operand predicate for operand 3.
 	Use earlyclobber modifier for operand 1.  Remove support for
 	memory operands.
 
@@ -1123,7 +1236,7 @@
 2008-03-04  Danny Smith  <dannysmith@users.sourceforge.net>
 
 	* config/i386/i386.md (allocate_stack_worker_32): Use  __chkstk
-        label to probe the stack.
+	label to probe the stack.
 
 2008-03-04  Danny Smith  <dannysmith@users.sourceforge.net>
 
@@ -1688,7 +1801,7 @@
 
 2008-02-26  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
-        PR 26264
+	PR 26264
 	* builtins.def (BUILT_IN_STDARG_START): Remove.
 	* builtins.c (expand_builtin): Remove BUILT_IN_STDARG_START.
 	* tree-stdarg.c (execute_optimize_stdarg): Likewise.
@@ -1868,7 +1981,7 @@
 	PR fortran/29549
 	* doc/invoke.texi (-fcx-limited-range): Document new option.
 	* toplev.c (process_options): Handle -fcx-fortran-rules.
-        * common.opt: Add documentation for -fcx-fortran-rules.
+	* common.opt: Add documentation for -fcx-fortran-rules.
 
 2008-02-25  Janne Blomqvist  <jb@gcc.gnu.org>
 

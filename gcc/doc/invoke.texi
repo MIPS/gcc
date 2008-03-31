@@ -245,7 +245,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wlogical-op -Wlong-long @gol
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
--Wmissing-noreturn @gol
+-Wmissing-noreturn  -Wno-mudflap @gol
 -Wno-multichar  -Wnonnull  -Wno-overflow @gol
 -Woverlength-strings  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
@@ -4052,6 +4052,11 @@ This option is only supported for C and Objective-C@.  It is implied by
 This option is only active when @option{-fstack-protector} is active.  It
 warns about functions that will not be protected against stack smashing.
 
+@item -Wno-mudflap
+@opindex Wno-mudflap
+Suppress warnings about constructs that cannot be instrumented by
+@option{-fmudflap}.
+
 @item -Woverlength-strings
 @opindex Woverlength-strings
 @opindex Wno-overlength-strings
@@ -5164,8 +5169,8 @@ invoking @option{-O2} on programs that use computed gotos.
 @opindex O3
 Optimize yet more.  @option{-O3} turns on all optimizations specified by
 @option{-O2} and also turns on the @option{-finline-functions},
-@option{-funswitch-loops}, @option{-fpredictive-commoning} and
-@option{-fgcse-after-reload} options.
+@option{-funswitch-loops}, @option{-fpredictive-commoning},
+@option{-fgcse-after-reload} and @option{-ftree-vectorize} options.
 
 @item -O0
 @opindex O0
@@ -5949,7 +5954,8 @@ enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
 @opindex ftree-vectorize
-Perform loop vectorization on trees.
+Perform loop vectorization on trees. This flag is enabled by default at
+@option{-O3}.
 
 @item -ftree-vect-loop-version
 @opindex ftree-vect-loop-version
