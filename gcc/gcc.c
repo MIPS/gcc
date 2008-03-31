@@ -6628,6 +6628,12 @@ main (int argc, char **argv)
 						   strlen (name),
 						   infiles[i].language);
 
+      /* Can't use the server when compiling stdin.  We could write to
+	 a temporary file, but it isn't worth the effort -- ordinarily
+	 stdin is only used for scratch compilations.  */
+      if (use_server && !strcmp (name, "-"))
+	use_server = false;
+
       if (compiler && !(compiler->combinable))
 	combine_inputs = false;
 

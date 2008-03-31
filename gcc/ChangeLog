@@ -1,3 +1,7 @@
+2008-03-31  Tom Tromey  <tromey@redhat.com>
+
+	* gcc.c (main): Disable server if input comes from stdin.
+
 2008-03-29  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_translation_unit): Clear
