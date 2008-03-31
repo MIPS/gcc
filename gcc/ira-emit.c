@@ -263,17 +263,21 @@ set_allocno_reg (allocno_t allocno, rtx reg)
        a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
     if (subloop_tree_node_p (ALLOCNO_LOOP_TREE_NODE (a), node))
       ALLOCNO_REG (a) = reg;
+  for (a = ALLOCNO_CAP (allocno); a != NULL; a = ALLOCNO_CAP (a))
+    ALLOCNO_REG (a) = reg;
   regno = ALLOCNO_REGNO (allocno);
   for (a = allocno;;)
     {
-      if ((a = ALLOCNO_CAP (a)) == NULL)
+      if (a == NULL || (a = ALLOCNO_CAP (a)) == NULL)
 	{
 	  node = node->father;
 	  if (node == NULL)
 	    break;
 	  a = node->regno_allocno_map [regno];
 	}
-      if (a == NULL || ALLOCNO_CHILD_RENAMED_P (a))
+      if (a == NULL)
+	continue;
+      if (ALLOCNO_CHILD_RENAMED_P (a))
 	break;
       ALLOCNO_CHILD_RENAMED_P (a) = TRUE;
     }

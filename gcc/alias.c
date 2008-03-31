@@ -1972,7 +1972,7 @@ adjust_offset_for_component_ref (tree x, rtx offset)
   return GEN_INT (ioffset);
 }
 
-/* The function returns nonzero if X is a stack address.  */
+/* The function returns nonzero if X is an address containg VALUE.  */
 static int
 value_addr_p (rtx x)
 {

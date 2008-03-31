@@ -1,3 +1,28 @@
+2008-03-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (push_allocnos_to_stack): Don't use double.  Use
+	const as the secondary heuristic.
+
+	* ira-emit.c (set_allocno_reg): Change cap reg too.  Process all
+	loop parents.
+	
+	* doc/invoke.texi (-fira-coalescing): Change to -fira-coalesce.
+
+	* toplev.h (flag_lower_subreg): Remove.
+
+	* global.c (build_insn_chain): Remove the prototype.
+
+	* alias.c (value_addr_p): Change comment.
+
+	* emit-rtl.c (gen_lowpart_common): Remove CONCATN.
+
+	* simplify-rtx.c (simplify_subreg): Ditto.
+
+	* common.opt (flower-subreg): Remove.
+
+	* config/rs6000/rs6000.c (rs6000_elf_in_small_data_p): Fix last
+	merge.
+
 2008-03-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-lives (process_single_reg_class_operands): Fix typo in

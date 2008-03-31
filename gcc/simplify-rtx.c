@@ -5127,7 +5127,7 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 
   /* Handle complex values represented as CONCAT
      of real and imaginary part.  */
-  if (GET_CODE (op) == CONCAT || GET_CODE (op) == CONCATN)
+  if (GET_CODE (op) == CONCAT)
     {
       unsigned int part_size, final_offset;
       rtx part, res;

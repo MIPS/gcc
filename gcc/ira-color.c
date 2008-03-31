@@ -841,7 +841,8 @@ static void
 push_allocnos_to_stack (void)
 {
   int i, j;
-  double allocno_pri, i_allocno_pri;
+  int allocno_pri, i_allocno_pri;
+  int allocno_cost, i_allocno_cost;
   allocno_t allocno, i_allocno;
   allocno_t *allocno_vec;
   enum reg_class cover_class;
@@ -903,7 +904,7 @@ push_allocnos_to_stack (void)
       ira_assert (num > 0);
       allocno_vec = cover_class_allocnos [cover_class];
       allocno = NULL;
-      allocno_pri = 0;
+      allocno_pri = allocno_cost = 0;
       /* Sort uncolorable allocno to find the one with the lowest spill
 	 cost.  */
       for (i = 0, j = num - 1; i <= j;)
@@ -935,16 +936,21 @@ push_allocnos_to_stack (void)
 		     allocnos.  */
 		  ALLOCNO_TEMP (i_allocno) = cost;
 		}
+	      i_allocno_cost = ALLOCNO_TEMP (i_allocno);
 	      i_allocno_pri
-		= ((double) ALLOCNO_TEMP (i_allocno)
+		= (i_allocno_cost
 		   / (ALLOCNO_LEFT_CONFLICTS_NUM (i_allocno)
 		      * reg_class_nregs [ALLOCNO_COVER_CLASS (i_allocno)]
 		                        [ALLOCNO_MODE (i_allocno)] + 1));
 	      if (allocno == NULL || allocno_pri > i_allocno_pri
 		  || (allocno_pri == i_allocno_pri
-		      && (ALLOCNO_NUM (allocno) > ALLOCNO_NUM (i_allocno))))
+		      && (allocno_cost > i_allocno_cost
+			  || (allocno_cost == i_allocno_cost 
+			      && (ALLOCNO_NUM (allocno)
+				  > ALLOCNO_NUM (i_allocno))))))
 		{
 		  allocno = i_allocno;
+		  allocno_cost = i_allocno_cost;
 		  allocno_pri = i_allocno_pri;
 		}
 	    }

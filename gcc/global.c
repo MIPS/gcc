@@ -222,7 +222,6 @@ static void prune_preferences (void);
 static void set_preferences (void);
 static void find_reg (int, HARD_REG_SET, int, int, int);
 static void dump_conflicts (FILE *);
-void build_insn_chain (void);
 
 
 /* Look through the list of eliminable registers.  Set ELIM_SET to the

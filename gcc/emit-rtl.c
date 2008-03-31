@@ -1186,9 +1186,8 @@ gen_lowpart_common (enum machine_mode mode, rtx x)
 	return gen_rtx_fmt_e (GET_CODE (x), mode, XEXP (x, 0));
     }
   else if (GET_CODE (x) == SUBREG || REG_P (x)
-	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONCATN
-	   || GET_CODE (x) == CONST_VECTOR || GET_CODE (x) == CONST_DOUBLE
-	   || GET_CODE (x) == CONST_INT)
+	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
+	   || GET_CODE (x) == CONST_DOUBLE || GET_CODE (x) == CONST_INT)
     return simplify_gen_subreg (mode, x, innermode, offset);
 
   /* Otherwise, we can't do this.  */

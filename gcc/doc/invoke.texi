@@ -273,7 +273,8 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
 -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
--fdump-noaddr -fdump-unnumbered  -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
+-fdump-noaddr -fdump-unnumbered -fdump-simple-rtl @gol
+-fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-ipa-all -fdump-ipa-cgraph -fdump-ipa-inline @gol
 -fdump-tree-all @gol
@@ -333,8 +334,8 @@ Objective-C and Objective-C++ Dialects}.
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
 -fira-coalesce -fira-ipra -fno-ira-move-spills @gol
--fira-propagate-cost -fno-ira-share-spill-slots @gol
--fno-ira-share-save-slots -fira-verbose=@var{n} @gol
+-fira-propagate-cost -fno-ira-share-save-slots @gol
+-fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -fmerge-all-constants -fmerge-constants -fmodulo-sched @gol
 -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fmudflap @gol
@@ -5645,8 +5646,8 @@ set, the second one is faster and generates decent code and the
 smallest size code, and the mixed algorithm usually give the best
 results in most cases and for most architectures.
 
-@item -fira-coalescing
-@opindex fira-coalescing
+@item -fira-coalesce
+@opindex fira-coalesce
 Do optimistic register coalescing.  This option might be profitable for
 architectures with big regular register files.
 
