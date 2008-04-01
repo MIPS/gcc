@@ -1,3 +1,8 @@
+2008-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Fix parsing of collapsed
+	loops with C99 for loop initial declarations.
+
 2008-03-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (use_pointer_for_field): Change first argument's type

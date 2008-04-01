@@ -7610,7 +7610,7 @@ static tree
 c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
 {
   tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
-  tree declv, condv, incrv, initv;
+  tree declv, condv, incrv, initv, for_block = NULL, ret = NULL;
   location_t loc;
   bool fail = false, open_brace_parsed = false;
   int i, collapse = 1, nbraces = 0;
@@ -7639,11 +7639,14 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
       int bracecount = 0;
 
       if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-	return NULL;
+	goto pop_scopes;
 
       /* Parse the initialization declaration or expression.  */
       if (c_parser_next_token_starts_declspecs (parser))
 	{
+	  if (i > 0)
+	    for_block
+	      = tree_cons (NULL, c_begin_compound_stmt (true), for_block);
 	  c_parser_declaration_or_fndef (parser, true, true, true, true);
 	  decl = check_for_loop_decls ();
 	  if (decl == NULL)
@@ -7785,7 +7788,7 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
 	      body = c_end_compound_stmt (stmt, true);
 	      nbraces--;
 	    }
-	  return NULL;
+	  goto pop_scopes;
 	}
     }
 
@@ -7831,9 +7834,16 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
 	    }
 	  OMP_FOR_CLAUSES (stmt) = clauses;
 	}
-      return stmt;
+      ret = stmt;
     }
-  return NULL;
+pop_scopes:
+  while (for_block)
+    {
+      stmt = c_end_compound_stmt (TREE_VALUE (for_block), true);
+      add_stmt (stmt);
+      for_block = TREE_CHAIN (for_block);
+    }
+  return ret;
 }
 
 /* OpenMP 2.5:

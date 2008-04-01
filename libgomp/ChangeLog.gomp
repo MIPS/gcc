@@ -1,3 +1,12 @@
+2008-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/collapse-3.c: New test.
+
+2008-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/sparc/futex.h (atomic_write_barrier): Fix membar
+	argument.
+
 2008-03-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct gomp_team_state): Remove single_count field
