@@ -1,3 +1,9 @@
+2008-04-02  Tom Tromey  <tromey@redhat.com>
+
+	* c-decl.c (c_clear_binding_stack): Use dump_vec.
+	* tree-pass.h (dump_vec): Declare.
+	* tree-dump.c (dump_vec): New function.
+
 2008-03-31  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_find_binding): Rename 'decl' argument.

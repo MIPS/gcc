@@ -8708,6 +8708,9 @@ c_write_global_declarations_2 (VEC (tree, heap) *globals)
 void
 c_clear_binding_stack (void)
 {
+  int flags;
+  FILE *stream;
+
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
     return;
@@ -8719,18 +8722,12 @@ c_clear_binding_stack (void)
   external_scope = 0;
   gcc_assert (!current_scope);
 
-  /* FIXME: re-enable this using all_global_decls.  */
-/*   if (ext_block) */
-/*     { */
-/*       tree tmp = BLOCK_VARS (ext_block); */
-/*       int flags; */
-/*       FILE * stream = dump_begin (TDI_tu, &flags); */
-/*       if (stream && tmp) */
-/* 	{ */
-/* 	  dump_node (tmp, flags & ~TDF_SLIM, stream); */
-/* 	  dump_end (TDI_tu, stream); */
-/* 	} */
-/*     } */
+  stream = dump_begin (TDI_tu, &flags);
+  if (stream)
+    {
+      dump_vec (all_global_decls, flags & ~TDF_SLIM, stream);
+      dump_end (TDI_tu, stream);
+    }
 }
 
 /* This maps trees to their canonical (smashed) variants.  This must

@@ -1,5 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
@@ -763,6 +763,48 @@ dump_node (const_tree t, int flags, FILE *stream)
 
   /* Queue up the first node.  */
   queue (&di, t, DUMP_NONE);
+
+  /* Until the queue is empty, keep dumping nodes.  */
+  while (di.queue)
+    dequeue_and_dump (&di);
+
+  /* Now, clean up.  */
+  for (dq = di.free_list; dq; dq = next_dq)
+    {
+      next_dq = dq->next;
+      free (dq);
+    }
+  splay_tree_delete (di.nodes);
+}
+
+
+/* Like dump_node, but dump a VEC holding nodes, rather than a list of
+   nodes.  */
+
+void
+dump_vec (VEC (tree, gc) *nodes, int flags, FILE *stream)
+{
+  struct dump_info di;
+  dump_queue_p dq;
+  dump_queue_p next_dq;
+  tree node;
+  int ix;
+
+  /* Initialize the dump-information structure.  */
+  di.stream = stream;
+  di.index = 0;
+  di.column = 0;
+  di.queue = 0;
+  di.queue_end = 0;
+  di.free_list = 0;
+  di.flags = flags;
+  di.node = NULL;
+  di.nodes = splay_tree_new (splay_tree_compare_pointers, 0,
+			     (splay_tree_delete_value_fn) &free);
+
+  /* Queue up all nodes in the vector.  */
+  for (ix = 0; VEC_iterate (tree, nodes, ix, node); ++ix)
+    queue (&di, node, DUMP_NONE);
 
   /* Until the queue is empty, keep dumping nodes.  */
   while (di.queue)
