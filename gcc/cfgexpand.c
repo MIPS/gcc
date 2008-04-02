@@ -1600,6 +1600,33 @@ adjust_debug_string_constants (void)
   debug_string_constants_p = false;
 }
 
+/* Wrap modeless constants in CONST:MODE.  */
+rtx
+wrap_constant (enum machine_mode mode, rtx x)
+{
+  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
+      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
+    return x;
+  gcc_assert (mode != VOIDmode);
+  return gen_rtx_CONST (mode, x);
+}
+
+/* Remove CONST wrapper added by wrap_constant().  */
+rtx
+unwrap_constant (rtx x)
+{
+  rtx orig = x;
+
+  if (GET_CODE (x) != CONST)
+    return x;
+
+  x = XEXP (x, 0);
+  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
+      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
+    return orig;
+
+  return x;
+}
 
 /* Return an RTX equivalent to the value of the tree expression
    EXP.  */
@@ -1698,8 +1725,7 @@ expand_debug_expr (tree exp)
     case FIXED_CST:
     case COMPLEX_CST:
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
-      if (op0 && GET_MODE (op0) == VOIDmode && mode != VOIDmode)
-	op0 = gen_rtx_CONST (mode, op0);
+      op0 = wrap_constant (mode, op0);
       return op0;
 
     case NOP_EXPR:

@@ -1,3 +1,101 @@
+2008-04-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c: Include cselib.h.
+	(enum micro_operation_type): Remove MO_LOC_MAIN and MO_LOC_USE,
+	add MO_VAL_USE, MO_VAL_LOC and MO_VAL_SET.
+	(struct micro_operation_def): Document new meanings for loc.
+	(struct decl_or_value): New.
+	(struct emit_note_data_def): Add vars table.
+	(struct attrs_def): Use decl_or_value dv rather than tree decl.
+	(struct variable_def): Likewise.
+	(struct location_chain_def): Accept VALUE in loc.
+	(scratch_regs): New.
+	(cselib_hook_called): New.
+	(dv_is_decl_p, dv_is_value_p, dv_as_decl, dv_as_value,
+	dv_as_opaque, dv_from_decl, dv_from_value, dv_htab_hash): New.
+	(IS_DECL_CODE, check_value_is_not_decl): New.
+	(variable_htab_hash): Use dv_htab_hash.
+	(variable_htab_eq): Likewise.  Handle values.
+	(attrs_list_member, attrs_list_insert, attrs_list_union,
+	unshare_variable, vars_copy_1, var_reg_decl_set, var_reg_reg,
+	get_init_value, var_reg_delete_and_set, var_reg_delete,
+	var_regno_delete, var_mem_decl_set, var_mem_set, var_mem_delete,
+	variable_union, dataflow_set_different_1,
+	dataflow_set_different_2):
+	Adjust for decl_or_value.
+	(val_init, val_resolve): New.
+	(track_expr_p): Add need_rtl argument.  Permit checking without
+	forcing generation of RTL for a name.
+	(track_loc_p): Adjust.
+	(struct count_use_info): New.
+	(find_use_val): New.
+	(use_type): Add count_use_info argument.  Choose appropriate use
+	types for values in debug insns and for cselib-registered values.
+	(count_uses): Handle new micro operation types.  Preserve values.
+	(count_uses_1, count_stores): Adjust for count_use_info.
+	(count_with_sets): New.
+	(VAL_NEEDS_RESOLUTION, VAL_HOLDS_TRACK_EXPR, VAL_EXPR_IS_COPIED,
+	VAL_EXPR_IS_CLOBBERED): New.
+	(add_uses): Handle new micro operation types.
+	(add_uses_1): Adjust for count_use_info.
+	(add_stores): Likewise.  Handle new micro operation types.
+	(add_with_sets): New.
+	(find_src_status, find_src_set_src): Adjust for decl_or_value.
+	(compute_bb_dataflow): Handle new micro operation types.
+	(dump_attrs_list, dump_variables, variable_was_changed,
+	set_variable_part, clobber_variable_part, delete_variable_part):
+	Adjust for decl_or_value.
+	(VT_MAY_HAVE_VALUE_LOC): New.
+	(vt_expand_loc_callback, vt_expand_loc): New.
+	(emit_note_insn_var_location): Use vt_expand_loc.  Adjust for
+	decl_for_value.
+	(check_changed_value, check_changed_var): New.
+	(emit_notes_for_changes): Take the block's variable hashtable as
+	argument.  Mark as changed VALUEs that depend on other changed
+	values or expressions.
+	(emit_notes_for_differences_1): Adjust for decl_or_value.
+	(emit_notes_for_differences_2): Likewise.
+	(emit_notes_in_bb): Pass in hashtable as argument to
+	emit_notes_for_changes.  Handle new micro operation types.
+	(vt_add_function_parameters): Adjust for decl_or_value.
+	(vt_initialize): Initialize cselib and scratch_regs.  Move code
+	out to cselib callbacks and use them.
+	(vt_finalize): Finish cselib and release scratch_regs.
+	* Makefile.in (var-tracking.o): Depend on cselib.h.
+	* cselib.c (struct expand_value_data): New.
+	(cselib_record_sets_rook): New.
+	(PRESERVED_VALUE_P, LONG_TERM_PRESERVED_VALUE_P): New.
+	(cselib_clear_table): Rename and reintroduce in terms of...
+	(cselib_reset_table_with_next_value): This.
+	(cselib_get_next_unknown_value): New.
+	(entry_and_rtx_equal_p): Avoid cast-away-constness warning.
+	(discard_useless_locs): Don't discard preserved values.
+	(discard_useless_values): Likewise.
+	(cselib_preserve_value, cselib_preserved_value_p,
+	cselib_preserve_definitely, cselib_clear_preserve,
+	cselib_preserve_only_values): New.
+	(wrap_constant): Moved to cfgexpand.c.
+	(expand_loc): Replace regs_active argument with an
+	expand_value_data.  Adjust.
+	(cselib_expand_value_rtx): Rename and reimplement in terms of...
+	(cselib_expand_value_rtx_1): ... this, with an expand_value_data
+	argument.  Adjust.  Call callback if set.  Wrap constants as needed.
+	(cselib_expand_value_rtx_cb): New.
+	(cselib_invalidate_regno): Regard preserved values.
+	(cselib_invalidate_mem): Likewise.
+	(cselib_record_set): Likewise.
+	(struct set): Moved to cselib.h, renamed as cselib_set.
+	(cselib_record_sets): Adjust.  Call new hook.
+	* cselib.h (struct cselib_set): Moved here.
+	(cselib_record_sets_hook, cselib_expand_callback,
+	(cselib_expand_value_rtx_cb, cselib_reset_table_with_next_value,
+	cselib_get_next_unknown_value, cselib_preserve_value,
+	cselib_preserved_value_p, cselib_preserve_only_values): Declare.
+	* rtl.h (wrap_constant, unwrap_constant): Declare.
+	* cfgexpand.c (wrap_constant, unwrap_constant): New.
+	(expand_debug_expr): Use wrap_constant.
+	* combine.c (propagate_for_debug): Likewise.
+
 2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* haifa-sched.c (move_insn): Revert previous change.

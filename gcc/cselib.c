@@ -1,6 +1,7 @@
 /* Common subexpression elimination library for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -53,7 +54,6 @@ static void unchain_one_elt_loc_list (struct elt_loc_list **);
 static int discard_useless_locs (void **, void *);
 static int discard_useless_values (void **, void *);
 static void remove_useless_values (void);
-static rtx wrap_constant (enum machine_mode, rtx);
 static unsigned int cselib_hash_rtx (rtx, int);
 static cselib_val *new_cselib_val (unsigned int, enum machine_mode);
 static void add_mem_for_addr (cselib_val *, cselib_val *, rtx);
@@ -62,6 +62,15 @@ static void cselib_invalidate_regno (unsigned int, enum machine_mode);
 static void cselib_invalidate_mem (rtx);
 static void cselib_record_set (rtx, cselib_val *, cselib_val *);
 static void cselib_record_sets (rtx);
+
+struct expand_value_data
+{
+  bitmap regs_active;
+  cselib_expand_callback callback;
+  void *callback_arg;
+};
+
+static rtx cselib_expand_value_rtx_1 (rtx, struct expand_value_data *, int);
 
 /* There are three ways in which cselib can look up an rtx:
    - for a REG, the reg_values table (which is indexed by regno) is used
@@ -134,6 +143,20 @@ static alloc_pool elt_loc_list_pool, elt_list_pool, cselib_val_pool, value_pool;
 /* If nonnull, cselib will call this function before freeing useless
    VALUEs.  A VALUE is deemed useless if its "locs" field is null.  */
 void (*cselib_discard_hook) (cselib_val *);
+
+/* If nonnull, cselib will call this function before recording sets or
+   even clobbering outputs of INSN.  All the recorded sets will be
+   represented in the array sets[n_sets].  new_val_min can be used to
+   tell whether values present in sets are introduced by this
+   instruction.  */
+void (*cselib_record_sets_hook) (rtx insn, struct cselib_set *sets,
+				 int n_sets);
+
+#define PRESERVED_VALUE_P(RTX) \
+  (RTL_FLAG_CHECK1("PRESERVED_VALUE_P", (RTX), VALUE)->unchanging)
+#define LONG_TERM_PRESERVED_VALUE_P(RTX) \
+  (RTL_FLAG_CHECK1("LONG_TERM_PRESERVED_VALUE_P", (RTX), VALUE)->in_struct)
+
 
 
 /* Allocate a struct elt_list and fill in its two elements with the
@@ -200,11 +223,19 @@ unchain_one_value (cselib_val *v)
 }
 
 /* Remove all entries from the hash table.  Also used during
-   initialization.  If CLEAR_ALL isn't set, then only clear the entries
-   which are known to have been used.  */
+   initialization.  */
 
 void
 cselib_clear_table (void)
+{
+  cselib_reset_table_with_next_value (0);
+}
+
+/* Remove all entries from the hash table, arranging for the next
+   value to be numbered NUM.  */
+
+void
+cselib_reset_table_with_next_value (unsigned int num)
 {
   unsigned int i;
 
@@ -219,9 +250,17 @@ cselib_clear_table (void)
 
   n_useless_values = 0;
 
-  next_unknown_value = 0;
+  next_unknown_value = num;
 
   first_containing_mem = &dummy_val;
+}
+
+/* Return the number of the next value that will be generated.  */
+
+unsigned int
+cselib_get_next_unknown_value (void)
+{
+  return next_unknown_value;
 }
 
 /* The equality test for our hash table.  The first argument ENTRY is a table
@@ -234,7 +273,7 @@ entry_and_rtx_equal_p (const void *entry, const void *x_arg)
 {
   struct elt_loc_list *l;
   const cselib_val *const v = (const cselib_val *) entry;
-  rtx x = (rtx) x_arg;
+  rtx x = CONST_CAST_RTX ((const_rtx)x_arg);
   enum machine_mode mode = GET_MODE (x);
 
   gcc_assert (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
@@ -318,7 +357,7 @@ discard_useless_locs (void **x, void *info ATTRIBUTE_UNUSED)
 	p = &(*p)->next;
     }
 
-  if (had_locs && v->locs == 0)
+  if (had_locs && v->locs == 0 && !PRESERVED_VALUE_P (v->val_rtx))
     {
       n_useless_values++;
       values_became_useless = 1;
@@ -333,7 +372,7 @@ discard_useless_values (void **x, void *info ATTRIBUTE_UNUSED)
 {
   cselib_val *v = (cselib_val *)*x;
 
-  if (v->locs == 0)
+  if (v->locs == 0 && !PRESERVED_VALUE_P (v->val_rtx))
     {
       if (cselib_discard_hook)
 	cselib_discard_hook (v);
@@ -377,6 +416,78 @@ remove_useless_values (void)
   htab_traverse (cselib_hash_table, discard_useless_values, 0);
 
   gcc_assert (!n_useless_values);
+}
+
+/* Arrange for a value to not be removed from the hash table even if
+   it becomes useless.  */
+
+void
+cselib_preserve_value (cselib_val *v)
+{
+  PRESERVED_VALUE_P (v->val_rtx) = 1;
+}
+
+/* Test whether a value is preserved.  */
+
+bool
+cselib_preserved_value_p (cselib_val *v)
+{
+  return PRESERVED_VALUE_P (v->val_rtx);
+}
+
+/* Mark preserved values as preserved for the long term.  */
+
+static int
+cselib_preserve_definitely (void **slot, void *info ATTRIBUTE_UNUSED)
+{
+  cselib_val *v = (cselib_val *)*slot;
+
+  if (PRESERVED_VALUE_P (v->val_rtx)
+      && !LONG_TERM_PRESERVED_VALUE_P (v->val_rtx))
+    LONG_TERM_PRESERVED_VALUE_P (v->val_rtx) = true;
+
+  return 1;
+}
+
+/* Clear the preserve marks for values not preserved for the long
+   term.  */
+
+static int
+cselib_clear_preserve (void **slot, void *info ATTRIBUTE_UNUSED)
+{
+  cselib_val *v = (cselib_val *)*slot;
+
+  if (PRESERVED_VALUE_P (v->val_rtx)
+      && !LONG_TERM_PRESERVED_VALUE_P (v->val_rtx))
+    {
+      PRESERVED_VALUE_P (v->val_rtx) = false;
+      if (!v->locs)
+	n_useless_values++;
+    }
+
+  return 1;
+}
+
+/* Clean all non-constant expressions in the hash table, but retain
+   their values.  */
+
+void
+cselib_preserve_only_values (bool retain)
+{
+  int i;
+
+  htab_traverse (cselib_hash_table,
+		 retain ? cselib_preserve_definitely : cselib_clear_preserve,
+		 NULL);
+
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    cselib_invalidate_regno (i, reg_raw_mode[i]);
+
+  cselib_invalidate_mem (callmem);
+
+  remove_useless_values ();
+
+  gcc_assert (first_containing_mem == &dummy_val);
 }
 
 /* Return the mode in which a register was last set.  If X is not a
@@ -548,19 +659,6 @@ rtx_equal_for_cselib_p (rtx x, rtx y)
 	}
     }
   return 1;
-}
-
-/* We need to pass down the mode of constants through the hash table
-   functions.  For that purpose, wrap them in a CONST of the appropriate
-   mode.  */
-static rtx
-wrap_constant (enum machine_mode mode, rtx x)
-{
-  if (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_FIXED
-      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
-    return x;
-  gcc_assert (mode != VOIDmode);
-  return gen_rtx_CONST (mode, x);
 }
 
 /* Hash an rtx.  Return 0 if we couldn't hash the rtx.
@@ -843,7 +941,8 @@ cselib_lookup_mem (rtx x, int create)
    expand to the same place.  */
 
 static rtx 
-expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
+expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
+	    int max_depth)
 {
   rtx reg_result = NULL;
   unsigned int regno = UINT_MAX;
@@ -855,7 +954,7 @@ expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 	 the same reg.  */
       if ((REG_P (p->loc)) 
 	  && (REGNO (p->loc) < regno) 
-	  && !bitmap_bit_p (regs_active, REGNO (p->loc)))
+	  && !bitmap_bit_p (evd->regs_active, REGNO (p->loc)))
 	{
 	  reg_result = p->loc;
 	  regno = REGNO (p->loc);
@@ -873,7 +972,7 @@ expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 	      print_inline_rtx (dump_file, p->loc, 0);
 	      fprintf (dump_file, "\n");
 	    }
-	  result = cselib_expand_value_rtx (p->loc, regs_active, max_depth - 1);
+	  result = cselib_expand_value_rtx_1 (p->loc, evd, max_depth - 1);
 	  if (result)
 	    return result;
 	}
@@ -886,7 +985,7 @@ expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
       if (dump_file)
 	fprintf (dump_file, "r%d\n", regno);
 
-      result = cselib_expand_value_rtx (reg_result, regs_active, max_depth - 1);
+      result = cselib_expand_value_rtx_1 (reg_result, evd, max_depth - 1);
       if (result)
 	return result;
     }
@@ -925,6 +1024,35 @@ expand_loc (struct elt_loc_list *p, bitmap regs_active, int max_depth)
 
 rtx
 cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
+{
+  struct expand_value_data evd;
+
+  evd.regs_active = regs_active;
+  evd.callback = NULL;
+  evd.callback_arg = NULL;
+
+  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
+}
+
+/* Same as cselib_expand_value_rtx, but using a callback to try to
+   resolve VALUEs that expand to nothing.  */
+
+rtx
+cselib_expand_value_rtx_cb (rtx orig, bitmap regs_active, int max_depth,
+			    cselib_expand_callback cb, void *data)
+{
+  struct expand_value_data evd;
+
+  evd.regs_active = regs_active;
+  evd.callback = cb;
+  evd.callback_arg = data;
+
+  return cselib_expand_value_rtx_1 (orig, &evd, max_depth);
+}
+
+static rtx
+cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
+			   int max_depth)
 {
   rtx copy, scopy;
   int i, j;
@@ -974,13 +1102,13 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 		  || regno == HARD_FRAME_POINTER_REGNUM)
 		return orig;
 
-	      bitmap_set_bit (regs_active, regno);
+	      bitmap_set_bit (evd->regs_active, regno);
 
 	      if (dump_file)
 		fprintf (dump_file, "expanding: r%d into: ", regno);
 
-	      result = expand_loc (l->elt->locs, regs_active, max_depth);
-	      bitmap_clear_bit (regs_active, regno);
+	      result = expand_loc (l->elt->locs, evd, max_depth);
+	      bitmap_clear_bit (evd->regs_active, regno);
 
 	      if (result)
 		return result;
@@ -1016,7 +1144,20 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 	if (dump_file)
 	  fprintf (dump_file, "expanding value %s into: ", GET_MODE_NAME (GET_MODE (orig)));
 	
-	result = expand_loc (CSELIB_VAL_PTR (orig)->locs, regs_active, max_depth);
+	if (!evd->callback)
+	  result = NULL;
+	else
+	  {
+	    result = evd->callback (orig, evd->regs_active, max_depth,
+				    evd->callback_arg);
+	    if (result == orig)
+	      result = NULL;
+	    else if (result)
+	      result = cselib_expand_value_rtx_1 (result, evd, max_depth);
+	  }
+
+	if (!result)
+	  result = expand_loc (CSELIB_VAL_PTR (orig)->locs, evd, max_depth);
 	if (result 
 	    && GET_CODE (result) == CONST_INT
 	    && GET_MODE (orig) != VOIDmode)
@@ -1046,7 +1187,8 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
       case 'e':
 	if (XEXP (orig, i) != NULL)
 	  {
-	    rtx result = cselib_expand_value_rtx (XEXP (orig, i), regs_active, max_depth - 1);
+	    rtx result = cselib_expand_value_rtx_1 (XEXP (orig, i), evd,
+						    max_depth - 1);
 	    if (!result)
 	      return NULL;
 	    XEXP (copy, i) = result;
@@ -1060,7 +1202,8 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 	    XVEC (copy, i) = rtvec_alloc (XVECLEN (orig, i));
 	    for (j = 0; j < XVECLEN (copy, i); j++)
 	      {
-		rtx result = cselib_expand_value_rtx (XVECEXP (orig, i, j), regs_active, max_depth - 1);
+		rtx result = cselib_expand_value_rtx_1 (XVECEXP (orig, i, j),
+							evd, max_depth - 1);
 		if (!result)
 		  return NULL;
 		XVECEXP (copy, i, j) = result;
@@ -1086,7 +1229,11 @@ cselib_expand_value_rtx (rtx orig, bitmap regs_active, int max_depth)
 
   scopy = simplify_rtx (copy);
   if (scopy)
-    return scopy;
+    {
+      if (GET_MODE (copy) != GET_MODE (scopy))
+	scopy = wrap_constant (GET_MODE (copy), scopy);
+      return scopy;
+    }
   return copy;
 }
 
@@ -1352,7 +1499,7 @@ cselib_invalidate_regno (unsigned int regno, enum machine_mode mode)
 		  break;
 		}
 	    }
-	  if (v->locs == 0)
+	  if (v->locs == 0 && !PRESERVED_VALUE_P (v->val_rtx))
 	    n_useless_values++;
 	}
     }
@@ -1435,7 +1582,7 @@ cselib_invalidate_mem (rtx mem_rtx)
 	  unchain_one_elt_loc_list (p);
 	}
 
-      if (had_locs && v->locs == 0)
+      if (had_locs && v->locs == 0 && !PRESERVED_VALUE_P (v->val_rtx))
 	n_useless_values++;
 
       next = v->next_containing_mem;
@@ -1516,27 +1663,18 @@ cselib_record_set (rtx dest, cselib_val *src_elt, cselib_val *dest_addr_elt)
 	  REG_VALUES (dreg)->elt = src_elt;
 	}
 
-      if (src_elt->locs == 0)
+      if (src_elt->locs == 0 && !PRESERVED_VALUE_P (src_elt->val_rtx))
 	n_useless_values--;
       src_elt->locs = new_elt_loc_list (src_elt->locs, dest);
     }
   else if (MEM_P (dest) && dest_addr_elt != 0
 	   && cselib_record_memory)
     {
-      if (src_elt->locs == 0)
+      if (src_elt->locs == 0 && !PRESERVED_VALUE_P (src_elt->val_rtx))
 	n_useless_values--;
       add_mem_for_addr (dest_addr_elt, src_elt, dest);
     }
 }
-
-/* Describe a single set that is part of an insn.  */
-struct set
-{
-  rtx src;
-  rtx dest;
-  cselib_val *src_elt;
-  cselib_val *dest_addr_elt;
-};
 
 /* There is no good way to determine how many elements there can be
    in a PARALLEL.  Since it's fairly cheap, use a really large number.  */
@@ -1548,7 +1686,7 @@ cselib_record_sets (rtx insn)
 {
   int n_sets = 0;
   int i;
-  struct set sets[MAX_SETS];
+  struct cselib_set sets[MAX_SETS];
   rtx body = PATTERN (insn);
   rtx cond = 0;
 
@@ -1608,6 +1746,9 @@ cselib_record_sets (rtx insn)
 	    sets[i].dest_addr_elt = 0;
 	}
     }
+
+  if (cselib_record_sets_hook)
+    cselib_record_sets_hook (insn, sets, n_sets);
 
   /* Invalidate all locations written by this insn.  Note that the elts we
      looked up in the previous loop aren't affected, just some of their

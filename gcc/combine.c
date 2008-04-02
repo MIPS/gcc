@@ -1,6 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2299,6 +2299,8 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
   rtx next, move_pos = move ? last : NULL_RTX;
 
   p.from = dest;
+  if (GET_MODE (src) == VOIDmode)
+    src = wrap_constant (GET_MODE (dest), src);
   p.to = src;
   p.changed = false;
 
