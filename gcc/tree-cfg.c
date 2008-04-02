@@ -2814,7 +2814,6 @@ static tree
 verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp, x;
-  bool in_phi = (data != NULL);
 
   if (TYPE_P (t))
     *walk_subtrees = 0;
@@ -2865,16 +2864,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	bool new_constant;
 	bool new_side_effects;
 
-        /* ??? tree-ssa-alias.c may have overlooked dead PHI nodes, missing
-	   dead PHIs that take the address of something.  But if the PHI
-	   result is dead, the fact that it takes the address of anything
-	   is irrelevant.  Because we can not tell from here if a PHI result
-	   is dead, we just skip this check for PHIs altogether.  This means
-	   we may be missing "valid" checks, but what can you do?
-	   This was PR19217.  */
-        if (in_phi)
-	  break;
-
 	old_invariant = TREE_INVARIANT (t);
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
@@ -2917,10 +2906,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	    return x;
 	  }
 
-	/* Stop recursing and verifying invariant ADDR_EXPRs, they tend
-	   to become arbitrary complicated.  */
-	if (is_gimple_min_invariant (t))
-	  *walk_subtrees = 0;
 	break;
       }
 
