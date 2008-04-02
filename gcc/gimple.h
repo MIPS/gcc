@@ -588,7 +588,7 @@ bool empty_body_p (gimple_seq);
 extern bool is_gimple_val (tree);
 
 /* In builtins.c  */
-extern bool validate_arglist (const_gimple, ...);
+extern bool validate_gimple_arglist (const_gimple, ...);
 
 /* In tree-ssa-operands.c  */
 extern void gimple_add_to_addresses_taken (gimple, tree);

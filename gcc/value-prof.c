@@ -1205,16 +1205,14 @@ interesting_stringop_to_profile_p (tree fndecl, gimple call)
     {
      case BUILT_IN_MEMCPY:
      case BUILT_IN_MEMPCPY:
-       return validate_arglist (call,
-				POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE,
-				VOID_TYPE);
+       return validate_gimple_arglist (call, POINTER_TYPE, POINTER_TYPE,
+				       INTEGER_TYPE, VOID_TYPE);
      case BUILT_IN_MEMSET:
-       return validate_arglist (call,
-				POINTER_TYPE, INTEGER_TYPE, INTEGER_TYPE,
-				VOID_TYPE);
+       return validate_gimple_arglist (call, POINTER_TYPE, INTEGER_TYPE,
+				      INTEGER_TYPE, VOID_TYPE);
      case BUILT_IN_BZERO:
-       return validate_arglist (call, POINTER_TYPE, INTEGER_TYPE,
-				VOID_TYPE);
+       return validate_gimple_arglist (call, POINTER_TYPE, INTEGER_TYPE,
+				       VOID_TYPE);
      default:
        gcc_unreachable ();
     }

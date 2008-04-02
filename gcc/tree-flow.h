@@ -281,6 +281,9 @@ struct tree_ann_common_d GTY(())
   /* FIXME tuples.  Hack to record EH region number into a statement
      tree created during RTL expansion (see gimple_to_tree).  */
   int rn;
+
+  /* FIXME tuples: Pointer to original GIMPLE statement.  */
+  gimple stmt;
 };
 
 /* It is advantageous to avoid things like life analysis for variables which

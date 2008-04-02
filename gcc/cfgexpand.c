@@ -154,6 +154,7 @@ gimple_to_tree (gimple stmt)
       {
 	size_t i;
         tree fn;
+	tree_ann_common_t ann;
         
 	t = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
@@ -177,6 +178,14 @@ gimple_to_tree (gimple stmt)
 
 	if (gimple_call_flags (stmt) & ECF_NOTHROW)
 	  TREE_NOTHROW (t) = 1;
+
+        /* Record the original call statement, as it may be used
+           to retrieve profile information during expansion.  */
+	if (TREE_CODE (fn) == FUNCTION_DECL && DECL_BUILT_IN (fn))
+	  {
+	    ann = get_tree_common_ann (t);
+	    ann->stmt = stmt;
+	  }
 
         /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
         if (gimple_call_lhs (stmt))

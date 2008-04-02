@@ -1,3 +1,44 @@
+2008-04-01  Doug Kwan  <dougkwan@google.com>
+	    Bill Maddox  <maddox@google.com>.
+
+	* value-prof.c (interesting_stringop_to_profile_p) Call
+	validate_gimple_arglist instead of validate_arglist.
+	* tree.h (validate_arglist): New declaration.
+	* builtins.c (expand_builtin_setjmp_receiver, expand_builtin_longjmp,
+	expand_builtin_nonlocal_goto, expand_builtin_nonlocal_goto,
+	expand_builtin_update_setjmp_buf, expand_builtin_prefetch,
+	expand_builtin_apply, expand_builtin_return, expand_builtin_mathfn,
+	expand_builtin_mathfn_2, expand_builtin_mathfn_3,
+	expand_builtin_interclass_mathfn, expand_builtin_sincos,
+	expand_builtin_cexpi, expand_builtin_int_roundingfn,
+	expand_builtin_int_roundingfn_2, expand_builtin_pow,
+	expand_builtin_powi, expand_builtin_strlen, expand_builtin_strlen,
+	expand_builtin_strstr, expand_builtin_strchr, expand_builtin_strrchr,
+	expand_builtin_memcpy, expand_builtin_memcpy,
+	expand_builtin_mempcpy_args, expand_builtin_bcopy, expand_movstr,
+	expand_builtin_stpcpy, expand_builtin_strncpy, builtin_memset_gen_str,
+	expand_builtin_bzero, expand_builtin_memchr, expand_builtin_memcmp,
+	expand_builtin_strcmp, expand_builtin_strncmp, expand_builtin_strcat,
+	expand_builtin_strncat, expand_builtin_strspn, expand_builtin_alloca,
+	expand_builtin_bswap, expand_builtin_unop, expand_builtin_fputs,
+	expand_builtin_fabs, expand_builtin_copysign,
+	expand_builtin___clear_cache, expand_builtin_init_trampoline,
+	expand_builtin_adjust_trampoline, expand_builtin_signbit,
+	expand_builtin, validate_arg, expand_builtin_object_size,
+	expand_builtin_object_size, expand_builtin_memory_chk) Re-enable code
+	previously disabled for GIMPLE.
+	(expand_builtin_memcpy, expand_builtin_memset_args): Re-enable code
+	previously disabled for GIMPLE.  Look up tree attribute for original
+	GIMPLE statement.
+	(validate_arglist): Use old interface of tree node instead of GIMPLE
+	statement.
+	(validate_gimple_arglist):  New function.
+	* cfgexpand.c (gimple_to_tree): Set GIMPLE statement tree attribute
+	for builtin function calls.
+	* tree-flow.h (struct tree_ann_common_d): New field stmt.
+	* gimple.h (validate_gimple_arglist): New declaration.
+	(validate_arglist): Moved to tree.h.
+
 2008-03-31  Oleg Ryjkov  <olegr@google.com>
 
 	* gimplify.c (gimplify_switch_expr): Verify the return value from
