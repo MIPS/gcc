@@ -1,3 +1,8 @@
+2008-04-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (start_allocno_priorities): Permit zero allocno
+	nref.
+
 2008-03-31  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (push_allocnos_to_stack): Don't use double.  Use

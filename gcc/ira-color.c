@@ -1803,7 +1803,7 @@ start_allocno_priorities (allocno_t *consideration_allocnos, int n)
 	  allocno_priorities [ALLOCNO_NUM (a)] = 0;
 	  continue;
 	}
-      ira_assert (length > 0 && ALLOCNO_NREFS (a) > 0);
+      ira_assert (length > 0 && ALLOCNO_NREFS (a) >= 0);
       allocno_priorities [ALLOCNO_NUM (a)]
 	= (((double) (floor_log2 (ALLOCNO_NREFS (a)) * ALLOCNO_FREQ (a))
 	    / length)
