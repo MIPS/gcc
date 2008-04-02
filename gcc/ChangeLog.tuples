@@ -1,5 +1,12 @@
 2008-04-02  Rafael Espindola <espindola@google.com>
 
+	Merge with mainline @133597.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-04-02  Rafael Espindola <espindola@google.com>
+
 	Merge with mainline @133527.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.
