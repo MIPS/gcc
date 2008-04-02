@@ -6807,6 +6807,11 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
   if (TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
     return NULL_TREE;
 
+  /* If the conversion is from an integral subtype to its basetype
+     leave it alone.  */
+  if (TREE_TYPE (inner_type) == outer_type)
+    return NULL_TREE;
+
   if (TREE_CODE (arg1) != INTEGER_CST
       && !((TREE_CODE (arg1) == NOP_EXPR
 	    || TREE_CODE (arg1) == CONVERT_EXPR)
@@ -9085,7 +9090,7 @@ get_pointer_modulus_and_residue (tree expr, unsigned HOST_WIDE_INT *residue)
 	    }
 	}
 
-      if (DECL_P (expr))
+      if (DECL_P (expr) && TREE_CODE (expr) != FUNCTION_DECL)
 	return DECL_ALIGN_UNIT (expr);
     }
   else if (code == POINTER_PLUS_EXPR)
@@ -10420,8 +10425,10 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  return fold_build1 (BIT_NOT_EXPR, type,
 			      build2 (BIT_AND_EXPR, type,
-				      TREE_OPERAND (arg0, 0),
-				      TREE_OPERAND (arg1, 0)));
+				      fold_convert (type,
+						    TREE_OPERAND (arg0, 0)),
+				      fold_convert (type,
+						    TREE_OPERAND (arg1, 0))));
 	}
 
       /* See if this can be simplified into a rotate first.  If that
@@ -13743,7 +13750,7 @@ tree_simple_nonnegative_warnv_p (enum tree_code code, tree type)
    set *STRICT_OVERFLOW_P to true; otherwise, don't change
    *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_unary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 				bool *strict_overflow_p)
 {
@@ -13813,7 +13820,7 @@ tree_unary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
    set *STRICT_OVERFLOW_P to true; otherwise, don't change
    *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
 				      tree op1, bool *strict_overflow_p)
 {
@@ -13914,7 +13921,7 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
    set *STRICT_OVERFLOW_P to true; otherwise, don't change
    *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 {
   if (TYPE_UNSIGNED (TREE_TYPE (t)))
@@ -13954,7 +13961,7 @@ tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
    set *STRICT_OVERFLOW_P to true; otherwise, don't change
    *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 {
   enum tree_code code = TREE_CODE (t);
@@ -14243,7 +14250,7 @@ tree_expr_nonnegative_p (tree t)
    is undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't
    change *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_unary_nonzero_warnv_p (enum tree_code code, tree type, tree op0,
 				 bool *strict_overflow_p)
 {
@@ -14283,7 +14290,7 @@ tree_unary_nonzero_warnv_p (enum tree_code code, tree type, tree op0,
    is undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't
    change *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_binary_nonzero_warnv_p (enum tree_code code,
 			     tree type,
 			     tree op0,
@@ -14391,7 +14398,7 @@ tree_binary_nonzero_warnv_p (enum tree_code code,
    is undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't
    change *STRICT_OVERFLOW_P.  */
 
-static bool
+bool
 tree_single_nonzero_warnv_p (tree t, bool *strict_overflow_p)
 {
   bool sub_strict_overflow_p;
@@ -14955,6 +14962,34 @@ fold_indirect_ref_1 (tree type, tree op0)
 	  return fold_build3 (BIT_FIELD_REF, type, op, part_width, index);
 	}
     }
+
+  /* ((foo*)&vectorfoo)[1] => BIT_FIELD_REF<vectorfoo,...> */
+  if (TREE_CODE (sub) == POINTER_PLUS_EXPR
+      && TREE_CODE (TREE_OPERAND (sub, 1)) == INTEGER_CST)
+    { 
+      tree op00 = TREE_OPERAND (sub, 0);
+      tree op01 = TREE_OPERAND (sub, 1);
+      tree op00type;
+      
+      STRIP_NOPS (op00);
+      op00type = TREE_TYPE (op00);
+      if (TREE_CODE (op00) == ADDR_EXPR
+          && TREE_CODE (TREE_TYPE (op00type)) == VECTOR_TYPE
+          && type == TREE_TYPE (TREE_TYPE (op00type)))
+	{ 
+	  HOST_WIDE_INT offset = tree_low_cst (op01, 0);
+	  tree part_width = TYPE_SIZE (type);
+	  unsigned HOST_WIDE_INT part_widthi = tree_low_cst (part_width, 0)/BITS_PER_UNIT;
+	  unsigned HOST_WIDE_INT indexi = offset * BITS_PER_UNIT;
+	  tree index = bitsize_int (indexi);
+
+	  if (offset/part_widthi <= TYPE_VECTOR_SUBPARTS (TREE_TYPE (op00type)))
+	    return fold_build3 (BIT_FIELD_REF, type, TREE_OPERAND (op00, 0),
+				part_width, index);
+        
+	}
+    }
+
 
   /* ((foo*)&complexfoo)[1] => __imag__ complexfoo */
   if (TREE_CODE (sub) == POINTER_PLUS_EXPR
