@@ -1,3 +1,112 @@
+2008-03-25  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * c-common.c (c_sizeof_or_alignof_type): If we're not allowed to
+       complain when we hit an error, return ERROR_MARK_NODE.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* config/sh/constraints.md (Pso, Psz): New constraints.
+	* config/sh/sh.c (print_operand): Add %V and %W operand codes.
+	* config/sh/sh.md (*andsi3_bclr, *iorsi3_bset): New insns.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* config/sh/sh.c (sh_expand_t_scc): Emit movrt for SH2A if
+	possible.
+	* config/sh/sh.md (xorsi3_movrt, movrt): New insns.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* config/sh/sh.md (prefetch): Add condition for SH2A target.
+	(prefetch_sh2a): New.	
+
+2008-03-25  Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* config/sh/constraints.md (I28): New constraint.
+	* config/sh/sh.c (broken_move): Add support for movi20s.
+	* config/sh/sh.md (movsi_ie): Add the alternative for
+	movi20s.
+
+2008-03-25  Anil Paranjape  <anil.paranjape@kpitcummins.com>
+	    Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* config/sh/sh.c (SH_ATTRIBUTES): Define.
+	(SYMBOL_FLAG_FUNCVEC_FUNCTION): Define.
+	(print_operand): Handle resbank in %@ operand code.
+	(sh_encode_section_info): New.
+	(push_regs): Add conditions for resbank.
+	(sh_expand_epilogue): Likewise.
+	(sh_insert_attributes): Likewise.
+	(sh_attribute_table): Likewise.
+	(sh_handle_resbank_handler_attribute): New.
+	(sh2a_handle_function_vector_handler_attribute): New.
+	(sh2a_is_function_vector_call): New.
+	(sh2a_get_function_vector_number): New.
+	(sh2a_function_vector_p): New.
+	(sh_cfun_resbank_handler_p): New.
+	* config/sh/sh.md (calli): Emit jsr/n if possible.
+	(calli_tbr_rel): New.
+	(calli_pcrel): Emit jsr/n if possible.
+	(return_i): Emit rts/n if possible.
+	(call_valuei_tbr_rel): New.
+	(call_valuei_pcrel): Add condition for SH2A target.
+	(call_value): Likewise.
+	* config/sh/sh-protos.h (sh_cfun_resbank_handler_p): Declare.
+	(sh2a_get_function_vector_number): Likewise.
+	(sh2a_is_function_vector_call): Likewise.
+	* doc/extend.texi: Document TBR relative addressing of SH2A.
+	(resbank): Add description for SH2A.
+
+2008-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR c/22371
+	* gimplify.c (gimplify_modify_expr): For frontend type-correct
+	pointer assignments change conversions according to middle-end rules.
+	(gimplify_modify_expr_rhs): Deal with NULL TARGET_EXPR_INITIAL.
+	* configure.ac: Include type checking in yes.
+	* configure: Regenerate.
+
+2008-03-24  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* diagnostic.c (diagnostic_count_diagnostic): Delete.
+	(diagnostic_report_diagnostic): Update. Handle ICEs here.
+	
+2008-03-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gthr-vxworks.h (UNUSED): Define.
+
+2008-03-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (STATIC_CHAIN_REGNUM): Use R10_REG and
+	CX_REG.
+
+2008-03-23  Zuxy Meng <zuxy.meng@gmail.com>
+
+	* doc/extend.texi (Function Attributes): Add missing comma in the
+	example of the "alloc_size" attribute.
+	
+2008-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2008-03-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-modes.def: Use 4 byte alignment on DI for
+	32bit host.
+
+	2008-03-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35496
+	* stor-layout.c (update_alignment_for_field): Set minimum alignment
+	of the underlying type of a MS bitfield layout to the natural
+	alignment of the type.
+
+	2008-03-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (assign_386_stack_local): Align DImode slots
+	to their natural alignment to avoid store forwarding stalls.
+
 2008-03-22  Richard Guenther  <rguenther@suse.de>
 
 	* tree-cfg.c (verify_expr): Recurse again for invariant addresses.
@@ -2680,7 +2789,6 @@
 2008-02-17  Uros Bizjak  <ubizjak@gmail.com>
 
 	Revert:
-
 	2008-02-15  Uros Bizjak  <ubizjak@gmail.com>	
 	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
 	libgcc_cmp_return mode.

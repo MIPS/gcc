@@ -3751,7 +3751,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 	     references somehow.  */
 	  tree init = TARGET_EXPR_INITIAL (*from_p);
 
-	  if (!VOID_TYPE_P (TREE_TYPE (init)))
+	  if (init
+	      && !VOID_TYPE_P (TREE_TYPE (init)))
 	    {
 	      *from_p = init;
 	      ret = GS_OK;
@@ -3971,6 +3972,17 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == GIMPLE_MODIFY_STMT
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
+
+  /* Insert pointer conversions required by the middle-end that are not
+     required by the frontend.  This fixes middle-end type checking for
+     for example gcc.dg/redecl-6.c.  */
+  if (POINTER_TYPE_P (TREE_TYPE (*to_p))
+      && lang_hooks.types_compatible_p (TREE_TYPE (*to_p), TREE_TYPE (*from_p)))
+    {
+      STRIP_USELESS_TYPE_CONVERSION (*from_p);
+      if (!useless_type_conversion_p (TREE_TYPE (*to_p), TREE_TYPE (*from_p)))
+	*from_p = fold_convert (TREE_TYPE (*to_p), *from_p);
+    }
 
   /* See if any simplifications can be done based on what the RHS is.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,

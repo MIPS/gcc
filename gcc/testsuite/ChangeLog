@@ -1,3 +1,75 @@
+2008-03-25  Douglas Gregor  <doug.gregor@gmail.com>
+
+       * g++.dg/template/sfinae4.C: New.
+       * g++.dg/template/sfinae5.C: New.
+       * g++.dg/template/sfinae6.C: New.
+       * g++.dg/template/sfinae6_neg.C: New.
+       * g++.dg/template/sfinae7.C: New.
+       * g++.dg/template/sfinae8.C: New.
+       * g++.dg/template/sfinae9.C: New.
+       * g++.dg/template/sfinae10.C: New.
+       * g++.dg/template/sfinae11.C: New.
+       * g++.dg/template/sfinae12.C: New.
+       * g++.dg/template/sfinae13.C: New.
+       * g++.dg/template/sfinae14C: New.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-bclr.c: New test.
+	* gcc.target/sh/sh2a-bset.c: New test.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-movrt.c: New test.
+
+2008-03-25  Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-prefetch.c: New test.
+
+2008-03-25  Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-movi20s.c: New test.
+
+2008-03-25  Anil Paranjape  <anil.paranjape@kpitcummins.com>
+	    Jayant Sonar  <Jayant.sonar@kpitcummins.com>
+	    Naveen.H.S  <naveen.hs@kpitcummins.com>
+
+	* gcc.target/sh/sh2a-resbank.c: New test.
+	* gcc.target/sh/sh2a-tbr-jump.c: New test.
+	* gcc.target/sh/sh2a-jsrn.c: New test.
+	* gcc.target/sh/sh2a-rtsn.c: New test.
+
+2008-03-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-17.c: Include sse2-check.h.
+	(main): Change to void and rename to sse2_test.
+	* gcc.dg/vect/costmodel/i386/i386-costmodel-vect.exp: Set
+	dg-do-what-default to "compile" if SSE2 hardware is not available.
+	* gcc.dg/vect/costmodel/i386/x86_64-costmodel-vect.exp: Ditto.
+	* gcc.dg/vect/costmodel/x86_64/costmodel-vect-reduc-1char.c: Remove
+	xfail vect_no_int_max from "vectorization not profitable" check.
+
+2008-03-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/26222
+	* gcc.dg/torture/pr26222.c: New testcase.
+
+2008-03-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34813
+	* gfortran.dg/null_3.f90 : New test
+
+	PR fortran/33295
+	* gfortran.dg/module_function_type_1.f90 : New test
+
+2007-03-23  Thomas Koenig  <tkoenig@gcc.gnu.org
+
+	PR libfortran/32972
+	* gfortran.dg/intrinsic_unpack_1.f90:  New test case.
+	* gfortran.dg/intrinsic_unpack_2.f90:  New test case.
+	* gfortran.dg/intrinsic_unpack_3.f90:  New test case.
+
 2008-03-22  Richard Sandiford  <rsandifo@nildram.co.uk>
 
 	* gcc.target/mips/dse-1.c: Add checks for zeros.
