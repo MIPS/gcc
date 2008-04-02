@@ -1,3 +1,10 @@
+2008-04-02  Doug Kwan  <dougkwan@google.com>
+
+	* tree-complex.c (expand_complex_comparison): Set condition code
+	correctly for the NE_EXPR case.
+	* cfgexpand.c (gimple_to_tree): Generate assignment to return value
+	if necessary.
+
 2008-04-02  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133597.

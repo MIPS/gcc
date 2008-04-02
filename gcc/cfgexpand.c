@@ -99,7 +99,25 @@ gimple_to_tree (gimple stmt)
       break;
 
     case GIMPLE_RETURN:
-      t =  build1 (RETURN_EXPR, void_type_node, gimple_return_retval (stmt));
+      {
+	tree retval = gimple_return_retval (stmt);
+
+	if (retval && retval != error_mark_node)
+	  {
+	    tree result = DECL_RESULT (current_function_decl);
+
+	    /* If we are not returning the current function's RESULT_DECL,
+	       build an assignment to it.  */
+	    if (retval != result)
+	      {
+		/* I believe that a function's RESULT_DECL is unique.  */
+		gcc_assert (TREE_CODE (retval) != RESULT_DECL);
+
+		retval = build_gimple_modify_stmt (result, retval);
+	      }
+	  }
+        t =  build1 (RETURN_EXPR, void_type_node, retval);
+      }
       break;
 
     case GIMPLE_ASM:
