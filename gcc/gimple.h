@@ -445,7 +445,12 @@ struct gimple_statement_omp_parallel GTY(())
 struct gimple_statement_omp_sections GTY(())
 {
   struct gimple_statement_omp omp;
+
   tree clauses;
+
+  /* The control variable used for deciding which of the sections to
+     execute.  */
+  tree control;
 };
 
 /* GIMPLE_OMP_CONTINUE.
@@ -2688,6 +2693,39 @@ gimple_omp_sections_set_clauses (gimple gs, tree clauses)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
   gs->gimple_omp_sections.clauses = clauses;
+}
+
+
+/* Return the control variable associated with the GIMPLE_OMP_SECTIONS
+   in GS.  */
+
+static inline tree
+gimple_omp_sections_control (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
+  return gs->gimple_omp_sections.control;
+}
+
+
+/* Return a pointer to the clauses associated with the GIMPLE_OMP_SECTIONS
+   GS.  */
+
+static inline tree *
+gimple_omp_sections_control_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
+  return &gs->gimple_omp_sections.control;
+}
+
+
+/* Set CONTROL to be the set of clauses associated with the
+   GIMPLE_OMP_SECTIONS in GS.  */
+
+static inline void
+gimple_omp_sections_set_control (gimple gs, tree control)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_SECTIONS);
+  gs->gimple_omp_sections.control = control;
 }
 
 

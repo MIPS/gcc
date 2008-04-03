@@ -1,3 +1,17 @@
+2008-04-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (expand_omp_sections): Use
+	gimple_omp_sections_control.
+	(lower_omp_sections): Same.
+	* gimplify.c (gimplify_omp_workshare): Adjust OMP clauses before
+	creating gimple tuple.
+	Add gimple tuple to sequence.
+	Set OMP_SECTIONS_CONTROL in newly created tuple.
+	* gimple.h (gimple_statement_omp_sections): Add control.
+	(gimple_omp_sections_control): New.
+	(gimple_omp_sections_control_ptr): New.
+	(gimple_omp_sections_set_control): New.
+
 2008-04-03  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-nested.c (convert_nl_goto_receiver): Changed to hadle gimple

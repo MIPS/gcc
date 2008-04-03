@@ -1426,6 +1426,12 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 		       wi, pset);
       if (ret)
 	return ret;
+
+      ret = walk_tree (gimple_omp_sections_control_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+
       break;
 
     case GIMPLE_OMP_SINGLE:

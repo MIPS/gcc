@@ -3555,9 +3555,7 @@ expand_omp_sections (struct omp_region *region)
   si = gsi_last_bb (entry_bb);
   sections_stmt = gsi_stmt (si);
   gcc_assert (gimple_code (sections_stmt) == GIMPLE_OMP_SECTIONS);
-  /* FIXME tuples
-  vin = OMP_SECTIONS_CONTROL (sections_stmt);
-  */
+  vin = gimple_omp_sections_control (sections_stmt);
   if (!is_combined_parallel (region))
     {
       /* If we are not inside a combined parallel+sections region,
@@ -4430,7 +4428,7 @@ lower_omp_sections (tree *stmt_p, omp_context *ctx)
 
   control = create_tmp_var (unsigned_type_node, ".section");
   t = build2 (GIMPLE_OMP_CONTINUE, void_type_node, control, control);
-  OMP_SECTIONS_CONTROL (stmt) = control;
+  gimple_omp_sections_set_control (stmt, control);
   append_to_statement_list (t, &new_body);
 
   append_to_statement_list (olist, &new_body);

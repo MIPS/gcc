@@ -5550,20 +5550,31 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 {
-  tree stmt = *expr_p;
+  tree expr = *expr_p;
+  gimple stmt;
   gimple_seq body = NULL;
 
-  gimplify_scan_omp_clauses (&OMP_CLAUSES (stmt), pre_p, false, false);
+  gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, false, false);
+  gimplify_and_add (OMP_BODY (expr), &body);
+  gimplify_adjust_omp_clauses (&OMP_CLAUSES (expr));
 
-  gimplify_and_add (OMP_BODY (stmt), &body);
-  if (TREE_CODE (stmt) == OMP_SECTIONS)
-    gimple_build_omp_sections (body, OMP_CLAUSES (stmt));
-  else if (TREE_CODE (stmt) == OMP_SINGLE)
-    gimple_build_omp_single (body, OMP_CLAUSES (stmt));
+  if (TREE_CODE (expr) == OMP_SECTIONS)
+    {
+      stmt = gimple_build_omp_sections (body, OMP_CLAUSES (expr));
+      if (OMP_SECTIONS_CONTROL (expr))
+	gimple_omp_sections_set_control (stmt, OMP_SECTIONS_CONTROL (expr));
+    }
+  else if (TREE_CODE (expr) == OMP_SINGLE)
+    stmt = gimple_build_omp_single (body, OMP_CLAUSES (expr));
   else
     gcc_unreachable ();
 
-  gimplify_adjust_omp_clauses (&OMP_CLAUSES (stmt));
+  /* FIXME tuples: Adding the GIMPLE_OMP_{SECTIONS,SINGLE} construct
+     to the sequence causes all sorts of problems because we have
+     disabled omp lowering is still disabled.  Disable this for now
+     until we enable omp_low() and friends.
+  gimplify_seq_add_stmt (pre_p, stmt);
+  */
 }
 
 /* A subroutine of gimplify_omp_atomic.  The front end is supposed to have
