@@ -1591,30 +1591,30 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, void *data)
 }
 
 
-/* Called via walk_function+walk_tree, rewrite all LABEL_EXPRs that 
+/* Called via walk_function+walk_tree, rewrite all GIMPLE_LABELs whose labels
    are referenced via nonlocal goto from a nested function.  The rewrite
    will involve installing a newly generated DECL_NONLOCAL label, and
-   (potentially) a branch around the rtl gunk that is assumed to be 
+   (potentially) a branch around the rtl gunk that is assumed to be
    attached to such a label.  */
 
-static tree
-convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
+static bool
+convert_nl_goto_receiver (gimple_stmt_iterator *gsi, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
-  tree t = *tp, label, new_label;
+  tree label, new_label;
   gimple_stmt_iterator tmp_gsi;
   void **slot;
-  gimple stmt;
+  gimple stmt = gsi_stmt (*gsi);
 
-  *walk_subtrees = 0;
-  if (TREE_CODE (t) != LABEL_EXPR)
-    return NULL_TREE;
-  label = LABEL_EXPR_LABEL (t);
+  if (gimple_code (stmt) != GIMPLE_LABEL)
+    return false;
+
+  label = gimple_label_label (stmt);
 
   slot = pointer_map_contains (info->var_map, label);
   if (!slot)
-    return NULL_TREE;
+    return false;
 
   /* If there's any possibility that the previous statement falls through,
      then we must branch around the new non-local label.  */
@@ -1623,14 +1623,14 @@ convert_nl_goto_receiver (tree *tp, int *walk_subtrees, void *data)
   if (gsi_end_p (tmp_gsi) || gimple_stmt_may_fallthru (gsi_stmt (tmp_gsi)))
     {
       gimple stmt = gimple_build_goto (label);
-      gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
     }
 
   new_label = (tree) *slot;
   stmt = gimple_build_label (new_label);
-  gsi_insert_before (&wi->gsi, stmt, GSI_SAME_STMT);
+  gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
-  return NULL_TREE;
+  return false;
 }
 
 
@@ -2062,7 +2062,7 @@ lower_nested_functions (tree fndecl)
                       convert_local_reference_op,
 		      root);
   walk_all_functions (convert_nl_goto_reference, NULL, root);
-  walk_all_functions (NULL, convert_nl_goto_receiver, root);
+  walk_all_functions (convert_nl_goto_receiver, NULL, root);
   convert_all_function_calls (root);
   finalize_nesting_tree (root);
   unnest_nesting_tree (root);

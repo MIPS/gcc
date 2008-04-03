@@ -1,3 +1,10 @@
+2008-04-03  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-nested.c (convert_nl_goto_receiver): Changed to hadle gimple
+	statements instead of trees.
+	(lower_nested_functions): Pass convert_nl_goto_receiver as the first
+	parameter to walk_all_functions.
+
 2008-04-03  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133624.
