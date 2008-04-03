@@ -808,12 +808,12 @@ dump_omp_region (FILE *file, struct omp_region *region, int indent)
 
   if (region->cont)
     {
-      fprintf (file, "%*sbb %d: OMP_CONTINUE\n", indent, "",
+      fprintf (file, "%*sbb %d: GIMPLE_OMP_CONTINUE\n", indent, "",
 	       region->cont->index);
     }
     
   if (region->exit)
-    fprintf (file, "%*sbb %d: OMP_RETURN\n", indent, "",
+    fprintf (file, "%*sbb %d: GIMPLE_OMP_RETURN\n", indent, "",
 	     region->exit->index);
   else
     fprintf (file, "%*s[no exit marker]\n", indent, "");
@@ -2907,23 +2907,22 @@ expand_omp_for_generic (struct omp_region *region,
       gsi = gsi_last_bb (cont_bb);
       stmt = gsi_stmt (gsi);
       gcc_assert (gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
-      /* FIXME tuples */
-      vmain = TREE_OPERAND (t, 1);
-      vback = TREE_OPERAND (t, 0);
+      vmain = gimple_omp_continue_control_use (stmt);
+      vback = gimple_omp_continue_control_def (stmt);
 
       t = fold_build2 (PLUS_EXPR, type, vmain, fd->step);
       t = force_gimple_operand_gsi (&si, t, false, NULL_TREE,
 				    true, GSI_SAME_STMT);
-      t = build_gimple_modify_stmt (vback, t);
-      gsi_insert_before (&si, t, GSI_SAME_STMT);
+      stmt = gimple_gimple_assign (vback, t);
+      gsi_insert_before (&si, stmt, GSI_SAME_STMT);
       if (gimple_in_ssa_p (cfun))
-	SSA_NAME_DEF_STMT (vback) = t;
+	SSA_NAME_DEF_STMT (vback) = stmt;
   
       t = build2 (fd->cond_code, boolean_type_node, vback, iend);
       t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
       gsi_insert_before (&si, t, GSI_SAME_STMT);
 
-      /* Remove OMP_CONTINUE.  */
+      /* Remove GIMPLE_OMP_CONTINUE.  */
       gsi_remove (&si, true);
 
       /* Emit code to get the next parallel iteration in L2_BB.  */
@@ -3111,13 +3110,13 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   e = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				false, GSI_CONTINUE_LINKING);
 
-  /* The code controlling the sequential loop replaces the OMP_CONTINUE.  */
+  /* The code controlling the sequential loop replaces the
+     GIMPLE_OMP_CONTINUE.  */
   gsi = gsi_last_bb (cont_bb);
   stmt = gsi_stmt (gsi);
-  gcc_assert (gimple_code (stmt) == OMP_CONTINUE);
-  /* FIXME tuples */
-  vmain = TREE_OPERAND (t, 1);
-  vback = TREE_OPERAND (t, 0);
+  gcc_assert (gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
+  vmain = gimple_omp_continue_control_use (stmt);
+  vback = gimple_omp_continue_control_def (stmt);
 
   t = fold_build2 (PLUS_EXPR, type, vmain, fd->step);
   t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE,
@@ -3133,7 +3132,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   gsi_insert_before (&si, t, GSI_SAME_STMT);
   */
 
-  /* Remove the OMP_CONTINUE statement.  */
+  /* Remove the GIMPLE_OMP_CONTINUE statement.  */
   gsi_remove (&gsi, true);
 
   /* Replace the OMP_RETURN with a barrier, or nothing.  */
@@ -3197,7 +3196,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 {
   tree n, s0, e0, e, t;
   tree trip_var, trip_init, trip_main, trip_back, nthreads, threadid;
-  tree type, v_main = NULL, v_back = NULL, v_extra;
+  tree type, v_main, v_back, v_extra;
   basic_block entry_bb, exit_bb, body_bb, seq_start_bb, iter_part_bb;
   basic_block trip_update_bb, cont_bb, fin_bb;
   gimple_stmt_iterator si;
@@ -3329,14 +3328,12 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 				false, GSI_CONTINUE_LINKING);
 
   /* The code controlling the sequential loop goes in CONT_BB,
-     replacing the OMP_CONTINUE.  */
+     replacing the GIMPLE_OMP_CONTINUE.  */
   si = gsi_last_bb (cont_bb);
   stmt = gsi_stmt (si);
   gcc_assert (gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
-  /* FIXME tuples
-  v_main = TREE_OPERAND (stmt, 1);
-  v_back = TREE_OPERAND (stmt, 0);
-  */
+  v_main = gimple_omp_continue_control_use (stmt);
+  v_back = gimple_omp_continue_control_def (stmt);
 
   t = build2 (PLUS_EXPR, type, v_main, fd->step);
   stmt = gimple_build_assign (v_back, t);
@@ -3590,10 +3587,8 @@ expand_omp_sections (struct omp_region *region)
     {
       cont = last_stmt (l1_bb);
       gcc_assert (gimple_code (cont) == GIMPLE_OMP_CONTINUE);
-      /* FIXME tuples
-      vmain = TREE_OPERAND (cont, 1);
-      vnext = TREE_OPERAND (cont, 0);
-      */
+      vmain = gimple_omp_continue_control_use (cont);
+      vnext = gimple_omp_continue_control_def (cont);
     }
   else
     {
@@ -4127,30 +4122,30 @@ expand_omp (struct omp_region *region)
 	  expand_omp_parallel (region);
 	  break;
 
-	case OMP_FOR:
+	case GIMPLE_OMP_FOR:
 	  expand_omp_for (region);
 	  break;
 
-	case OMP_SECTIONS:
+	case GIMPLE_OMP_SECTIONS:
 	  expand_omp_sections (region);
 	  break;
 
-	case OMP_SECTION:
+	case GIMPLE_OMP_SECTION:
 	  /* Individual omp sections are handled together with their
-	     parent OMP_SECTIONS region.  */
+	     parent GIMPLE_OMP_SECTIONS region.  */
 	  break;
 
-	case OMP_SINGLE:
+	case GIMPLE_OMP_SINGLE:
 	  expand_omp_single (region);
 	  break;
 
-	case OMP_MASTER:
-	case OMP_ORDERED:
-	case OMP_CRITICAL:
+	case GIMPLE_OMP_MASTER:
+	case GIMPLE_OMP_ORDERED:
+	case GIMPLE_OMP_CRITICAL:
 	  expand_omp_synch (region);
 	  break;
 
-	case OMP_ATOMIC_LOAD:
+	case GIMPLE_OMP_ATOMIC_LOAD:
 	  expand_omp_atomic (region);
 	  break;
 
@@ -4434,7 +4429,7 @@ lower_omp_sections (tree *stmt_p, omp_context *ctx)
   append_to_statement_list (bind, &new_body);
 
   control = create_tmp_var (unsigned_type_node, ".section");
-  t = build2 (OMP_CONTINUE, void_type_node, control, control);
+  t = build2 (GIMPLE_OMP_CONTINUE, void_type_node, control, control);
   OMP_SECTIONS_CONTROL (stmt) = control;
   append_to_statement_list (t, &new_body);
 
@@ -4872,7 +4867,7 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
 
   append_to_statement_list (OMP_FOR_BODY (stmt), body_p);
 
-  t = build2 (OMP_CONTINUE, void_type_node, fd.v, fd.v);
+  t = build2 (GIMPLE_OMP_CONTINUE, void_type_node, fd.v, fd.v);
   append_to_statement_list (t, body_p);
 
   /* After the loop, add exit clauses.  */

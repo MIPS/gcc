@@ -2271,18 +2271,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 	return;
       }
 
-    case OMP_CONTINUE:
-      {
-	/* FIXME tuples.  */
-#if 0
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_def);
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
-	return;
-#else
-	gimple_unreachable ();
-#endif
-      }
-
     case OMP_PARALLEL:
       {
 	/* FIXME tuples.  */

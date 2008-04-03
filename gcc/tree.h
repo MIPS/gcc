@@ -472,8 +472,6 @@ struct gimple_stmt GTY(())
            CALL_EXPR
        DECL_BY_REFERENCE in
            PARM_DECL, RESULT_DECL
-       OMP_RETURN_NOWAIT in
-	   OMP_RETURN
        OMP_SECTION_LAST in
 	   OMP_SECTION
        OMP_PARALLEL_COMBINED in
@@ -1746,13 +1744,6 @@ struct tree_constructor GTY(())
    This status is meaningful in the implementation of lastprivate.  */
 #define OMP_SECTION_LAST(NODE) \
   TREE_PRIVATE (OMP_SECTION_CHECK (NODE))
-
-/* True on an OMP_RETURN statement if the return does not require a
-   thread synchronization via some sort of barrier.  The exact barrier
-   that would otherwise be emitted is dependent on the OMP statement
-   with which this return is associated.  */
-#define OMP_RETURN_NOWAIT(NODE) \
-  TREE_PRIVATE (OMP_RETURN_CHECK (NODE))
 
 /* True on an OMP_PARALLEL statement if it represents an explicit
    combined parallel work-sharing constructs.  */

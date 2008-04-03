@@ -494,7 +494,7 @@ split_bbs_on_noreturn_calls (void)
   return changed;
 }
 
-/* If OMP_RETURN in basic block BB is unreachable, remove it.  */
+/* If GIMPLE_OMP_RETURN in basic block BB is unreachable, remove it.  */
 
 static bool
 cleanup_omp_return (basic_block bb)
@@ -510,7 +510,7 @@ cleanup_omp_return (basic_block bb)
   control_bb = single_pred (bb);
   stmt = last_stmt (control_bb);
 
-  if (gimple_code (stmt) != OMP_SECTIONS_SWITCH)
+  if (gimple_code (stmt) != GIMPLE_OMP_SECTIONS_SWITCH)
     return false;
 
   /* The block with the control statement normally has two entry edges -- one

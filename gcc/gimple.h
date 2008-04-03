@@ -78,7 +78,13 @@ static const unsigned int GF_ASM_VOLATILE		= 1 << 0;
 static const unsigned int GF_CALL_TAILCALL		= 1 << 0;
 static const unsigned int GF_CALL_CANNOT_INLINE		= 1 << 1;
 static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 0;
+
+/* True on an GIMPLE_OMP_RETURN statement if the return does not require a
+   thread synchronization via some sort of barrier.  The exact barrier that
+   would otherwise be emitted is dependent on the OMP statement with which this
+   return is associated.  */
 static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 0;
+
 static const unsigned int GF_OMP_SECTION_LAST		= 1 << 0;
 
 /* Masks for selecting a pass local flag (PLF) to work on.  These
@@ -442,6 +448,18 @@ struct gimple_statement_omp_sections GTY(())
   tree clauses;
 };
 
+/* GIMPLE_OMP_CONTINUE.
+
+   Note: This does not inherit from gimple_statement_omp, because we
+         do not need the body field.  */
+
+struct gimple_statement_omp_continue GTY(())
+{
+  struct gimple_statement_base gsbase;
+  tree control_def;
+  tree control_use;
+};
+
 /* GIMPLE_OMP_SINGLE */
 
 struct gimple_statement_omp_single GTY(())
@@ -508,6 +526,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL"))) gimple_omp_parallel;
   struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS"))) gimple_omp_sections;
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gimple_omp_single;
+  struct gimple_statement_omp_continue GTY ((tag ("GSS_OMP_CONTINUE"))) gimple_omp_continue;
   struct gimple_statement_change_dynamic_type GTY ((tag ("GSS_CHANGE_DYNAMIC_TYPE"))) gimple_change_dynamic_type;
   struct gimple_statement_omp_atomic_load GTY ((tag ("GSS_OMP_ATOMIC_LOAD"))) gimple_omp_atomic_load;
   struct gimple_statement_omp_atomic_store GTY ((tag ("GSS_OMP_ATOMIC_STORE"))) gimple_omp_atomic_store;
@@ -540,7 +559,7 @@ gimple gimple_build_omp_for (gimple_seq, tree, tree, tree, tree, tree,
                              gimple_seq, enum tree_code);
 gimple gimple_build_omp_critical (gimple_seq, tree);
 gimple gimple_build_omp_section (gimple_seq);
-gimple gimple_build_omp_continue (gimple_seq);
+gimple gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_master (gimple_seq);
 gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_ordered (gimple_seq);
@@ -960,7 +979,7 @@ gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
 static inline void
 gimple_omp_return_set_nowait (gimple s)
 {
-  GIMPLE_CHECK (s, OMP_RETURN);
+  GIMPLE_CHECK (s, GIMPLE_OMP_RETURN);
   s->gsbase.subcode |= GF_OMP_RETURN_NOWAIT;
 }
 
@@ -2750,6 +2769,64 @@ gimple_omp_atomic_load_rhs (const_gimple g)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
   return g->gimple_omp_atomic_load.rhs;
+}
+
+
+/* Get the definition of the control variable in a GIMPLE_OMP_CONTINUE.  */
+
+static inline tree
+gimple_omp_continue_control_def (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  return g->gimple_omp_continue.control_def;
+}
+
+/* The same as above, but return the address.  */
+
+static inline tree *
+gimple_omp_continue_control_def_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  return &g->gimple_omp_continue.control_def;
+}
+
+/* Set the definition of the control variable in a GIMPLE_OMP_CONTINUE.  */
+
+static inline void
+gimple_omp_continue_set_control_def (gimple g, tree def)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  g->gimple_omp_continue.control_def = def;
+}
+
+
+/* Get the use of the control variable in a GIMPLE_OMP_CONTINUE.  */
+
+static inline tree
+gimple_omp_continue_control_use (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  return g->gimple_omp_continue.control_use;
+}
+
+
+/* The same as above, but return the address.  */
+
+static inline tree *
+gimple_omp_continue_control_use_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  return &g->gimple_omp_continue.control_use;
+}
+
+
+/* Set the use of the control variable in a GIMPLE_OMP_CONTINUE.  */
+
+static inline void
+gimple_omp_continue_set_control_use (gimple g, tree use)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_CONTINUE);
+  g->gimple_omp_continue.control_use = use;
 }
 
 

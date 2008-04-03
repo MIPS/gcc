@@ -695,6 +695,48 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
+/* Dump a GIMPLE_OMP_CONTINUE tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_continue (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (flags & TDF_RAW)
+    {
+      dump_gimple_fmt (buffer, spc, flags, "%G <%T, %T>", gs,
+                       gimple_omp_continue_control_def (gs),
+                       gimple_omp_continue_control_use (gs));
+    }
+  else
+    {
+      pp_string (buffer, "#pragma omp continue (");
+      dump_generic_node (buffer, gimple_omp_continue_control_def (gs),
+	  		 spc, flags, false);
+      pp_character (buffer, ',');
+      pp_space (buffer);
+      dump_generic_node (buffer, gimple_omp_continue_control_use (gs),
+	  		 spc, flags, false);
+      pp_character (buffer, ')');
+    }
+}
+
+/* Dump a GIMPLE_OMP_RETURN tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_return (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (flags & TDF_RAW)
+    {
+      dump_gimple_fmt (buffer, spc, flags, "%G <nowait=%d>", gs,
+                       (int) gimple_omp_return_nowait_p (gs));
+    }
+  else
+    {
+      pp_string (buffer, "#pragma omp return");
+      if (gimple_omp_return_nowait_p (gs))
+	pp_string (buffer, "(nowait)");
+    }
+}
+
 /* Dump a GIMPLE_ASM tuple on the pretty_printer BUFFER, SPC spaces of
    indent.  FLAGS specifies details to show in the dump (see TDF_* in
    tree-pass.h).  */
@@ -1125,6 +1167,14 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_OMP_FOR:
       dump_gimple_omp_for (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_CONTINUE:
+      dump_gimple_omp_continue (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_RETURN:
+      dump_gimple_omp_return (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_CHANGE_DYNAMIC_TYPE:

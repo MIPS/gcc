@@ -1,3 +1,51 @@
+2008-04-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node): Remove
+	OMP_{RETURN,CONTINUE} cases.
+	* tree.h (OMP_RETURN_NOWAIT): Remove.
+	* omp-low.c (dump_omp_region): Rename OMP_{CONTINUE,RETURN} to
+	GIMPLE_OMP_{CONTINUE,RETURN}.
+	(expand_omp_for_generic): Handle new arguments to
+	GIMPLE_OMP_CONTINUE.
+	(expand_omp_for_static_nochunk): Same.
+	(expand_omp_for_static_chunk): Same.
+	(expand_omp_sections): Same.
+	(expand_omp): Rename all OMP_* to GIMPLE_OMP_*.
+	(lower_omp_sections): Rename OMP_CONTINUE to GIMPLE_OMP_CONTINUE.
+	(lower_omp_for): Same.
+	* tree-gimple.c (is_gimple_stmt): Remove OMP_{RETURN,CONTINUE}
+	cases.
+	* gsstruct.def: Add GSS_OMP_CONTINUE.
+	* gimple-pretty-print.c (dump_gimple_omp_continue): New.
+	(dump_gimple_omp_return): New.
+	(dump_gimple_stmt): Add cases for GIMPLE_OMP_{CONTINUE,RETURN}.
+	* gimplify.c (gimplify_expr): Remove cases for
+	OMP_{CONTINUE,RETURN}.
+	* tree.def (DEFTREECODE): Remove OMP_{RETURN,CONTINUE}.
+	* tree-cfgcleanup.c (cleanup_omp_return): Rename
+	OMP_SECTIONS_SWITCH to GIMPLE_OMP_SECTIONS_SWITCH.
+	* gimple.c (gss_for_code): GIMPLE_OMP_RETURN returns GSS_BASE.
+	GIMPLE_OMP_CONTINUE return GSS_OMP_CONTINUE.
+	(gimple_size): Adjust size of GIMPLE_OMP_{RETURN,CONTINUE}.
+	(gimple_build_omp_continue): Change arguments.
+	(walk_gimple_op): Walk GIMPLE_OMP_CONTINUE operands.
+	(walk_gimple_stmt): Remove GIMPLE_OMP_CONTINUE case.
+	* gimple.h (struct gimple_statement_omp_continue): New.
+	(union gimple_statement_d): Add gimple_omp_continue.
+	(gimple_build_omp_continue): Change argument types in prototype.
+	(gimple_omp_return_set_nowait): Rename OMP_RETURN to
+	GIMPLE_OMP_RETURN.
+	(gimple_omp_continue_control_def): New.
+	(gimple_omp_continue_control_def_ptr): New.
+	(gimple_omp_continue_set_control_def): New.
+	(gimple_omp_continue_control_use): New.
+	(gimple_omp_continue_control_use_ptr): New.
+	(gimple_omp_continue_set_control_use): New.
+	* tree-cfg.c (make_edges): Rename OMP_ to GIMPLE_OMP_.
+	(gimple_redirect_edge_and_branch): Same.
+	* tree-ssa-operands.c (get_expr_operands): Remove OMP_CONTINUE
+	case.
+
 2008-04-02  Doug Kwan  <dougkwan@google.com>
 
 	* tree-complex.c (expand_complex_comparison): Set condition code

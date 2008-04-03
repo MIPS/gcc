@@ -500,13 +500,13 @@ make_edges (void)
 	      fallthru = true;
 	      break;
 
-	    case OMP_PARALLEL:
-	    case OMP_FOR:
-	    case OMP_SINGLE:
-	    case OMP_MASTER:
-	    case OMP_ORDERED:
-	    case OMP_CRITICAL:
-	    case OMP_SECTION:
+	    case GIMPLE_OMP_PARALLEL:
+	    case GIMPLE_OMP_FOR:
+	    case GIMPLE_OMP_SINGLE:
+	    case GIMPLE_OMP_MASTER:
+	    case GIMPLE_OMP_ORDERED:
+	    case GIMPLE_OMP_CRITICAL:
+	    case GIMPLE_OMP_SECTION:
 	      /* FIXME tuples.  */
 #if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
@@ -516,7 +516,7 @@ make_edges (void)
 #endif
 	      break;
 
-	    case OMP_SECTIONS:
+	    case GIMPLE_OMP_SECTIONS:
 	      /* FIXME tuples.  */
 #if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
@@ -527,7 +527,7 @@ make_edges (void)
 #endif
 	      break;
 
-	    case OMP_SECTIONS_SWITCH:
+	    case GIMPLE_OMP_SECTIONS_SWITCH:
 	      /* FIXME tuples.  */
 #if 0
 	      fallthru = false;
@@ -538,13 +538,13 @@ make_edges (void)
 	      break;
 
 
-            case OMP_ATOMIC_LOAD:
-            case OMP_ATOMIC_STORE:
+            case GIMPLE_OMP_ATOMIC_LOAD:
+            case GIMPLE_OMP_ATOMIC_STORE:
                fallthru = true;
                break;
 
 
-	    case OMP_RETURN:
+	    case GIMPLE_OMP_RETURN:
 	      /* FIXME tuples.  */
 #if 0
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
@@ -558,13 +558,13 @@ make_edges (void)
 #endif
 	      break;
 
-	    case OMP_CONTINUE:
+	    case GIMPLE_OMP_CONTINUE:
 	      /* FIXME tuples.  */
 #if 0
 	      cur_region->cont = bb;
 	      switch (cur_region->type)
 		{
-		case OMP_FOR:
+		case GIMPLE_OMP_FOR:
 		  /* Mark all OMP_FOR and OMP_CONTINUE succs edges as abnormal
 		     to prevent splitting them.  */
 		  single_succ_edge (cur_region->entry)->flags |= EDGE_ABNORMAL;
@@ -580,7 +580,7 @@ make_edges (void)
 		  fallthru = false;
 		  break;
 
-		case OMP_SECTIONS:
+		case GIMPLE_OMP_SECTIONS:
 		  /* Wire up the edges into and out of the nested sections.  */
 		  {
 		    basic_block switch_bb = single_succ (cur_region->entry);
@@ -594,7 +594,7 @@ make_edges (void)
 		      }
 
 		    /* Make the loopback edge to the block with
-		       OMP_SECTIONS_SWITCH.  */
+		       GIMPLE_OMP_SECTIONS_SWITCH.  */
 		    make_edge (bb, switch_bb, 0);
 
 		    /* Make the edge from the switch to exit.  */
@@ -4548,10 +4548,10 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
       e->flags |= EDGE_FALLTHRU;
       break;
 
-    case OMP_RETURN:
-    case OMP_CONTINUE:
-    case OMP_SECTIONS_SWITCH:
-    case OMP_FOR:
+    case GIMPLE_OMP_RETURN:
+    case GIMPLE_OMP_CONTINUE:
+    case GIMPLE_OMP_SECTIONS_SWITCH:
+    case GIMPLE_OMP_FOR:
       /* The edges from OMP constructs can be simply redirected.  */
       break;
 

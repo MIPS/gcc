@@ -1910,22 +1910,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_omp_clauses (buffer, OMP_SINGLE_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
-    case OMP_RETURN:
-      pp_string (buffer, "OMP_RETURN");
-      if (OMP_RETURN_NOWAIT (node))
-	pp_string (buffer, " [nowait]");
-      is_expr = false;
-      break;
-
-    case OMP_CONTINUE:
-      pp_string (buffer, "OMP_CONTINUE <");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_string (buffer, " <- ");
-      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      pp_string (buffer, ">");
-      is_expr = false;
-      break;
-
     case OMP_CLAUSE:
       dump_omp_clause (buffer, node, spc, flags);
       is_expr = false;

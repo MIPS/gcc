@@ -107,11 +107,11 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_WITH_CLEANUP_EXPR:	return GSS_WCE;
     case GIMPLE_OMP_CRITICAL:		return GSS_OMP_CRITICAL;
     case GIMPLE_OMP_FOR:		return GSS_OMP_FOR;
-    case GIMPLE_OMP_CONTINUE:
     case GIMPLE_OMP_MASTER:		
     case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_SECTION:		return GSS_OMP;
+    case GIMPLE_OMP_RETURN:		return GSS_BASE;
+    case GIMPLE_OMP_CONTINUE:		return GSS_OMP_CONTINUE;
     case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
     case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
@@ -160,10 +160,12 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_parallel);
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
-    case GIMPLE_OMP_CONTINUE:
     case GIMPLE_OMP_ORDERED:
-    case GIMPLE_OMP_RETURN:
       return sizeof (struct gimple_statement_omp);
+    case GIMPLE_OMP_RETURN:
+      return sizeof (struct gimple_statement_base);
+    case GIMPLE_OMP_CONTINUE:
+      return sizeof (struct gimple_statement_omp_continue);
     case GIMPLE_OMP_SECTIONS:
       return sizeof (struct gimple_statement_omp_sections);
     case GIMPLE_OMP_SINGLE:
@@ -845,15 +847,16 @@ gimple_build_omp_master (gimple_seq body)
 
 
 /* Build a GIMPLE_OMP_CONTINUE statement.
-   FIXME tuples: BODY.  */
+
+   CONTROL_DEF is the definition of the control variable.
+   CONTROL_USE is the use of the control variable.  */
 
 gimple 
-gimple_build_omp_continue (gimple_seq body)
+gimple_build_omp_continue (tree control_def, tree control_use)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_CONTINUE);
-  if (body)
-    gimple_omp_set_body (p, body);
-
+  gimple_omp_continue_set_control_def (p, control_def);
+  gimple_omp_continue_set_control_use (p, control_use);
   return p;
 }
 
@@ -1359,6 +1362,18 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	return ret;
       break;
 
+    case GIMPLE_OMP_CONTINUE:
+      ret = walk_tree (gimple_omp_continue_control_def_ptr (stmt),
+	  	       callback_op, wi, pset);
+      if (ret)
+	return ret;
+
+      ret = walk_tree (gimple_omp_continue_control_use_ptr (stmt),
+	  	       callback_op, wi, pset);
+      if (ret)
+	return ret;
+      break;
+
     case GIMPLE_OMP_CRITICAL:
       ret = walk_tree (gimple_omp_critical_name_ptr (stmt), callback_op, wi,
 		       pset);
@@ -1532,7 +1547,6 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       /* FALL THROUGH.  */
 
     case GIMPLE_OMP_CRITICAL:
-    case GIMPLE_OMP_CONTINUE:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:

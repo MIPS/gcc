@@ -6290,8 +6290,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_omp_atomic (expr_p, pre_p);
 	  break;
 
-	case OMP_RETURN:
-	case OMP_CONTINUE:
 	case OMP_ATOMIC_STORE:
 	  /* We don't need to handle these, as they are merely markers
 	     which are generated en route after gimplification, thus
@@ -6529,13 +6527,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != RESX_EXPR
 		  && code != SWITCH_EXPR
 		  && code != TRY_FINALLY_EXPR
-		  && code != OMP_CONTINUE
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
 		  && code != OMP_MASTER
 		  && code != OMP_ORDERED
 		  && code != OMP_PARALLEL
-		  && code != OMP_RETURN
 		  && code != OMP_SECTIONS
 		  && code != OMP_SECTION
 		  && code != OMP_SINGLE);
