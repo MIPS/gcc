@@ -296,6 +296,9 @@ movement_possibility (gimple stmt)
       return MOVE_POSSIBLE;
     }
 
+  if (gimple_get_lhs (stmt) == NULL_TREE)
+    return MOVE_IMPOSSIBLE;
+
   if (stmt_ends_bb_p (stmt)
       || gimple_has_volatile_ops (stmt)
       || gimple_has_side_effects (stmt)

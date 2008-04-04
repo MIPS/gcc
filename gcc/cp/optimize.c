@@ -185,9 +185,12 @@ maybe_clone_body (tree fn)
 	  *pointer_map_insert (decl_map, parm) = clone_parm;
 	}
       /* Clone the body.  */
-      /* FIXME tuples
+	 /* FIXME tuples.  */
+#if 0
       clone_body (clone, fn, decl_map);
-      */
+#else
+      gimple_unreachable ();
+#endif
 
       /* Clean up.  */
       pointer_map_destroy (decl_map);

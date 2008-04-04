@@ -672,7 +672,7 @@ is_malloc_result (tree var)
 
   def_stmt = SSA_NAME_DEF_STMT (var);
   
-  if (gimple_code (def_stmt) != GIMPLE_CALL)
+  if (!is_gimple_call (def_stmt))
     return false;
 
   if (var != gimple_call_lhs (def_stmt))

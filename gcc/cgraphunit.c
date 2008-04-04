@@ -461,8 +461,8 @@ cgraph_process_new_functions (void)
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	  current_function_decl = fndecl;
 	  node->local.inlinable = tree_inlinable_function_p (fndecl);
-	  node->local.self_insns = estimate_num_insns_fn (fndecl,
-						&eni_inlining_weights);
+	  node->local.self_insns 
+            = estimate_num_insns_fn (fndecl, &eni_inlining_weights);
 
 	  node->local.disregard_inline_limits
 	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
@@ -747,11 +747,6 @@ verify_cgraph_node (struct cgraph_node *node)
       && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
-      /* FIXME tuples.  Do not merge test for THIS_CFUN, it should
-	 always exist and be non-NULL.  */
-      if (this_cfun == NULL)
-	goto tuples_hack;
-
       if (this_cfun->cfg)
 	{
 	  /* The nodes we're interested in are never shared, so walk
@@ -760,13 +755,13 @@ verify_cgraph_node (struct cgraph_node *node)
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    for (gsi = gsi_start_bb (this_block); !gsi_end_p (gsi);
-		 gsi_next (&gsi))
+	    for (gsi = gsi_start_bb (this_block);
+                 !gsi_end_p (gsi);
+                 gsi_next (&gsi))
 	      {
 		gimple stmt = gsi_stmt (gsi);
 		tree decl;
-		if (gimple_code (stmt) == GIMPLE_CALL
-		    && (decl = gimple_call_fndecl (stmt)))
+		if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
 		  {
 		    struct cgraph_edge *e = cgraph_edge (node, stmt);
 		    if (e)
@@ -801,8 +796,6 @@ verify_cgraph_node (struct cgraph_node *node)
 	/* No CFG available?!  */
 	gcc_unreachable ();
 
-      /* FIXME tuples.  Remove.  */
-tuples_hack:
       for (e = node->callees; e; e = e->next_callee)
 	{
 	  if (!e->aux)
@@ -1010,6 +1003,7 @@ cgraph_analyze_functions (void)
 	}
 
       gcc_assert (!node->analyzed && node->reachable);
+      gcc_assert (gimple_body (decl));
 
       cgraph_analyze_function (node);
 
@@ -1553,7 +1547,7 @@ update_call_expr (struct cgraph_node *new_version)
 
   /* Update the call expr on the edges to call the new version.  */
   for (e = new_version->callers; e; e = e->next_caller)
-    gimple_call_set_fn (e->call_stmt, new_version->decl);
+    TREE_OPERAND (gimple_call_fn (e->call_stmt), 0) = new_version->decl;
 }
 
 

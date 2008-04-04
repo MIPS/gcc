@@ -202,7 +202,9 @@ cleanup_control_flow_bb (basic_block bb)
 
   /* Check for indirect calls that have been turned into
      noreturn calls.  */
-  else if (gimple_call_noreturn_p (stmt) && remove_fallthru_edge (bb->succs))
+  else if (is_gimple_call (stmt)
+           && gimple_call_noreturn_p (stmt)
+           && remove_fallthru_edge (bb->succs))
     retval = true;
 
   return retval;
@@ -540,7 +542,6 @@ cleanup_tree_cfg_bb (basic_block bb)
   /* Forwarder blocks can carry line number information which is
      useful when debugging, so we only clean them up when
      optimizing.  */
-
   if (optimize > 0
       && tree_forwarder_block_p (bb, false)
       && remove_forwarder_block (bb))

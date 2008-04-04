@@ -128,8 +128,7 @@ build_cgraph_edges (void)
 	gimple stmt = gsi_stmt (gsi);
 	tree decl;
 
-	if (gimple_code (stmt) == GIMPLE_CALL
-	    && (decl = gimple_call_fndecl (stmt)))
+	if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
 	  {
 	    size_t i;
 	    size_t n = gimple_call_num_args (stmt);
@@ -228,8 +227,7 @@ rebuild_cgraph_edges (void)
 	gimple stmt = gsi_stmt (gsi);
 	tree decl;
 
-	if (gimple_code (stmt) == GIMPLE_CALL
-	    && (decl = gimple_call_fndecl (stmt)))
+	if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
 	  {
 	    int freq = (!bb->frequency && !entry_freq ? CGRAPH_FREQ_BASE
 			: bb->frequency * CGRAPH_FREQ_BASE / entry_freq);

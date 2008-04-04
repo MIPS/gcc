@@ -532,10 +532,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
-          /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_cleanup_cfg);
-#endif
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
           /* FIXME tuples.  */
@@ -567,17 +564,17 @@ init_optimization_passes (void)
 #endif
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_inline_parameters);
-#endif
     }
   /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_cp);
+#endif
   NEXT_PASS (pass_ipa_inline);
+  /* FIXME tuples.  */
+#if 0
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 
   NEXT_PASS (pass_ipa_type_escape);
@@ -589,10 +586,7 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_apply_inline);
-#endif
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
@@ -999,12 +993,10 @@ execute_function_todo (void *data)
   if (flags & TODO_remove_unused_locals)
     remove_unused_locals ();
 
-  if ((flags & TODO_dump_func)
-      && dump_file && current_function_decl)
+  if ((flags & TODO_dump_func) && dump_file && current_function_decl)
     {
       if (cfun->curr_properties & PROP_trees)
-        dump_function_to_file (current_function_decl,
-                               dump_file, dump_flags);
+        dump_function_to_file (current_function_decl, dump_file, dump_flags);
       else
 	{
 	  if (dump_flags & TDF_SLIM)
@@ -1015,7 +1007,7 @@ execute_function_todo (void *data)
           else
 	    print_rtl (dump_file, get_insns ());
 
-	  if (cfun->curr_properties & PROP_cfg
+	  if ((cfun->curr_properties & PROP_cfg)
 	      && graph_dump_format != no_graph
 	      && (dump_flags & TDF_GRAPH))
 	    print_rtl_graph_with_bb (dump_file_name, get_insns ());
@@ -1064,12 +1056,9 @@ execute_function_todo (void *data)
 static void
 execute_todo (unsigned int flags)
 {
-  /* FIXME tuples  */
-#if 0
 #if defined ENABLE_CHECKING
   if (need_ssa_update_p ())
     gcc_assert (flags & TODO_update_ssa_any);
-#endif
 #endif
 
   /* Inform the pass whether it is the first time it is run.  */
@@ -1084,8 +1073,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     cgraph_remove_unreachable_nodes (true, dump_file);
 
-  if ((flags & TODO_dump_cgraph)
-      && dump_file && !current_function_decl)
+  if ((flags & TODO_dump_cgraph) && dump_file && !current_function_decl)
     {
       dump_cgraph (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
@@ -1094,9 +1082,7 @@ execute_todo (unsigned int flags)
     }
 
   if (flags & TODO_ggc_collect)
-    {
-      ggc_collect ();
-    }
+    ggc_collect ();
 
   /* Now that the dumping has been done, we can get rid of the optional 
      df problems.  */

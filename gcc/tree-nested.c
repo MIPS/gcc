@@ -1089,11 +1089,12 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
    PARM_DECLs that belong to outer functions.  This handles statements
    that are not handled via the standard recursion done in
    walk_gimple_stmt.  STMT is the statement to examine, DATA is as in
-   convert_nonlocal_reference_op.  Return true if all the operands of STMT
-   have been handled by this function.  */
+   convert_nonlocal_reference_op.  Set *HANDLED_OPS_P to true if all the
+   operands of STMT have been handled by this function.  */
 
-static bool
-convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+				 void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
@@ -1109,7 +1110,8 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, void *data)
 	{
 	  wi->val_only = true;
 	  wi->is_lhs = false;
-	  return true;
+	  *handled_ops_p = true;
+	  return NULL_TREE;
 	}
       break;
 
@@ -1179,11 +1181,13 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, void *data)
     default:
       /* For every other statement that we are not interested in
 	 handling here, let the walker traverse the operands.  */
-      return false;
+      *handled_ops_p = false;
+      return NULL_TREE;
     }
 
   /* We have handled all of STMT operands, no need to traverse the operands.  */
-  return true;
+  *handled_ops_p = true;
+  return NULL_TREE;
 }
 
 
@@ -1448,8 +1452,9 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
    and PARM_DECLs that were referenced by inner nested functions.
    The rewrite will be a structure reference to the local frame variable.  */
 
-static bool
-convert_local_reference_stmt (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			      void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
@@ -1524,11 +1529,13 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, void *data)
     default:
       /* For every other statement that we are not interested in
 	 handling here, let the walker traverse the operands.  */
-      return false;
+      *handled_ops_p = false;
+      return NULL_TREE;
     }
 
   /* Indicate that we have handled all the operands ourselves.  */
-  return true;
+  *handled_ops_p = true;
+  return NULL_TREE;
 }
 
 
@@ -1536,8 +1543,9 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, void *data)
    that reference labels from outer functions.  The rewrite will be a
    call to __builtin_nonlocal_goto.  */
 
-static bool
-convert_nl_goto_reference (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			   void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info, *i;
@@ -1547,15 +1555,24 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, void *data)
   gimple stmt = gsi_stmt (*gsi);
 
   if (gimple_code (stmt) != GIMPLE_GOTO)
-    return false;
+    {
+      *handled_ops_p = false;
+      return NULL_TREE;
+    }
 
   label = gimple_goto_dest (stmt);
   if (TREE_CODE (label) != LABEL_DECL)
-    return false;
+    {
+      *handled_ops_p = false;
+      return NULL_TREE;
+    }
 
   target_context = decl_function_context (label);
   if (target_context == info->context)
-    return false;
+    {
+      *handled_ops_p = false;
+      return NULL_TREE;
+    }
 
   for (i = info->outer; target_context != i->context; i = i->outer)
     continue;
@@ -1587,7 +1604,8 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, void *data)
   gsi_replace (&wi->gsi, call, false);
 
   /* We have handled all of STMT's operands, no need to keep going.  */
-  return true;
+  *handled_ops_p = true;
+  return NULL_TREE;
 }
 
 
@@ -1597,8 +1615,9 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, void *data)
    (potentially) a branch around the rtl gunk that is assumed to be
    attached to such a label.  */
 
-static bool
-convert_nl_goto_receiver (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_nl_goto_receiver (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			  void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
@@ -1608,13 +1627,19 @@ convert_nl_goto_receiver (gimple_stmt_iterator *gsi, void *data)
   gimple stmt = gsi_stmt (*gsi);
 
   if (gimple_code (stmt) != GIMPLE_LABEL)
-    return false;
+    {
+      *handled_ops_p = false;
+      return NULL_TREE;
+    }
 
   label = gimple_label_label (stmt);
 
   slot = pointer_map_contains (info->var_map, label);
   if (!slot)
-    return false;
+    {
+      *handled_ops_p = false;
+      return NULL_TREE;
+    }
 
   /* If there's any possibility that the previous statement falls through,
      then we must branch around the new non-local label.  */
@@ -1630,7 +1655,8 @@ convert_nl_goto_receiver (gimple_stmt_iterator *gsi, void *data)
   stmt = gimple_build_label (new_label);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
-  return false;
+  *handled_ops_p = true;
+  return NULL_TREE;
 }
 
 
@@ -1709,8 +1735,9 @@ convert_tramp_reference_op (tree *tp, int *walk_subtrees, void *data)
    trampolines.  The rewrite will involve a reference a trampoline
    generated for the occasion.  */
 
-static bool
-convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			      void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   gimple stmt = gsi_stmt (*gsi);
@@ -1718,22 +1745,24 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, void *data)
   switch (gimple_code (stmt))
     {
     case GIMPLE_CALL:
-      /* Only walk call arguments, lest we generate trampolines for
-	 direct calls.  */
       {
+	/* Only walk call arguments, lest we generate trampolines for
+	   direct calls.  */
 	unsigned long i, nargs = gimple_call_num_args (stmt);
 	for (i = 0; i < nargs; i++)
 	  walk_tree (gimple_call_arg_ptr (stmt, i), convert_tramp_reference_op,
 		     wi, NULL);
 
-	return true;
+	*handled_ops_p = true;
+	return NULL_TREE;
       }
 
     default:
       break;
     }
 
-  return false;
+  *handled_ops_p = false;
+  return NULL_TREE;
 }
 
 
@@ -1742,8 +1771,8 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, void *data)
    that reference nested functions to make sure that the static chain
    is set up properly for the call.  */
 
-static bool
-convert_gimple_call (gimple_stmt_iterator *gsi, void *data)
+static tree
+convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
@@ -1811,11 +1840,13 @@ convert_gimple_call (gimple_stmt_iterator *gsi, void *data)
       break;
 
     default:
-      /* Keep looking for other statements and operands.  */
-      return false;
+      /* Keep looking for other operands.  */
+      *handled_ops_p = false;
+      return NULL_TREE;
     }
 
-  return true;
+  *handled_ops_p = true;
+  return NULL_TREE;
 }
 
 

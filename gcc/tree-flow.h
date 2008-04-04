@@ -736,7 +736,6 @@ extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool gimple_purge_dead_abnormal_call_edges (basic_block);
 extern bool gimple_purge_dead_eh_edges (basic_block);
 extern bool gimple_purge_all_dead_eh_edges (const_bitmap);
-extern tree gimplify_val (gimple_stmt_iterator *, tree, tree);
 extern tree gimplify_build1 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree);
 extern tree gimplify_build2 (gimple_stmt_iterator *, enum tree_code,
@@ -778,7 +777,7 @@ extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
 extern void remove_referenced_var (tree);
 extern void mark_symbols_for_renaming (gimple);
-extern void find_new_referenced_vars (gimple_stmt_iterator *);
+extern void find_new_referenced_vars (gimple);
 extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);

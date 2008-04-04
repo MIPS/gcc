@@ -260,7 +260,13 @@ operand_build_sort_virtual (VEC(tree,heap) *list)
 bool
 ssa_operands_active (void)
 {
-  gcc_assert (cfun);
+  /* This function may be invoked from contexts where CFUN is NULL
+     (IPA passes), return false for now.  FIXME: operands may be
+     active in each individual function, maybe this function should
+     take CFUN as a parameter.  */
+  if (cfun == NULL)
+    return false;
+
   return cfun->gimple_df && gimple_ssa_operands (cfun)->ops_active;
 }
 

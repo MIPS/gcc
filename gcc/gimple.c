@@ -270,7 +270,7 @@ gimple_build_call_1 (tree fn, size_t nargs)
    specified in vector ARGS.  */
 
 gimple
-gimple_build_call_vec (tree fn, VEC(tree, gc) *args)
+gimple_build_call_vec (tree fn, VEC(tree, heap) *args)
 {
   size_t i;
   size_t nargs = VEC_length (tree, args);
@@ -380,6 +380,9 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
       gcc_assert (num_ops > 2);
       gimple_assign_set_rhs2 (p, op2);
     }
+
+  if (lhs && TREE_CODE (lhs) == SSA_NAME)
+    SSA_NAME_DEF_STMT (lhs) = p;
 
   return p;
 }
@@ -1155,7 +1158,7 @@ gimple_seq_deep_copy (gimple_seq src)
 
   for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = gimple_copy (gsi_stmt (gsi));
+      stmt = gimple_deep_copy (gsi_stmt (gsi));
       gimple_seq_add_stmt (&new, stmt);
     }
 
@@ -1164,11 +1167,15 @@ gimple_seq_deep_copy (gimple_seq src)
 
 
 /* Walk all the statements in the sequence SEQ calling walk_gimple_stmt
-   on each one.  WI is as in walk_gimple_stmt.  If walk_gimple_stmt
-   returns non-NULL, the walk is stopped and the value returned.
-   Otherwise, all the statements are walked and NULL_TREE returned.  */
+   on each one.  WI is as in walk_gimple_stmt.
+   
+   If walk_gimple_stmt returns non-NULL, the walk is stopped, the
+   value is stored in WI->CALLBACK_RESULT and the statement that
+   produced the value is returned.
 
-tree
+   Otherwise, all the statements are walked and NULL returned.  */
+
+gimple
 walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
 		 walk_tree_fn callback_op, struct walk_stmt_info *wi)
 {
@@ -1176,13 +1183,21 @@ walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
 
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      tree ret;
-      ret = walk_gimple_stmt (&gsi, callback_stmt, callback_op, wi);
+      tree ret = walk_gimple_stmt (&gsi, callback_stmt, callback_op, wi);
       if (ret)
-	return ret;
+	{
+	  /* If CALLBACK_STMT or CALLBACK_OP return a value, WI must exist
+	     to hold it.  */
+	  gcc_assert (wi);
+	  wi->callback_result = ret;
+	  return gsi_stmt (gsi);
+	}
     }
 
-  return NULL_TREE;
+  if (wi)
+    wi->callback_result = NULL_TREE;
+
+  return NULL;
 }
 
 
@@ -1252,15 +1267,14 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
    CALLBACK_OP is called on each operand of STMT via walk_tree.
    Additional parameters to walk_tree must be stored in WI.  For each operand
    OP, walk_tree is called as:
-  
+
 	walk_tree (&OP, CALLBACK_OP, WI, WI->PSET)
 
-   If CALLBACK_OP returns non-NULL for an operand, the remaining operands are
-   not scanned.
-        
+   If CALLBACK_OP returns non-NULL for an operand, the remaining
+   operands are not scanned.
+
    The return value is that returned by the last call to walk_tree, or
-   NULL_TREE if no CALLBACK_OP is specified.
-*/
+   NULL_TREE if no CALLBACK_OP is specified.  */
 
 inline tree
 walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
@@ -1312,6 +1326,14 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       if (wi)
 	wi->is_lhs = false;
 
+      ret = walk_tree (gimple_call_chain_ptr (stmt), callback_op, wi, pset);
+      if (ret)
+        return ret;
+
+      ret = walk_tree (gimple_call_fn_ptr (stmt), callback_op, wi, pset);
+      if (ret)
+        return ret;
+
       for (i = 0; i < gimple_call_num_args (stmt); i++)
 	{
 	  ret = walk_tree (gimple_call_arg_ptr (stmt, i), callback_op, wi,
@@ -1324,7 +1346,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	wi->is_lhs = true;
 
       ret = walk_tree (gimple_call_lhs_ptr (stmt), callback_op, wi, pset);
-
       if (ret)
 	return ret;
 
@@ -1466,25 +1487,27 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 }
 
 
-/* Walk the current statement in GSI (optionally using traversal state stored
-   in WI).  If WI is NULL, no state is kept during traversal.  The callback
-   CALLBACK_STMT is called.  If CALLBACK_STMT returns true, it means that the
-   callback function has handled all the operands of the statement and it is
-   not necessary to walk its operands.
+/* Walk the current statement in GSI (optionally using traversal state
+   stored in WI).  If WI is NULL, no state is kept during traversal.
+   The callback CALLBACK_STMT is called.  If CALLBACK_STMT indicates
+   that it has handled all the operands of the statement, its return
+   value is returned.  Otherwise, the return value from CALLBACK_STMT
+   is discarded and its operands are scanned.
 
-   If CALLBACK_STMT is NULL or it returns false, CALLBACK_OP is called
-   on each operand of the statement via walk_gimple_op.  If walk_gimple_op
-   returns non-NULL for any operand, the remaining operands are not
-   scanned.
+   If CALLBACK_STMT is NULL or it didn't handle the operands,
+   CALLBACK_OP is called on each operand of the statement via
+   walk_gimple_op.  If walk_gimple_op returns non-NULL for any
+   operand, the remaining operands are not scanned.  In this case, the
+   return value from CALLBACK_OP is returned.
 
-   The return value is that returned by the last call to walk_gimple_op, or
-   NULL_TREE if no CALLBACK_OP is specified.  */
+   In any other case, NULL_TREE is returned.  */
 
 tree
 walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 		  walk_tree_fn callback_op, struct walk_stmt_info *wi)
 {
-  tree ret;
+  gimple ret;
+  tree tree_ret;
   gimple stmt = gsi_stmt (*gsi);
 
   if (wi)
@@ -1493,21 +1516,32 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
   if (wi && wi->want_locations && gimple_has_location (stmt))
     input_location = gimple_location (stmt);
 
-  ret = NULL_TREE;
+  ret = NULL;
 
   /* Invoke the statement callback.  Return if the callback handled
      all of STMT operands by itself.  */
   if (callback_stmt)
     {
-      if (callback_stmt (gsi, wi))
-        return ret;
+      bool handled_ops = false;
+      tree_ret = callback_stmt (gsi, &handled_ops, wi);
+      if (handled_ops)
+	return tree_ret;
+
+      /* If CALLBACK_STMT did not handle operands, it should not have
+	 a value to return.  */
+      gcc_assert (tree_ret == NULL);
+
       /* Re-read stmt in case the callback changed it.  */
       stmt = gsi_stmt (*gsi);
     }
 
   /* If CALLBACK_OP is defined, invoke it on every operand of STMT.  */
   if (callback_op)
-    ret = walk_gimple_op (stmt, callback_op, wi);
+    {
+      tree_ret = walk_gimple_op (stmt, callback_op, wi);
+      if (tree_ret)
+	return tree_ret;
+    }
 
   /* If STMT can have statements inside (e.g. GIMPLE_BIND), walk them.  */
   switch (gimple_code (stmt))
@@ -1516,39 +1550,40 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       ret = walk_gimple_seq (gimple_bind_body (stmt), callback_stmt,
 	                     callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     case GIMPLE_CATCH:
       ret = walk_gimple_seq (gimple_catch_handler (stmt), callback_stmt,
 	                     callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     case GIMPLE_EH_FILTER:
       ret = walk_gimple_seq (gimple_eh_filter_failure (stmt), callback_stmt,
 		             callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     case GIMPLE_TRY:
       ret = walk_gimple_seq (gimple_try_eval (stmt), callback_stmt, callback_op,
 	                     wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
+
       ret = walk_gimple_seq (gimple_try_cleanup (stmt), callback_stmt,
 	                     callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     case GIMPLE_OMP_FOR:
       ret = walk_gimple_seq (gimple_omp_for_pre_body (stmt), callback_stmt,
 		             callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
 
       /* FALL THROUGH.  */
 
@@ -1562,21 +1597,21 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
 	                     wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     case GIMPLE_WITH_CLEANUP_EXPR:
       ret = walk_gimple_seq (gimple_wce_cleanup (stmt), callback_stmt,
 			     callback_op, wi);
       if (ret)
-	return ret;
+	return wi->callback_result;
       break;
 
     default:
       break;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 
@@ -1869,10 +1904,15 @@ gimple_set_lhs (gimple stmt, tree lhs)
 }
 
 
-/* Return a copy of statement STMT.  */
+/* Helper for gimple_deep_copy and gimple_shallow_copy.  If
+   IS_DEEP_COPY is true, return a deep copy of STMT (all the operands
+   are copied with unshare_expr).  Otherwise, return a shallow copy of
+   STMT (all the operands in the new copy point to the operands in the
+   original). The DEF, USE, VDEF and VUSE operand arrays in the new
+   copy are set to NULL.  */
 
-gimple
-gimple_copy (gimple stmt)
+static inline gimple
+gimple_copy_1 (gimple stmt, bool is_deep_copy)
 {
   enum gimple_code code = gimple_code (stmt);
   size_t num_ops = gimple_num_ops (stmt);
@@ -1883,8 +1923,12 @@ gimple_copy (gimple stmt)
   if (num_ops > 0)
     {
       gimple_alloc_ops (copy, num_ops);
-      for (i = 0; i < num_ops; i++)
-	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+      if (is_deep_copy)
+	for (i = 0; i < num_ops; i++)
+	  gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+      else
+	for (i = 0; i < num_ops; i++)
+	  gimple_set_op (copy, i, gimple_op (stmt, i));
     }
 
   if (gimple_has_ops (stmt))
@@ -1901,9 +1945,35 @@ gimple_copy (gimple stmt)
       stmt->with_mem_ops.stores = NULL;
       stmt->with_mem_ops.loads = NULL;
     }
-  update_stmt (copy);
 
   return copy;
+}
+
+
+/* Return a shallow copy of statement STMT.  The operands in the new
+   statement will point to the original operands in STMT.  The DEF,
+   USE, VDEF and VUSE operand arrays are set to empty in the new copy.
+
+   NOTE: The copy returned by this function is not suitable for
+   insertion into the IL, as it shares the operands with the original
+   statement.  It is used by transformations like inlining which will
+   remap operands from one function to another.  */
+
+gimple
+gimple_shallow_copy (gimple stmt)
+{
+  return gimple_copy_1 (stmt, false);
+}
+
+
+/* Return a deep copy of statement STMT.  All the operands from STMT
+   are reallocated and copied using unshare_expr.  The DEF, USE, VDEF
+   and VUSE operand arrays are set to empty in the new copy.  */
+
+gimple
+gimple_deep_copy (gimple stmt)
+{
+  return gimple_copy_1 (stmt, true);
 }
 
 
@@ -1979,7 +2049,10 @@ gimple_set_modified (gimple s, bool modifiedp)
     {
       s->with_ops.modified = (unsigned) modifiedp;
 
-      if (modifiedp && gimple_call_noreturn_p (s) && cfun->gimple_df)
+      if (modifiedp
+	  && cfun->gimple_df
+	  && is_gimple_call (s)
+	  && gimple_call_noreturn_p (s))
 	VEC_safe_push (gimple, gc, MODIFIED_NORETURN_CALLS (cfun), s);
     }
 }
@@ -1994,7 +2067,7 @@ gimple_set_modified (gimple s, bool modifiedp)
 bool
 gimple_has_side_effects (gimple s)
 {
-  if (gimple_code (s) == GIMPLE_CALL)
+  if (is_gimple_call (s))
     return !(gimple_call_flags (s) & (ECF_CONST | ECF_PURE));
   else
     {
@@ -2050,6 +2123,33 @@ gimple_could_trap_p (gimple s)
       return false;
     }
 
+}
+
+
+/* Some transformations like inlining may invalidate the GIMPLE form
+   for operands.  This function traverses all the operands in STMT and
+   gimplifies anything that is not a valid gimple operand.  Any new
+   GIMPLE statements are inserted before *GSI_P.  */
+
+void
+gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
+{
+  size_t i, num_ops = gimple_num_ops (stmt);
+
+  for (i = 0; i < gimple_num_ops (stmt); i++)
+    {
+      /* NOTE: We start gimplifying operands from last to first to
+	 make sure that side-effects on the RHS of calls, assignments
+	 and ASMs are executed before the LHS.  The ordering is not
+	 important for other statements.  */
+      tree op = gimple_op (stmt, num_ops - i - 1);
+      if (!is_gimple_operand (op))
+	{
+	  op = force_gimple_operand_gsi (gsi_p, op, true, NULL, true,
+					 GSI_SAME_STMT);
+	  gimple_set_op (stmt, i, op);
+	}
+    }
 }
 
 

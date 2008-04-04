@@ -42,6 +42,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "target.h"
 
+/* Helper for gimple_to_tree.  Set EXPR_LOCATION for every expression
+   inside *TP.  DATA is the location to set.  */
+
+static tree
+set_expr_location_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
+{
+  location_t *loc = (location_t *) data;
+  if (EXPR_P (*tp))
+    SET_EXPR_LOCATION (*tp, *loc);
+
+  return NULL_TREE;
+}
+
+
 /* FIXME tuples.  THIS IS A HACK.  DO NOT USE.
 
    RTL expansion has traditionally been done on trees, so the
@@ -58,6 +72,9 @@ static tree
 gimple_to_tree (gimple stmt)
 {
   tree t;
+  int rn;
+  tree_ann_common_t ann;
+  location_t loc;
 
   switch (gimple_code (stmt))
     {
@@ -165,6 +182,8 @@ gimple_to_tree (gimple stmt)
 	s = gimple_asm_string (stmt);
 	t = build4 (ASM_EXPR, void_type_node, build_string (strlen (s), s),
 	            out, in, cl);
+        ASM_VOLATILE_P (t) = gimple_asm_volatile_p (stmt);
+        ASM_INPUT_P (t) = gimple_asm_input_p (stmt);
       }
     break;
 
@@ -197,6 +216,15 @@ gimple_to_tree (gimple stmt)
 	if (gimple_call_flags (stmt) & ECF_NOTHROW)
 	  TREE_NOTHROW (t) = 1;
 
+        CALL_EXPR_TAILCALL (t) = gimple_call_tail_p (stmt);
+        CALL_EXPR_RETURN_SLOT_OPT (t) = gimple_call_return_slot_opt_p (stmt);
+        CALL_FROM_THUNK_P (t) = gimple_call_from_thunk_p (stmt);
+        CALL_CANNOT_INLINE_P (t) = gimple_call_cannot_inline_p (stmt);
+
+        /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
+        if (gimple_call_lhs (stmt))
+          t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
+
         /* Record the original call statement, as it may be used
            to retrieve profile information during expansion.  */
 	if (TREE_CODE (fn) == FUNCTION_DECL && DECL_BUILT_IN (fn))
@@ -204,10 +232,6 @@ gimple_to_tree (gimple stmt)
 	    ann = get_tree_common_ann (t);
 	    ann->stmt = stmt;
 	  }
-
-        /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
-        if (gimple_call_lhs (stmt))
-          t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
       }
     break;
 
@@ -246,13 +270,15 @@ gimple_to_tree (gimple stmt)
 
   /* If STMT is inside an exception region, record it in the generated
      expression.  */
-  {
-    int rn = lookup_stmt_eh_region (stmt);
-    tree_ann_common_t ann = get_tree_common_ann (t);
-    ann->rn = rn;
-  }
+  rn = lookup_stmt_eh_region (stmt);
+  ann = get_tree_common_ann (t);
+  ann->rn = rn;
 
-  SET_EXPR_LOCATION (t, gimple_location (stmt));
+  /* Set EXPR_LOCATION in all the embedded expressions.  */
+  loc = gimple_location (stmt);
+  walk_tree (&t, set_expr_location_r, (void *) &loc, NULL);
+
+  TREE_BLOCK (t) = gimple_block (stmt);
 
   return t;
 }
@@ -1802,7 +1828,7 @@ expand_gimple_basic_block (basic_block bb)
 	}
       else
 	{
-	  if (gimple_code (stmt) == GIMPLE_CALL && gimple_call_tail_p (stmt))
+	  if (is_gimple_call (stmt) && gimple_call_tail_p (stmt))
 	    {
 	      bool can_fallthru;
 	      new_bb = expand_gimple_tailcall (bb, stmt, &can_fallthru);

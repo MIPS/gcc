@@ -32,13 +32,17 @@ typedef struct copy_body_data
   /* FUNCTION_DECL for function being inlined, or in general the
      source function providing the original trees.  */
   tree src_fn;
+
   /* FUNCTION_DECL for function being inlined into, or in general
      the destination function receiving the new trees.  */
   tree dst_fn;
+
   /* Callgraph node of the source function.  */
   struct cgraph_node *src_node;
+
   /* Callgraph node of the destination function.  */
   struct cgraph_node *dst_node;
+
   /* struct function for function being inlined.  Usually this is the same
      as DECL_STRUCT_FUNCTION (src_fn), but can be different if saved_cfg
      and saved_eh are in use.  */
@@ -46,6 +50,7 @@ typedef struct copy_body_data
 
   /* The VAR_DECL for the return value.  */
   tree retvar;
+
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
   struct pointer_map_t *decl_map;
@@ -56,12 +61,13 @@ typedef struct copy_body_data
   /* Current BLOCK.  */
   tree block;
 
-  /* CALL_EXPR if va arg parameter packs should be expanded or NULL
+  /* GIMPLE_CALL if va arg parameter packs should be expanded or NULL
      is not.  */
-  tree call_expr;
+  gimple gimple_call;
 
   /* Exception region the inlined call lie in.  */
   int eh_region;
+
   /* Take region number in the function being copied, add this value and
      get eh region number of the duplicate in the function we inline into.  */
   int eh_region_offset;
@@ -138,7 +144,7 @@ extern eni_weights eni_time_weights;
 
 /* Function prototypes.  */
 
-extern tree copy_body_r (tree *, int *, void *);
+extern tree copy_tree_body_r (tree *, int *, void *);
 extern void insert_decl_map (copy_body_data *, tree, tree);
 
 unsigned int optimize_inline_calls (tree);

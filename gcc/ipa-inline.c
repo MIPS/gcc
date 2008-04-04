@@ -195,9 +195,11 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
    clones or re-using node originally representing out-of-line function call.
    */
 void
-cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_original)
+cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
+			    bool update_original)
 {
   HOST_WIDE_INT peak;
+
   if (duplicate)
     {
       /* We may eliminate the need for out-of-line copy to be output.
@@ -1119,15 +1121,18 @@ cgraph_decide_inlining (void)
 	fprintf (dump_file, "\nDeciding on functions called once:\n");
 
       /* And finally decide what functions are called once.  */
-
       for (i = nnodes - 1; i >= 0; i--)
 	{
 	  node = order[i];
 
-	  if (node->callers && !node->callers->next_caller && !node->needed
-	      && node->local.inlinable && node->callers->inline_failed
+	  if (node->callers
+	      && !node->callers->next_caller
+	      && !node->needed
+	      && node->local.inlinable
+	      && node->callers->inline_failed
 	      && !gimple_call_cannot_inline_p (node->callers->call_stmt)
-	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
+	      && !DECL_EXTERNAL (node->decl)
+	      && !DECL_COMDAT (node->decl))
 	    {
 	      if (dump_file)
 		{
@@ -1338,7 +1343,8 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
     }
 
   /* Now do the automatic inlining.  */
-  if (!flag_really_no_inline && mode != INLINE_ALL
+  if (!flag_really_no_inline
+      && mode != INLINE_ALL
       && mode != INLINE_ALWAYS_INLINE)
     for (e = node->callees; e; e = e->next_callee)
       {
@@ -1440,9 +1446,10 @@ struct simple_ipa_opt_pass pass_ipa_inline =
   0,	                                /* properties_required */
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_remove_functions,		/* todo_flags_finish */
-  TODO_dump_cgraph | TODO_dump_func
-  | TODO_remove_functions		/* todo_flags_finish */
+  TODO_remove_functions,		/* todo_flags_start */
+  TODO_dump_cgraph
+    | TODO_dump_func
+    | TODO_remove_functions		/* todo_flags_finish */
  }
 };
 
@@ -1587,8 +1594,8 @@ apply_inline (void)
   struct cgraph_edge *e;
   struct cgraph_node *node = cgraph_node (current_function_decl);
 
-  /* Even when not optimizing, ensure that always_inline functions get inlined.
-   */
+  /* Even when not optimizing, ensure that always_inline functions get
+     inlined. */
   if (!optimize)
    cgraph_decide_inlining_incrementally (node, INLINE_SPEED, 0);
 
@@ -1600,12 +1607,14 @@ apply_inline (void)
   for (e = node->callees; e; e = e->next_callee)
     if (!e->inline_failed || warn_inline)
       break;
+
   if (e)
     {
       timevar_push (TV_INTEGRATION);
       todo = optimize_inline_calls (current_function_decl);
       timevar_pop (TV_INTEGRATION);
     }
+
   /* In non-unit-at-a-time we must mark all referenced functions as needed.  */
   if (!flag_unit_at_a_time)
     {
@@ -1632,8 +1641,9 @@ struct gimple_opt_pass pass_apply_inline =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_flow
-  | TODO_verify_stmts			/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_verify_flow
+    | TODO_verify_stmts			/* todo_flags_finish */
  }
 };
 

@@ -1,3 +1,118 @@
+2008-04-04  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00413.html
+
+	* tree-ssa-loop-im.c (movement_possibility): Return
+	MOVE_IMPOSSIBLE if that statement makes no assignment.
+	* tree-complex.c (get_component_ssa_name): Fix comment.
+	(set_component_ssa_name): Assert that COMP's definition
+	is LAST.
+	* cgraph.c (cgraph_update_edges_for_call_stmt): Tuplify.
+	(dump_cgraph_node): Likewise.
+	* tree.c (auto_var_in_fn_p): Fix comment.
+	* cgraphunit.c (verify_cgraph_node): Remove tuples hack
+	that avoided verifying nodes.
+	* gimple-pretty-print.c (dump_gimple_asm): Show the
+	volatile flag.
+
+	* gimple-dummy.c (optimize_inline_calls): Remove.
+	(tree_function_versioning): Remove.
+	(tree_versionalbe_function_p): Remove.
+	* ipa-inline.c (cgraph_clone_inlined_bodies): Re-format.
+	(cgraph_decide_inlining): Re-format.
+	(cgraph_decide_inlining_incrementally): Re-format.
+	(pass_ipa_inline): Re-format.
+	* gimplify.c (gimplify_call_expr): Carry all the
+	CALL_EXPR flags to the newly created GIMPLE_CALL.
+	(gimplify_asm_expr): Carry ASM_VOLATILE_P and ASM_INPUT_P
+	over to the new GIMPLE_ASM.
+	* tree-dfa.c (find_new_referenced_vars): Change argument
+	to gimple.  Update all callers.
+	* cfgexpand.c (set_expr_location_r): New private.
+	(gimple_to_tree): Call it.
+	Set ASM_VOLATILE_P and ASM_INPUT_P for ASM_EXPRs.
+	Carry flags from GIMPLE_CALL for CALL_EXPRs.
+	Set TREE_BLOCK on the newly created expression.
+	* tree-inline.c: Tuplify.
+	* tree-inline.h: Tuplify.
+	* tree-optimize.c (execute_fixup_cfg): Tuplify.
+	* gimple.c (gimple_build_call_vec): Change second
+	argument type to VEC(tree, heap).  Update all callers.
+	(gimple_build_assign_with_ops): If the LHS is an
+	SSA_NAME, set SSA_NAME_DEF_STMT on it.
+	(walk_gimple_seq): Change return type to gimple.  Update
+	all users.
+	If walk_gimple_stmt returned a value, store it in
+	WI->CALLBACK_RESULT.
+	(walk_gimple_op): Walk gimple_call_chain_ptr() and
+	gimple_call_fn_ptr() for GIMPLE_CALL.
+	(walk_gimple_stmt): Add new local HANDLED_OPS.
+	If callback_stmt() sets HANDLED_OPS, return its return
+	value.
+	If any call to walk_gimple_seq returns a non-NULL value,
+	return WI->CALLBACK_RESULT.
+	(gimple_copy_1): New function.
+	(gimple_deep_copy): Rename from gimple_copy.  Update all
+	users.
+	Call gimple_copy_1.
+	(gimple_shallow_copy): New.
+	(gimple_regimplify_operands): New.
+	* gimple.h (GF_ASM_INPUT): Define.
+	(GF_ASM_VOLATILE): Define.
+	(GF_CALL_CANNOT_INLINE): Define.
+	(GF_CALL_FROM_THUNK): Define.
+	(GF_CALL_RETURN_SLOT_OPT): Define.
+	(GF_CALL_VA_ARG_PACK): Define.
+	(gimple_stmt_iterator): Move earlier in the file.
+	(gimple_omp_return_nowait_p): Fix return expression.
+	(gimple_omp_section_last_p): Likewise.
+	(gimple_omp_parallel_combined_p): Likewise.
+	(gimple_call_noreturn_p): Likewise.
+	(gimple_call_nothrow_p): Likewise.
+	(gimple_asm_volatile_p): Likewise.
+	(gimple_try_catch_is_cleanup): Likewise.
+	(gimple_assign_set_rhs1): assert that RHS is a gimple
+	operand.
+	(is_gimple_call): New.  Change all users that tested
+	gimple_code() == GIMPLE_CALL.
+	(gimple_call_fn_ptr): New.
+	(gimple_call_chain_ptr): New.
+	(gimple_call_set_chain): Accept NULL values for CHAIN.
+	(gimple_call_set_tail): Add bool argument specifying the
+	value of the flag.  Update all users.
+	(gimple_asm_set_volatile): Likewise.
+	(gimple_call_set_cannot_inline): Rename from
+	gimple_call_mark_uninlinable.  Add bool argument
+	specifying the value of the flag.  Update all users.
+	(gimple_call_set_return_slot_opt): New.
+	(gimple_call_return_slot_opt_p): New.
+	(gimple_call_set_from_thunk): New.
+	(gimple_call_from_thunk_p): New.
+	(gimple_call_va_arg_pack_p): New.
+	(gimple_call_copy_flags): New.
+	(gimple_asm_set_input): New.
+	(gimple_asm_input_p): New.
+	(gimple_asm_clear_volatile): Remove.
+	(walk_stmt_fn): Add second argument bool *.  Update all
+	users.
+	(struct walk_stmt_info): Add new field callback_result.
+	* tree-cfg.c (gimple_split_block): Tuplify.
+	(gimple_block_ends_with_condjump_p): Tuplify.
+	(need_fake_edge_p): Tuplify.
+	(gimple_flow_call_edges_add): Tuplify.
+	(gimple_purge_dead_abnormal_call_edges): Tuplify.
+	(gimple_purge_dead_eh_edges): Remove ATTRIBUTE_UNUSED.
+	(gimple_cfg_hooks): Add gimple_block_ends_with_condjump_p
+	and gimple_flow_call_edges_add
+	* passes.c (init_optimization_passes): Enable
+	pass_cleanup_cfg, pass_inline_parameters,
+	pass_ipa_inline and pass_apply_inline.
+	(execute_todo): Re-enable check for TODO_update_ssa_any
+	if need_ssa_update_p() returns true.
+	* tree-ssa-operands.c (ssa_operands_active): Return false
+	if cfun is NULL.
+
+
 2008-04-04  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133632.

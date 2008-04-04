@@ -504,7 +504,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
 }
 
 /* Set a value for a complex component of SSA_NAME, return a
-   GIMPLE_SEQ of stuff that needs doing.  */
+   gimple_seq of stuff that needs doing.  */
 
 static gimple_seq
 set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
@@ -564,9 +564,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   value = force_gimple_operand (value, &list, false, NULL);
   last =  gimple_build_assign (comp, value);
   gimple_seq_add_stmt (&list, last);
-
-  gcc_assert (SSA_NAME_DEF_STMT (comp) == NULL);
-  SSA_NAME_DEF_STMT (comp) = last;
+  gcc_assert (SSA_NAME_DEF_STMT (comp) == last);
 
   return list;
 }

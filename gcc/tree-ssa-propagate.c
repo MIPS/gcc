@@ -856,13 +856,13 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       tree fn = CALL_EXPR_FN (expr);
       unsigned i;
       unsigned nargs = call_expr_nargs (expr);
-      VEC(tree, gc) *args = NULL;
+      VEC(tree, heap) *args = NULL;
       gimple new_stmt;
 
       if (nargs > 0)
         {
-          args = VEC_alloc (tree, gc, nargs);
-          VEC_safe_grow (tree, gc, args, nargs);
+          args = VEC_alloc (tree, heap, nargs);
+          VEC_safe_grow (tree, heap, args, nargs);
       
           for (i = 0; i < nargs; i++)
             VEC_replace (tree, args, i, CALL_EXPR_ARG (expr, i));
@@ -874,6 +874,8 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
       gimple_set_location (new_stmt, gimple_location (stmt));
       gsi_replace (si_p, new_stmt, false);
+      VEC_free (tree, heap, args);
+
       return true;
     }
   else if (valid_gimple_rhs_p (expr))

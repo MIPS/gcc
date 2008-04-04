@@ -751,7 +751,10 @@ dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
                      gimple_asm_string (gs));
   else
     {
-      pp_string (buffer, "__asm__ (\"");
+      pp_string (buffer, "__asm__");
+      if (gimple_asm_volatile_p (gs))
+	pp_string (buffer, " __volatile__");
+      pp_string (buffer, "(\"");
       pp_string (buffer, gimple_asm_string (gs));
       pp_string (buffer, "\"");
     }

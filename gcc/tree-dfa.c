@@ -777,8 +777,9 @@ mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
 }
 
 
-/* Find all variables within the gimplified statement that were not previously
-   visible to the function and add them to the referenced variables list.  */
+/* Find all variables within the gimplified statement that were not
+   previously visible to the function and add them to the referenced
+   variables list.  */
 
 static tree
 find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
@@ -798,12 +799,13 @@ find_new_referenced_vars_1 (tree *tp, int *walk_subtrees,
   return NULL;
 }
 
+
+/* Find any new referenced variables in STMT.  */
+
 void
-find_new_referenced_vars (gimple_stmt_iterator *gsi)
+find_new_referenced_vars (gimple stmt)
 {
-  /* Invoke callback on each operand, in both the statement
-     referenced by GSI and in any embedded statements.  */
-  walk_gimple_op (gsi_stmt (*gsi), find_new_referenced_vars_1, NULL);
+  walk_gimple_op (stmt, find_new_referenced_vars_1, NULL);
 }
 
 

@@ -733,7 +733,7 @@ fixup_remapped_decl (tree decl, omp_context *ctx, bool private_debug)
       && DECL_HAS_VALUE_EXPR_P (decl))
     {
       tree ve = DECL_VALUE_EXPR (decl);
-      walk_tree (&ve, copy_body_r, &ctx->cb, NULL);
+      walk_tree (&ve, copy_tree_body_r, &ctx->cb, NULL);
       SET_DECL_VALUE_EXPR (new_decl, ve);
       DECL_HAS_VALUE_EXPR_P (new_decl) = 1;
     }
@@ -1443,8 +1443,8 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
    Callback for walk_gimple_stmt used to scan for OpenMP directives in
    the current statement in GSI.  */
 
-static bool
-scan_omp_1_stmt (gimple_stmt_iterator *gsi, void *data)
+static tree
+scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p, void *data)
 {
   gimple stmt = gsi_stmt (*gsi);
   struct walk_stmt_info *wi = data;
@@ -1497,7 +1497,8 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, void *data)
       break;
     }
 
-  return false;
+  *handled_ops_p = false;
+  return NULL_TREE;
 }
 
 

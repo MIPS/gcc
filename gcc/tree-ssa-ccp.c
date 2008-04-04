@@ -3039,7 +3039,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   for (i = gsi_start (stmts); !gsi_end_p (i); gsi_next (&i))
   {
     new_stmt = gsi_stmt (i);
-    find_new_referenced_vars (&i);
+    find_new_referenced_vars (new_stmt);
     gsi_insert_before (si_p, new_stmt, GSI_NEW_STMT);
     mark_symbols_for_renaming (new_stmt);
     gsi_next (si_p);

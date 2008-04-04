@@ -1942,8 +1942,9 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
           fold_stmt (gsi);
           stmt = gsi_stmt (*gsi);
           data->last_was_goto = false;
-          if (gimple_code (stmt) == GIMPLE_CALL)
+          if (is_gimple_call (stmt))
             notice_special_calls (stmt);
+
           /* We used to call update_gimple_call_flags here,
              which copied side-effects and nothrows status
              from the function decl to the call.  In the new
@@ -2548,7 +2549,7 @@ is_ctrl_altering_stmt (gimple t)
 {
   gcc_assert (t);
 
-  if (gimple_code (t) == GIMPLE_CALL)
+  if (is_gimple_call (t))
     {
       int flags = gimple_call_flags (t);
 
@@ -2601,9 +2602,8 @@ stmt_can_make_abnormal_goto (gimple t)
 {
   if (computed_goto_p (t))
     return true;
-  if (gimple_code (t) == GIMPLE_CALL)
-    return gimple_has_side_effects (t)
-	   && current_function_has_nonlocal_label;
+  if (is_gimple_call (t))
+    return gimple_has_side_effects (t) && current_function_has_nonlocal_label;
   return false;
 }
 
@@ -4124,8 +4124,7 @@ gimple_verify_flow_info (void)
 	      err = 1;
 	    }
 
-	  if (decl_function_context (label)
-	      != current_function_decl)
+	  if (decl_function_context (label) != current_function_decl)
 	    {
 	      error ("label ");
 	      print_generic_expr (stderr, label, 0);
@@ -4616,7 +4615,7 @@ gimple_split_block (basic_block bb, void *stmt)
   FOR_EACH_EDGE (e, ei, new_bb->succs)
     e->src = new_bb;
 
-  if (stmt && TREE_CODE ((tree) stmt) == LABEL_EXPR)
+  if (stmt && gimple_code ((gimple) stmt) == GIMPLE_LABEL)
     stmt = NULL;
 
   /* Move everything from GSI to the new basic block.  */
@@ -4712,7 +4711,7 @@ gimple_duplicate_bb (basic_block bb)
 
       /* Create a new copy of STMT and duplicate STMT's virtual
 	 operands.  */
-      copy = gimple_copy (stmt);
+      copy = gimple_deep_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
       copy_virtual_operands (copy, stmt);
       region = lookup_stmt_eh_region (stmt);
@@ -6073,20 +6072,18 @@ static bool
 gimple_block_ends_with_call_p (basic_block bb)
 {
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
-  return gimple_code (gsi_stmt (gsi)) == GIMPLE_CALL;
+  return is_gimple_call (gsi_stmt (gsi));
 }
 
 
 /* Return true if BB ends with a conditional branch.  Return false,
    otherwise.  */
 
-/* FIXME tuples.  */
-#if 0
 static bool
 gimple_block_ends_with_condjump_p (const_basic_block bb)
 {
-  tree stmt = last_stmt (bb);
-  return (stmt && TREE_CODE (stmt) == COND_EXPR);
+  gimple stmt = last_stmt ((basic_block) bb);
+  return (stmt && gimple_code (stmt) == GIMPLE_COND);
 }
 
 
@@ -6094,10 +6091,8 @@ gimple_block_ends_with_condjump_p (const_basic_block bb)
    Helper function for gimple_flow_call_edges_add.  */
 
 static bool
-need_fake_edge_p (tree t)
+need_fake_edge_p (gimple t)
 {
-  tree call;
-
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST and PURE calls do not need one.
      We don't currently check for CONST and PURE here, although
@@ -6105,18 +6100,16 @@ need_fake_edge_p (tree t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
-  call = get_call_expr_in (t);
-  if (call
-      && !(call_expr_flags (call) & ECF_NORETURN))
+  if (is_gimple_call (t)
+      && !(gimple_call_flags (t) & ECF_NORETURN))
     return true;
 
-  if (TREE_CODE (t) == ASM_EXPR
-       && (ASM_VOLATILE_P (t) || ASM_INPUT_P (t)))
+  if (gimple_code (t) == ASM_EXPR
+       && (gimple_asm_volatile_p (t) || gimple_asm_input_p (t)))
     return true;
 
   return false;
 }
-#endif
 
 
 /* Add fake edges to the function exit for any non constant and non
@@ -6127,8 +6120,6 @@ need_fake_edge_p (tree t)
    The goal is to expose cases in which entering a basic block does
    not imply that all subsequent instructions must be executed.  */
 
-/* FIXME tuples.  */
-#if 0
 static int
 gimple_flow_call_edges_add (sbitmap blocks)
 {
@@ -6160,8 +6151,9 @@ gimple_flow_call_edges_add (sbitmap blocks)
   if (check_last_block)
     {
       basic_block bb = EXIT_BLOCK_PTR->prev_bb;
-      gimple_stmt_iterator gsi = gsi_last (bb);
-      tree t = NULL_TREE;
+      gimple_stmt_iterator gsi = gsi_last_bb (bb);
+      gimple t = NULL;
+
       if (!gsi_end_p (gsi))
 	t = gsi_stmt (gsi);
 
@@ -6172,7 +6164,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
 	  e = find_edge (bb, EXIT_BLOCK_PTR);
 	  if (e)
 	    {
-	      gsi_insert_on_edge (e, build_empty_stmt ());
+	      gsi_insert_on_edge (e, gimple_build_nop ());
 	      gsi_commit_edge_inserts ();
 	    }
 	}
@@ -6185,7 +6177,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
     {
       basic_block bb = BASIC_BLOCK (i);
       gimple_stmt_iterator gsi;
-      tree stmt, last_stmt;
+      gimple stmt, last_stmt;
 
       if (!bb)
 	continue;
@@ -6193,7 +6185,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
       if (blocks && !TEST_BIT (blocks, i))
 	continue;
 
-      gsi = gsi_last (bb);
+      gsi = gsi_last_bb (bb);
       if (!gsi_end_p (gsi))
 	{
 	  last_stmt = gsi_stmt (gsi);
@@ -6203,6 +6195,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
 	      if (need_fake_edge_p (stmt))
 		{
 		  edge e;
+
 		  /* The handling above of the final block before the
 		     epilogue should be enough to verify that there is
 		     no edge to the exit block in CFG already.
@@ -6237,20 +6230,17 @@ gimple_flow_call_edges_add (sbitmap blocks)
 
   return blocks_split;
 }
-#endif
 
 /* Purge dead abnormal call edges from basic block BB.  */
 
 bool
-gimple_purge_dead_abnormal_call_edges (basic_block bb ATTRIBUTE_UNUSED)
+gimple_purge_dead_abnormal_call_edges (basic_block bb)
 {
-  /* FIXME tuples.  */
-#if 0
   bool changed = gimple_purge_dead_eh_edges (bb);
 
   if (current_function_has_nonlocal_label)
     {
-      tree stmt = last_stmt (bb);
+      gimple stmt = last_stmt (bb);
       edge_iterator ei;
       edge e;
 
@@ -6272,10 +6262,6 @@ gimple_purge_dead_abnormal_call_edges (basic_block bb ATTRIBUTE_UNUSED)
     }
 
   return changed;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 /* Stores all basic blocks dominated by BB to DOM_BBS.  */
@@ -6417,7 +6403,7 @@ remove_edge_and_dominated_blocks (edge e)
 /* Purge dead EH edges from basic block BB.  */
 
 bool
-gimple_purge_dead_eh_edges (basic_block bb ATTRIBUTE_UNUSED)
+gimple_purge_dead_eh_edges (basic_block bb)
 {
   bool changed = false;
   edge e;
@@ -6518,6 +6504,7 @@ gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
     }
 }
 
+
 /* Adds a if else statement to COND_BB with condition COND_EXPR.
    SECOND_HEAD is the destination of the THEN and FIRST_HEAD is
    the destination of the ELSE part.  */
@@ -6568,8 +6555,8 @@ struct cfg_hooks gimple_cfg_hooks = {
   gimple_make_forwarder_block,	/* make_forward_block  */
   NULL,				/* tidy_fallthru_edge  */
   gimple_block_ends_with_call_p,/* block_ends_with_call_p */
-  0 /* FIXME tuples gimple_block_ends_with_condjump_p */, /* block_ends_with_condjump_p */
-  0 /* FIXME tuples gimple_flow_call_edges_add */,     /* flow_call_edges_add */
+  gimple_block_ends_with_condjump_p, /* block_ends_with_condjump_p */
+  gimple_flow_call_edges_add,     /* flow_call_edges_add */
   gimple_execute_on_growing_pred,	/* execute_on_growing_pred */
   gimple_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
   gimple_duplicate_loop_to_header_edge, /* duplicate loop for trees */

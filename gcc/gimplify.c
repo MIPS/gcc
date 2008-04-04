@@ -2161,7 +2161,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   tree fndecl, parms, p;
   enum gimplify_status ret;
   int i, nargs;
-  VEC(tree, gc) *args = NULL;
+  VEC(tree, heap) *args = NULL;
   gimple call;
   bool builtin_va_start_p = FALSE;
 
@@ -2238,7 +2238,8 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
      mark the call expression so it doesn't get inlined later.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
     {
-      for (i = 0, p = DECL_ARGUMENTS (fndecl); i < nargs;
+      for (i = 0, p = DECL_ARGUMENTS (fndecl);
+	   i < nargs;
 	   i++, p = TREE_CHAIN (p))
 	{
 	  /* We cannot distinguish a varargs function from the case
@@ -2310,8 +2311,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  CALL_EXPR_RETURN_SLOT_OPT (*expr_p)
 	    = CALL_EXPR_RETURN_SLOT_OPT (call);
 	  CALL_FROM_THUNK_P (*expr_p) = CALL_FROM_THUNK_P (call);
-	  CALL_CANNOT_INLINE_P (*expr_p)
-	    = CALL_CANNOT_INLINE_P (call);
+	  CALL_CANNOT_INLINE_P (*expr_p) = CALL_CANNOT_INLINE_P (call);
 	  SET_EXPR_LOCUS (*expr_p, EXPR_LOCUS (call));
 	  TREE_BLOCK (*expr_p) = TREE_BLOCK (call);
 	  /* Set CALL_EXPR_VA_ARG_PACK.  */
@@ -2322,12 +2322,12 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   /* Finally, gimplify the function arguments.  */
   if (nargs > 0)
     {
-      args = VEC_alloc (tree, gc, nargs);
-      VEC_safe_grow (tree, gc, args, nargs);
+      args = VEC_alloc (tree, heap, nargs);
+      VEC_safe_grow (tree, heap, args, nargs);
 
     for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
-	PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
-	PUSH_ARGS_REVERSED ? i-- : i++)
+	 PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
+	 PUSH_ARGS_REVERSED ? i-- : i++)
       {
 	enum gimplify_status t;
 
@@ -2368,6 +2368,17 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
      to create the appropriate temporary for the call's LHS.  */
   call = gimple_build_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
+  gimple_set_block (call, TREE_BLOCK (*expr_p));
+  VEC_free (tree, heap, args);
+
+  /* Carry all the CALL_EXPR flags to the new GIMPLE_CALL.  */
+  gimple_call_set_chain (call, CALL_EXPR_STATIC_CHAIN (*expr_p));
+  gimple_call_set_tail (call, CALL_EXPR_TAILCALL (*expr_p));
+  gimple_call_set_cannot_inline (call, CALL_CANNOT_INLINE_P (*expr_p));
+  gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (*expr_p));
+  gimple_call_set_from_thunk (call, CALL_FROM_THUNK_P (*expr_p));
+  gimple_call_set_va_arg_pack (call, CALL_EXPR_VA_ARG_PACK (*expr_p));
+
   gimplify_seq_add_stmt (pre_p, call);
   if (want_value)
     {
@@ -4532,10 +4543,12 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
     
   stmt = gimple_build_asm_vec (TREE_STRING_POINTER (ASM_STRING (expr)),
                                inputs, outputs, clobbers);
-  if (TREE_THIS_VOLATILE (expr))
-    gimple_asm_set_volatile (stmt);
+
+  gimple_asm_set_volatile (stmt, ASM_VOLATILE_P (expr));
+  gimple_asm_set_input (stmt, ASM_INPUT_P (expr));
 
   gimplify_seq_add_stmt (pre_p, stmt);
+
   return ret;
 }
 

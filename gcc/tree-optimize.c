@@ -284,10 +284,8 @@ struct gimple_opt_pass pass_free_cfg_annotations =
 unsigned int
 execute_fixup_cfg (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
 
   cfun->after_inlining = true;
@@ -295,40 +293,39 @@ execute_fixup_cfg (void)
   if (cfun->eh)
     FOR_EACH_BB (bb)
       {
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    tree stmt = bsi_stmt (bsi);
-	    tree call = get_call_expr_in (stmt);
-	    tree decl = call ? get_callee_fndecl (call) : NULL;
+	    gimple stmt = gsi_stmt (gsi);
+	    tree decl = gimple_code (stmt) == GIMPLE_CALL
+	                ? gimple_call_fndecl (stmt)
+			: NULL;
 
-	    if (decl && call_expr_flags (call) & (ECF_CONST | ECF_PURE)
-		&& TREE_SIDE_EFFECTS (call))
+	    /* FIXME tuples.  This may not be necessary, however a
+	       previous optimization may have converted a call into a
+	       const/pure call.  Leave in for now.  */
+	    if (decl
+		&& (gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
 	      {
 		if (gimple_in_ssa_p (cfun))
 		  {
 		    todo |= TODO_update_ssa | TODO_cleanup_cfg;
 	            update_stmt (stmt);
 		  }
-	        TREE_SIDE_EFFECTS (call) = 0;
 	      }
-	    if (decl && TREE_NOTHROW (decl))
-	      TREE_NOTHROW (call) = 1;
-	    if (!tree_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
+
+	    if (!stmt_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
 	      remove_stmt_from_eh_region (stmt);
 	  }
-	if (tree_purge_dead_eh_edges (bb))
+
+	if (gimple_purge_dead_eh_edges (bb))
           todo |= TODO_cleanup_cfg;
       }
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
-    dump_tree_cfg (dump_file, dump_flags);
+    gimple_dump_cfg (dump_file, dump_flags);
 
   return todo;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 /* Do the actions required to initialize internal data structures used

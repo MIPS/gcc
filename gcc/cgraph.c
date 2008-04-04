@@ -340,7 +340,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
     gcc_assert (e->call_stmt != call_stmt);
 #endif
 
-  gcc_assert (gimple_code (call_stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (call_stmt));
 
   if (!gimple_body (callee->decl))
     edge->inline_failed = N_("function body not available");
@@ -447,16 +447,15 @@ cgraph_redirect_edge_callee (struct cgraph_edge *e, struct cgraph_node *n)
   e->callee = n;
 }
 
-/* Update or remove corresponding cgraph edge if a call OLD_CALL
-   in OLD_STMT changed into NEW_STMT.  */
+
+/* Update or remove the corresponding cgraph edge if a GIMPLE_CALL
+   OLD_STMT changed into NEW_STMT.  */
 
 void
-cgraph_update_edges_for_call_stmt (tree old_stmt ATTRIBUTE_UNUSED, tree old_call ATTRIBUTE_UNUSED,
-				   tree new_stmt ATTRIBUTE_UNUSED)
+cgraph_update_edges_for_call_stmt (gimple old_stmt, gimple new_stmt)
 {
-  /* FIXME tuples */
-#if 0
-  tree new_call = get_call_expr_in (new_stmt);
+  tree new_call = (is_gimple_call (new_stmt)) ? gimple_call_fn (new_stmt) : 0;
+  tree old_call = (is_gimple_call (old_stmt)) ? gimple_call_fn (old_stmt) : 0;
   struct cgraph_node *node = cgraph_node (cfun->decl);
 
   if (old_call != new_call)
@@ -474,7 +473,7 @@ cgraph_update_edges_for_call_stmt (tree old_stmt ATTRIBUTE_UNUSED, tree old_call
 	  cgraph_remove_edge (e);
 	  if (new_call)
 	    {
-	      new_decl = get_callee_fndecl (new_call);
+	      new_decl = gimple_call_fndecl (new_stmt);
 	      if (new_decl)
 		{
 		  ne = cgraph_create_edge (node, cgraph_node (new_decl),
@@ -492,8 +491,8 @@ cgraph_update_edges_for_call_stmt (tree old_stmt ATTRIBUTE_UNUSED, tree old_call
       if (e)
 	cgraph_set_call_stmt (e, new_stmt);
     }
-#endif
 }
+
 
 /* Remove all callees from the node.  */
 
@@ -748,7 +747,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   else if (node->reachable)
     fprintf (f, " reachable");
   if (gimple_body (node->decl))
-    fprintf (f, " tree");
+    fprintf (f, " body");
   if (node->output)
     fprintf (f, " output");
   if (node->local.local)

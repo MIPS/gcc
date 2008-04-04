@@ -6234,8 +6234,7 @@ get_type_static_bounds (const_tree type, mpz_t min, mpz_t max)
     }
 }
 
-/* auto_var_in_fn_p is called to determine whether VAR is an automatic
-   variable defined in function FN.  */
+/* Return true if VAR is an automatic variable defined in function FN.  */
 
 bool
 auto_var_in_fn_p (const_tree var, const_tree fn)
