@@ -1571,7 +1571,8 @@ ira_costs (void)
   /* Because we could process operands only as subregs, check mode of
      the registers themselves too.  */
   FOR_EACH_ALLOCNO (a, ai)
-    if (register_move_cost [ALLOCNO_MODE (a)] == NULL)
+    if (register_move_cost [ALLOCNO_MODE (a)] == NULL
+	&& have_regs_of_mode [ALLOCNO_MODE (a)])
       init_register_move_cost (ALLOCNO_MODE (a));
   ira_free (allocno_pref_buffer);
   ira_free (total_costs);
