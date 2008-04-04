@@ -1,3 +1,9 @@
+2008-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-costs.c: Use GPL3 in the header.
+	(find_allocno_class_costs): Use all important
+	classes on the 1st iteration.
+
 2008-04-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/35817

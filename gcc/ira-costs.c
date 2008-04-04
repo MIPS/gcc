@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -1137,36 +1136,22 @@ find_allocno_class_costs (void)
       if (internal_flag_ira_verbose > 0 && ira_dump_file)
 	fprintf (ira_dump_file, "\nPass %i for finding allocno costs\n\n",
 		 pass);
-      if (pass != flag_expensive_optimizations)
+      /* We could use only cover classes on the 1st iteration.
+	 Unfortunately it does not work well for some targets where
+	 some subclass of cover class is costly and wrong cover class
+	 is chosen on the first iteration and it can not be fixed on
+	 the 2nd iteration.  */
+      for (cost_classes_num = 0;
+	   cost_classes_num < important_classes_num;
+	   cost_classes_num++)
 	{
-	  /* On the 1st iteration we calculates costs only for cover
-	     classes.  */
-	  for (cost_classes_num = 0;
-	       cost_classes_num < reg_class_cover_size;
-	       cost_classes_num++)
-	    {
-	      cost_classes [cost_classes_num]
-		= reg_class_cover [cost_classes_num];
-	      cost_class_nums [cost_classes [cost_classes_num]]
-		= cost_classes_num;
-	    }
-	  struct_costs_size
-	    = sizeof (struct costs) + sizeof (int) * (cost_classes_num - 1);
+	  cost_classes [cost_classes_num]
+	    = important_classes [cost_classes_num];
+	  cost_class_nums [cost_classes [cost_classes_num]]
+	    = cost_classes_num;
 	}
-      else
-	{
-	  for (cost_classes_num = 0;
-	       cost_classes_num < important_classes_num;
-	       cost_classes_num++)
-	    {
-	      cost_classes [cost_classes_num]
-		= important_classes [cost_classes_num];
-	      cost_class_nums [cost_classes [cost_classes_num]]
-		= cost_classes_num;
-	    }
-	  struct_costs_size
-	    = sizeof (struct costs) + sizeof (int) * (cost_classes_num - 1);
-	}
+      struct_costs_size
+	= sizeof (struct costs) + sizeof (int) * (cost_classes_num - 1);
       /* Zero out our accumulation of the cost of each class for each
 	 allocno.  */
       memset (total_costs, 0, allocnos_num * struct_costs_size);
