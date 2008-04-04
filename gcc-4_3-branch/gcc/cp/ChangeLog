@@ -1,4 +1,14 @@
+2008-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35741
+	* semantics.c (finish_offsetof): Undo effect of convert_from_reference
+	before calling fold_offsetof.
+
 2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35546
+	* pt.c (apply_late_template_attributes): Don't call tsubst on
+	first attribute argument if it is IDENTIFIER_NODE.
 
 	PR c++/35332
 	* error.c (dump_expr): Pass {,UN}ORDERED_EXPR, UN{LT,LE,GT,GE,EQ}_EXPR
