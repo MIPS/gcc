@@ -1,3 +1,8 @@
+2008-04-04  Ollie Wild  <aaw@google.com>
+
+	* class.c (layout_class_type): Rename c_build_bitfield_integer_type to
+	make_bitfield_integer_type.
+
 2007-11-16  Nathan Froyd  <froydnj@codesourcery.com>
 
 	* class.c (layout_class_type): Use make_bitfield_integer_type.
