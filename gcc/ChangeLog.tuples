@@ -1,3 +1,12 @@
+2008-04-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (gimple_build_cond_empty): New.
+	(expand_parallel_call): Convert COND_EXPR to GIMPLE_COND.
+	(expand_omp_for_generic): Same.
+	(expand_omp_for_static_nochunk): Same. 
+	(expand_omp_for_static_chunk): Same.
+	(expand_omp_atomic_pipeline): Same.
+
 2008-04-04  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00413.html

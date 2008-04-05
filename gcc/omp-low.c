@@ -2233,6 +2233,21 @@ lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
     }
 }
 
+
+/* A convenience function to build an empty GIMPLE_COND with just the
+   condition.  */
+
+static gimple
+gimple_build_cond_empty (tree cond)
+{
+  enum tree_code pred_code;
+  tree lhs, rhs;
+
+  gimple_cond_get_ops_from_tree (cond, &pred_code, &lhs, &rhs);
+  return gimple_build_cond (pred_code, lhs, rhs, NULL_TREE, NULL_TREE);
+}
+
+
 /* Build the function calls to GOMP_parallel_start etc to actually 
    generate the parallel operation.  REGION is the parallel region
    being expanded.  BB is the block where to insert the code.  WS_ARGS
@@ -2299,10 +2314,9 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 			   build_int_cst (TREE_TYPE (cond), 0));
       else
 	{
-	  gimple_seq seq = NULL;
 	  basic_block cond_bb, then_bb, else_bb;
 	  edge e, e_then, e_else;
-	  tree t, tmp_then, tmp_else, tmp_join, tmp_var;
+	  tree tmp_then, tmp_else, tmp_join, tmp_var;
 
 	  tmp_var = create_tmp_var (TREE_TYPE (val), NULL);
 	  if (gimple_in_ssa_p (cfun))
@@ -2328,12 +2342,9 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	  set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
 	  set_immediate_dominator (CDI_DOMINATORS, else_bb, cond_bb);
 
-	  t = build3 (COND_EXPR, void_type_node,
-		      cond, NULL_TREE, NULL_TREE);
-
+	  stmt = gimple_build_cond_empty (cond);
 	  gsi = gsi_start_bb (cond_bb);
-	  gimplify_and_add (t, &seq);
-	  gsi_insert_seq_after (&gsi, seq, GSI_CONTINUE_LINKING);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	  gsi = gsi_start_bb (then_bb);
 	  stmt = gimple_build_assign (tmp_then, val);
@@ -2877,12 +2888,7 @@ expand_omp_for_generic (struct omp_region *region,
     }
   t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			       	true, GSI_SAME_STMT);
-  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-    {
-      gimple_seq seq = NULL;
-      gimplify_and_add (t, &seq);
-      gsi_insert_after (&gsi, seq, GSI_SAME_STMT);
-    }
+  gsi_insert_after (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
 
   /* Remove the GIMPLE_OMP_FOR statement.  */
   gsi_remove (&gsi, true);
@@ -2920,8 +2926,8 @@ expand_omp_for_generic (struct omp_region *region,
 	SSA_NAME_DEF_STMT (vback) = stmt;
   
       t = build2 (fd->cond_code, boolean_type_node, vback, iend);
-      t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-      gsi_insert_before (&si, t, GSI_SAME_STMT);
+      stmt = gimple_build_cond_empty (t);
+      gsi_insert_before (&si, stmt, GSI_SAME_STMT);
 
       /* Remove GIMPLE_OMP_CONTINUE.  */
       gsi_remove (&si, true);
@@ -2934,8 +2940,8 @@ expand_omp_for_generic (struct omp_region *region,
 			   build_fold_addr_expr (iend0));
       t = force_gimple_operand_gsi (&si, t, true, NULL_TREE,
 				    false, GSI_CONTINUE_LINKING);
-      t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-      gsi_insert_after (&si, t, GSI_CONTINUE_LINKING);
+      stmt = gimple_build_cond_empty (t);
+      gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
     }
 
   /* Add the loop cleanup function.  */
@@ -3083,11 +3089,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   t = fold_build2 (MIN_EXPR, type, t, n);
   e0 = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
 
-  /* FIXME tuples
   t = build2 (GE_EXPR, boolean_type_node, s0, e0);
-  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-  gsi_insert_before (&gsi, t, GSI_SAME_STMT);
-  */
+  gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
 
   /* Remove the GIMPLE_OMP_FOR statement.  */
   gsi_remove (&gsi, true);
@@ -3127,11 +3130,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (gimple_in_ssa_p (cfun))
     SSA_NAME_DEF_STMT (vback) = stmt;
 
-  /* FIXME tuples
   t = build2 (fd->cond_code, boolean_type_node, vback, e);
-  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-  gsi_insert_before (&si, t, GSI_SAME_STMT);
-  */
+  gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
 
   /* Remove the GIMPLE_OMP_CONTINUE statement.  */
   gsi_remove (&gsi, true);
@@ -3303,11 +3303,8 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   e0 = force_gimple_operand_gsi (&si, t, true, NULL_TREE,
 				 false, GSI_CONTINUE_LINKING);
 
-  /* FIXME tuples
   t = build2 (LT_EXPR, boolean_type_node, s0, n);
-  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-  gsi_insert_after (&si, t, GSI_CONTINUE_LINKING);
-  */
+  gsi_insert_after (&si, gimple_build_cond_empty (t), GSI_CONTINUE_LINKING);
 
   /* Setup code for sequential iteration goes in SEQ_START_BB.  */
   si = gsi_start_bb (seq_start_bb);
@@ -3342,11 +3339,8 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   if (gimple_in_ssa_p (cfun))
     SSA_NAME_DEF_STMT (v_back) = stmt;
 
-  /* FIXME tuples
   t = build2 (fd->cond_code, boolean_type_node, v_back, e);
-  t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
-  gsi_insert_before (&si, t, GSI_SAME_STMT);
-  */
+  gsi_insert_before (&si, gimple_build_cond_empty (t), GSI_SAME_STMT);
   
   /* Remove GIMPLE_OMP_CONTINUE.  */
   gsi_remove (&si, true);
@@ -3954,12 +3948,10 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   /* Note that we always perform the comparison as an integer, even for
      floating point.  This allows the atomic operation to properly 
      succeed even with NaNs and -0.0.  */
-  /* FIXME tuples
-  x = build3 (COND_EXPR, void_type_node,
-	      build2 (NE_EXPR, boolean_type_node,
-		      new_storedi, old_vali), NULL_TREE, NULL_TREE);
-  gsi_insert_before (&bsi, x, GSI_SAME_STMT);
-  */
+  stmt = gimple_build_cond_empty
+           (build2 (NE_EXPR, boolean_type_node,
+		    new_storedi, old_vali));
+  gsi_insert_before (&si, stmt, GSI_SAME_STMT);
 
   /* Update cfg.  */
   e = single_succ_edge (store_bb);
