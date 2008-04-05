@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -80,7 +79,7 @@ static int curr_point;
    class living at the point than number of hard-registers of the
    class available for the allocation.  It is defined only for cover
    classes.  */
-static int high_pressure_start_point [N_REG_CLASSES];
+static int high_pressure_start_point[N_REG_CLASSES];
 
 /* Number of ints of type INT_TYPE required to hold allocnos_num
    bits.  */
@@ -121,13 +120,13 @@ make_regno_born (int regno)
       SET_HARD_REG_BIT (hard_regs_live, regno);
       FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
         {
-	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (allocnos [i]), regno);
-	  SET_HARD_REG_BIT (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (allocnos [i]),
+	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (allocnos[i]), regno);
+	  SET_HARD_REG_BIT (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (allocnos[i]),
 			    regno);
 	}
       return;
     }
-  a = ira_curr_regno_allocno_map [regno];
+  a = ira_curr_regno_allocno_map[regno];
   if (a == NULL)
     return;
   if ((p = ALLOCNO_LIVE_RANGES (a)) == NULL
@@ -145,12 +144,12 @@ update_allocno_pressure_excess_length (allocno_t a)
   allocno_live_range_t p;
 
   cover_class = ALLOCNO_COVER_CLASS (a);
-  if (high_pressure_start_point [cover_class] < 0)
+  if (high_pressure_start_point[cover_class] < 0)
     return;
   p = ALLOCNO_LIVE_RANGES (a);
   ira_assert (p != NULL);
-  start = (high_pressure_start_point [cover_class] > p->start
-	   ? high_pressure_start_point [cover_class] : p->start);
+  start = (high_pressure_start_point[cover_class] > p->start
+	   ? high_pressure_start_point[cover_class] : p->start);
   ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a) += curr_point - start + 1;
 }
 
@@ -168,7 +167,7 @@ make_regno_dead (int regno)
       CLEAR_HARD_REG_BIT (hard_regs_live, regno);
       return;
     }
-  a = ira_curr_regno_allocno_map [regno];
+  a = ira_curr_regno_allocno_map[regno];
   if (a == NULL)
     return;
   p = ALLOCNO_LIVE_RANGES (a);
@@ -188,7 +187,7 @@ make_regno_born_and_dead (int regno)
 
 /* The current register pressures for each cover class for the current
    basic block.  */
-static int curr_reg_pressure [N_REG_CLASSES];
+static int curr_reg_pressure[N_REG_CLASSES];
 
 /* The function marks allocno A as currently living and updates
    current register pressure, maximal register pressure for the
@@ -207,14 +206,14 @@ set_allocno_live (allocno_t a)
   IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), hard_regs_live);
   bitmap_set_bit (allocnos_live_bitmap, ALLOCNO_NUM (a));
   cover_class = ALLOCNO_COVER_CLASS (a);
-  nregs = reg_class_nregs [cover_class] [ALLOCNO_MODE (a)];
-  curr_reg_pressure [cover_class] += nregs;
-  if (high_pressure_start_point [cover_class] < 0
-      && curr_reg_pressure [cover_class] > available_class_regs [cover_class])
-    high_pressure_start_point [cover_class] = curr_point;
-  if (curr_bb_node->reg_pressure [cover_class]
-      < curr_reg_pressure [cover_class])
-    curr_bb_node->reg_pressure [cover_class] = curr_reg_pressure [cover_class];
+  nregs = reg_class_nregs[cover_class][ALLOCNO_MODE (a)];
+  curr_reg_pressure[cover_class] += nregs;
+  if (high_pressure_start_point[cover_class] < 0
+      && curr_reg_pressure[cover_class] > available_class_regs[cover_class])
+    high_pressure_start_point[cover_class] = curr_point;
+  if (curr_bb_node->reg_pressure[cover_class]
+      < curr_reg_pressure[cover_class])
+    curr_bb_node->reg_pressure[cover_class] = curr_reg_pressure[cover_class];
 }
 
 /* The function marks allocno A as currently not living and updates
@@ -231,18 +230,18 @@ clear_allocno_live (allocno_t a)
   if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
     {
       cover_class = ALLOCNO_COVER_CLASS (a);
-      curr_reg_pressure [cover_class]
-	-= reg_class_nregs [cover_class] [ALLOCNO_MODE (a)];
-      ira_assert (curr_reg_pressure [cover_class] >= 0);
-      if (high_pressure_start_point [cover_class] >= 0
-	  && (curr_reg_pressure [cover_class]
-	      <= available_class_regs [cover_class]))
+      curr_reg_pressure[cover_class]
+	-= reg_class_nregs[cover_class][ALLOCNO_MODE (a)];
+      ira_assert (curr_reg_pressure[cover_class] >= 0);
+      if (high_pressure_start_point[cover_class] >= 0
+	  && (curr_reg_pressure[cover_class]
+	      <= available_class_regs[cover_class]))
 	{
 	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 	    {
-	      update_allocno_pressure_excess_length (allocnos [i]);
+	      update_allocno_pressure_excess_length (allocnos[i]);
 	    }
-	  high_pressure_start_point [cover_class] = -1;
+	  high_pressure_start_point[cover_class] = -1;
 	}
     }
   CLEAR_ALLOCNO_LIVE (ALLOCNO_NUM (a));
@@ -287,7 +286,7 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
-      allocno_t a = ira_curr_regno_allocno_map [regno];
+      allocno_t a = ira_curr_regno_allocno_map[regno];
 
       if (a != NULL)
 	{
@@ -299,7 +298,7 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
     }
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       enum reg_class cover_class;
 
       while (regno < last)
@@ -307,17 +306,17 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 	  if (! TEST_HARD_REG_BIT (hard_regs_live, regno)
 	      && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	    {
-	      cover_class = class_translate [REGNO_REG_CLASS (regno)];
-	      curr_reg_pressure [cover_class]++;
-	      if (high_pressure_start_point [cover_class] < 0
-		  && (curr_reg_pressure [cover_class]
-		      > available_class_regs [cover_class]))
-		high_pressure_start_point [cover_class] = curr_point;
+	      cover_class = class_translate[REGNO_REG_CLASS (regno)];
+	      curr_reg_pressure[cover_class]++;
+	      if (high_pressure_start_point[cover_class] < 0
+		  && (curr_reg_pressure[cover_class]
+		      > available_class_regs[cover_class]))
+		high_pressure_start_point[cover_class] = curr_point;
 	      make_regno_born (regno);
-	      if (curr_bb_node->reg_pressure [cover_class]
-		  < curr_reg_pressure [cover_class])
-		curr_bb_node->reg_pressure [cover_class]
-		  = curr_reg_pressure [cover_class];
+	      if (curr_bb_node->reg_pressure[cover_class]
+		  < curr_reg_pressure[cover_class])
+		curr_bb_node->reg_pressure[cover_class]
+		  = curr_reg_pressure[cover_class];
 	    }
 	  regno++;
 	}
@@ -353,7 +352,7 @@ mark_reg_conflicts (rtx reg)
     make_regno_born_and_dead (regno);
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
 
       while (regno < last)
 	{
@@ -375,7 +374,7 @@ mark_reg_death (rtx reg)
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
-      allocno_t a = ira_curr_regno_allocno_map [regno];
+      allocno_t a = ira_curr_regno_allocno_map[regno];
 
       if (a != NULL)
 	{
@@ -387,26 +386,26 @@ mark_reg_death (rtx reg)
     }
   else if (! TEST_HARD_REG_BIT (no_alloc_regs, regno))
     {
-      int last = regno + hard_regno_nregs [regno] [GET_MODE (reg)];
+      int last = regno + hard_regno_nregs[regno][GET_MODE (reg)];
       enum reg_class cover_class;
 
       while (regno < last)
 	{
 	  if (TEST_HARD_REG_BIT (hard_regs_live, regno))
 	    {
-	      cover_class = class_translate [REGNO_REG_CLASS (regno)];
-	      curr_reg_pressure [cover_class]--;
-	      if (high_pressure_start_point [cover_class] >= 0
-		  && (curr_reg_pressure [cover_class]
-		      <= available_class_regs [cover_class]))
+	      cover_class = class_translate[REGNO_REG_CLASS (regno)];
+	      curr_reg_pressure[cover_class]--;
+	      if (high_pressure_start_point[cover_class] >= 0
+		  && (curr_reg_pressure[cover_class]
+		      <= available_class_regs[cover_class]))
 		{
 		  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 		    {
-		      update_allocno_pressure_excess_length (allocnos [i]);
+		      update_allocno_pressure_excess_length (allocnos[i]);
 		    }
-		  high_pressure_start_point [cover_class] = -1;
+		  high_pressure_start_point[cover_class] = -1;
 		}
-	      ira_assert (curr_reg_pressure [cover_class] >= 0);
+	      ira_assert (curr_reg_pressure[cover_class] >= 0);
 	      make_regno_dead (regno);
 	    }
 	  regno++;
@@ -524,7 +523,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 		     ? GENERAL_REGS
 		     : REG_CLASS_FROM_CONSTRAINT (c, constraints));
 	  if ((cl != NO_REGS && next_cl != cl)
-	      || available_class_regs [next_cl] > 1)
+	      || available_class_regs[next_cl] > 1)
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
@@ -532,10 +531,10 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 	  next_cl
-	    = single_reg_class (recog_data.constraints [c - '0'],
-				recog_data.operand [c - '0'], NULL_RTX);
+	    = single_reg_class (recog_data.constraints[c - '0'],
+				recog_data.operand[c - '0'], NULL_RTX);
 	  if ((cl != NO_REGS && next_cl != cl) || next_cl == NO_REGS
-	      || available_class_regs [next_cl] > 1)
+	      || available_class_regs[next_cl] > 1)
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
@@ -554,8 +553,8 @@ single_reg_operand_class (int op_num)
 {
   if (op_num < 0 || recog_data.n_alternatives == 0)
     return NO_REGS;
-  return single_reg_class (recog_data.constraints [op_num],
-			   recog_data.operand [op_num], NULL_RTX);
+  return single_reg_class (recog_data.constraints[op_num],
+			   recog_data.operand[op_num], NULL_RTX);
 }
 
 /* The function processes input operands, if IN_P, or output operands
@@ -573,12 +572,12 @@ process_single_reg_class_operands (int in_p, int freq)
 
   for (i = 0; i < recog_data.n_operands; i++)
     {
-      operand = recog_data.operand [i];
-      if (in_p && recog_data.operand_type [i] != OP_IN
-	  && recog_data.operand_type [i] != OP_INOUT)
+      operand = recog_data.operand[i];
+      if (in_p && recog_data.operand_type[i] != OP_IN
+	  && recog_data.operand_type[i] != OP_INOUT)
 	continue;
-      if (! in_p && recog_data.operand_type [i] != OP_OUT
-	  && recog_data.operand_type [i] != OP_INOUT)
+      if (! in_p && recog_data.operand_type[i] != OP_OUT
+	  && recog_data.operand_type[i] != OP_INOUT)
 	continue;
       cl = single_reg_operand_class (i);
       if (cl == NO_REGS)
@@ -595,31 +594,29 @@ process_single_reg_class_operands (int in_p, int freq)
 	  enum machine_mode mode;
 	  enum reg_class cover_class;
 
-	  operand_a = ira_curr_regno_allocno_map [regno];
+	  operand_a = ira_curr_regno_allocno_map[regno];
 	  mode = ALLOCNO_MODE (operand_a);
 	  cover_class = ALLOCNO_COVER_CLASS (operand_a);
-	  if (class_subset_p [cl] [cover_class]
-	      && class_hard_regs_num [cl] != 0
-	      && class_hard_reg_index [cover_class] [class_hard_regs
-						     [cl] [0]] >= 0
-	      && (reg_class_size [cl]
-		  <= (unsigned) CLASS_MAX_NREGS (cl, mode)))
+	  if (class_subset_p[cl][cover_class]
+	      && class_hard_regs_num[cl] != 0
+	      && class_hard_reg_index[cover_class][class_hard_regs[cl][0]] >= 0
+	      && reg_class_size[cl] <= (unsigned) CLASS_MAX_NREGS (cl, mode))
 	    {
 	      /* ??? FREQ */
 	      cost = freq * (in_p
-			     ? register_move_cost [mode] [cover_class] [cl]
-			     : register_move_cost [mode] [cl] [cover_class]);
+			     ? register_move_cost[mode][cover_class][cl]
+			     : register_move_cost[mode][cl][cover_class]);
 	      allocate_and_set_costs
 		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a), cover_class, 0);
 	      ALLOCNO_CONFLICT_HARD_REG_COSTS (operand_a)
-		[class_hard_reg_index [cover_class] [class_hard_regs [cl] [0]]]
+		[class_hard_reg_index[cover_class][class_hard_regs[cl][0]]]
 		-= cost;
 	    }
 	}
 
       FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
         {
-	  a = allocnos [px];
+	  a = allocnos[px];
 	  cover_class = ALLOCNO_COVER_CLASS (a);
 	  if (a != operand_a)
 	    {
@@ -627,9 +624,9 @@ process_single_reg_class_operands (int in_p, int freq)
 		 conflicting with the hard register.  But it works worse
 		 because it will be spilled in reload in anyway.  */
 	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
-				reg_class_contents [cl]);
+				reg_class_contents[cl]);
 	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
-				reg_class_contents [cl]);
+				reg_class_contents[cl]);
 	    }
 	}
     }
@@ -659,8 +656,8 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
     {
       for (i = 0; i < reg_class_cover_size; i++)
 	{
-	  curr_reg_pressure [reg_class_cover [i]] = 0;
-	  high_pressure_start_point [reg_class_cover [i]] = -1;
+	  curr_reg_pressure[reg_class_cover[i]] = 0;
+	  high_pressure_start_point[reg_class_cover[i]] = -1;
 	}
       curr_bb_node = loop_tree_node;
       reg_live_in = DF_LR_IN (bb);
@@ -673,19 +670,19 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	  {
 	    enum reg_class cover_class;
 	    
-	    cover_class = class_translate [REGNO_REG_CLASS (i)];
-	    curr_reg_pressure [cover_class]++;
-	    if (curr_bb_node->reg_pressure [cover_class]
-		< curr_reg_pressure [cover_class])
-	      curr_bb_node->reg_pressure [cover_class]
-		= curr_reg_pressure [cover_class];
-	    ira_assert (curr_reg_pressure [cover_class]
-			<= available_class_regs [cover_class]);
+	    cover_class = class_translate[REGNO_REG_CLASS (i)];
+	    curr_reg_pressure[cover_class]++;
+	    if (curr_bb_node->reg_pressure[cover_class]
+		< curr_reg_pressure[cover_class])
+	      curr_bb_node->reg_pressure[cover_class]
+		= curr_reg_pressure[cover_class];
+	    ira_assert (curr_reg_pressure[cover_class]
+			<= available_class_regs[cover_class]);
 	  }
       bitmap_clear (allocnos_live_bitmap);
       EXECUTE_IF_SET_IN_BITMAP (reg_live_in, FIRST_PSEUDO_REGISTER, j, bi)
 	{
-	  allocno_t a = ira_curr_regno_allocno_map [j];
+	  allocno_t a = ira_curr_regno_allocno_map[j];
 	  
 	  if (a == NULL)
 	    continue;
@@ -722,8 +719,8 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 #ifdef STACK_REGS
 	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
 	    {
-	      ALLOCNO_NO_STACK_REG_P (allocnos [px]) = TRUE;
-	      ALLOCNO_TOTAL_NO_STACK_REG_P (allocnos [px]) = TRUE;
+	      ALLOCNO_NO_STACK_REG_P (allocnos[px]) = TRUE;
+	      ALLOCNO_TOTAL_NO_STACK_REG_P (allocnos[px]) = TRUE;
 	    }
 	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
 	    make_regno_born_and_dead (px);
@@ -733,7 +730,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	     allocate such regs in this case.  */
 	  if (! current_function_has_nonlocal_label)
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
-	      if (call_used_regs [px])
+	      if (call_used_regs[px])
 		make_regno_born_and_dead (px);
 	}
   
@@ -781,7 +778,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
 	      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
 	        {
-		  allocno_t a = allocnos [i];
+		  allocno_t a = allocnos[i];
 		  
 		  ALLOCNO_CALL_FREQ (a) += freq;
 		  index = add_regno_call (ALLOCNO_REGNO (a), insn);
@@ -857,7 +854,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	}
       FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
        {
-	 make_regno_dead (ALLOCNO_REGNO (allocnos [i]));
+	 make_regno_dead (ALLOCNO_REGNO (allocnos[i]));
        }
 
       curr_point++;
@@ -869,11 +866,11 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       {
 	enum reg_class cover_class;
 
-	cover_class = reg_class_cover [i];
-	if (loop_tree_node->reg_pressure [cover_class]
-	    > loop_tree_node->father->reg_pressure [cover_class])
-	  loop_tree_node->father->reg_pressure [cover_class]
-	    = loop_tree_node->reg_pressure [cover_class];
+	cover_class = reg_class_cover[i];
+	if (loop_tree_node->reg_pressure[cover_class]
+	    > loop_tree_node->father->reg_pressure[cover_class])
+	  loop_tree_node->father->reg_pressure[cover_class]
+	    = loop_tree_node->reg_pressure[cover_class];
       }
 }
 
@@ -896,10 +893,10 @@ create_start_finish_chains (void)
     {
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	{
-	  r->start_next = start_point_ranges [r->start];
-	  start_point_ranges [r->start] = r;
-	  r->finish_next = finish_point_ranges [r->finish];
- 	  finish_point_ranges [r->finish] = r;
+	  r->start_next = start_point_ranges[r->start];
+	  start_point_ranges[r->start] = r;
+	  r->finish_next = finish_point_ranges[r->finish];
+ 	  finish_point_ranges[r->finish] = r;
 	}
     }
 }

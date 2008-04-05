@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 #include "system.h"
@@ -74,7 +73,7 @@ static INT_TYPE **conflicts;
 
 /* Two macros to test 1 in an element of `conflicts'.  */
 #define CONFLICT_P(I, J)						\
- (conflicts[(I)] [(unsigned) (J) / INT_BITS]				\
+ (conflicts[(I)][(unsigned) (J) / INT_BITS]				\
   & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
 /* Bit vector for allocnos live at the current program point.  */
@@ -98,12 +97,12 @@ build_conflict_bit_table (void)
   conflicts = ira_allocate (sizeof (INT_TYPE *) * allocnos_num);
   for (i = 0; i < allocnos_num; i++)
     {
-      conflicts [i] = ira_allocate (sizeof (INT_TYPE) * allocno_set_words);
-      memset (conflicts [i], 0, sizeof (INT_TYPE) * allocno_set_words);
+      conflicts[i] = ira_allocate (sizeof (INT_TYPE) * allocno_set_words);
+      memset (conflicts[i], 0, sizeof (INT_TYPE) * allocno_set_words);
     }
   for (i = 0; i < max_point; i++)
     {
-      for (r = start_point_ranges [i]; r != NULL; r = r->start_next)
+      for (r = start_point_ranges[i]; r != NULL; r = r->start_next)
 	{
 	  num = ALLOCNO_NUM (r->allocno);
 	  cover_class = ALLOCNO_COVER_CLASS (r->allocno);
@@ -111,13 +110,13 @@ build_conflict_bit_table (void)
 	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, j, asi)
 	    {
 	      if (cover_class == ALLOCNO_COVER_CLASS (allocnos[j]))
-		SET_ALLOCNO_SET_BIT (conflicts [num], j);
+		SET_ALLOCNO_SET_BIT (conflicts[num], j);
 	    }
 	  /* Don't set up conflict for the allocno with itself.  */
-	  CLEAR_ALLOCNO_SET_BIT (conflicts [num], num);
+	  CLEAR_ALLOCNO_SET_BIT (conflicts[num], num);
 	}
 	  
-      for (r = finish_point_ranges [i]; r != NULL; r = r->finish_next)
+      for (r = finish_point_ranges[i]; r != NULL; r = r->finish_next)
 	CLEAR_ALLOCNO_LIVE (ALLOCNO_NUM (r->allocno));
     }
 }
@@ -132,7 +131,7 @@ mirror_conflicts (void)
 
   for (i = nw = 0, mask = 1; i < allocnos_num; i++, mask <<= 1)
     {
-      p = conflicts [i];
+      p = conflicts[i];
       if (! mask)
 	{
 	  mask = 1;
@@ -144,7 +143,7 @@ mirror_conflicts (void)
 
 	  for (word = (unsigned INT_TYPE) *p++, k = 0; word; word >>= 1, k++)
 	    if (word & 1)
-	      conflicts [start + k] [nw] |= mask;
+	      conflicts[start + k][nw] |= mask;
 	}
     }
 }
@@ -195,12 +194,12 @@ get_dup_num (int op_num, int use_commut_op_p)
 
   if (op_num < 0 || recog_data.n_alternatives == 0)
     return -1;
-  op = recog_data.operand [op_num];
+  op = recog_data.operand[op_num];
   ira_assert (REG_P (op));
   commut_op_used_p = TRUE;
   if (use_commut_op_p)
     {
-      if (commutative_constraint_p (recog_data.constraints [op_num]))
+      if (commutative_constraint_p (recog_data.constraints[op_num]))
 	op_num++;
       else if (op_num > 0 && commutative_constraint_p (recog_data.constraints
 						       [op_num - 1]))
@@ -208,7 +207,7 @@ get_dup_num (int op_num, int use_commut_op_p)
       else
 	commut_op_used_p = FALSE;
     }
-  str = recog_data.constraints [op_num];
+  str = recog_data.constraints[op_num];
   for (ignore_p = FALSE, original = -1, curr_alt = 0;;)
     {
       c = *str;
@@ -339,10 +338,10 @@ get_dup_num (int op_num, int use_commut_op_p)
   dup = original - '0';
   if (use_commut_op_p)
     {
-      if (commutative_constraint_p (recog_data.constraints [dup]))
+      if (commutative_constraint_p (recog_data.constraints[dup]))
 	dup++;
       else if (dup > 0
-	       && commutative_constraint_p (recog_data.constraints [dup -1]))
+	       && commutative_constraint_p (recog_data.constraints[dup -1]))
 	dup--;
       else if (! commut_op_used_p)
 	return -1;
@@ -362,7 +361,7 @@ get_dup (int op_num, int use_commut_op_p)
   if (n < 0)
     return NULL_RTX;
   else
-    return recog_data.operand [n];
+    return recog_data.operand[n];
 }
 
 /* The function processes INSN and create allocno copies if
@@ -396,42 +395,42 @@ add_insn_allocno_copies (rtx insn)
 	      if (HARD_REGISTER_P (SET_SRC (set)))
 		return;
 	      hard_regno = REGNO (SET_DEST (set));
-	      a = ira_curr_regno_allocno_map [REGNO (SET_SRC (set))];
+	      a = ira_curr_regno_allocno_map[REGNO (SET_SRC (set))];
 	    }
 	  else
 	    {
 	      hard_regno = REGNO (SET_SRC (set));
-	      a = ira_curr_regno_allocno_map [REGNO (SET_DEST (set))];
+	      a = ira_curr_regno_allocno_map[REGNO (SET_DEST (set))];
 	    }
 	  class = REGNO_REG_CLASS (hard_regno);
 	  mode = ALLOCNO_MODE (a);
 	  cover_class = ALLOCNO_COVER_CLASS (a);
-	  if (! class_subset_p [class] [cover_class])
+	  if (! class_subset_p[class][cover_class])
 	    return;
-	  if (reg_class_size [class]
+	  if (reg_class_size[class]
 	      <= (unsigned) CLASS_MAX_NREGS (class, mode))
 	    /* It is already taken into account in ira-costs.c.  */
 	    return;
-	  index = class_hard_reg_index [cover_class] [hard_regno];
+	  index = class_hard_reg_index[cover_class][hard_regno];
 	  if (index < 0)
 	    return;
 	  if (HARD_REGISTER_P (SET_DEST (set)))
-	    cost = register_move_cost [mode] [cover_class] [class] * freq;
+	    cost = register_move_cost[mode][cover_class][class] * freq;
 	  else
-	    cost = register_move_cost [mode] [class] [cover_class] * freq;
+	    cost = register_move_cost[mode][class][cover_class] * freq;
 	  allocate_and_set_costs
 	    (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
 	     ALLOCNO_COVER_CLASS_COST (a));
 	  allocate_and_set_costs
 	    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class, 0);
-	  ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
-	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
+	  ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
+	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
 	}
       else
 	{
 	  cp = add_allocno_copy
-	       (ira_curr_regno_allocno_map [REGNO (SET_DEST (set))],
-		ira_curr_regno_allocno_map [REGNO (SET_SRC (set))],
+	       (ira_curr_regno_allocno_map[REGNO (SET_DEST (set))],
+		ira_curr_regno_allocno_map[REGNO (SET_SRC (set))],
 		freq, insn, ira_curr_loop_tree_node);
 	  bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
 	}
@@ -441,11 +440,11 @@ add_insn_allocno_copies (rtx insn)
       extract_insn (insn);
       for (i = 0; i < recog_data.n_operands; i++)
 	{
-	  operand = recog_data.operand [i];
+	  operand = recog_data.operand[i];
 	  if (REG_P (operand)
 	      && find_reg_note (insn, REG_DEAD, operand) != NULL_RTX)
 	    {
-	      str = recog_data.constraints [i];
+	      str = recog_data.constraints[i];
 	      while (*str == ' ' && *str == '\t')
 		str++;
 	      bound_p = FALSE;
@@ -461,28 +460,28 @@ add_insn_allocno_copies (rtx insn)
 			    if (HARD_REGISTER_P (dup))
 			      continue;
 			    hard_regno = REGNO (operand);
-			    a = ira_curr_regno_allocno_map [REGNO (dup)];
+			    a = ira_curr_regno_allocno_map[REGNO (dup)];
 			  }
 			else
 			  {
 			    hard_regno = REGNO (dup);
-			    a = ira_curr_regno_allocno_map [REGNO (operand)];
+			    a = ira_curr_regno_allocno_map[REGNO (operand)];
 			  }
 			class = REGNO_REG_CLASS (hard_regno);
 			mode = ALLOCNO_MODE (a);
 			cover_class = ALLOCNO_COVER_CLASS (a);
-			if (! class_subset_p [class] [cover_class])
+			if (! class_subset_p[class][cover_class])
 			  continue;
 			index
-			  = class_hard_reg_index [cover_class] [hard_regno];
+			  = class_hard_reg_index[cover_class][hard_regno];
 			if (index < 0)
 			  continue;
 			if (HARD_REGISTER_P (operand))
 			  cost
-			    = register_move_cost [mode] [cover_class] [class];
+			    = register_move_cost[mode][cover_class][class];
 			else
 			  cost
-			    = register_move_cost [mode] [class] [cover_class];
+			    = register_move_cost[mode][class][cover_class];
 			cost *= freq;
 			allocate_and_set_costs
 			  (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
@@ -490,16 +489,16 @@ add_insn_allocno_copies (rtx insn)
 			allocate_and_set_costs
 			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
 			   cover_class, 0);
-			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
-			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
+			ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
+			ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
 			bound_p = TRUE;
 		      }
 		    else
 		      {
 			bound_p = TRUE;
 			cp = add_allocno_copy
-			     (ira_curr_regno_allocno_map [REGNO (dup)],
-			      ira_curr_regno_allocno_map [REGNO (operand)],
+			     (ira_curr_regno_allocno_map[REGNO (dup)],
+			      ira_curr_regno_allocno_map[REGNO (operand)],
 			      freq, NULL_RTX, ira_curr_loop_tree_node);
 			bitmap_set_bit
 			  (ira_curr_loop_tree_node->local_copies, cp->num);
@@ -512,9 +511,9 @@ add_insn_allocno_copies (rtx insn)
 		 or creating the corresponding allocno copies.  */
 	      for (j = 0; j < recog_data.n_operands; j++)
 		{
-		  dup = recog_data.operand [j];
+		  dup = recog_data.operand[j];
 
-		  if (i == j || recog_data.operand_type [j] != OP_OUT
+		  if (i == j || recog_data.operand_type[j] != OP_OUT
 		      || !REG_P (dup))
 		    continue;
 		  
@@ -526,28 +525,25 @@ add_insn_allocno_copies (rtx insn)
 			    if (HARD_REGISTER_P (dup))
 			      continue;
 			    hard_regno = REGNO (operand);
-			    a = ira_curr_regno_allocno_map [REGNO (dup)];
+			    a = ira_curr_regno_allocno_map[REGNO (dup)];
 			  }
 			else
 			  {
 			    hard_regno = REGNO (dup);
-			    a = ira_curr_regno_allocno_map [REGNO (operand)];
+			    a = ira_curr_regno_allocno_map[REGNO (operand)];
 			  }
 			class = REGNO_REG_CLASS (hard_regno);
 			mode = ALLOCNO_MODE (a);
 			cover_class = ALLOCNO_COVER_CLASS (a);
-			if (! class_subset_p [class] [cover_class])
+			if (! class_subset_p[class][cover_class])
 			  continue;
-			index
-			  = class_hard_reg_index [cover_class] [hard_regno];
+			index = class_hard_reg_index[cover_class][hard_regno];
 			if (index < 0)
 			  continue;
 			if (HARD_REGISTER_P (operand))
-			  cost
-			    = register_move_cost [mode] [cover_class] [class];
+			  cost = register_move_cost[mode][cover_class][class];
 			else
-			  cost
-			    = register_move_cost [mode] [class] [cover_class];
+			  cost = register_move_cost[mode][class][cover_class];
 			cost *= (freq < 8 ? 1 : freq / 8);
 			allocate_and_set_costs
 			  (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
@@ -555,8 +551,8 @@ add_insn_allocno_copies (rtx insn)
 			allocate_and_set_costs
 			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
 			   cover_class, 0);
-			ALLOCNO_HARD_REG_COSTS (a) [index] -= cost;
-			ALLOCNO_CONFLICT_HARD_REG_COSTS (a) [index] -= cost;
+			ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
+			ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
 		      }
 		    else
 		      {
@@ -565,8 +561,8 @@ add_insn_allocno_copies (rtx insn)
 			   a real move insn, so make the frequency
 			   smaller.  */
 			cp = add_allocno_copy
-			     (ira_curr_regno_allocno_map [REGNO (dup)],
-			      ira_curr_regno_allocno_map [REGNO (operand)],
+			     (ira_curr_regno_allocno_map[REGNO (dup)],
+			      ira_curr_regno_allocno_map[REGNO (operand)],
 			      (freq < 8 ? 1 : freq / 8), NULL_RTX,
 			      ira_curr_loop_tree_node);
 			bitmap_set_bit
@@ -609,7 +605,7 @@ propagate_allocno_info (allocno_t a)
 
   regno = ALLOCNO_REGNO (a);
   if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
-      && (father_a = father->regno_allocno_map [regno]) != NULL)
+      && (father_a = father->regno_allocno_map[regno]) != NULL)
     {
       ALLOCNO_CALL_FREQ (father_a) += ALLOCNO_CALL_FREQ (a);
 #ifdef STACK_REGS
@@ -656,7 +652,7 @@ propagate_info (void)
   allocno_t a;
 
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (a = regno_allocno_map [i];
+    for (a = regno_allocno_map[i];
 	 a != NULL;
 	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       propagate_allocno_info (a);
@@ -702,8 +698,8 @@ pseudo_live_ranges_intersect_p (int regno1, int regno2)
 	      && regno2 >= FIRST_PSEUDO_REGISTER);
   /* Reg info caclulated by dataflow infrastructure can be different
      from one calculated by regclass.  */
-  if ((a1 = ira_loop_tree_root->regno_allocno_map [regno1]) == NULL
-      || (a2 = ira_loop_tree_root->regno_allocno_map [regno2]) == NULL)
+  if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
+      || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
     return FALSE;
   return allocno_live_ranges_intersect_p (a1, a2);
 }
@@ -756,18 +752,18 @@ build_allocno_conflicts (void)
 
   conflict_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (a = regno_allocno_map [i];
+    for (a = regno_allocno_map[i];
 	 a != NULL;
 	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
       {
-	allocno_conflicts = conflicts [ALLOCNO_NUM (a)];
+	allocno_conflicts = conflicts[ALLOCNO_NUM (a)];
 	px = 0;
 	FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts, allocnos_num, j, asi)
 	  {
-	    another_a = allocnos [j];
+	    another_a = allocnos[j];
 	    ira_assert (ALLOCNO_COVER_CLASS (a)
 			== ALLOCNO_COVER_CLASS (another_a));
-	    conflict_allocnos [px++] = another_a;
+	    conflict_allocnos[px++] = another_a;
 	  }
 	if (conflict_vector_profitable_p (a, px))
 	  {
@@ -775,28 +771,28 @@ build_allocno_conflicts (void)
 	    allocate_allocno_conflict_vec (a, px);
 	    vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
 	    memcpy (vec, conflict_allocnos, sizeof (allocno_t) * px);
-	    vec [px] = NULL;
+	    vec[px] = NULL;
 	    ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = px;
 	  }
 	else
 	  {
 	    free_p = FALSE;
-	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = conflicts [ALLOCNO_NUM (a)];
+	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = conflicts[ALLOCNO_NUM (a)];
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a)
 	      = allocno_set_words * sizeof (INT_TYPE);
 	  }
 	if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
-	    || (father_a = father->regno_allocno_map [i]) == NULL)
+	    || (father_a = father->regno_allocno_map[i]) == NULL)
 	  {
 	    if (free_p)
-	      ira_free (conflicts [ALLOCNO_NUM (a)]);
+	      ira_free (conflicts[ALLOCNO_NUM (a)]);
 	    continue;
 	  }
 	ira_assert (ALLOCNO_COVER_CLASS (a) == ALLOCNO_COVER_CLASS (father_a));
 	father_num = ALLOCNO_NUM (father_a);
 	FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts, allocnos_num, j, asi)
 	  {
-	    another_a = allocnos [j];
+	    another_a = allocnos[j];
 	    ira_assert (ALLOCNO_COVER_CLASS (a)
 			== ALLOCNO_COVER_CLASS (another_a));
 	    if ((another_father_a = (father->regno_allocno_map
@@ -806,10 +802,10 @@ build_allocno_conflicts (void)
 	    ira_assert (another_father_num >= 0);
 	    ira_assert (ALLOCNO_COVER_CLASS (another_a)
 			== ALLOCNO_COVER_CLASS (another_father_a));
-	    SET_ALLOCNO_SET_BIT (conflicts [father_num], another_father_num);
+	    SET_ALLOCNO_SET_BIT (conflicts[father_num], another_father_num);
 	  }
 	if (free_p)
-	  ira_free (conflicts [ALLOCNO_NUM (a)]);
+	  ira_free (conflicts[ALLOCNO_NUM (a)]);
       }
   ira_free (conflict_allocnos);
   ira_free (conflicts);

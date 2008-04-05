@@ -893,7 +893,7 @@ reload (rtx first, int global)
 
   temp_pseudo_reg_arr = XNEWVEC (int, max_regno - LAST_VIRTUAL_REGISTER - 1);
   for (n = 0, i = LAST_VIRTUAL_REGISTER + 1; i < max_regno; i++)
-    temp_pseudo_reg_arr [n++] = i;
+    temp_pseudo_reg_arr[n++] = i;
   
   if (flag_ira)
     /* Ask IRA to order pseudo-registers for better stack slot
@@ -901,7 +901,7 @@ reload (rtx first, int global)
     sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n, reg_max_ref_width);
 
   for (i = 0; i < n; i++)
-    alter_reg (temp_pseudo_reg_arr [i], -1, false);
+    alter_reg (temp_pseudo_reg_arr[i], -1, false);
 
   /* If we have some registers we think can be eliminated, scan all insns to
      see if there is an insn that sets one of these registers to something
@@ -1613,8 +1613,8 @@ calculate_needs_all_insns (int global)
 		    && REG_P (SET_SRC (set))
 		    && REGNO (SET_SRC (set)) >= FIRST_PSEUDO_REGISTER)
 		   || (REG_P (SET_SRC (set)) && REG_P (SET_DEST (set))
-		       && reg_renumber [REGNO (SET_SRC (set))] < 0
-		       && reg_renumber [REGNO (SET_DEST (set))] < 0
+		       && reg_renumber[REGNO (SET_SRC (set))] < 0
+		       && reg_renumber[REGNO (SET_DEST (set))] < 0
 		       && reg_equiv_memory_loc[REGNO (SET_SRC (set))] != NULL
 		       && reg_equiv_memory_loc[REGNO (SET_DEST (set))] != NULL
 		       && rtx_equal_p (reg_equiv_memory_loc
@@ -1716,7 +1716,7 @@ static int spill_add_cost[FIRST_PSEUDO_REGISTER];
 
 /* Map of hard regno to pseudo regno currently occupying the hard
    reg.  */
-static int hard_regno_to_pseudo_regno [FIRST_PSEUDO_REGISTER];
+static int hard_regno_to_pseudo_regno[FIRST_PSEUDO_REGISTER];
 
 /* Update the spill cost arrays, considering that pseudo REG is live.  */
 
@@ -1742,7 +1742,7 @@ count_pseudo (int reg)
   nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (reg)];
   while (nregs-- > 0)
     {
-      hard_regno_to_pseudo_regno [r + nregs] = reg;
+      hard_regno_to_pseudo_regno[r + nregs] = reg;
       spill_cost[r + nregs] += freq;
     }
 }
@@ -1763,7 +1763,7 @@ order_regs_for_reload (struct insn_chain *chain)
   memset (spill_cost, 0, sizeof spill_cost);
   memset (spill_add_cost, 0, sizeof spill_add_cost);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    hard_regno_to_pseudo_regno [i] = -1;
+    hard_regno_to_pseudo_regno[i] = -1;
 
   /* Count number of uses of each hard reg by pseudo regs allocated to it
      and then order them by decreasing use.  First exclude hard registers
@@ -1822,7 +1822,7 @@ count_spilled_pseudo (int spilled, int spilled_nregs, int reg)
   spill_add_cost[r] -= freq;
   while (nregs-- > 0)
     {
-      hard_regno_to_pseudo_regno [r + nregs] = -1;
+      hard_regno_to_pseudo_regno[r + nregs] = -1;
       spill_cost[r + nregs] -= freq;
     }
 }
@@ -1841,8 +1841,8 @@ find_reg (struct insn_chain *chain, int order)
   HARD_REG_SET not_usable;
   HARD_REG_SET used_by_other_reload;
   reg_set_iterator rsi;
-  static int regno_pseudo_regs [FIRST_PSEUDO_REGISTER];
-  static int best_regno_pseudo_regs [FIRST_PSEUDO_REGISTER];
+  static int regno_pseudo_regs[FIRST_PSEUDO_REGISTER];
+  static int best_regno_pseudo_regs[FIRST_PSEUDO_REGISTER];
 
   COPY_HARD_REG_SET (not_usable, bad_spill_regs);
   IOR_HARD_REG_SET (not_usable, bad_spill_regs_global);
@@ -1886,14 +1886,14 @@ find_reg (struct insn_chain *chain, int order)
 		 spilling.  */
 	      for (n = j = 0; j < this_nregs; j++)
 		{
-		  int r = hard_regno_to_pseudo_regno [regno + j];
+		  int r = hard_regno_to_pseudo_regno[regno + j];
 
 		  if (r < 0)
 		    continue;
-		  if (n == 0 || regno_pseudo_regs [n - 1] != r)
-		    regno_pseudo_regs [n++] = r;
+		  if (n == 0 || regno_pseudo_regs[n - 1] != r)
+		    regno_pseudo_regs[n++] = r;
 		}
-	      regno_pseudo_regs [n++] = -1;
+	      regno_pseudo_regs[n++] = -1;
 	      if (best_reg < 0
 		  || better_spill_reload_regno_p (regno_pseudo_regs,
 						  best_regno_pseudo_regs,
@@ -1903,8 +1903,8 @@ find_reg (struct insn_chain *chain, int order)
 		  best_reg = regno;
 		  for (j = 0;; j++)
 		    {
-		      best_regno_pseudo_regs [j] = regno_pseudo_regs [j];
-		      if (regno_pseudo_regs [j] < 0)
+		      best_regno_pseudo_regs[j] = regno_pseudo_regs[j];
+		      if (regno_pseudo_regs[j] < 0)
 			break;
 		    }
 		}
@@ -1958,7 +1958,7 @@ find_reg (struct insn_chain *chain, int order)
     {
       gcc_assert (spill_cost[best_reg + i] == 0);
       gcc_assert (spill_add_cost[best_reg + i] == 0);
-      gcc_assert (hard_regno_to_pseudo_regno [best_reg + i] == -1);
+      gcc_assert (hard_regno_to_pseudo_regno[best_reg + i] == -1);
       SET_HARD_REG_BIT (used_spill_regs_local, best_reg + i);
     }
   return 1;
@@ -4013,8 +4013,8 @@ finish_spills (int global)
 	  for (n = 0, i = FIRST_PSEUDO_REGISTER; i < (unsigned) max_regno; i++)
 	    if (reg_old_renumber[i] != reg_renumber[i])
 	      {
-		if (reg_renumber [i] < 0)
-		  temp_pseudo_reg_arr [n++] = i;
+		if (reg_renumber[i] < 0)
+		  temp_pseudo_reg_arr[n++] = i;
 		else
 		  CLEAR_REGNO_REG_SET (&spilled_pseudos, i);
 	      }
@@ -8324,7 +8324,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
     n_occurrences += count_occurrences (PATTERN (insn),
 					eliminate_regs (substed, 0,
 							NULL_RTX), 0);
-  for (i1 = reg_equiv_alt_mem_list [REGNO (reg)]; i1; i1 = XEXP (i1, 1))
+  for (i1 = reg_equiv_alt_mem_list[REGNO (reg)]; i1; i1 = XEXP (i1, 1))
     {
       gcc_assert (!rtx_equal_p (XEXP (i1, 0), substed));
       n_occurrences += count_occurrences (PATTERN (insn), XEXP (i1, 0), 0);

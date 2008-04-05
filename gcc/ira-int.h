@@ -7,7 +7,7 @@ This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -16,9 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #include "cfgloop.h"
 #include "ira.h"
@@ -99,7 +98,7 @@ struct loop_tree_node
 
   /* Maximal register pressure inside loop for given register class
      (defined only for the cover classes).  */
-  int reg_pressure [N_REG_CLASSES];
+  int reg_pressure[N_REG_CLASSES];
 
   /* Numbers of allocnos referred in the loop node.  */
   bitmap mentioned_allocnos;
@@ -129,7 +128,7 @@ extern loop_tree_node_t ira_bb_nodes;
 /* Two access macros to the nodes representing basic blocks.  */
 #if defined ENABLE_IRA_CHECKING && (GCC_VERSION >= 2007)
 #define IRA_BB_NODE_BY_INDEX(index) __extension__			\
-(({ loop_tree_node_t _node = (&ira_bb_nodes [index]);	\
+(({ loop_tree_node_t _node = (&ira_bb_nodes[index]);	\
      if (_node->children != NULL || _node->loop != NULL || _node->bb == NULL)\
        {								\
          fprintf (stderr,						\
@@ -139,7 +138,7 @@ extern loop_tree_node_t ira_bb_nodes;
        }								\
      _node; }))
 #else
-#define IRA_BB_NODE_BY_INDEX(index) (&ira_bb_nodes [index])
+#define IRA_BB_NODE_BY_INDEX(index) (&ira_bb_nodes[index])
 #endif
 
 #define IRA_BB_NODE(bb) IRA_BB_NODE_BY_INDEX ((bb)->index)
@@ -151,7 +150,7 @@ extern loop_tree_node_t ira_loop_nodes;
 /* Two access macros to the nodes representing loops.  */
 #if defined ENABLE_IRA_CHECKING && (GCC_VERSION >= 2007)
 #define IRA_LOOP_NODE_BY_INDEX(index) __extension__			\
-(({ loop_tree_node_t const _node = (&ira_loop_nodes [index]);\
+(({ loop_tree_node_t const _node = (&ira_loop_nodes[index]);\
      if (_node->children == NULL || _node->bb != NULL || _node->loop == NULL)\
        {								\
          fprintf (stderr,						\
@@ -161,7 +160,7 @@ extern loop_tree_node_t ira_loop_nodes;
        }								\
      _node; }))
 #else
-#define IRA_LOOP_NODE_BY_INDEX(index) (&ira_loop_nodes [index])
+#define IRA_LOOP_NODE_BY_INDEX(index) (&ira_loop_nodes[index])
 #endif
 
 #define IRA_LOOP_NODE(loop) IRA_LOOP_NODE_BY_INDEX ((loop)->num)
@@ -188,7 +187,7 @@ struct allocno_live_range
 };
 
 /* Program points are enumerated by number from range 0..MAX_POINT-1.
-   There are approximately tow times more program points than insns.
+   There are approximately two times more program points than insns.
    One program points correspond points between subsequent insns and
    other ones correspond to points after usage of input operands but
    before setting the output operands in insns.  */
@@ -300,7 +299,7 @@ struct allocno
      intersects.  */
   int call_freq;
   /* Start index of calls intersected by the allocno in array
-     regno_calls [regno].  */
+     regno_calls[regno].  */
   int calls_crossed_start;
   /* Length of the previous array (number of the intersected calls).  */
   int calls_crossed_num;
@@ -521,7 +520,7 @@ extern int move_loops_num, additional_jumps_num;
    given class needed to store value of given mode.  If the number for
    some hard-registers of the register class is different, the size
    will be negative.  */
-extern int reg_class_nregs [N_REG_CLASSES] [MAX_MACHINE_MODE];
+extern int reg_class_nregs[N_REG_CLASSES][MAX_MACHINE_MODE];
 
 /* Maximal value of the previous array elements.  */
 extern int max_nregs;
@@ -539,11 +538,11 @@ extern int max_nregs;
    |= ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 #define CLEAR_ALLOCNO_SET_BIT(R, I)				\
-  ((R) [(unsigned) (I) / INT_BITS]				\
+  ((R)[(unsigned) (I) / INT_BITS]				\
    &= ~((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 #define TEST_ALLOCNO_SET_BIT(R, I)				\
-  ((R) [(unsigned) (I) / INT_BITS]				\
+  ((R)[(unsigned) (I) / INT_BITS]				\
    & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 
@@ -576,7 +575,7 @@ allocno_set_iter_init (allocno_set_iterator *i, INT_TYPE *vec, int nel)
   i->word_num = 0;
   i->nel = nel;
   i->bit_num = 0;
-  i->word = nel == 0 ? 0 : vec [0];
+  i->word = nel == 0 ? 0 : vec[0];
 }
 
 /* Return TRUE if we have more allocnos to visit, in which case *N is
@@ -586,7 +585,7 @@ static inline int
 allocno_set_iter_cond (allocno_set_iterator *i, int *n)
 {
   /* Skip words that are zeros.  */
-  for (; i->word == 0; i->word = i->vec [i->word_num])
+  for (; i->word == 0; i->word = i->vec[i->word_num])
     {
       i->word_num++;
       i->bit_num = i->word_num * INT_BITS;
@@ -631,44 +630,44 @@ extern HARD_REG_SET one_hard_reg_set;
 /* Map: hard regs X modes -> set of hard registers for storing value
    of given mode starting with given hard register.  */
 extern HARD_REG_SET reg_mode_hard_regset
-                    [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
+                    [FIRST_PSEUDO_REGISTER][NUM_MACHINE_MODES];
 
 /* Arrays analogous to macros MEMORY_MOVE_COST and
    REGISTER_MOVE_COST.  */
-extern short memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
-extern move_table *register_move_cost [MAX_MACHINE_MODE];
+extern short memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
+extern move_table *register_move_cost[MAX_MACHINE_MODE];
 
 /* Similar to may_move_in_cost but it is calculated in IRA instead of
    regclass.  Another difference we take only available hard registers
    into account to figure out that one register class is a subset of
    the another one.  */
-extern move_table *register_may_move_in_cost [MAX_MACHINE_MODE];
+extern move_table *register_may_move_in_cost[MAX_MACHINE_MODE];
 
 /* Similar to may_move_out_cost but it is calculated in IRA instead of
    regclass.  Another difference we take only available hard registers
    into account to figure out that one register class is a subset of
    the another one.  */
-extern move_table *register_may_move_out_cost [MAX_MACHINE_MODE];
+extern move_table *register_may_move_out_cost[MAX_MACHINE_MODE];
 
 /* Register class subset relation: TRUE if the first class is a subset
    of the second one considering only hard registers available for the
    allocation.  */
-extern int class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
+extern int class_subset_p[N_REG_CLASSES][N_REG_CLASSES];
 
 /* Array of number of hard registers of given class which are
    available for the allocation.  The order is defined by the
    allocation order.  */
-extern short class_hard_regs [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
+extern short class_hard_regs[N_REG_CLASSES][FIRST_PSEUDO_REGISTER];
 
 /* The number of elements of the above array for given register
    class.  */
-extern int class_hard_regs_num [N_REG_CLASSES];
+extern int class_hard_regs_num[N_REG_CLASSES];
 
 /* Index (in class_hard_regs) for given register class and hard
    register (in general case a hard register can belong to several
    register classes).  The index is negative for hard registers
    unavailable for the allocation. */
-extern short class_hard_reg_index [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
+extern short class_hard_reg_index[N_REG_CLASSES][FIRST_PSEUDO_REGISTER];
 
 /* Function specific hard registers can not be used for the register
    allocation.  */
@@ -676,18 +675,18 @@ extern HARD_REG_SET no_alloc_regs;
 
 /* Number of given class hard registers available for the register
    allocation for given classes.  */
-extern int available_class_regs [N_REG_CLASSES];
+extern int available_class_regs[N_REG_CLASSES];
 
 /* Array whose values are hard regset of hard registers available for
    the allocation of given register class whose HARD_REGNO_MODE_OK
    values for given mode are zero.  */
 extern HARD_REG_SET prohibited_class_mode_regs
-                    [N_REG_CLASSES] [NUM_MACHINE_MODES];
+                    [N_REG_CLASSES][NUM_MACHINE_MODES];
 
 /* Array whose values are hard regset of hard registers for which
    move of the hard register in given mode into itself is
    prohibited.  */
-extern HARD_REG_SET prohibited_mode_move_regs [NUM_MACHINE_MODES];
+extern HARD_REG_SET prohibited_mode_move_regs[NUM_MACHINE_MODES];
 
 /* Number of cover classes.  Cover classes is non-intersected register
    classes containing all hard-registers available for the
@@ -697,7 +696,7 @@ extern int reg_class_cover_size;
 /* The array containing cover classes (see also comments for macro
    IRA_COVER_CLASSES).  Only first REG_CLASS_COVER_SIZE elements are
    used for this.  */
-extern enum reg_class reg_class_cover [N_REG_CLASSES];
+extern enum reg_class reg_class_cover[N_REG_CLASSES];
 
 /* The value is number of elements in the subsequent array.  */
 extern int important_classes_num;
@@ -705,27 +704,27 @@ extern int important_classes_num;
 /* The array containing classes (including cover classes) which are
    subclasses of cover classes.  Such classes is important for
    calculation of the hard register usage costs.  */
-extern enum reg_class important_classes [N_REG_CLASSES];
+extern enum reg_class important_classes[N_REG_CLASSES];
 
 /* The array containing indexes of important classes in the previous
    array.  The array elements are defined only for important
    classes.  */
-extern int important_class_nums [N_REG_CLASSES];
+extern int important_class_nums[N_REG_CLASSES];
 
 /* Map of all register classes to corresponding cover class containing
    the given class.  If given class is not a subset of a cover class,
    we translate it into the cheapest cover class.  */
-extern enum reg_class class_translate [N_REG_CLASSES];
+extern enum reg_class class_translate[N_REG_CLASSES];
 
 /* The biggest important class inside of intersection of the two
    classes (that is calculated taking only hard registers available
    for allocation into account).  */
-extern enum reg_class reg_class_intersect [N_REG_CLASSES] [N_REG_CLASSES];
+extern enum reg_class reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
 /* The biggest important class inside of union of the two classes
    (that is calculated taking only hard registers available for
    allocation into account).  */
-extern enum reg_class reg_class_union [N_REG_CLASSES] [N_REG_CLASSES];
+extern enum reg_class reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
 
 extern void set_non_alloc_regs (int);
 extern void *ira_allocate (size_t);
@@ -850,9 +849,9 @@ allocno_iter_cond (allocno_iterator *i, allocno_t *a)
   int n;
 
   for (n = i->n; n < allocnos_num; n++)
-    if (allocnos [n] != NULL)
+    if (allocnos[n] != NULL)
       {
-	*a = allocnos [n];
+	*a = allocnos[n];
 	i->n = n + 1;
 	return TRUE;
       }
@@ -890,9 +889,9 @@ copy_iter_cond (copy_iterator *i, copy_t *cp)
   int n;
 
   for (n = i->n; n < copies_num; n++)
-    if (copies [n] != NULL)
+    if (copies[n] != NULL)
       {
-	*cp = copies [n];
+	*cp = copies[n];
 	i->n = n + 1;
 	return TRUE;
       }
@@ -950,7 +949,7 @@ allocno_conflict_iter_init (allocno_conflict_iterator *i, allocno_t allocno)
 	= MIN (((allocnos_num + INT_BITS - 1) / INT_BITS) * sizeof (INT_TYPE),
 	       ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (allocno));
       i->bit_num = 0;
-      i->word = ((INT_TYPE *) i->vec) [0];
+      i->word = ((INT_TYPE *) i->vec)[0];
     }
 }
 
@@ -964,7 +963,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
 
   if (i->allocno_conflict_vec_p)
     {
-      conflict_allocno = ((allocno_t *) i->vec) [i->word_num];
+      conflict_allocno = ((allocno_t *) i->vec)[i->word_num];
       if (conflict_allocno == NULL)
 	return FALSE;
       *a = conflict_allocno;
@@ -973,7 +972,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
   else
     {
       /* Skip words that are zeros.  */
-      for (; i->word == 0; i->word = ((INT_TYPE *) i->vec) [i->word_num])
+      for (; i->word == 0; i->word = ((INT_TYPE *) i->vec)[i->word_num])
 	{
 	  i->word_num++;
 	  
@@ -988,7 +987,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
       for (; (i->word & 1) == 0; i->word >>= 1)
 	i->bit_num++;
       
-      *a = allocnos [i->bit_num];
+      *a = allocnos[i->bit_num];
       
       return TRUE;
     }
@@ -1028,7 +1027,7 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
   int i;
 
   ira_assert (hard_regno >= 0);
-  for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
+  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return FALSE;
   return TRUE;
@@ -1051,9 +1050,9 @@ allocate_and_set_costs (int **vec, enum reg_class cover_class, int val)
   if (*vec != NULL)
     return;
   *vec = reg_costs = allocate_cost_vector (cover_class);
-  len = class_hard_regs_num [cover_class];
+  len = class_hard_regs_num[cover_class];
   for (i = 0; i < len; i++)
-    reg_costs [i] = val;
+    reg_costs[i] = val;
 }
 
 /* Allocate cost vector *VEC for hard registers of COVER_CLASS and
@@ -1066,7 +1065,7 @@ allocate_and_copy_costs (int **vec, enum reg_class cover_class, int *src)
   if (*vec != NULL || src == NULL)
     return;
   *vec = allocate_cost_vector (cover_class);
-  len = class_hard_regs_num [cover_class];
+  len = class_hard_regs_num[cover_class];
   memcpy (*vec, src, sizeof (int) * len);
 }
 
@@ -1083,12 +1082,12 @@ allocate_and_set_or_copy_costs (int **vec, enum reg_class cover_class,
   if (*vec != NULL)
     return;
   *vec = reg_costs = allocate_cost_vector (cover_class);
-  len = class_hard_regs_num [cover_class];
+  len = class_hard_regs_num[cover_class];
   if (src != NULL)
     memcpy (reg_costs, src, sizeof (int) * len);
   else
     {
       for (i = 0; i < len; i++)
-	reg_costs [i] = val;
+	reg_costs[i] = val;
     }
 }

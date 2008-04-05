@@ -1,5 +1,23 @@
 2008-04-04  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* reload1.c: Remove spaces before [.
+	
+	* ira-conflicts.c, ira-int.h, ira-color.c, ira-lives.c,
+	ira-emit.c, ira-build.c, ira.c, ira.h, ira-costs.c: Ditto.  Use
+	GPL3.
+	
+	* caller-save.c: Ditto.
+	(set_up_bb_rts_numbers, rpost_cmp): Remove.
+	(save_trans_fun, save_con_fun_0, save_con_fun_n): New functions.
+	(struct bb_info): Remove member rts_number.
+	(calculate_local_save_info): Setup empty_save_in_p for abnormal
+	edges.
+	(all_blocks): New variable.
+	(calculate_save_in_out): Use df_simple_dataflow.
+	(make_global_save_analysis): Allocate/setup/free all_blocks.
+		
+2008-04-04  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-costs.c: Use GPL3 in the header.
 	(find_allocno_class_costs): Use all important
 	classes on the 1st iteration.
