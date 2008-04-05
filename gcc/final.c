@@ -4110,8 +4110,12 @@ update_regs_ever_live (rtx x)
 {
   int i;
   const char *fmt;
-  RTX_CODE code = GET_CODE (x);
+  RTX_CODE code;
 
+  if (x == NULL_RTX)
+    return;
+
+  code = GET_CODE (x);
   if (code == REG)
     {
       if (HARD_REGISTER_P (x))
@@ -4150,13 +4154,13 @@ rest_of_handle_final (void)
 	if (INSN_P (insn))
 	  update_regs_ever_live (PATTERN (insn));
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (fixed_regs [i])
+	if (fixed_regs[i])
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
 #ifdef INCOMING_REGNO
-	else if (INCOMING_REGNO (i) != i && call_used_regs [i])
+	else if (INCOMING_REGNO (i) != i && call_used_regs[i])
 	  SET_HARD_REG_BIT (cfun->emit->call_used_regs, i);
 #endif
-	else if (call_used_regs [i] &&
+	else if (call_used_regs[i] &&
 		 (df_regs_ever_live_p (i)
 #ifdef STACK_REGS
 		  || (i >= FIRST_STACK_REG && i <= LAST_STACK_REG)
@@ -4172,7 +4176,7 @@ rest_of_handle_final (void)
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (TEST_HARD_REG_BIT (call_used_reg_set, i)
 		&& ! TEST_HARD_REG_BIT (cfun->emit->call_used_regs, i))
-	      fprintf (dump_file, "%s ", reg_names [i]);
+	      fprintf (dump_file, "%s ", reg_names[i]);
 	  fprintf (dump_file, "\n");
 	}
     }

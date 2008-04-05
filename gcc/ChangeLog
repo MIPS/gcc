@@ -1,3 +1,12 @@
+2008-04-04  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (IRA_COVER_CLASSES): Define.
+	* config/sh/sh.c (sh_secondary_reload): Return NO_REGS for
+	null rtl.
+	* config/sh/sh.md (movsicc_true+3): Check if emit returns
+	a barrier.
+	* final.c (update_regs_ever_live): Check null rtl.
+	
 2008-04-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* reload1.c: Remove spaces before [.
