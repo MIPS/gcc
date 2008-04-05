@@ -8,8 +8,8 @@
 	* function.h (function): Update stack_alignment_needed
 	comment.  Add stack_alignment_used.
 
-	* config/i386/i386.c (ix86_expand_prologue): For leaf
-	function, check stack_alignment_used stack_realign_really.
+	* config/i386/i386.c (ix86_expand_prologue): For leaf function,
+	check stack_alignment_used to set stack_realign_really.
 
 2008-03-24  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>

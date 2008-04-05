@@ -1,3 +1,17 @@
+2008-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/35786
+	* openmp.c (resolve_omp_clauses): Diagnose if a clause symbol
+	isn't a variable.
+
+2008-04-03  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (fortran_OBJS): New variable.
+
+2008-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+        * f95-lang.c (insert_block): Kill.
+
 2008-04-01  George Helffrich <george@gcc.gnu.org>
 
 	* trans-common.c (create_common):  Add decl to function

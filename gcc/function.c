@@ -234,58 +234,34 @@ find_function_data (tree decl)
 }
 
 /* Save the current context for compilation of a nested function.
-   This is called from language-specific code.  The caller should use
-   the enter_nested langhook to save any language-specific state,
-   since this function knows only about language-independent
-   variables.  */
-
-void
-push_function_context_to (tree context ATTRIBUTE_UNUSED)
-{
-  struct function *p;
-
-  if (cfun == 0)
-    allocate_struct_function (NULL, false);
-  p = cfun;
-
-  p->outer = outer_function_chain;
-  outer_function_chain = p;
-
-  lang_hooks.function.enter_nested (p);
-
-  set_cfun (NULL);
-}
+   This is called from language-specific code.  */
 
 void
 push_function_context (void)
 {
-  push_function_context_to (current_function_decl);
+  if (cfun == 0)
+    allocate_struct_function (NULL, false);
+
+  cfun->outer = outer_function_chain;
+  outer_function_chain = cfun;
+  set_cfun (NULL);
 }
 
 /* Restore the last saved context, at the end of a nested function.
    This function is called from language-specific code.  */
 
 void
-pop_function_context_from (tree context ATTRIBUTE_UNUSED)
+pop_function_context (void)
 {
   struct function *p = outer_function_chain;
 
   set_cfun (p);
   outer_function_chain = p->outer;
-
   current_function_decl = p->decl;
-
-  lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
   virtuals_instantiated = 0;
   generating_concat_p = 1;
-}
-
-void
-pop_function_context (void)
-{
-  pop_function_context_from (current_function_decl);
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -295,12 +271,7 @@ pop_function_context (void)
 void
 free_after_parsing (struct function *f)
 {
-  /* f->expr->forced_labels is used by code generation.  */
-  /* f->emit->regno_reg_rtx is used by code generation.  */
-  /* f->varasm is used by code generation.  */
-  /* f->eh->eh_return_stub_label is used by code generation.  */
-
-  lang_hooks.function.final (f);
+  f->language = 0;
 }
 
 /* Clear out all parts of the state in F that can safely be discarded
@@ -3985,7 +3956,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 
   init_eh_for_function ();
 
-  lang_hooks.function.init (cfun);
   if (init_machine_status)
     cfun->machine = (*init_machine_status) ();
 
@@ -4359,7 +4329,9 @@ expand_function_start (tree subr)
 
       /* ??? We need to do this save early.  Unfortunately here is
 	 before the frame variable gets declared.  Help out...  */
-      expand_var (TREE_OPERAND (cfun->nonlocal_goto_save_area, 0));
+      tree var = TREE_OPERAND (cfun->nonlocal_goto_save_area, 0);
+      if (!DECL_RTL_SET_P (var))
+	expand_decl (var);
 
       t_save = build4 (ARRAY_REF, ptr_type_node,
 		       cfun->nonlocal_goto_save_area,

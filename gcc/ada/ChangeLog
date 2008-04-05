@@ -1,4 +1,19 @@
+2008-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+        * gigi.h (insert_block): Kill.
+        * utils.c (insert_block): Kill.
+
+2008-04-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <object>: For a constant object whose
+	type has self-referential size, get the size from the initializing
+	expression directly if it is also a constant whose nominal type
+	has self-referential size.
+
 2008-04-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/33688
+	* g-soccon-darwin.ads: Define new constant IP_PKTINFO.
 
 	PR ada/33857
 	* env.c: Always include crt_externs.h if __APPLE__ is defined.
