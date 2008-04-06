@@ -11092,9 +11092,6 @@ enum reg_class
 sh_secondary_reload (bool in_p, rtx x, enum reg_class class,
 		     enum machine_mode mode, secondary_reload_info *sri)
 {
-  if (x == NULL_RTX)
-    return NO_REGS;
-
   if (in_p)
     {
       if (REGCLASS_HAS_FP_REG (class)

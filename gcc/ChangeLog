@@ -1,3 +1,10 @@
+2008-04-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* toplev.c (backend_init_target): Move init_ira after
+	init_fake_stack_mems.
+
+	* config/sh/sh.c (sh_secondary_reload): Remove check of x on null.
+
 2008-04-04  Bernd Schmidt  <bernd.schmidt@analog.com>
 
 	* config/bfin/bfin.h (IRA_COVER_CLASSES): New macro.

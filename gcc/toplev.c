@@ -1966,11 +1966,11 @@ backend_init_target (void)
      mode-dependent.  */
   init_regs ();
 
-  /* This invokes IRA to set up reg related data structures.  */
-  init_ira ();
-
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
+
+  /* This invokes IRA to set up reg related data structures.  */
+  init_ira ();
 
   /* Sets static_base_value[HARD_FRAME_POINTER_REGNUM], which is
      mode-dependent.  */
