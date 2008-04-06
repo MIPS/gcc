@@ -561,6 +561,10 @@ extern HARD_REG_SET reg_class_contents[N_REG_CLASSES];
 
 extern unsigned int reg_class_size[N_REG_CLASSES];
 
+/* For each reg class, table listing all the classes contained in it.  */
+
+extern enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
+
 /* For each pair of reg classes,
    a largest reg class contained in their union.  */
 

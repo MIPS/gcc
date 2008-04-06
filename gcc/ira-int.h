@@ -701,9 +701,9 @@ extern enum reg_class reg_class_cover[N_REG_CLASSES];
 /* The value is number of elements in the subsequent array.  */
 extern int important_classes_num;
 
-/* The array containing classes (including cover classes) which are
-   subclasses of cover classes.  Such classes is important for
-   calculation of the hard register usage costs.  */
+/* The array containing non-empty classes (including non-empty cover
+   classes) which are subclasses of cover classes.  Such classes is
+   important for calculation of the hard register usage costs.  */
 extern enum reg_class important_classes[N_REG_CLASSES];
 
 /* The array containing indexes of important classes in the previous
@@ -718,12 +718,18 @@ extern enum reg_class class_translate[N_REG_CLASSES];
 
 /* The biggest important class inside of intersection of the two
    classes (that is calculated taking only hard registers available
-   for allocation into account).  */
+   for allocation into account).  If the both classes contain no hard
+   registers available for allocation, the value is calculated with
+   taking all hard-registers including fixed ones into account.  */
 extern enum reg_class reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
 /* The biggest important class inside of union of the two classes
    (that is calculated taking only hard registers available for
-   allocation into account).  */
+   allocation into account).  If the both classes contain no hard
+   registers available for allocation, the value is calculated with
+   taking all hard-registers including fixed ones into account.  In
+   other words, the value is the corresponding reg_class_subunion
+   value.  */
 extern enum reg_class reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
 
 extern void set_non_alloc_regs (int);

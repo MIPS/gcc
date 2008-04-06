@@ -1504,7 +1504,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define IRA_COVER_CLASSES						     \
 {									     \
-  GENERAL_REGS, FP_REGS, PR_REGS, T_REGS, MAC_REGS,			     \
+  GENERAL_REGS, FP_REGS, PR_REGS, T_REGS, MAC_REGS, TARGET_REGS,  	     \
   LIM_REG_CLASSES							     \
 }
 

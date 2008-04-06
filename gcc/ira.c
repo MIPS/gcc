@@ -507,9 +507,9 @@ enum reg_class reg_class_cover[N_REG_CLASSES];
 /* The value is number of elements in the subsequent array.  */
 int important_classes_num;
 
-/* The array containing classes (including cover classes) which are
-   subclasses of cover classes.  Such classes is important for
-   calculation of the hard register usage costs.  */
+/* The array containing non-empty classes (including non-empty cover
+   classes) which are subclasses of cover classes.  Such classes is
+   important for calculation of the hard register usage costs.  */
 enum reg_class important_classes[N_REG_CLASSES];
 
 /* The array containing indexes of important classes in the previous
@@ -645,12 +645,18 @@ setup_class_translate (void)
 
 /* The biggest important class inside of intersection of the two
    classes (that is calculated taking only hard registers available
-   for allocation into account).  */
+   for allocation into account).  If the both classes contain no hard
+   registers available for allocation, the value is calculated with
+   taking all hard-registers including fixed ones into account.  */
 enum reg_class reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
 /* The biggest important class inside of union of the two classes
    (that is calculated taking only hard registers available for
-   allocation into account).  */
+   allocation into account).  If the both classes contain no hard
+   registers available for allocation, the value is calculated with
+   taking all hard-registers including fixed ones into account.  In
+   other words, the value is the corresponding reg_class_subunion
+   value.  */
 enum reg_class reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
@@ -667,6 +673,24 @@ setup_reg_class_intersect_union (void)
       for (cl2 = 0; cl2 < N_REG_CLASSES; cl2++)
 	{
 	  reg_class_intersect[cl1][cl2] = NO_REGS;
+	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl1]);
+	  AND_COMPL_HARD_REG_SET (temp_hard_regset, no_unit_alloc_regs);
+	  COPY_HARD_REG_SET (temp_set2, reg_class_contents[cl2]);
+	  AND_COMPL_HARD_REG_SET (temp_set2, no_unit_alloc_regs);
+	  if (hard_reg_set_equal_p (temp_hard_regset, zero_hard_reg_set)
+	      && hard_reg_set_equal_p (temp_set2, zero_hard_reg_set))
+	    {
+	      for (i = 0;; i++)
+		{
+		  cl3 = reg_class_subclasses[cl1][i];
+		  if (cl3 == LIM_REG_CLASSES)
+		    break;
+		  if (reg_class_subset_p (reg_class_intersect[cl1][cl2], cl3))
+		    reg_class_intersect[cl1][cl2] = cl3;
+		}
+	      reg_class_union[cl1][cl2] = reg_class_subunion[cl1][cl2];
+	      continue;
+	    }
 	  reg_class_union[cl1][cl2] = NO_REGS;
 	  COPY_HARD_REG_SET (intersection_set, reg_class_contents[cl1]);
 	  AND_HARD_REG_SET (intersection_set, reg_class_contents[cl2]);

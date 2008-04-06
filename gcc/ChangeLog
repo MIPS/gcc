@@ -1,3 +1,16 @@
+2008-04-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (reg_class_intersect, reg_class_union): Add comments.
+	
+	* hard-reg-set.h (reg_class_subclasses): New external definition.
+
+	* ira.c (setup_reg_class_intersect_union): Define for classes
+	containing no hard registers available for allocation.
+
+	* regclass.c (reg_class_subclasses): Make it external.
+
+	* config/sh/sh.h (IRA_COVER_CLASSES): Add TARGET_REGS.
+	
 2008-04-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* toplev.c (backend_init_target): Move init_ira after
