@@ -1,3 +1,25 @@
+2008-04-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c: Include target.h.
+	(VT_MAY_HAVE_VALUE_LOC): Remove.
+	(vt_expand_loc): Don't discard values.  Delegitimize top-level
+	MEMs.
+	* Makefile.in (var-tracking.o): Depend on TARGET_H.
+	* simplify-rtx.c (delegitimize_mem_from_attrs): New.
+	* rtl.h (delegitimize_mem_from_attrs): Declare it.
+	* target-def.h (TARGET_DELEGITIMIZE_ADDRESS): Use it.
+	* config/i386/i386.c (ix86_delegitimize_address): Use it.
+	* config/rs6000/rs6000.c (TARGET_DELEGITIMIZE_ADDRESS): Define to...
+	(rs600_delegitimize_address): ... this.  New.
+	* expr.c (get_inner_reference): Don't crash if the ultimate
+	containing object is NULL.
+	* cfgexpand.c (expand_debug_expr_1): Conditionally renamed from...
+	(expand_debug_expr): ... this, to avoid unwrapped constants.
+	* dwarf2out.c (mem_loc_descriptor): Check for TLS symbols,
+	emit TLS annotations for them.
+	(loc_descriptor): Recurse for CONSTs.  Discard value exprs.
+	* local-alloc.c (adjust_debug_insns_equivs): Wrap constants.
+
 2008-04-02  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c: Include cselib.h.

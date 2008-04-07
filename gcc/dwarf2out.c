@@ -9168,6 +9168,25 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	    return 0;
 	}
 
+      if (GET_CODE (rtl) == SYMBOL_REF
+	  && SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
+	{
+	  dw_loc_descr_ref temp;
+
+	  /* If this is not defined, we have no way to emit the data.  */
+	  if (!targetm.have_tls || !targetm.asm_out.output_dwarf_dtprel)
+	    break;
+
+	  temp = new_loc_descr (INTERNAL_DW_OP_tls_addr, 0, 0);
+	  temp->dw_loc_oprnd1.val_class = dw_val_class_addr;
+	  temp->dw_loc_oprnd1.v.val_addr = rtl;
+
+	  mem_loc_result = new_loc_descr (DW_OP_GNU_push_tls_address, 0, 0);
+	  add_loc_descr (&mem_loc_result, temp);
+
+	  break;
+	}
+
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);
       mem_loc_result->dw_loc_oprnd1.val_class = dw_val_class_addr;
       mem_loc_result->dw_loc_oprnd1.v.val_addr = rtl;
@@ -9412,8 +9431,13 @@ loc_descriptor (rtx rtl, enum var_init_status initialized)
       }
       break;
 
+    case CONST:
+      loc_result = loc_descriptor (XEXP (rtl, 0), initialized);
+      break;
+
     default:
-      gcc_unreachable ();
+      /* Value expression.  */
+      break;
     }
 
   return loc_result;

@@ -107,6 +107,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "cselib.h"
+#include "target.h"
 
 /* Type of micro operation.  */
 enum micro_operation_type
@@ -3378,12 +3379,6 @@ delete_variable_part (dataflow_set *set, rtx loc, decl_or_value dv,
     }
 }
 
-/* ??? Unconditionally reject LOCs that are not actual locations, but
-   rather expressions that denote values, for now.  This requires
-   extensions to DWARF-3, so even when we enable it, we may want to
-   make it conditional.  */
-#define VT_MAY_HAVE_VALUE_LOC false
-
 /* Callback for cselib_expand_value, that looks for expressions
    holding the value in the var-tracking hash tables.  */
 
@@ -3431,24 +3426,8 @@ vt_expand_loc (rtx loc, htab_t vars)
   loc = cselib_expand_value_rtx_cb (loc, scratch_regs, 5,
 				    vt_expand_loc_callback, vars);
 
-  if (loc && !VT_MAY_HAVE_VALUE_LOC)
-    {
-      switch (GET_CODE (loc))
-	{
-	case SUBREG:
-	case SIGN_EXTEND:
-	case ZERO_EXTEND:
-	case REG:
-	case MEM:
-	case CONCAT:
-	case CONCATN:
-	case PARALLEL:
-	  break;
-
-	default:
-	  return NULL;
-	}
-    }
+  if (loc && MEM_P (loc))
+    loc = targetm.delegitimize_address (loc);
 
   return loc;
 }

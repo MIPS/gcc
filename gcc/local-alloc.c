@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -807,24 +807,42 @@ adjust_debug_insns_equivs (unsigned regno)
   for (use = DF_REG_USE_CHAIN (regno); use; use = DF_REF_NEXT_REG (use))
     {
       rtx insn = DF_REF_INSN (use), *loc, x;
+      bool wrap = false;
 
       if (!DEBUG_INSN_P (insn))
 	continue;
 
-      if (!eqv)
-	{
-	  eqv = *reg_equiv[regno].src_p;
-	  if (MEM_P (eqv))
-	    eqv = targetm.delegitimize_address (eqv);
-	}
-
       loc = DF_REF_LOC (use);
       x = *loc;
 
+      if (!eqv)
+	{
+	  rtx reg;
+
+	  eqv = *reg_equiv[regno].src_p;
+	  if (MEM_P (eqv))
+	    eqv = targetm.delegitimize_address (eqv);
+
+	  if (GET_CODE (x) == SUBREG)
+	    reg = SUBREG_REG (x);
+	  else
+	    reg = x;
+
+	  if (GET_MODE (eqv) != GET_MODE (reg))
+	    {
+	      rtx save = eqv;
+
+	      eqv = wrap_constant (GET_MODE (reg), eqv);
+
+	      if (save != eqv && GET_CODE (eqv) == CONST)
+		wrap = true;
+
+	      gcc_assert (GET_MODE (eqv) == GET_MODE (reg));
+	    }
+	}
+
       if (REG_P (x) && REGNO (x) == regno)
 	{
-	  gcc_assert (GET_MODE (eqv) == VOIDmode
-		      || GET_MODE (eqv) == GET_MODE (x));
 	  validate_unshare_change (insn, loc, eqv, true);
 	}
       else if (GET_CODE (x) == SUBREG && REGNO (SUBREG_REG (x)) == regno)
@@ -838,6 +856,9 @@ adjust_debug_insns_equivs (unsigned regno)
 	  sreqv = simplify_gen_subreg (GET_MODE (x), copy_rtx (eqv),
 				       GET_MODE (SUBREG_REG (x)),
 				       SUBREG_BYTE (x));
+
+	  if (wrap)
+	    sreqv = wrap_constant (GET_MODE (x), sreqv);
 
 	  validate_change (insn, loc, sreqv, true);
 	}

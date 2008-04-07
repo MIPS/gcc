@@ -1628,12 +1628,31 @@ unwrap_constant (rtx x)
   return x;
 }
 
+#ifdef ENABLE_CHECKING
+static rtx expand_debug_expr_1 (tree exp);
+#endif
+
 /* Return an RTX equivalent to the value of the tree expression
    EXP.  */
 
 static rtx
 expand_debug_expr (tree exp)
 {
+#ifdef ENABLE_CHECKING
+  rtx ret = expand_debug_expr_1 (exp);
+
+  gcc_assert (!ret || GET_MODE (ret) != VOIDmode
+	      || (GET_CODE (ret) != CONST_INT
+		  && GET_CODE (ret) != CONST_FIXED
+		  && GET_CODE (ret) != CONST_DOUBLE));
+
+  return ret;
+}
+
+static rtx
+expand_debug_expr_1 (tree exp)
+{
+#endif
   rtx op0 = NULL_RTX, op1 = NULL_RTX, op2 = NULL_RTX;
   enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
@@ -2142,7 +2161,7 @@ expand_debug_expr (tree exp)
       if (!op0 || !MEM_P (op0))
 	return NULL;
 
-      return XEXP (op0, 0);
+      return wrap_constant (mode, XEXP (op0, 0));
 
     case VECTOR_CST:
       exp = build_constructor_from_list (TREE_TYPE (exp),
