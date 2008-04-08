@@ -660,10 +660,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_store_ccp);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_fold_builtins);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_cse_sincos);
-#endif
       NEXT_PASS (pass_split_crit_edges);
       /* FIXME tuples.  */
 #if 0
@@ -707,9 +704,9 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
 	}
-#if 0
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_convert_to_rsqrt);
+#if 0
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dominator);

@@ -1,3 +1,22 @@
+2008-04-04  Doug Kwan  <dougkwan@google.com>
+
+	* tree-ssa-math-opts.c (struct occurrence): Change field type of
+	recip_def_stmt to gimple.
+	(is_division_by): Tuplify.
+	(insert_reciprocals): Tuplify.
+	(replace_reciprocals): Tuplify.
+	(execute_cse_reciprocals_1): Tuplify.
+	(execute_cse_reciprocals): Tuplify.
+	(maybe_record_sincos): Use vector of gimples instead of vector of
+	trees.
+	(execute_cse_sincos_1): Tuplify.  When adjusting recorded old call
+	sites, generate new gimple assign statements and remove old gimple
+	call statements.
+	(execute_cse_sincos): Tuplify.
+	(execute_convert_to_rsqrt): Tuplify.
+	* passes.c (init_optimization_passes): Enable pass_cse_sincos,
+	pass_cse_reciprocals and pass_convert_to_rsqrt.
+
 2008-04-04  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (gimple_build_cond_empty): New.
