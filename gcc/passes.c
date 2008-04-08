@@ -552,11 +552,8 @@ init_optimization_passes (void)
 #endif
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_update_address_taken);
-/* FIXME tuples.  */
 	  NEXT_PASS (pass_simple_dse);
-#if 0
 	  NEXT_PASS (pass_tail_recursion);
-#endif
           NEXT_PASS (pass_profile);
 /* FIXME tuples.  */
 #if 0
@@ -734,10 +731,14 @@ init_optimization_passes (void)
       NEXT_PASS (pass_late_warn_uninitialized);
 #endif
       NEXT_PASS (pass_dse);
+/* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
+#endif
       NEXT_PASS (pass_tail_calls);
+/* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
 #endif

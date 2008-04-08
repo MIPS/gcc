@@ -1,3 +1,30 @@
+2008-04-08  Doug Kwan  <dougkwan@google.com>
+	
+	* tree-tailcall.c (struct tailcall): Remove call_block and replace
+	call_bsi by call_gsi.
+	(independent_of_stmt_p): Change type of parameter 'at' to GIMPLE and
+	change all tree using code to GIMPLE using equivalent.
+	Remove parameter block_stmt_iterator type parameter bsi with
+	gimple_stmt_iterator type parameter gsi. Replace uses of bsi with
+	that of gsi in function body as appropriate.
+	(process_assignment):  Remove parameter 'ass' and change type of
+	parameter 'stmt' to GIMPLE.  Change all tree using code to GIMPLE
+	using equivalent.
+	(propagate_through_phis, eliminate_tail_call, optimize_tail_call):
+	Change all tree using code to GIMPLE using equivalent.
+	(find_tail_calls): Change all tree using code to GIMPLE using
+	equivalent.  Remove code that handles GIMPLE_MODIFY_STMT containing
+	a CALL_EXPR.
+	(add_successor_phi_arg, adjust_return_value_with_ops,
+	update_accumulator_with_ops, adjust_accumulator_values,
+	create_tailcall_accumulator): New functions from refactoring of
+	duplicated logic.
+	(adjust_accumulator_values, adjust_return_value): Refactor.
+	(tree_optimize_tail_calls_1): Refactor and change all tree using code
+	to GIMPLE using equivalent.  Remove code to reverse phi list.
+	* passes.c (init_optimization_passes):  Re-enable pass_tail_recursion
+	and pass_tail_calls.
+
 2008-04-04  Doug Kwan  <dougkwan@google.com>
 
 	* tree-ssa-math-opts.c (struct occurrence): Change field type of
