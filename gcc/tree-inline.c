@@ -2839,26 +2839,8 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
 					       cfun->unexpanded_var_list);
       else
-	{
-	  /* Update stack alignment requirement if needed.  */
-	  if (MAX_VECTORIZE_STACK_ALIGNMENT)
-	    {
-	      unsigned int align;
-
-	      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
-		align = TYPE_ALIGN (TREE_TYPE (var));
-	      else
-		align = DECL_ALIGN (var);
-	      if (align  > cfun->stack_alignment_estimated)
-		{
-		  gcc_assert(!cfun->stack_realign_processed);
-		  cfun->stack_alignment_estimated = align;
-		}
-	    }
-	  cfun->unexpanded_var_list
-	    = tree_cons (NULL_TREE, remap_decl (var, id),
-			 cfun->unexpanded_var_list);
-	}
+	cfun->unexpanded_var_list = tree_cons (NULL_TREE, remap_decl (var, id),
+					       cfun->unexpanded_var_list);
     }
 
   /* Clean up.  */

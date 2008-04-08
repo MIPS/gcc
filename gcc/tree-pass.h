@@ -472,7 +472,6 @@ extern struct gimple_opt_pass pass_inline_parameters;
 extern struct gimple_opt_pass pass_apply_inline;
 extern struct gimple_opt_pass pass_all_early_optimizations;
 extern struct gimple_opt_pass pass_update_address_taken;
-extern struct gimple_opt_pass pass_collect_stackrealign_info;
 extern struct gimple_opt_pass pass_handle_drap;
 
 /* The root of the compilation pass tree, once constructed.  */

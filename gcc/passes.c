@@ -684,7 +684,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
-  NEXT_PASS (pass_collect_stackrealign_info);
   NEXT_PASS (pass_expand);
   NEXT_PASS (pass_handle_drap); 
   NEXT_PASS (pass_rest_of_compilation);

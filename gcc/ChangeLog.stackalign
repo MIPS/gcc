@@ -1,3 +1,26 @@
+2008-04-08  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* builtins.c (expand_builtin_longjmp): Need drap for longjmp.
+	(expand_builtin_apply): Need drap for builtin_apply.
+
+	* calls.c (emit_call_1): Need drap for callee pop function call.
+
+	* cfgexpand.c (gate_stack_realign): Renamed to ...
+	(gate_handle_drap): This.
+	(collect_stackrealign_info): Removed.
+	(pass_collect_stackrealign_info): Likewise.
+	(handle_drap): Check DRAP conditions here.  Update comments.
+	(pass_handle_drap): Updated.  Remove PROP_rtl.
+
+	* emit-rtl.c (gen_reg_rtx): Update stack_alignment_estimated.
+
+	* passes.c (pass_collect_stackrealign_info): Removed.
+	* tree-pass.h (pass_collect_stackrealign_info): Likewise.
+
+	* tree-inline.c (expand_call_inline): Don't collect alignment
+	information here.
+
 2008-03-24  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (get_decl_align_unit): Update stack_alignment_used.

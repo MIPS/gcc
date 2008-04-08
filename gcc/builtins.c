@@ -775,6 +775,11 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
   rtx fp, lab, stack, insn, last;
   enum machine_mode sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
 
+  /* DRAP is needed for stack realign if longjmp is expanded to current 
+     function  */
+  if (MAX_VECTORIZE_STACK_ALIGNMENT && !cfun->need_drap)
+    cfun->need_drap = true;
+
   if (setjmp_alias_set == -1)
     setjmp_alias_set = new_alias_set ();
 
@@ -1453,6 +1458,14 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   /* Allocate a block of memory onto the stack and copy the memory
      arguments to the outgoing arguments address.  */
   allocate_dynamic_stack_space (argsize, 0, BITS_PER_UNIT);
+
+  /* Set DRAP flag to true, even though allocate_dynamic_stack_space
+     may have already set current_function_calls_alloca to true.
+     current_function_calls_alloca won't be set if argsize is zero,
+     so we have to guarantee need_drap is true here.  */
+  if (MAX_VECTORIZE_STACK_ALIGNMENT && !cfun->need_drap)
+    cfun->need_drap = true;
+
   dest = virtual_outgoing_args_rtx;
 #ifndef STACK_GROWS_DOWNWARD
   if (GET_CODE (argsize) == CONST_INT)

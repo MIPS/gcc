@@ -419,6 +419,10 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
       rounded_stack_size -= n_popped;
       rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
       stack_pointer_delta -= n_popped;
+
+      /* If popup is needed, stack realign must use DRAP  */
+      if (MAX_VECTORIZE_STACK_ALIGNMENT && !cfun->need_drap)
+        cfun->need_drap = true;
     }
 
   if (!ACCUMULATE_OUTGOING_ARGS)

@@ -2039,7 +2039,7 @@ struct gimple_opt_pass pass_expand =
 };
 
 static bool
-gate_stack_realign (void)
+gate_handle_drap (void)
 {
   if (!MAX_VECTORIZE_STACK_ALIGNMENT)
     return false;
@@ -2050,100 +2050,37 @@ gate_stack_realign (void)
     }
 }
 
-/* Collect accurate info for stack realign.  */
+/* This pass sets current_function_internal_arg_pointer to a virtual
+   register if DRAP is needed.  Local register allocator will replace
+   virtual_incoming_args_rtx with the virtual register.  */
 
-static unsigned int
-collect_stackrealign_info (void)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-
-  if (cfun->has_nonlocal_label)
-    cfun->need_drap = true;
-
-  FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); ! bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-	tree call = get_call_expr_in (stmt);
-	tree decl, type;
-	int flags;
-
-	if (!call)
-	  continue;
-
-	flags = call_expr_flags (call);
-	if (flags & ECF_MAY_BE_ALLOCA)
-	  cfun->need_drap = true;
-
-	decl = get_callee_fndecl (call);
-	if (decl && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	  switch (DECL_FUNCTION_CODE (decl))
-	    {
-	    case BUILT_IN_NONLOCAL_GOTO:
-	    case BUILT_IN_APPLY:
-	    case BUILT_IN_LONGJMP:
-	      cfun->need_drap = true;
-	      break;
-	    default:
-	      break;
-	    }
-
-	type = TREE_TYPE (call);
-	if (!type || VOID_TYPE_P (type))
-          continue;
-
-	/* FIXME: Do we need DRAP when the result is returned on
-	   stack?  */
-	if (aggregate_value_p (type, decl))
-	  cfun->need_drap = true;
-      }  
-
-  return 0;
-}
-
-struct gimple_opt_pass pass_collect_stackrealign_info =
-{
- {
-  GIMPLE_PASS,
-  "stack_realign_info",                 /* name */
-  gate_stack_realign,                   /* gate */
-  collect_stackrealign_info,            /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_numbler */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
- }
-};
-
-/* New pass handle_drap. 
-   This pass first checks if DRAP is needed.
-   If yes, it will set current_function_internal_arg_pointer to that
-   virtual register. Later lregs pass will replace
-   virtual_incoming_args_rtx to that virtual reg */
 static unsigned int
 handle_drap (void)
 {
-  /* Call targetm.calls.internal_arg_pointer again. This time it will
-     return a virtual reg if DRAP is needed */
-  rtx internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
+  rtx internal_arg_rtx; 
 
-  /* Assertion to check internal_arg_pointer is set to the right rtx here */
+  if (!cfun->need_drap
+      && (current_function_calls_alloca
+          || cfun->has_nonlocal_label
+          || current_function_has_nonlocal_goto))
+    cfun->need_drap = true;
+
+  /* Call targetm.calls.internal_arg_pointer again.  This time it will
+     return a virtual register if DRAP is needed.  */
+  internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
+
+  /* Assertion to check internal_arg_pointer is set to the right rtx
+     here.  */
   gcc_assert (current_function_internal_arg_pointer == 
              virtual_incoming_args_rtx);
 
-  /* Do nothing if needn't replace virtual incoming arg rtx */
+  /* Do nothing if no need to replace virtual_incoming_args_rtx.  */
   if (current_function_internal_arg_pointer != internal_arg_rtx)
     {
       current_function_internal_arg_pointer = internal_arg_rtx;
 
-      /* Call fixup_tail_casss to clean up REG_EQUIV note 
-         if DRAP is needed. */
+      /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
+         needed. */
       fixup_tail_calls ();
     }
 
@@ -2155,15 +2092,14 @@ struct gimple_opt_pass pass_handle_drap =
  {
   GIMPLE_PASS,
   "handle_drap",			/* name */
-  gate_stack_realign,                   /* gate */
+  gate_handle_drap,			/* gate */
   handle_drap,			        /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   0,				        /* tv_id */
-  /* ??? If TER is enabled, we actually receive GENERIC.  */
   0,                                    /* properties_required */
-  PROP_rtl,                             /* properties_provided */
+  0,                                    /* properties_provided */
   0,				        /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */

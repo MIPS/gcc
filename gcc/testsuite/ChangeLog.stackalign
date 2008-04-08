@@ -1,3 +1,9 @@
+2008-04-08  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/torture/stackalign/stdcall-1.C: New.
+	* gcc.dg/torture/stackalign/ret-struct-1.c: Likewise.
+
 2008-03-23  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.dg/torture/stackalign/regparm-1.c: New.
