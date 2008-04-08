@@ -19,38 +19,259 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* The integrated register allocator (IRA) is called integrated
-   because register coalescing, register live range splitting, and
-   choosing a better hard register are done on-the-fly during
-   coloring.  Register coalescing and choosing a cheaper hard register
-   is done by hard register preferencing during hard register
-   assigning.  The live range splitting is a byproduct of the regional
-   register allocation.
+/* The integrated register allocator (IRA) is a
+   regional register allocator performing graph coloring on a top-down
+   traversal of nested regions.  Graph coloring in a region is based
+   on Chaitin-Briggs algorithm.  It is called integrated because
+   register coalescing, register live range splitting, and choosing a
+   better hard register are done on-the-fly during coloring.  Register
+   coalescing and choosing a cheaper hard register is done by hard
+   register preferencing during hard register assigning.  The live
+   range splitting is a byproduct of the regional register allocation.
 
-   The regional allocation is top-down process.  The first we do
-   allocation for all function then we improve it for loops then their
-   subloops and so on.  To reduce register shuffling, the same
-   mechanism of hard register preferencing is used.  This approach
-   works as good as Callahan-Koblentz algorithm but it is simpler.  We
-   use Chaitin-Briggs coloring for each region (loop or all function).
-   If pseudo-registers got different location on loop borders we
-   rename them inside the loop and generate pseudo-register move
-   insns.  Some optimizations (like removing redundant stores, moving
-   register shuffling to less frequent points, and code duplication
-   reducing) to minimize effect of register shuffling are done.
+   Major IRA notions are:
 
-   If we don't improve register allocation for loops (or there are no
-   loops at all) we get classic Chaitin-Briggs coloring (only instead
-   of separate pass of coalescing, we use hard register preferencing).
-   In any case, before the reload work, we have one region IRA
-   internal representation.
+     o *Region* is a part of CFG where graph coloring based on
+       Chaitin-Briggs algorithm is done.  IRA can work on any set of
+       nested CFG regions forming a tree.  Currently the regions are
+       the entire function for the root region and natural loops for
+       the other regions.  Therefore data structure represnting a
+       region is called loop_tree_node.
 
-   IRA also has better integration with the reload pass than the old
-   register allocator.  Pseudo-registers spilled by IRA or the reload
-   have still a chance to get hard-registers when the reload evicts
-   some pseudo-registers from hard-registers.  IRA helps to choose
-   better pseudos for spilling based on their live ranges and to
-   coalesce stack slots allocated for the spilled pseudo-registers.
+     o *Cover class* is a register class belonging to a set of
+       non-intersecting register classes containing all of the
+       hard-registers available for register allocation.  The set of
+       all cover classes for a target is defined in the corresponding
+       machine-description file according some criteria.  Such notion
+       is needed because Chaitin-Briggs algorithm works on
+       non-intersected register classes.
+
+     o *Allocno* represents the live range of a pseudo-register in a
+       region.  Besides the obvious attributes like the corresponding
+       pseudo-register number, cover class, conflicting allocnos and
+       conflicting hard-registers, there are a few allocno attributes
+       which are important for understanding the allocation algorithm:
+
+       - *Live ranges*.  This is a list of ranges of *program points*
+         where the allocno lives.  Program points represent places
+         where a pseudo can be born or become dead (there are
+         approximately two times more program points than the insns)
+         and they are represented by integers starting with 0.  The
+         live ranges are used to find conflicts between allocnos of
+         different cover classes.  They also play very important role
+         for transformation of IRA internal representation for several
+         regions into one region representation.  The later is used
+         during the reload pass work because each allocno represents
+         all corresponding pseudo-register.
+
+       - *Hard-register costs*.  This is a vector of size equal to the
+         number of available hard-registers of the allocno's cover
+         class.  The cost of a callee-clobbered hard-register for an
+         allocno is increased by the cost of save/restore code around
+         the calls through the given allocno's life.  If the allocno
+         is a move instruction operand and another operand is a
+         hard-register of the allocno's cover class, the cost of the
+         hard-register is decreased by the move cost.
+
+         When an allocno is assigned, the hard-register with minimal
+         full cost is used.  Initially, a hard-register's full cost is
+         the corresponding value from the hard-register's cost vector.
+         If the allocno is connected by a *copy* (see below) to
+         another allocno which has just received a hard-register, the
+         cost of the hard-register is decreased.  Before choosing a
+         hard-register for an allocno, the allocno's current costs of
+         the hard-registers are modified by the conflict hard-register
+         costs of all of the conflicting allocnos which are not
+         assigned yet.
+
+       - *Conflict hard-register costs*.  This is a vector of the same
+         size as the hard-register costs vector.  To permit an
+         unassigned allocno to get a better hard-register, IRA uses
+         this vector to calculate the final full cost of the
+         available hard-registers.  Conflict hard-register costs of an
+         unassigned allocno are also changed with a change of the
+         hard-register cost of the allocno when a copy involving the
+         allocno is processed as described above.  This is done to
+         show other unassigned allocnos that a given allocno prefers
+         some hard-registers in order to remove the move instruction
+         corresponding to the copy.
+
+     o *Cap*.  If a pseudo-register does not live in a region but
+       lives in a nested region, IRA creates a special allocno called
+       a cap in the outer region.  A region cap is also created for a
+       subregion cap.
+
+     o *Copy*.  Allocnos can be connected by copies.  Copies are used
+       to modify hard-register costs for allocnos during coloring.
+       Such modifications reflects a preference to use the same
+       hard-register for the allocnos connected by copies.  Usually
+       copies are created for move insns (in this case it results in
+       register coalescing).  But IRA also creates copies for operands
+       of an insn which should be assigned to the same hard-register
+       due to constraints in the machine description (it usually
+       results in removing a move generated in the reload to satfisfy
+       the constraints) and copies referring to the allocno which is
+       the output operand of an instruction and the allocno which is
+       an input operand dying in the instruction (creation of such
+       copies results in less register shuffling).  IRA *does not*
+       create copies between the same register allocnos from different
+       regions because we use another technique for propagating
+       hard-register preference on the borders of regions.
+
+   Allocnos (including caps) for the upper region in the region tree
+   *accumulate* information important for coloring from allocnos with
+   the same pseudo-register from nested regions.  This includes
+   hard-register and memory costs, conflicts with hard-registers,
+   allocno conflicts, allocno copies and more.  *Thus, attributes for
+   allocnos in a region have the same values as if the region had no
+   subregions*.  It means that attributes for allocnos in the
+   outermost region corresponding to the function have the same values
+   as though the allocation used only one region which is the entire
+   function.  It also means that we can look at IRA work as if the
+   first IRA did allocation for all function then it improved the
+   allocation for loops then their subloops and so on.
+
+   IRA major passes are:
+
+     o Building IRA internal representation which consists of the
+       following subpasses:
+
+       * First, IRA builds regions and creates allocnos (file
+         ira-build.c) and initializes most of their attributes.
+
+       * Then IRA finds a cover class for each allocno and calculates
+         its initial cost of memory and each hard-register of its
+         cover class (file ira-cost.c).
+
+       * IRA creates all caps (file ira-build.c).
+
+       * IRA creates live ranges of each allocno, calulates register
+         pressure for each cover class in each region, sets up
+         conflict hard registers for each allocno and call insns the
+         allocno lives through (file ira-lives.c).
+
+       * Having live-ranges of allocnos and their cover classes, IRA
+         creates conflicting allocnos of the same cover class for each
+         allocno.  Conflicting allocnos are stored as a bit vector or
+         array of pointers to the conflicting allocnos whatever is more
+         profitable (file ira-conflicts.c).  At this point IRA creates
+         allocno copies and after that accumulates allocno info
+         (conflicts, copies, call insns lived through) in upper level
+         allocnos from lower levels ones.
+
+       * Having all conflicts and other info for regular allocnos, IRA
+         propagates this info to caps (file ira-build.c) and modifies
+         costs of callee-clobbered hard-registers (file ira-costs.c).
+
+     o Coloring.  Now IRA has all neccessary info to start graph coloring
+       process.  It is done in each region on top-down traverse of the
+       region tree (file ira-color.c).  There are following subpasses:
+        
+       * Optional agressive coaleascing of allocnos in the region.
+
+       * Putting allocnos onto the coloring stack.  IRA uses Briggs
+         optimistic coloring which is a major improvement over
+         Chaitin's coloring.  Therefore IRa does not spill allocnos at
+         this point.  There is some freedom in order of putting
+         allocnos on the stack which can affect the final result of
+         the allocation.  IRA uses some heuristics to improve the order.
+
+       * Popping the allocnos from the stack and assigning them hard
+         registers.  If IRA can not assign a hard register to an
+         allocno and allocno is coalesced, IRA undoes coalescing and
+         put the uncoalesced allocnos onto the satck in hope that some
+         such allocnos will get a hard register separetly.  If IRA
+         fails to assign hard register or memory is more profitable
+         for it, IRA spills the allocno.  IRA assigns allocno the
+         hard-register with minimal full allocation cost which
+         reflects the cost of usage of the hard-register for the
+         allocno and cost of usage of the hard-register for allocnos
+         conflicting with given allocno.
+
+       * After allono assigning in the region, IRA modifies hard
+         register and memory costs for the corresponding allocnos in
+         the subregions to reflect the cost of possible loads, stores,
+         or moves on the border of the region and its subregions.
+         When default regional allocation algorithm is used
+         (-fira-algorithm=mixed), IRA just propagates the assignment
+         for allocnos if the register pressure in the region for the
+         corresponding cover class is less than number of available
+         hard registers for given cover class.
+
+     o Spill/restore code moving.  When IRA performs allocation
+       traversing regions in top-down order, it does not know what
+       happens below in the region tree.  Therefore, sometimes IRA
+       misses opportunities to perform a better allocation.  A simple
+       ooptimization tries to improve allocation in a region having
+       subregions and containing in another region.  If the
+       corresponding allocnos in the subregion are spilled, it spills
+       the region allocno if it is profitable.  The optimization
+       impelements a simple iterative algorithm performing profitable
+       transformations while they are still possible.  It is fast in
+       practice, so there is no real need for a better time complexity
+       algorithm.
+
+     o Code change.  After coloring, two allocnos representing the same
+       pseudo-register outside and inside a region respectively may be
+       assigned to different locations (hard-registers or memory).  In
+       this case IRA creates and uses a new pseudo-register inside the
+       region and add code to move allocno values on the region's
+       borders.  This is done during top-down traversal of the regions
+       (file ira-emit.c).  In some complicated cases IRA can create a
+       new allocno to move allocno values (e.g. when a swap of values
+       stored in two hard-registers is needed).  At this stage, the
+       new allocno marked as spilled.  IRA still creates the
+       pseudo-register and the moves on the region borders even when
+       both allocnos were assigned to the same hard-register.  If the
+       reload pass spills a pseudo-register for some reason, the
+       effect will be smaller because another allocno will still be in
+       the hard-register.  In most cases, this is better then spilling
+       both allocnos.  If the reload does not change the allocation
+       for the two pseudo-registers, the trivial move will be removed
+       by post-reload optimizations.  IRA does not generate moves for
+       allocnos assigned to the same hard register when the default
+       regional allocation algorithm is used and the register pressure
+       in the region for the corresponding allocno cover class is less
+       than number of available hard registers for given cover class.
+       IRA also does some optimizations to remove redundant stores and
+       to reduce code duplication on the region borders.
+
+     o Flattening internal representation.  After changing code, IRA
+       transforms its internal representation for several regions into
+       one region representation (file ira-build.c).  This process is
+       called IR flattening.  Such process is more complicated than IR
+       rebuilding would be, but is much faster.
+
+     o After IR flattening, IRA tries to assign hard registers to all
+       spilled allocnos.  It is impelemented by a simple and fast
+       priority coloring algorithm (see function
+       reassign_conflict_allocnos::ira-color.c).  Here new allocnos
+       created during the code change pass can be assigned to hard
+       registers.
+
+     o At the end IRA calls the reload pass.  The reload pass
+       communicates with IRA through several functions in file
+       ira-color.c to improve its decisions in
+
+       * sharing stack slots for the spilled pseudos based on IRA info
+         about pseudo-register conflicts.
+
+       * reassigning hard-registers to all spilled pseudos at the end
+         of each reload iteration.
+
+       * choosing a better hard-register to spill based on IRA info
+         about pseudo-register live ranges and the register pressure
+         in places where the pseudo-register lives.
+
+   IRA uses a lot of data representing the target processors.  These
+   data are initilized in file ira.c.
+
+   If function has no loops (or the loops are ignored when
+   -fira-algorithm=CB is used), we have classic Chaitin-Briggs
+   coloring (only instead of separate pass of coalescing, we use hard
+   register preferencing).  In such case, IRA works much faster
+   because many things are not made (like IR flattening, the
+   spill/restore optimization, and the code change).
 
    Literature is worth to read for better understanding the code:
 
@@ -68,6 +289,9 @@ along with GCC; see the file COPYING3.  If not see
      Register Allocation Based on Graph Fusion.
 
    o Vladimir Makarov. The Integrated Register Allocator for GCC.
+
+   o Vladimir Makarov.  The top-down register allocator for irregular
+     register file architectures.
 
 */
 

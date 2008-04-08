@@ -1,3 +1,10 @@
+2008-04-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* cfgloopanal.c (estimate_reg_pressure_cost): Decrease register
+	pressure cost for IRA regional allocation.
+
+	* ira.c:  Add IRA overview.
+
 2008-04-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (reg_class_intersect, reg_class_union): Add comments.
