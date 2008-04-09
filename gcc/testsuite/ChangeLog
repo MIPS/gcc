@@ -1,3 +1,88 @@
+2008-04-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack6.adb: New test.
+	* gnat.dg/pack7.adb: Likewise.
+	* gnat.dg/pack8.adb: Likewise.
+
+2008-04-08  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/parent_ltd_with-child_full_view.adb: New test.
+	* gnat.dg/rt1.adb: New test.
+	* gnat.dg/test_time_stamp.adb: New test.
+	* gnat.dg/specs/warn_star.ads: New test.
+	* gnat.dg/specs/aggr1.ads: New test.
+
+2008-04-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25829 28655
+	* gfortran.dg/write_check2.f90: Update dg-error.
+	* gfortran.dg/io_constraints_1.f90: Udate dg-error.
+
+2008-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35734
+	* g++.dg/warn/ctor1.C: New.
+
+2008-04-07  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/35842
+        * gcc.dg/torture/pr35842.c: New.
+
+2008-04-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/array4.adb: New test.
+	* gnat.dg/specs/static_initializer2.ads: Likewise.
+
+2008-04-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35400
+	* gcc.dg/torture/pr35400.c: New testcase.
+	* g++.dg/torture/pr35400.C: Likewise.
+
+2008-04-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35780
+	* gfortran.dg/simplify_argN_1.f90: New test.
+
+2008-04-06  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/35832
+	* gfortran.dg/io_constraints_2.f90: Adapt to new error message.
+
+2008-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/f2003_io_1.f03: Make standard conform.
+	* gfortran.dg/f2003_io_8.f03: New.
+
+2008-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack5.adb: New test.
+
+2008-04-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/12329
+	* gcc.target/i386/pr12329.c: New test.
+
+2008-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pr35823.adb: Rename to size_attribute.adb.
+
+2008-04-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25829 28655
+	* gfortran.dg/f2003_io_1.f03: New test.
+	* gfortran.dg/f2003_io_2.f03: New test.
+	* gfortran.dg/f2003_io_3.f03: New test.
+	* gfortran.dg/f2003_io_4.f03: New test.
+	* gfortran.dg/f2003_io_5.f03: New test.
+	* gfortran.dg/f2003_io_6.f03: New test.
+	* gfortran.dg/f2003_io_7.f03: New test.
+
+2008-04-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35833
+	* gcc.dg/torture/pr35833.c: New testcase.
+
 2008-04-04  Naveen.H.S  <naveen.hs@kpitcummins.com>
 
 	* gcc.target/sh/sh2a-band.c: New test.
@@ -143,12 +228,12 @@
 
 	* lib/gfortran-dg.exp:  New harness to compile Fortran progs
 	with all combinations of debug options available on target.
-        * gfortran.dg/debug/debug.exp:  Ditto.
-        * gfortran.dg/debug/trivial.f:  Ditto.
-        * gfortran.dg/debug/pr35154-stabs.f:  New test case for
-        .stabs functionality.
-        * gfortran.dg/debug/pr35154-dwarf2.f:  New test case for
-        DWARF functionality.
+	* gfortran.dg/debug/debug.exp:  Ditto.
+	* gfortran.dg/debug/trivial.f:  Ditto.
+	* gfortran.dg/debug/pr35154-stabs.f:  New test case for
+	.stabs functionality.
+	* gfortran.dg/debug/pr35154-dwarf2.f:  New test case for
+	DWARF functionality.
 
 2008-04-01  Volker Reichelt  <v.reichelt@netcologne.de>
 

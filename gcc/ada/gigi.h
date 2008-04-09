@@ -468,6 +468,10 @@ extern tree gnat_unsigned_type (tree type_node);
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
 extern tree gnat_signed_type (tree type_node);
 
+/* Return 1 if the types T1 and T2 are compatible, i.e. if they can be
+   transparently converted to each other.  */
+extern int gnat_types_compatible_p (tree t1, tree t2);
+
 /* Create an expression whose value is that of EXPR,
    converted to type TYPE.  The TREE_TYPE of the value
    is always TYPE.  This function implements all reasonable
@@ -522,13 +526,11 @@ extern void rest_of_record_type_compilation (tree record_type);
    copy-in/copy-out list to be stored into TYPE_CI_CO_LIST.
    RETURNS_UNCONSTRAINED is true if the function returns an unconstrained
    object.  RETURNS_BY_REF is true if the function returns by reference.
-   RETURNS_WITH_DSP is true if the function is to return with a
-   depressed stack pointer.  RETURNS_BY_TARGET_PTR is true if the function
-   is to be passed (as its first parameter) the address of the place to copy
-   its result.  */
+   RETURNS_BY_TARGET_PTR is true if the function is to be passed (as its
+   first parameter) the address of the place to copy its result.  */
 extern tree create_subprog_type (tree return_type, tree param_decl_list,
                                  tree cico_list, bool returns_unconstrained,
-                                 bool returns_by_ref, bool returns_with_dsp,
+                                 bool returns_by_ref,
                                  bool returns_by_target_ptr);
 
 /* Return a copy of TYPE, but safe to modify in any way.  */
