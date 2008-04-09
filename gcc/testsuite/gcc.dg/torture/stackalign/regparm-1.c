@@ -12,7 +12,7 @@ int test_nested (int i)
 {
   aligned y;
 
-  int __attribute__ ((__noinline__, __regparm__(3))) foo (int j, int k, int l)
+  int __attribute__ ((__noinline__, __regparm__(2))) foo (int j, int k, int l)
   {
     aligned x;
 
