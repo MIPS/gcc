@@ -3386,6 +3386,8 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     cfun->stack_alignment_needed = boundary;
   if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
     cfun->stack_alignment_used = cfun->stack_alignment_needed;
+  if (cfun->preferred_stack_boundary < boundary)
+    cfun->preferred_stack_boundary = boundary;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;

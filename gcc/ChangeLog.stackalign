@@ -1,3 +1,15 @@
+2008-04-09  Joey Ye  <joey.ye@intel.com>
+
+	* dojump.c (clear_pending_stack_adjust): Revert comments.
+
+	* function.c (locate_and_pad_parm): cfun->preferred_stack_boundary
+	should be max of outgoing parameter alignment.
+
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p): Don't
+	collect stack alignment here.
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Add assertion.
+
 2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* builtins.c (expand_builtin_setjmp_receiver): Replace

@@ -1,5 +1,11 @@
 2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* gcc.dg/dfp/func-vararg-alternate-d128-2.c: New.
+	* gcc.dg/dfp/func-vararg-mixed-2.c: Likewise.
+	* gcc.target/i386/pr32000-2.c: Likewise.
+
+2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* gcc.dg/torture/stackalign/regparm-1.c (foo): Use  __regparm__(2)
 	on nested function.
 
