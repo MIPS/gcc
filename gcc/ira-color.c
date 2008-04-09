@@ -453,7 +453,12 @@ assign_hard_reg (allocno_t allocno, int retry_p)
 	}
     }
   if (min_full_cost > mem_cost)
-    best_hard_regno = -1;
+    {
+      if (! retry_p && internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
+	fprintf (ira_dump_file, "(memory is more profitable %d vs %d) ",
+		 mem_cost, min_full_cost);
+      best_hard_regno = -1;
+    }
  fail:
   if (best_hard_regno < 0
       && ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno) != allocno)

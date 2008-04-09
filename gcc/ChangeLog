@@ -1,3 +1,12 @@
+2008-04-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (assign_hard_reg): Add debug printing.
+	
+	* ira-lives.c (mark_reg_store, mark_reg_death,
+	process_bb_node_lives): Ignore hard regno of class NO_REGS.
+
+	* ira.c: Fix typos in comments.
+
 2008-04-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* cfgloopanal.c (estimate_reg_pressure_cost): Decrease register

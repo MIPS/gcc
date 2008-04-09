@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
        Chaitin-Briggs algorithm is done.  IRA can work on any set of
        nested CFG regions forming a tree.  Currently the regions are
        the entire function for the root region and natural loops for
-       the other regions.  Therefore data structure represnting a
+       the other regions.  Therefore data structure representing a
        region is called loop_tree_node.
 
      o *Cover class* is a register class belonging to a set of
@@ -109,7 +109,7 @@ along with GCC; see the file COPYING3.  If not see
        register coalescing).  But IRA also creates copies for operands
        of an insn which should be assigned to the same hard-register
        due to constraints in the machine description (it usually
-       results in removing a move generated in the reload to satfisfy
+       results in removing a move generated in the reload to satisfy
        the constraints) and copies referring to the allocno which is
        the output operand of an instruction and the allocno which is
        an input operand dying in the instruction (creation of such
@@ -163,11 +163,11 @@ along with GCC; see the file COPYING3.  If not see
          propagates this info to caps (file ira-build.c) and modifies
          costs of callee-clobbered hard-registers (file ira-costs.c).
 
-     o Coloring.  Now IRA has all neccessary info to start graph coloring
+     o Coloring.  Now IRA has all necessary info to start graph coloring
        process.  It is done in each region on top-down traverse of the
        region tree (file ira-color.c).  There are following subpasses:
         
-       * Optional agressive coaleascing of allocnos in the region.
+       * Optional aggressive coalescing of allocnos in the region.
 
        * Putting allocnos onto the coloring stack.  IRA uses Briggs
          optimistic coloring which is a major improvement over
@@ -180,7 +180,7 @@ along with GCC; see the file COPYING3.  If not see
          registers.  If IRA can not assign a hard register to an
          allocno and allocno is coalesced, IRA undoes coalescing and
          put the uncoalesced allocnos onto the satck in hope that some
-         such allocnos will get a hard register separetly.  If IRA
+         such allocnos will get a hard register separately.  If IRA
          fails to assign hard register or memory is more profitable
          for it, IRA spills the allocno.  IRA assigns allocno the
          hard-register with minimal full allocation cost which
@@ -206,7 +206,7 @@ along with GCC; see the file COPYING3.  If not see
        subregions and containing in another region.  If the
        corresponding allocnos in the subregion are spilled, it spills
        the region allocno if it is profitable.  The optimization
-       impelements a simple iterative algorithm performing profitable
+       implements a simple iterative algorithm performing profitable
        transformations while they are still possible.  It is fast in
        practice, so there is no real need for a better time complexity
        algorithm.

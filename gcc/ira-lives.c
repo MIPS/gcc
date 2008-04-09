@@ -307,14 +307,18 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 	      && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	    {
 	      cover_class = class_translate[REGNO_REG_CLASS (regno)];
-	      curr_reg_pressure[cover_class]++;
-	      if (high_pressure_start_point[cover_class] < 0
-		  && (curr_reg_pressure[cover_class]
-		      > available_class_regs[cover_class]))
-		high_pressure_start_point[cover_class] = curr_point;
+	      if (cover_class != NO_REGS)
+		{
+		  curr_reg_pressure[cover_class]++;
+		  if (high_pressure_start_point[cover_class] < 0
+		      && (curr_reg_pressure[cover_class]
+			  > available_class_regs[cover_class]))
+		    high_pressure_start_point[cover_class] = curr_point;
+		}
 	      make_regno_born (regno);
-	      if (curr_bb_node->reg_pressure[cover_class]
-		  < curr_reg_pressure[cover_class])
+	      if (cover_class != NO_REGS
+		  && (curr_bb_node->reg_pressure[cover_class]
+		      < curr_reg_pressure[cover_class]))
 		curr_bb_node->reg_pressure[cover_class]
 		  = curr_reg_pressure[cover_class];
 	    }
@@ -394,18 +398,22 @@ mark_reg_death (rtx reg)
 	  if (TEST_HARD_REG_BIT (hard_regs_live, regno))
 	    {
 	      cover_class = class_translate[REGNO_REG_CLASS (regno)];
-	      curr_reg_pressure[cover_class]--;
-	      if (high_pressure_start_point[cover_class] >= 0
-		  && (curr_reg_pressure[cover_class]
-		      <= available_class_regs[cover_class]))
+	      if (cover_class != NO_REGS)
 		{
-		  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
+		  curr_reg_pressure[cover_class]--;
+		  if (high_pressure_start_point[cover_class] >= 0
+		      && (curr_reg_pressure[cover_class]
+			  <= available_class_regs[cover_class]))
 		    {
-		      update_allocno_pressure_excess_length (allocnos[i]);
+		      FOR_EACH_ALLOCNO_IN_SET (allocnos_live,
+					       allocnos_num, i, asi)
+			{
+			  update_allocno_pressure_excess_length (allocnos[i]);
+			}
+		      high_pressure_start_point[cover_class] = -1;
 		    }
-		  high_pressure_start_point[cover_class] = -1;
+		  ira_assert (curr_reg_pressure[cover_class] >= 0);
 		}
-	      ira_assert (curr_reg_pressure[cover_class] >= 0);
 	      make_regno_dead (regno);
 	    }
 	  regno++;
@@ -670,7 +678,10 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	  {
 	    enum reg_class cover_class;
 	    
-	    cover_class = class_translate[REGNO_REG_CLASS (i)];
+	    cover_class = REGNO_REG_CLASS (i);
+	    if (cover_class == NO_REGS)
+	      continue;
+	    cover_class = class_translate[cover_class];
 	    curr_reg_pressure[cover_class]++;
 	    if (curr_bb_node->reg_pressure[cover_class]
 		< curr_reg_pressure[cover_class])
