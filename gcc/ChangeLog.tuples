@@ -1,4 +1,8 @@
 2008-04-08  Doug Kwan  <dougkwan@google.com>
+
+	* gimplify.c (gimple_push_cleanup): Initialize cleanup_stmts to NULL.
+
+2008-04-08  Doug Kwan  <dougkwan@google.com>
 	
 	* tree-tailcall.c (struct tailcall): Remove call_block and replace
 	call_bsi by call_gsi.

@@ -4646,7 +4646,7 @@ static void
 gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq *pre_p)
 {
   gimple wce;
-  gimple_seq cleanup_stmts;
+  gimple_seq cleanup_stmts = NULL;
 
   /* Errors can result in improperly nested cleanups.  Which results in
      confusion when trying to resolve the GIMPLE_WITH_CLEANUP_EXPR.  */
