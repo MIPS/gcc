@@ -2399,7 +2399,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 incoming argument block.  */
       if (pass == 0)
 	{
-	  argblock = current_function_internal_arg_pointer;
+	  argblock = crtl->args.internal_arg_pointer;
 	  argblock
 #ifdef STACK_GROWS_DOWNWARD
 	    = plus_constant (argblock, crtl->args.pretend_args_size);

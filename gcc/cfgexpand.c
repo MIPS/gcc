@@ -2050,7 +2050,7 @@ gate_handle_drap (void)
     }
 }
 
-/* This pass sets current_function_internal_arg_pointer to a virtual
+/* This pass sets crtl->args.internal_arg_pointer to a virtual
    register if DRAP is needed.  Local register allocator will replace
    virtual_incoming_args_rtx with the virtual register.  */
 
@@ -2071,13 +2071,13 @@ handle_drap (void)
 
   /* Assertion to check internal_arg_pointer is set to the right rtx
      here.  */
-  gcc_assert (current_function_internal_arg_pointer == 
+  gcc_assert (crtl->args.internal_arg_pointer == 
              virtual_incoming_args_rtx);
 
   /* Do nothing if no need to replace virtual_incoming_args_rtx.  */
-  if (current_function_internal_arg_pointer != internal_arg_rtx)
+  if (crtl->args.internal_arg_pointer != internal_arg_rtx)
     {
-      current_function_internal_arg_pointer = internal_arg_rtx;
+      crtl->args.internal_arg_pointer = internal_arg_rtx;
 
       /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
          needed. */

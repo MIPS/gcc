@@ -1203,10 +1203,10 @@ instantiate_new_reg (rtx x, HOST_WIDE_INT *poffset)
   if (x == virtual_incoming_args_rtx)
     {
       /* Replace vitural_incoming_args_rtx to internal arg pointer here */
-      if (current_function_internal_arg_pointer != virtual_incoming_args_rtx)
+      if (crtl->args.internal_arg_pointer != virtual_incoming_args_rtx)
         {
           gcc_assert (stack_realign_drap);
-          new = current_function_internal_arg_pointer;
+          new = crtl->args.internal_arg_pointer;
           offset = 0;
         }
       else
@@ -4723,7 +4723,7 @@ get_arg_pointer_save_area (void)
 	 have to check it and fix it if necessary.  */
       start_sequence ();
       emit_move_insn (validize_mem (ret),
-                      current_function_internal_arg_pointer);
+                      crtl->args.internal_arg_pointer);
       seq = get_insns ();
       end_sequence ();
 

@@ -1,7 +1,27 @@
-2008-04-08  H.J. Lu  <hongjiu.lu@intel.com>
+2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* builtins.c (expand_builtin_setjmp_receiver): Replace
+	current_function_internal_arg_pointer with
+	crtl->args.internal_arg_pointer.
+	(expand_builtin_apply_args_1): Likewise.
+	* calls.c (expand_call): Likewise.
+	* cfgexpand.c (handle_drap): Likewise.
+	* function.c (instantiate_new_reg): Likewise.
+	(get_arg_pointer_save_area): Likewise.
+	* stmt.c (expand_nl_goto_receiver): Likewise.
 
 	* function.h (function): Move drap_reg to ...
 	(rtl_data): Here.
+
+	* config/i386/i386.c (ix86_va_start): Replace
+	current_function_internal_arg_pointer with
+	crtl->args.internal_arg_pointer.
+	(ix86_select_alt_pic_regnum): Replace cfun->drap_reg with
+	crtl->drap_reg.
+	(ix86_save_reg): Likewise.
+	(ix86_internal_arg_pointer): Likewise.
+	(ix86_expand_prologue): Likewise.
+	(ix86_expand_epilogue): Likewise.
 
 2008-04-08  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>

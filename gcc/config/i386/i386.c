@@ -5237,7 +5237,7 @@ ix86_va_start (tree valist, rtx nextarg)
 
   /* Find the overflow area.  */
   type = TREE_TYPE (ovf);
-  t = make_tree (type, current_function_internal_arg_pointer);
+  t = make_tree (type, crtl->args.internal_arg_pointer);
   if (words != 0)
     t = build2 (POINTER_PLUS_EXPR, type, t,
 	        size_int (words * UNITS_PER_WORD));
@@ -6007,8 +6007,8 @@ ix86_select_alt_pic_regnum (void)
     {
       int i, drap;
       /* Can't use the same register for both PIC and DRAP.  */
-      if (cfun->drap_reg)
-	drap = REGNO (cfun->drap_reg);
+      if (crtl->drap_reg)
+	drap = REGNO (crtl->drap_reg);
       else
 	drap = -1;
       for (i = 2; i >= 0; --i)
@@ -6048,8 +6048,8 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 	}
     }
 
-  if (cfun->drap_reg
-      && regno == REGNO (cfun->drap_reg))
+  if (crtl->drap_reg
+      && regno == REGNO (crtl->drap_reg))
     return 1;
 
   return (df_regs_ever_live_p (regno)
@@ -6442,7 +6442,7 @@ ix86_internal_arg_pointer (void)
 	cfun->save_param_ptr_reg = true;
 
       arg_ptr = gen_rtx_REG (Pmode, regno);
-      cfun->drap_reg = arg_ptr;
+      crtl->drap_reg = arg_ptr;
 
       start_sequence ();
       drap_vreg = copy_to_reg(arg_ptr);
@@ -6492,7 +6492,7 @@ ix86_expand_prologue (void)
   rtx (*gen_andsp) (rtx, rtx, rtx);
 
   /* DRAP should not coexist with stack_realign_fp */
-  gcc_assert (!(cfun->drap_reg && stack_realign_fp));
+  gcc_assert (!(crtl->drap_reg && stack_realign_fp));
 
   /* Check if stack realign is really needed after reload, and 
      stores result in cfun */
@@ -6507,7 +6507,7 @@ ix86_expand_prologue (void)
 
   /* Emit prologue code to adjust stack alignment and setup DRAP, in case
      of DRAP is needed and stack realignment is really needed after reload */
-  if (cfun->drap_reg && cfun->stack_realign_really)
+  if (crtl->drap_reg && cfun->stack_realign_really)
     {
       rtx x, y;
       int align_bytes = cfun->stack_alignment_needed / BITS_PER_UNIT;
@@ -6520,7 +6520,7 @@ ix86_expand_prologue (void)
       x = plus_constant (stack_pointer_rtx, 
                          (STACK_BOUNDARY / BITS_PER_UNIT 
 			  + param_ptr_offset));
-      y = cfun->drap_reg;
+      y = crtl->drap_reg;
 
       /* Only need to push parameter pointer reg if it is caller
 	 saved reg */
@@ -6541,7 +6541,7 @@ ix86_expand_prologue (void)
 				  GEN_INT (-align_bytes)));
       RTX_FRAME_RELATED_P (insn) = 1;
 
-      x = cfun->drap_reg;
+      x = crtl->drap_reg;
       x = gen_frame_mem (Pmode,
                          plus_constant (x,
 					-(STACK_BOUNDARY / BITS_PER_UNIT)));
@@ -6704,14 +6704,14 @@ ix86_expand_prologue (void)
       emit_insn (gen_blockage ());
     }
 
-  if (cfun->drap_reg && !cfun->stack_realign_really)
+  if (crtl->drap_reg && !cfun->stack_realign_really)
     {
       /* vDRAP is setup but after reload it turns out stack realign
          isn't necessary, here we will emit prologue to setup DRAP
          without stack realign adjustment */
       int drap_bp_offset = STACK_BOUNDARY / BITS_PER_UNIT * 2;
       rtx x = plus_constant (hard_frame_pointer_rtx, drap_bp_offset);
-      insn = emit_insn (gen_rtx_SET (VOIDmode, cfun->drap_reg, x));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, crtl->drap_reg, x));
     }
 }
 
@@ -6908,7 +6908,7 @@ ix86_expand_epilogue (int style)
 	}
     }
 
-  if (cfun->drap_reg && cfun->stack_realign_really)
+  if (crtl->drap_reg && cfun->stack_realign_really)
     {
       int param_ptr_offset = (cfun->save_param_ptr_reg
 			      ? STACK_BOUNDARY / BITS_PER_UNIT : 0);
@@ -6916,20 +6916,20 @@ ix86_expand_epilogue (int style)
       if (TARGET_64BIT)
         {
           emit_insn (gen_adddi3 (stack_pointer_rtx,
-				 cfun->drap_reg,
+				 crtl->drap_reg,
 				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT
 					    + param_ptr_offset))));
           if (cfun->save_param_ptr_reg)
-            emit_insn (gen_popdi1 (cfun->drap_reg));
+            emit_insn (gen_popdi1 (crtl->drap_reg));
         }
       else
         {
           emit_insn (gen_addsi3 (stack_pointer_rtx,
-				 cfun->drap_reg,
+				 crtl->drap_reg,
 				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT 
 					    + param_ptr_offset))));
           if (cfun->save_param_ptr_reg)
-            emit_insn (gen_popsi1 (cfun->drap_reg));
+            emit_insn (gen_popsi1 (crtl->drap_reg));
         }
       
     }

@@ -740,7 +740,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 	{
 	  /* Now restore our arg pointer from the address at which it
 	     was saved in our stack frame.  */
-	  emit_move_insn (current_function_internal_arg_pointer,
+	  emit_move_insn (crtl->args.internal_arg_pointer,
 			  copy_to_reg (get_arg_pointer_save_area ()));
 	}
     }
@@ -1350,7 +1350,7 @@ expand_builtin_apply_args_1 (void)
       }
 
   /* Save the arg pointer to the block.  */
-  tem = copy_to_reg (current_function_internal_arg_pointer);
+  tem = copy_to_reg (crtl->args.internal_arg_pointer);
 #ifdef STACK_GROWS_DOWNWARD
   /* We need the pointer as the caller actually passed them to us, not
      as we might have pretended they were passed.  Make sure it's a valid
