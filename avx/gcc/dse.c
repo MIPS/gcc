@@ -230,7 +230,7 @@ struct store_info
      contains a 1 if the byte may be needed.  The store is unused if
      all of the bits are 0.  */
   /* FIXME: A real bitmap should be used.  */
-  long long positions_needed;
+  HOST_WIDEST_INT positions_needed;
 
   /* The next store info for this insn.  */
   struct store_info *next;

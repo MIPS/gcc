@@ -1,4 +1,4 @@
 2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/35897
-	* dse.c (store_info): Use long long on positions_needed.
+	* dse.c (store_info): Use HOST_WIDEST_INT on positions_needed.
