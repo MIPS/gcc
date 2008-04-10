@@ -1,5 +1,76 @@
 2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.md (UNSPEC_PCMP): New.
+	(*avx_setcc<mode>): Likewise.
+	(prefix_vex): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(mode): Add OI, V8SF and V4DF.
+
+	* config/i386/predicates.md (const_4_to_5_operand): New.
+	(const_6_to_7_operand): Likewise.
+	(const_8_to_11_operand): Likewise.
+	(const_12_to_15_operand): Likewise.
+	(avx_comparison_float_operator): Likewise.
+
+	* config/i386/sse.md (AVX256MODEI): New.
+	(AVXMODEI): Likewise.
+	(AVX256MODE): Likewise.
+	(AVXMODE): Likewise.
+	(AVX256MODEF2P): Likewise.
+	(AVXMODEF2P): Likewise.
+	(avxvecmode): New.
+	(avxmodesuffixf2c): Likewise.
+	(blendbits): Support V8SF and V4DF.
+	(mov<mode>): New 256bit AVX integer vector pattern.
+	(*mov<mode>_internal): Likewise.
+	(mov<mode>): New 256bit AVX floating point vector pattern.
+	(*mov<mode>_internal): Likewise.
+	(<addsub><mode>3): Likewise.
+	(*<addsub><mode>3): Likewise.
+	(mul<mode>3): Likewise.
+	(*mul<mode>3): Likewise.
+	(<code><mode>3): Likewise.
+	(*<code><mode>3): Likewise.
+	(*ieee_smin<mode>3): Likewise.
+	(*ieee_smax<mode>3): Likewise.
+	(<code><mode>3): Likewise.
+	(*<code><mode>3): Likewise.
+	(push<mode>1): New 256bit AVX vector pattern.
+	(movmisalign<mode>): Likewise.
+	(avx_movup<avxmodesuffixf2c>): New.
+	(avx_movdqu): Likewise.
+	(divv8sf3): Likewise.
+	(divv4df3): Likewise.
+	(avx_div<mode>3): Likewise.
+	(avx_addsubv8sf3): Likewise.
+	(avx_addsubv4df3): Likewise.
+	(avx_h<addsub>v4df3): Likewise.
+	(avx_h<addsub>v8sf3): Likewise.
+	(avx_cmpp<avxmodesuffixf2c><mode>3): Likewise.
+	(avx_cmps<ssemodesuffixf2c><mode>3): Likewise.
+	(*avx_maskcmp<mode>3): Likewise.
+	(avx_nand<mode>3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(avx_cvtdq2ps256): Likewise.
+	(avx_cvtps2dq256): Likewise.
+	(avx_cvttps2dq256): Likewise.
+	(avx_cvtdq2pd256): Likewise.
+	(avx_cvtpd2dq256): Likewise.
+	(avx_cvttpd2dq256): Likewise.
+	(avx_cvtpd2ps256): Likewise.
+	(avx_cvtps2pd256): Likewise.
+	(avx_shufps256): Likewise.
+	(avx_shufps256_1): Likewise.
+	(avx_shufpd256): Likewise.
+	(avx_shufpd256_1): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(avx_blendp<avxmodesuffixf2c>256): Likewise.
+	(avx_blendvp<avxmodesuffixf2c>256): Likewise.
+	(avx_dpps256): Likewise.
+
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config.gcc (extra_headers): Add gmmintrin.h for x86 and x86-64.
 
 	* config/i386/cpuid.h (bit_FMA): New.
