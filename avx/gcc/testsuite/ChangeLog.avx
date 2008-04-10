@@ -1,0 +1,7 @@
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/other/i386-4.C: New.
+	* g++.dg/other/i386-5.C: Likewise.
+	* gcc.target/i386/avx-1.c: Likewise.
+	* gcc.target/i386/avx-2.c: Likewise.
+
