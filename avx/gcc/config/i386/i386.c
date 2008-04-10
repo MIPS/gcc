@@ -1787,6 +1787,10 @@ static int ix86_isa_flags_explicit;
   (OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSSE3_SET)
 #define OPTION_MASK_ISA_SSE4_2_SET \
   (OPTION_MASK_ISA_SSE4_2 | OPTION_MASK_ISA_SSE4_1_SET)
+#define OPTION_MASK_ISA_AVX_SET \
+  (OPTION_MASK_ISA_AVX | OPTION_MASK_ISA_SSE4_2_SET)
+#define OPTION_MASK_ISA_FMA_SET \
+  (OPTION_MASK_ISA_FMA | OPTION_MASK_ISA_AVX_SET)
 
 /* SSE4 includes both SSE4.1 and SSE4.2. -msse4 should be the same
    as -msse4.2.  */
@@ -1818,7 +1822,11 @@ static int ix86_isa_flags_explicit;
   (OPTION_MASK_ISA_SSSE3 | OPTION_MASK_ISA_SSE4_1_UNSET)
 #define OPTION_MASK_ISA_SSE4_1_UNSET \
   (OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE4_2_UNSET)
-#define OPTION_MASK_ISA_SSE4_2_UNSET OPTION_MASK_ISA_SSE4_2
+#define OPTION_MASK_ISA_SSE4_2_UNSET \
+  (OPTION_MASK_ISA_SSE4_2 | OPTION_MASK_ISA_AVX_UNSET )
+#define OPTION_MASK_ISA_AVX_UNSET \
+  (OPTION_MASK_ISA_AVX | OPTION_MASK_ISA_FMA_UNSET)
+#define OPTION_MASK_ISA_FMA_UNSET OPTION_MASK_ISA_FMA
 
 /* SSE4 includes both SSE4.1 and SSE4.2.  -mno-sse4 should the same
    as -mno-sse4.1. */
@@ -1945,6 +1953,32 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
 	{
 	  ix86_isa_flags &= ~OPTION_MASK_ISA_SSE4_2_UNSET;
 	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_SSE4_2_UNSET;
+	}
+      return true;
+
+    case OPT_mavx:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_AVX_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_AVX_UNSET;
+	}
+      return true;
+
+    case OPT_mfma:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_FMA_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_FMA_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_FMA_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_FMA_UNSET;
 	}
       return true;
 
@@ -2081,7 +2115,9 @@ override_options (void)
       PTA_SSE4_2 = 1 << 15,
       PTA_SSE5 = 1 << 16,
       PTA_AES = 1 << 17,
-      PTA_PCLMUL = 1 << 18
+      PTA_PCLMUL = 1 << 18,
+      PTA_AVX = 1 << 19,
+      PTA_FMA = 1 << 20 
     };
 
   static struct pta
@@ -2371,6 +2407,12 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_SSE4_2
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SSE4_2))
 	  ix86_isa_flags |= OPTION_MASK_ISA_SSE4_2;
+	if (processor_alias_table[i].flags & PTA_AVX
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX;
+	if (processor_alias_table[i].flags & PTA_FMA
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_FMA))
+	  ix86_isa_flags |= OPTION_MASK_ISA_FMA;
 	if (processor_alias_table[i].flags & PTA_SSE4A
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SSE4A))
 	  ix86_isa_flags |= OPTION_MASK_ISA_SSE4A;
@@ -3533,6 +3575,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     cum->sse_nregs = SSE_REGPARM_MAX;
   if (TARGET_MMX)
     cum->mmx_nregs = MMX_REGPARM_MAX;
+  cum->warn_avx = true;
   cum->warn_sse = true;
   cum->warn_mmx = true;
 
@@ -3557,6 +3600,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->nregs = 0;
 	  cum->sse_nregs = 0;
 	  cum->mmx_nregs = 0;
+	  cum->warn_avx = 0;
 	  cum->warn_sse = 0;
 	  cum->warn_mmx = 0;
 	  return;
@@ -3940,6 +3984,12 @@ classify_argument (enum machine_mode mode, const_tree type,
     case TCmode:
       /* This modes is larger than 16 bytes.  */
       return 0;
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
     case V4SFmode:
     case V4SImode:
     case V16QImode:
@@ -4228,6 +4278,12 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       /* FALLTHRU */
 
     case TImode:
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -4342,7 +4398,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		 enum machine_mode orig_mode, tree type,
 		 HOST_WIDE_INT bytes, HOST_WIDE_INT words)
 {
-  static bool warnedsse, warnedmmx;
+  static bool warnedavx, warnedsse, warnedmmx;
 
   /* Avoid the AL settings for the Unix64 ABI.  */
   if (mode == VOIDmode)
@@ -4411,6 +4467,27 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	}
       break;
 
+    case OImode:
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
+      if (!type || !AGGREGATE_TYPE_P (type))
+	{
+	  if (!TARGET_AVX && !warnedavx && cum->warn_avx)
+	    {
+	      warnedavx = true;
+	      warning (0, "AVX vector argument without AVX enabled "
+		       "changes the ABI");
+	    }
+	  if (cum->sse_nregs)
+	    return gen_reg_or_parallel (mode, orig_mode,
+				        cum->sse_regno + FIRST_SSE_REG);
+	}
+      break;
+
     case V8QImode:
     case V4HImode:
     case V2SImode:
@@ -4438,6 +4515,8 @@ static rtx
 function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		 enum machine_mode orig_mode, tree type)
 {
+  static bool warnedavx;
+
   /* Handle a hidden AL argument containing number of registers
      for varargs x86-64 functions.  */
   if (mode == VOIDmode)
@@ -4446,6 +4525,30 @@ function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		       ? SSE_REGPARM_MAX
 		       : cum->sse_regno)
 		    : -1);
+
+  switch (mode)
+    {
+    default:
+      break;
+
+    case OImode:
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
+      if (!type || !AGGREGATE_TYPE_P (type))
+	{
+	  if (!TARGET_AVX && !warnedavx && cum->warn_avx)
+	    {
+	      warnedavx = true;
+	      warning (0, "AVX vector argument without AVX enabled "
+		       "changes the ABI");
+	    }
+	}
+      break;
+    }
 
   return construct_container (mode, orig_mode, type, 0, cum->nregs,
 			      cum->sse_nregs,
@@ -5648,7 +5751,8 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* Return 1 if mode is a valid mode for sse.  */
+/* Return 1 if mode is a valid mode for sse.  256bit AVX modes aren't
+   supported since we can't generate all ones without using memory.  */
 static int
 standard_sse_mode_p (enum machine_mode mode)
 {
@@ -5692,12 +5796,23 @@ standard_sse_constant_opcode (rtx insn, rtx x)
   switch (standard_sse_constant_p (x))
     {
     case 1:
-      if (get_attr_mode (insn) == MODE_V4SF)
-        return "xorps\t%0, %0";
-      else if (get_attr_mode (insn) == MODE_V2DF)
-        return "xorpd\t%0, %0";
-      else
-        return "pxor\t%0, %0";
+      switch (get_attr_mode (insn))
+	{
+	case MODE_V4SF:
+	  return TARGET_AVX ? "vxorps\t%0, %0, %0" : "xorps\t%0, %0";
+	case MODE_V2DF:
+	  return TARGET_AVX ? "vxorpd\t%0, %0, %0" : "xorpd\t%0, %0";
+	case MODE_TI:
+	  return TARGET_AVX ? "vpxor\t%0, %0, %0" : "pxor\t%0, %0";
+	case MODE_V8SF:
+	  return "vxorps\t%x0, %x0, %x0";
+	case MODE_V4DF:
+	  return "vxorpd\t%x0, %x0, %x0";
+	case MODE_OI:
+	  return "vpxor\t%x0, %x0, %x0";
+	default:
+	  break;
+	}
     case 2:
       return "pcmpeqd\t%0, %0";
     }
@@ -8714,6 +8829,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
    If CODE is 'b', pretend the mode is QImode.
    If CODE is 'k', pretend the mode is SImode.
    If CODE is 'q', pretend the mode is DImode.
+   If CODE is 'x', pretend the mode is V4SFmode.
    If CODE is 'h', pretend the reg is the 'high' byte register.
    If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
 
@@ -8749,6 +8865,8 @@ print_reg (rtx x, int code, FILE *file)
     code = 3;
   else if (code == 'h')
     code = 0;
+  else if (code == 'x')
+    code = 16;
   else
     code = GET_MODE_SIZE (GET_MODE (x));
 
@@ -8810,6 +8928,13 @@ print_reg (rtx x, int code, FILE *file)
 	goto normal;
       fputs (qi_high_reg_name[REGNO (x)], file);
       break;
+    case 32:
+      if (SSE_REG_P (x))
+	{
+	  putc ('y', file);
+	  fputs (hi_reg_name[REGNO (x)] + 1, file);
+	}
+      break;
     default:
       gcc_unreachable ();
     }
@@ -8869,6 +8994,7 @@ get_some_local_dynamic_name (void)
    w --  likewise, print the HImode name of the register.
    k --  likewise, print the SImode name of the register.
    q --  likewise, print the DImode name of the register.
+   x --  likewise, print the V4SFmode name of the register.
    h -- print the QImode name for a "high" register, either ah, bh, ch or dh.
    y -- print "st(0)" instead of "st" as a register.
    D -- print condition for SSE cmp instruction.
@@ -9022,6 +9148,7 @@ print_operand (FILE *file, rtx x, int code)
 	case 'q':
 	case 'h':
 	case 'y':
+	case 'x':
 	case 'X':
 	case 'P':
 	  break;
@@ -9038,40 +9165,93 @@ print_operand (FILE *file, rtx x, int code)
 	  /* Little bit of braindamage here.  The SSE compare instructions
 	     does use completely different names for the comparisons that the
 	     fp conditional moves.  */
-	  switch (GET_CODE (x))
+	  if (TARGET_AVX)
 	    {
-	    case EQ:
-	    case UNEQ:
-	      fputs ("eq", file);
-	      break;
-	    case LT:
-	    case UNLT:
-	      fputs ("lt", file);
-	      break;
-	    case LE:
-	    case UNLE:
-	      fputs ("le", file);
-	      break;
-	    case UNORDERED:
-	      fputs ("unord", file);
-	      break;
-	    case NE:
-	    case LTGT:
-	      fputs ("neq", file);
-	      break;
-	    case UNGE:
-	    case GE:
-	      fputs ("nlt", file);
-	      break;
-	    case UNGT:
-	    case GT:
-	      fputs ("nle", file);
-	      break;
-	    case ORDERED:
-	      fputs ("ord", file);
-	      break;
-	    default:
-	      gcc_unreachable ();
+	      switch (GET_CODE (x))
+		{
+		case EQ:
+		  fputs ("eq", file);
+		  break;
+		case UNEQ:
+		  fputs ("eq_us", file);
+		  break;
+		case LT:
+		  fputs ("lt", file);
+		  break;
+		case UNLT:
+		  fputs ("nge", file);
+		  break;
+		case LE:
+		  fputs ("le", file);
+		  break;
+		case UNLE:
+		  fputs ("ngt", file);
+		  break;
+		case UNORDERED:
+		  fputs ("unord", file);
+		  break;
+		case NE:
+		  fputs ("neq", file);
+		  break;
+		case LTGT:
+		  fputs ("neq_oq", file);
+		  break;
+		case GE:
+		  fputs ("ge", file);
+		  break;
+		case UNGE:
+		  fputs ("nlt", file);
+		  break;
+		case GT:
+		  fputs ("gt", file);
+		  break;
+		case UNGT:
+		  fputs ("nle", file);
+		  break;
+		case ORDERED:
+		  fputs ("ord", file);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	    }
+	  else
+	    {
+	      switch (GET_CODE (x))
+		{
+		case EQ:
+		case UNEQ:
+		  fputs ("eq", file);
+		  break;
+		case LT:
+		case UNLT:
+		  fputs ("lt", file);
+		  break;
+		case LE:
+		case UNLE:
+		  fputs ("le", file);
+		  break;
+		case UNORDERED:
+		  fputs ("unord", file);
+		  break;
+		case NE:
+		case LTGT:
+		  fputs ("neq", file);
+		  break;
+		case UNGE:
+		case GE:
+		  fputs ("nlt", file);
+		  break;
+		case UNGT:
+		case GT:
+		  fputs ("nle", file);
+		  break;
+		case ORDERED:
+		  fputs ("ord", file);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	    }
 	  return;
 	case 'O':
@@ -9616,7 +9796,7 @@ split_ti (rtx operands[], int num, rtx lo_half[], rtx hi_half[])
 const char *
 output_387_binary_op (rtx insn, rtx *operands)
 {
-  static char buf[30];
+  static char buf[40];
   const char *p;
   const char *ssep;
   int is_sse = SSE_REG_P (operands[0]) || SSE_REG_P (operands[1]) || SSE_REG_P (operands[2]);
@@ -9681,11 +9861,23 @@ output_387_binary_op (rtx insn, rtx *operands)
 
   if (is_sse)
    {
-      strcpy (buf, ssep);
-      if (GET_MODE (operands[0]) == SFmode)
-	strcat (buf, "ss\t{%2, %0|%0, %2}");
-      else
-	strcat (buf, "sd\t{%2, %0|%0, %2}");
+     if (TARGET_AVX)
+       {
+	 buf[0] = 'v';
+	 strcpy (buf + 1, ssep);
+	 if (GET_MODE (operands[0]) == SFmode)
+	   strcat (buf, "ss\t{%2, %1, %0|%0, %1, %2}");
+	 else
+	   strcat (buf, "sd\t{%2, %1, %0|%0, %1, %2}");
+       }
+     else
+       {
+	 strcpy (buf, ssep);
+	 if (GET_MODE (operands[0]) == SFmode)
+	   strcat (buf, "ss\t{%2, %0|%0, %2}");
+	 else
+	   strcat (buf, "sd\t{%2, %0|%0, %2}");
+       }
       return buf;
    }
   strcpy (buf, p);
@@ -17645,6 +17837,55 @@ enum ix86_builtins
   /* PCLMUL instruction */
   IX86_BUILTIN_PCLMULQDQ128,
 
+  /* AVX */
+  IX86_BUILTIN_ADDPD256,
+  IX86_BUILTIN_ADDPS256,
+  IX86_BUILTIN_ADDSUBPD256,
+  IX86_BUILTIN_ADDSUBPS256,
+  IX86_BUILTIN_ANDPD256,
+  IX86_BUILTIN_ANDPS256,
+  IX86_BUILTIN_ANDNPD256,
+  IX86_BUILTIN_ANDNPS256,
+  IX86_BUILTIN_BLENDPD256,
+  IX86_BUILTIN_BLENDPS256,
+  IX86_BUILTIN_BLENDVPD256,
+  IX86_BUILTIN_BLENDVPS256,
+  IX86_BUILTIN_DIVPD256,
+  IX86_BUILTIN_DIVPS256,
+  IX86_BUILTIN_DPPS256,
+  IX86_BUILTIN_HADDPD256,
+  IX86_BUILTIN_HADDPS256,
+  IX86_BUILTIN_HSUBPD256,
+  IX86_BUILTIN_HSUBPS256,
+  IX86_BUILTIN_MAXPD256,
+  IX86_BUILTIN_MAXPS256,
+  IX86_BUILTIN_MINPD256,
+  IX86_BUILTIN_MINPS256,
+  IX86_BUILTIN_MULPD256,
+  IX86_BUILTIN_MULPS256,
+  IX86_BUILTIN_ORPD256,
+  IX86_BUILTIN_ORPS256,
+  IX86_BUILTIN_SHUFPD256,
+  IX86_BUILTIN_SHUFPS256,
+  IX86_BUILTIN_SUBPD256,
+  IX86_BUILTIN_SUBPS256,
+  IX86_BUILTIN_XORPD256,
+  IX86_BUILTIN_XORPS256,
+  IX86_BUILTIN_CMPSD,
+  IX86_BUILTIN_CMPSS,
+  IX86_BUILTIN_CMPPD,
+  IX86_BUILTIN_CMPPS,
+  IX86_BUILTIN_CMPPD256,
+  IX86_BUILTIN_CMPPS256,
+  IX86_BUILTIN_CVTDQ2PD256,
+  IX86_BUILTIN_CVTDQ2PS256,
+  IX86_BUILTIN_CVTPD2PS256,
+  IX86_BUILTIN_CVTPS2DQ256,
+  IX86_BUILTIN_CVTPS2PD256,
+  IX86_BUILTIN_CVTTPD2DQ256,
+  IX86_BUILTIN_CVTPD2DQ256,
+  IX86_BUILTIN_CVTTPS2DQ256,
+
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
   IX86_BUILTIN_FABSQ,
@@ -18009,6 +18250,21 @@ static const struct builtin_description bdesc_sse_3arg[] =
 
   /* PCLMUL */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_pclmulqdq, 0, IX86_BUILTIN_PCLMULQDQ128, UNKNOWN, 0 },
+
+  /* AVX */
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendpd256, "__builtin_ia32_blendpd256", IX86_BUILTIN_BLENDPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendps256, "__builtin_ia32_blendps256", IX86_BUILTIN_BLENDPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendvpd256, "__builtin_ia32_blendvpd256", IX86_BUILTIN_BLENDVPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendvps256, "__builtin_ia32_blendvps256", IX86_BUILTIN_BLENDVPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_dpps256, "__builtin_ia32_dpps256", IX86_BUILTIN_DPPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_shufpd256, "__builtin_ia32_shufpd256", IX86_BUILTIN_SHUFPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_shufps256, "__builtin_ia32_shufps256", IX86_BUILTIN_SHUFPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmpsdv2df3, "__builtin_ia32_cmpsd", IX86_BUILTIN_CMPSD, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmpssv4sf3, "__builtin_ia32_cmpss", IX86_BUILTIN_CMPSS, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppdv2df3, "__builtin_ia32_cmppd", IX86_BUILTIN_CMPPD, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv4sf3, "__builtin_ia32_cmpps", IX86_BUILTIN_CMPPS, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppdv4df3, "__builtin_ia32_cmppd256", IX86_BUILTIN_CMPPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv8sf3, "__builtin_ia32_cmpps256", IX86_BUILTIN_CMPPS256, UNKNOWN, 0 },
 };
 
 static const struct builtin_description bdesc_2arg[] =
@@ -18296,6 +18552,34 @@ static const struct builtin_description bdesc_2arg[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdec, 0, IX86_BUILTIN_AESDEC128, UNKNOWN, 0 },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdeclast, 0, IX86_BUILTIN_AESDECLAST128, UNKNOWN, 0 },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aeskeygenassist, 0, IX86_BUILTIN_AESKEYGENASSIST128, UNKNOWN, 0 },
+
+  /* AVX */
+  { OPTION_MASK_ISA_AVX, CODE_FOR_addv4df3, "__builtin_ia32_addpd256", IX86_BUILTIN_ADDPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_addv8sf3, "__builtin_ia32_addps256", IX86_BUILTIN_ADDPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv8sf3, "__builtin_ia32_addsubps256", IX86_BUILTIN_ADDSUBPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv4df3, "__builtin_ia32_addsubpd256", IX86_BUILTIN_ADDSUBPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_andv4df3, "__builtin_ia32_andpd256", IX86_BUILTIN_ANDPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_andv8sf3, "__builtin_ia32_andps256", IX86_BUILTIN_ANDPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv4df3, "__builtin_ia32_andnpd256", IX86_BUILTIN_ANDNPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv8sf3, "__builtin_ia32_andnps256", IX86_BUILTIN_ANDNPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_divv4df3, "__builtin_ia32_divpd256", IX86_BUILTIN_DIVPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_divv8sf3, "__builtin_ia32_divps256", IX86_BUILTIN_DIVPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv4df3, "__builtin_ia32_haddpd256", IX86_BUILTIN_HADDPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv8sf3, "__builtin_ia32_hsubps256", IX86_BUILTIN_HSUBPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv4df3, "__builtin_ia32_hsubpd256", IX86_BUILTIN_HSUBPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv8sf3, "__builtin_ia32_haddps256", IX86_BUILTIN_HADDPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv4df3, "__builtin_ia32_maxpd256", IX86_BUILTIN_MAXPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv8sf3, "__builtin_ia32_maxps256", IX86_BUILTIN_MAXPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv4df3, "__builtin_ia32_minpd256", IX86_BUILTIN_MINPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv8sf3, "__builtin_ia32_minps256", IX86_BUILTIN_MINPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv4df3, "__builtin_ia32_mulpd256", IX86_BUILTIN_MULPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv8sf3, "__builtin_ia32_mulps256", IX86_BUILTIN_MULPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv4df3, "__builtin_ia32_orpd256", IX86_BUILTIN_ORPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv8sf3, "__builtin_ia32_orps256", IX86_BUILTIN_ORPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_subv4df3, "__builtin_ia32_subpd256", IX86_BUILTIN_SUBPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_subv8sf3, "__builtin_ia32_subps256", IX86_BUILTIN_SUBPS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv4df3,  "__builtin_ia32_xorpd256", IX86_BUILTIN_XORPD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv8sf3,  "__builtin_ia32_xorps256", IX86_BUILTIN_XORPS256, UNKNOWN, 0 },
 };
 
 static const struct builtin_description bdesc_1arg[] =
@@ -18376,6 +18660,16 @@ static const struct builtin_description bdesc_1arg[] =
 
   /* AES */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesimc, 0, IX86_BUILTIN_AESIMC128, UNKNOWN, 0 },
+
+  /* AVX */
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2pd256, 0, IX86_BUILTIN_CVTDQ2PD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2ps256, 0, IX86_BUILTIN_CVTDQ2PS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtpd2ps256, 0, IX86_BUILTIN_CVTPD2PS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtps2dq256, 0, IX86_BUILTIN_CVTPS2DQ256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtps2pd256, 0, IX86_BUILTIN_CVTPS2PD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvttpd2dq256, 0, IX86_BUILTIN_CVTTPD2DQ256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtpd2dq256, 0, IX86_BUILTIN_CVTPD2DQ256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvttps2dq256, 0, IX86_BUILTIN_CVTTPS2DQ256, UNKNOWN, 0 },
 };
 
 /* SSE5 */
@@ -18684,11 +18978,14 @@ ix86_init_mmx_sse_builtins (void)
   tree V2DI_type_node
     = build_vector_type_for_mode (long_long_integer_type_node, V2DImode);
   tree V2DF_type_node = build_vector_type_for_mode (double_type_node, V2DFmode);
+  tree V4DF_type_node = build_vector_type_for_mode (double_type_node, V4DFmode);
   tree V4SF_type_node = build_vector_type_for_mode (float_type_node, V4SFmode);
   tree V4SI_type_node = build_vector_type_for_mode (intSI_type_node, V4SImode);
   tree V4HI_type_node = build_vector_type_for_mode (intHI_type_node, V4HImode);
+  tree V8SF_type_node = build_vector_type_for_mode (float_type_node, V8SFmode);
   tree V8QI_type_node = build_vector_type_for_mode (char_type_node, V8QImode);
   tree V8HI_type_node = build_vector_type_for_mode (intHI_type_node, V8HImode);
+  tree V8SI_type_node = build_vector_type_for_mode (intSI_type_node, V8SImode);
 
   tree pchar_type_node = build_pointer_type (char_type_node);
   tree pcchar_type_node = build_pointer_type (
@@ -18923,6 +19220,32 @@ ix86_init_mmx_sse_builtins (void)
   tree v2di_ftype_v2di_v2di
     = build_function_type_list (V2DI_type_node,
 				V2DI_type_node, V2DI_type_node, NULL_TREE);
+  tree v8sf_ftype_v8sf_v8sf
+    = build_function_type_list (V8SF_type_node,
+				V8SF_type_node, V8SF_type_node, NULL_TREE);
+  tree v8sf_ftype_v8sf_v8sf_int
+    = build_function_type_list (V8SF_type_node,
+				V8SF_type_node, V8SF_type_node,
+				integer_type_node,
+				NULL_TREE);
+  tree v8sf_ftype_v8sf_v8sf_v8sf
+    = build_function_type_list (V8SF_type_node,
+				V8SF_type_node, V8SF_type_node,
+				V8SF_type_node,
+				NULL_TREE);
+  tree v4df_ftype_v4df_v4df
+    = build_function_type_list (V4DF_type_node,
+				V4DF_type_node, V4DF_type_node, NULL_TREE);
+  tree v4df_ftype_v4df_v4df_int
+    = build_function_type_list (V4DF_type_node,
+				V4DF_type_node, V4DF_type_node,
+				integer_type_node,
+				NULL_TREE);
+  tree v4df_ftype_v4df_v4df_v4df
+    = build_function_type_list (V4DF_type_node,
+				V4DF_type_node, V4DF_type_node,
+				V4DF_type_node,
+				NULL_TREE);
   tree v2di_ftype_v2df_v2df
     = build_function_type_list (V2DI_type_node,
 				V2DF_type_node, V2DF_type_node, NULL_TREE);
@@ -19132,6 +19455,19 @@ ix86_init_mmx_sse_builtins (void)
   tree v2di_ftype_v2di
     = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
 
+  tree v8sf_ftype_v8si
+    = build_function_type_list (V8SF_type_node, V8SI_type_node, NULL_TREE);
+  tree v8si_ftype_v8sf
+    = build_function_type_list (V8SI_type_node, V8SF_type_node, NULL_TREE);
+  tree v4sf_ftype_v4df
+    = build_function_type_list (V4SF_type_node, V4DF_type_node, NULL_TREE);
+  tree v4df_ftype_v4sf
+    = build_function_type_list (V4DF_type_node, V4SF_type_node, NULL_TREE);
+  tree v4df_ftype_v4si
+    = build_function_type_list (V4DF_type_node, V4SI_type_node, NULL_TREE);
+  tree v4si_ftype_v4df
+    = build_function_type_list (V4SI_type_node, V4DF_type_node, NULL_TREE);
+
   tree ftype;
 
   /* The __float80 type.  */
@@ -19210,6 +19546,12 @@ ix86_init_mmx_sse_builtins (void)
 	case V4SFmode:
 	  type = v4sf_ftype_v4sf_v4sf_int;
 	  break;
+	case V4DFmode:
+	  type = v4df_ftype_v4df_v4df_int;
+	  break;
+	case V8SFmode:
+	  type = v8sf_ftype_v8sf_v8sf_int;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -19225,6 +19567,12 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case CODE_FOR_sse4_1_pblendvb:
 	  type = v16qi_ftype_v16qi_v16qi_v16qi;
+	  break;
+	case CODE_FOR_avx_blendvpd256:
+	  type = v4df_ftype_v4df_v4df_v4df;
+	  break;
+	case CODE_FOR_avx_blendvps256:
+	  type = v8sf_ftype_v8sf_v8sf_v8sf;
 	  break;
 	default:
 	  break;
@@ -19248,6 +19596,12 @@ ix86_init_mmx_sse_builtins (void)
 
       switch (mode)
 	{
+	case V8SFmode:
+	  type = v8sf_ftype_v8sf_v8sf;
+	  break;
+	case V4DFmode:
+	  type = v4df_ftype_v4df_v4df;
+	  break;
 	case V16QImode:
 	  type = v16qi_ftype_v16qi_v16qi;
 	  break;
@@ -19318,6 +19672,9 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case V4SImode:
 	  type = v4si_ftype_v4si;
+	  break;
+	case V2DImode:
+	  type = v2di_ftype_v2di;
 	  break;
 	case V2DFmode:
 	  type = v2df_ftype_v2df;
@@ -19631,6 +19988,16 @@ ix86_init_mmx_sse_builtins (void)
       def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_ia32_pclmulqdq128", v2di_ftype_v2di_v2di_int, IX86_BUILTIN_PCLMULQDQ128);
     }
 
+  /* AVX */
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2pd256", v4df_ftype_v4si, IX86_BUILTIN_CVTDQ2PD256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2ps256", v8sf_ftype_v8si, IX86_BUILTIN_CVTDQ2PS256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2ps256", v4sf_ftype_v4df, IX86_BUILTIN_CVTPD2PS256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2dq256", v8si_ftype_v8sf, IX86_BUILTIN_CVTPS2DQ256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2pd256", v4df_ftype_v4sf, IX86_BUILTIN_CVTPS2PD256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttpd2dq256", v4si_ftype_v4df, IX86_BUILTIN_CVTTPD2DQ256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2dq256", v4si_ftype_v4df, IX86_BUILTIN_CVTPD2DQ256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttps2dq256", v8si_ftype_v8sf, IX86_BUILTIN_CVTTPS2DQ256);
+
   /* AMDFAM10 SSE4A New built-ins  */
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntsd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTSD);
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntss", void_ftype_pfloat_v4sf, IX86_BUILTIN_MOVNTSS);
@@ -19857,12 +20224,27 @@ ix86_expand_sse_4_operands_builtin (enum insn_code icode, tree exp,
       case CODE_FOR_sse4_1_roundsd:
       case CODE_FOR_sse4_1_roundss:
       case CODE_FOR_sse4_1_blendps:
+      case CODE_FOR_avx_blendpd256:
 	error ("the third argument must be a 4-bit immediate");
 	return const0_rtx;
 
       case CODE_FOR_sse4_1_blendpd:
 	error ("the third argument must be a 2-bit immediate");
 	return const0_rtx;
+
+      case CODE_FOR_avx_cmpsdv2df3:
+      case CODE_FOR_avx_cmpssv4sf3:
+      case CODE_FOR_avx_cmppdv2df3:
+      case CODE_FOR_avx_cmppsv4sf3:
+      case CODE_FOR_avx_cmppsv8sf3:
+      case CODE_FOR_avx_cmppdv4df3:
+	error ("the third argument must be a 5-bit immediate");
+	return const0_rtx;
+
+      case CODE_FOR_avx_blendvpd256:
+      case CODE_FOR_avx_blendvps256:
+	op2 = copy_to_mode_reg (mode3, op2);
+	break;
 
       default:
 	error ("the third argument must be an 8-bit immediate");
@@ -21422,14 +21804,17 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
       {
-	/* Compares are treated specially.  */
-	if (d->icode == CODE_FOR_sse_maskcmpv4sf3
-	    || d->icode == CODE_FOR_sse_vmmaskcmpv4sf3
-	    || d->icode == CODE_FOR_sse2_maskcmpv2df3
-	    || d->icode == CODE_FOR_sse2_vmmaskcmpv2df3)
-	  return ix86_expand_sse_compare (d, exp, target);
-
-	return ix86_expand_binop_builtin (d->icode, exp, target);
+	switch (d->icode)
+	  {
+	  case CODE_FOR_sse_maskcmpv4sf3:
+	  case CODE_FOR_sse_vmmaskcmpv4sf3:
+	  case CODE_FOR_sse2_maskcmpv2df3:
+	  case CODE_FOR_sse2_vmmaskcmpv2df3:
+	    /* Compares are treated specially.  */
+	    return ix86_expand_sse_compare (d, exp, target);
+	  default: 
+	    return ix86_expand_binop_builtin (d->icode, exp, target);
+	  }
       }
 
   for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
@@ -22301,7 +22686,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
       /* We implement the move patterns for all vector modes into and
 	 out of SSE registers, even when no operation instructions
 	 are available.  */
-      return (VALID_SSE_REG_MODE (mode)
+      return (VALID_AVX_REG_MODE (mode)
+	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE_3DNOW (mode));
@@ -24317,6 +24703,8 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
   if (TARGET_SSE && VALID_SSE_REG_MODE (mode))
     return true;
   if (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
+    return true;
+  if (TARGET_AVX && VALID_AVX_REG_MODE (mode))
     return true;
   if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
     return true;
