@@ -229,7 +229,8 @@ struct store_info
   /* An bitmask as wide as the number of bytes in the word that
      contains a 1 if the byte may be needed.  The store is unused if
      all of the bits are 0.  */
-  long positions_needed;
+  /* FIXME: A real bitmap should be used.  */
+  long long positions_needed;
 
   /* The next store info for this insn.  */
   struct store_info *next;
