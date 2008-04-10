@@ -1,3 +1,8 @@
+2008-04-10 Oleg Ryjkov  <olegr@google.com>
+
+	* tree.h (struct tree_base): Added a new flag default_def_flag.
+	(SSA_NAME_IS_DEFAULT_DEF): Changed to use the new flag.
+
 2008-04-08  Doug Kwan  <dougkwan@google.com>
 
 	* gimplify.c (gimple_push_cleanup): Initialize cleanup_stmts to NULL.
