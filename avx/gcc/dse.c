@@ -229,8 +229,9 @@ struct store_info
   /* An bitmask as wide as the number of bytes in the word that
      contains a 1 if the byte may be needed.  The store is unused if
      all of the bits are 0.  */
-  /* FIXME: A real bitmap should be used.  */
-  HOST_WIDEST_INT positions_needed;
+  /* FIXME: This won't work with registers wider than size of long *
+     CHAR_BIT bytes.  */
+  long positions_needed;
 
   /* The next store info for this insn.  */
   struct store_info *next;
@@ -240,6 +241,16 @@ struct store_info
      basic block.  */
   rtx rhs;  
 };
+
+/* Return a bitmask with bits 0 to PISITION - 1 set to 1.  PISITION
+   must not be greater than size of bitmask * CHAR_BIT.  */
+
+static long
+fill_bitmask (int position)
+{
+  unsigned long mask = ~0UL;
+  return mask >> (sizeof (mask) * CHAR_BIT - position);
+}
 
 typedef struct store_info *store_info_t;
 static alloc_pool cse_store_info_pool;
@@ -1361,7 +1372,8 @@ record_store (rtx body, bb_info_t bb_info)
       ptr = next;
     }
   
-  gcc_assert ((unsigned) width < sizeof (store_info->positions_needed) * CHAR_BIT);
+  gcc_assert ((unsigned) width
+	      <= sizeof (store_info->positions_needed) * CHAR_BIT);
   
   /* Finish filling in the store_info.  */
   store_info->next = insn_info->store_rec;
@@ -1370,7 +1382,7 @@ record_store (rtx body, bb_info_t bb_info)
   store_info->alias_set = spill_alias_set;
   store_info->mem_addr = get_addr (XEXP (mem, 0));
   store_info->cse_base = base;
-  store_info->positions_needed = (1L << width) - 1;
+  store_info->positions_needed = fill_bitmask (width);
   store_info->group_id = group_id;
   store_info->begin = offset;
   store_info->end = offset + width;
@@ -1802,8 +1814,9 @@ check_mem_read_rtx (rtx *loc, void *data)
 		      && (offset >= store_info->begin)
 		      && (offset + width <= store_info->end))
 		    {
-		      int mask = ((1L << width) - 1) << (offset - store_info->begin);
-		      
+		      long mask = (fill_bitmask (width)
+				   << (offset - store_info->begin));
+
 		      if ((store_info->positions_needed & mask) == mask
 			  && replace_read (store_info, i_ptr, 
 					   read_info, insn_info, loc))
@@ -1869,8 +1882,9 @@ check_mem_read_rtx (rtx *loc, void *data)
 	      && (offset >= store_info->begin)
 	      && (offset + width <= store_info->end))
 	    {
-	      int mask = ((1L << width) - 1) << (offset - store_info->begin);
-	      
+	      long mask = (fill_bitmask (width)
+			   << (offset - store_info->begin));
+
 	      if ((store_info->positions_needed & mask) == mask
 		  && replace_read (store_info, i_ptr, 
 				   read_info, insn_info, loc))

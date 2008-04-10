@@ -1,4 +1,9 @@
 2008-04-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/35897
-	* dse.c (store_info): Use HOST_WIDEST_INT on positions_needed.
+	* dse.c (store_info): Add a FIXME for positions_needed.
+	(fill_bitmask): New.
+	(record_store): Assert width <= size of positions_needed *
+	CHAR_BIT.  Call fill_bitmask to initialize positions_needed.
+	(check_mem_read_rtx): Use long on mask.  Call fill_bitmask to
+	set mask.
