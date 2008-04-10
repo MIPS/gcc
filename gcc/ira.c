@@ -1898,11 +1898,11 @@ ira (FILE *f)
 	  sizeof (rtx) * max_regno);
   reg_equiv_memory_loc = VEC_address (rtx, reg_equiv_memory_loc_vec);
   
-  allocate_initial_values (reg_equiv_memory_loc);
-  
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
 
+  allocate_initial_values (reg_equiv_memory_loc);
+  
   fix_reg_equiv_init ();
 
 #ifdef ENABLE_IRA_CHECKING
