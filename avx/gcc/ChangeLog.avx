@@ -126,7 +126,6 @@
 	__builtin_ia32_cmpsd, __builtin_ia32_cmpss,
 	__builtin_ia32_cmppd, __builtin_ia32_cmpps,
 	__builtin_ia32_cmppd256 and __builtin_ia32_cmpps256.
-
 	(bdesc_2arg): Add __builtin_ia32_addpd256,
 	__builtin_ia32_addps256, __builtin_ia32_addsubpd256,
 	__builtin_ia32_addsubps256, __builtin_ia32_andpd256,
