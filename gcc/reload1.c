@@ -444,6 +444,8 @@ static rtx inc_for_reload (rtx, rtx, rtx, int);
 static void add_auto_inc_notes (rtx, rtx);
 #endif
 static void copy_eh_notes (rtx, rtx);
+static void substitute (rtx *, const_rtx, rtx);
+static bool gen_reload_chain_without_interm_reg_p (int, int);
 static int reloads_conflict (int, int);
 static rtx gen_reload (rtx, rtx, int, enum reload_type);
 static rtx emit_insn_if_valid_for_reload (rtx);
@@ -5129,6 +5131,125 @@ reloads_unique_chain_p (int r1, int r2)
   return true;
 }
 
+/* The recursive function change all occurrences of WHAT in *WHERE
+   onto REPL.  */
+static void
+substitute (rtx *where, const_rtx what, rtx repl)
+{
+  const char *fmt;
+  int i;
+  enum rtx_code code;
+
+  if (*where == 0)
+    return;
+
+  if (*where == what || rtx_equal_p (*where, what))
+    {
+      *where = repl;
+      return;
+    }
+
+  code = GET_CODE (*where);
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'E')
+	{
+	  int j;
+
+	  for (j = XVECLEN (*where, i) - 1; j >= 0; j--)
+	    substitute (&XVECEXP (*where, i, j), what, repl);
+	}
+      else if (fmt[i] == 'e')
+	substitute (&XEXP (*where, i), what, repl);
+    }
+}
+
+/* The function returns TRUE if chain of reload R1 and R2 (in any
+   order) can be evaluated without usage of intermediate register for
+   the reload containing another reload.  It is important to see
+   gen_reload to understand what the function is trying to do.  As an
+   example, let us have reload chain
+
+      r2: const
+      r1: <something> + const
+
+   and reload R2 got reload reg HR.  The function returns true if
+   there is a correct insn HR = HR + <something>.  Otherwise,
+   gen_reload will use intermediate register (and this is the reload
+   reg for R1) to reload <something>.
+
+   We need this function to find a conflict for chain reloads.  In our
+   example, if HR = HR + <something> is incorrect insn, then we cannot
+   use HR as a reload register for R2.  If we do use it then we get a
+   wrong code:
+
+      HR = const
+      HR = <something>
+      HR = HR + HR
+
+*/
+static bool
+gen_reload_chain_without_interm_reg_p (int r1, int r2)
+{
+  bool result;
+  int regno, n, code;
+  rtx out, in, tem, insn;
+  rtx last = get_last_insn ();
+
+  /* Make r2 a component of r1.  */
+  if (reg_mentioned_p (rld[r1].in, rld[r2].in))
+    {
+      n = r1;
+      r1 = r2;
+      r2 = n;
+    }
+  gcc_assert (reg_mentioned_p (rld[r2].in, rld[r1].in));
+  regno = rld[r1].regno >= 0 ? rld[r1].regno : rld[r2].regno;
+  gcc_assert (regno >= 0);
+  out = gen_rtx_REG (rld[r1].mode, regno);
+  in = copy_rtx (rld[r1].in);
+  substitute (&in, rld[r2].in, gen_rtx_REG (rld[r2].mode, regno));
+
+  /* If IN is a paradoxical SUBREG, remove it and try to put the
+     opposite SUBREG on OUT.  Likewise for a paradoxical SUBREG on OUT.  */
+  if (GET_CODE (in) == SUBREG
+      && (GET_MODE_SIZE (GET_MODE (in))
+	  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (in))))
+      && (tem = gen_lowpart_common (GET_MODE (SUBREG_REG (in)), out)) != 0)
+    in = SUBREG_REG (in), out = tem;
+
+  if (GET_CODE (in) == PLUS
+      && (REG_P (XEXP (in, 0))
+	  || GET_CODE (XEXP (in, 0)) == SUBREG
+	  || MEM_P (XEXP (in, 0)))
+      && (REG_P (XEXP (in, 1))
+	  || GET_CODE (XEXP (in, 1)) == SUBREG
+	  || CONSTANT_P (XEXP (in, 1))
+	  || MEM_P (XEXP (in, 1))))
+    {
+      insn = emit_insn (gen_rtx_SET (VOIDmode, out, in));
+      code = recog_memoized (insn);
+      result = false;
+
+      if (code >= 0)
+	{
+	  extract_insn (insn);
+	  /* We want constrain operands to treat this insn strictly in
+	     its validity determination, i.e., the way it would after
+	     reload has completed.  */
+	  result = constrain_operands (1);
+	}
+      
+      delete_insns_since (last);
+      return result;
+    }
+  
+  /* It looks like other cases in gen_reload are not possible for
+     chain reloads or do need an intermediate hard registers.  */
+  return true;
+}
+
 /* Return 1 if the reloads denoted by R1 and R2 cannot share a register.
    Return 0 otherwise.
 
@@ -5178,7 +5299,8 @@ reloads_conflict (int r1, int r2)
     case RELOAD_FOR_OPERAND_ADDRESS:
       return (r2_type == RELOAD_FOR_INPUT || r2_type == RELOAD_FOR_INSN
 	      || (r2_type == RELOAD_FOR_OPERAND_ADDRESS
-		  && !reloads_unique_chain_p (r1, r2)));
+		  && (!reloads_unique_chain_p (r1, r2)
+		      || !gen_reload_chain_without_interm_reg_p (r1, r2))));
 
     case RELOAD_FOR_OPADDR_ADDR:
       return (r2_type == RELOAD_FOR_INPUT
