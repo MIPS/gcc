@@ -22686,7 +22686,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
       /* We implement the move patterns for all vector modes into and
 	 out of SSE registers, even when no operation instructions
 	 are available.  */
-      return (VALID_AVX_REG_MODE (mode)
+      return (VALID_AVX256_REG_MODE (mode)
 	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)
@@ -24704,7 +24704,7 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
     return true;
   if (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
     return true;
-  if (TARGET_AVX && VALID_AVX_REG_MODE (mode))
+  if (TARGET_AVX && VALID_AVX256_REG_MODE (mode))
     return true;
   if (TARGET_MMX && VALID_MMX_REG_MODE (mode))
     return true;

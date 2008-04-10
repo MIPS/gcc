@@ -1,5 +1,14 @@
 2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.h (VALID_AVX_REG_MODE): Renamed to ...
+	(VALID_AVX256_REG_MODE): This.
+	(AVX_VEC_FLOAT_MODE_P): Renamed to ...
+	(AVX256_VEC_FLOAT_MODE_P): This.
+	* config/i386/i386.c: Updated.
+	* config/i386/sse.md: Likewise.
+
+2008-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.md (UNSPEC_PCMP): New.
 	(*avx_setcc<mode>): Likewise.
 	(prefix_vex): Likewise.

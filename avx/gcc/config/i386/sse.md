@@ -323,7 +323,7 @@
 	(unspec:AVX256MODEF2P
 	  [(match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "xm,x")]
 	  UNSPEC_MOVU))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)
    && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "vmovup<avxmodesuffixf2c>\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov")
@@ -455,7 +455,7 @@
 	(plusminus:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "ix86_fixup_binary_operands_no_copy (<CODE>, <MODE>mode, operands);")
 
 (define_insn "*<addsub><mode>3"
@@ -463,7 +463,7 @@
 	(plusminus:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "<comm>x")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)
    && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
   "v<addsub>p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
@@ -507,7 +507,7 @@
 	(mult:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "ix86_fixup_binary_operands_no_copy (MULT, <MODE>mode, operands);")
 
 (define_insn "*mul<mode>3"
@@ -515,7 +515,7 @@
 	(mult:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "%x")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)
    && ix86_binary_operator_ok (MULT, <MODE>mode, operands)"
   "vmulp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssemul")
@@ -584,7 +584,7 @@
 	(div:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "register_operand" "x")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vdivp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssediv")
    (set_attr "mode" "<MODE>")])
@@ -740,7 +740,7 @@
 	(smaxmin:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "ix86_fixup_binary_operands_no_copy (<CODE>, <MODE>mode, operands);")
 
 (define_insn "*<code><mode>3"
@@ -748,7 +748,7 @@
 	(smaxmin:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "%x")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "v<maxminfprefix>p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "<MODE>")])
@@ -811,7 +811,7 @@
 	  [(match_operand:AVX256MODEF2P 1 "register_operand" "x")
 	   (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")]
 	 UNSPEC_IEEE_MIN))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vminp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "<MODE>")])
@@ -822,7 +822,7 @@
 	  [(match_operand:AVX256MODEF2P 1 "register_operand" "x")
 	   (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")]
 	 UNSPEC_IEEE_MAX))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vmaxp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "<MODE>")])
@@ -1098,7 +1098,7 @@
 	(match_operator:AVX256MODEF2P 3 "avx_comparison_float_operator"
 		[(match_operand:AVX256MODEF2P 1 "register_operand" "x")
 		 (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")]))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vcmp%D3p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssecmp")
    (set_attr "mode" "<MODE>")])
@@ -1183,7 +1183,7 @@
 	  (not:AVX256MODEF2P
 	    (match_operand:AVX256MODEF2P 1 "register_operand" "x"))
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vandnp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "<MODE>")])
@@ -1204,7 +1204,7 @@
 	(plogic:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)"
   "ix86_fixup_binary_operands_no_copy (<CODE>, <MODE>mode, operands);")
 
 (define_insn "*<code><mode>3"
@@ -1212,7 +1212,7 @@
 	(plogic:AVX256MODEF2P
 	  (match_operand:AVX256MODEF2P 1 "nonimmediate_operand" "%x")
 	  (match_operand:AVX256MODEF2P 2 "nonimmediate_operand" "xm")))]
-  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)
+  "AVX256_VEC_FLOAT_MODE_P (<MODE>mode)
    && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
   "v<plogicprefix>p<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")

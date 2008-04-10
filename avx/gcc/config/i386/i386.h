@@ -1120,7 +1120,7 @@ do {									\
 
 #define HARD_REGNO_NREGS_WITH_PADDING(REGNO, MODE) ((MODE) == XFmode ? 4 : 8)
 
-#define VALID_AVX_REG_MODE(MODE)					\
+#define VALID_AVX256_REG_MODE(MODE)					\
   ((MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
    || (MODE) == V4DImode || (MODE) == V8SFmode || (MODE) == V4DFmode)
 
@@ -1477,7 +1477,7 @@ enum reg_class
 #define SSE_VEC_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == V4SFmode) || (TARGET_SSE2 && (MODE) == V2DFmode))
 
-#define AVX_VEC_FLOAT_MODE_P(MODE) \
+#define AVX256_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_AVX && ((MODE) == V8SFmode || (MODE) == V4DFmode))
 
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
