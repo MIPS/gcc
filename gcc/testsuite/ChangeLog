@@ -1,3 +1,7 @@
+2008-04-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* gcc.dg/200804010-1.c: New.
+
 2008-03-28  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/35721
