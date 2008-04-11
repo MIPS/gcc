@@ -1,3 +1,12 @@
+2008-04-11 Oleg Ryjkov  <olegr@google.com>
+
+	* builtins.c (fold_call_stmt): Return the proper value.
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Modify arguments to
+	allow this function to be called on a GIMPLE_ASSIGN.
+	(fold_stmt_r): Update the call to maybe_fold_stmt_addition.
+	(fold_gimple_assign): Manually call maybe_fold_stmt_addition to
+	fold a POINTER_PLUS_EXPR.
+
 2008-04-11  Doug Kwan  <dougkwan@google.com>
 
 	* tree-ssa-phiprop.c (File): Uncomment all previously disabled code.

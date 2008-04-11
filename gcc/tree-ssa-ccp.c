@@ -1996,29 +1996,23 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 }
 
 
-/* A subroutine of fold_stmt_r.  EXPR is a POINTER_PLUS_EXPR.
-
-   A quaint feature extant in our address arithmetic is that there
+/* A quaint feature extant in our address arithmetic is that there
    can be hidden type changes here.  The type of the result need
    not be the same as the type of the input pointer.
 
    What we're after here is an expression of the form
 	(T *)(&array + const)
-   where the cast doesn't actually exist, but is implicit in the
+   where array is OP0, const is OP1, RES_TYPE is T and
+   the cast doesn't actually exist, but is implicit in the
    type of the POINTER_PLUS_EXPR.  We'd like to turn this into
 	&array[x]
    which may be able to propagate further.  */
 
 static tree
-maybe_fold_stmt_addition (tree expr)
+maybe_fold_stmt_addition (tree res_type, tree op0, tree op1)
 {
-  tree op0 = TREE_OPERAND (expr, 0);
-  tree op1 = TREE_OPERAND (expr, 1);
-  tree ptr_type = TREE_TYPE (expr);
   tree ptd_type;
   tree t;
-
-  gcc_assert (TREE_CODE (expr) == POINTER_PLUS_EXPR);
 
   /* It had better be a constant.  */
   if (TREE_CODE (op1) != INTEGER_CST)
@@ -2070,7 +2064,7 @@ maybe_fold_stmt_addition (tree expr)
       op0 = array_obj;
     }
 
-  ptd_type = TREE_TYPE (ptr_type);
+  ptd_type = TREE_TYPE (res_type);
   /* If we want a pointer to void, reconstruct the reference from the
      array element type.  A pointer to that can be trivially converted
      to void *.  This happens as we fold (void *)(ptr p+ off).  */
@@ -2084,7 +2078,7 @@ maybe_fold_stmt_addition (tree expr)
     t = maybe_fold_offset_to_component_ref (TREE_TYPE (op0), op0, op1,
 					    ptd_type, false);
   if (t)
-    t = build1 (ADDR_EXPR, ptr_type, t);
+    t = build1 (ADDR_EXPR, res_type, t);
 
   return t;
 }
@@ -2209,17 +2203,19 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
     case POINTER_PLUS_EXPR:
       t = walk_tree (&TREE_OPERAND (expr, 0), fold_stmt_r, data, NULL);
       if (t)
-	return t;
+        return t;
       t = walk_tree (&TREE_OPERAND (expr, 1), fold_stmt_r, data, NULL);
       if (t)
-	return t;
+        return t;
       *walk_subtrees = 0;
 
-      t = maybe_fold_stmt_addition (expr);
+      t = maybe_fold_stmt_addition (TREE_TYPE (expr),
+                                    TREE_OPERAND (expr, 0),
+                                    TREE_OPERAND (expr, 1));
       break;
 
       /* FIXME tuples. This case is likely redundant.
-         See a similar folding attempt in fold_gimple_assignment.  */
+         See a similar folding attempt in fold_gimple_assign.  */
     case COND_EXPR:
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
@@ -2635,10 +2631,18 @@ fold_gimple_assign (gimple stmt)
       break;
 
     case GIMPLE_BINARY_RHS:
-      result = fold_binary (subcode,
-                            TREE_TYPE (gimple_assign_lhs (stmt)),
-                            gimple_assign_rhs1 (stmt),
-                            gimple_assign_rhs2 (stmt));
+      /* Try to fold pointer addition.  */
+      if (gimple_subcode (stmt) == POINTER_PLUS_EXPR)
+        result = maybe_fold_stmt_addition (
+                   TREE_TYPE (gimple_assign_lhs (stmt)),
+                   gimple_assign_rhs1 (stmt),
+                   gimple_assign_rhs2 (stmt));
+
+      if (!result)
+        result = fold_binary (subcode,
+                              TREE_TYPE (gimple_assign_lhs (stmt)),
+                              gimple_assign_rhs1 (stmt),
+                              gimple_assign_rhs2 (stmt));
 
       if (result)
         {

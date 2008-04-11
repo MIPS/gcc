@@ -13422,6 +13422,7 @@ fold_call_stmt (gimple stmt, bool ignore)
 		  if (CAN_HAVE_LOCATION_P (realret)
 		      && !EXPR_HAS_LOCATION (realret))
 		    SET_EXPR_LOCATION (realret, gimple_location (stmt));
+                  return realret;
                 }
 	      return ret;
 	    }
