@@ -30,6 +30,9 @@
 #define __builtin_ia32_cmpps(X, Y, O) __builtin_ia32_cmpps(X, Y, 1)
 #define __builtin_ia32_cmppd256(X, Y, O) __builtin_ia32_cmppd256(X, Y, 1)
 #define __builtin_ia32_cmpps256(X, Y, O) __builtin_ia32_cmpps256(X, Y, 1)
+#define __builtin_ia32_vextractf128_pd256(X, N) __builtin_ia32_vextractf128_pd256(X, 1)
+#define __builtin_ia32_vextractf128_ps256(X, N) __builtin_ia32_vextractf128_ps256(X, 1)
+#define __builtin_ia32_vextractf128_si256(X, N) __builtin_ia32_vextractf128_si256(X, 1)
 
 /* wmmintrin.h */
 #define __builtin_ia32_aeskeygenassist128(X, C) __builtin_ia32_aeskeygenassist128(X, 1)

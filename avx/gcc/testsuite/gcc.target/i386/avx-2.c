@@ -60,10 +60,19 @@ test_2 (_mm_cmp_pd, __m128d, __m128d, __m128d, 1)
 test_2 (_mm_cmp_ps, __m128, __m128, __m128, 1)
 test_2 (_mm256_cmp_pd, __m256d, __m256d, __m256d, 1)
 test_2 (_mm256_cmp_ps, __m256, __m256, __m256, 1)
+test_1 (_mm256_extractf128_pd, __m128d, __m256d, 1)
+test_1 (_mm256_extractf128_ps, __m128, __m256, 1)
+test_1 (_mm256_extractf128_si256, __m128i, __m256i, 1)
 
 /* wmmintrin.h */
 test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)
 test_2 (_mm_clmulepi64_si128, __m128i, __m128i, __m128i, 1)
+
+/* mmintrin-common.h */
+test_1 (_mm_round_pd, __m128d, __m128d, 1)
+test_1 (_mm_round_ps, __m128, __m128, 1)
+test_2 (_mm_round_sd, __m128d, __m128d, __m128d, 1)
+test_2 (_mm_round_ss, __m128, __m128, __m128, 1)
 
 /* smmintrin.h */
 test_2 (_mm_blend_epi16, __m128i, __m128i, __m128i, 1)

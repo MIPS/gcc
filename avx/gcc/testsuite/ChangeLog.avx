@@ -1,5 +1,12 @@
 2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* gcc.target/i386/avx-1.c: Add more tests for gmmintrin.h.
+	* gcc.target/i386/avx-2.c: Likewise.
+
+	* gcc.target/i386/avx-2.c: Add tests for mmintrin-common.h.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* gcc.target/i386/avx-1.c: Move __builtin_ia32_round* to new
 	/* mmintrin-common.h */ section.
 
