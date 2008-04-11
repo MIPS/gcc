@@ -1,5 +1,10 @@
 2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* gcc.target/i386/avx-1.c: Move __builtin_ia32_round* to new
+	/* mmintrin-common.h */ section.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* gcc.target/i386/sse-13.c: Move __builtin_ia32_round* to new
 	/* mmintrin-common.h */ section.
 
