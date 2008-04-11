@@ -8571,3 +8571,52 @@
   [(set_attr "type" "sselog1")
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "TI")])
+
+(define_insn "avx_vzeroall"
+  [(unspec_volatile [(const_int 0)] UNSPECV_VZEROALL)
+   (clobber (reg:V8SI XMM0_REG))
+   (clobber (reg:V8SI XMM1_REG))
+   (clobber (reg:V8SI XMM2_REG))
+   (clobber (reg:V8SI XMM3_REG))
+   (clobber (reg:V8SI XMM4_REG))
+   (clobber (reg:V8SI XMM5_REG))
+   (clobber (reg:V8SI XMM6_REG))
+   (clobber (reg:V8SI XMM7_REG))]
+  "TARGET_AVX && !TARGET_64BIT"
+  "vzeroall"
+  [(set_attr "type" "sse")
+   (set_attr "memory" "none")
+   (set_attr "mode" "OI")])
+
+(define_insn "avx_vzeroall_rex64"
+  [(unspec_volatile [(const_int 0)] UNSPECV_VZEROALL)
+   (clobber (reg:V8SI XMM0_REG))
+   (clobber (reg:V8SI XMM1_REG))
+   (clobber (reg:V8SI XMM2_REG))
+   (clobber (reg:V8SI XMM3_REG))
+   (clobber (reg:V8SI XMM4_REG))
+   (clobber (reg:V8SI XMM5_REG))
+   (clobber (reg:V8SI XMM6_REG))
+   (clobber (reg:V8SI XMM7_REG))
+   (clobber (reg:V8SI XMM8_REG))
+   (clobber (reg:V8SI XMM9_REG))
+   (clobber (reg:V8SI XMM10_REG))
+   (clobber (reg:V8SI XMM11_REG))
+   (clobber (reg:V8SI XMM12_REG))
+   (clobber (reg:V8SI XMM13_REG))
+   (clobber (reg:V8SI XMM14_REG))
+   (clobber (reg:V8SI XMM15_REG))]
+  "TARGET_AVX && TARGET_64BIT"
+  "vzeroall"
+  [(set_attr "type" "sse")
+   (set_attr "memory" "none")
+   (set_attr "mode" "OI")])
+
+;; FIXME: It clobbers the upper 128bits of AVX registers.
+(define_insn "avx_vzeroupper"
+  [(unspec_volatile [(const_int 0)] UNSPECV_VZEROUPPER)]
+  "TARGET_AVX"
+  "vzeroupper"
+  [(set_attr "type" "sse")
+   (set_attr "memory" "none")
+   (set_attr "mode" "OI")])

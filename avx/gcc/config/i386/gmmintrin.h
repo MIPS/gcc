@@ -509,7 +509,6 @@ _mm256_extractf128_si256 (__m256i __X, const int __N)
 						(int)(N)))
 #endif
 
-#if 0
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_zeroall (void)
 {
@@ -522,6 +521,7 @@ _mm256_zeroupper (void)
   __builtin_ia32_vzeroupper ();
 }
 
+#if 0
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permutevar_pd (__m128d __A, __m128d __B)
 {

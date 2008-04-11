@@ -17888,6 +17888,8 @@ enum ix86_builtins
   IX86_BUILTIN_EXTRACTF128PD256,
   IX86_BUILTIN_EXTRACTF128PS256,
   IX86_BUILTIN_EXTRACTF128SI256,
+  IX86_BUILTIN_VZEROALL,
+  IX86_BUILTIN_VZEROUPPER,
 
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
@@ -20023,6 +20025,9 @@ ix86_init_mmx_sse_builtins (void)
 				    integer_type_node, NULL_TREE);
   def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_vextractf128_si256", ftype, IX86_BUILTIN_EXTRACTF128SI256);
 
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vzeroall", void_ftype_void, IX86_BUILTIN_VZEROALL);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vzeroupper", void_ftype_void, IX86_BUILTIN_VZEROUPPER);
+
   /* AMDFAM10 SSE4A New built-ins  */
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntsd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTSD);
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntss", void_ftype_pfloat_v4sf, IX86_BUILTIN_MOVNTSS);
@@ -21219,6 +21224,17 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
+    case IX86_BUILTIN_VZEROALL:
+      if (TARGET_64BIT)
+	emit_insn (gen_avx_vzeroall_rex64 ());
+      else
+	emit_insn (gen_avx_vzeroall ());
+      return 0;
+
+    case IX86_BUILTIN_VZEROUPPER:
+      emit_insn (gen_avx_vzeroupper ());
+      return 0;
+
     case IX86_BUILTIN_EMMS:
       emit_insn (gen_mmx_emms ());
       return 0;

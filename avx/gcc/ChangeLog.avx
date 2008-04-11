@@ -1,5 +1,37 @@
 2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_VZEROALL
+	and IX86_BUILTIN_VZEROUPPER.
+	(ix86_init_mmx_sse_builtins): Handle __builtin_ia32_vzeroall
+	and __builtin_ia32_vzeroupper.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_VZEROALL and
+	IX86_BUILTIN_VZEROUPPER.
+
+	* config/i386/i386.md (UNSPECV_VZEROALL): New.
+	(UNSPECV_VZEROUPPER): Likewise.
+	(XMM0_REG): Likewise.
+	(XMM1_REG): Likewise.
+	(XMM2_REG): Likewise.
+	(XMM3_REG): Likewise.
+	(XMM4_REG): Likewise.
+	(XMM5_REG): Likewise.
+	(XMM6_REG): Likewise.
+	(XMM7_REG): Likewise.
+	(XMM8_REG): Likewise.
+	(XMM9_REG): Likewise.
+	(XMM10_REG): Likewise.
+	(XMM11_REG): Likewise.
+	(XMM12_REG): Likewise.
+	(XMM13_REG): Likewise.
+	(XMM14_REG): Likewise.
+	(XMM15_REG): Likewise.
+
+	* config/i386/sse.md (avx_vzeroall): New.
+	(avx_vzeroall_rex64): Likewise.
+	(avx_vzeroupper): Likewise.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/gmmintrin.h (_mm256_extractf128_pd): Fix a typo.
 	(_mm256_extractf128_ps): Likewise.
 	(_mm256_extractf128_si256): Likewise.
