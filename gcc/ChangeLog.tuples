@@ -1,3 +1,7 @@
+2008-04-11  Rafael Espindola <espindola@google.com>
+
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): fix warning.
+
 2008-04-10  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00913.html

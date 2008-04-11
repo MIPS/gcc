@@ -677,8 +677,8 @@ execute_cse_sincos_1 (tree name)
   /* And adjust the recorded old call sites.  */
   for (i = 0; VEC_iterate(gimple, stmts, i, use_stmt); ++i)
     {
-      fndecl = gimple_call_fndecl (use_stmt);
       tree rhs = NULL;
+      fndecl = gimple_call_fndecl (use_stmt);
 
       switch (DECL_FUNCTION_CODE (fndecl))
 	{
