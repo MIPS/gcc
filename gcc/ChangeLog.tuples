@@ -1,3 +1,15 @@
+2008-04-11  Doug Kwan  <dougkwan@google.com>
+
+	* ipa-pure-const.c (get_asm_expr_operands): Tuplify.
+	(get_asm_expr_operands): Tuplify.
+	(check_call): Tuplify. Add code to handle return value assignment.
+ 	(scan_function): Remove. Original code is tuplified and split into
+	two new functions scan_function_op and scan_function_stmt.
+	(scan_function_op): New function.
+	(scan_function_stmt): New function.
+	(analyze_function): Tuplify and re-enable previously disabled code. 
+	* passes.c (init_optimization_passes): Re-enable pass_ipa_pure_const.
+
 2008-04-11 Oleg Ryjkov  <olegr@google.com>
 
 	* builtins.c (fold_call_stmt): Return the proper value.
