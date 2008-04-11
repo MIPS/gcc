@@ -17885,6 +17885,9 @@ enum ix86_builtins
   IX86_BUILTIN_CVTTPD2DQ256,
   IX86_BUILTIN_CVTPD2DQ256,
   IX86_BUILTIN_CVTTPS2DQ256,
+  IX86_BUILTIN_EXTRACTF128PD256,
+  IX86_BUILTIN_EXTRACTF128PS256,
+  IX86_BUILTIN_EXTRACTF128SI256,
 
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
@@ -18670,6 +18673,12 @@ static const struct builtin_description bdesc_1arg[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvttpd2dq256, 0, IX86_BUILTIN_CVTTPD2DQ256, UNKNOWN, 0 },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtpd2dq256, 0, IX86_BUILTIN_CVTPD2DQ256, UNKNOWN, 0 },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvttps2dq256, 0, IX86_BUILTIN_CVTTPS2DQ256, UNKNOWN, 0 },
+
+  /* Fake 1 arg builtins with a constant smaller than 8 bits as the
+     2nd arg.  */
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v2df, 0, IX86_BUILTIN_EXTRACTF128PD256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v4sf, 0, IX86_BUILTIN_EXTRACTF128PS256, UNKNOWN, 0 },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v4si, 0, IX86_BUILTIN_EXTRACTF128SI256, UNKNOWN, 0 },
 };
 
 /* SSE5 */
@@ -19455,19 +19464,6 @@ ix86_init_mmx_sse_builtins (void)
   tree v2di_ftype_v2di
     = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
 
-  tree v8sf_ftype_v8si
-    = build_function_type_list (V8SF_type_node, V8SI_type_node, NULL_TREE);
-  tree v8si_ftype_v8sf
-    = build_function_type_list (V8SI_type_node, V8SF_type_node, NULL_TREE);
-  tree v4sf_ftype_v4df
-    = build_function_type_list (V4SF_type_node, V4DF_type_node, NULL_TREE);
-  tree v4df_ftype_v4sf
-    = build_function_type_list (V4DF_type_node, V4SF_type_node, NULL_TREE);
-  tree v4df_ftype_v4si
-    = build_function_type_list (V4DF_type_node, V4SI_type_node, NULL_TREE);
-  tree v4si_ftype_v4df
-    = build_function_type_list (V4SI_type_node, V4DF_type_node, NULL_TREE);
-
   tree ftype;
 
   /* The __float80 type.  */
@@ -19989,14 +19985,43 @@ ix86_init_mmx_sse_builtins (void)
     }
 
   /* AVX */
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2pd256", v4df_ftype_v4si, IX86_BUILTIN_CVTDQ2PD256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2ps256", v8sf_ftype_v8si, IX86_BUILTIN_CVTDQ2PS256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2ps256", v4sf_ftype_v4df, IX86_BUILTIN_CVTPD2PS256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2dq256", v8si_ftype_v8sf, IX86_BUILTIN_CVTPS2DQ256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2pd256", v4df_ftype_v4sf, IX86_BUILTIN_CVTPS2PD256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttpd2dq256", v4si_ftype_v4df, IX86_BUILTIN_CVTTPD2DQ256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2dq256", v4si_ftype_v4df, IX86_BUILTIN_CVTPD2DQ256);
-  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttps2dq256", v8si_ftype_v8sf, IX86_BUILTIN_CVTTPS2DQ256);
+  ftype = build_function_type_list (V4DF_type_node, V4SI_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2pd256", ftype, IX86_BUILTIN_CVTDQ2PD256);
+
+  ftype = build_function_type_list (V8SF_type_node, V8SI_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtdq2ps256", ftype, IX86_BUILTIN_CVTDQ2PS256);
+
+  ftype = build_function_type_list (V4SF_type_node, V4DF_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2ps256", ftype, IX86_BUILTIN_CVTPD2PS256);
+
+  ftype = build_function_type_list (V8SI_type_node, V8SF_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2dq256", ftype, IX86_BUILTIN_CVTPS2DQ256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttps2dq256", ftype, IX86_BUILTIN_CVTTPS2DQ256);
+
+  ftype = build_function_type_list (V4DF_type_node, V4SF_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtps2pd256", ftype, IX86_BUILTIN_CVTPS2PD256);
+
+  ftype = build_function_type_list (V4SI_type_node, V4DF_type_node,
+				    NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvtpd2dq256", ftype, IX86_BUILTIN_CVTPD2DQ256);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_cvttpd2dq256", ftype, IX86_BUILTIN_CVTTPD2DQ256);
+
+  ftype = build_function_type_list (V2DF_type_node, V4DF_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_vextractf128_pd256", ftype, IX86_BUILTIN_EXTRACTF128PD256);
+
+  ftype = build_function_type_list (V4SF_type_node, V8SF_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_vextractf128_ps256", ftype, IX86_BUILTIN_EXTRACTF128PS256);
+
+  ftype = build_function_type_list (V4SI_type_node, V8SI_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin_const (OPTION_MASK_ISA_AVX, "__builtin_ia32_vextractf128_si256", ftype, IX86_BUILTIN_EXTRACTF128SI256);
 
   /* AMDFAM10 SSE4A New built-ins  */
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntsd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTSD);
@@ -20627,6 +20652,9 @@ ix86_expand_unop_builtin (enum insn_code icode, tree exp,
     {
     case CODE_FOR_sse4_1_roundpd:
     case CODE_FOR_sse4_1_roundps:
+    case CODE_FOR_avx_vextractf128v2df:
+    case CODE_FOR_avx_vextractf128v4sf:
+    case CODE_FOR_avx_vextractf128v4si:
 	{
 	  tree arg1 = CALL_EXPR_ARG (exp, 1);
 	  rtx op1 = expand_normal (arg1);
@@ -20634,7 +20662,20 @@ ix86_expand_unop_builtin (enum insn_code icode, tree exp,
 
 	  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
 	    {
-	      error ("the second argument must be a 4-bit immediate");
+	      switch (icode)
+		{
+		case CODE_FOR_sse4_1_roundpd:
+		case CODE_FOR_sse4_1_roundps:
+		  error ("the second argument must be a 4-bit immediate");
+		  break;
+		case CODE_FOR_avx_vextractf128v2df:
+		case CODE_FOR_avx_vextractf128v4sf:
+		case CODE_FOR_avx_vextractf128v4si:
+		  error ("the second argument must be a 1-bit immediate");
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	      return const0_rtx;
 	    }
 	  pat = GEN_FCN (icode) (target, op0, op1);

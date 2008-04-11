@@ -477,7 +477,6 @@ _mm256_cvttps_epi32 (__m256 __A)
   return (__m256i)__builtin_ia32_cvttps2dq256 ((__v8sf) __A);
 }
 
-#if 0
 #ifdef __OPTIMIZE__
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_extractf128_pd (__m256d __X, const int __N)
@@ -499,17 +498,18 @@ _mm256_extractf128_si256 (__m256i __X, const int __N)
 #else
 #define _mm256_extractf128_pd(X, N)					\
   ((__m128d) __builtin_ia32_vextractf128_pd256 ((__v4df)(__m256d)(X),	\
-						(int)(M)))
+						(int)(N)))
 
 #define _mm256_extractf128_ps(X, N)					\
   ((__m128) __builtin_ia32_vextractf128_ps256 ((__v8sf)(__m256)(X),	\
-					       (int)(M)))
+					       (int)(N)))
 
 #define _mm256_extractf128_si256(X, N)					\
   ((__m128i) __builtin_ia32_vextractf128_si256 ((__v8si)(__m256i)(X),	\
-						(int)(M)))
+						(int)(N)))
 #endif
 
+#if 0
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_zeroall (void)
 {

@@ -1,5 +1,27 @@
 2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/gmmintrin.h (_mm256_extractf128_pd): Fix a typo.
+	(_mm256_extractf128_ps): Likewise.
+	(_mm256_extractf128_si256): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_EXTRACTF128PD256, IX86_BUILTIN_EXTRACTF128PS256
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(bdesc_1arg): Add IX86_BUILTIN_EXTRACTF128PD256,
+	IX86_BUILTIN_EXTRACTF128PS256 and
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(ix86_init_mmx_sse_builtins): Handle
+	__builtin_ia32_vextractf128_pd256,
+	__builtin_ia32_vextractf128_ps256 and
+	__builtin_ia32_vextractf128_si256.
+	(ix86_expand_unop_builtin): Handle CODE_FOR_avx_vextractf128v2df,
+	CODE_FOR_avx_vextractf128v4sf and CODE_FOR_avx_vextractf128v4si.
+
+	* config/i386/sse.md (avxextractmode): New.
+	(avx_vextractf128<mode>): Likewise.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	PR middle-end/35897
 	* dse.c (store_info): Change positions_needed to unsigned
 	HOST_WIDE_INT.

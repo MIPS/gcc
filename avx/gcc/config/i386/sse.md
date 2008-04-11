@@ -71,6 +71,8 @@
 ;; Mapping for AVX
 (define_mode_attr avxvecmode
   [(V16QI "TI") (V8HI "TI") (V4SI "TI") (V2DI "TI") (V4SF "V4SF") (V2DF "V2DF") (V32QI "OI") (V16HI "OI") (V8SI "OI") (V4DI "OI") (V8SF "V8SF") (V4DF "V4DF")])
+(define_mode_attr avxextractmode 
+  [(V16QI "V32QI") (V8HI "V16HI") (V4SI "V8SI") (V2DI "V4DI") (V4SF "V8SF") (V2DF "V4DF")])
 (define_mode_attr avxmodesuffixf2c [(V4SF "s") (V2DF "d") (V8SF "s") (V4DF "d")])
 
 ;; Mapping of immediate bits for blend instructions
@@ -2879,6 +2881,16 @@
   emit_move_insn (operands[0], op1);
   DONE;
 })
+
+(define_insn "avx_vextractf128<mode>"
+  [(set (match_operand:SSEMODE 0 "nonimmediate_operand" "=xm")
+	(vec_select:SSEMODE
+	  (match_operand:<avxextractmode> 1 "register_operand" "x")
+	  (parallel [(match_operand:SI 2 "const_0_to_1_operand" "n")])))]
+  "TARGET_AVX"
+  "vextractf128\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V8SF")])
 
 (define_insn "*sse4_1_extractps"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=rm")
