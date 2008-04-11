@@ -1,3 +1,14 @@
+2008-04-11  Doug Kwan  <dougkwan@google.com>
+
+	* tree-ssa-phiprop.c (File): Uncomment all previously disabled code.
+	(struct phiprop_d): Change type of vop_stmt to gimple.
+	(phivn_valid_p): Tuplify.
+	(phiprop_insert_phi): Tuplify.
+	(propagate_with_phi): Tuplify.
+	(tree_ssa_phiprop_1): Tuplify.
+	(tree_ssa_phiprop): Tuplify.
+	* passes.c (init_optimization_passes): Re-enable pass_phiprop.
+
 2008-04-11  Rafael Espindola <espindola@google.com>
 
 	* tree-ssa-math-opts.c (execute_cse_sincos_1): fix warning.

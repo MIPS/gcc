@@ -35,8 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "flags.h"
 
-/* FIXME tuples.  */
-#if 0
 /* This pass propagates indirect loads through the PHI node for its
    address to make the load source possiby non-addressable and to
    allow for PHI optimization to trigger.
@@ -97,7 +95,7 @@ along with GCC; see the file COPYING3.  If not see
 struct phiprop_d
 {
   tree value;
-  tree vop_stmt;
+  gimple vop_stmt;
 };
 
 /* Verify if the value recorded for NAME in PHIVN is still valid at
@@ -106,7 +104,7 @@ struct phiprop_d
 static bool
 phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
 {
-  tree vop_stmt = phivn[SSA_NAME_VERSION (name)].vop_stmt;
+  gimple vop_stmt = phivn[SSA_NAME_VERSION (name)].vop_stmt;
   ssa_op_iter ui;
   tree vuse;
 
@@ -114,16 +112,16 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
      by bb.  */
   FOR_EACH_SSA_TREE_OPERAND (vuse, vop_stmt, ui, SSA_OP_VUSE)
     {
-      tree use_stmt;
+      gimple use_stmt;
       imm_use_iterator ui2;
       bool ok = true;
 
       FOR_EACH_IMM_USE_STMT (use_stmt, ui2, vuse)
 	{
 	  /* If BB does not dominate a VDEF, the value is invalid.  */
-	  if (((TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
+	  if (((gimple_code (use_stmt) == GIMPLE_ASSIGN
 	        && !ZERO_SSA_OPERANDS (use_stmt, SSA_OP_VDEF))
-	       || TREE_CODE (use_stmt) == PHI_NODE)
+	       || gimple_code (use_stmt) == GIMPLE_PHI)
 	      && !dominated_by_p (CDI_DOMINATORS, gimple_bb (use_stmt), bb))
 	    {
 	      ok = false;
@@ -141,50 +139,60 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
    BB with the virtual operands from USE_STMT.  */
 
 static tree
-phiprop_insert_phi (basic_block bb, tree phi, tree use_stmt,
+phiprop_insert_phi (basic_block bb, gimple phi, gimple use_stmt,
 		    struct phiprop_d *phivn, size_t n)
 {
-  tree res, new_phi;
+  tree res;
+  gimple new_phi;
   edge_iterator ei;
   edge e;
 
+  gcc_assert (gimple_code (use_stmt) == GIMPLE_ASSIGN
+	      && gimple_assign_rhs_code (use_stmt) == INDIRECT_REF);
+
   /* Build a new PHI node to replace the definition of
      the indirect reference lhs.  */
-  res = GIMPLE_STMT_OPERAND (use_stmt, 0);
+  res = gimple_assign_lhs (use_stmt);
   SSA_NAME_DEF_STMT (res) = new_phi = create_phi_node (res, bb);
 
   /* Add PHI arguments for each edge inserting loads of the
      addressable operands.  */
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      tree old_arg, new_var, tmp;
+      tree old_arg, new_var;
+      enum tree_code old_arg_code;
+      gimple tmp;
 
       old_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
-      while (TREE_CODE (old_arg) == SSA_NAME
+      old_arg_code = TREE_CODE (old_arg);
+      while (old_arg_code == SSA_NAME
 	     && (SSA_NAME_VERSION (old_arg) >= n
 	         || phivn[SSA_NAME_VERSION (old_arg)].value == NULL_TREE))
 	{
-	  tree def_stmt = SSA_NAME_DEF_STMT (old_arg);
-	  old_arg = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	  gimple def_stmt = SSA_NAME_DEF_STMT (old_arg);
+
+	  gcc_assert (gimple_code (def_stmt) == GIMPLE_ASSIGN);
+	  old_arg_code = gimple_assign_rhs_code (def_stmt);
+	  old_arg = gimple_assign_rhs1 (def_stmt);
 	}
 
-      if (TREE_CODE (old_arg) == SSA_NAME)
+      if (old_arg_code == SSA_NAME)
 	/* Reuse a formerly created dereference.  */
 	new_var = phivn[SSA_NAME_VERSION (old_arg)].value;
       else
 	{
+	  gcc_assert (old_arg_code == ADDR_EXPR);
 	  old_arg = TREE_OPERAND (old_arg, 0);
 	  new_var = create_tmp_var (TREE_TYPE (old_arg), NULL);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node,
-			NULL_TREE, unshare_expr (old_arg));
+	  tmp = gimple_build_assign (new_var, unshare_expr (old_arg));
 	  if (TREE_CODE (TREE_TYPE (old_arg)) == COMPLEX_TYPE
 	      || TREE_CODE (TREE_TYPE (old_arg)) == VECTOR_TYPE)
 	    DECL_GIMPLE_REG_P (new_var) = 1;
 	  add_referenced_var (new_var);
 	  new_var = make_ssa_name (new_var, tmp);
-	  GIMPLE_STMT_OPERAND (tmp, 0) = new_var;
+	  gimple_assign_set_lhs (tmp, new_var);
 
-	  bsi_insert_on_edge (e, tmp);
+	  gsi_insert_on_edge (e, tmp);
 
 	  update_stmt (tmp);
 	  mark_symbols_for_renaming (tmp);
@@ -213,11 +221,13 @@ phiprop_insert_phi (basic_block bb, tree phi, tree use_stmt,
    with aliasing issues as we are moving memory reads.  */
 
 static bool
-propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
+propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
+		    size_t n)
 {
   tree ptr = PHI_RESULT (phi);
-  tree use_stmt, res = NULL_TREE;
-  block_stmt_iterator bsi;
+  gimple use_stmt;
+  tree res = NULL_TREE;
+  gimple_stmt_iterator gsi;
   imm_use_iterator ui;
   use_operand_p arg_p, use;
   ssa_op_iter i;
@@ -232,23 +242,28 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
   FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_USE)
     {
       tree arg = USE_FROM_PTR (arg_p);
+      enum tree_code arg_code = TREE_CODE (arg);
+
       /* Walk the ssa chain until we reach a ssa name we already
 	 created a value for or we reach a definition of the form
 	 ssa_name_n = &var;  */
-      while (TREE_CODE (arg) == SSA_NAME
+      while (arg_code == SSA_NAME
 	     && !SSA_NAME_IS_DEFAULT_DEF (arg)
 	     && (SSA_NAME_VERSION (arg) >= n
 	         || phivn[SSA_NAME_VERSION (arg)].value == NULL_TREE))
 	{
-	  tree def_stmt = SSA_NAME_DEF_STMT (arg);
-	  if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT)
+	  gimple def_stmt = SSA_NAME_DEF_STMT (arg);
+	  if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
 	    return false;
-	  arg = GIMPLE_STMT_OPERAND (def_stmt, 1);
+
+	  arg_code = gimple_assign_rhs_code (def_stmt);
+	  arg = gimple_assign_rhs1 (def_stmt);
 	}
-      if ((TREE_CODE (arg) != ADDR_EXPR
+
+      if (!(arg_code == ADDR_EXPR
 	   /* Avoid to have to decay *&a to a[0] later.  */
-	   || !is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (arg, 0))))
-	  && !(TREE_CODE (arg) == SSA_NAME
+	    && is_gimple_reg_type (TREE_TYPE (arg)))
+	  && !(arg_code == SSA_NAME
 	       && phivn[SSA_NAME_VERSION (arg)].value != NULL_TREE
 	       && phivn_valid_p (phivn, arg, bb)))
 	return false;
@@ -257,10 +272,11 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
   /* Find a dereferencing use.  First follow (single use) ssa
      copy chains for ptr.  */
   while (single_imm_use (ptr, &use, &use_stmt)
-	 && TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-	 && GIMPLE_STMT_OPERAND (use_stmt, 1) == ptr
-	 && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME)
-    ptr = GIMPLE_STMT_OPERAND (use_stmt, 0);
+	 && gimple_code (use_stmt) == GIMPLE_ASSIGN
+	 && gimple_subcode (use_stmt) == NOP_EXPR
+	 && gimple_assign_rhs1 (use_stmt) == ptr
+	 && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME)
+    ptr = gimple_assign_lhs (use_stmt);
 
   /* Replace the first dereference of *ptr if there is one and if we
      can move the loads to the place of the ptr phi node.  */
@@ -271,10 +287,10 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
       tree vuse;
 
       /* Check whether this is a load of *ptr.  */
-      if (!(TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-	    && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME 
-	    && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == INDIRECT_REF
-	    && TREE_OPERAND (GIMPLE_STMT_OPERAND (use_stmt, 1), 0) == ptr
+      if (!(gimple_code (use_stmt) == GIMPLE_ASSIGN
+	    && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME 
+	    && gimple_assign_rhs_code (use_stmt) == INDIRECT_REF
+	    && TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0) == ptr
 	    /* We cannot replace a load that may throw or is volatile.  */
 	    && !stmt_can_throw_internal (use_stmt)))
 	continue;
@@ -283,7 +299,7 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
 	 need to be post-dominated by bb.  */
       FOR_EACH_SSA_TREE_OPERAND (vuse, use_stmt, ui2, SSA_OP_VUSE)
 	{
-	  tree def_stmt = SSA_NAME_DEF_STMT (vuse);
+	  gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
 	  if (!SSA_NAME_IS_DEFAULT_DEF (vuse)
 	      && (gimple_bb (def_stmt) == bb
 		  || !dominated_by_p (CDI_DOMINATORS,
@@ -304,8 +320,8 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
 	  /* Remove old stmt.  The phi is taken care of by DCE, if we
 	     want to delete it here we also have to delete all intermediate
 	     copies.  */
-	  bsi = bsi_for_stmt (use_stmt);
-	  bsi_remove (&bsi, 0);
+	  gsi = gsi_for_stmt (use_stmt);
+	  gsi_remove (&gsi, 0);
 
 	  phi_inserted = true;
 	}
@@ -313,7 +329,8 @@ propagate_with_phi (basic_block bb, tree phi, struct phiprop_d *phivn, size_t n)
 	{
 	  /* Further replacements are easy, just make a copy out of the
 	     load.  */
-	  GIMPLE_STMT_OPERAND (use_stmt, 1) = res;
+	  gimple_assign_set_rhs1 (use_stmt, res);
+	  gimple_set_subcode (use_stmt, NOP_EXPR);
 	  update_stmt (use_stmt);
 	}
 
@@ -332,10 +349,10 @@ tree_ssa_phiprop_1 (basic_block bb, struct phiprop_d *phivn, size_t n)
 {
   bool did_something = false; 
   basic_block son;
-  tree phi;
+  gimple_stmt_iterator gsi;
 
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    did_something |= propagate_with_phi (bb, phi, phivn, n);
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    did_something |= propagate_with_phi (bb, gsi_stmt (gsi), phivn, n);
 
   for (son = first_dom_son (CDI_DOMINATORS, bb);
        son;
@@ -357,7 +374,7 @@ tree_ssa_phiprop (void)
   phivn = XCNEWVEC (struct phiprop_d, num_ssa_names);
 
   if (tree_ssa_phiprop_1 (ENTRY_BLOCK_PTR, phivn, num_ssa_names))
-    bsi_commit_edge_inserts ();
+    gsi_commit_edge_inserts ();
 
   free (phivn);
 
@@ -391,4 +408,3 @@ struct gimple_opt_pass pass_phiprop =
   | TODO_verify_ssa		/* todo_flags_finish */
  }
 };
-#endif

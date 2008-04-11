@@ -599,9 +599,9 @@ init_optimization_passes (void)
 #endif
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_phiprop);
       /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
 #endif
       NEXT_PASS (pass_dce);
