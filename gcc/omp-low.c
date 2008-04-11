@@ -1444,10 +1444,10 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
    the current statement in GSI.  */
 
 static tree
-scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p, void *data)
+scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+		 struct walk_stmt_info *wi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  struct walk_stmt_info *wi = data;
   omp_context *ctx = wi->info;
 
   if (gimple_has_location (stmt))

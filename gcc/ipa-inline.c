@@ -210,7 +210,7 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
 	  && flag_unit_at_a_time)
 	{
 	  gcc_assert (!e->callee->global.inlined_to);
-	  if (DECL_SAVED_TREE (e->callee->decl))
+	  if (gimple_body (e->callee->decl))
 	    overall_insns -= e->callee->global.insns, nfunctions_inlined++;
 	  duplicate = false;
 	}
@@ -1329,7 +1329,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    }
 	  continue;
 	}
-      if (!DECL_SAVED_TREE (e->callee->decl) && !e->callee->inline_decl)
+      if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
 	{
 	  if (dump_file)
 	    {
@@ -1406,7 +1406,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	      }
 	    continue;
 	  }
-	if (!DECL_SAVED_TREE (e->callee->decl) && !e->callee->inline_decl)
+	if (!gimple_body (e->callee->decl) && !e->callee->inline_decl)
 	  {
 	    if (dump_file)
 	      {

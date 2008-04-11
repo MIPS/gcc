@@ -402,19 +402,12 @@ static inline void mark_all_vars_used (tree *, void *data);
 /* Helper function for mark_all_vars_used, called via walk_tree.  */
 
 static tree
-mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
-		      void *data)
+mark_all_vars_used_1 (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
-  enum tree_code_class c = TREE_CODE_CLASS (TREE_CODE (t));
-  tree b;
 
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
-  if ((IS_EXPR_CODE_CLASS (c)
-       || IS_GIMPLE_STMT_CODE_CLASS (c))
-      && (b = TREE_BLOCK (t)) != NULL)
-    TREE_USED (b) = true;
 
   /* Ignore TREE_ORIGINAL for TARGET_MEM_REFS, as well as other
      fields that do not contain vars.  */
@@ -582,6 +575,7 @@ remove_unused_locals (void)
   bitmap global_unused_vars = NULL;
 
   mark_scope_block_unused (DECL_INITIAL (current_function_decl));
+
   /* Assume all locals are unused.  */
   FOR_EACH_REFERENCED_VAR (t, rvi)
     var_ann (t)->used = false;
@@ -594,8 +588,16 @@ remove_unused_locals (void)
 
       /* Walk the statements.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	for (i = 0; i < gimple_num_ops (gsi_stmt (gsi)); i++)
-	  mark_all_vars_used (gimple_op_ptr (gsi_stmt (gsi), i), NULL);
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  tree b = gimple_block (stmt);
+
+	  if (b)
+	    TREE_USED (b) = true;
+
+	  for (i = 0; i < gimple_num_ops (stmt); i++)
+	    mark_all_vars_used (gimple_op_ptr (gsi_stmt (gsi), i), NULL);
+	}
 
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {

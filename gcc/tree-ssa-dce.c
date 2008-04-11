@@ -710,7 +710,7 @@ eliminate_unnecessary_stmts (void)
 			}
 		      
 		      push_stmt_changes (gsi_stmt_ptr (&gsi));
-		      g = gimple_deep_copy (stmt);
+		      g = gimple_copy (stmt);
 		      gimple_call_set_lhs (g, NULL_TREE);
 		      gsi_replace (&gsi, g, false);
 		      maybe_clean_or_replace_eh_stmt (stmt, g);

@@ -1150,7 +1150,7 @@ empty_body_p (gimple_seq body)
 /* Perform a deep copy of sequence SRC and return the result.  */
 
 gimple_seq
-gimple_seq_deep_copy (gimple_seq src)
+gimple_seq_copy (gimple_seq src)
 {
   gimple_stmt_iterator gsi;
   gimple_seq new = gimple_seq_alloc ();
@@ -1158,7 +1158,7 @@ gimple_seq_deep_copy (gimple_seq src)
 
   for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = gimple_deep_copy (gsi_stmt (gsi));
+      stmt = gimple_copy (gsi_stmt (gsi));
       gimple_seq_add_stmt (&new, stmt);
     }
 
@@ -1586,7 +1586,6 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 	return wi->callback_result;
 
       /* FALL THROUGH.  */
-
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
@@ -1608,6 +1607,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     default:
+      gcc_assert (!gimple_has_substatements (stmt));
       break;
     }
 
@@ -1904,33 +1904,119 @@ gimple_set_lhs (gimple stmt, tree lhs)
 }
 
 
-/* Helper for gimple_deep_copy and gimple_shallow_copy.  If
-   IS_DEEP_COPY is true, return a deep copy of STMT (all the operands
-   are copied with unshare_expr).  Otherwise, return a shallow copy of
-   STMT (all the operands in the new copy point to the operands in the
-   original). The DEF, USE, VDEF and VUSE operand arrays in the new
-   copy are set to NULL.  */
+/* Return a deep copy of statement STMT.  All the operands from STMT
+   are reallocated and copied using unshare_expr.  The DEF, USE, VDEF
+   and VUSE operand arrays are set to empty in the new copy.  */
 
-static inline gimple
-gimple_copy_1 (gimple stmt, bool is_deep_copy)
+gimple
+gimple_copy (gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
   size_t num_ops = gimple_num_ops (stmt);
   gimple copy = gimple_alloc (code);
   unsigned i;
 
+  /* Shallow copy all the fields from STMT.  */
   memcpy (copy, stmt, gimple_size (code));
+
+  /* If STMT has sub-statements, deep-copy them as well.  */
+  if (gimple_has_substatements (stmt))
+    {
+      gimple_seq new_seq;
+      tree t;
+
+      switch (gimple_code (stmt))
+	{
+	case GIMPLE_BIND:
+	  new_seq = gimple_seq_copy (gimple_bind_body (stmt));
+	  gimple_bind_set_body (copy, new_seq);
+	  gimple_bind_set_vars (copy, unshare_expr (gimple_bind_vars (stmt)));
+	  gimple_bind_set_block (copy, unshare_expr (gimple_bind_block (stmt)));
+	  break;
+
+	case GIMPLE_CATCH:
+	  new_seq = gimple_seq_copy (gimple_catch_handler (stmt));
+	  gimple_catch_set_handler (copy, new_seq);
+	  t = unshare_expr (gimple_catch_types (stmt));
+	  gimple_catch_set_types (copy, t);
+	  break;
+
+	case GIMPLE_EH_FILTER:
+	  new_seq = gimple_seq_copy (gimple_eh_filter_failure (stmt));
+	  gimple_eh_filter_set_failure (copy, new_seq);
+	  t = unshare_expr (gimple_eh_filter_types (stmt));
+	  gimple_eh_filter_set_types (copy, t);
+	  break;
+
+	case GIMPLE_TRY:
+	  new_seq = gimple_seq_copy (gimple_try_eval (stmt));
+	  gimple_try_set_eval (copy, new_seq);
+	  new_seq = gimple_seq_copy (gimple_try_cleanup (stmt));
+	  gimple_try_set_cleanup (copy, new_seq);
+	  break;
+
+	case GIMPLE_OMP_FOR:
+	  new_seq = gimple_seq_copy (gimple_omp_for_pre_body (stmt));
+	  gimple_omp_for_set_pre_body (copy, new_seq);
+	  t = unshare_expr (gimple_omp_for_clauses (stmt));
+	  gimple_omp_for_set_clauses (copy, t);
+	  t = unshare_expr (gimple_omp_for_initial (stmt));
+	  gimple_omp_for_set_initial (copy, t);
+	  t = unshare_expr (gimple_omp_for_final (stmt));
+	  gimple_omp_for_set_final (copy, t);
+	  t = unshare_expr (gimple_omp_for_incr (stmt));
+	  gimple_omp_for_set_incr (copy, t);
+	  goto copy_omp_body;
+
+	case GIMPLE_OMP_PARALLEL:
+	  t = unshare_expr (gimple_omp_parallel_clauses (stmt));
+	  gimple_omp_parallel_set_clauses (copy, t);
+	  t = unshare_expr (gimple_omp_parallel_child_fn (stmt));
+	  gimple_omp_parallel_set_child_fn (copy, t);
+	  t = unshare_expr (gimple_omp_parallel_data_arg (stmt));
+	  gimple_omp_parallel_set_data_arg (copy, t);
+	  goto copy_omp_body;
+
+	case GIMPLE_OMP_CRITICAL:
+	  t = unshare_expr (gimple_omp_critical_name (stmt));
+	  gimple_omp_critical_set_name (copy, t);
+	  goto copy_omp_body;
+
+	case GIMPLE_OMP_SECTIONS:
+	  t = unshare_expr (gimple_omp_sections_clauses (stmt));
+	  gimple_omp_sections_set_clauses (copy, t);
+	  t = unshare_expr (gimple_omp_sections_control (stmt));
+	  gimple_omp_sections_set_control (copy, t);
+	  /* FALLTHRU  */
+
+	case GIMPLE_OMP_SINGLE:
+	case GIMPLE_OMP_SECTION:
+	case GIMPLE_OMP_MASTER:
+	case GIMPLE_OMP_ORDERED:
+	copy_omp_body:
+	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));
+	  gimple_omp_set_body (copy, new_seq);
+	  break;
+
+	case GIMPLE_WITH_CLEANUP_EXPR:
+	  new_seq = gimple_seq_copy (gimple_wce_cleanup (stmt));
+	  gimple_wce_set_cleanup (copy, new_seq);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Make copy of operands.  */
   if (num_ops > 0)
     {
       gimple_alloc_ops (copy, num_ops);
-      if (is_deep_copy)
-	for (i = 0; i < num_ops; i++)
-	  gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
-      else
-	for (i = 0; i < num_ops; i++)
-	  gimple_set_op (copy, i, gimple_op (stmt, i));
+      for (i = 0; i < num_ops; i++)
+	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
     }
 
+  /* Clear out SSA operand vectors on COPY.  */
   if (gimple_has_ops (stmt))
     {
       gimple_set_def_ops (copy, NULL);
@@ -1947,33 +2033,6 @@ gimple_copy_1 (gimple stmt, bool is_deep_copy)
     }
 
   return copy;
-}
-
-
-/* Return a shallow copy of statement STMT.  The operands in the new
-   statement will point to the original operands in STMT.  The DEF,
-   USE, VDEF and VUSE operand arrays are set to empty in the new copy.
-
-   NOTE: The copy returned by this function is not suitable for
-   insertion into the IL, as it shares the operands with the original
-   statement.  It is used by transformations like inlining which will
-   remap operands from one function to another.  */
-
-gimple
-gimple_shallow_copy (gimple stmt)
-{
-  return gimple_copy_1 (stmt, false);
-}
-
-
-/* Return a deep copy of statement STMT.  All the operands from STMT
-   are reallocated and copied using unshare_expr.  The DEF, USE, VDEF
-   and VUSE operand arrays are set to empty in the new copy.  */
-
-gimple
-gimple_deep_copy (gimple stmt)
-{
-  return gimple_copy_1 (stmt, true);
 }
 
 

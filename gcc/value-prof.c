@@ -1075,7 +1075,7 @@ gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call,
   bb1end = stmt3;
 
   label1 = gimple_build_label (label_decl1);
-  stmt1 = gimple_deep_copy (stmt);
+  stmt1 = gimple_copy (stmt);
   gimple_call_set_fn (stmt,
 		      build_addr (direct_call->decl, current_function_decl));
   gsi_insert_before (&gsi, label1, GSI_SAME_STMT);
@@ -1271,7 +1271,7 @@ gimple_stringop_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
   bb1end = stmt3;
 
   label1 = gimple_build_label (label_decl1);
-  stmt1 = gimple_deep_copy (stmt);
+  stmt1 = gimple_copy (stmt);
   gimple_call_set_arg (stmt1, 2, value);
   gsi_insert_before (&gsi, label1, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);

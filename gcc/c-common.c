@@ -6749,7 +6749,6 @@ c_warn_unused_result (gimple_seq seq)
 	      /* Look past pointer-to-function to the function type itself.  */
 	      ftype = TREE_TYPE (ftype);
 	    }
-	  gcc_assert (TREE_CODE (ftype) == FUNCTION_TYPE);
 
 	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
 	    {

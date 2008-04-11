@@ -341,9 +341,12 @@ cp_gimplify_omp_for (tree *expr_p)
      statement expressions within the INIT, COND, or INCR expressions.  */
   cont_block = begin_bc_block (bc_continue);
 
-  /* FIXME tuples
+  /* FIXME tuples.  */
+#if 0
   gimplify_stmt (expr_p);
-  */
+#else
+  gimple_unreachable ();
+#endif
 
   OMP_FOR_BODY (for_stmt)
     = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
@@ -766,17 +769,9 @@ cp_genericize (tree fndecl)
       relayout_decl (t);
     }
 
-  /* If we're a clone, the body is already GIMPLE.  Find the original
-     body, and set the gimple body for this function accordingly.  */
+  /* If we're a clone, the body is already GIMPLE.  */
   if (DECL_CLONED_FUNCTION_P (fndecl))
-    {
-      tree orig = DECL_CLONED_FUNCTION (fndecl);
-      gimple_seq seq = gimple_body (orig);
-
-      gimple_set_body (fndecl, seq);
-      DECL_SAVED_TREE (fndecl) = NULL_TREE;
-      return;
-    }
+    return;
 
   /* We do want to see every occurrence of the parms, so we can't just use
      walk_tree's hash functionality.  */

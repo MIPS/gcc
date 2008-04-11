@@ -146,6 +146,9 @@ gsi_insert_seq_before_without_update (gimple_stmt_iterator *i, gimple_seq seq,
 {
   gimple_seq_node first, last;
 
+  if (seq == NULL)
+    return;
+
   /* Don't allow inserting a sequence into itself.  */
   gcc_assert (seq != i->seq);
 
@@ -253,6 +256,9 @@ gsi_insert_seq_after_without_update (gimple_stmt_iterator *i, gimple_seq seq,
                                      enum gsi_iterator_update mode)
 {
   gimple_seq_node first, last;
+
+  if (seq == NULL)
+    return;
 
   /* Don't allow inserting a sequence into itself.  */
   gcc_assert (seq != i->seq);

@@ -1,3 +1,13 @@
+2008-04-10  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00913.html
+
+	* optimize.c (maybe_clone_body): Re-enable call to
+	clone_body.
+	* cp-gimplify.c (cp_gimplify_omp_for): Mark disabled
+	code with call to gimple_unreachable.
+	(cp_genericize): Fix handling of clone bodies.
+
 2008-04-04  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00413.html

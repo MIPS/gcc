@@ -1094,9 +1094,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 
 static tree
 convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-				 void *data)
+				 struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
@@ -1454,9 +1453,8 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 
 static tree
 convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-			      void *data)
+			      struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
@@ -1545,9 +1543,8 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
 static tree
 convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-			   void *data)
+			   struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info, *i;
   tree label, new_label, target_context, x, field;
   void **slot;
@@ -1617,9 +1614,8 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
 static tree
 convert_nl_goto_receiver (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-			  void *data)
+			  struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree label, new_label;
   gimple_stmt_iterator tmp_gsi;
@@ -1737,9 +1733,8 @@ convert_tramp_reference_op (tree *tp, int *walk_subtrees, void *data)
 
 static tree
 convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-			      void *data)
+			      struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   gimple stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
@@ -1772,9 +1767,9 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
    is set up properly for the call.  */
 
 static tree
-convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p, void *data)
+convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+                     struct walk_stmt_info *wi)
 {
-  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *info = wi->info;
   tree decl, target_context;
   char save_static_chain_added;

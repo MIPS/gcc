@@ -340,6 +340,7 @@ struct gimple_statement_eh_filter GTY(())
 
   /* Filter types.  */
   tree types;
+
   /* Failure actions.  */
   gimple_seq failure;
 };
@@ -423,6 +424,7 @@ struct gimple_statement_asm GTY(())
 struct gimple_statement_omp_critical GTY(())
 {
   struct gimple_statement_omp omp;
+
   /* Critical section name.  */
   tree name;
 };
@@ -434,14 +436,19 @@ struct gimple_statement_omp_for GTY(())
 {
   struct gimple_statement_omp omp;
   tree clauses;
+
   /* Index variable.  */
   tree index;
+
   /* Initial value.  */
   tree initial;
+
   /* Final value.  */
   tree final;
+
   /* Increment.  */
   tree incr;
+
   /* Pre-body evaluated before the loop body begins.  */
   gimple_seq pre_body;
 };
@@ -452,8 +459,13 @@ struct gimple_statement_omp_for GTY(())
 struct gimple_statement_omp_parallel GTY(())
 {
   struct gimple_statement_omp omp;
+
+  /* Clauses.  */
   tree clauses;
+
+  /* Child function holding the body of the parallel region.  */
   tree child_fn;
+
   /* Shared data argument.  */
   tree data_arg;
 };
@@ -604,7 +616,7 @@ gimple_seq gimple_body (tree);
 gimple_seq gimple_seq_alloc (void);
 void gimple_seq_free (gimple_seq);
 void gimple_seq_add_seq (gimple_seq *, gimple_seq);
-gimple_seq gimple_seq_deep_copy (gimple_seq);
+gimple_seq gimple_seq_copy (gimple_seq);
 int gimple_call_flags (gimple);
 bool gimple_assign_copy_p (gimple);
 bool gimple_assign_single_p (gimple);
@@ -615,8 +627,7 @@ void gimple_assign_set_rhs_from_tree (gimple, tree);
 void gimple_assign_set_rhs_with_ops (gimple, enum tree_code, tree, tree);
 tree gimple_get_lhs (gimple);
 void gimple_set_lhs (gimple, tree);
-gimple gimple_deep_copy (gimple);
-gimple gimple_shallow_copy (gimple);
+gimple gimple_copy (gimple);
 gimple gimple_copy_no_def_use (gimple);
 bool is_gimple_operand (const_tree);
 void gimple_set_modified (gimple, bool);
@@ -670,6 +681,34 @@ gimple_subcode (const_gimple g)
   return g->gsbase.subcode;
 }
 
+
+/* Return true if statement G has sub-statements.  This is only true for
+   High GIMPLE statements.  */
+
+static inline bool
+gimple_has_substatements (gimple g)
+{
+  switch (gimple_code (g))
+    {
+    case GIMPLE_BIND:
+    case GIMPLE_CATCH:
+    case GIMPLE_EH_FILTER:
+    case GIMPLE_TRY:
+    case GIMPLE_OMP_FOR:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SINGLE:
+    case GIMPLE_WITH_CLEANUP_EXPR:
+      return true;
+
+    default:
+      return false;
+    }
+}
+	  
 
 /* Return the basic block holding statement G.  */
 
@@ -3352,15 +3391,6 @@ void gsi_commit_one_edge_insert (edge, basic_block *);
 void gsi_commit_edge_inserts (void);
 
 
-/* Callback for walk_gimple_stmt.  Called for every statement found
-   during traversal.  The first argument points to the statement to
-   walk.  The second argument is a flag that the callback sets to
-   'false' if it needs walk_gimple_stmt to also traverse the operands
-   and sub-statements (for statements with associated bodies like
-   GIMPLE_BIND).  The third argument is an anonymous pointer to data
-   to be used by the callback.  */
-typedef tree (*walk_stmt_fn) (gimple_stmt_iterator *, bool *, void *);
-
 /* Convenience routines to walk all statements of a gimple function.
    Note that this is useful exclusively before the code is converted
    into SSA form.  Once the program is in SSA form, the standard
@@ -3409,6 +3439,16 @@ struct walk_stmt_info
      the last callback.  */
   tree callback_result;
 };
+
+/* Callback for walk_gimple_stmt.  Called for every statement found
+   during traversal.  The first argument points to the statement to
+   walk.  The second argument is a flag that the callback sets to
+   'true' if it the callback handled all the operands and
+   sub-statements of the statement (the default value of this flag is
+   'false').  The third argument is an anonymous pointer to data
+   to be used by the callback.  */
+typedef tree (*walk_stmt_fn) (gimple_stmt_iterator *, bool *,
+			      struct walk_stmt_info *);
 
 gimple walk_gimple_seq (gimple_seq, walk_stmt_fn, walk_tree_fn,
 		        struct walk_stmt_info *);

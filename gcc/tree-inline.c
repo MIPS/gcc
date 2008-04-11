@@ -127,7 +127,6 @@ eni_weights eni_time_weights;
 /* Prototypes.  */
 
 static tree declare_return_variable (copy_body_data *, tree, tree, tree *);
-static tree copy_generic_body (copy_body_data *);
 static bool inlinable_function_p (tree);
 static void remap_block (tree *, copy_body_data *);
 static tree remap_decls (tree, copy_body_data *);
@@ -142,6 +141,7 @@ static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_result_decl_to_var (tree, copy_body_data *);
 static tree copy_decl_no_change (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
+static gimple remap_gimple_stmt (gimple, copy_body_data *);
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -448,9 +448,9 @@ remap_decls (tree decls, copy_body_data *id)
     {
       tree new_var;
 
-      /* We can not chain the local static declarations into the unexpanded_var_list
-         as we can't duplicate them or break one decl rule.  Go ahead and link
-         them into unexpanded_var_list.  */
+      /* We cannot chain the local static declarations into the
+	 unexpanded_var_list as we can't duplicate them or break one
+	 decl rule.  Go ahead and link them into unexpanded_var_list.  */
       if (!auto_var_in_fn_p (old_var, id->src_fn)
 	  && !DECL_EXTERNAL (old_var))
 	{
@@ -462,7 +462,7 @@ remap_decls (tree decls, copy_body_data *id)
       /* Remap the variable.  */
       new_var = remap_decl (old_var, id);
 
-      /* If we didn't remap this variable, so we can't mess with its
+      /* If we didn't remap this variable, we can't mess with its
 	 TREE_CHAIN.  If we remapped this variable to the return slot, it's
 	 already declared somewhere else, so don't declare it here.  */
       if (!new_var || new_var == id->retvar)
@@ -556,6 +556,56 @@ copy_bind_expr (tree *tp, int *walk_subtrees, copy_body_data *id)
     /* This will remap a lot of the same decls again, but this should be
        harmless.  */
     BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), id);
+}
+
+
+/* Create a new gimple_seq by remapping all the statements in BODY
+   using the inlining information in ID.  */
+
+static gimple_seq
+remap_gimple_seq (gimple_seq body, copy_body_data *id)
+{
+  gimple_stmt_iterator si;
+  gimple_seq new_body = NULL;
+
+  for (si = gsi_start (body); !gsi_end_p (si); gsi_next (&si))
+    {
+      gimple new_stmt = remap_gimple_stmt (gsi_stmt (si), id);
+      gimple_seq_add_stmt (&new_body, new_stmt);
+    }
+
+  return new_body;
+}
+
+
+/* Copy a GIMPLE_BIND statement STMT, remapping all the symbols in its
+   block using the mapping information in ID.  */
+
+static gimple
+copy_gimple_bind (gimple stmt, copy_body_data *id)
+{
+  gimple new_bind;
+  tree new_block, new_vars;
+  gimple_seq body, new_body;
+
+  /* Copy the statement.  Note that we purposely don't use copy_stmt
+     here because we need to remap statements as we copy.  */
+  body = gimple_bind_body (stmt);
+  new_body = remap_gimple_seq (body, id);
+
+  new_block = gimple_bind_block (stmt);
+  if (new_block)
+    remap_block (&new_block, id);
+
+  /* This will remap a lot of the same decls again, but this should be
+     harmless.  */
+  new_vars = gimple_bind_vars (stmt);
+  if (new_vars)
+    new_vars = remap_decls (new_vars, id);
+
+  new_bind = gimple_build_bind (new_vars, new_body, new_block);
+
+  return new_bind;
 }
 
 
@@ -985,7 +1035,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 static gimple
 remap_gimple_stmt (gimple stmt, copy_body_data *id)
 {
-  gimple copy;
+  gimple copy = NULL;
   struct walk_stmt_info wi;
   tree new_block;
 
@@ -1005,47 +1055,89 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original RESULT_DECL.
-	 If RETVAL  is just the result decl, the result decl has
+	 If RETVAL is just the result decl, the result decl has
 	 already been set (e.g. a recent "foo (&result_decl, ...)");
 	 just toss the entire GIMPLE_RETURN.  */
       if (retval && TREE_CODE (retval) != RESULT_DECL)
-	{
-	  gimple s = gimple_build_assign (id->retvar, retval);
-	  return remap_gimple_stmt (s, id);
-	}
+	copy = gimple_build_assign (id->retvar, retval);
       else
 	return gimple_build_nop ();
     }
-  else if (gimple_code (stmt) == GIMPLE_BIND)
-    /* FIXME tuples: Should be removed? 
-       Was copy_bind_expr (tp, walk_subtrees, id);  */
-    gcc_unreachable ();
-
-  /* Here we handle statements that are not completely rewritten.
-     First we detect some inlining-induced bogosities for
-     discarding.  */
-  if (gimple_assign_copy_p (stmt)
-      && gimple_assign_lhs (stmt) == gimple_assign_rhs1 (stmt)
-      && auto_var_in_fn_p (gimple_assign_lhs (stmt), id->src_fn))
+  else if (gimple_has_substatements (stmt))
     {
-      /* Some assignments VAR = VAR; don't generate any rtl code
-	 and thus don't count as variable modification.  Avoid
-	 keeping bogosities like 0 = 0.  */
-      tree decl = gimple_assign_lhs (stmt), value;
-      tree *n;
+      gimple_seq s1, s2;
 
-      n = (tree *) pointer_map_contains (id->decl_map, decl);
-      if (n)
+      /* When cloning bodies from the C++ front end, we will be handed bodies
+	 in High GIMPLE form.  Handle here all the High GIMPLE statements that
+	 have embedded statements.  */
+      switch (gimple_code (stmt))
 	{
-	  value = *n;
-	  STRIP_TYPE_NOPS (value);
-	  if (TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
-	    return gimple_build_nop ();
+	case GIMPLE_BIND:
+	  copy = copy_gimple_bind (stmt, id);
+	  break;
+
+	case GIMPLE_CATCH:
+	  s1 = remap_gimple_seq (gimple_catch_handler (stmt), id);
+	  copy = gimple_build_catch (gimple_catch_types (stmt), s1);
+	  break;
+
+	case GIMPLE_EH_FILTER:
+	  s1 = remap_gimple_seq (gimple_eh_filter_failure (stmt), id);
+	  copy = gimple_build_eh_filter (gimple_eh_filter_types (stmt), s1);
+	  break;
+
+	case GIMPLE_TRY:
+	  s1 = remap_gimple_seq (gimple_try_eval (stmt), id);
+	  s2 = remap_gimple_seq (gimple_try_cleanup (stmt), id);
+	  copy = gimple_build_try (s1, s2, gimple_try_kind (stmt)); 
+	  break;
+
+	case GIMPLE_WITH_CLEANUP_EXPR:
+	  s1 = remap_gimple_seq (gimple_wce_cleanup (stmt), id);
+	  copy = gimple_build_wce (s1);
+	  break;
+
+	  /* FIXME tuples.  */
+	case GIMPLE_OMP_FOR:
+	case GIMPLE_OMP_MASTER:
+	case GIMPLE_OMP_ORDERED:
+	case GIMPLE_OMP_SECTION:
+	case GIMPLE_OMP_PARALLEL:
+	case GIMPLE_OMP_SECTIONS:
+	case GIMPLE_OMP_SINGLE:
+	default:
+	  gcc_unreachable ();
 	}
     }
+  else
+    {
+      if (gimple_assign_copy_p (stmt)
+	  && gimple_assign_lhs (stmt) == gimple_assign_rhs1 (stmt)
+	  && auto_var_in_fn_p (gimple_assign_lhs (stmt), id->src_fn))
+	{
+	  /* Here we handle statements that are not completely rewritten.
+	     First we detect some inlining-induced bogosities for
+	     discarding.  */
 
-  /* Create a new deep copy of the statement.  */
-  copy = gimple_deep_copy (stmt);
+	  /* Some assignments VAR = VAR; don't generate any rtl code
+	     and thus don't count as variable modification.  Avoid
+	     keeping bogosities like 0 = 0.  */
+	  tree decl = gimple_assign_lhs (stmt), value;
+	  tree *n;
+
+	  n = (tree *) pointer_map_contains (id->decl_map, decl);
+	  if (n)
+	    {
+	      value = *n;
+	      STRIP_TYPE_NOPS (value);
+	      if (TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+		return gimple_build_nop ();
+	    }
+	}
+
+      /* Create a new deep copy of the statement.  */
+      copy = gimple_copy (stmt);
+    }
 
   /* If STMT has a block defined, map it to the newly constructed
      block.  When inlining we want statements without a block to
@@ -1115,12 +1207,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	  || id->regimplify)
 	{
 	  tree new_rhs;
-	  new_rhs = force_gimple_operand_gsi (&gsi, gimple_assign_rhs1 (stmt),
+	  new_rhs = force_gimple_operand_gsi (&copy_gsi,
+	                                      gimple_assign_rhs1 (stmt),
 	                                      true, NULL, true, GSI_SAME_STMT);
 	  gimple_assign_set_rhs1 (stmt, new_rhs);
 	}
       else if (id->regimplify)
-	gimple_regimplify_operands (stmt, &gsi);
+	gimple_regimplify_operands (stmt, &copy_gsi);
 
       gsi_insert_after (&copy_gsi, stmt, GSI_NEW_STMT);
 
@@ -1623,7 +1716,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
 
   cfun_to_copy = id->src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
 
-
   ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy)->aux = entry_block_map;
   EXIT_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy)->aux = exit_block_map;
   entry_block_map->aux = ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy);
@@ -1646,17 +1738,21 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
     }
 
   last = last_basic_block;
+
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     copy_edges_for_bb (bb, count_scale, exit_block_map);
+
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
+
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     {
       ((basic_block)bb->aux)->aux = NULL;
       bb->aux = NULL;
     }
+
   /* Zero out AUX fields of newly created block during EH edge
      insertion. */
   for (; last < last_basic_block; last++)
@@ -1665,22 +1761,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   exit_block_map->aux = NULL;
 
   return new_fndecl;
-}
-
-/* Make a copy of the GENERIC body of FN so that it can be inserted
-   inline in another function.  */
-
-static tree
-copy_generic_body (copy_body_data *id)
-{
-  tree body;
-  tree fndecl = id->src_fn;
-
-  gcc_assert (!gimple_body (fndecl));
-  body = DECL_SAVED_TREE (fndecl);
-  walk_tree (&body, copy_tree_body_r, id, NULL);
-
-  return body;
 }
 
 /* Make a copy of the GIMPLE body of function ID->SRC_FN.  Profile and
@@ -2204,10 +2284,9 @@ inline_forbidden_p_op (tree *nodep, int *walk_subtrees ATTRIBUTE_UNUSED,
 
 static tree
 inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
-			 void *wip)
+			 struct walk_stmt_info *wip)
 {
-  struct walk_stmt_info wi = *(struct walk_stmt_info *) wip;
-  tree fn = (tree) wi.info;
+  tree fn = (tree) wip->info;
   tree t;
   gimple stmt = gsi_stmt (*gsi);
 
@@ -2895,7 +2974,9 @@ count_insns_seq (gimple_seq seq, eni_weights *weights)
   return n;
 }
 
+
 /* Install new lexical TREE_BLOCK underneath 'current_block'.  */
+
 static void
 add_lexical_block (tree current_block, tree new_block)
 {
@@ -3401,14 +3482,18 @@ optimize_inline_calls (tree fn)
 }
 
 
-/* FN is a function that has a complete body, and CLONE is a function
-   whose body is to be set to a copy of FN, mapping argument
-   declarations according to the ARG_MAP splay_tree.  */
+/* FN is a function in High GIMPLE form that has a complete body and no
+   CFG.  CLONE is a function whose body is to be set to a copy of FN,
+   mapping argument declarations according to the ARG_MAP splay_tree.  */
 
 void
 clone_body (tree clone, tree fn, void *arg_map)
 {
   copy_body_data id;
+  gimple_seq new_body;
+
+  /* FN must already be in GIMPLE form.  */
+  gcc_assert (gimple_body (fn));
 
   /* Clone the body, as if we were making an inline call.  But, remap
      the parameters in the callee to the parameters of caller.  */
@@ -3427,11 +3512,9 @@ clone_body (tree clone, tree fn, void *arg_map)
   /* We're not inside any EH region.  */
   id.eh_region = -1;
 
-  gcc_unreachable ();
-
   /* Actually copy the body.  */
-  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
-  append_to_statement_list_force (copy_generic_body (&id), &DECL_SAVED_TREE (clone));
+  new_body = remap_gimple_seq (gimple_body (fn), &id);
+  gimple_set_body (clone, new_body);
 }
 
 /* Passed to walk_tree.  Copies the node pointed to, if appropriate.  */

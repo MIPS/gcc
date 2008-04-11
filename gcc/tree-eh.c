@@ -528,7 +528,7 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
       seq = find_goto_replacement (tf, temp);
       if (seq)
 	{
-	  gsi_insert_seq_before (gsi, gimple_seq_deep_copy (seq), GSI_SAME_STMT);
+	  gsi_insert_seq_before (gsi, gimple_seq_copy (seq), GSI_SAME_STMT);
 	  gsi_remove (gsi, false);
 	  return;
 	}
@@ -839,7 +839,7 @@ lower_try_finally_dup_block (gimple_seq seq, struct leh_state *outer_state)
   gimple region = NULL;
   gimple_seq new_seq;
 
-  new_seq = gimple_seq_deep_copy (seq);
+  new_seq = gimple_seq_copy (seq);
 
   if (outer_state->tf)
     region = outer_state->tf->try_finally_expr;

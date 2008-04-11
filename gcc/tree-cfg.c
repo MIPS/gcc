@@ -4711,7 +4711,7 @@ gimple_duplicate_bb (basic_block bb)
 
       /* Create a new copy of STMT and duplicate STMT's virtual
 	 operands.  */
-      copy = gimple_deep_copy (stmt);
+      copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
       copy_virtual_operands (copy, stmt);
       region = lookup_stmt_eh_region (stmt);

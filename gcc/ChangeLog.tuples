@@ -1,3 +1,45 @@
+2008-04-10  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00913.html
+
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Change uses
+	of DECL_SAVED_TREE with gimple_body.
+	(cgraph_decide_inlining_incrementally): Likewise.
+	* gimple-iterator.c (gsi_insert_seq_before_without_update):
+	Do nothing if SEQ is NULL.
+	(gsi_insert_seq_after_without_update): Likewise.
+	* tree-ssa-live.c (mark_all_vars_used_1): Do not handle
+	EXPR trees.
+	(remove_unused_locals): Mark the gimple_block of every
+	statement as used.
+	* tree-inline.c (remap_gimple_stmt): Forward declare.
+	(remap_decls): Tidy comments.
+	(remap_gimple_seq): New.
+	(copy_gimple_bind): New.
+	(remap_gimple_stmt): Call it.
+	Handle High GIMPLE statements.
+	(copy_bb): Regimplify operands on COPY_GSI instead of
+	GSI.
+	(copy_cfg_body): Tidy.
+	(copy_generic_body): Remove unused function.
+	(clone_body): Tuplify.
+	* c-common.c (c_warn_unused_result): Remove assertion for
+	FUNCTION_TYPE.
+	* gimple.c (gimple_seq_copy): Rename from
+	gimple_seq_deep_copy.  Update all users.
+	(walk_gimple_stmt): Assert that STMT has no substatements
+	in the default case.
+	(gimple_copy_1): Merge into gimple_copy.
+	(gimple_copy): Always do deep copying.
+	Handle statements with substatements.
+	(gimple_shallow_copy): Remove unused function.
+	(gimple_deep_copy): Remove.  Update all users.
+	* gimple.h: Tidy comments and structure fields
+	everywhere.
+	(gimple_has_substatements): New.
+	(walk_stmt_fn): Change last argument to struct walk_stmt_info *.
+	Update all users.
+
 2008-04-10 Oleg Ryjkov  <olegr@google.com>
 
 	* tree.h (struct tree_base): Added a new flag default_def_flag.
