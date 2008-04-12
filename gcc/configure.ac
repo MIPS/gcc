@@ -297,6 +297,7 @@ AC_SUBST(CFLAGS)
 # Check C compiler features
 # -------------------------
 
+AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CPP
 AC_C_INLINE
 
@@ -775,7 +776,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([gimple-tuples-branch merged with rev 133632])
+ACX_PKGVERSION([gimple-tuples-branch merged with rev 133860])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -902,20 +903,6 @@ fi
 # --------------------
 # Checks for C headers
 # --------------------
-
-AC_MSG_CHECKING(for GNU C library)
-AC_CACHE_VAL(gcc_cv_glibc,
-[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-  [[#include <features.h>]], [[
-#if ! (defined __GLIBC__ || defined __GNU_LIBRARY__)
-#error Not a GNU C library system
-#endif]])],
-  [gcc_cv_glibc=yes],
-  [gcc_cv_glibc=no])])
-AC_MSG_RESULT($gcc_cv_glibc)
-if test $gcc_cv_glibc = yes; then
-  AC_DEFINE(_GNU_SOURCE, 1, [Always define this when using the GNU C Library])
-fi
 
 # Need to reject headers which give warnings, so that the -Werror bootstrap
 # works later. *sigh*  This needs to come before all header checks.
@@ -1483,9 +1470,6 @@ else
 		--target=$target_alias --host=$build_alias --build=$build_alias
 	CFLAGS="${saved_CFLAGS}"
 
-	# Extract this setting from the temporary Makefile.
-	BUILD_DEPMODE=`grep '^CCDEPMODE = ' Makefile | sed -e 's,.* = ,,'`
-
 	# We just finished tests for the build machine, so rename
 	# the file auto-build.h in the gcc directory.
 	mv auto-host.h ../auto-build.h
@@ -1758,7 +1742,7 @@ fi
 # then define inhibit_libc in LIBGCC2_CFLAGS.
 # This prevents libgcc2 from containing any code which requires libc
 # support.
-inhibit_libc=false
+: ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
      { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
@@ -1836,6 +1820,21 @@ esac
 # ---------------------------
 # Assembler & linker features
 # ---------------------------
+
+# During stage 2, ld is actually gcc/collect-ld, which is a small script to
+# discern between when to use prev-ld/ld-new and when to use ld/ld-new.
+# However when ld-new is first executed from the build tree, libtool will
+# relink it as .libs/lt-ld-new, so that it can give it an RPATH that refers
+# to the build tree.  While doing this we need to use the previous-stage
+# linker, or we have an infinite loop.  The presence of a shell script as
+# ld/ld-new, and the fact that the script *uses ld itself*, is what confuses
+# the gcc/collect-ld script.  So we need to know how libtool works, or
+# exec-tool will fail.
+
+m4_defun([_LT_CONFIG_COMMANDS], [])
+AC_PROG_LIBTOOL
+AC_SUBST(objdir)
+AC_SUBST(enable_fast_install)
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -3671,27 +3670,6 @@ do
 done
 
 # --------
-# Dependency checking.
-# --------
-
-ZW_CREATE_DEPDIR
-AC_CONFIG_COMMANDS([gccdepdir],[
-  ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs build/$DEPDIR
-  for lang in $subdirs
-  do
-      ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs $lang/$DEPDIR
-  done], [subdirs="$subdirs" ac_aux_dir=$ac_aux_dir DEPDIR=$DEPDIR])
-
-ZW_PROG_COMPILER_DEPENDENCIES([CC])
-# Note that if build!=host then we extracted the value from the
-# temporary Makefile we created above, when we ran configure.
-if test "${build}" = "${host}" ; then
-  BUILD_DEPMODE='$(CCDEPMODE)'
-fi
-AC_SUBST(BUILD_DEPMODE)
-
-
-# --------
 # UNSORTED
 # --------
 
@@ -3733,9 +3711,6 @@ else
   slibdir='$(libdir)'
 fi)
 AC_SUBST(slibdir)
-
-objdir=`${PWDCMD-pwd}`
-AC_SUBST(objdir)
 
 AC_ARG_WITH(datarootdir,
 [  --with-datarootdir=DIR  Use DIR as the data root [[PREFIX/share]]],

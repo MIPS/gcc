@@ -6488,8 +6488,10 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  /* Type for passing arg must be consistent with that
 	     declared for the arg.  ISO C says we take the unqualified
 	     type for parameters declared with qualified type.  */
-	  if (!comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
-			  TYPE_MAIN_VARIANT (TREE_VALUE (type))))
+	  if (TREE_TYPE (parm) != error_mark_node
+	      && TREE_TYPE (type) != error_mark_node
+	      && !comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
+			     TYPE_MAIN_VARIANT (TREE_VALUE (type))))
 	    {
 	      if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
 		  == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
@@ -6895,11 +6897,11 @@ check_for_loop_decls (void)
    used during compilation of a C function.  */
 
 void
-c_push_function_context (struct function *f)
+c_push_function_context (void)
 {
   struct language_function *p;
   p = GGC_NEW (struct language_function);
-  f->language = p;
+  cfun->language = p;
 
   p->base.x_stmt_tree = c_stmt_tree;
   p->x_break_label = c_break_label;
@@ -6910,14 +6912,20 @@ c_push_function_context (struct function *f)
   p->returns_null = current_function_returns_null;
   p->returns_abnormally = current_function_returns_abnormally;
   p->warn_about_return_type = warn_about_return_type;
+
+  push_function_context ();
 }
 
 /* Restore the variables used during compilation of a C function.  */
 
 void
-c_pop_function_context (struct function *f)
+c_pop_function_context (void)
 {
-  struct language_function *p = f->language;
+  struct language_function *p;
+
+  pop_function_context ();
+  p = cfun->language;
+  cfun->language = NULL;
 
   if (DECL_STRUCT_FUNCTION (current_function_decl) == 0
       && DECL_SAVED_TREE (current_function_decl) == NULL_TREE)
@@ -6938,8 +6946,6 @@ c_pop_function_context (struct function *f)
   current_function_returns_null = p->returns_null;
   current_function_returns_abnormally = p->returns_abnormally;
   warn_about_return_type = p->warn_about_return_type;
-
-  f->language = NULL;
 }
 
 /* Copy the DECL_LANG_SPECIFIC data associated with DECL.  */

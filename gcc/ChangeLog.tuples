@@ -1,3 +1,10 @@
+2008-04-12  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @133860.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-04-11  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-sra.c (scalarize_use): Moving a variable declaration to

@@ -1078,18 +1078,28 @@ group_case_labels (void)
 	{
 	  int old_size = gimple_switch_num_labels (stmt);
 	  int i, j, new_size = old_size;
-	  tree default_case;
-	  tree default_label;
+	  tree default_case = NULL_TREE;
+	  tree default_label = NULL_TREE;
+	  bool has_default;
 
 	  /* The default label is always the first case in a switch
-	     statement after gimplification.  */
-	  default_case = gimple_switch_default_label (stmt);
-	  default_label = CASE_LABEL (default_case);
+	     statement after gimplification if it was not optimized
+	     away */
+	  if (!CASE_LOW (gimple_switch_default_label (stmt))
+	      && !CASE_HIGH (gimple_switch_default_label (stmt)))
+	    {
+	      default_case = gimple_switch_default_label (stmt);
+	      default_label = CASE_LABEL (default_case);
+	      has_default = true;
+	    }
+	  else
+	    has_default = false;
 
-	  /* Look for possible opportunities to merge cases.
-	     Ignore the first element of the label vector because it
-	     is be the default case.  */
-          i = 1;
+	  /* Look for possible opportunities to merge cases.  */
+	  if (has_default)
+	    i = 1;
+	  else
+	    i = 0;
 	  while (i < old_size)
 	    {
 	      tree base_case, base_label, base_high;
@@ -3982,18 +3992,11 @@ verify_stmts (void)
 		 are not considered gimple values.  */
 	      else if (TREE_CODE (t) != SSA_NAME
 		       && TREE_CODE (t) != FUNCTION_DECL
-		       && !is_gimple_val (t))
+		       && !is_gimple_min_invariant (t))
 		{
 		  error ("PHI argument is not a GIMPLE value");
 		  debug_gimple_stmt (phi);
 		  debug_generic_expr (t);
-		  err |= true;
-		}
-
-	      addr = walk_tree (&t, verify_expr, (void *) 1, NULL);
-	      if (addr)
-		{
-		  debug_generic_expr (addr);
 		  err |= true;
 		}
 
@@ -4270,10 +4273,16 @@ gimple_verify_flow_info (void)
 		label_bb->aux = (void *)1;
 	      }
 
-	    /* Verify that the case labels are sorted.  Skip label 0
-	       as that is the default case.  */
-	    prev = gimple_switch_label (stmt, 1);
-	    for (i = 2; i < n; ++i)
+	    prev = gimple_switch_label (stmt, 0);
+	    i = 1;
+	    if (!CASE_LOW (prev))
+	      {
+		prev = gimple_switch_label (stmt, 1);
+		i++;
+	      }
+
+	    /* Verify that the case labels are sorted.  */
+	    for (; i < n; ++i)
 	      {
 		tree c = gimple_switch_label (stmt, i);
 		if (!CASE_LOW (c))
@@ -4294,12 +4303,9 @@ gimple_verify_flow_info (void)
 		  }
 		prev = c;
 	      }
-
-	    if (CASE_LOW (gimple_switch_default_label (stmt)))
-	      {
-		error ("no default case found at start of case vector");
-		err = 1;
-	      }
+	    /* VRP will remove the default case if it can prove it will
+	       never be executed.  So do not verify there always exists
+	       a default case here.  */
 
 	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
