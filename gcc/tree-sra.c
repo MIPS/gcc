@@ -3097,10 +3097,10 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
 	  && gimple_code (stmt) == GIMPLE_ASSIGN
 	  && gimple_assign_lhs_ptr (stmt) == expr_p)
 	{
+          gimple_seq newseq;
           /* RHS must be a single operand. */
           gcc_assert (gimple_assign_single_p (stmt));
-	  gimple_seq newseq = sra_build_elt_assignment
-	    (elt, gimple_assign_rhs1 (stmt));
+	  newseq = sra_build_elt_assignment (elt, gimple_assign_rhs1 (stmt));
 	  sra_replace (gsi, newseq);
 	  return;
 	}

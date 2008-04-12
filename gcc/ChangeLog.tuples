@@ -1,5 +1,10 @@
 2008-04-11  Oleg Ryjkov  <olegr@google.com>
 
+	* tree-sra.c (scalarize_use): Moving a variable declaration to
+	the top of a block.
+
+2008-04-11  Oleg Ryjkov  <olegr@google.com>
+
 	* tree-sra.c (insert_edge_copies_seq): Removed unused variable.
 
 2008-04-11  Oleg Ryjkov  <olegr@google.com>
