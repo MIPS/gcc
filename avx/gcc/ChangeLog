@@ -1,3 +1,174 @@
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dse.c (record_store): Use HOST_BITS_PER_WIDE_INT instead
+	of size of positions_needed * CHAR_BIT.
+
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/35897
+	* dse.c (store_info): Change positions_needed to unsigned
+	HOST_WIDE_INT.
+	(lowpart_bitmask): New.
+	(record_store): Cast to unsigned HOST_WIDE_INT for
+	positions_needed.  Assert width <= size of positions_needed *
+	CHAR_BIT.  Call lowpart_bitmask to initialize positions_needed.
+	(check_mem_read_rtx): Use unsigned HOST_WIDE_INT on mask.  Call
+	lowpart_bitmask to set mask.
+
+2008-04-11  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/constraints.md: New file.
+	* config/bfin/bfin.md: Include it.
+	(adddi3): Use satisfies_constraint functions instead of the old macros.
+	* config/bfin/bfin.h (REG_CLASS_FROM_LETTER, CONSTRAINT_LEN,
+	CONST_18UBIT_IMM_P, CONST_16BIT_IMM_P, CONST_16UBIT_IMM_P,
+	CONST_7BIT_IMM_P, CONST_7NBIT_IMM_P, CONST_5UBIT_IMM_P,
+	CONST_4BIT_IMM_P, CONST_4UBIT_IMM_P, CONST_3BIT_IMM_P,
+	CONST_3UBIT_IMM_P, CONST_OK_FOR_K, CONST_OK_FOR_P, CONST_OK_FOR_M,
+	CONST_OK_FOR_CONSTRAINT_P, CONST_DOUBLE_OK_FOR_LETTER,
+	EXTRA_CONSTRAINT): Delete.
+	* config/bfin/predicates.md (highbits_operand, reg_or_7bit_operand,
+	reg_or_neg7bit_operand): Use satisfies_constraint functions instead
+	of the old macros.
+	* config/bfin/bfin.c: Include "tm-constrs.h".
+	(bfin_secondary_reload, split_load_immediate, bfin_rtx_costs):
+	Use satisfies_constraint functions instead of the old macros.
+	* doc/md.texi (Blackfin Constraints): Update file name reference.
+
+2008-04-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35869
+	* tree-vrp.c (execute_vrp): Move switch statement update after
+	jump threading.  Schedule another cfg cleanup run.
+
+2008-04-11  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	PR c/35744
+	* attribs.c (decl_attributes): Return early on errorneous node.
+
+2008-04-10  Oleg Ryjkov  <olegr@google.com>
+
+	* tree.h (struct tree_base): Added a new flag default_def_flag.
+	(SSA_NAME_IS_DEFAULT_DEF): Changed to use the new flag.
+
+2008-04-11  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config.gcc (need_64bit_hwint): Need 64bit hwint for sh-*-*.
+
+2008-04-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/35768
+	* pa.md: Define mode iterator P.  Define mode attribute dwc.
+	(dcacheflush): Update pattern to use iterator P and attribute dwc.
+	(icacheflush): Likewise.
+	* pa.h (INITIALIZE_TRAMPOLINE): Use dcacheflushsi/icacheflushsi if
+	!TARGET_64BIT, and dcacheflushdi/icacheflushdi if TARGET_64BIT.
+
+2008-04-11  Ben Elliston  <bje@au.ibm.com>
+
+	* config/spu/spu.c (spu_init_builtins): Mark builtins as nothrow.
+
+2008-04-10  Rafael Espindola  <espindola@google.com>
+
+	* gcc/tree-vrp.c (extract_range_from_binary_expr): Don't handle
+	TRUTH_ANDIF_EXPR or TRUTH_ORIF_EXPR.
+	(extract_range_from_expr): The same.
+
+2008-04-10  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips.md (GPR2): New mode iterator.
+	(seq): Add comment.
+	(*seq_<mode>, *seq_<mode>_mips16, *sne_<mode>, *sgt<u>_<mode>,
+	*sgt<u>_<mode>_mips16, *sge<u>_<mode>, *slt<u>_<mode>,
+	*slt<u>_<mode>_mips16 *sle<u>_<mode>, *sle<u>_<mode>_mips16):
+	Rewrite these to take two modes, the mode of comparison and the
+	mode of the destination.
+	* config/mips/mips.c (mips_expand_scc): Instead of having
+	paradoxical subreg as destination, expand "narrowing" scc if mode
+	of comparison is SI and target is requested in DI mode.
+	(mips_emit_int_order_test): Update comment.  Make mode of
+	comparison match CMP0 rather than TARGET.  When creating inverse
+	target use mode of TARGET.
+
+2008-04-10  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcov-dump.c (tag_summary): Only print summaries for the first
+	GCOV_COUNTERS_SUMMABLE counters.
+
+2008-04-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (absneg): New code iterator.
+	(absnegprefix): New code attribute.
+	(<code><mode>2): Macroize expander from abs<mode>2 and neg<mode>2
+	patterns using absneg code iterator.
+	(<code>tf2): Macroize expander from abstf2 and negtf2 patterns
+	using absneg code iterator.
+	(*<code><mode>2_1): Macroize insn pattern from *abs<mode>2_1 and
+	*neg<mode>2 patterns using absneg code iterator.
+	(*<code>extendsfdf2): Macroize insn pattern from *absextendsfdf2 and
+	*negextendsfdf2 patterns using absneg code iterator.
+	(*<code>extendsfxf2): Macroize insn pattern from *absextendsfxf2 and
+	*negextendsfxf2 patterns using absneg code iterator.
+	(*<code>extendsfdf2): Macroize insn pattern from *absextendsfdf2 and
+	*negextendsfdf2 patterns using absneg code iterator.
+	* config/i386/sse.md (<code><mode>2): Macroize expander from
+	abs<mode>2 and neg<mode>2 patterns using absneg code iterator. 
+
+2008-04-10  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.h: Remove the remains of the recent search
+	& replace action of current_function_outgoing_args_size.
+
+2008-04-10  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35821
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Add check that
+	NEW_STMT_LIST is not NULL.
+
+2008-04-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR libstdc++/35597
+	* toplev.c (process_options): Remove -ffunction-sections debugging
+	warning.
+
+2008-04-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/PR28690
+	* explow.c (break_out_memory_refs): Use simplify_gen_binary rather
+	than gen_rtx_fmt_ee to perform more canonicalizations.
+
+2008-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR driver/35665
+	* collect2.c (write_c_file): Don't wrap in "#ifdef __cplusplus".
+
+2008-04-09  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_stmt): Print complete bogus stmt.
+	(dump_function_to_file): Dump function arguments with types.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_widened_comparison): Do not allow
+	sign-changes that change the result.
+
+2008-04-08  Janis Johnson  <janis187@us.ibm.com>
+
+	PR target/35839
+	* config/rs6000/rs6000.c (rs6000_check_sdmode): Handle additional
+	kinds of indirect references.
+
+2008-04-08  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_output_function_epilogue): Update
+	GNU Fortran language string.
+
+2008-04-08  Rafael Espindola  <espindola@google.com>
+
+	* fold-canst.c (tree_call_nonnegative_warnv_p): New.
+	(tree_invalid_nonnegative_warnv_p): Use tree_call_nonnegative_warnv_p.
+	* tree.h (tree_call_nonnegative_warnv_p): New.
+
 2008-04-08  Jan Hubicka  <jh@suse.cz>
 
 	* function.c (free_after_compilation): Clear out regno_reg_rtx

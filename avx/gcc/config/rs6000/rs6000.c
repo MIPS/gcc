@@ -11226,9 +11226,6 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       return NULL_TREE;
     }
 
-  gcc_assert (TREE_CODE (*tp) != ALIGN_INDIRECT_REF);
-  gcc_assert (TREE_CODE (*tp) != MISALIGNED_INDIRECT_REF);
-
   switch (TREE_CODE (*tp))
     {
     case VAR_DECL:
@@ -11237,6 +11234,8 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case RESULT_DECL:
     case REAL_CST:
     case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
     case VIEW_CONVERT_EXPR:
       if (TYPE_MODE (TREE_TYPE (*tp)) == SDmode)
 	return *tp;
@@ -16838,7 +16837,7 @@ rs6000_output_function_epilogue (FILE *file,
       if (! strcmp (language_string, "GNU C"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
-	       || ! strcmp (language_string, "GNU F95"))
+	       || ! strcmp (language_string, "GNU Fortran"))
 	i = 1;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
