@@ -65,6 +65,7 @@ discard_pending_stack_adjust (void)
 
    Note, if the current function calls alloca, then it must have a
    frame pointer regardless of the value of flag_omit_frame_pointer.  */
+
 void
 clear_pending_stack_adjust (void)
 {

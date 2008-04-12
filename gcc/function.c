@@ -407,7 +407,10 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
       /* Ignore alignment we can't do with expected alignment of the
 	 boundary.  */
       if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
-	alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+	{
+	  alignment_in_bits = PREFERRED_STACK_BOUNDARY;
+	  alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+	}
     }
   if (cfun->stack_alignment_needed < alignment_in_bits)
     cfun->stack_alignment_needed = alignment_in_bits;
@@ -465,6 +468,7 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
     frame_offset += size;
 
   x = gen_rtx_MEM (mode, addr);
+  set_mem_align (x, alignment_in_bits);
   MEM_NOTRAP_P (x) = 1;
 
   stack_slot_list

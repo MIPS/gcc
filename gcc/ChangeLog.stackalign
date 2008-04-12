@@ -1,3 +1,13 @@
+2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.c (assign_stack_local): Update alignment_in_bits.
+	Set alignment on stack slot.
+
+2008-04-11  Joey Ye  <joey.ye@intel.com>
+
+	* dojump.c (discard_pending_stack_adjust): Insert empty line,
+	which makes it same as trunk.
+
 2008-04-09  Joey Ye  <joey.ye@intel.com>
 
 	* dojump.c (clear_pending_stack_adjust): Revert comments.
