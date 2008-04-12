@@ -3089,6 +3089,22 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       break;
 
     case E_Access_Subprogram_Type:
+      /* Use the special descriptor type for dispatch tables if needed,
+	 that is to say for the Prim_Ptr of a-tags.ads and its clones.
+	 Note that we are only required to do so for static tables in
+	 order to be compatible with the C++ ABI, but Ada 2005 allows
+	 to extend library level tagged types at the local level so
+	 we do it in the non-static case as well.  */
+      if (TARGET_VTABLE_USES_DESCRIPTORS
+	  && Is_Dispatch_Table_Entity (gnat_entity))
+	{
+	    gnu_type = fdesc_type_node;
+	    gnu_size = TYPE_SIZE (gnu_type);
+	    break;
+	}
+
+      /* ... fall through ... */
+
     case E_Anonymous_Access_Subprogram_Type:
       /* If we are not defining this entity, and we have incomplete
 	 entities being processed above us, make a dummy type and
@@ -6836,15 +6852,13 @@ validate_size (Uint uint_size, tree gnu_type, Entity_Id gnat_object,
     size = size_binop (PLUS_EXPR, DECL_SIZE (TYPE_FIELDS (gnu_type)), size);
 
   /* Modify the size of the type to be that of the maximum size if it has a
-     discriminant or the size of a thin pointer if this is a fat pointer.  */
+     discriminant.  */
   if (type_size && CONTAINS_PLACEHOLDER_P (type_size))
     type_size = max_size (type_size, true);
-  else if (TYPE_FAT_POINTER_P (gnu_type))
-    type_size = bitsize_int (POINTER_SIZE);
 
-  /* If this is an access type, the minimum size is that given by the smallest
-     integral mode that's valid for pointers.  */
-  if (TREE_CODE (gnu_type) == POINTER_TYPE)
+  /* If this is an access type or a fat pointer, the minimum size is that given
+     by the smallest integral mode that's valid for pointers.  */
+  if ((TREE_CODE (gnu_type) == POINTER_TYPE) || TYPE_FAT_POINTER_P (gnu_type))
     {
       enum machine_mode p_mode;
 
