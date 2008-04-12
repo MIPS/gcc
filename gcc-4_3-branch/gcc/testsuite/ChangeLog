@@ -1,3 +1,22 @@
+2008-04-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35708
+	* g++.dg/ext/complit9.C: New.
+
+2008-04-09  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35821
+	* gcc.dg/vect/pr35821-altivec.c: New.
+	* gcc.dg/vect/pr35821-spu.c: New.
+
+2008-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/namelist_47.f90: New test.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/20080408-1.c: New testcase.
+
 2008-04-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/35734

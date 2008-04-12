@@ -1,3 +1,29 @@
+2008-04-12  James E. Wilson  <wilson@tuliptree.org>
+
+	PR target/35695
+	* config/ia64/div.md (recip_approx_rf): Use UNSPEC not DIV.
+	* config/ia64/ia64.c (rtx_needs_barrier): Handle
+	UNSPEC_FR_RECIP_APPROX_RES.
+	* config/ia64/ia64.md (UNSPEC_FR_RECIP_APPROX_RES): Define.
+
+2008-04-09 Andy Hutchinson <hutchinsonandy@aim.com>
+
+	PR rtl-optimization/34916
+	PR middle-end/35519
+	* combine.c (create_log_links): Do not create duplicate LOG_LINKS
+	between instruction pairs.
+
+2008-04-09  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35821
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Add check that
+	NEW_STMT_LIST is not NULL.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_widened_comparison): Do not allow
+	sign-changes that change the result.
+
 2008-04-06  Tom G. Christensen  <tgc@jupiterrise.com>
 
 	* gthr-posix95.h (__gthread_cond_wait_recursive): Add missing &.
