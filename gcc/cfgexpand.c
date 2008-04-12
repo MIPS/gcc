@@ -2059,10 +2059,9 @@ handle_drap (void)
 {
   rtx internal_arg_rtx; 
 
-  if (!cfun->need_drap
-      && (current_function_calls_alloca
-          || cfun->has_nonlocal_label
-          || current_function_has_nonlocal_goto))
+  if (current_function_calls_alloca
+      || cfun->has_nonlocal_label
+      || current_function_has_nonlocal_goto)
     cfun->need_drap = true;
 
   /* Call targetm.calls.internal_arg_pointer again.  This time it will

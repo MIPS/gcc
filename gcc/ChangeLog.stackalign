@@ -1,3 +1,11 @@
+2008-04-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* builtins.c (expand_builtin_longjmp): Don't check !cfun->need_drap
+	when setting cfun->need_drap.
+	(expand_builtin_apply): Likewise.
+	* calls.c (emit_call_1): Likewise.
+	* cfgexpand.c (handle_drap): Likewise.
+
 2008-04-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* function.c (assign_stack_local): Update alignment_in_bits.
