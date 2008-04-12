@@ -1984,6 +1984,16 @@ gimple_asm_input_op (const_gimple gs, size_t index)
   return gimple_op (gs, index);
 }
 
+/* Return a pointer to input operand INDEX of GIMPLE_ASM GS.  */
+
+static inline tree *
+gimple_asm_input_op_ptr (const_gimple gs, size_t index)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.ni);
+  return gimple_op_ptr (gs, index);
+}
+
 
 /* Set IN_OP to be input operand INDEX in GIMPLE_ASM GS.  */
 
@@ -2005,6 +2015,16 @@ gimple_asm_output_op (const_gimple gs, size_t index)
   GIMPLE_CHECK (gs, GIMPLE_ASM);
   gcc_assert (index <= gs->gimple_asm.no);
   return gimple_op (gs, index + gs->gimple_asm.ni);
+}
+
+/* Return a pointer to output operand INDEX of GIMPLE_ASM GS.  */
+
+static inline tree *
+gimple_asm_output_op_ptr (const_gimple gs, size_t index)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASM);
+  gcc_assert (index <= gs->gimple_asm.no);
+  return gimple_op_ptr (gs, index + gs->gimple_asm.ni);
 }
 
 
@@ -3066,6 +3086,16 @@ gimple_omp_continue_set_control_use (gimple g, tree use)
   g->gimple_omp_continue.control_use = use;
 }
 
+
+/* Return a pointer to the return value for GIMPLE_RETURN GS.  */
+
+static inline tree *
+gimple_return_retval_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gcc_assert (gs->with_ops.num_ops == 1);
+  return gimple_op_ptr (gs, 0);
+}
 
 /* Return the return value for GIMPLE_RETURN GS.  */
 

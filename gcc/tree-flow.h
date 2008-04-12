@@ -1097,9 +1097,9 @@ tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
 bool is_hidden_global_store (gimple);
 
 /* In tree-sra.c  */
-void insert_edge_copies (tree, basic_block);
-void sra_insert_before (gimple_stmt_iterator *, tree);
-void sra_insert_after (gimple_stmt_iterator *, tree);
+void insert_edge_copies_seq (gimple_seq, basic_block);
+void sra_insert_before (gimple_stmt_iterator *, gimple_seq);
+void sra_insert_after (gimple_stmt_iterator *, gimple_seq);
 void sra_init_cache (void);
 bool sra_type_can_be_decomposed_p (tree);
 

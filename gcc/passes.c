@@ -540,11 +540,8 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_forwprop);
 #endif
 	  NEXT_PASS (pass_update_address_taken);
-/* FIXME tuples.  */
 	  NEXT_PASS (pass_simple_dse);
-#if 0
 	  NEXT_PASS (pass_sra_early);
-#endif
 	  NEXT_PASS (pass_copy_prop);
 /* FIXME tuples.  */
 #if 0
@@ -636,9 +633,9 @@ init_optimization_passes (void)
       NEXT_PASS (pass_stdarg);
 #endif
       NEXT_PASS (pass_lower_complex);
+      NEXT_PASS (pass_sra);
       /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_sra);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_dominator);
 

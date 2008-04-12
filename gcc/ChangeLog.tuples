@@ -1,3 +1,34 @@
+2008-04-11  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-sra.c (sra_build_assignment): Tuplified.
+	(mark_all_v_defs): Removed.
+	(mark_all_v_defs_seq, mark_all_v_defs_stmt): New functions.
+	(sra_walk_expr): Tuplified.
+	(sra_walk_tree_list): Removed.
+	(sra_walk_call_expr, sra_walk_gimple_asm,
+	sra_walk_gimple_modifY_stmt, ): Tuplified and renamed.
+	(sra_walk_gimple_call, sra_walk_gimple_asm,
+	sra_walk_gimple_assign): New names for tuplified functions.
+	(sra_walk_function, find_candidates_for_sra, scan_use, scan_copy,
+	scan_ldst, instantiate_element, decide_instantiations,
+	mark_all_v_defs_1, sra_build_assignment, sra_build_bf_assignment,
+	sra_build_elt_assignment, generate_copy_inout,
+	generate_element_copy, generate_element_zero,
+	generate_one_element_init, generate_element_init_1): Tuplified.
+	(insert_edge_copies): Removed.
+	(insert_edge_copies_seq): New function.
+	(sra_insert_before, sra_insert_after, sra_replace,
+	sra_explode_bitfield_assignment, sra_sync_for_bitfield_assignment,
+	scalarize_use, scalarize_copy, scalarize_init, mark_no_trap,
+	scalarize_ldst, scalarize_parms, scalarize_function): Tuplified.
+	(tree_sra, tree_sra_early): Enabled
+	(sra_init_cache): Removed extra space.
+	* tree-flow.h (insert_edge_copies_seq): New declaration.
+	* gimple.h (gimple_asm_input_op_ptr, gimple_asm_output_op_ptr,
+	gimple_return_retval_ptr): New functions.
+	* passes.c (init_optimization_passes): Enabled pass_sra,
+	pass_early_sra.
+
 2008-04-11  Doug Kwan  <dougkwan@google.com>
 
 	* ipa-pure-const.c (get_asm_expr_operands): Tuplify.
