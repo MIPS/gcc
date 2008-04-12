@@ -1,5 +1,9 @@
 2008-04-11  Oleg Ryjkov  <olegr@google.com>
 
+	* tree-sra.c (insert_edge_copies_seq): Removed unused variable.
+
+2008-04-11  Oleg Ryjkov  <olegr@google.com>
+
 	* tree-sra.c (sra_build_assignment): Tuplified.
 	(mark_all_v_defs): Removed.
 	(mark_all_v_defs_seq, mark_all_v_defs_stmt): New functions.

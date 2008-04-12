@@ -2805,7 +2805,6 @@ insert_edge_copies_seq (gimple_seq seq, basic_block bb)
 {
   edge e;
   edge_iterator ei;
-  bool first_copy = true;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (!(e->flags & EDGE_ABNORMAL)) 
