@@ -1,3 +1,7 @@
+2008-04-13  Rafael Espindola <espindola@google.com>
+
+	* config/extensions.m4: Add. Was missing from previous merge.
+
 2008-04-12  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @133860.
