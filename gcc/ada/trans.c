@@ -691,7 +691,7 @@ Pragma_to_gnu (Node_Id gnat_node)
       || !Is_Pragma_Name (Chars (Pragma_Identifier (gnat_node))))
     return gnu_result;
 
-  switch (Get_Pragma_Id (Pragma_Identifier (Chars (gnat_node))))
+  switch (Get_Pragma_Id (Chars (Pragma_Identifier (gnat_node))))
     {
     case Pragma_Inspection_Point:
       /* Do nothing at top level: all such variables are already viewable.  */
@@ -851,6 +851,53 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	 pointer to the underlying array.  */
       if (attribute == Attr_Address)
 	gnu_prefix = maybe_unconstrained_array (gnu_prefix);
+
+      /* If we are building a static dispatch table, we have to honor
+	 TARGET_VTABLE_USES_DESCRIPTORS if we want to be compatible
+	 with the C++ ABI.  We do it in the non-static case as well,
+	 see gnat_to_gnu_entity, case E_Access_Subprogram_Type.  */
+      else if (TARGET_VTABLE_USES_DESCRIPTORS
+	       && Is_Dispatch_Table_Entity (Etype (gnat_node)))
+	{
+	  tree gnu_field, gnu_list = NULL_TREE, t;
+	  /* Descriptors can only be built here for top-level functions.  */
+	  bool build_descriptor = (global_bindings_p () != 0);
+	  int i;
+
+	  gnu_result_type = get_unpadded_type (Etype (gnat_node));
+
+	  /* If we're not going to build the descriptor, we have to retrieve
+	     the one which will be built by the linker (or by the compiler
+	     later if a static chain is requested).  */
+	  if (!build_descriptor)
+	    {
+	      gnu_result = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_prefix);
+	      gnu_result = fold_convert (build_pointer_type (gnu_result_type),
+					 gnu_result);
+	      gnu_result = build1 (INDIRECT_REF, gnu_result_type, gnu_result);
+	    }
+
+	  for (gnu_field = TYPE_FIELDS (gnu_result_type), i = 0;
+	       i < TARGET_VTABLE_USES_DESCRIPTORS;
+	       gnu_field = TREE_CHAIN (gnu_field), i++)
+	    {
+	      if (build_descriptor)
+		{
+		  t = build2 (FDESC_EXPR, TREE_TYPE (gnu_field), gnu_prefix,
+			      build_int_cst (NULL_TREE, i));
+		  TREE_CONSTANT (t) = 1;
+		  TREE_INVARIANT (t) = 1;
+		}
+	      else
+		t = build3 (COMPONENT_REF, ptr_void_ftype, gnu_result,
+			    gnu_field, NULL_TREE);
+
+	      gnu_list = tree_cons (gnu_field, t, gnu_list);
+	    }
+
+	  gnu_result = gnat_build_constructor (gnu_result_type, gnu_list);
+	  break;
+	}
 
       /* ... fall through ... */
 
@@ -3649,7 +3696,12 @@ gnat_to_gnu (Node_Id gnat_node)
       break;
 
     case N_Null:
-      gnu_result = null_pointer_node;
+      if (TARGET_VTABLE_USES_DESCRIPTORS
+	  && Ekind (Etype (gnat_node)) == E_Access_Subprogram_Type
+	  && Is_Dispatch_Table_Entity (Etype (gnat_node)))
+	gnu_result = null_fdesc_node;
+      else
+	gnu_result = null_pointer_node;
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
       break;
 
@@ -3673,7 +3725,6 @@ gnat_to_gnu (Node_Id gnat_node)
 
       /* If the result is a pointer type, see if we are improperly
 	 converting to a stricter alignment.  */
-
       if (STRICT_ALIGNMENT && POINTER_TYPE_P (gnu_result_type)
 	  && IN (Ekind (Etype (gnat_node)), Access_Kind))
 	{
@@ -3687,6 +3738,13 @@ gnat_to_gnu (Node_Id gnat_node)
 	       gnat_node, Designated_Type (Etype (gnat_node)),
 	       size_int (align / BITS_PER_UNIT), oalign / BITS_PER_UNIT);
 	}
+
+      /* If we are converting a descriptor to a function pointer, first
+	 build the pointer.  */
+      if (TARGET_VTABLE_USES_DESCRIPTORS
+	  && TREE_TYPE (gnu_result) == fdesc_type_node
+	  && POINTER_TYPE_P (gnu_result_type))
+	gnu_result = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_result);
 
       gnu_result = unchecked_convert (gnu_result_type, gnu_result,
 				      No_Truncation (gnat_node));
@@ -4182,26 +4240,13 @@ gnat_to_gnu (Node_Id gnat_node)
 		else if (TYPE_RETURNS_UNCONSTRAINED_P (gnu_subprog_type))
 		  {
 		    gnu_ret_val = maybe_unconstrained_array (gnu_ret_val);
-
-		    /* We have two cases: either the function returns with
-		       depressed stack or not.  If not, we allocate on the
-		       secondary stack.  If so, we allocate in the stack frame.
-		       if no copy is needed, the front end will set By_Ref,
-		       which we handle in the case above.  */
-		    if (TYPE_RETURNS_STACK_DEPRESSED (gnu_subprog_type))
-		      gnu_ret_val
-			= build_allocator (TREE_TYPE (gnu_ret_val),
-					   gnu_ret_val,
-					   TREE_TYPE (gnu_subprog_type),
-					   0, -1, gnat_node, false);
-		    else
-		      gnu_ret_val
-			= build_allocator (TREE_TYPE (gnu_ret_val),
-					   gnu_ret_val,
-					   TREE_TYPE (gnu_subprog_type),
-					   Procedure_To_Call (gnat_node),
-					   Storage_Pool (gnat_node),
-					   gnat_node, false);
+		    gnu_ret_val
+		      = build_allocator (TREE_TYPE (gnu_ret_val),
+					 gnu_ret_val,
+					 TREE_TYPE (gnu_subprog_type),
+					 Procedure_To_Call (gnat_node),
+					 Storage_Pool (gnat_node),
+					 gnat_node, false);
 		  }
 	      }
 	  }
@@ -4845,34 +4890,41 @@ gnat_to_gnu (Node_Id gnat_node)
 	  || CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_result_type))))
     gnu_result = gnat_stabilize_reference (gnu_result, false);
 
-  /* Now convert the result to the proper type.  If the type is void or if
-     we have no result, return error_mark_node to show we have no result.
-     If the type of the result is correct or if we have a label (which doesn't
-     have any well-defined type), return our result.  Also don't do the
-     conversion if the "desired" type involves a PLACEHOLDER_EXPR in its size
-     since those are the cases where the front end may have the type wrong due
-     to "instantiating" the unconstrained record with discriminant values
-     or if this is a FIELD_DECL.  If this is the Name of an assignment
-     statement or a parameter of a procedure call, return what we have since
-     the RHS has to be converted to our type there in that case, unless
-     GNU_RESULT_TYPE has a simpler size.  Similarly, if the two types are
-     record types with the same name and GNU_RESULT_TYPE has BLKmode, don't
-     convert.  This will be the case when we are converting from a packable
-     type to its actual type and we need those conversions to be NOPs in
-     order for assignments into these types to work properly.  Finally,
-     don't convert integral types that are the operand of an unchecked
-     conversion since we need to ignore those conversions (for 'Valid).
-     Otherwise, convert the result to the proper type.  */
+  /* Now convert the result to the result type, unless we are in one of the
+     following cases:
+
+       1. If this is the Name of an assignment statement or a parameter of
+	  a procedure call, return the result almost unmodified since the
+	  RHS will have to be converted to our type in that case, unless
+	  the result type has a simpler size.   Similarly, don't convert
+	  integral types that are the operands of an unchecked conversion
+	  since we need to ignore those conversions (for 'Valid).
+
+       2. If we have a label (which doesn't have any well-defined type), a
+	  field or an error, return the result almost unmodified.  Also don't
+	  do the conversion if the result type involves a PLACEHOLDER_EXPR in
+	  its size since those are the cases where the front end may have the
+	  type wrong due to "instantiating" the unconstrained record with
+	  discriminant values.  Similarly, if the two types are record types
+	  with the same name don't convert.  This will be the case when we are
+	  converting from a packed version of a type to its original type and
+	  we need those conversions to be NOPs in order for assignments into
+	  these types to work properly.
+
+       3. If the type is void or if we have no result, return error_mark_node
+	  to show we have no result.
+
+       4. Finally, if the type of the result is already correct.  */
 
   if (Present (Parent (gnat_node))
       && ((Nkind (Parent (gnat_node)) == N_Assignment_Statement
 	   && Name (Parent (gnat_node)) == gnat_node)
 	  || (Nkind (Parent (gnat_node)) == N_Procedure_Call_Statement
 	      && Name (Parent (gnat_node)) != gnat_node)
+	  || Nkind (Parent (gnat_node)) == N_Parameter_Association
 	  || (Nkind (Parent (gnat_node)) == N_Unchecked_Type_Conversion
 	      && !AGGREGATE_TYPE_P (gnu_result_type)
-	      && !AGGREGATE_TYPE_P (TREE_TYPE (gnu_result)))
-	  || Nkind (Parent (gnat_node)) == N_Parameter_Association)
+	      && !AGGREGATE_TYPE_P (TREE_TYPE (gnu_result))))
       && !(TYPE_SIZE (gnu_result_type)
 	   && TYPE_SIZE (TREE_TYPE (gnu_result))
 	   && (AGGREGATE_TYPE_P (gnu_result_type)
@@ -4887,16 +4939,14 @@ gnat_to_gnu (Node_Id gnat_node)
 	   && !(TREE_CODE (gnu_result_type) == RECORD_TYPE
 		&& TYPE_JUSTIFIED_MODULAR_P (gnu_result_type))))
     {
-      /* In this case remove padding only if the inner object type is the
-	 same as gnu_result_type or is of self-referential size (in that later
-	 case it must be an object of unconstrained type with a default
-	 discriminant).  We want to avoid copying too much data.  */
+      /* Remove padding only if the inner object is of self-referential
+	 size: in that case it must be an object of unconstrained type
+	 with a default discriminant and we want to avoid copying too
+	 much data.  */
       if (TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
 	  && TYPE_IS_PADDING_P (TREE_TYPE (gnu_result))
-	  && (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result)))
-                         == gnu_result_type
-	      || CONTAINS_PLACEHOLDER_P (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
-					     (TREE_TYPE (gnu_result)))))))
+	  && CONTAINS_PLACEHOLDER_P (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
+				     (TREE_TYPE (gnu_result))))))
 	gnu_result = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result))),
 			      gnu_result);
     }
@@ -4911,23 +4961,22 @@ gnat_to_gnu (Node_Id gnat_node)
 	   || ((TYPE_NAME (gnu_result_type)
 		== TYPE_NAME (TREE_TYPE (gnu_result)))
 	       && TREE_CODE (gnu_result_type) == RECORD_TYPE
-	       && TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
-	       && TYPE_MODE (gnu_result_type) == BLKmode))
+	       && TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE))
     {
-      /* Remove any padding record, but do nothing more in this case.  */
+      /* Remove any padding.  */
       if (TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
 	  && TYPE_IS_PADDING_P (TREE_TYPE (gnu_result)))
 	gnu_result = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result))),
 			      gnu_result);
     }
 
-  else if (gnu_result == error_mark_node
-	   || gnu_result_type == void_type_node)
-    gnu_result =  error_mark_node;
+  else if (gnu_result == error_mark_node || gnu_result_type == void_type_node)
+    gnu_result = error_mark_node;
+
   else if (gnu_result_type != TREE_TYPE (gnu_result))
     gnu_result = convert (gnu_result_type, gnu_result);
 
-  /* We don't need any NOP_EXPR or NON_LVALUE_EXPR on GNU_RESULT.  */
+  /* We don't need any NOP_EXPR or NON_LVALUE_EXPR on the result.  */
   while ((TREE_CODE (gnu_result) == NOP_EXPR
 	  || TREE_CODE (gnu_result) == NON_LVALUE_EXPR)
 	 && TREE_TYPE (TREE_OPERAND (gnu_result, 0)) == TREE_TYPE (gnu_result))

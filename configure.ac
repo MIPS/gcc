@@ -588,7 +588,7 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ld target-libgloss ${libgcj}"
     ;;
   avr-*-*)
-    noconfigdirs="$noconfigdirs target-libiberty target-libstdc++-v3 ${libgcj}"
+    noconfigdirs="$noconfigdirs target-libiberty target-libstdc++-v3 ${libgcj} target-libssp"
     ;;
   bfin-*-*)
     noconfigdirs="$noconfigdirs gdb"
@@ -1042,12 +1042,10 @@ case "${host}" in
     host_makefile_frag="config/mh-djgpp"
     ;;
   *-cygwin*)
+    ACX_CHECK_CYGWIN_CAT_WORKS
     host_makefile_frag="config/mh-cygwin"
     ;;
-  *-mingw32*)
-    host_makefile_frag="config/mh-mingw"
-    ;;
-  *-mingw64*)
+  *-mingw*)
     host_makefile_frag="config/mh-mingw"
     ;;
   *-interix*)

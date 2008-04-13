@@ -1,3 +1,35 @@
+2008-04-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* Makefile.tpl <gcc>: Error early unless at least GNU make 3.80.
+	* Makefile.in: Regenerate.
+
+2008-04-11  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* configure.ac: Do not build libssp for the AVR.
+	* configure: Regenerate.
+
+2008-04-07  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.def: check-gold depends upon all-binutils.
+	* Makefile.in: Regenerate.
+
+2008-04-04  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-04  Nick Clifton  <nickc@redhat.com>
+
+	PR binutils/4334
+	* configure.ac: Run ACX_CHECK_CYGWIN_CAT_WORKS for cygwin hosted
+	builds.
+	* configure: Regenerate.
+
+2008-04-04  NightStrike  <NightStrike@gmail.com>
+
+	PR other/35151
+        * configure.ac: Combine rules for mingw32 and mingw64.
+        * configure: Regenerate.
+
 2008-04-02  Kai Tietz  <kai.tietz@onvision.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.

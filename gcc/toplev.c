@@ -1072,10 +1072,11 @@ decode_d_option (const char *arg)
       case 'H':
 	setup_core_dumping();
 	break;
-
       case 'a':
+	enable_rtl_dump_file ();
+	break;
+
       default:
-	if (!enable_rtl_dump_file (c))
 	  warning (0, "unrecognized gcc debugging option: %c", c);
 	break;
       }
@@ -1894,13 +1895,6 @@ process_options (void)
       warning (0, "-fprefetch-loop-arrays is not supported with -Os");
       flag_prefetch_loop_arrays = 0;
     }
-
-#ifndef OBJECT_FORMAT_ELF
-#ifndef OBJECT_FORMAT_MACHO
-  if (flag_function_sections && write_symbols != NO_DEBUG)
-    warning (0, "-ffunction-sections may affect debugging on some targets");
-#endif
-#endif
 
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)

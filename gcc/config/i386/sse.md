@@ -43,8 +43,10 @@
 (define_mode_attr ssevecsize [(V16QI "b") (V8HI "w") (V4SI "d") (V2DI "q")])
 
 ;; Mapping of the sse5 suffix
-(define_mode_attr ssemodesuffixf4 [(SF "ss") (DF "sd") (V4SF "ps") (V2DF "pd")])
-(define_mode_attr ssemodesuffixf2s [(SF "ss") (DF "sd") (V4SF "ss") (V2DF "sd")])
+(define_mode_attr ssemodesuffixf4 [(SF "ss") (DF "sd")
+				   (V4SF "ps") (V2DF "pd")])
+(define_mode_attr ssemodesuffixf2s [(SF "ss") (DF "sd")
+				    (V4SF "ss") (V2DF "sd")])
 (define_mode_attr ssemodesuffixf2c [(V4SF "s") (V2DF "d")])
 
 ;; Mapping of the max integer size for sse5 rotate immediate constraint
@@ -346,17 +348,12 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_expand "neg<mode>2"
+(define_expand "<code><mode>2"
   [(set (match_operand:SSEMODEF2P 0 "register_operand" "")
-	(neg:SSEMODEF2P (match_operand:SSEMODEF2P 1 "register_operand" "")))]
+	(absneg:SSEMODEF2P
+	  (match_operand:SSEMODEF2P 1 "register_operand" "")))]
   "SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
-  "ix86_expand_fp_absneg_operator (NEG, <MODE>mode, operands); DONE;")
-
-(define_expand "abs<mode>2"
-  [(set (match_operand:SSEMODEF2P 0 "register_operand" "")
-	(abs:SSEMODEF2P (match_operand:SSEMODEF2P 1 "register_operand" "")))]
-  "SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
-  "ix86_expand_fp_absneg_operator (ABS, <MODE>mode, operands); DONE;")
+  "ix86_expand_fp_absneg_operator (<CODE>, <MODE>mode, operands); DONE;")
 
 (define_expand "<addsub><mode>3"
   [(set (match_operand:SSEMODEF2P 0 "register_operand" "")
@@ -7896,4 +7893,81 @@
 	  : "pcomfalse<ssevecsize>\t{%2, %1, %0|%0, %1, %2}");
 }
   [(set_attr "type" "ssecmp")
+   (set_attr "mode" "TI")])
+
+(define_insn "aesenc"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESENC))]
+  "TARGET_AES"
+  "aesenc\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "aesenclast"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESENCLAST))]
+  "TARGET_AES"
+  "aesenclast\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "aesdec"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESDEC))]
+  "TARGET_AES"
+  "aesdec\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "aesdeclast"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
+		       (match_operand:V2DI 2 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESDECLAST))]
+  "TARGET_AES"
+  "aesdeclast\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "aesimc"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "nonimmediate_operand" "xm")]
+		      UNSPEC_AESIMC))]
+  "TARGET_AES"
+  "aesimc\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "aeskeygenassist"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "nonimmediate_operand" "xm")
+		      (match_operand:SI 2 "const_0_to_255_operand" "n")]
+		     UNSPEC_AESKEYGENASSIST))]
+  "TARGET_AES"
+  "aeskeygenassist\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
+   (set_attr "mode" "TI")])
+
+(define_insn "pclmulqdq"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
+		      (match_operand:V2DI 2 "nonimmediate_operand" "xm")
+		      (match_operand:SI 3 "const_0_to_255_operand" "n")]
+		     UNSPEC_PCLMUL))]
+  "TARGET_PCLMUL"
+  "pclmulqdq\t{%3, %2, %0|%0, %2, %3}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix_extra" "1")
    (set_attr "mode" "TI")])

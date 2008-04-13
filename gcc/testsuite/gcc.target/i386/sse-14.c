@@ -1,16 +1,17 @@
 /* { dg-do compile } */
-/* { dg-options "-O0 -Werror-implicit-function-declaration -march=k8 -m3dnow -msse4 -msse5" } */
+/* { dg-options "-O0 -Werror-implicit-function-declaration -march=k8 -m3dnow -msse4 -msse5 -maes -mpclmul" } */
 
 #include <mm_malloc.h>
 
 /* Test that the intrinsics compile without optimization.  All of them are
-   defined as inline functions in {,x,e,p,t,s,a,b}mmintrin.h  and mm3dnow.h
+   defined as inline functions in {,x,e,p,t,s,w,a,b}mmintrin.h  and mm3dnow.h
    that reference the proper builtin functions.  Defining away "extern" and
    "__inline" results in all of them being compiled as proper functions.  */
 
 #define extern
 #define __inline
 
+#include <wmmintrin.h>
 #include <bmmintrin.h>
 #include <smmintrin.h>
 #include <mm3dnow.h>
@@ -45,6 +46,16 @@
 /* ammintrin.h */
 test_1x (_mm_extracti_si64, __m128i, __m128i, 1, 1)
 test_2x (_mm_inserti_si64, __m128i, __m128i, __m128i, 1, 1)
+
+/* wmmintrin.h */
+test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)
+test_2 (_mm_clmulepi64_si128, __m128i, __m128i, __m128i, 1)
+
+/* mmintrin-common.h */
+test_1 (_mm_round_pd, __m128d, __m128d, 1)
+test_1 (_mm_round_ps, __m128, __m128, 1)
+test_2 (_mm_round_sd, __m128d, __m128d, __m128d, 1)
+test_2 (_mm_round_ss, __m128, __m128, __m128, 1)
 
 /* smmintrin.h */
 test_2 (_mm_blend_epi16, __m128i, __m128i, __m128i, 1)

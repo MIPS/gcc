@@ -2146,11 +2146,6 @@ struct tree_block GTY(())
 #define TYPE_IS_SIZETYPE(NODE) \
   (INTEGER_TYPE_CHECK (NODE)->type.no_force_blk_flag)
 
-/* In a FUNCTION_TYPE, indicates that the function returns with the stack
-   pointer depressed.  */
-#define TYPE_RETURNS_STACK_DEPRESSED(NODE) \
-  (FUNCTION_TYPE_CHECK (NODE)->type.no_force_blk_flag)
-
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->base.volatile_flag)
 
@@ -4792,6 +4787,9 @@ extern bool tree_binary_nonnegative_warnv_p (enum tree_code, tree, tree, tree,
                                              bool *);
 extern bool tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p);
 extern bool tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p);
+extern bool tree_call_nonnegative_warnv_p (enum tree_code code, tree, tree,
+                                           tree, tree, bool *);
+
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 extern bool fold_real_zero_addition_p (const_tree, const_tree, int);
@@ -4945,14 +4943,11 @@ extern tree build_duplicate_type (tree);
 /* Nonzero if this is a call to "pure" function (like const function,
    but may read memory.  */
 #define ECF_PURE		128
-/* Nonzero if this is a call to a function that returns with the stack
-   pointer depressed.  */
-#define ECF_SP_DEPRESSED	256
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	512
+#define ECF_LIBCALL_BLOCK	256
 /* Function does not read or write memory (but may have side effects, so
    it does not necessarily fit ECF_CONST).  */
-#define ECF_NOVOPS		1024
+#define ECF_NOVOPS		512
 
 extern int flags_from_decl_or_type (const_tree);
 extern int call_expr_flags (const_tree);

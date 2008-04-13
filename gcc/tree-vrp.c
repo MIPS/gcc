@@ -1904,8 +1904,6 @@ extract_range_from_binary_expr (value_range_t *vr,
       && code != MIN_EXPR
       && code != MAX_EXPR
       && code != BIT_AND_EXPR
-      && code != TRUTH_ANDIF_EXPR
-      && code != TRUTH_ORIF_EXPR
       && code != TRUTH_AND_EXPR
       && code != TRUTH_OR_EXPR)
     {
@@ -1992,9 +1990,7 @@ extract_range_from_binary_expr (value_range_t *vr,
 
   /* For integer ranges, apply the operation to each end of the
      range and see what we end up with.  */
-  if (code == TRUTH_ANDIF_EXPR
-      || code == TRUTH_ORIF_EXPR
-      || code == TRUTH_AND_EXPR
+  if (code == TRUTH_AND_EXPR
       || code == TRUTH_OR_EXPR)
     {
       /* If one of the operands is zero, we know that the whole
@@ -2367,71 +2363,63 @@ extract_range_from_unary_expr (value_range_t *vr, enum tree_code code,
     }
 
   /* Handle unary expressions on integer ranges.  */
-  if (code == NOP_EXPR || code == CONVERT_EXPR)
+  if ((code == NOP_EXPR
+       || code == CONVERT_EXPR)
+      && INTEGRAL_TYPE_P (type)
+      && INTEGRAL_TYPE_P (TREE_TYPE (op0)))
     {
       tree inner_type = TREE_TYPE (op0);
       tree outer_type = type;
 
-      /* If VR0 represents a simple range, then try to convert
-	 the min and max values for the range to the same type
-	 as OUTER_TYPE.  If the results compare equal to VR0's
-	 min and max values and the new min is still less than
-	 or equal to the new max, then we can safely use the newly
-	 computed range for EXPR.  This allows us to compute
-	 accurate ranges through many casts.  */
-      if ((vr0.type == VR_RANGE
-	   && !overflow_infinity_range_p (&vr0))
-	  || (vr0.type == VR_VARYING
-	      && TYPE_PRECISION (outer_type) > TYPE_PRECISION (inner_type)))
+      /* Always use base-types here.  This is important for the
+	 correct signedness.  */
+      if (TREE_TYPE (inner_type))
+	inner_type = TREE_TYPE (inner_type);
+      if (TREE_TYPE (outer_type))
+	outer_type = TREE_TYPE (outer_type);
+
+      /* If VR0 is varying and we increase the type precision, assume
+	 a full range for the following transformation.  */
+      if (vr0.type == VR_VARYING
+	  && TYPE_PRECISION (inner_type) < TYPE_PRECISION (outer_type))
 	{
-	  tree new_min, new_max, orig_min, orig_max;
-
-	  /* Convert the input operand min/max to OUTER_TYPE.   If
-	     the input has no range information, then use the min/max
-	     for the input's type.  */
-	  if (vr0.type == VR_RANGE)
-	    {
-	      orig_min = vr0.min;
-	      orig_max = vr0.max;
-	    }
-	  else
-	    {
-	      orig_min = TYPE_MIN_VALUE (inner_type);
-	      orig_max = TYPE_MAX_VALUE (inner_type);
-	    }
-
-	  new_min = fold_convert (outer_type, orig_min);
-	  new_max = fold_convert (outer_type, orig_max);
-
-	  /* Verify the new min/max values are gimple values and
-	     that they compare equal to the original input's
-	     min/max values.  */
-	  if (is_gimple_val (new_min)
-	      && is_gimple_val (new_max)
-	      && tree_int_cst_equal (new_min, orig_min)
-	      && tree_int_cst_equal (new_max, orig_max)
-	      && (!is_overflow_infinity (new_min)
-		  || !is_overflow_infinity (new_max))
-	      && (cmp = compare_values (new_min, new_max)) <= 0
-	      && cmp >= -1)
-	    {
-	      set_value_range (vr, VR_RANGE, new_min, new_max, vr->equiv);
-	      return;
-	    }
+	  vr0.type = VR_RANGE;
+	  vr0.min = TYPE_MIN_VALUE (inner_type);
+	  vr0.max = TYPE_MAX_VALUE (inner_type);
 	}
 
-      /* When converting types of different sizes, set the result to
-	 VARYING.  Things like sign extensions and precision loss may
-	 change the range.  For instance, if x_3 is of type 'long long
-	 int' and 'y_5 = (unsigned short) x_3', if x_3 is ~[0, 0], it
-	 is impossible to know at compile time whether y_5 will be
-	 ~[0, 0].  */
-      if (TYPE_SIZE (inner_type) != TYPE_SIZE (outer_type)
-	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
+      /* If VR0 is a constant range or anti-range and the conversion is
+	 not truncating we can convert the min and max values and
+	 canonicalize the resulting range.  Otherwise we can do the
+	 conversion if the size of the range is less than what the
+	 precision of the target type can represent and the range is
+	 not an anti-range.  */
+      if ((vr0.type == VR_RANGE
+	   || vr0.type == VR_ANTI_RANGE)
+	  && TREE_CODE (vr0.min) == INTEGER_CST
+	  && TREE_CODE (vr0.max) == INTEGER_CST
+	  && !is_overflow_infinity (vr0.min)
+	  && !is_overflow_infinity (vr0.max)
+	  && (TYPE_PRECISION (outer_type) >= TYPE_PRECISION (inner_type)
+	      || (vr0.type == VR_RANGE
+		  && integer_zerop (int_const_binop (RSHIFT_EXPR,
+		       int_const_binop (MINUS_EXPR, vr0.max, vr0.min, 0),
+		         size_int (TYPE_PRECISION (outer_type)), 0)))))
 	{
-	  set_value_range_to_varying (vr);
+	  tree new_min, new_max;
+	  new_min = force_fit_type_double (outer_type,
+					   TREE_INT_CST_LOW (vr0.min),
+					   TREE_INT_CST_HIGH (vr0.min), 0, 0);
+	  new_max = force_fit_type_double (outer_type,
+					   TREE_INT_CST_LOW (vr0.max),
+					   TREE_INT_CST_HIGH (vr0.max), 0, 0);
+	  set_and_canonicalize_value_range (vr, vr0.type,
+					    new_min, new_max, NULL);
 	  return;
 	}
+
+      set_value_range_to_varying (vr);
+      return;
     }
 
   /* Conversion of a VR_VARYING value to a wider type can result
@@ -2776,8 +2764,6 @@ extract_range_from_expr (value_range_t *vr, tree expr)
   else if (code == SSA_NAME)
     extract_range_from_ssa_name (vr, expr);
   else if (TREE_CODE_CLASS (code) == tcc_binary
-	   || code == TRUTH_ANDIF_EXPR
-	   || code == TRUTH_ORIF_EXPR
 	   || code == TRUTH_AND_EXPR
 	   || code == TRUTH_OR_EXPR
 	   || code == TRUTH_XOR_EXPR)
@@ -5410,7 +5396,8 @@ vrp_evaluate_conditional (tree cond, tree stmt)
 
   if (warn_type_limits
       && ret
-      && TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison)
+      && TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison
+      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME)
     {
       /* If the comparison is being folded and the operand on the LHS
 	 is being compared against a constant value that is outside of
@@ -6764,20 +6751,6 @@ execute_vrp (void)
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
   vrp_finalize ();
 
-  /* Remove dead edges from SWITCH_EXPR optimization.  This leaves the
-     CFG in a broken state and requires a cfg_cleanup run.  */
-  for (i = 0; VEC_iterate (edge, to_remove_edges, i, e); ++i)
-    remove_edge (e);
-  /* Update SWITCH_EXPR case label vector.  */
-  for (i = 0; VEC_iterate (switch_update, to_update_switch_stmts, i, su); ++i)
-    SWITCH_LABELS (su->stmt) = su->vec;
-
-  if (VEC_length (edge, to_remove_edges) > 0)
-    free_dominance_info (CDI_DOMINATORS);
-
-  VEC_free (edge, heap, to_remove_edges);
-  VEC_free (switch_update, heap, to_update_switch_stmts);
-
   /* ASSERT_EXPRs must be removed before finalizing jump threads
      as finalizing jump threads calls the CFG cleanup code which
      does not properly handle ASSERT_EXPRs.  */
@@ -6791,6 +6764,24 @@ execute_vrp (void)
   update_ssa (TODO_update_ssa);
 
   finalize_jump_threads ();
+
+  /* Remove dead edges from SWITCH_EXPR optimization.  This leaves the
+     CFG in a broken state and requires a cfg_cleanup run.  */
+  for (i = 0; VEC_iterate (edge, to_remove_edges, i, e); ++i)
+    remove_edge (e);
+  /* Update SWITCH_EXPR case label vector.  */
+  for (i = 0; VEC_iterate (switch_update, to_update_switch_stmts, i, su); ++i)
+    SWITCH_LABELS (su->stmt) = su->vec;
+
+  if (VEC_length (edge, to_remove_edges) > 0)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      cleanup_tree_cfg ();
+    }
+
+  VEC_free (edge, heap, to_remove_edges);
+  VEC_free (switch_update, heap, to_update_switch_stmts);
+
   scev_finalize ();
   loop_optimizer_finalize ();
 

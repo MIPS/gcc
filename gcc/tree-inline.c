@@ -139,7 +139,6 @@ static void remap_save_expr (tree *, void *, int *);
 static void add_lexical_block (tree current_block, tree new_block);
 static tree copy_decl_to_var (tree, copy_body_data *);
 static tree copy_result_decl_to_var (tree, copy_body_data *);
-static tree copy_decl_no_change (tree, copy_body_data *);
 static tree copy_decl_maybe_to_var (tree, copy_body_data *);
 static gimple remap_gimple_stmt (gimple, copy_body_data *);
 
@@ -502,7 +501,7 @@ remap_block (tree *block, copy_body_data *id)
   fn = id->dst_fn;
 
   if (id->transform_lang_insert_block)
-    lang_hooks.decls.insert_block (new_block);
+    id->transform_lang_insert_block (new_block);
 
   /* Remember the remapped block.  */
   insert_decl_map (id, old_block, new_block);
@@ -562,7 +561,7 @@ copy_bind_expr (tree *tp, int *walk_subtrees, copy_body_data *id)
 /* Create a new gimple_seq by remapping all the statements in BODY
    using the inlining information in ID.  */
 
-static gimple_seq
+gimple_seq
 remap_gimple_seq (gimple_seq body, copy_body_data *id)
 {
   gimple_stmt_iterator si;
@@ -1762,10 +1761,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
 
   return new_fndecl;
 }
-
-/* Make a copy of the GIMPLE body of function ID->SRC_FN.  Profile and
-   coverage count are in FREQUENCY and COUNT.  ENTRY_BLOCK_MAP and
-   EXIT_BLOCK_MAP are the entry and exit blocks to the region.  */
 
 static tree
 copy_body (copy_body_data *id, gcov_type count, int frequency,
@@ -3421,7 +3416,7 @@ optimize_inline_calls (tree fn)
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
   id.transform_new_cfg = false;
   id.transform_return_to_modify = true;
-  id.transform_lang_insert_block = false;
+  id.transform_lang_insert_block = NULL;
   id.statements_to_fold = pointer_set_create ();
 
   push_gimplify_context ();
@@ -3479,42 +3474,6 @@ optimize_inline_calls (tree fn)
 	  | TODO_cleanup_cfg
 	  | (gimple_in_ssa_p (cfun) ? TODO_remove_unused_locals : 0)
 	  | (profile_status != PROFILE_ABSENT ? TODO_rebuild_frequencies : 0));
-}
-
-
-/* FN is a function in High GIMPLE form that has a complete body and no
-   CFG.  CLONE is a function whose body is to be set to a copy of FN,
-   mapping argument declarations according to the ARG_MAP splay_tree.  */
-
-void
-clone_body (tree clone, tree fn, void *arg_map)
-{
-  copy_body_data id;
-  gimple_seq new_body;
-
-  /* FN must already be in GIMPLE form.  */
-  gcc_assert (gimple_body (fn));
-
-  /* Clone the body, as if we were making an inline call.  But, remap
-     the parameters in the callee to the parameters of caller.  */
-  memset (&id, 0, sizeof (id));
-  id.src_fn = fn;
-  id.dst_fn = clone;
-  id.src_cfun = DECL_STRUCT_FUNCTION (fn);
-  id.decl_map = (struct pointer_map_t *) arg_map;
-
-  id.copy_decl = copy_decl_no_change;
-  id.transform_call_graph_edges = CB_CGE_DUPLICATE;
-  id.transform_new_cfg = true;
-  id.transform_return_to_modify = false;
-  id.transform_lang_insert_block = true;
-
-  /* We're not inside any EH region.  */
-  id.eh_region = -1;
-
-  /* Actually copy the body.  */
-  new_body = remap_gimple_seq (gimple_body (fn), &id);
-  gimple_set_body (clone, new_body);
 }
 
 /* Passed to walk_tree.  Copies the node pointed to, if appropriate.  */
@@ -3737,7 +3696,7 @@ unsave_expr_now (tree expr)
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
   id.transform_new_cfg = false;
   id.transform_return_to_modify = false;
-  id.transform_lang_insert_block = false;
+  id.transform_lang_insert_block = NULL;
 
   /* Walk the tree once to find local labels.  */
   walk_tree_without_duplicates (&expr, mark_local_for_remap_r, &id);
@@ -3881,7 +3840,7 @@ copy_result_decl_to_var (tree decl, copy_body_data *id)
   return copy_decl_for_dup_finish (id, decl, copy);
 }
 
-static tree
+tree
 copy_decl_no_change (tree decl, copy_body_data *id)
 {
   tree copy;
@@ -4017,7 +3976,7 @@ tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
     = update_clones ? CB_CGE_MOVE_CLONES : CB_CGE_MOVE;
   id.transform_new_cfg = true;
   id.transform_return_to_modify = false;
-  id.transform_lang_insert_block = false;
+  id.transform_lang_insert_block = NULL;
 
   current_function_decl = new_decl;
   old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION

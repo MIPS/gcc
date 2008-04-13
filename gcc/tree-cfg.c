@@ -2021,6 +2021,33 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
             remove_useless_stmts_1 (&body_gsi, data);
           }
           break;
+
+	case OMP_PARALLEL:
+	  /* Make sure the outermost BIND_EXPR in OMP_BODY isn't removed
+	     as useless.  */
+	  remove_useless_stmts_1 (&BIND_EXPR_BODY (OMP_BODY (*tp)), data);
+	  data->last_goto = NULL;
+	  break;
+
+	case OMP_SECTIONS:
+	case OMP_SINGLE:
+	case OMP_SECTION:
+	case OMP_MASTER :
+	case OMP_ORDERED:
+	case OMP_CRITICAL:
+	  remove_useless_stmts_1 (&OMP_BODY (*tp), data);
+	  data->last_goto = NULL;
+	  break;
+
+	case OMP_FOR:
+	  remove_useless_stmts_1 (&OMP_FOR_BODY (*tp), data);
+	  data->last_goto = NULL;
+	  if (OMP_FOR_PRE_BODY (*tp))
+	    {
+	      remove_useless_stmts_1 (&OMP_FOR_PRE_BODY (*tp), data);
+	      data->last_goto = NULL;
+	    }
+	  break;
 #endif
 
         default:
@@ -3498,6 +3525,8 @@ verify_types_in_gimple_assign (gimple stmt)
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
+      gcc_unreachable ();
+
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
@@ -3845,6 +3874,8 @@ verify_stmt (gimple_stmt_iterator *gsi)
   if (addr)
     {
       debug_generic_expr (addr);
+      inform ("in statement");
+      debug_gimple_stmt (stmt);
       return true;
     }
 
@@ -5804,6 +5835,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   arg = DECL_ARGUMENTS (fn);
   while (arg)
     {
+      print_generic_expr (file, TREE_TYPE (arg), dump_flags);
+      fprintf (file, " ");
       print_generic_expr (file, arg, dump_flags);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
@@ -6099,6 +6132,9 @@ gimple_block_ends_with_condjump_p (const_basic_block bb)
 static bool
 need_fake_edge_p (gimple t)
 {
+  tree fndecl = NULL_TREE;
+  int call_flags;
+
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST and PURE calls do not need one.
      We don't currently check for CONST and PURE here, although
@@ -6106,8 +6142,19 @@ need_fake_edge_p (gimple t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
+  if (is_gimple_call (t))
+    {
+      fndecl = gimple_call_fndecl (t);
+      call_flags = gimple_call_flags (t);
+    }
+  if (is_gimple_call (t) && fndecl && DECL_BUILT_IN (fndecl)
+      && (call_flags & ECF_NOTHROW)
+      && !(call_flags & ECF_NORETURN)
+      && !(call_flags & ECF_RETURNS_TWICE))
+   return false;
+
   if (is_gimple_call (t)
-      && !(gimple_call_flags (t) & ECF_NORETURN))
+      && !(call_flags & ECF_NORETURN))
     return true;
 
   if (gimple_code (t) == ASM_EXPR
@@ -6773,7 +6820,7 @@ execute_warn_function_noreturn (void)
   if (warn_missing_noreturn
       && !TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
-      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
+      && !lang_hooks.missing_noreturn_ok_p (cfun->decl))
     warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
 	     "for attribute %<noreturn%>",
 	     cfun->decl);

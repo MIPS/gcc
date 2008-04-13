@@ -6656,10 +6656,10 @@ rs6000_va_start (tree valist, rtx nextarg)
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
-  words = current_function_args_info.words;
-  n_gpr = MIN (current_function_args_info.sysv_gregno - GP_ARG_MIN_REG,
+  words = crtl->args.info.words;
+  n_gpr = MIN (crtl->args.info.sysv_gregno - GP_ARG_MIN_REG,
 	       GP_ARG_NUM_REG);
-  n_fpr = MIN (current_function_args_info.fregno - FP_ARG_MIN_REG,
+  n_fpr = MIN (crtl->args.info.fregno - FP_ARG_MIN_REG,
 	       FP_ARG_NUM_REG);
 
   if (TARGET_DEBUG_ARG)
@@ -6834,7 +6834,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       else if (reg == fpr && TYPE_MODE (type) == TDmode)
 	{
 	  regalign = 1;
-	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), reg, size_int (1));
+	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), reg,
+		      build_int_cst (TREE_TYPE (reg), 1));
 	  u = build2 (MODIFY_EXPR, void_type_node, reg, t);
 	}
 
@@ -6872,7 +6873,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	{
 	  /* Ensure that we don't find any more args in regs.
 	     Alignment has taken care of for special cases.  */
-	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (reg), reg, size_int (8));
+	  t = build_gimple_modify_stmt (reg,
+					build_int_cst (TREE_TYPE (reg), 8));
 	  gimplify_and_add (t, pre_p);
 	}
     }
@@ -11233,6 +11235,10 @@ rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case FIELD_DECL:
     case RESULT_DECL:
     case REAL_CST:
+    case INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case MISALIGNED_INDIRECT_REF:
+    case VIEW_CONVERT_EXPR:
       if (TYPE_MODE (TREE_TYPE (*tp)) == SDmode)
 	return *tp;
       break;
@@ -14201,7 +14207,7 @@ compute_vrsave_mask (void)
      them in again.  More importantly, the mask we compute here is
      used to generate CLOBBERs in the set_vrsave insn, and we do not
      wish the argument registers to die.  */
-  for (i = cfun->args_info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
+  for (i = crtl->args.info.vregno - 1; i >= ALTIVEC_ARG_MIN_REG; --i)
     mask &= ~ALTIVEC_REG_BIT (i);
 
   /* Similarly, remove the return value from the set.  */
@@ -14252,6 +14258,9 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
 	 stack for it, if it looks like we're calling SAVE_WORLD, which
 	 will attempt to save it. */
       info_ptr->vrsave_size  = 4;
+
+      /* If we are going to save the world, we need to save the link register too.  */
+      info_ptr->lr_save_p = 1;
 
       /* "Save" the VRsave register too if we're saving the world.  */
       if (info_ptr->vrsave_mask == 0)
@@ -14490,7 +14499,7 @@ rs6000_stack_info (void)
   info_ptr->reg_size     = reg_size;
   info_ptr->fixed_size   = RS6000_SAVE_AREA;
   info_ptr->vars_size    = RS6000_ALIGN (get_frame_size (), 8);
-  info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size,
+  info_ptr->parm_size    = RS6000_ALIGN (crtl->outgoing_args_size,
 					 TARGET_ALTIVEC ? 16 : 8);
   if (FRAME_GROWS_DOWNWARD)
     info_ptr->vars_size
@@ -16832,7 +16841,7 @@ rs6000_output_function_epilogue (FILE *file,
       if (! strcmp (language_string, "GNU C"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
-	       || ! strcmp (language_string, "GNU F95"))
+	       || ! strcmp (language_string, "GNU Fortran"))
 	i = 1;
       else if (! strcmp (language_string, "GNU Pascal"))
 	i = 2;
