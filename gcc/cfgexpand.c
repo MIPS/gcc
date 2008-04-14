@@ -1882,7 +1882,8 @@ handle_drap (void)
   
   if (current_function_calls_alloca
       || cfun->has_nonlocal_label
-      || current_function_has_nonlocal_goto)
+      || current_function_has_nonlocal_goto
+      || current_function_calls_eh_return)
     cfun->need_drap = true;
 
   /* Call targetm.calls.internal_arg_pointer again.  This time it will

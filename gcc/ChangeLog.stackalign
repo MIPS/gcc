@@ -1,3 +1,28 @@
+2008-04-14  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (struct dw_fde_struct): Rename is_stack_realign
+	to stack_realign and is_drap_reg_saved to drap_reg_saved.  Add
+	calls_eh_return.
+	(add_cfi): Updated.
+	(dwarf2out_frame_debug_expr): Likewise.
+	(dwarf2out_begin_prologue): Initialize calls_eh_return.
+	(reg_save_with_expression): Don't generate unwind information
+	for restoring the stack pointer if __builtin_eh_return is called.
+
+	* cfgexpand.c (handle_drap): Need drap if functon calls
+	__builtin_eh_return.
+
+	* config/i386/i386.c (find_drap_reg): Use DI_REG if function
+	calls __builtin_eh_return.
+	(ix86_internal_arg_pointer): Remove setting incoming stack
+	boundary to preferred when __builtin_eh_return is called.
+	(ix86_finalize_stack_realign_flags): New.
+	(ix86_expand_prologue): Call ix86_finalize_stack_realign_flags.
+	(ix86_expand_epilogue): Likewise.  Handle __builtin_eh_return
+	with stack realignment.
+
 2008-04-14  Joey Ye  <joey.ye@intel.com>
 
 	* emit-rtl.c (gen_reg_rtx): Don't update stack_alignment_estimated

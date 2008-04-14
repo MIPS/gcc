@@ -249,11 +249,13 @@ typedef struct dw_fde_struct GTY(())
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
   /* Whether we did stack realign in this call frame.*/
-  unsigned is_stack_realign : 1;
+  unsigned stack_realign : 1;
   /* Whether stack realign is drap. */
   unsigned is_drap : 1;
   /* Whether we saved this drap register. */
-  unsigned is_drap_reg_saved : 1;
+  unsigned drap_reg_saved : 1;
+  /* Whether called __builtin_eh_return */
+  unsigned calls_eh_return : 1;
 }
 dw_fde_node;
 
@@ -634,7 +636,7 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
   /* If stack is realigned, accessing the stored register via CFA+offset will
      be invalid. Here we will use a series of expressions in dwarf2 to simulate
      the stack realign and represent the location of the stored register. */
-  if (fde_table_in_use && (CUR_FDE.is_stack_realign || CUR_FDE.is_drap) 
+  if (fde_table_in_use && (CUR_FDE.stack_realign || CUR_FDE.is_drap) 
       && cfi->dw_cfi_opc == DW_CFA_offset)
     reg_save_with_expression (cfi);
 
@@ -1557,11 +1559,11 @@ static dw_cfa_location cfa_temp;
   
   Rule 16:
   (set sp (and: sp <const_int>))
-  effects: CUR_FDE.is_stack_realign = 1
+  effects: CUR_FDE.stack_realign = 1
            cfa_store.offset = 0
 
            if cfa_store.offset >= UNITS_PER_WORD
-             effects: CUR_FDE.is_drap_reg_saved = 1
+             effects: CUR_FDE.drap_reg_saved = 1
 
   Rule 17:
   (set (mem ({pre_inc, pre_dec} sp)) (mem (plus (cfa.reg) (const_int))))
@@ -1569,8 +1571,8 @@ static dw_cfa_location cfa_temp;
   
   Rule 18:
   (set (mem({pre_inc, pre_dec} sp)) fp)
-  constraints: CUR_FDE.is_stack_realign == 1
-  effects: CUR_FDE.is_stack_realign = 0
+  constraints: CUR_FDE.stack_realign == 1
+  effects: CUR_FDE.stack_realign = 0
            CUR_FDE.is_drap = 1
            CUR_FDE.drap_regnum = cfa.reg
 
@@ -1815,12 +1817,12 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
              assume the stack is realigned and we extract the alignment. */
           if (XEXP (src, 0) == stack_pointer_rtx && fde_table_in_use)
             {
-              CUR_FDE.is_stack_realign = 1;
+              CUR_FDE.stack_realign = 1;
               CUR_FDE.stack_realignment = INTVAL (XEXP (src, 1));
               /* If we didn't push anything to stack before stack is realigned,
                   we assume the drap register isn't saved. */
               if (cfa_store.offset > UNITS_PER_WORD)
-                CUR_FDE.is_drap_reg_saved = 1;
+                CUR_FDE.drap_reg_saved = 1;
               cfa_store.offset = 0;
             }
           return;
@@ -1869,10 +1871,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
           /* Rule 18 */
           /* If we push FP after stack is realigned, we assume this realignment
              is drap, we will recorde the drap register. */
-          if (fde_table_in_use && CUR_FDE.is_stack_realign
+          if (fde_table_in_use && CUR_FDE.stack_realign
               && REGNO (src) == HARD_FRAME_POINTER_REGNUM)
             {
-              CUR_FDE.is_stack_realign = 0;
+              CUR_FDE.stack_realign = 0;
               CUR_FDE.is_drap = 1;
               CUR_FDE.drap_regnum = DWARF_FRAME_REGNUM (cfa.reg);
             }            
@@ -2752,6 +2754,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->nothrow = TREE_NOTHROW (current_function_decl);
   fde->uses_eh_lsda = cfun->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = cfun->all_throwers_are_sibcalls;
+  fde->calls_eh_return = cfun->calls_eh_return;
 
   args_size = old_args_size = 0;
 
@@ -15549,7 +15552,7 @@ reg_save_with_expression (dw_cfi_ref cfi)
   int reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
   unsigned int dwarf_sp = (unsigned)DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
   
-  if (CUR_FDE.is_stack_realign)
+  if (CUR_FDE.stack_realign)
     {
       head = tmp = new_loc_descr (DW_OP_const4s, 2 * UNITS_PER_WORD, 0);
       tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
@@ -15565,8 +15568,8 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
     }
 
-  /* We need restore drap register through dereference. If we needn't to restore
-     the drap register we just ignore. */
+  /* We need restore drap register through dereference.  If we needn't
+     to restore the drap register, we just ignore it.  */
   if (CUR_FDE.is_drap && reg == CUR_FDE.drap_regnum)
     {
        
@@ -15575,7 +15578,7 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_opc = DW_CFA_expression;
       head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
       tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
-      if (CUR_FDE.is_drap_reg_saved)
+      if (CUR_FDE.drap_reg_saved)
         {
           tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_deref, 0, 0);
           tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_const4s, 
@@ -15585,13 +15588,23 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg;
       cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
 
-      /* We also need restore the sp. */
-      head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
-      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
-      cfi2->dw_cfi_opc = DW_CFA_expression;
-      cfi2->dw_cfi_oprnd2.dw_cfi_reg_num = dwarf_sp;
-      cfi2->dw_cfi_oprnd1.dw_cfi_loc = head;
-      cfi->dw_cfi_next = cfi2;
+      /* We also need to properly restore the caller's stack pointer.
+	 But if callee calls __builtin_eh_return, the calculation of
+	 offset from exception handling function (typically is
+	 _Unwind_RaiseException) to target function during unwinding
+	 will conflict with this mechanism.  It will simply set offset
+	 to zero.  So here if functions call __builtin_eh_return,
+	 there will be no unwind information for restoring the stack
+	 pointer.  */ 
+      if (!CUR_FDE.calls_eh_return)
+        {
+          head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
+          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+          cfi2->dw_cfi_opc = DW_CFA_expression;
+          cfi2->dw_cfi_oprnd2.dw_cfi_reg_num = dwarf_sp;
+          cfi2->dw_cfi_oprnd1.dw_cfi_loc = head;
+          cfi->dw_cfi_next = cfi2;
+        }
     }  
 }
 #else

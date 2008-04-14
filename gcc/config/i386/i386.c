@@ -6353,7 +6353,7 @@ find_drap_reg (void)
       && !DECL_NO_STATIC_CHAIN (cfun->decl))
     return DI_REG;
 
-  if (cfun->tail_call_emit)
+  if (cfun->tail_call_emit || current_function_calls_eh_return)
     return DI_REG;
 
   param_reg_num = ix86_function_regparm (TREE_TYPE (cfun->decl),
@@ -6382,12 +6382,6 @@ ix86_internal_arg_pointer (void)
     = (ix86_user_incoming_stack_boundary
        ? ix86_user_incoming_stack_boundary
        : ix86_default_incoming_stack_boundary);
-
-  /* Current stack realign doesn't support eh_return. Assume
-     function who calls eh_return is aligned. There will be sanity
-     check if stack realign happens together with eh_return later.  */
-  if (current_function_calls_eh_return)
-    ix86_incoming_stack_boundary = PREFERRED_STACK_BOUNDARY;
 
   /* Incoming stack alignment can be changed on individual functions
      via force_align_arg_pointer attribute.  We use the smallest
@@ -6481,6 +6475,31 @@ ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
     }
 }
 
+/* Finalize stack_realign_really flag, which will guide prologue/epilogue
+   to be generated in correct form.  */
+static void 
+ix86_finalize_stack_realign_flags (void)
+{
+  /* Check if stack realign is really needed after reload, and 
+     stores result in cfun */
+  unsigned int stack_realign = (ix86_incoming_stack_boundary
+				< (current_function_is_leaf
+				   ? cfun->stack_alignment_used
+				   : cfun->stack_alignment_needed));
+
+  if (cfun->stack_realign_finalized)
+    {
+      /* After stack_realign_really is finalized, we can't no longer
+	 change it.  */
+      gcc_assert (cfun->stack_realign_really == stack_realign);
+    }
+  else
+    {
+      cfun->stack_realign_really = stack_realign;
+      cfun->stack_realign_finalized = true;
+    }
+}
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -6492,17 +6511,10 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
   rtx (*gen_andsp) (rtx, rtx, rtx);
 
+  ix86_finalize_stack_realign_flags ();
+
   /* DRAP should not coexist with stack_realign_fp */
   gcc_assert (!(crtl->drap_reg && stack_realign_fp));
-
-  /* Check if stack realign is really needed after reload, and 
-     stores result in cfun */
-  cfun->stack_realign_really = (ix86_incoming_stack_boundary
-				< (current_function_is_leaf
-				   ? cfun->stack_alignment_used
-				   : cfun->stack_alignment_needed));
-
-  cfun->stack_realign_finalized = true;
 
   ix86_compute_frame_layout (&frame);
 
@@ -6752,12 +6764,16 @@ void
 ix86_expand_epilogue (int style)
 {
   int regno;
- /* When stack realign may happen, SP must be valid. */
-  int sp_valid = (!frame_pointer_needed
-		  || current_function_sp_is_unchanging
-		  || (stack_realign_fp && cfun->stack_realign_really));
+  int sp_valid;
   struct ix86_frame frame;
   HOST_WIDE_INT offset;
+
+  ix86_finalize_stack_realign_flags ();
+
+ /* When stack is realigned, SP must be valid.  */
+  sp_valid = (!frame_pointer_needed
+	      || current_function_sp_is_unchanging
+	      || (stack_realign_fp && cfun->stack_realign_really));
 
   ix86_compute_frame_layout (&frame);
 
@@ -6812,13 +6828,18 @@ ix86_expand_epilogue (int style)
       if (style == 2)
 	{
 	  rtx tmp, sa = EH_RETURN_STACKADJ_RTX;
-
-	  if (cfun->stack_realign_really)
-	    {
-	      error("Stack realign has conflict with eh_return");
-	    }
 	  if (frame_pointer_needed)
 	    {
+              if (cfun->stack_realign_really)
+                {
+                  gcc_assert (!stack_realign_fp);
+                  gcc_assert (cfun->calls_eh_return);
+                  tmp = plus_constant (crtl->drap_reg,
+				       2 * (-UNITS_PER_WORD));
+                  tmp = gen_rtx_MEM (Pmode, tmp);
+                  emit_move_insn (crtl->drap_reg, tmp);
+                }
+
 	      tmp = gen_rtx_PLUS (Pmode, hard_frame_pointer_rtx, sa);
 	      tmp = plus_constant (tmp, UNITS_PER_WORD);
 	      emit_insn (gen_rtx_SET (VOIDmode, sa, tmp));
@@ -6909,7 +6930,9 @@ ix86_expand_epilogue (int style)
 	}
     }
 
-  if (crtl->drap_reg && cfun->stack_realign_really)
+  if (style != 2
+      && crtl->drap_reg
+      && cfun->stack_realign_really)
     {
       int param_ptr_offset = (cfun->save_param_ptr_reg
 			      ? STACK_BOUNDARY / BITS_PER_UNIT : 0);
