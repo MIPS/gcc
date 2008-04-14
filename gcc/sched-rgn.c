@@ -1039,7 +1039,7 @@ haifa_find_rgns (void)
 static void
 find_rgns (void)
 {
-  if (SEL_SCHED_P && flag_sel_sched_pipelining_outer_loops)
+  if (SEL_SCHED_P && flag_sel_sched_pipelining)
     sel_find_rgns ();
   else
     haifa_find_rgns ();

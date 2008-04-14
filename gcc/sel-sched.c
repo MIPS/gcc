@@ -66,9 +66,6 @@
    selective scheduling and software pipelining. 
    ACM TOPLAS, Vol 19, No. 6, pages 853--898, Nov. 1997.  */
 
-/* True when separable insns should be scheduled as RHSes.  */
-bool enable_schedule_as_rhs_p;
-
 /* True when pipelining is enabled.  */
 bool pipelining_p;
 
@@ -280,6 +277,9 @@ int global_level;
 /* Current fences.  */
 flist_t fences;
 
+/* True when separable insns should be scheduled as RHSes.  */
+static bool enable_schedule_as_rhs_p;
+
 /* Used in verify_target_availability to assert that target reg is reported
    unavailabile by both TARGET_UNAVAILABLE and find_used_regs only if
    we haven't scheduled anything on the previous fence.  
@@ -296,6 +296,9 @@ static int first_emitted_uid;
 static bitmap_head _forced_ebb_heads;
 bitmap_head *forced_ebb_heads = &_forced_ebb_heads;
 
+/* Blocks that need to be rescheduled after pipelining.  */
+bitmap blocks_to_reschedule = NULL;
+
 /* True when the first lv set should be ignored when updating liveness.  */
 static bool ignore_first = false;
 
@@ -307,6 +310,13 @@ static int need_stall = 0;
 
 /* Whether we can issue more instructions.  */
 static int can_issue_more;
+
+/* Maximum software lookahead window size, reduced when rescheduling after
+   pipelining.  */
+static int max_ws;
+
+/* Number of insns scheduled in current region.  */
+static int num_insns_scheduled;
 
 /* A vector of expressions is used to be able to sort them.  */
 DEF_VEC_P(expr_t);
@@ -442,7 +452,7 @@ extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
 	  int seqno = INSN_SEQNO (succ);
 
 	  if (0 < seqno && seqno <= orig_max_seqno
-	      && (pipelining_p || INSN_SCHED_CYCLE (succ) <= 0))
+	      && (pipelining_p || INSN_SCHED_TIMES (succ) <= 0))
 	    {
 	      bool b = in_same_ebb_p (insn, succ)
                        || in_fallthru_bb_p (insn, succ);
@@ -778,7 +788,6 @@ static enum reg_class
 get_reg_class (rtx insn)
 {
   int alt, i, n_ops;
-  int predicated;
 
   extract_insn (insn);
   if (! constrain_operands (1))
@@ -787,7 +796,6 @@ get_reg_class (rtx insn)
   alt = which_alternative;
   n_ops = recog_data.n_operands;
 
-  predicated = GET_CODE (PATTERN (insn)) == COND_EXEC;
   for (i = 0; i < n_ops; ++i)
     {
       int matches = recog_op_alt[i][alt].matches;
@@ -1499,15 +1507,13 @@ find_best_reg_for_expr (expr_t expr, blist_t bnds, bool *is_orig_reg_p)
 }
 
 
-/* Flag to enable / disable ia64 speculation.  */
-static bool sel_speculation_p = true;
 static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Return true if dependence described by DS can be overcomed.  */
 static bool
 can_overcome_dep_p (ds_t ds)
 {
-  if (spec_info == NULL || !sel_speculation_p)
+  if (spec_info == NULL)
     return false;
 
   /* Leave only speculative data.  */
@@ -1883,7 +1889,7 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
       /* Only separable insns can be moved up with the new register.
          Anyways, we should mark that the original register is 
          unavailable.  */
-      if (!EXPR_SEPARABLE_P (insn_to_move_up))
+      if (!enable_schedule_as_rhs_p || !EXPR_SEPARABLE_P (insn_to_move_up))
         return MOVEUP_EXPR_NULL;
 
       EXPR_TARGET_AVAILABLE (insn_to_move_up) = false;
@@ -2455,7 +2461,7 @@ compute_av_set_inside_bb (insn_t first_insn, ilist_t p, int ws,
   for (last_insn = first_insn; last_insn != after_bb_end;
        last_insn = NEXT_INSN (last_insn))
     {
-      if (end_ws > MAX_WS)
+      if (end_ws > max_ws)
 	{
 	  /* We can reach max lookahead size at bb_header, so clean av_set 
 	     first.  */
@@ -2877,16 +2883,12 @@ sel_rank_for_schedule (const void *x, const void *y)
     return val;
 
   /* Prefer not scheduled insn over scheduled one.  */
-  val = EXPR_SCHED_TIMES (tmp) - EXPR_SCHED_TIMES (tmp2);
-  if (val)
-    return val;
-
-  /* FIXME: Want to try first clear all insns except with minimal SPEC.  */
-  /* Prefer a expr with smaller SPEC attribute.  
-     FIXME: should we use probabilities here?  */
-  val = EXPR_SPEC (tmp) - EXPR_SPEC (tmp2);
-  if (val)
-    return val;
+  if (EXPR_SCHED_TIMES (tmp) > 0 && EXPR_SCHED_TIMES (tmp2) > 0)
+    {
+      val = EXPR_SCHED_TIMES (tmp) - EXPR_SCHED_TIMES (tmp2);
+      if (val)
+	return val;
+    }
 
   /* Prefer jump over non-jump instruction.  */
   if (control_flow_insn_p (tmp_insn) && !control_flow_insn_p (tmp2_insn))
@@ -2895,7 +2897,13 @@ sel_rank_for_schedule (const void *x, const void *y)
     return 1;
 
   /* Prefer an expr with greater priority.  */
-  val = EXPR_PRIORITY (tmp2) - EXPR_PRIORITY (tmp);
+  if (EXPR_USEFULNESS (tmp) != 0 && EXPR_USEFULNESS (tmp2) != 0)
+    {
+      val = EXPR_PRIORITY (tmp2) * EXPR_USEFULNESS (tmp2)
+            - EXPR_PRIORITY (tmp) * EXPR_USEFULNESS (tmp);
+    }
+  else
+    val = EXPR_PRIORITY (tmp2) - EXPR_PRIORITY (tmp);
   if (val)
     return val;
 
@@ -2940,66 +2948,6 @@ sel_rank_for_schedule (const void *x, const void *y)
   return INSN_UID (tmp_insn) - INSN_UID (tmp2_insn);
 }
 
-/* Check if av-set AV_PTR contains EXPR corresponding to a jump that ends 
-   the loop.  */
-static bool
-end_of_loop_p (av_set_t av)
-{
-  /*basic_block loop_begin;*/
-  expr_t expr;
-  av_set_iterator si;
-
-  /*loop_begin = sel_is_loop_preheader_p (EBB_FIRST_BB (0)) ? EBB_FIRST_BB (1)
-                                                          : EBB_FIRST_BB (0);
-  gcc_assert (sel_is_loop_preheader_p (EBB_FIRST_BB (0)));*/
-  FOR_EACH_EXPR_1 (expr, si, &av)
-    {
-      insn_t insn = EXPR_INSN_RTX (expr);
-
-      /* Jumps must return to the first basic block of the region.  */
-      if (JUMP_P (insn)
-          && JUMP_LABEL (insn)
-          && BLOCK_FOR_INSN (JUMP_LABEL (insn)) == EBB_FIRST_BB (1))
-        return true;
-    }
-
-  return false;
-}
-
-/* While pipelining and scheduling end of loop, checks if instruction RHS
-   will be stalled at the beginning of loop if scheduled now.
-   Example:
-
-   ORIGINAL_LOOP:
-         load f8=[r1];
-         ...
-         <scheduling fence here>
-         if (cc0) jump ORIGINAL_LOOP
-         ...
-
-   MODIFIED_LOOP:
-         check.spec f8;
-         ...
-         load.spec f8=[r1]
-         if (cc0) jump MODIFIED_LOOP
-         ...
-
-  Imagine, when scheduling original loop we can pipeline load from the 
-  beginning of loop.  But is we do so, load's result will not be ready when 
-  executing check operation and execution will stall.  This can happen with
-  speculation instructions (which leave checks in the original place of moved
-  instruction) or renamed instructions (which leave renaming instruction in the
-  original place of moved instruction).  */
-static bool
-check_stalling_p (expr_t expr, bool is_orig_reg_p)
-{
-  if (EXPR_ORIG_SCHED_CYCLE (expr) != 0
-      && (!is_orig_reg_p || EXPR_SPEC_DONE_DS (expr) != 0)
-      && EXPR_ORIG_SCHED_CYCLE (expr) <= insn_cost (EXPR_INSN_RTX (expr)))
-    return true;
-  return false;
-}
-
 /* Filter out expressions that are pipelined too much.  */
 static void
 process_pipelined_exprs (av_set_t *av_ptr)
@@ -3040,9 +2988,9 @@ process_spec_exprs (av_set_t *av_ptr)
       /* The probability of a success is too low - don't speculate.  */
       if ((ds & SPECULATIVE)
           && (ds_weak (ds) < spec_info->data_weakness_cutoff
-              || EXPR_USEFULNESS (expr) < spec_info->control_weakness_cutoff		
-	      || (pipelining_p
-	      	  && (ds & DATA_SPEC)
+              || EXPR_USEFULNESS (expr) < spec_info->control_weakness_cutoff
+	      || (pipelining_p && false
+		  && (ds & DATA_SPEC)
 		  && (ds & CONTROL_SPEC))))
         {
           av_set_iter_remove (&si);
@@ -3189,9 +3137,8 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 {
   av_set_iterator si;
   expr_t expr;
-  int sched_next_worked = 0, stalled, n;
+  int sched_next_worked = 0, stalled, n, av0_prio;
   deps_t dc = BND_DC (BLIST_BND (bnds));
-  bool av_contain_end_of_loop_p;
 
   /* Bail out early when the ready list contained only USEs/CLOBBERs that are
      already scheduled.  */
@@ -3201,9 +3148,6 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
   /* Empty vector from the previous stuff.  */
   if (VEC_length (expr_t, vec_av_set) > 0)
     VEC_block_remove (expr_t, vec_av_set, 0, VEC_length (expr_t, vec_av_set));
-
-  /* We are interested in knowing if it is a loop end if pipelining is on.  */
-  av_contain_end_of_loop_p = pipelining_p && end_of_loop_p (av);
 
   /* Turn the set into a vector for sorting.  */
   gcc_assert (VEC_empty (expr_t, vec_av_set));
@@ -3215,11 +3159,14 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
          sizeof (expr_t), sel_rank_for_schedule);
 
   /* Filter out inappropriate expressions.  */
+  av0_prio = 0;
+
   for (n = 0, stalled = 0; VEC_iterate (expr_t, vec_av_set, n, expr); )
     {
       insn_t insn = EXPR_INSN_RTX (expr);
       char target_available;
       bool is_orig_reg_p = true;
+      int need_cycles;
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
@@ -3277,20 +3224,71 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
           continue;
         }
 
-      if (av_contain_end_of_loop_p
-          && check_stalling_p (expr, is_orig_reg_p))
-        {
-          VEC_unordered_remove (expr_t, vec_av_set, n);
-          if (sched_verbose >= 4)
-            sel_print ("Expr %d will cause stall when pipelining\n",
-                       INSN_UID (insn));
-          continue;
-        }
+      /* Filter expressions that need to be renamed or speculated when
+	 pipelining, because compensating register copies or speculation
+	 checks are likely to be placed near the beginning of the loop,
+	 causing a stall.  */
+      if (flag_sel_sched_restrict_pipelining & 1
+	  && pipelining_p && EXPR_ORIG_SCHED_CYCLE (expr) > 0
+	  && (!is_orig_reg_p || EXPR_SPEC_DONE_DS (expr) != 0))
+	{
+	  /* Estimation of number of cycles until loop branch for
+	     renaming/speculation to be successful.  */
+	  int need_n_ticks_till_branch = sel_vinsn_cost (EXPR_VINSN (expr));
 
+	  if ((int) current_loop_nest->ninsns < 2 * issue_rate)
+	     {
+	       VEC_unordered_remove (expr_t, vec_av_set, n);
+	       if (sched_verbose >= 4)
+		 sel_print ("Pipelining expr %d will likely cause stall\n",
+			    INSN_UID (insn));
+	       continue;
+	     }
+
+	  if (!is_orig_reg_p)
+	    {
+	      if (EXPR_SPEC_DONE_DS (expr) != 0)
+		need_n_ticks_till_branch -= 0;
+	      else
+		need_n_ticks_till_branch -= 2;
+	    }
+	  else
+	    need_n_ticks_till_branch -= 3;
+
+	  if ((int) current_loop_nest->ninsns - num_insns_scheduled
+	      < need_n_ticks_till_branch * issue_rate / 2
+	      && av0_prio <= need_n_ticks_till_branch)
+	     {
+	       VEC_unordered_remove (expr_t, vec_av_set, n);
+	       if (sched_verbose >= 4)
+		 sel_print ("Pipelining expr %d will likely cause stall\n",
+			    INSN_UID (insn));
+	       continue;
+	     }
+	}
+
+      if (flag_sel_sched_restrict_pipelining & 2
+	  && !pipelining_p
+	  && INSN_SCHED_CYCLE (insn) > FENCE_CYCLE (fence)
+	  && (sel_insn_is_speculation_check (insn)
+	      /*|| insn_eligible_for_subst_p (insn)*/))
+	{
+          stalled++;
+	  VEC_unordered_remove (expr_t, vec_av_set, n);
+	  if (sched_verbose >= 4)
+	    sel_print ("Scheduling expr %d will likely cause stall\n",
+		       INSN_UID (insn));
+	  continue;
+	}
+
+      need_cycles = tick_check_p (expr, dc, fence);
       /* Don't allow any insns whose data is not yet ready.  */
-      if (! tick_check_p (expr, dc, fence))
+      if (need_cycles > 0)
 	{
           /* We need to know whether we do need to stall for any insns.  */
+	  int new_prio = EXPR_PRIORITY (expr) + need_cycles;
+	  if (av0_prio < new_prio && EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
+	    av0_prio = new_prio;
           stalled++;
           VEC_unordered_remove (expr_t, vec_av_set, n);
           if (sched_verbose >= 4)
@@ -3878,7 +3876,7 @@ generate_bookkeeping_insn (expr_t c_expr, insn_t join_point, edge e1, edge e2)
   if (!src)
     {
       /* Check that we don't spoil the loop structure.  */
-      if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
+      if (current_loop_nest)
         {
           basic_block latch = current_loop_nest->latch;
 
@@ -4655,8 +4653,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 
 	  /* Check that the recent movement didn't destroyed loop
 	     structure.  */
-	  gcc_assert (!flag_sel_sched_pipelining_outer_loops
-                      || !pipelining_p
+	  gcc_assert (!pipelining_p
 		      || current_loop_nest == NULL
 		      || loop_latch_edge (current_loop_nest));
         }
@@ -4907,7 +4904,16 @@ move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams,
 
   /* This can be previously created bookkeeping copy; do not count these.  */
   if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
-    bitmap_set_bit (current_originators, INSN_UID (insn));
+    {
+      bitmap_set_bit (current_originators, INSN_UID (insn));
+
+      if (INSN_SCHED_TIMES (insn) > 0)
+	/* Note that original block needs to be rescheduled, as we pulled an
+	   instruction out of it.  */
+	bitmap_set_bit (blocks_to_reschedule, BLOCK_FOR_INSN (insn)->index);
+      else if (INSN_UID (insn) < first_emitted_uid)
+	num_insns_scheduled++;
+    }
   else
     bitmap_clear_bit (current_copies, INSN_UID (insn));
 
@@ -5676,7 +5682,7 @@ static int cur_seqno;
 /* A helper for init_seqno.  Traverse the region starting from BB and 
    compute seqnos for visited insns, marking visited bbs in VISITED_BBS.  */
 static void
-init_seqno_1 (basic_block bb, sbitmap visited_bbs)
+init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 {
   int bbi = BLOCK_TO_BB (bb->index);
   insn_t insn, note = bb_note (bb);
@@ -5684,6 +5690,8 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs)
   succ_iterator si;
 
   SET_BIT (visited_bbs, bbi);
+  if (blocks_to_reschedule)
+    bitmap_clear_bit (blocks_to_reschedule, bb->index);
 
   FOR_EACH_SUCC_1 (succ_insn, si, BB_END (bb), 
 		   SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
@@ -5697,7 +5705,7 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs)
 	{
 	  gcc_assert (succ_bbi > bbi);
 
-	  init_seqno_1 (succ, visited_bbs);
+	  init_seqno_1 (succ, visited_bbs, blocks_to_reschedule);
 	}
     }
 
@@ -5707,53 +5715,38 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs)
 
 /* Initialize seqnos for the current region.  */
 static int
-init_seqno (bool rescheduling_p)
+init_seqno (bool rescheduling_p, bitmap blocks_to_reschedule, basic_block from)
 {
   sbitmap visited_bbs;
+  bitmap_iterator bi;
+  unsigned bbi;
 
   visited_bbs = sbitmap_alloc (current_nr_blocks);
-  sbitmap_zero (visited_bbs);
+
+  if (blocks_to_reschedule)
+    {
+      sbitmap_ones (visited_bbs);
+      EXECUTE_IF_SET_IN_BITMAP (blocks_to_reschedule, 0, bbi, bi)
+        {
+	  gcc_assert (BLOCK_TO_BB (bbi) < current_nr_blocks);
+          RESET_BIT (visited_bbs, BLOCK_TO_BB (bbi));
+	}
+    }
+  else
+    {
+      sbitmap_zero (visited_bbs);
+      from = EBB_FIRST_BB (0);
+    }
 
   cur_seqno = sched_max_luid - 1;
 
-  init_seqno_1 (EBB_FIRST_BB (0), visited_bbs);
+  init_seqno_1 (from, visited_bbs, blocks_to_reschedule);
 
   gcc_assert (rescheduling_p || cur_seqno == 0);
 
   sbitmap_free (visited_bbs);
 
   return sched_max_luid - 1;
-}
-
-/* If region is a loop, add an empty basic block before its head, so no
-   bookkeeping instructions will be generated on boundary edges.
-   Return true if current region is a loop.  */
-static bool
-add_region_head (void)
-{
-  basic_block region_head = BASIC_BLOCK (BB_TO_BLOCK (0));
-
-  /* We don't want to pipeline weird loops.  */
-  if (EDGE_COUNT (region_head->preds) != 2
-      || !(EDGE_PRED (region_head, 0)->flags & EDGE_FALLTHRU)
-      || (EDGE_PRED (region_head, 1)->flags & EDGE_FALLTHRU))
-    return false;
-  else
-    {
-      basic_block fallthru_pred = EDGE_PRED (region_head, 0)->src;
-      basic_block jump_pred = EDGE_PRED (region_head, 1)->src;
-      basic_block new_region_head;
-
-      if (in_current_region_p (fallthru_pred)
-	  || !in_current_region_p (jump_pred))
-	return false;
-
-      can_add_real_insns_p = false;
-      new_region_head = sel_create_basic_block_before (region_head);
-      can_add_real_insns_p = true;
-
-      return true;
-    }
 }
 
 /* Init scheduling data for RGN.  Returns true when this region should not 
@@ -5775,7 +5768,7 @@ sel_region_init (int rgn)
 
   /* If this loop has any saved loop preheaders from nested loops,
      add these basic blocks to the current region.  */
-  if (flag_sel_sched_pipelining_outer_loops)
+  if (flag_sel_sched_pipelining)
     {
       current_loop_nest = get_loop_nest_for_rgn (rgn);
 
@@ -5844,6 +5837,8 @@ sel_region_init (int rgn)
   sel_setup_sched_infos ();
   sel_init_global_and_expr (bbs);
 
+  blocks_to_reschedule = BITMAP_ALLOC (NULL);
+
   /* Finalize haifa-specific data.  */
   haifa_finish_h_i_d ();
 
@@ -5876,10 +5871,7 @@ sel_region_init (int rgn)
       /* If pipelining of outer loops is enabled, the loop header is
 	 already created with loop optimizer, so if current region
 	 has a corresponding loop nest, we should pipeline it.  */
-      if (flag_sel_sched_pipelining_outer_loops)
-	pipelining_p = (current_loop_nest != NULL);
-      else
-	pipelining_p = add_region_head ();
+      pipelining_p = (current_loop_nest != NULL);
     }
 
   setup_dump_cfg_params ();
@@ -6189,6 +6181,7 @@ sel_region_finish (void)
   sched_finish_luids ();
 
   sel_finish_bbs ();
+  BITMAP_FREE (blocks_to_reschedule);
 
   sel_unregister_cfg_hooks ();
   sel_unregister_rtl_hooks ();
@@ -6213,6 +6206,7 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
   stat_insns_needed_bookkeeping = 0;
   stat_renamed_scheduled = 0;
   stat_substitutions_total = 0;
+  num_insns_scheduled = 0;
 
   while (fences)
     {
@@ -6396,7 +6390,7 @@ sel_sched_region_1 (void)
 {
   struct sel_sched_region_2_data_def _data, *data = &_data;
 
-  data->orig_max_seqno = init_seqno (false);
+  data->orig_max_seqno = init_seqno (false, NULL, NULL);
   gcc_assert (data->orig_max_seqno >= 1);
 
   fences = NULL;
@@ -6408,6 +6402,8 @@ sel_sched_region_1 (void)
   else
     init_fences (bb_note (EBB_FIRST_BB (0)));
   global_level = 1;
+
+  max_ws = MAX_WS;
 
   sel_sched_region_2 (data);
 
@@ -6423,6 +6419,12 @@ sel_sched_region_1 (void)
 
       pipelining_p = false;
 
+      max_ws = issue_rate * 3 / 2;
+
+      bookkeeping_p = false;
+
+      enable_schedule_as_rhs_p = false;
+
       if (!flag_sel_sched_reschedule_pipelined)
         {
           /* Schedule newly created code, that has not been scheduled yet.  */
@@ -6433,9 +6435,30 @@ sel_sched_region_1 (void)
               do_p = false;
 
               for (i = 0; i < current_nr_blocks; i++)
+		{
+		  basic_block bb = EBB_FIRST_BB (i);
+
+		  if (sel_bb_empty_p (bb))
+		    {
+		      bitmap_clear_bit (blocks_to_reschedule, bb->index);
+		      continue;
+		    }
+
+		  if (bitmap_bit_p (blocks_to_reschedule, bb->index))
+		    {
+		      clear_outdated_rtx_info (bb);
+		      if (sel_insn_is_speculation_check (BB_END (bb))
+			  && JUMP_P (BB_END (bb)))
+			bitmap_set_bit (blocks_to_reschedule,
+					BRANCH_EDGE (bb)->dest->index);
+		    }
+		  else if (INSN_SCHED_TIMES (sel_bb_head (bb)) <= 0)
+		    bitmap_set_bit (blocks_to_reschedule, bb->index);
+		}
+
+              for (i = 0; i < current_nr_blocks; i++)
                 {
                   bb = EBB_FIRST_BB (i);
-                  head = sel_bb_head (bb);
 
                   /* While pipelining outer loops, skip bundling for loop 
                      preheaders.  Those will be rescheduled in the outer
@@ -6446,20 +6469,19 @@ sel_sched_region_1 (void)
                       continue;
                     }
                   
-                  if (head != NULL_RTX && INSN_SCHED_CYCLE (head) <= 0)
+                  if (bitmap_bit_p (blocks_to_reschedule, bb->index))
                     {
-                      gcc_assert (INSN_SCHED_CYCLE (head) == 0);
                       flist_tail_init (new_fences);
-  
-                      /* Allow start of the scheduling at the code that was
-                         generated during previous stages.  */
-                      data->orig_max_seqno = data->highest_seqno_in_use;
-  
+
+		      data->orig_max_seqno = init_seqno (true, blocks_to_reschedule, bb);
+
                       /* Mark BB as head of the new ebb.  */
                       bitmap_set_bit (forced_ebb_heads, bb->index);
+
+		      bitmap_clear_bit (blocks_to_reschedule, bb->index);
   
                       gcc_assert (fences == NULL);
-  
+
                       init_fences (bb_note (bb));
   
                       sel_sched_region_2 (data);
@@ -6529,58 +6551,12 @@ sel_sched_region_1 (void)
               if (loop_preheader)
                 clear_outdated_rtx_info (loop_preheader);
             }
-          else if (head != NULL_RTX)
-            {
-              gcc_assert (INSN_SCHED_CYCLE (head) == 0);
-              flist_tail_init (new_fences);
-
-              /* Allow start of the scheduling at the code that was
-                 generated during previous stages.  */
-              data->orig_max_seqno = data->highest_seqno_in_use;
-
-              /* Mark BB as head of the new ebb.  */
-              bitmap_set_bit (forced_ebb_heads, bb->index);
-
-              gcc_assert (fences == NULL);
-
-              init_fences (bb_note (bb));
-
-              sel_sched_region_2 (data);
-            }
 
           /* Reschedule pipelined code without pipelining.  */
           for (i = BLOCK_TO_BB (loop_entry->index); i < current_nr_blocks; i++)
-            {
-              insn_t insn, next_tail;
+	    clear_outdated_rtx_info (EBB_FIRST_BB (i));
 
-              bb = EBB_FIRST_BB (i);
-              get_ebb_head_tail (bb, bb, &head, &next_tail);
-
-              if (head == NULL_RTX || !INSN_P (head))
-                continue;
-
-              next_tail = NEXT_INSN (next_tail);
-
-              /* Clear outdated information.  */
-              for (insn = head;
-                   insn != next_tail;
-                   insn = NEXT_INSN (insn))
-                {
-                  gcc_assert (INSN_P (insn));
-                  INSN_AFTER_STALL_P (insn) = 0;
-                  INSN_SCHED_CYCLE (insn) = 0;
-
-                  /* ??? Should we reset those counters which reside in
-                     INSN_EXPR field (e.g. SPEC and SCHED_TIMES)?  */
-                  /* For now we do need to zero SCHED_TIMES because we don't
-                     want to skip dependencies from any instruction.  This
-                     will be a subject to consider when we implement better
-                     dependency tracking.  */
-                  INSN_SCHED_TIMES (insn) = 0;
-                }
-            }
-
-          data->orig_max_seqno = init_seqno (true);
+          data->orig_max_seqno = init_seqno (true, NULL, NULL);
           flist_tail_init (new_fences);
 
           /* Mark BB as head of the new ebb.  */
@@ -6597,6 +6573,12 @@ sel_sched_region_1 (void)
         }
 
       pipelining_p = true;
+
+      max_ws = MAX_WS;
+
+      bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
+
+      enable_schedule_as_rhs_p = true;
     }
 }
 
@@ -6707,8 +6689,8 @@ sel_global_finish (void)
   sched_finish_bbs ();
   sched_finish ();
 
-  if (flag_sel_sched_pipelining_outer_loops && current_loops)
-    pipeline_outer_loops_finish ();
+  if (current_loops)
+    sel_finish_pipelining ();
 
   free_sched_pools ();
   free_dominance_info (CDI_DOMINATORS);

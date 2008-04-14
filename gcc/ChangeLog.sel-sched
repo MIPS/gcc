@@ -1,3 +1,33 @@
+2008-04-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* common.opt (flag_sel_sched_pipelining_outer_loops): Init to 0.
+	(flag_sel_sched_restrict_pipelining): New.
+	* sched-rgn.c (find_rgns): Use flag_sel_sched_pipelining.
+	* sel-sched-ir.c (deps_init_id_data): New field force_use_p.
+	(deps_init_id_start_insn, deps_init_id_finish_lhs,
+	deps_init_id_note_reg_set, deps_init_id_note_reg_clobber,
+	deps_init_id): Upgrade to use it.
+	(tick_check_p): Change return type to int.
+	(clear_outdated_rtx_info): Zero INSN_SCHED_TIMES and INSN_AFTER_STALL_P.
+	(delete_and_free_basic_block, sel_add_or_remove_bb,
+	sel_split_block): Use blocks_to_reschedule.
+	(pipeline_outer_loops_init): Rename to sel_init_pipelining.
+	(pipeline_outer_loops_finish): Rename to sel_finish_pipelining.
+	(sel_find_rgns): Use FOR_EACH_LOOP.
+
+	* sel-sched.c: Update all uses of flag_sel_sched_pipelining_outer_loops
+	to check only for current_loop_nest.
+	(blocks_to_reschedule): New.
+	(end_of_loop_p, check_stalling_p): Remove.
+	(fill_vec_av_set): Limit pipelining aggressiveness.
+	(move_op_orig_expr_found): Update blocks_to_reschedule.
+	(init_seqno, init_seqno_1): Use it.
+	(add_region_head): Kill.
+	(sel_region_init): Allocate blocks_to_reschedule.
+	(sel_region_finish): Free it.
+	(sel_sched_region_1): Use blocks_to_reschedule to guide 
+	lazy rescheduling.
+
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
 	* common.opt (flag_sel_sched_emulate_haifa, 

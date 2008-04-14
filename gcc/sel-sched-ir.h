@@ -815,6 +815,8 @@ extern bool can_add_real_insns_p;
 
 /* FALSE if we add bb to another region, so we don't need to initialize it.  */
 extern bool adding_bb_to_current_region_p;
+
+extern bitmap blocks_to_reschedule;
 
 
 
@@ -939,7 +941,6 @@ extern sbitmap bbs_pipelined;
 
 /* Various flags.  */
 extern bool enable_moveup_set_path_p;
-extern bool enable_schedule_as_rhs_p;
 extern bool pipelining_p;
 extern bool bookkeeping_p;
 extern int max_insns_to_rename;  
@@ -1014,8 +1015,7 @@ inner_loop_header_p (basic_block bb)
 {
   struct loop *inner_loop; 
 
-  if (!flag_sel_sched_pipelining_outer_loops
-      || !current_loop_nest)
+  if (!current_loop_nest)
     return false;
 
   if (bb == EXIT_BLOCK_PTR)
@@ -1382,8 +1382,7 @@ _eligible_successor_edge_p (edge e1, succ_iterator *ip)
          of the outer loop, which will also be the preheader of 
          the current loop.  */
       if (pipelining_p
-           && (!flag_sel_sched_pipelining_outer_loops
-               || e1->src->loop_father == bb->loop_father))
+           && e1->src->loop_father == bb->loop_father)
         return !!(flags & SUCCS_NORMAL);
 
       /* A back edge should be requested explicitly.  */
@@ -1526,7 +1525,7 @@ extern regset compute_live (insn_t);
 extern void sel_clear_has_dependence (void);
 extern ds_t has_dependence_p (expr_t, insn_t, ds_t **);
 
-extern bool tick_check_p (expr_t, deps_t, fence_t);
+extern int tick_check_p (expr_t, deps_t, fence_t);
 
 /* Functions to work with insns.  */
 extern bool lhs_of_insn_equals_to_dest_p (insn_t, rtx);
@@ -1576,9 +1575,8 @@ extern basic_block sel_create_recovery_block (insn_t);
 extern void sel_merge_blocks (basic_block, basic_block);
 extern void sel_redirect_edge_and_branch (edge, basic_block);
 extern void sel_redirect_edge_and_branch_force (edge, basic_block);
-extern void pipeline_outer_loops (void);
-extern void pipeline_outer_loops_init (void);
-extern void pipeline_outer_loops_finish (void);
+extern void sel_init_pipelining (void);
+extern void sel_finish_pipelining (void);
 extern void sel_sched_region (int);
 extern void sel_find_rgns (void);
 extern loop_p get_loop_nest_for_rgn (unsigned int);

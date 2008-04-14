@@ -914,11 +914,15 @@ Common Report Var(flag_sel_sched_pipelining) Init(1)
 Perform software pipelining of inner loops during selective scheduling
 
 fsel-sched-pipelining-outer-loops
-Common Report Var(flag_sel_sched_pipelining_outer_loops) Init(1)
+Common Report Var(flag_sel_sched_pipelining_outer_loops) Init(0)
 Perform software pipelining of outer loops during selective scheduling
 
+fsel-sched-restrict-pipelining=
+Common RejectNegative Joined Report UInteger Var(flag_sel_sched_restrict_pipelining) Init(0)
+Reschedule pipelined regions without pipelining
+
 fsel-sched-reschedule-pipelined
-Common Report Var(flag_sel_sched_reschedule_pipelined) Init(1)
+Common Report Var(flag_sel_sched_reschedule_pipelined) Init(0)
 Reschedule pipelined regions without pipelining
 
 fsel-sched-renaming

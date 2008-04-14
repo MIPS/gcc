@@ -2419,6 +2419,7 @@ static struct
   deps_where_t where;
   idata_t id;
   bool force_unique_p;
+  bool force_use_p;
 } deps_init_id_data;
 
 /* Start initializing insn data.  */
@@ -2439,12 +2440,7 @@ deps_init_id_start_insn (insn_t insn)
   if (type == INSN)
     {
       if (!deps_init_id_data.force_unique_p)
-	{
-	  type = USE;
-
-	  if (enable_schedule_as_rhs_p)
-	    type = SET;
-	}
+	type = SET;
     }
   else if (type == JUMP_INSN)
     {
@@ -2485,20 +2481,6 @@ deps_init_id_finish_lhs (void)
   deps_init_id_data.where = DEPS_IN_INSN;
 }
 
-/* Downgrade to USE.  */
-static void
-deps_init_id_downgrade_to_use (void)
-{
-  gcc_assert (IDATA_TYPE (deps_init_id_data.id) == SET);
-
-  IDATA_TYPE (deps_init_id_data.id) = USE;
-
-  IDATA_LHS (deps_init_id_data.id) = NULL;
-  IDATA_RHS (deps_init_id_data.id) = NULL;
-
-  deps_init_id_data.where = DEPS_IN_INSN;
-}
-
 /* Note a set of REGNO.  */
 static void
 deps_init_id_note_reg_set (int regno)
@@ -2506,7 +2488,7 @@ deps_init_id_note_reg_set (int regno)
   haifa_note_reg_set (regno);
 
   if (deps_init_id_data.where == DEPS_IN_RHS)
-    deps_init_id_downgrade_to_use ();
+    deps_init_id_data.force_use_p = true;
 
   if (IDATA_TYPE (deps_init_id_data.id) != PC)
     SET_REGNO_REG_SET (IDATA_REG_SETS (deps_init_id_data.id), regno);
@@ -2519,7 +2501,7 @@ deps_init_id_note_reg_clobber (int regno)
   haifa_note_reg_clobber (regno);
 
   if (deps_init_id_data.where == DEPS_IN_RHS)
-    deps_init_id_downgrade_to_use ();
+    deps_init_id_data.force_use_p = true;
 
   if (IDATA_TYPE (deps_init_id_data.id) != PC)
     SET_REGNO_REG_SET (IDATA_REG_CLOBBERS (deps_init_id_data.id), regno);
@@ -2570,7 +2552,8 @@ deps_init_id_finish_insn (void)
       rtx lhs = IDATA_LHS (deps_init_id_data.id);
       rtx rhs = IDATA_RHS (deps_init_id_data.id);
 
-      if (lhs == NULL || rhs == NULL || !lhs_and_rhs_separable_p (lhs, rhs))
+      if (lhs == NULL || rhs == NULL || !lhs_and_rhs_separable_p (lhs, rhs)
+	  || deps_init_id_data.force_use_p)
 	{
           /* This should be a USE, as we don't want to schedule its RHS 
              separately.  However, we still want to have them recorded
@@ -2620,6 +2603,7 @@ deps_init_id (idata_t id, insn_t insn, bool force_unique_p)
   deps_init_id_data.where = DEPS_IN_NOWHERE;
   deps_init_id_data.id = id;
   deps_init_id_data.force_unique_p = force_unique_p;
+  deps_init_id_data.force_use_p = false;
 
   init_deps (dc);
 
@@ -3300,11 +3284,12 @@ static struct sched_deps_info_def _tick_check_sched_deps_info =
     0, 0, 0
   };
 
-/* Returns true when VI's insn can be scheduled on the current cycle of 
-   FENCE.  That is, all data from possible producers in DC_ORIG is ready.  */
-bool
+/* Estimate number of cycles from the current cycle of FENCE until EXPR can be
+   scheduled.  Return 0 if all data from producers in DC is ready.  */
+int
 tick_check_p (expr_t expr, deps_t dc, fence_t fence)
 {
+  int cycles_left;
   /* Initialize variables.  */
   tick_check_data.expr = expr;
   tick_check_data.cycle = 0;
@@ -3316,7 +3301,9 @@ tick_check_p (expr_t expr, deps_t dc, fence_t fence)
   deps_analyze_insn (dc, EXPR_INSN_RTX (expr));
   dc->readonly = 0;
 
-  return FENCE_CYCLE (fence) >= tick_check_data.cycle;
+  cycles_left = tick_check_data.cycle - FENCE_CYCLE (fence);
+
+  return cycles_left >= 0 ? cycles_left : 0;
 }
 
 
@@ -4288,7 +4275,7 @@ sel_finish_bbs (void)
   sel_restore_other_notes ();
 
   /* Remove current loop preheader from this loop.  */
-  if (flag_sel_sched_pipelining_outer_loops && current_loop_nest)
+  if (current_loop_nest)
     sel_remove_loop_preheader ();
 
   finish_region_bb_info ();
@@ -4624,8 +4611,12 @@ clear_outdated_rtx_info (basic_block bb)
   rtx insn;
 
   FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn) && SCHED_GROUP_P (insn))
-      SCHED_GROUP_P (insn) = 0;
+    if (INSN_P (insn))
+      {
+	SCHED_GROUP_P (insn) = 0;
+	INSN_AFTER_STALL_P (insn) = 0;
+	INSN_SCHED_TIMES (insn) = 0;
+      }
 }
 
 /* Add BB_NOTE to the pool of available basic block notes.  */
@@ -4728,6 +4719,8 @@ delete_and_free_basic_block (basic_block bb)
 
   if (BB_LV_SET (bb))
     free_lv_set (bb);
+
+  bitmap_clear_bit (blocks_to_reschedule, bb->index);
 
       /* Can't assert av_set properties when (add == 0) because
      we use sel_add_or_remove_bb (bb, 0) when removing loop
@@ -4911,11 +4904,10 @@ sel_add_or_remove_bb (basic_block bb, int add)
       if (add <= 0)
 	{
 	  return_bb_to_pool (bb);
+	  bitmap_clear_bit (blocks_to_reschedule, bb->index);
 
 	  if (add < 0)
             delete_and_free_basic_block (bb);
-	    {
-	    }
 	}
     }
   else
@@ -5174,8 +5166,7 @@ change_loops_latches (basic_block from, basic_block to)
 {
   gcc_assert (from != to);
 
-  if (flag_sel_sched_pipelining_outer_loops 
-      && current_loop_nest)
+  if (current_loop_nest)
     {
       struct loop *loop;
 
@@ -5224,6 +5215,10 @@ sel_split_block (basic_block bb, rtx after)
 
       free_data_sets (bb);
     }
+
+  if (!sel_bb_empty_p (new_bb)
+      && bitmap_bit_p (blocks_to_reschedule, bb->index))
+    bitmap_set_bit (blocks_to_reschedule, new_bb->index);
 
   return new_bb;
 }
@@ -5369,8 +5364,7 @@ sel_redirect_edge_and_branch_force (edge e, basic_block to)
 
   /* This function could not be used to spoil the loop structure by now,
      thus we don't care to update anything.  But check it to be sure.  */
-  if (flag_sel_sched_pipelining_outer_loops 
-      && current_loop_nest 
+  if (current_loop_nest
       && pipelining_p)
     gcc_assert (loop_latch_edge (current_loop_nest));
 
@@ -5387,8 +5381,7 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
   edge ee;
   bool latch_edge_p;
 
-  latch_edge_p = (flag_sel_sched_pipelining_outer_loops 
-                  && pipelining_p
+  latch_edge_p = (pipelining_p
                   && current_loop_nest
                   && e == loop_latch_edge (current_loop_nest));
 
@@ -5700,7 +5693,6 @@ static int
 make_region_from_loop (struct loop *loop)
 {
   unsigned int i;
-  int num_insns;
   int new_rgn_number = -1;
   struct loop *inner;
 
@@ -5718,22 +5710,18 @@ make_region_from_loop (struct loop *loop)
     if (flow_bb_inside_loop_p (inner, loop->latch))
       return -1;
 
-  num_insns = 0;
+  loop->ninsns = num_loop_insns (loop);
+  if ((int) loop->ninsns > PARAM_VALUE (PARAM_MAX_PIPELINE_REGION_INSNS))
+    return -1;
+
   loop_blocks = get_loop_body_in_custom_order (loop, bb_top_order_comparator);
 
   for (i = 0; i < loop->num_nodes; i++)
-    {
-      num_insns += (common_sched_info->estimate_number_of_insns
-                    (loop_blocks [i]));
-
-      if ((loop_blocks[i]->flags & BB_IRREDUCIBLE_LOOP)
-          || num_insns > PARAM_VALUE (PARAM_MAX_PIPELINE_REGION_INSNS))
-        {
-          free (loop_blocks);
-          return -1;
-        }
-      
-    }
+    if (loop_blocks[i]->flags & BB_IRREDUCIBLE_LOOP)
+      {
+	free (loop_blocks);
+	return -1;
+      }
 
   preheader_block = loop_preheader_edge (loop)->src;
   gcc_assert (preheader_block);
@@ -5803,8 +5791,7 @@ make_regions_from_loop_nest (struct loop *loop)
 
   /* Traverse all inner nodes of the loop.  */
   for (cur_loop = loop->inner; cur_loop; cur_loop = cur_loop->next)
-    if (! TEST_BIT (bbs_in_loop_rgns, cur_loop->header->index)
-        && ! make_regions_from_loop_nest (cur_loop))
+    if (! TEST_BIT (bbs_in_loop_rgns, cur_loop->header->index))
       return false;
 
   /* At this moment all regular inner loops should have been pipelined.
@@ -5820,7 +5807,7 @@ make_regions_from_loop_nest (struct loop *loop)
 
 /* Initalize data structures needed.  */
 void
-pipeline_outer_loops_init (void)
+sel_init_pipelining (void)
 {
   /* Collect loop information to be used in outer loops pipelining.  */
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
@@ -5950,8 +5937,8 @@ make_regions_from_the_rest (void)
   free (loop_hdr);
 }
 
-/* Free data structures used in pipelining of outer loops.  */
-void pipeline_outer_loops_finish (void)
+/* Free data structures used in pipelining of loops.  */
+void sel_finish_pipelining (void)
 {
   loop_iterator li;
   struct loop *loop;
@@ -5973,16 +5960,19 @@ void pipeline_outer_loops_finish (void)
 void 
 sel_find_rgns (void)
 {
-  struct loop *loop;
-
-  pipeline_outer_loops_init ();
+  sel_init_pipelining ();
   extend_regions ();
 
   if (current_loops)
-    /* Start traversing from the root node.  */
-    for (loop = VEC_index (loop_p, current_loops->larray, 0)->inner; 
-	 loop; loop = loop->next)
-      make_regions_from_loop_nest (loop);
+    {
+      loop_p loop;
+      loop_iterator li;
+
+      FOR_EACH_LOOP (li, loop, (flag_sel_sched_pipelining_outer_loops
+				? LI_FROM_INNERMOST
+				: LI_ONLY_INNERMOST))
+	make_regions_from_loop_nest (loop);
+    }
 
   /* Make regions from all the rest basic blocks and schedule them.
      These blocks include blocks that don't belong to any loop or belong  
@@ -6082,8 +6072,7 @@ jump_leads_only_to_bb_p (insn_t jump, basic_block dest_bb)
 
 /* Removes the loop preheader from the current region and saves it in
    PREHEADER_BLOCKS of the father loop, so they will be added later to 
-   region that represents an outer loop.  
-   This function is only used with -fsel-sched-pipelining-outer-loops.  */
+   region that represents an outer loop.  */
 static void
 sel_remove_loop_preheader (void)
 {
@@ -6094,7 +6083,7 @@ sel_remove_loop_preheader (void)
   VEC(basic_block, heap) *preheader_blocks 
     = LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest));
 
-  gcc_assert (flag_sel_sched_pipelining_outer_loops && current_loop_nest);
+  gcc_assert (current_loop_nest);
   old_len = VEC_length (basic_block, preheader_blocks);
 
   /* Add blocks that aren't within the current loop to PREHEADER_BLOCKS.  */
