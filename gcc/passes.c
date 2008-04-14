@@ -624,8 +624,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
-      NEXT_PASS (pass_tail_recursion);
 #endif
+      NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
 #if 0
       NEXT_PASS (pass_stdarg);

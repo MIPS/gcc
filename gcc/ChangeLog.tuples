@@ -1,5 +1,12 @@
 2008-04-14  Doug Kwan  <dougkwan@google.com>
 
+	* gimple-iterator.c (gsi_move_to_bb_end): Use gsi_last_bb
+	instead of calling both gsi_last and bb_seq.
+	* passes.c (init_optimization_passes): Re-eanble second tail-recursion
+	pass.
+
+2008-04-14  Doug Kwan  <dougkwan@google.com>
+
 	* tree-nrv.c (dest_safe_for_nrv_p):  Uncomment.
  	(execute_return_slot_opt): Tuplify.
 	* passes.c (init_optimization_passes): Re-enable pass_return_slot.
