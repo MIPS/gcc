@@ -685,7 +685,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
-  NEXT_PASS (pass_handle_drap); 
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;

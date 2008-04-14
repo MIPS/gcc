@@ -1,3 +1,14 @@
+2008-04-14  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (handle_drap): Make it void.  Return if
+	MAX_VECTORIZE_STACK_ALIGNMENT is 0.
+	(tree_expand_cfg): Call handle_drap.
+	(gate_handle_drap): Removed.
+	(pass_handle_drap): Likewise.
+	* passes.c (pass_handle_drap): Likewise.
+	* tree-pass.h (pass_handle_drap): Likewise.
+
 2008-04-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* builtins.c (expand_builtin_longjmp): Don't check !cfun->need_drap

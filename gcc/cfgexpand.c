@@ -1868,6 +1868,43 @@ discover_nonconstant_array_refs (void)
     }
 }
 
+/* This function sets crtl->args.internal_arg_pointer to a virtual
+   register if DRAP is needed.  Local register allocator will replace
+   virtual_incoming_args_rtx with the virtual register.  */
+
+static void
+handle_drap (void)
+{
+  rtx internal_arg_rtx; 
+
+  if (!MAX_VECTORIZE_STACK_ALIGNMENT)
+    return;
+  
+  if (current_function_calls_alloca
+      || cfun->has_nonlocal_label
+      || current_function_has_nonlocal_goto)
+    cfun->need_drap = true;
+
+  /* Call targetm.calls.internal_arg_pointer again.  This time it will
+     return a virtual register if DRAP is needed.  */
+  internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
+
+  /* Assertion to check internal_arg_pointer is set to the right rtx
+     here.  */
+  gcc_assert (crtl->args.internal_arg_pointer == 
+             virtual_incoming_args_rtx);
+
+  /* Do nothing if no need to replace virtual_incoming_args_rtx.  */
+  if (crtl->args.internal_arg_pointer != internal_arg_rtx)
+    {
+      crtl->args.internal_arg_pointer = internal_arg_rtx;
+
+      /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
+         needed. */
+      fixup_tail_calls ();
+    }
+}
+
 /* Translate the intermediate representation contained in the CFG
    from GIMPLE trees to RTL.
 
@@ -1970,6 +2007,9 @@ tree_expand_cfg (void)
   sbitmap_free (blocks);
 
   compact_blocks ();
+
+  handle_drap ();
+
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
@@ -2033,73 +2073,6 @@ struct gimple_opt_pass pass_expand =
   PROP_gimple_leh | PROP_cfg,           /* properties_required */
   PROP_rtl,                             /* properties_provided */
   PROP_trees,				/* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
- }
-};
-
-static bool
-gate_handle_drap (void)
-{
-  if (!MAX_VECTORIZE_STACK_ALIGNMENT)
-    return false;
-  else
-    {
-      gcc_assert (!cfun->stack_realign_processed);
-      return true;
-    }
-}
-
-/* This pass sets crtl->args.internal_arg_pointer to a virtual
-   register if DRAP is needed.  Local register allocator will replace
-   virtual_incoming_args_rtx with the virtual register.  */
-
-static unsigned int
-handle_drap (void)
-{
-  rtx internal_arg_rtx; 
-
-  if (current_function_calls_alloca
-      || cfun->has_nonlocal_label
-      || current_function_has_nonlocal_goto)
-    cfun->need_drap = true;
-
-  /* Call targetm.calls.internal_arg_pointer again.  This time it will
-     return a virtual register if DRAP is needed.  */
-  internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
-
-  /* Assertion to check internal_arg_pointer is set to the right rtx
-     here.  */
-  gcc_assert (crtl->args.internal_arg_pointer == 
-             virtual_incoming_args_rtx);
-
-  /* Do nothing if no need to replace virtual_incoming_args_rtx.  */
-  if (crtl->args.internal_arg_pointer != internal_arg_rtx)
-    {
-      crtl->args.internal_arg_pointer = internal_arg_rtx;
-
-      /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
-         needed. */
-      fixup_tail_calls ();
-    }
-
-  return 0;
-}
-
-struct gimple_opt_pass pass_handle_drap =
-{
- {
-  GIMPLE_PASS,
-  "handle_drap",			/* name */
-  gate_handle_drap,			/* gate */
-  handle_drap,			        /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,				        /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,				        /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func,                       /* todo_flags_finish */
  }
