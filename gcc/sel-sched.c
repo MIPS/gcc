@@ -425,13 +425,17 @@ in_fallthru_bb_p (rtx insn, rtx succ)
    When a successor will continue a ebb, transfer all FENCE's parameters
    to the new fence.  */
 static void
-extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
+extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
 			 sel_sched_region_2_data_t data)
 {
   int orig_max_seqno = data->orig_max_seqno;
   bool was_here_p = false;
   insn_t insn = NULL_RTX;
+  insn_t succ;
+  succ_iterator si;
   ilist_iterator ii;
+  fence_t fence = FLIST_FENCE (old_fences);
+  basic_block bb;
 
   /* Get the only element of FENCE_BNDS (fence).  */
   FOR_EACH_INSN (insn, ii, FENCE_BNDS (fence))
@@ -439,44 +443,72 @@ extract_new_fences_from (fence_t fence, flist_tail_t new_fences,
       gcc_assert (!was_here_p);
       was_here_p = true;
     }
-
   gcc_assert (was_here_p && insn != NULL_RTX);
 
-  if (was_here_p /* true */)
+  /* When in the "middle" of the block, just move this fence 
+     to the new list.  */
+  bb = BLOCK_FOR_INSN (insn);
+  if (single_succ_p (bb) 
+      && single_pred_p (single_succ (bb)))
     {
-      insn_t succ;
-      succ_iterator si;
+      FENCE_INSN (fence) = sel_bb_head (single_succ (bb));
+      move_fence_to_fences (old_fences, new_fences);
+      return;
+    }
 
-      FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
-	{
-	  int seqno = INSN_SEQNO (succ);
+  /* Otherwise copy fence's structures to (possibly) multiple successors.  */
+  FOR_EACH_SUCC_1 (succ, si, insn, SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
+    {
+      int seqno = INSN_SEQNO (succ);
 
-	  if (0 < seqno && seqno <= orig_max_seqno
-	      && (pipelining_p || INSN_SCHED_TIMES (succ) <= 0))
-	    {
-	      bool b = in_same_ebb_p (insn, succ)
-                       || in_fallthru_bb_p (insn, succ);
+      if (0 < seqno && seqno <= orig_max_seqno
+          && (pipelining_p || INSN_SCHED_TIMES (succ) <= 0))
+        {
+          bool b = in_same_ebb_p (insn, succ)
+            || in_fallthru_bb_p (insn, succ);
 
-              if (sched_verbose >= 1)
-                sel_print ("Fence %d continues as %d[%d] (state %s)\n", 
-                           INSN_UID (insn), INSN_UID (succ), 
-                           BLOCK_NUM (succ), b ? "continue" : "reset");
+          if (sched_verbose >= 1)
+            sel_print ("Fence %d continues as %d[%d] (state %s)\n", 
+                       INSN_UID (insn), INSN_UID (succ), 
+                       BLOCK_NUM (succ), b ? "continue" : "reset");
 
-	      if (b)
-		new_fences_add_dirty (new_fences, succ, fence);
-	      else
-		{
-		  /* Mark block of the SUCC as head of the new ebb.  */
-		  bitmap_set_bit (forced_ebb_heads, BLOCK_NUM (succ));
-		  new_fences_add_clean (new_fences, succ, fence);
-		}
-	    }
-	}
+          if (b)
+            add_dirty_fence_to_fences (new_fences, succ, fence);
+          else
+            {
+              /* Mark block of the SUCC as head of the new ebb.  */
+              bitmap_set_bit (forced_ebb_heads, BLOCK_NUM (succ));
+              add_clean_fence_to_fences (new_fences, succ, fence);
+            }
+        }
     }
 }
 
 
 /* Functions to support substitution.  */
+
+/* Returns whether INSN with dependence status DS is eligible for 
+   substitution, i.e. it's a copy operation x := y, and RHS that is 
+   moved up through this insn should be substituted.  */
+static bool
+can_substitute_through_p (insn_t insn, ds_t ds)
+{
+  /* We can substitute only true dependencies.  */
+  if (!flag_sel_sched_substitution
+      || (ds & DEP_OUTPUT)
+      || (ds & DEP_ANTI)
+      || ! INSN_RHS (insn)
+      || ! INSN_LHS (insn))
+    return false;
+
+  /* Now we just need to make sure the INSN_RHS consists of only one 
+     simple REG rtx.  */
+  if ((REG_P (INSN_LHS (insn)) 
+       && (REG_P (INSN_RHS (insn))
+           || GET_CODE (INSN_RHS (insn)) == CONST_INT)))
+    return true;             
+  return false;
+}
 
 /* Substitute all occurences of INSN's destination in EXPR' vinsn with INSN's 
    source (if INSN is eligible for substitution).  Returns TRUE if
@@ -490,22 +522,17 @@ substitute_reg_in_expr (expr_t expr, insn_t insn)
   bool new_insn_valid;
   vinsn_t *vi = &EXPR_VINSN (expr);
 
-  if (VINSN_UNIQUE_P (*vi))
-    /* Unique vinsns can't play this game.  */
-    return false;
-
   /* Do not try to replace in SET_DEST.  Although we'll choose new
      register for the RHS, we don't want to change RHS' original reg.  
      If the insn is not SET, we may still be able to substitute something
      in it, and if we're here (don't have deps), it doesn't write INSN's 
      dest.  */
-
   where = (VINSN_SEPARABLE_P (*vi)
 	   ? &VINSN_RHS (*vi)
 	   : &PATTERN (VINSN_INSN_RTX (*vi)));
 
   /* Substitute if INSN has a form of x:=y and LHS(INSN) occurs in *VI.  */
-  if (insn_eligible_for_subst_p (insn) && rtx_search (INSN_LHS (insn), *where))
+  if (rtx_search (INSN_LHS (insn), *where))
     {
       rtx new_insn;
       rtx *where_replace;
@@ -1511,7 +1538,7 @@ static ds_t get_spec_check_type_for_insn (insn_t, expr_t);
 
 /* Return true if dependence described by DS can be overcomed.  */
 static bool
-can_overcome_dep_p (ds_t ds)
+can_speculate_dep_p (ds_t ds)
 {
   if (spec_info == NULL)
     return false;
@@ -1732,17 +1759,17 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
 
 /* Moveup_* helpers for code motion and computing av sets.  */
 
-/* Propagates INSN_TO_MOVE_UP inside an insn group through THROUGH_INSN.
+/* Propagates EXPR inside an insn group through THROUGH_INSN.
    The difference from the below function is that only substitution is 
    performed.  */
 static enum MOVEUP_EXPR_CODE
-moveup_expr_inside_insn_group (expr_t insn_to_move_up, insn_t through_insn)
+moveup_expr_inside_insn_group (expr_t expr, insn_t through_insn)
 {
-  vinsn_t vi = EXPR_VINSN (insn_to_move_up);
+  vinsn_t vi = EXPR_VINSN (expr);
   ds_t *has_dep_p;
   ds_t full_ds;
 
-  full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
+  full_ds = has_dependence_p (expr, through_insn, &has_dep_p);
 
   if (full_ds == 0)
     return MOVEUP_EXPR_SAME;
@@ -1753,29 +1780,27 @@ moveup_expr_inside_insn_group (expr_t insn_to_move_up, insn_t through_insn)
       /* Can't substitute UNIQUE VINSNs.  */
       gcc_assert (!VINSN_UNIQUE_P (vi));
       
-      if (flag_sel_sched_substitution
-          && insn_eligible_for_subst_p (through_insn))
-	{
-	  if (substitute_reg_in_expr (insn_to_move_up, through_insn))
-            {
-	      EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
-	      return MOVEUP_EXPR_CHANGED;
-            }
-	}
+      if (can_substitute_through_p (through_insn, 
+                                    has_dep_p[DEPS_IN_RHS])
+          && substitute_reg_in_expr (expr, through_insn))
+        {
+          EXPR_WAS_SUBSTITUTED (expr) = true;
+          return MOVEUP_EXPR_CHANGED;
+        }
     }
 
   return MOVEUP_EXPR_NULL;
 }
 
-#define CANT_MOVE_TRAPPING(insn_to_move_up, through_insn)     \
-  (VINSN_MAY_TRAP_P (EXPR_VINSN (insn_to_move_up))            \
+#define CANT_MOVE_TRAPPING(expr, through_insn)     \
+  (VINSN_MAY_TRAP_P (EXPR_VINSN (expr))            \
    && !sel_insn_has_single_succ_p ((through_insn), SUCCS_ALL) \
    && !sel_insn_is_speculation_check (through_insn))
 
 /* True when a conflict on a target register was found during moveup_expr.  */
 static bool was_target_conflict = false;
 
-/* Modifies INSN_TO_MOVE_UP so it can be moved through the THROUGH_INSN,
+/* Modifies EXPR so it can be moved through the THROUGH_INSN,
    performing necessary transformations.  Record the type of transformation 
    made in PTRANS_TYPE, when it is not NULL.  When INSIDE_INSN_GROUP, 
    permit all dependencies except true ones, and try to remove those
@@ -1783,10 +1808,10 @@ static bool was_target_conflict = false;
    non-zero cost dependency exists inside an insn group will be fixed 
    in tick_check_p instead.  */
 static enum MOVEUP_EXPR_CODE
-moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group,
+moveup_expr (expr_t expr, insn_t through_insn, bool inside_insn_group,
             enum local_trans_type *ptrans_type)
 {
-  vinsn_t vi = EXPR_VINSN (insn_to_move_up);
+  vinsn_t vi = EXPR_VINSN (expr);
   insn_t insn = VINSN_INSN_RTX (vi);
   bool was_changed = false;
   bool as_rhs = false;
@@ -1795,8 +1820,9 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
 
   /* When inside_insn_group, delegate to the helper.  */
   if (inside_insn_group)
-    return moveup_expr_inside_insn_group (insn_to_move_up, through_insn);
+    return moveup_expr_inside_insn_group (expr, through_insn);
 
+  /* Deal with unique insns and control dependencies.  */
   if (VINSN_UNIQUE_P (vi))
     {
       /* We can move jumps without side-effects or jumps that are
@@ -1846,12 +1872,12 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
   else
     gcc_assert (!control_flow_insn_p (insn));
 
+  /* Deal with data dependencies.  */
   was_target_conflict = false;
-  full_ds = has_dependence_p (insn_to_move_up, through_insn, &has_dep_p);
-
+  full_ds = has_dependence_p (expr, through_insn, &has_dep_p);
   if (full_ds == 0)
     {
-      if (!CANT_MOVE_TRAPPING (insn_to_move_up, through_insn))
+      if (!CANT_MOVE_TRAPPING (expr, through_insn))
 	return MOVEUP_EXPR_SAME;
     }
   else
@@ -1862,11 +1888,11 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
 	return MOVEUP_EXPR_NULL;
     }
 
-  if (full_ds != 0 && can_overcome_dep_p (full_ds))
+  if (full_ds != 0 && can_speculate_dep_p (full_ds))
     {
       int res;
 
-      res = speculate_expr (insn_to_move_up, full_ds);
+      res = speculate_expr (expr, full_ds);
       if (res >= 0)
 	{
           /* Speculation was successful.  */
@@ -1889,10 +1915,10 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
       /* Only separable insns can be moved up with the new register.
          Anyways, we should mark that the original register is 
          unavailable.  */
-      if (!enable_schedule_as_rhs_p || !EXPR_SEPARABLE_P (insn_to_move_up))
+      if (!enable_schedule_as_rhs_p || !EXPR_SEPARABLE_P (expr))
         return MOVEUP_EXPR_NULL;
 
-      EXPR_TARGET_AVAILABLE (insn_to_move_up) = false;
+      EXPR_TARGET_AVAILABLE (expr) = false;
       was_target_conflict = true;
       as_rhs = true;
     }
@@ -1919,11 +1945,11 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
       /* Can't substitute UNIQUE VINSNs.  */
       gcc_assert (!VINSN_UNIQUE_P (vi));
 
-      if (can_overcome_dep_p (*rhs_dsp))
+      if (can_speculate_dep_p (*rhs_dsp))
 	{
           int res;
           
-          res = speculate_expr (insn_to_move_up, *rhs_dsp);
+          res = speculate_expr (expr, *rhs_dsp);
           if (res >= 0)
             {
               /* Speculation was successful.  */
@@ -1937,21 +1963,17 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
 	  else
 	    return MOVEUP_EXPR_NULL;
 	}
-      else if (flag_sel_sched_substitution
-	       && insn_eligible_for_subst_p (through_insn))
+      else if (can_substitute_through_p (through_insn,
+                                         *rhs_dsp)
+               && substitute_reg_in_expr (expr, through_insn))
 	{
-	  /* Substitute in vinsn.  */
-	  if (substitute_reg_in_expr (insn_to_move_up, through_insn))
-            EXPR_WAS_SUBSTITUTED (insn_to_move_up) = true;
-	  else
-            return MOVEUP_EXPR_NULL;
-          
           /* ??? We cannot perform substitution AND speculation on the same
              insn.  */
           gcc_assert (!was_changed);
           was_changed = true;
           if (ptrans_type)
             *ptrans_type = TRANS_SUBSTITUTION;
+          EXPR_WAS_SUBSTITUTED (expr) = true;
 	}
       else
 	return MOVEUP_EXPR_NULL;
@@ -1960,7 +1982,7 @@ moveup_expr (expr_t insn_to_move_up, insn_t through_insn, bool inside_insn_group
   /* Don't move trapping insns through jumps.
      This check should be at the end to give a chance to control speculation
      to perform its duties.  */
-  if (CANT_MOVE_TRAPPING (insn_to_move_up, through_insn))
+  if (CANT_MOVE_TRAPPING (expr, through_insn))
     return MOVEUP_EXPR_NULL;
 
   return (was_changed 
@@ -3228,7 +3250,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 	 pipelining, because compensating register copies or speculation
 	 checks are likely to be placed near the beginning of the loop,
 	 causing a stall.  */
-      if (flag_sel_sched_restrict_pipelining & 1
+      if ((flag_sel_sched_restrict_pipelining & 1)
 	  && pipelining_p && EXPR_ORIG_SCHED_CYCLE (expr) > 0
 	  && (!is_orig_reg_p || EXPR_SPEC_DONE_DS (expr) != 0))
 	{
@@ -3267,7 +3289,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 	     }
 	}
 
-      if (flag_sel_sched_restrict_pipelining & 2
+      if ((flag_sel_sched_restrict_pipelining & 2)
 	  && !pipelining_p
 	  && INSN_SCHED_CYCLE (insn) > FENCE_CYCLE (fence)
 	  && (sel_insn_is_speculation_check (insn)
@@ -3281,21 +3303,52 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 	  continue;
 	}
 
-      need_cycles = tick_check_p (expr, dc, fence);
-      /* Don't allow any insns whose data is not yet ready.  */
-      if (need_cycles > 0)
-	{
-          /* We need to know whether we do need to stall for any insns.  */
-	  int new_prio = EXPR_PRIORITY (expr) + need_cycles;
-	  if (av0_prio < new_prio && EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
-	    av0_prio = new_prio;
+      /* Don't allow any insns whose data is not yet ready.  
+         Check first whether we've already tried them and failed.  */
+      if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence)
+          && FENCE_READY_TICKS (fence)[INSN_UID (insn)]
+          > FENCE_CYCLE (fence))
+        {
           stalled++;
           VEC_unordered_remove (expr_t, vec_av_set, n);
+          
           if (sched_verbose >= 4)
-            sel_print ("Expr %d is not ready yet\n", 
-                       INSN_UID (insn));
-	  continue;
-	}
+            sel_print ("Expr %d is not ready until cycle %d (cached)\n", 
+                       INSN_UID (insn),
+                       FENCE_READY_TICKS (fence)[INSN_UID (insn)]);
+          continue;
+        }
+
+      /* Now resort to dependence analysis to find whether EXPR might be 
+         stalled due to dependencies from FENCE's context.  */
+      need_cycles = tick_check_p (expr, dc, fence);
+      if (need_cycles > 0)
+        {
+          int new_prio = EXPR_PRIORITY (expr) + need_cycles;
+          
+          if (av0_prio < new_prio && EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
+            av0_prio = new_prio;
+          if (INSN_UID (insn) >= FENCE_READY_TICKS_SIZE (fence))
+            {
+              int new_size = INSN_UID (insn) * 3 / 2;
+              
+              FENCE_READY_TICKS (fence) 
+                = xrecalloc (FENCE_READY_TICKS (fence),
+                             new_size, FENCE_READY_TICKS_SIZE (fence),
+                             sizeof (int));
+            }
+          FENCE_READY_TICKS (fence)[INSN_UID (insn)] 
+            = FENCE_CYCLE (fence) + need_cycles; 
+          
+          stalled++;
+          VEC_unordered_remove (expr_t, vec_av_set, n);
+          
+          if (sched_verbose >= 4)
+            sel_print ("Expr %d is not ready yet until cycle %d\n", 
+                       INSN_UID (insn),
+                       FENCE_READY_TICKS (fence)[INSN_UID (insn)]);
+          continue;
+        }
 
       if (sched_verbose >= 4)
         sel_print ("Expr %d is ok\n", INSN_UID (insn));
@@ -4182,8 +4235,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   state_t temp_state = alloca (dfa_state_size);
 
   if (sched_verbose >= 2)
-    sel_print ("\nStarting fill_insns for insn %d, seqno %d\n", 
-               INSN_UID (insn), seqno);
+    sel_print ("\nStarting fill_insns for insn %d, cycle %d\n", 
+               INSN_UID (insn), FENCE_CYCLE (fence));
 
   blist_add (&bnds, insn, NULL, FENCE_DC (fence));
   bnds_tailp = &BLIST_NEXT (bnds);
@@ -4623,6 +4676,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
             }
           else
             FENCE_SCHED_NEXT (fence) = NULL_RTX;
+          if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence))
+            FENCE_READY_TICKS (fence) [INSN_UID (insn)] = 0;
 
 	  advance_deps_context (BND_DC (bnd), insn);
 
@@ -4662,7 +4717,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       av_set_clear (&av_vliw);
 
       /* Indicate that we've scheduled something on this fence.  */
-      FENCE_SCHEDULED_SOMETHING (fence) = true;
+      FENCE_SCHEDULED_P (fence) = true;
       scheduled_something_on_previous_fence = true;
 
       /* When can_issue_more is 0, variable_issue tells us that we should
@@ -5824,11 +5879,8 @@ sel_region_init (int rgn)
   {
     /* We need to treat insns as EXPRes only when renaming is enabled.  */
     enable_schedule_as_rhs_p = (flag_sel_sched_renaming != 0);
-
     bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
-
     pipelining_p = bookkeeping_p && (flag_sel_sched_pipelining != 0);
-
     reset_sched_cycles_p = (pipelining_p
 			    && !flag_sel_sched_reschedule_pipelined);
   }
@@ -6260,7 +6312,7 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 	    {
 	      fence_t f = FLIST_FENCE (fences2);
 
-	      if (!FENCE_SCHEDULED (f))
+	      if (!FENCE_PROCESSED_P (f))
 		{
 		  int i = INSN_SEQNO (FENCE_INSN (f));
 
@@ -6268,7 +6320,6 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 		    {
 		      seqno = i;
 		      fence = f;
-
 		      first_p = false;
 		    }
 		  else
@@ -6283,10 +6334,8 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 	  /* As FENCE is nonnull, SEQNO is initialized.  */
 	  seqno -= max_f + 1;
 	  fill_insns (fence, seqno, &scheduled_insns_tailp);
-	  FENCE_SCHEDULED (fence) = true;
+	  FENCE_PROCESSED_P (fence) = true;
 	}
-      /* This condition gives us the number of iterations equal to the number
-	 of fence groups in fences.  */
       while ((fences1 = FLIST_NEXT (fences1)));
 
       fences1 = fences;
@@ -6294,48 +6343,28 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 	{
 	  fence_t fence = FLIST_FENCE (fences1);
 	  insn_t insn;
-	  state_t state = FENCE_STATE (fence);
 
 	  if (/* This fence doesn't have any successors.  */
 	      !FENCE_BNDS (fence))
 	    {
-	      if (!FENCE_SCHEDULED_SOMETHING (fence))
+	      if (!FENCE_SCHEDULED_P (fence))
 		/* Nothing was scheduled on this fence.  */
 		{
 		  int seqno;
 
 		  insn = FENCE_INSN (fence);
 		  seqno = INSN_SEQNO (insn);
-
 		  gcc_assert (seqno > 0 && seqno <= orig_max_seqno);
 
                   if (sched_verbose >= 1)
                     sel_print ("Fence %d[%d] has not changed\n", 
                                INSN_UID (insn),
                                BLOCK_NUM (insn));
-
-		  new_fences_add (new_fences,
-				  insn, state, FENCE_DC (fence), 
-                                  FENCE_TC (fence), 
-                                  FENCE_LAST_SCHEDULED_INSN (fence), 
-                                  FENCE_EXECUTING_INSNS (fence),
-                                  FENCE_SCHED_NEXT (fence),
-                                  FENCE_CYCLE (fence), 
-				  FENCE_ISSUED_INSNS (fence),
-                                  FENCE_STARTS_CYCLE_P (fence), 
-                                  FENCE_AFTER_STALL_P (fence));
-
-		  /* Null these fields so that they won't be freed twice.  */
-		  FENCE_STATE (fence) = NULL;
-		  FENCE_DC (fence) = NULL;
-                  FENCE_TC (fence) = NULL;
-                  FENCE_EXECUTING_INSNS (fence) = NULL;
+                  move_fence_to_fences (fences1, new_fences);
 		}
-
-	      continue;
 	    }
-
-	  extract_new_fences_from (fence, new_fences, data);
+          else
+            extract_new_fences_from (fences1, new_fences, data);
 	}
       while ((fences1 = FLIST_NEXT (fences1)));
 
@@ -6402,7 +6431,6 @@ sel_sched_region_1 (void)
   else
     init_fences (bb_note (EBB_FIRST_BB (0)));
   global_level = 1;
-
   max_ws = MAX_WS;
 
   sel_sched_region_2 (data);
@@ -6418,11 +6446,8 @@ sel_sched_region_1 (void)
       flist_tail_t new_fences = &_new_fences;
 
       pipelining_p = false;
-
-      max_ws = issue_rate * 3 / 2;
-
+      max_ws = MIN (max_ws, issue_rate * 3 / 2);
       bookkeeping_p = false;
-
       enable_schedule_as_rhs_p = false;
 
       if (!flag_sel_sched_reschedule_pipelined)
@@ -6573,11 +6598,8 @@ sel_sched_region_1 (void)
         }
 
       pipelining_p = true;
-
       max_ws = MAX_WS;
-
       bookkeeping_p = (flag_sel_sched_bookkeeping != 0);
-
       enable_schedule_as_rhs_p = true;
     }
 }
@@ -6648,7 +6670,7 @@ sel_global_init (void)
   sel_setup_sched_infos ();
   sched_rgn_init (false);
   sched_init ();
-
+  
   /* Init lv_sets.  */
   {
     bb_vec_t bbs = VEC_alloc (basic_block, heap, n_basic_blocks);

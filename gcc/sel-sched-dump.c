@@ -711,7 +711,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 		  if (fence != NULL)
 		    {
-		      if (!FENCE_SCHEDULED_SOMETHING (fence))
+		      if (!FENCE_SCHEDULED_P (fence))
 			{
 			  if (first_p)
 			    color = "color = red, ";

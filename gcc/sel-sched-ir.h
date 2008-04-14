@@ -249,12 +249,15 @@ typedef _list_t blist_t;
    blocks code motion through it when pipelining.  */
 struct _fence
 {
+  /* Insn before which we gather an instruction group.*/
   insn_t insn;
 
+  /* Modeled state of the processor pipeline.  */
   state_t state;
 
   /* Current cycle that is being scheduled on this fence.  */
   int cycle;
+
   /* Number of insns that were scheduled on the current cycle.
      This information has to be local to a fence.  */
   int cycle_issued_insns;
@@ -263,7 +266,7 @@ struct _fence
      that are inner boundaries of the scheduled parallel group.  */
   ilist_t bnds;
 
-  /* Deps Context at this fence.  It is used to model dependencies at the
+  /* Deps context at this fence.  It is used to model dependencies at the
      fence so that insn ticks can be properly evaluated.  */
   deps_t dc;
 
@@ -273,7 +276,14 @@ struct _fence
 
   /* A vector of insns that are scheduled but not yet completed.  */
   VEC (rtx,gc) *executing_insns;
-      
+
+  /* A vector indexed by UIDs that caches the earliest cycle on which 
+     an insn can be scheduled on this fence.  */
+  int *ready_ticks;
+
+  /* Its size.  */
+  int ready_ticks_size;
+
   /* Insn, which has been scheduled last on this fence.  */
   rtx last_scheduled_insn;
 
@@ -281,10 +291,10 @@ struct _fence
   rtx sched_next;
 
   /* True if fill_insns processed this fence.  */
-  BOOL_BITFIELD scheduled : 1;
+  BOOL_BITFIELD processed_p : 1;
 
   /* True if fill_insns actually scheduled something on this fence.  */
-  BOOL_BITFIELD scheduled_something : 1;
+  BOOL_BITFIELD scheduled_p : 1;
 
   /* True when the next insn scheduled here would start a cycle.  */
   BOOL_BITFIELD starts_cycle_p : 1;
@@ -297,8 +307,8 @@ typedef struct _fence *fence_t;
 #define FENCE_INSN(F) ((F)->insn)
 #define FENCE_STATE(F) ((F)->state)
 #define FENCE_BNDS(F) ((F)->bnds)
-#define FENCE_SCHEDULED(F) ((F)->scheduled)
-#define FENCE_SCHEDULED_SOMETHING(F) ((F)->scheduled_something)
+#define FENCE_PROCESSED_P(F) ((F)->processed_p)
+#define FENCE_SCHEDULED_P(F) ((F)->scheduled_p)
 #define FENCE_ISSUED_INSNS(F) ((F)->cycle_issued_insns)
 #define FENCE_CYCLE(F) ((F)->cycle)
 #define FENCE_STARTS_CYCLE_P(F) ((F)->starts_cycle_p)
@@ -307,6 +317,8 @@ typedef struct _fence *fence_t;
 #define FENCE_TC(F) ((F)->tc)
 #define FENCE_LAST_SCHEDULED_INSN(F) ((F)->last_scheduled_insn)
 #define FENCE_EXECUTING_INSNS(F) ((F)->executing_insns)
+#define FENCE_READY_TICKS(F) ((F)->ready_ticks)
+#define FENCE_READY_TICKS_SIZE(F) ((F)->ready_ticks_size)
 #define FENCE_SCHED_NEXT(F) ((F)->sched_next)
 
 /* List of fences.  */
@@ -1437,8 +1449,6 @@ extern ilist_t ilist_invert (ilist_t);
 extern void blist_add (blist_t *, insn_t, ilist_t, deps_t);
 extern void blist_remove (blist_t *);
 extern void flist_tail_init (flist_tail_t);
-extern void flist_add (flist_t *, insn_t, state_t, deps_t, void *, 
-                       insn_t, VEC(rtx, gc) *, insn_t, int, int, bool, bool);
 
 extern fence_t flist_lookup (flist_t, insn_t);
 extern void flist_clear (flist_t *);
@@ -1454,10 +1464,9 @@ extern void advance_deps_context (deps_t, insn_t);
 
 /* Fences functions.  */
 extern void init_fences (insn_t);
-extern void new_fences_add (flist_tail_t, insn_t, state_t, deps_t, void *, rtx,
-                            VEC(rtx, gc) *, rtx, int, int, bool, bool);
-extern void new_fences_add_clean (flist_tail_t, insn_t, fence_t);
-extern void new_fences_add_dirty (flist_tail_t, insn_t, fence_t);
+extern void add_clean_fence_to_fences (flist_tail_t, insn_t, fence_t);
+extern void add_dirty_fence_to_fences (flist_tail_t, insn_t, fence_t);
+extern void move_fence_to_fences (flist_t, flist_tail_t);
 
 /* Pool functions.  */
 extern regset get_regset_from_pool (void);

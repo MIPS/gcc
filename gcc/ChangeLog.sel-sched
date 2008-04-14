@@ -1,3 +1,24 @@
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sched-deps.c (sched_deps_init): Tidy.
+	* sel-sched-ir.c (init_fence_for_scheduling): New.
+	(flist_add): Use it.
+	(init_fences): Merge ready_ticks_size.
+	(merge_fences): Likewise.
+	(new_fences_add): Rename to add_to_fences.
+	(move_fence_to_fences): New.
+	(new_fences_add_clean): Rename to move_fence_to_fences.
+	(new_fences_add_dirty): Rename to add_dirty_fence_to_fences.
+	(insn_eligible_for_subst_p): Kill.
+
+	* sel-sched-ir.h (ready_ticks, ready_ticks_size): New.
+	* sel-sched.c (extract_new_fences_from,
+	sel_sched_region_2): Use the new fence functions.
+	(can_substitute_through_p): New.
+	(moveup_expr): Use it.
+	(can_overcome_dep_p): Rename to can_speculate_dep_p.
+	(fill_vec_av_set): Use FENCE_READY_TICKS.
+
 2008-04-14  Alexander Monakov  <amonakov@ispras.ru>
 
 	* common.opt (flag_sel_sched_pipelining_outer_loops): Init to 0.

@@ -3045,7 +3045,6 @@ sched_deps_init (bool global_p)
                                       5 producers.  */
                                    5 * insns_in_block);
     }
-
 }
 
 

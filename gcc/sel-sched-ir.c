@@ -132,8 +132,6 @@ bool preheader_removed = false;
 
 
 /* Forward static declarations.  */
-static void fence_init (fence_t, insn_t, state_t, deps_t, void *,
-                        rtx, VEC(rtx, gc) *, rtx, int, int, bool, bool);
 static void fence_clear (fence_t);
 
 static void deps_init_id (idata_t, insn_t, bool);
@@ -232,24 +230,59 @@ flist_lookup (flist_t l, insn_t insn)
   return NULL;
 }
 
+/* Init the fields of F before running fill_insns.  */
+static void
+init_fence_for_scheduling (fence_t f)
+{
+  FENCE_BNDS (f) = NULL;
+  FENCE_PROCESSED_P (f) = false;
+  FENCE_SCHEDULED_P (f) = false;
+}
+
 /* Add new fence consisting of INSN and STATE to the list pointed to by LP.  */
-void
+static void
 flist_add (flist_t *lp, insn_t insn, state_t state, deps_t dc, void *tc, 
            insn_t last_scheduled_insn, VEC(rtx,gc) *executing_insns, 
-           insn_t sched_next, int cycle, int cycle_issued_insns, 
+           int *ready_ticks, int ready_ticks_size, insn_t sched_next, 
+           int cycle, int cycle_issued_insns, 
            bool starts_cycle_p, bool after_stall_p)
 {
+  fence_t f;
+
   _list_add (lp);
-  fence_init (FLIST_FENCE (*lp), insn, state, dc, tc, last_scheduled_insn,
-              executing_insns, sched_next, cycle, cycle_issued_insns, 
-              starts_cycle_p, after_stall_p);
+  f = FLIST_FENCE (*lp);
+
+  FENCE_INSN (f) = insn;
+
+  gcc_assert (state != NULL);
+  FENCE_STATE (f) = state;
+
+  FENCE_CYCLE (f) = cycle;
+  FENCE_ISSUED_INSNS (f) = cycle_issued_insns;
+  FENCE_STARTS_CYCLE_P (f) = starts_cycle_p;
+  FENCE_AFTER_STALL_P (f) = after_stall_p;
+
+  gcc_assert (dc != NULL);
+  FENCE_DC (f) = dc;
+
+  gcc_assert (tc != NULL || targetm.sched.alloc_sched_context == NULL);
+  FENCE_TC (f) = tc;
+
+  FENCE_LAST_SCHEDULED_INSN (f) = last_scheduled_insn;
+  FENCE_EXECUTING_INSNS (f) = executing_insns;
+  FENCE_READY_TICKS (f) = ready_ticks;
+  FENCE_READY_TICKS_SIZE (f) = ready_ticks_size;
+  FENCE_SCHED_NEXT (f) = sched_next;
+
+  init_fence_for_scheduling (f);
 }
 
 /* Remove the head node of the list pointed to by LP.  */
 static void
 flist_remove (flist_t *lp)
 {
-  fence_clear (FLIST_FENCE (*lp));
+  if (FENCE_INSN (FLIST_FENCE (*lp)))
+    fence_clear (FLIST_FENCE (*lp));
   _list_remove (lp);
 }
 
@@ -515,52 +548,6 @@ state_create_copy (state_t from)
 
 /* Functions to work with fences.  */
 
-/* Initialize the fence.  */
-static void
-fence_init (fence_t f, insn_t insn, state_t state, deps_t dc, void *tc,
-	    rtx last_scheduled_insn, VEC(rtx, gc) *executing_insns, 
-            rtx sched_next, int cycle, int cycle_issued_insns, 
-            bool starts_cycle_p, bool after_stall_p)
-{
-  FENCE_INSN (f) = insn;
-
-  gcc_assert (state != NULL);
-  FENCE_STATE (f) = state;
-
-  FENCE_CYCLE (f) = cycle;
-  FENCE_ISSUED_INSNS (f) = cycle_issued_insns;
-  FENCE_STARTS_CYCLE_P (f) = starts_cycle_p;
-  FENCE_AFTER_STALL_P (f) = after_stall_p;
-  
-  FENCE_BNDS (f) = NULL;
-  FENCE_SCHEDULED (f) = false;
-  FENCE_SCHEDULED_SOMETHING (f) = false;
-
-  gcc_assert (dc != NULL);
-  FENCE_DC (f) = dc;
-
-  gcc_assert (tc != NULL || targetm.sched.alloc_sched_context == NULL);
-  FENCE_TC (f) = tc;
-
-  FENCE_LAST_SCHEDULED_INSN (f) = last_scheduled_insn;
-  FENCE_EXECUTING_INSNS (f) = executing_insns;
-  FENCE_SCHED_NEXT (f) = sched_next;
-}
-
-#if 0
-/* Copy the FROM fence to TO.  */
-static void
-fence_copy (fence_t to, fence_t from)
-{
-  fence_init (to, FENCE_INSN (from), state_create_copy (FENCE_STATE (from)),
-	      create_copy_of_deps_context (FENCE_DC (from)),
-	      create_copy_of_target_context (FENCE_TC (from)),
-	      FENCE_LAST_SCHEDULED_INSN (from), FENCE_SCHED_NEXT (from),
-	      FENCE_CYCLE (from), FENCE_ISSUED_INSNS (from),
-	      FENCE_STARTS_CYCLE_P (from), FENCE_AFTER_STALL_P (from));
-}
-#endif
-
 /* Clear the fence.  */
 static void
 fence_clear (fence_t f)
@@ -583,6 +570,8 @@ fence_clear (fence_t f)
   if (tc != NULL)
     delete_target_context (tc);
   VEC_free (rtx, gc, FENCE_EXECUTING_INSNS (f));
+  free (FENCE_READY_TICKS (f));
+  FENCE_READY_TICKS (f) = NULL;
 }
 
 /* Init a list of fences with successors of OLD_FENCE.  */
@@ -592,10 +581,12 @@ init_fences (insn_t old_fence)
   insn_t succ;
   succ_iterator si;
   bool first = true;
-  
+  int ready_ticks_size = get_max_uid () + 1;
+      
   FOR_EACH_SUCC_1 (succ, si, old_fence, 
                    SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
     {
+      
       if (first)
         first = false;
       else
@@ -607,6 +598,8 @@ init_fences (insn_t old_fence)
 		 create_target_context (true) /* tc */,
 		 NULL_RTX /* last_scheduled_insn */, 
                  NULL, /* executing_insns */
+                 xcalloc (ready_ticks_size, sizeof (int)), /* ready_ticks */
+                 ready_ticks_size,
                  NULL_RTX /* sched_next */,
 		 1 /* cycle */, 0 /* cycle_issued_insns */, 
 		 1 /* starts_cycle_p */, 0 /* after_stall_p */);  
@@ -622,6 +615,7 @@ static void
 merge_fences (fence_t f, insn_t insn,
 	      state_t state, deps_t dc, void *tc, 
               rtx last_scheduled_insn, VEC(rtx, gc) *executing_insns,
+              int *ready_ticks, int ready_ticks_size,
 	      rtx sched_next, int cycle, bool after_stall_p)
 {
   insn_t last_scheduled_insn_old = FENCE_LAST_SCHEDULED_INSN (f);
@@ -653,9 +647,12 @@ merge_fences (fence_t f, insn_t insn,
 
       FENCE_LAST_SCHEDULED_INSN (f) = NULL;
       VEC_free (rtx, gc, executing_insns);
+      free (ready_ticks);
       if (FENCE_EXECUTING_INSNS (f))
         VEC_block_remove (rtx, FENCE_EXECUTING_INSNS (f), 0, 
                           VEC_length (rtx, FENCE_EXECUTING_INSNS (f)));
+      if (FENCE_READY_TICKS (f))
+        memset (FENCE_READY_TICKS (f), 0, FENCE_READY_TICKS_SIZE (f));
     }
   else
     {
@@ -701,7 +698,6 @@ merge_fences (fence_t f, insn_t insn,
           {
             /* Leave STATE, TC and LAST_SCHEDULED_INSN fields untouched.  */
             state_free (state);
-
             delete_target_context (tc);
 
             gcc_assert (BLOCK_FOR_INSN (insn)->prev_bb
@@ -737,11 +733,14 @@ merge_fences (fence_t f, insn_t insn,
             reset_deps_context (FENCE_DC (f));
             delete_deps_context (dc);
             VEC_free (rtx, gc, executing_insns);
+            free (ready_ticks);
   
             FENCE_CYCLE (f) = MAX (FENCE_CYCLE (f), cycle);
             if (FENCE_EXECUTING_INSNS (f))
               VEC_block_remove (rtx, FENCE_EXECUTING_INSNS (f), 0, 
                                 VEC_length (rtx, FENCE_EXECUTING_INSNS (f)));
+            if (FENCE_READY_TICKS (f))
+              memset (FENCE_READY_TICKS (f), 0, FENCE_READY_TICKS_SIZE (f));
           }
         else
           if (edge_new->probability > edge_old->probability)
@@ -750,6 +749,9 @@ merge_fences (fence_t f, insn_t insn,
               FENCE_DC (f) = dc;
               VEC_free (rtx, gc, FENCE_EXECUTING_INSNS (f));
               FENCE_EXECUTING_INSNS (f) = executing_insns;
+              free (FENCE_READY_TICKS (f));
+              FENCE_READY_TICKS (f) = ready_ticks;
+              FENCE_READY_TICKS_SIZE (f) = ready_ticks_size;
               FENCE_CYCLE (f) = cycle;
             }
           else
@@ -757,6 +759,7 @@ merge_fences (fence_t f, insn_t insn,
               /* Leave DC and CYCLE untouched.  */
               delete_deps_context (dc);
               VEC_free (rtx, gc, executing_insns);
+              free (ready_ticks);
             }
     }
 
@@ -771,19 +774,20 @@ merge_fences (fence_t f, insn_t insn,
 
 /* Add a new fence to NEW_FENCES list, initializing it from all 
    other parameters.  */
-void
-new_fences_add (flist_tail_t new_fences, insn_t insn,
-		state_t state, deps_t dc, void *tc, rtx last_scheduled_insn, 
-                VEC(rtx, gc) *executing_insns, rtx sched_next, int cycle, 
-                int cycle_issued_insns, bool starts_cycle_p, bool after_stall_p)
+static void
+add_to_fences (flist_tail_t new_fences, insn_t insn,
+               state_t state, deps_t dc, void *tc, rtx last_scheduled_insn, 
+               VEC(rtx, gc) *executing_insns, int *ready_ticks, 
+               int ready_ticks_size, rtx sched_next, int cycle, 
+               int cycle_issued_insns, bool starts_cycle_p, bool after_stall_p)
 {
   fence_t f = flist_lookup (FLIST_TAIL_HEAD (new_fences), insn);
 
-  if (!f)
+  if (! f)
     {
       flist_add (FLIST_TAIL_TAILP (new_fences), insn, state, dc, tc,
-		 last_scheduled_insn, executing_insns, 
-                 sched_next, cycle, cycle_issued_insns,
+		 last_scheduled_insn, executing_insns, ready_ticks, 
+                 ready_ticks_size, sched_next, cycle, cycle_issued_insns,
 		 starts_cycle_p, after_stall_p);
 
       FLIST_TAIL_TAILP (new_fences)
@@ -792,39 +796,78 @@ new_fences_add (flist_tail_t new_fences, insn_t insn,
   else
     {
       merge_fences (f, insn, state, dc, tc, last_scheduled_insn, 
-                    executing_insns, sched_next, cycle, after_stall_p);
-
+                    executing_insns, ready_ticks, ready_ticks_size, 
+                    sched_next, cycle, after_stall_p);
     }
+}
+
+/* Move the first fence in the OLD_FENCES list to NEW_FENCES.  */
+void
+move_fence_to_fences (flist_t old_fences, flist_tail_t new_fences)
+{
+  fence_t f, old;
+  flist_t *tailp = FLIST_TAIL_TAILP (new_fences);
+
+  old = FLIST_FENCE (old_fences);
+  f = flist_lookup (FLIST_TAIL_HEAD (new_fences), 
+                    FENCE_INSN (FLIST_FENCE (old_fences)));
+  if (f)
+    {
+      merge_fences (f, old->insn, old->state, old->dc, old->tc,
+                    old->last_scheduled_insn, old->executing_insns,
+                    old->ready_ticks, old->ready_ticks_size,
+                    old->sched_next, old->cycle, 
+                    old->after_stall_p);
+    }
+  else
+    {
+      _list_add (tailp);
+      FLIST_TAIL_TAILP (new_fences) = &FLIST_NEXT (*tailp);
+      *FLIST_FENCE (*tailp) = *old;
+      init_fence_for_scheduling (FLIST_FENCE (*tailp));
+    }
+  FENCE_INSN (old) = NULL;
 }
 
 /* Add a new fence to NEW_FENCES list and initialize most of its data 
    as a clean one.  */
 void
-new_fences_add_clean (flist_tail_t new_fences, insn_t succ, fence_t fence)
+add_clean_fence_to_fences (flist_tail_t new_fences, insn_t succ, fence_t fence)
 {
-  new_fences_add (new_fences,
-		  succ, state_create (), create_deps_context (),
-		  create_target_context (true),
-		  NULL_RTX, NULL, NULL_RTX, FENCE_CYCLE (fence) + 1,
-		  0, 1, FENCE_AFTER_STALL_P (fence));
+  int ready_ticks_size = get_max_uid () + 1;
+  
+  add_to_fences (new_fences,
+                 succ, state_create (), create_deps_context (),
+                 create_target_context (true),
+                 NULL_RTX, NULL, xcalloc (ready_ticks_size, sizeof (int)),
+                 ready_ticks_size,
+                 NULL_RTX, FENCE_CYCLE (fence) + 1,
+                 0, 1, FENCE_AFTER_STALL_P (fence));
 }
 
 /* Add a new fence to NEW_FENCES list and initialize all of its data 
    from FENCE and SUCC.  */
 void
-new_fences_add_dirty (flist_tail_t new_fences, insn_t succ, fence_t fence)
+add_dirty_fence_to_fences (flist_tail_t new_fences, insn_t succ, fence_t fence)
 {
-  new_fences_add (new_fences,
-		  succ, state_create_copy (FENCE_STATE (fence)),
-		  create_copy_of_deps_context (FENCE_DC (fence)),
-		  create_copy_of_target_context (FENCE_TC (fence)),
-		  FENCE_LAST_SCHEDULED_INSN (fence), 
-                  VEC_copy (rtx, gc, FENCE_EXECUTING_INSNS (fence)),
-                  FENCE_SCHED_NEXT (fence),
-		  FENCE_CYCLE (fence),
-		  FENCE_ISSUED_INSNS (fence),
-		  FENCE_STARTS_CYCLE_P (fence),
-		  FENCE_AFTER_STALL_P (fence));
+  int * new_ready_ticks 
+    = xmalloc (FENCE_READY_TICKS_SIZE (fence) * sizeof (int));
+  
+  memcpy (new_ready_ticks, FENCE_READY_TICKS (fence),
+          FENCE_READY_TICKS_SIZE (fence) * sizeof (int));
+  add_to_fences (new_fences,
+                 succ, state_create_copy (FENCE_STATE (fence)),
+                 create_copy_of_deps_context (FENCE_DC (fence)),
+                 create_copy_of_target_context (FENCE_TC (fence)),
+                 FENCE_LAST_SCHEDULED_INSN (fence), 
+                 VEC_copy (rtx, gc, FENCE_EXECUTING_INSNS (fence)),
+                 new_ready_ticks,
+                 FENCE_READY_TICKS_SIZE (fence),
+                 FENCE_SCHED_NEXT (fence),
+                 FENCE_CYCLE (fence),
+                 FENCE_ISSUED_INSNS (fence),
+                 FENCE_STARTS_CYCLE_P (fence),
+                 FENCE_AFTER_STALL_P (fence));
 }
 
 
@@ -2464,7 +2507,6 @@ static void
 deps_init_id_start_lhs (rtx lhs)
 {
   gcc_assert (deps_init_id_data.where == DEPS_IN_INSN);
-
   gcc_assert (IDATA_LHS (deps_init_id_data.id) == NULL);
 
   if (IDATA_TYPE (deps_init_id_data.id) == SET)
@@ -2537,7 +2579,6 @@ deps_init_id_finish_rhs (void)
 {
   gcc_assert (deps_init_id_data.where == DEPS_IN_RHS
 	      || deps_init_id_data.where == DEPS_IN_INSN);
-
   deps_init_id_data.where = DEPS_IN_INSN;
 }
 
@@ -2642,15 +2683,15 @@ first_time_insn_init (insn_t insn)
 static hashval_t
 hash_transformed_insns (const void *p)
 {
-  return VINSN_HASH_RTX (((struct transformed_insns *) p)->vinsn_old);
+  return VINSN_HASH_RTX (((const struct transformed_insns *) p)->vinsn_old);
 }
 
 /* Compare the entries in a transformed_insns hashtable.  */
 static int
 eq_transformed_insns (const void *p, const void *q)
 {
-  rtx i1 = VINSN_INSN_RTX (((struct transformed_insns *) p)->vinsn_old);
-  rtx i2 = VINSN_INSN_RTX (((struct transformed_insns *) q)->vinsn_old);
+  rtx i1 = VINSN_INSN_RTX (((const struct transformed_insns *) p)->vinsn_old);
+  rtx i2 = VINSN_INSN_RTX (((const struct transformed_insns *) q)->vinsn_old);
 
   if (INSN_UID (i1) == INSN_UID (i2))
     return 1;
@@ -3355,33 +3396,6 @@ bool
 sel_insn_is_speculation_check (rtx insn)
 {
   return s_i_d && !! INSN_SPEC_CHECKED_DS (insn);
-}
-
-/* Returns whether INSN is eligible for substitution, i.e. it's a copy
-   operation x := y, and RHS that is moved up through this insn should be
-   substituted.  */
-bool
-insn_eligible_for_subst_p (insn_t insn)
-{
-  /* Since we've got INSN_LHS and INSN_RHS it should be the SET insn,
-     and it's RHS is free of side effects (like AUTO_INC), 
-     so we just need to make sure the INSN_RHS consists of only one simple
-     REG rtx.  */
-
-  if (INSN_RHS (insn) && INSN_LHS (insn))
-    {
-      if (REG_P (INSN_RHS (insn)) && REG_P (INSN_LHS (insn)))
-	{
-	  gcc_assert (GET_MODE (INSN_LHS (insn)) 
-		      == GET_MODE (INSN_RHS (insn)));
-	}
-      if ((REG_P (INSN_LHS (insn)) 
-	   && (REG_P (INSN_RHS (insn)) 
-               /* Not supported atm.  
-	       || GET_CODE (INSN_RHS (insn)) == CONST_INT  */)))
-	  return true;             
-    }
-  return false;
 }
 
 /* Extracts machine mode MODE and destination location DST_LOC 
