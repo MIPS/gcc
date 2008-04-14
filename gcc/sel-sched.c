@@ -168,6 +168,108 @@ struct reg_rename
 static struct hard_regs_data sel_hrd;
 
 
+/* This structure holds local data used in code_motion_path_driver hooks on 
+   the same or adjacent levels of recursion.  Here we keep those parameters 
+   that are not used in code_motion_path_driver routine itself, but only in 
+   its hooks.  Moreover, all parameters that can be modified in hooks are 
+   in this structure, so all other parameters passed explicitly to hooks are 
+   read-only.  */
+struct cmpd_local_params
+{
+  /* Local params used in move_op_* functions.  */
+
+  /* Edges for bookkeeping generation.  */
+  edge e1, e2;
+
+  /* C_RHS merged from all successors and locally allocated temporary C_RHS.  */
+  expr_t c_rhs_merged, c_rhs_local;
+
+  /* Generated NOP insn.  */
+  insn_t generated_nop;
+
+  /* If not NULL, update_data_sets will be called on this insns.  */
+  insn_t call_update_data_sets_on_nop;
+
+  /* Local params used in fur_* functions.  */
+  
+  /* Copy of the ORIGINAL_INSN list, stores the original insns already
+     found before entering the current level of code_motion_path_driver.  */
+  def_list_t old_original_insns;
+};
+
+/* Stores the static parameters for move_op_* calls.  */
+struct moveop_static_params
+{
+  /* Destination register.  */
+  rtx dest;
+
+  /* Current C_RHS.  */
+  rhs_t c_rhs;
+};
+
+/* Stores the static parameters for fur_* calls.  */
+struct fur_static_params
+{
+  /* Set of registers unavailable on the code motion path.  */
+  regset used_regs, live_way;
+
+  /* True if a code motion path contains a CALL insn.  */
+  bool crosses_call;
+
+  /* Pointer to the list of original insns definitions.  */
+  def_list_t *original_insns;
+};
+
+typedef struct fur_static_params *fur_static_params_p;
+
+typedef struct cmpd_local_params *cmpd_local_params_p;
+typedef struct moveop_static_params *moveop_static_params_p;
+
+/* Set of hooks and parameters that determine behaviour specific to
+   move_op or find_used_regs functions.  */
+struct code_motion_path_driver_info_def
+{
+  /* Called on enter to the basic block.  */
+  bool (*on_enter) (insn_t, cmpd_local_params_p, void *);
+
+  /* Called when original rhs is found.  */
+  void (*orig_rhs_found) (insn_t, rhs_t, cmpd_local_params_p, void *);
+
+  /* Called while descending current basic block if current insn is not
+     the original RHS we're searching for.  */
+  bool (*orig_rhs_not_found) (insn_t, av_set_t, void *);
+
+  /* Function to merge C_RHSes from different successors.  */
+  void (*merge_succs) (insn_t, insn_t, int, cmpd_local_params_p, void *);
+
+  /* Function to finalize merge from different successors and possibly
+     deallocate temporary data structures used for merging.  */
+  void (*after_merge_succs) (cmpd_local_params_p, void *);
+
+  /* Called on the backward stage of recursion to do moveup_rhs.
+     Used only with move_op_*.  */
+  void (*ascend) (insn_t, void *);
+
+  /* Called on the ascending pass, before returning from the current basic 
+     block.  */
+  void (*at_bb_head) (insn_t, cmpd_local_params_p, void *);
+
+  /* When processing successors in move_op we need only descend into 
+     SUCCS_NORMAL successors, while in find_used_regs we need SUCCS_ALL.  */
+  int succ_flags;
+
+  /* The routine name to print in dumps ("move_op" of "find_used_regs").  */
+  const char *routine_name;
+};
+
+/* Global pointer to current hooks, either points to MOVE_OP_HOOKS or
+   FUR_HOOKS.  */
+struct code_motion_path_driver_info_def *code_motion_path_driver_info;
+
+/* Set of hooks for performing move_op and find_used_regs routines with
+   code_motion_path_driver.  */
+struct code_motion_path_driver_info_def move_op_hooks, fur_hooks;
+
 /* True if/when we want to emulate Haifa scheduler in the common code.  
    This is used in sched_rgn_local_init and in various places in 
    sched-deps.c.  */
@@ -254,7 +356,9 @@ static rtx get_dest_from_orig_ops (av_set_t);
 static basic_block generate_bookkeeping_insn (rhs_t, insn_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
-static bool move_op (insn_t, av_set_t, ilist_t, edge, edge, rtx, expr_t);
+static bool move_op (insn_t, av_set_t, rtx, expr_t);
+static bool code_motion_path_driver (insn_t, av_set_t, ilist_t,
+				     cmpd_local_params_p, void *);
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
 static av_set_t compute_av_set_inside_bb (insn_t, ilist_t, int, bool);
@@ -409,7 +513,8 @@ substitute_reg_in_rhs (rhs_t rhs, insn_t insn)
 	  if (!insn_rtx_valid (new_insn))
 	    gcc_unreachable ();
 
-	  change_vinsn_in_expr (rhs, create_vinsn_from_insn_rtx (new_insn));
+	  change_vinsn_in_expr (rhs, 
+				create_vinsn_from_insn_rtx (new_insn, false));
 
 	  /* Do not allow clobbering the address register of speculative 
              insns.  */
@@ -606,7 +711,7 @@ replace_dest_with_reg_in_rhs (rhs_t rhs, rtx new_reg)
   vinsn_t vinsn;
 
   insn_rtx = create_insn_rtx_with_lhs (RHS_VINSN (rhs), new_reg);
-  vinsn = create_vinsn_from_insn_rtx (insn_rtx);
+  vinsn = create_vinsn_from_insn_rtx (insn_rtx, false);
 
   change_vinsn_in_expr (rhs, vinsn);
 }
@@ -1297,16 +1402,12 @@ find_best_reg_for_rhs (rhs_t rhs, blist_t bnds, bool *is_orig_reg_p)
               IOR_HARD_REG_SET (hard_regs_used, 
                                 reg_rename_data.unavailable_hard_regs);
 
-              best_reg = choose_best_reg (hard_regs_used, 
-                                          &reg_rename_data, 
-                                          original_insns,
-					  is_orig_reg_p);
+              best_reg = choose_best_reg (hard_regs_used, &reg_rename_data, 
+                                          original_insns, is_orig_reg_p);
             }
           else
-            best_reg = choose_best_pseudo_reg (used_regs, 
-                                               &reg_rename_data, 
-                                               original_insns,
-					       is_orig_reg_p);
+            best_reg = choose_best_pseudo_reg (used_regs, &reg_rename_data, 
+                                               original_insns, is_orig_reg_p);
 
 	  if (!*is_orig_reg_p && sel_vinsn_cost (EXPR_VINSN (rhs)) < 2)
 	    best_reg = NULL_RTX;
@@ -2628,25 +2729,9 @@ get_spec_check_type_for_insn (insn_t insn, expr_t expr)
 
 /* Functions to check liveness restrictions on available instructions.  */
 
-/* Helper function for find_used_regs.
-   Finds registers that are not available for storing rhses while moving
-   ORIG_OPS up on the path starting from INSN. The register is used on 
-   the moving path, if one of the following conditions is false 
-
-      (1) not set or read on any path from xi to an instance of the original
-          operation, 
-      (2) not among the live registers of the point immediately following the 
-          first original operation on a given downward path, except for the
-	  original target register of the operation,
-      (3) not live on the other path of any conditional branch that is passed 
-	  by the operation, in case original operations are not present on
-	  both paths of the conditional branch.
-   
-   The routine traverses the program in the way similar to move_op.
-   PATH represents the edges traversed so far.  The return value is only used 
-   for correct work of this function itself.  The used registers are added to
-   USED_REGS set (USED_REGS should be allocated elsewhere, registers found are
-   ORed into the set).
+/* Find the set of registers that are unavailable for storing rhses 
+   while moving ORIG_OPS up on the path starting from INSN due to
+   liveness (USED_REGS) or hardware restrictions (REG_RENAME_P).
 
    All the original operations found during the traversal are saved in the
    ORIGINAL_INSNS list.
@@ -2657,368 +2742,67 @@ get_spec_check_type_for_insn (insn_t insn, expr_t expr)
    compatible class with the original uses, shouldn't be in call_used_regs,
    should be HARD_REGNO_RENAME_OK etc).
 
-   CROSSES_CALL is true, if there is a call insn on the path from INSN to 
-   original insn. In this case CALL_USED_REG_SET will be added to 
-   unavailable hard regs at the point original operation is found.   
+   Returns TRUE if we've found all original insns, FALSE otherwise.
 
-   Actually we need a complement set to the one computed by this routine,
-   but it's more natural to have the inverted set.  */
+   This function utilizes code_motion_path_driver (formerly find_used_regs_1)
+   to traverse the code motion paths.  This helper function finds registers 
+   that are not available for storing rhses while moving ORIG_OPS up on the 
+   path starting from INSN.  A register considered as used on the moving path,
+   if one of the following conditions is not satisfied:
 
-static int
-find_used_regs_1 (insn_t insn, av_set_t orig_ops, ilist_t path, 
-		  regset used_regs, regset live_way,
-		  bool crosses_call, def_list_t *original_insns)
-{
-  rhs_t rhs;
-  bool is_orig_op = false;
-  regset tmp;
-  int res;
-  int bb_num = BLOCK_FOR_INSN (insn)->index;
-  bool av_set_valid_p = AV_SET_VALID_P (insn);
-  def_list_t old_original_insns;
-
-  line_start ();
-  print ("find_used_regs_1(");
-  dump_insn (insn);
-  print (",");
-  dump_av_set (orig_ops);
-  print (")");
-  line_finish ();
-  block_start ();
-
-  gcc_assert (orig_ops);
-
-  /* Check that we are still inside a dag we schedule.  */
-  if (is_ineligible_successor (insn, path))
-    {
-      print ("ineligible_successor");
-      block_finish ();
-      return 0;
-    }
-
-  if (av_set_valid_p
-      && bitmap_bit_p (fur_visited_blocks, bb_num))
-    {
-      /* We have already found an original operation on this way, do not
-	 go any further and just return TRUE here.  If we don't stop here,
-	 function can have exponential behaviour even on the small code 
-	 with many different paths (e.g. with data speculation and
-	 recovery blocks.  */
-      print ("already visited in this find_used_regs_1");
-      block_finish ();
-
-      /* If we have found something below this block, there should be at
-	 least one insn in original_insns.  */
-      gcc_assert (*original_insns);
-
-      /* Adjust CROSSES_CALL, since we may have come to this block along
-	 different path.  */
-      DEF_LIST_DEF (*original_insns)->crosses_call |= crosses_call;
-
-      return 1;
-    }
-
-  orig_ops = av_set_copy (orig_ops);
-  old_original_insns = *original_insns;
-
-  /* If we've found valid av set, then filter the orig_ops set.  */
-  if (av_set_valid_p)
-    {
-      line_start ();
-      print ("av");
-      dump_insn (insn);
-      print ("=");
-      dump_av_set (AV_SET (insn));
-      line_finish ();
-
-      av_set_intersect (&orig_ops, AV_SET (insn));
-
-      /* If no more original ops, return immediately.  */
-      if (!orig_ops)
-	{
-	  print ("no intersection");
-	  block_finish ();
-	  return 0;
-	}
-
-      /* For non-speculative insns we have to leave only one form of the
-	 original operation, because if we don't, we may end up with 
-	 different C_RHSes and, consequently, with bookkeepings for different
-	 expression forms along the same code motion path.  That may lead to
-	 generation of incorrect code.  So for each code motion we stick to 
-	 the single form of the instruction,  except for speculative insns 
-	 which we need to keep in different forms with all speculation 
-	 types.  */
-      av_set_leave_one_nonspec (&orig_ops);
-    }
-
-  if (CALL_P (insn))
-    crosses_call = true;
-
-  /* Look at the insn and decide if it could be an ancestor of currently 
-     scheduling operation.  If it is so, then the insn "dest = op" could 
-     either be replaced with "dest = reg", because REG now holds the result
-     of OP, or just removed, if we've scheduled the insn as a whole.  
-
-     If this insn doesn't contain currently scheduling OP, then proceed
-     with searching and look at its successors.  Operations we're searching 
-     for could have changed when moving up through this insn via 
-     substituting.  In this case, firstly perform unsubstitution on them. 
-
-     When traversing the DAG below this insn is finished, insert bookkeeping 
-     code, if the insn is a joint point, and remove leftovers.  */
-
-  rhs = av_set_lookup (orig_ops, INSN_VINSN (insn));
-  if (rhs)
-    {
-      /* We have found the original operation. Mark the registers that do not
-	 meet the following condition:
-	(2) not among the live registers of the point immediately following 
-	    the first original operation on a given downward path, except 
-	    for the original target register of the operation.  */
-
-      print ("found original operation!");
-      
-      {
-	bool needs_spec_check_p;
-
-	needs_spec_check_p = (get_spec_check_type_for_insn (insn, rhs) != 0);
-
-	def_list_add (original_insns, insn, crosses_call, needs_spec_check_p);
-      }
-
-      res = 1;
-      is_orig_op = true;
-
-      /* (*1) We need to add to USED_REGS registers that are read by 
-	 INSN's lhs. This may lead to choosing wrong src register. 
-	 E.g. (scheduling const rhs enabled):  
-
-	    429: ax=0x0	<- Can't use AX for this rhs (0x0)
-	    433: dx=[bp-0x18]
-	    427: [ax+dx+0x1]=ax 
-	      REG_DEAD: ax
-	    168: di=dx
-	      REG_DEAD: dx    
-	 */
-      /* FIXME: see comment above and enable MEM_P in vinsn_separable_p.  */
-      gcc_assert (!VINSN_SEPARABLE_P (INSN_VINSN (insn))
-                  || !MEM_P (INSN_LHS (insn)));
-    }
-  else
-    {
-      succ_iterator succ_i;
-      rtx succ;
-      bool mutexed;
-      rhs_t r;
-      av_set_iterator avi;
-      regset live_on_other_branches = NULL;
-
-      res = 0;
-
-      /* Av set ops could have changed when moving through this insn.
-	 To find them below it, we have to un-speculate and un-substitute
-	 them.  */
-      undo_transformations (&orig_ops, insn);
-
-      /* If all original operands have been filtered on this branch,
-	 return.  */
-      if (!orig_ops)
-	{
-	  print ("undo_transformations() has cleared the orig_ops.");
-	  block_finish ();
-	  return 0;
-	}
-
-      /* Continue searching.  Do recursion here.  */
-      ilist_add (&path, insn);
-
-      FOR_EACH_SUCC (succ, succ_i, insn)
-        {
-	  int b;
-
-	  b = find_used_regs_1 (succ, orig_ops, path,
-			      used_regs, live_way, crosses_call,
-			      original_insns);
-
-	  if (b == 0)
-	    /* Mark all registers that do not meet the following condition:
-	       (3) not live on the other path of any conditional branch 
-	       that is passed by the operation, in case original
-	       operations are not present on both paths of the 
-	       conditional branch.
-
-	       if b is false, then it's not present on that branch.  */
-	    {
-	      regset succ_live = compute_live (succ);
-
-	      if (live_on_other_branches == NULL)
-		/* We're getting succ_live out of the pool.  */
-		{
-		  regset tmp = get_regset_from_pool ();
-
-		  gcc_assert (tmp == succ_live);
-
-		  live_on_other_branches = succ_live;
-		}
-	      else
-		/* We're leaving succ_live in the pool.  */
-		IOR_REG_SET (live_on_other_branches, succ_live);
-	    }
-	  else if (res != -1)
-	    res = b;
-	}
-
-      if (live_on_other_branches != NULL)
-	{
-	  IOR_REG_SET (used_regs, live_on_other_branches);
-	  return_regset_to_pool (live_on_other_branches);
-	  live_on_other_branches = NULL;
-	}
-
-      if (res == 0)
-	res = -1;
-
-      if (res == 1)
-	{
-	  /* Additionally, we need to include all live registers on 
-	     the successors of all conditional branches that do not lead to 
-	     the original operation.  We need to do this only for conditional
-	     branches that are inside actual code motion paths for original 
-	     operations.  The actual code motion path will have non-empty
-	     orig_ops set.
-	     This loop completes the set that is evaluated for 
-	     condition (3).  */
-    
-	  FOR_EACH_SUCC_1 (succ, succ_i, insn, SUCCS_BACK | SUCCS_OUT)
-	    IOR_REG_SET (used_regs, compute_live (succ));
-    
-	  /* If current insn we are looking at cannot be executed together 
-	     with original insn, then we can skip it safely.
-    
-	     Example: ORIG_OPS = { (p6) r14 = sign_extend (r15); }
-		      INSN = (!p6) r14 = r14 + 1; 
-    
-	     Here we can schedule ORIG_OP with lhs = r14, though only 
-	     looking at the set of used and set registers of INSN we must 
-	     forbid it.  So, add set/used in INSN registers to the 
-	     untouchable set only if there is an insn in ORIG_OPS that can 
-	     affect INSN.  
-    
-	     FIXME: I believe that it is enough to check only 1 insn of 
-	     ORIG_OPS (because other insns must be variations of this insn, 
-	     created by substitution, and so their execution conditions 
-	     must be same on all insns in ORIG_OPS), 
-	     though here we are more conservative.  */
-	  mutexed = true;
-	  gcc_assert (orig_ops);
-	  FOR_EACH_RHS (r, avi, orig_ops)
-	    if (!sched_insns_conditions_mutex_p (insn, RHS_INSN (r)))
-	      {
-		mutexed = false;
-		break;
-	      }
-    
-	  /* Mark all registers that do not meet the following condition:
-	     (1) Not set or read on any path from xi to an instance of the 
-		 original operation.  */
-	  if (!mutexed)
-	    {
-	      IOR_REG_SET (used_regs, INSN_REG_SETS (insn));
-	      IOR_REG_SET (used_regs, INSN_REG_USES (insn));
-              IOR_REG_SET (used_regs, INSN_REG_CLOBBERS (insn));
-	    }	  
-	}
-
-      ilist_remove (&path);
-    }
-
-  av_set_clear (&orig_ops);
-
-  /* Calculate the registers whose live range we crossed.  This part includes
-     the ones that are live on our way except the registers that are set 
-     by the original insn(s) below.  */
-  if (sel_bb_head_p (insn))
-    {
-      gcc_assert (res);
-
-      /* New original insns were found.  */
-      if (old_original_insns != *original_insns)
-        {
-          def_list_iterator i;
-          def_t def;
-          
-          tmp = get_clear_regset_from_pool ();
-          IOR_REG_SET (tmp, BB_LV_SET (BLOCK_FOR_INSN (insn)));
-          
-          FOR_EACH_DEF (def, i, *original_insns)
-            {
-              insn_t insn = def->orig_insn;
-            
-              if (*i.lp == old_original_insns)
-                break;
-              
-              AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
-              AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
-            }
-          
-          IOR_REG_SET (live_way, tmp);
-          return_regset_to_pool (tmp);
-        }
-    }
-  
-  gcc_assert (!sel_bb_head_p (insn) || AV_SET_VALID_P (insn)
-	      || AV_LEVEL (insn) == -1);
-
-  if (res == -1 && AV_LEVEL (insn) == -1)
-    /* INSN has an incorrect av_set on which we've couldn't have filtered
-       ORIG_OPS.  */
-    res = 0;
-
-  if (res == 1 && av_set_valid_p)
-    bitmap_set_bit (fur_visited_blocks, bb_num);
-
-  print ("return val=%d", res);
-  block_finish ();
-  return res;
-}
-
-/* Find the set of registers that are unavailable for storing rhses 
-   while moving ORIG_OPS up on the path starting from INSN due to
-   liveness (USED_REGS) or hardware restrictions (REG_RENAME_P).
+      (1) a register not set or read on any path from xi to an instance of 
+	  the original operation, 
+      (2) not among the live registers of the point immediately following the 
+          first original operation on a given downward path, except for the
+	  original target register of the operation,
+      (3) not live on the other path of any conditional branch that is passed 
+	  by the operation, in case original operations are not present on
+	  both paths of the conditional branch.
 
    All the original operations found during the traversal are saved in the
    ORIGINAL_INSNS list.
 
-   Returns TRUE if we've found all original insns, FALSE otherwise.
+   CROSSES_CALL is true, if there is a call insn on the path from INSN to 
+   original insn. In this case CALL_USED_REG_SET will be added to 
+   unavailable hard regs at the point original operation is found.   
 
-   See also comment for find_used_regs_1 for the details.  */
+   Actually we need a complement set to that computed by the routine,
+   but it's more natural to have the inverted one.  */
 
 static bool
 find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
-		struct reg_rename  *reg_rename_p, 
-		def_list_t *original_insns)
+		struct reg_rename  *reg_rename_p, def_list_t *original_insns)
 {
   def_list_iterator i;
   def_t def;
-  int res;
+  bool res;
   bool needs_spec_check_p = false;
+  /* FIXME: is this unused?  */
   bool crosses_call = false;
   insn_t temp;
   regset tmp;
   expr_t expr;
   av_set_iterator expr_iter;
   regset live_way;
+  struct fur_static_params sparams;
+  struct cmpd_local_params lparams;
 
   /* We haven't visited any blocks yet.  */
   bitmap_clear (fur_visited_blocks);
   live_way = get_clear_regset_from_pool ();
 
-  res = find_used_regs_1 (insn, orig_ops, NULL, used_regs,
-			  live_way, false, original_insns);
-  if (res == -1)
-    return false;
-  gcc_assert (res == 1);
+   /* Init parameters for code_motion_path_driver.  */
+   sparams.crosses_call = false;
+   sparams.original_insns = original_insns;
+   sparams.used_regs = used_regs;
+   sparams.live_way = live_way; 
+
+   /* Set the appropriate hooks and data.  */
+   code_motion_path_driver_info = &fur_hooks;
+  
+   res = code_motion_path_driver (insn, orig_ops, NULL, &lparams, &sparams);
+
+  gcc_assert (res);
   gcc_assert (original_insns && *original_insns);
 
   /* ??? We calculate whether an expression needs a check when computing
@@ -3384,13 +3168,26 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
 
 /* Lookup EXPR in VEC_BK_BLOCKED_EXPRS and return TRUE if found.  */
 static bool
-expr_blocked_by_bookkeeping (expr_t expr)
+expr_blocked_by_bookkeeping_p (expr_t expr)
 {
   unsigned hash;
   int n;
 
   for (n = 0; VEC_iterate (unsigned, vec_bk_blocked_exprs, n, hash); n++)
     if (hash == VINSN_HASH (EXPR_VINSN (expr)))
+      return true;
+
+  return false;
+}
+
+static bool
+av_set_could_be_blocked_by_bookkeeping_p (av_set_t orig_ops)
+{
+  expr_t expr;
+  av_set_iterator iter;
+
+  FOR_EACH_RHS (expr, iter, orig_ops)
+    if (expr_blocked_by_bookkeeping_p (expr))
       return true;
 
   return false;
@@ -3499,7 +3296,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence)
 	 bookkeeping earlier, make sure that we won't choose this rhs for
 	 scheduling if it's not separable, and if it is separable, then
 	 we have to recompute the set of available registers for it.  */
-      if (expr_blocked_by_bookkeeping (rhs))
+      if (expr_blocked_by_bookkeeping_p (rhs))
 	{
 	  if (!EXPR_SEPARABLE_P (rhs))
 	    {
@@ -4244,7 +4041,8 @@ generate_bookkeeping_insn (rhs_t c_rhs, insn_t join_point, edge e1, edge e2)
       = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
 
     new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_rhs));
-    new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx);
+    new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx, 
+					    VINSN_UNIQUE_P (EXPR_VINSN (c_rhs)));
     new_insn = emit_insn_from_expr_after (c_rhs, new_vinsn, 
                                           new_seqno, place_to_insert);
 
@@ -4788,8 +4586,8 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
               bitmap_clear (current_copies);
               bitmap_clear (current_originators);
 
-	      b = move_op (BND_TO (bnd), rhs_seq, NULL, NULL, NULL, 
-                           get_dest_from_orig_ops (rhs_seq), c_rhs);
+	      b = move_op (BND_TO (bnd), rhs_seq, 
+			   get_dest_from_orig_ops (rhs_seq), c_rhs);
  	      remove_temp_moveop_nops ();
 
 	      if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
@@ -5042,8 +4840,9 @@ update_and_record_unavailable_insns (basic_block book_block)
       FOR_EACH_RHS (cur_rhs, i, old_av_set)
 	if (!av_set_lookup (BB_AV_SET (book_block), EXPR_VINSN (cur_rhs)))
 	  {
-            /* Unfortunately, the below code could be also fired up on
-               separable insns.  
+	    /* Unfortunately, the below code could be also fired up on
+               separable insns.
+	       FIXME: add an example of how this could happen.  
                gcc_assert (!VINSN_SEPARABLE_P (EXPR_VINSN (cur_rhs)));  */
 	    VEC_safe_push (unsigned, heap, vec_bk_blocked_exprs, 
 			   VINSN_HASH (EXPR_VINSN (cur_rhs)));
@@ -5055,342 +4854,312 @@ update_and_record_unavailable_insns (basic_block book_block)
     update_data_sets (sel_bb_head (book_block));
 }
 
-/* Move up the operations from ORIG_OPS set traversing 
-   the dag started from INSN.  PATH represents the edges traversed so far.
-   REG is the register chosen for scheduling the current rhs.  Insert
-   bookkeeping code in the join points.  Return the current rhs.  */
-static bool
-move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
-         rtx dest, rhs_t c_rhs)
+/* The main effect of this function is that sparams->c_rhs is merged 
+   with (or copied to) lparams->c_rhs_merged.  If there's only one successor,
+   we avoid merging anything by copying sparams->c_rhs to lparams->c_rhs_merged.
+   lparams->c_rhs_merged is copied back to sparams->c_rhs after all 
+   successors has been traversed.  lparams->c_rhs_local is an rhs allocated 
+   on stack in the caller function, and is used if there is more than one 
+   successor. 
+
+   SUCC is one of the SUCCS_NORMAL successors of INSN,
+   MOVEOP_DRV_CALL_RES is the result of call code_motion_path_driver on succ,
+   LPARAMS and STATIC_PARAMS contain the parameters described above.  */
+static void
+move_op_merge_succs (insn_t insn, insn_t succ ATTRIBUTE_UNUSED, 
+		     int moveop_drv_call_res, 
+		     cmpd_local_params_p lparams, void *static_params)
 {
-  rhs_t rhs;
-  bool c_rhs_inited_p;
-  bool generated_nop_p = false;
-  basic_block book_block = NULL;
-  insn_t nop = NULL;
-  bool call_update_data_sets_on_nop = false;
+  moveop_static_params_p sparams = static_params;
 
-  line_start ();
-  print ("move_op(");
-  dump_insn (insn);
-  print (",");
-  dump_av_set (orig_ops);
-  print (")");
-  line_finish ();
-  block_start ();
+  /* Nothing to do, if original rhs wasn't found below.  */
+  if (!moveop_drv_call_res)
+    return;
 
-  /* If no original operations exist below this insn, return immediately.  */
-  if (!orig_ops || is_ineligible_successor (insn, path))
+  /* If this is a first successor.  */
+  if (!lparams->c_rhs_merged)
     {
-      print ("ineligible_successor");
-      block_finish ();
-      return false;
-    }
-
-  orig_ops = av_set_copy (orig_ops);
-
-  if (sel_bb_head_p (insn))
-    gcc_assert (AV_SET_VALID_P (insn));
-
-  /* If we've found valid av set, then filter the orig_ops set.  */
-  if (AV_SET_VALID_P (insn))
-    {
-      line_start ();
-      print ("av");
-      dump_insn (insn);
-      print ("=");
-      dump_av_set (AV_SET (insn));
-      line_finish ();
-
-      av_set_intersect (&orig_ops, AV_SET (insn));
-
-      /* If no more original ops, return immediately.  */
-      if (!orig_ops)
-	{
-	  print ("NULL");
-	  block_finish ();
-	  return false;
-	}
-
-      /* For non-speculative insns we have to leave only one form of the
-	 original operation, because if we don't, we may end up with 
-	 different C_RHSes and, consequently, with bookkeepings for different
-	 expression forms along the same code motion path.  That may lead to
-	 generation of incorrect code.  So for each code motion we stick to 
-	 the single form of the instruction,  except for speculative insns 
-	 which we need to keep in different forms with all speculation 
-	 types.  */
-      av_set_leave_one_nonspec (&orig_ops);
-    }
-
-  /* Look at the insn and decide if it could be an ancestor of currently 
-     scheduling operation.  If it is so, then the insn "dest = op" could 
-     either be replaced with "dest = reg", because REG now holds the result
-     of OP, or just removed, if we've scheduled the insn as a whole.  
-
-     If this insn doesn't contain currently scheduling OP, then proceed
-     with searching and look at its successors.  Operations we're searching 
-     for could have changed when moving up through this insn via 
-     substituting.  In this case, firstly perform unsubstitution on them. 
-
-     When traversing the DAG below this insn is finished, insert bookkeeping 
-     code, if the insn is a joint point, and remove leftovers.  */
-
-  rhs = av_set_lookup (orig_ops, INSN_VINSN (insn));
-
-  if (rhs != NULL)
-    /* We have found the original operation.  Replace it by REG, if 
-       it is scheduled as RHS, or just remove it later, if it's an insn.  */
-    {
-      print ("found original operation!");
-
-      copy_expr_onside (c_rhs, INSN_EXPR (insn));
-      c_rhs_inited_p = true;
-      
-      /* This can be previously created bookkeeping copy; do not count 
-         these.  */
-      if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
-        bitmap_set_bit (current_originators, INSN_UID (insn));
-      else
-        bitmap_clear_bit (current_copies, INSN_UID (insn));
-          
-
-      /* For instructions we must immediately remove insn from the
-	 stream, so subsequent update_data_sets () won't include this
-	 insn into av_set.
-	 For rhs we must make insn look like "INSN_REG (insn) := c_rhs".  */
-      if (INSN_UID (insn) > max_uid_before_move_op)
-	stat_bookkeeping_copies--;
-
-      {
-	bool recovery_p = false;
-
-	{
-	  rtx cur_reg = expr_dest_reg (c_rhs);
-
-	  gcc_assert (!cur_reg || (dest && REG_P (dest)));
-
-	  /* If original operation has rhs and the register chosen for
-	     that rhs is not original operation's dest reg, substitute
-	     operation's right hand side with the register chosen.  */
-	  if (cur_reg != NULL_RTX && REGNO (dest) != REGNO (cur_reg))
-	    {
-	      rtx reg_move_insn_rtx;
-	      insn_t reg_move_insn;
-
-	      reg_move_insn_rtx = create_insn_rtx_with_rhs (INSN_VINSN (insn),
-							    dest);
-	      reg_move_insn = sel_gen_insn_from_rtx_after (reg_move_insn_rtx,
-							   INSN_EXPR (insn),
-							   INSN_SEQNO (insn),
-							   insn);
-	      EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
-
-	      replace_dest_with_reg_in_rhs (c_rhs, dest);
-
-	      recovery_p = true;
-	    }
-	}
-
-	{
-	  insn_t x;
-	  ds_t check_ds = get_spec_check_type_for_insn (insn, rhs);
-
-	  if (check_ds != 0)
-	    {
-	      /* A speculation check should be inserted.  */
-	      x = create_speculation_check (c_rhs, check_ds, insn);
-
-	      recovery_p = true;
-	    }
-	  else
-	    {
-	      EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
-	      x = insn;
-	    }
-
-	  gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (x)) == 0
-		      && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (x)) == 0);
-	}
-
-	{
-	  insn_t x;
-	  basic_block bb = BLOCK_FOR_INSN (insn);
-	  /* If INSN is the only insn in the basic block (not counting JUMP,
-	     which may be a jump to next insn), leave NOP there till the 
-	     return to fill_insns.  */
-
-	  bool need_nop_to_preserve_bb = (((sel_bb_head (bb) == sel_bb_end (bb))
-	      || (NEXT_INSN (sel_bb_head (bb)) == sel_bb_end (bb) 
-	          && JUMP_P (sel_bb_end (bb)))))
-  	    && !sel_num_cfg_preds_gt_1 (sel_bb_head (bb));
-  
-	  if (!recovery_p)
-	    {
-	      x = get_nop_from_pool (insn);
-
-	      generated_nop_p = true;
-	    }
-	  else
-	    x = NEXT_INSN (insn);
-
-	  /* If there's only one insn in the BB, make sure that a nop is
-	     inserted into it, so the basic block won't disappear when we'll
-	     delete INSN below with sel_remove_insn. It should also survive
-	     till the return to fill_insns, so if the nop was created locally
-	     in move_op to retain data sets, reset GENERATED_NOP so it won't
-	     be deleted at the exit of this move_op.  */	     
-	  if (need_nop_to_preserve_bb)
-	    {
-	      if (!generated_nop_p)
-		{
-		  nop = get_nop_from_pool (insn);
-		  call_update_data_sets_on_nop = true;
-		}
-	      else
-		{
-  		  nop = x;
-		  generated_nop_p = false;
-		}
-	      gcc_assert (INSN_NOP_P (nop));
-	      VEC_safe_push (insn_t, heap, vec_temp_moveop_nops, nop);
-	    }
-
-	  /* For the insns that don't have rhs just remove insn from the
-	     stream.  Also remove insn if substituting it's right hand 
-	     side would result in operation like reg:=reg.  This kind of
-	     operation is not only excessive, but it may not be supported 
-	     on certain platforms, e.g. "mov si, si" is invalid on i386.  */
-	  sel_remove_insn (insn);
-
-	  insn = x;
-	}
-      }
+      lparams->c_rhs_merged = sparams->c_rhs;
+      sparams->c_rhs = lparams->c_rhs_local;
     }
   else
     {
-      succ_iterator succ_i;
-      rtx succ;
+      /* We must merge all found expressions to get reasonable
+	 EXPR_SPEC_DONE_DS for the resulting insn.  If we don't
+	 do so then we can first find the expr with epsilon
+	 speculation success probability and only then with the
+	 good probability.  As a result the insn will get epsilon
+	 probability and will never be scheduled because of
+	 weakness_cutoff in find_best_expr.
 
-      c_rhs_inited_p = false;
+	 We call merge_expr_data here instead of merge_expr 
+	 because due to speculation C_RHS and X may have the
+	 same insns with different speculation types.  And as of
+	 now such insns are considered non-equal.  
 
-      /* If we're scheduling separate rhs, in order to generate correct code
-         we need to stop the search at bookkeeping code generated with the 
-         same destination register or memory.  */
-      if (lhs_of_insn_equals_to_dest_p (insn, dest))
-	av_set_clear (&orig_ops);
-      else
-        /* Av set ops could have been changed when moving through this insn.
-           To find them below it, we have to un-substitute them.  */
-        undo_transformations (&orig_ops, insn);
+	 However, EXPR_SCHED_TIMES is different -- we must get 
+	 SCHED_TIMES from a real insn, not a bookkeeping copy.  
+	 We force this here.  Instead, we may consider merging
+	 SCHED_TIMES to the maximum instead of minimum in the 
+	 below function.  */
+      int old_times = EXPR_SCHED_TIMES (lparams->c_rhs_merged);
+      int use = MAX (EXPR_USEFULNESS (lparams->c_rhs_merged),
+		     EXPR_USEFULNESS (sparams->c_rhs));
 
-      /* If all original opernads have been filtered on this branch,
-	 return.  */
-      if (!orig_ops)
-	{
-	  block_finish ();
-	  return false;
-	}
+      gcc_assert (EXPR_USEFULNESS (lparams->c_rhs_merged) 
+		  == EXPR_USEFULNESS (sparams->c_rhs));
+      merge_expr_data (lparams->c_rhs_merged, sparams->c_rhs, insn);
 
-      /* Continue searching.  Do recursion here.  */
-      ilist_add (&path, insn);
-
-      FOR_EACH_SUCC (succ, succ_i, insn)
-        {
-	  bool b;
-	  expr_def _x, *x = &_x;
-
-	  if (succ_i.e1)
-	    {
-	      gcc_assert (succ_i.e2);
-
-	      gcc_assert (succ_i.e1->src == BLOCK_FOR_INSN (insn)
-			  && succ_i.e2->dest == BLOCK_FOR_INSN (succ));
-	    }
-
-	  b = move_op (succ, orig_ops, path, succ_i.e1, succ_i.e2, dest, x);
-
-          if (b)
-	    {
-              enum MOVEUP_RHS_CODE res;
-              
-	      line_start ();
-	      print ("Checking for %d ", INSN_UID (insn));
-	      dump_rhs (x);
-	      line_finish ();
-
-              res = moveup_rhs (x, insn, false, NULL);
-              gcc_assert (res != MOVEUP_RHS_NULL);
-
-	      if (!c_rhs_inited_p)
-		{
-		  copy_expr_onside (c_rhs, x);
-		  c_rhs_inited_p = true;
-		}
-	      else
-                {
-                  /* We must merge all found expressions to get reasonable
-                     EXPR_SPEC_DONE_DS for the resulting insn.  If we don't
-                     do so then we can first find the expr with epsilon
-                     speculation success probability and only then with the
-                     good probability.  As a result the insn will get epsilon
-                     probability and will never be scheduled because of
-                     weakness_cutoff in find_best_expr.
-                     
-                     We call merge_expr_data here instead of merge_expr 
-                     because due to speculation C_RHS and X may have the
-                     same insns with different speculation types.  And as of
-                     now such insns are considered non-equal.  
-
-                     However, EXPR_SCHED_TIMES is different -- we must get 
-                     SCHED_TIMES from a real insn, not a bookkeeping copy.  
-                     We force this here.  Instead, we may consider merging
-                     SCHED_TIMES to the maximum instead of minimum in the 
-                     below function.  */
-                  int old_times = EXPR_SCHED_TIMES (c_rhs);
-                  int use = MAX (EXPR_USEFULNESS (c_rhs), EXPR_USEFULNESS (x));
-
-                  gcc_assert (EXPR_USEFULNESS (c_rhs) == EXPR_USEFULNESS (x));
-                  merge_expr_data (c_rhs, x, insn);
-
-                  EXPR_USEFULNESS (c_rhs) = use;
-                  if (EXPR_SCHED_TIMES (x) == 0)
-                    EXPR_SCHED_TIMES (c_rhs) = old_times;
-                }
-
-	      clear_expr (x);
-	    }
-	}
-
-      ilist_remove (&path);
+      EXPR_USEFULNESS (lparams->c_rhs_merged) = use;
+      if (EXPR_SCHED_TIMES (sparams->c_rhs) == 0)
+	EXPR_SCHED_TIMES (lparams->c_rhs_merged) = old_times;
+      clear_expr (sparams->c_rhs);
     }
+}
 
-  av_set_clear (&orig_ops);
+/*  Add used regs for the successor SUCC into SPARAMS->USED_REGS.
 
-  if (!c_rhs_inited_p)
+   SUCC is one of the SUCCS_NORMAL successors of INSN,
+   MOVEOP_DRV_CALL_RES is the result of call code_motion_path_driver on succ or 0,
+     if SUCC is one of SUCCS_BACK or SUCCS_OUT.
+   STATIC_PARAMS contain USED_REGS set.  */
+static void
+fur_merge_succs (insn_t insn ATTRIBUTE_UNUSED, insn_t succ, 
+		 int moveop_drv_call_res, 
+		 cmpd_local_params_p lparams ATTRIBUTE_UNUSED, 
+		 void *static_params)
+{
+  regset succ_live;
+  fur_static_params_p sparams = static_params;
+
+  /* Here we compute live regsets only for branches that do not lie
+     on the code motion paths.  These branches correspond to value 
+     MOVEOP_DRV_CALL_RES==0 and include SUCCS_BACK and SUCCS_OUT, though
+     for such branches code_motion_path_driver is not called.  */
+  if (moveop_drv_call_res)
+    return;
+
+  /* Mark all registers that do not meet the following condition:
+     (3) not live on the other path of any conditional branch
+     that is passed by the operation, in case original
+     operations are not present on both paths of the
+     conditional branch.  */
+  succ_live = compute_live (succ);
+
+  IOR_REG_SET (sparams->used_regs, succ_live);
+}
+
+/* This function is called after the last successor.  Copies LP->C_RHS_MERGED
+   into SP->CRHS.  */
+static void
+move_op_after_merge_succs (cmpd_local_params_p lp, void *sparams)
+{  
+  moveop_static_params_p sp = sparams;
+  sp->c_rhs = lp->c_rhs_merged;
+}
+
+/* This function is called when original rhs is found.
+   INSN - current insn traversed, RHS - the corresponding rhs found.
+   If nop is generated in the function or we need to call update_data_sets
+   on nop, then they are saved in GENERATED_NOP_P and 
+   CALL_UPDATE_DATA_SETS_ON_NOP.  */
+static void
+move_op_orig_rhs_found (insn_t insn, rhs_t rhs, cmpd_local_params_p lparams, 
+			void *static_params)
+{
+  moveop_static_params_p params = static_params;
+  
+  copy_expr_onside (params->c_rhs, INSN_EXPR (insn));
+
+  /* This can be previously created bookkeeping copy; do not count these.  */
+  if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
+    bitmap_set_bit (current_originators, INSN_UID (insn));
+  else
+    bitmap_clear_bit (current_copies, INSN_UID (insn));
+
+  /* For instructions we must immediately remove insn from the
+     stream, so subsequent update_data_sets () won't include this
+     insn into av_set.
+     For rhs we must make insn look like "INSN_REG (insn) := c_rhs".  */
+  if (INSN_UID (insn) > max_uid_before_move_op)
+    stat_bookkeeping_copies--;
+
+  {
+    bool recovery_p = false;
+
     {
-      block_finish ();
-      return false;
+      rtx cur_reg = expr_dest_reg (params->c_rhs);
+
+      gcc_assert (!cur_reg || (params->dest && REG_P (params->dest)));
+
+      /* If original operation has rhs and the register chosen for
+	 that rhs is not original operation's dest reg, substitute
+	 operation's right hand side with the register chosen.  */
+      if (cur_reg != NULL_RTX && REGNO (params->dest) != REGNO (cur_reg))
+	{
+	  insn_t reg_move_insn, reg_move_insn_rtx;
+
+	  reg_move_insn_rtx = 
+	    create_insn_rtx_with_rhs (INSN_VINSN (insn), params->dest);
+
+	  reg_move_insn = sel_gen_insn_from_rtx_after 
+	    (reg_move_insn_rtx, INSN_EXPR (insn), INSN_SEQNO (insn), insn);
+
+	  EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
+
+	  replace_dest_with_reg_in_rhs (params->c_rhs, params->dest);
+
+	  recovery_p = true;
+	}
     }
+
+    {
+      insn_t x;
+      ds_t check_ds = get_spec_check_type_for_insn (insn, rhs);
+
+      if (check_ds != 0)
+	{
+	  /* A speculation check should be inserted.  */
+	  x = create_speculation_check (params->c_rhs, check_ds, insn);
+
+	  recovery_p = true;
+	}
+      else
+	{
+	  EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
+	  x = insn;
+	}
+
+      gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (x)) == 0
+		  && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (x)) == 0);
+    }
+
+    {
+      insn_t x, nop;
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
+      /* If INSN is the only insn in the basic block (not counting JUMP,
+	 which may be a jump to next insn), leave NOP there till the 
+	 return to fill_insns.  */
+      bool need_nop_to_preserve_bb = 
+	(((sel_bb_head (bb) == sel_bb_end (bb))
+	   || (NEXT_INSN (sel_bb_head (bb)) == sel_bb_end (bb) 
+	       && JUMP_P (sel_bb_end (bb)))))
+	 && !sel_num_cfg_preds_gt_1 (sel_bb_head (bb));
+
+      if (!recovery_p)
+	{
+	  x = get_nop_from_pool (insn);
+
+	  lparams->generated_nop = x;
+	}
+      else
+	x = NEXT_INSN (insn);
+
+      /* If there's only one insn in the BB, make sure that a nop is
+	 inserted into it, so the basic block won't disappear when we'll
+	 delete INSN below with sel_remove_insn. It should also survive
+	 till the return to fill_insns, so if the nop was created locally
+	 in move_op to retain data sets, reset GENERATED_NOP so it won't
+	 be deleted at the exit of this move_op.  */	     
+      if (need_nop_to_preserve_bb)
+	{
+	  if (!lparams->generated_nop)
+	    {
+	      nop = get_nop_from_pool (insn);
+	      lparams->call_update_data_sets_on_nop = nop;
+	    }
+	  else
+	    {
+	      nop = x;
+	      lparams->generated_nop = NULL;
+	    }
+	  gcc_assert (INSN_NOP_P (nop));
+	  VEC_safe_push (insn_t, heap, vec_temp_moveop_nops, nop);
+	}
+
+      /* For the insns that don't have rhs just remove insn from the
+	 stream.  Also remove insn if substituting it's right hand 
+	 side would result in operation like reg:=reg.
+	 This kind of operation is not only excessive, but it may not 
+	 be supported  on certain platforms, e.g. "mov si, si" 
+	 is invalid on i386.  */
+      sel_remove_insn (insn);
+
+      insn = x;
+    }
+  }
+}
+
+/* The function is called when original rhs is found.
+   INSN - current insn traversed, RHS - the corresponding rhs found,
+   crosses_call and original_insns in STATIC_PARAMS are updated.  */
+static void
+fur_orig_rhs_found (insn_t insn, rhs_t rhs, 
+		    cmpd_local_params_p lparams ATTRIBUTE_UNUSED,
+                    void *static_params)
+{
+  fur_static_params_p params = static_params;
+  bool needs_spec_check_p;
+
+  if (CALL_P (insn))
+    params->crosses_call = true;
+
+  /* We have found the original operation. Mark the registers that
+     do not meet the following condition:
+    (2) not among the live registers of the point 
+	immediately following the first original operation on 
+	a given downward path, except for the original target
+	register of the operation.  */
+  needs_spec_check_p = (get_spec_check_type_for_insn (insn, rhs) != 0);
+
+  def_list_add (params->original_insns, insn, params->crosses_call,
+		needs_spec_check_p);
+
+  /* (*1) We need to add to USED_REGS registers that are read by
+     INSN's lhs. This may lead to choosing wrong src register.
+     E.g. (scheduling const rhs enabled):
+
+	429: ax=0x0	<- Can't use AX for this rhs (0x0)
+	433: dx=[bp-0x18]
+	427: [ax+dx+0x1]=ax
+	  REG_DEAD: ax
+	168: di=dx
+	  REG_DEAD: dx
+     */
+  /* FIXME: see comment above and enable MEM_P 
+     in vinsn_separable_p.  */
+  gcc_assert (!VINSN_SEPARABLE_P (INSN_VINSN (insn))
+	      || !MEM_P (INSN_LHS (insn)));
+}
+
+/* This function is called on the ascending pass, before returning from
+   current basic block.  */
+static void
+move_op_at_bb_head (insn_t insn, cmpd_local_params_p lparams, 
+		    void *static_params)
+{
+  moveop_static_params_p sparams = static_params;
+  basic_block book_block = NULL;
 
   /* We should generate bookkeeping code only if we are not at the
      top level of the move_op.  */
-  if (e1 && sel_num_cfg_preds_gt_1 (insn))
+  if (lparams->e1 && sel_num_cfg_preds_gt_1 (insn))
     {
       /* INSN is a joint point, insert bookkeeping code here.  */
-      book_block = generate_bookkeeping_insn (c_rhs, insn, e1, e2);
+      book_block = generate_bookkeeping_insn (sparams->c_rhs, insn, 
+					      lparams->e1, 
+					      lparams->e2);
       gcc_assert (sel_bb_head_p (insn));
     }
 
-  if (call_update_data_sets_on_nop)
-    update_data_sets (nop);
-  else if (sel_bb_head_p (insn))
-    update_data_sets (insn);
+  if (lparams->call_update_data_sets_on_nop)
+    update_data_sets (lparams->call_update_data_sets_on_nop);
   else
-    gcc_assert (AV_LEVEL (insn) == INSN_WS_LEVEL (insn));
+    update_data_sets (insn);
 
   /* If bookkeeping code was inserted - we need to update av sets of basic
-     block, that recieved bookkeeping.  This should have minor impact on 
+     block, that received bookkeeping.  This should have minor impact on 
      performance as valid av set is found in next basic block.  
      In fact, after generation of bookkeeping insn, bookkeeping block does not
      contain valid av set.  This happens because we are not following
@@ -5400,30 +5169,30 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
      rhs-able instructions.  Consider example:
 
      bookkeeping block           scheduling fence
-                   \              /
-                    \    join    /
-                      ----------
-                      |        |
-                      ----------
-                    /            \
-                   /              \
-              r1 := r2          r1 := r3
+		   \              /
+		    \    join    /
+		      ----------
+		      |        |
+		      ----------
+		    /            \
+		   /              \
+	      r1 := r2          r1 := r3
 
      Imagine, we try to schedule insn "r1 := r3" on the current 
      scheduling fence.  Also, note that av set of bookkeeping block
      contain both insns "r1 := r2" and "r1 := r3".  When the insn has
      been scheduled, CFG is as following:
 
-            r1 := r3               r1 := r3
+	    r1 := r3               r1 := r3
      bookkeeping block           scheduling fence
-                   \              /
-                    \    join    /
-                      ----------
-                      |        |
-                      ----------
-                    /            \
-                   /              \
-              r1 := r2
+		   \              /
+		    \    join    /
+		      ----------
+		      |        |
+		      ----------
+		    /            \
+		   /              \
+	      r1 := r2
 
      Here, insn "r1 := r3" was scheduled at the current scheduling point
      and bookkeeping code was generated at the bookeeping block.  This
@@ -5436,67 +5205,600 @@ move_op (insn_t insn, av_set_t orig_ops, ilist_t path, edge e1, edge e2,
      unavailable during data sets update on the bookkeeping block in
      VEC_BK_BLOCKED_EXPRS.  Later we avoid selecting such expressions for
      scheduling.  This allows us to avoid recomputation of av_sets outside 
-     the code motion path.  The exprs that are blocked by the bookkeeping
-     are non-separable exprs, since for all other exprs we can just choose
-     another register.  */
+     the code motion path.  */
 
   if (book_block)
     update_and_record_unavailable_insns (book_block);
 
+
   /* If INSN was previously marked for deletion, it's time to do it.  */
-  if (generated_nop_p)
+  /* GENERATED_NOP_P was set where the original rhs was found.  */
+  if (lparams->generated_nop)
     {
       basic_block xbb = BLOCK_FOR_INSN (insn);
 
-      gcc_assert (INSN_NOP_P (insn));
+      gcc_assert (lparams->generated_nop && INSN_NOP_P (lparams->generated_nop));
+      gcc_assert (BLOCK_FOR_INSN (lparams->generated_nop) == xbb);
 
       /* Check if there is a unnecessary jump after insn left.  */
       if (jump_leads_only_to_bb_p (BB_END (xbb), xbb->next_bb)
 	  && INSN_SCHED_TIMES (BB_END (xbb)) == 0
 	  && !IN_CURRENT_FENCE_P (BB_END (xbb)))
-        {
+	{
 	  sel_remove_insn (BB_END (xbb));
-          tidy_fallthru_edge (EDGE_SUCC (xbb, 0));
-        }
+	  tidy_fallthru_edge (EDGE_SUCC (xbb, 0));
+	}
 
       /* Check if there is an unnecessary jump in previous basic block leading
-         to next basic block left after removing INSN from stream.  
-         If it is so, remove that jump and redirect edge to current basic block
-         (where there was INSN before deletion).  This way when NOP will be 
-         deleted several instructions later with its basic block we will not 
-         get a jump to next instruction, which can be harmful.  */
-      if (/* INSN (nop) is the only insn in its bb.  */
-          NEXT_INSN (bb_note (xbb)) == BB_END (xbb)
-          /* Flow goes fallthru from current block to the next.  */
-          && EDGE_COUNT (xbb->succs) == 1
-          && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
-          /* And unconditional jump in previous basic block leads to
-             next basic block of XBB and this jump can be safely removed.  */
-          && in_current_region_p (xbb->prev_bb)
-          && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
-          /* Also this jump is not at the scheduling boundary.  */
-          && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
-        {
-          /* Clear data structures of jump - jump itself will be removed
-             by sel_redirect_edge_and_branch.  */
-          clear_expr (INSN_EXPR (BB_END (xbb->prev_bb)));
-          sel_redirect_edge_and_branch (EDGE_SUCC (xbb->prev_bb, 0), xbb);
-          gcc_assert (EDGE_SUCC (xbb->prev_bb, 0)->flags & EDGE_FALLTHRU);
-          /* It can turn out that after removing unused jump, basic block
-             that contained that jump, becomes empty too.  In such case
-             remove it too.  */
-          if (sel_bb_empty_p (xbb->prev_bb))
-            {
-              free_data_sets (xbb->prev_bb);
-              sel_remove_empty_bb (xbb->prev_bb, false, true);
-            }
-        }
+	 to next basic block left after removing INSN from stream.  
+	 If it is so, remove that jump and redirect edge to current 
+	 basic block (where there was INSN before deletion).  This way 
+	 when NOP will be deleted several instructions later with its 
+	 basic block we will not get a jump to next instruction, which 
+	 can be harmful.  */
+      if (/* INSN (nop) is the only insn in its xbb.  */
+	  NEXT_INSN (bb_note (xbb)) == BB_END (xbb)
+	  /* Flow goes fallthru from current block to the next.  */
+	  && EDGE_COUNT (xbb->succs) == 1
+	  && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
+	  /* And unconditional jump in previous basic block leads to
+	     next basic block of XBB and this jump can be safely removed.  */
+	  && in_current_region_p (xbb->prev_bb)
+	  && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
+	  /* Also this jump is not at the scheduling boundary.  */
+	  && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
+	{
+	  /* Clear data structures of jump - jump itself will be removed
+	     by sel_redirect_edge_and_branch.  */
+	  clear_expr (INSN_EXPR (BB_END (xbb->prev_bb)));
+	  sel_redirect_edge_and_branch (EDGE_SUCC (xbb->prev_bb, 0), xbb);
+	  gcc_assert (EDGE_SUCC (xbb->prev_bb, 0)->flags & EDGE_FALLTHRU);
+	  /* It can turn out that after removing unused jump, basic block
+	     that contained that jump, becomes empty too.  In such case
+	     remove it too.  */
+	  if (sel_bb_empty_p (xbb->prev_bb))
+	    {
+	      free_data_sets (xbb->prev_bb);
+	      sel_remove_empty_bb (xbb->prev_bb, false, true);
+	    }
+	}
 
-      return_nop_to_pool (insn);
+      return_nop_to_pool (lparams->generated_nop);
+    }
+}
+
+/* This function is called on the ascending pass, before returning from the
+   current basic block.  */
+static void
+fur_at_bb_head (insn_t insn, cmpd_local_params_p lparams, void *static_params)
+{
+  fur_static_params_p sparams = static_params;
+  regset tmp;
+  
+  /* Calculate the registers whose live range we crossed.  This part includes
+     the ones that are live on our way except the registers that are set 
+     by the original insn(s) below.  */
+
+  /* New original insns were found.  */
+  if (lparams->old_original_insns != *sparams->original_insns)
+    {
+      def_list_iterator i;
+      def_t def;
+      
+      tmp = get_clear_regset_from_pool ();
+      IOR_REG_SET (tmp, BB_LV_SET (BLOCK_FOR_INSN (insn)));
+      
+      FOR_EACH_DEF (def, i, *sparams->original_insns)
+	{
+	  insn_t insn = def->orig_insn;
+	
+	  if (*i.lp == lparams->old_original_insns)
+	    break;
+	  
+	  AND_COMPL_REG_SET (tmp, INSN_REG_SETS (insn));
+	  AND_COMPL_REG_SET (tmp, INSN_REG_CLOBBERS (insn));
+	}
+      
+      IOR_REG_SET (sparams->live_way, tmp);
+      return_regset_to_pool (tmp);
     }
 
+  gcc_assert (!sel_bb_head_p (insn) || AV_SET_VALID_P (insn)
+	      || AV_LEVEL (insn) == -1);
+
+  bitmap_set_bit (fur_visited_blocks, BLOCK_FOR_INSN (insn)->index);
+}
+
+/* Called on the backward stage of recursion to call moveup_rhs for insn
+   and sparams->c_rhs.  */
+static void
+move_op_ascend (insn_t insn, void *static_params)
+{
+  enum MOVEUP_RHS_CODE res;
+  moveop_static_params_p sparams = static_params;
+
+  line_start ();
+  print ("Checking for %d ", INSN_UID (insn));
+  dump_rhs (sparams->c_rhs);
+  line_finish ();
+
+  res = moveup_rhs (sparams->c_rhs, insn, false, NULL);
+  gcc_assert (res != MOVEUP_RHS_NULL);
+}
+
+/* This function is called on enter to the basic block.  
+   Returns TRUE if this block already have been visited and 
+   code_motion_path_driver should return 1, FALSE otherwise.  */
+static bool
+fur_on_enter (insn_t insn, cmpd_local_params_p local_params, 
+	      void *static_params)
+{
+  fur_static_params_p sparams = static_params;
+  basic_block bb = BLOCK_FOR_INSN (insn);
+
+  if (bitmap_bit_p (fur_visited_blocks, bb->index))
+    {
+      /* We have already found an original operation on this branch, do not
+	 go any further and just return TRUE here.  If we don't stop here,
+	 function can have exponential behaviour even on the small code 
+	 with many different paths (e.g. with data speculation and
+	 recovery blocks).  */
+      print ("already visited in this find_used_regs_1");
+      block_finish ();
+
+      /* If we have found something below this block, there should be at
+	 least one insn in ORIGINAL_INSNS.  */
+      gcc_assert (*sparams->original_insns);
+
+      /* Adjust CROSSES_CALL, since we may have come to this block along
+	 different path.  */
+      DEF_LIST_DEF (*sparams->original_insns)->crosses_call
+	  |= sparams->crosses_call;
+
+      return true;
+    }
+
+  local_params->old_original_insns = *sparams->original_insns;
+
+  return false;
+}
+
+/* This function is called while descending current basic block if current 
+   insn is not the original RHS we're searching for.
+
+   Return value: FALSE, if code_motion_path_driver should perform a local 
+			cleanup and return 0 itself;
+		 TRUE, if code_motion_path_driver should continue.  */
+static bool
+move_op_orig_rhs_not_found (insn_t insn, av_set_t orig_ops ATTRIBUTE_UNUSED,
+			    void *static_params)
+{
+  moveop_static_params_p sparams = static_params;
+
+  /* If we're scheduling separate rhs, in order to generate correct code
+     we need to stop the search at bookkeeping code generated with the 
+     same destination register or memory.  */
+  if (lhs_of_insn_equals_to_dest_p (insn, sparams->dest))
+    return false;
+  else
+    return true;
+}
+
+/* This function is called while descending current basic block if current 
+   insn is not the original RHS we're searching for.
+
+   Return value: TRUE (code_motion_path_driver should continue).  */
+static bool
+fur_orig_rhs_not_found (insn_t insn, av_set_t orig_ops, void *static_params)
+{
+  bool mutexed;
+  rhs_t r;
+  av_set_iterator avi;
+  fur_static_params_p sparams = static_params;
+
+  if (CALL_P (insn))
+    sparams->crosses_call = true;
+
+  /* If current insn we are looking at cannot be executed together
+     with original insn, then we can skip it safely.
+
+     Example: ORIG_OPS = { (p6) r14 = sign_extend (r15); }
+	      INSN = (!p6) r14 = r14 + 1;
+
+     Here we can schedule ORIG_OP with lhs = r14, though only
+     looking at the set of used and set registers of INSN we must
+     forbid it.  So, add set/used in INSN registers to the
+     untouchable set only if there is an insn in ORIG_OPS that can
+     affect INSN.
+
+     FIXME: I believe that it is enough to check only 1 insn of
+     ORIG_OPS (because other insns must be variations of this insn,
+     created by substitution, and so their execution conditions
+     must be same on all insns in ORIG_OPS),
+     though here we are more conservative.  */
+  mutexed = true;
+  FOR_EACH_RHS (r, avi, orig_ops)
+    if (!sched_insns_conditions_mutex_p (insn, RHS_INSN (r)))
+      {
+	mutexed = false;
+	break;
+      }
+
+  /* Mark all registers that do not meet the following condition:
+     (1) Not set or read on any path from xi to an instance of the
+	 original operation.  */
+  if (!mutexed)
+    {
+      IOR_REG_SET (sparams->used_regs, INSN_REG_SETS (insn));
+      IOR_REG_SET (sparams->used_regs, INSN_REG_USES (insn));
+      IOR_REG_SET (sparams->used_regs, INSN_REG_CLOBBERS (insn));
+    }
+
+  return true;
+}
+
+/* Hooks and data to perform move_op operations with code_motion_path_driver.  */
+struct code_motion_path_driver_info_def move_op_hooks = {
+  NULL, /* move_op_on_enter */
+  move_op_orig_rhs_found,
+  move_op_orig_rhs_not_found,
+  move_op_merge_succs,
+  move_op_after_merge_succs,
+  move_op_ascend,
+  move_op_at_bb_head,
+  SUCCS_NORMAL,
+  "move_op"
+};
+
+/* Hooks and data to perform find_used_regs operations 
+   with code_motion_path_driver.  */
+struct code_motion_path_driver_info_def fur_hooks = {
+  fur_on_enter,
+  fur_orig_rhs_found,
+  fur_orig_rhs_not_found,
+  fur_merge_succs,
+  NULL, /* fur_after_merge_succs */
+  NULL, /* fur_ascend */
+  fur_at_bb_head,
+  SUCCS_ALL,
+  "find_used_regs"
+};
+
+/* Traverse all successors of INSN.  For each successor that is SUCCS_NORMAL
+   code_motion_path_driver is called recursively.  Original operation 
+   was found at least on one path that is starting with one of INSN's 
+   successors (this fact is asserted).  */
+static bool
+move_op_process_successors (insn_t insn, av_set_t orig_ops, ilist_t path,
+                            void *static_params)
+{
+  int res = 0;
+  succ_iterator succ_i;
+  rtx succ;
+
+  struct cmpd_local_params lparams;
+
+  expr_def _x;
+
+  lparams.c_rhs_local = &_x;
+  lparams.c_rhs_merged = NULL;
+
+  /* We need to process only NORMAL succs for move_op, and collect live
+     registers from ALL branches (including those leading out of the 
+     region) for find_used_regs.  */     
+
+  FOR_EACH_SUCC_1 (succ, succ_i, insn, code_motion_path_driver_info->succ_flags)
+    {
+      int b;
+
+      lparams.e1 = succ_i.e1;
+      lparams.e2 = succ_i.e2;
+
+      /* Go deep into recursion only for NORMAL edges (non-backedges within the
+	 current region).  */
+      if (succ_i.current_flags == SUCCS_NORMAL)
+	b = code_motion_path_driver (succ, orig_ops, path, &lparams, 
+				     static_params);
+      else
+	b = 0;
+
+      /* Merge c_rhses found or unify live register sets from different
+	 successors.  */
+      code_motion_path_driver_info->merge_succs (insn, succ, b, &lparams,
+						 static_params);
+
+      if (b != 0)
+        res = b;
+    }
+
+  /* Here, RES==1 if original rhs was found at least for one of the 
+     successors.  After the loop, RES may happen to have zero value
+     only if at some point the rhs searched is present in av_set, but is 
+     not found below.  In most cases, this situation is an error.  
+     The exception is when the original operation is blocked by
+     bookkeeping generated for another branch.  */
+  gcc_assert (res || av_set_could_be_blocked_by_bookkeeping_p (orig_ops));
+  
+  /* Merge data, clean up, etc.  */
+  if (code_motion_path_driver_info->after_merge_succs)
+    code_motion_path_driver_info->after_merge_succs (&lparams, static_params);
+
+  return res;
+}
+
+static inline void
+code_motion_path_driver_cleanup (av_set_t *orig_ops_p, ilist_t *path_p,
+				 int save_print_blocks_n)
+{
+  ilist_remove (path_p);
+
+  av_set_clear (orig_ops_p);
+
+  while (get_print_blocks_num () > save_print_blocks_n)
+    block_finish ();
+
+}
+
+/* The driver function that implements move_op or find_used_regs 
+   functionality dependent whether code_motion_path_driver_INFO is set to 
+   &MOVE_OP_HOOKS or &FUR_HOOKS.  This function implements the common parts 
+   of code (CFG traversal etc) that are shared among both functions.  */
+static bool
+code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path, 
+			 cmpd_local_params_p local_params_in, 
+			 void *static_params)
+{
+  rhs_t rhs = NULL;
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  insn_t bb_head, bb_tail, before_bb_head;
+  int save_print_blocks_n = get_print_blocks_num ();
+
+  line_start ();
+  print ("%s(", code_motion_path_driver_info->routine_name);
+
+  dump_insn (insn);
+  print (",");
+  dump_av_set (orig_ops);
+  print (")");
+  line_finish ();
+  block_start ();
+
+  gcc_assert (orig_ops);
+
+  /* If no original operations exist below this insn, return immediately.  */
+  if (is_ineligible_successor (insn, path))
+    {
+      print ("ineligible_successor");
+      block_finish ();
+      return false;
+    }
+
+  /* We should only enter this function on basic block heads.  */
+  gcc_assert (sel_bb_head_p (insn));
+  gcc_assert (AV_SET_VALID_P (insn));
+
+  gcc_assert (bb == BLOCK_FOR_INSN (insn));
+  if (code_motion_path_driver_info->on_enter 
+      && code_motion_path_driver_info->on_enter (insn, local_params_in,
+						 static_params))
+    return true;
+
+  local_params_in->generated_nop = NULL;
+  local_params_in->call_update_data_sets_on_nop = NULL;
+
+  orig_ops = av_set_copy (orig_ops);
+
+  /* Filter the orig_ops set.  */
+  line_start ();
+  print ("av");
+  dump_insn (insn);
+  print ("=");
+  dump_av_set (AV_SET (insn));
+  line_finish ();
+
+  av_set_intersect (&orig_ops, AV_SET (insn));
+
+  /* If no more original ops, return immediately.  */
+  if (!orig_ops)
+    {
+      print ("no intersection");
+      block_finish ();
+      return false;
+    }
+
+  /* For non-speculative insns we have to leave only one form of the
+     original operation, because if we don't, we may end up with 
+     different C_RHSes and, consequently, with bookkeepings for different
+     expression forms along the same code motion path.  That may lead to
+     generation of incorrect code.  So for each code motion we stick to 
+     the single form of the instruction,  except for speculative insns 
+     which we need to keep in different forms with all speculation 
+     types.  */
+  av_set_leave_one_nonspec (&orig_ops);
+
+  /* It is not possible that all ORIG_OPS are filtered out.  */
+  gcc_assert (orig_ops);
+
+  /* It is enough to place only heads and tails of visited basic blocks into
+     the PATH.  */
+  ilist_add (&path, insn);
+
+  bb_head = sel_bb_head (bb);
+  bb_tail = sel_bb_end (bb);
+
+  /* Descend the basic block in search of the original rhs; this part
+     corresponds to the part of the original move_op procedure executed 
+     before the recursive call.  */
+  for (;;)
+    {
+      if (insn != bb_head)
+	{
+	  line_start ();
+	  print ("%s(", code_motion_path_driver_info->routine_name);
+
+	  dump_insn (insn);
+	  print (",");
+	  dump_av_set (orig_ops);
+	  print (")");
+	  line_finish ();
+	  block_start ();
+	}
+
+      /* Look at the insn and decide if it could be an ancestor of currently
+	 scheduling operation.  If it is so, then the insn "dest = op" could
+	 either be replaced with "dest = reg", because REG now holds the result
+	 of OP, or just removed, if we've scheduled the insn as a whole.
+
+	 If this insn doesn't contain currently scheduling OP, then proceed
+	 with searching and look at its successors.  Operations we're searching
+	 for could have changed when moving up through this insn via 
+	 substituting.  In this case, perform unsubstitution on them first.
+
+	 When traversing the DAG below this insn is finished, insert
+	 bookkeeping code, if the insn is a joint point, and remove
+	 leftovers.  */
+
+      rhs = av_set_lookup (orig_ops, INSN_VINSN (insn));
+      if (rhs)
+	{
+	  insn_t last_insn = PREV_INSN (insn);
+
+	  /* We have found the original operation.   */
+	  print ("found original operation!");
+
+	  code_motion_path_driver_info->orig_rhs_found (
+	    insn, rhs, local_params_in, static_params);
+
+	  /* If the original INSN was not a bb head, do block_finish.  */
+	  if (!sel_bb_head_p (NEXT_INSN (last_insn)))
+	    block_finish ();
+	  /* Step back, so on the way back we'll start traversing from the
+	     previous insn (or we'll see that it's bb_note and skip that 
+	     loop).  */
+	  insn = last_insn;
+
+	  break;
+	}
+      else
+	{
+	  /* We haven't found the original rhs, continue descending the basic
+	     block.  */
+	  if (code_motion_path_driver_info->orig_rhs_not_found (
+	    insn, orig_ops, static_params))
+	    {
+	      /* Av set ops could have been changed when moving through this 
+	         insn.  To find them below it, we have to un-substitute them.  */
+	      undo_transformations (&orig_ops, insn);
+
+	    }
+	  else
+	    {
+	      /* Clean up and return, if the hook tells us to do so.  It may
+		 happen if we've encountered the previously created 
+		 bookkeeping.  */
+	      code_motion_path_driver_cleanup (&orig_ops, &path,
+					       save_print_blocks_n);
+
+	      return false;
+	    }
+
+	  gcc_assert (orig_ops);
+        }
+
+      /* Stop at insn if we got to the end of BB.  */
+      if (insn == bb_tail)
+	break;
+
+      insn = NEXT_INSN (insn);
+    }
+
+  /* Here INSN either points to the insn before the original insn (may be 
+     bb_note, if original insn was a bb_head) or to the bb_end.  */
+  if (!rhs)
+    {
+      bool res;
+
+      gcc_assert (insn == sel_bb_end (bb));
+
+      /* Add bb tail to PATH (but it doesn't make any sense if it's a bb_head -
+	 it's already in PATH then).  */
+      if (insn != bb_head)
+	ilist_add (&path, insn);
+
+      /* move_op_process_successors should be able to find at least one 
+	 successor for which code_motion_path_driver returns TRUE.  */ 
+      res = move_op_process_successors (insn, orig_ops, 
+					path, static_params);
+
+      /* Remove bb tail from path.  */
+      if (insn != bb_head)
+	ilist_remove (&path);
+
+      if (!res)
+	{
+	  /* This is the case when one of the original rhs is no longer available
+	     due to bookkeeping created on this branch with the same register.  
+	     In the original algorithm, which doesn't have update_data_sets call
+	     on a bookkeeping block, it would simply result in returning 
+	     FALSE when we've encountered a previously generated bookkeeping 
+	     insn in moveop_orig_rhs_not_found.  */
+	  code_motion_path_driver_cleanup (&orig_ops, &path,
+					   save_print_blocks_n);
+
+	  return false;
+	}
+    }
+
+  /* Don't need it any more.  */
+  av_set_clear (&orig_ops);
+
+  bb_head = sel_bb_head (bb);
+  before_bb_head = PREV_INSN (bb_head);
+
+  /* Backward pass: now, when we have C_RHS computed, we'll drag it to 
+     the beginning of the basic block.  */
+  while (insn != before_bb_head)
+    { 
+      if (code_motion_path_driver_info->ascend)
+	code_motion_path_driver_info->ascend (insn, static_params);
+
+      if (insn != bb_head)
+	block_finish ();
+
+      insn = PREV_INSN (insn);
+    }
+
+  /* Now we're at the bb head.  */
+  insn = bb_head;
+
+  ilist_remove (&path);
+
+  code_motion_path_driver_info->at_bb_head (insn, local_params_in, static_params);
+
   block_finish ();
-  return c_rhs_inited_p;
+  gcc_assert (get_print_blocks_num () == save_print_blocks_n);
+
+  return true;
+}
+
+/* Move up the operations from ORIG_OPS set traversing the dag starting 
+   from INSN.  PATH represents the edges traversed so far.
+   REG is the register chosen for scheduling the current rhs.  Insert
+   bookkeeping code in the join points.  Returns TRUE.  */
+static bool
+move_op (insn_t insn, av_set_t orig_ops, rtx dest, rhs_t c_rhs)
+{
+  struct moveop_static_params sparams;
+  struct cmpd_local_params lparams;
+
+  /* Init params for code_motion_path_driver.  */ 
+  sparams.dest = dest;
+  sparams.c_rhs = c_rhs;
+
+  /* Set approriate hooks and data.  */
+  code_motion_path_driver_info = &move_op_hooks;
+  
+  return code_motion_path_driver (insn, orig_ops, NULL, &lparams, &sparams);
 }
 
 

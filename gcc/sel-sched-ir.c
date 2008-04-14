@@ -1313,9 +1313,7 @@ vinsn_equal_p (vinsn_t vi1, vinsn_t vi2)
   if (VINSN_TYPE (vi1) != VINSN_TYPE (vi2))
     return false;
 
-  return (VINSN_UNIQUE_P (vi1)
-	  ? VINSN_INSN (vi1) == VINSN_INSN (vi2)
-	  : sel_rtx_equal_p (VINSN_PATTERN (vi1), VINSN_PATTERN (vi2)));
+  return (sel_rtx_equal_p (VINSN_PATTERN (vi1), VINSN_PATTERN (vi2)));
 }
 
 /* Returns LHS and RHS are ok to be scheduled separately.  */
@@ -2007,7 +2005,7 @@ speculate_expr (expr_t expr, ds_t ds)
     case 1:
       {
 	rtx spec_insn_rtx = create_insn_rtx_from_pattern (spec_pat, NULL_RTX);
-	vinsn_t spec_vinsn = create_vinsn_from_insn_rtx (spec_insn_rtx);
+	vinsn_t spec_vinsn = create_vinsn_from_insn_rtx (spec_insn_rtx, false);
 
 	change_vinsn_in_expr (expr, spec_vinsn);
 	EXPR_SPEC_DONE_DS (expr) = ds;
@@ -5467,11 +5465,12 @@ create_insn_rtx_from_pattern (rtx pattern, rtx label)
 
 /* Create a new vinsn for INSN_RTX.  */
 vinsn_t
-create_vinsn_from_insn_rtx (rtx insn_rtx)
+create_vinsn_from_insn_rtx (rtx insn_rtx, bool force_unique_p)
 {
   gcc_assert (INSN_P (insn_rtx) && !INSN_IN_STREAM_P (insn_rtx));
 
-  return vinsn_create (insn_rtx, false);
+  /* If VINSN_TYPE is not USE, retain its uniqueness.  */
+  return vinsn_create (insn_rtx, force_unique_p);
 }
 
 /* Create a copy of INSN_RTX.  */

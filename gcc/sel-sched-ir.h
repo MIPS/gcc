@@ -210,6 +210,12 @@ typedef expr_t rhs_t;
 struct _def
 {
   insn_t orig_insn;
+
+  /* FIXME: Get rid of CROSSES_CALL in each def, since if we're moving up
+     rhs from two different places, but only one of the code motion paths
+     crosses a call, we can't use any of the call_used_regs, no matter which 
+     path or whether all paths crosses a call.  Thus we should move CROSSES_CALL
+     to static params.  */
   bool crosses_call;
   bool needs_spec_check_p;
 };
@@ -1589,7 +1595,7 @@ extern void sel_unregister_cfg_hooks (void);
 
 /* Expression transformation routines.  */
 extern rtx create_insn_rtx_from_pattern (rtx, rtx);
-extern vinsn_t create_vinsn_from_insn_rtx (rtx);
+extern vinsn_t create_vinsn_from_insn_rtx (rtx, bool);
 extern rtx create_copy_of_insn_rtx (rtx);
 extern void change_vinsn_in_expr (expr_t, vinsn_t);
 

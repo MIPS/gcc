@@ -156,6 +156,12 @@ block_finish (void)
   indent--;
 }
 
+int 
+get_print_blocks_num (void)
+{
+  return print_blocks_n;
+}
+
 void
 line_start (void)
 {

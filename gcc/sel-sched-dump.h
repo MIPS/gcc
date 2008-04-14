@@ -188,6 +188,7 @@ extern void setup_sched_dumps (void);
 
 extern void block_start (void);
 extern void block_finish (void);
+extern int get_print_blocks_num (void);
 extern void line_start (void);
 extern void line_finish (void);
 extern void print_marker_to_log (void);
