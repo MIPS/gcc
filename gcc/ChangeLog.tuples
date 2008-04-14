@@ -1,3 +1,9 @@
+2008-04-14  Doug Kwan  <dougkwan@google.com>
+
+	* tree-nrv.c (dest_safe_for_nrv_p):  Uncomment.
+ 	(execute_return_slot_opt): Tuplify.
+	* passes.c (init_optimization_passes): Re-enable pass_return_slot.
+
 2008-04-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-cfg.c (gimple_can_merge_blocks_p): Fix typo.

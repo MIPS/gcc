@@ -257,8 +257,6 @@ struct gimple_opt_pass pass_nrv =
    subvars are clobbered.  Note that we could do better, for example, by
    attempting to doing points-to analysis on INDIRECT_REFs.  */
 
-/* FIXME tuples.  */
-#if 0
 static bool
 dest_safe_for_nrv_p (tree dest)
 {
@@ -285,7 +283,6 @@ dest_safe_for_nrv_p (tree dest)
 
   return true;
 }
-#endif
 
 /* Walk through the function looking for GIMPLE_MODIFY_STMTs with calls that
    return in memory on the RHS.  For each of these, determine whether it is
@@ -302,34 +299,31 @@ dest_safe_for_nrv_p (tree dest)
 static unsigned int
 execute_return_slot_opt (void)
 {
-  /* FIXME tuples.  */
-#if 0
   basic_block bb;
 
   FOR_EACH_BB (bb)
     {
-      block_stmt_iterator i;
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  tree stmt = bsi_stmt (i);
-	  tree call;
+	  gimple stmt = gsi_stmt (gsi);
+	  bool slot_opt_p;
 
-	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && (call = GIMPLE_STMT_OPERAND (stmt, 1),
-		  TREE_CODE (call) == CALL_EXPR)
-	      && !CALL_EXPR_RETURN_SLOT_OPT (call)
-	      && aggregate_value_p (call, call))
-	    /* Check if the location being assigned to is
-	       call-clobbered.  */
-	    CALL_EXPR_RETURN_SLOT_OPT (call) =
-	      dest_safe_for_nrv_p (GIMPLE_STMT_OPERAND (stmt, 0)) ? 1 : 0;
+	  if (gimple_code (stmt) == GIMPLE_CALL
+	      && gimple_call_lhs (stmt)
+	      && !gimple_call_return_slot_opt_p (stmt)
+	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),
+				    gimple_call_fndecl (stmt))
+	     )
+	    {
+	      /* Check if the location being assigned to is
+	         call-clobbered.  */
+	      slot_opt_p = dest_safe_for_nrv_p (gimple_call_lhs (stmt));
+	      gimple_call_set_return_slot_opt (stmt, slot_opt_p);
+	    }
 	}
     }
   return 0;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_return_slot = 

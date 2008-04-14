@@ -590,9 +590,9 @@ init_optimization_passes (void)
 	 execute TODO_rebuild_alias at this point even if
 	 pass_create_structure_vars was disabled.  */
       NEXT_PASS (pass_build_alias);
+      NEXT_PASS (pass_return_slot);
       /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_rename_ssa_copies);
 #endif
       /* Initial scalar cleanups.  */
