@@ -1,4 +1,9 @@
 2008-04-14  Joey Ye  <joey.ye@intel.com>
+
+	* emit-rtl.c (gen_reg_rtx): Don't update stack_alignment_estimated
+	if stack_align_prcocessed is true.
+
+2008-04-14  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (handle_drap): Make it void.  Return if
