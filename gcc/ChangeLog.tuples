@@ -1,5 +1,9 @@
 2008-04-14  Doug Kwan  <dougkwan@google.com>
 
+	* c-typeck.c (convert_for_assignment): Call c_common_unsigned_type
+
+2008-04-14  Doug Kwan  <dougkwan@google.com>
+
 	* gimple-iterator.c (gsi_move_to_bb_end): Use gsi_last_bb
 	instead of calling both gsi_last and bb_seq.
 	* passes.c (init_optimization_passes): Re-eanble second tail-recursion
