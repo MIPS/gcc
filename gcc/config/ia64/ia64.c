@@ -6931,7 +6931,7 @@ ia64_h_i_d_extended (void)
 {
   if (stops_p != NULL) 
     {
-      int new_clocks_length = get_max_uid () + 1;
+      int new_clocks_length = get_max_uid () * 3 / 2;
       
       stops_p = xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
       

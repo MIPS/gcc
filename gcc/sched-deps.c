@@ -2987,20 +2987,16 @@ remove_from_deps (struct deps *deps, rtx insn)
   remove_from_dependence_list (insn, &deps->sched_before_next_call);
 }
 
-/* An array indexed by INSN_UID that holds the data related 
-   to insn's dependencies and common to all schedulers.  */
-VEC (deps_insn_data_def, heap) *d_i_d = NULL;
-
+/* Init deps data vector.  */
 static void
-deps_extend_d_i_d (void)
+init_deps_data_vector (void)
 {
-  VEC_safe_grow_cleared (deps_insn_data_def, heap, d_i_d, sched_max_luid);
-}
-
-void
-deps_finish_d_i_d (void)
-{
-  VEC_free (deps_insn_data_def, heap, d_i_d);
+  int reserve = (sched_max_luid + 1 
+                 - VEC_length (haifa_deps_insn_data_def, h_d_i_d));
+  if (reserve > 0 
+      && ! VEC_space (haifa_deps_insn_data_def, h_d_i_d, reserve))
+    VEC_safe_grow_cleared (haifa_deps_insn_data_def, heap, h_d_i_d,
+                           3 * sched_max_luid / 2);
 }
 
 /* If it is profitable to use them, initialize or extend (depending on
@@ -3008,18 +3004,13 @@ deps_finish_d_i_d (void)
 void
 sched_deps_init (bool global_p)
 {
-  int new_max_uid;
   /* Average number of insns in the basic block.
      '+ 1' is used to make it nonzero.  */
   int insns_in_block = sched_max_luid / n_basic_blocks + 1;
 
-  deps_extend_d_i_d ();
-
-  new_max_uid = get_max_uid () + 1;
-  VEC_safe_grow_cleared (haifa_deps_insn_data_def, heap, h_d_i_d,
-			 new_max_uid);
-
-  /* FIXME: We need another caching mechanism for selective scheduling, so 
+  init_deps_data_vector ();
+  
+  /* We use another caching mechanism for selective scheduling, so 
      we don't use this one.  */
   if (!SEL_SCHED_P && global_p && insns_in_block > 100 * 5)
     {
@@ -3038,7 +3029,6 @@ sched_deps_init (bool global_p)
       dl_pool = create_alloc_pool ("deps_list", sizeof (struct _deps_list),
                                    /* Allocate lists for one block at a time.  */
                                    insns_in_block);
-      
       dn_pool = create_alloc_pool ("dep_node", sizeof (struct _dep_node),
                                    /* Allocate nodes for one block at a time.
                                       We assume that average insn has
@@ -3081,15 +3071,6 @@ extend_dependency_caches (int n, bool create_p)
     }
 }
 
-/* Finalize dependency information for the region.  */
-void
-sched_deps_local_finish (void)
-{
-  VEC_free (haifa_deps_insn_data_def, heap, h_d_i_d);
-  cache_size = 0;
-  deps_finish_d_i_d ();
-}
-
 /* Finalize dependency information for the whole function.  */
 void
 sched_deps_finish (void)
@@ -3099,6 +3080,9 @@ sched_deps_finish (void)
   free_alloc_pool_if_empty (&dl_pool);
   gcc_assert (dn_pool == NULL && dl_pool == NULL);
 
+  VEC_free (haifa_deps_insn_data_def, heap, h_d_i_d);
+  cache_size = 0;
+  
   if (true_dependency_cache)
     {
       int i;

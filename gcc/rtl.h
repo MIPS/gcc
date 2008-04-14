@@ -1755,8 +1755,20 @@ extern int replace_label (rtx *, void *);
 extern int rtx_referenced_p (rtx, rtx);
 extern bool tablejump_p (const_rtx, rtx *, rtx *);
 extern int computed_jump_p (const_rtx);
+
 typedef int (*rtx_function) (rtx *, void *);
 extern int for_each_rtx (rtx *, rtx_function, void *);
+
+typedef int (*rtx_equal_p_callback_function) (const_rtx *, const_rtx *,
+                                              rtx *, rtx *);
+extern int rtx_equal_p_cb (const_rtx, const_rtx,
+                           rtx_equal_p_callback_function);
+
+typedef int (*hash_rtx_callback_function) (const_rtx, enum machine_mode, rtx *,
+                                           enum machine_mode *);
+extern unsigned hash_rtx_cb (const_rtx, enum machine_mode, int *, int *,
+                             bool, hash_rtx_callback_function);
+
 extern rtx regno_use_in (unsigned int, rtx);
 extern int auto_inc_p (const_rtx);
 extern int in_expr_list_p (const_rtx, const_rtx);

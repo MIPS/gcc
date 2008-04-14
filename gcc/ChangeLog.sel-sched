@@ -1,4 +1,56 @@
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/ia64/ia64.c (ia64_h_i_d_extended): Reallocate stops_p
+	by larger chunks.
+	* cse.c (hash_rtx_cb): New.  
+	(hash_rtx): Use it.
+	* haifa-sched.c (haifa_sched_finish): Tidy. 
+	(sched_finish): Call haifa_finish_h_i_d.
+	(extend_h_i_d): Reallocate h_i_d by larget chunks.
+	* rtl.c (rtx_equal_p_cb): New.
+	(rtx_equal_p): Use it.
+	* rtl.h (rtx_equal_p_cb, hash_rtx_cb): New.
+	* sched-deps.c (init_deps_data_vector): New.  Allocate h_d_i_d
+	by larger chunks.
+	(sched_deps_init): Use it.
+	(deps_extend_d_i_d, deps_finish_d_i_d, sched_deps_local_finish): Kill.
+	* sched-int.h: Kill glat externs.
+	(struct _haifa_deps_insn_data): New field cant_move, moved from d_i_d.
+	(struct _deps_insn_data): Kill with all uses.
+	* sel-sched-ir.h (struct _expr): New field cant_move.
+	(_list_alloc): New, split from ... 
+	(_list_add): ... here.
+	* sel-sched-ir.c (sel_rtx_equal_p, sel_hash_rtx): Kill.
+	(skip_unspecs_callback, hash_with_unspec_callback): New.
+	(vinsn_init): Use hash_rtx_cb.
+	(vinsn_equal_p): Use rtx_equal_p_cb.
+	(init_expr, merge_expr_data, copy_expr, 
+	init_global_and_expr_for_insn): Update for EXPR_CANT_MOVE.
+	(update_target_availability, update_speculative_bits): New, split from ...
+	(merge_expr_data): ... here.
+	(expr_greater_p, av_set_add_element): New. 
+	(av_set_add, av_set_add_nocopy): Use it.
+	(join_distinct_sets, av_set_truncate): New.
+	(av_set_union_and_clear, av_set_union_and_live): Use them.
+	(extend_insn): Reallocate s_i_d by larger chunks.
+	(finish_insns): Clear cant_move bit.
+	(block_valid_for_bookkeeping_p, find_block_for_bookkeeping, 
+	create_block_for_bookkeeping, find_place_for_bookkeeping,
+	emit_bookkeeping_insn): New, split from ... 
+	(generate_bookkeeping_insn): ... here.
+	(stall_for_cycles): New.
+	(update_fence_and_insn): New parameter need_stall.
+	(fill_insns): Use stall_for_cycles. Pass need_stall
+	to update_fence_and_insn.
+	(move_op_at_first_insn): Do not remove jumps that are already scheduled.
+	(sel_region_init): Tidy.
+	(find_ebb_boundaries, reset_sched_cycles_in_current_ebb, put_TImodes,
+	sel_region_target_finish): New, split from ... 
+	(sel_region_finish): ... here.
+	(sel_global_init): Initialize can_issue_more.
+
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
 	* cfgloopmanip.c (has_preds_from_loop): New.
 	(create_preheader): Use it.

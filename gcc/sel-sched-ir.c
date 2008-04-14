@@ -1040,333 +1040,52 @@ free_nop_pool (void)
 }
 
 
-/* Return 1 if X and Y are identical-looking rtx's.
-   This is the Lisp function EQUAL for rtx arguments.
-   Copied from rtl.c.  The only difference is support for ia64 speculation.  */
+/* Skip unspec to support ia64 speculation. Called from rtx_equal_p_cb.  */
+
 static int
-sel_rtx_equal_p (rtx x, rtx y)
+skip_unspecs_callback (const_rtx *xx, const_rtx *yy, rtx *nx, rtx* ny)
 {
-  int i;
-  int j;
-  enum rtx_code code;
-  const char *fmt;
-
-  if (x == y)
-    return 1;
-  if (x == 0 || y == 0)
-    return 0;
-
-  /* Support ia64 speculation.  */
+  const_rtx x = *xx;
+  const_rtx y = *yy;
+  
   if (GET_CODE (x) == UNSPEC
       && (targetm.sched.skip_rtx_p == NULL
           || targetm.sched.skip_rtx_p (x)))
-    return sel_rtx_equal_p (XVECEXP (x, 0, 0), y);
+    {
+      *nx = XVECEXP (x, 0, 0);
+      *ny = (rtx) y;
+      return 1;
+    }
   
   if (GET_CODE (y) == UNSPEC
       && (targetm.sched.skip_rtx_p == NULL
           || targetm.sched.skip_rtx_p (y)))
-    return sel_rtx_equal_p (x, XVECEXP (y, 0, 0));
+    {
+      *nx = (rtx) x;
+      *ny = XVECEXP (y, 0, 0);
+      return 1;
+    }
   
-  code = GET_CODE (x);
-  /* Rtx's of different codes cannot be equal.  */
-  if (code != GET_CODE (y))
-    return 0;
-
-  /* (MULT:SI x y) and (MULT:HI x y) are NOT equivalent.
-     (REG:SI x) and (REG:HI x) are NOT equivalent.  */
-
-  if (GET_MODE (x) != GET_MODE (y))
-    return 0;
-
-  /* Some RTL can be compared nonrecursively.  */
-  switch (code)
-    {
-    case REG:
-      return (REGNO (x) == REGNO (y));
-
-    case LABEL_REF:
-      return XEXP (x, 0) == XEXP (y, 0);
-
-    case SYMBOL_REF:
-      return XSTR (x, 0) == XSTR (y, 0);
-
-    case SCRATCH:
-    case CONST_DOUBLE:
-    case CONST_INT:
-      return 0;
-
-    default:
-      break;
-    }
-
-  /* Compare the elements.  If any pair of corresponding elements
-     fail to match, return 0 for the whole thing.  */
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      switch (fmt[i])
-	{
-	case 'w':
-	  if (XWINT (x, i) != XWINT (y, i))
-	    return 0;
-	  break;
-
-	case 'n':
-	case 'i':
-	  if (XINT (x, i) != XINT (y, i))
-	    return 0;
-	  break;
-
-	case 'V':
-	case 'E':
-	  /* Two vectors must have the same length.  */
-	  if (XVECLEN (x, i) != XVECLEN (y, i))
-	    return 0;
-
-	  /* And the corresponding elements must match.  */
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    if (sel_rtx_equal_p (XVECEXP (x, i, j), XVECEXP (y, i, j)) == 0)
-	      return 0;
-	  break;
-
-	case 'e':
-	  if (sel_rtx_equal_p (XEXP (x, i), XEXP (y, i)) == 0)
-	    return 0;
-	  break;
-
-	case 'S':
-	case 's':
-	  if ((XSTR (x, i) || XSTR (y, i))
-	      && (! XSTR (x, i) || ! XSTR (y, i)
-		  || strcmp (XSTR (x, i), XSTR (y, i))))
-	    return 0;
-	  break;
-
-	case 'u':
-	  /* These are just backpointers, so they don't matter.  */
-	  break;
-
-	case '0':
-	case 't':
-	  break;
-
-	  /* It is believed that rtx's at this level will never
-	     contain anything but integers and other rtx's,
-	     except for within LABEL_REFs and SYMBOL_REFs.  */
-	default:
-	  gcc_unreachable ();
-	}
-    }
-  return 1;
+  return 0;
 }
 
-/* Hash an rtx X.  The difference from hash_rtx is that we try to hash as 
-   much stuff as possible, not skipping volatile mems, calls, etc.  */
+/* Callback, called from hash_rtx_cb.
+   Helps to hash UNSPEC rtx in a correct way to support ia64 speculation. */
 
-static unsigned
-sel_hash_rtx (rtx x, enum machine_mode mode)
+static int
+hash_with_unspec_callback (const_rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
+                           rtx *nx, enum machine_mode* nmode)
 {
-  int i, j;
-  unsigned hash = 0;
-  enum rtx_code code;
-  const char *fmt;
-
-  /* Used to turn recursion into iteration.  */
- repeat:
-  if (x == 0)
-    return hash;
-
-  code = GET_CODE (x);
-  switch (code)
+  if (GET_CODE (x) == UNSPEC 
+      && targetm.sched.skip_rtx_p
+      && targetm.sched.skip_rtx_p(x))
     {
-    case REG:
-      {
-	unsigned int regno = REGNO (x);
-
-	hash += ((unsigned int) REG << 7);
-        hash += regno;
-	return hash;
-      }
-
-    case SUBREG:
-      {
-	if (REG_P (SUBREG_REG (x)))
-	  {
-	    hash += (((unsigned int) SUBREG << 7)
-		     + REGNO (SUBREG_REG (x))
-		     + (SUBREG_BYTE (x) / UNITS_PER_WORD));
-	    return hash;
-	  }
-	break;
-      }
-
-    case CONST_INT:
-      hash += (((unsigned int) CONST_INT << 7) + (unsigned int) mode
-               + (unsigned int) INTVAL (x));
-      return hash;
-
-    case CONST_DOUBLE:
-      hash += (unsigned int) code + (unsigned int) GET_MODE (x);
-      if (GET_MODE (x) != VOIDmode)
-	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
-      else
-	hash += ((unsigned int) CONST_DOUBLE_LOW (x)
-		 + (unsigned int) CONST_DOUBLE_HIGH (x));
-      return hash;
-
-    case CONST_VECTOR:
-      {
-	int units;
-	rtx elt;
-
-	units = CONST_VECTOR_NUNITS (x);
-
-	for (i = 0; i < units; ++i)
-	  {
-	    elt = CONST_VECTOR_ELT (x, i);
-	    hash += sel_hash_rtx (elt, GET_MODE (elt));
-	  }
-
-	return hash;
-      }
-
-      /* Assume there is only one rtx object for any given label.  */
-    case LABEL_REF:
-      /* We don't hash on the address of the CODE_LABEL to avoid bootstrap
-	 differences and differences between each stage's debugging dumps.  */
-	 hash += (((unsigned int) LABEL_REF << 7)
-		  + CODE_LABEL_NUMBER (XEXP (x, 0)));
-      return hash;
-
-    case SYMBOL_REF:
-      {
-	/* Don't hash on the symbol's address to avoid bootstrap differences.
-	   Different hash values may cause expressions to be recorded in
-	   different orders and thus different registers to be used in the
-	   final assembler.  This also avoids differences in the dump files
-	   between various stages.  */
-	unsigned int h = 0;
-	const unsigned char *p = (const unsigned char *) XSTR (x, 0);
-
-	while (*p)
-	  h += (h << 7) + *p++; /* ??? revisit */
-
-	hash += ((unsigned int) SYMBOL_REF << 7) + h;
-	return hash;
-      }
-
-    case MEM:
-      hash += (unsigned) MEM;
-      x = XEXP (x, 0);
-      goto repeat;
-
-    case USE:
-      if (MEM_P (XEXP (x, 0))
-	  && ! MEM_VOLATILE_P (XEXP (x, 0)))
-	{
-	  hash += (unsigned) USE;
-	  x = XEXP (x, 0);
-
-	  hash += (unsigned) MEM;
-	  x = XEXP (x, 0);
-	  goto repeat;
-	}
-      break;
-
-    case PRE_DEC:
-    case PRE_INC:
-    case POST_DEC:
-    case POST_INC:
-    case PRE_MODIFY:
-    case POST_MODIFY:
-    case PC:
-    case CC0:
-    case CALL:
-    case UNSPEC_VOLATILE:
-      return hash;
-    
-    case UNSPEC:
-      /* Skip UNSPECs when we are so told.  */
-      if (targetm.sched.skip_rtx_p && targetm.sched.skip_rtx_p (x))
-        {
-          hash += sel_hash_rtx (XVECEXP (x, 0, 0), 0);
-          return hash;
-        }
-      break;
-        
-    case ASM_OPERANDS:
-      /* We don't want to take the filename and line into account.  */
-      hash += (unsigned) code + (unsigned) GET_MODE (x)
-        + hash_rtx_string (ASM_OPERANDS_TEMPLATE (x))
-        + hash_rtx_string (ASM_OPERANDS_OUTPUT_CONSTRAINT (x))
-        + (unsigned) ASM_OPERANDS_OUTPUT_IDX (x);
-
-      if (ASM_OPERANDS_INPUT_LENGTH (x))
-        {
-          for (i = 1; i < ASM_OPERANDS_INPUT_LENGTH (x); i++)
-            {
-              hash += (sel_hash_rtx (ASM_OPERANDS_INPUT (x, i),
-                                 GET_MODE (ASM_OPERANDS_INPUT (x, i)))
-                       + hash_rtx_string
-                       (ASM_OPERANDS_INPUT_CONSTRAINT (x, i)));
-            }
-
-          hash += hash_rtx_string (ASM_OPERANDS_INPUT_CONSTRAINT (x, 0));
-          x = ASM_OPERANDS_INPUT (x, 0);
-          mode = GET_MODE (x);
-          goto repeat;
-        }
-
-      return hash;
-      
-    default:
-      break;
+      *nx = XVECEXP (x, 0 ,0);
+      *nmode = 0;
+      return 1;
     }
-
-  i = GET_RTX_LENGTH (code) - 1;
-  hash += (unsigned) code + (unsigned) GET_MODE (x);
-  fmt = GET_RTX_FORMAT (code);
-  for (; i >= 0; i--)
-    {
-      switch (fmt[i])
-	{
-	case 'e':
-	  /* If we are about to do the last recursive call
-	     needed at this level, change it into iteration.
-	     This function  is called enough to be worth it.  */
-	  if (i == 0)
-	    {
-	      x = XEXP (x, i);
-	      goto repeat;
-	    }
-
-	  hash += sel_hash_rtx (XEXP (x, i), 0);
-	  break;
-
-	case 'E':
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    hash += sel_hash_rtx (XVECEXP (x, i, j), 0);
-	  break;
-
-	case 's':
-	  hash += hash_rtx_string (XSTR (x, i));
-	  break;
-
-	case 'i':
-	  hash += (unsigned int) XINT (x, i);
-	  break;
-
-	case '0': case 't':
-	  /* Unused.  */
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-    }
-
-  return hash;
+  
+  return 0;
 }
 
 /* Returns LHS and RHS are ok to be scheduled separately.  */
@@ -1409,39 +1128,41 @@ lhs_and_rhs_separable_p (rtx lhs, rtx rhs)
 static void
 vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 {
+  hash_rtx_callback_function hrcf;
+  int class;
+
   VINSN_INSN_RTX (vi) = insn;
-
+  VINSN_COUNT (vi) = 0;
   vi->cost = -1;
-
   deps_init_id (VINSN_ID (vi), insn, force_unique_p);
   
   /* Hash vinsn depending on whether it is separable or not.  */
+  hrcf = targetm.sched.skip_rtx_p ? hash_with_unspec_callback : NULL;
   if (VINSN_SEPARABLE_P (vi))
     {
       rtx rhs = VINSN_RHS (vi);
 
-      VINSN_HASH (vi) = sel_hash_rtx (rhs, GET_MODE (rhs));
-      VINSN_HASH_RTX (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode);
+      VINSN_HASH (vi) = hash_rtx_cb (rhs, GET_MODE (rhs),
+                                     NULL, NULL, false, hrcf);
+      VINSN_HASH_RTX (vi) = hash_rtx_cb (VINSN_PATTERN (vi),
+                                         VOIDmode, NULL, NULL,
+                                         false, hrcf);
     }
   else
     {
-      VINSN_HASH (vi) = sel_hash_rtx (VINSN_PATTERN (vi), VOIDmode); 
+      VINSN_HASH (vi) = hash_rtx_cb (VINSN_PATTERN (vi), VOIDmode,
+                                     NULL, NULL, false, hrcf);
       VINSN_HASH_RTX (vi) = VINSN_HASH (vi);
     }
     
-  VINSN_COUNT (vi) = 0;
-
-  {
-    int class = haifa_classify_insn (insn);
-
-    if (class >= 2
-	&& (!targetm.sched.get_insn_spec_ds
-	    || ((targetm.sched.get_insn_spec_ds (insn) & BEGIN_CONTROL)
-		== 0)))
-      VINSN_MAY_TRAP_P (vi) = true;
-    else
-      VINSN_MAY_TRAP_P (vi) = false;
-  }
+  class = haifa_classify_insn (insn);
+  if (class >= 2
+      && (!targetm.sched.get_insn_spec_ds
+          || ((targetm.sched.get_insn_spec_ds (insn) & BEGIN_CONTROL)
+              == 0)))
+    VINSN_MAY_TRAP_P (vi) = true;
+  else
+    VINSN_MAY_TRAP_P (vi) = false;
 }
 
 /* Indicate that VI has become the part of an rtx object.  */
@@ -1757,6 +1478,8 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
 bool
 vinsn_equal_p (vinsn_t x, vinsn_t y)
 {
+  rtx_equal_p_callback_function repcf;
+
   if (x == y)
     return true;
 
@@ -1766,16 +1489,17 @@ vinsn_equal_p (vinsn_t x, vinsn_t y)
   if (VINSN_HASH (x) != VINSN_HASH (y))
     return false;
 
+  repcf = targetm.sched.skip_rtx_p ? skip_unspecs_callback : NULL;
   if (VINSN_SEPARABLE_P (x)) 
     {
       /* Compare RHSes of VINSNs.  */
       gcc_assert (VINSN_RHS (x));
       gcc_assert (VINSN_RHS (y));
 
-      return sel_rtx_equal_p (VINSN_RHS (x), VINSN_RHS (y));
+      return rtx_equal_p_cb (VINSN_RHS (x), VINSN_RHS (y), repcf);
     }
 
-  return sel_rtx_equal_p (VINSN_PATTERN (x), VINSN_PATTERN (y));
+  return rtx_equal_p_cb (VINSN_PATTERN (x), VINSN_PATTERN (y), repcf);
 }
 
 /* Initialize EXPR.  */
@@ -1784,7 +1508,8 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
 	   int sched_times, int orig_bb_index, ds_t spec_done_ds,
 	   ds_t spec_to_check_ds, int orig_sched_cycle,
 	   VEC(expr_history_def, heap) *history, bool target_available, 
-           bool was_substituted, bool was_renamed, bool needs_spec_check_p)
+           bool was_substituted, bool was_renamed, bool needs_spec_check_p,
+           bool cant_move)
 {
   vinsn_attach (vi);
 
@@ -1807,6 +1532,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
   EXPR_WAS_SUBSTITUTED (expr) = was_substituted;
   EXPR_WAS_RENAMED (expr) = was_renamed;
   EXPR_NEEDS_SPEC_CHECK_P (expr) = needs_spec_check_p;
+  EXPR_CANT_MOVE (expr) = cant_move;
 }
 
 /* Make a copy of the expr FROM into the expr TO.  */
@@ -1836,7 +1562,8 @@ copy_expr (expr_t to, expr_t from)
 	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), 
 	     EXPR_ORIG_SCHED_CYCLE (from), temp,
              EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from), 
-             EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
+             EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from),
+             EXPR_CANT_MOVE (from));
 }
 
 /* Same, but the final expr will not ever be in av sets, so don't copy 
@@ -1848,8 +1575,93 @@ copy_expr_onside (expr_t to, expr_t from)
 	     EXPR_PRIORITY (from), EXPR_SCHED_TIMES (from), 0,
 	     EXPR_SPEC_DONE_DS (from), EXPR_SPEC_TO_CHECK_DS (from), 0, NULL,
 	     EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from),
-	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
+	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from),
+             EXPR_CANT_MOVE (from));
 }
+
+/* Update target_available bits when merging exprs TO and FROM.  */
+static void
+update_target_availability (expr_t to, expr_t from, insn_t split_point)
+{
+  if (EXPR_TARGET_AVAILABLE (to) < 0  
+      || EXPR_TARGET_AVAILABLE (from) < 0)
+    EXPR_TARGET_AVAILABLE (to) = -1;
+  else
+    {
+      /* We try to detect the case when one of the expressions
+         can only be reached through another one.  In this case,
+         we can do better.  */
+      if (split_point == NULL)
+        {
+          int toind, fromind;
+
+          toind = EXPR_ORIG_BB_INDEX (to);
+          fromind = EXPR_ORIG_BB_INDEX (from);
+          
+          if (toind && toind == fromind)
+            /* Do nothing -- everything is done in 
+               merge_with_other_exprs.  */
+            ;
+          else
+            EXPR_TARGET_AVAILABLE (to) = -1;
+        }
+      else
+        EXPR_TARGET_AVAILABLE (to) &= EXPR_TARGET_AVAILABLE (from);
+    }
+}
+
+/* Update speculation bits when merging exprs TO and FROM.  */
+static void
+update_speculative_bits (expr_t to, expr_t from, insn_t split_point)
+{
+  ds_t old_to_ds, old_from_ds;
+
+  old_to_ds = EXPR_SPEC_DONE_DS (to);
+  old_from_ds = EXPR_SPEC_DONE_DS (from);
+    
+  EXPR_SPEC_DONE_DS (to) = ds_max_merge (old_to_ds, old_from_ds);
+  EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
+  EXPR_NEEDS_SPEC_CHECK_P (to) |= EXPR_NEEDS_SPEC_CHECK_P (from);
+
+  /* When merging e.g. control & data speculative exprs, or a control
+     speculative with a control&data speculative one, we really have 
+     to change vinsn too.  Also, when speculative status is changed,
+     we also need to record this as a transformation in expr's history.  */
+  if ((old_to_ds & SPECULATIVE) || (old_from_ds & SPECULATIVE))
+    {
+      old_to_ds = ds_get_speculation_types (old_to_ds);
+      old_from_ds = ds_get_speculation_types (old_from_ds);
+        
+      if (old_to_ds != old_from_ds)
+        {
+          ds_t record_ds;
+            
+          /* When both expressions are speculative, we need to change 
+             the vinsn first.  */
+          if ((old_to_ds & SPECULATIVE) && (old_from_ds & SPECULATIVE))
+            {
+              int res;
+                
+              res = speculate_expr (to, EXPR_SPEC_DONE_DS (to));
+              gcc_assert (res >= 0);
+            }
+
+          if (split_point != NULL)
+            {
+              /* Record the change with proper status.  */
+              record_ds = EXPR_SPEC_DONE_DS (to) & SPECULATIVE;
+              record_ds &= ~(old_to_ds & SPECULATIVE);
+              record_ds &= ~(old_from_ds & SPECULATIVE);
+                
+              insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (to), 
+                                      INSN_UID (split_point), TRANS_SPECULATION, 
+                                      EXPR_VINSN (from), EXPR_VINSN (to),
+                                      record_ds);
+            }
+        }
+    }
+}
+
 
 /* Merge bits of FROM expr to TO expr.  When SPLIT_POINT is not NULL,
    this is done along different paths.  */
@@ -1876,32 +1688,6 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   if (EXPR_SCHED_TIMES (to) > EXPR_SCHED_TIMES (from))
     EXPR_SCHED_TIMES (to) = EXPR_SCHED_TIMES (from);
 
-  if (EXPR_TARGET_AVAILABLE (to) < 0  
-      || EXPR_TARGET_AVAILABLE (from) < 0)
-    EXPR_TARGET_AVAILABLE (to) = -1;
-  else
-    {
-      /* We try to detect the case when one of the expressions
-         can only be reached through another one.  In this case,
-         we can do better.  */
-      if (split_point == NULL)
-        {
-          int toind, fromind;
-
-          toind = EXPR_ORIG_BB_INDEX (to);
-          fromind = EXPR_ORIG_BB_INDEX (from);
-          
-          if (toind && toind == fromind)
-            /* Do nothing -- everything is done in 
-               merge_with_other_exprs.  */
-            ;
-          else
-            EXPR_TARGET_AVAILABLE (to) = -1;
-        }
-      else
-        EXPR_TARGET_AVAILABLE (to) &= EXPR_TARGET_AVAILABLE (from);
-    }
-
   if (EXPR_ORIG_BB_INDEX (to) != EXPR_ORIG_BB_INDEX (from))
     EXPR_ORIG_BB_INDEX (to) = 0;
 
@@ -1920,55 +1706,10 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
 
   EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
   EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (to);
+  EXPR_CANT_MOVE (to) |= EXPR_CANT_MOVE (from);
 
-  {
-    ds_t old_to_ds, old_from_ds;
-
-    old_to_ds = EXPR_SPEC_DONE_DS (to);
-    old_from_ds = EXPR_SPEC_DONE_DS (from);
-    
-    EXPR_SPEC_DONE_DS (to) = ds_max_merge (old_to_ds, old_from_ds);
-    EXPR_SPEC_TO_CHECK_DS (to) |= EXPR_SPEC_TO_CHECK_DS (from);
-    EXPR_NEEDS_SPEC_CHECK_P (to) |= EXPR_NEEDS_SPEC_CHECK_P (from);
-
-    /* When merging e.g. control & data speculative exprs, or a control
-       speculative with a control&data speculative one, we really have 
-       to change vinsn too.  Also, when speculative status is changed,
-       we also need to record this as a transformation in expr's history.  */
-    if ((old_to_ds & SPECULATIVE) || (old_from_ds & SPECULATIVE))
-      {
-        old_to_ds = ds_get_speculation_types (old_to_ds);
-        old_from_ds = ds_get_speculation_types (old_from_ds);
-        
-        if (old_to_ds != old_from_ds)
-          {
-            ds_t record_ds;
-            
-            /* When both expressions are speculative, we need to change 
-               the vinsn first.  */
-            if ((old_to_ds & SPECULATIVE) && (old_from_ds & SPECULATIVE))
-              {
-                int res;
-                
-                res = speculate_expr (to, EXPR_SPEC_DONE_DS (to));
-                gcc_assert (res >= 0);
-              }
-
-            if (split_point != NULL)
-              {
-                /* Record the change with proper status.  */
-                record_ds = EXPR_SPEC_DONE_DS (to) & SPECULATIVE;
-                record_ds &= ~(old_to_ds & SPECULATIVE);
-                record_ds &= ~(old_from_ds & SPECULATIVE);
-                
-                insert_in_history_vect (&EXPR_HISTORY_OF_CHANGES (to), 
-                                        INSN_UID (split_point), TRANS_SPECULATION, 
-                                        EXPR_VINSN (from), EXPR_VINSN (to),
-                                        record_ds);
-              }
-          }
-      }
-  }
+  update_target_availability (to, from, split_point);
+  update_speculative_bits (to, from, split_point);
 }
 
 /* Merge bits of FROM expr to TO expr.  Vinsns in the exprs should correlate.  */
@@ -2146,21 +1887,68 @@ mark_unavailable_targets (av_set_t join_set, av_set_t av_set, regset lv_set)
 
 /* Av set functions.  */
 
+/* Return true if we think that EXPR2 must be before EXPR1 in av set.  */
+static inline bool
+expr_greater_p (expr_t expr1, expr_t expr2)
+{
+  int tmp;
+
+  tmp = EXPR_USEFULNESS (expr2) - EXPR_USEFULNESS (expr1);
+  if (tmp) 
+    return tmp > 0;
+  tmp = EXPR_PRIORITY (expr2) - EXPR_PRIORITY (expr1);
+  if (tmp) 
+    return tmp > 0;
+  return INSN_LUID (EXPR_INSN_RTX (expr2)) < INSN_LUID (EXPR_INSN_RTX (expr1));
+}
+
+/* Add a new element to av set SETP, having in mind the priority.  
+   Return the element added.  */
+static av_set_t 
+av_set_add_element (av_set_t *setp, expr_t expr)
+{
+  av_set_t *prevp = NULL, elem;
+
+  while (*setp && ! expr_greater_p (_AV_SET_EXPR (*setp), expr))
+    {
+      prevp = setp;
+      setp = &_AV_SET_NEXT (*setp);
+    }
+
+  if (prevp == NULL)
+    {
+      /* Insert at the beginning of the list.  */
+      _list_add (setp);
+      return *setp;
+    }
+
+  /* Insert somewhere in the middle.  */
+  elem = _list_alloc ();
+  _AV_SET_NEXT (elem) = _AV_SET_NEXT (*prevp);
+  _AV_SET_NEXT (*prevp) = elem;
+
+  return elem;
+}
+
 /* Add EXPR to SETP.  */
 void
 av_set_add (av_set_t *setp, expr_t expr)
 {
+  av_set_t elem;
+  
   gcc_assert (!INSN_NOP_P (EXPR_INSN_RTX (expr)));
-  _list_add (setp);
-  copy_expr (_AV_SET_EXPR (*setp), expr);
+  elem = av_set_add_element (setp, expr);
+  copy_expr (_AV_SET_EXPR (elem), expr);
 }
 
 /* Same, but do not copy EXPR.  */
 static void
 av_set_add_nocopy (av_set_t *setp, expr_t expr)
 {
-  _list_add (setp);
-  *_AV_SET_EXPR (*setp) = *expr;
+  av_set_t elem;
+
+  elem = av_set_add_element (setp, expr);
+  *_AV_SET_EXPR (elem) = *expr;
 }
 
 /* Remove expr pointed to by IP from the av_set.  */
@@ -2204,27 +1992,19 @@ av_set_lookup_and_remove (av_set_t *setp, vinsn_t sought_vinsn)
 
 /* Search for an expr in SET, such that it's equivalent to EXPR in the
    sense of vinsn_equal_p function of their vinsns, but not EXPR itself.
-   Returns NULL if no such expr is in SET was found.  Store in LATERP true
-   when other expression was found later than this, and false otherwise.  */
+   Returns NULL if no such expr is in SET was found.  */
 static expr_t
-av_set_lookup_other_equiv_expr (av_set_t set, expr_t expr, bool *laterp)
+av_set_lookup_other_equiv_expr (av_set_t set, expr_t expr)
 {
   expr_t cur_expr;
   av_set_iterator i;
-  bool temp = false;
 
   FOR_EACH_EXPR (cur_expr, i, set)
     {
       if (cur_expr == expr)
-        {
-          temp = true;
-          continue;
-        }
+        continue;
       if (vinsn_equal_p (EXPR_VINSN (cur_expr), EXPR_VINSN (expr)))
-        {
-          *laterp = temp;
-          return cur_expr;
-        }
+        return cur_expr;
     }
 
   return NULL;
@@ -2234,11 +2014,9 @@ av_set_lookup_other_equiv_expr (av_set_t set, expr_t expr, bool *laterp)
 expr_t
 merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
 {
-  bool later;
   expr_t expr2;
 
-  expr2 = av_set_lookup_other_equiv_expr (*avp, expr, &later);
-
+  expr2 = av_set_lookup_other_equiv_expr (*avp, expr);
   if (expr2 != NULL)
     {
       /* Reset target availability on merge, since taking it only from one
@@ -2279,6 +2057,54 @@ av_set_copy (av_set_t set)
   return res;
 }
 
+/* Join two av sets that do not have common elements and save the resulting
+   set in TOP.  FROMP will be null after this.  */
+static void 
+join_distinct_sets (av_set_t *top, av_set_t *fromp)
+{
+  av_set_t *oldp = fromp, from = *fromp;
+
+  while (from)
+    {
+      av_set_t prev = NULL, tmp = *top;
+      av_set_t next = _AV_SET_NEXT (from);
+      
+      while (tmp && ! expr_greater_p (_AV_SET_EXPR (tmp), 
+                                      _AV_SET_EXPR (from)))
+        {
+          prev = tmp;
+          tmp = _AV_SET_NEXT (tmp);
+        }
+      
+      _AV_SET_NEXT (from) = tmp;
+      if (prev == NULL)
+        *top = from;
+      else
+        _AV_SET_NEXT (prev) = from;
+
+      from = next;
+    }
+  
+  *oldp = NULL;
+}
+
+/* Truncate the set so it doesn't grow too much.  */
+void
+av_set_truncate (av_set_t set)
+{
+  int n = 0;
+  av_set_t prev;
+
+  while (set && ++n <= 9)
+    {
+      prev = set;
+      set = _AV_SET_NEXT (set);
+    }
+  if (set)
+    av_set_clear (&_AV_SET_NEXT (prev));
+}
+
+
 /* Makes set pointed to by TO to be the union of TO and FROM.  Clear av_set
    pointed to by FROMP afterwards.  */
 void
@@ -2299,9 +2125,7 @@ av_set_union_and_clear (av_set_t *top, av_set_t *fromp, insn_t insn)
 	}
     }
 
-  /* Connect FROMP to the end of the TOP.  */
-  *i.lp = *fromp;
-  *fromp  = NULL;
+  join_distinct_sets (top, fromp);
 }
 
 /* Same as above, but also update availability of target register in 
@@ -2312,7 +2136,6 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
 {
   expr_t expr1;
   av_set_iterator i;
-  _list_t *oldlp;
   av_set_t in_both_set = NULL;
 
   /* Delete from TOP all expres, that present in FROMP.  */
@@ -2350,19 +2173,13 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
         set_unavailable_target_for_expr (expr1, from_lv_set);
     }
 
-  /* Save the old pointer to the end of the list.  */
-  oldlp = i.lp;
-
   /* These expressions are not present in TOP.  Check liveness
      restrictions on TO_LV_SET.  */
   FOR_EACH_EXPR (expr1, i, *fromp)
     set_unavailable_target_for_expr (expr1, to_lv_set);
 
-  /* Connect FROMP and in_both_set to the end of the TOP.  */
-  *i.lp = in_both_set;
-  *oldlp = *fromp;
-  
-  *fromp = NULL;
+  join_distinct_sets (top, &in_both_set);
+  join_distinct_sets (top, fromp);
 }
 
 /* Clear av_set pointed to by SETP.  */
@@ -2833,7 +2650,8 @@ init_global_and_expr_for_insn (insn_t insn)
     /* Initialize INSN's expr.  */
     init_expr (INSN_EXPR (insn), vinsn_create (insn, force_unique_p), 0,
 	       REG_BR_PROB_BASE, INSN_PRIORITY (insn), 0, BLOCK_NUM (insn),
-	       spec_done_ds, 0, 0, NULL, true, false, false, false);
+	       spec_done_ds, 0, 0, NULL, true, false, false, false, 
+               CANT_MOVE (insn));
   }
 
   init_first_time_insn_data (insn);
@@ -2878,6 +2696,7 @@ finish_global_and_expr_insn (insn_t insn)
     {
       free_first_time_insn_data (insn);
       INSN_WS_LEVEL (insn) = 0;
+      CANT_MOVE (insn) = 0;
       
       /* We can no longer assert this, as vinsns of this insn could be 
          easily live in other insn's caches.  This should be changed to 
@@ -3664,12 +3483,18 @@ bool can_add_real_insns_p = true;
 static void
 extend_insn (void)
 {
+  int reserve;
+  
   sched_extend_target ();
   sched_deps_init (false);
 
   /* Extend data structures for insns from current region.  */
-  VEC_safe_grow_cleared (sel_insn_data_def, heap, s_i_d,
-			 sched_max_luid);
+  reserve = (sched_max_luid + 1 
+             - VEC_length (sel_insn_data_def, s_i_d));
+  if (reserve > 0 
+      && ! VEC_space (sel_insn_data_def, s_i_d, reserve))
+    VEC_safe_grow_cleared (sel_insn_data_def, heap, s_i_d,
+                           3 * sched_max_luid / 2);
 }
 
 /* Finalize data structures for insns from current region.  */
@@ -3694,11 +3519,16 @@ finish_insns (void)
 	  free_deps (&sid_entry->deps_context);
 	}
       if (EXPR_VINSN (&sid_entry->expr))
-	clear_expr (&sid_entry->expr);
+        {
+          clear_expr (&sid_entry->expr);
+          
+          /* Also, clear CANT_MOVE bit here, because we really don't want it
+             to be passed to the next region.  */
+          CANT_MOVE_BY_LUID (i) = 0;
+        }
     }
   
   VEC_free (sel_insn_data_def, heap, s_i_d);
-  deps_finish_d_i_d ();
 }
 
 /* An implementation of RTL_HOOKS_INSN_ADDED hook.  The hook is used for 
@@ -3826,7 +3656,7 @@ init_simplejump (insn_t insn)
 {
   init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0,
 	     REG_BR_PROB_BASE, 0, 0, 0, 0, 0, 0, NULL, true, false, false, 
-	     false);
+	     false, true);
   INSN_SEQNO (insn) = get_seqno_of_a_pred (insn);
   init_first_time_insn_data (insn);
 }

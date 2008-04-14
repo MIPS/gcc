@@ -358,7 +358,7 @@ static int sel_rank_for_schedule (const void *, const void *);
 static av_set_t find_sequential_best_exprs (bnd_t, expr_t, bool);
 
 static rtx get_dest_from_orig_ops (av_set_t);
-static basic_block generate_bookkeeping_insn (expr_t, insn_t, edge, edge);
+static basic_block generate_bookkeeping_insn (expr_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
 static bool move_op (insn_t, av_set_t, rtx, expr_t);
@@ -1882,18 +1882,18 @@ moveup_expr (expr_t expr, insn_t through_insn, bool inside_insn_group,
             return MOVEUP_EXPR_NULL;
         }
 
-      if (CANT_MOVE (insn)
+      /* Don't move what we can't move.  */
+      if (EXPR_CANT_MOVE (expr)
 	  && BLOCK_FOR_INSN (through_insn) != BLOCK_FOR_INSN (insn))
-	/* Don't move what we can't move.  */
 	return MOVEUP_EXPR_NULL;
 
+      /* Don't move SCHED_GROUP instruction through anything.
+         If we don't force this, then it will be possible to start
+         scheduling a sched_group before all its dependencies are
+         resolved.
+         ??? Haifa deals with this issue by delaying the SCHED_GROUP
+         as late as possible through rank_for_schedule.  */
       if (SCHED_GROUP_P (insn))
-	/* Don't move SCHED_GROUP instruction through anything.
-	   If we don't force this, then it will be possible to start
-	   scheduling a sched_group before all its dependencies are
-	   resolved.
-	   ??? Haifa deals with this issue by delaying the SCHED_GROUP
-	   as late as possible through rank_for_schedule ().  */
 	return MOVEUP_EXPR_NULL;
     }
   else
@@ -2506,6 +2506,9 @@ compute_av_set_at_bb_end (insn_t insn, ilist_t p, int ws)
     {
       av_set_iterator i;
       expr_t expr;
+
+      /* Truncate av set first.  */
+      av_set_truncate (av1);
       
       /* Increase the spec attribute of all EXPR'es that didn't come 
 	 from all successors.  */
@@ -3352,6 +3355,13 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
           continue;
         }
 
+      /* Do not pass too much stuff to max_issue and tick_check_p.  */
+      if (n >= 9)
+        {
+          VEC_unordered_remove (expr_t, vec_av_set, n);
+          continue;
+        }
+      
       /* Set number of sched_next insns (just in case there 
          could be several).  */
       if (FENCE_SCHED_NEXT (fence))
@@ -3956,10 +3966,7 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence,
       can_issue_more = invoke_aftermath_hooks (fence, EXPR_INSN_RTX (best),
                                                can_issue_more);
       if (can_issue_more == 0)
-        {
-          best = NULL;
-          *pneed_stall = 1;
-        }
+        *pneed_stall = 1;
     }
   
   if (sched_verbose >= 2)
@@ -4017,232 +4024,195 @@ emit_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno,
                                        place_to_insert);
 }
 
-/* Generate a bookkeeping copy of "REG = CUR_EXPR" insn at JOIN_POINT on the 
-   ingoing path(s) to E2->dest, other than from E1->src (there could be some 
-   empty blocks between E1->src and E2->dest).  If there is only one such path 
-   and bookkeeping copy can be created in the last block, that is on this path,
-   bookkeeping instruction is inserted at the end of this block.  Otherwise, 
-   the function splits E2->dest bb on the two and emits the bookkeeping copy in
-   the upper bb, redirecting all other paths to the lower bb and returns the
-   newly created bb, which is the lower bb. 
-   All scheduler data is initialized for the newly created insn.  */
-static basic_block
-generate_bookkeeping_insn (expr_t c_expr, insn_t join_point, edge e1, edge e2)
+/* Return TRUE if BB can hold bookkeeping code.  */
+static bool
+block_valid_for_bookkeeping_p (basic_block bb)
 {
-  basic_block src, bb = e2->dest;
-  basic_block new_bb = NULL;
-  insn_t src_end = NULL_RTX;
-  insn_t place_to_insert = NULL_RTX;
-  /* Save the original destination of E1.  */
-  basic_block empty_bb = e1->dest;
-  int new_seqno = INSN_SEQNO (join_point);
-  basic_block other_block = NULL;
-  bool need_to_exchange_data_sets = false;
-  insn_t new_insn;
+  insn_t bb_end = BB_END (bb);
 
-  if (sched_verbose >= 4)
-    sel_print ("Generating bookkeeping insn (%d->%d)\n", e1->src->index, 
-               e2->dest->index);
+  if (!in_current_region_p (bb) || EDGE_COUNT (bb->succs) > 1)
+    return false;
 
+  if (INSN_P (bb_end))
+    {
+      if (INSN_SCHED_TIMES (bb_end) > 0)
+	return false;
+    }
+  else
+    gcc_assert (NOTE_INSN_BASIC_BLOCK_P (bb_end));
+
+  return true;
+}
+
+/* Attempt to find a block that can hold bookkeeping code for path(s) incoming
+   into E2->dest, except from E1->src (there may be a sequence of empty basic
+   blocks between E1->src and E2->dest).  Return found block, or NULL if new
+   one must be created.  */
+static basic_block
+find_block_for_bookkeeping (edge e1, edge e2)
+{
+  basic_block candidate_block = NULL;
+  edge e;
+
+  /* Loop over edges from E1 to E2, inclusive.  */
+  for (e = e1; ; e = EDGE_SUCC (e->dest, 0))
+    {
+      if (EDGE_COUNT (e->dest->preds) == 2)
+	{
+	  if (candidate_block == NULL)
+	    candidate_block = (EDGE_PRED (e->dest, 0) == e
+			       ? EDGE_PRED (e->dest, 1)->src
+			       : EDGE_PRED (e->dest, 0)->src);
+	  else
+	    /* Found additional edge leading to path from e1 to e2
+	       from aside.  */
+	    return NULL;
+	}
+      else if (EDGE_COUNT (e->dest->preds) > 2)
+	/* Several edges leading to path from e1 to e2 from aside.  */
+	return NULL;
+
+      if (e == e2)
+	return (block_valid_for_bookkeeping_p (candidate_block)
+		? candidate_block
+		: NULL);
+    }
+  gcc_unreachable ();
+}
+
+/* Create new basic block for bookkeeping code for path(s) incoming into
+   E2->dest, except from E1->src.  Return created block.  */
+static basic_block
+create_block_for_bookkeeping (edge e1, edge e2)
+{
+  basic_block new_bb, bb = e2->dest;
+
+  /* Check that we don't spoil the loop structure.  */
+  if (current_loop_nest)
+    {
+      basic_block latch = current_loop_nest->latch;
+
+      /* We do not split header.  */
+      gcc_assert (e2->dest != current_loop_nest->header);
+
+      /* We do not redirect the only edge to the latch block.  */
+      gcc_assert (e1->dest != latch
+		  || !single_pred_p (latch)
+		  || e1 != single_pred_edge (latch));
+    }
+
+  can_add_real_insns_p = false;
+
+  /* Split BB to insert BOOK_INSN there.  */
+  new_bb = sched_split_block (bb, NULL);
+
+  /* Move note_list from the upper bb.  */
+  gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
+  BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
+  BB_NOTE_LIST (bb) = NULL_RTX;
+
+  gcc_assert (e2->dest == bb);
+
+  can_add_real_insns_p = true;
+  insn_init.what = INSN_INIT_WHAT_INSN;
+
+  /* Skip block for bookkeeping copy when leaving E1->src.  */
+  if (e1->flags & EDGE_FALLTHRU)
+    sel_redirect_edge_and_branch_force (e1, new_bb);
+  else
+    sel_redirect_edge_and_branch (e1, new_bb);
+
+  gcc_assert (e1->dest == new_bb);
+  gcc_assert (sel_bb_empty_p (bb));
+
+  return bb;
+}
+
+/* Return insn after which we must insert bookkeeping code for path(s) incoming
+   into E2->dest, except from E1->src.  */
+static insn_t
+find_place_for_bookkeeping (edge e1, edge e2)
+{
+  insn_t place_to_insert;
   /* Find a basic block that can hold bookkeeping.  If it can be found, do not
      create new basic block, but insert bookkeeping there.  */
-  if (e1 == e2)
-    {
-      other_block = 
-        EDGE_COUNT (e1->dest->preds) > 2
-          ? NULL
-          : EDGE_PRED (e1->dest, 0) == e1
-            ? EDGE_PRED (e1->dest, 1)->src
-            : EDGE_PRED (e1->dest, 0)->src;
-    }
+  basic_block book_block = find_block_for_bookkeeping (e1, e2);
+
+  if (!book_block)
+    book_block = create_block_for_bookkeeping (e1, e2);
+
+  place_to_insert = BB_END (book_block);
+
+  /* If basic block ends with a jump, insert bookkeeping code right before it.  */
+  if (INSN_P (place_to_insert) && control_flow_insn_p (place_to_insert))
+    place_to_insert = PREV_INSN (place_to_insert);
+
+  return place_to_insert;
+}
+
+/* Insert bookkeeping copy of C_EXPS's insn after PLACE_TO_INSERT, assigning
+   NEW_SEQNO to it.  Return created insn.  */
+static insn_t
+emit_bookkeeping_insn (insn_t place_to_insert, expr_t c_expr, int new_seqno)
+{
+  rtx new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_expr));
+
+  vinsn_t new_vinsn
+    = create_vinsn_from_insn_rtx (new_insn_rtx,
+				  VINSN_UNIQUE_P (EXPR_VINSN (c_expr)));
+
+  insn_t new_insn = emit_insn_from_expr_after (c_expr, new_vinsn, new_seqno,
+					       place_to_insert);
+
+  INSN_SCHED_TIMES (new_insn) = 0;
+  bitmap_set_bit (current_copies, INSN_UID (new_insn));
+
+  return new_insn;
+}
+
+/* Generate a bookkeeping copy of C_EXPR's insn for path(s) incoming into to
+   E2->dest, except from E1->src (there may be a sequence of empty blocks
+   between E1->src and E2->dest).  Return block containing the copy.
+   All scheduler data is initialized for the newly created insn.  */
+static basic_block
+generate_bookkeeping_insn (expr_t c_expr, edge e1, edge e2)
+{
+  insn_t join_point, place_to_insert, next, new_insn;
+  int new_seqno;
+  bool need_to_exchange_data_sets;
+
+  if (sched_verbose >= 4)
+    sel_print ("Generating bookkeeping insn (%d->%d)\n", e1->src->index,
+	       e2->dest->index);
+
+  join_point = sel_bb_head (e2->dest);
+  place_to_insert = find_place_for_bookkeeping (e1, e2);
+  need_to_exchange_data_sets
+    = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
+
+  /* Check if we are about to insert bookkeeping copy before a jump, and use
+     jump's seqno for the copy; otherwise, use JOIN_POINT's seqno.  */
+  next = NEXT_INSN (place_to_insert);
+
+  if (INSN_P (next) && JUMP_P (next)
+      && BLOCK_FOR_INSN (next) == BLOCK_FOR_INSN (place_to_insert))
+    new_seqno = INSN_SEQNO (next);
   else
-    {
-      edge iter_edge = e1;
-      bool search_more = true;
-      do
-        {
-          search_more = iter_edge != e2;
-          /* There must be only one edge that enters path from e1 to e2 
-             from aside to be able to create bookkeeping in existing block.  */
-          if (EDGE_COUNT (iter_edge->dest->preds) == 2)
-            {
-              if (other_block == NULL)
-                other_block = 
-                  EDGE_PRED (iter_edge->dest, 0) == iter_edge
-                    ? EDGE_PRED (iter_edge->dest, 1)->src
-                    : EDGE_PRED (iter_edge->dest, 0)->src;
-              else
-                {
-                  /* Found additional edge leading to path from e1 to e2 
-                     from aside.  */
-                  other_block = NULL;
-                  break;
-                }
-            }
-          else if (EDGE_COUNT (iter_edge->dest->preds) > 2)
-            {
-              /* Several edges leading to path from e1 to e2 from aside.  */
-              other_block = NULL;
-              break;
-            }
-          iter_edge = EDGE_SUCC (iter_edge->dest, 0);
-        }
-      while (search_more);
-    }
+    new_seqno = INSN_SEQNO (join_point);
 
-  /* sched_split_block () can emit an unnecessary note if the following isn't
-     true.  */
-  gcc_assert (bb_note (bb) != BB_END (bb));
+  new_insn = emit_bookkeeping_insn (place_to_insert, c_expr, new_seqno);
 
-  /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
-     OTHER_BLOCK -> BB is fallthrough, meaning there is no jump there.  */
-  if (EDGE_COUNT (bb->preds) == 2
-      && other_block
-      && in_current_region_p (other_block))
-    {
-      /* SRC is the block, in which we possibly can insert bookkeeping insn
-         without creating new basic block.  It is the other (than E2->SRC)
-         predecessor block of BB.  */
-      src = other_block;
-
-      /* Instruction, after which we would try to insert bookkeeping insn.  */
-      src_end = BB_END (src);
-
-      if (INSN_P (src_end))
-	{
-	  if (control_flow_insn_p (src_end)
-              /* It might be scheduled, thus making this illegal.  */
-              || INSN_SCHED_TIMES (src_end) > 0)
-	    src = NULL;
-	}
-      else
-	gcc_assert (NOTE_INSN_BASIC_BLOCK_P (src_end));
-    }
-  else
-    src = NULL;
-    
-  if (!src)
-    {
-      /* Check that we don't spoil the loop structure.  */
-      if (current_loop_nest)
-        {
-          basic_block latch = current_loop_nest->latch;
-
-          /* We do not split header.  */
-          gcc_assert (bb != current_loop_nest->header);
-
-          /* We do not redirect the only edge to the latch block.  */
-          gcc_assert (e1->dest != latch
-                      || !single_pred_p (latch)
-                      || e1 != single_pred_edge (latch));
-        }
-
-      /* Explore, if we can insert bookkeeping into OTHER_BLOCK in case edge
-         OTHER_BLOCK -> BB is not fallthrough, meaning there is jump there.  */
-      if (other_block
-          && in_current_region_p (other_block)
-          && EDGE_COUNT (other_block->succs) == 1
-          && (e1->flags & EDGE_FALLTHRU))
-        {
-          insn_t src_begin;
-
-          get_ebb_head_tail (other_block, other_block, &src_begin, &src_end);
-
-          gcc_assert (control_flow_insn_p (src_end));
-
-          if (/* Jump was scheduled.  */
-              INSN_SCHED_TIMES (src_end) > 0
-              /* This is a floating bb header.  */
-              || (src_end == src_begin
-                  && IN_CURRENT_FENCE_P (src_end)))
-            new_bb = NULL;
-          else
-            {
-              new_bb = other_block;
-              place_to_insert = PREV_INSN (src_end);
-              new_seqno = INSN_SEQNO (src_end);
-              insn_init.what = INSN_INIT_WHAT_INSN;
-            }
-        }
-      else
-        new_bb = NULL;
-
-      if (!new_bb)
-        {
-          /* We need to create a new basic block for bookkeeping insn.  */
-          can_add_real_insns_p = false;
-
-          /* Split the head of the BB to insert BOOK_INSN there.  */
-          new_bb = sched_split_block (bb, NULL);
-
-          /* Move note_list from the upper bb.  */
-          gcc_assert (BB_NOTE_LIST (new_bb) == NULL_RTX);
-          BB_NOTE_LIST (new_bb) = BB_NOTE_LIST (bb);
-          BB_NOTE_LIST (bb) = NULL_RTX;
-
-          gcc_assert (e2->dest == bb);
-
-          can_add_real_insns_p = true;
-          insn_init.what = INSN_INIT_WHAT_INSN;
-
-          /* Make a jump skipping bookkeeping copy.  */
-          if (e1->flags & EDGE_FALLTHRU)
-            sel_redirect_edge_and_branch_force (e1, new_bb);
-          else
-            sel_redirect_edge_and_branch (e1, new_bb);
-
-          gcc_assert (e1->dest == new_bb);
-          gcc_assert (sel_bb_empty_p (bb));
-
-          place_to_insert = BB_END (bb);
-        }
-    }
-  else
-    place_to_insert = src_end;
-
-  /* Remove unreachable empty blocks.  */
-  while (EDGE_COUNT (empty_bb->preds) == 0)
-    {
-      basic_block next_bb = empty_bb->next_bb;
-      sel_remove_empty_bb (empty_bb, false, true);
-      empty_bb = next_bb;
-    }
-
-  {
-    rtx new_insn_rtx;
-    vinsn_t new_vinsn;
-
-    need_to_exchange_data_sets
-      = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
-
-    new_insn_rtx = create_copy_of_insn_rtx (EXPR_INSN_RTX (c_expr));
-    new_vinsn = create_vinsn_from_insn_rtx (new_insn_rtx, 
-					    VINSN_UNIQUE_P (EXPR_VINSN (c_expr)));
-    new_insn = emit_insn_from_expr_after (c_expr, new_vinsn, 
-                                          new_seqno, place_to_insert);
-
-    INSN_SCHED_TIMES (new_insn) = 0;
-    bitmap_set_bit (current_copies, INSN_UID (new_insn));
-
-    /* When inserting bookkeeping insn in new block, av sets should be
-       following: old basic block (that now holds bookkeeping) data sets are
-       the same as was before generation of bookkeeping, and new basic block
-       (that now hold all other insns of old basic block) data sets are
-       invalid.  So exchange data sets for these basic blocks as sel_split_block
-       mistakenly exchanges them in this case.  Cannot do it earlier because
-       when single instruction is added to new basic block it should hold NULL
-       lv_set.  */
-    if (need_to_exchange_data_sets)
-      exchange_data_sets (BLOCK_FOR_INSN (new_insn),
-                          BLOCK_FOR_INSN (join_point));
-
-    gcc_assert ((src == NULL && BB_END (bb) == new_insn
-		 && sel_bb_head_p (new_insn))
-                || (src == NULL && control_flow_insn_p (BB_END (other_block))
-                    && PREV_INSN (BB_END (other_block)) == new_insn
-                    && INSN_SCHED_TIMES (BB_END (other_block)) == 0)
-		|| BB_END (src) == new_insn);
-  }
+  /* When inserting bookkeeping insn in new block, av sets should be
+     following: old basic block (that now holds bookkeeping) data sets are
+     the same as was before generation of bookkeeping, and new basic block
+     (that now hold all other insns of old basic block) data sets are
+     invalid.  So exchange data sets for these basic blocks as sel_split_block
+     mistakenly exchanges them in this case.  Cannot do it earlier because
+     when single instruction is added to new basic block it should hold NULL
+     lv_set.  */
+  if (need_to_exchange_data_sets)
+    exchange_data_sets (BLOCK_FOR_INSN (new_insn),
+			BLOCK_FOR_INSN (join_point));
 
   stat_bookkeeping_copies++;
   return BLOCK_FOR_INSN (new_insn);
@@ -4725,7 +4695,7 @@ advance_state_on_fence (fence_t fence, insn_t insn)
 
 /* Update FENCE on which INSN was scheduled and this INSN, too.  */
 static void
-update_fence_and_insn (fence_t fence, insn_t insn)
+update_fence_and_insn (fence_t fence, insn_t insn, int need_stall)
 {
   bool asm_p;
   
@@ -4761,7 +4731,7 @@ update_fence_and_insn (fence_t fence, insn_t insn)
 
   /* Change these fields last, as they're used above.  */
   FENCE_AFTER_STALL_P (fence) = 0;
-  if (asm_p)
+  if (asm_p || need_stall)
     advance_one_cycle (fence);
   
   /* Indicate that we've scheduled something on this fence.  */
@@ -4848,6 +4818,20 @@ schedule_expr_on_boundary (bnd_t bnd, expr_t expr_vliw, int seqno)
   return insn;
 }
 
+/* Stall for N cycles on FENCE.  */
+static void
+stall_for_cycles (fence_t fence, int n)
+{
+  int could_more;
+              
+  could_more = FENCE_ISSUED_INSNS (fence) < issue_rate;
+  while (n--)
+    advance_one_cycle (fence);
+  if (could_more)
+    FENCE_AFTER_STALL_P (fence) = 1;
+}
+
+
 /* Gather a parallel group of insns at FENCE and assign their seqno 
    to SEQNO.  All scheduled insns are gathered in SCHEDULED_INSNS_TAILPP 
    list for later recalculation of seqnos.  */
@@ -4895,23 +4879,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
       do
         {
           expr_vliw = find_best_expr (&av_vliw, bnds, fence, &need_stall);
-          if (need_stall)
+          if (!expr_vliw && need_stall)
             {
               /* All expressions required a stall.  Do not recompute av sets
                  as we'll get the same answer (modulo the insns between
                  the fence and its boundary, which will be available for 
                  pipelining).  */
-              int could_more;
-              
-              gcc_assert (! expr_vliw && ! stall_iterations);
-              could_more = FENCE_ISSUED_INSNS (fence) < issue_rate;
-              while (need_stall--)
-                advance_one_cycle (fence);
-              need_stall = 1;
-              if (could_more)
-                FENCE_AFTER_STALL_P (fence) = 1;
-
-              stall_iterations++;
+              gcc_assert (! expr_vliw && stall_iterations < 2);
+	      stall_for_cycles (fence, need_stall);
               was_stall++;
             }
         }
@@ -4940,7 +4915,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
 	    }
           
           insn = schedule_expr_on_boundary (bnd, expr_vliw, seqno);
-          update_fence_and_insn (fence, insn);
+          update_fence_and_insn (fence, insn, need_stall);
           bnds_tailp = update_boundaries (bnd, insn, bndsp, bnds_tailp);
 
 	  /* Add insn to the list of scheduled on this cycle instructions.  */
@@ -5381,7 +5356,7 @@ move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams,
          top level of the move_op.  */
       if (lparams->e1 
           && sel_num_cfg_preds_gt_1 (insn))
-        book_block = generate_bookkeeping_insn (sparams->c_expr, insn, 
+        book_block = generate_bookkeeping_insn (sparams->c_expr,
                                                 lparams->e1, lparams->e2);
       /* Update data sets for the current insn.  */
       if (lparams->call_update_data_sets_on_nop)
@@ -5477,6 +5452,7 @@ move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams,
 	     next basic block of XBB and this jump can be safely removed.  */
 	  && in_current_region_p (xbb->prev_bb)
 	  && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
+	  && INSN_SCHED_TIMES (BB_END (xbb->prev_bb)) == 0
 	  /* Also this jump is not at the scheduling boundary.  */
 	  && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
 	{
@@ -6174,11 +6150,9 @@ sel_region_init (int rgn)
   sched_deps_init (false);
 
   /* Initialize haifa data.  */
-  {
-    rgn_setup_sched_infos ();
-    sel_set_sched_flags ();
-    haifa_init_h_i_d (bbs, NULL, NULL, NULL);
-  }
+  rgn_setup_sched_infos ();
+  sel_set_sched_flags ();
+  haifa_init_h_i_d (bbs, NULL, NULL, NULL);
 
   sel_compute_priorities (rgn);
   init_deps_global ();
@@ -6188,9 +6162,6 @@ sel_region_init (int rgn)
   sel_init_global_and_expr (bbs);
 
   VEC_free (basic_block, heap, bbs);
-
-  /* Finalize haifa-specific data.  */
-  haifa_finish_h_i_d ();
 
   blocks_to_reschedule = BITMAP_ALLOC (NULL);
 
@@ -6275,12 +6246,239 @@ simplify_changed_insns (void)
     }
 }
 
+/* Find boundaries of the EBB starting from basic block BB, marking blocks of
+   this EBB in SCHEDULED_BLOCKS and appropriately filling in HEAD, TAIL,
+   PREV_HEAD, and NEXT_TAIL fields of CURRENT_SCHED_INFO structure.  */
+static void
+find_ebb_boundaries (basic_block bb, bitmap scheduled_blocks)
+{
+  insn_t head, tail;
+  basic_block bb1 = bb;
+  if (sched_verbose >= 2)
+    sel_print ("Finishing schedule in bbs: ");
+
+  do
+    {
+      bitmap_set_bit (scheduled_blocks, BLOCK_TO_BB (bb1->index));
+      if (sched_verbose >= 2)
+	sel_print ("%d; ", bb1->index);
+    }
+  while (!bb_ends_ebb_p (bb1) && (bb1 = bb_next_bb (bb1)));
+
+  if (sched_verbose >= 2)
+    sel_print ("\n");
+
+  get_ebb_head_tail (bb, bb1, &head, &tail);
+
+  current_sched_info->head = head;
+  current_sched_info->tail = tail;
+  current_sched_info->prev_head = PREV_INSN (head);
+  current_sched_info->next_tail = NEXT_INSN (tail);
+}
+
+/* Regenerate INSN_SCHED_CYCLEs for insns of current EBB.  */
+static void
+reset_sched_cycles_in_current_ebb (void)
+{
+  int last_clock = 0;
+  int haifa_last_clock = -1;
+  int haifa_clock = 0;
+  insn_t insn;
+
+  if (targetm.sched.md_init)
+    {
+      /* None of the arguments are actually used in any target.
+	 NB: We should have md_reset () hook for cases like this.  */
+      targetm.sched.md_init (sched_dump, sched_verbose, -1);
+    }
+
+  state_reset (curr_state);
+  advance_state (curr_state);
+
+  for (insn = current_sched_info->head; insn != current_sched_info->next_tail;
+       insn = NEXT_INSN (insn))
+    {
+      int cost, haifa_cost;
+      int sort_p;
+      bool asm_p;
+      int clock;
+
+      if (!INSN_P (insn))
+	continue;
+
+      asm_p = false;
+      clock = INSN_SCHED_CYCLE (insn);
+
+      cost = clock - last_clock;
+
+      /* Initialize HAIFA_COST.  */
+      if (recog_memoized (insn) < 0)
+	{
+	  asm_p = INSN_ASM_P (insn);
+
+	  if (asm_p)
+	    /* This is asm insn which *had* to be scheduled first
+	       on the cycle.  */
+	    haifa_cost = 1;
+	  else
+	    /* This is a use/clobber insn.  It should not change 
+	       cost.  */
+	    haifa_cost = 0;
+	}
+      else
+	{
+	  state_t tmp_state = alloca (dfa_state_size);
+
+	  memcpy (tmp_state, curr_state, dfa_state_size);
+	  haifa_cost = state_transition (tmp_state, insn);
+
+	  /* ??? We can't assert anything about cost here yet,
+	     because sometimes our scheduler gets out of sync with
+	     Haifa.
+	     This is to be fixed.  */
+	  if (haifa_cost == 0)
+	    haifa_cost = 1;
+	  else if (haifa_cost < 0)
+	    haifa_cost = 0;
+	}
+
+      /* Stall for whatever cycles we've stalled before.  */
+      if (INSN_AFTER_STALL_P (insn) && cost > haifa_cost)
+	haifa_cost = cost;
+
+      if (haifa_cost > 0)
+	{
+	  int i = haifa_cost;
+
+	  while (i--)
+	    {
+	      advance_state (curr_state);
+	      if (sched_verbose >= 2)
+		sel_print ("advance_state (state_transition)\n");
+	    }
+
+	  haifa_clock += haifa_cost;
+	}
+      else
+	gcc_assert (haifa_cost == 0);
+
+      if (sched_verbose >= 2)
+	sel_print ("Haifa cost for insn %d: %d\n", INSN_UID (insn), haifa_cost);
+
+      if (targetm.sched.dfa_new_cycle)
+	while (targetm.sched.dfa_new_cycle (sched_dump, sched_verbose, insn,
+					    haifa_last_clock, haifa_clock,
+					    &sort_p))
+	  {
+	    advance_state (curr_state);
+	    haifa_clock++;
+	    if (sched_verbose >= 2)
+	      sel_print ("advance_state (dfa_new_cycle)\n");
+	  }
+
+      if (recog_memoized (insn) >= 0)
+	{
+	  cost = state_transition (curr_state, insn);
+	  gcc_assert (cost < 0);
+	}
+
+      if (targetm.sched.variable_issue)
+	targetm.sched.variable_issue (sched_dump, sched_verbose, insn, 0);
+
+      INSN_SCHED_CYCLE (insn) = haifa_clock;
+
+      last_clock = clock;
+      haifa_last_clock = haifa_clock;
+    }
+}
+
+/* Put TImode markers on insns starting a new issue group.  */
+static void
+put_TImodes (void)
+{
+  int last_clock = -1;
+  insn_t insn;
+
+  for (insn = current_sched_info->head; insn != current_sched_info->next_tail;
+       insn = NEXT_INSN (insn))
+    {
+      int cost, clock;
+
+      if (!INSN_P (insn))
+	continue;
+
+      clock = INSN_SCHED_CYCLE (insn);
+      cost = (last_clock == -1) ? 1 : clock - last_clock;
+
+      gcc_assert (cost >= 0);
+
+      if (issue_rate > 1
+	  && GET_CODE (PATTERN (insn)) != USE
+	  && GET_CODE (PATTERN (insn)) != CLOBBER)
+	{
+	  if (reload_completed && cost > 0)
+	    PUT_MODE (insn, TImode);
+
+	  last_clock = clock;
+	}
+
+      if (sched_verbose >= 2)
+	sel_print ("Cost for insn %d is %d\n", INSN_UID (insn), cost);
+    }
+}
+
+/* Perform MD_FINISH on EBBs comprising current region.  */
+static void
+sel_region_target_finish (void)
+{
+  int i;
+  bitmap scheduled_blocks = BITMAP_ALLOC (NULL);
+
+  for (i = 0; i < current_nr_blocks; i++)
+    {
+      if (bitmap_bit_p (scheduled_blocks, i))
+	continue;
+
+      /* While pipelining outer loops, skip bundling for loop
+	 preheaders.  Those will be rescheduled in the outer loop.  */
+      if (sel_is_loop_preheader_p (EBB_FIRST_BB (i)))
+	continue;
+
+      find_ebb_boundaries (EBB_FIRST_BB (i), scheduled_blocks);
+
+      if (no_real_insns_p (current_sched_info->head, current_sched_info->tail))
+	continue;
+
+      if (reset_sched_cycles_p)
+	reset_sched_cycles_in_current_ebb ();
+
+      if (targetm.sched.md_init)
+	targetm.sched.md_init (sched_dump, sched_verbose, -1);
+
+      put_TImodes ();
+
+      if (targetm.sched.md_finish)
+	{
+	  /* md_finish () can possibly emit new insns.  Move LV_SETs to
+	     ones that happen to be emitted on bb header.  */
+	  insn_init.what = INSN_INIT_WHAT_INSN;
+	  targetm.sched.md_finish (sched_dump, sched_verbose);
+
+	  /* Extend luids so that insns generated by the target will
+	     get zero luid.  */
+	  sched_init_luids (NULL, NULL, NULL, NULL);
+	  insn_init.todo = 0;
+	  sel_init_new_insns ();
+	}
+    }
+
+  BITMAP_FREE (scheduled_blocks);
+}
+
 /* Free the scheduling data for the current region.  */
 static void
 sel_region_finish (void)
 {
-  int i;
-
   simplify_changed_insns ();
   sel_finish_new_insns ();
   sched_finish_ready_list ();
@@ -6312,216 +6510,7 @@ sel_region_finish (void)
 
   /* Emulate the Haifa scheduler for bundling.  */
   if (reload_completed)
-    {
-      rtx insn, head, tail;
-      int clock = 0, last_clock = 0;  
-      bitmap scheduled_blocks;
-
-      scheduled_blocks = BITMAP_ALLOC (NULL);
-
-      for (i = 0; i < current_nr_blocks; i++)
-        {
-          basic_block bb = EBB_FIRST_BB (i), bb1;
-
-          if (bitmap_bit_p (scheduled_blocks, i))
-            continue;
-
-	  /* While pipelining outer loops, skip bundling for loop 
-             preheaders.  Those will be rescheduled in the outer loop.  */
-	  if (sel_is_loop_preheader_p (bb))
-	    continue;
-
-          if (sched_verbose >= 2)
-            sel_print ("Finishing schedule in bbs: ");
-          
-          bb1 = bb;
-          do
-            {
-              bitmap_set_bit (scheduled_blocks, BLOCK_TO_BB (bb1->index));
-              if (sched_verbose >= 2)
-                sel_print ("%d; ", bb1->index);
-            }
-          while (!bb_ends_ebb_p (bb1) && (bb1 = bb_next_bb (bb1)));
-          
-          if (sched_verbose >= 2)
-            sel_print ("\n");
-
-          get_ebb_head_tail (bb, bb1, &head, &tail);
-          if (no_real_insns_p (head, tail))
-            continue;
-
-          current_sched_info->prev_head = PREV_INSN (head);
-          current_sched_info->next_tail = NEXT_INSN (tail);
-  
-	  if (reset_sched_cycles_p)
-	    {
-	      int last_clock = 0;
-	      int haifa_last_clock = -1;
-	      int haifa_clock = 0;
-	      insn_t next_tail = current_sched_info->next_tail;
-
-	      if (targetm.sched.md_init)
-		{
-		  /* None of the arguments are actually used in any target.
-
-		  NB: We should have md_reset () hook for cases like this.  */
-		  targetm.sched.md_init (sched_dump, sched_verbose, -1);
-		}
-
-	      state_reset (curr_state);
-	      advance_state (curr_state);
-
-	      for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-		{
-		  int cost, haifa_cost;
-		  int sort_p;
-		  bool asm_p;
-		  int clock;
-
-		  if (!INSN_P (insn))
-		    continue;
-
-		  asm_p = false;
-		  clock = INSN_SCHED_CYCLE (insn);
-
-		  cost = clock - last_clock;
-
-		  /* Initialize HAIFA_COST.  */
-		  if (recog_memoized (insn) < 0)
-		    {
-		      asm_p = INSN_ASM_P (insn);
-
-		      if (asm_p)
-			/* This is asm insn which *had* to be scheduled first
-			   on the cycle.  */
-			haifa_cost = 1;
-		      else
-			/* This is a use/clobber insn.  It should not change 
-			   cost.  */
-			haifa_cost = 0;
-		    }
-		  else
-		    {
-		      state_t tmp_state = alloca (dfa_state_size);
-
-		      memcpy (tmp_state, curr_state, dfa_state_size);
-		      haifa_cost = state_transition (tmp_state, insn);
-
-		      /* ??? We can't assert anything about cost here yet,
-			 because sometimes our scheduler gets out of sync with
-			 Haifa.
-			 This is to be fixed.  */
-		      if (haifa_cost == 0)
-			haifa_cost = 1;
-		      else if (haifa_cost < 0)
-			haifa_cost = 0;
-		    }
-
-		  /* Stall for whatever cycles we've stalled before.  */
-		  if (INSN_AFTER_STALL_P (insn) && cost > haifa_cost)
-		    haifa_cost = cost;
-
-		  if (haifa_cost > 0)
-		    {
-		      int i = haifa_cost;
-
-		      while (i--)
-			{
-			  advance_state (curr_state);
-                          if (sched_verbose >= 2)
-                            sel_print ("advance_state (state_transition)\n");
-			}
-
-		      haifa_clock += haifa_cost;
-		    }
-		  else
-		    gcc_assert (haifa_cost == 0);
-
-                  if (sched_verbose >= 2)
-                    sel_print ("Haifa cost for insn %d: %d\n", 
-                               INSN_UID (insn), haifa_cost);
-
-		  if (targetm.sched.dfa_new_cycle)
-		    while (targetm.sched.dfa_new_cycle (sched_dump,
-							sched_verbose,
-							insn,
-							haifa_last_clock,
-							haifa_clock,
-							&sort_p))
-		      {
-			advance_state (curr_state);
-			haifa_clock++;
-                        if (sched_verbose >= 2)
-                          sel_print ("advance_state (dfa_new_cycle)\n");
-		      }
-
-		  if (recog_memoized (insn) >= 0)
-		    {
-		      cost = state_transition (curr_state, insn);
-		      gcc_assert (cost < 0);
-		    }
-
-		  if (targetm.sched.variable_issue)
-		    targetm.sched.variable_issue (sched_dump, sched_verbose,
-						  insn, 0);
-
-		  INSN_SCHED_CYCLE (insn) = haifa_clock;
-
-		  last_clock = clock;
-		  haifa_last_clock = haifa_clock;
-		}
-	    }
-
-          if (targetm.sched.md_init)
-            targetm.sched.md_init (sched_dump, sched_verbose, -1);
-
-          state_reset (curr_state);
-          advance_state (curr_state);
-          last_clock = -1;
-
-          for (insn = head; insn != NEXT_INSN (tail); insn = NEXT_INSN (insn))
-            {
-              int cost;
-  
-              if (!INSN_P (insn))
-		continue;
-
-              clock = INSN_SCHED_CYCLE (insn);
-              cost = (last_clock == -1) ? 1 : clock - last_clock;
-  
-	      gcc_assert (cost >= 0);
-
-              if (issue_rate > 1
-                  && GET_CODE (PATTERN (insn)) != USE
-                  && GET_CODE (PATTERN (insn)) != CLOBBER)
-                {
-                  if (reload_completed && cost > 0)
-                    PUT_MODE (insn, TImode);
-
-                  last_clock = clock;
-                }
-
-              if (sched_verbose >= 2)
-                sel_print ("Cost for insn %d is %d\n", INSN_UID (insn), cost);
-            }
-
-          if (targetm.sched.md_finish)
-	    {
-	      /* md_finish () can possibly emit new insns.  Move LV_SETs to
-		 ones that happen to be emitted on bb header.  */
-	      insn_init.what = INSN_INIT_WHAT_INSN;
-	      targetm.sched.md_finish (sched_dump, sched_verbose);
-
-	      /* Extend luids so that insns generated by the target will
-		 get zero luid.  */
-	      sched_init_luids (NULL, NULL, NULL, NULL);
-	      insn_init.todo = 0;
-	      sel_init_new_insns ();
-	    }
-        }
-
-      BITMAP_FREE (scheduled_blocks);
-    }
+    sel_region_target_finish ();
 
   sel_finish_global_and_expr ();
 
@@ -6530,7 +6519,6 @@ sel_region_finish (void)
   free_nop_vinsn ();
 
   finish_deps_global ();
-  sched_deps_local_finish ();
   sched_finish_luids ();
 
   sel_finish_bbs ();
@@ -6992,6 +6980,7 @@ sel_global_init (void)
   sched_init_bbs ();
   /* Reset AFTER_RECOVERY if it has been set by the 1st scheduler pass.  */
   after_recovery = 0;
+  can_issue_more = issue_rate;	
 
   sched_extend_target ();
   sched_deps_init (true);

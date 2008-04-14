@@ -2919,7 +2919,7 @@ haifa_sched_init (void)
       sched_deps_info->generate_spec_deps = 1;
     }
 
-  /* Initialize glat, luids, dependency caches, target and h_i_d for the
+  /* Initialize luids, dependency caches, target and h_i_d for the
      whole function.  */
   {
     bb_vec_t bbs = VEC_alloc (basic_block, heap, n_basic_blocks);
@@ -2983,18 +2983,12 @@ haifa_sched_finish (void)
                c, nr_be_in_control);
     }
 
-  /* Finalize h_i_d, dependency caches, luids and glat for the whole
+  /* Finalize h_i_d, dependency caches, and luids for the whole
      function.  Target will be finalized in md_global_finish ().  */
-  {
-    haifa_finish_h_i_d ();
-    sched_deps_local_finish ();
-    sched_deps_finish ();
-    sched_finish_luids ();
-    sched_finish_bbs ();
-  }
-
+  sched_deps_finish ();
+  sched_finish_luids ();
+  sched_finish_bbs ();
   current_sched_info = NULL;
-
   sched_finish ();
 }
 
@@ -3004,6 +2998,7 @@ haifa_sched_finish (void)
 void
 sched_finish (void)
 {
+  haifa_finish_h_i_d ();
   free (curr_state);
 
   if (targetm.sched.md_finish_global)
@@ -4909,7 +4904,6 @@ luids_init_insn (rtx insn)
   if (i >= 0)
     {
       luid = sched_max_luid;
-
       sched_max_luid += i;
     }
   else
@@ -4940,7 +4934,6 @@ void
 sched_finish_luids (void)
 {
   VEC_free (int, heap, sched_luids);
-
   sched_max_luid = 1;
 }
 
@@ -4967,10 +4960,15 @@ VEC (haifa_insn_data_def, heap) *h_i_d = NULL;
 static void
 extend_h_i_d (void)
 {
-  int new_h_i_d_size = get_max_uid () + 1;
-
-  VEC_safe_grow_cleared (haifa_insn_data_def, heap, h_i_d, new_h_i_d_size);
-  sched_extend_target ();
+  int reserve = (get_max_uid () + 1 
+                 - VEC_length (haifa_insn_data_def, h_i_d));
+  if (reserve > 0 
+      && ! VEC_space (haifa_insn_data_def, h_i_d, reserve))
+    {
+      VEC_safe_grow_cleared (haifa_insn_data_def, heap, h_i_d, 
+                             3 * get_max_uid () / 2);
+      sched_extend_target ();
+    }
 }
 
 /* Initialize h_i_d entry of the INSN with default values.

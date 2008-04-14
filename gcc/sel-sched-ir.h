@@ -167,6 +167,9 @@ struct _expr
 
   /* True when the expression was renamed.  */
   BOOL_BITFIELD was_renamed : 1;
+
+  /* True when expression can't be moved.  */
+  BOOL_BITFIELD cant_move : 1;
 };
 
 typedef struct _expr expr_def;
@@ -193,6 +196,7 @@ typedef expr_def *expr_t;
 #define EXPR_NEEDS_SPEC_CHECK_P(EXPR) ((EXPR)->needs_spec_check_p)
 #define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
 #define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
+#define EXPR_CANT_MOVE(EXPR) ((EXPR)->cant_move)
 
 /* Insn definition for list of original insns in find_used_regs.  */
 struct _def
@@ -359,10 +363,16 @@ struct _list_node
    we can't move them in sel-sched-ir.c.  */
 extern alloc_pool sched_lists_pool;
 
+static inline _list_t
+_list_alloc (void)
+{
+  return (_list_t) pool_alloc (sched_lists_pool);
+}
+
 static inline void
 _list_add (_list_t *lp)
 {
-  _list_t l = (_list_t) pool_alloc (sched_lists_pool);
+  _list_t l = _list_alloc ();
 
   _LIST_NEXT (l) = *lp;
   *lp = l;
@@ -1516,6 +1526,7 @@ extern bool av_set_is_in_p (av_set_t, vinsn_t);
 extern av_set_t av_set_copy (av_set_t);
 extern void av_set_union_and_clear (av_set_t *, av_set_t *, insn_t);
 extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset, insn_t);
+extern void av_set_truncate (av_set_t);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one_nonspec (av_set_t *);
 extern expr_t av_set_element (av_set_t, int);

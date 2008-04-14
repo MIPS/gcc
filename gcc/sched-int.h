@@ -121,11 +121,6 @@ extern const struct common_sched_info_def haifa_common_sched_info;
    scheduler behaviour.  */
 extern int sched_emulate_haifa_p;
 
-/* Used only if (current_sched_info->flags & USE_GLAT) != 0.
-   These regsets store global_live_at_{start, end} information
-   for each basic block.  */
-extern regset *glat_start, *glat_end;
-
 /* Mapping from INSN_UID to INSN_LUID.  In the end all other per insn data
    structures should be indexed by luid.  */
 extern VEC (int, heap) *sched_luids;
@@ -676,6 +671,9 @@ struct _haifa_deps_insn_data
      from 'forw_deps' to 'resolved_forw_deps' while scheduling to fasten the
      search in 'forw_deps'.  */
   deps_list_t resolved_forw_deps;
+
+  /* Some insns (e.g. call) are not allowed to move across blocks.  */
+  unsigned int cant_move : 1;
 };
 
 struct _haifa_insn_data
@@ -769,16 +767,11 @@ extern VEC(haifa_deps_insn_data_def, heap) *h_d_i_d;
 #define INSN_RESOLVED_FORW_DEPS(INSN) (HDID (INSN)->resolved_forw_deps)
 #define INSN_HARD_BACK_DEPS(INSN) (HDID (INSN)->hard_back_deps)
 #define INSN_SPEC_BACK_DEPS(INSN) (HDID (INSN)->spec_back_deps)
+#define CANT_MOVE(INSN)	(HDID (INSN)->cant_move)
+#define CANT_MOVE_BY_LUID(LUID)	(VEC_index (haifa_deps_insn_data_def, h_d_i_d, \
+                                            LUID)->cant_move)
 
-/*#define INSN_HARD_BACK_DEPS(INSN) (HID (INSN)->hard_back_deps)
-#define INSN_SPEC_BACK_DEPS(INSN) (HID (INSN)->spec_back_deps)
-#define INSN_FORW_DEPS(INSN) (HID (INSN)->forw_deps)
-#define INSN_RESOLVED_BACK_DEPS(INSN) \
-  (HID (INSN)->resolved_back_deps)
-#define INSN_RESOLVED_FORW_DEPS(INSN) \
-  (HID (INSN)->resolved_forw_deps)
- #define INSN_LUID(INSN)		(HID (INSN)->luid) 
- #define CANT_MOVE(INSN)		(HID (INSN)->cant_move) */
+
 #define INSN_PRIORITY(INSN)	(HID (INSN)->priority)
 #define INSN_PRIORITY_STATUS(INSN) (HID (INSN)->priority_status)
 #define INSN_PRIORITY_KNOWN(INSN) (INSN_PRIORITY_STATUS (INSN) > 0)
@@ -1036,23 +1029,6 @@ enum INSN_TRAP_CLASS
 #define HAIFA_INLINE __inline
 #endif
 
-struct _deps_insn_data
-{
-  /* Some insns (e.g. call) are not allowed to move across blocks.  */
-  unsigned int cant_move : 1;
-};
-
-typedef struct _deps_insn_data deps_insn_data_def;
-typedef deps_insn_data_def *deps_insn_data_t;
-
-DEF_VEC_O (deps_insn_data_def);
-DEF_VEC_ALLOC_O (deps_insn_data_def, heap);
-
-extern VEC (deps_insn_data_def, heap) *d_i_d;
-
-#define DID(INSN) (VEC_index (deps_insn_data_def, d_i_d, INSN_LUID (INSN)))
-#define CANT_MOVE(INSN)	(DID (INSN)->cant_move)
-
 struct sched_deps_info_def
 {
   /* Called when computing dependencies for a JUMP_INSN.  This function
@@ -1145,8 +1121,6 @@ extern ds_t ds_max_merge (ds_t, ds_t);
 extern dw_t ds_weak (ds_t);
 extern ds_t ds_get_speculation_types (ds_t);
 extern ds_t ds_get_max_dep_weak (ds_t);
-
-extern void deps_finish_d_i_d (void);
 
 extern void sched_deps_init (bool);
 extern void sched_deps_finish (void);
