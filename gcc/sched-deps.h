@@ -168,6 +168,7 @@ extern void deps_analyze_insn (struct deps *, rtx);
 extern void sched_analyze (struct deps *, rtx, rtx);
 extern void init_deps (struct deps *);
 extern void free_deps (struct deps *);
+extern void remove_from_deps (struct deps *, rtx);
 extern void init_deps_global (void);
 extern void finish_deps_global (void);
 extern void add_forw_dep (dep_link_t);

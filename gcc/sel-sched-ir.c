@@ -133,7 +133,7 @@ bool preheader_removed = false;
 
 /* Forward static declarations.  */
 static void fence_init (fence_t, insn_t, state_t, deps_t, void *,
-                        rtx, rtx, int, int, bool, bool);
+                        rtx, VEC(rtx, gc) *, rtx, int, int, bool, bool);
 static void fence_clear (fence_t);
 
 static void deps_init_id (idata_t, insn_t, bool);
@@ -235,13 +235,14 @@ flist_lookup (flist_t l, insn_t insn)
 /* Add new fence consisting of INSN and STATE to the list pointed to by LP.  */
 void
 flist_add (flist_t *lp, insn_t insn, state_t state, deps_t dc, void *tc, 
-           insn_t last_scheduled_insn, insn_t sched_next, int cycle,
-	   int cycle_issued_insns, bool starts_cycle_p, bool after_stall_p)
+           insn_t last_scheduled_insn, VEC(rtx,gc) *executing_insns, 
+           insn_t sched_next, int cycle, int cycle_issued_insns, 
+           bool starts_cycle_p, bool after_stall_p)
 {
   _list_add (lp);
   fence_init (FLIST_FENCE (*lp), insn, state, dc, tc, last_scheduled_insn,
-	      sched_next, cycle, cycle_issued_insns, starts_cycle_p,
-	      after_stall_p);
+              executing_insns, sched_next, cycle, cycle_issued_insns, 
+              starts_cycle_p, after_stall_p);
 }
 
 /* Remove the head node of the list pointed to by LP.  */
@@ -517,8 +518,9 @@ state_create_copy (state_t from)
 /* Initialize the fence.  */
 static void
 fence_init (fence_t f, insn_t insn, state_t state, deps_t dc, void *tc,
-	    rtx last_scheduled_insn, rtx sched_next, int cycle,
-	    int cycle_issued_insns, bool starts_cycle_p, bool after_stall_p)
+	    rtx last_scheduled_insn, VEC(rtx, gc) *executing_insns, 
+            rtx sched_next, int cycle, int cycle_issued_insns, 
+            bool starts_cycle_p, bool after_stall_p)
 {
   FENCE_INSN (f) = insn;
 
@@ -541,6 +543,7 @@ fence_init (fence_t f, insn_t insn, state_t state, deps_t dc, void *tc,
   FENCE_TC (f) = tc;
 
   FENCE_LAST_SCHEDULED_INSN (f) = last_scheduled_insn;
+  FENCE_EXECUTING_INSNS (f) = executing_insns;
   FENCE_SCHED_NEXT (f) = sched_next;
 }
 
@@ -579,6 +582,7 @@ fence_clear (fence_t f)
 
   if (tc != NULL)
     delete_target_context (tc);
+  VEC_free (rtx, gc, FENCE_EXECUTING_INSNS (f));
 }
 
 /* Init a list of fences with successors of OLD_FENCE.  */
@@ -601,7 +605,9 @@ init_fences (insn_t old_fence)
 		 state_create (),
 		 create_deps_context () /* dc */,
 		 create_target_context (true) /* tc */,
-		 NULL_RTX /* last_scheduled_insn */, NULL_RTX /* sched_next */,
+		 NULL_RTX /* last_scheduled_insn */, 
+                 NULL, /* executing_insns */
+                 NULL_RTX /* sched_next */,
 		 1 /* cycle */, 0 /* cycle_issued_insns */, 
 		 1 /* starts_cycle_p */, 0 /* after_stall_p */);  
     }
@@ -609,12 +615,13 @@ init_fences (insn_t old_fence)
 
 /* Merges two fences (filling fields of OLD_FENCE with resulting values) by
    following rules: 1) state, target context and last scheduled insn are
-   propagated from fallthrough edge if it is availiable; 
+   propagated from fallthrough edge if it is available; 
    2) deps context and cycle is propagated from more probable edge;
    3) all other fields are set to corresponding constant values.  */
 static void
 merge_fences (fence_t f, insn_t insn,
-	      state_t state, deps_t dc, void *tc, rtx last_scheduled_insn, 
+	      state_t state, deps_t dc, void *tc, 
+              rtx last_scheduled_insn, VEC(rtx, gc) *executing_insns,
 	      rtx sched_next, int cycle, bool after_stall_p)
 {
   insn_t last_scheduled_insn_old = FENCE_LAST_SCHEDULED_INSN (f);
@@ -645,6 +652,10 @@ merge_fences (fence_t f, insn_t insn,
         FENCE_CYCLE (f) = cycle;
 
       FENCE_LAST_SCHEDULED_INSN (f) = NULL;
+      VEC_free (rtx, gc, executing_insns);
+      if (FENCE_EXECUTING_INSNS (f))
+        VEC_block_remove (rtx, FENCE_EXECUTING_INSNS (f), 0, 
+                          VEC_length (rtx, FENCE_EXECUTING_INSNS (f)));
     }
   else
     {
@@ -725,21 +736,27 @@ merge_fences (fence_t f, insn_t insn,
           {
             reset_deps_context (FENCE_DC (f));
             delete_deps_context (dc);
+            VEC_free (rtx, gc, executing_insns);
   
             FENCE_CYCLE (f) = MAX (FENCE_CYCLE (f), cycle);
+            if (FENCE_EXECUTING_INSNS (f))
+              VEC_block_remove (rtx, FENCE_EXECUTING_INSNS (f), 0, 
+                                VEC_length (rtx, FENCE_EXECUTING_INSNS (f)));
           }
         else
           if (edge_new->probability > edge_old->probability)
             {
               delete_deps_context (FENCE_DC (f));
               FENCE_DC (f) = dc;
-
+              VEC_free (rtx, gc, FENCE_EXECUTING_INSNS (f));
+              FENCE_EXECUTING_INSNS (f) = executing_insns;
               FENCE_CYCLE (f) = cycle;
             }
           else
             {
               /* Leave DC and CYCLE untouched.  */
               delete_deps_context (dc);
+              VEC_free (rtx, gc, executing_insns);
             }
     }
 
@@ -757,15 +774,16 @@ merge_fences (fence_t f, insn_t insn,
 void
 new_fences_add (flist_tail_t new_fences, insn_t insn,
 		state_t state, deps_t dc, void *tc, rtx last_scheduled_insn, 
-		rtx sched_next, int cycle, int cycle_issued_insns, 
-                bool starts_cycle_p, bool after_stall_p)
+                VEC(rtx, gc) *executing_insns, rtx sched_next, int cycle, 
+                int cycle_issued_insns, bool starts_cycle_p, bool after_stall_p)
 {
   fence_t f = flist_lookup (FLIST_TAIL_HEAD (new_fences), insn);
 
   if (!f)
     {
       flist_add (FLIST_TAIL_TAILP (new_fences), insn, state, dc, tc,
-		 last_scheduled_insn, sched_next, cycle, cycle_issued_insns,
+		 last_scheduled_insn, executing_insns, 
+                 sched_next, cycle, cycle_issued_insns,
 		 starts_cycle_p, after_stall_p);
 
       FLIST_TAIL_TAILP (new_fences)
@@ -773,8 +791,8 @@ new_fences_add (flist_tail_t new_fences, insn_t insn,
     }
   else
     {
-      merge_fences (f, insn, state, dc, tc, last_scheduled_insn, sched_next, 
-                    cycle, after_stall_p);
+      merge_fences (f, insn, state, dc, tc, last_scheduled_insn, 
+                    executing_insns, sched_next, cycle, after_stall_p);
 
     }
 }
@@ -787,7 +805,7 @@ new_fences_add_clean (flist_tail_t new_fences, insn_t succ, fence_t fence)
   new_fences_add (new_fences,
 		  succ, state_create (), create_deps_context (),
 		  create_target_context (true),
-		  NULL_RTX, NULL_RTX, FENCE_CYCLE (fence) + 1,
+		  NULL_RTX, NULL, NULL_RTX, FENCE_CYCLE (fence) + 1,
 		  0, 1, FENCE_AFTER_STALL_P (fence));
 }
 
@@ -800,7 +818,9 @@ new_fences_add_dirty (flist_tail_t new_fences, insn_t succ, fence_t fence)
 		  succ, state_create_copy (FENCE_STATE (fence)),
 		  create_copy_of_deps_context (FENCE_DC (fence)),
 		  create_copy_of_target_context (FENCE_TC (fence)),
-		  FENCE_LAST_SCHEDULED_INSN (fence), FENCE_SCHED_NEXT (fence),
+		  FENCE_LAST_SCHEDULED_INSN (fence), 
+                  VEC_copy (rtx, gc, FENCE_EXECUTING_INSNS (fence)),
+                  FENCE_SCHED_NEXT (fence),
 		  FENCE_CYCLE (fence),
 		  FENCE_ISSUED_INSNS (fence),
 		  FENCE_STARTS_CYCLE_P (fence),
@@ -3292,6 +3312,8 @@ tick_check_p (rhs_t rhs, deps_t dc, fence_t fence)
   
   gcc_assert (!dc->readonly);
   dc->readonly = 1;
+  print ("context: %d %d %d\n", dc->pending_read_list_length,
+         dc->pending_write_list_length, dc->pending_flush_length);
   deps_analyze_insn (dc, RHS_INSN (rhs));
   dc->readonly = 0;
 
@@ -3659,6 +3681,8 @@ finish_insns (void)
           htab_delete (sid_entry->transformed_insns);
 	  free_deps (&sid_entry->deps_context);
 	}
+      if (EXPR_VINSN (&sid_entry->expr))
+	clear_expr (&sid_entry->expr);
     }
   
   VEC_free (sel_insn_data_def, heap, s_i_d);
@@ -3726,7 +3750,7 @@ static bool insn_init_create_new_vinsn_p;
 static expr_t
 set_insn_init (expr_t expr, vinsn_t vi, int seqno)
 {
-  expr_t x = &insn_init_ssid->_expr;
+  expr_t x = &insn_init_ssid->expr;
   ds_t ds_x;
 
   copy_expr_onside (x, expr);
@@ -3768,7 +3792,7 @@ init_insn (insn_t insn)
   gcc_assert (INSN_P (insn) && INSN_LUID (insn) > 0);
 
   expr = INSN_EXPR (insn);
-  copy_expr (expr, &ssid->_expr);
+  copy_expr (expr, &ssid->expr);
 
   INSN_SEQNO (insn) = ssid->seqno;
   EXPR_ORIG_BB_INDEX (expr) = BLOCK_NUM (insn);
@@ -3817,7 +3841,7 @@ sel_init_new_insns (void)
 
       sched_scan (&ssi, NULL, NULL, new_insns, NULL);
 
-      clear_expr (&insn_init_ssid->_expr);
+      clear_expr (&insn_init_ssid->expr);
     }
 
   if (todo & INSN_INIT_TODO_SIMPLEJUMP)

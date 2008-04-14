@@ -1339,6 +1339,52 @@ add_dependence_list_and_free (struct deps *deps, rtx insn, rtx *listp,
     }
 }
 
+/* Remove all occurences of INSN from LIST.  Return the number of 
+   occurences removed.  */
+
+static int
+remove_from_dependence_list (rtx insn, rtx* listp)
+{
+  int removed = 0;
+  
+  while (*listp)
+    {
+      if (XEXP (*listp, 0) == insn)
+        {
+          remove_free_INSN_LIST_node (listp);
+          removed++;
+          continue;
+        }
+      
+      listp = &XEXP (*listp, 1);
+    }
+  
+  return removed;
+}
+
+/* Same as above, but process two lists at once.  */
+static int 
+remove_from_both_dependence_lists (rtx insn, rtx *listp, rtx *exprp)
+{
+  int removed = 0;
+  
+  while (*listp)
+    {
+      if (XEXP (*listp, 0) == insn)
+        {
+          remove_free_INSN_LIST_node (listp);
+          remove_free_EXPR_LIST_node (exprp);
+          removed++;
+          continue;
+        }
+      
+      listp = &XEXP (*listp, 1);
+      exprp = &XEXP (*exprp, 1);
+    }
+  
+  return removed;
+}
+
 /* Clear all dependencies for an insn.  */
 static void
 delete_all_dependences (rtx insn)
@@ -2475,9 +2521,6 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
         CLEAR_REG_SET (&deps->reg_conditional_sets);
       reg_pending_barrier = NOT_A_BARRIER;
     }
-  else
-    {
-    }
 
   CLEAR_REG_SET (reg_pending_uses);
   CLEAR_REG_SET (reg_pending_clobbers);
@@ -2906,6 +2949,42 @@ free_deps (struct deps *deps)
   deps->reg_last = NULL;
 
   deps = NULL;
+}
+
+/* Remove INSN from dependence contexts DEPS.  Caution: reg_conditional_sets
+   is not handled.  */
+void
+remove_from_deps (struct deps *deps, rtx insn)
+{
+  int removed;
+  unsigned i;
+  reg_set_iterator rsi;
+  
+  removed = remove_from_both_dependence_lists (insn, &deps->pending_read_insns,
+                                               &deps->pending_read_mems);
+  deps->pending_read_list_length -= removed;
+  removed = remove_from_both_dependence_lists (insn, &deps->pending_write_insns,
+                                               &deps->pending_write_mems);
+  deps->pending_write_list_length -= removed;
+  removed = remove_from_dependence_list (insn, &deps->last_pending_memory_flush);
+  deps->pending_flush_length -= removed;
+
+  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i, rsi)
+    {
+      struct deps_reg *reg_last = &deps->reg_last[i];
+      if (reg_last->uses)
+	remove_from_dependence_list (insn, &reg_last->uses);
+      if (reg_last->sets)
+	remove_from_dependence_list (insn, &reg_last->sets);
+      if (reg_last->clobbers)
+	remove_from_dependence_list (insn, &reg_last->clobbers);
+      if (!reg_last->uses && !reg_last->sets && !reg_last->clobbers)
+        CLEAR_REGNO_REG_SET (&deps->reg_last_in_use, i);
+    }
+
+  if (CALL_P (insn))
+    remove_from_dependence_list (insn, &deps->last_function_call);
+  remove_from_dependence_list (insn, &deps->sched_before_next_call);
 }
 
 /* An array indexed by INSN_UID that holds the data related 

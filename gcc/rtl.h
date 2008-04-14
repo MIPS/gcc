@@ -1777,15 +1777,17 @@ extern rtx get_condition (rtx, rtx *, int, int);
 
 /* lists.c */
 
-void free_EXPR_LIST_list		(rtx *);
-void free_INSN_LIST_list		(rtx *);
-void free_EXPR_LIST_node		(rtx);
-void free_INSN_LIST_node		(rtx);
-rtx alloc_INSN_LIST			(rtx, rtx);
-rtx alloc_EXPR_LIST			(int, rtx, rtx);
-void remove_free_INSN_LIST_elem (rtx, rtx *);
-rtx remove_list_elem (rtx, rtx *);
-rtx remove_free_INSN_LIST_node (rtx *);
+extern void free_EXPR_LIST_list		(rtx *);
+extern void free_INSN_LIST_list		(rtx *);
+extern void free_EXPR_LIST_node		(rtx);
+extern void free_INSN_LIST_node		(rtx);
+extern rtx alloc_INSN_LIST			(rtx, rtx);
+extern rtx alloc_EXPR_LIST			(int, rtx, rtx);
+extern void remove_free_INSN_LIST_elem (rtx, rtx *);
+extern rtx remove_list_elem (rtx, rtx *);
+extern rtx remove_free_INSN_LIST_node (rtx *);
+extern rtx remove_free_EXPR_LIST_node (rtx *);
+
 
 /* regclass.c */
 

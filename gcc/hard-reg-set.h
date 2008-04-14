@@ -89,6 +89,8 @@ typedef HARD_REG_ELT_TYPE HARD_REG_SET[HARD_REG_SET_LONGS];
    hard_reg_set_intersect_p (X, Y), which returns true if X and Y intersect.
    hard_reg_set_empty_p (X), which returns true if X is empty.  */
 
+#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDEST_FAST_INT)
+
 #ifdef HARD_REG_SET
 
 #define SET_HARD_REG_BIT(SET, BIT)  \
@@ -134,8 +136,6 @@ hard_reg_set_empty_p (const HARD_REG_SET x)
 }
 
 #else
-
-#define UHOST_BITS_PER_WIDE_INT ((unsigned) HOST_BITS_PER_WIDEST_FAST_INT)
 
 #define SET_HARD_REG_BIT(SET, BIT)		\
   ((SET)[(BIT) / UHOST_BITS_PER_WIDE_INT]	\

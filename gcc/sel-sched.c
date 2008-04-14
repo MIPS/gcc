@@ -370,11 +370,26 @@ static av_set_t compute_av_set_inside_bb (insn_t, ilist_t, int, bool);
 static void
 advance_one_cycle (fence_t fence)
 {
+  unsigned i;
+  int cycle;
+  rtx insn;
+  
   advance_state (FENCE_STATE (fence));
-  FENCE_CYCLE (fence)++;
+  cycle = ++FENCE_CYCLE (fence);
   FENCE_ISSUED_INSNS (fence) = 0;
   FENCE_STARTS_CYCLE_P (fence) = 1;
   can_issue_more = issue_rate;
+
+  for (i = 0; VEC_iterate (rtx, FENCE_EXECUTING_INSNS (fence), i, insn); )
+    {
+      if (INSN_READY_CYCLE (insn) < cycle)
+        {
+          remove_from_deps (FENCE_DC (fence), insn);
+          VEC_unordered_remove (rtx, FENCE_EXECUTING_INSNS (fence), i);
+          continue;
+        }
+      i++;
+    }
   print ("Finished a cycle.  Current cycle = %d", FENCE_CYCLE (fence));
 }
 
@@ -1643,8 +1658,7 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
         av_set_iter_remove (&av_iter);
       }
 
-  /* FIXME: we need to determine whether RHS was changed on this insn 
-     just once.  */
+  /* Undo transformations looking at the history vector.  */
   FOR_EACH_RHS (rhs, av_iter, *av_ptr)
     {
       int index = find_in_history_vect (EXPR_HISTORY_OF_CHANGES (rhs),
@@ -3065,7 +3079,10 @@ process_spec_exprs (av_set_t *av_ptr)
       /* The probability of a success is too low - don't speculate.  */
       if ((ds & SPECULATIVE)
           && (ds_weak (ds) < spec_info->data_weakness_cutoff
-              || EXPR_USEFULNESS (rhs) < spec_info->control_weakness_cutoff))
+              || EXPR_USEFULNESS (rhs) < spec_info->control_weakness_cutoff		
+	      || (pipelining_p
+	      	  && (ds & DATA_SPEC)
+		  && (ds & CONTROL_SPEC))))
         {
           av_set_iter_remove (&si);
           continue;
@@ -3106,13 +3123,12 @@ process_spec_exprs (av_set_t *av_ptr)
    Note that we check here whether a USE could be scheduled to avoid
    an infinite loop later.  */
 static rhs_t
-process_use_exprs (av_set_t *av_ptr, blist_t bnds)
+process_use_exprs (av_set_t *av_ptr)
 {
   rhs_t rhs;
   av_set_iterator si;
   bool uses_present_p = false;
   bool try_uses_p = true;
-  bool is_orig_reg = false;
 
   FOR_EACH_RHS_1 (rhs, si, av_ptr)
     {
@@ -3123,7 +3139,7 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
              do so because it will do good only.  */
           if (EXPR_SCHED_TIMES (rhs) <= 0)
             {
-              if (find_best_reg_for_rhs (rhs, bnds, &is_orig_reg))
+              if (EXPR_TARGET_AVAILABLE (rhs) == 1)
                 return rhs;
 
               av_set_iter_remove (&si);
@@ -3155,7 +3171,7 @@ process_use_exprs (av_set_t *av_ptr, blist_t bnds)
             {
               gcc_assert (INSN_CODE (EXPR_INSN_RTX (rhs)) < 0);
 
-              if (find_best_reg_for_rhs (rhs, bnds, &is_orig_reg))
+              if (EXPR_TARGET_AVAILABLE (rhs) == 1)
                 return rhs;
 
               av_set_iter_remove (&si);
@@ -3180,6 +3196,8 @@ expr_blocked_by_bookkeeping_p (expr_t expr)
   return false;
 }
 
+/* Return true if either of expressions from ORIG_OPS can be blocked
+   by previously created bookkeeping code.  */
 static bool
 av_set_could_be_blocked_by_bookkeeping_p (av_set_t orig_ops)
 {
@@ -3454,7 +3472,7 @@ fill_ready_list (av_set_t *av_ptr, blist_t bnds, fence_t fence)
   process_spec_exprs (av_ptr);
 
   /* A USE could be scheduled immediately.  */
-  rhs = process_use_exprs (av_ptr, bnds);
+  rhs = process_use_exprs (av_ptr);
   if (rhs)
     return rhs;
 
@@ -4673,6 +4691,14 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
           memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
           INSN_AFTER_STALL_P (insn) = FENCE_AFTER_STALL_P (fence);
           INSN_SCHED_CYCLE (insn) = FENCE_CYCLE (fence);
+
+          /* This does not account for adjust_cost hooks, just add the biggest
+             constant the hook may add to the latency.  TODO: make this 
+             a target dependent constant.  */
+          INSN_READY_CYCLE (insn) 
+            = FENCE_CYCLE (fence) + (INSN_CODE (insn) < 0 
+                                     ? 1
+                                     : maximal_insn_latency (insn) + 1);
 	  EXPR_TARGET_AVAILABLE (INSN_EXPR (insn)) = true;
 
 	  if (asm_p)
@@ -4681,6 +4707,7 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
           FENCE_AFTER_STALL_P (fence) = 0;
           FENCE_STARTS_CYCLE_P (fence) = 0;
 	  FENCE_LAST_SCHEDULED_INSN (fence) = insn;
+          VEC_safe_push (rtx, gc, FENCE_EXECUTING_INSNS (fence), insn);
           if (SCHED_GROUP_P (insn))
             {
               FENCE_SCHED_NEXT (fence) = INSN_SCHED_NEXT (insn);
@@ -5526,17 +5553,17 @@ move_op_process_successors (insn_t insn, av_set_t orig_ops, ilist_t path,
   return res;
 }
 
+
+/* Perform a cleanup when the driver is about to terminate.  */
 static inline void
 code_motion_path_driver_cleanup (av_set_t *orig_ops_p, ilist_t *path_p,
 				 int save_print_blocks_n)
 {
   ilist_remove (path_p);
-
   av_set_clear (orig_ops_p);
 
   while (get_print_blocks_num () > save_print_blocks_n)
     block_finish ();
-
 }
 
 /* The driver function that implements move_op or find_used_regs 
@@ -6475,6 +6502,7 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 				  insn, state, FENCE_DC (fence), 
                                   FENCE_TC (fence), 
                                   FENCE_LAST_SCHEDULED_INSN (fence), 
+                                  FENCE_EXECUTING_INSNS (fence),
                                   FENCE_SCHED_NEXT (fence),
                                   FENCE_CYCLE (fence), 
 				  FENCE_ISSUED_INSNS (fence),
@@ -6485,6 +6513,7 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 		  FENCE_STATE (fence) = NULL;
 		  FENCE_DC (fence) = NULL;
                   FENCE_TC (fence) = NULL;
+                  FENCE_EXECUTING_INSNS (fence) = NULL;
 		}
 
 	      continue;

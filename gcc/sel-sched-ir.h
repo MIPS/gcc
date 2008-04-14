@@ -283,6 +283,9 @@ struct _fence
      scheduling information when changing fences.  */
   tc_t tc;
 
+  /* A vector of insns that are scheduled but not yet completed.  */
+  VEC (rtx,gc) *executing_insns;
+      
   /* Insn, which has been scheduled last on this fence.  */
   rtx last_scheduled_insn;
 
@@ -315,6 +318,7 @@ typedef struct _fence *fence_t;
 #define FENCE_DC(F) ((F)->dc)
 #define FENCE_TC(F) ((F)->tc)
 #define FENCE_LAST_SCHEDULED_INSN(F) ((F)->last_scheduled_insn)
+#define FENCE_EXECUTING_INSNS(F) ((F)->executing_insns)
 #define FENCE_SCHED_NEXT(F) ((F)->sched_next)
 
 /* List of fences.  */
@@ -673,7 +677,7 @@ struct _sel_insn_data
      Much of the information, that reflect information about the insn itself
      (e.g. not about where it stands in CFG) is contained in the VINSN_ID
      field of this home VI.  */
-  expr_def _expr;
+  expr_def expr;
 
   /* If (WS_LEVEL == GLOBAL_LEVEL) then AV is empty.  */
   int ws_level;
@@ -698,9 +702,6 @@ struct _sel_insn_data
   /* A context incapsulating this insn.  */
   struct deps deps_context;
 
-  /* Insn is an ASM.  */
-  bool asm_p;
-
   /* This field is initialized at the beginning of scheduling and is used
      to handle sched group instructions.  If it is non-null, then it points
      to the instruction, which should be forced to schedule next.  Such
@@ -708,12 +709,17 @@ struct _sel_insn_data
   insn_t sched_next;
 
   /* Cycle at which insn was scheduled.  It is greater than zero if insn was
-     scheduled.
-     This is used for bundling.  */
+     scheduled.  This is used for bundling.  */
   int sched_cycle;
+
+  /* Cycle at which insn's data will be fully ready.  */
+  int ready_cycle;
 
   /* Speculations that are being checked by this insn.  */
   ds_t spec_checked_ds;
+
+  /* Insn is an ASM.  */
+  BOOL_BITFIELD asm_p : 1;
 
   /* True when an insn is scheduled after we've determined that a stall is
      required.
@@ -743,7 +749,7 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_ORIGINATORS_BY_UID(UID) (SID_BY_UID (UID)->originators)
 #define INSN_TRANSFORMED_INSNS(INSN) (SID (INSN)->transformed_insns)
 
-#define INSN_EXPR(INSN) (&SID (INSN)->_expr)
+#define INSN_EXPR(INSN) (&SID (INSN)->expr)
 #define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))
 #define INSN_TYPE(INSN) (VINSN_TYPE (INSN_VINSN (INSN)))
 #define INSN_SIMPLEJUMP_P(INSN) (INSN_TYPE (INSN) == PC)
@@ -756,6 +762,7 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_SEQNO(INSN) (SID (INSN)->seqno)
 #define INSN_AFTER_STALL_P(INSN) (SID (INSN)->after_stall_p)
 #define INSN_SCHED_CYCLE(INSN) (SID (INSN)->sched_cycle)
+#define INSN_READY_CYCLE(INSN) (SID (INSN)->ready_cycle)
 #define INSN_SPEC_CHECKED_DS(INSN) (SID (INSN)->spec_checked_ds)
 
 /* A global level shows whether an insn is valid or not.  */
@@ -1438,7 +1445,7 @@ extern void blist_add (blist_t *, insn_t, ilist_t, deps_t);
 extern void blist_remove (blist_t *);
 extern void flist_tail_init (flist_tail_t);
 extern void flist_add (flist_t *, insn_t, state_t, deps_t, void *, 
-                       insn_t, insn_t, int, int, bool, bool);
+                       insn_t, VEC(rtx, gc) *, insn_t, int, int, bool, bool);
 
 extern fence_t flist_lookup (flist_t, insn_t);
 extern void flist_clear (flist_t *);
@@ -1455,7 +1462,7 @@ extern void advance_deps_context (deps_t, insn_t);
 /* Fences functions.  */
 extern void init_fences (insn_t);
 extern void new_fences_add (flist_tail_t, insn_t, state_t, deps_t, void *, rtx,
-                       rtx, int, int, bool, bool);
+                            VEC(rtx, gc) *, rtx, int, int, bool, bool);
 extern void new_fences_add_clean (flist_tail_t, insn_t, fence_t);
 extern void new_fences_add_dirty (flist_tail_t, insn_t, fence_t);
 

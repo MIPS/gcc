@@ -1,3 +1,31 @@
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	* genattr.c (main): Output maximal_insn_latency prototype.
+	* genautomata.c (output_default_latencies): New. Factor its code from ... 
+	(output_internal_insn_latency_func): ... here.
+	(output_internal_maximal_insn_latency_func): New.
+	(output_maximal_insn_latency_func): New.
+	* hard-reg-set.h (UHOST_BITS_PER_WIDE_INT): Fix define.
+	* lists.c (remove_free_EXPR_LIST_node): New.
+	* rtl.h: Export it.
+	* sched-deps.c (remove_from_dependence_list, 
+	remove_from_both_dependence_lists): New.
+	(remove_from_deps): New. Use the above functions.
+	* sched-deps.h (remove_from_deps): Export.
+	* sel-sched-ir.h (struct _fence): New field `executing_insns'.
+	(FENCE_EXECUTING_INSNS): New accessor.
+	(struct _sel_insn_data): Remove _expr to expr.  Update all uses.
+	Change asm_p to bool_bitfield. New field `ready_cycle'.
+	* sel-sched-ir.c (fence_init, flist_add, fence_clear, 
+	init_fences, merge_fences, new_fences_add, new_fences_add_clean, 
+	new_fences_add_dirty): Update for FENCE_EXECUTING_INSNS.
+	* sel-sched.c (advance_one_cycle): Remove excessive insns from 
+	FENCE_EXECUTING_INSNS.
+	(undo_transformations): Forbid combined speculation.
+	(process_use_exprs): Use EXPR_TARGET_AVAILABLE.
+	(fill_insns): Set INSN_READY_CYCLE.  Update FENCE_EXECUTING_INSNS.
+	(sel_sched_region_2): Likewise.
+
 2008-04-14  Dmitry Melnik  <dm@ispras.ru>
 
 	* sel-sched-dump.c (get_print_blocks_num): New.
