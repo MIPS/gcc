@@ -2629,8 +2629,9 @@ deps_analyze_insn (struct deps *deps, rtx insn)
       /* Make each JUMP_INSN (but not a speculative check) 
          a scheduling barrier for memory references.  */
       if (!deps->readonly
-          && JUMP_P (insn) && !(SEL_SCHED_P 
-                                && sel_insn_is_speculation_check (insn)))
+          && JUMP_P (insn) 
+          && !(SEL_SCHED_P 
+               && sel_insn_is_speculation_check (insn)))
         {
           /* Keep the list a reasonable size.  */
           if (deps->pending_flush_length++ > MAX_PENDING_LIST_LENGTH)

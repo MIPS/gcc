@@ -1101,6 +1101,20 @@ mfb_keep_just (edge e)
   return e != mfb_kj_edge;
 }
 
+/* True when a candidate preheader BLOCK has predecessors from LOOP.  */
+
+static bool
+has_preds_from_loop (basic_block block, struct loop *loop)
+{
+  edge e;
+  edge_iterator ei;
+  
+  FOR_EACH_EDGE (e, ei, block->preds)
+    if (e->src->loop_father == loop)
+      return true;
+  return false;
+}
+
 /* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
    CP_SIMPLE_PREHEADERS is set in FLAGS, we only force LOOP to have single
    entry; otherwise we also force preheader block to have only one successor.
@@ -1138,7 +1152,8 @@ create_preheader (struct loop *loop, int flags)
 	  && !((flags & CP_SIMPLE_PREHEADERS)
 	       && !single_succ_p (single_entry->src))
           && !((flags & CP_FALLTHRU_PREHEADERS
-                && JUMP_P (BB_END (single_entry->src)))))
+                && (JUMP_P (BB_END (single_entry->src))
+                    || has_preds_from_loop (single_entry->src, loop)))))
 	return NULL;
     }
 

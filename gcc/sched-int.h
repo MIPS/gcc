@@ -68,7 +68,7 @@ extern const struct sched_scan_info_def *sched_scan_info;
 extern void sched_scan (const struct sched_scan_info_def *,
 			bb_vec_t, basic_block, insn_vec_t, rtx);
 
-extern void sched_init_bbs (bb_vec_t, basic_block);
+extern void sched_init_bbs (void);
 extern void sched_finish_bbs (void);
 
 extern void sched_init_luids (bb_vec_t, basic_block, insn_vec_t, rtx);
@@ -174,6 +174,7 @@ extern size_t dfa_state_size;
 
 extern void advance_state (state_t);
 
+extern void setup_sched_dump (void);
 extern void sched_init (void);
 extern void sched_finish (void);
 

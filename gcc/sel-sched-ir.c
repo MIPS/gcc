@@ -1369,15 +1369,6 @@ sel_hash_rtx (rtx x, enum machine_mode mode)
   return hash;
 }
 
-static bool
-vinsn_equal_p (vinsn_t vi1, vinsn_t vi2)
-{
-  if (VINSN_TYPE (vi1) != VINSN_TYPE (vi2))
-    return false;
-
-  return (sel_rtx_equal_p (VINSN_PATTERN (vi1), VINSN_PATTERN (vi2)));
-}
-
 /* Returns LHS and RHS are ok to be scheduled separately.  */
 static bool
 lhs_and_rhs_separable_p (rtx lhs, rtx rhs)
@@ -1463,16 +1454,35 @@ vinsn_attach (vinsn_t vi)
   VINSN_COUNT (vi)++;
 }
 
-/* Create and init VI from the INSN.  Initialize VINSN_COUNT (VI) with COUNT 
-   and use UNIQUE_P for determining the correct VINSN_TYPE (VI).  */
+/* Create and init VI from the INSN.  Use UNIQUE_P for determining the correct 
+   VINSN_TYPE (VI).  */
 static vinsn_t
 vinsn_create (insn_t insn, bool force_unique_p)
 {
   vinsn_t vi = xcalloc (1, sizeof (*vi));
 
   vinsn_init (vi, insn, force_unique_p);
-
   return vi;
+}
+
+/* Return a copy of VI.  When REATTACH_P is true, detach VI and attach
+   the copy.  */
+vinsn_t 
+vinsn_copy (vinsn_t vi, bool reattach_p)
+{
+  rtx copy;
+  bool unique = VINSN_UNIQUE_P (vi);
+  vinsn_t new_vi;
+  
+  copy = create_copy_of_insn_rtx (VINSN_INSN_RTX (vi));
+  new_vi = create_vinsn_from_insn_rtx (copy, unique);
+  if (reattach_p)
+    {
+      vinsn_detach (vi);
+      vinsn_attach (new_vi);
+    }
+
+  return new_vi;
 }
 
 /* Delete the VI vinsn and free its data.  */
@@ -1630,7 +1640,8 @@ sel_gen_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno,
    such that inserting HASH at INDP will retain VECT's sort order.  */
 static bool
 find_in_history_vect_1 (VEC(expr_history_def, heap) *vect, 
-                        unsigned uid, vinsn_t new_vinsn, int *indp)
+                        unsigned uid, vinsn_t new_vinsn, 
+                        bool compare_vinsns, int *indp)
 {
   expr_history_def *arr;
   int i, j, len = VEC_length (expr_history_def, vect);
@@ -1650,8 +1661,12 @@ find_in_history_vect_1 (VEC(expr_history_def, heap) *vect,
       vinsn_t avinsn = arr[i].new_expr_vinsn; 
 
       if (auid == uid
-          && (avinsn == new_vinsn
-              || vinsns_correlate_as_rhses_p (avinsn, new_vinsn)))
+          /* When undoing transformation on a bookkeeping copy, the new vinsn 
+             may not be exactly equal to the one that is saved in the vector. 
+             This is because the insn whose copy we're checking was possibly
+             substituted itself.  */
+          && (! compare_vinsns 
+              || vinsn_equal_p (avinsn, new_vinsn)))
         {
           *indp = i;
           return true;
@@ -1674,7 +1689,8 @@ find_in_history_vect (VEC(expr_history_def, heap) *vect, rtx insn,
 {
   int ind;
 
-  if (find_in_history_vect_1 (vect, INSN_UID (insn), new_vinsn, &ind))
+  if (find_in_history_vect_1 (vect, INSN_UID (insn), new_vinsn, 
+                              false, &ind))
     return ind;
 
   if (INSN_ORIGINATORS (insn) && originators_p)
@@ -1683,7 +1699,7 @@ find_in_history_vect (VEC(expr_history_def, heap) *vect, rtx insn,
       bitmap_iterator bi;
 
       EXECUTE_IF_SET_IN_BITMAP (INSN_ORIGINATORS (insn), 0, uid, bi)
-        if (find_in_history_vect_1 (vect, uid, new_vinsn, &ind))
+        if (find_in_history_vect_1 (vect, uid, new_vinsn, false, &ind))
           return ind;
     }
   
@@ -1703,7 +1719,7 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
   bool res;
   int ind;
 
-  res = find_in_history_vect_1 (vect, uid, new_expr_vinsn, &ind);
+  res = find_in_history_vect_1 (vect, uid, new_expr_vinsn, true, &ind);
 
   if (res)
     {
@@ -1714,7 +1730,7 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
          though, new vinsns should be equal.  */
       gcc_assert (phist->old_expr_vinsn == old_expr_vinsn
                   || (phist->new_expr_vinsn != new_expr_vinsn 
-                      && (vinsns_correlate_as_rhses_p 
+                      && (vinsn_equal_p 
                           (phist->old_expr_vinsn, old_expr_vinsn))));
 
       /* It is possible that speculation types of expressions that were 
@@ -1739,10 +1755,10 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
 
 /* Compare two vinsns as rhses if possible and as vinsns otherwise.  */
 bool
-vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
+vinsn_equal_p (vinsn_t x, vinsn_t y)
 {
-  /* We should have checked earlier for (X == Y).  */
-  gcc_assert (x != y);
+  if (x == y)
+    return true;
 
   if (VINSN_TYPE (x) != VINSN_TYPE (y))
     return false;
@@ -1758,9 +1774,8 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
 
       return sel_rtx_equal_p (VINSN_RHS (x), VINSN_RHS (y));
     }
-  else
-    /* Compare whole insns. */
-    return vinsn_equal_p (x, y);
+
+  return sel_rtx_equal_p (VINSN_PATTERN (x), VINSN_PATTERN (y));
 }
 
 /* Initialize EXPR.  */
@@ -1849,7 +1864,11 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   if (EXPR_SPEC (to) > EXPR_SPEC (from))
     EXPR_SPEC (to) = EXPR_SPEC (from);
 
-  EXPR_USEFULNESS (to) += EXPR_USEFULNESS (from);
+  if (split_point)
+    EXPR_USEFULNESS (to) += EXPR_USEFULNESS (from);
+  else
+    EXPR_USEFULNESS (to) = MAX (EXPR_USEFULNESS (to), 
+                                EXPR_USEFULNESS (from));
 
   if (EXPR_PRIORITY (to) < EXPR_PRIORITY (from))
     EXPR_PRIORITY (to) = EXPR_PRIORITY (from);
@@ -1959,8 +1978,7 @@ merge_expr (expr_t to, expr_t from, insn_t split_point)
   vinsn_t to_vi = EXPR_VINSN (to);
   vinsn_t from_vi = EXPR_VINSN (from);
 
-  gcc_assert (to_vi == from_vi
-	      || vinsns_correlate_as_rhses_p (to_vi, from_vi));
+  gcc_assert (vinsn_equal_p (to_vi, from_vi));
 
   /* Make sure that speculative pattern is propagated into exprs that
      have non-speculative one.  This will provide us with consistent
@@ -2154,7 +2172,7 @@ av_set_iter_remove (av_set_iterator *ip)
 }
 
 /* Search for an expr in SET, such that it's equivalent to SOUGHT_VINSN in the
-   sense of vinsns_correlate_as_rhses_p function. Return NULL if no such expr is
+   sense of vinsn_equal_p function. Return NULL if no such expr is
    in SET was found.  */
 expr_t
 av_set_lookup (av_set_t set, vinsn_t sought_vinsn)
@@ -2163,14 +2181,8 @@ av_set_lookup (av_set_t set, vinsn_t sought_vinsn)
   av_set_iterator i;
 
   FOR_EACH_EXPR (expr, i, set)
-    {
-      vinsn_t expr_vinsn = EXPR_VINSN (expr);
-
-      if (expr_vinsn == sought_vinsn
-	  || vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
-	return expr;
-    }
-
+    if (vinsn_equal_p (EXPR_VINSN (expr), sought_vinsn))
+      return expr;
   return NULL;
 }
 
@@ -2182,46 +2194,36 @@ av_set_lookup_and_remove (av_set_t *setp, vinsn_t sought_vinsn)
   av_set_iterator i;
 
   FOR_EACH_EXPR_1 (expr, i, setp)
-    {
-      vinsn_t expr_vinsn = EXPR_VINSN (expr);
-
-      if (expr_vinsn == sought_vinsn
-	  || vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
-        {
-          _list_iter_remove_nofree (&i);
-          return expr;
-        }
-    }
-
+    if (vinsn_equal_p (EXPR_VINSN (expr), sought_vinsn))
+      {
+        _list_iter_remove_nofree (&i);
+        return expr;
+      }
   return NULL;
 }
 
-/* Search for an expr in SET, such that it's equivalent to SOUGHT_VINSN in the
-   sense of vinsns_correlate_as_rhses_p function, but not SOUGHT_VINSN itself.
+/* Search for an expr in SET, such that it's equivalent to EXPR in the
+   sense of vinsn_equal_p function of their vinsns, but not EXPR itself.
    Returns NULL if no such expr is in SET was found.  Store in LATERP true
    when other expression was found later than this, and false otherwise.  */
 static expr_t
-av_set_lookup_other_equiv_expr (av_set_t set, vinsn_t sought_vinsn,
-                               bool *laterp)
+av_set_lookup_other_equiv_expr (av_set_t set, expr_t expr, bool *laterp)
 {
-  expr_t expr;
+  expr_t cur_expr;
   av_set_iterator i;
   bool temp = false;
 
-  FOR_EACH_EXPR (expr, i, set)
+  FOR_EACH_EXPR (cur_expr, i, set)
     {
-      vinsn_t expr_vinsn = EXPR_VINSN (expr);
-
-      if (expr_vinsn == sought_vinsn)
+      if (cur_expr == expr)
         {
           temp = true;
           continue;
         }
-
-      if (vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
+      if (vinsn_equal_p (EXPR_VINSN (cur_expr), EXPR_VINSN (expr)))
         {
           *laterp = temp;
-          return expr;
+          return cur_expr;
         }
     }
 
@@ -2235,7 +2237,7 @@ merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
   bool later;
   expr_t expr2;
 
-  expr2 = av_set_lookup_other_equiv_expr (*avp, EXPR_VINSN (expr), &later);
+  expr2 = av_set_lookup_other_equiv_expr (*avp, expr, &later);
 
   if (expr2 != NULL)
     {
@@ -3207,6 +3209,15 @@ has_dependence_p (expr_t expr, insn_t pred, ds_t **has_dep_pp)
   if (dc->last_reg_pending_barrier == TRUE_BARRIER)
     has_dependence_data.has_dep_p[DEPS_IN_INSN] = DEP_TRUE;
   
+  /* Do not allow stores to memory to move through checks.  Currently
+     we don't move this to sched-deps.c as the check doesn't have
+     obvious places to which this dependence can be attached.  
+     FIMXE: this should go to a hook.  */
+  if (EXPR_LHS (expr)
+      && MEM_P (EXPR_LHS (expr))
+      && sel_insn_is_speculation_check (pred))
+    has_dependence_data.has_dep_p[DEPS_IN_INSN] = DEP_ANTI;
+  
   *has_dep_pp = has_dependence_data.has_dep_p;
   ds = 0;
   for (i = 0; i < DEPS_IN_NOWHERE; i++)
@@ -3798,13 +3809,14 @@ init_insn (insn_t insn)
   INSN_SEQNO (insn) = ssid->seqno;
   EXPR_ORIG_BB_INDEX (expr) = BLOCK_NUM (insn);
   EXPR_ORIG_SCHED_CYCLE (expr) = 0;
+  EXPR_TARGET_AVAILABLE (expr) = 1;
+  INSN_LIVE_VALID_P (insn) = false;
 
   if (insn_init_create_new_vinsn_p)
     change_vinsn_in_expr (expr, vinsn_create (insn, init_insn_force_unique_p));
   
   if (first_time_insn_init (insn))
     init_first_time_insn_data (insn);
-  INSN_LIVE_VALID_P (insn) = false;
 }
 
 /* This is used to initialize spurious jumps generated by
@@ -4629,6 +4641,11 @@ clear_outdated_rtx_info (basic_block bb)
 	SCHED_GROUP_P (insn) = 0;
 	INSN_AFTER_STALL_P (insn) = 0;
 	INSN_SCHED_TIMES (insn) = 0;
+
+        /* We cannot use the changed caches, as previously we could ignore
+           the LHS dependence due to enabled renaming and transform 
+           the expression, and currently we'll be unable to do this.  */
+        htab_empty (INSN_TRANSFORMED_INSNS (insn));
       }
 }
 
@@ -4874,7 +4891,7 @@ sel_add_or_remove_bb (basic_block bb, int add)
     {
       /* Extend luids so that new notes will receive zero luids.  */
       sched_init_luids (NULL, NULL, NULL, NULL);
-      sched_init_bbs (last_added_blocks, NULL);
+      sched_init_bbs ();
       sel_init_bbs (last_added_blocks, NULL);
 
       /* When bb is passed explicitly, the vector should contain 
@@ -4948,7 +4965,7 @@ sel_add_or_remove_bb (basic_block bb, int add)
 
   rgn_setup_region (CONTAINING_RGN (bb->index));
 
-#if defined ENABLE_CHECKING && 0
+#if defined ENABLE_RTL_CHECKING
   /* This check is verifies that all jumps jump where they should.
      This code is adopted from flow.c: init_propagate_block_info ().  */
   {
@@ -5513,10 +5530,8 @@ create_copy_of_insn_rtx (rtx insn_rtx)
   gcc_assert (NONJUMP_INSN_P (insn_rtx));
 
   orig_is_valid_p = insn_rtx_valid (insn_rtx);
-
   res = create_insn_rtx_from_pattern_1 (copy_rtx (PATTERN (insn_rtx)),
 					NULL_RTX);
-
   if (insn_rtx_valid (res))
     gcc_assert (orig_is_valid_p);
   else
@@ -6001,7 +6016,7 @@ sel_find_rgns (void)
    it from LOOP_PREHEADER_BLOCKS (current_loop_nest).  
    This function is only used with -fsel-sched-pipelining-outer-loops.  */
 void
-sel_add_loop_preheader (void)
+sel_add_loop_preheaders (void)
 {
   int i;
   basic_block bb;
@@ -6010,16 +6025,15 @@ sel_add_loop_preheader (void)
     = LOOP_PREHEADER_BLOCKS (current_loop_nest);
 
   for (i = 0;
-       VEC_iterate (basic_block,
-		    LOOP_PREHEADER_BLOCKS (current_loop_nest), i, bb);
+       VEC_iterate (basic_block, preheader_blocks, i, bb);
        i++)
     {
       sel_add_or_remove_bb_1 (bb, 1);
-      
+
       /* Set variables for the current region.  */
       rgn_setup_region (rgn);
     }
-  
+
   VEC_free (basic_block, heap, preheader_blocks);
 }
 
@@ -6119,9 +6133,8 @@ sel_remove_loop_preheader (void)
        i >= old_len;
        i--)
     {
-       bb =  VEC_index (basic_block, preheader_blocks, i); 
-
-       sel_add_or_remove_bb (bb, 0);
+      bb =  VEC_index (basic_block, preheader_blocks, i); 
+      sel_add_or_remove_bb (bb, 0);
     }
 
   if (!considered_for_pipelining_p (loop_outer (current_loop_nest)))

@@ -2801,22 +2801,26 @@ set_priorities (rtx head, rtx tail)
   return n_insn;
 }
 
+/* Set dump and sched_verbose for the desired debugging output.  If no
+   dump-file was specified, but -fsched-verbose=N (any N), print to stderr.
+   For -fsched-verbose=N, N>=10, print everything to stderr.  */
+void
+setup_sched_dump (void)
+{
+  sched_verbose = sched_verbose_param;
+  if (sched_verbose_param == 0 && dump_file)
+    sched_verbose = 1;
+  sched_dump = ((sched_verbose_param >= 10 || !dump_file)
+		? stderr : dump_file);
+}
+
 /* Initialize some global state for the scheduler.  This function works 
    with the common data shared between all the schedulers.  It is called
    from the scheduler specific initialization routine.  */
 
 void
 sched_init (void)
-{  
-  /* Set dump and sched_verbose for the desired debugging output.  If no
-     dump-file was specified, but -fsched-verbose=N (any N), print to stderr.
-     For -fsched-verbose=N, N>=10, print everything to stderr.  */
-  sched_verbose = sched_verbose_param;
-  if (sched_verbose_param == 0 && dump_file)
-    sched_verbose = 1;
-  sched_dump = ((sched_verbose_param >= 10 || !dump_file)
-		? stderr : dump_file);
-
+{
   /* Disable speculative loads in their presence if cc0 defined.  */
 #ifdef HAVE_cc0
   flag_schedule_speculative_load = 0;
@@ -2906,6 +2910,7 @@ static void haifa_init_only_bb (basic_block, basic_block);
 void
 haifa_sched_init (void)
 {
+  setup_sched_dump ();
   sched_init ();
 
   if (spec_info != NULL)
@@ -2920,13 +2925,10 @@ haifa_sched_init (void)
     bb_vec_t bbs = VEC_alloc (basic_block, heap, n_basic_blocks);
     basic_block bb;
 
-    FOR_ALL_BB (bb)
+    sched_init_bbs ();
+
+    FOR_EACH_BB (bb)
       VEC_quick_push (basic_block, bbs, bb);
-    sched_init_bbs (bbs, NULL);
-
-    VEC_pop (basic_block, bbs);
-    VEC_ordered_remove (basic_block, bbs, 0);
-
     sched_init_luids (bbs, NULL, NULL, NULL);
     sched_deps_init (true);
     sched_extend_target ();
@@ -4868,25 +4870,11 @@ sched_extend_bb (void)
     }
 }
 
-/* Init data structures for BB.  */
-static void
-sched_init_bb (basic_block bb ATTRIBUTE_UNUSED)
-{
-}
-
 /* Init per basic block data structures.  */
 void
-sched_init_bbs (bb_vec_t bbs, basic_block bb)
+sched_init_bbs (void)
 {
-  const struct sched_scan_info_def ssi =
-    {
-      sched_extend_bb, /* extend_bb */
-      sched_init_bb, /* init_bb */
-      NULL, /* extend_insn */
-      NULL /* init_insn */
-    };
-
-  sched_scan (&ssi, bbs, bb, NULL, NULL);
+  sched_extend_bb ();
 }
 
 /* Finish per basic block data structures.  */
@@ -5051,7 +5039,7 @@ haifa_init_only_bb (basic_block bb, basic_block after)
 {
   gcc_assert (bb != NULL);
 
-  sched_init_bbs (NULL, bb);
+  sched_init_bbs ();
 
   if (common_sched_info->add_block)
     /* This changes only data structures of the front-end.  */

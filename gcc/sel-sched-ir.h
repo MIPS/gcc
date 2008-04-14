@@ -1488,10 +1488,10 @@ extern insn_t sel_gen_recovery_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_insn_from_expr_after (expr_t, vinsn_t, int, insn_t);
 extern void vinsn_attach (vinsn_t);
 extern void vinsn_detach (vinsn_t);
-
+extern vinsn_t vinsn_copy (vinsn_t, bool);
+extern bool vinsn_equal_p (vinsn_t, vinsn_t);
 
 /* EXPR functions.  */
-extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
 extern void copy_expr (expr_t, expr_t);
 extern void copy_expr_onside (expr_t, expr_t);
 extern void merge_expr_data (expr_t, expr_t, insn_t);
@@ -1591,7 +1591,7 @@ extern void sel_find_rgns (void);
 extern loop_p get_loop_nest_for_rgn (unsigned int);
 extern bool considered_for_pipelining_p (struct loop *);
 extern void make_region_from_loop_preheader (VEC(basic_block, heap) **);
-extern void sel_add_loop_preheader (void);
+extern void sel_add_loop_preheaders (void);
 extern bool sel_is_loop_preheader_p (basic_block);
 extern void clear_outdated_rtx_info (basic_block);
 extern void free_data_sets (basic_block);

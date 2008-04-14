@@ -81,7 +81,6 @@ along with GCC; see the file COPYING3.  If not see
 static int nr_inter, nr_spec;
 
 static int is_cfg_nonregular (void);
-static bool sched_is_disabled_for_current_region_p (void);
 
 /* Number of regions in the procedure.  */
 int nr_regions = 0;
@@ -2771,7 +2770,7 @@ void debug_dependencies (rtx head, rtx tail)
 
 /* Returns true if all the basic blocks of the current region have
    NOTE_DISABLE_SCHED_OF_BLOCK which means not to schedule that region.  */
-static bool
+bool
 sched_is_disabled_for_current_region_p (void)
 {
   int bb;
@@ -2838,8 +2837,12 @@ schedule_region (int rgn)
 
   rgn_setup_region (rgn);
 
-  if (sched_rgn_local_preinit (rgn))
+  /* Don't schedule region that is marked by
+     NOTE_DISABLE_SCHED_OF_BLOCK.  */
+  if (sched_is_disabled_for_current_region_p ())
     return;
+
+  sched_rgn_compute_dependencies (rgn);
 
   sched_rgn_local_init (rgn);
 
@@ -3018,16 +3021,10 @@ rgn_setup_region (int rgn)
     ebb_head[bb] = current_blocks + bb;
 }
 
-/* Ugly hack: do preinit of region structures, equally suitable for 
-   selective and haifa schedulers.  */
-bool
-sched_rgn_local_preinit (int rgn)
+/* Compute instruction dependencies in region RGN.  */
+void
+sched_rgn_compute_dependencies (int rgn)
 {
-  /* Don't schedule region that is marked by
-     NOTE_DISABLE_SCHED_OF_BLOCK.  */
-  if (sched_is_disabled_for_current_region_p ())
-    return true;
-
   if (!RGN_DONT_CALC_DEPS (rgn))
     {
       int bb;
@@ -3064,8 +3061,6 @@ sched_rgn_local_preinit (int rgn)
     /* (This is a recovery block.  It is always a single block region.)
        OR (We use selective scheduling.)  */
     gcc_assert (current_nr_blocks == 1 || SEL_SCHED_P);
-
-  return false;
 }
 
 /* Init region data structures.  Returns true if this region should
@@ -3076,7 +3071,7 @@ sched_rgn_local_init (int rgn)
   int bb;
       
   /* Compute interblock info: probabilities, split-edges, dominators, etc.  */
-  if (current_nr_blocks > 1 && !SEL_SCHED_P)
+  if (current_nr_blocks > 1)
     {
       basic_block block;
       edge e;

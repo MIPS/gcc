@@ -42,8 +42,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-static FILE *sched_dump1;
-
 /* File for dumping statistics into the one directory for
    the whole make run.  */
 static FILE *sel_stat_file = NULL;
@@ -82,30 +80,25 @@ const char *flag_insn_range = NULL;
 static char sel_stat_output_buf[16384];
 
 
-static void
-switch_dump (void)
-{
-  FILE *f = sched_dump1;
+static FILE *sched_dump1;
 
+static void
+switch_dump (FILE *to)
+{
   sched_dump1 = sched_dump;
-  sched_dump = f;
+  sched_dump = to;
+}
+
+static void
+restore_dump (void)
+{
+  sched_dump = sched_dump1;
 }
 
 void 
 print_marker_to_log (void)
 {
   sel_print ("Marker: %d\n:", sel_dump_cfg_fileno);
-}
-
-void
-setup_sched_dumps (void)
-{
-  sched_verbose = sched_verbose_param;
-  if (sched_verbose_param == 0 && dump_file)
-    sched_verbose = 1;
-  sched_dump = ((sched_verbose_param >= 10 || !dump_file)
-		? stderr : dump_file);
-  sched_dump1 = stderr;
 }
 
 
@@ -160,6 +153,8 @@ dump_insn_rtx_1 (rtx insn, int flags)
 
       sel_print ("bb:%d;", bb != NULL ? bb->index : -1);
     }
+
+  sel_print (")");
 }
 
 void
@@ -171,10 +166,10 @@ dump_insn_rtx (rtx insn)
 void
 debug_insn_rtx (rtx insn)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_insn_rtx_1 (insn, debug_insn_rtx_flags);
-  sel_print (")\n");
-  switch_dump ();
+  sel_print ("\n");
+  restore_dump ();
 }
 
 void
@@ -217,10 +212,10 @@ dump_vinsn (vinsn_t vi)
 void
 debug_vinsn (vinsn_t vi)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_vinsn_1 (vi, debug_vinsn_flags);
   sel_print ("\n"); 
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump EXPR.  */
@@ -295,10 +290,10 @@ dump_expr (expr_t expr)
 void
 debug_expr (expr_t expr)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_expr_1 (expr, debug_expr_flags);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump insn I honoring FLAGS.  */
@@ -364,10 +359,10 @@ dump_insn (insn_t i)
 void
 debug_insn (insn_t insn)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_insn_1 (insn, debug_insn_flags);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dumps av_set AV.  */
@@ -653,12 +648,9 @@ void
 sel_dump_cfg_2 (FILE *f, int flags)
 {
   basic_block bb;
-  FILE *tf;
 
   sched_dump_to_dot_p = true;
-  tf = sched_dump1;
-  sched_dump1 = f;
-  switch_dump ();
+  switch_dump (f);
 
   fprintf (f, "digraph G {\n"
 	   "\tratio = 2.25;\n"
@@ -808,8 +800,7 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
   fprintf (f, "}");
 
-  switch_dump ();
-  sched_dump1 = tf;
+  restore_dump ();
   sched_dump_to_dot_p = false;
 }
 
@@ -932,60 +923,60 @@ hard_regno_rename_ok (int i ATTRIBUTE_UNUSED, int j ATTRIBUTE_UNUSED)
 void
 debug_av_set (av_set_t av)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_av_set (av);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump LV to stderr.  */
 void
 debug_lv_set (regset lv)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_lv_set (lv);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump an instruction list P to stderr.  */
 void
 debug_ilist (ilist_t p)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_ilist (p);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump a boundary list BNDS to stderr.  */
 void
 debug_blist (blist_t bnds)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_blist (bnds);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump an insn vector SUCCS.  */
 void
 debug_insn_vector (rtx_vec_t succs)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_insn_vector (succs);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Dump a hard reg set SET to stderr.  */
 void
 debug_hard_reg_set (HARD_REG_SET set)
 {
-  switch_dump ();
+  switch_dump (stderr);
   dump_hard_reg_set ("", set);
   sel_print ("\n");
-  switch_dump ();
+  restore_dump ();
 }
 
 /* Debug a cfg region with default flags.  */

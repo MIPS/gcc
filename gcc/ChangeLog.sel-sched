@@ -1,5 +1,77 @@
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
+	* cfgloopmanip.c (has_preds_from_loop): New.
+	(create_preheader): Use it.
+	* sched-deps.c (deps_analyze_insn): Tidy.
+	* sel-sched-ir.c (vinsns_correlate_as_rhses_p): Rename to vinsn_equal_p,
+	deleting the latter.  Update all uses.
+	(vinsn_copy): New.
+	(find_in_history_vect_1): New parameter compare_vinsns.
+	Do not compare when we're undoing transformations on a bookeeping copy.
+	(find_in_history_vect, insert_in_history_vect): Use the new parameter.
+	(merge_expr_data): Add usefulness only when merging on a split point.
+	(has_dependence_p): Do not allow stores to move through checks.
+	(init_insn): Properly init EXPR_TARGET_AVAILABLE and INSN_LIVE_VALID_P.
+	(clear_outdated_rtx_info): Do not rely on INSN_TRANSFORMED_INSNS 
+	when rescheduling.
+	(sel_remove_loop_preheader): Tidy.
+
+	* sel-sched.c (struct code_motion_path_driver_info_def): Add new 
+	parameter to on_enter field. Rename at_bb_head to at_first_insn.
+	(need_stall): Move to fill_insns.
+	(vec_bk_blocked_exprs): Rename to vec_blocked_vinsns.
+	(extract_new_fences_from): Fix for the case when a fence is not
+	on a bb header.
+	(substitute_reg_in_expr): New parameter undo.  Perform or undo 
+	the change based on this parameter.
+	(find_best_reg_for_expr): Use find_sequential_best_exprs.
+	When renaming, set EXPR_TARGET_AVAILABLE to 1.
+	(undo_transformations): When un-substituting through bookkeeping, 
+	do not use the history data, but substitute_reg_in_expr instead.
+	(moveup_expr_inside_insn_group): Do not care about any dependencies
+	except substitutable ones. 
+	(try_bitmap_cache, try_transformation_cache, update_bitmap_cache,
+	update_transformation_cache): Split from ... 
+	(moveup_set_expr): ... here.  
+	(moveup_expr_cached): New function.
+	(moveup_set_path*): Kill and rewrite into ... 
+	(moveup_set_inside_insn_group): ... this.
+	(equal_after_moveup_path_p): Rewrite without recursion.
+	(compute_av_set_inside_bb): Check ineligibility for every insn.
+	Leave a copy only on bb headers.
+	(update_data_sets): Update only on bb headers.
+	(expr_blocked_by_bookkeeping_p): Use vec_blocked_vinsns.
+	(clear_blocked_exprs, add_to_blocked_exprs, free_blocked_exprs): New.
+	(fill_vec_av_set): Remove unavailable due to bookeeping expressions
+	even if they are separable.  Tidy.  Compute the minimal stall
+	needed to be able to try any of the expressions in the ready set.
+	(fill_ready_list, find_best_expr): Propagate the stall needed from
+	fill_vec_av_set to fill_insns.
+	(move_cond_jump): Fix for the case when a fence is not on a bb header.
+	(compute_av_set_on_boundaries, find_sequential_best_exprs): Likewise.
+	Handle substitutions inside insn group.
+	(prepare_place_to_insert): Likewise.
+	(move_exprs_to_boundary): Likewise for the case when more than one 
+	expression corresponds to expr_vliw.
+	(fill_insns): Stall for more than one cycle if needed.
+	Check that we never create an extra back edge in a region when 
+	pipelining.
+	(update_and_record_unavailable_insns): Also update liveness in 
+	the middle of the bookkeeping block.
+	(move_op_at_first_insn): Handle the case when the insn is not 
+	a bb header.
+	(fur_at_first_insn): Likewise.
+	(fur_on_enter): Move the handling of visited blocks to 
+	code_motion_path_driver.
+	(move_op_on_enter): New.
+	(code_motion_process_successors): Rescan when basic block
+	numbers have changed due to bb splitting.
+	(code_motion_path_driver): Update for fences not on bb headers.
+	(sel_region_init, sel_region_finish): Update liveness on single-block 
+	loops when pipelining.  Use *_blocked_exprs routines.
+
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sel-sched.c (extract_new_fences_from): Move fence to the new ones
 	only if the succ insn has not yet been scheduled.  
 	(find_best_expr): Tidy.

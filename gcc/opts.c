@@ -993,6 +993,11 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
+
+  /* Pipelining outer loops is only possible when general pipelining
+     capabilities are requested.  */
+  if (!flag_sel_sched_pipelining)
+    flag_sel_sched_pipelining_outer_loops = 0;
 }
 
 #define LEFT_COLUMN	27
