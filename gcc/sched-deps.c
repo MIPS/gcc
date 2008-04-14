@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "recog.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "params.h"
 #include "cselib.h"
 

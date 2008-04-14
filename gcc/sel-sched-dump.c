@@ -204,6 +204,8 @@ dump_vinsn_1 (vinsn_t vi, int flags)
       if (cost != -1)
 	sel_print ("cost:%d;", cost);
     }
+
+  sel_print (")");
 }
 
 void
@@ -217,7 +219,7 @@ debug_vinsn (vinsn_t vi)
 {
   switch_dump ();
   dump_vinsn_1 (vi, debug_vinsn_flags);
-  sel_print (")\n"); 
+  sel_print ("\n"); 
   switch_dump ();
 }
 
@@ -932,6 +934,7 @@ debug_av_set (av_set_t av)
 {
   switch_dump ();
   dump_av_set (av);
+  sel_print ("\n");
   switch_dump ();
 }
 
@@ -941,6 +944,7 @@ debug_lv_set (regset lv)
 {
   switch_dump ();
   dump_lv_set (lv);
+  sel_print ("\n");
   switch_dump ();
 }
 
@@ -950,6 +954,7 @@ debug_ilist (ilist_t p)
 {
   switch_dump ();
   dump_ilist (p);
+  sel_print ("\n");
   switch_dump ();
 }
 
@@ -959,6 +964,7 @@ debug_blist (blist_t bnds)
 {
   switch_dump ();
   dump_blist (bnds);
+  sel_print ("\n");
   switch_dump ();
 }
 
@@ -968,6 +974,7 @@ debug_insn_vector (rtx_vec_t succs)
 {
   switch_dump ();
   dump_insn_vector (succs);
+  sel_print ("\n");
   switch_dump ();
 }
 
@@ -977,6 +984,7 @@ debug_hard_reg_set (HARD_REG_SET set)
 {
   switch_dump ();
   dump_hard_reg_set ("", set);
+  sel_print ("\n");
   switch_dump ();
 }
 

@@ -52,7 +52,6 @@
 #include "reload.h"
 #include "cfglayout.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "tree-gimple.h"
 #include "tree-flow.h"
 #include "intl.h"

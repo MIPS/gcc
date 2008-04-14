@@ -1,5 +1,29 @@
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched.c (extract_new_fences_from): Move fence to the new ones
+	only if the succ insn has not yet been scheduled.  
+	(find_best_expr): Tidy.
+	(remove_insns_for_debug, compute_av_set_on_boundaries, 
+	find_sequential_best_exprs, move_nop_to_previous_block,
+	prepare_place_to_insert, move_exprs_to_boundary, 
+	advance_state_on_fence, update_fence_and_insn, 
+	update_boundaries, schedule_expr_on_boundary): Split from ... 
+	(fill_insns): ... here.
+	(move_op_ascend): Do not propagate through NOPs.
+	(move_op_process_successors): Rename to code_motion_process_successors.
+	Fix assert.
+	(code_motion_path_driver): Change return type to int.
+	Return -1 when we have found the previously created bookkeeping.
+	(schedule_on_fences, find_min_max_seqno, calculate_new_fences,
+	update_seqnos_and_stage): Split from ... 
+	(sel_sched_region_2): ... here.
+	* sched-deps.h: Inline into sched-int.h.  Kill.      
+	* sel-sched-dump.c (debug_vinsn, debug_vinsn_1, debug_av_set,
+	debug_lv_set, debug_ilist, debug_insn_vector, 
+	debug_hard_reg_set): Fix '\n' printing.
+
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sched-deps.c (sched_deps_init): Tidy.
 	* sel-sched-ir.c (init_fence_for_scheduling): New.
 	(flist_add): Use it.

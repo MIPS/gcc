@@ -43,7 +43,6 @@
 #include "tree-pass.h"
 #include "sched-rgn.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "cselib.h"
 #include "ggc.h"
 #include "tree.h"

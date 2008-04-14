@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "toplev.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "timevar.h"
 #include "target.h"
 #include "target-def.h"

@@ -44,7 +44,6 @@
 #include "tree-pass.h"
 #include "sched-rgn.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "cselib.h"
 #include "ggc.h"
 #include "tree.h"
@@ -363,8 +362,8 @@ static basic_block generate_bookkeeping_insn (expr_t, insn_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
 static bool move_op (insn_t, av_set_t, rtx, expr_t);
-static bool code_motion_path_driver (insn_t, av_set_t, ilist_t,
-				     cmpd_local_params_p, void *);
+static int code_motion_path_driver (insn_t, av_set_t, ilist_t,
+                                    cmpd_local_params_p, void *);
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
 static av_set_t compute_av_set_inside_bb (insn_t, ilist_t, int, bool);
@@ -451,8 +450,19 @@ extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
   if (single_succ_p (bb) 
       && single_pred_p (single_succ (bb)))
     {
-      FENCE_INSN (fence) = sel_bb_head (single_succ (bb));
-      move_fence_to_fences (old_fences, new_fences);
+      insn_t succ = sel_bb_head (single_succ (bb));
+
+      if (INSN_SEQNO (succ) > 0 
+          && INSN_SEQNO (succ) <= orig_max_seqno
+          && INSN_SCHED_TIMES (succ) <= 0)
+        {
+          FENCE_INSN (fence) = succ;
+          move_fence_to_fences (old_fences, new_fences);
+
+          if (sched_verbose >= 1)
+            sel_print ("Fence %d continues as %d[%d] (state continue)\n", 
+                       INSN_UID (insn), INSN_UID (succ), BLOCK_NUM (succ));
+        }
       return;
     }
 
@@ -2817,7 +2827,7 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
 {
   def_list_iterator i;
   def_t def;
-  bool res;
+  int res;
   bool needs_spec_check_p = false;
   expr_t expr;
   av_set_iterator expr_iter;
@@ -2837,7 +2847,7 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   
   res = code_motion_path_driver (insn, orig_ops, NULL, &lparams, &sparams);
   
-  gcc_assert (res);
+  gcc_assert (res == 1);
   gcc_assert (original_insns && *original_insns);
 
   /* ??? We calculate whether an expression needs a check when computing
@@ -3752,32 +3762,56 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence)
 
   if (best == NULL && ready.n_ready > 0)
     {
-      int can_issue, privileged_n, index, avail_n;
+      int privileged_n, index, avail_n;
 
       can_issue_more = invoke_reorder_hooks (fence);
-      if (can_issue_more == 0)
-        return NULL;
-
-      /* Try choosing the best insn until we find one that is could be 
-         scheduled due to liveness restrictions on its destination register.
-         In the future, we'd like to choose once and then just probe insns
-         in the order of their priority.  */
-      avail_n = invoke_dfa_lookahead_guard ();
-      privileged_n = calculate_privileged_insns ();
-      can_issue = choose_best_insn (fence, privileged_n, &index);
-      if (can_issue)
+      if (can_issue_more > 0)
         {
-          best = find_expr_for_ready (index, true);
-          if (EXPR_WAS_RENAMED (best))
-            EXPR_WAS_RENAMED (best) = 0;
+          /* Try choosing the best insn until we find one that is could be 
+             scheduled due to liveness restrictions on its destination register.
+             In the future, we'd like to choose once and then just probe insns
+             in the order of their priority.  */
+          avail_n = invoke_dfa_lookahead_guard ();
+          privileged_n = calculate_privileged_insns ();
+          can_issue_more = choose_best_insn (fence, privileged_n, &index);
+          if (can_issue_more)
+            {
+              best = find_expr_for_ready (index, true);
+              if (EXPR_WAS_RENAMED (best))
+                EXPR_WAS_RENAMED (best) = 0;
+            }
         }
-      else
-        need_stall = 1;
+      /* We had some available insns, so if we can't issue them, 
+         we have a stall.  */
+      if (can_issue_more == 0)
+        {
+          best = NULL;
+          need_stall = 1;
+        }
     }
 
   if (best != NULL)
+    {
       can_issue_more = invoke_aftermath_hooks (fence, EXPR_INSN_RTX (best),
                                                can_issue_more);
+      if (can_issue_more == 0)
+        {
+          need_stall = 1;
+          best = NULL;
+        }
+    }
+  
+  if (sched_verbose >= 2)
+    {
+      if (best != NULL)
+        {
+          sel_print ("Best expression (vliw form): ");
+          dump_expr (best);
+          sel_print ("; cycle %d\n", FENCE_CYCLE (fence));
+        }
+      else
+        sel_print ("No best expr found!\n");
+    }
 
   return best;
 }
@@ -4202,7 +4236,7 @@ remove_temp_moveop_nops (void)
 {
   int i;
   insn_t insn;
-
+  
   for (i = 0; VEC_iterate (insn_t, vec_temp_moveop_nops, i, insn); i++)
     {
       gcc_assert (INSN_NOP_P (insn));
@@ -4213,15 +4247,473 @@ remove_temp_moveop_nops (void)
   if (VEC_length (insn_t, vec_temp_moveop_nops) > 0)
     VEC_block_remove (insn_t, vec_temp_moveop_nops, 0, 
 		      VEC_length (insn_t, vec_temp_moveop_nops));
-
 }
-
-/* Records the number of fill_insns runs for debugging purposes.  */
-static int fill_insns_run = 0;
 
 /* Records the maximal UID before moving up an instruction.  Used for
    distinguishing between bookkeeping copies and original insns.  */
 static int max_uid_before_move_op = 0;
+
+#ifdef ENABLE_CHECKING
+/* Records the number of fill_insns runs for debugging purposes.  */
+static int fill_insns_run = 0;
+
+static void
+remove_insns_for_debug (blist_t bnds, av_set_t *av_vliw_p)
+{
+  int now;
+  int start;
+  int stop;
+  bool do_p;
+
+  sel_dump_cfg ("after-compute_av");
+
+  now = ++fill_insns_run;
+  start = PARAM_VALUE (PARAM_INSN_START);
+  stop = PARAM_VALUE (PARAM_INSN_STOP);
+  do_p = (PARAM_VALUE (PARAM_INSN_P) == 1);
+
+  if (do_p)
+    do_p = (start <= now) && (now <= stop);
+  else
+    do_p = (start > now) || (now > stop);
+
+  /* If more advanced --param insn-range was specified, use only it.  */
+  if (flag_insn_range) 
+    {
+      bool err = false;
+
+      do_p = in_range_p (now, flag_insn_range, &err);
+      /* Error may be caused by invalid expression.  Note that the
+         valid expression shouldn't contain any spaces.  */
+      gcc_assert (!err);
+    }
+
+  if (!do_p)
+    /* Leave only the next insn in av_vliw.  */
+    {
+      av_set_iterator av_it;
+      expr_t expr;
+      bnd_t bnd = BLIST_BND (bnds);
+      insn_t next = BND_TO (bnd);
+
+      gcc_assert (BLIST_NEXT (bnds) == NULL);
+
+      FOR_EACH_EXPR_1 (expr, av_it, av_vliw_p)
+        if (EXPR_INSN_RTX (expr) != next)
+          av_set_iter_remove (&av_it);
+    }
+}
+#endif
+
+/* Compute available instructions on boundaries.  */
+static void
+compute_av_set_on_boundaries (blist_t bnds, av_set_t *av_vliw_p)
+{
+  if (sched_verbose >= 2)
+    {
+      sel_print ("Boundaries: ");
+      dump_blist (bnds);
+      sel_print ("\n");
+    }
+
+  while (bnds)
+    {
+      bnd_t bnd = BLIST_BND (bnds);
+      av_set_t av1_copy;
+      insn_t bnd_to = BND_TO (bnd);
+
+      /* Rewind BND->TO to the basic block header in case some bookkeeping
+         instructions were inserted before BND->TO and it needs to be
+         adjusted.  */
+      while (! sel_bb_head_p (bnd_to))
+        {
+          bnd_to = PREV_INSN (bnd_to);
+          gcc_assert (INSN_SCHED_TIMES (bnd_to) == 0);
+        }
+      BND_TO (bnd) = bnd_to;
+
+      av_set_clear (&BND_AV (bnd));
+      BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, true);
+
+      av_set_clear (&BND_AV1 (bnd));
+      BND_AV1 (bnd) = av_set_copy (BND_AV (bnd));
+
+      moveup_set_path (&BND_AV1 (bnd), BND_PTR (bnd));
+
+      av1_copy = av_set_copy (BND_AV1 (bnd));
+      av_set_union_and_clear (av_vliw_p, &av1_copy, NULL);
+
+      bnds = BLIST_NEXT (bnds);
+    }
+
+  if (sched_verbose >= 2)
+    {
+      sel_print ("Available exprs (vliw form): ");
+      dump_av_set (*av_vliw_p);
+      sel_print ("\n");
+    }
+}
+
+/* Calculate the sequential av set corresponding to the EXPR_VLIW 
+   expression.  */
+static av_set_t
+find_sequential_best_exprs (bnd_t bnd, expr_t expr_vliw)
+{
+  av_set_t expr_seq = NULL;
+  bool first_p = true;
+  expr_t expr;
+  av_set_iterator i;
+  
+  FOR_EACH_EXPR (expr, i, BND_AV (bnd))
+    {
+      ilist_t root = BND_PTR (bnd);
+      
+      if (equal_after_moveup_path_p (expr, root, expr_vliw))
+        {
+          gcc_assert (first_p);
+          first_p = false;
+          
+          /* The sequential expression has the right form to pass 
+             to move_op except when renaming happened.  Put the 
+             correct register in EXPR then.  */
+          if (EXPR_SEPARABLE_P (expr) && REG_P (EXPR_LHS (expr))
+              && expr_dest_regno (expr) != expr_dest_regno (expr_vliw))
+            {
+              replace_dest_with_reg_in_expr (expr, EXPR_LHS (expr_vliw));
+              stat_renamed_scheduled++;
+            }
+          
+          av_set_add (&expr_seq, expr);
+          if (EXPR_WAS_SUBSTITUTED (expr))
+            stat_substitutions_total++;
+        }
+    }
+
+  if (sched_verbose >= 2)
+    {
+      sel_print ("Best expression(s) (sequential form): ");
+      dump_av_set (expr_seq);
+      sel_print ("\n");
+    }
+  
+  return expr_seq;
+}
+
+
+/* Move nop to previous block.  */
+static void 
+move_nop_to_previous_block (insn_t nop, basic_block prev_bb)
+{
+  insn_t prev_insn, next_insn, note;
+
+  gcc_assert (sel_bb_head_p (nop) 
+              && prev_bb == BLOCK_FOR_INSN (nop)->prev_bb);
+  note = bb_note (BLOCK_FOR_INSN (nop));
+  prev_insn = sel_bb_end (prev_bb);
+  next_insn = NEXT_INSN (nop);
+  gcc_assert (prev_insn != NULL_RTX
+              && PREV_INSN (note) == prev_insn);
+
+  NEXT_INSN (prev_insn) = nop;
+  PREV_INSN (nop) = prev_insn;
+
+  PREV_INSN (note) = nop;
+  NEXT_INSN (note) = next_insn;
+
+  NEXT_INSN (nop) = note;
+  PREV_INSN (next_insn) = note;
+
+  BB_END (prev_bb) = nop;
+  BLOCK_FOR_INSN (nop) = prev_bb;
+}
+
+/* Prepare a place to insert the chosen expression on BND.  */
+static insn_t
+prepare_place_to_insert (bnd_t bnd)
+{
+  insn_t place_to_insert, prev_insn;
+  basic_block bb, prev_bb;
+
+  /* Init place_to_insert before calling move_op, as the later
+     can possibly remove BND_TO (bnd).  */
+  if (/* If this is not the first insn scheduled.  */
+      BND_PTR (bnd))
+    {
+      gcc_unreachable ();
+
+      /* Add it after last scheduled.  */
+      place_to_insert = ILIST_INSN (BND_PTR (bnd));
+    }
+  else
+    /* Add it before BND_TO.  The difference is in the
+       basic block, where INSN will be added.  */
+    place_to_insert = PREV_INSN (BND_TO (bnd));
+
+  prev_insn = PREV_INSN (place_to_insert);
+  bb = BLOCK_FOR_INSN (place_to_insert);
+  prev_bb = bb->prev_bb;
+
+  if (!NOTE_INSN_BASIC_BLOCK_P (place_to_insert)
+      || prev_insn == NULL_RTX
+      /* Or it is a label, a barrier or something strange
+         alike.  */
+      || !INSN_P (prev_insn)
+      || BLOCK_FOR_INSN (prev_insn) != prev_bb
+      || !in_current_region_p (prev_bb)
+      || control_flow_insn_p (prev_insn))
+    {
+      /* Generate a nop that will help us to avoid removing
+         data sets we need.  */
+      place_to_insert = NEXT_INSN (place_to_insert);
+      gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
+      place_to_insert = get_nop_from_pool (place_to_insert);
+
+      prev_bb = bb;
+
+      /* Split block to generate a new floating bb header.  */
+      bb = sched_split_block (bb, place_to_insert);
+      copy_data_sets (bb, prev_bb);
+    }
+  else
+    {
+      if (NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
+        {
+          place_to_insert = NEXT_INSN (place_to_insert);
+          gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
+        }
+
+      /* Generate a nop that will help us to avoid removing
+         data sets we need.  */
+      place_to_insert = get_nop_from_pool (place_to_insert);
+      move_nop_to_previous_block (place_to_insert, prev_bb);
+    }
+
+  gcc_assert (single_succ (prev_bb) == bb);
+  return place_to_insert;
+}
+
+/* Find original instructions for EXPR_SEQ and move it to BND boundary.  
+   Return the expression to emit in C_EXPR.  */
+static void
+move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw, 
+                        av_set_t expr_seq, expr_t c_expr)
+{
+  bool b;
+  unsigned book_uid;
+  bitmap_iterator bi;
+  int n_bookkeeping_copies_before_moveop;
+
+#ifdef ENABLE_CHECKING  
+  sel_dump_cfg ("before-move_op");
+
+  /* Marker is useful to bind .dot dumps and the log.  */
+  if (sched_verbose >= 6)
+    print_marker_to_log ();
+#endif
+
+  /* Make a move.  This call will remove the original operation,
+     insert all necessary bookkeeping instructions and update the
+     data sets.  After that all we have to do is add the operation
+     at before BND_TO (BND).  */
+  n_bookkeeping_copies_before_moveop = stat_bookkeeping_copies;
+  max_uid_before_move_op = get_max_uid ();
+  bitmap_clear (current_copies);
+  bitmap_clear (current_originators);
+
+  b = move_op (BND_TO (bnd), expr_seq, 
+               get_dest_from_orig_ops (expr_seq), c_expr);
+
+  if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
+    stat_insns_needed_bookkeeping++;
+  
+  remove_temp_moveop_nops ();
+
+  EXECUTE_IF_SET_IN_BITMAP (current_copies, 0, book_uid, bi)
+    {
+      /* We allocate these bitmaps lazily.  */
+      if (! INSN_ORIGINATORS_BY_UID (book_uid))
+        INSN_ORIGINATORS_BY_UID (book_uid) = BITMAP_ALLOC (NULL);
+      
+      bitmap_copy (INSN_ORIGINATORS_BY_UID (book_uid), 
+                   current_originators);
+    }
+  
+  /* We should be able to find the expression we've chosen for 
+     scheduling.  */
+  gcc_assert (b);
+
+  /* We want to use a pattern from expr_vliw, because it could've 
+     been substituted, and the rest of data from expr_seq.  */
+  if (! rtx_equal_p (EXPR_PATTERN (expr_vliw), 
+                     EXPR_PATTERN (c_expr)))
+    change_vinsn_in_expr (c_expr, EXPR_VINSN (expr_vliw));
+}
+
+/* Advance state on FENCE with INSN.  Return true if INSN is 
+   an ASM, and we should advance state once more.  */
+static bool
+advance_state_on_fence (fence_t fence, insn_t insn)
+{
+  bool asm_p;
+
+  if (recog_memoized (insn) >= 0)
+    {
+      int res;
+      state_t temp_state = alloca (dfa_state_size);
+              
+      gcc_assert (!INSN_ASM_P (insn));
+      asm_p = false;
+
+      memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
+      res = state_transition (FENCE_STATE (fence), insn);
+      gcc_assert (res < 0);
+
+      if (memcmp (temp_state, FENCE_STATE (fence), dfa_state_size))
+        {
+          FENCE_ISSUED_INSNS (fence)++;
+
+          /* We should never issue more than issue_rate insns.  */
+          if (FENCE_ISSUED_INSNS (fence) > issue_rate)
+            gcc_unreachable ();
+        }
+    } 
+  else
+    {
+      /* This could be an ASM insn which we'd like to schedule 
+         on the next cycle.  */
+      asm_p = INSN_ASM_P (insn);
+      if (!FENCE_STARTS_CYCLE_P (fence) && asm_p)
+        advance_one_cycle (fence);
+    }
+
+  FENCE_STARTS_CYCLE_P (fence) = 0;
+  return asm_p;
+}
+
+/* Update FENCE on which INSN was scheduled and this INSN, too.  */
+static void
+update_fence_and_insn (fence_t fence, insn_t insn)
+{
+  bool asm_p;
+  
+  /* First, reflect that something is scheduled on this fence.  */
+  asm_p = advance_state_on_fence (fence, insn);
+  FENCE_LAST_SCHEDULED_INSN (fence) = insn;
+  VEC_safe_push (rtx, gc, FENCE_EXECUTING_INSNS (fence), insn);
+  if (SCHED_GROUP_P (insn))
+    {
+      FENCE_SCHED_NEXT (fence) = INSN_SCHED_NEXT (insn);
+      SCHED_GROUP_P (insn) = 0;
+    }
+  else
+    FENCE_SCHED_NEXT (fence) = NULL_RTX;
+  if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence))
+    FENCE_READY_TICKS (fence) [INSN_UID (insn)] = 0;
+
+  /* Set instruction scheduling info.  This will be used in bundling,
+     pipelining, tick computations etc.  */
+  ++INSN_SCHED_TIMES (insn);
+  EXPR_TARGET_AVAILABLE (INSN_EXPR (insn)) = true;
+  EXPR_ORIG_SCHED_CYCLE (INSN_EXPR (insn)) = FENCE_CYCLE (fence);
+  INSN_AFTER_STALL_P (insn) = FENCE_AFTER_STALL_P (fence);
+  INSN_SCHED_CYCLE (insn) = FENCE_CYCLE (fence);
+
+  /* This does not account for adjust_cost hooks, just add the biggest
+     constant the hook may add to the latency.  TODO: make this 
+     a target dependent constant.  */
+  INSN_READY_CYCLE (insn) 
+    = INSN_SCHED_CYCLE (insn) + (INSN_CODE (insn) < 0 
+                                 ? 1
+                                 : maximal_insn_latency (insn) + 1);
+
+  /* Change these fields last, as they're used above.  */
+  FENCE_AFTER_STALL_P (fence) = 0;
+  if (asm_p)
+    advance_one_cycle (fence);
+  
+  /* Indicate that we've scheduled something on this fence.  */
+  FENCE_SCHEDULED_P (fence) = true;
+  scheduled_something_on_previous_fence = true;
+
+  /* Print debug information when insn's fields are updated.  */
+  if (sched_verbose >= 2)
+    {
+      sel_print ("Scheduling insn: ");
+      dump_insn_1 (insn, 1);
+      sel_print ("\n");
+    }
+}
+
+/* Update boundary BND with INSN and add new boundaries to BNDS_TAIL_P.  */
+static blist_t *
+update_boundaries (bnd_t bnd, insn_t insn, blist_t *bndsp, 
+                   blist_t *bnds_tailp)
+{
+  succ_iterator si;
+  insn_t succ;
+
+  advance_deps_context (BND_DC (bnd), insn);
+  FOR_EACH_SUCC_1 (succ, si, insn, 
+                   SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
+    {
+      ilist_t ptr = ilist_copy (BND_PTR (bnd));
+      
+      ilist_add (&ptr, insn);
+      blist_add (bnds_tailp, succ, ptr, BND_DC (bnd));
+      bnds_tailp = &BLIST_NEXT (*bnds_tailp);
+    }
+  
+  blist_remove (bndsp);
+  return bnds_tailp;
+}
+
+/* Schedule EXPR_VLIW on BND.  Return the insn emitted.  */
+static insn_t
+schedule_expr_on_boundary (bnd_t bnd, expr_t expr_vliw, int seqno)
+{
+  av_set_t expr_seq;
+  expr_t c_expr = alloca (sizeof (expr_def));
+  insn_t place_to_insert;
+  insn_t insn;
+
+  expr_seq = find_sequential_best_exprs (bnd, expr_vliw);
+
+  /* In case of scheduling a jump skipping some other instructions,
+     prepare CFG.  After this, jump is at the boundary and can be 
+     scheduled as usual insn by MOVE_OP.  */
+  if (vinsn_cond_branch_p (EXPR_VINSN (expr_vliw)))
+    {
+      insn = EXPR_INSN_RTX (expr_vliw);
+              
+      /* Speculative jumps are not handled.  */
+      if (insn != BND_TO (bnd) 
+          && !sel_insn_is_speculation_check (insn))
+        move_cond_jump (insn, bnd);
+    }
+
+  /* Find a place for C_EXPR to schedule.  */
+  place_to_insert = prepare_place_to_insert (bnd);
+  move_exprs_to_boundary (bnd, expr_vliw, expr_seq, c_expr);
+            
+  /* Add the instruction.  */
+  insn = emit_insn_from_expr_after (c_expr, NULL, seqno, 
+                                    place_to_insert);
+  clear_expr (c_expr);
+
+  /* Return the nop generated for preserving of data sets back
+     into pool.  */
+  if (INSN_NOP_P (place_to_insert))
+    return_nop_to_pool (place_to_insert);
+          
+  av_set_clear (&expr_seq);
+
+  /* Check that the recent movement didn't destroyed loop
+     structure.  */
+  gcc_assert (!pipelining_p
+              || current_loop_nest == NULL
+              || loop_latch_edge (current_loop_nest));
+  return insn;
+}
 
 /* Gather a parallel group of insns at FENCE and assign their seqno 
    to SEQNO.  All scheduled insns are gathered in SCHEDULED_INSNS_TAILPP 
@@ -4232,7 +4724,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   blist_t bnds = NULL, *bnds_tailp;
   av_set_t av_vliw = NULL;
   insn_t insn = FENCE_INSN (fence);
-  state_t temp_state = alloca (dfa_state_size);
 
   if (sched_verbose >= 2)
     sel_print ("\nStarting fill_insns for insn %d, cycle %d\n", 
@@ -4246,487 +4737,56 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
   /* Do while we can add any operation to the current group.  */
   do
     {
-      blist_t bnds1, *bnds_tailp1, *bndsp, bnds_tail1;
+      blist_t *bnds_tailp1, *bndsp;
       expr_t expr_vliw;
 
-      if (sched_verbose >= 2)
-        {
-          sel_print ("Boundaries: ");
-          dump_blist (bnds);
-          sel_print ("\n");
-        }
-
-      /* Compute the set of available expressions.  */
-      bnds1 = bnds;
-      do
-        {
-	  bnd_t bnd = BLIST_BND (bnds1);
-	  av_set_t av1_copy;
-	  insn_t new_bnd_to = BND_TO (bnd);
-
-	  /* Rewind BND->TO to the basic block header in case some bookkeeping
-	     instructions were inserted before BND->TO and it needs to be
-	     adjusted.  */
-	  while (!NOTE_INSN_BASIC_BLOCK_P (PREV_INSN (new_bnd_to)))
-            {
-              new_bnd_to = PREV_INSN (new_bnd_to);
-
-              /* Assert that this can only happen with unscheduled code.  */
-              gcc_assert (INSN_SCHED_TIMES (new_bnd_to) == 0);
-            }
-	  BND_TO (bnd) = new_bnd_to;
-
-	  av_set_clear (&BND_AV (bnd));
-	  BND_AV (bnd) = compute_av_set (BND_TO (bnd), NULL, 0, true);
-
-	  av_set_clear (&BND_AV1 (bnd));
-	  BND_AV1 (bnd) = av_set_copy (BND_AV (bnd));
-
-	  moveup_set_path (&BND_AV1 (bnd), BND_PTR (bnd));
-
-	  av1_copy = av_set_copy (BND_AV1 (bnd));
-          av_set_union_and_clear (&av_vliw, &av1_copy, NULL);
-        }
-      while ((bnds1 = BLIST_NEXT (bnds1)));
-
+      compute_av_set_on_boundaries (bnds, &av_vliw);
       remove_insns_that_need_bookkeeping (fence, &av_vliw);
-      
+
+#ifdef ENABLE_CHECKING
       /* If debug parameters tell us to ignore this attempt to move an insn,
 	 obey.  */
-      {
-	int now;
-	int start;
-	int stop;
-	bool do_p;
+      remove_insns_for_debug (bnds, &av_vliw);
+#endif
 
-        sel_dump_cfg ("after-compute_av");
-
-	now = ++fill_insns_run;
-	start = PARAM_VALUE (PARAM_INSN_START);
-	stop = PARAM_VALUE (PARAM_INSN_STOP);
-	do_p = (PARAM_VALUE (PARAM_INSN_P) == 1);
-
-	if (do_p)
-	  do_p = (start <= now) && (now <= stop);
-	else
-	  do_p = (start > now) || (now > stop);
-
-	/* If more advanced --param insn-range was specified, use only it.  */
-	if (flag_insn_range) 
-	  {
-	    bool err = false;
-
-	    do_p = in_range_p (now, flag_insn_range, &err);
-	    /* Error may be caused by invalid expression.  Note that the
-	       valid expression shouldn't contain any spaces.  */
-	    gcc_assert (!err);
-	  }
-
-	if (!do_p)
-	  /* Leave only the next insn in av_vliw.  */
-	  {
-	    av_set_iterator av_it;
-	    expr_t expr;
-	    bnd_t bnd = BLIST_BND (bnds);
-	    insn_t next = BND_TO (bnd);
-
-	    gcc_assert (BLIST_NEXT (bnds) == NULL);
-
-	    FOR_EACH_EXPR_1 (expr, av_it, &av_vliw)
-	      if (EXPR_INSN_RTX (expr) != next)
-		av_set_iter_remove (&av_it);
-	  }
-      }
-
-      /* Now we've computed AV_VLIW - the set of expressions that can be
-	 scheduled on FENCE.  */
-
-      if (sched_verbose >= 2)
-        {
-          sel_print ("Available exprs (vliw form): ");
-          dump_av_set (av_vliw);
-          sel_print ("\n");
-        }
-
+      /* Return early if we have nothing to schedule.  */
       if (av_vliw == NULL)
         break;
 
       /* Choose the best expression and, if needed, destination register
 	 for it.  */
       expr_vliw = find_best_expr (&av_vliw, bnds, fence);
-
       if (!expr_vliw)
         {
-          if (sched_verbose >= 2)
-            sel_print ("No best expr found!\n");
-
-          /* Reorder* hooks told us nothing more to schedule; indicate that
-             a stall is needed.  */
-          if (can_issue_more == 0)
-            need_stall = 1;
-
 	  av_set_clear (&av_vliw);
           break;
         }
-      if (sched_verbose >= 2)
-        {
-          sel_print ("Best expression (vliw form): ");
-          dump_expr (expr_vliw);
-          sel_print ("; cycle %d\n", FENCE_CYCLE (fence));
-        }
-      
+
       bndsp = &bnds;
       bnds_tailp1 = bnds_tailp;
+
       do
 	/* !!! This code is guaranteed to execute only once.  */
         {
 	  bnd_t bnd = BLIST_BND (*bndsp);
-	  av_set_t expr_seq = NULL;
-	  expr_t expr;
-	  av_set_iterator i;
-          succ_iterator si;
-          insn_t succ;
-
-	  insn_t place_to_insert;
-	  int n_bookkeeping_copies_before_moveop;
-	  bool asm_p;
-	  bool first_p = true;
 
 	  if (!av_set_is_in_p (BND_AV1 (bnd), EXPR_VINSN (expr_vliw)))
 	    {
 	      bndsp = &BLIST_NEXT (*bndsp);
-	      bnds_tail1 = *bnds_tailp1;
 	      continue;
 	    }
-
-	  FOR_EACH_EXPR (expr, i, BND_AV (bnd))
-            {
-              ilist_t root = BND_PTR (bnd);
-
-              if (equal_after_moveup_path_p (expr, root, expr_vliw))
-		{
-		  gcc_assert (first_p);
-		  first_p = false;
-
-                  /* The sequential expression has the right form to pass 
-                     to move_op except when renaming happened.  Put the 
-                     correct register in EXPR then.  */
-                  if (EXPR_SEPARABLE_P (expr) && REG_P (EXPR_LHS (expr))
-                      && expr_dest_regno (expr) != expr_dest_regno (expr_vliw))
-		    {
-		      replace_dest_with_reg_in_expr (expr, EXPR_LHS (expr_vliw));
-		      stat_renamed_scheduled++;
-		    }
-
-		  av_set_add (&expr_seq, expr);
-		  if (EXPR_WAS_SUBSTITUTED (expr))
-		    stat_substitutions_total++;
-		}
-            }
-
-          if (sched_verbose >= 2)
-            {
-              sel_print ("Best expression(s) (sequential form): ");
-              dump_av_set (expr_seq);
-              sel_print ("\n");
-            }
-
-	  /* Init place_to_insert before calling move_op, as the later
-	     can possibly remove BND_TO (bnd).  */
-	  if (/* If this is not the first insn scheduled.  */
-	      BND_PTR (bnd))
-	    {
-	      gcc_unreachable ();
-
-	      /* Add it after last scheduled.  */
-	      place_to_insert = ILIST_INSN (BND_PTR (bnd));
-	    }
-	  else
-	    /* Add it before BND_TO.  The difference is in the
-	       basic block, where INSN will be added.  */
-	    place_to_insert = PREV_INSN (BND_TO (bnd));
-
-	  /* In case of scheduling a jump skipping some other instructions,
-	     prepare CFG.  After this, jump is at the boundary and can be 
-             scheduled as usual insn by MOVE_OP.  */
-	  if (vinsn_cond_branch_p (EXPR_VINSN (av_set_element (expr_seq, 0))))
-	    {
-	      insn = EXPR_INSN_RTX (av_set_element (expr_seq, 0));
-
-	      /* Speculative jumps are not handled.  */
-	      if (insn != BND_TO (bnd) 
-                  && !sel_insn_is_speculation_check (insn))
-                move_cond_jump (insn, bnd);
-	    }
-
-	  /* Actually move chosen insn.  */
-	  {
-	    expr_def _c_expr, *c_expr = &_c_expr;
-	    bool b;
-
-	    /* Find a place for C_EXPR to schedule.
-	       We want to have an invariant that only insns that are
-	       sel_bb_header_p () have a valid LV_SET.  But, in the same time,
-	       we don't want overhead from recomputation of compute_live ()
-	       for the half of a block after each movement.  Resolution of
-	       this is floating bb header that will advance along with the
-	       fence.
-
-	       Please note that the invariant is an implication: e.g. there
-	       can be sel_bb_header_p () insns that don't have a valid LV_SET.
-	       To make an equivalence out of implication we need to invoke
-	       compute_live () after scheduling of an insn that become
-	       sel_bb_header_p () - the overhead will be insignificant because
-	       this case is only possible when we start scheduling of a new
-	       basic block.  Also I've just thought about another concerning
-	       issue:
-	       suppose we have a function from a single insn.  So far we've
-	       stripped that insn from the stream in move_op () - and, hence,
-	       deleted the only valid LV_SET - how are we supposed to get a
-	       valid LV_SET for the inserted insn out of nowhere?  */
-
-	    {
-	      insn_t prev_insn = PREV_INSN (place_to_insert);
-	      basic_block bb = BLOCK_FOR_INSN (place_to_insert);
-	      basic_block prev_bb = bb->prev_bb;
-
-	      if (!NOTE_INSN_BASIC_BLOCK_P (place_to_insert)
-		  || prev_insn == NULL_RTX
-		  /* Or it is a label, a barrier or something strange
-		     alike.  */
-		  || !INSN_P (prev_insn)
-		  || BLOCK_FOR_INSN (prev_insn) != prev_bb
-		  || !in_current_region_p (prev_bb)
-		  || control_flow_insn_p (prev_insn))
-		{
-		  /* Generate a nop that will help us to avoid removing
-		     data sets we need.  */
-		  place_to_insert = NEXT_INSN (place_to_insert);
-		  gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
-		  place_to_insert = get_nop_from_pool (place_to_insert);
-
-		  prev_bb = bb;
-
-		  /* Split block to generate a new floating bb header.  */
-		  bb = sched_split_block (bb, place_to_insert);
-                  copy_data_sets (bb, prev_bb);
-		}
-	      else
-		{
-		  if (NOTE_INSN_BASIC_BLOCK_P (place_to_insert))
-		    {
-		      place_to_insert = NEXT_INSN (place_to_insert);
-		      gcc_assert (BLOCK_FOR_INSN (place_to_insert) == bb);
-		    }
-
-		  /* Generate a nop that will help us to avoid removing
-		     data sets we need.  */
-		  place_to_insert = get_nop_from_pool (place_to_insert);
-
-		  /* Move the nop to the previous block.  */
-		  {
-		    insn_t prev_insn = sel_bb_end (prev_bb);
-		    insn_t note = bb_note (bb);
-		    insn_t nop_insn = sel_bb_head (bb);
-		    insn_t next_insn = NEXT_INSN (nop_insn);
-
-		    gcc_assert (prev_insn != NULL_RTX
-				&& nop_insn == place_to_insert
-				&& PREV_INSN (note) == prev_insn);
-
-		    NEXT_INSN (prev_insn) = nop_insn;
-		    PREV_INSN (nop_insn) = prev_insn;
-
-		    PREV_INSN (note) = nop_insn;
-		    NEXT_INSN (note) = next_insn;
-
-		    NEXT_INSN (nop_insn) = note;
-		    PREV_INSN (next_insn) = note;
-
-		    BB_END (prev_bb) = nop_insn;
-		    BLOCK_FOR_INSN (nop_insn) = prev_bb;
-		  }
-		}
-
-	      gcc_assert (single_succ (prev_bb) == bb);
-
-	      sel_dump_cfg ("before-move_op");
-
-	      /* Marker is useful to bind .dot dumps and the log.  */
-              if (sched_verbose >= 6)
-                print_marker_to_log ();
-
-	      /* Make a move.  This call will remove the original operation,
-		 insert all necessary bookkeeping instructions and update the
-		 data sets.  After that all we have to do is add the operation
-		 at before BND_TO (BND).  */
-	      n_bookkeeping_copies_before_moveop = stat_bookkeeping_copies;
-	      max_uid_before_move_op = get_max_uid ();
-              bitmap_clear (current_copies);
-              bitmap_clear (current_originators);
-
-	      b = move_op (BND_TO (bnd), expr_seq, 
-			   get_dest_from_orig_ops (expr_seq), c_expr);
- 	      remove_temp_moveop_nops ();
-
-	      if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
-		stat_insns_needed_bookkeeping++;
-
-              {
-                unsigned book_uid;
-                bitmap_iterator bi;
-                
-                EXECUTE_IF_SET_IN_BITMAP (current_copies, 0, book_uid, bi)
-                  {
-                    /* We allocate these bitmaps lazily.  */
-                    if (! INSN_ORIGINATORS_BY_UID (book_uid))
-                      INSN_ORIGINATORS_BY_UID (book_uid) = BITMAP_ALLOC (NULL);
-
-                    bitmap_copy (INSN_ORIGINATORS_BY_UID (book_uid), 
-                                 current_originators);
-                  }
-              }
-
-	      /* We should be able to find the expression we've chosen for 
-		 scheduling.  */
-	      gcc_assert (b);
-
-	      /* We want to use a pattern from expr_vliw, because it could've 
-		 been substituted, and the rest of data from expr_seq.  */
-	      if (! rtx_equal_p (EXPR_PATTERN (expr_vliw), 
-				 EXPR_PATTERN (c_expr)))
-		change_vinsn_in_expr (c_expr, EXPR_VINSN (expr_vliw));
-	    }
-
-	    /* Add the instruction.  */
-	    insn = emit_insn_from_expr_after (c_expr, NULL, seqno, 
-                                              place_to_insert);
-	    clear_expr (c_expr);
-
-	    ++INSN_SCHED_TIMES (insn);
-            EXPR_TARGET_AVAILABLE (INSN_EXPR (insn)) = true;
-            EXPR_ORIG_SCHED_CYCLE (INSN_EXPR (insn)) = fence->cycle;
-
-	    if (INSN_NOP_P (place_to_insert))
-	      /* Return the nop generated for preserving of data sets back
-		 into pool.  */
-	      return_nop_to_pool (place_to_insert);
-	  }
-
-	  av_set_clear (&expr_seq);
-
-	  /* Advance the DFA.  */
-	  if (recog_memoized (insn) >= 0)
-	    {
-              int res;
-              
-	      gcc_assert (!INSN_ASM_P (insn));
-	      asm_p = false;
-
-              memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
-
-	      res = state_transition (FENCE_STATE (fence), insn);
-	      gcc_assert (res < 0);
-
-              if (memcmp (temp_state, FENCE_STATE (fence), dfa_state_size))
-                {
-                  FENCE_ISSUED_INSNS (fence)++;
-                  /* We should never issue more than issue_rate insns.  */
-                  if (FENCE_ISSUED_INSNS (fence) > issue_rate)
-                    gcc_unreachable ();
-                }
-	    } 
-          else
-            {
-              asm_p = INSN_ASM_P (insn);
-              
-              /* This could be an ASM insn which we'd like to schedule 
-                 on the next cycle.  */
-              if (!FENCE_STARTS_CYCLE_P (fence) && asm_p)
-		advance_one_cycle (fence);
-            }
-
-	  /* Set instruction scheduling info.  This will be used in bundling,
-	     pipelining, tick computations etc.  */
-
-          memcpy (temp_state, FENCE_STATE (fence), dfa_state_size);
-          INSN_AFTER_STALL_P (insn) = FENCE_AFTER_STALL_P (fence);
-          INSN_SCHED_CYCLE (insn) = FENCE_CYCLE (fence);
-
-          /* This does not account for adjust_cost hooks, just add the biggest
-             constant the hook may add to the latency.  TODO: make this 
-             a target dependent constant.  */
-          INSN_READY_CYCLE (insn) 
-            = FENCE_CYCLE (fence) + (INSN_CODE (insn) < 0 
-                                     ? 1
-                                     : maximal_insn_latency (insn) + 1);
-	  EXPR_TARGET_AVAILABLE (INSN_EXPR (insn)) = true;
-
-	  if (asm_p)
-	    advance_one_cycle (fence);
-
-          FENCE_AFTER_STALL_P (fence) = 0;
-          FENCE_STARTS_CYCLE_P (fence) = 0;
-	  FENCE_LAST_SCHEDULED_INSN (fence) = insn;
-          VEC_safe_push (rtx, gc, FENCE_EXECUTING_INSNS (fence), insn);
-          if (SCHED_GROUP_P (insn))
-            {
-              FENCE_SCHED_NEXT (fence) = INSN_SCHED_NEXT (insn);
-              SCHED_GROUP_P (insn) = 0;
-            }
-          else
-            FENCE_SCHED_NEXT (fence) = NULL_RTX;
-          if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence))
-            FENCE_READY_TICKS (fence) [INSN_UID (insn)] = 0;
-
-	  advance_deps_context (BND_DC (bnd), insn);
+          
+          insn = schedule_expr_on_boundary (bnd, expr_vliw, seqno);
+          update_fence_and_insn (fence, insn);
+          bnds_tailp = update_boundaries (bnd, insn, bndsp, bnds_tailp);
 
 	  /* Add insn to the list of scheduled on this cycle instructions.  */
 	  ilist_add (*scheduled_insns_tailpp, insn);
 	  *scheduled_insns_tailpp = &ILIST_NEXT (**scheduled_insns_tailpp);
-
-          if (sched_verbose >= 2)
-            {
-              sel_print ("Scheduling insn: ");
-              dump_insn_1 (insn, 1);
-              sel_print ("\n");
-            }
-
-	  /* Add new boundaries.  */
-          FOR_EACH_SUCC_1 (succ, si, insn, 
-                           SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
-	    {
-	      ilist_t ptr = ilist_copy (BND_PTR (bnd));
-
-	      ilist_add (&ptr, insn);
-	      blist_add (bnds_tailp, succ, ptr, FENCE_DC (fence));
-	      bnds_tailp = &BLIST_NEXT (*bnds_tailp);
-	    }
-
-	  bnds_tail1 = *bnds_tailp1;
-	  blist_remove (bndsp);
-
-	  /* Check that the recent movement didn't destroyed loop
-	     structure.  */
-	  gcc_assert (!pipelining_p
-		      || current_loop_nest == NULL
-		      || loop_latch_edge (current_loop_nest));
         }
-      while (*bndsp != bnds_tail1);
+      while (*bndsp != *bnds_tailp1);
 
       av_set_clear (&av_vliw);
-
-      /* Indicate that we've scheduled something on this fence.  */
-      FENCE_SCHEDULED_P (fence) = true;
-      scheduled_something_on_previous_fence = true;
-
-      /* When can_issue_more is 0, variable_issue tells us that we should
-        advance a cycle.  */
-      if (can_issue_more == 0)
-       {
-         need_stall = 1;
-         break;
-       }
 
       /* We currently support information about candidate blocks only for
 	 one 'target_bb' block.  Hence we can't schedule after jump insn,
@@ -4860,7 +4920,7 @@ move_op_merge_succs (insn_t insn, insn_t succ ATTRIBUTE_UNUSED,
   moveop_static_params_p sparams = static_params;
 
   /* Nothing to do, if original expr wasn't found below.  */
-  if (!moveop_drv_call_res)
+  if (moveop_drv_call_res != 1)
     return;
 
   /* If this is a first successor.  */
@@ -4923,7 +4983,7 @@ fur_merge_succs (insn_t insn ATTRIBUTE_UNUSED, insn_t succ,
      on the code motion paths.  These branches correspond to value 
      MOVEOP_DRV_CALL_RES==0 and include SUCCS_BACK and SUCCS_OUT, though
      for such branches code_motion_path_driver is not called.  */
-  if (moveop_drv_call_res)
+  if (moveop_drv_call_res != 0)
     return;
 
   /* Mark all registers that do not meet the following condition:
@@ -5288,8 +5348,11 @@ move_op_ascend (insn_t insn, void *static_params)
   enum MOVEUP_EXPR_CODE res;
   moveop_static_params_p sparams = static_params;
 
-  res = moveup_expr (sparams->c_expr, insn, false, NULL);
-  gcc_assert (res != MOVEUP_EXPR_NULL);
+  if (! INSN_NOP_P (insn))
+    {
+      res = moveup_expr (sparams->c_expr, insn, false, NULL);
+      gcc_assert (res != MOVEUP_EXPR_NULL);
+    }
 
   /* Update liveness for this insn as it was invalidated.  */
   update_liveness_on_insn (insn);
@@ -5349,8 +5412,7 @@ move_op_orig_expr_not_found (insn_t insn, av_set_t orig_ops ATTRIBUTE_UNUSED,
      same destination register or memory.  */
   if (lhs_of_insn_equals_to_dest_p (insn, sparams->dest))
     return false;
-  else
-    return true;
+  return true;
 }
 
 /* This function is called while descending current basic block if current 
@@ -5437,16 +5499,15 @@ struct code_motion_path_driver_info_def fur_hooks = {
    code_motion_path_driver is called recursively.  Original operation 
    was found at least on one path that is starting with one of INSN's 
    successors (this fact is asserted).  */
-static bool
-move_op_process_successors (insn_t insn, av_set_t orig_ops, ilist_t path,
-                            void *static_params)
+static int
+code_motion_process_successors (insn_t insn, av_set_t orig_ops, 
+                                ilist_t path, void *static_params)
 {
   int res = 0;
   succ_iterator succ_i;
   rtx succ;
 
   struct cmpd_local_params lparams;
-
   expr_def _x;
 
   lparams.c_expr_local = &_x;
@@ -5475,8 +5536,9 @@ move_op_process_successors (insn_t insn, av_set_t orig_ops, ilist_t path,
 	 successors.  */
       code_motion_path_driver_info->merge_succs (insn, succ, b, &lparams,
 						 static_params);
-
-      if (b != 0)
+      if (b == 1)
+        res = b;
+      else if (b == -1 && res != 1)
         res = b;
     }
 
@@ -5486,7 +5548,10 @@ move_op_process_successors (insn_t insn, av_set_t orig_ops, ilist_t path,
      not found below.  In most cases, this situation is an error.  
      The exception is when the original operation is blocked by
      bookkeeping generated for another branch.  */
-  gcc_assert (res || av_set_could_be_blocked_by_bookkeeping_p (orig_ops));
+  gcc_assert (res == 1 
+              || (res == 0 
+                  && av_set_could_be_blocked_by_bookkeeping_p (orig_ops))
+              || res == -1);
   
   /* Merge data, clean up, etc.  */
   if (code_motion_path_driver_info->after_merge_succs)
@@ -5508,7 +5573,7 @@ code_motion_path_driver_cleanup (av_set_t *orig_ops_p, ilist_t *path_p)
    functionality dependent whether code_motion_path_driver_INFO is set to 
    &MOVE_OP_HOOKS or &FUR_HOOKS.  This function implements the common parts 
    of code (CFG traversal etc) that are shared among both functions.  */
-static bool
+static int
 code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path, 
 			 cmpd_local_params_p local_params_in, 
 			 void *static_params)
@@ -5610,8 +5675,8 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
           if (sched_verbose >= 6)
             sel_print ("Found original operation at insn %d\n", INSN_UID (insn));
 
-	  code_motion_path_driver_info->orig_expr_found (
-	    insn, expr, local_params_in, static_params);
+	  code_motion_path_driver_info->orig_expr_found 
+            (insn, expr, local_params_in, static_params);
 
 	  /* Step back, so on the way back we'll start traversing from the
 	     previous insn (or we'll see that it's bb_note and skip that 
@@ -5636,7 +5701,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
 		 happen if we've encountered the previously created 
 		 bookkeeping.  */
 	      code_motion_path_driver_cleanup (&orig_ops, &path);
-	      return false;
+	      return -1;
 	    }
 
 	  gcc_assert (orig_ops);
@@ -5653,7 +5718,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
      bb_note, if original insn was a bb_head) or to the bb_end.  */
   if (!expr)
     {
-      bool res;
+      int res;
 
       gcc_assert (insn == sel_bb_end (bb));
 
@@ -5662,16 +5727,16 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
       if (insn != bb_head)
 	ilist_add (&path, insn);
 
-      /* move_op_process_successors should be able to find at least one 
+      /* Process_successors should be able to find at least one 
 	 successor for which code_motion_path_driver returns TRUE.  */ 
-      res = move_op_process_successors (insn, orig_ops, 
-					path, static_params);
+      res = code_motion_process_successors (insn, orig_ops, 
+                                            path, static_params);
 
       /* Remove bb tail from path.  */
       if (insn != bb_head)
 	ilist_remove (&path);
 
-      if (!res)
+      if (res != 1)
 	{
 	  /* This is the case when one of the original expr is no longer available
 	     due to bookkeeping created on this branch with the same register.  
@@ -5680,7 +5745,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
 	     FALSE when we've encountered a previously generated bookkeeping 
 	     insn in moveop_orig_expr_not_found.  */
 	  code_motion_path_driver_cleanup (&orig_ops, &path);
-	  return false;
+	  return res;
 	}
     }
 
@@ -6244,6 +6309,160 @@ sel_region_finish (void)
 
 /* Functions that implement the scheduler driver.  */
 
+/* Schedule a parallel instruction group on each of FENCES.  */
+static void
+schedule_on_fences (flist_t fences, int max_seqno,
+                    ilist_t **scheduled_insns_tailpp)
+{
+  flist_t old_fences = fences;
+
+  if (sched_verbose >= 1)
+    {
+      sel_print ("Scheduling on fences: ");
+      dump_flist (fences);
+      sel_print ("\n");
+    }
+
+  scheduled_something_on_previous_fence = false;
+  for (; fences; fences = FLIST_NEXT (fences))
+    {
+      fence_t fence = NULL;
+      int seqno = 0;
+      flist_t fences2;
+      bool first_p = true;
+	  
+      /* Choose the next fence group to schedule.
+         The fact that insn can be scheduled only once
+         on the cycle is guaranteed by two properties:
+         1. seqnos of parallel groups decrease with each iteration.
+         2. If is_ineligible_successor () sees the larger seqno, it
+         checks if candidate insn is_in_current_fence_p ().  */
+      for (fences2 = old_fences; fences2; fences2 = FLIST_NEXT (fences2))
+        {
+          fence_t f = FLIST_FENCE (fences2);
+
+          if (!FENCE_PROCESSED_P (f))
+            {
+              int i = INSN_SEQNO (FENCE_INSN (f));
+
+              if (first_p || i > seqno)
+                {
+                  seqno = i;
+                  fence = f;
+                  first_p = false;
+                }
+              else
+                /* ??? Seqnos of different groups should be different.  */
+                gcc_assert (1 || i != seqno);
+            }
+        }
+
+      gcc_assert (fence);
+
+      /* As FENCE is nonnull, SEQNO is initialized.  */
+      seqno -= max_seqno + 1;
+      fill_insns (fence, seqno, scheduled_insns_tailpp);
+      FENCE_PROCESSED_P (fence) = true;
+    }
+
+  /* All av_sets are invalidated by GLOBAL_LEVEL increase, thus we
+     don't need to keep bookkeeping-invalidated exprs any more.  */
+  vec_bk_blocked_exprs_clear ();
+}
+
+/* Calculate MIN_SEQNO and MAX_SEQNO.  */
+static void
+find_min_max_seqno (flist_t fences, int *min_seqno, int *max_seqno)
+{
+  *min_seqno = *max_seqno = INSN_SEQNO (FENCE_INSN (FLIST_FENCE (fences)));
+
+  /* The first element is already processed.  */
+  while ((fences = FLIST_NEXT (fences)))
+    {
+      int seqno = INSN_SEQNO (FENCE_INSN (FLIST_FENCE (fences)));
+      
+      if (*min_seqno > seqno)
+        *min_seqno = seqno;
+      else if (*max_seqno < seqno)
+        *max_seqno = seqno;
+    }
+}
+
+/* Calculate new fences from FENCES.  */
+static flist_t 
+calculate_new_fences (flist_t fences, sel_sched_region_2_data_t data, 
+                      int orig_max_seqno)
+{
+  flist_t old_fences = fences;
+  struct flist_tail_def _new_fences, *new_fences = &_new_fences;
+
+  flist_tail_init (new_fences);
+  for (; fences; fences = FLIST_NEXT (fences))
+    {
+      fence_t fence = FLIST_FENCE (fences);
+      insn_t insn;
+      
+      if (!FENCE_BNDS (fence))
+        {
+          /* This fence doesn't have any successors.  */
+          if (!FENCE_SCHEDULED_P (fence))
+            {
+              /* Nothing was scheduled on this fence.  */
+              int seqno;
+
+              insn = FENCE_INSN (fence);
+              seqno = INSN_SEQNO (insn);
+              gcc_assert (seqno > 0 && seqno <= orig_max_seqno);
+
+              if (sched_verbose >= 1)
+                sel_print ("Fence %d[%d] has not changed\n", 
+                           INSN_UID (insn),
+                           BLOCK_NUM (insn));
+              move_fence_to_fences (fences, new_fences);
+            }
+        }
+      else
+        extract_new_fences_from (fences, new_fences, data);
+    }
+
+  flist_clear (&old_fences);
+  return FLIST_TAIL_HEAD (new_fences);
+}
+
+/* Update seqnos of SCHEDULED_INSNS.  */
+static int
+update_seqnos_and_stage (int min_seqno, int max_seqno, 
+                         int highest_seqno_in_use, 
+                         ilist_t *pscheduled_insns)
+{
+  int new_hs;
+  ilist_iterator ii;
+  insn_t insn;
+  
+  /* Actually, new_hs is the seqno of the instruction, that was
+     scheduled first (i.e. it is the first one in SCHEDULED_INSNS).  */
+  if (*pscheduled_insns)
+    {
+      new_hs = (INSN_SEQNO (ILIST_INSN (*pscheduled_insns))
+                + highest_seqno_in_use + max_seqno - min_seqno + 2);
+      gcc_assert (new_hs > highest_seqno_in_use);
+    }
+  else
+    new_hs = highest_seqno_in_use;
+
+  FOR_EACH_INSN (insn, ii, *pscheduled_insns)
+    {
+      gcc_assert (INSN_SEQNO (insn) < 0);
+      INSN_SEQNO (insn) += highest_seqno_in_use + max_seqno - min_seqno + 2;
+      gcc_assert (INSN_SEQNO (insn) <= new_hs);
+    }
+
+  ilist_clear (pscheduled_insns);
+  global_level++;
+
+  return new_hs;
+}
+
 /* The main driver for scheduling a region.  This function is responsible 
    for correct propagation of fences (i.e. scheduling points) and creating 
    a group of parallel insns at each of them.  It also supports 
@@ -6262,141 +6481,16 @@ sel_sched_region_2 (sel_sched_region_2_data_t data)
 
   while (fences)
     {
-      flist_t fences1;
-      struct flist_tail_def _new_fences, *new_fences = &_new_fences;
-      int min_f, max_f, new_hs;
+      int min_seqno, max_seqno;
       ilist_t scheduled_insns = NULL;
       ilist_t *scheduled_insns_tailp = &scheduled_insns;
-      ilist_iterator ii;
-      insn_t insn;
 
-      scheduled_something_on_previous_fence = false;
-      flist_tail_init (new_fences);
-
-      if (sched_verbose >= 1)
-        {
-          sel_print ("Scheduling on fences: ");
-          dump_flist (fences);
-          sel_print ("\n");
-        }
-	  
-      /* Calculate MIN_F and MAX_F.  */
-      min_f = max_f = INSN_SEQNO (FENCE_INSN (FLIST_FENCE (fences)));
-      fences1 = fences;
-      while ((fences1 = FLIST_NEXT (fences1)))
-	{
-	  int seqno = INSN_SEQNO (FENCE_INSN (FLIST_FENCE (fences1)));
-
-	  if (min_f > seqno)
-	    min_f = seqno;
-	  else if (max_f < seqno)
-	    max_f = seqno;
-	}
-      
-      fences1 = fences;
-      do
-	{
-	  fence_t fence = NULL;
-	  /* SEQNO is set to '0' to avoid 'uninitialized warning'.  */ 
-	  int seqno = 0;
-	  flist_t fences2 = fences;
-	  bool first_p = true;
-	  
-	  /* Choose the next fence group to schedule.
-	     NB: The fact, that insn can be scheduled only once
-	     on the cycle is guaranteed by two properties:
-	     1. seqnos of parallel groups decrease with each iteration.
-	     2. If is_ineligible_successor () sees the larger seqno, it
-	     checks if candidate insn is_in_current_fence_p ().  */
-	  do
-	    {
-	      fence_t f = FLIST_FENCE (fences2);
-
-	      if (!FENCE_PROCESSED_P (f))
-		{
-		  int i = INSN_SEQNO (FENCE_INSN (f));
-
-		  if (first_p || i > seqno)
-		    {
-		      seqno = i;
-		      fence = f;
-		      first_p = false;
-		    }
-		  else
-		    /* ??? Seqnos of different groups should be different.  */
-		    gcc_assert (1 || i != seqno);
-		}
-	    }
-	  while ((fences2 = FLIST_NEXT (fences2)));
-
-	  gcc_assert (fence);
-
-	  /* As FENCE is nonnull, SEQNO is initialized.  */
-	  seqno -= max_f + 1;
-	  fill_insns (fence, seqno, &scheduled_insns_tailp);
-	  FENCE_PROCESSED_P (fence) = true;
-	}
-      while ((fences1 = FLIST_NEXT (fences1)));
-
-      fences1 = fences;
-      do
-	{
-	  fence_t fence = FLIST_FENCE (fences1);
-	  insn_t insn;
-
-	  if (/* This fence doesn't have any successors.  */
-	      !FENCE_BNDS (fence))
-	    {
-	      if (!FENCE_SCHEDULED_P (fence))
-		/* Nothing was scheduled on this fence.  */
-		{
-		  int seqno;
-
-		  insn = FENCE_INSN (fence);
-		  seqno = INSN_SEQNO (insn);
-		  gcc_assert (seqno > 0 && seqno <= orig_max_seqno);
-
-                  if (sched_verbose >= 1)
-                    sel_print ("Fence %d[%d] has not changed\n", 
-                               INSN_UID (insn),
-                               BLOCK_NUM (insn));
-                  move_fence_to_fences (fences1, new_fences);
-		}
-	    }
-          else
-            extract_new_fences_from (fences1, new_fences, data);
-	}
-      while ((fences1 = FLIST_NEXT (fences1)));
-
-      flist_clear (&fences);
-      fences = FLIST_TAIL_HEAD (new_fences);
-      
-      /* Actually, new_hs is the seqno of the instruction, that was
-	 scheduled first (i.e. it is the first one in SCHEDULED_INSNS).  */
-      if (scheduled_insns)
-	{
-	  new_hs = (INSN_SEQNO (ILIST_INSN (scheduled_insns))
-		    + highest_seqno_in_use + max_f - min_f + 2);
-	  gcc_assert (new_hs > highest_seqno_in_use);
-	}
-      else
-	new_hs = highest_seqno_in_use;
-
-      FOR_EACH_INSN (insn, ii, scheduled_insns)
-	{
-	  gcc_assert (INSN_SEQNO (insn) < 0);
-	  INSN_SEQNO (insn) += highest_seqno_in_use + max_f - min_f + 2;
-	  gcc_assert (INSN_SEQNO (insn) <= new_hs);
-	}
-      ilist_clear (&scheduled_insns);
-
-      highest_seqno_in_use = new_hs;
-
-      global_level++;
-
-      /* All av_sets are invalidated by GLOBAL_LEVEL increase, thus we
-	 don't need to keep bookkeeping-invalidated exprs any more.  */
-      vec_bk_blocked_exprs_clear ();
+      find_min_max_seqno (fences, &min_seqno, &max_seqno);
+      schedule_on_fences (fences, max_seqno, &scheduled_insns_tailp);
+      fences = calculate_new_fences (fences, data, orig_max_seqno);
+      highest_seqno_in_use = update_seqnos_and_stage (min_seqno, max_seqno,
+                                                      highest_seqno_in_use,
+                                                      &scheduled_insns);
     }
 
   gcc_assert (data->orig_max_seqno == orig_max_seqno);

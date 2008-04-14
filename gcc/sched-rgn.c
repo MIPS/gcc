@@ -64,7 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "params.h"
 #include "sched-int.h"
-#include "sched-deps.h"
 #include "cselib.h"
 #include "target.h"
 #include "timevar.h"
