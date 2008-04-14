@@ -6133,7 +6133,7 @@ static bool
 need_fake_edge_p (gimple t)
 {
   tree fndecl = NULL_TREE;
-  int call_flags;
+  int call_flags = 0;
 
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST and PURE calls do not need one.
@@ -6147,7 +6147,10 @@ need_fake_edge_p (gimple t)
       fndecl = gimple_call_fndecl (t);
       call_flags = gimple_call_flags (t);
     }
-  if (is_gimple_call (t) && fndecl && DECL_BUILT_IN (fndecl)
+
+  if (is_gimple_call (t)
+      && fndecl
+      && DECL_BUILT_IN (fndecl)
       && (call_flags & ECF_NOTHROW)
       && !(call_flags & ECF_NORETURN)
       && !(call_flags & ECF_RETURNS_TWICE))
