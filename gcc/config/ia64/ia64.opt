@@ -128,10 +128,6 @@ msched-spec-control-ldc
 Target Report Var(mflag_sched_spec_control_ldc) Init(0)
 Use simple data speculation check for control speculation
 
-msched-spec-verbose
-Target Report Var(mflag_sched_spec_verbose) Init(0)
-Print information about speculative motions
-
 msched-prefer-non-data-spec-insns
 Target Report Var(mflag_sched_prefer_non_data_spec_insns) Init(0)
 If set, data speculative instructions will be chosen for schedule only if there are no other choices at the moment 
@@ -159,14 +155,6 @@ Limit on number of memory insns per instruction group. Frequently useful to prev
 msched-max-memory-insns-hard-limit
 Target Report Var(mflag_sched_mem_insns_hard_limit) Init(0)
 Disallow more than `msched-max-memory-insns' in instruction group. Otherwise, limit is `soft' (prefer non-memory operations when limit is reached)
-
-msel-sched-renaming
-Target Report Var(mflag_sel_sched_renaming) Init(1)
-Do register renaming in selective scheduling
-
-msel-sched-substitution
-Target Report Var(mflag_sel_sched_substitution) Init(1)
-Perform substitution in selective scheduling
 
 msel-sched-data-spec
 Target Report Var(mflag_sel_sched_data_spec) Init(1)

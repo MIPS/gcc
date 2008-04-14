@@ -42,24 +42,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-/* These variables hold parameters for pretty printing from recursive 
-   functions.  */
-int indent = -1;
-static int *indents = NULL;
-static int indents_n = 0, indents_sz = 0;
-
-bool new_line = true;
-static bool *new_lines = NULL;
-static int new_lines_n = 0, new_lines_sz = 0;
-
-bool print_block = true;
-static bool *print_blocks = NULL;
-static int print_blocks_n = 0, print_blocks_sz = 0;
-
 static FILE *sched_dump1;
-static int indent1 = 0;
-static bool new_line1 = true;
-static bool print_block1 = true;
 
 /* File for dumping statistics into the one directory for
    the whole make run.  */
@@ -75,15 +58,13 @@ static int sel_debug_cfg_flags = SEL_DUMP_CFG_FLAGS;
    or the below flag is set.  */
 static bool sel_dump_cfg_p;
 
-/* True when a verbose information about pipelining should be provided.  */
-static bool sel_pipelining_verbose_p;
-
 /* Variables that are used to build the cfg dump file name.  */
-static const char * const sel_debug_cfg_root = "./dot";
+static const char * const sel_debug_cfg_root = "./";
 static const char * const sel_debug_cfg_root_postfix_default = "";
 static const char *sel_debug_cfg_root_postfix = "";
 static int sel_dump_cfg_fileno = -1;
 static int sel_debug_cfg_fileno = -1;
+
 /* When this flag is on, we are dumping to the .dot file.
    When it is off, we are dumping to log.
    This is useful to differentiate formatting between log and .dot
@@ -101,108 +82,19 @@ const char *flag_insn_range = NULL;
 static char sel_stat_output_buf[16384];
 
 
-/* Core functions for pretty printing.  */
-
-static void
-push_indent (int new)
-{
-  if (indents_n == indents_sz)
-    indents = xrealloc (indents, ((indents_sz = indents_sz * 2 + 1)
-				  * sizeof (*indents)));
-  indents[indents_n++] = indent;
-  indent = new;
-}
-
-static void
-pop_indent (void)
-{
-  indent = indents[--indents_n];
-}
-
-static void
-push_new_line (bool new)
-{
-  if (new_lines_n == new_lines_sz)
-    new_lines = xrealloc (new_lines, ((new_lines_sz = new_lines_sz * 2 + 1)
-				      * sizeof (*new_lines)));
-  new_lines[new_lines_n++] = new_line;
-  new_line = new;
-}
-
-static void
-pop_new_line (void)
-{
-  new_line = new_lines[--new_lines_n];
-}
-
-void
-block_start (void)
-{  
-  indent++;
-
-  if (print_blocks_n == print_blocks_sz)
-    print_blocks = xrealloc (print_blocks,
-			     ((print_blocks_sz = print_blocks_sz * 2 + 1)
-			      * sizeof (*print_blocks)));
-
-  print_blocks[print_blocks_n++] = print_block;
-  print_block = indent < sched_verbose;
-}
-
-void
-block_finish (void)
-{
-  print_block = print_blocks[--print_blocks_n];
-  indent--;
-}
-
-int 
-get_print_blocks_num (void)
-{
-  return print_blocks_n;
-}
-
-void
-line_start (void)
-{
-  push_new_line (false);
-  print ("%s", "");
-  push_indent (0);
-}
-
-void
-line_finish (void)
-{
-  pop_new_line ();
-  print ("%s", "");
-  pop_indent ();
-}
-
 static void
 switch_dump (void)
 {
   FILE *f = sched_dump1;
-  int i = indent1;
-  bool b = new_line1;
-  bool b2 = print_block1;
 
   sched_dump1 = sched_dump;
   sched_dump = f;
-  
-  indent1 = indent;
-  indent = i; 
-
-  new_line1 = new_line;
-  new_line = b;
-
-  print_block1 = print_block;
-  print_block = b2;
 }
 
 void 
 print_marker_to_log (void)
 {
-  print ("Marker: %d", sel_dump_cfg_fileno);
+  sel_print ("Marker: %d\n:", sel_dump_cfg_fileno);
 }
 
 void
@@ -215,76 +107,60 @@ setup_sched_dumps (void)
 		? stderr : dump_file);
   sched_dump1 = stderr;
 }
- 
-
-void
-free_sel_dump_data (void)
-{
-  gcc_assert (!indents_n && !new_lines_n && !print_blocks_n);
-  indents_sz = 0;
-  free (indents);
-  indents = NULL;
-  new_lines_sz = 0;
-  free (new_lines);
-  new_lines = NULL;
-  print_blocks_sz = 0;
-  free (print_blocks);
-  print_blocks = NULL;
-}
 
 
-/* Functions for dumping instructions, av sets, and rhses.  */ 
+/* Functions for dumping instructions, av sets, and exprs.  */ 
+
+static int dump_all = 0;
+static int dump_insn_rtx_flags = DUMP_INSN_RTX_PATTERN;
+static int dump_vinsn_flags = (DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE
+			       | DUMP_VINSN_COUNT);
+static int debug_vinsn_flags = 1;
+static int debug_insn_rtx_flags = 1;
+static int dump_expr_flags = DUMP_EXPR_ALL;
+static int debug_expr_flags = 1;
+
+/* Controls how an insn should be dumped.  It can be changed from debugger.  */
+static int dump_insn_flags = (DUMP_INSN_EXPR | DUMP_INSN_SCHED_CYCLE);
+static int debug_insn_flags = 1;
+
 
 /* Print an rtx X.  */
 void
 sel_print_rtl (rtx x)
 {
-  if (print_block)	  
-    {
-      print_rtl_single (sched_dump, x);
-    }  
+  print_rtl_single (sched_dump, x);
 }
-
-static int dump_all = 0;
 
 void
 dump_insn_rtx_1 (rtx insn, int flags)
 {
   int all;
 
-  if (!print_block)
-    return;
-
   all = (flags & 1) | dump_all;
   if (all)
     flags |= DUMP_INSN_RTX_ALL;
 
-  line_start ();
-  print ("(");
+  sel_print ("(");
 
   if (flags & DUMP_INSN_RTX_UID)
-    print ("%d;", INSN_UID (insn));
+    sel_print ("%d;", INSN_UID (insn));
 
   if (flags & DUMP_INSN_RTX_PATTERN)
     {
       char buf[2048];
 
       print_insn (buf, insn, 0);
-      print ("%s;", buf);
+      sel_print ("%s;", buf);
     }
 
   if (flags & DUMP_INSN_RTX_BBN)
     {
       basic_block bb = BLOCK_FOR_INSN (insn);
 
-      print ("bb:%d;", bb != NULL ? bb->index : -1);
+      sel_print ("bb:%d;", bb != NULL ? bb->index : -1);
     }
-
-  print (")");
-  line_finish ();
 }
-
-static int dump_insn_rtx_flags = DUMP_INSN_RTX_PATTERN;
 
 void
 dump_insn_rtx (rtx insn)
@@ -292,13 +168,12 @@ dump_insn_rtx (rtx insn)
   dump_insn_rtx_1 (insn, dump_insn_rtx_flags);
 }
 
-static int debug_insn_rtx_flags = 1;
-
 void
 debug_insn_rtx (rtx insn)
 {
   switch_dump ();
   dump_insn_rtx_1 (insn, debug_insn_rtx_flags);
+  sel_print (")\n");
   switch_dump ();
 }
 
@@ -307,39 +182,29 @@ dump_vinsn_1 (vinsn_t vi, int flags)
 {
   int all;
 
-  if (!print_block)
-    return;
-
   all = (flags & 1) | dump_all;
   if (all)
     flags |= DUMP_VINSN_ALL;
 
-  line_start ();
-  print ("(");
+  sel_print ("(");
 
   if (flags & DUMP_VINSN_INSN_RTX)
     dump_insn_rtx_1 (VINSN_INSN_RTX (vi), dump_insn_rtx_flags | all);
 
   if (flags & DUMP_VINSN_TYPE)
-    print ("type:%s;", GET_RTX_NAME (VINSN_TYPE (vi)));
+    sel_print ("type:%s;", GET_RTX_NAME (VINSN_TYPE (vi)));
 
   if (flags & DUMP_VINSN_COUNT)
-    print ("count:%d;", VINSN_COUNT (vi));
+    sel_print ("count:%d;", VINSN_COUNT (vi));
 
   if (flags & DUMP_VINSN_COST)
     {
       int cost = vi->cost;
 
       if (cost != -1)
-	print ("cost:%d;", cost);
+	sel_print ("cost:%d;", cost);
     }
-
-  print (")");
-  line_finish ();
 }
-
-static int dump_vinsn_flags = (DUMP_VINSN_INSN_RTX | DUMP_VINSN_TYPE
-			       | DUMP_VINSN_COUNT);
 
 void
 dump_vinsn (vinsn_t vi)
@@ -347,31 +212,26 @@ dump_vinsn (vinsn_t vi)
   dump_vinsn_1 (vi, dump_vinsn_flags);
 }
 
-static int debug_vinsn_flags = 1;
-
 void
 debug_vinsn (vinsn_t vi)
 {
   switch_dump ();
   dump_vinsn_1 (vi, debug_vinsn_flags);
+  sel_print (")\n"); 
   switch_dump ();
 }
 
-/* Dump RHS.  */
+/* Dump EXPR.  */
 void
 dump_expr_1 (expr_t expr, int flags)
 {
   int all;
 
-  if (!print_block)
-    return;
-
   all = (flags & 1) | dump_all;
   if (all)
     flags |= DUMP_EXPR_ALL;
 
-  line_start ();
-  print ("[");
+  sel_print ("[");
 
   if (flags & DUMP_EXPR_VINSN)
     dump_vinsn_1 (EXPR_VINSN (expr), dump_vinsn_flags | all);
@@ -381,7 +241,7 @@ dump_expr_1 (expr_t expr, int flags)
       int spec = EXPR_SPEC (expr);
 
       if (spec != 0)
-	print ("spec:%d;", spec);
+	sel_print ("spec:%d;", spec);
     }
 
   if (flags & DUMP_EXPR_USEFULNESS)
@@ -389,18 +249,18 @@ dump_expr_1 (expr_t expr, int flags)
       int use = EXPR_USEFULNESS (expr);
 
       if (use != REG_BR_PROB_BASE)
-        print ("use:%d;", use);
+        sel_print ("use:%d;", use);
     }
 
   if (flags & DUMP_EXPR_PRIORITY)
-    print ("prio:%d;", EXPR_PRIORITY (expr));
+    sel_print ("prio:%d;", EXPR_PRIORITY (expr));
 
   if (flags & DUMP_EXPR_SCHED_TIMES)
     {
       int times = EXPR_SCHED_TIMES (expr);
 
       if (times != 0)
-	print ("times:%d;", times);
+	sel_print ("times:%d;", times);
     }
 
   if (flags & DUMP_EXPR_SPEC_DONE_DS)
@@ -408,7 +268,7 @@ dump_expr_1 (expr_t expr, int flags)
       ds_t spec_done_ds = EXPR_SPEC_DONE_DS (expr);
 
       if (spec_done_ds != 0)
-	print ("ds:%d;", spec_done_ds);
+	sel_print ("ds:%d;", spec_done_ds);
     }
 
   if (flags & DUMP_EXPR_ORIG_BB)
@@ -416,16 +276,13 @@ dump_expr_1 (expr_t expr, int flags)
       int orig_bb = EXPR_ORIG_BB_INDEX (expr);
 
       if (orig_bb != 0)
-	print ("orig_bb:%d;", orig_bb);
+	sel_print ("orig_bb:%d;", orig_bb);
     }
   
   if (EXPR_TARGET_AVAILABLE (expr) < 1)
-    print ("target:%d;", EXPR_TARGET_AVAILABLE (expr));
-  print ("]");
-  line_finish ();
+    sel_print ("target:%d;", EXPR_TARGET_AVAILABLE (expr));
+  sel_print ("]");
 }
-
-static int dump_expr_flags = DUMP_EXPR_ALL;
 
 void
 dump_expr (expr_t expr)
@@ -433,28 +290,13 @@ dump_expr (expr_t expr)
   dump_expr_1 (expr, dump_expr_flags);
 }
 
-static int debug_expr_flags = 1;
-
 void
 debug_expr (expr_t expr)
 {
   switch_dump ();
   dump_expr_1 (expr, debug_expr_flags);
+  sel_print ("\n");
   switch_dump ();
-}
-
-/* Obsolete.  */
-void
-dump_rhs (rhs_t rhs)
-{
-  dump_expr (rhs);
-}
-
-/* Obsolete.  */
-void
-debug_rhs (rhs_t rhs)
-{
-  debug_expr (rhs);
 }
 
 /* Dump insn I honoring FLAGS.  */
@@ -463,17 +305,12 @@ dump_insn_1 (insn_t i, int flags)
 {
   int all;
 
-  if (!print_block)
-    return;
-
   all = (flags & 1) | dump_all;
   if (all)
     flags |= DUMP_INSN_ALL;
 
-  line_start ();
-
   if (!sched_dump_to_dot_p)
-    print ("(");
+    sel_print ("(");
 
   if (flags & DUMP_INSN_ASM_P)
     flags = flags;
@@ -484,21 +321,21 @@ dump_insn_1 (insn_t i, int flags)
   if (flags & DUMP_INSN_EXPR)
     {
       dump_expr_1 (INSN_EXPR (i), dump_expr_flags | all);
-      print (";");
+      sel_print (";");
     }
   else if (flags & DUMP_INSN_PATTERN)
     {
       dump_insn_rtx_1 (i, DUMP_INSN_RTX_PATTERN | all);
-      print (";");
+      sel_print (";");
     }
   else if (flags & DUMP_INSN_UID)
-    print ("uid:%d;", INSN_UID (i));
+    sel_print ("uid:%d;", INSN_UID (i));
 
   if (flags & DUMP_INSN_AV)
     flags = flags;
 
   if (flags & DUMP_INSN_SEQNO)
-    print ("seqno:%d;", INSN_SEQNO (i));
+    sel_print ("seqno:%d;", INSN_SEQNO (i));
 
   if (flags & DUMP_INSN_AFTER_STALL_P)
     flags = flags;
@@ -508,17 +345,12 @@ dump_insn_1 (insn_t i, int flags)
       int cycle = INSN_SCHED_CYCLE (i);
 
       if (cycle != 0)
-	print ("cycle:%d;", cycle);
+	sel_print ("cycle:%d;", cycle);
     }
 
   if (!sched_dump_to_dot_p)
-    print (")");
-
-  line_finish ();
+    sel_print (")");
 }
-
-/* Controls how an insn should be dumped.  It can be changed from debugger.  */
-static int dump_insn_flags = (DUMP_INSN_EXPR | DUMP_INSN_SCHED_CYCLE);
 
 /* Dump insn I with default flags.  */
 void
@@ -527,113 +359,83 @@ dump_insn (insn_t i)
   dump_insn_1 (i, dump_insn_flags);
 }
 
-static int debug_insn_flags = 1;
-
 void
 debug_insn (insn_t insn)
 {
   switch_dump ();
   dump_insn_1 (insn, debug_insn_flags);
+  sel_print ("\n");
   switch_dump ();
-}
-
-/* Dump used regs from USED_REGS bitmap.  */
-void
-dump_used_regs (bitmap used_regs)
-{
-  if (print_block)
-    {
-      line_start ();
-      bitmap_print (sched_dump, used_regs, "Used regs: { ", " }");
-      line_finish ();
-    }
 }
 
 /* Dumps av_set AV.  */
 void
 dump_av_set (av_set_t av)
 {
-  if (print_block)
+  av_set_iterator i;
+  expr_t expr;
+  
+  if (!sched_dump_to_dot_p)
+    sel_print ("{");
+  
+  FOR_EACH_EXPR (expr, i, av)
     {
-      av_set_iterator i;
-      rhs_t rhs;
-
-      line_start ();
-
+      dump_expr (expr);
       if (!sched_dump_to_dot_p)
-	print ("{");
-
-      FOR_EACH_RHS (rhs, i, av)
-        {
-          dump_rhs (rhs);
-	  if (!sched_dump_to_dot_p)
-	    print (" ");
-	  else
-	    print ("\n");
-        }
-
-      if (!sched_dump_to_dot_p)
-	print ("}");
-
-      line_finish ();
+        sel_print (" ");
+      else
+        sel_print ("\n");
     }
+  
+  if (!sched_dump_to_dot_p)
+    sel_print ("}");
 }
 
 /* Dumps lvset LV.  */
 void
 dump_lv_set (regset lv)
 {
-  if (print_block)
+  sel_print ("{");
+
+  /* This code was adapted from flow.c: dump_regset ().  */
+  if (lv == NULL)
+    sel_print ("nil");
+  else
     {
-      line_start ();
-      print ("{");
-
-      /* This code was adapted from flow.c: dump_regset ().  */
-      if (lv == NULL)
-	print ("nil");
-      else
-	{
-	  unsigned i;
-	  reg_set_iterator rsi;
-	  int count = 0;
-
-	  EXECUTE_IF_SET_IN_REG_SET (lv, 0, i, rsi)
-	    {
-	      print (" %d", i);
-	      if (i < FIRST_PSEUDO_REGISTER)
-		{
-		  print (" [%s]", reg_names[i]);
-		  ++count;
-		}
-
-	      ++count;
-
-	      if (sched_dump_to_dot_p && count == 12)
-		{
-		  count = 0;
-		  print ("\n");
-		}
-	    }
-	}
-
-      print ("}");
-      line_finish ();
+      unsigned i;
+      reg_set_iterator rsi;
+      int count = 0;
+      
+      EXECUTE_IF_SET_IN_REG_SET (lv, 0, i, rsi)
+        {
+          sel_print (" %d", i);
+          if (i < FIRST_PSEUDO_REGISTER)
+            {
+              sel_print (" [%s]", reg_names[i]);
+              ++count;
+            }
+          
+          ++count;
+          
+          if (sched_dump_to_dot_p && count == 12)
+            {
+              count = 0;
+              sel_print ("\n");
+            }
+        }
     }
+  
+  sel_print ("}\n");
 }
 
 /* Dumps a list of instructions pointed to by P.  */
 static void
 dump_ilist (ilist_t p)
 {
-  if (print_block)
+  while (p)
     {
-      line_start ();
-      while (p)
-        {
-          dump_insn (ILIST_INSN (p));
-          p = ILIST_NEXT (p);
-        }
-      line_finish ();
+      dump_insn (ILIST_INSN (p));
+      p = ILIST_NEXT (p);
     }
 }
 
@@ -641,18 +443,13 @@ dump_ilist (ilist_t p)
 void
 dump_blist (blist_t bnds)
 {
-  if (print_block)
+  for (; bnds; bnds = BLIST_NEXT (bnds))
     {
-      line_start ();
-      for (; bnds; bnds = BLIST_NEXT (bnds))
-        {
-          bnd_t bnd = BLIST_BND (bnds);
-
-          print ("[to: %d; ptr: ", INSN_UID (BND_TO (bnd)));
-          dump_ilist (BND_PTR (bnd));
-          print ("] ");
-        }
-      line_finish ();
+      bnd_t bnd = BLIST_BND (bnds);
+      
+      sel_print ("[to: %d; ptr: ", INSN_UID (BND_TO (bnd)));
+      dump_ilist (BND_PTR (bnd));
+      sel_print ("] ");
     }
 }
 
@@ -660,16 +457,11 @@ dump_blist (blist_t bnds)
 void
 dump_flist (flist_t l)
 {
-  if (print_block)
+  while (l)
     {
-      line_start ();
-      while (l)
-        {
-          dump_insn_1 (FENCE_INSN (FLIST_FENCE (l)), dump_flist_insn_flags);
-          print (" ");
-          l = FLIST_NEXT (l);
-        }
-      line_finish ();
+      dump_insn_1 (FENCE_INSN (FLIST_FENCE (l)), dump_flist_insn_flags);
+      sel_print (" ");
+      l = FLIST_NEXT (l);
     }
 }
 
@@ -677,19 +469,14 @@ dump_flist (flist_t l)
 void
 dump_insn_vector (rtx_vec_t succs)
 {
-  if (print_block)
-    {
-      int i;
-      rtx succ;
-
-      line_start ();
-      for (i = 0; VEC_iterate (rtx, succs, i, succ); i++)
-        if (succ)
-          dump_insn (succ);
-        else
-          print ("NULL ");
-      line_finish ();
-    }
+  int i;
+  rtx succ;
+  
+  for (i = 0; VEC_iterate (rtx, succs, i, succ); i++)
+    if (succ)
+      dump_insn (succ);
+    else
+      sel_print ("NULL ");
 }
 
 /* Dumps a hard reg set SET to FILE using PREFIX. */
@@ -702,21 +489,16 @@ print_hard_reg_set (FILE *file, const char *prefix, HARD_REG_SET set)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (TEST_HARD_REG_BIT (set, i))
-	fprintf (stderr, "%d ", i);
+	fprintf (file, "%d ", i);
     }
-  fprintf (stderr, "}\n");
+  fprintf (file, "}\n");
 }
 
 /* Dumps a hard reg set SET using PREFIX.  */
 void
 dump_hard_reg_set (const char *prefix, HARD_REG_SET set)
 {
-  if (print_block)
-    {
-      line_start ();
-      print_hard_reg_set (sched_dump, prefix, set);
-      line_finish ();
-    }
+  print_hard_reg_set (sched_dump, prefix, set);
 }
 
 /* Pretty print INSN.  This is used as a hook.  */
@@ -1002,20 +784,6 @@ sel_dump_cfg_2 (FILE *f, int flags)
 	    fprintf (f, "LV_SET needs update");
 	}
 
-      if (flags & SEL_DUMP_CFG_BB_LIVE)
-	{
-	  regset rs;
-
-	  fprintf (f, "|");
-
-	  rs = df_get_live_in (bb);
-
-	  if (rs != NULL)
-	    dump_lv_set (rs);
-	  else
-	    fprintf (f, "!!! Wrong live_at_start");
-	}
-
       if (full_p
 	  && (flags & SEL_DUMP_CFG_BB_INSNS))
 	{
@@ -1027,20 +795,6 @@ sel_dump_cfg_2 (FILE *f, int flags)
 
 	      insn = NEXT_INSN (insn);
 	    }
-	}
-
-      if (flags & SEL_DUMP_CFG_BB_LIVE)
-	{
-	  regset rs;
-
-	  fprintf (f, "|");
-
-	  rs = df_get_live_out (bb);
-
-	  if (rs != NULL)
-	    dump_lv_set (rs);
-	  else
-	    fprintf (f, "!!! Wrong live_at_end");
 	}
 
       fprintf (f, "}\"];\n");
@@ -1094,7 +848,7 @@ sel_dump_cfg_1 (const char *tag, int flags)
 
 /* Setup cfg dumping flags.  */
 void
-setup_dump_cfg_params (bool pipelining_p)
+setup_dump_cfg_params (void)
 {
   int dump_flags = PARAM_VALUE (PARAM_SELSCHED_DUMP_CFG_FLAGS);
 
@@ -1105,13 +859,6 @@ setup_dump_cfg_params (bool pipelining_p)
 
   sel_dump_cfg_p = (flag_sel_sched_dump_cfg != 0);
   sel_debug_cfg_root_postfix = sel_debug_cfg_root_postfix_default;
-
-  sel_pipelining_verbose_p = (flag_sel_sched_pipelining_verbose != 0);
-  if (pipelining_p && sel_pipelining_verbose_p)
-    {
-      sel_dump_cfg_p = true;
-      sel_debug_cfg_root_postfix = main_input_filename;
-    }
 }
 
 /* Dump a cfg region to the file specified to by TAG with default flags.  */
@@ -1151,7 +898,6 @@ block_for_insn (rtx insn)
 {
   return BLOCK_FOR_INSN (insn);
 }
-
 
 av_set_t
 bb_av_set (basic_block bb)
@@ -1276,133 +1022,6 @@ mem_test (int n)
   free (p);
 }
 
-/* Find a loop in the instruction stream.  */
-bool
-debug_find_insn_loop (void)
-{
-  sbitmap insn_uids;
-  insn_t insn;
-  bool res = false;
-
-  insn_uids = sbitmap_alloc (get_max_uid () + 1);
-  sbitmap_zero (insn_uids);
-
-  for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
-    {
-      insn_t prev = PREV_INSN (insn);
-      insn_t next = NEXT_INSN (insn);
-
-      if ((prev && NEXT_INSN (prev) != insn)
-	  || (next && PREV_INSN (next) != insn))
-	{
-	  fprintf (stderr, "wrong!!!\n");
-	  res = true;
-	  break;
-	}
-
-      if (TEST_BIT (insn_uids, INSN_UID (insn)))
-	{
-	  fprintf (stderr, "loop!!!\n");
-	  res = true;
-	  break;
-	}
-
-      SET_BIT (insn_uids, INSN_UID (insn));
-    }
-
-  sbitmap_free (insn_uids);
-
-  return res;
-}
-
-/* Find unreachable basic blocks.  */
-bool
-debug_find_unreachable_blocks (void)
-{
-  int *pre_order = NULL;
-  int *rev_post_order = NULL;
-  edge_iterator *stack;
-  int sp;
-  int pre_order_num = 0;
-  int rev_post_order_num = n_basic_blocks - 1;
-  sbitmap visited;
-  basic_block bb;
-
-  /* Allocate stack for back-tracking up CFG.  */
-  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
-  sp = 0;
-
-  rev_post_order_num -= NUM_FIXED_BLOCKS;
-
-  /* Allocate bitmap to track nodes that have been visited.  */
-  visited = sbitmap_alloc (last_basic_block);
-
-  /* None of the nodes in the CFG have been visited yet.  */
-  sbitmap_zero (visited);
-
-  /* Push the first edge on to the stack.  */
-  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
-
-  while (sp)
-    {
-      edge_iterator ei;
-      basic_block src;
-      basic_block dest;
-
-      /* Look at the edge on the top of the stack.  */
-      ei = stack[sp - 1];
-      src = ei_edge (ei)->src;
-      dest = ei_edge (ei)->dest;
-
-      /* Check if the edge destination has been visited yet.  */
-      if (dest != EXIT_BLOCK_PTR && ! TEST_BIT (visited, dest->index))
-	{
-	  /* Mark that we have visited the destination.  */
-	  SET_BIT (visited, dest->index);
-
-	  if (pre_order)
-	    pre_order[pre_order_num] = dest->index;
-
-	  pre_order_num++;
-
-	  if (EDGE_COUNT (dest->succs) > 0)
-	    /* Since the DEST node has been visited for the first
-	       time, check its successors.  */
-	    stack[sp++] = ei_start (dest->succs);
-	  else if (rev_post_order)
-	    /* There are no successors for the DEST node so assign
-	       its reverse completion number.  */
-	    rev_post_order[rev_post_order_num--] = dest->index;
-	}
-      else
-	{
-	  if (ei_one_before_end_p (ei) && src != ENTRY_BLOCK_PTR
-	      && rev_post_order)
-	    /* There are no more successors for the SRC node
-	       so assign its reverse completion number.  */
-	    rev_post_order[rev_post_order_num--] = src->index;
-
-	  if (!ei_one_before_end_p (ei))
-	    ei_next (&stack[sp - 1]);
-	  else
-	    sp--;
-	}
-    }
-
-  free (stack);
-
-  FOR_EACH_BB (bb)
-    if (!TEST_BIT (visited, bb->index))
-      fprintf (stderr, "Unreachable: %d\n", bb->index);
-
-  sbitmap_free (visited);
-
-  /* The number of nodes visited should be the number of blocks minus
-     the entry and exit blocks which are not visited here.  */
-
-  return !(pre_order_num == n_basic_blocks - NUM_FIXED_BLOCKS);
-}
-
 /* Helper function for in_range_p.  */
 static int in_range_p_1 (int val, const char *expr, int i1, int i2, bool *err)
 {
@@ -1493,26 +1112,6 @@ sel_sched_fix_param (const char *param, const char *val)
     warning (0, "sel_sched_fix_param: unknown param: %s", param);
 }
       
-/* Returns whther AV contains rhs which insn uid equals to INSN_UID.  */
-bool
-av_set_contains_insn_with_uid (av_set_t av, int insn_uid)
-{
-  av_set_iterator i;
-  rhs_t rhs;
-
-  FOR_EACH_RHS (rhs, i, av)
-    if (INSN_UID (EXPR_INSN_RTX (rhs)) == insn_uid)
-      return true;
-
-  return false;
-}
-
-av_set_t
-av_set_for_bb_n (int n)
-{
-  return BB_AV_SET (BASIC_BLOCK (n));
-}
-
 /* The file name is either copied from the SEL_STAT_FILE variable, or generated
    from the current time.  If the environment variable is set, then
    all the statistics will be written to the single file, otherwise

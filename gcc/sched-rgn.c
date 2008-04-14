@@ -2914,7 +2914,7 @@ schedule_region (int rgn)
 /* Initialize data structures for region scheduling.  */
 
 void
-sched_rgn_init (bool single_blocks_p, bool ebbs_p)
+sched_rgn_init (bool single_blocks_p)
 {
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
@@ -2929,12 +2929,11 @@ sched_rgn_init (bool single_blocks_p, bool ebbs_p)
 
   /* Compute regions for scheduling.  */
   if (single_blocks_p
-      || ebbs_p
       || n_basic_blocks == NUM_FIXED_BLOCKS + 1
       || !flag_schedule_interblock
       || is_cfg_nonregular ())
     {
-      find_single_block_region (SEL_SCHED_P ? true : ebbs_p);
+      find_single_block_region (SEL_SCHED_P);
     }
   else
     {
@@ -3200,7 +3199,7 @@ schedule_insns (void)
   rgn_setup_sched_infos ();
 
   haifa_sched_init ();
-  sched_rgn_init (reload_completed, false);
+  sched_rgn_init (reload_completed);
 
   bitmap_initialize (&not_in_df, 0);
   bitmap_clear (&not_in_df);

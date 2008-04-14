@@ -62,7 +62,7 @@ extern int *ebb_head;
 extern int current_nr_blocks;
 extern int current_blocks;
 
-extern void sched_rgn_init (bool, bool);
+extern void sched_rgn_init (bool);
 extern void sched_rgn_finish (void);
 extern void rgn_setup_region (int);
 extern bool sched_rgn_local_preinit (int);

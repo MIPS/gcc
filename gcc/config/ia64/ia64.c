@@ -5275,9 +5275,6 @@ ia64_override_options (void)
     align_functions = 64;
   if (align_loops <= 0)
     align_loops = 32;
-
-  flag_sel_sched_renaming = mflag_sel_sched_renaming;
-  flag_sel_sched_substitution = mflag_sel_sched_substitution;
 }
 
 /* Initialize the record of emitted frame related registers.  */
@@ -7099,13 +7096,8 @@ ia64_set_sched_flags (spec_info_t spec_info)
 		spec_info->flags |= SEL_SCHED_SPEC_DONT_CHECK_CONTROL;
 	    }
 
-	  if (mflag_sched_spec_verbose)
-	    {
-	      if (sched_verbose >= 1)
-		spec_info->dump = sched_dump;
-	      else
-		spec_info->dump = stderr;
-	    }
+	  if (sched_verbose >= 1)
+	    spec_info->dump = sched_dump;
 	  else
 	    spec_info->dump = 0;
 	  
@@ -9108,7 +9100,6 @@ ia64_reorg (void)
     split_all_insns ();
 
   if (optimize && ia64_flag_schedule_insns2
-      && (!flag_selective_scheduling2 || flag_schedule_emulate_haifa)
       && dbg_cnt (ia64_sched2))
     {
       timevar_push (TV_SCHED2);
@@ -9221,15 +9212,7 @@ ia64_reorg (void)
       timevar_pop (TV_SCHED2);
     }
   else
-    {
-      if (flag_selective_scheduling2 && optimize)
-        {
-          gcc_assert (!flag_schedule_emulate_haifa);
-          selective_scheduling_run ();
-        }
-
       emit_all_insn_group_barriers (dump_file);
-    }
 
   df_analyze ();
  

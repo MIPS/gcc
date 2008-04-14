@@ -172,9 +172,6 @@ struct _expr
 typedef struct _expr expr_def;
 typedef expr_def *expr_t;
 
-/* Obsolete.  */
-typedef expr_t rhs_t;
-
 #define EXPR_VINSN(EXPR) ((EXPR)->vinsn)
 #define EXPR_INSN_RTX(EXPR) (VINSN_INSN_RTX (EXPR_VINSN (EXPR)))
 #define EXPR_PATTERN(EXPR) (VINSN_PATTERN (EXPR_VINSN (EXPR)))
@@ -196,15 +193,6 @@ typedef expr_t rhs_t;
 #define EXPR_NEEDS_SPEC_CHECK_P(EXPR) ((EXPR)->needs_spec_check_p)
 #define EXPR_WAS_SUBSTITUTED(EXPR) ((EXPR)->was_substituted)
 #define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
-
-/* Obsolete. */
-#define RHS_VINSN(RHS) ((RHS)->vinsn)
-#define RHS_INSN(RHS) (VINSN_INSN (RHS_VINSN (RHS)))
-#define RHS_PATTERN(RHS) (VINSN_PATTERN (RHS_VINSN (RHS)))
-#define RHS_SPEC(RHS) ((RHS)->spec)
-#define RHS_PRIORITY(RHS) ((RHS)->priority)
-#define RHS_DEST(RHS) (VINSN_LHS (RHS_VINSN (RHS))) 
-#define RHS_SCHED_TIMES(RHS) ((RHS)->sched_times)
 
 /* Insn definition for list of original insns in find_used_regs.  */
 struct _def
@@ -507,15 +495,15 @@ typedef _xlist_iterator ilist_iterator;
 
 /* Av set iterators.  */
 typedef _list_iterator av_set_iterator;
-#define FOR_EACH_RHS(RHS, I, AV) _FOR_EACH (rhs, (RHS), (I), (AV))
-#define FOR_EACH_RHS_1(RHS, I, AV) _FOR_EACH_1 (rhs, (RHS), (I), (AV))
+#define FOR_EACH_EXPR(EXPR, I, AV) _FOR_EACH (expr, (EXPR), (I), (AV))
+#define FOR_EACH_EXPR_1(EXPR, I, AV) _FOR_EACH_1 (expr, (EXPR), (I), (AV))
 
 static bool
-_list_iter_cond_rhs (av_set_t av, rhs_t *rhsp)
+_list_iter_cond_expr (av_set_t av, expr_t *exprp)
 {
   if (av)
     {
-      *rhsp = _AV_SET_EXPR (av);
+      *exprp = _AV_SET_EXPR (av);
       return true;
     }
 
@@ -608,7 +596,7 @@ struct vinsn_def
   rtx insn_rtx;
 
   /* Its description.  */
-  idata_t id;
+  struct idata_def id;
 
   /* Hash of vinsn.  It is computed either from pattern or from rhs using
      hash_rtx.  It is not placed in ID for faster compares.  */
@@ -629,10 +617,8 @@ struct vinsn_def
 
 #define VINSN_INSN_RTX(VI) ((VI)->insn_rtx)
 #define VINSN_PATTERN(VI) (PATTERN (VINSN_INSN_RTX (VI)))
-/* Obsolete.  */
-#define VINSN_INSN(VI) (VINSN_INSN_RTX (VI))
 
-#define VINSN_ID(VI) ((VI)->id)
+#define VINSN_ID(VI) (&((VI)->id))
 #define VINSN_HASH(VI) ((VI)->hash)
 #define VINSN_HASH_RTX(VI) ((VI)->hash_rtx)
 #define VINSN_TYPE(VI) (IDATA_TYPE (VINSN_ID (VI)))
@@ -682,7 +668,11 @@ struct _sel_insn_data
   /* If (WS_LEVEL == GLOBAL_LEVEL) then AV is empty.  */
   int ws_level;
 
+  /* A number that helps in defining a traversing order for a region.  */
   int seqno;
+
+  /* A liveness data computed above this insn.  */
+  regset live;
 
   /* An INSN_UID bit is set when deps analysis result is already known.  */
   bitmap analyzed_deps;
@@ -718,6 +708,8 @@ struct _sel_insn_data
   /* Speculations that are being checked by this insn.  */
   ds_t spec_checked_ds;
 
+  /* Whether the live set valid or not.  */
+  BOOL_BITFIELD live_valid_p : 1;
   /* Insn is an ASM.  */
   BOOL_BITFIELD asm_p : 1;
 
@@ -750,7 +742,9 @@ extern sel_insn_data_def insn_sid (insn_t);
 #define INSN_TRANSFORMED_INSNS(INSN) (SID (INSN)->transformed_insns)
 
 #define INSN_EXPR(INSN) (&SID (INSN)->expr)
-#define INSN_VINSN(INSN) (RHS_VINSN (INSN_EXPR (INSN)))
+#define INSN_LIVE(INSN) (SID (INSN)->live)
+#define INSN_LIVE_VALID_P(INSN) (SID (INSN)->live_valid_p)
+#define INSN_VINSN(INSN) (EXPR_VINSN (INSN_EXPR (INSN)))
 #define INSN_TYPE(INSN) (VINSN_TYPE (INSN_VINSN (INSN)))
 #define INSN_SIMPLEJUMP_P(INSN) (INSN_TYPE (INSN) == PC)
 #define INSN_LHS(INSN) (VINSN_LHS (INSN_VINSN (INSN)))
@@ -1488,7 +1482,7 @@ extern void vinsn_attach (vinsn_t);
 extern void vinsn_detach (vinsn_t);
 
 
-/* RHS functions.  */
+/* EXPR functions.  */
 extern bool vinsns_correlate_as_rhses_p (vinsn_t, vinsn_t);
 extern void copy_expr (expr_t, expr_t);
 extern void copy_expr_onside (expr_t, expr_t);
@@ -1506,9 +1500,9 @@ extern void mark_unavailable_targets (av_set_t, av_set_t, regset);
 extern int speculate_expr (expr_t, ds_t);
 
 /* Av set functions.  */
-extern void av_set_add (av_set_t *, rhs_t);
+extern void av_set_add (av_set_t *, expr_t);
 extern void av_set_iter_remove (av_set_iterator *);
-extern rhs_t av_set_lookup (av_set_t, vinsn_t);
+extern expr_t av_set_lookup (av_set_t, vinsn_t);
 extern expr_t merge_with_other_exprs (av_set_t *, av_set_iterator *, expr_t);
 extern bool av_set_is_in_p (av_set_t, vinsn_t);
 extern av_set_t av_set_copy (av_set_t);
@@ -1516,7 +1510,7 @@ extern void av_set_union_and_clear (av_set_t *, av_set_t *, insn_t);
 extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset, insn_t);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one_nonspec (av_set_t *);
-extern rhs_t av_set_element (av_set_t, int);
+extern expr_t av_set_element (av_set_t, int);
 extern void av_set_substract_cond_branches (av_set_t *);
 extern void av_set_split_usefulness (av_set_t, int, int);
 extern void av_set_intersect (av_set_t *, av_set_t);
@@ -1530,9 +1524,9 @@ extern regset compute_live (insn_t);
 
 /* Dependence analysis functions.  */
 extern void sel_clear_has_dependence (void);
-extern ds_t has_dependence_p (rhs_t, insn_t, ds_t **);
+extern ds_t has_dependence_p (expr_t, insn_t, ds_t **);
 
-extern bool tick_check_p (rhs_t, deps_t, fence_t);
+extern bool tick_check_p (expr_t, deps_t, fence_t);
 
 /* Functions to work with insns.  */
 extern bool lhs_of_insn_equals_to_dest_p (insn_t, rtx);

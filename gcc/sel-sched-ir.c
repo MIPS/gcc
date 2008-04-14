@@ -1376,14 +1376,11 @@ lhs_and_rhs_separable_p (rtx lhs, rtx rhs)
 static void
 vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 {
-  idata_t id = xcalloc (1, sizeof (*id));
-
-  VINSN_INSN (vi) = insn;
+  VINSN_INSN_RTX (vi) = insn;
 
   vi->cost = -1;
 
-  deps_init_id (id, insn, force_unique_p);
-  VINSN_ID (vi) = id;
+  deps_init_id (VINSN_ID (vi), insn, force_unique_p);
   
   /* Hash vinsn depending on whether it is separable or not.  */
   if (VINSN_SEPARABLE_P (vi))
@@ -1419,7 +1416,7 @@ void
 vinsn_attach (vinsn_t vi)
 {
   /* Assert that VI is not pending for deletion.  */
-  gcc_assert (VINSN_INSN (vi));
+  gcc_assert (VINSN_INSN_RTX (vi));
 
   VINSN_COUNT (vi)++;
 }
@@ -1429,7 +1426,7 @@ vinsn_attach (vinsn_t vi)
 static vinsn_t
 vinsn_create (insn_t insn, bool force_unique_p)
 {
-  vinsn_t vi = xmalloc (sizeof (*vi));
+  vinsn_t vi = xcalloc (1, sizeof (*vi));
 
   vinsn_init (vi, insn, force_unique_p);
 
@@ -1446,7 +1443,6 @@ vinsn_delete (vinsn_t vi)
   return_regset_to_pool (VINSN_REG_USES (vi));
   return_regset_to_pool (VINSN_REG_CLOBBERS (vi));
 
-  free (VINSN_ID (vi));
   free (vi);
 }
 
@@ -1470,7 +1466,7 @@ vinsn_cond_branch_p (vinsn_t vi)
   if (!VINSN_UNIQUE_P (vi))
     return false;
 
-  insn = VINSN_INSN (vi);
+  insn = VINSN_INSN_RTX (vi);
   if (BB_END (BLOCK_FOR_INSN (insn)) != insn)
     return false;
 
@@ -1509,7 +1505,7 @@ sel_vinsn_cost (vinsn_t vi)
 
   if (cost < 0)
     {
-      cost = sel_insn_rtx_cost (VINSN_INSN (vi));
+      cost = sel_insn_rtx_cost (VINSN_INSN_RTX (vi));
       vi->cost = cost;
     }
 
@@ -1565,7 +1561,7 @@ sel_gen_recovery_insn_from_rtx_after (rtx pattern, expr_t expr, int seqno,
    We simplify insns later, after scheduling region in 
    simplify_changed_insns.  */
 insn_t
-sel_gen_insn_from_expr_after (rhs_t expr, vinsn_t vinsn, int seqno, 
+sel_gen_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno, 
                               insn_t after)
 {
   expr_t emit_expr;
@@ -1725,7 +1721,7 @@ vinsns_correlate_as_rhses_p (vinsn_t x, vinsn_t y)
     return vinsn_equal_p (x, y);
 }
 
-/* Initialize RHS.  */
+/* Initialize EXPR.  */
 static void
 init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
 	   int sched_times, int orig_bb_index, ds_t spec_done_ds,
@@ -1756,7 +1752,7 @@ init_expr (expr_t expr, vinsn_t vi, int spec, int use, int priority,
   EXPR_NEEDS_SPEC_CHECK_P (expr) = needs_spec_check_p;
 }
 
-/* Make a copy of the rhs FROM into the rhs TO.  */
+/* Make a copy of the expr FROM into the expr TO.  */
 void
 copy_expr (expr_t to, expr_t from)
 {
@@ -1798,7 +1794,7 @@ copy_expr_onside (expr_t to, expr_t from)
 	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from));
 }
 
-/* Merge bits of FROM rhs to TO rhs.  When SPLIT_POINT is not NULL,
+/* Merge bits of FROM expr to TO expr.  When SPLIT_POINT is not NULL,
    this is done along different paths.  */
 void
 merge_expr_data (expr_t to, expr_t from, insn_t split_point)
@@ -1806,18 +1802,18 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   int i;
   expr_history_def *phist;
   
-  /* For now, we just set the spec of resulting rhs to be minimum of the specs
-     of merged rhses.  */
-  if (RHS_SPEC (to) > RHS_SPEC (from))
-    RHS_SPEC (to) = RHS_SPEC (from);
+  /* For now, we just set the spec of resulting expr to be minimum of the specs
+     of merged exprs.  */
+  if (EXPR_SPEC (to) > EXPR_SPEC (from))
+    EXPR_SPEC (to) = EXPR_SPEC (from);
 
   EXPR_USEFULNESS (to) += EXPR_USEFULNESS (from);
 
-  if (RHS_PRIORITY (to) < RHS_PRIORITY (from))
-    RHS_PRIORITY (to) = RHS_PRIORITY (from);
+  if (EXPR_PRIORITY (to) < EXPR_PRIORITY (from))
+    EXPR_PRIORITY (to) = EXPR_PRIORITY (from);
 
-  if (RHS_SCHED_TIMES (to) > RHS_SCHED_TIMES (from))
-    RHS_SCHED_TIMES (to) = RHS_SCHED_TIMES (from);
+  if (EXPR_SCHED_TIMES (to) > EXPR_SCHED_TIMES (from))
+    EXPR_SCHED_TIMES (to) = EXPR_SCHED_TIMES (from);
 
   if (EXPR_TARGET_AVAILABLE (to) < 0  
       || EXPR_TARGET_AVAILABLE (from) < 0)
@@ -1914,7 +1910,7 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
   }
 }
 
-/* Merge bits of FROM rhs to TO rhs.  Vinsns in the rhses should correlate.  */
+/* Merge bits of FROM expr to TO expr.  Vinsns in the exprs should correlate.  */
 void
 merge_expr (expr_t to, expr_t from, insn_t split_point)
 {
@@ -1935,21 +1931,21 @@ merge_expr (expr_t to, expr_t from, insn_t split_point)
   gcc_assert (EXPR_USEFULNESS (to) <= REG_BR_PROB_BASE);
 }
 
-/* Clear the information of this RHS.  */
+/* Clear the information of this EXPR.  */
 void
-clear_expr (rhs_t rhs)
+clear_expr (expr_t expr)
 {
  
-  vinsn_detach (RHS_VINSN (rhs));
-  RHS_VINSN (rhs) = NULL;
+  vinsn_detach (EXPR_VINSN (expr));
+  EXPR_VINSN (expr) = NULL;
 
-  if (EXPR_HISTORY_OF_CHANGES (rhs))
+  if (EXPR_HISTORY_OF_CHANGES (expr))
     {
       unsigned i;
       expr_history_def *phist;
 
       for (i = 0; 
-           VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (rhs), 
+           VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (expr), 
                       i, phist);
            i++)
         {
@@ -1957,8 +1953,8 @@ clear_expr (rhs_t rhs)
           vinsn_detach (phist->new_expr_vinsn);
         }
       
-      VEC_free (expr_history_def, heap, EXPR_HISTORY_OF_CHANGES (rhs));
-      EXPR_HISTORY_OF_CHANGES (rhs) = NULL;
+      VEC_free (expr_history_def, heap, EXPR_HISTORY_OF_CHANGES (expr));
+      EXPR_HISTORY_OF_CHANGES (expr) = NULL;
     }
 }
 
@@ -2056,7 +2052,7 @@ speculate_expr (expr_t expr, ds_t ds)
 rtx
 expr_dest_reg (expr_t expr)
 {
-  rtx dest = VINSN_LHS (RHS_VINSN (expr));
+  rtx dest = VINSN_LHS (EXPR_VINSN (expr));
 
   if (dest != NULL_RTX && REG_P (dest))
     return dest;
@@ -2082,7 +2078,7 @@ mark_unavailable_targets (av_set_t join_set, av_set_t av_set, regset lv_set)
   expr_t expr;
   av_set_iterator avi;
 
-  FOR_EACH_RHS (expr, avi, join_set)
+  FOR_EACH_EXPR (expr, avi, join_set)
     if (av_set_lookup (av_set, EXPR_VINSN (expr)) == NULL)
       set_unavailable_target_for_expr (expr, lv_set);
 }
@@ -2115,75 +2111,75 @@ av_set_iter_remove (av_set_iterator *ip)
   _list_iter_remove (ip);
 }
 
-/* Search for an rhs in SET, such that it's equivalent to SOUGHT_VINSN in the
-   sense of vinsns_correlate_as_rhses_p function. Return NULL if no such rhs is
+/* Search for an expr in SET, such that it's equivalent to SOUGHT_VINSN in the
+   sense of vinsns_correlate_as_rhses_p function. Return NULL if no such expr is
    in SET was found.  */
-rhs_t
+expr_t
 av_set_lookup (av_set_t set, vinsn_t sought_vinsn)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
 
-  FOR_EACH_RHS (rhs, i, set)
+  FOR_EACH_EXPR (expr, i, set)
     {
-      vinsn_t rhs_vinsn = RHS_VINSN (rhs);
+      vinsn_t expr_vinsn = EXPR_VINSN (expr);
 
-      if (rhs_vinsn == sought_vinsn
-	  || vinsns_correlate_as_rhses_p (rhs_vinsn, sought_vinsn))
-	return rhs;
+      if (expr_vinsn == sought_vinsn
+	  || vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
+	return expr;
     }
 
   return NULL;
 }
 
-/* Same, but also remove the RHS found.   */
-static rhs_t
+/* Same, but also remove the EXPR found.   */
+static expr_t
 av_set_lookup_and_remove (av_set_t *setp, vinsn_t sought_vinsn)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
 
-  FOR_EACH_RHS_1 (rhs, i, setp)
+  FOR_EACH_EXPR_1 (expr, i, setp)
     {
-      vinsn_t rhs_vinsn = RHS_VINSN (rhs);
+      vinsn_t expr_vinsn = EXPR_VINSN (expr);
 
-      if (rhs_vinsn == sought_vinsn
-	  || vinsns_correlate_as_rhses_p (rhs_vinsn, sought_vinsn))
+      if (expr_vinsn == sought_vinsn
+	  || vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
         {
           _list_iter_remove_nofree (&i);
-          return rhs;
+          return expr;
         }
     }
 
   return NULL;
 }
 
-/* Search for an rhs in SET, such that it's equivalent to SOUGHT_VINSN in the
+/* Search for an expr in SET, such that it's equivalent to SOUGHT_VINSN in the
    sense of vinsns_correlate_as_rhses_p function, but not SOUGHT_VINSN itself.
-   Returns NULL if no such rhs is in SET was found.  Store in LATERP true
+   Returns NULL if no such expr is in SET was found.  Store in LATERP true
    when other expression was found later than this, and false otherwise.  */
-static rhs_t
-av_set_lookup_other_equiv_rhs (av_set_t set, vinsn_t sought_vinsn,
+static expr_t
+av_set_lookup_other_equiv_expr (av_set_t set, vinsn_t sought_vinsn,
                                bool *laterp)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
   bool temp = false;
 
-  FOR_EACH_RHS (rhs, i, set)
+  FOR_EACH_EXPR (expr, i, set)
     {
-      vinsn_t rhs_vinsn = RHS_VINSN (rhs);
+      vinsn_t expr_vinsn = EXPR_VINSN (expr);
 
-      if (rhs_vinsn == sought_vinsn)
+      if (expr_vinsn == sought_vinsn)
         {
           temp = true;
           continue;
         }
 
-      if (vinsns_correlate_as_rhses_p (rhs_vinsn, sought_vinsn))
+      if (vinsns_correlate_as_rhses_p (expr_vinsn, sought_vinsn))
         {
           *laterp = temp;
-          return rhs;
+          return expr;
         }
     }
 
@@ -2197,7 +2193,7 @@ merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
   bool later;
   expr_t expr2;
 
-  expr2 = av_set_lookup_other_equiv_rhs (*avp, EXPR_VINSN (expr), &later);
+  expr2 = av_set_lookup_other_equiv_expr (*avp, EXPR_VINSN (expr), &later);
 
   if (expr2 != NULL)
     {
@@ -2212,8 +2208,6 @@ merge_with_other_exprs (av_set_t *avp, av_set_iterator *ip, expr_t expr)
       EXPR_USEFULNESS (expr2) = REG_BR_PROB_BASE;
       
       av_set_iter_remove (ip);
-      print (" and removed.");
-      
       return expr2;
     }
 
@@ -2231,12 +2225,12 @@ av_set_is_in_p (av_set_t set, vinsn_t vi)
 av_set_t
 av_set_copy (av_set_t set)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
   av_set_t res = NULL;
 
-  FOR_EACH_RHS (rhs, i, set)
-    av_set_add (&res, rhs);
+  FOR_EACH_EXPR (expr, i, set)
+    av_set_add (&res, expr);
 
   return res;
 }
@@ -2246,17 +2240,17 @@ av_set_copy (av_set_t set)
 void
 av_set_union_and_clear (av_set_t *top, av_set_t *fromp, insn_t insn)
 {
-  rhs_t rhs1;
+  expr_t expr1;
   av_set_iterator i;
 
-  /* Delete from TOP all rhses, that present in FROMP.  */
-  FOR_EACH_RHS_1 (rhs1, i, top)
+  /* Delete from TOP all exprs, that present in FROMP.  */
+  FOR_EACH_EXPR_1 (expr1, i, top)
     {
-      rhs_t rhs2 = av_set_lookup (*fromp, RHS_VINSN (rhs1));
+      expr_t expr2 = av_set_lookup (*fromp, EXPR_VINSN (expr1));
 
-      if (rhs2)
+      if (expr2)
 	{
-          merge_expr (rhs2, rhs1, insn);
+          merge_expr (expr2, expr1, insn);
 	  av_set_iter_remove (&i);
 	}
     }
@@ -2272,44 +2266,44 @@ void
 av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
                        regset from_lv_set, insn_t insn)
 {
-  rhs_t rhs1;
+  expr_t expr1;
   av_set_iterator i;
   _list_t *oldlp;
   av_set_t in_both_set = NULL;
 
-  /* Delete from TOP all rhses, that present in FROMP.  */
-  FOR_EACH_RHS_1 (rhs1, i, top)
+  /* Delete from TOP all expres, that present in FROMP.  */
+  FOR_EACH_EXPR_1 (expr1, i, top)
     {
-      rhs_t rhs2 = av_set_lookup_and_remove (fromp, RHS_VINSN (rhs1));
+      expr_t expr2 = av_set_lookup_and_remove (fromp, EXPR_VINSN (expr1));
 
-      if (rhs2)
+      if (expr2)
 	{
           /* It may be that the expressions have different destination 
              registers, in which case we need to check liveness here.  */
-          if (EXPR_SEPARABLE_P (rhs1))
+          if (EXPR_SEPARABLE_P (expr1))
             {
-              int regno1 = (REG_P (EXPR_LHS (rhs1)) 
-                            ? (int) expr_dest_regno (rhs1) : -1);
-              int regno2 = (REG_P (EXPR_LHS (rhs2)) 
-                            ? (int) expr_dest_regno (rhs2) : -1);
+              int regno1 = (REG_P (EXPR_LHS (expr1)) 
+                            ? (int) expr_dest_regno (expr1) : -1);
+              int regno2 = (REG_P (EXPR_LHS (expr2)) 
+                            ? (int) expr_dest_regno (expr2) : -1);
               
               /* ??? We don't have a way to check restrictions for 
                *other* register on the current path, we did it only
                for the current target register.  Give up.  */
               if (regno1 != regno2)
-                EXPR_TARGET_AVAILABLE (rhs2) = -1;
+                EXPR_TARGET_AVAILABLE (expr2) = -1;
             }
-          else if (EXPR_INSN_RTX (rhs1) != EXPR_INSN_RTX (rhs2))
-            EXPR_TARGET_AVAILABLE (rhs2) = -1;
+          else if (EXPR_INSN_RTX (expr1) != EXPR_INSN_RTX (expr2))
+            EXPR_TARGET_AVAILABLE (expr2) = -1;
 
-          merge_expr (rhs2, rhs1, insn);
-          av_set_add_nocopy (&in_both_set, rhs2);
+          merge_expr (expr2, expr1, insn);
+          av_set_add_nocopy (&in_both_set, expr2);
 	  av_set_iter_remove (&i);
 	}
       else
-        /* RHS1 is present in TOP, but not in FROMP.  Check it on 
+        /* EXPR1 is present in TOP, but not in FROMP.  Check it on 
            FROM_LV_SET.  */
-        set_unavailable_target_for_expr (rhs1, from_lv_set);
+        set_unavailable_target_for_expr (expr1, from_lv_set);
     }
 
   /* Save the old pointer to the end of the list.  */
@@ -2317,8 +2311,8 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
 
   /* These expressions are not present in TOP.  Check liveness
      restrictions on TO_LV_SET.  */
-  FOR_EACH_RHS (rhs1, i, *fromp)
-    set_unavailable_target_for_expr (rhs1, to_lv_set);
+  FOR_EACH_EXPR (expr1, i, *fromp)
+    set_unavailable_target_for_expr (expr1, to_lv_set);
 
   /* Connect FROMP and in_both_set to the end of the TOP.  */
   *i.lp = in_both_set;
@@ -2331,10 +2325,10 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
 void
 av_set_clear (av_set_t *setp)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
 
-  FOR_EACH_RHS_1 (rhs, i, setp)
+  FOR_EACH_EXPR_1 (expr, i, setp)
     av_set_iter_remove (&i);
 
   gcc_assert (*setp == NULL);
@@ -2344,15 +2338,15 @@ av_set_clear (av_set_t *setp)
 void
 av_set_leave_one_nonspec (av_set_t *setp)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
   bool has_one_nonspec = false;
 
   /* Keep all speculative exprs, and leave one non-speculative 
      (the first one).  */
-  FOR_EACH_RHS_1 (rhs, i, setp)
+  FOR_EACH_EXPR_1 (expr, i, setp)
     {
-      if (!EXPR_SPEC_DONE_DS (rhs))
+      if (!EXPR_SPEC_DONE_DS (expr))
 	{
   	  if (has_one_nonspec)
 	    av_set_iter_remove (&i);
@@ -2363,15 +2357,15 @@ av_set_leave_one_nonspec (av_set_t *setp)
 }
 
 /* Return the N'th element of the SET.  */
-rhs_t
+expr_t
 av_set_element (av_set_t set, int n)
 {
-  rhs_t rhs;
+  expr_t expr;
   av_set_iterator i;
 
-  FOR_EACH_RHS (rhs, i, set)
+  FOR_EACH_EXPR (expr, i, set)
     if (n-- == 0)
-      return rhs;
+      return expr;
 
   gcc_unreachable ();
   return NULL;
@@ -2382,10 +2376,10 @@ void
 av_set_substract_cond_branches (av_set_t *avp)
 {
   av_set_iterator i;
-  rhs_t rhs;
+  expr_t expr;
 
-  FOR_EACH_RHS_1 (rhs, i, avp)
-    if (vinsn_cond_branch_p (RHS_VINSN (rhs)))
+  FOR_EACH_EXPR_1 (expr, i, avp)
+    if (vinsn_cond_branch_p (EXPR_VINSN (expr)))
       av_set_iter_remove (&i);
 }
 
@@ -2397,7 +2391,7 @@ av_set_split_usefulness (av_set_t av, int prob, int all_prob)
   av_set_iterator i;
   expr_t expr;
 
-  FOR_EACH_RHS (expr, i, av)
+  FOR_EACH_EXPR (expr, i, av)
     EXPR_USEFULNESS (expr) = (all_prob 
                               ? (EXPR_USEFULNESS (expr) * prob) / all_prob
                               : 0);
@@ -2409,10 +2403,10 @@ void
 av_set_intersect (av_set_t *avp, av_set_t av)
 {
   av_set_iterator i;
-  rhs_t rhs;
+  expr_t expr;
 
-  FOR_EACH_RHS_1 (rhs, i, avp)
-    if (av_set_lookup (av, RHS_VINSN (rhs)) == NULL)
+  FOR_EACH_EXPR_1 (expr, i, avp)
+    if (av_set_lookup (av, EXPR_VINSN (expr)) == NULL)
       av_set_iter_remove (&i);
 }
 
@@ -2657,7 +2651,7 @@ static void extend_insn (void);
 static bool
 first_time_insn_init (insn_t insn)
 {
-  return INSN_ANALYZED_DEPS (insn) == NULL;
+  return INSN_LIVE (insn) == NULL;
 }
 
 /* Hash an entry in a transformed_insns hashtable.  */
@@ -2699,6 +2693,10 @@ init_first_time_insn_data (insn_t insn)
      insn.  */
   gcc_assert (first_time_insn_init (insn));
   
+  /* These are needed for nops too.  */
+  INSN_LIVE (insn) = get_regset_from_pool ();
+  INSN_LIVE_VALID_P (insn) = false;
+  
   if (!INSN_NOP_P (insn))
     {
       INSN_ANALYZED_DEPS (insn) = BITMAP_ALLOC (NULL);
@@ -2719,6 +2717,9 @@ free_first_time_insn_data (insn_t insn)
   BITMAP_FREE (INSN_ANALYZED_DEPS (insn));
   BITMAP_FREE (INSN_FOUND_DEPS (insn));
   htab_delete (INSN_TRANSFORMED_INSNS (insn));
+  return_regset_to_pool (INSN_LIVE (insn));
+  INSN_LIVE (insn) = NULL;
+  INSN_LIVE_VALID_P (insn) = false;
 
   /* This is allocated only for bookkeeping insns.  */
   if (INSN_ORIGINATORS (insn))
@@ -2980,7 +2981,7 @@ has_dependence_note_reg_set (int regno)
   struct deps_reg *reg_last = &has_dependence_data.dc->reg_last[regno];
 
   if (!sched_insns_conditions_mutex_p (has_dependence_data.pro,
-				       VINSN_INSN
+				       VINSN_INSN_RTX
 				       (has_dependence_data.con)))
     {
       ds_t *dsp = &has_dependence_data.has_dep_p[has_dependence_data.where];
@@ -3001,7 +3002,7 @@ has_dependence_note_reg_clobber (int regno)
   struct deps_reg *reg_last = &has_dependence_data.dc->reg_last[regno];
 
   if (!sched_insns_conditions_mutex_p (has_dependence_data.pro,
-				       VINSN_INSN
+				       VINSN_INSN_RTX
 				       (has_dependence_data.con)))
     {
       ds_t *dsp = &has_dependence_data.has_dep_p[has_dependence_data.where];
@@ -3021,7 +3022,7 @@ has_dependence_note_reg_use (int regno)
   struct deps_reg *reg_last = &has_dependence_data.dc->reg_last[regno];
 
   if (!sched_insns_conditions_mutex_p (has_dependence_data.pro,
-				       VINSN_INSN
+				       VINSN_INSN_RTX
 				       (has_dependence_data.con)))
     {
       ds_t *dsp = &has_dependence_data.has_dep_p[has_dependence_data.where];
@@ -3056,7 +3057,7 @@ has_dependence_note_mem_dep (rtx mem ATTRIBUTE_UNUSED,
 			     ds_t ds ATTRIBUTE_UNUSED)
 {
   if (!sched_insns_conditions_mutex_p (has_dependence_data.pro,
-				       VINSN_INSN (has_dependence_data.con)))
+				       VINSN_INSN_RTX (has_dependence_data.con)))
     {
       ds_t *dsp = &has_dependence_data.has_dep_p[has_dependence_data.where];
 
@@ -3070,7 +3071,7 @@ has_dependence_note_dep (insn_t pro ATTRIBUTE_UNUSED,
 			 ds_t ds ATTRIBUTE_UNUSED)
 {
   if (!sched_insns_conditions_mutex_p (has_dependence_data.pro,
-				       VINSN_INSN (has_dependence_data.con)))
+				       VINSN_INSN_RTX (has_dependence_data.con)))
     {
       ds_t *dsp = &has_dependence_data.has_dep_p[has_dependence_data.where];
 
@@ -3089,7 +3090,7 @@ sel_mark_hard_insn (rtx insn)
   if (!has_dependence_data.dc || !has_dependence_data.pro)
     return;
 
-  gcc_assert (insn == VINSN_INSN (has_dependence_data.con));
+  gcc_assert (insn == VINSN_INSN_RTX (has_dependence_data.con));
   gcc_assert (has_dependence_data.where == DEPS_IN_INSN);
 
   for (i = 0; i < DEPS_IN_NOWHERE; i++)
@@ -3143,9 +3144,9 @@ sel_clear_has_dependence (void)
     has_dependence_data.has_dep_p[i] = 0;
 }
 
-/* Return nonzero if RHS has is dependent upon PRED.  */
+/* Return nonzero if EXPR has is dependent upon PRED.  */
 ds_t
-has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
+has_dependence_p (expr_t expr, insn_t pred, ds_t **has_dep_pp)
 {
   int i;
   ds_t ds;
@@ -3167,7 +3168,7 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
 
   has_dependence_data.where = DEPS_IN_NOWHERE;
   has_dependence_data.pro = pred;
-  has_dependence_data.con = RHS_VINSN (rhs);
+  has_dependence_data.con = EXPR_VINSN (expr);
   has_dependence_data.dc = dc;
 
   sel_clear_has_dependence ();
@@ -3175,7 +3176,7 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
   /* Now catch all dependencies that would be generated between PRED and
      INSN.  */
   setup_has_dependence_sched_deps_info ();
-  deps_analyze_insn (dc, RHS_INSN (rhs));
+  deps_analyze_insn (dc, EXPR_INSN_RTX (expr));
   has_dependence_data.dc = NULL;
 
   /* When a barrier was found, set DEPS_IN_INSN bits.  */
@@ -3197,8 +3198,8 @@ has_dependence_p (rhs_t rhs, insn_t pred, ds_t **has_dep_pp)
 
 static struct
 {
-  /* An rhs we are currently checking.  */
-  rhs_t rhs;
+  /* An expr we are currently checking.  */
+  expr_t expr;
 
   /* A minimal cycle for its scheduling.  */
   int cycle;
@@ -3212,8 +3213,8 @@ static struct
 static void
 tick_check_dep_with_dw (insn_t pro_insn, ds_t ds, dw_t dw)
 {
-  rhs_t con_rhs = tick_check_data.rhs;
-  insn_t con_insn = RHS_INSN (con_rhs);
+  expr_t con_expr = tick_check_data.expr;
+  insn_t con_insn = EXPR_INSN_RTX (con_expr);
 
   if (con_insn != pro_insn)
     {
@@ -3225,7 +3226,7 @@ tick_check_dep_with_dw (insn_t pro_insn, ds_t ds, dw_t dw)
 	  /* Or PROducer was originally on the next iteration regarding the
 	     CONsumer.  */
 	  || (INSN_SCHED_TIMES (pro_insn)
-	      - RHS_SCHED_TIMES (con_rhs)) > 1)
+	      - EXPR_SCHED_TIMES (con_expr)) > 1)
 	/* Don't count this dependence.  */
 	{
 	  /* ??? This assert fails on a large testcase.  It is not clear
@@ -3302,19 +3303,17 @@ static struct sched_deps_info_def _tick_check_sched_deps_info =
 /* Returns true when VI's insn can be scheduled on the current cycle of 
    FENCE.  That is, all data from possible producers in DC_ORIG is ready.  */
 bool
-tick_check_p (rhs_t rhs, deps_t dc, fence_t fence)
+tick_check_p (expr_t expr, deps_t dc, fence_t fence)
 {
   /* Initialize variables.  */
-  tick_check_data.rhs = rhs;
+  tick_check_data.expr = expr;
   tick_check_data.cycle = 0;
   tick_check_data.seen_true_dep_p = false;
   sched_deps_info = &_tick_check_sched_deps_info;
   
   gcc_assert (!dc->readonly);
   dc->readonly = 1;
-  print ("context: %d %d %d\n", dc->pending_read_list_length,
-         dc->pending_write_list_length, dc->pending_flush_length);
-  deps_analyze_insn (dc, RHS_INSN (rhs));
+  deps_analyze_insn (dc, EXPR_INSN_RTX (expr));
   dc->readonly = 0;
 
   return FENCE_CYCLE (fence) >= tick_check_data.cycle;
@@ -3515,7 +3514,6 @@ sel_remove_insn (insn_t insn)
 	   That can occur when we moving a jump.  */
 	{
 	  gcc_assert (can_merge_blocks_p (bb->prev_bb, bb));
-
 	  sel_merge_blocks (bb->prev_bb, bb);
 	}
     }
@@ -3674,6 +3672,9 @@ finish_insns (void)
   for (i = 0; i < VEC_length (sel_insn_data_def, s_i_d); i++)
     {
       sel_insn_data_def *sid_entry = VEC_index (sel_insn_data_def, s_i_d, i);
+      
+      if (sid_entry->live)
+        return_regset_to_pool (sid_entry->live);
       if (sid_entry->analyzed_deps)
 	{
 	  BITMAP_FREE (sid_entry->analyzed_deps);
@@ -3803,6 +3804,7 @@ init_insn (insn_t insn)
   
   if (first_time_insn_init (insn))
     init_first_time_insn_data (insn);
+  INSN_LIVE_VALID_P (insn) = false;
 }
 
 /* This is used to initialize spurious jumps generated by
@@ -3813,9 +3815,7 @@ init_simplejump (insn_t insn)
   init_expr (INSN_EXPR (insn), vinsn_create (insn, false), 0,
 	     REG_BR_PROB_BASE, 0, 0, 0, 0, 0, 0, NULL, true, false, false, 
 	     false);
-
   INSN_SEQNO (insn) = get_seqno_of_a_pred (insn);
-
   init_first_time_insn_data (insn);
 }
 
@@ -3887,7 +3887,7 @@ sel_finish_new_insns (void)
 int
 vinsn_dfa_cost (vinsn_t vinsn, fence_t fence)
 {
-  rtx insn = VINSN_INSN (vinsn);
+  rtx insn = VINSN_INSN_RTX (vinsn);
 
   if (recog_memoized (insn) < 0)
     {

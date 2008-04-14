@@ -1,5 +1,36 @@
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 
+	* common.opt (flag_sel_sched_emulate_haifa, 
+	flag_sel_sched_pipelining_verbose, flag_sel_sched_verbose, 
+	flag_sel_sched_substitute_inside_insn_group): Kill.  Kill all uses.
+	(flag_sel_sched_single_block_regions, flag_sel_sched_ebb_regions, 
+	flag_sel_sched_reset_tc_on_join): Likewise.
+	* config/ia64/ia64.opt (mflag_sched_spec_verbose, 
+	mflag_sel_sched_renaming, mflag_sel_sched_substitution): Likewise.
+	* params.def (max-pipeline-region-blocks): Set to 15.
+	(max-pipeline-region-insns): Set to 200.
+	(selsched-verbose): Kill.
+	(selsched-max-lookahead): Set to 50.
+	* sel-sched-dump.h (print): Rename to sel_print.  
+	* sel-sched-dump.c (push_indent, pop_indent, push_new_line, pop_new_line,
+	block_start, block_finish, get_print_blocks_num, line_start, 
+	line_finish, free_sel_dump_data): Kill.  Update all uses.
+	(debug_find_insn_loop, debug_find_unreachable_blocks,
+	av_set_contains_insn_with_uid): Kill.
+	* sel-sched-ir.h (rhs_t): Kill.  Change all uses to expr_t.
+	Likewise with accessor macros.
+	(struct vinsn_def): Inline struct idata_def into it.
+	(VINSN_ID): Update.
+	(struct _sel_insn_data): New field live.
+	(INSN_LIVE): New accessor macro.
+	* sel-sched-ir.c (compute_live): Update for INSN_LIVE.
+	(update_data_sets, update_liveness_on_insn, 
+	compute_live_below_insn, update_data_sets,
+	first_time_insn_init, init_first_time_insn_data, 
+	free_first_time_insn_data, init_insn): Likewise.
+
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
 	* genattr.c (main): Output maximal_insn_latency prototype.
 	* genautomata.c (output_default_latencies): New. Factor its code from ... 
 	(output_internal_insn_latency_func): ... here.

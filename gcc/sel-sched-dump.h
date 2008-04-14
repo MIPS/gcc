@@ -143,41 +143,21 @@ extern void sel_prepare_string_for_dot_label (char *);
    When it is off, we are dumping to log.  */
 extern bool sched_dump_to_dot_p;
 
-extern int indent;
-extern bool print_block;
-extern bool new_line;
-#define print_to_dot(...) \
-  do { \
-    int ____j = 1 + 2 * snprintf (NULL, 0, __VA_ARGS__); \
-    char *____s = xmalloc (____j * sizeof (*____s)); \
-    snprintf (____s, ____j, __VA_ARGS__); \
-    sel_prepare_string_for_dot_label (____s); \
-    fprintf (sched_dump, "%s", ____s); \
-    free (____s); \
+#define sel_print_to_dot(...)                           \
+  do {                                                  \
+    int __j = 1 + 2 * snprintf (NULL, 0, __VA_ARGS__);  \
+    char *__s = alloca (__j * sizeof (*__s));           \
+    snprintf (__s, __j, __VA_ARGS__);                   \
+    sel_prepare_string_for_dot_label (__s);             \
+    fprintf (sched_dump, "%s", __s);                    \
   } while (0)
 
-#define print1(...) \
-  do { \
-    if (sched_dump_to_dot_p) \
-      print_to_dot (__VA_ARGS__); \
-    else \
-      fprintf (sched_dump, __VA_ARGS__); \
-  } while (0)
-
-#define print(...)					\
+#define sel_print(...)					\
   do {							\
-    if (print_block)					\
-      {							\
-	int ____i;					\
-							\
-	for (____i = 0; ____i < indent; ____i++)	\
-	  print1 ("  ");			        \
-							\
-	print1 (__VA_ARGS__);		                \
-							\
-	if (new_line)					\
-	  print1 ("\n");			        \
-      }							\
+    if (sched_dump_to_dot_p)                            \
+      sel_print_to_dot (__VA_ARGS__);                   \
+    else                                                \
+      fprintf (sched_dump, __VA_ARGS__);                \
   } while (0)
 
 
@@ -197,7 +177,7 @@ extern void sel_print_rtl (rtx x);
 extern void dump_insn_1 (insn_t, int);
 extern void dump_insn (insn_t);
 extern void dump_insn_vector (rtx_vec_t);
-extern void dump_rhs (rhs_t);
+extern void dump_expr (expr_t);
 extern void dump_used_regs (bitmap);
 extern void dump_av_set (av_set_t);
 extern void dump_lv_set (regset);
@@ -211,7 +191,7 @@ extern void sel_dump_cfg_1 (const char *, int);
 extern void sel_dump_cfg (const char *);
 extern void sel_debug_cfg_1 (int);
 extern void sel_debug_cfg (void);
-extern void setup_dump_cfg_params (bool);
+extern void setup_dump_cfg_params (void);
 
 /* Debug functions.  */
 extern int insn_uid (rtx);
@@ -222,7 +202,7 @@ extern int insn_code (rtx);
 extern bool insn_is_set_p (rtx);
 extern int hard_regno_rename_ok (int, int);
 
-extern void debug_rhs (rhs_t);
+extern void debug_expr (expr_t);
 extern void debug_av_set (av_set_t);
 extern void debug_lv_set (regset);
 extern void debug_ilist (ilist_t);
