@@ -21225,10 +21225,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   switch (fcode)
     {
     case IX86_BUILTIN_VZEROALL:
-      if (TARGET_64BIT)
-	emit_insn (gen_avx_vzeroall_rex64 ());
-      else
-	emit_insn (gen_avx_vzeroall ());
+      emit_insn (gen_avx_vzeroall ());
       return 0;
 
     case IX86_BUILTIN_VZEROUPPER:

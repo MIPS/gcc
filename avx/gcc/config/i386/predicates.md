@@ -1073,3 +1073,15 @@
 (define_predicate "misaligned_operand"
   (and (match_code "mem")
        (match_test "MEM_ALIGN (op) < GET_MODE_ALIGNMENT (mode)")))
+
+;; Return 1 if OP is a vzeroall operation, known to be a PARALLEL.
+(define_predicate "vzeroall_operation"
+  (match_code "parallel")
+{
+  int nregs = TARGET_64BIT ? 16 : 8;
+
+  if (XVECLEN (op, 0) != nregs + 1)
+    return 0;
+
+  return 1;
+})
