@@ -1213,7 +1213,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
       if (name_mappings_registered_p ())
 	return false;
 
-      for (i = gsi_start (phis); gsi_end_p (i); gsi_next (&i))
+      for (i = gsi_start (phis); !gsi_end_p (i); gsi_next (&i))
 	{
 	  gimple phi = gsi_stmt (i);
 

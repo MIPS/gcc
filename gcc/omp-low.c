@@ -144,11 +144,8 @@ scan_omp_op (tree *tp, omp_context *ctx)
   return scan_omp_1_op (tp, &walk_subtrees, &wi);
 }
 
-/* FIXME tuples.  */
-#if 0
-static void lower_omp (tree *, omp_context *);
+static void lower_omp (gimple_seq, omp_context *);
 static tree lookup_decl_in_outer_ctx (tree, omp_context *);
-#endif
 static tree maybe_lookup_decl_in_outer_ctx (tree, omp_context *);
 
 /* Find an OpenMP clause of type KIND within CLAUSES.  */
@@ -1534,7 +1531,7 @@ build_omp_barrier (void)
 
 /* If a context was created for STMT when it was scanned, return it.  */
 
-/* FIXME tuples*/ ATTRIBUTE_UNUSED static omp_context *
+static omp_context *
 maybe_lookup_ctx (gimple stmt)
 {
   splay_tree_node n;
@@ -1931,7 +1928,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
    both parallel and workshare constructs.  PREDICATE may be NULL if it's
    always true.   */
 
-/* FIXME tuples */ ATTRIBUTE_UNUSED static void
+/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
 lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 			    omp_context *ctx)
 {
@@ -1987,7 +1984,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 
 /* Generate code to implement the REDUCTION clauses.  */
 
-/* FIXME tuples */ ATTRIBUTE_UNUSED static void
+/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
 lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 {
   gimple_seq sub_seq = NULL;
@@ -2114,7 +2111,7 @@ lower_copyprivate_clauses (tree clauses, gimple_seq *slist, gimple_seq *rlist,
 /* Generate code to implement the clauses, FIRSTPRIVATE, COPYIN, LASTPRIVATE,
    and REDUCTION from the sender (aka parent) side.  */
 
-/* FIXME tuples */ ATTRIBUTE_UNUSED static void
+/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
 lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
     		    omp_context *ctx)
 {
@@ -2807,15 +2804,13 @@ expand_omp_parallel (struct omp_region *region)
     If this is a combined omp parallel loop, instead of the call to
     GOMP_loop_foo_start, we call GOMP_loop_foo_next.  */
 
-/* FIXME tuples */
-#if 0
 static void
 expand_omp_for_generic (struct omp_region *region,
 			struct omp_for_data *fd,
 			enum built_in_function start_fn,
 			enum built_in_function next_fn)
 {
-  tree type, istart0, iend0, iend, phi;
+  tree type, istart0, iend0, iend;
   tree t, vmain, vback;
   basic_block entry_bb, cont_bb, exit_bb, l0_bb, l1_bb;
   basic_block l2_bb = NULL, l3_bb = NULL;
@@ -2895,7 +2890,7 @@ expand_omp_for_generic (struct omp_region *region,
   gsi_remove (&gsi, true);
 
   /* Iteration setup for sequential loop goes in L0_BB.  */
-  si = gsi_start_bb (l0_bb);
+  gsi = gsi_start_bb (l0_bb);
   t = fold_convert (type, istart0);
   t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE,
 				false, GSI_CONTINUE_LINKING);
@@ -2919,41 +2914,41 @@ expand_omp_for_generic (struct omp_region *region,
       vback = gimple_omp_continue_control_def (stmt);
 
       t = fold_build2 (PLUS_EXPR, type, vmain, fd->step);
-      t = force_gimple_operand_gsi (&si, t, false, NULL_TREE,
+      t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE,
 				    true, GSI_SAME_STMT);
-      stmt = gimple_gimple_assign (vback, t);
-      gsi_insert_before (&si, stmt, GSI_SAME_STMT);
+      stmt = gimple_build_assign (vback, t);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
       if (gimple_in_ssa_p (cfun))
 	SSA_NAME_DEF_STMT (vback) = stmt;
   
       t = build2 (fd->cond_code, boolean_type_node, vback, iend);
       stmt = gimple_build_cond_empty (t);
-      gsi_insert_before (&si, stmt, GSI_SAME_STMT);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
 
       /* Remove GIMPLE_OMP_CONTINUE.  */
-      gsi_remove (&si, true);
+      gsi_remove (&gsi, true);
 
       /* Emit code to get the next parallel iteration in L2_BB.  */
-      si = gsi_start_bb (l2_bb);
+      gsi = gsi_start_bb (l2_bb);
 
       t = build_call_expr (built_in_decls[next_fn], 2,
 			   build_fold_addr_expr (istart0),
 			   build_fold_addr_expr (iend0));
-      t = force_gimple_operand_gsi (&si, t, true, NULL_TREE,
+      t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				    false, GSI_CONTINUE_LINKING);
       stmt = gimple_build_cond_empty (t);
-      gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
 
   /* Add the loop cleanup function.  */
-  si = gsi_last_bb (exit_bb);
-  if (gimple_omp_return_nowait_p (gsi_stmt (si)))
+  gsi = gsi_last_bb (exit_bb);
+  if (gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     t = built_in_decls[BUILT_IN_GOMP_LOOP_END_NOWAIT];
   else
     t = built_in_decls[BUILT_IN_GOMP_LOOP_END];
-  t = build_call_expr (t, 0);
-  gsi_insert_after (&si, t, GSI_SAME_STMT);
-  gsi_remove (&si, true);
+  stmt = gimple_build_call (t, 0);
+  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+  gsi_remove (&gsi, true);
 
   /* Connect the new blocks.  */
   find_edge (entry_bb, l0_bb)->flags = EDGE_TRUE_VALUE;
@@ -2961,12 +2956,19 @@ expand_omp_for_generic (struct omp_region *region,
 
   if (!broken_loop)
     {
+      gimple_seq phis;
+      gimple_stmt_iterator gsi;
+
       e = find_edge (cont_bb, l3_bb);
       ne = make_edge (l2_bb, l3_bb, EDGE_FALSE_VALUE);
 
-      for (phi = phi_nodes (l3_bb); phi; phi = PHI_CHAIN (phi))
-	SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, ne),
-		 PHI_ARG_DEF_FROM_EDGE (phi, e));
+      phis = phi_nodes (l3_bb);
+      for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, ne),
+		   PHI_ARG_DEF_FROM_EDGE (phi, e));
+	}
       remove_edge (e);
 
       find_edge (cont_bb, l1_bb)->flags = EDGE_TRUE_VALUE;
@@ -2983,7 +2985,6 @@ expand_omp_for_generic (struct omp_region *region,
 			       recompute_dominator (CDI_DOMINATORS, l1_bb));
     }
 }
-#endif
 
 
 /* A subroutine of expand_omp_for.  Generate code for a parallel
@@ -3465,13 +3466,10 @@ expand_omp_for (struct omp_region *region)
     }
   else
     {
-      /* FIXME tuples */
-#if 0
       int fn_index = fd.sched_kind + fd.have_ordered * 4;
       int start_ix = BUILT_IN_GOMP_LOOP_STATIC_START + fn_index;
       int next_ix = BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index;
       expand_omp_for_generic (region, &fd, start_ix, next_ix);
-#endif
     }
 
   update_ssa (TODO_update_ssa_only_virtuals);
@@ -3508,9 +3506,7 @@ expand_omp_for (struct omp_region *region)
 static void
 expand_omp_sections (struct omp_region *region)
 {
-  /* FIXME tuples: vnext is initialized to avoid a compiler warning caused
-     by disabled code.  Remove this when tuplification is complete.  */
-  tree label_vec, t, u, vin = NULL, vmain, vnext = NULL, l1, l2;
+  tree label_vec, t, u, vin = NULL, vmain, vnext, l1, l2;
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
   gimple_stmt_iterator si;
@@ -4909,20 +4905,19 @@ check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
   return NULL;
 }
 
-/* Lower the OpenMP parallel directive in *STMT_P.  CTX holds context
-   information for the directive.  */
+/* Lower the OpenMP parallel directive in the current statement in GSI_P.
+   CTX holds context information for the directive.  */
 
 static void
-lower_omp_parallel (tree *stmt_p, omp_context *ctx)
+lower_omp_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree clauses, par_bind, par_body, new_body, bind;
   tree olist, ilist, par_olist, par_ilist;
-  tree stmt, child_fn, t;
+  tree child_fn, t;
+  gimple stmt = gsi_stmt (*gsi_p);
 
-  stmt = *stmt_p;
-
-  clauses = OMP_PARALLEL_CLAUSES (stmt);
-  par_bind = OMP_PARALLEL_BODY (stmt);
+  clauses = gimple_omp_parallel_clauses (stmt);
+  par_bind = gimple_omp_body (stmt);
   par_body = BIND_EXPR_BODY (par_bind);
   child_fn = ctx->cb.dst_fn;
   if (!OMP_PARALLEL_COMBINED (stmt))
@@ -4995,12 +4990,14 @@ lower_omp_parallel (tree *stmt_p, omp_context *ctx)
 
   pop_gimplify_context (NULL_TREE);
 }
+#endif /* tuples */
 
 /* Callback for lower_omp_1.  Return non-NULL if *tp needs to be
    regimplified.  */
 
 static tree
-lower_omp_2 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
+    			void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
 
@@ -5018,157 +5015,120 @@ lower_omp_2 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 }
 
 static void
-lower_omp_1 (tree *tp, omp_context *ctx, tree_stmt_iterator *tsi)
+lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree t = *tp;
+  /* FIXME tuples */
+  extern void lower_omp_parallel(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_for(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_sections(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_single(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_master(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_ordered(gimple_stmt_iterator *, omp_context *);
+  extern void lower_omp_critical(gimple_stmt_iterator *, omp_context *);
 
-  if (!t)
-    return;
+  gimple stmt = gsi_stmt (*gsi_p);
 
-  if (EXPR_HAS_LOCATION (t))
-    input_location = EXPR_LOCATION (t);
+  if (gimple_has_location (stmt))
+    input_location = gimple_location (stmt);
 
   /* If we have issued syntax errors, avoid doing any heavy lifting.
      Just replace the OpenMP directives with a NOP to avoid
      confusing RTL expansion.  */
-  if (errorcount && OMP_DIRECTIVE_P (t))
+  if (errorcount && is_gimple_omp (stmt))
     {
-      *tp = build_empty_stmt ();
+      gsi_replace (gsi_p, gimple_build_nop (), false);
       return;
     }
 
-  switch (TREE_CODE (t))
+  switch (gimple_code (stmt))
     {
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i;
-	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
-	  lower_omp_1 (tsi_stmt_ptr (i), ctx, &i);
-      }
-      break;
-
-    case COND_EXPR:
-      lower_omp_1 (&COND_EXPR_THEN (t), ctx, NULL);
-      lower_omp_1 (&COND_EXPR_ELSE (t), ctx, NULL);
+    case GIMPLE_COND:
+      /* FIXME tuples: Should we regimplify the true/false labels?  */
       if (ctx
-	  && walk_tree (&COND_EXPR_COND (t), lower_omp_2, ctx, NULL))
-	{
-	  tree pre = NULL;
-	  gimplify_expr (&COND_EXPR_COND (t), &pre, NULL,
-			 is_gimple_condexpr, fb_rvalue);
-	  if (pre)
-	    {
-	      if (tsi)
-		tsi_link_before (tsi, pre, TSI_SAME_STMT);
-	      else
-		{
-		  append_to_statement_list (t, &pre);
-		  *tp = pre;
-		}
-	    }
-	}
+	  && (walk_tree (gimple_cond_lhs_ptr (stmt), lower_omp_regimplify_p,
+	      		 NULL, NULL)
+	      || walk_tree (gimple_cond_rhs_ptr (stmt), lower_omp_regimplify_p,
+			    NULL, NULL)))
+	gimple_regimplify_operands (stmt, gsi_p);
       break;
-    case CATCH_EXPR:
-      lower_omp_1 (&CATCH_BODY (t), ctx, NULL);
+    case GIMPLE_CATCH:
+      lower_omp (gimple_catch_handler (stmt), ctx);
       break;
-    case EH_FILTER_EXPR:
-      lower_omp_1 (&EH_FILTER_FAILURE (t), ctx, NULL);
+    case GIMPLE_EH_FILTER:
+      lower_omp (gimple_eh_filter_failure (stmt), ctx);
       break;
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-      lower_omp_1 (&TREE_OPERAND (t, 0), ctx, NULL);
-      lower_omp_1 (&TREE_OPERAND (t, 1), ctx, NULL);
+    case GIMPLE_TRY:
+      lower_omp (gimple_try_eval (stmt), ctx);
+      lower_omp (gimple_try_cleanup (stmt), ctx);
       break;
-    case BIND_EXPR:
-      lower_omp_1 (&BIND_EXPR_BODY (t), ctx, NULL);
+    case GIMPLE_BIND:
+      lower_omp (gimple_bind_body (stmt), ctx);
       break;
-    case RETURN_EXPR:
-      lower_omp_1 (&TREE_OPERAND (t, 0), ctx, NULL);
+    case GIMPLE_OMP_PARALLEL:
+      ctx = maybe_lookup_ctx (stmt);
+      lower_omp_parallel (gsi_p, ctx);
       break;
-
-    case OMP_PARALLEL:
-      ctx = maybe_lookup_ctx (t);
-      lower_omp_parallel (tp, ctx);
-      break;
-    case OMP_FOR:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_FOR:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_for (tp, ctx);
+      lower_omp_for (gsi_p, ctx);
       break;
-    case OMP_SECTIONS:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_SECTIONS:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_sections (tp, ctx);
+      lower_omp_sections (gsi_p, ctx);
       break;
-    case OMP_SINGLE:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_SINGLE:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_single (tp, ctx);
+      lower_omp_single (gsi_p, ctx);
       break;
-    case OMP_MASTER:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_MASTER:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_master (tp, ctx);
+      lower_omp_master (gsi_p, ctx);
       break;
-    case OMP_ORDERED:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_ORDERED:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_ordered (tp, ctx);
+      lower_omp_ordered (gsi_p, ctx);
       break;
-    case OMP_CRITICAL:
-      ctx = maybe_lookup_ctx (t);
+    case GIMPLE_OMP_CRITICAL:
+      ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_critical (tp, ctx);
+      lower_omp_critical (gsi_p, ctx);
       break;
 
     default:
-      if (ctx && walk_tree (tp, lower_omp_2, ctx, NULL))
+      if (ctx && walk_gimple_op (stmt, lower_omp_regimplify_p, NULL))
 	{
-	  /* The gimplifier doesn't gimplify CALL_EXPR_STATIC_CHAIN.
+	  /* The gimplifier doesn't gimplify the call chain.
 	     Handle that here.  */
-	  tree call = get_call_expr_in (t);
-	  if (call
-	      && CALL_EXPR_STATIC_CHAIN (call)
-	      && walk_tree (&CALL_EXPR_STATIC_CHAIN (call), lower_omp_2,
-			    ctx, NULL))
+	  if (gimple_code (stmt) == GIMPLE_CALL
+	      && gimple_call_chain (stmt)
+	      && walk_tree (gimple_call_chain_ptr (stmt),
+			    lower_omp_regimplify_p, NULL, NULL))
 	    {
-	      tree pre = NULL;
-	      gimplify_expr (&CALL_EXPR_STATIC_CHAIN (call), &pre, NULL,
+	      gimple_seq pre = NULL;
+	      gimplify_expr (gimple_call_chain_ptr (stmt), &pre, NULL,
 			     is_gimple_val, fb_rvalue);
-	      if (pre)
-		{
-		  if (tsi)
-		    tsi_link_before (tsi, pre, TSI_SAME_STMT);
-		  else
-		    {
-		      append_to_statement_list (t, &pre);
-		      lower_omp_1 (&pre, ctx, NULL);
-		      *tp = pre;
-		      return;
-		    }
-		}
+	      if (!gimple_seq_empty_p (pre))
+		gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
 	    }
 
-	  if (tsi == NULL)
-	    gimplify_stmt (tp);
-	  else
-	    {
-	      tree pre = NULL;
-	      gimplify_expr (tp, &pre, NULL, is_gimple_stmt, fb_none);
-	      if (pre)
-		tsi_link_before (tsi, pre, TSI_SAME_STMT);
-	    }
+	  gimple_regimplify_operands (stmt, gsi_p);
 	}
       break;
     }
 }
 
 static void
-lower_omp (tree *stmt_p, omp_context *ctx)
+lower_omp (gimple_seq body, omp_context *ctx)
 {
-  lower_omp_1 (stmt_p, ctx, NULL);
+  gimple_stmt_iterator gsi = gsi_start (body);
+  for (gsi = gsi_start (body); !gsi_end_p (gsi); gsi_next (&gsi))
+    lower_omp_1 (&gsi, ctx);
 }
-#endif /* FIXME tuples */
 
 /* Main entry point.  */
 

@@ -1,3 +1,21 @@
+2008-04-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-cfg.c (gimple_can_merge_blocks_p): Fix typo.
+	* omp-low.c (maybe_lookup_ctx): Uncomment and set ATTRIBUTE_UNUSED.
+	(lower_lastprivate_clauses): Same.
+	(lower_reduction_clauses): Same.
+	(lower_send_clauses): Same.
+	(expand_omp_for_generic): Uncomment and convert for tuples.
+	(expand_omp_for): Remove fixme.
+	(expand_omp_sections): Same.
+	(lower_omp_parallel): Partially convert for tuples.
+	(lower_omp_regimplify_p): Rename from lower_omp_2.
+	(lower_omp_1): Convert for tuples.
+	(lower_omp): Same.
+	(gimple-dummy.c): Add lower_omp_parallel, lower_omp_for,
+	lower_omp_sections, lower_omp_single, lower_omp_master,
+	lower_omp_ordered, lower_omp_critical.
+
 2008-04-13  Diego Novillo  <dnovillo@google.com>
 
 	* tree-cfg.c (need_fake_edge_p): Initialize CALL_FLAGS.
