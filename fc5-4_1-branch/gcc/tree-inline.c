@@ -725,6 +725,53 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 
           bsi_insert_after (&copy_bsi, stmt, BSI_NEW_STMT);
 	  call = get_call_expr_in (stmt);
+	  if (call && CALL_EXPR_VA_ARG_PACK (call) && id->call_expr)
+	    {
+	      tree arglist, *a, p;
+	      TREE_OPERAND (call, 1) = copy_list (TREE_OPERAND (call, 1));
+
+	      for (a = &TREE_OPERAND (call, 1); *a; a = &TREE_CHAIN (*a))
+		;
+
+	      p = DECL_ARGUMENTS (id->src_fn);
+	      for (arglist = TREE_OPERAND (id->call_expr, 1);
+		   p; p = TREE_CHAIN (p), arglist = TREE_CHAIN (arglist))
+		;
+
+	      *a = copy_list (arglist);
+	      CALL_EXPR_VA_ARG_PACK (call) = 0;
+	    }
+	  else if (call
+		   && id->call_expr
+		   && (decl = get_callee_fndecl (call))
+		   && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+		   && DECL_FUNCTION_CODE (decl)
+		      == BUILT_IN_VA_ARG_PACK_LEN)
+	    {
+	      /* __builtin_va_arg_pack_len () should be replaced by
+		 the number of anonymous arguments.  */
+	      int nargs;
+	      tree count, *call_ptr, p, a;
+
+	      a = TREE_OPERAND (id->call_expr, 1);
+	      for (p = DECL_ARGUMENTS (id->src_fn); p; p = TREE_CHAIN (p))
+		a = TREE_CHAIN (a);
+
+              for (nargs = 0; a; a = TREE_CHAIN (a))
+		nargs++;
+
+	      count = build_int_cst (integer_type_node, nargs);
+	      call_ptr = &stmt;
+	      if (TREE_CODE (*call_ptr) == MODIFY_EXPR)
+		call_ptr = &TREE_OPERAND (*call_ptr, 1);
+	      if (TREE_CODE (*call_ptr) == WITH_SIZE_EXPR)
+		call_ptr = &TREE_OPERAND (*call_ptr, 0);
+	      gcc_assert (*call_ptr == call && call_ptr != &stmt);
+	      *call_ptr = count;
+	      update_stmt (stmt);
+	      call = NULL_TREE;
+	    }
+
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
 	  if (call && (decl = get_callee_fndecl (call)))
@@ -2085,6 +2132,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   /* Record the function we are about to inline.  */
   id->src_fn = fn;
   id->src_node = cg_edge->callee;
+  id->call_expr = t;
 
   initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2), fn, bb);
 

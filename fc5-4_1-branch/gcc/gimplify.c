@@ -2018,6 +2018,55 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, NULL,
 		       is_gimple_call_addr, fb_rvalue);
 
+  if (ret != GS_ERROR && TREE_OPERAND (*expr_p, 1))
+    {
+      int nargs;
+
+      for (nargs = 1, arglist = TREE_OPERAND (*expr_p, 1);
+	   TREE_CHAIN (arglist);
+	   arglist = TREE_CHAIN (arglist))
+	nargs++;
+
+      if (TREE_CODE (TREE_VALUE (arglist)) == CALL_EXPR)
+	{
+	  tree last_arg = TREE_VALUE (arglist);
+	  tree last_arg_fndecl = get_callee_fndecl (last_arg);
+
+	  if (last_arg_fndecl
+	      && TREE_CODE (last_arg_fndecl) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (last_arg_fndecl) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (last_arg_fndecl) == BUILT_IN_VA_ARG_PACK)
+	    {
+	      tree p = NULL_TREE, *aptr;
+	      int i;
+
+	      if (decl && DECL_ARGUMENTS (decl))
+		p = DECL_ARGUMENTS (decl);
+	      else if (decl)
+		p = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	      else if (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0))))
+		p = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE
+						(TREE_OPERAND (*expr_p, 0))));
+	      for (i = 0; p; p = TREE_CHAIN (p))
+		i++;
+
+	      if (i < nargs)
+		{
+		  TREE_OPERAND (*expr_p, 1)
+		    = copy_list (TREE_OPERAND (*expr_p, 1));
+
+		  for (aptr = &TREE_OPERAND (*expr_p, 1);
+		       TREE_CHAIN (*aptr);
+		       aptr = &TREE_CHAIN (*aptr))
+		    ;
+
+		  *aptr = NULL_TREE;
+		  CALL_EXPR_VA_ARG_PACK (*expr_p) = 1;
+		}
+	    }
+	}
+    }
+
   if (PUSH_ARGS_REVERSED)
     TREE_OPERAND (*expr_p, 1) = nreverse (TREE_OPERAND (*expr_p, 1));
   for (arglist = TREE_OPERAND (*expr_p, 1); arglist;
@@ -2037,7 +2086,7 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   if (ret != GS_ERROR)
     {
       decl = get_callee_fndecl (*expr_p);
-      if (decl && DECL_BUILT_IN (decl))
+      if (decl && DECL_BUILT_IN (decl) && !CALL_EXPR_VA_ARG_PACK (*expr_p))
 	{
 	  tree arglist = TREE_OPERAND (*expr_p, 1);
 	  tree new = fold_builtin (decl, arglist, !want_value);

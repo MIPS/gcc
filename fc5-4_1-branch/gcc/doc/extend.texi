@@ -552,6 +552,67 @@ the containing function.  You should specify, for @var{result}, a value
 returned by @code{__builtin_apply}.
 @end deftypefn
 
+@deftypefn {Built-in Function} __builtin_va_arg_pack ()
+This built-in function represents all anonymous arguments of an inline
+function.  It can be used only in inline functions which will be always
+inlined, never compiled as a separate function, such as those using
+@code{__attribute__ ((__always_inline__))} or
+@code{__attribute__ ((__gnu_inline__))} extern inline functions.
+It must be only passed as last argument to some other function
+with variable arguments.  This is useful for writing small wrapper
+inlines for variable argument functions, when using preprocessor
+macros is undesirable.  For example:
+@smallexample
+extern int myprintf (FILE *f, const char *format, ...);
+extern inline __attribute__ ((__gnu_inline__)) int
+myprintf (FILE *f, const char *format, ...)
+@{
+  int r = fprintf (f, "myprintf: ");
+  if (r < 0)
+    return r;
+  int s = fprintf (f, format, __builtin_va_arg_pack ());
+  if (s < 0)
+    return s;
+  return r + s;
+@}
+@end smallexample
+@end deftypefn
+
+@deftypefn {Built-in Function} __builtin_va_arg_pack_len ()
+This built-in function returns the number of anonymous arguments of
+an inline function.  It can be used only in inline functions which
+will be always inlined, never compiled as a separate function, such
+as those using @code{__attribute__ ((__always_inline__))} or
+@code{__attribute__ ((__gnu_inline__))} extern inline functions.
+For example following will do link or runtime checking of open
+arguments for optimized code:
+@smallexample
+#ifdef __OPTIMIZE__
+extern inline __attribute__((__gnu_inline__)) int
+myopen (const char *path, int oflag, ...)
+@{
+  if (__builtin_va_arg_pack_len () > 1)
+    warn_open_too_many_arguments ();
+
+  if (__builtin_constant_p (oflag))
+    @{
+      if ((oflag & O_CREAT) != 0 && __builtin_va_arg_pack_len () < 1)
+        @{
+          warn_open_missing_mode ();
+          return __open_2 (path, oflag);
+        @}
+      return open (path, oflag, __builtin_va_arg_pack ());
+    @}
+    
+  if (__builtin_va_arg_pack_len () < 1)
+    return __open_2 (path, oflag);
+
+  return open (path, oflag, __builtin_va_arg_pack ());
+@}
+#endif
+@end smallexample
+@end deftypefn
+
 @node Typeof
 @section Referring to a Type with @code{typeof}
 @findex typeof
@@ -1587,8 +1648,8 @@ refer to the single copy in the library.  Note that the two
 definitions of the functions need not be precisely the same, although
 if they do not have the same effect your program may behave oddly.
 
-If the function is neither @code{extern} nor @code{static}, then the
-function is compiled as a standalone function, as well as being
+In C, if the function is neither @code{extern} nor @code{static}, then
+the function is compiled as a standalone function, as well as being
 inlined where possible.
 
 This is how GCC traditionally handled functions declared
@@ -1605,6 +1666,10 @@ is 4.3, earlier versions of GCC which accept this attribute effectively
 assume that it is always present, whether or not it is given explicitly.
 In versions prior to 4.3, the only effect of explicitly including it is
 to disable warnings about using inline functions in C99 mode.
+
+In C++, this attribute does not depend on @code{extern} in any way,
+but it still requires the @code{inline} keyword to enable its special
+behavior.
 
 @cindex @code{flatten} function attribute
 @item flatten
