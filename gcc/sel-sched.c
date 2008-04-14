@@ -2507,9 +2507,6 @@ compute_av_set_at_bb_end (insn_t insn, ilist_t p, int ws)
       av_set_iterator i;
       expr_t expr;
 
-      /* Truncate av set first.  */
-      av_set_truncate (av1);
-      
       /* Increase the spec attribute of all EXPR'es that didn't come 
 	 from all successors.  */
       FOR_EACH_EXPR (expr, i, av1)
@@ -3356,7 +3353,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
         }
 
       /* Do not pass too much stuff to max_issue and tick_check_p.  */
-      if (n >= 9)
+      if (0 && n >= 9)
         {
           VEC_unordered_remove (expr_t, vec_av_set, n);
           continue;

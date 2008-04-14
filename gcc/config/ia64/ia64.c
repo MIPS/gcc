@@ -5265,6 +5265,18 @@ ia64_override_options (void)
 
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
+  
+  if (optimize >= 3)
+    {
+      flag_selective_scheduling2 = 1;
+      flag_sel_sched_pipelining = 1;
+    }
+  if (flag_sel_sched_pipelining && flag_auto_inc_dec)
+    {
+      flag_auto_inc_dec = 0;
+      /* warning (0, "-fauto-inc-dec is turned off"
+         " when the selective pipeliner is used"); */
+    }
 
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 

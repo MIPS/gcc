@@ -1,4 +1,14 @@
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+	* common.opt (flag_selective_scheduling*): Disable by default.
+	Put `Optimization' markers on sel-sched flags.
+	* config/ia64/ia64.c (ia64_override_options): Turn on selective
+	scheduling with -O3, disable -fauto-inc-dec.
+	* opts.c (decode_options): Remove handling of selective scheduling
+	options.
+	* sel-sched.c (compute_av_set_at_bb_end, fill_vec_av_set): Do not
+	truncate av set.
+
+2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
 	    Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/ia64/ia64.c (ia64_h_i_d_extended): Reallocate stops_p
