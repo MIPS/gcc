@@ -79,8 +79,6 @@ typedef struct cp_token GTY (())
      KEYWORD is RID_MAX) iff this name was looked up and found to be
      ambiguous.  An error has already been reported.  */
   BOOL_BITFIELD ambiguous_p : 1;
-  /* The input file stack index at which this token was found.  */
-  unsigned input_file_stack_index : INPUT_FILE_STACK_BITS;
   /* The value associated with this token, if any.  */
   union cp_token_value {
     /* Used for CPP_NESTED_NAME_SPECIFIER and CPP_TEMPLATE_ID.  */
@@ -99,12 +97,8 @@ DEF_VEC_ALLOC_P (cp_token_position,heap);
 
 static cp_token eof_token =
 {
-  CPP_EOF, RID_MAX, 0, PRAGMA_NONE, 0, 0, false, 0, { NULL },
-#if USE_MAPPED_LOCATION
+  CPP_EOF, RID_MAX, 0, PRAGMA_NONE, 0, false, 0, { NULL },
   0
-#else
-  {0, 0}
-#endif
 };
 
 /* The cp_lexer structure represents the C++ lexer.  It is responsible
@@ -412,7 +406,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
   token->type
     = c_lex_with_flags (&token->u.value, &token->location, &token->flags,
 			lexer == NULL ? 0 : C_LEX_RAW_STRINGS);
-  token->input_file_stack_index = input_file_stack_tick;
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
   token->in_system_header = in_system_header;
@@ -494,7 +487,6 @@ cp_lexer_set_source_position_from_token (cp_token *token)
     {
       input_location = token->location;
       in_system_header = token->in_system_header;
-      restore_input_file_stack (token->input_file_stack_index);
     }
 }
 
@@ -547,8 +539,10 @@ cp_lexer_next_token_is_decl_specifier_keyword (cp_lexer *lexer)
   token = cp_lexer_peek_token (lexer);
   switch (token->keyword) 
     {
-      /* Storage classes.  */
+      /* auto specifier: storage-class-specifier in C++,
+         simple-type-specifier in C++0x.  */
     case RID_AUTO:
+      /* Storage classes.  */
     case RID_REGISTER:
     case RID_STATIC:
     case RID_EXTERN:
@@ -1680,6 +1674,8 @@ static tree cp_parser_simple_type_specifier
   (cp_parser *, cp_decl_specifier_seq *, cp_parser_flags);
 static tree cp_parser_type_name
   (cp_parser *);
+static tree cp_parser_nonclass_name 
+  (cp_parser* parser);
 static tree cp_parser_elaborated_type_specifier
   (cp_parser *, bool, bool);
 static tree cp_parser_enum_specifier
@@ -2187,9 +2183,9 @@ cp_parser_check_type_definition (cp_parser* parser)
   /* If types are forbidden here, issue a message.  */
   if (parser->type_definition_forbidden_message)
     {
-      /* Use `%s' to print the string in case there are any escape
-	 characters in the message.  */
-      error ("%s", parser->type_definition_forbidden_message);
+      /* Don't use `%s' to print the string, because quotations (`%<', `%>')
+	 in the message need to be interpreted.  */
+      error (parser->type_definition_forbidden_message);
       return false;
     }
   return true;
@@ -2268,7 +2264,13 @@ cp_parser_non_integral_constant_expression (cp_parser  *parser,
     {
       if (!parser->allow_non_integral_constant_expression_p)
 	{
-	  error ("%s cannot appear in a constant-expression", thing);
+	  /* Don't use `%s' to print THING, because quotations (`%<', `%>')
+	     in the message need to be interpreted.  */
+	  char *message = concat (thing,
+				  " cannot appear in a constant-expression",
+				  NULL);
+	  error (message);
+	  free (message);
 	  return true;
 	}
     }
@@ -2549,7 +2551,7 @@ static void
 cp_parser_consume_semicolon_at_end_of_statement (cp_parser *parser)
 {
   /* Look for the trailing `;'.  */
-  if (!cp_parser_require (parser, CPP_SEMICOLON, "`;'"))
+  if (!cp_parser_require (parser, CPP_SEMICOLON, "%<;%>"))
     {
       /* If there is additional (erroneous) input, skip to the end of
 	 the statement.  */
@@ -3203,7 +3205,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	parser->greater_than_is_operator_p
 	  = saved_greater_than_is_operator_p;
 	/* Consume the `)'.  */
-	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
 	  cp_parser_skip_to_end_of_statement (parser);
 
 	return expr;
@@ -3234,8 +3236,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	      return error_mark_node;
 	    }
 	  /* Pointers cannot appear in constant-expressions.  */
-	  if (cp_parser_non_integral_constant_expression (parser,
-							  "`this'"))
+	  if (cp_parser_non_integral_constant_expression (parser, "%<this%>"))
 	    return error_mark_node;
 	  return finish_this_expr ();
 
@@ -3267,20 +3268,20 @@ cp_parser_primary_expression (cp_parser *parser,
 	       `va_arg'.  Consume the `__builtin_va_arg' token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Look for the opening `('.  */
-	    cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	    cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	    /* Now, parse the assignment-expression.  */
 	    expression = cp_parser_assignment_expression (parser,
 							  /*cast_p=*/false);
 	    /* Look for the `,'.  */
-	    cp_parser_require (parser, CPP_COMMA, "`,'");
+	    cp_parser_require (parser, CPP_COMMA, "%<,%>");
 	    /* Parse the type-id.  */
 	    type = cp_parser_type_id (parser);
 	    /* Look for the closing `)'.  */
-	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	    /* Using `va_arg' in a constant-expression is not
 	       allowed.  */
 	    if (cp_parser_non_integral_constant_expression (parser,
-							    "`va_arg'"))
+							    "%<va_arg%>"))
 	      return error_mark_node;
 	    return build_x_va_arg (expression, type);
 	  }
@@ -3995,7 +3996,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 					     type_p,
 					     is_declaration);
       /* Look for the `::' token.  */
-      cp_parser_require (parser, CPP_SCOPE, "`::'");
+      cp_parser_require (parser, CPP_SCOPE, "%<::%>");
 
       /* If we found what we wanted, we keep going; otherwise, we're
 	 done.  */
@@ -4311,18 +4312,18 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  = "types may not be defined in casts";
 
 	/* Look for the opening `<'.  */
-	cp_parser_require (parser, CPP_LESS, "`<'");
+	cp_parser_require (parser, CPP_LESS, "%<<%>");
 	/* Parse the type to which we are casting.  */
 	type = cp_parser_type_id (parser);
 	/* Look for the closing `>'.  */
-	cp_parser_require (parser, CPP_GREATER, "`>'");
+	cp_parser_require (parser, CPP_GREATER, "%<>%>");
 	/* Restore the old message.  */
 	parser->type_definition_forbidden_message = saved_message;
 
 	/* And the expression which is being cast.  */
-	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	expression = cp_parser_expression (parser, /*cast_p=*/true);
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
 	/* Only type conversions to integral or enumeration types
 	   can be used in constant-expressions.  */
@@ -4337,19 +4338,20 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  {
 	  case RID_DYNCAST:
 	    postfix_expression
-	      = build_dynamic_cast (type, expression);
+	      = build_dynamic_cast (type, expression, tf_warning_or_error);
 	    break;
 	  case RID_STATCAST:
 	    postfix_expression
-	      = build_static_cast (type, expression);
+	      = build_static_cast (type, expression, tf_warning_or_error);
 	    break;
 	  case RID_REINTCAST:
 	    postfix_expression
-	      = build_reinterpret_cast (type, expression);
+	      = build_reinterpret_cast (type, expression, 
+                                        tf_warning_or_error);
 	    break;
 	  case RID_CONSTCAST:
 	    postfix_expression
-	      = build_const_cast (type, expression);
+	      = build_const_cast (type, expression, tf_warning_or_error);
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -4366,11 +4368,11 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	/* Consume the `typeid' token.  */
 	cp_lexer_consume_token (parser->lexer);
 	/* Look for the `(' token.  */
-	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	/* Types cannot be defined in a `typeid' expression.  */
 	saved_message = parser->type_definition_forbidden_message;
 	parser->type_definition_forbidden_message
-	  = "types may not be defined in a `typeid\' expression";
+	  = "types may not be defined in a %<typeid%> expression";
 	/* We can't be sure yet whether we're looking at a type-id or an
 	   expression.  */
 	cp_parser_parse_tentatively (parser);
@@ -4382,7 +4384,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	/* Look for the `)' token.  Otherwise, we can't be sure that
 	   we're not looking at an expression: consider `typeid (int
 	   (3))', for example.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	/* If all went well, simply lookup the type-id.  */
 	if (cp_parser_parse_definitely (parser))
 	  postfix_expression = get_typeid (type);
@@ -4396,13 +4398,13 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    /* Compute its typeid.  */
 	    postfix_expression = build_typeid (expression);
 	    /* Look for the `)' token.  */
-	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	  }
 	/* Restore the saved message.  */
 	parser->type_definition_forbidden_message = saved_message;
 	/* `typeid' may not appear in an integral constant expression.  */
 	if (cp_parser_non_integral_constant_expression(parser,
-						       "`typeid' operator"))
+						       "%<typeid%> operator"))
 	  return error_mark_node;
       }
       break;
@@ -4457,9 +4459,9 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    type = cp_parser_type_id (parser);
 	    parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
 	    /* Look for the `)'.  */
-	    cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	    cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	    /* Look for the `{'.  */
-	    cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
+	    cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>");
 	    /* If things aren't going well, there's no need to
 	       keep going.  */
 	    if (!cp_parser_error_occurred (parser))
@@ -4472,7 +4474,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 		  cp_lexer_consume_token (parser->lexer);
 		/* Look for the final `}'.  */
-		cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+		cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 	      }
 	    /* If that worked, we're definitely looking at a
 	       compound-literal expression.  */
@@ -4648,12 +4650,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		       (instance, fn, args, NULL_TREE,
 			(idk == CP_ID_KIND_QUALIFIED
 			 ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL),
-			/*fn_p=*/NULL));
+			/*fn_p=*/NULL,
+			tf_warning_or_error));
 		else
 		  postfix_expression
 		    = finish_call_expr (postfix_expression, args,
 					/*disallow_virtual=*/false,
-					/*koenig_p=*/false);
+					/*koenig_p=*/false,
+					tf_warning_or_error);
 	      }
 	    else if (TREE_CODE (postfix_expression) == OFFSET_REF
 		     || TREE_CODE (postfix_expression) == MEMBER_REF
@@ -4666,13 +4670,15 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	      postfix_expression
 		= finish_call_expr (postfix_expression, args,
 				    /*disallow_virtual=*/true,
-				    koenig_p);
+				    koenig_p,
+				    tf_warning_or_error);
 	    else
 	      /* All other function calls.  */
 	      postfix_expression
 		= finish_call_expr (postfix_expression, args,
 				    /*disallow_virtual=*/false,
-				    koenig_p);
+				    koenig_p,
+				    tf_warning_or_error);
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_ID_KIND_NONE;
@@ -4774,7 +4780,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
     index = cp_parser_expression (parser, /*cast_p=*/false);
 
   /* Look for the closing `]'.  */
-  cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+  cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
 
   /* Build the ARRAY_REF.  */
   postfix_expression = grok_array_decl (postfix_expression, index);
@@ -4941,7 +4947,8 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	      (name, BINFO_TYPE (BASELINK_ACCESS_BINFO (name)), scope);
 	  postfix_expression
 	    = finish_class_member_access_expr (postfix_expression, name,
-					       template_p);
+					       template_p, 
+					       tf_warning_or_error);
 	}
     }
 
@@ -4953,7 +4960,7 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
      constant-expressions.  */
   if (!for_offsetof
       && (cp_parser_non_integral_constant_expression
-	  (parser, token_type == CPP_DEREF ? "'->'" : "`.'")))
+	  (parser, token_type == CPP_DEREF ? "%<->%>" : "%<.%>")))
     postfix_expression = error_mark_node;
 
   return postfix_expression;
@@ -5001,7 +5008,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
   if (non_constant_p)
     *non_constant_p = false;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return error_mark_node;
 
   /* Within a parenthesized expression, a `>' token is always
@@ -5081,7 +5088,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	cp_lexer_consume_token (parser->lexer);
       }
 
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     {
       int ending;
 
@@ -5158,41 +5165,42 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
 			     /*check_dependency_p=*/false,
 			     /*is_declaration=*/true);
       /* Look for the `::' token.  */
-      cp_parser_require (parser, CPP_SCOPE, "`::'");
+      cp_parser_require (parser, CPP_SCOPE, "%<::%>");
     }
   /* If the next token is not a `~', then there might be some
      additional qualification.  */
   else if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMPL))
     {
-      /* Look for the type-name.  */
-      *scope = TREE_TYPE (cp_parser_type_name (parser));
-
-      if (*scope == error_mark_node)
-	return;
-
-      /* If we don't have ::~, then something has gone wrong.  Since
-	 the only caller of this function is looking for something
-	 after `.' or `->' after a scalar type, most likely the
-	 program is trying to get a member of a non-aggregate
-	 type.  */
-      if (cp_lexer_next_token_is_not (parser->lexer, CPP_SCOPE)
-	  || cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_COMPL)
+      /* At this point, we're looking for "type-name :: ~".  The type-name
+	 must not be a class-name, since this is a pseudo-destructor.  So,
+	 it must be either an enum-name, or a typedef-name -- both of which
+	 are just identifiers.  So, we peek ahead to check that the "::"
+	 and "~" tokens are present; if they are not, then we can avoid
+	 calling type_name.  */
+      if (cp_lexer_peek_token (parser->lexer)->type != CPP_NAME
+	  || cp_lexer_peek_nth_token (parser->lexer, 2)->type != CPP_SCOPE
+	  || cp_lexer_peek_nth_token (parser->lexer, 3)->type != CPP_COMPL)
 	{
-	  cp_parser_error (parser, "request for member of non-aggregate type");
+	  cp_parser_error (parser, "non-scalar type");
 	  return;
 	}
 
+      /* Look for the type-name.  */
+      *scope = TREE_TYPE (cp_parser_nonclass_name (parser));
+      if (*scope == error_mark_node)
+	return;
+
       /* Look for the `::' token.  */
-      cp_parser_require (parser, CPP_SCOPE, "`::'");
+      cp_parser_require (parser, CPP_SCOPE, "%<::%>");
     }
   else
     *scope = NULL_TREE;
 
   /* Look for the `~'.  */
-  cp_parser_require (parser, CPP_COMPL, "`~'");
+  cp_parser_require (parser, CPP_COMPL, "%<~%>");
   /* Look for the type-name again.  We are not responsible for
      checking that it matches the first type-name.  */
-  *type = cp_parser_type_name (parser);
+  *type = cp_parser_nonclass_name (parser);
 }
 
 /* Parse a unary-expression.
@@ -5253,7 +5261,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	    if (TYPE_P (operand))
 	      return cxx_sizeof_or_alignof_type (operand, op, true);
 	    else
-	      return cxx_sizeof_or_alignof_expr (operand, op);
+	      return cxx_sizeof_or_alignof_expr (operand, op, true);
 	  }
 
 	case RID_NEW:
@@ -5290,7 +5298,8 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
 	    /* Create the complete representation.  */
 	    return build_x_unary_op ((keyword == RID_REALPART
 				      ? REALPART_EXPR : IMAGPART_EXPR),
-				     expression);
+				     expression,
+                                     tf_warning_or_error);
 	  }
 	  break;
 
@@ -5364,21 +5373,23 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p)
       switch (unary_operator)
 	{
 	case INDIRECT_REF:
-	  non_constant_p = "`*'";
-	  expression = build_x_indirect_ref (cast_expression, "unary *");
+	  non_constant_p = "%<*%>";
+	  expression = build_x_indirect_ref (cast_expression, "unary *",
+                                             tf_warning_or_error);
 	  break;
 
 	case ADDR_EXPR:
-	  non_constant_p = "`&'";
+	  non_constant_p = "%<&%>";
 	  /* Fall through.  */
 	case BIT_NOT_EXPR:
-	  expression = build_x_unary_op (unary_operator, cast_expression);
+	  expression = build_x_unary_op (unary_operator, cast_expression,
+                                         tf_warning_or_error);
 	  break;
 
 	case PREINCREMENT_EXPR:
 	case PREDECREMENT_EXPR:
 	  non_constant_p = (unary_operator == PREINCREMENT_EXPR
-			    ? "`++'" : "`--'");
+			    ? "%<++%>" : "%<--%>");
 	  /* Fall through.  */
 	case UNARY_PLUS_EXPR:
 	case NEGATE_EXPR:
@@ -5456,7 +5467,7 @@ cp_parser_new_expression (cp_parser* parser)
 				   /*current_scope_valid_p=*/false)
        != NULL_TREE);
   /* Look for the `new' operator.  */
-  cp_parser_require_keyword (parser, RID_NEW, "`new'");
+  cp_parser_require_keyword (parser, RID_NEW, "%<new%>");
   /* There's no easy way to tell a new-placement from the
      `( type-id )' construct.  */
   cp_parser_parse_tentatively (parser);
@@ -5475,7 +5486,7 @@ cp_parser_new_expression (cp_parser* parser)
       /* Parse the type-id.  */
       type = cp_parser_type_id (parser);
       /* Look for the closing `)'.  */
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
       /* There should not be a direct-new-declarator in this production,
 	 but GCC used to allowed this, so we check and emit a sensible error
 	 message for this case.  */
@@ -5499,11 +5510,12 @@ cp_parser_new_expression (cp_parser* parser)
 
   /* A new-expression may not appear in an integral constant
      expression.  */
-  if (cp_parser_non_integral_constant_expression (parser, "`new'"))
+  if (cp_parser_non_integral_constant_expression (parser, "%<new%>"))
     return error_mark_node;
 
   /* Create a representation of the new-expression.  */
-  return build_new (placement, type, nelts, initializer, global_scope_p);
+  return build_new (placement, type, nelts, initializer, global_scope_p,
+                    tf_warning_or_error);
 }
 
 /* Parse a new-placement.
@@ -5653,7 +5665,7 @@ cp_parser_direct_new_declarator (cp_parser* parser)
       tree expression;
 
       /* Look for the opening `['.  */
-      cp_parser_require (parser, CPP_OPEN_SQUARE, "`['");
+      cp_parser_require (parser, CPP_OPEN_SQUARE, "%<[%>");
       /* The first expression is not required to be constant.  */
       if (!declarator)
 	{
@@ -5685,7 +5697,7 @@ cp_parser_direct_new_declarator (cp_parser* parser)
 					   /*allow_non_constant=*/false,
 					   NULL);
       /* Look for the closing `]'.  */
-      cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+      cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
 
       /* Add this bound to the declarator.  */
       declarator = make_array_declarator (declarator, expression);
@@ -5742,14 +5754,14 @@ cp_parser_delete_expression (cp_parser* parser)
 				   /*current_scope_valid_p=*/false)
        != NULL_TREE);
   /* Look for the `delete' keyword.  */
-  cp_parser_require_keyword (parser, RID_DELETE, "`delete'");
+  cp_parser_require_keyword (parser, RID_DELETE, "%<delete%>");
   /* See if the array syntax is in use.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
     {
       /* Consume the `[' token.  */
       cp_lexer_consume_token (parser->lexer);
       /* Look for the `]' token.  */
-      cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+      cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
       /* Remember that this is the `[]' construct.  */
       array_p = true;
     }
@@ -5761,7 +5773,7 @@ cp_parser_delete_expression (cp_parser* parser)
 
   /* A delete-expression may not appear in an integral constant
      expression.  */
-  if (cp_parser_non_integral_constant_expression (parser, "`delete'"))
+  if (cp_parser_non_integral_constant_expression (parser, "%<delete%>"))
     return error_mark_node;
 
   return delete_sanity (expression, NULL_TREE, array_p, global_scope_p);
@@ -5838,7 +5850,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
 	  /* Look for the type-id.  */
 	  type = cp_parser_type_id (parser);
 	  /* Look for the closing `)'.  */
-	  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	  parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
 	}
 
@@ -6062,7 +6074,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p)
 
       overloaded_p = false;
       lhs = build_x_binary_op (tree_type, lhs, lhs_type, rhs, rhs_type,
-			       &overloaded_p);
+			       &overloaded_p, tf_warning_or_error);
       lhs_type = tree_type;
 
       /* If the binary operator required the use of an overloaded operator,
@@ -6111,14 +6123,15 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
     expr = cp_parser_expression (parser, /*cast_p=*/false);
 
   /* The next token should be a `:'.  */
-  cp_parser_require (parser, CPP_COLON, "`:'");
+  cp_parser_require (parser, CPP_COLON, "%<:%>");
   /* Parse the assignment-expression.  */
   assignment_expr = cp_parser_assignment_expression (parser, /*cast_p=*/false);
 
   /* Build the conditional-expression.  */
   return build_x_conditional_expr (logical_or_expr,
 				   expr,
-				   assignment_expr);
+				   assignment_expr,
+                                   tf_warning_or_error);
 }
 
 /* Parse an assignment-expression.
@@ -6173,7 +6186,8 @@ cp_parser_assignment_expression (cp_parser* parser, bool cast_p)
 	      /* Build the assignment expression.  */
 	      expr = build_x_modify_expr (expr,
 					  assignment_operator,
-					  rhs);
+					  rhs,
+					  tf_warning_or_error);
 	    }
 	}
     }
@@ -6293,7 +6307,8 @@ cp_parser_expression (cp_parser* parser, bool cast_p)
 	expression = assignment_expression;
       else
 	expression = build_x_compound_expr (expression,
-					    assignment_expression);
+					    assignment_expression,
+                                            tf_warning_or_error);
       /* If the next token is not a comma, then we are done with the
 	 expression.  */
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
@@ -6406,14 +6421,15 @@ cp_parser_builtin_offsetof (cp_parser *parser)
   /* Consume the "__builtin_offsetof" token.  */
   cp_lexer_consume_token (parser->lexer);
   /* Consume the opening `('.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   /* Parse the type-id.  */
   type = cp_parser_type_id (parser);
   /* Look for the `,'.  */
-  cp_parser_require (parser, CPP_COMMA, "`,'");
+  cp_parser_require (parser, CPP_COMMA, "%<,%>");
 
   /* Build the (type *)null that begins the traditional offsetof macro.  */
-  expr = build_static_cast (build_pointer_type (type), null_pointer_node);
+  expr = build_static_cast (build_pointer_type (type), null_pointer_node,
+                            tf_warning_or_error);
 
   /* Parse the offsetof-member-designator.  We begin as if we saw "expr->".  */
   expr = cp_parser_postfix_dot_deref_expression (parser, CPP_DEREF, expr,
@@ -6443,7 +6459,7 @@ cp_parser_builtin_offsetof (cp_parser *parser)
 	default:
 	  /* Error.  We know the following require will fail, but
 	     that gives the proper error message.  */
-	  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	  cp_parser_skip_to_closing_parenthesis (parser, true, false, true);
 	  expr = error_mark_node;
 	  goto failure;
@@ -6537,7 +6553,7 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
   /* Consume the token.  */
   cp_lexer_consume_token (parser->lexer);
 
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 
   type1 = cp_parser_type_id (parser);
 
@@ -6554,7 +6570,7 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 
   if (binary)
     {
-      cp_parser_require (parser, CPP_COMMA, "`,'");
+      cp_parser_require (parser, CPP_COMMA, "%<,%>");
  
       type2 = cp_parser_type_id (parser);
 
@@ -6570,7 +6586,7 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
 			      /*initialized=*/0, /*attrlist=*/NULL);
     }
 
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   /* Complete the trait expression, which may mean either processing
      the trait expr now or saving it for template instantiation.  */
@@ -6815,7 +6831,7 @@ cp_parser_label_for_labeled_statement (cp_parser* parser)
     }
 
   /* Require the `:' token.  */
-  cp_parser_require (parser, CPP_COLON, "`:'");
+  cp_parser_require (parser, CPP_COLON, "%<:%>");
 }
 
 /* Parse an expression-statement.
@@ -6877,7 +6893,7 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
   tree compound_stmt;
 
   /* Consume the `{'.  */
-  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>"))
     return error_mark_node;
   /* Begin the compound-statement.  */
   compound_stmt = begin_compound_stmt (in_try ? BCS_TRY_BLOCK : 0);
@@ -6889,7 +6905,7 @@ cp_parser_compound_statement (cp_parser *parser, tree in_statement_expr,
   /* Finish the compound-statement.  */
   finish_compound_stmt (compound_stmt);
   /* Consume the `}'.  */
-  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 
   return compound_stmt;
 }
@@ -6969,7 +6985,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 	tree condition;
 
 	/* Look for the `('.  */
-	if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+	if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
 	  {
 	    cp_parser_skip_to_end_of_statement (parser);
 	    return error_mark_node;
@@ -6984,7 +7000,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
 	/* Look for the `)'.  */
-	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
 	  cp_parser_skip_to_closing_parenthesis (parser, true, false,
 						 /*consume_paren=*/true);
 
@@ -7127,7 +7143,7 @@ cp_parser_condition (cp_parser* parser)
 
 	 looks like a decl-specifier-seq and a declarator -- but then
 	 there is no `=', so this is an expression.  */
-      cp_parser_require (parser, CPP_EQ, "`='");
+      cp_parser_require (parser, CPP_EQ, "%<=%>");
       /* If we did see an `=', then we are looking at a declaration
 	 for sure.  */
       if (cp_parser_parse_definitely (parser))
@@ -7204,10 +7220,7 @@ check_empty_body (cp_parser* parser, const char* type)
 
   semi_loc =  expand_location (token->location);
   if (close_loc.line == semi_loc.line
-#ifdef USE_MAPPED_LOCATION
-      && close_loc.column+1 == semi_loc.column
-#endif
-      )
+      && close_loc.column+1 == semi_loc.column)
     warning (OPT_Wempty_body,
 	     "suggest a space before %<;%> or explicit braces around empty "
 	     "body in %<%s%> statement",
@@ -7252,13 +7265,13 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Begin the while-statement.  */
 	statement = begin_while_stmt ();
 	/* Look for the `('.  */
-	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
 	finish_while_stmt_cond (condition, statement);
 	check_empty_body (parser, "while");
 	/* Look for the `)'.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	/* Parse the dependent statement.  */
 	parser->in_statement = IN_ITERATION_STMT;
 	cp_parser_already_scoped_statement (parser);
@@ -7280,17 +7293,17 @@ cp_parser_iteration_statement (cp_parser* parser)
 	parser->in_statement = in_statement;
 	finish_do_body (statement);
 	/* Look for the `while' keyword.  */
-	cp_parser_require_keyword (parser, RID_WHILE, "`while'");
+	cp_parser_require_keyword (parser, RID_WHILE, "%<while%>");
 	/* Look for the `('.  */
-	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	/* Parse the expression.  */
 	expression = cp_parser_expression (parser, /*cast_p=*/false);
 	/* We're done with the do-statement.  */
 	finish_do_stmt (expression, statement);
 	/* Look for the `)'.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 	/* Look for the `;'.  */
-	cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+	cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
       }
       break;
 
@@ -7302,7 +7315,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Begin the for-statement.  */
 	statement = begin_for_stmt ();
 	/* Look for the `('.  */
-	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+	cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 	/* Parse the initialization.  */
 	cp_parser_for_init_statement (parser);
 	finish_for_init_stmt (statement);
@@ -7312,7 +7325,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	  condition = cp_parser_condition (parser);
 	finish_for_cond (condition, statement);
 	/* Look for the `;'.  */
-	cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+	cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
 	/* If there's an expression, process it.  */
 	if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
@@ -7320,7 +7333,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	finish_for_expr (expression, statement);
 	check_empty_body (parser, "for");
 	/* Look for the `)'.  */
-	cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+	cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
 	/* Parse the body of the for-statement.  */
 	parser->in_statement = IN_ITERATION_STMT;
@@ -7575,9 +7588,9 @@ cp_parser_already_scoped_statement (cp_parser* parser)
     {
       /* Avoid calling cp_parser_compound_statement, so that we
 	 don't create a new scope.  Do everything else by hand.  */
-      cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
+      cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>");
       cp_parser_statement_seq_opt (parser, NULL_TREE);
-      cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+      cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
     }
 }
 
@@ -7734,6 +7747,10 @@ cp_parser_declaration (cp_parser* parser)
 	       /* An unnamed namespace definition.  */
 	       || token2.type == CPP_OPEN_BRACE
 	       || token2.keyword == RID_ATTRIBUTE))
+    cp_parser_namespace_definition (parser);
+  /* An inline (associated) namespace definition.  */
+  else if (token1.keyword == RID_INLINE
+	   && token2.keyword == RID_NAMESPACE)
     cp_parser_namespace_definition (parser);
   /* Objective-C++ declaration/definition.  */
   else if (c_dialect_objc () && OBJC_IS_AT_KEYWORD (token1.keyword))
@@ -8011,7 +8028,7 @@ cp_parser_simple_declaration (cp_parser* parser,
     }
 
   /* Consume the `;'.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
  done:
   pop_deferring_access_checks ();
@@ -8091,7 +8108,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_FRIEND:
 	  if (!at_class_scope_p ())
 	    {
-	      error ("%<friend%> used outside of class");
+	      error ("%H%<friend%> used outside of class", &token->location);
 	      cp_lexer_purge_token (parser->lexer);
 	    }
 	  else
@@ -8138,13 +8155,33 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	     GNU Extension:
 	       thread  */
 	case RID_AUTO:
+          /* Consume the token.  */
+          cp_lexer_consume_token (parser->lexer);
+
+          if (cxx_dialect == cxx98) 
+            {
+              /* Complain about `auto' as a storage specifier, if
+                 we're complaining about C++0x compatibility.  */
+              warning 
+                (OPT_Wc__0x_compat, 
+                 "%<auto%> will change meaning in C++0x; please remove it");
+
+              /* Set the storage class anyway.  */
+              cp_parser_set_storage_class (parser, decl_specs, RID_AUTO);
+            }
+          else 
+            /* We do not yet support the use of `auto' as a
+               type-specifier.  */
+            error ("C++0x %<auto%> specifier not supported");
+          break;
+
 	case RID_REGISTER:
 	case RID_STATIC:
 	case RID_EXTERN:
 	case RID_MUTABLE:
 	  /* Consume the token.  */
 	  cp_lexer_consume_token (parser->lexer);
-	  cp_parser_set_storage_class (parser, decl_specs, token->keyword);
+          cp_parser_set_storage_class (parser, decl_specs, token->keyword);
 	  break;
 	case RID_THREAD:
 	  /* Consume the token.  */
@@ -8270,6 +8307,10 @@ cp_parser_storage_class_specifier_opt (cp_parser* parser)
   switch (cp_lexer_peek_token (parser->lexer)->keyword)
     {
     case RID_AUTO:
+      if (cxx_dialect != cxx98)
+        return NULL_TREE;
+      /* Fall through for C++98.  */
+
     case RID_REGISTER:
     case RID_STATIC:
     case RID_EXTERN:
@@ -8339,7 +8380,7 @@ cp_parser_linkage_specification (cp_parser* parser)
   tree linkage;
 
   /* Look for the `extern' keyword.  */
-  cp_parser_require_keyword (parser, RID_EXTERN, "`extern'");
+  cp_parser_require_keyword (parser, RID_EXTERN, "%<extern%>");
 
   /* Look for the string-literal.  */
   linkage = cp_parser_string_literal (parser, false, false);
@@ -8369,7 +8410,7 @@ cp_parser_linkage_specification (cp_parser* parser)
       /* Parse the declarations.  */
       cp_parser_declaration_seq_opt (parser);
       /* Look for the closing `}'.  */
-      cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+      cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
     }
   /* Otherwise, there's just one declaration.  */
   else
@@ -8410,7 +8451,7 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
 
   /* Look for the `static_assert' keyword.  */
   if (!cp_parser_require_keyword (parser, RID_STATIC_ASSERT, 
-                                  "`static_assert'"))
+                                  "%<static_assert%>"))
     return;
 
   /*  We know we are in a static assertion; commit to any tentative
@@ -8419,7 +8460,7 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
     cp_parser_commit_to_tentative_parse (parser);
 
   /* Parse the `(' starting the static assertion condition.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 
   /* Parse the constant-expression.  */
   condition = 
@@ -8428,7 +8469,7 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
                                    /*non_constant_p=*/NULL);
 
   /* Parse the separating `,'.  */
-  cp_parser_require (parser, CPP_COMMA, "`,'");
+  cp_parser_require (parser, CPP_COMMA, "%<,%>");
 
   /* Parse the string-literal message.  */
   message = cp_parser_string_literal (parser, 
@@ -8436,14 +8477,14 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
                                       /*wide_ok=*/true);
 
   /* A `)' completes the static assertion.  */
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, 
                                            /*recovering=*/true, 
                                            /*or_comma=*/false,
 					   /*consume_paren=*/true);
 
   /* A semicolon terminates the declaration.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
   /* Complete the static assertion, which may mean either processing 
      the static assert now or saving it for template instantiation.  */
@@ -8465,7 +8506,7 @@ cp_parser_decltype (cp_parser *parser)
   bool saved_non_integral_constant_expression_p;
 
   /* Look for the `decltype' token.  */
-  if (!cp_parser_require_keyword (parser, RID_DECLTYPE, "`decltype'"))
+  if (!cp_parser_require_keyword (parser, RID_DECLTYPE, "%<decltype%>"))
     return error_mark_node;
 
   /* Types cannot be defined in a `decltype' expression.  Save away the
@@ -8474,7 +8515,7 @@ cp_parser_decltype (cp_parser *parser)
 
   /* And create the new one.  */
   parser->type_definition_forbidden_message
-    = "types may not be defined in `decltype' expressions";
+    = "types may not be defined in %<decltype%> expressions";
 
   /* The restrictions on constant-expressions do not apply inside
      decltype expressions.  */
@@ -8488,7 +8529,7 @@ cp_parser_decltype (cp_parser *parser)
   ++skip_evaluation;
 
   /* Parse the opening `('.  */
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return error_mark_node;
   
   /* First, try parsing an id-expression.  */
@@ -8605,7 +8646,7 @@ cp_parser_decltype (cp_parser *parser)
     }
   
   /* Parse to the closing `)'.  */
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     {
       cp_parser_skip_to_closing_parenthesis (parser, true, false,
 					     /*consume_paren=*/true);
@@ -8634,7 +8675,7 @@ cp_parser_conversion_function_id (cp_parser* parser)
   tree pushed_scope = NULL_TREE;
 
   /* Look for the `operator' token.  */
-  if (!cp_parser_require_keyword (parser, RID_OPERATOR, "`operator'"))
+  if (!cp_parser_require_keyword (parser, RID_OPERATOR, "%<operator%>"))
     return error_mark_node;
   /* When we parse the conversion-type-id, the current scope will be
      reset.  However, we need that information in able to look up the
@@ -8969,7 +9010,7 @@ static tree
 cp_parser_operator_function_id (cp_parser* parser)
 {
   /* Look for the `operator' keyword.  */
-  if (!cp_parser_require_keyword (parser, RID_OPERATOR, "`operator'"))
+  if (!cp_parser_require_keyword (parser, RID_OPERATOR, "%<operator%>"))
     return error_mark_node;
   /* And then the name of the operator itself.  */
   return cp_parser_operator (parser);
@@ -9025,7 +9066,7 @@ cp_parser_operator (cp_parser* parser)
 	    /* Consume the `[' token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Look for the `]' token.  */
-	    cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+	    cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
 	    id = ansi_opname (op == NEW_EXPR
 			      ? VEC_NEW_EXPR : VEC_DELETE_EXPR);
 	  }
@@ -9184,14 +9225,14 @@ cp_parser_operator (cp_parser* parser)
       /* Consume the `('.  */
       cp_lexer_consume_token (parser->lexer);
       /* Look for the matching `)'.  */
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
       return ansi_opname (CALL_EXPR);
 
     case CPP_OPEN_SQUARE:
       /* Consume the `['.  */
       cp_lexer_consume_token (parser->lexer);
       /* Look for the matching `]'.  */
-      cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+      cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
       return ansi_opname (ARRAY_REF);
 
     default:
@@ -9267,7 +9308,6 @@ cp_parser_template_parameter_list (cp_parser* parser)
   while (true)
     {
       tree parameter;
-      cp_token *token;
       bool is_non_type;
       bool is_parameter_pack;
 
@@ -9288,10 +9328,8 @@ cp_parser_template_parameter_list (cp_parser* parser)
          parameter_list = chainon (parameter_list, err_parm);
        }
 
-      /* Peek at the next token.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      /* If it's not a `,', we're done.  */
-      if (token->type != CPP_COMMA)
+      /* If the next token is not a `,', we're done.  */
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
 	break;
       /* Otherwise, consume the `,' token.  */
       cp_lexer_consume_token (parser->lexer);
@@ -9399,29 +9437,41 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
       maybe_warn_variadic_templates ();
       
       *is_parameter_pack = true;
+    }
+  /* We might end up with a pack expansion as the type of the non-type
+     template parameter, in which case this is a non-type template
+     parameter pack.  */
+  else if (parameter_declarator
+	   && parameter_declarator->decl_specifiers.type
+	   && PACK_EXPANSION_P (parameter_declarator->decl_specifiers.type))
+    {
+      *is_parameter_pack = true;
+      parameter_declarator->decl_specifiers.type = 
+	PACK_EXPANSION_PATTERN (parameter_declarator->decl_specifiers.type);
+    }
 
+  if (*is_parameter_pack && cp_lexer_next_token_is (parser->lexer, CPP_EQ))
+    {
       /* Parameter packs cannot have default arguments.  However, a
 	 user may try to do so, so we'll parse them and give an
 	 appropriate diagnostic here.  */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_EQ))
-	{
-	  /* Consume the `='.  */
-	  cp_lexer_consume_token (parser->lexer);
 
-	  /* Find the name of the parameter pack.  */     
-	  id_declarator = parameter_declarator->declarator;
-	  while (id_declarator && id_declarator->kind != cdk_id)
-	    id_declarator = id_declarator->declarator;
-	  
-	  if (id_declarator && id_declarator->kind == cdk_id)
-	    error ("template parameter pack %qD cannot have a default argument",
-		   id_declarator->u.id.unqualified_name);
-	  else
-	    error ("template parameter pack cannot have a default argument");
-
-          /* Parse the default argument, but throw away the result.  */
-          cp_parser_default_argument (parser, /*template_parm_p=*/true);
-	}
+      /* Consume the `='.  */
+      cp_lexer_consume_token (parser->lexer);
+      
+      /* Find the name of the parameter pack.  */     
+      id_declarator = parameter_declarator->declarator;
+      while (id_declarator && id_declarator->kind != cdk_id)
+	id_declarator = id_declarator->declarator;
+      
+      if (id_declarator && id_declarator->kind == cdk_id)
+	error ("template parameter pack %qD cannot have a default argument",
+	       id_declarator->u.id.unqualified_name);
+      else
+	error ("template parameter pack cannot have a default argument");
+      
+      /* Parse the default argument, but throw away the result.  */
+      cp_parser_default_argument (parser, /*template_parm_p=*/true);
     }
 
   parm = grokdeclarator (parameter_declarator->declarator,
@@ -9465,7 +9515,7 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 
   /* Look for a keyword to tell us what kind of parameter this is.  */
   token = cp_parser_require (parser, CPP_KEYWORD,
-			     "`class', `typename', or `template'");
+			     "%<class%>, %<typename%>, or %<template%>");
   if (!token)
     return error_mark_node;
 
@@ -9536,13 +9586,13 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	tree default_argument;
 
 	/* Look for the `<'.  */
-	cp_parser_require (parser, CPP_LESS, "`<'");
+	cp_parser_require (parser, CPP_LESS, "%<<%>");
 	/* Parse the template-parameter-list.  */
 	parameter_list = cp_parser_template_parameter_list (parser);
 	/* Look for the `>'.  */
-	cp_parser_require (parser, CPP_GREATER, "`>'");
+	cp_parser_require (parser, CPP_GREATER, "%<>%>");
 	/* Look for the `class' keyword.  */
-	cp_parser_require_keyword (parser, RID_CLASS, "`class'");
+	cp_parser_require_keyword (parser, RID_CLASS, "%<class%>");
         /* If the next token is an ellipsis, we have a template
            argument pack. */
         if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
@@ -9753,7 +9803,7 @@ cp_parser_template_id (cp_parser *parser,
 	}
       /* Otherwise, emit an error about the invalid digraph, but continue
 	 parsing because we got our argument list.  */
-      pedwarn ("%<<::%> cannot begin a template-argument list");
+      permerror ("%<<::%> cannot begin a template-argument list");
       inform ("%<<:%> is an alternate spelling for %<[%>. Insert whitespace "
 	      "between %<<%> and %<::%>");
       if (!flag_permissive)
@@ -9769,7 +9819,7 @@ cp_parser_template_id (cp_parser *parser,
   else
     {
       /* Look for the `<' that starts the template-argument-list.  */
-      if (!cp_parser_require (parser, CPP_LESS, "`<'"))
+      if (!cp_parser_require (parser, CPP_LESS, "%<<%>"))
 	{
 	  pop_deferring_access_checks ();
 	  return error_mark_node;
@@ -10298,7 +10348,8 @@ cp_parser_template_argument (cp_parser* parser)
 	  if (cp_parser_parse_definitely (parser))
 	    {
 	      if (address_p)
-		argument = build_x_unary_op (ADDR_EXPR, argument);
+		argument = build_x_unary_op (ADDR_EXPR, argument,
+                                             tf_warning_or_error);
 	      return argument;
 	    }
 	}
@@ -10376,7 +10427,7 @@ cp_parser_explicit_instantiation (cp_parser* parser)
     }
 
   /* Look for the `template' keyword.  */
-  cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
+  cp_parser_require_keyword (parser, RID_TEMPLATE, "%<template%>");
   /* Let the front end know that we are processing an explicit
      instantiation.  */
   begin_explicit_instantiation ();
@@ -10458,11 +10509,11 @@ cp_parser_explicit_specialization (cp_parser* parser)
 {
   bool need_lang_pop;
   /* Look for the `template' keyword.  */
-  cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'");
+  cp_parser_require_keyword (parser, RID_TEMPLATE, "%<template%>");
   /* Look for the `<'.  */
-  cp_parser_require (parser, CPP_LESS, "`<'");
+  cp_parser_require (parser, CPP_LESS, "%<<%>");
   /* Look for the `>'.  */
-  cp_parser_require (parser, CPP_GREATER, "`>'");
+  cp_parser_require (parser, CPP_GREATER, "%<>%>");
   /* We have processed another parameter list.  */
   ++parser->num_template_parameter_lists;
   /* [temp]
@@ -10709,6 +10760,7 @@ cp_parser_type_specifier (cp_parser* parser,
    C++0x Extension:
 
    simple-type-specifier:
+     auto
      decltype ( expression )   
 
    GNU Extension:
@@ -10778,6 +10830,17 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       break;
     case RID_VOID:
       type = void_type_node;
+      break;
+      
+    case RID_AUTO:
+      if (cxx_dialect != cxx98)
+        {
+          /* Consume the token.  */
+          cp_lexer_consume_token (parser->lexer);
+          /* We do not yet support the use of `auto' as a
+             type-specifier.  */
+          error ("C++0x %<auto%> specifier not supported");
+        }
       break;
 
     case RID_DECLTYPE:
@@ -10952,7 +11015,6 @@ static tree
 cp_parser_type_name (cp_parser* parser)
 {
   tree type_decl;
-  tree identifier;
 
   /* We can't know yet whether it is a class-name or not.  */
   cp_parser_parse_tentatively (parser);
@@ -10968,43 +11030,63 @@ cp_parser_type_name (cp_parser* parser)
   if (!cp_parser_parse_definitely (parser))
     {
       /* It must be a typedef-name or an enum-name.  */
-      identifier = cp_parser_identifier (parser);
-      if (identifier == error_mark_node)
-	return error_mark_node;
-
-      /* Look up the type-name.  */
-      type_decl = cp_parser_lookup_name_simple (parser, identifier);
-
-      if (TREE_CODE (type_decl) != TYPE_DECL
-	  && (objc_is_id (identifier) || objc_is_class_name (identifier)))
-	{
-	  /* See if this is an Objective-C type.  */
-	  tree protos = cp_parser_objc_protocol_refs_opt (parser);
-	  tree type = objc_get_protocol_qualified_type (identifier, protos);
-	  if (type)
-	    type_decl = TYPE_NAME (type);
-	}
-
-      /* Issue an error if we did not find a type-name.  */
-      if (TREE_CODE (type_decl) != TYPE_DECL)
-	{
-	  if (!cp_parser_simulate_error (parser))
-	    cp_parser_name_lookup_error (parser, identifier, type_decl,
-					 "is not a type");
-	  type_decl = error_mark_node;
-	}
-      /* Remember that the name was used in the definition of the
-	 current class so that we can check later to see if the
-	 meaning would have been different after the class was
-	 entirely defined.  */
-      else if (type_decl != error_mark_node
-	       && !parser->scope)
-	maybe_note_name_used_in_class (identifier, type_decl);
+      return cp_parser_nonclass_name (parser);
     }
 
   return type_decl;
 }
 
+/* Parse a non-class type-name, that is, either an enum-name or a typedef-name.
+
+   enum-name:
+     identifier
+
+   typedef-name:
+     identifier
+
+   Returns a TYPE_DECL for the type.  */
+
+static tree
+cp_parser_nonclass_name (cp_parser* parser)
+{
+  tree type_decl;
+  tree identifier;
+
+  identifier = cp_parser_identifier (parser);
+  if (identifier == error_mark_node)
+    return error_mark_node;
+
+  /* Look up the type-name.  */
+  type_decl = cp_parser_lookup_name_simple (parser, identifier);
+
+  if (TREE_CODE (type_decl) != TYPE_DECL
+      && (objc_is_id (identifier) || objc_is_class_name (identifier)))
+    {
+      /* See if this is an Objective-C type.  */
+      tree protos = cp_parser_objc_protocol_refs_opt (parser);
+      tree type = objc_get_protocol_qualified_type (identifier, protos);
+      if (type)
+	type_decl = TYPE_NAME (type);
+    }
+  
+  /* Issue an error if we did not find a type-name.  */
+  if (TREE_CODE (type_decl) != TYPE_DECL)
+    {
+      if (!cp_parser_simulate_error (parser))
+	cp_parser_name_lookup_error (parser, identifier, type_decl,
+				     "is not a type");
+      return error_mark_node;
+    }
+  /* Remember that the name was used in the definition of the
+     current class so that we can check later to see if the
+     meaning would have been different after the class was
+     entirely defined.  */
+  else if (type_decl != error_mark_node
+	   && !parser->scope)
+    maybe_note_name_used_in_class (identifier, type_decl);
+  
+  return type_decl;
+}
 
 /* Parse an elaborated-type-specifier.  Note that the grammar given
    here incorporates the resolution to DR68.
@@ -11393,7 +11475,7 @@ cp_parser_enum_specifier (cp_parser* parser)
     cp_parser_enumerator_list (parser, type);
 
   /* Consume the final '}'.  */
-  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 
   /* Look for trailing attributes to apply to this enumeration, and
      apply them if appropriate.  */
@@ -11560,9 +11642,18 @@ cp_parser_namespace_definition (cp_parser* parser)
 {
   tree identifier, attribs;
   bool has_visibility;
+  bool is_inline;
+
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_INLINE))
+    {
+      is_inline = true;
+      cp_lexer_consume_token (parser->lexer);
+    }
+  else
+    is_inline = false;
 
   /* Look for the `namespace' keyword.  */
-  cp_parser_require_keyword (parser, RID_NAMESPACE, "`namespace'");
+  cp_parser_require_keyword (parser, RID_NAMESPACE, "%<namespace%>");
 
   /* Get the name of the namespace.  We do not attempt to distinguish
      between an original-namespace-definition and an
@@ -11577,9 +11668,24 @@ cp_parser_namespace_definition (cp_parser* parser)
   attribs = cp_parser_attributes_opt (parser);
 
   /* Look for the `{' to start the namespace.  */
-  cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
+  cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>");
   /* Start the namespace.  */
   push_namespace (identifier);
+
+  /* "inline namespace" is equivalent to a stub namespace definition
+     followed by a strong using directive.  */
+  if (is_inline)
+    {
+      tree namespace = current_namespace;
+      /* Set up namespace association.  */
+      DECL_NAMESPACE_ASSOCIATIONS (namespace)
+	= tree_cons (CP_DECL_CONTEXT (namespace), NULL_TREE,
+		     DECL_NAMESPACE_ASSOCIATIONS (namespace));
+      /* Import the contents of the inline namespace.  */
+      pop_namespace ();
+      do_using_directive (namespace);
+      push_namespace (identifier);
+    }
 
   has_visibility = handle_namespace_attrs (current_namespace, attribs);
 
@@ -11594,7 +11700,7 @@ cp_parser_namespace_definition (cp_parser* parser)
   /* Finish the namespace.  */
   pop_namespace ();
   /* Look for the final `}'.  */
-  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 }
 
 /* Parse a namespace-body.
@@ -11620,7 +11726,7 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
   tree namespace_specifier;
 
   /* Look for the `namespace' keyword.  */
-  cp_parser_require_keyword (parser, RID_NAMESPACE, "`namespace'");
+  cp_parser_require_keyword (parser, RID_NAMESPACE, "%<namespace%>");
   /* Look for the identifier.  */
   identifier = cp_parser_identifier (parser);
   if (identifier == error_mark_node)
@@ -11636,12 +11742,12 @@ cp_parser_namespace_alias_definition (cp_parser* parser)
 	cp_lexer_consume_token (parser->lexer);
       return;
     }
-  cp_parser_require (parser, CPP_EQ, "`='");
+  cp_parser_require (parser, CPP_EQ, "%<=%>");
   /* Look for the qualified-namespace-specifier.  */
   namespace_specifier
     = cp_parser_qualified_namespace_specifier (parser);
   /* Look for the `;' token.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
   /* Register the alias in the symbol table.  */
   do_namespace_alias (identifier, namespace_specifier);
@@ -11700,7 +11806,7 @@ cp_parser_using_declaration (cp_parser* parser,
   else
     {
       /* Look for the `using' keyword.  */
-      cp_parser_require_keyword (parser, RID_USING, "`using'");
+      cp_parser_require_keyword (parser, RID_USING, "%<using%>");
       
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -11797,7 +11903,7 @@ cp_parser_using_declaration (cp_parser* parser,
     }
 
   /* Look for the final `;'.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
   
   return true;
 }
@@ -11815,9 +11921,9 @@ cp_parser_using_directive (cp_parser* parser)
   tree attribs;
 
   /* Look for the `using' keyword.  */
-  cp_parser_require_keyword (parser, RID_USING, "`using'");
+  cp_parser_require_keyword (parser, RID_USING, "%<using%>");
   /* And the `namespace' keyword.  */
-  cp_parser_require_keyword (parser, RID_NAMESPACE, "`namespace'");
+  cp_parser_require_keyword (parser, RID_NAMESPACE, "%<namespace%>");
   /* Look for the optional `::' operator.  */
   cp_parser_global_scope_opt (parser, /*current_scope_valid_p=*/false);
   /* And the optional nested-name-specifier.  */
@@ -11833,7 +11939,7 @@ cp_parser_using_directive (cp_parser* parser)
   /* Update the symbol table.  */
   parse_using_directive (namespace_decl, attribs);
   /* Look for the final `;'.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 }
 
 /* Parse an asm-definition.
@@ -11866,7 +11972,7 @@ cp_parser_asm_definition (cp_parser* parser)
   bool invalid_outputs_p = false;
 
   /* Look for the `asm' keyword.  */
-  cp_parser_require_keyword (parser, RID_ASM, "`asm'");
+  cp_parser_require_keyword (parser, RID_ASM, "%<asm%>");
   /* See if the next token is `volatile'.  */
   if (cp_parser_allow_gnu_extensions_p (parser)
       && cp_lexer_next_token_is_keyword (parser->lexer, RID_VOLATILE))
@@ -11877,7 +11983,7 @@ cp_parser_asm_definition (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
     }
   /* Look for the opening `('.  */
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return;
   /* Look for the string.  */
   string = cp_parser_string_literal (parser, false, false);
@@ -11960,10 +12066,10 @@ cp_parser_asm_definition (cp_parser* parser)
 	}
     }
   /* Look for the closing `)'.  */
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, true, false,
 					   /*consume_paren=*/true);
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
   if (!invalid_inputs_p && !invalid_outputs_p)
     {
@@ -12578,7 +12684,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		    *ctor_dtor_or_conv_p = *ctor_dtor_or_conv_p < 0;
 		  first = false;
 		  /* Consume the `)'.  */
-		  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+		  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
 		  /* Parse the cv-qualifier-seq.  */
 		  cv_quals = cp_parser_cv_qualifier_seq_opt (parser);
@@ -12622,7 +12728,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
 	      first = false;
 	      /* Expect a `)'.  */
-	      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
 		declarator = cp_error_declarator;
 	      if (declarator == cp_error_declarator)
 		break;
@@ -12673,7 +12779,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	  else
 	    bounds = NULL_TREE;
 	  /* Look for the closing `]'.  */
-	  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'"))
+	  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>"))
 	    {
 	      declarator = cp_error_declarator;
 	      break;
@@ -12968,7 +13074,7 @@ cp_parser_ptr_operator (cp_parser* parser,
       /* If we found it, and the next token is a `*', then we are
 	 indeed looking at a pointer-to-member operator.  */
       if (!cp_parser_error_occurred (parser)
-	  && cp_parser_require (parser, CPP_MULT, "`*'"))
+	  && cp_parser_require (parser, CPP_MULT, "%<*%>"))
 	{
 	  /* Indicate that the `*' operator was used.  */
 	  code = INDIRECT_REF;
@@ -13290,7 +13396,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
       /* Expect an ellipsis.  */
       ellipsis_p
-	= (cp_parser_require (parser, CPP_ELLIPSIS, "`...'") != NULL);
+	= (cp_parser_require (parser, CPP_ELLIPSIS, "%<...%>") != NULL);
     }
   /* It might also be `...' if the optional trailing `,' was
      omitted.  */
@@ -13894,7 +14000,7 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
 	    cp_lexer_consume_token (parser->lexer);
 	}
       /* Now, there should be a trailing `}'.  */
-      cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+      cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
     }
 
   return initializer;
@@ -14147,7 +14253,7 @@ cp_parser_class_name (cp_parser *parser,
     }
   else if (TREE_CODE (decl) != TYPE_DECL
 	   || TREE_TYPE (decl) == error_mark_node
-	   || !IS_AGGR_TYPE (TREE_TYPE (decl)))
+	   || !MAYBE_CLASS_TYPE_P (TREE_TYPE (decl)))
     decl = error_mark_node;
 
   if (decl == error_mark_node)
@@ -14194,7 +14300,7 @@ cp_parser_class_specifier (cp_parser* parser)
     }
 
   /* Look for the `{'.  */
-  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>"))
     {
       pop_deferring_access_checks ();
       return error_mark_node;
@@ -14241,7 +14347,7 @@ cp_parser_class_specifier (cp_parser* parser)
     cp_parser_member_specification_opt (parser);
 
   /* Look for the trailing `}'.  */
-  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
   /* We get better error messages by noticing a common problem: a
      missing trailing `;'.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -14780,7 +14886,7 @@ cp_parser_member_specification_opt (cp_parser* parser)
 	  /* Remember which access-specifier is active.  */
 	  current_access_specifier = token->u.value;
 	  /* Look for the `:'.  */
-	  cp_parser_require (parser, CPP_COLON, "`:'");
+	  cp_parser_require (parser, CPP_COLON, "%<:%>");
 	  break;
 
 	default:
@@ -15199,7 +15305,7 @@ cp_parser_member_declaration (cp_parser* parser)
 	}
     }
 
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 }
 
 /* Parse a pure-specifier.
@@ -15216,7 +15322,7 @@ cp_parser_pure_specifier (cp_parser* parser)
   cp_token *token;
 
   /* Look for the `=' token.  */
-  if (!cp_parser_require (parser, CPP_EQ, "`='"))
+  if (!cp_parser_require (parser, CPP_EQ, "%<=%>"))
     return error_mark_node;
   /* Look for the `0' token.  */
   token = cp_lexer_consume_token (parser->lexer);
@@ -15224,7 +15330,7 @@ cp_parser_pure_specifier (cp_parser* parser)
   if (token->type != CPP_NUMBER || !(token->flags & PURE_ZERO))
     {
       cp_parser_error (parser,
-		       "invalid pure specifier (only `= 0' is allowed)");
+		       "invalid pure specifier (only %<= 0%> is allowed)");
       cp_parser_skip_to_end_of_statement (parser);
       return error_mark_node;
     }
@@ -15248,7 +15354,7 @@ static tree
 cp_parser_constant_initializer (cp_parser* parser)
 {
   /* Look for the `=' token.  */
-  if (!cp_parser_require (parser, CPP_EQ, "`='"))
+  if (!cp_parser_require (parser, CPP_EQ, "%<=%>"))
     return error_mark_node;
 
   /* It is invalid to write:
@@ -15265,7 +15371,7 @@ cp_parser_constant_initializer (cp_parser* parser)
       /* Skip the initializer.  */
       cp_parser_skip_to_closing_brace (parser);
       /* Look for the trailing `}'.  */
-      cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+      cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 
       return error_mark_node;
     }
@@ -15299,7 +15405,7 @@ cp_parser_base_clause (cp_parser* parser)
   tree bases = NULL_TREE;
 
   /* Look for the `:' that begins the list.  */
-  cp_parser_require (parser, CPP_COLON, "`:'");
+  cp_parser_require (parser, CPP_COLON, "%<:%>");
 
   /* Scan the base-specifier-list.  */
   while (true)
@@ -15505,7 +15611,7 @@ cp_parser_exception_specification_opt (cp_parser* parser)
   cp_lexer_consume_token (parser->lexer);
 
   /* Look for the `('.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -15527,7 +15633,7 @@ cp_parser_exception_specification_opt (cp_parser* parser)
     type_id_list = empty_except_spec;
 
   /* Look for the `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return type_id_list;
 }
@@ -15586,7 +15692,7 @@ cp_parser_try_block (cp_parser* parser)
 {
   tree try_block;
 
-  cp_parser_require_keyword (parser, RID_TRY, "`try'");
+  cp_parser_require_keyword (parser, RID_TRY, "%<try%>");
   try_block = begin_try_block ();
   cp_parser_compound_statement (parser, NULL, true);
   finish_try_block (try_block);
@@ -15609,7 +15715,7 @@ cp_parser_function_try_block (cp_parser* parser)
   bool ctor_initializer_p;
 
   /* Look for the `try' keyword.  */
-  if (!cp_parser_require_keyword (parser, RID_TRY, "`try'"))
+  if (!cp_parser_require_keyword (parser, RID_TRY, "%<try%>"))
     return false;
   /* Let the rest of the front end know where we are.  */
   try_block = begin_function_try_block (&compound_stmt);
@@ -15659,12 +15765,12 @@ cp_parser_handler (cp_parser* parser)
   tree handler;
   tree declaration;
 
-  cp_parser_require_keyword (parser, RID_CATCH, "`catch'");
+  cp_parser_require_keyword (parser, RID_CATCH, "%<catch%>");
   handler = begin_handler ();
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   declaration = cp_parser_exception_declaration (parser);
   finish_handler_parms (declaration, handler);
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
   cp_parser_compound_statement (parser, NULL, false);
   finish_handler (handler);
 }
@@ -15734,7 +15840,7 @@ cp_parser_throw_expression (cp_parser* parser)
   tree expression;
   cp_token* token;
 
-  cp_parser_require_keyword (parser, RID_THROW, "`throw'");
+  cp_parser_require_keyword (parser, RID_THROW, "%<throw%>");
   token = cp_lexer_peek_token (parser->lexer);
   /* Figure out whether or not there is an assignment-expression
      following the "throw" keyword.  */
@@ -15779,13 +15885,13 @@ cp_parser_asm_specification_opt (cp_parser* parser)
   /* Consume the `asm' token.  */
   cp_lexer_consume_token (parser->lexer);
   /* Look for the `('.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 
   /* Look for the string-literal.  */
   asm_specification = cp_parser_string_literal (parser, false, false);
 
   /* Look for the `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`('");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return asm_specification;
 }
@@ -15829,7 +15935,7 @@ cp_parser_asm_operand_list (cp_parser* parser)
 	    name = build_string (IDENTIFIER_LENGTH (name),
 				 IDENTIFIER_POINTER (name));
 	  /* Look for the closing `]'.  */
-	  cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+	  cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
 	}
       else
 	name = NULL_TREE;
@@ -15837,11 +15943,11 @@ cp_parser_asm_operand_list (cp_parser* parser)
       string_literal = cp_parser_string_literal (parser, false, false);
 
       /* Look for the `('.  */
-      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+      cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
       /* Parse the expression.  */
       expression = cp_parser_expression (parser, /*cast_p=*/false);
       /* Look for the `)'.  */
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
       if (name == error_mark_node 
 	  || string_literal == error_mark_node 
@@ -15925,8 +16031,8 @@ cp_parser_attributes_opt (cp_parser* parser)
       /* Consume the `__attribute__' keyword.  */
       cp_lexer_consume_token (parser->lexer);
       /* Look for the two `(' tokens.  */
-      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
-      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+      cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
+      cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
 
       /* Peek at the next token.  */
       token = cp_lexer_peek_token (parser->lexer);
@@ -15939,8 +16045,8 @@ cp_parser_attributes_opt (cp_parser* parser)
 	attribute_list = NULL;
 
       /* Look for the two `)' tokens.  */
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
       /* Add these new attributes to the list.  */
       attributes = chainon (attributes, attribute_list);
@@ -16070,7 +16176,7 @@ static void
 cp_parser_label_declaration (cp_parser* parser)
 {
   /* Look for the `__label__' keyword.  */
-  cp_parser_require_keyword (parser, RID_LABEL, "`__label__'");
+  cp_parser_require_keyword (parser, RID_LABEL, "%<__label__%>");
 
   while (true)
     {
@@ -16087,11 +16193,11 @@ cp_parser_label_declaration (cp_parser* parser)
       if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
 	break;
       /* Look for the `,' separating the label declarations.  */
-      cp_parser_require (parser, CPP_COMMA, "`,'");
+      cp_parser_require (parser, CPP_COMMA, "%<,%>");
     }
 
   /* Look for the final `;'.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 }
 
 /* Support Functions */
@@ -16625,7 +16731,7 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
      takes one parameter (of type `int') and returns a value of type
      `S::S'.  */
   if (constructor_p
-      && cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+      && cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     {
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_ELLIPSIS)
@@ -16832,11 +16938,11 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   bool need_lang_pop;
 
   /* Look for the `template' keyword.  */
-  if (!cp_parser_require_keyword (parser, RID_TEMPLATE, "`template'"))
+  if (!cp_parser_require_keyword (parser, RID_TEMPLATE, "%<template%>"))
     return;
 
   /* And the `<'.  */
-  if (!cp_parser_require (parser, CPP_LESS, "`<'"))
+  if (!cp_parser_require (parser, CPP_LESS, "%<<%>"))
     return;
   if (at_class_scope_p () && current_function_decl)
     {
@@ -17074,7 +17180,7 @@ cp_parser_single_declaration (cp_parser* parser,
   /* Look for a trailing `;' after the declaration.  */
   if (!function_definition_p
       && (decl == error_mark_node
-	  || !cp_parser_require (parser, CPP_SEMICOLON, "`;'")))
+	  || !cp_parser_require (parser, CPP_SEMICOLON, "%<;%>")))
     cp_parser_skip_to_end_of_block_or_statement (parser);
 
   return decl;
@@ -17104,7 +17210,8 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
                                                /*allow_expansion_p=*/true,
 					       /*non_constant_p=*/NULL);
 
-  cast = build_functional_cast (type, expression_list);
+  cast = build_functional_cast (type, expression_list,
+                                tf_warning_or_error);
   /* [expr.const]/1: In an integral constant expression "only type
      conversions to integral or enumeration type can be used".  */
   if (TREE_CODE (type) == TYPE_DECL)
@@ -17321,8 +17428,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 	 function.  */
       function_scope = current_function_decl;
       if (function_scope)
-	push_function_context_to (function_scope);
-
+	push_function_context ();
 
       /* Push the body of the function onto the lexer stack.  */
       cp_parser_push_lexer_for_tokens (parser, tokens);
@@ -17345,7 +17451,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
       /* Leave the scope of the containing function.  */
       if (function_scope)
-	pop_function_context_from (function_scope);
+	pop_function_context ();
       cp_parser_pop_lexer (parser);
     }
 
@@ -17466,7 +17572,6 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
 static tree
 cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
 {
-  static const char *format;
   tree expr = NULL_TREE;
   const char *saved_message;
   char *tmp;
@@ -17474,19 +17579,14 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   bool saved_non_integral_constant_expression_p;
   bool pack_expansion_p = false;
 
-  /* Initialize FORMAT the first time we get here.  */
-  if (!format)
-    format = "types may not be defined in '%s' expressions";
-
   /* Types cannot be defined in a `sizeof' expression.  Save away the
      old message.  */
   saved_message = parser->type_definition_forbidden_message;
   /* And create the new one.  */
-  parser->type_definition_forbidden_message = tmp
-    = XNEWVEC (char, strlen (format)
-	       + strlen (IDENTIFIER_POINTER (ridpointers[keyword]))
-	       + 1 /* `\0' */);
-  sprintf (tmp, format, IDENTIFIER_POINTER (ridpointers[keyword]));
+  tmp = concat ("types may not be defined in %<",
+		IDENTIFIER_POINTER (ridpointers[keyword]),
+		"%> expressions", NULL);
+  parser->type_definition_forbidden_message = tmp;
 
   /* The restrictions on constant-expressions do not apply inside
      sizeof expressions.  */
@@ -18237,7 +18337,7 @@ cp_parser_objc_message_expression (cp_parser* parser)
   cp_lexer_consume_token (parser->lexer);  /* Eat '['.  */
   receiver = cp_parser_objc_message_receiver (parser);
   messageargs = cp_parser_objc_message_args (parser);
-  cp_parser_require (parser, CPP_CLOSE_SQUARE, "`]'");
+  cp_parser_require (parser, CPP_CLOSE_SQUARE, "%<]%>");
 
   return objc_build_message_expr (build_tree_list (receiver, messageargs));
 }
@@ -18309,7 +18409,7 @@ cp_parser_objc_message_args (cp_parser* parser)
 	return build_tree_list (selector, NULL_TREE);
 
       maybe_unary_selector_p = false;
-      cp_parser_require (parser, CPP_COLON, "`:'");
+      cp_parser_require (parser, CPP_COLON, "%<:%>");
       arg = cp_parser_assignment_expression (parser, false);
 
       sel_args
@@ -18350,9 +18450,9 @@ cp_parser_objc_encode_expression (cp_parser* parser)
   tree type;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@encode'.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   type = complete_type (cp_parser_type_id (parser));
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   if (!type)
     {
@@ -18371,9 +18471,9 @@ cp_parser_objc_defs_expression (cp_parser *parser)
   tree name;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@defs'.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   name = cp_parser_identifier (parser);
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return objc_get_class_ivars (name);
 }
@@ -18391,9 +18491,9 @@ cp_parser_objc_protocol_expression (cp_parser* parser)
   tree proto;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@protocol'.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   proto = cp_parser_identifier (parser);
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return objc_build_protocol_expr (proto);
 }
@@ -18421,7 +18521,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
   cp_token *token;
 
   cp_lexer_consume_token (parser->lexer);  /* Eat '@selector'.  */
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   token = cp_lexer_peek_token (parser->lexer);
 
   while (cp_parser_objc_selector_p (token->type) || token->type == CPP_COLON
@@ -18468,7 +18568,7 @@ cp_parser_objc_selector_expression (cp_parser* parser)
     }
 
  finish_selector:
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return objc_build_selector_expr (sel_seq);
 }
@@ -18554,7 +18654,7 @@ cp_parser_objc_protocol_refs_opt (cp_parser* parser)
     {
       cp_lexer_consume_token (parser->lexer);  /* Eat '<'.  */
       protorefs = cp_parser_objc_identifier_list (parser);
-      cp_parser_require (parser, CPP_GREATER, "`>'");
+      cp_parser_require (parser, CPP_GREATER, "%<>%>");
     }
 
   return protorefs;
@@ -18643,7 +18743,7 @@ cp_parser_objc_typename (cp_parser* parser)
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
 	cp_type = cp_parser_type_id (parser);
 
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
       typename = build_tree_list (proto_quals, cp_type);
     }
 
@@ -18715,7 +18815,7 @@ cp_parser_objc_method_keyword_params (cp_parser* parser)
 	return selector;
 
       maybe_unary_selector_p = false;
-      cp_parser_require (parser, CPP_COLON, "`:'");
+      cp_parser_require (parser, CPP_COLON, "%<:%>");
       typename = cp_parser_objc_typename (parser);
       identifier = cp_parser_identifier (parser);
 
@@ -19045,7 +19145,7 @@ cp_parser_objc_superclass_or_category (cp_parser *parser, tree *super,
     {
       cp_lexer_consume_token (parser->lexer);  /* Eat '('.  */
       *categ = cp_parser_identifier (parser);
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
     }
 }
 
@@ -19165,7 +19265,7 @@ cp_parser_objc_try_catch_finally_statement (cp_parser *parser) {
   location_t location;
   tree stmt;
 
-  cp_parser_require_keyword (parser, RID_AT_TRY, "`@try'");
+  cp_parser_require_keyword (parser, RID_AT_TRY, "%<@try%>");
   location = cp_lexer_peek_token (parser->lexer)->location;
   /* NB: The @try block needs to be wrapped in its own STATEMENT_LIST
      node, lest it get absorbed into the surrounding block.  */
@@ -19179,13 +19279,13 @@ cp_parser_objc_try_catch_finally_statement (cp_parser *parser) {
       tree parm;
 
       cp_lexer_consume_token (parser->lexer);
-      cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+      cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
       parmdecl = cp_parser_parameter_declaration (parser, false, NULL);
       parm = grokdeclarator (parmdecl->declarator,
 			     &parmdecl->decl_specifiers,
 			     PARM, /*initialized=*/0,
 			     /*attrlist=*/NULL);
-      cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+      cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
       objc_begin_catch_clause (parm);
       cp_parser_compound_statement (parser, NULL, false);
       objc_finish_catch_clause ();
@@ -19217,12 +19317,12 @@ cp_parser_objc_synchronized_statement (cp_parser *parser) {
   location_t location;
   tree lock, stmt;
 
-  cp_parser_require_keyword (parser, RID_AT_SYNCHRONIZED, "`@synchronized'");
+  cp_parser_require_keyword (parser, RID_AT_SYNCHRONIZED, "%<@synchronized%>");
 
   location = cp_lexer_peek_token (parser->lexer)->location;
-  cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+  cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>");
   lock = cp_parser_expression (parser, false);
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   /* NB: The @synchronized block needs to be wrapped in its own STATEMENT_LIST
      node, lest it get absorbed into the surrounding block.  */
@@ -19243,7 +19343,7 @@ static tree
 cp_parser_objc_throw_statement (cp_parser *parser) {
   tree expr = NULL_TREE;
 
-  cp_parser_require_keyword (parser, RID_AT_THROW, "`@throw'");
+  cp_parser_require_keyword (parser, RID_AT_THROW, "%<@throw%>");
 
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     expr = cp_parser_assignment_expression (parser, false);
@@ -19408,7 +19508,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       cp_lexer_consume_token (parser->lexer);
     }
 
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     {
       int ending;
 
@@ -19432,7 +19532,7 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 static tree
 cp_parser_omp_var_list (cp_parser *parser, enum omp_clause_code kind, tree list)
 {
-  if (cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return cp_parser_omp_var_list_no_open (parser, kind, list);
   return list;
 }
@@ -19446,7 +19546,7 @@ cp_parser_omp_clause_default (cp_parser *parser, tree list)
   enum omp_clause_default_kind kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
   tree c;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
@@ -19479,7 +19579,7 @@ cp_parser_omp_clause_default (cp_parser *parser, tree list)
       cp_parser_error (parser, "expected %<none%> or %<shared%>");
     }
 
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
@@ -19503,13 +19603,13 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list)
 {
   tree t, c;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
   t = cp_parser_condition (parser);
 
   if (t == error_mark_node
-      || !cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+      || !cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
@@ -19546,13 +19646,13 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list)
 {
   tree t, c;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
   t = cp_parser_expression (parser, false);
 
   if (t == error_mark_node
-      || !cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+      || !cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
@@ -19593,7 +19693,7 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
   enum tree_code code;
   tree nlist, c;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
   switch (cp_lexer_peek_token (parser->lexer)->type)
@@ -19623,7 +19723,8 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
       code = TRUTH_ORIF_EXPR;
       break;
     default:
-      cp_parser_error (parser, "`+', `*', `-', `&', `^', `|', `&&', or `||'");
+      cp_parser_error (parser, "%<+%>, %<*%>, %<-%>, %<&%>, %<^%>, %<|%>, "
+			       "%<&&%>, or %<||%>");
     resync_fail:
       cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					     /*or_comma=*/false,
@@ -19632,7 +19733,7 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
     }
   cp_lexer_consume_token (parser->lexer);
 
-  if (!cp_parser_require (parser, CPP_COLON, "`:'"))
+  if (!cp_parser_require (parser, CPP_COLON, "%<:%>"))
     goto resync_fail;
 
   nlist = cp_parser_omp_var_list_no_open (parser, OMP_CLAUSE_REDUCTION, list);
@@ -19708,10 +19809,10 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
       else
 	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
 
-      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
 	goto resync_fail;
     }
-  else if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`,' or `)'"))
+  else if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<,%> or %<)%>"))
     goto resync_fail;
 
   check_no_duplicate_clause (list, OMP_CLAUSE_SCHEDULE, "schedule");
@@ -19989,7 +20090,7 @@ cp_parser_omp_critical (cp_parser *parser, cp_token *pragma_tok)
       name = cp_parser_identifier (parser);
 
       if (name == error_mark_node
-	  || !cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+	  || !cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					       /*or_comma=*/false,
 					       /*consume_paren=*/true);
@@ -20032,7 +20133,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
       return NULL;
     }
   loc = cp_lexer_consume_token (parser->lexer)->location;
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "`('"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return NULL;
 
   init = decl = NULL;
@@ -20060,7 +20161,7 @@ cp_parser_omp_for_loop (cp_parser *parser)
 	  attributes = cp_parser_attributes_opt (parser);
 	  asm_specification = cp_parser_asm_specification_opt (parser);
 
-	  cp_parser_require (parser, CPP_EQ, "`='");
+	  cp_parser_require (parser, CPP_EQ, "%<=%>");
 	  if (cp_parser_parse_definitely (parser))
 	    {
 	      tree pushed_scope;
@@ -20072,8 +20173,11 @@ cp_parser_omp_for_loop (cp_parser *parser)
 
 	      init = cp_parser_assignment_expression (parser, false);
 
-	      cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
-			      asm_specification, LOOKUP_ONLYCONVERTING);
+	      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+		init = error_mark_node;
+	      else
+		cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
+				asm_specification, LOOKUP_ONLYCONVERTING);
 
 	      if (pushed_scope)
 		pop_scope (pushed_scope);
@@ -20087,19 +20191,19 @@ cp_parser_omp_for_loop (cp_parser *parser)
       if (decl == NULL)
 	init = cp_parser_expression (parser, false);
     }
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
   pre_body = pop_stmt_list (pre_body);
 
   cond = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     cond = cp_parser_condition (parser);
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  cp_parser_require (parser, CPP_SEMICOLON, "%<;%>");
 
   incr = NULL;
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_PAREN))
     incr = cp_parser_expression (parser, false);
 
-  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'"))
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>"))
     cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					   /*or_comma=*/false,
 					   /*consume_paren=*/true);
@@ -20190,7 +20294,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
   bool error_suppress = false;
   cp_token *tok;
 
-  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "`{'"))
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, "%<{%>"))
     return NULL_TREE;
 
   stmt = push_stmt_list ();
@@ -20245,7 +20349,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
       substmt = build1 (OMP_SECTION, void_type_node, substmt);
       add_stmt (substmt);
     }
-  cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
+  cp_parser_require (parser, CPP_CLOSE_BRACE, "%<}%>");
 
   substmt = pop_stmt_list (stmt);
 

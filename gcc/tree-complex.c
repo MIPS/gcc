@@ -161,15 +161,14 @@ is_complex_reg (tree lhs)
 static void
 init_parameter_lattice_values (void)
 {
-  tree parm;
+  tree parm, ssa_name;
 
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = TREE_CHAIN (parm))
-    if (is_complex_reg (parm) && var_ann (parm) != NULL)
-      {
-	tree ssa_name = gimple_default_def (cfun, parm);
-	VEC_replace (complex_lattice_t, complex_lattice_values,
-		     SSA_NAME_VERSION (ssa_name), VARYING);
-      }
+    if (is_complex_reg (parm)
+	&& var_ann (parm) != NULL
+	&& (ssa_name = gimple_default_def (cfun, parm)) != NULL_TREE)
+      VEC_replace (complex_lattice_t, complex_lattice_values,
+		   SSA_NAME_VERSION (ssa_name), VARYING);
 }
 
 /* Initialize DONT_SIMULATE_AGAIN for each stmt and phi.  Return false if
@@ -763,7 +762,8 @@ expand_complex_move (block_stmt_iterator *bsi, tree stmt, tree type,
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs))
+      else if (TREE_CODE (rhs) == CALL_EXPR || TREE_SIDE_EFFECTS (rhs)
+	       || TREE_CODE (rhs) == PAREN_EXPR)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
@@ -1534,8 +1534,10 @@ tree_lower_complex (void)
   return 0;
 }
 
-struct tree_opt_pass pass_lower_complex = 
+struct gimple_opt_pass pass_lower_complex = 
 {
+ {
+  GIMPLE_PASS,
   "cplxlower",				/* name */
   0,					/* gate */
   tree_lower_complex,			/* execute */
@@ -1550,8 +1552,8 @@ struct tree_opt_pass pass_lower_complex =
   TODO_dump_func
     | TODO_ggc_collect
     | TODO_update_ssa
-    | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_stmts	 		/* todo_flags_finish */
+ }
 };
 
 
@@ -1582,8 +1584,10 @@ gate_no_optimization (void)
   return optimize == 0 || sorrycount || errorcount;
 }
 
-struct tree_opt_pass pass_lower_complex_O0 = 
+struct gimple_opt_pass pass_lower_complex_O0 = 
 {
+ {
+  GIMPLE_PASS,
   "cplxlower0",				/* name */
   gate_no_optimization,			/* gate */
   tree_lower_complex_O0,		/* execute */
@@ -1597,5 +1601,5 @@ struct tree_opt_pass pass_lower_complex_O0 =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect
     | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+ }
 };

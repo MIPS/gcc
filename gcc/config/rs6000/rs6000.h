@@ -60,6 +60,18 @@
 #define TARGET_PAIRED_FLOAT 0
 #endif
 
+#ifdef HAVE_AS_POPCNTB
+#define ASM_CPU_POWER5_SPEC "-mpower5"
+#else
+#define ASM_CPU_POWER5_SPEC "-mpower4"
+#endif
+
+#ifdef HAVE_AS_DFP
+#define ASM_CPU_POWER6_SPEC "-mpower6 -maltivec"
+#else
+#define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
+#endif
+
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -76,10 +88,10 @@
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
-%{mcpu=power5: -mpower4} \
-%{mcpu=power5+: -mpower4} \
-%{mcpu=power6: -mpower4 -maltivec} \
-%{mcpu=power6x: -mpower4 -maltivec} \
+%{mcpu=power5: %(asm_cpu_power5)} \
+%{mcpu=power5+: %(asm_cpu_power5)} \
+%{mcpu=power6: %(asm_cpu_power6) -maltivec} \
+%{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -117,6 +129,8 @@
 %{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
 %{mcpu=8548: -me500} \
+%{mcpu=e300c2: -me300} \
+%{mcpu=e300c3: -me300} \
 %{maltivec: -maltivec} \
 -many"
 
@@ -141,6 +155,8 @@
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
+  { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
+  { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 /* -mcpu=native handling only makes sense with compiler running on
@@ -262,6 +278,8 @@ enum processor_type
    PROCESSOR_PPC7400,
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
+   PROCESSOR_PPCE300C2,
+   PROCESSOR_PPCE300C3,
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
@@ -596,6 +614,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Make vector constants quadword aligned.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
   (TREE_CODE (EXP) == STRING_CST	                         \
+   && (STRICT_ALIGNMENT || !optimize_size)                       \
    && (ALIGN) < BITS_PER_WORD                                    \
    ? BITS_PER_WORD                                               \
    : (ALIGN))
@@ -1269,7 +1288,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define STARTING_FRAME_OFFSET						\
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
-   : (RS6000_ALIGN (current_function_outgoing_args_size,		\
+   : (RS6000_ALIGN (crtl->outgoing_args_size,		\
 		    TARGET_ALTIVEC ? 16 : 8)				\
       + RS6000_SAVE_AREA))
 
@@ -1280,7 +1299,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    length of the outgoing arguments.  The default is correct for most
    machines.  See `function.c' for details.  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (current_function_outgoing_args_size,			\
+  (RS6000_ALIGN (crtl->outgoing_args_size,			\
 		 TARGET_ALTIVEC ? 16 : 8)				\
    + (STACK_POINTER_OFFSET))
 
@@ -1315,7 +1334,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable current_function_outgoing_args_size.  */
+   found in the variable crtl->outgoing_args_size.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Value is the number of bytes of arguments automatically

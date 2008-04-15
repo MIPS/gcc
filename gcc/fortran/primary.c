@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -2561,8 +2561,18 @@ match_variable (gfc_expr **result, int equiv_flag, int host_flag)
       break;
 
     case FL_PROCEDURE:
-      /* Check for a nonrecursive function result */
-      if (sym->attr.function && sym->result == sym && !sym->attr.external)
+      /* Check for a nonrecursive function result variable.  */
+      if (sym->attr.function
+          && !sym->attr.external
+          && sym->result == sym
+          && ((sym == gfc_current_ns->proc_name
+               && sym == gfc_current_ns->proc_name->result)
+              || (gfc_current_ns->parent
+                  && sym == gfc_current_ns->parent->proc_name->result)
+              || (sym->attr.entry
+                  && sym->ns == gfc_current_ns)
+              || (sym->attr.entry
+                  && sym->ns == gfc_current_ns->parent)))
 	{
 	  /* If a function result is a derived type, then the derived
 	     type may still have to be resolved.  */

@@ -1,7 +1,8 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -92,6 +93,39 @@ static const st_option advance_opt[] = {
   {NULL, 0}
 };
 
+
+static const st_option decimal_opt[] = {
+  {"point", DECIMAL_POINT},
+  {"comma", DECIMAL_COMMA},
+  {NULL, 0}
+};
+
+
+static const st_option sign_opt[] = {
+  {"plus", SIGN_SP},
+  {"suppress", SIGN_SS},
+  {"processor_defined", SIGN_S},
+  {NULL, 0}
+};
+
+static const st_option blank_opt[] = {
+  {"null", BLANK_NULL},
+  {"zero", BLANK_ZERO},
+  {NULL, 0}
+};
+
+static const st_option delim_opt[] = {
+  {"apostrophe", DELIM_APOSTROPHE},
+  {"quote", DELIM_QUOTE},
+  {"none", DELIM_NONE},
+  {NULL, 0}
+};
+
+static const st_option pad_opt[] = {
+  {"yes", PAD_YES},
+  {"no", PAD_NO},
+  {NULL, 0}
+};
 
 typedef enum
 { FORMATTED_SEQUENTIAL, UNFORMATTED_SEQUENTIAL,
@@ -221,7 +255,7 @@ read_sf (st_parameter_dt *dtp, int *length, int no_error)
 	  /* Without padding, terminate the I/O statement without assigning
 	     the value.  With padding, the value still needs to be assigned,
 	     so we can just continue with a short read.  */
-	  if (dtp->u.p.current_unit->flags.pad == PAD_NO)
+	  if (dtp->u.p.pad_status == PAD_NO)
 	    {
 	      if (no_error)
 		break;
@@ -299,7 +333,7 @@ read_block (st_parameter_dt *dtp, int *length)
           dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
 	  else
 	    {
-	      if (dtp->u.p.current_unit->flags.pad == PAD_NO)
+	      if (dtp->u.p.pad_status == PAD_NO)
 		{
 		  /* Not enough data left.  */
 		  generate_error (&dtp->common, LIBERROR_EOR, NULL);
@@ -337,7 +371,7 @@ read_block (st_parameter_dt *dtp, int *length)
 
   if (nread != *length)
     {				/* Short read, this shouldn't happen.  */
-      if (dtp->u.p.current_unit->flags.pad == PAD_YES)
+      if (dtp->u.p.pad_status == PAD_YES)
 	*length = nread;
       else
 	{
@@ -639,12 +673,7 @@ write_buf (st_parameter_dt *dtp, void *buf, size_t nbytes)
 	}
 
       if (buf == NULL && nbytes == 0)
-	{
-	   char *p;
-	   p = write_block (dtp, dtp->u.p.current_unit->recl);
-	   memset (p, 0, dtp->u.p.current_unit->recl);
-	   return SUCCESS;
-	}
+	return SUCCESS;
 
       if (swrite (dtp->u.p.current_unit->s, buf, &nbytes) != 0)
 	{
@@ -915,9 +944,9 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
   /* Set this flag so that commas in reads cause the read to complete before
      the entire field has been read.  The next read field will start right after
      the comma in the stream.  (Set to 0 for character reads).  */
-  dtp->u.p.sf_read_comma = 1;
-
+  dtp->u.p.sf_read_comma = dtp->u.p.decimal_status == DECIMAL_COMMA ? 0 : 1;
   dtp->u.p.line_buffer = scratch;
+
   for (;;)
     {
       /* If reversion has occurred and there is another real data item,
@@ -928,7 +957,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	  next_record (dtp, 0);
 	}
 
-      consume_data_flag = 1 ;
+      consume_data_flag = 1;
       if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
 	break;
 
@@ -1167,7 +1196,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	  break;
 
 	case FMT_STRING:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  if (dtp->u.p.mode == READING)
 	    {
 	      format_error (dtp, f, "Constant string in input format");
@@ -1274,21 +1303,26 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	      else
 		read_x (dtp, dtp->u.p.skips);
 	    }
+	  else
+	    {
+	      if (dtp->u.p.skips < 0)
+		flush (dtp->u.p.current_unit->s);
+	    }
 
 	  break;
 
 	case FMT_S:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.sign_status = SIGN_S;
 	  break;
 
 	case FMT_SS:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.sign_status = SIGN_SS;
 	  break;
 
 	case FMT_SP:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.sign_status = SIGN_SP;
 	  break;
 
@@ -1298,22 +1332,32 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	  break;
 
 	case FMT_BZ:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.blank_status = BLANK_ZERO;
 	  break;
 
+	case FMT_DC:
+	  consume_data_flag = 0;
+	  dtp->u.p.decimal_status = DECIMAL_COMMA;
+	  break;
+
+	case FMT_DP:
+	  consume_data_flag = 0;
+	  dtp->u.p.decimal_status = DECIMAL_POINT;
+	  break;
+
 	case FMT_P:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.scale_factor = f->u.k;
 	  break;
 
 	case FMT_DOLLAR:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.seen_dollar = 1;
 	  break;
 
 	case FMT_SLASH:
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  dtp->u.p.skips = dtp->u.p.pending_spaces = 0;
 	  next_record (dtp, 0);
 	  break;
@@ -1323,7 +1367,7 @@ formatted_transfer_scalar (st_parameter_dt *dtp, bt type, void *p, int len,
 	     particular preventing another / descriptor from being
 	     processed) unless there is another data item to be
 	     transferred.  */
-	  consume_data_flag = 0 ;
+	  consume_data_flag = 0;
 	  if (n == 0)
 	    return;
 	  break;
@@ -1769,6 +1813,11 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
      u_flags.delim = DELIM_UNSPECIFIED;
      u_flags.blank = BLANK_UNSPECIFIED;
      u_flags.pad = PAD_UNSPECIFIED;
+     u_flags.decimal = DECIMAL_UNSPECIFIED;
+     u_flags.encoding = ENCODING_UNSPECIFIED;
+     u_flags.async = ASYNC_UNSPECIFIED;
+     u_flags.round = ROUND_UNSPECIFIED;
+     u_flags.sign = SIGN_UNSPECIFIED;
      u_flags.status = STATUS_UNKNOWN;
 
      conv = get_unformatted_convert (dtp->common.unit);
@@ -1958,6 +2007,52 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if (dtp->u.p.advance_status == ADVANCE_UNSPECIFIED)
     dtp->u.p.advance_status = ADVANCE_YES;
 
+  /* Check the decimal mode.  */
+
+  dtp->u.p.decimal_status
+    = !(cf & IOPARM_DT_HAS_DECIMAL) ? DECIMAL_UNSPECIFIED :
+      find_option (&dtp->common, dtp->decimal, dtp->decimal_len, decimal_opt,
+		   "Bad DECIMAL parameter in data transfer statement");
+
+  if (dtp->u.p.decimal_status == DECIMAL_UNSPECIFIED)
+    dtp->u.p.decimal_status = dtp->u.p.current_unit->flags.decimal;
+
+  /* Check the sign mode. */
+  dtp->u.p.sign_status
+    = !(cf & IOPARM_DT_HAS_SIGN) ? SIGN_UNSPECIFIED :
+      find_option (&dtp->common, dtp->sign, dtp->sign_len, sign_opt,
+		   "Bad SIGN parameter in data transfer statement");
+  
+  if (dtp->u.p.sign_status == SIGN_UNSPECIFIED)
+    dtp->u.p.sign_status = dtp->u.p.current_unit->flags.sign;
+
+  /* Check the blank mode.  */
+  dtp->u.p.blank_status
+    = !(cf & IOPARM_DT_HAS_BLANK) ? BLANK_UNSPECIFIED :
+      find_option (&dtp->common, dtp->blank, dtp->blank_len, blank_opt,
+		   "Bad BLANK parameter in data transfer statement");
+  
+  if (dtp->u.p.blank_status == BLANK_UNSPECIFIED)
+    dtp->u.p.blank_status = dtp->u.p.current_unit->flags.blank;
+  
+  /* Check the delim mode.  */
+  dtp->u.p.delim_status
+    = !(cf & IOPARM_DT_HAS_DELIM) ? DELIM_UNSPECIFIED :
+      find_option (&dtp->common, dtp->delim, dtp->delim_len, delim_opt,
+		   "Bad DELIM parameter in data transfer statement");
+  
+  if (dtp->u.p.delim_status == DELIM_UNSPECIFIED)
+    dtp->u.p.delim_status = dtp->u.p.current_unit->flags.delim;
+
+  /* Check the pad mode.  */
+  dtp->u.p.pad_status
+    = !(cf & IOPARM_DT_HAS_PAD) ? PAD_UNSPECIFIED :
+      find_option (&dtp->common, dtp->pad, dtp->pad_len, pad_opt,
+		   "Bad PAD parameter in data transfer statement");
+  
+  if (dtp->u.p.pad_status == PAD_UNSPECIFIED)
+    dtp->u.p.pad_status = dtp->u.p.current_unit->flags.pad;
+ 
   /* Sanity checks on the record number.  */
   if ((cf & IOPARM_DT_HAS_REC) != 0)
     {
@@ -1980,12 +2075,12 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
       if (dtp->u.p.mode == READING
 	  && dtp->u.p.current_unit->mode == WRITING
 	  && !is_internal_unit (dtp))
-	 flush(dtp->u.p.current_unit->s);
+	flush(dtp->u.p.current_unit->s);
 
       /* Check whether the record exists to be read.  Only
 	 a partial record needs to exist.  */
 
-      if (dtp->u.p.mode == READING && (dtp->rec -1)
+      if (dtp->u.p.mode == READING && (dtp->rec - 1)
 	  * dtp->u.p.current_unit->recl >= file_length (dtp->u.p.current_unit->s))
 	{
 	  generate_error (&dtp->common, LIBERROR_BAD_OPTION,
@@ -2007,6 +2102,8 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	dtp->u.p.current_unit->strm_pos = dtp->rec;
 
     }
+  else
+    dtp->rec = 0;
 
   /* Overwriting an existing sequential file ?
      it is always safe to truncate the file on the first write */
@@ -2021,11 +2118,6 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 
   dtp->u.p.current_unit->mode = dtp->u.p.mode;
 
-  /* Set the initial value of flags.  */
-
-  dtp->u.p.blank_status = dtp->u.p.current_unit->flags.blank;
-  dtp->u.p.sign_status = SIGN_S;
-  
   /* Set the maximum position reached from the previous I/O operation.  This
      could be greater than zero from a previous non-advancing write.  */
   dtp->u.p.max_pos = dtp->u.p.current_unit->saved_pos;
@@ -2486,6 +2578,13 @@ next_record_w (st_parameter_dt *dtp, int done)
       break;
 
     case UNFORMATTED_DIRECT:
+      if (dtp->u.p.current_unit->bytes_left > 0)
+	{
+	  length = (int) dtp->u.p.current_unit->bytes_left;
+	  p = salloc_w (dtp->u.p.current_unit->s, &length);
+	  memset (p, 0, length);
+	}
+
       if (sfree (dtp->u.p.current_unit->s) == FAILURE)
 	goto io_error;
       break;
@@ -2583,7 +2682,8 @@ next_record_w (st_parameter_dt *dtp, int done)
 	  if (max_pos > m)
 	    {
 	      length = (int) (max_pos - m);
-	      p = salloc_w (dtp->u.p.current_unit->s, &length);
+	      sseek (dtp->u.p.current_unit->s,
+		     file_position (dtp->u.p.current_unit->s) + length);
 	    }
 #ifdef HAVE_CRLF
 	  len = 2;
@@ -2594,7 +2694,12 @@ next_record_w (st_parameter_dt *dtp, int done)
 	    goto io_error;
 	  
 	  if (is_stream_io (dtp))
-	    dtp->u.p.current_unit->strm_pos += len;
+	    {
+	      dtp->u.p.current_unit->strm_pos += len;
+	      if (dtp->u.p.current_unit->strm_pos
+		  < file_length (dtp->u.p.current_unit->s))
+		struncate (dtp->u.p.current_unit->s);
+	    }
 	}
 
       break;
@@ -2910,6 +3015,14 @@ st_write_done (st_parameter_dt *dtp)
 
   library_end ();
 }
+
+
+/* F2003: This is a stub for the runtime portion of the WAIT statement.  */
+void
+st_wait (st_parameter_wait *wtp __attribute__((unused)))
+{
+}
+
 
 /* Receives the scalar information for namelist objects and stores it
    in a linked list of namelist_info types.  */

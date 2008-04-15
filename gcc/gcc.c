@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -966,11 +966,14 @@ static const struct compiler default_compilers[] =
   {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
-  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0},
-  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
-  {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
-  {".f90", "#Fortran", 0, 0, 0}, {".f95", "#Fortran", 0, 0, 0},
-  {".F90", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
+  {".f", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
+  {".for", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
+  {".ftn", "#Fortran", 0, 0, 0}, {".FTN", "#Fortran", 0, 0, 0},
+  {".fpp", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran", 0, 0, 0}, {".F90", "#Fortran", 0, 0, 0},
+  {".f95", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
+  {".f03", "#Fortran", 0, 0, 0}, {".F03", "#Fortran", 0, 0, 0},
+  {".f08", "#Fortran", 0, 0, 0}, {".F08", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
   {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
@@ -3605,7 +3608,7 @@ process_command (int argc, const char **argv)
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s %s%s\n"), programname, pkgversion_string,
 		  version_string);
-	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2008 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),

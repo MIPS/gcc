@@ -1,3 +1,39 @@
+2008-03-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* src/sh/sysv.S: Add .note.GNU-stack on Linux.
+	* src/sh64/sysv.S: Likewise.
+
+2008-03-26  Daniel Jacobowitz  <dan@debian.org>
+
+	* src/arm/sysv.S: Fix ARM comment marker.
+
+2008-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/alpha/osf.S: Add .note.GNU-stack on Linux.
+	* src/s390/sysv.S: Likewise.
+	* src/powerpc/ppc_closure.S: Likewise.
+	* src/powerpc/sysv.S: Likewise.
+	* src/x86/unix64.S: Likewise.
+	* src/x86/sysv.S: Likewise.
+	* src/sparc/v8.S: Likewise.
+	* src/sparc/v9.S: Likewise.
+	* src/m68k/sysv.S: Likewise.
+	* src/arm/sysv.S: Likewise.
+
+2008-03-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* aclocal.m4: Regenerate.
+	* configure: Likewise.
+	* Makefile.in: Likewise.
+	* include/Makefile.in: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+2008-02-12  Bjoern Koenig  <bkoenig@alpha-tierchen.de>
+	    Andreas Tobler  <a.tobler@schweiz.org>
+
+	* configure.ac: Add amd64-*-freebsd* target.
+	* configure: Regenerate.
+
 2008-01-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libffi/34612

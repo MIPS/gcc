@@ -143,7 +143,7 @@ known_alignment (tree exp)
      both type and expression information in this case.
 
      Beware that we can still get a dummy designated subtype here (e.g. Taft
-     Amendement types), in which the alignment information is meaningless and
+     Amendment types), in which the alignment information is meaningless and
      should be ignored.
 
      We always compute a type_alignment value and return the MAX of it
@@ -228,37 +228,53 @@ known_alignment (tree exp)
   return MAX (type_alignment, this_alignment);
 }
 
-/* We have a comparison or assignment operation on two types, T1 and T2,
-   which are both either array types or both record types.
-   Return the type that both operands should be converted to, if any.
+/* We have a comparison or assignment operation on two types, T1 and T2, which
+   are either both array types or both record types.  T1 is assumed to be for
+   the left hand side operand, and T2 for the right hand side.  Return the
+   type that both operands should be converted to for the operation, if any.
    Otherwise return zero.  */
 
 static tree
 find_common_type (tree t1, tree t2)
 {
-  /* If either type is non-BLKmode, use it.  Note that we know that we will
-     not have any alignment problems since if we did the non-BLKmode
-     type could not have been used.  */
+  /* ??? As of today, various constructs lead here with types of different
+     sizes even when both constants (e.g. tagged types, packable vs regular
+     component types, padded vs unpadded types, ...).  While some of these
+     would better be handled upstream (types should be made consistent before
+     calling into build_binary_op), some others are really expected and we
+     have to be careful.  */
+
+  /* We must prevent writing more than what the target may hold if this is for
+     an assignment and the case of tagged types is handled in build_binary_op
+     so use the lhs type if it is known to be smaller, or of constant size and
+     the rhs type is not, whatever the modes.  We also force t1 in case of
+     constant size equality to minimize occurrences of view conversions on the
+     lhs of assignments.  */
+  if (TREE_CONSTANT (TYPE_SIZE (t1))
+      && (!TREE_CONSTANT (TYPE_SIZE (t2))
+          || !tree_int_cst_lt (TYPE_SIZE (t2), TYPE_SIZE (t1))))
+    return t1;
+
+  /* Otherwise, if the lhs type is non-BLKmode, use it.  Note that we know
+     that we will not have any alignment problems since, if we did, the
+     non-BLKmode type could not have been used.  */
   if (TYPE_MODE (t1) != BLKmode)
     return t1;
-  else if (TYPE_MODE (t2) != BLKmode)
+
+  /* If the rhs type is of constant size, use it whatever the modes.  At
+     this point it is known to be smaller, or of constant size and the
+     lhs type is not.  */
+  if (TREE_CONSTANT (TYPE_SIZE (t2)))
     return t2;
 
-  /* If both types have constant size, use the smaller one.  Keep returning
-     T1 if we have a tie, to be consistent with the other cases.  */
-  if (TREE_CONSTANT (TYPE_SIZE (t1)) && TREE_CONSTANT (TYPE_SIZE (t2)))
-    return tree_int_cst_lt (TYPE_SIZE (t2), TYPE_SIZE (t1)) ? t2 : t1;
-
-  /* Otherwise, if either type has a constant size, use it.  */
-  else if (TREE_CONSTANT (TYPE_SIZE (t1)))
-    return t1;
-  else if (TREE_CONSTANT (TYPE_SIZE (t2)))
+  /* Otherwise, if the rhs type is non-BLKmode, use it.  */
+  if (TYPE_MODE (t2) != BLKmode)
     return t2;
 
-  /* In this case, both types have variable size.  It's probably
-     best to leave the "type mismatch" because changing it could
-     case a bad self-referential reference.  */
-  return 0;
+  /* In this case, both types have variable size and BLKmode.  It's
+     probably best to leave the "type mismatch" because changing it
+     could cause a bad self-referential reference.  */
+  return NULL_TREE;
 }
 
 /* See if EXP contains a SAVE_EXPR in a position where we would
@@ -617,8 +633,7 @@ build_binary_op (enum tree_code op_code, tree result_type,
   tree right_base_type = get_base_type (right_type);
   tree operation_type = result_type;
   tree best_type = NULL_TREE;
-  tree modulus;
-  tree result;
+  tree modulus, result;
   bool has_side_effects = false;
 
   if (operation_type
@@ -631,18 +646,19 @@ build_binary_op (enum tree_code op_code, tree result_type,
       && TYPE_EXTRA_SUBTYPE_P (operation_type))
     operation_type = get_base_type (operation_type);
 
-  modulus = (operation_type && TREE_CODE (operation_type) == INTEGER_TYPE
+  modulus = (operation_type
+	     && TREE_CODE (operation_type) == INTEGER_TYPE
 	     && TYPE_MODULAR_P (operation_type)
-	     ? TYPE_MODULUS (operation_type) : 0);
+	     ? TYPE_MODULUS (operation_type) : NULL_TREE);
 
   switch (op_code)
     {
     case MODIFY_EXPR:
-      /* If there were any integral or pointer conversions on LHS, remove
+      /* If there were integral or pointer conversions on the LHS, remove
 	 them; we'll be putting them back below if needed.  Likewise for
-	 conversions between array and record types.  But don't do this if
-	 the right operand is not BLKmode (for packed arrays)
-	 unless we are not changing the mode.  */
+	 conversions between array and record types, except for justified
+	 modular types.  But don't do this if the right operand is not
+	 BLKmode (for packed arrays) unless we are not changing the mode.  */
       while ((TREE_CODE (left_operand) == CONVERT_EXPR
 	      || TREE_CODE (left_operand) == NOP_EXPR
 	      || TREE_CODE (left_operand) == VIEW_CONVERT_EXPR)
@@ -653,8 +669,6 @@ build_binary_op (enum tree_code op_code, tree result_type,
 		      || POINTER_TYPE_P (TREE_TYPE
 					 (TREE_OPERAND (left_operand, 0)))))
 		 || (((TREE_CODE (left_type) == RECORD_TYPE
-		       /* Don't remove conversions to justified modular
-			  types. */
 		       && !TYPE_JUSTIFIED_MODULAR_P (left_type))
 		      || TREE_CODE (left_type) == ARRAY_TYPE)
 		     && ((TREE_CODE (TREE_TYPE
@@ -673,31 +687,45 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  left_type = TREE_TYPE (left_operand);
 	}
 
-      if (!operation_type)
-	operation_type = left_type;
-
-      /* If we are copying one array or record to another, find the best type
-	 to use.  */
-      if (((TREE_CODE (left_type) == ARRAY_TYPE
-	    && TREE_CODE (right_type) == ARRAY_TYPE)
-	   || (TREE_CODE (left_type) == RECORD_TYPE
-	       && TREE_CODE (right_type) == RECORD_TYPE))
-	  && (best_type = find_common_type (left_type, right_type)))
-	operation_type = best_type;
-
       /* If a class-wide type may be involved, force use of the RHS type.  */
       if ((TREE_CODE (right_type) == RECORD_TYPE
 	   || TREE_CODE (right_type) == UNION_TYPE)
 	  && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
+      /* If we are copying between padded objects of the same underlying
+	 type with a non-zero size, use the padded view of the type, this
+	 is very likely more efficient.  */
+      else if (TREE_CODE (left_type) == RECORD_TYPE
+	       && TYPE_IS_PADDING_P (left_type)
+	       && TREE_TYPE (TYPE_FIELDS (left_type)) == right_type
+	       && !integer_zerop (TYPE_SIZE (right_type))
+	       && TREE_CODE (right_operand) == COMPONENT_REF
+	       && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		  == RECORD_TYPE
+	       && TYPE_IS_PADDING_P
+		  (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+	operation_type = left_type;
+
+      /* Find the best type to use for copying between aggregate types.  */
+      else if (((TREE_CODE (left_type) == ARRAY_TYPE
+		 && TREE_CODE (right_type) == ARRAY_TYPE)
+		|| (TREE_CODE (left_type) == RECORD_TYPE
+		    && TREE_CODE (right_type) == RECORD_TYPE))
+	       && (best_type = find_common_type (left_type, right_type)))
+	operation_type = best_type;
+
+      /* Otherwise use the LHS type.  */
+      else if (!operation_type)
+	operation_type = left_type;
+
       /* Ensure everything on the LHS is valid.  If we have a field reference,
 	 strip anything that get_inner_reference can handle.  Then remove any
-	 conversions with type types having the same code and mode.  Mark
+	 conversions between types having the same code and mode.  And mark
 	 VIEW_CONVERT_EXPRs with TREE_ADDRESSABLE.  When done, we must have
-	 either an INDIRECT_REF or a decl.  */
+	 either an INDIRECT_REF, a NULL_EXPR or a DECL node.  */
       result = left_operand;
-      while (1)
+      while (true)
 	{
 	  tree restype = TREE_TYPE (result);
 
@@ -728,21 +756,21 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	}
 
       gcc_assert (TREE_CODE (result) == INDIRECT_REF
-		  || TREE_CODE (result) == NULL_EXPR || DECL_P (result));
+		  || TREE_CODE (result) == NULL_EXPR
+		  || DECL_P (result));
 
-      /* Convert the right operand to the operation type unless
-	 it is either already of the correct type or if the type
-	 involves a placeholder, since the RHS may not have the same
-	 record type.  */
+      /* Convert the right operand to the operation type unless it is
+	 either already of the correct type or if the type involves a
+	 placeholder, since the RHS may not have the same record type.  */
       if (operation_type != right_type
-	  && (!CONTAINS_PLACEHOLDER_P (TYPE_SIZE (operation_type))))
+	  && !CONTAINS_PLACEHOLDER_P (TYPE_SIZE (operation_type)))
 	{
 	  right_operand = convert (operation_type, right_operand);
 	  right_type = operation_type;
 	}
 
-      /* If the left operand is not the same type as the operation type,
-	 surround it in a VIEW_CONVERT_EXPR.  */
+      /* If the left operand is not of the same type as the operation
+	 type, wrap it up in a VIEW_CONVERT_EXPR.  */
       if (left_type != operation_type)
 	left_operand = unchecked_convert (operation_type, left_operand, false);
 
@@ -1001,8 +1029,8 @@ build_binary_op (enum tree_code op_code, tree result_type,
   else if (TREE_CODE (right_operand) == NULL_EXPR)
     return build1 (NULL_EXPR, operation_type, TREE_OPERAND (right_operand, 0));
   else if (op_code == ARRAY_REF || op_code == ARRAY_RANGE_REF)
-    result = build4 (op_code, operation_type, left_operand,
-		     right_operand, NULL_TREE, NULL_TREE);
+    result = fold (build4 (op_code, operation_type, left_operand,
+			   right_operand, NULL_TREE, NULL_TREE));
   else
     result
       = fold_build2 (op_code, operation_type, left_operand, right_operand);
@@ -1270,7 +1298,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	tree modulus = ((operation_type
 			 && TREE_CODE (operation_type) == INTEGER_TYPE
 			 && TYPE_MODULAR_P (operation_type))
-			? TYPE_MODULUS (operation_type) : 0);
+			? TYPE_MODULUS (operation_type) : NULL_TREE);
 	int mod_pow2 = modulus && integer_pow2p (modulus);
 
 	/* If this is a modular type, there are various possibilities
@@ -1905,7 +1933,14 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, unsigned align,
     {
       if (Nkind (gnat_node) != N_Allocator || !Comes_From_Source (gnat_node))
         Check_No_Implicit_Heap_Alloc (gnat_node);
-      return build_call_1_expr (malloc_decl, gnu_size);
+
+      /* If the allocator size is 32bits but the pointer size is 64bits then
+	 allocate 32bit memory (sometimes necessary on 64bit VMS). Otherwise
+	 default to standard malloc. */
+      if (UI_To_Int (Esize (Etype (gnat_node))) == 32 && POINTER_SIZE == 64)
+        return build_call_1_expr (malloc32_decl, gnu_size);
+      else
+        return build_call_1_expr (malloc_decl, gnu_size);
     }
 }
 

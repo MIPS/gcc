@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,7 +43,7 @@ package body GNAT.Command_Line is
       Parameter_With_Optional_Space,  --  ':' in getopt
       Parameter_With_Space_Or_Equal,  --  '=' in getopt
       Parameter_No_Space,             --  '!' in getopt
-      Parameter_Optional);            --  '?' in getop
+      Parameter_Optional);            --  '?' in getopt
 
    procedure Set_Parameter
      (Variable : out Parameter_Type;
@@ -134,7 +134,7 @@ package body GNAT.Command_Line is
      (Cmd    : Command_Line;
       Result : Argument_List_Access;
       Params : Argument_List_Access);
-   --  When possible, replace or more switches by an alias, ie a shorter
+   --  When possible, replace or more switches by an alias, i.e. a shorter
    --  version.
 
    function Looking_At
@@ -264,8 +264,6 @@ package body GNAT.Command_Line is
             end;
          end if;
       end loop;
-
-      return String'(1 .. 0 => ' ');
    end Expansion;
 
    -----------------
@@ -567,7 +565,7 @@ package body GNAT.Command_Line is
                --  Always prepend the switch character, so that users know that
                --  this comes from a switch on the command line. This is
                --  especially important when Concatenate is False, since
-               --  otherwise the currrent argument first character is lost.
+               --  otherwise the current argument first character is lost.
 
                Set_Parameter
                  (Parser.The_Switch,
@@ -1110,12 +1108,22 @@ package body GNAT.Command_Line is
    -----------------------
 
    procedure Set_Configuration
-     (Cmd      : in out Command_Line;
-      Config   : Command_Line_Configuration)
+     (Cmd    : in out Command_Line;
+      Config : Command_Line_Configuration)
    is
    begin
       Cmd.Config := Config;
    end Set_Configuration;
+
+   -----------------------
+   -- Get_Configuration --
+   -----------------------
+
+   function Get_Configuration
+     (Cmd : Command_Line) return Command_Line_Configuration is
+   begin
+      return Cmd.Config;
+   end Get_Configuration;
 
    ----------------------
    -- Set_Command_Line --

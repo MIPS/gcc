@@ -1,5 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
@@ -182,11 +182,7 @@ show_locus (locus *loc, int c1, int c2)
   error_string (f->filename);
   error_char (':');
     
-#ifdef USE_MAPPED_LOCATION
   error_integer (LOCATION_LINE (lb->location));
-#else
-  error_integer (lb->linenum);
-#endif
 
   if ((c1 > 0) || (c2 > 0))
     error_char ('.');
@@ -964,31 +960,6 @@ gfc_free_error (gfc_error_buf *err)
 {
   if (err->flag)
     gfc_free (err->message);
-}
-
-
-/* Debug wrapper for printf.  */
-
-void
-gfc_status (const char *cmsgid, ...)
-{
-  va_list argp;
-
-  va_start (argp, cmsgid);
-
-  vprintf (_(cmsgid), argp);
-
-  va_end (argp);
-}
-
-
-/* Subroutine for outputting a single char so that we don't have to go
-   around creating a lot of 1-character strings.  */
-
-void
-gfc_status_char (char c)
-{
-  putchar (c);
 }
 
 

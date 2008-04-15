@@ -526,17 +526,9 @@ typedef struct gfc_powdecl_list GTY(())
 gfc_powdecl_list;
 
 extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[4][3];
-extern GTY(()) tree gfor_fndecl_math_cpowf;
-extern GTY(()) tree gfor_fndecl_math_cpow;
-extern GTY(()) tree gfor_fndecl_math_cpowl10;
-extern GTY(()) tree gfor_fndecl_math_cpowl16;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
 extern GTY(()) tree gfor_fndecl_math_ishftc16;
-extern GTY(()) tree gfor_fndecl_math_exponent4;
-extern GTY(()) tree gfor_fndecl_math_exponent8;
-extern GTY(()) tree gfor_fndecl_math_exponent10;
-extern GTY(()) tree gfor_fndecl_math_exponent16;
 
 /* BLAS functions.  */
 extern GTY(()) tree gfor_fndecl_sgemm;
@@ -645,11 +637,11 @@ struct lang_decl		GTY(())
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build1(code, void_type_node, arg)
-#define build2_v(code, arg1, arg2) build2(code, void_type_node, \
-                                          arg1, arg2)
-#define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
-                                                arg1, arg2, arg3)
+#define build1_v(code, arg) fold_build1(code, void_type_node, arg)
+#define build2_v(code, arg1, arg2) fold_build2(code, void_type_node, \
+                                               arg1, arg2)
+#define build3_v(code, arg1, arg2, arg3) fold_build3(code, void_type_node, \
+                                                     arg1, arg2, arg3)
 #define build4_v(code, arg1, arg2, arg3, arg4) build4(code, void_type_node, \
 						      arg1, arg2, arg3, arg4)
 

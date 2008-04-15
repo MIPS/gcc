@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
    Foundation, Inc.
 
 This file is part of GCC.
@@ -2990,16 +2990,15 @@ loc_mentioned_in_p (rtx *loc, const_rtx in)
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      if (loc == &in->u.fld[i].rt_rtx)
-	return 1;
       if (fmt[i] == 'e')
 	{
-	  if (loc_mentioned_in_p (loc, XEXP (in, i)))
+	  if (loc == &XEXP (in, i) || loc_mentioned_in_p (loc, XEXP (in, i)))
 	    return 1;
 	}
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (in, i) - 1; j >= 0; j--)
-	  if (loc_mentioned_in_p (loc, XVECEXP (in, i, j)))
+	  if (loc == &XVECEXP (in, i, j)
+	      || loc_mentioned_in_p (loc, XVECEXP (in, i, j)))
 	    return 1;
     }
   return 0;

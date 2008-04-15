@@ -45,32 +45,147 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "toplev.h"
 
+/* Pointer map of variable mappings, keyed by edge.  */
+static struct pointer_map_t *edge_var_maps;
+
+
+/* Add a mapping with PHI RESULT and PHI DEF associated with edge E.  */
+
+void
+redirect_edge_var_map_add (edge e, tree result, tree def)
+{
+  void **slot;
+  edge_var_map_vector old_head, head;
+  edge_var_map new_node;
+
+  if (edge_var_maps == NULL)
+    edge_var_maps = pointer_map_create ();
+
+  slot = pointer_map_insert (edge_var_maps, e);
+  old_head = head = *slot;
+  if (!head)
+    {
+      head = VEC_alloc (edge_var_map, heap, 5);
+      *slot = head;
+    }
+  new_node.def = def;
+  new_node.result = result;
+
+  VEC_safe_push (edge_var_map, heap, head, &new_node);
+  if (old_head != head)
+    {
+      /* The push did some reallocation.  Update the pointer map.  */
+      *slot = head;
+    }
+}
+
+
+/* Clear the var mappings in edge E.  */
+
+void
+redirect_edge_var_map_clear (edge e)
+{
+  void **slot;
+  edge_var_map_vector head;
+
+  if (!edge_var_maps)
+    return;
+
+  slot = pointer_map_contains (edge_var_maps, e);
+
+  if (slot)
+    {
+      head = *slot;
+      VEC_free (edge_var_map, heap, head);
+      *slot = NULL;
+    }
+}
+
+
+/* Duplicate the redirected var mappings in OLDE in NEWE.
+
+   Since we can't remove a mapping, let's just duplicate it.  This assumes a
+   pointer_map can have multiple edges mapping to the same var_map (many to
+   one mapping), since we don't remove the previous mappings.  */
+
+void
+redirect_edge_var_map_dup (edge newe, edge olde)
+{
+  void **new_slot, **old_slot; edge_var_map_vector head;
+
+  if (!edge_var_maps)
+    return;
+
+  new_slot = pointer_map_insert (edge_var_maps, newe);
+  old_slot = pointer_map_contains (edge_var_maps, olde);
+  if (!old_slot)
+    return;
+  head = *old_slot;
+
+  if (head)
+    *new_slot = VEC_copy (edge_var_map, heap, head);
+  else
+    *new_slot = VEC_alloc (edge_var_map, heap, 5);
+}
+
+
+/* Return the varable mappings for a given edge.  If there is none, return
+   NULL.  */
+
+edge_var_map_vector
+redirect_edge_var_map_vector (edge e)
+{
+  void **slot;
+
+  /* Hey, what kind of idiot would... you'd be surprised.  */
+  if (!edge_var_maps)
+    return NULL;
+
+  slot = pointer_map_contains (edge_var_maps, e);
+  if (!slot)
+    return NULL;
+
+  return (edge_var_map_vector) *slot;
+}
+
+
+/* Clear the edge variable mappings.  */
+
+void
+redirect_edge_var_map_destroy (void)
+{
+  if (edge_var_maps)
+    {
+      pointer_map_destroy (edge_var_maps);
+      edge_var_maps = NULL;
+    }
+}
+
+
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
-   The list of removed arguments is stored in PENDING_STMT (e).  */
+   The list of removed arguments is stored in a vector accessed
+   through edge_var_maps.  */
 
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
   tree phi;
-  tree list = NULL, *last = &list;
-  tree src, dst, node;
+
+  redirect_edge_var_map_clear (e);
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
   for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
-      if (PHI_ARG_DEF (phi, e->dest_idx) == NULL_TREE)
+      tree def = PHI_ARG_DEF (phi, e->dest_idx);
+
+      if (def == NULL_TREE)
 	continue;
 
-      src = PHI_ARG_DEF (phi, e->dest_idx);
-      dst = PHI_RESULT (phi);
-      node = build_tree_list (dst, src);
-      *last = node;
-      last = &TREE_CHAIN (node);
+      redirect_edge_var_map_add (e, PHI_RESULT (phi), def);
     }
 
   e = redirect_edge_succ_nodup (e, dest);
-  PENDING_STMT (e) = list;
 
   return e;
 }
@@ -81,20 +196,24 @@ ssa_redirect_edge (edge e, basic_block dest)
 void
 flush_pending_stmts (edge e)
 {
-  tree phi, arg;
+  tree phi;
+  edge_var_map_vector v;
+  edge_var_map *vm;
+  int i;
 
-  if (!PENDING_STMT (e))
+  v = redirect_edge_var_map_vector (e);
+  if (!v)
     return;
 
-  for (phi = phi_nodes (e->dest), arg = PENDING_STMT (e);
-       phi;
-       phi = PHI_CHAIN (phi), arg = TREE_CHAIN (arg))
+  for (phi = phi_nodes (e->dest), i = 0;
+       phi && VEC_iterate (edge_var_map, v, i, vm);
+       phi = PHI_CHAIN (phi), i++)
     {
-      tree def = TREE_VALUE (arg);
+      tree def = redirect_edge_var_map_def (vm);
       add_phi_arg (phi, def, e);
     }
 
-  PENDING_STMT (e) = NULL;
+  redirect_edge_var_map_clear (e);
 }
 
 /* Return true if SSA_NAME is malformed and mark it visited.
@@ -920,6 +1039,9 @@ delete_tree_ssa (void)
   delete_mem_ref_stats (cfun);
 
   cfun->gimple_df = NULL;
+
+  /* We no longer need the edge variable maps.  */
+  redirect_edge_var_map_destroy ();
 }
 
 /* Helper function for useless_type_conversion_p.  */
@@ -995,12 +1117,8 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
 	      != get_alias_set (TREE_TYPE (outer_type))))
 	return false;
 
-      /* Do not lose casts from const qualified to non-const
-	 qualified.  */
-      if ((TYPE_READONLY (TREE_TYPE (outer_type))
-	   != TYPE_READONLY (TREE_TYPE (inner_type)))
-	  && TYPE_READONLY (TREE_TYPE (inner_type)))
-	return false;
+      /* We do not care for const qualification of the pointed-to types
+	 as const qualification has no semantic value to the middle-end.  */
 
       /* Do not lose casts to restrict qualified pointers.  */
       if ((TYPE_RESTRICT (outer_type)
@@ -1294,13 +1412,19 @@ warn_uninit (tree t, const char *gmsgid, void *data)
 
   TREE_NO_WARNING (var) = 1;
 }
-   
+
+struct walk_data {
+  tree stmt;
+  bool always_executed;
+};
+
 /* Called via walk_tree, look for SSA_NAMEs that have empty definitions
    and warn about them.  */
 
 static tree
-warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
+warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
 {
+  struct walk_data *data = (struct walk_data *)data_;
   tree t = *tp;
 
   switch (TREE_CODE (t))
@@ -1308,7 +1432,12 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
     case SSA_NAME:
       /* We only do data flow with SSA_NAMEs, so that's all we
 	 can warn about.  */
-      warn_uninit (t, "%H%qD is used uninitialized in this function", data);
+      if (data->always_executed)
+        warn_uninit (t, "%H%qD is used uninitialized in this function",
+		     data->stmt);
+      else
+        warn_uninit (t, "%H%qD may be used uninitialized in this function",
+		     data->stmt);
       *walk_subtrees = 0;
       break;
 
@@ -1356,14 +1485,21 @@ execute_early_warn_uninitialized (void)
 {
   block_stmt_iterator bsi;
   basic_block bb;
+  struct walk_data data;
+
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree context = bsi_stmt (bsi);
-	walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
-		   context, NULL);
-      }
+    {
+      data.always_executed = dominated_by_p (CDI_POST_DOMINATORS,
+					     single_succ (ENTRY_BLOCK_PTR), bb);
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+	  data.stmt = bsi_stmt (bsi);
+	  walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
+		     &data, NULL);
+        }
+    }
   return 0;
 }
 
@@ -1390,8 +1526,10 @@ gate_warn_uninitialized (void)
   return warn_uninitialized != 0;
 }
 
-struct tree_opt_pass pass_early_warn_uninitialized =
+struct gimple_opt_pass pass_early_warn_uninitialized =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
   execute_early_warn_uninitialized,	/* execute */
@@ -1403,12 +1541,14 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0				        /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_late_warn_uninitialized =
+struct gimple_opt_pass pass_late_warn_uninitialized =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
   execute_late_warn_uninitialized,	/* execute */
@@ -1420,8 +1560,8 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0				        /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 /* Compute TREE_ADDRESSABLE for local variables.  */
@@ -1503,8 +1643,10 @@ execute_update_addresses_taken (void)
   return 0;
 }
 
-struct tree_opt_pass pass_update_address_taken =
+struct gimple_opt_pass pass_update_address_taken =
 {
+ {
+  GIMPLE_PASS,
   "addressables",			/* name */
   NULL,					/* gate */
   execute_update_addresses_taken,	/* execute */
@@ -1516,6 +1658,6 @@ struct tree_opt_pass pass_update_address_taken =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa,                      /* todo_flags_finish */
-  0				        /* letter */
+  TODO_update_ssa                       /* todo_flags_finish */
+ }
 };

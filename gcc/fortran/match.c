@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -518,6 +518,13 @@ gfc_match_name (char *buffer)
       c = gfc_next_char ();
     }
   while (ISALNUM (c) || c == '_' || (gfc_option.flag_dollar_ok && c == '$'));
+
+  if (c == '$' && !gfc_option.flag_dollar_ok)
+    {
+      gfc_error ("Invalid character '$' at %C. Use -fdollar-ok to allow it as an extension");
+      return MATCH_ERROR;
+    }
+
 
   buffer[i] = '\0';
   gfc_current_locus = old_loc;
@@ -1526,6 +1533,7 @@ gfc_match_if (gfc_statement *if_type)
   match ("return", gfc_match_return, ST_RETURN)
   match ("rewind", gfc_match_rewind, ST_REWIND)
   match ("stop", gfc_match_stop, ST_STOP)
+  match ("wait", gfc_match_wait, ST_WAIT)
   match ("where", match_simple_where, ST_WHERE)
   match ("write", gfc_match_write, ST_WRITE)
 

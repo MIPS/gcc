@@ -1,5 +1,5 @@
 /* Character scanner.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -821,7 +821,8 @@ restart:
 			     "statement at %C", gfc_option.max_continue_free);
 	    }
 	}
-      continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
+      if (continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
+	continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
       /* Now find where it continues. First eat any comment lines.  */
       openmp_cond_flag = skip_free_comments ();
@@ -1064,11 +1065,7 @@ gfc_gobble_whitespace (void)
 	 line will be scanned multiple times.  */
       if (!gfc_option.warn_tabs && c == '\t')
 	{
-#ifdef USE_MAPPED_LOCATION
 	  int cur_linenum = LOCATION_LINE (gfc_current_locus.lb->location);
-#else
-	  int cur_linenum = gfc_current_locus.lb->linenum;
-#endif
 	  if (cur_linenum != linenum)
 	    {
 	      linenum = cur_linenum;
@@ -1285,9 +1282,7 @@ get_file (const char *name, enum lc_reason reason ATTRIBUTE_UNUSED)
   if (current_file != NULL)
     f->inclusion_line = current_file->line;
 
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, reason, false, f->filename, 1);
-#endif
 
   return f;
 }
@@ -1412,10 +1407,8 @@ preprocessor_line (char *c)
 
       add_file_change (NULL, line);
       current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
       linemap_add (line_table, LC_RENAME, false, current_file->filename,
 		   current_file->line);
-#endif
     }
 
   /* The name of the file can be a temporary file produced by
@@ -1645,12 +1638,8 @@ load_file (const char *filename, bool initial)
 
       b = gfc_getmem (gfc_linebuf_header_size + len + 1);
 
-#ifdef USE_MAPPED_LOCATION
       b->location
 	= linemap_line_start (line_table, current_file->line++, 120);
-#else
-      b->linenum = current_file->line++;
-#endif
       b->file = current_file;
       b->truncated = trunc;
       strcpy (b->line, line);
@@ -1674,9 +1663,7 @@ load_file (const char *filename, bool initial)
   if (!initial)
     add_file_change (NULL, current_file->inclusion_line + 1);
   current_file = current_file->up;
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, LC_LEAVE, 0, NULL, 0);
-#endif
   return SUCCESS;
 }
 
@@ -1698,15 +1685,8 @@ gfc_new_file (void)
 
 #if 0 /* Debugging aid.  */
   for (; line_head; line_head = line_head->next)
-    gfc_status ("%s:%3d %s\n",
-#ifdef USE_MAPPED_LOCATION
-		LOCATION_FILE (line_head->location),
-		LOCATION_LINE (line_head->location),
-#else
-		line_head->file->filename, 
-		line_head->linenum,
-#endif
-		line_head->line);
+    printf ("%s:%3d %s\n", LOCATION_FILE (line_head->location),
+	    LOCATION_LINE (line_head->location), line_head->line);
 
   exit (0);
 #endif

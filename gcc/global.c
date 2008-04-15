@@ -1490,7 +1490,7 @@ build_insn_chain (void)
 			/* We can model subregs, but not if they are
 			   wrapped in ZERO_EXTRACTS.  */
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
+			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_ZERO_EXTRACT))
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1503,7 +1503,7 @@ build_insn_chain (void)
 						  regno, reg);
 
 			    if (!DF_REF_FLAGS_IS_SET
-				(def, DF_REF_STRICT_LOWER_PART))
+				(def, DF_REF_STRICT_LOW_PART))
 			      {
 				/* Expand the range to cover entire words.
 				   Bytes added here are "don't care".  */
@@ -1566,7 +1566,7 @@ build_insn_chain (void)
 		       precisely so we do not need to look at the
 		       fabricated use. */
 		    if (DF_REF_FLAGS_IS_SET (use, DF_REF_READ_WRITE) 
-			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT) 
+			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_ZERO_EXTRACT) 
 			&& DF_REF_FLAGS_IS_SET (use, DF_REF_SUBREG))
 		      continue;
 		    
@@ -1585,7 +1585,8 @@ build_insn_chain (void)
 		    if (regno < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
 		      {
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT)) 
+			    && !DF_REF_FLAGS_IS_SET (use,
+						     DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT)) 
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1782,7 +1783,7 @@ rest_of_handle_global_alloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+  if (dump_enabled_p (pass_global_alloc.pass.static_pass_number))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -1816,8 +1817,10 @@ rest_of_handle_global_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_global_alloc =
+struct rtl_opt_pass pass_global_alloc =
 {
+ {
+  RTL_PASS,
   "greg",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_global_alloc,          /* execute */
@@ -1830,7 +1833,7 @@ struct tree_opt_pass pass_global_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_verify_rtl_sharing
-  | TODO_ggc_collect,                   /* todo_flags_finish */
-  'g'                                   /* letter */
+  | TODO_ggc_collect                    /* todo_flags_finish */
+ }
 };
 

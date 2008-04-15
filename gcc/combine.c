@@ -1,6 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -976,8 +976,18 @@ create_log_links (void)
                      assignments later.  */
                   if (regno >= FIRST_PSEUDO_REGISTER
                       || asm_noperands (PATTERN (use_insn)) < 0)
-                    LOG_LINKS (use_insn) =
-                      alloc_INSN_LIST (insn, LOG_LINKS (use_insn));
+		    {
+		      /* Don't add duplicate links between instructions.  */
+		      rtx links;
+		      for (links = LOG_LINKS (use_insn); links;
+			   links = XEXP (links, 1))
+		        if (insn == XEXP (links, 0))
+			  break;
+
+		      if (!links)
+			LOG_LINKS (use_insn) =
+			  alloc_INSN_LIST (insn, LOG_LINKS (use_insn));
+		    }
                 }
               next_use[regno] = NULL_RTX;
             }
@@ -5393,9 +5403,10 @@ simplify_if_then_else (rtx x)
   /* Look for cases where we have (abs x) or (neg (abs X)).  */
 
   if (GET_MODE_CLASS (mode) == MODE_INT
+      && comparison_p
+      && XEXP (cond, 1) == const0_rtx
       && GET_CODE (false_rtx) == NEG
       && rtx_equal_p (true_rtx, XEXP (false_rtx, 0))
-      && comparison_p
       && rtx_equal_p (true_rtx, XEXP (cond, 0))
       && ! side_effects_p (true_rtx))
     switch (true_code)
@@ -13034,8 +13045,10 @@ rest_of_handle_combine (void)
   return 0;
 }
 
-struct tree_opt_pass pass_combine =
+struct rtl_opt_pass pass_combine =
 {
+ {
+  RTL_PASS,
   "combine",                            /* name */
   gate_handle_combine,                  /* gate */
   rest_of_handle_combine,               /* execute */
@@ -13050,6 +13063,6 @@ struct tree_opt_pass pass_combine =
   TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect,                     /* todo_flags_finish */
-  'c'                                   /* letter */
+ }
 };
 

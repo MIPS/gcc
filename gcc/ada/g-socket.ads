@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                     Copyright (C) 2001-2007, AdaCore                     --
+--                     Copyright (C) 2001-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,8 +39,7 @@
 
 --       Multicast is available only on systems which provide support for this
 --       feature, so it is not available if Multicast is not supported, or not
---       installed. In particular Multicast is not available with the Windows
---       version.
+--       installed.
 
 --       The VMS implementation was implemented using the DECC RTL Socket API,
 --       and is thus subject to limitations in the implementation of this API.
@@ -58,8 +57,13 @@ with System;
 package GNAT.Sockets is
 
    --  Sockets are designed to provide a consistent communication facility
-   --  between applications. This package provides an Ada-like interface
-   --  similar to that proposed as part of the BSD socket layer.
+   --  between applications. This package provides an Ada binding to the
+   --  the de-facto standard BSD sockets API. The documentation below covers
+   --  only the specific binding provided by this package. It assumes that
+   --  the reader is already familiar with general network programming and
+   --  sockets usage. A useful reference on this matter is W. Richard Stevens'
+   --  "UNIX Network Programming: The Sockets Networking API"
+   --  (ISBN: 0131411551).
 
    --  GNAT.Sockets has been designed with several ideas in mind
 
@@ -78,7 +82,7 @@ package GNAT.Sockets is
    --  notification of an asynchronous connect failure is delivered in the
    --  write socket set (POSIX) instead of the exception socket set (NT).
 
-   --  Here is a typical example of what you can do:
+   --  The example below demonstrates various features of GNAT.Sockets:
 
    --  with GNAT.Sockets; use GNAT.Sockets;
 
@@ -432,7 +436,7 @@ package GNAT.Sockets is
 
    type Inet_Addr_Type (Family : Family_Type := Family_Inet) is private;
    --  An Internet address depends on an address family (IPv4 contains 4
-   --  octets and Ipv6 contains 16 octets). Any_Inet_Addr is a special value
+   --  octets and IPv6 contains 16 octets). Any_Inet_Addr is a special value
    --  treated like a wildcard enabling all addresses. No_Inet_Addr provides a
    --  special value to denote uninitialized inet addresses.
 
@@ -623,30 +627,32 @@ package GNAT.Sockets is
    --  a boolean to enable or disable this option.
 
    type Option_Name is (
-     Keep_Alive,       -- Enable sending of keep-alive messages
-     Reuse_Address,    -- Allow bind to reuse local address
-     Broadcast,        -- Enable datagram sockets to recv/send broadcasts
-     Send_Buffer,      -- Set/get the maximum socket send buffer in bytes
-     Receive_Buffer,   -- Set/get the maximum socket recv buffer in bytes
-     Linger,           -- Shutdown wait for msg to be sent or timeout occur
-     Error,            -- Get and clear the pending socket error
-     No_Delay,         -- Do not delay send to coalesce packets (TCP_NODELAY)
-     Add_Membership,   -- Join a multicast group
-     Drop_Membership,  -- Leave a multicast group
-     Multicast_If,     -- Set default outgoing interface for multicast packets
-     Multicast_TTL,    -- Indicate the time-to-live of sent multicast packets
-     Multicast_Loop,   -- Sent multicast packets are looped to local socket
-     Send_Timeout,     -- Set timeout value for output
-     Receive_Timeout); -- Set timeout value for input
+     Keep_Alive,          -- Enable sending of keep-alive messages
+     Reuse_Address,       -- Allow bind to reuse local address
+     Broadcast,           -- Enable datagram sockets to recv/send broadcasts
+     Send_Buffer,         -- Set/get the maximum socket send buffer in bytes
+     Receive_Buffer,      -- Set/get the maximum socket recv buffer in bytes
+     Linger,              -- Shutdown wait for msg to be sent or timeout occur
+     Error,               -- Get and clear the pending socket error
+     No_Delay,            -- Do not delay send to coalesce data (TCP_NODELAY)
+     Add_Membership,      -- Join a multicast group
+     Drop_Membership,     -- Leave a multicast group
+     Multicast_If,        -- Set default out interface for multicast packets
+     Multicast_TTL,       -- Set the time-to-live of sent multicast packets
+     Multicast_Loop,      -- Sent multicast packets are looped to local socket
+     Receive_Packet_Info, -- Receive low level packet info as ancillary data
+     Send_Timeout,        -- Set timeout value for output
+     Receive_Timeout);    -- Set timeout value for input
 
    type Option_Type (Name : Option_Name := Keep_Alive) is record
       case Name is
-         when Keep_Alive      |
-              Reuse_Address   |
-              Broadcast       |
-              Linger          |
-              No_Delay        |
-              Multicast_Loop  =>
+         when Keep_Alive          |
+              Reuse_Address       |
+              Broadcast           |
+              Linger              |
+              No_Delay            |
+              Receive_Packet_Info |
+              Multicast_Loop      =>
             Enabled : Boolean;
 
             case Name is
@@ -771,9 +777,9 @@ package GNAT.Sockets is
 
    procedure Connect_Socket
      (Socket : Socket_Type;
-      Server : in out Sock_Addr_Type);
-   --  Make a connection to another socket which has the address of
-   --  Server. Raises Socket_Error on error.
+      Server : Sock_Addr_Type);
+   --  Make a connection to another socket which has the address of Server.
+   --  Raises Socket_Error on error.
 
    procedure Control_Socket
      (Socket  : Socket_Type;

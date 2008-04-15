@@ -563,11 +563,14 @@ rest_of_handle_ud_dce (void)
 static bool
 gate_ud_dce (void)
 {
-  return optimize > 1 && flag_dce;
+  return optimize > 1 && flag_dce
+    && dbg_cnt (dce_ud);
 }
 
-struct tree_opt_pass pass_ud_rtl_dce =
+struct rtl_opt_pass pass_ud_rtl_dce =
 {
+ {
+  RTL_PASS,
   "dce",                                /* name */
   gate_ud_dce,                        /* gate */
   rest_of_handle_ud_dce,              /* execute */
@@ -581,8 +584,8 @@ struct tree_opt_pass pass_ud_rtl_dce =
   0,                                    /* todo_flags_start */
   TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
+  TODO_ggc_collect                     /* todo_flags_finish */
+ }
 };
 
 
@@ -848,11 +851,14 @@ run_fast_dce (void)
 static bool
 gate_fast_dce (void)
 {
-  return optimize > 0 && flag_dce;
+  return optimize > 0 && flag_dce
+    && dbg_cnt (dce_fast);
 }
 
-struct tree_opt_pass pass_fast_rtl_dce =
+struct rtl_opt_pass pass_fast_rtl_dce =
 {
+ {
+  RTL_PASS,
   "dce",                                /* name */
   gate_fast_dce,                        /* gate */
   rest_of_handle_fast_dce,              /* execute */
@@ -866,6 +872,6 @@ struct tree_opt_pass pass_fast_rtl_dce =
   0,                                    /* todo_flags_start */
   TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };

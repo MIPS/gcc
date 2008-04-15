@@ -2508,7 +2508,7 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
   d.to = new_pseudo_reg;
   note_uses (&PATTERN (ref_copy), see_replace_src, &d);
   /* Step b: Replace every instance of dest_reg with the subreg.  */
-  ref_copy = replace_rtx (ref_copy, dest_reg, subreg);
+  ref_copy = replace_rtx (ref_copy, dest_reg, copy_rtx (subreg));
 
   /* Step c: Replace every use of the new pseudo register back to
      dest_real_reg.  */
@@ -3859,8 +3859,10 @@ rest_of_handle_see (void)
   return 0;
 }
 
-struct tree_opt_pass pass_see =
+struct rtl_opt_pass pass_see =
 {
+ {
+  RTL_PASS,
   "see",				/* name */
   gate_handle_see,			/* gate */
   rest_of_handle_see,			/* execute */
@@ -3874,7 +3876,7 @@ struct tree_opt_pass pass_see =
   0,					/* todo_flags_start */
   TODO_df_verify |
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,			/* todo_flags_finish */
-  'u'					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 

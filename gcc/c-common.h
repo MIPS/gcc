@@ -358,8 +358,8 @@ extern char flag_no_line_commands;
 
 extern char flag_no_output;
 
-/* Nonzero means dump macros in some fashion; contains the 'D', 'M' or
-   'N' of the command line switch.  */
+/* Nonzero means dump macros in some fashion; contains the 'D', 'M',
+   'N' or 'U' of the command line switch.  */
 
 extern char flag_dump_macros;
 
@@ -584,11 +584,6 @@ extern int flag_use_cxa_atexit;
 
 extern int flag_use_cxa_get_exception_ptr;
 
-/* Nonzero means make the default pedwarns warnings instead of errors.
-   The value of this flag is ignored if -pedantic is specified.  */
-
-extern int flag_permissive;
-
 /* Nonzero means to implement standard semantics for exception
    specifications, calling unexpected if an exception is thrown that
    doesn't match the specification.  Zero means to treat them as
@@ -688,6 +683,7 @@ extern void binary_op_error (enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void constant_expression_error (tree);
 extern bool strict_aliasing_warning (tree, tree, tree);
 extern void empty_if_body_warning (tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);

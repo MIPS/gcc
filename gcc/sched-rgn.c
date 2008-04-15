@@ -3419,8 +3419,10 @@ rest_of_handle_sched2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sched =
+struct rtl_opt_pass pass_sched =
 {
+ {
+  RTL_PASS,
   "sched1",                             /* name */
   gate_handle_sched,                    /* gate */
   rest_of_handle_sched,                 /* execute */
@@ -3435,12 +3437,14 @@ struct tree_opt_pass pass_sched =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'S'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sched2 =
+struct rtl_opt_pass pass_sched2 =
 {
+ {
+  RTL_PASS,
   "sched2",                             /* name */
   gate_handle_sched2,                   /* gate */
   rest_of_handle_sched2,                /* execute */
@@ -3455,7 +3459,7 @@ struct tree_opt_pass pass_sched2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'R'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

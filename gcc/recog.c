@@ -1,6 +1,6 @@
 /* Subroutines used by or related to instruction recognition.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1529,14 +1529,7 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
     }
 
   if (loc)
-    {
-#ifdef USE_MAPPED_LOCATION
-      *loc = ASM_OPERANDS_SOURCE_LOCATION (asmop);
-#else
-      loc->file = ASM_OPERANDS_SOURCE_FILE (asmop);
-      loc->line = ASM_OPERANDS_SOURCE_LINE (asmop);
-#endif
-    }
+    *loc = ASM_OPERANDS_SOURCE_LOCATION (asmop);
 
   return ASM_OPERANDS_TEMPLATE (asmop);
 }
@@ -3358,8 +3351,10 @@ rest_of_handle_peephole2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_peephole2 =
+struct rtl_opt_pass pass_peephole2 =
 {
+ {
+  RTL_PASS,
   "peephole2",                          /* name */
   gate_handle_peephole2,                /* gate */
   rest_of_handle_peephole2,             /* execute */
@@ -3372,8 +3367,8 @@ struct tree_opt_pass pass_peephole2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  'z'                                   /* letter */
+  TODO_dump_func                       /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -3383,8 +3378,10 @@ rest_of_handle_split_all_insns (void)
   return 0;
 }
 
-struct tree_opt_pass pass_split_all_insns =
+struct rtl_opt_pass pass_split_all_insns =
 {
+ {
+  RTL_PASS,
   "split1",                             /* name */
   NULL,                                 /* gate */
   rest_of_handle_split_all_insns,       /* execute */
@@ -3396,8 +3393,8 @@ struct tree_opt_pass pass_split_all_insns =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -3411,8 +3408,10 @@ rest_of_handle_split_after_reload (void)
   return 0;
 }
 
-struct tree_opt_pass pass_split_after_reload =
+struct rtl_opt_pass pass_split_after_reload =
 {
+ {
+  RTL_PASS,
   "split2",                             /* name */
   NULL,                                 /* gate */
   rest_of_handle_split_after_reload,    /* execute */
@@ -3424,8 +3423,8 @@ struct tree_opt_pass pass_split_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static bool
@@ -3453,8 +3452,10 @@ rest_of_handle_split_before_regstack (void)
   return 0;
 }
 
-struct tree_opt_pass pass_split_before_regstack =
+struct rtl_opt_pass pass_split_before_regstack =
 {
+ {
+  RTL_PASS,
   "split3",                             /* name */
   gate_handle_split_before_regstack,    /* gate */
   rest_of_handle_split_before_regstack, /* execute */
@@ -3466,8 +3467,8 @@ struct tree_opt_pass pass_split_before_regstack =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static bool
@@ -3489,8 +3490,10 @@ rest_of_handle_split_before_sched2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_split_before_sched2 =
+struct rtl_opt_pass pass_split_before_sched2 =
 {
+ {
+  RTL_PASS,
   "split4",                             /* name */
   gate_handle_split_before_sched2,      /* gate */
   rest_of_handle_split_before_sched2,   /* execute */
@@ -3503,8 +3506,8 @@ struct tree_opt_pass pass_split_before_sched2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_flow |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 /* The placement of the splitting that we do for shorten_branches
@@ -3519,8 +3522,10 @@ gate_do_final_split (void)
 #endif 
 }
 
-struct tree_opt_pass pass_split_for_shorten_branches =
+struct rtl_opt_pass pass_split_for_shorten_branches =
 {
+ {
+  RTL_PASS,
   "split5",                             /* name */
   gate_do_final_split,                  /* gate */
   split_all_insns_noflow,               /* execute */
@@ -3532,8 +3537,8 @@ struct tree_opt_pass pass_split_for_shorten_branches =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 
 

@@ -1,5 +1,5 @@
 /* All matcher functions.
-   Copyright (C) 2003, 2005, 2007
+   Copyright (C) 2003, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
@@ -212,6 +212,7 @@ match gfc_match_rewind (void);
 match gfc_match_flush (void);
 match gfc_match_inquire (void);
 match gfc_match_read (void);
+match gfc_match_wait (void);
 match gfc_match_write (void);
 match gfc_match_print (void);
 

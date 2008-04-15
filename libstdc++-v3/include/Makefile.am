@@ -33,6 +33,7 @@ std_headers = \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
 	${std_srcdir}/complex \
+	${std_srcdir}/date_time \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
 	${std_srcdir}/functional \
@@ -619,6 +620,7 @@ c_base_headers = \
 	${c_base_srcdir}/csetjmp \
 	${c_base_srcdir}/csignal \
 	${c_base_srcdir}/cstdarg \
+	${c_base_srcdir}/cstdatomic \
 	${c_base_srcdir}/cstdbool \
 	${c_base_srcdir}/cstddef \
 	${c_base_srcdir}/cstdint \
@@ -642,7 +644,8 @@ if GLIBCXX_C_HEADERS_C_GLOBAL
 c_compatibility_headers = \
 	${c_compatibility_srcdir}/complex.h \
 	${c_compatibility_srcdir}/fenv.h \
-	${c_compatibility_srcdir}/tgmath.h 
+	${c_compatibility_srcdir}/tgmath.h \
+	${c_compatibility_srcdir}/stdatomic.h 
 endif
 
 if GLIBCXX_C_HEADERS_C

@@ -1428,9 +1428,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	}
-      else if (0 && dump_file && !(get_varinfo (j)->is_special_var))
-	fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
-
     }
 
 done:
@@ -1514,8 +1511,6 @@ do_ds_constraint (constraint_t c, bitmap delta)
 		}
 	    }
 	}
-      else if (0 && dump_file && !(get_varinfo (j)->is_special_var))
-	fprintf (dump_file, "Untypesafe usage in do_ds_constraint\n");
     }
 }
 
@@ -2630,25 +2625,6 @@ bitpos_of_field (const tree fdecl)
 }
 
 
-/* Return true if an access to [ACCESSPOS, ACCESSSIZE]
-   overlaps with a field at [FIELDPOS, FIELDSIZE] */
-
-static bool
-offset_overlaps_with_access (const unsigned HOST_WIDE_INT fieldpos,
-			     const unsigned HOST_WIDE_INT fieldsize,
-			     const unsigned HOST_WIDE_INT accesspos,
-			     const unsigned HOST_WIDE_INT accesssize)
-{
-  if (fieldpos == accesspos && fieldsize == accesssize)
-    return true;
-  if (accesspos >= fieldpos && accesspos < (fieldpos + fieldsize))
-    return true;
-  if (accesspos < fieldpos && (accesspos + accesssize > fieldpos))
-    return true;
-
-  return false;
-}
-
 /* Given a COMPONENT_REF T, return the constraint_expr for it.  */
 
 static void
@@ -2713,8 +2689,8 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results)
 	  varinfo_t curr;
 	  for (curr = get_varinfo (result->var); curr; curr = curr->next)
 	    {
-	      if (offset_overlaps_with_access (curr->offset, curr->size,
-					       result->offset, bitmaxsize))
+	      if (ranges_overlap_p (curr->offset, curr->size,
+				    result->offset, bitmaxsize))
 		{
 		  result->var = curr->id;
 		  break;
@@ -5649,8 +5625,10 @@ ipa_pta_execute (void)
   return 0;
 }
 
-struct tree_opt_pass pass_ipa_pta =
+struct simple_ipa_opt_pass pass_ipa_pta =
 {
+ {
+  SIMPLE_IPA_PASS,
   "pta",		                /* name */
   gate_ipa_pta,			/* gate */
   ipa_pta_execute,			/* execute */
@@ -5662,8 +5640,8 @@ struct tree_opt_pass pass_ipa_pta =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa,                      /* todo_flags_finish */
-  0					/* letter */
+  TODO_update_ssa                       /* todo_flags_finish */
+ }
 };
 
 /* Initialize the heapvar for statement mapping.  */
