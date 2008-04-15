@@ -615,7 +615,9 @@ init_optimization_passes (void)
       NEXT_PASS (pass_dce);
 #if 0  
       NEXT_PASS (pass_cselim);
+#endif
       NEXT_PASS (pass_dominator);
+#if 0
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
@@ -635,8 +637,9 @@ init_optimization_passes (void)
       /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_rename_ssa_copies);
+#endif
       NEXT_PASS (pass_dominator);
-
+#if 0
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
@@ -704,8 +707,9 @@ init_optimization_passes (void)
 #if 0
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
+#endif
       NEXT_PASS (pass_dominator);
-      
+#if 0      
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which

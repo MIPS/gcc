@@ -184,6 +184,55 @@ may_propagate_copy (tree dest, tree orig)
   return true;
 }
 
+/* Like may_propagate_copy, but use as the destination expression
+   the principal expression (typically, the RHS) contained in
+   statement DEST.  This is more efficient when working with the
+   gimple tuples representation.  */
+
+bool
+may_propagate_copy_into_stmt (gimple dest, tree orig)
+{
+  tree type_d;
+  tree type_o;
+
+  /* If the statement is a switch or a single-rhs assignment,
+     then the expression to be replaced by the propagation may
+     be an SSA_NAME.  Fortunately, there is an explicit tree
+     for the expression, so we delegate to may_propagate_copy.  */
+
+  if (gimple_assign_single_p (dest))
+    return may_propagate_copy (gimple_assign_rhs1 (dest), orig);
+  else if (gimple_code (dest) == GIMPLE_SWITCH)
+    return may_propagate_copy (gimple_switch_index (dest), orig);
+
+  /* In other cases, the expression is not materialized, so there
+     is no destination to pass to may_propagate_copy.  On the other
+     hand, the expression cannot be an SSA_NAME, so the analysis
+     is much simpler.  */
+
+  if (TREE_CODE (orig) == SSA_NAME
+      && (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig)
+          ||  TREE_CODE (SSA_NAME_VAR (orig)) == MEMORY_PARTITION_TAG))
+    return false;
+
+  if (gimple_code (dest) == GIMPLE_ASSIGN)
+    type_d = TREE_TYPE (gimple_assign_lhs (dest));
+  else if (gimple_code (dest) == GIMPLE_COND)
+    type_d = boolean_type_node;
+  else if (gimple_code (dest) == GIMPLE_CALL
+           && gimple_call_lhs (dest) != NULL_TREE)
+    type_d = TREE_TYPE (gimple_call_lhs (dest));
+  else
+    gcc_unreachable ();
+
+  type_o = TREE_TYPE (orig);
+
+  if (!useless_type_conversion_p (type_d, type_o))
+    return false;
+
+  return true;
+}
+
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
 
 bool
@@ -363,13 +412,14 @@ propagate_tree_value (tree *op_p, tree val)
 {
 #if defined ENABLE_CHECKING
   gcc_assert (!(TREE_CODE (val) == SSA_NAME
+                && *op_p
 		&& TREE_CODE (*op_p) == SSA_NAME
 		&& !may_propagate_copy (*op_p, val)));
 #endif
 
   if (TREE_CODE (val) == SSA_NAME)
     {
-      if (TREE_CODE (*op_p) == SSA_NAME && POINTER_TYPE_P (TREE_TYPE (*op_p)))
+      if (*op_p && TREE_CODE (*op_p) == SSA_NAME && POINTER_TYPE_P (TREE_TYPE (*op_p)))
 	merge_alias_info (*op_p, val);
       *op_p = val;
     }
@@ -377,6 +427,53 @@ propagate_tree_value (tree *op_p, tree val)
     *op_p = unsave_expr_now (val);
 }
 
+
+/* Like propagate_tree_value, but use as the operand to replace
+   the principal expression (typically, the RHS) contained in the
+   statement referenced by iterator GSI.  Note that it is not
+   always possible to update the statement in-place, so a new
+   statement may be created to replace the original.  */
+
+void
+propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
+{
+  gimple stmt = gsi_stmt (*gsi);
+
+  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    {
+      tree expr = NULL_TREE;
+      if (gimple_assign_single_p (stmt))
+        expr = gimple_assign_rhs1 (stmt);
+      propagate_tree_value (&expr, val);
+      gimple_assign_set_rhs_from_tree (stmt, expr);
+    }
+  else if (gimple_code (stmt) == GIMPLE_COND)
+    {
+      tree lhs = NULL_TREE;
+      tree rhs = fold_convert (TREE_TYPE (val), integer_zero_node);
+      propagate_tree_value (&lhs, val);
+      gimple_cond_set_code (stmt, NE_EXPR);
+      gimple_cond_set_lhs (stmt, lhs);
+      gimple_cond_set_rhs (stmt, rhs);
+    }
+  else if (gimple_code (stmt) == GIMPLE_CALL
+           && gimple_call_lhs (stmt) != NULL_TREE)
+    {
+      gimple new_stmt;
+
+      tree expr = NULL_TREE;
+      propagate_tree_value (&expr, val);
+      new_stmt  = gimple_build_assign (gimple_call_lhs (stmt), expr);
+      copy_virtual_operands (new_stmt, stmt);
+      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
+      gimple_set_location (new_stmt, gimple_location (stmt));
+      gsi_replace (gsi, new_stmt, false);
+    }
+  else if (gimple_code (stmt) == GIMPLE_SWITCH)
+    propagate_tree_value (gimple_switch_index_ptr (stmt), val);
+  else
+    gcc_unreachable ();
+}
 
 /*---------------------------------------------------------------------------
 				Copy propagation

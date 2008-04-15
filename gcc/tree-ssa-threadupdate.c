@@ -36,8 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "cfgloop.h"
 
-/* FIXME tuples.  */
-#if 0
 /* Given a block B, update the CFG and SSA graph to reflect redirecting
    one or more in-edges to B to instead reach the destination of an
    out-edge from B while preserving any side effects in B.
@@ -170,23 +168,23 @@ struct thread_stats_d thread_stats;
 static void
 remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   edge e;
   edge_iterator ei;
 
-  bsi = bsi_last (bb);
+  gsi = gsi_last_bb (bb);
 
   /* If the duplicate ends with a control statement, then remove it.
 
      Note that if we are duplicating the template block rather than the
      original basic block, then the duplicate might not have any real
      statements in it.  */
-  if (!bsi_end_p (bsi)
-      && bsi_stmt (bsi)
-      && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
-	  || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
-	  || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR))
-    bsi_remove (&bsi, true);
+  if (!gsi_end_p (gsi)
+      && gsi_stmt (gsi)
+      && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+	  || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+	  || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH))
+    gsi_remove (&gsi, true);
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
@@ -312,7 +310,7 @@ static void
 create_edge_and_update_destination_phis (struct redirection_data *rd)
 {
   edge e = make_edge (rd->dup_block, rd->outgoing_edge->dest, EDGE_FALLTHRU);
-  tree phi;
+  gimple_stmt_iterator gsi;
 
   rescan_loop_exit (e, true, false);
   e->probability = REG_BR_PROB_BASE;
@@ -323,10 +321,12 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
      from the duplicate block, then we will need to add a new argument
      to them.  The argument should have the same value as the argument
      associated with the outgoing edge stored in RD.  */
-  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
+  for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
+      gimple phi = gsi_stmt (gsi);
+
       int indx = rd->outgoing_edge->dest_idx;
-      add_phi_arg (phi, PHI_ARG_DEF (phi, indx), e);
+      add_phi_arg (phi, gimple_phi_arg_def (phi, indx), e);
     }
 }
 
@@ -469,24 +469,24 @@ redirect_edges (void **slot, void *data)
 static bool
 redirection_block_p (basic_block bb)
 {
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
 
   /* Advance to the first executable statement.  */
-  bsi = bsi_start (bb);
-  while (!bsi_end_p (bsi)
-          && (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR
-              || gimple_nop_p (bsi_stmt (bsi))))
-    bsi_next (&bsi);
-
+  gsi = gsi_start_bb (bb);
+  while (!gsi_end_p (gsi)
+         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
+             || gimple_nop_p (gsi_stmt (gsi))))
+    gsi_next (&gsi);
+  
   /* Check if this is an empty block.  */
-  if (bsi_end_p (bsi))
+  if (gsi_end_p (gsi))
     return true;
 
   /* Test that we've reached the terminating control statement.  */
-  return bsi_stmt (bsi)
-	 && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
-	     || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
-	     || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR);
+  return gsi_stmt (gsi)
+         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+             || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+             || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH);
 }
 
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB
@@ -1105,4 +1105,3 @@ register_jump_thread (edge e, edge e2)
   VEC_safe_push (edge, heap, threaded_edges, e);
   VEC_safe_push (edge, heap, threaded_edges, e2);
 }
-#endif

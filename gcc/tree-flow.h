@@ -914,8 +914,10 @@ int loop_depth_of_name (tree);
 extern void merge_alias_info (tree, tree);
 extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
+extern void propagate_tree_value_into_stmt (gimple_stmt_iterator *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern bool may_propagate_copy_into_stmt (gimple, tree);
 extern bool may_propagate_copy_into_asm (tree);
 
 /* Affine iv.  */
@@ -1031,8 +1033,8 @@ void mark_virtual_ops_for_renaming (gimple);
 
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);
-extern void thread_across_edge (tree, edge, bool,
-				VEC(tree, heap) **, tree (*) (tree, tree));
+extern void thread_across_edge (gimple, edge, bool,
+				VEC(tree, heap) **, tree (*) (gimple, tree));
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

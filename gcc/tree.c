@@ -5164,7 +5164,7 @@ commutative_tree_code (enum tree_code code)
 }
 
 /* Generate a hash value for an expression.  This can be used iteratively
-   by passing a previous result as the "val" argument.
+   by passing a previous result as the VAL argument.
 
    This function is intended to produce the same hash for expressions which
    would compare equal using operand_equal_p.  */
@@ -5292,6 +5292,29 @@ iterative_hash_expr (const_tree t, hashval_t val)
       return val;
       break;
     }
+}
+
+/* Generate a hash value for a pair of expressions.  This can be used
+   iteratively by passing a previous result as the VAL argument.
+
+   The same hash value is always returned for a given pair of expressions,
+   regardless of the order in which they are presented.  This is useful in
+   hashing the operands of commutative functions.  */
+
+hashval_t
+iterative_hash_exprs_commutative (const_tree t1,
+                                  const_tree t2, hashval_t val)
+{
+  hashval_t one = iterative_hash_expr (t1, 0);
+  hashval_t two = iterative_hash_expr (t2, 0);
+  hashval_t t;
+
+  if (one > two)
+    t = one, one = two, two = t;
+  val = iterative_hash_hashval_t (one, val);
+  val = iterative_hash_hashval_t (two, val);
+
+  return val;
 }
 
 /* Constructors for pointer, array and function types.

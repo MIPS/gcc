@@ -1664,7 +1664,7 @@ gimple_body (tree fn)
    duplication with call_expr_flags. duplicate code.  */
 
 int
-gimple_call_flags (gimple stmt)
+gimple_call_flags (const_gimple stmt)
 {
   int flags;
   tree decl = gimple_call_fndecl (stmt);
@@ -2124,21 +2124,113 @@ gimple_set_modified (gimple s, bool modifiedp)
    - Any of its operands are marked TREE_THIS_VOLATILE or TREE_SIDE_EFFECTS.  */
 
 bool
-gimple_has_side_effects (gimple s)
+gimple_has_side_effects (const_gimple s)
 {
+  size_t i;
+
+  /* We don't have to scan the arguments to check for
+     volatile arguments, though, at present, we still
+     do a scan to check for TREE_SIDE_EFFECTS.  */
+
+  if (gimple_has_volatile_ops (s))
+    return true;
+
   if (is_gimple_call (s))
-    return !(gimple_call_flags (s) & (ECF_CONST | ECF_PURE));
+    {
+      size_t nargs = gimple_call_num_args (s);
+
+      if (!(gimple_call_flags (s) & (ECF_CONST | ECF_PURE)))
+        return true;
+
+      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
+         flag is still meaningful on operands.  */
+
+      if (gimple_call_lhs (s)
+          && TREE_SIDE_EFFECTS (gimple_call_lhs (s)))
+        return true;
+
+      if (TREE_SIDE_EFFECTS (gimple_call_fn (s)))
+        return true;
+
+      for (i = 0; i < nargs; i++)
+        if (TREE_SIDE_EFFECTS (gimple_call_arg (s, i)))
+          return true;
+
+      return false;
+    }
   else
     {
-      size_t i;
+      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
+         flag is still meaningful on operands.  */
+
       for (i = 0; i < gimple_num_ops (s); i++)
-	if (TREE_THIS_VOLATILE (gimple_op (s, i))
-	    || TREE_SIDE_EFFECTS (gimple_op (s, i)))
+	if (TREE_SIDE_EFFECTS (gimple_op (s, i)))
 	  return true;
     }
 
   return false;
 }
+
+/* Return true if the RHS of statement S has side effects.
+   We may use it to determine if it is admissable to replace
+   an assignment or call with a copy of a previously-computed
+   value.  In such cases, side-effects due the the LHS are
+   preserved.  */
+
+bool
+gimple_rhs_has_side_effects (const_gimple s)
+{
+  size_t i;
+
+  if (is_gimple_call (s))
+    {
+      size_t nargs = gimple_call_num_args (s);
+
+      if (!(gimple_call_flags (s) & (ECF_CONST | ECF_PURE)))
+        return true;
+
+      /* We cannot use gimple_has_volatile_ops here,
+         because we must ignore a volatile LHS.  */
+      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
+         flag is still meaningful on operands.  */
+
+      if (TREE_SIDE_EFFECTS (gimple_call_fn (s))
+          || TREE_THIS_VOLATILE (gimple_call_fn (s)))
+        return true;
+
+      for (i = 0; i < nargs; i++)
+        if (TREE_SIDE_EFFECTS (gimple_call_arg (s, i))
+            || TREE_THIS_VOLATILE (gimple_call_arg (s, i)))
+          return true;
+
+      return false;
+    }
+  else if (is_gimple_assign (s))
+    {
+      /* Skip the first operand, the LHS. */
+      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
+         flag is still meaningful on operands.  */
+
+      for (i = 1; i < gimple_num_ops (s); i++)
+	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
+            || TREE_THIS_VOLATILE (gimple_op (s, i)))
+	  return true;
+    }
+  else
+    {
+      /* For statements without an LHS, examine all arguments.  */
+      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
+         flag is still meaningful on operands.  */
+
+      for (i = 0; i < gimple_num_ops (s); i++)
+	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
+            || TREE_THIS_VOLATILE (gimple_op (s, i)))
+	  return true;
+    }
+
+  return false;
+}
+
 
 /* Return true if statement S can trap.  */
 

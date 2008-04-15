@@ -617,7 +617,7 @@ gimple_seq gimple_seq_alloc (void);
 void gimple_seq_free (gimple_seq);
 void gimple_seq_add_seq (gimple_seq *, gimple_seq);
 gimple_seq gimple_seq_copy (gimple_seq);
-int gimple_call_flags (gimple);
+int gimple_call_flags (const_gimple);
 bool gimple_assign_copy_p (gimple);
 bool gimple_assign_single_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
@@ -634,7 +634,8 @@ void gimple_set_modified (gimple, bool);
 void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple, tree);
-bool gimple_has_side_effects (gimple);
+bool gimple_has_side_effects (const_gimple);
+bool gimple_rhs_has_side_effects (const_gimple);
 bool gimple_could_trap_p (gimple);
 void gimple_regimplify_operands (gimple, gimple_stmt_iterator *);
 bool empty_body_p (gimple_seq);
@@ -1023,7 +1024,7 @@ update_stmt_if_modified (gimple s)
 /* Return true if statement STMT contains volatile operands.  */
 
 static inline bool
-gimple_has_volatile_ops (gimple stmt)
+gimple_has_volatile_ops (const_gimple stmt)
 {
   if (gimple_has_mem_ops (stmt))
     return stmt->with_mem_ops.has_volatile_ops;
@@ -1156,6 +1157,13 @@ gimple_addresses_taken (gimple stmt)
   return gimple_has_ops (stmt) ? stmt->with_ops.addresses_taken : NULL;
 }
 
+/* Return true if GS is a GIMPLE_ASSIGN.  */
+
+static inline bool
+is_gimple_assign (const_gimple gs)
+{
+  return gimple_code (gs) == GIMPLE_ASSIGN;
+}
 
 /* Return the LHS of assignment statement GS.  */
 
@@ -2490,6 +2498,16 @@ gimple_switch_index (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   return gimple_op (gs, 0);
+}
+
+
+/* Return a pointer to the index variable for the switch statement GS.  */
+
+static inline tree *
+gimple_switch_index_ptr (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
+  return gimple_op_ptr (gs, 0);
 }
 
 

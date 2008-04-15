@@ -1,3 +1,71 @@
+2008-04-14  Bill Maddox  <maddox@google.com>
+
+	* tree-ssa-threadupdate.c (remove_ctrl_stmt_and_useless_edge,
+	create_edge_and_update_destination_phis, redirection_block_p):
+	Convert to tuples.
+	* tree.c (iterative_hash_exprs_commutative): New function.
+	* tree.h (iterative_hash_exprs_commutative): Declare.
+	* tree-ssa_dom.c (enum expr_kind, struct hashable_expr,
+	struct cond_equivalence): New types.
+	(struct edge_info): Use struct cond_equivalence.
+	(avail_exprs_stack): Stack of expr_hash_elt*, not expressions.
+	(stmts_to_rescan): Use type gimple for statements.
+	(struct expr_hash_elt): Represent statement RHS with hashable_expr,
+	not a tree.  Add unique stamp to each entry for efficient and reliable
+	element removal.
+	(struct eq_expr_value): Delete unused type.
+	(initialize_hash_element): Convert to tuples.  Now applies
+	only to statements.
+	(initialize_expr_from_cond, initialize_hash_element_from_expr):
+	New functions.  Replace former functionality of initialize_hash_element
+	for conditions presented as trees.
+	(hashable_expr_equal_p, iterative_hash_hashable_expr): New functions.
+	(print_expr_hash_elt): New function.
+	(free_expr_hash_elt): New function.
+	(tree_ssa_dominator_optimize): Convert to tuples
+	(canonicalize_comparison): Convert to tuples.
+	(remove_local_expressions_from_table): Use new avail_exprs_stack
+	representation.  Add optional extra diagnostic details.
+	(simplify_stmt_for_jump_threading, dom_thread_across_edge,
+	dom_opt_finalize_block): Convert to tuples.
+	(record_cond, build_and_record_new_cond): Convert to tuples.
+	Use new hashable_expr type.  Extra diagnostic details.
+	(record_const_or_copy_1): Extra diagnostic details.
+	(record_const_or_copy): Add assertion.
+	(simple_iv_increment_p, cprop_into_successor_phis, record_edge_info):
+	Convert to tuples.
+	(eliminate_redundant_computations): Convert to tuples.
+	Additional diagnostic details.
+	(gimple_assign_unary_useless_conversion_p): New function.
+	(record_equivalences_from_statement): Convert to tuples.
+	Additional diagnostic details.
+	(cprop_operand, cprop_into_stmt): Convert to tuples.
+	(optimize_stmt): Convert to tuples.
+	(lookup_avail_expr): Use hashable_expr.  Additional diagnostic details.
+	(avail_expr_hash, avail_expr_eq): Use hashable_expr.
+	* tree-ssa-copy.c (may_propagate_copy_into_stmt,
+	propagate_tree_value_into_stmt): New functions.
+	* tree-flow.h: (may_propagate_copy_into_stmt,
+	propagate_tree_value_into_stmt): Declare.
+	(thread_across_edge): Change declaration of callback to accept a
+	gimple statement.
+	* gimple.c (gimple_call_flags): Declare argument as a constant.
+	(gimple_has_side_effects): Declare argument as a constant.
+	Examine function arguments for side-effects.
+	(gimple_rhs_has_side_effects): New function.
+	* gimple.h (gimple_call_flags): Declare argument as a constant.
+	(gimple_has_side_effects): Declare argument as a constant.
+	(gimple_rhs_has_side_effects): Declare new function.
+	(is_gimple_assign): New inline function.
+	(gimple_switch_index_ptr): New function.
+	* passes.c (init_optimization_passes): Enable pass_dominator.
+	* tree-ssa_threadedge.c (potentially_threadable_block,
+	lhs_of_dominating_assert, record_temporary_equivalences_from_phis):
+	Convert to tuples.
+	(fold_assignment_stmt): New function.
+	(record_temporary_equivalences_from_stmts_at_dest,
+	simplify_control_stmt_condition, thread_across_edge): Convert to tuples.
+
 2008-04-14  Doug Kwan  <dougkwan@google.com>
 
 	* c-typeck.c (convert_for_assignment): Call c_common_unsigned_type
