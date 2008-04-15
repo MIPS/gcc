@@ -21229,7 +21229,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return 0;
 
     case IX86_BUILTIN_VZEROUPPER:
-      emit_insn (gen_avx_vzeroupper ());
+      if (TARGET_64BIT)
+	emit_insn (gen_avx_vzeroupper_rex64 ());
+      else
+	emit_insn (gen_avx_vzeroupper ());
       return 0;
 
     case IX86_BUILTIN_EMMS:
