@@ -42,8 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 
-/* FIXME tuples.  */
-#if 0
 /* TODO:
    1. Sinking store only using scalar promotion (IE without moving the RHS):
 
@@ -84,18 +82,18 @@ static struct
    we return NULL.  */
 
 static basic_block
-find_bb_for_arg (tree phi, tree def)
+find_bb_for_arg (gimple phi, tree def)
 {
-  int i;
+  size_t i;
   bool foundone = false;
   basic_block result = NULL;
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
     if (PHI_ARG_DEF (phi, i) == def)
       {
 	if (foundone)
 	  return NULL;
 	foundone = true;
-	result = PHI_ARG_EDGE (phi, i)->src;
+	result = gimple_phi_arg_edge (phi, i)->src;
       }
   return result;
 }
@@ -109,9 +107,9 @@ find_bb_for_arg (tree phi, tree def)
    used in, so that you only have one place you can sink it to.  */
 
 static bool
-all_immediate_uses_same_place (tree stmt)
+all_immediate_uses_same_place (gimple stmt)
 {
-  tree firstuse = NULL_TREE;
+  gimple firstuse = NULL;
   ssa_op_iter op_iter;
   imm_use_iterator imm_iter;
   use_operand_p use_p;
@@ -121,7 +119,7 @@ all_immediate_uses_same_place (tree stmt)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
         {
-	  if (firstuse == NULL_TREE)
+	  if (firstuse == NULL)
 	    firstuse = USE_STMT (use_p);
 	  else
 	    if (firstuse != USE_STMT (use_p))
@@ -131,7 +129,6 @@ all_immediate_uses_same_place (tree stmt)
 
   return true;
 }
-#endif
 
 /* Some global stores don't necessarily have VDEF's of global variables,
    but we still must avoid moving them around.  */
@@ -215,11 +212,10 @@ is_hidden_global_store (gimple stmt)
   return false;
 }
 
-#if 0
 /* Find the nearest common dominator of all of the immediate uses in IMM.  */
 
 static basic_block
-nearest_common_dominator_of_uses (tree stmt)
+nearest_common_dominator_of_uses (gimple stmt)
 {  
   bitmap blocks = BITMAP_ALLOC (NULL);
   basic_block commondom;
@@ -235,14 +231,14 @@ nearest_common_dominator_of_uses (tree stmt)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
         {
-	  tree usestmt = USE_STMT (use_p);
+	  gimple usestmt = USE_STMT (use_p);
 	  basic_block useblock;
 
-	  if (TREE_CODE (usestmt) == PHI_NODE)
+	  if (gimple_code (usestmt) == GIMPLE_PHI)
 	    {
 	      int idx = PHI_ARG_INDEX_FROM_USE (use_p);
 
-	      useblock = PHI_ARG_EDGE (usestmt, idx)->src;
+	      useblock = gimple_phi_arg_edge (usestmt, idx)->src;
 	    }
 	  else
 	    {
@@ -268,23 +264,22 @@ nearest_common_dominator_of_uses (tree stmt)
 
 /* Given a statement (STMT) and the basic block it is currently in (FROMBB), 
    determine the location to sink the statement to, if any.
-   Returns true if there is such location; in that case, TOBB is set to the
-   basic block of the location, and TOBSI points to the statement before
-   that STMT should be moved.  */
+   Returns true if there is such location; in that case, TOGSI points to the
+   statement before that STMT should be moved.  */
 
 static bool
-statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
-			 block_stmt_iterator *tobsi)
+statement_sink_location (gimple stmt, basic_block frombb,
+			 gimple_stmt_iterator *togsi)
 {
-  tree use, def;
+  gimple use;
+  tree def;
   use_operand_p one_use = NULL_USE_OPERAND_P;
   basic_block sinkbb;
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
-  stmt_ann_t ann;
-  tree rhs;
   imm_use_iterator imm_iter;
+  enum tree_code code;
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
@@ -300,9 +295,8 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
   if (one_use == NULL_USE_OPERAND_P)
     return false;
 
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
-  rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
   /* There are a few classes of things we can't or don't move, some because we
      don't have code to handle it, some because it's not profitable and some
@@ -324,13 +318,13 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
      sunk.  
 
   */
-  ann = stmt_ann (stmt);
+  code = gimple_assign_rhs_code (stmt);
   if (stmt_ends_bb_p (stmt)
-      || TREE_SIDE_EFFECTS (rhs)
-      || TREE_CODE (rhs) == EXC_PTR_EXPR
-      || TREE_CODE (rhs) == FILTER_EXPR
+      || gimple_has_side_effects (stmt)
+      || code == EXC_PTR_EXPR
+      || code == FILTER_EXPR
       || is_hidden_global_store (stmt)
-      || ann->has_volatile_ops
+      || gimple_has_volatile_ops (stmt)
       || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE))
     return false;
   
@@ -384,20 +378,19 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
 	  fprintf (dump_file, "Common dominator of all uses is %d\n",
 		   commondom->index);
 	}
-      *tobb = commondom;
-      *tobsi = bsi_after_labels (commondom);
+      *togsi = gsi_after_labels (commondom);
       return true;
     }
 
   use = USE_STMT (one_use);
-  if (TREE_CODE (use) != PHI_NODE)
+  if (gimple_code (use) != GIMPLE_PHI)
     {
       sinkbb = gimple_bb (use);
       if (sinkbb == frombb || sinkbb->loop_depth > frombb->loop_depth
 	  || sinkbb->loop_father != frombb->loop_father)
 	return false;
-      *tobb = sinkbb;
-      *tobsi = bsi_for_stmt (use);
+
+      *togsi = gsi_for_stmt (use);
       return true;
     }
 
@@ -424,8 +417,7 @@ statement_sink_location (tree stmt, basic_block frombb, basic_block *tobb,
       || sinkbb->loop_father != frombb->loop_father)
     return false;
 
-  *tobb = sinkbb;
-  *tobsi = bsi_after_labels (sinkbb);
+  *togsi = gsi_after_labels (sinkbb);
 
   return true;
 }
@@ -436,7 +428,7 @@ static void
 sink_code_in_bb (basic_block bb)
 {
   basic_block son;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
   edge_iterator ei;
   edge e;
   bool last = true;
@@ -451,50 +443,49 @@ sink_code_in_bb (basic_block bb)
     if (e->flags & EDGE_ABNORMAL)
       goto earlyout;
 
-  for (bsi = bsi_last (bb); !bsi_end_p (bsi);)
+  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi);)
     {
-      tree stmt = bsi_stmt (bsi);	
-      block_stmt_iterator tobsi;
-      basic_block tobb;
+      gimple stmt = gsi_stmt (gsi);	
+      gimple_stmt_iterator togsi;
 
-      if (!statement_sink_location (stmt, bb, &tobb, &tobsi))
+      if (!statement_sink_location (stmt, bb, &togsi))
 	{
-	  if (!bsi_end_p (bsi))
-	    bsi_prev (&bsi);
+	  if (!gsi_end_p (gsi))
+	    gsi_prev (&gsi);
 	  last = false;
 	  continue;
 	}      
       if (dump_file)
 	{
 	  fprintf (dump_file, "Sinking ");
-	  print_generic_expr (dump_file, stmt, TDF_VOPS);
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS);
 	  fprintf (dump_file, " from bb %d to bb %d\n",
-		   bb->index, tobb->index);
+		   bb->index, (gsi_bb (togsi))->index);
 	}
       
       /* If this is the end of the basic block, we need to insert at the end
          of the basic block.  */
-      if (bsi_end_p (tobsi))
-	bsi_move_to_bb_end (&bsi, tobb);
+      if (gsi_end_p (togsi))
+	gsi_move_to_bb_end (&gsi, gsi_bb (togsi));
       else
-	bsi_move_before (&bsi, &tobsi);
+	gsi_move_before (&gsi, &togsi);
 
       sink_stats.sunk++;
 
       /* If we've just removed the last statement of the BB, the
-	 bsi_end_p() test below would fail, but bsi_prev() would have
+	 gsi_end_p() test below would fail, but gsi_prev() would have
 	 succeeded, and we want it to succeed.  So we keep track of
 	 whether we're at the last statement and pick up the new last
 	 statement.  */
       if (last)
 	{
-	  bsi = bsi_last (bb);
+	  gsi = gsi_last_bb (bb);
 	  continue;
 	}
 
       last = false;
-      if (!bsi_end_p (bsi))
-	bsi_prev (&bsi);
+      if (!gsi_end_p (gsi))
+	gsi_prev (&gsi);
       
     }
  earlyout:
@@ -596,4 +587,3 @@ struct gimple_opt_pass pass_sink_code =
     | TODO_verify_ssa			/* todo_flags_finish */
  }
 };
-#endif

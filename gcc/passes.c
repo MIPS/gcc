@@ -663,8 +663,8 @@ init_optimization_passes (void)
       /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_pre);
-      NEXT_PASS (pass_sink_code);
 #endif
+      NEXT_PASS (pass_sink_code);
       NEXT_PASS (pass_tree_loop);
 	{
 	  struct opt_pass **p = &pass_tree_loop.pass.sub;
