@@ -1,3 +1,8 @@
+2008-04-15  Oleg Ryjkov  <olegr@google.com>
+
+	* tree-ssa-dom.c (record_const_or_copy): Moving a variable declaration to
+	the top of a block.
+
 2008-04-15  Doug Kwan  <dougkwan@google.com>
 
 	* tree-ssa-sink.c (File): Uncomment all previously disabled code.

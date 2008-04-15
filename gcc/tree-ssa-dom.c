@@ -1491,9 +1491,9 @@ loop_depth_of_name (tree x)
 static void
 record_const_or_copy (tree x, tree y)
 {
-  gcc_assert (TREE_CODE (x) == SSA_NAME);
-
   tree prev_x = SSA_NAME_VALUE (x);
+
+  gcc_assert (TREE_CODE (x) == SSA_NAME);
 
   if (TREE_CODE (y) == SSA_NAME)
     {
