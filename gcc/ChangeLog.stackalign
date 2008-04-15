@@ -1,3 +1,14 @@
+2008-04-15  Joey Ye  <joey.ye@intel.com>
+
+	*  global.c (compute_regsets): Replace cfun->need_frame_pointer_set
+	with crtl->need_frame_pointer_set.
+	* reload1.c (init_elim_table): Likewise.
+
+	* function.h (function): Move need_frame_pointer and
+	need_frame_pointer_set to ...
+	(rtl_data): Here.
+	(frame_pointer_needed): Updated.
+
 2008-04-14  Xuepeng Guo  <xuepeng.guo@intel.com>
 	    Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>

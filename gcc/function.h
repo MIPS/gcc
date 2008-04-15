@@ -291,6 +291,12 @@ struct rtl_data GTY(())
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
 
+  /* Nonzero if current function must be given a frame pointer.
+     Set in global.c if anything is allocated on the stack there.  */
+  unsigned int need_frame_pointer : 1;
+
+  /* Nonzero if need_frame_pointer has been set.  */
+  unsigned int need_frame_pointer_set : 1;
 };
 
 #define return_label (crtl->x_return_label)
@@ -304,6 +310,7 @@ struct rtl_data GTY(())
 #define avail_temp_slots (crtl->x_avail_temp_slots)
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
+#define frame_pointer_needed (crtl->need_frame_pointer)
 
 extern GTY(()) struct rtl_data x_rtl;
 
@@ -520,13 +527,6 @@ struct function GTY(())
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
 
-/* Nonzero if current function must be given a frame pointer.
-   Set in global.c if anything is allocated on the stack there.  */
-  unsigned int need_frame_pointer : 1;
-
-  /* Nonzero if need_frame_pointer has been set.  */
-  unsigned int need_frame_pointer_set : 1;
-
   /* Nonzero if, by estimation, current function stack needs realignment. */
   unsigned int stack_realign_needed : 1;
 
@@ -605,7 +605,6 @@ extern void instantiate_decl_rtl (rtx x);
 #define dom_computed (cfun->cfg->x_dom_computed)
 #define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
-#define frame_pointer_needed (cfun->need_frame_pointer)
 #define stack_realign_fp (cfun->stack_realign_needed && !cfun->need_drap)
 #define stack_realign_drap (cfun->stack_realign_needed && cfun->need_drap)
 

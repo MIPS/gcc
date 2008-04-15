@@ -3779,7 +3779,7 @@ init_elim_table (void)
     reg_eliminate = xcalloc (sizeof (struct elim_table), NUM_ELIMINABLE_REGS);
 
   /* frame_pointer_needed should has been set.  */
-  gcc_assert (cfun->need_frame_pointer_set);
+  gcc_assert (crtl->need_frame_pointer_set);
 
   num_eliminable = 0;
 
