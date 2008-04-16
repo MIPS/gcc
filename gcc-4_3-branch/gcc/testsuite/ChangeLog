@@ -1,3 +1,54 @@
+2008-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization1.ad[sb]: New test.
+
+2008-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35751
+	* gcc.dg/gomp/pr35751.c: New test.
+	* g++.dg/gomp/pr35751.C: New test.
+
+2008-04-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_address2.adb: New test.
+
+2008-04-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35708
+	* g++.dg/ext/complit9.C: New.
+
+2008-04-09  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35821
+	* gcc.dg/vect/pr35821-altivec.c: New.
+	* gcc.dg/vect/pr35821-spu.c: New.
+
+2008-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/namelist_47.f90: New test.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/20080408-1.c: New testcase.
+
+2008-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35734
+	* g++.dg/warn/ctor1.C: New.
+
+2008-04-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35833
+	* gcc.dg/torture/pr35833.c: New testcase.
+
+2008-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35364
+	* g++.dg/gomp/pr35364.C: New test.
+
+	PR c/35440
+	* gcc.dg/pr35440.c: New test.
+
 2008-04-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/35738

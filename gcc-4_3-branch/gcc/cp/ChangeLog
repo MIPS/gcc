@@ -1,3 +1,21 @@
+2008-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35751
+	* decl.c (layout_var_decl): If extern or static var has variable
+	size, set TREE_TYPE (decl) to error_mark_node.
+
+2008-04-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35708
+	* semantics.c (finish_compound_literal): Return a TARGET_EXPR, 
+	not a pushed variable.
+
+2008-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35734
+	* class.c (type_has_user_nondefault_constructor): A template 
+	counts as a nondefault constructor.
+
 2008-04-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/35741
