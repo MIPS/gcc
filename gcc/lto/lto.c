@@ -2438,11 +2438,11 @@ lto_materialize_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
   struct lto_file_decl_data *file_data = node->local.lto_file_data;
-  const char *data = lto_get_section_data (file_data, 
-					   LTO_section_function_body, 
-					   IDENTIFIER_POINTER (DECL_NAME (decl)));
+  const char *data;
   tree step;
 
+  data = lto_get_section_data (file_data, LTO_section_function_body,
+			       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
   if (data)
     {
       struct function *fn;
