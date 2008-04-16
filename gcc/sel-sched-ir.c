@@ -41,7 +41,6 @@
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
-#include "sched-rgn.h"
 #include "sched-int.h"
 #include "cselib.h"
 #include "ggc.h"

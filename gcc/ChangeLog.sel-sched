@@ -1,4 +1,16 @@
+2008-04-15  Andrey Belevantsev  <abel@ispras.ru>
+
+        Merge from trunk rev. 134322.
+	* tree-pass.h (pass_sel_sched): Declare.
+	* sel-sched.c (moveup_expr_cached): Initialize trans_type.
+	(move_cond_jump): Properly use df_insn_change_bb.
+	(pass_sel_sched): Convert to rtl_opt_pass.
+	* sched-rgn.h: Inline into sched-int.h and kill.  Kill all uses.
+	* sched-rgn.c (candidate_table, compute_trg_info, free_trg_info,
+	check_live, update_live): Make static.
+	
 2008-04-14  Andrey Belevantsev  <abel@ispras.ru>
+
 	* common.opt (flag_selective_scheduling*): Disable by default.
 	Put `Optimization' markers on sel-sched flags.
 	* config/ia64/ia64.c (ia64_override_options): Turn on selective

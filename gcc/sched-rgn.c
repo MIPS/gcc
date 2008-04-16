@@ -68,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
-#include "sched-rgn.h"
 #include "dbgcnt.h"
 
 #ifdef INSN_SCHEDULING
@@ -118,8 +117,6 @@ static bool too_large (int, int *, int *);
 int current_nr_blocks;
 int current_blocks;
 
-candidate *candidate_table;
-
 /* A speculative motion requires checking live information on the path
    from 'source' to 'target'.  The split blocks are those to be checked.
    After a speculative motion, live information should be modified in
@@ -130,6 +127,34 @@ candidate *candidate_table;
 static basic_block *bblst_table;
 static int bblst_size, bblst_last;
 
+/* Target info declarations.
+
+   The block currently being scheduled is referred to as the "target" block,
+   while other blocks in the region from which insns can be moved to the
+   target are called "source" blocks.  The candidate structure holds info
+   about such sources: are they valid?  Speculative?  Etc.  */
+typedef struct
+{
+  basic_block *first_member;
+  int nr_members;
+}
+bblst;
+
+typedef struct
+{
+  char is_valid;
+  char is_speculative;
+  int src_prob;
+  bblst split_bbs;
+  bblst update_bbs;
+}
+candidate;
+
+static candidate *candidate_table;
+#define IS_VALID(src) (candidate_table[src].is_valid)
+#define IS_SPECULATIVE(src) (candidate_table[src].is_speculative)
+#define IS_SPECULATIVE_INSN(INSN)			\
+  (IS_SPECULATIVE (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define SRC_PROB(src) ( candidate_table[src].src_prob )
 
 /* The bb being currently scheduled.  */
@@ -148,9 +173,9 @@ static int edgelst_last;
 
 static void extract_edgelst (sbitmap, edgelst *);
 
-
 /* Target info functions.  */
 static void split_edges (int, int, edgelst *);
+static void compute_trg_info (int);
 void debug_candidate (int);
 void debug_candidates (int);
 
@@ -1435,7 +1460,7 @@ split_edges (int bb_src, int bb_trg, edgelst *bl)
    their probability, and check if they are speculative or not.
    For speculative sources, compute their update-blocks and split-blocks.  */
 
-void
+static void
 compute_trg_info (int trg)
 {
   candidate *sp;
@@ -1545,7 +1570,8 @@ compute_trg_info (int trg)
   sbitmap_free (visited);
 }
 
-void
+/* Free the computed target info.  */
+static void
 free_trg_info (void)
 {
   free (candidate_table);
@@ -1758,7 +1784,7 @@ update_live_1 (int src, rtx x)
    otherwise return 0.  Called before first insertion of insn to
    ready-list or before the scheduling.  */
 
-int
+static int
 check_live (rtx insn, int src)
 {
   /* Find the registers set by instruction.  */
@@ -1783,7 +1809,7 @@ check_live (rtx insn, int src)
 /* Update the live registers info after insn was moved speculatively from
    block src to trg.  */
 
-void
+static void
 update_live (rtx insn, int src)
 {
   /* Find the registers set by instruction.  */

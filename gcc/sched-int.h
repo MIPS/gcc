@@ -1169,8 +1169,61 @@ extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);
 extern void concat_note_lists (rtx, rtx *);
+
 
-/* Functions in sched-rgn.c.  */
+/* Types and functions in sched-rgn.c.  */
+
+/* A region is the main entity for interblock scheduling: insns
+   are allowed to move between blocks in the same region, along
+   control flow graph edges, in the 'up' direction.  */
+typedef struct
+{
+  /* Number of extended basic blocks in region.  */
+  int rgn_nr_blocks;
+  /* cblocks in the region (actually index in rgn_bb_table).  */
+  int rgn_blocks;
+  /* Dependencies for this region are already computed.  Basically, indicates,
+     that this is a recovery block.  */
+  unsigned int dont_calc_deps : 1;
+  /* This region has at least one non-trivial ebb.  */
+  unsigned int has_real_ebb : 1;
+}
+region;
+
+extern int nr_regions;
+extern region *rgn_table;
+extern int *rgn_bb_table;
+extern int *block_to_bb;
+extern int *containing_rgn;
+
+#define RGN_NR_BLOCKS(rgn) (rgn_table[rgn].rgn_nr_blocks)
+#define RGN_BLOCKS(rgn) (rgn_table[rgn].rgn_blocks)
+#define RGN_DONT_CALC_DEPS(rgn) (rgn_table[rgn].dont_calc_deps)
+#define RGN_HAS_REAL_EBB(rgn) (rgn_table[rgn].has_real_ebb)
+#define BLOCK_TO_BB(block) (block_to_bb[block])
+#define CONTAINING_RGN(block) (containing_rgn[block])
+
+/* The mapping from ebb to block.  */
+extern int *ebb_head;
+#define BB_TO_BLOCK(ebb) (rgn_bb_table[ebb_head[ebb]])
+#define EBB_FIRST_BB(ebb) BASIC_BLOCK (BB_TO_BLOCK (ebb))
+#define EBB_LAST_BB(ebb) BASIC_BLOCK (rgn_bb_table[ebb_head[ebb + 1] - 1])
+#define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
+
+extern int current_nr_blocks;
+extern int current_blocks;
+extern int target_bb;
+
+extern bool sched_is_disabled_for_current_region_p (void);
+extern void sched_rgn_init (bool);
+extern void sched_rgn_finish (void);
+extern void rgn_setup_region (int);
+extern void sched_rgn_compute_dependencies (int);
+extern void sched_rgn_local_init (int);
+extern void sched_rgn_local_finish (void);
+extern void sched_rgn_local_free (void);
+extern void extend_regions (void);
+extern void rgn_make_new_region_out_of_new_block (basic_block);
 
 extern void compute_priorities (void);
 extern void debug_rgn_dependencies (int);
@@ -1178,6 +1231,15 @@ extern void debug_dependencies (rtx, rtx);
 extern void free_rgn_deps (void);          
 extern int contributes_to_priority (rtx, rtx);
 extern void extend_rgns (int *, int *, sbitmap, int *);
+extern void deps_join (struct deps *, struct deps *);
+
+extern void rgn_setup_common_sched_info (void);
+extern void rgn_setup_sched_infos (void);
+
+extern void debug_regions (void);
+extern void debug_region (int);
+extern void dump_region_dot (FILE *, int);
+extern void dump_region_dot_file (const char *, int);
 
 extern void haifa_sched_init (void);
 extern void haifa_sched_finish (void);

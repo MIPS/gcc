@@ -42,7 +42,6 @@
 #include "output.h"
 #include "timevar.h"
 #include "tree-pass.h"
-#include "sched-rgn.h"
 #include "sched-int.h"
 #include "cselib.h"
 #include "ggc.h"
@@ -2195,7 +2194,6 @@ update_transformation_cache (expr_t expr, insn_t insn,
 static enum MOVEUP_EXPR_CODE
 moveup_expr_cached (expr_t expr, insn_t insn, bool inside_insn_group)
 {
-  enum local_trans_type trans_type;
   enum MOVEUP_EXPR_CODE res;
   bool got_answer = false;
 
@@ -2220,6 +2218,7 @@ moveup_expr_cached (expr_t expr, insn_t insn, bool inside_insn_group)
       ds_t expr_old_spec_ds = EXPR_SPEC_DONE_DS (expr);
       int expr_uid = INSN_UID (VINSN_INSN_RTX (expr_old_vinsn));
       bool unique_p = VINSN_UNIQUE_P (expr_old_vinsn);
+      enum local_trans_type trans_type = TRANS_SUBSTITUTION;
 
       /* ??? Invent something better than this.  We can't allow old_vinsn 
          to go, we need it for the history vector.  */
@@ -4315,9 +4314,8 @@ move_cond_jump (rtx insn, bnd_t bnd)
      BLOCK_NEW.  */
   for (link = prev; link != insn; link = NEXT_INSN (link))
     {
-      set_block_for_insn (link, block_new);
       EXPR_ORIG_BB_INDEX (INSN_EXPR (link)) = block_new->index;
-      df_insn_change_bb (link);
+      df_insn_change_bb (link, block_new);
     }
 
   /* Set correct basic block and instructions properties.  */
@@ -7099,8 +7097,10 @@ handle_sel_sched (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sel_sched =
+struct rtl_opt_pass pass_sel_sched =
+{
   {
+    RTL_PASS,
     "sel-sched",                          /* name */
     gate_handle_sel_sched,                /* gate */
     handle_sel_sched,                 	/* execute */
@@ -7112,8 +7112,9 @@ struct tree_opt_pass pass_sel_sched =
     0,                                    /* properties_provided */
     0,                                    /* properties_destroyed */
     0,                                    /* todo_flags_start */
+    TODO_df_finish | TODO_verify_rtl_sharing |
     TODO_dump_func |
-    TODO_ggc_collect,                     /* todo_flags_finish */
-    'S'                                   /* letter */
-  };
-
+    TODO_verify_flow |
+    TODO_ggc_collect                      /* todo_flags_finish */
+  }
+};

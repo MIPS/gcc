@@ -39,7 +39,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "bitmap.h"
 #include "vecprim.h"
 #include "sched-int.h"
-#include "sched-rgn.h"
 #include "cfgloop.h"
 
 /* tc_t is a short for target context.  This is a state of the target
