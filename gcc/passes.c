@@ -617,13 +617,13 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cselim);
 #endif
       NEXT_PASS (pass_dominator);
-#if 0
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
+#if 0
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
 #endif
@@ -639,13 +639,13 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rename_ssa_copies);
 #endif
       NEXT_PASS (pass_dominator);
-#if 0
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
+#if 0
       NEXT_PASS (pass_reassoc);
 #endif
       NEXT_PASS (pass_dce);
@@ -709,14 +709,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_vrp);
 #endif
       NEXT_PASS (pass_dominator);
-#if 0      
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
 	 run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-#endif
       NEXT_PASS (pass_cd_dce);
 #if 0
       NEXT_PASS (pass_tracer);

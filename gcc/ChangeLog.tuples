@@ -1,3 +1,11 @@
+2008-04-15  Bill Maddox  <maddox@google.com>
+
+	* tree-ssa-dom.c: (degenerate_phi_result, remove_stmt_or_phi,
+	get_rhs_or_phi_arg, get_lhs_or_phi_result, propagate_rhs_into_lhs,
+	eliminate_const_or_copy, eliminate_degenerate_phis_1,
+	eliminate_degenerate_phis): Convert to tuples.
+	* passes.c (init_optimization_passes): Enable pass_phi_only_cprop.
+	
 2008-04-15  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-ssa-dom.c (record_const_or_copy): Moving a variable declaration to

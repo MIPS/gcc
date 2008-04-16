@@ -2486,8 +2486,6 @@ avail_expr_eq (const void *p1, const void *p2)
   return false;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* PHI-ONLY copy and constant propagation.  This pass is meant to clean
    up degenerate PHIs created by or exposed by jump threading.  */
 
@@ -2495,18 +2493,18 @@ avail_expr_eq (const void *p1, const void *p2)
    NULL.  */
 
 static tree
-degenerate_phi_result (tree phi)
+degenerate_phi_result (gimple phi)
 {
-  tree lhs = PHI_RESULT (phi);
+  tree lhs = gimple_phi_result (phi);
   tree val = NULL;
-  int i;
+  size_t i;
 
   /* Ignoring arguments which are the same as LHS, if all the remaining
      arguments are the same, then the PHI is a degenerate and has the
      value of that common argument.  */
-  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
-      tree arg = PHI_ARG_DEF (phi, i);
+      tree arg = gimple_phi_arg_def (phi, i);
 
       if (arg == lhs)
 	continue;
@@ -2515,51 +2513,54 @@ degenerate_phi_result (tree phi)
       else if (!operand_equal_p (arg, val, 0))
 	break;
     }
-  return (i == PHI_NUM_ARGS (phi) ? val : NULL);
+  return (i == gimple_phi_num_args (phi) ? val : NULL);
 }
 
-/* Given a tree node T, which is either a PHI_NODE or GIMPLE_MODIFY_STMT,
+/* Given a statement STMT, which is either a PHI node or an assignment,
    remove it from the IL.  */
 
 static void
-remove_stmt_or_phi (tree t)
+remove_stmt_or_phi (gimple stmt)
 {
-  if (TREE_CODE (t) == PHI_NODE)
-    remove_phi_node (t, NULL, true);
+  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    remove_phi_node (&gsi, true);
   else
     {
-      block_stmt_iterator bsi = bsi_for_stmt (t);
-      bsi_remove (&bsi, true);
-      release_defs (t);
+      gsi_remove (&gsi, true);
+      release_defs (stmt);
     }
 }
 
-/* Given a tree node T, which is either a PHI_NODE or GIMPLE_MODIFY_STMT,
+/* Given a statement STMT, which is either a PHI node or an assignment,
    return the "rhs" of the node, in the case of a non-degenerate
-   PHI, NULL is returned.  */
+   phi, NULL is returned.  */
 
 static tree
-get_rhs_or_phi_arg (tree t)
+get_rhs_or_phi_arg (gimple stmt)
 {
-  if (TREE_CODE (t) == PHI_NODE)
-    return degenerate_phi_result (t);
-  else if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-    return GIMPLE_STMT_OPERAND (t, 1);
-  gcc_unreachable ();
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    return degenerate_phi_result (stmt);
+  else if (gimple_assign_single_p (stmt))
+    return gimple_assign_rhs1 (stmt);
+  else
+    gcc_unreachable ();
 }
 
 
-/* Given a tree node T, which is either a PHI_NODE or a GIMPLE_MODIFY_STMT,
+/* Given a statement STMT, which is either a PHI node or an assignment,
    return the "lhs" of the node.  */
 
 static tree
-get_lhs_or_phi_result (tree t)
+get_lhs_or_phi_result (gimple stmt)
 {
-  if (TREE_CODE (t) == PHI_NODE)
-    return PHI_RESULT (t);
-  else if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
-    return GIMPLE_STMT_OPERAND (t, 0);
-  gcc_unreachable ();
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    return gimple_phi_result (stmt);
+  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+    return gimple_assign_lhs (stmt);
+  else
+    gcc_unreachable ();
 }
 
 /* Propagate RHS into all uses of LHS (when possible).
@@ -2574,7 +2575,7 @@ get_lhs_or_phi_result (tree t)
    opportunities.  */
 
 static void 
-propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
+propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_names)
 {
   /* First verify that propagation is valid and isn't going to move a
      loop variant variable outside its loop.  */
@@ -2586,7 +2587,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
     {
       use_operand_p use_p;
       imm_use_iterator iter;
-      tree use_stmt;
+      gimple use_stmt;
       bool all = true;
 
       /* Dump details.  */
@@ -2607,8 +2608,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	{
 	
 	  /* It's not always safe to propagate into an ASM_EXPR.  */
-	  if (TREE_CODE (use_stmt) == ASM_EXPR
-	      && ! may_propagate_copy_into_asm (lhs))
+	  if (gimple_code (use_stmt) == GIMPLE_ASM
+              && ! may_propagate_copy_into_asm (lhs))
 	    {
 	      all = false;
 	      continue;
@@ -2618,8 +2619,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "    Original statement:");
-	      print_generic_expr (dump_file, use_stmt, dump_flags);
-	      fprintf (dump_file, "\n");
+	      print_gimple_stmt (dump_file, use_stmt, 0, dump_flags);
 	    }
 
 	  push_stmt_changes (&use_stmt);
@@ -2638,7 +2638,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     Second, if we're propagating a virtual operand and the
 	     propagation does not change the underlying _DECL node for
 	     the virtual operand, then no further actions are necessary.  */
-	  if (TREE_CODE (use_stmt) == PHI_NODE
+	  if (gimple_code (use_stmt) == GIMPLE_PHI
 	      || (! is_gimple_reg (lhs)
 		  && TREE_CODE (rhs) == SSA_NAME
 		  && SSA_NAME_VAR (lhs) == SSA_NAME_VAR (rhs)))
@@ -2647,13 +2647,12 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "    Updated statement:");
-		  print_generic_expr (dump_file, use_stmt, dump_flags);
-		  fprintf (dump_file, "\n");
+		  print_gimple_stmt (dump_file, use_stmt, 0, dump_flags);
 		}
 
 	      /* Propagation into a PHI may expose new degenerate PHIs,
 		 so mark the result of the PHI as interesting.  */
-	      if (TREE_CODE (use_stmt) == PHI_NODE)
+	      if (gimple_code (use_stmt) == GIMPLE_PHI)
 		{
 		  tree result = get_lhs_or_phi_result (use_stmt);
 		  bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
@@ -2667,6 +2666,12 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     real statement.  Folding may (or may not) be possible,
 	     we may expose new operands, expose dead EH edges,
 	     etc.  */
+          /* NOTE tuples. In the tuples world, fold_stmt_inplace
+             cannot fold a call that simplifies to a constant,
+             because the GIMPLE_CALL must be replaced by a
+             GIMPLE_ASSIGN, and there is no way to effect such a
+             transformation in-place.  We might want to consider
+             using the more general fold_stmt here.  */
 	  fold_stmt_inplace (use_stmt);
 
 	  /* Sometimes propagation can expose new operands to the
@@ -2678,16 +2683,15 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "    Updated statement:");
-	      print_generic_expr (dump_file, use_stmt, dump_flags);
-	      fprintf (dump_file, "\n");
+	      print_gimple_stmt (dump_file, use_stmt, 0, dump_flags);
 	    }
 
 	  /* If we replaced a variable index with a constant, then
 	     we would need to update the invariant flag for ADDR_EXPRs.  */
-	  if (TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == ADDR_EXPR)
+          if (gimple_assign_single_p (use_stmt)
+              && TREE_CODE (gimple_assign_rhs1 (use_stmt)) == ADDR_EXPR)
 	    recompute_tree_invariant_for_addr_expr
-	      (GIMPLE_STMT_OPERAND (use_stmt, 1));
+                (gimple_assign_rhs1 (use_stmt));
 
 	  /* If we cleaned up EH information from the statement,
 	     mark its containing block as needing EH cleanups.  */
@@ -2700,12 +2704,11 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 
 	  /* Propagation may expose new trivial copy/constant propagation
 	     opportunities.  */
-	  if (TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-	      && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME
-	      && (TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == SSA_NAME
-		  || is_gimple_min_invariant (GIMPLE_STMT_OPERAND (use_stmt,
-		      						   1))))
-	    {
+          if (gimple_assign_single_p (use_stmt)
+              && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
+              && (TREE_CODE (gimple_assign_rhs1 (use_stmt)) == SSA_NAME
+                  || is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))))
+            {
 	      tree result = get_lhs_or_phi_result (use_stmt);
 	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
 	    }
@@ -2714,41 +2717,44 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 	     the CFG unexecutable.  We want to identify them as PHI nodes
 	     at the destination of those unexecutable edges may become
 	     degenerates.  */
-	  else if (TREE_CODE (use_stmt) == COND_EXPR
-		   || TREE_CODE (use_stmt) == SWITCH_EXPR
-		   || TREE_CODE (use_stmt) == GOTO_EXPR)
-	    {
+	  else if (gimple_code (use_stmt) == GIMPLE_COND
+		   || gimple_code (use_stmt) == GIMPLE_SWITCH
+		   || gimple_code (use_stmt) == GIMPLE_GOTO)
+            {
 	      tree val;
 
-	      if (TREE_CODE (use_stmt) == COND_EXPR)
-		val = COND_EXPR_COND (use_stmt);
-	      else if (TREE_CODE (use_stmt) == SWITCH_EXPR)
-		val = SWITCH_COND (use_stmt);
+	      if (gimple_code (use_stmt) == GIMPLE_COND)
+                val = fold_binary (gimple_cond_code (use_stmt),
+                                   boolean_type_node,
+                                   gimple_cond_lhs (use_stmt),
+                                   gimple_cond_rhs (use_stmt));
+              else if (gimple_code (use_stmt) == GIMPLE_SWITCH)
+		val = gimple_switch_index (use_stmt);
 	      else
-		val = GOTO_DESTINATION  (use_stmt);
+		val = gimple_goto_dest  (use_stmt);
 
-	      if (is_gimple_min_invariant (val))
+	      if (val && is_gimple_min_invariant (val))
 		{
 		  basic_block bb = gimple_bb (use_stmt);
 		  edge te = find_taken_edge (bb, val);
 		  edge_iterator ei;
 		  edge e;
-		  block_stmt_iterator bsi;
+		  gimple_stmt_iterator gsi, psi;
 
 		  /* Remove all outgoing edges except TE.  */
 		  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei));)
 		    {
 		      if (e != te)
 			{
-			  tree phi;
-
 			  /* Mark all the PHI nodes at the destination of
 			     the unexecutable edge as interesting.  */
-			  for (phi = phi_nodes (e->dest);
-			       phi;
-			       phi = PHI_CHAIN (phi))
-			    {
-			      tree result = PHI_RESULT (phi);
+                          for (psi = gsi_start_phis (e->dest);
+                               !gsi_end_p (psi);
+                               gsi_next (&psi))
+                            {
+                              gimple phi = gsi_stmt (psi);
+
+			      tree result = gimple_phi_result (phi);
 			      int version = SSA_NAME_VERSION (result);
 
 			      bitmap_set_bit (interesting_names, version);
@@ -2764,8 +2770,8 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
 			ei_next (&ei);
 		    }
 
-		  bsi = bsi_last (gimple_bb (use_stmt));
-		  bsi_remove (&bsi, true);
+		  gsi = gsi_last_bb (gimple_bb (use_stmt));
+		  gsi_remove (&gsi, true);
 
 		  /* And fixup the flags on the single remaining edge.  */
 		  te->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
@@ -2787,7 +2793,7 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
     }
 }
 
-/* T is either a PHI node (potentially a degenerate PHI node) or
+/* STMT is either a PHI node (potentially a degenerate PHI node) or
    a statement that is a trivial copy or constant initialization.
 
    Attempt to eliminate T by propagating its RHS into all uses of
@@ -2795,12 +2801,12 @@ propagate_rhs_into_lhs (tree stmt, tree lhs, tree rhs, bitmap interesting_names)
    for nodes we want to revisit later.
 
    All exit paths should clear INTERESTING_NAMES for the result
-   of T.  */
+   of STMT.  */
 
 static void
-eliminate_const_or_copy (tree t, bitmap interesting_names)
+eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
 {
-  tree lhs = get_lhs_or_phi_result (t);
+  tree lhs = get_lhs_or_phi_result (stmt);
   tree rhs;
   int version = SSA_NAME_VERSION (lhs);
 
@@ -2812,22 +2818,22 @@ eliminate_const_or_copy (tree t, bitmap interesting_names)
   if (has_zero_uses (lhs))
     {
       bitmap_clear_bit (interesting_names, version);
-      remove_stmt_or_phi (t);
+      remove_stmt_or_phi (stmt);
       return;
     }
 
   /* Get the RHS of the assignment or PHI node if the PHI is a
      degenerate.  */
-  rhs = get_rhs_or_phi_arg (t);
+  rhs = get_rhs_or_phi_arg (stmt);
   if (!rhs)
     {
       bitmap_clear_bit (interesting_names, version);
       return;
     }
 
-  propagate_rhs_into_lhs (t, lhs, rhs, interesting_names);
+  propagate_rhs_into_lhs (stmt, lhs, rhs, interesting_names);
 
-  /* Note that T may well have been deleted by now, so do
+  /* Note that STMT may well have been deleted by now, so do
      not access it, instead use the saved version # to clear
      T's entry in the worklist.  */
   bitmap_clear_bit (interesting_names, version);
@@ -2841,12 +2847,13 @@ eliminate_const_or_copy (tree t, bitmap interesting_names)
 static void
 eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
 {
-  tree phi, next;
+  gimple_stmt_iterator gsi;
   basic_block son;
 
-  for (phi = phi_nodes (bb); phi; phi = next)
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      next = PHI_CHAIN (phi);
+      gimple phi = gsi_stmt (gsi);
+
       eliminate_const_or_copy (phi, interesting_names);
     }
 
@@ -2856,7 +2863,6 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
        son = next_dom_son (CDI_DOMINATORS, son))
     eliminate_degenerate_phis_1 (son, interesting_names);
 }
-#endif
 
 
 /* A very simple pass to eliminate degenerate PHI nodes from the
@@ -2888,8 +2894,6 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
 static unsigned int
 eliminate_degenerate_phis (void)
 {
-  /* FIXME tuples.  */
-#if 0
   bitmap interesting_names;
   bitmap interesting_names1;
 
@@ -2956,17 +2960,13 @@ eliminate_degenerate_phis (void)
      such edges from the CFG as needed.  */
   if (!bitmap_empty_p (need_eh_cleanup))
     {
-      tree_purge_all_dead_eh_edges (need_eh_cleanup);
+      gimple_purge_all_dead_eh_edges (need_eh_cleanup);
       BITMAP_FREE (need_eh_cleanup);
     }
 
   BITMAP_FREE (interesting_names);
   BITMAP_FREE (interesting_names1);
   return 0;
-#else
-  gimple_unreachable ();
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_phi_only_cprop =
