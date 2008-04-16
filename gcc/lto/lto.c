@@ -1447,6 +1447,7 @@ lto_read_compile_unit_DIE (lto_info_fd *fd,
 	  case DW_LANG_C:
 	  case DW_LANG_C89:
 	  case DW_LANG_C99:
+	  case DW_LANG_C_plus_plus:
 	    break;
 	    
 	  default:

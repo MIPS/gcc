@@ -1,3 +1,8 @@
+2008-04-16  Ollie Wild  <aaw@google.com>
+
+	* lto.c (lto_read_compile_unit_DIE): Add DW_LANG_C_plus_plus to the
+	list of supported languages.
+
 2008-03-25  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Merge with mainline @133491.
