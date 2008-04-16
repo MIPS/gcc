@@ -2052,8 +2052,8 @@ operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
   bool honor_snans = fp_operation && flag_signaling_nans != 0;
 
   if (TREE_CODE_CLASS (op) != tcc_comparison
-      || TREE_CODE_CLASS (op) != tcc_unary
-      || TREE_CODE_CLASS (op) != tcc_binary)
+      && TREE_CODE_CLASS (op) != tcc_unary
+      && TREE_CODE_CLASS (op) != tcc_binary)
     return false;
 
   switch (op)

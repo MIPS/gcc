@@ -1,3 +1,7 @@
+2008-04-15  Doug Kwan  <dougkwan@google.com>
+
+	* tree-eh.c (operation_could_trap_p): Fix filtering logic.
+
 2008-04-15  Bill Maddox  <maddox@google.com>
 
 	* tree-ssa-dom.c: (degenerate_phi_result, remove_stmt_or_phi,
