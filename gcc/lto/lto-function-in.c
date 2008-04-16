@@ -238,7 +238,8 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
 }
 
 
-/* Get the type referenced by the next token in IB.  */
+/* Get the type referenced by the next token in IB and store it in the type
+   table in DATA_IN.  */
 
 static tree
 input_type_ref (struct data_in *data_in, struct lto_input_block *ib)

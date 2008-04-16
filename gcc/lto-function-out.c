@@ -612,9 +612,8 @@ output_type_ref_1 (struct output_block *ob, tree node)
 }
 
 
-/* Look up TYPE in the type table and write the uleb128 index for it.
-   This is a hack and will be replaced with a real reference to the
-   type.  */
+/* Look up NODE in the type table and write the uleb128 index for it to OB.
+   This is a hack and will be replaced with a real reference to the type.  */
 
 static void
 output_type_ref (struct output_block *ob, tree node)
