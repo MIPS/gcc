@@ -5183,6 +5183,8 @@ DEF_VEC_P(basic_block);
 DEF_VEC_ALLOC_P(basic_block,heap);
 */
 
+/* FIXME tuples.  */
+#if 0
 /* Add all the blocks dominated by ENTRY to the array BBS_P.  Stop
    adding blocks when the dominator traversal reaches EXIT.  This
    function silently assumes that ENTRY strictly dominates EXIT.  */
@@ -5203,8 +5205,6 @@ gather_blocks_in_sese_region (basic_block entry, basic_block exit,
     }
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Replaces *TP with a duplicate (belonging to function TO_CONTEXT).
    The duplicates are recorded in VARS_MAP.  */
 

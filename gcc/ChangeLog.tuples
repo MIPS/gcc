@@ -1,5 +1,14 @@
 2008-04-16  Doug Kwan  <dougkwan@google.com>
 
+	* Makefile.in (STRICT_WARN): Disable -Wmissing-format-attribute
+	and -Wformat temporarily for bootstrapping.
+	* lambda-code.c (invariant_in_loop_and_outer_loops): Comment out
+	to avoid defined-and-not-used warning.
+	* tree-cfg.c (gather_blocks_in_sese_region): Comment out to avoid
+	defined-and-not-used warning.
+ 
+2008-04-16  Doug Kwan  <dougkwan@google.com>
+
 	* Makefile.in (GTFILES): Add back ipa-reference.h and ipa-reference.c.
 	* gimple-dummy.c (memory_identifier_string): Remove.
 	* ipa-cp.c (constant_val_insert): Tuplify.

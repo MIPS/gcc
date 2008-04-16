@@ -1205,6 +1205,8 @@ depth_of_nest (struct loop *nest)
 }
 
 
+/* FIXME tuples: Disabled to avoid defined-but-not-used warnings. */
+#if 0
 /* Return true if OP is invariant in LOOP and all outer loops.  */
 
 static bool
@@ -1220,6 +1222,7 @@ invariant_in_loop_and_outer_loops (struct loop *loop, tree op)
     return false;
   return true;
 }
+#endif
 
 /* Generate a lambda loop from a gcc loop LOOP.  Return the new lambda loop,
    or NULL if it could not be converted.
