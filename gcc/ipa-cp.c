@@ -441,21 +441,13 @@ ipcp_method_cval_init (struct cgraph_node *mt)
 static void
 constant_val_insert (tree parm1 ATTRIBUTE_UNUSED, tree val ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
-  tree init_stmt = NULL;
+  gimple init_stmt = NULL;
   edge e_step;
 
-  init_stmt = build_gimple_modify_stmt (parm1, val);
-
-  if (init_stmt)
-    {
-      e_step = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun));
-      gsi_insert_on_edge_immediate (e_step, init_stmt);
-    }
-#else
-  gimple_unreachable ();
-#endif
+  init_stmt = gimple_build_assign (parm1, val);
+  gcc_assert (init_stmt);
+  e_step = single_succ_edge (ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun));
+  gsi_insert_on_edge_immediate (e_step, init_stmt);
 }
 
 /* build INTEGER_CST tree with type TREE_TYPE and 

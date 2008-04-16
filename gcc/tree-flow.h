@@ -420,13 +420,10 @@ struct function_ann_d GTY(())
 {
   struct tree_ann_common_d common;
 
-  /* FIXME tuples.  */
-#if 0
   /* Pointer to the structure that contains the sets of global
      variables modified by function calls.  This field is only used
      for FUNCTION_DECLs.  */
-  /*ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;*/
-#endif
+  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
 };
 
 

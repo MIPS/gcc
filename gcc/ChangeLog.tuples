@@ -1,3 +1,30 @@
+2008-04-16  Doug Kwan  <dougkwan@google.com>
+
+	* Makefile.in (GTFILES): Add back ipa-reference.h and ipa-reference.c.
+	* gimple-dummy.c (memory_identifier_string): Remove.
+	* ipa-cp.c (constant_val_insert): Tuplify.
+	* ipa-prop.c (File): Uncomment all previously disabled code.
+	(ipa_method_modify_stmt): Tuplify.
+	(ipa_method_compute_modify): Tuplify.
+	(ipa_callsite_tree): Renamed to ipa_callsite_stmt.  Update callers.
+	(ipa_callsite_stmt): New.
+	(ipa_callsite_compute_count): Tuplify.
+	(ipa_callsite_compute_param): Tuplify.
+	* ipa-reference.c (File): Uncomment all previously disabled code.
+	(get_asm_stmt_operands): Tuplify.
+	(check_call): Tuplify.  Also add code to handle assignment of
+	returned value.
+	(scan_for_static_refs): Remove.  Tuplify body and split into two
+	new functions scan_stmt_for_static_refs and scan_op_for_static_refs.
+	Update callers.
+	(scan_stmt_for_static_refs): New.  Split from scan_for_static_refs.
+	(scan_op_for_static_refs): New.  Split from scan_for_static_refs.
+	(analyze_variable): Update walk_tree call.
+	(analyze_function): Tuplify.
+	* passes.c (init_optimization_passes): Re-enable pass_ipa_reference.
+	* tree-flow.h (struct function_ann_d): Uncomment field
+	ipa_reference_vars_info.
+
 2008-04-15  Doug Kwan  <dougkwan@google.com>
 
 	* tree-eh.c (operation_could_trap_p): Fix filtering logic.

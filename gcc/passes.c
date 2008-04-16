@@ -565,10 +565,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_cp);
 #endif
   NEXT_PASS (pass_ipa_inline);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_reference);
-#endif
   NEXT_PASS (pass_ipa_pure_const); 
   /* FIXME tuples.  */
 #if 0

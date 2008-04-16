@@ -14,8 +14,6 @@
   void X (void);				\
   void X (void) { gcc_unreachable (); }
 
-DUMMY_VAR (memory_identifier_string);
-
 
 DUMMY_FN (canonicalize_induction_variables)
 DUMMY_FN (get_type)

@@ -31,8 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "timevar.h"
 
-/* FIXME tuples.  */
-#if 0
 /* This file contains interfaces that can be used for various IPA 
    optimizations:
 
@@ -242,23 +240,23 @@ ipa_method_formal_compute_count (struct cgraph_node *mt)
    the appropriate entry is updated in the ipa_mod array of ipa_node
    (associated with MT).  */
 static void
-ipa_method_modify_stmt (struct cgraph_node *mt, tree stmt)
+ipa_method_modify_stmt (struct cgraph_node *mt, gimple stmt)
 {
   int i, j;
   tree parm_decl;
 
-  switch (TREE_CODE (stmt))
+  switch (gimple_code (stmt))
     {
-    case GIMPLE_MODIFY_STMT:
-	  if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == PARM_DECL)
+    case GIMPLE_ASSIGN:
+	  if (TREE_CODE (gimple_assign_lhs (stmt)) == PARM_DECL)
 	{
-	  parm_decl = GIMPLE_STMT_OPERAND (stmt, 0);
+	  parm_decl = gimple_assign_lhs (stmt);
 	  i = ipa_method_tree_map (mt, parm_decl);
 	  if (i >= 0)
 	    ipa_method_modify_set (mt, i, true);
 	}
       break;
-    case ASM_EXPR:
+    case GIMPLE_ASM:
       /* Asm code could modify any of the parameters.  */
       for (j = 0; j < ipa_method_formal_count (mt); j++)
 	ipa_method_modify_set (mt, j, true);
@@ -292,8 +290,9 @@ ipa_method_compute_modify (struct cgraph_node *mt)
   int j, count;
   basic_block bb;
   struct function *func;
-  block_stmt_iterator bsi;
-  tree stmt, parm_tree;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree parm_tree;
 
   if (ipa_method_formal_count (mt) == 0)
     return;
@@ -324,9 +323,9 @@ ipa_method_compute_modify (struct cgraph_node *mt)
       func = DECL_STRUCT_FUNCTION (decl);
       FOR_EACH_BB_FN (bb, func)
       {
-	for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    stmt = bsi_stmt (bsi);
+	    stmt = gsi_stmt (gsi);
 	    ipa_method_modify_stmt (mt, stmt);
 	  }
       }
@@ -400,9 +399,9 @@ ipa_callsite_param_map_create (struct cgraph_edge *cs)
     XCNEWVEC (struct ipa_jump_func, ipa_callsite_param_count (cs));
 }
 
-/* Return the call expr tree related to callsite CS.  */
-static inline tree
-ipa_callsite_tree (struct cgraph_edge *cs)
+/* Return the call GIMPLE stmt related to callsite CS.  */
+static inline gimple
+ipa_callsite_stmt (struct cgraph_edge *cs)
 {
   return cs->call_stmt;
 }
@@ -419,12 +418,12 @@ ipa_callsite_caller (struct cgraph_edge *cs)
 void
 ipa_callsite_compute_count (struct cgraph_edge *cs)
 {
-  tree call_tree;
+  gimple stmt;
   int arg_num;
 
-  call_tree = get_call_expr_in (ipa_callsite_tree (cs));
-  gcc_assert (TREE_CODE (call_tree) == CALL_EXPR);
-  arg_num = call_expr_nargs (call_tree);
+  stmt = ipa_callsite_stmt (cs);
+  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  arg_num = gimple_call_num_args (stmt);
   ipa_callsite_param_count_set (cs, arg_num);
 }
 
@@ -435,24 +434,24 @@ ipa_callsite_compute_count (struct cgraph_edge *cs)
 void
 ipa_callsite_compute_param (struct cgraph_edge *cs)
 {
-  tree call_tree;
+  gimple stmt;
   tree arg, cst_decl;
-  int arg_num;
+  size_t arg_num;
   int i;
   struct cgraph_node *mt;
   tree parm_decl;
   struct function *curr_cfun;
-  call_expr_arg_iterator iter;
 
   if (ipa_callsite_param_count (cs) == 0)
     return;
   ipa_callsite_param_map_create (cs);
-  call_tree = get_call_expr_in (ipa_callsite_tree (cs));
-  gcc_assert (TREE_CODE (call_tree) == CALL_EXPR);
-  arg_num = 0;
+  stmt = ipa_callsite_stmt (cs);
+  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
 
-  FOR_EACH_CALL_EXPR_ARG (arg, iter, call_tree)
+  for (arg_num = 0; arg_num < gimple_call_num_args (stmt); arg_num++)
     {
+      arg = gimple_call_arg (stmt, arg_num);
+
       /* If the formal parameter was passed as argument, we store 
          FORMAL_IPATYPE and its index in the caller as the jump function 
          of this argument.  */
@@ -509,7 +508,6 @@ ipa_callsite_compute_param (struct cgraph_edge *cs)
 	}
       else
 	ipa_callsite_param_set_type (cs, arg_num, UNKNOWN_IPATYPE);
-      arg_num++;
     }
 }
 
@@ -661,4 +659,3 @@ ipa_method_modify_print (FILE * f)
 	}
     }
 }
-#endif
