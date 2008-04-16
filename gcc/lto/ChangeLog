@@ -1,5 +1,11 @@
 2008-04-16  Ollie Wild  <aaw@google.com>
 
+	* lto-function-in.c (input_type_ref_1): New function.
+	(input_type_ref): Split into two functions.
+	(input_function): Add support for type contexts.
+
+2008-04-16  Ollie Wild  <aaw@google.com>
+
 	* lto.c (lto_materialize_function): Use DECL_ASSEMBLER_NAME to compute
 	section name
 

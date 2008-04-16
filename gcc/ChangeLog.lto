@@ -1,3 +1,12 @@
+2008-04-16  Ollie Wild  <aaw@google.com>
+
+	* lto-function-out.c (output_type_ref_1): New function.
+	(output_type_ref): Split into two functions.
+	(output_function): Output an LTO_type record if DECL_CONTEXT (function)
+	is a type.
+	* lto-tags.h (LTO_tags): Add LTO_type enumerator.
+	* lto-tree-tags.def (LTO_type): Add new name.
+
 2008-03-25  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Merge with mainline @133491.

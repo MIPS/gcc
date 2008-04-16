@@ -427,6 +427,7 @@ enum LTO_tags {
   LTO_asm_clobbers,
 
   LTO_function,
+  LTO_type,
   LTO_eh_table,
 
 /* Each of these requires 4 variants.  1 and 3 are have_inner and 2

@@ -594,17 +594,14 @@ output_tree_flags (struct output_block *ob,
 }
 
 
-/* Look up TYPE in the type table and write the uleb128 index for it.
-   This is a hack and will be replaced with a real reference to the
-   type.  */
+/* Like output_type_ref, but no debug information is written.  */
 
 static void
-output_type_ref (struct output_block *ob, tree node)
+output_type_ref_1 (struct output_block *ob, tree node)
 {
   bool new;
   unsigned int index;
 
-  LTO_DEBUG_TOKEN ("type");
   new = lto_output_decl_index (ob->main_stream, 
 			       ob->decl_state->type_hash_table,
 			       &ob->decl_state->next_type_index, 
@@ -612,6 +609,18 @@ output_type_ref (struct output_block *ob, tree node)
 
   if (new)
     VEC_safe_push (tree, heap, ob->decl_state->types, node);
+}
+
+
+/* Look up TYPE in the type table and write the uleb128 index for it.
+   This is a hack and will be replaced with a real reference to the
+   type.  */
+
+static void
+output_type_ref (struct output_block *ob, tree node)
+{
+  LTO_DEBUG_TOKEN ("type");
+  output_type_ref_1 (ob, node);
 }
 
 
@@ -1953,6 +1962,7 @@ output_function (struct cgraph_node* node)
   struct function *fn = DECL_STRUCT_FUNCTION (function);
   basic_block bb;
   struct output_block *ob = create_output_block (LTO_section_function_body);
+  tree context;
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
   clear_line_info (ob);
@@ -1985,10 +1995,17 @@ output_function (struct cgraph_node* node)
     output_zero (ob);
     
   LTO_DEBUG_INDENT_TOKEN ("decl_context");
-  if (DECL_CONTEXT (function))
-    output_expr_operand (ob, DECL_CONTEXT (function));
-  else
+  context = DECL_CONTEXT (function);
+  if (!context)
     output_zero (ob);
+  else if (TYPE_P (context))
+    {
+      output_record_start (ob, NULL, NULL, LTO_type);
+      output_type_ref_1 (ob, context);
+      LTO_DEBUG_UNDENT ();
+    }
+  else
+    output_expr_operand (ob, DECL_CONTEXT (function));
 
   /* We will renumber the statements.  The code that does this uses
      the same ordering that we use for serializing them so we can use

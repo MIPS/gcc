@@ -226,16 +226,25 @@ get_label_decl (struct data_in *data_in, struct lto_input_block *ib)
 }
 
 
+/* Like get_type_ref, but no debug information is read.  */
+
+static tree
+input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
+{
+  int index;
+
+  index = lto_input_uleb128 (ib);
+  return data_in->file_data->types[index];
+}
+
+
 /* Get the type referenced by the next token in IB.  */
 
 static tree
 input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
 {
-  int index;
-
   LTO_DEBUG_TOKEN ("type");
-  index = lto_input_uleb128 (ib);
-  return data_in->file_data->types[index];
+  return input_type_ref_1 (data_in, ib);
 }
 
 /* Set all of the FLAGS for NODE.  */
@@ -1506,7 +1515,15 @@ input_function (tree fn_decl, struct data_in *data_in,
   LTO_DEBUG_INDENT_TOKEN ("decl_context");
   tag = input_record_start (ib);
   if (tag)
-    DECL_CONTEXT (fn_decl) = input_expr_operand (ib, data_in, fn, tag); 
+    {
+      if (tag == LTO_type)
+	{
+	  DECL_CONTEXT (fn_decl) = input_type_ref_1 (data_in, ib);
+	  LTO_DEBUG_UNDENT ();
+	}
+      else
+	DECL_CONTEXT (fn_decl) = input_expr_operand (ib, data_in, fn, tag);
+    }
 
   tag = input_record_start (ib);
   while (tag)
