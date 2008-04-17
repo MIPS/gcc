@@ -50,8 +50,8 @@ static enum server_state current_server_state = SERVER_NONE;
 /* The name of the server socket we're using.  */
 static char *server_socket_name;
 
-/* The name of the server directory.  Only set in the server.  We
-   delete this when the server exits.  */
+/* The name of the server directory.  We delete this when the server
+   exits.  */
 static char *server_directory;
 
 /* The file descriptor of our connection to the server.  */
@@ -96,8 +96,8 @@ get_socket_name (const char *progname, bool server)
 	      error ("could not make directory %s: %s", dir, xstrerror (errno));
 	      exit (FATAL_EXIT_CODE);
 	    }
-	  server_directory = xstrdup (dir);
 	}
+      server_directory = xstrdup (dir);
 
       server_socket_name = reconcat (dir, dir, "/", basename, "-server", NULL);
     }
@@ -114,6 +114,11 @@ forget_socket_name (void)
       free (server_socket_name);
       server_socket_name = NULL;
     }
+  if (server_directory)
+    {
+      free (server_directory);
+      server_directory = NULL;
+    }
 }
 
 /* If SOCKET is not -1, close the server socket.  Unlink the server
@@ -122,7 +127,15 @@ static void
 server_cleanup (int socket)
 {
   if (socket != -1)
-    close (socket);
+    {
+      close (socket);
+      socket = -1;
+    }
+}
+
+static void
+delete_server_socket (void)
+{
   if (server_socket_name)
     unlink (server_socket_name);
   if (server_directory)
@@ -130,10 +143,11 @@ server_cleanup (int socket)
 }
 
 /* Start a compile server.  PROGRAM is the full path name of the
-   server to start.  Returns when the server is ready, or prints a
-   message to stderr and exits on failure.  */
+   server to start.  NSERVERS is the number of server processes to
+   start.  Returns when the server is ready, or prints a message to
+   stderr and exits on failure.  */
 void
-server_start (char *program)
+server_start (char *program, int nservers)
 {
   int fds[2];
 
@@ -150,6 +164,7 @@ server_start (char *program)
       {
 	/* Child.  */
 	char fdstr[40];
+	char jstr[20];
 	char *args[5];
 	int i = 0;
 #ifdef ENABLE_VALGRIND_CHECKING
@@ -159,6 +174,8 @@ server_start (char *program)
 	args[i++] = program;
 	sprintf (fdstr, "-fserver=%d", fds[1]);
 	args[i++] = fdstr;
+	sprintf (jstr, "-j%d", nservers);
+	args[i++] = jstr;
 	args[i++] = NULL;
 	/* Close read end of notification pipe.  */
 	close (fds[0]);
@@ -361,9 +378,10 @@ server_sigint_handler (int ARG_UNUSED (num))
    it, accepting requests and acting on them.  PROGNAME is the full
    path to the server executable.  FD is the completion file
    descriptor, used to notify the gcc driver when the server is ready
-   to accept connections.  */
+   to accept connections.  NSERVERS is the number of server processes
+   to start.  */
 int
-server_main_loop (const char *progname, int fd)
+server_main_loop (const char *progname, int fd, int nservers)
 {
   int sockfd = open_socket (progname);
   char reply = 't';
@@ -390,6 +408,17 @@ server_main_loop (const char *progname, int fd)
   fprintf (stderr, "server is ready; pid = %ld\n", (long) getpid ());
 
   listen (sockfd, 5);
+
+  /* Create the requested server processes.  */
+  while (--nservers > 0)
+    {
+      pid_t subserver;
+      /* It is ok if a fork fails; it just means we have fewer servers
+	 than requested.  */
+      subserver = fork ();
+      if (subserver == 0 || subserver == -1)
+	break;
+    }
 
   while (result)
     {
@@ -646,12 +675,30 @@ client_wait (void)
 void
 client_kill_server (const char *progname)
 {
-  if (!client_connect (progname))
+  bool report_error = true;
+  while (true)
     {
-      error ("couldn't connect to server: %s", xstrerror (errno));
-      return;
+      if (!client_connect (progname))
+	{
+	  /* Report an error if the first connection attempt fails.
+	     Any subsequent failure is normal -- it means we've killed
+	     all the running servers.  */
+	  if (report_error)
+	    {
+	      error ("couldn't connect to server: %s", xstrerror (errno));
+	      break;
+	    }
+	  else
+	    {
+	      /* Can't find another server, so clean up.  */
+	      delete_server_socket ();
+	      break;
+	    }
+	}
+
+      send_command_and_wait ('K');
+      report_error = false;
     }
-  send_command_and_wait ('K');
 }
 
 /* Assert that either this compiler is running standalone, or that the

@@ -1,3 +1,20 @@
+2008-04-17  Tom Tromey  <tromey@redhat.com>
+
+	* server.h (server_start, server_main_loop): Update.
+	* server.c (server_directory): Update comment.
+	(get_socket_name): Always set server_directory.
+	(forget_socket_name): Free server_directory.
+	(server_cleanup): Don't remove socket or directory.
+	(delete_server_socket): New function.
+	(server_start): Add 'nservers' argument.  Pass -j to new process.
+	(server_main_loop): Add 'nservers' argument.
+	(client_kill_server): Loop to kill all servers.  Call
+	delete_server_socket.
+	* toplev.c (toplev_main): Handle -j.
+	* gcc.c (server_count): New global.
+	(process_command): Handle -j.
+	(main): Use server_count.
+
 2008-04-02  Tom Tromey  <tromey@redhat.com>
 
 	* c-decl.c (c_clear_binding_stack): Use dump_vec.

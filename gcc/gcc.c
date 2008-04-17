@@ -200,6 +200,11 @@ static int report_times;
 
 static int server;
 
+/* The number of server processes to start.  Only meaningful if
+   'server' is set.  */
+
+static int server_count = 1;
+
 /* Flag indicating that we should kill a running server process.  */
 
 static int kill_server;
@@ -3903,6 +3908,21 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      }
 	      break;
 
+	    case 'j':
+	      {
+		char *arg;
+		if (p[1] != 0)
+		  arg = &p[1];
+		else if (i + 1 < argc)
+		  arg = argv[++i];
+		else
+		  error ("argument to '-j' is missing");
+		server_count = atoi (arg);
+		if (server_count <= 0)
+		  error ("argument to '-j' must be positive");
+	      }
+	      break;
+
 	    case 'v':	/* Print our subcommands and print versions.  */
 	      n_switches++;
 	      /* If they do anything other than exactly `-v', don't set
@@ -4234,6 +4254,13 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 		spec_lang = 0;
 	      else
 		last_language_n_infiles = n_infiles;
+	      continue;
+	    }
+	  else if (c == 'j')
+	    {
+	      /* Don't pass the -j option down.  */
+	      if (p[1] == 0)
+		++i;
 	      continue;
 	    }
 	  switches[n_switches].part1 = p;
@@ -6551,7 +6578,8 @@ main (int argc, char **argv)
   if (server)
     {
       /* FIXME: allow more than cc1... */
-      server_start (find_a_file (&exec_prefixes, "cc1", X_OK, 0));
+      server_start (find_a_file (&exec_prefixes, "cc1", X_OK, 0),
+		    server_count);
       return 0;
     }
 

@@ -21,8 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SERVER_H
 
 /* Functions for the server to use.  */
-extern void server_start (char *);
-extern int server_main_loop (const char *progname, int);
+extern void server_start (char *, int);
+extern int server_main_loop (const char *progname, int, int);
 extern bool server_start_back_end (bool *);
 extern bool server_interrupted_p (void);
 

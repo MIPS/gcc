@@ -2608,11 +2608,16 @@ toplev_main (unsigned int argc, const char **argv)
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
 
-  if (argc == 2 && !strncmp (argv[1], "-fserver=", 9))
+  if (argc >= 2 && !strncmp (argv[1], "-fserver=", 9))
     {
       int fd = atoi (argv[1] + 9);
+      int jopt = 1;
+
+      if (argc >= 3 && !strncmp (argv[2], "-j", 2))
+	jopt = atoi (argv[2] + 2);
+
       server_mode = true;
-      return server_main_loop (argv[0], fd);
+      return server_main_loop (argv[0], fd, jopt);
     }
 
   /* Parse the options and do minimal processing; basically just
