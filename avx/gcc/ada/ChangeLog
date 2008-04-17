@@ -1,3 +1,173 @@
+2008-04-16  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/29015
+	* sem_ch12.adb (Instantiate_Type): Check whether the full view of
+	the type is known instead of the underlying type.
+
+2008-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	PR ada/22387
+	* exp_ch5.adb (Expand_Assign_Record): Within an initialization
+	procedure for a derived type retrieve the discriminant values from
+	the parent using the corresponding discriminant.
+
+2008-04-15  Samuel Tardieu  <sam@rfc1149.net>
+            Gary Dismukes  <dismukes@adacore.com>
+
+	PR ada/28733
+	* sem_ch8.adb (Analyze_Use_Package): Do not allow "use" of something
+	which is not an entity (and hence not a package).
+	(End_Use_Package): Ditto.
+
+2008-04-15  Ed Schonberg  <schonberg@adacore.com>
+
+	PR ada/16086
+	* sem_ch12.adb (Analyze_Formal_Subprogram): The default can be any
+	protected operation that matches the signature, not only an entry, a
+	regular subprogram or a literal.
+
+2008-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada-tree.h (DECL_BY_COMPONENT_PTR_P): Use DECL_LANG_FLAG_3.
+	* decl.c (gnat_to_gnu_entity) <object>: Call maybe_pad_type only
+	if a size or alignment is specified.  Do not take into account
+	alignment promotions for the computation of the object's size.
+	<type>: Call maybe_pad_type only if a size or alignment is specified.
+	(maybe_pad_type): Really reuse the RM_Size of the original type if
+	requested.
+	* trans.c (Attribute_to_gnu): Fix a couple of nits.
+	* utils2.c (build_binary_op) <MODIFY_EXPR>: Merge related conditional
+	statements.  Use the padded view of the type when copying between
+	padded objects of the same underlying type.
+
+2008-04-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* vms_data.ads: Fix typo in constant.
+	* gen-soccon.c: Fix typo in error string.
+	* gnat_rm.texi (Pragma Optimize_Alignment, Pragma Postcondition):
+	Fix typos.
+	* a-calcon.ads, a-calend-vms.adb, a-calend.adb, a-crdlli.ads,
+	bcheck.adb, checks.adb, einfo.ads, errout.adb, erroutc.adb,
+	erroutc.ads, exp_attr.adb, exp_ch11.adb, exp_ch2.adb,
+	exp_ch5.adb, exp_ch9.adb, exp_ch9.ads, exp_pakd.adb,
+	exp_util.adb, fmap.adb, g-soccon-linux-mips.ads,
+	g-soccon-rtems.ads, g-timsta.adb, g-timsta.ads, lib-writ.ads,
+	mlib-tgt-specific-linux.adb, mlib-tgt-specific-tru64.adb,
+	s-interr-vxworks.adb, s-interr.adb, s-osinte-lynxos.ads,
+	s-rident.ads, s-taprop-solaris.adb, s-tassta.adb, s-win32.ads,
+	sem_aggr.adb, sem_attr.ads, sem_ch10.adb, sem_ch13.ads,
+	sem_ch3.adb, sem_ch6.adb, sem_ch7.adb, sem_ch8.adb, sem_ch9.adb,
+	sem_prag.ads, sem_res.adb, sem_util.adb, sem_util.ads,
+	sinfo.ads: Fix typos in comments.
+
+2008-04-14  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, Linker_Section case): Extend error
+	to every non-object and change error message.
+
+2008-04-14  Robert Dewar  <dewar@adacore.com>
+
+	* sem_util.ads, sem_util.adb (In_Subprogram): Remove.
+	* sem_attr.adb (Anayze_Attribute): Check for Current_Subprogram
+	directly.
+
+2008-04-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/18680
+	* sem_prag.adb (Analyze_Pragma, Linker_Section case): Refuse to
+	apply pragma Linker_Section on type.
+
+2008-04-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/16098
+	* sem_prag.adb (Error_Pragma_Ref): New.
+	(Process_Convention): Specialized message for non-local
+	subprogram renaming. Detect the problem in homonyms as well.
+
+2008-04-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/15915
+	* sem_util.ads, sem_util.adb (Denotes_Variable): New function.
+	* sem_ch12.adb (Instantiate_Object): Use it.
+	* sem_ch13.adb (Analyze_Attribute_Definition_Clause): Ensure that
+	storage pool denotes a variable as per RM 13.11(15).
+
+2008-04-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	* sem_util.ads, sem_util.adb (In_Subprogram): New function.
+	* sem_attr.adb (Analyze_Attribute, Attribute_Old case): Use it.
+
+2008-04-14  Rolf Ebert  <rolf.ebert.gcc@gmx.de>
+
+	PR ada/20822
+	* xgnatugn.adb (Put_Line): New procedure, ensuring Unix
+	line endings even on non-Unix platforms.
+
+2008-04-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/35050
+	* xref_lib.adb (Parse_Identifier_Info): Correctly parse and ignore the
+	renaming information.
+
+2008-04-13  Samuel Tardieu  <sam@rfc1149.net> 
+
+	PR ada/17985
+	* sem_aggr.adb (Valid_Ancestor_Type): A type is not an ancestor of
+	itself.
+
+2008-04-13  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* sfn_scan.adb, sfn_scan.ads, sinfo.ads,
+	sinput-d.ads, sinput-l.adb, sinput-l.ads, sinput.ads,
+	snames.ads, sprint.adb, stand.ads, stringt.ads,
+	styleg.adb, styleg.ads, stylesw.adb, stylesw.ads,
+	switch.ads, sysdep.c, table.adb, table.ads,
+	targparm.ads, tb-gcc.c, tbuild.ads, tracebak.c,
+	trans.c, tree_io.adb, treepr.adb, types.adb, types.ads,
+	uintp.adb, uintp.ads, utils.c, utils2.c, validsw.ads,
+	vms_conv.adb, vms_conv.ads, vms_data.ads, widechar.adb,
+	widechar.ads, xeinfo.adb, xgnatugn.adb, xr_tabls.adb,
+	xr_tabls.ads, xref_lib.adb, xref_lib.ads, xsinfo.adb:
+	Fix comment typos.
+
+	* sem_ch10.adb, sem_ch10.ads,
+	sem_ch12.adb, sem_ch12.ads, sem_ch13.adb, sem_ch13.ads,
+	sem_ch3.adb, sem_ch4.adb, sem_ch5.adb, sem_ch6.adb,
+	sem_ch6.ads, sem_ch8.adb, sem_ch8.ads, sem_ch9.adb,
+	sem_elab.adb, sem_elab.ads, sem_elim.ads, sem_eval.adb,
+	sem_eval.ads, sem_intr.adb, sem_mech.adb, sem_mech.ads,
+	sem_prag.adb, sem_prag.ads, sem_res.adb, sem_res.ads,
+	sem_type.adb, sem_util.adb, sem_util.ads, sem_warn.adb,
+	sem_warn.ads: Fix comment typos.
+
+	* s-secsta.adb, s-sequio.ads, s-shasto.ads,
+	s-soflin.ads, s-stalib.ads, s-stausa.adb,
+	s-stausa.ads, s-strxdr.adb, s-taenca.adb, s-taenca.ads,
+	s-taprob.adb, s-taprop-hpux-dce.adb, s-taprop-irix.adb,
+	s-taprop-linux.adb, s-taprop-mingw.adb, s-taprop-posix.adb,
+	s-taprop-solaris.adb, s-taprop-tru64.adb, s-taprop-vms.adb,
+	s-taprop-vxworks.adb, s-taprop.ads, s-tarest.adb,
+	s-tarest.ads, s-tasini.adb, s-tasini.ads, s-taskin.ads,
+	s-tasque.ads, s-tassta.adb, s-tassta.ads, s-tasuti.ads,
+	s-tpoben.adb, s-tpoben.ads, s-tpobop.adb,
+	s-tpopsp-posix.adb, s-tpopsp-rtems.adb, s-tposen.adb,
+	s-tposen.ads, s-traceb-hpux.adb, s-traces.ads,
+	s-trafor-default.ads, s-unstyp.ads, s-utf_32.ads,
+	s-vaflop.adb, s-vaflop.ads, s-valrea.adb, s-valuti.adb,
+	s-wchstw.ads, s-wchwts.adb, s-wchwts.ads, scans.ads,
+	scn.adb, scng.adb, seh_init.c, sem.ads, sem_aggr.adb,
+	sem_attr.adb, sem_attr.ads, sem_case.adb, sem_case.ads,
+	sem_cat.adb, sem_cat.ads: Fix comment typos.
+
+2008-04-12  Joel Sherrill  <joel@oarcorp.com>
+
+	PR ada/35825
+	* g-soccon-rtems.ads: Add IP_PKTINFO as unsupported.
+
+2008-04-12  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-linux-hppa.ads: Fix syntax errors.
+
 2008-04-10  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* gnat_ugn.texi: Fix typos.
