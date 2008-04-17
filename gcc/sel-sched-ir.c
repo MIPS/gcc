@@ -1898,7 +1898,7 @@ expr_greater_p (expr_t expr1, expr_t expr2)
   tmp = EXPR_PRIORITY (expr2) - EXPR_PRIORITY (expr1);
   if (tmp) 
     return tmp > 0;
-  return INSN_LUID (EXPR_INSN_RTX (expr2)) < INSN_LUID (EXPR_INSN_RTX (expr1));
+  return INSN_UID (EXPR_INSN_RTX (expr2)) < INSN_UID (EXPR_INSN_RTX (expr1));
 }
 
 /* Add a new element to av set SETP, having in mind the priority.  
