@@ -533,10 +533,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_cleanup_cfg);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
-          /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_forwprop);
-#endif
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
@@ -600,9 +597,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_fre);
 #endif
       NEXT_PASS (pass_dce);
-#if 0
       NEXT_PASS (pass_forwprop);
-#endif
       NEXT_PASS (pass_copy_prop);
       /* FIXME tuples.  */
 #if 0
@@ -647,8 +642,9 @@ init_optimization_passes (void)
 #endif
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_dse);
-#if 0
       NEXT_PASS (pass_forwprop);
+      /* FIXME tuples.  */
+#if 0
       NEXT_PASS (pass_phiopt);
 #endif
       NEXT_PASS (pass_object_sizes);
@@ -728,9 +724,9 @@ init_optimization_passes (void)
       NEXT_PASS (pass_late_warn_uninitialized);
 #endif
       NEXT_PASS (pass_dse);
+      NEXT_PASS (pass_forwprop);
 /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
 #endif
       NEXT_PASS (pass_tail_calls);
