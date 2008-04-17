@@ -51,7 +51,7 @@ package Sem_Prag is
    --  Precondition, and Postcondition to determine if Check pragmas (or
    --  corresponding Assert, Precondition, or Postcondition pragmas) are
    --  currently active, as determined by the presence of -gnata on the
-   --  command line (which sets the default), and the appearence of pragmas
+   --  command line (which sets the default), and the appearance of pragmas
    --  Check_Policy and Assertion_Policy as configuration pragmas either in
    --  a configuration pragma file, or at the start of the current unit.
    --  True is returned if the specified check is enabled.
@@ -75,7 +75,7 @@ package Sem_Prag is
    --  occurrence is a reference for the purposes of giving warnings about
    --  unreferenced variables. This function returns True if the reference is
    --  not a reference from this point of view (e.g. the occurrence in a pragma
-   --  Pack) and False if it is a real reference (e.g. the occcurrence in a
+   --  Pack) and False if it is a real reference (e.g. the occurrence in a
    --  pragma Export);
 
    function Is_Pragma_String_Literal (Par : Node_Id) return Boolean;
