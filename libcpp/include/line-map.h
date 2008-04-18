@@ -1,5 +1,5 @@
 /* Map logical line numbers to (source file, line number) pairs.
-   Copyright (C) 2001, 2003, 2004, 2007
+   Copyright (C) 2001, 2003, 2004, 2007, 2008
    Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
@@ -41,6 +41,9 @@ typedef unsigned int source_location;
 
 /* Memory allocation function typedef.  Works like xrealloc.  */
 typedef void *(*line_map_realloc) (void *, size_t);
+
+/* Type of function used for freeing memory.  Works like free.  */
+typedef void (*line_map_free) (void *);
 
 /* Physical source file TO_FILE at line TO_LINE at column 0 is represented
    by the logical START_LOCATION.  TO_LINE+L at column C is represented by
@@ -102,6 +105,8 @@ struct line_maps GTY(())
   /* If non-null, the allocator to use when resizing 'maps'.  If null,
      xrealloc is used.  */
   line_map_realloc reallocator;
+  /* Likewise, used for freeing.  */
+  line_map_free freer;
 };
 
 /* Initialize a line map set.  */

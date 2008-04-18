@@ -1,3 +1,9 @@
+2008-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* line-map.c (linemap_free): Use free function.
+	* include/line-map.h (line_map_free): New typedef.
+	(struct line_maps) <freer>: New field.
+
 2008-03-14  Tom Tromey  <tromey@redhat.com>
 
 	* symtab.c (ht_lookup_with_hash): Remove HT_ALLOCED code.

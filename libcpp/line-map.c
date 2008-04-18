@@ -64,9 +64,11 @@ linemap_free (struct line_maps *set)
 {
   if (set->maps)
     {
+      line_map_free free_fn = set->freer ? set->freer : free;
+
       linemap_check_files_exited (set);
 
-      free (set->maps);
+      (*free_fn) (set->maps);
     }
 }
 

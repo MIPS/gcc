@@ -1716,6 +1716,13 @@ realloc_for_line_map (void *ptr, size_t len)
   return ggc_realloc (ptr, len);
 }
 
+/* A helper function used to release memory for cpp's line table.  */
+static void
+free_for_line_map (void *mem ATTRIBUTE_UNUSED)
+{
+  /* Do nothing, the GC will handle it.  */
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1777,6 +1784,7 @@ general_init (const char *argv0)
   line_table = GGC_NEW (struct line_maps);
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;
+  line_table->freer = free_for_line_map;
   linemap_add (line_table, LC_RENAME, 0, 0, _("<built-in>"), 0);
   loc = linemap_line_start (line_table, 0, 1);
   gcc_assert (loc == BUILTINS_LOCATION);
