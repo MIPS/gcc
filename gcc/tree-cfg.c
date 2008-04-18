@@ -2276,7 +2276,7 @@ find_taken_edge_computed_goto (basic_block bb, tree val)
 
 /* Given a constant value VAL and the entry block BB to a COND_EXPR
    statement, determine which of the two edges will be taken out of the
-   block.  */
+   block.  Return NULL if either edge may be taken.  */
 
 static edge
 find_taken_edge_cond_expr (basic_block bb, tree val)

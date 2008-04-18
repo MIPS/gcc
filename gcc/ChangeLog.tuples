@@ -1,3 +1,23 @@
+2008-04-17  Oleg Ryjkov  <olegr@google.com>
+
+	* Reverting forwprop patch.
+
+	2008-04-16  Oleg Ryjkov  <olegr@google.com>
+
+		* tree-ssa-forwprop.c (get_prop_dest_stmtm get_prop_source_stmt,
+		can_propagate_from, remove_prop_source_from_use,
+		tidy_after_forward_propagate_addr,
+		forward_propagate_addr_into_variable_array_index,
+		forward_propagate_addr_expr_1, forward_propagate_addr_expr,
+		forward_propagate_comparison, simplify_not_neg_expr,
+		simplify_switch_expr,
+		tree_ssa_forward_propagate_single_use_variables): Tuplified.
+		(forward_propagate_into_cond): Tuplified and moved some functionality
+		into forward_propagate_into_cond_gimple.
+		(rhs_to_tree, forward_propagate_into_cond_gimple): New functions.
+		* passes.c (init_optimization_passes): Enabled pass_forwprop.
+		* tree-cfg.c (find_taken_edge_cond_expr): Fixed comment.
+
 2008-04-16  Oleg Ryjkov  <olegr@google.com>
 
 	* tree-ssa-forwprop.c (get_prop_dest_stmtm get_prop_source_stmt,
