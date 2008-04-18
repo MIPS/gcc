@@ -1,3 +1,36 @@
+2008-04-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (lower_rec_input_clauses): Remove fixme and
+	ATTRIBUTE_UNUSED.
+	(lower_lastprivate_clauses): Same.
+	(lower_reduction_clauses): Same.
+	(lower_copyprivate_clauses): Same.
+	(lower_send_clauses): Same.
+	(lower_send_shared_vars): Same.
+	(maybe_catch_exception): Convert to tuples.
+	(lower_omp_sections): Same.
+	(lower_omp_single_simple): Same.
+	(lower_omp_single_copy): Same.
+	(lower_omp_single): Same.
+	(lower_omp_master): Same.
+	(lower_omp_ordered): Same.
+	(lower_omp_critical): Same.
+	(lower_omp_for_lastprivate): Same.
+	(lower_omp_for): Same.
+	(check_combined_parallel): Same.
+	(lower_omp_parallel): Same.
+	(lower_omp_1): Same.
+	(execute_lower_omp): Enable.
+	* gimple-dummy.c: Remove dummy functions for lower_omp_*.
+	* gimple-low.c (lower_omp_directive): Convert to tuples.
+	(lower_stmt): Remove fixme.
+	* gimple.h (gimple_seq_alloc_with_stmt): New.
+	(gimple_omp_section_set_last): New.
+	(gimple_omp_parallel_set_combined_p): New.
+	(gimple_bind_add_stmt): New.
+	(gimple_bind_add_seq): New.
+	* tree-cfg.c (verify_node_sharing): Fix typo in comment.
+
 2008-04-17  Oleg Ryjkov  <olegr@google.com>
 
 	* Reverting forwprop patch.

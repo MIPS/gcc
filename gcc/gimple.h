@@ -189,6 +189,19 @@ gimple_seq_empty_p (const_gimple_seq s)
 }
 
 
+void gimple_seq_add_stmt (gimple_seq *, gimple);
+
+/* Allocate a new sequence and initialize its first element with STMT.  */
+
+static inline gimple_seq
+gimple_seq_alloc_with_stmt (gimple stmt)
+{
+  gimple_seq seq = NULL;
+  gimple_seq_add_stmt (&seq, stmt);
+  return seq;
+}
+
+
 /* Returns the sequence of statements in BB.  */
 
 static inline gimple_seq
@@ -608,7 +621,6 @@ gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
 enum gimple_statement_structure_enum gimple_statement_structure (gimple);
-void gimple_seq_add_stmt (gimple_seq *, gimple);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 void sort_case_labels (VEC(tree,heap) *);
 void gimple_set_body (tree, gimple_seq);
@@ -1075,6 +1087,16 @@ gimple_omp_section_last_p (const_gimple g)
 }
 
 
+/* Set the GF_OMP_SECTION_LAST flag on G.  */
+
+static inline void
+gimple_omp_section_set_last (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_SECTION);
+  g->gsbase.subcode |= GF_OMP_SECTION_LAST;
+}
+
+
 /* Return true if OMP parallel statement G has the
    GF_OMP_PARALLEL_COMBINED flag set.  */
 
@@ -1084,6 +1106,17 @@ gimple_omp_parallel_combined_p (const_gimple g)
   GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
   return (gimple_subcode (g) & GF_OMP_PARALLEL_COMBINED) != 0;
 }
+
+
+/* Set the GF_OMP_PARALLEL_COMBINED field in G.  */
+
+static inline void
+gimple_omp_parallel_set_combined_p (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
+  g->gsbase.subcode |= GF_OMP_PARALLEL_COMBINED;
+}
+
 
 extern const char *const gimple_code_name[];
 
@@ -1926,6 +1959,26 @@ gimple_bind_set_body (gimple gs, gimple_seq seq)
 {
   GIMPLE_CHECK (gs, GIMPLE_BIND);
   gs->gimple_bind.body = seq;
+}
+
+
+/* Append a statement to the end of a GIMPLE_BIND's body.  */
+
+static inline void
+gimple_bind_add_stmt (gimple gs, gimple stmt)
+{
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gimple_seq_add_stmt (&gs->gimple_bind.body, stmt);
+}
+
+
+/* Append a sequence of statements to the end of a GIMPLE_BIND's body.  */
+
+static inline void
+gimple_bind_add_seq (gimple gs, gimple_seq seq)
+{
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gimple_seq_add_seq (&gs->gimple_bind.body, seq);
 }
 
 

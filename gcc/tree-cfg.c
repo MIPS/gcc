@@ -3935,7 +3935,7 @@ tree_node_can_be_shared (tree t)
 }
 
 
-/* Called via gimple_walk_stmt.  Verify tree sharing.  */
+/* Called via walk_gimple_stmt.  Verify tree sharing.  */
 
 static tree
 verify_node_sharing (tree *tp, int *walk_subtrees, void *data)

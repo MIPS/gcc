@@ -1691,7 +1691,7 @@ omp_reduction_init (tree clause, tree type)
    private variables.  Initialization statements go in ILIST, while calls
    to destructors go in DLIST.  */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 			 omp_context *ctx)
 {
@@ -1928,7 +1928,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
    both parallel and workshare constructs.  PREDICATE may be NULL if it's
    always true.   */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 			    omp_context *ctx)
 {
@@ -1984,7 +1984,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 
 /* Generate code to implement the REDUCTION clauses.  */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 {
   gimple_seq sub_seq = NULL;
@@ -2073,7 +2073,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
 /* Generate code to implement the COPYPRIVATE clauses.  */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_copyprivate_clauses (tree clauses, gimple_seq *slist, gimple_seq *rlist,
 			    omp_context *ctx)
 {
@@ -2111,7 +2111,7 @@ lower_copyprivate_clauses (tree clauses, gimple_seq *slist, gimple_seq *rlist,
 /* Generate code to implement the clauses, FIRSTPRIVATE, COPYIN, LASTPRIVATE,
    and REDUCTION from the sender (aka parent) side.  */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
     		    omp_context *ctx)
 {
@@ -2191,7 +2191,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
    This is trickier, since OMP_PARALLEL_CLAUSES doesn't list things that
    got automatically shared.  */
 
-/*FIXME tuples*/ ATTRIBUTE_UNUSED static void
+static void
 lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 {
   tree var, ovar, nvar, f, x;
@@ -2414,35 +2414,31 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 }
 
 
-  /* FIXME tuples */
-#if 0
-/* If exceptions are enabled, wrap *STMT_P in a MUST_NOT_THROW catch
-   handler.  This prevents programs from violating the structured
-   block semantics with throws.  */
+/* If exceptions are enabled, wrap the statements in BODY in a MUST_NOT_THROW
+   catch handler and return it.  This prevents programs from violating the
+   structured block semantics with throws.  */
 
-static void
-maybe_catch_exception (tree *stmt_p)
+static gimple_seq
+maybe_catch_exception (gimple_seq body)
 {
-  tree f, t;
+  gimple f, t;
 
   if (!flag_exceptions)
-    return;
+    return NULL;
 
   if (lang_protect_cleanup_actions)
     t = lang_protect_cleanup_actions ();
   else
-    t = build_call_expr (built_in_decls[BUILT_IN_TRAP], 0);
-  f = build2 (EH_FILTER_EXPR, void_type_node, NULL, NULL);
-  EH_FILTER_MUST_NOT_THROW (f) = 1;
-  gimplify_and_add (t, &EH_FILTER_FAILURE (f));
-  
-  t = build2 (TRY_CATCH_EXPR, void_type_node, *stmt_p, NULL);
-  append_to_statement_list (f, &TREE_OPERAND (t, 1));
+    t = gimple_build_call (built_in_decls[BUILT_IN_TRAP], 0);
 
-  *stmt_p = NULL;
-  append_to_statement_list (t, stmt_p);
+  f = gimple_build_eh_filter (NULL, gimple_seq_alloc_with_stmt (t));
+  gimple_eh_filter_set_must_not_throw (f, true);
+
+  t = gimple_build_try (body, gimple_seq_alloc_with_stmt (f),
+      			GIMPLE_TRY_CATCH);
+
+ return gimple_seq_alloc_with_stmt (t);
 }
-#endif
 
 /* Chain all the DECLs in LIST by their TREE_CHAIN fields.  */
 
@@ -4340,106 +4336,103 @@ struct gimple_opt_pass pass_expand_omp =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
-
-/* FIXME tuples.  */
-#if 0
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
 
-/* Lower the OpenMP sections directive in *STMT_P.  */
+/* Lower the OpenMP sections directive in the current statement.  */
 
 static void
-lower_omp_sections (tree *stmt_p, omp_context *ctx)
+lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree new_stmt, stmt, body, bind, block, ilist, olist, new_body, control;
-  tree t, dlist;
-  tree_stmt_iterator tsi;
+  tree block, control;
+  gimple_stmt_iterator tgsi;
   unsigned i, len;
+  gimple stmt, new_stmt, bind, t;
+  gimple_seq ilist, dlist, olist, new_body, body;
 
-  stmt = *stmt_p;
+  stmt = gsi_stmt (*gsi_p);
 
   push_gimplify_context ();
 
   dlist = NULL;
   ilist = NULL;
-  lower_rec_input_clauses (OMP_SECTIONS_CLAUSES (stmt), &ilist, &dlist, ctx);
+  lower_rec_input_clauses (gimple_omp_sections_clauses (stmt),
+      			   &ilist, &dlist, ctx);
 
-  tsi = tsi_start (OMP_SECTIONS_BODY (stmt));
-  for (len = 0; !tsi_end_p (tsi); len++, tsi_next (&tsi))
+  tgsi = gsi_start (gimple_omp_body (stmt));
+  for (len = 0; !gsi_end_p (tgsi); len++, gsi_next (&tgsi))
     continue;
 
-  tsi = tsi_start (OMP_SECTIONS_BODY (stmt));
-  body = alloc_stmt_list ();
-  for (i = 0; i < len; i++, tsi_next (&tsi))
+  tgsi = gsi_start (gimple_omp_body (stmt));
+  body = NULL;
+  for (i = 0; i < len; i++, gsi_next (&tgsi))
     {
       omp_context *sctx;
-      tree sec_start, sec_end;
+      gimple sec_start;
 
-      sec_start = tsi_stmt (tsi);
+      sec_start = gsi_stmt (tgsi);
       sctx = maybe_lookup_ctx (sec_start);
       gcc_assert (sctx);
 
-      append_to_statement_list (sec_start, &body);
+      gimple_seq_add_stmt (&body, sec_start);
 
-      lower_omp (&OMP_SECTION_BODY (sec_start), sctx);
-      append_to_statement_list (OMP_SECTION_BODY (sec_start), &body);
-      OMP_SECTION_BODY (sec_start) = NULL;
+      lower_omp (gimple_omp_body (sec_start), sctx);
+      gimple_seq_add_seq (&body, gimple_omp_body (sec_start));
+      gimple_omp_set_body (sec_start, NULL);
 
       if (i == len - 1)
 	{
-	  tree l = alloc_stmt_list ();
-	  lower_lastprivate_clauses (OMP_SECTIONS_CLAUSES (stmt), NULL,
+	  gimple_seq l = NULL;
+	  lower_lastprivate_clauses (gimple_omp_sections_clauses (stmt), NULL,
 				     &l, ctx);
-	  append_to_statement_list (l, &body);
-	  OMP_SECTION_LAST (sec_start) = 1;
+	  gimple_seq_add_seq (&body, l);
+	  gimple_omp_section_set_last (sec_start);
 	}
       
-      sec_end = make_node (OMP_RETURN);
-      append_to_statement_list (sec_end, &body);
+      gimple_seq_add_stmt (&body, gimple_build_omp_return (false));
     }
 
   block = make_node (BLOCK);
-  bind = build3 (BIND_EXPR, void_type_node, NULL, body, block);
+  bind = gimple_build_bind (NULL, body, block);
 
-  olist = NULL_TREE;
-  lower_reduction_clauses (OMP_SECTIONS_CLAUSES (stmt), &olist, ctx);
+  olist = NULL;
+  lower_reduction_clauses (gimple_omp_sections_clauses (stmt), &olist, ctx);
 
-  pop_gimplify_context (NULL_TREE);
+  pop_gimplify_context (NULL);
   record_vars_into (ctx->block_vars, ctx->cb.dst_fn);
 
-  new_stmt = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
-  TREE_SIDE_EFFECTS (new_stmt) = 1;
-
-  new_body = alloc_stmt_list ();
-  append_to_statement_list (ilist, &new_body);
-  append_to_statement_list (stmt, &new_body);
-  append_to_statement_list (make_node (OMP_SECTIONS_SWITCH), &new_body);
-  append_to_statement_list (bind, &new_body);
+  new_body = NULL;
+  gimple_seq_add_seq (&new_body, ilist);
+  gimple_seq_add_stmt (&new_body, stmt);
+  /* FIXME tuples: We need a gimple_build_omp_sections_switch.
+  gimple_seq_add_stmt (&new_body, gimple_build_omp_sections_switch ());
+  */
+  gimple_seq_add_stmt (&new_body, bind);
 
   control = create_tmp_var (unsigned_type_node, ".section");
-  t = build2 (GIMPLE_OMP_CONTINUE, void_type_node, control, control);
+  t = gimple_build_omp_continue (control, control);
   gimple_omp_sections_set_control (stmt, control);
-  append_to_statement_list (t, &new_body);
+  gimple_seq_add_stmt (&new_body, t);
 
-  append_to_statement_list (olist, &new_body);
-  append_to_statement_list (dlist, &new_body);
+  gimple_seq_add_seq (&new_body, olist);
+  gimple_seq_add_seq (&new_body, dlist);
 
-  maybe_catch_exception (&new_body);
+  new_body = maybe_catch_exception (new_body);
 
-  t = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (t) = !!find_omp_clause (OMP_SECTIONS_CLAUSES (stmt),
-					     OMP_CLAUSE_NOWAIT);
-  append_to_statement_list (t, &new_body);
+  t = gimple_build_omp_return
+        (!!find_omp_clause (gimple_omp_sections_clauses (stmt),
+			    OMP_CLAUSE_NOWAIT));
+  gimple_seq_add_stmt (&new_body, t);
 
-  BIND_EXPR_BODY (new_stmt) = new_body;
-  OMP_SECTIONS_BODY (stmt) = NULL;
+  new_stmt = gimple_build_bind (NULL, new_body, NULL);
+  gimple_omp_set_body (stmt, NULL);
 
-  *stmt_p = new_stmt;
+  gsi_replace (gsi_p, new_stmt, true);
 }
 
 
 /* A subroutine of lower_omp_single.  Expand the simple form of
-   an OMP_SINGLE, without a copyprivate clause:
+   a GIMPLE_OMP_SINGLE, without a copyprivate clause:
 
      	if (GOMP_single_start ())
 	  BODY;
@@ -4450,19 +4443,25 @@ lower_omp_sections (tree *stmt_p, omp_context *ctx)
   to a synchronization analysis pass.  */
 
 static void
-lower_omp_single_simple (tree single_stmt, tree *pre_p)
+lower_omp_single_simple (gimple single_stmt, gimple_seq *pre_p)
 {
-  tree t;
+  tree flabel = create_artificial_label ();
+  gimple call, cond;
+  tree lhs;
 
-  t = build_call_expr (built_in_decls[BUILT_IN_GOMP_SINGLE_START], 0);
-  t = build3 (COND_EXPR, void_type_node, t,
-	      OMP_SINGLE_BODY (single_stmt), NULL);
-  gimplify_and_add (t, pre_p);
+  lhs = create_tmp_var (boolean_type_node, NULL);
+  call = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SINGLE_START], 0);
+  gimple_call_set_lhs (call, lhs);
+  gimple_seq_add_stmt (pre_p, call);
+  cond = gimple_build_cond (NE_EXPR, lhs, boolean_true_node, flabel, NULL);
+  gimple_seq_add_stmt (pre_p, cond);
+  gimple_seq_add_seq (pre_p, gimple_omp_body (single_stmt));
+  gimple_seq_add_stmt (pre_p, gimple_build_label (flabel));
 }
 
 
 /* A subroutine of lower_omp_single.  Expand the simple form of
-   an OMP_SINGLE, with a copyprivate clause:
+   a GIMPLE_OMP_SINGLE, with a copyprivate clause:
 
 	#pragma omp single copyprivate (a, b, c)
 
@@ -4491,9 +4490,10 @@ lower_omp_single_simple (tree single_stmt, tree *pre_p)
   to a synchronization analysis pass.  */
 
 static void
-lower_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
+lower_omp_single_copy (gimple single_stmt, gimple_seq *pre_p, omp_context *ctx)
 {
-  tree ptr_type, t, l0, l1, l2, copyin_seq;
+  tree ptr_type, t, l0, l1, l2;
+  gimple_seq copyin_seq;
 
   ctx->sender_decl = create_tmp_var (ctx->record_type, ".omp_copy_o");
 
@@ -4515,13 +4515,12 @@ lower_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
 	      build_and_jump (&l0), build_and_jump (&l1));
   gimplify_and_add (t, pre_p);
 
-  t = build1 (LABEL_EXPR, void_type_node, l0);
-  gimplify_and_add (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (l0));
 
-  append_to_statement_list (OMP_SINGLE_BODY (single_stmt), pre_p);
+  gimple_seq_add_seq (pre_p, gimple_omp_body (single_stmt));
 
   copyin_seq = NULL;
-  lower_copyprivate_clauses (OMP_SINGLE_CLAUSES (single_stmt), pre_p,
+  lower_copyprivate_clauses (gimple_omp_single_clauses (single_stmt), pre_p,
 			      &copyin_seq, ctx);
 
   t = build_fold_addr_expr (ctx->sender_decl);
@@ -4531,135 +4530,134 @@ lower_omp_single_copy (tree single_stmt, tree *pre_p, omp_context *ctx)
   t = build_and_jump (&l2);
   gimplify_and_add (t, pre_p);
 
-  t = build1 (LABEL_EXPR, void_type_node, l1);
-  gimplify_and_add (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (l1));
 
-  append_to_statement_list (copyin_seq, pre_p);
+  gimple_seq_add_seq (pre_p, copyin_seq);
 
-  t = build1 (LABEL_EXPR, void_type_node, l2);
-  gimplify_and_add (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (l2));
 }
 
 
 /* Expand code for an OpenMP single directive.  */
 
 static void
-lower_omp_single (tree *stmt_p, omp_context *ctx)
+lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree t, bind, block, single_stmt = *stmt_p, dlist;
+  tree block;
+  gimple t, bind, single_stmt = gsi_stmt (*gsi_p);
+  gimple_seq bind_body, dlist;
 
   push_gimplify_context ();
 
-  block = make_node (BLOCK);
-  *stmt_p = bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
-  TREE_SIDE_EFFECTS (bind) = 1;
+  bind_body = NULL;
+  lower_rec_input_clauses (gimple_omp_single_clauses (single_stmt),
+			   &bind_body, &dlist, ctx);
+  lower_omp (gimple_omp_body (single_stmt), ctx);
 
-  lower_rec_input_clauses (OMP_SINGLE_CLAUSES (single_stmt),
-			   &BIND_EXPR_BODY (bind), &dlist, ctx);
-  lower_omp (&OMP_SINGLE_BODY (single_stmt), ctx);
-
-  append_to_statement_list (single_stmt, &BIND_EXPR_BODY (bind));
+  gimple_seq_add_stmt (&bind_body, single_stmt);
 
   if (ctx->record_type)
-    lower_omp_single_copy (single_stmt, &BIND_EXPR_BODY (bind), ctx);
+    lower_omp_single_copy (single_stmt, &bind_body, ctx);
   else
-    lower_omp_single_simple (single_stmt, &BIND_EXPR_BODY (bind));
+    lower_omp_single_simple (single_stmt, &bind_body);
 
-  OMP_SINGLE_BODY (single_stmt) = NULL;
+  gimple_omp_set_body (single_stmt, NULL);
 
-  append_to_statement_list (dlist, &BIND_EXPR_BODY (bind));
+  gimple_seq_add_seq (&bind_body, dlist);
 
-  maybe_catch_exception (&BIND_EXPR_BODY (bind));
+  bind_body = maybe_catch_exception (bind_body);
 
-  t = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (t) = !!find_omp_clause (OMP_SINGLE_CLAUSES (single_stmt),
-					     OMP_CLAUSE_NOWAIT);
-  append_to_statement_list (t, &BIND_EXPR_BODY (bind));
+  t = gimple_build_omp_return 
+        (!!find_omp_clause (gimple_omp_single_clauses (single_stmt),
+			    OMP_CLAUSE_NOWAIT));
+  gimple_seq_add_stmt (&bind_body, t);
+
+  block = make_node (BLOCK);
+  bind = gimple_build_bind (NULL, bind_body, block);
 
   pop_gimplify_context (bind);
 
-  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
-  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+  gimple_bind_set_vars (bind, ctx->block_vars);
+  BLOCK_VARS (block) = ctx->block_vars;
+  gsi_replace (gsi_p, bind, true);
 }
 
 
 /* Expand code for an OpenMP master directive.  */
 
 static void
-lower_omp_master (tree *stmt_p, omp_context *ctx)
+lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree bind, block, stmt = *stmt_p, lab = NULL, x;
+  tree block, lab = NULL, x;
+  gimple stmt = gsi_stmt (*gsi_p), bind;
+  gimple_seq tseq;
 
   push_gimplify_context ();
 
   block = make_node (BLOCK);
-  *stmt_p = bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
-  TREE_SIDE_EFFECTS (bind) = 1;
-
-  append_to_statement_list (stmt, &BIND_EXPR_BODY (bind));
+  bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt),
+      				 block);
 
   x = build_call_expr (built_in_decls[BUILT_IN_OMP_GET_THREAD_NUM], 0);
   x = build2 (EQ_EXPR, boolean_type_node, x, integer_zero_node);
   x = build3 (COND_EXPR, void_type_node, x, NULL, build_and_jump (&lab));
-  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+  tseq = NULL;
+  gimplify_and_add (x, &tseq);
+  gimple_bind_add_seq (bind, tseq);
 
-  lower_omp (&OMP_MASTER_BODY (stmt), ctx);
-  maybe_catch_exception (&OMP_MASTER_BODY (stmt));
-  append_to_statement_list (OMP_MASTER_BODY (stmt), &BIND_EXPR_BODY (bind));
-  OMP_MASTER_BODY (stmt) = NULL;
+  lower_omp (gimple_omp_body (stmt), ctx);
+  gimple_omp_set_body (stmt, maybe_catch_exception (gimple_omp_body (stmt)));
+  gimple_bind_add_seq (bind, gimple_omp_body (stmt));
+  gimple_omp_set_body (stmt, NULL);
 
-  x = build1 (LABEL_EXPR, void_type_node, lab);
-  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+  gimple_bind_add_stmt (bind, gimple_build_label (lab));
 
-  x = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (x) = 1;
-  append_to_statement_list (x, &BIND_EXPR_BODY (bind));
+  gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   pop_gimplify_context (bind);
 
-  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
-  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+  gimple_bind_set_vars (bind, ctx->block_vars);
+  BLOCK_VARS (block) = ctx->block_vars;
+  gsi_replace (gsi_p, bind, true);
 }
 
 
 /* Expand code for an OpenMP ordered directive.  */
 
 static void
-lower_omp_ordered (tree *stmt_p, omp_context *ctx)
+lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree bind, block, stmt = *stmt_p, x;
+  tree block;
+  gimple stmt = gsi_stmt (*gsi_p), bind, x;
 
   push_gimplify_context ();
 
   block = make_node (BLOCK);
-  *stmt_p = bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
-  TREE_SIDE_EFFECTS (bind) = 1;
+  bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt),
+      				   block);
 
-  append_to_statement_list (stmt, &BIND_EXPR_BODY (bind));
+  x = gimple_build_call (built_in_decls[BUILT_IN_GOMP_ORDERED_START], 0);
+  gimple_bind_add_stmt (bind, x);
 
-  x = build_call_expr (built_in_decls[BUILT_IN_GOMP_ORDERED_START], 0);
-  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+  lower_omp (gimple_omp_body (stmt), ctx);
+  gimple_omp_set_body (stmt, maybe_catch_exception (gimple_omp_body (stmt)));
+  gimple_bind_add_seq (bind, gimple_omp_body (stmt));
+  gimple_omp_set_body (stmt, NULL);
 
-  lower_omp (&OMP_ORDERED_BODY (stmt), ctx);
-  maybe_catch_exception (&OMP_ORDERED_BODY (stmt));
-  append_to_statement_list (OMP_ORDERED_BODY (stmt), &BIND_EXPR_BODY (bind));
-  OMP_ORDERED_BODY (stmt) = NULL;
+  x = gimple_build_call (built_in_decls[BUILT_IN_GOMP_ORDERED_END], 0);
+  gimple_bind_add_stmt (bind, x);
 
-  x = build_call_expr (built_in_decls[BUILT_IN_GOMP_ORDERED_END], 0);
-  gimplify_and_add (x, &BIND_EXPR_BODY (bind));
-
-  x = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (x) = 1;
-  append_to_statement_list (x, &BIND_EXPR_BODY (bind));
+  gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   pop_gimplify_context (bind);
 
-  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
-  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+  gimple_bind_set_vars (bind, ctx->block_vars);
+  BLOCK_VARS (block) = gimple_bind_vars (bind);
+  gsi_replace (gsi_p, bind, true);
 }
 
 
-/* Gimplify an OMP_CRITICAL statement.  This is a relatively simple
+/* Gimplify a GIMPLE_OMP_CRITICAL statement.  This is a relatively simple
    substitution of a couple of function calls.  But in the NAMED case,
    requires that languages coordinate a symbol name.  It is therefore
    best put here in common code.  */
@@ -4668,12 +4666,14 @@ static GTY((param1_is (tree), param2_is (tree)))
   splay_tree critical_name_mutexes;
 
 static void
-lower_omp_critical (tree *stmt_p, omp_context *ctx)
+lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree bind, block, stmt = *stmt_p;
-  tree t, lock, unlock, name;
+  tree block;
+  tree name, lock, unlock;
+  gimple stmt = gsi_stmt (*gsi_p), bind;
+  gimple_seq tbody;
 
-  name = OMP_CRITICAL_NAME (stmt);
+  name = gimple_omp_critical_name (stmt);
   if (name)
     {
       tree decl;
@@ -4724,27 +4724,27 @@ lower_omp_critical (tree *stmt_p, omp_context *ctx)
   push_gimplify_context ();
 
   block = make_node (BLOCK);
-  *stmt_p = bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, block);
-  TREE_SIDE_EFFECTS (bind) = 1;
+  bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt), block);
 
-  append_to_statement_list (stmt, &BIND_EXPR_BODY (bind));
+  tbody = gimple_bind_body (bind);
+  gimplify_and_add (lock, &tbody);
+  gimple_bind_set_body (bind, tbody);
 
-  gimplify_and_add (lock, &BIND_EXPR_BODY (bind));
+  lower_omp (gimple_omp_body (stmt), ctx);
+  gimple_omp_set_body (stmt, maybe_catch_exception (gimple_omp_body (stmt)));
+  gimple_bind_add_seq (bind, gimple_omp_body (stmt));
+  gimple_omp_set_body (stmt, NULL);
 
-  lower_omp (&OMP_CRITICAL_BODY (stmt), ctx);
-  maybe_catch_exception (&OMP_CRITICAL_BODY (stmt));
-  append_to_statement_list (OMP_CRITICAL_BODY (stmt), &BIND_EXPR_BODY (bind));
-  OMP_CRITICAL_BODY (stmt) = NULL;
+  tbody = gimple_bind_body (bind);
+  gimplify_and_add (unlock, &tbody);
+  gimple_bind_set_body (bind, tbody);
 
-  gimplify_and_add (unlock, &BIND_EXPR_BODY (bind));
-
-  t = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (t) = 1;
-  append_to_statement_list (t, &BIND_EXPR_BODY (bind));
+  gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   pop_gimplify_context (bind);
-  BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
-  BLOCK_VARS (block) = BIND_EXPR_VARS (bind);
+  gimple_bind_set_vars (bind, ctx->block_vars);
+  BLOCK_VARS (block) = gimple_bind_vars (bind);
+  gsi_replace (gsi_p, bind, true);
 }
 
 
@@ -4755,11 +4755,12 @@ lower_omp_critical (tree *stmt_p, omp_context *ctx)
    *BODY_P.  */
 
 static void
-lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
-			   tree *dlist, struct omp_context *ctx)
+lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
+			   gimple_seq *dlist, struct omp_context *ctx)
 {
-  tree clauses, cond, stmts, vinit, t;
+  tree clauses, cond, vinit, t;
   enum tree_code cond_code;
+  gimple_seq stmts;
   
   cond_code = fd->cond_code;
   cond_code = cond_code == LT_EXPR ? GE_EXPR : LE_EXPR;
@@ -4775,12 +4776,12 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
 
   cond = build2 (cond_code, boolean_type_node, fd->v, fd->n2);
 
-  clauses = OMP_FOR_CLAUSES (fd->for_stmt);
+  clauses = gimple_omp_for_clauses (fd->for_stmt);
   stmts = NULL;
   lower_lastprivate_clauses (clauses, cond, &stmts, ctx);
-  if (stmts != NULL)
+  if (!gimple_seq_empty_p (stmts))
     {
-      append_to_statement_list (stmts, dlist);
+      gimple_seq_add_seq (dlist, stmts);
 
       /* Optimize: v = 0; is usually cheaper than v = some_other_constant.  */
       vinit = fd->n1;
@@ -4800,32 +4801,31 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, tree *body_p,
 /* Lower code for an OpenMP loop directive.  */
 
 static void
-lower_omp_for (tree *stmt_p, omp_context *ctx)
+lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree t, stmt, ilist, dlist, new_stmt, *body_p, *rhs_p;
+  tree *rhs_p;
   struct omp_for_data fd;
-
-  stmt = *stmt_p;
+  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_seq omp_for_body, body, dlist, ilist;
 
   push_gimplify_context ();
 
-  lower_omp (&OMP_FOR_PRE_BODY (stmt), ctx);
-  lower_omp (&OMP_FOR_BODY (stmt), ctx);
+  lower_omp (gimple_omp_for_pre_body (stmt), ctx);
+  lower_omp (gimple_omp_body (stmt), ctx);
 
   /* Move declaration of temporaries in the loop body before we make
      it go away.  */
-  if (TREE_CODE (OMP_FOR_BODY (stmt)) == BIND_EXPR)
-    record_vars_into (BIND_EXPR_VARS (OMP_FOR_BODY (stmt)), ctx->cb.dst_fn);
-
-  new_stmt = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
-  TREE_SIDE_EFFECTS (new_stmt) = 1;
-  body_p = &BIND_EXPR_BODY (new_stmt);
+  omp_for_body = gimple_omp_body (stmt);
+  if (gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
+    record_vars_into (gimple_bind_vars (gimple_seq_first_stmt (omp_for_body)),
+		      ctx->cb.dst_fn);
 
   /* The pre-body and input clauses go before the lowered OMP_FOR.  */
   ilist = NULL;
   dlist = NULL;
-  append_to_statement_list (OMP_FOR_PRE_BODY (stmt), body_p);
-  lower_rec_input_clauses (OMP_FOR_CLAUSES (stmt), body_p, &dlist, ctx);
+  body = NULL;
+  gimple_seq_add_seq (&body, gimple_omp_for_pre_body (stmt));
+  lower_rec_input_clauses (gimple_omp_for_clauses (stmt), &body, &dlist, ctx);
 
   /* Lower the header expressions.  At this point, we can assume that
      the header is of the form:
@@ -4834,68 +4834,61 @@ lower_omp_for (tree *stmt_p, omp_context *ctx)
 
      We just need to make sure that VAL1, VAL2 and VAL3 are lowered
      using the .omp_data_s mapping, if needed.  */
-  rhs_p = &GIMPLE_STMT_OPERAND (OMP_FOR_INIT (stmt), 1);
+  rhs_p = gimple_omp_for_initial_ptr (stmt);
   if (!is_gimple_min_invariant (*rhs_p))
-    *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
+    *rhs_p = get_formal_tmp_var (*rhs_p, &body);
 
-  rhs_p = &TREE_OPERAND (OMP_FOR_COND (stmt), 1);
+  rhs_p = gimple_omp_for_final_ptr (stmt);
   if (!is_gimple_min_invariant (*rhs_p))
-    *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
+    *rhs_p = get_formal_tmp_var (*rhs_p, &body);
 
-  rhs_p = &TREE_OPERAND (GIMPLE_STMT_OPERAND (OMP_FOR_INCR (stmt), 1), 1);
+  rhs_p = &TREE_OPERAND (GIMPLE_STMT_OPERAND (gimple_omp_for_incr (stmt),
+					      1), 1);
   if (!is_gimple_min_invariant (*rhs_p))
-    *rhs_p = get_formal_tmp_var (*rhs_p, body_p);
+    *rhs_p = get_formal_tmp_var (*rhs_p, &body);
 
   /* Once lowered, extract the bounds and clauses.  */
   extract_omp_for_data (stmt, &fd);
 
-  lower_omp_for_lastprivate (&fd, body_p, &dlist, ctx);
+  lower_omp_for_lastprivate (&fd, &body, &dlist, ctx);
 
-  append_to_statement_list (stmt, body_p);
+  gimple_seq_add_stmt (&body, stmt);
+  gimple_seq_add_seq (&body, gimple_omp_body (stmt));
 
-  append_to_statement_list (OMP_FOR_BODY (stmt), body_p);
-
-  t = build2 (GIMPLE_OMP_CONTINUE, void_type_node, fd.v, fd.v);
-  append_to_statement_list (t, body_p);
+  gimple_seq_add_stmt (&body, gimple_build_omp_continue (fd.v, fd.v));
 
   /* After the loop, add exit clauses.  */
-  lower_reduction_clauses (OMP_FOR_CLAUSES (stmt), body_p, ctx);
-  append_to_statement_list (dlist, body_p);
+  lower_reduction_clauses (gimple_omp_for_clauses (stmt), &body, ctx);
+  gimple_seq_add_seq (&body, dlist);
 
-  maybe_catch_exception (body_p);
+  body = maybe_catch_exception (body);
 
   /* Region exit marker goes at the end of the loop body.  */
-  t = make_node (OMP_RETURN);
-  OMP_RETURN_NOWAIT (t) = fd.have_nowait;
-  append_to_statement_list (t, body_p);
+  gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
 
-  pop_gimplify_context (NULL_TREE);
+  pop_gimplify_context (NULL);
   record_vars_into (ctx->block_vars, ctx->cb.dst_fn);
 
-  OMP_FOR_BODY (stmt) = NULL_TREE;
-  OMP_FOR_PRE_BODY (stmt) = NULL_TREE;
-  *stmt_p = new_stmt;
+  gimple_omp_set_body (stmt, NULL);
+  gimple_omp_for_set_pre_body (stmt, NULL);
+  gsi_replace (gsi_p, gimple_build_bind (NULL, body, NULL), true);
 }
 
-/* Callback for walk_stmts.  Check if *TP only contains OMP_FOR
-   or OMP_PARALLEL.  */
+/* Callback for walk_stmts.  Check if the current statement only contains 
+   GIMPLE_OMP_FOR or GIMPLE_OMP_PARALLEL.  */
 
 static tree
-check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
+check_combined_parallel (gimple_stmt_iterator *gsi_p,
+    			 bool *handled_ops_p ATTRIBUTE_UNUSED,
+    			 struct walk_stmt_info *wi)
 {
-  /* FIXME tuples.  This routine needs to be split up into two.  One
-     dealing with statements, to be used as a CALLBACK_STMT and the
-     other dealing with operands, to be used as a CALLBACK_OP.  Since
-     statements and operands are now of different types, we need the
-     two different callbacks.  */
-  struct walk_stmt_info *wi = data;
   int *info = wi->info;
+  gimple stmt = gsi_stmt (*gsi_p);
 
-  *walk_subtrees = 0;
-  switch (TREE_CODE (*tp))
+  switch (gimple_code (stmt))
     {
-    case OMP_FOR:
-    case OMP_SECTIONS:
+    case GIMPLE_OMP_FOR:
+    case GIMPLE_OMP_SECTIONS:
       *info = *info == 0 ? 1 : -1;
       break;
     default:
@@ -4911,86 +4904,81 @@ check_combined_parallel (tree *tp, int *walk_subtrees, void *data)
 static void
 lower_omp_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree clauses, par_bind, par_body, new_body, bind;
-  tree olist, ilist, par_olist, par_ilist;
+  tree clauses;
   tree child_fn, t;
   gimple stmt = gsi_stmt (*gsi_p);
+  gimple par_bind;
+  gimple_seq par_body, olist, ilist, par_olist, par_ilist, new_body;
 
   clauses = gimple_omp_parallel_clauses (stmt);
-  par_bind = gimple_omp_body (stmt);
-  par_body = BIND_EXPR_BODY (par_bind);
+  par_bind = gimple_seq_first_stmt (gimple_omp_body (stmt));
+  par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
-  if (!OMP_PARALLEL_COMBINED (stmt))
+  if (!gimple_omp_parallel_combined_p (stmt))
     {
       struct walk_stmt_info wi;
       int ws_num = 0;
 
-      /* FIXME tuples.  This needs to be changed to use the new
-	 walk_gimple_stmt routine.  */
       memset (&wi, 0, sizeof (wi));
       wi.info = &ws_num;
       wi.val_only = true;
-      walk_stmts (&wi, check_combined_parallel, NULL, &par_bind);
+      walk_gimple_seq (par_body, check_combined_parallel, NULL, &wi);
       if (ws_num == 1)
-	OMP_PARALLEL_COMBINED (stmt) = 1;
+	gimple_omp_parallel_set_combined_p (stmt);
     }
 
   push_gimplify_context ();
 
-  par_olist = NULL_TREE;
-  par_ilist = NULL_TREE;
+  par_olist = NULL;
+  par_ilist = NULL;
   lower_rec_input_clauses (clauses, &par_ilist, &par_olist, ctx);
-  lower_omp (&par_body, ctx);
+  lower_omp (par_body, ctx);
   lower_reduction_clauses (clauses, &par_olist, ctx);
 
   /* Declare all the variables created by mapping and the variables
      declared in the scope of the parallel body.  */
   record_vars_into (ctx->block_vars, child_fn);
-  record_vars_into (BIND_EXPR_VARS (par_bind), child_fn);
+  record_vars_into (gimple_bind_vars (par_bind), child_fn);
 
   if (ctx->record_type)
     {
       ctx->sender_decl = create_tmp_var (ctx->record_type, ".omp_data_o");
-      OMP_PARALLEL_DATA_ARG (stmt) = ctx->sender_decl;
+      gimple_omp_parallel_set_data_arg (stmt, ctx->sender_decl);
     }
 
-  olist = NULL_TREE;
-  ilist = NULL_TREE;
+  olist = NULL;
+  ilist = NULL;
   lower_send_clauses (clauses, &ilist, &olist, ctx);
   lower_send_shared_vars (&ilist, &olist, ctx);
 
   /* Once all the expansions are done, sequence all the different
-     fragments inside OMP_PARALLEL_BODY.  */
-  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
-  append_to_statement_list (ilist, &BIND_EXPR_BODY (bind));
+     fragments inside GIMPLE_OMP_PARALLEL_BODY.  */
 
-  new_body = alloc_stmt_list ();
+  new_body = NULL;
 
   if (ctx->record_type)
     {
       t = build_fold_addr_expr (ctx->sender_decl);
       /* fixup_child_record_type might have changed receiver_decl's type.  */
       t = fold_convert (TREE_TYPE (ctx->receiver_decl), t);
-      t = build_gimple_modify_stmt (ctx->receiver_decl, t);
-      append_to_statement_list (t, &new_body);
+      gimple_seq_add_stmt (&new_body,
+	  		   gimple_build_assign (ctx->receiver_decl, t));
     }
 
-  append_to_statement_list (par_ilist, &new_body);
-  append_to_statement_list (par_body, &new_body);
-  append_to_statement_list (par_olist, &new_body);
-  maybe_catch_exception (&new_body);
-  t = make_node (OMP_RETURN);
-  append_to_statement_list (t, &new_body);
-  OMP_PARALLEL_BODY (stmt) = new_body;
+  gimple_seq_add_seq (&new_body, par_ilist);
+  gimple_seq_add_seq (&new_body, par_body);
+  gimple_seq_add_seq (&new_body, par_olist);
+  new_body = maybe_catch_exception (new_body);
+  gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
+  gimple_omp_set_body (stmt, new_body);
 
-  append_to_statement_list (stmt, &BIND_EXPR_BODY (bind));
-  append_to_statement_list (olist, &BIND_EXPR_BODY (bind));
+  gimple_seq_add_stmt (&ilist, stmt);
+  gimple_seq_add_seq (&ilist, olist);
 
-  *stmt_p = bind;
+  gsi_replace (gsi_p, gimple_build_bind (NULL, ilist, NULL), true);
 
-  pop_gimplify_context (NULL_TREE);
+  pop_gimplify_context (NULL);
 }
-#endif /* tuples */
 
 /* Callback for lower_omp_1.  Return non-NULL if *tp needs to be
    regimplified.  */
@@ -5017,15 +5005,6 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
 static void
 lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  /* FIXME tuples */
-  extern void lower_omp_parallel(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_for(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_sections(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_single(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_master(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_ordered(gimple_stmt_iterator *, omp_context *);
-  extern void lower_omp_critical(gimple_stmt_iterator *, omp_context *);
-
   gimple stmt = gsi_stmt (*gsi_p);
 
   if (gimple_has_location (stmt))
@@ -5036,14 +5015,13 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
      confusing RTL expansion.  */
   if (errorcount && is_gimple_omp (stmt))
     {
-      gsi_replace (gsi_p, gimple_build_nop (), false);
+      gsi_replace (gsi_p, gimple_build_nop (), true);
       return;
     }
 
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
-      /* FIXME tuples: Should we regimplify the true/false labels?  */
       if (ctx
 	  && (walk_tree (gimple_cond_lhs_ptr (stmt), lower_omp_regimplify_p,
 	      		 NULL, NULL)
@@ -5066,6 +5044,10 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       break;
     case GIMPLE_OMP_PARALLEL:
       ctx = maybe_lookup_ctx (stmt);
+      {
+	debug_gimple_stmt (stmt);
+	exit(1);
+      }
       lower_omp_parallel (gsi_p, ctx);
       break;
     case GIMPLE_OMP_FOR:
@@ -5144,11 +5126,8 @@ execute_lower_omp (void)
   scan_omp (body, NULL);
   gcc_assert (parallel_nesting_level == 0);
 
-  /* FIXME tuples */
-#if 0
   if (all_contexts->root)
     lower_omp (body, NULL);
-#endif
 
   if (all_contexts)
     {

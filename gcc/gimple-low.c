@@ -240,22 +240,19 @@ lower_sequence (gimple_seq seq, struct lower_data *data)
 /* Lower the OpenMP directive statement pointed by GSI.  DATA is
    passed through the recursion.  */
 
-  /* FIXME tuples.  */
-#if 0
 static void
 lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   gimple stmt;
   
-  stmt = gsi_stmt (gsi);
+  stmt = gsi_stmt (*gsi);
 
-  lower_sequence (OMP_BODY (stmt), data);
+  lower_sequence (gimple_omp_body (stmt), data);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
-  gsi_insert_before (gsi, OMP_BODY (stmt), GSI_SAME_STMT);
-  OMP_BODY (stmt) = NULL_TREE;
+  gsi_insert_seq_before (gsi, gimple_omp_body (stmt), GSI_SAME_STMT);
+  gimple_omp_set_body (stmt, NULL);
   gsi_remove (gsi, false);
 }
-#endif
 
 
 /* Lower statement TSI.  DATA is passed through the recursion.  */
@@ -328,12 +325,9 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       }
       break;
 
-    /* FIXME tuples.  */
-#if 0
     case GIMPLE_OMP_PARALLEL:
       lower_omp_directive (gsi, data);
       return;
-#endif
 
     default:
       gcc_unreachable ();
