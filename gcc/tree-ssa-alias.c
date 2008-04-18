@@ -4207,8 +4207,10 @@ gate_structure_vars (void)
   return flag_tree_salias != 0;
 }
 
-struct tree_opt_pass pass_create_structure_vars = 
+struct gimple_opt_pass pass_create_structure_vars = 
 {
+ {
+  GIMPLE_PASS,
   "salias",		 /* name */
   gate_structure_vars,	 /* gate */
   create_structure_vars, /* execute */
@@ -4220,8 +4222,8 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
-  TODO_dump_func,	 /* todo_flags_finish */
-  0			 /* letter */
+  TODO_dump_func	 /* todo_flags_finish */
+ }
 };
 
 /* Reset the call_clobbered flags on our referenced vars.  In
@@ -4238,8 +4240,10 @@ reset_cc_flags (void)
   return 0;
 }
 
-struct tree_opt_pass pass_reset_cc_flags =
+struct gimple_opt_pass pass_reset_cc_flags =
 {
+ {
+  GIMPLE_PASS,
   NULL,		 /* name */
   NULL,  	 /* gate */
   reset_cc_flags, /* execute */
@@ -4251,8 +4255,8 @@ struct tree_opt_pass pass_reset_cc_flags =
   0,			 /* properties_provided */
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
-  0,         	         /* todo_flags_finish */
-  0			 /* letter */
+  0         	         /* todo_flags_finish */
+ }
 };
 
 static bool
@@ -4262,8 +4266,10 @@ gate_build_alias (void)
 }
 
 
-struct tree_opt_pass pass_build_alias =
+struct gimple_opt_pass pass_build_alias =
 {
+ {
+  GIMPLE_PASS,
   "build_alias",            /* name */
   gate_build_alias,         /* gate */
   NULL,                     /* execute */
@@ -4275,6 +4281,6 @@ struct tree_opt_pass pass_build_alias =
   PROP_alias,               /* properties_provided */
   0,                        /* properties_destroyed */
   0,                        /* todo_flags_start */
-  TODO_rebuild_alias,        /* todo_flags_finish */
-  0                         /* letter */
+  TODO_rebuild_alias        /* todo_flags_finish */
+ }
 };

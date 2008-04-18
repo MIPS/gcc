@@ -66,6 +66,16 @@ enum machine_mode word_mode;	/* Mode whose width is BITS_PER_WORD.  */
 enum machine_mode double_mode;	/* Mode whose width is DOUBLE_TYPE_SIZE.  */
 enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
 
+/* Datastructures maintained for currently processed function in RTL form.  */
+
+struct rtl_data x_rtl;
+
+/* Indexed by pseudo register number, gives the rtx for that pseudo.
+   Allocated in parallel with regno_pointer_align.  
+   FIXME: We could put it into emit_status struct, but gengtype is not able to deal
+   with length attribute nested in top level structures.  */
+
+rtx * regno_reg_rtx;
 
 /* This is *not* reset after each function.  It gives each CODE_LABEL
    in the entire compilation a unique label number.  */
@@ -100,14 +110,8 @@ rtx const_true_rtx;
 REAL_VALUE_TYPE dconst0;
 REAL_VALUE_TYPE dconst1;
 REAL_VALUE_TYPE dconst2;
-REAL_VALUE_TYPE dconst3;
-REAL_VALUE_TYPE dconst10;
 REAL_VALUE_TYPE dconstm1;
-REAL_VALUE_TYPE dconstm2;
 REAL_VALUE_TYPE dconsthalf;
-REAL_VALUE_TYPE dconstthird;
-REAL_VALUE_TYPE dconstsqrt2;
-REAL_VALUE_TYPE dconste;
 
 /* Record fixed-point constant 0 and 1.  */
 FIXED_VALUE_TYPE fconst0[MAX_FCONST0];
@@ -168,11 +172,11 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
      htab_t const_fixed_htab;
 
-#define first_insn (cfun->emit->x_first_insn)
-#define last_insn (cfun->emit->x_last_insn)
-#define cur_insn_uid (cfun->emit->x_cur_insn_uid)
-#define last_location (cfun->emit->x_last_location)
-#define first_label_num (cfun->emit->x_first_label_num)
+#define first_insn (crtl->emit.x_first_insn)
+#define last_insn (crtl->emit.x_last_insn)
+#define cur_insn_uid (crtl->emit.x_cur_insn_uid)
+#define last_location (crtl->emit.x_last_location)
+#define first_label_num (crtl->emit.x_first_label_num)
 
 static rtx make_call_insn_raw (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
@@ -859,7 +863,6 @@ byte_lowpart_offset (enum machine_mode outer_mode,
 rtx
 gen_reg_rtx (enum machine_mode mode)
 {
-  struct function *f = cfun;
   rtx val;
 
   gcc_assert (can_create_pseudo_p ());
@@ -884,22 +887,22 @@ gen_reg_rtx (enum machine_mode mode)
   /* Make sure regno_pointer_align, and regno_reg_rtx are large
      enough to have an element for this pseudo reg number.  */
 
-  if (reg_rtx_no == f->emit->regno_pointer_align_length)
+  if (reg_rtx_no == crtl->emit.regno_pointer_align_length)
     {
-      int old_size = f->emit->regno_pointer_align_length;
+      int old_size = crtl->emit.regno_pointer_align_length;
       char *new;
       rtx *new1;
 
-      new = ggc_realloc (f->emit->regno_pointer_align, old_size * 2);
+      new = xrealloc (crtl->emit.regno_pointer_align, old_size * 2);
       memset (new + old_size, 0, old_size);
-      f->emit->regno_pointer_align = (unsigned char *) new;
+      crtl->emit.regno_pointer_align = (unsigned char *) new;
 
-      new1 = ggc_realloc (f->emit->x_regno_reg_rtx,
+      new1 = ggc_realloc (regno_reg_rtx,
 			  old_size * 2 * sizeof (rtx));
       memset (new1 + old_size, 0, old_size * sizeof (rtx));
       regno_reg_rtx = new1;
 
-      f->emit->regno_pointer_align_length = old_size * 2;
+      crtl->emit.regno_pointer_align_length = old_size * 2;
     }
 
   val = gen_raw_REG (mode, reg_rtx_no);
@@ -961,11 +964,32 @@ set_reg_attrs_from_value (rtx reg, rtx x)
   int offset;
 
   offset = byte_lowpart_offset (GET_MODE (reg), GET_MODE (x));
-  if (MEM_P (x) && MEM_OFFSET (x) && GET_CODE (MEM_OFFSET (x)) == CONST_INT)
-    REG_ATTRS (reg)
-      = get_reg_attrs (MEM_EXPR (x), INTVAL (MEM_OFFSET (x)) + offset);
-  if (REG_P (x) && REG_ATTRS (x))
-    update_reg_offset (reg, x, offset);
+  if (MEM_P (x))
+    {
+      if (MEM_OFFSET (x) && GET_CODE (MEM_OFFSET (x)) == CONST_INT)
+	REG_ATTRS (reg)
+	  = get_reg_attrs (MEM_EXPR (x), INTVAL (MEM_OFFSET (x)) + offset);
+      if (MEM_POINTER (x))
+	mark_reg_pointer (reg, MEM_ALIGN (x));
+    }
+  else if (REG_P (x))
+    {
+      if (REG_ATTRS (x))
+	update_reg_offset (reg, x, offset);
+      if (REG_POINTER (x))
+	mark_reg_pointer (reg, REGNO_POINTER_ALIGN (REGNO (x)));
+    }
+}
+
+/* Generate a REG rtx for a new pseudo register, copying the mode
+   and attributes from X.  */
+
+rtx
+gen_reg_rtx_and_attrs (rtx x)
+{
+  rtx reg = gen_reg_rtx (GET_MODE (x));
+  set_reg_attrs_from_value (reg, x);
+  return reg;
 }
 
 /* Set the register attributes for registers contained in PARM_RTX.
@@ -2184,8 +2208,10 @@ unshare_all_rtl (void)
   return 0;
 }
 
-struct tree_opt_pass pass_unshare_all_rtl =
+struct rtl_opt_pass pass_unshare_all_rtl =
 {
+ {
+  RTL_PASS,
   "unshare",                            /* name */
   NULL,                                 /* gate */
   unshare_all_rtl,                      /* execute */
@@ -2197,8 +2223,8 @@ struct tree_opt_pass pass_unshare_all_rtl =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_verify_rtl_sharing, /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+ }
 };
 
 
@@ -4796,14 +4822,13 @@ in_sequence_p (void)
 /* Put the various virtual registers into REGNO_REG_RTX.  */
 
 static void
-init_virtual_regs (struct emit_status *es)
+init_virtual_regs (void)
 {
-  rtx *ptr = es->x_regno_reg_rtx;
-  ptr[VIRTUAL_INCOMING_ARGS_REGNUM] = virtual_incoming_args_rtx;
-  ptr[VIRTUAL_STACK_VARS_REGNUM] = virtual_stack_vars_rtx;
-  ptr[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
-  ptr[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
-  ptr[VIRTUAL_CFA_REGNUM] = virtual_cfa_rtx;
+  regno_reg_rtx[VIRTUAL_INCOMING_ARGS_REGNUM] = virtual_incoming_args_rtx;
+  regno_reg_rtx[VIRTUAL_STACK_VARS_REGNUM] = virtual_stack_vars_rtx;
+  regno_reg_rtx[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
+  regno_reg_rtx[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
+  regno_reg_rtx[VIRTUAL_CFA_REGNUM] = virtual_cfa_rtx;
 }
 
 
@@ -4977,9 +5002,6 @@ copy_insn (rtx insn)
 void
 init_emit (void)
 {
-  struct function *f = cfun;
-
-  f->emit = ggc_alloc (sizeof (struct emit_status));
   first_insn = NULL;
   last_insn = NULL;
   cur_insn_uid = 1;
@@ -4990,14 +5012,14 @@ init_emit (void)
 
   /* Init the tables that describe all the pseudo regs.  */
 
-  f->emit->regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
+  crtl->emit.regno_pointer_align_length = LAST_VIRTUAL_REGISTER + 101;
 
-  f->emit->regno_pointer_align
-    = ggc_alloc_cleared (f->emit->regno_pointer_align_length
-			 * sizeof (unsigned char));
+  crtl->emit.regno_pointer_align
+    = xcalloc (crtl->emit.regno_pointer_align_length
+	       * sizeof (unsigned char), 1);
 
   regno_reg_rtx
-    = ggc_alloc (f->emit->regno_pointer_align_length * sizeof (rtx));
+    = ggc_alloc (crtl->emit.regno_pointer_align_length * sizeof (rtx));
 
   /* Put copies of all the hard registers into regno_reg_rtx.  */
   memcpy (regno_reg_rtx,
@@ -5005,7 +5027,7 @@ init_emit (void)
 	  FIRST_PSEUDO_REGISTER * sizeof (rtx));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
-  init_virtual_regs (f->emit);
+  init_virtual_regs ();
 
   /* Indicate that the virtual registers and stack locations are
      all pointers.  */
@@ -5246,26 +5268,16 @@ init_emit_once (int line_numbers)
   REAL_VALUE_FROM_INT (dconst0,   0,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst1,   1,  0, double_mode);
   REAL_VALUE_FROM_INT (dconst2,   2,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconst3,   3,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconst10, 10,  0, double_mode);
-  REAL_VALUE_FROM_INT (dconstm1, -1, -1, double_mode);
-  REAL_VALUE_FROM_INT (dconstm2, -2, -1, double_mode);
+
+  dconstm1 = dconst1;
+  dconstm1.sign = 1;
 
   dconsthalf = dconst1;
   SET_REAL_EXP (&dconsthalf, REAL_EXP (&dconsthalf) - 1);
 
-  real_arithmetic (&dconstthird, RDIV_EXPR, &dconst1, &dconst3);
-
-  /* Initialize mathematical constants for constant folding builtins.
-     These constants need to be given to at least 160 bits precision.  */
-  real_from_string (&dconstsqrt2,
-    "1.4142135623730950488016887242096980785696718753769480731766797379907");
-  real_from_string (&dconste,
-    "2.7182818284590452353602874713526624977572470936999595749669676277241");
-
   for (i = 0; i < (int) ARRAY_SIZE (const_tiny_rtx); i++)
     {
-      REAL_VALUE_TYPE *r =
+      const REAL_VALUE_TYPE *const r =
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);

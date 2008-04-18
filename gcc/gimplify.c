@@ -3665,7 +3665,8 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 	     references somehow.  */
 	  tree init = TARGET_EXPR_INITIAL (*from_p);
 
-	  if (!VOID_TYPE_P (TREE_TYPE (init)))
+	  if (init
+	      && !VOID_TYPE_P (TREE_TYPE (init)))
 	    {
 	      *from_p = init;
 	      ret = GS_OK;
@@ -3935,6 +3936,17 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
   gcc_assert (TREE_CODE (*expr_p) == MODIFY_EXPR
 	      || TREE_CODE (*expr_p) == GIMPLE_MODIFY_STMT
 	      || TREE_CODE (*expr_p) == INIT_EXPR);
+
+  /* Insert pointer conversions required by the middle-end that are not
+     required by the frontend.  This fixes middle-end type checking for
+     for example gcc.dg/redecl-6.c.  */
+  if (POINTER_TYPE_P (TREE_TYPE (*to_p))
+      && lang_hooks.types_compatible_p (TREE_TYPE (*to_p), TREE_TYPE (*from_p)))
+    {
+      STRIP_USELESS_TYPE_CONVERSION (*from_p);
+      if (!useless_type_conversion_p (TREE_TYPE (*to_p), TREE_TYPE (*from_p)))
+	*from_p = fold_convert (TREE_TYPE (*to_p), *from_p);
+    }
 
   /* See if any simplifications can be done based on what the RHS is.  */
   ret = gimplify_modify_expr_rhs (expr_p, from_p, to_p, pre_p, post_p,
@@ -5976,6 +5988,10 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 				 NULL, is_gimple_val, fb_rvalue);
 	  break;
 
+	  /* Predictions are always gimplified.  */
+	case PREDICT_EXPR:
+	  goto out;
+
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;
 	  gcc_assert (decl_function_context (LABEL_EXPR_LABEL (*expr_p))
@@ -6161,9 +6177,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case OMP_RETURN:
 	case OMP_CONTINUE:
-        case OMP_ATOMIC_LOAD:
-        case OMP_ATOMIC_STORE:
-
+	case OMP_ATOMIC_STORE:
 	  ret = GS_ALL_DONE;
 	  break;
 
@@ -6185,6 +6199,14 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case BIT_FIELD_EXPR:
 	  /* Arguments 3 and 4 are constants.  */
 	  goto expr_2;
+
+	case OMP_ATOMIC_LOAD:
+	  if (gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, NULL,
+	      is_gimple_val, fb_rvalue) != GS_ALL_DONE)
+	    ret = GS_ERROR;
+	  else
+	    ret = GS_ALL_DONE;
+	  break;
 
 	case POINTER_PLUS_EXPR:
 	  /* If we are in lowered memory form preserve invariant

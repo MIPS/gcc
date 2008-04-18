@@ -3500,7 +3500,6 @@ make_values_for_stmt (tree stmt, basic_block block)
 	    && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs))
 	   || is_gimple_min_invariant (rhs)
 	   || TREE_CODE (rhs) == ADDR_EXPR
-	   || TREE_INVARIANT (rhs)
 	   || DECL_P (rhs))
     {
 
@@ -3736,10 +3735,11 @@ do_SCCVN_insertion (tree stmt, tree ssa_vn)
 
 /* Eliminate fully redundant computations.  */
 
-static void
+static unsigned int
 eliminate (void)
 {
   basic_block b;
+  unsigned int todo = 0;
 
   FOR_EACH_BB (b)
     {
@@ -3820,8 +3820,46 @@ eliminate (void)
 		    }
 		}
 	    }
+	  /* Visit COND_EXPRs and fold the comparison with the
+	     available value-numbers.  */
+	  else if (TREE_CODE (stmt) == COND_EXPR
+		   && COMPARISON_CLASS_P (COND_EXPR_COND (stmt)))
+	    {
+	      tree cond = COND_EXPR_COND (stmt);
+	      tree op0 = TREE_OPERAND (cond, 0);
+	      tree op1 = TREE_OPERAND (cond, 1);
+	      tree result;
+
+	      if (TREE_CODE (op0) == SSA_NAME)
+		op0 = VN_INFO (op0)->valnum;
+	      if (TREE_CODE (op1) == SSA_NAME)
+		op1 = VN_INFO (op1)->valnum;
+	      result = fold_binary (TREE_CODE (cond), TREE_TYPE (cond),
+				    op0, op1);
+	      if (result && TREE_CODE (result) == INTEGER_CST)
+		{
+		  COND_EXPR_COND (stmt) = result;
+		  update_stmt (stmt);
+		  todo = TODO_cleanup_cfg;
+		}
+	    }
+	  else if (TREE_CODE (stmt) == COND_EXPR
+		   && TREE_CODE (COND_EXPR_COND (stmt)) == SSA_NAME)
+	    {
+	      tree op = COND_EXPR_COND (stmt);
+	      op = VN_INFO (op)->valnum;
+	      if (TREE_CODE (op) == INTEGER_CST)
+		{
+		  COND_EXPR_COND (stmt) = integer_zerop (op)
+		    ? boolean_false_node : boolean_true_node;
+		  update_stmt (stmt);
+		  todo = TODO_cleanup_cfg;
+		}
+	    }
 	}
     }
+
+  return todo;
 }
 
 /* Borrow a bit of tree-ssa-dce.c for the moment.
@@ -4062,9 +4100,10 @@ fini_pre (void)
 /* Main entry point to the SSA-PRE pass.  DO_FRE is true if the caller
    only wants to do full redundancy elimination.  */
 
-static void
+static unsigned int
 execute_pre (bool do_fre)
 {
+  unsigned int todo = 0;
 
   do_partial_partial = optimize > 2;
   init_pre (do_fre);
@@ -4078,7 +4117,7 @@ execute_pre (bool do_fre)
       if (!do_fre)
 	remove_dead_inserted_code ();
       fini_pre ();
-      return;
+      return 0;
     }
   switch_to_PRE_table ();
   compute_avail ();
@@ -4109,7 +4148,7 @@ execute_pre (bool do_fre)
     }
 
   /* Remove all the redundant expressions.  */
-  eliminate ();
+  todo |= eliminate ();
 
   if (dump_file && (dump_flags & TDF_STATS))
     {
@@ -4130,6 +4169,8 @@ execute_pre (bool do_fre)
     }
 
   fini_pre ();
+
+  return todo;
 }
 
 /* Gate and execute functions for PRE.  */
@@ -4137,8 +4178,7 @@ execute_pre (bool do_fre)
 static unsigned int
 do_pre (void)
 {
-  execute_pre (false);
-  return TODO_rebuild_alias;
+  return TODO_rebuild_alias | execute_pre (false);
 }
 
 static bool
@@ -4147,8 +4187,10 @@ gate_pre (void)
   return flag_tree_pre != 0;
 }
 
-struct tree_opt_pass pass_pre =
+struct gimple_opt_pass pass_pre =
 {
+ {
+  GIMPLE_PASS,
   "pre",				/* name */
   gate_pre,				/* gate */
   do_pre,				/* execute */
@@ -4162,8 +4204,8 @@ struct tree_opt_pass pass_pre =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_update_ssa_only_virtuals | TODO_dump_func | TODO_ggc_collect
-  | TODO_verify_ssa, /* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_ssa /* todo_flags_finish */
+ }
 };
 
 
@@ -4172,8 +4214,7 @@ struct tree_opt_pass pass_pre =
 static unsigned int
 execute_fre (void)
 {
-  execute_pre (true);
-  return 0;
+  return execute_pre (true);
 }
 
 static bool
@@ -4182,8 +4223,10 @@ gate_fre (void)
   return flag_tree_fre != 0;
 }
 
-struct tree_opt_pass pass_fre =
+struct gimple_opt_pass pass_fre =
 {
+ {
+  GIMPLE_PASS,
   "fre",				/* name */
   gate_fre,				/* gate */
   execute_fre,				/* execute */
@@ -4195,6 +4238,6 @@ struct tree_opt_pass pass_fre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+ }
 };

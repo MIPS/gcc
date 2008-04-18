@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -63,7 +63,7 @@ package Prj.Tree is
    --  N_Variable_Reference.
 
    subtype Package_Declaration_Id is Project_Node_Id;
-   --  Used to designate a node whose expected kind is N_Proect_Declaration
+   --  Used to designate a node whose expected kind is N_Project_Declaration
 
    type Project_Node_Kind is
      (N_Project,
@@ -342,6 +342,12 @@ package Prj.Tree is
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref) return Project_Node_Id;
    pragma Inline (Project_Declaration_Of);
+   --  Only valid for N_Project nodes
+
+   function Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Project_Qualifier;
+   pragma Inline (Project_Qualifier_Of);
    --  Only valid for N_Project nodes
 
    function Extending_Project_Of
@@ -694,6 +700,12 @@ package Prj.Tree is
       To      : Project_Node_Id);
    pragma Inline (Set_Project_Declaration_Of);
 
+   procedure Set_Project_Qualifier_Of
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref;
+      To      : Project_Qualifier);
+   pragma Inline (Set_Project_Qualifier_Of);
+
    procedure Set_Extending_Project_Of
      (Node    : Project_Node_Id;
       In_Tree : Project_Node_Tree_Ref;
@@ -912,6 +924,8 @@ package Prj.Tree is
 
          Kind : Project_Node_Kind;
 
+         Qualifier : Project_Qualifier := Unspecified;
+
          Location : Source_Ptr := No_Location;
 
          Directory : Path_Name_Type := No_Path;
@@ -941,7 +955,7 @@ package Prj.Tree is
 
          Src_Index : Int := 0;
          --  Index of a unit in a multi-unit source.
-         --  Onli for some N_Attribute_Declaration and N_Literal_String.
+         --  Only for some N_Attribute_Declaration and N_Literal_String.
 
          Path_Name : Path_Name_Type := No_Path;
          --  See below for what Project_Node_Kind it is used
@@ -960,7 +974,7 @@ package Prj.Tree is
 
          Flag1 : Boolean := False;
          --  This flag is significant only for:
-         --    N_Attribute_Declaration and N_Atribute_Reference
+         --    N_Attribute_Declaration and N_Attribute_Reference
          --      It indicates for an associative array attribute, that the
          --      index is case insensitive.
          --    N_Comment - it indicates that the comment is preceded by an

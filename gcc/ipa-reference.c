@@ -1322,8 +1322,10 @@ gate_reference (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct tree_opt_pass pass_ipa_reference =
+struct simple_ipa_opt_pass pass_ipa_reference =
 {
+ {
+  SIMPLE_IPA_PASS,
   "static-var",				/* name */
   gate_reference,			/* gate */
   static_execute,			/* execute */
@@ -1335,8 +1337,8 @@ struct tree_opt_pass pass_ipa_reference =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0					/* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 #include "gt-ipa-reference.h"
