@@ -2193,7 +2193,6 @@ may_trap_p_1 (const_rtx x, unsigned flags)
   if (x == 0)
     return 0;
   code = GET_CODE (x);
-
   switch (code)
     {
       /* Handle these cases quickly.  */

@@ -1,12 +1,12 @@
 /* Instruction scheduling pass.  This file contains definitions used
    internally in the scheduler.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2, or (at your option) any later
+Software Foundation; either version 3, or (at your option) any later
 version.
 
 GCC is distributed in the hope that it will be useful, but WITHOUT ANY
@@ -15,9 +15,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-02110-1301, USA.  */
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
 #ifndef GCC_SEL_SCHED_IR_H
 #define GCC_SEL_SCHED_IR_H
@@ -109,7 +108,7 @@ typedef struct expr_history_def_1 expr_history_def;
 DEF_VEC_O (expr_history_def);
 DEF_VEC_ALLOC_O (expr_history_def, heap);
 
-/* Right hand side information.  */
+/* Expression information.  */
 struct _expr
 {
   /* Insn description.  */
@@ -208,7 +207,6 @@ struct _def
      path or whether all paths crosses a call.  Thus we should move CROSSES_CALL
      to static params.  */
   bool crosses_call;
-  bool needs_spec_check_p;
 };
 typedef struct _def *def_t;
 
@@ -1461,7 +1459,7 @@ extern void flist_tail_init (flist_tail_t);
 
 extern fence_t flist_lookup (flist_t, insn_t);
 extern void flist_clear (flist_t *);
-extern void def_list_add (def_list_t *, insn_t, bool, bool);
+extern void def_list_add (def_list_t *, insn_t, bool);
 
 /* Target context functions.  */
 extern tc_t create_target_context (bool);

@@ -42,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "cselib.h"
 
-
 #ifdef INSN_SCHEDULING
 
 #ifdef ENABLE_CHECKING
@@ -1153,7 +1152,6 @@ sd_add_dep (dep_t dep, bool resolved_p)
 
   add_to_deps_list (DEP_NODE_BACK (n), con_back_deps);
 
-
 #ifdef ENABLE_CHECKING
   check_dep (dep, false);
 #endif
@@ -1684,7 +1682,7 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 		   enum rtx_code ref, rtx insn)
 {
   /* We could emit new pseudos in renaming.  Extend the reg structures.  */
-  if (!reload_completed && SEL_SCHED_P
+  if (!reload_completed && sel_sched_p ()
       && (regno >= max_reg_num () - 1 || regno >= deps->max_reg))
     extend_deps_reg_info (deps, regno);
 
@@ -1740,10 +1738,10 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 
       /* Don't let it cross a call after scheduling if it doesn't
 	 already cross one.  
-	 If REGNO >= REG_INFO_P_SIZE then it was introduced in our scheduler,
-	 and it could have happened only before reload.  Thus, we can consider
-	 INSN moveable, since reload should take care of the all the operations
-	 renamed into new pseudos.  */	 
+	 If REGNO >= REG_INFO_P_SIZE, then it was introduced in selective
+	 scheduling, and it could have happened only before reload.  
+	 Thus, we can consider INSN moveable, since reload should take care of
+	 the all the operations renamed into new pseudos.  */	 
       if (regno < FIRST_PSEUDO_REGISTER 
 	  && REG_N_CALLS_CROSSED (regno) == 0)
 	{
@@ -2068,7 +2066,7 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	    else if (deps_may_trap_p (x))
 	      {
 		if ((sched_deps_info->generate_spec_deps)
-		    && SEL_SCHED_P && (spec_info->mask & BEGIN_CONTROL))
+		    && sel_sched_p () && (spec_info->mask & BEGIN_CONTROL))
 		  {
 		    ds_t ds = set_dep_weak (DEP_ANTI, BEGIN_CONTROL,
 					    MAX_DEP_WEAK);
@@ -2512,7 +2510,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
           }
 
       /* Flush pending lists on jumps, but not on speculative checks.  */
-      if (JUMP_P (insn) && !(SEL_SCHED_P 
+      if (JUMP_P (insn) && !(sel_sched_p () 
                              && sel_insn_is_speculation_check (insn)))
 	flush_pending_lists (deps, insn, true, true);
       
@@ -2530,7 +2528,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
      be moved into a different basic block.  */
 
   if (deps->libcall_block_tail_insn
-      && (!SEL_SCHED_P || sched_emulate_haifa_p))
+      && (!sel_sched_p () || sched_emulate_haifa_p))
     {
       SCHED_GROUP_P (insn) = 1;
       CANT_MOVE (insn) = 1;
@@ -2582,7 +2580,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
               && deps->in_post_call_group_p == post_call_initial)
 	    deps->in_post_call_group_p = post_call;
 
-          if (!SEL_SCHED_P || sched_emulate_haifa_p) 
+          if (!sel_sched_p () || sched_emulate_haifa_p) 
             {
               SCHED_GROUP_P (insn) = 1;
               CANT_MOVE (insn) = 1;
@@ -2601,7 +2599,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn)
     /* INSN has an internal dependency (e.g. r14 = [r14]) and thus cannot
        be speculated.  */
     {
-      if (SEL_SCHED_P)
+      if (sel_sched_p ())
         sel_mark_hard_insn (insn);
       else
         {
@@ -2630,7 +2628,7 @@ deps_analyze_insn (struct deps *deps, rtx insn)
          a scheduling barrier for memory references.  */
       if (!deps->readonly
           && JUMP_P (insn) 
-          && !(SEL_SCHED_P 
+          && !(sel_sched_p () 
                && sel_insn_is_speculation_check (insn)))
         {
           /* Keep the list a reasonable size.  */
@@ -2778,7 +2776,7 @@ deps_analyze_insn (struct deps *deps, rtx insn)
 
   /* Fixup the dependencies in the sched group.  */
   if ((NONJUMP_INSN_P (insn) || JUMP_P (insn)) 
-      && SCHED_GROUP_P (insn) && !SEL_SCHED_P)
+      && SCHED_GROUP_P (insn) && !sel_sched_p ())
     fixup_sched_groups (insn);
 }
 
@@ -3012,7 +3010,7 @@ sched_deps_init (bool global_p)
   
   /* We use another caching mechanism for selective scheduling, so 
      we don't use this one.  */
-  if (!SEL_SCHED_P && global_p && insns_in_block > 100 * 5)
+  if (!sel_sched_p () && global_p && insns_in_block > 100 * 5)
     {
       /* ?!? We could save some memory by computing a per-region luid mapping
          which could reduce both the number of vectors in the cache and the
@@ -3123,7 +3121,7 @@ init_deps_global (void)
   reg_pending_uses = ALLOC_REG_SET (&reg_obstack);
   reg_pending_barrier = NOT_A_BARRIER;
 
-  if (!SEL_SCHED_P || sched_emulate_haifa_p)
+  if (!sel_sched_p () || sched_emulate_haifa_p)
     {
       sched_deps_info->start_insn = haifa_start_insn;
       sched_deps_info->finish_insn = haifa_finish_insn;

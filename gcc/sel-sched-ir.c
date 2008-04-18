@@ -1,25 +1,22 @@
-/* Instruction scheduling pass.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+/* Instruction scheduling pass.  Selective scheduler and pipeliner.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
-   This file is part of GCC.
+This file is part of GCC.
 
-   GCC is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
-
-/* FIXME: check whether we need all these headers, and check the makefile.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -36,13 +33,11 @@
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
-#include "cfglayout.h"
 #include "params.h"
 #include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
 #include "sched-int.h"
-#include "cselib.h"
 #include "ggc.h"
 #include "tree.h"
 #include "vec.h"
@@ -294,8 +289,7 @@ flist_clear (flist_t *lp)
 
 /* Add ORIGINAL_INSN the def list DL honoring CROSSES_CALL.  */
 void
-def_list_add (def_list_t *dl, insn_t original_insn, bool crosses_call,
-	      bool needs_spec_check_p)
+def_list_add (def_list_t *dl, insn_t original_insn, bool crosses_call)
 {
   def_t d;
   _list_add (dl);
@@ -303,7 +297,6 @@ def_list_add (def_list_t *dl, insn_t original_insn, bool crosses_call,
 
   d->orig_insn = original_insn;
   d->crosses_call = crosses_call;
-  d->needs_spec_check_p = needs_spec_check_p;
 }
 
 

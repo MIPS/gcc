@@ -351,9 +351,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-traces -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
 -fschedule-insns -fschedule-insns2 -fsection-anchors -fsee @gol
--fselective-scheduling -fsel-sched-emulate-haifa -fsel-sched-bookkeeping @gol
+-fselective-scheduling -fselective-scheduling2 -fsel-sched-bookkeeping @gol
 -fsel-sched-pipelining -fsel-sched-renaming -fsel-sched-substitution @gol
--fsel-sched-single-block-regions -fsel-sched-ebb-regions @gol
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
 -fsplit-wide-types -fstack-protector -fstack-protector-all @gol
 -fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer -ftree-ccp @gol
@@ -4947,10 +4946,6 @@ and unit/insn info.  For @var{n} greater than two, it includes RTL
 at abort point, control-flow and regions info.  And for @var{n} over
 four, @option{-fsched-verbose} also includes dependence info.
 
-@item -fsel-sched-verbose
-@opindex sel-sched-verbose
-Be verbose when running selective scheduling.
-
 @item -fsel-sched-dump-cfg
 @opindex sel-sched-dump-cfg
 Dump CFG information during selective scheduling pass.
@@ -5750,13 +5745,12 @@ from changing its schedule, we use this option to control that.
 @item -fselective-scheduling
 @opindex fselective-scheduling
 Schedule instructions using selective scheduling algorithm.  Selective
-scheduling runs instead of second haifa scheduler pass.
+scheduling runs instead of the first haifa scheduler pass.
 
-@item -fsel-sched-emulate-haifa
-@opindex fsel-sched-emulate-haifa
-Emulate Haifa scheduler for better cooperation with the target.  With this
-option selective scheduling will call target hooks the same way haifa scheduler
-does before finishing scheduling.
+@item -fselective-scheduling2
+@opindex fselective-scheduling2
+Schedule instructions using selective scheduling algorithm.  Selective
+scheduling runs instead of the second haifa scheduler pass.
 
 @item -fsel-sched-bookkeeping
 @opindex fsel-sched-bookkeeping
@@ -5783,14 +5777,6 @@ E.g.: scheduling 'z = x*2' before 'x = y' will yield 'z = y*2'.
 This option is useful in combination with @option{-fsel-sched-pipelining} to
 move instructions through back loop edges, though
 @option{-fsel-sched-pipelining} is not required for substitution to work.
-
-@item -fsel-sched-single-block-regions
-@opindex fsel-sched-single-block-regions
-Run selective scheduling on single basic block regions.
-
-@item -fsel-sched-ebb-regions
-@opindex fsel-sched-ebb-regions
-Run selective scheduling on extended basic block regions.
 
 @item -fcaller-saves
 @opindex fcaller-saves
@@ -7316,7 +7302,7 @@ The default value is 40.
 @item selsched-max-lookahead
 The maximum size of the lookahead window of selective scheduling.  It is a
 depth of search for available instructions.
-The default value is 32.
+The default value is 50.
 
 @item max-last-value-rtl
 

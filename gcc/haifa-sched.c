@@ -331,6 +331,39 @@ static int may_trap_exp (const_rtx, int);
 /* Returns a class that insn with GET_DEST(insn)=x may belong to,
    as found by analyzing insn's expression.  */
 
+
+static int haifa_luid_for_non_insn (rtx x);
+
+/* Haifa version of sched_info hooks common to all headers.  */
+const struct common_sched_info_def haifa_common_sched_info = 
+  {
+    NULL, /* fix_recovery_cfg */
+    NULL, /* add_block */
+    NULL, /* estimate_number_of_insns */
+    haifa_luid_for_non_insn, /* luid_for_non_insn */
+    SCHED_PASS_UNKNOWN /* sched_pass_id */
+  };
+
+const struct sched_scan_info_def *sched_scan_info;
+
+/* Mapping from instruction UID to its Logical UID.  */
+VEC (int, heap) *sched_luids = NULL;
+
+/* Next LUID to assign to an instruction.  */
+int sched_max_luid = 1;
+
+/* Haifa Instruction Data.  */
+VEC (haifa_insn_data_def, heap) *h_i_d = NULL;
+
+void (* sched_init_only_bb) (basic_block, basic_block);
+
+/* Split block function.  Different schedulers might use different functions
+   to handle their internal data consistent.  */
+basic_block (* sched_split_block) (basic_block, rtx);
+
+/* Create empty basic block after the specified block.  */
+basic_block (* sched_create_empty_bb) (basic_block);
+
 static int
 may_trap_exp (const_rtx x, int is_store)
 {
@@ -573,7 +606,7 @@ insn_cost (rtx insn)
 {
   int cost;
 
-  if (SEL_SCHED_P)
+  if (sel_sched_p ())
     {
       if (recog_memoized (insn) < 0)
 	return 0;
@@ -743,7 +776,7 @@ priority (rtx insn)
 	     recovery block.  */ 
 
           /* Selective scheduling does not define RECOVERY_BLOCK macro.  */
-	  rec = SEL_SCHED_P ? NULL : RECOVERY_BLOCK (insn);
+	  rec = sel_sched_p () ? NULL : RECOVERY_BLOCK (insn);
 	  if (!rec || rec == EXIT_BLOCK_PTR)
 	    {
 	      prev_first = PREV_INSN (insn);
@@ -797,7 +830,6 @@ priority (rtx insn)
 	  while (twin != prev_first);
 	}
 
-      /* NB: This fix should be submitted to gcc-patches.  */
       if (this_priority < 0)
 	{
 	  gcc_assert (this_priority == -1);
@@ -1348,7 +1380,7 @@ unlink_other_notes (rtx insn, rtx tail)
 
   if (insn == tail)
     {
-      gcc_assert (common_sched_info->sched_pass_id == SCHED_SEL_PASS);
+      gcc_assert (sel_sched_p ());
       return prev;
     }
 
@@ -1432,7 +1464,7 @@ rm_other_notes (rtx head, rtx tail)
 	  prev = insn;
 	  insn = unlink_other_notes (insn, next_tail);
 
-	  gcc_assert ((common_sched_info->sched_pass_id == SCHED_SEL_PASS
+	  gcc_assert ((sel_sched_p ()
 		       || prev != tail) && prev != head && insn != next_tail);
 	}
     }
@@ -2258,7 +2290,7 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
 			|| recog_memoized (insn) < 0);
 
 	    ready_try [i]
-	      = (/* INSN_CODE check can be omited here as it is also done later
+	      = (/* INSN_CODE check can be omitted here as it is also done later
 		    in max_issue ().  */
 		 INSN_CODE (insn) < 0
 		 || (targetm.sched.first_cycle_multipass_dfa_lookahead_guard
@@ -2269,14 +2301,14 @@ choose_ready (struct ready_list *ready, rtx *insn_ptr)
       if (max_issue (ready, 1, curr_state, &index) == 0)
 	{
 	  if (sched_verbose >= 4)
-	    fprintf (sched_dump, ";;\t\tChoosed none\n");
+	    fprintf (sched_dump, ";;\t\tChosen none\n");
 	  *insn_ptr = ready_remove_first (ready);
 	  return 0;
 	}
       else
 	{
 	  if (sched_verbose >= 4)    
-	    fprintf (sched_dump, ";;\t\tChoosed insn : %s\n",
+	    fprintf (sched_dump, ";;\t\tChosen insn : %s\n",
 		     (*current_sched_info->print_insn)
 		     (ready_element (ready, index), 0));
           
@@ -2696,38 +2728,8 @@ schedule_block (basic_block *target_bb)
 	  }
     }
 
-  /* Debugging.  */
   if (sched_verbose)
-    {
-      if (sched_verbose >= 6)
-	{
-	  rtx insn = NEXT_INSN (prev_head);
-	  rtx next_tail = NEXT_INSN (last_scheduled_insn);
-	  int last_clock = -1;
-	  int clock = 0;
-
-	  while (insn != next_tail)
-	    {
-	      char buf[2048];
-	      int cost;
-
-	      clock = INSN_TICK (insn);
-	      cost = clock - last_clock;
-
-	      print_insn (buf, insn, 0);
-	      fprintf (sched_dump, "    cost: %d\t(pat:%s;bb:%d;cycle:%d;)\n",
-		       cost, buf, BLOCK_NUM (insn), clock);
-
-	      last_clock = clock;
-
-	      insn = NEXT_INSN (insn);
-	    }
-
-	  gcc_assert (last_clock == clock_var);
-	}
-
-      fprintf (sched_dump, ";;   total time = %d\n", clock_var);
-    }
+    fprintf (sched_dump, ";;   total time = %d\n", clock_var);
 
   if (!current_sched_info->queue_must_finish_empty
       || haifa_recovery_bb_recently_added_p)
@@ -2987,7 +2989,6 @@ haifa_sched_finish (void)
      function.  Target will be finalized in md_global_finish ().  */
   sched_deps_finish ();
   sched_finish_luids ();
-  sched_finish_bbs ();
   current_sched_info = NULL;
   sched_finish ();
 }
@@ -3424,15 +3425,6 @@ haifa_luid_for_non_insn (rtx x)
 
   return 0;
 }
-
-const struct common_sched_info_def haifa_common_sched_info = 
-  {
-    NULL, /* fix_recovery_cfg */
-    NULL, /* add_block */
-    NULL, /* estimate_number_of_insns */
-    haifa_luid_for_non_insn, /* luid_for_non_insn */
-    SCHED_PASS_UNKNOWN /* sched_pass_id */
-  };
 
 /* Generates recovery code for INSN.  */
 static void
@@ -4727,22 +4719,6 @@ check_cfg (rtx head, rtx tail)
   gcc_assert (bb == 0);
 }
 
-#if 0
-/* Perform a few consistency checks of flags in different data structures.  */
-static void
-check_sched_flags (void)
-{
-  if (SEL_SCHED_P)
-    return;
-
-  if (flag_sched_stalled_insns)
-    gcc_assert (!sched_deps_info->generate_spec_deps);
-  if (sched_deps_info->generate_spec_deps)
-    gcc_assert (!flag_sched_stalled_insns
-		&& spec_info
-		&& spec_info->mask);
-}
-#endif
 #endif /* ENABLE_CHECKING */
 
 const struct sched_scan_info_def *sched_scan_info;
@@ -4791,8 +4767,7 @@ init_insns_in_bb (basic_block bb)
 
 /* A driver function to add a set of basic blocks (BBS),
    a single basic block (BB), a set of insns (INSNS) or a single insn (INSN)
-   to the scheduling region.
-   !!! This driver was only tested with one of the arguments non null.  */
+   to the scheduling region.  */
 void
 sched_scan (const struct sched_scan_info_def *ssi,
 	    bb_vec_t bbs, basic_block bb, insn_vec_t insns, rtx insn)
@@ -4872,16 +4847,6 @@ sched_init_bbs (void)
   sched_extend_bb ();
 }
 
-/* Finish per basic block data structures.  */
-void
-sched_finish_bbs (void)
-{
-}
-
-
-/* Mapping from instruction UID to its Logical UID.  */
-VEC (int, heap) *sched_luids = NULL;
-
 /* Extend data structures for logical insn UID.  */
 static void
 luids_extend_insn (void)
@@ -4890,9 +4855,6 @@ luids_extend_insn (void)
 
   VEC_safe_grow_cleared (int, heap, sched_luids, new_luids_max_uid);
 }
-
-/* Next LUID to assign to an instruction.  */
-int sched_max_luid = 1;
 
 /* Initialize LUID for INSN.  */
 static void
@@ -4951,9 +4913,6 @@ sched_extend_target (void)
   if (targetm.sched.h_i_d_extended)
     targetm.sched.h_i_d_extended ();
 }
-
-/* Haifa Instruction Data.  */
-VEC (haifa_insn_data_def, heap) *h_i_d = NULL;
 
 /* Extend global scheduler structures (those, that live across calls to
    schedule_block) to include information about just emitted INSN.  */
@@ -5029,8 +4988,6 @@ haifa_init_insn (rtx insn)
     }
 }
 
-void (* sched_init_only_bb) (basic_block, basic_block);
-
 /* Init data for the new basic block BB which comes after AFTER.  */
 static void
 haifa_init_only_bb (basic_block bb, basic_block after)
@@ -5043,10 +5000,6 @@ haifa_init_only_bb (basic_block bb, basic_block after)
     /* This changes only data structures of the front-end.  */
     common_sched_info->add_block (bb, after);
 }
-
-/* Split block function.  Different schedulers might use different functions
-   to handle their internal data consistent.  */
-basic_block (* sched_split_block) (basic_block, rtx);
 
 /* A generic version of sched_split_block ().  */
 basic_block
@@ -5062,9 +5015,6 @@ sched_split_block_1 (basic_block first_bb, rtx after)
 
   return e->dest;
 }
-
-/* Create empty basic block after the specified block.  */
-basic_block (* sched_create_empty_bb) (basic_block);
 
 /* A generic version of sched_create_empty_bb ().  */
 basic_block

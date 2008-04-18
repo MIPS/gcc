@@ -18895,7 +18895,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
                     ready[i] = ready[i + 1];
                   ready[*pn_ready-1] = tmp;
 
-                  if (!SEL_SCHED_P && INSN_PRIORITY_KNOWN (tmp))
+                  if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                     INSN_PRIORITY (tmp)++;
                   break;
                 }
@@ -18912,7 +18912,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
           while (pos >= 0)
             {
               if (is_load_insn (ready[pos])
-                  && !SEL_SCHED_P
+                  && !sel_sched_p ()
 		  && INSN_PRIORITY_KNOWN (ready[pos]))
                 {
                   INSN_PRIORITY (ready[pos])++;
@@ -18956,7 +18956,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
                         ready[i] = ready[i + 1];
                       ready[*pn_ready-1] = tmp;
 
-                      if (!SEL_SCHED_P && INSN_PRIORITY_KNOWN (tmp))
+                      if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                         INSN_PRIORITY (tmp)++;
 
                       first_store_pos = -1;
@@ -18977,7 +18977,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
               for (i=first_store_pos; i<*pn_ready-1; i++)
                 ready[i] = ready[i + 1];
               ready[*pn_ready-1] = tmp;
-              if (!SEL_SCHED_P && INSN_PRIORITY_KNOWN (tmp))
+              if (!sel_sched_p () && INSN_PRIORITY_KNOWN (tmp))
                 INSN_PRIORITY (tmp)++;
             }
         }
@@ -18991,7 +18991,7 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
           while (pos >= 0)
             {
               if (is_store_insn (ready[pos])
-                  && !SEL_SCHED_P
+                  && !sel_sched_p ()
 		  && INSN_PRIORITY_KNOWN (ready[pos]))
                 {
                   INSN_PRIORITY (ready[pos])++;
@@ -19549,7 +19549,7 @@ rs6000_sched_finish (FILE *dump, int sched_verbose)
   if (reload_completed && rs6000_sched_groups)
     {
       if (rs6000_sched_insert_nops == sched_finish_none
-	  || SEL_SCHED_P)
+	  || sel_sched_p ())
 	return;
 
       if (rs6000_sched_insert_nops == sched_finish_pad_groups)

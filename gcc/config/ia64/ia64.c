@@ -6549,7 +6549,7 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 #ifdef ENABLE_CHECKING
   rtx insn;
 
-  if (0 && reload_completed)
+  if (!sel_sched_p () && reload_completed)
     for (insn = NEXT_INSN (current_sched_info->prev_head);
        insn != current_sched_info->next_tail;
        insn = NEXT_INSN (insn))
@@ -6757,7 +6757,7 @@ ia64_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
 		     rtx insn ATTRIBUTE_UNUSED,
 		     int can_issue_more ATTRIBUTE_UNUSED)
 {
-  if (sched_deps_info->generate_spec_deps && !SEL_SCHED_P)
+  if (sched_deps_info->generate_spec_deps && !sel_sched_p ())
     /* Modulo scheduling does not extend h_i_d when emitting
        new instructions.  Don't use h_i_d, if we don't have to.  */
     {
@@ -7052,75 +7052,6 @@ ia64_free_sched_context (void *_sc)
   free (_sc);
 }
 
-/* Provide information about speculation capabilities.  */
-static void
-ia64_set_sched_flags (spec_info_t spec_info)
-{
-  unsigned int *flags = &(current_sched_info->flags);
-
-  if (*flags & SCHED_RGN
-      || *flags & SCHED_EBB
-      || *flags & SEL_SCHED)
-    {
-      int mask = 0;
-
-      if ((!SEL_SCHED_P
-	   && ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
-	       || (mflag_sched_ar_data_spec && reload_completed)))
-	  || (SEL_SCHED_P && mflag_sel_sched_data_spec))
-	{
-	  mask |= BEGIN_DATA;
-
-	  if (!SEL_SCHED_P
-	      && ((mflag_sched_br_in_data_spec && !reload_completed)
-		  || (mflag_sched_ar_in_data_spec && reload_completed)))
-	    mask |= BE_IN_DATA;
-	}
-      
-      if ((!SEL_SCHED_P && mflag_sched_control_spec)
-	  || (SEL_SCHED_P && mflag_sel_sched_control_spec))
-	{
-	  mask |= BEGIN_CONTROL;
-	  
-	  if (!SEL_SCHED_P && mflag_sched_in_control_spec)
-	    mask |= BE_IN_CONTROL;
-	}
-
-      spec_info->mask = mask;
-
-      if (mask)
-	{
-	  *flags |= USE_DEPS_LIST | DO_SPECULATION;
-
-	  if (mask & BE_IN_SPEC)
-          *flags |= NEW_BBS;
-	  
-	  spec_info->mask = mask;
-	  spec_info->flags = 0;
-      
-	  if ((mask & DATA_SPEC) && mflag_sched_prefer_non_data_spec_insns)
-	    spec_info->flags |= PREFER_NON_DATA_SPEC;
-
-	  if (mask & CONTROL_SPEC)
-	    {
-	      if (mflag_sched_prefer_non_control_spec_insns)
-		spec_info->flags |= PREFER_NON_CONTROL_SPEC;
-
-	      if (SEL_SCHED_P && mflag_sel_sched_dont_check_control_spec)
-		spec_info->flags |= SEL_SCHED_SPEC_DONT_CHECK_CONTROL;
-	    }
-
-	  if (sched_verbose >= 1)
-	    spec_info->dump = sched_dump;
-	  else
-	    spec_info->dump = 0;
-	  
-	  if (mflag_sched_count_spec_in_critical_path)
-	    spec_info->flags |= COUNT_SPEC_IN_CRITICAL_PATH;
-	}
-    }
-}
-
 typedef rtx (* gen_func_t) (rtx, rtx);
 
 /* Return a function that will generate a load of mode MODE_NO
@@ -7261,6 +7192,75 @@ ia64_mode_to_int (enum machine_mode mode)
 	 needs to be defined.  Bottom line: better disable for now.  */
       return SPEC_MODE_INVALID;
     default:     return SPEC_MODE_INVALID;
+    }
+}
+
+/* Provide information about speculation capabilities.  */
+static void
+ia64_set_sched_flags (spec_info_t spec_info)
+{
+  unsigned int *flags = &(current_sched_info->flags);
+
+  if (*flags & SCHED_RGN
+      || *flags & SCHED_EBB
+      || *flags & SEL_SCHED)
+    {
+      int mask = 0;
+
+      if ((!sel_sched_p ()
+	   && ((mflag_sched_br_data_spec && !reload_completed && optimize > 0)
+	       || (mflag_sched_ar_data_spec && reload_completed)))
+	  || (sel_sched_p () && mflag_sel_sched_data_spec))
+	{
+	  mask |= BEGIN_DATA;
+
+	  if (!sel_sched_p ()
+	      && ((mflag_sched_br_in_data_spec && !reload_completed)
+		  || (mflag_sched_ar_in_data_spec && reload_completed)))
+	    mask |= BE_IN_DATA;
+	}
+      
+      if ((!sel_sched_p () && mflag_sched_control_spec)
+	  || (sel_sched_p () && mflag_sel_sched_control_spec))
+	{
+	  mask |= BEGIN_CONTROL;
+	  
+	  if (!sel_sched_p () && mflag_sched_in_control_spec)
+	    mask |= BE_IN_CONTROL;
+	}
+
+      spec_info->mask = mask;
+
+      if (mask)
+	{
+	  *flags |= USE_DEPS_LIST | DO_SPECULATION;
+
+	  if (mask & BE_IN_SPEC)
+          *flags |= NEW_BBS;
+	  
+	  spec_info->mask = mask;
+	  spec_info->flags = 0;
+      
+	  if ((mask & DATA_SPEC) && mflag_sched_prefer_non_data_spec_insns)
+	    spec_info->flags |= PREFER_NON_DATA_SPEC;
+
+	  if (mask & CONTROL_SPEC)
+	    {
+	      if (mflag_sched_prefer_non_control_spec_insns)
+		spec_info->flags |= PREFER_NON_CONTROL_SPEC;
+
+	      if (sel_sched_p () && mflag_sel_sched_dont_check_control_spec)
+		spec_info->flags |= SEL_SCHED_SPEC_DONT_CHECK_CONTROL;
+	    }
+
+	  if (sched_verbose >= 1)
+	    spec_info->dump = sched_dump;
+	  else
+	    spec_info->dump = 0;
+	  
+	  if (mflag_sched_count_spec_in_critical_path)
+	    spec_info->flags |= COUNT_SPEC_IN_CRITICAL_PATH;
+	}
     }
 }
 
@@ -7519,14 +7519,6 @@ ia64_speculate_insn (rtx insn, ds_t ts, rtx *new_pat)
 
   if (mode_no != SPEC_MODE_INVALID)
     {
-      if (0 && SEL_SCHED_P && (ts & BEGIN_DATA)
-	  && mode_no >= 5 && mode_no <= 7)
-	/* !!! We can't data speculate float point loads because we might
-	   get a trap-looking insn from the trap-free one.  This happens
-	   because of the UNSPEC:?F part in the load, that is a floating
-	   point operation that might trap.  */
-	return -1;
-
       if (ia64_get_insn_spec_ds (insn) == ds_get_speculation_types (ts))
 	res = 0;
       else
@@ -9098,6 +9090,7 @@ emit_predicate_relation_info (void)
     }
 }
 
+/* Counts how many times selective scheduling was run.  */
 static int sel2_run = 0;
 
 /* Perform machine dependent operations on the rtl chain INSNS.  */

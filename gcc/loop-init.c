@@ -64,19 +64,6 @@ loop_optimizer_init (unsigned flags)
   else
     disambiguate_loops_with_multiple_latches ();
 
-  if (flags & LOOPS_MAY_HAVE_MULTIPLE_LATCHES)
-    {
-      /* If the loops may have multiple latches, we cannot canonicalize
-	 them further (and most of the loop manipulation functions will
-	 not work).  However, we avoid modifying cfg, which some
-	 passes may want.  */
-      gcc_assert ((flags & ~(LOOPS_MAY_HAVE_MULTIPLE_LATCHES
-			     | LOOPS_HAVE_RECORDED_EXITS)) == 0);
-      current_loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
-    }
-  else
-    disambiguate_loops_with_multiple_latches ();
-
   /* Create pre-headers.  */
   if (flags & LOOPS_HAVE_PREHEADERS)
     {

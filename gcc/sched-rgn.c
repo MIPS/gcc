@@ -1062,7 +1062,7 @@ haifa_find_rgns (void)
 static void
 find_rgns (void)
 {
-  if (SEL_SCHED_P && flag_sel_sched_pipelining)
+  if (sel_sched_p () && flag_sel_sched_pipelining)
     sel_find_rgns ();
   else
     haifa_find_rgns ();
@@ -2664,7 +2664,7 @@ compute_block_dependences (int bb)
 #endif  
 
   /* Selective scheduling handles control dependencies by itself.  */
-  if (!SEL_SCHED_P)
+  if (!sel_sched_p ())
     add_branch_dependences (head, tail);
 
   if (current_nr_blocks > 1)
@@ -2768,10 +2768,10 @@ void debug_dependencies (rtx head, rtx tail)
 	       INSN_CODE (insn),
 	       BLOCK_NUM (insn),
 	       sched_emulate_haifa_p ? -1 : sd_lists_size (insn, SD_LIST_BACK),
-	       (SEL_SCHED_P ? (sched_emulate_haifa_p ? -1
+	       (sel_sched_p () ? (sched_emulate_haifa_p ? -1
 			       : INSN_PRIORITY (insn))
 		: INSN_PRIORITY (insn)),
-	       (SEL_SCHED_P ? (sched_emulate_haifa_p ? -1
+	       (sel_sched_p () ? (sched_emulate_haifa_p ? -1
 			       : insn_cost (insn))
 		: insn_cost (insn)));
 
@@ -2961,12 +2961,12 @@ sched_rgn_init (bool single_blocks_p)
       || !flag_schedule_interblock
       || is_cfg_nonregular ())
     {
-      find_single_block_region (SEL_SCHED_P);
+      find_single_block_region (sel_sched_p ());
     }
   else
     {
       /* Compute the dominators and post dominators.  */
-      if (!SEL_SCHED_P)
+      if (!sel_sched_p ())
 	calculate_dominance_info (CDI_DOMINATORS);
 
       /* Find regions.  */
@@ -2977,7 +2977,7 @@ sched_rgn_init (bool single_blocks_p)
 
       /* For now.  This will move as more and more of haifa is converted
 	 to using the cfg code.  */
-      if (!SEL_SCHED_P)
+      if (!sel_sched_p ())
 	free_dominance_info (CDI_DOMINATORS);
     }
 
@@ -3055,7 +3055,7 @@ sched_rgn_compute_dependencies (int rgn)
     {
       int bb;
 
-      if (SEL_SCHED_P)
+      if (sel_sched_p ())
 	sched_emulate_haifa_p = 1;
 
       init_deps_global ();
@@ -3080,13 +3080,13 @@ sched_rgn_compute_dependencies (int rgn)
       /* We don't want to recalculate this twice.  */
       RGN_DONT_CALC_DEPS (rgn) = 1;
 
-      if (SEL_SCHED_P)
+      if (sel_sched_p ())
 	sched_emulate_haifa_p = 0;
     }
   else
     /* (This is a recovery block.  It is always a single block region.)
        OR (We use selective scheduling.)  */
-    gcc_assert (current_nr_blocks == 1 || SEL_SCHED_P);
+    gcc_assert (current_nr_blocks == 1 || sel_sched_p ());
 }
 
 /* Init region data structures.  Returns true if this region should
@@ -3166,7 +3166,7 @@ sched_rgn_local_free (void)
 void
 sched_rgn_local_finish (void)
 {
-  if (current_nr_blocks > 1 && !SEL_SCHED_P)
+  if (current_nr_blocks > 1 && !sel_sched_p ())
     {
       sched_rgn_local_free ();
     }
@@ -3191,7 +3191,7 @@ rgn_setup_common_sched_info (void)
 void
 rgn_setup_sched_infos (void)
 {
-  if (!SEL_SCHED_P)
+  if (!sel_sched_p ())
     memcpy (&rgn_sched_deps_info, &rgn_const_sched_deps_info,
 	    sizeof (rgn_sched_deps_info));
   else

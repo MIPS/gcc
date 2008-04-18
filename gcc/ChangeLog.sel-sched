@@ -1,4 +1,39 @@
+2008-04-18  Andrey Belevanstev  <abel@ispras.ru>
+	    Dmitry Melnik  <dm@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	* cfgrtl.c (create_basic_block_structure): Set bb_index in one place.
+	* cse.c (hash_rtx_string): Make static inline.
+	* haifa-sched.c: Tidy, add comments, move static definitions to one 
+	place.
+	(schedule_block): Print less debugging info.
+	(check_sched_flags, sched_finish_bbs): Remove.
+	* loop-init.c (loop_optimizer_init): Remove old merge glitch.
+	* modulo-sched.c: Remove #if 0'd code.
+	* rtl.h (hash_rtx_string): Remove export.
+	* sched-int.h (sched_extend_bbs): Remove export.
+	(attach_life_info1): Likewise.
+	(SEL_SCHED_P): Rewrite macro to inline function, rename to sel_sched_p.  
+	Update all uses.
+	* sel-sched-dump.c, sel-sched-dump.h, sel-sched-ir.c, sel-sched-ir.h, 
+	sel-sched.c, sel-sched.h: Update headers to GPLv3.
+	* sel-sched.c (cfglayout.h, cselib.h): Remove excessive includes.
+	Update high-level overview of the scheduler.
+	(collect_unavailable_regs_from_bnds, 
+	try_replace_dest_reg): Split from ...
+	(find_best_reg_for_expr): ... here.
+	(fur_orig_expr_found): Remove needs_spec_check_p.
+	* sel-sched-ir.h (struct _def): Remove needs_spec_check_p.  
+	Update all uses.
+	* config/ia64/ia64.c (ia64_sched_init): Check SCHED_GROUP_P bits
+	when ! sel_sched_p.  
+	(sel2_run): Add comment.
+	* config/ia64/ia64.opt (ia64_max_memory_insns): Extend comment.
+	* doc/invoke.texi: Fix documentation wrt removed sel-sched flags.
+	
+	
 2008-04-17  Andrey Belevantsev  <abel@ispras.ru>
+
         * sel-sched-ir.c (expr_greater_p): Use UIDs instead of LUIDs
 	for comparison.
 	* ia64.c (ia64_override_options): Make the selective scheduler

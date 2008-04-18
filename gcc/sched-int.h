@@ -69,7 +69,6 @@ extern void sched_scan (const struct sched_scan_info_def *,
 			bb_vec_t, basic_block, insn_vec_t, rtx);
 
 extern void sched_init_bbs (void);
-extern void sched_finish_bbs (void);
 
 extern void sched_init_luids (bb_vec_t, basic_block, insn_vec_t, rtx);
 extern void sched_finish_luids (void);
@@ -115,7 +114,11 @@ extern struct common_sched_info_def *common_sched_info;
 extern const struct common_sched_info_def haifa_common_sched_info;
 
 /* Return true if selective scheduling pass is working.  */
-#define SEL_SCHED_P (common_sched_info->sched_pass_id == SCHED_SEL_PASS)
+static inline bool
+sel_sched_p (void)
+{
+  return common_sched_info->sched_pass_id == SCHED_SEL_PASS;
+}
 
 /* True if during selective scheduling we need to emulate some of haifa
    scheduler behaviour.  */
@@ -139,8 +142,6 @@ extern int insn_luid (rtx);
    be attached to the beginning of the block when its scheduling is
    finished.  */
 extern rtx note_list;
-
-extern void attach_life_info (void);
 
 extern void remove_notes (rtx, rtx);
 extern rtx restore_other_notes (rtx, basic_block);
@@ -783,7 +784,7 @@ extern VEC(haifa_deps_insn_data_def, heap) *h_d_i_d;
 
 /* INSN is either a simple or a branchy speculation check.  */
 #define IS_SPECULATION_CHECK_P(INSN) \
-  (SEL_SCHED_P ? sel_insn_is_speculation_check (INSN) : RECOVERY_BLOCK (INSN) != NULL)
+  (sel_sched_p () ? sel_insn_is_speculation_check (INSN) : RECOVERY_BLOCK (INSN) != NULL)
 
 /* INSN is a speculation check that will simply reexecute the speculatively
    scheduled instruction if the speculation fails.  */

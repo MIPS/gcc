@@ -187,15 +187,6 @@ static int compute_split_row (sbitmap, int, int, int, ddg_node_ptr);
 /* This page defines constants and structures for the modulo scheduling
    driver.  */
 
-#if 0
-/* As in haifa-sched.c:  */
-/* issue_rate is the number of insns that can be scheduled in the same
-   machine cycle.  It can be defined in the config/mach/mach.h file,
-   otherwise we set it to 1.  */
-
-static int issue_rate;
-#endif
-
 static int sms_order_nodes (ddg_ptr, int, int *, int *);
 static void set_node_sched_params (ddg_ptr);
 static partial_schedule_ptr sms_schedule_by_order (ddg_ptr, int, int, int *);

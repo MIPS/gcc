@@ -1,25 +1,22 @@
-/* Instruction scheduling pass.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+/* Instruction scheduling pass.  Selective scheduler and pipeliner.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
-   This file is part of GCC.
+This file is part of GCC.
 
-   GCC is free software; you can redistribute it and/or modify it under
-   the terms of the GNU General Public License as published by the Free
-   Software Foundation; either version 2, or (at your option) any later
-   version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
 
-   GCC is distributed in the hope that it will be useful, but WITHOUT ANY
-   WARRANTY; without even the implied warranty of MERCHANTABILITY or
-   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301, USA.  */
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
 
-
-/* FIXME: check whether we need all these headers, and check the makefile.  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -36,14 +33,12 @@
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
-#include "cfglayout.h"
 #include "params.h"
 #include "target.h"
 #include "output.h"
 #include "timevar.h"
 #include "tree-pass.h"
 #include "sched-int.h"
-#include "cselib.h"
 #include "ggc.h"
 #include "tree.h"
 #include "vec.h"
@@ -56,13 +51,200 @@
 #include "sel-sched-dump.h"
 #include "sel-sched.h"
 
-/* FIXME: extend this comment.
+/* Implementation of selective scheduling approach.
+   The below implementation follows the original approach with the following
+   changes:
 
-   Implementation of selective scheduling approach.
+   o the scheduler works after register allocation (but can be also tuned 
+   to work before RA);
+   o some instructions are not copied or register renamed;
+   o conditional jumps are not moved with code duplication;
+   o several jumps in one parallel group are not supported;
+   o when pipelining outer loops, code motion through inner loops
+   is not supported;
+   o control and data speculation are supported;
+   o some improvements for better compile time/performance were made.
+
+   Terminology
+   ===========
+
+   A vinsn, or virtual insn, is an insn with additional data characterizing 
+   insn pattern, such as LHS, RHS, register sets used/set/clobbered, etc.  
+   Vinsns also act as smart pointers to save memory by reusing them in 
+   different expressions.  A vinsn is described by vinsn_t type.
+
+   An expression is a vinsn with additional data characterizing its properties
+   at some point in the control flow graph.  The data may be its usefulness, 
+   priority, speculative status, whether it was renamed/subsituted, etc.
+   An expression is described by expr_t type.
+
+   Availability set (av_set) is a set of expressions at a given control flow 
+   point. It is represented as av_set_t.  The expressions in av sets are kept
+   sorted in the terms of expr_greater_p function.  It allows to truncate 
+   the set while leaving the best expressions.
+   
+   A fence is a point through which code motion is prohibited.  On each step,
+   we gather a parallel group of insns at a fence.  It is possible to have
+   multiple fences. A fence is represented via fence_t.
+
+   A boundary is the border between the fence group and the rest of the code.
+   Currently, we never have more than one boundary per fence, as we finalize
+   the fence group when a jump is scheduled. A boundary is represented 
+   via bnd_t.
+
+   High-level overview
+   ===================
+
+   The scheduler finds regions to schedule, schedules each one, and finalizes.
+   The regions are formed starting from innermost loops, so that when the inner 
+   loop is pipelined, its prologue can be scheduled together with yet unprocessed
+   outer loop. The rest of acyclic regions are found using extend_rgns: 
+   the blocks that are not yet allocated to any regions are traversed in top-down
+   order, and a block is added to a region to which all its predecessors belong; 
+   otherwise, the block starts its own region.
+
+   The main scheduling loop (sel_sched_region_2) consists of just
+   scheduling on each fence and updating fences.  For each fence,
+   we fill a parallel group of insns (fill_insns) until some insns can be added.
+   First, we compute available exprs (av-set) at the boundary of the current 
+   group.  Second, we choose the best expression from it.  If the stall is 
+   required to schedule any of the expressions, we advance the current cycle
+   appropriately.  So, tThe final group does not exactly correspond to a VLIW 
+   word.  Third, we move the chosen expression to the boundary (move_op)
+   and update the intermediate av sets and liveness sets.  We quit fill_insns
+   when either no insns left for scheduling or we have scheduled enough insns
+   so we feel like advancing a scheduling point.  
+
+   Computing available expressions
+   ===============================
+   The computation (compute_av_set) is a bottom-up traversal.  At each insn,
+   we're moving the union of its successors' sets through it via 
+   moveup_expr_set.  The dependent expressions are removed.  Local 
+   transformations (substitution, speculation) are applied to move more 
+   exprs.  Then the expr corresponding to the current insn is added.
+   The result is saved on each basic block header.
+
+   When traversing the CFG, we're moving down for no more than max_ws insns.
+   Also, we do not move down to ineligible successors (is_ineligible_successor),
+   which include moving along a back-edge, moving to already scheduled code,
+   and moving to another fence.  The first two restrictions are lifted during 
+   pipelining, which allows us to move insns along a back-edge.  We always have
+   an acyclic region for scheduling because we forbid motion through fences.
+
+   Choosing the best expression
+   ============================
+
+   We sort the final availability set via sel_rank_for_schedule, then we remove
+   expressions which are not yet ready (tick_check_p) or which dest registers
+   cannot be used.  For some of them, we choose another register via 
+   find_best_reg.  To do this, we run find_used_regs to calculate the set of 
+   registers which cannot be used.  The find_used_regs function performs
+   a traversal of code motion paths for an expr.  We consider for renaming
+   only registers which are from the same regclass as the original one and 
+   using which does not interfere with any live ranges.  Finally, we convert
+   the resulting set to the ready list format and use max_issue and reorder*
+   hooks similarly to the Haifa scheduler.
+
+   Scheduling the best expression
+   ==============================
+
+   We run the move_op routine to perform the same type of code motion paths 
+   traversal as in find_used_regs.  (These are working via the same driver,
+   code_motion_path_driver.)  When moving down the CFG, we look for original
+   instruction that gave birth to a chosen expression.  We undo 
+   the transformations performed on an expression via the history saved in it.
+   When found, we remove the instruction or leave a reg-reg copy/speculation 
+   check if needed.  On a way up, we insert bookkeeping copies at each join 
+   point.  If a copy is not needed, it will be removed later during this 
+   traversal.  We update the saved av sets and liveness sets on the way up, too.
+
+   Finalizing the schedule
+   =======================
+
+   When pipelining, we reschedule the blocks from which insns were pipelined 
+   to get a tighter schedule.  On Itanium, we also perform bundling via 
+   the same routine from ia64.c.  
+
+   Dependence analysis changes
+   ===========================
+
+   We augmented the sched-deps.c with hooks that get called when a particular
+   dependence is found in a particular part of an insn.  Using these hooks, we
+   can do several actions such as: determine whether an insn can be moved through
+   another (has_dependence_p, moveup_expr); find out whether an insn can be 
+   scheduled on the current cycle (tick_check_p); find out registers that 
+   are set/used/clobbered by an insn and find out all the strange stuff that 
+   restrict its movement, like SCHED_GROUP_P or CANT_MOVE (done in 
+   init_global_and_expr_for_insn).
+
+   Initialization changes
+   ======================
+   There are parts of haifa-sched.c, sched-deps.c, and sched-rgn.c that are 
+   reused in all of the schedulers.  We have split up the initialization of data
+   of such parts into different functions prefixed with scheduler type and 
+   postfixed with the type of data initialized: {,sel_,haifa_}sched_{init,finish},
+   sched_rgn_init/finish, sched_deps_init/finish, sched_init_{luids/bbs}, etc.
+   The same splitting is done with current_sched_info structure: 
+   dependence-related parts are in sched_deps_info, common part is in 
+   common_sched_info, and haifa/sel/etc part is in current_sched_info.
+   
+   Target contexts
+   ===============
+   As we now have multiple-point scheduling, this would not work with backends
+   which save some of the scheduler state to use it in the target hooks.  
+   For this purpose, we introduce a concept of target contexts, which 
+   encapsulate such information.  The backend should implement simple routines
+   of allocating/freeing/setting such a context.  The scheduler calls these
+   as target hooks and handles the target context as an opaque pointer (similar
+   to the DFA state type, state_t).
+
+   Various speedups
+   ================
+   As the correct data dependence graph is not supported during scheduling (which
+   is to be changed in mid-term), we cache as much of the dependence analysis 
+   results as possible to avoid reanalyzing.  This includes: bitmap caches on 
+   each insn in stream of the region saying yes/no for a query with a pair of 
+   UIDs; hashtables with the previously done transformations on each insn in
+   stream; a vector keeping a history of transformations on each expr.
+
+   Also, we try to minimize the dependence context used on each fence to check
+   whether the given expression is ready for scheduling by removing from it
+   insns that are definitely completed the execution.  The results of 
+   tick_check_p checks are also cached in a vector on each fence.
+
+   We keep a valid liveness set on each insn in a region to avoid the high 
+   cost of recomputation on large basic blocks.
+
+   Finally, we try to minimize the number of needed updates to the availability
+   sets.  The updates happen in two cases: when fill_insns terminates, 
+   we advance all fences and increase the stage number to show that the region
+   has changed and the sets are to be recomputed; and when the next iteration
+   of a loop in fill_insns happens (but this one reuses the saved av sets
+   on bb headers.)  Thus, we try to break the fill_insns loop only when
+   "significant" number of insns from the current scheduling window was
+   scheduled.  This should be made a target param.
+   
+
+   TODO: correctly support the data dependence graph at all stages and get rid
+   of all caches.  This should speed up the scheduler.
+   TODO: implement moving cond jumps with bookkeeping copies on both targets.
+   TODO: tune the scheduler before RA so it does not create too much pseudos.
+
+
    References:
    S.-M. Moon and K. Ebcioglu. Parallelizing nonnumerical code with
    selective scheduling and software pipelining. 
-   ACM TOPLAS, Vol 19, No. 6, pages 853--898, Nov. 1997.  */
+   ACM TOPLAS, Vol 19, No. 6, pages 853--898, Nov. 1997.  
+
+   Andrey Belevantsev, Maxim Kuvyrkov, Vladimir Makarov, Dmitry Melnik, 
+   and Dmitry Zhurikhin.  An interblock VLIW-targeted instruction scheduler 
+   for GCC. In Proceedings of GCC Developers' Summit 2006.
+
+   Arutyun Avetisyan, Andrey Belevantsev, and Dmitry Melnik.  GCC Instruction 
+   Scheduler and Software Pipeliner on the Itanium Platform.   EPIC-7 Workshop.
+   http://rogue.colorado.edu/EPIC7/.
+   
+*/
 
 /* True when pipelining is enabled.  */
 bool pipelining_p;
@@ -1371,24 +1553,85 @@ verify_target_availability (expr_t expr, regset used_regs,
 		|| !hard_available);
 }
 
-/* Returns best register for given rhs, or NULL_RTX, if no register can be
-   chosen.  The latter could happen when:
-     - EXPR_SCHEDULE_AS_RHS is true but we were unable to find suitable
-       register;
-     - EXPR_SCHEDULE_AS_RHS is false but the insn sets/clobbers one of
-       the registers that are used on the moving path.  */
+/* Collect unavailable registers for EXPR from BNDS into USED_REGS.  */
+static void
+collect_unavailable_regs_from_bnds (expr_t expr, blist_t bnds, regset used_regs,
+				    struct reg_rename *reg_rename_p,
+				    def_list_t *original_insns)
+{
+  for (; bnds; bnds = BLIST_NEXT (bnds))
+    {
+      bool res;
+      av_set_t orig_ops = NULL;
+      bnd_t bnd = BLIST_BND (bnds);
+
+      /* If the chosen best expr doesn't belong to current boundary,
+	 skip it.  */
+      if (!av_set_is_in_p (BND_AV1 (bnd), EXPR_VINSN (expr)))
+	continue;
+
+      /* Put in ORIG_OPS all exprs from this boundary that became
+	 RES on top.  */
+      orig_ops = find_sequential_best_exprs (bnd, expr, false);
+
+      /* Compute used regs and OR it into the USED_REGS.  */
+      res = find_used_regs (BND_TO (bnd), orig_ops, used_regs,
+			    reg_rename_p, original_insns);
+
+      /* FIXME: the assert is true until we'd have several boundaries.  */
+      gcc_assert (res);
+      av_set_clear (&orig_ops);
+    }
+}
+
+/* Return TRUE if it is possible to replace LHSes of ORIG_INSNS with BEST_REG.
+   If BEST_REG is valid, replace LHS of EXPR with it.  */
+static bool
+try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
+{
+  if (expr_dest_regno (expr) == REGNO (best_reg))
+    return true;
+
+  gcc_assert (orig_insns);
+
+  /* Try whether we'll be able to generate the insn
+     'dest := best_reg' at the place of the original operation.  */
+  for (; orig_insns; orig_insns = ILIST_NEXT (orig_insns))
+    {
+      insn_t orig_insn = DEF_LIST_DEF (orig_insns)->orig_insn;
+
+      gcc_assert (EXPR_SEPARABLE_P (INSN_EXPR (orig_insn)));
+
+      if (!replace_src_with_reg_ok_p (orig_insn, best_reg)
+	  || !replace_dest_with_reg_ok_p (orig_insn, best_reg))
+	return false;
+    }
+
+  /* Make sure that EXPR has the right destination
+     register.  */
+  replace_dest_with_reg_in_expr (expr, best_reg);
+  EXPR_WAS_RENAMED (expr) = 1;
+  EXPR_TARGET_AVAILABLE (expr) = 1;
+
+  /* The resulting insn should be valid.  */
+  gcc_assert (insn_rtx_valid (EXPR_INSN_RTX (expr)));
+  return true;
+}
+
+/* Select and assign best register to EXPR.  Set *IS_ORIG_REG_P to TRUE if
+   original register was selected.  Return FALSE if no register can be
+   chosen, which could happen when:
+   * EXPR_SEPARABLE_P is true but we were unable to find suitable register;
+   * EXPR_SEPARABLE_P is false but the insn sets/clobbers one of the registers
+     that are used on the moving path.  */
 static bool
 find_best_reg_for_expr (expr_t expr, blist_t bnds, bool *is_orig_reg_p)
 {
   static struct reg_rename reg_rename_data;
- 
+
   regset used_regs;
-  HARD_REG_SET hard_regs_used;
-  rtx best_reg = NULL_RTX;
-  blist_t bnds1 = bnds;
   def_list_t original_insns = NULL;
-  int res = 0;
-  bool reg_ok = true;
+  bool reg_ok;
 
   *is_orig_reg_p = false;
 
@@ -1400,137 +1643,79 @@ find_best_reg_for_expr (expr_t expr, blist_t bnds, bool *is_orig_reg_p)
   used_regs = get_clear_regset_from_pool ();
   CLEAR_HARD_REG_SET (reg_rename_data.unavailable_hard_regs);
 
-  /* Collect unavailable registers from all boundaries into USED_REGS.  */
-  do
-    {
-      av_set_t orig_ops = NULL;
-      bnd_t bnd = BLIST_BND (bnds1);
+  collect_unavailable_regs_from_bnds (expr, bnds, used_regs, &reg_rename_data,
+				      &original_insns);
 
-      /* If the chosen best expr doesn't belong to current boundary, 
-         skip it.  */
-      if (!av_set_is_in_p (BND_AV1 (bnd), EXPR_VINSN (expr)))
-	continue;
-
-      /* Put in ORIG_OPS all exprs from this boundary that became
-	 RES on top.  */
-      orig_ops = find_sequential_best_exprs (bnd, expr, false);
-
-      /* Compute used regs and OR it into the USED_REGS.  */
-      res = find_used_regs (BND_TO (bnd), orig_ops, used_regs,
-                            &reg_rename_data, &original_insns);
-
-      /* FIXME: the assert is true until we'd have several boundaries.  */
-      gcc_assert (res);
-      av_set_clear (&orig_ops);
-    }
-  while ((bnds1 = BLIST_NEXT (bnds1)));
-
-  if (res)
-    {
 #ifdef ENABLE_CHECKING
-      /* If after reload, make sure we're working with hard regs here.  */
-      if (reload_completed) {
-	reg_set_iterator rsi;
-	unsigned i;
-	EXECUTE_IF_SET_IN_REG_SET (used_regs, FIRST_PSEUDO_REGISTER, i, rsi)
-	  gcc_unreachable ();
-      }
+  /* If after reload, make sure we're working with hard regs here.  */
+  if (reload_completed) {
+    reg_set_iterator rsi;
+    unsigned i;
+    EXECUTE_IF_SET_IN_REG_SET (used_regs, FIRST_PSEUDO_REGISTER, i, rsi)
+      gcc_unreachable ();
+  }
 #endif
 
-      if (EXPR_SEPARABLE_P (expr))
+  if (EXPR_SEPARABLE_P (expr))
+    {
+      rtx best_reg = NULL_RTX;
+      /* Check that we have computed availability of a target register
+	 correctly.  */
+      verify_target_availability (expr, used_regs,
+				  reg_rename_data.unavailable_hard_regs);
+
+      /* Turn everything in hard regs after reload.  */
+      if (reload_completed)
 	{
-          /* Check that we have computed availability of a target register
-             correctly.  */
-          verify_target_availability (expr, used_regs, 
-                                      reg_rename_data.unavailable_hard_regs);
+	  HARD_REG_SET hard_regs_used;
+	  REG_SET_TO_HARD_REG_SET (hard_regs_used, used_regs);
 
-          /* Turn everything in hard regs after reload.  */
-          if (reload_completed)
-            {
-              REG_SET_TO_HARD_REG_SET (hard_regs_used, used_regs);
+	  /* Join hard registers unavailable due to register class
+	     restrictions and live range intersection.  */
+	  IOR_HARD_REG_SET (hard_regs_used,
+			    reg_rename_data.unavailable_hard_regs);
 
-              /* Join hard registers unavailable due to register class 
-                 restrictions and live range intersection.  */
-              IOR_HARD_REG_SET (hard_regs_used, 
-                                reg_rename_data.unavailable_hard_regs);
+	  best_reg = choose_best_reg (hard_regs_used, &reg_rename_data,
+				      original_insns, is_orig_reg_p);
+	}
+      else
+	best_reg = choose_best_pseudo_reg (used_regs, &reg_rename_data,
+					   original_insns, is_orig_reg_p);
 
-              best_reg = choose_best_reg (hard_regs_used, &reg_rename_data, 
-                                          original_insns, is_orig_reg_p);
-            }
-          else
-            best_reg = choose_best_pseudo_reg (used_regs, &reg_rename_data, 
-                                               original_insns, is_orig_reg_p);
-
-	  if (!*is_orig_reg_p && sel_vinsn_cost (EXPR_VINSN (expr)) < 2)
-	    best_reg = NULL_RTX;
-
-	  if (best_reg != NULL_RTX)
-	    /* Try whether we'll be able to generate the insn
-	       'dest := best_reg' at the place of the original operation.  */
-	    {
-	      ilist_t p = original_insns;
-    
-	      gcc_assert (original_insns);
-    
-	      while (p) 
-		{
-		  def_t def = DEF_LIST_DEF (p);
-    
-		  gcc_assert (EXPR_SEPARABLE_P (INSN_EXPR (def->orig_insn)));
-    
-		  if (!replace_src_with_reg_ok_p (def->orig_insn, best_reg)
-		      || !replace_dest_with_reg_ok_p (def->orig_insn,
-						      best_reg))
-		    {
-		      /* Insn will be removed from expr_vliw below.  
-                         FIXME: may be it will work with other regs?  */
-		      reg_ok = false;
-		      break;
-		    }
-
-		  p = ILIST_NEXT (p);
-		}		
-		
-	      if (reg_ok)
-		{
-		  /* Make sure that EXPR has the right destination
-		     register.  */
-		  if (expr_dest_regno (expr) != REGNO (best_reg))
-		    {
-		      replace_dest_with_reg_in_expr (expr, best_reg);
-                      EXPR_WAS_RENAMED (expr) = 1;
-                      EXPR_TARGET_AVAILABLE (expr) = 1;
-
-		      /* The resulting insn should be valid.  */
-		      if (!insn_rtx_valid (EXPR_INSN_RTX (expr)))
-			gcc_unreachable ();
-		    }
-		}
-	    }
-	  else
-	    reg_ok = false;
-    	}
+      if (!best_reg)
+	reg_ok = false;
+      else if (*is_orig_reg_p)
+	{
+	  /* In case of unification BEST_REG may be different from EXPR's LHS
+	     when EXPR's LHS is unavailable, and there is another LHS among
+	     ORIGINAL_INSNS.  */
+	  reg_ok = try_replace_dest_reg (original_insns, best_reg, expr);
+	}
       else
 	{
-	  /* If !EXPR_SCHEDULE_AS_RHS (EXPR), just make sure INSN doesn't set
-	     any of the HARD_REGS_USED set.  */
-	  if (vinsn_writes_one_of_regs_p 
-              (EXPR_VINSN (expr), used_regs,
-               reg_rename_data.unavailable_hard_regs))
-            {
-              reg_ok = false;
-              gcc_assert (EXPR_TARGET_AVAILABLE (expr) <= 0);
-            }
+	  /* Forbid renaming of low-cost insns.  */
+	  if (sel_vinsn_cost (EXPR_VINSN (expr)) < 2)
+	    reg_ok = false;
 	  else
-	    {
-	      gcc_assert (reg_ok);
-              gcc_assert (EXPR_TARGET_AVAILABLE (expr) != 0);
-	      best_reg = NULL_RTX;
-	    }
+	    reg_ok = try_replace_dest_reg (original_insns, best_reg, expr);
 	}
     }
   else
-    reg_ok = false;
+    {
+      /* If !EXPR_SCHEDULE_AS_RHS (EXPR), just make sure INSN doesn't set
+	 any of the HARD_REGS_USED set.  */
+      if (vinsn_writes_one_of_regs_p (EXPR_VINSN (expr), used_regs,
+				      reg_rename_data.unavailable_hard_regs))
+	{
+	  reg_ok = false;
+	  gcc_assert (EXPR_TARGET_AVAILABLE (expr) <= 0);
+	}
+      else
+	{
+	  reg_ok = true;
+	  gcc_assert (EXPR_TARGET_AVAILABLE (expr) != 0);
+	}
+    }
 
   ilist_clear (&original_insns);
   return_regset_to_pool (used_regs);
@@ -5292,20 +5477,17 @@ move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams,
    INSN - current insn traversed, EXPR - the corresponding expr found,
    crosses_call and original_insns in STATIC_PARAMS are updated.  */
 static void
-fur_orig_expr_found (insn_t insn, expr_t expr, 
+fur_orig_expr_found (insn_t insn, expr_t expr ATTRIBUTE_UNUSED,
 		    cmpd_local_params_p lparams ATTRIBUTE_UNUSED,
                     void *static_params)
 {
   fur_static_params_p params = static_params;
-  bool needs_spec_check_p;
   regset tmp;
 
   if (CALL_P (insn))
     params->crosses_call = true;
 
-  needs_spec_check_p = (get_spec_check_type_for_insn (insn, expr) != 0);
-  def_list_add (params->original_insns, insn, params->crosses_call,
-		needs_spec_check_p);
+  def_list_add (params->original_insns, insn, params->crosses_call);
 
   /* Mark the registers that do not meet the following condition:
     (2) not among the live registers of the point 
@@ -6998,7 +7180,6 @@ sel_global_finish (void)
 
   sched_rgn_finish ();
   sched_deps_finish ();
-  sched_finish_bbs ();
   sched_finish ();
 
   if (current_loops)

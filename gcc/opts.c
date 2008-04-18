@@ -1044,7 +1044,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
     }
 
-  /* Pipelining outer loops is only possible when general pipelining
+  /* Pipelining of outer loops is only possible when general pipelining
      capabilities are requested.  */
   if (!flag_sel_sched_pipelining)
     flag_sel_sched_pipelining_outer_loops = 0;
