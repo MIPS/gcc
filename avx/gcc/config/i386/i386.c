@@ -13820,11 +13820,18 @@ ix86_expand_sse4_unpack (rtx operands[2], bool unsigned_p, bool high_p)
   dest = operands[0];
   if (high_p)
     {
+      rtx (*lshrti3) (rtx, rtx, rtx);
+
       /* Shift higher 8 bytes to lower 8 bytes.  */
       src = gen_reg_rtx (imode);
-      emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, src),
-				   gen_lowpart (TImode, operands[1]),
-				   GEN_INT (64)));
+      if (TARGET_AVX)
+	lshrti3 = gen_avx_lshrti3;
+      else
+	lshrti3 = gen_sse2_lshrti3;
+
+      emit_insn ((*lshrti3) (gen_lowpart (TImode, src),
+			     gen_lowpart (TImode, operands[1]),
+			     GEN_INT (64)));
     }
   else
     src = operands[1];
@@ -20460,9 +20467,28 @@ ix86_expand_binop_imm_builtin (enum insn_code icode, tree exp,
   tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
-  enum machine_mode tmode = insn_data[icode].operand[0].mode;
-  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
-  enum machine_mode mode1 = insn_data[icode].operand[2].mode;
+  enum machine_mode tmode;
+  enum machine_mode mode0;
+  enum machine_mode mode1;
+
+  if (TARGET_AVX)
+    switch (icode)
+      {
+      case CODE_FOR_sse2_ashlti3:
+	icode = CODE_FOR_avx_ashlti3;
+	break;
+      case CODE_FOR_sse2_lshrti3:
+	icode = CODE_FOR_avx_lshrti3;
+	break;
+      case CODE_FOR_aeskeygenassist:
+	break;
+      default:
+	gcc_unreachable ();
+      }
+
+  tmode = insn_data[icode].operand[0].mode;
+  mode0 = insn_data[icode].operand[1].mode;
+  mode1 = insn_data[icode].operand[2].mode;
 
   if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
     {

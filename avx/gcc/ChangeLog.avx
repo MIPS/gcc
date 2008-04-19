@@ -1,5 +1,17 @@
 2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_expand_sse4_unpack): Use
+	gen_avx_lshrti3 for AVX.
+	(ix86_expand_binop_imm_builtin): Use CODE_FOR_avx_ashlti3 and
+	CODE_FOR_avx_lshrti3 for AVX.
+
+2008-04-19  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/i386.md (avx_ashlti3): New.
+	(avx_lshlti3): Likewise.
+
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (sse_builtin_type): Add V8SI_FTYPE_V8SF,
 	V8SF_FTYPE_V8SI, V4SI_FTYPE_V4DF, V4DF_FTYPE_V4SI,
 	V4DF_FTYPE_V4SF and V4SF_FTYPE_V4DF.
