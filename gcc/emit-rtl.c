@@ -872,9 +872,9 @@ gen_reg_rtx (enum machine_mode mode)
      increase stack alignment estimation because it might be spilled
      to stack later.  */
   if (MAX_VECTORIZE_STACK_ALIGNMENT 
-      && cfun->stack_alignment_estimated < align
-      && !cfun->stack_realign_processed)
-    cfun->stack_alignment_estimated = align;
+      && crtl->stack_alignment_estimated < align
+      && !crtl->stack_realign_processed)
+    crtl->stack_alignment_estimated = align;
 
   if (generating_concat_p
       && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT

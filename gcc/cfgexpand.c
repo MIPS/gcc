@@ -164,10 +164,10 @@ get_decl_align_unit (tree decl)
 
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
     {
-      if (cfun->stack_alignment_estimated < align)
+      if (crtl->stack_alignment_estimated < align)
 	{
-	  gcc_assert(!cfun->stack_realign_processed);
-          cfun->stack_alignment_estimated = align;
+	  gcc_assert(!crtl->stack_realign_processed);
+          crtl->stack_alignment_estimated = align;
 	}
     }
   else
@@ -178,10 +178,10 @@ get_decl_align_unit (tree decl)
 
   /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.
      So here we only make sure stack_alignment_needed >= align.  */
-  if (cfun->stack_alignment_needed < align)
-    cfun->stack_alignment_needed = align;
-  if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
-    cfun->stack_alignment_used = cfun->stack_alignment_needed;
+  if (crtl->stack_alignment_needed < align)
+    crtl->stack_alignment_needed = align;
+  if (crtl->stack_alignment_used < crtl->stack_alignment_needed)
+    crtl->stack_alignment_used = crtl->stack_alignment_needed;
 
   return align / BITS_PER_UNIT;
 }
@@ -774,12 +774,12 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       else
 	align = DECL_ALIGN (var);
 
-      if (cfun->stack_alignment_estimated < align)
+      if (crtl->stack_alignment_estimated < align)
         {
           /* stack_alignment_estimated shouldn't change after stack
              realign decision made */
-          gcc_assert(!cfun->stack_realign_processed);
-	  cfun->stack_alignment_estimated = align;
+          gcc_assert(!crtl->stack_realign_processed);
+	  crtl->stack_alignment_estimated = align;
 	}
     }
 
@@ -1018,7 +1018,7 @@ create_stack_guard (void)
   TREE_THIS_VOLATILE (guard) = 1;
   TREE_USED (guard) = 1;
   expand_one_stack_var (guard);
-  cfun->stack_protect_guard = guard;
+  crtl->stack_protect_guard = guard;
 }
 
 /* A subroutine of expand_used_vars.  Walk down through the BLOCK tree
@@ -1069,8 +1069,8 @@ static void
 init_vars_expansion (void)
 {
   tree t;
-  /* Set TREE_USED on all variables in the unexpanded_var_list.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+  /* Set TREE_USED on all variables in the local_decls.  */
+  for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
     TREE_USED (TREE_VALUE (t)) = 1;
 
   /* Clear TREE_USED on all variables associated with a block scope.  */
@@ -1102,9 +1102,9 @@ estimated_stack_frame_size (void)
 
   init_vars_expansion ();
 
-  /* At this point all variables on the unexpanded_var_list with TREE_USED
+  /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+  for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
     {
       tree var = TREE_VALUE (t);
 
@@ -1153,9 +1153,9 @@ expand_used_vars (void)
 
   init_vars_expansion ();
 
-  /* At this point all variables on the unexpanded_var_list with TREE_USED
+  /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
-  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+  for (t = cfun->local_decls; t; t = TREE_CHAIN (t))
     {
       tree var = TREE_VALUE (t);
       bool expand_now = false;
@@ -1188,7 +1188,7 @@ expand_used_vars (void)
       if (expand_now)
 	expand_one_var (var, true, true);
     }
-  cfun->unexpanded_var_list = NULL_TREE;
+  cfun->local_decls = NULL_TREE;
 
   /* At this point, all variables within the block tree with TREE_USED
      set are actually used by the optimized function.  Lay them out.  */
@@ -1884,7 +1884,7 @@ handle_drap (void)
       || cfun->has_nonlocal_label
       || current_function_has_nonlocal_goto
       || current_function_calls_eh_return)
-    cfun->need_drap = true;
+    crtl->need_drap = true;
 
   /* Call targetm.calls.internal_arg_pointer again.  This time it will
      return a virtual register if DRAP is needed.  */
@@ -1941,6 +1941,12 @@ tree_expand_cfg (void)
   discover_nonconstant_array_refs ();
 
   targetm.expand_to_rtl_hook ();
+  crtl->stack_alignment_needed = STACK_BOUNDARY;
+  crtl->stack_alignment_used = STACK_BOUNDARY;
+  crtl->stack_alignment_estimated = STACK_BOUNDARY;
+  crtl->preferred_stack_boundary = STACK_BOUNDARY;
+  cfun->cfg->max_jumptable_ents = 0;
+
 
   /* Expand the variables recorded during gimple lowering.  */
   expand_used_vars ();
@@ -1951,7 +1957,7 @@ tree_expand_cfg (void)
       if (current_function_calls_alloca)
 	warning (OPT_Wstack_protector, 
 		 "not protecting local variables: variable length buffer");
-      if (has_short_buffer && !cfun->stack_protect_guard)
+      if (has_short_buffer && !crtl->stack_protect_guard)
 	warning (OPT_Wstack_protector, 
 		 "not protecting function: no buffer at least %d bytes long",
 		 (int) PARAM_VALUE (PARAM_SSP_BUFFER_SIZE));
@@ -1969,7 +1975,7 @@ tree_expand_cfg (void)
 
   /* Initialize the stack_protect_guard field.  This must happen after the
      call to __main (if any) so that the external decl is initialized.  */
-  if (cfun->stack_protect_guard)
+  if (crtl->stack_protect_guard)
     stack_protect_prologue ();
 
   /* Register rtl specific functions for cfg.  */
@@ -1986,6 +1992,7 @@ tree_expand_cfg (void)
   FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
     bb = expand_gimple_basic_block (bb);
   pointer_map_destroy (lab_rtx_for_bb);
+  free_histograms ();
 
   construct_exit_block ();
   set_curr_insn_block (DECL_INITIAL (current_function_decl));
@@ -2052,7 +2059,6 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
-  free_histograms ();
   /* Tag the blocks with a depth number so that change_scope can find
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (cfun->decl), 0);

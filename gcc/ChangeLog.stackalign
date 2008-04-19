@@ -1,3 +1,38 @@
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (tree_expand_cfg): Initialize stack_alignment_used
+	and stack_alignment_estimated to STACK_BOUNDARY.
+
+	* function.h (function): Move stack_alignment_used,
+	stack_alignment_estimated, stack_realign_needed,
+	stack_realign_really, need_drap, save_param_ptr_reg,
+	stack_realign_processed and stack_realign_finalized to ...
+	(rtl_data): Here.
+	(stack_realign_fp): Updated.
+	(stack_realign_drap): Likewise.
+	* calls.c (emit_call_1): Likewise.
+	(expand_call): Likewise.
+	(emit_library_call_value_1): Likewise.
+	* cfgexpand.c (get_decl_align_unit): Likewise.
+	(expand_one_var): Likewise.
+	(handle_drap): Likewise.
+	* emit-rtl.c (gen_reg_rtx): Likewise.
+	* function.c (assign_stack_local): Likewise.
+	(assign_parm_adjust_stack_rtl): Likewise.
+	(assign_parms): Likewise.
+	(locate_and_pad_parm): Likewise.
+	* global.c (compute_regsets): Likewise.
+	* reload1.c (reload): Likewise.
+	(update_eliminables): Likewise.
+	* config/i386/i386.c (ix86_compute_frame_layout): Likewise.
+	(ix86_internal_arg_pointer): Likewise.
+	(ix86_finalize_stack_realign_flags): Likewise.
+	(ix86_expand_prologue): Likewise.
+	(ix86_expand_epilogue): Likewise.
+
+	* function.c (allocate_struct_function): Remove initialization
+	of stack_alignment_used and stack_alignment_estimated.
+
 2008-04-15  Joey Ye  <joey.ye@intel.com>
 
 	*  global.c (compute_regsets): Replace cfun->need_frame_pointer_set

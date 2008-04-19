@@ -275,6 +275,10 @@ struct rtl_data GTY(())
      has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
 
+  /* A variable living at the top of the frame that holds a known value.
+     Used for detecting stack clobbers.  */
+  tree stack_protect_guard;
+
   /* List (chain of EXPR_LIST) of labels heading the current handlers for
      nonlocal gotos.  */
   rtx x_nonlocal_goto_handler_labels;
@@ -290,7 +294,7 @@ struct rtl_data GTY(())
   rtx x_naked_return_label;
 
   /* List (chain of EXPR_LISTs) of all stack slots in this function.
-     Made for the sake of unshare_all_crtl->  */
+     Made for the sake of unshare_all_rtl.  */
   rtx x_stack_slot_list;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
@@ -322,12 +326,56 @@ struct rtl_data GTY(())
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
 
+  /* The largest alignment needed on the stack, including requirement
+     for outgoing stack alignment.  */
+  unsigned int stack_alignment_needed;
+
+  /* Preferred alignment of the end of stack frame.  */
+  unsigned int preferred_stack_boundary;
+
+  /* The largest alignment of slot allocated on the stack.  */
+  unsigned int stack_alignment_used;
+
+  /* The estimated stack alignment.  */
+  unsigned int stack_alignment_estimated;
+
+  /* For reorg.  */
+
+  /* If some insns can be deferred to the delay slots of the epilogue, the
+     delay list for them is recorded here.  */
+  rtx epilogue_delay_list;
+
   /* Nonzero if current function must be given a frame pointer.
      Set in global.c if anything is allocated on the stack there.  */
   unsigned int need_frame_pointer : 1;
 
   /* Nonzero if need_frame_pointer has been set.  */
   unsigned int need_frame_pointer_set : 1;
+
+  /* Nonzero if, by estimation, current function stack needs realignment. */
+  unsigned int stack_realign_needed : 1;
+
+  /* Nonzero if function stack realignment is really needed. This flag
+     will be set after reload if by then criteria of stack realignment
+     is still true. Its value may be contridition to stack_realign_needed
+     since the latter was set before reload. This flag is more accurate
+     than stack_realign_needed so prologue/epilogue should be generated
+     according to both flags  */
+  unsigned int stack_realign_really : 1;
+
+  /* Nonzero if function being compiled needs dynamic realigned
+     argument pointer (drap) if stack needs realigning.  */
+  unsigned int need_drap : 1;
+
+  /* Nonzero if current function needs to save/restore parameter
+     pointer register in prolog, because it is a callee save reg.  */
+  unsigned int save_param_ptr_reg : 1;
+
+  /* Nonzero if function stack realignment estimatoin is done.  */
+  unsigned int stack_realign_processed : 1;
+
+  /* Nonzero if function stack realignment has been finalized.  */
+  unsigned int stack_realign_finalized : 1;
 };
 
 #define return_label (crtl->x_return_label)
@@ -342,6 +390,8 @@ struct rtl_data GTY(())
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
 #define frame_pointer_needed (crtl->need_frame_pointer)
+#define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
+#define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 
 extern GTY(()) struct rtl_data x_rtl;
 
@@ -388,23 +438,13 @@ struct function GTY(())
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
+  /* List of function local variables, functions, types and constants.  */
+  tree local_decls;
+
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
-
-  /* The largest alignment needed on the stack, including requirement
-     for outgoing stack alignment.  */
-  unsigned int stack_alignment_needed;
-
-  /* The largest alignment of slot allocated on the stack.  */
-  unsigned int stack_alignment_used;
-
-  /* The estimated stack alignment.  */
-  unsigned int stack_alignment_estimated;
-
-  /* Preferred alignment of the end of stack frame.  */
-  unsigned int preferred_stack_boundary;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
@@ -412,28 +452,8 @@ struct function GTY(())
   /* Used types hash table.  */
   htab_t GTY ((param_is (union tree_node))) used_types_hash;
 
-  /* For reorg.  */
-
-  /* If some insns can be deferred to the delay slots of the epilogue, the
-     delay list for them is recorded here.  */
-  rtx epilogue_delay_list;
-
-  /* Maximal number of entities in the single jumptable.  Used to estimate
-     final flowgraph size.  */
-  int max_jumptable_ents;
-
-  /* UIDs for LABEL_DECLs.  */
-  int last_label_uid;
-
   /* Line number of the end of the function.  */
   location_t function_end_locus;
-
-  /* The variables unexpanded so far.  */
-  tree unexpanded_var_list;
-
-  /* A variable living at the top of the frame that holds a known value.
-     Used for detecting stack clobbers.  */
-  tree stack_protect_guard;
 
   /* Properties used by the pass manager.  */
   unsigned int curr_properties;
@@ -557,31 +577,6 @@ struct function GTY(())
 
   /* Nonzero if pass_tree_profile was run on this function.  */
   unsigned int after_tree_profile : 1;
-
-  /* Nonzero if, by estimation, current function stack needs realignment. */
-  unsigned int stack_realign_needed : 1;
-
-  /* Nonzero if function stack realignment is really needed. This flag
-     will be set after reload if by then criteria of stack realignment
-     is still true. Its value may be contridition to stack_realign_needed
-     since the latter was set before reload. This flag is more accurate
-     than stack_realign_needed so prologue/epilogue should be generated
-     according to both flags  */
-  unsigned int stack_realign_really : 1;
-
-  /* Nonzero if function being compiled needs dynamic realigned
-     argument pointer (drap) if stack needs realigning.  */
-  unsigned int need_drap : 1;
-
-  /* Nonzero if current function needs to save/restore parameter
-     pointer register in prolog, because it is a callee save reg.  */
-  unsigned int save_param_ptr_reg : 1;
-
-  /* Nonzero if function stack realignment estimatoin is done.  */
-  unsigned int stack_realign_processed : 1;
-
-  /* Nonzero if function stack realignment has been finalized.  */
-  unsigned int stack_realign_finalized : 1;
 };
 
 /* If va_list_[gf]pr_size is set to this, it means we don't know how
@@ -626,7 +621,6 @@ extern void instantiate_decl_rtl (rtx x);
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)
-#define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
 #define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
 #define current_function_saves_all_registers (cfun->saves_all_registers)
 #define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
@@ -636,8 +630,6 @@ extern void instantiate_decl_rtl (rtx x);
 #define dom_computed (cfun->cfg->x_dom_computed)
 #define n_bbs_in_dom_tree (cfun->cfg->x_n_bbs_in_dom_tree)
 #define VALUE_HISTOGRAMS(fun) (fun)->value_histograms
-#define stack_realign_fp (cfun->stack_realign_needed && !cfun->need_drap)
-#define stack_realign_drap (cfun->stack_realign_needed && cfun->need_drap)
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */

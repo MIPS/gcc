@@ -778,7 +778,7 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
   /* DRAP is needed for stack realign if longjmp is expanded to current 
      function  */
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
-    cfun->need_drap = true;
+    crtl->need_drap = true;
 
   if (setjmp_alias_set == -1)
     setjmp_alias_set = new_alias_set ();
@@ -1464,7 +1464,7 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
      current_function_calls_alloca won't be set if argsize is zero,
      so we have to guarantee need_drap is true here.  */
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
-    cfun->need_drap = true;
+    crtl->need_drap = true;
 
   dest = virtual_outgoing_args_rtx;
 #ifndef STACK_GROWS_DOWNWARD

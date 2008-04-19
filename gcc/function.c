@@ -289,7 +289,6 @@ free_after_compilation (struct function *f)
   f->machine = NULL;
   f->cfg = NULL;
 
-  f->epilogue_delay_list = NULL;
   regno_reg_rtx = NULL;
 }
 
@@ -381,22 +380,22 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
     {
-      if (cfun->stack_alignment_estimated < alignment_in_bits)
+      if (crtl->stack_alignment_estimated < alignment_in_bits)
 	{
-          if (!cfun->stack_realign_processed)
-            cfun->stack_alignment_estimated = alignment_in_bits;
+          if (!crtl->stack_realign_processed)
+            crtl->stack_alignment_estimated = alignment_in_bits;
           else
 	    {
-	      gcc_assert (!cfun->stack_realign_finalized);
-	      if (!cfun->stack_realign_needed)
+	      gcc_assert (!crtl->stack_realign_finalized);
+	      if (!crtl->stack_realign_needed)
 		{
 		  /* It is OK to reduce the alignment as long as the
 		     requested size is 0 or the estimated stack
 		     alignment >= mode alignment.  */
 		  gcc_assert (size == 0
-			      || (cfun->stack_alignment_estimated
+			      || (crtl->stack_alignment_estimated
 				  >= mode_alignment));
-		  alignment_in_bits = cfun->stack_alignment_estimated;
+		  alignment_in_bits = crtl->stack_alignment_estimated;
 		  alignment = alignment_in_bits / BITS_PER_UNIT;
 		}
 	    }
@@ -412,10 +411,10 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 	  alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
 	}
     }
-  if (cfun->stack_alignment_needed < alignment_in_bits)
-    cfun->stack_alignment_needed = alignment_in_bits;
-  if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
-    cfun->stack_alignment_used = cfun->stack_alignment_needed;
+  if (crtl->stack_alignment_needed < alignment_in_bits)
+    crtl->stack_alignment_needed = alignment_in_bits;
+  if (crtl->stack_alignment_used < crtl->stack_alignment_needed)
+    crtl->stack_alignment_used = crtl->stack_alignment_needed;
 
   /* Calculate how many bytes the start of local variables is off from
      stack alignment.  */
@@ -2425,7 +2424,7 @@ assign_parm_adjust_stack_rtl (struct assign_parm_data_one *data)
 
   /* If stack protection is in effect for this function, don't leave any
      pointers in their passed stack slots.  */
-  else if (cfun->stack_protect_guard
+  else if (crtl->stack_protect_guard
 	   && (flag_stack_protect == 2
 	       || data->passed_pointer
 	       || POINTER_TYPE_P (data->nominal_type)))
@@ -3021,10 +3020,10 @@ assign_parms (tree fndecl)
 						      data.passed_type);
 	  if (TYPE_ALIGN (data.nominal_type) > align)
 	    align = TYPE_ALIGN (data.passed_type);
-	  if (cfun->stack_alignment_estimated < align)
+	  if (crtl->stack_alignment_estimated < align)
 	    {
-	      gcc_assert (!cfun->stack_realign_processed);
-	      cfun->stack_alignment_estimated = align;
+	      gcc_assert (!crtl->stack_realign_processed);
+	      crtl->stack_alignment_estimated = align;
 	    }
 	}
 	
@@ -3078,10 +3077,10 @@ assign_parms (tree fndecl)
 	      && !AGGREGATE_TYPE_P (type))
 	    {
 	      unsigned int align = GET_MODE_ALIGNMENT (mode);
-	      if (cfun->stack_alignment_estimated < align)
+	      if (crtl->stack_alignment_estimated < align)
 		{
-		  gcc_assert (!cfun->stack_realign_processed);
-		  cfun->stack_alignment_estimated = align;
+		  gcc_assert (!crtl->stack_realign_processed);
+		  crtl->stack_alignment_estimated = align;
 		}
 	    }
 	} 
@@ -3368,14 +3367,14 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     {
       /* stack_alignment_estimated can't change after stack has been
 	 realigned.  */
-      if (cfun->stack_alignment_estimated < boundary)
+      if (crtl->stack_alignment_estimated < boundary)
         {
-          if (!cfun->stack_realign_processed)
-	    cfun->stack_alignment_estimated = boundary;
+          if (!crtl->stack_realign_processed)
+	    crtl->stack_alignment_estimated = boundary;
 	  else
 	    {
-	      gcc_assert (!cfun->stack_realign_finalized
-			  && cfun->stack_realign_needed);
+	      gcc_assert (!crtl->stack_realign_finalized
+			  && crtl->stack_realign_needed);
 	    }
 	}
     }
@@ -3386,12 +3385,12 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
       if (boundary > PREFERRED_STACK_BOUNDARY)
         boundary = PREFERRED_STACK_BOUNDARY;
     }
-  if (cfun->stack_alignment_needed < boundary)
-    cfun->stack_alignment_needed = boundary;
-  if (cfun->stack_alignment_used < cfun->stack_alignment_needed)
-    cfun->stack_alignment_used = cfun->stack_alignment_needed;
-  if (cfun->preferred_stack_boundary < boundary)
-    cfun->preferred_stack_boundary = boundary;
+  if (crtl->stack_alignment_needed < boundary)
+    crtl->stack_alignment_needed = boundary;
+  if (crtl->stack_alignment_used < crtl->stack_alignment_needed)
+    crtl->stack_alignment_used = crtl->stack_alignment_needed;
+  if (crtl->preferred_stack_boundary < boundary)
+    crtl->preferred_stack_boundary = boundary;
 
 #ifdef ARGS_GROW_DOWNWARD
   locate->slot_offset.constant = -initial_offset_ptr->constant;
@@ -3946,11 +3945,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 
   cfun = ggc_alloc_cleared (sizeof (struct function));
 
-  cfun->stack_alignment_needed = STACK_BOUNDARY;
-  cfun->stack_alignment_used = STACK_BOUNDARY;
-  cfun->stack_alignment_estimated = STACK_BOUNDARY;
-  cfun->preferred_stack_boundary = STACK_BOUNDARY;
-
   current_function_funcdef_no = get_next_funcdef_no ();
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
@@ -4126,9 +4120,9 @@ stack_protect_prologue (void)
 
   /* Avoid expand_expr here, because we don't want guard_decl pulled
      into registers unless absolutely necessary.  And we know that
-     cfun->stack_protect_guard is a local stack slot, so this skips
+     crtl->stack_protect_guard is a local stack slot, so this skips
      all the fluff.  */
-  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  x = validize_mem (DECL_RTL (crtl->stack_protect_guard));
   y = validize_mem (DECL_RTL (guard_decl));
 
   /* Allow the target to copy from Y to X without leaking Y into a
@@ -4164,9 +4158,9 @@ stack_protect_epilogue (void)
 
   /* Avoid expand_expr here, because we don't want guard_decl pulled
      into registers unless absolutely necessary.  And we know that
-     cfun->stack_protect_guard is a local stack slot, so this skips
+     crtl->stack_protect_guard is a local stack slot, so this skips
      all the fluff.  */
-  x = validize_mem (DECL_RTL (cfun->stack_protect_guard));
+  x = validize_mem (DECL_RTL (crtl->stack_protect_guard));
   y = validize_mem (DECL_RTL (guard_decl));
 
   /* Allow the target to compare Y with X without leaking either into
@@ -4687,7 +4681,7 @@ expand_function_end (void)
     emit_insn (gen_blockage ());
 
   /* If stack protection is enabled for this function, check the guard.  */
-  if (cfun->stack_protect_guard)
+  if (crtl->stack_protect_guard)
     stack_protect_epilogue ();
 
   /* If we had calls to alloca, and this machine needs
