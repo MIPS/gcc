@@ -1,3 +1,20 @@
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2008-04-17  Tom Tromey  <tromey@redhat.com>
+
+	PR libcpp/34866:
+	* errors.c (cpp_error): Don't reference a token before the start
+	of the current run.
+
+2008-04-16  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in (TAGS_SOURCES): New variable.
+	(TAGS): New target.
+
 2008-04-11  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* configure.ac: (need_64bit_hwint): Need 64bit hwint for sh-*-*

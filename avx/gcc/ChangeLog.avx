@@ -1,3 +1,21 @@
+2008-04-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Add V8SI_FTYPE_V8SI_INT,
+	V8SF_FTYPE_V8SF_INT, V4DF_FTYPE_V4DF_INT,
+	V8SF_FTYPE_V8SF_V8SF_V8SF, V4DF_FTYPE_V4DF_V4DF_V4DF,
+	V8SF_FTYPE_V8SF_V8SF_INT and V4DF_FTYPE_V4DF_V4DF_INT.
+	(bdesc_sse_args): Add some AVX instrincis.
+	(bdesc_1arg): Remove IX86_BUILTIN_EXTRACTF128PD256,
+	IX86_BUILTIN_EXTRACTF128PS256 and
+	and IX86_BUILTIN_EXTRACTF128SI256.
+	(ix86_init_mmx_sse_builtins): Updated to handle some AVX
+	instrincis.  Remove __builtin_ia32_vextractf128_pd256,
+	__builtin_ia32_vextractf128_ps256 and
+	__builtin_ia32_vextractf128_si256.
+	(ix86_expand_sse_operands_builtin): Handle some AVX instrincis.
+	(ix86_expand_unop_builtin): Remove CODE_FOR_avx_vextractf128v2df,
+	CODE_FOR_avx_vextractf128v4sf and CODE_FOR_avx_vextractf128v4si.
+
 2008-04-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_expand_builtin): Updated.

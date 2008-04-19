@@ -1,3 +1,34 @@
+2008-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <E_Subprogram_Type>: Use the return by
+	target pointer mechanism as soon as the size is not constant.
+
+2008-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gigi.h (create_var_decl_1): Declare.
+	(create_var_decl): Turn into a macro invoking create_var_decl_1.
+	(create_true_var_decl): Likewise.
+	* utils.c (create_var_decl_1): Make global and reorder parameters.
+	(create_var_decl): Delete.
+	(create_true_var_decl): Likewise.
+
+2008-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <object>: Promote the alignment of
+	objects by default.
+	* fe.h (Debug_Flag_Dot_A): Delete.
+	* debug.adb (-gnatd.a): Update documentation.
+
+2008-04-17  Samuel Tardieu  <sam@rfc1149.net>
+
+	* g-socket.ads, g-socket.adb (Get_Address): Make Stream a
+	"not null" parameter.
+
+2008-04-17  Samuel Tardieu  <sam@rfc1149.net>
+
+	* g-socket.adb: Add a message "IPv6 not supported" to the
+	Socket_Error exception.
+
 2008-04-16  Samuel Tardieu  <sam@rfc1149.net>
 
 	PR ada/29015
