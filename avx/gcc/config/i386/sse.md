@@ -80,6 +80,9 @@
 ;; Mapping of immediate bits for blend instructions
 (define_mode_attr blendbits [(V8SF "255") (V4SF "15") (V4DF "15") (V2DF "3")])
 
+;; Mapping of immediate bits for vpermil instructions
+(define_mode_attr vpermilbits [(V8SF "255") (V4SF "255") (V4DF "15") (V2DF "3")])
+
 ;; Patterns whose name begins with "sse{,2,3}_" are invoked by intrinsics.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -8640,3 +8643,50 @@
   [(set_attr "type" "sse")
    (set_attr "memory" "none")
    (set_attr "mode" "OI")])
+
+(define_insn "avx_vpermil<mode>"
+  [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
+	(unspec:AVXMODEF2P
+	  [(match_operand:AVXMODEF2P 1 "register_operand" "xm")
+	   (match_operand:SI 2 "const_0_to_<vpermilbits>_operand" "n")]
+	  UNSPEC_VPERMIL))]
+  "TARGET_AVX"
+  "vpermilp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "avx_vpermilvar<mode>3"
+  [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
+	(unspec:AVXMODEF2P
+	  [(match_operand:AVXMODEF2P 1 "register_operand" "x")
+	   (match_operand:AVXMODEF2P 2 "nonimmediate_operand" "xm")]
+	  UNSPEC_VPERMIL))]
+  "TARGET_AVX"
+  "vpermilp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "avx_vpermil2<mode>3"
+  [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x,x")
+	(unspec:AVXMODEF2P
+	  [(match_operand:AVXMODEF2P 1 "register_operand" "x,x")
+	   (match_operand:AVXMODEF2P 2 "nonimmediate_operand" "x,xm")
+	   (match_operand:AVXMODEF2P 3 "nonimmediate_operand" "xm,x")
+	   (match_operand:SI 4 "const_0_to_3_operand" "n,n")]
+	  UNSPEC_VPERMIL2))]
+  "TARGET_AVX"
+  "vpermil2p<avxmodesuffixf2c>\t{%4, %3, %2, %1, %0|%0, %1, %2, %3, %4}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "avx_vperm2f128<mode>3"
+  [(set (match_operand:AVX256MODE 0 "register_operand" "=x")
+	(unspec:AVX256MODE
+	  [(match_operand:AVX256MODE 1 "register_operand" "x")
+	   (match_operand:AVX256MODE 2 "nonimmediate_operand" "xm")
+	   (match_operand:SI 3 "const_0_to_255_operand" "n")]
+	  UNSPEC_VPERMIL2F128))]
+  "TARGET_AVX"
+  "vperm2f128\t{%3, %2, %1, %0|%0, %1, %2, %3}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "<avxvecmode>")])

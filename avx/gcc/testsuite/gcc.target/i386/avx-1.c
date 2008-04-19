@@ -33,6 +33,17 @@
 #define __builtin_ia32_vextractf128_pd256(X, N) __builtin_ia32_vextractf128_pd256(X, 1)
 #define __builtin_ia32_vextractf128_ps256(X, N) __builtin_ia32_vextractf128_ps256(X, 1)
 #define __builtin_ia32_vextractf128_si256(X, N) __builtin_ia32_vextractf128_si256(X, 1)
+#define __builtin_ia32_vpermilpd(X, N) __builtin_ia32_vpermilpd(X, 1)
+#define __builtin_ia32_vpermilpd256(X, N) __builtin_ia32_vpermilpd256(X, 1)
+#define __builtin_ia32_vpermilps(X, N) __builtin_ia32_vpermilps(X, 1)
+#define __builtin_ia32_vpermilps256(X, N) __builtin_ia32_vpermilps256(X, 1)
+#define __builtin_ia32_vpermil2pd(X, Y, C, I) __builtin_ia32_vpermil2pd(X, Y, C, 1)
+#define __builtin_ia32_vpermil2pd256(X, Y, C, I) __builtin_ia32_vpermil2pd256(X, Y, C, 1)
+#define __builtin_ia32_vpermil2ps(X, Y, C, I) __builtin_ia32_vpermil2ps(X, Y, C, 1)
+#define __builtin_ia32_vpermil2ps256(X, Y, C, I) __builtin_ia32_vpermil2ps256(X, Y, C, 1)
+#define __builtin_ia32_vperm2f128_pd256(X, Y, C) __builtin_ia32_vperm2f128_pd256(X, Y, 1)
+#define __builtin_ia32_vperm2f128_ps256(X, Y, C) __builtin_ia32_vperm2f128_ps256(X, Y, 1)
+#define __builtin_ia32_vperm2f128_si256(X, Y, C) __builtin_ia32_vperm2f128_si256(X, Y, 1)
 
 /* wmmintrin.h */
 #define __builtin_ia32_aeskeygenassist128(X, C) __builtin_ia32_aeskeygenassist128(X, 1)

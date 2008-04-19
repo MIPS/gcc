@@ -35,6 +35,11 @@
   type _CONCAT(_,func) (op1_type A, op2_type B, int const I, int const L) \
   { return func (A, B, imm1, imm2); }
 
+#define test_3(func, type, op1_type, op2_type, op3_type, imm)	\
+  type _CONCAT(_,func) (op1_type A, op2_type B,				\
+			op3_type C, int const I)		\
+  { return func (A, B, C, imm); }
+
 #define test_4(func, type, op1_type, op2_type, op3_type, op4_type, imm)	\
   type _CONCAT(_,func) (op1_type A, op2_type B,				\
 			op3_type C, op4_type D, int const I)		\
@@ -63,6 +68,17 @@ test_2 (_mm256_cmp_ps, __m256, __m256, __m256, 1)
 test_1 (_mm256_extractf128_pd, __m128d, __m256d, 1)
 test_1 (_mm256_extractf128_ps, __m128, __m256, 1)
 test_1 (_mm256_extractf128_si256, __m128i, __m256i, 1)
+test_1 (_mm_permute_pd, __m128d, __m128d, 1)
+test_1 (_mm256_permute_pd, __m256d, __m256d, 1)
+test_1 (_mm_permute_ps, __m128, __m128, 1)
+test_1 (_mm256_permute_ps, __m256, __m256, 1)
+test_3 (_mm_permute2_pd, __m128d, __m128d, __m128d, __m128d, 1)
+test_3 (_mm256_permute2_pd, __m256d, __m256d, __m256d, __m256d, 1)
+test_3 (_mm_permute2_ps, __m128, __m128, __m128, __m128, 1)
+test_3 (_mm256_permute2_ps, __m256, __m256, __m256, __m256, 1)
+test_2 (_mm256_permute2f128_pd, __m256d, __m256d, __m256d, 1)
+test_2 (_mm256_permute2f128_ps, __m256, __m256, __m256, 1)
+test_2 (_mm256_permute2f128_si256, __m256i, __m256i, __m256i, 1)
 
 /* wmmintrin.h */
 test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)

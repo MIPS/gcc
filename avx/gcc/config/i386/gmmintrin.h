@@ -521,48 +521,51 @@ _mm256_zeroupper (void)
   __builtin_ia32_vzeroupper ();
 }
 
-#if 0
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permutevar_pd (__m128d __A, __m128d __B)
 {
-  return (__m128d) __builtin_ia32_vpermilpd128 ((__v2df)__A, (__v2df)__B);
+  return (__m128d) __builtin_ia32_vpermilvarpd ((__v2df)__A,
+						(__v2df)__B);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permutevar_pd (__m256d __A, __m256d __B)
 {
-  return (__m256d) __builtin_ia32_vpermilpd256 ((__v4df)__A, (__v4df)__B);
+  return (__m256d) __builtin_ia32_vpermilvarpd256 ((__v4df)__A,
+						   (__v4df)__B);
 }
 
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permutevar_ps (__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_vpermilps128 ((__v4sf)__A, (__v4sf)__B);
+  return (__m128) __builtin_ia32_vpermilvarps ((__v4sf)__A,
+					       (__v4sf)__B);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permutevar_ps (__m256 __A, __m256 __B)
 {
-  return (__m256) __builtin_ia32_vpermilps256 ((__v8sf)__A, (__v8sf)__B);
+  return (__m256) __builtin_ia32_vpermilvarps256 ((__v8sf)__A,
+						  (__v8sf)__B);
 }
 
 #ifdef __OPTIMIZE__
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permute_pd (__m128d __X, const int __C)
 {
-  return (__m128d) __builtin_ia32_vpermilpd128 ((__v2df)__X, __C);
+  return (__m128d) __builtin_ia32_vpermilpd ((__v2df)__X, __C);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permute_pd (__m256d __X, const int __C)
 {
-  return (__m256d) __builtin_ia32_vpermilps256 ((__v4df)__X, __C);
+  return (__m256d) __builtin_ia32_vpermilpd256 ((__v4df)__X, __C);
 }
 
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permute_ps (__m128 __X, const int __C)
 {
-  return (__m128) __builtin_ia32_vpermilps128 ((__v4sf)__X, __C);
+  return (__m128) __builtin_ia32_vpermilps ((__v4sf)__X, __C);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -574,10 +577,10 @@ _mm256_permute_ps (__m256 __X, const int __C)
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permute2_pd (__m128d __X, __m128d __Y, __m128d __C, const int __I)
 {
-  return (__m128d) __builtin_ia32_vpermil2pd128 ((__v2df)__X,
-						 (__v2df)__Y,
-						 (__v2df)__C,
-						 __I);
+  return (__m128d) __builtin_ia32_vpermil2pd ((__v2df)__X,
+					      (__v2df)__Y,
+					      (__v2df)__C,
+					      __I);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -592,10 +595,10 @@ _mm256_permute2_pd (__m256d __X, __m256d __Y, __m256d __C, const int __I)
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_permute2_ps (__m128 __X, __m128 __Y, __m128 __C, const int __I)
 {
-  return (__m128) __builtin_ia32_vpermil2ps128 ((__v4sf)__X,
-						(__v4sf)__Y,
-						(__v4sf)__C,
-						__I);
+  return (__m128) __builtin_ia32_vpermil2ps ((__v4sf)__X,
+					     (__v4sf)__Y,
+					     (__v4sf)__C,
+					     __I);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -607,44 +610,40 @@ _mm256_permute2_ps (__m256 __X, __m256 __Y, __m256 __C, const int __I)
 						__I);
 }
 #else
-#define _mm_permute_pd(X, C)					\
-  ((__m128d) __builtin_ia32_vpermilpd128 ((__v2df)(__m128d)(X),	\
-					  (int)(C)))
+#define _mm_permute_pd(X, C)						\
+  ((__m128d) __builtin_ia32_vpermilpd ((__v2df)(__m128d)(X), (int)(C)))
 
-#define _mm256_permute_pd(X, C)					\
-  ((__m256d) __builtin_ia32_vpermilpd256 ((__v4df)(__m256d)(X),	\
-					  (int)(C)))
+#define _mm256_permute_pd(X, C)						\
+  ((__m256d) __builtin_ia32_vpermilpd256 ((__v4df)(__m256d)(X),	(int)(C)))
 
-#define _mm_permute_ps(X, C)					\
-  ((__m128) __builtin_ia32_vpermilps128 ((__v4sf)(__m128)(X),	\
-					 (int)(C)))
+#define _mm_permute_ps(X, C)						\
+  ((__m128) __builtin_ia32_vpermilps ((__v4sf)(__m128)(X), (int)(C)))
 
-#define _mm256_permute_ps(X, C)					\
-  ((__m256) __builtin_ia32_vpermilps256 ((__v8sf)(__m256)(X),	\
-					 (int)(C)))
+#define _mm256_permute_ps(X, C)						\
+  ((__m256) __builtin_ia32_vpermilps256 ((__v8sf)(__m256)(X), (int)(C)))
 
-#define _mm_permute2_pd(X, Y, C, I)				\
-  ((__m128d) __builtin_ia32_vpermil2pd128 ((__v2df)(__m128d)(X),\
-					   (__v2df)(__m128d)(Y),\
-					   (__v2df)(__m128d)(C),\
+#define _mm_permute2_pd(X, Y, C, I)					\
+  ((__m128d) __builtin_ia32_vpermil2pd ((__v2df)(__m128d)(X),		\
+					(__v2df)(__m128d)(Y),		\
+					(__v2df)(__m128d)(C),		\
+					(int)(I)))
+
+#define _mm256_permute2_pd(X, Y, C, I)					\
+  ((__m256d) __builtin_ia32_vpermil2pd256 ((__v4df)(__m256d)(X),	\
+					   (__v4df)(__m256d)(Y),	\
+					   (__v4df)(__m256d)(C),	\
 					   (int)(I)))
 
-#define _mm256_permute2_pd(X, Y, C, I)				\
-  ((__m256d) __builtin_ia32_vpermil2pd256 ((__v4sf)(__m256d)(X),\
-					   (__v4df)(__m256d)(Y),\
-					   (__v4df)(__m256d)(C),\
-					   (int)(I)))
+#define _mm_permute2_ps(X, Y, C, I)					\
+  ((__m128) __builtin_ia32_vpermil2ps ((__v4sf)(__m128)(X),		\
+				       (__v4sf)(__m128)(Y),		\
+				       (__v4sf)(__m128)(C),		\
+				       (int)(I)))
 
-#define _mm_permute2_ps(X, Y, C, I)				\
-  ((__m128) __builtin_ia32_vpermil2ps128 ((__v4sf)(__m128)(X),	\
-					  (__v4sf)(__m128)(Y),  \
-					  (__v4sf)(__m128)(C),  \
-					  (int)(I)))
-
-#define _mm256_permute2_ps(X, Y, C, I)				\
-  ((__m256) __builtin_ia32_vpermil2ps256 ((__v8sf)(__m256)(X),	\
-					  (__v8sf)(__m256)(Y),  \
-					  (__v8sf)(__m256)(C),  \
+#define _mm256_permute2_ps(X, Y, C, I)					\
+  ((__m256) __builtin_ia32_vpermil2ps256 ((__v8sf)(__m256)(X),		\
+					  (__v8sf)(__m256)(Y),  	\
+					  (__v8sf)(__m256)(C),		\
 					  (int)(I)))
 #endif
 
@@ -652,43 +651,44 @@ _mm256_permute2_ps (__m256 __X, __m256 __Y, __m256 __C, const int __I)
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permute2f128_pd (__m256d __X, __m256d __Y, const int __C)
 {
-  return (__m256d) __builtin_ia32_vperm2f128_pd ((__v4df)__X,
-						 (__v4df)__y,
-						 __C);
+  return (__m256d) __builtin_ia32_vperm2f128_pd256 ((__v4df)__X,
+						    (__v4df)__Y,
+						    __C);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permute2f128_ps (__m256 __X, __m256 __Y, const int __C)
 {
-  return (__m256) __builtin_ia32_vperm2f128_ps ((__v8sf)__X,
-						(__v8sf)__y,
-						__C);
+  return (__m256) __builtin_ia32_vperm2f128_ps256 ((__v8sf)__X,
+						   (__v8sf)__Y,
+						   __C);
 }
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_permute2f128_si256 (__m256i __X, __m256i __Y, const int __C)
 {
   return (__m256i) __builtin_ia32_vperm2f128_si256 ((__v8si)__X,
-						    (__v8si)__y,
+						    (__v8si)__Y,
 						    __C);
 }
 #else
-#define _mm256_permute2f128_pd(X, Y, C)				\
-  ((__m256d) __builtin_ia32_vperm2f128_pd ((__v4df)(__m256d)(X),\
-					   (__v4df)(__m256d)(Y),\
-					   (int)(C)))
+#define _mm256_permute2f128_pd(X, Y, C)					\
+  ((__m256d) __builtin_ia32_vperm2f128_pd256 ((__v4df)(__m256d)(X),	\
+					      (__v4df)(__m256d)(Y),	\
+					      (int)(C)))
 
-#define _mm256_permute2f128_ps(X, Y, C)				\
-  ((__m256) __builtin_ia32_vperm2f128_ps ((__v8sf)(__m256)(X),	\
-					  (__v8sf)(__m256)(Y),  \
-					  (int)(C)))
+#define _mm256_permute2f128_ps(X, Y, C)					\
+  ((__m256) __builtin_ia32_vperm2f128_ps256 ((__v8sf)(__m256)(X),	\
+					     (__v8sf)(__m256)(Y),	\
+					     (int)(C)))
 
-#define _mm256_permute2f128_si256(X, Y, C)			\
-  ((__m256i) __builtin_ia32_vperm2f128_si256 ((__v8si)(__m256i)(X),\
-					      (__v8si)(__m256i)(Y),\
+#define _mm256_permute2f128_si256(X, Y, C)				\
+  ((__m256i) __builtin_ia32_vperm2f128_si256 ((__v8si)(__m256i)(X),	\
+					      (__v8si)(__m256i)(Y),	\
 					      (int)(C)))
 #endif
 
+#if 0
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_broadcast_ss (float const *__X)
 {
@@ -835,14 +835,14 @@ _mm256_storeu_si256 (__m256i *__P, __m256i __A)
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskload_pd (double const *__P, __m128d __M)
 {
-  return (__m128d) __builtin_ia32_maskloadpd128 ((__v2df)__P,
-						 (__v2df)__M);
+  return (__m128d) __builtin_ia32_maskloadpd ((__v2df)__P,
+					      (__v2df)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskstore_pd (double *__P, __m128d __M, __m128d __A)
 {
-  __builtin_ia32_maskstorepd128 (__P, (__v2df)__M, (__v2df)__A);
+  __builtin_ia32_maskstorepd (__P, (__v2df)__M, (__v2df)__A);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -861,14 +861,14 @@ _mm256_maskstore_pd (double *__P, __m256d __M, __m256d __A)
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskload_ps (float const *__P, __m128 __M)
 {
-  return (__m128) __builtin_ia32_maskloadps128 ((__v4sf)__P,
-						(__v4sf)__M);
+  return (__m128) __builtin_ia32_maskloadps ((__v4sf)__P,
+					     (__v4sf)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskstore_ps (float *__P, __m128 __M, __m128 __A)
 {
-  __builtin_ia32_maskstoreps128 (__P, (__v4sf)__M, (__v4sf)__A);
+  __builtin_ia32_maskstoreps (__P, (__v4sf)__M, (__v4sf)__A);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))

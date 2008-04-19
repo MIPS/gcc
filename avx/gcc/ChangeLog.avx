@@ -1,5 +1,73 @@
 2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/gmmintrin.h (_mm_permutevar_pd): Call
+	__builtin_ia32_vpermilvarpd instead of __builtin_ia32_vpermilpd128.
+	(_mm256_permutevar_pd): Call __builtin_ia32_vpermilvarpd256
+	instead of __builtin_ia32_vpermilpd256.
+	(_mm_permutevar_ps): Call __builtin_ia32_vpermilvarps instead
+	of __builtin_ia32_vpermilps128.
+	(_mm256_permutevar_ps): Call __builtin_ia32_vpermilvarps256
+	instead of __builtin_ia32_vpermilps256.
+	(_mm_permute_pd): Call __builtin_ia32_vpermilpd instead of
+	__builtin_ia32_vpermilpd128.
+	(_mm256_permute_pd): Fix a typo.
+	(_mm_permute_ps): Call __builtin_ia32_vpermilps instead of
+	__builtin_ia32_vpermilps128.
+	(_mm_permute2_pd): Call __builtin_ia32_vpermil2pd instead of
+	__builtin_ia32_vpermil2pd128.
+	(_mm_permute2_ps): Call __builtin_ia32_vpermil2ps instead of
+	__builtin_ia32_vpermil2ps128.
+	(_mm_maskload_pd): Call __builtin_ia32_maskloadpd instead of
+	__builtin_ia32_maskloadpd128.
+	(_mm_maskstore_pd): Call __builtin_ia32_maskstorepd instead of
+	__builtin_ia32_maskstorepd128.
+	(_mm_maskload_ps): Call __builtin_ia32_maskloadps instead of
+	__builtin_ia32_maskloadps128.
+	(_mm_maskstore_ps): Call __builtin_ia32_maskstoreps instead of
+	__builtin_ia32_maskstoreps128.
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_VPERMILVARPD,
+	IX86_BUILTIN_VPERMILVARPS, IX86_BUILTIN_VPERMILVARPD256,
+	IX86_BUILTIN_VPERMILVARPS256, IX86_BUILTIN_VPERMILPD,
+	IX86_BUILTIN_VPERMILPS, IX86_BUILTIN_VPERMILPD256,
+	IX86_BUILTIN_VPERMILPS256, IX86_BUILTIN_VPERMIL2PD,
+	IX86_BUILTIN_VPERMIL2PS, IX86_BUILTIN_VPERMIL2PD256,
+	IX86_BUILTIN_VPERMIL2PS256, IX86_BUILTIN_VPERM2F128PD256,
+	IX86_BUILTIN_VPERM2F128PS256 and IX86_BUILTIN_VPERM2F128SI256.
+	(sse_builtin_type): Add V8SF_FTYPE_V8SF_INT,
+	V4DF_FTYPE_V4DF_INT, V8SI_FTYPE_V8SI_V8SI_INT,
+	V8SF_FTYPE_V8SF_V8SF_V8SF_INT, V4DF_FTYPE_V4DF_V4DF_V4DF_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SF_INT and V2DF_FTYPE_V2DF_V2DF_V2DF_INT.
+	(bdesc_sse_args): Add __builtin_ia32_vperm2f128_pd256,
+	__builtin_ia32_vperm2f128_ps256, __builtin_ia32_vperm2f128_si256,
+	__builtin_ia32_vpermilpd, __builtin_ia32_vpermilps,
+	__builtin_ia32_vpermilpd256, __builtin_ia32_vpermilps256,
+	__builtin_ia32_vpermil2pd, __builtin_ia32_vpermil2ps,
+	__builtin_ia32_vpermil2pd256 and __builtin_ia32_vpermil2ps256.
+	(bdesc_2arg): Add __builtin_ia32_vpermilvarpd,
+	__builtin_ia32_vpermilvarps, __builtin_ia32_vpermilvarpd256
+	and __builtin_ia32_vpermilvarps256.
+	(bdesc_1arg): Add IX86_BUILTIN_VPERMILPD, IX86_BUILTIN_VPERMILPS,
+	IX86_BUILTIN_VPERMILPD256 and IX86_BUILTIN_VPERMILPS256.
+	(ix86_init_mmx_sse_builtins): Handle bdesc_avx_4arg.  Support
+	v8si_ftype_v8si_v8si_int in bdesc_2arg.  Define
+	__builtin_ia32_vpermilpd, __builtin_ia32_vpermilps,
+	__builtin_ia32_vpermilpd256 and __builtin_ia32_vpermilps256.
+	(ix86_init_mmx_sse_builtins): Handle more AVX builtins.
+	(ix86_expand_sse_operands_builtin): Support 4 arguments.  Handle
+	more AVX builtins.
+
+	* config/i386/i386.md (UNSPEC_VPERMIL): New.
+	(UNSPEC_VPERMIL2): Likewise.
+	(UNSPEC_VPERMIL2F128): Likewise.
+
+	* config/i386/sse.md (avx_vpermil<mode>3): New.
+	(avx_vpermilvar<mode>3): Likewise.
+	(avx_vpermil2<mode>3): Likewise.
+	(avx_vpermil2f128<mode>3): Likewise.
+
+2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (ix86_expand_sse4_unpack): Use
 	gen_avx_lshrti3 for AVX.
 	(ix86_expand_binop_imm_builtin): Use CODE_FOR_avx_ashlti3 and
