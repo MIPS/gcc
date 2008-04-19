@@ -20249,6 +20249,9 @@ ix86_expand_sse_operands_builtin (enum insn_code icode, tree exp,
 
   switch (type)
     {
+    case V4SI_FTYPE_V8SI_INT:
+    case V4SF_FTYPE_V8SF_INT:
+    case V2DF_FTYPE_V4DF_INT:
     case V4SF_FTYPE_V4SF_INT:
     case V2DI_FTYPE_V2DI_INT:
     case V2DF_FTYPE_V2DF_INT:
@@ -20256,13 +20259,17 @@ ix86_expand_sse_operands_builtin (enum insn_code icode, tree exp,
       last_arg_constant = true;
       break;
     case V16QI_FTYPE_V16QI_V16QI_V16QI:
+    case V8SF_FTYPE_V8SF_V8SF_V8SF:
+    case V4DF_FTYPE_V4DF_V4DF_V4DF:
     case V4SF_FTYPE_V4SF_V4SF_V4SF:
     case V2DF_FTYPE_V2DF_V2DF_V2DF:
       nargs = 3;
       break;
     case V16QI_FTYPE_V16QI_V16QI_INT:
     case V8HI_FTYPE_V8HI_V8HI_INT:
+    case V8SF_FTYPE_V8SF_V8SF_INT: 
     case V4SI_FTYPE_V4SI_V4SI_INT:
+    case V4DF_FTYPE_V4DF_V4DF_INT:
     case V4SF_FTYPE_V4SF_V4SF_INT:
     case V2DI_FTYPE_V2DI_V2DI_INT:
     case V2DF_FTYPE_V2DF_V2DF_INT:

@@ -1,7 +1,7 @@
 2008-04-18  H.J. Lu  <hongjiu.lu@intel.com>
 
-	* config/i386/i386.c (sse_builtin_type): Add V8SI_FTYPE_V8SI_INT,
-	V8SF_FTYPE_V8SF_INT, V4DF_FTYPE_V4DF_INT,
+	* config/i386/i386.c (sse_builtin_type): Add V4SI_FTYPE_V8SI_INT,
+	V4SF_FTYPE_V8SF_INT, V2DF_FTYPE_V4DF_INT,
 	V8SF_FTYPE_V8SF_V8SF_V8SF, V4DF_FTYPE_V4DF_V4DF_V4DF,
 	V8SF_FTYPE_V8SF_V8SF_INT and V4DF_FTYPE_V4DF_V4DF_INT.
 	(bdesc_sse_args): Add some AVX instrincis.
