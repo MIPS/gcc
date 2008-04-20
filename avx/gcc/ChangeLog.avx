@@ -61,7 +61,8 @@
 	(UNSPEC_VPERMIL2): Likewise.
 	(UNSPEC_VPERMIL2F128): Likewise.
 
-	* config/i386/sse.md (avx_vpermil<mode>3): New.
+	* config/i386/sse.md (vpermilbits): New.
+	(avx_vpermil<mode>3): Likewise.
 	(avx_vpermilvar<mode>3): Likewise.
 	(avx_vpermil2<mode>3): Likewise.
 	(avx_vpermil2f128<mode>3): Likewise.
