@@ -1,3 +1,37 @@
+2008-04-17  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	PR c/35744
+	* attribs.c (decl_attributes): Return early on errorneous node.
+
+	PR c/35436
+	* c-format.c (init_dynamic_gfc_info): Ignore invalid locus type.
+
+2008-04-08  Richard Guenther  <rguenther@suse.de>
+
+	* fold-const.c (fold_widened_comparison): Do not allow
+	sign-changes that change the result.
+
+2008-04-03  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_secondary_reload_class): Use a
+	secondary input reload for subword loads from the constant pool.
+
+2008-04-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/include/gpl_v3.texi: Copy from trunk.
+	* doc/gcc.texi, doc/gccint.texi: Include gpl_v3.texi instead of
+	gpl.texi.
+	* doc/sourcebuild.texi: Document gpl_v3.texi as well as gpl.texi.
+	* Makefile.in (TEXI_GCC_FILES, TEXI_GCCINT_FILES): Include
+	gpl_v3.texi instead of gpl.texi.
+	(gpl.pod): New.
+
+2008-03-31  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_O_constraint_str): Limit the range
+	for 'On' to -4G+1..-1.
+	* config/s390/constraints.md: Adjust comment accordingly.
+
 2008-03-25  Maxim Kuvyrkov  <maxim@codesourcery.com>
 
 	Backport from mainline:
