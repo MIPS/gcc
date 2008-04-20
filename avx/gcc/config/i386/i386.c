@@ -18262,6 +18262,10 @@ enum sse_builtin_type
   V4DF_FTYPE_V4SI,
   V4DF_FTYPE_V4SF,
   V4SF_FTYPE_V4DF,
+  V8SF_FTYPE_V8SF_V8SF,
+  V4DF_FTYPE_V4DF_V4DF,
+  V4SF_FTYPE_V4SF_V4SF,
+  V2DF_FTYPE_V2DF_V2DF,
   V8SF_FTYPE_V8SF_INT,
   V4SI_FTYPE_V8SI_INT,
   V4SF_FTYPE_V8SF_INT,
@@ -18324,13 +18328,39 @@ static const struct builtin_description bdesc_sse_args[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_pclmulqdq, 0, IX86_BUILTIN_PCLMULQDQ128, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI_INT },
 
   /* AVX */
+  { OPTION_MASK_ISA_AVX, CODE_FOR_addv4df3, "__builtin_ia32_addpd256", IX86_BUILTIN_ADDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_addv8sf3, "__builtin_ia32_addps256", IX86_BUILTIN_ADDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv4df3, "__builtin_ia32_addsubpd256", IX86_BUILTIN_ADDSUBPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv8sf3, "__builtin_ia32_addsubps256", IX86_BUILTIN_ADDSUBPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_andv4df3, "__builtin_ia32_andpd256", IX86_BUILTIN_ANDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_andv8sf3, "__builtin_ia32_andps256", IX86_BUILTIN_ANDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv4df3, "__builtin_ia32_andnpd256", IX86_BUILTIN_ANDNPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv8sf3, "__builtin_ia32_andnps256", IX86_BUILTIN_ANDNPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendpd256, "__builtin_ia32_blendpd256", IX86_BUILTIN_BLENDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendps256, "__builtin_ia32_blendps256", IX86_BUILTIN_BLENDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendvpd256, "__builtin_ia32_blendvpd256", IX86_BUILTIN_BLENDVPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendvps256, "__builtin_ia32_blendvps256", IX86_BUILTIN_BLENDVPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_divv4df3, "__builtin_ia32_divpd256", IX86_BUILTIN_DIVPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_divv8sf3, "__builtin_ia32_divps256", IX86_BUILTIN_DIVPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_dpps256, "__builtin_ia32_dpps256", IX86_BUILTIN_DPPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv4df3, "__builtin_ia32_haddpd256", IX86_BUILTIN_HADDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv8sf3, "__builtin_ia32_hsubps256", IX86_BUILTIN_HSUBPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv4df3, "__builtin_ia32_hsubpd256", IX86_BUILTIN_HSUBPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv8sf3, "__builtin_ia32_haddps256", IX86_BUILTIN_HADDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv4df3, "__builtin_ia32_maxpd256", IX86_BUILTIN_MAXPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv8sf3, "__builtin_ia32_maxps256", IX86_BUILTIN_MAXPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv4df3, "__builtin_ia32_minpd256", IX86_BUILTIN_MINPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv8sf3, "__builtin_ia32_minps256", IX86_BUILTIN_MINPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv4df3, "__builtin_ia32_mulpd256", IX86_BUILTIN_MULPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv8sf3, "__builtin_ia32_mulps256", IX86_BUILTIN_MULPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv4df3, "__builtin_ia32_orpd256", IX86_BUILTIN_ORPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv8sf3, "__builtin_ia32_orps256", IX86_BUILTIN_ORPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_shufpd256, "__builtin_ia32_shufpd256", IX86_BUILTIN_SHUFPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_shufps256, "__builtin_ia32_shufps256", IX86_BUILTIN_SHUFPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_subv4df3, "__builtin_ia32_subpd256", IX86_BUILTIN_SUBPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_subv8sf3, "__builtin_ia32_subps256", IX86_BUILTIN_SUBPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv4df3, "__builtin_ia32_xorpd256", IX86_BUILTIN_XORPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv8sf3, "__builtin_ia32_xorps256", IX86_BUILTIN_XORPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmpsdv2df3, "__builtin_ia32_cmpsd", IX86_BUILTIN_CMPSD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmpssv4sf3, "__builtin_ia32_cmpss", IX86_BUILTIN_CMPSS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppdv2df3, "__builtin_ia32_cmppd", IX86_BUILTIN_CMPPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT },
@@ -18353,6 +18383,10 @@ static const struct builtin_description bdesc_sse_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vperm2f128v8si3, "__builtin_ia32_vperm2f128_si256", IX86_BUILTIN_VPERM2F128SI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V8SI_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv2df, "__builtin_ia32_vpermilpd", IX86_BUILTIN_VPERMILPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv4sf, "__builtin_ia32_vpermilps", IX86_BUILTIN_VPERMILPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv2df3, "__builtin_ia32_vpermilvarpd", IX86_BUILTIN_VPERMILVARPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4sf3, "__builtin_ia32_vpermilvarps", IX86_BUILTIN_VPERMILVARPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4df3, "__builtin_ia32_vpermilvarpd256", IX86_BUILTIN_VPERMILVARPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv8sf3, "__builtin_ia32_vpermilvarps256", IX86_BUILTIN_VPERMILVARPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv4df, "__builtin_ia32_vpermilpd256", IX86_BUILTIN_VPERMILPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv8sf, "__builtin_ia32_vpermilps256", IX86_BUILTIN_VPERMILPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v2df3,  "__builtin_ia32_vpermil2pd", IX86_BUILTIN_VPERMIL2PD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_V2DF_INT },
@@ -18645,38 +18679,6 @@ static const struct builtin_description bdesc_2arg[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesenclast, 0, IX86_BUILTIN_AESENCLAST128, UNKNOWN, 0 },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdec, 0, IX86_BUILTIN_AESDEC128, UNKNOWN, 0 },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_aesdeclast, 0, IX86_BUILTIN_AESDECLAST128, UNKNOWN, 0 },
-
-  /* AVX */
-  { OPTION_MASK_ISA_AVX, CODE_FOR_addv4df3, "__builtin_ia32_addpd256", IX86_BUILTIN_ADDPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_addv8sf3, "__builtin_ia32_addps256", IX86_BUILTIN_ADDPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv8sf3, "__builtin_ia32_addsubps256", IX86_BUILTIN_ADDSUBPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_addsubv4df3, "__builtin_ia32_addsubpd256", IX86_BUILTIN_ADDSUBPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_andv4df3, "__builtin_ia32_andpd256", IX86_BUILTIN_ANDPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_andv8sf3, "__builtin_ia32_andps256", IX86_BUILTIN_ANDPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv4df3, "__builtin_ia32_andnpd256", IX86_BUILTIN_ANDNPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_nandv8sf3, "__builtin_ia32_andnps256", IX86_BUILTIN_ANDNPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_divv4df3, "__builtin_ia32_divpd256", IX86_BUILTIN_DIVPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_divv8sf3, "__builtin_ia32_divps256", IX86_BUILTIN_DIVPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv4df3, "__builtin_ia32_haddpd256", IX86_BUILTIN_HADDPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv8sf3, "__builtin_ia32_hsubps256", IX86_BUILTIN_HSUBPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_hsubv4df3, "__builtin_ia32_hsubpd256", IX86_BUILTIN_HSUBPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_haddv8sf3, "__builtin_ia32_haddps256", IX86_BUILTIN_HADDPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv4df3, "__builtin_ia32_maxpd256", IX86_BUILTIN_MAXPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_smaxv8sf3, "__builtin_ia32_maxps256", IX86_BUILTIN_MAXPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv4df3, "__builtin_ia32_minpd256", IX86_BUILTIN_MINPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_sminv8sf3, "__builtin_ia32_minps256", IX86_BUILTIN_MINPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv4df3, "__builtin_ia32_mulpd256", IX86_BUILTIN_MULPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_mulv8sf3, "__builtin_ia32_mulps256", IX86_BUILTIN_MULPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv4df3, "__builtin_ia32_orpd256", IX86_BUILTIN_ORPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_iorv8sf3, "__builtin_ia32_orps256", IX86_BUILTIN_ORPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_subv4df3, "__builtin_ia32_subpd256", IX86_BUILTIN_SUBPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_subv8sf3, "__builtin_ia32_subps256", IX86_BUILTIN_SUBPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv4df3, "__builtin_ia32_xorpd256", IX86_BUILTIN_XORPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_xorv8sf3, "__builtin_ia32_xorps256", IX86_BUILTIN_XORPS256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv2df3, "__builtin_ia32_vpermilvarpd", IX86_BUILTIN_VPERMILVARPD, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4sf3, "__builtin_ia32_vpermilvarps", IX86_BUILTIN_VPERMILVARPS, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4df3, "__builtin_ia32_vpermilvarpd256", IX86_BUILTIN_VPERMILVARPD256, UNKNOWN, 0 },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv8sf3, "__builtin_ia32_vpermilvarps256", IX86_BUILTIN_VPERMILVARPS256, UNKNOWN, 0 },
 };
 
 static const struct builtin_description bdesc_1arg[] =
@@ -19687,6 +19689,18 @@ ix86_init_mmx_sse_builtins (void)
 	case V4SF_FTYPE_V4DF:
 	  type = v4sf_ftype_v4df;
 	  break;
+	case V8SF_FTYPE_V8SF_V8SF:
+	  type = v8sf_ftype_v8sf_v8sf;
+	  break;
+	case V4DF_FTYPE_V4DF_V4DF:
+	  type = v4df_ftype_v4df_v4df;
+	  break;
+	case V4SF_FTYPE_V4SF_V4SF:
+	  type = v4sf_ftype_v4sf_v4sf;
+	  break;
+	case V2DF_FTYPE_V2DF_V2DF:
+	  type = v2df_ftype_v2df_v2df;
+	  break;
 	case V8SF_FTYPE_V8SF_INT:
 	  type = v8sf_ftype_v8sf_int;
 	  break;
@@ -20382,6 +20396,12 @@ ix86_expand_sse_operands_builtin (enum insn_code icode, tree exp,
     case V4DF_FTYPE_V4SF:
     case V4SF_FTYPE_V4DF:
       nargs = 1;
+      break;
+    case V8SF_FTYPE_V8SF_V8SF:
+    case V4DF_FTYPE_V4DF_V4DF:
+    case V4SF_FTYPE_V4SF_V4SF:
+    case V2DF_FTYPE_V2DF_V2DF:
+      nargs = 2;
       break;
     case V8SF_FTYPE_V8SF_INT:
     case V4SI_FTYPE_V8SI_INT:

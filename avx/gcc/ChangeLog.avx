@@ -1,3 +1,13 @@
+2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (sse_builtin_type): Add V8SF_FTYPE_V8SF_V8SF,
+	V4DF_FTYPE_V4DF_V4DF, V4SF_FTYPE_V4SF_V4SF and
+	V2DF_FTYPE_V2DF_V2DF.
+	(bdesc_2arg): Move all AVX builtins to ...
+	(bdesc_sse_args): Here.
+	(ix86_init_mmx_sse_builtins): Updated to handle more AVX builtins.
+	(ix86_expand_sse_operands_builtin): Handle more AVX builtins.
+
 2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm_permutevar_pd): Call
