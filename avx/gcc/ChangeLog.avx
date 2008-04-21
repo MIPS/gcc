@@ -1,5 +1,13 @@
 2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (sse_builtin_type): Revert the last change.
+	(bdesc_2arg): Likewise.
+	(bdesc_sse_args): Likewise.
+	(ix86_init_mmx_sse_builtins): Likewise.
+	(ix86_expand_sse_operands_builtin): Likewise.
+
+2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (sse_builtin_type): Add V8SF_FTYPE_V8SF_V8SF,
 	V4DF_FTYPE_V4DF_V4DF, V4SF_FTYPE_V4SF_V4SF and
 	V2DF_FTYPE_V2DF_V2DF.
