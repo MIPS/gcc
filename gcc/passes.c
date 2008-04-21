@@ -667,9 +667,7 @@ init_optimization_passes (void)
 	  struct opt_pass **p = &pass_tree_loop.pass.sub;
 	  NEXT_PASS (pass_tree_loop_init);
 	  NEXT_PASS (pass_copy_prop);
-#if 0
 	  NEXT_PASS (pass_dce_loop);
-#endif
 	  NEXT_PASS (pass_lim);
 	  NEXT_PASS (pass_predcom);
 #if 0

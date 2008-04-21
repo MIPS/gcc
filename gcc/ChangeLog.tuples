@@ -1,5 +1,9 @@
 2008-04-20  Zdenek Dvorak  <ook@ucw.cz>
 
+	* passes.c (init_optimization_passes): Enable pass_dce_loop.
+
+2008-04-20  Zdenek Dvorak  <ook@ucw.cz>
+
 	* tree-data-ref.c (split_constant_offset_1): Use POINTER_PLUS_EXPR
 	for pointer addition.
 	(split_constant_offset): Set VAR to EXP before conversions are
