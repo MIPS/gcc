@@ -1,3 +1,50 @@
+2008-04-18  Rafael Espindola  <espindola@google.com>
+	* tree-vrp.c (find_case_label_index): Fix the binary search.
+	(find_case_label_range): New.
+	(vrp_visit_switch_stmt): Use find_case_label_range.
+	(simplify_switch_using_ranges): Use find_case_label_range.
+
+2008-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_modify_expr_rhs) <COND_EXPR>: Gimplify the LHS
+	using the is_gimple_lvalue predicate instead of is_gimple_min_lval.
+
+2008-04-18  Tom Tromey  <tromey@redhat.com>
+
+	PR libcpp/15500:
+	* doc/cpp.texi (Implementation-defined behavior): Mention
+	-finput-charset.
+
+2008-04-18  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (pointer_may_wrap_p): New static function.
+	(fold_comparison): Add another test for pointer overflow.  Use
+	pointer_may_wrap_p to disable some false positives.
+
+2008-04-18  Kris Van Hees <kris.van.hees@oracle.com>
+	  
+	* c-common.c (CHAR16_TYPE, CHAR32_TYPE): New macros.
+	(fname_as_string): Match updated cpp_interpret_string prototype.
+	(fix_string_type): Support char16_t* and char32_t*.
+	(c_common_nodes_and_builtins): Add char16_t and char32_t (and
+	derivative) nodes.  Register as builtin if C++0x.
+	(c_parse_error): Support CPP_CHAR{16,32}.
+	* c-common.h (RID_CHAR16, RID_CHAR32): New elements. 
+	(enum c_tree_index) <CTI_CHAR16_TYPE, CTI_SIGNED_CHAR16_TYPE,
+	CTI_UNSIGNED_CHAR16_TYPE, CTI_CHAR32_TYPE, CTI_SIGNED_CHAR32_TYPE,
+	CTI_UNSIGNED_CHAR32_TYPE, CTI_CHAR16_ARRAY_TYPE,
+	CTI_CHAR32_ARRAY_TYPE>: New elements.
+	(char16_type_node, signed_char16_type_node, unsigned_char16_type_node,
+	char32_type_node, signed_char32_type_node, char16_array_type_node,
+	char32_array_type_node): New defines.
+	* c-lex.c (cb_ident): Match updated cpp_interpret_string prototype.
+	(c_lex_with_flags): Support CPP_CHAR{16,32} and CPP_STRING{16,32}.
+	(lex_string): Support CPP_STRING{16,32}, match updated
+	cpp_interpret_string and cpp_interpret_string_notranslate prototypes.
+	(lex_charconst): Support CPP_CHAR{16,32}.
+	* c-parser.c (c_parser_postfix_expression): Support CPP_CHAR{16,32}
+	and CPP_STRING{16,32}.
+
 2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR bootstrap/35457
