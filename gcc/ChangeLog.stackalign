@@ -1,3 +1,8 @@
+2008-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (expand_one_var): Don't collect stack alignment
+	on error_mark_node.
+
 2008-04-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (tree_expand_cfg): Initialize stack_alignment_used

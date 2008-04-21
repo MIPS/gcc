@@ -760,7 +760,9 @@ defer_stack_allocation (tree var, bool toplevel)
 static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
-  if (MAX_VECTORIZE_STACK_ALIGNMENT && TREE_CODE (var) == VAR_DECL)
+  if (MAX_VECTORIZE_STACK_ALIGNMENT
+      && TREE_TYPE (var) != error_mark_node
+      && TREE_CODE (var) == VAR_DECL)
     {
       unsigned int align;
 
