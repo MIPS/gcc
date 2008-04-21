@@ -62,10 +62,9 @@ print "#define OPTIONS_H"
 print ""
 print "#include " quote "opts.h" quote 
 print ""
-
-# Need for Function Specific for more options
-attr_flags["target_flags"]=".ival";
-attr_flags["target_flags_explicit"]=".ival";
+print "extern int target_flags;"
+print "extern int target_flags_explicit;"
+print ""
 
 for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i])
@@ -80,28 +79,27 @@ for (i = 0; i < n_opts; i++) {
 		continue;
 	} 
 
-	attr_flags[name]=var_decl(flags[i]);
+	decl = var_decl(flags[i])
+	reduced_var_names [name] = "#define " name " (cl_option_stors [ OPTS_" name " ]" decl ")"
 }
 print ""
 
 print "enum optstor_code"
 print "{"
-for (attr_flag_name in attr_flags) {
-	if(attr_flag_name == "")
+for (reduced_var_name in reduced_var_names) {
+	if(reduced_var_name == "")
 		continue;
-	print "  OPTS_"attr_flag_name comma
+	print "  OPTS_"reduced_var_name comma
 }
 #For avoiding zero-sized arrays.
 print "  OPTS_dummyindex" comma
 print "  N_OPTS_STOR"
 print "};\n"
 
-for (attr_flag_name in attr_flags) {
-	if(attr_flag_name == "") 
+for (reduced_var_name in reduced_var_names) {
+	if(reduced_var_name == "") 
 		continue;
-	attr_flag_decl = attr_flags[attr_flag_name];
-        print "#define " attr_flag_name " (cl_option_stors [ OPTS_" attr_flag_name " ]" attr_flag_decl ")";
-        print "#define ver_" attr_flag_name "(a) ((a) [ OPTS_" attr_flag_name " ]" attr_flag_decl ")";
+	print reduced_var_names[reduced_var_name]
 }
 
 print ""
@@ -140,20 +138,13 @@ for (i = 0; i < n_opts; i++) {
 		macro = "TARGET_"
 		mask = "MASK_"
 	}
-	if (name != "" && !flag_set_p("MaskExists", flags[i])) {
+	if (name != "" && !flag_set_p("MaskExists", flags[i]))
 		print "#define " macro name \
 		      " ((" vname " & " mask name ") != 0)"
-		if(vname in attr_flags) {
-		print "#define VER_" macro name \
-		      "(a) (((ver_" vname "(a)) & " mask name ") != 0)"
-		}
-	}
 }
 for (i = 0; i < n_extra_masks; i++) {
 	print "#define TARGET_" extra_masks[i] \
 	      " ((target_flags & MASK_" extra_masks[i] ") != 0)"
-	print "#define VER_TARGET_" extra_masks[i] \
-	      "(a) (((ver_target_flags(a)) & MASK_" extra_masks[i] ") != 0)"
 }
 print ""
 
@@ -170,10 +161,6 @@ for (i = 0; i < n_opts; i++) {
 		}
 		print "#define " macro nth_arg(1, opt) \
 		      " ((" vname " & " mask nth_arg(0, opt) ") == 0)"
-		if(vname in attr_flags) {
-			print "#define VER_" macro nth_arg(1,opt) \
-		      	"(a) (((ver_" vname "(a)) & " mask nth_arg(0, opt) ") == 0)"
-		}
 	}
 }
 print ""
