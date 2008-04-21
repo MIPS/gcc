@@ -1,3 +1,14 @@
+2008-04-21  Rafael Espindola <espindola@google.com>
+
+	Cherry pick http://gcc.gnu.org/ml/gcc-patches/2008-04/msg01213.html
+
+	* params.def (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE): Set default
+	to zero, thus disable creation of SFTs.
+	* gcc.dg/tree-ssa/salias-1.c: Remove.
+	* gcc.dg/tree-ssa/pr26421.c: Adjust pattern.
+	* gcc.dg/tree-ssa/alias-15.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-lim-3.c: Run at -O2.
+
 2008-04-20  Zdenek Dvorak  <ook@ucw.cz>
 
 	* passes.c (init_optimization_passes): Enable pass_dce_loop.
