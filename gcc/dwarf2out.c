@@ -405,9 +405,6 @@ static void flush_queued_reg_saves (void);
 static bool clobbers_queued_reg_save (const_rtx);
 static void dwarf2out_frame_debug_expr (rtx, const char *);
 
-static void mark_decl (tree);
-static bool seen_decl_p (tree);
-
 /* Support for complex CFA locations.  */
 static void output_cfa_loc (dw_cfi_ref);
 static void get_cfa_from_loc_descr (dw_cfa_location *,
@@ -4148,8 +4145,6 @@ static GTY(()) int label_num;
 
 /* Cached result of previous call to lookup_filename.  */
 static GTY(()) struct dwarf_file_data * file_table_last_lookup;
-
-static GTY ((param_is (union tree_node))) htab_t seen_decls;
 
 #ifdef DWARF2_DEBUGGING_INFO
 
@@ -10442,7 +10437,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     *walk_subtrees = 0;
 
   if (DECL_P (*tp) && ! TREE_PUBLIC (*tp) && ! TREE_USED (*tp)
-      && ! seen_decl_p (*tp))
+      && ! TREE_ASM_WRITTEN (*tp))
     return *tp;
   else if (!flag_unit_at_a_time)
     return NULL_TREE;
@@ -10465,7 +10460,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
       if (!node->output)
 	return *tp;
     }
-  else if (TREE_CODE (*tp) == STRING_CST && !seen_decl_p (*tp))
+  else if (TREE_CODE (*tp) == STRING_CST && !TREE_ASM_WRITTEN (*tp))
     return *tp;
 
   return NULL_TREE;
@@ -11468,7 +11463,7 @@ add_name_and_src_coords_attributes (dw_die_ref die, tree decl)
 #ifdef VMS_DEBUGGING_INFO
   /* Get the function's name, as described by its RTL.  This may be different
      from the DECL_NAME name used in the source file.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL && seen_decl_p (decl))
+  if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
     {
       add_AT_addr (die, DW_AT_VMS_rtnbeg_pd_address,
 		   XEXP (DECL_RTL (decl), 0));
@@ -11540,7 +11535,7 @@ scope_die_for (tree t, dw_die_ref context_die)
       if (i < 0)
 	{
 	  gcc_assert (debug_info_level <= DINFO_LEVEL_TERSE
-		      || seen_decl_p (containing_scope));
+		      || TREE_ASM_WRITTEN (containing_scope));
 
 	  /* If none of the current dies are suitable, we get file scope.  */
 	  scope_die = comp_unit_die;
@@ -12072,7 +12067,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
     {
       tree link;
 
-      mark_decl (type);
+      TREE_ASM_WRITTEN (type) = 1;
       add_byte_size_attribute (type_die, type);
       if (TYPE_STUB_DECL (type) != NULL_TREE)
 	add_src_coords_attributes (type_die, TYPE_STUB_DECL (type));
@@ -12709,7 +12704,7 @@ gen_variable_die (tree decl, dw_die_ref context_die)
 			definition is required, so the compiler will
 			not emit a definition.  */
 		     || (TREE_CODE (decl) == VAR_DECL
-			 && DECL_COMDAT (decl) && !seen_decl_p (decl))
+			 && DECL_COMDAT (decl) && !TREE_ASM_WRITTEN (decl))
 		     || class_or_namespace_scope_p (context_die));
 
   if (origin != NULL)
@@ -13242,7 +13237,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
     {
       /* Prevent infinite recursion in cases where the type of some member of
 	 this type is expressed in terms of this type itself.  */
-      mark_decl (type);
+      TREE_ASM_WRITTEN (type) = 1;
       add_byte_size_attribute (type_die, type);
       if (TYPE_STUB_DECL (type) != NULL_TREE)
 	add_src_coords_attributes (type_die, TYPE_STUB_DECL (type));
@@ -13307,10 +13302,10 @@ gen_typedef_die (tree decl, dw_die_ref context_die)
   dw_die_ref type_die;
   tree origin;
 
-  if (seen_decl_p (decl))
+  if (TREE_ASM_WRITTEN (decl))
     return;
 
-  mark_decl (decl);
+  TREE_ASM_WRITTEN (decl) = 1;
   type_die = new_die (DW_TAG_typedef, context_die, decl);
   origin = decl_ultimate_origin (decl);
   if (origin != NULL)
@@ -13356,24 +13351,24 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   if (TYPE_NAME (type) && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
       && DECL_ORIGINAL_TYPE (TYPE_NAME (type)))
     {
-      if (seen_decl_p (type))
+      if (TREE_ASM_WRITTEN (type))
 	return;
 
       /* Prevent broken recursion; we can't hand off to the same type.  */
       gcc_assert (DECL_ORIGINAL_TYPE (TYPE_NAME (type)) != type);
 
-      mark_decl (type);
+      TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), context_die);
       return;
     }
 
   /* If this is an array type with hidden descriptor, handle it first.  */
-  if (!seen_decl_p (type)
+  if (!TREE_ASM_WRITTEN (type)
       && lang_hooks.types.get_array_descr_info
       && lang_hooks.types.get_array_descr_info (type, &info))
     {
       gen_descr_array_type_die (type, &info, context_die);
-      mark_decl (type);
+      TREE_ASM_WRITTEN (type) = 1;
       return;
     }
 
@@ -13385,7 +13380,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   if (TREE_CODE (type) != VECTOR_TYPE)
     type = type_main_variant (type);
 
-  if (seen_decl_p (type))
+  if (TREE_ASM_WRITTEN (type))
     return;
 
   switch (TREE_CODE (type))
@@ -13395,12 +13390,12 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      /* We must set seen_decl_p in case this is a recursive type.  This
+      /* We must set TREE_ASM_WRITTEN in case this is a recursive type.  This
 	 ensures that the gen_type_die recursion will terminate even if the
 	 type is recursive.  Recursive types are possible in Ada.  */
       /* ??? We could perhaps do this for all types before the switch
 	 statement.  */
-      mark_decl (type);
+      TREE_ASM_WRITTEN (type) = 1;
 
       /* For these types, all that is required is that we output a DIE (or a
 	 set of DIEs) to represent the "basis" type.  */
@@ -13457,11 +13452,11 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	 what set of template instantiations we'll get.  */
       if (TYPE_CONTEXT (type)
 	  && AGGREGATE_TYPE_P (TYPE_CONTEXT (type))
-	  && ! seen_decl_p (TYPE_CONTEXT (type)))
+	  && ! TREE_ASM_WRITTEN (TYPE_CONTEXT (type)))
 	{
 	  gen_type_die_with_usage (TYPE_CONTEXT (type), context_die, usage);
 
-	  if (seen_decl_p (type))
+	  if (TREE_ASM_WRITTEN (type))
 	    return;
 
 	  /* If that failed, attach ourselves to the stub.  */
@@ -13479,7 +13474,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 	{
 	  /* This might have been written out by the call to
 	     declare_in_namespace.  */
-	  if (!seen_decl_p (type))
+	  if (!TREE_ASM_WRITTEN (type))
 	    gen_enumeration_type_die (type, context_die);
 	}
       else
@@ -13488,7 +13483,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       if (need_pop)
 	pop_decl_scope ();
 
-      /* Don't set seen_decl_p on an incomplete struct; we want to fix
+      /* Don't set TREE_ASM_WRITTEN on an incomplete struct; we want to fix
 	 it up if it is ever completed.  gen_*_type_die will set it for us
 	 when appropriate.  */
       return;
@@ -13510,7 +13505,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       gcc_unreachable ();
     }
 
-  mark_decl (type);
+  TREE_ASM_WRITTEN (type) = 1;
 }
 
 static void
@@ -13533,7 +13528,7 @@ gen_tagged_type_instantiation_die (tree type, dw_die_ref context_die)
      type now.  */
   gcc_assert (type == type_main_variant (type));
 
-  /* Do not check seen_decl_p (type) as it may not be set if this is
+  /* Do not check TREE_ASM_WRITTEN (type) as it may not be set if this is
      an instance of an unresolved type.  */
 
   switch (TREE_CODE (type))
@@ -13619,7 +13614,7 @@ gen_block_die (tree stmt, dw_die_ref context_die, int depth)
 	       as being a "significant" one.  */
 	    must_output_die = (BLOCK_VARS (stmt) != NULL
 			       && (TREE_USED (stmt)
-				   || seen_decl_p (stmt)
+				   || TREE_ASM_WRITTEN (stmt)
 				   || BLOCK_ABSTRACT (stmt)));
 	  else
 	    /* We are in terse mode, so only local (nested) function
@@ -14851,9 +14846,6 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   if (flag_reorder_blocks_and_partition)
     cold_text_section = unlikely_text_section ();
-
-  /* Initialize the set of seen decls.  */
-  seen_decls = htab_create_ggc (20, htab_hash_pointer, htab_eq_pointer, NULL);
 }
 
 void
@@ -14891,21 +14883,6 @@ dwarf2out_set_output_file (FILE *out)
       switch_to_section (cold_text_section);
       ASM_OUTPUT_LABEL (dw_asm_out_file, cold_text_section_label);
     }
-}
-
-/* Mark DECL as having been written.   */
-static void
-mark_decl (tree decl)
-{
-  void **slot = htab_find_slot (seen_decls, decl, INSERT);
-  *slot = decl;
-}
-
-/* Return true if DECL was written, false otherwise.  */
-static bool
-seen_decl_p (tree decl)
-{
-  return htab_find (seen_decls, decl) != NULL;
 }
 
 /* A helper function for dwarf2out_finish called through
