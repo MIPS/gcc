@@ -515,7 +515,7 @@ stmt_cost (gimple stmt)
     return LIM_EXPENSIVE;
 
   /* Hoisting memory references out should almost surely be a win.  */
-  if (stmt_references_memory_p (stmt))
+  if (gimple_references_memory_p (stmt))
     cost += 20;
 
   if (gimple_code (stmt) == GIMPLE_CALL)

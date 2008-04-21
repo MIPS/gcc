@@ -768,7 +768,7 @@ count_mem_refs (long *num_vuses_p, long *num_vdefs_p,
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  if (stmt_references_memory_p (stmt))
+	  if (gimple_references_memory_p (stmt))
 	    {
 	      num_vuses += NUM_SSA_OPERANDS (stmt, SSA_OP_VUSE);
 	      num_vdefs += NUM_SSA_OPERANDS (stmt, SSA_OP_VDEF);

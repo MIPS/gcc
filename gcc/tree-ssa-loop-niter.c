@@ -1971,10 +1971,10 @@ chain_of_csts_start (struct loop *loop, tree x)
     return NULL;
 
   code = gimple_assign_rhs_code (stmt);
-  if (stmt_references_memory_p (stmt)
+  if (gimple_references_memory_p (stmt)
       /* Before alias information is computed, operand scanning marks
 	 statements that write memory volatile.  However, the statements
-	 that only read memory are not marked, thus stmt_references_memory_p
+	 that only read memory are not marked, thus gimple_references_memory_p
 	 returns false for them.  */
       || TREE_CODE_CLASS (code) == tcc_reference
       || TREE_CODE_CLASS (code) == tcc_declaration

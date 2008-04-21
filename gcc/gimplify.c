@@ -605,6 +605,40 @@ lookup_tmp_var (tree val, bool is_formal)
   return ret;
 }
 
+
+/* Return true if T is a CALL_EXPR or an expression that can be
+   assignmed to a temporary.  Note that this predicate should only be
+   used during gimplification.  See the rationale for this in
+   gimplify_modify_expr.  */
+
+static bool
+is_gimple_formal_tmp_or_call_rhs (tree t)
+{
+  return TREE_CODE (t) == CALL_EXPR || is_gimple_formal_tmp_rhs (t);
+}
+
+
+/* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
+   this predicate should only be used during gimplification.  See the
+   rationale for this in gimplify_modify_expr.  */
+
+static bool
+is_gimple_mem_or_call_rhs (tree t)
+{
+  /* If we're dealing with a renamable type, either source or dest must be
+     a renamed variable.  Also force a temporary if the type doesn't need
+     to be stored in memory, since it's cheap and prevents erroneous
+     tailcalls (PR 17526).  */
+  if (is_gimple_reg_type (TREE_TYPE (t))
+      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
+	  && (TREE_CODE (t) != CALL_EXPR
+              || ! aggregate_value_p (t, t))))
+    return is_gimple_val (t);
+  else
+    return is_gimple_formal_tmp_or_call_rhs (t);
+}
+
+
 /* Returns a formal temporary variable initialized with VAL.  PRE_P is as
    in gimplify_expr.  Only use this function if:
 
@@ -623,7 +657,10 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
 {
   tree t, mod;
 
-  gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_rhs, fb_rvalue);
+  /* Notice that we explicitly allow VAL to be a CALL_EXPR so that we
+     can create an INIT_EXPR and convert it into a GIMPLE_CALL below.  */
+  gimplify_expr (&val, pre_p, post_p, is_gimple_formal_tmp_or_call_rhs,
+		 fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
@@ -660,9 +697,12 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
   gimplify_and_add (mod, pre_p);
 
   /* If we're gimplifying into ssa, gimplify_modify_expr will have
-     given our temporary an ssa name.  Find and return it.  */
+     given our temporary an SSA name.  Find and return it.  */
   if (gimplify_ctxp->into_ssa)
-    t = TREE_OPERAND (mod, 0);
+    {
+      gimple last = gimple_seq_last_stmt (*pre_p);
+      t = gimple_get_lhs (last);
+    }
 
   return t;
 }
@@ -1189,8 +1229,9 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
       *expr_p = temp;
       return GS_OK;
     }
-  else
-    return GS_ALL_DONE;
+
+  *expr_p = NULL_TREE;
+  return GS_ALL_DONE;
 }
 
 /* Gimplify a RETURN_EXPR.  If the expression to be returned is not a
@@ -2161,7 +2202,6 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   tree fndecl, parms, p;
   enum gimplify_status ret;
   int i, nargs;
-  VEC(tree, heap) *args = NULL;
   gimple call;
   bool builtin_va_start_p = FALSE;
 
@@ -2304,6 +2344,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  --nargs;
 	  *expr_p = build_call_array (TREE_TYPE (call), CALL_EXPR_FN (call),
 				      nargs, CALL_EXPR_ARGP (call));
+
 	  /* Copy all CALL_EXPR flags, location and block, except
 	     CALL_EXPR_VA_ARG_PACK flag.  */
 	  CALL_EXPR_STATIC_CHAIN (*expr_p) = CALL_EXPR_STATIC_CHAIN (call);
@@ -2314,6 +2355,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	  CALL_CANNOT_INLINE_P (*expr_p) = CALL_CANNOT_INLINE_P (call);
 	  SET_EXPR_LOCUS (*expr_p, EXPR_LOCUS (call));
 	  TREE_BLOCK (*expr_p) = TREE_BLOCK (call);
+
 	  /* Set CALL_EXPR_VA_ARG_PACK.  */
 	  CALL_EXPR_VA_ARG_PACK (*expr_p) = 1;
 	}
@@ -2322,27 +2364,22 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   /* Finally, gimplify the function arguments.  */
   if (nargs > 0)
     {
-      args = VEC_alloc (tree, heap, nargs);
-      VEC_safe_grow (tree, heap, args, nargs);
+      for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
+           PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
+           PUSH_ARGS_REVERSED ? i-- : i++)
+        {
+          enum gimplify_status t;
 
-    for (i = (PUSH_ARGS_REVERSED ? nargs - 1 : 0);
-	 PUSH_ARGS_REVERSED ? i >= 0 : i < nargs;
-	 PUSH_ARGS_REVERSED ? i-- : i++)
-      {
-	enum gimplify_status t;
+          /* Avoid gimplifying the second argument to va_start, which needs to
+             be the plain PARM_DECL.  */
+          if ((i != 1) || !builtin_va_start_p)
+            {
+              t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
 
-	/* Avoid gimplifying the second argument to va_start, which needs
-           to be the plain PARM_DECL.  */
-        if ((i != 1) || !builtin_va_start_p)
-	  {
-	    t = gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p);
-
-	    if (t == GS_ERROR)
-	      ret = GS_ERROR;
-	  }
-
-	VEC_replace (tree, args, i, CALL_EXPR_ARG (*expr_p, i));
-      }
+              if (t == GS_ERROR)
+                ret = GS_ERROR;
+            }
+        }
     }
 
   /* Try this again in case gimplification exposed something.  */
@@ -2365,40 +2402,22 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       return GS_ERROR;
     }
 
-  /* Now add the GIMPLE call to PRE_P.  If WANT_VALUE is set, we need
-     to create the appropriate temporary for the call's LHS.  */
-  call = gimple_build_call_vec (fndecl ? fndecl : CALL_EXPR_FN (*expr_p), args);
-  gimple_set_block (call, TREE_BLOCK (*expr_p));
-  VEC_free (tree, heap, args);
-
-  /* Carry all the CALL_EXPR flags to the new GIMPLE_CALL.  */
-  gimple_call_set_chain (call, CALL_EXPR_STATIC_CHAIN (*expr_p));
-  gimple_call_set_tail (call, CALL_EXPR_TAILCALL (*expr_p));
-  gimple_call_set_cannot_inline (call, CALL_CANNOT_INLINE_P (*expr_p));
-  gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (*expr_p));
-  gimple_call_set_from_thunk (call, CALL_FROM_THUNK_P (*expr_p));
-  gimple_call_set_va_arg_pack (call, CALL_EXPR_VA_ARG_PACK (*expr_p));
-
-  gimplify_seq_add_stmt (pre_p, call);
-  if (want_value)
+  /* If the value is not needed by the caller, emit a new GIMPLE_CALL
+     and clear *EXPR_P.  Otherwise, leave *EXPR_P in its gimplified
+     form and delegate the creation of a GIMPLE_CALL to
+     gimplify_modify_expr.  This is always possible because when
+     WANT_VALUE is true, the caller wants the result of this call into
+     a temporary, which means that we will emit an INIT_EXPR in
+     internal_get_tmp_var which will then be handled by
+     gimplify_modify_expr.  */
+  if (!want_value)
     {
-      /* FIXME tuples: we want to use internal_get_tmp_var here,
-         but can't because it wants a value that it gimplifies and the new
-         call is not a tree expression.  internal_get_tmp_var needs to be
-         rewritten to support this and still use the formal temporary table.
-         */
-      tree lhs = create_tmp_var (gimple_call_return_type (call),
-                                 get_name (gimple_call_fn (call)));
-      gimple_call_set_lhs (call, lhs);
-
-      if (TREE_CODE (gimple_call_return_type (call)) == COMPLEX_TYPE
-          || TREE_CODE (gimple_call_return_type (call)) == VECTOR_TYPE)
-        DECL_GIMPLE_REG_P (lhs) = 1;
-
-      *expr_p = lhs;
+      /* The CALL_EXPR in *EXPR_P is already in GIMPLE form, so all we
+	 have to do is replicate it as a GIMPLE_CALL tuple.  */
+      call = gimple_build_call_from_tree (*expr_p);
+      gimplify_seq_add_stmt (pre_p, call);
+      *expr_p = NULL_TREE;
     }
-  else
-    *expr_p = NULL_TREE;
 
   return ret;
 }
@@ -3060,7 +3079,7 @@ gimplify_init_ctor_preeval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   maybe_with_size_expr (expr_p);
 
   /* Gimplify the constructor element to something appropriate for the rhs
-     of a MODIFY_EXPR.  Given that we know the lhs is an aggregate, we know
+     of a MODIFY_EXPR.  Given that we know the LHS is an aggregate, we know
      the gimplifier will consider this a store to memory.  Doing this
      gimplification now means that we won't have to deal with complicated
      language-specific trees, nor trees like SAVE_EXPR that can induce
@@ -3271,6 +3290,21 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	}
     }
 }
+
+
+/* Returns the appropriate RHS predicate for this LHS.  */
+
+static gimple_predicate
+rhs_predicate_for (tree lhs)
+{
+  if (is_gimple_formal_tmp_var (lhs))
+    return is_gimple_formal_tmp_or_call_rhs;
+  else if (is_gimple_reg (lhs))
+    return is_gimple_reg_rhs;
+  else
+    return is_gimple_mem_or_call_rhs;
+}
+
 
 /* A subroutine of gimplify_modify_expr.  Break out elements of a
    CONSTRUCTOR used as an initializer into separate MODIFY_EXPRs.
@@ -3956,6 +3990,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq *pre_p,
   return GS_ALL_DONE;
 }
 
+
 /* Gimplify the MODIFY_EXPR node pointed to by EXPR_P.
 
       modify_expr
@@ -4018,13 +4053,25 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      before gimplifying any of the operands so that we can resolve any
      PLACEHOLDER_EXPRs in the size.  Also note that the RTL expander uses
      the size of the expression to be copied, not of the destination, so
-     that is what we must here.  */
+     that is what we must do here.  */
   maybe_with_size_expr (from_p);
 
   ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
   if (ret == GS_ERROR)
     return ret;
 
+  /* As a special case, we have to temporarily allow for assignments
+     with a CALL_EXPR on the RHS.  Since in GIMPLE a function call is
+     a toplevel statement, when gimplifying the GENERIC expression
+     MODIFY_EXPR <a, CALL_EXPR <foo>>, we cannot create the tuple
+     GIMPLE_ASSIGN <a, GIMPLE_CALL <foo>>.
+
+     Instead, we need to create the tuple GIMPLE_CALL <a, foo>.  To
+     prevent gimplify_expr from trying to create a new temporary for
+     foo's LHS, we tell it that it should only gimplify until it
+     reaches the CALL_EXPR.  On return from gimplify_expr, the newly
+     created GIMPLE_CALL <foo> will be the last statement in *PRE_P
+     and all we need to do here is set 'a' to be its LHS.  */
   ret = gimplify_expr (from_p, pre_p, post_p, rhs_predicate_for (*to_p),
 		       fb_rvalue);
   if (ret == GS_ERROR)
@@ -4046,6 +4093,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
       if (TREE_CODE (from) == CONSTRUCTOR)
 	return gimplify_modify_expr_to_memset (expr_p, size, want_value, pre_p);
+
       if (is_gimple_addressable (from))
 	{
 	  *from_p = from;
@@ -4075,18 +4123,29 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  = create_tmp_var_name (IDENTIFIER_POINTER (DECL_NAME (*to_p)));
       DECL_DEBUG_EXPR_IS_FROM (*from_p) = 1;
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
-    }
+   }
 
-  assign = gimple_build_assign (unshare_expr (*to_p), unshare_expr (*from_p));
+  /* FIXME tuples.  Are the calls to unshare_expr really necessary
+     here? */
+  if (TREE_CODE (*from_p) == CALL_EXPR)
+    {
+      /* Since the RHS is a CALL_EXPR, we need to create a GIMPLE_CALL
+	 instead of a GIMPLE_ASSIGN.  */
+      assign = gimple_build_call_from_tree (*from_p);
+      gimple_call_set_lhs (assign, unshare_expr (*to_p));
+    }
+  else
+    assign = gimple_build_assign (unshare_expr (*to_p), unshare_expr (*from_p));
+
   gimplify_seq_add_stmt (pre_p, assign);
 
   if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
     {
       /* If we've somehow already got an SSA_NAME on the LHS, then
-	 we're probably modified it twice.  Not good.  */
+	 we've probably modified it twice.  Not good.  */
       gcc_assert (TREE_CODE (*to_p) != SSA_NAME);
       *to_p = make_ssa_name (*to_p, assign);
-      gimple_assign_set_lhs (assign, *to_p);
+      gimple_set_lhs (assign, *to_p);
     }
 
   if (want_value)
@@ -5727,7 +5786,11 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 
    PRE_P will contain the sequence of GIMPLE statements corresponding
        to the evaluation of EXPR and all the side-effects that must
-       be executed before the main expression.
+       be executed before the main expression.  On exit, the last
+       statement of PRE_P is the core statement being gimplified.  For
+       instance, when gimplifying 'if (++a)' the last statement in
+       PRE_P will be 'if (t.1)' where t.1 is the result of
+       pre-incrementing 'a'.
 
    POST_P will contain the sequence of GIMPLE statements corresponding
        to the evaluation of all the side-effects that must be executed
@@ -5809,11 +5872,13 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if (gimple_test_f == is_gimple_val
       || gimple_test_f == is_gimple_reg
       || gimple_test_f == is_gimple_formal_tmp_rhs
+      || gimple_test_f == is_gimple_formal_tmp_or_call_rhs
       || gimple_test_f == is_gimple_formal_tmp_reg
       || gimple_test_f == is_gimple_formal_tmp_var
       || gimple_test_f == is_gimple_call_addr
       || gimple_test_f == is_gimple_condexpr
       || gimple_test_f == is_gimple_mem_rhs
+      || gimple_test_f == is_gimple_mem_or_call_rhs
       || gimple_test_f == is_gimple_reg_rhs
       || gimple_test_f == is_gimple_asm_val)
     gcc_assert (fallback & fb_rvalue);
@@ -6520,6 +6585,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      everything together and return.  */
   if (fallback == fb_none || is_statement)
     {
+      /* Since *EXPR_P has been converted into a GIMPLE tuple, clear
+         it out for GC to reclaim it.  */
+      *expr_p = NULL_TREE;
+
       if (!gimple_seq_empty_p (internal_pre)
 	  || !gimple_seq_empty_p (internal_post))
 	{
@@ -6562,12 +6631,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     }
 #endif
 
-  /* Otherwise we're gimplifying a subexpression, so the resulting value is
-     interesting.  */
-
-  /* If it's sufficiently simple already, we're done.  Unless we are
-     handling some post-effects internally; if that's the case, we need to
-     copy into a temp before adding the post-effects to the tree.  */
+  /* Otherwise we're gimplifying a subexpression, so the resulting
+     value is interesting.  If it's a valid operand that matches
+     GIMPLE_TEST_F, we're done. Unless we are handling some
+     post-effects internally; if that's the case, we need to copy into
+     a temporary before adding the post-effects to POST_P.  */
   if (gimple_seq_empty_p (internal_post) && (*gimple_test_f) (*expr_p))
     goto out;
 
@@ -6589,7 +6657,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }
-  else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_rhs (*expr_p))
+  else if ((fallback & fb_rvalue) && is_gimple_formal_tmp_or_call_rhs (*expr_p))
     {
       /* An rvalue will do.  Assign the gimplified expression into a
 	 new temporary TMP and replace the original expression with

@@ -187,19 +187,6 @@ is_gimple_mem_rhs (tree t)
     return is_gimple_formal_tmp_rhs (t);
 }
 
-/* Returns the appropriate RHS predicate for this LHS.  */
-
-gimple_predicate
-rhs_predicate_for (tree lhs)
-{
-  if (is_gimple_formal_tmp_var (lhs))
-    return is_gimple_formal_tmp_rhs;
-  else if (is_gimple_reg (lhs))
-    return is_gimple_reg_rhs;
-  else
-    return is_gimple_mem_rhs;
-}
-
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */
 
 bool

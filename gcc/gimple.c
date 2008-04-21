@@ -253,9 +253,9 @@ gimple_build_return (tree retval)
   return s;
 }
 
-/* Helper for gimple_build_call and gimple_build_call_vec.  Build the basic
-   components of a GIMPLE_CALL statement to function FN with NARGS
-   arguments.  */
+/* Helper for gimple_build_call, gimple_build_call_vec and
+   gimple_build_call_from_tree.  Build the basic components of a
+   GIMPLE_CALL statement to function FN with NARGS arguments.  */
 
 static inline gimple
 gimple_build_call_1 (tree fn, size_t nargs)
@@ -301,6 +301,39 @@ gimple_build_call (tree fn, size_t nargs, ...)
   for (i = 0; i < nargs; i++)
     gimple_call_set_arg (call, i, va_arg (ap, tree));
   va_end (ap);
+
+  return call;
+}
+
+
+/* Build a GIMPLE_CALL statement from CALL_EXPR T.  Note that T is
+   assumed to be in GIMPLE form already.  Minimal checking is done of
+   this fact.  */
+
+gimple
+gimple_build_call_from_tree (tree t)
+{
+  size_t i, nargs;
+  gimple call;
+  tree fndecl = get_callee_fndecl (t);
+
+  gcc_assert (TREE_CODE (t) == CALL_EXPR);
+
+  nargs = call_expr_nargs (t);
+  call = gimple_build_call_1 (fndecl ? fndecl : CALL_EXPR_FN (t), nargs);
+
+  for (i = 0; i < nargs; i++)
+    gimple_call_set_arg (call, i, CALL_EXPR_ARG (t, i));
+
+  gimple_set_block (call, TREE_BLOCK (t));
+
+  /* Carry all the CALL_EXPR flags to the new GIMPLE_CALL.  */
+  gimple_call_set_chain (call, CALL_EXPR_STATIC_CHAIN (t));
+  gimple_call_set_tail (call, CALL_EXPR_TAILCALL (t));
+  gimple_call_set_cannot_inline (call, CALL_CANNOT_INLINE_P (t));
+  gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (t));
+  gimple_call_set_from_thunk (call, CALL_FROM_THUNK_P (t));
+  gimple_call_set_va_arg_pack (call, CALL_EXPR_VA_ARG_PACK (t));
 
   return call;
 }
@@ -392,7 +425,7 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
 
    PRED is the condition used to compare LHS and the RHS.
    T_LABEL is the label to jump to if the condition is true.
-   F_LABEL is teh label to jump to otherwise.  */
+   F_LABEL is the label to jump to otherwise.  */
 
 gimple
 gimple_build_cond (enum tree_code pred_code, tree lhs, tree rhs,

@@ -329,8 +329,13 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
       pp_space (buffer);
       pp_character (buffer, '=');
+
       if (gimple_assign_nontemporal_move_p (gs))
 	pp_string (buffer, "{nt}");
+
+      if (gimple_has_volatile_ops (gs))
+	pp_string (buffer, "{v}");
+
       pp_space (buffer);
 
       if (gimple_num_ops (gs) == 2)
@@ -370,11 +375,23 @@ static void
 dump_gimple_call_args (pretty_printer *buffer, gimple gs, int flags)
 {
   size_t i;
+
   for (i = 0; i < gimple_call_num_args (gs); i++)
     {
       dump_generic_node (buffer, gimple_call_arg (gs, i), 0, flags, false);
       if (i < gimple_call_num_args (gs) - 1)
 	pp_string (buffer, ", ");
+    }
+
+  if (gimple_call_va_arg_pack_p (gs))
+    {
+      if (gimple_call_num_args (gs) > 0)
+        {
+          pp_character (buffer, ',');
+          pp_space (buffer);
+        }
+
+      pp_string (buffer, "__builtin_va_arg_pack ()");
     }
 }
 
@@ -403,13 +420,31 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
       if (lhs)
         {
           dump_generic_node (buffer, lhs, spc, flags, false);
-          pp_string (buffer, " = ");
+          pp_string (buffer, " =");
+
+	  if (gimple_has_volatile_ops (gs))
+	    pp_string (buffer, "{v}");
+
+	  pp_space (buffer);
         }
       dump_generic_node (buffer, gimple_call_fn (gs), spc, flags, false);
       pp_string (buffer, " (");
       dump_gimple_call_args (buffer, gs, flags);
       pp_string (buffer, ")");
     }
+
+  if (gimple_call_chain (gs))
+    {
+      pp_string (buffer, " [static-chain: ");
+      dump_generic_node (buffer, gimple_call_chain (gs), spc, flags, false);
+      pp_character (buffer, ']');
+    }
+
+  if (gimple_call_return_slot_opt_p (gs))
+    pp_string (buffer, " [return slot optimization]");
+
+  if (gimple_call_tail_p (gs))
+    pp_string (buffer, " [tail call]");
 }
 
 
@@ -431,6 +466,7 @@ dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gimple_switch_index (gs), spc, flags, true);
       pp_string (buffer, ") <");
     }
+
   for (i = 0; i < gimple_switch_num_labels (gs); i++)
     {
       tree case_label = gimple_switch_label (gs, i);
@@ -884,9 +920,6 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
 	pp_string (buffer, ", ");
     }
   pp_string (buffer, ">");
-
-  if (stmt_references_memory_p (phi) && (flags & TDF_MEMSYMS))
-    dump_symbols (buffer, gimple_stored_syms (phi), flags);
 }
 
 
@@ -1000,7 +1033,7 @@ dump_gimple_mem_ops (pretty_printer *buffer, gimple gs, int spc, int flags)
   struct voptype_d *vuses;
   int i, n;
 
-  if (!ssa_operands_active () || !stmt_references_memory_p (gs))
+  if (!ssa_operands_active () || !gimple_references_memory_p (gs))
     return;
 
   /* Even if the statement doesn't have virtual operators yet, it may

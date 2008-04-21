@@ -872,7 +872,6 @@ extern bool types_compatible_p (tree, tree);
 extern void verify_ssa (bool);
 extern void delete_tree_ssa (void);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
-extern bool stmt_references_memory_p (gimple);
 extern bool ssa_undefined_value_p (tree);
 
 

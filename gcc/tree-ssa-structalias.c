@@ -3405,7 +3405,7 @@ update_alias_info (gimple stmt, struct alias_info *ai)
 
   /* Mark stored variables in STMT as being written to and update the
      memory reference stats for all memory symbols referenced by STMT.  */
-  if (stmt_references_memory_p (stmt))
+  if (gimple_references_memory_p (stmt))
     {
       unsigned i;
       bitmap_iterator bi;

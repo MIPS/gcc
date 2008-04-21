@@ -301,6 +301,7 @@ struct gimple_statement_with_memory_ops GTY(())
 {
   struct gimple_statement_with_ops with_ops;
   unsigned has_volatile_ops : 1;
+  unsigned references_memory_p : 1;
   struct voptype_d GTY((skip (""))) *vdef_ops;
   struct voptype_d GTY((skip (""))) *vuse_ops;
   bitmap GTY((skip (""))) stores;
@@ -591,6 +592,7 @@ void extract_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
 gimple gimple_build_call_vec (tree, VEC(tree, heap) *);
 gimple gimple_build_call (tree, size_t, ...);
+gimple gimple_build_call_from_tree (tree);
 gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
@@ -1055,6 +1057,25 @@ gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
 }
 
 
+/* Return true if statement STMT may access memory.  */
+
+static inline bool
+gimple_references_memory_p (gimple stmt)
+{
+  return gimple_has_mem_ops (stmt) && stmt->with_mem_ops.references_memory_p;
+}
+
+
+/* Set the REFERENCES_MEMORY_P flag for STMT to MEM_P.  */
+
+static inline void
+gimple_set_references_memory (gimple stmt, bool mem_p)
+{
+  if (gimple_has_mem_ops (stmt))
+    stmt->with_mem_ops.references_memory_p = (unsigned) mem_p;
+}
+
+
 /* Set the nowait flag on OMP_RETURN statement S.  */
 
 static inline void
@@ -1255,7 +1276,14 @@ static inline void
 gimple_assign_set_rhs1 (gimple gs, tree rhs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
-  gcc_assert (is_gimple_operand (rhs));
+
+  /* If there are 3 or more operands, the 2 operands on the RHS must be
+     GIMPLE values.  */
+  if (gimple_num_ops (gs) >= 3)
+    gcc_assert (is_gimple_val (rhs));
+  else
+    gcc_assert (is_gimple_operand (rhs));
+
   gimple_set_op (gs, 1, rhs);
 }
 
@@ -1292,7 +1320,10 @@ static inline void
 gimple_assign_set_rhs2 (gimple gs, tree rhs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
-  gcc_assert (is_gimple_operand (rhs));
+
+  /* The 2 operands on the RHS must be GIMPLE values.  */
+  gcc_assert (is_gimple_val (rhs));
+
   gimple_set_op (gs, 2, rhs);
 }
 
@@ -1565,7 +1596,7 @@ gimple_call_set_return_slot_opt (gimple s, bool return_slot_opt_p)
   if (return_slot_opt_p)
     s->gsbase.subcode |= GF_CALL_RETURN_SLOT_OPT;
   else
-    s->gsbase.subcode &= GF_CALL_RETURN_SLOT_OPT;
+    s->gsbase.subcode &= ~GF_CALL_RETURN_SLOT_OPT;
 }
 
 
@@ -1589,7 +1620,7 @@ gimple_call_set_from_thunk (gimple s, bool from_thunk_p)
   if (from_thunk_p)
     s->gsbase.subcode |= GF_CALL_FROM_THUNK;
   else
-    s->gsbase.subcode &= GF_CALL_FROM_THUNK;
+    s->gsbase.subcode &= ~GF_CALL_FROM_THUNK;
 }
 
 
@@ -1613,7 +1644,7 @@ gimple_call_set_va_arg_pack (gimple s, bool pass_arg_pack_p)
   if (pass_arg_pack_p)
     s->gsbase.subcode |= GF_CALL_VA_ARG_PACK;
   else
-    s->gsbase.subcode &= GF_CALL_VA_ARG_PACK;
+    s->gsbase.subcode &= ~GF_CALL_VA_ARG_PACK;
 }
 
 

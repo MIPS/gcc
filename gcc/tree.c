@@ -582,6 +582,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	    {
 	      DECL_ALIGN (t) = FUNCTION_BOUNDARY;
 	      DECL_MODE (t) = FUNCTION_MODE;
+	      gimple_set_body (t, NULL);
 	    }
 	  else
 	    DECL_ALIGN (t) = 1;

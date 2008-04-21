@@ -763,7 +763,7 @@ get_virtual_var (tree var)
    combination push_stmt_changes/pop_stmt_changes.  */
 
 void
-mark_symbols_for_renaming (gimple stmt ATTRIBUTE_UNUSED)
+mark_symbols_for_renaming (gimple stmt)
 {
   tree op;
   ssa_op_iter iter;

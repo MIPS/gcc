@@ -1457,6 +1457,9 @@ add_virtual_operand (tree var, gimple stmt, int flags,
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
   
+  /* Mark the statement as having memory operands.  */
+  gimple_set_references_memory (stmt, true);
+
   /* If the variable cannot be modified and this is a VDEF change
      it into a VUSE.  This happens when read-only variables are marked
      call-clobbered and/or aliased to writable variables.  So we only
@@ -1630,6 +1633,9 @@ get_addr_dereference_operands (gimple stmt, tree *addr, int flags,
 {
   tree ptr = *addr;
 
+  /* Mark the statement as having memory operands.  */
+  gimple_set_references_memory (stmt, true);
+
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1753,6 +1759,9 @@ static void
 get_tmr_operands (gimple stmt, tree expr, int flags)
 {
   tree tag;
+
+  /* Mark the statement as having memory operands.  */
+  gimple_set_references_memory (stmt, true);
 
   /* First record the real operands.  */
   get_expr_operands (stmt, &TMR_BASE (expr), opf_use);
@@ -1931,6 +1940,9 @@ maybe_add_call_clobbered_vops (gimple stmt)
 {
   int call_flags = gimple_call_flags (stmt);
 
+  /* Mark the statement as having memory operands.  */
+  gimple_set_references_memory (stmt, true);
+
   /* If aliases have been computed already, add VDEF or VUSE
      operands for all the symbols that have been found to be
      call-clobbered.  */
@@ -2012,6 +2024,9 @@ get_asm_expr_operands (gimple stmt)
 	{
 	  unsigned i;
 	  bitmap_iterator bi;
+
+	  /* Mark the statement as having memory operands.  */
+	  gimple_set_references_memory (stmt, true);
 
 	  EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, i, bi)
 	    {
@@ -2406,8 +2421,10 @@ parse_ssa_operands (gimple stmt)
 static void
 build_ssa_operands (gimple stmt)
 {
-  /* Initially assume that the statement has no volatile operands.  */
+  /* Initially assume that the statement has no volatile operands and
+     makes no memory references.  */
   gimple_set_has_volatile_ops (stmt, false);
+  gimple_set_references_memory (stmt, false);
 
   /* Just clear the bitmap so we don't end up reallocating it over and over.  */
   if (gimple_addresses_taken (stmt))
@@ -2418,6 +2435,11 @@ build_ssa_operands (gimple stmt)
   operand_build_sort_virtual (build_vuses);
   operand_build_sort_virtual (build_vdefs);
   finalize_ssa_stmt_operands (stmt);
+
+  /* For added safety, assume that statements with volatile operands
+     also reference memory.  */
+  if (gimple_has_volatile_ops (stmt))
+    gimple_set_references_memory (stmt, true);
 }
 
 
@@ -2879,7 +2901,7 @@ push_stmt_changes (gimple *stmt_p)
 
   buf->stmt_p = stmt_p;
 
-  if (stmt_references_memory_p (stmt))
+  if (gimple_references_memory_p (stmt))
     {
       tree op;
       ssa_op_iter i;
@@ -2968,7 +2990,7 @@ pop_stmt_changes (gimple *stmt_p)
      memory anymore, but we still need to act on the differences in
      the sets of symbols.  */
   loads = stores = NULL;
-  if (stmt_references_memory_p (stmt))
+  if (gimple_references_memory_p (stmt))
     {
       tree op;
       ssa_op_iter i;
@@ -3049,22 +3071,4 @@ discard_stmt_changes (gimple *stmt_p)
   BITMAP_FREE (buf->stores);
   buf->stmt_p = NULL;
   free (buf);
-}
-
-
-/* Returns true if statement STMT may access memory.  */
-
-bool
-stmt_references_memory_p (gimple stmt)
-{
-  if (!gimple_ssa_operands (cfun)->ops_active
-      || gimple_code (stmt) == GIMPLE_PHI)
-    return false;
-
-  /* Statements with volatile operands are assumed to access memory
-     as well.  */
-  return gimple_has_mem_ops (stmt)
-	 && (stmt->with_mem_ops.vdef_ops
-	     || stmt->with_mem_ops.vuse_ops
-	     || stmt->with_mem_ops.has_volatile_ops);
 }

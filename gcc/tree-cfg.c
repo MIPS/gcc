@@ -5896,7 +5896,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
       /* The function is now in GIMPLE form but the CFG has not been
 	 built yet.  Emit the single sequence of GIMPLE statements
 	 that make up its body.  */
-      print_gimple_seq (file, gimple_body (fn), 2, flags);
+      print_gimple_seq (file, gimple_body (fn), 0, flags);
     }
   else
     {

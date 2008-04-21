@@ -49,7 +49,6 @@ extern void annotate_all_with_location (gimple_seq, location_t);
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
-
 typedef bool (*gimple_predicate)(tree);
 
 /* In tree-gimple.c  */
@@ -92,9 +91,6 @@ extern bool is_gimple_asm_val (tree);
 extern bool is_gimple_formal_tmp_rhs (tree);
 extern bool is_gimple_reg_rhs (tree);
 extern bool is_gimple_mem_rhs (tree);
-/* Returns the appropriate one of the above three predicates for the LHS
-   T.  */
-extern gimple_predicate rhs_predicate_for (tree);
 
 /* Returns true iff T is a valid if-statement condition.  */
 extern bool is_gimple_condexpr (tree);

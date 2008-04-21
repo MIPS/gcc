@@ -410,7 +410,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       if (!ZERO_SSA_OPERANDS (stmt, (SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS))
 	  || gimple_has_volatile_ops (stmt)
 	  || (!gimple_aliases_computed_p (cfun)
-	      && stmt_references_memory_p (stmt)))
+	      && gimple_references_memory_p (stmt)))
 	return;
     }
 

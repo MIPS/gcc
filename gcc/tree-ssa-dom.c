@@ -1997,7 +1997,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
      vops and recording the result in the available expression table,
      we may be able to expose more redundant loads.  */
   if (!gimple_has_volatile_ops (stmt)
-      && stmt_references_memory_p (stmt)
+      && gimple_references_memory_p (stmt)
       && gimple_assign_single_p (stmt)
       && (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
 	  || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))

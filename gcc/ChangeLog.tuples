@@ -1,3 +1,70 @@
+2008-04-21  Diego Novillo  <dnovillo@google.com>
+
+	* tree.c (make_node_stat): Clear gimple_body() for newly
+	created FUNCTION_DECLs.
+	* tree-gimple.c (rhs_predicate_for): Move to gimplify.c.
+	* tree-gimple.h (rhs_predicate_for): Remove declaration.
+	* gimple-pretty-print.c (dump_gimple_assign): Add support
+	for showing volatile operands.
+	(dump_gimple_call): Likewise.
+	Add support for showing __builtin_va_arg_pack, static
+	chains, return slot optimized and tail calls.
+	(dump_gimple_phi): Remove code to print memory symbols.
+	* gimplify.c (is_gimple_formal_tmp_or_call_rhs): New.
+	(is_gimple_mem_or_call_rhs): New.
+	(rhs_predicate_for): Call them.
+	(internal_get_tmp_var): Use is_gimple_formal_tmp_or_call_rhs as
+	the gimplification predicate.
+	Use the last statement in *PRE_P to get the temporary to
+	be updated when in SSA form.
+	(gimplify_bind_expr): Clear out *EXPR_P before returning.
+	(gimplify_call_expr): Do not build a GIMPLE_CALL if
+	WANT_VALUE is true.
+	Call gimple_build_call_from_tree if WANT_VALUE is false.
+	Remove local variable ARGS.
+	(gimplify_modify_expr): If after gimplification *FROM_P
+	is a CALL_EXPR, create a GIMPLE_CALL instead of a
+	GIMPLE_ASSIGN.
+	Document why the gimplification of the RHS should accept
+	CALL_EXPRs.
+	(gimplify_expr): Document where the generated statement
+	is stored.
+	Accept is_gimple_formal_tmp_or_call_rhs and
+	is_gimple_mem_or_call_rhs as gimplification predicates.
+	When gimplifying statements, clear out *EXPR_P before
+	returning.
+	When generating an rvalue, call is_gimple_formal_tmp_or_call_rhs
+	to test *EXPR_P.
+	* tree-dfa.c (mark_symbols_for_renaming): Remove
+	ATTRIBUTE_UNUSED.
+	* tree-flow.h (stmt_references_memory_p): Remove.
+	* gimple.c (gimple_build_call_from_tree): New.
+	* gimple.h (struct gimple_statement_with_memory_ops): Add
+	bitfield references_memory_p.
+	(gimple_build_call_from_tree): Declare.
+	(gimple_references_memory_p): Rename from
+	stmt_references_memory_p.  Move here.  Update all users.
+	(gimple_set_references_memory): New.
+	(gimple_assign_set_rhs1): When the assignment has more
+	than one operand on the RHS, assert that the operands are
+	gimple values.
+	(gimple_assign_set_rhs2): Assert that the operand is a
+	gimple value.
+	(gimple_call_set_return_slot_opt): Fix mask clearing.
+	(gimple_call_set_from_thunk): Likewise.
+	(gimple_call_set_va_arg_pack): Likewise.
+	* tree-cfg.c (dump_function_to_file): Do not indent when
+	doing a GIMPLE dump.
+	* tree-ssa-operands.c (add_virtual_operand): Call
+	gimple_set_references_memory.
+	(get_addr_dereference_operands): Likewise.
+	(get_tmr_operands): Likewise.
+	(maybe_add_call_clobbered_vops): Likewise.
+	(get_asm_expr_operands): Likewise.
+	(parse_ssa_operands): Likewise.
+	(build_ssa_operands): Likewise.
+	(stmt_references_memory_p): Remove.
+
 2008-04-21  Rafael Espindola <espindola@google.com>
 
 	Cherry pick http://gcc.gnu.org/ml/gcc-patches/2008-04/msg01213.html
