@@ -45,6 +45,8 @@ union cl_option_stor
   const char *pcval;
 };
 
+typedef union cl_option_stor *cl_option_storp;
+
 struct cl_option
 {
   const char *opt_text;

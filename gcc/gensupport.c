@@ -29,9 +29,6 @@
 #include "gensupport.h"
 
 
-/* In case some macros used by files we include need it, define this here.  */
-int target_flags;
-
 int insn_elision = 1;
 
 const char *in_fname;
