@@ -610,9 +610,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_vrp);
 #endif
       NEXT_PASS (pass_dce);
-#if 0  
       NEXT_PASS (pass_cselim);
-#endif
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -622,8 +620,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
 #if 0
       NEXT_PASS (pass_tree_ifcombine);
-      NEXT_PASS (pass_phiopt);
 #endif
+      NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
 #if 0
@@ -649,8 +647,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_dse);
 #if 0
       NEXT_PASS (pass_forwprop);
-      NEXT_PASS (pass_phiopt);
 #endif
+      NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
       NEXT_PASS (pass_copy_prop);
@@ -729,8 +727,8 @@ init_optimization_passes (void)
 /* FIXME tuples.  */
 #if 0
       NEXT_PASS (pass_forwprop);
-      NEXT_PASS (pass_phiopt);
 #endif
+      NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_calls);
 /* FIXME tuples.  */
 #if 0

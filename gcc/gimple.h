@@ -802,7 +802,8 @@ gimple_lineno (const_gimple stmt)
 static inline bool
 gimple_seq_singleton_p (gimple_seq seq)
 {
-  return gimple_seq_first (seq) == gimple_seq_last (seq);
+  return ((gimple_seq_first (seq) != NULL)
+	  && (gimple_seq_first (seq) == gimple_seq_last (seq)));
 }
 
 /* Return true if no warnings should be emitted for statement STMT.  */

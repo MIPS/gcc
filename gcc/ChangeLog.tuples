@@ -1,3 +1,22 @@
+2008-04-21  Doug Kwan  <dougkwan@google.com>
+
+	* tree-ssa-phiopt.c (FILE): Uncomment all previously disabled code.
+	(tree_ssa_phiopt): Remove FIXME and re-enable code.
+	(tree_ssa_cs_elim): Remove FIXME and re-enable code.
+	(tree_ssa_phiopt_worker): Tuplify.
+	(replace_phi_edge_with_variable): Tuplify.
+	(conditional_replacement): Tuplify and simplify optimization logic.
+	Construct a boolean tree and let fold and force_gimple_operand_gsi
+	do optimization and code genaration.
+	(value_replacement): Tuplify.
+	(minmax_replacement): Tuplify.
+	(abs_replacement): Tuplify.
+	(nt_init_block): Tuplify.
+	(cond_store_replacement): Tuplify.
+	* gimple.h (gimple_seq_singleton_p): Fix empty sequence bug.
+	* passes.c (init_optimization_passes): Re-enable pass_cselim
+	and pass_phiopt.
+
 2008-04-21  Diego Novillo  <dnovillo@google.com>
 
 	* tree.c (make_node_stat): Clear gimple_body() for newly
