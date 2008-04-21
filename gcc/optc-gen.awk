@@ -62,10 +62,6 @@ for (i = 1; i <= n_headers; i++)
 print "#include " quote "opts.h" quote
 print "#include " quote "intl.h" quote
 print ""
-print "#ifdef GCC_DRIVER"
-print "int target_flags;"
-print "#endif /* GCC_DRIVER */"
-print ""
 
 for (i = 0; i < n_opts; i++) {
         name = var_name(flags[i]);

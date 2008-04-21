@@ -1,3 +1,16 @@
+2008-04-11  Karthik Kumar  <karthikkumar@gmail.com>
+
+	* optc-gen.awk: Removed definition of target_flags because of
+	usage as a versioned variable.
+	* opth-gen.awk: Make versioned macros and versioned aliases for
+	option testing and setting.
+	* gensupport.c: Remove definition of target_flags.
+	* rtlanal.c: Remove definition of target_flags.
+	* toplev.c: Remove definition of target_flags_explicit.
+	* opts.h: Pushed in cl_option_storp typedef.
+	* opts-common.c: Removed cl_option_storp typedef.
+	* tree.h: Added field to store options in functions.
+
 2008-03-11  Michael Meissner  <michael.meissner@amd.com>
 
 	* opts-common.c (cl_option_stors_stack): Fix spacing.

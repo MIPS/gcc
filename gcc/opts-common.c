@@ -235,8 +235,6 @@ done:
   free (options);
 }
 
-typedef union cl_option_stor *cl_option_storp;
-
 struct cl_option_stors_stack
 {
   cl_option_storp stor;
