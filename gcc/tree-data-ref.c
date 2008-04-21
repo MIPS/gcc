@@ -512,6 +512,7 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 {
   tree var0, var1;
   tree off0, off1;
+  enum tree_code ocode = code;
 
   *var = NULL_TREE;
   *off = NULL_TREE;
@@ -524,14 +525,14 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
       return true;
 
     case POINTER_PLUS_EXPR:
-      code = PLUS_EXPR;
+      ocode = PLUS_EXPR;
       /* FALLTHROUGH */
     case PLUS_EXPR:
     case MINUS_EXPR:
       split_constant_offset (op0, &var0, &off0);
       split_constant_offset (op1, &var1, &off1);
       *var = fold_build2 (code, type, var0, var1);
-      *off = size_binop (code, off0, off1);
+      *off = size_binop (ocode, off0, off1);
       return true;
 
     case MULT_EXPR:
@@ -624,19 +625,23 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 void
 split_constant_offset (tree exp, tree *var, tree *off)
 {
-  tree type = TREE_TYPE (exp), otype, op0, op1;
+  tree type = TREE_TYPE (exp), otype, op0, op1, e, o;
   enum tree_code code;
 
+  *var = exp;
+  *off = ssize_int (0);
   STRIP_NOPS (exp);
+
+  if (automatically_generated_chrec_p (exp))
+    return;
+
   otype = TREE_TYPE (exp);
   code = TREE_CODE (exp);
   extract_ops_from_tree (exp, &code, &op0, &op1);
-  if (split_constant_offset_1 (otype, op0, code, op1, var, off))
-    *var = fold_convert (type, *var);
-  else
+  if (split_constant_offset_1 (otype, op0, code, op1, &e, &o))
     {
-      *var = exp;
-      *off = ssize_int (0);
+      *var = fold_convert (type, e);
+      *off = o;
     }
 }
 

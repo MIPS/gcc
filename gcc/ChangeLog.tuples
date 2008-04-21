@@ -1,3 +1,12 @@
+2008-04-20  Zdenek Dvorak  <ook@ucw.cz>
+
+	* tree-data-ref.c (split_constant_offset_1): Use POINTER_PLUS_EXPR
+	for pointer addition.
+	(split_constant_offset): Set VAR to EXP before conversions are
+	stripped, when no offset is removed.  Handle chrec_dont_know.
+	* tree-predcom.c: Tuplified.
+	* passes.c (init_optimization_passes): Enable pass_predcom.
+
 2008-04-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (lower_rec_input_clauses): Remove fixme and

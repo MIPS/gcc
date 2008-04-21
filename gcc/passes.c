@@ -671,8 +671,8 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_dce_loop);
 #endif
 	  NEXT_PASS (pass_lim);
-#if 0
 	  NEXT_PASS (pass_predcom);
+#if 0
 	  NEXT_PASS (pass_tree_unswitch);
 #endif
 	  NEXT_PASS (pass_scev_cprop);
