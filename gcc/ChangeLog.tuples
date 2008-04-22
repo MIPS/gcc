@@ -1,3 +1,10 @@
+2008-04-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (lower_omp_parallel): Add new argument to
+	gimple_omp_parallel_set_combined_p.
+	(lower_omp_1): Remove debugging code.
+	* gimple.h (gimple_omp_parallel_combined_p): Add new argument.
+
 2008-04-22  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @134552.

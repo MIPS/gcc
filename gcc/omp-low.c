@@ -4339,7 +4339,8 @@ struct gimple_opt_pass pass_expand_omp =
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
 
-/* Lower the OpenMP sections directive in the current statement.  */
+/* Lower the OpenMP sections directive in the current statement in GSI_P.
+   CTX is the enclosing OMP context for the current statement.  */
 
 static void
 lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
@@ -4924,7 +4925,7 @@ lower_omp_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       wi.val_only = true;
       walk_gimple_seq (par_body, check_combined_parallel, NULL, &wi);
       if (ws_num == 1)
-	gimple_omp_parallel_set_combined_p (stmt);
+	gimple_omp_parallel_set_combined_p (stmt, true);
     }
 
   push_gimplify_context ();
@@ -5044,10 +5045,6 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       break;
     case GIMPLE_OMP_PARALLEL:
       ctx = maybe_lookup_ctx (stmt);
-      {
-	debug_gimple_stmt (stmt);
-	exit(1);
-      }
       lower_omp_parallel (gsi_p, ctx);
       break;
     case GIMPLE_OMP_FOR:

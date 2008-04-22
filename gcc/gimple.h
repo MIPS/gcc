@@ -1130,13 +1130,17 @@ gimple_omp_parallel_combined_p (const_gimple g)
 }
 
 
-/* Set the GF_OMP_PARALLEL_COMBINED field in G.  */
+/* Set the GF_OMP_PARALLEL_COMBINED field in G depending on the boolean
+   value of COMBINED_P.  */
 
 static inline void
-gimple_omp_parallel_set_combined_p (gimple g)
+gimple_omp_parallel_set_combined_p (gimple g, bool combined_p)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
-  g->gsbase.subcode |= GF_OMP_PARALLEL_COMBINED;
+  if (combined_p)
+    g->gsbase.subcode |= GF_OMP_PARALLEL_COMBINED;
+  else
+    g->gsbase.subcode &= ~GF_OMP_PARALLEL_COMBINED;
 }
 
 
