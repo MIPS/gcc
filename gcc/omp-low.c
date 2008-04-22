@@ -2696,7 +2696,7 @@ expand_omp_parallel (struct omp_region *region)
 
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
-      BLOCK_VARS (block) = list2chain (child_cfun->unexpanded_var_list);
+      BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
       DECL_SAVED_TREE (child_fn) = NULL;
       gimple_set_body (child_fn, bb_seq (single_succ (entry_bb)));
 

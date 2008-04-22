@@ -1786,7 +1786,7 @@ gimple_set_bb (gimple stmt, basic_block bb)
       if (uid == -1)
 	{
 	  size_t old_len = VEC_length (basic_block, label_to_block_map);
-	  LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
+	  LABEL_DECL_UID (t) = uid = cfun->cfg->last_label_uid++;
 	  if (old_len <= (size_t) uid)
 	    {
 	      size_t new_len = 3 * uid / 2;

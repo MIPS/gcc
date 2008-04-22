@@ -157,7 +157,9 @@ build_cgraph_edges (void)
       }
 
   /* Look for initializers of constant variables and private statics.  */
-  for (step = cfun->unexpanded_var_list; step; step = TREE_CHAIN (step))
+  for (step = cfun->local_decls;
+       step;
+       step = TREE_CHAIN (step))
     {
       tree decl = TREE_VALUE (step);
       if (TREE_CODE (decl) == VAR_DECL

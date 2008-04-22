@@ -553,7 +553,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
      required if this is a static expression because it might be used
      in a context where a dereference is inappropriate, such as a case
      statement alternative or a record discriminant.  There is no possible
-     volatile-ness shortciruit here since Volatile constants must be imported
+     volatile-ness short-circuit here since Volatile constants must be imported
      per C.6. */
   if (Ekind (gnat_temp) == E_Constant && Is_Scalar_Type (gnat_temp_type)
       && !Is_Imported (gnat_temp)
@@ -566,7 +566,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 
   if (use_constant_initializer)
     {
-      /* If this is a deferred constant, the initializer is attached to the
+      /* If this is a deferred constant, the initializer is attached to
 	 the full view.  */
       if (Present (Full_View (gnat_temp)))
 	gnat_temp = Full_View (gnat_temp);
@@ -996,8 +996,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* Remove NOPS from gnu_expr and conversions from gnu_prefix.
 	 We only use GNU_EXPR to see if a COMPONENT_REF was involved. */
       while (TREE_CODE (gnu_expr) == NOP_EXPR)
-	gnu_expr = TREE_OPERAND (gnu_expr, 0)
-	  ;
+	gnu_expr = TREE_OPERAND (gnu_expr, 0);
 
       gnu_prefix = remove_conversions (gnu_prefix, true);
       prefix_unused = true;
@@ -1018,7 +1017,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* If we're looking for the size of a field, return the field size.
 	 Otherwise, if the prefix is an object, or if 'Object_Size or
 	 'Max_Size_In_Storage_Elements has been specified, the result is the
-	 GCC size of the type. Otherwise, the result is the RM_Size of the
+	 GCC size of the type.  Otherwise, the result is the RM_Size of the
 	 type.  */
       if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	gnu_result = DECL_SIZE (TREE_OPERAND (gnu_prefix, 1));
@@ -2417,7 +2416,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
     {
       /* Conceptually, what we need is a COMPOUND_EXPR with the call followed
 	 by the target object converted to the proper type.  Doing so would
-	 potentially be very inefficient, however, as this expresssion might
+	 potentially be very inefficient, however, as this expression might
 	 end up wrapped into an outer SAVE_EXPR later on, which would incur a
 	 pointless temporary copy of the whole object.
 
@@ -3099,7 +3098,7 @@ gnat_to_gnu (Node_Id gnat_node)
      elaboration procedure, so mark us as being in that procedure and push our
      context.
 
-     If we are in the elaboration procedure, check if we are violating a a
+     If we are in the elaboration procedure, check if we are violating a
      No_Elaboration_Code restriction by having a statement there.  */
   if ((IN (Nkind (gnat_node), N_Statement_Other_Than_Procedure_Call)
        && Nkind (gnat_node) != N_Null_Statement)
@@ -4715,7 +4714,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	    }
 
  	  /* If the object was allocated from the default storage pool, the
- 	     alignement was greater than what the allocator provides, and this
+ 	     alignment was greater than what the allocator provides, and this
  	     is not a fat or thin pointer, what we have in gnu_ptr here is an
  	     address dynamically adjusted to match the alignment requirement
  	     (see build_allocator).  What we need to pass to free is the
@@ -5099,7 +5098,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
      valid for the context.  Similar to init_const in create_var_decl_1.  */
   if (TREE_CODE (gnu_decl) == VAR_DECL
       && (gnu_init = DECL_INITIAL (gnu_decl)) != NULL_TREE
-      && (TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (TREE_TYPE (gnu_init))
+      && (!gnat_types_compatible_p (type, TREE_TYPE (gnu_init))
 	  || (TREE_STATIC (gnu_decl)
 	      && !initializer_constant_valid_p (gnu_init,
 						TREE_TYPE (gnu_init)))))
@@ -5842,7 +5841,7 @@ emit_range_check (tree gnu_expr, Entity_Id gnat_range_type)
   /* There's no good type to use here, so we might as well use
      integer_type_node. Note that the form of the check is
         (not (expr >= lo)) or (not (expr <= hi))
-      the reason for this slightly convoluted form is that NaN's
+      the reason for this slightly convoluted form is that NaNs
       are not considered to be in range in the float case. */
   return emit_check
     (build_binary_op (TRUTH_ORIF_EXPR, integer_type_node,
@@ -5864,7 +5863,7 @@ emit_range_check (tree gnu_expr, Entity_Id gnat_range_type)
    against which GNU_EXPR has to be checked. Note that for index
    checking we cannot use the emit_range_check function (although very
    similar code needs to be generated in both cases) since for index
-   checking the array type against which we are checking the indeces
+   checking the array type against which we are checking the indices
    may be unconstrained and consequently we need to retrieve the
    actual index bounds from the array object itself
    (GNU_ARRAY_OBJECT). The place where we need to do that is in

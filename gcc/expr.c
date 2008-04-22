@@ -9181,10 +9181,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return const0_rtx;
 
     case EXC_PTR_EXPR:
-      return get_exception_pointer (cfun);
+      return get_exception_pointer ();
 
     case FILTER_EXPR:
-      return get_exception_filter (cfun);
+      return get_exception_filter ();
 
     case FDESC_EXPR:
       /* Function descriptors are not valid except for as
@@ -9924,8 +9924,8 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
 {
   rtx temp, vector;
 
-  if (INTVAL (range) > cfun->max_jumptable_ents)
-    cfun->max_jumptable_ents = INTVAL (range);
+  if (INTVAL (range) > cfun->cfg->max_jumptable_ents)
+    cfun->cfg->max_jumptable_ents = INTVAL (range);
 
   /* Do an unsigned comparison (in the proper mode) between the index
      expression and the value which represents the length of the range.

@@ -1679,7 +1679,7 @@ analyze_function (struct cgraph_node *fn)
   if (DECL_STRUCT_FUNCTION (decl))
     {
       tree step;
-      for (step = DECL_STRUCT_FUNCTION (decl)->unexpanded_var_list;
+      for (step = DECL_STRUCT_FUNCTION (decl)->local_decls;
 	   step;
 	   step = TREE_CHAIN (step))
 	{

@@ -462,7 +462,7 @@ package body Sem_Ch8 is
    --  gram in an instance, for which special visibility checks apply.
 
    function Has_Implicit_Operator (N : Node_Id) return Boolean;
-   --  N is an expanded name whose selector is an operator name (eg P."+").
+   --  N is an expanded name whose selector is an operator name (e.g. P."+").
    --  declarative part contains an implicit declaration of an operator if it
    --  has a declaration of a type to which one of the predefined operators
    --  apply. The existence of this routine is an implementation artifact. A
@@ -1431,7 +1431,7 @@ package body Sem_Ch8 is
       --    in Sub must also have one. Otherwise the subtype of the Sub's
       --    formal parameter must exclude null.
       --
-      --    If Ren is a renaming of a formal function and its retrun
+      --    If Ren is a renaming of a formal function and its return
       --    profile has a null exclusion, then Sub's return profile must
       --    have one. Otherwise the subtype of Sub's return profile must
       --    exclude null.
@@ -1957,7 +1957,7 @@ package body Sem_Ch8 is
          if Is_Actual then
             null;
 
-         --  Guard agaisnt previous errors, and omit renamings of predefined
+         --  Guard against previous errors, and omit renamings of predefined
          --  operators.
 
          elsif Ekind (Old_S) /= E_Function
@@ -2396,6 +2396,11 @@ package body Sem_Ch8 is
                   Use_One_Package (Pack, N);
                end if;
             end if;
+
+         --  Report error because name denotes something other than a package
+
+         else
+            Error_Msg_N ("& is not a package", Pack_Name);
          end if;
 
          Next (Pack_Name);
@@ -3066,9 +3071,14 @@ package body Sem_Ch8 is
    begin
       Pack_Name := First (Names (N));
       while Present (Pack_Name) loop
-         Pack := Entity (Pack_Name);
 
-         if Ekind (Pack) = E_Package then
+         --  Test that Pack_Name actually denotes a package before processing
+
+         if Is_Entity_Name (Pack_Name)
+           and then Ekind (Entity (Pack_Name)) = E_Package
+         then
+            Pack := Entity (Pack_Name);
+
             if In_Open_Scopes (Pack) then
                null;
 
@@ -3838,7 +3848,7 @@ package body Sem_Ch8 is
                All_Overloadable := All_Overloadable and Is_Overloadable (E2);
 
             --  Ada 2005 (AI-262): Protect against a form of Beujolais effect
-            --  that can occurr in private_with clauses. Example:
+            --  that can occur in private_with clauses. Example:
 
             --    with A;
             --    private with B;              package A is
@@ -4027,7 +4037,7 @@ package body Sem_Ch8 is
          --  When distribution features are available (Get_PCS_Name /=
          --  Name_No_DSA), a remote access-to-subprogram type is converted
          --  into a record type holding whatever information is needed to
-         --  perform a remote call on an RCI suprogram. In that case we
+         --  perform a remote call on an RCI subprogram. In that case we
          --  rewrite any occurrence of the RAS type into the equivalent record
          --  type here. 'Access attribute references and RAS dereferences are
          --  then implemented using specific TSSs. However when distribution is
@@ -4110,7 +4120,7 @@ package body Sem_Ch8 is
                --  If the renamed entity is a private protected component,
                --  reference the original component as well. This needs to be
                --  done because the private renamings are installed before any
-               --  analysis has occured. Reference to a private component will
+               --  analysis has occurred. Reference to a private component will
                --  resolve to the renaming and the original component will be
                --  left unreferenced, hence the following.
 
@@ -4143,7 +4153,7 @@ package body Sem_Ch8 is
             --    the entity is unambiguous, because the tree is not
             --    sufficiently typed at this point for Generate_Reference to
             --    determine whether this reference modifies the denoted object
-            --    (because implicit derefences cannot be identified prior to
+            --    (because implicit dereferences cannot be identified prior to
             --    full type resolution).
             --
             --    The Is_Actual_Parameter routine takes care of one of these
@@ -6110,7 +6120,7 @@ package body Sem_Ch8 is
          end if;
 
          --  If the new use clause appears in the private part of a parent unit
-         --  it may appear to be redudant w.r.t. a use clause in a child unit,
+         --  it may appear to be redundant w.r.t. a use clause in a child unit,
          --  but the previous use clause was needed in the visible part of the
          --  child, and no warning should be emitted.
 
@@ -6989,7 +6999,7 @@ package body Sem_Ch8 is
          --       type T ...       use P.T;
 
          --  The compilation unit is the body of X. GNAT first compiles the
-         --  spec of X, then procedes to the body. At that point P is marked
+         --  spec of X, then proceeds to the body. At that point P is marked
          --  as use visible. The analysis then reinstalls the spec along with
          --  its context. The use clause P.T is now recognized as redundant,
          --  but in the wrong context. Do not emit a warning in such cases.

@@ -1378,18 +1378,46 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
 	  replace_phi_args_in (gsi_stmt (i), prop_value);
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      /* Propagate known values into stmts.  Do a backward walk to expose
+	 more trivially deletable stmts.  */
+      for (i = gsi_last_bb (bb); !gsi_end_p (i);)
 	{
           bool did_replace;
 	  gimple prev_stmt = NULL;
 	  gimple stmt = gsi_stmt (i);
+	  enum gimple_code code = gimple_code (stmt);
 
 	  /* Ignore ASSERT_EXPRs.  They are used by VRP to generate
 	     range information for names and they are discarded
 	     afterwards.  */
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN
+
+	  if (code == GIMPLE_ASSIGN
 	      && TREE_CODE (gimple_assign_rhs1 (stmt)) == ASSERT_EXPR)
-	    continue;
+	    {
+	      gsi_prev (&i);
+	      continue;
+	    }
+
+	  /* No point propagating into a stmt whose result is not used,
+	     but instead we might be able to remove a trivially dead stmt.  */
+	  if (gimple_get_lhs (stmt)
+	      && TREE_CODE (gimple_get_lhs (stmt)) == SSA_NAME
+	      && has_zero_uses (gimple_get_lhs (stmt))
+	      && !stmt_could_throw_p (stmt)
+	      && !gimple_has_side_effects (stmt))
+	    {
+	      if (dump_file && dump_flags & TDF_DETAILS)
+		{
+		  fprintf (dump_file, "Removing dead stmt ");
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		  fprintf (dump_file, "\n");
+		}
+	      gsi_remove (&i, true);
+	      release_defs (stmt);
+	      if (!gsi_end_p (i))
+	        gsi_prev (&i);
+	      continue;
+	    }
 
 	  /* Record the state of the statement before replacements.  */
 	  push_stmt_changes (gsi_stmt_ptr (&i));
@@ -1474,6 +1502,8 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 #else
 	  gimple_unreachable ();
 #endif
+
+	  gsi_prev (&i);
 	}
     }
 

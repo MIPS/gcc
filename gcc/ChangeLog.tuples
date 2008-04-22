@@ -1,3 +1,10 @@
+2008-04-22  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @134552.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-04-21  Doug Kwan  <dougkwan@google.com>
 
 	* tree-ssa-phiopt.c (FILE): Uncomment all previously disabled code.
