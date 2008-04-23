@@ -588,7 +588,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
   return false;
 }
-
+#endif
 
 /* Return true if this optimization pass should be done.
    It makes only sense for stdarg functions.  */
@@ -596,8 +596,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 static bool
 gate_optimize_stdarg (void)
 {
+  /* FIXME tuples */
+#if 0
   /* This optimization is only for stdarg functions.  */
   return current_function_stdarg != 0;
+#else
+  return 0;
+#endif
 }
 
 
@@ -606,6 +611,8 @@ gate_optimize_stdarg (void)
 static unsigned int
 execute_optimize_stdarg (void)
 {
+  /* FIXME tuples */
+#if 0
   basic_block bb;
   bool va_list_escapes = false;
   bool va_list_simple_ptr;
@@ -903,6 +910,9 @@ finish:
       fputs (" FPR units.\n", dump_file);
     }
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -924,4 +934,3 @@ struct gimple_opt_pass pass_stdarg =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
-#endif

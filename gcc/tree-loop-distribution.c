@@ -1106,12 +1106,15 @@ distribute_loop (struct loop *loop, VEC (tree, heap) *stmts)
 
   return res;
 }
+#endif
 
 /* Distribute all loops in the current function.  */
 
 static unsigned int
 tree_loop_distribution (void)
 {
+  /* FIXME tuples */
+#if 0
   struct loop *loop;
   loop_iterator li;
   int nb_generated_loops = 0;
@@ -1148,12 +1151,20 @@ tree_loop_distribution (void)
     }
 
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool
 gate_tree_loop_distribution (void)
 {
+  /* FIXME tuples */
+#if 0
   return flag_tree_loop_distribution != 0;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_loop_distribution =
@@ -1174,4 +1185,3 @@ struct gimple_opt_pass pass_loop_distribution =
   TODO_dump_func | TODO_verify_loops            /* todo_flags_finish */
  }
 };
-#endif

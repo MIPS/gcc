@@ -956,12 +956,15 @@ simplify_switch_expr (tree stmt)
 	}
     }
 }
+#endif
 
 /* Main entry point for the forward propagation optimizer.  */
 
 static unsigned int
 tree_ssa_forward_propagate_single_use_vars (void)
 {
+  /* FIXME tuples */
+#if 0
   basic_block bb;
   unsigned int todoflags = 0;
 
@@ -1065,13 +1068,21 @@ tree_ssa_forward_propagate_single_use_vars (void)
   if (cfg_changed)
     todoflags |= TODO_cleanup_cfg;
   return todoflags;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
 static bool
 gate_forwprop (void)
 {
+  /*FIXME tuples*/
+#if 0
   return 1;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_forwprop = 
@@ -1096,4 +1107,3 @@ struct gimple_opt_pass pass_forwprop =
  }
 };
 
-#endif

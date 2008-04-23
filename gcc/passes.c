@@ -482,8 +482,8 @@ init_optimization_passes (void)
   /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_mudflap_1);
-  NEXT_PASS (pass_lower_omp);
 #endif
+  NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   /* FIXME tuples.  */
 #if 0
@@ -533,10 +533,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_cleanup_cfg);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
-          /* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_forwprop);
-#endif
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
@@ -595,20 +592,14 @@ init_optimization_passes (void)
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_phiprop);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_fre);
-#endif
       NEXT_PASS (pass_dce);
 #if 0
       NEXT_PASS (pass_forwprop);
 #endif
       NEXT_PASS (pass_copy_prop);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
-#endif
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_dominator);
@@ -624,9 +615,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
-#if 0
       NEXT_PASS (pass_stdarg);
-#endif
       NEXT_PASS (pass_lower_complex);
       NEXT_PASS (pass_sra);
       /* FIXME tuples.  */
@@ -640,14 +629,10 @@ init_optimization_passes (void)
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-#if 0
       NEXT_PASS (pass_reassoc);
-#endif
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_dse);
-#if 0
       NEXT_PASS (pass_forwprop);
-#endif
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_store_ccp);
@@ -655,10 +640,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_fold_builtins);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_split_crit_edges);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_pre);
-#endif
       NEXT_PASS (pass_sink_code);
       NEXT_PASS (pass_tree_loop);
 	{
@@ -668,16 +650,13 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_dce_loop);
 	  NEXT_PASS (pass_lim);
 	  NEXT_PASS (pass_predcom);
-#if 0
 	  NEXT_PASS (pass_tree_unswitch);
-#endif
 	  NEXT_PASS (pass_scev_cprop);
-#if 0
 	  NEXT_PASS (pass_empty_loop);
+#if 0
 	  NEXT_PASS (pass_record_bounds);
 #endif
 	  NEXT_PASS (pass_check_data_deps);
-#if 0
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_linear_transform);
 	  NEXT_PASS (pass_iv_canon);
@@ -690,17 +669,14 @@ init_optimization_passes (void)
 	    }
 	  NEXT_PASS (pass_complete_unroll);
 	  NEXT_PASS (pass_parallelize_loops);
-#endif
 	  NEXT_PASS (pass_loop_prefetch);
 	  NEXT_PASS (pass_iv_optimize);
 	  NEXT_PASS (pass_tree_loop_done);
 	}
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_convert_to_rsqrt);
-#if 0
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
-#endif
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -709,8 +685,8 @@ init_optimization_passes (void)
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_cd_dce);
-#if 0
       NEXT_PASS (pass_tracer);
+#if 0
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
@@ -724,10 +700,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_late_warn_uninitialized);
 #endif
       NEXT_PASS (pass_dse);
-/* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_forwprop);
-#endif
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_calls);
 /* FIXME tuples.  */

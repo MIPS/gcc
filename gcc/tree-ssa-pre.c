@@ -4097,7 +4097,12 @@ execute_fre (void)
 static bool
 gate_fre (void)
 {
+  /* FIXME tuples */
+#if 0
   return flag_tree_fre != 0;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_fre =

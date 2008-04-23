@@ -1510,11 +1510,14 @@ fini_reassoc (void)
   loop_optimizer_finalize ();
 }
 
+#endif
 /* Gate and execute functions for Reassociation.  */
 
 static unsigned int
 execute_reassoc (void)
 {
+  /*FIXME tuples*/
+#if 0
   init_reassoc ();
 
   do_reassoc ();
@@ -1522,12 +1525,20 @@ execute_reassoc (void)
 
   fini_reassoc ();
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 static bool
 gate_tree_ssa_reassoc (void)
 {
+  /*FIXME tuples*/
+#if 0
   return flag_tree_reassoc != 0;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_reassoc =
@@ -1548,4 +1559,3 @@ struct gimple_opt_pass pass_reassoc =
   TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
  }
 };
-#endif

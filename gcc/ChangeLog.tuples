@@ -1,3 +1,26 @@
+2008-04-23  Rafael Espindola <espindola@google.com>
+
+	* omp-low.c (gate_lower_omp): Return 0.
+	* passes.c (init_optimization_passes): Enable all passes whose
+	corresponding dump options are used in the testsuite.
+	* tree-loop-distribution.c (tree_loop_distribution): Comment body.
+	(gate_tree_loop_distribution): Return 0.
+	* tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_vars):
+	Comment body.
+	(gate_forwprop): Return 0.
+	* tree-ssa-loop.c (gate_tree_ssa_loop_unswitch): Return 0.
+	(gate_tree_vectorize): Return 0.
+	(gate_tree_ssa_loop_ivcanon): Return 0.
+	(tree_ssa_empty_loop): Return 0.
+	(gate_tree_complete_unroll): Return 0.
+	* tree-ssa-pre.c (gate_fre): Return 0.
+	* tree-ssa-reassoc.c (execute_reassoc): Comment body.
+	(gate_tree_ssa_reassoc): Return 0.
+	* tree-stdarg.c (gate_optimize_stdarg): Return 0.
+	(execute_optimize_stdarg): Comment body.
+	* tree-vrp.c (execute_vrp): Comment body.
+	(gate_vrp): Return 0.
+
 2008-04-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (lower_omp_parallel): Add new argument to

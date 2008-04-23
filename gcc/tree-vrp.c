@@ -6707,6 +6707,7 @@ record_numbers_of_iterations (void)
     }
 }
 
+#endif
 /* Main entry point to VRP (Value Range Propagation).  This pass is
    loosely based on J. R. C. Patterson, ``Accurate Static Branch
    Prediction by Value Range Propagation,'' in SIGPLAN Conference on
@@ -6754,6 +6755,8 @@ record_numbers_of_iterations (void)
 static unsigned int
 execute_vrp (void)
 {
+  /* FIXME tuples */
+#if 0
   int i;
   edge e;
   switch_update *su;
@@ -6815,6 +6818,9 @@ execute_vrp (void)
 
   scev_finalize ();
   loop_optimizer_finalize ();
+#else
+  gcc_unreachable ();
+#endif
 
   return 0;
 }
@@ -6822,7 +6828,12 @@ execute_vrp (void)
 static bool
 gate_vrp (void)
 {
+  /* FIXME tuples */
+#if 0
   return flag_tree_vrp != 0;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_vrp =
@@ -6847,4 +6858,3 @@ struct gimple_opt_pass pass_vrp =
     | TODO_update_ssa			/* todo_flags_finish */
  }
 };
-#endif

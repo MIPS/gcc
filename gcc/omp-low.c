@@ -5137,7 +5137,12 @@ execute_lower_omp (void)
 static bool
 gate_lower_omp (void)
 {
+  /* FIXME tuples */
+#if 0
   return flag_openmp != 0;
+#else
+  return 0;
+#endif
 }
 
 struct gimple_opt_pass pass_lower_omp = 
