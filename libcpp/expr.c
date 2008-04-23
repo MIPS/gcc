@@ -637,6 +637,20 @@ parse_defined (cpp_reader *pfile)
 		   "this use of \"defined\" may not be portable");
 
       _cpp_mark_macro_used (node);
+      if (!(node->flags & NODE_USED))
+	{
+	  node->flags |= NODE_USED;
+	  if (node->type == NT_MACRO)
+	    {
+	      if (pfile->cb.used_define)
+		pfile->cb.used_define (pfile, pfile->directive_line, node);
+	    }
+	  else
+	    {
+	      if (pfile->cb.used_undef)
+		pfile->cb.used_undef (pfile, pfile->directive_line, node);
+	    }
+	}
 
       /* A possible controlling macro of the form #if !defined ().
 	 _cpp_parse_expr checks there was no other junk on the line.  */
@@ -691,6 +705,8 @@ eval_token (cpp_reader *pfile, const cpp_token *token)
 
     case CPP_WCHAR:
     case CPP_CHAR:
+    case CPP_CHAR16:
+    case CPP_CHAR32:
       {
 	cppchar_t cc = cpp_interpret_charconst (pfile, token,
 						&temp, &unsignedp);
@@ -849,6 +865,8 @@ _cpp_parse_expr (cpp_reader *pfile)
 	case CPP_NUMBER:
 	case CPP_CHAR:
 	case CPP_WCHAR:
+	case CPP_CHAR16:
+	case CPP_CHAR32:
 	case CPP_NAME:
 	case CPP_HASH:
 	  if (!want_value)

@@ -123,10 +123,14 @@ struct _cpp_file;
 									\
   TK(CHAR,		LITERAL) /* 'char' */				\
   TK(WCHAR,		LITERAL) /* L'char' */				\
+  TK(CHAR16,		LITERAL) /* u'char' */				\
+  TK(CHAR32,		LITERAL) /* U'char' */				\
   TK(OTHER,		LITERAL) /* stray punctuation */		\
 									\
   TK(STRING,		LITERAL) /* "string" */				\
   TK(WSTRING,		LITERAL) /* L"string" */			\
+  TK(STRING16,		LITERAL) /* u"string" */			\
+  TK(STRING32,		LITERAL) /* U"string" */			\
   TK(OBJC_STRING,	LITERAL) /* @"string" - Objective-C */		\
   TK(HEADER_NAME,	LITERAL) /* <stdio.h> in #include */		\
 									\
@@ -290,6 +294,9 @@ struct cpp_options
 
   /* Nonzero means to allow hexadecimal floats and LL suffixes.  */
   unsigned char extended_numbers;
+
+  /* Nonzero means process u/U prefix literals (UTF-16/32).  */
+  unsigned char uliterals;
 
   /* Nonzero means print names of header files (-H).  */
   unsigned char print_include_names;
@@ -480,6 +487,14 @@ struct cpp_callbacks
      This callback receives the translated message.  */
   void (*error) (cpp_reader *, int, const char *, va_list *)
        ATTRIBUTE_FPTR_PRINTF(3,0);
+
+  /* Callbacks for when a macro is expanded, or tested (whether
+     defined or not at the time) in #ifdef, #ifndef or "defined".  */
+  void (*used_define) (cpp_reader *, unsigned int, cpp_hashnode *);
+  void (*used_undef) (cpp_reader *, unsigned int, cpp_hashnode *);
+  /* Called before #define and #undef or other macro definition
+     changes are processed.  */
+  void (*before_define) (cpp_reader *);
 };
 
 /* Chain of directories to look for include files in.  */
@@ -537,6 +552,7 @@ extern const char *progname;
 #define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 #define NODE_DISABLED	(1 << 5)	/* A disabled macro.  */
 #define NODE_MACRO_ARG	(1 << 6)	/* Used during #define processing.  */
+#define NODE_USED	(1 << 7)	/* Dumped with -dU.  */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -703,10 +719,10 @@ extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,
 /* Evaluate a vector of CPP_STRING or CPP_WSTRING tokens.  */
 extern bool cpp_interpret_string (cpp_reader *,
 				  const cpp_string *, size_t,
-				  cpp_string *, bool);
+				  cpp_string *, enum cpp_ttype);
 extern bool cpp_interpret_string_notranslate (cpp_reader *,
 					      const cpp_string *, size_t,
-					      cpp_string *, bool);
+					      cpp_string *, enum cpp_ttype);
 
 /* Convert a host character constant to the execution character set.  */
 extern cppchar_t cpp_host_to_exec_charset (cpp_reader *, cppchar_t);

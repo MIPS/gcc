@@ -1,7 +1,7 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007 Free Software Foundation, Inc.
+   2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4463,8 +4463,7 @@ pre_delete (void)
 		   expressions into.  Get the mode for the new pseudo from
 		   the mode of the original destination pseudo.  */
 		if (expr->reaching_reg == NULL)
-		  expr->reaching_reg
-		    = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+		  expr->reaching_reg = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		delete_insn (insn);
@@ -4988,7 +4987,7 @@ hoist_code (void)
 			 from the mode of the original destination pseudo.  */
 		      if (expr->reaching_reg == NULL)
 			expr->reaching_reg
-			  = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+			  = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		      gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		      delete_insn (insn);
@@ -6121,7 +6120,7 @@ build_store_vectors (void)
 	     are any side effects.  */
 	  if (TEST_BIT (ae_gen[bb->index], ptr->index))
 	    {
-	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
+	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
 		fprintf (dump_file, "Removing redundant store:\n");
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
@@ -6444,7 +6443,7 @@ delete_store (struct ls_expr * expr, basic_block bb)
   rtx reg, i, del;
 
   if (expr->reaching_reg == NULL_RTX)
-    expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+    expr->reaching_reg = gen_reg_rtx_and_attrs (expr->pattern);
 
   reg = expr->reaching_reg;
 
@@ -6691,8 +6690,10 @@ rest_of_handle_jump_bypass (void)
   return 0;
 }
 
-struct tree_opt_pass pass_jump_bypass =
+struct rtl_opt_pass pass_jump_bypass =
 {
+ {
+  RTL_PASS,
   "bypass",                             /* name */
   gate_handle_jump_bypass,              /* gate */   
   rest_of_handle_jump_bypass,           /* execute */       
@@ -6705,8 +6706,8 @@ struct tree_opt_pass pass_jump_bypass =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_ggc_collect | TODO_verify_flow   /* todo_flags_finish */
+ }
 };
 
 
@@ -6760,8 +6761,10 @@ rest_of_handle_gcse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_gcse =
+struct rtl_opt_pass pass_gcse =
 {
+ {
+  RTL_PASS,
   "gcse1",                              /* name */
   gate_handle_gcse,                     /* gate */   
   rest_of_handle_gcse,			/* execute */       
@@ -6775,8 +6778,8 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
+ }
 };
 
 

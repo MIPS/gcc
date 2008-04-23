@@ -3628,8 +3628,9 @@ build_c_cast (tree type, tree expr)
       tree field;
 
       for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	if (comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (field)),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (value))))
+	if (TREE_TYPE (field) != error_mark_node
+	    && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (field)),
+			  TYPE_MAIN_VARIANT (TREE_TYPE (value))))
 	  break;
 
       if (field)
@@ -7502,6 +7503,9 @@ c_finish_bc_stmt (tree *label_p, bool is_break)
 
   if (skip)
     return NULL_TREE;
+
+  if (!is_break)
+    add_stmt (build_predict_expr (PRED_CONTINUE, NOT_TAKEN));
 
   return add_stmt (build1 (GOTO_EXPR, void_type_node, label));
 }

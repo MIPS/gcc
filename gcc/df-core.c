@@ -753,8 +753,10 @@ gate_opt (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize_opt =
+struct rtl_opt_pass pass_df_initialize_opt =
 {
+ {
+  RTL_PASS,
   "dfinit",                             /* name */
   gate_opt,                             /* gate */
   rest_of_handle_df_initialize,         /* execute */
@@ -766,8 +768,8 @@ struct tree_opt_pass pass_df_initialize_opt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -778,8 +780,10 @@ gate_no_opt (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize_no_opt =
+struct rtl_opt_pass pass_df_initialize_no_opt =
 {
+ {
+  RTL_PASS,
   "dfinit",                             /* name */
   gate_no_opt,                          /* gate */
   rest_of_handle_df_initialize,         /* execute */
@@ -791,8 +795,8 @@ struct tree_opt_pass pass_df_initialize_no_opt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -825,8 +829,10 @@ rest_of_handle_df_finish (void)
 }
 
 
-struct tree_opt_pass pass_df_finish =
+struct rtl_opt_pass pass_df_finish =
 {
+ {
+  RTL_PASS,
   "dfinish",                            /* name */
   NULL,					/* gate */
   rest_of_handle_df_finish,             /* execute */
@@ -838,8 +844,8 @@ struct tree_opt_pass pass_df_finish =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -1863,6 +1869,69 @@ df_print_regset (FILE *file, bitmap r)
 	  fprintf (file, " %d", i);
 	  if (i < FIRST_PSEUDO_REGISTER)
 	    fprintf (file, " [%s]", reg_names[i]);
+	}
+    }
+  fprintf (file, "\n");
+}
+
+
+/* Write information about registers and basic blocks into FILE.  The
+   bitmap is in the form used by df_byte_lr.  This is part of making a
+   debugging dump.  */
+
+void
+df_print_byte_regset (FILE *file, bitmap r)
+{
+  unsigned int max_reg = max_reg_num ();
+  bitmap_iterator bi;
+
+  if (r == NULL)
+    fputs (" (nil)", file);
+  else
+    {
+      unsigned int i;
+      for (i = 0; i < max_reg; i++)
+	{
+	  unsigned int first = df_byte_lr_get_regno_start (i);
+	  unsigned int len = df_byte_lr_get_regno_len (i);
+
+	  if (len > 1)
+	    {
+	      bool found = false;
+	      unsigned int j;
+
+	      EXECUTE_IF_SET_IN_BITMAP (r, first, j, bi)
+		{
+		  found = j < first + len;
+		  break;
+		}
+	      if (found)
+		{
+		  const char * sep = "";
+		  fprintf (file, " %d", i);
+		  if (i < FIRST_PSEUDO_REGISTER)
+		    fprintf (file, " [%s]", reg_names[i]);
+		  fprintf (file, "(");
+		  EXECUTE_IF_SET_IN_BITMAP (r, first, j, bi)
+		    {
+		      if (j > first + len - 1)
+			break;
+		      fprintf (file, "%s%d", sep, j-first);
+		      sep = ", ";
+		    }
+		  fprintf (file, ")");
+		}
+	    }
+	  else
+	    {
+	      if (bitmap_bit_p (r, first))
+		{
+		  fprintf (file, " %d", i);
+		  if (i < FIRST_PSEUDO_REGISTER)
+		    fprintf (file, " [%s]", reg_names[i]);
+		}
+	    }
+
 	}
     }
   fprintf (file, "\n");

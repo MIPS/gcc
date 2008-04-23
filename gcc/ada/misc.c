@@ -129,8 +129,6 @@ static tree gnat_type_max_size		(const_tree);
 #define LANG_HOOKS_WRITE_GLOBALS	gnat_write_global_declarations
 #undef  LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL gnat_finish_incomplete_decl
-#undef	LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS
-#define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef  LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET	gnat_get_alias_set
 #undef  LANG_HOOKS_EXPAND_EXPR
@@ -153,6 +151,8 @@ static tree gnat_type_max_size		(const_tree);
 #define LANG_HOOKS_TYPE_FOR_MODE	gnat_type_for_mode
 #undef  LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE	gnat_type_for_size
+#undef  LANG_HOOKS_TYPES_COMPATIBLE_P
+#define LANG_HOOKS_TYPES_COMPATIBLE_P	gnat_types_compatible_p
 #undef  LANG_HOOKS_ATTRIBUTE_TABLE
 #define LANG_HOOKS_ATTRIBUTE_TABLE	gnat_internal_attribute_table
 #undef  LANG_HOOKS_BUILTIN_FUNCTION
@@ -303,7 +303,7 @@ gnat_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_feliminate_unused_debug_types:
       /* We arrange for post_option to be able to only set the corresponding
-	 flag to 1 when explicitely requested by the user.  We expect the
+	 flag to 1 when explicitly requested by the user.  We expect the
 	 default flag value to be either 0 or positive, and expose a positive
 	 -f as a negative value to post_option.  */
       flag_eliminate_unused_debug_types = -value;

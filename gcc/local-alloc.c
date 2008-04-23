@@ -1415,7 +1415,7 @@ block_alloc (int b)
 
 		  /* Avoid making a call-saved register unnecessarily
                      clobbered.  */
-		  hard_reg = get_hard_reg_initial_reg (cfun, r1);
+		  hard_reg = get_hard_reg_initial_reg (r1);
 		  if (hard_reg != NULL_RTX)
 		    {
 		      if (REG_P (hard_reg)
@@ -2632,8 +2632,10 @@ rest_of_handle_local_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_local_alloc =
+struct rtl_opt_pass pass_local_alloc =
 {
+ {
+  RTL_PASS,
   "lreg",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_local_alloc,           /* execute */
@@ -2646,7 +2648,7 @@ struct tree_opt_pass pass_local_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'l'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

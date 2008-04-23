@@ -134,6 +134,7 @@ endif
 
 # Sources present in the src directory.
 sources = \
+	atomic.cc \
 	bitmap_allocator.cc \
 	pool_allocator.cc \
 	mt_allocator.cc \
@@ -141,6 +142,7 @@ sources = \
 	compatibility.cc \
 	complex_io.cc \
 	ctype.cc \
+	date_time.cc \
 	debug.cc \
 	functexcept.cc \
 	hash.cc \
@@ -241,6 +243,16 @@ hashtable_c++0x.lo: hashtable_c++0x.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 hashtable_c++0x.o: hashtable_c++0x.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+date_time.lo: date_time.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+date_time.o: date_time.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+atomic.lo: atomic.cc
+	$(LTCXXCOMPILE) -x c++ -std=gnu++0x -c $<
+atomic.o: atomic.cc
+	$(CXXCOMPILE) -x c++ -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT
 # Use special rules for compatibility-ldbl.cc compilation, as we need to

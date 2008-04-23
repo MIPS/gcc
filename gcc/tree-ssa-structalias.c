@@ -1428,9 +1428,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  else if (add_graph_edge (graph, lhs, t))
 	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
 	}
-      else if (0 && dump_file && !(get_varinfo (j)->is_special_var))
-	fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
-
     }
 
 done:
@@ -1514,8 +1511,6 @@ do_ds_constraint (constraint_t c, bitmap delta)
 		}
 	    }
 	}
-      else if (0 && dump_file && !(get_varinfo (j)->is_special_var))
-	fprintf (dump_file, "Untypesafe usage in do_ds_constraint\n");
     }
 }
 
@@ -2662,11 +2657,6 @@ get_constraint_for_component_ref (tree t, VEC(ce_s, heap) **results)
 
   t = get_ref_base_and_extent (t, &bitpos, &bitsize, &bitmaxsize);
 
-  /* String constants are readonly, so there is nothing to really do
-     here.  */
-  if (TREE_CODE (t) == STRING_CST)
-    return;
-
   get_constraint_for (t, results);
   result = VEC_last (ce_s, *results);
   result->offset = bitpos;
@@ -2779,6 +2769,16 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
     {
       temp.var = nothing_id;
       temp.type = ADDRESSOF;
+      temp.offset = 0;
+      VEC_safe_push (ce_s, heap, *results, &temp);
+      return;
+    }
+
+  /* String constants are read-only.  */
+  if (TREE_CODE (t) == STRING_CST)
+    {
+      temp.var = readonly_id;
+      temp.type = SCALAR;
       temp.offset = 0;
       VEC_safe_push (ce_s, heap, *results, &temp);
       return;
@@ -5630,8 +5630,10 @@ ipa_pta_execute (void)
   return 0;
 }
 
-struct tree_opt_pass pass_ipa_pta =
+struct simple_ipa_opt_pass pass_ipa_pta =
 {
+ {
+  SIMPLE_IPA_PASS,
   "pta",		                /* name */
   gate_ipa_pta,			/* gate */
   ipa_pta_execute,			/* execute */
@@ -5643,8 +5645,8 @@ struct tree_opt_pass pass_ipa_pta =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa,                      /* todo_flags_finish */
-  0					/* letter */
+  TODO_update_ssa                       /* todo_flags_finish */
+ }
 };
 
 /* Initialize the heapvar for statement mapping.  */

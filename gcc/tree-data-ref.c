@@ -358,17 +358,20 @@ dump_data_dependence_relation (FILE *outf,
 {
   struct data_reference *dra, *drb;
 
-  dra = DDR_A (ddr);
-  drb = DDR_B (ddr);
   fprintf (outf, "(Data Dep: \n");
 
+  if (!ddr || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    {
+      fprintf (outf, "    (don't know)\n)\n");
+      return;
+    }
+
+  dra = DDR_A (ddr);
+  drb = DDR_B (ddr);
   dump_data_reference (outf, dra);
   dump_data_reference (outf, drb);
 
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-    fprintf (outf, "    (don't know)\n");
-  
-  else if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     fprintf (outf, "    (no dependence)\n");
   
   else if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -3965,11 +3968,14 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 
   if (TREE_CODE (stmt) ==  GIMPLE_MODIFY_STMT)
     {
+      tree base;
       op0 = &GIMPLE_STMT_OPERAND (stmt, 0);
       op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
 		
       if (DECL_P (*op1)
-	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
+	  || (REFERENCE_CLASS_P (*op1)
+	      && (base = get_base_address (*op1))
+	      && TREE_CODE (base) != SSA_NAME))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op1;

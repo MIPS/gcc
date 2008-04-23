@@ -1,3 +1,132 @@
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	Sync with src:
+	2008-04-14  David S. Miller  <davem@davemloft.net>
+
+        * configure.ac: Add sparc*-*-* to gold supported targets.
+        * configure: Regenerate.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* configure.ac: Include override.m4.
+	* configure: Regenerate.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+        * Makefile.tpl (restrap): Call `make all' using double-colon rules.
+        * Makefile.in: Regenerate.
+
+2008-04-18  M R Swami Reddy <MR.Swami.Reddy@nsc.com>
+
+        * configure.ac (cr16-*-*): Add case for cr16 target and include gdb
+	as nonconfigurable directories list.
+        * configure: Regenerate.
+
+2008-04-14  Ben Elliston  <bje@au.ibm.com>
+
+	* config.sub, config.guess: Update from upstream sources.
+
+2008-04-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* Makefile.tpl <gcc>: Error early unless at least GNU make 3.80.
+	* Makefile.in: Regenerate.
+
+2008-04-11  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* configure.ac: Do not build libssp for the AVR.
+	* configure: Regenerate.
+
+2008-04-07  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.def: check-gold depends upon all-binutils.
+	* Makefile.in: Regenerate.
+
+2008-04-04  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-04  Nick Clifton  <nickc@redhat.com>
+
+	PR binutils/4334
+	* configure.ac: Run ACX_CHECK_CYGWIN_CAT_WORKS for cygwin hosted
+	builds.
+	* configure: Regenerate.
+
+2008-04-04  NightStrike  <NightStrike@gmail.com>
+
+	PR other/35151
+        * configure.ac: Combine rules for mingw32 and mingw64.
+        * configure: Regenerate.
+
+2008-04-02  Kai Tietz  <kai.tietz@onvision.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-01  Seongbae Park <seongbae.park@gmail.com>
+
+	* Makefile.tpl (.NOTPARALLEL): Revert previous change.
+	* Makefile.in (.NOTPARALLEL): Ditto.
+
+2008-04-01  Peter O'Gorman  <pogma@thewrittenword.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-03-31  Seongbae Park <seongbae.park@gmail.com>
+
+	* Makefile.tpl (.NOTPARALLEL): Serialize stageprofile libiberty.
+	* Makefile.in (.NOTPARALLEL): Regenerate.
+
+2008-03-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (PICFLAG, PICFLAG_FOR_TARGET): Remove.
+	* Makefile.in: Regenerate.
+
+2008-03-26  Jakub Staszak  <kuba@et.pl>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-03-23  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* MAINTAINERS:  Update e-mail address.
+
+2008-03-20  Ian Lance Taylor  <iant@google.com>
+
+	* configure.ac: Add support for --enable-gold.
+	* Makefile.def: Add gold as a directory like ld.
+	* configure, Makefile.in: Regenerate.
+
+2008-03-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure.ac: m4_include config/proginstall.m4.
+	* configure: Regenerate.
+
+	Backport from upstream Libtool:
+	
+	2007-10-12  Eric Blake  <ebb9@byu.net>
+	
+	Deal with Autoconf 2.62's semantic change in m4_append.
+	* ltsugar.m4 (lt_append): Replace broken versions of
+	m4_append.
+	(lt_if_append_uniq): Don't require separator to be overquoted,
+	and avoid broken m4_append.
+	(lt_dict_add): Fix typo.
+	* libtool.m4 (_LT_DECL): Don't overquote separator.
+
+2008-03-13  David Edelsohn  <edelsohn@gnu.org>
+
+	* config.rpath: Add AIX 6 support.
+
+2008-03-13  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (stageprofile).  Remove -fprofile-generate
+	from stage_libcflags.
+	* Makefile.in: Regenerate.
+
+2008-03-13  Ben Elliston  <bje@au.ibm.com>
+
+	* config.sub, config.guess: Update from upstream sources.
+
 2008-03-06  Tom Tromey  <tromey@redhat.com>
 
 	* MAINTAINERS: Update for treelang deletion.

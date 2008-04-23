@@ -595,7 +595,12 @@ __prologue_saves__:
 	out	__SP_H__,r29
 	out	__SREG__,__tmp_reg__
 	out	__SP_L__,r28
+#if defined (__AVR_HAVE_EIJMP_EICALL__)
+	eijmp
+#else
 	ijmp
+#endif
+
 .endfunc
 #endif /* defined (L_prologue) */
 
@@ -675,13 +680,22 @@ __tablejump__:
 	lpm	__tmp_reg__, Z+
 	lpm	r31, Z
 	mov	r30, __tmp_reg__
+
+#if defined (__AVR_HAVE_EIJMP_EICALL__)
+	eijmp
+#else
 	ijmp
+#endif
+
 #else
 	lpm
 	adiw	r30, 1
 	push	r0
 	lpm
 	push	r0
+#if defined (__AVR_HAVE_EIJMP_EICALL__)
+        push    __zero_reg__
+#endif
 	ret
 #endif
 	.endfunc
@@ -770,7 +784,7 @@ __do_clear_bss:
 /* __do_global_ctors and __do_global_dtors are only necessary
    if there are any constructors/destructors.  */
 
-#if defined (__AVR_MEGA__)
+#if defined (__AVR_HAVE_JMP_CALL__)
 #define XCALL call
 #else
 #define XCALL rcall

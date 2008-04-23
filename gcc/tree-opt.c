@@ -95,34 +95,40 @@ driver_pop_options (void)
   return true;
 }
 
-struct tree_opt_pass pass_push_set_options = {
-  "push_set_options",           /* name */
-  NULL,                         /* gate */
-  driver_push_set_options,      /* execute */
-  NULL,                         /* sub */
-  NULL,                         /* next */
-  0,                            /* static_pass_number */
-  0,                            /* tv_id */
-  0,                            /* properties_required */
-  0,                            /* properties_provided */
-  0,                            /* properties_destroyed */
-  0,                            /* todo_flags_start */
-  0,                            /* todo_flags_finish */
-  0                             /* letter */
+struct rtl_opt_pass pass_push_set_options =
+{
+  {
+    RTL_PASS,			/* type */
+    "push_set_options",		/* name */
+    NULL,			/* gate */
+    driver_push_set_options,	/* execute */
+    NULL,			/* sub */
+    NULL,			/* next */
+    0,				/* static_pass_number */
+    0,				/* tv_id */
+    0,				/* properties_required */
+    0,				/* properties_provided */
+    0,				/* properties_destroyed */
+    0,				/* todo_flags_start */
+    0,				/* todo_flags_finish */
+  }
 };
 
-struct tree_opt_pass pass_pop_options = {
-  "pop_options",                /* name */
-  NULL,                         /* gate */
-  driver_pop_options,           /* execute */
-  NULL,                         /* sub */
-  NULL,                         /* next */
-  0,                            /* static_pass_number */
-  0,                            /* tv_id */
-  0,                            /* properties_required */
-  0,                            /* properties_provided */
-  0,                            /* properties_destroyed */
-  0,                            /* todo_flags_start */
-  0,                            /* todo_flags_finish */
-  0                             /* letter */
+struct rtl_opt_pass pass_pop_options =
+{
+  {
+    RTL_PASS,			/* type */
+    "pop_options",		/* name */
+    NULL,			/* gate */
+    driver_pop_options,		/* execute */
+    NULL,			/* sub */
+    NULL,			/* next */
+    0,				/* static_pass_number */
+    0,				/* tv_id */
+    0,				/* properties_required */
+    0,				/* properties_provided */
+    0,				/* properties_destroyed */
+    0,				/* todo_flags_start */
+    0,				/* todo_flags_finish */
+  }
 };

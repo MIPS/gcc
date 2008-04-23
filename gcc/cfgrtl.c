@@ -427,8 +427,10 @@ free_bb_for_insn (void)
   return 0;
 }
 
-struct tree_opt_pass pass_free_cfg =
+struct rtl_opt_pass pass_free_cfg =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   free_bb_for_insn,                     /* execute */
@@ -441,7 +443,7 @@ struct tree_opt_pass pass_free_cfg =
   PROP_cfg,                             /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 /* Return RTX to emit after when we want to emit code on the entry of function.  */
@@ -1649,10 +1651,10 @@ print_rtl_with_bb (FILE *outf, const_rtx rtx_first)
       free (in_bb_p);
     }
 
-  if (current_function_epilogue_delay_list != 0)
+  if (crtl->epilogue_delay_list != 0)
     {
       fprintf (outf, "\n;; Insns in epilogue delay list:\n\n");
-      for (tmp_rtx = current_function_epilogue_delay_list; tmp_rtx != 0;
+      for (tmp_rtx = crtl->epilogue_delay_list; tmp_rtx != 0;
 	   tmp_rtx = XEXP (tmp_rtx, 1))
 	print_rtl_single (outf, XEXP (tmp_rtx, 0));
     }

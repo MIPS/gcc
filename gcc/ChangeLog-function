@@ -1,3 +1,12 @@
+2008-04-23  Michael Meissner  <michael.meissner@amd.com>
+
+	* tree-pass.h (pass_push_set_options): Switch to rtl_opt_pass.
+	(pass_pop_options): Ditto.
+
+	* tree-opt.c (pass_push_set_options): Adjust for switch to
+	rtl_opt_pass type.
+	(pass_pop_options): Ditto.
+
 2008-04-21  Karthik Kumar  <karthikkumar@gmail.com>
 
 	* [abepstx]mmintrin.h, mm3dnow.h, mmintrin-common.h: Annotated

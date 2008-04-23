@@ -36,8 +36,6 @@ extern void ix86_output_addr_vec_elt (FILE *, int);
 extern void ix86_output_addr_diff_elt (FILE *, int, int);
 
 #ifdef RTX_CODE
-extern int ix86_aligned_p (rtx);
-
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
 extern rtx standard_80387_constant_rtx (int);
@@ -91,6 +89,7 @@ extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
 extern void ix86_split_convert_uns_si_sse (rtx[]);
 extern void ix86_expand_convert_uns_didf_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_sixf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sidf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sisf_sse (rtx, rtx);
 extern void ix86_expand_convert_sign_didf_sse (rtx, rtx);

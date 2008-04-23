@@ -218,14 +218,28 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
     /* If name is not a simple copy destination, we found it.  */
     if (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) != SSA_NAME)
       {
+	tree rhs;
+
 	if (!single_use_only && single_use_p)
 	  *single_use_p = single_use;
 
-	return def_stmt;
+	/* We can look through pointer conversions in the search
+	   for a useful stmt for the comparison folding.  */
+	rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	if ((TREE_CODE (rhs) == NOP_EXPR
+	     || TREE_CODE (rhs) == CONVERT_EXPR)
+	    && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+	    && POINTER_TYPE_P (TREE_TYPE (rhs))
+	    && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
+	  name = TREE_OPERAND (rhs, 0);
+	else
+	  return def_stmt;
       }
-
-    /* Continue searching the def of the copy source name.  */
-    name = GIMPLE_STMT_OPERAND (def_stmt, 1);
+    else
+      {
+	/* Continue searching the def of the copy source name.  */
+	name = GIMPLE_STMT_OPERAND (def_stmt, 1);
+      }
   } while (1);
 }
 
@@ -244,6 +258,10 @@ can_propagate_from (tree def_stmt)
   /* If the rhs is a load we cannot propagate from it.  */
   if (REFERENCE_CLASS_P (rhs))
     return false;
+
+  /* Constants can be always propagated.  */
+  if (is_gimple_min_invariant (rhs))
+    return true;
 
   /* We cannot propagate ssa names that occur in abnormal phi nodes.  */
   switch (TREE_CODE_LENGTH (TREE_CODE (rhs)))
@@ -583,14 +601,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (lhs) == INDIRECT_REF
       && TREE_OPERAND (lhs, 0) == name
-      /* This will not allow stripping const qualification from
-	 pointers which we want to allow specifically here to clean up
-	 the IL for initialization of constant objects.   */
-      && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
-				     TREE_TYPE (def_rhs))
-	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (lhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
+				    TREE_TYPE (def_rhs))
       /* ???  This looks redundant, but is required for bogus types
 	 that can sometimes occur.  */
       && useless_type_conversion_p (TREE_TYPE (lhs),
@@ -617,13 +629,10 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (rhs) == INDIRECT_REF
       && TREE_OPERAND (rhs, 0) == name
-      /* ???  This doesn't allow stripping const qualification to
-	 streamline the IL for reads from non-constant objects.  */
-      && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
-				     TREE_TYPE (def_rhs))
-	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
+				    TREE_TYPE (def_rhs))
+      /* ???  This looks redundant, but is required for bogus types
+	 that can sometimes occur.  */
       && useless_type_conversion_p (TREE_TYPE (rhs),
 				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
     {
@@ -1063,7 +1072,10 @@ gate_forwprop (void)
   return 1;
 }
 
-struct tree_opt_pass pass_forwprop = {
+struct gimple_opt_pass pass_forwprop = 
+{
+ {
+  GIMPLE_PASS,
   "forwprop",			/* name */
   gate_forwprop,		/* gate */
   tree_ssa_forward_propagate_single_use_vars,	/* execute */
@@ -1078,7 +1090,7 @@ struct tree_opt_pass pass_forwprop = {
   TODO_dump_func
   | TODO_ggc_collect
   | TODO_update_ssa
-  | TODO_verify_ssa,		/* todo_flags_finish */
-  0				/* letter */
+  | TODO_verify_ssa		/* todo_flags_finish */
+ }
 };
 
