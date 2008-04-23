@@ -53,12 +53,15 @@ install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
 INSTALL_HEADER = $(INSTALL_DATA)
+transform = $(program_transform_name)
 NORMAL_INSTALL = :
 PRE_INSTALL = :
 POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
+toollib_PROGRAMS = gcc4net.dll$(EXEEXT)
+toollib2_PROGRAMS = gcc4net.dll$(EXEEXT)
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(srcdir)/../install-sh \
 	$(srcdir)/../missing $(srcdir)/../mkinstalldirs \
@@ -74,11 +77,19 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(toollibdir)" "$(DESTDIR)$(toollib2dir)"
-toollibSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-toollib2SCRIPT_INSTALL = $(INSTALL_SCRIPT)
-SCRIPTS = $(toollib_SCRIPTS) $(toollib2_SCRIPTS)
-SOURCES =
-DIST_SOURCES =
+toollibPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+toollib2PROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(toollib_PROGRAMS) $(toollib2_PROGRAMS)
+am_gcc4net_dll_OBJECTS =
+gcc4net_dll_OBJECTS = $(am_gcc4net_dll_OBJECTS)
+gcc4net_dll_LDADD = $(LDADD)
+DEFAULT_INCLUDES = -I. -I$(srcdir)
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = $(gcc4net_dll_SOURCES)
+DIST_SOURCES = $(gcc4net_dll_SOURCES)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -90,7 +101,6 @@ DIST_ARCHIVES = $(distdir).tar.gz
 GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
-transform = ;
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AUTOCONF = @AUTOCONF@
@@ -157,15 +167,12 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 toollib2dir = @toollib2dir@
 toollibdir = @toollibdir@
-AUTOMAKE_OPTIONS = 1.9.5 foreign
 ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
-EXTRA_DIST = gcc4net.cs
-CLEANFILES = gcc4net.dll
-toollib_SCRIPTS = gcc4net.dll
-toollib2_SCRIPTS = gcc4net.dll
+EXEEXT = 
+gcc4net_dll_SOURCES = gcc4net.cs
 all: all-am
 
 .SUFFIXES:
@@ -202,44 +209,18 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
-install-toollibSCRIPTS: $(toollib_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	test -z "$(toollibdir)" || $(mkdir_p) "$(DESTDIR)$(toollibdir)"
-	@list='$(toollib_SCRIPTS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f $$d$$p; then \
-	    f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	    echo " $(toollibSCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(toollibdir)/$$f'"; \
-	    $(toollibSCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(toollibdir)/$$f"; \
-	  else :; fi; \
-	done
 
-uninstall-toollibSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(toollib_SCRIPTS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	  echo " rm -f '$(DESTDIR)$(toollibdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(toollibdir)/$$f"; \
-	done
-install-toollib2SCRIPTS: $(toollib2_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	test -z "$(toollib2dir)" || $(mkdir_p) "$(DESTDIR)$(toollib2dir)"
-	@list='$(toollib2_SCRIPTS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f $$d$$p; then \
-	    f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	    echo " $(toollib2SCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(toollib2dir)/$$f'"; \
-	    $(toollib2SCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(toollib2dir)/$$f"; \
-	  else :; fi; \
-	done
+clean-toollibPROGRAMS:
+	-test -z "$(toollib_PROGRAMS)" || rm -f $(toollib_PROGRAMS)
 
-uninstall-toollib2SCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(toollib2_SCRIPTS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	  echo " rm -f '$(DESTDIR)$(toollib2dir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(toollib2dir)/$$f"; \
-	done
+clean-toollib2PROGRAMS:
+	-test -z "$(toollib2_PROGRAMS)" || rm -f $(toollib2_PROGRAMS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
 uninstall-info-am:
 tags: TAGS
 TAGS:
@@ -377,7 +358,7 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-am
-all-am: Makefile $(SCRIPTS)
+all-am: Makefile $(PROGRAMS)
 installdirs:
 	for dir in "$(DESTDIR)$(toollibdir)" "$(DESTDIR)$(toollib2dir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
@@ -399,7 +380,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -409,12 +389,13 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic mostlyclean-am
+clean-am: clean-generic clean-toollib2PROGRAMS clean-toollibPROGRAMS \
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic
+distclean-am: clean-am distclean-compile distclean-generic
 
 dvi: dvi-am
 
@@ -426,7 +407,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-toollib2SCRIPTS install-toollibSCRIPTS
+install-data-am: install-toollib2PROGRAMS install-toollibPROGRAMS
 
 install-exec-am:
 
@@ -444,7 +425,7 @@ maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
 pdf: pdf-am
 
@@ -454,23 +435,25 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-info-am uninstall-toollib2SCRIPTS \
-	uninstall-toollibSCRIPTS
+uninstall-am: uninstall-info-am uninstall-toollib2PROGRAMS \
+	uninstall-toollibPROGRAMS
 
-.PHONY: all all-am am--refresh check check-am clean clean-generic dist \
-	dist-all dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip \
-	distcheck distclean distclean-generic distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-exec \
-	install-exec-am install-info install-info-am install-man \
-	install-strip install-toollib2SCRIPTS install-toollibSCRIPTS \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am uninstall uninstall-am uninstall-info-am \
-	uninstall-toollib2SCRIPTS uninstall-toollibSCRIPTS
+.PHONY: all all-am am--refresh check check-am clean clean-generic \
+	clean-toollib2PROGRAMS clean-toollibPROGRAMS dist dist-all \
+	dist-bzip2 dist-gzip dist-shar dist-tarZ dist-zip distcheck \
+	distclean distclean-compile distclean-generic distcleancheck \
+	distdir distuninstallcheck dvi dvi-am html html-am info \
+	info-am install install-am install-data install-data-am \
+	install-exec install-exec-am install-info install-info-am \
+	install-man install-strip install-toollib2PROGRAMS \
+	install-toollibPROGRAMS installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic pdf pdf-am \
+	ps ps-am uninstall uninstall-am uninstall-info-am \
+	uninstall-toollib2PROGRAMS uninstall-toollibPROGRAMS
 
 
-gcc4net.dll: $(srcdir)/gcc4net.cs
+gcc4net.dll: gcc4net.cs
 	$(MCS) $< -unsafe -target:library -out:$@
 
 # No install-html or install-pdf support in automake yet
@@ -478,6 +461,36 @@ gcc4net.dll: $(srcdir)/gcc4net.cs
 install-html:
 
 install-pdf:
+
+install-toollibPROGRAMS: $(toollib_PROGRAMS)
+	test -z "$(toollibdir)" || $(mkdir_p) "$(DESTDIR)$(toollibdir)"
+	@list='$(toollib_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(INSTALL_PROGRAM_ENV) $(toollibPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toollibdir)/$$p'"; \
+	    $(INSTALL_PROGRAM_ENV) $(toollibPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toollibdir)/$$p" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-toollibPROGRAMS:
+	@list='$(toollib_PROGRAMS)'; for p in $$list; do \
+	  echo " rm -f '$(DESTDIR)$(toollibdir)/$$p'"; \
+	  rm -f "$(DESTDIR)$(toollibdir)/$$p"; \
+	done
+
+install-toollib2PROGRAMS: $(toollib2_PROGRAMS)
+	test -z "$(toollib2dir)" || $(mkdir_p) "$(DESTDIR)$(toollib2dir)"
+	@list='$(toollib2_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	   echo " $(INSTALL_PROGRAM_ENV) $(toollib2PROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toollib2dir)/$$p'"; \
+	   $(INSTALL_PROGRAM_ENV) $(toollib2PROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toollib2dir)/$$p" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-toollib2PROGRAMS:
+	@list='$(toollib2_PROGRAMS)'; for p in $$list; do \
+	  echo " rm -f '$(DESTDIR)$(toollib2dir)/$$p'"; \
+	  rm -f "$(DESTDIR)$(toollib2dir)/$$p"; \
+	done
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

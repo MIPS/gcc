@@ -25,22 +25,18 @@
 # Andrea C. Ornstein    <andrea.ornstein@st.com>
 # Erven Rohou           <erven.rohou@st.com>
 
-
-AUTOMAKE_OPTIONS = 1.9.5 foreign
 ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # May be used by various substitution variables.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-EXTRA_DIST = gcc4net.cs
-CLEANFILES = gcc4net.dll
+EXEEXT=
+toollib_PROGRAMS = gcc4net.dll
+toollib2_PROGRAMS = gcc4net.dll
 
-transform=;
+gcc4net_dll_SOURCES=gcc4net.cs
 
-toollib_SCRIPTS = gcc4net.dll
-toollib2_SCRIPTS = gcc4net.dll
-
-gcc4net.dll: $(srcdir)/gcc4net.cs
+gcc4net.dll: gcc4net.cs
 	$(MCS) $< -unsafe -target:library -out:$@
 
 # No install-html or install-pdf support in automake yet
@@ -48,3 +44,33 @@ gcc4net.dll: $(srcdir)/gcc4net.cs
 install-html:
 
 install-pdf:
+
+install-toollibPROGRAMS: $(toollib_PROGRAMS)
+	test -z "$(toollibdir)" || $(mkdir_p) "$(DESTDIR)$(toollibdir)"
+	@list='$(toollib_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(INSTALL_PROGRAM_ENV) $(toollibPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toollibdir)/$$p'"; \
+	    $(INSTALL_PROGRAM_ENV) $(toollibPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toollibdir)/$$p" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-toollibPROGRAMS:
+	@list='$(toollib_PROGRAMS)'; for p in $$list; do \
+	  echo " rm -f '$(DESTDIR)$(toollibdir)/$$p'"; \
+	  rm -f "$(DESTDIR)$(toollibdir)/$$p"; \
+	done
+
+install-toollib2PROGRAMS: $(toollib2_PROGRAMS)
+	test -z "$(toollib2dir)" || $(mkdir_p) "$(DESTDIR)$(toollib2dir)"
+	@list='$(toollib2_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	   echo " $(INSTALL_PROGRAM_ENV) $(toollib2PROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(toollib2dir)/$$p'"; \
+	   $(INSTALL_PROGRAM_ENV) $(toollib2PROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(toollib2dir)/$$p" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-toollib2PROGRAMS:
+	@list='$(toollib2_PROGRAMS)'; for p in $$list; do \
+	  echo " rm -f '$(DESTDIR)$(toollib2dir)/$$p'"; \
+	  rm -f "$(DESTDIR)$(toollib2dir)/$$p"; \
+	done

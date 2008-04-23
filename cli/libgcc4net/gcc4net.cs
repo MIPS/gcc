@@ -1,6 +1,7 @@
 /* Run-time support required by CIL binaries.
 
    Copyright (C) 2006-2007 Free Software Foundation, Inc.
+   Contributed by STMicroelectronics
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -92,6 +93,16 @@ namespace gcc4net {
         }
 
         public unsafe static void Shutdown(int status) {
+            try {
+                Assembly assembly = Assembly.Load("libstd");
+                object[] userParameters = new object[1];
+                userParameters[0] = status;
+
+                Type theType = assembly.GetType("libstd");
+                MethodInfo theMethod = theType.GetMethod("exit");
+                theMethod.Invoke(null, userParameters);
+            } catch (Exception) { }
+
             Environment.Exit(status);
         }
 
@@ -252,6 +263,17 @@ namespace gcc4net {
             byte*  b = (byte*)&d;
             return b[0]==0;
         }
+
+        public static unsafe void* __EndianSelect(void* a1, void* a2) {
+            // big endian:    3f f0 00 00 00 00 00 00
+            // little endian: 00 00 00 00 00 00 f0 3f
+            double d = 1.0;
+            byte*  b = (byte*)&d;
+            if (b[0]==0)
+                return a1;
+            else
+                return a2;
+        }
     }
 
     namespace CQualifiers {
@@ -265,6 +287,18 @@ namespace gcc4net {
 
         /* Optional modifier class used to mark "volatile" types */
         public sealed class IsVolatile {
+        }
+    }
+
+    namespace C_Attributes {
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class ConstStringType : Attribute {
+            public ConstStringType () { }
+        }
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class ArrayType : Attribute {
+            public ArrayType () {
+            }
         }
     }
 
