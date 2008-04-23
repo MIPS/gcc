@@ -22,7 +22,7 @@
    You are forbidden to forbid anyone else to use, share and improve
    what you give them.   Help stamp out software-hoarding!
 
-   Authors:
+   Author:
      Ricardo Fernandez Pascual <ricardof@um.es>
      Andrea C. Ornstein <andrea.ornstein@st.com>
 
@@ -31,46 +31,101 @@
      Erven Rohou        <erven.rohou@st.com>
 */
 
+/* These should not be here, they are from stdlib.dll */
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <float.h>
+
+/* used in stdio.h */
+FILE *
+__io_ftable_get_entry (int i)
+{
+  switch (i) {
+  case 0:
+    return stdin;
+  case 1:
+    return stdout;
+  case 2:
+    return stderr;
+  default:
+    abort ();
+  }
+}
+
+/* used in errno.h */
 int *
-gcc4net_StartupHelper_GetArgv_System_Int32__System_IntPtr (int *out_argc)
+__errno__get_ptr (void)
 {
-  extern int __gcc4net_argc;
-  extern int *__gcc4net_argv;
-  *out_argc = __gcc4net_argc;
-  return __gcc4net_argv;
+  return &errno;
 }
 
-void
-gcc4net_StartupHelper_Startup_System_Void (void)
-{
-  /* TODO */
-}
-
-void
-gcc4net_StartupHelper_Shutdown_System_Int32_System_Void (int eval)
-{
-  /* TODO */
-}
-
+/* used in float.h */
 int
-gcc4net_Crt___isLittleEndian_System_Boolean (void)
+__flt_rounds (void)
 {
-  // big endian:    3f f0 00 00 00 00 00 00
-  // little endian: 00 00 00 00 00 00 f0 3f
-  double d = 1.0;
-  char *b = (char *) &d;
-  return b[0] == 0;
+  return 1;
+}
+float
+__flt_nan (void)
+{
+    return __builtin_nanf ("");
+}
+float
+__flt_infinity (void)
+{
+    return __builtin_inff();
+}
+float
+__flt_epsilon (void)
+{
+    return FLT_EPSILON;
+}
+float
+__flt_minval (void)
+{
+    return FLT_MIN;
+}
+float
+__flt_maxval (void)
+{
+    return FLT_MAX;
+}
+float
+__flt_hugeval (void)
+{
+    return __builtin_huge_valf();
+}
+double
+__dbl_epsilon (void)
+{
+    return DBL_EPSILON;
+}
+double
+__dbl_minval (void)
+{
+    return DBL_MIN;
+}
+double
+__dbl_maxval (void)
+{
+    return DBL_MAX;
+}
+double
+__dbl_hugeval (void)
+{
+    return __builtin_huge_val();
 }
 
-void*
-gcc4net_Crt___EndianSelect_System_Void__System_Void__System_Void_ (void* a1, void* a2)
+/* Redefined in stdlib.h to avoid problems */
+int
+Libstd_atexit (void (*function) (void))
 {
-  // big endian:    3f f0 00 00 00 00 00 00
-  // little endian: 00 00 00 00 00 00 f0 3f
-  double d = 1.0;
-  char *b = (char *) &d;
-  if (b[0]==0)
-      return a1;
-  else
-      return a2;
+  return atexit (function);
+}
+
+void
+_libstd__init_System_Void (void)
+{
 }

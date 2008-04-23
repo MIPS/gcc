@@ -25,7 +25,6 @@
 # Andrea C. Ornstein    <andrea.ornstein@st.com>
 # Erven Rohou           <erven.rohou@st.com>
 
-AUTOMAKE_OPTIONS = 1.9.5 foreign
 ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # May be used by various substitution variables.
@@ -35,6 +34,7 @@ toolexeclib_LTLIBRARIES = libcilsupport.la
 
 libcilsupport_la_SOURCES = \
 	gcc4net-support.c \
+	libstd-support.c \
 	runtime-support.c
 
 # No install-html or install-pdf support in automake yet
