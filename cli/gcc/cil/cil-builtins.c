@@ -64,6 +64,10 @@ static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec cil_common_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
+  /* CIL Specific Attributes */
+  { "OpenSystem.C.InitializerAttribute", 0, 0,  false, false, false, NULL },
+
+  /* Attributes borrowed from C to be able to support builtins */
   { "packed",                 0, 0, false, false, false, NULL/*handle_packed_attribute*/ },
   { "nocommon",               0, 0,  true, false, false, NULL/*handle_nocommon_attribute*/ },
   { "common",                 0, 0,  true, false, false, NULL/*handle_common_attribute*/ },

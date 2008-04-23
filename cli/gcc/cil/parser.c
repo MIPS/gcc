@@ -71,10 +71,6 @@ bool flag_parse_only_reachable = FALSE;
 /* what to do when trying to compile a method that uses some unsupported feature */
 UnsupportedMethodBehavior flag_unsupported_method_behavior = UMB_WARNING;
 
-/* Debug hooks */
-#define TRACE_DECL(x)
-#define TRACE_IMPL(x)
-
 /* Auxiliary types and variables for compilation */
 
 // typedef GHashTable CILLabelsMap; /* maps ip to label */
@@ -99,6 +95,12 @@ cil_labels_set_get_label (CILLabelsMap *labels, const unsigned char *ip)
       g_hash_table_insert (labels, (void *) ip, label_decl_tree);
     }
   return label_decl_tree;
+}
+
+static tree
+cil_labels_get_label (CILLabelsMap *labels, const unsigned char *ip)
+{
+  return g_hash_table_lookup (labels, ip);
 }
 
 static void
@@ -370,41 +372,18 @@ parser_get_class_mode (MonoClass *klass)
     }
 }
 
-static CilStackType
-parser_get_binary_numeric_operations_type (CilStackType opA_type, CilStackType opB_type)
-{
-  if (opA_type == CIL_STACK_TYPE_ERROR || opB_type == CIL_STACK_TYPE_ERROR)
-    {
-      return CIL_STACK_TYPE_ERROR;
-    }
-  else
-    {
-      gcc_assert (opA_type < CIL_STACK_TYPE_ERROR);
-      gcc_assert (opB_type < CIL_STACK_TYPE_ERROR);
-      const CilStackType table[6][6] = {
-        { CIL_STACK_TYPE_INT32,           CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_MANAGED_POINTER, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_INT64, CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_NATIVE_INT,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_MANAGED_POINTER, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_F,     CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_MANAGED_POINTER, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_MANAGED_POINTER, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT,      CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,           CIL_STACK_TYPE_ERROR },
-      };
-      return table[opA_type][opB_type];
-    }
-}
-
 static void
 parser_emit_ldc_i4 (gint32 i)
 {
   tree exp = build_int_cst (cil_type_for_size (32, false), i);
-  cil_stack_push (exp, CIL_STACK_TYPE_INT32);
+  cil_stack_push (exp, CIL_STYPE_INT32);
 }
 
 static void
 parser_emit_ldc_i8 (gint64 i)
 {
   tree exp = build_int_cst (cil_type_for_size (64, false), i);
-  cil_stack_push (exp, CIL_STACK_TYPE_INT64);
+  cil_stack_push (exp, CIL_STYPE_INT64);
 }
 
 static void
@@ -414,7 +393,7 @@ parser_emit_ldc_r4 (gint32 f)
   const long *pf = (void *) &f;
   real_from_target_fmt (&real_value, pf, &ieee_single_format);
   tree exp = build_real (double_type_node, real_value);
-  cil_stack_push (exp, CIL_STACK_TYPE_F);
+  cil_stack_push (exp, CIL_STYPE_F);
 }
 
 static void
@@ -424,31 +403,226 @@ parser_emit_ldc_r8 (gint64 f)
   const long *pf = (void *) &f;
   real_from_target_fmt (&real_value, pf, &ieee_double_format);
   tree exp = build_real (double_type_node, real_value);
-  cil_stack_push (exp, CIL_STACK_TYPE_F);
+  cil_stack_push (exp, CIL_STYPE_F);
 }
 
-#define TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION(name,tree_code,tree_code_float) \
-static void \
-parser_emit_##name (void) \
-{ \
-  CilStackType opB_type; \
-  tree opB = cil_stack_pop (&opB_type); \
-  CilStackType opA_type; \
-  tree opA = cil_stack_pop (&opA_type); \
-  CilStackType result_type = parser_get_binary_numeric_operations_type (opA_type, opB_type); \
-  if (result_type == CIL_STACK_TYPE_ERROR) \
-    { \
-      error ("Wrong operand types for "#name); \
-    } \
-  tree exp = build2 (result_type == CIL_STACK_TYPE_F ? tree_code_float : tree_code, cil_stack_get_tree_type_for_cil_stack_type (result_type), opA, opB); \
-  cil_stack_push (exp, result_type); \
+/********* binary numeric operations ****************/
+
+/*
+ * BIN_OP:
+ *  binop_code, binop_tag, tree_code_int, tree_code_f, handler_for_pointers
+ *
+ * handler_for_pointers is of type: tree (*) (tree,tree)
+ */
+
+#define CIL_BINARY_NUMERIC_OPERATIONS					\
+  BIN_OP(add, ADD, PLUS_EXPR,      PLUS_EXPR,  parser_add_op_pointer_handler)	\
+  BIN_OP(sub, SUB, MINUS_EXPR,     MINUS_EXPR, parser_sub_op_pointer_handler) \
+  BIN_OP(mul, MUL, MULT_EXPR,      MULT_EXPR,  NULL)		\
+  BIN_OP(div, DIV, TRUNC_DIV_EXPR, RDIV_EXPR,  NULL)		\
+  BIN_OP(rem, REM, TRUNC_MOD_EXPR, ERROR_MARK, NULL)
+
+
+enum cil_bin_op {
+#define BIN_OP(binop_code, binop_tag, tree_code_int, tree_code_f, handler_for_pointers) \
+  BINARY_NUMERIC_OPERATION_ ## binop_tag ,
+  CIL_BINARY_NUMERIC_OPERATIONS
+  BINARY_NUMERIC_OPERATION_NUM_OPS
+#undef BIN_OP
+};
+
+
+static CilStackType
+parser_get_binary_numeric_operations_type (enum cil_bin_op bin_op, CilStackType opA_type, CilStackType opB_type)
+{
+  if (opA_type == CIL_STYPE_ERROR || opB_type == CIL_STYPE_ERROR)
+    {
+      return CIL_STYPE_ERROR;
+    }
+  else
+    {
+      gcc_assert (opA_type < CIL_STYPE_ERROR);
+      gcc_assert (opB_type < CIL_STYPE_ERROR);
+      const CilStackType table[6][6] = {
+        { CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_MP,    CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_INT64, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_MP,    CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_F,     CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_MP,    CIL_STYPE_ERROR, CIL_STYPE_MP,    CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+      };
+      CilStackType ret = table[opA_type][opB_type];
+      if (ret == CIL_STYPE_ERROR)
+	{
+	  switch (bin_op)
+	    {
+	    case BINARY_NUMERIC_OPERATION_SUB:
+	      if (   (opA_type == CIL_STYPE_MP)
+                  && (opB_type == CIL_STYPE_MP))
+		ret = CIL_STYPE_NINT;
+
+	      /* ... fall through ... */
+
+	    case BINARY_NUMERIC_OPERATION_ADD:
+	      if (   (opA_type == CIL_STYPE_MP)
+                  || (opB_type == CIL_STYPE_MP))
+		ret = CIL_STYPE_MP;
+	      break;
+	    default:
+	      break;
+	    }
+	}
+      return ret;
+    }
 }
-TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION (add, PLUS_EXPR, PLUS_EXPR)
-TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION (sub, MINUS_EXPR, MINUS_EXPR)
-TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION (mul, MULT_EXPR, MULT_EXPR)
-TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION (div, TRUNC_DIV_EXPR, RDIV_EXPR)
-TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION (rem, TRUNC_MOD_EXPR, (gcc_unreachable (), ERROR_MARK /* TODO */))
-#undef TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_OPERATION
+
+
+static tree
+parser_add_op_pointer_handler(tree opA, tree opB)
+{
+  tree exp = NULL_TREE;
+  enum tree_code opcode;
+  int pA = POINTER_TYPE_P (TREE_TYPE(opA));
+  int pB = POINTER_TYPE_P (TREE_TYPE(opB));
+
+  gcc_assert (pA || pB);
+  if  (pA && !pB)
+    {
+      opcode = POINTER_PLUS_EXPR;
+      opB = convert (unsigned_type_node, opB);
+      exp = build2 (opcode, TREE_TYPE (opA), opA, opB);
+    }
+  else if (!pA && pB)
+    {
+      opcode = POINTER_PLUS_EXPR;
+      opB = convert(unsigned_type_node, opA);
+      exp = build2 (opcode,  TREE_TYPE (opB), opB, opA);
+    }
+  else
+    {
+      gcc_unreachable ();
+    }
+
+  return exp;
+}
+
+
+static tree
+parser_sub_op_pointer_handler(tree opA, tree opB)
+{
+  tree exp = NULL_TREE;
+  enum tree_code opcode;
+  int pA = POINTER_TYPE_P (TREE_TYPE(opA));
+  int pB = POINTER_TYPE_P (TREE_TYPE(opB));
+
+  gcc_assert (pA || pB);
+  if  (pA && !pB)
+    {
+      opcode = POINTER_PLUS_EXPR;
+      opB = convert(unsigned_type_node, opB);
+      opB = build1(NEGATE_EXPR, TREE_TYPE(opB), opB);
+      exp = build2 (opcode, TREE_TYPE (opA), opA, opB);
+    }
+  else if (!pA && pB)
+    {
+      opcode = POINTER_PLUS_EXPR;
+      opB = convert(unsigned_type_node, opA);
+      opA = build1(NEGATE_EXPR, TREE_TYPE(opA), opA);
+      exp = build2 (opcode,  TREE_TYPE (opB), opB, opA);
+    }
+  else
+    {
+      gcc_assert (TREE_TYPE (opA) == TREE_TYPE (opB));
+      opcode = MINUS_EXPR;
+      tree elem_t = TREE_TYPE( TREE_TYPE (opA)); /* FIXME arrays ?*/
+      opA = convert (integer_type_node, opA);
+      opB = convert (integer_type_node, opB);
+      exp = build2 (opcode, TREE_TYPE (opA), opA, opB);
+      exp = build2 (EXACT_DIV_EXPR, elem_t, exp, TYPE_SIZE_UNIT (integer_type_node));
+    }
+
+  return exp;
+}
+
+
+static void
+parser_emit_binary_numeric_operation(enum cil_bin_op bin_op,
+				     const char* opname,
+				     enum tree_code opcode_i,
+				     enum tree_code opcode_f,
+				     tree (*pointers_handler)(tree,tree))
+{
+  CilStackType opB_type;
+  tree opB = cil_stack_pop (&opB_type);
+  CilStackType opA_type;
+  tree opA = cil_stack_pop (&opA_type);
+  CilStackType result_stack_type = parser_get_binary_numeric_operations_type (bin_op, opA_type, opB_type);
+  if (result_stack_type == CIL_STYPE_ERROR)
+    {
+      error ("Wrong operand types for %s\n", opname);
+    }
+  int pA = POINTER_TYPE_P (TREE_TYPE(opA));
+  int pB = POINTER_TYPE_P (TREE_TYPE(opB));
+  tree exp = NULL_TREE;
+  switch (result_stack_type)
+    {
+    case CIL_STYPE_INT64:
+      /* ... FALL THROUGH ...*/
+
+    case CIL_STYPE_INT32:
+      gcc_assert( !pA && !pB);
+      exp = build2 (opcode_i,  TREE_TYPE (opA), opA, opB);
+      break;
+
+    case CIL_STYPE_F:
+      gcc_assert( !pA && !pB);
+      exp = build2 (opcode_f,  TREE_TYPE (opA), opA, opB);
+      break;
+
+    case CIL_STYPE_NINT:
+      if (!pA && !pB)
+	{
+	  exp = build2 (opcode_i,  TREE_TYPE (opA), opA, opB);
+	  break;
+	}
+
+      /* ... FALL THROUGH ...*/
+
+    case CIL_STYPE_MP:
+      if (!pA && !pB)
+	{
+	  gcc_unreachable ();
+	  break;
+	}
+
+      /* case of pointers */
+      if (!pointers_handler)
+	{
+	  gcc_unreachable();
+	}
+      exp = (*pointers_handler)(opA, opB);
+
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  cil_stack_push (exp, result_stack_type);
+}
+
+
+/* emit the functions here */
+#define BIN_OP(binop_code, binop_tag, tree_code_int, tree_code_f, handler_for_pointers) \
+static void \
+parser_emit_ ## binop_code (void) \
+{ \
+  parser_emit_binary_numeric_operation(BINARY_NUMERIC_OPERATION_ ## binop_tag, #binop_code, tree_code_int, tree_code_f, handler_for_pointers); \
+}
+CIL_BINARY_NUMERIC_OPERATIONS
+#undef BIN_OP
+
+
+#undef CIL_BINARY_NUMERIC_OPERATIONS
+/********* END binary numeric operations ****************/
 
 static void
 parser_emit_min (void)
@@ -481,30 +655,46 @@ parser_emit_abs (void)
   cil_stack_push (exp, op_type);
 }
 
+
+/********* integer operations ****************/
+
+#define CIL_INTEGER_OPERATIONS			\
+  INT_OP(div_un, UNSIGNED, TRUNC_DIV_EXPR)	\
+  INT_OP(rem_un, UNSIGNED, TRUNC_MOD_EXPR)	\
+  INT_OP(and,    SIGNED,   BIT_AND_EXPR)	\
+  INT_OP(or,     SIGNED,   BIT_IOR_EXPR)	\
+  INT_OP(xor,    SIGNED,   BIT_XOR_EXPR)
+
+
+
 static CilStackType
 parser_get_integer_operations_type_tree (CilStackType opA_type, CilStackType opB_type)
 {
-  if (opA_type == CIL_STACK_TYPE_ERROR || opB_type == CIL_STACK_TYPE_ERROR)
+  if (opA_type == CIL_STYPE_ERROR || opB_type == CIL_STYPE_ERROR)
     {
-      return CIL_STACK_TYPE_ERROR;
+      return CIL_STYPE_ERROR;
     }
   else
     {
-      gcc_assert (opA_type < CIL_STACK_TYPE_ERROR);
-      gcc_assert (opB_type < CIL_STACK_TYPE_ERROR);
-      const CilStackType table[6][6] = {
-        { CIL_STACK_TYPE_INT32,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_INT64, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_NATIVE_INT, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
+      static CilStackType table[6][6] = {
+	{ CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+	{ CIL_STYPE_ERROR, CIL_STYPE_INT64, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+	{ CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+	{ CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+	{ CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+	{ CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
       };
+      gcc_assert (opA_type < CIL_STYPE_ERROR);
+      gcc_assert (opB_type < CIL_STYPE_ERROR);
       return table[opA_type][opB_type];
     }
 }
 
-#define TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(name,tree_code,unsignedp) \
+/* create 'emit'fonctions */
+#define SIGNED(t)
+#define UNSIGNED(t) t = convert (cil_unsigned_or_pointer_type (TREE_TYPE (t)), (t));
+
+#define INT_OP(name, CONVERT, OPCODE) \
 static void \
 parser_emit_##name (void) \
 { \
@@ -513,22 +703,35 @@ parser_emit_##name (void) \
   CilStackType opA_type; \
   tree opA = cil_stack_pop (&opA_type); \
   CilStackType result_type = parser_get_integer_operations_type_tree (opA_type, opB_type); \
-  if (result_type == CIL_STACK_TYPE_ERROR) \
+  if (result_type == CIL_STYPE_ERROR) \
     { \
       error ("Wrong operand types for "#name); \
     } \
-  tree result_type_tree = unsignedp ? cil_unsigned_or_pointer_type (cil_stack_get_tree_type_for_cil_stack_type (result_type)) : cil_stack_get_tree_type_for_cil_stack_type (result_type); \
-  tree opA_converted = unsignedp ? convert (cil_unsigned_or_pointer_type (TREE_TYPE (opA)), opA) : opA; \
-  tree opB_converted = unsignedp ? convert (cil_unsigned_or_pointer_type (TREE_TYPE (opB)), opB) : opB; \
-  tree exp = build2 (tree_code, result_type_tree, opA_converted, opB_converted); \
+  CONVERT (opA) \
+  CONVERT (opB) \
+  if (result_type == CIL_STYPE_NINT) \
+    { \
+      int pA = POINTER_TYPE_P (TREE_TYPE(opA)); \
+      int pB = POINTER_TYPE_P (TREE_TYPE(opB)); \
+      if (pA) opA = convert (unsigned_type_node, opA);	\
+      if (pB) opB = convert (unsigned_type_node, opB);	\
+    } \
+  tree exp = build2 (OPCODE, TREE_TYPE (opA), opA, opB);	\
   cil_stack_push (exp, result_type); \
 }
-TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(div_un, TRUNC_DIV_EXPR, true)
-TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(rem_un, TRUNC_MOD_EXPR, true)
-TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(and, BIT_AND_EXPR, false)
-TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(or, BIT_IOR_EXPR, false)
-TEMPLATE_PARSER_EMIT_INTEGER_OPERATION(xor, BIT_XOR_EXPR, false)
-#undef TEMPLATE_PARSER_EMIT_INTEGER_OPERATION
+
+/* the code is emitted here: */
+CIL_INTEGER_OPERATIONS;
+
+#undef INT_OP
+#undef SIGNED
+#undef UNSIGNED
+#undef CIL_INTEGER_OPERATIONS
+
+
+
+/********* end of integer operations ****************/
+
 
 static void
 parser_emit_neg (void)
@@ -602,7 +805,7 @@ parser_emit_ldloca (guint16 local)
 {
   tree local_decl = cil_bindings_get_local (local);
   tree exp_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (local_decl)), local_decl);
-  cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STACK_TYPE_MANAGED_POINTER);
+  cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STYPE_MP);
 }
 
 static void
@@ -617,7 +820,7 @@ parser_emit_ldarga (guint16 arg)
 {
   tree arg_decl = cil_bindings_get_arg (arg);
   tree exp_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (arg_decl)), arg_decl);
-  cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STACK_TYPE_MANAGED_POINTER);
+  cil_stack_push (cil_bindings_output_statements_and_create_temp (exp_addr), CIL_STYPE_MP);
 }
 
 static void
@@ -657,9 +860,7 @@ parser_emit_call (MonoMethod *caller, guint32 token)
 {
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoMethod *called = mono_get_method (image, token, NULL);
-  TRACE_IMPL ({ char *s = mono_method_full_name (called, true); printf (" %s", s); free (s); });
   MonoMethodSignature *signature = mono_method_get_signature_full (called, image, token, NULL);
-  TRACE_IMPL ({ char *s = mono_signature_get_desc (signature, true); printf (" %s", s); free (s); });
 
   MonoClass *called_klass = mono_method_get_class (called);
   if (   strcmp ("Crt", mono_class_get_name (called_klass)) == 0
@@ -743,7 +944,6 @@ parser_emit_calli (MonoMethod *caller, guint32 token)
 {
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoMethodSignature *signature = mono_metadata_parse_signature (image, token);
-  TRACE_IMPL ({ char *s = mono_signature_get_desc (signature, true); printf (" %s", s); free (s); });
 
   tree ftn_tree = cil_stack_pop (NULL);
   tree signature_type_tree = parser_signature_tree (signature, NULL);
@@ -785,8 +985,6 @@ parser_emit_ldftn (MonoMethod *caller, guint32 token)
 {
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoMethod *called = mono_get_method (image, token, NULL);
-  TRACE_IMPL ({ char *s = mono_method_full_name (called, true); printf (" %s", s); free (s); });
-  TRACE_IMPL ({ MonoMethodSignature *signature = mono_method_get_signature_full (called, image, token, NULL); char *s = mono_signature_get_desc (signature, true); printf (" %s", s); free (s); });
   tree called_addr_tree;
   if (parser_get_method_mode (called) == GCC_CIL_METHOD_MODE_PINVOKE)
     {
@@ -797,7 +995,7 @@ parser_emit_ldftn (MonoMethod *caller, guint32 token)
       tree called_tree = parser_get_method_tree (called);
       called_addr_tree = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (called_tree)), called_tree);
     }
-  cil_stack_push (cil_bindings_output_statements_and_create_temp (called_addr_tree), CIL_STACK_TYPE_NATIVE_INT);
+  cil_stack_push (cil_bindings_output_statements_and_create_temp (called_addr_tree), CIL_STYPE_NINT);
 }
 
 static tree
@@ -871,7 +1069,6 @@ parser_emit_ldsfld (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   tree exp = parser_build_static_field_ref_tree (field);
   if (parser_current_prefix.bolatile)
     {
@@ -886,7 +1083,6 @@ parser_emit_stsfld (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   tree field_ref = parser_build_static_field_ref_tree (field);
   if (parser_current_prefix.bolatile)
     {
@@ -914,9 +1110,9 @@ parser_emit_ldsflda (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   tree exp_addr = parser_build_static_field_address_tree (field);
-  cil_stack_push (exp_addr, CIL_STACK_TYPE_MANAGED_POINTER); /* FIXME: the type should be CIL_STACK_TYPE_NATIVE_INT if the object memory is unmanaged */
+  /* FIXME: the type should be CIL_STYPE_NINT if the object memory is unmanaged */
+  cil_stack_push (exp_addr, CIL_STYPE_MP);
 }
 
 static tree
@@ -938,7 +1134,6 @@ parser_emit_stfld (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   tree value_tree = cil_stack_pop (NULL);
   tree dst_obj_ptr_tree = cil_stack_pop (NULL);
   tree field_ref = parser_build_field_ref_tree (field, dst_obj_ptr_tree);
@@ -960,7 +1155,6 @@ parser_emit_ldfld (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   tree src_obj_ptr_tree = cil_stack_pop (NULL);
   tree field_ref = parser_build_field_ref_tree (field, src_obj_ptr_tree);
   if (parser_current_prefix.bolatile)
@@ -976,12 +1170,12 @@ parser_emit_ldflda (MonoMethod *caller, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (caller));
   MonoClass *klass = NULL;
   MonoClassField *field = mono_field_from_token (image, token, &klass, NULL);
-  TRACE_IMPL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf (" %s:%s", s, mono_field_get_name (field)); free (s); });
   CilStackType src_obj_ptr_type;
   tree src_obj_ptr_tree = cil_stack_pop (&src_obj_ptr_type);
   tree field_ref = parser_build_field_ref_tree (field, src_obj_ptr_tree);
   tree field_ref_addr = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (field_ref)), field_ref);
-  cil_stack_push (cil_bindings_output_statements_and_create_temp (field_ref_addr), src_obj_ptr_type == CIL_STACK_TYPE_NATIVE_INT ? CIL_STACK_TYPE_NATIVE_INT : CIL_STACK_TYPE_MANAGED_POINTER);
+  cil_stack_push (cil_bindings_output_statements_and_create_temp (field_ref_addr),
+                  src_obj_ptr_type == CIL_STYPE_NINT ? CIL_STYPE_NINT : CIL_STYPE_MP);
 }
 
 static void
@@ -991,7 +1185,6 @@ parser_emit_ldobj (MonoMethod *method, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (method));
   MonoClass *klass = mono_class_get (image, token);
   MonoType *type = mono_class_get_type (klass);
-  TRACE_IMPL ({ char *s = mono_type_full_name (type); printf (" %s", s); free (s); });
   tree type_tree = parser_get_type_tree (type);
   tree src_tree = cil_stack_pop (NULL);
   tree converted_src_tree = convert (build_pointer_type (type_tree), src_tree);
@@ -1002,7 +1195,7 @@ parser_emit_ldobj (MonoMethod *method, guint32 token)
         {
           value_tree = parser_build_volatile_reference_tree (value_tree);
         }
-      cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), CIL_STACK_TYPE_OBJECT);
+      cil_stack_push (cil_bindings_output_statements_and_create_temp (value_tree), CIL_STYPE_OBJECT);
     }
   else
     {
@@ -1018,7 +1211,6 @@ parser_emit_stobj (MonoMethod *method, guint32 token)
   MonoImage *image = mono_class_get_image (mono_method_get_class (method));
   MonoClass *klass = mono_class_get (image, token);
   MonoType *type = mono_class_get_type (klass);
-  TRACE_IMPL ({ char *s = mono_type_full_name (type); printf (" %s", s); free (s); });
   tree type_tree = parser_get_type_tree (type);
   tree value_tree = cil_stack_pop (NULL);
   tree dest_ptr_tree = cil_stack_pop (NULL);
@@ -1050,17 +1242,17 @@ parser_emit_conv_##name (void) \
   tree converted_exp = convert (type_tree, exp); \
   cil_stack_push (converted_exp, stack_type); \
 }
-TEMPLATE_PARSER_EMIT_CONV (i, integer_type_node, CIL_STACK_TYPE_NATIVE_INT)
-TEMPLATE_PARSER_EMIT_CONV (i1, cil_type_for_size (8, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (u1, cil_type_for_size (8, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (i2, cil_type_for_size (16, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (u2, cil_type_for_size (16, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (i4, cil_type_for_size (32, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (u4, cil_type_for_size (32, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_CONV (i8, cil_type_for_size (64, false), CIL_STACK_TYPE_INT64)
-TEMPLATE_PARSER_EMIT_CONV (u8, cil_type_for_size (64, true), CIL_STACK_TYPE_INT64)
-TEMPLATE_PARSER_EMIT_CONV (r4, float_type_node, CIL_STACK_TYPE_F)
-TEMPLATE_PARSER_EMIT_CONV (r8, double_type_node, CIL_STACK_TYPE_F)
+TEMPLATE_PARSER_EMIT_CONV (i, integer_type_node, CIL_STYPE_NINT)
+TEMPLATE_PARSER_EMIT_CONV (i1, cil_type_for_size (8, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (u1, cil_type_for_size (8, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (i2, cil_type_for_size (16, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (u2, cil_type_for_size (16, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (i4, cil_type_for_size (32, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (u4, cil_type_for_size (32, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_CONV (i8, cil_type_for_size (64, false), CIL_STYPE_INT64)
+TEMPLATE_PARSER_EMIT_CONV (u8, cil_type_for_size (64, true), CIL_STYPE_INT64)
+TEMPLATE_PARSER_EMIT_CONV (r4, float_type_node, CIL_STYPE_F)
+TEMPLATE_PARSER_EMIT_CONV (r8, double_type_node, CIL_STYPE_F)
 #undef TEMPLATE_PARSER_EMIT_CONV
 
 static void
@@ -1069,7 +1261,7 @@ parser_emit_conv_r_un (void)
   tree exp = cil_stack_pop (NULL);
   tree exp_un = convert (cil_unsigned_or_pointer_type (TREE_TYPE (exp)), exp);
   tree converted_exp = convert (double_type_node, exp_un);
-  cil_stack_push (converted_exp, CIL_STACK_TYPE_F);
+  cil_stack_push (converted_exp, CIL_STYPE_F);
 }
 
 #define TEMPLATE_PARSER_EMIT_LDIND(name, elem_type_tree, stack_type) \
@@ -1088,15 +1280,15 @@ parser_emit_ldind_##name (void) \
   tree converted_value_tree = convert (stack_type_tree, value_tree); \
   cil_stack_push (cil_bindings_output_statements_and_create_temp (converted_value_tree), stack_type); /* TODO: unnecesary? */\
 }
-TEMPLATE_PARSER_EMIT_LDIND (i, integer_type_node, CIL_STACK_TYPE_NATIVE_INT)
-TEMPLATE_PARSER_EMIT_LDIND (i1, cil_type_for_size (8, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (u1, cil_type_for_size (8, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (i2, cil_type_for_size (16, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (u2, cil_type_for_size (16, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (i4, cil_type_for_size (32, false), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (u4, cil_type_for_size (32, true), CIL_STACK_TYPE_INT32)
-TEMPLATE_PARSER_EMIT_LDIND (r4, float_type_node, CIL_STACK_TYPE_F)
-TEMPLATE_PARSER_EMIT_LDIND (r8, double_type_node, CIL_STACK_TYPE_F)
+TEMPLATE_PARSER_EMIT_LDIND (i, integer_type_node, CIL_STYPE_NINT)
+TEMPLATE_PARSER_EMIT_LDIND (i1, cil_type_for_size (8, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (u1, cil_type_for_size (8, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (i2, cil_type_for_size (16, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (u2, cil_type_for_size (16, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (i4, cil_type_for_size (32, false), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (u4, cil_type_for_size (32, true), CIL_STYPE_INT32)
+TEMPLATE_PARSER_EMIT_LDIND (r4, float_type_node, CIL_STYPE_F)
+TEMPLATE_PARSER_EMIT_LDIND (r8, double_type_node, CIL_STYPE_F)
 #undef TEMPLATE_PARSER_EMIT_LDIND
 
 #define TEMPLATE_PARSER_EMIT_STIND(name, value_type_tree) \
@@ -1138,61 +1330,24 @@ parser_emit_dup (void)
   cil_stack_push (value, type);
 }
 
-static void
-parser_promote_to_same_type (tree *a, CilStackType *a_type, tree *b, CilStackType *b_type)
-{
-  CilStackType new_type;
-
-  if (*a_type == CIL_STACK_TYPE_F || *b_type == CIL_STACK_TYPE_F)
-    {
-      new_type = CIL_STACK_TYPE_F;
-    }
-  else if (*a_type == CIL_STACK_TYPE_NATIVE_INT || *b_type == CIL_STACK_TYPE_NATIVE_INT)
-    {
-      new_type = CIL_STACK_TYPE_NATIVE_INT;
-    }
-  else if (*a_type == CIL_STACK_TYPE_MANAGED_POINTER || *b_type == CIL_STACK_TYPE_MANAGED_POINTER)
-    {
-      new_type = CIL_STACK_TYPE_MANAGED_POINTER;
-    }
-  else if (*a_type == CIL_STACK_TYPE_INT32 || *b_type == CIL_STACK_TYPE_INT32)
-    {
-      new_type = CIL_STACK_TYPE_INT32;
-    }
-  else if (*a_type == CIL_STACK_TYPE_INT64 || *b_type == CIL_STACK_TYPE_INT64)
-    {
-      new_type = CIL_STACK_TYPE_INT64;
-    }
-  else
-    {
-      gcc_assert (*a_type == CIL_STACK_TYPE_OBJECT || *a_type == CIL_STACK_TYPE_ERROR);
-      new_type = *a_type;
-    }
-
-  *a = convert (cil_stack_get_tree_type_for_cil_stack_type (new_type), *a);
-  *b = convert (cil_stack_get_tree_type_for_cil_stack_type (new_type), *b);
-  *a_type = new_type;
-  *b_type = new_type;
-}
-
 static CilStackType
 parser_get_binary_numeric_comparisons_type (CilStackType opA_type, CilStackType opB_type)
 {
-  if (opA_type == CIL_STACK_TYPE_ERROR || opB_type == CIL_STACK_TYPE_ERROR)
+  if (opA_type == CIL_STYPE_ERROR || opB_type == CIL_STYPE_ERROR)
     {
-      return CIL_STACK_TYPE_ERROR;
+      return CIL_STYPE_ERROR;
     }
   else
     {
-      gcc_assert (opA_type < CIL_STACK_TYPE_ERROR);
-      gcc_assert (opB_type < CIL_STACK_TYPE_ERROR);
+      gcc_assert (opA_type < CIL_STYPE_ERROR);
+      gcc_assert (opB_type < CIL_STYPE_ERROR);
       const CilStackType table[6][6] = {
-        { CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32 },
+        { CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_INT32 },
       };
       return table[opA_type][opB_type];
     }
@@ -1207,24 +1362,30 @@ parser_emit_##name (void) \
   CilStackType opA_type; \
   tree opA = cil_stack_pop (&opA_type); \
   CilStackType result_type = parser_get_binary_numeric_comparisons_type (opA_type, opB_type); \
-  if (result_type == CIL_STACK_TYPE_ERROR) \
+  if (result_type == CIL_STYPE_ERROR) \
     { \
       error ("Wrong operand types for "#name); \
     } \
   tree result_type_tree = cil_stack_get_tree_type_for_cil_stack_type (result_type); \
-  parser_promote_to_same_type (&opA, &opA_type, &opB, &opB_type); /* operands to gcc ompariosons must have the same type (otherwise some optimizations fail) */ \
-  if (opA_type == CIL_STACK_TYPE_F) \
+  if (TREE_TYPE (opA) != TREE_TYPE (opB)) \
     { \
-      gcc_assert (opB_type == CIL_STACK_TYPE_F); \
+      int iA = (TREE_CODE (TREE_TYPE (opA)) == INTEGER_TYPE);	\
+      int iB = (TREE_CODE (TREE_TYPE (opB)) == INTEGER_TYPE);	\
+      if (!iA && iB) opA = convert(TREE_TYPE (opB), opA); \
+      opB = convert(TREE_TYPE (opA), opB); \
+    } \
+  if (opA_type == CIL_STYPE_F) \
+    { \
+      gcc_assert (opB_type == CIL_STYPE_F); \
       tree exp = build2 (tree_code_float, result_type_tree, opA, opB); \
-      cil_stack_push (exp, CIL_STACK_TYPE_INT32); \
+      cil_stack_push (exp, CIL_STYPE_INT32); \
     } \
   else \
     { \
       tree opA_converted = unsignedp ? convert (cil_unsigned_or_pointer_type (TREE_TYPE (opA)), opA) : opA; \
       tree opB_converted = unsignedp ? convert (cil_unsigned_or_pointer_type (TREE_TYPE (opB)), opB) : opB; \
       tree exp = build2 (tree_code, result_type_tree, opA_converted, opB_converted); \
-      cil_stack_push (exp, CIL_STACK_TYPE_INT32); \
+      cil_stack_push (exp, CIL_STYPE_INT32); \
     } \
 }
 TEMPLATE_PARSER_EMIT_BINARY_NUMERIC_COMPARISON(clt_un, LT_EXPR, UNLT_EXPR, true)
@@ -1238,7 +1399,6 @@ static void
 parser_emit_br (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
 {
   const unsigned char *target_ip = ip + offset;
-  TRACE_IMPL (printf (" IL%p", target_ip));
   tree label_decl_tree = cil_labels_set_get_label (labels, target_ip);
   tree goto_expr_tree = build1 (GOTO_EXPR, void_type_node, label_decl_tree);
   cil_bindings_output_statements (goto_expr_tree);
@@ -1248,7 +1408,6 @@ static void
 parser_emit_brfalse (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
 {
   const unsigned char *target_ip = ip + offset;
-  TRACE_IMPL (printf (" IL%p", target_ip));
   tree expr_tree = cil_stack_pop (NULL);
   tree condition_value_tree = build2 (EQ_EXPR, integer_type_node, expr_tree, convert (TREE_TYPE (expr_tree), integer_zero_node));
   tree goto_expr_tree = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, target_ip));
@@ -1260,7 +1419,6 @@ static void
 parser_emit_brtrue (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
 {
   const unsigned char *target_ip = ip + offset;
-  TRACE_IMPL (printf (" IL%p", target_ip));
   tree expr_tree = cil_stack_pop (NULL);
   tree condition_value_tree = build2 (NE_EXPR, integer_type_node, expr_tree, convert (TREE_TYPE (expr_tree), integer_zero_node));
   tree goto_expr_tree = build1 (GOTO_EXPR, void_type_node, cil_labels_set_get_label (labels, target_ip));
@@ -1295,9 +1453,9 @@ parser_emit_bge (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
   cil_stack_peek (0, &opB_type);
   CilStackType opA_type;
   cil_stack_peek (1, &opA_type);
-  if (opA_type == CIL_STACK_TYPE_F)
+  if (opA_type == CIL_STYPE_F)
     {
-      gcc_assert (opB_type == CIL_STACK_TYPE_F);
+      gcc_assert (opB_type == CIL_STYPE_F);
       parser_emit_clt_un ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1315,9 +1473,9 @@ parser_emit_bge_un (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   cil_stack_peek (0, &opB_type);
   CilStackType opA_type;
   cil_stack_peek (1, &opA_type);
-  if (opA_type == CIL_STACK_TYPE_F)
+  if (opA_type == CIL_STYPE_F)
     {
-      gcc_assert (opB_type == CIL_STACK_TYPE_F);
+      gcc_assert (opB_type == CIL_STYPE_F);
       parser_emit_clt ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1335,9 +1493,9 @@ parser_emit_ble (const unsigned char *ip, gint32 offset, CILLabelsMap *labels)
   cil_stack_peek (0, &opB_type);
   CilStackType opA_type;
   cil_stack_peek (1, &opA_type);
-  if (opA_type == CIL_STACK_TYPE_F)
+  if (opA_type == CIL_STYPE_F)
     {
-      gcc_assert (opB_type == CIL_STACK_TYPE_F);
+      gcc_assert (opB_type == CIL_STYPE_F);
       parser_emit_cgt_un ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1355,9 +1513,9 @@ parser_emit_ble_un (const unsigned char *ip, gint32 offset, CILLabelsMap *labels
   cil_stack_peek (0, &opB_type);
   CilStackType opA_type;
   cil_stack_peek (1, &opA_type);
-  if (opA_type == CIL_STACK_TYPE_F)
+  if (opA_type == CIL_STYPE_F)
     {
-      gcc_assert (opB_type == CIL_STACK_TYPE_F);
+      gcc_assert (opB_type == CIL_STYPE_F);
       parser_emit_cgt ();
       parser_emit_brfalse (ip, offset, labels);
     }
@@ -1457,27 +1615,27 @@ parser_emit_localloc (void)
   tree size_tree = convert (cil_type_for_size (32, true), cil_stack_pop (NULL));
   tree alloca_arglist = tree_cons (NULL_TREE, size_tree, NULL_TREE);
   tree call_alloca_tree = build_function_call_expr (built_in_decls[BUILT_IN_ALLOCA], alloca_arglist);
-  cil_stack_push (cil_bindings_output_statements_and_create_temp (call_alloca_tree), CIL_STACK_TYPE_NATIVE_INT);
+  cil_stack_push (cil_bindings_output_statements_and_create_temp (call_alloca_tree), CIL_STYPE_NINT);
 }
 
 static CilStackType
 parser_get_shift_operations_type (CilStackType op_type, CilStackType shift_type)
 {
-  if (op_type == CIL_STACK_TYPE_ERROR || shift_type == CIL_STACK_TYPE_ERROR)
+  if (op_type == CIL_STYPE_ERROR || shift_type == CIL_STYPE_ERROR)
     {
-      return CIL_STACK_TYPE_ERROR;
+      return CIL_STYPE_ERROR;
     }
   else
     {
-      gcc_assert (op_type < CIL_STACK_TYPE_ERROR);
-      gcc_assert (shift_type < CIL_STACK_TYPE_ERROR);
+      gcc_assert (op_type < CIL_STYPE_ERROR);
+      gcc_assert (shift_type < CIL_STYPE_ERROR);
       const CilStackType table[6][6] = {
-        { CIL_STACK_TYPE_INT32,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT32,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_INT64,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_INT64,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_NATIVE_INT, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_NATIVE_INT, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
-        { CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR,      CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR, CIL_STACK_TYPE_ERROR },
+        { CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_INT32, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_INT64, CIL_STYPE_ERROR, CIL_STYPE_INT64, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_NINT,  CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
+        { CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR, CIL_STYPE_ERROR },
       };
       return table[op_type][shift_type];
     }
@@ -1492,7 +1650,7 @@ parser_emit_##name (void) \
   CilStackType value_type; \
   tree value_tree = cil_stack_pop (&value_type); \
   CilStackType result_type = parser_get_shift_operations_type (value_type, shiftamount_type); \
-  if (result_type == CIL_STACK_TYPE_ERROR) \
+  if (result_type == CIL_STYPE_ERROR) \
     { \
       error ("Wrong operand types for "#name); \
     } \
@@ -1520,6 +1678,90 @@ parser_set_location_from_ip (MonoMethod *m, const unsigned char *ip)
 #endif
 }
 
+
+static CILLabelsMap *
+preparse_method_labels(unsigned const char *code, unsigned const char *code_end, CILLabelsMap *labels)
+{
+  unsigned const char *ip = code;
+  while (ip < code_end)
+    {
+      MonoOpcodeEnum opcode = mono_opcode_value (&ip, code_end);
+      ++ip;
+
+      gint64 arg_int64;
+      gint32 arg_int32;
+      gint16 arg_int16;
+      gint8 arg_int8;
+      guint32 arg_token = 0;
+#define read_arg(a) a = *((typeof (a) *) ip); ip += sizeof (a);
+      switch (mono_opcodes [opcode].argument)
+        {
+        case MonoInlineNone:
+          break;
+        case MonoInlineType:
+        case MonoInlineField:
+        case MonoInlineMethod:
+        case MonoInlineTok:
+        case MonoInlineSig:
+          read_arg (arg_token);
+          break;
+        case MonoInlineString:
+          /* TODO */
+          ip += 4;
+          break;
+        case MonoInlineVar:
+          read_arg (arg_int16);
+          break;
+        case MonoShortInlineVar:
+          read_arg (arg_int8);
+          break;
+        case MonoInlineBrTarget:
+          read_arg (arg_int32);
+	  /* set label */
+	  cil_labels_set_get_label (labels, ip + arg_int32);
+          break;
+        case MonoShortInlineBrTarget:
+          read_arg (arg_int8);
+	  /* set label */
+	  cil_labels_set_get_label (labels, ip + ((gint32) arg_int8));
+          break;
+        case MonoInlineSwitch:
+	  {
+	    read_arg (arg_int32);
+	    const gint32 sval = arg_int32;
+	    gint32 i;
+	    for (i = 0; i < sval; ++i)
+	      {
+		read_arg (arg_int32);
+		/* set the label */
+		cil_labels_set_get_label (labels, ip + arg_int32);
+	      }
+	    break;
+	  }
+        case MonoInlineR:
+          read_arg (arg_int64);
+          break;
+        case MonoShortInlineR:
+          read_arg (arg_int32);
+          break;
+        case MonoInlineI:
+          read_arg (arg_int32);
+          break;
+        case MonoShortInlineI:
+          read_arg (arg_int8);
+          break;
+        case MonoInlineI8:
+          read_arg (arg_int64);
+          break;
+
+        default:
+          g_assert_not_reached ();
+	}
+    }
+
+  return labels;
+}
+
 static void
 parse_method_code (MonoMethod *method)
 {
@@ -1527,9 +1769,6 @@ parse_method_code (MonoMethod *method)
   guint32 code_size;
   guint32 max_stack;
   const unsigned char *const code = mono_method_header_get_code (header, &code_size, &max_stack);
-  TRACE_IMPL (printf ("\t\tCode size: %d\n", code_size));
-  TRACE_IMPL (printf ("\t\tMax stack: %d\n", max_stack));
-  TRACE_IMPL (printf ("\t\tCode (addresss): %p\n", code));
 
   gcc_assert (current_function_decl);
 
@@ -1537,23 +1776,25 @@ parse_method_code (MonoMethod *method)
 
   cil_stack_init ();
 
-  CILLabelsMap *labels = cil_labels_set_new ();
-
   parser_current_prefix = cil_opcode_prefix_empty;
   const unsigned char *ip = code;
   const unsigned char *const code_end = code + code_size;
+
+  CILLabelsMap *labels = cil_labels_set_new ();
+  preparse_method_labels (code, code_end, labels);
+
   while (ip < code_end)
     {
       parser_set_location_from_ip (method, ip);
 
-      /* TODO: emit labels only when actually needed (may not be worth the effort) */
-      tree label_decl_tree = cil_labels_set_get_label (labels, ip);
-      tree label_expr_tree = build1 (LABEL_EXPR, void_type_node, label_decl_tree);
-      cil_bindings_output_statements (label_expr_tree);
-      TRACE_IMPL (printf ("\t\t\t%s: ", IDENTIFIER_POINTER (DECL_NAME (label_decl_tree))));
+      tree label_decl_tree = cil_labels_get_label (labels, ip);
+      if (label_decl_tree)
+	{
+	  tree label_expr_tree = build1 (LABEL_EXPR, void_type_node, label_decl_tree);
+	  cil_bindings_output_statements (label_expr_tree);
+	}
 
       MonoOpcodeEnum opcode = mono_opcode_value (&ip, code_end);
-      TRACE_IMPL (printf ("%s", mono_opcode_name (opcode)));
       ++ip;
 
       gint64 arg_int64;
@@ -1575,12 +1816,10 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_LDC_I4:
         read_arg (arg_int32);
-        TRACE_IMPL (printf (" %d", arg_int32));
         parser_emit_ldc_i4 (arg_int32);
         break;
       case MONO_CEE_LDC_I4_S:
         read_arg (arg_int8);
-        TRACE_IMPL (printf (" %d", arg_int8));
         parser_emit_ldc_i4 (arg_int8);
         break;
       case MONO_CEE_LDC_I4_M1:
@@ -1615,17 +1854,14 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_LDC_R4:
         read_arg (arg_int32);
-        TRACE_IMPL (printf (" %x %f", arg_int32, *((float *) &arg_int32)));
         parser_emit_ldc_r4 (arg_int32);
         break;
       case MONO_CEE_LDC_R8:
         read_arg (arg_int64);
-        TRACE_IMPL (printf (" %llx %f", arg_int64, *(double *) &arg_int64));
         parser_emit_ldc_r8 (arg_int64);
         break;
       case MONO_CEE_LDC_I8:
         read_arg (arg_int64);
-        TRACE_IMPL (printf (" %lld", arg_int64));
         parser_emit_ldc_i8 (arg_int64);
         break;
       case MONO_CEE_ADD:
@@ -1666,12 +1902,10 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_STLOC_S:
         read_arg (arg_uint8);
-        TRACE_IMPL (printf (" %d", arg_uint8));
         parser_emit_stloc (arg_uint8);
         break;
       case MONO_CEE_STLOC:
         read_arg (arg_uint16);
-        TRACE_IMPL (printf (" %d", arg_uint16));
         parser_emit_stloc (arg_uint16);
         break;
       case MONO_CEE_LDLOC_0:
@@ -1688,37 +1922,30 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_LDLOC_S:
         read_arg (arg_uint8);
-        TRACE_IMPL (printf (" %d", arg_uint8));
         parser_emit_ldloc (arg_uint8);
         break;
       case MONO_CEE_LDLOC:
         read_arg (arg_uint16);
-        TRACE_IMPL (printf (" %d", arg_uint16));
         parser_emit_ldloc (arg_uint16);
         break;
       case MONO_CEE_LDLOCA_S:
         read_arg (arg_uint8);
-        TRACE_IMPL (printf (" %d", arg_uint8));
         parser_emit_ldloca (arg_uint8);
         break;
       case MONO_CEE_LDLOCA:
         read_arg (arg_uint16);
-        TRACE_IMPL (printf (" %d", arg_uint16));
         parser_emit_ldloca (arg_uint16);
         break;
       case MONO_CEE_LDFTN:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldftn (method, arg_token);
         break;
       case MONO_CEE_CALL:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_call (method, arg_token);
         break;
       case MONO_CEE_CALLI:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_calli (method, arg_token);
         break;
       case MONO_CEE_STARG:
@@ -1759,42 +1986,34 @@ parse_method_code (MonoMethod *method)
         break;
       case MONO_CEE_LDSFLD:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldsfld (method, arg_token);
         break;
       case MONO_CEE_LDSFLDA:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldsflda (method, arg_token);
         break;
       case MONO_CEE_STSFLD:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_stsfld (method, arg_token);
         break;
       case MONO_CEE_STFLD:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_stfld (method, arg_token);
         break;
       case MONO_CEE_LDFLD:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldfld (method, arg_token);
         break;
       case MONO_CEE_LDFLDA:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldflda (method, arg_token);
         break;
       case MONO_CEE_LDOBJ:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_ldobj (method, arg_token);
         break;
       case MONO_CEE_STOBJ:
         read_arg (arg_token);
-        TRACE_IMPL (printf (" %d", arg_token));
         parser_emit_stobj (method, arg_token);
         break;
       case MONO_CEE_CONV_I:
@@ -2049,11 +2268,9 @@ parse_method_code (MonoMethod *method)
       }
         break;
       default:
-        TRACE_IMPL (printf ("\n"));
         gcc_unreachable ();
       }
 #undef read_arg
-      TRACE_IMPL (printf ("\n"));
 
       /* reset the prefix unless current opcode is a prefix itself */
       switch (opcode) {
@@ -2090,7 +2307,7 @@ parser_get_refertenced_types_in_signature (MonoMethodSignature *signature)
    feature and building lists for called methods and referenced
    types. Returns true if the method can be compiled. */
 static bool
-parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **referenced_types)
+parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **referenced_types, MonoOpcodeEnum *reason)
 {
   MonoMethodSignature *signature = mono_method_signature (method);
   if (mono_signature_is_instance (signature))
@@ -2355,16 +2572,19 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       }
         break;
       default:
-        TRACE_IMPL
-          ({
-            fprintf (stderr, "Unhandled opcode: %s\n", mono_opcode_name (opcode));
-            fprintf (stderr, "Method: %s\n", mono_method_full_name (method, true));
-            fprintf (stderr, "%s", mono_disasm_code (NULL, method, code, code_end));
-          });
+#if 0
+        fprintf (stderr, "Unhandled opcode: %s\n", mono_opcode_name (opcode));
+        fprintf (stderr, "Method: %s\n", mono_method_full_name (method, true));
+        fprintf (stderr, "%s", mono_disasm_code (NULL, method, code, code_end));
+#endif
         g_slist_free (*called_methods);
         *called_methods = NULL;
         g_slist_free (*referenced_types);
         *referenced_types = NULL;
+        if (reason)
+          {
+            *reason = opcode;
+          }
         return false;
       }
     }
@@ -2457,7 +2677,6 @@ static void
 parse_method_decl (MonoMethod *method)
 {
   gcc_assert (g_hash_table_lookup (parsed_methods_decl, method) == NULL);
-  TRACE_DECL ({ char *s = mono_method_full_name (method, true); printf ("\tMethod: %s\n", s); free (s); });
   const GCCCilMethodMode method_mode = parser_get_method_mode (method);
 
   MonoMethodSignature *signature = mono_method_signature (method);
@@ -2487,7 +2706,6 @@ parse_method_decl (MonoMethod *method)
         }
       if (method_decl != NULL_TREE)
         {
-          TRACE_IMPL ({printf ("Libstd:%s not found in builtins\n", fun_name);});
           gcc_assert (!g_hash_table_lookup (parsed_methods_decl, method));
           gcc_assert (!g_hash_table_lookup (parsed_methods_impl, method));
           g_hash_table_insert (parsed_methods_decl, method, method_decl);
@@ -2495,7 +2713,6 @@ parse_method_decl (MonoMethod *method)
         }
       else
         {
-          TRACE_IMPL ({printf ("Libstd:%s FOUNDED in builtins\n", fun_name);});
           identifier = get_identifier (fun_name);
         }
     }
@@ -2547,11 +2764,220 @@ parse_method_decl (MonoMethod *method)
   cil_bindings_push_decl (method_decl);
 }
 
+/* tree node from the blob value */
+static tree
+get_from_blob(guchar* ptr, MonoType *monotype, guchar** rptr)
+{
+  tree node;
+  int typetype = mono_type_get_type (monotype);
+
+  gint val_int;
+  guint val_uint;
+  gint64  val_int64;
+  guint64 val_uint64;
+  gint32  val_int32;
+  guint32 val_uint32;
+  gint16  val_int16;
+  guint16 val_uint16;
+  gint8   val_int8;
+  guint8  val_uint8;
+  float   val_float;
+  double  val_double;
+  REAL_VALUE_TYPE real_value;
+  long *pf;
+  size_t len;
+#define read_val(val) val = *((typeof(val) *) ptr) /* FIXME big endian */
+  switch(typetype)
+    {
+    case MONO_TYPE_U1:
+      read_val(val_uint8);
+      node = build_int_cst(cil_type_for_size(8, true), (HOST_WIDE_INT) val_uint8);
+      ptr += sizeof(val_uint8);
+      break;
+    case MONO_TYPE_I1:
+      read_val(val_int8);
+      node = build_int_cst(cil_type_for_size(8, false), (HOST_WIDE_INT) val_int8);
+      ptr += sizeof(val_int8);
+      break;
+    case MONO_TYPE_U2:
+      read_val(val_uint16);
+      node = build_int_cst(cil_type_for_size(16, true), (HOST_WIDE_INT) val_uint16);
+      ptr += sizeof(val_uint16);
+      break;
+    case MONO_TYPE_I2:
+      read_val(val_int16);
+      node = build_int_cst(cil_type_for_size(16, false), (HOST_WIDE_INT) val_int16);
+      ptr += sizeof(val_int16);
+      break;
+    case MONO_TYPE_U4:
+      read_val(val_uint32);
+      node = build_int_cst(cil_type_for_size(32, true), (HOST_WIDE_INT) val_uint32);
+      ptr += sizeof(val_uint32);
+      break;
+    case MONO_TYPE_I4:
+      read_val(val_int32);
+      node = build_int_cst(cil_type_for_size(32, false), (HOST_WIDE_INT) val_int32);
+      ptr += sizeof(val_int32);
+      break;
+    case MONO_TYPE_U8:
+      read_val(val_uint64);
+      node = build_int_cst(cil_type_for_size(64, true), (HOST_WIDE_INT) val_uint64);
+      ptr += sizeof(val_int64);
+      break;
+    case MONO_TYPE_I8:
+      read_val(val_int64);
+      node = build_int_cst(cil_type_for_size(64, false), (HOST_WIDE_INT) val_int64);
+      ptr += sizeof(val_int64);
+      break;
+
+    case MONO_TYPE_CHAR:
+      read_val(val_int16); /* utf-8, FIXME convert to char ? */
+      node = build_int_cst(cil_type_for_size(16, true), (HOST_WIDE_INT) val_int16);
+      ptr += sizeof(val_int16);
+      break;
+    case MONO_TYPE_U:
+      read_val(val_uint);
+      node = build_int_cst(unsigned_type_node, (HOST_WIDE_INT) val_uint);
+      ptr += sizeof(val_uint);
+      break;
+    case MONO_TYPE_I:
+      read_val(val_int);
+      node = build_int_cst(integer_type_node, (HOST_WIDE_INT) val_int);
+      ptr += sizeof(val_int);
+      break;
+
+
+    case MONO_TYPE_R4:
+      read_val(val_float);
+      pf = (void *) &val_float;
+      real_from_target_fmt(&real_value, pf, &ieee_single_format);
+      node = build_real (double_type_node, real_value);
+      ptr += sizeof(val_float);
+      break;
+    case MONO_TYPE_R8:
+      read_val(val_double);
+      pf = (void *) &val_double;
+      real_from_target_fmt(&real_value, pf, &ieee_double_format);
+      node = build_real (double_type_node, real_value);
+      ptr += sizeof(val_double);
+      break;
+
+
+    case MONO_TYPE_STRING:
+      read_val(val_uint8);
+      ptr += sizeof(val_uint8);
+      len = (int) val_uint8;
+      char *val_str = g_strnfill(len+1, '\0');
+      memcpy(val_str, ptr, len);
+      node = build_string(len, val_str);
+      free(val_str);
+      ptr += len;
+      break;
+
+    case MONO_TYPE_SZARRAY:
+      read_val(val_uint32);
+      ptr += sizeof(val_uint32);
+      len = (typeof(len)) val_uint32;
+      MonoType *elt_type = mono_class_get_type(monotype->data.klass);
+      tree elts = NULL_TREE;
+      guint i;
+      for(i = 0; i<len; i++)
+	{
+	  elts = tree_cons(NULL_TREE, get_from_blob(ptr, elt_type, rptr), elts);
+	  ptr = *rptr;
+	}
+/*       tree index = build_index_type (build_int_cst(sizetype, len-1)); */
+/*       tree array = build_array_type (TREE_TYPE(TREE_VALUE(elts)), index); */
+      node = build_vector(TREE_TYPE(TREE_VALUE(elts)), nreverse(elts));
+      break;
+
+    default:
+      fprintf (stderr, "Unhandled type type: 0x%x %s\n", typetype, mono_type_get_name (monotype));
+      gcc_unreachable();
+    }
+
+  *rptr = ptr;
+  return node;
+
+}
+
+static tree
+convert_cil_attributes(MonoCustomAttrInfo *custom_attr)
+{
+  tree attributes = NULL_TREE;
+  if (custom_attr)
+    {
+      int i;
+      for (i = 0; i < custom_attr->num_attrs; ++i)
+	{
+	  /* get purpose */
+	  GString * purpose = g_string_new("");
+	  const MonoCustomAttrEntry *attr = &custom_attr->attrs[i];
+	  MonoClass *klass = mono_method_get_class (attr->ctor);
+	  const char *klass_ns = mono_class_get_namespace (klass);
+	  const char *klass_name = mono_class_get_name (klass);
+	  if( strcmp("",klass_ns) != 0)
+	    {
+	      g_string_append(purpose, klass_ns);
+	      g_string_append(purpose,".");
+	    }
+	  g_string_append(purpose, klass_name);
+
+	  if (!strcmp (klass_ns, "gcc4net.C_Attributes"))
+	    {
+	      attributes = tree_cons(get_identifier(purpose->str), NULL_TREE , attributes);
+            }
+	  else if (!strcmp (klass_ns, "OpenSystem.C"))
+	    {
+              /* TODO: should check the class assembly and method arguments? */
+	      attributes = tree_cons(get_identifier(purpose->str), NULL_TREE , attributes);
+            }
+#if 0
+	  else if (!strcmp (klass_ns, "gcc4net.JitCompilationHints"))
+	    {
+	      /* get value */
+	      MonoMethodSignature *sig = mono_method_signature(attr->ctor);
+	      tree value = NULL_TREE;
+	      if( mono_signature_get_param_count(sig) > 0)
+		{
+		  MonoType *t;
+		  gpointer iter = NULL;
+		  guchar *data = (guchar*) attr->data;
+		  guchar *rdata = NULL;
+		  short prolog = *((short *) data);
+		  data += 2;
+		  if (prolog != 1)
+		    {
+		      fprintf(stderr,"error parsing attribute blob\n");
+		      break;
+		    }
+		  while((t = mono_signature_get_params(sig, &iter)) != NULL)
+		    {
+		      char *tname = mono_type_get_name(t);
+		      tree blobval = get_from_blob(data, t, &rdata);
+		      value = tree_cons(get_identifier(tname), blobval, value);
+		      data = rdata;
+		    }
+		  short num_named_params = *((short *) data);
+		  data += 2;
+		  while(num_named_params > 0)
+		    {
+		      /* TODO: named paramed */
+		      num_named_params--;
+		    }
+		}
+	      attributes = tree_cons(get_identifier(purpose->str), nreverse(value) , attributes);
+	    }
+#endif
+	  g_string_free(purpose,FALSE);
+	}
+    }
+  return attributes;
+}
+
 static void
 parse_method_impl (MonoMethod *method)
 {
-  TRACE_IMPL ({ char *s = mono_method_full_name (method, true); printf ("\tImplMethod: %s\n", s); free (s); });
-
   tree method_decl = parser_get_method_tree (method);
   gcc_assert (!g_hash_table_lookup (parsed_methods_impl, method));
   g_hash_table_insert (parsed_methods_impl, method, method_decl);
@@ -2621,6 +3047,15 @@ parse_method_impl (MonoMethod *method)
       DECL_IGNORED_P (result_decl) = 1;
       DECL_RESULT (method_decl) = result_decl;
 
+      /* attributes */
+      MonoCustomAttrInfo *attributes = mono_custom_attrs_from_method(method);
+      if (attributes)
+	{
+	  tree attrs = convert_cil_attributes(attributes);
+	  decl_attributes(&method_decl, attrs, 0 /*FIXME*/);
+	  mono_custom_attrs_free (attributes);
+	}
+
       /* declare locals */
       guint32 num_locals;
       gboolean init_locals;
@@ -2648,7 +3083,6 @@ parse_method_impl (MonoMethod *method)
                 }
             }
           cil_bindings_push_decl_local (i, local_decl);
-          TRACE_IMPL ({ char *local_type_name = mono_type_get_name (locals[i]); printf ("\t\tLocal %s: %s\n", localname, local_type_name); free (local_type_name); });
           ++argnum;
         }
 
@@ -2675,7 +3109,6 @@ parse_method_impl (MonoMethod *method)
     }
   else
     {
-      TRACE_IMPL (printf ("\t\tNo header\n"););
       /* native method or something */
       gcc_unreachable ();
     }
@@ -2702,9 +3135,7 @@ parse_instance_field (MonoClassField *field)
 {
   gcc_assert ((mono_field_get_flags (field) & MONO_FIELD_ATTR_STATIC) == 0);
   gcc_assert ((mono_field_get_flags (field) & MONO_FIELD_ATTR_LITERAL) == 0);
-  TRACE_DECL (printf ("\tInstance Field: %s\n", mono_field_get_name (field)));
   MonoType *type = mono_field_get_type (field);
-  TRACE_DECL ({char *field_type_name = mono_type_get_name (type); printf ("\t\tType: %s\n", field_type_name); free (field_type_name);});
   MonoClass *klass = mono_field_get_parent (field);
 
   tree field_type_tree = NULL;
@@ -2742,7 +3173,6 @@ parse_instance_field (MonoClassField *field)
       int idx = mono_metadata_token_index (mono_class_get_field_token (field)) - 1;
       guint32 offset;
       mono_metadata_field_info (mono_class_get_image (klass), idx, &offset, NULL, NULL);
-      TRACE_DECL (printf ("\t\tOffset: %d\n", offset));
       tree offset_tree = bitsize_int (offset * BITS_PER_UNIT);
 
       /* We need to pass in the alignment the DECL is known to have.
@@ -2849,7 +3279,6 @@ finish_record_type (MonoClass *klass)
   gboolean explicit_size = mono_metadata_packing_from_typedef (mono_class_get_image (klass), mono_class_get_type_token (klass), &packing_size, &real_size);
   if (explicit_size)
     {
-      TRACE_DECL (printf ("\tChanging size of type, real_size %d\n", real_size));
       /* Note, using sizeof is actually incorrect */
       int extra_for_headers = mono_class_is_valuetype (klass) ? 0 : 2 * sizeof (void *);
       tree requested_size_bytes = build_int_cst (integer_type_node, real_size + extra_for_headers);
@@ -2885,8 +3314,6 @@ parse_class_instance_fields (MonoClass *klass)
       gcc_assert (g_hash_table_lookup (parsed_classes_records, parent) != NULL);
       gcc_assert (TYPE_SIZE ((tree) g_hash_table_lookup (parsed_classes_records, parent)) != NULL_TREE);
     }
-
-  TRACE_DECL (printf ("Parsing instance fields of %s:\n", mono_class_get_name (klass)));
 
   tree class_record_tree = make_node (RECORD_TYPE);
   g_hash_table_insert (parsed_classes_records, klass, class_record_tree);
@@ -2964,35 +3391,10 @@ parse_class_instance_fields (MonoClass *klass)
 }
 
 static void
-parse_static_field (MonoClassField *field)
-{
-  gcc_assert (mono_field_get_flags (field) & MONO_FIELD_ATTR_STATIC);
-  gboolean isliteral = mono_field_get_flags (field) & MONO_FIELD_ATTR_LITERAL;
-  TRACE_DECL (printf ("\tStatic %sField: %s\n", isliteral ? "Literal " : "", mono_field_get_name (field)));
-  MonoType *type = mono_field_get_type (field);
-  TRACE_DECL ({char *field_type_name = mono_type_get_name (type); printf ("\t\tType: %s\n", field_type_name); free (field_type_name);});
-  parser_parse_type (type);
-
-  if (!isliteral)
-    {
-      tree field_name_tree = get_identifier (mono_field_get_name (field));
-      tree field_type_tree = parser_get_type_tree (type);
-      tree field_tree = build_decl (FIELD_DECL, field_name_tree, field_type_tree);
-
-      tree klass_tree = parser_get_class_static_record_tree (mono_field_get_parent (field));
-      DECL_CONTEXT (field_tree) = klass_tree;
-      DECL_FCONTEXT (field_tree) = klass_tree;
-      TYPE_FIELDS (klass_tree) = chainon (TYPE_FIELDS (klass_tree), field_tree);
-    }
-}
-
-static void
 parse_class_static_fields (MonoClass *klass)
 {
   gcc_assert (g_hash_table_lookup (parsed_classes_static_records, klass) == NULL);
   gcc_assert (g_hash_table_lookup (parsed_classes_static_storages, klass) == NULL);
-
-  TRACE_DECL (printf ("Parsing static fields of %s:\n", mono_class_get_name (klass)));
 
   GCCCilClassMode class_mode = parser_get_class_mode (klass);
 
@@ -3004,15 +3406,26 @@ parse_class_static_fields (MonoClass *klass)
   gpointer iter = NULL;
   while ((field = mono_class_get_fields (klass, &iter)) != NULL)
     {
-      gcc_assert (mono_field_get_parent (field) == klass);
-      if (mono_field_get_flags (field) & MONO_FIELD_ATTR_STATIC)
+      guint32 field_flags = mono_field_get_flags (field);
+      if (field_flags & MONO_FIELD_ATTR_STATIC)
         {
-          parse_static_field (field);
-          if ((mono_field_get_flags (field) & MONO_FIELD_ATTR_LITERAL) == 0)
+          MonoType *type = mono_field_get_type (field);
+          parser_parse_type (type);
+
+          if (!(field_flags & MONO_FIELD_ATTR_LITERAL))
             {
+              tree field_name_tree = get_identifier (mono_field_get_name (field));
+              tree field_type_tree = parser_get_type_tree (type);
+              tree field_tree = build_decl (FIELD_DECL, field_name_tree, field_type_tree);
+
+              DECL_CONTEXT (field_tree) = class_static_record;
+              DECL_FCONTEXT (field_tree) = class_static_record;
+              TYPE_FIELDS (class_static_record) = chainon (TYPE_FIELDS (class_static_record), field_tree);
+
               emit_static_storage = true;
             }
-          if (class_mode == GCC_CIL_CLASS_MODE_COMPILE && (mono_field_get_flags (field) & MONO_FIELD_ATTR_HAS_RVA))
+
+          if (class_mode == GCC_CIL_CLASS_MODE_COMPILE && (field_flags & MONO_FIELD_ATTR_HAS_RVA))
             {
               static_fields_to_init = g_slist_prepend (static_fields_to_init, field);
             }
@@ -3048,10 +3461,15 @@ parse_class_decl (MonoClass *klass)
       parser_parse_type (enum_basetype);
     }
 
-  TRACE_DECL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf ("Class decl: %s\n", s); free (s); });
-  TRACE_DECL ({ MonoClass *nesting = mono_class_get_nesting_type (klass); if (nesting) printf ("\tNesting: %s:%s\n", mono_class_get_namespace (nesting), mono_class_get_name (nesting)); });
-  TRACE_DECL ({ MonoClass *parent = mono_class_get_parent (klass); if (parent) printf ("\tParent: %s:%s\n", mono_class_get_namespace (parent), mono_class_get_name (parent)); });
-  TRACE_DECL (printf ("\tValuetype: %s\n", mono_class_is_valuetype (klass) ? "true" : "false"));
+#if 0
+  /* attributes */
+  MonoCustomAttrInfo *attributes = mono_custom_attrs_from_class(klass);
+  if (attributes)
+    {
+      tree attrs = convert_cil_attributes(attributes);
+      mono_custom_attrs_free (attributes);
+    }
+#endif
 
   parse_class_instance_fields (klass);
   gcc_assert (g_hash_table_lookup (parsed_classes_records, klass) != NULL);
@@ -3068,15 +3486,13 @@ parse_class_decl (MonoClass *klass)
       parse_class_decl (parent);
     }
 
+#if 0 /* TODO: probably not really needed at all */
   MonoClass *nesting = mono_class_get_nesting_type (klass);
   if (nesting)
     {
-#if 0 /* TODO: probably not really needed at all */
       parse_class_decl (nesting);
-#endif
     }
-
-  TRACE_DECL ({ char *s = mono_type_full_name (mono_class_get_type (klass)); printf ("End of Class decl: %s\n", s); free (s); });
+#endif
 }
 
 static void
@@ -3159,20 +3575,10 @@ parser_get_is_initialization_method (MonoMethod *method)
   MonoCustomAttrInfo *attributes = mono_custom_attrs_from_method (method);
   if (attributes)
     {
-      int i;
-      for (i = 0; i < attributes->num_attrs; ++i)
-        {
-          const MonoCustomAttrEntry *attr = &attributes->attrs[i];
-          MonoClass *klass = mono_method_get_class (attr->ctor);
-          if (!strcmp ("InitializerAttribute", mono_class_get_name (klass))
-              && !strcmp ("OpenSystem.C", mono_class_get_namespace (klass)))
-            {
-              /* TODO: should check the class assembly and method arguments? */
-              mono_custom_attrs_free (attributes);
-              return true;
-            }
-        }
+      tree attrs = convert_cil_attributes(attributes);
       mono_custom_attrs_free (attributes);
+
+      return lookup_attribute ("OpenSystem.C.InitializerAttribute", attrs) != NULL;
     }
   return false;
 }
@@ -3200,17 +3606,17 @@ parser_get_pinvoke_method_info (MonoMethod *method, const char **libname, const 
 {
   MonoImage *image = mono_class_get_image (mono_method_get_class (method));
 
-        g_assert (mono_method_get_flags (method, NULL) & MONO_METHOD_ATTR_PINVOKE_IMPL);
+  g_assert (mono_method_get_flags (method, NULL) & MONO_METHOD_ATTR_PINVOKE_IMPL);
 
-        guint32 token = mono_method_get_token (method);
-        int idx = mono_metadata_token_index (token);
-        int implmap_idx = mono_metadata_implmap_from_method (image, idx - 1);
-        guint32 im_cols[MONO_IMPLMAP_SIZE];
-        mono_metadata_decode_row (mono_image_get_table_info (image, MONO_TABLE_IMPLMAP), implmap_idx - 1, im_cols, MONO_IMPLMAP_SIZE);
-        if (piflags) *piflags = im_cols[MONO_IMPLMAP_FLAGS];
-        if (functionname) *functionname = mono_metadata_string_heap (image, im_cols[MONO_IMPLMAP_NAME]);
-        guint32 scope_token = mono_metadata_decode_row_col (mono_image_get_table_info (image, MONO_TABLE_MODULEREF), im_cols[MONO_IMPLMAP_SCOPE] - 1, MONO_MODULEREF_NAME);
-        if (libname) *libname = mono_metadata_string_heap (image, scope_token);
+  guint32 token = mono_method_get_token (method);
+  int idx = mono_metadata_token_index (token);
+  int implmap_idx = mono_metadata_implmap_from_method (image, idx - 1);
+  guint32 im_cols[MONO_IMPLMAP_SIZE];
+  mono_metadata_decode_row (mono_image_get_table_info (image, MONO_TABLE_IMPLMAP), implmap_idx - 1, im_cols, MONO_IMPLMAP_SIZE);
+  if (piflags) *piflags = im_cols[MONO_IMPLMAP_FLAGS];
+  if (functionname) *functionname = mono_metadata_string_heap (image, im_cols[MONO_IMPLMAP_NAME]);
+  guint32 scope_token = mono_metadata_decode_row_col (mono_image_get_table_info (image, MONO_TABLE_MODULEREF), im_cols[MONO_IMPLMAP_SCOPE] - 1, MONO_MODULEREF_NAME);
+  if (libname) *libname = mono_metadata_string_heap (image, scope_token);
 }
 
 static tree
@@ -3263,8 +3669,6 @@ parser_emit_pinvoke_initialization (void)
       const char *functionname;
       guint16 piflags;
       parser_get_pinvoke_method_info (m, &libname, &functionname, &piflags);
-      TRACE_IMPL ( printf ("Pinvoke method: %s, %s, %s, %x\n", mono_method_get_name (m), libname, functionname, (unsigned int) piflags) );
-
       tree libname_str_tree = parser_build_string_literal (libname);
       tree functionname_str_tree = parser_build_string_literal (functionname);
       tree arglist = tree_cons (NULL_TREE, functionname_str_tree, NULL_TREE);
@@ -3499,14 +3903,12 @@ parser_parse_file (const char *filename)
 #endif
   gcc_assert (img);
   images_that_we_are_compiling = g_slist_prepend (images_that_we_are_compiling, img);
-  TRACE_DECL (printf ("Image name: %s\n", mono_image_get_name (img)));
 
   guint32 entry_point_token = mono_image_get_entry_point (img);
   MonoMethod *entry_point = NULL;
   if (entry_point_token)
     {
       entry_point = mono_get_method (img, entry_point_token, NULL);
-      TRACE_DECL ({ char *s = mono_method_full_name (entry_point, true); printf ("Entry point: %s\n", s); free (s); });
       MonoClass *entry_class = mono_method_get_class (entry_point);
       parse_class_decl (entry_class);
       methods_to_parse_impl = g_slist_prepend (methods_to_parse_impl, entry_point);
@@ -3525,10 +3927,11 @@ parser_parse_file (const char *filename)
       methods_to_parse_impl = g_slist_remove (methods_to_parse_impl, m);
       if (g_hash_table_lookup (parsed_methods_impl, m) == NULL)
         {
+          MonoOpcodeEnum reason;
           GSList *called_methods = NULL;
           GSList *referenced_types = NULL;
           parse_class_decl (mono_method_get_class (m));
-          bool can_be_compiled = parser_preparse_method (m, &called_methods, &referenced_types);
+          bool can_be_compiled = parser_preparse_method (m, &called_methods, &referenced_types, &reason);
           if (can_be_compiled)
             {
               GSList *li;
@@ -3554,10 +3957,10 @@ parser_parse_file (const char *filename)
               switch (flag_unsupported_method_behavior)
                 {
                 case UMB_WARNING:
-                  warning (0, "Cannot compile method %s because it uses some unsupported feature.", method_name);
+                  warning (0, "method '%s' not compiled, unsupported feature '%s'.", method_name, mono_opcode_name (reason));
                   break;
                 case UMB_ERROR:
-                  error ("Cannot compile method %s because it uses some unsupported feature.", method_name);
+                  error ("method '%s' not compiled, unsupported feature '%s'.", method_name, mono_opcode_name (reason));
                   break;
                 default:
                   gcc_unreachable ();

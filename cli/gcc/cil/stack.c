@@ -52,11 +52,11 @@ cil_stack_init (void)
 static tree
 cil_stack_normalize_type (tree t, CilStackType type)
 {
-  if (type == CIL_STACK_TYPE_OBJECT)
+  if (type == CIL_STYPE_OBJECT)
     {
       return t; /* TODO: no better idea for now */
     }
-  else if (type == CIL_STACK_TYPE_F && SCALAR_FLOAT_TYPE_P (TREE_TYPE (t)))
+  else if (type == CIL_STYPE_F && SCALAR_FLOAT_TYPE_P (TREE_TYPE (t)))
     {
       return t; /* Avoid useless conversions between float and double */
     }
@@ -88,38 +88,38 @@ cil_stack_get_cil_stack_type_for_tree_type (tree t)
 {
   if (t == error_mark_node)
     {
-      return CIL_STACK_TYPE_ERROR;
+      return CIL_STYPE_ERROR;
     }
-  if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_INT32)))
+  if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_INT32)))
     {
-      return CIL_STACK_TYPE_INT32;
+      return CIL_STYPE_INT32;
     }
-  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_INT64)))
+  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_INT64)))
     {
-      return CIL_STACK_TYPE_INT64;
+      return CIL_STYPE_INT64;
     }
-  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_NATIVE_INT)))
+  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_NINT)))
     {
-      return CIL_STACK_TYPE_NATIVE_INT;
+      return CIL_STYPE_NINT;
     }
-  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_F)))
+  else if (cil_stack_type_tree_equal (t, cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_F)))
     {
-      return CIL_STACK_TYPE_F;
+      return CIL_STYPE_F;
     }
   else if (POINTER_TYPE_P (t))
     {
-      /* TODO: This could be a CIL_STACK_TYPE_OBJECT or a CIL_STACK_TYPE_MANAGED_POINTER also, I assume here that it is an unmanaged pointer  */
-      return CIL_STACK_TYPE_NATIVE_INT;
+      /* TODO: This could be a CIL_STYPE_OBJECT or a CIL_STYPE_MP also, I assume here that it is an unmanaged pointer  */
+      return CIL_STYPE_NINT;
     }
   else if (INTEGRAL_TYPE_P (t))
     {
-      if (TYPE_PRECISION (t) <= TYPE_PRECISION (cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_INT32)))
+      if (TYPE_PRECISION (t) <= TYPE_PRECISION (cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_INT32)))
         {
-          return CIL_STACK_TYPE_INT32;
+          return CIL_STYPE_INT32;
         }
-      else if (TYPE_PRECISION (t) <= TYPE_PRECISION (cil_stack_get_tree_type_for_cil_stack_type (CIL_STACK_TYPE_INT64)))
+      else if (TYPE_PRECISION (t) <= TYPE_PRECISION (cil_stack_get_tree_type_for_cil_stack_type (CIL_STYPE_INT64)))
         {
-          return CIL_STACK_TYPE_INT64;
+          return CIL_STYPE_INT64;
         }
       else
         {
@@ -128,12 +128,12 @@ cil_stack_get_cil_stack_type_for_tree_type (tree t)
     }
   else if (SCALAR_FLOAT_TYPE_P (t))
     {
-      return CIL_STACK_TYPE_F;
+      return CIL_STYPE_F;
     }
   else if (TREE_CODE (t) == RECORD_TYPE || TREE_CODE (t) == UNION_TYPE)
     {
       /* should be a valuetype */
-      return CIL_STACK_TYPE_OBJECT;
+      return CIL_STYPE_OBJECT;
     }
   else
     {
@@ -202,19 +202,19 @@ cil_stack_get_tree_type_for_cil_stack_type (CilStackType ct)
 {
   switch (ct)
     {
-    case CIL_STACK_TYPE_INT32:
+    case CIL_STYPE_INT32:
       return cil_type_for_size (32, false);
-    case CIL_STACK_TYPE_INT64:
+    case CIL_STYPE_INT64:
       return cil_type_for_size (64, false);
-    case CIL_STACK_TYPE_NATIVE_INT:
+    case CIL_STYPE_NINT:
       return integer_type_node;
-    case CIL_STACK_TYPE_F:
+    case CIL_STYPE_F:
       return double_type_node;
-    case CIL_STACK_TYPE_MANAGED_POINTER:
+    case CIL_STYPE_MP:
       return build_pointer_type (void_type_node);
-    case CIL_STACK_TYPE_OBJECT:
+    case CIL_STYPE_OBJECT:
       gcc_unreachable (); /* TODO */
-    case CIL_STACK_TYPE_ERROR:
+    case CIL_STYPE_ERROR:
       return error_mark_node;
     default:
       gcc_unreachable ();
