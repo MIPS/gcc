@@ -5672,6 +5672,10 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   tree chain;
   struct function *saved_cfun;
 
+
+  print_generic_attributes(file, DECL_ATTRIBUTES(fn), dump_flags);
+  fprintf(file, "\n");
+
   fprintf (file, "%s (", lang_hooks.decl_printable_name (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);
