@@ -450,8 +450,8 @@ convert_to_integer (tree type, tree expr)
 
       /* Convert to an unsigned integer of the correct width first,
 	 and from there widen/truncate to the required type.  */
-      expr = fold_build1 (CONVERT_EXPR,
-			  lang_hooks.types.type_for_size (POINTER_SIZE, 0),
+      expr = fold_build1 (NOP_EXPR,
+			  lang_hooks.types.type_for_size (POINTER_SIZE, 1),
 			  expr);
       return fold_convert (type, expr);
 
