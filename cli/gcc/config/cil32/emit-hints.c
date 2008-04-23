@@ -33,12 +33,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "diagnostic.h"
 #include "tree-flow.h"
-#include "langhooks.h"
-#include "tree-iterator.h"
-#include "assert.h"
-#include "toplev.h"
 #include "gen-cil.h"
 #include "bit-stream.h"
 #include "emit-hints.h"
@@ -123,16 +118,19 @@ static struct branch_prob_list_node *branch_prob_list_tail = NULL;
 void
 branch_probability_add (FILE *file, tree node)
 {
-  basic_block src_bb, dest_bb;
   edge e;
   struct branch_prob_list_node *n;
 
   gcc_assert (TREE_CODE (node) == COND_EXPR);
 
-  src_bb = get_stmt_ann (node)->bb;
-  dest_bb = label_to_block (GOTO_DESTINATION (COND_EXPR_THEN (node)));
-  e = find_edge (src_bb, dest_bb);
-  gcc_assert (e);
+  {
+    edge true_edge;
+    edge false_edge;
+    basic_block src_bb = get_stmt_ann (node)->bb;
+    extract_true_false_edges_from_block (src_bb, &true_edge, &false_edge);
+    e = true_edge;
+    gcc_assert (e);
+  }
 
   /* Initialize new branch probability node */
   n = XNEW (struct branch_prob_list_node);
@@ -269,10 +267,13 @@ basic_block_frequency_emit (FILE *file)
         {
           tree last = bsi_stmt (last_bsi);
 
-          if (TREE_CODE (last) == COND_EXPR
-              && label_to_block (GOTO_DESTINATION (COND_EXPR_ELSE (last)))
-                 != bb->next_bb)
-            ++emitted_bbs;
+          if (TREE_CODE (last) == COND_EXPR) {
+              edge true_edge;
+              edge false_edge;
+              extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+              if (false_edge->dest != bb->next_bb)
+                ++emitted_bbs;
+          }
         }
     }
 
@@ -297,7 +298,6 @@ basic_block_frequency_emit (FILE *file)
     {
       block_stmt_iterator last_bsi = bsi_last (bb);
       int freq_class;
-      tree last;
 
       /* Frequency is not emitted for an empty basic block */
       if (bsi_end_p (last_bsi))
@@ -311,11 +311,14 @@ basic_block_frequency_emit (FILE *file)
                                     coding[freq_class].num_bits,
                                     coding[freq_class].code);
 
-      last = bsi_stmt (last_bsi);
-      if (TREE_CODE (last) == COND_EXPR)
+      if (TREE_CODE (bsi_stmt (last_bsi)) == COND_EXPR)
         {
-          tree label_decl = GOTO_DESTINATION (COND_EXPR_ELSE (last));
-          basic_block dest_bb = label_to_block (label_decl);
+          edge true_edge;
+          edge false_edge;
+          basic_block dest_bb;
+
+          extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+          dest_bb = false_edge->dest;
 
           if (dest_bb != bb->next_bb)
             {

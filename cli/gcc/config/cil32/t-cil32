@@ -31,45 +31,41 @@
 # Erven Rohou           <erven.rohou@st.com>
 
 bit-stream.o: $(srcdir)/config/cil32/bit-stream.c \
-   $(srcdir)/config/cil32/bit-stream.h \
-   $(DIAGNOSTIC_H) $(TM_H) coretypes.h
+   $(srcdir)/config/cil32/bit-stream.h $(CONFIG_H) $(SYSTEM_H) coretypes.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 emit-hints.o: $(srcdir)/config/cil32/emit-hints.c \
    $(srcdir)/config/cil32/emit-hints.h $(srcdir)/config/cil32/bit-stream.h \
-   $(TREE_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) \
-   $(TM_H) coretypes.h tree-iterator.h langhooks.h
+   $(srcdir)/config/cil32/gen-cil.h $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
+   $(TREE_FLOW_H) coretypes.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 gen-cil.o: $(srcdir)/config/cil32/gen-cil.c $(srcdir)/config/cil32/gen-cil.h \
-   $(srcdir)/config/cil32/emit-hints.h \
-   $(srcdir)/config/cil32/tree-simp-cil.h gt-gen-cil.h \
-   $(CONFIG_H) $(SYSTEM_H) \
-   $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) $(TIMEVAR_H) \
-   $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h
+   $(srcdir)/config/cil32/emit-hints.h $(srcdir)/config/cil32/tree-simp-cil.h \
+   gt-gen-cil.h $(CONFIG_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(SYSTEM_H) \
+   $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) coretypes.h ggc.h langhooks.h \
+   output.h pointer-set.h real.h toplev.h tree-iterator.h tree-pass.h varray.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 rm-ldloc.o: $(srcdir)/config/cil32/rm-ldloc.c $(srcdir)/config/cil32/gen-cil.h \
-   $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H)
+   $(CONFIG_H) $(DIAGNOSTIC_H) $(SYSTEM_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) \
+   coretypes.h pointer-set.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 tree-simp-cil.o: $(srcdir)/config/cil32/tree-simp-cil.c \
-   $(srcdir)/config/cil32/tree-simp-cil.h \
-   $(CONFIG_H) $(SYSTEM_H) \
-   $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) $(TIMEVAR_H) \
-   $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h
+   $(srcdir)/config/cil32/tree-simp-cil.h $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) \
+   $(TM_H) $(TREE_H) $(TREE_FLOW_H) coretypes.h toplev.h tree-pass.h 
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 tree-simp-cil-early.o: $(srcdir)/config/cil32/tree-simp-cil-early.c \
-   $(CONFIG_H) $(SYSTEM_H) \
-   $(TREE_H) $(DIAGNOSTIC_H) real.h $(HASHTAB_H) $(TREE_FLOW_H) $(TIMEVAR_H) \
-   $(TM_H) coretypes.h tree-iterator.h tree-chrec.h langhooks.h tree-pass.h
+   $(srcdir)/config/cil32/tree-simp-cil.h $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) \
+   $(TM_H) $(TREE_H) coretypes.h toplev.h tree-gimple.h tree-pass.h \
+   pointer-set.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
-   $(CONFIG_H) $(SYSTEM_H) \
-   $(TM_H) $(TREE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(TREE_FLOW_H) $(TIMEVAR_H) \
-   langhooks.h tree-pass.h
+   $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) \
+   coretypes.h tree-pass.h 
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 $(out_object_file): gt-gen-cil.h

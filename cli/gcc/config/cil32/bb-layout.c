@@ -35,13 +35,9 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "diagnostic.h"
-#include "hashtab.h"
 #include "tree-flow.h"
-#include "langhooks.h"
 #include "tree-pass.h"
 #include "timevar.h"
-#include "assert.h"
 
 static inline void
 visit_block (basic_block bb)

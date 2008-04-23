@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -176,31 +176,37 @@ cil32_assemble_integer (rtx x ATTRIBUTE_UNUSED,
   return true;
 }
 
-tree cil32_builtin_va_start_decl;
-tree cil32_builtin_va_arg_decl;
-tree cil32_builtin_va_end_decl;
-tree cil32_builtin_va_copy_decl;
-tree cil32_builtin_is_LE_decl;
+
+
+void
+cil32_ivdep (struct cpp_reader * x ATTRIBUTE_UNUSED)
+{
+    warning (OPT_Wcil_pragma_ignored, "pragma ivdep not implemented yet");
+}
+
+
+void
+cil32_loopdep_liberal (struct cpp_reader * x ATTRIBUTE_UNUSED)
+{
+    warning (OPT_Wcil_pragma_ignored, "pragma loopdep not implemented yet");
+}
+
+void
+cil32_loopdep_parallel (struct cpp_reader * x ATTRIBUTE_UNUSED)
+{
+    warning (OPT_Wcil_pragma_ignored, "pragma loopdep not implemented yet");
+}
+
+void
+cil32_loopdep_vector (struct cpp_reader * x ATTRIBUTE_UNUSED)
+{
+    warning (OPT_Wcil_pragma_ignored, "pragma loopdep not implemented yet");
+}
+
+tree cil32_builtins[CIL32_MAX_BUILT_IN] = {NULL_TREE};
 
 tree cil32_va_list_type = NULL_TREE;
 tree cil32_arg_iterator_type;
-
-/* constructors of vector types. */
-/* float */
-tree cil32_v2sf_ctor;
-tree cil32_v4sf_ctor;
-/* 32-bit integer */
-tree cil32_v4qi_ctor;
-tree cil32_v2hi_ctor;
-/* 64-bit integer */
-tree cil32_v8qi_ctor;
-tree cil32_v4hi_ctor;
-tree cil32_v2si_ctor;
-/* 128-bit integer */
-tree cil32_v4si_ctor;
-tree cil32_v8hi_ctor;
-tree cil32_v16qi_ctor;
-
 
 static void
 cil32_build_builtin_types (void)
@@ -235,90 +241,132 @@ cil32_init_builtins (void)
   cil32_build_builtin_types ();
 
   arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
-  cil32_builtin_va_start_decl = add_builtin_function ("__builtin_cil_va_start",
-                                                      build_function_type (void_type_node,
-                                                                           arglist),
-                                                      CIL32_BUILT_IN_VA_START,
-                                                      BUILT_IN_MD,
-                                                      NULL,
-                                                      NULL_TREE);
+  cil32_builtins[CIL32_BUILT_IN_VA_START] =
+      add_builtin_function ("__builtin_cil_va_start",
+                            build_function_type (void_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_VA_START,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
   arglist = build_tree_list (NULL_TREE, ptr_type_node);
   arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
-  cil32_builtin_va_arg_decl = add_builtin_function ("__builtin_cil_va_arg",
-                                                    build_function_type (ptr_type_node,
-                                                                         arglist),
-                                                    CIL32_BUILT_IN_VA_ARG,
-                                                    BUILT_IN_MD,
-                                                    NULL,
-                                                    NULL_TREE);
+  cil32_builtins[CIL32_BUILT_IN_VA_ARG] =
+      add_builtin_function ("__builtin_cil_va_arg",
+                            build_function_type (ptr_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_VA_ARG,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
   arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
-  cil32_builtin_va_end_decl = add_builtin_function ("__builtin_cil_va_end",
-                                                    build_function_type (void_type_node,
-                                                                         arglist),
-                                                    CIL32_BUILT_IN_VA_END,
-                                                    BUILT_IN_MD,
-                                                    NULL,
-                                                    NULL_TREE);
+  cil32_builtins[CIL32_BUILT_IN_VA_END] =
+      add_builtin_function ("__builtin_cil_va_end",
+                            build_function_type (void_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_VA_END,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
   arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
   arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
-  cil32_builtin_va_copy_decl = add_builtin_function ("__builtin_cil_va_copy",
-                                                     build_function_type (void_type_node,
-                                                                          arglist),
-                                                     CIL32_BUILT_IN_VA_COPY,
-                                                     BUILT_IN_MD,
-                                                     NULL,
-                                                     NULL_TREE);
-  cil32_builtin_is_LE_decl = add_builtin_function ("__builtin_isLittleEndian",
-                                                   build_function_type (integer_type_node,
-                                                                        NULL_TREE),
-                                                   CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
-                                                   BUILT_IN_MD,
-                                                   NULL,
-                                                   NULL_TREE);
+  cil32_builtins[CIL32_BUILT_IN_VA_COPY] =
+      add_builtin_function ("__builtin_cil_va_copy",
+                            build_function_type (void_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_VA_COPY,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
+  arglist = build_tree_list (NULL_TREE, integer_type_node);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
+  cil32_builtins[CIL32_BUILT_IN_CPBLK] =
+      add_builtin_function ("__builtin_cil_cpblk",
+                            build_function_type (void_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_CPBLK,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
+  arglist = build_tree_list (NULL_TREE, integer_type_node);
+  arglist = tree_cons (NULL_TREE, integer_type_node, arglist);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
+  cil32_builtins[CIL32_BUILT_IN_INITBLK] =
+      add_builtin_function ("__builtin_cil_initblk",
+                            build_function_type (void_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_INITBLK,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
+  cil32_builtins[CIL32_BUILT_IN_IS_LITTLE_ENDIAN] =
+      add_builtin_function ("__builtin_isLittleEndian",
+                            build_function_type (integer_type_node,
+                                                 NULL_TREE),
+                            CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
+  
+  arglist = build_tree_list (NULL_TREE, ptr_type_node);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
+  cil32_builtins[CIL32_BUILT_IN_ENDIAN_SELECT] =
+      add_builtin_function ("__builtin_EndianSelect",
+                            build_function_type (ptr_type_node,
+                                                 arglist),
+                            CIL32_BUILT_IN_ENDIAN_SELECT,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
+  
+  arglist = build_tree_list (NULL_TREE, float_type_node);
+  arglist = tree_cons (NULL_TREE, float_type_node, arglist);
+  cil32_builtins[CIL32_V2SF_CTOR] =
+      add_builtin_function ("V2SF_ctor1",
+                            build_function_type (build_vector_type (float_type_node, 2),
+                                                 arglist),
+                            CIL32_V2SF_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, float_type_node);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
-  cil32_v2sf_ctor = add_builtin_function ("V2SF_ctor1",
-                                          build_function_type (build_vector_type (float_type_node, 2),
-                                                               arglist),
-                                          CIL32_V2SF_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
-
-  arglist = build_tree_list (NULL_TREE, float_type_node);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
-  arglist = tree_cons (NULL_TREE, float_type_node, arglist);
-  cil32_v4sf_ctor = add_builtin_function ("V4SF_ctor1",
-                                          build_function_type (build_vector_type (float_type_node, 4),
-                                                               arglist),
-                                          CIL32_V4SF_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V4SF_CTOR] =
+      add_builtin_function ("V4SF_ctor1",
+                            build_function_type (build_vector_type (float_type_node, 4),
+                                                 arglist),
+                            CIL32_V4SF_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
-  cil32_v4qi_ctor = add_builtin_function ("V4QI_ctor1",
-                                          build_function_type (build_vector_type (intQI_type_node, 4),
-                                                               arglist),
-                                          CIL32_V4QI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V4QI_CTOR] =
+      add_builtin_function ("V4QI_ctor1",
+                            build_function_type (build_vector_type (intQI_type_node, 4),
+                                                 arglist),
+                            CIL32_V4QI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
   arglist = tree_cons (NULL_TREE, intHI_type_node, arglist);
-  cil32_v2hi_ctor = add_builtin_function ("V2HI_ctor1",
-                                          build_function_type (build_vector_type (intHI_type_node, 2),
-                                                               arglist),
-                                          CIL32_V2HI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V2HI_CTOR] =
+      add_builtin_function ("V2HI_ctor1",
+                            build_function_type (build_vector_type (intHI_type_node, 2),
+                                                 arglist),
+                            CIL32_V2HI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
@@ -328,47 +376,51 @@ cil32_init_builtins (void)
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
-  cil32_v8qi_ctor = add_builtin_function ("V8QI_ctor1",
-                                          build_function_type (build_vector_type (intQI_type_node, 8),
-                                                               arglist),
-                                          CIL32_V8QI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V8QI_CTOR] =
+      add_builtin_function ("V8QI_ctor1",
+                            build_function_type (build_vector_type (intQI_type_node, 8),
+                                                 arglist),
+                            CIL32_V8QI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
-  cil32_v4hi_ctor = add_builtin_function ("V4HI_ctor1",
-                                          build_function_type (build_vector_type (intHI_type_node, 4),
-                                                               arglist),
-                                          CIL32_V4HI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V4HI_CTOR] =
+      add_builtin_function ("V4HI_ctor1",
+                            build_function_type (build_vector_type (intHI_type_node, 4),
+                                                 arglist),
+                            CIL32_V4HI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intSI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
-  cil32_v2si_ctor = add_builtin_function ("V2SI_ctor1",
-                                          build_function_type (build_vector_type (intSI_type_node, 2),
-                                                               arglist),
-                                          CIL32_V2SI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V2SI_CTOR] =
+      add_builtin_function ("V2SI_ctor1",
+                            build_function_type (build_vector_type (intSI_type_node, 2),
+                                                 arglist),
+                            CIL32_V2SI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intSI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
-  cil32_v4si_ctor = add_builtin_function ("V4SI_ctor1",
-                                          build_function_type (build_vector_type (intSI_type_node, 4),
-                                                               arglist),
-                                          CIL32_V4SI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V4SI_CTOR] =
+      add_builtin_function ("V4SI_ctor1",
+                            build_function_type (build_vector_type (intSI_type_node, 4),
+                                                 arglist),
+                            CIL32_V4SI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
@@ -378,13 +430,14 @@ cil32_init_builtins (void)
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
-  cil32_v8hi_ctor = add_builtin_function ("V8HI_ctor1",
-                                          build_function_type (build_vector_type (intHI_type_node, 8),
-                                                               arglist),
-                                          CIL32_V8HI_CTOR,
-                                          BUILT_IN_MD,
-                                          NULL,
-                                          NULL_TREE);
+  cil32_builtins[CIL32_V8HI_CTOR] =
+      add_builtin_function ("V8HI_ctor1",
+                            build_function_type (build_vector_type (intHI_type_node, 8),
+                                                 arglist),
+                            CIL32_V8HI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 
   arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
@@ -402,13 +455,14 @@ cil32_init_builtins (void)
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
-  cil32_v16qi_ctor = add_builtin_function ("V16QI_ctor1",
-                                           build_function_type (build_vector_type (intQI_type_node, 16),
-                                                                arglist),
-                                           CIL32_V16QI_CTOR,
-                                           BUILT_IN_MD,
-                                           NULL,
-                                           NULL_TREE);
+  cil32_builtins[CIL32_V16QI_CTOR] =
+      add_builtin_function ("V16QI_ctor1",
+                            build_function_type (build_vector_type (intQI_type_node, 16),
+                                                 arglist),
+                            CIL32_V16QI_CTOR,
+                            BUILT_IN_MD,
+                            NULL,
+                            NULL_TREE);
 }
 
 static tree
@@ -425,7 +479,7 @@ cil32_gimplify_va_arg (tree valist, tree type, tree *pre_p ATTRIBUTE_UNUSED, tre
   tree ptr_type = build_pointer_type (type);
   tree arglist = build_tree_list (NULL_TREE, build_int_cstu (ptr_type, 0));
   arglist = tree_cons (NULL_TREE, valist, arglist);
-  fcall = build_function_call_expr (cil32_builtin_va_arg_decl, arglist);
+  fcall = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_VA_ARG], arglist);
   TREE_TYPE (fcall) = ptr_type;
   return build1 (INDIRECT_REF, type, fcall);
 }

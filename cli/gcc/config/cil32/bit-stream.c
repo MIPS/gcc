@@ -31,7 +31,6 @@ Erven Rohou             <erven.rohou@st.com>
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "assert.h"
 #include "bit-stream.h"
 
 

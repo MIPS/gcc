@@ -1,6 +1,6 @@
 ; Options for the CIL32 port of the compiler.
 ;
-;    Copyright (C) 2006 Free Software Foundation, Inc.
+;    Copyright (C) 2006-2008 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -37,6 +37,10 @@ mnoopensystemc
 Target InverseMask(OPENSYSTEMC)
 Disable use of OpenSystem.C Attributes
 
+mno-stloc-ldloc-removal
+Target Mask(NO_STLOC_LDLOC_REMOVAL)
+Do not do stloc/ldloc couples removal
+
 mexpand-abs
 Target Mask(EXPAND_ABS)
 Expand abs (absolute value) instead of generating a call to Crt::abs
@@ -64,3 +68,15 @@ Emits compilation hints for a JIT encoded in custom attributes
 Wcil-missing-prototypes
 Target Var(warn_cil_missing_prototypes) Init(1)
 Warn about missing prototypes dangerous for CLI generation
+
+Wcil-pragma-ignored
+Target Var(warn_cil_pragma_ignored) Init(1)
+Warn about ignored pragmas
+
+mbig-endian
+Target Report RejectNegative Mask(BIG_ENDIAN)
+Assume target CPU is configured as big endian
+
+mlittle-endian
+Target Report RejectNegative Mask(LITTLE_ENDIAN)
+Assume target CPU is configured as little endian

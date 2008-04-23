@@ -36,18 +36,10 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "diagnostic.h"
-#include "real.h"
-#include "hashtab.h"
 #include "tree-flow.h"
-#include "langhooks.h"
-#include "tree-iterator.h"
-#include "tree-chrec.h"
 #include "tree-pass.h"
 #include "timevar.h"
-#include "assert.h"
 #include "toplev.h"
-#include "output.h"
 #include "tree-simp-cil.h"
 
 /* The purpose of this pass is to simplify GIMPLE trees in order
@@ -184,7 +176,6 @@ Erven Rohou             <erven.rohou@st.com>
 */
 
 /* Local functions, macros and variables.  */
-static bool is_copy_required (tree);
 static bool mostly_zeros_p (tree);
 static bool all_zeros_p (tree);
 static void simp_cond_stmt (block_stmt_iterator, tree);
@@ -199,8 +190,6 @@ static void simp_shift (block_stmt_iterator *, tree);
 static void simp_target_mem_ref (block_stmt_iterator *, tree *);
 static void compute_array_ref_base_disp (tree, tree *, tree *);
 static void simp_array_ref (block_stmt_iterator *, tree *);
-static void simp_bitfield (block_stmt_iterator *, tree *, tree, unsigned int,
-                           unsigned int, unsigned int, HOST_WIDEST_INT, bool);
 static void simp_rhs_bitfield_component_ref (block_stmt_iterator *, tree *);
 static void simp_lhs_bitfield_component_ref (block_stmt_iterator *, tree *);
 static void simp_bitfield_ref (block_stmt_iterator *, tree *);
@@ -221,6 +210,9 @@ do { tree _node = (NODE); \
 
 static bool simp_final;
 static tree res_var;
+
+static GTY(()) tree two = NULL_TREE;
+static GTY(()) tree bits_per_unit = NULL_TREE;
 
 /* Return the integer type with size BITS bits.
    The type is unsigned or signed depending on UNS.   */
@@ -265,7 +257,7 @@ get_integer_type (int bits, bool uns)
    it looks more profitable to compute NODE only once,
    FALSE otherwise (this is a heuristic decision).   */
 
-static bool
+bool
 is_copy_required (tree node)
 {
   if (TREE_SIDE_EFFECTS (node))
@@ -735,7 +727,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
               new_args = tree_cons (NULL, va, NULL);
 
-              stmt = build_function_call_expr (cil32_builtin_va_start_decl,
+              stmt = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_VA_START],
                                                new_args);
               bsi_replace (&bsi, stmt, true);
             }
@@ -773,7 +765,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
               new_args = tree_cons (NULL, va, NULL);
 
-              stmt = build_function_call_expr (cil32_builtin_va_end_decl,
+              stmt = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_VA_END],
                                                new_args);
               bsi_replace (&bsi, stmt, true);
             }
@@ -824,7 +816,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
               new_args = tree_cons (NULL, va_src, NULL);
               new_args = tree_cons (NULL, va_dest,  new_args);
 
-              stmt = build_function_call_expr (cil32_builtin_va_copy_decl,
+              stmt = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_VA_COPY],
                                                new_args);
               bsi_replace (&bsi, stmt, true);
             }
@@ -835,10 +827,13 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
           {
             /* Inspired from 'expand_builtin_object_size' in builtins.c. We
                return -1 for types 0 and 1, and 0 for types 2 and 3.  */
-            tree arg2 = CALL_EXPR_ARG (node, 0);
+            tree arg2 = CALL_EXPR_ARG (node, 1);
             int  obj_type;
+
+            STRIP_NOPS (arg2);
             gcc_assert (TREE_CODE (arg2) == INTEGER_CST);
-            obj_type = TREE_INT_CST_LOW (arg2);
+
+            obj_type = tree_low_cst (arg2, 0);
             switch (obj_type)
               {
               case 0:
@@ -892,6 +887,59 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
               {
                 *node_ptr = integer_zero_node;
               }
+          }
+          break;
+
+        case BUILT_IN_BCMP:
+          {
+            tree src1 = CALL_EXPR_ARG (node, 0);
+            tree src2 = CALL_EXPR_ARG (node, 1);
+            tree size = CALL_EXPR_ARG (node, 2);
+
+            tree stmt;
+            tree new_args;
+            
+            new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
+            new_args = tree_cons (NULL, src2, new_args);
+            new_args = tree_cons (NULL, src1, new_args);
+
+            stmt = build_function_call_expr (built_in_decls[BUILT_IN_MEMCMP], new_args);
+            bsi_replace (&bsi, stmt, true);
+          }
+          break;
+
+        case BUILT_IN_BZERO:
+          {
+            tree src1 = CALL_EXPR_ARG (node, 0);
+            tree size = CALL_EXPR_ARG (node, 1);
+
+            tree stmt;
+            tree new_args;
+            
+            new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
+            new_args = tree_cons (NULL, integer_zero_node, new_args);
+            new_args = tree_cons (NULL, src1, new_args);
+
+            stmt = build_function_call_expr (built_in_decls[BUILT_IN_MEMSET], new_args);
+            bsi_replace (&bsi, stmt, true);
+          }
+          break;
+
+        case BUILT_IN_BCOPY:
+          {
+            tree src1 = CALL_EXPR_ARG (node, 0);
+            tree dst1 = CALL_EXPR_ARG (node, 1);
+            tree size = CALL_EXPR_ARG (node, 2);
+
+            tree stmt;
+            tree new_args;
+            
+            new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
+            new_args = tree_cons (NULL, src1, new_args);
+            new_args = tree_cons (NULL, dst1, new_args);
+
+            stmt = build_function_call_expr (built_in_decls[BUILT_IN_MEMMOVE], new_args);
+            bsi_replace (&bsi, stmt, true);
           }
           break;
 
@@ -1584,111 +1632,6 @@ simp_array_ref (block_stmt_iterator *bsi, tree *node_ptr)
   *node_ptr = t1;
 }
 
-/* Expand a bit-field reference by transforming it
-   into an INDIRECT_REF and applying the necessary bit mask operations.
-   BSI points to the iterator of the statement that contains *NODE_PTR
-   (in order to allow insertion of new statements).
-   BSI is passed by reference because instructions are inserted.
-   NODE is passed by reference because simplification requires
-   replacing the node.
-   OBJ is the object containing the bit-field.
-   CONT_SIZE is the number of bits of the bit-field container.
-   BFLD_SIZE is the number of bits being referenced.
-   BFLD_OFF is the position of the first referenced bit.
-   OFF is an additional offset in bytes of the bit-field from the
-   beginning of the OBJ.
-   UNS tells whether the bit-field is unsigned or not.   */
-
-static void
-simp_bitfield (block_stmt_iterator *bsi, tree *node_ptr,
-               tree obj, unsigned int cont_size, unsigned int bfld_size,
-               unsigned int bfld_off, HOST_WIDEST_INT off, bool uns)
-{
-  tree node = *node_ptr;
-  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
-  tree new_type, new_type_ptr, obj_ptr_type;
-  tree tmp_var, tmp_stmt;
-  tree t;
-
-  gcc_assert (cont_size >= bfld_size + bfld_off);
-
-  /* Set that the object being accessed is addressable */
-  UPDATE_ADDRESSABLE (obj);
-
-  /* Build the type corresponding of a pointer to the object */
-  obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
-
-  /* Build the new type for the equivalent access (and a pointer type to it) */
-  new_type = get_integer_type (cont_size, uns);
-  new_type_ptr = build_pointer_type (new_type);
-
-  /* Build the (gimplified) equivalent expression */
-
-  tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (ADDR_EXPR, obj_ptr_type, obj));
-  gcc_assert (TREE_CODE (obj) != CALL_EXPR);
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-  tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (NOP_EXPR, new_type_ptr, t));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-
-  if (off > 0)
-    {
-      tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (POINTER_PLUS_EXPR, new_type_ptr,
-                                                  t,
-                                                  build_int_cst (long_unsigned_type_node, off)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      t = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-    }
-
-  tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (INDIRECT_REF, new_type, t));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-
-  if (cont_size > bfld_size + bfld_off)
-    {
-      tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (LSHIFT_EXPR, new_type,
-                                                  t,
-                                                  build_int_cstu (unsigned_intSI_type_node,
-                                                                  cont_size - bfld_size - bfld_off)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      t = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-    }
-
-  if (cont_size > bfld_size)
-    {
-      tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (RSHIFT_EXPR, new_type,
-                                                  t,
-                                                  build_int_cstu (unsigned_intSI_type_node,
-                                                                  cont_size - bfld_size)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      t = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-    }
-
-  gcc_assert (t && t != error_mark_node);
-
-  /* Update the current node */
-  *node_ptr = fold_convert (TREE_TYPE (node), t);
-}
-
 /* Expand the COMPONENT_REF (pointed by NODE_PTR) accessing
    a BIT_FIELD_DECL and being on a right-hand side by transforming it
    into an INDIRECT_REF and applying the necessary bit mask operations.
@@ -1702,31 +1645,101 @@ static void
 simp_rhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 {
   tree node = *node_ptr;
+  tree stmt = bsi_stmt (*bsi);
+  location_t locus = EXPR_LOCATION (stmt);
   tree obj = TREE_OPERAND (node, 0);
   tree fld = TREE_OPERAND (node, 1);
-  tree fld_type, fld_off;
-  unsigned int cont_size, bfld_size, bfld_off;
-  HOST_WIDEST_INT off;
-
-  gcc_assert (TREE_CODE (node) == COMPONENT_REF);
-  gcc_assert (DECL_BIT_FIELD (fld));
+  tree fld_type, cont_type, cont_type_ptr, obj_ptr_type;
+  tree fld_off, fld_size, cont_size, diff;
+  tree lshift_cst, rshift_cst, ptr_off_cst;
+  tree obj_addr, addr, cont_var;
+  tree new_stmt, list = NULL_TREE;
+  tree two = build_int_cst_type (size_type_node, 2);
+  tree bits_per_unit = fold_convert (size_type_node, bitsize_unit_node);
 
   /* Extract bit field layout */
-  fld_type = DECL_BIT_FIELD_TYPE (fld);
-  fld_off = DECL_FIELD_OFFSET (fld);
-  cont_size = TREE_INT_CST_LOW (TYPE_SIZE (fld_type));
-  bfld_size = TYPE_PRECISION (TREE_TYPE (fld));
-  bfld_off = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld)) & (cont_size - 1);
-  gcc_assert (cont_size >= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))));
-  gcc_assert (TREE_INT_CST_HIGH (fld_off) == 0);
-  off = TREE_INT_CST_LOW (fld_off)
-        + ((TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld))
-            & ~(cont_size - 1))
-           / 8);
+  fld_type = TREE_TYPE (fld);
+  fld_off = size_binop (MULT_EXPR, DECL_FIELD_OFFSET (fld), bits_per_unit);
+  fld_off = size_binop (PLUS_EXPR, fld_off,
+			fold_convert (size_type_node,
+				      DECL_FIELD_BIT_OFFSET (fld)));
+  fld_size = build_int_cst_type (size_type_node, TYPE_PRECISION (fld_type));
+  cont_size = size_binop (TRUNC_DIV_EXPR, bits_per_unit, two);
 
-  /* Simplify the bit-field */
-  simp_bitfield (bsi, node_ptr, obj, cont_size, bfld_size, bfld_off, off,
-                 DECL_UNSIGNED (fld));
+  do {
+    cont_size = size_binop (MULT_EXPR, cont_size, two);
+    diff = size_binop (TRUNC_MOD_EXPR, fld_off, cont_size);
+    diff = size_binop (PLUS_EXPR, diff, fld_size);
+  } while (tree_int_cst_lt (cont_size, diff));
+
+  /* lshift_cst = cont_size + ((fld_off % cont_size) + fld_size) */
+  lshift_cst = size_binop (TRUNC_MOD_EXPR, fld_off, cont_size);
+  lshift_cst = size_binop (PLUS_EXPR, lshift_cst, fld_size);
+  lshift_cst = size_binop (MINUS_EXPR, cont_size, lshift_cst);
+
+  /* rshift_cst = cont_size - fld_size */
+  rshift_cst = size_binop (MINUS_EXPR, cont_size, fld_size);
+
+  /* Build the new type for the equivalent access (and a pointer type to it) */
+  cont_type = get_integer_type (tree_low_cst (cont_size, true), true);
+  cont_type_ptr = build_pointer_type (cont_type);
+
+  /* Build the type corresponding of a pointer to the object */
+  obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
+
+  /* Build expression to compute the address to be accessed */
+  obj_addr = create_tmp_var (obj_ptr_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (obj_addr,
+				       build_fold_addr_expr (obj));
+  gcc_assert (TREE_CODE (obj) != CALL_EXPR);
+  append_to_statement_list (new_stmt, &list);
+
+  addr = create_tmp_var (cont_type_ptr, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (addr,
+				       fold_convert (cont_type_ptr, obj_addr));
+  append_to_statement_list (new_stmt, &list);
+
+  /* ptr_off_cst = ((fld_off / cont_size) * cont_size) / 8 */
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, fld_off, cont_size);
+  ptr_off_cst = size_binop (MULT_EXPR, ptr_off_cst, cont_size);
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, ptr_off_cst, bits_per_unit);
+
+  if (!tree_int_cst_equal (ptr_off_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (addr,
+					   build2 (POINTER_PLUS_EXPR,
+						   cont_type_ptr, addr,
+						   ptr_off_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  /* Read the value at the address just computed */
+  cont_var = create_tmp_var (cont_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt(cont_var,
+				      build_fold_indirect_ref (addr));
+  append_to_statement_list (new_stmt, &list);
+
+  /* Shift the bit-field into position, clearing the upper bits */
+  if (! tree_int_cst_equal (lshift_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (cont_var,
+					   build2 (LSHIFT_EXPR, cont_type,
+						   cont_var, lshift_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  if (! tree_int_cst_equal (rshift_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (cont_var,
+					   build2 (RSHIFT_EXPR, cont_type,
+						   cont_var, rshift_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  /* Update the current statement (and the current node) */
+  set_statement_list_location (list, locus);
+  bsi_insert_before (bsi, list, BSI_SAME_STMT);
+  *node_ptr = fold_convert (TREE_TYPE (node), cont_var);
 }
 
 /* Expand the COMPONENT_REF (pointed by NODE_PTR) accessing
@@ -1742,154 +1755,143 @@ static void
 simp_lhs_bitfield_component_ref (block_stmt_iterator *bsi, tree *node_ptr)
 {
   tree node = *node_ptr;
-  location_t locus = EXPR_LOCATION (bsi_stmt (*bsi));
+  tree stmt = bsi_stmt (*bsi);
+  location_t locus = EXPR_LOCATION (stmt);
   tree obj = TREE_OPERAND (node, 0);
   tree fld = TREE_OPERAND (node, 1);
-  tree fld_type, fld_off ;
-  unsigned int cont_size, bfld_size, bfld_off;
-  tree stmt = bsi_stmt (*bsi), rhs, addr;
-  tree new_type, new_type_ptr, obj_ptr_type;
-  tree tmp_var, tmp_stmt;
-  tree t;
-  HOST_WIDEST_INT off;
-  unsigned HOST_WIDEST_INT mask = 0;
+  tree fld_type, cont_type, cont_type_ptr, obj_ptr_type;
+  tree fld_off, fld_size, cont_size, diff;
+  tree shift_cst, mask_cst, ptr_off_cst;
+  tree obj_addr, addr, rhs, folded_rhs, cont_var;
+  tree new_stmt, list = NULL_TREE;
+  tree two = build_int_cst_type (size_type_node, 2);
+  tree bits_per_unit = fold_convert (size_type_node, bitsize_unit_node);
 
   gcc_assert (TREE_CODE (node) == COMPONENT_REF);
-  gcc_assert (DECL_BIT_FIELD (fld));
   gcc_assert ((TREE_CODE (stmt) == MODIFY_EXPR
-               || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
-              && GENERIC_TREE_OPERAND (stmt, 0) == node);
-
-  /* Set that the object being accessed is addressable */
-  UPDATE_ADDRESSABLE (obj);
+	       || TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+	      && GENERIC_TREE_OPERAND (stmt, 0) == node);
 
   /* Extract bit field layout */
-  fld_type = DECL_BIT_FIELD_TYPE (fld);
-  fld_off = DECL_FIELD_OFFSET (fld);
-  cont_size = TREE_INT_CST_LOW (TYPE_SIZE (fld_type));
-  bfld_size = TYPE_PRECISION (TREE_TYPE (fld));
-  bfld_off = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld)) & (cont_size - 1);
-  gcc_assert (cont_size >= TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (node))));
+  fld_type = TREE_TYPE (fld);
+  fld_off = size_binop (MULT_EXPR, DECL_FIELD_OFFSET (fld), bits_per_unit);
+  fld_off = size_binop (PLUS_EXPR, fld_off,
+			fold_convert (size_type_node,
+				      DECL_FIELD_BIT_OFFSET (fld)));
+  fld_size = build_int_cst_type (size_type_node, TYPE_PRECISION (fld_type));
+  cont_size = size_binop (TRUNC_DIV_EXPR, bits_per_unit, two);
+
+  do {
+    cont_size = size_binop (MULT_EXPR, cont_size, two);
+    diff = size_binop (TRUNC_MOD_EXPR, fld_off, cont_size);
+    diff = size_binop (PLUS_EXPR, diff, fld_size);
+  } while (tree_int_cst_lt (cont_size, diff));
+
+  shift_cst = size_binop (TRUNC_MOD_EXPR, fld_off, cont_size);
 
   /* Build the new type for the equivalent access (and a pointer type to it) */
-  new_type = get_integer_type (cont_size, true);
-  new_type_ptr = build_pointer_type (new_type);
+  cont_type = get_integer_type (tree_low_cst (cont_size, true), true);
+  cont_type_ptr = build_pointer_type (cont_type);
 
   /* Build the type corresponding of a pointer to the object */
   obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
 
-  /* Convert the original rhs into the new type */
-  gcc_assert (TREE_CODE (GENERIC_TREE_OPERAND (stmt, 1)) == VAR_DECL);
-  tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (NOP_EXPR, new_type, GENERIC_TREE_OPERAND (stmt, 1)));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  rhs = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  /* Create the mask */
+  mask_cst = build_int_cst_type (cont_type, 1);
+  mask_cst = size_binop (LSHIFT_EXPR, mask_cst, fld_size);
+  mask_cst = size_binop (MINUS_EXPR, mask_cst,
+			 build_int_cst_type (cont_type, 1));
+  mask_cst = size_binop (LSHIFT_EXPR, mask_cst, shift_cst);
 
-  /* Shift the rhs in order that it is in the right bit position */
-  if (cont_size > bfld_size)
+  /* If the rhs is a constant fold the shift & mask operations, if it is not
+     copy it and convert it in the container type */
+  rhs = fold_convert (cont_type, GENERIC_TREE_OPERAND (stmt, 1));
+  folded_rhs = fold_binary_to_constant (LSHIFT_EXPR, cont_type, rhs, shift_cst);
+
+  if (folded_rhs != NULL_TREE)
     {
-      tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (LSHIFT_EXPR, new_type,
-                                                  rhs,
-                                                  build_int_cstu (unsigned_intSI_type_node,
-                                                                  cont_size - bfld_size)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      rhs = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+      folded_rhs = fold_binary_to_constant (BIT_AND_EXPR, cont_type, folded_rhs,
+					    mask_cst);
     }
-  if (cont_size > bfld_size + bfld_off)
-    {
-      /* Remark: new_type is unsigned by construction:
-                 therefore, the right shift doesn't introduce any 1 */
 
-      tmp_var = create_tmp_var (new_type, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (RSHIFT_EXPR, new_type,
-                                                  rhs,
-                                                  build_int_cstu (unsigned_intSI_type_node,
-                                                                  cont_size - bfld_size - bfld_off)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      rhs = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  if (folded_rhs != NULL_TREE)
+    rhs = folded_rhs;
+  else
+    {
+      rhs = create_tmp_var (cont_type, "cilsimp");
+      new_stmt = fold_convert (cont_type, GENERIC_TREE_OPERAND (stmt, 1));
+      new_stmt = build_gimple_modify_stmt (rhs, new_stmt);
+      append_to_statement_list (new_stmt, &list);
+
+      new_stmt = build_gimple_modify_stmt (rhs,
+					   build2 (LSHIFT_EXPR, cont_type,
+						   rhs, shift_cst));
+      append_to_statement_list (new_stmt, &list);
+
+      new_stmt = build_gimple_modify_stmt (rhs,
+					   build2 (BIT_AND_EXPR, cont_type,
+						   rhs, mask_cst));
+      append_to_statement_list (new_stmt, &list);
     }
 
   /* Build expression to compute the address to be accessed */
-  tmp_var = create_tmp_var (obj_ptr_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (ADDR_EXPR, obj_ptr_type, obj));
+  obj_addr = create_tmp_var (obj_ptr_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (obj_addr,
+				       build_fold_addr_expr (obj));
   gcc_assert (TREE_CODE (obj) != CALL_EXPR);
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
-  tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (NOP_EXPR, new_type_ptr, t));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  append_to_statement_list (new_stmt, &list);
 
-  off = TREE_INT_CST_LOW (fld_off)
-        + ((TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fld))
-            & ~(cont_size - 1))
-           / 8);
+  addr = create_tmp_var (cont_type_ptr, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (addr,
+				       fold_convert (cont_type_ptr, obj_addr));
+  append_to_statement_list (new_stmt, &list);
 
-  gcc_assert (TREE_INT_CST_HIGH (fld_off) == 0);
+  /* ptr_off_cst = ((fld_off / cont_size) * cont_size) / 8 */
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, fld_off, cont_size);
+  ptr_off_cst = size_binop (MULT_EXPR, ptr_off_cst, cont_size);
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, ptr_off_cst, bits_per_unit);
 
-  if (off > 0)
+  if (tree_int_cst_compare (ptr_off_cst, size_zero_node) != 0)
     {
-      tmp_var = create_tmp_var (new_type_ptr, "cilsimp");
-      tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                          build2 (POINTER_PLUS_EXPR, new_type_ptr,
-                                                  t,
-                                                  build_int_cst (long_unsigned_type_node, off)));
-      SET_EXPR_LOCATION (tmp_stmt, locus);
-      t = tmp_var;
-      bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+      new_stmt = build_gimple_modify_stmt (addr,
+					   build2 (POINTER_PLUS_EXPR,
+						   cont_type_ptr, addr,
+						   ptr_off_cst));
+      append_to_statement_list (new_stmt, &list);
     }
-  addr = t;
 
   /* Read existing value at the address just computed */
-  tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build1 (INDIRECT_REF, new_type, t));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  cont_var = create_tmp_var (cont_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt(cont_var,
+				      build_fold_indirect_ref (addr));
+  append_to_statement_list (new_stmt, &list);
 
   /* Compute the mask to be applied to the existing value */
-  gcc_assert (HOST_BITS_PER_WIDEST_INT >= 64);
-  mask |= (1LL << (cont_size - bfld_size - bfld_off)) - 1LL;
-  mask <<= bfld_off + bfld_size;
-  mask |= (1LL << bfld_off) - 1;
+  mask_cst = size_binop (BIT_XOR_EXPR, mask_cst,
+			 build_int_cst_type (cont_type, -1));
+  mask_cst = fold_convert (cont_type, mask_cst);
 
   /* Apply the mask to the existing value */
-  tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build2 (BIT_AND_EXPR, new_type,
-                                              t,
-                                              build_int_cst_wide (new_type,
-                                                                  mask,
-                                                                  mask >> HOST_BITS_PER_WIDE_INT)));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  t = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  new_stmt = build_gimple_modify_stmt (cont_var,
+				       build2 (BIT_AND_EXPR, cont_type,
+					       cont_var, mask_cst));
+  append_to_statement_list (new_stmt, &list);
 
   /* Compute the new value for the rhs of the current statement */
-  tmp_var = create_tmp_var (new_type, "cilsimp");
-  tmp_stmt = build_gimple_modify_stmt(tmp_var,
-                                      build2 (BIT_IOR_EXPR, new_type,
-                                              rhs,
-                                              t));
-  SET_EXPR_LOCATION (tmp_stmt, locus);
-  rhs = tmp_var;
-  bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
+  if (!((TREE_CODE (rhs) == INTEGER_CST)
+	&& tree_int_cst_equal (rhs, size_zero_node)))
+    {
+      new_stmt = build_gimple_modify_stmt (cont_var,
+					   build2 (BIT_IOR_EXPR, cont_type,
+						   cont_var, rhs));
+      append_to_statement_list (new_stmt, &list);
+    }
 
   /* Update the current statement (and the current node) */
-  *node_ptr = build1 (INDIRECT_REF, new_type, addr);
-  GENERIC_TREE_OPERAND (stmt, 1) = rhs;
+  set_statement_list_location (list, locus);
+  bsi_insert_before (bsi, list, BSI_SAME_STMT);
+  *node_ptr = build_fold_indirect_ref (addr);
+  GENERIC_TREE_OPERAND (stmt, 1) = cont_var;
 }
 
 /* Expand the BIT_FIELD_REF (pointed by NODE_PTR) by transforming it
@@ -1904,37 +1906,95 @@ static void
 simp_bitfield_ref (block_stmt_iterator *bsi, tree *node_ptr)
 {
   tree node = *node_ptr;
+  tree stmt = bsi_stmt (*bsi);
+  location_t locus = EXPR_LOCATION (stmt);
   tree obj = TREE_OPERAND (node, 0);
-  unsigned int ref_bfld_off, cont_size, bfld_size, bfld_off;
-  HOST_WIDE_INT off;
-
-  gcc_assert (TREE_CODE (node) == BIT_FIELD_REF);
+  tree type, cont_type, cont_type_ptr, obj_ptr_type;
+  tree obj_addr, addr, cont_var;
+  tree off, size, cont_size, diff;
+  tree lshift_cst, rshift_cst, ptr_off_cst;
+  tree new_stmt, list = NULL_TREE;
 
   /* Extract bit field layout */
-  bfld_size = TREE_INT_CST_LOW (TREE_OPERAND (node, 1));
-  ref_bfld_off = TREE_INT_CST_LOW (TREE_OPERAND (node, 2));
-  gcc_assert (bfld_size <= 64);
+  size = fold_convert (size_type_node, TREE_OPERAND (node, 1));
+  off = fold_convert (size_type_node, TREE_OPERAND (node, 2));
+  type = TREE_TYPE (node);
+  cont_size = size_binop (TRUNC_DIV_EXPR, bits_per_unit, two);
 
-  /* At least, cont_size is the next power of two of the bit-field size */
-  cont_size = bfld_size - 1;
-  cont_size |= (cont_size >> 1);
-  cont_size |= (cont_size >> 2);
-  cont_size |= (cont_size >> 4);
-  ++cont_size;
-  gcc_assert (cont_size == 8 || cont_size == 16
-              || cont_size == 32 || cont_size == 64);
+  do {
+    cont_size = size_binop (MULT_EXPR, cont_size, two);
+    diff = size_binop (TRUNC_MOD_EXPR, off, cont_size);
+    diff = size_binop (PLUS_EXPR, diff, size);
+  } while (tree_int_cst_lt (cont_size, diff));
 
-  /* Widen the container until an aligned access is enough */
-  while ((ref_bfld_off & ~(cont_size - 1))
-         != ((ref_bfld_off + bfld_size - 1) & ~(cont_size - 1)))
-    cont_size <<= 1;
+  /* lshift_cst = cont_size + ((fld_off % cont_size) + fld_size) */
+  lshift_cst = size_binop (TRUNC_MOD_EXPR, off, cont_size);
+  lshift_cst = size_binop (PLUS_EXPR, lshift_cst, size);
+  lshift_cst = size_binop (MINUS_EXPR, cont_size, lshift_cst);
 
-  bfld_off = ref_bfld_off & (cont_size - 1);
-  off = (ref_bfld_off - bfld_off) >> 3;
+  /* rshift_cst = cont_size - fld_size */
+  rshift_cst = size_binop (MINUS_EXPR, cont_size, size);
 
-  /* Simplify the bit-field */
-  simp_bitfield (bsi, node_ptr, obj, cont_size, bfld_size, bfld_off, off,
-                 BIT_FIELD_REF_UNSIGNED (node));
+  /* Build the new type for the equivalent access (and a pointer type to it) */
+  cont_type = get_integer_type (tree_low_cst (cont_size, true), true);
+  cont_type_ptr = build_pointer_type (cont_type);
+
+  /* Build the type corresponding of a pointer to the object */
+  obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
+
+  /* Build expression to compute the address to be accessed */
+  obj_addr = create_tmp_var (obj_ptr_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (obj_addr,
+				       build_fold_addr_expr (obj));
+  gcc_assert (TREE_CODE (obj) != CALL_EXPR);
+  append_to_statement_list (new_stmt, &list);
+
+  addr = create_tmp_var (cont_type_ptr, "cilsimp");
+  new_stmt = build_gimple_modify_stmt (addr,
+				       fold_convert (cont_type_ptr, obj_addr));
+  append_to_statement_list (new_stmt, &list);
+
+  /* ptr_off_cst = ((fld_off / cont_size) * cont_size) / 8 */
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, off, cont_size);
+  ptr_off_cst = size_binop (MULT_EXPR, ptr_off_cst, cont_size);
+  ptr_off_cst = size_binop (TRUNC_DIV_EXPR, ptr_off_cst, bits_per_unit);
+
+  if (!tree_int_cst_equal (ptr_off_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (addr,
+					   build2 (POINTER_PLUS_EXPR,
+						   cont_type_ptr, addr,
+						   ptr_off_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  /* Read the value at the address just computed */
+  cont_var = create_tmp_var (cont_type, "cilsimp");
+  new_stmt = build_gimple_modify_stmt(cont_var,
+				      build_fold_indirect_ref (addr));
+  append_to_statement_list (new_stmt, &list);
+
+  /* Shift the bit-field into position, clearing the upper bits */
+  if (! tree_int_cst_equal (lshift_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (cont_var,
+					   build2 (LSHIFT_EXPR, cont_type,
+						   cont_var, lshift_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  if (! tree_int_cst_equal (rshift_cst, size_zero_node))
+    {
+      new_stmt = build_gimple_modify_stmt (cont_var,
+					   build2 (RSHIFT_EXPR, cont_type,
+						   cont_var, rshift_cst));
+      append_to_statement_list (new_stmt, &list);
+    }
+
+  /* Update the current statement (and the current node) */
+  set_statement_list_location (list, locus);
+  bsi_insert_before (bsi, list, BSI_SAME_STMT);
+  *node_ptr = fold_convert (TREE_TYPE (node), cont_var);
 }
 
 /* Expand the INIT_EXPR (or MODIFY_EXPR) in NODE having
@@ -2105,7 +2165,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
       args = tree_cons (NULL, integer_zero_node, args);
       decl_ptr = build_fold_addr_expr (decl);
       args = tree_cons (NULL, decl_ptr, args);
-      t = implicit_built_in_decls[BUILT_IN_MEMSET];
+      t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
       t = build_function_call_expr (t, args);
 
       append_to_statement_list (t, stmt_list1);
@@ -2130,7 +2190,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
         args = tree_cons (NULL, to_ptr, args);
 
         /* We know they do not overlap */
-        t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+        t = cil32_builtins[CIL32_BUILT_IN_CPBLK];
         t = build_function_call_expr (t, args);
 
         append_to_statement_list (t, stmt_list1);
@@ -2183,7 +2243,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
                 args = tree_cons (NULL, integer_zero_node, args);
                 decl_ptr = build_fold_addr_expr (decl);
                 args = tree_cons (NULL, decl_ptr, args);
-                t = implicit_built_in_decls[BUILT_IN_MEMSET];
+                t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
                 t = build_function_call_expr (t, args);
 
                 append_to_statement_list (t, stmt_list1);
@@ -2319,7 +2379,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
                 args = tree_cons (NULL, integer_zero_node, args);
                 decl_ptr = build_fold_addr_expr (decl);
                 args = tree_cons (NULL, decl_ptr, args);
-                t = implicit_built_in_decls[BUILT_IN_MEMSET];
+                t = cil32_builtins[CIL32_BUILT_IN_INITBLK];
                 t = build_function_call_expr (t, args);
 
                 append_to_statement_list (t, stmt_list1);
@@ -2406,30 +2466,30 @@ expand_init_to_stmt_list1 (tree decl, tree init,
                   {
                   case 2:
                     if (vec_size == 32)
-                      ctor_fun = cil32_v2hi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V2HI_CTOR];
                     else if (vec_size == 64)
-                      ctor_fun = cil32_v2si_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V2SI_CTOR];
                     break;
 
                   case 4:
                     if (vec_size == 32)
-                      ctor_fun = cil32_v4qi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V4QI_CTOR];
                     else if (vec_size == 64)
-                      ctor_fun = cil32_v4hi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V4HI_CTOR];
                     else if (vec_size == 128)
-                      ctor_fun = cil32_v4si_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V4SI_CTOR];
                     break;
 
                   case 8:
                     if (vec_size == 64)
-                      ctor_fun = cil32_v8qi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V8QI_CTOR];
                     else if (vec_size == 128)
-                      ctor_fun = cil32_v8hi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V8HI_CTOR];
                     break;
 
                   case 16:
                     if (vec_size == 128)
-                      ctor_fun = cil32_v16qi_ctor;
+                      ctor_fun = cil32_builtins[CIL32_V16QI_CTOR];
                     break;
 
                   default:
@@ -2447,7 +2507,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
                     fprintf (stderr, "V%dSF vectors not supported\n", num_elt);
                     gcc_assert (0);
                   }
-                ctor_fun = cil32_v2sf_ctor;
+                ctor_fun = cil32_builtins[CIL32_V2SF_CTOR];
               }
             gcc_assert (ctor_fun);
 
@@ -2558,7 +2618,6 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list)
   int  num_list1;
   tree stmt_list2 = alloc_stmt_list ();
   int  num_list2;
-  bool le_eq_be;
 
   memset (le_image, 0, size);
   memset (be_image, 0, size);
@@ -2567,43 +2626,44 @@ expand_init_to_stmt_list (tree decl, tree init, tree *stmt_list)
                              &stmt_list1, FALSE,
                              &stmt_list2, le_image, be_image);
 
-  le_eq_be = (memcmp (le_image, be_image, size) == 0);
   num_list1 = statement_list_num_instr (stmt_list1);
   num_list2 = statement_list_num_instr (stmt_list2);
 
 
   /* Decide what to do */
-  if ((num_list2 + 2) < num_list1)
+  if (TARGET_BIG_ENDIAN || TARGET_LITTLE_ENDIAN
+      || ( (num_list2 + 2) < num_list1))
     {
       tree mem_cpy;
       tree args;
       tree from_ptr;
       tree to_ptr = build_fold_addr_expr (decl);
 
-      tree sconst = build_string_literal (size, le_image);
-
-      if (le_eq_be)
+      if (TARGET_LITTLE_ENDIAN || (memcmp (le_image, be_image, size) == 0))
         {
-          from_ptr = sconst;
+          from_ptr = build_string_literal (size, le_image);
+        }
+      else if (TARGET_BIG_ENDIAN)
+        {
+          from_ptr = build_string_literal (size, be_image);
         }
       else
         {
+          tree sconst = build_string_literal (size, le_image);
           tree sconst2 = build_string_literal (size, be_image);
 
           gcc_assert (TREE_TYPE (sconst) == TREE_TYPE (sconst2));
 
-          from_ptr = fold_build3 (COND_EXPR,
-                                  TREE_TYPE (sconst),
-                                  build_function_call_expr (cil32_builtin_is_LE_decl, NULL_TREE),
-                                  sconst,
-                                  sconst2);
+          args = tree_cons (NULL, sconst2, NULL);
+          args = tree_cons (NULL, sconst, args);
+          from_ptr = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_ENDIAN_SELECT], args);
         }
 
       args = tree_cons (NULL, size_int (size), NULL);
       args = tree_cons (NULL, from_ptr, args);
       args = tree_cons (NULL, to_ptr,   args);
 
-      mem_cpy = build_function_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY],
+      mem_cpy = build_function_call_expr (cil32_builtins[CIL32_BUILT_IN_CPBLK],
                                           args);
 
       append_to_statement_list (mem_cpy,    stmt_list);
@@ -2696,6 +2756,8 @@ simp_cil_final (void)
   basic_block bb;
   block_stmt_iterator bsi;
 
+  two = build_int_cst_type (size_type_node, 2);
+  bits_per_unit = fold_convert (size_type_node, bitsize_unit_node);
   simp_final = true;
   push_gimplify_context ();
   res_var = NULL_TREE;
@@ -2725,8 +2787,12 @@ simp_cil_final (void)
                   || TREE_CODE (rhs) == STRING_CST)
                 pre_simp_init (&bsi, stmt, lhs, rhs);
               else if (TREE_CODE (lhs) == COMPONENT_REF
-                       && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-                split_use (bsi, &GENERIC_TREE_OPERAND (stmt, 1), false);
+                       && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1))
+                       && (TREE_CODE (GENERIC_TREE_OPERAND (stmt, 1))
+                           != INTEGER_CST))
+                {
+                  split_use (bsi, &GENERIC_TREE_OPERAND (stmt, 1), false);
+                }
             }
         }
     }
@@ -2747,6 +2813,7 @@ simp_cil_final (void)
           tree stmt;
           bsi = bsi_last (bb);
           stmt = bsi_stmt (bsi);
+
           if (simp_final && TREE_CODE (stmt) != RETURN_EXPR)
             {
               tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
@@ -2763,6 +2830,9 @@ simp_cil_final (void)
     }
 
   pop_gimplify_context (NULL);
+  two = NULL_TREE;
+  bits_per_unit = NULL_TREE;
+
   return 0;
 }
 
@@ -2790,7 +2860,7 @@ struct tree_opt_pass pass_simp_cil_final =
   /* ??? If TER is enabled, we also kill gimple.  */
   0,                                    /* properties_destroyed */
   0,
-  TODO_dump_func,                       /* todo_flags_finish */
+  TODO_ggc_collect | TODO_dump_func,    /* todo_flags_finish */
   0                                     /* letter */
 };
 

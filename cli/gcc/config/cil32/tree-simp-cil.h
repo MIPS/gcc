@@ -24,6 +24,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -37,5 +38,7 @@ Erven Rohou             <erven.rohou@st.com>
 
 extern void expand_init_to_stmt_list (tree, tree, tree *);
 extern tree get_integer_type (int, bool);
+extern bool is_copy_required (tree);
+extern void set_statement_list_location (tree, location_t);
 
 #endif  /* TREE_SIMP_CIL_H */

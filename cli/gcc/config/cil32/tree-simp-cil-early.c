@@ -1,7 +1,7 @@
 /* Simplify non-SSA GIMPLE trees before control flow-graph construction and
    optimization passes.
 
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,86 +33,78 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "diagnostic.h"
-#include "real.h"
-#include "hashtab.h"
-#include "tree-flow.h"
-#include "langhooks.h"
+#include "tree-gimple.h"
 #include "tree-iterator.h"
-#include "tree-chrec.h"
 #include "tree-pass.h"
 #include "timevar.h"
-#include "assert.h"
-#include "toplev.h"
-#include "output.h"
+#include "pointer-set.h"
+#include "tree-simp-cil.h"
 
-/* Type definitions */
-struct eqv_label_entry
+/******************************************************************************
+ * Type definitions                                                           *
+ ******************************************************************************/
+
+/* Entry of the equivalent labels hash-table */
+struct eqv_label_entry_t
 {
-  tree label;
-  unsigned int val;
+  tree label; /* Pointer to the label declaration */
+  unsigned int val; /* Equivalence class */
 };
 
-typedef struct eqv_label_entry *eqv_label_entry_t;
-
-/* Local function prototypes, macros and variables */
-
-/* Misc functions */
-static bool is_copy_required (tree);
+/******************************************************************************
+ * Local function prototypes, macros and variables                            *
+ ******************************************************************************/
 
 /* Label manipulation functions */
-static hashval_t label_hash (const void *);
-static int label_eq (const void *, const void *);
-static void label_del (void *);
 static bool is_eqv_label (tree, tree);
 static void group_labels (tree);
+static bool eqv_label_dispose (void *, void **, void *data);
 
 /* Switch-conversion functions */
 static void merge_cases_into_ranges (tree);
 static void case_to_cond_expr (tree, tree, tree *);
 static void case_range_to_cond_expr (tree, tree, tree *);
 static void cases_to_switch (tree, unsigned int, unsigned int, tree *);
-static void simp_cil_switch (tree *);
+static tree simp_cil_switch (tree);
+
+/* Bit-field conversion functions */
+static tree bf_vector_container_address (tree, unsigned HOST_WIDE_INT, tree,
+					 tree *);
+static tree simp_lhs_vector_bitfield_ref (tree);
+static tree simp_rhs_vector_bitfield_ref (tree);
 
 /* Top-level functionality */
-static void simp_cil_node (tree *);
+static tree simp_cil_stmt (tree);
 static unsigned int simp_cil_early (void);
 static bool simp_cil_early_gate (void);
+
+/******************************************************************************
+ * Globals                                                                    *
+ ******************************************************************************/
 
 /* Values used by the switch-conversion heuristics */
 #define SIMP_SWITCH_RANGE_SIZE (4)
 #define SIMP_SWITCH_HOLE_SIZE (4)
 
 /* Hash-table used for storing equivalent labels */
-static htab_t eqv_labels = NULL;
+static struct pointer_map_t *eqv_labels = NULL;
 
 /******************************************************************************
  * Misc functions                                                             *
  ******************************************************************************/
 
-/* In the case of multiple uses of tree NODE, return whether
-   it is required to compute NODE only once or not.
-   If NODE has side effects, TRUE is obviously always returned.
-   If NODE has no side effects, TRUE is still returned if
-   it looks more profitable to compute NODE only once,
-   FALSE otherwise (this is a heuristic decision).   */
+/* Set the location of the statements in the statement list pointed by LIST to
+   the location passed in LOCUS */
 
-static bool
-is_copy_required (tree node)
+void
+set_statement_list_location (tree list, location_t locus)
 {
-  if (TREE_SIDE_EFFECTS (node))
-    return TRUE;
+  tree_stmt_iterator tsi = tsi_start (list);
 
-  switch (TREE_CODE (node))
+  while (!tsi_end_p (tsi))
     {
-    case INTEGER_CST:
-    case REAL_CST:
-    case VAR_DECL:
-    case PARM_DECL:
-      return FALSE;
-
-    default:
-      return TRUE;
+      SET_EXPR_LOCATION (tsi_stmt (tsi), locus);
+      tsi_next (&tsi);
     }
 }
 
@@ -120,45 +112,15 @@ is_copy_required (tree node)
  * Label manipulation functions                                               *
  ******************************************************************************/
 
-/* Returns the hash value of a label, implements the htab_hash function of the
-   hash table structure */
-
-static hashval_t
-label_hash (const void *ptr)
-{
-  const eqv_label_entry_t entry = (const eqv_label_entry_t) ptr;
-
-  return (hashval_t) (ptrdiff_t) entry->label;
-}
-
-/* Compares two labels when used as hash entries, implements the htab_eq
-   function of the hash table structure */
-
-static int
-label_eq (const void *ptr, const void *key)
-{
-  const eqv_label_entry_t entry = (const eqv_label_entry_t) ptr;
-
-  return entry->label == key;
-}
-
-/* Deletes a live element from the hash table, implements the htab_del function
-   of the hash table structure */
-
-static void
-label_del (void *ptr)
-{
-  free(ptr);
-}
-
 /* Returns true if two labels are equivalent. */
 
-static bool is_eqv_label (tree label1, tree label2)
+static bool
+is_eqv_label (tree label1, tree label2)
 {
-  eqv_label_entry_t t1, t2;
+  struct eqv_label_entry_t *t1, *t2;
 
-  t1 = htab_find_with_hash (eqv_labels, label1, (ptrdiff_t) label1);
-  t2 = htab_find_with_hash (eqv_labels, label2, (ptrdiff_t) label2);
+  t1 = *pointer_map_contains(eqv_labels, label1);
+  t2 = *pointer_map_contains(eqv_labels, label2);
 
   if (t1 == NULL || t2 == NULL)
     return false;
@@ -180,8 +142,7 @@ group_labels(tree func)
   tree t = NULL_TREE;
   unsigned int value = 0;
   bool prev_label = false;
-  eqv_label_entry_t *slot;
-  eqv_label_entry_t entry;
+  struct eqv_label_entry_t *entry;
 
   tsi = tsi_start (func);
 
@@ -193,26 +154,29 @@ group_labels(tree func)
       if (TREE_CODE (t) == LABEL_EXPR)
 	{
 	  /* Insert the label in the hash-table */
-	  entry = xcalloc(1, sizeof(struct eqv_label_entry));
+	  entry = XCNEW (struct eqv_label_entry_t);
 	  entry->label = LABEL_EXPR_LABEL (t);
 	  entry->val = value;
-	  slot = (eqv_label_entry_t *)
-		htab_find_slot_with_hash (eqv_labels, LABEL_EXPR_LABEL (t),
-		                          (ptrdiff_t) LABEL_EXPR_LABEL (t),
-		                          INSERT);
-	  gcc_assert (*slot == NULL);
-	  *slot = entry;
+	  *pointer_map_insert (eqv_labels, LABEL_EXPR_LABEL (t)) = entry;
 	  prev_label = true;
 	}
-      else
+      else if (prev_label)
 	{
-	  if (prev_label)
-	    {
-	      prev_label = false;
-	      value++;
-	    }
+	  prev_label = false;
+	  value++;
 	}
     }
+}
+
+/* Used in pointer_map_traverse() to free eqv_label_t entries */
+
+static bool
+eqv_label_dispose (void *key ATTRIBUTE_UNUSED, void **value,
+		   void *data ATTRIBUTE_UNUSED)
+{
+  XDELETE (*value);
+
+  return true;
 }
 
 /******************************************************************************
@@ -307,7 +271,6 @@ case_to_cond_expr (tree switch_stmt, tree single_case, tree *list)
 {
   tree cmp_stmt, label;
   tree label_decl = create_artificial_label ();
-  location_t locus = EXPR_LOCATION (switch_stmt);
 
   /* Build the COND_EXPR */
   cmp_stmt = build3 (COND_EXPR, void_type_node,
@@ -317,7 +280,6 @@ case_to_cond_expr (tree switch_stmt, tree single_case, tree *list)
 		     build1 (GOTO_EXPR, void_type_node,
 			     CASE_LABEL (single_case)),
 		     build1 (GOTO_EXPR, void_type_node, label_decl));
-  SET_EXPR_LOCATION (cmp_stmt, locus);
 
   /* Append the COND_EXPR to the list */
   append_to_statement_list(cmp_stmt, list);
@@ -335,7 +297,6 @@ case_range_to_cond_expr(tree switch_stmt, tree case_range, tree *list)
   tree label_decl1 = create_artificial_label ();
   tree label_decl2 = create_artificial_label ();
   tree cmp1_stmt, cmp2_stmt, label;
-  location_t locus = EXPR_LOCATION (switch_stmt);
 
   gcc_assert(CASE_HIGH (case_range) != NULL_TREE
              && CASE_LOW (case_range) != NULL_TREE);
@@ -349,7 +310,6 @@ case_range_to_cond_expr(tree switch_stmt, tree case_range, tree *list)
 			      label_decl1),
 		      build1 (GOTO_EXPR, void_type_node,
 			      label_decl2));
-  SET_EXPR_LOCATION (cmp1_stmt, locus);
 
   /* Append the 1st COND_EXPR to the list */
   append_to_statement_list(cmp1_stmt, list);
@@ -367,7 +327,6 @@ case_range_to_cond_expr(tree switch_stmt, tree case_range, tree *list)
 			      CASE_LABEL (case_range)),
 		      build1 (GOTO_EXPR, void_type_node,
 			      label_decl2));
-  SET_EXPR_LOCATION (cmp2_stmt, locus);
 
   /* Append the 2nd COND_EXPR to the list */
   append_to_statement_list (cmp2_stmt, list);
@@ -387,7 +346,6 @@ cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
   tree label_decl = create_artificial_label ();
   tree labels = SWITCH_LABELS (switch_stmt);
   tree stmt, label, vec, deft, elt;
-  location_t locus = EXPR_LOCATION (switch_stmt);
   unsigned int i, len;
   double_int low, high, range, limit = shwi_to_double_int (8192);
 
@@ -424,7 +382,6 @@ cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
       /* Build the switch statement */
       stmt = build3 (SWITCH_EXPR, TREE_TYPE (switch_stmt),
 		     SWITCH_COND (switch_stmt), NULL, vec);
-      SET_EXPR_LOCATION (stmt, locus);
 
       /* Append the SWITCH to the list */
       append_to_statement_list(stmt, list);
@@ -438,19 +395,19 @@ cases_to_switch (tree switch_stmt, unsigned int start, unsigned int end,
     }
 }
 
-/* Break a switch statement into multiple expressions in order to produce
-   better/smaller code in the CIL back-end. Large case ranges or isolated cases
-   are turned into COND_EXPRs, large 'holes' inside the switch are removed
-   replacing a switch with two or more distinct switches */
+/* Break a switch statement pointed by SWITCH_STMT into multiple expressions in
+   order to produce better/smaller code in the CIL back-end. Large case ranges
+   or isolated cases are turned into COND_EXPRs, large 'holes' inside the switch
+   are removed replacing a single switch with two or more distinct switches. The
+   list holding the replacement is returned. If no replacement is needed
+   NULL_TREE is returned instead */
 
-static void
-simp_cil_switch (tree *tp)
+static tree
+simp_cil_switch (tree switch_stmt)
 {
-  tree switch_stmt = *tp;
   tree curr, next;
   tree labels = SWITCH_LABELS (switch_stmt);
   tree list = NULL_TREE;
-  location_t locus = EXPR_LOCATION (switch_stmt);
   double_int range_size = shwi_to_double_int (SIMP_SWITCH_RANGE_SIZE);
   double_int hole_size = shwi_to_double_int (SIMP_SWITCH_HOLE_SIZE);
   double_int curr_high, next_low;
@@ -469,20 +426,10 @@ simp_cil_switch (tree *tp)
     {
       /* Only the default statement, nothing to do as this will be optimized
          out later by the subsequent passes */
-      return;
+      return NULL_TREE;
     }
 
-  if (is_copy_required (SWITCH_COND (switch_stmt)))
-    {
-      /* Copy the switch condition as we may use it more than once. */
-      tree cond = SWITCH_COND (switch_stmt);
-      tree copy_var = create_tmp_var (TREE_TYPE (cond), "cilsimp");
-      tree copy_stmt = build_gimple_modify_stmt(copy_var, cond);
-
-      SET_EXPR_LOCATION (copy_stmt, locus);
-      append_to_statement_list (copy_stmt, &list);
-      SWITCH_COND (switch_stmt) = copy_var;
-    }
+  gcc_assert (!is_copy_required (SWITCH_COND (switch_stmt)));
 
   while (true)
     {
@@ -492,9 +439,16 @@ simp_cil_switch (tree *tp)
       if (CASE_LOW (next) == NULL_TREE)
 	{
 	  /* This is the last case, the next one is the default label, emit the
-	     previous cases. */
+	     previous cases if needed. If base_idx != i and base_idx is 0 then
+	     the original switch has been left untouched and it is not
+	     replaced */
 	  if (base_idx != i)
-	    cases_to_switch (switch_stmt, base_idx, i, &list);
+	    {
+	      if (base_idx == 0)
+		return NULL_TREE;
+	      else
+		cases_to_switch (switch_stmt, base_idx, i, &list);
+	    }
 	  else if (CASE_HIGH (curr) != NULL_TREE)
 	    case_range_to_cond_expr (switch_stmt, curr, &list);
 	  else
@@ -502,7 +456,7 @@ simp_cil_switch (tree *tp)
 
 	  /* Add a label which jumps to the default label. */
 	  append_to_statement_list (build1 (GOTO_EXPR, void_type_node,
-					    CASE_LABEL(next)),
+				    CASE_LABEL(next)),
 				    &list);
 	  break;
 	}
@@ -554,9 +508,9 @@ simp_cil_switch (tree *tp)
 	/* Detect 'holes', if a large enough hole is found emit the previous
 	   cases. */
 	if (CASE_HIGH (curr) != NULL_TREE)
-	    curr_high = TREE_INT_CST (CASE_HIGH (curr));
+	  curr_high = TREE_INT_CST (CASE_HIGH (curr));
 	else
-	    curr_high = TREE_INT_CST (CASE_LOW (curr));
+	  curr_high = TREE_INT_CST (CASE_LOW (curr));
 
 	next_low = TREE_INT_CST (CASE_LOW (next));
 
@@ -578,47 +532,159 @@ simp_cil_switch (tree *tp)
       i++;
     }
 
-  /* Replace the original switch with the new list. */
-  *tp = list;
+  return list;
+}
+
+/******************************************************************************
+ * Bit-field access modes information                                         *
+ ******************************************************************************/
+
+/* Get the address of the container suitable for replacing a BIT_FIELD_REF
+   expression used for accessing the element of a vector. The container type is
+   pointed by CONT_TYPE, BIT_OFFSET holds the offset of the element from the
+   base address of the vector pointed by OBJ. Put the calculated address in the
+   location pointed by DST_PTR. */
+
+static tree
+bf_vector_container_address (tree cont_type, unsigned HOST_WIDE_INT bit_offset,
+			     tree obj, tree *dst_ptr)
+{
+  tree stmt;
+  tree obj_ptr, cont_ptr;
+  tree obj_ptr_type, cont_ptr_type;
+  tree list = NULL_TREE;
+
+  cont_ptr_type = build_pointer_type (cont_type);
+  cont_ptr = create_tmp_var (cont_ptr_type, "cilsimp");
+  *dst_ptr = cont_ptr;
+  obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
+  obj_ptr = create_tmp_var (obj_ptr_type, "cilsimp");
+
+  stmt = build_gimple_modify_stmt (obj_ptr,
+				   build_fold_addr_expr (obj));
+  append_to_statement_list (stmt, &list);
+
+  stmt = build_gimple_modify_stmt(cont_ptr,
+				  build1 (NOP_EXPR, cont_ptr_type, obj_ptr));
+  append_to_statement_list (stmt, &list);
+
+  if (bit_offset > 0)
+    {
+      tree offset_tree = build_int_cst (long_unsigned_type_node,
+					bit_offset / BITS_PER_UNIT);
+
+      stmt = build_gimple_modify_stmt (cont_ptr,
+				       build2 (POINTER_PLUS_EXPR, cont_ptr_type,
+					       cont_ptr,
+					       offset_tree));
+      append_to_statement_list (stmt, &list);
+    }
+
+  return list;
+}
+
+/* Simplify a GIMPLE_MODIFY_STMT pointed by BF_STMT with a BIT_FIELD_REF as its
+   right hand side operand used to extract a component from a vector. Return a
+   statement list holding the replacement code. */
+
+static tree
+simp_rhs_vector_bitfield_ref (tree bf_stmt)
+{
+  tree op_rhs = GIMPLE_STMT_OPERAND (bf_stmt, 1);
+  tree obj = TREE_OPERAND (op_rhs, 0);
+  unsigned HOST_WIDE_INT bit_offset;
+  tree list = NULL_TREE;
+  tree cont_type;
+  tree cont_ptr;
+  tree stmt;
+
+  /* Create the necessary types and temp variables */
+  cont_type = TREE_TYPE (TREE_TYPE (obj));
+
+  /* Compute the element address and store it in CONT_PTR */
+  bit_offset = tree_low_cst (TREE_OPERAND (op_rhs, 2), 1);
+  list = bf_vector_container_address (cont_type, bit_offset, obj, &cont_ptr);
+
+  /* Load the element from the vector and store it in the left hand side
+     variable */
+  stmt = build_gimple_modify_stmt (GIMPLE_STMT_OPERAND (bf_stmt, 0),
+				   build1 (INDIRECT_REF, cont_type, cont_ptr));
+  append_to_statement_list (stmt, &list);
+
+  return list;
+}
+
+/* Simplify a GIMPLE_MODIFY_STMT pointed by BF_STMT with a BIT_FIELD_REF as its
+   left hand side operand used to insert a component inside a vector. Return a
+   statement list holding the replacement code. */
+
+static tree
+simp_lhs_vector_bitfield_ref (tree bf_stmt)
+{
+  tree op_lhs = GIMPLE_STMT_OPERAND (bf_stmt, 0);
+  tree obj = TREE_OPERAND (op_lhs, 0);
+  unsigned HOST_WIDE_INT bit_offset;
+  tree list = NULL_TREE;
+  tree cont_type;
+  tree cont_ptr;
+  tree stmt;
+
+  /* Create the necessary types and temp variables */
+  cont_type = TREE_TYPE (TREE_TYPE (obj));
+
+  /* Compute the element address and store it in CONT_PTR */
+  bit_offset = tree_low_cst (TREE_OPERAND (op_lhs, 2), 1);
+  list = bf_vector_container_address (cont_type, bit_offset, obj, &cont_ptr);
+
+  /* Store the value inside the vector */
+  stmt = build_gimple_modify_stmt (build1 (INDIRECT_REF, cont_type, cont_ptr),
+				   GIMPLE_STMT_OPERAND (bf_stmt, 1));
+  append_to_statement_list (stmt, &list);
+
+  return list;
 }
 
 /******************************************************************************
  * Top-level functionality                                                    *
  ******************************************************************************/
 
-/* Simplify a GIMPLE tree in order to improve CIL code emission. */
+/* Simplify a GIMPLE statement. */
 
-static void
-simp_cil_node (tree *tp)
+static tree
+simp_cil_stmt (tree stmt)
 {
-  tree_stmt_iterator tsi;
-  tree t = *tp;
+  tree list = NULL_TREE; /* Replacement list for the current statement */
 
-  switch (TREE_CODE (t))
+  switch (TREE_CODE (stmt))
     {
     case SWITCH_EXPR:
-      simp_cil_switch (tp);
+      list = simp_cil_switch (stmt);
       break;
 
-    case STATEMENT_LIST:
-      for (tsi = tsi_start (t); !tsi_end_p (tsi); )
-	{
-	  simp_cil_node (tsi_stmt_ptr (tsi));
-	  t = tsi_stmt (tsi);
+    case GIMPLE_MODIFY_STMT:
+      {
+	tree op_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+	tree op_rhs = GIMPLE_STMT_OPERAND (stmt, 1);
 
-	  if (TREE_CODE (t) == STATEMENT_LIST)
-	    {
-	      tsi_link_before (&tsi, t, TSI_SAME_STMT);
-	      tsi_delink (&tsi);
-	    }
-	  else
-	    tsi_next (&tsi);
-	}
-      break;
+	if (TREE_CODE (op_lhs) == BIT_FIELD_REF)
+	  {
+	    if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op_lhs, 0))) == VECTOR_TYPE)
+	      list = simp_lhs_vector_bitfield_ref (stmt);
+	  }
+	else if (TREE_CODE (op_rhs) == BIT_FIELD_REF)
+	  {
+	    if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op_rhs, 0))) == VECTOR_TYPE)
+	      list = simp_rhs_vector_bitfield_ref (stmt);
+	  }
+
+	break;
+      }
 
     default:
       break;
     }
+
+    return list;
 }
 
 /* Main function of this pass. */
@@ -626,13 +692,34 @@ simp_cil_node (tree *tp)
 static unsigned int
 simp_cil_early (void)
 {
-  tree *body_p = &DECL_SAVED_TREE (current_function_decl);
+  tree_stmt_iterator tsi;
 
-  eqv_labels = htab_create_alloc (100, label_hash, label_eq, label_del, xcalloc,
-				  free);
-  group_labels (*body_p);
-  simp_cil_node (body_p);
-  htab_delete (eqv_labels);
+  /* Create the structures used by the pass */
+  eqv_labels = pointer_map_create ();
+
+  group_labels (DECL_SAVED_TREE (current_function_decl));
+
+  tsi = tsi_start (DECL_SAVED_TREE (current_function_decl));
+
+  while (!tsi_end_p (tsi))
+    {
+      tree list = simp_cil_stmt (tsi_stmt (tsi));
+
+      if (list != NULL_TREE)
+	{
+	  location_t locus = EXPR_LOCATION (tsi_stmt (tsi));
+
+	  set_statement_list_location (list, locus);
+	  tsi_link_before (&tsi, list, TSI_SAME_STMT);
+	  tsi_delink (&tsi);
+	}
+      else
+	tsi_next (&tsi);
+    }
+
+  /* Dispose of the structures created by the pass */
+  pointer_map_traverse (eqv_labels, eqv_label_dispose, NULL);
+  pointer_map_destroy (eqv_labels);
 
   return 0;
 }

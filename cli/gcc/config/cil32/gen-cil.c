@@ -41,14 +41,13 @@ Erven Rohou             <erven.rohou@st.com>
 #include "tree-flow.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
-#include "tree-chrec.h"
 #include "tree-pass.h"
 #include "timevar.h"
-#include "assert.h"
 #include "toplev.h"
 #include "pointer-set.h"
 #include "output.h"
 #include "varray.h"
+#include "ebitmap.h"
 #include "ggc.h"
 #include "tree-simp-cil.h"
 #include "gen-cil.h"
@@ -90,6 +89,7 @@ struct pointer_id_data
 static hashval_t pointer_id_data_hash (const void *);
 static int pointer_id_data_eq (const void *, const void *);
 static void decode_function_attrs (tree, struct fnct_attr *);
+static bool fill_goto_labels (void *, void **, void *);
 static void mark_referenced_type (tree);
 static void mark_referenced_string (tree);
 static unsigned int get_string_cst_id (tree);
@@ -108,7 +108,11 @@ static char * append_coded_type (char *, tree, unsigned int *, unsigned int *);
 static char * get_compact_identifier (const char *, size_t, size_t *);
 static tree make_valuetype_identifier (tree);
 static void print_valuetype_decl (FILE *, tree);
+static void print_array_decl (FILE *, tree);
+static void print_enum_decl (FILE *, tree);
+static void print_struct_union_decl (FILE *, tree);
 static void dump_type (FILE *, tree, bool, bool);
+static void dump_string_type (FILE *, tree);
 static void dump_complex_type (FILE *, tree, bool);
 static void dump_vector_type (FILE *, tree, bool);
 static void dump_type_promotion (FILE *, tree, bool);
@@ -126,11 +130,17 @@ static void gen_binary_cond_branch (FILE *, tree, tree);
 static void gen_call_expr (FILE *, tree);
 static void gen_start_function (FILE *);
 static void gen_string_custom_attr (FILE *, const char*);
+static void gen_computed_goto (FILE *, tree);
 static unsigned int gen_cil (void);
+static void gen_cil_vcg (FILE *);
 static void gen_cil_1 (FILE *);
 static void gen_cil_node (FILE *, tree);
 static bool gen_cil_gate (void);
+static void print_pinvoke_function (FILE *, tree);
+static void print_string_decl (FILE *, tree);
+static void print_used_strings (FILE *);
 static void create_init_method(void);
+
 
 static struct pointer_set_t *referenced_types;
 static GTY(()) varray_type referenced_strings;
@@ -142,8 +152,10 @@ static unsigned int pointer_next_id = 0;
 static unsigned int stack;
 static unsigned int max_stack;
 static basic_block bb;
-static tree addr_taken_labels = NULL;
 
+static struct pointer_map_t *labels_map;
+static tree *goto_labels;
+static unsigned int taken_labels;
 
 /* Hashing and equality routines for pointer id hash table.  */
 static hashval_t
@@ -390,7 +402,6 @@ mark_referenced_string (tree t)
       VARRAY_PUSH_TREE (referenced_strings, t);
       pointer_set_insert (referenced_string_ptrs,
                           (void *)(TREE_STRING_POINTER (t)));
-      mark_referenced_type (TREE_TYPE (t));
     }
 }
 
@@ -443,7 +454,13 @@ dump_decl_name (FILE* file, tree node)
   mark_decl_referenced (node);
 
   if (DECL_ASSEMBLER_NAME_SET_P (node))
-    fprintf (file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node)));
+    {
+      const char* tname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node));
+      if (tname[0] == '*')
+        fprintf (file, tname+1);
+      else
+        fprintf (file, tname);
+    }
   else if (DECL_NAME (node))
     fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
   else
@@ -478,6 +495,20 @@ dump_label_name (FILE* file, tree node)
       fputs ("_", file);
       fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
     }
+}
+
+/* Helper function used to fill the computed GOTOs label array.  */
+
+static bool
+fill_goto_labels (void *key, void **val, void *data)
+{
+  tree *goto_labels = (tree *) data;
+  tree label_decl = (tree) key;
+  unsigned int idx = tree_low_cst ((tree) *val, 1);
+
+  goto_labels[idx] = label_decl;
+
+  return true;
 }
 
 static void
@@ -746,6 +777,27 @@ dump_type (FILE *file, tree node, bool ref, bool qualif)
 #endif
     }
 
+}
+
+static void
+dump_string_type (FILE *file, tree node)
+{
+  tree domain;
+  tree min;
+  tree max;
+  unsigned int size;
+  gcc_assert(TREE_CODE (node) == ARRAY_TYPE
+             && TYPE_DOMAIN (node)
+             && ! ARRAY_TYPE_VARLENGTH (node));
+  domain = TYPE_DOMAIN (node);
+  min = TYPE_MIN_VALUE (domain);
+  max = TYPE_MAX_VALUE (domain);
+  gcc_assert(min
+             && max
+             && integer_zerop (min)
+             && host_integerp (max, 0));
+  size = TREE_INT_CST_LOW (max) + 1;
+  fprintf (file, "valuetype '?string_type?%d'", size);
 }
 
 
@@ -1109,7 +1161,7 @@ gen_addr_expr (FILE *file, tree t)
     case STRING_CST:
       mark_referenced_string (t);
       fputs ("\n\tldsflda\t", file);
-      dump_type (file, TREE_TYPE (t), true, false);
+      dump_string_type (file, TREE_TYPE (t));
       fputs (" ", file);
       dump_string_name (file, t);
       stack_push (1);
@@ -1148,20 +1200,13 @@ gen_addr_expr (FILE *file, tree t)
 
     case LABEL_DECL:
       {
-        /* We cannot emit the address of the label in CIL, so we map each
-          label to an ID and emit the ID.  The GOTO will then be implemented
-          with a switch based on that ID.  The ID is simply the position in
-          the list of all address taken labels. */
+	/* We cannot emit the address of the label in CIL, so we map each
+	  label to an ID and emit the ID.  The GOTO will then be implemented
+	  with a switch based on that ID.  The ID is simply the position in
+	  the list of all address taken labels. */
 
-        int pos = 0;
-        tree label_iter = addr_taken_labels;
-        while (label_iter != t)
-          {
-            gcc_assert (label_iter);
-            ++pos;
-            label_iter = TREE_CHAIN (label_iter);
-          }
-        fprintf (file, "\n\tldc.i4\t%d", pos);
+	tree cst = *pointer_map_contains (labels_map, t);
+        fprintf (file, "\n\tldc.i4\t%d", (unsigned int) tree_low_cst (cst, 1));
         stack_push (1);
       }
       break;
@@ -1488,13 +1533,6 @@ gen_call_expr (FILE *file, tree node)
   tree fun_expr;
   tree fun_type;
   bool direct_call;
-  tree static_chain;
-  tree args;
-  tree args_type;
-  tree last_arg_type;
-  bool varargs;
-  int promote_types = 0;
-  unsigned int aidx;
   unsigned int nargs;
 
   gcc_assert(TREE_CODE (node) == CALL_EXPR);
@@ -1612,11 +1650,61 @@ gen_call_expr (FILE *file, tree node)
               }
               break;
 
+            case CIL32_BUILT_IN_CPBLK:
+              {
+                tree ptr_dst = CALL_EXPR_ARG (node, 0);
+                tree ptr_src = CALL_EXPR_ARG (node, 1);
+                tree size    = CALL_EXPR_ARG (node, 2);
+
+                gen_cil_node (file, ptr_dst);
+                gen_cil_node (file, ptr_src);
+                gen_cil_node (file, size);
+
+                fputs ("\n\tunaligned. 1"
+                       "\n\tcpblk", file);
+                stack_pop (3);
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_INITBLK:
+              {
+                tree ptr   = CALL_EXPR_ARG (node, 0);
+                tree value = CALL_EXPR_ARG (node, 1);
+                tree size  = CALL_EXPR_ARG (node, 2);
+
+                gen_cil_node (file, ptr);
+                gen_cil_node (file, value);
+                gen_cil_node (file, size);
+
+                fputs ("\n\tunaligned. 1"
+                       "\n\tinitblk", file);
+                stack_pop (3);
+                done = true;
+              }
+              break;
+
             case CIL32_BUILT_IN_IS_LITTLE_ENDIAN:
               {
                 fputs ("\n\tcall\tbool [gcc4net]gcc4net.Crt::__isLittleEndian()",
                        file);
 
+                stack_push (1);
+                done = true;
+              }
+              break;
+
+            case CIL32_BUILT_IN_ENDIAN_SELECT:
+              {
+                tree le_tree = CALL_EXPR_ARG (node, 0);
+                tree be_tree = CALL_EXPR_ARG (node, 1);
+
+                gen_cil_node (file, le_tree);
+                gen_cil_node (file, be_tree);
+                fputs ("\n\tcall\tvoid* [gcc4net]gcc4net.Crt::__EndianSelect(void*, void*)",
+                       file);
+
+                stack_pop (2);
                 stack_push (1);
                 done = true;
               }
@@ -1861,6 +1949,45 @@ gen_call_expr (FILE *file, tree node)
 
   if (!done)
     {
+      tree args;
+      tree args_type;
+      tree static_chain;
+      bool varargs;
+      unsigned int nargs_base;
+      unsigned int aidx;
+
+      args_type = TYPE_ARG_TYPES (fun_type);
+      varargs = FALSE;
+
+      if (args_type == NULL)
+        {
+          if (direct_call)
+            warning (OPT_Wcil_missing_prototypes,
+                     "Missing function %s prototype, guessing it, "
+                     "you should fix the code",
+                     IDENTIFIER_POINTER (DECL_NAME (fdecl)));
+          else
+            warning (OPT_Wcil_missing_prototypes,
+                     "Missing indirect function prototype, guessing it, "
+                     "you should fix the code");
+          /* Guess types using the type of the arguments */
+          nargs_base = 0;
+        }
+      else
+        {
+          tree last_arg_type = tree_last (args_type);
+          nargs_base = list_length (args_type);
+
+          if (TREE_VALUE (last_arg_type) != void_type_node)
+            {
+              varargs = TRUE;
+            }
+          else
+            {
+              --nargs_base;
+            }
+        }
+
       /* Print parameters.  */
 
       /* If static Chain present, it will be the first argument */
@@ -1868,8 +1995,20 @@ gen_call_expr (FILE *file, tree node)
       if (static_chain)
         gen_cil_node (file, static_chain);
 
-      for (aidx=0;aidx<nargs;++aidx)
-        gen_cil_node (file, CALL_EXPR_ARG (node, aidx));
+      for (aidx=0;aidx<nargs_base;++aidx)
+        {
+          gen_cil_node (file, CALL_EXPR_ARG (node, aidx));
+        }
+
+      for (;aidx<nargs;++aidx) {
+          tree targ = CALL_EXPR_ARG (node, aidx);
+          tree targ_type = TREE_TYPE(targ);
+          gen_cil_node (file, targ);
+          if (TREE_CODE (targ_type) == POINTER_TYPE
+              || (TREE_CODE (targ_type) == ARRAY_TYPE
+                  && (! TYPE_DOMAIN (targ_type) || ARRAY_TYPE_VARLENGTH (targ_type))))
+            fputs ("\n\tconv.i", file);
+      }
 
       /* Print function pointer, in case of indirect call */
       if (!direct_call)
@@ -1889,35 +2028,6 @@ gen_call_expr (FILE *file, tree node)
         fputs ("call\t", file);
       else
         fputs ("calli\t", file);
-
-      args_type = TYPE_ARG_TYPES (fun_type);
-      last_arg_type = 0;
-      varargs = FALSE;
-
-      if (args_type == NULL)
-        {
-          if (direct_call)
-            warning (OPT_Wcil_missing_prototypes,
-                     "Missing function %s prototype, guessing it, "
-                     "you should fix the code",
-                     IDENTIFIER_POINTER (DECL_NAME (fdecl)));
-          else
-            warning (OPT_Wcil_missing_prototypes,
-                     "Missing indirect function prototype, guessing it, "
-                     "you should fix the code");
-          /* Guess types using the type of the arguments */
-          promote_types = 1;
-        }
-      else
-        {
-          last_arg_type = tree_last (args_type);
-
-          if (TREE_VALUE (last_arg_type) != void_type_node)
-            {
-              last_arg_type = 0;
-              varargs = TRUE;
-            }
-        }
 
       if (varargs)
         fputs ("vararg ", file);
@@ -1948,32 +2058,32 @@ gen_call_expr (FILE *file, tree node)
       if (static_chain)
         {
           dump_type (file, TREE_TYPE (static_chain), true, true);
-          if (args_type != last_arg_type)
+          if (nargs_base > 0)
             fputs (", ", file);
         }
 
-      for (aidx=0;aidx<nargs;++aidx)
+      for (aidx=0;aidx<nargs_base;++aidx)
         {
           if (aidx!=0)
             {
-              if (!promote_types && varargs && args_type == last_arg_type)
-                {
-                  fputs (", ..., ", file);
-                  promote_types = 1;
-                }
-              else
-                fputs (", ", file);
+              fputs (", ", file);
             }
 
-          if (promote_types)
+          dump_type (file, TREE_VALUE (args_type), true, true);
+          args_type = TREE_CHAIN (args_type);
+        }
+
+      if (varargs && aidx<nargs)
+        fputs (", ..., ", file);
+
+      for (;aidx<nargs;++aidx)
+        {
+          if (aidx!=nargs_base)
             {
-              dump_type_promotion (file, TREE_TYPE (CALL_EXPR_ARG (node, aidx)), true);
+              fputs (", ", file);
             }
-          else
-            {
-              dump_type (file, TREE_VALUE (args_type), true, true);
-              args_type = TREE_CHAIN (args_type);
-            }
+
+          dump_type_promotion (file, TREE_TYPE (CALL_EXPR_ARG (node, aidx)), true);
         }
 
       fputs (")", file);
@@ -2162,24 +2272,13 @@ gen_cil_node (FILE *file, tree node)
     case GOTO_EXPR:
       {
         tree label_decl = GOTO_DESTINATION (node);
-        tree label_iter = addr_taken_labels;
 
-        if (TREE_CODE (label_decl) != LABEL_DECL)
-          {
-            /* This is a goto to the address of a label. Labels have been
-               numbered, and we emit a switch based on that ID. */
-            gen_cil_node (file, label_decl);
-            fputs ("\n\tswitch (", file);
-            while (label_iter)
-              {
-                dump_label_name (file, label_iter);
-                label_iter = TREE_CHAIN (label_iter);
-                if (label_iter)
-                  fputs (", ", file);
-              }
-            fputs (")", file);
-            stack_pop (1);
-          }
+	if (TREE_CODE (label_decl) != LABEL_DECL)
+	  {
+	    /* This is a goto to the address of a label. Labels have been
+	       numbered, and we emit a switch based on that ID. */
+	    gen_computed_goto (file, label_decl);
+	  }
         else
           {
             basic_block dest_bb = label_to_block (label_decl);
@@ -2715,13 +2814,7 @@ gen_cil_node (FILE *file, tree node)
             fputs ("\n\tdiv.un", file);
           }
         else
-          {
-            fputs ("\n\tcall\t int32 [gcc4net]gcc4net.Crt::floordiv(", file);
-            dump_type_for_builtin (file, TREE_TYPE (op0), true);
-            fputs (", ", file);
-            dump_type_for_builtin (file, TREE_TYPE (op1), true);
-            fputs (")", file);
-          }
+	  internal_error ("\n\nFLOOR_DIV_EXPR is not completely supported\n");
 
       /* No need for conversions even in case of values with precision
          smaller than the one used on the evaluation stack,
@@ -3352,14 +3445,22 @@ static char *
 append_coded_type (char *str, tree type,
                    unsigned int *len, unsigned int *max_len)
 {
+  enum tree_code type_code;
+
   if (type == NULL_TREE || type == error_mark_node)
     return str;
 
- encode_type:
   type = TYPE_MAIN_VARIANT (type);
 
-  switch (TREE_CODE (type))
+  type_code = TREE_CODE (type);
+
+ restartswitch:
+  switch (type_code)
     {
+    case VOID_TYPE:
+      str = append_string (str, "VOID", len, max_len);
+      break;
+
     case INTEGER_TYPE:
       {
         int type_size = TYPE_PRECISION (type);
@@ -3390,11 +3491,38 @@ append_coded_type (char *str, tree type,
       }
       break;
 
-    pointer:
     case POINTER_TYPE:
-      str = append_string (str, "*", len, max_len);
-      type = TREE_TYPE (type);
-      goto encode_type;
+      if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+        {
+          tree fun_type = TREE_TYPE (type);
+          tree args_type = TYPE_ARG_TYPES (fun_type);
+/*           bool varargs = TREE_VALUE (tree_last (args_type)) != void_type_node; */
+          unsigned int nargs_base = list_length (args_type);
+          unsigned int aidx;
+          char tmp_str[5] = "FP";
+
+          snprintf (tmp_str + 2, 3, "%d", nargs_base);
+          str = append_string (str, tmp_str, len, max_len);
+
+          str = append_string (str, "_", len, max_len);
+          str = append_coded_type (str, TREE_TYPE (fun_type), len, max_len);
+          str = append_string (str, "_", len, max_len);
+
+          for (aidx=0;aidx<nargs_base;++aidx)
+            {
+              str = append_string (str, "_", len, max_len);
+              str = append_coded_type (str, TREE_VALUE (args_type), len, max_len);
+              args_type = TREE_CHAIN (args_type);
+            }
+        }
+      else
+        {
+          str = append_string (str, "*", len, max_len);
+          type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+          type_code = TREE_CODE (type);
+          goto restartswitch;
+        }
+      break;
 
     case ARRAY_TYPE:
       if (TYPE_DOMAIN (type) && ! ARRAY_TYPE_VARLENGTH (type))
@@ -3422,10 +3550,15 @@ append_coded_type (char *str, tree type,
 
           str = append_string (str, "]", len, max_len);
         }
-      else
-        goto pointer;
-      type = TREE_TYPE (type);
-      goto encode_type;
+      else {
+        type_code = POINTER_TYPE;
+        goto restartswitch;
+      }
+      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+      type_code = TREE_CODE (type);
+      goto restartswitch;
+  
+      break;
 
     case ENUMERAL_TYPE:
     case RECORD_TYPE:
@@ -3451,7 +3584,7 @@ append_coded_type (char *str, tree type,
         else
           type_str = IDENTIFIER_POINTER (DECL_NAME (type_name));
 
-        switch (TREE_CODE (type))
+        switch (type_code)
           {
           case ENUMERAL_TYPE:
             prefix = "E";
@@ -3477,6 +3610,8 @@ append_coded_type (char *str, tree type,
       break;
 
     default:
+/*       debug_tree(type); */
+/*       gcc_assert (0); */
       str = append_string (str, "unknown", len, max_len);
     }
 
@@ -3634,104 +3769,107 @@ make_valuetype_identifier (tree t)
 }
 
 static void
-print_valuetype_decl (FILE *file, tree t)
+print_enum_decl (FILE *file, tree t)
 {
-  bool is_enum;
+  gcc_assert (t != NULL_TREE && TREE_CODE (t) == ENUMERAL_TYPE);
 
-  if (t == NULL_TREE || t == error_mark_node)
-    return;
-
-  if (!AGGREGATE_TYPE_P (t) && TREE_CODE (t) != ENUMERAL_TYPE)
-    return;
-
-  if (file == 0)
-    return;
-
-  gcc_assert (TYPE_MAIN_VARIANT (t) == t);
-  gcc_assert (TYPE_NAME (t));
-
-  is_enum = (TREE_CODE (t) == ENUMERAL_TYPE);
-
-  /* Print the name of the valuetype.  */
   fputs ("\n.class ", file);
 
-  if (TYPE_FILE_SCOPE_P (t))
-    fputs ("public ", file);
-  else
-    fputs ("private ", file);
-
-  if (!is_enum)
-    fputs ("explicit ", file);
+  if (TYPE_FILE_SCOPE_P (t)) fputs ("public  ", file);
+  else                       fputs ("private ", file);
 
   fputs ("sealed serializable ansi ", file);
   dump_valuetype_name (file, t);
-  fputs (" extends ['mscorlib']System.", file);
+  fputs (" extends ['mscorlib']System.Enum\n"
+         "{\n", file);
 
-  if (is_enum)
-    fputs ("Enum\n", file);
-  else
-    fputs ("ValueType\n", file);
+  {
+    int type_size = TYPE_PRECISION (t);
+    char tmp_str[8] = "int";
+    char *base_type_str = tmp_str;
+    tree tmp;
 
-  /* Print the contents of the valuetype.  */
-  fputs ("{\n", file);
+    snprintf (base_type_str + 3, 5, "%d", type_size);
 
-  if (is_enum)
+    fputs ("\t.field public specialname rtspecialname ", file);
+
+    if (!TYPE_UNSIGNED (t))
+      fputs ("unsigned ", file);
+
+    fprintf (file, "%s 'value__'\n", base_type_str);
+
+    tmp = TYPE_VALUES (t);
+    while (tmp)
+      {
+        fputs ("\t.field public static literal ", file);
+        dump_type (file, t, false, false);
+        fputs (" '", file);
+        gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == IDENTIFIER_NODE);
+        fprintf (file, IDENTIFIER_POINTER (TREE_PURPOSE (tmp)));
+        fprintf (file, "' = %s(%ld)\n",
+                 base_type_str, TREE_INT_CST_LOW (TREE_VALUE (tmp)));
+        tmp = TREE_CHAIN (tmp);
+      }
+  }
+
+  fputs ("}\n", file);
+}
+
+static void
+print_array_decl (FILE *file, tree t)
+{
+  fputs ("\n.class ", file);
+
+  if (TYPE_FILE_SCOPE_P (t)) fputs ("public ", file);
+  else                       fputs ("private ", file);
+
+  fputs ("explicit sealed serializable ansi ", file);
+  dump_valuetype_name (file, t);
+  fputs (" extends ['mscorlib']System.ValueType\n"
+         "{\n"
+         "\t.custom instance "
+         "void [gcc4net]gcc4net.C_Attributes.ArrayType::.ctor() "
+         "= (01 00 00 00)\n", file);
+
+  fprintf (file, "\t.size %ld\n", TREE_INT_CST_LOW (TYPE_SIZE_UNIT (t)));
+  fputs ("\t.field [0] public specialname ", file);
+  dump_type (file, TREE_TYPE (t), false, false);
+  fputs (" 'elem__'\n"
+         "}\n", file);
+}
+
+static void
+print_struct_union_decl (FILE *file, tree t)
+{
+  tree tmp;
+
+  fputs ("\n.class ", file);
+
+  if (TYPE_FILE_SCOPE_P (t)) fputs ("public ", file);
+  else                       fputs ("private ", file);
+
+  fputs ("explicit sealed serializable ansi ", file);
+  dump_valuetype_name (file, t);
+  fputs (" extends ['mscorlib']System.ValueType\n"
+         "{\n", file);
+
+  fprintf (file, "\t.size %ld\n", TREE_INT_CST_LOW (TYPE_SIZE_UNIT (t)));
+
+  tmp = TYPE_FIELDS (t);
+  while (tmp)
     {
-      int type_size = TYPE_PRECISION (t);
-      char tmp_str[8] = "int";
-      char *base_type_str = tmp_str;
-      tree tmp;
 
-      snprintf (base_type_str + 3, 5, "%d", type_size);
-
-      fputs ("\t.field public specialname rtspecialname ", file);
-
-      if (!TYPE_UNSIGNED (t))
-        fputs ("unsigned ", file);
-
-      fprintf (file, "%s 'value__'\n", base_type_str);
-
-      tmp = TYPE_VALUES (t);
-      while (tmp)
+      if (DECL_NAME (tmp) == 0 && DECL_BIT_FIELD (tmp))
         {
-          fputs ("\t.field public static literal ", file);
-          dump_type (file, t, false, false);
-          fputs (" '", file);
-          gcc_assert (TREE_CODE (TREE_PURPOSE (tmp)) == IDENTIFIER_NODE);
-          fprintf (file, IDENTIFIER_POINTER (TREE_PURPOSE (tmp)));
-          fprintf (file, "' = %s(%ld)\n",
-                   base_type_str, TREE_INT_CST_LOW (TREE_VALUE (tmp)));
-          tmp = TREE_CHAIN (tmp);
+          /* Skip unnamed bitfields */
         }
-    }
-  else if (TREE_CODE (t) == ARRAY_TYPE)
-    {
-      /* array */
-      fprintf (file, "\t.size %ld\n", TREE_INT_CST_LOW (TYPE_SIZE_UNIT (t)));
-      fputs ("\t.field [0] public specialname ", file);
-      dump_type (file, TREE_TYPE (t), false, false);
-      fputs (" 'elem__'\n", file);
-    }
-  else
-    {
-      /* struct and union */
-      tree tmp;
-
-      fprintf (file, "\t.size %ld\n", TREE_INT_CST_LOW (TYPE_SIZE_UNIT (t)));
-
-      tmp = TYPE_FIELDS (t);
-      while (tmp)
+      else
         {
           tree type;
-          unsigned int bit_offset =
-            TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (tmp));
-          unsigned int byte_offset =
-            TREE_INT_CST_LOW (DECL_FIELD_OFFSET (tmp));
+          unsigned int bit_offset = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (tmp));
+          unsigned int byte_offset = TREE_INT_CST_LOW (DECL_FIELD_OFFSET (tmp));
           unsigned int offset;
 
-          /* Skip unnamed bitfields */
-          if (DECL_NAME (tmp) == 0 && DECL_BIT_FIELD (tmp))
-            goto next;
 
           if (DECL_BIT_FIELD (tmp))
             {
@@ -3760,12 +3898,35 @@ print_valuetype_decl (FILE *file, tree t)
           fputs (" ", file );
           dump_decl_name (file, tmp);
           fputs ("\n", file);
-        next:
-          tmp = TREE_CHAIN (tmp);
         }
+
+      tmp = TREE_CHAIN (tmp);
     }
 
   fputs ("}\n", file);
+}
+
+static void
+print_valuetype_decl (FILE *file, tree t)
+{
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
+
+  if (!AGGREGATE_TYPE_P (t) && TREE_CODE (t) != ENUMERAL_TYPE)
+    return;
+
+  gcc_assert (file != 0);
+
+  gcc_assert (TYPE_MAIN_VARIANT (t) == t);
+  gcc_assert (TYPE_NAME (t));
+
+  if (TREE_CODE (t) == ENUMERAL_TYPE)
+    print_enum_decl (file, t);
+  else if (TREE_CODE (t) == ARRAY_TYPE)
+    print_array_decl (file, t);
+  else /* struct or union */
+    print_struct_union_decl (file, t);
+
 }
 
   /* The attribute string must be less than 127 characters and
@@ -3777,28 +3938,56 @@ gen_string_custom_attr (FILE *stream, const char* parameter)
   int len = strlen (parameter);
 
   if (TARGET_EMIT_GIMPLE_COMMENTS)
-    fprintf (stream, "\n\t// Custom attribute String \"%s\"", parameter);
+    fprintf (stream, "\t// Custom attribute String \"%s\"\n", parameter);
 
   gcc_assert (len <= 127);
 
-  fprintf (stream, "\n\t.custom instance void [mscorlib]System.String::.ctor(int8 *) = (01 00 %02x ", len);
+  fprintf (stream, "\t.custom instance void [mscorlib]System.String::.ctor(int8 *) = (01 00 %02x ", len);
   for (i=0; i < len; ++i)
     fprintf (stream, "%02x ", parameter[i]);
   fputs ("00 00)\n", stream);
 }
 
 
+/* Dumps the labels of a switch used for implementing a computed GOTO */
+
+static void
+gen_computed_goto (FILE *file, tree node)
+{
+  unsigned int i;
+
+  if (goto_labels == NULL && taken_labels != 0)
+    {
+      goto_labels = XNEWVEC (tree, taken_labels);
+      pointer_map_traverse (labels_map, fill_goto_labels, goto_labels);
+    }
+
+  gen_cil_node (file, node);
+  fputs ("\n\tswitch (", file);
+
+  for (i = 0; i < taken_labels; i++)
+    {
+      dump_label_name (file, goto_labels[i]);
+
+      if (i + 1 < taken_labels)
+	fputs (", ", file);
+    }
+
+  fputs (")", file);
+  stack_pop (1);
+}
+
 static void
 print_string_decl (FILE *file, tree t)
 {
   const char *str;
-  int len, i;
+  int len, len_type, i;
 
   gcc_assert (TREE_CODE (t) == STRING_CST);
   str = TREE_STRING_POINTER (t);
   len = TREE_STRING_LENGTH (t);
 
-  mark_referenced_type (TREE_TYPE (t));
+  len_type = TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (t)))) + 1;
 
   /* Emit the string in readable form as a comment. */
   fputs ("// string: \"", file);
@@ -3815,13 +4004,76 @@ print_string_decl (FILE *file, tree t)
   fprintf (file, ".data 'DataStr%u' = bytearray(", get_string_cst_id (t));
   for (i=0; i < len; ++i)
     fprintf (file, "%02x ", (unsigned char)str[i]);
+  for (; i < len_type; ++i)
+    fputs ("00 ", file);
   fputs (")\n", file);
 
   fputs (".field private static ", file);
-  dump_type (file, TREE_TYPE (t), true, false);
+  dump_string_type (file, TREE_TYPE (t));
   fputs (" ", file);
   dump_string_name (file, t);
   fprintf (file, " at 'DataStr%u'\n", get_string_cst_id (t));
+}
+
+static void
+print_used_strings (FILE *file)
+{
+  ebitmap used_stringtypes;
+  int i, n;
+
+  used_stringtypes = ebitmap_alloc (1);
+
+  i = 0;
+  n = VARRAY_ACTIVE_SIZE (referenced_strings);
+  for (; i < n; ++i)
+    {
+      tree str =  VARRAY_TREE (referenced_strings, i);
+      unsigned int str_size = TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE(str)))) + 1;
+      print_string_decl (file, str);
+      ebitmap_set_bit (used_stringtypes, str_size);
+    }
+
+  {
+    unsigned int str_size;
+    ebitmap_iterator it;
+    EXECUTE_IF_SET_IN_EBITMAP(used_stringtypes, 0, str_size, it)
+      {
+        fprintf (file, "\n.class public explicit sealed serializable ansi '?string_type?%d'", str_size);
+        fputs (" extends ['mscorlib']System.ValueType\n"
+               "{\n"
+               "\t.custom instance "
+               "void [gcc4net]gcc4net.C_Attributes.ConstStringType::.ctor() "
+               "= (01 00 00 00)\n", file);
+        fprintf (file, "\t.size %d\n", str_size);
+        fputs ("\t.field [0] public specialname int8 'elem__'\n"
+               "}\n", file);
+      }
+  }
+}
+
+static void
+print_pinvoke_function (FILE *file, tree fun)
+{
+  tree fun_type = TREE_TYPE (fun);
+  struct fnct_attr attributes;
+
+  decode_function_attrs (fun, &attributes);
+
+  fputs (".method ", file);
+
+  if (TREE_PUBLIC (fun)) fputs ("public  ", file);
+  else                   fputs ("private ", file);
+
+  fprintf (file, "static pinvokeimpl(\"%s\"", attributes.pinvoke_assembly);
+
+  if (attributes.pinvoke_fname)
+    fprintf (file, " as \"%s\"", attributes.pinvoke_fname);
+
+  fputs (") ", file);
+
+  dump_fun_type (file, fun_type, fun, NULL, false);
+
+  fputs (" cil managed {}\n", file);
 }
 
 static void
@@ -4003,9 +4255,9 @@ gen_cil_1 (FILE *stream)
   bool varargs = FALSE;
   tree args;
 
-  remove_stloc_ldloc ();
+  if (!TARGET_NO_STLOC_LDLOC_REMOVAL)
+    remove_stloc_ldloc ();
 
-  addr_taken_labels = NULL;
   FOR_EACH_BB (bb)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -4019,8 +4271,12 @@ gen_cil_1 (FILE *stream)
               /* Check if the label has its address taken. */
               if (FORCED_LABEL (label))
                 {
-                  TREE_CHAIN (label) = addr_taken_labels;  /* prepend */
-                  addr_taken_labels = label; /* new list head */
+		  void **slot;
+
+		  gcc_assert (pointer_map_contains (labels_map, label) == NULL);
+		  slot = pointer_map_insert (labels_map, label);
+		  *slot = build_int_cst (intSI_type_node, taken_labels);
+		  taken_labels++;
                 }
             }
         }
@@ -4136,9 +4392,9 @@ gen_cil_1 (FILE *stream)
       gen_string_custom_attr (stream, "initfun");
 
       if (TARGET_OPENSYSTEMC)
-        fputs ("\n\t.custom instance "
+        fputs ("\t.custom instance "
                "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
-               "= (01 00 00 00)", stream);
+               "= (01 00 00 00)\n", stream);
     }
 
   {
@@ -4329,16 +4585,15 @@ gen_cil_init (void)
 {
   FILE *stream = asm_out_file;
 
-  fputs (".assembly extern gcc4net {}", stream);
+  fputs (".assembly extern gcc4net {}\n", stream);
   if (TARGET_EMIT_EXTERNAL_ASSEMBLY)
-    fputs ("\n.assembly '_C_MONO_ASSEMBLY' {}", stream);
-  fputs ("\n.module '<Module>'", stream);
+    fputs (".assembly '_C_MONO_ASSEMBLY' {}\n", stream);
+  fputs (".module '<Module>'\n", stream);
 
   if (TARGET_OPENSYSTEMC)
-    fputs ("\n.custom instance "
+    fputs (".custom instance "
            "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
-           "= (01 00 00 00)"
-           "\n", stream);
+           "= (01 00 00 00)\n", stream);
 
   referenced_types = pointer_set_create ();
   VARRAY_TREE_INIT (referenced_strings, 32, "strings used in current unit");
@@ -4352,6 +4607,9 @@ gen_cil_init (void)
                                    pointer_id_data_eq,
                                    free);
 
+  labels_map = pointer_map_create ();
+  taken_labels = 0;
+
   if (TARGET_EMIT_VCG)
     fprintf (stdout, "graph: {\ndisplay_edge_labels: yes\n");
 }
@@ -4361,8 +4619,6 @@ gen_cil_fini (void)
 {
   FILE *stream = asm_out_file;
   struct pointer_set_iter_t it;
-  int i, n;
-
 
   if (VARRAY_ACTIVE_SIZE (pending_ctors) > 0)
     {
@@ -4370,12 +4626,9 @@ gen_cil_fini (void)
     }
   VARRAY_CLEAR (pending_ctors);
 
-  i = 0;
-  n = VARRAY_ACTIVE_SIZE (referenced_strings);
-  for (; i < n; ++i)
+  if (VARRAY_ACTIVE_SIZE (referenced_strings) > 0)
     {
-      tree type =  VARRAY_TREE (referenced_strings, i);
-      print_string_decl (stream, type);
+      print_used_strings (stream);
     }
   VARRAY_CLEAR (referenced_strings);
   pointer_set_destroy (referenced_string_ptrs);
@@ -4390,84 +4643,51 @@ gen_cil_fini (void)
      Hence, before emitting a type, make sure no type with the same name
      has already been emitted.  */
 
-  it = pointer_set_begin (referenced_types);
-  while (!POINTER_SET_ITER_IS_END (it))
-    {
-      tree type = (tree)POINTER_SET_ITER_ELEM (it);
-      bool found = false;
-      struct pointer_set_iter_t it2;
-      tree type_name = TYPE_NAME (type);
-      const char* type_str;
+  {
+    struct pointer_set_t *emitted_types = pointer_set_create ();
 
-      if (COMPLETE_TYPE_P (type))
-        {
-          gcc_assert (DECL_P (type_name)
-                      || TREE_CODE (type_name) == IDENTIFIER_NODE);
+    it = pointer_set_begin (referenced_types);
+    while (!POINTER_SET_ITER_IS_END (it))
+      {
+        tree type = (tree)POINTER_SET_ITER_ELEM (it);
 
-          if (TREE_CODE (type_name) == IDENTIFIER_NODE)
-            type_str = IDENTIFIER_POINTER (type_name);
-          else
-            type_str = IDENTIFIER_POINTER (DECL_NAME (type_name));
-
-          it2 = pointer_set_begin (referenced_types);
-          while (!found && POINTER_SET_ITER_ELEM (it2) != type)
-            {
-              tree type2 = (tree)POINTER_SET_ITER_ELEM (it2);
-              tree type2_name = TYPE_NAME (type2);
-              const char* type2_str;
-
-              gcc_assert (DECL_P (type2_name)
-                          || TREE_CODE (type2_name) == IDENTIFIER_NODE);
-
-              if (TREE_CODE (type2_name) == IDENTIFIER_NODE)
-                type2_str = IDENTIFIER_POINTER (type2_name);
-              else
-                type2_str = IDENTIFIER_POINTER (DECL_NAME (type2_name));
-
-              found = strcmp (type2_str, type_str) == 0;
-              it2 = pointer_set_next (referenced_types, it2);
-            }
-
-          if (!found)
-            print_valuetype_decl (stream, type);
-        }
-
-      it = pointer_set_next (referenced_types, it);
-    }
-  pointer_set_destroy (referenced_types);
+        if (COMPLETE_TYPE_P (type))
+          {
+            tree type_name = TYPE_NAME (type);
+            gcc_assert (DECL_P (type_name)
+                        || TREE_CODE (type_name) == IDENTIFIER_NODE);
+            
+            if (TREE_CODE (type_name) != IDENTIFIER_NODE)
+              type_name = DECL_NAME (type_name);
+            
+            if (!pointer_set_contains (emitted_types, type_name))
+              {
+                print_valuetype_decl (stream, type);
+                pointer_set_insert (emitted_types, type_name);
+              }
+          }
+        
+        it = pointer_set_next (referenced_types, it);
+      }
+    pointer_set_destroy (referenced_types);
+    pointer_set_destroy (emitted_types);
+  }
 
   it = pointer_set_begin (referenced_pinvoke);
   while (!POINTER_SET_ITER_IS_END (it))
     {
-      tree fun = (tree)POINTER_SET_ITER_ELEM (it);
-      tree fun_type = TREE_TYPE (fun);
-      struct fnct_attr attributes;
-
-      decode_function_attrs (fun, &attributes);
-
-      fputs (".method ", stream);
-
-      if (TREE_PUBLIC (fun))
-        fputs ("public  ", stream);
-      else
-        fputs ("private ", stream);
-
-      fprintf (stream, "static pinvokeimpl(\"%s\"", attributes.pinvoke_assembly);
-
-      if (attributes.pinvoke_fname)
-        fprintf (stream, " as \"%s\"", attributes.pinvoke_fname);
-
-      fputs (") ", stream);
-
-      dump_fun_type (stream, fun_type, fun, NULL, false);
-
-      fputs (" cil managed {}\n", stream);
+      print_pinvoke_function (stream, (tree)POINTER_SET_ITER_ELEM (it));
       it = pointer_set_next (referenced_pinvoke, it);
     }
   pointer_set_destroy (referenced_pinvoke);
 
   /* Delete hash table for pointer ids */
   htab_delete (pointer_id_htable);
+
+  pointer_map_destroy (labels_map);
+
+  if (goto_labels != NULL)
+    XDELETEVEC (goto_labels);
 
   if (TARGET_EMIT_VCG)
     fprintf (stdout, "}\n");

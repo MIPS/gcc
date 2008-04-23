@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for cil32.
 
-   Copyright (C) 2006-2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -44,9 +44,9 @@ Erven Rohou             <erven.rohou@st.com>
 /* Node: Driver */
 
 #define CC1_SPEC "%{!mnoopensystemc:-mopensystemc}"
-#define LIB_SPEC ""
-#define LIBGCC_SPEC ""
-#define LINK_SPEC "--no-stdlib %{!nostdlib:-l gcc4net.dll} %{shared:--format dll}"
+#define LIB_SPEC "-l libstd.dll"
+#define LIBGCC_SPEC "-l gcc4net.dll"
+#define LINK_SPEC "%{shared:--shared}"
 #define STARTFILE_SPEC ""
 #define ENDFILE_SPEC ""
 
@@ -500,6 +500,15 @@ struct cum_args {int regs;};
 
 /* Node: Misc */
 
+/* Handle pragmas.  */
+#define REGISTER_TARGET_PRAGMAS() do {                               \
+  c_register_pragma (0, "ivdep", cil32_ivdep);                       \
+  c_register_pragma ("loopdep", "LIBERAL", cil32_loopdep_liberal);   \
+  c_register_pragma ("loopdep", "PARALLEL", cil32_loopdep_parallel); \
+  c_register_pragma ("loopdep", "VECTOR", cil32_loopdep_vector);     \
+} while (0)
+
+
 #define CASE_VECTOR_MODE HImode
 
 /* The maximum number of bytes that a single instruction can move quickly
@@ -535,42 +544,36 @@ extern struct tree_opt_pass pass_gen_cil;
 /* cil32 builtin ID */
 enum cil32_builtin
 {
-  CIL32_BUILT_IN_VA_START,
+  CIL32_BUILT_IN_VA_START = 0,
   CIL32_BUILT_IN_VA_ARG,
   CIL32_BUILT_IN_VA_END,
   CIL32_BUILT_IN_VA_COPY,
+  CIL32_BUILT_IN_CPBLK,
+  CIL32_BUILT_IN_INITBLK,
   CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
+  CIL32_BUILT_IN_ENDIAN_SELECT,
+/* constructors of vector types. */
+/* float */
   CIL32_V2SF_CTOR,
   CIL32_V4SF_CTOR,
+/* 32-bit integer */
   CIL32_V4QI_CTOR,
   CIL32_V2HI_CTOR,
+/* 64-bit integer */
   CIL32_V8QI_CTOR,
   CIL32_V4HI_CTOR,
   CIL32_V2SI_CTOR,
+/* 128-bit integer */
   CIL32_V4SI_CTOR,
   CIL32_V8HI_CTOR,
-  CIL32_V16QI_CTOR
+  CIL32_V16QI_CTOR,
+  CIL32_MAX_BUILT_IN
 };
 
-extern tree cil32_builtin_va_start_decl;
-extern tree cil32_builtin_va_arg_decl;
-extern tree cil32_builtin_va_end_decl;
-extern tree cil32_builtin_va_copy_decl;
-extern tree cil32_builtin_is_LE_decl;
+extern GTY(()) tree cil32_builtins[CIL32_MAX_BUILT_IN];
 
-extern tree cil32_va_list_type;
-extern tree cil32_arg_iterator_type;
-
-extern tree cil32_v2sf_ctor;
-extern tree cil32_v4sf_ctor;
-extern tree cil32_v4qi_ctor;
-extern tree cil32_v2hi_ctor;
-extern tree cil32_v8qi_ctor;
-extern tree cil32_v4hi_ctor;
-extern tree cil32_v2si_ctor;
-extern tree cil32_v4si_ctor;
-extern tree cil32_v8hi_ctor;
-extern tree cil32_v16qi_ctor;
+extern GTY(()) tree cil32_va_list_type;
+extern GTY(()) tree cil32_arg_iterator_type;
 
 /*
  * Local variables:
