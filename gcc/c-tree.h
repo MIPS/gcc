@@ -459,6 +459,7 @@ extern bool object_in_current_hunk_p (tree);
 extern tree c_parser_find_binding (tree);
 extern void c_parser_lookup_callback (tree, tree, bool);
 extern void c_parse_file_wrapper (int);
+extern void c_server_steady_state (void);
 
 extern void c_parser_print_job_statistics (void);
 

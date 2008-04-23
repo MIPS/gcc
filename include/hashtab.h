@@ -1,5 +1,5 @@
 /* An expandable hash tables datatype.  
-   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2008 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov (vmakarov@cygnus.com).
 
 This program is free software; you can redistribute it and/or modify
@@ -198,6 +198,36 @@ extern hashval_t htab_hash_string (const void *);
 extern hashval_t iterative_hash (const void *, size_t, hashval_t);
 /* Shorthand for hashing something with an intrinsic size.  */
 #define iterative_hash_object(OB,INIT) iterative_hash (&OB, sizeof (OB), INIT)
+
+/* Iteration step for a hash table.  Updates '*INDEX' and modifies
+   '*SLOTP' to point to the next available slot.  Returns false when
+   finished; true otherwise.  Should be used like:
+   
+   size_t index;
+   void **slot;
+   for (index = 0; htab_iterate (table, &index, &slot); ++index)
+     content;
+*/
+static inline int
+htab_iterate (htab_t htab, size_t *index, void ***slotp)
+{
+  size_t i = *index;
+  PTR *slot = &htab->entries[i];
+  PTR *limit = htab->entries + htab->size;
+  while (slot < limit)
+    {
+      PTR x = *slot;
+      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
+	{
+	  *index = i;
+	  *slotp = slot;
+	  return 1;
+	}
+      ++i;
+      ++slot;
+    }
+  return 0;
+}
 
 #ifdef __cplusplus
 }

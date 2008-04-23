@@ -1131,7 +1131,10 @@ compile_file (void)
       ggc_collect ();
 
       if (server_start_back_end (&server_back_end_status))
-	return false;
+	{
+	  lang_hooks.server_steady_state ();
+	  return false;
+	}
 
       job->as_process = start_as ((char **) VEC_address (cchar_p,
 							 job->as_arguments));
@@ -1723,6 +1726,19 @@ free_for_line_map (void *mem ATTRIBUTE_UNUSED)
   /* Do nothing, the GC will handle it.  */
 }
 
+static void
+create_line_map (void)
+{
+  location_t loc;
+  line_table = GGC_NEW (struct line_maps);
+  linemap_init (line_table);
+  line_table->reallocator = realloc_for_line_map;
+  line_table->freer = free_for_line_map;
+  linemap_add (line_table, LC_RENAME, 0, 0, _("<built-in>"), 0);
+  loc = linemap_line_start (line_table, 0, 1);
+  gcc_assert (loc == BUILTINS_LOCATION);
+}
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1730,7 +1746,6 @@ static void
 general_init (const char *argv0)
 {
   const char *p;
-  location_t loc;
 
   p = argv0 + strlen (argv0);
   while (p != argv0 && !IS_DIR_SEPARATOR (p[-1]))
@@ -1781,13 +1796,7 @@ general_init (const char *argv0)
   init_ggc ();
   ggc_thread_init ();
   init_stringpool ();
-  line_table = GGC_NEW (struct line_maps);
-  linemap_init (line_table);
-  line_table->reallocator = realloc_for_line_map;
-  line_table->freer = free_for_line_map;
-  linemap_add (line_table, LC_RENAME, 0, 0, _("<built-in>"), 0);
-  loc = linemap_line_start (line_table, 0, 1);
-  gcc_assert (loc == BUILTINS_LOCATION);
+  create_line_map ();
 
   init_ttree ();
 
@@ -2570,6 +2579,11 @@ server_callback (int fd, char *dir, char **cc1_argv, char **as_argv)
   job = GGC_CNEW (struct compilation_job);
   copy_to_vec (&job->as_arguments, &job->strings, as_argv, NULL);
   copy_to_vec (&job->cc1_arguments, &job->strings, cc1_argv, &n);
+
+  /* Re-initialize the line table.  Note that this must be done before
+     decoding the options, so that lang hooks run during option
+     decoding can use the line table.  */
+  create_line_map ();
 
   decode_options (n, VEC_address (cchar_p, job->cc1_arguments));
   flag_unit_at_a_time = 1;

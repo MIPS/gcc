@@ -318,6 +318,7 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
   /* Set pfile->cur_token as required by _cpp_lex_direct.  */
   pfile->cur_token = _cpp_temp_token (pfile);
   _cpp_push_token_context (pfile, NULL, _cpp_lex_direct (pfile), 1);
+  pfile->context->paste_p = 1;
   if (pfile->buffer->cur != pfile->buffer->rlimit)
     cpp_error (pfile, CPP_DL_ICE, "invalid built-in macro \"%s\"",
 	       NODE_NAME (node));
@@ -530,6 +531,7 @@ paste_all_tokens (cpp_reader *pfile, const cpp_token *lhs)
 
   /* Put the resulting token in its own context.  */
   _cpp_push_token_context (pfile, NULL, lhs, 1);
+  pfile->context->paste_p = true;
 }
 
 /* Returns TRUE if the number of arguments ARGC supplied in an
@@ -793,7 +795,11 @@ funlike_invocation_p (cpp_reader *pfile, cpp_hashnode *node,
 	 too difficult.  We re-insert it in its own context.  */
       _cpp_backup_tokens (pfile, 1);
       if (padding)
-	_cpp_push_token_context (pfile, NULL, padding, 1);
+	{
+	  bool paste_p = pfile->context->macro || pfile->context->paste_p;
+	  _cpp_push_token_context (pfile, NULL, padding, 1);
+	  pfile->context->paste_p = paste_p;
+	}
     }
 
   return NULL;
@@ -1050,6 +1056,7 @@ next_context (cpp_reader *pfile)
       pfile->context->next = result;
     }
 
+  result->paste_p = 0;
   pfile->context = result;
   return result;
 }
@@ -1227,7 +1234,7 @@ cpp_get_token (cpp_reader *pfile)
 	  int ret;
 	  /* If not in a macro context, and we're going to start an
 	     expansion, record the location.  */
-	  if (can_set && !context->macro)
+	  if (can_set && !context->macro && !context->paste_p)
 	    pfile->invocation_location = result->src_loc;
 	  if (pfile->state.prevent_expansion)
 	    break;
@@ -1269,7 +1276,9 @@ cpp_get_token_with_location (cpp_reader *pfile, source_location *loc)
 
   pfile->set_invocation_location = true;
   result = cpp_get_token (pfile);
-  if (pfile->context->macro)
+  if (pfile->context->macro
+      || pfile->context->paste_p
+      || pfile->invocation_location > result->src_loc)
     *loc = pfile->invocation_location;
   else
     *loc = result->src_loc;

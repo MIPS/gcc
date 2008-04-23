@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -299,6 +299,12 @@ struct lang_hooks
 
   /* Called immediately after parsing to clear the binding stack.  */
   void (*clear_binding_stack) (void);
+
+  /* Called only in server mode, after the server has forked for code
+     generation and before it returns to listening for client
+     connections.  This is intended to let the front end modify its
+     data structures to return to a "neutral" state, if needed.  */
+  void (*server_steady_state) (void);
 
   /* Called to obtain the alias set to be used for an expression or type.
      Returns -1 if the language does nothing special for it.  */

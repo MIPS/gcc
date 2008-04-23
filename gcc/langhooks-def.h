@@ -1,5 +1,5 @@
 /* Default macros to initialize the lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -87,6 +87,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_FINISH		lhd_do_nothing
 #define LANG_HOOKS_PARSE_FILE		lhd_do_nothing_i
 #define LANG_HOOKS_CLEAR_BINDING_STACK	lhd_do_nothing
+#define LANG_HOOKS_SERVER_STEADY_STATE lhd_do_nothing
 #define LANG_HOOKS_INIT_OPTIONS		hook_uint_uint_constcharptrptr_0
 #define LANG_HOOKS_INITIALIZE_DIAGNOSTICS lhd_initialize_diagnostics
 #define LANG_HOOKS_HANDLE_OPTION	hook_int_size_t_constcharptr_int_0
@@ -254,6 +255,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_FINISH, \
   LANG_HOOKS_PARSE_FILE, \
   LANG_HOOKS_CLEAR_BINDING_STACK, \
+  LANG_HOOKS_SERVER_STEADY_STATE, \
   LANG_HOOKS_GET_ALIAS_SET, \
   LANG_HOOKS_EXPAND_EXPR, \
   LANG_HOOKS_EXPAND_DECL, \

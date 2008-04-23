@@ -171,6 +171,10 @@ struct cpp_context
 
   /* True if utoken element is token, else ptoken.  */
   bool direct_p;
+  /* True if the context is the result of token pasting, a builtin
+     macro, or other situation requiring special location
+     handling.  */
+  bool paste_p;
 };
 
 struct lexer_state

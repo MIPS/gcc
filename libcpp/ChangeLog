@@ -1,3 +1,13 @@
+2008-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* macro.c (builtin_macro): Set paste_p.
+	(paste_all_tokens): Likewise.
+	(funlike_invocation_p): Likewise.
+	(next_context): Clear paste_p.
+	(cpp_get_token): Use paste_p.
+	(cpp_get_token_with_location): Likewise.
+	* internal.h (struct cpp_context) <paste_p>: New field.
+
 2008-04-18  Tom Tromey  <tromey@redhat.com>
 
 	* line-map.c (linemap_free): Use free function.

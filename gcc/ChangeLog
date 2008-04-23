@@ -1,3 +1,27 @@
+2008-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (create_line_map): New function.
+	(general_init): Use it.
+	(compile_file): Call server_steady_state hook.
+	(server_callback): Call create_line_map.
+	* c-tree.h (c_server_steady_state): Declare.
+	* c-lang.c (LANG_HOOKS_SERVER_STEADY_STATE): New define.
+	* langhooks-def.h (LANG_HOOKS_SERVER_STEADY_STATE): New define.
+	(LANG_HOOKS_INITIALIZER): Update.
+	* langhooks.h (struct lang_hooks) <server_steady_state>: New
+	function.
+	* c-parser.c (traverse_hunk_binding_entry): Reset decl locations.
+	(can_reuse_hunk): Pass parser to traverse_hunk_binding_entry.
+	Reset binding's location and token offset.
+	(struct hunk_binding) <token_offset, token_count>: New fields.
+	(start_new_parsed_hunk): Set token_offset field.
+	(c_server_steady_state): New function.
+	(universalize_decl_locations): Likewise.
+	(c_parser_create_smash_map): Null 'the_parser'.
+	(c_parse_file): Don't null 'the_parser'.
+	(reset_tree_location): New function.
+	(universalize_tree): Likewise.
+
 2008-04-21  Tom Tromey  <tromey@redhat.com>
 
 	* dwarf2out.c (seen_decls): Remove.

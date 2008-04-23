@@ -736,17 +736,37 @@ eq_hunk_binding_entry (const void *a, const void *b)
   return hbe_a->name == hbe_b->name;
 }
 
+/* Reset the location of a single tree.  */
+static void
+reset_tree_location (tree decl, c_parser *parser)
+{
+  /* FIXME: eventually operate on expressions and more.  */
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) != tcc_declaration)
+    return;
+  DECL_SOURCE_LOCATION (decl) = parser->buffer[DECL_SOURCE_LOCATION (decl)
+					       + parser->next_token].location;
+}
+
 /* Called to map the contents of a struct hunk_binding_entry into the
-   current symbol table.  */
+   current symbol table.  This also resets the location of decls
+   declared in this hunk so that they reflect the current compilation
+   unit.  */
 static int
-traverse_hunk_binding_entry (void **slot, void *ignore ATTRIBUTE_UNUSED)
+traverse_hunk_binding_entry (void **slot, void *pp)
 {
   struct hunk_binding_entry *hb = (struct hunk_binding_entry *) *slot;
+  c_parser *parser = (c_parser *) pp;
 
   if (hb->tag_binding != NULL_TREE)
-    c_decl_re_bind (hb->name, hb->tag_binding);
+    {
+      reset_tree_location (hb->tag_binding, parser);
+      c_decl_re_bind (hb->name, hb->tag_binding);
+    }
   if (hb->symbol_binding != NULL_TREE)
-    c_decl_re_bind (hb->name, hb->symbol_binding);
+    {
+      reset_tree_location (hb->symbol_binding, parser);
+      c_decl_re_bind (hb->name, hb->symbol_binding);
+    }
 
   return 1;
 }
@@ -764,6 +784,12 @@ struct hunk_binding GTY (())
   struct parsed_hunk *multi_list;
   /* Location of the first token in this hunk.  */
   location_t location;
+  /* The offset of the first token in this binding.  This is only
+     valid during and just after a given compilation, and is used to
+     "universalize" decl locations.  */
+  unsigned int token_offset;
+  /* The total number of tokens in this hunk.  */
+  unsigned int token_count;
   /* Map names to bindings.  */
   htab_t GTY ((param_is (struct hunk_binding_entry))) binding_map;
   /* Set of all prerequisite bindings.  */
@@ -1015,6 +1041,9 @@ start_new_parsed_hunk (c_parser *parser, size_t table_size, location_t location)
 		       eq_hunk_binding_entry,
 		       NULL);
   parser->current_hunk_binding->location = location;
+  parser->current_hunk_binding->token_offset = parser->next_token;
+  /* We set this when closing the hunk.  */
+  parser->current_hunk_binding->token_count = 0;
 }
 
 /* Called when finished parsing a hunk.  Registers the parsed hunk
@@ -1043,6 +1072,9 @@ finish_current_hunk (c_parser *parser,
 						  parser->current_hunk_binding,
 						  INSERT);
   gcc_assert (!*slot);
+  /* Compute the number of tokens in this binding.  */
+  parser->current_hunk_binding->token_count
+    = parser->next_token - parser->current_hunk_binding->token_offset;
   *slot = parser->current_hunk_binding;
 
   /* Also note this hunk in used_hunks, for long-term storage.  */
@@ -1187,6 +1219,10 @@ c_parser_create_smash_map (void)
      compilation.  */
   if (! global_smash_map)
     return NULL;
+
+  /* It is a bit lame to do this here, but we don't need the parser
+     any more, and there's not a better place to get rid of it.  */
+  the_parser = NULL;
 
   /* We could do this without allocating by rewriting the map in
      place.  */
@@ -1394,6 +1430,10 @@ c_parser_lex_all (c_parser *parser, c_token *token)
 	}
       c_lex_one_token (&buffer[pos]);
       buffer[pos].user_owned = lstate->user_owned;
+
+      gcc_assert (pos == 0
+		  || buffer[pos].type == CPP_EOF
+		  || buffer[pos].location >= buffer[pos - 1].location);
 
       /* If there was a file change event, it happened before this
 	 token.  */
@@ -2259,10 +2299,18 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
 						  info.binding, INSERT);
   *slot = info.binding;
 
+  /* Reset the binding's token offset.  This is used when
+     "universalizing" decl locations after the compilation unit is
+     finished.  */
+  info.binding->token_offset = parser->next_token;
+  /* Reset the binding's location.  Note that this is a debugging
+     convenience, this location is not used for anything.  */
+  info.binding->location = parser->buffer[parser->next_token].location;
+
   /* Map in the bindings.  */
   htab_traverse_noresize (info.binding->binding_map,
 			  traverse_hunk_binding_entry,
-			  NULL);
+			  parser);
   if (update_parser)
     {
       parser->first_hunk = info.self_iter;
@@ -2279,6 +2327,77 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
   parser->tokens_avail = 0;
 
   return true;
+}
+
+/* Universalize a single tree's location.  */
+static void
+universalize_tree (tree decl, c_parser *parser,
+		   unsigned int token_offset, unsigned int token_count)
+{
+  unsigned int offset = 0, min, max;
+  location_t orig_loc;
+
+  /* FIXME: eventually operate on expressions and more.  */
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) != tcc_declaration)
+    return;
+
+  /* Binary search for the location in the token buffer.  This ought
+     to be efficient enough, as most declarations contain few tokens.  */
+  min = token_offset;
+  max = token_offset + token_count;
+  orig_loc = DECL_SOURCE_LOCATION (decl);
+  while (min <= max)
+    {
+      unsigned int mid = (min + max) / 2;
+      location_t match = parser->buffer[mid].location;
+      if (orig_loc == match)
+	{
+	  offset = mid;
+	  break;
+	}
+      else if (orig_loc < match)
+	max = mid - 1;
+      else
+	min = mid + 1;
+    }
+  /* We must always find an answer, because the location of a decl
+     must come from a particular token in the current hunk.  */
+  gcc_assert (parser->buffer[offset].location == orig_loc);
+  DECL_SOURCE_LOCATION (decl) = (location_t) (offset - token_offset);
+}
+
+/* Universalize the locations of all declarations used in this
+   compilation unit.  */
+static void
+universalize_decl_locations (c_parser *parser)
+{
+  size_t index;
+  void **slot;
+
+  /* Loop over all the hunks used in this compilation.  */
+  for (index = 0; htab_iterate (parser->used_hunks, &index, &slot); ++index)
+    {
+      size_t bindex;
+      void **bslot;
+      struct hunk_binding *binding = *(struct hunk_binding **) slot;
+
+      /* Loop over all the bindings from this hunk.  */
+      for (bindex = 0;
+	   htab_iterate (binding->binding_map, &bindex, &bslot);
+	   ++bindex)
+	{
+	  struct hunk_binding_entry *entry
+	    = * (struct hunk_binding_entry **) bslot;
+
+	  if (entry->tag_binding != NULL_TREE)
+	    universalize_tree (entry->tag_binding, parser,
+			       binding->token_offset, binding->token_count);
+
+	  if (entry->symbol_binding != NULL_TREE)
+	    universalize_tree (entry->symbol_binding, parser,
+			       binding->token_offset, binding->token_count);
+	}
+    }
 }
 
 /* Parse a translation unit (C90 6.7, C99 6.9).
@@ -9566,7 +9685,12 @@ c_parse_file (void)
 
   /* Preserve the hunks created or used during this compilation.  */
   copy_used_hunks (the_parser->used_hunks);
+}
 
+void
+c_server_steady_state (void)
+{
+  universalize_decl_locations (the_parser);
   the_parser = NULL;
 }
 

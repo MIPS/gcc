@@ -47,6 +47,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_CLEAR_BINDING_STACK c_clear_binding_stack
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_parse_file_wrapper
+#undef LANG_HOOKS_SERVER_STEADY_STATE
+#define LANG_HOOKS_SERVER_STEADY_STATE c_server_steady_state
 
 /* Each front end provides its own lang hook initializer.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

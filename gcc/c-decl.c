@@ -2129,12 +2129,14 @@ duplicate_decls (tree newdecl, tree olddecl, struct c_binding *binding)
 	{
 	  /* Modify a copy of OLDDECL and install that in the
 	     bindings.  */
+	  location_t saved_loc = DECL_SOURCE_LOCATION (newdecl);
 	  tree copy = copy_node (olddecl);
 	  merge_decls (newdecl, copy, newtype,
 		       C_SMASHED_TYPE_VARIANT (oldtype));
 	  /* FIXME: this triggers building libgcc.  */
 	  /* 	  gcc_assert (binding->decl == olddecl); */
 	  C_FIRST_DEFINITION_P (copy) = C_FIRST_DEFINITION_P (newdecl);
+	  DECL_SOURCE_LOCATION (copy) = saved_loc;
 	  binding->decl = copy;
 
 	  /* Need to call decl_attributes on the new decl, to ensure

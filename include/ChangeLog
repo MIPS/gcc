@@ -1,3 +1,7 @@
+2008-04-23  Tom Tromey  <tromey@redhat.com>
+
+	* hashtab.h (htab_iterate): New function.
+
 2007-10-25  Tom Tromey  <tromey@redhat.com>
 
 	* libiberty.h (argvtostr): Declare.
