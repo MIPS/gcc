@@ -1,3 +1,8 @@
+2008-04-24  Rafael Espindola <espindola@google.com>
+
+	* tree-ssa-dom.c (initialize_hash_element): Fix the type of the code
+	variable.
+
 2008-04-23  Rafael Espindola <espindola@google.com>
 
 	* omp-low.c (gate_lower_omp): Return 0.

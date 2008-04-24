@@ -224,7 +224,7 @@ static void
 initialize_hash_element (gimple stmt, tree lhs,
                          struct expr_hash_elt *element)
 {
-  enum tree_code code = gimple_code (stmt);
+  enum gimple_code code = gimple_code (stmt);
   struct hashable_expr *expr = &element->expr;
 
   if (code == GIMPLE_ASSIGN)
