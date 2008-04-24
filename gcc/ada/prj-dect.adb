@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,7 +25,8 @@
 
 with Err_Vars; use Err_Vars;
 
-with GNAT.Case_Util; use GNAT.Case_Util;
+with GNAT.Case_Util;        use GNAT.Case_Util;
+with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 
 with Opt;         use Opt;
 with Prj.Attr;    use Prj.Attr;
@@ -36,7 +37,11 @@ with Prj.Tree;    use Prj.Tree;
 with Snames;
 with Uintp;       use Uintp;
 
+with GNAT.Strings;
+
 package body Prj.Dect is
+
+   use GNAT;
 
    type Zone is (In_Project, In_Package, In_Case_Construction);
    --  Used to indicate if we are parsing a package (In_Package),
@@ -70,7 +75,7 @@ package body Prj.Dect is
       Current_Package   : Project_Node_Id;
       Packages_To_Check : String_List_Access);
    --  Parse declarative items. Depending on In_Zone, some declarative
-   --  items may be forbiden.
+   --  items may be forbidden.
 
    procedure Parse_Package_Declaration
      (In_Tree             : Project_Node_Tree_Ref;
@@ -911,7 +916,7 @@ package body Prj.Dect is
             when others =>
                exit;
 
-               --  We are leaving Parse_Declarative_Items positionned
+               --  We are leaving Parse_Declarative_Items positioned
                --  at the first token after the list of declarative items.
                --  It could be "end" (for a project, a package declaration or
                --  a case construction) or "when" (for a case construction)
@@ -983,11 +988,44 @@ package body Prj.Dect is
 
          if Current_Package = Empty_Package then
             if not Quiet_Output then
-               Error_Msg ("?""" &
-                          Get_Name_String
-                            (Name_Of (Package_Declaration, In_Tree)) &
-                          """ is not a known package name",
-                          Token_Ptr);
+               declare
+                  List  : constant Strings.String_List := Package_Name_List;
+                  Index : Natural;
+                  Name  : constant String := Get_Name_String (Token_Name);
+
+               begin
+                  --  Check for possible misspelling of a known package name
+
+                  Index := 0;
+                  loop
+                     if Index >= List'Last then
+                        Index := 0;
+                        exit;
+                     end if;
+
+                     Index := Index + 1;
+                     exit when
+                       GNAT.Spelling_Checker.Is_Bad_Spelling_Of
+                         (Name, List (Index).all);
+                  end loop;
+
+                  --  Issue warning(s) in verbose mode or when a possible
+                  --  misspelling has been found.
+
+                  if Verbose_Mode or else Index /= 0 then
+                     Error_Msg ("?""" &
+                                Get_Name_String
+                                 (Name_Of (Package_Declaration, In_Tree)) &
+                                """ is not a known package name",
+                                Token_Ptr);
+                  end if;
+
+                  if Index /= 0 then
+                     Error_Msg ("\?possible misspelling of """ &
+                                List (Index).all & """",
+                                Token_Ptr);
+                  end if;
+               end;
             end if;
 
             --  Set the package declaration to "ignored" so that it is not

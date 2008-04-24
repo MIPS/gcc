@@ -38,7 +38,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_binary)
 
@@ -48,7 +47,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_comparison)
 
@@ -82,7 +80,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_expression)
 
@@ -93,7 +90,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_gimple_stmt)
 
@@ -103,7 +99,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_reference)
 
@@ -114,7 +109,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_statement)
 
@@ -126,6 +120,7 @@
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (unsigned_flag)
       ADD_CLASS_EXPR_FLAG (nothrow_flag)
+      ADD_CLASS_EXPR_FLAG (saturating_flag)
     END_CLASS_CASE (tcc_type)
 
     START_CLASS_CASE (tcc_unary)
@@ -134,7 +129,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_unary)
 
@@ -145,7 +139,6 @@
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (used_flag)
-      ADD_CLASS_EXPR_FLAG (invariant_flag)
       ADD_CLASS_EXPR_FLAG (nowarning_flag)
     END_CLASS_CASE (tcc_vl_exp)
   END_CLASS_SWITCH ()
@@ -628,6 +621,7 @@
       ADD_EXPR_FLAG (asm_written_flag)
       ADD_EXPR_FLAG (nothrow_flag)
       ADD_EXPR_FLAG (volatile_flag)
+      ADD_EXPR_FLAG (default_def_flag)
     END_EXPR_CASE (SSA_NAME)
       
     START_EXPR_CASE (STATEMENT_LIST)

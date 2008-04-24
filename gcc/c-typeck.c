@@ -2213,7 +2213,6 @@ build_external_ref (tree id, int fun, location_t loc)
       used_types_insert (TREE_TYPE (ref));
       ref = DECL_INITIAL (ref);
       TREE_CONSTANT (ref) = 1;
-      TREE_INVARIANT (ref) = 1;
     }
   else if (current_function_decl != 0
 	   && !DECL_FILE_SCOPE_P (current_function_decl)
@@ -3628,8 +3627,9 @@ build_c_cast (tree type, tree expr)
       tree field;
 
       for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-	if (comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (field)),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (value))))
+	if (TREE_TYPE (field) != error_mark_node
+	    && comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (field)),
+			  TYPE_MAIN_VARIANT (TREE_TYPE (value))))
 	  break;
 
       if (field)
@@ -3642,7 +3642,6 @@ build_c_cast (tree type, tree expr)
 			   build_constructor_single (type, field, value),
 			   true, 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
-	  TREE_INVARIANT (t) = TREE_INVARIANT (value);
 	  return t;
 	}
       error ("cast to union type from type not present in union");
@@ -5607,7 +5606,7 @@ pop_init_level (int implicit)
 	  ret.value = build_constructor (constructor_type,
 					 constructor_elements);
 	  if (constructor_constant)
-	    TREE_CONSTANT (ret.value) = TREE_INVARIANT (ret.value) = 1;
+	    TREE_CONSTANT (ret.value) = 1;
 	  if (constructor_constant && constructor_simple)
 	    TREE_STATIC (ret.value) = 1;
 	}
@@ -8654,8 +8653,7 @@ c_objc_common_truthvalue_conversion (tree expr)
    required.  */
 
 tree
-c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
-		bool *ti ATTRIBUTE_UNUSED, bool *se)
+c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED, bool *se)
 {
   if (TREE_CODE (expr) == COMPOUND_LITERAL_EXPR)
     {

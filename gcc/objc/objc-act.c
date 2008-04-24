@@ -1255,7 +1255,8 @@ objc_build_component_ref (tree datum, tree component)
      front-end, but 'finish_class_member_access_expr' seems to be
      a worthy substitute.  */
 #ifdef OBJCPLUS
-  return finish_class_member_access_expr (datum, component, false);
+  return finish_class_member_access_expr (datum, component, false,
+                                          tf_warning_or_error);
 #else
   return build_component_ref (datum, component);
 #endif
@@ -1952,7 +1953,6 @@ objc_build_string_object (tree string)
  			    initlist);
       constructor = objc_build_constructor (internal_const_str_type,
 					    nreverse (initlist));
-      TREE_INVARIANT (constructor) = true;
 
       if (!flag_next_runtime)
 	constructor
@@ -4493,7 +4493,7 @@ objc_generate_cxx_ctor_or_dtor (bool dtor)
 	     (build_special_member_call
 	      (build_ivar_reference (DECL_NAME (ivar)),
 	       dtor ? complete_dtor_identifier : complete_ctor_identifier,
-	       NULL_TREE, type, LOOKUP_NORMAL));
+	       NULL_TREE, type, LOOKUP_NORMAL, tf_warning_or_error));
 	}
     }
 
@@ -8075,6 +8075,9 @@ encode_type (tree type, int curtype, int format)
   enum tree_code code = TREE_CODE (type);
   char c;
 
+  if (type == error_mark_node)
+    return;
+
   if (TYPE_READONLY (type))
     obstack_1grow (&util_obstack, 'r');
 
@@ -8231,6 +8234,13 @@ static void
 objc_push_parm (tree parm)
 {
   bool relayout_needed = false;
+
+  if (TREE_TYPE (parm) == error_mark_node)
+    {
+      objc_parmlist = chainon (objc_parmlist, parm);
+      return;
+    }
+
   /* Decay arrays and functions into pointers.  */
   if (TREE_CODE (TREE_TYPE (parm)) == ARRAY_TYPE)
     {

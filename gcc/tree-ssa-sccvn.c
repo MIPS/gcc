@@ -511,7 +511,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       vn_reference_op_s temp;
 
       memset (&temp, 0, sizeof (temp));
-      temp.type = TREE_TYPE (ref);
+      /* We do not care for spurious type qualifications.  */
+      temp.type = TYPE_MAIN_VARIANT (TREE_TYPE (ref));
       temp.opcode = TREE_CODE (ref);
 
       switch (temp.opcode)
@@ -528,6 +529,10 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  temp.op1 = TREE_OPERAND (ref, 2);
 	  break;
 	case COMPONENT_REF:
+	  /* The field decl is enough to unambiguously specify the field,
+	     a matching type is not necessary and a mismatching type
+	     is always a spurious difference.  */
+	  temp.type = NULL_TREE;
 	  /* If this is a reference to a union member, record the union
 	     member size as operand.  Do so only if we are doing
 	     expression insertion (during FRE), as PRE currently gets
@@ -536,10 +541,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	      && TREE_CODE (DECL_CONTEXT (TREE_OPERAND (ref, 1))) == UNION_TYPE
 	      && integer_zerop (DECL_FIELD_OFFSET (TREE_OPERAND (ref, 1)))
 	      && integer_zerop (DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1))))
-	    {
-	      temp.type = NULL_TREE;
-	      temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
-	    }
+	    temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
 	  else
 	    /* Record field as operand.  */
 	    temp.op0 = TREE_OPERAND (ref, 1);
@@ -735,7 +737,7 @@ vn_reference_lookup_1 (vn_reference_t vr)
    it does not exist in the hash table. */
 
 tree
-vn_reference_lookup (tree op, VEC (tree, gc) *vuses)
+vn_reference_lookup (tree op, VEC (tree, gc) *vuses, bool maywalk)
 {
   struct vn_reference_s vr1;
   tree result, def_stmt;
@@ -748,6 +750,7 @@ vn_reference_lookup (tree op, VEC (tree, gc) *vuses)
   /* If there is a single defining statement for all virtual uses, we can
      use that, following virtual use-def chains.  */
   if (!result
+      && maywalk
       && vr1.vuses
       && VEC_length (tree, vr1.vuses) >= 1
       && !get_call_expr_in (op)
@@ -1188,7 +1191,7 @@ static bool
 visit_reference_op_load (tree lhs, tree op, tree stmt)
 {
   bool changed = false;
-  tree result = vn_reference_lookup (op, shared_vuses_from_stmt (stmt));
+  tree result = vn_reference_lookup (op, shared_vuses_from_stmt (stmt), true);
 
   /* We handle type-punning through unions by value-numbering based
      on offset and size of the access.  Be prepared to handle a
@@ -1294,7 +1297,7 @@ visit_reference_op_store (tree lhs, tree op, tree stmt)
      Otherwise, the vdefs for the store are used when inserting into
      the table, since the store generates a new memory state.  */
 
-  result = vn_reference_lookup (lhs, shared_vuses_from_stmt (stmt));
+  result = vn_reference_lookup (lhs, shared_vuses_from_stmt (stmt), false);
 
   if (result)
     {

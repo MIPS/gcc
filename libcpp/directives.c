@@ -188,7 +188,7 @@ DIRECTIVE_TABLE
    did use this notation in its preprocessed output.  */
 static const directive linemarker_dir =
 {
-  do_linemarker, U"#", 1, KANDR, IN_I
+  do_linemarker, UC"#", 1, KANDR, IN_I
 };
 
 #define SEEN_EOL() (pfile->cur_token[-1].type == CPP_EOF)
@@ -559,9 +559,14 @@ do_define (cpp_reader *pfile)
       pfile->state.save_comments =
 	! CPP_OPTION (pfile, discard_comments_in_macro_exp);
 
+      if (pfile->cb.before_define)
+	pfile->cb.before_define (pfile);
+
       if (_cpp_create_definition (pfile, node))
 	if (pfile->cb.define)
 	  pfile->cb.define (pfile, pfile->directive_line, node);
+
+      node->flags &= ~NODE_USED;
     }
 }
 
@@ -573,6 +578,9 @@ do_undef (cpp_reader *pfile)
 
   if (node)
     {
+      if (pfile->cb.before_define)
+	pfile->cb.before_define (pfile);
+
       if (pfile->cb.undef)
 	pfile->cb.undef (pfile, pfile->directive_line, node);
 
@@ -603,7 +611,7 @@ undefine_macros (cpp_reader *pfile ATTRIBUTE_UNUSED, cpp_hashnode *h,
   /* Body of _cpp_free_definition inlined here for speed.
      Macros and assertions no longer have anything to free.  */
   h->type = NT_VOID;
-  h->flags &= ~(NODE_POISONED|NODE_BUILTIN|NODE_DISABLED);
+  h->flags &= ~(NODE_POISONED|NODE_BUILTIN|NODE_DISABLED|NODE_USED);
   return 1;
 }
 
@@ -689,7 +697,7 @@ parse_include (cpp_reader *pfile, int *pangle_brackets,
       const unsigned char *dir;
 
       if (pfile->directive == &dtable[T_PRAGMA])
-	dir = U"pragma dependency";
+	dir = UC"pragma dependency";
       else
 	dir = pfile->directive->name;
       cpp_error (pfile, CPP_DL_ERROR, "#%s expects \"FILENAME\" or <FILENAME>",
@@ -1077,7 +1085,7 @@ register_pragma_1 (cpp_reader *pfile, const char *space, const char *name,
 
   if (space)
     {
-      node = cpp_lookup (pfile, U space, strlen (space));
+      node = cpp_lookup (pfile, UC space, strlen (space));
       entry = lookup_pragma_entry (*chain, node);
       if (!entry)
 	{
@@ -1106,7 +1114,7 @@ register_pragma_1 (cpp_reader *pfile, const char *space, const char *name,
     }
 
   /* Check for duplicates.  */
-  node = cpp_lookup (pfile, U name, strlen (name));
+  node = cpp_lookup (pfile, UC name, strlen (name));
   entry = lookup_pragma_entry (*chain, node);
   if (entry == NULL)
     {
@@ -1254,7 +1262,7 @@ restore_registered_pragmas (cpp_reader *pfile, struct pragma_entry *pe,
     {
       if (pe->is_nspace)
 	sd = restore_registered_pragmas (pfile, pe->u.space, sd);
-      pe->pragma = cpp_lookup (pfile, U *sd, strlen (*sd));
+      pe->pragma = cpp_lookup (pfile, UC *sd, strlen (*sd));
       free (*sd);
       sd++;
     }
@@ -1483,7 +1491,8 @@ get__Pragma_string (cpp_reader *pfile)
   string = get_token_no_padding (pfile);
   if (string->type == CPP_EOF)
     _cpp_backup_tokens (pfile, 1);
-  if (string->type != CPP_STRING && string->type != CPP_WSTRING)
+  if (string->type != CPP_STRING && string->type != CPP_WSTRING
+      && string->type != CPP_STRING32 && string->type != CPP_STRING16)
     return NULL;
 
   paren = get_token_no_padding (pfile);
@@ -1638,12 +1647,26 @@ do_ifdef (cpp_reader *pfile)
 
   if (! pfile->state.skipping)
     {
-      const cpp_hashnode *node = lex_macro_node (pfile, false);
+      cpp_hashnode *node = lex_macro_node (pfile, false);
 
       if (node)
 	{
 	  skip = node->type != NT_MACRO;
 	  _cpp_mark_macro_used (node);
+	  if (!(node->flags & NODE_USED))
+	    {
+	      node->flags |= NODE_USED;
+	      if (node->type == NT_MACRO)
+		{
+		  if (pfile->cb.used_define)
+		    pfile->cb.used_define (pfile, pfile->directive_line, node);
+		}
+	      else
+		{
+		  if (pfile->cb.used_undef)
+		    pfile->cb.used_undef (pfile, pfile->directive_line, node);
+		}
+	    }
 	  check_eol (pfile);
 	}
     }
@@ -1656,7 +1679,7 @@ static void
 do_ifndef (cpp_reader *pfile)
 {
   int skip = 1;
-  const cpp_hashnode *node = 0;
+  cpp_hashnode *node = 0;
 
   if (! pfile->state.skipping)
     {
@@ -1666,6 +1689,20 @@ do_ifndef (cpp_reader *pfile)
 	{
 	  skip = node->type == NT_MACRO;
 	  _cpp_mark_macro_used (node);
+	  if (!(node->flags & NODE_USED))
+	    {
+	      node->flags |= NODE_USED;
+	      if (node->type == NT_MACRO)
+		{
+		  if (pfile->cb.used_define)
+		    pfile->cb.used_define (pfile, pfile->directive_line, node);
+		}
+	      else
+		{
+		  if (pfile->cb.used_undef)
+		    pfile->cb.used_undef (pfile, pfile->directive_line, node);
+		}
+	    }
 	  check_eol (pfile);
 	}
     }
@@ -2086,6 +2123,26 @@ cpp_define (cpp_reader *pfile, const char *str)
   run_directive (pfile, T_DEFINE, buf, count);
 }
 
+
+/* Use to build macros to be run through cpp_define() as
+   described above.
+   Example: cpp_define_formatted (pfile, "MACRO=%d", value);  */
+
+void
+cpp_define_formatted (cpp_reader *pfile, const char *fmt, ...)
+{
+  char *ptr = NULL;
+
+  va_list ap;
+  va_start (ap, fmt);
+  vasprintf (&ptr, fmt, ap);
+  va_end (ap);
+
+  cpp_define (pfile, ptr);
+  free (ptr);
+}
+
+
 /* Slight variant of the above for use by initialize_builtins.  */
 void
 _cpp_define_builtin (cpp_reader *pfile, const char *str)
@@ -2144,6 +2201,9 @@ cpp_pop_definition (cpp_reader *pfile, const char *str, cpp_macro *dfn)
   cpp_hashnode *node = lex_macro_node_from_str (pfile, str);
   if (node == NULL)
     return;
+
+  if (pfile->cb.before_define)
+    pfile->cb.before_define (pfile);
 
   if (node->type == NT_MACRO)
     {

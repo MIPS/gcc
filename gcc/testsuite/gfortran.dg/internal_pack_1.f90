@@ -9,6 +9,13 @@ program main
   integer(kind=8), dimension(3) :: i8
   real(kind=4), dimension(3) :: r4
   real(kind=8), dimension(3) :: r8
+  complex(kind=4), dimension(3) :: c4
+  complex(kind=8), dimension(3) :: c8
+  type i8_t
+     sequence
+     integer(kind=8) :: v
+  end type i8_t
+  type(i8_t), dimension(3) :: d_i8
 
   i1 = (/ -1, 1, -3 /)
   call sub_i1(i1(1:3:2))
@@ -33,6 +40,20 @@ program main
   r8 = (/ -1.0_8, 1.0_8, -3.0_8 /)
   call sub_r8(r8(1:3:2))
   if (any(r8 /= (/ 3.0_8, 1.0_8, 2.0_8/))) call abort
+
+  c4 = (/ (-1.0_4, 0._4), (1.0_4, 0._4), (-3.0_4, 0._4) /)
+  call sub_c4(c4(1:3:2))
+  if (any(real(c4) /= (/ 3.0_4, 1.0_4, 2.0_4/))) call abort
+  if (any(aimag(c4) /= 0._4)) call abort
+
+  c8 = (/ (-1.0_4, 0._4), (1.0_4, 0._4), (-3.0_4, 0._4) /)
+  call sub_c8(c8(1:3:2))
+  if (any(real(c8) /= (/ 3.0_4, 1.0_4, 2.0_4/))) call abort
+  if (any(aimag(c8) /= 0._4)) call abort
+
+  d_i8%v = (/ -1, 1, -3 /)
+  call sub_d_i8(d_i8(1:3:2))
+  if (any(d_i8%v /= (/ 3, 1, 2 /))) call abort
 
 end program main
 
@@ -83,3 +104,33 @@ subroutine sub_r8(r)
   r(1) = 3._8
   r(2) = 2._8
 end subroutine sub_r8
+
+subroutine sub_c8(r)
+  implicit none
+  complex(kind=8), dimension(2) :: r
+  if (r(1) /= (-1._8,0._8)) call abort
+  if (r(2) /= (-3._8,0._8)) call abort
+  r(1) = 3._8
+  r(2) = 2._8
+end subroutine sub_c8
+
+subroutine sub_c4(r)
+  implicit none
+  complex(kind=4), dimension(2) :: r
+  if (r(1) /= (-1._4,0._4)) call abort
+  if (r(2) /= (-3._4,0._4)) call abort
+  r(1) = 3._4
+  r(2) = 2._4
+end subroutine sub_c4
+
+subroutine sub_d_i8(i)
+  type i8_t
+     sequence
+     integer(kind=8) :: v
+  end type i8_t
+  type(i8_t), dimension(2) :: i
+  if (i(1)%v /= -1) call abort
+  if (i(2)%v /= -3) call abort
+  i(1)%v = 3
+  i(2)%v = 2
+end subroutine sub_d_i8

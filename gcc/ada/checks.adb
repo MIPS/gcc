@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -450,6 +450,17 @@ package body Checks is
          return;
       end if;
 
+      --  No check if accessing the Offset_To_Top component of a dispatch
+      --  table. They are safe by construction.
+
+      if Present (Etype (P))
+        and then RTU_Loaded (Ada_Tags)
+        and then RTE_Available (RE_Offset_To_Top_Ptr)
+        and then Etype (P) = RTE (RE_Offset_To_Top_Ptr)
+      then
+         return;
+      end if;
+
       --  Otherwise go ahead and install the check
 
       Install_Null_Excluding_Check (P);
@@ -619,7 +630,7 @@ package body Checks is
             if Obj_Size /= No_Uint
               and then Exp_Size /= No_Uint
               and then Obj_Size > Exp_Size
-              and then not Warnings_Off (E)
+              and then not Has_Warnings_Off (E)
             then
                if Address_Clause_Overlay_Warnings then
                   Error_Msg_FE
@@ -1239,12 +1250,23 @@ package body Checks is
                   return;
                end if;
 
-               exit when
-                 not Is_OK_Static_Expression (ItemS)
-                   or else
-                 not Is_OK_Static_Expression (ItemT);
+               --  If the expressions for the discriminants are identical
+               --  and it is side-effect free (for now just an entity),
+               --  this may be a shared constraint, e.g. from a subtype
+               --  without a constraint introduced as a generic actual.
+               --  Examine other discriminants if any.
 
-               if Expr_Value (ItemS) /= Expr_Value (ItemT) then
+               if ItemS = ItemT
+                 and then Is_Entity_Name (ItemS)
+               then
+                  null;
+
+               elsif not Is_OK_Static_Expression (ItemS)
+                 or else not Is_OK_Static_Expression (ItemT)
+               then
+                  exit;
+
+               elsif Expr_Value (ItemS) /= Expr_Value (ItemT) then
                   if Do_Access then   --  needs run-time check.
                      exit;
                   else
@@ -2723,10 +2745,13 @@ package body Checks is
          end if;
       end if;
 
-      --  Check that null-excluding objects are always initialized
+      --  Check that null-excluding objects are always initialized, except for
+      --  deferred constants, for which the expression will appear in the full
+      --  declaration.
 
       if K = N_Object_Declaration
         and then No (Expression (N))
+        and then not Constant_Present (N)
         and then not No_Initialization (N)
       then
          --  Add an expression that assigns null. This node is needed by
@@ -2742,9 +2767,9 @@ package body Checks is
             Reason => CE_Null_Not_Allowed);
       end if;
 
-      --  Check that a null-excluding component, formal or object is not
-      --  being assigned a null value. Otherwise generate a warning message
-      --  and replace Expression (N) by a N_Constraint_Error node.
+      --  Check that a null-excluding component, formal or object is not being
+      --  assigned a null value. Otherwise generate a warning message and
+      --  replace Expression (N) by an N_Constraint_Error node.
 
       if K /= N_Function_Specification then
          Expr := Expression (N);
@@ -3368,14 +3393,14 @@ package body Checks is
       --  Nothing to do if the range of the result is known OK. We skip this
       --  for conversions, since the caller already did the check, and in any
       --  case the condition for deleting the check for a type conversion is
-      --  different in any case.
+      --  different.
 
       if Nkind (N) /= N_Type_Conversion then
          Determine_Range (N, OK, Lo, Hi);
 
-         --  Note in the test below that we assume that if a bound of the
-         --  range is equal to that of the type. That's not quite accurate
-         --  but we do this for the following reasons:
+         --  Note in the test below that we assume that the range is not OK
+         --  if a bound of the range is equal to that of the type. That's not
+         --  quite accurate but we do this for the following reasons:
 
          --   a) The way that Determine_Range works, it will typically report
          --      the bounds of the value as being equal to the bounds of the
@@ -3385,7 +3410,7 @@ package body Checks is
          --   b) It is very unusual to have a situation in which this would
          --      generate an unnecessary overflow check (an example would be
          --      a subtype with a range 0 .. Integer'Last - 1 to which the
-         --      literal value one is added.
+         --      literal value one is added).
 
          --   c) The alternative is a lot of special casing in this routine
          --      which would partially duplicate Determine_Range processing.
@@ -3890,6 +3915,12 @@ package body Checks is
       --  If we fall through, a validity check is required
 
       Insert_Valid_Check (Expr);
+
+      if Is_Entity_Name (Expr)
+        and then Safe_To_Capture_Value (Expr, Entity (Expr))
+      then
+         Set_Is_Known_Valid (Entity (Expr));
+      end if;
    end Ensure_Valid;
 
    ----------------------
@@ -4115,12 +4146,7 @@ package body Checks is
       --  appropriate one for our purposes.
 
       if (Ekind (Ent) = E_Variable
-            or else
-          Ekind (Ent) = E_Constant
-            or else
-          Ekind (Ent) = E_Loop_Parameter
-            or else
-          Ekind (Ent) = E_In_Parameter)
+            or else Is_Constant_Object (Ent))
         and then not Is_Library_Level_Entity (Ent)
       then
          Entry_OK := True;
@@ -4365,7 +4391,8 @@ package body Checks is
                         Duplicate_Subexpr_Move_Checks (Sub)),
                     Right_Opnd =>
                       Make_Attribute_Reference (Loc,
-                        Prefix         => Duplicate_Subexpr_Move_Checks (A),
+                        Prefix         =>
+                          Duplicate_Subexpr_Move_Checks (A, Name_Req => True),
                         Attribute_Name => Name_Range,
                         Expressions    => Num)),
                 Reason => CE_Index_Check_Failed));

@@ -387,8 +387,8 @@ struct tree_base GTY(())
   unsigned private_flag : 1;
   unsigned protected_flag : 1;
   unsigned deprecated_flag : 1;
-  unsigned invariant_flag : 1;
   unsigned saturating_flag : 1;
+  unsigned default_def_flag : 1;
 
   unsigned lang_flag_0 : 1;
   unsigned lang_flag_1 : 1;
@@ -577,11 +577,6 @@ struct gimple_stmt GTY(())
    visited:
 
    	Used in tree traversals to mark visited nodes.
-
-   invariant_flag:
-
-	TREE_INVARIANT in
-	    all expressions.
 
    saturating_flag:
 
@@ -1371,12 +1366,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define IDENTIFIER_TRANSPARENT_ALIAS(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->base.deprecated_flag)
 
-/* Value of expression is function invariant.  A strict subset of
-   TREE_CONSTANT, such an expression is constant over any one function
-   invocation, though not across different invocations.  May appear in
-   any expression node.  */
-#define TREE_INVARIANT(NODE) ((NODE)->base.invariant_flag)
-
 /* In fixed-point types, means a saturating type.  */
 #define TYPE_SATURATING(NODE) ((NODE)->base.saturating_flag)
 
@@ -1881,7 +1870,7 @@ struct tree_exp GTY(())
    Default definitions are always created by an empty statement and
    belong to no basic block.  */
 #define SSA_NAME_IS_DEFAULT_DEF(NODE)	\
-    SSA_NAME_CHECK (NODE)->base.volatile_flag
+    SSA_NAME_CHECK (NODE)->base.default_def_flag
 
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
@@ -2206,11 +2195,6 @@ struct tree_block GTY(())
    always actual sizes.  */
 #define TYPE_IS_SIZETYPE(NODE) \
   (INTEGER_TYPE_CHECK (NODE)->type.no_force_blk_flag)
-
-/* In a FUNCTION_TYPE, indicates that the function returns with the stack
-   pointer depressed.  */
-#define TYPE_RETURNS_STACK_DEPRESSED(NODE) \
-  (FUNCTION_TYPE_CHECK (NODE)->type.no_force_blk_flag)
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->base.volatile_flag)
@@ -4846,6 +4830,19 @@ extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
 extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 extern bool tree_expr_nonzero_p (tree);
+extern bool tree_unary_nonzero_warnv_p (enum tree_code, tree, tree, bool *);
+extern bool tree_binary_nonzero_warnv_p (enum tree_code, tree, tree, tree op1,
+                                         bool *);
+extern bool tree_single_nonzero_warnv_p (tree, bool *);
+extern bool tree_expr_nonzero_warnv_p (tree, bool *);
+extern bool tree_unary_nonnegative_warnv_p (enum tree_code, tree, tree, bool *);
+extern bool tree_binary_nonnegative_warnv_p (enum tree_code, tree, tree, tree,
+                                             bool *);
+extern bool tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p);
+extern bool tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p);
+extern bool tree_call_nonnegative_warnv_p (enum tree_code code, tree, tree,
+                                           tree, tree, bool *);
+
 extern bool tree_expr_nonzero_warnv_p (tree, bool *);
 
 extern bool fold_real_zero_addition_p (const_tree, const_tree, int);
@@ -4882,6 +4879,7 @@ extern tree strip_float_extensions (tree);
 
 /* In tree.c */
 extern int really_constant_p (const_tree);
+extern bool decl_address_invariant_p (const_tree);
 extern int int_fits_type_p (const_tree, const_tree);
 #ifndef GENERATOR_FILE
 extern void get_type_static_bounds (const_tree, mpz_t, mpz_t);
@@ -4954,8 +4952,6 @@ extern void preserve_temp_slots (rtx);
 extern int aggregate_value_p (const_tree, const_tree);
 extern void push_function_context (void);
 extern void pop_function_context (void);
-extern void push_function_context_to (tree);
-extern void pop_function_context_from (tree);
 extern tree gimplify_parameters (void);
 
 /* In print-rtl.c */
@@ -5000,14 +4996,11 @@ extern tree build_duplicate_type (tree);
 /* Nonzero if this is a call to "pure" function (like const function,
    but may read memory.  */
 #define ECF_PURE		128
-/* Nonzero if this is a call to a function that returns with the stack
-   pointer depressed.  */
-#define ECF_SP_DEPRESSED	256
 /* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	512
+#define ECF_LIBCALL_BLOCK	256
 /* Function does not read or write memory (but may have side effects, so
    it does not necessarily fit ECF_CONST).  */
-#define ECF_NOVOPS		1024
+#define ECF_NOVOPS		512
 
 extern int flags_from_decl_or_type (const_tree);
 extern int call_expr_flags (const_tree);

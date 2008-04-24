@@ -4442,7 +4442,10 @@ layout_var_decl (tree decl)
       if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
 	constant_expression_warning (DECL_SIZE (decl));
       else
-	error ("storage size of %qD isn't constant", decl);
+	{
+	  error ("storage size of %qD isn't constant", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	}
     }
 }
 
@@ -5027,7 +5030,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 		  saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
 		  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
 		}
-	      init = build_aggr_init (decl, init, flags);
+	      init = build_aggr_init (decl, init, flags, tf_warning_or_error);
 	      if (building_stmt_tree ())
 		current_stmt_tree ()->stmts_are_full_exprs_p =
 		  saved_stmts_are_full_exprs_p;
@@ -5978,7 +5981,7 @@ register_dtor_fn (tree decl)
 	  addr = build_address (decl);
 	  /* The declared type of the parameter to "__cxa_atexit" is
 	     "void *".  For plain "T*", we could just let the
-	     machinery in build_function_call convert it -- but if the
+	     machinery in cp_build_function_call convert it -- but if the
 	     type is "cv-qualified T *", then we need to convert it
 	     before passing it in, to avoid spurious errors.  */
 	  addr = build_nop (ptr_type_node, addr);
@@ -5990,7 +5993,8 @@ register_dtor_fn (tree decl)
 	   other value.  */
 	addr = null_pointer_node;
       args = tree_cons (NULL_TREE,
-			build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0),
+			cp_build_unary_op (ADDR_EXPR, get_dso_handle_node (), 0,
+                                        tf_warning_or_error),
 			NULL_TREE);
       if (targetm.cxx.use_aeabi_atexit ())
 	{
@@ -6005,7 +6009,8 @@ register_dtor_fn (tree decl)
     }
   else
     args = tree_cons (NULL_TREE, cleanup, NULL_TREE);
-  return build_function_call (get_atexit_node (), args);
+  return cp_build_function_call (get_atexit_node (), args, 
+				 tf_warning_or_error);
 }
 
 /* DECL is a VAR_DECL with static storage duration.  INIT, if present,
@@ -7082,7 +7087,8 @@ compute_array_index_type (tree name, tree size)
       processing_template_decl = 0;
       itype = cp_build_binary_op (MINUS_EXPR,
 				  cp_convert (ssizetype, size),
-				  cp_convert (ssizetype, integer_one_node));
+				  cp_convert (ssizetype, integer_one_node),
+				  tf_warning_or_error);
       itype = fold (itype);
       processing_template_decl = saved_processing_template_decl;
 
@@ -7726,6 +7732,13 @@ grokdeclarator (const cp_declarator *declarator,
 	error ("%<long%> or %<short%> specified with char for %qs", name);
       else if (long_p && short_p)
 	error ("%<long%> and %<short%> specified together for %qs", name);
+      else if (type == char16_type_node || type == char32_type_node)
+	{
+	  if (signed_p || unsigned_p)
+	    error ("%<signed%> or %<unsigned%> invalid for %qs", name);
+	  else if (short_p || long_p)
+	    error ("%<short%> or %<long%> invalid for %qs", name);
+	}
       else
 	{
 	  ok = 1;
@@ -7889,7 +7902,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp
       && (current_class_name == NULL_TREE || decl_context != FIELD))
     {
-      error ("virtual outside class declaration");
+      error ("%<virtual%> outside class declaration");
       virtualp = 0;
     }
 
@@ -10820,7 +10833,8 @@ finish_enum (tree enumtype)
       saved_location = input_location;
       input_location = DECL_SOURCE_LOCATION (decl);
       value = perform_implicit_conversion (underlying_type,
-					   DECL_INITIAL (decl));
+					   DECL_INITIAL (decl),
+					   tf_warning_or_error);
       input_location = saved_location;
 
       /* Do not clobber shared ints.  */
@@ -10953,7 +10967,6 @@ build_enumerator (tree name, tree value, tree enumtype)
 
   DECL_CONTEXT (decl) = FROB_CONTEXT (context);
   TREE_CONSTANT (decl) = 1;
-  TREE_INVARIANT (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
@@ -11254,6 +11267,11 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      FIXME factor out the non-RTL stuff.  */
   bl = current_binding_level;
   allocate_struct_function (decl1, processing_template_decl);
+
+  /* Initialize the language data structures.  Whenever we start
+     a new function, we destroy temporaries in the usual way.  */
+  cfun->language = GGC_CNEW (struct language_function);
+  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
   current_binding_level = bl;
 
   /* Even though we're inside a function body, we still don't want to
@@ -11282,7 +11300,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       gcc_assert (TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE);
 
       cp_function_chain->x_current_class_ref
-	= build_indirect_ref (t, NULL);
+	= cp_build_indirect_ref (t, NULL, tf_warning_or_error);
       cp_function_chain->x_current_class_ptr = t;
 
       /* Constructors and destructors need to know whether they're "in
@@ -12199,8 +12217,9 @@ cxx_maybe_build_cleanup (tree decl)
       fn = lookup_name (id);
       arg = build_address (decl);
       mark_used (decl);
-      cleanup = build_function_call (fn, build_tree_list (NULL_TREE,
-							  arg));
+      cleanup = cp_build_function_call (fn, build_tree_list (NULL_TREE,
+							     arg),
+					tf_warning_or_error);
     }
   /* Handle ordinary C++ destructors.  */
   type = TREE_TYPE (decl);
@@ -12262,47 +12281,6 @@ revert_static_member_fn (tree decl)
   if (DECL_ARGUMENTS (decl))
     DECL_ARGUMENTS (decl) = TREE_CHAIN (DECL_ARGUMENTS (decl));
   DECL_STATIC_FUNCTION_P (decl) = 1;
-}
-
-/* Initialize the variables used during compilation of a C++
-   function.  */
-
-void
-cxx_push_function_context (struct function * f)
-{
-  struct language_function *p = GGC_CNEW (struct language_function);
-  f->language = p;
-
-  /* Whenever we start a new function, we destroy temporaries in the
-     usual way.  */
-  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
-
-  if (f->decl)
-    {
-      tree fn = f->decl;
-
-      if (DECL_SAVED_FUNCTION_DATA (fn))
-	{
-	  /* If we already parsed this function, and we're just expanding it
-	     now, restore saved state.  */
-	  *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
-
-	  /* We don't need the saved data anymore.  Unless this is an inline
-	     function; we need the named return value info for
-	     declare_return_variable.  */
-	  if (! DECL_INLINE (fn))
-	    DECL_SAVED_FUNCTION_DATA (fn) = NULL;
-	}
-    }
-}
-
-/* Free the language-specific parts of F, now that we've finished
-   compiling the function.  */
-
-void
-cxx_pop_function_context (struct function * f)
-{
-  f->language = 0;
 }
 
 /* Return which tree structure is used by T, or TS_CP_GENERIC if T is

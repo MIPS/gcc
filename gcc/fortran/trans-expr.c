@@ -2858,7 +2858,9 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
     dsc = gfc_to_single_character (dlen, dest);
 
 
-  if (dsc != NULL_TREE && ssc != NULL_TREE)
+  /* Assign directly if the types are compatible.  */
+  if (dsc != NULL_TREE && ssc != NULL_TREE
+	&& TREE_TYPE (dsc) == TREE_TYPE (ssc))
     {
       gfc_add_modify_expr (block, dsc, ssc);
       return;
@@ -3476,10 +3478,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
     }
   se->expr = build_constructor (type, v);
   if (init) 
-    {
-      TREE_CONSTANT(se->expr) = 1;
-      TREE_INVARIANT(se->expr) = 1;
-    }
+    TREE_CONSTANT (se->expr) = 1;
 }
 
 

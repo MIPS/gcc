@@ -2458,7 +2458,7 @@ lto_materialize_function (struct cgraph_node *node)
 
       /* Look for initializers of constant variables and private
 	 statics.  */
-      for (step = fn->unexpanded_var_list;
+      for (step = fn->local_decls;
 	   step;
 	   step = TREE_CHAIN (step))
 	{

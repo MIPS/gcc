@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file include/date_time
+/** @file date_time
  *  This is a Standard C++ Library header.
  */
 
@@ -45,7 +45,8 @@
 namespace std
 {
   // duration types
-  
+
+  /// nanoseconds
   class nanoseconds
   {
   public:
@@ -90,7 +91,7 @@ namespace std
   class minutes;
   class hours;
   
-  // timepoint type
+  /// timepoint type
   class system_time
   {
   public:

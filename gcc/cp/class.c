@@ -284,7 +284,7 @@ build_base_path (enum tree_code code,
 
   if (!want_pointer)
     /* This must happen before the call to save_expr.  */
-    expr = build_unary_op (ADDR_EXPR, expr, 0);
+    expr = cp_build_unary_op (ADDR_EXPR, expr, 0, tf_warning_or_error);
 
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
@@ -345,7 +345,7 @@ build_base_path (enum tree_code code,
 	 interesting to the optimizers anyway.  */
       && !has_empty)
     {
-      expr = build_indirect_ref (expr, NULL);
+      expr = cp_build_indirect_ref (expr, NULL, tf_warning_or_error);
       expr = build_simple_base_path (expr, binfo);
       if (want_pointer)
 	expr = build_address (expr);
@@ -370,10 +370,12 @@ build_base_path (enum tree_code code,
 	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
 	  v_offset = convert (t, current_vtt_parm);
-	  v_offset = build_indirect_ref (v_offset, NULL);
+	  v_offset = cp_build_indirect_ref (v_offset, NULL, 
+                                            tf_warning_or_error);
 	}
       else
-	v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
+	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, NULL,
+                                                            tf_warning_or_error),
 				     TREE_TYPE (TREE_TYPE (expr)));
 
       v_offset = build2 (POINTER_PLUS_EXPR, TREE_TYPE (v_offset),
@@ -381,9 +383,8 @@ build_base_path (enum tree_code code,
       v_offset = build1 (NOP_EXPR,
 			 build_pointer_type (ptrdiff_type_node),
 			 v_offset);
-      v_offset = build_indirect_ref (v_offset, NULL);
+      v_offset = cp_build_indirect_ref (v_offset, NULL, tf_warning_or_error);
       TREE_CONSTANT (v_offset) = 1;
-      TREE_INVARIANT (v_offset) = 1;
 
       offset = convert_to_integer (ptrdiff_type_node,
 				   size_diffop (offset,
@@ -425,7 +426,7 @@ build_base_path (enum tree_code code,
     null_test = NULL;
 
   if (!want_pointer)
-    expr = build_indirect_ref (expr, NULL);
+    expr = cp_build_indirect_ref (expr, NULL, tf_warning_or_error);
 
  out:
   if (null_test)
@@ -459,7 +460,7 @@ build_simple_base_path (tree expr, tree binfo)
 	 in the back end.  */
       temp = unary_complex_lvalue (ADDR_EXPR, expr);
       if (temp)
-	expr = build_indirect_ref (temp, NULL);
+	expr = cp_build_indirect_ref (temp, NULL, tf_warning_or_error);
 
       return expr;
     }
@@ -551,7 +552,8 @@ convert_to_base_statically (tree expr, tree base)
 	 when processing a template because they do not handle C++-specific
 	 trees.  */
       gcc_assert (!processing_template_decl);
-      expr = build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1);
+      expr = cp_build_unary_op (ADDR_EXPR, expr, /*noconvert=*/1, 
+                             tf_warning_or_error);
       if (!integer_zerop (BINFO_OFFSET (base)))
         expr = fold_build2 (POINTER_PLUS_EXPR, pointer_type, expr,
 			    fold_convert (sizetype, BINFO_OFFSET (base)));
@@ -627,7 +629,6 @@ build_vtbl_ref_1 (tree instance, tree idx)
 
   aref = build_array_ref (vtbl, idx);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
-  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
 
   return aref;
 }
@@ -648,13 +649,16 @@ build_vfn_ref (tree instance_ptr, tree idx)
 {
   tree aref;
 
-  aref = build_vtbl_ref_1 (build_indirect_ref (instance_ptr, 0), idx);
+  aref = build_vtbl_ref_1 (cp_build_indirect_ref (instance_ptr, 0,
+                                                  tf_warning_or_error), 
+                           idx);
 
   /* When using function descriptors, the address of the
      vtable entry is treated as a function pointer.  */
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     aref = build1 (NOP_EXPR, TREE_TYPE (aref),
-		   build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1));
+		   cp_build_unary_op (ADDR_EXPR, aref, /*noconvert=*/1,
+                                   tf_warning_or_error));
 
   /* Remember this as a method reference, for later devirtualization.  */
   aref = build3 (OBJ_TYPE_REF, TREE_TYPE (aref), aref, instance_ptr, idx);
@@ -4054,7 +4058,9 @@ type_has_user_nondefault_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (!DECL_ARTIFICIAL (fn)
-	  && skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn)) != NULL_TREE)
+	  && (TREE_CODE (fn) == TEMPLATE_DECL
+	      || (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
+		  != NULL_TREE)))
 	return true;
     }
 
@@ -6098,10 +6104,10 @@ resolve_address_of_overloaded_function (tree target_type,
     }
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
-    return build_unary_op (ADDR_EXPR, fn, 0);
+    return cp_build_unary_op (ADDR_EXPR, fn, 0, flags);
   else
     {
-      /* The target must be a REFERENCE_TYPE.  Above, build_unary_op
+      /* The target must be a REFERENCE_TYPE.  Above, cp_build_unary_op
 	 will mark the function as addressed, but here we must do it
 	 explicitly.  */
       cxx_mark_addressable (fn);
@@ -7442,7 +7448,6 @@ build_vtbl_initializer (tree binfo,
 				     TREE_OPERAND (init, 0),
 				     build_int_cst (NULL_TREE, i));
 		TREE_CONSTANT (fdesc) = 1;
-		TREE_INVARIANT (fdesc) = 1;
 
 		vfun_inits = tree_cons (NULL_TREE, fdesc, vfun_inits);
 	      }

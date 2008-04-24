@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -87,7 +87,7 @@ package body Exp_Intr is
    --  K is the kind for the shift node
 
    procedure Expand_Unc_Conversion (N : Node_Id; E : Entity_Id);
-   --  Expand a call to an instantiation of Unchecked_Convertion into a node
+   --  Expand a call to an instantiation of Unchecked_Conversion into a node
    --  N_Unchecked_Type_Conversion.
 
    procedure Expand_Unc_Deallocation (N : Node_Id);
@@ -97,7 +97,7 @@ package body Exp_Intr is
    procedure Expand_To_Address (N : Node_Id);
    procedure Expand_To_Pointer (N : Node_Id);
    --  Expand a call to corresponding function, declared in an instance of
-   --  System.Addess_To_Access_Conversions.
+   --  System.Address_To_Access_Conversions.
 
    procedure Expand_Source_Info (N : Node_Id; Nam : Name_Id);
    --  Rewrite the node by the appropriate string or positive constant.
@@ -659,6 +659,8 @@ package body Exp_Intr is
       --  String cases
 
       else
+         Name_Len := 0;
+
          case Nam is
             when Name_File =>
                Get_Decoded_Name_String
@@ -668,12 +670,10 @@ package body Exp_Intr is
                Build_Location_String (Loc);
 
             when Name_Enclosing_Entity =>
-               Name_Len := 0;
-
-               Ent := Current_Scope;
 
                --  Skip enclosing blocks to reach enclosing unit
 
+               Ent := Current_Scope;
                while Present (Ent) loop
                   exit when Ekind (Ent) /= E_Block
                     and then Ekind (Ent) /= E_Loop;
@@ -682,7 +682,6 @@ package body Exp_Intr is
 
                --  Ent now points to the relevant defining entity
 
-               Name_Len := 0;
                Write_Entity_Name (Ent);
 
             when others =>
@@ -690,7 +689,8 @@ package body Exp_Intr is
          end case;
 
          Rewrite (N,
-           Make_String_Literal (Loc, Strval => String_From_Name_Buffer));
+           Make_String_Literal (Loc,
+             Strval => String_From_Name_Buffer));
          Analyze_And_Resolve (N, Standard_String);
       end if;
 

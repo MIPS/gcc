@@ -128,7 +128,8 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 		 -TREE_INT_CST_LOW (node));
       else
 	fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		 TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
     }
   if (TREE_CODE (node) == REAL_CST)
     {
@@ -297,8 +298,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
     fputs (" sizes-gimplified", file);
 
-  if (TREE_INVARIANT (node))
-    fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
     fputs (" addressable", file);
   if (TREE_THIS_VOLATILE (node))
@@ -570,9 +569,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       else if (TREE_CODE (node) == INTEGER_TYPE
 	       && TYPE_IS_SIZETYPE (node))
 	fputs (" sizetype", file);
-      else if (TREE_CODE (node) == FUNCTION_TYPE
-	       && TYPE_RETURNS_STACK_DEPRESSED (node))
-	fputs (" returns-stack-depressed", file);
 
       if (TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
@@ -749,7 +745,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		     -TREE_INT_CST_LOW (node));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
 	  break;
 
 	case REAL_CST:

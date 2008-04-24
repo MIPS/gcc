@@ -305,7 +305,7 @@ break_out_memory_refs (rtx x)
       rtx op1 = break_out_memory_refs (XEXP (x, 1));
 
       if (op0 != XEXP (x, 0) || op1 != XEXP (x, 1))
-	x = gen_rtx_fmt_ee (GET_CODE (x), Pmode, op0, op1);
+	x = simplify_gen_binary (GET_CODE (x), Pmode, op0, op1);
     }
 
   return x;
@@ -1090,7 +1090,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
   /* We can't attempt to minimize alignment necessary, because we don't
      know the final value of preferred_stack_boundary yet while executing
      this code.  */
-  cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
 
   /* We will need to ensure that the address we return is aligned to
      BIGGEST_ALIGNMENT.  If STACK_DYNAMIC_OFFSET is defined, we don't

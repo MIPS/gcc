@@ -461,7 +461,6 @@ lto_symtab_merge_decl (tree new_decl)
   TREE_ADDRESSABLE (old_decl) |= TREE_ADDRESSABLE (new_decl);
   TREE_THIS_VOLATILE (old_decl) |= TREE_THIS_VOLATILE (new_decl);
   TREE_READONLY (old_decl) |= TREE_READONLY (new_decl);
-  TREE_INVARIANT (old_decl) |= TREE_INVARIANT (new_decl);
   DECL_EXTERNAL (old_decl) &= DECL_EXTERNAL (new_decl);
     
   DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);

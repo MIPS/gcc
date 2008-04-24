@@ -185,7 +185,7 @@ struct output_block
      a particular local var is located.  This allows the local vars to
      be read in random order.  */ 
   VEC(int,heap) *local_decls_index;
-  /* Index in unexpanded_vars_list so that list can be reconstructed
+  /* Index in local_decls so that list can be reconstructed
      properly.  */
   VEC(int,heap) *unexpanded_local_decls_index;
 #ifdef LTO_STREAM_DEBUGGING
@@ -1419,7 +1419,7 @@ output_local_var (struct output_block *ob, int index)
       else
 	output_zero (ob);
       /* Index in unexpanded_vars_list.  */
-      LTO_DEBUG_INDENT_TOKEN ("unexpanded index");
+      LTO_DEBUG_INDENT_TOKEN ("local decl index");
       output_sleb128 (ob, VEC_index (int, ob->unexpanded_local_decls_index, index));
     }
   else
@@ -1485,7 +1485,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
   /* Need to put out the local statics first, to avoid the pointer
      games used for the regular locals.  */
   LTO_DEBUG_TOKEN ("local statics");
-  for (t = fn->unexpanded_var_list; t; t = TREE_CHAIN (t))
+  for (t = fn->local_decls; t; t = TREE_CHAIN (t))
     {
       tree lv = TREE_VALUE (t);
 
@@ -1511,7 +1511,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
 	{
 	  int j = output_local_decl_ref (ob, lv, false);
 	  /* Just for the fun of it, some of the locals are in the
-	     unexpanded_var_list more than once.  */
+	     local_decls_list more than once.  */
 	  if (VEC_index (int, ob->unexpanded_local_decls_index, j) == -1)
 	    VEC_replace (int, ob->unexpanded_local_decls_index, j, i++);
 	}

@@ -993,7 +993,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SHARED:
 	  gcc_assert (is_parallel_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
-	  gcc_assert (!is_variable_sized (decl));
+	  gcc_assert (!COMPLETE_TYPE_P (TREE_TYPE (decl))
+		      || !is_variable_sized (decl));
 	  by_ref = use_pointer_for_field (decl, ctx);
 	  /* Global variables don't need to be copied,
 	     the receiver side will use them directly.  */
@@ -2625,7 +2626,7 @@ expand_omp_parallel (struct omp_region *region)
 
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
-      BLOCK_VARS (block) = list2chain (child_cfun->unexpanded_var_list);
+      BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
       DECL_SAVED_TREE (child_fn) = bb_stmt_list (single_succ (entry_bb));
 
       /* Reset DECL_CONTEXT on function arguments.  */

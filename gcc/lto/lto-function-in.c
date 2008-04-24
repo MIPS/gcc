@@ -67,8 +67,8 @@ struct data_in
   /* The offsets to decode the local_decls.  */
   int *local_decls_index;
 
-  /* A table to reconstruct the unexpanded_vars_list.  */
-  int *unexpanded_indexes;  
+  /* A table to reconstruct the local_decls.  */
+  int *local_decl_indexes;  
 
 #ifdef LTO_STREAM_DEBUGGING
   /* The offsets to decode the local_decls debug info.  */
@@ -1134,10 +1134,10 @@ input_local_var (struct lto_input_block *ib, struct data_in *data_in,
       if (tag)
 	DECL_INITIAL (result) = input_expr_operand (ib, data_in, fn, tag);
 
-      LTO_DEBUG_INDENT_TOKEN ("unexpanded index");
+      LTO_DEBUG_INDENT_TOKEN ("local decl index");
       index = lto_input_sleb128 (ib);
       if (index != -1)
-	data_in->unexpanded_indexes[index] = i;
+	data_in->local_decl_indexes[index] = i;
     }
   else
     {
@@ -1200,21 +1200,21 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
   int i;
   unsigned int tag;
 
-  data_in->unexpanded_indexes = xcalloc (count, sizeof (int));
+  data_in->local_decl_indexes = xcalloc (count, sizeof (int));
   data_in->local_decls = xcalloc (count, sizeof (tree*));
 
-  memset (data_in->unexpanded_indexes, -1, count * sizeof (int));
+  memset (data_in->local_decl_indexes, -1, count * sizeof (int));
 
-  /* Recreate the unexpanded_var_list.  Put the statics at the end.*/
-  fn->unexpanded_var_list = NULL;
+  /* Recreate the local_var.  Put the statics at the end.*/
+  fn->local_decls = NULL;
   LTO_DEBUG_TOKEN ("local statics");
   tag = input_record_start (ib);
   
   while (tag)
     {
       tree var = input_expr_operand (ib, data_in, fn, tag);
-      fn->unexpanded_var_list 
-	= tree_cons (NULL_TREE, var, fn->unexpanded_var_list);
+      fn->local_decls
+	= tree_cons (NULL_TREE, var, fn->local_decls);
 
       if (lto_input_uleb128 (ib))
 	DECL_CONTEXT (var) = fn->decl;
@@ -1247,14 +1247,14 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Add the regular locals in the proper order.  */
   for (i = count - 1; i >= 0; i--)
-    if (data_in->unexpanded_indexes[i] != -1)
-      fn->unexpanded_var_list 
+    if (data_in->local_decl_indexes[i] != -1)
+      fn->local_decls 
 	= tree_cons (NULL_TREE, 
-		     data_in->local_decls[data_in->unexpanded_indexes[i]],
-		     fn->unexpanded_var_list);
+		     data_in->local_decls[data_in->local_decl_indexes[i]],
+		     fn->local_decls);
 
-  free (data_in->unexpanded_indexes);
-  data_in->unexpanded_indexes = NULL;
+  free (data_in->local_decl_indexes);
+  data_in->local_decl_indexes = NULL;
 }
 
 

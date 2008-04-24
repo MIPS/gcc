@@ -1,3 +1,268 @@
+2008-04-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35994
+	* trans-instrinsic.c (gfc_conv_intrinsic_minmaxloc): Correctly adjust
+	loop counter offset.
+
+2008-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* trans-expr.c (gfc_conv_structure): Don't set TREE_INVARIANT.
+	* trans-array.c (gfc_build_null_descriptor): Don't set TREE_INVARIANT.
+	(gfc_trans_array_constructor_value): Don't set TREE_INVARIANT.
+	(gfc_build_constant_array_constructor): Don't set TREE_INVARIANT.
+	(gfc_conv_array_initializer): Don't set TREE_INVARIANT.
+	* trans-common.c (get_init_field): Don't set TREE_INVARIANT.
+	(create_common): Don't set TREE_INVARIANT.
+	* trans-stmt.c (gfc_trans_character_select): Don't set TREE_INVARIANT.
+	* trans-decl.c (gfc_generate_function_code): Don't set TREE_INVARIANT.
+
+2008-04-21  Steve Ellcey  <sje@cup.hp.com>
+
+	* f95-lang.c (gfc_init_decl_processing): use ptr_mode instead of Pmode.
+
+2008-04-21  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35019
+	* gfortranspec.c (lookup_option): Properly handle separated arguments
+	in -J option, print missing argument message when necessary.
+
+2008-04-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35882
+	* scanner.c (skip_fixed_comments): Update continue_line when comment is
+	detected. (gfc_next_char_literal): Likewise.
+
+2008-04-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35944
+	PR fortran/35946
+	PR fortran/35947
+	* trans_array.c (gfc_trans_array_constructor): Temporarily
+	realign loop, if loop->from is not zero, before creating
+	the temporary array and provide an offset.
+
+	PR fortran/35959
+	* trans-decl.c (gfc_init_default_dt): Add gfc_ prefix to name
+	and allow for NULL body.  Change all references from
+	init_default_dt to gfc_init_default_dt.
+	* trans.h : Add prototype for gfc_init_default_dt.
+	* trans-array.c (gfc_trans_deferred_vars): After nullification
+	call gfc_init_default_dt for derived types with allocatable
+	components.
+
+2008-04-18  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35892
+	* trans-common.c (create_common): Revert patch causing regression.
+
+2008-04-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35724
+	* iresolve.c (gfc_resolve_eoshift): Check for NULL symtree in test for
+	optional argument attribute.
+	
+2008-04-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35932
+	* trans-intrinsic.c (gfc_conv_intrinsic_char): Even though KIND
+	is not used, the argument must be converted.
+
+2008-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35662
+	* f95-lang.c (gfc_init_builtin_functions): Make sure
+	BUILT_IN_SINCOS{,F,L} types aren't varargs.
+
+2008-04-15  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35864
+	* expr.c (scalarize_intrinsic_call): Reorder identification of
+	array argument so that if one is not found a segfault does not
+	occur.  Return FAILURE if all scalar arguments.
+
+2008-04-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35882
+	* options.c (gfc_init_options): Set the default maximum continuation
+	lines to 255 for both free and fixed form source for warnings.
+	(gfc_handle_option): Set -std=f95 fixed form max continuations to 19 and
+	the -std=f95 free form max continuations to 39 for warnings.
+	* scanner.c (gfc_next_char_literal): Adjust the current_line number only
+	if it is less than the current locus.
+
+2008-04-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25829 28655
+	* io.c (io_tag): Add new tags for decimal, encoding, asynchronous,
+	round, sign, and id. (match_open_element): Match new tags.
+	(gfc_resolve_open): Resolve new tags. (gfc_match_open): Enable encoding
+	for DEFAULT only. Update error messages. (match_dt_element): Fix match
+	tag for asynchronous. Update error messages. (gfc_free_inquire): Free
+	new expressions. (match_inquire_element): Match new tags.
+	(gfc_match_inquire): Add constraint for ID and PENDING.
+	(gfc_resolve_inquire): Resolve new tags.
+	* trans-io.c (gfc_trans_inquire): Clean up whitespace and fix setting of
+	mask for ID parameter.
+	* ioparm.def: Fix order of parameters for pending, round, and sign.
+	NOTE: These must line up with the definitions in libgfortran/io/io.h. or
+	things don't work.
+
+2008-04-06  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35780
+	* expr.c (scalarize_intrinsic_call): Identify which argument is
+	an array and use that as the template.
+	(check_init_expr): Remove tests that first argument is an array
+	in the call to scalarize_intrinsic_call.
+
+2008-04-06  Tobias Schlüter  <tobi@gcc.gnu.org>
+
+	PR fortran/35832
+	* io.c (io_tag): Add field 'value'.  Split 'spec' field in
+	existing io_tags.
+	(match_etag, match_vtag, match_ltag): Split parsing in two steps
+	to give better error messages.
+
+2008-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	* io.c (check_io_constraints): Add constrains. ID= requires
+	asynchronous= and asynchronous= must be init expression.
+
+2008-04-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* f95-lang.c: Set LANG_HOOKS_NAME to "GNU Fortran".
+
+2008-04-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* dump-parse-tree.c: Use fprintf, fputs and fputc instead of
+	gfc_status and gfc_status_char. Remove gfc_ prefix of the gfc_show_*
+	functions and make them static. Add new gfc_dump_parse_tree
+	function.
+	* gfortran.h (gfc_option_t): Rename verbose into dump_parse_tree.
+	(gfc_status, gfc_status_char): Delete prototypes.
+	* error.c (gfc_status, gfc_status_char): Remove functions.
+	* scanner.c (gfc_new_file): Use printf instead of gfc_status.
+	* options.c (gfc_init_options): Rename verbose into dump_parse_tree.
+	(gfc_handle_module_path_options): Use gfc_fatal_error instead of
+	gfc_status and exit.
+	(gfc_handle_option): Rename verbose into dump_parse_tree.
+	* parse.c (gfc_parse_file): Use gfc_dump_parse_tree.
+
+2008-04-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/25829 28655
+	* dump-parse-tree.c (gfc_show_code_node): Show new I/O parameters.
+	* gfortran.h (gfc_statement): Add ST_WAIT enumerator.
+	(gfc_open): Add pointers for decimal, encoding, round, sign,
+	asynchronous. (gfc_inquire): Add pointers for asynchronous, decimal,
+	encoding, pending, round, sign, size, id.
+	(gfc_wait): New typedef struct. (gfc_dt): Add pointers for id, pos,
+	asynchronous, blank, decimal, delim, pad, round, sign.
+	(gfc_exec_op): Add EXEC_WAIT enumerator. (gfc_code): Add pointer for
+	wait. (gfc_free_wait), (gfc_resolve_wait): New function prototypes.
+	* trans-stmt.h (gfc_trans_wait): New function prototype.
+	* trans.c (gfc_trans_code): Add case for EXEC_WAIT.
+	* io.c (io_tag): Add new tags for DECIMAL, ENCODING, ROUND, SIGN,
+	ASYCHRONOUS, ID. (match_open_element): Add matchers for new tags.
+	(gfc_free_open): Free new pointers. (gfc_resolve_open): Resolve new
+	tags. (gfc_resolve_open): Remove comment around check for allowed
+	values and ASYNCHRONOUS, update it.  Likewise for DECIMAL, ENCODING,
+	ROUND, and SIGN. (match_dt_element): Add matching for new tags.
+	(gfc_free_wait): New function. (gfc_resolve_wait): New function.
+	(match_wait_element): New function. (gfc_match_wait): New function.
+	* resolve.c (gfc_resolve_blocks): Add case for EXEC_WAIT.
+	(resolve_code): Add case for EXEC_WAIT. 
+	* st.c (gfc_free_statement): Add case for EXEC_WAIT.
+	* trans-io.c (ioparam_type): Add IOPARM_ptype_wait. (gfc_st_parameter):
+	Add "wait" entry. (iocall): Add IOCALL_WAIT enumerator.
+	(gfc_build_io_library_fndecls): Add function declaration for st_wait.
+	(gfc_trans_open): Add mask bits for new I/O tags.
+	(gfc_trans_inquire): Add mask bits for new I/O tags.
+	(gfc_trans_wait): New translation function.
+	(build_dt): Add mask bits for new I/O tags.
+	* match.c (gfc_match_if) Add matcher for "wait".
+	* match.h (gfc_match_wait): Prototype for new function.
+	* ioparm.def: Add new I/O parameter definitions.
+	* parse.c (decode_statement): Add match for "wait" statement.
+	(next_statement): Add case for ST_WAIT. (gfc_ascii_statement): Same.
+
+2008-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/35786
+	* openmp.c (resolve_omp_clauses): Diagnose if a clause symbol
+	isn't a variable.
+
+2008-04-03  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (fortran_OBJS): New variable.
+
+2008-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	* f95-lang.c (insert_block): Kill.
+
+2008-04-01  George Helffrich <george@gcc.gnu.org>
+
+	* trans-common.c (create_common):  Add decl to function
+	chain to preserve identifier scope in debug output.
+
+2008-04-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* gfortran.texi: Include gpl_v3.texi instead of gpl.texi
+	* Make-lang.in (GFORTRAN_TEXI): Include gpl_v3.texi instead of
+	gpl.texi.
+
+2008-03-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35740
+	* resolve.c (resolve_function, resolve_call): If the procedure
+	is elemental do not look for noncopying intrinsics.
+
+2008-03-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35698
+	* trans-array.c (gfc_array_init_size): Set 'size' zero if
+	negative in one dimension.
+
+	PR fortran/35702
+	* trans-expr.c (gfc_trans_string_copy): Only assign a char
+	directly if the lhs and rhs types are the same.
+
+2008-03-28  Daniel Franke  <franke.daniel@gmail.com>
+	    Paul Richard Thomas <paul.richard.thomas@gmail.com>
+
+	PR fortran/34714
+	* primary.c (match_variable): Improved matching of function 
+	result variables.
+	* resolve.c (resolve_allocate_deallocate): Removed checks if
+	the actual argument for STAT is a variable.
+
+2008-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	* symbol.c (gfc_get_default_type): Fix error message; option
+	-fallow_leading_underscore should be -fallow-leading-underscore
+
+2008-03-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35724
+	* iresolve.c (gfc_resolve_cshift): Check for NULL symtree in test for
+	optional argument attribute.
+
+2008-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in: Revert automatic dependency patch.
+
+2008-03-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in: Remove .o targets.
+	(fortran_OBJS): New variable.
+	(fortran/gfortranspec.o): Move to fortran/.  Reduce to variable
+	setting.
+	(GFORTRAN_D_OBJS): Update.
+	(GFORTRAN_TRANS_DEPS): Remove.
+
 2008-03-24  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/34813

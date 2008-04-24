@@ -23,6 +23,14 @@ in
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 
+# First, test for a proper version of make, but only where one is required.
+
+@if gcc
+ifeq (,$(.VARIABLES)) # The variable .VARIABLES, new with 3.80, is never empty.
+$(error GNU make version 3.80 or newer is required.)
+endif
+@endif gcc
+
 # -------------------------------
 # Standard Autoconf-set variables
 # -------------------------------
@@ -322,7 +330,6 @@ LDFLAGS = @LDFLAGS@
 LIBCFLAGS = $(CFLAGS)
 CXXFLAGS = @CXXFLAGS@
 LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
-PICFLAG = 
 
 # Only build the C compiler for stage1, because that is the only one that
 # we can guarantee will build with the native compiler, and also it is the
@@ -389,7 +396,6 @@ DEBUG_PREFIX_CFLAGS_FOR_TARGET = @DEBUG_PREFIX_CFLAGS_FOR_TARGET@
 LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
 LDFLAGS_FOR_TARGET = 
-PICFLAG_FOR_TARGET = 
 
 # ------------------------------------
 # Miscellaneous targets and flag lists
@@ -1444,11 +1450,11 @@ stage_current:
 	@if test -f stage_last; then $(unstage); else $(MAKE) stage1-start; fi
 
 .PHONY: restrap
-restrap:
+restrap::
 	@: $(MAKE); $(stage)
 	rm -rf stage1-$(TARGET_SUBDIR) [+ FOR bootstrap-stage +][+ IF prev
 	  +]stage[+id+]-* [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+restrap:: all
 @endif gcc-bootstrap
 
 # --------------------------------------

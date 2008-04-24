@@ -1978,30 +1978,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	}
 #ifdef HAVE_cc0
       CC_STATUS_INIT;
-      /* If this label is reached from only one place, set the condition
-	 codes from the instruction just before the branch.  */
-
-      /* Disabled because some insns set cc_status in the C output code
-	 and NOTICE_UPDATE_CC alone can set incorrect status.  */
-      if (0 /* optimize && LABEL_NUSES (insn) == 1*/)
-	{
-	  rtx jump = LABEL_REFS (insn);
-	  rtx barrier = prev_nonnote_insn (insn);
-	  rtx prev;
-	  /* If the LABEL_REFS field of this label has been set to point
-	     at a branch, the predecessor of the branch is a regular
-	     insn, and that branch is the only way to reach this label,
-	     set the condition codes based on the branch and its
-	     predecessor.  */
-	  if (barrier && BARRIER_P (barrier)
-	      && jump && JUMP_P (jump)
-	      && (prev = prev_nonnote_insn (jump))
-	      && NONJUMP_INSN_P (prev))
-	    {
-	      NOTICE_UPDATE_CC (PATTERN (prev), prev);
-	      NOTICE_UPDATE_CC (PATTERN (jump), jump);
-	    }
-	}
 #endif
 
       if (LABEL_NAME (insn))
@@ -3440,9 +3416,11 @@ output_addr_const (FILE *file, rtx x)
 	  /* We can use %d if the number is one word and positive.  */
 	  if (CONST_DOUBLE_HIGH (x))
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     CONST_DOUBLE_HIGH (x), CONST_DOUBLE_LOW (x));
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_HIGH (x),
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x));
 	  else if (CONST_DOUBLE_LOW (x) < 0)
-	    fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_DOUBLE_LOW (x));
+	    fprintf (file, HOST_WIDE_INT_PRINT_HEX,
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_DOUBLE_LOW (x));
 	}
@@ -3453,7 +3431,8 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case CONST_FIXED:
-      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX,
+	       (unsigned HOST_WIDE_INT) CONST_FIXED_VALUE_LOW (x));
       break;
 
     case PLUS:
@@ -3848,7 +3827,7 @@ leaf_function_p (void)
 	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
-  for (link = current_function_epilogue_delay_list;
+  for (link = crtl->epilogue_delay_list;
        link;
        link = XEXP (link, 1))
     {
@@ -3932,7 +3911,7 @@ leaf_renumber_regs (rtx first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       leaf_renumber_regs_insn (PATTERN (insn));
-  for (insn = current_function_epilogue_delay_list;
+  for (insn = crtl->epilogue_delay_list;
        insn;
        insn = XEXP (insn, 1))
     if (INSN_P (XEXP (insn, 0)))
@@ -4260,9 +4239,9 @@ rest_of_clean_state (void)
 
   if (targetm.binds_local_p (current_function_decl))
     {
-      int pref = cfun->preferred_stack_boundary;
-      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
-        pref = cfun->stack_alignment_needed;
+      int pref = crtl->preferred_stack_boundary;
+      if (crtl->stack_alignment_needed > crtl->preferred_stack_boundary)
+        pref = crtl->stack_alignment_needed;
       cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
         = pref;
     }

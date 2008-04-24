@@ -395,6 +395,8 @@ extern int x86_prefetch_sse;
 #define TARGET_SAHF		x86_sahf
 #define TARGET_RECIP		x86_recip
 #define TARGET_FUSED_MADD	x86_fused_muladd
+#define TARGET_AES		(TARGET_SSE2 && x86_aes)
+#define TARGET_PCLMUL		(TARGET_SSE2 && x86_pclmul)
 
 #define ASSEMBLER_DIALECT	(ix86_asm_dialect)
 
@@ -683,6 +685,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 	builtin_define ("__SSE4_1__");				\
       if (TARGET_SSE4_2)					\
 	builtin_define ("__SSE4_2__");				\
+      if (TARGET_AES)						\
+	builtin_define ("__AES__");				\
+      if (TARGET_PCLMUL)					\
+	builtin_define ("__PCLMUL__");				\
       if (TARGET_SSE4A)						\
  	builtin_define ("__SSE4A__");		                \
       if (TARGET_SSE5)						\
@@ -1597,7 +1603,7 @@ enum reg_class
 
 /* If defined, the maximum amount of space required for outgoing arguments will
    be computed and placed into the variable
-   `current_function_outgoing_args_size'.  No space will be pushed onto the
+   `crtl->outgoing_args_size'.  No space will be pushed onto the
    stack for each call; instead, the function prologue should increase the stack
    frame size by this amount.  */
 

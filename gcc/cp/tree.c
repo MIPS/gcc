@@ -1734,6 +1734,10 @@ cp_tree_equal (tree t1, tree t2)
 	&& !memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 		    TREE_STRING_LENGTH (t1));
 
+    case FIXED_CST:
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1),
+				     TREE_FIXED_CST (t2));
+
     case COMPLEX_CST:
       return cp_tree_equal (TREE_REALPART (t1), TREE_REALPART (t2))
 	&& cp_tree_equal (TREE_IMAGPART (t1), TREE_IMAGPART (t2));
@@ -1992,7 +1996,7 @@ tree
 build_dummy_object (tree type)
 {
   tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_zero_node);
-  return build_indirect_ref (decl, NULL);
+  return cp_build_indirect_ref (decl, NULL, tf_warning_or_error);
 }
 
 /* We've gotten a reference to a member of TYPE.  Return *this if appropriate,
@@ -2474,6 +2478,8 @@ char_type_p (tree type)
   return (same_type_p (type, char_type_node)
 	  || same_type_p (type, unsigned_char_type_node)
 	  || same_type_p (type, signed_char_type_node)
+	  || same_type_p (type, char16_type_node)
+	  || same_type_p (type, char32_type_node)
 	  || same_type_p (type, wchar_type_node));
 }
 
@@ -2569,10 +2575,10 @@ stabilize_expr (tree exp, tree* initp)
     }
   else
     {
-      exp = build_unary_op (ADDR_EXPR, exp, 1);
+      exp = cp_build_unary_op (ADDR_EXPR, exp, 1, tf_warning_or_error);
       init_expr = get_target_expr (exp);
       exp = TARGET_EXPR_SLOT (init_expr);
-      exp = build_indirect_ref (exp, 0);
+      exp = cp_build_indirect_ref (exp, 0, tf_warning_or_error);
     }
   *initp = init_expr;
 
