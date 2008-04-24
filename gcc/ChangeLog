@@ -1,3 +1,16 @@
+2008-04-24  Tom Tromey  <tromey@redhat.com>
+
+	* c-parser.c (c_parser) <next>: New field.
+	(all_used_hunks): New global.
+	(c_parser_create_smash_map): Reset all_used_hunks.
+	(c_parse_file): Link parsers.  Update all_used_hunks.
+	(c_server_steady_state): Reverse list of parsers.
+	(universalize_decl_locations): Loop over parsers.  Only
+	universalize a hunk once.
+	(traverse_hunk_binding_entry): Remove.
+	(can_reuse_hunk): Map in bindings inline.  Avoid resetting
+	location in some cases.
+
 2008-04-23  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (create_line_map): New function.
@@ -21,6 +34,7 @@
 	(c_parse_file): Don't null 'the_parser'.
 	(reset_tree_location): New function.
 	(universalize_tree): Likewise.
+	(c_parser_lex_all): Add assert.
 
 2008-04-21  Tom Tromey  <tromey@redhat.com>
 

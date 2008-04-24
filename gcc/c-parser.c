@@ -353,8 +353,19 @@ typedef struct c_parser GTY(())
      undesirable to bind an identifier to an Objective-C class, even
      if a class with that name exists.  */
   BOOL_BITFIELD objc_need_raw_identifier : 1;
+
+  /* When compiling with --combine, we will create multiple parsers,
+     but we need to keep the old parsers around for eventual location
+     universalization.  */
+  struct c_parser *next;
 } c_parser;
 
+
+/* When compiling with --combine, this is a set of all hunks used
+   during any compilation.  This is used to avoid modifying locations
+   in hunks that have already been used by some other compilation.  */
+
+static GTY ((param_is (struct hunk_binding))) htab_t all_used_hunks;
 
 /* The actual parser and external interface.  */
 
@@ -745,30 +756,6 @@ reset_tree_location (tree decl, c_parser *parser)
     return;
   DECL_SOURCE_LOCATION (decl) = parser->buffer[DECL_SOURCE_LOCATION (decl)
 					       + parser->next_token].location;
-}
-
-/* Called to map the contents of a struct hunk_binding_entry into the
-   current symbol table.  This also resets the location of decls
-   declared in this hunk so that they reflect the current compilation
-   unit.  */
-static int
-traverse_hunk_binding_entry (void **slot, void *pp)
-{
-  struct hunk_binding_entry *hb = (struct hunk_binding_entry *) *slot;
-  c_parser *parser = (c_parser *) pp;
-
-  if (hb->tag_binding != NULL_TREE)
-    {
-      reset_tree_location (hb->tag_binding, parser);
-      c_decl_re_bind (hb->name, hb->tag_binding);
-    }
-  if (hb->symbol_binding != NULL_TREE)
-    {
-      reset_tree_location (hb->symbol_binding, parser);
-      c_decl_re_bind (hb->name, hb->symbol_binding);
-    }
-
-  return 1;
 }
 
 /* A hunk binding holds information about a parsed hunk.  It contains
@@ -1223,6 +1210,7 @@ c_parser_create_smash_map (void)
   /* It is a bit lame to do this here, but we don't need the parser
      any more, and there's not a better place to get rid of it.  */
   the_parser = NULL;
+  all_used_hunks = NULL;
 
   /* We could do this without allocating by rewriting the map in
      place.  */
@@ -2265,6 +2253,9 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
   struct hunk_set temp, **set_slot;
   struct hunk_binding **slot;
   struct can_reuse_hunk_data info;
+  void **tslot;
+  size_t index;
+  bool need_loc_reset;
 
   /* FIXME: kinda gross.  */
   memcpy (&temp.key[0], &hunk->key[0], 16);
@@ -2307,10 +2298,34 @@ can_reuse_hunk (c_parser *parser, struct parsed_hunk *hunk,
      convenience, this location is not used for anything.  */
   info.binding->location = parser->buffer[parser->next_token].location;
 
-  /* Map in the bindings.  */
-  htab_traverse_noresize (info.binding->binding_map,
-			  traverse_hunk_binding_entry,
-			  parser);
+  /* Map in the bindings.  In --combine mode, we may not want to reset
+     the locations of the trees we map in.  In particular we do not
+     want to do this if we already used the trees in an earlier
+     parse.  */
+  need_loc_reset = true;
+  if (all_used_hunks && htab_find (all_used_hunks, info.binding))
+    need_loc_reset = false;
+  for (index = 0;
+       htab_iterate (info.binding->binding_map, &index, &tslot);
+       ++index)
+    {
+      struct hunk_binding_entry *hb = * (struct hunk_binding_entry **) tslot;
+      if (hb->tag_binding != NULL_TREE)
+	{
+	  if (need_loc_reset)
+	    reset_tree_location (hb->tag_binding, parser);
+	  c_decl_re_bind (hb->name, hb->tag_binding);
+	}
+      if (hb->symbol_binding != NULL_TREE)
+	{
+	  if (need_loc_reset)
+	    reset_tree_location (hb->symbol_binding, parser);
+	  c_decl_re_bind (hb->name, hb->symbol_binding);
+	}
+    }
+  /* Note that we don't need to update all_used_hunks here; that is
+     done after parsing.  */
+
   if (update_parser)
     {
       parser->first_hunk = info.self_iter;
@@ -2373,29 +2388,47 @@ universalize_decl_locations (c_parser *parser)
 {
   size_t index;
   void **slot;
+  bool is_combine = !!parser->next;
 
-  /* Loop over all the hunks used in this compilation.  */
-  for (index = 0; htab_iterate (parser->used_hunks, &index, &slot); ++index)
+  /* We reuse all_used_hunks here to avoid universalizing a given hunk
+     more than once.  */
+  if (is_combine)
+    htab_empty (all_used_hunks);
+
+  for (; parser; parser = parser->next)
     {
-      size_t bindex;
-      void **bslot;
-      struct hunk_binding *binding = *(struct hunk_binding **) slot;
-
-      /* Loop over all the bindings from this hunk.  */
-      for (bindex = 0;
-	   htab_iterate (binding->binding_map, &bindex, &bslot);
-	   ++bindex)
+      /* Loop over all the hunks used in this compilation.  */
+      for (index = 0; htab_iterate (parser->used_hunks, &index, &slot); ++index)
 	{
-	  struct hunk_binding_entry *entry
-	    = * (struct hunk_binding_entry **) bslot;
+	  size_t bindex;
+	  void **bslot;
+	  struct hunk_binding *binding = *(struct hunk_binding **) slot;
 
-	  if (entry->tag_binding != NULL_TREE)
-	    universalize_tree (entry->tag_binding, parser,
-			       binding->token_offset, binding->token_count);
+	  if (is_combine && htab_find (all_used_hunks, binding))
+	    continue;
 
-	  if (entry->symbol_binding != NULL_TREE)
-	    universalize_tree (entry->symbol_binding, parser,
-			       binding->token_offset, binding->token_count);
+	  /* Loop over all the bindings from this hunk.  */
+	  for (bindex = 0;
+	       htab_iterate (binding->binding_map, &bindex, &bslot);
+	       ++bindex)
+	    {
+	      struct hunk_binding_entry *entry
+		= * (struct hunk_binding_entry **) bslot;
+
+	      if (entry->tag_binding != NULL_TREE)
+		universalize_tree (entry->tag_binding, parser,
+				   binding->token_offset, binding->token_count);
+
+	      if (entry->symbol_binding != NULL_TREE)
+		universalize_tree (entry->symbol_binding, parser,
+				   binding->token_offset, binding->token_count);
+	    }
+	  
+	  if (is_combine)
+	    {
+	      slot = htab_find_slot (all_used_hunks, binding, INSERT);
+	      *slot = binding;
+	    }
 	}
     }
 }
@@ -9660,6 +9693,7 @@ void
 c_parse_file (void)
 {
   c_token token;
+  c_parser *old_parser = the_parser;
 
   token.type = c_lex_with_flags (&token.value, &token.location, NULL, 0);
   token.id_kind = C_ID_NONE;
@@ -9679,6 +9713,29 @@ c_parse_file (void)
 					    htab_eq_pointer, NULL);
   global_smash_map = htab_create_ggc (20, hash_smash_entry, eq_smash_entry,
 				      NULL);
+  the_parser->next = old_parser;
+
+  if (old_parser)
+    {
+      size_t index;
+      void **slot;
+
+      if (! all_used_hunks)
+	all_used_hunks = htab_create_ggc (htab_size (old_parser->used_hunks),
+					  htab_hash_pointer, htab_eq_pointer,
+					  NULL);
+
+      /* Update global map of used hunks with the results of the
+	 previous parse.  */
+      for (index = 0;
+	   htab_iterate (old_parser->used_hunks, &index, &slot);
+	   ++index)
+	{
+	  struct hunk_binding *binding = * (struct hunk_binding **) slot;
+	  slot = htab_find_slot (all_used_hunks, binding, INSERT);
+	  *slot = binding;
+	}
+    }
 
   c_parser_lex_all (the_parser, &token);
   c_parser_translation_unit (the_parser);
@@ -9690,8 +9747,22 @@ c_parse_file (void)
 void
 c_server_steady_state (void)
 {
-  universalize_decl_locations (the_parser);
+  c_parser *iter, *prev;
+
+  /* Reverse the list of parsers, so we process oldest-to-newest.  */
+  iter = the_parser;
+  prev = NULL;
+  while (iter->next)
+    {
+      c_parser *next = iter->next;
+      iter->next = prev;
+      prev = iter;
+      iter = next;
+    }
+
+  universalize_decl_locations (iter);
   the_parser = NULL;
+  all_used_hunks = NULL;
 }
 
 #include "gt-c-parser.h"
