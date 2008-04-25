@@ -5751,13 +5751,18 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* Return 1 if mode is a valid mode for sse.  256bit AVX modes aren't
-   supported since we can't generate all ones without using memory.  */
+/* Return 1 if mode is a valid mode for sse.  */
 static int
 standard_sse_mode_p (enum machine_mode mode)
 {
   switch (mode)
     {
+    case V32QImode:
+    case V16HImode:
+    case V8SImode:
+    case V8SFmode:
+    case V4DImode:
+    case V4DFmode:
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -5811,10 +5816,28 @@ standard_sse_constant_opcode (rtx insn, rtx x)
 	case MODE_OI:
 	  return "vpxor\t%x0, %x0, %x0";
 	default:
-	  break;
+	  gcc_unreachable ();
 	}
     case 2:
-      return "pcmpeqd\t%0, %0";
+      if (TARGET_AVX)
+	switch (get_attr_mode (insn))
+	  {
+	  case MODE_V4SF:
+	  case MODE_V2DF:
+	  case MODE_TI:
+	    return "vpcmpeqd\t%0, %0, %0";
+	    break;
+	  case MODE_V8SF:
+	  case MODE_V4DF:
+	  case MODE_OI:
+	    return "vpcmpeqd\t%0, %0, %0\n\t"
+		   "vperm2f128\t{$0x0, %0, %0, %0|%0, %0, %0, 0x}";
+	    break;
+	  default:
+	    gcc_unreachable ();
+	}
+      else
+	return "pcmpeqd\t%0, %0";
     }
   gcc_unreachable ();
 }
@@ -9825,7 +9848,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 	p = "fiadd";
       else
 	p = "fadd";
-      ssep = "add";
+      ssep = "vadd";
       break;
 
     case MINUS:
@@ -9834,7 +9857,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 	p = "fisub";
       else
 	p = "fsub";
-      ssep = "sub";
+      ssep = "vsub";
       break;
 
     case MULT:
@@ -9843,7 +9866,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 	p = "fimul";
       else
 	p = "fmul";
-      ssep = "mul";
+      ssep = "vmul";
       break;
 
     case DIV:
@@ -9852,7 +9875,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 	p = "fidiv";
       else
 	p = "fdiv";
-      ssep = "div";
+      ssep = "vdiv";
       break;
 
     default:
@@ -9863,8 +9886,7 @@ output_387_binary_op (rtx insn, rtx *operands)
    {
      if (TARGET_AVX)
        {
-	 buf[0] = 'v';
-	 strcpy (buf + 1, ssep);
+	 strcpy (buf, ssep);
 	 if (GET_MODE (operands[0]) == SFmode)
 	   strcat (buf, "ss\t{%2, %1, %0|%0, %1, %2}");
 	 else
@@ -9872,7 +9894,7 @@ output_387_binary_op (rtx insn, rtx *operands)
        }
      else
        {
-	 strcpy (buf, ssep);
+	 strcpy (buf, ssep + 1);
 	 if (GET_MODE (operands[0]) == SFmode)
 	   strcat (buf, "ss\t{%2, %0|%0, %2}");
 	 else
@@ -10239,16 +10261,21 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 
   if (is_sse)
     {
+      static const char ucomiss[] = "vucomiss\t{%1, %0|%0, %1}";
+      static const char ucomisd[] = "vucomisd\t{%1, %0|%0, %1}";
+      static const char comiss[] = "vcomiss\t{%1, %0|%0, %1}";
+      static const char comisd[] = "vcomisd\t{%1, %0|%0, %1}";
+
       if (GET_MODE (operands[0]) == SFmode)
 	if (unordered_p)
-	  return "ucomiss\t{%1, %0|%0, %1}";
+	  return &ucomiss[TARGET_AVX ? 0 : 1];
 	else
-	  return "comiss\t{%1, %0|%0, %1}";
+	  return &comiss[TARGET_AVX ? 0 : 1];
       else
 	if (unordered_p)
-	  return "ucomisd\t{%1, %0|%0, %1}";
+	  return &ucomisd[TARGET_AVX ? 0 : 1];
 	else
-	  return "comisd\t{%1, %0|%0, %1}";
+	  return &comisd[TARGET_AVX ? 0 : 1];
     }
 
   gcc_assert (STACK_TOP_P (cmp_op0));
@@ -10663,6 +10690,53 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 
   op0 = operands[0];
   op1 = operands[1];
+
+  if (TARGET_AVX)
+    {
+      if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+	{
+	  switch (GET_MODE_SIZE (mode))
+	    {
+	    case 16:
+	      op0 = gen_lowpart (V16QImode, op0);
+	      op1 = gen_lowpart (V16QImode, op1);
+	      emit_insn (gen_avx_movdqu (op0, op1));
+	      break;
+	    case 32:
+	      op0 = gen_lowpart (V32QImode, op0);
+	      op1 = gen_lowpart (V32QImode, op1);
+	      emit_insn (gen_avx_movdqu256 (op0, op1));
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+      else
+	{
+	  op0 = gen_lowpart (mode, op0);
+	  op1 = gen_lowpart (mode, op1);
+
+	  switch (mode)
+	    { 
+	    case V4SFmode:
+	      emit_insn (gen_avx_movups (op0, op1));
+	      break;
+	    case V8SFmode:
+	      emit_insn (gen_avx_movups256 (op0, op1));
+	      break;
+	    case V2DFmode:
+	      emit_insn (gen_avx_movupd (op0, op1));
+	      break;
+	    case V4DFmode:
+	      emit_insn (gen_avx_movupd256 (op0, op1));
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+
+      return;
+    }
 
   if (MEM_P (op1))
     {
@@ -13822,13 +13896,9 @@ ix86_expand_sse4_unpack (rtx operands[2], bool unsigned_p, bool high_p)
     {
       rtx (*lshrti3) (rtx, rtx, rtx);
 
+      lshrti3 = TARGET_AVX ? gen_avx_lshrti3 : gen_sse2_lshrti3;
       /* Shift higher 8 bytes to lower 8 bytes.  */
       src = gen_reg_rtx (imode);
-      if (TARGET_AVX)
-	lshrti3 = gen_avx_lshrti3;
-      else
-	lshrti3 = gen_sse2_lshrti3;
-
       emit_insn ((*lshrti3) (gen_lowpart (TImode, src),
 			     gen_lowpart (TImode, operands[1]),
 			     GEN_INT (64)));
@@ -16792,6 +16862,44 @@ ix86_attr_length_address_default (rtx insn)
       }
   return 0;
 }
+
+/* Compute default value for "length_vex" attribute. It includes
+   2 or 3 byte VEX prefix and 1 opcode byte.  */
+
+int
+ix86_attr_length_vex_default (rtx insn, int has_0f_opcode,
+			      int has_vex_w)
+{
+  int i;
+
+  /* Only 0f opcode can use 2 byte VEX prefix and  VEX W bit uses 3
+     byte VEX prefix.  */
+  if (!has_0f_opcode || has_vex_w)
+    return 3 + 1;
+
+ /* We can always use 2 byte VEX prefix in 32bit.  */
+  if (!TARGET_64BIT)
+    return 2 + 1;
+
+  extract_insn_cached (insn);
+
+  for (i = recog_data.n_operands - 1; i >= 0; --i)
+    if (REG_P (recog_data.operand[i]))
+      {
+	/* REX.W bit uses 3 byte VEX prefix.  */
+	if (GET_MODE (recog_data.operand[i]) == DImode)
+	  return 3 + 1;
+      }
+    else
+      {
+	/* REX.X or REX.B bits use 3 byte VEX prefix.  */
+	if (MEM_P (recog_data.operand[i])
+	    && x86_extended_reg_mentioned_p (recog_data.operand[i]))
+	  return 3 + 1;
+      }
+
+  return 2 + 1;
+}
 
 /* Return the maximum number of instructions a cpu can issue.  */
 
@@ -17912,6 +18020,14 @@ enum ix86_builtins
   IX86_BUILTIN_VPERM2F128PD256,
   IX86_BUILTIN_VPERM2F128PS256,
   IX86_BUILTIN_VPERM2F128SI256,
+  IX86_BUILTIN_VBROADCASTSS,
+  IX86_BUILTIN_VBROADCASTSD256,
+  IX86_BUILTIN_VBROADCASTSS256,
+  IX86_BUILTIN_VBROADCASTPD256,
+  IX86_BUILTIN_VBROADCASTPS256,
+  IX86_BUILTIN_LDDQU256,
+  IX86_BUILTIN_LOADDQU256,
+  IX86_BUILTIN_STOREDQU256,
 
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
@@ -19510,6 +19626,8 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
 
   /* AVX builtins  */
+  tree V32QI_type_node = build_vector_type_for_mode (char_type_node,
+						     V32QImode);
   tree V8SI_type_node = build_vector_type_for_mode (intSI_type_node,
 						    V8SImode);
   tree V8SF_type_node = build_vector_type_for_mode (float_type_node,
@@ -19613,6 +19731,35 @@ ix86_init_mmx_sse_builtins (void)
 				V2DF_type_node, V2DF_type_node,
 				V2DF_type_node, integer_type_node,
 				NULL_TREE);
+  tree v8sf_ftype_pcfloat
+    = build_function_type_list (V8SF_type_node,
+				pcfloat_type_node,
+				NULL_TREE);
+  tree v4df_ftype_pcdouble
+    = build_function_type_list (V4DF_type_node,
+				pcdouble_type_node,
+				NULL_TREE);
+  tree pcv4sf_type_node
+    = build_pointer_type (build_type_variant (V4SF_type_node, 1, 0));
+  tree pcv2df_type_node
+    = build_pointer_type (build_type_variant (V2DF_type_node, 1, 0));
+  tree v8sf_ftype_pcv4sf
+    = build_function_type_list (V8SF_type_node,
+				pcv4sf_type_node,
+				NULL_TREE);
+  tree v4df_ftype_pcv2df
+    = build_function_type_list (V4DF_type_node,
+				pcv2df_type_node,
+				NULL_TREE);
+  tree v32qi_ftype_pcchar
+    = build_function_type_list (V32QI_type_node,
+				pcchar_type_node,
+				NULL_TREE);
+  tree void_ftype_pchar_v32qi
+    = build_function_type_list (void_type_node,
+			        pchar_type_node, V32QI_type_node,
+				NULL_TREE);
+
 
   tree ftype;
 
@@ -20177,6 +20324,14 @@ ix86_init_mmx_sse_builtins (void)
 
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vzeroall", void_ftype_void, IX86_BUILTIN_VZEROALL);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vzeroupper", void_ftype_void, IX86_BUILTIN_VZEROUPPER);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastss", v4sf_ftype_pcfloat, IX86_BUILTIN_VBROADCASTSS);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastsd256", v4df_ftype_pcdouble, IX86_BUILTIN_VBROADCASTSD256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastss256", v8sf_ftype_pcfloat, IX86_BUILTIN_VBROADCASTSS256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastf128_pd256", v4df_ftype_pcv2df, IX86_BUILTIN_VBROADCASTPD256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastf128_ps256", v8sf_ftype_pcv4sf, IX86_BUILTIN_VBROADCASTPS256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_lddqu256", v32qi_ftype_pcchar, IX86_BUILTIN_LDDQU256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_loaddqu256", v32qi_ftype_pcchar, IX86_BUILTIN_LOADDQU256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_storedqu256", void_ftype_pchar_v32qi, IX86_BUILTIN_STOREDQU256);
 
   /* AMDFAM10 SSE4A New built-ins  */
   def_builtin (OPTION_MASK_ISA_SSE4A, "__builtin_ia32_movntsd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTSD);
@@ -20594,7 +20749,7 @@ ix86_expand_binop_imm_builtin (enum insn_code icode, tree exp,
       case CODE_FOR_aeskeygenassist:
 	break;
       default:
-	gcc_unreachable ();
+	break;
       }
 
   tmode = insn_data[icode].operand[0].mode;
@@ -20872,8 +21027,24 @@ ix86_expand_store_builtin (enum insn_code icode, tree exp)
   tree arg1 = CALL_EXPR_ARG (exp, 1);
   rtx op0 = expand_normal (arg0);
   rtx op1 = expand_normal (arg1);
-  enum machine_mode mode0 = insn_data[icode].operand[0].mode;
-  enum machine_mode mode1 = insn_data[icode].operand[1].mode;
+  enum machine_mode mode0;
+  enum machine_mode mode1;
+  
+  if (TARGET_AVX)
+    switch (icode)
+      {
+      case CODE_FOR_sse2_movntv2di:
+        icode = CODE_FOR_avx_movntv2di;
+        break;
+      case CODE_FOR_sse2_movdqu:
+        icode = CODE_FOR_avx_movdqu;
+        break;
+      default:
+        break;
+      }
+
+  mode0 = insn_data[icode].operand[0].mode;
+  mode1 = insn_data[icode].operand[1].mode;
 
   if (VECTOR_MODE_P (mode1))
     op1 = safe_vector_operand (op1, mode1);
@@ -20896,8 +21067,24 @@ ix86_expand_unop_builtin (enum insn_code icode, tree exp,
   rtx pat;
   tree arg0 = CALL_EXPR_ARG (exp, 0);
   rtx op0 = expand_normal (arg0);
-  enum machine_mode tmode = insn_data[icode].operand[0].mode;
-  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+  enum machine_mode tmode;
+  enum machine_mode mode0;
+  
+  if (TARGET_AVX)
+    switch (icode)
+      {
+      case CODE_FOR_sse3_lddqu:
+        icode = CODE_FOR_avx_lddqu;
+        break;
+      case CODE_FOR_sse2_movdqu:
+        icode = CODE_FOR_avx_movdqu;
+        break;
+      default:
+	break;
+      }
+
+  tmode = insn_data[icode].operand[0].mode;
+  mode0 = insn_data[icode].operand[1].mode;
 
   if (optimize || !target
       || GET_MODE (target) != tmode
@@ -21824,6 +22011,11 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_MOVNTI:
       return ix86_expand_store_builtin (CODE_FOR_sse2_movntsi, exp);
 
+    case IX86_BUILTIN_LOADDQU256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_movdqu256, exp, target, 1);
+    case IX86_BUILTIN_STOREDQU256:
+      return ix86_expand_store_builtin (CODE_FOR_avx_movdqu256, exp);
+
     case IX86_BUILTIN_LOADDQU:
       return ix86_expand_unop_builtin (CODE_FOR_sse2_movdqu, exp, target, 1);
     case IX86_BUILTIN_STOREDQU:
@@ -21859,6 +22051,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	op1 = copy_to_mode_reg (SImode, op1);
       emit_insn (gen_sse3_mwait (op0, op1));
       return 0;
+
+    case IX86_BUILTIN_LDDQU256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_lddqu256, exp,
+				       target, 1);
 
     case IX86_BUILTIN_LDDQU:
       return ix86_expand_unop_builtin (CODE_FOR_sse3_lddqu, exp,
@@ -22067,6 +22263,26 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_COPYSIGNQ:
       return ix86_expand_binop_builtin (CODE_FOR_copysigntf3, exp, target);
+
+    case IX86_BUILTIN_VBROADCASTSS:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_vbroadcastss,
+				       exp, target, 1);
+
+    case IX86_BUILTIN_VBROADCASTSD256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_vbroadcastsd256,
+				       exp, target, 1);
+
+    case IX86_BUILTIN_VBROADCASTSS256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_vbroadcastss256,
+				       exp, target, 1);
+
+    case IX86_BUILTIN_VBROADCASTPD256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_vbroadcastf128_pd256,
+				       exp, target, 1);
+
+    case IX86_BUILTIN_VBROADCASTPS256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_vbroadcastf128_ps256,
+				       exp, target, 1);
 
     default:
       break;
@@ -24076,7 +24292,8 @@ extended_reg_mentioned_1 (rtx *p, void *data ATTRIBUTE_UNUSED)
 bool
 x86_extended_reg_mentioned_p (rtx insn)
 {
-  return for_each_rtx (&PATTERN (insn), extended_reg_mentioned_1, NULL);
+  return for_each_rtx (INSN_P (insn) ? &PATTERN (insn) : &insn,
+		       extended_reg_mentioned_1, NULL);
 }
 
 /* Generate an unsigned DImode/SImode to FP conversion.  This is the same code

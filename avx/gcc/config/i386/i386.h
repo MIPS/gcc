@@ -1480,6 +1480,10 @@ enum reg_class
 #define AVX256_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_AVX && ((MODE) == V8SFmode || (MODE) == V4DFmode))
 
+#define AVX_VEC_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == V4SFmode || (MODE) == V2DFmode \
+		  || (MODE) == V8SFmode || (MODE) == V4DFmode))
+
 #define MMX_REG_P(XOP) (REG_P (XOP) && MMX_REGNO_P (REGNO (XOP)))
 #define MMX_REGNO_P(N) IN_RANGE ((N), FIRST_MMX_REG, LAST_MMX_REG)
 

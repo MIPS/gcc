@@ -1,3 +1,165 @@
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/gmmintrin.h (_mm_broadcast_ss): Don't dereference
+	pointer.
+	(_mm256_broadcast_sd): Likewise.
+	(_mm256_broadcast_ss): Likewise.
+	(_mm256_broadcast_pd): Likewise.
+	(_mm256_broadcast_ps): Likewise.
+	(_mm256_loadu_si256): Add const to argument.
+
+	* config/i386/i386.c (standard_sse_mode_p): Return true on
+	256bit AVX modes.
+	(standard_sse_constant_opcode): Generate vpcmpeqd/vperm2f128
+	pair to fill 256bit register to all 1s.
+	(output_387_binary_op): Avoid extra store for AVX.
+	(output_fp_compare): Support AVX.
+	(ix86_expand_vector_move_misalign): Implement AVX support.
+	(ix86_expand_sse4_unpack): Reformat.
+	(ix86_attr_length_vex_default): New.
+	(ix86_builtins): Add IX86_BUILTIN_VBROADCASTSS,
+	IX86_BUILTIN_VBROADCASTSD256, IX86_BUILTIN_VBROADCASTSS256,
+	IX86_BUILTIN_VBROADCASTPD256, IX86_BUILTIN_VBROADCASTPS256,
+	IX86_BUILTIN_LDDQU256, IX86_BUILTIN_LOADDQU256 and
+	IX86_BUILTIN_STOREDQU256.
+	(ix86_init_mmx_sse_builtins): Define __builtin_ia32_vbroadcastss,
+	__builtin_ia32_vbroadcastsd256, __builtin_ia32_vbroadcastss256,
+	__builtin_ia32_vbroadcastf128_pd256,
+	__builtin_ia32_vbroadcastf128_ps256, __builtin_ia32_lddqu256,
+	__builtin_ia32_loaddqu256 and __builtin_ia32_storedqu256.
+	(ix86_expand_binop_imm_builtin): Don't use gcc_unreachable
+	for AVX.
+	(ix86_expand_store_builtin): Enable CODE_FOR_avx_movntv2di
+	and CODE_FOR_avx_movdqu.
+	(ix86_expand_unop_builtin): Enable CODE_FOR_avx_lddqu and
+	CODE_FOR_avx_movdqu.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_LOADDQU256,
+	IX86_BUILTIN_STOREDQU256, IX86_BUILTIN_LDDQU256,
+	IX86_BUILTIN_VBROADCASTSS, IX86_BUILTIN_VBROADCASTSD256,
+	IX86_BUILTIN_VBROADCASTSS256, IX86_BUILTIN_VBROADCASTPD256
+	and IX86_BUILTIN_VBROADCASTPS256.
+	(x86_extended_reg_mentioned_p): Check INSN_P before using
+	PATTERN.
+
+	* config/i386/i386.h (AVX_VEC_FLOAT_MODE_P): New.
+
+	* config/i386/i386.md (prefix_vex): Renamed to ...
+	(prefix): This.  Change list of values to "orig,vex" and default
+	to "orig".
+	(prefix_vex_imm8): New.
+	(prefix_vex_w): Likewise.
+	(length_vex): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_comm_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_sf_1_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*fop_df_1_avx): Likewise.
+	(length): Support VEX prefix.
+	(*cmpfp_i_mixed): Set prefix attribute
+	(*cmpfp_i_sse): Likewise.
+	(*cmpfp_iu_mixed): Likewise.
+	(*cmpfp_iu_sse): Likewise.
+	(avx_ashlti3): Likewise.
+	(avx_lshrti3): Likewise.
+	(*avx_setcc<mode>): Likewise.
+	(*extendsfdf2_mixed): Add AVX support and set prefix attribute.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+
+	* config/i386/i386-protos.h (ix86_attr_length_vex_default): New.
+
+	* config/i386/sse.md (AVXMODEQI): New.
+	(AVXMODEF21P): Likewise.
+	(AVXMODEF4P): Likewise.
+	(avxvecpsmode): Likewise.
+	(avxhalfvecmode): Likewise.
+	(avxscalarmode): Likewise.
+	(avxmodesuffix): Likewise.
+	(*mov<mode>_internal): Renamed to ...
+	(*avx_mov<mode>_internal): This.  Support 128bit AVX.  Set
+	prefix attribute.
+	(avx_movup<avxmodesuffixf2c>256): Renamed to ...
+	(avx_movup<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_movdqu): Renamed to ...
+	(avx_movdqu<avxmodesuffix>): This.  Support 128bit AVX.  Set
+	prefix attribute.
+	(*<addsub><mode>3): Renamed to ...
+	(*avx_<addsub><mode>3): This.  Support 128bit AVX. Set prefix
+	attribute.
+	(*mul<mode>3): Renamed to ...
+	(*avx_mul<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_movntv2di): New.
+	(avx_lddqu<avxmodesuffix>): Likewise.
+	(avx_storehps): New.
+	(avx_loadhps): Likewise.
+	(avx_storelps): Likewise.
+	(avx_loadlps): Likewise.
+	(avx_storehpd): Likewise.
+	(avx_storelpd): Likewise.
+	(avx_loadhpd): Likewise.
+	(avx_loadlpd): Likewise.
+	(avx_vbroadcasts<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_vbroadcastss256): Likewise.
+	(avx_vbroadcastf128_p<avxmodesuffixf2c>256): Likewise.
+	(avx_div<mode>3): Support 128bit AVX.  Set prefix attribute.
+	(*avx_maskcmp<mode>3): Likewise.
+	(avx_nand<mode>3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(*<code><mode>3): Renamed to ...
+	(*avx_<code><mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(*ieee_smin<mode>3): Renamed to ...
+	(*avx_ieee_smin<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(*ieee_smax<mode>3): Renamed to ...
+	(*avx_ieee_smax<mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_addsubv8sf3): Add prefix attribute.
+	(avx_addsubv4df3): Likewise.
+	(avx_h<addsub>v4df3): Likewise.
+	(avx_h<addsub>v8sf3): Likewise.
+	(avx_cmpp<avxmodesuffixf2c><mode>3): Likewise.
+	(avx_cmps<ssemodesuffixf2c><mode>3): Likewise.
+	(avx_cvtdq2ps256): Likewise.
+	(avx_cvtps2dq256): Likewise.
+	(avx_cvtdq2pd256): Likewise.
+	(avx_cvtpd2dq256): Likewise.
+	(avx_cvttpd2dq256): Likewise.
+	(avx_cvtpd2ps256): Likewise.
+	(avx_cvtps2pd256): Likewise.
+	(avx_shufps256_1): Likewise.
+	(avx_vextractf128<mode>): Likewise.
+	(avx_shufpd256_1): Likewise.
+	(*avx_vzeroall): Likewise.
+	(avx_vzeroupper): Likewise.
+	(avx_vzeroupper_rex64): Likewise.
+	(avx_vpermil<mode>): Likewise.
+	(avx_vpermilvar<mode>3): Likewise.
+	(avx_vpermil2<mode>3): Likewise.
+	(avx_vperm2f128<mode>3): Likewise.
+	(*<code><mode>3): Renamed to ...
+	(*avx_<code><mode>3): This.  Support 128bit AVX.  Set prefix
+	attribute.
+	(avx_blendp<avxmodesuffixf2c>256): Renamed to ...
+	(avx_blendp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_blendvp<avxmodesuffixf2c>256): Renamed to ...
+	(avx_blendvp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+	(avx_dpps256): Renamed to ...
+	(avx_dpp<avxmodesuffixf2c><avxmodesuffix>): This.  Support
+	128bit AVX.  Set prefix attribute.
+
 2008-04-20  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (sse_builtin_type): Revert the last change.
