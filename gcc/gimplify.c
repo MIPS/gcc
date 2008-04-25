@@ -5869,18 +5869,19 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
   /* Consistency checks.  FIXME tuples, FALLBACK should not be needed.
      We can figure it out from GIMPLE_TEST_F.  */
-  if (gimple_test_f == is_gimple_val
-      || gimple_test_f == is_gimple_reg
-      || gimple_test_f == is_gimple_formal_tmp_rhs
-      || gimple_test_f == is_gimple_formal_tmp_or_call_rhs
-      || gimple_test_f == is_gimple_formal_tmp_reg
-      || gimple_test_f == is_gimple_formal_tmp_var
-      || gimple_test_f == is_gimple_call_addr
-      || gimple_test_f == is_gimple_condexpr
-      || gimple_test_f == is_gimple_mem_rhs
-      || gimple_test_f == is_gimple_mem_or_call_rhs
-      || gimple_test_f == is_gimple_reg_rhs
-      || gimple_test_f == is_gimple_asm_val)
+  if (gimple_test_f == is_gimple_reg)
+    gcc_assert (fallback & (fb_rvalue | fb_lvalue));
+  else if (gimple_test_f == is_gimple_val
+           || gimple_test_f == is_gimple_formal_tmp_rhs
+           || gimple_test_f == is_gimple_formal_tmp_or_call_rhs
+           || gimple_test_f == is_gimple_formal_tmp_reg
+           || gimple_test_f == is_gimple_formal_tmp_var
+           || gimple_test_f == is_gimple_call_addr
+           || gimple_test_f == is_gimple_condexpr
+           || gimple_test_f == is_gimple_mem_rhs
+           || gimple_test_f == is_gimple_mem_or_call_rhs
+           || gimple_test_f == is_gimple_reg_rhs
+           || gimple_test_f == is_gimple_asm_val)
     gcc_assert (fallback & fb_rvalue);
   else if (gimple_test_f == is_gimple_min_lval
 	   || gimple_test_f == is_gimple_lvalue)

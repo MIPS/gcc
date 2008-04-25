@@ -1,3 +1,11 @@
+2008-04-24  Oleg Ryjkov  <olegr@google.com>
+
+	* gimplify.c (gimplify_expr): Fix the assertion that verifies validity
+	of parameters.
+	* tree-inline.c (estimate_num_insns): Handle
+	GIMPLE_CHANGE_DYNAMIC_TYPE.
+	* tree-cfg.c (verify_types_in_gimple_stmt): Likewise.
+
 2008-04-24  Rafael Espindola <espindola@google.com>
 
 	* tree-ssa-dom.c (initialize_hash_element): Fix the type of the code

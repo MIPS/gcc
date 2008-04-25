@@ -3763,6 +3763,9 @@ verify_types_in_gimple_stmt (gimple stmt)
     case PREDICT_EXPR:
       return false;
 
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
+      return verify_types_in_gimple_op (gimple_cdt_location (stmt));
+
     case GIMPLE_PHI:
       return verify_types_in_gimple_phi (stmt);
 
