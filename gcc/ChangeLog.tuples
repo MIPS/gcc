@@ -1,3 +1,8 @@
+2008-04-25  Doug Kwan  <dougkwan@google.com>
+
+	* tree-inline.c (expand_call_inline):  Save old call statement
+	and use it to look up correct EH region.
+
 2008-04-24  Doug Kwan  <dougkwan@google.com>
 
 	* Makefile.in (STRICT_WARN): Remove -Wno-format and

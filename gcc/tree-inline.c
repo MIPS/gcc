@@ -3242,6 +3242,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      'a = foo (...)', substitute the call with 'a = USE_RETVAR'.  */
   if (use_retvar && gimple_call_lhs (stmt))
     {
+      gimple old_stmt = stmt;
       stmt = gimple_build_assign (gimple_call_lhs (stmt), use_retvar);
       gsi_replace (&stmt_gsi, stmt, false);
       if (gimple_in_ssa_p (cfun))
@@ -3249,7 +3250,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
           update_stmt (stmt);
           mark_symbols_for_renaming (stmt);
 	}
-      maybe_clean_or_replace_eh_stmt (stmt, stmt);
+      maybe_clean_or_replace_eh_stmt (old_stmt, stmt);
     }
   else
     {
