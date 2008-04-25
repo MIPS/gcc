@@ -1,3 +1,12 @@
+2008-04-24  Doug Kwan  <dougkwan@google.com>
+
+	* Makefile.in (STRICT_WARN): Remove -Wno-format and
+	-Wno-missing-format-attribute.
+	* gimplify.c (gimple_pop_condition): Remove redundant and incorrect
+	gimple_seq_free.
+	(gimplify_init_ctor_eval_range): Add a fall-through label for
+	GIMPLE_COND statement.
+
 2008-04-25  Rafael Espindola <espindola@google.com>
 
 	* tree-ssa-dom.c (avail_expr_eq): Return false if the hashes don't

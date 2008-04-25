@@ -298,7 +298,6 @@ gimple_pop_condition (gimple_seq *pre_p)
   if (conds == 0)
     {
       gimplify_seq_add_seq (pre_p, gimplify_ctxp->conditional_cleanups);
-      gimple_seq_free (gimplify_ctxp->conditional_cleanups);
     }
 }
 
@@ -3137,11 +3136,12 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
 			       tree value, tree array_elt_type,
 			       gimple_seq *pre_p, bool cleared)
 {
-  tree loop_entry_label, loop_exit_label;
+  tree loop_entry_label, loop_exit_label, fall_thru_label;
   tree var, var_type, cref, tmp;
 
   loop_entry_label = create_artificial_label ();
   loop_exit_label = create_artificial_label ();
+  fall_thru_label = create_artificial_label ();
 
   /* Create and initialize the index variable.  */
   var_type = TREE_TYPE (upper);
@@ -3167,8 +3167,11 @@ gimplify_init_ctor_eval_range (tree object, tree lower, tree upper,
     gimplify_seq_add_stmt (pre_p, gimple_build_assign (cref, value));
 
   /* We exit the loop when the index var is equal to the upper bound.  */
-  gimplify_seq_add_stmt (pre_p, gimple_build_cond (EQ_EXPR, var, upper,
-					     loop_exit_label, NULL_TREE));
+  gimplify_seq_add_stmt (pre_p,
+			 gimple_build_cond (EQ_EXPR, var, upper,
+					    loop_exit_label, fall_thru_label));
+
+  gimplify_seq_add_stmt (pre_p, gimple_build_label (fall_thru_label));
 
   /* Otherwise, increment the index var...  */
   tmp = build2 (PLUS_EXPR, var_type, var,
