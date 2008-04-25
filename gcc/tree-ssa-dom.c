@@ -2470,6 +2470,16 @@ avail_expr_eq (const void *p1, const void *p2)
   if (stamp1 == stamp2)
     return true;
 
+  /* FIXME tuples:
+     We add stmts to a hash table and them modify them. To detect the case
+     that we modify a stmt and then search for it, we assume that the hash
+     is always modified by that change.
+     We have to fully check why this doesn't happen on trunk or rewrite
+     this in a more  reliable (and easier to understand) way. */
+  if (((const struct expr_hash_elt *)p1)->hash
+      != ((const struct expr_hash_elt *)p2)->hash)
+    return false;
+
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
   if (hashable_expr_equal_p (expr1, expr2)
@@ -2477,9 +2487,6 @@ avail_expr_eq (const void *p1, const void *p2)
     {
       /* Note that STMT1 and/or STMT2 may be NULL.  */
       bool ret = compare_ssa_operands_equal (stmt1, stmt2, SSA_OP_VUSE);
-      gcc_assert (!ret ||
-                  (((const struct expr_hash_elt *)p1)->hash
-                   == ((const struct expr_hash_elt *)p2)->hash));
       return ret;
     }
 

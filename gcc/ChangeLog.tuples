@@ -1,3 +1,8 @@
+2008-04-25  Rafael Espindola <espindola@google.com>
+
+	* tree-ssa-dom.c (avail_expr_eq): Return false if the hashes don't
+	match.
+
 2008-04-24  Oleg Ryjkov  <olegr@google.com>
 
 	* gimplify.c (gimplify_expr): Fix the assertion that verifies validity
