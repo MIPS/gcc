@@ -1,4 +1,395 @@
+2008-04-24  Nathan Froyd  <froydnj@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+        * config/rs6000/rs6000.opt (mspe): Remove Var property.
+	(misel): Likewise.
+        * config/rs6000/rs6000.h (rs6000_spe): Declare.
+	(rs6000_isel): Likewise.
+        * config/rs6000/rs6000.c (rs6000_spe): New variable.
+	(rs6000_isel): New variable.
+        (rs6000_handle_option): Handle OPT_mspe and OPT_misel.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35758
+	* c-common.c (handle_vector_size_attribute): Call
+	lang_hooks.types.reconstruct_complex_type instead of
+	reconstruct_complex_type.
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute): Likewise.
+	* config/spu/spu.c (spu_handle_vector_attribute): Likewise.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	reconstruct_complex_type hook.
+	* langhooks-def.h (LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add it.
+
+2008-04-24  Richard Guenther  <rguenther@suse.de>
+
+	* c-common.h (check_builtin_function_arguments): Declare.
+	* c-common.c (validate_nargs): New function.
+	(check_builtin_function_arguments): Likewise.
+	* c-typeck.c (build_function_call): Call
+	check_builtin_function_arguments.
+	* builtins.c (fold_builtin_classify): Remove error reporting code.
+	(fold_builtin_unordered_cmp): Likewise.
+	(fold_builtin_1): Likewise.
+	(fold_builtin_n): Likewise.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36008
+	* fold-const.c (try_move_mult_to_index): If s == NULL, divide
+	the original op1, rather than delta by step.
+
+2008-04-22  Antoniu Pop  <antoniu.pop@gmail.com>
+            Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-parloops.c (take_address_of, eliminate_local_variables_1,
+	eliminate_local_variables_stmt, eliminate_local_variables,
+	separate_decls_in_loop_name, separate_decls_in_loop_stmt,
+	separate_decls_in_loop, gen_parallel_loop): Make them work on a region
+	of code delimited by two edges in the CFG.
+	(separate_decls_in_loop_name): Renamed separate_decls_in_region_name.
+	(separate_decls_in_loop_stmt): Renamed separate_decls_in_region_stmt.
+	(separate_decls_in_loop): Renamed separate_decls_in_region.  Isolate 
+	the case of parallelisation of reductions.
+	(expr_invariant_in_region_p): New.
+
+	* tree-flow.h (gather_blocks_in_sese_region): Declared.
+	* tree-cfg.c (gather_blocks_in_sese_region): Extern.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36034
+	* tree-vect-analyze.c (vect_analyze_group_access): SLP is
+	incapable of dealing with loads with gaps.
+
+2008-04-24  Rafael Espindola  <espindola@google.com>
+
+	* tree-flow.h (vrp_evaluate_conditional): Change signature.
+	* tree-ssa-propagate.c (fold_predicate_in): Update call to
+	vrp_evaluate_conditional.
+	* tree-vrp.c (vrp_evaluate_conditional_warnv): Remove.
+        (vrp_evaluate_conditional): Split the cond argument.
+        (vrp_visit_cond_stmt): Use vrp_evaluate_conditional_warnv_with_ops.
+        (simplify_stmt_for_jump_threading): Update call to
+	vrp_evaluate_conditional.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35982
+	* tree-vect-analyze.c (vect_check_interleaving): Check that the
+	interleaved data-refs are of the same type.
+
+2008-04-24  Danny Smith  <dannysmith@users.net>
+
+	* c-format.c (check_format_info_main): Use strncmp rather than a magic prefix
+	to handle multichar length specs.
+	* config/i386/msformat-c.c (format_length_info ms_printf_length_specs):
+	Don't prefix "I64" and "I32" with '\0'.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36015
+	* config/i386/i386.c (init_cumulative_args): Don't pass anything
+	in registers for -m32 only if stdarg_p (fntype).
+
+2008-04-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36006
+	* expmed.c (store_fixed_bit_field): Copy op0 rtx before moving
+	temp to op0 in order to avoid invalid rtx sharing.
+
+2008-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-cfg.c (verify_expr): Check with is_gimple_address.  Don't
+	check TREE_INVARIANT.
+	* tree-gimple.c (is_gimple_address): New.
+	(is_gimple_invariant_address): Simplify using decl_address_invariant_p.
+	* tree-gimple.h (is_gimple_address): New.
+	* tree.h (decl_address_invariant_p): New.
+	* tree.c (make_node_stat): Don't set TREE_INVARIANT.
+	(build_string): Likewise.
+	(decl_address_invariant_p): New, from is_gimple_invariant_address.
+	(tree_invariant_p_1): Likewise.
+	(save_expr): Use it.
+	(tree_invariant_p): New.
+	(skip_simple_arithmetic): Use it.
+	(stabilize_reference_1): Use it.
+	(recompute_tree_invariant_for_addr_expr): Don't update TREE_INVARIANT,
+	simplify.
+	(build1_stat): Drop code to compute TREE_INVARIANT.
+	(build2_stat): Drop code to compute TREE_INVARIANT.
+	(build3_stat): Drop code to compute TREE_INVARIANT.
+	(build4_stat): Drop code to compute TREE_INVARIANT.
+	(build5_stat): Drop code to compute TREE_INVARIANT.
+	(build7_stat): Drop code to compute TREE_INVARIANT.
+	(merge_dllimport_decl_attributes): Don't mention TREE_INVARIANT.
+	* tree.h (struct tree_base): Remove invariant_flag.
+	(TREE_INVARIANT): Remove.
+	* builtins.c (build_string_literal): Don't set TREE_INVARIANT.
+	(fold_builtin_expect): Check TREE_CONSTANT.
+	* tree-ssa-ccp.c (fold_stmt_r): Adjust comment.
+	* c-tree.h (c_expr_to_decl): Drop third parameter.
+	* c-typeck.c (build_external_ref): Don't set TREE_INVARIANT.
+	(build_c_cast): Don't set TREE_INVARIANT.
+	(pop_init_level): Don't set TREE_INVARIANT.
+	(c_objc_common_truthvalue_conversion): Don't set TREE_INVARIANT.
+	* gimplify.c (gimplify_init_ctor_preeval): Add assertion, test
+	TREE_CONSTANT.
+	(gimplify_init_constructor): Don't set TREE_INVARIANT.
+	(gimplify_addr_expr): Adjust comment.
+	* tree-mudflap.c (mf_build_string):
+	* print-tree.c (print_node): Don't print TREE_INVARIANT.
+	* tree-nested.c (convert_nonlocal_reference): Adjust comment.
+	* c-common.c (fix_string_type): Don't set TREE_INVARIANT.
+	* langhooks-def.h (lhd_expr_to_decl): Drop third parameter.
+	* langhooks.c (lhd_expr_to_decl): Drop third parameter.
+	* langhooks.h (struct lang_hooks): Drop third parameter from
+	expr_to_decl.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27799
+	PR tree-optimization/32921
+	PR tree-optimization/32624
+	* tree-ssa-structalias.c (merge_smts_into): Only merge the
+	SMTs aliases and the tag itself into the solution.
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): Do not
+	merge the points-to solution back into the SMT aliases.
+	(may_alias_p): Use alias_set_subset_of instead of
+	aliases_conflict_p.  A pointer which points to
+	memory with alias set zero may access any variable.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (alias_set_subset_of): Correctly handle asking
+	if zero is a subset of an alias set with zero child.
+	* tree-ssa-alias.c (have_common_aliases_p): Simplify logic.
+	(compute_flow_insensitive_aliasing): Correctly walk all
+	pointers.  Do not unnecessarily union sets.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36021
+	* c-common.c (handle_alloc_size_attribute): Use type_num_arguments.
+
+2008-04-22  Tomas Bily  <tbily@suse.cz>
+
+	* tree-cfg.c (verify_expr): Check for NON_LVALUE_EXPR as
+	unreachable case.
+	* tree-vrp.c (extract_range_from_unary_expr): Removed unused
+	NON_LVALUE_EXPR.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
+	* tree-ssa-structalias.c (get_constraint_for): Likewise.
+	* tree-inline.c (estimate_num_insns_1): Likewise.
+	* varasm.c (const_hash_1, compare_constant, copy_constant)
+	(compute_reloc_for_constant, output_addressed_constants): Likewise.
+	* emit-rtl.c (component_ref_for_mem_expr)
+	(set_mem_attributes_minus_bitpos): Likewise.
+	* expr.c (highest_pow2_factor, expand_expr_real_1, )
+	(is_aligning_offset): Likewise.
+	* dwarf2out.c (loc_descriptor_from_tree_1, add_bound_info): Likewise.
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* builtins.c (get_pointer_alignment, get_memory_rtx)
+	(integer_valued_real_p, fold_builtin_next_arg): Likewise.
+	* tree-scalar-evolution.c (instantiate_parameters_1): Likewise.
+
+2008-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36017
+	* builtins.c (expand_errno_check): Clear CALL_EXPR_TAILCALL before
+	expanding the library call.
+
+2008-04-22  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (pointer_may_wrap_p): Call int_size_in_bytes rather
+	than size_in_bytes.
+
+2008-04-22  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Increase cost
+	of LR/CTR moves for Power6.
+
+2008-04-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR middle-end/36003
+	* passes.c (init_optimization_passes): Remove
+	pass_fast_rtl_byte_dce.
+	
+2008-04-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/29096
+	* config/i386/xmmintrin.h (_mm_cvtpi16_ps): Rearrange calls to
+	builtin functions to generate faster code.
+	(_mm_cvtpu16_ps): Ditto.
+	(_mm_cvtpi32x2_ps): Ditto.
+
+2008-04-22  Nick Clifton  <nickc@redhat.com>
+
+	* common.opt (ftree-loop-distribution): Add Optimization
+	attribute.
+
+	* config/frv/frv.c (frv_stack_info): Use crtl instead of cfun.
+	(frv_expand_builtin_va_start): Likewise.
+
+	* config/arm/arm.c (thumb_find_work_register): Fix location of
+	argument register count.
+
+2008-04-22  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Support scheduling for ColdFire V1 and V3 microarchitecture.
+	Improve scheduling of multiplication instructions.
+
+	* config/m68k/m68k.md (cpu): Add cfv1 and cfv3.  Rename cf_v2 to cfv1.
+	(mac): New instruction attribute.
+	* config/m68k/m68k.c (override_options): Handle cfv1, cfv3 and mac.
+	(m68k_sched_mac): New variable.
+	(m68k_sched_attr_type2, m68k_sched_md_init_global): Update.
+	Handle cfv1 and cfv3.
+	(max_insn_size): New static variable.
+	(struct _sched_ib): New type.
+	(sched_ib): New static variable.
+	(sched_ib_size, sched_ib_filled, sched_ib_insn): Convert variables
+	to fields of 'struct _sched_ib sched_ib'.  Update all uses.
+	(m68k_sched_variable_issue): Add modeling of cfv3 instruction buffer.
+	Update.
+	(m68k_sched_md_init_global, m68k_sched_md_finish_global,
+	m68k_sched_md_init, m68k_sched_md_finish): Handle cfv1 and cfv3.  Init
+	new variables.  Update.
+	(m68k_sched_dfa_pre_advance_cycle, m68k_sched_dfa_post_advance_cycle):
+	Add modeling of cfv3 instruction buffer.  Update.
+	* config/m68k/m68k-protos.h (m68k_sched_mac): Declare.
+	* config/m68k/m68k.h (TUNE_CFV3): New macro.
+	* config/m68k/cf.md: Change substrings 'cf_v2' to 'cfv12' or 'cfv123'.
+	(cf_* reservations): Rename to cfv12 or cfv123 to indicate cores
+	a particular reservation applies to.
+	(type2): Reorganize attribute values.  Rename alu to alu_reg,
+	alu_l to alu, move_l to omove.  Join move to alu.  Split mul
+	to mul_l and mul_w.
+	(cf_ib_*): Simplify description of instruction buffer.
+	(cf_ib_w0, cf_ib_w4, cf_ib_w5, cf_ib_w6): Remove.
+	(cf_mem): Split into cf_mem1 and cf_mem2.
+	(cf_v2_move_??): Rename to cfv12_alu_??.
+	(cf_v2_move_l_??): Rename to cfv12_omove_??.
+	(cf_v2_mul_??): Remove reservations.
+	(cfv12_mul_l_??, cfv12_mul_w_??, cfv12_mac_w_??, cfv12_mac_l_??,
+	cfv12_emac_??, cfv12_emac_w_i0): New reservations.
+	(cfv12_rts, cfv12_call, cfv12_bcc, cfv12_bra, cfv12_jmp): Move to
+	appropriate place.
+	(cfv3_alu_10, cfv3_omove_10, cfv3_alu_i0, cfv3_omove_i0, cfv3_alu_01,
+	cfv3_alu_0i, cfv3_alu_11, cfv3_omove_11, cfv3_alu_i1, cfv3_omove_i1,
+	cfv3_alu_1i, cfv3_omove_1i, cfv3_pea_11, cfv3_pea_i1, cfv3_mul_w_10,
+	cfv3_mul_l_10, cfv3_mul_w_i0, cfv3_mac_w_10, cfv3_mac_l_10,
+	cfv3_mac_w_i0, cfv3_emac_10, cfv3_emac_w_i0, cfv3_rts, cfv3_call,
+	cfv3_bcc, cfv3_bra, cfv3_jmp): New reservations.
+	(cfv3_*_1, cfv3_*_2, cfv3_*_3): New instruction reservations that are
+	expansions of the above reservations for instructions of sizes
+	1, 2 and 3 words.
+
+2008-04-22  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* rtl-factoring.c (collect_patterns_seqs): Handle CC0 targets.
+
+2008-04-21  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* coverage.c: Include tree-pass.h.
+	(coverage_counter_alloc): Print da_file_name to the dump file.
+
+2008-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* sbitmap.c (sbitmap_range_empty_p): New function.
+	* sbitmap.h (sbitmap_range_empty_p): New function.
+	* bitmap.h: Now includes obstack.h.
+
+2008-04-21  Richard Sandiford  <rsandifo@nildram.co.uk>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dbgcnt.def (ra_byte_scan): Added.
+	* dbgcnt.c (dbg_cnt): Added code to print message to dump_file
+	when the last hit happens for a counter.  
+	* timevar.def (TV_DF_BYTE_LR): New variable.
+	* tree-pass.h (pass_fast_rtl_byte_dce): New pass.
+	* passes.c (pass_fast_rtl_byte_dce): New pass.
+	* fwprop.c (update_df): Added mode to call df_ref_create.
+	Renamed DF_REF_WIDTH and DF_REF_OFFSET to DF_REF_EXTRACT_WIDTH and
+	DF_REF_EXTRACT_OFFSET.
+	* df.h (DF_BYTE_LR, DF_BYTE_LR_BB_INFO, DF_BYTE_LR_IN, 
+	DF_BYTE_LR_OUT, df_byte_lr): New macro.
+	(df_mm): New enum.
+	(df_ref_extract): Added mode field.
+	(DF_REF_WIDTH, DF_REF_OFFSET) Renamed to DF_REF_EXTRACT_WIDTH and
+	DF_REF_EXTRACT_OFFSET.
+	(DF_REF_EXTRACT_MODE): New macro.
+	(df_byte_lr_bb_info): New structure.
+	(df_print_byte_regset, df_compute_accessed_bytes, 
+	df_byte_lr_add_problem, df_byte_lr_get_regno_start,
+	df_byte_lr_get_regno_len, df_byte_lr_simulate_defs,
+	df_byte_lr_simulate_uses,
+	df_byte_lr_simulate_artificial_refs_at_top,
+	df_byte_lr_simulate_artificial_refs_at_end,
+	df_compute_accessed_bytes): New function.
+	(df_ref_create): Add parameter.
+	(df_byte_lr_get_bb_info): New inline function.
+	* df-scan.c (df_ref_record, df_uses_record,
+	df_ref_create_structure): Added mode parameter.
+	(df_ref_create, df_notes_rescan, df_ref_record, df_def_record_1, 
+	df_defs_record, df_uses_record, df_get_conditional_uses,
+	df_get_call_refs, df_insn_refs_collect, df_bb_refs_collect, 
+	df_entry_block_defs_collect, df_exit_block_uses_collect):
+	Added mode parameter to calls to df_ref_record, df_uses_record,
+	df_ref_create_structure.
+	(df_ref_equal_p, df_ref_compare): Added test for modes.
+	(df_ref_create_structure): Added code to set mode.  Renamed
+	DF_REF_WIDTH and DF_REF_OFFSET to DF_REF_EXTRACT_WIDTH and
+	DF_REF_EXTRACT_OFFSET.
+	* df-core.c (df_print_byte_regset): New function.
+	* df-byte-scan.c: New file.
+	* df-problems.c (df_rd_transfer_function): Removed unnecessary
+	calls to BITMAP_FREE.  
+	(df_byte_lr_problem_data, df_problem problem_BYTE_LR): New structure.
+	(df_byte_lr_get_regno_start, df_byte_lr_get_regno_len,
+	df_byte_lr_set_bb_info, df_byte_lr_free_bb_info, 
+	df_byte_lr_check_regs, df_byte_lr_expand_bitmap, 
+	df_byte_lr_alloc, df_byte_lr_reset, df_byte_lr_bb_local_compute,
+	df_byte_lr_local_compute, df_byte_lr_init,
+	df_byte_lr_confluence_0, df_byte_lr_confluence_n, 
+	df_byte_lr_transfer_function, df_byte_lr_free, 
+	df_byte_lr_top_dump, df_byte_lr_bottom_dump,
+	df_byte_lr_add_problem, df_byte_lr_simulate_defs, 
+	df_byte_lr_simulate_uses,
+	df_byte_lr_simulate_artificial_refs_at_top,
+	df_byte_lr_simulate_artificial_refs_at_end): New function.
+	* dce.c (byte_dce_process_block): New function.
+	(dce_process_block): au is now passed in rather than computed
+	locally.  Changed loops that look at artificial defs to not look
+	for conditional or partial ones, because there never are any.  
+	(fast_dce): Now is able to drive byte_dce_process_block or 
+	dce_process_block depending on the kind of dce being done.
+	(rest_of_handle_fast_dce): Add parameter to fast_dce.
+	(rest_of_handle_fast_byte_dce): New function.
+	(rtl_opt_pass pass_fast_rtl_byte_dce): New pass.
+	* Makefile.in (df-byte-scan.o, debugcnt.o): Added dependencies.
+
+2008-04-21  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/35019
+	* gcc.h: Added fortran options that take arguments to
+	DEFAULT_SWITCH_TAKES_ARG and DEFAULT_WORD_SWITCH_TAKES_ARG
+	macros.
+
+2008-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-sra.c (sra_walk_expr) <VIEW_CONVERT_EXPR>: Disable
+	scalarization if on the LHS and not a full access.
+
+2008-04-20  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in (s-gtyp-input): Remove tmp-gi.list before writing it.
+
 2008-04-18  Rafael Espindola  <espindola@google.com>
+
 	* tree-vrp.c (find_case_label_index): Fix the binary search.
 	(find_case_label_range): New.
 	(vrp_visit_switch_stmt): Use find_case_label_range.
@@ -1805,6 +2196,7 @@
 
 2008-03-28  Nick Clifton  <nickc@redhat.com>
 
+	PR target/31110
 	* config/mn10300/mn10300.c (mn10300_secondary_reload_class):
 	Return GENERAL_REGS for stack adjustment reloads.
 

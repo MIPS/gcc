@@ -3188,27 +3188,19 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
     case ADDR_EXPR:
       {
-	bool old_invariant;
 	bool old_constant;
 	bool old_side_effects;
-	bool new_invariant;
 	bool new_constant;
 	bool new_side_effects;
 
-	old_invariant = TREE_INVARIANT (t);
+	gcc_assert (is_gimple_address (t));
+
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
 	recompute_tree_invariant_for_addr_expr (t);
-	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
-
-	if (old_invariant != new_invariant)
-	  {
-	    error ("invariant not recomputed when ADDR_EXPR changed");
-	    return t;
-	  }
 
         if (old_constant != new_constant)
 	  {
@@ -3254,6 +3246,9 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
+    case NON_LVALUE_EXPR:
+	gcc_unreachable ();
+
     case NOP_EXPR:
     case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
@@ -3261,7 +3256,6 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case NEGATE_EXPR:
     case ABS_EXPR:
     case BIT_NOT_EXPR:
-    case NON_LVALUE_EXPR:
     case TRUTH_NOT_EXPR:
       CHECK_OP (0, "invalid operand to unary operator");
       break;
@@ -5511,7 +5505,7 @@ DEF_VEC_ALLOC_P(basic_block,heap);
    adding blocks when the dominator traversal reaches EXIT.  This
    function silently assumes that ENTRY strictly dominates EXIT.  */
 
-static void
+void
 gather_blocks_in_sese_region (basic_block entry, basic_block exit,
 			      VEC(basic_block,heap) **bbs_p)
 {

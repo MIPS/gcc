@@ -771,6 +771,8 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
+extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,
+					  VEC(basic_block,heap) **bbs_p);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
@@ -944,7 +946,7 @@ tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
 
 /* In tree-vrp.c  */
-tree vrp_evaluate_conditional (tree, tree);
+tree vrp_evaluate_conditional (enum tree_code, tree, tree, tree);
 void simplify_stmt_using_ranges (tree);
 
 /* In tree-ssa-dom.c  */

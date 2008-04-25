@@ -1507,7 +1507,7 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	tree field;
 	
 	field = TREE_OPERAND (exp, 1);
-	if (TREE_CODE (field) != FIELD_DECL || !DECL_C_BIT_FIELD (field))
+	if (TREE_CODE (field) != FIELD_DECL || !DECL_BIT_FIELD_TYPE (field))
 	  return NULL_TREE;
 	if (same_type_ignoring_top_level_qualifiers_p
 	    (TREE_TYPE (exp), DECL_BIT_FIELD_TYPE (field)))
@@ -2766,7 +2766,6 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 			fold_convert (sizetype, idx));
       e2 = cp_build_indirect_ref (e2, NULL, tf_warning_or_error);
       TREE_CONSTANT (e2) = 1;
-      TREE_INVARIANT (e2) = 1;
 
       /* When using function descriptors, the address of the
 	 vtable entry is treated as a function pointer.  */
@@ -2890,9 +2889,15 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
   if (nargs < 0)
     return error_mark_node;
 
+  /* Check that arguments to builtin functions match the expectations.  */
+  if (fndecl
+      && DECL_BUILT_IN (fndecl)
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && !check_builtin_function_arguments (fndecl, nargs, argarray))
+    return error_mark_node;
+
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
 			    parm_types);
 
@@ -6396,7 +6401,6 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   CONSTRUCTOR_APPEND_ELT(v, delta_field, delta);
   u = build_constructor (type, v);
   TREE_CONSTANT (u) = TREE_CONSTANT (pfn) & TREE_CONSTANT (delta);
-  TREE_INVARIANT (u) = TREE_INVARIANT (pfn) & TREE_INVARIANT (delta);
   TREE_STATIC (u) = (TREE_CONSTANT (u)
 		     && (initializer_constant_valid_p (pfn, TREE_TYPE (pfn))
 			 != NULL_TREE)
