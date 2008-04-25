@@ -352,7 +352,7 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "avx_movntv2di"
+(define_insn "*avx_movntv2di"
   [(set (match_operand:V2DI 0 "memory_operand" "=m")
 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "x")]
 		     UNSPEC_MOVNT))]

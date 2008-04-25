@@ -1,5 +1,21 @@
 2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_expand_sse4_unpack): Revert the
+	last change.
+	(ix86_expand_binop_imm_builtin): Don't check AVX.
+	(ix86_expand_store_builtin): Likewise.
+	(ix86_expand_unop_builtin): Likewise.
+
+	* config/i386/i386.md (avx_ashlti3): Renamed to ...
+	(*avx_ashlti3): This.
+	(avx_lshrti3): Renamed to ...
+	(*avx_lshrti3): This.
+
+	* config/i386/sse.md (avx_movntv2di): Renamed to ...
+	(*avx_movntv2di): This.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (AVXMODEDCVTDQ2PS): New.
 	(AVXMODEDCVTPS2DQ): Likewise.
 	(avxcvtvecmode): Likewise.
