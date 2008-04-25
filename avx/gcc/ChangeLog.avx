@@ -1,5 +1,23 @@
 2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (AVXMODEDCVTDQ2PS): New.
+	(AVXMODEDCVTPS2DQ): Likewise.
+	(avxcvtvecmode): Likewise.
+	(avxmodesuffix): Add V4SI and V8SI.
+	(avx_cvtdq2ps256): Renamed to ...
+	(avx_cvtdq2ps<avxmodesuffix>): This.  Support 128bit AVX.
+	(avx_cvtps2dq256): Renamed to ...
+	(avx_cvtps2dq<avxmodesuffix>): This.  Support 128bit AVX.
+	(avx_cvttps2dq256): Renamed to ...
+	(avx_cvttps2dq<avxmodesuffix>): This.  Support 128bit AVX.
+	(sse2_cvtdq2pd): Support 128bit AVX.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(avx_cvtpd2dq256): Set mode attribute to "OI".
+	(avx_cvttpd2dq256): Likewise.
+
+2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (mov<mode>): Replace SSEMODEI with
 	SSEMODE.
 	(*mov<mode>_internal): Likewise.  Support V4SF and V2DF.
