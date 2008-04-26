@@ -414,9 +414,6 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
       gimple_assign_set_rhs2 (p, op2);
     }
 
-  if (lhs && TREE_CODE (lhs) == SSA_NAME)
-    SSA_NAME_DEF_STMT (lhs) = p;
-
   return p;
 }
 

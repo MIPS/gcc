@@ -782,7 +782,6 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
      and avoid rescanning.  */
   gsi_replace (bsi, stmt1, true);
   gsi_insert_after (bsi, stmt2, GSI_NEW_STMT);
-  SSA_NAME_DEF_STMT (lhs) = stmt2;
 
   /* Continue processing with invariant reciprocal statement.  */
   return stmt1;

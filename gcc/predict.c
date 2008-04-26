@@ -1099,9 +1099,6 @@ strip_builtin_expect (void)
 	      var = gimple_call_lhs (stmt);
 	      ass_stmt = gimple_build_assign (var, gimple_call_arg (stmt, 0));
 
-	      if (TREE_CODE (var) == SSA_NAME)
-		SSA_NAME_DEF_STMT (var) = ass_stmt;
-
 	      gsi_replace (&bi, ass_stmt, true);
 	    }
 	}

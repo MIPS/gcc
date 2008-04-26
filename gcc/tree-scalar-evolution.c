@@ -2915,7 +2915,6 @@ scev_const_prop (void)
 	  def = force_gimple_operand_gsi (&bsi, def, false, NULL_TREE,
       					  true, GSI_SAME_STMT);
 	  ass = gimple_build_assign (rslt, def);
-	  SSA_NAME_DEF_STMT (rslt) = ass;
 	  gsi_insert_before (&bsi, ass, GSI_SAME_STMT);
 	}
     }

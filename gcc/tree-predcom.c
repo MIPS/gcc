@@ -1246,7 +1246,6 @@ replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
 
       /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
       new_stmt = gimple_build_assign (val, new);
-      SSA_NAME_DEF_STMT (val) = new_stmt;
       gsi_insert_before (&bsi, new_stmt, GSI_NEW_STMT);
       return;
     }
@@ -1307,7 +1306,6 @@ replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
 
   new_stmt = gimple_build_assign (new, unshare_expr (val));
   gsi_insert_after (&bsi, new_stmt, GSI_NEW_STMT);
-  SSA_NAME_DEF_STMT (new) = new_stmt;
 }
 
 /* Returns the reference to the address of REF in the ITER-th iteration of
@@ -1599,7 +1597,6 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
   else
     {
       gimple init_stmt = gimple_build_assign (var, init);
-      SSA_NAME_DEF_STMT (var) = init_stmt;
       mark_virtual_ops_for_renaming (init_stmt);
       gsi_insert_on_edge_immediate (entry, init_stmt);
     }
@@ -2256,7 +2253,6 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
   add_referenced_var (var);
   new_name = make_ssa_name (var, NULL);
   new_stmt = gimple_build_assign_with_ops (code, new_name, name1, name2);
-  SSA_NAME_DEF_STMT (new_name) = new_stmt;
 
   var = create_tmp_var (type, "predreastmp");
   add_referenced_var (var);
@@ -2269,7 +2265,6 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
 					   tmp_name,
 					   gimple_assign_rhs1 (s1),
 					   gimple_assign_rhs2 (s1));
-  SSA_NAME_DEF_STMT (tmp_name) = tmp_stmt;
 
   gimple_assign_set_rhs_with_ops (s1, code, new_name, tmp_name);
   update_stmt (s1);

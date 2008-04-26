@@ -849,7 +849,6 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   /* Emit the statement to compute min/max.  */
   result = duplicate_ssa_name (PHI_RESULT (phi), NULL);
   new_stmt = gimple_build_assign_with_ops (minmax, result, arg0, arg1);
-  SSA_NAME_DEF_STMT (result) = new_stmt;
   gsi = gsi_last_bb (cond_bb);
   gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
 
@@ -960,7 +959,6 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
 
   /* Build the modify expression with abs expression.  */
   new_stmt = gimple_build_assign_with_ops (ABS_EXPR, lhs, rhs, NULL);
-  SSA_NAME_DEF_STMT (lhs) = new_stmt;
 
   gsi = gsi_last_bb (cond_bb);
   gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
@@ -971,7 +969,6 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
 	 added ABS_EXPR statement (which we know is the first statement
 	 in the block.  */
       new_stmt = gimple_build_assign_with_ops (NEGATE_EXPR, result, lhs, NULL);
-      SSA_NAME_DEF_STMT (result) = new_stmt;
 
       gsi_insert_after (&gsi, new_stmt, GSI_NEW_STMT);
     }

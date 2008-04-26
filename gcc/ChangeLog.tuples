@@ -1,3 +1,31 @@
+2008-04-26  Rafael Espindola <espindola@google.com>
+
+	* gimple.c (gimple_build_assign_with_ops): Don't set SSA_NAME_DEF_STMT.
+	* gimple.h (gimple_assign_set_lhs): Set SSA_NAME_DEF_STMT.
+	(gimple_call_set_lhs): Set SSA_NAME_DEF_STMT.
+	* omp-low.c (expand_parallel_call): Don't set SSA_NAME_DEF_STMT if not
+	needed.
+	(expand_omp_for_generic): Same.
+	(expand_omp_for_static_nochunk): Same.
+	(expand_omp_for_static_chunk): Same.
+	(expand_omp_sections): Same.
+	(expand_omp_atomic_mutex): Same.
+	* predict.c (strip_builtin_expect): Same.
+	* tree-cfg.c (gimple_merge_blocks): Same.
+	* tree-inline.c (remap_ssa_name): Same.
+	(setup_one_parameter): Same.
+	* tree-predcom.c (replace_ref_with): Same.
+	(replace_ref_with): Same.
+	(initialize_root_vars_lm): Same.
+	(reassociate_to_the_same_stmt): Same.
+	* tree-scalar-evolution.c (scev_const_prop): Same.
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Same.
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Same.
+	* tree-ssa-loop-manip.c (create_iv): Same.
+	* tree-ssa-math-opts.c (execute_cse_sincos_1): Same.
+	* tree-ssa-phiopt.c (minmax_replacement): Same.
+	(abs_replacement): Same.
+
 2008-04-25  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @134692.

@@ -2346,15 +2346,11 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 
 	  gsi = gsi_start_bb (then_bb);
 	  stmt = gimple_build_assign (tmp_then, val);
-	  if (gimple_in_ssa_p (cfun))
-	    SSA_NAME_DEF_STMT (tmp_then) = stmt;
 	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	  gsi = gsi_start_bb (else_bb);
 	  stmt = gimple_build_assign
 	    	   (tmp_else, build_int_cst (unsigned_type_node, 1));
-	  if (gimple_in_ssa_p (cfun))
-	    SSA_NAME_DEF_STMT (tmp_else) = stmt;
 	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
 	  make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
@@ -2892,8 +2888,6 @@ expand_omp_for_generic (struct omp_region *region,
 				false, GSI_CONTINUE_LINKING);
   stmt = gimple_build_assign (fd->v, t);
   gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (fd->v) = stmt;
 
   t = fold_convert (type, iend0);
   iend = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
@@ -2914,8 +2908,6 @@ expand_omp_for_generic (struct omp_region *region,
 				    true, GSI_SAME_STMT);
       stmt = gimple_build_assign (vback, t);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-      if (gimple_in_ssa_p (cfun))
-	SSA_NAME_DEF_STMT (vback) = stmt;
   
       t = build2 (fd->cond_code, boolean_type_node, vback, iend);
       stmt = gimple_build_cond_empty (t);
@@ -3103,9 +3095,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 				false, GSI_CONTINUE_LINKING);
   stmt = gimple_build_assign (fd->v, t);
   gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (fd->v) = stmt;
-
+ 
   t = fold_convert (type, e0);
   t = fold_build2 (MULT_EXPR, type, t, fd->step);
   t = fold_build2 (PLUS_EXPR, type, t, fd->n1);
@@ -3125,8 +3115,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 				true, GSI_SAME_STMT);
   stmt = gimple_build_assign (vback, t);
   gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (vback) = stmt;
 
   t = build2 (fd->cond_code, boolean_type_node, vback, e);
   gsi_insert_before (&gsi, gimple_build_cond_empty (t), GSI_SAME_STMT);
@@ -3275,8 +3263,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
   stmt = gimple_build_assign (trip_init, build_int_cst (type, 0));
   gsi_insert_before (&si, stmt, GSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (trip_init) = stmt;
 
   t = fold_build2 (MULT_EXPR, type, threadid, fd->chunk_size);
   t = fold_build2 (MULT_EXPR, type, t, fd->step);
@@ -3314,8 +3300,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 				false, GSI_CONTINUE_LINKING);
   stmt = gimple_build_assign (fd->v, t);
   gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (fd->v) = stmt;
 
   t = fold_convert (type, e0);
   t = fold_build2 (MULT_EXPR, type, t, fd->step);
@@ -3334,8 +3318,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   t = build2 (PLUS_EXPR, type, v_main, fd->step);
   stmt = gimple_build_assign (v_back, t);
   gsi_insert_before (&si, stmt, GSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (v_back) = stmt;
 
   t = build2 (fd->cond_code, boolean_type_node, v_back, e);
   gsi_insert_before (&si, gimple_build_cond_empty (t), GSI_SAME_STMT);
@@ -3350,8 +3332,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   t = build2 (PLUS_EXPR, type, trip_main, t);
   stmt = gimple_build_assign (trip_back, t);
   gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (trip_back) = stmt;
 
   /* Replace the OMP_RETURN with a barrier, or nothing.  */
   si = gsi_last_bb (exit_bb);
@@ -3561,8 +3541,6 @@ expand_omp_sections (struct omp_region *region)
     }
   gimple_call_set_lhs (stmt, vin);
   gsi_insert_after (&si, stmt, GSI_SAME_STMT);
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (vin) = stmt;
   gsi_remove (&si, true);
 
   /* The switch() statement replacing GIMPLE_OMP_SECTIONS_SWITCH goes in
@@ -3648,8 +3626,6 @@ expand_omp_sections (struct omp_region *region)
       stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SECTIONS_NEXT], 0);
       gimple_call_set_lhs (stmt, vnext);
       gsi_insert_after (&si, stmt, GSI_SAME_STMT);
-      if (gimple_in_ssa_p (cfun))
-	SSA_NAME_DEF_STMT (vnext) = stmt;
       gsi_remove (&si, true);
 
       single_succ_edge (l1_bb)->flags = EDGE_FALLTHRU;
@@ -4009,8 +3985,6 @@ expand_omp_atomic_mutex (basic_block load_bb, basic_block store_bb,
   force_gimple_operand_gsi (&si, t, true, NULL_TREE, true, GSI_SAME_STMT);
 
   stmt = gimple_build_assign (loaded_val, build_fold_indirect_ref (addr));
-  if (gimple_in_ssa_p (cfun))
-    SSA_NAME_DEF_STMT (loaded_val) = stmt;
   gsi_insert_before (&si, stmt, GSI_SAME_STMT);
   gsi_remove (&si, true);
 

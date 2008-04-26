@@ -5088,7 +5088,6 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       ass = gimple_build_assign (tgt, op);
       gsi_insert_before (&bsi, ass, GSI_SAME_STMT);
       remove_statement (use->stmt, false);
-      SSA_NAME_DEF_STMT (tgt) = ass;
     }
   else
     gimple_assign_set_rhs_from_tree (use->stmt, op);

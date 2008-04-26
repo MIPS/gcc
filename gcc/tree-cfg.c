@@ -1356,7 +1356,6 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	     appear as arguments of the phi nodes.  */
 	  copy = gimple_build_assign (def, use);
 	  gsi_insert_after (&gsi, copy, GSI_NEW_STMT);
-	  SSA_NAME_DEF_STMT (def) = copy;
           remove_phi_node (&psi, false);
 	}
       else

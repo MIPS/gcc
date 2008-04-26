@@ -1252,6 +1252,9 @@ gimple_assign_set_lhs (gimple gs, tree lhs)
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
   gcc_assert (is_gimple_operand (lhs));
   gimple_set_op (gs, 0, lhs);
+
+  if (lhs && TREE_CODE (lhs) == SSA_NAME)
+    SSA_NAME_DEF_STMT (lhs) = gs;
 }
 
 
@@ -1398,6 +1401,8 @@ gimple_call_set_lhs (gimple gs, tree lhs)
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_assert (!lhs || is_gimple_operand (lhs));
   gimple_set_op (gs, 0, lhs);
+  if (lhs && TREE_CODE (lhs) == SSA_NAME)
+    SSA_NAME_DEF_STMT (lhs) = gs;
 }
 
 

@@ -700,8 +700,7 @@ execute_cse_sincos_1 (tree name)
 
 	/* Replace call with a copy.  */
 	stmt = gimple_build_assign (gimple_call_lhs (use_stmt), rhs);
-	SSA_NAME_DEF_STMT (gimple_call_lhs (use_stmt)) = stmt;
-	
+
 	gsi = gsi_for_stmt (use_stmt);
 	gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 	gsi_remove (&gsi, true); 

@@ -214,7 +214,6 @@ remap_ssa_name (tree name, copy_body_data *id)
 		                               fold_convert (TREE_TYPE (new),
 					       		    integer_zero_node));
 	      gsi_insert_after (&gsi, init_stmt, GSI_NEW_STMT);
-	      SSA_NAME_DEF_STMT (new) = init_stmt;
 	      SSA_NAME_IS_DEFAULT_DEF (new) = 0;
 	    }
 	  else
@@ -1943,7 +1942,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	{
 	  def = remap_ssa_name (def, id);
           init_stmt = gimple_build_assign (def, rhs);
-	  SSA_NAME_DEF_STMT (def) = init_stmt;
 	  SSA_NAME_IS_DEFAULT_DEF (def) = 0;
 	  set_default_def (var, NULL);
 	}
