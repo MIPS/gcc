@@ -1,3 +1,115 @@
+2008-04-25  Pompapathi V Gadad <Pompapathi.V.Gadad@nsc.com>
+
+	* config.gcc (crx-*-elf): Remove deprecation.
+	
+2008-04-24  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline:
+	2008-04-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR libstdc++/35597
+	* toplev.c (process_options): Remove -ffunction-sections debugging
+	warning.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35758
+	* c-common.c (handle_vector_size_attribute): Call
+	lang_hooks.types.reconstruct_complex_type instead of
+	reconstruct_complex_type.
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute): Likewise.
+	* config/spu/spu.c (spu_handle_vector_attribute): Likewise.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	reconstruct_complex_type hook.
+	* langhooks-def.h (LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Add it.
+
+	PR tree-optimization/36008
+	* fold-const.c (try_move_mult_to_index): If s == NULL, divide
+	the original op1, rather than delta by step.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36034
+	* tree-vect-analyze.c (vect_analyze_group_access): SLP is
+	incapable of dealing with loads with gaps.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36015
+	* config/i386/i386.c (init_cumulative_args): Don't pass anything
+	in registers for -m32 only if stdarg_p (fntype).
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36021
+	* c-common.c (handle_alloc_size_attribute): Use type_num_arguments.
+
+2008-04-23  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35982
+	* tree-vect-analyze.c (vect_check_interleaving): Check that the
+	interleaved data-refs are of the same type.
+
+2008-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36017
+	* builtins.c (expand_errno_check): Clear CALL_EXPR_TAILCALL before
+	expanding the library call.
+
+2008-04-17  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	PR c/35744
+	* attribs.c (decl_attributes): Return early on errorneous node.
+
+	PR c/35436
+	* c-format.c (init_dynamic_gfc_info): Ignore invalid locus type.
+
+2008-04-17  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/35907
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Restore vr and vrsave
+	regs before frame pop when needed.  If use_backchain_to_restore_sp
+	then load backchain into a temp reg to restore vr and vrsave.  Add
+	code to restore vr after frame pop if possible.
+
+2008-04-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/35944
+	* config/i386/i386.md (fmodxf3): Copy operand 1 and operand 2 into
+	temporary registers.  Change operand predicate to general_operand.
+	(remainderxf3): Ditto.
+
+2008-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35739
+	* tree-nrv.c (tree_nrv): Don't optimize if result_type is GIMPLE
+	reg type.
+
+	PR tree-optimization/35899
+	* tree-inline.c (expand_call_inline): Use GIMPLE_STMT_OPERAND
+	rather than TREE_OPERAND.
+
+2008-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-predcom.c (suitable_reference_p): Return false if the
+	reference can throw.
+
+2008-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35751
+	* c-decl.c (finish_decl): If extern or static var has variable
+	size, set TREE_TYPE (decl) to error_mark_node.
+
+2008-04-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p) <VIEW_CONVERT_EXPR>:
+	Return true if the operand is an INTEGER_CST.
+
 2008-04-12  James E. Wilson  <wilson@tuliptree.org>
 
 	PR target/35695

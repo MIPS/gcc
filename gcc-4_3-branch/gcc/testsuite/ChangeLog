@@ -1,3 +1,104 @@
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/pr36017.c: Run on all targets, remove -lm from dg-options.
+
+	PR c++/35758
+	* g++.dg/ext/vector14.C: New test.
+
+	PR tree-optimization/36008
+	* gcc.c-torture/execute/20080424-1.c: New test.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36034
+	* gcc.c-torture/execute/pr36034-1.c: New testcase.
+	* gcc.c-torture/execute/pr36034-2.c: Likewise.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36015
+	* gcc.dg/pr36015.c: New test.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36021
+	* gcc.dg/attr-alloc_size-2.c: New testcase.
+
+2008-04-23  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35982
+	* gcc.dg/vect/fast-math-pr35982.c: New.
+
+2008-04-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35316
+	* g++.dg/cpp0x/decltype11.C: New.
+
+2008-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36017
+	* gcc.dg/pr36017.c: New test.
+
+2008-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35747
+	* g++.dg/ext/stmtexpr13.C: New test.
+
+	* g++.dg/ext/fixed1.C: Add dg-options.
+
+2008-04-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35325
+	* g++.dg/ext/fixed1.C: New.
+
+	PR c++/35678
+	* g++.dg/template/ttp27.C: New.
+
+2008-04-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35773
+	* g++.dg/overload/autoptr1.C: New.
+
+2008-04-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-04-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR target/35944
+	* gfortran.dg/pr35944-1.f90: New test.
+	* gfortran.dg/pr35944-2.f90: Ditto.
+
+2008-04-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35932
+	* gfortran.dg/intrinsic_char_1.f90: New test.
+
+2008-04-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35739
+	* gcc.dg/dfp/pr35739.c: New test.
+
+	PR tree-optimization/35899
+	* gcc.dg/pr35899.c: New test.
+
+	PR target/35662
+	* gfortran.dg/pr35662.f90: New test.
+
+2008-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization1.ad[sb]: New test.
+
+2008-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35751
+	* gcc.dg/gomp/pr35751.c: New test.
+	* g++.dg/gomp/pr35751.C: New test.
+
+2008-04-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_address2.adb: New test.
+
 2008-04-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/35708

@@ -1,3 +1,53 @@
+2008-05-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+        Revert PR libstdc++/35887 
+        * configure.ac: Revert.
+        * acinclude.m4: Same.
+        * configure: Regenerate.
+        * include/Makefile.am: Revert.
+        * include/Makefile.in: Regenerate.
+	
+2008-04-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/35887 
+        * configure.ac: Add default argument to GLIBCXX_ENABLE_PARALLEL.
+        * acinclude.m4 (GLIBCXX_ENABLE_PARALLEL): Check for --disable-libgomp.
+        * configure: Regenerate.
+        * include/Makefile.am (parallel_headers): Make conditional on
+        ENABLE_PARALLEL.
+        * include/Makefile.in: Regenerate.
+
+2008-04-24  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR libstdc++/35954
+	* include/Makefile.am (pch*_output): Do not touch pch*_output_anchor.
+	Call 'mkdir -p' unconditionally, but ignore its return value.
+	* include/Makefile.in: Regenerate.
+
+2008-04-23  Johannes Singler  <singler@ira.uka.de>
+
+        * include/parallel/multiway_merge.h
+        (multiway_merge_loser_tree):
+        Leave checks to callers, add precondition instead.
+        (multiway_merge_loser_tree_unguarded): Likewise.
+        (multiway_merge_loser_tree_sentinel): Likewise.
+        (sequential_multiway_merge): Added checks for total length 0.
+        (parallel_multiway_merge): Skip empty sequences.
+        (multiway_merge, all variants):
+        Remove temporary variable, return directly.
+        (stable_multiway_merge, all variants): Likewise.
+        (multiway_merge_sentinels, all variants):  Likewise.
+        (stable_multiway_merge_sentinels, all variants): Likewise.
+        * include/parallel/multiseq_selection.h
+        (multiseq_partition): More detailed assertions.
+
+2008-04-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/35816
+	* acinclude.m4 (GLIBCXX_ENABLE_ATOMIC_BUILTINS): Set CXXFLAGS to
+	-O0 when checking for atomic builtins.
+	* configure: Regenerate.
+
 2008-04-10  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* doc/html/*: Regenerate.
