@@ -6353,7 +6353,7 @@ find_drap_reg (void)
       && !DECL_NO_STATIC_CHAIN (cfun->decl))
     return DI_REG;
 
-  if (cfun->tail_call_emit || current_function_calls_eh_return)
+  if (crtl->tail_call_emit || crtl->calls_eh_return)
     return DI_REG;
 
   param_reg_num = ix86_function_regparm (TREE_TYPE (cfun->decl),
@@ -6405,7 +6405,7 @@ ix86_internal_arg_pointer (void)
   /* x86_64 vararg needs 16byte stack alignment for register save
      area.  */
   if (TARGET_64BIT
-      && current_function_stdarg
+      && cfun->stdarg
       && crtl->stack_alignment_estimated < 128)
     crtl->stack_alignment_estimated = 128;
 
@@ -6832,7 +6832,7 @@ ix86_expand_epilogue (int style)
               if (crtl->stack_realign_really)
                 {
                   gcc_assert (!stack_realign_fp);
-                  gcc_assert (cfun->calls_eh_return);
+                  gcc_assert (crtl->calls_eh_return);
                   tmp = plus_constant (crtl->drap_reg,
 				       2 * (-UNITS_PER_WORD));
                   tmp = gen_rtx_MEM (Pmode, tmp);

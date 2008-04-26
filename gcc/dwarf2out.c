@@ -2755,7 +2755,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->nothrow = TREE_NOTHROW (current_function_decl);
   fde->uses_eh_lsda = crtl->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = crtl->all_throwers_are_sibcalls;
-  fde->calls_eh_return = cfun->calls_eh_return;
+  fde->calls_eh_return = crtl->calls_eh_return;
 
   args_size = old_args_size = 0;
 
