@@ -254,7 +254,7 @@ compute_regsets (HARD_REG_SET *elim_set,
      sp-adjusting insns for this case.  */
   int need_fp
     = (! flag_omit_frame_pointer
-       || (current_function_calls_alloca && EXIT_IGNORE_STACK)
+       || (cfun->calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED
        || current_function_accesses_prior_frames
        || crtl->stack_realign_needed);
@@ -391,7 +391,7 @@ global_alloc (void)
     if (REG_N_REFS (i) != 0 && REG_LIVE_LENGTH (i) != -1
 	/* Don't allocate pseudos that cross calls,
 	   if this function receives a nonlocal goto.  */
-	&& (! current_function_has_nonlocal_label
+	&& (! cfun->has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
 	int blk = regno_basic_block (i);

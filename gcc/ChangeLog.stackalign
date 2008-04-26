@@ -1,3 +1,10 @@
+2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.h (rtl_data): Change stack_alignment_used,
+	stack_alignment_estimated, stack_realign_needed,
+	stack_realign_really, need_drap, save_param_ptr_reg,
+	stack_realign_processed and stack_realign_finalized to bool.
+
 2008-04-21  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (expand_one_var): Don't collect stack alignment

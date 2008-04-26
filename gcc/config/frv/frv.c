@@ -1172,7 +1172,7 @@ frv_stack_info (void)
 	  for (regno = first; regno <= last; regno++)
 	    {
 	      if ((df_regs_ever_live_p (regno) && !call_used_regs[regno])
-		  || (current_function_calls_eh_return
+		  || (crtl->calls_eh_return
 		      && (regno >= FIRST_EH_REGNUM && regno <= LAST_EH_REGNUM))
 		  || (!TARGET_FDPIC && flag_pic
 		      && cfun->uses_pic_offset_table && regno == PIC_REGNO))
@@ -1208,7 +1208,7 @@ frv_stack_info (void)
 	      /* If this is a stdarg function with a non varardic
 		 argument split between registers and the stack,
 		 adjust the saved registers downward.  */
-	      last -= (ADDR_ALIGN (cfun->pretend_args_size, UNITS_PER_WORD)
+	      last -= (ADDR_ALIGN (crtl->args.pretend_args_size, UNITS_PER_WORD)
 		       / UNITS_PER_WORD);
 
 	      for (regno = first; regno <= last; regno++)
@@ -1268,13 +1268,13 @@ frv_stack_info (void)
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);
 
-  info_ptr->parameter_size = ADDR_ALIGN (cfun->outgoing_args_size, alignment);
+  info_ptr->parameter_size = ADDR_ALIGN (crtl->outgoing_args_size, alignment);
   info_ptr->regs_size = ADDR_ALIGN (info_ptr->regs_size_2words
 				    + info_ptr->regs_size_1word,
 				    alignment);
   info_ptr->vars_size = ADDR_ALIGN (get_frame_size (), alignment);
 
-  info_ptr->pretend_size = cfun->pretend_args_size;
+  info_ptr->pretend_size = crtl->args.pretend_args_size;
 
   /* Work out the size of the frame, excluding the header.  Both the frame
      body and register parameter area will be dword-aligned.  */
@@ -1957,7 +1957,7 @@ frv_expand_epilogue (bool emit_return)
     }
 
   /* If this function uses eh_return, add the final stack adjustment now.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_stack_adjust (sp, sp, EH_RETURN_STACKADJ_RTX));
 
   if (emit_return)
@@ -2194,7 +2194,7 @@ static void
 frv_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
-  int num = cfun->args_info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
+  int num = crtl->args.info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
 
   nextarg = gen_rtx_PLUS (Pmode, virtual_incoming_args_rtx,
 			  GEN_INT (UNITS_PER_WORD * num));
@@ -2202,7 +2202,7 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr, "va_start: args_info = %d, num = %d\n",
-	       cfun->args_info, num);
+	       crtl->args.info, num);
 
       debug_rtx (nextarg);
     }

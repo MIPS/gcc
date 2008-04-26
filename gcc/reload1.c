@@ -742,11 +742,11 @@ reload (rtx first, int global)
   /* A function that has a nonlocal label that can reach the exit
      block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_has_nonlocal_label
+  if (cfun->has_nonlocal_label
       && has_nonexceptional_receiver ())
-    current_function_saves_all_registers = 1;
+    crtl->saves_all_registers = 1;
 
-  if (current_function_saves_all_registers)
+  if (crtl->saves_all_registers)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
