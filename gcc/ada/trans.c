@@ -886,7 +886,6 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 		  t = build2 (FDESC_EXPR, TREE_TYPE (gnu_field), gnu_prefix,
 			      build_int_cst (NULL_TREE, i));
 		  TREE_CONSTANT (t) = 1;
-		  TREE_INVARIANT (t) = 1;
 		}
 	      else
 		t = build3 (COMPONENT_REF, ptr_void_ftype, gnu_result,
@@ -1235,9 +1234,16 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	      }
 	    else
 	      {
-		tree gnu_compute_type
-		  = signed_or_unsigned_type_for
-		      (0, get_base_type (gnu_result_type));
+		/* We used to compute the length as max (hb - lb + 1, 0),
+		   which could overflow for some cases of empty arrays, e.g.
+		   when lb == index_type'first.  We now compute the length as
+		   (hb < lb) ? 0 : hb - lb + 1, which would only overflow in
+		   much rarer cases, for extremely large arrays we expect
+		   never to encounter in practice.  In addition, the former
+		   computation required the use of potentially constraining
+		   signed arithmetic while the latter doesn't.  */
+		
+		tree gnu_compute_type = get_base_type (gnu_result_type);
 
 		tree index_type
 		  = TYPE_INDEX_TYPE (TYPE_DOMAIN (gnu_type));
@@ -1246,14 +1252,6 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 		tree hb
 		  = convert (gnu_compute_type, TYPE_MAX_VALUE (index_type));
 		
-		/* We used to compute the length as max (hb - lb + 1, 0),
-		   which could overflow for some cases of empty arrays, e.g.
-		   when lb == index_type'first.
-
-		   We now compute it as (hb < lb) ? 0 : hb - lb + 1, which
-		   could overflow as well, but only for extremely large arrays
-		   which we expect never to encounter in practice.  */
-
 		gnu_result
 		  = build3
 		    (COND_EXPR, gnu_compute_type,
@@ -1280,7 +1278,6 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	    gnu_result
 	      = build1 (SAVE_EXPR, TREE_TYPE (gnu_result), gnu_result);
 	    TREE_SIDE_EFFECTS (gnu_result) = 1;
-	    TREE_INVARIANT (gnu_result) = 1;
 	    if (attribute == Attr_First)
 	      pa->first = gnu_result;
 	    else if (attribute == Attr_Last)
@@ -2220,7 +2217,6 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	     used as the object and copied back after the call if needed.  */
 	  gnu_name = build1 (SAVE_EXPR, TREE_TYPE (gnu_name), gnu_name);
 	  TREE_SIDE_EFFECTS (gnu_name) = 1;
-	  TREE_INVARIANT (gnu_name) = 1;
 
 	  /* Set up to move the copy back to the original.  */
 	  if (Ekind (gnat_formal) != E_In_Parameter)

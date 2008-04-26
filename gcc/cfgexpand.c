@@ -1419,7 +1419,7 @@ expand_used_vars (void)
      stack guard: protect-all, alloca used, protected decls present.  */
   if (flag_stack_protect == 2
       || (flag_stack_protect
-	  && (current_function_calls_alloca || has_protected_decls)))
+	  && (cfun->calls_alloca || has_protected_decls)))
     create_stack_guard ();
 
   /* Assign rtl to each variable based on these partitions.  */
@@ -2112,7 +2112,7 @@ gimple_expand_cfg (void)
   /* Honor stack protection warnings.  */
   if (warn_stack_protect)
     {
-      if (current_function_calls_alloca)
+      if (cfun->calls_alloca)
 	warning (OPT_Wstack_protector, 
 		 "not protecting local variables: variable length buffer");
       if (has_short_buffer && !crtl->stack_protect_guard)
@@ -2220,10 +2220,10 @@ gimple_expand_cfg (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_expand =
+struct rtl_opt_pass pass_expand =
 {
  {
-  GIMPLE_PASS,
+  RTL_PASS,
   "expand",				/* name */
   NULL,                                 /* gate */
   gimple_expand_cfg,			/* execute */

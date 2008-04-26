@@ -1633,7 +1633,7 @@ assemble_start_function (tree decl, const char *fnname)
       /* When the function starts with a cold section, we need to explicitly
 	 align the hot section and write out the hot section label.
 	 But if the current function is a thunk, we do not have a CFG.  */
-      if (!current_function_is_thunk
+      if (!crtl->is_thunk
 	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
@@ -2815,7 +2815,6 @@ const_hash_1 (const tree exp)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
       return const_hash_1 (TREE_OPERAND (exp, 0)) * 7 + 2;
 
     default:
@@ -2970,7 +2969,6 @@ compare_constant (const tree t1, const tree t2)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
       return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
@@ -3018,7 +3016,6 @@ copy_constant (tree exp)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
       return build1 (TREE_CODE (exp), TREE_TYPE (exp),
 		     copy_constant (TREE_OPERAND (exp, 0)));
@@ -3489,7 +3486,7 @@ force_const_mem (enum machine_mode mode, rtx x)
     return NULL_RTX;
 
   /* Record that this function has used a constant pool entry.  */
-  current_function_uses_const_pool = 1;
+  crtl->uses_const_pool = 1;
 
   /* Decide which pool to use.  */
   pool = (targetm.use_blocks_for_constant_p (mode, x)
@@ -3803,7 +3800,7 @@ mark_constant_pool (void)
 {
   rtx insn, link;
 
-  if (!current_function_uses_const_pool && n_deferred_constants == 0)
+  if (!crtl->uses_const_pool && n_deferred_constants == 0)
     return;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -3917,7 +3914,6 @@ compute_reloc_for_constant (tree exp)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
       reloc = compute_reloc_for_constant (TREE_OPERAND (exp, 0));
       break;
@@ -3973,7 +3969,6 @@ output_addressed_constants (tree exp)
 
     case NOP_EXPR:
     case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
     case VIEW_CONVERT_EXPR:
       output_addressed_constants (TREE_OPERAND (exp, 0));
       break;

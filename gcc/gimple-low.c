@@ -169,7 +169,7 @@ lower_function_body (void)
       disp_label = create_artificial_label ();
       /* This mark will create forward edges from every call site.  */
       DECL_NONLOCAL (disp_label) = 1;
-      current_function_has_nonlocal_label = 1;
+      cfun->has_nonlocal_label = 1;
       x = gimple_build_label (disp_label);
       gsi_insert_after (&i, x, GSI_CONTINUE_LINKING);
 

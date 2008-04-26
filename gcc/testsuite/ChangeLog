@@ -1,3 +1,161 @@
+2008-04-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran/array_constructor_23.f: Change REAL(10) into kind > 8.
+	* gfortran/array_constructor_24.f: New; REAL(8) version of the test.
+
+2008-04-25  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.dg/array-quals-1.c: Add xfail for x86_64-*-mingw*.
+	* gcc.dg/builtins-12.c: Add dg-options "-ansi".
+	* gcc.dg/builtins-13.c: Likewise.
+	* gcc.dg/pr25682.c: Likewise.
+	* gcc.dg/pr33694.c: Likewise.
+	* gcc.dg/c90-const-expr-2.c: Add check for _WIN64 define.
+	* gcc.dg/c99-const-expr-2.c: Likewise.
+	* gcc.dg/ia64-sync-1.c: Add typedef of size_t, for prototype.
+	* gcc.dg/ia64-sync-2.c: Likewise.
+	* gcc.dg/ia64-sync-3.c: Likewise
+	* gcc.dg/large-size-array.c: Add check for _WIN64 define.
+	* gcc.dg/large-size-array-3.c: Likewise.
+	* gcc.dg/large-size-array-2.c: Add x86_64-*-mingw* for ignore error
+	check.
+	* gcc.dg/large-size-array-4.c: Likewise.
+	* gcc.dg/max-1.c: Replace use of long by ssize_t.
+
+2008-04-24  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/lower-subreg-1.c: Skip IA64 platform.
+
+2008-04-24  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/vect/slp-15.c: Fix scan when vect_int_mult is false.
+
+2008-04-24  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/36035
+	* gcc.dg/vect/vect-vfa-slp.c: Remove bad check.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/pr36017.c: Run on all targets, remove -lm from dg-options.
+
+	PR c++/35758
+	* g++.dg/ext/vector14.C: New test.
+
+2008-04-24  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/builtin-constant_p-1.c: New testcase.
+	* gcc.dg/builtin-errors.c: Adjust expected error.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36008
+	* gcc.c-torture/execute/20080424-1.c: New test.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36034
+	* gcc.c-torture/execute/pr36034-1.c: New testcase.
+	* gcc.c-torture/execute/pr36034-2.c: Likewise.
+
+2008-04-24  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/concat_length.adb: New test.
+
+2008-04-24  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/35982
+	* gcc.dg/vect/fast-math-pr35982.c: New.
+
+2008-04-24  Danny Smith  <dannysmith@users.net>
+
+	* gcc.dg/format/ms-warnI64-1.c: New file.
+
+2008-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36015
+	* gcc.dg/pr36015.c: New test.
+
+2008-04-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR rtl-optimization/36006
+	* gfortran.dg/pr36006-1.f90: New test.
+	* gfortran.dg/pr36006-2.f90: Ditto.
+
+2008-04-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35994
+	* gfortran.dg/minmaxloc_5.f90: New test.
+	* gfortran.dg/minmaxloc_6.f90: New test.
+
+2008-04-23  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/array-init-1.c: Add big-endian number to check.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27799
+	PR tree-optimization/32921
+	PR tree-optimization/32624
+	* gcc.dg/tree-ssa/pr27799.c: New testcase.
+	* gcc.dg/tree-ssa/20030807-7.c: Remove xfail, scan vrp dump.
+
+2008-04-23  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36021
+	* gcc.dg/attr-alloc_size-2.c: New testcase.
+
+2008-04-23  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.dg/20020919-1.c (loc_size_t): New type.
+	(_dl_stat): Use loc_size_t to cast pointers.
+	* gcc.c-torture/compile/20010327-1.c: Skip for x86_64-*-mingw*.
+
+2008-04-23  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/35988
+	* gfortran.dg/matmul_7.f90:  New test.
+
+2008-04-22  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.dg/struct/wo_prof_global_var.c: Initialize array.
+	* gcc.dg/struct/wo_prof_malloc_size_var.c: Ditto.
+	* gcc.dg/struct/w_prof_local_var.c: Ditto.
+	* gcc.dg/struct/w_prof_global_var.c: Ditto.
+	* gcc.dg/struct/wo_prof_local_var.c: Ditto.
+
+2008-04-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35316
+	* g++.dg/cpp0x/decltype11.C: New.
+
+2008-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36017
+	* gcc.dg/pr36017.c: New test.
+
+2008-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35747
+	* g++.dg/ext/stmtexpr13.C: New test.
+
+2008-04-22  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.c-torture/compile/20080419-1.c: New test.
+
+2008-04-22  Kris Van Hees <kris.van.hees@oracle.com>
+
+	PR testsuite/35981
+	* g++.dg/ext/utf-cvt.C: Handle 64-bit platforms correctly.
+	Add tests for 'long long'.
+	* gcc.dg/utf-cvt.c: Handle 64-bit platforms correctly.
+	Add tests for 'long long'.
+
+2008-04-22  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.dg/Wconversion-real.c: Add missing end of comment marker.
+
 2008-04-21  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/31486

@@ -761,7 +761,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  /* Variable substitution need not be simple.  In particular,
 	     the INDIRECT_REF substitution above.  Make sure that
 	     TREE_CONSTANT and friends are up-to-date.  */
-	  int invariant = TREE_INVARIANT (*tp);
+	  int invariant = is_gimple_min_invariant (*tp);
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_tree_body_r, id, NULL);
 
 	  /* Handle the case where we substituted an INDIRECT_REF
@@ -773,7 +773,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 
 	  /* If this used to be invariant, but is not any longer,
 	     then regimplification is probably needed.  */
-	  if (invariant && !TREE_INVARIANT (*tp))
+	  if (invariant && !is_gimple_min_invariant (*tp))
 	    id->regimplify = true;
 
 	  *walk_subtrees = 0;
@@ -2607,7 +2607,6 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights)
     case COMPLEX_EXPR:
     case PAREN_EXPR:
     case NOP_EXPR:
-    case NON_LVALUE_EXPR:
       return 0;
 
     /* Assign cost of 1 to usual operations.

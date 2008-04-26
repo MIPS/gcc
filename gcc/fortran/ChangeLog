@@ -1,3 +1,37 @@
+2008-04-25  Jan Hubicka  <jh@suse.cz>
+
+	* trans-decl.c (trans_function_start): Update.
+
+2008-04-25  Tobias Burnus  <burnus@net-b.de>
+	    Daniel Franke <franke.daniel@gmail.com>
+
+	PR fortran/35156
+	* gfortranspec.c (lang_specific_driver): Deprecate
+	-M option; fix ICE when "-M" is last argument and
+	make "-M<dir>" work.
+	* options.c (gfc_handle_module_path_options): 
+	Use -J instead of -M in error messages.
+	* invoke.texi: Mark -M as depecated.
+
+2008-04-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35994
+	* trans-instrinsic.c (gfc_conv_intrinsic_minmaxloc): Correctly adjust
+	loop counter offset.
+
+2008-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* trans-expr.c (gfc_conv_structure): Don't set TREE_INVARIANT.
+	* trans-array.c (gfc_build_null_descriptor): Don't set TREE_INVARIANT.
+	(gfc_trans_array_constructor_value): Don't set TREE_INVARIANT.
+	(gfc_build_constant_array_constructor): Don't set TREE_INVARIANT.
+	(gfc_conv_array_initializer): Don't set TREE_INVARIANT.
+	* trans-common.c (get_init_field): Don't set TREE_INVARIANT.
+	(create_common): Don't set TREE_INVARIANT.
+	* trans-stmt.c (gfc_trans_character_select): Don't set TREE_INVARIANT.
+	* trans-decl.c (gfc_generate_function_code): Don't set TREE_INVARIANT.
+
 2008-04-21  Steve Ellcey  <sje@cup.hp.com>
 
 	* f95-lang.c (gfc_init_decl_processing): use ptr_mode instead of Pmode.

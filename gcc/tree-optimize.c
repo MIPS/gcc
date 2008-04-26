@@ -414,7 +414,7 @@ tree_rest_of_compilation (tree fndecl)
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->dont_save_pending_sizes_p = 1;
   
   gimple_register_cfg_hooks ();
 

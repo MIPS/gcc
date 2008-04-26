@@ -768,7 +768,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_partition_blocks);
       NEXT_PASS (pass_regmove);
       NEXT_PASS (pass_split_all_insns);
-      NEXT_PASS (pass_fast_rtl_byte_dce);
       NEXT_PASS (pass_lower_subreg2);
       NEXT_PASS (pass_df_initialize_no_opt);
       NEXT_PASS (pass_stack_ptr_mod);
@@ -1107,11 +1106,7 @@ execute_one_pass (struct opt_pass *pass)
   if (pass->type == SIMPLE_IPA_PASS)
     gcc_assert (!cfun && !current_function_decl);
   else
-    {
-      gcc_assert (cfun && current_function_decl);
-      gcc_assert (!(cfun->curr_properties & PROP_trees)
-		  || pass->type != RTL_PASS);
-    }
+    gcc_assert (cfun && current_function_decl);
 
   current_pass = pass;
 
@@ -1207,6 +1202,10 @@ execute_one_pass (struct opt_pass *pass)
       dump_end (pass->static_pass_number, dump_file);
       dump_file = NULL;
     }
+
+  if (pass->type != SIMPLE_IPA_PASS)
+    gcc_assert (!(cfun->curr_properties & PROP_trees)
+		|| pass->type != RTL_PASS);
 
   current_pass = NULL;
   /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */

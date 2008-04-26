@@ -599,7 +599,7 @@ gate_optimize_stdarg (void)
   /* FIXME tuples */
 #if 0
   /* This optimization is only for stdarg functions.  */
-  return current_function_stdarg != 0;
+  return cfun->stdarg != 0;
 #else
   return 0;
 #endif
