@@ -28,6 +28,13 @@
 
 2008-04-25  Diego Novillo  <dnovillo@google.com>
 
+	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg01965.html
+
+	* gimplify.c (annotate_all_with_location_after): New.
+	(gimplify_expr): Call it.
+
+2008-04-25  Diego Novillo  <dnovillo@google.com>
+
 	Merge with mainline @134692.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.

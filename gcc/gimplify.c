@@ -883,6 +883,25 @@ tree_annotate_one_with_location (tree t, location_t location)
     SET_EXPR_LOCATION (t, location);
 }
 
+
+/* Set LOCATION for all the statements after iterator GSI in sequence
+   SEQ.  If GSI is pointing to the end of the sequence, start with the
+   first statement in SEQ.  */
+
+static void
+annotate_all_with_location_after (gimple_seq seq, gimple_stmt_iterator gsi,
+				  location_t location)
+{
+  if (gsi_end_p (gsi))
+    gsi = gsi_start (seq);
+  else
+    gsi_next (&gsi);
+
+  for (; !gsi_end_p (gsi); gsi_next (&gsi))
+    annotate_one_with_location (gsi_stmt (gsi), location);
+}
+
+
 /* Set the location for all the statements in a sequence STMT_P to LOCUS.  */
 
 void
@@ -5860,6 +5879,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   bool is_statement;
   location_t saved_location;
   enum gimplify_status ret;
+  gimple_stmt_iterator pre_last_gsi, post_last_gsi;
 
   save_expr = *expr_p;
   if (save_expr == NULL_TREE)
@@ -5910,6 +5930,17 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
   if (post_p == NULL)
     post_p = &internal_post;
+
+  /* Remember the last statements added to PRE_P and POST_P.  Every
+     new statement added by the gimplification helpers needs to be
+     annotated with location information.  To centralize the
+     responsibility, we remember the last statement that had been
+     added to both queues before gimplifying *EXPR_P.  If
+     gimplification produces new statements in PRE_P and POST_P, those
+     statements will be annotated with the same location information
+     as *EXPR_P.  */
+  pre_last_gsi = gsi_last (*pre_p);
+  post_last_gsi = gsi_last (*post_p);
 
   saved_location = input_location;
   if (save_expr != error_mark_node
@@ -6600,8 +6631,16 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  gimplify_seq_add_seq (pre_p, internal_pre);
 	}
 
+      /* The result of gimplifying *EXPR_P is going to be the last few
+	 statements in *PRE_P and *POST_P.  Add location information
+	 to all the statements that were added by the gimplification
+	 helpers.  */
       if (!gimple_seq_empty_p (*pre_p))
-	annotate_all_with_location (*pre_p, input_location);
+	annotate_all_with_location_after (*pre_p, pre_last_gsi, input_location);
+
+      if (!gimple_seq_empty_p (*post_p))
+	annotate_all_with_location_after (*post_p, post_last_gsi,
+					  input_location);
 
       goto out;
     }
