@@ -1,3 +1,10 @@
+2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx-1.c: Add more tests for gmmintrin.h.
+	* gcc.target/i386/avx-2.c: Likewise.
+
+	* gcc.target/i386/i386.exp (check_effective_target_avx): New.
+
 2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* g++.dg/other/i386-4.C: Renamed to ...

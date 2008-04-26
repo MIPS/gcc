@@ -718,45 +718,44 @@ _mm256_broadcast_ps (__m128 const *__X)
   return (__m256) __builtin_ia32_vbroadcastf128_ps256 (__X);
 }
 
-#if 0
 #ifdef __OPTIMIZE__
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_insertf128_pd (__m256d __X, __m256d __Y, const int __O)
+_mm256_insertf128_pd (__m256d __X, __m128d __Y, const int __O)
 {
-  return (__m256d) __builtin_ia32_vinsertf128_pd ((__v4df)__X,
-						  (__v4df)__y,
-						  __O);
+  return (__m256d) __builtin_ia32_vinsertf128_pd256 ((__v4df)__X,
+						     (__v2df)__Y,
+						     __O);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_insertf128_ps (__m256 __X, __m256 __Y, const int __O)
+_mm256_insertf128_ps (__m256 __X, __m128 __Y, const int __O)
 {
-  return (__m256) __builtin_ia32_vinsertf128_ps ((__v8sf)__X,
-						 (__v8sf)__y,
-						 __O);
+  return (__m256) __builtin_ia32_vinsertf128_ps256 ((__v8sf)__X,
+						    (__v4sf)__Y,
+						    __O);
 }
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_insertf128_si256 (__m256i __X, __m256i __Y, const int __O)
+_mm256_insertf128_si256 (__m256i __X, __m128i __Y, const int __O)
 {
   return (__m256i) __builtin_ia32_vinsertf128_si256 ((__v8si)__X,
-						     (__v8si)__y,
+						     (__v4si)__Y,
 						     __O);
 }
 #else
-#define _mm256_insertf128_pd (X, Y, O)				\
-  ((__m256d) __builtin_ia32_vinsertf128_pd ((__v4df)(__m256d)(X),\
-					    (__v4df)(__m256d)(Y),\
-					    (int)(O)))
+#define _mm256_insertf128_pd(X, Y, O)					\
+  ((__m256d) __builtin_ia32_vinsertf128_pd256 ((__v4df)(__m256d)(X),	\
+					       (__v2df)(__m128d)(Y),	\
+					       (int)(O)))
 
-#define _mm256_insertf128_ps(X, Y, O)				\
-  ((__m256) __builtin_ia32_vinsertf128_ps ((__v8sf)(__m256)(X),	\
-					   (__v8sf)(__m256)(Y),  \
-					   (int)(O)))
+#define _mm256_insertf128_ps(X, Y, O)					\
+  ((__m256) __builtin_ia32_vinsertf128_ps256 ((__v8sf)(__m256)(X),	\
+					      (__v4sf)(__m128)(Y),  	\
+					      (int)(O)))
 
-#define _mm256_insertf128_si256(X, Y, O)			\
-  ((__m256i) __builtin_ia32_vinsertf128_si256 ((__v8si)(__m256i)(X),\
-					       (__v8si)(__m256i)(Y),\
+#define _mm256_insertf128_si256(X, Y, O)				\
+  ((__m256i) __builtin_ia32_vinsertf128_si256 ((__v8si)(__m256i)(X),	\
+					       (__v4si)(__m128i)(Y),	\
 					       (int)(O)))
 #endif
 
@@ -809,7 +808,7 @@ _mm256_storeu_ps (float *__P, __m256 __A)
 }
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_mm256_load_si256 (__m128i const *__P)
+_mm256_load_si256 (__m256i const *__P)
 {
   return *__P;
 }
@@ -819,7 +818,6 @@ _mm256_store_si256 (__m256i *__P, __m256i __A)
 {
   *__P = __A;
 }
-#endif
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_loadu_si256 (__m256i const *__P)

@@ -1,3 +1,41 @@
+2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_insertf128_pd): Fix typos.
+	(_mm256_insertf128_ps): Likewise.
+	(_mm256_insertf128_si256): Likewise.
+	(_mm256_load_si256): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_VINSERTF128PD256, IX86_BUILTIN_VINSERTF128PS256,
+	IX86_BUILTIN_VINSERTF128SI256, IX86_BUILTIN_LOADUPD256,
+	IX86_BUILTIN_LOADUPS256, IX86_BUILTIN_STOREUPD256,
+	IX86_BUILTIN_STOREUPS256 and IX86_BUILTIN_STOREUPS256.
+	(sse_builtin_type): Add V8SI_FTYPE_V8SI_V4SI_INT,
+	V8SF_FTYPE_V8SF_V4SF_INT and V4DF_FTYPE_V4DF_V2DF_INT.
+	(bdesc_sse_args): Add __builtin_ia32_vinsertf128_pd256,
+	__builtin_ia32_vinsertf128_ps256 and
+	__builtin_ia32_vinsertf128_si256.
+	(ix86_init_mmx_sse_builtins): Updated.  Define
+	__builtin_ia32_loadupd256, __builtin_ia32_loadups256,
+	__builtin_ia32_storeupd256 and __builtin_ia32_storeups256.
+	(ix86_expand_sse_operands_builtin): Handle
+	CODE_FOR_avx_vinsertf128_pd256, CODE_FOR_avx_vinsertf128_ps256
+	and CODE_FOR_avx_vinsertf128_si256.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_LOADUPS256,
+	IX86_BUILTIN_STOREUPS256, IX86_BUILTIN_LOADUPD256
+	and IX86_BUILTIN_STOREUPD256.
+
+	* config/i386/sse.md (AVX256MODEF128): New.
+	(AVX256MODEF128S): Likewise.
+	(avxmodesuffixf128): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256): Likewise.
+	(avx_vinsertf128_pd256_0): Likewise.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixf128>256_1): Likewise.
+	(avxhalfvecmode): Add V8SI.
+	(avx_vperm2f128<mode>3): Replace AVX256MODE with AVX256MODEF128.
+
 2008-04-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_expand_sse4_unpack): Revert the

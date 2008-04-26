@@ -18022,6 +18022,13 @@ enum ix86_builtins
   IX86_BUILTIN_VBROADCASTSS256,
   IX86_BUILTIN_VBROADCASTPD256,
   IX86_BUILTIN_VBROADCASTPS256,
+  IX86_BUILTIN_VINSERTF128PD256,
+  IX86_BUILTIN_VINSERTF128PS256,
+  IX86_BUILTIN_VINSERTF128SI256,
+  IX86_BUILTIN_LOADUPD256,
+  IX86_BUILTIN_LOADUPS256,
+  IX86_BUILTIN_STOREUPD256,
+  IX86_BUILTIN_STOREUPS256,
   IX86_BUILTIN_LDDQU256,
   IX86_BUILTIN_LOADDQU256,
   IX86_BUILTIN_STOREDQU256,
@@ -18390,10 +18397,13 @@ enum sse_builtin_type
   V2DF_FTYPE_V2DF_V2DF_V2DF,
   V16QI_FTYPE_V16QI_V16QI_INT,
   V8SI_FTYPE_V8SI_V8SI_INT,
+  V8SI_FTYPE_V8SI_V4SI_INT,
   V8HI_FTYPE_V8HI_V8HI_INT,
   V8SF_FTYPE_V8SF_V8SF_INT,
+  V8SF_FTYPE_V8SF_V4SF_INT,
   V4SI_FTYPE_V4SI_V4SI_INT,
   V4DF_FTYPE_V4DF_V4DF_INT,
+  V4DF_FTYPE_V4DF_V2DF_INT,
   V4SF_FTYPE_V4SF_V4SF_INT,
   V2DI_FTYPE_V2DI_V2DI_INT,
   V2DF_FTYPE_V2DF_V2DF_INT,
@@ -18472,6 +18482,9 @@ static const struct builtin_description bdesc_sse_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4sf3,  "__builtin_ia32_vpermil2ps", IX86_BUILTIN_VPERMIL2PS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4df3,  "__builtin_ia32_vpermil2pd256", IX86_BUILTIN_VPERMIL2PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v8sf3,  "__builtin_ia32_vpermil2ps256", IX86_BUILTIN_VPERMIL2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_pd256, "__builtin_ia32_vinsertf128_pd256", IX86_BUILTIN_VINSERTF128PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V2DF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_ps256, "__builtin_ia32_vinsertf128_ps256", IX86_BUILTIN_VINSERTF128PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V4SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_si256, "__builtin_ia32_vinsertf128_si256", IX86_BUILTIN_VINSERTF128SI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_INT },
 };
 
 static const struct builtin_description bdesc_2arg[] =
@@ -19756,7 +19769,29 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (void_type_node,
 			        pchar_type_node, V32QI_type_node,
 				NULL_TREE);
-
+  tree v8si_ftype_v8si_v4si_int
+    = build_function_type_list (V8SI_type_node,
+				V8SI_type_node, V4SI_type_node,
+				integer_type_node,
+				NULL_TREE);
+  tree v8sf_ftype_v8sf_v4sf_int
+    = build_function_type_list (V8SF_type_node,
+				V8SF_type_node, V4SF_type_node,
+				integer_type_node,
+				NULL_TREE);
+  tree v4df_ftype_v4df_v2df_int
+    = build_function_type_list (V4DF_type_node,
+				V4DF_type_node, V2DF_type_node,
+				integer_type_node,
+				NULL_TREE);
+  tree void_ftype_pfloat_v8sf
+    = build_function_type_list (void_type_node,
+			        pfloat_type_node, V8SF_type_node,
+				NULL_TREE);
+  tree void_ftype_pdouble_v4df
+    = build_function_type_list (void_type_node,
+			        pdouble_type_node, V4DF_type_node,
+				NULL_TREE);
 
   tree ftype;
 
@@ -19876,17 +19911,26 @@ ix86_init_mmx_sse_builtins (void)
 	case V8SI_FTYPE_V8SI_V8SI_INT:
 	  type = v8si_ftype_v8si_v8si_int;
 	  break;
+	case V8SI_FTYPE_V8SI_V4SI_INT:
+	  type = v8si_ftype_v8si_v4si_int;
+	  break;
 	case V8HI_FTYPE_V8HI_V8HI_INT:
 	  type = v8hi_ftype_v8hi_v8hi_int;
 	  break;
 	case V8SF_FTYPE_V8SF_V8SF_INT:
 	  type = v8sf_ftype_v8sf_v8sf_int;
 	  break;
+	case V8SF_FTYPE_V8SF_V4SF_INT:
+	  type = v8sf_ftype_v8sf_v4sf_int;
+	  break;
 	case V4SI_FTYPE_V4SI_V4SI_INT:
 	  type = v4si_ftype_v4si_v4si_int;
 	  break;
 	case V4DF_FTYPE_V4DF_V4DF_INT:
 	  type = v4df_ftype_v4df_v4df_int;
+	  break;
+	case V4DF_FTYPE_V4DF_V2DF_INT:
+	  type = v4df_ftype_v4df_v2df_int;
 	  break;
 	case V4SF_FTYPE_V4SF_V4SF_INT:
 	  type = v4sf_ftype_v4sf_v4sf_int;
@@ -20326,6 +20370,10 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastss256", v8sf_ftype_pcfloat, IX86_BUILTIN_VBROADCASTSS256);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastf128_pd256", v4df_ftype_pcv2df, IX86_BUILTIN_VBROADCASTPD256);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vbroadcastf128_ps256", v8sf_ftype_pcv4sf, IX86_BUILTIN_VBROADCASTPS256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_loadupd256", v4df_ftype_pcdouble, IX86_BUILTIN_LOADUPD256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_loadups256", v8sf_ftype_pcfloat, IX86_BUILTIN_LOADUPS256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_storeupd256", void_ftype_pdouble_v4df, IX86_BUILTIN_STOREUPD256);
+  def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_storeups256", void_ftype_pfloat_v8sf, IX86_BUILTIN_STOREUPS256);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_lddqu256", v32qi_ftype_pcchar, IX86_BUILTIN_LDDQU256);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_loaddqu256", v32qi_ftype_pcchar, IX86_BUILTIN_LOADDQU256);
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_storedqu256", void_ftype_pchar_v32qi, IX86_BUILTIN_STOREDQU256);
@@ -20556,9 +20604,12 @@ ix86_expand_sse_operands_builtin (enum insn_code icode, tree exp,
     case V16QI_FTYPE_V16QI_V16QI_INT:
     case V8HI_FTYPE_V8HI_V8HI_INT:
     case V8SI_FTYPE_V8SI_V8SI_INT:
+    case V8SI_FTYPE_V8SI_V4SI_INT:
     case V8SF_FTYPE_V8SF_V8SF_INT: 
+    case V8SF_FTYPE_V8SF_V4SF_INT: 
     case V4SI_FTYPE_V4SI_V4SI_INT:
     case V4DF_FTYPE_V4DF_V4DF_INT:
+    case V4DF_FTYPE_V4DF_V2DF_INT:
     case V4SF_FTYPE_V4SF_V4SF_INT:
     case V2DI_FTYPE_V2DI_V2DI_INT:
     case V2DF_FTYPE_V2DF_V2DF_INT:
@@ -20618,6 +20669,9 @@ ix86_expand_sse_operands_builtin (enum insn_code icode, tree exp,
 	      case CODE_FOR_avx_vextractf128v2df:
 	      case CODE_FOR_avx_vextractf128v4sf:
 	      case CODE_FOR_avx_vextractf128v4si:
+	      case CODE_FOR_avx_vinsertf128_pd256:
+	      case CODE_FOR_avx_vinsertf128_ps256:
+	      case CODE_FOR_avx_vinsertf128_si256:
 		error ("the last argument must be a 1-bit immediate");
 		return const0_rtx;
 
@@ -21652,6 +21706,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_RCPSS:
       return ix86_expand_unop1_builtin (CODE_FOR_sse_vmrcpv4sf2, exp, target);
 
+    case IX86_BUILTIN_LOADUPS256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_movups256, exp, target, 1);
+
+    case IX86_BUILTIN_STOREUPS256:
+      return ix86_expand_store_builtin (CODE_FOR_avx_movups256, exp);
+
     case IX86_BUILTIN_LOADUPS:
       return ix86_expand_unop_builtin (CODE_FOR_sse_movups, exp, target, 1);
 
@@ -21938,6 +21998,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_SQRTSD:
       return ix86_expand_unop1_builtin (CODE_FOR_sse2_vmsqrtv2df2, exp, target);
+
+    case IX86_BUILTIN_LOADUPD256:
+      return ix86_expand_unop_builtin (CODE_FOR_avx_movupd256, exp, target, 1);
+    case IX86_BUILTIN_STOREUPD256:
+      return ix86_expand_store_builtin (CODE_FOR_avx_movupd256, exp);
+
     case IX86_BUILTIN_LOADUPD:
       return ix86_expand_unop_builtin (CODE_FOR_sse2_movupd, exp, target, 1);
     case IX86_BUILTIN_STOREUPD:

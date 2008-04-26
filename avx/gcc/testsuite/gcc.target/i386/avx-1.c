@@ -44,6 +44,9 @@
 #define __builtin_ia32_vperm2f128_pd256(X, Y, C) __builtin_ia32_vperm2f128_pd256(X, Y, 1)
 #define __builtin_ia32_vperm2f128_ps256(X, Y, C) __builtin_ia32_vperm2f128_ps256(X, Y, 1)
 #define __builtin_ia32_vperm2f128_si256(X, Y, C) __builtin_ia32_vperm2f128_si256(X, Y, 1)
+#define __builtin_ia32_vinsertf128_pd256(X, Y, C) __builtin_ia32_vinsertf128_pd256(X, Y, 1)
+#define __builtin_ia32_vinsertf128_ps256(X, Y, C) __builtin_ia32_vinsertf128_ps256(X, Y, 1)
+#define __builtin_ia32_vinsertf128_si256(X, Y, C) __builtin_ia32_vinsertf128_si256(X, Y, 1)
 
 /* wmmintrin.h */
 #define __builtin_ia32_aeskeygenassist128(X, C) __builtin_ia32_aeskeygenassist128(X, 1)
