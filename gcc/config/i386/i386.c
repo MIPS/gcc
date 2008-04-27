@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "insn-attr.h"
 #include "flags.h"
+#include "c-common.h"
 #include "except.h"
 #include "function.h"
 #include "recog.h"
@@ -20017,10 +20018,6 @@ ix86_init_builtins (void)
 {
   if (TARGET_MMX)
     ix86_init_mmx_sse_builtins ();
-
-#ifdef SUBTARGET_INIT_BUILTINS
-  SUBTARGET_INIT_BUILTINS;
-#endif
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx

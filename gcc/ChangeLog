@@ -1,8 +1,46 @@
-2008-04-25  Kai Tietz  <kai.tietz@onevision.com>
+2008-04-26  Simon Baldwin <simonb@google.com>
 
-	* config/i386/mingw32.h (SUBTARGET_INIT_BUILTINS): New.
-	* config/i386/i386.c (ix86_init_builtins): Use of
-	SUBTARGET_INIT_BUILTINS.
+	PR c/35652
+	* builtins.c (c_strlen): Suppressed multiple warnings that can occur
+	with propagated string constants.
+
+2008-04-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (fix_trunc<mode>_i387_fisttp_with_temp): Use 'X'
+	constraint for operand 2 when operand 0 is memory operand.
+	(fix_truncdi_i387_with_temp): : Use 'X' constraint for operand 4 when
+	operand 0 is memory operand.
+	(fix_trunc<mode>_i387_with_temp): Ditto.
+	(*floatsi<mode>2_vector_mixed_with_temp): Use 'X' constraint for
+	operand 2 when operand 1 is memory operand.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_with_temp): Ditto.
+	(*floatsi<mode>2_vector_sse_with_temp): Ditto.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_with_temp): Ditto.
+	(*float<SSEMODEI24:mode><X87MODEF:mode>2_i387_with_temp): Ditto.
+	(floatdi<X87MODEF:mode>2_i387_with_xmm): Use 'X' constraint for
+	operands 2,3 and 4 when operand 1 is memory operand.
+	(fistdi2_with_temp): Use 'X' constraint for operand 2 when operand 0
+	is memory operand.
+	(fistdi2_floor_with_temp): Ditto.
+	(fist<mode>2_floor_with_temp): Ditto.
+	(fistdi2_ceil_with_temp): Ditto.
+	(fist<mode>2_ceil_with_temp): Ditto.
+	(*truncdfsf_fast_mixed): Merge alternatives 0 and 1.
+
+2008-04-26  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.md (UNSPEC_COMPARE_AND_SWAP_12): New
+	unspec_volitile.
+	(UNSPEC_SYNC_OLD_OP, UNSPEC_SYNC_NEW_OP, UNSPEC_SYNC_EXCHANGE,
+	UNSPEC_MEMORY_BARRIER, UNSPEC_SET_GOT_VERSION,
+	UNSPEC_UPDATE_GOT_VERSION): Renumber.
+	(sync_compare_and_swap<mode>): New expand for QI and HI modes.
+	(compare_and_swap_12): New insn.
+	* config/mips/mips-protos.h (mips_expand_compare_and_swap_12): Declare.
+	* config/mips/mips.c (mips_force_binary): New function.
+	(mips_emit_int_order_test, mips_expand_synci_loop): Use it.
+	(mips_expand_compare_and_swap_12): New function.
+	* config/mips/mips.h (MIPS_COMPARE_AND_SWAP_12): New macro.
 
 2008-04-25  Jan Hubicka  <jh@suse.cz>
 
