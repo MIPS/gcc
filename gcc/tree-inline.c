@@ -739,12 +739,6 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  && id->remapping_type_depth == 0)
 	add_referenced_var (*tp);
 
-      if (TREE_CODE (*tp) == RESX_EXPR && id->eh_region_offset)
-	TREE_OPERAND (*tp, 0) =
-	  build_int_cst (NULL_TREE,
-			 id->eh_region_offset
-			 + TREE_INT_CST_LOW (TREE_OPERAND (*tp, 0)));
-
       if (TREE_CODE (*tp) != OMP_CLAUSE)
 	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
@@ -1157,6 +1151,12 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   wi.info = id;
   walk_gimple_op (copy, remap_gimple_op_r, &wi); 
 
+  /* We have to handle EH region remapping of GIMPLE_RESX specially because
+     the region number is not an operand.  */
+  if (gimple_code (stmt) == GIMPLE_RESX && id->eh_region_offset)
+    {
+      gimple_resx_set_region (copy, gimple_resx_region (stmt) + id->eh_region_offset);
+    }
   return copy;
 }
 

@@ -1,3 +1,10 @@
+2008-04-28  Doug Kwan  <dougkwan@google.com>
+
+	* tree-inline.c (remap_gimple_op_r): Remove code to handle RESX_EXPR
+	region number remapping.
+	(remap_gimple_stmt): Add code to handle GIMPLE_RESX region number
+	remapping.
+
 2008-04-28  Rafael Espindola <espindola@google.com>
 
 	* cfgexpand.c (gimple_to_tree): Add support for switch stmts without
