@@ -593,7 +593,6 @@ client_send_command (const char **argv)
 static bool
 send_fd (int fd)
 {
-  gcc_assert (connection_fd >= 0);
   char cmd = 'F';
   struct msghdr msg;
   struct cmsghdr *cmsg;
@@ -602,6 +601,7 @@ send_fd (int fd)
   char iovbuffer[1];
   struct iovec vec;
 
+  gcc_assert (connection_fd >= 0);
   if (write (connection_fd, &cmd, 1) != 1)
     return false;
   

@@ -3910,7 +3910,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 
 	    case 'j':
 	      {
-		char *arg;
+		const char *arg;
 		if (p[1] != 0)
 		  arg = &p[1];
 		else if (i + 1 < argc)

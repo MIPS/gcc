@@ -1,3 +1,10 @@
+2008-04-28  Tom Tromey  <tromey@redhat.com>
+
+	* gcc.c (process_command): Add missing 'const'.
+	* server.c (send_fd): Move assert after declarations.
+	* c-parser.c (c_parser_mark_hunk_set): Don't cast away const.
+	(update_shared_from_hunk): Use a union to convert types.
+
 2008-04-24  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser) <next>: New field.

@@ -848,8 +848,7 @@ mark_one_hunk_binding (void **slot, void *r)
 int
 c_parser_mark_hunk_set (const void *p)
 {
-  /* Have to cast away const.  */
-  struct hunk_set *hs = (struct hunk_set *) p;
+  const struct hunk_set *hs = (const struct hunk_set *) p;
   struct mark_one_hunk_binding_info info;
   info.table = hs->bindings;
   info.found_any = 0;
@@ -9628,6 +9627,12 @@ struct job_statistics
 static int
 update_shared_from_hunk (void **slot, void *user_data)
 {
+  union conv_hack
+  {
+    void *ptr;
+    int value;
+  };
+
   struct hunk_binding *hunk = (struct hunk_binding *) *slot;
   struct job_statistics *stats = (struct job_statistics *) user_data;
 
@@ -9635,7 +9640,10 @@ update_shared_from_hunk (void **slot, void *user_data)
     {
       int num = htab_elements (hunk->binding_map);
       void **slot = pointer_map_contains (stats->binding_refc, hunk);
-      if ((int) *slot == 1)
+
+      union conv_hack hack;
+      hack.ptr = *slot;
+      if (hack.value == 1)
 	stats->unshared += num;
       else
 	stats->shared += num;
@@ -9644,7 +9652,10 @@ update_shared_from_hunk (void **slot, void *user_data)
     {
       /* Update the reference count info.  */
       void **slot = pointer_map_insert (stats->binding_refc, hunk);
-      *slot = (void *) ((int) *slot + 1);
+      union conv_hack hack;
+      hack.ptr = *slot;
+      ++hack.value;
+      *slot = hack.ptr;
     }
 
   return 1;
