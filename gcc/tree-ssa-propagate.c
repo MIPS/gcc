@@ -1506,12 +1506,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	     presented with a fully propagated, canonicalized
 	     statement.  */
 	  if (use_ranges_p)
-	    /* FIXME tuples.  */
-#if 0
 	    simplify_stmt_using_ranges (stmt);
-#else
-	  gimple_unreachable ();
-#endif
 
 	  gsi_prev (&i);
 	}

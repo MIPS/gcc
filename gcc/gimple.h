@@ -760,6 +760,14 @@ gimple_location (const_gimple g)
   return g->gsbase.location;
 }
 
+/* Return pointer to location information for statement G.  */
+
+static inline const location_t *
+gimple_location_ptr (const_gimple g)
+{
+  return &g->gsbase.location;
+}
+
 
 /* Set location information for statement G.  */
 

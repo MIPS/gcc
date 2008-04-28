@@ -901,7 +901,7 @@ tree fold_const_aggregate_ref (tree);
 
 /* In tree-vrp.c  */
 tree vrp_evaluate_conditional (enum tree_code, tree, tree, tree);
-void simplify_stmt_using_ranges (tree);
+void simplify_stmt_using_ranges (gimple);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);

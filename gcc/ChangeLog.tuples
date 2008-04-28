@@ -1,3 +1,67 @@
+2008-04-28  Rafael Espindola <espindola@google.com>
+
+	* cfgexpand.c (gimple_to_tree): Add support for switch stmts without
+	a default label.
+	* fold-const.c (tree_call_nonnegative_warnv_p): Remove the code
+	argument.
+	(tree_invalid_nonnegative_warnv_p): Update call to
+	tree_call_nonnegative_warnv_p.
+	* gimple.h (gimple_location_ptr): New.
+	* tree-flow.h (simplify_stmt_using_ranges): Change signature.
+	* tree-ssa-propagate.c (substitute_and_fold): Call
+	simplify_stmt_using_ranges.
+	* tree-vrp.c (struct assert_locus_d): Tuplify.
+	(switch_update): Tuplify.
+	(stmt_overflow_infinity): New.
+	(gimple_assign_nonnegative_warnv_p): New.
+	(gimple_call_nonnegative_warnv_p): New.
+	(gimple_stmt_nonnegative_warnv_p): New.
+	(gimple_assign_nonzero_warnv_p): New.
+	(gimple_stmt_nonzero_warnv_p): New.
+	(vrp_stmt_computes_nonzero): Tuplify.
+	(extract_range_basic): Tuplify.
+	(extract_range_from_expr): Tuplify. Rename to
+	extract_range_from_assignment.
+	(adjust_range_with_scev): Tuplify.
+	(vrp_var_may_overflow): Tuplify.
+	(build_assert_expr_for): Tuplify.
+	(fp_predicate): Tuplify.
+	(infer_value_range): Tuplify.
+	(dump_asserts_for): Tuplify.
+	(register_new_assert_for): Tuplify.
+	(register_edge_assert_for_2): Tuplify.
+	(register_edge_assert_for_1): Tuplify.
+	(register_edge_assert_for): Tuplify.
+	(find_conditional_asserts): Tuplify.
+	(find_switch_asserts): Tuplify.
+	(find_assert_locations): Tuplify.
+	(process_assert_insertions_for): Tuplify.
+	(process_assert_insertions): Tuplify.
+	(check_array_ref): Tuplify.
+	(search_for_addr_array): Tuplify.
+	(check_array_bounds): Tuplify.
+	(check_all_array_refs): Tuplify.
+	(remove_range_assertions): Tuplify.
+	(stmt_interesting_for_vrp): Tuplify.
+	(vrp_initialize): Tuplify.
+	(vrp_visit_assignment): Tuplify. Rename to vrp_visit_assignment_or_call.
+	(vrp_visit_cond_stmt): Tuplify.
+	(find_case_label_index): Tuplify.
+	(find_case_label_range): Tuplify.
+	(vrp_visit_switch_stmt): Tuplify.
+	(vrp_visit_stmt): Tuplify.
+	(vrp_visit_phi_node): Tuplify.
+	(simplify_div_or_mod_using_ranges): Tuplify.
+	(simplify_abs_using_ranges): Tuplify.
+	(simplify_cond_using_ranges): Tuplify.
+	(simplify_switch_using_ranges): Tuplify.
+	(simplify_stmt_using_ranges): Tuplify.
+	(simplify_stmt_for_jump_threading): Tuplify.
+	(identify_jump_threads): Tuplify.
+	(execute_vrp): Tuplify.
+	(gate_vrp): Enable.
+	* tree.h (tree_call_nonnegative_warnv_p): Remove the code argument.
+
 2008-04-28  Doug Kwan  <dougkwan@google.com>
 
 	* cp/cp-gimplify.c (finish_bc_block):  Tuplify.

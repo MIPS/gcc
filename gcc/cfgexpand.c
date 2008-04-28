@@ -239,15 +239,24 @@ gimple_to_tree (gimple stmt)
       {
 	tree label_vec;
 	size_t i;
+	tree elt = gimple_switch_label (stmt, 0);
 
 	label_vec = make_tree_vec (gimple_switch_num_labels (stmt));
 
-	for (i = 1; i < gimple_switch_num_labels (stmt); i++)
-	  TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, i);
+	if (!CASE_LOW (elt) && !CASE_HIGH (elt))
+	  {
+	    for (i = 1; i < gimple_switch_num_labels (stmt); i++)
+	      TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, i);
 
-	/* The default case in a SWITCH_EXPR must be at the end of
-	   the label vector.  */
-	TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, 0);
+	    /* The default case in a SWITCH_EXPR must be at the end of
+	       the label vector.  */
+	    TREE_VEC_ELT (label_vec, i - 1) = gimple_switch_label (stmt, 0);
+	  }
+	else
+	  {
+	    for (i = 0; i < gimple_switch_num_labels (stmt); i++)
+	      TREE_VEC_ELT (label_vec, i) = gimple_switch_label (stmt, i);
+	  }
 
 	t = build3 (SWITCH_EXPR, void_type_node, gimple_switch_index (stmt),
 		    NULL, label_vec);

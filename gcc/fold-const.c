@@ -14092,7 +14092,7 @@ tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.  */
 
 bool
-tree_call_nonnegative_warnv_p (enum tree_code code,  tree type, tree fndecl,
+tree_call_nonnegative_warnv_p (tree type, tree fndecl,
 			       tree arg0, tree arg1, bool *strict_overflow_p)
 {
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
@@ -14213,7 +14213,7 @@ tree_call_nonnegative_warnv_p (enum tree_code code,  tree type, tree fndecl,
       default:
 	break;
       }
-  return tree_simple_nonnegative_warnv_p (code,
+  return tree_simple_nonnegative_warnv_p (CALL_EXPR,
 					  type);
 }
 
@@ -14269,8 +14269,7 @@ tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 	tree arg0 = call_expr_nargs (t) > 0 ?  CALL_EXPR_ARG (t, 0) : NULL_TREE;
 	tree arg1 = call_expr_nargs (t) > 1 ?  CALL_EXPR_ARG (t, 1) : NULL_TREE;
 
-	return tree_call_nonnegative_warnv_p (TREE_CODE (t),
-					      TREE_TYPE (t),
+	return tree_call_nonnegative_warnv_p (TREE_TYPE (t),
 					      get_callee_fndecl (t),
 					      arg0,
 					      arg1,
