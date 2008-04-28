@@ -1,5 +1,10 @@
 2008-04-28  Tom Tromey  <tromey@redhat.com>
 
+	* c-parser.c (c_parser_lex_all): Don't enforce location constraint
+	on pragmas.
+
+2008-04-28  Tom Tromey  <tromey@redhat.com>
+
 	* gcc.c (process_command): Add missing 'const'.
 	* server.c (send_fd): Move assert after declarations.
 	* c-parser.c (c_parser_mark_hunk_set): Don't cast away const.

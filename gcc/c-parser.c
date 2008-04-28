@@ -1388,6 +1388,7 @@ c_parser_lex_all (c_parser *parser, c_token *token)
 #define C_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (c_token))
 
   size_t pos = 0, alloc = C_LEXER_BUFFER_SIZE, hunk_start;
+  bool in_pragma = false;
   c_token *buffer;
   struct md5_ctx current_hash;
   struct parsed_hunk **next_hunk_pointer;
@@ -1418,9 +1419,19 @@ c_parser_lex_all (c_parser *parser, c_token *token)
       c_lex_one_token (&buffer[pos]);
       buffer[pos].user_owned = lstate->user_owned;
 
-      gcc_assert (pos == 0
+      /* libcpp emits inverted locations in some cases involving
+	 pragmas.  Since pragmas aren't subject to the location
+	 constraint, it is simpler to just track them here and ignore
+	 them.  */
+      gcc_assert (! in_pragma
+		  || pos == 0
 		  || buffer[pos].type == CPP_EOF
 		  || buffer[pos].location >= buffer[pos - 1].location);
+
+      if (buffer[pos].type == CPP_PRAGMA)
+	in_pragma = true;
+      else if (in_pragma && buffer[pos].type == CPP_PRAGMA_EOL)
+	in_pragma = false;
 
       /* If there was a file change event, it happened before this
 	 token.  */
