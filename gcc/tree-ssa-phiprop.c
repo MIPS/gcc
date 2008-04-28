@@ -160,34 +160,30 @@ phiprop_insert_phi (basic_block bb, gimple phi, gimple use_stmt,
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       tree old_arg, new_var;
-      enum tree_code old_arg_code;
       gimple tmp;
 
       old_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
-      old_arg_code = TREE_CODE (old_arg);
-      while (old_arg_code == SSA_NAME
+      while (TREE_CODE (old_arg) == SSA_NAME
 	     && (SSA_NAME_VERSION (old_arg) >= n
 	         || phivn[SSA_NAME_VERSION (old_arg)].value == NULL_TREE))
 	{
 	  gimple def_stmt = SSA_NAME_DEF_STMT (old_arg);
-
-	  gcc_assert (gimple_code (def_stmt) == GIMPLE_ASSIGN);
-	  old_arg_code = gimple_assign_rhs_code (def_stmt);
 	  old_arg = gimple_assign_rhs1 (def_stmt);
 	}
 
-      if (old_arg_code == SSA_NAME)
+      if (TREE_CODE (old_arg) == SSA_NAME)
 	/* Reuse a formerly created dereference.  */
 	new_var = phivn[SSA_NAME_VERSION (old_arg)].value;
       else
 	{
-	  gcc_assert (old_arg_code == ADDR_EXPR);
+	  gcc_assert (TREE_CODE (old_arg) == ADDR_EXPR);
 	  old_arg = TREE_OPERAND (old_arg, 0);
 	  new_var = create_tmp_var (TREE_TYPE (old_arg), NULL);
 	  tmp = gimple_build_assign (new_var, unshare_expr (old_arg));
 	  if (TREE_CODE (TREE_TYPE (old_arg)) == COMPLEX_TYPE
 	      || TREE_CODE (TREE_TYPE (old_arg)) == VECTOR_TYPE)
 	    DECL_GIMPLE_REG_P (new_var) = 1;
+	  gcc_assert (is_gimple_reg (new_var));
 	  add_referenced_var (new_var);
 	  new_var = make_ssa_name (new_var, tmp);
 	  gimple_assign_set_lhs (tmp, new_var);
@@ -242,12 +238,10 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
   FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_USE)
     {
       tree arg = USE_FROM_PTR (arg_p);
-      enum tree_code arg_code = TREE_CODE (arg);
-
       /* Walk the ssa chain until we reach a ssa name we already
 	 created a value for or we reach a definition of the form
 	 ssa_name_n = &var;  */
-      while (arg_code == SSA_NAME
+      while (TREE_CODE (arg) == SSA_NAME
 	     && !SSA_NAME_IS_DEFAULT_DEF (arg)
 	     && (SSA_NAME_VERSION (arg) >= n
 	         || phivn[SSA_NAME_VERSION (arg)].value == NULL_TREE))
@@ -255,15 +249,12 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
 	  gimple def_stmt = SSA_NAME_DEF_STMT (arg);
 	  if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
 	    return false;
-
-	  arg_code = gimple_assign_rhs_code (def_stmt);
 	  arg = gimple_assign_rhs1 (def_stmt);
 	}
-
-      if (!(arg_code == ADDR_EXPR
+      if ((TREE_CODE (arg) != ADDR_EXPR
 	   /* Avoid to have to decay *&a to a[0] later.  */
-	    && is_gimple_reg_type (TREE_TYPE (arg)))
-	  && !(arg_code == SSA_NAME
+	   || !is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (arg, 0))))
+	  && !(TREE_CODE (arg) == SSA_NAME
 	       && phivn[SSA_NAME_VERSION (arg)].value != NULL_TREE
 	       && phivn_valid_p (phivn, arg, bb)))
 	return false;
@@ -273,7 +264,6 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
      copy chains for ptr.  */
   while (single_imm_use (ptr, &use, &use_stmt)
 	 && gimple_code (use_stmt) == GIMPLE_ASSIGN
-	 && gimple_subcode (use_stmt) == NOP_EXPR
 	 && gimple_assign_rhs1 (use_stmt) == ptr
 	 && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME)
     ptr = gimple_assign_lhs (use_stmt);
@@ -321,7 +311,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
 	     want to delete it here we also have to delete all intermediate
 	     copies.  */
 	  gsi = gsi_for_stmt (use_stmt);
-	  gsi_remove (&gsi, 0);
+	  gsi_remove (&gsi, false);
 
 	  phi_inserted = true;
 	}
@@ -330,7 +320,6 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
 	  /* Further replacements are easy, just make a copy out of the
 	     load.  */
 	  gimple_assign_set_rhs1 (use_stmt, res);
-	  gimple_set_subcode (use_stmt, NOP_EXPR);
 	  update_stmt (use_stmt);
 	}
 

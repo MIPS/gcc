@@ -1,3 +1,14 @@
+2008-04-28  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg02051.html
+
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Remove
+	OLD_ARG_CODE.  Use TREE_CODE (ARG) instead.
+	Assert that NEW_VAR is a GIMPLE register.
+	(propagate_with_phi): Fix test of is_gimple_reg_type for
+	ARG.
+	Do not set subcode of USE_STMT to NOP_EXPR.
+
 2008-04-28  Doug Kwan  <dougkwan@google.com>
 
 	* tree-inline.c (remap_gimple_op_r): Remove code to handle RESX_EXPR
