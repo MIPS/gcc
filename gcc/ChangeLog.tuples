@@ -1,3 +1,22 @@
+2008-04-28  Doug Kwan  <dougkwan@google.com>
+
+	* cp/cp-gimplify.c (finish_bc_block):  Tuplify.
+	(build_bc_goto):  Renamed to get_bc_label.  Return a label
+	only.  Uupdate  callers.
+	(get_bc_label): New
+	(gimplify_cp_loop): Tuplify.  Also check COND for error_mark_node
+	before gimplifying it.
+	(gimplify_for_stmt): Tuplify.
+	(gimplify_while_stmt): Tuplify.
+	(gimplify_for_stmt): Tuplify.
+	(gimplify_do_stmt): Tuplify.
+	(gimplify_switch_stmt): Tuplify.
+	(cp_gimplify_omp_switch_stmt): Add temporary code to pop block
+	label stack.
+	(cp_gimplify_expr): Pass pre_p to gimplify_while_stmt,
+	gimplify_do_stmt and gimplify_switch_stmt.  Tuplify
+	gimplification of CONTINUE_STMT and BREAK_STMT.
+
 2008-04-26  Rafael Espindola <espindola@google.com>
 
 	* gimple.c (gimple_build_assign_with_ops): Don't set SSA_NAME_DEF_STMT.

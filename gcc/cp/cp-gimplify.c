@@ -62,20 +62,14 @@ begin_bc_block (enum bc_t bc)
    If we saw a break (or continue) in the scope, append a LABEL_EXPR to
    body.  Otherwise, just forget the label.  */
 
-static tree
-finish_bc_block (enum bc_t bc, tree label, tree body)
+static gimple_seq
+finish_bc_block (enum bc_t bc, tree label, gimple_seq body)
 {
   gcc_assert (label == bc_label[bc]);
 
   if (TREE_USED (label))
     {
-      tree t, sl = NULL;
-
-      t = build1 (LABEL_EXPR, void_type_node, label);
-
-      append_to_statement_list (body, &sl);
-      append_to_statement_list (t, &sl);
-      body = sl;
+      gimple_seq_add_stmt (&body, gimple_build_label (label));
     }
 
   bc_label[bc] = TREE_CHAIN (label);
@@ -83,11 +77,11 @@ finish_bc_block (enum bc_t bc, tree label, tree body)
   return body;
 }
 
-/* Build a GOTO_EXPR to represent a break or continue statement.  BC
-   indicates which.  */
+/* Get the LABEL_EXPR to represent a break or continue statement
+   in the current block scope.  BC indicates which.  */
 
 static tree
-build_bc_goto (enum bc_t bc)
+get_bc_label (enum bc_t bc)
 {
   tree label = bc_label[bc];
 
@@ -103,7 +97,7 @@ build_bc_goto (enum bc_t bc)
 
   /* Mark the label used for finish_bc_block.  */
   TREE_USED (label) = 1;
-  return build1 (GOTO_EXPR, void_type_node, label);
+  return label;
 }
 
 /* Genericize a TRY_BLOCK.  */
@@ -193,15 +187,20 @@ gimplify_if_stmt (tree *stmt_p)
    evaluated before the loop body as in while and for loops, or after the
    loop body as in do-while loops.  */
 
-static tree
+static gimple_seq
 gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 {
-  tree top, entry, exit, cont_block, break_block, stmt_list, t;
+  gimple top, entry, stmt;
+  gimple_seq stmt_list, body_seq, incr_seq, exit_seq;
+  tree cont_block, break_block;
   location_t stmt_locus;
 
   stmt_locus = input_location;
-  stmt_list = NULL_TREE;
-  entry = NULL_TREE;
+  stmt_list = NULL;
+  body_seq = NULL;
+  incr_seq = NULL;
+  exit_seq = NULL;
+  entry = NULL;
 
   break_block = begin_bc_block (bc_break);
   cont_block = begin_bc_block (bc_continue);
@@ -209,13 +208,12 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
   /* If condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
     {
-      top = NULL_TREE;
-      exit = NULL_TREE;
+      top = NULL;
       if (cond_is_first)
 	{
-	  t = build_bc_goto (bc_break);
-	  SET_EXPR_LOCATION (t, stmt_locus);
-	  append_to_statement_list (t, &stmt_list);
+	  stmt = gimple_build_goto (get_bc_label (bc_break));
+	  gimple_set_location (stmt, stmt_locus);
+	  gimple_seq_add_stmt (&stmt_list, stmt);
 	}
     }
   else
@@ -224,41 +222,55 @@ gimplify_cp_loop (tree cond, tree body, tree incr, bool cond_is_first)
 	 back through the main gimplifier to lower it.  Given that we
 	 have to gimplify the loop body NOW so that we can resolve
 	 break/continue stmts, seems easier to just expand to gotos.  */
-      top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+      top = gimple_build_label (create_artificial_label ());
 
       /* If we have an exit condition, then we build an IF with gotos either
 	 out of the loop, or to the top of it.  If there's no exit condition,
 	 then we just build a jump back to the top.  */
-      exit = build_and_jump (&LABEL_EXPR_LABEL (top));
       if (cond && !integer_nonzerop (cond))
 	{
-	  t = build_bc_goto (bc_break);
-	  exit = fold_build3 (COND_EXPR, void_type_node, cond, exit, t);
+	  if (cond != error_mark_node)
+	    { 
+	      gimplify_expr (&cond, &exit_seq, NULL, is_gimple_val, fb_rvalue);
+	      stmt = gimple_build_cond (NE_EXPR, cond,
+					build_int_cst (TREE_TYPE (cond), 0),
+					gimple_label_label (top),
+					get_bc_label (bc_break));
+	      gimple_seq_add_stmt (&exit_seq, stmt);
+	    }
 
 	  if (cond_is_first)
 	    {
 	      if (incr)
 		{
-		  entry = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
-		  t = build_and_jump (&LABEL_EXPR_LABEL (entry));
+		  entry = gimple_build_label (create_artificial_label ());
+		  stmt = gimple_build_goto (gimple_label_label (entry));
 		}
 	      else
-		t = build_bc_goto (bc_continue);
-	      SET_EXPR_LOCATION (t, stmt_locus);
-	      append_to_statement_list (t, &stmt_list);
+		stmt = gimple_build_goto (get_bc_label (bc_continue));
+	      gimple_set_location (stmt, stmt_locus);
+	      gimple_seq_add_stmt (&stmt_list, stmt);
 	    }
+	}
+      else
+	{
+	  stmt = gimple_build_goto (gimple_label_label (top));
+	  gimple_seq_add_stmt (&exit_seq, stmt);
 	}
     }
 
-  body = finish_bc_block (bc_continue, cont_block, body);
+  gimplify_stmt (&body, &body_seq);
+  gimplify_stmt (&incr, &incr_seq);
 
-  append_to_statement_list (top, &stmt_list);
-  append_to_statement_list (body, &stmt_list);
-  append_to_statement_list (incr, &stmt_list);
-  append_to_statement_list (entry, &stmt_list);
-  append_to_statement_list (exit, &stmt_list);
+  body_seq = finish_bc_block (bc_continue, cont_block, body_seq);
 
-  tree_annotate_all_with_location (&stmt_list, stmt_locus);
+  gimple_seq_add_stmt (&stmt_list, top);
+  gimple_seq_add_seq (&stmt_list, body_seq);
+  gimple_seq_add_seq (&stmt_list, incr_seq);
+  gimple_seq_add_stmt (&stmt_list, entry);
+  gimple_seq_add_seq (&stmt_list, exit_seq);
+
+  annotate_all_with_location (stmt_list, stmt_locus);
 
   return finish_bc_block (bc_break, break_block, stmt_list);
 }
@@ -274,38 +286,45 @@ gimplify_for_stmt (tree *stmt_p, gimple_seq *pre_p)
   if (FOR_INIT_STMT (stmt))
     gimplify_and_add (FOR_INIT_STMT (stmt), pre_p);
 
-  *stmt_p = gimplify_cp_loop (FOR_COND (stmt), FOR_BODY (stmt),
-			      FOR_EXPR (stmt), 1);
+  gimple_seq_add_seq (pre_p,
+		      gimplify_cp_loop (FOR_COND (stmt), FOR_BODY (stmt),
+					FOR_EXPR (stmt), 1));
+  *stmt_p = NULL_TREE;
 }
 
 /* Gimplify a WHILE_STMT node.  */
 
 static void
-gimplify_while_stmt (tree *stmt_p)
+gimplify_while_stmt (tree *stmt_p, gimple_seq *pre_p)
 {
   tree stmt = *stmt_p;
-  *stmt_p = gimplify_cp_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
-			      NULL_TREE, 1);
+  gimple_seq_add_seq (pre_p,
+		      gimplify_cp_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
+					NULL_TREE, 1));
+  *stmt_p = NULL_TREE;
 }
 
 /* Gimplify a DO_STMT node.  */
 
 static void
-gimplify_do_stmt (tree *stmt_p)
+gimplify_do_stmt (tree *stmt_p, gimple_seq *pre_p)
 {
   tree stmt = *stmt_p;
-  *stmt_p = gimplify_cp_loop (DO_COND (stmt), DO_BODY (stmt),
-			      NULL_TREE, 0);
+  gimple_seq_add_seq (pre_p,
+		      gimplify_cp_loop (DO_COND (stmt), DO_BODY (stmt),
+					NULL_TREE, 0));
+  *stmt_p = NULL_TREE;
 }
 
 /* Genericize a SWITCH_STMT by turning it into a SWITCH_EXPR.  */
 
 static void
-gimplify_switch_stmt (tree *stmt_p)
+gimplify_switch_stmt (tree *stmt_p, gimple_seq *pre_p)
 {
   tree stmt = *stmt_p;
-  tree break_block, body;
+  tree break_block, body, t;
   location_t stmt_locus = input_location;
+  gimple_seq seq = NULL;
 
   break_block = begin_bc_block (bc_break);
 
@@ -313,11 +332,14 @@ gimplify_switch_stmt (tree *stmt_p)
   if (!body)
     body = build_empty_stmt ();
 
-  *stmt_p = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
-		    SWITCH_STMT_COND (stmt), body, NULL_TREE);
-  SET_EXPR_LOCATION (*stmt_p, stmt_locus);
+  t = build3 (SWITCH_EXPR, SWITCH_STMT_TYPE (stmt),
+	      SWITCH_STMT_COND (stmt), body, NULL_TREE);
+  SET_EXPR_LOCATION (t, stmt_locus);
+  gimplify_and_add (t, &seq);
 
-  *stmt_p = finish_bc_block (bc_break, break_block, *stmt_p);
+  seq = finish_bc_block (bc_break, break_block, seq);
+  gimple_seq_add_seq (pre_p, seq);
+  *stmt_p = NULL_TREE;
 }
 
 /* Hook into the middle of gimplifying an OMP_FOR node.  This is required
@@ -344,12 +366,15 @@ cp_gimplify_omp_for (tree *expr_p)
   /* FIXME tuples.  */
 #if 0
   gimplify_stmt (expr_p);
-#else
-  gimple_unreachable ();
-#endif
-
   OMP_FOR_BODY (for_stmt)
     = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
+#else
+  gimple_unreachable ();
+
+  /* Temporary code to pop continue-label stack.  */
+  finish_bc_block (bc_continue, cont_block, NULL);
+#endif
+
   OMP_FOR_GIMPLIFYING_P (for_stmt) = 0;
 
   return GS_ALL_DONE;
@@ -563,17 +588,17 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     case WHILE_STMT:
-      gimplify_while_stmt (expr_p);
+      gimplify_while_stmt (expr_p, pre_p);
       ret = GS_OK;
       break;
 
     case DO_STMT:
-      gimplify_do_stmt (expr_p);
+      gimplify_do_stmt (expr_p, pre_p);
       ret = GS_OK;
       break;
 
     case SWITCH_STMT:
-      gimplify_switch_stmt (expr_p);
+      gimplify_switch_stmt (expr_p, pre_p);
       ret = GS_OK;
       break;
 
@@ -582,13 +607,15 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     case CONTINUE_STMT:
-      *expr_p = build_bc_goto (bc_continue);
-      ret = GS_OK;
+      gimple_seq_add_stmt (pre_p, gimple_build_goto (get_bc_label (bc_continue)));
+      *expr_p = NULL_TREE;
+      ret = GS_ALL_DONE;
       break;
 
     case BREAK_STMT:
-      *expr_p = build_bc_goto (bc_break);
-      ret = GS_OK;
+      gimple_seq_add_stmt (pre_p, gimple_build_goto (get_bc_label (bc_break)));
+      *expr_p = NULL_TREE;
+      ret = GS_ALL_DONE;
       break;
 
     case EXPR_STMT:
