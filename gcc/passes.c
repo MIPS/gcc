@@ -538,10 +538,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_copy_prop);
-/* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_merge_phi);
-#endif
 	  NEXT_PASS (pass_dce);
 	  NEXT_PASS (pass_update_address_taken);
 	  NEXT_PASS (pass_simple_dse);
@@ -558,9 +555,9 @@ init_optimization_passes (void)
   /* FIXME tuples.  */
 #if 0
   NEXT_PASS (pass_ipa_increase_alignment);
+#endif
   NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_cp);
-#endif
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 

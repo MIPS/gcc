@@ -1,3 +1,11 @@
+2008-04-29  Rafael Espindola <espindola@google.com>
+
+	* ipa-cp.c (ipcp_driver): Disable.
+	* matrix-reorg.c (matrix_reorg): Comment body.
+	(gate_matrix_reorg): Disable.
+	* passes.c (init_optimization_passes): Enable first pass_merge_phi,
+	pass_ipa_cp and pass_ipa_matrix_reorg.
+
 2008-04-29  Doug Kwan  <dougkwan@google.com>
 
        * tree-eh.c (lower_catch): Fix bug of accessing sub-statements

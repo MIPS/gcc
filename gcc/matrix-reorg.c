@@ -2198,12 +2198,13 @@ dump_matrix_reorg_analysis (void **slot, void *data ATTRIBUTE_UNUSED)
   return 1;
 }
 
-
+#endif
 /* Perform matrix flattening.  */
 
 static unsigned int
 matrix_reorg (void)
 {
+#if 0 /* FIXME tuples */
   struct cgraph_node *node;
 
   if (profile_info)
@@ -2306,6 +2307,9 @@ matrix_reorg (void)
   set_cfun (NULL);
   matrices_to_reorg = NULL;
   return 0;
+#else
+  gcc_unreachable ();
+#endif
 }
 
 
@@ -2313,7 +2317,12 @@ matrix_reorg (void)
 static bool
 gate_matrix_reorg (void)
 {
+  /* FIXME tuples */
+#if 0
   return flag_ipa_matrix_reorg && flag_whole_program;
+#else
+  return false;
+#endif
 }
 
 struct simple_ipa_opt_pass pass_ipa_matrix_reorg = 
@@ -2334,4 +2343,4 @@ struct simple_ipa_opt_pass pass_ipa_matrix_reorg =
   TODO_dump_cgraph | TODO_dump_func	/* todo_flags_finish */
  }
 };
-#endif
+

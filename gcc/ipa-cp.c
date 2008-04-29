@@ -1128,7 +1128,11 @@ ipcp_driver (void)
 static bool
 cgraph_gate_cp (void)
 {
+#if 0 /* FIXME tuples */
   return flag_ipa_cp;
+#else
+  return false;
+#endif
 }
 
 struct simple_ipa_opt_pass pass_ipa_cp = 
