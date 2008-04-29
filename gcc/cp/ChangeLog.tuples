@@ -1,3 +1,9 @@
+2008-04-29  Doug Kwan  <dougkwan@google.com>
+       * decl2 (File): Include "gimple.h"
+       (cp_write_global_declarations): Use gimple_body instead of
+       DECL_SAVED_TREE.
+       * Make-lang.in (cp/decl2.o): Add $(GIMPLE_H)
+
 2008-04-10  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-04/msg00913.html

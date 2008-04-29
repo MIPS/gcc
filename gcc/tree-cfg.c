@@ -497,6 +497,12 @@ make_edges (void)
 	      break;
 
 	    case GIMPLE_ASSIGN:
+	       /* A GIMPLE_ASSIGN may throw internally and thus be considered
+		  control-altering. */
+	      if (is_ctrl_altering_stmt (last))
+		{
+		  make_eh_edges (last);
+		}
 	      fallthru = true;
 	      break;
 

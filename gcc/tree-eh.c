@@ -1635,7 +1635,7 @@ lower_catch (struct leh_state *state, gimple tp)
     }
 
   out_label = NULL;
-  for (gsi = gsi_start (gimple_catch_handler (tp)); !gsi_end_p (gsi); )
+  for (gsi = gsi_start (gimple_try_cleanup (tp)); !gsi_end_p (gsi); )
     {
       struct eh_region *catch_region;
       tree eh_label;
@@ -1660,7 +1660,7 @@ lower_catch (struct leh_state *state, gimple tp)
 	  if (!out_label)
 	    out_label = create_artificial_label ();
 
-	  x = gimple_build_label (out_label);
+	  x = gimple_build_goto (out_label);
 	  gimple_seq_add_stmt (gimple_catch_handler_ptr (catch), x);
 	}
 
@@ -1737,7 +1737,7 @@ lower_cleanup (struct leh_state *state, gimple tp)
   this_state = *state;
   this_state.cur_region = this_region;
 
-  lower_eh_constructs_1 (&this_state, gimple_try_cleanup (tp));
+  lower_eh_constructs_1 (&this_state, gimple_try_eval (tp));
 
   if (!get_eh_region_may_contain_throw (this_region))
     {
@@ -1822,10 +1822,10 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 	  x = gimple_seq_first_stmt (gimple_try_cleanup (stmt));
 	  switch (gimple_code (x))
 	    {
-	    case CATCH_EXPR:
+	    case GIMPLE_CATCH:
 	      replace = lower_catch (state, stmt);
 	      break;
-	    case EH_FILTER_EXPR:
+	    case GIMPLE_EH_FILTER:
 	      replace = lower_eh_filter (state, stmt);
 	      break;
 	    default:
