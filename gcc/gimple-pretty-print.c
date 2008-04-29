@@ -362,7 +362,7 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
     dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs, t);
   else
     {
-      pp_string (buffer, "return");
+      pp_string (buffer, "return ");
       if (t)
         dump_generic_node (buffer, t, spc, flags, false);
       pp_semicolon (buffer);

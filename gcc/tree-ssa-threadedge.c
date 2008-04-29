@@ -396,7 +396,7 @@ simplify_control_stmt_condition (edge e,
 				 bool handle_dominating_asserts)
 {
   tree cond, cached_lhs;
-  enum tree_code code = gimple_code (stmt);
+  enum gimple_code code = gimple_code (stmt);
 
   /* For comparisons, we have to update both operands, then try
      to simplify the comparison.  */
