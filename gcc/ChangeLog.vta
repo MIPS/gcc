@@ -1,3 +1,12 @@
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (forward_propagate_and_simplify): Replace entire
+	var location rtx.  Revert part of 2007-11-08 obviated by:
+	2008-04-02  Andy Hutchinson <hutchinsonamdy@aim.com>
+	PR rtl-optimization/35542
+	* fwprop.c (forward_propagate_and_simplify): Replace
+	loc_reg_mentioned_in_p with reg_mentioned_p.
+
 2008-04-07  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c: Include target.h.
