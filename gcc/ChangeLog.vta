@@ -1,5 +1,40 @@
 2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* var-tracking.c (struct variable_def): Declare var_part with a
+	single element.
+	(var_pool): Adjust comment.
+	(valvar_pool): New.
+	(dv_is_value_p): Improve documentation.
+	(dv_onepart_p): New.
+	(dv_pool): New.  Use it all over, instead of var_pool.
+	(dv_htab_hash): Attempt to reduce collisions.
+	(unshare_variable): Take slot as argument.  Adjust all callers.
+	(vars_copy_1): Fix strict-aliasing error.
+	(variable_union): Likewise.  Ensure one-part dvs don't ever get
+	more than one part.
+	(struct dataflow_set_unavailable): New.
+	(remove_unavailable_values): New.
+	(dataflow_set_remove_unavailable): New.
+	(dataflow_set_different_1): Fix strict-aliasing error.
+	(dataflow_set_different_2): Likewise.
+	(use_type): Follow var_debug_decl chain.
+	(add_stores): Use use_type to tell whether to clobber.
+	(find_src_set_src): Fix strict-aliasing error.
+	(vt_find_locations): Remove unavailable values.
+	(dump_variable): Fix strict-aliasing error.
+	(variable_was_changed): Likewise.
+	(set_variable_part): Ensure one-part vars get a single part at
+	offset zero.
+	(emit_note_insn_var_location): Fix strict-aliasing error.
+	(check_changed_var): Likewise.
+	(emit_notes_for_differences_1): Likewise.
+	(emit_notes_for_differences_2): Likewise.
+	(vt_initialize): Create valvar_pool if debug insns may exist.
+	Adjust var_pool creation.
+	(vt_finalize): Release valvar_pool.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* combine.c (try_combine): Don't pass uninitialized i2src or
 	i2dest to propagate_for_debug.
 
