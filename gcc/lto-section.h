@@ -33,6 +33,7 @@ struct lto_decl_header
   int32_t num_fn_decls;           /* Number of FUNCTION_DECLS.  */
   int32_t num_var_decls;          /* Number of non local VAR_DECLS.  */
   int32_t num_type_decls;         /* Number of TYPE_DECLs.  */
+  int32_t num_namespace_decls;    /* Number of NAMESPACE_DECLs.  */
   int32_t num_types;              /* Number of types.  */
 };
 

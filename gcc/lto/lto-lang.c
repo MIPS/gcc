@@ -574,6 +574,13 @@ lto_init (void)
   return true;
 }
 
+/* Initialize tree structures required by the LTO front end.  */
+
+static void lto_init_ts (void)
+{
+  tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
+}
+
 /* rs6000.c wants to look at this and we really only do C for the time
    being.  */
 #undef LANG_HOOKS_NAME
@@ -607,6 +614,8 @@ lto_init (void)
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P lto_types_compatible_p
+#undef LANG_HOOKS_INIT_TS
+#define LANG_HOOKS_INIT_TS lto_init_ts
 
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

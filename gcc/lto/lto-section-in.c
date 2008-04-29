@@ -276,13 +276,16 @@ lto_read_decls (lto_info_fd *fd,
     = fns_offset + (header->num_fn_decls * sizeof (lto_ref));
   int32_t type_decls_offset 
     = vars_offset + (header->num_var_decls * sizeof (lto_ref));
-  int32_t types_offset 
+  int32_t namespace_decls_offset
     = type_decls_offset + (header->num_type_decls * sizeof (lto_ref));
+  int32_t types_offset
+    = namespace_decls_offset + (header->num_namespace_decls * sizeof (lto_ref));
 
   lto_ref *in_field_decls = (lto_ref*)(data + fields_offset);
   lto_ref *in_fn_decls    = (lto_ref*)(data + fns_offset);
   lto_ref *in_var_decls   = (lto_ref*)(data + vars_offset);
   lto_ref *in_type_decls  = (lto_ref*)(data + type_decls_offset);
+  lto_ref *in_namespace_decls  = (lto_ref*)(data + namespace_decls_offset);
   lto_ref *in_types       = (lto_ref*)(data + types_offset);
   int i;
 
@@ -290,6 +293,8 @@ lto_read_decls (lto_info_fd *fd,
   data_in->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree*));
   data_in->var_decls   = xcalloc (header->num_var_decls, sizeof (tree*));
   data_in->type_decls  = xcalloc (header->num_type_decls, sizeof (tree*));
+  data_in->namespace_decls
+    = xcalloc (header->num_namespace_decls, sizeof (tree*));
   data_in->types       = xcalloc (header->num_types, sizeof (tree*));
 
   for (i=0; i<header->num_field_decls; i++)
@@ -311,6 +316,11 @@ lto_read_decls (lto_info_fd *fd,
     data_in->type_decls[i] 
       = lto_resolve_typedecl_ref (fd, context, &in_type_decls[i]);
   data_in->num_type_decls = header->num_type_decls;
+
+  for (i = 0; i < header->num_namespace_decls; i++)
+    data_in->namespace_decls[i]
+      = lto_resolve_namespacedecl_ref (fd, context, &in_namespace_decls[i]);
+  data_in->num_namespace_decls = header->num_namespace_decls;
 
   for (i=0; i<header->num_types; i++)
     data_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);

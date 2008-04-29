@@ -49,11 +49,13 @@ struct lto_file_decl_data
   tree *fn_decls;               /* The function decls.  */
   tree *var_decls;              /* The global or static var_decls.  */
   tree *type_decls;             /* The type_decls.  */
+  tree *namespace_decls;        /* The namespace_decls.  */
   tree *types;                  /* All of the types.  */
   unsigned int num_field_decls; /* The number of field decls.  */
   unsigned int num_fn_decls;    /* The number of function decls.  */
   unsigned int num_var_decls;   /* The number of global or static var_decls.  */
   unsigned int num_type_decls;  /* The number of type_decls.  */
+  unsigned int num_namespace_decls; /* The number of namespace_decls.  */
   unsigned int num_types;       /* All number of of the types.  */
 
   /* The .o file that these offsets relate to.  

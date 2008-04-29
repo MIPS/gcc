@@ -102,6 +102,12 @@ struct lto_out_decl_state
   unsigned int next_type_decl_index;
   VEC(tree,heap) *type_decls;
 
+  /* The hash table that contains the set of namespace_decls we have
+     seen so far and the indexes assigned to them.  */
+  htab_t namespace_decl_hash_table;
+  unsigned int next_namespace_decl_index;
+  VEC(tree,heap) *namespace_decls;
+
   /* The hash table that contains the set of type we have seen so far
      and the indexes assigned to them.  */
   htab_t type_hash_table;

@@ -604,6 +604,11 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       gcc_assert (result);
       break;
 
+    case NAMESPACE_DECL:
+      result = data_in->file_data->namespace_decls [lto_input_uleb128 (ib)];
+      gcc_assert (result);
+      break;
+
     case VAR_DECL:
     case PARM_DECL:
       if (tag == LTO_var_decl1)

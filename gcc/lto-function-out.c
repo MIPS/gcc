@@ -1096,6 +1096,21 @@ output_expr_operand (struct output_block *ob, tree expr)
       }
       break;
 
+    case NAMESPACE_DECL:
+      {
+	unsigned int index;
+	bool new;
+	output_record_start (ob, NULL, NULL, tag);
+
+	new = lto_output_decl_index (ob->main_stream,
+				     ob->decl_state->namespace_decl_hash_table,
+				     &ob->decl_state->next_namespace_decl_index,
+				     expr, &index);
+	if (new)
+	  VEC_safe_push (tree, heap, ob->decl_state->namespace_decls, expr);
+      }
+      break;
+
     case PARM_DECL:
       gcc_assert (!DECL_RTL_SET_P (expr));
       output_record_start (ob, NULL, NULL, tag);
@@ -1866,6 +1881,7 @@ lto_static_init (void)
   RESET_BIT (lto_flags_needed_for, VAR_DECL);
   RESET_BIT (lto_flags_needed_for, TREE_LIST);
   RESET_BIT (lto_flags_needed_for, TYPE_DECL);
+  RESET_BIT (lto_flags_needed_for, NAMESPACE_DECL);
 
   lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
 
@@ -1888,6 +1904,7 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, VAR_DECL);
   RESET_BIT (lto_types_needed_for, TREE_LIST);
   RESET_BIT (lto_types_needed_for, TYPE_DECL);
+  RESET_BIT (lto_types_needed_for, NAMESPACE_DECL);
 #else
   /* These forms will need types, even when the type system is fixed.  */
   SET_BIT (lto_types_needed_for, COMPLEX_CST);
@@ -2081,7 +2098,8 @@ output_constructors_and_inits (void)
   FOR_EACH_STATIC_INITIALIZER (vnode)
     {
       tree var = vnode->decl;
-      if (DECL_CONTEXT (var) == NULL_TREE)
+      tree context = DECL_CONTEXT (var);
+      if (!context || TREE_CODE (context) != FUNCTION_DECL)
 	{
 	  output_expr_operand (ob, var);
 	  

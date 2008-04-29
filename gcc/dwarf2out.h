@@ -78,6 +78,10 @@ extern void lto_field_ref (tree field, lto_out_ref *ref);
    TYPE_DECL.  */
 extern void lto_typedecl_ref (tree tdecl, lto_out_ref *ref);
 
+/* Upon return, *REF contains a reference to DECL, which must be a
+   NAMESPACE_DECL.  */
+extern void lto_namespacedecl_ref (tree decl, lto_out_ref *ref);
+
 struct array_descr_info
 {
   int ndimensions;

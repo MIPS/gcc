@@ -88,6 +88,7 @@
   MAP_EXPR_TAG(SWITCH_EXPR, LTO_switch_expr)
   MAP_EXPR_TAG(TREE_LIST, LTO_tree_list)
   MAP_EXPR_TAG(TYPE_DECL, LTO_type_decl)
+  MAP_EXPR_TAG(NAMESPACE_DECL, LTO_namespace_decl)
 #endif /* TREE_SINGLE_MECHANICAL_FALSE */
 
 #ifdef TREE_SINGLE_MECHANICAL_TRUE
@@ -284,6 +285,7 @@
   SET_NAME (LTO_truth_or_expr, "truth_or_expr")
   SET_NAME (LTO_truth_xor_expr, "truth_xor_expr")
   SET_NAME (LTO_type_decl, "type_decl")
+  SET_NAME (LTO_namespace_decl, "namespace_decl")
   SET_NAME (LTO_uneq_expr, "uneq_expr")
   SET_NAME (LTO_unge_expr, "unge_expr")
   SET_NAME (LTO_ungt_expr, "ungt_expr")

@@ -406,6 +406,8 @@ lto_get_out_decl_state (void)
 	= htab_create (37, lto_hash_type_slot_node, lto_eq_type_slot_node, free);
       out_state->type_decl_hash_table
 	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+      out_state->namespace_decl_hash_table
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
       out_state->var_decl_hash_table
 	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
     }
@@ -460,6 +462,7 @@ produce_asm_for_decls (void)
   header.num_fn_decls = VEC_length (tree, out_state->fn_decls);
   header.num_var_decls = VEC_length (tree, out_state->var_decls);
   header.num_type_decls = VEC_length (tree, out_state->type_decls);
+  header.num_namespace_decls = VEC_length (tree, out_state->namespace_decls);
   header.num_types = VEC_length (tree, out_state->types);
 
   assemble_string ((const char *)&header, 
@@ -477,6 +480,9 @@ produce_asm_for_decls (void)
   /* Write the global type_decl references.  */
   write_references (out_state->type_decls, section, lto_typedecl_ref);
 
+  /* Write the global namespace_decl references.  */
+  write_references (out_state->namespace_decls, section, lto_namespacedecl_ref);
+
   /* Write the global type references.  */
   write_references (out_state->types, section, lto_type_ref);
 
@@ -484,12 +490,14 @@ produce_asm_for_decls (void)
   htab_delete (out_state->fn_decl_hash_table);
   htab_delete (out_state->var_decl_hash_table);
   htab_delete (out_state->type_decl_hash_table);
+  htab_delete (out_state->namespace_decl_hash_table);
   htab_delete (out_state->type_hash_table);
 
   VEC_free (tree, heap, out_state->field_decls);
   VEC_free (tree, heap, out_state->fn_decls);
   VEC_free (tree, heap, out_state->var_decls);
   VEC_free (tree, heap, out_state->type_decls);
+  VEC_free (tree, heap, out_state->namespace_decls);
   VEC_free (tree, heap, out_state->types);
 
   free (out_state);

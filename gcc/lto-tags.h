@@ -398,6 +398,7 @@ enum LTO_tags {
   LTO_truth_or_expr,
   LTO_truth_xor_expr,
   LTO_type_decl,
+  LTO_namespace_decl,
   LTO_uneq_expr,
   LTO_unge_expr,
   LTO_ungt_expr,

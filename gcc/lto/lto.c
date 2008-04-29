@@ -3216,6 +3216,45 @@ lto_read_const_volatile_restrict_type_DIE (lto_info_fd *fd,
   return type;
 }
 
+/* Read a namespace DIE from FD.  ABBREV is a DWARF2 abbreviation-table entry.
+   CONTEXT provides information about the current state of the compilation
+   unit.  Returns a tree representing the NAMESPACE_DECL read.  */
+
+static tree
+lto_read_namespace_DIE (lto_info_fd *fd,
+			lto_die_ptr die ATTRIBUTE_UNUSED,
+			const DWARF2_abbrev *abbrev,
+			lto_context *context)
+{
+  tree name = NULL_TREE;
+  tree namespace_decl;
+  tree parentdata;
+
+  LTO_BEGIN_READ_ATTRS ()
+    {
+    case DW_AT_name:
+      name = lto_get_identifier (&attr_data);
+      break;
+
+    case DW_AT_decl_file:
+    case DW_AT_decl_line:
+      /* Ignore.  */
+      break;
+    }
+  LTO_END_READ_ATTRS ();
+
+  gcc_assert (name);
+  namespace_decl = build_decl (NAMESPACE_DECL, name, void_type_node);
+  DECL_CONTEXT (namespace_decl) = context->parentdata;
+
+  parentdata = context->parentdata;
+  context->parentdata = namespace_decl;
+  lto_read_child_DIEs (fd, abbrev, context);
+  context->parentdata = parentdata;
+
+  return namespace_decl;
+}
+
 static tree
 lto_read_unspecified_type_DIE (lto_info_fd *fd,
 			       lto_die_ptr die ATTRIBUTE_UNUSED,
@@ -3312,7 +3351,7 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
       NULL, /* dwarf_procedure */
       lto_read_const_volatile_restrict_type_DIE,
       NULL, /* interface_type */
-      NULL, /* namespace */
+      lto_read_namespace_DIE,
       NULL, /* imported_module */
       lto_read_unspecified_type_DIE, 
       NULL, /* partial_unit */
@@ -3375,16 +3414,21 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 
 	  /* If there is a reader, use it.  */
 	  val = reader (fd, die, abbrev, context);
-	  /* If this DIE refers to a type, cache the value so that future
-	     references to the type can be processed quickly.  */
-	  if (val && TYPE_P (val))
-	    {
-	      /* In the absence of a better solution, say that we alias
-		 everything FIXME.  */
-	      TYPE_ALIAS_SET (val) = 0;
+	  if (val)
+	    /* If this DIE refers to a type, cache the value so that future
+	       references to the type can be processed quickly.  */
+	    if (TYPE_P (val))
+	      {
+		/* In the absence of a better solution, say that we alias
+		   everything FIXME.  */
+		TYPE_ALIAS_SET (val) = 0;
 
+		lto_cache_store_DIE (fd, die, val);
+	      }
+	    /* If this DIE refers to a namespace, we must cache the value
+	       or future references will not properly set DECL_CONTEXT.  */
+	    else if (TREE_CODE (val) == NAMESPACE_DECL)
 	      lto_cache_store_DIE (fd, die, val);
-	    }
 
           context->skip_non_parameters = saved_skip_non_parameters;
 	}
@@ -3744,6 +3788,38 @@ lto_resolve_typedecl_ref (lto_info_fd *info_fd,
   tree type = lto_resolve_type_ref (info_fd, context, ref);
 
   return build_decl (TYPE_DECL, NULL_TREE, type);
+}
+
+/* Returns the NAMESPACE_DECL corresponding to the DIE located at REF from
+   INFO_FD.  CONTEXT is the current context within the compilation unit.
+   Note: Skipping around in the DWARF tree is buggy for NAMESPACE_DECL's
+   because the context parentdata needed to properly set DECL_CONTEXT
+   is missing.  Consequently, we generate an error if the result is not
+   cached.  */
+tree
+lto_resolve_namespacedecl_ref (lto_info_fd *info_fd,
+			       lto_context *context,
+			       const lto_ref *ref)
+{
+  lto_die_ptr die;
+  lto_context *new_context = context;
+  tree decl;
+
+  /* At present, we only support a single DWARF section.  */
+  if (ref->section != 0)
+    lto_abi_mismatch_error ();
+  /* Map REF to a DIE.  */
+  die = lto_resolve_reference (info_fd, ref->offset, context, &new_context);
+  /* Map DIE to a namespace decl.  */
+  decl = lto_cache_lookup_DIE (info_fd, die, /*skip=*/false);
+  if (!decl || TREE_CODE (decl) != NAMESPACE_DECL)
+    lto_file_corrupt_error ((lto_fd *)info_fd);
+
+  /* Clean up.  */
+  if (new_context != context)
+    XDELETE (new_context);
+
+  return decl;
 }
 
 /* Needed so the garbage collector knows to root around in functions we

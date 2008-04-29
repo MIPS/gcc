@@ -15715,6 +15715,21 @@ lto_typedecl_ref (tree decl, lto_out_ref *ref)
   lto_type_ref (TREE_TYPE (decl), ref);
 }
 
+/* Initialize REF as a reference to the DIE for DECL (which must be a
+   NAMESPACE_DECL).  */
+
+void
+lto_namespacedecl_ref (tree decl, lto_out_ref *ref)
+{
+  dw_die_ref die;
+
+  gcc_assert (TREE_CODE (decl) == NAMESPACE_DECL);
+  /* Generate the DIE for VAR.  */
+  die = force_decl_die (decl);
+  /* Construct the reference.  */
+  lto_init_ref (ref, die, DECL_CONTEXT (decl));
+}
+
 #else
 
 /* This should never be used, but its address is needed for comparisons.  */

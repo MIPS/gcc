@@ -224,6 +224,11 @@ extern tree lto_resolve_typedecl_ref (lto_info_fd *info_fd,
                                       lto_context *context,
                                       const lto_ref *ref);
 
+/* Return the NAMESPACE_DECL referred to by REF.  */
+extern tree lto_resolve_namespacedecl_ref (lto_info_fd *info_fd,
+					   lto_context *context,
+					   const lto_ref *ref);
+
 /* Get the file name associated with INFO_FD.  */
 extern const char *lto_get_file_name (lto_info_fd *info_fd);
 
