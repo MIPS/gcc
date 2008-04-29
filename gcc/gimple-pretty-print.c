@@ -1383,7 +1383,7 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
       pp_string (buffer, " (");
       dump_generic_node (buffer, gimple_label_label (stmt), 0, 0, false);
       pp_string (buffer, ")");
-      pp_semicolon (buffer)
+      pp_semicolon (buffer);
     }
   else
     pp_semicolon (buffer);

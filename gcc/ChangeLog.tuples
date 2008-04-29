@@ -1,5 +1,9 @@
 2008-04-29  Rafael Espindola <espindola@google.com>
 
+	* gimple-pretty-print.c (pp_cfg_jump): add missing ";".
+
+2008-04-29  Rafael Espindola <espindola@google.com>
+
 	* gimple-pretty-print.c (dump_gimple_assign): print ";" at the end.
 	(dump_gimple_return):print ";" at the end.
 	(dump_gimple_call): print ";" at the end.
