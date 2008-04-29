@@ -1,5 +1,10 @@
 2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* fwprop.c (forward_propagate_and_simplify): Wrap constants only
+	in debug insns.
+
+2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* var-tracking.c (struct variable_def): Declare var_part with a
 	single element.
 	(var_pool): Adjust comment.
