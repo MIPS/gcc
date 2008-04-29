@@ -344,6 +344,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
         dump_binary_rhs (buffer, gs, spc, flags);
       else
         gcc_unreachable ();
+      pp_semicolon(buffer);
     }
 }
 
@@ -361,9 +362,10 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
     dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs, t);
   else
     {
-      pp_string (buffer, "return ");
+      pp_string (buffer, "return");
       if (t)
         dump_generic_node (buffer, t, spc, flags, false);
+      pp_semicolon (buffer);
     }
 }
 
@@ -431,6 +433,7 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, " (");
       dump_gimple_call_args (buffer, gs, flags);
       pp_string (buffer, ")");
+      pp_semicolon (buffer);
     }
 
   if (gimple_call_chain (gs))
@@ -499,7 +502,7 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, "if (");
       dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
       pp_space (buffer);
-      pp_string (buffer, tree_code_name [gimple_cond_code (gs)]);
+      pp_string (buffer, op_symbol_code (gimple_cond_code (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
       pp_string (buffer, ")");
@@ -1380,7 +1383,10 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
       pp_string (buffer, " (");
       dump_generic_node (buffer, gimple_label_label (stmt), 0, 0, false);
       pp_string (buffer, ")");
+      pp_semicolon (buffer)
     }
+  else
+    pp_semicolon (buffer);
 }
 
 

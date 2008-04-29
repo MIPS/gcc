@@ -1,5 +1,13 @@
 2008-04-29  Rafael Espindola <espindola@google.com>
 
+	* gimple-pretty-print.c (dump_gimple_assign): print ";" at the end.
+	(dump_gimple_return):print ";" at the end.
+	(dump_gimple_call): print ";" at the end.
+	(dump_gimple_cond): use op_symbol_code instead of tree_code_name.
+	(pp_cfg_jump): print ";" at the end.
+
+2008-04-29  Rafael Espindola <espindola@google.com>
+
 	* ipa-cp.c (ipcp_driver): Disable.
 	* matrix-reorg.c (matrix_reorg): Comment body.
 	(gate_matrix_reorg): Disable.
