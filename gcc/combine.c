@@ -2369,7 +2369,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
      I2 and not in I3, a REG_DEAD note must be made.  */
   rtx i3dest_killed = 0;
   /* SET_DEST and SET_SRC of I2 and I1.  */
-  rtx i2dest, i2src, i1dest = 0, i1src = 0;
+  rtx i2dest = 0, i2src = 0, i1dest = 0, i1src = 0;
   /* PATTERN (I1) and PATTERN (I2), or a copy of it in certain cases.  */
   rtx i1pat = 0, i2pat = 0;
   /* Indicates if I2DEST or I1DEST is in I2SRC or I1_SRC.  */
@@ -3745,7 +3745,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
       }
     else
       {
-	if (MAY_HAVE_DEBUG_INSNS)
+	if (MAY_HAVE_DEBUG_INSNS && i2src)
 	  propagate_for_debug (i2, i3, i2dest, i2src, i3_subst_into_i2);
 	SET_INSN_DELETED (i2);
       }
