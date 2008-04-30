@@ -540,6 +540,7 @@ extern struct tree_opt_pass pass_bb_layout;
 extern struct tree_opt_pass pass_simp_cil_early;
 extern struct tree_opt_pass pass_simp_cil_final;
 extern struct tree_opt_pass pass_gen_cil;
+extern struct tree_opt_pass pass_cil_vcg;
 
 /* cil32 builtin ID */
 enum cil32_builtin

@@ -41,6 +41,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "timevar.h"
 #include "toplev.h"
 #include "tree-simp-cil.h"
+#include "cil-refs.h"
 
 /* The purpose of this pass is to simplify GIMPLE trees in order
    to make CIL emission easier.
@@ -898,7 +899,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
             tree stmt;
             tree new_args;
-            
+
             new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
             new_args = tree_cons (NULL, src2, new_args);
             new_args = tree_cons (NULL, src1, new_args);
@@ -915,7 +916,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
             tree stmt;
             tree new_args;
-            
+
             new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
             new_args = tree_cons (NULL, integer_zero_node, new_args);
             new_args = tree_cons (NULL, src1, new_args);
@@ -933,7 +934,7 @@ simp_builtin_call (block_stmt_iterator bsi, tree *node_ptr)
 
             tree stmt;
             tree new_args;
-            
+
             new_args = tree_cons (NULL, fold_convert(sizetype, size), NULL);
             new_args = tree_cons (NULL, src1, new_args);
             new_args = tree_cons (NULL, dst1, new_args);
@@ -2756,6 +2757,7 @@ simp_cil_final (void)
   basic_block bb;
   block_stmt_iterator bsi;
 
+  refs_begin_new_function ();
   two = build_int_cst_type (size_type_node, 2);
   bits_per_unit = fold_convert (size_type_node, bitsize_unit_node);
   simp_final = true;

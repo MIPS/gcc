@@ -39,12 +39,14 @@ void
 make_decl_cil (FILE *, tree);
 
 void
-cil_add_pinvoke(tree);
-
-void
 gen_cil_init (void);
 void
 gen_cil_fini (void);
+
+void
+cil_vcg_init (void);
+void
+cil_vcg_fini (void);
 
 
 /* Defined in rm_ldloc.c */

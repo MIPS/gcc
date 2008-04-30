@@ -692,6 +692,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_bb_layout);
   NEXT_PASS (pass_simp_cil_final);
   NEXT_PASS (pass_gen_cil);   /*   <--- CIL   */
+  NEXT_PASS (pass_cil_vcg);
 #else /* !defined(DISABLE_RTL_PASSES) */
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_free_cfg_annotations);

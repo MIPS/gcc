@@ -57,6 +57,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "ggc.h"
 #include "optabs.h"
 #include "langhooks.h"
+#include "cil-refs.h"
 #include "gen-cil.h"
 
 /* Per-function machine data.  */
@@ -146,13 +147,17 @@ const struct attribute_spec cil32_attribute_table[] =
 static void
 cil32_file_start (void)
 {
+  refs_init ();
   gen_cil_init ();
+  cil_vcg_init ();
 }
 
 static void
 cil32_file_end (void)
 {
+  cil_vcg_fini ();
   gen_cil_fini ();
+  refs_fini ();
 }
 
 static void
@@ -240,7 +245,8 @@ cil32_init_builtins (void)
 
   cil32_build_builtin_types ();
 
-  arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
   cil32_builtins[CIL32_BUILT_IN_VA_START] =
       add_builtin_function ("__builtin_cil_va_start",
                             build_function_type (void_type_node,
@@ -249,7 +255,8 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  arglist = build_tree_list (NULL_TREE, ptr_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
   cil32_builtins[CIL32_BUILT_IN_VA_ARG] =
       add_builtin_function ("__builtin_cil_va_arg",
@@ -259,7 +266,8 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
   cil32_builtins[CIL32_BUILT_IN_VA_END] =
       add_builtin_function ("__builtin_cil_va_end",
                             build_function_type (void_type_node,
@@ -268,7 +276,8 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  arglist = build_tree_list (NULL_TREE, cil32_va_list_type);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
   arglist = tree_cons (NULL_TREE, cil32_va_list_type, arglist);
   cil32_builtins[CIL32_BUILT_IN_VA_COPY] =
       add_builtin_function ("__builtin_cil_va_copy",
@@ -278,7 +287,8 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  arglist = build_tree_list (NULL_TREE, integer_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, integer_type_node, arglist);
   arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   cil32_builtins[CIL32_BUILT_IN_CPBLK] =
@@ -289,7 +299,8 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  arglist = build_tree_list (NULL_TREE, integer_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, integer_type_node, arglist);
   arglist = tree_cons (NULL_TREE, integer_type_node, arglist);
   arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   cil32_builtins[CIL32_BUILT_IN_INITBLK] =
@@ -300,16 +311,18 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
   cil32_builtins[CIL32_BUILT_IN_IS_LITTLE_ENDIAN] =
       add_builtin_function ("__builtin_isLittleEndian",
                             build_function_type (integer_type_node,
-                                                 NULL_TREE),
+                                                 arglist),
                             CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  
-  arglist = build_tree_list (NULL_TREE, ptr_type_node);
+
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   arglist = tree_cons (NULL_TREE, ptr_type_node, arglist);
   cil32_builtins[CIL32_BUILT_IN_ENDIAN_SELECT] =
       add_builtin_function ("__builtin_EndianSelect",
@@ -319,8 +332,9 @@ cil32_init_builtins (void)
                             BUILT_IN_MD,
                             NULL,
                             NULL_TREE);
-  
-  arglist = build_tree_list (NULL_TREE, float_type_node);
+
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   cil32_builtins[CIL32_V2SF_CTOR] =
       add_builtin_function ("V2SF_ctor1",
@@ -331,7 +345,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, float_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
   arglist = tree_cons (NULL_TREE, float_type_node, arglist);
@@ -344,7 +359,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
@@ -357,7 +373,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, intHI_type_node, arglist);
   cil32_builtins[CIL32_V2HI_CTOR] =
       add_builtin_function ("V2HI_ctor1",
@@ -368,7 +385,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
@@ -385,7 +403,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
@@ -398,7 +417,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intSI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   cil32_builtins[CIL32_V2SI_CTOR] =
       add_builtin_function ("V2SI_ctor1",
@@ -409,7 +429,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intSI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intSI_type_node, arglist);
@@ -422,7 +443,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intHI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intHI_type_node, arglist);
@@ -439,7 +461,8 @@ cil32_init_builtins (void)
                             NULL,
                             NULL_TREE);
 
-  arglist = build_tree_list (NULL_TREE, unsigned_intQI_type_node);
+  arglist = build_tree_list (NULL_TREE, void_type_node);
+  arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);
   arglist = tree_cons (NULL_TREE, unsigned_intQI_type_node, arglist);

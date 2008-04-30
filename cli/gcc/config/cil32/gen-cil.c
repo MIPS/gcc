@@ -50,24 +50,9 @@ Erven Rohou             <erven.rohou@st.com>
 #include "ebitmap.h"
 #include "ggc.h"
 #include "tree-simp-cil.h"
+#include "cil-refs.h"
 #include "gen-cil.h"
 #include "emit-hints.h"
-
-/* Nonzero for a type which is at file scope.  */
-#define TYPE_FILE_SCOPE_P(EXP)                                  \
-  (! TYPE_CONTEXT (EXP)                                         \
-   || TREE_CODE (TYPE_CONTEXT (EXP)) == TRANSLATION_UNIT_DECL)
-
-/* Nonzero for a zero-length array type */
-#define ARRAY_TYPE_ZEROLENGTH(EXP)                              \
-  (TYPE_SIZE (EXP) == NULL_TREE)
-
-/* Nonzero for a variable-length array type */
-#define ARRAY_TYPE_VARLENGTH(EXP)                               \
-  (TYPE_SIZE (EXP) != NULL_TREE && TREE_CODE (TYPE_SIZE (EXP)) != INTEGER_CST)
-
-/* Length of compacted identifiers (in characters) */
-#define COMPACT_ID_LENGTH 16
 
 struct fnct_attr
 {
@@ -78,21 +63,8 @@ struct fnct_attr
   const char *pinvoke_fname;
 };
 
-/* Element of the pointer id hash table */
-struct pointer_id_data
-{
-  const void *ptr;
-  unsigned int id;
-};
-
 /* Local functions, macros and variables.  */
-static hashval_t pointer_id_data_hash (const void *);
-static int pointer_id_data_eq (const void *, const void *);
 static void decode_function_attrs (tree, struct fnct_attr *);
-static bool fill_goto_labels (void *, void **, void *);
-static void mark_referenced_type (tree);
-static void mark_referenced_string (tree);
-static unsigned int get_string_cst_id (tree);
 static void dump_decl_name (FILE *, tree);
 static void dump_string_name (FILE *, tree);
 static void dump_label_name (FILE *, tree);
@@ -102,11 +74,6 @@ static void dump_valuetype_name (FILE *, tree);
 static void gen_addr_expr (FILE *, tree);
 static void print_type_suffix (FILE *, tree, bool);
 static void gen_cil_modify_expr (FILE *, tree, tree);
-static char * append_string (char *, const char *,
-                             unsigned int *, unsigned int *);
-static char * append_coded_type (char *, tree, unsigned int *, unsigned int *);
-static char * get_compact_identifier (const char *, size_t, size_t *);
-static tree make_valuetype_identifier (tree);
 static void print_valuetype_decl (FILE *, tree);
 static void print_array_decl (FILE *, tree);
 static void print_enum_decl (FILE *, tree);
@@ -135,43 +102,20 @@ static unsigned int gen_cil (void);
 static void gen_cil_vcg (FILE *);
 static void gen_cil_1 (FILE *);
 static void gen_cil_node (FILE *, tree);
+static void gen_cil_bb (FILE *, basic_block);
 static bool gen_cil_gate (void);
 static void print_pinvoke_function (FILE *, tree);
 static void print_string_decl (FILE *, tree);
 static void print_used_strings (FILE *);
+static void print_referenced_types (FILE *);
+static void print_referenced_pinvokes (FILE *);
 static void create_init_method(void);
 
 
-static struct pointer_set_t *referenced_types;
-static GTY(()) varray_type referenced_strings;
-static struct pointer_set_t *referenced_string_ptrs;
-static struct pointer_set_t *referenced_pinvoke;
 static GTY(()) varray_type pending_ctors;
-static htab_t pointer_id_htable;
-static unsigned int pointer_next_id = 0;
 static unsigned int stack;
 static unsigned int max_stack;
 static basic_block bb;
-
-static struct pointer_map_t *labels_map;
-static tree *goto_labels;
-static unsigned int taken_labels;
-
-/* Hashing and equality routines for pointer id hash table.  */
-static hashval_t
-pointer_id_data_hash (const void *p)
-{
-  return ((unsigned long)((struct pointer_id_data *)p)->ptr >> 4) & 255;
-}
-
-static int
-pointer_id_data_eq (const void *p1, const void *p2)
-{
-  const void* ptr1 = ((struct pointer_id_data *)p1)->ptr;
-  const void* ptr2 = ((struct pointer_id_data *)p2)->ptr;
-
-  return ptr1 == ptr2;
-}
 
 /* stack_* functions are used to keep track of the number of elements
    in the evaluation stack, in order to record the maximum number.
@@ -252,197 +196,6 @@ decode_function_attrs (tree t, struct fnct_attr *attrs)
     }
 }
 
-/* Mark the type represented by tree T as referenced.
-   This function works recursively, since types referenced by type T
-   itself are also marked as referenced.
-   Referenced types are emitted at the end of the compilation unit,
-   non-referenced types are not.
-   T must be a type node.   */
-
-static void
-mark_referenced_type (tree t)
-{
-  if (t == NULL_TREE || t == error_mark_node)
-    return;
-
-  t = TYPE_MAIN_VARIANT (t);
-
-  if (t == cil32_arg_iterator_type)
-    return;
-
-  /* If the type was already referenced, nothing else to do */
-  if (pointer_set_contains (referenced_types, t))
-    return;
-
-  /* Give the aggregate a name unless it has it already */
-  switch (TREE_CODE (t))
-    {
-    /* Incomplete and variable-length arrays are pointers and
-       they must be dealt with as such.   */
-    case ARRAY_TYPE:
-      if (! TYPE_DOMAIN (t) || ARRAY_TYPE_VARLENGTH (t))
-        break;
-    case ENUMERAL_TYPE:
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      if (TYPE_NAME (t) == 0)
-        {
-          tree type_decl = build0 (TYPE_DECL, t);
-          DECL_NAME (type_decl) = make_valuetype_identifier (t);
-          TYPE_NAME (t) = type_decl;
-        }
-      break;
-
-    default:
-      /* Nothing to do for the other types */
-      ;
-    }
-
-  /* Transform local-scope types into global-scope types */
-  if (!TYPE_FILE_SCOPE_P (t))
-    {
-      tree type_name = TYPE_NAME (t);
-      const char *orig_name;
-      size_t tmp_name_max_len = 256;
-      size_t tmp_name_len = 0;
-      char *tmp_name;
-      char suffix[32];
-
-      gcc_assert (type_name != 0);
-      gcc_assert (DECL_P (type_name)
-                  || TREE_CODE (type_name) == IDENTIFIER_NODE);
-
-      if (TREE_CODE (type_name) == IDENTIFIER_NODE)
-        orig_name = IDENTIFIER_POINTER (type_name);
-      else
-        orig_name = IDENTIFIER_POINTER (DECL_NAME (type_name));
-
-      snprintf (suffix, 15, "?vt%u", TYPE_UID (t));
-
-      tmp_name = (char *)xmalloc (tmp_name_max_len);
-      tmp_name = append_string (tmp_name, orig_name,
-                                &tmp_name_len, &tmp_name_max_len);
-      tmp_name = append_string (tmp_name, suffix,
-                                &tmp_name_len, &tmp_name_max_len);
-
-      TYPE_NAME (t) = get_identifier_with_length (tmp_name, tmp_name_len);
-      TYPE_CONTEXT (t) = 0;
-      free (tmp_name);
-    }
-
-  switch (TREE_CODE (t))
-    {
-    case ENUMERAL_TYPE:
-      pointer_set_insert (referenced_types, t);
-      break;
-
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      {
-        tree tmp;
-
-        pointer_set_insert (referenced_types, t);
-        tmp = TYPE_FIELDS (t);
-
-        while (tmp)
-          {
-            if (DECL_BIT_FIELD (tmp))
-              mark_referenced_type (DECL_BIT_FIELD_TYPE (tmp));
-            else
-              mark_referenced_type (TREE_TYPE (tmp));
-            tmp = TREE_CHAIN (tmp);
-          }
-      }
-      break;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      mark_referenced_type (TREE_TYPE (t));
-      break;
-
-    case ARRAY_TYPE:
-      if (TYPE_DOMAIN (t) && ! ARRAY_TYPE_VARLENGTH (t))
-        pointer_set_insert (referenced_types, t);
-      mark_referenced_type (TREE_TYPE (t));
-      break;
-
-    case FUNCTION_TYPE:
-      {
-         tree args_type;
-         mark_referenced_type (TREE_TYPE (t));
-         args_type = TYPE_ARG_TYPES (t);
-         while (args_type)
-           {
-             mark_referenced_type (TREE_VALUE (args_type));
-             args_type = TREE_CHAIN (args_type);
-           }
-      }
-      break;
-
-    default:
-      /* Nothing to do for the other types */
-      ;
-    }
-}
-
-/* Mark the string represented by tree T as referenced.
-   Referenced strings are emitted at the end of the compilation unit,
-   non-referenced strings are not.
-   T must be a STRING_CST node.   */
-
-static void
-mark_referenced_string (tree t)
-{
-  gcc_assert (TREE_CODE (t) == STRING_CST);
-  if (!pointer_set_contains (referenced_string_ptrs,
-                             (void *)(TREE_STRING_POINTER (t))))
-    {
-      VARRAY_PUSH_TREE (referenced_strings, t);
-      pointer_set_insert (referenced_string_ptrs,
-                          (void *)(TREE_STRING_POINTER (t)));
-    }
-}
-
-/* Get an unique id for string constant NODE.   */
-
-static
-unsigned int get_string_cst_id (tree node)
-{
-  struct pointer_id_data tmp_pid;
-  void **slot;
-
-  gcc_assert (TREE_CODE (node) == STRING_CST);
-
-  tmp_pid.ptr = TREE_STRING_POINTER (node);
-  slot = htab_find_slot (pointer_id_htable, &tmp_pid, INSERT);
-
-  if (*slot != NULL)
-    return ((struct pointer_id_data *)(*slot))->id;
-  else
-    {
-      struct pointer_id_data *pid = XNEW (struct pointer_id_data);
-
-      *slot = pid;
-      pid->ptr = TREE_STRING_POINTER (node);
-      pid->id = pointer_next_id++;
-
-      return pid->id;
-    }
-}
-
-/* Mark the function represented by tree T as a pinvoke.
-   T must be a FUNCTION_DECL node.   */
-
-void
-cil_add_pinvoke (tree t)
-{
-  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
-  pointer_set_insert (referenced_pinvoke, t);
-  mark_referenced_type (TREE_TYPE (t));
-}
-
 /* Dump the name of a _DECL node.  */
 
 static void
@@ -495,20 +248,6 @@ dump_label_name (FILE* file, tree node)
       fputs ("_", file);
       fprintf (file, IDENTIFIER_POINTER (DECL_NAME (node)));
     }
-}
-
-/* Helper function used to fill the computed GOTOs label array.  */
-
-static bool
-fill_goto_labels (void *key, void **val, void *data)
-{
-  tree *goto_labels = (tree *) data;
-  tree label_decl = (tree) key;
-  unsigned int idx = tree_low_cst ((tree) *val, 1);
-
-  goto_labels[idx] = label_decl;
-
-  return true;
 }
 
 static void
@@ -1205,9 +944,9 @@ gen_addr_expr (FILE *file, tree t)
 	  with a switch based on that ID.  The ID is simply the position in
 	  the list of all address taken labels. */
 
-	tree cst = *pointer_map_contains (labels_map, t);
-        fprintf (file, "\n\tldc.i4\t%d", (unsigned int) tree_low_cst (cst, 1));
-        stack_push (1);
+	tree id = get_addr_taken_label_id (t);
+	fprintf (file, "\n\tldc.i4\t%u", (unsigned int) tree_low_cst (id, 1));
+	stack_push (1);
       }
       break;
 
@@ -3417,356 +3156,62 @@ gen_cil_modify_expr (FILE *file, tree lhs, tree rhs)
     }
 }
 
-/* Warning: these strings are not null-terminated */
-static char *
-append_string (char *str, const char *to_append,
-               unsigned int *len, unsigned int *max_len)
+/* */
+
+static void
+gen_cil_bb (FILE *stream, basic_block bb)
 {
-  size_t i, orig_len = *len;
-  size_t append_len = strlen (to_append);
+  block_stmt_iterator bsi;
+  tree stmt = NULL_TREE;
 
-  *len += append_len;
-
-  if (*len > *max_len)
+  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      while (*len > *max_len)
-        *max_len *= 2;
-      str = (char *)xrealloc (str, *max_len);
-    }
+      gcc_assert (stack == 0);
 
-  for (i=0; i < append_len; ++i)
-    str[orig_len + i] = to_append[i];
+      stmt = bsi_stmt (bsi);
 
-  return str;
-}
-
-/* Warning: these strings are not null-terminated */
-static char *
-append_coded_type (char *str, tree type,
-                   unsigned int *len, unsigned int *max_len)
-{
-  enum tree_code type_code;
-
-  if (type == NULL_TREE || type == error_mark_node)
-    return str;
-
-  type = TYPE_MAIN_VARIANT (type);
-
-  type_code = TREE_CODE (type);
-
- restartswitch:
-  switch (type_code)
-    {
-    case VOID_TYPE:
-      str = append_string (str, "VOID", len, max_len);
-      break;
-
-    case INTEGER_TYPE:
-      {
-        int type_size = TYPE_PRECISION (type);
-        char tmp_str[8] = "UI";
-        char *tmp_str_ptr = tmp_str;
-
-        snprintf (tmp_str_ptr + 2, 6, "%d", type_size);
-
-        if (!TYPE_UNSIGNED (type))
-          ++tmp_str_ptr;
-
-        str = append_string (str, tmp_str_ptr, len, max_len);
-      }
-      break;
-
-    case BOOLEAN_TYPE:
-      str = append_string (str, "B", len, max_len);
-      break;
-
-    case REAL_TYPE:
-      {
-        int type_size = TYPE_PRECISION (type);
-        char tmp_str[4] = "F";
-
-        snprintf (tmp_str + 1, 3, "%d", type_size);
-
-        str = append_string (str, tmp_str, len, max_len);
-      }
-      break;
-
-    case POINTER_TYPE:
-      if (TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
+      if (TARGET_EMIT_GIMPLE_COMMENTS)
         {
-          tree fun_type = TREE_TYPE (type);
-          tree args_type = TYPE_ARG_TYPES (fun_type);
-/*           bool varargs = TREE_VALUE (tree_last (args_type)) != void_type_node; */
-          unsigned int nargs_base = list_length (args_type);
-          unsigned int aidx;
-          char tmp_str[5] = "FP";
+          fprintf (stream, "\n\t/* ");
+          print_generic_expr (stream, stmt, 0);
+          fprintf (stream, " */");
+        }
 
-          snprintf (tmp_str + 2, 3, "%d", nargs_base);
-          str = append_string (str, tmp_str, len, max_len);
+      if (TREE_CODE (stmt) != NOP_EXPR
+          || TREE_CODE (TREE_OPERAND (stmt, 0)) != INTEGER_CST)
+        gen_cil_node (stream, stmt);
 
-          str = append_string (str, "_", len, max_len);
-          str = append_coded_type (str, TREE_TYPE (fun_type), len, max_len);
-          str = append_string (str, "_", len, max_len);
+      if (TREE_CODE (stmt) == CALL_EXPR)
+        {
+          tree fun_expr = CALL_EXPR_FN (stmt);
+          tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
 
-          for (aidx=0;aidx<nargs_base;++aidx)
+          if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
             {
-              str = append_string (str, "_", len, max_len);
-              str = append_coded_type (str, TREE_VALUE (args_type), len, max_len);
-              args_type = TREE_CHAIN (args_type);
+              fputs ("\n\tpop", stream);
+              stack_pop (1);
             }
         }
-      else
-        {
-          str = append_string (str, "*", len, max_len);
-          type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
-          type_code = TREE_CODE (type);
-          goto restartswitch;
-        }
-      break;
-
-    case ARRAY_TYPE:
-      if (TYPE_DOMAIN (type) && ! ARRAY_TYPE_VARLENGTH (type))
-        {
-          tree domain = TYPE_DOMAIN (type);
-          tree min = TYPE_MIN_VALUE (domain);
-          tree max = TYPE_MAX_VALUE (domain);
-
-          str = append_string (str, "[", len, max_len);
-
-          if (ARRAY_TYPE_ZEROLENGTH (type))
-            str = append_string (str, "0", len, max_len);
-          else if (min && max
-              && integer_zerop (min)
-              && host_integerp (max, 0))
-            {
-              unsigned int size = TREE_INT_CST_LOW (max) + 1;
-              char tmp_str[32];
-
-              snprintf (tmp_str, 32, "%d", size);
-              str = append_string (str, tmp_str, len, max_len);
-            }
-          else
-            str = append_string (str, "unk", len, max_len);
-
-          str = append_string (str, "]", len, max_len);
-        }
-      else {
-        type_code = POINTER_TYPE;
-        goto restartswitch;
-      }
-      type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
-      type_code = TREE_CODE (type);
-      goto restartswitch;
-  
-      break;
-
-    case ENUMERAL_TYPE:
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      {
-        const char *prefix;
-        const char *type_str;
-        tree type_name;
-
-        /* Give the aggregate a name unless it has it already */
-        if (TYPE_NAME (type) == 0)
-          {
-            tree type_decl = build0 (TYPE_DECL, type);
-            DECL_NAME (type_decl) = make_valuetype_identifier (type);
-            TYPE_NAME (type) = type_decl;
-          }
-
-        type_name = TYPE_NAME (type);
-
-        if (TREE_CODE (type_name) == IDENTIFIER_NODE)
-          type_str = IDENTIFIER_POINTER (type_name);
-        else
-          type_str = IDENTIFIER_POINTER (DECL_NAME (type_name));
-
-        switch (type_code)
-          {
-          case ENUMERAL_TYPE:
-            prefix = "E";
-            break;
-
-          case RECORD_TYPE:
-            prefix = "S";
-            break;
-
-          case UNION_TYPE:
-          case QUAL_UNION_TYPE:
-            prefix = "UN";
-            break;
-
-          default:
-            gcc_assert (0);
-            prefix = "error";
-          }
-
-        str = append_string (str, prefix, len, max_len);
-        str = append_string (str, type_str, len, max_len);
-      }
-      break;
-
-    default:
-/*       debug_tree(type); */
-/*       gcc_assert (0); */
-      str = append_string (str, "unknown", len, max_len);
     }
 
-  return str;
+  if ((!stmt || (TREE_CODE (stmt) != COND_EXPR)) && single_succ_p (bb))
+    {
+      basic_block succ = single_succ (bb);
+
+      /* The last part of the test (succ != bb->next_bb) is a HACK.  It
+         avoids generating a branch to the successor in case of a
+         fallthrough. To be fixed when we have a proper layout of basic
+         blocks. */
+      if ((succ->index != EXIT_BLOCK) && (succ != bb->next_bb))
+        {
+          tree label = tree_block_label (succ);
+          fputs ("\n\tbr\t", stream);
+          dump_label_name (stream, label);
+          gcc_assert (stack == 0);
+        }
+    }
 }
 
-/* Compute and return a compact identifier from identifier STR of size LEN.
-   Memory is allocated for the compact identifier.
-   Store the length of the compact identifier in COMPACT_LEN.   */
-
-static char *
-get_compact_identifier (const char *str, size_t len, size_t *compact_len)
-{
-  char *compact_str;
-  size_t i;
-  unsigned char buffer[COMPACT_ID_LENGTH / 2];
-
-  gcc_assert (COMPACT_ID_LENGTH % 2 == 0);
-
-  /* If the string is shorter than the length of compact strings,
-     then return it unchanged.   */
-  if (len <= COMPACT_ID_LENGTH)
-    {
-      compact_str = (char *)xmalloc (len);
-      memcpy (compact_str, str, len);
-
-      *compact_len = len;
-      return compact_str;
-    }
-
-  /* Fill the buffer */
-  memset (buffer, 0, COMPACT_ID_LENGTH / 2);
-  for (i=0; i < len; ++i)
-    {
-      int j = 0;
-      unsigned char c = str[i];
-
-      while (true)
-        {
-          unsigned char tmp_c;
-
-          /* Modify a position in buffer */
-          buffer[(i + j) % (COMPACT_ID_LENGTH / 2)] ^= c;
-
-          if (j == COMPACT_ID_LENGTH / 2)
-            break;
-
-          /* Rotate c 1-bit right */
-          tmp_c = c >> 1;
-          tmp_c |= (c & 1) << 7;
-          c = tmp_c;
-
-          ++j;
-        }
-    }
-
-  /* Build the compact string */
-  compact_str = (char *)xmalloc (COMPACT_ID_LENGTH);
-  for (i=0; i < COMPACT_ID_LENGTH / 2; ++i)
-    {
-      unsigned char c1, c2;
-
-      c1 = buffer[i] & 0xf;
-      c2 = buffer[i] >> 4;
-
-      compact_str[i * 2]     = c1 + ((c1 < 10) ? '0' : 'a' - 10);
-      compact_str[i * 2 + 1] = c2 + ((c2 < 10) ? '0' : 'a' - 10);
-    }
-
-  /* Return the compact string and its length */
-  *compact_len = COMPACT_ID_LENGTH;
-  return compact_str;
-}
-
-static tree
-make_valuetype_identifier (tree t)
-{
-  size_t tmp_name_max_len = 256;
-  size_t tmp_name_len = 0;
-  char *tmp_name;
-  size_t vt_name_len = 0;
-  char *vt_name;
-  tree ident;
-
-  tmp_name = (char *)xmalloc (tmp_name_max_len);
-
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    {
-      tree tmp;
-
-      tmp_name = append_string (tmp_name, "enum?",
-                                &tmp_name_len, &tmp_name_max_len);
-
-      tmp = TYPE_VALUES (t);
-
-      while (tmp)
-        {
-          tmp_name = append_string (tmp_name,
-                                    IDENTIFIER_POINTER (TREE_PURPOSE (tmp)),
-                                    &tmp_name_len, &tmp_name_max_len);
-          tmp_name = append_string (tmp_name, "?",
-                                    &tmp_name_len, &tmp_name_max_len);
-          tmp = TREE_CHAIN (tmp);
-        }
-    }
-  else if (TREE_CODE (t) == ARRAY_TYPE)
-    {
-      gcc_assert (TYPE_DOMAIN (t) && ! ARRAY_TYPE_VARLENGTH (t));
-      tmp_name = append_string (tmp_name, "array?",
-                                &tmp_name_len, &tmp_name_max_len);
-      tmp_name = append_coded_type (tmp_name, t,
-                                    &tmp_name_len, &tmp_name_max_len);
-    }
-  else
-    {
-      tree tmp;
-
-      if (TREE_CODE (t) == RECORD_TYPE)
-        tmp_name = append_string (tmp_name, "struct?",
-                                  &tmp_name_len, &tmp_name_max_len);
-      else
-        tmp_name = append_string (tmp_name, "union?",
-                                  &tmp_name_len, &tmp_name_max_len);
-
-      tmp = TYPE_FIELDS (t);
-      while (tmp)
-        {
-          tree ttype = TREE_TYPE (tmp);
-
-          tmp_name = append_coded_type (tmp_name, ttype,
-                                        &tmp_name_len, &tmp_name_max_len);
-          tmp_name = append_string (tmp_name, "?",
-                                    &tmp_name_len, &tmp_name_max_len);
-          if (DECL_NAME (tmp) != 0)
-            tmp_name = append_string (tmp_name,
-                                      IDENTIFIER_POINTER (DECL_NAME (tmp)),
-                                      &tmp_name_len, &tmp_name_max_len);
-          else
-            /* Unnamed bitfields or unions */
-            tmp_name = append_string (tmp_name, "?unnamed",
-                                      &tmp_name_len, &tmp_name_max_len);
-          tmp_name = append_string (tmp_name, "?",
-                                    &tmp_name_len, &tmp_name_max_len);
-          tmp = TREE_CHAIN (tmp);
-        }
-    }
-
-  vt_name = get_compact_identifier (tmp_name, tmp_name_len, &vt_name_len);
-  free (tmp_name);
-
-  ident = get_identifier_with_length (vt_name, vt_name_len);
-  free (vt_name);
-
-  return ident;
-}
 
 static void
 print_enum_decl (FILE *file, tree t)
@@ -3929,8 +3374,8 @@ print_valuetype_decl (FILE *file, tree t)
 
 }
 
-  /* The attribute string must be less than 127 characters and
-     contain only 7-bit ASCII chars.  No checks though. */
+/* The attribute string must be less than 127 characters and contain only
+   7-bit ASCII chars.  No checks though. */
 static void
 gen_string_custom_attr (FILE *stream, const char* parameter)
 {
@@ -3948,32 +3393,27 @@ gen_string_custom_attr (FILE *stream, const char* parameter)
   fputs ("00 00)\n", stream);
 }
 
-
 /* Dumps the labels of a switch used for implementing a computed GOTO */
 
 static void
 gen_computed_goto (FILE *file, tree node)
 {
+  tree *addrs = get_label_addrs ();
+  unsigned int n = get_label_addrs_n ();
   unsigned int i;
 
-  if (goto_labels == NULL && taken_labels != 0)
-    {
-      goto_labels = XNEWVEC (tree, taken_labels);
-      pointer_map_traverse (labels_map, fill_goto_labels, goto_labels);
-    }
-
   gen_cil_node (file, node);
-  fputs ("\n\tswitch (", file);
+  fprintf (file, "\n\tswitch (");
 
-  for (i = 0; i < taken_labels; i++)
+  for (i = 0; i < n; i++)
     {
-      dump_label_name (file, goto_labels[i]);
+      dump_label_name (file, addrs[i]);
 
-      if (i + 1 < taken_labels)
-	fputs (", ", file);
+      if (i + 1 < n)
+	fprintf (file, ", ");
     }
 
-  fputs (")", file);
+  fprintf (file, ")");
   stack_pop (1);
 }
 
@@ -4018,37 +3458,88 @@ print_string_decl (FILE *file, tree t)
 static void
 print_used_strings (FILE *file)
 {
+  ref_str_iterator rsi;
   ebitmap used_stringtypes;
-  int i, n;
+  tree str;
+  unsigned int str_size;
+  ebitmap_iterator ebi;
 
   used_stringtypes = ebitmap_alloc (1);
+  rsi = rsi_begin ();
 
-  i = 0;
-  n = VARRAY_ACTIVE_SIZE (referenced_strings);
-  for (; i < n; ++i)
+  while (!rsi_end_p (rsi))
     {
-      tree str =  VARRAY_TREE (referenced_strings, i);
-      unsigned int str_size = TREE_INT_CST_LOW (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE(str)))) + 1;
+      str = rsi_string (rsi);
+      rsi_next (rsi);
+      str_size = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (str))),
+			       1) + 1;
       print_string_decl (file, str);
       ebitmap_set_bit (used_stringtypes, str_size);
     }
 
-  {
-    unsigned int str_size;
-    ebitmap_iterator it;
-    EXECUTE_IF_SET_IN_EBITMAP(used_stringtypes, 0, str_size, it)
-      {
-        fprintf (file, "\n.class public explicit sealed serializable ansi '?string_type?%d'", str_size);
-        fputs (" extends ['mscorlib']System.ValueType\n"
-               "{\n"
-               "\t.custom instance "
-               "void [gcc4net]gcc4net.C_Attributes.ConstStringType::.ctor() "
-               "= (01 00 00 00)\n", file);
-        fprintf (file, "\t.size %d\n", str_size);
-        fputs ("\t.field [0] public specialname int8 'elem__'\n"
-               "}\n", file);
-      }
-  }
+  rsi_destroy (rsi);
+
+  EXECUTE_IF_SET_IN_EBITMAP(used_stringtypes, 0, str_size, ebi)
+    {
+      fprintf (file,
+	       "\n.class public explicit sealed serializable ansi '?string_type?%d'"
+	       " extends ['mscorlib']System.ValueType\n"
+	       "{\n"
+	       "\t.custom instance "
+	       "void [gcc4net]gcc4net.C_Attributes.ConstStringType::.ctor() "
+	       "= (01 00 00 00)\n"
+	       "\t.size %d\n"
+	       "\t.field [0] public specialname int8 'elem__'\n"
+	       "}\n", str_size, str_size);
+    }
+
+  ebitmap_free (used_stringtypes);
+}
+
+/* Emit the valuetypes referenced by the current function.  */
+
+static void
+print_referenced_types (FILE *file)
+{
+  /* There may be distinct tree types that correspond to identical types.
+     In order not to slow down mark_referenced_type(...) function (which
+     may typically be called several times for the same type), insertion
+     of types in the mark set makes only sure that the same tree type
+     pointer is not inserted twice. As a consequence, there may still be
+     distinct tree types that correspond to identical types in the
+     reference type set.
+     Hence, before emitting a type, make sure no type with the same name
+     has already been emitted.  */
+
+  struct pointer_set_t *emitted_types = pointer_set_create ();
+  types_iterator rti = rti_begin ();
+
+  while (!rti_end_p (rti))
+    {
+      tree type = rti_type (rti);
+
+      if (COMPLETE_TYPE_P (type))
+	{
+	  tree type_name = TYPE_NAME (type);
+
+	  gcc_assert (DECL_P (type_name)
+		      || TREE_CODE (type_name) == IDENTIFIER_NODE);
+
+	  if (TREE_CODE (type_name) != IDENTIFIER_NODE)
+	    type_name = DECL_NAME (type_name);
+
+	  if (!pointer_set_contains (emitted_types, type_name))
+	    {
+	      print_valuetype_decl (file, type);
+	      pointer_set_insert (emitted_types, type_name);
+	    }
+	}
+
+      rti_next (rti);
+    }
+
+  rti_destroy (rti);
+  pointer_set_destroy (emitted_types);
 }
 
 static void
@@ -4074,6 +3565,26 @@ print_pinvoke_function (FILE *file, tree fun)
   dump_fun_type (file, fun_type, fun, NULL, false);
 
   fputs (" cil managed {}\n", file);
+}
+
+/* Emit the PINVOKES referenced in this compilation unit.  */
+
+static void
+print_referenced_pinvokes (FILE *file)
+{
+  pinvoke_iterator rpi;
+  tree pinvoke;
+
+  rpi = rpi_begin ();
+
+  while (!rpi_end_p (rpi))
+    {
+      pinvoke = rpi_function (rpi);
+      rpi_next (rpi);
+      print_pinvoke_function (file, pinvoke);
+    }
+
+  rpi_destroy (rpi);
 }
 
 static void
@@ -4144,110 +3655,6 @@ gen_start_function (FILE *stream)
          "\n\n", stream);
 }
 
-
-/* This function is mostly a copy of the last part of 'gen_cil'. */
-static void
-gen_cil_vcg (FILE *vcg_stream)
-{
-  block_stmt_iterator bsi;
-  edge_iterator ei;
-  const char *fun_name = lang_hooks.decl_printable_name (current_function_decl, 1);
-  edge e;
-  int  i=0;
-
-  fprintf (vcg_stream, "graph: {\n");
-  fprintf (vcg_stream, "title: \"%s\"\n",
-           lang_hooks.decl_printable_name (current_function_decl, 1));
-  fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"ENTRY %s\" }\n",
-           fun_name, ENTRY_BLOCK, fun_name);
-  fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"EXIT\" }\n",
-           fun_name, EXIT_BLOCK);
-  fprintf (vcg_stream, "edge:{sourcename: \"%sBB%d\" targetname: \"%sBB%d\"}\n",
-           fun_name, ENTRY_BLOCK,
-           fun_name, single_succ (ENTRY_BLOCK_PTR)->index);
-
-  FOR_EACH_BB (bb)
-    {
-      tree stmt = NULL_TREE;
-
-      fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"(BB%d, pos: %d)",
-               fun_name, bb->index, bb->index, i++);
-
-      if (bb->loop_depth)
-        fprintf (vcg_stream, " LOOP DEPTH %d ", bb->loop_depth);
-
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-        {
-          stmt = bsi_stmt (bsi);
-          if (TARGET_EMIT_GIMPLE_COMMENTS)
-            {
-              fprintf (vcg_stream, "\n\t [ ");
-              print_generic_expr (vcg_stream, stmt, 0);
-              fprintf (vcg_stream, " ]");
-            }
-          gcc_assert (stack == 0);
-
-          if (TREE_CODE (stmt) != NOP_EXPR
-              || TREE_CODE (TREE_OPERAND (stmt, 0)) != INTEGER_CST)
-            gen_cil_node (vcg_stream, stmt);
-
-          if (TREE_CODE (stmt) == CALL_EXPR)
-            {
-              tree fun_expr = CALL_EXPR_FN (stmt);
-              tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
-
-              if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
-                {
-                  fputs ("\n\tpop", vcg_stream);
-                  stack_pop (1);
-                }
-            }
-        }
-
-      if ((!stmt || (TREE_CODE (stmt) != COND_EXPR)) && single_succ_p (bb))
-        {
-          basic_block succ = single_succ (bb);
-
-          /* The last part of the test (succ != bb->next_bb) is a HACK.  It
-             avoids generating a branch to the successor in case of a
-             fallthrough. To be fixed when we have a proper layout of basic
-             blocks.  Note that branches from COND_EXPR are still generated,
-             even to a fallthrough. */
-          if ((succ->index != EXIT_BLOCK) && (succ != bb->next_bb))
-            {
-              tree label = tree_block_label (succ);
-              fputs ("\n\tbr\t", vcg_stream);
-              dump_label_name (vcg_stream, label);
-              gcc_assert (stack == 0);
-            }
-        }
-      fprintf (vcg_stream, "\" }\n");  /* close 'label' clause */
-
-      for (ei = ei_start (bb->succs); ei_cond (ei, &e); ei_next (&ei))
-        {
-          if (e->flags & EDGE_DFS_BACK)
-            fprintf (vcg_stream, "backedge: { color: red");
-          else if (e->flags & EDGE_LOOP_EXIT)
-            fprintf (vcg_stream, "edge: { color: blue");
-          else
-            fprintf (vcg_stream, "edge: {");
-
-          fprintf (vcg_stream, " label:\"%d", e->probability);
-
-          if (e->flags & EDGE_LOOP_EXIT)
-            fprintf (vcg_stream, " loop_exit");
-
-          fprintf (vcg_stream, "\"");
-
-          fprintf (vcg_stream,
-                   " sourcename: \"%sBB%d\" targetname: \"%sBB%d\" }\n",
-                   fun_name, bb->index, fun_name, e->dest->index);
-        }
-    }
-  fprintf (vcg_stream, "}\n");
-}
-
-
 static void
 gen_cil_1 (FILE *stream)
 {
@@ -4270,14 +3677,7 @@ gen_cil_1 (FILE *stream)
               tree label = LABEL_EXPR_LABEL (stmt);
               /* Check if the label has its address taken. */
               if (FORCED_LABEL (label))
-                {
-		  void **slot;
-
-		  gcc_assert (pointer_map_contains (labels_map, label) == NULL);
-		  slot = pointer_map_insert (labels_map, label);
-		  *slot = build_int_cst (intSI_type_node, taken_labels);
-		  taken_labels++;
-                }
+		record_addr_taken_label (label);
             }
         }
     }
@@ -4406,7 +3806,6 @@ gen_cil_1 (FILE *stream)
 
   FOR_EACH_BB (bb)
     {
-      tree stmt = NULL_TREE;
 
       if (TARGET_EMIT_GIMPLE_COMMENTS)
         {
@@ -4414,50 +3813,7 @@ gen_cil_1 (FILE *stream)
                    bb->frequency * 100 / BB_FREQ_MAX);
         }
 
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-        {
-          stmt = bsi_stmt (bsi);
-          if (TARGET_EMIT_GIMPLE_COMMENTS)
-            {
-              fprintf (stream, "\n\t/* ");
-              print_generic_expr (stream, stmt, 0);
-              fprintf (stream, " */");
-            }
-          gcc_assert (stack == 0);
-
-          if (TREE_CODE (stmt) != NOP_EXPR
-              || TREE_CODE (TREE_OPERAND (stmt, 0)) != INTEGER_CST)
-            gen_cil_node (stream, stmt);
-
-          if (TREE_CODE (stmt) == CALL_EXPR)
-            {
-              tree fun_expr = CALL_EXPR_FN (stmt);
-              tree fun_type = TREE_TYPE (TREE_TYPE (fun_expr));
-
-              if (TREE_CODE (TREE_TYPE (fun_type)) != VOID_TYPE)
-                {
-                  fputs ("\n\tpop", stream);
-                  stack_pop (1);
-                }
-            }
-        }
-
-      if ((!stmt || (TREE_CODE (stmt) != COND_EXPR)) && single_succ_p (bb))
-        {
-          basic_block succ = single_succ (bb);
-
-          /* The last part of the test (succ != bb->next_bb) is a HACK.  It
-             avoids generating a branch to the successor in case of a
-             fallthrough. To be fixed when we have a proper layout of basic
-             blocks.   */
-          if ((succ->index != EXIT_BLOCK) && (succ != bb->next_bb))
-            {
-              tree label = tree_block_label (succ);
-              fputs ("\n\tbr\t", stream);
-              dump_label_name (stream, label);
-              gcc_assert (stack == 0);
-            }
-        }
+      gen_cil_bb (stream, bb);
 
       if (TARGET_EMIT_GIMPLE_COMMENTS)
         {
@@ -4509,7 +3865,6 @@ create_init_method (void)
   allocate_struct_function (fun_decl);
 /*   DECL_SOURCE_LOCATION (fun_decl) = DECL_SOURCE_LOCATION (decl); */
 /*   cfun->function_end_locus = DECL_SOURCE_LOCATION (decl); */
-
 
   TREE_STATIC (fun_decl) = 1;
   TREE_USED (fun_decl) = 1;
@@ -4595,30 +3950,13 @@ gen_cil_init (void)
            "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
            "= (01 00 00 00)\n", stream);
 
-  referenced_types = pointer_set_create ();
-  VARRAY_TREE_INIT (referenced_strings, 32, "strings used in current unit");
-  referenced_string_ptrs = pointer_set_create ();
-  referenced_pinvoke = pointer_set_create ();
   VARRAY_TREE_INIT (pending_ctors, 32, "pending ctors");
-
-  /* Allocate hash table for pointer ids */
-  pointer_id_htable = htab_create (256,
-                                   pointer_id_data_hash,
-                                   pointer_id_data_eq,
-                                   free);
-
-  labels_map = pointer_map_create ();
-  taken_labels = 0;
-
-  if (TARGET_EMIT_VCG)
-    fprintf (stdout, "graph: {\ndisplay_edge_labels: yes\n");
 }
 
 void
 gen_cil_fini (void)
 {
   FILE *stream = asm_out_file;
-  struct pointer_set_iter_t it;
 
   if (VARRAY_ACTIVE_SIZE (pending_ctors) > 0)
     {
@@ -4626,71 +3964,9 @@ gen_cil_fini (void)
     }
   VARRAY_CLEAR (pending_ctors);
 
-  if (VARRAY_ACTIVE_SIZE (referenced_strings) > 0)
-    {
-      print_used_strings (stream);
-    }
-  VARRAY_CLEAR (referenced_strings);
-  pointer_set_destroy (referenced_string_ptrs);
-
-  /* There may be distinct tree types that correspond to identical types.
-     In order not to slow down mark_referenced_type(...) function (which
-     may typically be called several times for the same type), insertion
-     of types in the mark set makes only sure that the same tree type
-     pointer is not inserted twice. As a consequence, there may still be
-     distinct tree types that correspond to identical types in the
-     reference type set.
-     Hence, before emitting a type, make sure no type with the same name
-     has already been emitted.  */
-
-  {
-    struct pointer_set_t *emitted_types = pointer_set_create ();
-
-    it = pointer_set_begin (referenced_types);
-    while (!POINTER_SET_ITER_IS_END (it))
-      {
-        tree type = (tree)POINTER_SET_ITER_ELEM (it);
-
-        if (COMPLETE_TYPE_P (type))
-          {
-            tree type_name = TYPE_NAME (type);
-            gcc_assert (DECL_P (type_name)
-                        || TREE_CODE (type_name) == IDENTIFIER_NODE);
-            
-            if (TREE_CODE (type_name) != IDENTIFIER_NODE)
-              type_name = DECL_NAME (type_name);
-            
-            if (!pointer_set_contains (emitted_types, type_name))
-              {
-                print_valuetype_decl (stream, type);
-                pointer_set_insert (emitted_types, type_name);
-              }
-          }
-        
-        it = pointer_set_next (referenced_types, it);
-      }
-    pointer_set_destroy (referenced_types);
-    pointer_set_destroy (emitted_types);
-  }
-
-  it = pointer_set_begin (referenced_pinvoke);
-  while (!POINTER_SET_ITER_IS_END (it))
-    {
-      print_pinvoke_function (stream, (tree)POINTER_SET_ITER_ELEM (it));
-      it = pointer_set_next (referenced_pinvoke, it);
-    }
-  pointer_set_destroy (referenced_pinvoke);
-
-  /* Delete hash table for pointer ids */
-  htab_delete (pointer_id_htable);
-
-  pointer_map_destroy (labels_map);
-
-  if (goto_labels != NULL)
-    XDELETEVEC (goto_labels);
-
-  if (TARGET_EMIT_VCG)
-    fprintf (stdout, "}\n");
+  print_used_strings (stream);
+  print_referenced_types (stream);
+  print_referenced_pinvokes (stream);
 }
 
 static bool
@@ -4704,9 +3980,6 @@ gen_cil (void)
 {
   gen_cil_1 (asm_out_file);
 
-  if (TARGET_EMIT_VCG)
-    gen_cil_vcg(stdout);
-
   return 0;
 }
 
@@ -4717,6 +3990,110 @@ struct tree_opt_pass pass_gen_cil =
   "cil",                                /* name */
   gen_cil_gate,                         /* gate */
   gen_cil,                              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_REST_OF_COMPILATION,               /* tv_id */
+  PROP_cfg,                             /* properties_required */
+  0,                                    /* properties_provided */
+  /* ??? If TER is enabled, we also kill gimple.  */
+  0,                                    /* properties_destroyed */
+  0,
+  0,
+  0                                     /* letter */
+};
+
+/* This function is mostly a copy of the last part of 'gen_cil'. */
+static void
+gen_cil_vcg (FILE *vcg_stream)
+{
+  edge_iterator ei;
+  const char *fun_name = lang_hooks.decl_printable_name (current_function_decl, 1);
+  edge e;
+  int  i=0;
+
+  fprintf (vcg_stream, "graph: {\n");
+  fprintf (vcg_stream, "title: \"%s\"\n", fun_name);
+  fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"ENTRY %s\" }\n",
+           fun_name, ENTRY_BLOCK, fun_name);
+  fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"EXIT\" }\n",
+           fun_name, EXIT_BLOCK);
+  fprintf (vcg_stream, "edge:{sourcename: \"%sBB%d\" targetname: \"%sBB%d\"}\n",
+           fun_name, ENTRY_BLOCK,
+           fun_name, single_succ (ENTRY_BLOCK_PTR)->index);
+
+  FOR_EACH_BB (bb)
+    {
+      fprintf (vcg_stream, "node: { title: \"%sBB%d\" label: \"(BB%d, pos: %d)",
+               fun_name, bb->index, bb->index, i++);
+
+      if (bb->loop_depth)
+        fprintf (vcg_stream, " LOOP DEPTH %d ", bb->loop_depth);
+
+      gen_cil_bb (vcg_stream, bb);
+
+      fprintf (vcg_stream, "\" }\n");  /* close 'label' clause */
+
+      for (ei = ei_start (bb->succs); ei_cond (ei, &e); ei_next (&ei))
+        {
+          if (e->flags & EDGE_DFS_BACK)
+            fprintf (vcg_stream, "backedge: { color: red");
+          else if (e->flags & EDGE_LOOP_EXIT)
+            fprintf (vcg_stream, "edge: { color: blue");
+          else
+            fprintf (vcg_stream, "edge: {");
+
+          fprintf (vcg_stream, " label:\"%d", e->probability);
+
+          if (e->flags & EDGE_LOOP_EXIT)
+            fprintf (vcg_stream, " loop_exit");
+
+          fprintf (vcg_stream, "\"");
+
+          fprintf (vcg_stream,
+                   " sourcename: \"%sBB%d\" targetname: \"%sBB%d\" }\n",
+                   fun_name, bb->index, fun_name, e->dest->index);
+        }
+    }
+  fprintf (vcg_stream, "}\n");
+}
+
+void
+cil_vcg_init (void)
+{
+  if (TARGET_EMIT_VCG)
+    fputs ("graph: {\n"
+           "display_edge_labels: yes\n", stdout);
+}
+
+void
+cil_vcg_fini (void)
+{
+  if (TARGET_EMIT_VCG)
+    fputs ("}\n", stdout);
+}
+
+static bool
+cil_vcg_gate (void)
+{
+  return TARGET_EMIT_VCG && current_function_decl != NULL;
+}
+
+static unsigned int
+cil_vcg (void)
+{
+  gen_cil_vcg(stdout);
+
+  return 0;
+}
+
+/* Define the parameters of the CIL_VCG pass.  */
+
+struct tree_opt_pass pass_cil_vcg =
+{
+  "cil_vcg",                            /* name */
+  cil_vcg_gate,                         /* gate */
+  cil_vcg,                              /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
