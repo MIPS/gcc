@@ -1,3 +1,13 @@
+2008-04-29  Doug Kwan  <dougkwan@google.com>
+
+       * tree-eh.c (lower_try_finally_dup_block): Call
+       copy_gimple_seq_and_replace_locals instead of gimple_seq_copy.
+       (optimize_double_finally): Add a note about replacing unsave_expr_now
+       with copy_gimple_seq_and_replace_locals.
+       * tree-inline.c (mark_local_labels_stmt, replace_locals_op,
+       replace_locals_stmt, copy_gimple_seq_and_replace_locals): New.
+       * tree-inline.h (copy_gimple_seq_and_replace_locals): New prototype.
+
 2008-04-29  Rafael Espindola <espindola@google.com>
 
 	* gimple-pretty-print.c (dump_gimple_return): Add missing space.

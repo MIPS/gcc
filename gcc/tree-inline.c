@@ -3710,6 +3710,162 @@ unsave_expr_now (tree expr)
   return expr;
 }
 
+/* Called via walk_gimple_seq.  If *GSIP points to a GIMPLE_LABEL for a local
+   label, copies the declaration and enters it in the splay_tree in DATA (which
+   is really a 'copy_body_data *'.  */
+
+static tree
+mark_local_labels_stmt (gimple_stmt_iterator *gsip,
+		        bool *walk_subtrees ATTRIBUTE_UNUSED,
+		        struct walk_stmt_info *wi)
+{
+  copy_body_data *id = (copy_body_data *) wi->info;
+  gimple stmt = gsi_stmt (*gsip);
+
+  if (gimple_code (stmt) == GIMPLE_LABEL)
+    {
+      tree decl = gimple_label_label (stmt);
+
+      /* Copy the decl and remember the copy.  */
+      insert_decl_map (id, decl, id->copy_decl (decl, id));
+    }
+
+  return NULL_TREE;
+}
+
+
+/* Called via walk_gimple_seq by copy_gimple_seq_and_replace_local.
+   Using the splay_tree pointed to by ST (which is really a `splay_tree'),
+   remaps all local declarations to appropriate replacements in gimple
+   operands. */
+
+static tree
+replace_locals_op (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info*) data;
+  copy_body_data *id = (copy_body_data *) wi->info;
+  struct pointer_map_t *st = id->decl_map;
+  tree *n;
+  tree expr = *tp;
+
+  /* Only a local declaration (variable or label).  */
+  if ((TREE_CODE (expr) == VAR_DECL
+       && !TREE_STATIC (expr))
+      || TREE_CODE (expr) == LABEL_DECL)
+    {
+      /* Lookup the declaration.  */
+      n = (tree *) pointer_map_contains (st, expr);
+
+      /* If it's there, remap it.  */
+      if (n)
+	*tp = *n;
+      *walk_subtrees = 0;
+    }
+  else if (TREE_CODE (expr) == STATEMENT_LIST
+	   || TREE_CODE (expr) == BIND_EXPR
+	   || TREE_CODE (expr) == SAVE_EXPR)
+    gcc_unreachable ();
+  else if (TREE_CODE (expr) == TARGET_EXPR)
+    {
+      /* Don't mess with a TARGET_EXPR that hasn't been expanded.
+         It's OK for this to happen if it was part of a subtree that
+         isn't immediately expanded, such as operand 2 of another
+         TARGET_EXPR.  */
+      if (!TREE_OPERAND (expr, 1))
+	{
+	  TREE_OPERAND (expr, 1) = TREE_OPERAND (expr, 3);
+	  TREE_OPERAND (expr, 3) = NULL_TREE;
+	}
+    }
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+
+/* Called via walk_gimple_seq by copy_gimple_seq_and_replace_local.
+   Using the splay_tree pointed to by ST (which is really a `splay_tree'),
+   remaps all local declarations to appropriate replacements in gimple
+   statements. */
+
+static tree
+replace_locals_stmt (gimple_stmt_iterator *gsip,
+		     bool *walk_subtrees ATTRIBUTE_UNUSED,
+		     struct walk_stmt_info *wi)
+{
+  copy_body_data *id = (copy_body_data *) wi->info;
+  gimple stmt = gsi_stmt (*gsip);
+
+  if (gimple_code (stmt) == GIMPLE_BIND)
+    {
+      tree block = gimple_bind_block (stmt);
+
+      if (block)
+	{
+	  remap_block (&block, id);
+	  gimple_bind_set_block (stmt, block);
+	}
+
+      /* This will remap a lot of the same decls again, but this should be
+	 harmless.  */
+      if (gimple_bind_vars (stmt))
+	gimple_bind_set_vars (stmt, remap_decls (gimple_bind_vars (stmt), id));
+    }
+
+  /* Keep iterating.  */
+  return NULL_TREE;
+}
+
+
+/* Copies everything in SEQ and replaces variables and labels local to
+   current_function_decl.  */
+
+gimple_seq
+copy_gimple_seq_and_replace_locals (gimple_seq seq)
+{
+  copy_body_data id;
+  struct walk_stmt_info wi;
+  struct pointer_set_t *visited;
+  gimple_seq copy;
+
+  /* There's nothing to do for NULL_TREE.  */
+  if (seq == NULL)
+    return seq;
+
+  /* Set up ID.  */
+  memset (&id, 0, sizeof (id));
+  id.src_fn = current_function_decl;
+  id.dst_fn = current_function_decl;
+  id.decl_map = pointer_map_create ();
+
+  id.copy_decl = copy_decl_no_change;
+  id.transform_call_graph_edges = CB_CGE_DUPLICATE;
+  id.transform_new_cfg = false;
+  id.transform_return_to_modify = false;
+  id.transform_lang_insert_block = NULL;
+
+  /* Walk the tree once to find local labels.  */
+  memset (&wi, 0, sizeof (wi));
+  visited = pointer_set_create ();
+  wi.info = &id;
+  wi.pset = visited;
+  walk_gimple_seq (seq, mark_local_labels_stmt, NULL, &wi);
+  pointer_set_destroy (visited);
+
+  copy = gimple_seq_copy (seq);
+
+  /* Walk the copy, remapping decls.  */
+  memset (&wi, 0, sizeof (wi));
+  wi.info = &id;
+  walk_gimple_seq (copy, replace_locals_stmt, replace_locals_op, &wi);
+
+  /* Clean up.  */
+  pointer_map_destroy (id.decl_map);
+
+  return copy;
+}
+
+
 /* Allow someone to determine if SEARCH is a child of TOP from gdb.  */
 
 static tree

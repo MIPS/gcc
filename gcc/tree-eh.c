@@ -839,7 +839,7 @@ lower_try_finally_dup_block (gimple_seq seq, struct leh_state *outer_state)
   gimple region = NULL;
   gimple_seq new_seq;
 
-  new_seq = gimple_seq_copy (seq);
+  new_seq = copy_gimple_seq_and_replace_locals (seq);
 
   if (outer_state->tf)
     region = outer_state->tf->try_finally_expr;
@@ -2521,6 +2521,9 @@ optimize_double_finally (tree one, tree two)
       TREE_SET_CODE (one, TRY_CATCH_EXPR);
 
       i = tsi_start (TREE_OPERAND (two, 0));
+      /* FIXME tuples: Change this to use copy_gimple_seq_and_replace_locals
+	 instead of unsave_expr_now.  Then we can remove unsave_expr_node and
+	 callees only used by it in tree-inline.h.  */
       tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
     }
 }

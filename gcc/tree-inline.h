@@ -161,6 +161,7 @@ void tree_function_versioning (tree, tree, varray_type, bool);
 extern gimple_seq remap_gimple_seq (gimple_seq, copy_body_data *);
 extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);
+extern gimple_seq copy_gimple_seq_and_replace_locals (gimple_seq seq);
 
 extern HOST_WIDE_INT estimated_stack_frame_size (void);
 
