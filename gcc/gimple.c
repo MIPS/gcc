@@ -59,12 +59,6 @@ static const char * const gimple_alloc_kind_names[] = {
 
 #endif /* GATHER_STATISTICS */
 
-/* Keep function bodies in the array GIMPLE_BODIES_VEC and use the
-   pointer map GIMPLE_BODIES_MAP to quickly map a given FUNCTION_DECL
-   to its corresponding position in the array of GIMPLE bodies.  */
-static GTY(()) VEC(gimple_seq,gc) *gimple_bodies_vec;
-static struct pointer_map_t *gimple_bodies_map;
-
 /* A cache of gimple_seq objects.  Sequences are created and destroyed
    fairly often during gimplification.  */
 static GTY ((deletable)) struct gimple_seq_d *gimple_seq_cache;
@@ -1648,44 +1642,28 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 /* Set sequence SEQ to be the GIMPLE body for function FN.  */
 
 void
-gimple_set_body (tree fn, gimple_seq seq)
+gimple_set_body (tree fndecl, gimple_seq seq)
 {
-  void **slot;
-  size_t index;
-
-  if (gimple_bodies_map == NULL)
-    gimple_bodies_map = pointer_map_create ();
-
-  slot = pointer_map_insert (gimple_bodies_map, fn);
-  if (*slot == NULL)
+  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  if (fn == NULL)
     {
-      VEC_safe_push (gimple_seq, gc, gimple_bodies_vec, seq);
-      index = VEC_length (gimple_seq, gimple_bodies_vec) - 1;
-      *slot = (void *) index;
+      /* If FNDECL still does not have a function structure associated
+	 with it, then it does not make sense for it to receive a
+	 GIMPLE body.  */
+      gcc_assert (seq == NULL);
     }
   else
-    {
-      index = (size_t) *slot;
-      VEC_replace (gimple_seq, gimple_bodies_vec, index, seq);
-    }
+    fn->gimple_body = seq;
 }
-  
+
 
 /* Return the body of GIMPLE statements for function FN.  */
 
 gimple_seq
-gimple_body (tree fn)
+gimple_body (tree fndecl)
 {
-  void **slot;
-
-  if (gimple_bodies_map
-      && (slot = pointer_map_contains (gimple_bodies_map, fn)))
-    {
-      size_t ix = (size_t) *slot;
-      return VEC_index (gimple_seq, gimple_bodies_vec, ix);
-    }
-  
-  return NULL;
+  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  return fn ? fn->gimple_body : NULL;
 }
 
 

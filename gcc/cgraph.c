@@ -543,11 +543,11 @@ cgraph_release_function_body (struct cgraph_node *node)
       delete_tree_ssa ();
       delete_tree_cfg_annotations ();
       cfun->eh = NULL;
+      gimple_set_body (node->decl, NULL);
       current_function_decl = old_decl;
       pop_cfun();
     }
   DECL_SAVED_TREE (node->decl) = NULL;
-  gimple_set_body (node->decl, NULL);
   DECL_STRUCT_FUNCTION (node->decl) = NULL;
   DECL_INITIAL (node->decl) = error_mark_node;
 }

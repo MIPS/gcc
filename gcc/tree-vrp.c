@@ -6074,7 +6074,7 @@ vrp_visit_phi_node (gimple phi)
 	{
 	  fprintf (dump_file,
 	      "\n    Argument #%d (%d -> %d %sexecutable)\n",
-	      i, e->src->index, e->dest->index,
+	      (int) i, e->src->index, e->dest->index,
 	      (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	}
 

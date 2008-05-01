@@ -579,74 +579,18 @@ replace_goto_queue (struct leh_tf_state *tf)
   replace_goto_queue_stmt_list (tf->top_p_seq, tf);
 }
 
-/* For any GIMPLE_GOTO or GIMPLE_RETURN, decide whether it leaves a try_finally
-   node, and if so record that fact in the goto queue associated with that
-   try_finally node.  */
+/* Add a new record to the goto queue contained in TF. NEW_STMT is the
+   data to be added, IS_LABEL indicates whether NEW_STMT is a label or
+   a gimple return. */
 
 static void
-maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
+record_in_goto_queue (struct leh_tf_state *tf,
+                      treemple new_stmt,
+                      int index,
+                      bool is_label)
 {
-  struct leh_tf_state *tf = state->tf;
-  struct goto_queue_node *q;
-  treemple new_stmt;
   size_t active, size;
-  int index;
-  int is_label = 0;
-
-  if (!tf)
-    return;
-
-  switch (gimple_code (stmt))
-    {
-    case GIMPLE_GOTO:
-      {
-	tree lab = gimple_goto_dest (stmt);
-        treemple temp;
-
-	/* Computed and non-local gotos do not get processed.  Given
-	   their nature we can neither tell whether we've escaped the
-	   finally block nor redirect them if we knew.  */
-	if (TREE_CODE (lab) != LABEL_DECL)
-	  return;
-
-	/* No need to record gotos that don't leave the try block.  */
-        temp.t = lab;
-	if (! outside_finally_tree (temp, tf->try_finally_expr))
-	  return;
-
-	if (! tf->dest_array)
-	  {
-	    tf->dest_array = VEC_alloc (tree, heap, 10);
-	    VEC_quick_push (tree, tf->dest_array, lab);
-	    index = 0;
-	  }
-	else
-	  {
-	    int n = VEC_length (tree, tf->dest_array);
-	    for (index = 0; index < n; ++index)
-	      if (VEC_index (tree, tf->dest_array, index) == lab)
-		break;
-	    if (index == n)
-	      VEC_safe_push (tree, heap, tf->dest_array, lab);
-	  }
-        
-        /* In the case of a GOTO we want to record the destination label,
-	   since with a GIMPLE_COND we have an easy access to the then/else
-	   labels. */
-        new_stmt.t = lab;
-        is_label = 1;
-      }
-      break;
-
-    case GIMPLE_RETURN:
-      tf->may_return = true;
-      index = -1;
-      new_stmt.g = stmt;
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
+  struct goto_queue_node *q;
 
   gcc_assert (!tf->goto_queue_map);
 
@@ -668,6 +612,88 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   q->index = index;
   q->is_label = is_label;
 }
+
+/* Record the LABEL label in the goto queue contained in TF.
+   TF is not null.  */
+
+static void
+record_in_goto_queue_label (struct leh_tf_state *tf, tree label)
+{
+  int index;
+  treemple temp, new_stmt;
+
+  if (!label)
+    return;
+
+  /* Computed and non-local gotos do not get processed.  Given
+     their nature we can neither tell whether we've escaped the
+     finally block nor redirect them if we knew.  */
+  if (TREE_CODE (label) != LABEL_DECL)
+    return;
+
+  /* No need to record gotos that don't leave the try block.  */
+  temp.t = label;
+  if (!outside_finally_tree (temp, tf->try_finally_expr))
+    return;
+
+  if (! tf->dest_array)
+    {
+      tf->dest_array = VEC_alloc (tree, heap, 10);
+      VEC_quick_push (tree, tf->dest_array, label);
+      index = 0;
+    }
+  else
+    {
+      int n = VEC_length (tree, tf->dest_array);
+      for (index = 0; index < n; ++index)
+        if (VEC_index (tree, tf->dest_array, index) == label)
+          break;
+      if (index == n)
+        VEC_safe_push (tree, heap, tf->dest_array, label);
+    }
+
+  /* In the case of a GOTO we want to record the destination label,
+     since with a GIMPLE_COND we have an easy access to the then/else
+     labels. */
+  new_stmt.t = label;
+  record_in_goto_queue (tf, new_stmt, index, true);
+
+}
+
+/* For any GIMPLE_GOTO or GIMPLE_RETURN, decide whether it leaves a try_finally
+   node, and if so record that fact in the goto queue associated with that
+   try_finally node.  */
+
+static void
+maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
+{
+  struct leh_tf_state *tf = state->tf;
+  treemple new_stmt;
+
+  if (!tf)
+    return;
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_COND:
+      record_in_goto_queue_label (tf, gimple_cond_true_label (stmt));
+      record_in_goto_queue_label (tf, gimple_cond_false_label (stmt));
+      break;
+    case GIMPLE_GOTO:
+      record_in_goto_queue_label (tf, gimple_goto_dest (stmt));
+      break;
+
+    case GIMPLE_RETURN:
+      tf->may_return = true;
+      new_stmt.g = stmt;
+      record_in_goto_queue (tf, new_stmt, -1, false);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 #ifdef ENABLE_CHECKING
 /* We do not process GIMPLE_SWITCHes for now.  As long as the original source
@@ -1805,6 +1831,7 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
 	}
       break;
 
+    case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_RETURN:
       maybe_record_in_goto_queue (state, stmt);

@@ -1,3 +1,36 @@
+2008-05-01  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00053.html
+
+	* tree-vrp.c (vrp_visit_phi_node): Cast variable I to int
+	for printing.
+	* cgraph.c (cgraph_release_function_body): Only call
+	gimple_set_body if NODE->DECL has a struct function.
+	* tree.c (make_node_stat): Do not call gimple_set_body.
+	* cp/Make-lang.in (cp/semantics.o): Add dependency on
+	$(GIMPLE_H).
+	* cp/semantics.c: Include gimple.h
+	(expand_or_defer_fn): Assert that FN has a gimple body.
+	* function.h (struct function): Add field GIMPLE_BODY.
+	* gimple.c (gimple_bodies_vec): Remove.
+	(gimple_bodies_map): Remove.
+	(gimple_set_body): Re-write to use GIMPLE_BODY in FN's
+	function object.
+	(gimple_body): Likewise.
+
+2008-05-01  Oleg Ryjkov  <olegr@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00053.html
+
+	* tree-eh.c (record_in_goto_queue, record_in_goto_queue_label):
+	New functions.
+	(maybe_record_in_goto_queue): Refactored and added support for
+	recording labels embedded in GIMPLE_CONDs.
+	(lower_catch, lower_cleanup): Fix 3 typos that were introduced
+	during the conversion to tuples.
+	(lower_eh_constructs_2): Call maybe_record_in_goto_queue for
+	GIMPLE_CONDs.
+
 2008-05-01  Rafael Espindola <espindola@google.com>
 
 	* gimple-pretty-print.c (dump_gimple_try): Print like trunk does.
@@ -21,13 +54,13 @@
 
 2008-04-29  Doug Kwan  <dougkwan@google.com>
 
-       * tree-eh.c (lower_try_finally_dup_block): Call
-       copy_gimple_seq_and_replace_locals instead of gimple_seq_copy.
-       (optimize_double_finally): Add a note about replacing unsave_expr_now
-       with copy_gimple_seq_and_replace_locals.
-       * tree-inline.c (mark_local_labels_stmt, replace_locals_op,
-       replace_locals_stmt, copy_gimple_seq_and_replace_locals): New.
-       * tree-inline.h (copy_gimple_seq_and_replace_locals): New prototype.
+	* tree-eh.c (lower_try_finally_dup_block): Call
+	copy_gimple_seq_and_replace_locals instead of gimple_seq_copy.
+	(optimize_double_finally): Add a note about replacing unsave_expr_now
+	with copy_gimple_seq_and_replace_locals.
+	* tree-inline.c (mark_local_labels_stmt, replace_locals_op,
+	replace_locals_stmt, copy_gimple_seq_and_replace_locals): New.
+	* tree-inline.h (copy_gimple_seq_and_replace_locals): New prototype.
 
 2008-04-29  Rafael Espindola <espindola@google.com>
 
@@ -57,14 +90,14 @@
 
 2008-04-29  Doug Kwan  <dougkwan@google.com>
 
-       * tree-eh.c (lower_catch): Fix bug of accessing sub-statements
-       uinsg gimple_catch_handler.  Fix bug of mixing up GIMPLE_GOTO and
-       GIMPLE_LABEL in statement building.
-       (lower_cleanup): Fix bug of mixing up gimple_try_clean and
-       gimple_try_eval.
-       (lower_cleanup): Use gimple codes instead of tree codes in switch
-       statement.
-       (tree-cfg.c): Add code to generate EH edges of GIMPLE_ASSIGN.
+	* tree-eh.c (lower_catch): Fix bug of accessing sub-statements
+	using gimple_catch_handler.  Fix bug of mixing up GIMPLE_GOTO and
+	GIMPLE_LABEL in statement building.
+	(lower_cleanup): Fix bug of mixing up gimple_try_clean and
+	gimple_try_eval.
+	(lower_cleanup): Use gimple codes instead of tree codes in switch
+	statement.
+	(tree-cfg.c): Add code to generate EH edges of GIMPLE_ASSIGN.
 
 2008-04-28  Diego Novillo  <dnovillo@google.com>
 
