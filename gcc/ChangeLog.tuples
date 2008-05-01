@@ -1,6 +1,7 @@
 2008-05-01  Rafael Espindola <espindola@google.com>
 
 	* gimple-pretty-print.c (dump_gimple_try): Print like trunk does.
+	(dump_gimple_catch): Print like trunk does.
 
 2008-05-01  Rafael Espindola <espindola@google.com>
 

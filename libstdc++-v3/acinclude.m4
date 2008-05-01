@@ -2110,6 +2110,8 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
     enable_libstdcxx_pch=$glibcxx_cv_prog_CXX_pch
   fi
 
+  #FIXME tuples
+  enable_libstdcxx_pch="no"
   AC_MSG_CHECKING([for enabled PCH])
   AC_MSG_RESULT([$enable_libstdcxx_pch])
 
