@@ -4305,16 +4305,9 @@ gimple_verify_flow_info (void)
 		label_bb->aux = (void *)1;
 	      }
 
-	    prev = gimple_switch_label (stmt, 0);
-	    i = 1;
-	    if (!CASE_LOW (prev))
-	      {
-		prev = gimple_switch_label (stmt, 1);
-		i++;
-	      }
-
 	    /* Verify that the case labels are sorted.  */
-	    for (; i < n; ++i)
+	    prev = gimple_switch_label (stmt, 0);
+	    for (i = 1; i < n; ++i)
 	      {
 		tree c = gimple_switch_label (stmt, i);
 		if (!CASE_LOW (c))
@@ -4324,7 +4317,8 @@ gimple_verify_flow_info (void)
 		    err = 1;
 		    continue;
 		  }
-		if (!tree_int_cst_lt (CASE_LOW (prev), CASE_LOW (c)))
+		if (CASE_LOW (prev)
+		    && !tree_int_cst_lt (CASE_LOW (prev), CASE_LOW (c)))
 		  {
 		    error ("case labels not sorted: ");
 		    print_generic_expr (stderr, prev, 0);

@@ -1,3 +1,8 @@
+2008-05-01  Rafael Espindola <espindola@google.com>
+
+	* tree-cfg.c (gimple_verify_flow_info): Handle switches with only the
+	default label.
+
 2008-04-30  Doug Kwan  <dougkwan@google.com>
 
 	* cfgexpand.c (gimple_to_tree): Change code to annotate EH region
