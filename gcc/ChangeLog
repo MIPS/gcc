@@ -1,3 +1,98 @@
+2008-05-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (IRA_BB_NODE_BY_INDEX, IRA_LOOP_NODE_BY_INDEX): Use
+	gcc_unreachable instead of exit.
+	(struct allocno): New members min, max, and conflict_id.
+	(ALLOCNO_MIN, ALLOCNO_MAX, ALLOCNO_CONFLICT_ID): New macros.
+	(conflict_id_allocno_map):
+	(SET_ALLOCNO_SET_BIT, CLEAR_ALLOCNO_SET_BIT,
+	TEST_ALLOCNO_SET_BIT): Add two new parameters.  Add versions for
+	checking.
+	(allocno_set_iterator): Add new member start_val.
+	(allocno_set_iter_init): Add two new parameters.  Set up
+	start_val.
+	(allocno_set_iter_cond): Use start_val.
+	(FOR_EACH_ALLOCNO_IN_SET): Add two new parameters.
+	(allocno_set_words): Remove.
+	(allocno_conflict_iterator): Add new member base_conflict_id.
+	(allocno_conflict_iter_init): Set up base_conflict_id.  Use
+	ALLOCNO_MIN and ALLOCNO_MAX.
+	(allocno_conflict_iter_cond): Use conflict_id_allocno_map and
+	base_conflict_id.
+
+	* ira-lives.c: Include sparseset.h.
+	(allocno_set_words, SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE,
+	TEST_ALLOCNO_LIVE, allocnos_live_bitmap): Remove.
+	(allocnos_live): Define as sparseset.
+	(make_regno_born, clear_allocno_live, mark_reg_store,
+	mark_reg_death, process_single_reg_class_operands,
+	process_bb_node_lives, create_allocno_live_ranges): Don't use
+	allocnos_live_bitmap.  Use allocnos_live as sparseset.
+
+	* Makefile.in (ira-conflicts.o, ira-lives.o): Add sparseset.h
+
+	* ira-conflicts.c: Add sparseset.h header.
+	(mirror_conflicts): Remove.
+	(SET_ALLOCNO_LIVE, CLEAR_ALLOCNO_LIVE, TEST_ALLOCNO_LIVE): Remove.
+	(allocnos_live): Remove.
+	(CONFLICT_P): Remove
+	(CONFLICT_ALLOCNO_P): New.
+	(build_conflict_bit_table): Use sparseset.  Use FOR_EACH_ALLOCNO.
+	Allocate bits for [min..max] range.  Report conflict bit table
+	sizes.  Setup conflicts for both allocnos.
+	(DEF_VEC_P, DEF_VEC_ALLOC_P): Definitions for copy vectors.
+	(remove_conflict_allocno_copies): Use CONFLICT_ALLOCNO_P.  Rename
+	conflict_allocno_copy_varray to conflict_allocno_copy_vec and make
+	it VEC.
+	(build_allocno_conflicts): Use two new arguments for
+	FOR_EACH_ALLOCNO_IN_SET.  Use conflict_id_allocno_map.  Modify
+	calculation of ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE.  Use two new
+	arguments for SET_ALLOCNO_SET_BIT.
+	(ira_build_conflicts): Don't call mirror_conflicts.
+
+	* ira-color.c (varray.h): Remove.
+	(DEF_VEC_P, DEF_VEC_ALLOC_P): Definitions for
+	allocno vectors.
+	(allocno_stack_varray): Rename to allocno_stack_vec.  Make it a
+	VEC.
+	(assign_hard_reg, push_allocno_to_stack, pop_allocnos_from_stack,
+	ira_color): Use allocno_stack_vec as VEC.
+	
+	* ira-build.c (setup_min_max_allocno_live_range_point,
+	allocno_range_compare_func, sort_conflict_id_allocno_map,
+	setup_min_max_conflict_allocno_ids): New function.
+	(conflict_id_allocno_map, conflict_id_allocno_map_vec): New global
+	variable.
+	(DEF_VEC_P, DEF_VEC_ALLOC_P): Definitions for allocno vectors.
+	(allocno_varray): Rename to allocno_vec and make it a VEC.
+	(initiate_allocnos): Initiate conflict_id_allocno_map_vec.  Use
+	allocno_vec as a VEC.
+	(create_allocno): Initiate min, max, and conflict_id_allocno.
+	Update conflict_id_allocno_map.  Use allocno_vec as a VEC.
+	(allocate_allocno_conflict_bit_vec): Use ALLOCNO_MIN and
+	ALLOCNO_MAX.
+	(add_to_allocno_conflicts): Ditto.
+	(remove_wrong_conflicts): Ditto.  Use conflict_id_allocno_map.
+	(change_allocno_conflicts): Ditto.  Use add_to_allocno_conflicts
+	instead of SET_ALLOCNO_SET_BIT.
+	(finish_allocnos): Free conflict_id_allocno_map_vec.  Use
+	allocno_vec as a VEC.
+	(DEF_VEC_P, DEF_VEC_ALLOC_P): Definitions for copy vectors.
+	(copy_varray): Rename to copy_vec and make it a VEC.
+	(initiate_copies, create_copy, finish_copies): Use copy_vec as
+	a VEC.
+	(ira_build): Call setup_min_max_allocno_live_range_point,
+	sort_conflict_id_allocno_map, and
+	setup_min_max_conflict_allocno_ids.
+	
+	* ira-emit.c (move_t): New typedef.
+	(DEF_VEC_P, DEF_VEC_ALLOC_P): Definitions for move vectors.
+	(move_varray): Rename it to move_vec and make it a VEC.
+	(emit_move_list, add_range_and_copies_from_move_list): Use move_t.
+	(traverse_moves, ira_emit): Ditto.  Use move_vec as a VEC.
+	(modify_move_list): Ditto.  Set up conflict_id, min, and max for
+	the new allocno.
+	
 2008-04-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* reload1.c (substitute, gen_reload_chain_without_interm_reg_p):

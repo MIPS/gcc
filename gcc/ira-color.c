@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "target.h"
-#include "varray.h"
 #include "regs.h"
 #include "flags.h"
 #include "sbitmap.h"
@@ -120,8 +119,12 @@ static allocno_t *sorted_allocnos;
 /* Array used to sort allocnos to choose an allocno for spilling.  */
 static allocno_t *sorted_allocnos_for_spilling;
 
-/* Varray representing the stack of allocnos used during coloring.  */
-static varray_type allocno_stack_varray;
+/* Definition of vector of allocnos.  */
+DEF_VEC_P(allocno_t);
+DEF_VEC_ALLOC_P(allocno_t, heap);
+
+/* Vec representing the stack of allocnos used during coloring.  */
+static VEC(allocno_t,heap) *allocno_stack_vec;
 
 
 
@@ -477,7 +480,7 @@ assign_hard_reg (allocno_t allocno, int retry_p)
 	  a = sorted_allocnos[i];
 	  ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
 	  ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
-	  VARRAY_PUSH_GENERIC_PTR (allocno_stack_varray, a);
+	  VEC_safe_push (allocno_t, heap, allocno_stack_vec, a);
 	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	    {
 	      fprintf (ira_dump_file, "        Pushing");
@@ -657,7 +660,7 @@ push_allocno_to_stack (allocno_t allocno)
   allocno_conflict_iterator aci;
   
   ALLOCNO_IN_GRAPH_P (allocno) = FALSE;
-  VARRAY_PUSH_GENERIC_PTR (allocno_stack_varray, allocno);
+  VEC_safe_push (allocno_t, heap, allocno_stack_vec, allocno);
   cover_class = ALLOCNO_COVER_CLASS (allocno);
   if (cover_class == NO_REGS)
     return;
@@ -979,10 +982,9 @@ pop_allocnos_from_stack (void)
   allocno_t allocno;
   enum reg_class cover_class;
 
-  for (;VARRAY_ACTIVE_SIZE (allocno_stack_varray) != 0;)
+  for (;VEC_length (allocno_t, allocno_stack_vec) != 0;)
     {
-      allocno = VARRAY_TOP_GENERIC_PTR (allocno_stack_varray);
-      VARRAY_POP (allocno_stack_varray);
+      allocno = VEC_pop (allocno_t, allocno_stack_vec);
       cover_class = ALLOCNO_COVER_CLASS (allocno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	{
@@ -2728,12 +2730,11 @@ finish_ira_assign (void)
 void
 ira_color (void)
 {
-  VARRAY_GENERIC_PTR_NOGC_INIT (allocno_stack_varray, allocnos_num,
-				"stack of allocnos");
+  allocno_stack_vec = VEC_alloc (allocno_t, heap, allocnos_num);
   memset (allocated_hardreg_p, 0, sizeof (allocated_hardreg_p));
   initiate_ira_assign ();
   do_coloring ();
   finish_ira_assign ();
-  VARRAY_FREE (allocno_stack_varray);
+  VEC_free (allocno_t, heap, allocno_stack_vec);
   move_spill_restore ();
 }

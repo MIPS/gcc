@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "params.h"
 #include "df.h"
+#include "sparseset.h"
 #include "ira-int.h"
 
 /* The code in this file is similar to one in global but the code
@@ -81,21 +82,8 @@ static int curr_point;
    classes.  */
 static int high_pressure_start_point[N_REG_CLASSES];
 
-/* Number of ints of type INT_TYPE required to hold allocnos_num
-   bits.  */
-int allocno_set_words;
-
-/* Set, clear or test bit number I in `allocnos_live',
-   a bit vector indexed by allocno number.  */
-#define SET_ALLOCNO_LIVE(I) SET_ALLOCNO_SET_BIT (allocnos_live, I)
-#define CLEAR_ALLOCNO_LIVE(I) CLEAR_ALLOCNO_SET_BIT (allocnos_live, I)
-#define TEST_ALLOCNO_LIVE(I) TEST_ALLOCNO_SET_BIT (allocnos_live, I)
-
-/* Bit vector for allocnos live at current point in the scan.  */
-static INT_TYPE *allocnos_live;
-
-/* The same as previous but as a bitmap.  */
-static bitmap allocnos_live_bitmap;
+/* Allocnos live at current point in the scan.  */
+static sparseset allocnos_live;
 
 /* Set of hard regs (except eliminable ones) currently live.  */
 static HARD_REG_SET hard_regs_live;
@@ -110,15 +98,14 @@ static loop_tree_node_t curr_bb_node;
 static void
 make_regno_born (int regno)
 {
-  int i;
+  unsigned int i;
   allocno_t a;
   allocno_live_range_t p;
-  allocno_set_iterator asi;
 
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       SET_HARD_REG_BIT (hard_regs_live, regno);
-      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
+      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
         {
 	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (allocnos[i]), regno);
 	  SET_HARD_REG_BIT (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (allocnos[i]),
@@ -199,12 +186,11 @@ set_allocno_live (allocno_t a)
   int nregs;
   enum reg_class cover_class;
 
-  if (TEST_ALLOCNO_LIVE (ALLOCNO_NUM (a)))
+  if (sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)))
     return;
-  SET_ALLOCNO_LIVE (ALLOCNO_NUM (a));
+  sparseset_set_bit (allocnos_live, ALLOCNO_NUM (a));
   IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a), hard_regs_live);
   IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), hard_regs_live);
-  bitmap_set_bit (allocnos_live_bitmap, ALLOCNO_NUM (a));
   cover_class = ALLOCNO_COVER_CLASS (a);
   nregs = reg_class_nregs[cover_class][ALLOCNO_MODE (a)];
   curr_reg_pressure[cover_class] += nregs;
@@ -223,11 +209,10 @@ set_allocno_live (allocno_t a)
 static void
 clear_allocno_live (allocno_t a)
 {
-  int i;
+  unsigned int i;
   enum reg_class cover_class;
-  allocno_set_iterator asi;
 
-  if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
+  if (sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)))
     {
       cover_class = ALLOCNO_COVER_CLASS (a);
       curr_reg_pressure[cover_class]
@@ -237,15 +222,14 @@ clear_allocno_live (allocno_t a)
 	  && (curr_reg_pressure[cover_class]
 	      <= available_class_regs[cover_class]))
 	{
-	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
+	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 	    {
 	      update_allocno_pressure_excess_length (allocnos[i]);
 	    }
 	  high_pressure_start_point[cover_class] = -1;
 	}
     }
-  CLEAR_ALLOCNO_LIVE (ALLOCNO_NUM (a));
-  bitmap_clear_bit (allocnos_live_bitmap, ALLOCNO_NUM (a));
+  sparseset_clear_bit (allocnos_live, ALLOCNO_NUM (a));
 }
 
 /* Record all regs that are set in any one insn.  Communication from
@@ -290,7 +274,7 @@ mark_reg_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 
       if (a != NULL)
 	{
-	  if (bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
+	  if (sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)))
 	    return;
 	  set_allocno_live (a);
 	}
@@ -372,9 +356,8 @@ mark_reg_conflicts (rtx reg)
 static void
 mark_reg_death (rtx reg)
 {
-  int i;
+  unsigned int i;
   int regno = REGNO (reg);
-  allocno_set_iterator asi;
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
@@ -382,7 +365,7 @@ mark_reg_death (rtx reg)
 
       if (a != NULL)
 	{
-	  if (! bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)))
+	  if (! sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)))
 	    return;
 	  clear_allocno_live (a);
 	}
@@ -405,8 +388,7 @@ mark_reg_death (rtx reg)
 		      && (curr_reg_pressure[cover_class]
 			  <= available_class_regs[cover_class]))
 		    {
-		      FOR_EACH_ALLOCNO_IN_SET (allocnos_live,
-					       allocnos_num, i, asi)
+		      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 			{
 			  update_allocno_pressure_excess_length (allocnos[i]);
 			}
@@ -572,11 +554,11 @@ single_reg_operand_class (int op_num)
 static void
 process_single_reg_class_operands (int in_p, int freq)
 {
-  int i, regno, px, cost;
+  int i, regno, cost;
+  unsigned int px;
   enum reg_class cl, cover_class;
   rtx operand;
   allocno_t operand_a, a;
-  allocno_set_iterator asi;
 
   for (i = 0; i < recog_data.n_operands; i++)
     {
@@ -622,7 +604,7 @@ process_single_reg_class_operands (int in_p, int freq)
 	    }
 	}
 
-      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
+      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, px)
         {
 	  a = allocnos[px];
 	  cover_class = ALLOCNO_COVER_CLASS (a);
@@ -656,8 +638,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
   edge_iterator ei;
   bitmap_iterator bi;
   bitmap reg_live_in;
-  allocno_set_iterator asi;
-  int px = 0;
+  unsigned int px;
 
   bb = loop_tree_node->bb;
   if (bb != NULL)
@@ -669,7 +650,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	}
       curr_bb_node = loop_tree_node;
       reg_live_in = DF_LR_IN (bb);
-      memset (allocnos_live, 0, allocno_set_words * sizeof (INT_TYPE));
+      sparseset_clear (allocnos_live);
       REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_in);
       AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
       AND_COMPL_HARD_REG_SET (hard_regs_live, no_alloc_regs);
@@ -690,14 +671,13 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	    ira_assert (curr_reg_pressure[cover_class]
 			<= available_class_regs[cover_class]);
 	  }
-      bitmap_clear (allocnos_live_bitmap);
       EXECUTE_IF_SET_IN_BITMAP (reg_live_in, FIRST_PSEUDO_REGISTER, j, bi)
 	{
 	  allocno_t a = ira_curr_regno_allocno_map[j];
 	  
 	  if (a == NULL)
 	    continue;
-	  ira_assert (! bitmap_bit_p (allocnos_live_bitmap, ALLOCNO_NUM (a)));
+	  ira_assert (! sparseset_bit_p (allocnos_live, ALLOCNO_NUM (a)));
 	  set_allocno_live (a);
 	  make_regno_born (j);
 	}
@@ -728,7 +708,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       if (e != NULL)
 	{
 #ifdef STACK_REGS
-	  FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, px, asi)
+	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, px)
 	    {
 	      ALLOCNO_NO_STACK_REG_P (allocnos[px]) = TRUE;
 	      ALLOCNO_TOTAL_NO_STACK_REG_P (allocnos[px]) = TRUE;
@@ -787,7 +767,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      
 	      get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
 	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
-	      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
+	      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 	        {
 		  allocno_t a = allocnos[i];
 		  
@@ -863,7 +843,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	    }
 	  curr_point++;
 	}
-      FOR_EACH_ALLOCNO_IN_SET (allocnos_live, allocnos_num, i, asi)
+      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
        {
 	 make_regno_dead (ALLOCNO_REGNO (allocnos[i]));
        }
@@ -978,9 +958,7 @@ debug_live_ranges (void)
 void
 create_allocno_live_ranges (void)
 {
-  allocno_set_words = (allocnos_num + INT_BITS - 1) / INT_BITS;
-  allocnos_live = ira_allocate (sizeof (INT_TYPE) * allocno_set_words);
-  allocnos_live_bitmap = ira_allocate_bitmap ();
+  allocnos_live = sparseset_alloc (allocnos_num);
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
   if (!regs_set)
     regs_set = VEC_alloc (rtx, heap, 10);
@@ -991,8 +969,7 @@ create_allocno_live_ranges (void)
   if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
     print_live_ranges (ira_dump_file);
   /* Clean up.  */
-  ira_free_bitmap (allocnos_live_bitmap);
-  ira_free (allocnos_live);
+  sparseset_free (allocnos_live);
 }
 
 /* The function frees arrays START_POINT_RANGES and

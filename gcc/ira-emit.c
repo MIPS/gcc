@@ -545,9 +545,15 @@ static struct move **allocno_last_set;
    element in . `allocno_last_set' is defined and correct.  */
 static int *allocno_last_set_check;
 
-/* This array contains moves sorted topologically (depth-first) on
-   their dependency graph.  */
-static varray_type move_varray;
+typedef struct move *move_t;
+
+/* Definition of vector of moves.  */
+DEF_VEC_P(move_t);
+DEF_VEC_ALLOC_P(move_t, heap);
+
+/* This vec contains moves sorted topologically (depth-first) on their
+   dependency graph.  */
+static VEC(move_t,heap) *move_vec;
 
 /* The variable value is used to check correctness of values of
    elements of arrays `hard_regno_last_set' and
@@ -557,7 +563,7 @@ static int curr_tick;
 /* This recursive function traverses dependencies of MOVE and produces
    topological sorting (in depth-first order).  */
 static void
-traverse_moves (struct move *move)
+traverse_moves (move_t move)
 {
   int i;
 
@@ -566,19 +572,19 @@ traverse_moves (struct move *move)
   move->visited_p = TRUE;
   for (i = move->deps_num - 1; i >= 0; i--)
     traverse_moves (move->deps[i]);
-  VARRAY_PUSH_GENERIC_PTR (move_varray, move);
+  VEC_safe_push (move_t, heap, move_vec, move);
 }
 
 /* The function removes unnecessary moves in the LIST, makes
    topological sorting, and removes cycles on hard reg dependencies by
    introducing new allocnos assigned to memory and additional moves.
    It returns the result move list.  */
-static struct move *
-modify_move_list (struct move *list)
+static move_t
+modify_move_list (move_t list)
 {
   int i, n, nregs, hard_regno;
   allocno_t to, from, new_allocno;
-  struct move *move, *new_move, *set_move, *first, *last;
+  move_t move, new_move, set_move, first, last;
 
   if (list == NULL)
     return NULL;
@@ -608,7 +614,7 @@ modify_move_list (struct move *list)
 		&& (ALLOCNO_REGNO (hard_regno_last_set[hard_regno + i]->to)
 		    != ALLOCNO_REGNO (from)))
 	      n++;
-	  move->deps = ira_allocate (n * sizeof (struct move *));
+	  move->deps = ira_allocate (n * sizeof (move_t));
 	  for (n = i = 0; i < nregs; i++)
 	    if (hard_regno_last_set_check[hard_regno + i] == curr_tick
 		&& (ALLOCNO_REGNO (hard_regno_last_set[hard_regno + i]->to)
@@ -618,22 +624,22 @@ modify_move_list (struct move *list)
 	}
     }
   /* Toplogical sorting:  */
-  VARRAY_POP_ALL (move_varray);
+  VEC_truncate (move_t, move_vec, 0);
   for (move = list; move != NULL; move = move->next)
     traverse_moves (move);
   last = NULL;
-  for (i = VARRAY_ACTIVE_SIZE (move_varray) - 1; i >= 0; i--)
+  for (i = (int) VEC_length (move_t, move_vec) - 1; i >= 0; i--)
     {
-      move = VARRAY_GENERIC_PTR (move_varray, i);
+      move = VEC_index (move_t, move_vec, i);
       move->next = NULL;
       if (last != NULL)
 	last->next = move;
       last = move;
     }
-  first = VARRAY_TOP_GENERIC_PTR (move_varray);
+  first = VEC_last (move_t, move_vec);
   /* Removing cycles:  */
   curr_tick++;
-  VARRAY_POP_ALL (move_varray);
+  VEC_truncate (move_t, move_vec, 0);
   for (move = first; move != NULL; move = move->next)
     {
       from = move->from;
@@ -661,9 +667,15 @@ modify_move_list (struct move *list)
 		ALLOCNO_HARD_REGNO (new_allocno) = -1;
 		ALLOCNO_REG (new_allocno)
 		  = create_new_reg (ALLOCNO_REG (set_move->to));
+		ALLOCNO_CONFLICT_ID (new_allocno) = ALLOCNO_NUM (new_allocno);
+		/* Make it possibly conflicting with all earlier
+		   created allocnos.  Cases where temporary allocnos
+		   created to remove the cycles are quite rare.  */
+		ALLOCNO_MIN (new_allocno) = 0;
+		ALLOCNO_MAX (new_allocno) = allocnos_num - 1;
 		new_move = create_move (set_move->to, new_allocno);
 		set_move->to = new_allocno;
-		VARRAY_PUSH_GENERIC_PTR (move_varray, new_move);
+		VEC_safe_push (move_t, heap, move_vec, new_move);
 		move_loops_num++;
 		if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
 		  fprintf (ira_dump_file,
@@ -681,9 +693,9 @@ modify_move_list (struct move *list)
 	  hard_regno_last_set_check[hard_regno + i] = curr_tick;
 	}
     }
-  for (i = VARRAY_ACTIVE_SIZE (move_varray) - 1; i >= 0; i--)
+  for (i = (int) VEC_length (move_t, move_vec) - 1; i >= 0; i--)
     {
-      move = VARRAY_GENERIC_PTR (move_varray, i);
+      move = VEC_index (move_t, move_vec, i);
       move->next = NULL;
       last->next = move;
       last = move;
@@ -694,7 +706,7 @@ modify_move_list (struct move *list)
 /* The function generates RTX move insns from the move list LIST.  It
    updates allocation cost using move execution frequency FREQ.  */
 static rtx
-emit_move_list (struct move *list, int freq)
+emit_move_list (move_t list, int freq)
 {
   int cost;
   rtx result, insn;
@@ -827,12 +839,12 @@ update_costs (allocno_t a, int read_p, int freq)
    moves.  All regnos living through the list is in LIVE_THROUGH, and
    the loop tree node used to find corresponding allocnos is NODE.  */
 static void
-add_range_and_copies_from_move_list (struct move *list, loop_tree_node_t node,
+add_range_and_copies_from_move_list (move_t list, loop_tree_node_t node,
 				     bitmap live_through, int freq)
 {
   int start, n;
   unsigned int regno;
-  struct move *move;
+  move_t move;
   allocno_t to, from, a;
   copy_t cp;
   allocno_live_range_t r;
@@ -975,10 +987,10 @@ ira_emit (int loops_p)
     ALLOCNO_REG (a) = regno_reg_rtx[ALLOCNO_REGNO (a)];
   if (! loops_p)
     return;
-  at_bb_start = ira_allocate (sizeof (struct move *) * last_basic_block);
-  memset (at_bb_start, 0, sizeof (struct move *) * last_basic_block);
-  at_bb_end = ira_allocate (sizeof (struct move *) * last_basic_block);
-  memset (at_bb_end, 0, sizeof (struct move *) * last_basic_block);
+  at_bb_start = ira_allocate (sizeof (move_t) * last_basic_block);
+  memset (at_bb_start, 0, sizeof (move_t) * last_basic_block);
+  at_bb_end = ira_allocate (sizeof (move_t) * last_basic_block);
+  memset (at_bb_end, 0, sizeof (move_t) * last_basic_block);
   local_allocno_bitmap = ira_allocate_bitmap ();
   used_regno_bitmap = ira_allocate_bitmap ();
   renamed_regno_bitmap = ira_allocate_bitmap ();
@@ -996,7 +1008,7 @@ ira_emit (int loops_p)
 	if (e->dest != EXIT_BLOCK_PTR)
 	  generate_edge_moves (e);
     }
-  allocno_last_set = ira_allocate (sizeof (struct move *) * max_reg_num ());
+  allocno_last_set = ira_allocate (sizeof (move_t) * max_reg_num ());
   allocno_last_set_check = ira_allocate (sizeof (int) * max_reg_num ());
   memset (allocno_last_set_check, 0, sizeof (int) * max_reg_num ());
   memset (hard_regno_last_set_check, 0, sizeof (hard_regno_last_set_check));
@@ -1005,7 +1017,7 @@ ira_emit (int loops_p)
     unify_moves (bb, TRUE);
   FOR_EACH_BB (bb)
     unify_moves (bb, FALSE);
-  VARRAY_GENERIC_PTR_NOGC_INIT (move_varray, allocnos_num, "ordered moves");
+  move_vec = VEC_alloc (move_t, heap, allocnos_num);
   emit_moves ();
   add_ranges_and_copies ();
   /* Clean up: */
@@ -1019,7 +1031,7 @@ ira_emit (int loops_p)
 	  e->aux = NULL;
 	}
     }
-  VARRAY_FREE (move_varray);
+  VEC_free (move_t, heap, move_vec);
   ira_free (allocno_last_set_check);
   ira_free (allocno_last_set);
   commit_edge_insertions ();

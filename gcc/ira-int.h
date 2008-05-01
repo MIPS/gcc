@@ -134,7 +134,7 @@ extern loop_tree_node_t ira_bb_nodes;
          fprintf (stderr,						\
                   "\n%s: %d: error in %s: it is not a block node\n",	\
                   __FILE__, __LINE__, __FUNCTION__);			\
-         exit (1);							\
+         gcc_unreachable ();						\
        }								\
      _node; }))
 #else
@@ -156,7 +156,7 @@ extern loop_tree_node_t ira_loop_nodes;
          fprintf (stderr,						\
                   "\n%s: %d: error in %s: it is not a loop node\n",	\
                   __FILE__, __LINE__, __FUNCTION__);			\
-         exit (1);							\
+         gcc_unreachable ();						\
        }								\
      _node; }))
 #else
@@ -281,6 +281,15 @@ struct allocno
      ranges in the list are not intersected and ordered by decreasing
      their program points*.  */
   allocno_live_range_t live_ranges;
+  /* Before building conflicts the two member values are
+     correspondingly minimal and maximal points of the accumulated
+     allocno live ranges.  After building conflicts the values are
+     correspondingly minimal and maximal conflict ids of allocnos with
+     which given allocno can conflict.  */
+  int min, max;
+  /* The unique member value represents given allocno in conflict bit
+     vectors.  */
+  int conflict_id;
   /* Vector of accumulated conflicting allocnos with NULL end marker
      (if CONFLICT_VEC_P is true) or conflict bit vector otherwise.
      Only allocnos with the same cover class are in the vector or in
@@ -437,6 +446,9 @@ struct allocno
 #define ALLOCNO_FIRST_COALESCED_ALLOCNO(A) ((A)->first_coalesced_allocno)
 #define ALLOCNO_NEXT_COALESCED_ALLOCNO(A) ((A)->next_coalesced_allocno)
 #define ALLOCNO_LIVE_RANGES(A) ((A)->live_ranges)
+#define ALLOCNO_MIN(A) ((A)->min)
+#define ALLOCNO_MAX(A) ((A)->max)
+#define ALLOCNO_CONFLICT_ID(A) ((A)->conflict_id)
 
 /* Map regno -> allocnos with given regno (see comments for 
    allocno member `next_regno_allocno').  */
@@ -449,6 +461,10 @@ extern allocno_t *allocnos;
 
 /* Sizes of the previous array.  */
 extern int allocnos_num;
+
+/* Map conflict id -> allocno with given conflict id (see comments for
+   allocno member `conflict_id').  */
+extern allocno_t *conflict_id_allocno_map;
 
 /* The following structure represents a copy of two allocnos.  The
    copies represent move insns or potential move insns usually because
@@ -531,20 +547,63 @@ extern int max_nregs;
 #define INT_BITS HOST_BITS_PER_WIDE_INT
 #define INT_TYPE HOST_WIDE_INT
 
-/* Set, clear or test bit number I in R, a bit vector indexed by
-   allocno number.  */
-#define SET_ALLOCNO_SET_BIT(R, I)				\
-  ((R)[(unsigned) (I) / INT_BITS]				\
-   |= ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
+/* Set, clear or test bit number I in R, a bit vector of elements with
+   minimal index and maximal index equal correspondingly to MIN and
+   MAX.  */
+#if defined ENABLE_IRA_CHECKING && (GCC_VERSION >= 2007)
 
-#define CLEAR_ALLOCNO_SET_BIT(R, I)				\
-  ((R)[(unsigned) (I) / INT_BITS]				\
-   &= ~((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
+#define SET_ALLOCNO_SET_BIT(R, I, MIN, MAX) __extension__	        \
+  (({ int _min = (MIN), _max = (MAX), _i = (I);				\
+     if (_i < _min || _i > _max)					\
+       {								\
+         fprintf (stderr,						\
+                  "\n%s: %d: error in %s: %d not in range [%d,%d]\n",   \
+                  __FILE__, __LINE__, __FUNCTION__, _i, _min, _max);	\
+         gcc_unreachable ();						\
+       }								\
+     ((R)[(unsigned) (_i - _min) / INT_BITS]				\
+      |= ((INT_TYPE) 1 << ((unsigned) (_i - _min) % INT_BITS))); }))
+  
 
-#define TEST_ALLOCNO_SET_BIT(R, I)				\
-  ((R)[(unsigned) (I) / INT_BITS]				\
-   & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
+#define CLEAR_ALLOCNO_SET_BIT(R, I, MIN, MAX) __extension__	        \
+  (({ int _min = (MIN), _max = (MAX), _i = (I);				\
+     if (_i < _min || _i > _max)					\
+       {								\
+         fprintf (stderr,						\
+                  "\n%s: %d: error in %s: %d not in range [%d,%d]\n",   \
+                  __FILE__, __LINE__, __FUNCTION__, _i, _min, _max);	\
+         gcc_unreachable ();						\
+       }								\
+     ((R)[(unsigned) (_i - _min) / INT_BITS]				\
+      &= ~((INT_TYPE) 1 << ((unsigned) (_i - _min) % INT_BITS))); }))
 
+#define TEST_ALLOCNO_SET_BIT(R, I, MIN, MAX) __extension__	        \
+  (({ int _min = (MIN), _max = (MAX), _i = (I);				\
+     if (_i < _min || _i > _max)					\
+       {								\
+         fprintf (stderr,						\
+                  "\n%s: %d: error in %s: %d not in range [%d,%d]\n",   \
+                  __FILE__, __LINE__, __FUNCTION__, _i, _min, _max);	\
+         gcc_unreachable ();						\
+       }								\
+     ((R)[(unsigned) (_i - _min) / INT_BITS]				\
+      & ((INT_TYPE) 1 << ((unsigned) (_i - _min) % INT_BITS))); }))
+
+#else
+
+#define SET_ALLOCNO_SET_BIT(R, I, MIN, MAX)			\
+  ((R)[(unsigned) ((I) - (MIN)) / INT_BITS]			\
+   |= ((INT_TYPE) 1 << ((unsigned) ((I) - (MIN)) % INT_BITS)))
+
+#define CLEAR_ALLOCNO_SET_BIT(R, I, MIN, MAX)			\
+  ((R)[(unsigned) ((I) - (MIN)) / INT_BITS]			\
+   &= ~((INT_TYPE) 1 << ((unsigned) ((I) - (MIN)) % INT_BITS)))
+
+#define TEST_ALLOCNO_SET_BIT(R, I, MIN, MAX)			\
+  ((R)[(unsigned) ((I) - (MIN)) / INT_BITS]			\
+   & ((INT_TYPE) 1 << ((unsigned) ((I) - (MIN)) % INT_BITS)))
+
+#endif
 
 /* The iterator for allocno set implemented ed as allocno bit
    vector.  */
@@ -562,20 +621,24 @@ typedef struct {
   /* The current bit index of the bit vector.  */
   unsigned int bit_num;
 
+  /* Index corresponding to the 1st bit of the bit vector.   */
+  int start_val;
+
   /* The word of the bit vector currently visited.  */
   unsigned INT_TYPE word;
 } allocno_set_iterator;
 
-/* Initialize the iterator I for allocnos bit vector VEC of length
-   NEL.  */
+/* Initialize the iterator I for allocnos bit vector VEC containing
+   minimal and maximal values MIN and MAX.  */
 static inline void
-allocno_set_iter_init (allocno_set_iterator *i, INT_TYPE *vec, int nel)
+allocno_set_iter_init (allocno_set_iterator *i, INT_TYPE *vec, int min, int max)
 {
   i->vec = vec;
   i->word_num = 0;
-  i->nel = nel;
+  i->nel = max < min ? 0 : max - min + 1;
+  i->start_val = min;
   i->bit_num = 0;
-  i->word = nel == 0 ? 0 : vec[0];
+  i->word = i->nel == 0 ? 0 : vec[0];
 }
 
 /* Return TRUE if we have more allocnos to visit, in which case *N is
@@ -599,7 +662,7 @@ allocno_set_iter_cond (allocno_set_iterator *i, int *n)
   for (; (i->word & 1) == 0; i->word >>= 1)
     i->bit_num++;
   
-  *n = (int) i->bit_num;
+  *n = (int) i->bit_num + i->start_val;
   
   return TRUE;
 }
@@ -612,12 +675,12 @@ allocno_set_iter_next (allocno_set_iterator *i)
   i->bit_num++;
 }
 
-/* Loop over all elements of ALLOCNO set given by VEC and NEL.  In
-   each iteration, N is set to the number of next allocno.  ITER is an
-   instance of allocno_set_iterator used to iterate the allocnos in
-   the set.  */
-#define FOR_EACH_ALLOCNO_IN_SET(VEC, NEL, N, ITER)		\
-  for (allocno_set_iter_init (&(ITER), (VEC), (NEL));		\
+/* Loop over all elements of allocno set given by bit vector VEC and
+   their minimal and maximal values MIN and MAX.  In each iteration, N
+   is set to the number of next allocno.  ITER is an instance of
+   allocno_set_iterator used to iterate the allocnos in the set.  */
+#define FOR_EACH_ALLOCNO_IN_SET(VEC, MIN, MAX, N, ITER)		\
+  for (allocno_set_iter_init (&(ITER), (VEC), (MIN), (MAX));	\
        allocno_set_iter_cond (&(ITER), &(N));			\
        allocno_set_iter_next (&(ITER)))
 
@@ -804,10 +867,6 @@ extern void tune_allocno_costs_and_cover_classes (void);
 
 /* ira-lives.c */
 
-/* Number of ints of type INT_TYPE required to hold allocnos_num
-   bits.  */
-extern int allocno_set_words;
-
 extern void rebuild_start_finish_chains (void);
 extern void print_live_range_list (FILE *, allocno_live_range_t);
 extern void debug_live_range_list (allocno_live_range_t);
@@ -935,6 +994,11 @@ typedef struct {
      ALLOCNO_CONFLICT_VEC_P is FALSE.  */
   unsigned int bit_num;
 
+  /* Allocno conflict id corresponding to the 1st bit of the bit
+     vector.  It is defined only if ALLOCNO_CONFLICT_VEC_P is
+     FALSE.  */
+  int base_conflict_id;
+
   /* The word of bit vector currently visited.  It is defined only if
      ALLOCNO_CONFLICT_VEC_P is FALSE.  */
   unsigned INT_TYPE word;
@@ -948,14 +1012,17 @@ allocno_conflict_iter_init (allocno_conflict_iterator *i, allocno_t allocno)
   i->vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (allocno);
   i->word_num = 0;
   if (i->allocno_conflict_vec_p)
-    i->size = i->bit_num = i->word = 0;
+    i->size = i->bit_num = i->base_conflict_id = i->word = 0;
   else
     {
-      i->size
-	= MIN (((allocnos_num + INT_BITS - 1) / INT_BITS) * sizeof (INT_TYPE),
-	       ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (allocno));
+      if (ALLOCNO_MIN (allocno) > ALLOCNO_MAX (allocno))
+	i->size = 0;
+      else
+	i->size = ((ALLOCNO_MAX (allocno) - ALLOCNO_MIN (allocno) + INT_BITS)
+		   / INT_BITS) * sizeof (INT_TYPE);
       i->bit_num = 0;
-      i->word = ((INT_TYPE *) i->vec)[0];
+      i->base_conflict_id = ALLOCNO_MIN (allocno);
+      i->word = (i->size == 0 ? 0 : ((INT_TYPE *) i->vec)[0]);
     }
 }
 
@@ -993,7 +1060,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
       for (; (i->word & 1) == 0; i->word >>= 1)
 	i->bit_num++;
       
-      *a = allocnos[i->bit_num];
+      *a = conflict_id_allocno_map[i->bit_num + i->base_conflict_id];
       
       return TRUE;
     }
