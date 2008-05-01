@@ -280,8 +280,21 @@ gimple_to_tree (gimple stmt)
   /* If STMT is inside an exception region, record it in the generated
      expression.  */
   rn = lookup_stmt_eh_region (stmt);
-  ann = get_tree_common_ann (t);
-  ann->rn = rn;
+  if (rn >= 0)
+    {
+      tree call = get_call_expr_in (t);
+
+      ann = get_tree_common_ann (t);
+      ann->rn = rn;
+      
+      /* For a CALL_EXPR on the RHS of an assignment, calls.c looks up
+ 	 the CALL_EXPR not the assignment statment for EH region number. */
+      if (call && call != t)
+	{
+	  ann = get_tree_common_ann (call);
+	  ann->rn = rn;
+	}
+    }
 
   /* Set EXPR_LOCATION in all the embedded expressions.  */
   loc = gimple_location (stmt);

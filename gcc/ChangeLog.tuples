@@ -1,3 +1,9 @@
+2008-04-30  Doug Kwan  <dougkwan@google.com>
+
+	* cfgexpand.c (gimple_to_tree): Change code to annotate EH region
+	numbers only if numbers are greater than zero.  Also propagate EH
+	region number to CALL_EXPRs nested in assignments.
+
 2008-04-29  Doug Kwan  <dougkwan@google.com>
 
        * tree-eh.c (lower_try_finally_dup_block): Call
