@@ -582,10 +582,7 @@ init_optimization_passes (void)
 	 pass_create_structure_vars was disabled.  */
       NEXT_PASS (pass_build_alias);
       NEXT_PASS (pass_return_slot);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_rename_ssa_copies);
-#endif
       /* Initial scalar cleanups.  */
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_phiprop);
@@ -615,10 +612,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_stdarg);
       NEXT_PASS (pass_lower_complex);
       NEXT_PASS (pass_sra);
-      /* FIXME tuples.  */
-#if 0
       NEXT_PASS (pass_rename_ssa_copies);
-#endif
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than

@@ -1,5 +1,10 @@
 2008-05-01  Rafael Espindola <espindola@google.com>
 
+	* passes.c (gimple_verify_flow_info): Enable remaining
+	pass_rename_ssa_copies passes.
+
+2008-05-01  Rafael Espindola <espindola@google.com>
+
 	* tree-cfg.c (gimple_verify_flow_info): Handle switches with only the
 	default label.
 
