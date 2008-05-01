@@ -1,5 +1,9 @@
 2008-05-01  Rafael Espindola <espindola@google.com>
 
+	* gimple-pretty-print.c (dump_gimple_try): Print like trunk does.
+
+2008-05-01  Rafael Espindola <espindola@google.com>
+
 	* passes.c (gimple_verify_flow_info): Enable remaining
 	pass_rename_ssa_copies passes.
 

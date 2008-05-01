@@ -577,6 +577,7 @@ dump_gimple_bind (pretty_printer *buffer, gimple gs, int spc, int flags)
 	}
     }
   pp_newline (buffer);
+  pp_newline (buffer);
   dump_gimple_seq (buffer, gimple_bind_body (gs), spc + 2, flags);
   INDENT (spc);
   if (flags & TDF_RAW)
@@ -608,21 +609,37 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
   else
     {
-      pp_string (buffer, "try {");
-
+      pp_string (buffer, "try");
       newline_and_indent (buffer, spc + 2);
-      dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 2, flags);
-      newline_and_indent (buffer, spc);
+      pp_string (buffer, "{");
+      pp_newline (buffer);
+
+      dump_gimple_seq (buffer, gimple_try_eval (gs), spc + 4, flags);
 
       if (gimple_try_kind (gs) == GIMPLE_TRY_CATCH)
-        pp_string (buffer, "} catch {");
+	{
+	  INDENT (spc + 2);
+	  pp_string (buffer, "}");
+	  newline_and_indent (buffer, spc);
+	  pp_string (buffer, "catch");
+	  newline_and_indent (buffer, spc + 2);
+	  pp_string (buffer, "{");
+	}
       else if (gimple_try_kind (gs) == GIMPLE_TRY_FINALLY)
-        pp_string (buffer, "} finally {");
+	{
+	  INDENT (spc + 2);
+	  pp_string (buffer, "}");
+	  newline_and_indent (buffer, spc);
+	  pp_string (buffer, "finally");
+	  newline_and_indent (buffer, spc + 2);
+	  pp_string (buffer, "{");
+	}
       else
-        pp_string (buffer, "} <UNKNOWN GIMPLE_TRY> {");
-      newline_and_indent (buffer, spc + 2);
-      dump_gimple_seq (buffer, gimple_try_cleanup (gs), spc + 2, flags);
-      newline_and_indent (buffer, spc);
+	pp_string (buffer, "} <UNKNOWN GIMPLE_TRY> {");
+
+      pp_newline (buffer);
+      dump_gimple_seq (buffer, gimple_try_cleanup (gs), spc + 4, flags);
+      INDENT (spc + 2);
       pp_character (buffer, '}');
     }
 }
@@ -639,7 +656,7 @@ dump_gimple_catch (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_fmt (buffer, spc, flags, "%G <%T, %+CATCH <%S>%->", gs,
                        gimple_catch_types (gs), gimple_catch_handler (gs));
   else
-      dump_gimple_fmt (buffer, spc, flags, "catch (%T) {%S}",
+      dump_gimple_fmt (buffer, spc, flags, "catch (%T)%+{%S}",
                        gimple_catch_types (gs), gimple_catch_handler (gs));
 }
 
