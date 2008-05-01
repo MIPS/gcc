@@ -447,7 +447,12 @@ c_strlen (tree src, int only_value)
      runtime.  */
   if (offset < 0 || offset > max)
     {
-      warning (0, "offset outside bounds of constant string");
+     /* Suppress multiple warnings for propagated constant strings.  */
+      if (! TREE_NO_WARNING (src))
+        {
+          warning (0, "offset outside bounds of constant string");
+          TREE_NO_WARNING (src) = 1;
+        }
       return NULL_TREE;
     }
 
@@ -10568,6 +10573,7 @@ fold_call_expr (tree exp, bool ignore)
 		  if (CAN_HAVE_LOCATION_P (realret)
 		      && !EXPR_HAS_LOCATION (realret))
 		    SET_EXPR_LOCATION (realret, EXPR_LOCATION (exp));
+		  return realret;
 		}
 	      return ret;
 	    }

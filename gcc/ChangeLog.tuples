@@ -1,3 +1,10 @@
+2008-04-22  Rafael Espindola <espindola@google.com>
+
+	Merge with mainline @134843.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-05-01  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00053.html

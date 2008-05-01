@@ -221,6 +221,9 @@ struct gimple_opt_pass pass_predcom =
 static unsigned int
 tree_vectorize (void)
 {
+  if (number_of_loops () <= 1)
+    return 0;
+
   return vectorize_loops ();
 }
 
@@ -229,7 +232,7 @@ gate_tree_vectorize (void)
 {
   /*FIXME tuples*/
 #if 0
-  return flag_tree_vectorize && number_of_loops () > 1;
+  return flag_tree_vectorize;
 #else
   return 0;
 #endif
@@ -482,7 +485,7 @@ tree_complete_unroll (void)
 
   return tree_unroll_loops_completely (flag_unroll_loops
 				       || flag_peel_loops
-				       || optimize >= 3);
+				       || optimize >= 3, true);
 }
 
 static bool
@@ -513,6 +516,58 @@ struct gimple_opt_pass pass_complete_unroll =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_loops
     | TODO_ggc_collect			/* todo_flags_finish */
+ }
+};
+
+/* Complete unrolling of inner loops.  */
+
+static unsigned int
+tree_complete_unroll_inner (void)
+{
+  unsigned ret = 0;
+
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (number_of_loops () > 1)
+    {
+      scev_initialize ();
+      ret = tree_unroll_loops_completely (optimize >= 3, false);
+      free_numbers_of_iterations_estimates ();
+      scev_finalize ();
+    }
+  loop_optimizer_finalize ();
+
+  return ret;
+}
+
+static bool
+gate_tree_complete_unroll_inner (void)
+{
+  /* FIXME tuples */
+#if 0
+  return optimize >= 2;
+#else
+  return false;
+#endif
+}
+
+struct gimple_opt_pass pass_complete_unrolli =
+{
+ {
+  GIMPLE_PASS,
+  "cunrolli",				/* name */
+  gate_tree_complete_unroll_inner,	/* gate */
+  tree_complete_unroll_inner,	       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_COMPLETE_UNROLL,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops
+    | TODO_ggc_collect 			/* todo_flags_finish */
  }
 };
 

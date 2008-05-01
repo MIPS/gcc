@@ -956,6 +956,41 @@ ccp_fold (gimple stmt)
                     op0 = get_value (op0)->value;
                 }
 
+	      /* Handle propagating invariant addresses into address operations.
+		 The folding we do here matches that in tree-ssa-forwprop.c.  */
+	      else if (subcode == ADDR_EXPR)
+		{
+		  tree rhs = op0;
+		  tree *base;
+		  base = &TREE_OPERAND (rhs, 0);
+		  while (handled_component_p (*base))
+		    base = &TREE_OPERAND (*base, 0);
+		  if (TREE_CODE (*base) == INDIRECT_REF
+		      && TREE_CODE (TREE_OPERAND (*base, 0)) == SSA_NAME)
+		    {
+		      prop_value_t *val = get_value (TREE_OPERAND (*base, 0));
+		      if (val->lattice_val == CONSTANT
+			  && TREE_CODE (val->value) == ADDR_EXPR
+			  && useless_type_conversion_p
+			  (TREE_TYPE (TREE_OPERAND (*base, 0)),
+			   TREE_TYPE (val->value))
+			  && useless_type_conversion_p
+			  (TREE_TYPE (*base),
+			   TREE_TYPE (TREE_OPERAND (val->value, 0))))
+			{
+			  /* We need to return a new tree, not modify the IL
+			     or share parts of it.  So play some tricks to
+			     avoid manually building it.  */
+			  tree ret, save = *base;
+			  *base = TREE_OPERAND (val->value, 0);
+			  ret = unshare_expr (rhs);
+			  recompute_tree_invariant_for_addr_expr (ret);
+			  *base = save;
+			  return ret;
+			}
+		    }
+		}
+
 	      /* Conversions are useless for CCP purposes if they are
 		 value-preserving.  Thus the restrictions that
 		 useless_type_conversion_p places for pointer type conversions
@@ -1270,6 +1305,25 @@ evaluate_stmt (gimple stmt)
 
   fold_undefer_overflow_warnings (is_constant, stmt, 0);
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "which is likely ");
+      switch (likelyvalue)
+	{
+	case CONSTANT:
+	  fprintf (dump_file, "CONSTANT");
+	  break;
+	case UNDEFINED:
+	  fprintf (dump_file, "UNDEFINED");
+	  break;
+	case VARYING:
+	  fprintf (dump_file, "VARYING");
+	  break;
+	default:;
+	}
+      fprintf (dump_file, "\n");
+    }
+
   if (is_constant)
     {
       /* The statement produced a constant value.  */
@@ -1448,7 +1502,6 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
     {
       fprintf (dump_file, "\nVisiting statement:\n");
       print_gimple_stmt (dump_file, stmt, 0, dump_flags);
-      fprintf (dump_file, "\n");
     }
 
   switch (gimple_code (stmt))

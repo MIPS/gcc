@@ -307,6 +307,30 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
               || TREE_CODE (gimple_call_lhs (stmt)) != SSA_NAME))
 	continue;
 
+      /* The result of __builtin_object_size depends on all the arguments
+	 of a phi node. Temporarily using only one edge produces invalid
+	 results. For example
+
+	 if (x < 6)
+	   goto l;
+	 else
+	   goto l;
+
+	 l:
+	 r = PHI <&w[2].a[1](2), &a.a[6](3)>
+	 __builtin_object_size (r, 0)
+
+	 The result of __builtin_object_size is defined to be the maximum of
+	 remaining bytes. If we use only one edge on the phi, the result will
+	 change to be the remaining bytes for the corresponding phi argument. */
+
+      if (gimple_code (stmt) == GIMPLE_CALL)
+	{
+	  tree fndecl = gimple_call_fndecl (stmt);
+	  if (fndecl && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE)
+	    continue;
+	}
+
       /* At this point we have a statement which assigns an RHS to an
 	 SSA_VAR on the LHS.  We want to try and simplify this statement
 	 to expose more context sensitive equivalences which in turn may

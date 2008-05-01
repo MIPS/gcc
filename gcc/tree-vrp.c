@@ -6916,10 +6916,7 @@ execute_vrp (void)
     }
 
   if (VEC_length (edge, to_remove_edges) > 0)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      cleanup_tree_cfg ();
-    }
+    free_dominance_info (CDI_DOMINATORS);
 
   VEC_free (edge, heap, to_remove_edges);
   VEC_free (switch_update, heap, to_update_switch_stmts);
