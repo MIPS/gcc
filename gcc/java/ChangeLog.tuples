@@ -1,3 +1,8 @@
+2008-05-02  Doug Kwan  <dougkwan@google.com>
+	
+	* expr.c (build_java_throw_out_of_bounds_exception ): Wrap call to
+	_Jv_ThrowBadArrayIndex with a COMPOUND_EXPR to return 0.
+
 2008-02-19  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-02/msg00804.html
