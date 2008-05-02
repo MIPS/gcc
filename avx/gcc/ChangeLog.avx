@@ -1,3 +1,35 @@
+2008-05-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_MASKLOADPD,
+	IX86_BUILTIN_MASKLOADPS, IX86_BUILTIN_MASKSTOREPD,
+	IX86_BUILTIN_MASKSTOREPS, IX86_BUILTIN_MASKLOADPD256,
+	IX86_BUILTIN_MASKLOADPS256, IX86_BUILTIN_MASKSTOREPD256 and
+	IX86_BUILTIN_MASKSTOREPS256.
+
+2008-05-02  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_cvtsi2ss): New.
+	(*avx_cvtsi2ssq): Likewise.
+	(*avx_cvtsi2sd): Likewise.
+	(*avx_cvtsi2sdq): Likewise.
+	(*avx_cvtsd2ss): Likewise.
+	(avx_cvtss2sd): Likewise.
+	(sse_cvtss2si): Support AVX.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+
 2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm256_insertf128_pd): Fix typos.
