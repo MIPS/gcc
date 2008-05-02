@@ -1455,7 +1455,7 @@ build_insn_chain (void)
 	  /* Consider spilled pseudos too for IRA because they still
 	     have a chance to get hard-registers in the reload when
 	     IRA is used.  */
-	  if (reg_renumber[i] >= 0 || flag_ira)
+	  if (reg_renumber[i] >= 0 || (flag_ira && optimize))
 	    bitmap_set_bit (live_relevant_regs, i);
 	}
 
@@ -1496,12 +1496,14 @@ build_insn_chain (void)
 			   because they still have a chance to get
 			   hard-registers in the reload when IRA is
 			   used.  */
-			else if (reg_renumber[regno] >= 0 || flag_ira)
+			else if (reg_renumber[regno] >= 0
+				 || (flag_ira && optimize))
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
 
 		    if ((regno < FIRST_PSEUDO_REGISTER
-			 || reg_renumber[regno] >= 0 || flag_ira)
+			 || reg_renumber[regno] >= 0
+			 || (flag_ira && optimize))
 			&& (!DF_REF_FLAGS_IS_SET (def, DF_REF_CONDITIONAL)))
 		      {
 			rtx reg = DF_REF_REG (def);
@@ -1601,7 +1603,8 @@ build_insn_chain (void)
 			   because they still have a chance to get
 			   hard-registers in the reload when IRA is
 			   used.  */
-			else if (reg_renumber[regno] >= 0 || flag_ira)
+			else if (reg_renumber[regno] >= 0
+				 || (flag_ira && optimize))
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
 		    
@@ -1610,7 +1613,8 @@ build_insn_chain (void)
 			   because they still have a chance to get
 			   hard-registers in the reload when IRA is
 			   used.  */
-			|| reg_renumber[regno] >= 0 || flag_ira)
+			|| reg_renumber[regno] >= 0
+			|| (flag_ira && optimize))
 		      {
 			if (GET_CODE (reg) == SUBREG
 			    && !DF_REF_FLAGS_IS_SET (use,

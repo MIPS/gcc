@@ -301,8 +301,9 @@ struct allocno
      allocnos.  */
   int conflict_allocnos_num;
   /* Initial and accumulated hard registers conflicting with this
-     allocno and as a consequences can not be assigned to the
-     allocno.  */
+     allocno and as a consequences can not be assigned to the allocno.
+     All non-allocatable hard regs and hard regs of cover classes
+     different from given allocno one are included in the sets.  */
   HARD_REG_SET conflict_hard_regs, total_conflict_hard_regs;
   /* Accumulated frequency of calls which given allocno
      intersects.  */
@@ -835,6 +836,7 @@ extern void traverse_loop_tree (int, loop_tree_node_t,
 				void (*) (loop_tree_node_t),
 				void (*) (loop_tree_node_t));
 extern allocno_t create_allocno (int, int, loop_tree_node_t);
+extern void set_allocno_cover_class (allocno_t, enum reg_class);
 extern int conflict_vector_profitable_p (allocno_t, int);
 extern void allocate_allocno_conflict_vec (allocno_t, int);
 extern void allocate_allocno_conflicts (allocno_t, int);
@@ -887,6 +889,7 @@ extern void reassign_conflict_allocnos (int);
 extern void initiate_ira_assign (void);
 extern void finish_ira_assign (void);
 extern void ira_color (void);
+extern void ira_fast_allocation (void);
 
 /* ira-emit.c */
 extern void ira_emit (int);

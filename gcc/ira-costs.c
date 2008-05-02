@@ -79,7 +79,8 @@ static struct costs *this_op_costs[MAX_RECOG_OPERANDS];
 static struct costs *total_costs;
 
 /* Classes used for cost calculation.  They may be different on
-   different iterations of the cost calculations.  */
+   different iterations of the cost calculations or in different
+   optimization modes.  */
 static enum reg_class *cost_classes;
 
 /* The size of the previous array.  */
@@ -1124,17 +1125,34 @@ find_allocno_class_costs (void)
       if (internal_flag_ira_verbose > 0 && ira_dump_file)
 	fprintf (ira_dump_file, "\nPass %i for finding allocno costs\n\n",
 		 pass);
-      /* We could use only cover classes on the 1st iteration.
-	 Unfortunately it does not work well for some targets where
-	 some subclass of cover class is costly and wrong cover class
-	 is chosen on the first iteration and it can not be fixed on
-	 the 2nd iteration.  */
-      for (cost_classes_num = 0;
-	   cost_classes_num < important_classes_num;
-	   cost_classes_num++)
+      if (optimize)
 	{
-	  cost_classes[cost_classes_num] = important_classes[cost_classes_num];
-	  cost_class_nums[cost_classes[cost_classes_num]] = cost_classes_num;
+	  /* We could use only cover classes on the 1st iteration.
+	     Unfortunately it does not work well for some targets where
+	     some subclass of cover class is costly and wrong cover class
+	     is chosen on the first iteration and it can not be fixed on
+	     the 2nd iteration.  */
+	  for (cost_classes_num = 0;
+	       cost_classes_num < important_classes_num;
+	       cost_classes_num++)
+	    {
+	      cost_classes[cost_classes_num]
+		= important_classes[cost_classes_num];
+	      cost_class_nums[cost_classes[cost_classes_num]]
+		= cost_classes_num;
+	    }
+	}
+      else
+	{
+	  for (cost_classes_num = 0;
+	       cost_classes_num < reg_class_cover_size;
+	       cost_classes_num++)
+	    {
+	      cost_classes[cost_classes_num]
+		= reg_class_cover[cost_classes_num];
+	      cost_class_nums[cost_classes[cost_classes_num]]
+		= cost_classes_num;
+	    }
 	}
       struct_costs_size
 	= sizeof (struct costs) + sizeof (int) * (cost_classes_num - 1);
@@ -1425,14 +1443,14 @@ setup_allocno_cover_class_and_costs (void)
       ira_assert (allocno_pref[i] == NO_REGS || cover_class != NO_REGS);
       ALLOCNO_MEMORY_COST (a) = ALLOCNO_UPDATED_MEMORY_COST (a)
 	= COSTS_OF_ALLOCNO (total_costs, i)->mem_cost;
-      ALLOCNO_COVER_CLASS (a) = cover_class;
+      set_allocno_cover_class (a, cover_class);
       if (cover_class == NO_REGS)
 	continue;
       ALLOCNO_AVAILABLE_REGS_NUM (a) = available_class_regs[cover_class];
       ALLOCNO_COVER_CLASS_COST (a)
 	= (COSTS_OF_ALLOCNO (total_costs, i)
 	   ->cost[cost_class_nums[allocno_pref[i]]]);
-      if (ALLOCNO_COVER_CLASS (a) != allocno_pref[i])
+      if (optimize && ALLOCNO_COVER_CLASS (a) != allocno_pref[i])
 	{
 	  n = class_hard_regs_num[cover_class];
 	  ALLOCNO_HARD_REG_COSTS (a)
@@ -1446,8 +1464,9 @@ setup_allocno_cover_class_and_costs (void)
 	    }
 	}
     }
-  traverse_loop_tree (FALSE, ira_loop_tree_root,
-		      process_bb_node_for_hard_reg_moves, NULL);
+  if (optimize)
+    traverse_loop_tree (FALSE, ira_loop_tree_root,
+			process_bb_node_for_hard_reg_moves, NULL);
 }
 
 

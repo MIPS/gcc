@@ -542,8 +542,8 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_NUM (a) = allocnos_num;
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = NULL;
   ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
-  CLEAR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
-  CLEAR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+  COPY_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a), no_alloc_regs);
+  COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), no_alloc_regs);
   ALLOCNO_NREFS (a) = 0;
   ALLOCNO_FREQ (a) = 1;
   ALLOCNO_HARD_REGNO (a) = -1;
@@ -590,6 +590,17 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   conflict_id_allocno_map
     = VEC_address (allocno_t, conflict_id_allocno_map_vec);
   return a;
+}
+
+/* Set up cover class for A and update its conflict hard registers.  */
+void
+set_allocno_cover_class (allocno_t a, enum reg_class cover_class)
+{
+  ALLOCNO_COVER_CLASS (a) = cover_class;
+  IOR_COMPL_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
+			  reg_class_contents[cover_class]);
+  IOR_COMPL_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+			  reg_class_contents[cover_class]);
 }
 
 /* The function returns TRUE if conflict vector with NUM elements is
@@ -918,7 +929,7 @@ create_cap_allocno (allocno_t a)
   father = ALLOCNO_LOOP_TREE_NODE (a)->father;
   cap = create_allocno (ALLOCNO_REGNO (a), TRUE, father);
   ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
-  ALLOCNO_COVER_CLASS (cap) = ALLOCNO_COVER_CLASS (a);
+  set_allocno_cover_class (cap, ALLOCNO_COVER_CLASS (a));
   ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
   ALLOCNO_CAP_MEMBER (cap) = a;
   bitmap_set_bit (father->mentioned_allocnos, ALLOCNO_NUM (cap));
@@ -2330,8 +2341,9 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	}
     }
   /* Change allocnos regno, conflicting allocnos, and range allocnos.  */
-  temp_change_bit_vec = ira_allocate (((allocnos_num + INT_BITS - 1) / INT_BITS)
-				      * sizeof (INT_TYPE));
+  temp_change_bit_vec
+    = ira_allocate (((allocnos_num + INT_BITS - 1) / INT_BITS)
+		    * sizeof (INT_TYPE));
   FOR_EACH_ALLOCNO (a, ai)
     {
       if (a != regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))]
@@ -2459,8 +2471,8 @@ ira_build (int loops_p)
   form_loop_tree ();
   create_allocnos ();
   ira_costs ();
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+  if (optimize && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED))
     {
       local_allocnos_bitmap = ira_allocate_bitmap ();
       traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
@@ -2493,18 +2505,21 @@ ira_build (int loops_p)
 	       "    allocnos=%d, copies=%d, conflicts=%d, ranges=%d\n",
 	       allocnos_num, copies_num, n, nr);
     }
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
-    traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
-			propagate_info_to_loop_tree_node_caps);
-  tune_allocno_costs_and_cover_classes ();
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+  if (optimize)
     {
-      for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
-	if (ira_loop_nodes[i].regno_allocno_map != NULL
-	    && ira_loop_tree_root != &ira_loop_nodes[i])
-	  return TRUE;
+      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+	traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
+			    propagate_info_to_loop_tree_node_caps);
+      tune_allocno_costs_and_cover_classes ();
+      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+	{
+	  for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
+	    if (ira_loop_nodes[i].regno_allocno_map != NULL
+		&& ira_loop_tree_root != &ira_loop_nodes[i])
+	      return TRUE;
+	}
     }
   return FALSE;
 }

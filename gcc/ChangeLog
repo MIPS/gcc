@@ -1,3 +1,63 @@
+2008-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (print_conflicts): Exclude non-allocatable hard
+	regs and hard regs from different cover classes.
+	(ira_build_conflicts): Build conflicts only for optimization mode.
+
+	* cfgloopanal.c (estimate_reg_pressure_cost): Decrease cost only
+	for optimization mode.
+
+	* caller-save.c (caller-save.c, calculate_local_save_info,
+	save_call_clobbered_regs): Do save/restore placement optimization
+	and sharing stack slots only for optimization mode.
+
+	* ira-int.h (set_allocno_cover_class, ira_fast_allocation): New
+	prototypes.
+
+	* ira-color.c (assign_hard_reg): Clear conflicting_regs.
+	(allocno_assign_compare_func, allocno_assign_compare_func): New
+	functions.
+
+	* global.c (build_insn_chain): Add spilled pseudos only in
+	optimization mode.
+
+	* ira-emit.c (modify_move_list): Use set_allocno_cover_class.
+
+	* alias.c (nonoverlapping_memrefs_p): Check addresses only in
+	optimization mode.
+
+	* ira-build.c (create_allocno): Initialize
+	ALLOCNO_CONFLICT_HARD_REGS and ALLOCNO_TOTAL_CONFLICT_HARD_REGS by
+	non-allocatable hard reg set.
+	(set_allocno_cover_class): New function.
+	(create_cap_allocno): Use set_allocno_cover_class.
+	(ira_build): Call create_loop_tree_node_caps,
+	propagate_info_to_loop_tree_node_caps, and
+	propagate_info_to_loop_tree_node_caps only in optimization mode.
+	* ira.c (setup_reg_renumber): Add optimize to ira_assert.
+	(ira): Call find_reg_equiv_invariant_const, ira_color,
+	sort_insn_chain, and fix_reg_equiv_init only in optimization mode.
+	Call ira_fast_allocation for -O0.  Use right argument for reload.
+
+	* ira-costs.c (find_allocno_class_costs): Use important_classes
+	only for optimization mode.
+	(setup_allocno_cover_class_and_costs): Use
+	set_allocno_cover_class.  Initialize cost vectors only in
+	optimization mode.  Call process_bb_node_for_hard_reg_moves only
+	in optimization mode.
+
+	* reload1.c (compute_use_by_pseudos): Add optimize to ira_assert.
+	(reload): Sort pseudo-registers only optimization mode.  Restore
+	original order for insn chain only in optimization mode.
+	(calculate_needs_all_insns): Call mark_memory_move_deletion only
+	in optimization mode.
+	(count_pseudo, count_spilled_pseudo): Check spilled pseudos only
+	in optimization mode.
+	(alter_reg): Share stack slots only in optimization mode.
+	(finish_spills): Check spilled pseudos only in optimization mode.
+	(emit_input_reload_insns, delete_output_reload): Call
+	mark_allocation_change only in optimization mode.
+	
 2008-05-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (IRA_BB_NODE_BY_INDEX, IRA_LOOP_NODE_BY_INDEX): Use

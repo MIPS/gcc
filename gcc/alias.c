@@ -2013,7 +2013,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y)
   rtx moffsetx, moffsety;
   HOST_WIDE_INT offsetx = 0, offsety = 0, sizex, sizey, tem;
 
-  if (flag_ira && reload_completed)
+  if (flag_ira && optimize && reload_completed)
     {
       /* We need this code for IRA because of stack slot sharing.  RTL
 	 in decl can be different than RTL used in insns.  It is a

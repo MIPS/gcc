@@ -1425,7 +1425,7 @@ setup_reg_renumber (void)
 	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 				      call_used_reg_set))
 	{
-	  ira_assert (flag_caller_saves || regno >= reg_equiv_len
+	  ira_assert (!optimize || flag_caller_saves || regno >= reg_equiv_len
 		      || reg_equiv_const[regno]
 		      || reg_equiv_invariant_p[regno]);
 	  caller_save_needed = 1;
@@ -1558,7 +1558,6 @@ fix_reg_equiv_init (void)
   int max_regno = max_reg_num ();
   int i, new_regno;
   rtx x, prev, next, insn, set;
-  
   
   if (reg_equiv_init_size < max_regno)
     {
@@ -1800,90 +1799,101 @@ ira (FILE *f)
   rebuild_p = update_equiv_regs ();
   regstat_free_n_sets_and_refs ();
   regstat_free_ri ();
-    
+
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
 #endif
   bitmap_obstack_initialize (&ira_bitmap_obstack);
-
-  max_regno = max_reg_num ();
-  reg_equiv_len = max_regno;
-  reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (int));
-  memset (reg_equiv_invariant_p, 0, max_regno * sizeof (int));
-  reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
-  memset (reg_equiv_const, 0, max_regno * sizeof (rtx));
-  find_reg_equiv_invariant_const ();
-  if (rebuild_p)
-    {
-      timevar_push (TV_JUMP);
-      rebuild_jump_labels (get_insns ());
-      purge_all_dead_edges ();
-      timevar_pop (TV_JUMP);
+  if (optimize)
+    {      
+      max_regno = max_reg_num ();
+      reg_equiv_len = max_regno;
+      reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (int));
+      memset (reg_equiv_invariant_p, 0, max_regno * sizeof (int));
+      reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
+      memset (reg_equiv_const, 0, max_regno * sizeof (rtx));
+      find_reg_equiv_invariant_const ();
+      if (rebuild_p)
+	{
+	  timevar_push (TV_JUMP);
+	  rebuild_jump_labels (get_insns ());
+	  purge_all_dead_edges ();
+	  timevar_pop (TV_JUMP);
+	}
     }
+
   max_regno_before_ira = allocated_reg_info_size = max_reg_num ();
   allocate_reg_info ();
   setup_eliminable_regset ();
-
+      
   overall_cost = reg_cost = mem_cost = 0;
   load_cost = store_cost = shuffle_cost = 0;
   move_loops_num = additional_jumps_num = 0;
-
+  
   ira_assert (current_loops == NULL);
   flow_loops_find (&ira_loops);
   current_loops = &ira_loops;
   saved_flag_ira_algorithm = flag_ira_algorithm;
-  if (number_of_loops () > (unsigned) IRA_MAX_LOOPS_NUM)
+  if (optimize && number_of_loops () > (unsigned) IRA_MAX_LOOPS_NUM)
     flag_ira_algorithm = IRA_ALGORITHM_CB;
-
+      
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Building IRA IR\n");
-  loops_p = ira_build (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-		       || flag_ira_algorithm == IRA_ALGORITHM_MIXED);
-  ira_color ();
-
-  max_point_before_emit = max_point;
-
-  ira_emit (loops_p);
-
-  max_regno = max_reg_num ();
-  
-  if (! loops_p)
-    initiate_ira_assign ();
+  loops_p = ira_build (optimize
+		       && (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+			   || flag_ira_algorithm == IRA_ALGORITHM_MIXED));
+  if (optimize)
+    ira_color ();
   else
+    ira_fast_allocation ();
+      
+  max_point_before_emit = max_point;
+      
+  ira_emit (loops_p);
+  
+  if (optimize)
     {
-      expand_reg_info (allocated_reg_info_size);
-      allocated_reg_info_size = max_regno;
- 
-      if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
-	fprintf (ira_dump_file, "Flattening IR\n");
-      ira_flattening (max_regno_before_ira, max_point_before_emit);
-      /* New insns were generated: add notes and recalculate live
-	 info.  */
-      df_analyze ();
-
-      {
-	basic_block bb;
-	
-	FOR_ALL_BB (bb)
-	  bb->loop_father = NULL;
-	current_loops = NULL;
-      }
-
-      setup_allocno_assignment_flags ();
-      initiate_ira_assign ();
-      reassign_conflict_allocnos (max_regno);
+      max_regno = max_reg_num ();
+      
+      if (! loops_p)
+	initiate_ira_assign ();
+      else
+	{
+	  expand_reg_info (allocated_reg_info_size);
+	  allocated_reg_info_size = max_regno;
+	  
+	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
+	    fprintf (ira_dump_file, "Flattening IR\n");
+	  ira_flattening (max_regno_before_ira, max_point_before_emit);
+	  /* New insns were generated: add notes and recalculate live
+	     info.  */
+	  df_analyze ();
+	  
+	  {
+	    basic_block bb;
+	    
+	    FOR_ALL_BB (bb)
+	      bb->loop_father = NULL;
+	    current_loops = NULL;
+	  }
+	  
+	  setup_allocno_assignment_flags ();
+	  initiate_ira_assign ();
+	  reassign_conflict_allocnos (max_regno);
+	}
     }
 
   setup_reg_renumber ();
-
+  
   calculate_allocation_cost ();
-
+  
 #ifdef ENABLE_IRA_CHECKING
-  check_allocation ();
+  if (optimize)
+    check_allocation ();
 #endif
-
+      
   setup_preferred_alternate_classes ();
-
+      
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   max_regno = max_reg_num ();
   
@@ -1897,41 +1907,48 @@ ira (FILE *f)
   memset (VEC_address (rtx, reg_equiv_memory_loc_vec), 0,
 	  sizeof (rtx) * max_regno);
   reg_equiv_memory_loc = VEC_address (rtx, reg_equiv_memory_loc_vec);
-  
+
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
 
   allocate_initial_values (reg_equiv_memory_loc);
-  
-  fix_reg_equiv_init ();
-
-#ifdef ENABLE_IRA_CHECKING
-  print_redundant_copies ();
-#endif
 
   overall_cost_before = overall_cost;
-
-  spilled_reg_stack_slots_num = 0;
-  spilled_reg_stack_slots
-    = ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
-  memset (spilled_reg_stack_slots, 0,
-	  max_regno * sizeof (struct spilled_reg_stack_slot));
-
+  if (optimize)
+    {
+      fix_reg_equiv_init ();
+      
+#ifdef ENABLE_IRA_CHECKING
+      print_redundant_copies ();
+#endif
+      
+      spilled_reg_stack_slots_num = 0;
+      spilled_reg_stack_slots
+	= ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
+      memset (spilled_reg_stack_slots, 0,
+	      max_regno * sizeof (struct spilled_reg_stack_slot));
+    }
+  
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain ();
-  sort_insn_chain (TRUE);
-  reload_completed = ! reload (get_insns (), 1);
 
-  ira_free (spilled_reg_stack_slots);
+  if (optimize)
+    sort_insn_chain (TRUE);
 
-  finish_ira_assign ();
+  reload_completed = ! reload (get_insns (), optimize > 0);
 
+  if (optimize)
+    {
+      ira_free (spilled_reg_stack_slots);
+      
+      finish_ira_assign ();
+      
+    }  
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL
       && overall_cost_before != overall_cost)
     fprintf (ira_dump_file, "+++Overall after reload %d\n", overall_cost);
-
   ira_destroy ();
-
+  
   flow_loops_free (&ira_loops);
   free_dominance_info (CDI_DOMINATORS);
   FOR_ALL_BB (bb)
@@ -1940,19 +1957,22 @@ ira (FILE *f)
 
   flag_ira_algorithm = saved_flag_ira_algorithm;
 
-  cleanup_cfg (CLEANUP_EXPENSIVE);
-
   regstat_free_ri ();
   regstat_free_n_sets_and_refs ();
-
-  ira_free (reg_equiv_invariant_p);
-  ira_free (reg_equiv_const);
+      
+  if (optimize)
+    {
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      
+      ira_free (reg_equiv_invariant_p);
+      ira_free (reg_equiv_const);
+    }
 
   bitmap_obstack_release (&ira_bitmap_obstack);
 #ifndef IRA_NO_OBSTACK
   obstack_free (&ira_obstack, NULL);
 #endif
-  
+
   /* The code after the reload has changed so much that at this point
      we might as well just rescan everything.  Not that
      df_rescan_all_insns is not going to help here because it does not

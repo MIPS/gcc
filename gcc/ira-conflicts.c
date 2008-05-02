@@ -864,6 +864,7 @@ print_conflicts (FILE *file, int reg_p)
 {
   allocno_t a;
   allocno_iterator ai;
+  HARD_REG_SET conflicting_hard_regs;
 
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -899,10 +900,20 @@ print_conflicts (FILE *file, int reg_p)
 			   ALLOCNO_LOOP_TREE_NODE (conflict_a)->loop->num);
 	      }
 	  }
+      COPY_HARD_REG_SET (conflicting_hard_regs,
+			 ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      AND_COMPL_HARD_REG_SET (conflicting_hard_regs, no_alloc_regs);
+      AND_HARD_REG_SET (conflicting_hard_regs,
+			reg_class_contents[ALLOCNO_COVER_CLASS (a)]);
       print_hard_reg_set (file, "\n;;     total conflict hard regs:",
-			  ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+			  conflicting_hard_regs);
+      COPY_HARD_REG_SET (conflicting_hard_regs,
+			 ALLOCNO_CONFLICT_HARD_REGS (a));
+      AND_COMPL_HARD_REG_SET (conflicting_hard_regs, no_alloc_regs);
+      AND_HARD_REG_SET (conflicting_hard_regs,
+			reg_class_contents[ALLOCNO_COVER_CLASS (a)]);
       print_hard_reg_set (file, ";;     conflict hard regs:",
-			  ALLOCNO_CONFLICT_HARD_REGS (a));
+			  conflicting_hard_regs);
     }
   fprintf (file, "\n");
 }
@@ -925,14 +936,17 @@ ira_build_conflicts (void)
   allocno_t a;
   allocno_iterator ai;
 
-  build_conflict_bit_table ();
-  traverse_loop_tree (FALSE, ira_loop_tree_root, NULL, add_copies);
-  if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-      || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
-    propagate_info ();
-  /* We need finished conflict table for the subsequent call.  */
-  remove_conflict_allocno_copies ();
-  build_allocno_conflicts ();
+  if (optimize)
+    {
+      build_conflict_bit_table ();
+      traverse_loop_tree (FALSE, ira_loop_tree_root, NULL, add_copies);
+      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
+	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+	propagate_info ();
+      /* We need finished conflict table for the subsequent call.  */
+      remove_conflict_allocno_copies ();
+      build_allocno_conflicts ();
+    }
   FOR_EACH_ALLOCNO (a, ai)
     {
       if (ALLOCNO_CALLS_CROSSED_NUM (a) == 0)
@@ -954,8 +968,11 @@ ira_build_conflicts (void)
 			      no_caller_save_reg_set);
 	}
     }
-  traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
-		      propagate_modified_regnos);
-  if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
-    print_conflicts (ira_dump_file, FALSE);
+  if (optimize)
+    {
+      traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
+			  propagate_modified_regnos);
+      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
+	print_conflicts (ira_dump_file, FALSE);
+    }
 }

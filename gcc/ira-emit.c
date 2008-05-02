@@ -661,8 +661,8 @@ modify_move_list (move_t list)
 		  = create_allocno (ALLOCNO_REGNO (set_move->to), FALSE,
 				    ALLOCNO_LOOP_TREE_NODE (set_move->to));
 		ALLOCNO_MODE (new_allocno) = ALLOCNO_MODE (set_move->to);
-		ALLOCNO_COVER_CLASS (new_allocno)
-		  = ALLOCNO_COVER_CLASS (set_move->to);
+		set_allocno_cover_class (new_allocno,
+					 ALLOCNO_COVER_CLASS (set_move->to));
 		ALLOCNO_ASSIGNED_P (new_allocno) = TRUE;
 		ALLOCNO_HARD_REGNO (new_allocno) = -1;
 		ALLOCNO_REG (new_allocno)
