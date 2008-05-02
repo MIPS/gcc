@@ -1,3 +1,44 @@
+2008-05-02  Doug Kwan  <dougkwan@google.com>
+
+	* value-prof.c (gimple_divmod_fixed_value): Remove formal parameters
+	OPERATION, OP1 and OP2 and derive their values from parameter STMT
+	instead.  Update prototype and caller.
+	(gimple_mod_pow2): Remove formal parameters OPERATION, OP1 and OP2
+	and derive their values from parameter STMT instead.  Update prototype
+	and caller.
+	(gimple_mod_pow2_value_transform): Remove temporares OP, OP1 and OP2.
+	Use a new tempory LHS_TYPE to store assignment LHS type.
+	(gimple_mode_subtract): Remove formal parameters OPERATION, OP1 and OP2
+	and derive their values from parameter STMT instead.  Update prototype
+	and caller.  Fix a bug in a call to gimple_build_assign_with_ops.
+	(gimple_mod_subtract_transform): Remove temporares OP, OP1 and OP2.
+	Use a new tempory LHS_TYPE to store assignment LHS type.
+	(gimple_ic, gimple_indirect_call_to_profile): Fix bug in tree-code
+	tests.
+	* tree-profile.c (File): Re-enable all previously disabled code.
+	(tree_gen_edge_profiler): Tuplify.
+	(prepare_instrumented_value): Ditto.
+	(tree_gen_interval_profiler): Ditto.
+	(tree_gen_pow2_profiler): Ditto.
+	(tree_gen_one_value_profiler): Ditto.
+	(tree_gen_ic_profiler): Ditto.
+	(tree_gen_ic_func_profiler): Ditto.
+	(tree_gen_const_delta_profiler): Re-format formal parameters for
+	proper alignement.
+	(tree_gen_average_profiler): Tuplify.
+	(tree_gen_ior_profiler): Ditto.
+	(do_tree_profiling): Re-enable previously disabled code.  Remove
+	FIXME.
+	(tree_profiling): Ditto.
+	* gimple.c (gimple_set_bb):  Remove assertion.
+	* tree-cfg.c (change_bb_for_stmt): Remove.  Redirect callers to
+	gimple_set_bb.
+	(gimple_merge_blocks): Call gimple_set_bb instead of
+	change_bb_for_stmt.
+	(gimple_split_block): Ditto.
+	(verify_stmts): Add code to check that label_to_block_map and labels
+	are consistent.
+
 2008-04-22  Rafael Espindola <espindola@google.com>
 
 	Merge with mainline @134843.

@@ -100,7 +100,6 @@ static inline bool stmt_starts_bb_p (gimple, gimple);
 static int gimple_verify_flow_info (void);
 static void gimple_make_forwarder_block (edge);
 static void gimple_cfg2vcg (FILE *);
-static inline void change_bb_for_stmt (gimple, basic_block);
 
 /* Flowgraph optimization and cleanup.  */
 static void gimple_merge_blocks (basic_block, basic_block);
@@ -1415,7 +1414,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	}
       else
 	{
-	  change_bb_for_stmt (gsi_stmt (gsi), a);
+	  gimple_set_bb (gsi_stmt (gsi), a);
 	  gsi_next (&gsi);
 	}
     }
@@ -2756,21 +2755,6 @@ last_and_only_stmt (basic_block bb)
     return NULL;
 }
 
-/* Faster version of set_bb_for_stmt that assume that statement is being moved
-   from one basic block to another.  
-   For BB splitting we can run into quadratic case, so performance is quite
-   important and knowing that the tables are big enough, change_bb_for_stmt
-   can inline as leaf function.  */
-static inline void
-change_bb_for_stmt (gimple t, basic_block bb)
-{
-  gimple_set_bb (t, bb);
-  if (gimple_code (t) == GIMPLE_LABEL)
-    VEC_replace (basic_block, label_to_block_map,
-		 LABEL_DECL_UID (gimple_label_label (t)), bb);
-}
-
-
 /* Reinstall those PHI arguments queued in OLD_EDGE to NEW_EDGE.  */
 
 static void
@@ -4063,6 +4047,19 @@ verify_stmts (void)
 	      err |= true;
 	    }
 
+	  if (gimple_code (stmt) == GIMPLE_LABEL)
+	    {
+	      tree decl = gimple_label_label (stmt);
+	      int uid = LABEL_DECL_UID (decl);
+
+	      if (uid == -1
+		  || VEC_index (basic_block, label_to_block_map, uid) != bb)
+		{
+		  error ("incorrect entry in label_to_block_map.\n");
+		  err |= true;
+		}
+	    }
+
 	  err |= verify_stmt (&gsi);
 	  addr = walk_gimple_op (gsi_stmt (gsi), verify_node_sharing, &wi);
 	  if (addr)
@@ -4678,7 +4675,7 @@ gimple_split_block (basic_block bb, void *stmt)
   set_bb_seq (new_bb, list);
   for (gsi_tgt = gsi_start (list);
        !gsi_end_p (gsi_tgt); gsi_next (&gsi_tgt))
-    change_bb_for_stmt (gsi_stmt (gsi_tgt), new_bb);
+    gimple_set_bb (gsi_stmt (gsi_tgt), new_bb);
 
   return new_bb;
 }

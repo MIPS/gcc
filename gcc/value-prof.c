@@ -77,11 +77,10 @@ static struct value_prof_hooks *value_prof_hooks;
    same information as above.  */
 
 
-static tree gimple_divmod_fixed_value (gimple, tree, tree, tree, 
-				       tree, int, gcov_type, gcov_type);
-static tree gimple_mod_pow2 (gimple, tree, tree, tree, int, gcov_type, gcov_type);
-static tree gimple_mod_subtract (gimple, tree, tree, tree, int, int, int,
-				 gcov_type, gcov_type, gcov_type);
+static tree gimple_divmod_fixed_value (gimple, tree, int, gcov_type, gcov_type);
+static tree gimple_mod_pow2 (gimple, int, gcov_type, gcov_type);
+static tree gimple_mod_subtract (gimple, int, int, int, gcov_type, gcov_type,
+				 gcov_type);
 static bool gimple_divmod_fixed_value_transform (gimple);
 static bool gimple_mod_pow2_value_transform (gimple);
 static bool gimple_mod_subtract_transform (gimple);
@@ -512,16 +511,15 @@ gimple_value_profile_transformations (void)
 }
 
 
-/* Generate code for transformation 1 (with OPERATION, operands OP1
-   and OP2, whose value is expected to be VALUE, parent assignment
+/* Generate code for transformation 1 (with parent gimple assignment
    STMT and probability of taking the optimal path PROB, which is
    equivalent to COUNT/ALL within roundoff error).  This generates the
    result into a temp and returns the temp; it does not replace or
    alter the original STMT.  */
 
 static tree
-gimple_divmod_fixed_value (gimple stmt, tree operation, tree op1, tree op2,
-			   tree value, int prob, gcov_type count, gcov_type all)
+gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
+			   gcov_type all)
 {
   gimple stmt1, stmt2, stmt3, label1, label2;
   tree tmp1, tmp2, tmpv;
@@ -529,9 +527,17 @@ gimple_divmod_fixed_value (gimple stmt, tree operation, tree op1, tree op2,
   tree label_decl2 = create_artificial_label ();
   gimple bb1end, bb2end, bb3end;
   basic_block bb, bb2, bb3, bb4;
-  tree optype = TREE_TYPE (operation);
+  tree optype, op1, op2;
   edge e12, e13, e23, e24, e34;
   gimple_stmt_iterator gsi;
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+	      && (gimple_subcode (stmt) == TRUNC_DIV_EXPR
+		  || gimple_subcode (stmt) == TRUNC_MOD_EXPR));
+
+  optype = TREE_TYPE (gimple_assign_lhs (stmt));
+  op1 = gimple_assign_rhs1 (stmt);
+  op2 = gimple_assign_rhs2 (stmt);
 
   bb = gimple_bb (stmt);
   gsi = gsi_for_stmt (stmt);
@@ -548,13 +554,13 @@ gimple_divmod_fixed_value (gimple stmt, tree operation, tree op1, tree op2,
 
   tmp2 = create_tmp_var (optype, "PROF");
   label1 = gimple_build_label (label_decl1);
-  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), tmp2, op1, tmpv);
+  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), tmp2, op1, tmpv);
   gsi_insert_before (&gsi, label1, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb2end = stmt1;
 
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), tmp2, op1, op2);
+  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), tmp2, op1, op2);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -601,23 +607,19 @@ gimple_divmod_fixed_value_transform (gimple stmt)
   histogram_value histogram;
   enum tree_code code;
   gcov_type val, count, all;
-  tree op, op1, op2, result, value, tree_val;
+  tree result, value, tree_val;
   int prob;
 
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
-  op = gimple_assign_lhs (stmt);
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (op)))
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt))))
     return false;
 
   code = gimple_assign_rhs_code (stmt);
   
   if (code != TRUNC_DIV_EXPR && code != TRUNC_MOD_EXPR)
     return false;
-
-  op1 = gimple_assign_rhs1 (stmt);
-  op2 = gimple_assign_rhs2 (stmt);
 
   histogram = gimple_histogram_value_of_type (cfun, stmt,
 					      HIST_TYPE_SINGLE_VALUE);
@@ -633,7 +635,8 @@ gimple_divmod_fixed_value_transform (gimple stmt)
   /* We require that count is at least half of all; this means
      that for the transformation to fire the value must be constant
      at least 50% of time (and 75% gives the guarantee of usage).  */
-  if (simple_cst_equal (op2, value) != 1 || 2 * count < all
+  if (simple_cst_equal (gimple_assign_rhs2 (stmt), value) != 1
+      || 2 * count < all
       || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
 
@@ -646,8 +649,7 @@ gimple_divmod_fixed_value_transform (gimple stmt)
   tree_val = build_int_cst_wide (get_gcov_type (),
 				 (unsigned HOST_WIDE_INT) val,
 				 val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1);
-  result = gimple_divmod_fixed_value (stmt, op, op1, op2, tree_val, prob, count,
-				      all);
+  result = gimple_divmod_fixed_value (stmt, tree_val, prob, count, all);
 
   if (dump_file)
     {
@@ -664,14 +666,12 @@ gimple_divmod_fixed_value_transform (gimple stmt)
   return true;
 }
 
-/* Generate code for transformation 2 (with OPERATION, operands OP1
-   and OP2, parent modify-expr STMT and probability of taking the optimal 
-   path PROB, which is equivalent to COUNT/ALL within roundoff error).  
-   This generates the result into a temp and returns 
+/* Generate code for transformation 2 (with parent gimple assign STMT and
+   probability of taking the optimal path PROB, which is equivalent to COUNT/ALL
+   within roundoff error).  This generates the result into a temp and returns 
    the temp; it does not replace or alter the original STMT.  */
 static tree
-gimple_mod_pow2 (gimple stmt, tree operation, tree op1, tree op2, int prob, 
-	       gcov_type count, gcov_type all)
+gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
 {
   gimple stmt1, stmt2, stmt3, stmt4;
   tree tmp2, tmp3;
@@ -680,14 +680,22 @@ gimple_mod_pow2 (gimple stmt, tree operation, tree op1, tree op2, int prob,
   gimple label1, label2;
   gimple bb1end, bb2end, bb3end;
   basic_block bb, bb2, bb3, bb4;
-  tree optype = TREE_TYPE (operation);
+  tree optype, op1, op2;
   edge e12, e13, e23, e24, e34;
   gimple_stmt_iterator gsi;
-  tree result = create_tmp_var (optype, "PROF");
+  tree result;
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+	      && gimple_subcode (stmt) == TRUNC_MOD_EXPR);
+
+  optype = TREE_TYPE (gimple_assign_lhs (stmt));
+  op1 = gimple_assign_rhs1 (stmt);
+  op2 = gimple_assign_rhs2 (stmt);
 
   bb = gimple_bb (stmt);
   gsi = gsi_for_stmt (stmt);
 
+  result = create_tmp_var (optype, "PROF");
   tmp2 = create_tmp_var (optype, "PROF");
   tmp3 = create_tmp_var (optype, "PROF");
   stmt2 = gimple_build_assign_with_ops (PLUS_EXPR, tmp2, op2,
@@ -708,8 +716,7 @@ gimple_mod_pow2 (gimple stmt, tree operation, tree op1, tree op2, int prob,
   bb2end = stmt1;
 
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), result, op1,
-					op2);
+  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), result, op1, op2);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -754,23 +761,20 @@ gimple_mod_pow2_value_transform (gimple stmt)
   histogram_value histogram;
   enum tree_code code;
   gcov_type count, wrong_values, all;
-  tree op, op1, op2, result, value;
+  tree lhs_type, result, value;
   int prob;
 
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
-  op = gimple_assign_lhs (stmt);
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (op)))
+  lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
+  if (!INTEGRAL_TYPE_P (lhs_type))
     return false;
 
-  code = TREE_CODE (op);
+  code = gimple_assign_rhs_code (stmt);
   
-  if (code != TRUNC_MOD_EXPR || !TYPE_UNSIGNED (TREE_TYPE (op)))
+  if (code != TRUNC_MOD_EXPR || !TYPE_UNSIGNED (lhs_type))
     return false;
-
-  op1 = TREE_OPERAND (op, 0);
-  op2 = TREE_OPERAND (op, 1);
 
   histogram = gimple_histogram_value_of_type (cfun, stmt, HIST_TYPE_POW2);
   if (!histogram)
@@ -783,7 +787,8 @@ gimple_mod_pow2_value_transform (gimple stmt)
   gimple_remove_histogram_value (cfun, stmt, histogram);
 
   /* We require that we hit a power of 2 at least half of all evaluations.  */
-  if (simple_cst_equal (op2, value) != 1 || count < wrong_values
+  if (simple_cst_equal (gimple_assign_rhs2 (stmt), value) != 1
+      || count < wrong_values
       || !maybe_hot_bb_p (gimple_bb (stmt)))
     return false;
 
@@ -801,26 +806,24 @@ gimple_mod_pow2_value_transform (gimple stmt)
 
   prob = (count * REG_BR_PROB_BASE + all / 2) / all;
 
-  result = gimple_mod_pow2 (stmt, op, op1, op2, prob, count, all);
+  result = gimple_mod_pow2 (stmt, prob, count, all);
 
   gimple_assign_set_rhs_from_tree (stmt, result);
 
   return true;
 }
 
-/* Generate code for transformations 3 and 4 (with OPERATION, operands OP1
-   and OP2, parent modify-expr STMT, and NCOUNTS the number of cases to
-   support.  Currently only NCOUNTS==0 or 1 is supported and this is
-   built into this interface.  The probabilities of taking the optimal 
-   paths are PROB1 and PROB2, which are equivalent to COUNT1/ALL and
+/* Generate code for transformations 3 and 4 (with parent gimple assign STMT, and
+   NCOUNTS the number of cases to support.  Currently only NCOUNTS==0 or 1 is
+   supported and this is built into this interface.  The probabilities of taking
+   the optimal paths are PROB1 and PROB2, which are equivalent to COUNT1/ALL and
    COUNT2/ALL respectively within roundoff error).  This generates the 
    result into a temp and returns the temp; it does not replace or alter 
    the original STMT.  */
 /* FIXME: Generalize the interface to handle NCOUNTS > 1.  */
 
 static tree
-gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2, 
-		     int prob1, int prob2, int ncounts,
+gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
 		     gcov_type count1, gcov_type count2, gcov_type all)
 {
   gimple stmt1, stmt2, stmt3;
@@ -831,14 +834,22 @@ gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2,
   gimple label1, label2, label3;
   gimple bb1end, bb2end = NULL, bb3end;
   basic_block bb, bb2, bb3, bb4;
-  tree optype = TREE_TYPE (operation);
+  tree optype, op1, op2;
   edge e12, e23 = 0, e24, e34, e14;
   gimple_stmt_iterator gsi;
-  tree result = create_tmp_var (optype, "PROF");
+  tree result;
+
+  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+	      && gimple_subcode (stmt) == TRUNC_MOD_EXPR);
+
+  optype = TREE_TYPE (gimple_assign_lhs (stmt));
+  op1 = gimple_assign_rhs1 (stmt);
+  op2 = gimple_assign_rhs2 (stmt);
 
   bb = gimple_bb (stmt);
   gsi = gsi_for_stmt (stmt);
 
+  result = create_tmp_var (optype, "PROF");
   tmp1 = create_tmp_var (optype, "PROF");
   stmt1 = gimple_build_assign (result, op1);
   stmt2 = gimple_build_assign (tmp1, op2);
@@ -861,7 +872,8 @@ gimple_mod_subtract (gimple stmt, tree operation, tree op1, tree op2,
 
   /* Fallback case. */
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (TREE_CODE (operation), result, tmp1, 0);
+  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), result, result,
+					tmp1);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -924,7 +936,7 @@ gimple_mod_subtract_transform (gimple stmt)
   histogram_value histogram;
   enum tree_code code;
   gcov_type count, wrong_values, all;
-  tree op, op1, op2, result, value;
+  tree lhs_type, result, value;
   int prob1, prob2;
   unsigned int i, steps;
   gcov_type count1, count2;
@@ -932,17 +944,14 @@ gimple_mod_subtract_transform (gimple stmt)
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
-  op = gimple_assign_lhs (stmt);
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (op)))
+  lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
+  if (!INTEGRAL_TYPE_P (lhs_type))
     return false;
 
-  code = TREE_CODE (op);
+  code = gimple_assign_rhs_code (stmt);
   
-  if (code != TRUNC_MOD_EXPR || !TYPE_UNSIGNED (TREE_TYPE (op)))
+  if (code != TRUNC_MOD_EXPR || !TYPE_UNSIGNED (lhs_type))
     return false;
-
-  op1 = gimple_assign_rhs1 (stmt);
-  op2 = gimple_assign_rhs2 (stmt);
 
   histogram = gimple_histogram_value_of_type (cfun, stmt, HIST_TYPE_INTERVAL);
   if (!histogram)
@@ -994,8 +1003,7 @@ gimple_mod_subtract_transform (gimple stmt)
 
   /* In practice, "steps" is always 2.  This interface reflects this,
      and will need to be changed if "steps" can change.  */
-  result = gimple_mod_subtract (stmt, op, op1, op2, prob1, prob2, i,
-			        count1, count2, all);
+  result = gimple_mod_subtract (stmt, prob1, prob2, i, count1, count2, all);
 
   gimple_assign_set_rhs_from_tree (stmt, result);
 
@@ -1044,7 +1052,7 @@ find_func_by_pid (int	pid)
 
 static gimple
 gimple_ic (gimple stmt, gimple call, struct cgraph_node *direct_call, 
-	 int prob, gcov_type count, gcov_type all)
+	   int prob, gcov_type count, gcov_type all)
 {
   gimple stmt1, stmt2, stmt3;
   tree tmp1, tmpv, tmp;
@@ -1153,7 +1161,7 @@ gimple_ic_transform (gimple stmt)
 
   callee = gimple_call_fn (stmt);
 
-  if (TREE_CODE (callee) == ADDR_EXPR)
+  if (TREE_CODE (callee) == FUNCTION_DECL)
     return false;
 
   histogram = gimple_histogram_value_of_type (cfun, stmt, HIST_TYPE_INDIR_CALL);
@@ -1527,7 +1535,7 @@ gimple_indirect_call_to_profile (gimple stmt, histogram_values *values)
 
   callee = gimple_call_fn (stmt);
   
-  if (TREE_CODE (callee) == ADDR_EXPR)
+  if (TREE_CODE (callee) == FUNCTION_DECL)
     return;
 
   VEC_reserve (histogram_value, heap, *values, 3);

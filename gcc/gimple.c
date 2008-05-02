@@ -1770,11 +1770,7 @@ gimple_set_bb (gimple stmt, basic_block bb)
 				     new_len);
 	    }
 	}
-      else
-	/* We're moving an existing label.  Make sure that we've
-	   removed it from the old block.  */
-	gcc_assert (!bb
-		    || !VEC_index (basic_block, label_to_block_map, uid));
+
       VEC_replace (basic_block, label_to_block_map, uid, bb);
     }
 }
