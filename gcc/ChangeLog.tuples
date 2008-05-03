@@ -1,3 +1,10 @@
+2008-05-02  Rafael Espindola  <espindola@google.com>
+
+	* tree-gimple.c (is_gimple_condexpr): Do not allow
+	trapping comparisons.
+	* tree-eh.c (tree_could_trap_p): Fix handling of floating
+	point comparisons.
+
 2008-05-02  Doug Kwan  <dougkwan@google.com>
 
 	* value-prof.c (gimple_divmod_fixed_value): Remove formal parameters

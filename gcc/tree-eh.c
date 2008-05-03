@@ -2174,7 +2174,10 @@ tree_could_trap_p (tree expr)
 
   if (t)
     {
-      fp_operation = FLOAT_TYPE_P (t);
+      if (COMPARISON_CLASS_P (expr))
+	fp_operation = FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+      else
+	fp_operation = FLOAT_TYPE_P (t);
       honor_trapv = INTEGRAL_TYPE_P (t) && TYPE_OVERFLOW_TRAPS (t);
     }
 

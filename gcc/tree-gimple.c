@@ -204,7 +204,8 @@ is_gimple_lvalue (tree t)
 bool
 is_gimple_condexpr (tree t)
 {
-  return (is_gimple_val (t) || COMPARISON_CLASS_P (t));
+  return (is_gimple_val (t) || (COMPARISON_CLASS_P (t)
+				&& !tree_could_trap_p (t)));
 }
 
 /*  Return true if T is something whose address can be taken.  */

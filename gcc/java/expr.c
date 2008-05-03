@@ -814,11 +814,13 @@ encode_newarray_type (tree type)
 static tree
 build_java_throw_out_of_bounds_exception (tree index)
 {
+  tree node;
+
   /* We need to build a COMPOUND_EXPR because _Jv_ThrowBadArrayIndex()
      has void return type.  We cannot just set the type of the CALL_EXPR below
      to int_type_node because we would lose it during gimplification.  */
   gcc_assert (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (soft_badarrayindex_node))));
-  tree node = build_call_nary (void_type_node,
+  node = build_call_nary (void_type_node,
 			       build_address_of (soft_badarrayindex_node),
 			       1, index);
   TREE_SIDE_EFFECTS (node) = 1;
