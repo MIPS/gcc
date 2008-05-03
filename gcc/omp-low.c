@@ -5137,8 +5137,6 @@ struct gimple_opt_pass pass_lower_omp =
   TODO_dump_func			/* todo_flags_finish */
  }
 };
-/* FIXME tuples  */
-#if 0
 
 /* The following is a utility to diagnose OpenMP structured block violations.
    It is not part of the "omplower" pass, as that's invoked too late.  It
@@ -5150,13 +5148,25 @@ static splay_tree all_labels;
    true if an error is detected.  */
 
 static bool
-diagnose_sb_0 (tree *stmt_p, tree branch_ctx, tree label_ctx)
+diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
+    	       gimple branch_ctx, gimple label_ctx)
 {
-  bool exit_p = true;
-
-  if ((label_ctx ? TREE_VALUE (label_ctx) : NULL) == branch_ctx)
+  if (label_ctx == branch_ctx)
     return false;
 
+  /* FIXME tuples:
+     
+     Previously we kept track of the label's entire context in diagnose_sb_[12]
+     so we could traverse it and issue a correct "exit" or "enter" error
+     message upon a structured block violation.
+
+     We built the context by building a list with tree_cons'ing, but there is
+     no easy counterpart in gimple tuples.  It seems like far too much work
+     for issuing exit/enter error messages.  If someone really misses the
+     distinct error message... patches welcome.
+   */
+     
+#if 0
   /* Try to avoid confusing the user by producing and error message
      with correct "exit" or "enter" verbage.  We prefer "exit"
      unless we can show that LABEL_CTX is nested within BRANCH_CTX.  */
@@ -5179,60 +5189,61 @@ diagnose_sb_0 (tree *stmt_p, tree branch_ctx, tree label_ctx)
     error ("invalid exit from OpenMP structured block");
   else
     error ("invalid entry to OpenMP structured block");
+#endif
 
-  *stmt_p = build_empty_stmt ();
+  /* If it's obvious we have an invalid entry, be specific about the error.  */
+  if (branch_ctx == NULL)
+    error ("invalid entry to OpenMP structured block");
+  else
+    /* Otherwise, be vague and lazy, but efficient.  */
+    error ("invalid branch to/from an OpenMP structured block");
+
+  gsi_replace (gsi_p, gimple_build_nop (), false);
   return true;
 }
 
 /* Pass 1: Create a minimal tree of OpenMP structured blocks, and record
-   where in the tree each label is found.  */
+   where each label is found.  */
 
 static tree
-diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
+diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+    	       struct walk_stmt_info *wi)
 {
-  /* FIXME tuples.  This routine needs to be split up into two.  One
-     dealing with statements, to be used as a CALLBACK_STMT and the
-     other dealing with operands, to be used as a CALLBACK_OP.  Since
-     statements and operands are now of different types, we need the
-     two different callbacks.  */
-  struct walk_stmt_info *wi = data;
-  tree context = (tree) wi->info;
-  tree inner_context;
-  tree t = *tp;
+  gimple context = (gimple) wi->info;
+  gimple inner_context;
+  gimple stmt = gsi_stmt (*gsi_p);
 
-  *walk_subtrees = 0;
-  switch (TREE_CODE (t))
+  *walk_subtrees = false;
+
+ switch (gimple_code (stmt))
     {
-    case OMP_PARALLEL:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-      walk_tree (&OMP_CLAUSES (t), diagnose_sb_1, wi, NULL);
-      /* FALLTHRU */
-    case OMP_SECTION:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-      /* The minimal context here is just a tree of statements.  */
-      inner_context = tree_cons (NULL, t, context);
+    case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SINGLE:
+    case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_CRITICAL:
+      /* The minimal context here is just the current OMP construct.  */
+      inner_context = stmt;
       wi->info = inner_context;
-      walk_stmts (wi, &OMP_BODY (t));
+      walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_1, NULL, wi);
       wi->info = context;
       break;
 
-    case OMP_FOR:
-      walk_tree (&OMP_FOR_CLAUSES (t), diagnose_sb_1, wi, NULL);
-      inner_context = tree_cons (NULL, t, context);
+    case GIMPLE_OMP_FOR:
+      inner_context = stmt;
       wi->info = inner_context;
-      walk_tree (&OMP_FOR_INIT (t), diagnose_sb_1, wi, NULL);
-      walk_tree (&OMP_FOR_COND (t), diagnose_sb_1, wi, NULL);
-      walk_tree (&OMP_FOR_INCR (t), diagnose_sb_1, wi, NULL);
-      walk_stmts (wi, &OMP_FOR_PRE_BODY (t));
-      walk_stmts (wi, &OMP_FOR_BODY (t));
+      /* gimple_omp_for_{index,initial,final} are all DECLs; no need to
+	 walk them.  */
+      walk_gimple_seq (gimple_omp_for_pre_body (stmt),
+	  	       diagnose_sb_1, NULL, wi);
+      walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_1, NULL, wi);
       wi->info = context;
       break;
 
-    case LABEL_EXPR:
-      splay_tree_insert (all_labels, (splay_tree_key) LABEL_EXPR_LABEL (t),
+    case GIMPLE_LABEL:
+      splay_tree_insert (all_labels, (splay_tree_key) gimple_label_label (stmt),
 			 (splay_tree_value) context);
       break;
 
@@ -5247,73 +5258,64 @@ diagnose_sb_1 (tree *tp, int *walk_subtrees, void *data)
    the destination label's context.  */
 
 static tree
-diagnose_sb_2 (tree *tp, int *walk_subtrees, void *data)
+diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+    	       struct walk_stmt_info *wi)
 {
-  /* FIXME tuples.  This routine needs to be split up into two.  One
-     dealing with statements, to be used as a CALLBACK_STMT and the
-     other dealing with operands, to be used as a CALLBACK_OP.  Since
-     statements and operands are now of different types, we need the
-     two different callbacks.  */
-  struct walk_stmt_info *wi = data;
-  tree context = (tree) wi->info;
+  gimple context = (gimple) wi->info;
   splay_tree_node n;
-  tree t = *tp;
+  gimple stmt = gsi_stmt (*gsi_p);
 
-  *walk_subtrees = 0;
-  switch (TREE_CODE (t))
+  *walk_subtrees = false;
+  switch (gimple_code (stmt))
     {
-    case OMP_PARALLEL:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-      walk_tree (&OMP_CLAUSES (t), diagnose_sb_2, wi, NULL);
-      /* FALLTHRU */
-    case OMP_SECTION:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-      wi->info = t;
-      walk_stmts (wi, &OMP_BODY (t));
+    case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SINGLE:
+    case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_CRITICAL:
+      wi->info = stmt;
+      walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_2, NULL, wi);
       wi->info = context;
       break;
 
-    case OMP_FOR:
-      walk_tree (&OMP_FOR_CLAUSES (t), diagnose_sb_2, wi, NULL);
-      wi->info = t;
-      walk_tree (&OMP_FOR_INIT (t), diagnose_sb_2, wi, NULL);
-      walk_tree (&OMP_FOR_COND (t), diagnose_sb_2, wi, NULL);
-      walk_tree (&OMP_FOR_INCR (t), diagnose_sb_2, wi, NULL);
-      walk_stmts (wi, &OMP_FOR_PRE_BODY (t));
-      walk_stmts (wi, &OMP_FOR_BODY (t));
+    case GIMPLE_OMP_FOR:
+      wi->info = stmt;
+      /* gimple_omp_for_{index,initial,final} are all DECLs; no need to
+	 walk them.  */
+      walk_gimple_seq (gimple_omp_for_pre_body (stmt),
+	  	       diagnose_sb_2, NULL, wi);
+      walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_2, NULL, wi);
       wi->info = context;
       break;
 
-    case GOTO_EXPR:
+    case GIMPLE_GOTO:
       {
-	tree lab = GOTO_DESTINATION (t);
+	tree lab = gimple_goto_dest (stmt);
 	if (TREE_CODE (lab) != LABEL_DECL)
 	  break;
 
 	n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
-	diagnose_sb_0 (tp, context, n ? (tree) n->value : NULL_TREE);
+	diagnose_sb_0 (gsi_p, context, n ? (gimple) n->value : NULL);
       }
       break;
 
-    case SWITCH_EXPR:
+    case GIMPLE_SWITCH:
       {
-	tree vec = SWITCH_LABELS (t);
-	int i, len = TREE_VEC_LENGTH (vec);
-	for (i = 0; i < len; ++i)
+	unsigned int i;
+	for (i = 0; i < gimple_switch_num_labels (stmt); ++i)
 	  {
-	    tree lab = CASE_LABEL (TREE_VEC_ELT (vec, i));
+	    tree lab = gimple_switch_label (stmt, i);
 	    n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
-	    if (diagnose_sb_0 (tp, context, (tree) n->value))
+	    if (diagnose_sb_0 (gsi_p, context, (gimple) n->value))
 	      break;
 	  }
       }
       break;
 
-    case RETURN_EXPR:
-      diagnose_sb_0 (tp, context, NULL_TREE);
+    case GIMPLE_RETURN:
+      diagnose_sb_0 (gsi_p, context, NULL);
       break;
 
     default:
@@ -5328,20 +5330,18 @@ diagnose_omp_structured_block_errors (tree fndecl)
 {
   tree save_current = current_function_decl;
   struct walk_stmt_info wi;
+  gimple_seq body = gimple_body (fndecl);
 
   current_function_decl = fndecl;
 
   all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
-  /* FIXME tuples.  Convert to use the new walk_gimple_seq/walk_gimple_stmt
-     routines.  */
   memset (&wi, 0, sizeof (wi));
-  walk_stmts (&wi, diagnose_sb_1, NULL, &DECL_SAVED_TREE (fndecl));
+  walk_gimple_seq (body, diagnose_sb_1, NULL, &wi);
 
   memset (&wi, 0, sizeof (wi));
-  wi.callback_stmt = diagnose_sb_2;
   wi.want_locations = true;
-  walk_stmts (&wi, &DECL_SAVED_TREE (fndecl));
+  walk_gimple_seq (body, diagnose_sb_2, NULL, &wi);
 
   splay_tree_delete (all_labels);
   all_labels = NULL;
@@ -5350,4 +5350,3 @@ diagnose_omp_structured_block_errors (tree fndecl)
 }
 
 #include "gt-omp-low.h"
-#endif

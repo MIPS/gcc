@@ -3133,8 +3133,6 @@ s-constrs-h: $(MD_DEPS) build/genpreds$(build_exeext)
 	$(SHELL) $(srcdir)/../move-if-change tmp-constrs.h tm-constrs.h
 	$(STAMP) s-constrs-h
 
-# FIXME tuples.  Do not merge.
-# $(srcdir)/omp-low.c 
 GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -3169,6 +3167,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-profile.c $(srcdir)/tree-nested.c \
   $(srcdir)/varpool.c \
   $(srcdir)/tree-parloops.c \
+  $(srcdir)/omp-low.c \
   $(srcdir)/targhooks.c $(out_file) $(srcdir)/passes.c $(srcdir)/cgraphunit.c \
   $(srcdir)/tree-ssa-propagate.c \
   $(srcdir)/tree-phinodes.c \

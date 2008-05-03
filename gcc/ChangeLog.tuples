@@ -1,3 +1,15 @@
+2008-05-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (diagnose_sb_0): Tuplify and enable.
+	(diagnose_sb_1): Same.
+	(diagnose_sb_2): Same.
+	(diagnose_omp_structured_block_errors): Tuplify.
+	* gimple-dummy.c (DUMMY_FN): Remove
+	diagnose_omp_structured_block_errors.
+	* c-decl.c (c_gimple_diagnostics_recursively): Remove fixme
+	and enable call to diagnose_omp_structured_block_errors.
+	* Makefile.in (GTFILES): Add omp-low.c again.
+
 2008-05-02  Rafael Espindola  <espindola@google.com>
 
 	* tree-gimple.c (is_gimple_condexpr): Do not allow

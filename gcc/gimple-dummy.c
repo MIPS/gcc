@@ -49,7 +49,6 @@ DUMMY_FN (vec_set_verbosity_level)
 DUMMY_FN (vect_set_verbosity_level)
 DUMMY_FN (vectorize_loops)
 DUMMY_FN (remove_iv)
-DUMMY_FN (diagnose_omp_structured_block_errors)
 
 
 /* Note that we should mark gimple_unreachable_1 with
