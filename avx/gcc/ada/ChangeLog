@@ -1,3 +1,34 @@
+2008-05-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (make_packable_type): Resize the last component to its RM size
+	only if it is of an aggregate type.
+	* trans.c (call_to_gnu): Fix nit in comment.
+	(gnat_to_gnu): Likewise.
+
+2008-04-30  Samuel Tardieu  <sam@rfc1149.net>
+
+	* Makefile.in: Adapt sh4-linux target.
+
+2008-04-29  Ed Schonberg  <schonberg@adacore.com>
+
+	PR ada/35792
+	* sem_ch3.adb (Find_Type_Name): Refuse completion of an incomplete
+	tagged type by an untagged protected or task type.
+
+2008-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+            Tristan Gingold  <gingold@adacore.com>
+
+	PR ada/36007
+	* decl.c (gnat_to_gnu_entity) <object>: Do not promote alignment
+	of aliased objects with an unconstrained nominal subtype.
+	Cap the promotion to the effective alignment of the word mode.
+
+2008-04-28  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Make-lang.in (ada.tags, check-acats, ada/treeprs.ads)
+	(ada/einfo.h, ada/sinfo.h, ada/nmake.adb, ada/nmake.ads):
+	Use '&&' instead of ';'.
+
 2008-04-24  Olivier Hainque  <hainque@adacore.com>
 
 	* trans.c (Attribute_to_gnu) <case Attr_Length>: Length computation

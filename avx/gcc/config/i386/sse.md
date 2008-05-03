@@ -6523,7 +6523,7 @@
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "DI")])
 
-(define_insn "ssse3_pmaddubswv8hi3"
+(define_insn "ssse3_pmaddubsw128"
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(ss_plus:V8HI
 	  (mult:V8HI
@@ -6577,7 +6577,7 @@
    (set_attr "prefix_extra" "1")
    (set_attr "mode" "TI")])
 
-(define_insn "ssse3_pmaddubswv4hi3"
+(define_insn "ssse3_pmaddubsw"
   [(set (match_operand:V4HI 0 "register_operand" "=y")
 	(ss_plus:V4HI
 	  (mult:V4HI

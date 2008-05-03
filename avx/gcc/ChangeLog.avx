@@ -1,3 +1,8 @@
+2008-05-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_VZEROUPPER_REX64.
+
 2008-05-02  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_MASKLOADPD,
