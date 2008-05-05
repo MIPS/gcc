@@ -1,3 +1,8 @@
+2008-05-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* ira-color.c (ira_fast_allocation): Use no_stack_reg_p only if
+	STACK_REGS is defined.
+
 2008-05-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c (allocno_assign_compare_func): Remove.

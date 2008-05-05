@@ -2749,7 +2749,10 @@ ira_color (void)
 void
 ira_fast_allocation (void)
 {
-  int i, j, k, l, class_size, no_stack_reg_p, hard_regno;
+  int i, j, k, l, class_size, hard_regno;
+#ifdef STACK_REGS
+  int no_stack_reg_p;
+#endif
   enum reg_class cover_class;
   enum machine_mode mode;
   allocno_t a;
@@ -2791,7 +2794,9 @@ ira_fast_allocation (void)
 				 conflict_hard_regs))
 	continue;
       mode = ALLOCNO_MODE (a);
+#ifdef STACK_REGS
       no_stack_reg_p = ALLOCNO_NO_STACK_REG_P (a);
+#endif
       class_size = class_hard_regs_num[cover_class];
       for (j = 0; j < class_size; j++)
 	{
