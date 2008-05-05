@@ -1,3 +1,8 @@
+2008-05-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (allocno_assign_compare_func): Remove.
+	(ira_fast_allocation): Rewrite.
+
 2008-05-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-conflicts.c (print_conflicts): Exclude non-allocatable hard

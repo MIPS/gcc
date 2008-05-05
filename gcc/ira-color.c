@@ -95,8 +95,6 @@ static int pseudo_reg_compare (const void *, const void *);
 static int calculate_spill_cost (int *, rtx, rtx, rtx,
 				 int *, int *, int *, int*);
 
-static int allocno_assign_compare_func (const void *, const void *);
-
 /* Bitmap of allocnos which should be colored.  */
 static bitmap coloring_allocno_bitmap;
 
@@ -2745,74 +2743,52 @@ ira_color (void)
 /* This page contains a simple register allocator without usage of
    allocno conflicts.  This is used for fast allocation for -O0.  */
 
-/* The function is used to sort allocnos according to their priority
-   for assigning. */
-static int
-allocno_assign_compare_func (const void *v1p, const void *v2p)
-{
-  allocno_t p1 = *(const allocno_t *) v1p, p2 = *(const allocno_t *) v2p;
-  int c1, c2, l1, l2, s1, s2, pri1, pri2;
-
-  c1 = ALLOCNO_MEMORY_COST (p1) - ALLOCNO_COVER_CLASS_COST (p1);
-  c2 = ALLOCNO_MEMORY_COST (p2) - ALLOCNO_COVER_CLASS_COST (p2);
-  l1 = (ALLOCNO_MAX (p1) <= ALLOCNO_MIN (p1)
-	? 1 : ALLOCNO_MAX (p1) - ALLOCNO_MIN (p1));
-  l2 = (ALLOCNO_MAX (p2) <= ALLOCNO_MIN (p2)
-	? 1 : ALLOCNO_MAX (p2) - ALLOCNO_MIN (p2));
-  s1 = reg_class_nregs [ALLOCNO_COVER_CLASS (p1)][ALLOCNO_MODE (p1)];
-  s2 = reg_class_nregs [ALLOCNO_COVER_CLASS (p2)][ALLOCNO_MODE (p2)];
-
-  /* Note that the quotient will never be bigger than the value of
-     floor_log2 times the maximum number of times a register can occur
-     in one insn (surely less than 100) weighted by the frequency
-     (maximally REG_FREQ_MAX).  Multiplying this by 10000/REG_FREQ_MAX
-     can't overflow.  */
-  pri1 = (((double) (floor_log2 (ALLOCNO_NREFS (p1)) * c1) / l1)
-	  * (10000 / REG_FREQ_MAX) * s1);
-  pri2 = (((double) (floor_log2 (ALLOCNO_NREFS (p2)) * c2) / l2)
-	  * (10000 / REG_FREQ_MAX) * s2);
-  if (pri2 - pri1)
-    return pri2 - pri1;
-  /* If regs are equally good, sort by allocno numbers, so that the
-     results of qsort leave nothing to chance.  */
-  return ALLOCNO_NUM (p1) - ALLOCNO_NUM (p2);
-}
-
 /* The function does register allocation not using allocno conflicts.
-   It uses only potential conflicts (see comments for attributes
-   ALLOCNO_MIN and ALLOCNO_MAX).  The algorithm is close to Chow's
+   It uses only allocno live ranges.  The algorithm is close to Chow's
    priority coloring.  */
 void
 ira_fast_allocation (void)
 {
-  int i, j, k, id, class_size, no_stack_reg_p, hard_regno;
+  int i, j, k, l, class_size, no_stack_reg_p, hard_regno;
   enum reg_class cover_class;
   enum machine_mode mode;
   allocno_t a;
-  HARD_REG_SET *conflict_hard_regs;
+  allocno_iterator ai;
+  allocno_live_range_t r;
+  HARD_REG_SET conflict_hard_regs, *used_hard_regs;
 
-  /* Make map: allocno conflict id -> conflict hard regs for better
-     cache locality.  */
-  conflict_hard_regs = ira_allocate (sizeof (HARD_REG_SET) * allocnos_num);
-  for (i = 0; i < allocnos_num; i++)
+  allocno_priorities = ira_allocate (sizeof (int) * allocnos_num);
+  FOR_EACH_ALLOCNO (a, ai)
     {
-      a = conflict_id_allocno_map [i];
-      COPY_HARD_REG_SET (conflict_hard_regs[i],
-			 ALLOCNO_CONFLICT_HARD_REGS (a));
+      l = ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
+      if (l <= 0)
+	l = 1;
+      allocno_priorities[ALLOCNO_NUM (a)]
+	= (((double) (floor_log2 (ALLOCNO_NREFS (a))
+		      * (ALLOCNO_MEMORY_COST (a)
+			 - ALLOCNO_COVER_CLASS_COST (a))) / l)
+	   * (10000 / REG_FREQ_MAX)
+	   * reg_class_nregs [ALLOCNO_COVER_CLASS (a)][ALLOCNO_MODE (a)]);
     }
+  used_hard_regs = ira_allocate (sizeof (HARD_REG_SET) * max_point);
+  for (i = 0; i < max_point; i++)
+    CLEAR_HARD_REG_SET (used_hard_regs[i]);
   sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
   memcpy (sorted_allocnos, allocnos, sizeof (allocno_t) * allocnos_num);
   qsort (sorted_allocnos, allocnos_num, sizeof (allocno_t), 
-	 allocno_assign_compare_func);
+	 allocno_priority_compare_func);
   for (i = 0; i < allocnos_num; i++)
     {
       a =  sorted_allocnos[i];
-      id = ALLOCNO_CONFLICT_ID (a);
+      COPY_HARD_REG_SET (conflict_hard_regs, ALLOCNO_CONFLICT_HARD_REGS (a));
+      for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
+	for (j =  r->start; j <= r->finish; j++)
+	  IOR_HARD_REG_SET (conflict_hard_regs, used_hard_regs[j]);
       cover_class = ALLOCNO_COVER_CLASS (a);
       ALLOCNO_ASSIGNED_P (a) = TRUE;
       ALLOCNO_HARD_REGNO (a) = -1;
       if (hard_reg_set_subset_p (reg_class_contents[cover_class],
-				 conflict_hard_regs[id]))
+				 conflict_hard_regs))
 	continue;
       mode = ALLOCNO_MODE (a);
       no_stack_reg_p = ALLOCNO_NO_STACK_REG_P (a);
@@ -2825,19 +2801,21 @@ ira_fast_allocation (void)
 	      && hard_regno <= LAST_STACK_REG)
 	    continue;
 #endif
-	  if (!hard_reg_not_in_set_p (hard_regno, mode, conflict_hard_regs[id])
+	  if (!hard_reg_not_in_set_p (hard_regno, mode, conflict_hard_regs)
 	      || (TEST_HARD_REG_BIT
 		  (prohibited_class_mode_regs[cover_class][mode], hard_regno)))
 	    continue;
 	  ALLOCNO_HARD_REGNO (a) = hard_regno;
-	  for (k = ALLOCNO_MIN (a); k <= ALLOCNO_MAX (a); k++)
-	    IOR_HARD_REG_SET (conflict_hard_regs[k],
-			      reg_mode_hard_regset[hard_regno][mode]);
+	  for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
+	    for (k = r->start; k <= r->finish; k++)
+	      IOR_HARD_REG_SET (used_hard_regs[k],
+				reg_mode_hard_regset[hard_regno][mode]);
 	  break;
 	}
     }
   ira_free (sorted_allocnos);
-  ira_free (conflict_hard_regs);
+  ira_free (used_hard_regs);
+  ira_free (allocno_priorities);
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     print_disposition (ira_dump_file);
 }
