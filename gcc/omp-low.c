@@ -2670,7 +2670,7 @@ expand_omp_parallel (struct omp_region *region)
 		gsi_remove (&gsi, true);
 	      else
 		{
-	          /* FIXME tuples: Is setting the subcode really necessary?  */
+	          /* ?? Is setting the subcode really necessary ??  */
 		  gimple_set_subcode (parcopy_stmt, TREE_CODE (arg));
 		  gimple_assign_set_rhs1 (parcopy_stmt, arg);
 		}
@@ -2683,7 +2683,7 @@ expand_omp_parallel (struct omp_region *region)
 	      gcc_assert (gimple_default_def (cfun, arg) == NULL);
 	      narg = make_ssa_name (arg, gimple_build_nop ());
 	      set_default_def (arg, narg);
-	      /* FIXME tuples: Is setting the subcode really necessary?  */
+	      /* ?? Is setting the subcode really necessary ??  */
 	      gimple_set_subcode (parcopy_stmt, TREE_CODE (narg));
 	      gimple_assign_set_rhs1 (parcopy_stmt, narg);
 	      update_stmt (parcopy_stmt);
@@ -3349,33 +3349,32 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
   redirect_edge_and_branch (single_succ_edge (trip_update_bb), iter_part_bb);
 
-      /* FIXME tuples */
-#if 0
   if (gimple_in_ssa_p (cfun))
     {
       gimple_stmt_iterator psi;
       gimple phi;
-      tree args;
       edge re, ene;
+      edge_var_map_vector head;
+      edge_var_map *vm;
+      size_t i;
 
       /* When we redirect the edge from trip_update_bb to iter_part_bb, we
 	 remove arguments of the phi nodes in fin_bb.  We need to create
 	 appropriate phi nodes in iter_part_bb instead.  */
       se = single_pred_edge (fin_bb);
       re = single_succ_edge (trip_update_bb);
+      head = redirect_edge_var_map_vector (re);
       ene = single_succ_edge (entry_bb);
 
-      args = PENDING_STMT (re);
-      PENDING_STMT (re) = NULL_TREE;
-      psi = gsi_start (phi_nodes (fin_bb));
-      for (; !gsi_end_p (psi) && args;
-	   gsi_next (&psi), args = TREE_CHAIN (args))
+      psi = gsi_start_phis (fin_bb);
+      for (i = 0; !gsi_end_p (psi) && VEC_iterate (edge_var_map, head, i, vm);
+	   gsi_next (&psi), ++i)
 	{
 	  gimple nphi;
 
 	  phi = gsi_stmt (psi);
-	  t = PHI_RESULT (phi);
-	  gcc_assert (t == TREE_PURPOSE (args));
+	  t = gimple_phi_result (phi);
+	  gcc_assert (t == redirect_edge_var_map_result (vm));
 	  nphi = create_phi_node (t, iter_part_bb);
 	  SSA_NAME_DEF_STMT (t) = nphi;
 
@@ -3385,11 +3384,17 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 	  if (t == fd->v)
 	    t = v_extra;
 	  add_phi_arg (nphi, t, ene);
-	  add_phi_arg (nphi, TREE_VALUE (args), re);
+	  add_phi_arg (nphi, redirect_edge_var_map_def (vm), re);
 	}
-      gcc_assert (!gsi_end_p (psi) && !args);
-      while ((psi = gsi_start (phi_nodes (fin_bb))) && !gsi_end_p (psi))
-	remove_phi_node (gsi_stmt (psi), NULL_TREE, false);
+      gcc_assert (!gsi_end_p (psi) && i == VEC_length (edge_var_map, head));
+      redirect_edge_var_map_clear (re);
+      while (1)
+	{
+	  psi = gsi_start_phis (fin_bb);
+	  if (gsi_end_p (psi))
+	    break;
+	  remove_phi_node (&psi, false);
+	}
 
       /* Make phi node for trip.  */
       phi = create_phi_node (trip_main, iter_part_bb);
@@ -3397,7 +3402,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
       add_phi_arg (phi, trip_back, single_succ_edge (trip_update_bb));
       add_phi_arg (phi, trip_init, single_succ_edge (entry_bb));
     }
-#endif
 
   set_immediate_dominator (CDI_DOMINATORS, trip_update_bb, cont_bb);
   set_immediate_dominator (CDI_DOMINATORS, iter_part_bb,
@@ -3482,15 +3486,14 @@ expand_omp_for (struct omp_region *region)
 static void
 expand_omp_sections (struct omp_region *region)
 {
-  tree label_vec, t, u, vin = NULL, vmain, vnext, l1, l2;
+  tree t, u, vin = NULL, vmain, vnext, l1, l2;
+  VEC (tree,heap) *label_vec;
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
-  gimple_stmt_iterator si;
+  gimple_stmt_iterator si, switch_si;
   gimple sections_stmt, stmt, cont;
-  /* FIXME tuples
   struct omp_region *inner;
   unsigned i, casei;
-  */
   bool exit_reachable = region->cont != NULL;
 
   gcc_assert (exit_reachable == (region->exit != NULL));
@@ -3516,7 +3519,10 @@ expand_omp_sections (struct omp_region *region)
      GIMPLE_OMP_SECTION regions, a '0' case to handle the end of more work
      and a default case to abort if something goes wrong.  */
   len = EDGE_COUNT (l0_bb->succs);
-  label_vec = make_tree_vec (len + 1);
+
+  /* Use VEC_quick_push on label_vec throughout, since we know the size
+     in advance.  */
+  label_vec = VEC_alloc (tree, heap, len);
 
   /* The call to GOMP_sections_start goes in ENTRY_BB, replacing the
      GIMPLE_OMP_SECTIONS statement.  */
@@ -3545,8 +3551,8 @@ expand_omp_sections (struct omp_region *region)
 
   /* The switch() statement replacing GIMPLE_OMP_SECTIONS_SWITCH goes in
      L0_BB.  */
-  si = gsi_last_bb (l0_bb);
-  gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_SECTIONS_SWITCH);
+  switch_si = gsi_last_bb (l0_bb);
+  gcc_assert (gimple_code (gsi_stmt (switch_si)) == GIMPLE_OMP_SECTIONS_SWITCH);
   if (exit_reachable)
     {
       cont = last_stmt (l1_bb);
@@ -3560,18 +3566,12 @@ expand_omp_sections (struct omp_region *region)
       vnext = NULL_TREE;
     }
 
-  /* FIXME tuples */
-#if 0
-  t = build3 (SWITCH_EXPR, void_type_node, vmain, NULL, label_vec);
-  gsi_insert_after (&si, t, GSI_SAME_STMT);
-  gsi_remove (&si, true);
-
   i = 0;
   if (exit_reachable)
     {
       t = build3 (CASE_LABEL_EXPR, void_type_node,
 		  build_int_cst (unsigned_type_node, 0), NULL, l2);
-      TREE_VEC_ELT (label_vec, 0) = t;
+      VEC_quick_push (tree, label_vec, t);
       i++;
     }
 
@@ -3588,7 +3588,7 @@ expand_omp_sections (struct omp_region *region)
       t = gimple_block_label (s_entry_bb);
       u = build_int_cst (unsigned_type_node, casei);
       u = build3 (CASE_LABEL_EXPR, void_type_node, u, NULL, t);
-      TREE_VEC_ELT (label_vec, i) = u;
+      VEC_quick_push (tree, label_vec, u);
 
       si = gsi_last_bb (s_entry_bb);
       gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_SECTION);
@@ -3609,9 +3609,12 @@ expand_omp_sections (struct omp_region *region)
   /* Error handling code goes in DEFAULT_BB.  */
   t = gimple_block_label (default_bb);
   u = build3 (CASE_LABEL_EXPR, void_type_node, NULL, NULL, t);
-  TREE_VEC_ELT (label_vec, len) = u;
   make_edge (l0_bb, default_bb, 0);
-#endif
+
+  stmt = gimple_build_switch_vec (vmain, u, label_vec);
+  gsi_insert_after (&switch_si, stmt, GSI_SAME_STMT);
+  gsi_remove (&switch_si, true);
+  VEC_free (tree, heap, label_vec);
 
   si = gsi_start_bb (default_bb);
   stmt = gimple_build_call (built_in_decls[BUILT_IN_TRAP], 0);
@@ -4379,9 +4382,7 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   new_body = NULL;
   gimple_seq_add_seq (&new_body, ilist);
   gimple_seq_add_stmt (&new_body, stmt);
-  /* FIXME tuples: We need a gimple_build_omp_sections_switch.
   gimple_seq_add_stmt (&new_body, gimple_build_omp_sections_switch ());
-  */
   gimple_seq_add_stmt (&new_body, bind);
 
   control = create_tmp_var (unsigned_type_node, ".section");
@@ -5154,8 +5155,8 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
   if (label_ctx == branch_ctx)
     return false;
 
-  /* FIXME tuples:
      
+  /*
      Previously we kept track of the label's entire context in diagnose_sb_[12]
      so we could traverse it and issue a correct "exit" or "enter" error
      message upon a structured block violation.

@@ -1,3 +1,15 @@
+2008-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (expand_omp_parallel): Remove fixmes.
+	(expand_omp_for_static_chunk): Enable and tuplify code.
+	(expand_omp_sections): Remove fixmes.  Tuplify.
+	(lower_omp_sections): Same.
+	(diagnose_sb_0): Remove fixme.
+	* tree-ssa.c (redirect_edge_var_map_dup): Fix typo in comment.
+	* gimple.c (gimple_size): Add case for GIMPLE_OMP_SECTIONS_SWITCH.
+	(gimple_build_omp_sections): New.
+	* gimple.h (gimple_build_omp_sections_switch): New prototype.
+
 2008-05-03  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (diagnose_sb_0): Tuplify and enable.

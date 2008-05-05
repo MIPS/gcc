@@ -130,7 +130,7 @@ redirect_edge_var_map_dup (edge newe, edge olde)
 }
 
 
-/* Return the varable mappings for a given edge.  If there is none, return
+/* Return the variable mappings for a given edge.  If there is none, return
    NULL.  */
 
 edge_var_map_vector

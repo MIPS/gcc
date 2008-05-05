@@ -618,6 +618,7 @@ gimple gimple_build_omp_master (gimple_seq);
 gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_sections (gimple_seq, tree);
+gimple gimple_build_omp_sections_switch (void);
 gimple gimple_build_omp_single (gimple_seq, tree);
 gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);

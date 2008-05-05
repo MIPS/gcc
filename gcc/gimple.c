@@ -162,6 +162,8 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_continue);
     case GIMPLE_OMP_SECTIONS:
       return sizeof (struct gimple_statement_omp_sections);
+    case GIMPLE_OMP_SECTIONS_SWITCH:
+      return sizeof (struct gimple_statement_base);
     case GIMPLE_OMP_SINGLE:
       return sizeof (struct gimple_statement_omp_single);
     case GIMPLE_OMP_ATOMIC_LOAD:
@@ -932,6 +934,15 @@ gimple_build_omp_sections (gimple_seq body, tree clauses)
   gimple_omp_sections_set_clauses (p, clauses);
 
   return p;
+}
+
+
+/* Build a GIMPLE_OMP_SECTIONS_SWITCH.  */
+
+gimple
+gimple_build_omp_sections_switch (void)
+{
+  return gimple_alloc (GIMPLE_OMP_SECTIONS_SWITCH);
 }
 
 
