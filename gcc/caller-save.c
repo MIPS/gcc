@@ -645,8 +645,10 @@ setup_save_areas (void)
 		      <= GET_MODE_SIZE (regno_save_mode
 					[saved_reg2->hard_regno][1])))
 		{
-		  saved_reg->slot = slot;
-		  regno_save_mem[regno][1] = slot;
+		  saved_reg->slot
+		    = adjust_address_nv
+		      (slot, regno_save_mode[saved_reg->hard_regno][1], 0);
+		  regno_save_mem[regno][1] = saved_reg->slot;
 		  saved_reg->next = saved_reg2->next;
 		  saved_reg2->next = i;
 		  if (dump_file != NULL)
@@ -673,6 +675,10 @@ setup_save_areas (void)
 	      if (best_slot_num >= 0)
 		{
 		  saved_reg->slot = prev_save_slots[best_slot_num];
+		  saved_reg->slot
+		    = adjust_address_nv
+		      (saved_reg->slot,
+		       regno_save_mode[saved_reg->hard_regno][1], 0);
 		  if (dump_file != NULL)
 		    fprintf (dump_file,
 			     "%d uses a slot from prev iteration\n", regno);
