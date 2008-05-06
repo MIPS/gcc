@@ -6419,11 +6419,11 @@ ix86_internal_arg_pointer (void)
     crtl->stack_alignment_estimated = 128;
 
   /* Update crtl->stack_alignment_estimated and use it later to align
-     stack.  FIXME: How to optimize for leaf function?  */
-  if (PREFERRED_STACK_BOUNDARY > crtl->stack_alignment_estimated)
-    crtl->stack_alignment_estimated = PREFERRED_STACK_BOUNDARY;
-  if (PREFERRED_STACK_BOUNDARY > crtl->stack_alignment_needed)
-    crtl->stack_alignment_needed = PREFERRED_STACK_BOUNDARY;
+     stack.  */
+  if (crtl->preferred_stack_boundary > crtl->stack_alignment_estimated)
+    crtl->stack_alignment_estimated = crtl->preferred_stack_boundary;
+  if (crtl->preferred_stack_boundary > crtl->stack_alignment_needed)
+    crtl->stack_alignment_needed = crtl->preferred_stack_boundary;
 
   crtl->stack_realign_needed
     = ix86_incoming_stack_boundary < crtl->stack_alignment_estimated;

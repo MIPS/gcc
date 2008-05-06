@@ -1,3 +1,11 @@
+2008-05-06  Joey Ye  <joey.ye@intel.com>
+
+	* calls.c (expand_call): Do calculate preferred stack
+	boundary according to incoming stack boundary.
+
+	* config/i386/i386.c (ix86_internal_arg_pointer): Check
+	crtl->preferred_stack_boundary instead of PREFERRED_STACK_BOUNDARY.
+
 2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (handle_drap): Replace current_function_calls_alloca,
