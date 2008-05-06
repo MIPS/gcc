@@ -2349,6 +2349,14 @@ proc check_effective_target_c99_runtime { } {
     }]
 }
 
+# Return 1 if  target wchar_t is at least 4 bytes.
+
+proc check_effective_target_4byte_wchar_t { } {
+    return [check_no_compiler_messages 4byte_wchar_t object {
+	int dummy[sizeof (__WCHAR_TYPE__) >= 4 ? 1 : -1];
+    }]
+}
+
 # Return 1 if the target supports automatic stack alignment.
 
 proc check_effective_target_automatic_stack_alignment  { } {

@@ -553,6 +553,7 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
+  NEXT_PASS (pass_O0_always_inline);
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
@@ -1073,7 +1074,7 @@ pass_init_dump_file (struct opt_pass *pass)
 	  dname = lang_hooks.decl_printable_name (current_function_decl, 2);
 	  aname = (IDENTIFIER_POINTER
 		   (DECL_ASSEMBLER_NAME (current_function_decl)));
-	  fprintf (dump_file, "\n;; Apply transform to function %s (%s)%s\n\n", dname, aname,
+	  fprintf (dump_file, "\n;; Function %s (%s)%s\n\n", dname, aname,
 	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
 	     ? " (hot)"
 	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
