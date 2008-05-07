@@ -6393,6 +6393,8 @@ find_drap_reg (void)
 static rtx
 ix86_internal_arg_pointer (void)
 {
+  unsigned int preferred_stack_boundary;
+
   /* If called in "expand" pass, currently_expanding_to_rtl will
      be true */
   if (currently_expanding_to_rtl) 
@@ -6431,11 +6433,18 @@ ix86_internal_arg_pointer (void)
     crtl->stack_alignment_estimated = 128;
 
   /* Update crtl->stack_alignment_estimated and use it later to align
-     stack.  */
-  if (crtl->preferred_stack_boundary > crtl->stack_alignment_estimated)
-    crtl->stack_alignment_estimated = crtl->preferred_stack_boundary;
-  if (crtl->preferred_stack_boundary > crtl->stack_alignment_needed)
-    crtl->stack_alignment_needed = crtl->preferred_stack_boundary;
+     stack.  We check PREFERRED_STACK_BOUNDARY if there may be
+     exceptions since callgraph doesn't collect incoming stack alignment
+     for exception handling.  */
+  if (flag_exceptions
+      && PREFERRED_STACK_BOUNDARY > crtl->preferred_stack_boundary)
+    preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  else
+    preferred_stack_boundary = crtl->preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_estimated)
+    crtl->stack_alignment_estimated = preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_needed)
+    crtl->stack_alignment_needed = preferred_stack_boundary;
 
   crtl->stack_realign_needed
     = ix86_incoming_stack_boundary < crtl->stack_alignment_estimated;

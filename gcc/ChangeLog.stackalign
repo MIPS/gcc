@@ -1,4 +1,10 @@
 2008-05-07  H.J. Lu  <hongjiu.lu@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.c (ix86_internal_arg_pointer): Check
+	PREFERRED_STACK_BOUNDARY if there may be exceptions.
+
+2008-05-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* calls.c (expand_call): Don't use callgraph to increase
 	preferred_stack_boundary.
