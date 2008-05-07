@@ -864,7 +864,7 @@ rtx
 gen_reg_rtx (enum machine_mode mode)
 {
   rtx val;
-  unsigned int align = GET_MODE_ALIGNMENT (mode);
+  unsigned int align = GET_MODE_SPILL_ALIGNMENT (mode);
 
   gcc_assert (can_create_pseudo_p ());
 

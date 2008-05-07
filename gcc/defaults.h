@@ -944,4 +944,8 @@ along with GCC; see the file COPYING3.  If not see
 #define MAX_VECTORIZE_STACK_ALIGNMENT 0
 #endif
 
+#ifndef GET_MODE_SPILL_ALIGNMENT
+#define GET_MODE_SPILL_ALIGNMENT(MODE) GET_MODE_ALIGNMENT (MODE)
+#endif
+
 #endif  /* ! GCC_DEFAULTS_H */

@@ -1414,6 +1414,13 @@ less than or equal to @code{HOST_BITS_PER_INT}.
 @findex GET_MODE_ALIGNMENT
 @item GET_MODE_ALIGNMENT (@var{m})
 Return the required alignment, in bits, for an object of mode @var{m}.
+This is used as a default if @code{GET_MODE_SPILL_ALIGNMENT} is not
+defined. 
+
+@findex GET_MODE_SPILL_ALIGNMENT
+@item GET_MODE_SPILL_ALIGNMENT (@var{m})
+Return the required alignment, in bits, for a register of mode @var{m}
+when it is spilled onto stack.
 
 @findex GET_MODE_UNIT_SIZE
 @item GET_MODE_UNIT_SIZE (@var{m})

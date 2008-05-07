@@ -1,4 +1,14 @@
 2008-05-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (GET_MODE_SPILL_ALIGNMENT): New.
+	* config/i386/i386.h (GET_MODE_SPILL_ALIGNMENT): Likewise.
+
+	* emit-rtl.c (gen_reg_rtx): Use GET_MODE_SPILL_ALIGNMENT instead
+	of GET_MODE_ALIGNMENT.
+
+	* doc/rtl.texi (GET_MODE_SPILL_ALIGNMENT): New.
+
+2008-05-07  H.J. Lu  <hongjiu.lu@intel.com>
 	    Joey Ye  <joey.ye@intel.com>
 
 	* config/i386/i386.c (ix86_internal_arg_pointer): Check
