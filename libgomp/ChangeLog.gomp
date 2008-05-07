@@ -1,3 +1,24 @@
+2008-05-07  Jakob Blomer  <jakob.blomer@ira.uka.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_thread): Add thread_pool field.
+	(struct gomp_thread_pool): New type.
+	(gomp_icv): Fix formatting.
+	* team.c (gomp_threads, gomp_threads_size, gomp_threads_used,
+	gomp_threads_dock): Removed.
+	(gomp_thread_pool_destructor): New variable.
+	(struct gomp_thread_start_data): Add thread_pool field.
+	(gomp_thread_start): Use pool fields instead of global
+	gomp_* variables.
+	(gomp_new_thread_pool, gomp_free_pool_helper,
+	gomp_free_thread_pool): New functions.
+	(gomp_team_start): Create new pool if current thread doesn't have
+	one.  Use pool fields instead of global gomp_* variables. 
+	Initialize thread_pool field for new threads.
+	(initialize_team): Call pthread_key_create on
+	gomp_thread_pool_destructor.
+	(team_destructor): New function.
+
 2008-04-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/collapse-3.c: New test.

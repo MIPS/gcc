@@ -32,17 +32,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* This array manages threads spawned from the top level, which will
-   return to the idle loop once the current PARALLEL construct ends.  */
-static struct gomp_thread **gomp_threads;
-static unsigned gomp_threads_size;
-static unsigned gomp_threads_used;
-
 /* This attribute contains PTHREAD_CREATE_DETACHED.  */
 pthread_attr_t gomp_thread_attr;
 
-/* This barrier holds and releases threads waiting in gomp_threads.  */
-static gomp_barrier_t gomp_threads_dock;
+/* This key is for the thread pool destructor and its value points to
+   a thread pool */
+pthread_key_t gomp_thread_pool_destructor;
+
 
 /* This is the libgomp per-thread data structure.  */
 #ifdef HAVE_TLS
@@ -60,6 +56,7 @@ struct gomp_thread_start_data
   void *fn_data;
   struct gomp_team_state ts;
   struct gomp_task *task;
+  struct gomp_thread_pool *thread_pool;
   bool nested;
 };
 
@@ -72,6 +69,7 @@ gomp_thread_start (void *xdata)
 {
   struct gomp_thread_start_data *data = xdata;
   struct gomp_thread *thr;
+  struct gomp_thread_pool *pool;
   void (*local_fn) (void *);
   void *local_data;
 
@@ -87,10 +85,14 @@ gomp_thread_start (void *xdata)
   /* Extract what we need from data.  */
   local_fn = data->fn;
   local_data = data->fn_data;
+  thr->thread_pool = data->thread_pool;
   thr->ts = data->ts;
   thr->task = data->task;
 
   thr->ts.team->ordered_release[thr->ts.team_id] = &thr->release;
+
+  /* Make thread pool local. */
+  pool = thr->thread_pool;
 
   if (data->nested)
     {
@@ -100,9 +102,9 @@ gomp_thread_start (void *xdata)
     }
   else
     {
-      gomp_threads[thr->ts.team_id] = thr;
+      pool->threads[thr->ts.team_id] = thr;
 
-      gomp_barrier_wait (&gomp_threads_dock);
+      gomp_barrier_wait (&pool->threads_dock);
       do
 	{
 	  struct gomp_team *team;
@@ -123,7 +125,7 @@ gomp_thread_start (void *xdata)
 	  thr->ts.active_level = 0;
 
 	  gomp_barrier_wait_last (&team->barrier);
-	  gomp_barrier_wait (&gomp_threads_dock);
+	  gomp_barrier_wait (&pool->threads_dock);
 
 	  local_fn = thr->fn;
 	  local_data = thr->data;
@@ -198,6 +200,55 @@ free_team (struct gomp_team *team)
 }
 
 
+/* Allocate and initialize a thread pool. */
+
+static struct gomp_thread_pool *gomp_new_thread_pool (void)
+{
+  struct gomp_thread_pool *pool
+    = gomp_malloc (sizeof(struct gomp_thread_pool));
+  pool->threads = NULL;
+  pool->threads_size = 0;
+  pool->threads_used = 0;  
+  return pool;
+}
+
+static void
+gomp_free_pool_helper (void *thread_pool)
+{
+  struct gomp_thread_pool *pool
+    = (struct gomp_thread_pool *) thread_pool;
+  gomp_barrier_wait_last (&pool->threads_dock);
+  pthread_exit (NULL);
+}
+
+/* Free a thread pool and release its threads. */
+
+static void 
+gomp_free_thread_pool (void *thread_pool)
+{
+  struct gomp_thread_pool *pool
+    = (struct gomp_thread_pool *) thread_pool;
+  if (pool->threads_used > 0)
+    {
+      int i;
+      for (i = 1; i < pool->threads_used; i++)
+	{
+	  struct gomp_thread *nthr = pool->threads[i];
+	  nthr->fn = gomp_free_pool_helper;
+	  nthr->data = pool;
+	}
+      /* This barrier undocks threads docked on pool->threads_dock.  */
+      gomp_barrier_wait (&pool->threads_dock);
+      /* And this waits till all threads have called gomp_barrier_wait_last
+	 in gomp_free_pool_helper.  */
+      gomp_barrier_wait (&pool->threads_dock);
+      /* Now it is safe to destroy the barrier and free the pool.  */
+      gomp_barrier_destroy (&pool->threads_dock);
+    }
+  free (pool->threads);
+  free (pool); 
+}
+
 /* Launch a team.  */
 
 void
@@ -209,11 +260,18 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   struct gomp_task *task;
   struct gomp_task_icv *icv;
   bool nested;
+  struct gomp_thread_pool *pool;
   unsigned i, n, old_threads_used = 0;
   pthread_attr_t thread_attr, *attr;
 
   thr = gomp_thread ();
   nested = thr->ts.team != NULL;
+  if (__builtin_expect(thr->thread_pool == NULL, 0))
+    {
+      thr->thread_pool = gomp_new_thread_pool ();
+      pthread_setspecific (gomp_thread_pool_destructor, thr->thread_pool);
+    }
+  pool = thr->thread_pool;
   task = thr->task;
   icv = task ? &task->icv : &gomp_global_icv;
 
@@ -248,14 +306,14 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
      only the initial program thread will modify gomp_threads.  */
   if (!nested)
     {
-      old_threads_used = gomp_threads_used;
+      old_threads_used = pool->threads_used;
 
       if (nthreads <= old_threads_used)
 	n = nthreads;
       else if (old_threads_used == 0)
 	{
 	  n = 0;
-	  gomp_barrier_init (&gomp_threads_dock, nthreads);
+	  gomp_barrier_init (&pool->threads_dock, nthreads);
 	}
       else
 	{
@@ -263,18 +321,18 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 
 	  /* Increase the barrier threshold to make sure all new
 	     threads arrive before the team is released.  */
-	  gomp_barrier_reinit (&gomp_threads_dock, nthreads);
+	  gomp_barrier_reinit (&pool->threads_dock, nthreads);
 	}
 
       /* Not true yet, but soon will be.  We're going to release all
 	 threads from the dock, and those that aren't part of the 
 	 team will exit.  */
-      gomp_threads_used = nthreads;
+      pool->threads_used = nthreads;
 
       /* Release existing idle threads.  */
       for (; i < n; ++i)
 	{
-	  nthr = gomp_threads[i];
+	  nthr = pool->threads[i];
 	  nthr->ts.team = team;
 	  nthr->ts.work_share = &team->work_shares[0];
 	  nthr->ts.last_work_share = NULL;
@@ -296,14 +354,14 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	goto do_release;
 
       /* If necessary, expand the size of the gomp_threads array.  It is
-	 expected that changes in the number of threads is rare, thus we
+	 expected that changes in the number of threads are rare, thus we
 	 make no effort to expand gomp_threads_size geometrically.  */
-      if (nthreads >= gomp_threads_size)
+      if (nthreads >= pool->threads_size)
 	{
-	  gomp_threads_size = nthreads + 1;
-	  gomp_threads
-	    = gomp_realloc (gomp_threads,
-			    gomp_threads_size
+	  pool->threads_size = nthreads + 1;
+	  pool->threads
+	    = gomp_realloc (pool->threads,
+			    pool->threads_size
 			    * sizeof (struct gomp_thread_data *));
 	}
     }
@@ -358,6 +416,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       start_data->ts.static_trip = 0;
       start_data->task = &team->implicit_task[i];
       gomp_init_task (start_data->task, task, icv);
+      start_data->thread_pool = pool;
       start_data->nested = nested;
 
       if (gomp_cpu_affinity != NULL)
@@ -372,7 +431,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
     pthread_attr_destroy (&thread_attr);
 
  do_release:
-  gomp_barrier_wait (nested ? &team->barrier : &gomp_threads_dock);
+  gomp_barrier_wait (nested ? &team->barrier : &pool->threads_dock);
 
   /* Decrease the barrier threshold to match the number of threads
      that should arrive back at the end of this team.  The extra
@@ -382,7 +441,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
     {
       long diff = (long) nthreads - (long) old_threads_used;
 
-      gomp_barrier_reinit (&gomp_threads_dock, nthreads);
+      gomp_barrier_reinit (&pool->threads_dock, nthreads);
 
 #ifdef HAVE_SYNC_BUILTINS
       __sync_fetch_and_add (&gomp_managed_threads, diff);
@@ -439,6 +498,10 @@ initialize_team (void)
   pthread_key_create (&gomp_tls_key, NULL);
   pthread_setspecific (gomp_tls_key, &initial_thread_tls_data);
 #endif
+  
+  if (pthread_key_create (&gomp_thread_pool_destructor,
+			  gomp_free_thread_pool) != 0)
+    gomp_fatal ("could not create thread pool destructor.");
 
 #ifdef HAVE_TLS
   thr = &gomp_tls_data;
@@ -446,4 +509,12 @@ initialize_team (void)
   thr = &initial_thread_tls_data;
 #endif
   gomp_sem_init (&thr->release, 0);
+}
+
+static void __attribute__((destructor))
+team_destructor (void)
+{
+  /* Without this dlclose on libgomp could lead to subsequent
+     crashes.  */
+  pthread_key_delete (gomp_thread_pool_destructor);
 }

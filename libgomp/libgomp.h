@@ -303,6 +303,22 @@ struct gomp_thread
 
   /* This semaphore is used for ordered loops.  */
   gomp_sem_t release;
+
+  /* user pthread thread pool */ 
+  struct gomp_thread_pool *thread_pool;
+};
+
+
+struct gomp_thread_pool
+{
+  /* This array manages threads spawned from the top level, which will
+     return to the idle loop once the current PARALLEL construct ends.  */
+  struct gomp_thread **threads;
+  unsigned threads_size;
+  unsigned threads_used;
+
+  /* This barrier holds and releases threads waiting in threads.  */
+  gomp_barrier_t threads_dock;
 };
 
 /* ... and here is that TLS data.  */
@@ -323,9 +339,9 @@ static inline struct gomp_thread *gomp_thread (void)
 
 /* Here's how to access the current copy of the ICVs.  */
 
-static inline struct gomp_task_icv *gomp_icv(void)
+static inline struct gomp_task_icv *gomp_icv (void)
 {
-  struct gomp_task *task = gomp_thread()->task;
+  struct gomp_task *task = gomp_thread ()->task;
   if (task)
     return &task->icv;
   else
