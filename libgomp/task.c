@@ -64,7 +64,7 @@ GOMP_task (void (*fn) (void *), void *data,
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_task task;
-  gomp_init_task (&task, thr->task, gomp_icv ());
+  gomp_init_task (&task, thr->task, gomp_icv (false));
   thr->task = &task;
 
   /* We only implement synchronous tasks at the moment, which means that

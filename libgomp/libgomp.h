@@ -337,13 +337,17 @@ static inline struct gomp_thread *gomp_thread (void)
 }
 #endif
 
+extern struct gomp_task_icv *gomp_new_icv (void);
+
 /* Here's how to access the current copy of the ICVs.  */
 
-static inline struct gomp_task_icv *gomp_icv (void)
+static inline struct gomp_task_icv *gomp_icv (bool write)
 {
   struct gomp_task *task = gomp_thread ()->task;
   if (task)
     return &task->icv;
+  else if (write)
+    return gomp_new_icv ();
   else
     return &gomp_global_icv;
 }

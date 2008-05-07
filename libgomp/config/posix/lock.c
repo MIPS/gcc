@@ -90,7 +90,7 @@ gomp_destroy_nest_lock_30 (omp_nest_lock_t *lock)
 void
 gomp_set_nest_lock_30 (omp_nest_lock_t *lock)
 {
-  void *me = gomp_icv ();
+  void *me = gomp_icv (true);
 
   if (lock->owner != me)
     {
@@ -113,7 +113,7 @@ gomp_unset_nest_lock_30 (omp_nest_lock_t *lock)
 int
 gomp_test_nest_lock_30 (omp_nest_lock_t *lock)
 {
-  void *me = gomp_icv ();
+  void *me = gomp_icv (true);
 
   if (lock->owner != me)
     {
@@ -175,7 +175,7 @@ gomp_destroy_nest_lock_30 (omp_nest_lock_t *lock)
 void
 gomp_set_nest_lock_30 (omp_nest_lock_t *lock)
 {
-  void *me = gomp_icv ();
+  void *me = gomp_icv (true);
 
   if (lock->owner != me)
     {
@@ -199,7 +199,7 @@ gomp_unset_nest_lock_30 (omp_nest_lock_t *lock)
 int
 gomp_test_nest_lock_30 (omp_nest_lock_t *lock)
 {
-  void *me = gomp_icv ();
+  void *me = gomp_icv (true);
 
   if (lock->owner != me)
     {

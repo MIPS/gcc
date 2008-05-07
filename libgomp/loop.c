@@ -167,7 +167,7 @@ bool
 GOMP_loop_runtime_start (long start, long end, long incr,
 			 long *istart, long *iend)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   switch (icv->run_sched_var)
     {
     case GFS_STATIC:
@@ -259,7 +259,7 @@ bool
 GOMP_loop_ordered_runtime_start (long start, long end, long incr,
 				 long *istart, long *iend)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   switch (icv->run_sched_var)
     {
     case GFS_STATIC:
@@ -473,7 +473,7 @@ GOMP_parallel_loop_runtime_start (void (*fn) (void *), void *data,
 				  unsigned num_threads, long start, long end,
 				  long incr)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   gomp_parallel_loop_start (fn, data, num_threads, start, end, incr,
 			    icv->run_sched_var, icv->run_sched_modifier);
 }

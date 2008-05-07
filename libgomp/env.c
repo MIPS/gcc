@@ -553,42 +553,42 @@ initialize_env (void)
 void
 omp_set_num_threads (int n)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (true);
   icv->nthreads_var = (n > 0 ? n : 1);
 }
 
 void
 omp_set_dynamic (int val)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (true);
   icv->dyn_var = val;
 }
 
 int
 omp_get_dynamic (void)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   return icv->dyn_var;
 }
 
 void
 omp_set_nested (int val)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (true);
   icv->nest_var = val;
 }
 
 int
 omp_get_nested (void)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   return icv->nest_var;
 }
 
 void
 omp_set_schedule (omp_sched_t kind, int modifier)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (true);
   switch (kind)
     {
     case omp_sched_static:
@@ -609,7 +609,7 @@ omp_set_schedule (omp_sched_t kind, int modifier)
 int
 omp_get_schedule (omp_sched_t *kind, int *modifier)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   *kind = icv->run_sched_var;
   *modifier = icv->run_sched_modifier;
   /* FIXME: What is this supposed to return?  */
@@ -619,7 +619,7 @@ omp_get_schedule (omp_sched_t *kind, int *modifier)
 int
 omp_get_max_threads (void)
 {
-  struct gomp_task_icv *icv = gomp_icv();
+  struct gomp_task_icv *icv = gomp_icv (false);
   return icv->nthreads_var;
 }
 

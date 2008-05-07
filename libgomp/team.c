@@ -35,9 +35,8 @@
 /* This attribute contains PTHREAD_CREATE_DETACHED.  */
 pthread_attr_t gomp_thread_attr;
 
-/* This key is for the thread pool destructor and its value points to
-   a thread pool */
-pthread_key_t gomp_thread_pool_destructor;
+/* This key is for the thread destructor.  */
+pthread_key_t gomp_thread_destructor;
 
 
 /* This is the libgomp per-thread data structure.  */
@@ -224,29 +223,39 @@ gomp_free_pool_helper (void *thread_pool)
 /* Free a thread pool and release its threads. */
 
 static void 
-gomp_free_thread_pool (void *thread_pool)
+gomp_free_thread (void *arg __attribute__((unused)))
 {
-  struct gomp_thread_pool *pool
-    = (struct gomp_thread_pool *) thread_pool;
-  if (pool->threads_used > 0)
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_thread_pool *pool = thr->thread_pool;
+  if (pool)
     {
-      int i;
-      for (i = 1; i < pool->threads_used; i++)
+      if (pool->threads_used > 0)
 	{
-	  struct gomp_thread *nthr = pool->threads[i];
-	  nthr->fn = gomp_free_pool_helper;
-	  nthr->data = pool;
+	  int i;
+	  for (i = 1; i < pool->threads_used; i++)
+	    {
+	      struct gomp_thread *nthr = pool->threads[i];
+	      nthr->fn = gomp_free_pool_helper;
+	      nthr->data = pool;
+	    }
+	  /* This barrier undocks threads docked on pool->threads_dock.  */
+	  gomp_barrier_wait (&pool->threads_dock);
+	  /* And this waits till all threads have called gomp_barrier_wait_last
+	     in gomp_free_pool_helper.  */
+	  gomp_barrier_wait (&pool->threads_dock);
+	  /* Now it is safe to destroy the barrier and free the pool.  */
+	  gomp_barrier_destroy (&pool->threads_dock);
 	}
-      /* This barrier undocks threads docked on pool->threads_dock.  */
-      gomp_barrier_wait (&pool->threads_dock);
-      /* And this waits till all threads have called gomp_barrier_wait_last
-	 in gomp_free_pool_helper.  */
-      gomp_barrier_wait (&pool->threads_dock);
-      /* Now it is safe to destroy the barrier and free the pool.  */
-      gomp_barrier_destroy (&pool->threads_dock);
+      free (pool->threads);
+      free (pool); 
+      thr->thread_pool = NULL;
     }
-  free (pool->threads);
-  free (pool); 
+  if (thr->task != NULL)
+    {
+      struct gomp_task *task = thr->task;
+      gomp_end_task ();
+      free (task);
+    }
 }
 
 /* Launch a team.  */
@@ -266,10 +275,10 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 
   thr = gomp_thread ();
   nested = thr->ts.team != NULL;
-  if (__builtin_expect(thr->thread_pool == NULL, 0))
+  if (__builtin_expect (thr->thread_pool == NULL, 0))
     {
       thr->thread_pool = gomp_new_thread_pool ();
-      pthread_setspecific (gomp_thread_pool_destructor, thr->thread_pool);
+      pthread_setspecific (gomp_thread_destructor, thr);
     }
   pool = thr->thread_pool;
   task = thr->task;
@@ -499,8 +508,7 @@ initialize_team (void)
   pthread_setspecific (gomp_tls_key, &initial_thread_tls_data);
 #endif
   
-  if (pthread_key_create (&gomp_thread_pool_destructor,
-			  gomp_free_thread_pool) != 0)
+  if (pthread_key_create (&gomp_thread_destructor, gomp_free_thread) != 0)
     gomp_fatal ("could not create thread pool destructor.");
 
 #ifdef HAVE_TLS
@@ -516,5 +524,16 @@ team_destructor (void)
 {
   /* Without this dlclose on libgomp could lead to subsequent
      crashes.  */
-  pthread_key_delete (gomp_thread_pool_destructor);
+  pthread_key_delete (gomp_thread_destructor);
+}
+
+struct gomp_task_icv *
+gomp_new_icv (void)
+{
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_task *task = gomp_malloc (sizeof (struct gomp_task));
+  gomp_init_task (task, NULL, &gomp_global_icv);
+  thr->task = task;
+  pthread_setspecific (gomp_thread_destructor, thr);
+  return &task->icv;
 }

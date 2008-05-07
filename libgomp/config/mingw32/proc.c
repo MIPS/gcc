@@ -70,7 +70,7 @@ unsigned
 gomp_dynamic_max_threads (void)
 {
   unsigned int n_onln = count_avail_process_cpus ();
-  unsigned int nthreads_var = gomp_icv()->nthreads_var;
+  unsigned int nthreads_var = gomp_icv (false)->nthreads_var;
   return n_onln > nthreads_var ? nthreads_var : n_onln;
 }
 

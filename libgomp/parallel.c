@@ -45,7 +45,7 @@ gomp_resolve_num_threads (unsigned specified, unsigned count)
   unsigned threads_requested, max_num_threads, num_threads;
   unsigned long remaining;
 
-  icv = gomp_icv ();
+  icv = gomp_icv (false);
 
   if (specified == 1)
     return 1;

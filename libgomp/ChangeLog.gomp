@@ -1,3 +1,37 @@
+2008-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (gomp_new_icv): New prototype.
+	(gomp_icv): Add write argument.  If task is NULL and write is true,
+	return gomp_new_icv ().
+	* team.c (gomp_thread_pool_destructor): Rename to...
+	(gomp_thread_destructor): ... this.
+	(gomp_free_thread_pool): Rename to...
+	(gomp_free_thread): ... this.  Don't use argument.  Free both pool
+	if allocated and task if allocated.
+	(gomp_team_start, initialize_team, team_destructor): Adjust for
+	variable and function renames.
+	(gomp_new_icv): New function.
+	* loop.c (GOMP_loop_runtime_start, GOMP_loop_ordered_runtime_start,
+	GOMP_parallel_loop_runtime_start): Adjust gomp_icv callers.
+	* parallel.c (gomp_resolve_num_threads): Likewise.
+	* env.c (omp_set_num_threads, omp_set_dynamic, omp_get_dynamic,
+	omp_set_nested, omp_get_nested, omp_set_schedule, omp_get_schedule,
+	omp_get_max_threads): Likewise.
+	* task.c (GOMP_task): Likewise.
+	* config/linux/lock.c (gomp_set_nest_lock_30,
+	gomp_test_nest_lock_30): Likewise.
+	* config/linux/proc.c (get_num_procs, gomp_dynamic_max_threads):
+	Likewise.
+	* config/posix95/lock.c (gomp_set_nest_lock_30,
+	gomp_test_nest_lock_30): Likewise.
+	* config/mingw32/proc.c (gomp_dynamic_max_threads): Likewise.
+	* config/posix/lock.c (gomp_set_nest_lock_30,
+	gomp_test_nest_lock_30): Likewise.
+	* config/posix/proc.c (gomp_dynamic_max_threads, omp_get_num_procs):
+	Likewise.
+	* testsuite/libgomp.c/icv-2.c: New test.
+	* testsuite/libgomp.c/lock-3.c: New test.
+
 2008-05-07  Jakob Blomer  <jakob.blomer@ira.uka.de>
 	    Jakub Jelinek  <jakub@redhat.com>
 
