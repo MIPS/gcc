@@ -275,9 +275,9 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd)
 
    When expanding a combined parallel+workshare region, the call to
    the child function may need additional arguments in the case of
-   OMP_FOR regions.  In some cases, these arguments are computed out
-   of variables passed in from the parent to the child via 'struct
-   .omp_data_s'.  For instance:
+   GIMPLE_OMP_FOR regions.  In some cases, these arguments are
+   computed out of variables passed in from the parent to the child
+   via 'struct .omp_data_s'.  For instance:
 
 	#pragma omp parallel for schedule (guided, i * 4)
 	for (j ...)
@@ -301,7 +301,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd)
 
    To see whether the code in WS_ENTRY_BB blocks the combined
    parallel+workshare call, we collect all the variables used in the
-   OMP_FOR header check whether they appear on the LHS of any
+   GIMPLE_OMP_FOR header check whether they appear on the LHS of any
    statement in WS_ENTRY_BB.  If so, then we cannot emit the combined
    call.
 
@@ -378,8 +378,8 @@ get_ws_args_for (gimple ws_stmt)
   else if (gimple_code (ws_stmt) == GIMPLE_OMP_SECTIONS)
     {
       /* Number of sections is equal to the number of edges from the
-	 OMP_SECTIONS_SWITCH statement, except for the one to the exit
-	 of the sections region.  */
+	 GIMPLE_OMP_SECTIONS_SWITCH statement, except for the one to
+	 the exit of the sections region.  */
       basic_block bb = single_succ (gimple_bb (ws_stmt));
       t = build_int_cst (unsigned_type_node, EDGE_COUNT (bb->succs) - 1);
       t = tree_cons (NULL, t, NULL);
@@ -2187,9 +2187,9 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
     }
 }
 
-/* Generate code to implement SHARED from the sender (aka parent) side.
-   This is trickier, since OMP_PARALLEL_CLAUSES doesn't list things that
-   got automatically shared.  */
+/* Generate code to implement SHARED from the sender (aka parent)
+   side.  This is trickier, since GIMPLE_OMP_PARALLEL_CLAUSES doesn't
+   list things that got automatically shared.  */
 
 static void
 lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
@@ -2457,7 +2457,7 @@ list2chain (tree list)
 
 
 /* Remove barriers in REGION->EXIT's block.  Note that this is only
-   valid for OMP_PARALLEL regions.  Since the end of a parallel region
+   valid for GIMPLE_OMP_PARALLEL regions.  Since the end of a parallel region
    is an implicit barrier, any workshare inside the GIMPLE_OMP_PARALLEL that
    left a barrier at the end of the GIMPLE_OMP_PARALLEL region can now be
    removed.  */
@@ -2700,7 +2700,7 @@ expand_omp_parallel (struct omp_region *region)
       for (t = DECL_ARGUMENTS (child_fn); t; t = TREE_CHAIN (t))
 	DECL_CONTEXT (t) = child_fn;
 
-      /* Split ENTRY_BB at OMP_PARALLEL so that it can be moved to the
+      /* Split ENTRY_BB at GIMPLE_OMP_PARALLEL so that it can be moved to the
 	 child function.  */
       gsi = gsi_last_bb (entry_bb);
       stmt = gsi_stmt (gsi);
@@ -2710,7 +2710,7 @@ expand_omp_parallel (struct omp_region *region)
       entry_bb = e->dest;
       single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
-      /* Convert OMP_RETURN into a RETURN_EXPR.  */
+      /* Convert GIMPLE_OMP_RETURN into a RETURN_EXPR.  */
       if (exit_bb)
 	{
 	  gsi = gsi_last_bb (exit_bb);
@@ -3122,7 +3122,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   /* Remove the GIMPLE_OMP_CONTINUE statement.  */
   gsi_remove (&gsi, true);
 
-  /* Replace the OMP_RETURN with a barrier, or nothing.  */
+  /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
   if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     force_gimple_operand_gsi (&gsi, build_omp_barrier (), false, NULL_TREE,
@@ -3333,7 +3333,7 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
   stmt = gimple_build_assign (trip_back, t);
   gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
 
-  /* Replace the OMP_RETURN with a barrier, or nothing.  */
+  /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   si = gsi_last_bb (exit_bb);
   if (!gimple_omp_return_nowait_p (gsi_stmt (si)))
     force_gimple_operand_gsi (&si, build_omp_barrier (), false, NULL_TREE,
@@ -3633,7 +3633,7 @@ expand_omp_sections (struct omp_region *region)
 
       single_succ_edge (l1_bb)->flags = EDGE_FALLTHRU;
 
-      /* Cleanup function replaces OMP_RETURN in EXIT_BB.  */
+      /* Cleanup function replaces GIMPLE_OMP_RETURN in EXIT_BB.  */
       si = gsi_last_bb (l2_bb);
       if (gimple_omp_return_nowait_p (gsi_stmt (si)))
 	t = built_in_decls[BUILT_IN_GOMP_SECTIONS_END_NOWAIT];
@@ -3732,11 +3732,11 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   /* We expect to find the following sequences:
    
    load_bb:
-       OMP_ATOMIC_LOAD (tmp, mem)
+       GIMPLE_OMP_ATOMIC_LOAD (tmp, mem)
 
    store_bb:
        val = tmp OP something; (or: something OP tmp)
-       OMP_STORE (val) 
+       GIMPLE_OMP_STORE (val) 
 
   ???FIXME: Allow a more flexible sequence.  
   Perhaps use data flow to pick the statements.
@@ -3845,7 +3845,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   if (sync_compare_and_swap[TYPE_MODE (itype)] == CODE_FOR_nothing)
     return false;
 
-  /* Load the initial value, replacing the OMP_ATOMIC_LOAD.  */
+  /* Load the initial value, replacing the GIMPLE_OMP_ATOMIC_LOAD.  */
   si = gsi_last_bb (load_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_LOAD);
   initial = force_gimple_operand_gsi (&si, build_fold_indirect_ref (addr),
@@ -3960,15 +3960,16 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
    responses received from omp@openmp.org, appears to be within spec.
    Which makes sense, since that's how several other compilers handle
    this situation as well.  
-   LOADED_VAL and ADDR are the operands of OMP_ATOMIC_LOAD we're expanding. 
-   STORED_VAL is the operand of the matching OMP_ATOMIC_STORE.
+   LOADED_VAL and ADDR are the operands of GIMPLE_OMP_ATOMIC_LOAD we're
+   expanding.  STORED_VAL is the operand of the matching
+   GIMPLE_OMP_ATOMIC_STORE.
 
    We replace 
-   OMP_ATOMIC_LOAD (loaded_val, addr) with  
+   GIMPLE_OMP_ATOMIC_LOAD (loaded_val, addr) with  
    loaded_val = *addr;
 
    and replace
-   OMP_ATOMIC_ATORE (stored_val)  with
+   GIMPLE_OMP_ATOMIC_ATORE (stored_val)  with
    *addr = stored_val;  
 */
 
@@ -3992,7 +3993,7 @@ expand_omp_atomic_mutex (basic_block load_bb, basic_block store_bb,
   gsi_remove (&si, true);
 
   si = gsi_last_bb (store_bb);
-  gcc_assert (gimple_code (gsi_stmt (si)) == OMP_ATOMIC_STORE);
+  gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_STORE);
 
   stmt = gimple_build_assign (build_fold_indirect_ref (unshare_expr (addr)),
 				stored_val);
@@ -4153,8 +4154,9 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	}
       else if (code == GIMPLE_OMP_ATOMIC_STORE)
 	{
-	  /* OMP_ATOMIC_STORE is analoguous to OMP_RETURN, but matches with
-	     OMP_ATOMIC_LOAD.  */
+	  /* GIMPLE_OMP_ATOMIC_STORE is analoguous to
+	     GIMPLE_OMP_RETURN, but matches with
+	     GIMPLE_OMP_ATOMIC_LOAD.  */
 	  gcc_assert (parent);
 	  gcc_assert (parent->type == GIMPLE_OMP_ATOMIC_LOAD);
 	  region = parent;
@@ -4169,8 +4171,9 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	}
       else if (code == GIMPLE_OMP_SECTIONS_SWITCH)
 	{
-	  /* OMP_SECTIONS_SWITCH is part of OMP_SECTIONS, and we do nothing for
-	     it.  */ ;
+	  /* GIMPLE_OMP_SECTIONS_SWITCH is part of
+	     GIMPLE_OMP_SECTIONS, and we do nothing for it.  */
+	  ;
 	}
       else
 	{
@@ -4796,7 +4799,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     record_vars_into (gimple_bind_vars (gimple_seq_first_stmt (omp_for_body)),
 		      ctx->cb.dst_fn);
 
-  /* The pre-body and input clauses go before the lowered OMP_FOR.  */
+  /* The pre-body and input clauses go before the lowered GIMPLE_OMP_FOR.  */
   ilist = NULL;
   dlist = NULL;
   body = NULL;

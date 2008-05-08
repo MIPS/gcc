@@ -439,10 +439,7 @@ static void
 make_edges (void)
 {
   basic_block bb;
-  /* FIXME tuples.  */
-#if 0
   struct omp_region *cur_region = NULL;
-#endif
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
@@ -512,34 +509,17 @@ make_edges (void)
 	    case GIMPLE_OMP_ORDERED:
 	    case GIMPLE_OMP_CRITICAL:
 	    case GIMPLE_OMP_SECTION:
-	      /* FIXME tuples.  */
-#if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
-#else
 	      fallthru = true;
-	      gimple_unreachable ();
-#endif
 	      break;
 
 	    case GIMPLE_OMP_SECTIONS:
-	      /* FIXME tuples.  */
-#if 0
 	      cur_region = new_omp_region (bb, code, cur_region);
 	      fallthru = true;
-#else
-	      fallthru = true;
-	      gimple_unreachable ();
-#endif
 	      break;
 
 	    case GIMPLE_OMP_SECTIONS_SWITCH:
-	      /* FIXME tuples.  */
-#if 0
 	      fallthru = false;
-#else
-	      fallthru = false;
-	      gimple_unreachable ();
-#endif
 	      break;
 
 
@@ -550,22 +530,14 @@ make_edges (void)
 
 
 	    case GIMPLE_OMP_RETURN:
-	      /* FIXME tuples.  */
-#if 0
 	      /* In the case of an OMP_SECTION, the edge will go somewhere
 		 other than the next block.  This will be created later.  */
 	      cur_region->exit = bb;
 	      fallthru = cur_region->type != OMP_SECTION;
 	      cur_region = cur_region->outer;
-#else
-	      fallthru = true;
-	      gimple_unreachable ();
-#endif
 	      break;
 
 	    case GIMPLE_OMP_CONTINUE:
-	      /* FIXME tuples.  */
-#if 0
 	      cur_region->cont = bb;
 	      switch (cur_region->type)
 		{
@@ -611,10 +583,6 @@ make_edges (void)
 		default:
 		  gcc_unreachable ();
 		}
-#else
-	      fallthru = true;
-	      gimple_unreachable ();
-#endif
 	      break;
 
 	    default:
@@ -629,11 +597,8 @@ make_edges (void)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
-  /* FIXME tuples.  */
-#if 0
   if (root_omp_region)
     free_omp_regions ();
-#endif
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();
@@ -2615,7 +2580,6 @@ is_ctrl_altering_stmt (gimple t)
 
 
 /* Return true if T is a computed goto.  */
-/* FIXME tuples: This is unused elsewhere.  It should be a static.  */
 
 bool
 computed_goto_p (gimple t)
@@ -5170,13 +5134,6 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
 #endif
 }
 
-/*
-DEF_VEC_P(basic_block);
-DEF_VEC_ALLOC_P(basic_block,heap);
-*/
-
-/* FIXME tuples.  */
-#if 0
 /* Add all the blocks dominated by ENTRY to the array BBS_P.  Stop
    adding blocks when the dominator traversal reaches EXIT.  This
    function silently assumes that ENTRY strictly dominates EXIT.  */
@@ -5220,7 +5177,7 @@ replace_by_duplicate_decl (tree *tp, struct pointer_map_t *vars_map,
       if (SSA_VAR_P (t))
 	{
 	  new_t = copy_var_decl (t, DECL_NAME (t), TREE_TYPE (t));
-	  f->local_decs = gimple_cons (NULL_TREE, new_t, f->local_decls);
+	  f->local_decls = tree_cons (NULL_TREE, new_t, f->local_decls);
 	}
       else
 	{
@@ -5236,11 +5193,8 @@ replace_by_duplicate_decl (tree *tp, struct pointer_map_t *vars_map,
 
   *tp = new_t;
 }
-#endif
 
 
-/* FIXME tuples.  */
-#if 0
 /* Creates an ssa name in TO_CONTEXT equivalent to NAME.
    VARS_MAP maps old ssa names and var_decls to the new ones.  */
 
@@ -5276,7 +5230,6 @@ replace_ssa_name (tree name, struct pointer_map_t *vars_map,
 
   return new_name;
 }
-#endif
 
 struct move_stmt_d
 {
@@ -5288,14 +5241,12 @@ struct move_stmt_d
   bool remap_decls_p;
 };
 
-/* FIXME tuples.  */
-#if 0
 /* Helper for move_block_to_fn.  Set TREE_BLOCK in every expression
    contained in *TP and change the DECL_CONTEXT of every local
    variable referenced in *TP.  */
 
 static tree
-move_stmt_r (tree *tp, int *walk_subtrees, void *data)
+move_stmt_op (tree *tp, int *walk_subtrees, void *data)
 {
   struct move_stmt_d *p = (struct move_stmt_d *) data;
   tree t = *tp;
@@ -5304,22 +5255,6 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
       && (EXPR_P (t) || GIMPLE_STMT_P (t)))
     TREE_BLOCK (t) = p->block;
 
-  if (OMP_DIRECTIVE_P (t)
-      && TREE_CODE (t) != OMP_RETURN
-      && TREE_CODE (t) != OMP_CONTINUE)
-    {
-      /* Do not remap variables inside OMP directives.  Variables
-	 referenced in clauses and directive header belong to the
-	 parent function and should not be moved into the child
-	 function.  */
-      bool save_remap_decls_p = p->remap_decls_p;
-      p->remap_decls_p = false;
-      *walk_subtrees = 0;
-
-      walk_tree (&OMP_BODY (t), move_stmt_r, p, NULL);
-
-      p->remap_decls_p = save_remap_decls_p;
-    }
   else if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
     {
       if (TREE_CODE (t) == SSA_NAME)
@@ -5362,26 +5297,58 @@ move_stmt_r (tree *tp, int *walk_subtrees, void *data)
     }
   else if (TYPE_P (t))
     *walk_subtrees = 0;
+}
+
+/* Like move_stmt_op, but for gimple statements.
+
+   Helper for move_block_to_fn.  Set GIMPLE_BLOCK in every expression
+   contained in the current statement in *GSI_P and change the
+   DECL_CONTEXT of every local variable referenced in the current
+   statement.  */
+
+static tree
+move_stmt_r (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+	     struct walk_stmt_info *wi)
+{
+  struct move_stmt_d *p = (struct move_stmt_d *) wi->info;
+  gimple stmt = gsi_stmt (*gsi_p);
+
+  if (p->block)
+    gimple_set_block (stmt, p->block);
+
+  if (is_gimple_omp (stmt)
+      && gimple_code (stmt) != GIMPLE_OMP_RETURN
+      && gimple_code (stmt) != GIMPLE_OMP_CONTINUE)
+    {
+      /* Do not remap variables inside OMP directives.  Variables
+	 referenced in clauses and directive header belong to the
+	 parent function and should not be moved into the child
+	 function.  */
+      bool save_remap_decls_p = p->remap_decls_p;
+      p->remap_decls_p = false;
+      *walk_subtrees = 0;
+
+      walk_gimple_seq (gimple_omp_body (stmt), move_stmt_r, move_stmt_op, wi);
+
+      p->remap_decls_p = save_remap_decls_p;
+    }
 
   return NULL_TREE;
 }
 
-/* FIXME tuples.  */
-#if 0
 /* Marks virtual operands of all statements in basic blocks BBS for
    renaming.  */
 
 void
 mark_virtual_ops_in_bb (basic_block bb)
 {
-  tree phi;
-  block_stmt_iterator bsi;
+  gimple_stmt_iterator gsi;
 
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    mark_virtual_ops_for_renaming (phi);
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    mark_virtual_ops_for_renaming (gsi_stmt (gsi));
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    mark_virtual_ops_for_renaming (bsi_stmt (bsi));
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    mark_virtual_ops_for_renaming (gsi_stmt (gsi));
 }
 
 /* Marks virtual operands of all statements in basic blocks BBS for
@@ -5396,7 +5363,6 @@ mark_virtual_ops_in_region (VEC (basic_block,heap) *bbs)
   for (i = 0; VEC_iterate (basic_block, bbs, i, bb); i++)
     mark_virtual_ops_in_bb (bb);
 }
-#endif
 
 /* Move basic block BB from function CFUN to function DEST_FN.  The
    block is moved out of the original linked list and placed after
@@ -5420,7 +5386,6 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   gimple_stmt_iterator si;
   struct move_stmt_d d;
   unsigned old_len, new_len;
-  tree phi, next_phi;
 
   /* Remove BB from dominance structures.  */
   delete_from_dominance_info (CDI_DOMINATORS, bb);
@@ -5460,18 +5425,18 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
                bb->index, bb);
 
   /* Remap the variables in phi nodes.  */
-  for (phi = phi_nodes (bb); phi; phi = next_phi)
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
+      gimple phi = gsi_stmt (si);
       use_operand_p use;
       tree op = PHI_RESULT (phi);
       ssa_op_iter oi;
 
-      next_phi = PHI_CHAIN (phi);
       if (!is_gimple_reg (op))
 	{
 	  /* Remove the phi nodes for virtual operands (alias analysis will be
 	     run for the new function, anyway).  */
-          remove_phi_node (phi, NULL, true);
+          remove_phi_node (&si, true);
 	  continue;
 	}
 
@@ -5492,20 +5457,23 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   d.to_context = dest_cfun->decl;
   d.new_label_map = new_label_map;
 
-  for (si = gsi_start (bb); !gsi_end_p (si); gsi_next (&si))
+  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
     {
-      tree stmt = gsi_stmt (si);
+      gimple stmt = gsi_stmt (si);
       int region;
+      struct walk_stmt_info wi;
 
       d.remap_decls_p = true;
-      if (TREE_BLOCK (stmt))
+      if (gimple_block (stmt))
 	d.block = DECL_INITIAL (dest_cfun->decl);
 
-      walk_tree (&stmt, move_stmt_r, &d, NULL);
+      memset (&wi, 0, sizeof (wi));
+      wi.info = &d;
+      walk_gimple_stmt (&si, move_stmt_r, move_stmt_op, &wi);
 
-      if (TREE_CODE (stmt) == LABEL_EXPR)
+      if (gimple_code (stmt) == GIMPLE_LABEL)
 	{
-	  tree label = LABEL_EXPR_LABEL (stmt);
+	  tree label = gimple_label_label (stmt);
 	  int uid = LABEL_DECL_UID (label);
 
 	  gcc_assert (uid > -1);
@@ -5526,11 +5494,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  if (uid >= dest_cfun->cfg->last_label_uid)
 	    dest_cfun->cfg->last_label_uid = uid + 1;
 	}
-      else if (TREE_CODE (stmt) == RESX_EXPR && eh_offset != 0)
-	TREE_OPERAND (stmt, 0) =
-	  build_int_cst (NULL_TREE,
-			 TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0))
-			 + eh_offset);
+      else if (gimple_code (stmt) == GIMPLE_RESX && eh_offset != 0)
+	gimple_resx_set_region (stmt, gimple_resx_region (stmt) + eh_offset);
 
       region = lookup_stmt_eh_region (stmt);
       if (region >= 0)
@@ -5549,26 +5514,23 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
       pop_cfun ();
     }
 }
-#endif
 
 /* Examine the statements in BB (which is in SRC_CFUN); find and return
    the outermost EH region.  Use REGION as the incoming base EH region.  */
 
-/* FIXME tuples.  */
-#if 0
 static int
 find_outermost_region_in_block (struct function *src_cfun,
 				basic_block bb, int region)
 {
   gimple_stmt_iterator si;
 
-  for (si = gsi_start (bb); !gsi_end_p (si); gsi_next (&si))
+  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
     {
-      tree stmt = gsi_stmt (si);
+      gimple stmt = gsi_stmt (si);
       int stmt_region;
 
-      if (TREE_CODE (stmt) == RESX_EXPR)
-	stmt_region = TREE_INT_CST_LOW (TREE_OPERAND (stmt, 0));
+      if (gimple_code (stmt) == GIMPLE_RESX)
+	stmt_region = gimple_resx_region (stmt);
       else
 	stmt_region = lookup_stmt_eh_region_fn (src_cfun, stmt);
       if (stmt_region > 0)
@@ -5610,7 +5572,6 @@ new_label_mapper (tree decl, void *data)
 
   return m->to;
 }
-#endif
 
 /* Move a single-entry, single-exit region delimited by ENTRY_BB and
    EXIT_BB to function DEST_CFUN.  The whole region is replaced by a
@@ -5627,14 +5588,13 @@ new_label_mapper (tree decl, void *data)
    associated with DEST_CFUN.  */
 
 basic_block
-move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block entry_bb ATTRIBUTE_UNUSED,
-		        basic_block exit_bb ATTRIBUTE_UNUSED)
+move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
+		        basic_block exit_bb)
 {
-  /* FIXME tuples.  */
-#if 0
-  VEC(basic_block,heap) *bbs;
-  basic_block after, bb, *entry_pred, *exit_succ;
-  struct function *saved_cfun;
+  VEC(basic_block,heap) *bbs, *dom_bbs;
+  basic_block dom_entry = get_immediate_dominator (CDI_DOMINATORS, entry_bb);
+  basic_block after, bb, *entry_pred, *exit_succ, abb;
+  struct function *saved_cfun = cfun;
   int *entry_flag, *exit_flag, eh_offset;
   unsigned *entry_prob, *exit_prob;
   unsigned i, num_entry_edges, num_exit_edges;
@@ -5802,10 +5762,6 @@ move_sese_region_to_fn (struct function *dest_cfun ATTRIBUTE_UNUSED, basic_block
   VEC_free (basic_block, heap, bbs);
 
   return bb;
-#else
-  gimple_unreachable ();
-  return NULL;
-#endif
 }
 
 

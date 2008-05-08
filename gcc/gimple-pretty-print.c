@@ -964,6 +964,19 @@ dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
     {
       pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, gimple_omp_parallel_clauses (gs), spc, flags);
+      if (gimple_omp_parallel_child_fn (gs))
+	{
+	  pp_string (buffer, " [child fn: ");
+	  dump_generic_node (buffer, gimple_omp_parallel_child_fn (gs),
+			     spc, flags, false);
+	  pp_string (buffer, " (");
+	  if (gimple_omp_parallel_data_arg (gs))
+	    dump_generic_node (buffer, gimple_omp_parallel_data_arg (gs),
+			       spc, flags, false);
+	  else
+	    pp_string (buffer, "???");
+	  pp_string (buffer, ")]");
+	}
       pp_newline (buffer);
       dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
     }
