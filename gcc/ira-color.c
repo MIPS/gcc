@@ -1448,8 +1448,7 @@ color_pass (loop_tree_node_t loop_tree_node)
   allocno_t a, subloop_allocno;
   loop_tree_node_t subloop_node;
 
-  if (loop_tree_node->loop == NULL)
-    return;
+  ira_assert (loop_tree_node->bb == NULL);
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     print_loop_title (loop_tree_node);
 
@@ -1466,10 +1465,11 @@ color_pass (loop_tree_node_t loop_tree_node)
   /* Color all mentioned allocnos including transparent ones.  */
   color_allocnos ();
   /* Update costs of the corresponding allocnos in the subloops.  */
-  for (subloop_node = loop_tree_node->children;
+  for (subloop_node = loop_tree_node->subloops;
        subloop_node != NULL;
-       subloop_node = subloop_node->next)
-    if (subloop_node->bb == NULL)
+       subloop_node = subloop_node->subloop_next)
+    {
+      ira_assert (subloop_node->bb == NULL);
       EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, j, bi)
         {
 	  a = allocnos[j];
@@ -1599,6 +1599,7 @@ color_pass (loop_tree_node_t loop_tree_node)
 		}
 	    }
 	}
+    }
 }
 
 /* The function initialized common data for coloring and calls
@@ -1664,12 +1665,11 @@ move_spill_restore (void)
 		  - (ALLOCNO_HARD_REG_COSTS (a) == NULL
 		     ? ALLOCNO_COVER_CLASS_COST (a)
 		     : ALLOCNO_HARD_REG_COSTS (a)[index]));
-	  for (subloop_node = loop_node->children;
+	  for (subloop_node = loop_node->subloops;
 	       subloop_node != NULL;
-	       subloop_node = subloop_node->next)
+	       subloop_node = subloop_node->subloop_next)
 	    {
-	      if (subloop_node->bb != NULL)
-		continue;
+	      ira_assert (subloop_node->bb == NULL);
 	      subloop_allocno = subloop_node->regno_allocno_map[regno];
 	      if (subloop_allocno == NULL)
 		continue;
@@ -1929,8 +1929,8 @@ static int *regno_coalesced_allocno_num;
 static int
 coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
 {
-  int regno1 = *(int *) v1p;
-  int regno2 = *(int *) v2p;
+  const int regno1 = *(const int *) v1p;
+  const int regno2 = *(const int *) v2p;
   int diff;
 
   if ((diff = (regno_coalesced_allocno_cost[regno2]
@@ -1952,8 +1952,8 @@ static unsigned int *regno_max_ref_width;
 static int
 coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 {
-  int regno1 = *(int *) v1p;
-  int regno2 = *(int *) v2p;
+  const int regno1 = *(const int *) v1p;
+  const int regno2 = *(const int *) v2p;
   allocno_t a1 = regno_allocno_map[regno1];
   allocno_t a2 = regno_allocno_map[regno2];
   int diff, slot_num1, slot_num2;
@@ -1962,7 +1962,7 @@ coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   if (a1 == NULL || ALLOCNO_HARD_REGNO (a1) >= 0)
     {
       if (a2 == NULL || ALLOCNO_HARD_REGNO (a2) >= 0)
-	return (int *) v1p - (int *) v2p; /* Save the order. */
+	return (const int *) v1p - (const int *) v2p; /* Save the order. */
       return 1;
     }
   else if (a2 == NULL || ALLOCNO_HARD_REGNO (a2) >= 0)
@@ -1975,7 +1975,7 @@ coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   total_size2 = MAX (PSEUDO_REGNO_BYTES (regno2), regno_max_ref_width[regno2]);
   if ((diff = total_size2 - total_size1) != 0)
     return diff;
-  return (int *) v1p - (int *) v2p; /* Save the order. */
+  return (const int *) v1p - (const int *) v2p; /* Save the order. */
 }
 
 /* Setup REGNO_COALESCED_ALLOCNO_COST and REGNO_COALESCED_ALLOCNO_NUM
@@ -2319,8 +2319,8 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
 static int
 pseudo_reg_compare (const void *v1p, const void *v2p)
 {
-  int regno1 = *(int *) v1p;
-  int regno2 = *(int *) v2p;
+  int regno1 = *(const int *) v1p;
+  int regno2 = *(const int *) v2p;
   int diff;
 
   if ((diff = REG_FREQ (regno2) - REG_FREQ (regno1)) != 0)

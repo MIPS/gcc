@@ -1,3 +1,45 @@
+2008-05-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (loop_tree_node): New members subloops and
+	subloop_next.
+	
+	* ira-conflicts.c (propagate_modified_regnos): Check that it is a
+	loop node.
+	(ira_build_conflicts): Use TRUE for traverse_loop_tree.
+	
+	* ira-color.c (color_pass): Check that it is a
+	loop node.  Use subloops and subloop_next for traversing.
+	(move_spill_restore): Ditto.
+	(coalesced_pseudo_reg_freq_compare,
+	coalesced_pseudo_reg_slot_compare, pseudo_reg_compare): Don't
+	discard const.
+	
+	* ira-lives.c (create_allocno_live_ranges): Use TRUE for
+	traverse_loop_tree.
+	
+	* ira-emit.c (ira_emit): Ditto.
+
+	* ira-build.c (add_loop_to_tree): Set up subloops and
+	subloop_next.
+	(setup_loop_tree_level): Use subloops and subloop_next for
+	traversing.
+	(form_loop_tree): Initialize subloops and subloop_next.
+	(traverse_loop_tree): Change 1st parameter semantics.  Rewrite the
+	function.
+	(create_loop_tree_node_caps): Check that it is a loop node.
+	(check_and_add_conflicts): Check allocno loop nodes.
+	(add_conflict_with_underlying_allocnos): Use subloops and
+	subloop_next for traversing.
+	
+	* ira.c (chain_freq_compare, chain_bb_compare): Don't discard
+	const.
+	(ira): Call regstat functions second time only if new pseudos are
+	created.
+
+	* ira-costs.c (find_allocno_class_costs): Use TRUE for
+	traverse_loop_tree.
+	(setup_allocno_cover_class_and_costs): Ditto.
+
 2008-05-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/36028

@@ -279,6 +279,7 @@ add_loop_to_tree (struct loop *loop)
       if (father == NULL)
 	{
 	  loop_node->next = NULL;
+	  loop_node->subloop_next = NULL;
 	  loop_node->father = NULL;
 	}
       else
@@ -286,6 +287,8 @@ add_loop_to_tree (struct loop *loop)
 	  father_node = &ira_loop_nodes[father->num];
 	  loop_node->next = father_node->children;
 	  father_node->children = loop_node;
+	  loop_node->subloop_next = father_node->subloops;
+	  father_node->subloops = loop_node;
 	  loop_node->father = father_node;
 	}
     }
@@ -303,15 +306,15 @@ setup_loop_tree_level (loop_tree_node_t loop_node, int level)
   ira_assert (loop_node->bb == NULL);
   loop_node->level = level;
   max_height = level + 1;
-  for (subloop_node = loop_node->children;
+  for (subloop_node = loop_node->subloops;
        subloop_node != NULL;
-       subloop_node = subloop_node->next)
-    if (subloop_node->bb == NULL)
-      {
-	height = setup_loop_tree_level (subloop_node, level + 1);
-	if (height > max_height)
-	  max_height = height;
-      }
+       subloop_node = subloop_node->subloop_next)
+    {
+      ira_assert (subloop_node->bb == NULL);
+      height = setup_loop_tree_level (subloop_node, level + 1);
+      if (height > max_height)
+	max_height = height;
+    }
   return max_height;
 }
 
@@ -333,13 +336,18 @@ form_loop_tree (void)
      yet.  */
   for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
      if (ira_loop_nodes[i].regno_allocno_map != NULL)
-       ira_loop_nodes[i].children = NULL;
+       {
+	 ira_loop_nodes[i].children = NULL;
+	 ira_loop_nodes[i].subloops = NULL;
+       }
   FOR_EACH_BB_REVERSE (bb)
     {
       bb_node = &ira_bb_nodes[bb->index];
       bb_node->bb = bb;
       bb_node->loop = NULL;
+      bb_node->subloops = NULL;
       bb_node->children = NULL;
+      bb_node->subloop_next = NULL;
       bb_node->next = NULL;
       for (father = bb->loop_father;
 	   father != NULL;
@@ -1473,48 +1481,47 @@ allocno_t *ira_curr_regno_allocno_map;
 /* The recursive function traverses loop tree with root LOOP_NODE
    calling non-null functions PREORDER_FUNC and POSTORDER_FUNC
    correspondingly in preorder and postorder.  The function sets up
-   IRA_CURR_LOOP_TREE_NODE and IRA_CURR_REGNO_ALLOCNO_MAP.  If
-   BB_FIRST_P, basic block nodes of LOOP_NODE is processed before its
-   subloop nodes.  */
+   IRA_CURR_LOOP_TREE_NODE and IRA_CURR_REGNO_ALLOCNO_MAP.  If BB_P,
+   basic block nodes of LOOP_NODE is also processed (before its
+   subloop nodes).  */
 void
-traverse_loop_tree (int bb_first_p, loop_tree_node_t loop_node,
+traverse_loop_tree (int bb_p, loop_tree_node_t loop_node,
 		    void (*preorder_func) (loop_tree_node_t),
 		    void (*postorder_func) (loop_tree_node_t))
 {
   loop_tree_node_t subloop_node;
 
-  if (loop_node->bb == NULL)
-    {
-      ira_curr_loop_tree_node = loop_node;
-      ira_curr_regno_allocno_map = ira_curr_loop_tree_node->regno_allocno_map;
-    }
+  ira_assert (loop_node->bb == NULL);
+  ira_curr_loop_tree_node = loop_node;
+  ira_curr_regno_allocno_map = ira_curr_loop_tree_node->regno_allocno_map;
+
   if (preorder_func != NULL)
     (*preorder_func) (loop_node);
   
-  for (subloop_node = loop_node->children;
-       subloop_node != NULL;
-       subloop_node = subloop_node->next)
-    if (! bb_first_p || subloop_node->bb != NULL)
-      {
-	traverse_loop_tree (bb_first_p, subloop_node,
-			    preorder_func, postorder_func);
-	ira_curr_loop_tree_node = loop_node;
-	ira_curr_regno_allocno_map
-	  = ira_curr_loop_tree_node->regno_allocno_map;
-      }
-
-  if (bb_first_p)
+  if (bb_p)
     for (subloop_node = loop_node->children;
 	 subloop_node != NULL;
 	 subloop_node = subloop_node->next)
-      if (subloop_node->bb == NULL)
+      if (subloop_node->bb != NULL)
 	{
-	  traverse_loop_tree (bb_first_p, subloop_node,
-			      preorder_func, postorder_func);
-	  ira_curr_loop_tree_node = loop_node;
-	  ira_curr_regno_allocno_map
-	    = ira_curr_loop_tree_node->regno_allocno_map;
+	  if (preorder_func != NULL)
+	    (*preorder_func) (subloop_node);
+  
+	  if (postorder_func != NULL)
+	    (*postorder_func) (subloop_node);
 	}
+  
+  for (subloop_node = loop_node->subloops;
+       subloop_node != NULL;
+       subloop_node = subloop_node->subloop_next)
+    {
+      ira_assert (subloop_node->bb == NULL);
+      traverse_loop_tree (bb_p, subloop_node,
+			  preorder_func, postorder_func);
+    }
+
+  ira_curr_loop_tree_node = loop_node;
+  ira_curr_regno_allocno_map = ira_curr_loop_tree_node->regno_allocno_map;
 
   if (postorder_func != NULL)
     (*postorder_func) (loop_node);
@@ -1876,8 +1883,9 @@ create_loop_tree_node_caps (loop_tree_node_t loop_node)
   bitmap_iterator bi;
   loop_tree_node_t father;
 
-  if (loop_node->bb != NULL || loop_node == ira_loop_tree_root)
+  if (loop_node == ira_loop_tree_root)
     return;
+  ira_assert (loop_node->bb == NULL);
   bitmap_and_compl (local_allocnos_bitmap, loop_node->mentioned_allocnos,
 		    loop_node->border_allocnos);
   father = loop_node->father;
@@ -1895,8 +1903,7 @@ propagate_info_to_loop_tree_node_caps (loop_tree_node_t loop_node)
   bitmap_iterator bi;
   allocno_t a;
 
-  if (loop_node->bb != NULL)
-    return;
+  ira_assert (loop_node->bb == NULL);
   EXECUTE_IF_SET_IN_BITMAP (loop_node->mentioned_allocnos, 0, i, bi)
     {
       a = allocnos[i];
@@ -2020,11 +2027,14 @@ check_and_add_conflicts (allocno_t a, allocno_t other_allocno)
 {
   allocno_t conflict_a;
   allocno_conflict_iterator aci;
+  loop_tree_node_t loop_node = ALLOCNO_LOOP_TREE_NODE (a);
 
   FOR_EACH_ALLOCNO_CONFLICT (other_allocno, conflict_a, aci)
     {
       conflict_a
 	= regno_top_level_allocno_map[REGNO (ALLOCNO_REG (conflict_a))];
+      if (ALLOCNO_LOOP_TREE_NODE (conflict_a) == loop_node)
+	continue;
       if (allocno_live_ranges_intersect_p (conflict_a, a))
 	{
 	  add_to_allocno_conflicts (conflict_a, a);
@@ -2052,12 +2062,11 @@ add_conflict_with_underlying_allocnos (allocno_t a,
   loop_tree_node_t subloop_node;
   allocno_t subloop_a;
 
-  for (subloop_node = loop_node->children;
+  for (subloop_node = loop_node->subloops;
        subloop_node != NULL;
-       subloop_node = subloop_node->next)
+       subloop_node = subloop_node->subloop_next)
     {
-      if (subloop_node->bb != NULL)
-	continue;
+      ira_assert (subloop_node->bb == NULL);
       subloop_a = subloop_node->regno_allocno_map[ALLOCNO_REGNO (a)];
       if (subloop_a == NULL)
 	continue;

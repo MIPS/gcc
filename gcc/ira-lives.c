@@ -963,7 +963,7 @@ create_allocno_live_ranges (void)
   if (!regs_set)
     regs_set = VEC_alloc (rtx, heap, 10);
   curr_point = 0;
-  traverse_loop_tree (FALSE, ira_loop_tree_root, NULL, process_bb_node_lives);
+  traverse_loop_tree (TRUE, ira_loop_tree_root, NULL, process_bb_node_lives);
   max_point = curr_point;
   create_start_finish_chains ();
   if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)

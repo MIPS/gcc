@@ -74,10 +74,12 @@ struct loop_tree_node
   /* The node represents basic block if children == NULL.  */
   basic_block bb;    /* NULL for loop.  */
   struct loop *loop; /* NULL for BB.  */
-  /* The next node on the same father.  */
-  loop_tree_node_t next;
-  /* The first node immediately inside the node.  */
-  loop_tree_node_t children;
+  /* The next (loop) node of with the same father.  SUBLOOP_NEXT is
+     always NULL for BBs. */
+  loop_tree_node_t subloop_next, next;
+  /* The first (loop) node immediately inside the node.  SUBLOOPS is
+     always NULL for BBs.  */
+  loop_tree_node_t subloops, children;
   /* The node immediately containing given node.  */
   loop_tree_node_t father;
 

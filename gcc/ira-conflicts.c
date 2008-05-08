@@ -820,8 +820,9 @@ build_allocno_conflicts (void)
 static void
 propagate_modified_regnos (loop_tree_node_t loop_tree_node)
 {
-  if (loop_tree_node->bb != NULL || loop_tree_node == ira_loop_tree_root)
+  if (loop_tree_node == ira_loop_tree_root)
     return;
+  ira_assert (loop_tree_node->bb == NULL);
   bitmap_ior_into (loop_tree_node->father->modified_regnos,
 		   loop_tree_node->modified_regnos);
 }
@@ -939,7 +940,7 @@ ira_build_conflicts (void)
   if (optimize)
     {
       build_conflict_bit_table ();
-      traverse_loop_tree (FALSE, ira_loop_tree_root, NULL, add_copies);
+      traverse_loop_tree (TRUE, ira_loop_tree_root, NULL, add_copies);
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
 	propagate_info ();

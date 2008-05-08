@@ -1165,7 +1165,7 @@ find_allocno_class_costs (void)
 
       /* Scan the instructions and record each time it would save code
 	 to put a certain allocno in a certain class.  */
-      traverse_loop_tree (FALSE, ira_loop_tree_root,
+      traverse_loop_tree (TRUE, ira_loop_tree_root,
 			  process_bb_node_for_costs, NULL);
 
       if (pass == 0)
@@ -1465,7 +1465,7 @@ setup_allocno_cover_class_and_costs (void)
 	}
     }
   if (optimize)
-    traverse_loop_tree (FALSE, ira_loop_tree_root,
+    traverse_loop_tree (TRUE, ira_loop_tree_root,
 			process_bb_node_for_hard_reg_moves, NULL);
 }
 

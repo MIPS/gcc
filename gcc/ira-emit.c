@@ -995,7 +995,7 @@ ira_emit (int loops_p)
   used_regno_bitmap = ira_allocate_bitmap ();
   renamed_regno_bitmap = ira_allocate_bitmap ();
   max_regno_before_changing = max_reg_num ();
-  traverse_loop_tree (FALSE, ira_loop_tree_root, change_loop, NULL);
+  traverse_loop_tree (TRUE, ira_loop_tree_root, change_loop, NULL);
   set_allocno_somewhere_renamed_p ();
   ira_free_bitmap (used_regno_bitmap);
   ira_free_bitmap (renamed_regno_bitmap);

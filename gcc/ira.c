@@ -1684,15 +1684,15 @@ static int *basic_block_order_nums;
 static int
 chain_freq_compare (const void *v1p, const void *v2p)
 {
-  struct insn_chain *c1 = *(struct insn_chain **)v1p;
-  struct insn_chain *c2 = *(struct insn_chain **)v2p;
+  const struct insn_chain *c1 = *(struct insn_chain * const *)v1p;
+  const struct insn_chain *c2 = *(struct insn_chain * const *)v2p;
   int diff;
 
   diff = (BASIC_BLOCK (c2->block)->frequency
 	  - BASIC_BLOCK (c1->block)->frequency);
   if (diff)
     return diff;
-  return (char *) v1p - (char *) v2p;
+  return (const char *) v1p - (const char *) v2p;
 }
 
 /* The function is used to sort insn chain according insn original
@@ -1700,15 +1700,15 @@ chain_freq_compare (const void *v1p, const void *v2p)
 static int
 chain_bb_compare (const void *v1p, const void *v2p)
 {
-  struct insn_chain *c1 = *(struct insn_chain **)v1p;
-  struct insn_chain *c2 = *(struct insn_chain **)v2p;
+  const struct insn_chain *c1 = *(struct insn_chain * const *)v1p;
+  const struct insn_chain *c2 = *(struct insn_chain * const *)v2p;
   int diff;
 
   diff = (basic_block_order_nums[c1->block]
 	  - basic_block_order_nums[c2->block]);
   if (diff)
     return diff;
-  return (char *) v1p - (char *) v2p;
+  return (const char *) v1p - (const char *) v2p;
 }
 
 /* The function sorts insn chain according to insn frequencies if
@@ -1797,8 +1797,6 @@ ira (FILE *f)
     generate_setjmp_warnings ();
 
   rebuild_p = update_equiv_regs ();
-  regstat_free_n_sets_and_refs ();
-  regstat_free_ri ();
 
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
@@ -1908,8 +1906,13 @@ ira (FILE *f)
 	  sizeof (rtx) * max_regno);
   reg_equiv_memory_loc = VEC_address (rtx, reg_equiv_memory_loc_vec);
 
-  regstat_init_n_sets_and_refs ();
-  regstat_compute_ri ();
+  if (max_regno != max_regno_before_ira)
+    {
+      regstat_free_n_sets_and_refs ();
+      regstat_free_ri ();
+      regstat_init_n_sets_and_refs ();
+      regstat_compute_ri ();
+    }
 
   allocate_initial_values (reg_equiv_memory_loc);
 
@@ -1921,7 +1924,7 @@ ira (FILE *f)
 #ifdef ENABLE_IRA_CHECKING
       print_redundant_copies ();
 #endif
-      
+
       spilled_reg_stack_slots_num = 0;
       spilled_reg_stack_slots
 	= ira_allocate (max_regno * sizeof (struct spilled_reg_stack_slot));
@@ -1935,7 +1938,7 @@ ira (FILE *f)
   if (optimize)
     sort_insn_chain (TRUE);
 
-  reload_completed = ! reload (get_insns (), optimize > 0);
+  reload_completed = !reload (get_insns (), optimize > 0);
 
   if (optimize)
     {
