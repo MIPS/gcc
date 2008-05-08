@@ -831,57 +831,56 @@ _mm256_storeu_si256 (__m256i *__P, __m256i __A)
   __builtin_ia32_storedqu256 ((char *)__P, (__v32qi)__A);
 }
 
-#if 0
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskload_pd (double const *__P, __m128d __M)
 {
-  return (__m128d) __builtin_ia32_maskloadpd ((__v2df)__P,
+  return (__m128d) __builtin_ia32_maskloadpd ((const __v2df *)__P,
 					      (__v2df)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskstore_pd (double *__P, __m128d __M, __m128d __A)
 {
-  __builtin_ia32_maskstorepd (__P, (__v2df)__M, (__v2df)__A);
+  __builtin_ia32_maskstorepd ((__v2df *)__P, (__v2df)__M, (__v2df)__A);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskload_pd (double const *__P, __m256d __M)
 {
-  return (__m256d) __builtin_ia32_maskloadpd256 ((__v4df)__P,
+  return (__m256d) __builtin_ia32_maskloadpd256 ((const __v4df *)__P,
 						 (__v4df)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskstore_pd (double *__P, __m256d __M, __m256d __A)
 {
-  __builtin_ia32_maskstorepd256 (__P, (__v4df)__M, (__v4df)__A);
+  __builtin_ia32_maskstorepd256 ((__v4df *)__P, (__v4df)__M, (__v4df)__A);
 }
 
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskload_ps (float const *__P, __m128 __M)
 {
-  return (__m128) __builtin_ia32_maskloadps ((__v4sf)__P,
+  return (__m128) __builtin_ia32_maskloadps ((const __v4sf *)__P,
 					     (__v4sf)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_maskstore_ps (float *__P, __m128 __M, __m128 __A)
 {
-  __builtin_ia32_maskstoreps (__P, (__v4sf)__M, (__v4sf)__A);
+  __builtin_ia32_maskstoreps ((__v4sf *)__P, (__v4sf)__M, (__v4sf)__A);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskload_ps (float const *__P, __m256 __M)
 {
-  return (__m256) __builtin_ia32_maskloadps256 ((__v8sf)__P,
+  return (__m256) __builtin_ia32_maskloadps256 ((const __v8sf *)__P,
 						(__v8sf)__M);
 }
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_maskstore_ps (float *__P, __m256 __M, __m256 __A)
 {
-  __builtin_ia32_maskstoreps256 (__P, (__v8sf)__M, (__v8sf)__A);
+  __builtin_ia32_maskstoreps256 ((__v8sf *)__P, (__v8sf)__M, (__v8sf)__A);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -899,9 +898,8 @@ _mm256_moveldup_ps (__m256 __X)
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_movedup_pd (__m256d __X)
 {
-  return (__m256) __builtin_ia32_movddup256 ((__v8sf)__X);
+  return (__m256d) __builtin_ia32_movddup256 ((__v4df)__X);
 }
-#endif
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_lddqu_si256 (__m256i const *__P)
@@ -958,11 +956,12 @@ _mm256_round_ps (__m256 __V, const int __M)
 #define _mm256_floor_pd(V)	_mm256_round_pd ((V), _MM_FROUND_FLOOR)
 #define _mm256_ceil_ps(V)	_mm256_round_ps ((V), _MM_FROUND_CEIL)
 #define _mm256_floor_ps(V)	_mm256_round_ps ((V), _MM_FROUND_FLOOR)
+#endif
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_unpackhi_pd (__m256d __A, __m256d __B)
 {
-  return (__m256) __builtin_ia32_unpckhpd256 ((__v4df)__A, (__v4df)__B);
+  return (__m256d) __builtin_ia32_unpckhpd256 ((__v4df)__A, (__v4df)__B);
 }
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -983,6 +982,7 @@ _mm256_unpacklo_ps (__m256 __A, __m256 __B)
   return (__m256) __builtin_ia32_unpcklps256 ((__v8sf)__A, (__v8sf)__B);
 }
 
+#if 0
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testz_pd (__m256d __M, __m256d __V)
 {
@@ -1110,6 +1110,7 @@ _mm256_set1_epi32 (int __A)
 {
   return __extension__ (__m256i){ __A, __A, __A, __A, __A, __A, __A, __A };
 }
+#endif
 
 /* Casts between various SP, DP, INT vector types.  Note that these do no
    conversion of values, they just change the type.  */
@@ -1149,46 +1150,46 @@ _mm256_castsi256_pd (__m256i __A)
   return (__m256d) __A;
 }
 
-/* When cast is done from a 128 to 256-bit type, the low 128 bits of
-   the 256-bit result contain source parameter value and the upper 128
-   bits of the result are undefined.  FIXME: Those intrinsics shouldn't
-   generate any extra moves.  */
 extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castpd256_pd128 (__m256d __A)
 {
-  return (__m128d) __A;
+  return (__m128d) __builtin_ia32_pd_pd256 ((__v4df)__A);
 }
 
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castps256_ps128 (__m256 __A)
 {
-  return (__m128) __A;
+  return (__m128) __builtin_ia32_ps_ps256 ((__v8sf)__A);
 }
 
 extern __inline __m128i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castsi256_si128 (__m256i __A)
 {
-  return (__m128i) __A;
+  return (__m128i) __builtin_ia32_si_si256 ((__v8si)__A);
 }
+
+/* When cast is done from a 128 to 256-bit type, the low 128 bits of
+   the 256-bit result contain source parameter value and the upper 128
+   bits of the result are undefined.  Those intrinsics shouldn't
+   generate any extra moves.  */
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castpd128_pd256 (__m128d __A)
 {
-  return (__m256d) __A;
+  return (__m256d) __builtin_ia32_pd256_pd ((__v2df)__A);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castps128_ps256 (__m128 __A)
 {
-  return (__m256) __A;
+  return (__m256) __builtin_ia32_ps256_ps ((__v4sf)__A);
 }
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_castsi128_si256 (__m128i __A)
 {
-  return (__m256i) __A;
+  return (__m256i) __builtin_ia32_si256_si ((__v4si)__A);
 }
-#endif
 
 #endif /* __AVX__ */
 
