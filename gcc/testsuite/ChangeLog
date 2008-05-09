@@ -1,3 +1,28 @@
+2008-05-08  David Daney  <ddaney@avtrex.com>
+
+	* lib/target-supports.exp (check_effective_target_sync_int_long): Add
+	mips*-*-*.
+	(check_effective_target_sync_char_short): Same.
+
+2008-05-08  Kai Tietz  <kai.tietz@onevision.com>
+
+	* gcc.c-torture/compile/pr36172.c: Replace unsigned long by
+	__SIZE_TYPE__.
+
+2008-05-08  Sa Liu  <saliu@de.ibm.com>
+
+	* testsuite/gcc.target/spu/subti3.c: New.
+
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36154
+	* gcc.c-torture/compile/pr36154.c: New testcase.
+
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36172
+	* gcc.c-torture/compile/pr36172.c: New testcase.
+
 2008-05-08  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/35714
@@ -14,7 +39,7 @@
 2008-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/34974
-	gfortran.dg/fmt_t_7.f: XFAIL this until we get issue resolved.
+	* gfortran.dg/fmt_t_7.f: XFAIL this until we get issue resolved.
 
 2008-05-06  H.J. Lu  <hongjiu.lu@intel.com>
 
