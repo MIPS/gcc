@@ -288,6 +288,40 @@ static GTY(()) tree registered_builtin_fndecls;
 
 /* Language hooks.  */
 
+static unsigned int
+lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
+		  const char **argv ATTRIBUTE_UNUSED)
+{
+  /* Always operate in unit-at-time mode so that we can defer
+     decisions about what to output.  */
+  flag_unit_at_a_time = 1;
+
+  return CL_LTO;
+}
+
+/* Handle command-line option SCODE.  If the option takes an argument, it is
+   stored in ARG, which is otherwise NULL.  VALUE holds either a numerical
+   argument or a binary value indicating whether the positive or negative form
+   of the option was supplied.  */
+
+static int
+lto_handle_option (size_t scode, const char *arg, int value)
+{
+  enum opt_code code = (enum opt_code) scode;
+  int result;
+
+  switch (code)
+    {
+    /* For now, this is a placeholder.  We'll populate it later.  */
+
+    default:
+      result = 0;
+      break;
+    }
+
+  return result;
+}
+
 static bool 
 lto_mark_addressable (tree t ATTRIBUTE_UNUSED)
 {
@@ -528,10 +562,6 @@ lto_build_c_type_nodes (void)
 static bool
 lto_init (void)
 {
-  /* Always operate in unit-at-time mode so that we can defer
-     decisions about what to output.  */
-  flag_unit_at_a_time = 1;
-
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, 
 			   /*signed_sizetype=*/false);
@@ -585,6 +615,10 @@ static void lto_init_ts (void)
    being.  */
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
+#undef LANG_HOOKS_INIT_OPTIONS
+#define LANG_HOOKS_INIT_OPTIONS lto_init_options
+#undef LANG_HOOKS_HANDLE_OPTION
+#define LANG_HOOKS_HANDLE_OPTION lto_handle_option
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size
