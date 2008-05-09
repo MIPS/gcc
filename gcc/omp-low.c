@@ -2420,7 +2420,7 @@ maybe_catch_exception (gimple_seq body)
   gimple f, t;
 
   if (!flag_exceptions)
-    return NULL;
+    return body;
 
   if (lang_protect_cleanup_actions)
     t = lang_protect_cleanup_actions ();
@@ -5115,12 +5115,7 @@ execute_lower_omp (void)
 static bool
 gate_lower_omp (void)
 {
-  /* FIXME tuples */
-#if 0
   return flag_openmp != 0;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_lower_omp = 

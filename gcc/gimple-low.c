@@ -255,7 +255,7 @@ lower_omp_directive (gimple_stmt_iterator *gsi, struct lower_data *data)
 }
 
 
-/* Lower statement TSI.  DATA is passed through the recursion.  */
+/* Lower statement GSI.  DATA is passed through the recursion.  */
 
 static void
 lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
@@ -305,8 +305,8 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_RETURN:
-    /* FIXME tuples:  case OMP_ATOMIC_LOAD:  */
-    /* FIXME tuples: case OMP_ATOMIC_STORE:  */
+    case GIMPLE_OMP_ATOMIC_LOAD:
+    case GIMPLE_OMP_ATOMIC_STORE:
     case GIMPLE_OMP_CONTINUE:
       break;
 

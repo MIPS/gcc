@@ -1,3 +1,9 @@
+2008-05-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (maybe_catch_exception): Return body when no exceptions.
+	(gate_lower_omp): Enable pass.
+	* gimple-low.c (lower_stmt): Add GIMPLE_OMP_ATOMIC_* cases.
+
 2008-05-08  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (extract_omp_for_data): Update comment.
