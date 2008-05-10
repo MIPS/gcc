@@ -1,3 +1,8 @@
+2008-05-10  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* ira.c (setup_class_subset_and_memory_move_costs): Don't calculate
+	memory move costs for NO_REGS.
+
 2008-05-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (loop_tree_node): New members subloops and

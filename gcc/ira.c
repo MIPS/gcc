@@ -542,11 +542,12 @@ setup_class_subset_and_memory_move_costs (void)
 
   for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
     {
-      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
-	{
-	  memory_move_cost[mode][cl][0] = MEMORY_MOVE_COST (mode, cl, 0);
-	  memory_move_cost[mode][cl][1] = MEMORY_MOVE_COST (mode, cl, 1);
-	}
+      if (cl != (int) NO_REGS)
+	for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	  {
+	    memory_move_cost[mode][cl][0] = MEMORY_MOVE_COST (mode, cl, 0);
+	    memory_move_cost[mode][cl][1] = MEMORY_MOVE_COST (mode, cl, 1);
+	  }
 
       for (cl2 = (int) N_REG_CLASSES - 1; cl2 >= 0; cl2--)
 	{
