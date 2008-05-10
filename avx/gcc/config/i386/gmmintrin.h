@@ -907,7 +907,6 @@ _mm256_lddqu_si256 (__m256i const *__P)
   return (__m256i) __builtin_ia32_lddqu256 ((char const *)__P);
 }
 
-#if 0
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_rcp_ps (__m256 __A)
 {
@@ -936,13 +935,13 @@ _mm256_sqrt_ps (__m256 __A)
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_round_pd (__m256d __V, const int __M)
 {
-  return (__m128d) __builtin_ia32_roundpd256 ((__v4df)__V, __M);
+  return (__m256d) __builtin_ia32_roundpd256 ((__v4df)__V, __M);
 }
 
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_round_ps (__m256 __V, const int __M)
 {
-  return (__m128) __builtin_ia32_roundps256 ((__v8sf)__V, __M);
+  return (__m256) __builtin_ia32_roundps256 ((__v8sf)__V, __M);
 }
 #else
 #define _mm256_round_pd(V, M) \
@@ -956,7 +955,6 @@ _mm256_round_ps (__m256 __V, const int __M)
 #define _mm256_floor_pd(V)	_mm256_round_pd ((V), _MM_FROUND_FLOOR)
 #define _mm256_ceil_ps(V)	_mm256_round_ps ((V), _MM_FROUND_CEIL)
 #define _mm256_floor_ps(V)	_mm256_round_ps ((V), _MM_FROUND_FLOOR)
-#endif
 
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_unpackhi_pd (__m256d __A, __m256d __B)
@@ -982,41 +980,76 @@ _mm256_unpacklo_ps (__m256 __A, __m256 __B)
   return (__m256) __builtin_ia32_unpcklps256 ((__v8sf)__A, (__v8sf)__B);
 }
 
-#if 0
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testz_pd (__m128d __M, __m128d __V)
+{
+  return __builtin_ia32_vtestzpd ((__v2df)__M, (__v2df)__V);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testc_pd (__m128d __M, __m128d __V)
+{
+  return __builtin_ia32_vtestcpd ((__v2df)__M, (__v2df)__V);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testnzc_pd (__m128d __M, __m128d __V)
+{
+  return __builtin_ia32_vtestnzcpd ((__v2df)__M, (__v2df)__V);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testz_ps (__m128 __M, __m128 __V)
+{
+  return __builtin_ia32_vtestzps ((__v4sf)__M, (__v4sf)__V);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testc_ps (__m128 __M, __m128 __V)
+{
+  return __builtin_ia32_vtestcps ((__v4sf)__M, (__v4sf)__V);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_testnzc_ps (__m128 __M, __m128 __V)
+{
+  return __builtin_ia32_vtestnzcps ((__v4sf)__M, (__v4sf)__V);
+}
+
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testz_pd (__m256d __M, __m256d __V)
 {
-  return __builtin_ia32_ptestzpd256 ((__v4df)__M, (__v4df)__V);
+  return __builtin_ia32_vtestzpd256 ((__v4df)__M, (__v4df)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testc_pd (__m256d __M, __m256d __V)
 {
-  return __builtin_ia32_ptestcpd256 ((__v4df)__M, (__v4df)__V);
+  return __builtin_ia32_vtestcpd256 ((__v4df)__M, (__v4df)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testnzc_pd (__m256d __M, __m256d __V)
 {
-  return __builtin_ia32_ptestnzcpd256 ((__v4df)__M, (__v4df)__V);
+  return __builtin_ia32_vtestnzcpd256 ((__v4df)__M, (__v4df)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testz_ps (__m256 __M, __m256 __V)
 {
-  return __builtin_ia32_ptestzps256 ((__v8sf)__M, (__v8sf)__V);
+  return __builtin_ia32_vtestzps256 ((__v8sf)__M, (__v8sf)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testc_ps (__m256 __M, __m256 __V)
 {
-  return __builtin_ia32_ptestcps256 ((__v8sf)__M, (__v8sf)__V);
+  return __builtin_ia32_vtestcps256 ((__v8sf)__M, (__v8sf)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_testnzc_ps (__m256 __M, __m256 __V)
 {
-  return __builtin_ia32_ptestnzcps256 ((__v8sf)__M, (__v8sf)__V);
+  return __builtin_ia32_vtestnzcps256 ((__v8sf)__M, (__v8sf)__V);
 }
 
 extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -1058,13 +1091,14 @@ _mm256_setzero_pd (void)
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_setzero_ps (void)
 {
-  return __extension__ (__m256){ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+  return __extension__ (__m256){ 0.0, 0.0, 0.0, 0.0,
+				 0.0, 0.0, 0.0, 0.0 };
 }
 
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_setzero_si256 (void)
 {
-  return __extension__ (__m256i){ 0, 0, 0, 0 };
+  return __extension__ (__m256i)(__v4di){ 0, 0, 0, 0 };
 }
 
 /* Create the vector [A B C D].  */
@@ -1079,7 +1113,8 @@ extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artif
 _mm256_set_ps (float __A, float __B, float __C, float __D,
 	       float __E, float __F, float __G, float __H)
 {
-  return __extension__ (__m256){ __H, __G, __F, __E, __D, __C, __B, __A };
+  return __extension__ (__m256){ __H, __G, __F, __E,
+				 __D, __C, __B, __A };
 }
 
 /* Create the vector [A B C D E F G H].  */
@@ -1087,7 +1122,8 @@ extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __arti
 _mm256_set_epi32 (int __A, int __B, int __C, int __D,
 		  int __E, int __F, int __G, int __H)
 {
-  return __extension__ (__m256i){ __H, __G, __F, __E, __D, __C, __B, __A };
+  return __extension__ (__m256i)(__v8si){ __H, __G, __F, __E,
+					  __D, __C, __B, __A };
 }
 
 /* Create a vector with all elements equal to A.  */
@@ -1101,16 +1137,17 @@ _mm256_set1_pd (double __A)
 extern __inline __m256 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_set1_ps (float __A)
 {
-  return __extension__ (__m256){ __A, __A, __A, __A, __A, __A, __A, __A };
+  return __extension__ (__m256){ __A, __A, __A, __A,
+				 __A, __A, __A, __A };
 }
 
 /* Create a vector with all elements equal to A.  */
 extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_set1_epi32 (int __A)
 {
-  return __extension__ (__m256i){ __A, __A, __A, __A, __A, __A, __A, __A };
+  return __extension__ (__m256i)(__v8si){ __A, __A, __A, __A,
+					  __A, __A, __A, __A };
 }
-#endif
 
 /* Casts between various SP, DP, INT vector types.  Note that these do no
    conversion of values, they just change the type.  */

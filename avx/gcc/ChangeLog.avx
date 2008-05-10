@@ -1,3 +1,134 @@
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_round_pd): Fix a typo.
+	(_mm256_round_ps): Likewise.
+	(_mm_testz_pd): New.
+	(_mm_testc_pd): Likewise.
+	(_mm_testnzc_pd): Likewise.
+	(_mm_testz_ps): Likewise.
+	(_mm_testc_ps): Likewise.
+	(_mm_testnzc_ps): Likewise.
+	(_mm256_testz_pd): Updated.
+	(_mm256_testc_pd): Likewise.
+	(_mm256_testnzc_pd): Likewise.
+	(_mm256_testz_ps): Likewise.
+	(_mm256_testc_ps): Likewise.
+	(_mm256_testnzc_ps): Likewise.
+	(_mm256_setzero_ps): Likewise.
+	(_mm256_setzero_si256): Likewise.
+	(_mm256_set_ps): Likewise.
+	(_mm256_set_epi32): Likewise.
+	(_mm256_set1_ps): Likewise.
+	(_mm256_set1_epi32): Likewise.
+
+	* config/i386/i386.c (ix86_builtins): Add
+	IX86_BUILTIN_SQRTPD256, IX86_BUILTIN_SQRTPS256,
+	IX86_BUILTIN_SQRTPS_NR256, IX86_BUILTIN_RSQRTPS256,
+	IX86_BUILTIN_RSQRTPS_NR256, IX86_BUILTIN_RCPPS256,
+	IX86_BUILTIN_ROUNDPD256, IX86_BUILTIN_ROUNDPS256.
+	IX86_BUILTIN_VTESTZPD, IX86_BUILTIN_VTESTCPD,
+	IX86_BUILTIN_VTESTNZCPD, IX86_BUILTIN_VTESTZPS,
+	IX86_BUILTIN_VTESTCPS, IX86_BUILTIN_VTESTNZCPS,
+	IX86_BUILTIN_VTESTZPD256, IX86_BUILTIN_VTESTCPD256,
+	IX86_BUILTIN_VTESTNZCPD256, IX86_BUILTIN_VTESTZPS256,
+	IX86_BUILTIN_VTESTCPS256, IX86_BUILTIN_VTESTNZCPS256,
+	IX86_BUILTIN_PTESTZ256, IX86_BUILTIN_PTESTC256,
+	IX86_BUILTIN_PTESTNZC256, IX86_BUILTIN_MOVMSKPD256 and
+	IX86_BUILTIN_MOVMSKPS256.
+	(ix86_builtin_type): Add INT_FTYPE_V8SF_V8SF_PTEST,
+	INT_FTYPE_V4DI_V4DI_PTEST, INT_FTYPE_V4SF_V4SF_PTEST,
+	INT_FTYPE_V2DF_V2DF_PTEST, INT_FTYPE_V8SF and
+	INT_FTYPE_V4DF.
+	(bdesc_args): Add __builtin_ia32_sqrtpd256,
+	__builtin_ia32_sqrtps256, __builtin_ia32_sqrtps_nr256,
+	__builtin_ia32_rsqrtps256, __builtin_ia32_rsqrtps_nr256,
+	__builtin_ia32_rcpps256, __builtin_ia32_roundpd256,
+	__builtin_ia32_roundps256,  AVX vtest builtins,
+	__builtin_ia32_movmskpd256 and __builtin_ia32_movmskps256.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Updated.  Handle
+	CODE_FOR_avx_roundpd256 and CODE_FOR_avx_roundps256.
+	(ix86_hard_regno_mode_ok): OImode is OK only when AVX is
+	enabled.
+
+	* config/i386/i386.md (UNSPEC_VTESTP): New.
+	(movoi): Likewise.
+	(*movoi_internal): Likewise.
+	(*cmpfp_i_sse): Reformat.
+	(*cmpfp_iu_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+
+	* config/i386/sse.md (avx_rcpv8sf2): New.
+	(*avx_vmrcpv4sf2): Likewise.
+	(sqrtv8sf2): Likewise.
+	(avx_sqrtv8sf2): Likewise.
+	(sqrtv4df2): Likewise.
+	(*avx_vmsqrt<mode>2): Likewise.
+	(rsqrtv8sf2): Likewise.
+	(avx_rsqrtv8sf2): Likewise.
+	(*avx_vmrsqrtv4sf2): Likewise.
+	(avx_movmskp<avxmodesuffixf2c>256): Likewise.
+	(avx_vtestp<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+	(avx_ptest256): Likewise.
+	(avx_roundp<avxmodesuffixf2c>256): Likewise.
+	(*avx_rounds<ssemodesuffixf2c>): Likewise.
+	(sse_rcpv4sf2): Support AVX.
+	(sqrtv4sf2): Likewise.
+	(sqrtv2df2): Likewise.
+	(rsqrtv4sf2): Likewise.
+	(<sse>_movmskp<ssemodesuffixf2c>): Likewise.
+	(sse2_pmovmskb): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_roundp<ssemodesuffixf2c>): Likewise.
+	(avx_<avxmodesuffixp><avxmodesuffix>_<avxmodesuffixp>): Set
+	type attribute to ssemov.
+	(avx_<avxmodesuffixp>_<avxmodesuffixp><avxmodesuffix>): Likewise.
+
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (<sse>_comi): Reformat.
+	(<sse>_ucomi): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(sse2_cvtdq2pd): Likewise.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(sse_ldmxcsr): Likewise.
+
+2008-05-10  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*rcpsf2_sse): Support AVX.
+
+2008-05-10  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_pinsrb): New.
+	(*avx_pinsrw): Likewise.
+	(*avx_pinsrd): Likewise.
+	(*avx_pinsrq): Likewise.
+	(*sse4_1_pextrd): Support AVX.
+	(*sse4_1_pextrq): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+
 2008-05-08  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm_maskload_pd): Fix a typo.

@@ -18091,6 +18091,17 @@ enum ix86_builtins
   IX86_BUILTIN_MOVSLDUP256,
   IX86_BUILTIN_MOVDDUP256,
 
+  IX86_BUILTIN_SQRTPD256,
+  IX86_BUILTIN_SQRTPS256,
+  IX86_BUILTIN_SQRTPS_NR256,
+  IX86_BUILTIN_RSQRTPS256,
+  IX86_BUILTIN_RSQRTPS_NR256,
+
+  IX86_BUILTIN_RCPPS256,
+
+  IX86_BUILTIN_ROUNDPD256,
+  IX86_BUILTIN_ROUNDPS256,
+
   IX86_BUILTIN_UNPCKHPD256,
   IX86_BUILTIN_UNPCKLPD256,
   IX86_BUILTIN_UNPCKHPS256,
@@ -18102,6 +18113,25 @@ enum ix86_builtins
   IX86_BUILTIN_SI_SI256,
   IX86_BUILTIN_PS_PS256,
   IX86_BUILTIN_PD_PD256,
+
+  IX86_BUILTIN_VTESTZPD,
+  IX86_BUILTIN_VTESTCPD,
+  IX86_BUILTIN_VTESTNZCPD,
+  IX86_BUILTIN_VTESTZPS,
+  IX86_BUILTIN_VTESTCPS,
+  IX86_BUILTIN_VTESTNZCPS,
+  IX86_BUILTIN_VTESTZPD256,
+  IX86_BUILTIN_VTESTCPD256,
+  IX86_BUILTIN_VTESTNZCPD256,
+  IX86_BUILTIN_VTESTZPS256,
+  IX86_BUILTIN_VTESTCPS256,
+  IX86_BUILTIN_VTESTNZCPS256,
+  IX86_BUILTIN_PTESTZ256,
+  IX86_BUILTIN_PTESTC256,
+  IX86_BUILTIN_PTESTNZC256,
+
+  IX86_BUILTIN_MOVMSKPD256,
+  IX86_BUILTIN_MOVMSKPS256,
 
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
@@ -18468,11 +18498,18 @@ enum ix86_builtin_type
   FLOAT128_FTYPE_FLOAT128,
   FLOAT_FTYPE_FLOAT,
   FLOAT128_FTYPE_FLOAT128_FLOAT128,
+  INT_FTYPE_V8SF_V8SF_PTEST,
+  INT_FTYPE_V4DI_V4DI_PTEST,
+  INT_FTYPE_V4DF_V4DF_PTEST,
+  INT_FTYPE_V4SF_V4SF_PTEST,
   INT_FTYPE_V2DI_V2DI_PTEST,
+  INT_FTYPE_V2DF_V2DF_PTEST,
   INT64_FTYPE_V4SF,
   INT64_FTYPE_V2DF,
   INT_FTYPE_V16QI,
   INT_FTYPE_V8QI,
+  INT_FTYPE_V8SF,
+  INT_FTYPE_V4DF,
   INT_FTYPE_V4SF,
   INT_FTYPE_V2DF,
   V16QI_FTYPE_V16QI,
@@ -19246,6 +19283,17 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movsldup256, "__builtin_ia32_movsldup256", IX86_BUILTIN_MOVSLDUP256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movddup256, "__builtin_ia32_movddup256", IX86_BUILTIN_MOVDDUP256, UNKNOWN, (int) V4DF_FTYPE_V4DF },
 
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sqrtv4df2, "__builtin_ia32_sqrtpd256", IX86_BUILTIN_SQRTPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_sqrtv8sf2, "__builtin_ia32_sqrtps256", IX86_BUILTIN_SQRTPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_sqrtv8sf2, "__builtin_ia32_sqrtps_nr256", IX86_BUILTIN_SQRTPS_NR256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_rsqrtv8sf2, "__builtin_ia32_rsqrtps256", IX86_BUILTIN_RSQRTPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_rsqrtv8sf2, "__builtin_ia32_rsqrtps_nr256", IX86_BUILTIN_RSQRTPS_NR256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
+
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_rcpv8sf2, "__builtin_ia32_rcpps256", IX86_BUILTIN_RCPPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
+
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_roundpd256, "__builtin_ia32_roundpd256", IX86_BUILTIN_ROUNDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_roundps256, "__builtin_ia32_roundps256", IX86_BUILTIN_ROUNDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_INT },
+
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_unpckhpd256,  "__builtin_ia32_unpckhpd256", IX86_BUILTIN_UNPCKHPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_unpcklpd256,  "__builtin_ia32_unpcklpd256", IX86_BUILTIN_UNPCKLPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_unpckhps256,  "__builtin_ia32_unpckhps256", IX86_BUILTIN_UNPCKHPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
@@ -19257,6 +19305,25 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_si_si256, "__builtin_ia32_si_si256", IX86_BUILTIN_SI_SI256, UNKNOWN, (int) V4SI_FTYPE_V8SI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ps_ps256, "__builtin_ia32_ps_ps256", IX86_BUILTIN_PS_PS256, UNKNOWN, (int) V4SF_FTYPE_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_pd_pd256, "__builtin_ia32_pd_pd256", IX86_BUILTIN_PD_PD256, UNKNOWN, (int) V2DF_FTYPE_V4DF },
+
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd, "__builtin_ia32_vtestzpd", IX86_BUILTIN_VTESTZPD, EQ, (int) INT_FTYPE_V2DF_V2DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd, "__builtin_ia32_vtestcpd", IX86_BUILTIN_VTESTCPD, LTU, (int) INT_FTYPE_V2DF_V2DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd, "__builtin_ia32_vtestnzcpd", IX86_BUILTIN_VTESTNZCPD, GTU, (int) INT_FTYPE_V2DF_V2DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps, "__builtin_ia32_vtestzps", IX86_BUILTIN_VTESTZPS, EQ, (int) INT_FTYPE_V4SF_V4SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps, "__builtin_ia32_vtestcps", IX86_BUILTIN_VTESTCPS, LTU, (int) INT_FTYPE_V4SF_V4SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps, "__builtin_ia32_vtestnzcps", IX86_BUILTIN_VTESTNZCPS, GTU, (int) INT_FTYPE_V4SF_V4SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd256, "__builtin_ia32_vtestzpd256", IX86_BUILTIN_VTESTZPD256, EQ, (int) INT_FTYPE_V4DF_V4DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd256, "__builtin_ia32_vtestcpd256", IX86_BUILTIN_VTESTCPD256, LTU, (int) INT_FTYPE_V4DF_V4DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestpd256, "__builtin_ia32_vtestnzcpd256", IX86_BUILTIN_VTESTNZCPD256, GTU, (int) INT_FTYPE_V4DF_V4DF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestzps256", IX86_BUILTIN_VTESTZPS256, EQ, (int) INT_FTYPE_V8SF_V8SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestcps256", IX86_BUILTIN_VTESTCPS256, LTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestnzcps256", IX86_BUILTIN_VTESTNZCPS256, GTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestz256", IX86_BUILTIN_PTESTZ256, EQ, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestc256", IX86_BUILTIN_PTESTC256, LTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestnzc256", IX86_BUILTIN_PTESTNZC256, GTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskpd256, "__builtin_ia32_movmskpd256", IX86_BUILTIN_MOVMSKPD256, UNKNOWN, (int) INT_FTYPE_V4DF  },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskps256, "__builtin_ia32_movmskps256", IX86_BUILTIN_MOVMSKPS256, UNKNOWN, (int) INT_FTYPE_V8SF },
 };
 
 /* SSE5 */
@@ -20059,6 +20126,8 @@ ix86_init_mmx_sse_builtins (void)
 						    V8SImode);
   tree V8SF_type_node = build_vector_type_for_mode (float_type_node,
 						    V8SFmode);
+  tree V4DI_type_node = build_vector_type_for_mode (long_long_integer_type_node,
+						    V4DImode);
   tree V4DF_type_node = build_vector_type_for_mode (double_type_node,
 						    V4DFmode);
   tree v8sf_ftype_v8sf
@@ -20285,6 +20354,26 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (V4SI_type_node,
 				V8SI_type_node,
 				NULL_TREE);
+  tree int_ftype_v4df
+    = build_function_type_list (integer_type_node,
+				V4DF_type_node,
+				NULL_TREE);
+  tree int_ftype_v8sf
+    = build_function_type_list (integer_type_node,
+				V8SF_type_node,
+				NULL_TREE);
+  tree int_ftype_v8sf_v8sf
+    = build_function_type_list (integer_type_node,
+				V8SF_type_node, V8SF_type_node,
+				NULL_TREE);
+  tree int_ftype_v4di_v4di
+    = build_function_type_list (integer_type_node,
+				V4DI_type_node, V4DI_type_node,
+				NULL_TREE);
+  tree int_ftype_v4df_v4df
+    = build_function_type_list (integer_type_node,
+				V4DF_type_node, V4DF_type_node,
+				NULL_TREE);
 
   tree ftype;
 
@@ -20453,8 +20542,23 @@ ix86_init_mmx_sse_builtins (void)
 	case FLOAT_FTYPE_FLOAT:
 	  type = float_ftype_float;
 	  break;
+	case INT_FTYPE_V8SF_V8SF_PTEST:
+	  type = int_ftype_v8sf_v8sf;
+	  break;
+	case INT_FTYPE_V4DI_V4DI_PTEST:
+	  type = int_ftype_v4di_v4di;
+	  break;
+	case INT_FTYPE_V4DF_V4DF_PTEST:
+	  type = int_ftype_v4df_v4df;
+	  break;
+	case INT_FTYPE_V4SF_V4SF_PTEST:
+	  type = int_ftype_v4sf_v4sf;
+	  break;
 	case INT_FTYPE_V2DI_V2DI_PTEST:
 	  type = int_ftype_v2di_v2di;
+	  break;
+	case INT_FTYPE_V2DF_V2DF_PTEST:
+	  type = int_ftype_v2df_v2df;
 	  break;
 	case INT64_FTYPE_V4SF:
 	  type = int64_ftype_v4sf;
@@ -20467,6 +20571,12 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case INT_FTYPE_V8QI:
 	  type = int_ftype_v8qi;
+	  break;
+	case INT_FTYPE_V8SF:
+	  type = int_ftype_v8sf;
+	  break;
+	case INT_FTYPE_V4DF:
+	  type = int_ftype_v4df;
 	  break;
 	case INT_FTYPE_V4SF:
 	  type = int_ftype_v4sf;
@@ -21731,7 +21841,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 
   switch ((enum ix86_builtin_type) d->flag)
     {
+    case INT_FTYPE_V8SF_V8SF_PTEST:
+    case INT_FTYPE_V4DI_V4DI_PTEST:
+    case INT_FTYPE_V4DF_V4DF_PTEST:
+    case INT_FTYPE_V4SF_V4SF_PTEST:
     case INT_FTYPE_V2DI_V2DI_PTEST:
+    case INT_FTYPE_V2DF_V2DF_PTEST:
       return ix86_expand_sse_ptest (d, exp, target);
     case FLOAT128_FTYPE_FLOAT128:
     case FLOAT_FTYPE_FLOAT:
@@ -21739,6 +21854,8 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case INT64_FTYPE_V2DF:
     case INT_FTYPE_V16QI:
     case INT_FTYPE_V8QI:
+    case INT_FTYPE_V8SF:
+    case INT_FTYPE_V4DF:
     case INT_FTYPE_V4SF:
     case INT_FTYPE_V2DF:
     case V16QI_FTYPE_V16QI:
@@ -21980,6 +22097,8 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 	      case CODE_FOR_sse4_1_blendps:
 	      case CODE_FOR_avx_blendpd256:
 	      case CODE_FOR_avx_vpermilv4df:
+	      case CODE_FOR_avx_roundpd256:
+	      case CODE_FOR_avx_roundps256:
 		error ("the last argument must be a 4-bit immediate");
 		return const0_rtx;
 
@@ -23384,8 +23503,10 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
       /* We implement the move patterns for all vector modes into and
 	 out of SSE registers, even when no operation instructions
-	 are available.  */
-      return (VALID_AVX256_REG_MODE (mode)
+	 are available.  OImode move is available only when AVX is
+	 enabled.  */
+      return ((TARGET_AVX && mode == OImode)
+	      || VALID_AVX256_REG_MODE (mode)
 	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)

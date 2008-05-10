@@ -82,6 +82,8 @@ test_2 (_mm256_permute2f128_si256, __m256i, __m256i, __m256i, 1)
 test_2 (_mm256_insertf128_pd, __m256d, __m256d, __m128d, 1)
 test_2 (_mm256_insertf128_ps, __m256, __m256, __m128, 1)
 test_2 (_mm256_insertf128_si256, __m256i, __m256i, __m128i, 1)
+test_1 (_mm256_round_pd, __m256d, __m256d, 1)
+test_1 (_mm256_round_ps, __m256, __m256, 1)
 
 /* wmmintrin.h */
 test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)
