@@ -2864,8 +2864,7 @@ is_escape_site (tree stmt)
       if (lhs == NULL_TREE)
 	return ESCAPE_UNKNOWN;
 
-      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == NOP_EXPR
-	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CONVERT_EXPR
+      if (CONVERT_EXPR_P (GIMPLE_STMT_OPERAND (stmt, 1))
 	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == VIEW_CONVERT_EXPR)
 	{
 	  tree from
@@ -3438,38 +3437,6 @@ new_type_alias (tree ptr, tree var, tree expr)
   MTAG_GLOBAL (tag) = is_global_var (var);
 }
 
-/* ???  Stub.  */
-
-static unsigned int
-create_structure_vars (void)
-{
-  return TODO_rebuild_alias;
-}
-
-static bool
-gate_structure_vars (void)
-{
-  return flag_tree_salias != 0;
-}
-
-struct gimple_opt_pass pass_create_structure_vars = 
-{
- {
-  GIMPLE_PASS,
-  "salias",		 /* name */
-  gate_structure_vars,	 /* gate */
-  create_structure_vars, /* execute */
-  NULL,			 /* sub */
-  NULL,			 /* next */
-  0,			 /* static_pass_number */
-  0,			 /* tv_id */
-  PROP_cfg,		 /* properties_required */
-  0,			 /* properties_provided */
-  0,			 /* properties_destroyed */
-  0,			 /* todo_flags_start */
-  TODO_dump_func	 /* todo_flags_finish */
- }
-};
 
 /* Reset the call_clobbered flags on our referenced vars.  In
    theory, this only needs to be done for globals.  */
@@ -3504,19 +3471,15 @@ struct gimple_opt_pass pass_reset_cc_flags =
  }
 };
 
-static bool
-gate_build_alias (void)
-{
-  return !gate_structure_vars();
-}
 
+/* A dummy pass to cause aliases to be computed via TODO_rebuild_alias.  */
 
 struct gimple_opt_pass pass_build_alias =
 {
  {
   GIMPLE_PASS,
-  "build_alias",            /* name */
-  gate_build_alias,         /* gate */
+  "alias",		    /* name */
+  NULL,			    /* gate */
   NULL,                     /* execute */
   NULL,                     /* sub */
   NULL,                     /* next */
@@ -3526,6 +3489,6 @@ struct gimple_opt_pass pass_build_alias =
   PROP_alias,               /* properties_provided */
   0,                        /* properties_destroyed */
   0,                        /* todo_flags_start */
-  TODO_rebuild_alias        /* todo_flags_finish */
+  TODO_rebuild_alias | TODO_dump_func  /* todo_flags_finish */
  }
 };
