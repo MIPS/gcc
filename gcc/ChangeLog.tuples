@@ -1,3 +1,8 @@
+2008-05-10  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_gimplify_va_arg_expr): Change pre_p and
+	post_p types to gimple_seq *.
+
 2008-05-09  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (maybe_catch_exception): Return body when no exceptions.

@@ -261,7 +261,7 @@ static bool sh_strict_argument_naming (CUMULATIVE_ARGS *);
 static bool sh_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 static tree sh_build_builtin_va_list (void);
 static void sh_va_start (tree, rtx);
-static tree sh_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static tree sh_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  const_tree, bool);
 static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
@@ -7255,8 +7255,8 @@ find_sole_member (tree type)
 /* Implement `va_arg'.  */
 
 static tree
-sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-			 tree *post_p ATTRIBUTE_UNUSED)
+sh_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			 gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
