@@ -1,3 +1,189 @@
+2008-05-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36187
+	* tree-dfa.c (dump_variable): Correct dumping of
+	SFT_BASE_FOR_COMPONENTS_P.
+	* tree-ssa-structalias.c (set_uids_in_ptset): Set
+	SFT_UNPARTITIONABLE_P correctly for the union case.
+
+2008-05-09  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+
+	2008-04-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/PR28690
+	* rtlanal.c: Update copyright years.
+	(commutative_operand_precedence): Give SYMBOL_REF's the same precedence
+	as REG_POINTER and MEM_POINTER operands.
+	* emit-rtl.c (gen_reg_rtx_and_attrs): New function.
+	(set_reg_attrs_from_value): Call mark_reg_pointer as appropriate.
+	* rtl.h (gen_reg_rtx_and_attrs): Add prototype for new function.
+	* gcse.c: Update copyright years.
+	(pre_delete): Call gen_reg_rtx_and_attrs.
+	(hoist_code): Likewise.
+	(build_store_vectors): Likewise.
+	(delete_store): Likewise.
+	* loop-invariant.c (move_invariant_reg): Likewise.
+	Update copyright years.
+
+	2008-04-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Revert
+	PR middle-end/PR28690
+	* rtlanal.c: (commutative_operand_precedence): Give SYMBOL_REF's the
+	same precedence as REG_POINTER and MEM_POINTER operands.
+
+	2008-04-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/PR28690
+	* explow.c (break_out_memory_refs): Use simplify_gen_binary rather
+	than gen_rtx_fmt_ee to perform more canonicalizations.
+
+2008-05-09  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+	2008-05-08  Steve Ellcey  <sje@cup.hp.com>
+
+	* stmt.c (expand_stack_restore): Change sa mode if needed.
+
+2008-05-08  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/36090
+	* config/rs6000/rs6000.c (print_operand_address): If the TOC
+	address RHS contains an offset, output it as well.
+
+	PR target/36182
+	Revert:
+	2008-05-08  Paolo Bonzini  <bonzini@gnu.org>
+	PR target/36090
+	* simplify-rtx.c (simplify_plus_minus): Create CONST of
+	similar RTX_CONST_OBJ before CONST_INT.
+
+2008-05-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2008-05-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35657
+	* config/i386/i386.c (contains_128bit_aligned_vector_p): Renamed
+	to ...
+	(contains_aligned_value_p): This.  Handle _Decimal128.
+	(ix86_function_arg_boundary): Only align _Decimal128 to its
+	natural boundary and handle it properly.
+
+2008-05-08  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/36090
+	* simplify-rtx.c (simplify_plus_minus): Create CONST of
+	similar RTX_CONST_OBJ before CONST_INT.
+
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36154
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Make
+	sure to create a representative for trailing arrays for PTA.
+
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36172
+	* fold-const.c (operand_equal_p): Two objects which types
+	differ in pointerness are not equal.
+
+2008-05-07  Ian Lance Taylor  <iant@google.com>
+
+	PR middle-end/36013
+	* gimplify.c (find_single_pointer_decl_1): Don't look through
+	indirections.
+	(find_single_pointer_decl): Adjust comments.
+
+2008-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36137
+	* fold-const.c (fold_binary): Use STRIP_SIGN_NOPS instead of
+	STRIP_NOPS on arguments even for MIN_EXPR and MAX_EXPR.
+
+	PR middle-end/36106
+	* omp-low.c (expand_omp_atomic_pipeline): Load value using the
+	integral type rather than floating point, then VIEW_CONVERT_EXPR
+	to the floating point type.
+
+2008-05-05  Marius Strobl <marius@FreeBSD.org>
+
+	* gthr-posix.h (__gthread_active_p): Use the Solaris implementation
+	for FreeBSD as well.
+	* gthr-posix95.h: Likewise.
+
+2008-05-05  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36119
+	* tree-vect-transform.c (vectorizable_assignment): Set NCOPIES to 1
+	in case of SLP.
+
+2008-05-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/34973
+	* opts.c (set_Wstrict_aliasing): Handle the turn-off case.
+
+2008-05-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR bootstrap/35169
+	* optc-gen.awk: Work around HP-UX/IA awk bug.
+
+2008-05-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36095
+	* config/i386/i386.c (bdesc_crc32): Remove OPTION_MASK_ISA_64BIT
+	from IX86_BUILTIN_CRC32QI.  Add OPTION_MASK_ISA_64BIT to
+	IX86_BUILTIN_CRC32DI.
+	(ix86_init_mmx_sse_builtins): Add OPTION_MASK_ISA_64BIT to
+	IX86_BUILTIN_CRC32DI.
+
+	* doc/extend.texi: Correct __builtin_ia32_crc32di.
+
+2008-04-30  Ian Lance Taylor  <iant@google.com>
+
+	Backport from mainline:
+	2008-04-22  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (pointer_may_wrap_p): Call int_size_in_bytes rather
+	than size_in_bytes.
+
+	2008-04-18  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (pointer_may_wrap_p): New static function.
+	(fold_comparison): Add another test for pointer overflow.  Use
+	pointer_may_wrap_p to disable some false positives.
+
+	2008-04-14  Ian Lance Taylor  <iant@google.com>
+
+	* fold-const.c (fold_overflow_warning): Remove assertion.
+
+	2008-04-14  Ian Lance Taylor  <iant@google.com>
+
+	* flags.h (POINTER_TYPE_OVERFLOW_UNDEFINED): Define.
+	* fold-const.c (fold_comparison): If appropriate, test
+	POINTER_TYPE_OVERFLOW_UNDEFINED, and issue an overflow warning.
+	(fold_binary): Test POINTER_TYPE_OVERFLOW_UNDEFINED when
+	reassociating a pointer type.
+	* doc/invoke.texi (Optimize Options): Document that
+	-fstrict-overflow applies to pointer wraparound.
+
+2008-04-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36077
+	* fold-const.c (extract_muldiv_1): In combining division constants
+	make sure to never overflow.
+
+2008-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/36060
+	* dwarf2out.c (struct die_struct): Mark as chain_circular through
+	die_sub field.
+	* gengtype.c (walk_type, write_func_for_structure): Handle
+	chain_circular.
+	* doc/gty.texi: Document chain_circular.
+
 2008-04-25  Pompapathi V Gadad <Pompapathi.V.Gadad@nsc.com>
 
 	* config.gcc (crx-*-elf): Remove deprecation.

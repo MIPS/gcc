@@ -1,3 +1,58 @@
+2008-05-10  Roberto Bagnara  <bagnara@cs.unipr.it>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/debug/vector (vector<>::_M_requires_reallocation): Fix macro.
+	* testsuite/23_containers/vector/debug_mode_requires_reallocation.cc:
+	New.
+
+2008-05-07  Johannes Singler  <singler@ira.uka.de>
+
+	* include/parallel/quicksort.h (parallel_sort_qs_conquer):
+	Explicitly request number of threads in the parallel clause.
+	(parallel_sort_qs): Remove setting the number of threads globally. 
+
+2008-05-06  Johannes Singler  <singler@ira.uka.de>
+
+        * include/parallel/multiway_merge.h (multiway_merge_*_unguarded):
+        Pass sentinel directly, to allow correct determination.
+        (multiway_merge_loser_tree_unguarded): Remove over-cautious assertion.
+        (calls to multiway_merge_*_splitting): Parametrize with type that
+	is correct in all cases.
+        * include/parallel/losertree.h (delete_min_insert (in many classes)):
+        Correct and standardize assertions.
+
+2008-05-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* 20_util/make_signed/requirements/typedefs-1.cc: Correct requirements.
+	* 20_util/make_unsigned/requirements/typedefs-1.cc: Same.
+	
+2008-04-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/35922
+	* include/std/unordered_map: Include debug/unordered_map if
+	_GLIBCXX_DEBUG.
+	* testsuite/23_containers/unordered_map/requirements/debug.cc: Move...
+	* testsuite/23_containers/unordered_map/requirements/
+	debug_container.cc: ...here.
+	* testsuite/23_containers/unordered_map/requirements/debug_mode.cc: New.
+	* testsuite/23_containers/unordered_set/requirements/debug.cc: Move...
+	* testsuite/23_containers/unordered_set/requirements/
+	debug_container.cc: ...here.
+	* testsuite/23_containers/unordered_set/requirements/debug_mode.cc: New.
+
+2008-04-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* Makefile.am (install-html, install-pdf): Add dummy targets.
+	* Makefile.in: Regenerate.
+	* doc/Makefile.am (install-html, install-pdf): Remove.
+	* doc/Makefile.in: Regenerate.
+
+2008-04-28  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* include/Makefile.am: Fix most stamp rules to regenerate
+	the links for all sources newer than the stamp file.
+	* include/Makefile.in: Regenerate.
+
 2008-05-25  Benjamin Kosnik  <bkoz@redhat.com>
 
         Revert PR libstdc++/35887 
