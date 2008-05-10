@@ -1969,9 +1969,6 @@ backend_init_target (void)
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
 
-  /* This invokes IRA to set up reg related data structures.  */
-  init_ira ();
-
   /* Sets static_base_value[HARD_FRAME_POINTER_REGNUM], which is
      mode-dependent.  */
   init_alias_target ();
@@ -2034,9 +2031,10 @@ lang_dependent_init_target (void)
   /* Do the target-specific parts of expr initialization.  */
   init_expr_target ();
 
-  /* Although the actions of init_set_costs are language-independent,
-     it uses optabs, so we cannot call it from backend_init.  */
+  /* Although the actions of these functions are language-independent,
+     they use optabs, so we cannot call them from backend_init.  */
   init_set_costs ();
+  init_ira ();
 
   expand_dummy_function_end ();
 }

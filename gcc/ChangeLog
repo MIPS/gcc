@@ -1,5 +1,10 @@
 2008-05-10  Richard Sandiford  <rsandifo@nildram.co.uk>
 
+	* toplev.c (backend_init_target): Move init_ira call from here...
+	(lang_dependent_init_target): ...to here.
+
+2008-05-10  Richard Sandiford  <rsandifo@nildram.co.uk>
+
 	* ira.c (setup_class_subset_and_memory_move_costs): Don't calculate
 	memory move costs for NO_REGS.
 
