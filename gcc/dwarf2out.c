@@ -9699,8 +9699,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
     case COMPOUND_EXPR:
       return loc_descriptor_from_tree_1 (TREE_OPERAND (loc, 1), want_address);
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
     case SAVE_EXPR:
     case GIMPLE_MODIFY_STMT:
@@ -11235,8 +11234,7 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	add_AT_unsigned (subrange_die, bound_attr, tree_low_cst (bound, 0));
       break;
 
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
       add_bound_info (subrange_die, bound_attr, TREE_OPERAND (bound, 0));
       break;
@@ -11920,8 +11918,7 @@ descr_info_loc (tree val, tree base_decl)
 
   switch (TREE_CODE (val))
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       return descr_info_loc (TREE_OPERAND (val, 0), base_decl);
     case INTEGER_CST:
       if (host_integerp (val, 0))

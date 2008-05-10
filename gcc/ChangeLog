@@ -1,3 +1,207 @@
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (bdesc_ptest): Removed.
+	(ix86_builtin_type): Add INT_FTYPE_V2DI_V2DI_PTEST.
+	(bdesc_args): Add __builtin_ia32_ptestz128,
+	__builtin_ia32_ptestc128 and __builtin_ia32_ptestnzc128.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Handle INT_FTYPE_V2DI_V2DI_PTEST.
+	(ix86_expand_builtin): Updated.
+
+2008-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree-cfg.c (valid_fixed_convert_types_p): New function.
+	(verify_gimple_expr): Handle FIXED_CONVERT_EXPR.
+
+2008-05-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* value-prof.c (interesting_stringop_to_profile): Do not
+	return early for BUILT_IN_MEMPCPY.
+
+2008-05-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* calls.c (expand_call): Don't use callgraph to increase
+	preferred_stack_boundary.
+
+	* cgraph.h (cgraph_rtl_info): Use unsigned on
+	preferred_incoming_stack_boundary.
+
+	* final.c (rest_of_clean_state): Use unsigned on
+	preferred_stack_boundary.
+
+2008-05-09  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/22231:
+	* c-opts.c (sanitize_cpp_opts): Disallow -MG if compilation is
+	proceeding.
+
+2008-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/36129
+	* tree-ssa-cpp.c: Include value-prof.h.
+	(execute_fold_all_builtins): Call gimple_remove_stmt_histograms if
+	built-in function was folded to a constant.
+	* Makefile.in (tree-ssa-cpp.c): Depend on value-prof.h
+
+2008-05-09  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-scalar-evolution.c: Document instantiate_scev.
+	(instantiate_parameters_1): Renamed instantiate_scev_1.
+	Don't use the same loop for instantiation_loop and evolution_loop.
+	(instantiate_scev): New.
+	(instantiate_parameters): Moved...
+	(resolve_mixers): Update call to instantiate_scev_1 to pass the
+	same loop twice.  Maintains the semantics for this function.
+	* tree-scalar-evolution.h (instantiate_scev): Declare.
+	(instantiate_parameters): ...here.  Now static inline.
+	* tree-data-ref.c (dr_analyze_indices): Call instantiate_scev
+	instead of resolve_mixers.
+
+2008-05-09  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* rtl-factoring.c (collect_pattern_seqs): Fix typo.
+
+2008-05-09  Tomas Bily  <tbily@suse.cz>
+
+	* config/pa/pa.c (reloc_needed): Use CASE_CONVERT.
+	* tree-cfg.c (verify_expr, verify_gimple_expr): Likewise.
+	* tree-ssa-structalias.c (get_constraint_for): Likewise.
+	* c-common.c (c_common_truthvalue_conversion): Likewise.
+	* tree-object-size.c (compute_object_offset): Likewise.
+	* tree-inline.c (estimate_num_insns_1): Likewise.
+	* varasm.c (const_hash_1, compare_constant, copy_constant)
+	(compute_reloc_for_constant, output_addressed_constants)
+	(initializer_constant_valid_p): Likewise.
+	* c-omp.c (check_omp_for_incr_expr): Likewise.
+	* gimplify.c (gimplify_expr): Likewise.
+	* c-typeck.c (c_finish_return): Likewise.
+	* tree-vectorizer.c (supportable_widening_operation)
+	(supportable_narrowing_operation): Likewise.
+	* c-pretty-print.c (pp_c_cast_expression, pp_c_expression): Likewise.
+	* matrix-reorg.c (can_calculate_expr_before_stmt): Likewise.
+	* expr.c (highest_pow2_factor, expand_expr_real_1): Likewise.
+	* dwarf2out.c (loc_descriptor_from_tree_1, add_bound_info)
+	(descr_info_loc): Likewise.
+	* tree-ssa-loop-ivopts.c (may_be_nonaddressable_p): Likewise.
+	* fold-const.c (operand_equal_p, make_range, extract_muldiv_1)
+	(fold_unary): Likewise.
+	* builtins.c (get_pointer_alignment): Likewise.
+	* tree-scalar-evolution.c (interpret_rhs_modify_stmt)
+	(instantiate_parameters_1): Likewise.
+	* tree.c (expr_align, stabilize_reference): Likewise.
+	* tree-pretty-print.c (dump_generic_node, op_prio): Likewise.
+	* tree-ssa-loop-niter.c (derive_constant_upper_bound): Likewise.
+	* convert.c (strip_float_extensions): Use CONVERT_EXPR_P.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
+	* config/alpha/alpha.c (va_list_skip_additions): Likewise.
+	* c-common.c (c_alignof_expr, check_function_arguments_recurse): Likewise.
+	* tree-ssa.c (tree_ssa_useless_type_conversion): Likewise.
+	* varasm.c (initializer_constant_valid_p, output_constant): Likewise.
+	* tree-ssa-forwprop.c (get_prop_source_stmt, can_propagate_from)
+	(forward_propagate_addr_expr_1, forward_propagate_addr_expr)
+	(forward_propagate_comparison)
+	(tree_ssa_forward_propagate_single_use_vars): Likewise.
+	* cfgexpand.c (discover_nonconstant_array_refs_r): Likewise.
+	* emit-rtl.c (component_ref_for_mem_expr)
+	(set_mem_attributes_minus_bitpos): Likewise.
+	* tree-ssa-phiopt.c (conditional_replacement): Likewise.
+	* gimplify.c (gimplify_conversion, goa_lhs_expr_p, gimplify_expr): Likewise.
+	* c-typeck.c (default_function_array_conversion, build_indirect_ref)
+	(build_function_call, pointer_diff, build_compound_expr)
+	(c_finish_return): Likewise.
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Likewise.
+	* matrix-reorg.c (get_inner_of_cast_expr, may_flatten_matrices_1): Likewise.
+	* tree-ssa-ifcombine.c (recognize_single_bit_test): Likewise.
+	* expr.c (is_aligning_offset): Likewise.
+	* tree-ssa-alias.c (is_escape_site): Likewise.
+	* tree-stdarg.c (va_list_counter_bump, check_va_list_escapes)
+	(check_all_va_list_escapes): Likewise.
+	* tree-ssa-loop-ivopts.c (determine_base_object)
+	(determine_common_wider_type): Likewise.
+	* dojump.c (do_jump): Likewise.
+	* tree-ssa-sccvn.c (simplify_unary_expression): Likewise.
+	* tree-gimple.c (is_gimple_cast): Likewise.
+	* fold-const.c (decode_field_reference, )
+	(fold_sign_changed_comparison, fold_unary, fold_comparison)
+	(fold_binary): Likewise.
+	* tree-ssa-alias-warnings.c (find_alias_site_helper)
+	(already_warned_in_frontend_p): Likewise.
+	* builtins.c (get_memory_rtx, fold_builtin_next_arg): Likewise.
+	* tree.c (really_constant_p, get_unwidened): Likewise.
+	* tree-ssa-loop-niter.c (expand_simple_operations): Likewise.
+	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
+	* tree-vrp.c (register_edge_assert_for_2, register_edge_assert_for_1): Likewise.
+	* tree.h (STRIP_NOPS, STRIP_SIGN_NOPS, STRIP_TYPE_NOPS): Use CONVERT_EXPR_P.
+	(CONVERT_EXPR_P): Define.
+	(CASE_CONVERT): Define.
+	
+2008-05-08  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	PR middle-end/36117
+	* dce.c (deletable_insn_p): Do not delete calls if 
+	df_in_progress.
+	(delete_unmarked_insns): When deleting a call, call 
+	delete_unreachable_blocks.
+	* rtl.texi (RTL_CONST_CALL_P, RTL_PURE_CALL_P,
+	RTL_CONST_OR_PURE_CALL_P, RTL_LOOPING_CONST_OR_PURE_CALL_P): Fixed
+	doc.
+	
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	* doc/invoke.texi (-fdump-tree-salias): Remove documentation.
+	(-ftree-salias): Likewise.
+	(salias-max-implicit-fields): Remove param documentation.
+	(salias-max-array-elements): Likewise.
+	* tree-pass.h (pass_create_structure_vars): Remove.
+	* params.h (SALIAS_MAX_IMPLICIT_FIELDS): Remove.
+	(SALIAS_MAX_ARRAY_ELEMENTS): Likewise.
+	* tree-ssa-alias.c (create_structure_vars): Remove.
+	(gate_structure_vars): Likewise.
+	(pass_create_structure_vars): Likewise.
+	(gate_build_alias): Likewise.
+	(pass_build_alias): Adjust to run always and dump the function.
+	* common.opt (ftree-salias): Hide.
+	* passes.c (init_optimization_passes): Remove
+	pass_create_structure_vars, adjust comment.
+	* params.def (PARAM_SALIAS_MAX_IMPLICIT_FIELDS): Remove.
+	(PARAM_SALIAS_MAX_ARRAY_ELEMENTS): Likewise.
+	* opts.c (decode_options): Do not set flag_tree_salias.
+	(common_handle_option): Add OPT_ftree_salias to the backward
+	compatibility section.
+
+2008-05-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow-inline.h (var_can_have_subvars): Move ...
+	* tree-ssa-structalias.c (var_can_have_subvars): ... here.
+	* tree-flow.h (var_can_have_subvars): Remove.
+	(push_fields_onto_fieldstack): Remove.
+	(sort_fieldstack): Likewise.
+	(struct fieldoff): Move ...
+	* tree-ssa-structalias.c (struct fieldoff): ... here.  Remove
+	alias_set and base_for_components fields.
+	(sort_fieldstack): Make static.
+	(push_fields_onto_fieldstack): Likewise.  Remove code that
+	handles anything but RECORD_TYPEs.  Remove alias_set and
+	base_for_components handling.
+	(create_variable_info_for): Adjust.
+
+2008-05-08  Seongbae Park  <seongbae.park@gmail.com>
+
+	* common.opt (Wframe-larger-than=): Shorten the help message
+	to one line.
+	* doc/invoke.texi (Wframe-larger-than=): Add more description.
+
+2008-05-08  Rafael Espindola  <espindola@google.com>
+
+	* tree-complex.c (expand_complex_div_wide): Don't create CONDs that
+	trap.
+	* tree-gimple.c (is_gimple_condexpr): Check that the expression doesn't
+	trap and that both operands are gimple values.
+	(canonicalize_cond_expr_cond): Use is_gimple_condexpr.
+	* gcc/tree-eh.c (tree_could_trap_p): Correctly detect if a comparison
+	is a fp operation.
+
 2008-05-08  Richard Sandiford  <rsandifo@nildram.co.uk>
 
 	* read-rtl.c (join_c_conditions): Return the first string if the
