@@ -1,3 +1,8 @@
+2008-05-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_internal_arg_pointer): Check non-call
+	exceptions instead of exceptions.
+
 2008-05-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* defaults.h (GET_MODE_SPILL_ALIGNMENT): New.

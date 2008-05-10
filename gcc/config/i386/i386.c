@@ -6447,10 +6447,10 @@ ix86_internal_arg_pointer (void)
     crtl->stack_alignment_estimated = 128;
 
   /* Update crtl->stack_alignment_estimated and use it later to align
-     stack.  We check PREFERRED_STACK_BOUNDARY if there may be
+     stack.  We check PREFERRED_STACK_BOUNDARY if there may be non-call
      exceptions since callgraph doesn't collect incoming stack alignment
-     for exception handling.  */
-  if (flag_exceptions
+     in this case.  */
+  if (flag_non_call_exceptions
       && PREFERRED_STACK_BOUNDARY > crtl->preferred_stack_boundary)
     preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
   else
