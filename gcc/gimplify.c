@@ -298,6 +298,7 @@ gimple_pop_condition (gimple_seq *pre_p)
   if (conds == 0)
     {
       gimplify_seq_add_seq (pre_p, gimplify_ctxp->conditional_cleanups);
+      gimplify_ctxp->conditional_cleanups = NULL;
     }
 }
 
@@ -4661,6 +4662,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
   int old_conds = gimplify_ctxp->conditions;
   gimple_seq old_cleanups = gimplify_ctxp->conditional_cleanups;
   gimplify_ctxp->conditions = 0;
+  gimplify_ctxp->conditional_cleanups = NULL;
 
   gimplify_stmt (&TREE_OPERAND (*expr_p, 0), &body_sequence);
 

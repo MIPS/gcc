@@ -1468,8 +1468,8 @@ gimple_call_return_type (const_gimple gs)
   tree fn = gimple_call_fn (gs);
   tree type = TREE_TYPE (fn);
 
-  /* See through pointer to functions.  */
-  if (TREE_CODE (type) == POINTER_TYPE)
+  /* See through pointers.  */
+  if (POINTER_TYPE_P (type))
     type = TREE_TYPE (type);
 
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE

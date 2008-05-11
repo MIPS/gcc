@@ -1,4 +1,10 @@
+2008-05-11 Doug Kwan  <dougkwan@google.com>
+
+	* init.c (build_vec_delete): Add type conversion for argument
+	0 of POINTER_PLUS_EXPR.
+
 2008-04-29  Doug Kwan  <dougkwan@google.com>
+
        * decl2 (File): Include "gimple.h"
        (cp_write_global_declarations): Use gimple_body instead of
        DECL_SAVED_TREE.

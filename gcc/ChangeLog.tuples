@@ -1,3 +1,13 @@
+2008-05-11 Doug Kwan  <dougkwan@google.com>
+
+	* gimplify.c (gimple_pop_condition): Clear
+	conditional_cleanups field after the associated gimple sequence has
+	been freed implicitly.
+	(gimplify_cleanup_point_expr): Clear conditional_cleanups field
+	of gimplfiy_ctxp after resetting the conditions field.
+	* gimple.h (gimple_call_return_type): Handle REFERENCE_TYPE like
+	POINTER_TYPE. 
+
 2008-05-10  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	* config/sh/sh.c (sh_gimplify_va_arg_expr): Change pre_p and
