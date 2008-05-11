@@ -1,5 +1,14 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*vec_dupv4sf_avx): New.
+	(*vec_dupv4si_avx): Likewise.
+	(*vec_dupv2di_avx): Likewise.
+	(*avx_vec_setv4sf_0): Renamed to ...
+	(*vec_setv4sf_0_avx): This.
+	(*vec_dupv2df_sse3): Support AVX.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (standard_sse_constant_opcode): Fix a
 	typo.
 

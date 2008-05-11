@@ -3355,6 +3355,16 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "SF")])
 
+(define_insn "*vec_dupv4sf_avx"
+  [(set (match_operand:V4SF 0 "register_operand" "=x")
+	(vec_duplicate:V4SF
+	  (match_operand:SF 1 "register_operand" "x")))]
+  "TARGET_AVX"
+  "vshufps\t{$0, %1, %1, %0|%0, %1, %1, 0}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF")])
+
 (define_insn "*vec_dupv4sf"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_duplicate:V4SF
@@ -3415,8 +3425,8 @@
   DONE;
 })
 
-(define_insn "*avx_vec_setv4sf_0"
-  [(set (match_operand:V4SF 0 "nonimmediate_operand"  "=x,x,Y2,m")
+(define_insn "*vec_setv4sf_0_avx"
+  [(set (match_operand:V4SF 0 "nonimmediate_operand"  "=x,x,x,m")
 	(vec_merge:V4SF
 	  (vec_duplicate:V4SF
 	    (match_operand:SF 2 "general_operand"     " x,m,*r,x*rfF"))
@@ -4168,8 +4178,13 @@
 	  (match_operand:DF 1 "nonimmediate_operand" "xm")
 	  (match_dup 1)))]
   "TARGET_SSE3"
-  "movddup\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vmovddup\t{%1, %0|%0, %1}\"
+                       : \"movddup\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "sselog1")
+   (set (attr "prefix")
+      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
+        (const_string "vex")
+        (const_string "orig")))
    (set_attr "mode" "DF")])
 
 (define_insn "*vec_concatv2df"
@@ -6269,6 +6284,15 @@
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V2SF,V4SF,V2SF")])
 
+(define_insn "*vec_dupv4si_avx"
+  [(set (match_operand:V4SI 0 "register_operand" "=x")
+	(vec_duplicate:V4SI
+	  (match_operand:SI 1 "register_operand" "x")))]
+  "TARGET_AVX"
+  "vpshufd\t{$0, %1, %0|%0, %1, 0}"
+  [(set_attr "type" "sselog1")
+   (set_attr "mode" "TI")])
+
 (define_insn "*vec_dupv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=Y2,x")
 	(vec_duplicate:V4SI
@@ -6279,6 +6303,16 @@
    shufps\t{$0, %0, %0|%0, %0, 0}"
   [(set_attr "type" "sselog1")
    (set_attr "mode" "TI,V4SF")])
+
+(define_insn "*vec_dupv2di_avx"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+	(vec_duplicate:V2DI
+	  (match_operand:DI 1 "register_operand" "x")))]
+  "TARGET_AVX"
+  "vpunpcklqdq\t{%1, %1, %0|%0, %1, %1}"
+  [(set_attr "type" "sselog1")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
 
 (define_insn "*vec_dupv2di"
   [(set (match_operand:V2DI 0 "register_operand" "=Y2,x")
