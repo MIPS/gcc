@@ -36,7 +36,7 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (*rcpsf2_sse): Reformat.
-	(*rsqrtsf2_sse): No need to set prefix_0f attibute.
+	(*rsqrtsf2_sse): No need to set prefix_0f attribute.
 	(*sqrt<mode>2_sse): Likewise.
 
 	* config/i386/sse.md (<sse>_comi): Reformat.
