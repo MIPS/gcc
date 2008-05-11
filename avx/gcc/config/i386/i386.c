@@ -5852,7 +5852,7 @@ standard_sse_constant_opcode (rtx insn, rtx x)
 	  case MODE_V4DF:
 	  case MODE_OI:
 	    return "vpcmpeqd\t%0, %0, %0\n\t"
-		   "vperm2f128\t{$0x0, %0, %0, %0|%0, %0, %0, 0x}";
+		   "vperm2f128\t{$0x0, %0, %0, %0|%0, %0, %0, 0x0}";
 	    break;
 	  default:
 	    gcc_unreachable ();

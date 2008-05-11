@@ -1,5 +1,10 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (standard_sse_constant_opcode): Fix a
+	typo.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.md (*rcpsf2_sse): Reformat.
 	(*rsqrtsf2_sse): No need to set prefix_0f attibute.
 	(*sqrt<mode>2_sse): Likewise.
