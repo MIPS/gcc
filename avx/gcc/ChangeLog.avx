@@ -1,5 +1,20 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (print_reg): Support 't' for 256bit AVX
+	register.
+	(print_operand): Likewise.
+	(ix86_expand_vector_init_duplicate): Support V4DFmode,
+	V8SFmode and V8SImode.
+	(ix86_expand_vector_init_general): Likewise.
+
+	* config/i386/sse.md (*avx_concatv2sf): New.
+	(*vec_concatv2df_avx): Likewise.
+	(*avx_concatv2si): Likewise.
+	(vec_init<mode>): Likewise.
+	(*vec_concat<mode>_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (*vec_concatv4si_1_avx): New.
 	(*vec_concatv2di_avx): Likewise.
 	(*vec_concatv2di_rex_avx): Likewise.

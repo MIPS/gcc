@@ -3374,6 +3374,19 @@
   [(set_attr "type" "sselog1")
    (set_attr "mode" "V4SF")])
 
+(define_insn "*avx_concatv2sf"
+  [(set (match_operand:V2SF 0 "register_operand"     "=x,x")
+	(vec_concat:V2SF
+	  (match_operand:SF 1 "nonimmediate_operand" " x,m")
+	  (match_operand:SF 2 "reg_or_0_operand"     " x,C")))]
+  "TARGET_AVX"
+  "@
+   vmovss\t{%2, %1, %0|%0, %1, %2}
+   vmovss\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "SF")
+   (set_attr "prefix" "vex")])
+
 ;; ??? In theory we can match memory for the MMX alternative, but allowing
 ;; nonimmediate_operand for operand 2 and *not* allowing memory for the SSE
 ;; alternatives pretty much forces the MMX alternative to be chosen.
@@ -4186,6 +4199,20 @@
         (const_string "vex")
         (const_string "orig")))
    (set_attr "mode" "DF")])
+
+(define_insn "*vec_concatv2df_avx"
+  [(set (match_operand:V2DF 0 "register_operand"     "=x,x,x")
+	(vec_concat:V2DF
+	  (match_operand:DF 1 "nonimmediate_operand" " x,x,m")
+	  (match_operand:DF 2 "vector_move_operand"  " x,m,C")))]
+  "TARGET_AVX"
+  "@
+   vmovsd\t{%2, %1, %0|%0, %1, %2}
+   vmovhpd\t{%2, %1, %0|%0, %1, %2}
+   vmovsd\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "DF,V1DF,DF")
+   (set_attr "prefix" "vex")])
 
 (define_insn "*vec_concatv2df"
   [(set (match_operand:V2DF 0 "register_operand"     "=Y2,Y2,Y2,x,x")
@@ -6324,6 +6351,19 @@
    movlhps\t%0, %0"
   [(set_attr "type" "sselog1,ssemov")
    (set_attr "mode" "TI,V4SF")])
+
+(define_insn "*avx_concatv2si"
+  [(set (match_operand:V2SI 0 "register_operand"     "=x,x")
+	(vec_concat:V2SI
+	  (match_operand:SI 1 "nonimmediate_operand" " x,rm")
+	  (match_operand:SI 2 "reg_or_0_operand"     " x,C")))]
+  "TARGET_AVX"
+  "@
+   vpunpckldq\t{%2, %1, %0|%0, %1, %2}
+   vmovd\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sselog,ssemov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
 
 ;; ??? In theory we can match memory for the MMX alternative, but allowing
 ;; nonimmediate_operand for operand 2 and *not* allowing memory for the SSE
@@ -10231,3 +10271,23 @@
     (if_then_else (eq_attr "alternative" "0")
        (const_string "0")
        (const_string "*")))])
+
+(define_expand "vec_init<mode>"
+  [(match_operand:AVX256MODE2P 0 "register_operand" "")
+   (match_operand 1 "" "")]
+  "TARGET_AVX"
+{
+  ix86_expand_vector_init (false, operands[0], operands[1]);
+  DONE;
+})
+
+(define_insn "*vec_concat<mode>_avx"
+  [(set (match_operand:AVX256MODE2P 0 "register_operand"   "=x")
+	(vec_concat:AVX256MODE2P
+	  (match_operand:<avxhalfvecmode> 1 "register_operand" "x")
+	  (match_operand:<avxhalfvecmode> 2 "nonimmediate_operand" "xm")))]
+  "TARGET_AVX"
+  "vperm2f128\t{$0x30, %t2, %t1, %0|%0, %t1, %t2, 0x30}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "<avxvecmode>")
+   (set_attr "prefix" "vex")])

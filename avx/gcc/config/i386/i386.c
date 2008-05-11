@@ -8888,6 +8888,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
    If CODE is 'k', pretend the mode is SImode.
    If CODE is 'q', pretend the mode is DImode.
    If CODE is 'x', pretend the mode is V4SFmode.
+   If CODE is 't', pretend the mode is V8SFmode.
    If CODE is 'h', pretend the reg is the 'high' byte register.
    If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
 
@@ -8925,6 +8926,8 @@ print_reg (rtx x, int code, FILE *file)
     code = 0;
   else if (code == 'x')
     code = 16;
+  else if (code == 't')
+    code = 32;
   else
     code = GET_MODE_SIZE (GET_MODE (x));
 
@@ -9053,6 +9056,7 @@ get_some_local_dynamic_name (void)
    k --  likewise, print the SImode name of the register.
    q --  likewise, print the DImode name of the register.
    x --  likewise, print the V4SFmode name of the register.
+   t --  likewise, print the V8SFmode name of the register.
    h -- print the QImode name for a "high" register, either ah, bh, ch or dh.
    y -- print "st(0)" instead of "st" as a register.
    D -- print condition for SSE cmp instruction.
@@ -9205,6 +9209,7 @@ print_operand (FILE *file, rtx x, int code)
 	case 'k':
 	case 'q':
 	case 'h':
+	case 't':
 	case 'y':
 	case 'x':
 	case 'X':
@@ -24673,7 +24678,7 @@ static bool
 ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
 				   rtx target, rtx val)
 {
-  enum machine_mode smode, wsmode, wvmode;
+  enum machine_mode hmode, smode, wsmode, wvmode;
   rtx x;
 
   switch (mode)
@@ -24796,6 +24801,28 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
       if (!ix86_expand_vector_init_duplicate (mmx_ok, wvmode, x, val))
 	gcc_unreachable ();
       emit_move_insn (target, gen_lowpart (mode, x));
+      return true;
+
+    case V4DFmode:
+      hmode = V2DFmode;
+      goto half;
+    case V8SFmode:
+      hmode = V4SFmode;
+      goto half;
+    case V8SImode:
+      hmode = V4SImode;
+      goto half;
+half:
+      {
+	rtx tmp;
+
+	val = force_reg (GET_MODE_INNER (mode), val);
+	x = gen_rtx_VEC_DUPLICATE (hmode, val);
+	tmp = gen_reg_rtx (hmode);
+	emit_insn (gen_rtx_SET (VOIDmode, tmp, x));
+	emit_insn (gen_rtx_SET (VOIDmode, target,
+				gen_rtx_VEC_CONCAT (mode, tmp, tmp)));
+      }
       return true;
 
     default:
@@ -24998,6 +25025,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 				 rtx target, rtx vals)
 {
   enum machine_mode half_mode = GET_MODE_INNER (mode);
+  enum machine_mode quarter_mode;
   rtx op0 = NULL, op1 = NULL;
   bool use_vec_concat = false;
 
@@ -25017,6 +25045,53 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
       use_vec_concat = true;
       break;
 
+    case V8SImode:
+      half_mode = V4SImode;
+      quarter_mode = V2SImode;
+      goto quarter;
+    case V8SFmode:
+      half_mode = V4SFmode;
+      quarter_mode = V2SFmode;
+      goto quarter;
+quarter:
+      {
+	rtx op2, op3, op4, op5;
+	rtvec v;
+
+	/* For V8SF and V8SI, we implement a concat of two V4 vectors.
+	   Recurse to load the two halves.  */
+
+	op2 = gen_reg_rtx (quarter_mode);
+	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
+	ix86_expand_vector_init (false, op2, gen_rtx_PARALLEL (quarter_mode, v));
+
+	op3 = gen_reg_rtx (quarter_mode);
+	v = gen_rtvec (2, XVECEXP (vals, 0, 2), XVECEXP (vals, 0, 3));
+	ix86_expand_vector_init (false, op3, gen_rtx_PARALLEL (quarter_mode, v));
+
+	op4 = gen_reg_rtx (quarter_mode);
+	v = gen_rtvec (2, XVECEXP (vals, 0, 4), XVECEXP (vals, 0, 5));
+	ix86_expand_vector_init (false, op4, gen_rtx_PARALLEL (quarter_mode, v));
+
+	op5 = gen_reg_rtx (quarter_mode);
+	v = gen_rtvec (2, XVECEXP (vals, 0, 6), XVECEXP (vals, 0, 7));
+	ix86_expand_vector_init (false, op5, gen_rtx_PARALLEL (quarter_mode, v));
+
+	op0 = gen_reg_rtx (half_mode);
+	emit_insn (gen_rtx_SET (VOIDmode, op0,
+				gen_rtx_VEC_CONCAT (half_mode, op2, op3)));
+
+	op1 = gen_reg_rtx (half_mode);
+	emit_insn (gen_rtx_SET (VOIDmode, op1,
+				gen_rtx_VEC_CONCAT (half_mode, op4, op5)));
+
+	use_vec_concat = true;
+      }
+      break;
+
+    case V4DFmode:
+      half_mode = V2DFmode;
+      goto half;
     case V4SFmode:
       half_mode = V2SFmode;
       goto half;
