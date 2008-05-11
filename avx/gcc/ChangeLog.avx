@@ -1,3 +1,23 @@
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*rcpsf2_sse): Reformat.
+	(*rsqrtsf2_sse): No need to set prefix_0f attibute.
+	(*sqrt<mode>2_sse): Likewise.
+
+	* config/i386/sse.md (<sse>_comi): Reformat.
+	(<sse>_ucomi): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(vec_dupv2df): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrd): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(sse_ldmxcsr): Likewise.
+
 2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm256_round_pd): Fix a typo.

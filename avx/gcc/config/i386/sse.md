@@ -1278,11 +1278,11 @@
   "* return TARGET_AVX ? \"vcomis<ssemodefsuffix>\t{%1, %0|%0, %1}\"
                        : \"comis<ssemodefsuffix>\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssecomi")
-   (set_attr "mode" "<MODE>")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "<MODE>")])
 
 (define_insn "<sse>_ucomi"
   [(set (reg:CCFPU FLAGS_REG)
@@ -1297,11 +1297,11 @@
   "* return TARGET_AVX ? \"vucomis<ssemodefsuffix>\t{%1, %0|%0, %1}\"
                        : \"ucomis<ssemodefsuffix>\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssecomi")
-   (set_attr "mode" "<MODE>")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "<MODE>")])
 
 (define_expand "vcond<mode>"
   [(set (match_operand:SSEMODEF2P 0 "register_operand" "")
@@ -3034,11 +3034,11 @@
                        : \"movshdup\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "sse")
    (set_attr "prefix_rep" "1")
-   (set_attr "mode" "V4SF")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "V4SF")])
 
 (define_insn "avx_movsldup256"
   [(set (match_operand:V8SF 0 "register_operand" "=x")
@@ -3071,11 +3071,11 @@
                        : \"movsldup\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "sse")
    (set_attr "prefix_rep" "1")
-   (set_attr "mode" "V4SF")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "V4SF")])
 
 (define_expand "avx_shufps256"
   [(match_operand:V8SF 0 "register_operand" "")
@@ -4142,11 +4142,11 @@
   "* return TARGET_AVX ? \"vmovddup\t{%1, %0|%0, %1}\"
                        : \"movddup\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "sselog1")
-   (set_attr "mode" "DF")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "DF")])
 
 (define_insn "vec_dupv2df"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
@@ -4156,11 +4156,11 @@
   "* return TARGET_AVX ? \"vunpcklpd\t%0, %0, %0\"
                        : \"unpcklpd\t%0, %0\";"
   [(set_attr "type" "sselog1")
-   (set_attr "mode" "V2DF")
    (set (attr "prefix")
       (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
         (const_string "vex")
-        (const_string "orig")))])
+        (const_string "orig")))
+   (set_attr "mode" "V2DF")])
 
 (define_insn "*vec_concatv2df_sse3"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
@@ -5912,11 +5912,11 @@
                        : \"pextrb\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_pextrb_memory"
   [(set (match_operand:QI 0 "memory_operand" "=m")
@@ -5928,11 +5928,11 @@
                        : \"pextrb\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 (define_insn "*sse2_pextrw"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -5945,11 +5945,11 @@
                        : \"pextrw\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_data16" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_pextrw_memory"
   [(set (match_operand:HI 0 "memory_operand" "=m")
@@ -5961,11 +5961,11 @@
                        : \"pextrw\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_pextrd"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=rm")
@@ -5977,11 +5977,11 @@
                        : \"pextrd\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 ;; It must come before *vec_extractv2di_1_sse since it is preferred.
 (define_insn "*sse4_1_pextrq"
@@ -5994,11 +5994,11 @@
                        : \"pextrq\t{%2, %1, %0|%0, %1, %2}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_extra" "1")
-   (set_attr "mode" "TI")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "mode" "TI")])
 
 (define_expand "sse2_pshufd"
   [(match_operand:V4SI 0 "register_operand" "")
@@ -6848,11 +6848,11 @@
   "* return TARGET_AVX ? \"vldmxcsr\t%0\"
                        : \"ldmxcsr\t%0\";"
   [(set_attr "type" "sse")
-   (set_attr "memory" "load")
    (set (attr "prefix")
      (if_then_else (ne (symbol_ref "TARGET_AVX") (const_int 0))
        (const_string "vex")
-       (const_string "orig")))])
+       (const_string "orig")))
+   (set_attr "memory" "load")])
 
 (define_insn "sse_stmxcsr"
   [(set (match_operand:SI 0 "memory_operand" "=m")
