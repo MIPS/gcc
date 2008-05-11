@@ -1,5 +1,11 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*vec_concatv4si_1_avx): New.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2di_rex_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (*vec_dupv4sf_avx): New.
 	(*vec_dupv4si_avx): Likewise.
 	(*vec_dupv2di_avx): Likewise.

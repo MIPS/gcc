@@ -6356,6 +6356,19 @@
   [(set_attr "type" "sselog,ssemov,mmxcvt,mmxmov")
    (set_attr "mode" "V4SF,V4SF,DI,DI")])
 
+(define_insn "*vec_concatv4si_1_avx"
+  [(set (match_operand:V4SI 0 "register_operand"       "=x,x")
+	(vec_concat:V4SI
+	  (match_operand:V2SI 1 "register_operand"     " x,x")
+	  (match_operand:V2SI 2 "nonimmediate_operand" " x,m")))]
+  "TARGET_AVX"
+  "@
+   vpunpcklqdq\t{%2, %1, %0|%0, %1, %2}
+   vmovhps\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog,ssemov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI,V2SF")])
+
 (define_insn "*vec_concatv4si_1"
   [(set (match_operand:V4SI 0 "register_operand"       "=Y2,x,x")
 	(vec_concat:V4SI
@@ -6368,6 +6381,36 @@
    movhps\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog,ssemov,ssemov")
    (set_attr "mode" "TI,V4SF,V2SF")])
+
+(define_insn "*vec_concatv2di_avx"
+  [(set (match_operand:V2DI 0 "register_operand"     "=x,x,x,x")
+	(vec_concat:V2DI
+	  (match_operand:DI 1 "nonimmediate_operand" " m,x,x,m")
+	  (match_operand:DI 2 "vector_move_operand"  " C,x,m,x")))]
+  "!TARGET_64BIT && TARGET_AVX"
+  "@
+   vmovq\t{%1, %0|%0, %1}
+   vmovlhps\t{%2, %1, %0|%0, %1, %2}
+   vmovhps\t{%2, %1, %0|%0, %1, %2}
+   vmovlps\t{%1, %2, %0|%0, %2, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI,V4SF,V2SF,V2SF")])
+
+(define_insn "*vec_concatv2di_rex_avx"
+  [(set (match_operand:V2DI 0 "register_operand"     "=x,x,x,x")
+	(vec_concat:V2DI
+	  (match_operand:DI 1 "nonimmediate_operand" "rm,x,x,m")
+	  (match_operand:DI 2 "vector_move_operand"  "C,x,m,x")))]
+  "TARGET_64BIT && TARGET_AVX"
+  "@
+   vmovq\t{%1, %0|%0, %1}
+   vmovlhps\t{%2, %1, %0|%0, %1, %2}
+   vmovhps\t{%2, %1, %0|%0, %1, %2}
+   vmovlps\t{%1, %2, %0|%0, %2, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI,V4SF,V2SF,V2SF")])
 
 (define_insn "vec_concatv2di"
   [(set (match_operand:V2DI 0 "register_operand"     "=Y2,?Y2,Y2,x,x,x")
