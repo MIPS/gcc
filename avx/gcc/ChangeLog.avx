@@ -1,3 +1,83 @@
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (sse_rcpv4sf2): Set prefix attribute to
+	maybe_vex.
+	(sse_sqrtv4sf2): Likewise.
+	(sqrtv2df2): Likewise.
+	(sse_rsqrtv4sf2): Likewise.
+	(<sse>_comi): Likewise.
+	(<sse>_ucomi): Likewise.
+	(sse_cvtss2si): Likewise.
+	(sse_cvtss2si_2): Likewise.
+	(sse_cvtss2siq): Likewise.
+	(sse_cvtss2siq_2): Likewise.
+	(sse_cvttss2si): Likewise.
+	(sse_cvttss2siq): Likewise.
+	(sse2_cvtsd2si): Likewise.
+	(sse2_cvtsd2si_2): Likewise.
+	(sse2_cvtsd2siq): Likewise.
+	(sse2_cvtsd2siq_2): Likewise.
+	(sse2_cvttsd2si): Likewise.
+	(sse2_cvttsd2siq): Likewise.
+	(sse2_cvtdq2pd): Likewise.
+	(*sse2_cvtpd2dq): Likewise.
+	(*sse2_cvttpd2dq): Likewise.
+	(*sse2_cvtpd2ps): Likewise.
+	(sse2_cvtps2pd): Likewise.
+	(sse3_movshdup): Likewise.
+	(sse3_movsldup): Likewise.
+	(*vec_dupv2df_sse3): Likewise.
+	(vec_dupv2df): Likewise.
+	(*vec_concatv2df_sse3): Likewise.
+	(*sse4_1_pextrb): Likewise.
+	(*sse4_1_pextrb_memory): Likewise.
+	(*sse2_pextrw): Likewise.
+	(*sse4_1_pextrw_memory): Likewise.
+	(*sse4_1_pextrd): Likewise.
+	(*sse4_1_pextrq): Likewise.
+	(<sse>_movmskp<ssemodesuffixf2c>): Likewise.
+	(sse2_pmovmskb): Likewise.
+	(sse_ldmxcsr): Likewise.
+	(sse4_1_movntdqa): Likewise.
+	(sse4_1_ptest): Likewise.
+	(sse4_1_roundp<ssemodesuffixf2c>): Likewise.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_loadld): New.
+	(*sse2_storeq_rex64_avx): Likewise.
+
+2008-05-12  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_packsswb): New.
+	(*avx_packssdw): Likewise.
+	(*avx_packuswb): Likewise.
+	(*avx_punpckhbw): Likewise.
+	(*avx_punpcklbw): Likewise.
+	(*avx_punpckhwd): Likewise.
+	(*avx_punpcklwd): Likewise.
+	(*avx_punpckhdq): Likewise.
+	(*avx_punpckldq): Likewise.
+	(*avx_punpckhqdq): Likewise.
+	(*avx_punpcklqdq): Likewise.
+	(*avx_uavgv16qi3): Likewise.
+	(*avx_uavgv8hi3): Likewise.
+	(*avx_psadbw): Likewise.
+	(*avx_phaddwv8hi3): Likewise.
+	(*avx_phadddv4si3): Likewise.
+	(*avx_phaddswv8hi3): Likewise.
+	(*avx_phsubwv8hi3): Likewise.
+	(*avx_phsubdv4si3): Likewise.
+	(*avx_phsubswv8hi3): Likewise.
+	(*avx_pmaddubsw128): Likewise.
+	(*avx_pmulhrswv8hi3): Likewise.
+	(*avx_pshufbv16qi3): Likewise.
+	(*avx_psign<mode>3): Likewise.
+	(*avx_mpsadbw): Likewise.
+	(*avx_packusdw): Likewise.
+	(*avx_pblendw): Likewise.
+	(sse4_1_movntdqa): Support AVX.
+
 2008-05-12  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
