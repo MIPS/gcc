@@ -3,7 +3,7 @@
 	Mainline merge @135136
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.
-	* confiugre: Regenerate.
+	* configure: Regenerate.
 
 2008-05-12  Diego Novillo  <dnovillo@google.com>
 
