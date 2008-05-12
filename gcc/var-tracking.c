@@ -641,7 +641,7 @@ dv_is_decl_p (decl_or_value dv)
   tree decl;
 
   if (!dv.ptr)
-    return true;
+    return false;
 
   decl = (tree)dv.ptr;
 
@@ -655,14 +655,14 @@ dv_is_decl_p (decl_or_value dv)
 static inline bool
 dv_is_value_p (decl_or_value dv)
 {
-  return !dv_is_decl_p (dv);
+  return dv.ptr && !dv_is_decl_p (dv);
 }
 
 /* Return the decl in the decl_or_value.  */
 static inline tree
 dv_as_decl (decl_or_value dv)
 {
-  gcc_assert (!dv_is_value_p (dv));
+  gcc_assert (dv_is_decl_p (dv));
   return dv.ptr;
 }
 
@@ -733,6 +733,7 @@ static inline decl_or_value
 dv_from_value (rtx value)
 {
   decl_or_value dv;
+  gcc_assert (value);
   dv.ptr = value;
   return dv;
 }
@@ -740,6 +741,7 @@ dv_from_value (rtx value)
 static hashval_t
 dv_htab_hash (decl_or_value dv)
 {
+  gcc_assert (dv.ptr);
   if (dv_is_value_p (dv))
     return -(hashval_t)(CSELIB_VAL_PTR (dv_as_value (dv))->value);
   else
@@ -766,6 +768,10 @@ variable_htab_eq (const void *x, const void *y)
   decl_or_value dv = *(decl_or_value const*)y;
   bool visv, dvisv;
 
+  if (dv_as_opaque (v->dv) == dv_as_opaque (dv))
+    return true;
+
+#ifdef ENABLE_CHECKING
   visv = dv_is_value_p (v->dv);
   dvisv = dv_is_value_p (dv);
 
@@ -773,10 +779,14 @@ variable_htab_eq (const void *x, const void *y)
     return false;
 
   if (visv)
-    return dv_as_value (v->dv) == dv_as_value (dv);
+    gcc_assert (CSELIB_VAL_PTR (dv_as_value (v->dv))
+		!= CSELIB_VAL_PTR (dv_as_value (dv)));
+  else
+    gcc_assert (VARIABLE_HASH_VAL (dv_as_decl (v->dv))
+		!= VARIABLE_HASH_VAL (dv_as_decl (dv)));
+#endif
 
-  return (VARIABLE_HASH_VAL (dv_as_decl (v->dv))
-	  == VARIABLE_HASH_VAL (dv_as_decl (dv)));
+  return false;
 }
 
 /* Free the element of VARIABLE_HTAB (its type is struct variable_def).  */
@@ -1631,13 +1641,15 @@ remove_unavailable_values (void **slot, void *data)
 
   if (dv_onepart_p (var->dv))
     {
-      bool keep_any = false; /* !dv_is_value_p (var->dv); */
-      location_chain loc = var->var_part[0].loc_chain, *locp;
+      bool keep_any = false;
+      location_chain loc = (var->n_var_parts
+			    ? var->var_part[0].loc_chain : NULL);
+      location_chain *locp;
       bool remove_any = !loc;
       decl_or_value dv;
       void **valslot;
 
-      gcc_assert (var->n_var_parts == 1);
+      gcc_assert (remove_any || var->n_var_parts == 1);
 
       /* See whether there's anything to keep or to remove.  */
       for (; loc && !(remove_any && keep_any);
@@ -1652,7 +1664,7 @@ remove_unavailable_values (void **slot, void *data)
 	  dv = dv_from_value (loc->loc);
 	  valslot = htab_find_slot_with_hash (vars, &dv, dv_htab_hash (dv),
 					      NO_INSERT);
-	  if (valslot)
+	  if (valslot && ((variable)*valslot)->n_var_parts)
 	    keep_any = true;
 	  else
 	    remove_any = true;
@@ -1664,7 +1676,7 @@ remove_unavailable_values (void **slot, void *data)
 	return 1;
 
       /* If there's nothing to keep, just remove it.  */
-      if (!keep_any)
+      if (!keep_any && var->refcount > 1)
 	{
 	  dsu->removed = true;
 	  htab_clear_slot (vars, slot);
@@ -1696,8 +1708,13 @@ remove_unavailable_values (void **slot, void *data)
 	    }
 	}
 
-      gcc_assert (var->var_part[0].loc_chain);
-      /* else var->var_part[0].cur_loc = NULL; */
+      if (!var->var_part[0].loc_chain)
+	{
+	  gcc_assert (!keep_any);
+	  dsu->removed = true;
+	  var->n_var_parts = 0;
+	  variable_was_changed (var, vars);
+	}
     }
 
   return 1;
@@ -1723,6 +1740,76 @@ dataflow_set_remove_unavailable (dataflow_set *set)
       htab_traverse (vars, remove_unavailable_values, &dsu);
     }
   while (dsu.removed);
+}
+
+/* Remove all MEMs from the location list of a hash table entry for a
+   one-part variable.  */
+
+static int
+dataflow_set_remove_mem_locs (void **slot, void *data)
+{
+  htab_t vars = (htab_t) data;
+  variable var = (variable) *slot;
+
+  if (dv_is_value_p (var->dv))
+    {
+      location_chain loc, *locp;
+
+      if (!var->n_var_parts)
+	return 1;
+
+      gcc_assert (var->n_var_parts == 1);
+
+      if (var->refcount > 1)
+	{
+	  for (loc = var->var_part[0].loc_chain; loc; loc = loc->next)
+	    if (GET_CODE (loc->loc) == MEM)
+	      break;
+
+	  if (!loc)
+	    return 1;
+
+	  var = unshare_variable (slot, var, VAR_INIT_STATUS_UNKNOWN);
+	  gcc_assert (var->n_var_parts == 1);
+	}
+
+      for (locp = &var->var_part[0].loc_chain, loc = *locp;
+	   loc; loc = *locp)
+	{
+	  if (GET_CODE (loc->loc) != MEM)
+	    {
+	      locp = &loc->next;
+	      continue;
+	    }
+
+	  *locp = loc->next;
+	  pool_free (loc_chain_pool, loc);
+	}
+
+      if (!var->var_part[0].loc_chain)
+	{
+	  var->n_var_parts--;
+	  variable_was_changed (var, vars);
+	}
+    }
+
+  return 1;
+}
+
+/* Remove all variable-location information about call-clobbered
+   registers, as well as associations between MEMs and VALUEs.  */
+
+static void
+dataflow_set_clear_at_call (dataflow_set *set)
+{
+  int r;
+
+  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
+    if (TEST_HARD_REG_BIT (call_used_reg_set, r))
+      var_regno_delete (set, r);
+
+  if (MAY_HAVE_DEBUG_INSNS)
+    htab_traverse (set->vars, dataflow_set_remove_mem_locs, set->vars);
 }
 
 /* Flag whether two dataflow sets being compared contain different data.  */
@@ -2328,7 +2415,7 @@ count_with_sets (rtx insn, struct cselib_set *sets, int n_sets)
 /* Whether the location in the CONCAT should be handled like a MO_COPY
    as well.  */
 #define VAL_EXPR_IS_COPIED(x) \
-  (RTL_FLAG_CHECK1 ("VAL_EXPR_IS_COPIED", (x), CONCAT)->unchanging)
+  (RTL_FLAG_CHECK1 ("VAL_EXPR_IS_COPIED", (x), CONCAT)->jump)
 /* Whether the location in the CONCAT should be handled like a
    MO_CLOBBER as well.  */
 #define VAL_EXPR_IS_CLOBBERED(x) \
@@ -2707,7 +2794,7 @@ find_src_set_src (dataflow_set *set, rtx src)
 static bool
 compute_bb_dataflow (basic_block bb)
 {
-  int i, n, r;
+  int i, n;
   bool changed;
   dataflow_set old_out;
   dataflow_set *in = &VTI (bb)->in;
@@ -2723,9 +2810,7 @@ compute_bb_dataflow (basic_block bb)
       switch (VTI (bb)->mos[i].type)
 	{
 	  case MO_CALL:
-	    for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-	      if (TEST_HARD_REG_BIT (call_used_reg_set, r))
-		var_regno_delete (out, r);
+	    dataflow_set_clear_at_call (out);
 	    break;
 
 	  case MO_USE:
@@ -2863,6 +2948,8 @@ compute_bb_dataflow (basic_block bb)
 						status, set_src);
 		    }
 		}
+	      else if (REG_P (uloc))
+		var_regno_delete (out, REGNO (uloc));
 
 	      val_resolve (out, val, vloc);
 	    }
@@ -2945,6 +3032,7 @@ compute_bb_dataflow (basic_block bb)
 	}
     }
 
+  dataflow_set_remove_unavailable (out);
   changed = dataflow_set_different (&old_out, out);
   dataflow_set_destroy (&old_out);
   return changed;
@@ -3011,7 +3099,6 @@ vt_find_locations (void)
 		{
 		  dataflow_set_union (&VTI (bb)->in, &VTI (e->src)->out);
 		}
-	      dataflow_set_remove_unavailable (&VTI (bb)->in);
 
 	      changed = compute_bb_dataflow (bb);
 	      if (changed)
@@ -3019,9 +3106,6 @@ vt_find_locations (void)
 		  FOR_EACH_EDGE (e, ei, bb->succs)
 		    {
 		      if (e->dest == EXIT_BLOCK_PTR)
-			continue;
-
-		      if (e->dest == bb)
 			continue;
 
 		      if (TEST_BIT (visited, e->dest->index))
@@ -3326,7 +3410,7 @@ set_variable_part (dataflow_set *set, rtx loc,
 	  /* We track only variables whose size is <= MAX_VAR_PARTS bytes
 	     thus there are at most MAX_VAR_PARTS different offsets.  */
 	  gcc_assert (var->n_var_parts < MAX_VAR_PARTS
-		      && !dv_onepart_p (var->dv));
+		      && (!var->n_var_parts || !dv_onepart_p (var->dv)));
 
 	  /* We have to move the elements of array starting at index
 	     inspos to the next position.  */
@@ -3390,8 +3474,8 @@ clobber_variable_part (dataflow_set *set, rtx loc, decl_or_value dv,
 {
   void **slot;
 
-  if (!dv_is_value_p (dv)
-      && (!dv_as_decl (dv) || ! DECL_P (dv_as_decl (dv))))
+  if (!dv_as_opaque (dv)
+      || (!dv_is_value_p (dv) && ! DECL_P (dv_as_decl (dv))))
     return;
 
   slot = htab_find_slot_with_hash (set->vars, &dv,
@@ -3559,6 +3643,9 @@ vt_expand_loc_callback (rtx x, bitmap regs, int max_depth, void *data)
     return NULL;
 
   var = (variable)*slot;
+
+  if (var->n_var_parts == 0)
+    return NULL;
 
   gcc_assert (var->n_var_parts == 1);
 
@@ -3804,7 +3891,7 @@ check_changed_var (void **slot, void *data)
   location_chain loc;
   bool changed = false;
 
-  if (var->n_var_parts != 1)
+  if (var->n_var_parts != 1 || !dv_onepart_p (var->dv))
     return 1;
 
   if (htab_find_slot_with_hash (changed_variables, &var->dv,
@@ -3954,16 +4041,8 @@ emit_notes_in_bb (basic_block bb)
       switch (VTI (bb)->mos[i].type)
 	{
 	  case MO_CALL:
-	    {
-	      int r;
-
-	      for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
-		if (TEST_HARD_REG_BIT (call_used_reg_set, r))
-		  {
-		    var_regno_delete (&set, r);
-		  }
-	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN, set.vars);
-	    }
+	    dataflow_set_clear_at_call (&set);
+	    emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN, set.vars);
 	    break;
 
 	  case MO_USE:
@@ -4115,6 +4194,8 @@ emit_notes_in_bb (basic_block bb)
 						status, set_src);
 		    }
 		}
+	      else if (REG_P (uloc))
+		var_regno_delete (&set, REGNO (uloc));
 
 	      val_resolve (&set, val, vloc);
 

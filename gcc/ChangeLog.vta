@@ -1,5 +1,26 @@
 2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* var-tracking.c (dv_is_decl_p, dv_is_value_p): NULL is neither.
+	(dv_as_decl): Assert dv_is_decl_p.
+	(dv_from_value): Assert value.
+	(dv_htab_hash): Assert ptr.
+	(variable_htab_eq): Compare opaque pointers.
+	(remove_unavailable_values): Deal with zero var parts.  Do not
+	remove last ref to a variable.
+	(dataflow_set_remove_mem_locs): New.
+	(dataflow_set_clear_at_call): New, factored out from...
+	(compute_bb_dataflow, emit_notes_bb): ... here.  Clear info on
+	modified REGs.
+	(VAL_EXPR_IS_COPIED): Use different bit.
+	(compute_bb_dataflow): Remove unavailable vars here...
+	(vt_find_locations): ... not here.  Don't disregard self-edges.
+	(set_variable_part): Accept zero var parts.
+	(clobber_variable_part): Adjust to deal with NULL.
+	(vt_expand_loc_callback): Accept zero var parts.
+	(check_changed_var): Deal with zero var parts.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-ssa-operands.c (add_virtual_operands): Assert no debug use.
 	(get_expr_operands): Pass opf_no_vops along with opf_debug_use.
 	Move none into the right scope.
