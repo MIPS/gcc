@@ -1,3 +1,32 @@
+2008-05-12  Ian Lance Taylor  <iant@google.com>
+
+	* flags.h (POINTER_TYPE_OVERFLOW_UNDEFINED): Define.
+	* fold-const.c (fold_overflow_warning): Remove assertion.
+	(pointer_may_wrap_p): New static function.
+	(fold_comparison): If appropriate, test
+	POINTER_TYPE_OVERFLOW_UNDEFINED, and issue an overflow warning.
+	(fold_binary): Test POINTER_TYPE_OVERFLOW_UNDEFINED when
+	reassociating a pointer type.
+	* doc/invoke.texi (Optimize Options): Document that
+	-fstrict-overflow applies to pointer wraparound.
+
+2008-05-02  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR bootstrap/35169
+	* optc-gen.awk: Work around HP-UX/IA awk bug.
+
+2008-05-01  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36093
+	Backport from mainline
+	2007-04-12  Richard Guenther  <rguenther@suse.de>
+
+        * gimplify.c (canonicalize_addr_expr): To be consistent with
+        gimplify_compound_lval only set operands two and three of
+        ARRAY_REFs if they are not gimple_min_invariant.  This makes
+        it never at this place.
+        * tree-ssa-ccp.c (maybe_fold_offset_to_array_ref): Likewise.
+
 2008-04-17  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR c/35744
@@ -292,6 +321,11 @@
 	PR middle-end/25445
 	* varasm.c (default_binds_local_p_1): Consult flag_whole_program
 	if we are compiling with -fPIC.
+
+2008-02-01  Joseph Myers  <joseph@codesourcery.com>
+
+	* BASE-VER: Bump.
+	* DEV-PHASE: Mark as prerelease.
 
 2008-02-01  Release Manager
 
