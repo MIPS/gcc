@@ -1471,6 +1471,8 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
      ADDR_EXPR expression).  */
   if (flags & opf_no_vops)
     return;
+
+  gcc_assert ((flags & opf_debug_use) == 0);
   
   if (MTAG_P (var))
     aliases = MTAG_ALIASES (var);
@@ -2085,10 +2087,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
   enum tree_code_class codeclass;
   tree expr = *expr_p;
   stmt_ann_t s_ann = stmt_ann (stmt);
-  int uflags = opf_use | (flags & opf_debug_use);
+  int uflags = opf_use;
 
   if (expr == NULL)
     return;
+
+  if ((flags & opf_debug_use) != 0)
+    uflags |= (flags & (opf_debug_use | opf_no_vops));
 
   code = TREE_CODE (expr);
   codeclass = TREE_CODE_CLASS (code);
@@ -2169,7 +2174,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       {
 	tree ref;
 	HOST_WIDE_INT offset, size, maxsize;
-	bool none = true;
 
 	if (TREE_THIS_VOLATILE (expr))
 	  s_ann->has_volatile_ops = true;
@@ -2186,6 +2190,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	    subvar_t svars = get_subvars_for_var (ref);
 	    unsigned int i;
 	    tree subvar;
+	    bool none = true;
 
 	    for (i = 0; VEC_iterate (tree, svars, i, subvar); ++i)
 	      {

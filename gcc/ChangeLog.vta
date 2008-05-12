@@ -1,5 +1,11 @@
 2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-operands.c (add_virtual_operands): Assert no debug use.
+	(get_expr_operands): Pass opf_no_vops along with opf_debug_use.
+	Move none into the right scope.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cselib.c (cselib_reset_table_with_next_value): Add note to
 	preserve constants.
 	(cselib_record_sets): Use correct mode for IF_THEN_ELSE.
