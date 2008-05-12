@@ -1,5 +1,11 @@
 2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* cselib.c (cselib_reset_table_with_next_value): Add note to
+	preserve constants.
+	(cselib_record_sets): Use correct mode for IF_THEN_ELSE.
+
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-if-conv.c (tree_if_convert_stmt): Handle debug stmts.
 	(if_convertible_stmt_p): Likewise.
 

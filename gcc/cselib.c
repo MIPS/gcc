@@ -246,6 +246,7 @@ cselib_reset_table_with_next_value (unsigned int num)
 
   n_used_regs = 0;
 
+  /* ??? Preserve constants?  */
   htab_empty (cselib_hash_table);
 
   n_useless_values = 0;
@@ -1738,7 +1739,7 @@ cselib_record_sets (rtx insn)
         {
 	  rtx src = sets[i].src;
 	  if (cond)
-	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (src), cond, src, dest);
+	    src = gen_rtx_IF_THEN_ELSE (GET_MODE (dest), cond, src, dest);
 	  sets[i].src_elt = cselib_lookup (src, GET_MODE (dest), 1);
 	  if (MEM_P (dest))
 	    sets[i].dest_addr_elt = cselib_lookup (XEXP (dest, 0), Pmode, 1);
