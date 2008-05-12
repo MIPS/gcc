@@ -1,3 +1,24 @@
+2008-05-12  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (prefix): Add maybe_vex.
+	(length): Handle maybe_vex.
+	(*cmpfp_i_mixed): Set prefix attribute to maybe_vex instead
+	of vex.
+	(*cmpfp_iu_mixed): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*cmpfp_i_sse): Set prefix attribute to maybe_vex.
+	(*cmpfp_iu_sse): Likewise.
+	(*rcpsf2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm256_set_epi64x): New.
