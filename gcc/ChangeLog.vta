@@ -1,3 +1,8 @@
+2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* tree-if-conv.c (tree_if_convert_stmt): Handle debug stmts.
+	(if_convertible_stmt_p): Likewise.
+
 2008-04-29  Alexandre Oliva  <aoliva@redhat.com>
 
 	* fwprop.c (forward_propagate_and_simplify): Wrap constants only

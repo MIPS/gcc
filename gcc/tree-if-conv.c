@@ -1,5 +1,5 @@
 /* If-conversion for vectorizer.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Devang Patel <dpatel@apple.com>
 
 This file is part of GCC.
@@ -214,7 +214,7 @@ tree_if_conversion (struct loop *loop, bool for_vectorizer)
 }
 
 /* if-convert stmt T which is part of LOOP.
-   If T is a GIMPLE_MODIFY_STMT than it is converted into conditional modify
+   If T is a GIMPLE_MODIFY_STMT then it is converted into conditional modify
    expression using COND.  For conditional expressions, add condition in the
    destination basic block's predicate list and remove conditional
    expression itself. BSI is the iterator used to traverse statements of
@@ -235,6 +235,12 @@ tree_if_convert_stmt (struct loop *  loop, tree t, tree cond,
     {
       /* Labels are harmless here.  */
     case LABEL_EXPR:
+      break;
+
+    case VAR_DEBUG_VALUE:
+      /* ??? Should there be conditional VAR_DEBUG_VALUEs?  */
+      VAR_DEBUG_VALUE_VALUE (bsi_stmt (*bsi)) = VAR_DEBUG_VALUE_NOVALUE;
+      update_stmt (bsi_stmt (*bsi));
       break;
 
     case GIMPLE_MODIFY_STMT:
@@ -429,8 +435,10 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, tree stmt)
     case LABEL_EXPR:
       break;
 
-    case GIMPLE_MODIFY_STMT:
+    case VAR_DEBUG_VALUE:
+      break;
 
+    case GIMPLE_MODIFY_STMT:
       if (!if_convertible_gimple_modify_stmt_p (loop, bb, stmt))
 	return false;
       break;
