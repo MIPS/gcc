@@ -3316,7 +3316,7 @@
 ;; ??? In theory we can match memory for the MMX alternative, but allowing
 ;; nonimmediate_operand for operand 2 and *not* allowing memory for the SSE
 ;; alternatives pretty much forces the MMX alternative to be chosen.
-(define_insn "*sse_concatv2sf"
+(define_insn "*vec_concatv2sf_sse"
   [(set (match_operand:V2SF 0 "register_operand"     "=x,x,*y,*y")
 	(vec_concat:V2SF
 	  (match_operand:SF 1 "nonimmediate_operand" " 0,m, 0, m")
@@ -3343,7 +3343,7 @@
    (set_attr "mode" "V4SF,V2SF")
    (set_attr "prefix" "vex")])
 
-(define_insn "*sse_concatv4sf"
+(define_insn "*vec_concatv4sf_sse"
   [(set (match_operand:V4SF 0 "register_operand"   "=x,x")
 	(vec_concat:V4SF
 	  (match_operand:V2SF 1 "register_operand" " 0,0")
@@ -6463,10 +6463,22 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "TI")])
 
+(define_insn "*vec_concatv2si_sse4_1"
+  [(set (match_operand:V2SI 0 "register_operand" "=x,x")
+	(vec_concat:V2SI
+	  (match_operand:SI 1 "nonimmediate_operand" "0,rm")
+	  (match_operand:SI 2 "nonimmediate_operand" "rm,0")))]
+  "TARGET_SSE4_1"
+  "@
+  pinsrd\t{$0x1, %2, %0|%0, %2, 0x1}
+  pinsrd\t{$0x0, %2, %0|%0, %2, 0x0}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "TI")])
+
 ;; ??? In theory we can match memory for the MMX alternative, but allowing
 ;; nonimmediate_operand for operand 2 and *not* allowing memory for the SSE
 ;; alternatives pretty much forces the MMX alternative to be chosen.
-(define_insn "*sse2_concatv2si"
+(define_insn "*vec_concatv2si_sse2"
   [(set (match_operand:V2SI 0 "register_operand"     "=Y2, Y2,*y,*y")
 	(vec_concat:V2SI
 	  (match_operand:SI 1 "nonimmediate_operand" " 0 ,rm , 0,rm")
@@ -6480,7 +6492,7 @@
   [(set_attr "type" "sselog,ssemov,mmxcvt,mmxmov")
    (set_attr "mode" "TI,TI,DI,DI")])
 
-(define_insn "*sse1_concatv2si"
+(define_insn "*vec_concatv2si_sse"
   [(set (match_operand:V2SI 0 "register_operand"     "=x,x,*y,*y")
 	(vec_concat:V2SI
 	  (match_operand:SI 1 "nonimmediate_operand" " 0,m, 0,*rm")
@@ -6550,6 +6562,18 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "TI,V4SF,V2SF,V2SF")])
 
+(define_insn "*vec_concatv2di_rex64_sse4_1"
+  [(set (match_operand:V2DI 0 "register_operand" "=x,x")
+	(vec_concat:V2DI
+	  (match_operand:DI 1 "nonimmediate_operand" "0,rm")
+	  (match_operand:DI 2 "nonimmediate_operand" "rm,0")))]
+  "TARGET_64BIT && TARGET_SSE4_1"
+  "@
+  pinsrq\t{$0x1, %2, %0|%0, %2, 0x1}
+  pinsrq\t{$0x0, %2, %0|%0, %2, 0x0}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "TI")])
+
 (define_insn "vec_concatv2di"
   [(set (match_operand:V2DI 0 "register_operand"     "=Y2,?Y2,Y2,x,x,x")
 	(vec_concat:V2DI
@@ -6566,7 +6590,7 @@
   [(set_attr "type" "ssemov,ssemov,sselog,ssemov,ssemov,ssemov")
    (set_attr "mode" "TI,TI,TI,V4SF,V2SF,V2SF")])
 
-(define_insn "*vec_concatv2di_rex"
+(define_insn "*vec_concatv2di_rex64"
   [(set (match_operand:V2DI 0 "register_operand"     "=Y2,Yi,!Y2,Y2,x,x,x")
 	(vec_concat:V2DI
 	  (match_operand:DI 1 "nonimmediate_operand" "  m,r ,*y ,0 ,0,0,m")
