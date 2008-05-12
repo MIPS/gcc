@@ -53,6 +53,7 @@
 
 (define_mode_iterator AVX256MODEF2P [V8SF V4DF])
 (define_mode_iterator AVX256MODE2P [V8SI V8SF V4DF])
+(define_mode_iterator AVX256MODE3P [V8SI V4DI V8SF V4DF])
 (define_mode_iterator AVX256MODE8P [V8SI V8SF])
 (define_mode_iterator AVXMODEF2P [V4SF V2DF V8SF V4DF])
 (define_mode_iterator AVXMODEF4P [V4SF V4DF])
@@ -90,7 +91,7 @@
   [(V16QI "V32QI") (V8HI "V16HI") (V4SI "V8SI") (V2DI "V4DI")
   (V4SF "V8SF") (V2DF "V4DF")])
 (define_mode_attr avxhalfvecmode
-  [(V4SF "V2SF") (V8SI "V4SI") (V8SF "V4SF") (V4DF "V2DF")])
+  [(V4SF "V2SF") (V8SI "V4SI") (V4DI "V2DI") (V8SF "V4SF") (V4DF "V2DF")])
 (define_mode_attr avxscalarmode
   [(V4SF "SF") (V2DF "DF") (V8SF "SF") (V4DF "DF")])
 (define_mode_attr avxcvtvecmode
@@ -10273,7 +10274,7 @@
        (const_string "*")))])
 
 (define_expand "vec_init<mode>"
-  [(match_operand:AVX256MODE2P 0 "register_operand" "")
+  [(match_operand:AVX256MODE3P 0 "register_operand" "")
    (match_operand 1 "" "")]
   "TARGET_AVX"
 {
@@ -10282,8 +10283,8 @@
 })
 
 (define_insn "*vec_concat<mode>_avx"
-  [(set (match_operand:AVX256MODE2P 0 "register_operand"   "=x")
-	(vec_concat:AVX256MODE2P
+  [(set (match_operand:AVX256MODE3P 0 "register_operand"   "=x")
+	(vec_concat:AVX256MODE3P
 	  (match_operand:<avxhalfvecmode> 1 "register_operand" "x")
 	  (match_operand:<avxhalfvecmode> 2 "nonimmediate_operand" "xm")))]
   "TARGET_AVX"

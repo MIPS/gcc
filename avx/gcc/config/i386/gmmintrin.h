@@ -1126,6 +1126,13 @@ _mm256_set_epi32 (int __A, int __B, int __C, int __D,
 					  __D, __C, __B, __A };
 }
 
+extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_set_epi64x (long long __A, long long __B, long long __C,
+		   long long __D)
+{
+  return __extension__ (__m256i)(__v4di){ __D, __C, __B, __A };
+}
+
 /* Create a vector with all elements equal to A.  */
 extern __inline __m256d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm256_set1_pd (double __A)
@@ -1147,6 +1154,12 @@ _mm256_set1_epi32 (int __A)
 {
   return __extension__ (__m256i)(__v8si){ __A, __A, __A, __A,
 					  __A, __A, __A, __A };
+}
+
+extern __inline __m256i __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_set1_epi64x (long long __A)
+{
+  return __extension__ (__m256i)(__v4di){ __A, __A, __A, __A };
 }
 
 /* Casts between various SP, DP, INT vector types.  Note that these do no

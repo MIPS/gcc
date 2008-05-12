@@ -24806,6 +24806,9 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
     case V4DFmode:
       hmode = V2DFmode;
       goto half;
+    case V4DImode:
+      hmode = V2DImode;
+      goto half;
     case V8SFmode:
       hmode = V4SFmode;
       goto half;
@@ -25091,6 +25094,9 @@ quarter:
 
     case V4DFmode:
       half_mode = V2DFmode;
+      goto half;
+    case V4DImode:
+      half_mode = V2DImode;
       goto half;
     case V4SFmode:
       half_mode = V2SFmode;

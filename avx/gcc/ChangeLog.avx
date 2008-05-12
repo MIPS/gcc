@@ -1,5 +1,19 @@
 2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/gmmintrin.h (_mm256_set_epi64x): New.
+	(_mm256_set1_epi64x): Likewise.
+
+	* config/i386/i386.c (ix86_expand_vector_init_duplicate): Support
+	V4DImode.
+	(ix86_expand_vector_init_general): Likewise.
+
+	* config/i386/sse.md (AVX256MODE3P): New.
+	(avxhalfvecmode): Handle V4DI.
+	(vec_init<mode>): Replace AVX256MODE2P with AVX256MODE3P.
+	(*vec_concat<mode>_avx): Likewise.
+
+2008-05-11  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (print_reg): Support 't' for 256bit AVX
 	register.
 	(print_operand): Likewise.
