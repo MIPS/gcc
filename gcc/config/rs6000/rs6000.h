@@ -367,6 +367,8 @@ extern int rs6000_long_double_type_size;
 extern int rs6000_ieeequad;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
+extern int rs6000_spe;
+extern int rs6000_isel;
 extern int rs6000_float_gprs;
 extern int rs6000_alignment_flags;
 extern const char *rs6000_sched_insert_nops_str;
@@ -1325,7 +1327,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 /* This is the difference between the logical top of stack and the actual sp.
 
@@ -1550,7 +1552,7 @@ typedef struct rs6000_args
 #define	EPILOGUE_USES(REGNO)					\
   ((reload_completed && (REGNO) == LR_REGNO)			\
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
-   || (current_function_calls_eh_return				\
+   || (crtl->calls_eh_return				\
        && TARGET_AIX						\
        && (REGNO) == 2))
 

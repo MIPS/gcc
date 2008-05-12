@@ -505,7 +505,7 @@ validate_equiv_mem (rtx start, rtx reg, rtx memref)
 	return 1;
 
       if (CALL_P (insn) && ! MEM_READONLY_P (memref)
-	  && ! CONST_OR_PURE_CALL_P (insn))
+	  && ! RTL_CONST_OR_PURE_CALL_P (insn))
 	return 0;
 
       note_stores (PATTERN (insn), validate_equiv_mem_from_store, NULL);
@@ -781,9 +781,7 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
 	return 1;
 
       /* Nonconst functions may access memory.  */
-      if (CALL_P (insn)
-	  && (! CONST_OR_PURE_CALL_P (insn)
-	      || pure_call_p (insn)))
+      if (CALL_P (insn) && (! RTL_CONST_CALL_P (insn)))
 	return 1;
     }
 
@@ -2008,7 +2006,7 @@ combine_regs (rtx usedreg, rtx setreg, int may_save_copy, int insn_number,
   if (reg_qty[sreg] >= -1
       /* If we are not going to let any regs live across calls,
 	 don't tie a call-crossing reg to a non-call-crossing reg.  */
-      || (current_function_has_nonlocal_label
+      || (cfun->has_nonlocal_label
 	  && ((REG_N_CALLS_CROSSED (ureg) > 0)
 	      != (REG_N_CALLS_CROSSED (sreg) > 0))))
     return 0;
@@ -2229,7 +2227,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
 
   /* Don't let a pseudo live in a reg across a function call
      if we might get a nonlocal goto.  */
-  if (current_function_has_nonlocal_label
+  if (cfun->has_nonlocal_label
       && qty[qtyno].n_calls_crossed > 0)
     return -1;
 

@@ -1,3 +1,18 @@
+2008-05-12  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @136136
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* confiugre: Regenerate.
+
+2008-05-12  Diego Novillo  <dnovillo@google.com>
+
+	* lto-tree-flags.def (STRUCT_FIELD_TAG): Remove.
+	* treestruct.def (STRUCT_FIELD_TAG): Remove.
+	Update all users.
+	* lto-cgraph-out.c (output_node): Update references to
+	inline summary fields.
+
 2008-04-29  Ollie Wild  <aaw@google.com>
 
 	* lto-tags.h (enum LTO_tags): Add LTO_namespace_decl.

@@ -1061,8 +1061,6 @@ vect_create_data_ref_ptr (tree stmt, struct loop *at_loop,
   else
     set_symbol_mem_tag (vect_ptr, tag);
 
-  var_ann (vect_ptr)->subvars = DR_SUBVARS (dr);
-
   /** Note: If the dataref is in an inner-loop nested in LOOP, and we are
       vectorizing LOOP (i.e. outer-loop vectorization), we need to create two
       def-use update cycles for the pointer: One relative to the outer-loop
@@ -3667,6 +3665,11 @@ vectorizable_assignment (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
   int i;
   VEC(tree,heap) *vec_oprnds = NULL;
   tree vop;
+
+  /* FORNOW: SLP with multiple types is not supported. The SLP analysis 
+     verifies this, so we can safely override NCOPIES with 1 here.  */
+  if (slp_node)
+    ncopies = 1;
 
   gcc_assert (ncopies >= 1);
   if (ncopies > 1)

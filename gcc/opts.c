@@ -848,7 +848,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_fre = 1;
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
-      flag_tree_salias = 1;
       if (!no_unit_at_a_time_default)
         flag_unit_at_a_time = 1;
 
@@ -1906,6 +1905,7 @@ common_handle_option (size_t scode, const char *arg, int value,
     case OPT_fstrength_reduce:
     case OPT_ftree_store_copy_prop:
     case OPT_fforce_addr:
+    case OPT_ftree_salias:
       /* These are no-ops, preserved for backward compatibility.  */
       break;
 
@@ -1990,6 +1990,8 @@ set_Wstrict_aliasing (int onoff)
   gcc_assert (onoff == 0 || onoff == 1);
   if (onoff != 0)
     warn_strict_aliasing = 3;
+  else
+    warn_strict_aliasing = 0;
 }
 
 /* The following routines are useful in setting all the flags that

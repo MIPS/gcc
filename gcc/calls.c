@@ -130,7 +130,7 @@ static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
 static void precompute_arguments (int, int, struct arg_data *);
-static int compute_argument_block_size (int, struct args_size *, int);
+static int compute_argument_block_size (int, struct args_size *, tree, int);
 static void initialize_argument_information (int, struct arg_data *,
 					     struct args_size *, int,
 					     tree, tree,
@@ -359,21 +359,20 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
   /* Find the call we just emitted.  */
   call_insn = last_call_insn ();
 
-  /* Mark memory as used for "pure" function call.  */
-  if (ecf_flags & ECF_PURE)
-    call_fusage
-      = gen_rtx_EXPR_LIST
-	(VOIDmode,
-	 gen_rtx_USE (VOIDmode,
-		      gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode))),
-	 call_fusage);
-
   /* Put the register usage information there.  */
   add_function_usage_to (call_insn, call_fusage);
 
   /* If this is a const call, then set the insn's unchanging bit.  */
-  if (ecf_flags & (ECF_CONST | ECF_PURE))
-    CONST_OR_PURE_CALL_P (call_insn) = 1;
+  if (ecf_flags & ECF_CONST)
+    RTL_CONST_CALL_P (call_insn) = 1;
+
+  /* If this is a pure call, then set the insn's unchanging bit.  */
+  if (ecf_flags & ECF_PURE)
+    RTL_PURE_CALL_P (call_insn) = 1;
+
+  /* If this is a const call, then set the insn's unchanging bit.  */
+  if (ecf_flags & ECF_LOOPING_CONST_OR_PURE)
+    RTL_LOOPING_CONST_OR_PURE_CALL_P (call_insn) = 1;
 
   /* If this call can't throw, attach a REG_EH_REGION reg note to that
      effect.  */
@@ -399,7 +398,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
     {
       REG_NOTES (call_insn) = gen_rtx_EXPR_LIST (REG_SETJMP, const0_rtx,
 						 REG_NOTES (call_insn));
-      current_function_calls_setjmp = 1;
+      cfun->calls_setjmp = 1;
     }
 
   SIBLING_CALL_P (call_insn) = ((ecf_flags & ECF_SIBCALL) != 0);
@@ -580,18 +579,19 @@ flags_from_decl_or_type (const_tree exp)
       if (DECL_IS_RETURNS_TWICE (exp))
 	flags |= ECF_RETURNS_TWICE;
 
-      /* The function exp may have the `pure' attribute.  */
-      if (DECL_IS_PURE (exp))
+      /* Process the pure and const attributes.  */
+      if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
+	flags |= ECF_CONST;
+      if (DECL_PURE_P (exp))
 	flags |= ECF_PURE;
+      if (DECL_LOOPING_CONST_OR_PURE_P (exp))
+	flags |= ECF_LOOPING_CONST_OR_PURE;
 
       if (DECL_IS_NOVOPS (exp))
 	flags |= ECF_NOVOPS;
 
       if (TREE_NOTHROW (exp))
 	flags |= ECF_NOTHROW;
-
-      if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp))
-	flags |= ECF_CONST;
 
       flags = special_function_p (exp, flags);
     }
@@ -1038,7 +1038,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      args[i].tree_value = build_fold_addr_expr (args[i].tree_value);
 	      type = TREE_TYPE (args[i].tree_value);
 
-	      *ecf_flags &= ~(ECF_CONST | ECF_LIBCALL_BLOCK);
+	      if (*ecf_flags & ECF_CONST)
+		*ecf_flags &= ~(ECF_CONST | ECF_LOOPING_CONST_OR_PURE);
+	      *ecf_flags &= ~ECF_LIBCALL_BLOCK;
 	    }
 	  else
 	    {
@@ -1073,10 +1075,19 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	      store_expr (args[i].tree_value, copy, 0, false);
 
-	      if (callee_copies)
-		*ecf_flags &= ~(ECF_CONST | ECF_LIBCALL_BLOCK);
-	      else
-		*ecf_flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+	      *ecf_flags &= ~(ECF_LIBCALL_BLOCK);
+
+	      /* Just change the const function to pure and then let
+		 the next test clear the pure based on
+		 callee_copies.  */
+	      if (*ecf_flags & ECF_CONST)
+		{
+		  *ecf_flags &= ~ECF_CONST;
+		  *ecf_flags |= ECF_PURE;
+		}
+
+	      if (!callee_copies && *ecf_flags & ECF_PURE)
+		*ecf_flags &= ~(ECF_PURE | ECF_LOOPING_CONST_OR_PURE);
 
 	      args[i].tree_value
 		= build_fold_addr_expr (make_tree (type, copy));
@@ -1178,6 +1189,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 static int
 compute_argument_block_size (int reg_parm_stack_space,
 			     struct args_size *args_size,
+			     tree fndecl ATTRIBUTE_UNUSED,
 			     int preferred_stack_boundary ATTRIBUTE_UNUSED)
 {
   int unadjusted_args_size = args_size->constant;
@@ -1215,7 +1227,7 @@ compute_argument_block_size (int reg_parm_stack_space,
 
 	  /* The area corresponding to register parameters is not to count in
 	     the size of the block we need.  So make the adjustment.  */
-	  if (!OUTGOING_REG_PARM_STACK_SPACE)
+	  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
 	    args_size->var
 	      = size_binop (MINUS_EXPR, args_size->var,
 			    ssize_int (reg_parm_stack_space));
@@ -1236,7 +1248,7 @@ compute_argument_block_size (int reg_parm_stack_space,
       args_size->constant = MAX (args_size->constant,
 				 reg_parm_stack_space);
 
-      if (!OUTGOING_REG_PARM_STACK_SPACE)
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
 	args_size->constant -= reg_parm_stack_space;
     }
   return unadjusted_args_size;
@@ -2022,10 +2034,12 @@ expand_call (tree exp, rtx target, int ignore)
   if (AGGREGATE_TYPE_P (TREE_TYPE (exp)))
     warning (OPT_Waggregate_return, "function call has aggregate value");
 
-  /* If the result of a pure or const function call is ignored (or void),
-     and none of its arguments are volatile, we can avoid expanding the
-     call and just evaluate the arguments for side-effects.  */
+  /* If the result of a non looping pure or const function call is
+     ignored (or void), and none of its arguments are volatile, we can
+     avoid expanding the call and just evaluate the arguments for
+     side-effects.  */
   if ((flags & (ECF_CONST | ECF_PURE))
+      && (!(flags & ECF_LOOPING_CONST_OR_PURE))
       && (ignore || target == const0_rtx
 	  || TYPE_MODE (TREE_TYPE (exp)) == VOIDmode))
     {
@@ -2052,7 +2066,8 @@ expand_call (tree exp, rtx target, int ignore)
   reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
 #endif
 
-  if (!OUTGOING_REG_PARM_STACK_SPACE && reg_parm_stack_space > 0 && PUSH_ARGS)
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+      && reg_parm_stack_space > 0 && PUSH_ARGS)
     must_preallocate = 1;
 
   /* Set up a place to return a structure.  */
@@ -2061,7 +2076,8 @@ expand_call (tree exp, rtx target, int ignore)
   if (aggregate_value_p (exp, fndecl))
     {
       /* This call returns a big structure.  */
-      flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+      flags &= ~(ECF_CONST | ECF_PURE | ECF_LOOPING_CONST_OR_PURE 
+		 | ECF_LIBCALL_BLOCK);
 
 #ifdef PCC_STATIC_STRUCT_RETURN
       {
@@ -2093,7 +2109,14 @@ expand_call (tree exp, rtx target, int ignore)
   if (fndecl)
     {
       struct cgraph_rtl_info *i = cgraph_rtl_info (fndecl);
-      if (i && i->preferred_incoming_stack_boundary)
+      /* Without automatic stack alignment, we can't increase preferred
+	 stack boundary.  With automatic stack alignment, it is
+	 unnecessary since unless we can guarantee that all callers will
+	 align the outgoing stack properly, callee has to align its
+	 stack anyway.  */
+      if (i
+	  && i->preferred_incoming_stack_boundary
+	  && i->preferred_incoming_stack_boundary < preferred_stack_boundary)
 	preferred_stack_boundary = i->preferred_incoming_stack_boundary;
     }
 
@@ -2122,7 +2145,7 @@ expand_call (tree exp, rtx target, int ignore)
     type_arg_types = TYPE_ARG_TYPES (funtype);
 
   if (flags & ECF_MAY_BE_ALLOCA)
-    current_function_calls_alloca = 1;
+    cfun->calls_alloca = 1;
 
   /* If struct_value_rtx is 0, it means pass the address
      as if it were an extra parameter.  Put the argument expression
@@ -2299,8 +2322,6 @@ expand_call (tree exp, rtx target, int ignore)
   if (crtl->preferred_stack_boundary < preferred_stack_boundary
       && fndecl != current_function_decl)
     crtl->preferred_stack_boundary = preferred_stack_boundary;
-  if (fndecl == current_function_decl)
-    cfun->recursive_call_emit = true;
 
   preferred_unit_stack_boundary = preferred_stack_boundary / BITS_PER_UNIT;
 
@@ -2382,6 +2403,7 @@ expand_call (tree exp, rtx target, int ignore)
       unadjusted_args_size
 	= compute_argument_block_size (reg_parm_stack_space,
 				       &adjusted_args_size,
+				       fndecl,
 				       (pass == 0 ? 0
 					: preferred_stack_boundary));
 
@@ -2457,7 +2479,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Since we will be writing into the entire argument area,
 		     the map must be allocated for its entire size, not just
 		     the part that is the responsibility of the caller.  */
-		  if (!OUTGOING_REG_PARM_STACK_SPACE)
+		  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
 		    needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
@@ -2556,7 +2578,8 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      rtx push_size
 		= GEN_INT (adjusted_args_size.constant
-			   + (OUTGOING_REG_PARM_STACK_SPACE ? 0
+			   + (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL
+			   					      : TREE_TYPE (fndecl))) ? 0
 			      : reg_parm_stack_space));
 	      if (old_stack_level == 0)
 		{
@@ -2727,7 +2750,8 @@ expand_call (tree exp, rtx target, int ignore)
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
 	 passed in registers.  */
-      if (OUTGOING_REG_PARM_STACK_SPACE && !ACCUMULATE_OUTGOING_ARGS
+      if (OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl)))
+          && !ACCUMULATE_OUTGOING_ARGS
 	  && must_preallocate == 0 && reg_parm_stack_space > 0)
 	anti_adjust_stack (GEN_INT (reg_parm_stack_space));
 
@@ -2854,13 +2878,6 @@ expand_call (tree exp, rtx target, int ignore)
 		    note = gen_rtx_EXPR_LIST (VOIDmode,
 					      args[i].initial_value, note);
 		  note = gen_rtx_EXPR_LIST (VOIDmode, funexp, note);
-
-		  if (flags & ECF_PURE)
-		    note = gen_rtx_EXPR_LIST (VOIDmode,
-			gen_rtx_USE (VOIDmode,
-				     gen_rtx_MEM (BLKmode,
-						  gen_rtx_SCRATCH (VOIDmode))),
-			note);
 		}
 	      emit_libcall_block (insns, temp, valreg, note);
 
@@ -3160,7 +3177,7 @@ expand_call (tree exp, rtx target, int ignore)
   if (tail_call_insns)
     {
       emit_insn (tail_call_insns);
-      cfun->tail_call_emit = true;
+      crtl->tail_call_emit = true;
     }
   else
     emit_insn (normal_call_insns);
@@ -3269,6 +3286,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   struct args_size original_args_size;
   int argnum;
   rtx fun;
+  /* Todo, choose the correct decl type of orgfun. Sadly this information
+     isn't present here, so we default to native calling abi here.  */
+  tree fndecl ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
   int inc;
   int count;
   rtx argblock = 0;
@@ -3371,7 +3391,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	    mem_value = assign_temp (tfom, 0, 1, 1);
 #endif
 	  /* This call returns a big structure.  */
-	  flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
+	  flags &= ~(ECF_CONST | ECF_PURE | ECF_LOOPING_CONST_OR_PURE 
+		     | ECF_LIBCALL_BLOCK);
 	}
     }
   else
@@ -3474,10 +3495,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	      end_sequence ();
 	      emit_insn (insns);
 	    }
-	  flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
 
-	  /* If this was a CONST function, it is now PURE since
-	     it now reads memory.  */
+	  /* If this was a CONST function, it is now PURE since it now
+	     reads memory.  */
 	  if (flags & ECF_CONST)
 	    {
 	      flags &= ~ECF_CONST;
@@ -3547,7 +3567,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   args_size.constant = MAX (args_size.constant,
 			    reg_parm_stack_space);
 
-  if (!OUTGOING_REG_PARM_STACK_SPACE)
+  if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
     args_size.constant -= reg_parm_stack_space;
 
   if (args_size.constant > crtl->outgoing_args_size)
@@ -3572,7 +3592,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       /* Since we will be writing into the entire argument area, the
 	 map must be allocated for its entire size, not just the part that
 	 is the responsibility of the caller.  */
-      if (!OUTGOING_REG_PARM_STACK_SPACE)
+      if (! OUTGOING_REG_PARM_STACK_SPACE ((!fndecl ? NULL_TREE : TREE_TYPE (fndecl))))
 	needed += reg_parm_stack_space;
 
 #ifdef ARGS_GROW_DOWNWARD
@@ -3903,14 +3923,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	  insns = get_insns ();
 	  end_sequence ();
-
-	  if (flags & ECF_PURE)
-	    note = gen_rtx_EXPR_LIST (VOIDmode,
-			gen_rtx_USE (VOIDmode,
-				     gen_rtx_MEM (BLKmode,
-						  gen_rtx_SCRATCH (VOIDmode))),
-			note);
-
 	  emit_libcall_block (insns, temp, valreg, note);
 
 	  valreg = temp;

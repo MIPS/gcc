@@ -1367,7 +1367,6 @@ output_expr_operand (struct output_block *ob, tree expr)
     case OMP_RETURN:
     case OMP_SECTIONS:
     case OMP_SINGLE:
-    case STRUCT_FIELD_TAG:
     case SYMBOL_MEMORY_TAG:
     case TARGET_MEM_REF:
     case TRY_CATCH_EXPR:

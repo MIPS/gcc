@@ -812,8 +812,7 @@ rewrite_bittest (block_stmt_iterator *bsi)
 
   /* There is a conversion in between possibly inserted by fold.  */
   t = GIMPLE_STMT_OPERAND (stmt1, 1);
-  if (TREE_CODE (t) == NOP_EXPR
-      || TREE_CODE (t) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (t))
     {
       t = TREE_OPERAND (t, 0);
       if (TREE_CODE (t) != SSA_NAME
@@ -1639,6 +1638,8 @@ mem_refs_may_alias_p (tree mem1, tree mem2, struct pointer_map_t **ttae_cache)
 	  && TREE_CODE (TREE_TYPE (base2)) != UNION_TYPE
 	  && SSA_VAR_P (mem1)
 	  && !AGGREGATE_TYPE_P (TREE_TYPE (mem1)))
+	return false;
+      if (!alias_sets_conflict_p (get_alias_set (mem1), get_alias_set (mem2)))
 	return false;
     }
 

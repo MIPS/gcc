@@ -3047,8 +3047,7 @@ c_common_truthvalue_conversion (tree expr)
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
 	 since that affects how `default_conversion' will behave.  */
       if (TREE_CODE (TREE_TYPE (expr)) == REFERENCE_TYPE
@@ -3431,7 +3430,7 @@ c_alignof_expr (tree expr)
       tree best = t;
       int bestalign = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (t)));
 
-      while ((TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR)
+      while (CONVERT_EXPR_P (t)
 	     && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == POINTER_TYPE)
 	{
 	  int thisalign;
@@ -5451,6 +5450,13 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 		     *node);
 	      *no_add_attrs = true;
 	    }
+	  else if (TREE_CODE (decl) == VAR_DECL
+		   && !targetm.have_tls && targetm.emutls.tmpl_section
+		   && DECL_THREAD_LOCAL_P (decl))
+	    {
+	      error ("section of %q+D cannot be overridden", *node);
+	      *no_add_attrs = true;
+	    }
 	  else
 	    DECL_SECTION_NAME (decl) = TREE_VALUE (args);
 	}
@@ -5987,7 +5993,7 @@ handle_pure_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
-    DECL_IS_PURE (*node) = 1;
+    DECL_PURE_P (*node) = 1;
   /* ??? TODO: Support types.  */
   else
     {
@@ -6145,7 +6151,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   new_type = build_vector_type (type, nunits);
 
   /* Build back pointers if needed.  */
-  *node = reconstruct_complex_type (*node, new_type);
+  *node = lang_hooks.types.reconstruct_complex_type (*node, new_type);
 
   return NULL_TREE;
 }
@@ -6534,7 +6540,7 @@ check_function_arguments_recurse (void (*callback)
 				  void *ctx, tree param,
 				  unsigned HOST_WIDE_INT param_num)
 {
-  if ((TREE_CODE (param) == NOP_EXPR || TREE_CODE (param) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (param)
       && (TYPE_PRECISION (TREE_TYPE (param))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (param, 0)))))
     {
@@ -6604,6 +6610,85 @@ check_function_arguments_recurse (void (*callback)
     }
 
   (*callback) (ctx, param, param_num);
+}
+
+/* Checks the number of arguments NARGS against the required number
+   REQUIRED and issues an error if there is a mismatch.  Returns true
+   if the number of arguments is correct, otherwise false.  */
+
+static bool
+validate_nargs (tree fndecl, int nargs, int required)
+{
+  if (nargs < required)
+    {
+      error ("not enough arguments to function %qE", fndecl);
+      return false;
+    }
+  else if (nargs > required)
+    {
+      error ("too many arguments to function %qE", fndecl);
+      return false;
+    }
+  return true;
+}
+
+/* Verifies the NARGS arguments ARGS to the builtin function FNDECL.
+   Returns false if there was an error, otherwise true.  */
+
+bool
+check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
+{
+  if (!DECL_BUILT_IN (fndecl)
+      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+    return true;
+
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case BUILT_IN_CONSTANT_P:
+      return validate_nargs (fndecl, nargs, 1);
+
+    case BUILT_IN_ISFINITE:
+    case BUILT_IN_ISINF:
+    case BUILT_IN_ISNAN:
+    case BUILT_IN_ISNORMAL:
+      if (validate_nargs (fndecl, nargs, 1))
+	{
+	  if (TREE_CODE (TREE_TYPE (args[0])) != REAL_TYPE)
+	    {
+	      error ("non-floating-point argument in call to "
+		     "function %qE", fndecl);
+	      return false;
+	    }
+	  return true;
+	}
+      return false;
+
+    case BUILT_IN_ISGREATER:
+    case BUILT_IN_ISGREATEREQUAL:
+    case BUILT_IN_ISLESS:
+    case BUILT_IN_ISLESSEQUAL:
+    case BUILT_IN_ISLESSGREATER:
+    case BUILT_IN_ISUNORDERED:
+      if (validate_nargs (fndecl, nargs, 2))
+	{
+	  enum tree_code code0, code1;
+	  code0 = TREE_CODE (TREE_TYPE (args[0]));
+	  code1 = TREE_CODE (TREE_TYPE (args[1]));
+	  if (!((code0 == REAL_TYPE && code1 == REAL_TYPE)
+		|| (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
+		|| (code0 == INTEGER_TYPE && code1 == REAL_TYPE)))
+	    {
+	      error ("non-floating-point arguments in call to "
+		     "function %qE", fndecl);
+	      return false;
+	    }
+	  return true;
+	}
+      return false;
+
+    default:
+      return true;
+    }
 }
 
 /* Function to help qsort sort FIELD_DECLs by name order.  */

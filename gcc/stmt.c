@@ -1077,7 +1077,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
     if (real_output_rtx[i])
       emit_move_insn (real_output_rtx[i], output_rtx[i]);
 
-  cfun->has_asm_statement = 1;
+  crtl->has_asm_statement = 1;
   free_temp_slots ();
 }
 
@@ -1996,6 +1996,7 @@ expand_stack_restore (tree var)
 {
   rtx sa = expand_normal (var);
 
+  sa = convert_memory_address (Pmode, sa);
   emit_stack_restore (SAVE_BLOCK, sa, NULL_RTX);
 }
 

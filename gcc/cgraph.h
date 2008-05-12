@@ -75,11 +75,13 @@ struct cgraph_local_info GTY(())
   the info about where the file is.  */ 
   struct lto_file_decl_data * GTY ((skip)) lto_file_data;
 
-  /* Estimated stack frame consumption by the function.  */
-  HOST_WIDE_INT estimated_self_stack_size;
+  struct inline_summary {
+    /* Estimated stack frame consumption by the function.  */
+    HOST_WIDE_INT estimated_self_stack_size;
 
-  /* Size of the function before inlining.  */
-  int self_insns;
+    /* Size of the function before inlining.  */
+    int self_insns;
+  } inline_summary;
 
   /* Set when function function is visible in current compilation unit only
      and its address is never taken.  */
@@ -138,7 +140,7 @@ struct cgraph_global_info GTY(())
 
 struct cgraph_rtl_info GTY(())
 {
-   int preferred_incoming_stack_boundary;
+   unsigned int preferred_incoming_stack_boundary;
 };
 
 /* The cgraph data structure.

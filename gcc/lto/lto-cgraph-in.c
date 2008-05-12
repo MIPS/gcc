@@ -86,8 +86,8 @@ overwrite_node (struct data_in *data_in,
 		unsigned int self_insns)
 {
   node->aux = (void *)tag;
-  node->local.estimated_self_stack_size = stack_size;
-  node->local.self_insns = self_insns;
+  node->local.inline_summary.estimated_self_stack_size = stack_size;
+  node->local.inline_summary.self_insns = self_insns;
   if (!node->local.lto_file_data)
     node->local.lto_file_data = xcalloc (1, sizeof (struct lto_file_decl_data));
   
@@ -216,8 +216,8 @@ input_cgraph (struct lto_input_block *ib,
 void 
 lto_input_cgraph (struct lto_file_decl_data* file_data, const void *data)
 {
-  struct lto_cgraph_header * header 
-    = (struct lto_cgraph_header *) data;
+  const struct lto_cgraph_header * header 
+    = (const struct lto_cgraph_header *) data;
   struct data_in data_in;
   
   int32_t main_offset = sizeof (struct lto_cgraph_header); 

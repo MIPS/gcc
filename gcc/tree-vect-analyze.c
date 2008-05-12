@@ -218,8 +218,7 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      scalar_type = TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0));
 
 	      operation = GIMPLE_STMT_OPERAND (stmt, 1);
-	      if (TREE_CODE (operation) == NOP_EXPR
-		  || TREE_CODE (operation) == CONVERT_EXPR
+	      if (CONVERT_EXPR_P (operation)
 		  || TREE_CODE (operation) == WIDEN_MULT_EXPR
 		  || TREE_CODE (operation) == FLOAT_EXPR)
 		{
@@ -2228,11 +2227,16 @@ vect_analyze_group_access (struct data_reference *dr)
 
       /* Check that the size of the interleaving is equal to STEP for stores,
          i.e., that there are no gaps.  */
-      if (!DR_IS_READ (dr) && dr_step != count_in_bytes)
+      if (dr_step != count_in_bytes)
         {
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "interleaved store with gaps");
-          return false;
+          if (DR_IS_READ (dr))
+            slp_impossible = true;
+          else
+            {
+              if (vect_print_dump_info (REPORT_DETAILS))
+                fprintf (vect_dump, "interleaved store with gaps");
+              return false;
+            }
         }
 
       /* Check that STEP is a multiple of type size.  */

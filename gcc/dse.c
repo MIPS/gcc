@@ -531,7 +531,7 @@ struct clear_alias_mode_holder
 
 static alloc_pool clear_alias_mode_pool;
 
-/* This is true except if current_function_stdarg -- i.e. we cannot do
+/* This is true except if cfun->stdarg -- i.e. we cannot do
    this for vararg functions because they play games with the frame.  */
 static bool stores_off_frame_dead_at_return;
 
@@ -718,7 +718,7 @@ dse_step0 (void)
   bb_table = XCNEWVEC (bb_info_t, last_basic_block);
   rtx_group_next_id = 0;
 
-  stores_off_frame_dead_at_return = !current_function_stdarg;
+  stores_off_frame_dead_at_return = !cfun->stdarg;
 
   init_alias_analysis ();
   
@@ -1967,7 +1967,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
       /* Const functions cannot do anything bad i.e. read memory,
 	 however, they can read their parameters which may have
 	 been pushed onto the stack.  */
-      if (CONST_OR_PURE_CALL_P (insn) && !pure_call_p (insn))
+      if (RTL_CONST_CALL_P (insn))
 	{
 	  insn_info_t i_ptr = active_local_stores;
 	  insn_info_t last = NULL;
@@ -2163,7 +2163,7 @@ dse_step1 (void)
 	      && (EDGE_COUNT (bb->succs) == 0
 		  || (single_succ_p (bb)
 		      && single_succ (bb) == EXIT_BLOCK_PTR
-		      && ! current_function_calls_eh_return)))
+		      && ! crtl->calls_eh_return)))
 	    {
 	      insn_info_t i_ptr = active_local_stores;
 	      while (i_ptr)

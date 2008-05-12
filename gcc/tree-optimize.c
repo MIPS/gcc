@@ -299,7 +299,8 @@ execute_fixup_cfg (void)
 	    tree call = get_call_expr_in (stmt);
 	    tree decl = call ? get_callee_fndecl (call) : NULL;
 
-	    if (decl && call_expr_flags (call) & (ECF_CONST | ECF_PURE)
+	    if (decl && call_expr_flags (call) & (ECF_CONST | ECF_PURE 
+						  | ECF_LOOPING_CONST_OR_PURE)
 		&& TREE_SIDE_EFFECTS (call))
 	      {
 		if (gimple_in_ssa_p (cfun))
@@ -411,7 +412,7 @@ tree_rest_of_compilation (tree fndecl)
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->dont_save_pending_sizes_p = 1;
   
   tree_register_cfg_hooks ();
 

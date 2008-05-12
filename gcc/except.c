@@ -1669,7 +1669,7 @@ sjlj_assign_call_site_values (rtx dispatch_label, struct sjlj_lp_info *lp_info)
 	r->landing_pad = dispatch_label;
 	lp_info[i].action_index = collect_one_action_chain (ar_hash, r);
 	if (lp_info[i].action_index != -1)
-	  cfun->uses_eh_lsda = 1;
+	  crtl->uses_eh_lsda = 1;
       }
 
   htab_delete (ar_hash);
@@ -1795,7 +1795,7 @@ sjlj_emit_function_enter (rtx dispatch_label)
   emit_move_insn (mem, eh_personality_libfunc);
 
   mem = adjust_address (fc, Pmode, sjlj_fc_lsda_ofs);
-  if (cfun->uses_eh_lsda)
+  if (crtl->uses_eh_lsda)
     {
       char buf[20];
       rtx sym;
@@ -2708,7 +2708,7 @@ can_throw_external (const_rtx insn)
   return can_throw_external_1 (INTVAL (XEXP (note, 0)), false);
 }
 
-/* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
+/* Set TREE_NOTHROW and crtl->all_throwers_are_sibcalls.  */
 
 unsigned int
 set_nothrow_function_flags (void)
@@ -2723,13 +2723,13 @@ set_nothrow_function_flags (void)
 
   TREE_NOTHROW (current_function_decl) = 1;
 
-  /* Assume cfun->all_throwers_are_sibcalls until we encounter
+  /* Assume crtl->all_throwers_are_sibcalls until we encounter
      something that can throw an exception.  We specifically exempt
      CALL_INSNs that are SIBLING_CALL_P, as these are really jumps,
      and can't throw.  Most CALL_INSNs are not SIBLING_CALL_P, so this
      is optimistic.  */
 
-  cfun->all_throwers_are_sibcalls = 1;
+  crtl->all_throwers_are_sibcalls = 1;
 
   if (! flag_exceptions)
     return 0;
@@ -2741,7 +2741,7 @@ set_nothrow_function_flags (void)
 
 	if (!CALL_P (insn) || !SIBLING_CALL_P (insn))
 	  {
-	    cfun->all_throwers_are_sibcalls = 0;
+	    crtl->all_throwers_are_sibcalls = 0;
 	    return 0;
 	  }
       }
@@ -2754,7 +2754,7 @@ set_nothrow_function_flags (void)
 
 	if (!CALL_P (insn) || !SIBLING_CALL_P (insn))
 	  {
-	    cfun->all_throwers_are_sibcalls = 0;
+	    crtl->all_throwers_are_sibcalls = 0;
 	    return 0;
 	  }
       }
@@ -2791,7 +2791,7 @@ expand_builtin_unwind_init (void)
 {
   /* Set this so all the registers get saved in our frame; we need to be
      able to copy the saved values for any registers from frames we unwind.  */
-  current_function_saves_all_registers = 1;
+  crtl->saves_all_registers = 1;
 
 #ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();
@@ -2914,7 +2914,7 @@ expand_eh_return (void)
   if (! crtl->eh.ehr_label)
     return;
 
-  current_function_calls_eh_return = 1;
+  crtl->calls_eh_return = 1;
 
 #ifdef EH_RETURN_STACKADJ_RTX
   emit_move_insn (EH_RETURN_STACKADJ_RTX, const0_rtx);
@@ -3208,7 +3208,7 @@ convert_to_eh_region_ranges (void)
 	/* Existence of catch handlers, or must-not-throw regions
 	   implies that an lsda is needed (even if empty).  */
 	if (this_action != -1)
-	  cfun->uses_eh_lsda = 1;
+	  crtl->uses_eh_lsda = 1;
 
 	/* Delay creation of region notes for no-action regions
 	   until we're sure that an lsda will be required.  */
@@ -3639,7 +3639,7 @@ output_function_exception_table (const char * ARG_UNUSED (fnname))
   int tt_format_size = 0;
 
   /* Not all functions need anything.  */
-  if (! cfun->uses_eh_lsda)
+  if (! crtl->uses_eh_lsda)
     return;
 
   if (eh_personality_libfunc)

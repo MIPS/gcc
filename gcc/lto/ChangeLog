@@ -1,3 +1,10 @@
+2008-05-12  Diego Novillo  <dnovillo@google.com>
+
+	* lto-cgraph-in.c (overwrite_node): Update references to
+	inline summary fields.
+	* lto-function-in.c (input_expr_operand): Do not handle
+	STRUCT_FIELD_TAG.
+
 2008-05-09  Ollie Wild  <aaw@google.com>
 
 	* lang.opt: New file.

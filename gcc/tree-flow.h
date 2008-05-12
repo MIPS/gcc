@@ -327,8 +327,6 @@ enum noalias_state {
 };
 
 
-typedef VEC(tree,gc) *subvar_t;
-
 struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -395,10 +393,6 @@ struct var_ann_d GTY(())
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
   tree current_def;
-
-  /* If this variable is a structure, this fields holds an array
-     of symbols representing each of the fields of the structure.  */
-  VEC(tree,gc) *subvars;
 };
 
 /* Container for variable annotation used by hashtable for annotations for
@@ -733,7 +727,6 @@ extern void delete_tree_cfg_annotations (void);
 extern bool stmt_ends_bb_p (const_tree);
 extern bool is_ctrl_stmt (const_tree);
 extern bool is_ctrl_altering_stmt (const_tree);
-extern bool computed_goto_p (const_tree);
 extern bool simple_goto_p (const_tree);
 extern bool tree_can_make_abnormal_goto (const_tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
@@ -773,6 +766,8 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
+extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,
+					  VEC(basic_block,heap) **bbs_p);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
@@ -817,8 +812,6 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
-extern void dump_subvars_for (FILE *, tree);
-extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
 extern void remove_referenced_var (tree);
@@ -861,16 +854,10 @@ extern struct ptr_info_def *get_ptr_info (tree);
 extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
 				   unsigned *);
-static inline subvar_t get_subvars_for_var (tree);
-static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (const_tree);
 static inline bool array_ref_contains_indirect_ref (const_tree);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 				     HOST_WIDE_INT *, HOST_WIDE_INT *);
-static inline bool var_can_have_subvars (const_tree);
-static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
-				   unsigned HOST_WIDE_INT,
-				   const_tree, bool *);
 extern tree create_tag_raw (enum tree_code, tree, const char *);
 extern void delete_mem_ref_stats (struct function *);
 extern void dump_mem_ref_stats (FILE *);
@@ -1020,7 +1007,7 @@ basic_block *blocks_in_phiopt_order (void);
 void tree_ssa_lim (void);
 unsigned int tree_ssa_unswitch_loops (void);
 unsigned int canonicalize_induction_variables (void);
-unsigned int tree_unroll_loops_completely (bool);
+unsigned int tree_unroll_loops_completely (bool, bool);
 unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
@@ -1184,39 +1171,6 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
-
-/* This structure is used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it
-   relative to its immediate containing type, and we want it relative
-   to the ultimate containing object.  */
-
-struct fieldoff
-{
-  /* Type of the field.  */
-  tree type;
-
-  /* Size, in bits, of the field.  */
-  tree size;
-
-  /* Field.  */
-  tree decl;
-
-  /* Offset from the base of the base containing object to this field.  */
-  HOST_WIDE_INT offset;  
-
-  /* Alias set for the field.  */
-  alias_set_type alias_set;
-
-  /* True, if this offset can be a base for further component accesses.  */
-  unsigned base_for_components : 1;
-};
-typedef struct fieldoff fieldoff_s;
-
-DEF_VEC_O(fieldoff_s);
-DEF_VEC_ALLOC_O(fieldoff_s,heap);
-int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
-				 HOST_WIDE_INT, bool *, tree);
-void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);

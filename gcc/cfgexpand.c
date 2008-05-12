@@ -1177,7 +1177,7 @@ expand_used_vars (void)
      stack guard: protect-all, alloca used, protected decls present.  */
   if (flag_stack_protect == 2
       || (flag_stack_protect
-	  && (current_function_calls_alloca || has_protected_decls)))
+	  && (cfun->calls_alloca || has_protected_decls)))
     create_stack_guard ();
 
   /* Assign rtl to each variable based on these partitions.  */
@@ -1792,8 +1792,7 @@ discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
 	     || TREE_CODE (t) == REALPART_EXPR
 	     || TREE_CODE (t) == IMAGPART_EXPR
 	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
-	     || TREE_CODE (t) == NOP_EXPR
-	     || TREE_CODE (t) == CONVERT_EXPR)
+	     || CONVERT_EXPR_P (t))
 	t = TREE_OPERAND (t, 0);
 
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
@@ -1874,7 +1873,7 @@ tree_expand_cfg (void)
   /* Honor stack protection warnings.  */
   if (warn_stack_protect)
     {
-      if (current_function_calls_alloca)
+      if (cfun->calls_alloca)
 	warning (OPT_Wstack_protector, 
 		 "not protecting local variables: variable length buffer");
       if (has_short_buffer && !crtl->stack_protect_guard)
@@ -1982,10 +1981,10 @@ tree_expand_cfg (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_expand =
+struct rtl_opt_pass pass_expand =
 {
  {
-  GIMPLE_PASS,
+  RTL_PASS,
   "expand",				/* name */
   NULL,                                 /* gate */
   tree_expand_cfg,			/* execute */

@@ -999,7 +999,7 @@ extern int arm_structure_size_boundary;
 #endif
 
 #define FRAME_POINTER_REQUIRED					\
-  (current_function_has_nonlocal_label				\
+  (cfun->has_nonlocal_label				\
    || SUBTARGET_FRAME_POINTER_REQUIRED				\
    || (TARGET_ARM && TARGET_APCS_FRAME && ! leaf_function_p ()))
 
@@ -1481,7 +1481,7 @@ do {									      \
 /* How large values are returned */
 /* A C expression which can inhibit the returning of certain function values
    in registers, based on the type of value.  */
-#define RETURN_IN_MEMORY(TYPE) arm_return_in_memory (TYPE)
+#define TARGET_RETURN_IN_MEMORY arm_return_in_memory
 
 /* Define DEFAULT_PCC_STRUCT_RETURN to 1 if all structure and union return
    values must be in memory.  On the ARM, they need only do so if larger
@@ -2402,7 +2402,7 @@ extern int making_const_table;
         {						\
           if (is_called_in_ARM_mode (DECL)		\
 	      || (TARGET_THUMB1 && !TARGET_THUMB1_ONLY	\
-		  && current_function_is_thunk))	\
+		  && crtl->is_thunk))	\
             fprintf (STREAM, "\t.code 32\n") ;		\
           else if (TARGET_THUMB1)			\
            fprintf (STREAM, "\t.code\t16\n\t.thumb_func\n") ;	\

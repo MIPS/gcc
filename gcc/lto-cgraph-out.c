@@ -219,9 +219,9 @@ output_node (struct output_block *ob, struct cgraph_node *node)
   if (tag != LTO_cgraph_unavail_node)
     {
       LTO_DEBUG_TOKEN ("stack_size");
-      output_sleb128 (ob, node->local.estimated_self_stack_size);
+      output_sleb128 (ob, node->local.inline_summary.estimated_self_stack_size);
       LTO_DEBUG_TOKEN ("self_insns");
-      output_sleb128 (ob, node->local.self_insns);
+      output_sleb128 (ob, node->local.inline_summary.self_insns);
     }
 
   LTO_DEBUG_UNDENT();

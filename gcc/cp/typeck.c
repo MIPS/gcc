@@ -2889,9 +2889,15 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
   if (nargs < 0)
     return error_mark_node;
 
+  /* Check that arguments to builtin functions match the expectations.  */
+  if (fndecl
+      && DECL_BUILT_IN (fndecl)
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && !check_builtin_function_arguments (fndecl, nargs, argarray))
+    return error_mark_node;
+
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
 			    parm_types);
 
@@ -5939,10 +5945,11 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	lhs = build2 (TREE_CODE (lhs), TREE_TYPE (lhs),
 		      stabilize_reference (TREE_OPERAND (lhs, 0)),
 		      TREE_OPERAND (lhs, 1));
-      return build2 (COMPOUND_EXPR, lhstype,
-		     lhs,
-		     cp_build_modify_expr (TREE_OPERAND (lhs, 0),
-					   modifycode, rhs, complain));
+      newrhs = cp_build_modify_expr (TREE_OPERAND (lhs, 0),
+				     modifycode, rhs, complain);
+      if (newrhs == error_mark_node)
+	return error_mark_node;
+      return build2 (COMPOUND_EXPR, lhstype, lhs, newrhs);
 
       /* Handle (a, b) used as an "lvalue".  */
     case COMPOUND_EXPR:
@@ -7132,7 +7139,7 @@ check_return_expr (tree retval, bool *no_warning)
       if (retval == error_mark_node)
 	return retval;
       /* We can't initialize a register from a AGGR_INIT_EXPR.  */
-      else if (! current_function_returns_struct
+      else if (! cfun->returns_struct
 	       && TREE_CODE (retval) == TARGET_EXPR
 	       && TREE_CODE (TREE_OPERAND (retval, 1)) == AGGR_INIT_EXPR)
 	retval = build2 (COMPOUND_EXPR, TREE_TYPE (retval), retval,
