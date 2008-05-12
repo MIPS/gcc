@@ -3831,7 +3831,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 			    tree addr, tree loaded_val, tree stored_val,
 			    int index)
 {
-  tree loadedi, storedi, initial, new_stored, new_storedi, old_vali;
+  tree loadedi, storedi, initial, new_storedi, old_vali;
   tree type, itype, cmpxchg, iaddr;
   gimple_stmt_iterator si;
   basic_block loop_header = single_succ (load_bb);
@@ -3845,51 +3845,86 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   if (sync_compare_and_swap[TYPE_MODE (itype)] == CODE_FOR_nothing)
     return false;
 
-  /* Load the initial value, replacing the GIMPLE_OMP_ATOMIC_LOAD.  */
+  /* Load the initial value, replacing the OMP_ATOMIC_LOAD.  */
   si = gsi_last_bb (load_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_LOAD);
-  initial = force_gimple_operand_gsi (&si, build_fold_indirect_ref (addr),
+
+  /* For floating-point values, we'll need to view-convert them to integers
+     so that we can perform the atomic compare and swap.  Simplify the
+     following code by always setting up the "i"ntegral variables.  */
+  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
+    {
+      iaddr = create_tmp_var (build_pointer_type (itype), NULL);
+      stmt = gimple_build_assign (iaddr,
+	                          fold_convert (TREE_TYPE (iaddr), addr));
+      gsi_insert_before (&si, stmt, GSI_SAME_STMT);
+      DECL_NO_TBAA_P (iaddr) = 1;
+      DECL_POINTER_ALIAS_SET (iaddr) = 0;
+      loadedi = create_tmp_var (itype, NULL);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  add_referenced_var (iaddr);
+	  add_referenced_var (loadedi);
+	  loadedi = make_ssa_name (loadedi, NULL);
+	}
+    }
+  else
+    {
+      iaddr = addr;
+      loadedi = loaded_val;
+    }
+
+  initial = force_gimple_operand_gsi (&si, build_fold_indirect_ref (iaddr),
 				      true, NULL_TREE, true, GSI_SAME_STMT);
-  /* Move the value to the LOADED_VAL temporary.  */
+
+  /* Move the value to the LOADEDI temporary.  */
   if (gimple_in_ssa_p (cfun))
     {
       gcc_assert (gimple_seq_empty_p (phi_nodes (loop_header)));
-      phi = create_phi_node (loaded_val, loop_header);
-      SSA_NAME_DEF_STMT (loaded_val) = phi;
+      phi = create_phi_node (loadedi, loop_header);
+      SSA_NAME_DEF_STMT (loadedi) = phi;
       SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (load_bb)),
 	       initial);
     }
   else
     gsi_insert_before (&si,
-		       gimple_build_assign (loaded_val, initial),
+		       gimple_build_assign (loadedi, initial),
 		       GSI_SAME_STMT);
+  if (loadedi != loaded_val)
+    {
+      gimple_stmt_iterator bsi2;
+      tree x;
+
+      x = build1 (VIEW_CONVERT_EXPR, type, loadedi);
+      bsi2 = gsi_start_bb (loop_header);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  gimple stmt;
+	  x = force_gimple_operand_gsi (&bsi2, x, true, NULL_TREE,
+					true, GSI_SAME_STMT);
+	  stmt = gimple_build_assign (loaded_val, x);
+	  gsi_insert_before (&bsi2, stmt, GSI_SAME_STMT);
+	}
+      else
+	{
+	  x = build_gimple_modify_stmt (loaded_val, x);
+	  force_gimple_operand_gsi (&bsi2, x, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+	}
+    }
   gsi_remove (&si, true);
 
   si = gsi_last_bb (store_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_STORE);
 
-  /* For floating-point values, we'll need to view-convert them to integers
-     so that we can perform the atomic compare and swap.  Simplify the 
-     following code by always setting up the "i"ntegral variables.  */
-  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
-    {
-      loadedi = loaded_val;
-      storedi = stored_val;
-      iaddr = addr;
-    }
+  if (iaddr == addr)
+    storedi = stored_val;
   else
-    {
-      loadedi = force_gimple_operand_gsi (&si,
-					  build1 (VIEW_CONVERT_EXPR, itype,
-						  loaded_val), true,
-					  NULL_TREE, true, GSI_SAME_STMT);
-      storedi =
-	force_gimple_operand_gsi (&si,
-				  build1 (VIEW_CONVERT_EXPR, itype,
-					  stored_val), true, NULL_TREE, true,
-				  GSI_SAME_STMT);
-      iaddr = fold_convert (build_pointer_type (itype), addr);
-    }
+    storedi =
+      force_gimple_operand_gsi (&si,
+				build1 (VIEW_CONVERT_EXPR, itype,
+					stored_val), true, NULL_TREE, true,
+				GSI_SAME_STMT);
 
   /* Build the compare&swap statement.  */
   new_storedi = build_call_expr (cmpxchg, 3, iaddr, loadedi, storedi);
@@ -3897,23 +3932,18 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 					  fold_convert (itype, new_storedi),
 					  true, NULL_TREE,
 					  true, GSI_SAME_STMT);
-  if (storedi == stored_val)
-    new_stored = new_storedi;
-  else
-    new_stored = force_gimple_operand_gsi (&si,
-					   build1 (VIEW_CONVERT_EXPR, type,
-						   new_storedi), true,
-					   NULL_TREE, true, GSI_SAME_STMT);
 
   if (gimple_in_ssa_p (cfun))
     old_vali = loadedi;
   else
     {
       old_vali = create_tmp_var (itype, NULL);
+      if (gimple_in_ssa_p (cfun))
+	add_referenced_var (old_vali);
       stmt = gimple_build_assign (old_vali, loadedi);
       gsi_insert_before (&si, stmt, GSI_SAME_STMT);
 
-      stmt = gimple_build_assign (loaded_val, new_stored);
+      stmt = gimple_build_assign (loadedi, new_storedi);
       gsi_insert_before (&si, stmt, GSI_SAME_STMT);
     }
 
@@ -3932,12 +3962,12 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 
   e = make_edge (store_bb, loop_header, EDGE_TRUE_VALUE);
 
-  /* Copy the new value to loaded_val (we already did that before the condition
+  /* Copy the new value to loadedi (we already did that before the condition
      if we are not in SSA).  */
   if (gimple_in_ssa_p (cfun))
     {
       phi = gimple_seq_first_stmt (phi_nodes (loop_header));
-      SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), new_stored);
+      SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), new_storedi);
     }
 
   /* Remove GIMPLE_OMP_ATOMIC_STORE.  */

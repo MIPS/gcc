@@ -229,6 +229,17 @@ struct gimple_opt_pass pass_build_cfg =
  }
 };
 
+
+/* Return true if T is a computed goto.  */
+
+static bool
+computed_goto_p (gimple t)
+{
+  return (gimple_code (t) == GIMPLE_GOTO
+	  && TREE_CODE (gimple_goto_dest (t)) != LABEL_DECL);
+}
+
+
 /* Search the CFG for any computed gotos.  If found, factor them to a
    common computed goto site.  Also record the location of that site so
    that we can un-factor the gotos after we have converted back to
@@ -2579,16 +2590,6 @@ is_ctrl_altering_stmt (gimple t)
 }
 
 
-/* Return true if T is a computed goto.  */
-
-bool
-computed_goto_p (gimple t)
-{
-  return (gimple_code (t) == GIMPLE_GOTO
-	  && TREE_CODE (gimple_goto_dest (t)) != LABEL_DECL);
-}
-
-
 /* Return true if T is a simple local goto.  */
 
 bool
@@ -2907,8 +2908,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case NON_LVALUE_EXPR:
 	gcc_unreachable ();
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
     case NEGATE_EXPR:
@@ -3277,8 +3277,7 @@ verify_types_in_gimple_assign (gimple stmt)
   /* Special codes we cannot handle via their class.  */
   switch (rhs_code)
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       {
 	if (!is_gimple_val (rhs1))
 	  {
@@ -3816,6 +3815,22 @@ verify_stmt (gimple_stmt_iterator *gsi)
 	 because the header of an OMP_FOR is merely used to determine
 	 how to setup the parallel iteration.  */
       return false;
+    }
+
+  /* FIXME.  The C frontend passes unpromoted arguments in case it
+     didn't see a function declaration before the call.  */
+  if (gimple_code (stmt) == GIMPLE_CALL)
+    {
+      tree decl = gimple_call_fn (stmt);
+
+      if (TREE_CODE (decl) == FUNCTION_DECL 
+	  && DECL_LOOPING_CONST_OR_PURE_P (decl)
+	  && (!DECL_PURE_P (decl))
+	  && (!TREE_READONLY (decl)))
+	{
+	  error ("invalid pure const state for function");
+	  return true;
+	}
     }
 
   memset (&wi, 0, sizeof (wi));

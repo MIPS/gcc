@@ -2261,8 +2261,7 @@ derive_constant_upper_bound_ops (tree type, tree op0,
     case INTEGER_CST:
       return tree_to_double_int (op0);
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       subtype = TREE_TYPE (op0);
       if (!TYPE_UNSIGNED (subtype)
 	  /* If TYPE is also signed, the fact that VAL is nonnegative implies

@@ -1104,23 +1104,35 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code)
 {
-  tree rr, ri, ratio, div, t1, t2, tr, ti, cond;
+  tree rr, ri, ratio, div, t1, t2, tr, ti, compare;
   basic_block bb_cond, bb_true, bb_false, bb_join;
   gimple stmt;
 
   /* Examine |br| < |bi|, and branch.  */
   t1 = gimplify_build1 (gsi, ABS_EXPR, inner_type, br);
   t2 = gimplify_build1 (gsi, ABS_EXPR, inner_type, bi);
-  cond = fold_build2 (LT_EXPR, boolean_type_node, t1, t2);
-  STRIP_NOPS (cond);
+  compare = fold_build2 (LT_EXPR, boolean_type_node, t1, t2);
+  STRIP_NOPS (compare);
 
   bb_cond = bb_true = bb_false = bb_join = NULL;
   rr = ri = tr = ti = NULL;
-  if (!TREE_CONSTANT (cond))
+  if (!TREE_CONSTANT (compare))
     {
       edge e;
       gimple stmt;
+      tree cond, tmp;
 
+      tmp = create_tmp_var (boolean_type_node, NULL);
+      stmt = gimple_build_assign (tmp, compare);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  tmp = make_ssa_name (tmp,  stmt);
+	  gimple_assign_set_lhs (stmt, tmp);
+	}
+
+      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+
+      cond = fold_build2 (EQ_EXPR, boolean_type_node, tmp, boolean_true_node);
       stmt = gimple_build_cond_from_tree (cond, NULL_TREE, NULL_TREE);
       gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
 
@@ -1157,7 +1169,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       ti = (ai * ratio) - ar;
       tr = tr / div;
       ti = ti / div;  */
-  if (bb_true || integer_nonzerop (cond))
+  if (bb_true || integer_nonzerop (compare))
     {
       if (bb_true)
 	{
@@ -1196,7 +1208,7 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       ti = b - (a * ratio);
       tr = tr / div;
       ti = ti / div;  */
-  if (bb_false || integer_zerop (cond))
+  if (bb_false || integer_zerop (compare))
     {
       if (bb_false)
 	{

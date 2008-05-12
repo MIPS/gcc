@@ -2156,6 +2156,9 @@ gimple_has_side_effects (const_gimple s)
 
       if (!(gimple_call_flags (s) & (ECF_CONST | ECF_PURE)))
         return true;
+      else if (gimple_call_flags (s) & ECF_LOOPING_CONST_OR_PURE)
+	/* An infinite loop is considered a side effect.  */
+	return true;
 
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */

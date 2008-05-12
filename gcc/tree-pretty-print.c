@@ -866,7 +866,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case SYMBOL_MEMORY_TAG:
     case NAME_MEMORY_TAG:
-    case STRUCT_FIELD_TAG:
     case VAR_DECL:
     case PARM_DECL:
     case FIELD_DECL:
@@ -1375,8 +1374,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       type = TREE_TYPE (node);
       op0 = TREE_OPERAND (node, 0);
       if (type != TREE_TYPE (op0))
@@ -2367,8 +2365,7 @@ op_prio (const_tree op)
     case INDIRECT_REF:
     case ADDR_EXPR:
     case FLOAT_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case FIX_TRUNC_EXPR:
     case TARGET_EXPR:
       return 14;

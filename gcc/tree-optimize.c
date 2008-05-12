@@ -304,7 +304,9 @@ execute_fixup_cfg (void)
 	       previous optimization may have converted a call into a
 	       const/pure call.  Leave in for now.  */
 	    if (decl
-		&& (gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE)))
+		&& gimple_call_flags (stmt) & (ECF_CONST
+					       | ECF_PURE 
+					       | ECF_LOOPING_CONST_OR_PURE))
 	      {
 		if (gimple_in_ssa_p (cfun))
 		  {

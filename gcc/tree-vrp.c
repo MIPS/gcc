@@ -3958,9 +3958,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	}
 
       /* Extract NAME2 from the (optional) sign-changing cast.  */
-      if (gimple_code (def_stmt) == GIMPLE_ASSIGN
-          && (gimple_assign_rhs_code (def_stmt) == NOP_EXPR
-	      || gimple_assign_rhs_code (def_stmt) == CONVERT_EXPR))
+      if (gimple_assign_cast_p (def_stmt))
 	{
 	  if ((gimple_assign_rhs_code (def_stmt) == NOP_EXPR
 	       || gimple_assign_rhs_code (def_stmt) == CONVERT_EXPR)
