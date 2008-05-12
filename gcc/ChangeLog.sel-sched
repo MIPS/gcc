@@ -1,3 +1,7 @@
+2008-05-12  Andrey Belevanstev  <abel@ispras.ru>
+        * tree-ssa-reassoc.c (rewrite_expr_tree): Add hunk accidentally removed
+        during merge.
+
 2008-04-18  Andrey Belevanstev  <abel@ispras.ru>
 	    Dmitry Melnik  <dm@ispras.ru>
 	    Alexander Monakov  <amonakov@ispras.ru>
