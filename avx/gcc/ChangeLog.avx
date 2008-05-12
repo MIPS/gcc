@@ -1,5 +1,10 @@
 2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*vec_concat<mode>_avx): Support
+	concatenate with zero vector.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (sse_rcpv4sf2): Set prefix attribute to
 	maybe_vex.
 	(sse_sqrtv4sf2): Likewise.

@@ -10786,12 +10786,30 @@
 })
 
 (define_insn "*vec_concat<mode>_avx"
-  [(set (match_operand:AVX256MODE3P 0 "register_operand"   "=x")
+  [(set (match_operand:AVX256MODE3P 0 "register_operand"   "=x,x")
 	(vec_concat:AVX256MODE3P
-	  (match_operand:<avxhalfvecmode> 1 "register_operand" "x")
-	  (match_operand:<avxhalfvecmode> 2 "nonimmediate_operand" "xm")))]
+	  (match_operand:<avxhalfvecmode> 1 "register_operand" "x,x")
+	  (match_operand:<avxhalfvecmode> 2 "vector_move_operand" "xm,C")))]
   "TARGET_AVX"
-  "vperm2f128\t{$0x30, %t2, %t1, %0|%0, %t1, %t2, 0x30}"
-  [(set_attr "type" "sselog")
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return "vperm2f128\t{$0x30, %t2, %t1, %0|%0, %t1, %t2, 0x30}";
+    case 1:
+      switch (get_attr_mode (insn))
+        {
+	case MODE_V8SF:
+	  return "vmovaps\t{%1, %x0|%x0, %1}";
+	case MODE_V4DF:
+	  return "vmovapd\t{%1, %x0|%x0, %1}";
+	default:
+	  return "vmovdqa\t{%1, %x0|%x0, %1}";
+	}
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "type" "sselog,ssemov")
    (set_attr "mode" "<avxvecmode>")
    (set_attr "prefix" "vex")])
