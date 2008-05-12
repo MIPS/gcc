@@ -1,3 +1,39 @@
+2008-05-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* Makefile.in (ira-build.o): Add sparseset.h.
+	
+	* ira-build.c (sparseset.h): Add.
+	(remove_wrong_conflicts, change_allocno_conflicts,
+	check_and_add_conflicts, add_conflict_with_underlying_allocnos):
+	Remove.
+	(finish_loop_tree_node, clear_allocno_conflicts,
+	change_allocno_in_range_list): New functions.
+	(allocnos_bitmap): New variable.
+	(finish_loop_tree_nodes): Use finish_loop_tree_node.
+	(initiate_allocnos): Initiate allocno conflict id by its allocno
+	number.
+	(conflict_vector_profitable_p): Use allocno min/max attributes.
+	(temp_change_bit_vec): Remove.
+	(finish_allocno): Nullify the corresponding element in allocnos
+	and conflict_id_allocno_map.
+	(local_allocnos_bitmap): Remove.
+	(create_loop_tree_node_caps): Use local_allocnos_bitmap instead of
+	local_allocnos_bitmap.
+	(regno_top_level_allocno_map): Move to ira_flattening.
+	(ira_flattening): Rewriting conflict rebuilding.
+	(ira_build): Allocate/free allocnos_bitmap.  Move
+	create_allocno_live_ranges before creation of allocno caps.
+
+	* ira-lives.c (propagate_new_allocno_info, propagate_new_info):
+	New functions.
+	(create_allocno_live_ranges): Call propagate_new_info.
+
+	* ira-color.c (ira_fast_allocation): Collect allocnos for sorting.
+
+	* ira-conflicts.c (propagate_allocno_info): Rename to
+	propagate_allocno_copy_info.  Propagate only copies.
+	(propagate_info): Rename to propagate_copy_info.
+
 2008-05-10  Richard Sandiford  <rsandifo@nildram.co.uk>
 
 	* toplev.c (backend_init_target): Move init_ira call from here...

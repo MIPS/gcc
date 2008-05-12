@@ -2749,7 +2749,7 @@ ira_color (void)
 void
 ira_fast_allocation (void)
 {
-  int i, j, k, l, class_size, hard_regno;
+  int i, j, k, l, num, class_size, hard_regno;
 #ifdef STACK_REGS
   int no_stack_reg_p;
 #endif
@@ -2777,12 +2777,14 @@ ira_fast_allocation (void)
   for (i = 0; i < max_point; i++)
     CLEAR_HARD_REG_SET (used_hard_regs[i]);
   sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
-  memcpy (sorted_allocnos, allocnos, sizeof (allocno_t) * allocnos_num);
+  num = 0;
+  FOR_EACH_ALLOCNO (a, ai)
+    sorted_allocnos[num++] = a;
   qsort (sorted_allocnos, allocnos_num, sizeof (allocno_t), 
 	 allocno_priority_compare_func);
-  for (i = 0; i < allocnos_num; i++)
+  for (i = 0; i < num; i++)
     {
-      a =  sorted_allocnos[i];
+      a = sorted_allocnos[i];
       COPY_HARD_REG_SET (conflict_hard_regs, ALLOCNO_CONFLICT_HARD_REGS (a));
       for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	for (j =  r->start; j <= r->finish; j++)

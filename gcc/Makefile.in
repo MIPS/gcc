@@ -2790,7 +2790,7 @@ init-regs.o : init-regs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 ira-build.o: ira-build.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) \
-   $(PARAMS_H) $(DF_H) $(IRA_INT_H)
+   $(PARAMS_H) $(DF_H) sparseset.h $(IRA_INT_H)
 ira-costs.o: ira-costs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TARGET_H) $(RTL_H) insn-config.h $(RECOG_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) errors.h \

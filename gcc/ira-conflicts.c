@@ -48,8 +48,8 @@ static int get_dup_num (int, int);
 static rtx get_dup (int, int);
 static void add_insn_allocno_copies (rtx);
 static void add_copies (loop_tree_node_t);
-static void propagate_allocno_info (allocno_t);
-static void propagate_info (void);
+static void propagate_allocno_copy_info (allocno_t);
+static void propagate_copy_info (void);
 static void remove_conflict_allocno_copies (void);
 static void build_allocno_conflicts (void);
 static void propagate_modified_regnos (loop_tree_node_t);
@@ -585,13 +585,12 @@ add_copies (loop_tree_node_t loop_tree_node)
       add_insn_allocno_copies (insn);
 }
 
-/* The function propagates some info about allocno A (see comments
-   about accumulated info in allocno definition) to the corresponding
-   allocno on upper loop tree level.  So allocnos on upper levels
-   accumulate information about the corresponding allocnos in nested
-   regions.  */
+/* The function propagates copy info for allocno A to the
+   corresponding allocno on upper loop tree level.  So allocnos on
+   upper levels accumulate information about the corresponding
+   allocnos in nested regions.  */
 static void
-propagate_allocno_info (allocno_t a)
+propagate_allocno_copy_info (allocno_t a)
 {
   int regno;
   allocno_t father_a, another_a, another_father_a;
@@ -602,20 +601,6 @@ propagate_allocno_info (allocno_t a)
   if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
       && (father_a = father->regno_allocno_map[regno]) != NULL)
     {
-      ALLOCNO_CALL_FREQ (father_a) += ALLOCNO_CALL_FREQ (a);
-#ifdef STACK_REGS
-      if (ALLOCNO_TOTAL_NO_STACK_REG_P (a))
-	ALLOCNO_TOTAL_NO_STACK_REG_P (father_a) = TRUE;
-#endif
-      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
-			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
-      if (ALLOCNO_CALLS_CROSSED_START (father_a) < 0
-	  || (ALLOCNO_CALLS_CROSSED_START (a) >= 0
-	      && (ALLOCNO_CALLS_CROSSED_START (father_a)
-		  > ALLOCNO_CALLS_CROSSED_START (a))))
-	ALLOCNO_CALLS_CROSSED_START (father_a)
-	  = ALLOCNO_CALLS_CROSSED_START (a);
-      ALLOCNO_CALLS_CROSSED_NUM (father_a) += ALLOCNO_CALLS_CROSSED_NUM (a);
       for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
 	  if (cp->first == a)
@@ -638,10 +623,10 @@ propagate_allocno_info (allocno_t a)
     }
 }
 
-/* The function propagates some info about allocnos to the
-   corresponding allocnos on upper loop tree level.  */
+/* The function propagates copy info to the corresponding allocnos on
+   upper loop tree level.  */
 static void
-propagate_info (void)
+propagate_copy_info (void)
 {
   int i;
   allocno_t a;
@@ -650,7 +635,7 @@ propagate_info (void)
     for (a = regno_allocno_map[i];
 	 a != NULL;
 	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
-      propagate_allocno_info (a);
+      propagate_allocno_copy_info (a);
 }
 
 /* The function returns TRUE if live ranges of allocnos A1 and A2
@@ -943,7 +928,7 @@ ira_build_conflicts (void)
       traverse_loop_tree (TRUE, ira_loop_tree_root, NULL, add_copies);
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
-	propagate_info ();
+	propagate_copy_info ();
       /* We need finished conflict table for the subsequent call.  */
       remove_conflict_allocno_copies ();
       build_allocno_conflicts ();
