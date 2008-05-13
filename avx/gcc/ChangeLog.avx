@@ -1,5 +1,14 @@
 2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*avx_concatv2sf): Renamed to ...
+	(*vex_concatv2sf_avx): This.
+	("*avx_concatv4sf): Renamed to ...
+	(*vex_concatv4sf_avx): This.
+	(*avx_concatv2si): Renamed to ...
+	(*vex_concatv2si_avx): This.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (*vec_concat<mode>_avx): Support
 	concatenate with zero vector.
 
