@@ -1,3 +1,8 @@
+2008-05-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (remove_unavailable_values): Actually remove
+	slots with zero variable parts.
+
 2008-05-12  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c (dv_is_decl_p, dv_is_value_p): NULL is neither.

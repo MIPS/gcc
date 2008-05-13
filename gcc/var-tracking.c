@@ -1699,7 +1699,7 @@ remove_unavailable_values (void **slot, void *data)
 	  dv = dv_from_value (loc->loc);
 	  valslot = htab_find_slot_with_hash (vars, &dv, dv_htab_hash (dv),
 					      NO_INSERT);
-	  if (valslot)
+	  if (valslot && ((variable)*valslot)->n_var_parts)
 	    locp = &loc->next;
 	  else
 	    {
