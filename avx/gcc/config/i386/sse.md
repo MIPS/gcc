@@ -8500,9 +8500,11 @@
 		       (const_int 6)
 		       (const_int 7)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbw\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbw\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbw\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv8qiv8hi2"
@@ -8520,9 +8522,11 @@
 		       (const_int 6)
 		       (const_int 7)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbw\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbw\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbw\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_extendv4qiv4si2"
@@ -8535,9 +8539,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbd\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv4qiv4si2"
@@ -8551,9 +8557,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbd\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_extendv2qiv2di2"
@@ -8564,9 +8572,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv2qiv2di2"
@@ -8578,9 +8588,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxbq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxbq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxbq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_extendv4hiv4si2"
@@ -8593,9 +8605,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovsxwd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxwd\t{%1, %0|%0, %1}\"
+                       : \"pmovsxwd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv4hiv4si2"
@@ -8609,9 +8623,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovsxwd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxwd\t{%1, %0|%0, %1}\"
+                       : \"pmovsxwd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_extendv2hiv2di2"
@@ -8622,9 +8638,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxwq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxwq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxwq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv2hiv2di2"
@@ -8636,9 +8654,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxwq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxwq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxwq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_extendv2siv2di2"
@@ -8649,9 +8669,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxdq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxdq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxdq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_extendv2siv2di2"
@@ -8663,9 +8685,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovsxdq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovsxdq\t{%1, %0|%0, %1}\"
+                       : \"pmovsxdq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv8qiv8hi2"
@@ -8682,9 +8706,11 @@
 		       (const_int 6)
 		       (const_int 7)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbw\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbw\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbw\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv8qiv8hi2"
@@ -8702,9 +8728,11 @@
 		       (const_int 6)
 		       (const_int 7)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbw\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbw\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbw\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv4qiv4si2"
@@ -8717,9 +8745,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbd\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv4qiv4si2"
@@ -8733,9 +8763,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbd\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv2qiv2di2"
@@ -8746,9 +8778,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv2qiv2di2"
@@ -8760,9 +8794,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxbq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxbq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxbq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv4hiv4si2"
@@ -8775,9 +8811,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovzxwd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxwd\t{%1, %0|%0, %1}\"
+                       : \"pmovzxwd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv4hiv4si2"
@@ -8791,9 +8829,11 @@
 		       (const_int 2)
 		       (const_int 3)]))))]
   "TARGET_SSE4_1"
-  "pmovzxwd\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxwd\t{%1, %0|%0, %1}\"
+                       : \"pmovzxwd\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv2hiv2di2"
@@ -8804,9 +8844,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxwq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxwq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxwq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv2hiv2di2"
@@ -8818,9 +8860,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxwq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxwq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxwq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_1_zero_extendv2siv2di2"
@@ -8831,9 +8875,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxdq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxdq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxdq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "*sse4_1_zero_extendv2siv2di2"
@@ -8845,9 +8891,11 @@
 	    (parallel [(const_int 0)
 		       (const_int 1)]))))]
   "TARGET_SSE4_1"
-  "pmovzxdq\t{%1, %0|%0, %1}"
+  "* return TARGET_AVX ? \"vpmovzxdq\t{%1, %0|%0, %1}\"
+                       : \"pmovzxdq\t{%1, %0|%0, %1}\";"
   [(set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 ;; ptestps/ptestpd are very similar to comiss and ucomiss when
