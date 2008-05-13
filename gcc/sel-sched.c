@@ -109,7 +109,7 @@ along with GCC; see the file COPYING3.  If not see
    First, we compute available exprs (av-set) at the boundary of the current 
    group.  Second, we choose the best expression from it.  If the stall is 
    required to schedule any of the expressions, we advance the current cycle
-   appropriately.  So, tThe final group does not exactly correspond to a VLIW 
+   appropriately.  So, the final group does not exactly correspond to a VLIW 
    word.  Third, we move the chosen expression to the boundary (move_op)
    and update the intermediate av sets and liveness sets.  We quit fill_insns
    when either no insns left for scheduling or we have scheduled enough insns

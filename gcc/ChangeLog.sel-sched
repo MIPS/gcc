@@ -1,5 +1,17 @@
 2008-05-13  Andrey Belevantsev  <abel@ispras.ru>
 
+	* sel-sched-ir.c (vinsn_init): Call init_id_from_df when possible.
+	(setup_id_for_insn): New, factor from ...
+	(deps_init_id_start_insn): ... here.  Tidy.
+	(setup_id_lhs_rhs, maybe_downgrade_id_to_use, setup_id_reg_sets): New.
+	(init_id_from_df): New.  Use the above functions to setup id for insn
+	when DF's data for it is known.
+
+	* sel-sched-ir.h (struct _expr): Make target_available signed char.
+	* sel-sched.c: Fix typo in comment.
+
+2008-05-13  Andrey Belevantsev  <abel@ispras.ru>
+
 	* sched-int.h: Fix typos, remove unneeded comments.
 	(struct sched_deps_info_def): Remove start_x and finish_x fields.
 	Remove all uses.  Update appropriate hook structures.

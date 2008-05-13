@@ -128,6 +128,7 @@ bool preheader_removed = false;
 static void fence_clear (fence_t);
 
 static void deps_init_id (idata_t, insn_t, bool);
+static void init_id_from_df (idata_t, insn_t, bool);
 static expr_t set_insn_init (expr_t, vinsn_t, int);
 
 static void cfg_preds (basic_block, insn_t **, int *);
@@ -1126,7 +1127,11 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
   VINSN_INSN_RTX (vi) = insn;
   VINSN_COUNT (vi) = 0;
   vi->cost = -1;
-  deps_init_id (VINSN_ID (vi), insn, force_unique_p);
+  
+  if (DF_INSN_UID_SAFE_GET (INSN_UID (insn)) != NULL)
+    init_id_from_df (VINSN_ID (vi), insn, force_unique_p);
+  else
+    deps_init_id (VINSN_ID (vi), insn, force_unique_p);
   
   /* Hash vinsn depending on whether it is separable or not.  */
   hrcf = targetm.sched.skip_rtx_p ? hash_with_unspec_callback : NULL;
@@ -1841,7 +1846,6 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
             EXPR_TARGET_AVAILABLE (expr) = false;
             break;
           }
-
     }
 }
 
@@ -2335,40 +2339,38 @@ static struct
   bool force_use_p;
 } deps_init_id_data;
 
-/* Start initializing insn data.  */
+
+/* Setup ID for INSN.  */
 static void
-deps_init_id_start_insn (insn_t insn)
+setup_id_for_insn (idata_t id, insn_t insn, bool force_unique_p)
 {
   int type;
-  idata_t id;
-
-  gcc_assert (deps_init_id_data.where == DEPS_IN_NOWHERE);
-
+  
   /* Determine whether INSN could be cloned and return appropriate vinsn type.
      That clonable insns which can be separated into lhs and rhs have type SET.
      Other clonable insns have type USE.  */
   type = GET_CODE (insn);
 
   /* Only regular insns could be cloned.  */
-  if (type == INSN)
-    {
-      if (!deps_init_id_data.force_unique_p)
-	type = SET;
-    }
-  else if (type == JUMP_INSN)
-    {
-      if (simplejump_p (insn))
-	type = PC;
-    }
-
-  id = deps_init_id_data.id;
-
+  if (type == INSN && !force_unique_p)
+    type = SET;
+  else if (type == JUMP_INSN && simplejump_p (insn))
+    type = PC;
+  
   IDATA_TYPE (id) = type;
-
   IDATA_REG_SETS (id) = get_clear_regset_from_pool ();
   IDATA_REG_USES (id) = get_clear_regset_from_pool ();
   IDATA_REG_CLOBBERS (id) = get_clear_regset_from_pool ();
+}
 
+/* Start initializing insn data.  */
+static void
+deps_init_id_start_insn (insn_t insn)
+{
+  gcc_assert (deps_init_id_data.where == DEPS_IN_NOWHERE);
+
+  setup_id_for_insn (deps_init_id_data.id, insn,
+                     deps_init_id_data.force_unique_p);
   deps_init_id_data.where = DEPS_IN_INSN;
 }
 
@@ -2502,6 +2504,115 @@ static const struct sched_deps_info_def const_deps_init_id_sched_deps_info =
   };
 
 static struct sched_deps_info_def deps_init_id_sched_deps_info;
+
+/* Initialize INSN's lhs and rhs in ID.  */
+static void
+setup_id_lhs_rhs (idata_t id, insn_t insn, bool force_unique_p)
+{
+  rtx pat = PATTERN (insn);
+  
+  if (GET_CODE (insn) == INSN
+      && GET_CODE (pat) == SET 
+      && !force_unique_p)
+    {
+      IDATA_RHS (id) = SET_SRC (pat);
+      IDATA_LHS (id) = SET_DEST (pat);
+    }
+  else
+    IDATA_LHS (id) = IDATA_RHS (id) = NULL;
+}
+
+/* Possibly downgrade INSN to USE.  */
+static void
+maybe_downgrade_id_to_use (idata_t id, insn_t insn)
+{
+  bool must_be_use = false;
+  unsigned uid = INSN_UID (insn);
+  struct df_ref **rec;
+  rtx lhs = IDATA_LHS (id);
+  rtx rhs = IDATA_RHS (id);
+  
+  if (IDATA_TYPE (id) == SET 
+      && (!lhs || !lhs_and_rhs_separable_p (lhs, rhs)))
+    {
+      IDATA_TYPE (id) = USE;
+      return;
+    }
+  
+  for (rec = DF_INSN_UID_DEFS (uid); *rec; rec++)
+    {
+      struct df_ref *def = *rec;
+      
+      if (DF_REF_INSN (def)
+          && DF_REF_FLAGS_IS_SET (def, DF_REF_PRE_POST_MODIFY)
+          && loc_mentioned_in_p (DF_REF_LOC (def), IDATA_RHS (id)))
+        {
+          must_be_use = true;
+          break;
+        }
+    }    
+  
+  if (must_be_use)
+    IDATA_TYPE (id) = USE;
+}
+
+/* Setup register sets describing INSN in ID.  */
+static void
+setup_id_reg_sets (idata_t id, insn_t insn)
+{
+  unsigned uid = INSN_UID (insn);
+  struct df_ref **rec;
+  regset tmp = get_clear_regset_from_pool ();
+  
+  for (rec = DF_INSN_UID_DEFS (uid); *rec; rec++)
+    {
+      struct df_ref *def = *rec;
+      unsigned int regno = DF_REF_REGNO (def);
+      
+      /* Post modifies are treated like clobbers by sched-deps.c.  */
+      if (DF_REF_FLAGS_IS_SET (def, (DF_REF_MUST_CLOBBER
+                                     | DF_REF_PRE_POST_MODIFY)))
+        SET_REGNO_REG_SET (IDATA_REG_CLOBBERS (id), regno);
+      else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
+        SET_REGNO_REG_SET (IDATA_REG_SETS (id), regno);
+      
+      /* Mark special refs that generate read/write def pair.  */
+      if (DF_REF_FLAGS_IS_SET (def, DF_REF_CONDITIONAL)
+          || regno == STACK_POINTER_REGNUM)
+        bitmap_set_bit (tmp, regno);
+    }
+      
+  for (rec = DF_INSN_UID_USES (uid); *rec; rec++)
+    {
+      struct df_ref *use = *rec;
+      unsigned int regno = DF_REF_REGNO (use);
+
+      /* When these refs are met for the first time, skip them, as
+         these uses are just counterparts of some defs.  */
+      if (bitmap_bit_p (tmp, regno))
+        bitmap_clear_bit (tmp, regno);
+      else if (! DF_REF_FLAGS_IS_SET (use, DF_REF_CALL_STACK_USAGE))
+        SET_REGNO_REG_SET (IDATA_REG_USES (id), regno);
+    }
+
+  return_regset_to_pool (tmp);
+}
+
+/* Initialize instruction data for INSN in ID using DF's data.  */
+static void
+init_id_from_df (idata_t id, insn_t insn, bool force_unique_p)
+{
+  gcc_assert (DF_INSN_UID_SAFE_GET (INSN_UID (insn)) != NULL);
+
+  setup_id_for_insn (id, insn, force_unique_p);
+  setup_id_lhs_rhs (id, insn, force_unique_p);
+
+  if (INSN_NOP_P (insn))
+    return;
+
+  maybe_downgrade_id_to_use (id, insn);
+  setup_id_reg_sets (id, insn);
+}
 
 /* Initialize instruction data for INSN in ID.  */
 static void

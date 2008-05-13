@@ -153,7 +153,7 @@ struct _expr
   /* True (1) when original target (register or memory) of this instruction 
      is available for scheduling, false otherwise.  -1 means we're not sure;
      please run find_used_regs to clarify.  */
-  char target_available;
+  signed char target_available;
 
   /* True when this expression needs a speculation check to be scheduled.  
      This is used during find_used_regs.  */
