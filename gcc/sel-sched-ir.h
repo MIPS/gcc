@@ -196,6 +196,9 @@ typedef expr_def *expr_t;
 #define EXPR_WAS_RENAMED(EXPR) ((EXPR)->was_renamed)
 #define EXPR_CANT_MOVE(EXPR) ((EXPR)->cant_move)
 
+#define EXPR_WAS_CHANGED(EXPR) (VEC_length (expr_history_def, \
+                                            EXPR_HISTORY_OF_CHANGES (EXPR)) > 0) 
+
 /* Insn definition for list of original insns in find_used_regs.  */
 struct _def
 {
@@ -1493,6 +1496,7 @@ extern int sel_vinsn_cost (vinsn_t);
 extern insn_t sel_gen_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_recovery_insn_from_rtx_after (rtx, expr_t, int, insn_t);
 extern insn_t sel_gen_insn_from_expr_after (expr_t, vinsn_t, int, insn_t);
+extern insn_t  sel_move_insn (expr_t, int, insn_t);
 extern void vinsn_attach (vinsn_t);
 extern void vinsn_detach (vinsn_t);
 extern vinsn_t vinsn_copy (vinsn_t, bool);
@@ -1554,7 +1558,7 @@ extern void sel_init_new_insns (void);
 extern void sel_finish_new_insns (void);
 
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
-extern void sel_remove_insn (insn_t);
+extern bool sel_remove_insn (insn_t, bool, bool);
 extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
 extern void sel_init_invalid_data_sets (insn_t);
@@ -1579,10 +1583,12 @@ extern struct succs_info * compute_succs_info (insn_t, short);
 extern void free_succs_info (struct succs_info *);
 extern bool sel_insn_has_single_succ_p (insn_t, int);
 extern bool sel_num_cfg_preds_gt_1 (insn_t);
+extern int get_seqno_by_preds (rtx);
 
 extern bool bb_ends_ebb_p (basic_block);
 extern bool in_same_ebb_p (insn_t, insn_t);
 
+extern bool tidy_control_flow (basic_block, bool);
 extern void free_bb_note_pool (void);
 
 extern basic_block sel_create_basic_block_before (basic_block);

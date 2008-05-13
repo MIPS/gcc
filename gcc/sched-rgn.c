@@ -2304,16 +2304,14 @@ static struct common_sched_info_def rgn_common_sched_info;
 static const struct sched_deps_info_def rgn_const_sched_deps_info =
   {
     compute_jump_reg_dependencies,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     0, 0, 0
   };
 
 static const struct sched_deps_info_def rgn_const_sel_sched_deps_info =
   {
     compute_jump_reg_dependencies,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL,
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     0, 0, 0
   };
 

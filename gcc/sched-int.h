@@ -215,7 +215,6 @@ extern void dump_insn_slim_1 (FILE *, rtx);
 /* Pointer to data describing the current DFA state.  */
 extern state_t curr_state;
 
-/* sched-deps.h: START  */
 /* Type to represent status of a dependence.  */
 typedef int ds_t;
 
@@ -917,7 +916,6 @@ enum DEPS_ADJUST_RESULT {
   /* New dependence has been created.  */
   DEP_CREATED
 };
-/* sched-deps.h: END  */
 
 /* Represents the bits that can be set in the flags field of the 
    sched_info structure.  */
@@ -931,7 +929,7 @@ enum SCHED_FLAGS {
   DO_SPECULATION = USE_DEPS_LIST << 1,
   SCHED_RGN = DO_SPECULATION << 1,
   SCHED_EBB = SCHED_RGN << 1,
-  /* Scheduler can possible create new basic blocks.  Used for assertions.  */
+  /* Scheduler can possibly create new basic blocks.  Used for assertions.  */
   NEW_BBS = SCHED_EBB << 1,
   SEL_SCHED = NEW_BBS << 1
 };
@@ -1042,12 +1040,6 @@ struct sched_deps_info_def
 
   /* Finish analyzing insn.  */
   void (*finish_insn) (void);
-
-  /* Start analyzing insn subexpression.  */
-  void (*start_x) (rtx);
-
-  /* Finish analyzing insn subexpression.  */
-  void (*finish_x) (void);
 
   /* Start analyzing insn LHS (Left Hand Side).  */
   void (*start_lhs) (rtx);

@@ -361,14 +361,15 @@ struct cmpd_local_params
   /* Generated NOP insn.  */
   insn_t generated_nop;
 
-  /* If not NULL, update_data_sets will be called on this insns.  */
-  insn_t call_update_data_sets_on_nop;
-
   /* Local params used in fur_* functions.  */
-  
   /* Copy of the ORIGINAL_INSN list, stores the original insns already
      found before entering the current level of code_motion_path_driver.  */
   def_list_t old_original_insns;
+
+  /* Local params used in move_op_* functions.  */
+  /* True when we have removed last insn in the block which was 
+     also a boundary.  */
+  bool removed_last_insn;
 };
 
 /* Stores the static parameters for move_op_* calls.  */
@@ -379,6 +380,10 @@ struct moveop_static_params
 
   /* Current C_EXPR.  */
   expr_t c_expr;
+
+  /* An UID of expr_vliw which is to be moved up.  If we find other exprs,
+     they are to be removed.  */
+  int uid;
 };
 
 /* Stores the static parameters for fur_* calls.  */
@@ -387,11 +392,11 @@ struct fur_static_params
   /* Set of registers unavailable on the code motion path.  */
   regset used_regs;
 
-  /* True if a code motion path contains a CALL insn.  */
-  bool crosses_call;
-
   /* Pointer to the list of original insns definitions.  */
   def_list_t *original_insns;
+
+  /* True if a code motion path contains a CALL insn.  */
+  bool crosses_call;
 };
 
 typedef struct fur_static_params *fur_static_params_p;
@@ -542,7 +547,7 @@ static rtx get_dest_from_orig_ops (av_set_t);
 static basic_block generate_bookkeeping_insn (expr_t, edge, edge);
 static bool find_used_regs (insn_t, av_set_t, regset, struct reg_rename *, 
                             def_list_t *);
-static bool move_op (insn_t, av_set_t, rtx, expr_t);
+static bool move_op (insn_t, av_set_t, expr_t, rtx, expr_t);
 static int code_motion_path_driver (insn_t, av_set_t, ilist_t,
                                     cmpd_local_params_p, void *);
 static void sel_sched_region_1 (void);
@@ -958,6 +963,8 @@ replace_dest_with_reg_in_expr (expr_t expr, rtx new_reg)
   vinsn = create_vinsn_from_insn_rtx (insn_rtx, false);
 
   change_vinsn_in_expr (expr, vinsn);
+  EXPR_WAS_RENAMED (expr) = 1;
+  EXPR_TARGET_AVAILABLE (expr) = 1;
 }
 
 /* Returns whether VI writes one of the REGS.  */
@@ -1324,6 +1331,7 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
 /* reg_rename_tick[REG1] > reg_rename_tick[REG2] if REG1 was chosen as the
    best register more recently than REG2.  */
 static int reg_rename_tick[FIRST_PSEUDO_REGISTER];
+static int reg_rename_this_tick;
 
 /* Choose the register among free, that is suitable for storing 
    the rhs value.
@@ -1610,8 +1618,6 @@ try_replace_dest_reg (ilist_t orig_insns, rtx best_reg, expr_t expr)
   /* Make sure that EXPR has the right destination
      register.  */
   replace_dest_with_reg_in_expr (expr, best_reg);
-  EXPR_WAS_RENAMED (expr) = 1;
-  EXPR_TARGET_AVAILABLE (expr) = 1;
 
   /* The resulting insn should be valid.  */
   gcc_assert (insn_rtx_valid (EXPR_INSN_RTX (expr)));
@@ -3536,13 +3542,6 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
           continue;
         }
 
-      /* Do not pass too much stuff to max_issue and tick_check_p.  */
-      if (0 && n >= 9)
-        {
-          VEC_unordered_remove (expr_t, vec_av_set, n);
-          continue;
-        }
-      
       /* Set number of sched_next insns (just in case there 
          could be several).  */
       if (FENCE_SCHED_NEXT (fence))
@@ -4127,11 +4126,7 @@ find_best_expr (av_set_t *av_vliw_ptr, blist_t bnds, fence_t fence,
           privileged_n = calculate_privileged_insns ();
           can_issue_more = choose_best_insn (fence, privileged_n, &index);
           if (can_issue_more)
-            {
-              best = find_expr_for_ready (index, true);
-              if (EXPR_WAS_RENAMED (best))
-                EXPR_WAS_RENAMED (best) = 0;
-            }
+            best = find_expr_for_ready (index, true);
         }
       /* We had some available insns, so if we can't issue them, 
          we have a stall.  */
@@ -4183,24 +4178,14 @@ emit_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno,
      For now we workaround this issue in move_op.  */
   gcc_assert (!INSN_IN_STREAM_P (EXPR_INSN_RTX (expr)));
 
-  {
-    rtx reg = expr_dest_reg (expr);
-
-    if (reg != NULL_RTX)
-      {
-	static int reg_rename_this_tick = 0;
-
-	if (HARD_REGISTER_P (reg))
-	  {
-	    unsigned regno = REGNO (reg);
-
-	    reg_rename_tick[regno] = ++reg_rename_this_tick;
-
-            df_set_regs_ever_live (regno, true);
-	  }
-      }
-  }
-
+  if (EXPR_WAS_RENAMED (expr))
+    {
+      unsigned regno = expr_dest_regno (expr);
+      
+      reg_rename_tick[regno] = ++reg_rename_this_tick;
+      df_set_regs_ever_live (regno, true);
+    }
+  
   return sel_gen_insn_from_expr_after (expr, vinsn, seqno, 
                                        place_to_insert);
 }
@@ -4331,6 +4316,30 @@ find_place_for_bookkeeping (edge e1, edge e2)
   return place_to_insert;
 }
 
+/* Find a proper seqno for bookkeeing insn inserted at PLACE_TO_INSERT
+   for JOIN_POINT.   */
+static int
+find_seqno_for_bookkeeping (insn_t place_to_insert, insn_t join_point)
+{
+  int seqno;
+  rtx next;
+
+  /* Check if we are about to insert bookkeeping copy before a jump, and use
+     jump's seqno for the copy; otherwise, use JOIN_POINT's seqno.  */
+  next = NEXT_INSN (place_to_insert);
+  if (INSN_P (next) 
+      && JUMP_P (next)
+      && BLOCK_FOR_INSN (next) == BLOCK_FOR_INSN (place_to_insert))
+    seqno = INSN_SEQNO (next);
+  else if (INSN_SEQNO (join_point) > 0)
+    seqno = INSN_SEQNO (join_point);
+  else
+    seqno = get_seqno_by_preds (place_to_insert);
+  
+  gcc_assert (seqno > 0);
+  return seqno;
+}
+
 /* Insert bookkeeping copy of C_EXPS's insn after PLACE_TO_INSERT, assigning
    NEW_SEQNO to it.  Return created insn.  */
 static insn_t
@@ -4358,7 +4367,7 @@ emit_bookkeeping_insn (insn_t place_to_insert, expr_t c_expr, int new_seqno)
 static basic_block
 generate_bookkeeping_insn (expr_t c_expr, edge e1, edge e2)
 {
-  insn_t join_point, place_to_insert, next, new_insn;
+  insn_t join_point, place_to_insert, new_insn;
   int new_seqno;
   bool need_to_exchange_data_sets;
 
@@ -4368,18 +4377,9 @@ generate_bookkeeping_insn (expr_t c_expr, edge e1, edge e2)
 
   join_point = sel_bb_head (e2->dest);
   place_to_insert = find_place_for_bookkeeping (e1, e2);
+  new_seqno = find_seqno_for_bookkeeping (place_to_insert, join_point);
   need_to_exchange_data_sets
     = sel_bb_empty_p (BLOCK_FOR_INSN (place_to_insert));
-
-  /* Check if we are about to insert bookkeeping copy before a jump, and use
-     jump's seqno for the copy; otherwise, use JOIN_POINT's seqno.  */
-  next = NEXT_INSN (place_to_insert);
-
-  if (INSN_P (next) && JUMP_P (next)
-      && BLOCK_FOR_INSN (next) == BLOCK_FOR_INSN (place_to_insert))
-    new_seqno = INSN_SEQNO (next);
-  else
-    new_seqno = INSN_SEQNO (join_point);
 
   new_insn = emit_bookkeeping_insn (place_to_insert, c_expr, new_seqno);
 
@@ -4792,7 +4792,7 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
   bitmap_clear (current_copies);
   bitmap_clear (current_originators);
 
-  b = move_op (BND_TO (bnd), expr_seq, 
+  b = move_op (BND_TO (bnd), expr_seq, expr_vliw, 
                get_dest_from_orig_ops (expr_seq), c_expr);
 
   /* We should be able to find the expression we've chosen for 
@@ -4801,7 +4801,6 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
   
   if (stat_bookkeeping_copies > n_bookkeeping_copies_before_moveop)
     stat_insns_needed_bookkeeping++;
-  remove_temp_moveop_nops ();
   
   EXECUTE_IF_SET_IN_BITMAP (current_copies, 0, book_uid, bi)
     {
@@ -4811,24 +4810,6 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
       
       bitmap_copy (INSN_ORIGINATORS_BY_UID (book_uid), 
                    current_originators);
-    }
-
-  /* We want to use a pattern from expr_vliw, because it could've 
-     been substituted, and the rest of data from expr_seq.  */
-  if (! rtx_equal_p (EXPR_PATTERN (expr_vliw), 
-                     EXPR_PATTERN (c_expr)))
-    {
-      vinsn_t vinsn_new;
-
-      /* The corner case to care about is when the expr_seq set has 
-         more than one expr, and we chose the one that is not equal
-         to expr_vliw.  Then expr_vliw may be insn in stream, and 
-         we can't use it.  Generate the new vinsn.  */
-      if (INSN_IN_STREAM_P (EXPR_INSN_RTX (expr_vliw)))
-        vinsn_new = vinsn_copy (EXPR_VINSN (expr_vliw), false);
-      else
-        vinsn_new = EXPR_VINSN (expr_vliw);
-      change_vinsn_in_expr (c_expr, vinsn_new);
     }
 }
 
@@ -4958,6 +4939,7 @@ schedule_expr_on_boundary (bnd_t bnd, expr_t expr_vliw, int seqno)
   expr_t c_expr = alloca (sizeof (expr_def));
   insn_t place_to_insert;
   insn_t insn;
+  bool cant_move;
 
   expr_seq = find_sequential_best_exprs (bnd, expr_vliw, true);
 
@@ -4977,17 +4959,33 @@ schedule_expr_on_boundary (bnd_t bnd, expr_t expr_vliw, int seqno)
   /* Find a place for C_EXPR to schedule.  */
   place_to_insert = prepare_place_to_insert (bnd);
   move_exprs_to_boundary (bnd, expr_vliw, expr_seq, c_expr);
-            
-  /* Add the instruction.  */
-  insn = emit_insn_from_expr_after (c_expr, NULL, seqno, 
-                                    place_to_insert);
   clear_expr (c_expr);
+            
+  /* Add the instruction.  The corner case to care about is when 
+     the expr_seq set has more than one expr, and we chose the one that 
+     is not equal to expr_vliw.  Then expr_vliw may be insn in stream, and 
+     we can't use it.  Generate the new vinsn.  */
+  cant_move = EXPR_WAS_CHANGED (expr_vliw) || EXPR_WAS_RENAMED (expr_vliw);
+  if (INSN_IN_STREAM_P (EXPR_INSN_RTX (expr_vliw)))
+    {
+      vinsn_t vinsn_new;
+      
+      vinsn_new = vinsn_copy (EXPR_VINSN (expr_vliw), false);
+      change_vinsn_in_expr (expr_vliw, vinsn_new);
+      cant_move = 1;
+    }
+  if (cant_move)
+    insn = emit_insn_from_expr_after (expr_vliw, NULL, seqno, 
+                                      place_to_insert);
+  else
+    insn = sel_move_insn (expr_vliw, seqno, place_to_insert);
 
-  /* Return the nop generated for preserving of data sets back
+  /* Return the nops generated for preserving of data sets back
      into pool.  */
   if (INSN_NOP_P (place_to_insert))
     return_nop_to_pool (place_to_insert);
-          
+  remove_temp_moveop_nops ();
+
   av_set_clear (&expr_seq);
 
   /* Check that the recent movement didn't destroyed loop
@@ -5116,25 +5114,6 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
               && (was_stall >= max_stall 
                   || scheduled_insns >= max_insns)))
         break;
-
-#ifdef ENABLE_CHECKING
-      /* Check that the region we're scheduling still has at most one 
-         backedge.  */
-      if (pipelining_p)
-        {
-          int i, n = 0;
-          edge e;
-          edge_iterator ei;
-          
-          for (i = 0; i < current_nr_blocks; i++)
-            FOR_EACH_EDGE (e, ei, BASIC_BLOCK (BB_TO_BLOCK (i))->succs)
-              if (in_current_region_p (e->dest)
-                  && BLOCK_TO_BB (e->dest->index) < i)
-                n++;
-          
-          gcc_assert (n <= 1);
-        }
-#endif
     }
   while (bnds);
 
@@ -5241,7 +5220,8 @@ update_and_record_unavailable_insns (basic_block book_block)
    MOVEOP_DRV_CALL_RES is the result of call code_motion_path_driver on succ,
    LPARAMS and STATIC_PARAMS contain the parameters described above.  */
 static void
-move_op_merge_succs (insn_t insn, insn_t succ ATTRIBUTE_UNUSED, 
+move_op_merge_succs (insn_t insn ATTRIBUTE_UNUSED, 
+                     insn_t succ ATTRIBUTE_UNUSED, 
 		     int moveop_drv_call_res, 
 		     cmpd_local_params_p lparams, void *static_params)
 {
@@ -5278,16 +5258,11 @@ move_op_merge_succs (insn_t insn, insn_t succ ATTRIBUTE_UNUSED,
 	 SCHED_TIMES to the maximum instead of minimum in the 
 	 below function.  */
       int old_times = EXPR_SCHED_TIMES (lparams->c_expr_merged);
-      int use = MAX (EXPR_USEFULNESS (lparams->c_expr_merged),
-		     EXPR_USEFULNESS (sparams->c_expr));
 
-      gcc_assert (EXPR_USEFULNESS (lparams->c_expr_merged) 
-		  == EXPR_USEFULNESS (sparams->c_expr));
-      merge_expr_data (lparams->c_expr_merged, sparams->c_expr, insn);
-
-      EXPR_USEFULNESS (lparams->c_expr_merged) = use;
+      merge_expr_data (lparams->c_expr_merged, sparams->c_expr, NULL);
       if (EXPR_SCHED_TIMES (sparams->c_expr) == 0)
 	EXPR_SCHED_TIMES (lparams->c_expr_merged) = old_times;
+
       clear_expr (sparams->c_expr);
     }
 }
@@ -5332,19 +5307,11 @@ move_op_after_merge_succs (cmpd_local_params_p lp, void *sparams)
   sp->c_expr = lp->c_expr_merged;
 }
 
-/* This function is called when original expr is found.
-   INSN - current insn traversed, EXPR - the corresponding expr found.
-   If nop is generated in the function or we need to call update_data_sets
-   on nop, then they are saved in GENERATED_NOP_P and 
-   CALL_UPDATE_DATA_SETS_ON_NOP.  */
+/* Track bookkeeping copies created, insns scheduled, and blocks for
+   rescheduling when INSN is found by move_op.  */
 static void
-move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams, 
-			void *static_params)
+track_scheduled_insns_and_blocks (rtx insn)
 {
-  moveop_static_params_p params = static_params;
-  
-  copy_expr_onside (params->c_expr, INSN_EXPR (insn));
-
   /* This can be previously created bookkeeping copy; do not count these.  */
   if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
     {
@@ -5366,111 +5333,140 @@ move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams,
      For expr we must make insn look like "INSN_REG (insn) := c_expr".  */
   if (INSN_UID (insn) > max_uid_before_move_op)
     stat_bookkeeping_copies--;
+}
 
-  {
-    bool recovery_p = false;
+/* Emit a register-register copy for INSN if needed.  Return true if 
+   emitted one.  */
+static bool
+maybe_emit_renaming_copy (rtx insn, 
+                          moveop_static_params_p params)
+{
+  bool insn_emitted  = false;
+  rtx cur_reg = expr_dest_reg (params->c_expr);
 
+  gcc_assert (!cur_reg || (params->dest && REG_P (params->dest)));
+
+  /* If original operation has expr and the register chosen for
+     that expr is not original operation's dest reg, substitute
+     operation's right hand side with the register chosen.  */
+  if (cur_reg != NULL_RTX && REGNO (params->dest) != REGNO (cur_reg))
     {
-      rtx cur_reg = expr_dest_reg (params->c_expr);
-
-      gcc_assert (!cur_reg || (params->dest && REG_P (params->dest)));
-
-      /* If original operation has expr and the register chosen for
-	 that expr is not original operation's dest reg, substitute
-	 operation's right hand side with the register chosen.  */
-      if (cur_reg != NULL_RTX && REGNO (params->dest) != REGNO (cur_reg))
-	{
-	  insn_t reg_move_insn, reg_move_insn_rtx;
-
-	  reg_move_insn_rtx = 
-	    create_insn_rtx_with_rhs (INSN_VINSN (insn), params->dest);
-
-	  reg_move_insn = sel_gen_insn_from_rtx_after 
-	    (reg_move_insn_rtx, INSN_EXPR (insn), INSN_SEQNO (insn), insn);
-
-	  EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
-
-	  replace_dest_with_reg_in_expr (params->c_expr, params->dest);
-
-	  recovery_p = true;
-	}
+      insn_t reg_move_insn, reg_move_insn_rtx;
+      
+      reg_move_insn_rtx = create_insn_rtx_with_rhs (INSN_VINSN (insn), 
+                                                    params->dest);
+      reg_move_insn = sel_gen_insn_from_rtx_after (reg_move_insn_rtx, 
+                                                   INSN_EXPR (insn), 
+                                                   INSN_SEQNO (insn), 
+                                                   insn);
+      EXPR_SPEC_DONE_DS (INSN_EXPR (reg_move_insn)) = 0;
+      replace_dest_with_reg_in_expr (params->c_expr, params->dest);
+      
+      insn_emitted = true;
     }
+  
+  return insn_emitted;
+}
 
+/* Emit a speculative check for INSN if needed.  Return true if we've 
+   emitted one.  */
+static bool
+maybe_emit_speculative_check (rtx insn, expr_t expr,
+                              moveop_static_params_p params)
+{
+  bool insn_emitted = false;
+  insn_t x;
+  ds_t check_ds;
+
+  check_ds = get_spec_check_type_for_insn (insn, expr);
+  if (check_ds != 0)
     {
-      insn_t x;
-      ds_t check_ds = get_spec_check_type_for_insn (insn, expr);
-
-      if (check_ds != 0)
-	{
-	  /* A speculation check should be inserted.  */
-	  x = create_speculation_check (params->c_expr, check_ds, insn);
-
-	  recovery_p = true;
-	}
-      else
-	{
-	  EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
-	  x = insn;
-	}
-
-      gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (x)) == 0
-		  && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (x)) == 0);
+      /* A speculation check should be inserted.  */
+      x = create_speculation_check (params->c_expr, check_ds, insn);
+      insn_emitted = true;
     }
-
+  else
     {
-      insn_t x, nop;
-      basic_block bb = BLOCK_FOR_INSN (insn);
-
-      /* If INSN is the only insn in the basic block (not counting JUMP,
-	 which may be a jump to next insn), leave NOP there till the 
-	 return to fill_insns.  */
-      bool need_nop_to_preserve_bb = 
-	(((sel_bb_head (bb) == sel_bb_end (bb))
-	   || (NEXT_INSN (sel_bb_head (bb)) == sel_bb_end (bb) 
-	       && JUMP_P (sel_bb_end (bb)))))
-	 && !sel_num_cfg_preds_gt_1 (sel_bb_head (bb));
-
-      if (!recovery_p)
-	{
-	  x = get_nop_from_pool (insn);
-
-	  lparams->generated_nop = x;
-	}
-      else
-	x = NEXT_INSN (insn);
-
-      /* If there's only one insn in the BB, make sure that a nop is
-	 inserted into it, so the basic block won't disappear when we'll
-	 delete INSN below with sel_remove_insn. It should also survive
-	 till the return to fill_insns, so if the nop was created locally
-	 in move_op to retain data sets, reset GENERATED_NOP so it won't
-	 be deleted at the exit of this move_op.  */	     
-      if (need_nop_to_preserve_bb)
-	{
-	  if (!lparams->generated_nop)
-	    {
-	      nop = get_nop_from_pool (insn);
-	      lparams->call_update_data_sets_on_nop = nop;
-	    }
-	  else
-	    {
-	      nop = x;
-	      lparams->generated_nop = NULL;
-	    }
-	  gcc_assert (INSN_NOP_P (nop));
-	  VEC_safe_push (insn_t, heap, vec_temp_moveop_nops, nop);
-	}
-
-      /* For the insns that don't have expr just remove insn from the
-	 stream.  Also remove insn if substituting it's right hand 
-	 side would result in operation like reg:=reg.
-	 This kind of operation is not only excessive, but it may not 
-	 be supported  on certain platforms, e.g. "mov si, si" 
-	 is invalid on i386.  */
-      sel_remove_insn (insn);
-      insn = x;
+      EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
+      x = insn;
     }
-  }
+  
+  gcc_assert (EXPR_SPEC_DONE_DS (INSN_EXPR (x)) == 0
+              && EXPR_SPEC_TO_CHECK_DS (INSN_EXPR (x)) == 0);
+  return insn_emitted;
+}
+
+/* Handle transformations that leave an insn in place of original 
+   insn such as renaming/speculation.  Return true if one of such 
+   transformations actually happened, and we have emitted this insn.  */
+static bool
+handle_emitting_transformations (rtx insn, expr_t expr, 
+                                 moveop_static_params_p params)
+{
+  bool insn_emitted = false;
+
+  insn_emitted = maybe_emit_renaming_copy (insn, params);
+  insn_emitted |= maybe_emit_speculative_check (insn, expr, params);
+
+  return insn_emitted;
+}  
+
+/* Remove INSN from stream to schedule it later.  */
+static void
+remove_insn_from_stream (rtx insn, cmpd_local_params_p lparams, 
+                         bool only_disconnect)
+{
+  insn_t nop, bb_head, bb_end;
+  bool need_nop_to_preserve_bb;
+  basic_block bb = BLOCK_FOR_INSN (insn);
+
+  /* If INSN is the only insn in the basic block (not counting JUMP,
+     which may be a jump to next insn), leave NOP there till the 
+     return to fill_insns.  */
+  bb_head = sel_bb_head (bb);
+  bb_end = sel_bb_end (bb);
+  need_nop_to_preserve_bb = ((bb_head == bb_end)
+                             || (NEXT_INSN (bb_head) == bb_end 
+                                 && JUMP_P (bb_end)));
+
+  /* If there's only one insn in the BB, make sure that a nop is
+     inserted into it, so the basic block won't disappear when we'll
+     delete INSN below with sel_remove_insn. It should also survive
+     till the return to fill_insns, so if the nop was created locally
+     in move_op to retain data sets, reset GENERATED_NOP so it won't
+     be deleted at the exit of this move_op.  */	     
+  if (need_nop_to_preserve_bb)
+    {
+      gcc_assert (!lparams->generated_nop);
+      nop = get_nop_from_pool (insn);
+      lparams->generated_nop = nop;
+      gcc_assert (INSN_NOP_P (nop));
+      VEC_safe_push (insn_t, heap, vec_temp_moveop_nops, nop);
+    }
+  else
+    lparams->generated_nop = NULL;
+
+  sel_remove_insn (insn, only_disconnect, false);
+}
+
+/* This function is called when original expr is found.
+   INSN - current insn traversed, EXPR - the corresponding expr found.
+   If nop is generated in the function or we need to call update_data_sets
+   on nop, then they are saved in GENERATED_NOP and 
+   CALL_UPDATE_DATA_SETS_ON_NOP.  */
+static void
+move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams, 
+                         void *static_params)
+{
+  bool only_disconnect, insn_emitted;
+  moveop_static_params_p params = static_params;
+  
+  copy_expr_onside (params->c_expr, INSN_EXPR (insn));
+  track_scheduled_insns_and_blocks (insn);
+  insn_emitted = handle_emitting_transformations (insn, expr, params);
+  only_disconnect = (params->uid == INSN_UID (insn)
+                     && ! insn_emitted  && ! EXPR_WAS_CHANGED (expr));
+  remove_insn_from_stream (insn, lparams, only_disconnect);
 }
 
 /* The function is called when original expr is found.
@@ -5478,8 +5474,8 @@ move_op_orig_expr_found (insn_t insn, expr_t expr, cmpd_local_params_p lparams,
    crosses_call and original_insns in STATIC_PARAMS are updated.  */
 static void
 fur_orig_expr_found (insn_t insn, expr_t expr ATTRIBUTE_UNUSED,
-		    cmpd_local_params_p lparams ATTRIBUTE_UNUSED,
-                    void *static_params)
+                     cmpd_local_params_p lparams ATTRIBUTE_UNUSED,
+                     void *static_params)
 {
   fur_static_params_p params = static_params;
   regset tmp;
@@ -5522,12 +5518,15 @@ fur_orig_expr_found (insn_t insn, expr_t expr ATTRIBUTE_UNUSED,
    current basic block.  */
 static void
 move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams, 
-		    void *static_params)
+                       void *static_params)
 {
   moveop_static_params_p sparams = static_params;
   basic_block book_block = NULL;
 
-  if (sel_bb_head_p (insn))
+  /* When we have removed the boundary insn for scheduling, which also 
+     happened to be the end insn in its bb, we don't need to update sets.  */
+  if (!lparams->removed_last_insn 
+      && sel_bb_head_p (insn))
     {
       /* We should generate bookkeeping code only if we are not at the
          top level of the move_op.  */
@@ -5536,21 +5535,21 @@ move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams,
         book_block = generate_bookkeeping_insn (sparams->c_expr,
                                                 lparams->e1, lparams->e2);
       /* Update data sets for the current insn.  */
-      if (lparams->call_update_data_sets_on_nop)
-        update_data_sets (lparams->call_update_data_sets_on_nop);
+      if (lparams->generated_nop)
+        update_data_sets (lparams->generated_nop);
       else
-        update_data_sets (insn);
+        /* Do not update the sets on the bb header which is also a boundary.
+           These should not be touched, and we'd make them incorrect as 
+           now the insn being scheduled is not there yet.  */
+        if (lparams->e1)
+          update_data_sets (insn);
     }
   
-  /* If bookkeeping code was inserted - we need to update av sets of basic
-     block, that received bookkeeping.  This should have minor impact on 
-     performance as valid av set is found in next basic block.  
-     In fact, after generation of bookkeeping insn, bookkeeping block does not
-     contain valid av set.  This happens because we are not following
-     Moon algorithm in every detail because of effectiveness.  The one
-     point in this implementatin affects av sets of bookkeeping block is
-     not considering instructions of simple moving (i.e. "r1 := r2") as
-     expr-able instructions.  Consider example:
+  /* If bookkeeping code was inserted, we need to update av sets of basic
+     block that received bookkeeping.  After generation of bookkeeping insn, 
+     bookkeeping block does not contain valid av set because we are not following
+     the original algorithm in every detail with regards to e.g. renaming 
+     simple reg-reg copies.  Consider example:
          
      bookkeeping block           scheduling fence
      \            /
@@ -5565,7 +5564,7 @@ move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams,
      We try to schedule insn "r1 := r3" on the current 
      scheduling fence.  Also, note that av set of bookkeeping block
      contain both insns "r1 := r2" and "r1 := r3".  When the insn has
-     been scheduled, CFG is as following:
+     been scheduled, the CFG is as follows:
 
      r1 := r3               r1 := r3
      bookkeeping block           scheduling fence
@@ -5596,68 +5595,22 @@ move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams,
     update_and_record_unavailable_insns (book_block);
 
   /* If INSN was previously marked for deletion, it's time to do it.  
-     GENERATED_NOP_P was set where the original expr was found.  */
-  if (lparams->generated_nop)
-    {
-      basic_block xbb = BLOCK_FOR_INSN (insn);
-
-      gcc_assert (lparams->generated_nop && INSN_NOP_P (lparams->generated_nop));
-      gcc_assert (BLOCK_FOR_INSN (lparams->generated_nop) == xbb);
-
-      /* Check if there is a unnecessary jump after insn left.  */
-      if (jump_leads_only_to_bb_p (BB_END (xbb), xbb->next_bb)
-	  && INSN_SCHED_TIMES (BB_END (xbb)) == 0
-	  && !IN_CURRENT_FENCE_P (BB_END (xbb)))
-	{
-	  sel_remove_insn (BB_END (xbb));
-	  tidy_fallthru_edge (EDGE_SUCC (xbb, 0));
-	}
-
-      /* Check if there is an unnecessary jump in previous basic block leading
-	 to next basic block left after removing INSN from stream.  
-	 If it is so, remove that jump and redirect edge to current 
-	 basic block (where there was INSN before deletion).  This way 
-	 when NOP will be deleted several instructions later with its 
-	 basic block we will not get a jump to next instruction, which 
-	 can be harmful.  */
-      if (/* INSN (nop) is the only insn in its xbb.  */
-	  NEXT_INSN (bb_note (xbb)) == BB_END (xbb)
-	  /* Flow goes fallthru from current block to the next.  */
-	  && EDGE_COUNT (xbb->succs) == 1
-	  && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
-	  /* And unconditional jump in previous basic block leads to
-	     next basic block of XBB and this jump can be safely removed.  */
-	  && in_current_region_p (xbb->prev_bb)
-	  && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
-	  && INSN_SCHED_TIMES (BB_END (xbb->prev_bb)) == 0
-	  /* Also this jump is not at the scheduling boundary.  */
-	  && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
-	{
-	  /* Clear data structures of jump - jump itself will be removed
-	     by sel_redirect_edge_and_branch.  */
-	  clear_expr (INSN_EXPR (BB_END (xbb->prev_bb)));
-	  sel_redirect_edge_and_branch (EDGE_SUCC (xbb->prev_bb, 0), xbb);
-	  gcc_assert (EDGE_SUCC (xbb->prev_bb, 0)->flags & EDGE_FALLTHRU);
-	  /* It can turn out that after removing unused jump, basic block
-	     that contained that jump, becomes empty too.  In such case
-	     remove it too.  */
-	  if (sel_bb_empty_p (xbb->prev_bb))
-	    {
-	      free_data_sets (xbb->prev_bb);
-	      sel_remove_empty_bb (xbb->prev_bb, false, true);
-	    }
-	}
-
-      return_nop_to_pool (lparams->generated_nop);
-    }
+     GENERATED_NOP was set where the original expr was found.  */
+  if (lparams->removed_last_insn)
+    insn = PREV_INSN (insn);
+  
+  /* Do not tidy control flow at the topmost moveop, as we can erroneously
+     kill a block with a single nop in which the insn should be emitted.  */
+  if (lparams->e1)
+    tidy_control_flow (BLOCK_FOR_INSN (insn), true);
 }
 
 /* This function is called on the ascending pass, before returning from the
    current basic block.  */
 static void
 fur_at_first_insn (insn_t insn, 
-                cmpd_local_params_p lparams ATTRIBUTE_UNUSED, 
-                void *static_params ATTRIBUTE_UNUSED)
+                   cmpd_local_params_p lparams ATTRIBUTE_UNUSED, 
+                   void *static_params ATTRIBUTE_UNUSED)
 {
   gcc_assert (!sel_bb_head_p (insn) || AV_SET_VALID_P (insn)
 	      || AV_LEVEL (insn) == -1);
@@ -5763,13 +5716,7 @@ fur_orig_expr_not_found (insn_t insn, av_set_t orig_ops, void *static_params)
      looking at the set of used and set registers of INSN we must
      forbid it.  So, add set/used in INSN registers to the
      untouchable set only if there is an insn in ORIG_OPS that can
-     affect INSN.
-
-     FIXME: I believe that it is enough to check only 1 insn of
-     ORIG_OPS (because other insns must be variations of this insn,
-     created by substitution, and so their execution conditions
-     must be same on all insns in ORIG_OPS),
-     though here we are more conservative.  */
+     affect INSN.  */
   mutexed = true;
   FOR_EACH_EXPR (r, avi, orig_ops)
     if (!sched_insns_conditions_mutex_p (insn, EXPR_INSN_RTX (r)))
@@ -5916,6 +5863,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
   expr_t expr = NULL;
   basic_block bb = BLOCK_FOR_INSN (insn);
   insn_t first_insn, bb_tail, before_first;
+  bool removed_last_insn = false;
 
   if (sched_verbose >= 6)
     {
@@ -5969,8 +5917,6 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
     code_motion_path_driver_info->on_enter (insn, local_params_in,
                                             static_params, false);
   local_params_in->generated_nop = NULL;
-  local_params_in->call_update_data_sets_on_nop = NULL;
-
   orig_ops = av_set_copy (orig_ops);
 
   /* Filter the orig_ops set.  */
@@ -6039,7 +5985,10 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
 	     previous insn (or we'll see that it's bb_note and skip that 
 	     loop).  */
           if (insn == first_insn)
-            first_insn = NEXT_INSN (last_insn);
+            {
+              removed_last_insn = sel_bb_end_p (last_insn);
+              first_insn = NEXT_INSN (last_insn);
+            }
 	  insn = last_insn;
 	  break;
 	}
@@ -6125,10 +6074,13 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
   /* Now we're at the bb head.  */
   insn = first_insn;
   ilist_remove (&path);
+  local_params_in->removed_last_insn = removed_last_insn;
   code_motion_path_driver_info->at_first_insn (insn, local_params_in, static_params);
   
   /* This should be the very last operation as at bb head we could change
      the numbering by creating bookkeeping blocks.  */
+  if (removed_last_insn)
+    insn = PREV_INSN (insn);
   bitmap_set_bit (code_motion_visited_blocks, BLOCK_FOR_INSN (insn)->index);
   return true;
 }
@@ -6138,7 +6090,8 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
    REG is the register chosen for scheduling the current expr.  Insert
    bookkeeping code in the join points.  Returns TRUE.  */
 static bool
-move_op (insn_t insn, av_set_t orig_ops, rtx dest, expr_t c_expr)
+move_op (insn_t insn, av_set_t orig_ops, expr_t expr_vliw,
+         rtx dest, expr_t c_expr)
 {
   struct moveop_static_params sparams;
   struct cmpd_local_params lparams;
@@ -6146,6 +6099,7 @@ move_op (insn_t insn, av_set_t orig_ops, rtx dest, expr_t c_expr)
   /* Init params for code_motion_path_driver.  */ 
   sparams.dest = dest;
   sparams.c_expr = c_expr;
+  sparams.uid = INSN_UID (EXPR_INSN_RTX (expr_vliw));
   lparams.e1 = NULL;
 
   /* We haven't visited any blocks yet.  */
@@ -6389,6 +6343,7 @@ sel_region_init (int rgn)
 
   /* Reset register allocation ticks array.  */
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
+  reg_rename_this_tick = 0;
 
   bitmap_initialize (forced_ebb_heads, 0);
   bitmap_clear (forced_ebb_heads);

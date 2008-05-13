@@ -1,3 +1,57 @@
+2008-05-13  Andrey Belevantsev  <abel@ispras.ru>
+
+	* sched-int.h: Fix typos, remove unneeded comments.
+	(struct sched_deps_info_def): Remove start_x and finish_x fields.
+	Remove all uses.  Update appropriate hook structures.
+
+	* sel-sched-ir.c (sel_move_insn): New.
+	(free_history_vect): New, factored from ... 
+	(clear_expr): ... here.
+	(prepare_insn_expr): New.
+	(verify_backedges, maybe_tidy_empty_bb): New, factored from ...
+	(sel_remove_insn): ... here.  Add only_disconnect and
+	full_tidying parameters.  Call tidy_control_flow.
+	(tidy_control_flow): New.
+	(set_insn_init): Move initialization of EXPR_SPEC_DONE_DS
+	to prepare_insn_expr.
+	(init_insn): Use prepare_insn_expr.
+	(get_seqno_by_preds): New.
+	(remove_empty_bb): Tidy.  Remove an assert about edge fallthruness.
+
+	* sel-sched-ir.h (EXPR_WAS_CHANGED): New.
+	(sel_move_insn, get_seqno_by_preds, tidy_control_flow): Declare.
+
+	* sel-sched.c (struct cmpd_local_params): New field removed_last_insn.
+	(struct moveop_static_params): New field uid.
+	(replace_dest_with_reg_in_expr): Move initialization of EXPR_WAS_RENAMED
+	and EXPR_TARGET_AVAILABLE from ... 
+	(try_replace_dest_reg): ... here.
+	(reg_rename_this_tick): New static variable.
+	(fill_vec_av_set, find_best_expr): Tidy.	
+	(emit_insn_from_expr_after): Use EXPR_WAS_RENAMED.
+	(find_seqno_for_bookkeeping): New, factored from ... 
+	(generate_bookkeeping_insn): .. here.
+	(move_exprs_to_boundary): Pass expr_vliw to move_op.
+	Do not adjust c_expr anymore.
+	(schedule_expr_on_boundary): Emit insn from expr_vliw, not c_expr.
+	When possible, move insn instead of reemitting.
+	(fill_insns): Do not verify backedges here.
+	(move_op_merge_succs): Just use merge_expr_data instead of 
+	trying to be clever about EXPR_USEFULNESS.
+	(track_scheduled_insns_and_blocks, maybe_emit_renaming_copy,
+	maybe_emit_speculative_check, handle_emitting_transformations,
+	remove_insn_from_stream): New, factored from ...
+	(move_op_orig_expr_found): ... here.  Do not clear data structures
+	of removed insn if we are sure that it would be scheduled later.
+	(move_op_at_first_insn): Do not update data sets on the removed boundary.
+	Also do not update sets on the boundary which is a bb header.
+	Fix comment.  Factor out some code to tidy_control_flow.
+	(fur_orig_expr_not_found): Tidy comment.
+	(code_motion_path_driver): Set removed_last_insn in local_params_in.
+	Properly initialize first_insn and insn in corner cases.
+	(move_op): Add expr_vliw parameter.  Initialize sparams.uid using it.
+	(sel_region_init): Zero reg_rename_this_tick.
+
 2008-05-13  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/ia64/ia64.c (ia64_adjust_cost_2): Ignore true dependencies

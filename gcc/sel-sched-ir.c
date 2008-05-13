@@ -131,6 +131,8 @@ static void deps_init_id (idata_t, insn_t, bool);
 static expr_t set_insn_init (expr_t, vinsn_t, int);
 
 static void cfg_preds (basic_block, insn_t **, int *);
+static void prepare_insn_expr (insn_t, int);
+static void free_history_vect (VEC (expr_history_def, heap) **);
 
 static void sel_add_or_remove_bb (basic_block, int);
 static void move_bb_info (basic_block, basic_block);
@@ -469,8 +471,6 @@ static struct sched_deps_info_def _advance_deps_context_sched_deps_info =
 
     NULL, /* start_insn */
     NULL, /* finish_insn */
-    NULL, /* start_x */
-    NULL, /* finish_x */
     NULL, /* start_lhs */
     NULL, /* finish_lhs */
     NULL, /* start_rhs */
@@ -1012,7 +1012,7 @@ void
 return_nop_to_pool (insn_t nop)
 {
   gcc_assert (INSN_IN_STREAM_P (nop));
-  sel_remove_insn (nop);
+  sel_remove_insn (nop, false, true);
 
   if (nop_pool.n == nop_pool.s)
     nop_pool.v = xrealloc (nop_pool.v, ((nop_pool.s = 2 * nop_pool.s + 1)
@@ -1345,6 +1345,30 @@ sel_gen_insn_from_expr_after (expr_t expr, vinsn_t vinsn, int seqno,
   sel_init_new_insns ();
   return insn;
 }
+
+/* Move insn from EXPR after AFTER.  */
+insn_t
+sel_move_insn (expr_t expr, int seqno, insn_t after)
+{
+  insn_t insn = EXPR_INSN_RTX (expr);
+  basic_block bb = BLOCK_FOR_INSN (after);
+  insn_t next = NEXT_INSN (after);
+
+  PREV_INSN (insn) = after;
+  NEXT_INSN (insn) = next;
+
+  NEXT_INSN (after) = insn;
+  PREV_INSN (next) = insn;
+
+  /* Update links from insn to bb and vice versa.  */
+  df_insn_change_bb (insn, bb);
+  if (BB_END (bb) == after)
+    BB_END (bb) = insn;
+      
+  prepare_insn_expr (insn, seqno);
+  return insn;
+}
+
 
 /* Functions to work with right-hand sides.  */
 
@@ -1466,6 +1490,29 @@ insert_in_history_vect (VEC (expr_history_def, heap) **pvect,
   *pvect = vect;
 }
 
+/* Free history vector PVECT.  */
+static void
+free_history_vect (VEC (expr_history_def, heap) **pvect)
+{
+  unsigned i;
+  expr_history_def *phist;
+
+  if (! *pvect)
+    return;
+  
+  for (i = 0; 
+       VEC_iterate (expr_history_def, *pvect, i, phist);
+       i++)
+    {
+      vinsn_detach (phist->old_expr_vinsn);
+      vinsn_detach (phist->new_expr_vinsn);
+    }
+  
+  VEC_free (expr_history_def, heap, *pvect);
+  *pvect = NULL;
+}
+
+
 /* Compare two vinsns as rhses if possible and as vinsns otherwise.  */
 bool
 vinsn_equal_p (vinsn_t x, vinsn_t y)
@@ -1569,6 +1616,35 @@ copy_expr_onside (expr_t to, expr_t from)
 	     EXPR_TARGET_AVAILABLE (from), EXPR_WAS_SUBSTITUTED (from),
 	     EXPR_WAS_RENAMED (from), EXPR_NEEDS_SPEC_CHECK_P (from),
              EXPR_CANT_MOVE (from));
+}
+
+/* Prepare the expr of INSN for scheduling.  Used when moving insn and when
+   initializing new insns.  */
+static void
+prepare_insn_expr (insn_t insn, int seqno)
+{
+  expr_t expr = INSN_EXPR (insn);
+  ds_t ds;
+  
+  INSN_SEQNO (insn) = seqno;
+  EXPR_ORIG_BB_INDEX (expr) = BLOCK_NUM (insn);
+  EXPR_SPEC (expr) = 0;
+  EXPR_ORIG_SCHED_CYCLE (expr) = 0;
+  EXPR_WAS_SUBSTITUTED (expr) = 0;
+  EXPR_WAS_RENAMED (expr) = 0;
+  EXPR_TARGET_AVAILABLE (expr) = 1;
+  INSN_LIVE_VALID_P (insn) = false;
+
+  /* ??? If this expression is speculative, make its dependence
+     as weak as possible.  We can filter this expression later
+     in process_spec_exprs, because we do not distinguish
+     between the status we got during compute_av_set and the
+     existing status.  To be fixed.  */
+  ds = EXPR_SPEC_DONE_DS (expr);
+  if (ds)
+    EXPR_SPEC_DONE_DS (expr) = ds_get_max_dep_weak (ds);
+
+  free_history_vect (&EXPR_HISTORY_OF_CHANGES (expr));
 }
 
 /* Update target_available bits when merging exprs TO and FROM.  */
@@ -1732,23 +1808,7 @@ clear_expr (expr_t expr)
   vinsn_detach (EXPR_VINSN (expr));
   EXPR_VINSN (expr) = NULL;
 
-  if (EXPR_HISTORY_OF_CHANGES (expr))
-    {
-      unsigned i;
-      expr_history_def *phist;
-
-      for (i = 0; 
-           VEC_iterate (expr_history_def, EXPR_HISTORY_OF_CHANGES (expr), 
-                      i, phist);
-           i++)
-        {
-          vinsn_detach (phist->old_expr_vinsn);
-          vinsn_detach (phist->new_expr_vinsn);
-        }
-      
-      VEC_free (expr_history_def, heap, EXPR_HISTORY_OF_CHANGES (expr));
-      EXPR_HISTORY_OF_CHANGES (expr) = NULL;
-    }
+  free_history_vect (&EXPR_HISTORY_OF_CHANGES (expr));
 }
 
 /* For a given LV_SET, mark EXPR having unavailable target register.  */
@@ -2426,8 +2486,6 @@ static const struct sched_deps_info_def const_deps_init_id_sched_deps_info =
 
     deps_init_id_start_insn,
     deps_init_id_finish_insn,
-    NULL, /* start_x */
-    NULL, /* finish_x */
     deps_init_id_start_lhs,
     deps_init_id_finish_lhs,
     deps_init_id_start_rhs,
@@ -2940,8 +2998,6 @@ static const struct sched_deps_info_def const_has_dependence_sched_deps_info =
 
     has_dependence_start_insn,
     has_dependence_finish_insn,
-    NULL, /* start_x */
-    NULL, /* finish_x */
     has_dependence_start_lhs,
     has_dependence_finish_lhs,
     has_dependence_start_rhs,
@@ -3135,8 +3191,6 @@ static struct sched_deps_info_def _tick_check_sched_deps_info =
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
     haifa_note_reg_set,
     haifa_note_reg_clobber,
     haifa_note_reg_use,
@@ -3260,85 +3314,205 @@ insn_is_the_only_one_in_bb_p (insn_t insn)
   return sel_bb_head_p (insn) && sel_bb_end_p (insn);
 }
 
-/* Rip-off INSN from the insn stream.  */
-void
-sel_remove_insn (insn_t insn)
+#ifdef ENABLE_CHECKING
+static void
+verify_backedges (void)
+{
+  /* Check that the region we're scheduling still has at most one 
+     backedge.  */
+  if (pipelining_p)
+    {
+      int i, n = 0;
+      edge e;
+      edge_iterator ei;
+          
+      for (i = 0; i < current_nr_blocks; i++)
+        FOR_EACH_EDGE (e, ei, BASIC_BLOCK (BB_TO_BLOCK (i))->succs)
+          if (in_current_region_p (e->dest)
+              && BLOCK_TO_BB (e->dest->index) < i)
+            n++;
+          
+      gcc_assert (n <= 1);
+    }
+}
+#endif
+
+/* Tidy the possibly empty block BB.  */
+static bool
+maybe_tidy_empty_bb (basic_block bb)
+{
+  basic_block succ_bb, pred_bb;
+  bool rescan_p;
+
+  /* Keep empty bb only if this block immediately precedes EXIT and
+     has incoming non-fallthrough edge.  Otherwise remove it.  */
+  if (!sel_bb_empty_p (bb) 
+      || (single_succ_p (bb) 
+          && single_succ (bb) == EXIT_BLOCK_PTR
+          && (!single_pred_p (bb) 
+              || !(single_pred_edge (bb)->flags & EDGE_FALLTHRU))))
+    return false;
+
+  /* Do not delete BB if it has more than one successor.
+     That can occur when we moving a jump.  */
+  if (!single_succ_p (bb))
+    {
+      gcc_assert (can_merge_blocks_p (bb->prev_bb, bb));
+      sel_merge_blocks (bb->prev_bb, bb);
+      return true;
+    }
+
+  succ_bb = single_succ (bb);
+  rescan_p = true;
+  pred_bb = NULL;
+
+  /* Redirect all non-fallthru edges to the next bb.  */
+  while (rescan_p)
+    {
+      edge e;
+      edge_iterator ei;
+
+      rescan_p = false;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          pred_bb = e->src;
+
+          if (!(e->flags & EDGE_FALLTHRU))
+            {
+              sel_redirect_edge_and_branch (e, succ_bb);
+              rescan_p = true;
+              break;
+            }
+        }
+    }
+
+  /* If it is possible - merge BB with its predecessor.  */
+  if (can_merge_blocks_p (bb->prev_bb, bb))
+    sel_merge_blocks (bb->prev_bb, bb);
+  else
+    /* Otherwise this is a block without fallthru predecessor.
+       Just delete it.  */
+    {
+      gcc_assert (pred_bb != NULL);
+
+      move_bb_info (pred_bb, bb);
+      remove_empty_bb (bb, true);
+    }
+
+#ifdef ENABLE_CHECKING
+  verify_backedges ();
+#endif
+
+  return true;
+}
+
+/* Tidy the control flow after we have removed original insn from 
+   XBB.  Return true if we have removed some blocks.  */
+bool
+tidy_control_flow (basic_block xbb, bool full_tidying)
+{
+  bool changed = true;
+  
+  /* First check whether XBB is empty.  */
+  changed = maybe_tidy_empty_bb (xbb);
+  if (changed || !full_tidying)
+    return changed;
+  
+  /* Check if there is a unnecessary jump after insn left.  */
+  if (jump_leads_only_to_bb_p (BB_END (xbb), xbb->next_bb)
+      && INSN_SCHED_TIMES (BB_END (xbb)) == 0
+      && !IN_CURRENT_FENCE_P (BB_END (xbb)))
+    {
+      if (sel_remove_insn (BB_END (xbb), false, false))
+        return true;
+      tidy_fallthru_edge (EDGE_SUCC (xbb, 0));
+    }
+
+  /* Check if there is an unnecessary jump in previous basic block leading
+     to next basic block left after removing INSN from stream.  
+     If it is so, remove that jump and redirect edge to current 
+     basic block (where there was INSN before deletion).  This way 
+     when NOP will be deleted several instructions later with its 
+     basic block we will not get a jump to next instruction, which 
+     can be harmful.  */
+  if (sel_bb_head (xbb) == sel_bb_end (xbb) 
+      && INSN_NOP_P (sel_bb_end (xbb))
+      /* Flow goes fallthru from current block to the next.  */
+      && EDGE_COUNT (xbb->succs) == 1
+      && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
+      /* And unconditional jump in previous basic block leads to
+         next basic block of XBB and this jump can be safely removed.  */
+      && in_current_region_p (xbb->prev_bb)
+      && jump_leads_only_to_bb_p (BB_END (xbb->prev_bb), xbb->next_bb)
+      && INSN_SCHED_TIMES (BB_END (xbb->prev_bb)) == 0
+      /* Also this jump is not at the scheduling boundary.  */
+      && !IN_CURRENT_FENCE_P (BB_END (xbb->prev_bb)))
+    {
+      /* Clear data structures of jump - jump itself will be removed
+         by sel_redirect_edge_and_branch.  */
+      clear_expr (INSN_EXPR (BB_END (xbb->prev_bb)));
+      sel_redirect_edge_and_branch (EDGE_SUCC (xbb->prev_bb, 0), xbb);
+      gcc_assert (EDGE_SUCC (xbb->prev_bb, 0)->flags & EDGE_FALLTHRU);
+
+      /* It can turn out that after removing unused jump, basic block
+         that contained that jump, becomes empty too.  In such case
+         remove it too.  */
+      if (sel_bb_empty_p (xbb->prev_bb))
+        {
+          free_data_sets (xbb->prev_bb);
+          changed = maybe_tidy_empty_bb (xbb->prev_bb);
+        }
+    }
+
+#ifdef ENABLE_CHECKING
+  verify_backedges ();
+#endif
+
+  return changed;
+}
+
+/* Rip-off INSN from the insn stream.  When ONLY_DISCONNECT is true, 
+   do not delete insn's data, because it will be later re-emitted.  
+   Return true if we have removed some blocks afterwards.  */
+bool
+sel_remove_insn (insn_t insn, bool only_disconnect, bool full_tidying)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
 
   gcc_assert (INSN_IN_STREAM_P (insn));
-  remove_insn (insn);
+
+  if (only_disconnect)
+    {
+      insn_t prev = PREV_INSN (insn);
+      insn_t next = NEXT_INSN (insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
+
+      NEXT_INSN (prev) = next;
+      PREV_INSN (next) = prev;
+
+      if (BB_HEAD (bb) == insn)
+        {
+          gcc_assert (BLOCK_FOR_INSN (prev) == bb);
+          BB_HEAD (bb) = prev;
+        }
+      if (BB_END (bb) == insn)
+        BB_END (bb) = prev;
+    }
+  else
+    {
+      remove_insn (insn);
+      clear_expr (INSN_EXPR (insn));
+    }
 
   /* It is necessary to null this fields before calling add_insn ().  */
   PREV_INSN (insn) = NULL_RTX;
   NEXT_INSN (insn) = NULL_RTX;
 
-  clear_expr (INSN_EXPR (insn));
-
-  /* Empty bbs are not allowed to have LV_SETs.  Free them in any case.  */
   if (sel_bb_empty_p (bb))
     free_data_sets (bb);
 
-  /* Keep empty bb only if this block immediately precedes EXIT and
-     has incoming non-fallthrough edge.  Otherwise remove it.  */
-  if (sel_bb_empty_p (bb) 
-      && !(single_succ_p (bb) && single_succ (bb) == EXIT_BLOCK_PTR
-	   && (!single_pred_p (bb) 
-	       || !(single_pred_edge (bb)->flags & EDGE_FALLTHRU))))
-    /* Get rid of empty BB.  */
-    {
-      if (single_succ_p (bb))
-	{
-	  basic_block succ_bb;
-	  bool rescan_p;
-	  basic_block pred_bb;
-
-	  succ_bb = single_succ (bb);
-	  rescan_p = true;
-	  pred_bb = NULL;
-
-	  /* Redirect all non-fallthru edges to the next bb.  */
-	  while (rescan_p)
-	    {
-	      edge e;
-	      edge_iterator ei;
-
-	      rescan_p = false;
-
-	      FOR_EACH_EDGE (e, ei, bb->preds)
-		{
-		  pred_bb = e->src;
-
-		  if (!(e->flags & EDGE_FALLTHRU))
-		    {
-		      sel_redirect_edge_and_branch (e, succ_bb);
-		      rescan_p = true;
-		      break;
-		    }
-		}
-	    }
-
-	  /* If it is possible - merge BB with its predecessor.  */
-	  if (can_merge_blocks_p (bb->prev_bb, bb))
-	    sel_merge_blocks (bb->prev_bb, bb);
-	  else
-	    /* Otherwise this is a block without fallthru predecessor.
-	       Just delete it.  */
-	    {
-	      gcc_assert (pred_bb != NULL);
-
-	      move_bb_info (pred_bb, bb);
-	      remove_empty_bb (bb, true);
-	    }
-	}
-      else
-	/* Do not delete BB if it has more than one successor.
-	   That can occur when we moving a jump.  */
-	{
-	  gcc_assert (can_merge_blocks_p (bb->prev_bb, bb));
-	  sel_merge_blocks (bb->prev_bb, bb);
-	}
-    }
+  return tidy_control_flow (bb, full_tidying);
 }
 
 /* Estimate number of the insns in BB.  */
@@ -3416,6 +3590,30 @@ get_seqno_of_a_pred (insn_t insn)
 
   return seqno;
 }
+
+/*  Find the proper seqno for inserting at INSN.  */
+int
+get_seqno_by_preds (rtx insn)
+{
+  basic_block bb = BLOCK_FOR_INSN (insn);
+  rtx tmp = insn, head = BB_HEAD (bb);
+  insn_t *preds;
+  int n, i, seqno;
+
+  while (tmp != head)
+    if (INSN_P (tmp))
+      return INSN_SEQNO (tmp);
+    else
+      tmp = PREV_INSN (tmp);
+  
+  cfg_preds (bb, &preds, &n);
+  for (i = 0, seqno = -1; i < n; i++)
+    seqno = MAX (seqno, INSN_SEQNO (preds[i]));
+
+  gcc_assert (seqno > 0);
+  return seqno;
+}
+
 
 
 /* Extend pass-scope data structures for basic blocks.  */
@@ -3585,10 +3783,8 @@ static expr_t
 set_insn_init (expr_t expr, vinsn_t vi, int seqno)
 {
   expr_t x = &insn_init_ssid->expr;
-  ds_t ds_x;
 
   copy_expr_onside (x, expr);
-
   if (vi != NULL)
     {
       insn_init_create_new_vinsn_p = false;
@@ -3598,16 +3794,6 @@ set_insn_init (expr_t expr, vinsn_t vi, int seqno)
     insn_init_create_new_vinsn_p = true;
 
   insn_init_ssid->seqno = seqno;
-  
-  /* ??? If this expression is speculative, make its dependence
-     as weak as possible.  We can filter this expression later
-     in process_spec_exprs, because we do not distinguish
-     between the status we got during compute_av_set and the
-     existing status.  To be fixed.  */
-  ds_x = EXPR_SPEC_DONE_DS (x);
-  if (ds_x)
-    EXPR_SPEC_DONE_DS (x) = ds_get_max_dep_weak (ds_x);
-
   return x;
 }
 
@@ -3627,12 +3813,7 @@ init_insn (insn_t insn)
 
   expr = INSN_EXPR (insn);
   copy_expr (expr, &ssid->expr);
-
-  INSN_SEQNO (insn) = ssid->seqno;
-  EXPR_ORIG_BB_INDEX (expr) = BLOCK_NUM (insn);
-  EXPR_ORIG_SCHED_CYCLE (expr) = 0;
-  EXPR_TARGET_AVAILABLE (expr) = 1;
-  INSN_LIVE_VALID_P (insn) = false;
+  prepare_insn_expr (insn, ssid->seqno);
 
   if (insn_init_create_new_vinsn_p)
     change_vinsn_in_expr (expr, vinsn_create (insn, init_insn_force_unique_p));
@@ -4902,19 +5083,10 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p,
 static void
 remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
 {
-  /* Fixup CFG.  */
-
-  gcc_assert (/* The BB contains just a bb note ...  */
-	      BB_HEAD (empty_bb) == BB_END (empty_bb)
-	      /* ... or an unused label.  */
-	      || (LABEL_P (BB_HEAD (empty_bb))
-		  /* This guarantees that the only pred edge is a fallthru
-		     one.
-
-		     NB: We can't use LABEL_NUSES because it is not maintained
-		     outside jump.c .  We check that the only pred edge is
-		     fallthru one below.  */
-		  && true));
+  /* The block should contain just a note or a label.
+     We try to check whether it is unused below.  */
+  gcc_assert (BB_HEAD (empty_bb) == BB_END (empty_bb)
+              || LABEL_P (BB_HEAD (empty_bb)));
 
   /* If basic block has predecessors or successors, redirect them.  */
   if (remove_from_cfg_p
@@ -4932,8 +5104,7 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
 	  gcc_assert (EDGE_COUNT (empty_bb->preds) == 1);
 
 	  e = EDGE_PRED (empty_bb, 0);
-
-	  gcc_assert (e->src == empty_bb->prev_bb
+          gcc_assert (e->src == empty_bb->prev_bb
 		      && (e->flags & EDGE_FALLTHRU));
 
 	  pred = empty_bb->prev_bb;
@@ -4943,15 +5114,10 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
 
       if (EDGE_COUNT (empty_bb->succs) > 0)
 	{
-	  edge e;
-
+          /* We do not check fallthruness here as above, because
+             after removing a jump the edge may actually be not fallthru.  */
 	  gcc_assert (EDGE_COUNT (empty_bb->succs) == 1);
-
-	  e = EDGE_SUCC (empty_bb, 0);
-
-	  gcc_assert (e->flags & EDGE_FALLTHRU);
-
-	  succ = e->dest;
+	  succ = EDGE_SUCC (empty_bb, 0)->dest;
 	}
       else
 	succ = NULL;
@@ -5064,7 +5230,6 @@ sel_split_block (basic_block bb, rtx after)
 	 data sets that should be removed.  Exchange these data sets
 	 so that we won't lose BB's valid data sets.  */
       exchange_data_sets (new_bb, bb);
-
       free_data_sets (bb);
     }
 

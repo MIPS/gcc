@@ -1776,9 +1776,6 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
   if (cslr_p && sched_deps_info->start_lhs)
     sched_deps_info->start_lhs (dest);
 
-  if (sched_deps_info->start_x)
-    sched_deps_info->start_x (x);
-
   if (GET_CODE (dest) == PARALLEL)
     {
       int i;
@@ -1789,9 +1786,6 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
 			   gen_rtx_CLOBBER (VOIDmode,
 					    XEXP (XVECEXP (dest, 0, i), 0)),
 			   insn);
-
-      if (sched_deps_info->finish_x)
-	sched_deps_info->finish_x ();
 
       if (cslr_p && sched_deps_info->finish_lhs)
 	sched_deps_info->finish_lhs ();
@@ -1947,9 +1941,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
   if (cslr_p && sched_deps_info->start_rhs)
     sched_deps_info->start_rhs (x);
 
-  if (sched_deps_info->start_x)
-    sched_deps_info->start_x (x);
-
   code = GET_CODE (x);
 
   switch (code)
@@ -1965,9 +1956,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
          because it may have a cc0_rtx in its CONST_DOUBLE_CHAIN field, but
          this does not mean that this insn is using cc0.  */
 
-      if (sched_deps_info->finish_x)
-	sched_deps_info->finish_x ();
-
       if (cslr_p && sched_deps_info->finish_rhs)
 	sched_deps_info->finish_rhs ();
 
@@ -1980,9 +1968,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
        /* Don't move CC0 setter to another block (it can set up the
         same flag for previous CC0 users which is safe).  */
       CANT_MOVE (prev_nonnote_insn (insn)) = 1;
-
-      if (sched_deps_info->finish_x)
-	sched_deps_info->finish_x ();
 
       if (cslr_p && sched_deps_info->finish_rhs)
 	sched_deps_info->finish_rhs ();
@@ -2007,9 +1992,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	  sched_analyze_reg (deps, FIRST_STACK_REG, mode, SET, insn);
 	}
 #endif
-
-	if (sched_deps_info->finish_x)
-	  sched_deps_info->finish_x ();
 
 	if (cslr_p && sched_deps_info->finish_rhs)
 	  sched_deps_info->finish_rhs ();
@@ -2086,9 +2068,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	/* Take advantage of tail recursion here.  */
 	sched_analyze_2 (deps, XEXP (x, 0), insn);
 
-	if (sched_deps_info->finish_x)
-	  sched_deps_info->finish_x ();
-
 	if (cslr_p && sched_deps_info->finish_rhs)
 	  sched_deps_info->finish_rhs ();
 
@@ -2124,9 +2103,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	    for (j = 0; j < ASM_OPERANDS_INPUT_LENGTH (x); j++)
 	      sched_analyze_2 (deps, ASM_OPERANDS_INPUT (x, j), insn);
 
-	    if (sched_deps_info->finish_x)
-	      sched_deps_info->finish_x ();
-
 	    if (cslr_p && sched_deps_info->finish_rhs)
 	      sched_deps_info->finish_rhs ();
 
@@ -2148,9 +2124,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
       sched_analyze_2 (deps, XEXP (x, 0), insn);
       sched_analyze_1 (deps, x, insn);
 
-      if (sched_deps_info->finish_x)
-	sched_deps_info->finish_x ();
-
       if (cslr_p && sched_deps_info->finish_rhs)
 	sched_deps_info->finish_rhs ();
 
@@ -2162,9 +2135,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
       sched_analyze_2 (deps, XEXP (x, 0), insn);
       sched_analyze_2 (deps, XEXP (x, 1), insn);
       sched_analyze_1 (deps, x, insn);
-
-      if (sched_deps_info->finish_x)
-	sched_deps_info->finish_x ();
 
       if (cslr_p && sched_deps_info->finish_rhs)
 	sched_deps_info->finish_rhs ();
@@ -2185,9 +2155,6 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 	for (j = 0; j < XVECLEN (x, i); j++)
 	  sched_analyze_2 (deps, XVECEXP (x, i, j), insn);
     }
-
-  if (sched_deps_info->finish_x)
-    sched_deps_info->finish_x ();
 
   if (cslr_p && sched_deps_info->finish_rhs)
     sched_deps_info->finish_rhs ();
