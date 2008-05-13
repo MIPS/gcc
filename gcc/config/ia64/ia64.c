@@ -6446,7 +6446,13 @@ ia64_adjust_cost_2 (rtx insn, int dep_type1, rtx dep_insn, int cost, dw_t dw)
   insn_class = ia64_safe_itanium_class (insn);
   dep_class = ia64_safe_itanium_class (dep_insn);
 
-  /* Treat true memory dependencies separately.  */
+  /* Treat true memory dependencies separately.  Ignore apparent true
+     dependence between store and call (call has a MEM inside a SYMBOL_REF).  */
+  if (dep_type == REG_DEP_TRUE
+      && (dep_class == ITANIUM_CLASS_ST || dep_class == ITANIUM_CLASS_STF)
+      && (insn_class == ITANIUM_CLASS_BR || insn_class == ITANIUM_CLASS_SCALL))
+    return 0;
+
   if (dw == MIN_DEP_WEAK)
     /* Store and load are likely to alias, use higher cost to avoid stall.  */
     return PARAM_VALUE (PARAM_SCHED_MEM_TRUE_DEP_COST);

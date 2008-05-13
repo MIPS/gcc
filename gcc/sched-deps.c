@@ -1737,12 +1737,12 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 	}
 
       /* Don't let it cross a call after scheduling if it doesn't
-	 already cross one.  
+	 already cross one.
 	 If REGNO >= REG_INFO_P_SIZE, then it was introduced in selective
-	 scheduling, and it could have happened only before reload.  
+	 scheduling, and it could have happened only before reload.
 	 Thus, we can consider INSN moveable, since reload should take care of
-	 the all the operations renamed into new pseudos.  */	 
-      if (regno < FIRST_PSEUDO_REGISTER 
+	 the all the operations renamed into new pseudos.  */
+      if ((!sel_sched_p () || regno < FIRST_PSEUDO_REGISTER)
 	  && REG_N_CALLS_CROSSED (regno) == 0)
 	{
 	  if (!deps->readonly 

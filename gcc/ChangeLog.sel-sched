@@ -1,4 +1,13 @@
+2008-05-13  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/ia64/ia64.c (ia64_adjust_cost_2): Ignore true dependencies
+	between a store and a call.
+	* config/ia64/itanium2.md: Add bypass to reflect this.
+	* sched-deps.c (sched_analyze_reg): Do not allow crossing calls for 
+	registers that not already cross one.
+
 2008-05-12  Andrey Belevanstev  <abel@ispras.ru>
+
         * tree-ssa-reassoc.c (rewrite_expr_tree): Add hunk accidentally removed
         during merge.
 
