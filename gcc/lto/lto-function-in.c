@@ -1434,7 +1434,7 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct fun
 	VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
 
       name = input_expr_operand (ib, data_in, fn, input_record_start (ib));
-      ssa_name = make_ssa_name (fn, name, build_empty_stmt ());
+      ssa_name = make_ssa_name_fn (fn, name, build_empty_stmt ());
 
       flags = input_tree_flags (ib, 0, true);
       process_tree_flags (ssa_name, flags);

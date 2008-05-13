@@ -2454,7 +2454,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts,
     DECL_GIMPLE_REG_P (temp) = 1;
 
   newexpr = build_gimple_modify_stmt (temp, newexpr);
-  name = make_ssa_name (cfun, temp, newexpr);
+  name = make_ssa_name (temp, newexpr);
   GIMPLE_STMT_OPERAND (newexpr, 0) = name;
   NECESSARY (newexpr) = 0;
 
@@ -3172,7 +3172,7 @@ insert_fake_stores (void)
 		}
 
 	      new_tree = build_gimple_modify_stmt (NULL_TREE, lhs);
-	      new_lhs = make_ssa_name (cfun, storetemp, new_tree);
+	      new_lhs = make_ssa_name (storetemp, new_tree);
 	      GIMPLE_STMT_OPERAND (new_tree, 0) = new_lhs;
 	      create_ssa_artificial_load_stmt (new_tree, stmt, false);
 

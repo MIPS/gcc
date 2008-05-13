@@ -71,11 +71,12 @@ unsigned int ssa_name_nodes_created;
    zero use default.  */
 
 void
-init_ssanames (struct function *the_fun, int size)
+init_ssanames (struct function *fn, int size)
 {
   if (size < 50)
     size = 50;
-  SSANAMES (the_fun) = VEC_alloc (tree, gc, size);
+
+  SSANAMES (fn) = VEC_alloc (tree, gc, size);
 
   /* Version 0 is special, so reserve the first slot in the table.  Though
      currently unused, we may use version 0 in alias analysis as part of
@@ -84,8 +85,8 @@ init_ssanames (struct function *the_fun, int size)
 
      We use VEC_quick_push here because we know that SSA_NAMES has at
      least 50 elements reserved in it.  */
-  VEC_quick_push (tree, SSANAMES (the_fun), NULL_TREE);
-  FREE_SSANAMES (the_fun) = NULL;
+  VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
+  FREE_SSANAMES (fn) = NULL;
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -108,13 +109,13 @@ ssanames_print_statistics (void)
 }
 #endif
 
-/* Return an SSA_NAME node for variable VAR defined in statement STMT.
-   STMT may be an empty statement for artificial references (e.g., default
-   definitions created when a variable is used without a preceding
-   definition).  */
+/* Return an SSA_NAME node for variable VAR defined in statement STMT
+   in function FN.  STMT may be an empty statement for artificial
+   references (e.g., default definitions created when a variable is
+   used without a preceding definition).  */
 
 tree
-make_ssa_name (struct function *the_cfun, tree var, tree stmt)
+make_ssa_name_fn (struct function *fn, tree var, tree stmt)
 {
   tree t;
   use_operand_p imm;
@@ -127,10 +128,10 @@ make_ssa_name (struct function *the_cfun, tree var, tree stmt)
 	      || TREE_CODE (stmt) == PHI_NODE);
 
   /* If our free list has an element, then use it.  */
-  if (FREE_SSANAMES (the_cfun))
+  if (FREE_SSANAMES (fn))
     {
-      t = FREE_SSANAMES (the_cfun);
-      FREE_SSANAMES (the_cfun) = TREE_CHAIN (FREE_SSANAMES (the_cfun));
+      t = FREE_SSANAMES (fn);
+      FREE_SSANAMES (fn) = TREE_CHAIN (FREE_SSANAMES (fn));
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_reused++;
 #endif
@@ -138,13 +139,13 @@ make_ssa_name (struct function *the_cfun, tree var, tree stmt)
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
       gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
-      VEC_replace (tree, SSANAMES (the_cfun), SSA_NAME_VERSION (t), t);
+      VEC_replace (tree, SSANAMES (fn), SSA_NAME_VERSION (t), t);
     }
   else
     {
       t = make_node (SSA_NAME);
-      SSA_NAME_VERSION (t) = VEC_length (tree, SSANAMES (the_cfun));
-      VEC_safe_push (tree, gc, SSANAMES (the_cfun), t);
+      SSA_NAME_VERSION (t) = VEC_length (tree, SSANAMES (fn));
+      VEC_safe_push (tree, gc, SSANAMES (fn), t);
 #ifdef GATHER_STATISTICS
       ssa_name_nodes_created++;
 #endif
@@ -244,7 +245,7 @@ release_ssa_name (tree var)
 tree
 duplicate_ssa_name (tree name, tree stmt)
 {
-  tree new_name = make_ssa_name (cfun, SSA_NAME_VAR (name), stmt);
+  tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
   struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
 
   if (old_ptr_info)

@@ -468,7 +468,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
   if (ret == NULL)
     {
       ret = get_component_var (SSA_NAME_VAR (ssa_name), imag_p);
-      ret = make_ssa_name (cfun, ret, NULL);
+      ret = make_ssa_name (ret, NULL);
 
       /* Copy some properties from the original.  In particular, whether it
 	 is used in an abnormal phi, and whether it's uninitialized.  */
@@ -1066,7 +1066,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       tmp = create_tmp_var (boolean_type_node, NULL);
       cond = build_gimple_modify_stmt (tmp, compare);
       if (gimple_in_ssa_p (cfun))
-	tmp = make_ssa_name (cfun, tmp,  cond);
+	tmp = make_ssa_name (tmp,  cond);
       GIMPLE_STMT_OPERAND (cond, 0) = tmp;
       bsi_insert_before (bsi, cond, BSI_SAME_STMT);
 

@@ -1,3 +1,8 @@
+2008-05-13  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-in.c (input_ssa_names): Call
+	make_ssa_name_fn instead of make_ssa_name.
+
 2008-05-12  Diego Novillo  <dnovillo@google.com>
 
 	* lto-cgraph-in.c (overwrite_node): Update references to

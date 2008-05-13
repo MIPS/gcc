@@ -3613,6 +3613,18 @@ one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
   return false;
 }
 
+/* Return true if TYPE1 is a fixed-point type and if conversions to and
+   from TYPE2 can be handled by FIXED_CONVERT_EXPR.  */
+
+static bool
+valid_fixed_convert_types_p (tree type1, tree type2)
+{
+  return (FIXED_POINT_TYPE_P (type1)
+	  && (INTEGRAL_TYPE_P (type2)
+	      || SCALAR_FLOAT_TYPE_P (type2)
+	      || FIXED_POINT_TYPE_P (type2)));
+}
+
 /* Verify the GIMPLE expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
@@ -3661,6 +3673,27 @@ verify_gimple_expr (tree expr)
 	if (TREE_CODE (type) != TREE_CODE (TREE_TYPE (op)))
 	  {
 	    error ("invalid types in nop conversion");
+	    debug_generic_expr (type);
+	    debug_generic_expr (TREE_TYPE (op));
+	    return true;
+	  }
+
+	return false;
+      }
+
+    case FIXED_CONVERT_EXPR:
+      {
+	tree op = TREE_OPERAND (expr, 0);
+	if (!is_gimple_val (op))
+	  {
+	    error ("invalid operand in conversion");
+	    return true;
+	  }
+
+	if (!valid_fixed_convert_types_p (type, TREE_TYPE (op))
+	    && !valid_fixed_convert_types_p (TREE_TYPE (op), type))
+	  {
+	    error ("invalid types in fixed-point conversion");
 	    debug_generic_expr (type);
 	    debug_generic_expr (TREE_TYPE (op));
 	    return true;
@@ -4763,7 +4796,7 @@ tree_make_forwarder_block (edge fallthru)
       var = PHI_RESULT (phi);
       new_phi = create_phi_node (var, bb);
       SSA_NAME_DEF_STMT (var) = new_phi;
-      SET_PHI_RESULT (phi, make_ssa_name (cfun, SSA_NAME_VAR (var), phi));
+      SET_PHI_RESULT (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
       add_phi_arg (new_phi, PHI_RESULT (phi), fallthru);
     }
 
@@ -5611,7 +5644,7 @@ replace_ssa_name (tree name, struct pointer_map_t *vars_map,
       if (gimple_in_ssa_p (cfun))
 	add_referenced_var (decl);
 
-      new_name = make_ssa_name (cfun, decl, SSA_NAME_DEF_STMT (name));
+      new_name = make_ssa_name (decl, SSA_NAME_DEF_STMT (name));
       if (SSA_NAME_IS_DEFAULT_DEF (name))
 	set_default_def (decl, new_name);
       pop_cfun ();

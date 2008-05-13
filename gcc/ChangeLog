@@ -1,3 +1,125 @@
+2008-05-13  Diego Novillo  <dnovillo@google.com>
+	    Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00748.html
+
+	* tree.h (init_phinodes, fini_phinodes, release_phi_node,
+	phinodes_print_statistics, init_ssanames, fini_ssanames,
+	make_ssa_name, duplicate_ssa_name,
+	duplicate_ssa_name_ptr_info, release_ssa_name,
+	release_defs, replace_ssa_name_symbol,
+	ssanames_print_statistics): Move ...
+	* tree-flow.h: ... here.
+	* tree-ssanames.c (init_ssanames): Add arguments FN and
+	SIZE.  Use FN instead of cfun.
+	(make_ssa_name_fn): Rename from make_ssa_name.
+	(pass_release_ssa_names): Add TODO_dump_func to finish
+	flags.
+	* tree-flow-inline.h (make_ssa_name): Move from
+	tree-ssanames.c.  Convert to static inline.  Call
+	make_ssa_name_fn.
+	* omp-low.c (expand_omp_parallel):
+	* tree-flow-inline.h (redirect_edge_var_map_result):
+	* tree-ssa.c (init_tree_ssa): Add argument FN.  Use it
+	instead of cfun.
+	Update all users.
+
+2008-05-13  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/22168:
+	* doc/cpp.texi (Top): Update menu.
+	(Alternatives to Wrapper #ifndef): New node.
+	(Other Directives): Document deprecation.
+	(Obsolete Features): Remove menu.
+	(Assertions): Merge node into Obsolete Features.
+	(Obsolete once-only headers): Move earlier; rename to Alternatives
+	to Wrapper #ifndef.
+	* doc/cppopts.texi: Update.
+	* c.opt (Wdeprecated): Enable for C and ObjC.
+	* doc/invoke.texi (Option Summary): Move -Wno-deprecated.
+	(C++ Dialect Options): Move -Wno-deprecated from here to...
+	(Warning Options): ... here.
+
+2008-05-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36227
+	* fold-const.c (fold_sign_changed_comparison): Do not allow
+	changes in pointer-ness.
+
+2008-05-12  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/24713
+	* config/sh/sh.c (sh_expand_prologue): Don't clear
+	RTX_FRAME_RELATED_P for push insns.
+
+2008-05-12  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* config/avr/avr.h (MAX_OFILE_ALIGNMENT): Define.
+
+2008-05-12  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (machine_function): Add 'is_leaf' field.
+	* config/avr/avr.c (avr_regs_to_save): Compute 'machine->is_leaf'.
+	Use 'machine->is_leaf' instead of 'leaf_func_p'.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*sse_concatv4sf): Renamed to ...
+	(*vec_concatv4sf_sse): This.
+	(*sse2_concatv2si): Renamed to ...
+	(*vec_concatv2si_sse2): This.
+	(*sse1_concatv2si): Renamed to ...
+	(*vec_concatv2si_sse): This.
+	(*vec_concatv2di_rex): Renamed to ...
+	(*vec_concatv2di_rex64): This.
+	(*vec_concatv2si_sse4_1): New.
+	(*vec_concatv2di_rex64_sse4_1): Likewise.
+
+2008-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36111
+	* recog.c (validate_replace_rtx_1): Unshare new RTL expression
+	that was created for swappable operands.
+
+2008-05-12  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/36001
+	* Makefile.in: Substitute GNATMAKE and GNATBIND.
+	* configure.ac: Add call to ACX_PROG_GNAT.
+
+2008-05-11  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* optc-gen.awk: Fix comment typo.
+
+2008-05-11  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* pretty-print.c (pp_integer_with_precision): Use
+	HOST_LONG_LONG_FORMAT.
+
+2008-05-10  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* gcse.c (store_killed_in_insn): Negated call to RTL_CONST_CALL_P.
+		
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (bdesc_ptest): Removed.
+	(ix86_builtin_type): Add INT_FTYPE_V2DI_V2DI_PTEST.
+	(bdesc_args): Add __builtin_ia32_ptestz128,
+	__builtin_ia32_ptestc128 and __builtin_ia32_ptestnzc128.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Handle INT_FTYPE_V2DI_V2DI_PTEST.
+	(ix86_expand_builtin): Updated.
+
+2008-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree-cfg.c (valid_fixed_convert_types_p): New function.
+	(verify_gimple_expr): Handle FIXED_CONVERT_EXPR.
+
+2008-05-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* value-prof.c (interesting_stringop_to_profile): Do not
+	return early for BUILT_IN_MEMPCPY.
+
 2008-05-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* calls.c (expand_call): Don't use callgraph to increase
@@ -18,10 +140,10 @@
 2008-05-09  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR tree-optimization/36129
-	* tree-ssa-cpp.c: Include value-prof.h.
+	* tree-ssa-ccp.c: Include value-prof.h.
 	(execute_fold_all_builtins): Call gimple_remove_stmt_histograms if
 	built-in function was folded to a constant.
-	* Makefile.in (tree-ssa-cpp.c): Depend on value-prof.h
+	* Makefile.in (tree-ssa-ccp.c): Depend on value-prof.h
 
 2008-05-09  Jan Sjodin  <jan.sjodin@amd.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
@@ -75,7 +197,8 @@
 	* convert.c (strip_float_extensions): Use CONVERT_EXPR_P.
 	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
 	* config/alpha/alpha.c (va_list_skip_additions): Likewise.
-	* c-common.c (c_alignof_expr, check_function_arguments_recurse): Likewise.
+	* c-common.c (c_alignof_expr, check_function_arguments_recurse):
+	Likewise.
 	* tree-ssa.c (tree_ssa_useless_type_conversion): Likewise.
 	* varasm.c (initializer_constant_valid_p, output_constant): Likewise.
 	* tree-ssa-forwprop.c (get_prop_source_stmt, can_propagate_from)
@@ -86,12 +209,14 @@
 	* emit-rtl.c (component_ref_for_mem_expr)
 	(set_mem_attributes_minus_bitpos): Likewise.
 	* tree-ssa-phiopt.c (conditional_replacement): Likewise.
-	* gimplify.c (gimplify_conversion, goa_lhs_expr_p, gimplify_expr): Likewise.
+	* gimplify.c (gimplify_conversion, goa_lhs_expr_p, gimplify_expr):
+	Likewise.
 	* c-typeck.c (default_function_array_conversion, build_indirect_ref)
 	(build_function_call, pointer_diff, build_compound_expr)
 	(c_finish_return): Likewise.
 	* tree-vect-analyze.c (vect_determine_vectorization_factor): Likewise.
-	* matrix-reorg.c (get_inner_of_cast_expr, may_flatten_matrices_1): Likewise.
+	* matrix-reorg.c (get_inner_of_cast_expr, may_flatten_matrices_1):
+	Likewise.
 	* tree-ssa-ifcombine.c (recognize_single_bit_test): Likewise.
 	* expr.c (is_aligning_offset): Likewise.
 	* tree-ssa-alias.c (is_escape_site): Likewise.
@@ -111,22 +236,22 @@
 	* tree.c (really_constant_p, get_unwidened): Likewise.
 	* tree-ssa-loop-niter.c (expand_simple_operations): Likewise.
 	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
-	* tree-vrp.c (register_edge_assert_for_2, register_edge_assert_for_1): Likewise.
-	* tree.h (STRIP_NOPS, STRIP_SIGN_NOPS, STRIP_TYPE_NOPS): Use CONVERT_EXPR_P.
+	* tree-vrp.c (register_edge_assert_for_2, register_edge_assert_for_1):
+	Likewise.
+	* tree.h (STRIP_NOPS, STRIP_SIGN_NOPS, STRIP_TYPE_NOPS): Use
+	CONVERT_EXPR_P.
 	(CONVERT_EXPR_P): Define.
 	(CASE_CONVERT): Define.
 	
 2008-05-08  Kenneth Zadeck  <zadeck@naturalbridge.com>
 
 	PR middle-end/36117
-	* dce.c (deletable_insn_p): Do not delete calls if 
-	df_in_progress.
-	(delete_unmarked_insns): When deleting a call, call 
+	* dce.c (deletable_insn_p): Do not delete calls if df_in_progress.
+	(delete_unmarked_insns): When deleting a call, call
 	delete_unreachable_blocks.
 	* rtl.texi (RTL_CONST_CALL_P, RTL_PURE_CALL_P,
-	RTL_CONST_OR_PURE_CALL_P, RTL_LOOPING_CONST_OR_PURE_CALL_P): Fixed
-	doc.
-	
+	RTL_CONST_OR_PURE_CALL_P, RTL_LOOPING_CONST_OR_PURE_CALL_P): Fixed doc.
+
 2008-05-08  Richard Guenther  <rguenther@suse.de>
 
 	* doc/invoke.texi (-fdump-tree-salias): Remove documentation.
@@ -314,8 +439,7 @@
 	(add_to_addressable_set): Likewise.
 	* tree-ssa.c (verify_ssa_name): Do not handle SFTs.
 	* tree-tailcall.c (suitable_for_tail_opt_p): Likewise.
-	* tree-vect-transform.c (vect_create_data_ref_ptr): Do not
-	set subvars.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Do not set subvars.
 	* tree.c (init_ttree): Remove STRUCT_FIELD_TAG initialization.
 	(tree_code_size): Remove STRUCT_FIELD_TAG handling.
 	(tree_node_structure): Likewise.

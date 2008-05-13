@@ -147,6 +147,8 @@ extern GTY(()) section *progmem_section;
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 8
 
+#define MAX_OFILE_ALIGNMENT (32768 * 8)
+
 #define TARGET_VTABLE_ENTRY_ALIGN 8
 
 #define STRICT_ALIGNMENT 0
@@ -1026,6 +1028,9 @@ mmcu=*:-mmcu=%*}"
    This is added to the cfun structure.  */
 struct machine_function GTY(())
 {
+  /* 'true' - if the current function is a leaf function.  */
+  int is_leaf;
+
   /* 'true' - if current function is a naked function.  */
   int is_naked;
 

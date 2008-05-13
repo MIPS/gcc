@@ -1,3 +1,163 @@
+2008-05-13  Janis Johnson  <janis187@us.ibm.com>
+
+	PR testsuite/35127
+	* gcc.c-torture/compile/20031125-1.c: Remove dg-do, dg-options.
+	* gcc.c-torture/compile/20031125-2.c: Ditto.
+	* gcc.c-torture/compile/20031203-1.c: Ditto.
+	* gcc.c-torture/compile/acc1.c: Remove -O2 from dg-options.
+	* gcc.c-torture/compile/builtin_constant_p.c: Remove dg-options.
+	* gcc.c-torture/compile/pr21562.c: Remove -O3 from dg-options.
+	* gcc.c-torture/compile/pr25483.c: Remove -O from dg-options.
+	* gcc.c-torture/compile/pr32349.c: Remove -O2 from dg-options.
+	* gcc.c-torture/compile/pr32355.c: Remove dg-options.
+	* gcc.c-torture/compile/pr34448.c: Ditto.
+	* gcc.c-torture/compile/pr34648.c: Remove -O2 from dg-options.
+
+2008-05-13  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/22168:
+	* gcc.dg/pch/import-2.hs: Add -Wno-deprecated.
+	* gcc.dg/pch/import-1.hs: Add -Wno-deprecated.
+	* gcc.dg/pch/import-2.c: Add -Wno-deprecated.
+	* gcc.dg/pch/import-1.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/import2.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/import1.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/trad/assert3.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/trad/assert2.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/trad/assert1.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/ident.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/ident-1.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/extratokens.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/assert3.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/assert2.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/assert1.c: Add -Wno-deprecated.
+	* gcc.dg/cpp/assert4.c: Compile with -ansi and not -pedantic.  Add
+	-Wno-deprecated.
+	* gcc.dg/cpp/pr22168.c: New file.
+	* gcc.dg/cpp/pr22168-2.c: New file.
+
+2008-05-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36227
+	* gcc.dg/pr36227.c: New testcase.
+
+2008-05-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr7.adb: New test
+	* gnat.dg/conv_integer.adb: Likewise.
+
+2008-05-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.c-torture/compile/pr11832.c: XFAIL for mips and powerpc-linux,
+	then ignore ICE message to avoid a second failure.
+	* gcc.c-torture/compile/pr33009.c: Ditto.
+	* lib/gcc-dg.exp: Explain in comment how to XFAIL an ICE.
+
+2008-05-12  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* gcc.dg/pr34457-1.c: Skip for target without trampolines.
+	* gcc.dg/20050607-1.c: Ditto.
+	* gcc.dg/trampoline-1.c: Ditto.
+	* gcc.dg/debug/debug-3.c: Ditto.
+	* gcc.dg/debug/debug-5.c: Ditto.
+
+2008-05-12  Samuel Tardieu  <sam@rfc1149.net>
+
+	* gnat.dg/specs/statically_matching.ads: New.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse2-set-epi32-1.c: New.
+	* gcc.target/i386/sse2-set-epi64x-1.c: Likewise.
+	* gcc.target/i386/sse4_1-set-epi32-1.c: Likewise.
+	* gcc.target/i386/sse4_1-set-epi64x-1.c: Likewise.
+
+2008-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36111
+	* gcc.dg/pr36111.c: New test.
+
+2008-05-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36176
+	* gfortran.dg/transfer_simplify_9.f90: New test.
+
+2008-05-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/35331
+	* g++.dg/cpp0x/vt-35331.C: New.	
+	* g++.dg/cpp0x/pr32125.C: Adjust.
+	* g++.dg/cpp0x/pr32126.C: Likewise.
+	* g++.dg/cpp0x/pr31438.C: Likewise.
+	* g++.dg/cpp0x/variadic81.C: Likewise.
+	* g++.dg/cpp0x/vt-34055.C: Likewise.
+	* g++.dg/cpp0x/vt-34606.C: Likewise.
+
+2008-05-12  Ira Rosen  <irar@il.ibm.com>
+
+	* gfortran.dg/vect/pr36119.f: Rename to ...
+	* gfortran.dg/vect/O3-pr36119.f90: ... this. Compile for all targets
+	with -O3.
+
+2008-05-11  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.target/mips/mips.exp: Move passing -DMIPS16=... from here ...
+	* lib/target-supports.exp (add_options_for_mips16_attribute):
+	... to here.
+
+2008-05-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/35719
+	* gfortran.dg/associated_5.f90:  New test.
+
+2008-05-11  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/scc-1.c: Require mips16_attribute, and add
+	the associated options.
+	* gcc.target/mips/scc-3.c: Likewise.
+
+2008-05-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/default_format_1.f90: Move denormals tests to
+	gfortran.dg/default_format_denormal_1.f90.
+	* gfortran.dg/default_format_denormal_1.f90: Added denormal tests.
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/nint_2.f90: XFAIL on mingw.
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/streamio_15.f90: Take care of Windows CRLF line
+	terminator.
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/fseek.f90: Take care of Windows CRLF line
+	terminator.
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/fmt_t_5.f90: Take care of Windows CRLF line
+	terminator.
+
+2008-05-10  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	PR rtl-optimization/36185
+	* g++.dg/opt/pr36185.C
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* write_to_null.f90: Rename to write_to_null.F90.
+	* write_to_null.F90: On Windows, "nul" is the equivalent of the
+	Unix /dev/null.
+
+2008-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/33642
+	* gcc.c-torture/compile/pr11832.c: Skip for MIPS.
+	* gcc.c-torture/compile/pr33009.c: Likewise.
+
 2008-05-09  Tom Tromey  <tromey@redhat.com>
 
 	* gcc.dg/pr22231.c: Fix dg-error call.

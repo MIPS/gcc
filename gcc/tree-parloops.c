@@ -484,7 +484,7 @@ take_address_of (tree obj, tree type, edge entry, htab_t decl_address)
       bvar = create_tmp_var (TREE_TYPE (addr), get_name (*var_p));
       add_referenced_var (bvar);
       stmt = build_gimple_modify_stmt (bvar, addr);
-      name = make_ssa_name (cfun, bvar, stmt);
+      name = make_ssa_name (bvar, stmt);
       GIMPLE_STMT_OPERAND (stmt, 0) = name;
       bsi_insert_on_edge_immediate (entry, stmt);
 
@@ -914,7 +914,7 @@ create_phi_for_local_result (void **slot, void *data)
     e = EDGE_PRED (store_bb, 1);
   else
     e = EDGE_PRED (store_bb, 0);
-  local_res = make_ssa_name (cfun,
+  local_res = make_ssa_name (
 		      SSA_NAME_VAR (GIMPLE_STMT_OPERAND (reduc->reduc_stmt, 0)),
 		      NULL_TREE);
   new_phi = create_phi_node (local_res, store_bb);
@@ -970,7 +970,7 @@ create_call_for_reduction_1 (void **slot, void *data)
 
   tmp_load = create_tmp_var (TREE_TYPE (TREE_TYPE (addr)), NULL);
   add_referenced_var (tmp_load);
-  tmp_load = make_ssa_name (cfun, tmp_load, NULL);
+  tmp_load = make_ssa_name (tmp_load, NULL);
   load = build2 (OMP_ATOMIC_LOAD, void_type_node, tmp_load, addr);
   SSA_NAME_DEF_STMT (tmp_load) = load;
   bsi = bsi_start (new_bb);
@@ -1232,7 +1232,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
       add_referenced_var (*arg_struct);
       nvar = create_tmp_var (build_pointer_type (type), ".paral_data_load");
       add_referenced_var (nvar);
-      *new_arg_struct = make_ssa_name (cfun, nvar, NULL_TREE);
+      *new_arg_struct = make_ssa_name (nvar, NULL_TREE);
 
       ld_st_data->store = *arg_struct;
       ld_st_data->load = *new_arg_struct;
@@ -1248,7 +1248,7 @@ separate_decls_in_region (edge entry, edge exit, htab_t reduction_list,
 	{
 	  htab_traverse (reduction_list, create_stores_for_reduction,
                         ld_st_data); 
-	  clsn_data.load = make_ssa_name (cfun, nvar, NULL_TREE);
+	  clsn_data.load = make_ssa_name (nvar, NULL_TREE);
 	  clsn_data.load_bb = exit->dest;
 	  clsn_data.store = ld_st_data->store;
 	  create_final_loads_for_reduction (reduction_list, &clsn_data);
@@ -1449,7 +1449,7 @@ transform_to_exit_first_loop (struct loop *loop, htab_t reduction_list, tree nit
   for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
       res = PHI_RESULT (phi);
-      t = make_ssa_name (cfun, SSA_NAME_VAR (res), phi);
+      t = make_ssa_name (SSA_NAME_VAR (res), phi);
       SET_PHI_RESULT (phi, t);
 
       nphi = create_phi_node (res, orig_header);
@@ -1554,7 +1554,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
     {
       bsi = bsi_after_labels (bb);
 
-      param = make_ssa_name (cfun, DECL_ARGUMENTS (loop_fn), NULL_TREE);
+      param = make_ssa_name (DECL_ARGUMENTS (loop_fn), NULL_TREE);
       t = build_gimple_modify_stmt (param, build_fold_addr_expr (data));
       bsi_insert_before (&bsi, t, BSI_SAME_STMT);
       SSA_NAME_DEF_STMT (param) = t;
@@ -1579,7 +1579,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   cvar_base = SSA_NAME_VAR (cvar);
   phi = SSA_NAME_DEF_STMT (cvar);
   cvar_init = PHI_ARG_DEF_FROM_EDGE (phi, loop_preheader_edge (loop));
-  initvar = make_ssa_name (cfun, cvar_base, NULL_TREE);
+  initvar = make_ssa_name (cvar_base, NULL_TREE);
   SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, loop_preheader_edge (loop)),
 	   initvar);
   cvar_next = PHI_ARG_DEF_FROM_EDGE (phi, loop_latch_edge (loop));

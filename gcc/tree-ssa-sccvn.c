@@ -1220,7 +1220,7 @@ visit_reference_op_load (tree lhs, tree op, tree stmt)
 	 a new SSA_NAME we create.  */
       if (!result && may_insert)
         {
-	  result = make_ssa_name (cfun, SSA_NAME_VAR (lhs), NULL_TREE);
+	  result = make_ssa_name (SSA_NAME_VAR (lhs), NULL_TREE);
 	  /* Initialize value-number information properly.  */
 	  VN_INFO_GET (result)->valnum = result;
 	  VN_INFO (result)->expr = val;

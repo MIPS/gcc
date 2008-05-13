@@ -182,7 +182,7 @@ remap_ssa_name (tree name, copy_body_data *id)
       && (TREE_CODE (SSA_NAME_VAR (name)) != RESULT_DECL
 	  || !id->transform_return_to_modify))
     {
-      new = make_ssa_name (cfun, new, NULL);
+      new = make_ssa_name (new, NULL);
       insert_decl_map (id, name, new);
       SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new)
 	= SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name);

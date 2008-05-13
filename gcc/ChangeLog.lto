@@ -1,3 +1,10 @@
+2008-05-13  Diego Novillo  <dnovillo@google.com>
+
+	Mainline merge @135270
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-05-12  Diego Novillo  <dnovillo@google.com>
 
 	Mainline merge @135136
