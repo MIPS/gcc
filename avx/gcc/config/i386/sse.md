@@ -3300,7 +3300,7 @@
   [(set_attr "type" "sselog1")
    (set_attr "mode" "V4SF")])
 
-(define_insn "*vex_concatv2sf_avx"
+(define_insn "*vec_concatv2sf_avx"
   [(set (match_operand:V2SF 0 "register_operand"     "=x,x")
 	(vec_concat:V2SF
 	  (match_operand:SF 1 "nonimmediate_operand" " x,m")
@@ -3330,7 +3330,7 @@
   [(set_attr "type" "sselog,ssemov,mmxcvt,mmxmov")
    (set_attr "mode" "V4SF,SF,DI,DI")])
 
-(define_insn "*vex_concatv4sf_avx"
+(define_insn "*vec_concatv4sf_avx"
   [(set (match_operand:V4SF 0 "register_operand"   "=x,x")
 	(vec_concat:V4SF
 	  (match_operand:V2SF 1 "register_operand" " x,x")
@@ -6450,7 +6450,7 @@
   [(set_attr "type" "sselog1,ssemov")
    (set_attr "mode" "TI,V4SF")])
 
-(define_insn "*vex_concatv2si_avx"
+(define_insn "*vec_concatv2si_avx"
   [(set (match_operand:V2SI 0 "register_operand"     "=x,x")
 	(vec_concat:V2SI
 	  (match_operand:SI 1 "nonimmediate_operand" " x,rm")
