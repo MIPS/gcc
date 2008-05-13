@@ -135,13 +135,12 @@ static inline tree
 scan_omp_op (tree *tp, omp_context *ctx)
 {
   struct walk_stmt_info wi;
-  int walk_subtrees = 1;
 
   memset (&wi, 0, sizeof (wi));
   wi.info = ctx;
   wi.want_locations = true;
 
-  return scan_omp_1_op (tp, &walk_subtrees, &wi);
+  return walk_tree (tp, scan_omp_1_op, &wi, NULL);
 }
 
 static void lower_omp (gimple_seq, omp_context *);
@@ -1285,6 +1284,7 @@ scan_omp_for (gimple stmt, omp_context *outer_ctx)
   scan_omp_op (gimple_omp_for_initial_ptr (stmt), ctx);
   scan_omp_op (gimple_omp_for_final_ptr (stmt), ctx);
   scan_omp_op (gimple_omp_for_incr_ptr (stmt), ctx);
+  scan_omp (gimple_omp_body (stmt), ctx);
 }
 
 /* Scan an OpenMP sections directive.  */
@@ -1455,6 +1455,8 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   if (is_gimple_omp (stmt) && ctx != NULL)
     check_omp_nesting_restrictions (stmt, ctx);
 
+  *handled_ops_p = true;
+
   switch (gimple_code (stmt))
     {
     case GIMPLE_OMP_PARALLEL:
@@ -1487,15 +1489,17 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       {
 	tree var;
 
-	for (var = gimple_bind_vars (stmt); var ; var = TREE_CHAIN (var))
-	  insert_decl_map (&ctx->cb, var, var);
+	*handled_ops_p = false;
+	if (ctx)
+	  for (var = gimple_bind_vars (stmt); var ; var = TREE_CHAIN (var))
+	    insert_decl_map (&ctx->cb, var, var);
       }
       break;
     default:
+      *handled_ops_p = false;
       break;
     }
 
-  *handled_ops_p = false;
   return NULL_TREE;
 }
 
@@ -2653,7 +2657,7 @@ expand_omp_parallel (struct omp_region *region)
 		continue;
 
 	      if (gimple_subcode (stmt) == ADDR_EXPR
-		  && gimple_assign_rhs1 (stmt)
+		  && TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
 		     == gimple_omp_parallel_data_arg (entry_stmt))
 		{
 		  parcopy_stmt = stmt;
@@ -5235,14 +5239,14 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
    where each label is found.  */
 
 static tree
-diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     	       struct walk_stmt_info *wi)
 {
   gimple context = (gimple) wi->info;
   gimple inner_context;
   gimple stmt = gsi_stmt (*gsi_p);
 
-  *walk_subtrees = false;
+  *handled_ops_p = true;
 
  switch (gimple_code (stmt))
     {
@@ -5287,14 +5291,15 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
    the destination label's context.  */
 
 static tree
-diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     	       struct walk_stmt_info *wi)
 {
   gimple context = (gimple) wi->info;
   splay_tree_node n;
   gimple stmt = gsi_stmt (*gsi_p);
 
-  *walk_subtrees = false;
+  *handled_ops_p = true;
+
   switch (gimple_code (stmt))
     {
     case GIMPLE_OMP_PARALLEL:
@@ -5344,7 +5349,8 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
       break;
 
     case GIMPLE_RETURN:
-      diagnose_sb_0 (gsi_p, context, NULL);
+      if (!context)
+	diagnose_sb_0 (gsi_p, context, NULL);
       break;
 
     default:

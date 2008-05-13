@@ -5263,7 +5263,8 @@ struct move_stmt_d
 static tree
 move_stmt_op (tree *tp, int *walk_subtrees, void *data)
 {
-  struct move_stmt_d *p = (struct move_stmt_d *) data;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  struct move_stmt_d *p = wi->info;
   tree t = *tp;
 
   if (p->block
@@ -5322,7 +5323,7 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
    statement.  */
 
 static tree
-move_stmt_r (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
+move_stmt_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	     struct walk_stmt_info *wi)
 {
   struct move_stmt_d *p = (struct move_stmt_d *) wi->info;
@@ -5341,7 +5342,7 @@ move_stmt_r (gimple_stmt_iterator *gsi_p, bool *walk_subtrees,
 	 function.  */
       bool save_remap_decls_p = p->remap_decls_p;
       p->remap_decls_p = false;
-      *walk_subtrees = 0;
+      *handled_ops_p = true;
 
       walk_gimple_seq (gimple_omp_body (stmt), move_stmt_r, move_stmt_op, wi);
 

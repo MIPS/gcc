@@ -1,3 +1,20 @@
+2008-05-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (scan_omp_op): Remove walk_subtrees.  Call walk_tree.
+	(scan_omp_for): Scan OMP body.
+	(scan_omp_1_stmt): Set handled_ops_p.
+	(expand_omp_parallel): Parse ADDR_EXPR correctly.
+	(diagnose_sb_1): Rename walk_subtrees to handled_ops_p and set
+	appropriately.
+	(diagnose_sb_2): Same.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Print braces around
+	OMP body.
+	* tree-inline.c (estimate_num_insns): GIMPLE_OMP_CONTINUE does not
+	have a body.
+	* tree-cfg.c (move_stmt_op): Parse move_stmt_d out of data correctly.
+	(move_stmt_r): Rename walk_subtrees to handled_ops_p and set
+	appropriately.
+
 2008-05-12  Diego Novillo  <dnovillo@google.com>
 
 	Merge with mainline @135126.

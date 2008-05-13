@@ -2874,13 +2874,13 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
               + estimate_num_insns_seq (gimple_try_cleanup (stmt), weights));
 
     /* OpenMP directives are generally very expensive.  */
+
     case GIMPLE_OMP_RETURN:
     case GIMPLE_OMP_SECTIONS_SWITCH:
     case GIMPLE_OMP_ATOMIC_STORE:
-      return 0;
-
     case GIMPLE_OMP_CONTINUE:
-      return estimate_num_insns_seq (gimple_omp_body (stmt), weights);
+      /* ...except these, which are cheap.  */
+      return 0;
 
     case GIMPLE_OMP_ATOMIC_LOAD:
       return weights->omp_cost;

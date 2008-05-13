@@ -746,8 +746,15 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 
       dump_generic_node (buffer, gimple_omp_for_incr (gs), spc, flags, false);
       pp_character (buffer, ')');
-      newline_and_indent (buffer, spc + 2);
-      dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  newline_and_indent (buffer, spc + 4);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '}');
+	}
     }
 }
 
