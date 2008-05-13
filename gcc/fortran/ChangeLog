@@ -1,3 +1,22 @@
+2008-05-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36176
+	* target-memory.c (gfc_target_expr_size): Correctly treat
+	substrings.
+	(gfc_target_encode_expr): Likewise.
+	(gfc_interpret_complex): Whitespace change.
+
+2008-05-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/35719
+	* trans.c (gfc_call_malloc): If size equals zero, allocate one
+	byte; don't return a null pointer.
+
+2008-05-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36197
+	* module.c (quote_string): Fix sprintf format.
+
 2008-05-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/36162
