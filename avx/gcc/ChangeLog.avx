@@ -1,3 +1,84 @@
+2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gmmintrin.h (_mm256_set_epi16): New.
+	(_mm256_set_epi8): Likewise.
+	(_mm256_set1_epi16): Likewise.
+	(_mm256_set1_epi8): Likewise.
+	(_mm256_setr_pd): New.
+	(_mm256_setr_ps): Likewise.
+	(_mm256_setr_epi32): Likewise.
+	(_mm256_setr_epi16): Likewise.
+	(_mm256_setr_epi8): Likewise.
+	(_mm256_setr_epi64x): Likewise.
+
+	* config/i386/i386.c (ix86_expand_vector_init_concat): New.
+	(ix86_expand_vector_init_general): Use it.  Handle V32QImode
+	and V16HImode.
+
+	* config/i386/sse.md (AVX256MODE3P): Removed.
+	(*avx_pinsrb): Likewise.
+	(*avx_pinsrw): Likewise.
+	(*avx_pinsrd): Likewise.
+	(avxhalfvecmode): Handle V32QI and V16HI.
+	(avxscalarmode): Add V16QI, V8HI and V4SI.
+	(avxmodesuffixs): New.
+	(pinsrbits): Likewise.
+	(*avx_pinsr<avxmodesuffixs>): Likewise.
+	(*vec_concatv2si_1_avx): New.
+	(*vec_concatv2di_rex64_1_avx): Likewise.
+	(*vec_concatv2sf_avx): Fix the first alternative and add a
+	new alternative.
+	(*vec_concatv2df_avx): Fix the first alternative.
+	(*avx_pinsrq): Make it 64bit only.
+	(*vec_concatv2si_avx): Renamed to ...
+	(*vec_concatv2si_2_avx): This.
+	(*vec_concatv2di_rex_avx): Renamed to ...
+	(*vec_concatv2di_rex64_2_avx): This.
+	(vec_init<mode>): Replace AVX256MODE3P with AVX256MODE.
+	(*vec_concat<mode>_avx): Likewise.  Use vinsertf128 instead
+	of vperm2f128.
+
+2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*sse4_1_pinsrq): Make it 64bit only.
+
+2008-05-14  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*cmpfp_i_mixed): Use comma form to
+	simplify maybe_vex attribute.
+	(*cmpfp_iu_mixed): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(*fop_sf_comm_mixed_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*extendsfdf2_sse): Support AVX.
+
+2008-05-14  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (<sse>_movnt<mode>): New.
+	(*avx_vmdiv<mode>3): Likewise.
+	(*avx_ashr<mode>3): Likewise.
+	(*avx_lshr<mode>3): Likewise.
+	(*avx_ashl<mode>3): Likewise.
+	(*avx_palignrti): Likewise.
+	(*avx_pblendvb): Likewise.
+	(*avx_pcmpistr_cconly): Likewise.
+	(*sse4_1_extractps): Support AVX.
+	(*sse2_maskmovdqu): Likewise.
+	(*sse2_maskmovdqu_rex64): Likewise.
+	(sse4_1_phminposuw): Likewise.
+	(sse4_2_pcmpistri): Likewise.
+	(sse4_2_pcmpistrm): Likewise.
+
+2008-05-14  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_eq<mode>3): New.
+	(*avx_gt<mode>3): Likewise.
+
 2008-05-13  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/sse.md (*vex_concatv2sf_avx): Renamed to ...

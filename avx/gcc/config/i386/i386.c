@@ -25020,6 +25020,137 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
   return true;
 }
 
+/* A subroutine of ix86_expand_vector_init_general.  Use vector
+   concatenate to handle the most general case: all values variable,
+   and none identical.  */
+
+static void
+ix86_expand_vector_init_concat (enum machine_mode mode,
+				rtx target, rtx *ops, int n)
+{
+  enum machine_mode cmode, hmode = VOIDmode;
+  rtx first[8], second[4];
+  rtvec v;
+  int i, j;
+
+  switch (n)
+    {
+    case 2:
+      switch (mode)
+	{
+	case V8SImode:
+	  cmode = V4SImode;
+	  break;
+	case V8SFmode:
+	  cmode = V4SFmode;
+	  break;
+	case V4DImode:
+	  cmode = V2DImode;
+	  break;
+	case V4DFmode:
+	  cmode = V2DFmode;
+	  break;
+	case V4SImode:
+	  cmode = V2SImode;
+	  break;
+	case V4SFmode:
+	  cmode = V2SFmode;
+	  break;
+	case V2DImode:
+	  cmode = DImode;
+	  break;
+	case V2SImode:
+	  cmode = SImode;
+	  break;
+	case V2DFmode:
+	  cmode = DFmode;
+	  break;
+	case V2SFmode:
+	  cmode = SFmode;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (!register_operand (ops[1], cmode))
+	ops[1] = force_reg (cmode, ops[1]);
+      if (!register_operand (ops[0], cmode))
+	ops[0] = force_reg (cmode, ops[0]);
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_VEC_CONCAT (mode, ops[0],
+						  ops[1])));
+      break;
+
+    case 4:
+      switch (mode)
+	{
+	case V4DImode:
+	  cmode = V2DImode;
+	  break;
+	case V4DFmode:
+	  cmode = V2DFmode;
+	  break;
+	case V4SImode:
+	  cmode = V2SImode;
+	  break;
+	case V4SFmode:
+	  cmode = V2SFmode;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      goto half;
+
+    case 8:
+      switch (mode)
+	{
+	case V8SImode:
+	  cmode = V2SImode;
+	  hmode = V4SImode;
+	  break;
+	case V8SFmode:
+	  cmode = V2SFmode;
+	  hmode = V4SFmode;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      goto half;
+
+half:
+      /* FIXME: We process inputs backward to help RA.  PR 36222.  */
+      i = n - 1;
+      j = (n >> 1) - 1;
+      for (; i > 0; i -= 2, j--)
+	{
+	  first[j] = gen_reg_rtx (cmode);
+	  v = gen_rtvec (2, ops[i - 1], ops[i]);
+	  ix86_expand_vector_init (false, first[j],
+				   gen_rtx_PARALLEL (cmode, v));
+	}
+
+      n >>= 1;
+      if (n > 2)
+	{
+	  gcc_assert (hmode != VOIDmode);
+	  for (i = j = 0; i < n; i += 2, j++)
+	    {
+	      second[j] = gen_reg_rtx (hmode);
+	      ix86_expand_vector_init_concat (hmode, second [j],
+					      &first [i], 2);
+	    }
+	  n >>= 1;
+	  ix86_expand_vector_init_concat (mode, target, second, n);
+	}
+      else
+	ix86_expand_vector_init_concat (mode, target, first, n);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* A subroutine of ix86_expand_vector_init.  Handle the most general case:
    all values variable, and none identical.  */
 
@@ -25027,10 +25158,8 @@ static void
 ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 				 rtx target, rtx vals)
 {
-  enum machine_mode half_mode = GET_MODE_INNER (mode);
-  enum machine_mode quarter_mode;
-  rtx op0 = NULL, op1 = NULL;
-  bool use_vec_concat = false;
+  rtx ops[8];
+  int n = 2;
 
   switch (mode)
     {
@@ -25038,91 +25167,36 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
     case V2SImode:
       if (!mmx_ok && !TARGET_SSE)
 	break;
+      goto vec_concat2;
+
+    case V8SFmode:
+    case V8SImode:
+      ops[7] = XVECEXP (vals, 0, 7);
+      ops[6] = XVECEXP (vals, 0, 6);
+      ops[5] = XVECEXP (vals, 0, 5);
+      ops[4] = XVECEXP (vals, 0, 4);
+      n += 4;
+      /* FALLTHRU */
+
+    case V4DFmode:
+    case V4DImode:
+    case V4SFmode:
+    case V4SImode:
+      ops[3] = XVECEXP (vals, 0, 3);
+      ops[2] = XVECEXP (vals, 0, 2);
+      n += 2;
       /* FALLTHRU */
 
     case V2DFmode:
     case V2DImode:
-      /* For the two element vectors, we always implement VEC_CONCAT.  */
-      op0 = XVECEXP (vals, 0, 0);
-      op1 = XVECEXP (vals, 0, 1);
-      use_vec_concat = true;
-      break;
+vec_concat2:
+      ops[1] = XVECEXP (vals, 0, 1);
+      ops[0] = XVECEXP (vals, 0, 0);
+      ix86_expand_vector_init_concat (mode, target, ops, n);
+      return;
 
-    case V8SImode:
-      half_mode = V4SImode;
-      quarter_mode = V2SImode;
-      goto quarter;
-    case V8SFmode:
-      half_mode = V4SFmode;
-      quarter_mode = V2SFmode;
-      goto quarter;
-quarter:
-      {
-	rtx op2, op3, op4, op5;
-	rtvec v;
-
-	/* For V8SF and V8SI, we implement a concat of two V4 vectors.
-	   Recurse to load the two halves.  */
-
-	op2 = gen_reg_rtx (quarter_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
-	ix86_expand_vector_init (false, op2, gen_rtx_PARALLEL (quarter_mode, v));
-
-	op3 = gen_reg_rtx (quarter_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 2), XVECEXP (vals, 0, 3));
-	ix86_expand_vector_init (false, op3, gen_rtx_PARALLEL (quarter_mode, v));
-
-	op4 = gen_reg_rtx (quarter_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 4), XVECEXP (vals, 0, 5));
-	ix86_expand_vector_init (false, op4, gen_rtx_PARALLEL (quarter_mode, v));
-
-	op5 = gen_reg_rtx (quarter_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 6), XVECEXP (vals, 0, 7));
-	ix86_expand_vector_init (false, op5, gen_rtx_PARALLEL (quarter_mode, v));
-
-	op0 = gen_reg_rtx (half_mode);
-	emit_insn (gen_rtx_SET (VOIDmode, op0,
-				gen_rtx_VEC_CONCAT (half_mode, op2, op3)));
-
-	op1 = gen_reg_rtx (half_mode);
-	emit_insn (gen_rtx_SET (VOIDmode, op1,
-				gen_rtx_VEC_CONCAT (half_mode, op4, op5)));
-
-	use_vec_concat = true;
-      }
-      break;
-
-    case V4DFmode:
-      half_mode = V2DFmode;
-      goto half;
-    case V4DImode:
-      half_mode = V2DImode;
-      goto half;
-    case V4SFmode:
-      half_mode = V2SFmode;
-      goto half;
-    case V4SImode:
-      half_mode = V2SImode;
-      goto half;
-    half:
-      {
-	rtvec v;
-
-	/* For V4SF and V4SI, we implement a concat of two V2 vectors.
-	   Recurse to load the two halves.  */
-
-	op0 = gen_reg_rtx (half_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
-	ix86_expand_vector_init (false, op0, gen_rtx_PARALLEL (half_mode, v));
-
-	op1 = gen_reg_rtx (half_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 2), XVECEXP (vals, 0, 3));
-	ix86_expand_vector_init (false, op1, gen_rtx_PARALLEL (half_mode, v));
-
-	use_vec_concat = true;
-      }
-      break;
-
+    case V16HImode:
+    case V32QImode:
     case V8HImode:
     case V16QImode:
     case V4HImode:
@@ -25133,17 +25207,6 @@ quarter:
       gcc_unreachable ();
     }
 
-  if (use_vec_concat)
-    {
-      if (!register_operand (op0, half_mode))
-	op0 = force_reg (half_mode, op0);
-      if (!register_operand (op1, half_mode))
-	op1 = force_reg (half_mode, op1);
-
-      emit_insn (gen_rtx_SET (VOIDmode, target,
-			      gen_rtx_VEC_CONCAT (mode, op0, op1)));
-    }
-  else
     {
       int i, j, n_elts, n_words, n_elt_per_word;
       enum machine_mode inner_mode;
@@ -25188,11 +25251,32 @@ quarter:
 	  emit_move_insn (gen_highpart (word_mode, tmp), words[1]);
 	  emit_move_insn (target, tmp);
 	}
-      else if (n_words == 4)
+      else if (n_words == 4 || n_words == 8)
 	{
-	  rtx tmp = gen_reg_rtx (V4SImode);
-	  vals = gen_rtx_PARALLEL (V4SImode, gen_rtvec_v (4, words));
-	  ix86_expand_vector_init_general (false, V4SImode, tmp, vals);
+	  rtx tmp;
+	  enum machine_mode vector_mode;
+	  
+	  switch (word_mode)
+	    {
+	    case DImode:
+	      gcc_assert (n_words == 4);
+	      vector_mode = V4DImode;
+	      break;
+	    case SImode:
+	      if (n_words == 4)
+		vector_mode = V4SImode;
+	      else
+		vector_mode = V8SImode;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+
+	  tmp = gen_reg_rtx (vector_mode);
+	  vals = gen_rtx_PARALLEL (vector_mode,
+				   gen_rtvec_v (n_words, words));
+	  ix86_expand_vector_init_general (false, vector_mode, tmp,
+					   vals);
 	  emit_move_insn (target, gen_lowpart (mode, tmp));
 	}
       else
