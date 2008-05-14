@@ -1887,7 +1887,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  else
 	    pp_string (buffer, "???");
 
-	  pp_string (buffer, ")]");
+	  pp_character (buffer, ')');
+	  if (OMP_TASK_COPYFN (node))
+	    {
+	      pp_string (buffer, ", copy fn: ");
+	      dump_generic_node (buffer, OMP_TASK_COPYFN (node), spc,
+				 flags, false);
+	    }
+	  pp_character (buffer, ']');
 	}
       goto dump_omp_body;
 

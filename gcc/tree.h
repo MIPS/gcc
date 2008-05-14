@@ -501,8 +501,6 @@ struct gimple_stmt GTY(())
 	   OMP_SECTION
        OMP_PARALLEL_COMBINED in
 	   OMP_PARALLEL
-       OMP_TASK_EXPLICIT_START in
-	   OMP_TASK
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
 
@@ -1752,6 +1750,9 @@ struct tree_constructor GTY(())
 #define OMP_TASK_CLAUSES(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 1)
 #define OMP_TASK_FN(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 2)
 #define OMP_TASK_DATA_ARG(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 3)
+#define OMP_TASK_COPYFN(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 4)
+#define OMP_TASK_ARG_SIZE(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 5)
+#define OMP_TASK_ARG_ALIGN(NODE)   TREE_OPERAND (OMP_TASK_CHECK (NODE), 6)
 
 #define OMP_TASKREG_CHECK(NODE)	  TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_TASK)
 #define OMP_TASKREG_BODY(NODE)    TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 0)
@@ -1804,11 +1805,6 @@ struct tree_constructor GTY(())
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
   TREE_PRIVATE (OMP_PARALLEL_CHECK (NODE))
-
-/* True on an OMP_TASK statement if explicit GOMP_task_start call
-   is needed after privatized variable initialization.  */
-#define OMP_TASK_EXPLICIT_START(NODE) \
-  TREE_PRIVATE (OMP_TASK_CHECK (NODE))
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point

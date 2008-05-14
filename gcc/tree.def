@@ -1002,9 +1002,14 @@ DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 4)
 	      pass_lower_omp.
    Operand 3: OMP_TASK_DATA_ARG: Local variable in the parent
 	      function containing data to be shared with the child
-	      function.  */
+	      function.
+   Operand 4: OMP_TASK_COPYFN: FUNCTION_DECL used for constructing
+	      firstprivate variables.
+   Operand 5: OMP_TASK_ARG_SIZE: Length of the task argument block.
+   Operand 6: OMP_TASK_ARG_ALIGN: Required alignment of the task
+	      argument block.  */
 
-DEFTREECODE (OMP_TASK, "omp_task", tcc_statement, 4)
+DEFTREECODE (OMP_TASK, "omp_task", tcc_statement, 7)
 
 /* OpenMP - #pragma omp for [clause1 ... clauseN]
    Operand 0: OMP_FOR_BODY: Loop body.

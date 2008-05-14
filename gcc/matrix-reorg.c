@@ -2236,6 +2236,7 @@ matrix_reorg (void)
 	    free_dominance_info (CDI_POST_DOMINATORS);
 	    pop_cfun ();
 	    current_function_decl = temp_fn;
+	    bitmap_obstack_release (NULL);
 
 	    return 0;
 	  }
@@ -2250,6 +2251,7 @@ matrix_reorg (void)
 	    free_dominance_info (CDI_POST_DOMINATORS);
 	    pop_cfun ();
 	    current_function_decl = temp_fn;
+	    bitmap_obstack_release (NULL);
 
 	    return 0;
 	  }
@@ -2280,6 +2282,7 @@ matrix_reorg (void)
 	free_dominance_info (CDI_POST_DOMINATORS);
 	pop_cfun ();
 	current_function_decl = temp_fn;
+	bitmap_obstack_release (NULL);
       }
   htab_traverse (matrices_to_reorg, transform_allocation_sites, NULL);
   /* Now transform the accesses.  */
@@ -2300,6 +2303,7 @@ matrix_reorg (void)
 	free_dominance_info (CDI_POST_DOMINATORS);
 	pop_cfun ();
 	current_function_decl = temp_fn;
+	bitmap_obstack_release (NULL);
       }
   htab_traverse (matrices_to_reorg, dump_matrix_reorg_analysis, NULL);
 

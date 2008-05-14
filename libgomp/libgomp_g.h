@@ -95,10 +95,8 @@ extern void GOMP_parallel_end (void);
 
 /* team.c */
 
-#define GOMP_task_flag_untied 	      1 /* UNTIED clause present.  */
-#define GOMP_task_flag_explicit_start 2 /* Explicit GOMP_task_start needed.  */
-extern void GOMP_task (void (*) (void *), void *, bool, unsigned);
-extern void GOMP_task_start (void);
+extern void GOMP_task (void (*) (void *), void *, void (*) (void *, void *),
+		       long, long, bool, unsigned);
 extern void GOMP_taskwait (void);
 
 /* sections.c */

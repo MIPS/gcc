@@ -1,3 +1,10 @@
+2008-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_task): Create OMP_TASK using make_node.
+	* types.def (BT_FN_VOID_PTR_PTR, BT_PTR_FN_VOID_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): New.
+	(BT_FN_VOID_OMPFN_PTR_BOOL_UINT): Removed.
+
 2008-03-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_FN_VOID_OMPFN_PTR_BOOL_BOOL): Remove.

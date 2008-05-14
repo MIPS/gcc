@@ -30,6 +30,7 @@
 
 #include "libgomp.h"
 #include <stdlib.h>
+#include <string.h>
 
 
 /* Create a new task data structure.  */
@@ -58,7 +59,8 @@ gomp_end_task (void)
    then the task may be executed by any member of the team.  */
 
 void
-GOMP_task (void (*fn) (void *), void *data,
+GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
+	   long arg_size, long arg_align,
 	   bool if_clause __attribute__((unused)),
 	   unsigned flags __attribute__((unused)))
 {
@@ -67,22 +69,20 @@ GOMP_task (void (*fn) (void *), void *data,
   gomp_init_task (&task, thr->task, gomp_icv (false));
   thr->task = &task;
 
-  /* We only implement synchronous tasks at the moment, which means that
-     we cannot defer or untie the task.  Which means we execute it now.  */
-  fn (data);
+  {
+    /* We only implement synchronous tasks at the moment, which means that
+       we cannot defer or untie the task.  Which means we execute it now.  */
+    char buf[arg_size + arg_align - 1];
+    char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
+			  & ~(uintptr_t) (arg_align - 1));
+    if (cpyfn)
+      cpyfn (arg, data);
+    else
+      memcpy (arg, data, arg_size);
+    fn (arg);
+  }
 
   gomp_end_task ();
-}
-
-/* Called after a task has been initialized.  Only should be called if
-   GOMP_task was called with GOMP_task_flag_explicit_start bit set,
-   after all firstprivate etc. copying is done.  The copying will
-   happen immediately, in the thread that created the task, afterwards
-   it can be suspended and/or moved to another thread, even if not untied.  */
-
-void
-GOMP_task_start (void)
-{
 }
 
 /* Called when encountering a taskwait directive.  */

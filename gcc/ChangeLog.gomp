@@ -1,3 +1,60 @@
+2008-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.def (OMP_TASK): Add 3 new arguments.
+	* tree.h (OMP_TASK_EXPLICIT_START): Removed.
+	(OMP_TASK_COPYFN, OMP_TASK_ARG_SIZE, OMP_TASK_ARG_ALIGN): Define.
+	* builtin-types.def (BT_PTR_FN_VOID_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): New.
+	(BT_FN_VOID_OMPFN_PTR_BOOL_UINT): Removed.
+	* omp-builtins.def (BUILT_IN_GOMP_TASK_START): Removed.
+	(BUILT_IN_GOMP_TASK): Change type.
+	* omp-low.c (omp_context): Add sfield_map and srecord_type fields.
+	(is_task_ctx, lookup_sfield): New functions.
+	(use_pointer_for_field): Use is_task_ctx helper.
+	(build_sender_ref): Call lookup_sfield instead of lookup_field.
+	(install_var_field): Add mask argument.  Populate both record_type
+	and srecord_type if needed.
+	(delete_omp_context): Destroy sfield_map, clear DECL_ABSTRACT_ORIGIN
+	in srecord_type.
+	(fixup_child_record_type): Also remap FIELD_DECL's DECL_SIZE{,_UNIT}
+	and DECL_FIELD_OFFSET.
+	(scan_sharing_clauses): Adjust install_var_field callers.  For
+	firstprivate clauses on explicit tasks allocate the var by value in
+	record_type unconditionally, rather than by reference.
+	(create_omp_child_function_name): Add task_copy argument, use
+	*_omp_cpyfn* names if it is true.
+	(create_omp_child_function): Add task_copy argument, if true create
+	*_omp_cpyfn* helper function.
+	(scan_omp_parallel): Adjust create_omp_child_function callers.
+	(scan_omp_task): Likewise.  If srecord_type has been created, create
+	*_omp_cpyfn* helper function too.  Set OMP_TASK_ARG_SIZE
+	and OMP_TASK_ARG_ALIGN.
+	(lower_rec_input_clauses): Don't run constructors for firstprivate
+	explicit task vars which are initialized by *_omp_cpyfn*.  Kill
+	OMP_TASK_EXPLICIT_START.  Adjust OMP_CLAUSE_PRIVATE_OUTER_REF
+	handling.  Don't add GOMP_task_start call.
+	(lower_send_clauses): Clear DECL_ABSTRACT_ORIGIN if in task to
+	avoid duplicate setting of fields.
+	(lower_send_shared_vars): Use srecord_type if non-NULL.
+	(expand_task_copyfn): New function.
+	(expand_task_call): Call expand_task_copyfn.  Kill
+	OMP_TASK_EXPLICIT_START.  Pass OMP_TASK_CPYFN, OMP_TASK_ARG_SIZE
+	and OMP_TASK_ARG_ALIGN as extra arguments to GOMP_task.
+	(struct omp_taskcopy_context): New type.
+	(task_copyfn_copy_decl, task_copyfn_remap_type, create_task_copyfn):
+	New functions.
+	(lower_omp_taskreg): Call create_task_copyfn if srecord_type is
+	needed.  Adjust sender_decl type.
+	* tree-pretty-print.c (dump_generic_node) <case OMP_TASK>: Print
+	OMP_TASK_COPYFN.
+
+	* bitmap.c (bitmap_default_obstack_depth): New variable.
+	(bitmap_obstack_initialize, bitmap_obstack_release): Do nothing
+	if argument is NULL and bitmap_default_obstack is already initialized.
+	* ipa-struct-reorg.c (do_reorg_1): Call bitmap_obstack_release
+	at the end.
+	* matrix-reorg.c (matrix_reorg): Likewise.
+
 2008-04-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_for_loop): Fix parsing of collapsed

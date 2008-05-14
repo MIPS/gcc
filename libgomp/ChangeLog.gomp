@@ -1,3 +1,21 @@
+2008-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* task.c: Include string.h.
+	(GOMP_task): Add cpyfn, arg_size and arg_align arguments.
+	Allocate argument buffer and either call cpyfn to populate it,
+	or memcpy it from the argument struct.
+	(GOMP_task_start): Removed.
+	* libgomp.map: Remove GOMP_task_start@@GOMP_2.0.
+	* libgomp_g.h (GOMP_task_flag_untied,
+	GOMP_task_flag_explicit_start): Removed.
+	(GOMP_task): Adjust prototype.
+	(GOMP_task_start): Removed.
+	* testsuite/libgomp.fortran/task2.f90: New test.
+	* testsuite/libgomp.fortran/allocatable4.f90: New test.
+	* testsuite/libgomp.c/task-4.c: New test.
+	* testsuite/libgomp.c++/task-4.C: New test.
+	* testsuite/libgomp.c++/task-3.C: New test.
+
 2008-05-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (gomp_new_icv): New prototype.

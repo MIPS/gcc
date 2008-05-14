@@ -1521,13 +1521,16 @@ static tree
 gfc_trans_omp_task (gfc_code *code)
 {
   stmtblock_t block;
-  tree stmt, omp_clauses;
+  tree stmt, body_stmt, omp_clauses;
 
   gfc_start_block (&block);
   omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
 				       code->loc);
-  stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build4_v (OMP_TASK, stmt, omp_clauses, NULL, NULL);
+  body_stmt = gfc_trans_omp_code (code->block->next, true);
+  stmt = make_node (OMP_TASK);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_TASK_CLAUSES (stmt) = omp_clauses;
+  OMP_TASK_BODY (stmt) = body_stmt;
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
