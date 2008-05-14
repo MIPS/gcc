@@ -1,3 +1,49 @@
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/36224
+	* gcc.dg/pr36224.c: New file.
+
+2008-05-14  Olivier Hainque  <hainque@adacore.com>
+
+	* gnat.dg/blkextract_from_reg.adb: New test.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36215
+	* gfortran.dg/include_3.f95: New test.
+
+2008-05-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36098	
+	* gcc.dg/vect/vect.exp: Compile with -O3 all the tests named "O3-*".
+	* gcc.dg/vect/O3-pr36098.c: New test.
+
+2008-05-14  Samuel Tardieu  <sam@rfc1149.net>
+
+	* gnat.dg/old_errors.ads, gnat.dg/old_errors.adb: New.
+
+2008-05-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* g++.dg/eh/080513-1.C: New testcase.
+
+2008-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36222
+	* gcc.target/i386/pr36222-1.c: New test.
+
+2008-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse-init-v4hi-1.c: New.
+	* gcc.target/i386/sse-init-v4sf-1.c: Likewise.
+	* gcc.target/i386/sse2-init-v16qi-1.c: Likewise.
+	* gcc.target/i386/sse2-init-v2di-1.c: Likewise.
+	* gcc.target/i386/sse2-init-v4si-1.c: Likewise.
+	* gcc.target/i386/sse2-init-v8hi-1.c: Likewise.
+	* gcc.target/i386/sse4_1-init-v16qi-1.c: Likewise.
+	* gcc.target/i386/sse4_1-init-v2di-1.c: Likewise.
+	* gcc.target/i386/sse4_1-init-v4sf-1.c: Likewise.
+	* gcc.target/i386/sse4_1-init-v4si-1.c: Likewise.
+
 2008-05-13  Janis Johnson  <janis187@us.ibm.com>
 
 	PR testsuite/35127

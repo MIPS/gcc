@@ -1,3 +1,115 @@
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/36224
+	* config/i386/sse.md (vec_widen_smult_hi_v4si): Delete, using
+	unsigned multiply gives the wrong value when doing widening
+	multiplies.
+	(vec_widen_smult_lo_v4si): Ditto.
+
+2008-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* optabs.c (prepare_cmp_insn): Changed LCT_PURE_MAKE_BLOCK to
+	LCT_PURE and LCT_CONST_MAKE_BLOCK to LCT_CONST in calls to
+	emit_library_call_value. 
+	* builtins.c (expand_builtin_powi, expand_builtin_memcmp): Ditto.
+	* tree.h (ECF_LIBCALL_BLOCK): Removed.
+	* calls.c (initialize_argument_information, precompute_arguments, 
+	expand_call, emit_library_call_value_1): Remove ECF_LIBCALL_BLOCK.
+	(precompute_arguments): Removed flags parameter.
+	* rtl.h (LCT_CONST_MAKE_BLOCK, LCT_PURE_MAKE_BLOCK): Removed.
+	
+2008-05-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Remove dead code.
+	Make sure to register the store if the use is a PHI_NODE.
+
+2008-05-14  Olivier Hainque  <hainque@adacore.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Force op0 to
+	memory if the component is to be referenced in BLKmode according
+	to get_inner_reference.
+
+2008-05-14  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* calls.c (emit_library_call_value_1): Restore code clearing
+	ECF_LIBCALL_BLOCK to ensure that we only call end_sequence
+	once.
+
+2008-05-14  Olivier Hainque  <hainque@adacore.com>
+	    Nicolas Roche  <roche@adacore.com>
+
+	* configure.ac: Add support for a "gcc_subdir" variable in
+	config-lang.in, to denote a subdirectory where the language/GCC
+	integration files are to be found.
+	* configure: Regenerate.
+
+2008-05-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36098
+	* tree-vect-analyze.c (vect_analyze_group_access): Set the gap
+	value for the first load in the group in case of a gap.
+	(vect_build_slp_tree): Check that there are no gaps in loads.
+
+2008-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.texi: Removed reference to REG_NO_CONFLICT notes.
+	* optabs.c (expand_binop, expand_absneg_bit, expand_unop,
+	expand_copysign_bit, ): Change call to emit_no_conflict_block to
+	emit_insn and remove unneeded code to construct extra args.
+	(emit_no_conflict_block): Removed.
+	* optabls.h: (emit_no_conflict_block): Removed.
+	* cse.c (cse_extended_basic_block): Remove search for
+	REG_NO_CONFLICT note.  
+	* global.c: Removed incorrect comment added in revision 117.
+	* expr.c (convert_move): Change call to emit_no_conflict_block to
+	emit_insn.
+	* recog.c: Change comments so that they do not mention
+	REG_NO_CONFLICT.
+	* local_alloc.c (combine_regs): Removed last parameter.
+	(no_conflict_p): Removed.
+	(block_alloc): Removed note, no_conflict_combined_regno and set
+	local vars. Removed all code to process REG_NO_CONFLICT blocks.
+	(combine_regs): Removed already_dead and code to look for
+	REG_NO_CONFLICT notes.
+	* lower_subreg (remove_retval_note): Removed code to look for
+	REG_NO_CONFLICT block.
+	(resolve_reg_notes): Removed REG_NO_CONFLICT case.
+	(resolve_clobber): Remove code to process libcalls that have
+	REG_NO_CONFLICT notes.
+	* loop_invariant.c (find_invariant_insn): Removed REG_NO_CONFLICT
+	case.
+	* combine.c (can_combine_p, distribute_notes):  Removed REG_NO_CONFLICT
+	case.
+	* config/cris/cris.md (movdi pattern): Changed
+	emit_no_conflict_block to emit_insns.
+	* config/mn10300/mn10300.md (absdf2, negdf2 patterns): Ditto.
+	* config/m68k/m68k.md (negdf2, negxf2, absdf2, absxf2 patterns):
+	Ditto. 
+	* reg-notes.def (NO_CONFLICT): Removed.
+	
+2008-05-14  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.c (sparc_profile_hook): If
+	NO_PROFILE_COUNTERS, don't generate and pass a label
+	into mcount.
+	* config/sparc/linux.h (NO_PROFILE_COUNTERS): Define as 1.
+	* config/sparc/linux64.h (NO_PROFILE_COUNTERS): Likewise.
+
+2008-05-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* cse.c (cse_cc_succs): Invoke delete_insn_and_edges.
+
+2008-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36222
+	* config/i386/i386.c (ix86_expand_vector_init_general): Rearrange op0
+	and op1 expansion before vector concat to have less live pseudos.
+
+2008-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): Use
+	ix86_expand_vector_set if supported.
+
 2008-05-13  Diego Novillo  <dnovillo@google.com>
 	    Kenneth Zadeck  <zadeck@naturalbridge.com>
 
@@ -5,23 +117,19 @@
 
 	* tree.h (init_phinodes, fini_phinodes, release_phi_node,
 	phinodes_print_statistics, init_ssanames, fini_ssanames,
-	make_ssa_name, duplicate_ssa_name,
-	duplicate_ssa_name_ptr_info, release_ssa_name,
-	release_defs, replace_ssa_name_symbol,
+	make_ssa_name, duplicate_ssa_name, duplicate_ssa_name_ptr_info,
+	release_ssa_name, release_defs, replace_ssa_name_symbol,
 	ssanames_print_statistics): Move ...
 	* tree-flow.h: ... here.
-	* tree-ssanames.c (init_ssanames): Add arguments FN and
-	SIZE.  Use FN instead of cfun.
+	* tree-ssanames.c (init_ssanames): Add arguments FN and SIZE.
+	Use FN instead of cfun.
 	(make_ssa_name_fn): Rename from make_ssa_name.
-	(pass_release_ssa_names): Add TODO_dump_func to finish
-	flags.
+	(pass_release_ssa_names): Add TODO_dump_func to finish flags.
 	* tree-flow-inline.h (make_ssa_name): Move from
-	tree-ssanames.c.  Convert to static inline.  Call
-	make_ssa_name_fn.
+	tree-ssanames.c.  Convert to static inline.  Call make_ssa_name_fn.
 	* omp-low.c (expand_omp_parallel):
 	* tree-flow-inline.h (redirect_edge_var_map_result):
-	* tree-ssa.c (init_tree_ssa): Add argument FN.  Use it
-	instead of cfun.
+	* tree-ssa.c (init_tree_ssa): Add argument FN.  Use it instead of cfun.
 	Update all users.
 
 2008-05-13  Tom Tromey  <tromey@redhat.com>

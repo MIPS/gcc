@@ -23643,6 +23643,34 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
   enum machine_mode vsimode;
   rtx new_target;
   rtx x, tmp;
+  bool use_vector_set = false;
+
+  switch (mode)
+    {
+    case V2DImode:
+      use_vector_set = TARGET_64BIT && TARGET_SSE4_1;
+      break;
+    case V16QImode:
+    case V4SImode:
+    case V4SFmode:
+      use_vector_set = TARGET_SSE4_1;
+      break;
+    case V8HImode:
+      use_vector_set = TARGET_SSE2;
+      break;
+    case V4HImode:
+      use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
+    default:
+      break;
+    }
+
+  if (use_vector_set)
+    {
+      emit_insn (gen_rtx_SET (VOIDmode, target, CONST0_RTX (mode)));
+      var = force_reg (GET_MODE_INNER (mode), var);
+      ix86_expand_vector_set (mmx_ok, target, var, one_var);
+      return true; 
+    }
 
   switch (mode)
     {
@@ -23859,13 +23887,13 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 	/* For V4SF and V4SI, we implement a concat of two V2 vectors.
 	   Recurse to load the two halves.  */
 
-	op0 = gen_reg_rtx (half_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
-	ix86_expand_vector_init (false, op0, gen_rtx_PARALLEL (half_mode, v));
-
 	op1 = gen_reg_rtx (half_mode);
 	v = gen_rtvec (2, XVECEXP (vals, 0, 2), XVECEXP (vals, 0, 3));
 	ix86_expand_vector_init (false, op1, gen_rtx_PARALLEL (half_mode, v));
+
+	op0 = gen_reg_rtx (half_mode);
+	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
+	ix86_expand_vector_init (false, op0, gen_rtx_PARALLEL (half_mode, v));
 
 	use_vec_concat = true;
       }
@@ -23883,10 +23911,10 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 
   if (use_vec_concat)
     {
-      if (!register_operand (op0, half_mode))
-	op0 = force_reg (half_mode, op0);
       if (!register_operand (op1, half_mode))
 	op1 = force_reg (half_mode, op1);
+      if (!register_operand (op0, half_mode))
+	op0 = force_reg (half_mode, op0);
 
       emit_insn (gen_rtx_SET (VOIDmode, target,
 			      gen_rtx_VEC_CONCAT (mode, op0, op1)));
