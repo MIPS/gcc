@@ -1,5 +1,9 @@
 2008-05-14  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp.h.in (omp_get_schedule): Change return type to void.
+	* env.c (omp_get_schedule): Likewise.
+	* fortran.c (omp_get_schedule_, omp_get_schedule_8_): Likewise.
+
 	* task.c: Include string.h.
 	(GOMP_task): Add cpyfn, arg_size and arg_align arguments.
 	Allocate argument buffer and either call cpyfn to populate it,

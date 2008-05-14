@@ -606,14 +606,12 @@ omp_set_schedule (omp_sched_t kind, int modifier)
   icv->run_sched_var = kind;
 }
 
-int
+void
 omp_get_schedule (omp_sched_t *kind, int *modifier)
 {
   struct gomp_task_icv *icv = gomp_icv (false);
   *kind = icv->run_sched_var;
   *modifier = icv->run_sched_modifier;
-  /* FIXME: What is this supposed to return?  */
-  return 0;
 }
 
 int

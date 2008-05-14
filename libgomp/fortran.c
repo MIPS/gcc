@@ -349,26 +349,24 @@ omp_set_schedule_8_ (const int32_t *kind, const int64_t *modifier)
   omp_set_schedule (*kind, *modifier);
 }
 
-int32_t
+void
 omp_get_schedule_ (int32_t *kind, int32_t *modifier)
 {
   omp_sched_t k;
-  int m, r;
-  r = omp_get_schedule (&k, &m);
+  int m;
+  omp_get_schedule (&k, &m);
   *kind = k;
   *modifier = m;
-  return r;
 }
 
-int32_t
+void
 omp_get_schedule_8_ (int32_t *kind, int64_t *modifier)
 {
   omp_sched_t k;
-  int m, r;
-  r = omp_get_schedule (&k, &m);
+  int m;
+  omp_get_schedule (&k, &m);
   *kind = k;
   *modifier = m;
-  return r;
 }
 
 int32_t

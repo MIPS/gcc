@@ -1,4 +1,4 @@
-/* Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -92,7 +92,7 @@ extern double omp_get_wtime (void) __GOMP_NOTHROW;
 extern double omp_get_wtick (void) __GOMP_NOTHROW;
 
 void omp_set_schedule (omp_sched_t, int) __GOMP_NOTHROW;
-int omp_get_schedule (omp_sched_t *, int *) __GOMP_NOTHROW;
+void omp_get_schedule (omp_sched_t *, int *) __GOMP_NOTHROW;
 int omp_get_thread_limit (void) __GOMP_NOTHROW;
 void omp_set_max_active_levels (int) __GOMP_NOTHROW;
 int omp_get_max_active_levels (void) __GOMP_NOTHROW;
