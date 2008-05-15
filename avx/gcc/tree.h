@@ -3880,28 +3880,6 @@ extern tree make_tree_binfo_stat (unsigned MEM_STAT_DECL);
 extern tree make_tree_vec_stat (int MEM_STAT_DECL);
 #define make_tree_vec(t) make_tree_vec_stat (t MEM_STAT_INFO)
 
-/* Tree nodes for SSA analysis.  */
-
-extern void init_phinodes (void);
-extern void fini_phinodes (void);
-extern void release_phi_node (tree);
-#ifdef GATHER_STATISTICS
-extern void phinodes_print_statistics (void);
-#endif
-
-extern void init_ssanames (void);
-extern void fini_ssanames (void);
-extern tree make_ssa_name (tree, tree);
-extern tree duplicate_ssa_name (tree, tree);
-extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
-extern void release_ssa_name (tree);
-extern void release_defs (tree);
-extern void replace_ssa_name_symbol (tree, tree);
-
-#ifdef GATHER_STATISTICS
-extern void ssanames_print_statistics (void);
-#endif
-
 /* Return the (unique) IDENTIFIER_NODE node for a given name.
    The name is supplied as a char *.  */
 
@@ -4992,11 +4970,9 @@ extern tree build_duplicate_type (tree);
 #define ECF_RETURNS_TWICE	  (1 << 7)
 /* Nonzero if this call replaces the current stack frame.  */
 #define ECF_SIBCALL		  (1 << 8)
-/* Create libcall block around the call.  */
-#define ECF_LIBCALL_BLOCK	  (1 << 9)
 /* Function does not read or write memory (but may have side effects, so
    it does not necessarily fit ECF_CONST).  */
-#define ECF_NOVOPS		  (1 << 10)
+#define ECF_NOVOPS		  (1 << 9)
 
 extern int flags_from_decl_or_type (const_tree);
 extern int call_expr_flags (const_tree);

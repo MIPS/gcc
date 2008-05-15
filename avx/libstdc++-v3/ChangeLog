@@ -1,3 +1,37 @@
+2008-05-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/mutex (mutex::try_lock): Eat errors.
+	(mutex::unlock): Same.
+	(recursive_mutex::try_lock): Eat errors.
+	(recursive_mutex::unlock): Same.
+	* testsuite/30_threads/mutex/dest/destructor_locked.cc: Add
+	-pthreads, adjust line numbers.
+	* testsuite/30_threads/mutex/native_handle/1.cc: Same.
+	* testsuite/30_threads/mutex/cons/1.cc: Same.
+	* testsuite/30_threads/mutex/try_lock/1.cc: Same.
+	* testsuite/30_threads/mutex/try_lock/2.cc: Same.
+	* testsuite/30_threads/mutex/lock/1.cc: Same.
+	* testsuite/30_threads/mutex/unlock/1.cc: Same.
+	* testsuite/30_threads/recursive_mutex/dest/destructor_locked.cc: Same.
+	* testsuite/30_threads/recursive_mutex/native_handle/1.cc: Same.
+	* testsuite/30_threads/recursive_mutex/cons/1.cc: Same.
+
+2008-05-14  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/sstream: Adjust braces.
+	* include/bits/fstream.tcc: Same.
+	* testsuite/29_atomics/atomic_flag/test_and_set/explicit.c: Add
+	-shared-libgcc.
+	* testsuite/29_atomics/atomic_flag/test_and_set/implicit.c: Same.
+
+	* doc/doxygen/user.cfg.in: Remove thread include.
+	
+2008-05-13  David Daney  <ddaney@avtrex.com>
+
+	* config/cpu/mips/atomicity.h: Remove file.
+	* config/cpu/mips: Remove directory.
+	* configure.host: Remove host specific handling for mips*-*-*.
+
 2008-05-12  Stefano Soffia  <soffia@cs.unipr.it>
 	    Paolo Carlini  <paolo.carlini@oracle.com>
 
