@@ -3478,10 +3478,7 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
     }
   se->expr = build_constructor (type, v);
   if (init) 
-    {
-      TREE_CONSTANT(se->expr) = 1;
-      TREE_INVARIANT(se->expr) = 1;
-    }
+    TREE_CONSTANT (se->expr) = 1;
 }
 
 
@@ -3491,13 +3488,18 @@ static void
 gfc_conv_substring_expr (gfc_se * se, gfc_expr * expr)
 {
   gfc_ref *ref;
+  char *s;
 
   ref = expr->ref;
 
   gcc_assert (ref == NULL || ref->type == REF_SUBSTRING);
 
-  se->expr = gfc_build_string_const (expr->value.character.length,
-				     expr->value.character.string);
+  gcc_assert (expr->ts.kind == gfc_default_character_kind);
+  s = gfc_widechar_to_char (expr->value.character.string,
+			    expr->value.character.length);
+  se->expr = gfc_build_string_const (expr->value.character.length, s);
+  gfc_free (s);
+
   se->string_length = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (se->expr)));
   TYPE_STRING_FLAG (TREE_TYPE (se->expr)) = 1;
 

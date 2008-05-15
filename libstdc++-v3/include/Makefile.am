@@ -33,6 +33,7 @@ std_headers = \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
 	${std_srcdir}/complex \
+	${std_srcdir}/condition_variable \
 	${std_srcdir}/date_time \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
@@ -48,6 +49,7 @@ std_headers = \
 	${std_srcdir}/locale \
 	${std_srcdir}/map \
 	${std_srcdir}/memory \
+	${std_srcdir}/mutex \
 	${std_srcdir}/numeric \
 	${std_srcdir}/ostream \
 	${std_srcdir}/queue \
@@ -706,6 +708,7 @@ debug_headers = \
 # Parallel mode headers
 parallel_srcdir = ${glibcxx_srcdir}/include/parallel
 parallel_builddir = ./parallel
+if ENABLE_PARALLEL
 parallel_headers = \
         ${parallel_srcdir}/algorithm \
         ${parallel_srcdir}/algobase.h \
@@ -751,6 +754,9 @@ parallel_headers = \
         ${parallel_srcdir}/types.h \
         ${parallel_srcdir}/unique_copy.h \
         ${parallel_srcdir}/workstealing.h 
+else
+parallel_headers =
+endif
 
 
 # Some of the different "C" header models need extra files.
@@ -1192,8 +1198,10 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
 	for file in ${debug_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
-	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir}
-	for file in ${parallel_headers}; do \
+	parallel_headers_install='${parallel_headers}';\
+	test -z "$$parallel_headers_install" || \
+	  $(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir};\
+	for file in $$parallel_headers_install; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${parallel_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${host_installdir}
 	for file in ${host_headers} ${host_headers_extra} \

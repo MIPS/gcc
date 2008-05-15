@@ -38,9 +38,6 @@
 
 #include <mmintrin.h>
 
-/* Internal data types for implementing the intrinsics.  */
-typedef float __v2sf __attribute__ ((__vector_size__ (8)));
-
 static __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__ __ATTR_3dNOW__))
 _m_femms (void)
 {

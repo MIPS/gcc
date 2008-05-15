@@ -48,6 +48,7 @@ typedef int __v2si __attribute__ ((__vector_size__ (8)));
 typedef short __v4hi __attribute__ ((__vector_size__ (8)));
 typedef char __v8qi __attribute__ ((__vector_size__ (8)));
 typedef long long __v1di __attribute__ ((__vector_size__ (8)));
+typedef float __v2sf __attribute__ ((__vector_size__ (8)));
 
 /* Empty the multimedia state.  */
 static __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__ __ATTR_MMX__))

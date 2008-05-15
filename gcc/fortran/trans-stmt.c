@@ -119,11 +119,14 @@ gfc_trans_label_assign (gfc_code * code)
     }
   else
     {
-      label_str = code->label->format->value.character.string;
       label_len = code->label->format->value.character.length;
+      label_str
+	= gfc_widechar_to_char (code->label->format->value.character.string,
+				label_len);
       len_tree = build_int_cst (NULL_TREE, label_len);
       label_tree = gfc_build_string_const (label_len + 1, label_str);
       label_tree = gfc_build_addr_expr (pvoid_type_node, label_tree);
+      gfc_free (label_str);
     }
 
   gfc_add_modify_expr (&se.pre, len, len_tree);
@@ -1435,12 +1438,10 @@ gfc_trans_character_select (gfc_code *code)
 
   init = build_constructor_from_list (type, nreverse(init));
   TREE_CONSTANT (init) = 1;
-  TREE_INVARIANT (init) = 1;
   TREE_STATIC (init) = 1;
   /* Create a static variable to hold the jump table.  */
   tmp = gfc_create_var (type, "jumptable");
   TREE_CONSTANT (tmp) = 1;
-  TREE_INVARIANT (tmp) = 1;
   TREE_STATIC (tmp) = 1;
   TREE_READONLY (tmp) = 1;
   DECL_INITIAL (tmp) = init;

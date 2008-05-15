@@ -635,7 +635,7 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
      NULL_TREE, build_function_type (jmpbuf_ptr_type, NULL_TREE),
      NULL_TREE, false, true, true, NULL, Empty);
   /* Avoid creating superfluous edges to __builtin_setjmp receivers.  */
-  DECL_IS_PURE (get_jmpbuf_decl) = 1;
+  DECL_PURE_P (get_jmpbuf_decl) = 1;
 
   set_jmpbuf_decl
     = create_subprog_decl
@@ -653,7 +653,7 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
      build_function_type (build_pointer_type (except_type_node), NULL_TREE),
      NULL_TREE, false, true, true, NULL, Empty);
   /* Avoid creating superfluous edges to __builtin_setjmp receivers.  */
-  DECL_IS_PURE (get_excptr_decl) = 1;
+  DECL_PURE_P (get_excptr_decl) = 1;
 
   /* Functions that raise exceptions. */
   raise_nodefer_decl
@@ -1096,8 +1096,7 @@ rest_of_record_type_compilation (tree record_type)
 
 	      /* Strip off any conversions.  */
 	      while (TREE_CODE (offset) == NON_LVALUE_EXPR
-		     || TREE_CODE (offset) == NOP_EXPR
-		     || TREE_CODE (offset) == CONVERT_EXPR)
+		     || CONVERT_EXPR_P (offset))
 		offset = TREE_OPERAND (offset, 0);
 
 	      /* An offset which is a bitwise AND with a negative power of 2
@@ -3396,7 +3395,9 @@ convert (tree type, tree expr)
 	   && TYPE_IS_PADDING_P (type) && TYPE_IS_PADDING_P (etype)
 	   && (!TREE_CONSTANT (TYPE_SIZE (type))
 	       || !TREE_CONSTANT (TYPE_SIZE (etype))
-	       || gnat_types_compatible_p (type, etype)))
+	       || gnat_types_compatible_p (type, etype)
+	       || TYPE_NAME (TREE_TYPE (TYPE_FIELDS (type)))
+		  == TYPE_NAME (TREE_TYPE (TYPE_FIELDS (etype)))))
     ;
 
   /* If the output type has padding, convert to the inner type and
@@ -3405,9 +3406,13 @@ convert (tree type, tree expr)
     {
       /* If we previously converted from another type and our type is
 	 of variable size, remove the conversion to avoid the need for
-	 variable-size temporaries.  */
+	 variable-size temporaries.  Likewise for a conversion between
+	 original and packable version.  */
       if (TREE_CODE (expr) == VIEW_CONVERT_EXPR
-	  && !TREE_CONSTANT (TYPE_SIZE (type)))
+	  && (!TREE_CONSTANT (TYPE_SIZE (type))
+	      || (ecode == RECORD_TYPE
+		  && TYPE_NAME (etype)
+		     == TYPE_NAME (TREE_TYPE (TREE_OPERAND (expr, 0))))))
 	expr = TREE_OPERAND (expr, 0);
 
       /* If we are just removing the padding from expr, convert the original
@@ -3419,7 +3424,10 @@ convert (tree type, tree expr)
 	  && TYPE_IS_PADDING_P (TREE_TYPE (TREE_OPERAND (expr, 0)))
 	  && (!TREE_CONSTANT (TYPE_SIZE (type))
 	      || gnat_types_compatible_p (type,
-					  TREE_TYPE (TREE_OPERAND (expr, 0)))))
+					  TREE_TYPE (TREE_OPERAND (expr, 0)))
+	      || (ecode == RECORD_TYPE
+		  && TYPE_NAME (etype)
+		     == TYPE_NAME (TREE_TYPE (TYPE_FIELDS (type))))))
 	return convert (type, TREE_OPERAND (expr, 0));
 
       /* If the result type is a padded type with a self-referentially-sized
@@ -3534,8 +3542,12 @@ convert (tree type, tree expr)
 
     case CONSTRUCTOR:
       /* If we are converting a CONSTRUCTOR to a mere variant type, just make
-	 a new one in the proper type.  */
-      if (gnat_types_compatible_p (type, etype))
+	 a new one in the proper type.  Likewise for a conversion between
+	 original and packable version.  */
+      if (code == ecode
+	  && (gnat_types_compatible_p (type, etype)
+	      || (code == RECORD_TYPE
+		  && TYPE_NAME (type) == TYPE_NAME (etype))))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
@@ -3615,9 +3627,10 @@ convert (tree type, tree expr)
   if (TYPE_FAT_POINTER_P (type) && !TYPE_FAT_POINTER_P (etype))
     return convert_to_fat_pointer (type, expr);
 
-  /* If we're converting between two aggregate types that are mere
+  /* If we are converting between two aggregate types that are mere
      variants, just make a VIEW_CONVERT_EXPR.  */
-  else if (AGGREGATE_TYPE_P (type)
+  else if (code == ecode
+	   && AGGREGATE_TYPE_P (type)
 	   && gnat_types_compatible_p (type, etype))
     return build1 (VIEW_CONVERT_EXPR, type, expr);
 
@@ -3649,6 +3662,30 @@ convert (tree type, tree expr)
       /* ... fall through ... */
 
     case ENUMERAL_TYPE:
+      /* If we are converting an additive expression to an integer type
+	 with lower precision, be wary of the optimization that can be
+	 applied by convert_to_integer.  There are 2 problematic cases:
+	   - if the first operand was originally of a biased type,
+	     because we could be recursively called to convert it
+	     to an intermediate type and thus rematerialize the
+	     additive operator endlessly,
+	   - if the expression contains a placeholder, because an
+	     intermediate conversion that changes the sign could
+	     be inserted and thus introduce an artificial overflow
+	     at compile time when the placeholder is substituted.  */
+      if (code == INTEGER_TYPE
+	  && ecode == INTEGER_TYPE
+	  && TYPE_PRECISION (type) < TYPE_PRECISION (etype)
+	  && (TREE_CODE (expr) == PLUS_EXPR || TREE_CODE (expr) == MINUS_EXPR))
+	{
+	  tree op0 = get_unwidened (TREE_OPERAND (expr, 0), type);
+
+	  if ((TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE
+	       && TYPE_BIASED_REPRESENTATION_P (TREE_TYPE (op0)))
+	      || CONTAINS_PLACEHOLDER_P (expr))
+	    return build1 (NOP_EXPR, type, expr);
+	}
+
       return fold (convert_to_integer (type, expr));
 
     case POINTER_TYPE:
@@ -3774,7 +3811,7 @@ remove_conversions (tree exp, bool true_address)
       break;
 
     case VIEW_CONVERT_EXPR:  case NON_LVALUE_EXPR:
-    case NOP_EXPR:  case CONVERT_EXPR:
+    CASE_CONVERT:
       return remove_conversions (TREE_OPERAND (exp, 0), true_address);
 
     default:
@@ -4453,7 +4490,7 @@ handle_pure_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
-    DECL_IS_PURE (*node) = 1;
+    DECL_PURE_P (*node) = 1;
   /* ??? TODO: Support types.  */
   else
     {

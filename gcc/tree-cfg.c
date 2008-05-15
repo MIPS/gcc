@@ -102,6 +102,7 @@ static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
 static void tree_cfg2vcg (FILE *);
 static inline void change_bb_for_stmt (tree t, basic_block bb);
+static bool computed_goto_p (const_tree);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -1791,9 +1792,11 @@ static void
 update_call_expr_flags (tree call)
 {
   tree decl = get_callee_fndecl (call);
+  int flags;
   if (!decl)
     return;
-  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
+  flags = call_expr_flags (call);
+  if (flags & (ECF_CONST | ECF_PURE) && !(flags & ECF_LOOPING_CONST_OR_PURE))
     TREE_SIDE_EFFECTS (call) = 0;
   if (TREE_NOTHROW (decl))
     TREE_NOTHROW (call) = 1;
@@ -1808,9 +1811,9 @@ notice_special_calls (tree t)
   int flags = call_expr_flags (t);
 
   if (flags & ECF_MAY_BE_ALLOCA)
-    current_function_calls_alloca = true;
+    cfun->calls_alloca = true;
   if (flags & ECF_RETURNS_TWICE)
-    current_function_calls_setjmp = true;
+    cfun->calls_setjmp = true;
 }
 
 
@@ -1820,8 +1823,8 @@ notice_special_calls (tree t)
 void
 clear_special_calls (void)
 {
-  current_function_calls_alloca = false;
-  current_function_calls_setjmp = false;
+  cfun->calls_alloca = false;
+  cfun->calls_setjmp = false;
 }
 
 
@@ -2495,7 +2498,7 @@ is_ctrl_altering_stmt (const_tree t)
     {
       /* A non-pure/const CALL_EXPR alters flow control if the current
 	 function has nonlocal labels.  */
-      if (TREE_SIDE_EFFECTS (call) && current_function_has_nonlocal_label)
+      if (TREE_SIDE_EFFECTS (call) && cfun->has_nonlocal_label)
 	return true;
 
       /* A CALL_EXPR also alters control flow if it does not return.  */
@@ -2514,7 +2517,7 @@ is_ctrl_altering_stmt (const_tree t)
 
 /* Return true if T is a computed goto.  */
 
-bool
+static bool
 computed_goto_p (const_tree t)
 {
   return (TREE_CODE (t) == GOTO_EXPR
@@ -2545,7 +2548,7 @@ tree_can_make_abnormal_goto (const_tree t)
   if (TREE_CODE (t) == WITH_SIZE_EXPR)
     t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == CALL_EXPR)
-    return TREE_SIDE_EFFECTS (t) && current_function_has_nonlocal_label;
+    return TREE_SIDE_EFFECTS (t) && cfun->has_nonlocal_label;
   return false;
 }
 
@@ -3188,27 +3191,19 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
     case ADDR_EXPR:
       {
-	bool old_invariant;
 	bool old_constant;
 	bool old_side_effects;
-	bool new_invariant;
 	bool new_constant;
 	bool new_side_effects;
 
-	old_invariant = TREE_INVARIANT (t);
+	gcc_assert (is_gimple_address (t));
+
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
 	recompute_tree_invariant_for_addr_expr (t);
-	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
-
-	if (old_invariant != new_invariant)
-	  {
-	    error ("invariant not recomputed when ADDR_EXPR changed");
-	    return t;
-	  }
 
         if (old_constant != new_constant)
 	  {
@@ -3254,14 +3249,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    case NON_LVALUE_EXPR:
+	gcc_unreachable ();
+
+    CASE_CONVERT:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
     case NEGATE_EXPR:
     case ABS_EXPR:
     case BIT_NOT_EXPR:
-    case NON_LVALUE_EXPR:
     case TRUTH_NOT_EXPR:
       CHECK_OP (0, "invalid operand to unary operator");
       break;
@@ -3602,6 +3598,18 @@ one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
   return false;
 }
 
+/* Return true if TYPE1 is a fixed-point type and if conversions to and
+   from TYPE2 can be handled by FIXED_CONVERT_EXPR.  */
+
+static bool
+valid_fixed_convert_types_p (tree type1, tree type2)
+{
+  return (FIXED_POINT_TYPE_P (type1)
+	  && (INTEGRAL_TYPE_P (type2)
+	      || SCALAR_FLOAT_TYPE_P (type2)
+	      || FIXED_POINT_TYPE_P (type2)));
+}
+
 /* Verify the GIMPLE expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
@@ -3616,8 +3624,7 @@ verify_gimple_expr (tree expr)
   /* Special codes we cannot handle via their class.  */
   switch (TREE_CODE (expr))
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       {
 	tree op = TREE_OPERAND (expr, 0);
 	if (!is_gimple_val (op))
@@ -3651,6 +3658,27 @@ verify_gimple_expr (tree expr)
 	if (TREE_CODE (type) != TREE_CODE (TREE_TYPE (op)))
 	  {
 	    error ("invalid types in nop conversion");
+	    debug_generic_expr (type);
+	    debug_generic_expr (TREE_TYPE (op));
+	    return true;
+	  }
+
+	return false;
+      }
+
+    case FIXED_CONVERT_EXPR:
+      {
+	tree op = TREE_OPERAND (expr, 0);
+	if (!is_gimple_val (op))
+	  {
+	    error ("invalid operand in conversion");
+	    return true;
+	  }
+
+	if (!valid_fixed_convert_types_p (type, TREE_TYPE (op))
+	    && !valid_fixed_convert_types_p (TREE_TYPE (op), type))
+	  {
+	    error ("invalid types in fixed-point conversion");
 	    debug_generic_expr (type);
 	    debug_generic_expr (TREE_TYPE (op));
 	    return true;
@@ -3911,7 +3939,19 @@ verify_gimple_expr (tree expr)
     case CALL_EXPR:
       /* FIXME.  The C frontend passes unpromoted arguments in case it
 	 didn't see a function declaration before the call.  */
-      return false;
+      {
+	tree decl = CALL_EXPR_FN (expr);
+
+	if (TREE_CODE (decl) == FUNCTION_DECL 
+	    && DECL_LOOPING_CONST_OR_PURE_P (decl)
+	    && (!DECL_PURE_P (decl))
+	    && (!TREE_READONLY (decl)))
+	  {
+	    error ("invalid pure const state for function");
+	    return true;
+	  }
+	return false;
+      }
 
     case OBJ_TYPE_REF:
       /* FIXME.  */
@@ -5511,7 +5551,7 @@ DEF_VEC_ALLOC_P(basic_block,heap);
    adding blocks when the dominator traversal reaches EXIT.  This
    function silently assumes that ENTRY strictly dominates EXIT.  */
 
-static void
+void
 gather_blocks_in_sese_region (basic_block entry, basic_block exit,
 			      VEC(basic_block,heap) **bbs_p)
 {
@@ -6586,7 +6626,7 @@ tree_purge_dead_abnormal_call_edges (basic_block bb)
 {
   bool changed = tree_purge_dead_eh_edges (bb);
 
-  if (current_function_has_nonlocal_label)
+  if (cfun->has_nonlocal_label)
     {
       tree stmt = last_stmt (bb);
       edge_iterator ei;

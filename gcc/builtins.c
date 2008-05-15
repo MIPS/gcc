@@ -279,9 +279,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
     {
       switch (TREE_CODE (exp))
 	{
-	case NOP_EXPR:
-	case CONVERT_EXPR:
-	case NON_LVALUE_EXPR:
+	CASE_CONVERT:
 	  exp = TREE_OPERAND (exp, 0);
 	  if (! POINTER_TYPE_P (TREE_TYPE (exp)))
 	    return align;
@@ -448,7 +446,12 @@ c_strlen (tree src, int only_value)
      runtime.  */
   if (offset < 0 || offset > max)
     {
-      warning (0, "offset outside bounds of constant string");
+     /* Suppress multiple warnings for propagated constant strings.  */
+      if (! TREE_NO_WARNING (src))
+        {
+          warning (0, "offset outside bounds of constant string");
+          TREE_NO_WARNING (src) = 1;
+        }
       return NULL_TREE;
     }
 
@@ -588,7 +591,7 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
       tem = hard_frame_pointer_rtx;
 
       /* Tell reload not to eliminate the frame pointer.  */
-      current_function_accesses_prior_frames = 1;
+      crtl->accesses_prior_frames = 1;
     }
 #endif
 
@@ -691,10 +694,10 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
 
   /* Tell optimize_save_area_alloca that extra work is going to
      need to go on during alloca.  */
-  current_function_calls_setjmp = 1;
+  cfun->calls_setjmp = 1;
 
   /* We have a nonlocal label.   */
-  current_function_has_nonlocal_label = 1;
+  cfun->has_nonlocal_label = 1;
 }
 
 /* Construct the trailing part of a __builtin_setjmp call.  This is
@@ -878,7 +881,7 @@ expand_builtin_nonlocal_goto (tree exp)
   r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
 		      plus_constant (r_save_area, GET_MODE_SIZE (Pmode)));
 
-  current_function_has_nonlocal_goto = 1;
+  crtl->has_nonlocal_goto = 1;
 
 #ifdef HAVE_nonlocal_goto
   /* ??? We no longer need to pass the static chain value, afaik.  */
@@ -1073,8 +1076,7 @@ get_memory_rtx (tree exp, tree len)
   /* Get an expression we can use to find the attributes to assign to MEM.
      If it is an ADDR_EXPR, use the operand.  Otherwise, dereference it if
      we can.  First remove any nops.  */
-  while ((TREE_CODE (exp) == NOP_EXPR || TREE_CODE (exp) == CONVERT_EXPR
-	  || TREE_CODE (exp) == NON_LVALUE_EXPR)
+  while (CONVERT_EXPR_P (exp)
 	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
     exp = TREE_OPERAND (exp, 0);
 
@@ -1104,9 +1106,7 @@ get_memory_rtx (tree exp, tree len)
 	  tree inner = exp;
 
 	  while (TREE_CODE (inner) == ARRAY_REF
-		 || TREE_CODE (inner) == NOP_EXPR
-		 || TREE_CODE (inner) == CONVERT_EXPR
-		 || TREE_CODE (inner) == NON_LVALUE_EXPR
+		 || CONVERT_EXPR_P (inner)
 		 || TREE_CODE (inner) == VIEW_CONVERT_EXPR
 		 || TREE_CODE (inner) == SAVE_EXPR)
 	    inner = TREE_OPERAND (inner, 0);
@@ -1803,6 +1803,9 @@ expand_errno_check (tree exp, rtx target)
       return;
     }
 #endif
+
+  /* Make sure the library call isn't expanded as a tail call.  */
+  CALL_EXPR_TAILCALL (exp) = 0;
 
   /* We can't set errno=EDOM directly; let the library call do it.
      Pop the arguments right away in case the call gets deleted.  */
@@ -3079,7 +3082,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
     op1 = convert_to_mode (mode2, op1, 0);
 
   target = emit_library_call_value (optab_libfunc (powi_optab, mode),
-				    target, LCT_CONST_MAKE_BLOCK, mode, 2,
+				    target, LCT_CONST, mode, 2,
 				    op0, mode, op1, mode2);
 
   return target;
@@ -4144,7 +4147,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
     if (insn)
       emit_insn (insn);
     else
-      emit_library_call_value (memcmp_libfunc, result, LCT_PURE_MAKE_BLOCK,
+      emit_library_call_value (memcmp_libfunc, result, LCT_PURE,
 			       TYPE_MODE (integer_type_node), 3,
 			       XEXP (arg1_rtx, 0), Pmode,
 			       XEXP (arg2_rtx, 0), Pmode,
@@ -5236,7 +5239,6 @@ build_string_literal (int len, const char *str)
   type = build_array_type (elem, index);
   TREE_TYPE (t) = type;
   TREE_CONSTANT (t) = 1;
-  TREE_INVARIANT (t) = 1;
   TREE_READONLY (t) = 1;
   TREE_STATIC (t) = 1;
 
@@ -6094,7 +6096,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
      none of its arguments are volatile, we can avoid expanding the
      built-in call and just evaluate the arguments for side-effects.  */
   if (target == const0_rtx
-      && (DECL_IS_PURE (fndecl) || TREE_READONLY (fndecl)))
+      && (DECL_PURE_P (fndecl) || TREE_READONLY (fndecl)))
     {
       bool volatilep = false;
       tree arg;
@@ -7150,7 +7152,7 @@ fold_builtin_expect (tree arg0, tree arg1)
     }
 
   /* If the argument isn't invariant then there's nothing else we can do.  */
-  if (!TREE_INVARIANT (arg0))
+  if (!TREE_CONSTANT (arg0))
     return NULL_TREE;
 
   /* If we expect that a comparison against the argument will fold to
@@ -7262,7 +7264,6 @@ integer_valued_real_p (tree t)
 
     case ABS_EXPR:
     case SAVE_EXPR:
-    case NON_LVALUE_EXPR:
       return integer_valued_real_p (TREE_OPERAND (t, 0));
 
     case COMPOUND_EXPR:
@@ -9647,11 +9648,7 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
   REAL_VALUE_TYPE r;
 
   if (!validate_arg (arg, REAL_TYPE))
-    {
-      error ("non-floating-point argument to function %qs",
-	     IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-      return error_mark_node;
-    }
+    return NULL_TREE;
 
   switch (builtin_index)
     {
@@ -9735,12 +9732,6 @@ fold_builtin_unordered_cmp (tree fndecl, tree arg0, tree arg1,
     cmp_type = type0;
   else if (code0 == INTEGER_TYPE && code1 == REAL_TYPE)
     cmp_type = type1;
-  else
-    {
-      error ("non-floating-point argument to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-      return error_mark_node;
-    }
 
   arg0 = fold_convert (cmp_type, arg0);
   arg1 = fold_convert (cmp_type, arg1);
@@ -10089,15 +10080,6 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
     case BUILT_IN_ISNAND128:
       return fold_builtin_classify (fndecl, arg0, BUILT_IN_ISNAN);
 
-    case BUILT_IN_ISNORMAL:
-      if (!validate_arg (arg0, REAL_TYPE))
-	{
-	  error ("non-floating-point argument to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      break;
-
     case BUILT_IN_PRINTF:
     case BUILT_IN_PRINTF_UNLOCKED:
     case BUILT_IN_VPRINTF:
@@ -10443,54 +10425,7 @@ fold_builtin_4 (tree fndecl, tree arg0, tree arg1, tree arg2, tree arg3,
 static tree
 fold_builtin_n (tree fndecl, tree *args, int nargs, bool ignore)
 {
-  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   tree ret = NULL_TREE;
-
-  /* Verify the number of arguments for type-generic and thus variadic
-     builtins.  */
-  switch (fcode)
-    {
-    case BUILT_IN_ISFINITE:
-    case BUILT_IN_ISINF:
-    case BUILT_IN_ISNAN:
-    case BUILT_IN_ISNORMAL:
-      if (nargs < 1)
-	{
-	  error ("too few arguments to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      else if (nargs > 1)
-	{
-	  error ("too many arguments to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      break;
-
-    case BUILT_IN_ISGREATER:
-    case BUILT_IN_ISGREATEREQUAL:
-    case BUILT_IN_ISLESS:
-    case BUILT_IN_ISLESSEQUAL:
-    case BUILT_IN_ISLESSGREATER:
-    case BUILT_IN_ISUNORDERED:
-      if (nargs < 2)
-	{
-	  error ("too few arguments to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      else if (nargs > 2)
-	{
-	  error ("too many arguments to function %qs",
-		 IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-	  return error_mark_node;
-	}
-      break;
-
-    default:
-      break;
-    }
 
   switch (nargs)
     {
@@ -10616,6 +10551,7 @@ fold_call_expr (tree exp, bool ignore)
 		  if (CAN_HAVE_LOCATION_P (realret)
 		      && !EXPR_HAS_LOCATION (realret))
 		    SET_EXPR_LOCATION (realret, EXPR_LOCATION (exp));
+		  return realret;
 		}
 	      return ret;
 	    }
@@ -11430,9 +11366,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	 is not quite the same as STRIP_NOPS.  It does more.
 	 We must also strip off INDIRECT_EXPR for C++ reference
 	 parameters.  */
-      while (TREE_CODE (arg) == NOP_EXPR
-	     || TREE_CODE (arg) == CONVERT_EXPR
-	     || TREE_CODE (arg) == NON_LVALUE_EXPR
+      while (CONVERT_EXPR_P (arg)
 	     || TREE_CODE (arg) == INDIRECT_REF)
 	arg = TREE_OPERAND (arg, 0);
       if (arg != last_parm)

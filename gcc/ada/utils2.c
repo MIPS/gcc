@@ -156,9 +156,8 @@ known_alignment (tree exp)
 
   switch (TREE_CODE (exp))
     {
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
       /* Conversions between pointers and integers don't change the alignment
 	 of the underlying object.  */
@@ -293,7 +292,7 @@ contains_save_expr_p (tree exp)
 
     case ADDR_EXPR:  case INDIRECT_REF:
     case COMPONENT_REF:
-    case NOP_EXPR:  case CONVERT_EXPR: case VIEW_CONVERT_EXPR:
+    CASE_CONVERT: case VIEW_CONVERT_EXPR:
       return contains_save_expr_p (TREE_OPERAND (exp, 0));
 
     case CONSTRUCTOR:
@@ -659,8 +658,7 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 conversions between array and record types, except for justified
 	 modular types.  But don't do this if the right operand is not
 	 BLKmode (for packed arrays) unless we are not changing the mode.  */
-      while ((TREE_CODE (left_operand) == CONVERT_EXPR
-	      || TREE_CODE (left_operand) == NOP_EXPR
+      while ((CONVERT_EXPR_P (left_operand)
 	      || TREE_CODE (left_operand) == VIEW_CONVERT_EXPR)
 	     && (((INTEGRAL_TYPE_P (left_type)
 		   || POINTER_TYPE_P (left_type))
@@ -693,21 +691,24 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
-      /* If we are copying between padded objects of the same underlying
-	 type with a non-zero size, use the padded view of the type, this
-	 is very likely more efficient; but gnat_to_gnu will have removed
-	 the padding on the RHS so we have to make sure that we can safely
-	 put it back.  */
+      /* If we are copying between padded objects with compatible types, use
+	 the padded view of the objects, this is very likely more efficient.
+	 Likewise for a padded that is assigned a constructor, in order to
+	 avoid putting a VIEW_CONVERT_EXPR on the LHS.  But don't do this if
+	 we wouldn't have actually copied anything.  */
       else if (TREE_CODE (left_type) == RECORD_TYPE
 	       && TYPE_IS_PADDING_P (left_type)
-	       && TREE_TYPE (TYPE_FIELDS (left_type)) == right_type
-	       && !integer_zerop (TYPE_SIZE (right_type))
+	       && TREE_CONSTANT (TYPE_SIZE (left_type))
 	       && ((TREE_CODE (right_operand) == COMPONENT_REF
 		    && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
 		       == RECORD_TYPE
 		    && TYPE_IS_PADDING_P
-		       (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
-		   || TREE_CODE (right_operand) == CONSTRUCTOR))
+		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		    && gnat_types_compatible_p
+			(left_type,
+			 TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+		   || TREE_CODE (right_operand) == CONSTRUCTOR)
+	       && !integer_zerop (TYPE_SIZE (right_type)))
 	operation_type = left_type;
 
       /* Find the best type to use for copying between aggregate types.  */
@@ -739,8 +740,7 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	      result = TREE_OPERAND (result, 0);
 	  else if (TREE_CODE (result) == REALPART_EXPR
 		   || TREE_CODE (result) == IMAGPART_EXPR
-		   || ((TREE_CODE (result) == NOP_EXPR
-			|| TREE_CODE (result) == CONVERT_EXPR)
+		   || (CONVERT_EXPR_P (result)
 		       && (((TREE_CODE (restype)
 			     == TREE_CODE (TREE_TYPE
 					   (TREE_OPERAND (result, 0))))
@@ -1671,8 +1671,7 @@ gnat_build_constructor (tree type, tree list)
     }
 
   result = build_constructor_from_list (type, list);
-  TREE_CONSTANT (result) = TREE_INVARIANT (result)
-    = TREE_STATIC (result) = allconstant;
+  TREE_CONSTANT (result) = TREE_STATIC (result) = allconstant;
   TREE_SIDE_EFFECTS (result) = side_effects;
   TREE_READONLY (result) = TYPE_READONLY (type) || allconstant;
   return result;
@@ -2188,9 +2187,8 @@ gnat_mark_addressable (tree expr_node)
       case REALPART_EXPR:
       case IMAGPART_EXPR:
       case VIEW_CONVERT_EXPR:
-      case CONVERT_EXPR:
       case NON_LVALUE_EXPR:
-      case NOP_EXPR:
+      CASE_CONVERT:
 	expr_node = TREE_OPERAND (expr_node, 0);
 	break;
 
