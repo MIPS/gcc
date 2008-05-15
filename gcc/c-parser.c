@@ -7658,12 +7658,15 @@ c_parser_omp_for_loop (c_parser *parser, tree clauses, tree *par_clauses)
       else if (c_parser_next_token_is (parser, CPP_NAME)
 	       && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
 	{
+	  struct c_expr init_exp;
+
 	  decl = c_parser_postfix_expression (parser).value;
 
 	  c_parser_require (parser, CPP_EQ, "expected %<=%>");
 
-	  init = c_parser_expr_no_commas (parser, NULL).value;
-	  init = build_modify_expr (decl, NOP_EXPR, init);
+	  init_exp = c_parser_expr_no_commas (parser, NULL);
+	  init_exp = default_function_array_conversion (init_exp);
+	  init = build_modify_expr (decl, NOP_EXPR, init_exp.value);
 	  init = c_process_expr_stmt (init);
 
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");

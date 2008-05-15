@@ -592,6 +592,10 @@ omp_set_schedule (omp_sched_t kind, int modifier)
   switch (kind)
     {
     case omp_sched_static:
+      if (modifier < 1)
+	modifier = 0;
+      icv->run_sched_modifier = modifier;
+      break;
     case omp_sched_dynamic:
     case omp_sched_guided:
       if (modifier < 1)

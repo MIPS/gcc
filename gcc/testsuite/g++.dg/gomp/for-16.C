@@ -4,7 +4,7 @@ template<typename T>
 void foo ()
 {
 #pragma omp for
-  for (unsigned int i = 0; i < 10; i++); // { dg-warning "is unsigned" }
+  for (unsigned int i = 0; i < 10; i++);
 #pragma omp for
   for (int j = 0; ; j++); // { dg-error "missing controlling predicate" }
 #pragma omp for

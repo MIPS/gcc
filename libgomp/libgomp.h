@@ -74,16 +74,27 @@ struct gomp_work_share
 
   int mode;
 
-  /* This is the chunk_size argument to the SCHEDULE clause.  */
-  long chunk_size;
+  union {
+    struct {
+      /* This is the chunk_size argument to the SCHEDULE clause.  */
+      long chunk_size;
 
-  /* This is the iteration end point.  If this is a SECTIONS construct, 
-     this is the number of contained sections.  */
-  long end;
+      /* This is the iteration end point.  If this is a SECTIONS construct,
+	 this is the number of contained sections.  */
+      long end;
 
-  /* This is the iteration step.  If this is a SECTIONS construct, this
-     is always 1.  */
-  long incr;
+      /* This is the iteration step.  If this is a SECTIONS construct, this
+	 is always 1.  */
+      long incr;
+    };
+
+    struct {
+      /* The same as above, but for the unsigned long long loop variants.  */
+      unsigned long long chunk_size_ull;
+      unsigned long long end_ull;
+      unsigned long long incr_ull;
+    };
+  };
 
   /* This is a circular queue that details which threads will be allowed
      into the ordered region and in which order.  When a thread allocates
@@ -128,6 +139,9 @@ struct gomp_work_share
     /* This is the next iteration value to be allocated.  In the case of
        GFS_STATIC loops, this the iteration start point and never changes.  */
     long next;
+
+    /* The same, but with unsigned long long type.  */
+    unsigned long long next_ull;
 
     /* This is the returned data structure for SINGLE COPYPRIVATE.  */
     void *copyprivate;
@@ -393,6 +407,22 @@ extern bool gomp_iter_guided_next_locked (long *, long *);
 #ifdef HAVE_SYNC_BUILTINS
 extern bool gomp_iter_dynamic_next (long *, long *);
 extern bool gomp_iter_guided_next (long *, long *);
+#endif
+
+/* iter_ull.c */
+
+extern int gomp_iter_ull_static_next (unsigned long long *,
+				      unsigned long long *);
+extern bool gomp_iter_ull_dynamic_next_locked (unsigned long long *,
+					       unsigned long long *);
+extern bool gomp_iter_ull_guided_next_locked (unsigned long long *,
+					      unsigned long long *);
+
+#if defined HAVE_SYNC_BUILTINS && defined __LP64__
+extern bool gomp_iter_ull_dynamic_next (unsigned long long *,
+					unsigned long long *);
+extern bool gomp_iter_ull_guided_next (unsigned long long *,
+				       unsigned long long *);
 #endif
 
 /* ordered.c */

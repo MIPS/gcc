@@ -239,13 +239,12 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	elocus = EXPR_LOCATION (init);
 
       /* Validate the iteration variable.  */
-      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
+	  && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
 	{
 	  error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
 	  fail = true;
 	}
-      if (TYPE_UNSIGNED (TREE_TYPE (decl)))
-	warning (0, "%Hiteration variable %qE is unsigned", &elocus, decl);
 
       /* In the case of "for (int i = 0...)", init will be a decl.  It should
 	 have a DECL_INITIAL that we can turn into an assignment.  */
@@ -355,7 +354,20 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	    case PREINCREMENT_EXPR:
 	    case POSTDECREMENT_EXPR:
 	    case PREDECREMENT_EXPR:
-	      incr_ok = (TREE_OPERAND (incr, 0) == decl);
+	      if (TREE_OPERAND (incr, 0) != decl)
+		break;
+
+	      incr_ok = true;
+	      if (POINTER_TYPE_P (TREE_TYPE (decl)))
+		{
+		  tree t = fold_convert (sizetype, TREE_OPERAND (incr, 1));
+
+		  if (TREE_CODE (incr) == POSTDECREMENT_EXPR
+		      || TREE_CODE (incr) == PREDECREMENT_EXPR)
+		    t = fold_build1 (NEGATE_EXPR, sizetype, t);
+		  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (decl), decl, t);
+		  incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
+		}
 	      break;
 
 	    case MODIFY_EXPR:
@@ -367,7 +379,9 @@ c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 		  && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
 		      || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
 		incr_ok = true;
-	      else if (TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
+	      else if ((TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
+			|| (TREE_CODE (TREE_OPERAND (incr, 1))
+			    == POINTER_PLUS_EXPR))
 		       && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
 		incr_ok = true;
 	      else

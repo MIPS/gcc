@@ -1,3 +1,10 @@
+2008-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_ULONGLONG, BT_PTR_ULONGLONG,
+	BT_FN_BOOL_ULONGLONGPTR_ULONGLONGPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULLPTR_ULLPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULL_ULLPTR_ULLPTR): New.
+
 2008-05-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_task): Create OMP_TASK using make_node.

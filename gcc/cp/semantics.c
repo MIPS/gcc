@@ -4211,7 +4211,8 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	  continue;
 	}
 
-      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
+	  && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
 	{
 	  error ("%Hinvalid type for iteration variable %qE", &elocus, decl);
 	  return NULL;

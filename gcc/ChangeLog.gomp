@@ -1,3 +1,47 @@
+2008-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Call
+	default_function_array_conversion on init.
+	* builtin-types.def (BT_PTR_ULONGLONG,
+	BT_FN_BOOL_ULONGLONGPTR_ULONGLONGPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULLPTR_ULLPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULL_ULLPTR_ULLPTR): New.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_ULL_STATIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_ULL_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ULL_RUNTIME_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_STATIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_RUNTIME_START,
+	BUILT_IN_GOMP_LOOP_ULL_STATIC_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_DYNAMIC_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_GUIDED_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_RUNTIME_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_STATIC_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_DYNAMIC_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_GUIDED_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_RUNTIME_NEXT): New builtins.
+	* gimplify.c (gimplify_omp_for): Allow pointer type
+	for decl, handle POINTER_PLUS_EXPR.
+	* omp-low.c (struct omp_for_data): Add iter_type field.
+	(extract_omp_for_data): Handle pointer and unsigned iterators.
+	Compute fd->iter_type.  Handle POINTER_PLUS_EXPR increments.
+	(workshare_safe_to_combine_p): Disallow combined for if
+	iter_type is unsigned long long.
+	(expand_omp_for_generic): Handle pointer, unsigned and long long
+	iterators.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk):
+	Likewise.
+	(expand_omp_for): Use GOMP_loop_ull*{start,next} if iter_type
+	is unsigned long long.
+	* c-omp.c (c_finish_omp_for): Allow pointer iterators.  Remove
+	warning about unsigned iterators.
+
 2008-05-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.def (OMP_TASK): Add 3 new arguments.

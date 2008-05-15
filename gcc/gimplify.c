@@ -5431,7 +5431,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 		  || TREE_CODE (t) == GIMPLE_MODIFY_STMT);
       decl = GENERIC_TREE_OPERAND (t, 0);
       gcc_assert (DECL_P (decl));
-      gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl)));
+      gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
+		  || POINTER_TYPE_P (TREE_TYPE (decl)));
 
       /* Make sure the iteration variable is private.  */
       if (omp_is_private (gimplify_omp_ctxp, decl))
@@ -5505,6 +5506,7 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 
 	      /* Fallthru.  */
 	    case MINUS_EXPR:
+	    case POINTER_PLUS_EXPR:
 	      gcc_assert (TREE_OPERAND (t, 0) == decl);
 	      TREE_OPERAND (t, 0) = var;
 	      break;

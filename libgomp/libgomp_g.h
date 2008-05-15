@@ -83,6 +83,74 @@ extern void GOMP_parallel_loop_runtime_start (void (*)(void *), void *,
 extern void GOMP_loop_end (void);
 extern void GOMP_loop_end_nowait (void);
 
+/* loop_ull.c */
+
+extern bool GOMP_loop_ull_static_start (bool, unsigned long long,
+					unsigned long long,
+					unsigned long long,
+					unsigned long long,
+					unsigned long long *,
+					unsigned long long *);
+extern bool GOMP_loop_ull_dynamic_start (bool, unsigned long long,
+					 unsigned long long,
+					 unsigned long long,
+					 unsigned long long,
+					 unsigned long long *,
+					 unsigned long long *);
+extern bool GOMP_loop_ull_guided_start (bool, unsigned long long,
+					unsigned long long,
+					unsigned long long,
+					unsigned long long,
+					unsigned long long *,
+					unsigned long long *);
+extern bool GOMP_loop_ull_runtime_start (bool, unsigned long long,
+					 unsigned long long,
+					 unsigned long long,
+					 unsigned long long *,
+					 unsigned long long *);
+
+extern bool GOMP_loop_ull_ordered_static_start (bool, unsigned long long,
+						unsigned long long,
+						unsigned long long,
+						unsigned long long,
+						unsigned long long *,
+						unsigned long long *);
+extern bool GOMP_loop_ull_ordered_dynamic_start (bool, unsigned long long,
+						 unsigned long long,
+						 unsigned long long,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+extern bool GOMP_loop_ull_ordered_guided_start (bool, unsigned long long,
+						unsigned long long,
+						unsigned long long,
+						unsigned long long,
+						unsigned long long *,
+						unsigned long long *);
+extern bool GOMP_loop_ull_ordered_runtime_start (bool, unsigned long long,
+						 unsigned long long,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+
+extern bool GOMP_loop_ull_static_next (unsigned long long *,
+				       unsigned long long *);
+extern bool GOMP_loop_ull_dynamic_next (unsigned long long *,
+					unsigned long long *);
+extern bool GOMP_loop_ull_guided_next (unsigned long long *,
+				       unsigned long long *);
+extern bool GOMP_loop_ull_runtime_next (unsigned long long *,
+					unsigned long long *);
+
+extern bool GOMP_loop_ull_ordered_static_next (unsigned long long *,
+					       unsigned long long *);
+extern bool GOMP_loop_ull_ordered_dynamic_next (unsigned long long *,
+						unsigned long long *);
+extern bool GOMP_loop_ull_ordered_guided_next (unsigned long long *,
+					       unsigned long long *);
+extern bool GOMP_loop_ull_ordered_runtime_next (unsigned long long *,
+						unsigned long long *);
+
 /* ordered.c */
 
 extern void GOMP_ordered_start (void);
