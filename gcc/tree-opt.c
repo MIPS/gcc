@@ -39,47 +39,40 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned int
 driver_push_set_options (void)
 {
+#ifdef TARGET_SPECIFIC_OPTION
   tree attrs = DECL_ATTRIBUTES (current_function_decl);
+
+#ifdef TARGET_SPECIFIC_INIT
+  TARGET_SPECIFIC_INIT ();
+#endif
+
   push_attribute_options ();
+
   if (attrs)
     {
       tree opt_attrs = lookup_attribute ("option", attrs);
+
       for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
 	{
 	  tree args = TREE_VALUE (opt_attrs);
-	  tree value = NULL_TREE;
-	  unsigned int result;
-	  const char *argv[2] = { NULL, NULL };
-	  char *modswitch = NULL;
-	  unsigned long len = 0;
-	  if (args && (value = TREE_VALUE (args)))
+
+	  for (; args; args = TREE_CHAIN (args))
 	    {
-	      argv[0] = TREE_STRING_POINTER (value);
-	      len = strlen (argv[0]);
-	      modswitch = ggc_alloc (len + 2);
-	      modswitch[0] = '-';
-	      modswitch[1] = 0;
-	      strcat (modswitch, argv[0]);
-	      argv[0] = modswitch;
-	      modswitch = NULL;
-	      args = TREE_CHAIN (args);
-	      if (args && (value = TREE_VALUE (args)))
-		argv[1] = TREE_STRING_POINTER (value);
-	      result = handle_option (argv, 0, 1);
-	      if (!result)
+	      tree value = TREE_VALUE (args);
+	      if (value)
 		{
-		  error ("unable to set option");
-		}
-	      else
-		{
-#ifdef OVERRIDE_OPTIONS
-		  /* Some machines may reject certain combinations of options.  */
-		  OVERRIDE_OPTIONS;
-#endif
+		  if (! TARGET_SPECIFIC_OPTION (TREE_STRING_POINTER (value)))
+		    error ("Invalid target specific option %s",
+			   TREE_STRING_POINTER (value));
 		}
 	    }
 	}
+
+#ifdef TARGET_SPECIFIC_PUSH
+      TARGET_SPECIFIC_PUSH ();
+#endif
     }
+#endif
   return true;
 }
 
@@ -87,10 +80,12 @@ driver_push_set_options (void)
 static unsigned int
 driver_pop_options (void)
 {
+#ifdef TARGET_SPECIFIC_OPTION
   pop_attribute_options ();
-#ifdef OVERRIDE_OPTIONS
-  /* Some machines may reject certain combinations of options.  */
-  OVERRIDE_OPTIONS;
+
+#ifdef TARGET_SPECIFIC_POP
+  TARGET_SPECIFIC_POP ();
+#endif
 #endif
   return true;
 }

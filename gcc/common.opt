@@ -271,18 +271,18 @@ fabi-version=
 Common Joined UInteger Var(flag_abi_version) Init(2)
 
 falign-functions
-Common Report Var(align_functions,0)
+Common Report Var(align_functions,0) Attribute
 Align the start of functions
 
 falign-functions=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Attribute
 
 falign-jumps
-Common Report Var(align_jumps,0) Optimization
+Common Report Var(align_jumps,0) Optimization Attribute
 Align labels which are only reached by jumping
 
 falign-jumps=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Attribute
 
 falign-labels
 Common Report Var(align_labels,0) Optimization
@@ -292,11 +292,11 @@ falign-labels=
 Common RejectNegative Joined UInteger
 
 falign-loops
-Common Report Var(align_loops) Optimization
+Common Report Var(align_loops) Optimization Attribute
 Align the start of loops
 
 falign-loops=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Attribute
 
 ; This flag is only tested if alias checking is enabled.
 ; 0 if pointer arguments may alias each other.  True in C.

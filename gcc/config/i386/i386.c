@@ -1210,250 +1210,10 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
 /* Feature tests against the various tunings.  */
-unsigned int ix86_tune_features[X86_TUNE_LAST] = {
-  /* X86_TUNE_USE_LEAVE: Leave does not affect Nocona SPEC2000 results
-     negatively, so enabling for Generic64 seems like good code size
-     tradeoff.  We can't enable it for 32bit generic because it does not
-     work well with PPro base chips.  */
-  m_386 | m_K6_GEODE | m_AMD_MULTIPLE | m_CORE2 | m_GENERIC64,
-
-  /* X86_TUNE_PUSH_MEMORY */
-  m_386 | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4
-  | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_ZERO_EXTEND_WITH_AND */
-  m_486 | m_PENT,
-
-  /* X86_TUNE_USE_BIT_TEST */
-  m_386,
-
-  /* X86_TUNE_UNROLL_STRLEN */
-  m_486 | m_PENT | m_PPRO | m_AMD_MULTIPLE | m_K6 | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_DEEP_BRANCH_PREDICTION */
-  m_PPRO | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4 | m_GENERIC,
-
-  /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
-     on simulation result. But after P4 was made, no performance benefit
-     was observed with branch hints.  It also increases the code size.
-     As a result, icc never generates branch hints.  */
-  0,
-
-  /* X86_TUNE_DOUBLE_WITH_ADD */
-  ~m_386,
-
-  /* X86_TUNE_USE_SAHF */
-  m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
-  | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
-     partial dependencies.  */
-  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA
-  | m_CORE2 | m_GENERIC | m_GEODE /* m_386 | m_K6 */,
-
-  /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
-     register stalls on Generic32 compilation setting as well.  However
-     in current implementation the partial register stalls are not eliminated
-     very well - they can be introduced via subregs synthesized by combine
-     and can happen in caller/callee saving sequences.  Because this option
-     pays back little on PPro based chips and is in conflict with partial reg
-     dependencies used by Athlon/P4 based chips, it is better to leave it off
-     for generic32 for now.  */
-  m_PPRO,
-
-  /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
-  m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_USE_HIMODE_FIOP */
-  m_386 | m_486 | m_K6_GEODE,
-
-  /* X86_TUNE_USE_SIMODE_FIOP */
-  ~(m_PPRO | m_AMD_MULTIPLE | m_PENT | m_CORE2 | m_GENERIC),
-
-  /* X86_TUNE_USE_MOV0 */
-  m_K6,
-
-  /* X86_TUNE_USE_CLTD */
-  ~(m_PENT | m_K6 | m_CORE2 | m_GENERIC),
-
-  /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
-  m_PENT4,
-
-  /* X86_TUNE_SPLIT_LONG_MOVES */
-  m_PPRO,
-
-  /* X86_TUNE_READ_MODIFY_WRITE */
-  ~m_PENT,
-
-  /* X86_TUNE_READ_MODIFY */
-  ~(m_PENT | m_PPRO),
-
-  /* X86_TUNE_PROMOTE_QIMODE */
-  m_K6_GEODE | m_PENT | m_386 | m_486 | m_AMD_MULTIPLE | m_CORE2
-  | m_GENERIC /* | m_PENT4 ? */,
-
-  /* X86_TUNE_FAST_PREFIX */
-  ~(m_PENT | m_486 | m_386),
-
-  /* X86_TUNE_SINGLE_STRINGOP */
-  m_386 | m_PENT4 | m_NOCONA,
-
-  /* X86_TUNE_QIMODE_MATH */
-  ~0,
-
-  /* X86_TUNE_HIMODE_MATH: On PPro this flag is meant to avoid partial
-     register stalls.  Just like X86_TUNE_PARTIAL_REG_STALL this option
-     might be considered for Generic32 if our scheme for avoiding partial
-     stalls was more effective.  */
-  ~m_PPRO,
-
-  /* X86_TUNE_PROMOTE_QI_REGS */
-  0,
-
-  /* X86_TUNE_PROMOTE_HI_REGS */
-  m_PPRO,
-
-  /* X86_TUNE_ADD_ESP_4: Enable if add/sub is preferred over 1/2 push/pop.  */
-  m_AMD_MULTIPLE | m_K6_GEODE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_ADD_ESP_8 */
-  m_AMD_MULTIPLE | m_PPRO | m_K6_GEODE | m_386
-  | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SUB_ESP_4 */
-  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SUB_ESP_8 */
-  m_AMD_MULTIPLE | m_PPRO | m_386 | m_486
-  | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
-     for DFmode copies */
-  ~(m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
-    | m_GENERIC | m_GEODE),
-
-  /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
-  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
-     conflict here in between PPro/Pentium4 based chips that thread 128bit
-     SSE registers as single units versus K8 based chips that divide SSE
-     registers to two 64bit halves.  This knob promotes all store destinations
-     to be 128bit to allow register renaming on 128bit SSE units, but usually
-     results in one extra microop on 64bit SSE units.  Experimental results
-     shows that disabling this option on P4 brings over 20% SPECfp regression,
-     while enabling it on K8 brings roughly 2.4% regression that can be partly
-     masked by careful scheduling of moves.  */
-  m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC | m_AMDFAM10,
-
-  /* X86_TUNE_SSE_UNALIGNED_MOVE_OPTIMAL */
-  m_AMDFAM10,
-
-  /* X86_TUNE_SSE_SPLIT_REGS: Set for machines where the type and dependencies
-     are resolved on SSE register parts instead of whole registers, so we may
-     maintain just lower part of scalar values in proper format leaving the
-     upper part undefined.  */
-  m_ATHLON_K8,
-
-  /* X86_TUNE_SSE_TYPELESS_STORES */
-  m_AMD_MULTIPLE,
-
-  /* X86_TUNE_SSE_LOAD0_BY_PXOR */
-  m_PPRO | m_PENT4 | m_NOCONA,
-
-  /* X86_TUNE_MEMORY_MISMATCH_STALL */
-  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_PROLOGUE_USING_MOVE */
-  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_EPILOGUE_USING_MOVE */
-  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SHIFT1 */
-  ~m_486,
-
-  /* X86_TUNE_USE_FFREEP */
-  m_AMD_MULTIPLE,
-
-  /* X86_TUNE_INTER_UNIT_MOVES */
-  ~(m_AMD_MULTIPLE | m_GENERIC),
-
-  /* X86_TUNE_INTER_UNIT_CONVERSIONS */
-  ~(m_AMDFAM10),
-
-  /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
-     than 4 branch instructions in the 16 byte window.  */
-  m_PPRO | m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SCHEDULE */
-  m_PPRO | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_USE_BT */
-  m_AMD_MULTIPLE,
-
-  /* X86_TUNE_USE_INCDEC */
-  ~(m_PENT4 | m_NOCONA | m_GENERIC),
-
-  /* X86_TUNE_PAD_RETURNS */
-  m_AMD_MULTIPLE | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_EXT_80387_CONSTANTS */
-  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC,
-
-  /* X86_TUNE_SHORTEN_X87_SSE */
-  ~m_K8,
-
-  /* X86_TUNE_AVOID_VECTOR_DECODE */
-  m_K8 | m_GENERIC64,
-
-  /* X86_TUNE_PROMOTE_HIMODE_IMUL: Modern CPUs have same latency for HImode
-     and SImode multiply, but 386 and 486 do HImode multiply faster.  */
-  ~(m_386 | m_486),
-
-  /* X86_TUNE_SLOW_IMUL_IMM32_MEM: Imul of 32-bit constant and memory is
-     vector path on AMD machines.  */
-  m_K8 | m_GENERIC64 | m_AMDFAM10,
-
-  /* X86_TUNE_SLOW_IMUL_IMM8: Imul of 8-bit constant is vector path on AMD
-     machines.  */
-  m_K8 | m_GENERIC64 | m_AMDFAM10,
-
-  /* X86_TUNE_MOVE_M1_VIA_OR: On pentiums, it is faster to load -1 via OR
-     than a MOV.  */
-  m_PENT,
-
-  /* X86_TUNE_NOT_UNPAIRABLE: NOT is not pairable on Pentium, while XOR is,
-     but one byte longer.  */
-  m_PENT,
-
-  /* X86_TUNE_NOT_VECTORMODE: On AMD K6, NOT is vector decoded with memory
-     operand that cannot be represented using a modRM byte.  The XOR
-     replacement is long decoded, so this split helps here as well.  */
-  m_K6,
-
-  /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
-     from integer to FP. */
-  m_AMDFAM10,
-};
+unsigned int ix86_tune_features[X86_TUNE_LAST];
 
 /* Feature tests against the various architecture variations.  */
-unsigned int ix86_arch_features[X86_ARCH_LAST] = {
-  /* X86_ARCH_CMOVE: Conditional move was added for pentiumpro.  */
-  ~(m_386 | m_486 | m_PENT | m_K6),
-
-  /* X86_ARCH_CMPXCHG: Compare and exchange was added for 80486.  */
-  ~m_386,
-
-  /* X86_ARCH_CMPXCHG8B: Compare and exchange 8 bytes was added for pentium. */
-  ~(m_386 | m_486),
-
-  /* X86_ARCH_XADD: Exchange and add was added for 80486.  */
-  ~m_386,
-
-  /* X86_ARCH_BSWAP: Byteswap was added for 80486.  */
-  ~m_386,
-};
+unsigned int ix86_arch_features[X86_ARCH_LAST];
 
 static const unsigned int x86_accumulate_outgoing_args
   = m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC;
@@ -1832,6 +1592,28 @@ tree (*ix86_veclib_handler)(enum built_in_function, tree, tree) = NULL;
 static tree ix86_veclibabi_svml (enum built_in_function, tree, tree);
 static tree ix86_veclibabi_acml (enum built_in_function, tree, tree);
 
+/* List of all of the string opts to be saved and restored for target specific
+   option handling.  */
+#define INIT_STRING_OPS(OPT, VAR) { OPT, &VAR, sizeof (OPT)-1 }
+
+static struct
+{
+  const char *option;
+  const char **string_var;
+  size_t len;
+} ix86_string_ops[] = {
+  INIT_STRING_OPS ("mtune=", ix86_tune_string),
+  INIT_STRING_OPS ("march=", ix86_arch_string),
+  INIT_STRING_OPS ("mstring-op-strategy=", ix86_stringop_string),
+};
+
+/* Save list to restore string ops.  */
+static struct ix86_save_string_ops
+{
+  struct ix86_save_string_ops *prev;
+  const char *options[ sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]) ];
+} *ix86_prev_string_ops = NULL;
+
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
@@ -1997,12 +1779,256 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 void
-override_options (void)
+override_options (bool first_time ATTRIBUTE_UNUSED)
 {
   int i;
   int ix86_tune_defaulted = 0;
   int ix86_arch_specified = 0;
   unsigned int ix86_arch_mask, ix86_tune_mask;
+
+  unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
+  /* X86_TUNE_USE_LEAVE: Leave does not affect Nocona SPEC2000 results
+     negatively, so enabling for Generic64 seems like good code size
+     tradeoff.  We can't enable it for 32bit generic because it does not
+     work well with PPro base chips.  */
+  m_386 | m_K6_GEODE | m_AMD_MULTIPLE | m_CORE2 | m_GENERIC64,
+
+  /* X86_TUNE_PUSH_MEMORY */
+  m_386 | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4
+  | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_ZERO_EXTEND_WITH_AND */
+  m_486 | m_PENT,
+
+  /* X86_TUNE_USE_BIT_TEST */
+  m_386,
+
+  /* X86_TUNE_UNROLL_STRLEN */
+  m_486 | m_PENT | m_PPRO | m_AMD_MULTIPLE | m_K6 | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_DEEP_BRANCH_PREDICTION */
+  m_PPRO | m_K6_GEODE | m_AMD_MULTIPLE | m_PENT4 | m_GENERIC,
+
+  /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
+     on simulation result. But after P4 was made, no performance benefit
+     was observed with branch hints.  It also increases the code size.
+     As a result, icc never generates branch hints.  */
+  0,
+
+  /* X86_TUNE_DOUBLE_WITH_ADD */
+  ~m_386,
+
+  /* X86_TUNE_USE_SAHF */
+  m_PPRO | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_PENT4
+  | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
+     partial dependencies.  */
+  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA
+  | m_CORE2 | m_GENERIC | m_GEODE /* m_386 | m_K6 */,
+
+  /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
+     register stalls on Generic32 compilation setting as well.  However
+     in current implementation the partial register stalls are not eliminated
+     very well - they can be introduced via subregs synthesized by combine
+     and can happen in caller/callee saving sequences.  Because this option
+     pays back little on PPro based chips and is in conflict with partial reg
+     dependencies used by Athlon/P4 based chips, it is better to leave it off
+     for generic32 for now.  */
+  m_PPRO,
+
+  /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
+  m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_USE_HIMODE_FIOP */
+  m_386 | m_486 | m_K6_GEODE,
+
+  /* X86_TUNE_USE_SIMODE_FIOP */
+  ~(m_PPRO | m_AMD_MULTIPLE | m_PENT | m_CORE2 | m_GENERIC),
+
+  /* X86_TUNE_USE_MOV0 */
+  m_K6,
+
+  /* X86_TUNE_USE_CLTD */
+  ~(m_PENT | m_K6 | m_CORE2 | m_GENERIC),
+
+  /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
+  m_PENT4,
+
+  /* X86_TUNE_SPLIT_LONG_MOVES */
+  m_PPRO,
+
+  /* X86_TUNE_READ_MODIFY_WRITE */
+  ~m_PENT,
+
+  /* X86_TUNE_READ_MODIFY */
+  ~(m_PENT | m_PPRO),
+
+  /* X86_TUNE_PROMOTE_QIMODE */
+  m_K6_GEODE | m_PENT | m_386 | m_486 | m_AMD_MULTIPLE | m_CORE2
+  | m_GENERIC /* | m_PENT4 ? */,
+
+  /* X86_TUNE_FAST_PREFIX */
+  ~(m_PENT | m_486 | m_386),
+
+  /* X86_TUNE_SINGLE_STRINGOP */
+  m_386 | m_PENT4 | m_NOCONA,
+
+  /* X86_TUNE_QIMODE_MATH */
+  ~0,
+
+  /* X86_TUNE_HIMODE_MATH: On PPro this flag is meant to avoid partial
+     register stalls.  Just like X86_TUNE_PARTIAL_REG_STALL this option
+     might be considered for Generic32 if our scheme for avoiding partial
+     stalls was more effective.  */
+  ~m_PPRO,
+
+  /* X86_TUNE_PROMOTE_QI_REGS */
+  0,
+
+  /* X86_TUNE_PROMOTE_HI_REGS */
+  m_PPRO,
+
+  /* X86_TUNE_ADD_ESP_4: Enable if add/sub is preferred over 1/2 push/pop.  */
+  m_AMD_MULTIPLE | m_K6_GEODE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_ADD_ESP_8 */
+  m_AMD_MULTIPLE | m_PPRO | m_K6_GEODE | m_386
+  | m_486 | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SUB_ESP_4 */
+  m_AMD_MULTIPLE | m_PPRO | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SUB_ESP_8 */
+  m_AMD_MULTIPLE | m_PPRO | m_386 | m_486
+  | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
+     for DFmode copies */
+  ~(m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2
+    | m_GENERIC | m_GEODE),
+
+  /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
+  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
+     conflict here in between PPro/Pentium4 based chips that thread 128bit
+     SSE registers as single units versus K8 based chips that divide SSE
+     registers to two 64bit halves.  This knob promotes all store destinations
+     to be 128bit to allow register renaming on 128bit SSE units, but usually
+     results in one extra microop on 64bit SSE units.  Experimental results
+     shows that disabling this option on P4 brings over 20% SPECfp regression,
+     while enabling it on K8 brings roughly 2.4% regression that can be partly
+     masked by careful scheduling of moves.  */
+  m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC | m_AMDFAM10,
+
+  /* X86_TUNE_SSE_UNALIGNED_MOVE_OPTIMAL */
+  m_AMDFAM10,
+
+  /* X86_TUNE_SSE_SPLIT_REGS: Set for machines where the type and dependencies
+     are resolved on SSE register parts instead of whole registers, so we may
+     maintain just lower part of scalar values in proper format leaving the
+     upper part undefined.  */
+  m_ATHLON_K8,
+
+  /* X86_TUNE_SSE_TYPELESS_STORES */
+  m_AMD_MULTIPLE,
+
+  /* X86_TUNE_SSE_LOAD0_BY_PXOR */
+  m_PPRO | m_PENT4 | m_NOCONA,
+
+  /* X86_TUNE_MEMORY_MISMATCH_STALL */
+  m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_PROLOGUE_USING_MOVE */
+  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_EPILOGUE_USING_MOVE */
+  m_ATHLON_K8 | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SHIFT1 */
+  ~m_486,
+
+  /* X86_TUNE_USE_FFREEP */
+  m_AMD_MULTIPLE,
+
+  /* X86_TUNE_INTER_UNIT_MOVES */
+  ~(m_AMD_MULTIPLE | m_GENERIC),
+
+  /* X86_TUNE_INTER_UNIT_CONVERSIONS */
+  ~(m_AMDFAM10),
+
+  /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
+     than 4 branch instructions in the 16 byte window.  */
+  m_PPRO | m_AMD_MULTIPLE | m_PENT4 | m_NOCONA | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SCHEDULE */
+  m_PPRO | m_AMD_MULTIPLE | m_K6_GEODE | m_PENT | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_USE_BT */
+  m_AMD_MULTIPLE,
+
+  /* X86_TUNE_USE_INCDEC */
+  ~(m_PENT4 | m_NOCONA | m_GENERIC),
+
+  /* X86_TUNE_PAD_RETURNS */
+  m_AMD_MULTIPLE | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_EXT_80387_CONSTANTS */
+  m_K6_GEODE | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_CORE2 | m_GENERIC,
+
+  /* X86_TUNE_SHORTEN_X87_SSE */
+  ~m_K8,
+
+  /* X86_TUNE_AVOID_VECTOR_DECODE */
+  m_K8 | m_GENERIC64,
+
+  /* X86_TUNE_PROMOTE_HIMODE_IMUL: Modern CPUs have same latency for HImode
+     and SImode multiply, but 386 and 486 do HImode multiply faster.  */
+  ~(m_386 | m_486),
+
+  /* X86_TUNE_SLOW_IMUL_IMM32_MEM: Imul of 32-bit constant and memory is
+     vector path on AMD machines.  */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_SLOW_IMUL_IMM8: Imul of 8-bit constant is vector path on AMD
+     machines.  */
+  m_K8 | m_GENERIC64 | m_AMDFAM10,
+
+  /* X86_TUNE_MOVE_M1_VIA_OR: On pentiums, it is faster to load -1 via OR
+     than a MOV.  */
+  m_PENT,
+
+  /* X86_TUNE_NOT_UNPAIRABLE: NOT is not pairable on Pentium, while XOR is,
+     but one byte longer.  */
+  m_PENT,
+
+  /* X86_TUNE_NOT_VECTORMODE: On AMD K6, NOT is vector decoded with memory
+     operand that cannot be represented using a modRM byte.  The XOR
+     replacement is long decoded, so this split helps here as well.  */
+  m_K6,
+
+  /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
+     from integer to FP. */
+  m_AMDFAM10,
+  };
+
+  unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
+  /* X86_ARCH_CMOVE: Conditional move was added for pentiumpro.  */
+  ~(m_386 | m_486 | m_PENT | m_K6),
+
+  /* X86_ARCH_CMPXCHG: Compare and exchange was added for 80486.  */
+  ~m_386,
+
+  /* X86_ARCH_CMPXCHG8B: Compare and exchange 8 bytes was added for pentium. */
+  ~(m_386 | m_486),
+
+  /* X86_ARCH_XADD: Exchange and add was added for 80486.  */
+  ~m_386,
+
+  /* X86_ARCH_BSWAP: Byteswap was added for 80486.  */
+  ~m_386,
+  };
 
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
@@ -2177,6 +2203,9 @@ override_options (void)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
+#ifdef DEBUG_TARGET_SPECIFIC
+  fprintf (stderr, "override_options, arch = '%s', tune = '%s'\n", ix86_arch_string, ix86_tune_string);
+#endif
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -2184,6 +2213,9 @@ override_options (void)
 #ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
   SUBSUBTARGET_OVERRIDE_OPTIONS;
 #endif
+
+  memcpy(ix86_tune_features, initial_ix86_tune_features, sizeof(initial_ix86_tune_features));
+  memcpy(ix86_arch_features, initial_ix86_arch_features, sizeof(initial_ix86_arch_features));
 
   /* -fPIC is the default for x86_64.  */
   if (TARGET_MACHO && TARGET_64BIT)
@@ -2286,7 +2318,7 @@ override_options (void)
   else if ((strcmp (ix86_arch_string, "generic64") || !TARGET_64BIT)
 	   && strcmp (ix86_arch_string, "generic32")
 	   && !strncmp (ix86_arch_string, "generic", 7))
-    error ("bad value (%s) for -march= switch", ix86_tune_string);
+    error ("bad value (%s) for -march= switch", ix86_arch_string);
 
   if (ix86_cmodel_string != 0)
     {
@@ -2334,6 +2366,12 @@ override_options (void)
   if ((TARGET_64BIT != 0) != ((ix86_isa_flags & OPTION_MASK_ISA_64BIT) != 0))
     sorry ("%i-bit mode not compiled in",
 	   (ix86_isa_flags & OPTION_MASK_ISA_64BIT) ? 64 : 32);
+
+  x86_abm = false;
+  x86_cmpxchg16b = false;
+  x86_popcnt = false;
+  x86_prefetch_sse = false;
+  x86_sahf = false;
 
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_arch_string, processor_alias_table[i].name))
@@ -2471,47 +2509,42 @@ override_options (void)
   if (TARGET_64BIT)
     ix86_regparm = REGPARM_MAX;
 
+  align_loops=0;
+  align_jumps=0;
+  align_functions=0;
+
   /* If the user has provided any of the -malign-* options,
      warn and use that value only if -falign-* is not set.
      Remove this code in GCC 3.2 or later.  */
   if (ix86_align_loops_string)
     {
       warning (0, "-malign-loops is obsolete, use -falign-loops");
-      if (align_loops == 0)
-	{
-	  i = atoi (ix86_align_loops_string);
-	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
-	  else
-	    align_loops = 1 << i;
-	}
+      i = atoi (ix86_align_loops_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+        error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+      else
+        align_loops = 1 << i;
     }
 
   if (ix86_align_jumps_string)
     {
       warning (0, "-malign-jumps is obsolete, use -falign-jumps");
-      if (align_jumps == 0)
-	{
-	  i = atoi (ix86_align_jumps_string);
-	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
-	  else
-	    align_jumps = 1 << i;
-	}
+      i = atoi (ix86_align_jumps_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+        error ("-malign-jumps=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+      else
+        align_jumps = 1 << i;
     }
 
   if (ix86_align_funcs_string)
     {
       warning (0, "-malign-functions is obsolete, use -falign-functions");
-      if (align_functions == 0)
-	{
-	  i = atoi (ix86_align_funcs_string);
-	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
-	  else
-	    align_functions = 1 << i;
-	}
-    }
+      i = atoi (ix86_align_funcs_string);
+      if (i < 0 || i > MAX_CODE_ALIGN)
+        error ("-malign-functions=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+      else
+        align_functions = 1 << i;
+   }
 
   /* Default align_* from the processor table.  */
   if (align_loops == 0)
@@ -2732,6 +2765,8 @@ override_options (void)
       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
+  TARGET_CMOVE = 0;
+
   /* For sane SSE instruction set generation we need fcomi instruction.
      It is safe to enable all CMOVE instructions.  */
   if (TARGET_SSE)
@@ -2766,6 +2801,148 @@ override_options (void)
   if (!TARGET_64BIT || TARGET_64BIT_MS_ABI)
     targetm.expand_builtin_va_start = NULL;
 }
+
+
+/* Hook to tell the backend that we are about to set target specific
+   options.  On the x86, we want to preserve the state of all of the
+   various string options.  */
+
+void
+ix86_target_specific_init (void)
+{
+  unsigned i;
+  struct ix86_save_string_ops *ops
+    = xcalloc (sizeof (struct ix86_save_string_ops), 1);
+
+#ifdef DEBUG_TARGET_SPECIFIC
+  fprintf (stderr, "ix86_target_specific_init:\n");
+#endif
+  ops->prev = ix86_prev_string_ops;
+  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
+    {
+#ifdef DEBUG_TARGET_SPECIFIC
+      fprintf (stderr, "\t%-32s addr = 0x%.8lx value = %s\n",
+	       ix86_string_ops[i].option,
+	       (long) ix86_string_ops[i].string_var,
+	       *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "NULL");
+#endif
+      ops->options[i] = *ix86_string_ops[i].string_var;
+    }
+}
+
+
+/* Hook to be passed the target specific options that are being changed.  */
+
+bool
+ix86_target_specific_option (const char *arg)
+{
+  const char *argv[2];
+  size_t len = strlen (arg);
+  char *new_arg = alloca (len + 2);
+  unsigned i;
+
+  *new_arg = '-';
+  strcpy (new_arg+1, arg);
+  argv[0] = new_arg;
+  argv[1] = NULL;
+
+#ifdef DEBUG_TARGET_SPECIFIC
+  fprintf (stderr, "ix86_target_specific_option: %s\n", new_arg);
+#endif
+
+  /* See if this is one of the string options */
+  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
+    {
+      size_t slen = ix86_string_ops[i].len;
+      if (len > slen && memcmp (arg, ix86_string_ops[i].option, slen) == 0)
+	{
+#ifdef DEBUG_TARGET_SPECIFIC
+	  fprintf (stderr, "\treset 0x%.8lx to '%s' (was '%s')\n",
+		   (long)ix86_string_ops[i].string_var,
+		   arg + slen,
+		   *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "<NULL>");
+#endif
+
+	  *ix86_string_ops[i].string_var = ggc_strdup (arg + slen);
+	  break;
+	}
+    }
+
+  if (! handle_option (argv, 0, 1))
+    {
+#ifdef DEBUG_TARGET_SPECIFIC
+      fprintf (stderr, "\tfailed\n");
+#endif
+      return false;
+    }
+
+  return true;
+}
+
+
+/* Hook that is called to after changing the options specific in
+   ix86_target_specific_option.  */
+
+void
+ix86_target_specific_push (void)
+{
+  unsigned i;
+
+#ifdef DEBUG_TARGET_SPECIFIC
+  fprintf (stderr, "ix86_target_specific_push\n");
+#endif
+  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
+    {
+#ifdef DEBUG_TARGET_SPECIFIC
+      fprintf (stderr, "\t%-32s addr = 0x%.8lx value = '%s'\n",
+	       ix86_string_ops[i].option,
+	       (long) ix86_string_ops[i].string_var,
+	       *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "<NULL>");
+#endif
+    }
+
+  override_options (false);
+}
+
+
+/* Hook that is called to after popping the options from a target specific set
+   of options.  */
+
+void
+ix86_target_specific_pop (void)
+{
+  unsigned i;
+
+#ifdef DEBUG_TARGET_SPECIFIC
+  fprintf (stderr, "ix86_target_specific_pop\n");
+#endif
+
+  /* Reset the string variables */
+  if (ix86_prev_string_ops)
+    {
+      struct ix86_save_string_ops *p = ix86_prev_string_ops;
+      ix86_prev_string_ops = p->prev;
+
+      for (i = 0;
+	   i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]);
+	   i++)
+	{
+#ifdef DEBUG_TARGET_SPECIFIC
+	  fprintf (stderr, "\t%-32s addr = 0x%.8lx value = '%s'\n",
+		   ix86_string_ops[i].option,
+		   (long) ix86_string_ops[i].string_var,
+		   p->options[i] ? p->options[i] : "<NULL>");
+#endif
+
+	  *ix86_string_ops[i].string_var = p->options[i];
+	}
+
+      free (p);
+    }
+
+  override_options (false);
+}
+
 
 /* Return true if this goes in large data/bss.  */
 

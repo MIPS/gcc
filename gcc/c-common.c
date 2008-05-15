@@ -617,9 +617,11 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_unused_attribute },
   { "externally_visible",     0, 0, true,  false, false,
 			      handle_externally_visible_attribute },
-  /* For handling options specific to GCC.  */
-  { "option",                 1, 2, true, false, false, /* XXX FIXME */
+#ifdef TARGET_SPECIFIC_OPTION
+  /* For handling options specific to a specific function.  */
+  { "option",                 1, -1, true, false, false, /* XXX FIXME */
 			      handle_option_attribute },
+#endif
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute },

@@ -20,7 +20,11 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Functions in i386.c */
-extern void override_options (void);
+extern bool ix86_target_specific_option (const char *);
+extern void ix86_target_specific_init (void);
+extern void ix86_target_specific_push (void);
+extern void ix86_target_specific_pop (void);
+extern void override_options (bool);
 extern void optimization_options (int, int);
 
 extern int ix86_can_use_return_insn_p (void);

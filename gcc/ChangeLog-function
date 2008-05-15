@@ -1,3 +1,50 @@
+2008-05-15  Michael Meissner  <michael.meissner@amd.com>
+	    Karthik Kumar  <karthikkumar@gmail.com>
+
+	* tree-opt.c (driver_push_set_options): Require the backend to
+	define TARGET_SPECIFIC_OPTION to enable target specific
+	optimization.  Use TARGET_SPECIFIC_* hooks from the back end.
+	(driver_pop_options): Ditto.
+
+	* common.opt (falign-functions): Add attribute to option.
+	(falign-jumps): Ditto.
+	(falign-loops): Ditto.
+
+	* c-common.c (c_common_attribute_table): Add option attribute only
+	if backend defines TARGET_SPECIFIC_OPTION.
+
+	* config/i386/i386.h (OVERRIDE_OPTIONS): Add argument to say this
+	is the first call.
+	(TARGET_SPECIFIC_INIT): Define backend hook.
+	(TARGET_SPECIFIC_OPTION): Ditto.
+	(TARGET_SPECIFIC_PUSH): Ditto.
+	(TARGET_SPECIFIC_POP): Ditto.
+
+	* config/i386/i386-protos.h (ix86_target_specific_option): New
+	declaration for target specific option support.
+	(ix86_target_specific_init): Ditto.
+	(ix86_target_specific_push): Ditto.
+	(ix86_target_specific_pop): Ditto.
+	(override_option): Take an argument to say whether it is the
+	global call or from target specific options.
+
+	* config/i386/i386.c (ix86_tune_features): Move initialization
+	into override_options.  XXX -- fix this.
+	(ix86_string_ops): New variable to list -m<xxx>= options.
+	(ix86_save_string_ops): New structure to allow string opts to be
+	saved, restored.
+	(ix86_prev_string_ops): Stack of previous string ops.
+	(override_options): Move initialization of ix86_tune_features
+	here.  Add argument for being called a second time.
+	(ix86_target_specific_init): New hook for target specific support.
+	(ix86_target_specific_init): Ditto.
+	(ix86_target_specific_push): Ditto.
+	(ix86_target_specific_pop): Ditto.
+
+2008-05-15  Michael Meissner  <michael.meissner@amd.com>
+
+	* Sync up to 135377.
+
 2008-04-23  Michael Meissner  <michael.meissner@amd.com>
 
 	* tree-pass.h (pass_push_set_options): Switch to rtl_opt_pass.
