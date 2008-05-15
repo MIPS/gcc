@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Functions in i386.c */
-extern void ix86_target_specific_push (int, const char **);
+extern bool ix86_target_specific_push (int, const char **);
 extern void ix86_target_specific_pop (void);
 extern void override_options (bool);
 extern void optimization_options (int, int);

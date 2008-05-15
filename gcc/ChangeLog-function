@@ -7,6 +7,7 @@
 	* target-def.h (TARGET_TARGET_SPECIFIC_PUSH): New macro for
 	backend hook for target specific options.
 	(TARGET_TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_TARGET_SPECIFIC_CAN_INLINE_P): Ditto.
 	(TARGET_TARGET_SPECIFIC): Ditto.
 	(TARGET_INITIALIZER): Add TARGET_TARGET_SPECIFIC.
 
@@ -15,7 +16,8 @@
 	(driver_pop_options): Ditto.
 
 	* c-common.c (handle_option_attribute): Give an error if the
-	machine doesn't support target specific options.
+	machine doesn't support target specific options.  Parse the
+	options when declared by doing push/pop.
 
 	* config/i386/i386.h (TARGET_TARGET_SPECIFIC_PUSH): Define target
 	specific backend hooks.

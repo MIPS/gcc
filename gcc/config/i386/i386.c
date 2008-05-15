@@ -2818,7 +2818,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 /* Hook to be passed all of the target specific options that are being
    changed.  */
 
-void
+bool
 ix86_target_specific_push (int argc, const char **argv)
 {
   int i;
@@ -2869,12 +2869,16 @@ ix86_target_specific_push (int argc, const char **argv)
 	}
     }
 
-  if (handle_option (new_argv, 0, 1))
-    override_options (false);
+  if (! handle_option (new_argv, 0, 1))
+    {
 #ifdef DEBUG_TARGET_SPECIFIC
-  else
-    fputs ("\tfailed\n", stderr);
+      fputs ("\tfailed\n", stderr);
 #endif
+      return false;
+    }
+
+  override_options (false);
+  return true;
 }
 
 

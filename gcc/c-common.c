@@ -5085,7 +5085,7 @@ handle_externally_visible_attribute (tree *pnode, tree name,
 static tree
 handle_option_attribute (tree *node,
 			 tree ARG_UNUSED (name),
-			 tree ARG_UNUSED (args),
+			 tree args,
 			 int ARG_UNUSED (flags),
 			 bool *no_add_attrs)
 {
@@ -5099,6 +5099,41 @@ handle_option_attribute (tree *node,
     {
       error ("option attribute is not supported on this machine");
       *no_add_attrs = true;
+    }
+  else
+    {
+      tree args2;
+      int max_argc = 0;
+      int argc = 0;
+      const char **argv;
+      bool ok_p;
+
+      /* Validate the options by doing a push and then a pop.  Assume the
+	 backend generates the appropriate messages.  */
+
+	  /* Count the number of arguments */
+      for (args2 = args; args2; args2 = TREE_CHAIN (args2))
+	{
+	  if (TREE_VALUE (args2))
+	    max_argc++;
+	}
+
+      argv = (const char **) alloca (sizeof (char *) * (max_argc + 1));
+
+      /* Fill in the arguments */
+      for (args2 = args; args2; args2 = TREE_CHAIN (args2))
+	{
+	  if (TREE_VALUE (args2))
+	    argv[argc++] = TREE_STRING_POINTER (TREE_VALUE (args2));
+	}
+
+      argv[argc] = NULL;
+      push_attribute_options ();
+      ok_p = targetm.target_specific.push_options (argc, argv);
+      pop_attribute_options ();
+      targetm.target_specific.pop_options ();
+      if (! ok_p)
+	*no_add_attrs = true;
     }
 
   return NULL_TREE;
