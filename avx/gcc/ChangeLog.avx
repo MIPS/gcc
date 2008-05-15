@@ -1,3 +1,25 @@
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_cvtsi2sd): Put prefix attribute
+	before mode attribute.
+	(*avx_cvtsi2sdq): Likewise.
+	(avx_unpckhps256): Likewise.
+	(*avx_unpckhps): Likewise.
+	(avx_unpcklps256): Likewise.
+	(*avx_unpcklps): Likewise.
+	(avx_movshdup256): Likewise.
+	(avx_movsldup256): Likewise.
+	(*avx_shufps_1): Likewise.
+	(*avx_movss): Likewise.
+	(*vec_concatv4sf_avx): Likewise.
+	(avx_unpckhpd256): Likewise.
+	(avx_unpcklpd256): Likewise.
+	(*avx_unpcklpd): Likewise.
+	(*avx_shufpd_1): Likewise.
+	(*avx_movsd): Likewise.
+	(*vec_concatv2df_avx): Likewise.
+	(*vec_concat<mode>_avx): Likewise.
+
 2008-05-15  Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* config/i386/sse.md (*avx_addsubv4sf3): New.

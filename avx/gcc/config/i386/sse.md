@@ -2347,8 +2347,8 @@
   "TARGET_AVX"
   "vcvtsi2sd\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseicvt")
-   (set_attr "mode" "DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "DF")])
 
 (define_insn "sse2_cvtsi2sd"
   [(set (match_operand:V2DF 0 "register_operand" "=x,x")
@@ -2374,8 +2374,8 @@
   "TARGET_AVX && TARGET_64BIT"
   "vcvtsi2sdq\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseicvt")
-   (set_attr "mode" "DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "DF")])
 
 (define_insn "sse2_cvtsi2sdq"
   [(set (match_operand:V2DF 0 "register_operand" "=x,x")
@@ -2963,8 +2963,8 @@
   "TARGET_AVX"
   "vunpckhps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V8SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V8SF")])
 
 (define_insn "*avx_unpckhps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -2977,8 +2977,8 @@
   "TARGET_AVX"
   "vunpckhps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V4SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF")])
 
 (define_insn "sse_unpckhps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3006,8 +3006,8 @@
   "TARGET_AVX"
   "vunpcklps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V8SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V8SF")])
 
 (define_insn "*avx_unpcklps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3020,8 +3020,8 @@
   "TARGET_AVX"
   "vunpcklps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V4SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF")])
 
 (define_insn "sse_unpcklps"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3051,8 +3051,8 @@
   "TARGET_AVX"
   "vmovshdup\t{%1, %0|%0, %1}"
   [(set_attr "type" "sse")
-   (set_attr "mode" "V8SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V8SF")])
 
 (define_insn "sse3_movshdup"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3085,8 +3085,8 @@
   "TARGET_AVX"
   "vmovsldup\t{%1, %0|%0, %1}"
   [(set_attr "type" "sse")
-   (set_attr "mode" "V8SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V8SF")])
 
 (define_insn "sse3_movsldup"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3198,8 +3198,8 @@
   return "vshufps\t{%3, %2, %1, %0|%0, %1, %2, %3}";
 }
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V4SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF")])
 
 (define_insn "sse_shufps_1"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3370,8 +3370,8 @@
   "TARGET_AVX"
   "vmovss\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssemov")
-   (set_attr "mode" "SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "SF")])
 
 (define_insn "sse_movss"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
@@ -3464,8 +3464,8 @@
    vmovlhps\t{%2, %1, %0|%0, %1, %2}
    vmovhps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssemov")
-   (set_attr "mode" "V4SF,V2SF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF,V2SF")])
 
 (define_insn "*vec_concatv4sf_sse"
   [(set (match_operand:V4SF 0 "register_operand"   "=x,x")
@@ -3690,8 +3690,8 @@
   "TARGET_AVX"
   "vunpckhpd\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V4DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4DF")])
 
 (define_expand "sse2_unpckhpd_exp"
   [(set (match_operand:V2DF 0 "nonimmediate_operand" "")
@@ -3718,8 +3718,8 @@
    vmovlpd\t{%H1, %2, %0|%0, %2, %H1}
    vmovhpd\t{%1, %0|%0, %1}"
   [(set_attr "type" "sselog,ssemov,ssemov")
-   (set_attr "mode" "V2DF,V1DF,V1DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V2DF,V1DF,V1DF")])
 
 (define_insn "sse2_unpckhpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,m")
@@ -3810,8 +3810,8 @@
   "TARGET_AVX"
   "vunpcklpd\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V4DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4DF")])
 
 (define_expand "sse2_unpcklpd_exp"
   [(set (match_operand:V2DF 0 "nonimmediate_operand" "")
@@ -3838,8 +3838,8 @@
    vmovhpd\t{%2, %1, %0|%0, %1, %2}
    vmovlpd\t{%2, %H0|%H0, %2}"
   [(set_attr "type" "sselog,ssemov,ssemov")
-   (set_attr "mode" "V2DF,V1DF,V1DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V2DF,V1DF,V1DF")])
 
 (define_insn "sse2_unpcklpd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"     "=x,x,o")
@@ -3930,8 +3930,8 @@
   return "vshufpd\t{%3, %2, %1, %0|%0, %1, %2, %3}";
 }
   [(set_attr "type" "sselog")
-   (set_attr "mode" "V2DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V2DF")])
 
 (define_insn "sse2_shufpd_1"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
@@ -4189,8 +4189,8 @@
    vmovhps\t{%H1, %2, %0|%0, %2, %H1}
    vmovhps\t{%1, %H0|%H0, %1}"
   [(set_attr "type" "ssemov,ssemov,ssemov,ssemov,ssemov")
-   (set_attr "mode" "DF,V1DF,V1DF,V1DF,V1DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "DF,V1DF,V1DF,V1DF,V1DF")])
 
 (define_insn "sse2_movsd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"   "=x,x,m,x,x,o")
@@ -4254,8 +4254,8 @@
    vmovhpd\t{%2, %1, %0|%0, %1, %2}
    vmovsd\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov")
-   (set_attr "mode" "DF,V1DF,DF")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "DF,V1DF,DF")])
 
 (define_insn "*vec_concatv2df"
   [(set (match_operand:V2DF 0 "register_operand"     "=Y2,Y2,Y2,x,x")
@@ -11688,5 +11688,5 @@
     }
 }
   [(set_attr "type" "sselog,ssemov")
-   (set_attr "mode" "<avxvecmode>")
-   (set_attr "prefix" "vex")])
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "<avxvecmode>")])
