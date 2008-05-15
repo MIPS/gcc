@@ -28,8 +28,15 @@
 	(override_option): Take an argument to say whether it is the
 	global call or from target specific options.
 
-	* config/i386/i386.c (ix86_tune_features): Move initialization
-	into override_options.  XXX -- fix this.
+	* config/i386/i386.c (initial_ix86_tune_features): Move
+	initialization here from ix86_tune_features to allow array to be
+	set up differently for each function with target specific
+	optimization.
+	(ix86_tune_features): Ditto.
+	(initial_ix86_arch_features): Move initialization here from
+	ix86_arch_features to allow to be set up differently for each
+	function with target specific optimization.
+	(ix86_arch_features): Ditto.
 	(ix86_string_ops): New variable to list -m<xxx>= options.
 	(ix86_save_string_ops): New structure to allow string opts to be
 	saved, restored.
