@@ -1,5 +1,11 @@
 2008-05-15  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimplify.c (gimplify_omp_for): Handle a MODIFY_EXPR in
+	gimple_omp_for_incr.
+	* cfgexpand.c (gimple_to_tree): Do not die on compile errors.
+
+2008-05-15  Aldy Hernandez  <aldyh@redhat.com>
+
 	* omp-low.c (check_omp_nesting_restrictions): Fetch clauses from for.
 	(expand_omp_atomic): Parse GIMPLE_OMP_ATOMIC correctly.
 	(lower_omp_single_simple): Create GIMPLE_COND with both tlabel and

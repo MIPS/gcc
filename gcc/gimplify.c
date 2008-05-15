@@ -5614,6 +5614,11 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       t = build_gimple_modify_stmt (var, t);
       for_incr = t;
       break;
+
+    case MODIFY_EXPR:
+      t = build_gimple_modify_stmt (TREE_OPERAND (t, 0), TREE_OPERAND (t, 1));
+      OMP_FOR_INCR (for_stmt) = t;
+      /* Fallthru.  */
       
     case GIMPLE_MODIFY_STMT:
       gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == decl);

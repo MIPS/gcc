@@ -272,9 +272,20 @@ gimple_to_tree (gimple stmt)
       break;
 	
     default:
-      error ("Unrecognized GIMPLE statement during RTL expansion");
-      print_gimple_stmt (stderr, stmt, 4, 0);
-      gcc_unreachable ();
+      if (errorcount == 0)
+	{
+	  error ("Unrecognized GIMPLE statement during RTL expansion");
+	  print_gimple_stmt (stderr, stmt, 4, 0);
+	  gcc_unreachable ();
+	}
+      else
+	{
+	  /* Ignore any bad gimple codes if we're going to die anyhow,
+	     so we can at least set TREE_ASM_WRITTEN and have the rest
+	     of compilation advance without sudden ICE death.  */
+	  t = build1 (NOP_EXPR, void_type_node, size_zero_node);
+	  break;
+	}
     }
 
   /* If STMT is inside an exception region, record it in the generated
