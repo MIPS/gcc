@@ -1,3 +1,30 @@
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36244
+	* gcc.dg/torture/pr36244.c: New testcase.
+
+2008-05-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr8.ad[sb]: New test.
+	* gnat.dg/discr8_pkg[123].ads: New helpers.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse-set-ps-1.c: New.
+	* gcc.target/i386/sse4_1-set-ps-1.c: Likewise.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36009
+	PR tree-optimization/36204
+	* gcc.dg/tree-ssa/ssa-lim-5.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-lim-6.c: Likewise.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34330
+	* gcc.dg/torture/pr34330.c: New testcase.
+
 2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/36059
