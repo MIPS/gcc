@@ -3330,18 +3330,20 @@
    (set_attr "mode" "V4SF")])
 
 (define_insn "*vec_concatv2sf_avx"
-  [(set (match_operand:V2SF 0 "register_operand"     "=x,x,x")
+  [(set (match_operand:V2SF 0 "register_operand"     "=x,x,x,*y,*y")
 	(vec_concat:V2SF
-	  (match_operand:SF 1 "nonimmediate_operand" " x,m,x")
-	  (match_operand:SF 2 "vector_move_operand"  " x,C,m")))]
+	  (match_operand:SF 1 "nonimmediate_operand" " x,x,m, 0, m")
+	  (match_operand:SF 2 "vector_move_operand"  " x,m,C,*y, C")))]
   "TARGET_AVX"
   "@
    vunpcklps\t{%2, %1, %0|%0, %1, %2}
+   vinsertps\t{$0x10, %2, %1, %0|%0, %1, %2, 0x10}
    vmovss\t{%1, %0|%0, %1}
-   vinsertps\t{$0x10, %2, %1, %0|%0, %1, %2, 0x10}"
-  [(set_attr "type" "ssemov,ssemov,sselog")
-   (set_attr "mode" "SF,SF,V4SF")
-   (set_attr "prefix" "vex")])
+   punpckldq\t{%2, %0|%0, %2}
+   movd\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sselog,sselog,ssemov,mmxcvt,mmxmov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V4SF,V4SF,SF,DI,DI")])
 
 ;; Although insertps takes register source, we prefer
 ;; unpcklps with register source since it is shorter.
@@ -6590,29 +6592,21 @@
   [(set_attr "type" "sselog1,ssemov")
    (set_attr "mode" "TI,V4SF")])
 
-(define_insn "*vec_concatv2si_1_avx"
-  [(set (match_operand:V2SI 0 "register_operand" "=x")
+(define_insn "*vec_concatv2si_avx"
+  [(set (match_operand:V2SI 0 "register_operand"     "=x,x,x ,*y ,*y")
 	(vec_concat:V2SI
-	  (match_operand:SI 1 "register_operand" "x")
-	  (match_operand:SI 2 "nonimmediate_operand" "rm")))]
-  "TARGET_AVX"
-  "vpinsrd\t{$0x1, %2, %1, %0|%0, %1, %2, 0x1}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "TI")])
-
-(define_insn "*vec_concatv2si_2_avx"
-  [(set (match_operand:V2SI 0 "register_operand"     "=x,x")
-	(vec_concat:V2SI
-	  (match_operand:SI 1 "nonimmediate_operand" " x,rm")
-	  (match_operand:SI 2 "reg_or_0_operand"     " x,C")))]
+	  (match_operand:SI 1 "nonimmediate_operand" "x ,x,rm, 0 ,rm")
+	  (match_operand:SI 2 "vector_move_operand"  "rm,x,C ,*ym,C")))]
   "TARGET_AVX"
   "@
+   vpinsrd\t{$0x1, %2, %1, %0|%0, %1, %2, 0x1}
    vpunpckldq\t{%2, %1, %0|%0, %1, %2}
-   vmovd\t{%1, %0|%0, %1}"
-  [(set_attr "type" "sselog,ssemov")
+   vmovd\t{%1, %0|%0, %1}
+   punpckldq\t{%2, %0|%0, %2}
+   movd\t{%1, %0|%0, %1}"
+  [(set_attr "type" "sselog,sselog,ssemov,mmxcvt,mmxmov")
    (set_attr "prefix" "vex")
-   (set_attr "mode" "TI")])
+   (set_attr "mode" "TI,TI,TI,DI,DI")])
 
 (define_insn "*vec_concatv2si_sse4_1"
   [(set (match_operand:V2SI 0 "register_operand"     "=x,x,x ,*y ,*y")
@@ -6688,45 +6682,20 @@
    (set_attr "mode" "TI,V4SF,V2SF")])
 
 (define_insn "*vec_concatv2di_avx"
-  [(set (match_operand:V2DI 0 "register_operand"     "=x,x,x,x")
+  [(set (match_operand:V2DI 0 "register_operand"     "=x,?x,x,x,x")
 	(vec_concat:V2DI
-	  (match_operand:DI 1 "nonimmediate_operand" " m,x,x,m")
-	  (match_operand:DI 2 "vector_move_operand"  " C,x,m,x")))]
+	  (match_operand:DI 1 "nonimmediate_operand" " m,*y,x,x,m")
+	  (match_operand:DI 2 "vector_move_operand"  " C, C,x,m,x")))]
   "!TARGET_64BIT && TARGET_AVX"
   "@
    vmovq\t{%1, %0|%0, %1}
-   vmovlhps\t{%2, %1, %0|%0, %1, %2}
+   movq2dq\t{%1, %0|%0, %1}
+   vpunpcklqdq\t{%2, %1, %0|%0, %1, %2}
    vmovhps\t{%2, %1, %0|%0, %1, %2}
    vmovlps\t{%1, %2, %0|%0, %2, %1}"
-  [(set_attr "type" "ssemov")
+  [(set_attr "type" "ssemov,ssemov,sselog,ssemov,ssemov")
    (set_attr "prefix" "vex")
-   (set_attr "mode" "TI,V4SF,V2SF,V2SF")])
-
-(define_insn "*vec_concatv2di_rex64_1_avx"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
-	(vec_concat:V2DI
-	  (match_operand:DI 1 "register_operand" "x")
-	  (match_operand:DI 2 "nonimmediate_operand" "rm")))]
-  "TARGET_64BIT && TARGET_AVX"
-  "vpinsrq\t{$0x1, %2, %1, %0|%0, %1, %2, 0x1}"
-  [(set_attr "type" "sselog")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "TI")])
-
-(define_insn "*vec_concatv2di_rex64_2_avx"
-  [(set (match_operand:V2DI 0 "register_operand"     "=x,x,x,x")
-	(vec_concat:V2DI
-	  (match_operand:DI 1 "nonimmediate_operand" "rm,x,x,m")
-	  (match_operand:DI 2 "vector_move_operand"  "C,x,m,x")))]
-  "TARGET_64BIT && TARGET_AVX"
-  "@
-   vmovq\t{%1, %0|%0, %1}
-   vmovlhps\t{%2, %1, %0|%0, %1, %2}
-   vmovhps\t{%2, %1, %0|%0, %1, %2}
-   vmovlps\t{%1, %2, %0|%0, %2, %1}"
-  [(set_attr "type" "ssemov")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "TI,V4SF,V2SF,V2SF")])
+   (set_attr "mode" "TI,TI,TI,V2SF,V2SF")])
 
 (define_insn "vec_concatv2di"
   [(set (match_operand:V2DI 0 "register_operand"     "=Y2,?Y2,Y2,x,x,x")
@@ -6743,6 +6712,24 @@
    movlps\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov,ssemov,sselog,ssemov,ssemov,ssemov")
    (set_attr "mode" "TI,TI,TI,V4SF,V2SF,V2SF")])
+
+(define_insn "*vec_concatv2di_rex64_avx"
+  [(set (match_operand:V2DI 0 "register_operand"     "=x,x,Yi,!x,x,x,x")
+	(vec_concat:V2DI
+	  (match_operand:DI 1 "nonimmediate_operand" " x,m,r ,*y,x,x,m")
+	  (match_operand:DI 2 "vector_move_operand"  "rm,C,C ,C ,x,m,x")))]
+  "TARGET_64BIT && TARGET_AVX"
+  "@
+   vpinsrq\t{$0x1, %2, %1, %0|%0, %1, %2, 0x1}
+   vmovq\t{%1, %0|%0, %1}
+   vmovq\t{%1, %0|%0, %1}
+   movq2dq\t{%1, %0|%0, %1}
+   vpunpcklqdq\t{%2, %1, %0|%0, %1, %2}
+   vmovhps\t{%2, %1, %0|%0, %1, %2}
+   vmovlps\t{%1, %2, %0|%0, %2, %1}"
+  [(set_attr "type" "sselog,ssemov,ssemov,ssemov,sselog,ssemov,ssemov")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI,TI,TI,TI,TI,V2SF,V2SF")])
 
 (define_insn "*vec_concatv2di_rex64_sse4_1"
   [(set (match_operand:V2DI 0 "register_operand"     "=x,x,Yi,!x,x,x,x,x")

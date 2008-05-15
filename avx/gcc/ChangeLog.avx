@@ -1,10 +1,22 @@
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_avx): Add missing
+	alternatives.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2si_1_avx): Removed.
+	(*vec_concatv2si_2_avx): Likewise.
+	(*vec_concatv2di_rex64_1_avx): Likewise.
+	(*vec_concatv2di_rex64_2_avx): Likewise.
+	(*vec_concatv2si_avx): New.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
 2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm256_set_epi16): New.
 	(_mm256_set_epi8): Likewise.
 	(_mm256_set1_epi16): Likewise.
 	(_mm256_set1_epi8): Likewise.
-	(_mm256_setr_pd): New.
+	(_mm256_setr_pd): Likewise.
 	(_mm256_setr_ps): Likewise.
 	(_mm256_setr_epi32): Likewise.
 	(_mm256_setr_epi16): Likewise.
