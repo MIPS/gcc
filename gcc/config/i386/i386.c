@@ -2815,105 +2815,66 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     targetm.expand_builtin_va_start = NULL;
 }
 
-/* Hook to tell the backend that we are about to set target specific
-   options.  On the x86, we want to preserve the state of all of the
-   various string options.  */
+/* Hook to be passed all of the target specific options that are being
+   changed.  */
 
 void
-ix86_target_specific_init (void)
+ix86_target_specific_push (int argc, const char **argv)
 {
-  unsigned i;
+  int i;
+  const char **new_argv = (const char **) alloca (sizeof (char *) * (argc + 1));
+  unsigned j;
   struct ix86_save_string_ops *ops
     = xcalloc (sizeof (struct ix86_save_string_ops), 1);
 
-#ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "ix86_target_specific_init:\n");
-#endif
   ops->prev = ix86_prev_string_ops;
-  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
-    {
-#ifdef DEBUG_TARGET_SPECIFIC
-      fprintf (stderr, "\t%-32s addr = 0x%.8lx value = %s\n",
-	       ix86_string_ops[i].option,
-	       (long) ix86_string_ops[i].string_var,
-	       *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "NULL");
-#endif
-      ops->options[i] = *ix86_string_ops[i].string_var;
-    }
-}
-
-
-/* Hook to be passed the target specific options that are being changed.  */
-
-bool
-ix86_target_specific_option (const char *arg)
-{
-  const char *argv[2];
-  size_t len = strlen (arg);
-  char *new_arg = alloca (len + 2);
-  unsigned i;
-
-  *new_arg = '-';
-  strcpy (new_arg+1, arg);
-  argv[0] = new_arg;
-  argv[1] = NULL;
+  for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
+    ops->options[j] = *ix86_string_ops[j].string_var;
 
 #ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "ix86_target_specific_option: %s\n", new_arg);
+  fputs ("ix86_target_specific_push:", stderr);
+  for (i = 0; i < argc; i++)
+    fprintf (stderr, " %s", argv[i]);
+
+  putc ('\n', stderr);
 #endif
 
-  /* See if this is one of the string options */
-  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
+  /* See if we were passed one of the string options */
+  for (i = 0; i < argc; i++)
     {
-      size_t slen = ix86_string_ops[i].len;
-      if (len > slen && memcmp (arg, ix86_string_ops[i].option, slen) == 0)
+      size_t len = strlen (argv[i]);
+      char *arg = alloca (len + 2);
+
+      *arg = '-';
+      memcpy (arg+1, argv[i], len+1);
+      new_argv[i] = arg;
+
+      for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
 	{
+	  size_t slen = ix86_string_ops[i].len;
+	  if (len > slen && memcmp (arg, ix86_string_ops[i].option, slen) == 0)
+	    {
 #ifdef DEBUG_TARGET_SPECIFIC
-	  fprintf (stderr, "\treset 0x%.8lx to '%s' (was '%s')\n",
-		   (long)ix86_string_ops[i].string_var,
-		   arg + slen,
-		   *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "<NULL>");
+	      fprintf (stderr, "\treset 0x%.8lx to '%s' (was '%s')\n",
+		       (long)ix86_string_ops[i].string_var,
+		       arg + slen,
+		       (*ix86_string_ops[i].string_var
+			? *ix86_string_ops[i].string_var
+			: "<NULL>"));
 #endif
 
-	  *ix86_string_ops[i].string_var = ggc_strdup (arg + slen);
-	  break;
+	      *ix86_string_ops[i].string_var = arg + slen;
+	      break;
+	    }
 	}
     }
 
-  if (! handle_option (argv, 0, 1))
-    {
+  if (handle_option (new_argv, 0, 1))
+    override_options (false);
 #ifdef DEBUG_TARGET_SPECIFIC
-      fprintf (stderr, "\tfailed\n");
+  else
+    fputs ("\tfailed\n", stderr);
 #endif
-      return false;
-    }
-
-  return true;
-}
-
-
-/* Hook that is called to after changing the options specific in
-   ix86_target_specific_option.  */
-
-void
-ix86_target_specific_push (void)
-{
-  unsigned i;
-
-#ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "ix86_target_specific_push\n");
-#endif
-  for (i = 0; i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); i++)
-    {
-#ifdef DEBUG_TARGET_SPECIFIC
-      fprintf (stderr, "\t%-32s addr = 0x%.8lx value = '%s'\n",
-	       ix86_string_ops[i].option,
-	       (long) ix86_string_ops[i].string_var,
-	       *ix86_string_ops[i].string_var ? *ix86_string_ops[i].string_var : "<NULL>");
-#endif
-    }
-
-  override_options (false);
 }
 
 

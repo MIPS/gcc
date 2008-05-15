@@ -39,40 +39,52 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned int
 driver_push_set_options (void)
 {
-#ifdef TARGET_SPECIFIC_OPTION
-  tree attrs = DECL_ATTRIBUTES (current_function_decl);
-
-#ifdef TARGET_SPECIFIC_INIT
-  TARGET_SPECIFIC_INIT ();
-#endif
-
-  push_attribute_options ();
-
-  if (attrs)
+  if (targetm.target_specific.push_options)
     {
-      tree opt_attrs = lookup_attribute ("option", attrs);
+      tree attrs = DECL_ATTRIBUTES (current_function_decl);
+      tree opt_attrs = (attrs ? lookup_attribute ("option", attrs) : NULL_TREE);
 
-      for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
+      if (opt_attrs)
 	{
-	  tree args = TREE_VALUE (opt_attrs);
+	  tree orig_opt_attrs = opt_attrs;
+	  int argc = 0;
+	  int max_argc = 0;
+	  const char **argv;
 
-	  for (; args; args = TREE_CHAIN (args))
+	  /* Count the number of arguments */
+	  for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
 	    {
-	      tree value = TREE_VALUE (args);
-	      if (value)
+	      tree args = TREE_VALUE (opt_attrs);
+
+	      for (; args; args = TREE_CHAIN (args))
 		{
-		  if (! TARGET_SPECIFIC_OPTION (TREE_STRING_POINTER (value)))
-		    error ("Invalid target specific option %s",
-			   TREE_STRING_POINTER (value));
+		  if (TREE_VALUE (args))
+		    max_argc++;
 		}
 	    }
-	}
 
-#ifdef TARGET_SPECIFIC_PUSH
-      TARGET_SPECIFIC_PUSH ();
-#endif
+	  argv = (const char **) alloca (sizeof (char *) * (max_argc + 1));
+
+	  /* Fill in the arguments */
+	  for (opt_attrs = orig_opt_attrs;
+	       opt_attrs;
+	       opt_attrs = TREE_CHAIN (opt_attrs))
+	    {
+	      tree args = TREE_VALUE (opt_attrs);
+
+	      for (; args; args = TREE_CHAIN (args))
+		{
+		  if (TREE_VALUE (args))
+		    argv[argc++] = TREE_STRING_POINTER (TREE_VALUE (args));
+		}
+	    }
+
+	  argv[argc] = NULL;
+	  push_attribute_options ();
+	  targetm.target_specific.push_options (argc, argv);
+	}
     }
-#endif
+
   return true;
 }
 
@@ -80,13 +92,18 @@ driver_push_set_options (void)
 static unsigned int
 driver_pop_options (void)
 {
-#ifdef TARGET_SPECIFIC_OPTION
-  pop_attribute_options ();
+  if (targetm.target_specific.pop_options)
+    {
+      tree attrs = DECL_ATTRIBUTES (current_function_decl);
+      tree opt_attrs = (attrs ? lookup_attribute ("option", attrs) : NULL_TREE);
 
-#ifdef TARGET_SPECIFIC_POP
-  TARGET_SPECIFIC_POP ();
-#endif
-#endif
+      if (opt_attrs)
+	{
+	  pop_attribute_options ();
+	  targetm.target_specific.pop_options ();
+	}
+    }
+
   return true;
 }
 

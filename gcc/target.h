@@ -945,6 +945,14 @@ struct gcc_target
     bool debug_form_tls_address;
   } emutls;  
 
+  /* Functions and data for target specific option support.  */
+  struct target_specific {
+    /* Function to handle pushing new target specific options.  */
+    void (*push_options) (int, const char **);
+    /* Function to handle popping target specific options.  */
+    void (*pop_options) (void);
+  } target_specific;
+
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their
      bits in the bitmap passed in. */  

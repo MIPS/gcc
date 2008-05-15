@@ -461,19 +461,12 @@ extern tree x86_mfence;
 
 #define OVERRIDE_OPTIONS override_options (true)
 
-/* Hook to tell the backend that we are about to set target specific
-   options.  */
-#define TARGET_SPECIFIC_INIT() ix86_target_specific_init ()
+/* Hook to be passed all of the target specific options that are being
+   changed.  */
+#define TARGET_TARGET_SPECIFIC_PUSH ix86_target_specific_push
 
-/* Hook to be passed the target specific options that are being changed.  */
-#define TARGET_SPECIFIC_OPTION(ARG) ix86_target_specific_option (ARG)
-
-/* Hook to tell the backend that we have changed all of the target specific
-   options.  */
-#define TARGET_SPECIFIC_PUSH() ix86_target_specific_push ()
-
-/* Hook to tell the backend to pop the options off of the stack */
-#define TARGET_SPECIFIC_POP() ix86_target_specific_pop ()
+/* Hook to undo the result of setting target specific options.  */
+#define TARGET_TARGET_SPECIFIC_POP ix86_target_specific_pop
 
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \

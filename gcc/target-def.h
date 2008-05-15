@@ -749,6 +749,21 @@
     TARGET_EMUTLS_DEBUG_FORM_TLS_ADDRESS	\
   }
 
+/* Target specific option attribute support.  */
+#ifndef TARGET_TARGET_SPECIFIC_PUSH
+#define TARGET_TARGET_SPECIFIC_PUSH NULL
+#endif
+
+#ifndef TARGET_TARGET_SPECIFIC_POP
+#define TARGET_TARGET_SPECIFIC_POP NULL
+#endif
+
+#define TARGET_TARGET_SPECIFIC			\
+  {						\
+    TARGET_TARGET_SPECIFIC_PUSH,		\
+    TARGET_TARGET_SPECIFIC_POP			\
+  }
+
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
 {						\
@@ -841,6 +856,7 @@
   TARGET_C,					\
   TARGET_CXX,					\
   TARGET_EMUTLS,				\
+  TARGET_TARGET_SPECIFIC,			\
   TARGET_EXTRA_LIVE_ON_ENTRY,			\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\

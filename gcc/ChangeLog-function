@@ -1,4 +1,41 @@
 2008-05-15  Michael Meissner  <michael.meissner@amd.com>
+
+	* target.h (struct target_specific): New structure to gather
+	target specific hooks.
+	(struct gcc_target): Add target_specific field.
+
+	* target-def.h (TARGET_TARGET_SPECIFIC_PUSH): New macro for
+	backend hook for target specific options.
+	(TARGET_TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_TARGET_SPECIFIC): Ditto.
+	(TARGET_INITIALIZER): Add TARGET_TARGET_SPECIFIC.
+
+	* tree-opt.c (driver_push_set_options): Rewrite to use target
+	specific hooks.
+	(driver_pop_options): Ditto.
+
+	* c-common.c (handle_option_attribute): Give an error if the
+	machine doesn't support target specific options.
+
+	* config/i386/i386.h (TARGET_TARGET_SPECIFIC_PUSH): Define target
+	specific backend hooks.
+	(TARGET_TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_SPECIFIC_INIT): Delete.
+	(TARGET_SPECIFIC_PUSH): Ditto.
+	(TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_SPECIFIC_OPTION): Ditto.
+
+	* config/i386/i386.c (ix86_target_specific_init): Delete.
+	(ix86_target_specific_option): Ditto.
+	(ix86_target_specific_push): Change to be a target hook.
+	(ix86_target_specific_pop): Ditto.
+
+	* config/i386/i386-protos.h (ix86_target_specific_init): Delete.
+	(ix86_target_specific_option): Ditto.
+	(ix86_target_specific_push): Change to be a target hook.
+	(ix86_target_specific_pop): Ditto.
+
+2008-05-15  Michael Meissner  <michael.meissner@amd.com>
 	    Karthik Kumar  <karthikkumar@gmail.com>
 
 	* tree-opt.c (driver_push_set_options): Require the backend to

@@ -617,11 +617,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_unused_attribute },
   { "externally_visible",     0, 0, true,  false, false,
 			      handle_externally_visible_attribute },
-#ifdef TARGET_SPECIFIC_OPTION
   /* For handling options specific to a specific function.  */
   { "option",                 1, -1, true, false, false, /* XXX FIXME */
 			      handle_option_attribute },
-#endif
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute },
@@ -5094,7 +5092,13 @@ handle_option_attribute (tree *node,
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "option attribute ignored");
-      *no_add_attrs=true;
+      *no_add_attrs = true;
+    }
+  else if (! targetm.target_specific.push_options
+	   || ! targetm.target_specific.pop_options)
+    {
+      error ("option attribute is not supported on this machine");
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
