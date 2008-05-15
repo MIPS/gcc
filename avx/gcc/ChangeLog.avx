@@ -1,3 +1,20 @@
+2008-05-15  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_addsubv4sf3): New.
+	(*avx_addsubv2df3): Likewise.
+	(*avx_h<plusminus_insn>v4sf3): Likewise.
+	(*avx_h<plusminus_insn>v2df3): Likewise.
+	(*avx_mulv8hi3): Likewise.
+	(*avxv8hi3_highpart): Likewise.
+	(*avx_umulv8hi3_highpart): Likewise.
+	(*avx_umulv2siv2di3): Likewise.
+	(*avx_mulv2siv2di3): Likewise.
+	(*avx_mulv4si3): Likewise.
+	(*avx_nand<mode>3): Likewise.
+	(sse2_pshufd_1): Support AVX.
+	(sse2_pshuflw_1): Likewise.
+	(sse2_pshufhw_1): Likewise.
+
 2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/sse.md (*vec_concatv2sf_avx): Add "m" constraint
