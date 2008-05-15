@@ -104,7 +104,8 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_OMP_MASTER:		
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:		return GSS_OMP;
-    case GIMPLE_OMP_RETURN:		return GSS_BASE;
+    case GIMPLE_OMP_RETURN:
+    case GIMPLE_OMP_SECTIONS_SWITCH:    return GSS_BASE;
     case GIMPLE_OMP_CONTINUE:		return GSS_OMP_CONTINUE;
     case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
@@ -2312,7 +2313,12 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	 and ASMs are executed before the LHS.  The ordering is not
 	 important for other statements.  */
       tree op = gimple_op (stmt, num_ops - i - 1);
-      if (!is_gimple_operand (op))
+
+      /* We probably don't want to touch inline asm operands.  */
+      if (gimple_code (stmt) == GIMPLE_ASM)
+	continue;
+
+      if (op && !is_gimple_operand (op))
 	{
 	  op = force_gimple_operand_gsi (gsi_p, op, true, NULL, true,
 					 GSI_SAME_STMT);

@@ -1,3 +1,21 @@
+2008-05-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (check_omp_nesting_restrictions): Fetch clauses from for.
+	(expand_omp_atomic): Parse GIMPLE_OMP_ATOMIC correctly.
+	(lower_omp_single_simple): Create GIMPLE_COND with both tlabel and
+	flabel.
+	(lower_omp_for): Make sure we have a body before look inside.
+	* gimple-low.c (lower_stmt): Add case for GIMPLE_OMP_SECTIONS_SWITCH.
+	* gimple-pretty-print.c (dump_gimple_omp_single): New.
+	(dump_gimple_stmt): Add case for GIMPLE_OMP_SINGLE.
+	* gimplify.c (gimplify_omp_workshare): Remove fixme.  Enable code.
+	* gimple.c (gss_for_code): Add case for GIMPLE_OMP_{RETURN,
+	SECTIONS_SWITCH}.
+	(gimple_regimplify_operands):  Do not regimplify GIMPLE_ASM
+	operands.  Do not look inside empty operands.
+	* gimple.h (is_gimple_omp): Fix typo for GIMPLE_OMP_ATOMIC*.
+	* tree-cfg.c (make_edges): Rename OMP_SECTION to GIMPLE_OMP_SECTION.
+
 2008-05-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (optimize_omp_library_calls): Make sure statement is

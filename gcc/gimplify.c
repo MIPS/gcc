@@ -5685,12 +5685,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   else
     gcc_unreachable ();
 
-  /* FIXME tuples: Adding the GIMPLE_OMP_{SECTIONS,SINGLE} construct
-     to the sequence causes all sorts of problems because we have
-     disabled omp lowering is still disabled.  Disable this for now
-     until we enable omp_low() and friends.
   gimplify_seq_add_stmt (pre_p, stmt);
-  */
 }
 
 /* A subroutine of gimplify_omp_atomic.  The front end is supposed to have

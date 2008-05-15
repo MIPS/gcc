@@ -1375,7 +1375,7 @@ check_omp_nesting_restrictions (gimple  stmt, omp_context *ctx)
 			"of critical region");
 	    return;
 	  case GIMPLE_OMP_FOR:
-	    if (find_omp_clause (gimple_omp_parallel_clauses (ctx->stmt),
+	    if (find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				 OMP_CLAUSE_ORDERED) == NULL)
 	      warning (0, "ordered region must be closely nested inside "
 			  "a loop region with an ordered clause");
@@ -4055,9 +4055,9 @@ expand_omp_atomic (struct omp_region *region)
 {
   basic_block load_bb = region->entry, store_bb = region->exit;
   gimple load = last_stmt (load_bb), store = last_stmt (store_bb);
-  tree loaded_val = gimple_assign_lhs (load);
-  tree addr = gimple_assign_rhs1 (load);
-  tree stored_val = gimple_assign_lhs (store);
+  tree loaded_val = gimple_omp_atomic_load_lhs (load);
+  tree addr = gimple_omp_atomic_load_rhs (load);
+  tree stored_val = gimple_omp_atomic_store_val (store);
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
   HOST_WIDE_INT index;
 
@@ -4458,6 +4458,7 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 lower_omp_single_simple (gimple single_stmt, gimple_seq *pre_p)
 {
+  tree tlabel = create_artificial_label ();
   tree flabel = create_artificial_label ();
   gimple call, cond;
   tree lhs;
@@ -4466,8 +4467,10 @@ lower_omp_single_simple (gimple single_stmt, gimple_seq *pre_p)
   call = gimple_build_call (built_in_decls[BUILT_IN_GOMP_SINGLE_START], 0);
   gimple_call_set_lhs (call, lhs);
   gimple_seq_add_stmt (pre_p, call);
-  cond = gimple_build_cond (NE_EXPR, lhs, boolean_true_node, flabel, NULL);
+
+  cond = gimple_build_cond (EQ_EXPR, lhs, boolean_true_node, tlabel, flabel);
   gimple_seq_add_stmt (pre_p, cond);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (tlabel));
   gimple_seq_add_seq (pre_p, gimple_omp_body (single_stmt));
   gimple_seq_add_stmt (pre_p, gimple_build_label (flabel));
 }
@@ -4829,7 +4832,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Move declaration of temporaries in the loop body before we make
      it go away.  */
   omp_for_body = gimple_omp_body (stmt);
-  if (gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
+  if (!gimple_seq_empty_p (omp_for_body)
+      && gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
     record_vars_into (gimple_bind_vars (gimple_seq_first_stmt (omp_for_body)),
 		      ctx->cb.dst_fn);
 

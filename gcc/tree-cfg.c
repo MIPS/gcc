@@ -576,7 +576,7 @@ make_edges (void)
 		    struct omp_region *i;
 		    for (i = cur_region->inner; i ; i = i->next)
 		      {
-			gcc_assert (i->type == OMP_SECTION);
+			gcc_assert (i->type == GIMPLE_OMP_SECTION);
 			make_edge (switch_bb, i->entry, 0);
 			make_edge (i->exit, bb, EDGE_FALLTHRU);
 		      }

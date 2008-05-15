@@ -782,6 +782,34 @@ dump_gimple_omp_continue (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
+/* Dump a GIMPLE_OMP_SINGLE tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_single (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (flags & TDF_RAW)
+    {
+      dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+		       gimple_omp_body (gs));
+      dump_omp_clauses (buffer, gimple_omp_single_clauses (gs), spc, flags);
+      dump_gimple_fmt (buffer, spc, flags, " >");
+    }
+  else
+    {
+      pp_string (buffer, "#pragma omp single");
+      dump_omp_clauses (buffer, gimple_omp_single_clauses (gs), spc, flags);
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  newline_and_indent (buffer, spc + 4);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '}');
+	}
+    }
+}
+
 /* Dump a GIMPLE_OMP_RETURN tuple on the pretty_printer BUFFER.  */
 
 static void
@@ -1247,6 +1275,10 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_OMP_CONTINUE:
       dump_gimple_omp_continue (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_SINGLE:
+      dump_gimple_omp_single (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_OMP_RETURN:

@@ -299,6 +299,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_CHANGE_DYNAMIC_TYPE:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SECTIONS_SWITCH:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_SINGLE:
     case GIMPLE_OMP_MASTER:
