@@ -1,3 +1,61 @@
+2008-05-15  Sa Liu  <saliu@de.ibm.com>
+
+	* iso-c-binding.def: Add standard parameter to macro NAMED_INTCST.
+	All existing NAMED_INTCST definitions has standard GFC_STD_F2003,
+	c_int128_t, c_int_least128_t and c_int_fast128_t are added as
+	GNU extensions.
+	* iso-fortran-evn.def: Add standard parameter GFC_STD_F2003
+	to macro NAMED_INTCST.
+	* symbol.c (std_for_isocbinding_symbol): New helper function to 
+	return the standard that supports this isocbinding symbol.
+	(generate_isocbinding_symbol): Do not generate GNU extension symbols
+	if std=f2003. Add new parameter to NAMED_INTCST.
+	* module.c (use_iso_fortran_env_module): Add new parameter to
+	NAMED_INTCST and new field standard to struct intmod_sym.
+	* gfortran.h: Add new parameter to NAMED_INTCST.
+	* trans-types.c (init_c_interop_kinds): Add new parameter to 
+	NAMED_INTCST.
+	* intrinsic.texi: Documented new types C_INT128_T, C_INT_LEASE128_T
+	and C_INT_FAST128_T.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36059
+	* trans-decl.c (gfc_build_dummy_array_decl): Don't repack
+	arrays that have the TARGET attribute.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36186
+	* simplify.c (only_convert_cmplx_boz): New function.
+	(gfc_simplify_cmplx, gfc_simplify_complex, gfc_simplify_dcmplx):
+	Call only_convert_cmplx_boz.
+
+2008-05-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/36233
+	* interface.c (compare_actual_formal): Do not check sizes if the
+	actual is BT_PROCEDURE.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35682
+	* trans-array.c (gfc_conv_ss_startstride): Any negative size is
+	the same as zero size.
+	(gfc_conv_loop_setup): Fix size calculation.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35685
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Correctly
+	handle zero-size sections.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36215
+	* scanner.c (preprocessor_line): Allocate enough memory for a
+	wide string.
+
 2008-05-12  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/36176

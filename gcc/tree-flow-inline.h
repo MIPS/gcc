@@ -1545,7 +1545,7 @@ unmodifiable_var_p (const_tree var)
     var = SSA_NAME_VAR (var);
 
   if (MTAG_P (var))
-    return TREE_READONLY (var) && (TREE_STATIC (var) || MTAG_GLOBAL (var));
+    return false;
 
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
@@ -1689,4 +1689,15 @@ redirect_edge_var_map_result (edge_var_map *v)
 {
   return v->result;
 }
+
+
+/* Return an SSA_NAME node for variable VAR defined in statement STMT
+   in function cfun.  */
+
+static inline tree
+make_ssa_name (tree var, tree stmt)
+{
+  return make_ssa_name_fn (cfun, var, stmt);
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */
