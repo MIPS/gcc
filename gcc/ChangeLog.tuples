@@ -1,3 +1,9 @@
+2008-05-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (optimize_omp_library_calls): Make sure statement is
+	a GIMPLE_CALL before we look inside of it.
+	* tree-cfg.c (move_stmt_op): Exit gracefully.
+
 2008-05-13  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (scan_omp_op): Remove walk_subtrees.  Call walk_tree.

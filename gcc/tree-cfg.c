@@ -5313,6 +5313,8 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
     }
   else if (TYPE_P (t))
     *walk_subtrees = 0;
+
+  return NULL_TREE;
 }
 
 /* Like move_stmt_op, but for gimple statements.

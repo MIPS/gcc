@@ -2544,7 +2544,7 @@ optimize_omp_library_calls (void)
 	gimple call = gsi_stmt (gsi);
 	tree decl;
 
-	if (call
+	if (gimple_code (call) == GIMPLE_CALL
 	    && (decl = gimple_call_fndecl (call))
 	    && DECL_EXTERNAL (decl)
 	    && TREE_PUBLIC (decl)
