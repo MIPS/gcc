@@ -162,8 +162,7 @@ coverageexts = .{gcda,gcno}
 # with other compilers.
 # CXX_COMPAT_WARN are C++ source compatibility warnings.
 LOOSE_WARN = @loose_warn@
-# FIXME tuples.  Do not merge this!
-STRICT_WARN = @strict_warn@ -Werror -Wno-return-type
+STRICT_WARN = @strict_warn@
 CXX_COMPAT_WARN = @cxx_compat_warn@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
@@ -188,15 +187,6 @@ GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
-# FIXME tuples, do not merge.
-builtins.o-warn = -Wno-uninitialized -Wno-format -Wno-missing-format-attribute
-expr.o-warn = -Wno-uninitialized -Wno-format -Wno-missing-format-attribute
-dse.o-warn = -Wno-uninitialized
-ebitmap.o-warn = -Wno-uninitialized
-lower-subreg.o-warn = -Wno-uninitialized
-tree-chrec.o-warn = -Wno-uninitialized
-tree-ssa-structalias.o-warn = -Wno-uninitialized
-varasm.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
