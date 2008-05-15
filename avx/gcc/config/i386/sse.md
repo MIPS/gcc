@@ -3330,10 +3330,10 @@
    (set_attr "mode" "V4SF")])
 
 (define_insn "*vec_concatv2sf_avx"
-  [(set (match_operand:V2SF 0 "register_operand"     "=x,x,x,*y,*y")
+  [(set (match_operand:V2SF 0 "register_operand"     "=x,x,x,*y ,*y")
 	(vec_concat:V2SF
-	  (match_operand:SF 1 "nonimmediate_operand" " x,x,m, 0, m")
-	  (match_operand:SF 2 "vector_move_operand"  " x,m,C,*y, C")))]
+	  (match_operand:SF 1 "nonimmediate_operand" " x,x,m, x , m")
+	  (match_operand:SF 2 "vector_move_operand"  " x,m,C,*ym, C")))]
   "TARGET_AVX"
   "@
    vunpcklps\t{%2, %1, %0|%0, %1, %2}

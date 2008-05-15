@@ -1,5 +1,10 @@
 2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*vec_concatv2sf_avx): Add "m" constraint
+	to alternative 4 of operand 2.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (*vec_concatv2sf_avx): Add missing
 	alternatives.
 	(*vec_concatv2di_avx): Likewise.
