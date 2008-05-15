@@ -1,3 +1,12 @@
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (GET_MODE_SPILL_ALIGNMENT): Removed.
+	* defaults.h (GET_MODE_SPILL_ALIGNMENT): Likewise.
+	* doc/rtl.texi (GET_MODE_SPILL_ALIGNMENT): Likewise.
+
+	* emit-rtl.c (gen_reg_rtx): Replace GET_MODE_SPILL_ALIGNMENT
+	with GET_MODE_ALIGNMENT.
+
 2008-05-09  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_internal_arg_pointer): Check non-call

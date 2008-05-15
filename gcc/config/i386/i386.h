@@ -923,16 +923,6 @@ enum target_cpu_default
 
 #define LOCAL_ALIGNMENT(TYPE, ALIGN) ix86_local_alignment ((TYPE), (ALIGN))
 
-/* If defined, a C expression to compute the alignment needed to
-   spill a register of MODE onto stack.  We need 128bit alignment
-   to spill an SSE register.
-
-   If this macro is not defined, then GET_MODE_ALIGNMENT is used.  */
-
-#define GET_MODE_SPILL_ALIGNMENT(MODE) \
-  ((TARGET_SSE_MATH && SSE_FLOAT_MODE_P ((MODE))) \
-   ? 128 : GET_MODE_ALIGNMENT ((MODE)))
-
 /* If defined, a C expression that gives the alignment boundary, in
    bits, of an argument with the specified mode and type.  If it is
    not defined, `PARM_BOUNDARY' is used for all arguments.  */
