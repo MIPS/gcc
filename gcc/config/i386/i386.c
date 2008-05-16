@@ -2207,7 +2207,6 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
-#define DEBUG_TARGET_SPECIFIC
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "override_options, arch = '%s', tune = '%s'\n", ix86_arch_string, ix86_tune_string);
 #endif

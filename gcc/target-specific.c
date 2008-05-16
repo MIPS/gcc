@@ -53,10 +53,14 @@ typedef struct
 {
   int argc;			/* current number of arguments */
   int max_argc;			/* max arguments allocated */
+  char *string_pool;		/* pointer to the string pool */
+  size_t string_alloc;		/* # bytes allocated to the string pool */
+  size_t string_num;		/* # bytes used in the string pool */
   char *argv[1];		/* arguments */
 } cl_option_args;
 
-#define MIN_ALLOC_ARGS	10
+#define MIN_ALLOC_ARGS		10	/* number of arguments to allocate at a time */
+#define STRING_POOL_SIZE	250	/* size of the string pool to allocate */
 
 static cl_option_args *target_specific_build_arguments (cl_option_args *ap,
 							tree args);
@@ -78,6 +82,7 @@ target_specific_build_arguments (cl_option_args *ap, tree args)
 	  size_t len = TREE_STRING_LENGTH (args2);
 	  char *p;
 
+	  /* Allocate or grow arguments */
 	  if (! ap)
 	    {
 	      ap = xmalloc (sizeof (cl_option_args)
@@ -85,6 +90,9 @@ target_specific_build_arguments (cl_option_args *ap, tree args)
 
 	      ap->argc = 0;
 	      ap->max_argc = MIN_ALLOC_ARGS;
+	      ap->string_alloc = STRING_POOL_SIZE;
+	      ap->string_num = 0;
+	      ap->string_pool = xmalloc (STRING_POOL_SIZE);
 	    }
 	  else if (ap->argc == ap->max_argc)
 	    {
@@ -93,8 +101,22 @@ target_specific_build_arguments (cl_option_args *ap, tree args)
 				  + (ap->max_argc * sizeof (char *))));
 	    }
 
+	  /* Grow string pool if needed */
+	  if (ap->string_num + len + 2 >= ap->string_alloc)
+	    {
+	      size_t slen = ap->string_alloc + len + STRING_POOL_SIZE;
+	      char *old_str = ap->string_pool;
+	      char *new_str = xrealloc (old_str, slen);
+	      int i;
+
+	      ap->string_alloc = slen;
+	      for (i = 0; i < ap->argc; i++)
+		ap->argv[i] = new_str + (ap->argv[i] - old_str);
+	    }
+
 	  /* Add '-' in front of the argument.  */
-	  p = xmalloc (2 + len);
+	  p = ap->string_pool + ap->string_num;
+	  ap->string_num += len + 2;
 	  p[0] = '-';
 	  memcpy (p+1, TREE_STRING_POINTER (args2), len);
 	  p[len+1] = '\0';
@@ -112,11 +134,7 @@ target_specific_free_arguments (cl_option_args *ap)
 {
   if (ap)
     {
-      int i;
-
-      for (i = 0; i < ap->argc; i++)
-	free (ap->argv[i]);
-
+      free (ap->string_pool);
       free (ap);
     }
 }
