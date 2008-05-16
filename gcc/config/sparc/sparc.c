@@ -410,7 +410,7 @@ static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (const_tree, const_tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static void sparc_va_start (tree, rtx);
-static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
+static tree sparc_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 				     enum machine_mode, const_tree, bool);
@@ -5709,7 +5709,8 @@ sparc_va_start (tree valist, rtx nextarg)
 /* Implement `va_arg' for stdarg.  */
 
 static tree
-sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+		       gimple_seq *post_p)
 {
   HOST_WIDE_INT size, rsize, align;
   tree addr, incr;
