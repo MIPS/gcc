@@ -1,3 +1,123 @@
+2008-05-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/35756
+	PR fortran/35759
+	* trans-stmt.c (gfc_trans_where): Tighten up the dependency
+	check for calling gfc_trans_where_3.
+
+	PR fortran/35743
+	* trans-stmt.c (gfc_trans_where_2): Set the mask size to zero
+	if it is calculated to be negative.
+
+	PR fortran/35745
+	* trans-stmt.c (gfc_trans_where_3, gfc_trans_where_assign): Set
+	ss->where for scalar right hand sides.
+	* trans-array.c (gfc_add_loop_ss_code): If ss->where is set do
+	not evaluate scalars outside the loop.  Clean up whitespace.
+	* trans.h : Add a bitfield 'where' to gfc_ss.
+
+2008-05-16  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h: Increase GFC_MAX_DIMENSIONS to 15.
+	* array.c (gfc_match_array_spec): Error with -std=f2003 if rank > 7.
+
+2008-04-16  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/27997
+	* gfortran.h:  Added field "length_from_typespec" to gfc_charlength.
+	* aray.c (gfc_match_array_constructor):  Added code to parse typespec.
+	(check_element_type, check_constructor_type, gfc_check_constructor_type):
+	Extended to support explicit typespec on constructor.
+	(gfc_resolve_character_array_constructor):  Pad strings correctly for
+	explicit, constant character length.
+	* trans-array.c:  New static global variable "typespec_chararray_ctor"
+	(gfc_trans_array_constructor):  New code to support explicit but dynamic
+	character lengths.
+
+2008-05-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/34325
+	* decl.c (match_attr_spec): Check for matching pairs of parenthesis.
+	* expr.c (gfc_specification_expr): Supplement the error message with the
+	type that was found.
+	* resolve.c (gfc_resolve_index): Likewise.
+	* match.c (gfc_match_parens): Clarify error message with "at or before".
+	(gfc_match_do): Check for matching pairs of parenthesis.
+
+2008-05-16  Tobias Burnus  <burnus@net-b.de
+
+	* intrinsic.texi: Write Fortran 77/90/95 instead of F77/90/95;
+	add missing KIND argument to ACHAR and NINT; and state that
+	the KIND argument is a F2003 extension for ACHAR, COUNT, IACHAR,
+	ICHAR, INDEX, LBOUND, LEN, LEN_TRIM, SCAN, SIZE, UBOUND, VERIFY.
+
+2008-05-16  Daniel Kraft  <d@domob.eu>
+
+	* primary.c:  New private structure "gfc_structure_ctor_component".
+	(gfc_free_structure_ctor_component):  New helper function.
+	(gfc_match_structure_constructor):  Extended largely to support named
+	arguments and default initialization for structure constructors.
+
+2008-05-15  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_dble, gfc_simplify_float,
+	simplify_bound, gfc_simplify_nearest, gfc_simplify_real): Plug
+	possible memory leaks.
+	(gfc_simplify_reshape): Plug possible memory leaks and dereferencing
+	of NULL pointers.
+
+2008-05-15  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/36239
+	* simplify.c (gfc_simplify_int, gfc_simplify_intconv): Replaced hand
+	rolled integer conversion with gfc_int2int, gfc_real2int, and
+	gfc_complex2int.
+	(gfc_simplify_intconv): Renamed to simplify_intconv.
+	
+2008-05-15  Steven G. Kargl,   <kargl@comcast.net>
+	* gfortran.dg/and_or_xor.f90: New test
+
+	* fortran/simplify.c (gfc_simplify_and, gfc_simplify_or,
+	gfc_simplify_xor): Don't range check logical results.
+
+2008-05-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* trans-expr.c (gfc_conv_concat_op): Take care of nondefault
+	character kinds.
+	(gfc_build_compare_string): Add kind argument and use it.
+	(gfc_conv_statement_function): Fix indentation.
+	* gfortran.h (gfc_character_info): New structure.
+	(gfc_character_kinds): New array.
+	* trans-types.c (gfc_character_kinds, gfc_character_types,
+	gfc_pcharacter_types): New array.
+	(gfc_init_kinds): Fill character kinds array.
+	(validate_character): Take care of nondefault character kinds.
+	(gfc_build_uint_type): New function.
+	(gfc_init_types): Take care of nondefault character kinds.
+	(gfc_get_char_type, gfc_get_pchar_type): New functions.
+	(gfc_get_character_type_len): Use gfc_get_char_type.
+	* trans.h (gfc_build_compare_string): Adjust prototype.
+	(gfor_fndecl_compare_string_char4, gfor_fndecl_concat_string_char4,
+	gfor_fndecl_string_len_trim_char4, gfor_fndecl_string_index_char4,
+	gfor_fndecl_string_scan_char4, gfor_fndecl_string_verify_char4,
+	gfor_fndecl_string_trim_char4, gfor_fndecl_string_minmax_char4,
+	gfor_fndecl_adjustl_char4, gfor_fndecl_adjustr_char4): New
+	prototypes.
+	* trans-types.h (gfc_get_char_type, gfc_get_pchar_type): New
+	prototypes.
+	* trans-decl.c (gfor_fndecl_compare_string_char4,
+	gfor_fndecl_string_len_trim_char4, gfor_fndecl_string_index_char4,
+	gfor_fndecl_string_scan_char4, gfor_fndecl_string_verify_char4,
+	gfor_fndecl_string_trim_char4, gfor_fndecl_string_minmax_char4,
+	gfor_fndecl_adjustl_char4, gfor_fndecl_adjustr_char4,
+	gfor_fndecl_concat_string_char4): New function decls.
+	(gfc_build_intrinsic_function_decls): Define new *_char4 function
+	decls.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax_char,
+	gfc_conv_intrinsic_len_trim, gfc_conv_intrinsic_ichar,
+	gfc_conv_intrinsic_strcmp, gfc_conv_intrinsic_trim,
+	gfc_conv_intrinsic_function): Deal with nondefault character kinds.
+
 2008-05-15  Sa Liu  <saliu@de.ibm.com>
 
 	* iso-c-binding.def: Add standard parameter to macro NAMED_INTCST.
