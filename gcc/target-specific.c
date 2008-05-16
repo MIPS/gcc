@@ -46,10 +46,87 @@ struct cl_option_stors_stack
 
 static struct cl_option_stors_stack *cl_option_top = NULL;
 
+/* Structure to hold target options that are accumulated for passing on to
+   the target backend hook.  */
+
+typedef struct
+{
+  int argc;			/* current number of arguments */
+  int max_argc;			/* max arguments allocated */
+  char *argv[1];		/* arguments */
+} cl_option_args;
+
+#define MIN_ALLOC_ARGS	10
+
+static cl_option_args *target_specific_build_arguments (cl_option_args *ap,
+							tree args);
+static void target_specific_free_arguments (cl_option_args *ap);
+static bool target_specific_push (int argc, char **argv);
+static void target_specific_pop (void);
+static unsigned int driver_push_set_options (void);
+static unsigned int driver_pop_options (void);
+
+/* Internal function to build argument vectors.  */
+static cl_option_args *
+target_specific_build_arguments (cl_option_args *ap, tree args)
+{
+  for (; args; args = TREE_CHAIN (args))
+    {
+      tree args2 = TREE_VALUE (args);
+      if (args)
+	{
+	  size_t len = TREE_STRING_LENGTH (args2);
+	  char *p;
+
+	  if (! ap)
+	    {
+	      ap = xmalloc (sizeof (cl_option_args)
+			    + MIN_ALLOC_ARGS * (sizeof (char *)));
+
+	      ap->argc = 0;
+	      ap->max_argc = MIN_ALLOC_ARGS;
+	    }
+	  else if (ap->argc == ap->max_argc)
+	    {
+	      ap->max_argc += MIN_ALLOC_ARGS;
+	      ap = xrealloc (ap, (sizeof (cl_option_args)
+				  + (ap->max_argc * sizeof (char *))));
+	    }
+
+	  /* Add '-' in front of the argument.  */
+	  p = xmalloc (2 + len);
+	  p[0] = '-';
+	  memcpy (p+1, TREE_STRING_POINTER (args2), len);
+	  p[len+1] = '\0';
+	  ap->argv[ap->argc++] = p;
+	  ap->argv[ap->argc] = NULL;
+	}
+    }
+
+  return ap;
+}
+
+/* Internal function to release memory allocated for argument vectors */
+static void
+target_specific_free_arguments (cl_option_args *ap)
+{
+  if (ap)
+    {
+      int i;
+
+      for (i = 0; i < ap->argc; i++)
+	free (ap->argv[i]);
+
+      free (ap);
+    }
+}
+
+
 /* Save attribute settable options to stack, pass new options to backend hook,
    and return true/false if the new options are valid.  */
-bool
-push_attribute_options (int argc, const char **argv)
+
+static bool
+target_specific_push (int argc, char **argv)
 {
   bool ret = true;
   struct cl_option_stors_stack *ptr
@@ -64,14 +141,14 @@ push_attribute_options (int argc, const char **argv)
   cl_option_top = ptr;
 
   if (targetm.target_specific.push_options)
-    ret = targetm.target_specific.push_options (argc, argv);
+    ret = targetm.target_specific.push_options (argc, (const char **)argv);
 
   return ret;
 }
 
 /* Restore attribute options from stack */
-void
-pop_attribute_options (void)
+static void
+target_specific_pop (void)
 {
   struct cl_option_stors_stack *ptr = cl_option_top;
 
@@ -100,41 +177,17 @@ driver_push_set_options (void)
 
       if (opt_attrs)
 	{
-	  tree orig_opt_attrs = opt_attrs;
-	  int argc = 0;
-	  int max_argc = 0;
-	  const char **argv;
-
-	  /* Count the number of arguments */
-	  for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
-	    {
-	      tree args = TREE_VALUE (opt_attrs);
-
-	      for (; args; args = TREE_CHAIN (args))
-		{
-		  if (TREE_VALUE (args))
-		    max_argc++;
-		}
-	    }
-
-	  argv = (const char **) alloca (sizeof (char *) * (max_argc + 1));
+	  cl_option_args *ap = NULL;
 
 	  /* Fill in the arguments */
-	  for (opt_attrs = orig_opt_attrs;
-	       opt_attrs;
-	       opt_attrs = TREE_CHAIN (opt_attrs))
+	  for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
+	    ap = target_specific_build_arguments (ap, TREE_VALUE (opt_attrs));
+
+	  if (ap)
 	    {
-	      tree args = TREE_VALUE (opt_attrs);
-
-	      for (; args; args = TREE_CHAIN (args))
-		{
-		  if (TREE_VALUE (args))
-		    argv[argc++] = TREE_STRING_POINTER (TREE_VALUE (args));
-		}
+	      target_specific_push (ap->argc, ap->argv);
+	      target_specific_free_arguments (ap);
 	    }
-
-	  argv[argc] = NULL;
-	  push_attribute_options (argc, argv);
 	}
     }
 
@@ -150,12 +203,51 @@ driver_pop_options (void)
       tree attrs = DECL_ATTRIBUTES (current_function_decl);
 
       if (attrs && lookup_attribute ("option", attrs))
-	pop_attribute_options ();
+	target_specific_pop ();
     }
 
   return true;
 }
 
+/* For handling "option" attribute. arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_option_attribute (tree *node,
+			 tree ARG_UNUSED (name),
+			 tree args,
+			 int ARG_UNUSED (flags),
+			 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "option attribute ignored");
+      *no_add_attrs = true;
+    }
+  else if (! targetm.target_specific.push_options
+	   || ! targetm.target_specific.pop_options)
+    {
+      error ("option attribute is not supported on this machine");
+      *no_add_attrs = true;
+    }
+  else
+    {
+      cl_option_args *ap = target_specific_build_arguments (NULL, args);
+
+      if (ap)
+	{
+	  if (! target_specific_push (ap->argc, ap->argv))
+	    *no_add_attrs = true;
+
+	  target_specific_pop ();
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* RTL pass to push the current options if the function used
+   attribute(option).  */
 struct rtl_opt_pass pass_push_set_options =
 {
   {
@@ -175,6 +267,8 @@ struct rtl_opt_pass pass_push_set_options =
   }
 };
 
+/* RTL pass to pop the current options if the function used
+   attribute(option).  */
 struct rtl_opt_pass pass_pop_options =
 {
   {

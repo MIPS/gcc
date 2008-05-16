@@ -1850,9 +1850,9 @@ static struct
   const char **string_var;
   size_t len;
 } ix86_string_ops[] = {
-  INIT_STRING_OPS ("mtune=", ix86_tune_string),
-  INIT_STRING_OPS ("march=", ix86_arch_string),
-  INIT_STRING_OPS ("mstring-op-strategy=", ix86_stringop_string),
+  INIT_STRING_OPS ("-mtune=", ix86_tune_string),
+  INIT_STRING_OPS ("-march=", ix86_arch_string),
+  INIT_STRING_OPS ("-mstring-op-strategy=", ix86_stringop_string),
 };
 
 /* Save list to restore string ops.  */
@@ -2207,6 +2207,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
+#define DEBUG_TARGET_SPECIFIC
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "override_options, arch = '%s', tune = '%s'\n", ix86_arch_string, ix86_tune_string);
 #endif
@@ -2822,7 +2823,6 @@ bool
 ix86_target_specific_push (int argc, const char **argv)
 {
   int i;
-  const char **new_argv = (const char **) alloca (sizeof (char *) * (argc + 1));
   unsigned j;
   struct ix86_save_string_ops *ops
     = xcalloc (sizeof (struct ix86_save_string_ops), 1);
@@ -2842,12 +2842,8 @@ ix86_target_specific_push (int argc, const char **argv)
   /* See if we were passed one of the string options */
   for (i = 0; i < argc; i++)
     {
-      size_t len = strlen (argv[i]);
-      char *arg = alloca (len + 2);
-
-      *arg = '-';
-      memcpy (arg+1, argv[i], len+1);
-      new_argv[i] = arg;
+      const char *arg = argv[i];
+      size_t len = strlen (arg);
 
       for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
 	{
@@ -2869,7 +2865,7 @@ ix86_target_specific_push (int argc, const char **argv)
 	}
     }
 
-  if (! handle_option (new_argv, 0, 1))
+  if (! handle_option (argv, 0, 1))
     {
 #ifdef DEBUG_TARGET_SPECIFIC
       fputs ("\tfailed\n", stderr);

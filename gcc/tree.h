@@ -5046,6 +5046,9 @@ extern void gimplify_function_tree (tree);
 extern const char *get_name (const_tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);
+
+/* In target-specific.c */
+extern tree handle_option_attribute (tree *, tree, tree, int, bool *);
 
 /* Interface of the DWARF2 unwind info support.  */
 

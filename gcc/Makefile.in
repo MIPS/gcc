@@ -1136,6 +1136,7 @@ OBJS-common = \
 	stor-layout.o \
 	stringpool.o \
 	targhooks.o \
+	target-specific.o \
 	timevar.o \
 	toplev.o \
 	tracer.o \
@@ -1164,7 +1165,6 @@ OBJS-common = \
 	tree-predcom.o \
 	tree-pretty-print.o \
 	tree-profile.o \
-	tree-opt.o \
 	tree-scalar-evolution.o \
 	tree-sra.o \
 	tree-ssa-address.o \
@@ -2639,7 +2639,7 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) $(FUNCTION_H) \
    toplev.h $(COVERAGE_H) $(TREE_FLOW_H) value-prof.h cfghooks.h \
    $(CFGLOOP_H) $(TIMEVAR_H) tree-pass.h
-tree-opt.o : tree-opt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+target-specific.o : target-specific.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FUNCTION_H) flags.h toplev.h $(TREE_PASS_H) \
    $(GGC_H) output.h $(TM_P_H) $(TARGET_H) $(DIAGNOSTIC_H) opts.h 
 tree-profile.o : tree-profile.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \

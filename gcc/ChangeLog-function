@@ -1,16 +1,38 @@
 2008-05-16  Michael Meissner  <michael.meissner@amd.com>
 
-	* opts-common.c (cl_option_stors_stack): Move to tree-opt.c.
-	(push_attribute_options): Ditto.
-	(pop_attribute_options): Ditto.
+	* tree.h (handle_option_attribute): Add declaration.
 
-	* tree-opt.c (cl_option_stor_stack): Move the option push and
-	popping support here from opts-common.c.  Have the push/pop
+	* tree-opt.c: Delete, file rename to target-specific.c.
+
+	* target-specific.c: New file, renamed from tree-opt.c.
+	(target_specific_push): Moved from opts-common.c, make static.
+	Rename from push_attribute_options.  Call target backend hook.
+	Create argv with '-' prepended.
+	(target_specific_pop): Moved from opts-common.c, make static.
+	Rename from pop_attribute_options.  Call target backend hook.
+	(cl_option_stor_stack): Moved from opts-common.c, make static.
+	(handle_option_attribute): Moved from c-common.c, make static.
+	(target_specific_build_arguments): New function to build argc,
+	argv for arguments.
+	(target_specific_free_arguments): New function to release memory
+	allocated via target_specific_build_arguments.
+	(cl_option_stor_stack): Move the option push and popping support here from opts-common.c.  Have the push/pop
 	functions call the target backend hooks.  Simplify to use a single
 	malloc instead of two.
+	(cl_option_top): Renamed from top.
+
+	* c-common.c (handle_option_attribute): Move to target-specific.c.
+
+	* Makefile.in (target-specific.o): Rename from tree-opt.o.
+
+	* config/i386/i386.c (ix86_string_ops): Add initial '-'.
+	(ix86_target_specific_push): Eliminate adding '-', since our
+	caller now does this.
+
+	* opts-common.c (cl_option_stors_stack): Move to
+	target-specific.c.
 	(push_attribute_options): Ditto.
 	(pop_attribute_options): Ditto.
-	(cl_option_top): Renamed from top.
 
 	* opts.h (push_attribute_options): Change calling signature.
 
