@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
    won't allow it.  */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
   do {								\
-    if (SIZE != 4)						\
+    if (SIZE != 4 && (!TARGET_64BIT || SIZE != 8))		\
       abort ();							\
 								\
     fputs ("\t.secrel32\t", FILE);				\
@@ -127,7 +127,7 @@ along with GCC; see the file COPYING3.  If not see
 #define REG_PARM_STACK_SPACE(FNDECL) (TARGET_64BIT_MS_ABI ? 32 : 0)
 
 #undef OUTGOING_REG_PARM_STACK_SPACE
-#define OUTGOING_REG_PARM_STACK_SPACE (TARGET_64BIT_MS_ABI ? 1 : 0)
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) (TARGET_64BIT_MS_ABI ? 1 : 0)
 
 #undef REGPARM_MAX
 #define REGPARM_MAX (TARGET_64BIT_MS_ABI ? 4 : 3)
@@ -326,10 +326,6 @@ do {						\
    See i386.c:ix86_return_in_memory.  */
 #undef MS_AGGREGATE_RETURN
 #define MS_AGGREGATE_RETURN 1
-
-/* No data type wants to be aligned rounder than this.  */
-#undef	BIGGEST_ALIGNMENT
-#define BIGGEST_ALIGNMENT 128
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be

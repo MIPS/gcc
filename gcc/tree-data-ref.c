@@ -358,17 +358,20 @@ dump_data_dependence_relation (FILE *outf,
 {
   struct data_reference *dra, *drb;
 
-  dra = DDR_A (ddr);
-  drb = DDR_B (ddr);
   fprintf (outf, "(Data Dep: \n");
 
+  if (!ddr || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    {
+      fprintf (outf, "    (don't know)\n)\n");
+      return;
+    }
+
+  dra = DDR_A (ddr);
+  drb = DDR_B (ddr);
   dump_data_reference (outf, dra);
   dump_data_reference (outf, drb);
 
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-    fprintf (outf, "    (don't know)\n");
-  
-  else if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     fprintf (outf, "    (no dependence)\n");
   
   else if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -738,7 +741,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
 	{
 	  op = TREE_OPERAND (aref, 1);
 	  access_fn = analyze_scalar_evolution (loop, op);
-	  access_fn = resolve_mixers (nest, access_fn);
+	  access_fn = instantiate_scev (nest, loop, access_fn);
 	  VEC_safe_push (tree, heap, access_fns, access_fn);
 
 	  TREE_OPERAND (aref, 1) = build_int_cst (TREE_TYPE (op), 0);
@@ -790,8 +793,6 @@ dr_analyze_alias (struct data_reference *dr)
     }
 
   DR_SYMBOL_TAG (dr) = smt;
-  if (smt && var_can_have_subvars (smt))
-    DR_SUBVARS (dr) = get_subvars_for_var (smt);
 
   vops = BITMAP_ALLOC (NULL);
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, it, SSA_OP_VIRTUAL_USES)
@@ -3965,11 +3966,14 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 
   if (TREE_CODE (stmt) ==  GIMPLE_MODIFY_STMT)
     {
+      tree base;
       op0 = &GIMPLE_STMT_OPERAND (stmt, 0);
       op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
 		
       if (DECL_P (*op1)
-	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
+	  || (REFERENCE_CLASS_P (*op1)
+	      && (base = get_base_address (*op1))
+	      && TREE_CODE (base) != SSA_NAME))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op1;

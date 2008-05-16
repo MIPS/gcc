@@ -276,6 +276,8 @@ rm -f a.out a.exe b.out
 # Find the native compiler
 AC_PROG_CC
 AM_PROG_CC_C_O
+ACX_PROG_GNAT([-I"$srcdir"/ada])
+
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -297,6 +299,7 @@ AC_SUBST(CFLAGS)
 # Check C compiler features
 # -------------------------
 
+AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CPP
 AC_C_INLINE
 
@@ -367,7 +370,7 @@ do
 			ac_gc_always_collect= ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;
-			ac_types_checking= ;;
+			ac_types_checking=1 ;;
 	no|none)	ac_assert_checking= ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
 			ac_gc_always_collect= ; ac_rtl_checking= ;
@@ -895,20 +898,6 @@ fi
 # --------------------
 # Checks for C headers
 # --------------------
-
-AC_MSG_CHECKING(for GNU C library)
-AC_CACHE_VAL(gcc_cv_glibc,
-[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-  [[#include <features.h>]], [[
-#if ! (defined __GLIBC__ || defined __GNU_LIBRARY__)
-#error Not a GNU C library system
-#endif]])],
-  [gcc_cv_glibc=yes],
-  [gcc_cv_glibc=no])])
-AC_MSG_RESULT($gcc_cv_glibc)
-if test $gcc_cv_glibc = yes; then
-  AC_DEFINE(_GNU_SOURCE, 1, [Always define this when using the GNU C Library])
-fi
 
 # Need to reject headers which give warnings, so that the -Werror bootstrap
 # works later. *sigh*  This needs to come before all header checks.
@@ -1748,7 +1737,7 @@ fi
 # then define inhibit_libc in LIBGCC2_CFLAGS.
 # This prevents libgcc2 from containing any code which requires libc
 # support.
-inhibit_libc=false
+: ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
      { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
@@ -1826,6 +1815,21 @@ esac
 # ---------------------------
 # Assembler & linker features
 # ---------------------------
+
+# During stage 2, ld is actually gcc/collect-ld, which is a small script to
+# discern between when to use prev-ld/ld-new and when to use ld/ld-new.
+# However when ld-new is first executed from the build tree, libtool will
+# relink it as .libs/lt-ld-new, so that it can give it an RPATH that refers
+# to the build tree.  While doing this we need to use the previous-stage
+# linker, or we have an infinite loop.  The presence of a shell script as
+# ld/ld-new, and the fact that the script *uses ld itself*, is what confuses
+# the gcc/collect-ld script.  So we need to know how libtool works, or
+# exec-tool will fail.
+
+m4_defun([_LT_CONFIG_COMMANDS], [])
+AC_PROG_LIBTOOL
+AC_SUBST(objdir)
+AC_SUBST(enable_fast_install)
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -3577,11 +3581,32 @@ changequote(,)dnl
         fi
         subdir="`echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
         subdirs="$subdirs $subdir"
+
+	# $gcc_subdir is where the gcc integration files are to be found
+	# for a language, both for internal compiler purposes (compiler
+	# sources implementing front-end to GCC tree converters), and for
+	# build infrastructure purposes (Make-lang.in, etc.)
+	#
+	# This will be <subdir> (relative to $srcdir) if a line like 
+	# gcc_subdir="<subdir>" or gcc_subdir=<subdir>
+	# is found in <langdir>/config-lang.in, and will remain <langdir>
+	# otherwise.
+	#
+	# Except for the language alias (fetched above), the regular
+	# "config-lang.in" contents are always retrieved from $gcc_subdir,
+	# so a <langdir>/config-lang.in setting gcc_subdir typically sets
+	# only this and the language alias.
+
+        gcc_subdir=`sed -n -e 's,^gcc_subdir=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^gcc_subdir=\([^   ]*\).*$,\1,p' $lang`
+        if [ "$gcc_subdir" = "" ]; then
+           gcc_subdir="$subdir"
+        fi
+
         case ",$enable_languages," in
         *,$lang_alias,*)
             all_selected_languages="$all_selected_languages $lang_alias"
-	    if test -f $srcdir/$subdir/lang-specs.h; then
-	        lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
+            if test -f $srcdir/$gcc_subdir/lang-specs.h; then
+                lang_specs_files="$lang_specs_files $srcdir/$gcc_subdir/lang-specs.h"
 	    fi
 	    ;;
         esac
@@ -3593,10 +3618,10 @@ changequote([,])dnl
 	outputs=
 	gtfiles=
 	subdir_requires=
-	. ${srcdir}/$subdir/config-lang.in
+	. ${srcdir}/$gcc_subdir/config-lang.in
 	if test "x$language" = x
 	then
-		echo "${srcdir}/$subdir/config-lang.in doesn't set \$language." 1>&2
+		echo "${srcdir}/$gcc_subdir/config-lang.in doesn't set \$language." 1>&2
 		exit 1
 	fi
 
@@ -3613,15 +3638,15 @@ changequote([,])dnl
 	esac
 	$ok || continue
 
-	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$subdir/Make-lang.in"
-	if test -f $srcdir/$subdir/lang.opt; then
-	    lang_opt_files="$lang_opt_files $srcdir/$subdir/lang.opt"
+	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
+	if test -f $srcdir/$gcc_subdir/lang.opt; then
+	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
 	fi
-	if test -f $srcdir/$subdir/$subdir-tree.def; then
-	    lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
+	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
+	    lang_tree_files="$lang_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
 	fi
-	if test -f ${srcdir}/$subdir/Makefile.in
-		then all_lang_makefiles="$subdir/Makefile"
+	if test -f ${srcdir}/$gcc_subdir/Makefile.in
+		then all_lang_makefiles="$gcc_subdir/Makefile"
 	fi
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
@@ -3702,9 +3727,6 @@ else
   slibdir='$(libdir)'
 fi)
 AC_SUBST(slibdir)
-
-objdir=`${PWDCMD-pwd}`
-AC_SUBST(objdir)
 
 AC_ARG_WITH(datarootdir,
 [  --with-datarootdir=DIR  Use DIR as the data root [[PREFIX/share]]],

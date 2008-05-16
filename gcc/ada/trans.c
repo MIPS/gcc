@@ -202,7 +202,7 @@ static tree emit_range_check (tree, Node_Id);
 static tree emit_index_check (tree, tree, tree, tree);
 static tree emit_check (tree, tree, int);
 static tree convert_with_check (Entity_Id, tree, bool, bool, bool);
-static bool larger_record_type_p (tree, tree);
+static bool smaller_packable_type_p (tree, tree);
 static bool addressable_p (tree, tree);
 static tree assoc_to_constructor (Entity_Id, Node_Id, tree);
 static tree extract_values (tree, tree);
@@ -553,7 +553,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
      required if this is a static expression because it might be used
      in a context where a dereference is inappropriate, such as a case
      statement alternative or a record discriminant.  There is no possible
-     volatile-ness shortciruit here since Volatile constants must be imported
+     volatile-ness short-circuit here since Volatile constants must be imported
      per C.6. */
   if (Ekind (gnat_temp) == E_Constant && Is_Scalar_Type (gnat_temp_type)
       && !Is_Imported (gnat_temp)
@@ -566,7 +566,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 
   if (use_constant_initializer)
     {
-      /* If this is a deferred constant, the initializer is attached to the
+      /* If this is a deferred constant, the initializer is attached to
 	 the full view.  */
       if (Present (Full_View (gnat_temp)))
 	gnat_temp = Full_View (gnat_temp);
@@ -687,10 +687,11 @@ Pragma_to_gnu (Node_Id gnat_node)
 
   /* Check for (and ignore) unrecognized pragma and do nothing if we are just
      annotating types.  */
-  if (type_annotate_only || !Is_Pragma_Name (Chars (gnat_node)))
+  if (type_annotate_only
+      || !Is_Pragma_Name (Chars (Pragma_Identifier (gnat_node))))
     return gnu_result;
 
-  switch (Get_Pragma_Id (Chars (gnat_node)))
+  switch (Get_Pragma_Id (Chars (Pragma_Identifier (gnat_node))))
     {
     case Pragma_Inspection_Point:
       /* Do nothing at top level: all such variables are already viewable.  */
@@ -851,6 +852,52 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       if (attribute == Attr_Address)
 	gnu_prefix = maybe_unconstrained_array (gnu_prefix);
 
+      /* If we are building a static dispatch table, we have to honor
+	 TARGET_VTABLE_USES_DESCRIPTORS if we want to be compatible
+	 with the C++ ABI.  We do it in the non-static case as well,
+	 see gnat_to_gnu_entity, case E_Access_Subprogram_Type.  */
+      else if (TARGET_VTABLE_USES_DESCRIPTORS
+	       && Is_Dispatch_Table_Entity (Etype (gnat_node)))
+	{
+	  tree gnu_field, gnu_list = NULL_TREE, t;
+	  /* Descriptors can only be built here for top-level functions.  */
+	  bool build_descriptor = (global_bindings_p () != 0);
+	  int i;
+
+	  gnu_result_type = get_unpadded_type (Etype (gnat_node));
+
+	  /* If we're not going to build the descriptor, we have to retrieve
+	     the one which will be built by the linker (or by the compiler
+	     later if a static chain is requested).  */
+	  if (!build_descriptor)
+	    {
+	      gnu_result = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_prefix);
+	      gnu_result = fold_convert (build_pointer_type (gnu_result_type),
+					 gnu_result);
+	      gnu_result = build1 (INDIRECT_REF, gnu_result_type, gnu_result);
+	    }
+
+	  for (gnu_field = TYPE_FIELDS (gnu_result_type), i = 0;
+	       i < TARGET_VTABLE_USES_DESCRIPTORS;
+	       gnu_field = TREE_CHAIN (gnu_field), i++)
+	    {
+	      if (build_descriptor)
+		{
+		  t = build2 (FDESC_EXPR, TREE_TYPE (gnu_field), gnu_prefix,
+			      build_int_cst (NULL_TREE, i));
+		  TREE_CONSTANT (t) = 1;
+		}
+	      else
+		t = build3 (COMPONENT_REF, ptr_void_ftype, gnu_result,
+			    gnu_field, NULL_TREE);
+
+	      gnu_list = tree_cons (gnu_field, t, gnu_list);
+	    }
+
+	  gnu_result = gnat_build_constructor (gnu_result_type, gnu_list);
+	  break;
+	}
+
       /* ... fall through ... */
 
     case Attr_Access:
@@ -869,8 +916,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       if (attribute == Attr_Code_Address)
 	{
 	  for (gnu_expr = gnu_result;
-	       TREE_CODE (gnu_expr) == NOP_EXPR
-	       || TREE_CODE (gnu_expr) == CONVERT_EXPR;
+	       CONVERT_EXPR_P (gnu_expr);
 	       gnu_expr = TREE_OPERAND (gnu_expr, 0))
 	    TREE_CONSTANT (gnu_expr) = 1;
 
@@ -884,8 +930,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       else if (TREE_CODE (TREE_TYPE (gnu_prefix)) == FUNCTION_TYPE)
 	{
 	  for (gnu_expr = gnu_result;
-	       TREE_CODE (gnu_expr) == NOP_EXPR
-	       || TREE_CODE (gnu_expr) == CONVERT_EXPR;
+	       CONVERT_EXPR_P (gnu_expr);
 	       gnu_expr = TREE_OPERAND (gnu_expr, 0))
 	    ;
 
@@ -948,8 +993,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* Remove NOPS from gnu_expr and conversions from gnu_prefix.
 	 We only use GNU_EXPR to see if a COMPONENT_REF was involved. */
       while (TREE_CODE (gnu_expr) == NOP_EXPR)
-	gnu_expr = TREE_OPERAND (gnu_expr, 0)
-	  ;
+	gnu_expr = TREE_OPERAND (gnu_expr, 0);
 
       gnu_prefix = remove_conversions (gnu_prefix, true);
       prefix_unused = true;
@@ -970,7 +1014,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       /* If we're looking for the size of a field, return the field size.
 	 Otherwise, if the prefix is an object, or if 'Object_Size or
 	 'Max_Size_In_Storage_Elements has been specified, the result is the
-	 GCC size of the type. Otherwise, the result is the RM_Size of the
+	 GCC size of the type.  Otherwise, the result is the RM_Size of the
 	 type.  */
       if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	gnu_result = DECL_SIZE (TREE_OPERAND (gnu_prefix, 1));
@@ -1181,33 +1225,41 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 
 	else /* attribute == Attr_Range_Length || attribute == Attr_Length  */
 	  {
-	    tree gnu_compute_type;
-
 	    if (pa && pa->length)
 	      {
 		gnu_result = pa->length;
 		break;
 	      }
+	    else
+	      {
+		/* We used to compute the length as max (hb - lb + 1, 0),
+		   which could overflow for some cases of empty arrays, e.g.
+		   when lb == index_type'first.  We now compute the length as
+		   (hb < lb) ? 0 : hb - lb + 1, which would only overflow in
+		   much rarer cases, for extremely large arrays we expect
+		   never to encounter in practice.  In addition, the former
+		   computation required the use of potentially constraining
+		   signed arithmetic while the latter doesn't.  */
+		
+		tree gnu_compute_type = get_base_type (gnu_result_type);
 
-	    gnu_compute_type
-	      = signed_or_unsigned_type_for (0,
-					     get_base_type (gnu_result_type));
-
-	    gnu_result
-	      = build_binary_op
-		(MAX_EXPR, gnu_compute_type,
-		 build_binary_op
-		 (PLUS_EXPR, gnu_compute_type,
-		  build_binary_op
-		  (MINUS_EXPR, gnu_compute_type,
-		   convert (gnu_compute_type,
-			    TYPE_MAX_VALUE
-			    (TYPE_INDEX_TYPE (TYPE_DOMAIN (gnu_type)))),
-		   convert (gnu_compute_type,
-			    TYPE_MIN_VALUE
-			    (TYPE_INDEX_TYPE (TYPE_DOMAIN (gnu_type))))),
-		  convert (gnu_compute_type, integer_one_node)),
-		 convert (gnu_compute_type, integer_zero_node));
+		tree index_type
+		  = TYPE_INDEX_TYPE (TYPE_DOMAIN (gnu_type));
+		tree lb
+		  = convert (gnu_compute_type, TYPE_MIN_VALUE (index_type));
+		tree hb
+		  = convert (gnu_compute_type, TYPE_MAX_VALUE (index_type));
+		
+		gnu_result
+		  = build3
+		    (COND_EXPR, gnu_compute_type,
+		     build_binary_op (LT_EXPR, gnu_compute_type, hb, lb),
+		     convert (gnu_compute_type, integer_zero_node),
+		     build_binary_op
+		     (PLUS_EXPR, gnu_compute_type,
+		      build_binary_op (MINUS_EXPR, gnu_compute_type, hb, lb),
+		      convert (gnu_compute_type, integer_one_node)));
+	      }
 	  }
 
 	/* If this has a PLACEHOLDER_EXPR, qualify it by the object we are
@@ -1224,7 +1276,6 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	    gnu_result
 	      = build1 (SAVE_EXPR, TREE_TYPE (gnu_result), gnu_result);
 	    TREE_SIDE_EFFECTS (gnu_result) = 1;
-	    TREE_INVARIANT (gnu_result) = 1;
 	    if (attribute == Attr_First)
 	      pa->first = gnu_result;
 	    else if (attribute == Attr_Last)
@@ -2117,7 +2168,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	  /* If the type is by_reference, a copy is not allowed.  */
 	  if (Is_By_Reference_Type (Etype (gnat_formal)))
 	    post_error
-	      ("misaligned & cannot be passed by reference", gnat_actual);
+	      ("misaligned actual cannot be passed by reference", gnat_actual);
 
 	  /* For users of Starlet we issue a warning because the
 	     interface apparently assumes that by-ref parameters
@@ -2151,11 +2202,11 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	     of the object if they are distinct, because the expectations
 	     of the callee would otherwise not be met:
 	       - if it's a justified modular type,
-	       - if the actual type is a packed version of it.  */
+	       - if the actual type is a smaller packable version of it.  */
 	  else if (TREE_CODE (gnu_name_type) == RECORD_TYPE
 		   && (TYPE_JUSTIFIED_MODULAR_P (gnu_name_type)
-		       || larger_record_type_p (gnu_name_type,
-						TREE_TYPE (gnu_name))))
+		       || smaller_packable_type_p (TREE_TYPE (gnu_name),
+						 gnu_name_type)))
 	    gnu_name = convert (gnu_name_type, gnu_name);
 
 	  /* Make a SAVE_EXPR to both properly account for potential side
@@ -2164,7 +2215,6 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
 	     used as the object and copied back after the call if needed.  */
 	  gnu_name = build1 (SAVE_EXPR, TREE_TYPE (gnu_name), gnu_name);
 	  TREE_SIDE_EFFECTS (gnu_name) = 1;
-	  TREE_INVARIANT (gnu_name) = 1;
 
 	  /* Set up to move the copy back to the original.  */
 	  if (Ekind (gnat_formal) != E_In_Parameter)
@@ -2360,7 +2410,7 @@ call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target)
     {
       /* Conceptually, what we need is a COMPOUND_EXPR with the call followed
 	 by the target object converted to the proper type.  Doing so would
-	 potentially be very inefficient, however, as this expresssion might
+	 potentially be very inefficient, however, as this expression might
 	 end up wrapped into an outer SAVE_EXPR later on, which would incur a
 	 pointless temporary copy of the whole object.
 
@@ -3042,7 +3092,7 @@ gnat_to_gnu (Node_Id gnat_node)
      elaboration procedure, so mark us as being in that procedure and push our
      context.
 
-     If we are in the elaboration procedure, check if we are violating a a
+     If we are in the elaboration procedure, check if we are violating a
      No_Elaboration_Code restriction by having a statement there.  */
   if ((IN (Nkind (gnat_node), N_Statement_Other_Than_Procedure_Call)
        && Nkind (gnat_node) != N_Null_Statement)
@@ -3639,7 +3689,12 @@ gnat_to_gnu (Node_Id gnat_node)
       break;
 
     case N_Null:
-      gnu_result = null_pointer_node;
+      if (TARGET_VTABLE_USES_DESCRIPTORS
+	  && Ekind (Etype (gnat_node)) == E_Access_Subprogram_Type
+	  && Is_Dispatch_Table_Entity (Etype (gnat_node)))
+	gnu_result = null_fdesc_node;
+      else
+	gnu_result = null_pointer_node;
       gnu_result_type = get_unpadded_type (Etype (gnat_node));
       break;
 
@@ -3663,7 +3718,6 @@ gnat_to_gnu (Node_Id gnat_node)
 
       /* If the result is a pointer type, see if we are improperly
 	 converting to a stricter alignment.  */
-
       if (STRICT_ALIGNMENT && POINTER_TYPE_P (gnu_result_type)
 	  && IN (Ekind (Etype (gnat_node)), Access_Kind))
 	{
@@ -3677,6 +3731,13 @@ gnat_to_gnu (Node_Id gnat_node)
 	       gnat_node, Designated_Type (Etype (gnat_node)),
 	       size_int (align / BITS_PER_UNIT), oalign / BITS_PER_UNIT);
 	}
+
+      /* If we are converting a descriptor to a function pointer, first
+	 build the pointer.  */
+      if (TARGET_VTABLE_USES_DESCRIPTORS
+	  && TREE_TYPE (gnu_result) == fdesc_type_node
+	  && POINTER_TYPE_P (gnu_result_type))
+	gnu_result = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_result);
 
       gnu_result = unchecked_convert (gnu_result_type, gnu_result,
 				      No_Truncation (gnat_node));
@@ -4172,26 +4233,13 @@ gnat_to_gnu (Node_Id gnat_node)
 		else if (TYPE_RETURNS_UNCONSTRAINED_P (gnu_subprog_type))
 		  {
 		    gnu_ret_val = maybe_unconstrained_array (gnu_ret_val);
-
-		    /* We have two cases: either the function returns with
-		       depressed stack or not.  If not, we allocate on the
-		       secondary stack.  If so, we allocate in the stack frame.
-		       if no copy is needed, the front end will set By_Ref,
-		       which we handle in the case above.  */
-		    if (TYPE_RETURNS_STACK_DEPRESSED (gnu_subprog_type))
-		      gnu_ret_val
-			= build_allocator (TREE_TYPE (gnu_ret_val),
-					   gnu_ret_val,
-					   TREE_TYPE (gnu_subprog_type),
-					   0, -1, gnat_node, false);
-		    else
-		      gnu_ret_val
-			= build_allocator (TREE_TYPE (gnu_ret_val),
-					   gnu_ret_val,
-					   TREE_TYPE (gnu_subprog_type),
-					   Procedure_To_Call (gnat_node),
-					   Storage_Pool (gnat_node),
-					   gnat_node, false);
+		    gnu_ret_val
+		      = build_allocator (TREE_TYPE (gnu_ret_val),
+					 gnu_ret_val,
+					 TREE_TYPE (gnu_subprog_type),
+					 Procedure_To_Call (gnat_node),
+					 Storage_Pool (gnat_node),
+					 gnat_node, false);
 		  }
 	      }
 	  }
@@ -4660,7 +4708,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	    }
 
  	  /* If the object was allocated from the default storage pool, the
- 	     alignement was greater than what the allocator provides, and this
+ 	     alignment was greater than what the allocator provides, and this
  	     is not a fat or thin pointer, what we have in gnu_ptr here is an
  	     address dynamically adjusted to match the alignment requirement
  	     (see build_allocator).  What we need to pass to free is the
@@ -4730,31 +4778,31 @@ gnat_to_gnu (Node_Id gnat_node)
 
     case N_Validate_Unchecked_Conversion:
       /* If the result is a pointer type, see if we are either converting
-         from a non-pointer or from a pointer to a type with a different
- 	 alias set and warn if so.  If the result defined in the same unit as
- 	 this unchecked conversion, we can allow this because we can know to
- 	 make that type have alias set 0.  */
+	 from a non-pointer or from a pointer to a type with a different
+	 alias set and warn if so.  If the result defined in the same unit as
+	 this unchecked conversion, we can allow this because we can know to
+	 make that type have alias set 0.  */
       {
- 	tree gnu_source_type = gnat_to_gnu_type (Source_Type (gnat_node));
- 	tree gnu_target_type = gnat_to_gnu_type (Target_Type (gnat_node));
+	tree gnu_source_type = gnat_to_gnu_type (Source_Type (gnat_node));
+	tree gnu_target_type = gnat_to_gnu_type (Target_Type (gnat_node));
 
- 	if (POINTER_TYPE_P (gnu_target_type)
- 	    && !In_Same_Source_Unit (Target_Type (gnat_node), gnat_node)
-            && get_alias_set (TREE_TYPE (gnu_target_type)) != 0
-            && !No_Strict_Aliasing (Underlying_Type (Target_Type (gnat_node)))
- 	    && (!POINTER_TYPE_P (gnu_source_type)
- 		|| (get_alias_set (TREE_TYPE (gnu_source_type))
- 		    != get_alias_set (TREE_TYPE (gnu_target_type)))))
- 	  {
-            post_error_ne
-              ("?possible aliasing problem for type&",
-               gnat_node, Target_Type (gnat_node));
-	    post_error
-              ("\\?use -fno-strict-aliasing switch for references",
-               gnat_node);
+	if (POINTER_TYPE_P (gnu_target_type)
+	    && !In_Same_Source_Unit (Target_Type (gnat_node), gnat_node)
+	    && get_alias_set (TREE_TYPE (gnu_target_type)) != 0
+	    && !No_Strict_Aliasing (Underlying_Type (Target_Type (gnat_node)))
+	    && (!POINTER_TYPE_P (gnu_source_type)
+		|| (get_alias_set (TREE_TYPE (gnu_source_type))
+		    != get_alias_set (TREE_TYPE (gnu_target_type)))))
+	  {
 	    post_error_ne
-              ("\\?or use `pragma No_Strict_Aliasing (&);`",
-               gnat_node, Target_Type (gnat_node));
+	      ("?possible aliasing problem for type&",
+	       gnat_node, Target_Type (gnat_node));
+	    post_error
+	      ("\\?use -fno-strict-aliasing switch for references",
+	       gnat_node);
+	    post_error_ne
+	      ("\\?or use `pragma No_Strict_Aliasing (&);`",
+	       gnat_node, Target_Type (gnat_node));
 	  }
 
 	/* The No_Strict_Aliasing flag is not propagated to the back-end for
@@ -4835,34 +4883,41 @@ gnat_to_gnu (Node_Id gnat_node)
 	  || CONTAINS_PLACEHOLDER_P (TYPE_SIZE (gnu_result_type))))
     gnu_result = gnat_stabilize_reference (gnu_result, false);
 
-  /* Now convert the result to the proper type.  If the type is void or if
-     we have no result, return error_mark_node to show we have no result.
-     If the type of the result is correct or if we have a label (which doesn't
-     have any well-defined type), return our result.  Also don't do the
-     conversion if the "desired" type involves a PLACEHOLDER_EXPR in its size
-     since those are the cases where the front end may have the type wrong due
-     to "instantiating" the unconstrained record with discriminant values
-     or if this is a FIELD_DECL.  If this is the Name of an assignment
-     statement or a parameter of a procedure call, return what we have since
-     the RHS has to be converted to our type there in that case, unless
-     GNU_RESULT_TYPE has a simpler size.  Similarly, if the two types are
-     record types with the same name and GNU_RESULT_TYPE has BLKmode, don't
-     convert.  This will be the case when we are converting from a packable
-     type to its actual type and we need those conversions to be NOPs in
-     order for assignments into these types to work properly.  Finally,
-     don't convert integral types that are the operand of an unchecked
-     conversion since we need to ignore those conversions (for 'Valid).
-     Otherwise, convert the result to the proper type.  */
+  /* Now convert the result to the result type, unless we are in one of the
+     following cases:
+
+       1. If this is the Name of an assignment statement or a parameter of
+	  a procedure call, return the result almost unmodified since the
+	  RHS will have to be converted to our type in that case, unless
+	  the result type has a simpler size.   Similarly, don't convert
+	  integral types that are the operands of an unchecked conversion
+	  since we need to ignore those conversions (for 'Valid).
+
+       2. If we have a label (which doesn't have any well-defined type), a
+	  field or an error, return the result almost unmodified.  Also don't
+	  do the conversion if the result type involves a PLACEHOLDER_EXPR in
+	  its size since those are the cases where the front end may have the
+	  type wrong due to "instantiating" the unconstrained record with
+	  discriminant values.  Similarly, if the two types are record types
+	  with the same name don't convert.  This will be the case when we are
+	  converting from a packable version of a type to its original type and
+	  we need those conversions to be NOPs in order for assignments into
+	  these types to work properly.
+
+       3. If the type is void or if we have no result, return error_mark_node
+	  to show we have no result.
+
+       4. Finally, if the type of the result is already correct.  */
 
   if (Present (Parent (gnat_node))
       && ((Nkind (Parent (gnat_node)) == N_Assignment_Statement
 	   && Name (Parent (gnat_node)) == gnat_node)
 	  || (Nkind (Parent (gnat_node)) == N_Procedure_Call_Statement
 	      && Name (Parent (gnat_node)) != gnat_node)
+	  || Nkind (Parent (gnat_node)) == N_Parameter_Association
 	  || (Nkind (Parent (gnat_node)) == N_Unchecked_Type_Conversion
 	      && !AGGREGATE_TYPE_P (gnu_result_type)
-	      && !AGGREGATE_TYPE_P (TREE_TYPE (gnu_result)))
-	  || Nkind (Parent (gnat_node)) == N_Parameter_Association)
+	      && !AGGREGATE_TYPE_P (TREE_TYPE (gnu_result))))
       && !(TYPE_SIZE (gnu_result_type)
 	   && TYPE_SIZE (TREE_TYPE (gnu_result))
 	   && (AGGREGATE_TYPE_P (gnu_result_type)
@@ -4877,16 +4932,14 @@ gnat_to_gnu (Node_Id gnat_node)
 	   && !(TREE_CODE (gnu_result_type) == RECORD_TYPE
 		&& TYPE_JUSTIFIED_MODULAR_P (gnu_result_type))))
     {
-      /* In this case remove padding only if the inner object type is the
-	 same as gnu_result_type or is of self-referential size (in that later
-	 case it must be an object of unconstrained type with a default
-	 discriminant).  We want to avoid copying too much data.  */
+      /* Remove padding only if the inner object is of self-referential
+	 size: in that case it must be an object of unconstrained type
+	 with a default discriminant and we want to avoid copying too
+	 much data.  */
       if (TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
 	  && TYPE_IS_PADDING_P (TREE_TYPE (gnu_result))
-	  && (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result)))
-                         == gnu_result_type
-	      || CONTAINS_PLACEHOLDER_P (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
-					     (TREE_TYPE (gnu_result)))))))
+	  && CONTAINS_PLACEHOLDER_P (TYPE_SIZE (TREE_TYPE (TYPE_FIELDS
+				     (TREE_TYPE (gnu_result))))))
 	gnu_result = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result))),
 			      gnu_result);
     }
@@ -4901,23 +4954,22 @@ gnat_to_gnu (Node_Id gnat_node)
 	   || ((TYPE_NAME (gnu_result_type)
 		== TYPE_NAME (TREE_TYPE (gnu_result)))
 	       && TREE_CODE (gnu_result_type) == RECORD_TYPE
-	       && TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
-	       && TYPE_MODE (gnu_result_type) == BLKmode))
+	       && TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE))
     {
-      /* Remove any padding record, but do nothing more in this case.  */
+      /* Remove any padding.  */
       if (TREE_CODE (TREE_TYPE (gnu_result)) == RECORD_TYPE
 	  && TYPE_IS_PADDING_P (TREE_TYPE (gnu_result)))
 	gnu_result = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_result))),
 			      gnu_result);
     }
 
-  else if (gnu_result == error_mark_node
-	   || gnu_result_type == void_type_node)
-    gnu_result =  error_mark_node;
+  else if (gnu_result == error_mark_node || gnu_result_type == void_type_node)
+    gnu_result = error_mark_node;
+
   else if (gnu_result_type != TREE_TYPE (gnu_result))
     gnu_result = convert (gnu_result_type, gnu_result);
 
-  /* We don't need any NOP_EXPR or NON_LVALUE_EXPR on GNU_RESULT.  */
+  /* We don't need any NOP_EXPR or NON_LVALUE_EXPR on the result.  */
   while ((TREE_CODE (gnu_result) == NOP_EXPR
 	  || TREE_CODE (gnu_result) == NON_LVALUE_EXPR)
 	 && TREE_TYPE (TREE_OPERAND (gnu_result, 0)) == TREE_TYPE (gnu_result))
@@ -5003,7 +5055,7 @@ void
 add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 {
   tree type = TREE_TYPE (gnu_decl);
-  tree gnu_stmt, gnu_init, gnu_lhs;
+  tree gnu_stmt, gnu_init, t;
 
   /* If this is a variable that Gigi is to ignore, we may have been given
      an ERROR_MARK.  So test for it.  We also might have been given a
@@ -5022,7 +5074,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
   if (global_bindings_p ())
     {
       /* Mark everything as used to prevent node sharing with subprograms.
-	 Note that walk_tree knows how to handle TYPE_DECL, but neither
+	 Note that walk_tree knows how to deal with TYPE_DECL, but neither
 	 VAR_DECL nor CONST_DECL.  This appears to be somewhat arbitrary.  */
       walk_tree (&gnu_stmt, mark_visited, NULL, NULL);
       if (TREE_CODE (gnu_decl) == VAR_DECL
@@ -5032,6 +5084,13 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	  walk_tree (&DECL_SIZE_UNIT (gnu_decl), mark_visited, NULL, NULL);
 	  walk_tree (&DECL_INITIAL (gnu_decl), mark_visited, NULL, NULL);
 	}
+      /* In any case, we have to deal with our own TYPE_ADA_SIZE field.  */
+      if (TREE_CODE (gnu_decl) == TYPE_DECL
+	  && (TREE_CODE (type) == RECORD_TYPE
+	      || TREE_CODE (type) == UNION_TYPE
+	      || TREE_CODE (type) == QUAL_UNION_TYPE)
+	  && (t = TYPE_ADA_SIZE (type)))
+	walk_tree (&t, mark_visited, NULL, NULL);
     }
   else
     add_stmt_with_node (gnu_stmt, gnat_entity);
@@ -5040,7 +5099,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
      valid for the context.  Similar to init_const in create_var_decl_1.  */
   if (TREE_CODE (gnu_decl) == VAR_DECL
       && (gnu_init = DECL_INITIAL (gnu_decl)) != NULL_TREE
-      && (TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (TREE_TYPE (gnu_init))
+      && (!gnat_types_compatible_p (type, TREE_TYPE (gnu_init))
 	  || (TREE_STATIC (gnu_decl)
 	      && !initializer_constant_valid_p (gnu_init,
 						TREE_TYPE (gnu_init)))))
@@ -5048,11 +5107,11 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
       /* If GNU_DECL has a padded type, convert it to the unpadded
 	 type so the assignment is done properly.  */
       if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type))
-	gnu_lhs = convert (TREE_TYPE (TYPE_FIELDS (type)), gnu_decl);
+	t = convert (TREE_TYPE (TYPE_FIELDS (type)), gnu_decl);
       else
-	gnu_lhs = gnu_decl;
+	t = gnu_decl;
 
-      gnu_stmt = build_binary_op (MODIFY_EXPR, NULL_TREE, gnu_lhs, gnu_init);
+      gnu_stmt = build_binary_op (MODIFY_EXPR, NULL_TREE, t, gnu_init);
 
       DECL_INITIAL (gnu_decl) = NULL_TREE;
       if (TREE_READONLY (gnu_decl))
@@ -5285,6 +5344,13 @@ gnat_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	  TREE_ADDRESSABLE (op) = 1;
 	  TREE_READONLY (op) = 0;
 	}
+
+      /* We let the gimplifier process &COND_EXPR and expect it to yield the
+	 address of the selected operand when it is addressable.  Besides, we
+	 also expect addressable_p to only let COND_EXPRs where both arms are
+	 addressable reach here.  */
+      else if (TREE_CODE (op) == COND_EXPR)
+	;
 
       /* Otherwise, if we are taking the address of something that is neither
 	 reference, declaration, or constant, make a variable for the operand
@@ -5776,7 +5842,7 @@ emit_range_check (tree gnu_expr, Entity_Id gnat_range_type)
   /* There's no good type to use here, so we might as well use
      integer_type_node. Note that the form of the check is
         (not (expr >= lo)) or (not (expr <= hi))
-      the reason for this slightly convoluted form is that NaN's
+      the reason for this slightly convoluted form is that NaNs
       are not considered to be in range in the float case. */
   return emit_check
     (build_binary_op (TRUTH_ORIF_EXPR, integer_type_node,
@@ -5798,7 +5864,7 @@ emit_range_check (tree gnu_expr, Entity_Id gnat_range_type)
    against which GNU_EXPR has to be checked. Note that for index
    checking we cannot use the emit_range_check function (although very
    similar code needs to be generated in both cases) since for index
-   checking the array type against which we are checking the indeces
+   checking the array type against which we are checking the indices
    may be unconstrained and consequently we need to retrieve the
    actual index bounds from the array object itself
    (GNU_ARRAY_OBJECT). The place where we need to do that is in
@@ -6059,21 +6125,25 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
   return convert (gnu_type, gnu_result);
 }
 
-/* Return true if RECORD_TYPE, a record type, is larger than TYPE.  */
+/* Return true if TYPE is a smaller packable version of RECORD_TYPE.  */
 
 static bool
-larger_record_type_p (tree record_type, tree type)
+smaller_packable_type_p (tree type, tree record_type)
 {
-  tree rsize, size;
+  tree size, rsize;
 
-  /* Padding types are not considered larger on their own.  */
-  if (TYPE_IS_PADDING_P (record_type))
+  /* We're not interested in variants here.  */
+  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (record_type))
     return false;
 
-  rsize = TYPE_SIZE (record_type);
-  size = TYPE_SIZE (type);
+  /* Like a variant, a packable version keeps the original TYPE_NAME.  */
+  if (TYPE_NAME (type) != TYPE_NAME (record_type))
+    return false;
 
-  if (!(TREE_CODE (rsize) == INTEGER_CST && TREE_CODE (size) == INTEGER_CST))
+  size = TYPE_SIZE (type);
+  rsize = TYPE_SIZE (record_type);
+
+  if (!(TREE_CODE (size) == INTEGER_CST && TREE_CODE (rsize) == INTEGER_CST))
     return false;
 
   return tree_int_cst_lt (size, rsize) != 0;
@@ -6082,8 +6152,61 @@ larger_record_type_p (tree record_type, tree type)
 /* Return true if GNU_EXPR can be directly addressed.  This is the case
    unless it is an expression involving computation or if it involves a
    reference to a bitfield or to an object not sufficiently aligned for
-   its type.  If GNU_TYPE is non null, return true only if GNU_EXPR can
-   be directly addressed as an object of this type.  */
+   its type.  If GNU_TYPE is non-null, return true only if GNU_EXPR can
+   be directly addressed as an object of this type.
+
+   *** Notes on addressability issues in the Ada compiler ***
+
+   This predicate is necessary in order to bridge the gap between Gigi
+   and the middle-end about addressability of GENERIC trees.  A tree
+   is said to be addressable if it can be directly addressed, i.e. if
+   its address can be taken, is a multiple of the type's alignment on
+   strict-alignment architectures and returns the first storage unit
+   assigned to the object represented by the tree.
+
+   In the C family of languages, everything is in practice addressable
+   at the language level, except for bit-fields.  This means that these
+   compilers will take the address of any tree that doesn't represent
+   a bit-field reference and expect the result to be the first storage
+   unit assigned to the object.  Even in cases where this will result
+   in unaligned accesses at run time, nothing is supposed to be done
+   and the program is considered as erroneous instead (see PR c/18287).
+
+   The implicit assumptions made in the middle-end are in keeping with
+   the C viewpoint described above:
+     - the address of a bit-field reference is supposed to be never
+       taken; the compiler (generally) will stop on such a construct,
+     - any other tree is addressable if it is formally addressable,
+       i.e. if it is formally allowed to be the operand of ADDR_EXPR.
+
+   In Ada, the viewpoint is the opposite one: nothing is addressable
+   at the language level unless explicitly declared so.  This means
+   that the compiler will both make sure that the trees representing
+   references to addressable ("aliased" in Ada parlance) objects are
+   addressable and make no real attempts at ensuring that the trees
+   representing references to non-addressable objects are addressable.
+
+   In the first case, Ada is effectively equivalent to C and handing
+   down the direct result of applying ADDR_EXPR to these trees to the
+   middle-end works flawlessly.  In the second case, Ada cannot afford
+   to consider the program as erroneous if the address of trees that
+   are not addressable is requested for technical reasons, unlike C;
+   as a consequence, the Ada compiler must arrange for either making
+   sure that this address is not requested in the middle-end or for
+   compensating by inserting temporaries if it is requested in Gigi.
+
+   The first goal can be achieved because the middle-end should not
+   request the address of non-addressable trees on its own; the only
+   exception is for the invocation of low-level block operations like
+   memcpy, for which the addressability requirements are lower since
+   the type's alignment can be disregarded.  In practice, this means
+   that Gigi must make sure that such operations cannot be applied to
+   non-BLKmode bit-fields.
+
+   The second goal is achieved by means of the addressable_p predicate
+   and by inserting SAVE_EXPRs around trees deemed non-addressable.
+   They will be turned during gimplification into proper temporaries
+   whose address will be used in lieu of that of the original tree.  */
 
 static bool
 addressable_p (tree gnu_expr, tree gnu_type)
@@ -6094,7 +6217,7 @@ addressable_p (tree gnu_expr, tree gnu_type)
      to be considered in practice.  */
   if (gnu_type
       && TREE_CODE (gnu_type) == RECORD_TYPE
-      && larger_record_type_p (gnu_type, TREE_TYPE (gnu_expr)))
+      && smaller_packable_type_p (TREE_TYPE (gnu_expr), gnu_type))
     return false;
 
   switch (TREE_CODE (gnu_expr))
@@ -6117,17 +6240,25 @@ addressable_p (tree gnu_expr, tree gnu_type)
     case CALL_EXPR:
       return true;
 
+    case COND_EXPR:
+      /* We accept &COND_EXPR as soon as both operands are addressable and
+	 expect the outcome to be the address of the selected operand.  */
+      return (addressable_p (TREE_OPERAND (gnu_expr, 1), NULL_TREE)
+	      && addressable_p (TREE_OPERAND (gnu_expr, 2), NULL_TREE));
+
     case COMPONENT_REF:
-      return (!DECL_BIT_FIELD (TREE_OPERAND (gnu_expr, 1))
-	      && (!STRICT_ALIGNMENT
-		  /* Even with DECL_BIT_FIELD cleared, we have to ensure that
-		     the field is sufficiently aligned, in case it is subject
-		     to a pragma Component_Alignment.  But we don't need to
-		     check the alignment of the containing record, as it is
-		     guaranteed to be not smaller than that of its most
-		     aligned field that is not a bit-field.  */
-		  || DECL_ALIGN (TREE_OPERAND (gnu_expr, 1))
-		       >= TYPE_ALIGN (TREE_TYPE (gnu_expr)))
+      return (((!DECL_BIT_FIELD (TREE_OPERAND (gnu_expr, 1))
+		/* Even with DECL_BIT_FIELD cleared, we have to ensure that
+		   the field is sufficiently aligned, in case it is subject
+		   to a pragma Component_Alignment.  But we don't need to
+		   check the alignment of the containing record, as it is
+		   guaranteed to be not smaller than that of its most
+		   aligned field that is not a bit-field.  */
+	        && (!STRICT_ALIGNMENT
+		    || DECL_ALIGN (TREE_OPERAND (gnu_expr, 1))
+		       >= TYPE_ALIGN (TREE_TYPE (gnu_expr))))
+	       /* The field of a padding record is always addressable.  */
+	       || TYPE_IS_PADDING_P (TREE_TYPE (TREE_OPERAND (gnu_expr, 0))))
 	      && addressable_p (TREE_OPERAND (gnu_expr, 0), NULL_TREE));
 
     case ARRAY_REF:  case ARRAY_RANGE_REF:
@@ -6441,7 +6572,7 @@ protect_multiple_eval (tree exp)
      actually need to protect the address since the data itself can't
      change in these situations.  */
   else if (TREE_CODE (exp) == NON_LVALUE_EXPR
-	   || TREE_CODE (exp) == NOP_EXPR || TREE_CODE (exp) == CONVERT_EXPR
+	   || CONVERT_EXPR_P (exp)
 	   || TREE_CODE (exp) == VIEW_CONVERT_EXPR
 	   || TREE_CODE (exp) == INDIRECT_REF
 	   || TREE_CODE (exp) == UNCONSTRAINED_ARRAY_REF)
@@ -6487,8 +6618,7 @@ maybe_stabilize_reference (tree ref, bool force, bool *success)
       return ref;
 
     case ADDR_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case VIEW_CONVERT_EXPR:

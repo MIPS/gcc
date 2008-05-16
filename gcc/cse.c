@@ -5249,7 +5249,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 
   if (CALL_P (insn))
     {
-      if (! CONST_OR_PURE_CALL_P (insn))
+      if (!(RTL_CONST_OR_PURE_CALL_P (insn)))
 	invalidate_memory ();
       invalidate_for_call ();
     }
@@ -6059,8 +6059,6 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		      else
 			no_conflict = -1;
 		    }
-		  else if (find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
-		    no_conflict = 1;
 		}
 
 	      cse_insn (insn, libcall_insn);
@@ -6861,7 +6859,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 				    newreg);
 	}
 
-      delete_insn (insns[i]);
+      delete_insn_and_edges (insns[i]);
     }
 
   return mode;
@@ -7011,8 +7009,10 @@ rest_of_handle_cse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cse =
+struct rtl_opt_pass pass_cse =
 {
+ {
+  RTL_PASS,
   "cse1",                               /* name */
   gate_handle_cse,                      /* gate */   
   rest_of_handle_cse,			/* execute */       
@@ -7028,7 +7028,7 @@ struct tree_opt_pass pass_cse =
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
-  's'                                   /* letter */
+ }
 };
 
 
@@ -7072,8 +7072,10 @@ rest_of_handle_cse2 (void)
 }
 
 
-struct tree_opt_pass pass_cse2 =
+struct rtl_opt_pass pass_cse2 =
 {
+ {
+  RTL_PASS,
   "cse2",                               /* name */
   gate_handle_cse2,                     /* gate */   
   rest_of_handle_cse2,			/* execute */       
@@ -7088,7 +7090,7 @@ struct tree_opt_pass pass_cse2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
-  't'                                   /* letter */
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
 };
 

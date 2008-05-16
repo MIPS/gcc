@@ -381,9 +381,7 @@ add_stmt (tree t)
   return t;
 }
 
-/* Returns the stmt_tree (if any) to which statements are currently
-   being added.  If there is no active statement-tree, NULL is
-   returned.  */
+/* Returns the stmt_tree to which statements are currently being added.  */
 
 stmt_tree
 current_stmt_tree (void)
@@ -536,7 +534,7 @@ simplify_loop_decl_cond (tree *cond_p, tree body)
   *cond_p = boolean_true_node;
 
   if_stmt = begin_if_stmt ();
-  cond = build_unary_op (TRUTH_NOT_EXPR, cond, 0);
+  cond = cp_build_unary_op (TRUTH_NOT_EXPR, cond, 0, tf_warning_or_error);
   finish_if_stmt_cond (cond, if_stmt);
   finish_break_stmt ();
   finish_then_clause (if_stmt);
@@ -614,10 +612,11 @@ finish_expr_stmt (tree expr)
 	{
 	  if (warn_sequence_point)
 	    verify_sequence_points (expr);
-	  expr = convert_to_void (expr, "statement");
+	  expr = convert_to_void (expr, "statement", tf_warning_or_error);
 	}
       else if (!type_dependent_expression_p (expr))
-	convert_to_void (build_non_dependent_expr (expr), "statement");
+	convert_to_void (build_non_dependent_expr (expr), "statement", 
+                         tf_warning_or_error);
 
       if (check_for_bare_parameter_packs (expr))
         expr = error_mark_node;
@@ -872,10 +871,12 @@ finish_for_expr (tree expr, tree for_stmt)
     {
       if (warn_sequence_point)
 	verify_sequence_points (expr);
-      expr = convert_to_void (expr, "3rd expression in for");
+      expr = convert_to_void (expr, "3rd expression in for",
+                              tf_warning_or_error);
     }
   else if (!type_dependent_expression_p (expr))
-    convert_to_void (build_non_dependent_expr (expr), "3rd expression in for");
+    convert_to_void (build_non_dependent_expr (expr), "3rd expression in for",
+                     tf_warning_or_error);
   expr = maybe_cleanup_point_expr_void (expr);
   if (check_for_bare_parameter_packs (expr))
     expr = error_mark_node;
@@ -1247,7 +1248,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	     otherwise we'll get an error.  Gross, but ...  */
 	  STRIP_NOPS (operand);
 
-	  if (!lvalue_or_else (operand, lv_asm))
+	  if (!lvalue_or_else (operand, lv_asm, tf_warning_or_error))
 	    operand = error_mark_node;
 
 	  if (operand != error_mark_node
@@ -1505,7 +1506,8 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       return build_class_member_access_expr (object, decl,
 					     /*access_path=*/NULL_TREE,
-					     /*preserve_reference=*/false);
+					     /*preserve_reference=*/false,
+					     tf_warning_or_error);
     }
 }
 
@@ -1643,7 +1645,8 @@ finish_qualified_id_expr (tree qualifying_class,
 		(maybe_dummy_object (qualifying_class, NULL),
 		 expr,
 		 BASELINK_ACCESS_BINFO (expr),
-		 /*preserve_reference=*/false));
+		 /*preserve_reference=*/false,
+		 tf_warning_or_error));
       else if (done)
 	/* The expression is a qualified name whose address is not
 	   being taken.  */
@@ -1736,7 +1739,10 @@ finish_stmt_expr (tree stmt_expr, bool has_no_scope)
   tree result;
 
   if (error_operand_p (stmt_expr))
-    return error_mark_node;
+    {
+      pop_stmt_list (stmt_expr);
+      return error_mark_node;
+    }
 
   gcc_assert (TREE_CODE (stmt_expr) == STATEMENT_LIST);
 
@@ -1832,7 +1838,8 @@ perform_koenig_lookup (tree fn, tree args)
    Returns code for the call.  */
 
 tree
-finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
+finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
+		  tsubst_flags_t complain)
 {
   tree result;
   tree orig_fn;
@@ -1931,7 +1938,8 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
       result = build_new_method_call (object, fn, args, NULL_TREE,
 				      (disallow_virtual
 				       ? LOOKUP_NONVIRTUAL : 0),
-				      /*fn_p=*/NULL);
+				      /*fn_p=*/NULL,
+				      complain);
     }
   else if (is_overloaded_fn (fn))
     {
@@ -1943,7 +1951,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args, koenig_p);
+	result = build_new_function_call (fn, args, koenig_p, complain);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -1960,11 +1968,11 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
     /* If the "function" is really an object of class type, it might
        have an overloaded `operator ()'.  */
     result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
-			   /*overloaded_p=*/NULL);
+			   /*overloaded_p=*/NULL, complain);
 
   if (!result)
     /* A call where the function is unknown.  */
-    result = build_function_call (fn, args);
+    result = cp_build_function_call (fn, args, complain);
 
   if (processing_template_decl)
     {
@@ -1981,7 +1989,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 tree
 finish_increment_expr (tree expr, enum tree_code code)
 {
-  return build_x_unary_op (code, expr);
+  return build_x_unary_op (code, expr, tf_warning_or_error);
 }
 
 /* Finish a use of `this'.  Returns an expression for `this'.  */
@@ -2070,7 +2078,7 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 tree
 finish_unary_op_expr (enum tree_code code, tree expr)
 {
-  tree result = build_x_unary_op (code, expr);
+  tree result = build_x_unary_op (code, expr, tf_warning_or_error);
   /* Inside a template, build_x_unary_op does not fold the
      expression. So check whether the result is folded before
      setting TREE_NEGATED_INT.  */
@@ -2096,7 +2104,6 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 tree
 finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 {
-  tree var;
   tree compound_literal;
 
   if (!TYPE_OBJ_P (type))
@@ -2115,30 +2122,12 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
       return compound_literal;
     }
 
-  /* Create a temporary variable to represent the compound literal.  */
-  var = create_temporary_var (type);
-  if (!current_function_decl)
-    {
-      /* If this compound-literal appears outside of a function, then
-	 the corresponding variable has static storage duration, just
-	 like the variable in whose initializer it appears.  */
-      TREE_STATIC (var) = 1;
-      /* The variable has internal linkage, since there is no need to
-	 reference it from another translation unit.  */
-      TREE_PUBLIC (var) = 0;
-      /* It must have a name, so that the name mangler can mangle it.  */
-      DECL_NAME (var) = make_anon_name ();
-    }
-  /* We must call pushdecl, since the gimplifier complains if the
-     variable has not been declared via a BIND_EXPR.  */
-  pushdecl (var);
-  /* Initialize the variable as we would any other variable with a
-     brace-enclosed initializer.  */
-  cp_finish_decl (var, compound_literal,
-		  /*init_const_expr_p=*/false,
-		  /*asmspec_tree=*/NULL_TREE,
-		  LOOKUP_ONLYCONVERTING);
-  return var;
+  type = complete_type (type);
+  compound_literal = reshape_init (type, compound_literal);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    cp_complete_array_type (&type, compound_literal, false);
+  compound_literal = digest_init (type, compound_literal);
+  return get_target_expr (compound_literal);
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -2234,7 +2223,7 @@ check_template_template_default_arg (tree argument)
 tree
 begin_class_definition (tree t, tree attributes)
 {
-  if (t == error_mark_node)
+  if (error_operand_p (t) || error_operand_p (TYPE_MAIN_DECL (t)))
     return error_mark_node;
 
   if (processing_template_parmlist)
@@ -2254,9 +2243,9 @@ begin_class_definition (tree t, tree attributes)
       t = error_mark_node;
     }
 
-  if (t == error_mark_node || ! IS_AGGR_TYPE (t))
+  if (t == error_mark_node || ! MAYBE_CLASS_TYPE_P (t))
     {
-      t = make_aggr_type (RECORD_TYPE);
+      t = make_class_type (RECORD_TYPE);
       pushtag (make_anon_name (), t, /*tag_scope=*/ts_current);
     }
 
@@ -2265,7 +2254,7 @@ begin_class_definition (tree t, tree attributes)
 
   if (TYPE_BEING_DEFINED (t))
     {
-      t = make_aggr_type (TREE_CODE (t));
+      t = make_class_type (TREE_CODE (t));
       pushtag (TYPE_IDENTIFIER (t), t, /*tag_scope=*/ts_current);
     }
   maybe_process_partial_specialization (t);
@@ -2469,8 +2458,11 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
       error ("invalid base-class specification");
       result = NULL_TREE;
     }
-  else if (! is_aggr_type (base, 1))
-    result = NULL_TREE;
+  else if (! MAYBE_CLASS_TYPE_P (base))
+    {
+      error ("%qT is not a class type", base);
+      result = NULL_TREE;
+    }
   else
     {
       if (cp_type_quals (base) != 0)
@@ -2949,7 +2941,8 @@ finish_id_expression (tree id_expression,
 	      /* A set of member functions.  */
 	      decl = maybe_dummy_object (DECL_CONTEXT (first_fn), 0);
 	      return finish_class_member_access_expr (decl, id_expression,
-						      /*template_p=*/false);
+						      /*template_p=*/false,
+						      tf_warning_or_error);
 	    }
 
 	  decl = baselink_for_fns (decl);
@@ -2988,7 +2981,7 @@ finish_typeof (tree expr)
 
   if (type_dependent_expression_p (expr))
     {
-      type = make_aggr_type (TYPEOF_TYPE);
+      type = cxx_make_type (TYPEOF_TYPE);
       TYPEOF_TYPE_EXPR (type) = expr;
       SET_TYPE_STRUCTURAL_EQUALITY (type);
 
@@ -3028,6 +3021,8 @@ finish_offsetof (tree expr)
       error ("cannot apply %<offsetof%> to member function %qD", expr);
       return error_mark_node;
     }
+  if (TREE_CODE (expr) == INDIRECT_REF && REFERENCE_REF_P (expr))
+    expr = TREE_OPERAND (expr, 0);
   return fold_offsetof (expr, NULL_TREE);
 }
 
@@ -3116,7 +3111,8 @@ simplify_aggr_init_expr (tree *tp)
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
       call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+                                   tf_warning_or_error);
       pop_deferring_access_checks ();
       call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
@@ -3667,7 +3663,8 @@ finish_omp_clauses (tree clauses)
 		}
 	      t = build_special_member_call (NULL_TREE,
 					     complete_ctor_identifier,
-					     t, inner_type, LOOKUP_NORMAL);
+					     t, inner_type, LOOKUP_NORMAL,
+                                             tf_warning_or_error);
 
 	      if (targetm.cxx.cdtor_returns_this () || errorcount)
 		/* Because constructors and destructors return this,
@@ -3689,7 +3686,8 @@ finish_omp_clauses (tree clauses)
 	      t = build_int_cst (build_pointer_type (inner_type), 0);
 	      t = build1 (INDIRECT_REF, inner_type, t);
 	      t = build_special_member_call (t, complete_dtor_identifier,
-					     NULL, inner_type, LOOKUP_NORMAL);
+					     NULL, inner_type, LOOKUP_NORMAL,
+                                             tf_warning_or_error);
 
 	      if (targetm.cxx.cdtor_returns_this () || errorcount)
 		/* Because constructors and destructors return this,
@@ -3712,7 +3710,8 @@ finish_omp_clauses (tree clauses)
 	      t = build1 (INDIRECT_REF, inner_type, t);
 	      t = build_special_member_call (t, ansi_assopname (NOP_EXPR),
 					     build_tree_list (NULL, t),
-					     inner_type, LOOKUP_NORMAL);
+					     inner_type, LOOKUP_NORMAL,
+                                             tf_warning_or_error);
 
 	      /* We'll have called convert_from_reference on the call, which
 		 may well have added an indirect_ref.  It's unneeded here,
@@ -3888,7 +3887,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	{
 	  tree tem = build_x_binary_op (TREE_CODE (cond), iter, ERROR_MARK,
 					TREE_OPERAND (cond, 1), ERROR_MARK,
-					NULL);
+					NULL, tf_warning_or_error);
 	  if (error_operand_p (tem))
 	    return true;
 	}
@@ -3903,7 +3902,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       return true;
     }
   diff = build_x_binary_op (MINUS_EXPR, TREE_OPERAND (cond, 1),
-			    ERROR_MARK, iter, ERROR_MARK, NULL);
+			    ERROR_MARK, iter, ERROR_MARK, NULL,
+			    tf_warning_or_error);
   if (error_operand_p (diff))
     return true;
   if (TREE_CODE (TREE_TYPE (diff)) != INTEGER_TYPE)
@@ -3924,7 +3924,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	  incr = error_mark_node;
 	  break;
 	}
-      iter_incr = build_x_unary_op (TREE_CODE (incr), iter);
+      iter_incr = build_x_unary_op (TREE_CODE (incr), iter,
+				    tf_warning_or_error);
       if (error_operand_p (iter_incr))
 	return true;
       else if (TREE_CODE (incr) == PREINCREMENT_EXPR
@@ -3948,7 +3949,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	      else
 		{
 		  iter_incr = build_x_modify_expr (iter, TREE_CODE (rhs),
-						   TREE_OPERAND (rhs, 1));
+						   TREE_OPERAND (rhs, 1),
+						   tf_warning_or_error);
 		  if (error_operand_p (iter_incr))
 		    return true;
 		  incr = TREE_OPERAND (rhs, 1);
@@ -3975,11 +3977,13 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		  iter_incr = build_x_binary_op (PLUS_EXPR,
 						 TREE_OPERAND (rhs, 0),
 						 ERROR_MARK, iter,
-						 ERROR_MARK, NULL);
+						 ERROR_MARK, NULL,
+						 tf_warning_or_error);
 		  if (error_operand_p (iter_incr))
 		    return true;
 		  iter_incr = build_x_modify_expr (iter, NOP_EXPR,
-						   iter_incr);
+						   iter_incr,
+						   tf_warning_or_error);
 		  if (error_operand_p (iter_incr))
 		    return true;
 		  incr = TREE_OPERAND (rhs, 0);
@@ -4028,28 +4032,34 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   if (orig_pre_body)
     add_stmt (orig_pre_body);
   if (init != NULL)
-    finish_expr_stmt (build_x_modify_expr (iter, NOP_EXPR, init));
+    finish_expr_stmt (build_x_modify_expr (iter, NOP_EXPR, init,
+					   tf_warning_or_error));
   init = build_int_cst (TREE_TYPE (diff), 0);
   if (c && iter_incr == NULL)
     {
       finish_expr_stmt (build_x_modify_expr (incr_var, NOP_EXPR,
-					     incr));
+					     incr, tf_warning_or_error));
       incr = incr_var;
-      iter_incr = build_x_modify_expr (iter, PLUS_EXPR, incr);
+      iter_incr = build_x_modify_expr (iter, PLUS_EXPR, incr,
+				       tf_warning_or_error);
     }
-  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, init));
+  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, init,
+					 tf_warning_or_error));
   *pre_body = pop_stmt_list (*pre_body);
 
-  cond = cp_build_binary_op (TREE_CODE (cond), decl, diff);
+  cond = cp_build_binary_op (TREE_CODE (cond), decl, diff,
+			     tf_warning_or_error);
   incr = build_modify_expr (decl, PLUS_EXPR, incr);
 
   orig_body = *body;
   *body = push_stmt_list ();
   iter_init = build2 (MINUS_EXPR, TREE_TYPE (diff), decl, last);
-  iter_init = build_x_modify_expr (iter, PLUS_EXPR, iter_init);
+  iter_init = build_x_modify_expr (iter, PLUS_EXPR, iter_init,
+				   tf_warning_or_error);
   iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
   finish_expr_stmt (iter_init);
-  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, decl));
+  finish_expr_stmt (build_x_modify_expr (last, NOP_EXPR, decl,
+					 tf_warning_or_error));
   add_stmt (orig_body);
   *body = pop_stmt_list (*body);
 
@@ -4152,7 +4162,7 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
       for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
 	{
 	  /* This is really just a place-holder.  We'll be decomposing this
-	     again and going through the build_modify_expr path below when
+	     again and going through the cp_build_modify_expr path below when
 	     we instantiate the thing.  */
 	  TREE_VEC_ELT (initv, i)
 	    = build2 (MODIFY_EXPR, void_type_node, TREE_VEC_ELT (declv, i),
@@ -4198,9 +4208,10 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	{
 	  if (orig_incr)
 	    TREE_VEC_ELT (orig_incr, i) = incr;
-	  incr = build_modify_expr (TREE_OPERAND (incr, 0),
-				    TREE_CODE (TREE_OPERAND (incr, 1)),
-				    TREE_OPERAND (incr, 2));
+	  incr = cp_build_modify_expr (TREE_OPERAND (incr, 0),
+				       TREE_CODE (TREE_OPERAND (incr, 1)),
+				       TREE_OPERAND (incr, 2),
+				       tf_warning_or_error);
 	}
 
       if (CLASS_TYPE_P (TREE_TYPE (decl)))
@@ -4220,7 +4231,7 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 
       if (!processing_template_decl)
 	init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
-      init = build_modify_expr (decl, NOP_EXPR, init);
+      init = cp_build_modify_expr (decl, NOP_EXPR, init, tf_warning_or_error);
       if (cond && TREE_SIDE_EFFECTS (cond) && COMPARISON_CLASS_P (cond))
 	{
 	  int n = TREE_SIDE_EFFECTS (TREE_OPERAND (cond, 1)) != 0;
@@ -4317,7 +4328,7 @@ void
 finish_omp_barrier (void)
 {
   tree fn = built_in_decls[BUILT_IN_GOMP_BARRIER];
-  tree stmt = finish_call_expr (fn, NULL, false, false);
+  tree stmt = finish_call_expr (fn, NULL, false, false, tf_warning_or_error);
   finish_expr_stmt (stmt);
 }
 
@@ -4325,7 +4336,7 @@ void
 finish_omp_flush (void)
 {
   tree fn = built_in_decls[BUILT_IN_SYNCHRONIZE];
-  tree stmt = finish_call_expr (fn, NULL, false, false);
+  tree stmt = finish_call_expr (fn, NULL, false, false, tf_warning_or_error);
   finish_expr_stmt (stmt);
 }
 
@@ -4333,7 +4344,7 @@ void
 finish_omp_taskwait (void)
 {
   tree fn = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
-  tree stmt = finish_call_expr (fn, NULL, false, false);
+  tree stmt = finish_call_expr (fn, NULL, false, false, tf_warning_or_error);
   finish_expr_stmt (stmt);
 }
 
@@ -4352,7 +4363,7 @@ cxx_omp_predetermined_sharing (tree decl)
   if (TREE_STATIC (decl))
     {
       tree ctx = CP_DECL_CONTEXT (decl);
-      if (TYPE_P (ctx) && IS_AGGR_TYPE (ctx))
+      if (TYPE_P (ctx) && MAYBE_CLASS_TYPE_P (ctx))
 	return OMP_CLAUSE_DEFAULT_SHARED;
     }
 
@@ -4445,7 +4456,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 
   if (type_dependent_expression_p (expr))
     {
-      type = make_aggr_type (DECLTYPE_TYPE);
+      type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;
       DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (type)
         = id_expression_or_member_access_p;
@@ -4497,7 +4508,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
       switch (TREE_CODE (expr))
         {
         case FIELD_DECL:
-          if (DECL_C_BIT_FIELD (expr))
+          if (DECL_BIT_FIELD_TYPE (expr))
             {
               type = DECL_BIT_FIELD_TYPE (expr);
               break;

@@ -1427,6 +1427,8 @@ sanitize_cpp_opts (void)
       flag_dump_includes = 0;
       flag_no_line_commands = 1;
     }
+  else if (cpp_opts->deps.missing_files)
+    error ("-MG may only be used with -M or -MM");
 
   cpp_opts->unsigned_char = !flag_signed_char;
   cpp_opts->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
@@ -1668,6 +1670,7 @@ handle_OPT_d (const char *arg)
       case 'M':			/* Dump macros only.  */
       case 'N':			/* Dump names.  */
       case 'D':			/* Dump definitions.  */
+      case 'U':			/* Dump used macros.  */
 	flag_dump_macros = c;
 	break;
 

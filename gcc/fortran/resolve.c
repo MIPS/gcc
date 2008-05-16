@@ -834,6 +834,16 @@ resolve_structure_cons (gfc_expr *expr)
 	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
 	}
 
+      if (cons->expr->expr_type == EXPR_NULL
+	    && !(comp->pointer || comp->allocatable))
+	{
+	  t = FAILURE;
+	  gfc_error ("The NULL in the derived type constructor at %L is "
+		     "being applied to component '%s', which is neither "
+		     "a POINTER nor ALLOCATABLE", &cons->expr->where,
+		     comp->name);
+	}
+
       if (!comp->pointer || cons->expr->expr_type == EXPR_NULL)
 	continue;
 
@@ -954,20 +964,12 @@ static int need_full_assumed_size = 0;
 static bool
 check_assumed_size_reference (gfc_symbol *sym, gfc_expr *e)
 {
-  gfc_ref *ref;
-  int dim;
-  int last = 1;
-
   if (need_full_assumed_size || !(sym->as && sym->as->type == AS_ASSUMED_SIZE))
       return false;
 
-  for (ref = e->ref; ref; ref = ref->next)
-    if (ref->type == REF_ARRAY)
-      for (dim = 0; dim < ref->u.ar.as->rank; dim++)
-	last = (ref->u.ar.end[dim] == NULL)
-	       && (ref->u.ar.type == DIMEN_ELEMENT);
-
-  if (last)
+  if ((e->ref->u.ar.end[e->ref->u.ar.as->rank - 1] == NULL)
+	  && (e->ref->u.ar.as->type == AS_ASSUMED_SIZE)
+	       && (e->ref->u.ar.type == DIMEN_ELEMENT))
     {
       gfc_error ("The upper bound in the last dimension must "
 		 "appear in the reference to the assumed size "
@@ -1561,10 +1563,10 @@ resolve_specific_f0 (gfc_symbol *sym, gfc_expr *expr)
 
   /* See if we have an intrinsic interface.  */
 
-  if (sym->interface != NULL && sym->interface->attr.intrinsic)
+  if (sym->ts.interface != NULL && sym->ts.interface->attr.intrinsic)
     {
       gfc_intrinsic_sym *isym;
-      isym = gfc_find_function (sym->interface->name);
+      isym = gfc_find_function (sym->ts.interface->name);
 
       /* Existance of isym should be checked already.  */
       gcc_assert (isym);
@@ -2372,7 +2374,12 @@ resolve_function (gfc_expr *expr)
       gfc_expr_set_symbols_referenced (expr->ts.cl->length);
     }
 
-  if (t == SUCCESS)
+  if (t == SUCCESS
+	&& !((expr->value.function.esym
+		&& expr->value.function.esym->attr.elemental)
+			||
+	     (expr->value.function.isym
+		&& expr->value.function.isym->elemental)))
     find_noncopying_intrinsics (expr->value.function.esym,
 				expr->value.function.actual);
 
@@ -2629,12 +2636,12 @@ resolve_specific_s0 (gfc_code *c, gfc_symbol *sym)
   match m;
 
   /* See if we have an intrinsic interface.  */
-  if (sym->interface != NULL && !sym->interface->attr.abstract
-      && !sym->interface->attr.subroutine)
+  if (sym->ts.interface != NULL && !sym->ts.interface->attr.abstract
+      && !sym->ts.interface->attr.subroutine)
     {
       gfc_intrinsic_sym *isym;
 
-      isym = gfc_find_function (sym->interface->name);
+      isym = gfc_find_function (sym->ts.interface->name);
 
       /* Existance of isym should be checked already.  */
       gcc_assert (isym);
@@ -2843,7 +2850,7 @@ resolve_call (gfc_code *c)
   if (resolve_elemental_actual (NULL, c) == FAILURE)
     return FAILURE;
 
-  if (t == SUCCESS)
+  if (t == SUCCESS && !(c->resolved_sym && c->resolved_sym->attr.elemental))
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
   return t;
 }
@@ -4878,7 +4885,6 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
 {
   gfc_symbol *s = NULL;
   gfc_alloc *a;
-  bool is_variable;
 
   if (code->expr)
     s = code->expr->symtree->n.sym;
@@ -4892,45 +4898,6 @@ resolve_allocate_deallocate (gfc_code *code, const char *fcn)
       if (gfc_pure (NULL) && gfc_impure_variable (s))
 	gfc_error ("Illegal STAT variable in %s statement at %C "
 		   "for a PURE procedure", fcn);
-
-      is_variable = false;
-      if (s->attr.flavor == FL_VARIABLE)
-	is_variable = true;
-      else if (s->attr.function && s->result == s
-		 && (gfc_current_ns->proc_name == s
-			||
-		    (gfc_current_ns->parent
-		       && gfc_current_ns->parent->proc_name == s)))
-	is_variable = true;
-      else if (gfc_current_ns->entries && s->result == s)
-	{
-	  gfc_entry_list *el;
-	  for (el = gfc_current_ns->entries; el; el = el->next)
-	    if (el->sym == s)
-	      {
-		is_variable = true;
-	      }
-	}
-      else if (gfc_current_ns->parent && gfc_current_ns->parent->entries
-	         && s->result == s)
-	{
-	  gfc_entry_list *el;
-	  for (el = gfc_current_ns->parent->entries; el; el = el->next)
-	    if (el->sym == s)
-	      {
-		is_variable = true;
-	      }
-	}
-
-      if (s->attr.flavor == FL_UNKNOWN
-	    && gfc_add_flavor (&s->attr, FL_VARIABLE,
-			       s->name, NULL) == SUCCESS)
-	is_variable = true;
-
-      if (!is_variable)
-	gfc_error ("STAT tag in %s statement at %L must be "
-		   "a variable", fcn, &code->expr->where);
-
     }
 
   if (s && code->expr->ts.type != BT_INTEGER)
@@ -5598,7 +5565,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
 
   if (code->here == label)
     {
-      gfc_warning ("Branch at %L causes an infinite loop", &code->loc);
+      gfc_warning ("Branch at %L may result in an infinite loop", &code->loc);
       return;
     }
 
@@ -5999,6 +5966,7 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_READ:
 	case EXEC_WRITE:
 	case EXEC_IOLENGTH:
+	case EXEC_WAIT:
 	  break;
 
 	case EXEC_OMP_ATOMIC:
@@ -6409,6 +6377,15 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	    break;
 
 	  resolve_branch (code->ext.inquire->err, code);
+	  break;
+
+	case EXEC_WAIT:
+	  if (gfc_resolve_wait (code->ext.wait) == FAILURE)
+	    break;
+
+	  resolve_branch (code->ext.wait->err, code);
+	  resolve_branch (code->ext.wait->end, code);
+	  resolve_branch (code->ext.wait->eor, code);
 	  break;
 
 	case EXEC_READ:
@@ -6834,7 +6811,6 @@ build_default_init_expr (gfc_symbol *sym)
   int char_len;
   gfc_expr *init_expr;
   int i;
-  char *ch;
 
   /* These symbols should never have a default initialization.  */
   if ((sym->attr.dimension && !gfc_is_compile_time_shape (sym->as))
@@ -6952,10 +6928,10 @@ build_default_init_expr (gfc_symbol *sym)
 	{
 	  char_len = mpz_get_si (sym->ts.cl->length->value.integer);
 	  init_expr->value.character.length = char_len;
-	  init_expr->value.character.string = gfc_getmem (char_len+1);
-	  ch = init_expr->value.character.string;
+	  init_expr->value.character.string = gfc_get_wide_string (char_len+1);
 	  for (i = 0; i < char_len; i++)
-	    *(ch++) = gfc_option.flag_init_character_value;
+	    init_expr->value.character.string[i]
+	      = (unsigned char) gfc_option.flag_init_character_value;
 	}
       else
 	{
@@ -7765,26 +7741,27 @@ resolve_symbol (gfc_symbol *sym)
 	}
     }
 
-  if (sym->attr.procedure && sym->interface
+  if (sym->attr.procedure && sym->ts.interface
       && sym->attr.if_source != IFSRC_DECL)
     {
-      if (sym->interface->attr.procedure)
+      if (sym->ts.interface->attr.procedure)
 	gfc_error ("Interface '%s', used by procedure '%s' at %L, is declared "
-		   "in a later PROCEDURE statement", sym->interface->name,
+		   "in a later PROCEDURE statement", sym->ts.interface->name,
 		   sym->name,&sym->declared_at);
 
       /* Get the attributes from the interface (now resolved).  */
-      if (sym->interface->attr.if_source || sym->interface->attr.intrinsic)
+      if (sym->ts.interface->attr.if_source || sym->ts.interface->attr.intrinsic)
 	{
-	  sym->ts = sym->interface->ts;
-	  sym->attr.function = sym->interface->attr.function;
-	  sym->attr.subroutine = sym->interface->attr.subroutine;
-	  copy_formal_args (sym, sym->interface);
+	  sym->ts.type = sym->ts.interface->ts.type;
+	  sym->ts.kind = sym->ts.interface->ts.kind;
+	  sym->attr.function = sym->ts.interface->attr.function;
+	  sym->attr.subroutine = sym->ts.interface->attr.subroutine;
+	  copy_formal_args (sym, sym->ts.interface);
 	}
-      else if (sym->interface->name[0] != '\0')
+      else if (sym->ts.interface->name[0] != '\0')
 	{
 	  gfc_error ("Interface '%s' of procedure '%s' at %L must be explicit",
-		    sym->interface->name, sym->name, &sym->declared_at);
+		    sym->ts.interface->name, sym->name, &sym->declared_at);
 	  return;
 	}
     }
@@ -7986,6 +7963,29 @@ resolve_symbol (gfc_symbol *sym)
 		  &sym->declared_at, sym->ts.derived->name);
       sym->ts.type = BT_UNKNOWN;
       return;
+    }
+
+  /* Make sure that the derived type has been resolved and that the
+     derived type is visible in the symbol's namespace, if it is a
+     module function and is not PRIVATE.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ts.derived->attr.use_assoc
+	&& sym->ns->proc_name->attr.flavor == FL_MODULE)
+    {
+      gfc_symbol *ds;
+
+      if (resolve_fl_derived (sym->ts.derived) == FAILURE)
+	return;
+
+      gfc_find_symbol (sym->ts.derived->name, sym->ns, 1, &ds);
+      if (!ds && sym->attr.function
+	    && gfc_check_access (sym->attr.access, sym->ns->default_access))
+	{
+	  symtree = gfc_new_symtree (&sym->ns->sym_root,
+				     sym->ts.derived->name);
+	  symtree->n.sym = sym->ts.derived;
+	  sym->ts.derived->refs++;
+	}
     }
 
   /* Unless the derived-type declaration is use associated, Fortran 95

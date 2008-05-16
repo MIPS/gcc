@@ -1047,22 +1047,30 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 			 tree ar, tree ai, tree br, tree bi,
 			 enum tree_code code)
 {
-  tree rr, ri, ratio, div, t1, t2, tr, ti, cond;
+  tree rr, ri, ratio, div, t1, t2, tr, ti, compare;
   basic_block bb_cond, bb_true, bb_false, bb_join;
 
   /* Examine |br| < |bi|, and branch.  */
   t1 = gimplify_build1 (bsi, ABS_EXPR, inner_type, br);
   t2 = gimplify_build1 (bsi, ABS_EXPR, inner_type, bi);
-  cond = fold_build2 (LT_EXPR, boolean_type_node, t1, t2);
-  STRIP_NOPS (cond);
+  compare = fold_build2 (LT_EXPR, boolean_type_node, t1, t2);
+  STRIP_NOPS (compare);
 
   bb_cond = bb_true = bb_false = bb_join = NULL;
   rr = ri = tr = ti = NULL;
-  if (!TREE_CONSTANT (cond))
+  if (!TREE_CONSTANT (compare))
     {
       edge e;
+      tree cond, tmp;
 
-      cond = build3 (COND_EXPR, void_type_node, cond, NULL_TREE, NULL_TREE);
+      tmp = create_tmp_var (boolean_type_node, NULL);
+      cond = build_gimple_modify_stmt (tmp, compare);
+      if (gimple_in_ssa_p (cfun))
+	tmp = make_ssa_name (tmp,  cond);
+      GIMPLE_STMT_OPERAND (cond, 0) = tmp;
+      bsi_insert_before (bsi, cond, BSI_SAME_STMT);
+
+      cond = build3 (COND_EXPR, void_type_node, tmp, NULL_TREE, NULL_TREE);
       bsi_insert_before (bsi, cond, BSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
@@ -1098,7 +1106,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       ti = (ai * ratio) - ar;
       tr = tr / div;
       ti = ti / div;  */
-  if (bb_true || integer_nonzerop (cond))
+  if (bb_true || integer_nonzerop (compare))
     {
       if (bb_true)
 	{
@@ -1137,7 +1145,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       ti = b - (a * ratio);
       tr = tr / div;
       ti = ti / div;  */
-  if (bb_false || integer_zerop (cond))
+  if (bb_false || integer_zerop (compare))
     {
       if (bb_false)
 	{
@@ -1534,8 +1542,10 @@ tree_lower_complex (void)
   return 0;
 }
 
-struct tree_opt_pass pass_lower_complex = 
+struct gimple_opt_pass pass_lower_complex = 
 {
+ {
+  GIMPLE_PASS,
   "cplxlower",				/* name */
   0,					/* gate */
   tree_lower_complex,			/* execute */
@@ -1550,8 +1560,8 @@ struct tree_opt_pass pass_lower_complex =
   TODO_dump_func
     | TODO_ggc_collect
     | TODO_update_ssa
-    | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_stmts	 		/* todo_flags_finish */
+ }
 };
 
 
@@ -1582,8 +1592,10 @@ gate_no_optimization (void)
   return optimize == 0 || sorrycount || errorcount;
 }
 
-struct tree_opt_pass pass_lower_complex_O0 = 
+struct gimple_opt_pass pass_lower_complex_O0 = 
 {
+ {
+  GIMPLE_PASS,
   "cplxlower0",				/* name */
   gate_no_optimization,			/* gate */
   tree_lower_complex_O0,		/* execute */
@@ -1597,5 +1609,5 @@ struct tree_opt_pass pass_lower_complex_O0 =
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect
     | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+ }
 };

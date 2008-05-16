@@ -1747,8 +1747,7 @@ dump_expr (tree t, int flags)
       dump_expr (TREE_OPERAND (t, 0), flags | TFF_EXPR_IN_PARENS);
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
       {
 	tree op = TREE_OPERAND (t, 0);
@@ -2048,6 +2047,14 @@ dump_expr (tree t, int flags)
     case CONJ_EXPR:
     case VECTOR_CST:
     case FIXED_CST:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
       pp_expression (cxx_pp, t);
       break;
 

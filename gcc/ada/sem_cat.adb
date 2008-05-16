@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,6 +28,7 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
+with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Lib;      use Lib;
 with Namet;    use Namet;
@@ -150,7 +151,7 @@ package body Sem_Cat is
          --  to apply to the same library unit, in which case the unit has
          --  all associated categories, so we need to be careful here to
          --  check pragmas in proper Categorization order in order to
-         --  return the lowest appplicable value.
+         --  return the lowest applicable value.
 
          --  Ignore Pure specification if set by pragma Pure_Function
 
@@ -193,7 +194,7 @@ package body Sem_Cat is
       Unit_Category := Get_Categorization (Unit_Entity);
       With_Category := Get_Categorization (Depended_Entity);
 
-      --  These messages are wanings in GNAT mode, to allow it to be
+      --  These messages are warnings in GNAT mode, to allow it to be
       --  judiciously turned off. Otherwise it is a real error.
 
       Error_Msg_Warn := GNAT_Mode;
@@ -214,10 +215,25 @@ package body Sem_Cat is
          --  Here we have an error
 
          else
-            if Is_Subunit then
+            --  Don't give error if main unit is not an internal unit, and the
+            --  unit generating the message is an internal unit. This is the
+            --  situation in which such messages would be ignored in any case,
+            --  so it is convenient not to generate them (since it causes
+            --  annoying interference with debugging).
+
+            if Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit))
+              and then not Is_Internal_File_Name (Unit_File_Name (Main_Unit))
+            then
+               return;
+
+            --  Subunit case
+
+            elsif Is_Subunit then
                Error_Msg_NE
                  ("<subunit cannot depend on& " &
                   "(parent has wrong categorization)", N, Depended_Entity);
+
+            --  Normal unit, not subunit
 
             else
                Error_Msg_NE
@@ -316,8 +332,21 @@ package body Sem_Cat is
       Nam          : TSS_Name_Type;
       At_Any_Place : Boolean := False) return Boolean
    is
-      Rep_Item : Node_Id;
+      Rep_Item  : Node_Id;
+      Full_Type : Entity_Id := Typ;
+
    begin
+      --  In the case of a type derived from a private view, any specified
+      --  stream attributes will be attached to the derived type's underlying
+      --  type rather the derived type entity itself (which is itself private).
+
+      if Is_Private_Type (Typ)
+        and then Is_Derived_Type (Typ)
+        and then Present (Full_View (Typ))
+      then
+         Full_Type := Underlying_Type (Typ);
+      end if;
+
       --  We start from the declaration node and then loop until the end of
       --  the list until we find the requested attribute definition clause.
       --  In Ada 2005 mode, clauses are ignored if they are not currently
@@ -325,7 +354,7 @@ package body Sem_Cat is
       --  inserted by the expander at the point where the clause occurs),
       --  unless At_Any_Place is true.
 
-      Rep_Item := First_Rep_Item (Typ);
+      Rep_Item := First_Rep_Item (Full_Type);
       while Present (Rep_Item) loop
          if Nkind (Rep_Item) = N_Attribute_Definition_Clause then
             case Chars (Rep_Item) is
@@ -660,8 +689,7 @@ package body Sem_Cat is
             --  previous analysis.
 
             if Nkind (PN) = N_Pragma then
-
-               case Get_Pragma_Id (Chars (PN)) is
+               case Get_Pragma_Id (PN) is
                   when Pragma_All_Calls_Remote   |
                     Pragma_Preelaborate          |
                     Pragma_Pure                  |
@@ -734,7 +762,7 @@ package body Sem_Cat is
    -- Static_Discriminant_Expr --
    ------------------------------
 
-   --  We need to accomodate a Why_Not_Static call somehow here ???
+   --  We need to accommodate a Why_Not_Static call somehow here ???
 
    function Static_Discriminant_Expr (L : List_Id) return Boolean is
       Discriminant_Spec : Node_Id;
@@ -935,7 +963,7 @@ package body Sem_Cat is
       end;
 
       --  Child depends on parent; therefore parent should also be categorized
-      --  and satify the dependency hierarchy.
+      --  and satisfy the dependency hierarchy.
 
       --  Check if N is a child spec
 
@@ -1236,7 +1264,9 @@ package body Sem_Cat is
             end;
          end if;
 
-         --  Non-static discriminant not allowed in preelaborayted unit
+         --  Non-static discriminant not allowed in preelaborated unit
+         --  Controlled object of a type with a user-defined Initialize
+         --  is forbidden as well.
 
          if Is_Record_Type (Etype (Id)) then
             declare
@@ -1259,7 +1289,14 @@ package body Sem_Cat is
                         PEE);
                   end if;
                end if;
+
+               if Has_Overriding_Initialize (ET) then
+                  Error_Msg_NE
+                    ("controlled type& does not have"
+                      & " preelaborable initialization", N, ET);
+               end if;
             end;
+
          end if;
       end if;
 
@@ -1297,11 +1334,35 @@ package body Sem_Cat is
       Primitive_Subprograms  : Elist_Id;
       Subprogram_Elmt        : Elmt_Id;
       Subprogram             : Entity_Id;
-      Profile                : List_Id;
       Param_Spec             : Node_Id;
       Param                  : Entity_Id;
       Param_Type             : Entity_Id;
       Rtyp                   : Node_Id;
+
+      procedure Illegal_RACW (Msg : String; N : Node_Id);
+      --  Diagnose that T is illegal because of the given reason, associated
+      --  with the location of node N.
+
+      Illegal_RACW_Message_Issued : Boolean := False;
+      --  Set True once Illegal_RACW has been called
+
+      ------------------
+      -- Illegal_RACW --
+      ------------------
+
+      procedure Illegal_RACW (Msg : String; N : Node_Id) is
+      begin
+         if not Illegal_RACW_Message_Issued then
+            Error_Msg_N
+              ("illegal remote access to class-wide type&", T);
+            Illegal_RACW_Message_Issued := True;
+         end if;
+
+         Error_Msg_Sloc := Sloc (N);
+         Error_Msg_N ("\\" & Msg & " in primitive#", T);
+      end Illegal_RACW;
+
+   --  Start of processing for Validate_RACW_Primitives
 
    begin
       Desig_Type := Etype (Designated_Type (T));
@@ -1312,7 +1373,9 @@ package body Sem_Cat is
       while Subprogram_Elmt /= No_Elmt loop
          Subprogram := Node (Subprogram_Elmt);
 
-         if not Comes_From_Source (Subprogram) then
+         if Is_Predefined_Dispatching_Operation (Subprogram)
+           or else Is_Hidden (Subprogram)
+         then
             goto Next_Subprogram;
          end if;
 
@@ -1325,15 +1388,14 @@ package body Sem_Cat is
                null;
 
             elsif Ekind (Rtyp) = E_Anonymous_Access_Type then
-               Error_Msg_N
-                 ("anonymous access result in remote object primitive", Rtyp);
+               Illegal_RACW ("anonymous access result", Rtyp);
 
             elsif Is_Limited_Type (Rtyp) then
                if No (TSS (Rtyp, TSS_Stream_Read))
                     or else
                   No (TSS (Rtyp, TSS_Stream_Write))
                then
-                  Error_Msg_N
+                  Illegal_RACW
                     ("limited return type must have Read and Write attributes",
                      Parent (Subprogram));
                   Explain_Limited_Type (Rtyp, Parent (Subprogram));
@@ -1342,16 +1404,12 @@ package body Sem_Cat is
             end if;
          end if;
 
-         Profile := Parameter_Specifications (Parent (Subprogram));
-
-         --  Profile must exist, otherwise not primitive operation
-
-         Param_Spec := First (Profile);
-         while Present (Param_Spec) loop
+         Param := First_Formal (Subprogram);
+         while Present (Param) loop
 
             --  Now find out if this parameter is a controlling parameter
 
-            Param      := Defining_Identifier (Param_Spec);
+            Param_Spec := Parent (Param);
             Param_Type := Etype (Param);
 
             if Is_Controlling_Formal (Param) then
@@ -1361,13 +1419,13 @@ package body Sem_Cat is
 
                null;
 
-            elsif Ekind (Param_Type) = E_Anonymous_Access_Type then
-
+            elsif Ekind (Param_Type) = E_Anonymous_Access_Type
+              or else Ekind (Param_Type) = E_Anonymous_Access_Subprogram_Type
+            then
                --  From RM E.2.2(14), no access parameter other than
                --  controlling ones may be used.
 
-               Error_Msg_N
-                 ("non-controlling access parameter", Param_Spec);
+               Illegal_RACW ("non-controlling access parameter", Param_Spec);
 
             elsif Is_Limited_Type (Param_Type) then
 
@@ -1378,7 +1436,7 @@ package body Sem_Cat is
                     or else
                   No (TSS (Param_Type, TSS_Stream_Write))
                then
-                  Error_Msg_N
+                  Illegal_RACW
                     ("limited formal must have Read and Write attributes",
                      Param_Spec);
                   Explain_Limited_Type (Param_Type, Param_Spec);
@@ -1387,7 +1445,7 @@ package body Sem_Cat is
 
             --  Check next parameter in this subprogram
 
-            Next (Param_Spec);
+            Next_Formal (Param);
          end loop;
 
          <<Next_Subprogram>>
@@ -1516,9 +1574,9 @@ package body Sem_Cat is
                       Error_Node);
                end if;
 
-            --  For limited private type parameter, we check only the private
+            --  For a limited private type parameter, we check only the private
             --  declaration and ignore full type declaration, unless this is
-            --  the only declaration for the type, eg. as a limited record.
+            --  the only declaration for the type, e.g., as a limited record.
 
             elsif Is_Limited_Type (Param_Type)
               and then (Nkind (Type_Decl) = N_Private_Type_Declaration
@@ -1533,7 +1591,7 @@ package body Sem_Cat is
                if No (Full_View (Param_Type))
                  and then Ekind (Param_Type) /= E_Record_Type
                then
-                  --  Type does not have completion yet, so if declared in in
+                  --  Type does not have completion yet, so if declared in
                   --  the current RCI scope it is illegal, and will be flagged
                   --  subsequently.
 
@@ -1549,7 +1607,11 @@ package body Sem_Cat is
                --  contract model for privacy, but we support both semantics
                --  for now for compatibility (note that ACATS test BXE2009
                --  checks a case that conforms to the Ada 95 rules but is
-               --  illegal in Ada 2005).
+               --  illegal in Ada 2005). In the Ada 2005 case we check for the
+               --  possibilities of visible TSS stream subprograms or explicit
+               --  stream attribute definitions because the TSS subprograms
+               --  can be hidden in the private part while the attribute
+               --  definitions are still be available from the visible part.
 
                Base_Param_Type := Base_Type (Param_Type);
                Base_Under_Type := Base_Type (Underlying_Type
@@ -1573,7 +1635,13 @@ package body Sem_Cat is
                            or else
                          Is_Hidden (TSS (Base_Param_Type, TSS_Stream_Read))
                            or else
-                         Is_Hidden (TSS (Base_Param_Type, TSS_Stream_Write))))
+                         Is_Hidden (TSS (Base_Param_Type, TSS_Stream_Write)))
+                      and then
+                        (not Has_Stream_Attribute_Definition
+                               (Base_Param_Type, TSS_Stream_Read)
+                           or else
+                         not Has_Stream_Attribute_Definition
+                               (Base_Param_Type, TSS_Stream_Write)))
                then
                   if K = N_Subprogram_Declaration then
                      Error_Node := Param_Spec;
@@ -1654,7 +1722,7 @@ package body Sem_Cat is
          Error_Msg_N
            ("error in designated type of remote access to class-wide type", T);
          Error_Msg_N
-           ("\must be tagged limited private or private extension of type", T);
+           ("\must be tagged limited private or private extension", T);
          return;
       end if;
 
@@ -1725,12 +1793,15 @@ package body Sem_Cat is
 
       --  This subprogram also enforces the checks in E.2.2(13). A value of
       --  such type must not be dereferenced unless as controlling operand of
-      --  a dispatching call.
+      --  a dispatching call. Explicit dereferences not coming from source are
+      --  exempted from this checking because the expander produces them in
+      --  some cases (such as for tag checks on dispatching calls with multiple
+      --  controlling operands). However we do check in the case of an implicit
+      --  dereference that is expanded to an explicit dereference (hence the
+      --  test of whether Original_Node (N) comes from source).
 
       elsif K = N_Explicit_Dereference
-        and then (Comes_From_Source (N)
-                    or else (Nkind (Original_Node (N)) = N_Selected_Component
-                               and then Comes_From_Source (Original_Node (N))))
+        and then Comes_From_Source (Original_Node (N))
       then
          E := Etype (Prefix (N));
 
@@ -1752,9 +1823,12 @@ package body Sem_Cat is
 
          --  If we are just within a procedure or function call and the
          --  dereference has not been analyzed, return because this procedure
-         --  will be called again from sem_res Resolve_Actuals.
+         --  will be called again from sem_res Resolve_Actuals. The same can
+         --  apply in the case of dereference that is the prefix of a selected
+         --  component, which can be a call given in prefixed form.
 
-         if Is_Actual_Parameter (N)
+         if (Is_Actual_Parameter (N)
+              or else PK = N_Selected_Component)
            and then not Analyzed (N)
          then
             return;
@@ -1770,25 +1844,8 @@ package body Sem_Cat is
             return;
          end if;
 
-         --  The following code is needed for expansion of RACW Write
-         --  attribute, since such expressions can appear in the expanded
-         --  code.
-
-         if not Comes_From_Source (N)
-           and then
-           (PK = N_In
-            or else PK = N_Attribute_Reference
-            or else
-              (PK = N_Type_Conversion
-               and then Present (Parent (N))
-               and then Present (Parent (Parent (N)))
-               and then
-                 Nkind (Parent (Parent (N))) = N_Selected_Component))
-         then
-            return;
-         end if;
-
-         Error_Msg_N ("incorrect remote type dereference", N);
+         Error_Msg_N
+           ("invalid dereference of a remote access-to-class-wide value", N);
       end if;
    end Validate_Remote_Access_To_Class_Wide_Type;
 

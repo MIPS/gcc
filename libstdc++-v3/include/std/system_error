@@ -1,6 +1,6 @@
 // <system_error> -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,7 +27,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file include/system_error
+/** @file system_error
  *  This is a Standard C++ Library header.
  */
 
@@ -53,6 +53,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   extern const error_category& system_category;
 
+  /// error_category
   struct error_category
   {
     error_category() { }
@@ -78,6 +79,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     operator=(const error_category&);
   };
 
+  /// error_code
   struct error_code
   {
     error_code() throw()
@@ -133,12 +135,16 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     const error_category* 	_M_cat;
   };
 
+  /// Thrown to indicate error code of underlying system.
   class system_error : public std::runtime_error
   {
   private:
     error_code 	_M_code;
 
   public:
+    system_error(error_code __ec = error_code())
+    : runtime_error(""), _M_code(__ec) { }
+
     system_error(const string& __what, error_code __ec = error_code())
     : runtime_error(__what), _M_code(__ec) { }
 

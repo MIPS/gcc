@@ -1,3 +1,21 @@
+2008-05-14  Joseph Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (AAB_fd_zero_asm_posix_types_h): Bypass on
+	posix_types_64.
+	* fixincl.x: Regenerate.
+
+2008-04-25  Kai Tietz  <kai.tietz@onvision.com>
+
+	* fixincl.c (fix_with_system): Cast pointer difference to long.
+	* fixlib.c (make_raw_shell_str): Cast compare to avoid sign warning.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* Makefile.in: Rewrite aclocal.m4 rule.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
 2008-03-07  Peter O'Gorman  <pogma@thewrittenword.com>
 
 	PR c++/20366

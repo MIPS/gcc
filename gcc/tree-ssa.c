@@ -254,13 +254,6 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-  if (is_virtual && var_ann (SSA_NAME_VAR (ssa_name)) 
-      && get_subvars_for_var (SSA_NAME_VAR (ssa_name)) != NULL)
-    {
-      error ("found real variable when subvariables should have appeared");
-      return true;
-    }
-
   if (SSA_NAME_IS_DEFAULT_DEF (ssa_name)
       && !IS_EMPTY_STMT (SSA_NAME_DEF_STMT (ssa_name)))
     {
@@ -951,18 +944,18 @@ uid_ssaname_map_hash (const void *item)
 /* Initialize global DFA and SSA structures.  */
 
 void
-init_tree_ssa (void)
+init_tree_ssa (struct function *fn)
 {
-  cfun->gimple_df = GGC_CNEW (struct gimple_df);
-  cfun->gimple_df->referenced_vars = htab_create_ggc (20, uid_decl_map_hash, 
-				     		      uid_decl_map_eq, NULL);
-  cfun->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
-				                   uid_ssaname_map_eq, NULL);
-  cfun->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
-					       var_ann_eq, NULL);
-  cfun->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
-  cfun->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
-  init_ssanames ();
+  fn->gimple_df = GGC_CNEW (struct gimple_df);
+  fn->gimple_df->referenced_vars = htab_create_ggc (20, uid_decl_map_hash, 
+				     		    uid_decl_map_eq, NULL);
+  fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
+				                 uid_ssaname_map_eq, NULL);
+  fn->gimple_df->var_anns = htab_create_ggc (20, var_ann_hash, 
+					     var_ann_eq, NULL);
+  fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  fn->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
+  init_ssanames (fn, 0);
   init_phinodes ();
 }
 
@@ -1117,12 +1110,8 @@ useless_type_conversion_p_1 (tree outer_type, tree inner_type)
 	      != get_alias_set (TREE_TYPE (outer_type))))
 	return false;
 
-      /* Do not lose casts from const qualified to non-const
-	 qualified.  */
-      if ((TYPE_READONLY (TREE_TYPE (outer_type))
-	   != TYPE_READONLY (TREE_TYPE (inner_type)))
-	  && TYPE_READONLY (TREE_TYPE (inner_type)))
-	return false;
+      /* We do not care for const qualification of the pointed-to types
+	 as const qualification has no semantic value to the middle-end.  */
 
       /* Do not lose casts to restrict qualified pointers.  */
       if ((TYPE_RESTRICT (outer_type)
@@ -1227,7 +1216,7 @@ tree_ssa_useless_type_conversion (tree expr)
      the top of the RHS to the type of the LHS and the type conversion
      is "safe", then strip away the type conversion so that we can
      enter LHS = RHS into the const_and_copies table.  */
-  if (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR
+  if (CONVERT_EXPR_P (expr)
       || TREE_CODE (expr) == VIEW_CONVERT_EXPR
       || TREE_CODE (expr) == NON_LVALUE_EXPR)
     /* FIXME: Use of GENERIC_TREE_TYPE here is a temporary measure to work
@@ -1416,13 +1405,19 @@ warn_uninit (tree t, const char *gmsgid, void *data)
 
   TREE_NO_WARNING (var) = 1;
 }
-   
+
+struct walk_data {
+  tree stmt;
+  bool always_executed;
+};
+
 /* Called via walk_tree, look for SSA_NAMEs that have empty definitions
    and warn about them.  */
 
 static tree
-warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
+warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
 {
+  struct walk_data *data = (struct walk_data *)data_;
   tree t = *tp;
 
   switch (TREE_CODE (t))
@@ -1430,7 +1425,12 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
     case SSA_NAME:
       /* We only do data flow with SSA_NAMEs, so that's all we
 	 can warn about.  */
-      warn_uninit (t, "%H%qD is used uninitialized in this function", data);
+      if (data->always_executed)
+        warn_uninit (t, "%H%qD is used uninitialized in this function",
+		     data->stmt);
+      else
+        warn_uninit (t, "%H%qD may be used uninitialized in this function",
+		     data->stmt);
       *walk_subtrees = 0;
       break;
 
@@ -1478,14 +1478,21 @@ execute_early_warn_uninitialized (void)
 {
   block_stmt_iterator bsi;
   basic_block bb;
+  struct walk_data data;
+
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 
   FOR_EACH_BB (bb)
-    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-      {
-	tree context = bsi_stmt (bsi);
-	walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
-		   context, NULL);
-      }
+    {
+      data.always_executed = dominated_by_p (CDI_POST_DOMINATORS,
+					     single_succ (ENTRY_BLOCK_PTR), bb);
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+	  data.stmt = bsi_stmt (bsi);
+	  walk_tree (bsi_stmt_ptr (bsi), warn_uninitialized_var,
+		     &data, NULL);
+        }
+    }
   return 0;
 }
 
@@ -1512,8 +1519,10 @@ gate_warn_uninitialized (void)
   return warn_uninitialized != 0;
 }
 
-struct tree_opt_pass pass_early_warn_uninitialized =
+struct gimple_opt_pass pass_early_warn_uninitialized =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
   execute_early_warn_uninitialized,	/* execute */
@@ -1525,12 +1534,14 @@ struct tree_opt_pass pass_early_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0				        /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_late_warn_uninitialized =
+struct gimple_opt_pass pass_late_warn_uninitialized =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   gate_warn_uninitialized,		/* gate */
   execute_late_warn_uninitialized,	/* execute */
@@ -1542,8 +1553,8 @@ struct tree_opt_pass pass_late_warn_uninitialized =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0				        /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 /* Compute TREE_ADDRESSABLE for local variables.  */
@@ -1625,8 +1636,10 @@ execute_update_addresses_taken (void)
   return 0;
 }
 
-struct tree_opt_pass pass_update_address_taken =
+struct gimple_opt_pass pass_update_address_taken =
 {
+ {
+  GIMPLE_PASS,
   "addressables",			/* name */
   NULL,					/* gate */
   execute_update_addresses_taken,	/* execute */
@@ -1638,6 +1651,6 @@ struct tree_opt_pass pass_update_address_taken =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa,                      /* todo_flags_finish */
-  0				        /* letter */
+  TODO_update_ssa                       /* todo_flags_finish */
+ }
 };

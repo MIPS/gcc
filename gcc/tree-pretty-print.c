@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "fixed-value.h"
 #include "value-prof.h"
+#include "predict.h"
 
 /* Local functions, macros and variables.  */
 static int op_prio (const_tree);
@@ -801,7 +802,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  /* Would "%x%0*x" or "%x%*0x" get zero-padding on all
 	     systems?  */
 	  sprintf (pp_buffer (buffer)->digit_buffer,
-		   HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+		   HOST_WIDE_INT_PRINT_DOUBLE_HEX,
+		   (unsigned HOST_WIDE_INT) high, low);
 	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
 	}
       else
@@ -923,7 +925,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case SYMBOL_MEMORY_TAG:
     case NAME_MEMORY_TAG:
-    case STRUCT_FIELD_TAG:
     case VAR_DECL:
     case PARM_DECL:
     case FIELD_DECL:
@@ -1439,8 +1440,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       type = TREE_TYPE (node);
       op0 = TREE_OPERAND (node, 0);
       if (type != TREE_TYPE (op0))
@@ -1608,6 +1608,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  pp_character (buffer, '}');
 	}
       is_expr = false;
+      break;
+
+    case PREDICT_EXPR:
+      pp_string (buffer, "// predicted ");
+      if (PREDICT_EXPR_OUTCOME (node))
+        pp_string (buffer, "likely by ");
+      else
+        pp_string (buffer, "unlikely by ");
+      pp_string (buffer, predictor_name (PREDICT_EXPR_PREDICTOR (node)));
+      pp_string (buffer, " predictor.");
       break;
 
     case RETURN_EXPR:
@@ -2497,8 +2507,7 @@ op_prio (const_tree op)
     case INDIRECT_REF:
     case ADDR_EXPR:
     case FLOAT_EXPR:
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case FIX_TRUNC_EXPR:
     case TARGET_EXPR:
       return 14;

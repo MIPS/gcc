@@ -97,25 +97,12 @@ static const char *const avr_regnames[] = REGISTER_NAMES;
 static int last_insn_address = 0;
 
 /* Preprocessor macros to define depending on MCU type.  */
-const char *avr_base_arch_macro;
 const char *avr_extra_arch_macro;
 
 /* Current architecture.  */
 const struct base_arch_s *avr_current_arch;
 
 section *progmem_section;
-
-/* More than 8K of program memory: use "call" and "jmp".  */
-int avr_mega_p = 0;
-
-/* Core have 'MUL*' instructions.  */
-int avr_have_mul_p = 0;
-
-/* Assembler only.  */
-int avr_asm_only_p = 0;
-
-/* Core have 'MOVW' and 'LPM Rx,Z' instructions.  */
-int avr_have_movw_lpmx_p = 0;
 
 static const struct base_arch_s avr_arch_types[] = {
   { 1, 0, 0, 0, 0, 0, 0, 0, NULL },  /* unknown device specified */
@@ -127,7 +114,8 @@ static const struct base_arch_s avr_arch_types[] = {
   { 0, 0, 1, 1, 0, 0, 0, 0, "__AVR_ARCH__=35"  },
   { 0, 1, 0, 1, 0, 0, 0, 0, "__AVR_ARCH__=4"   },
   { 0, 1, 1, 1, 0, 0, 0, 0, "__AVR_ARCH__=5"   },
-  { 0, 1, 1, 1, 1, 1, 0, 0, "__AVR_ARCH__=51"  }
+  { 0, 1, 1, 1, 1, 1, 0, 0, "__AVR_ARCH__=51"  },
+  { 0, 1, 1, 1, 1, 1, 1, 0, "__AVR_ARCH__=6"   }
 };
 
 /* These names are used as the index into the avr_arch_types[] table 
@@ -144,7 +132,8 @@ enum avr_arch
   ARCH_AVR35,
   ARCH_AVR4,
   ARCH_AVR5,
-  ARCH_AVR51
+  ARCH_AVR51,
+  ARCH_AVR6
 };
 
 struct mcu_type_s {
@@ -201,7 +190,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at76c711",     ARCH_AVR3, "__AVR_AT76C711__" },
     /* Classic, == 128K.  */
   { "avr31",        ARCH_AVR31, NULL },
-  { "atmega103",    ARCH_AVR3, "__AVR_ATmega103__" },
+  { "atmega103",    ARCH_AVR31, "__AVR_ATmega103__" },
     /* Classic + MOVW + JMP/CALL.  */
   { "avr35",        ARCH_AVR35, NULL },
   { "at90usb82",    ARCH_AVR35, "__AVR_AT90USB82__" },
@@ -273,6 +262,10 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can128",   ARCH_AVR51, "__AVR_AT90CAN128__" },
   { "at90usb1286",  ARCH_AVR51, "__AVR_AT90USB1286__" },
   { "at90usb1287",  ARCH_AVR51, "__AVR_AT90USB1287__" },
+    /* 3-Byte PC.  */
+  { "avr6",         ARCH_AVR6, NULL },
+  { "atmega2560",   ARCH_AVR6, "__AVR_ATmega2560__" },
+  { "atmega2561",   ARCH_AVR6, "__AVR_ATmega2561__" },
     /* Assembler only.  */
   { "avr1",         ARCH_AVR1, NULL },
   { "at90s1200",    ARCH_AVR1, "__AVR_AT90S1200__" },
@@ -334,7 +327,6 @@ void
 avr_override_options (void)
 {
   const struct mcu_type_s *t;
-  const struct base_arch_s *base;
 
   flag_delete_null_pointer_checks = 0;
 
@@ -351,16 +343,11 @@ avr_override_options (void)
     }
 
   avr_current_arch = &avr_arch_types[t->arch];
-  base = &avr_arch_types[t->arch];
-  avr_asm_only_p = base->asm_only;
-  avr_have_mul_p = base->have_mul;
-  avr_mega_p = base->have_jmp_call;
-  avr_have_movw_lpmx_p = base->have_movw_lpmx;
-  avr_base_arch_macro = base->macro;
   avr_extra_arch_macro = t->macro;
 
   if (optimize && !TARGET_NO_TABLEJUMP)
-    avr_case_values_threshold = (!AVR_MEGA || TARGET_CALL_PROLOGUES) ? 8 : 17;
+    avr_case_values_threshold = 
+      (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
 
   tmp_reg_rtx  = gen_rtx_REG (QImode, TMP_REGNO);
   zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);
@@ -468,7 +455,9 @@ avr_regs_to_save (HARD_REG_SET *set)
   int reg, count;
   int int_or_sig_p = (interrupt_function_p (current_function_decl)
 		      || signal_function_p (current_function_decl));
-  int leaf_func_p = leaf_function_p ();
+
+  if (!reload_completed)
+    cfun->machine->is_leaf = leaf_function_p ();
 
   if (set)
     CLEAR_HARD_REG_SET (*set);
@@ -487,7 +476,7 @@ avr_regs_to_save (HARD_REG_SET *set)
       if (fixed_regs[reg])
 	continue;
 
-      if ((int_or_sig_p && !leaf_func_p && call_used_regs[reg])
+      if ((int_or_sig_p && !cfun->machine->is_leaf && call_used_regs[reg])
 	  || (df_regs_ever_live_p (reg)
 	      && (int_or_sig_p || !call_used_regs[reg])
 	      && !(frame_pointer_needed
@@ -511,9 +500,10 @@ initial_elimination_offset (int from, int to)
   else
     {
       int offset = frame_pointer_needed ? 2 : 0;
+      int avr_pc_size = AVR_HAVE_EIJMP_EICALL ? 3 : 2;
 
       offset += avr_regs_to_save (NULL);
-      return get_frame_size () + 2 + 1 + offset;
+      return get_frame_size () + (avr_pc_size) + 1 + offset;
     }
 }
 
@@ -1119,7 +1109,7 @@ print_operand_address (FILE *file, rtx addr)
 	  && ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (addr))
 	      || GET_CODE (addr) == LABEL_REF))
 	{
-	  fprintf (file, "pm(");
+	  fprintf (file, "gs(");
 	  output_addr_const (file,addr);
 	  fprintf (file ,")");
 	}
@@ -1141,8 +1131,13 @@ print_operand (FILE *file, rtx x, int code)
 
   if (code == '~')
     {
-      if (!AVR_MEGA)
+      if (!AVR_HAVE_JMP_CALL)
 	fputc ('r', file);
+    }
+  else if (code == '!')
+    {
+      if (AVR_HAVE_EIJMP_EICALL)
+	fputc ('e', file);
     }
   else if (REG_P (x))
     {
@@ -1311,7 +1306,7 @@ avr_jump_mode (rtx x, rtx insn)
     return 1;
   else if (-2046 <= jump_distance && jump_distance <= 2045)
     return 2;
-  else if (AVR_MEGA)
+  else if (AVR_HAVE_JMP_CALL)
     return 3;
   
   return 2;
@@ -1834,7 +1829,7 @@ out_movqi_r_mr (rtx insn, rtx op[], int *l)
 	  *l = 1;
 	  return AS2 (in,%0,__SREG__);
 	}
-      if (avr_io_address_p (x, 1))
+      if (optimize > 0 && io_address_operand (x, QImode))
 	{
 	  *l = 1;
 	  return AS2 (in,%0,%1-0x20);
@@ -2022,7 +2017,7 @@ out_movhi_r_mr (rtx insn, rtx op[], int *l)
     }
   else if (CONSTANT_ADDRESS_P (base))
     {
-      if (avr_io_address_p (base, 2))
+      if (optimize > 0 && io_address_operand (base, HImode))
 	{
 	  *l = 2;
 	  return (AS2 (in,%A0,%A1-0x20) CR_TAB
@@ -2522,7 +2517,7 @@ out_movqi_mr_r (rtx insn, rtx op[], int *l)
 	  *l = 1;
 	  return AS2 (out,__SREG__,%1);
 	}
-      if (avr_io_address_p (x, 1))
+      if (optimize > 0 && io_address_operand (x, QImode))
 	{
 	  *l = 1;
 	  return AS2 (out,%0-0x20,%1);
@@ -2601,7 +2596,7 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
     l = &tmp;
   if (CONSTANT_ADDRESS_P (base))
     {
-      if (avr_io_address_p (base, 2))
+      if (optimize > 0 && io_address_operand (base, HImode))
 	{
 	  *l = 2;
 	  return (AS2 (out,%B0-0x20,%B1) CR_TAB
@@ -2726,8 +2721,8 @@ out_movhi_mr_r (rtx insn, rtx op[], int *l)
 int
 frame_pointer_required_p (void)
 {
-  return (current_function_calls_alloca
-	  || current_function_args_info.nregs == 0
+  return (cfun->calls_alloca
+	  || crtl->args.info.nregs == 0
   	  || get_frame_size () > 0);
 }
 
@@ -4468,7 +4463,7 @@ avr_assemble_integer (rtx x, unsigned int size, int aligned_p)
       && ((GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FUNCTION_P (x))
 	  || GET_CODE (x) == LABEL_REF))
     {
-      fputs ("\t.word\tpm(", asm_out_file);
+      fputs ("\t.word\tgs(", asm_out_file);
       output_addr_const (asm_out_file, x);
       fputs (")\n", asm_out_file);
       return true;
@@ -4761,7 +4756,7 @@ avr_output_progmem_section_asm_op (const void *arg ATTRIBUTE_UNUSED)
 {
   fprintf (asm_out_file,
 	   "\t.section .progmem.gcc_sw_table, \"%s\", @progbits\n",
-	   AVR_MEGA ? "a" : "ax");
+	   AVR_HAVE_JMP_CALL ? "a" : "ax");
   /* Should already be aligned, this is just to be safe if it isn't.  */
   fprintf (asm_out_file, "\t.p2align 1\n");
 }
@@ -4771,7 +4766,7 @@ avr_output_progmem_section_asm_op (const void *arg ATTRIBUTE_UNUSED)
 static void
 avr_asm_init_sections (void)
 {
-  progmem_section = get_unnamed_section (AVR_MEGA ? 0 : SECTION_CODE,
+  progmem_section = get_unnamed_section (AVR_HAVE_JMP_CALL ? 0 : SECTION_CODE,
 					 avr_output_progmem_section_asm_op,
 					 NULL);
   readonly_data_section = data_section;
@@ -4801,7 +4796,7 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 static void
 avr_file_start (void)
 {
-  if (avr_asm_only_p)
+  if (avr_current_arch->asm_only)
     error ("MCU %qs supported for assembler only", avr_mcu_name);
 
   default_file_start ();
@@ -5056,7 +5051,7 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 	  if (AVR_HAVE_MUL)
 	    *total = COSTS_N_INSNS (optimize_size ? 3 : 4);
 	  else if (optimize_size)
-	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
+	    *total = COSTS_N_INSNS (AVR_HAVE_JMP_CALL ? 2 : 1);
 	  else
 	    return false;
 	  break;
@@ -5065,7 +5060,7 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
 	  if (AVR_HAVE_MUL)
 	    *total = COSTS_N_INSNS (optimize_size ? 7 : 10);
 	  else if (optimize_size)
-	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
+	    *total = COSTS_N_INSNS (AVR_HAVE_JMP_CALL ? 2 : 1);
 	  else
 	    return false;
 	  break;
@@ -5082,7 +5077,7 @@ avr_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
     case UDIV:
     case UMOD:
       if (optimize_size)
-	*total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
+	*total = COSTS_N_INSNS (AVR_HAVE_JMP_CALL ? 2 : 1);
       else
 	return false;
       *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code);
@@ -5453,7 +5448,7 @@ avr_address_cost (rtx x)
     return 18;
   if (CONSTANT_ADDRESS_P (x))
     {
-      if (avr_io_address_p (x, 1))
+      if (optimize > 0 && io_address_operand (x, QImode))
 	return 2;
       return 4;
     }
@@ -5699,17 +5694,6 @@ avr_hard_regno_mode_ok (int regno, enum machine_mode mode)
   return !(regno & 1);
 }
 
-/* Returns 1 if X is a valid address for an I/O register of size SIZE
-   (1 or 2).  Used for lds/sts -> in/out optimization.  Add 0x20 to SIZE
-   to check for the lower half of I/O space (for cbi/sbi/sbic/sbis).  */
-
-int
-avr_io_address_p (rtx x, int size)
-{
-  return (optimize > 0 && GET_CODE (x) == CONST_INT
-	  && INTVAL (x) >= 0x20 && INTVAL (x) <= 0x60 - size);
-}
-
 const char *
 output_reload_inhi (rtx insn ATTRIBUTE_UNUSED, rtx *operands, int *len)
 {
@@ -5814,8 +5798,8 @@ void
 avr_output_addr_vec_elt (FILE *stream, int value)
 {
   switch_to_section (progmem_section);
-  if (AVR_MEGA)
-    fprintf (stream, "\t.word pm(.L%d)\n", value);
+  if (AVR_HAVE_JMP_CALL)
+    fprintf (stream, "\t.word gs(.L%d)\n", value);
   else
     fprintf (stream, "\trjmp .L%d\n", value);
 }

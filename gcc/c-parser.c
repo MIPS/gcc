@@ -443,12 +443,7 @@ c_parser_next_token_is_not (c_parser *parser, enum cpp_ttype type)
 static inline bool
 c_parser_next_token_is_keyword (c_parser *parser, enum rid keyword)
 {
-  c_token *token;
-
-  /* Peek at the next token.  */
-  token = c_parser_peek_token (parser);
-  /* Check to see if it is the indicated keyword.  */
-  return token->keyword == keyword;
+  return c_parser_peek_token (parser)->keyword == keyword;
 }
 
 /* Return true if TOKEN can start a type name,
@@ -1380,7 +1375,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
 	{
 	  if (pedantic)
 	    pedwarn ("%HISO C forbids nested functions", &here);
-	  push_function_context ();
+	  c_push_function_context ();
 	}
       if (!start_function (specs, declarator, all_prefix_attrs))
 	{
@@ -1390,7 +1385,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
 	  c_parser_error (parser, "expected %<=%>, %<,%>, %<;%>, %<asm%> "
 			  "or %<__attribute__%>");
 	  if (nested)
-	    pop_function_context ();
+	    c_pop_function_context ();
 	  break;
 	}
       /* Parse old-style parameter declarations.  ??? Attributes are
@@ -1417,7 +1412,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok, bool empty_ok,
 	  tree decl = current_function_decl;
 	  add_stmt (fnbody);
 	  finish_function ();
-	  pop_function_context ();
+	  c_pop_function_context ();
 	  add_stmt (build_stmt (DECL_EXPR, decl));
 	}
       else
@@ -5169,12 +5164,16 @@ c_parser_postfix_expression (c_parser *parser)
     {
     case CPP_NUMBER:
     case CPP_CHAR:
+    case CPP_CHAR16:
+    case CPP_CHAR32:
     case CPP_WCHAR:
       expr.value = c_parser_peek_token (parser)->value;
       expr.original_code = ERROR_MARK;
       c_parser_consume_token (parser);
       break;
     case CPP_STRING:
+    case CPP_STRING16:
+    case CPP_STRING32:
     case CPP_WSTRING:
       expr.value = c_parser_peek_token (parser)->value;
       expr.original_code = STRING_CST;
@@ -7468,6 +7467,7 @@ c_parser_omp_atomic (c_parser *parser)
   tree lhs, rhs;
   tree stmt;
   enum tree_code code;
+  struct c_expr rhs_expr;
 
   c_parser_skip_to_pragma_eol (parser);
 
@@ -7530,7 +7530,9 @@ c_parser_omp_atomic (c_parser *parser)
 	}
 
       c_parser_consume_token (parser);
-      rhs = c_parser_expression (parser).value;
+      rhs_expr = c_parser_expression (parser);
+      rhs_expr = default_function_array_conversion (rhs_expr);
+      rhs = rhs_expr.value;
       break;
     }
   stmt = c_finish_omp_atomic (code, lhs, rhs);

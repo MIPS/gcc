@@ -141,6 +141,8 @@
 #  need_64bit_hwint	Set to yes if HOST_WIDE_INT must be 64 bits wide
 #			for this target.  This is true iff this target
 #			supports "long" or "wchar_t" wider than 32 bits.
+#			The setting made here must match the one made in
+#			other locations such as libcpp/configure.ac
 #
 #  configure_default_options
 #			Set to an initializer for configure_default_options
@@ -195,8 +197,7 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
-   crx-*		\
- | mt-*			\
+   mt-*			\
  | strongarm*-*		\
  | ep9312*-*		\
  | xscale*-*		\
@@ -309,13 +310,15 @@ i[34567]86-*-*)
 	cpu_type=i386
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h
+		       wmmintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h
+		       wmmintrin.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -355,12 +358,9 @@ rs6000*-*-*)
 score*-*-*)
 	cpu_type=score
 	;;
-sparc64*-*-*)
-	cpu_type=sparc
-	need_64bit_hwint=yes
-	;;
 sparc*-*-*)
 	cpu_type=sparc
+	need_64bit_hwint=yes
 	;;
 spu*-*-*)
 	cpu_type=spu
@@ -371,7 +371,7 @@ s390*-*-*)
 	need_64bit_hwint=yes
 	;;
 # Note the 'l'; we need to be able to match e.g. "shle" or "shl".
-sh[123456789lbe]*-*-*)
+sh[123456789lbe]*-*-* | sh-*-*)
 	cpu_type=sh
 	need_64bit_hwint=yes
 	;;
@@ -753,7 +753,7 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	tmake_file="${tmake_file} arm/t-arm-softfp soft-fp/t-softfp"
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
-	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/uclinux-elf.h arm/uclinux-elf.h"
+	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/uclinux-elf.h"
 	tmake_file="arm/t-arm arm/t-arm-elf"
 	case ${target} in
 	arm*-*-uclinux-*eabi)
@@ -1372,21 +1372,22 @@ i[34567]86-*-pe | i[34567]86-*-cygwin*)
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt"
 	extra_objs="winnt.o winnt-stubs.o"
-	c_target_objs=cygwin2.o
-	cxx_target_objs="cygwin2.o winnt-cxx.o"
+	c_target_objs="cygwin2.o msformat-c.o"
+	cxx_target_objs="cygwin2.o winnt-cxx.o msformat-c.o"
 	extra_gcc_objs=cygwin1.o
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
 	fi
 	;;
-i[34567]86-*-mingw32* | x86_64-*-mingw32*)
+i[34567]86-*-mingw* | x86_64-*-mingw*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/mingw32.h"
 	xm_file=i386/xm-mingw32.h
 	tmake_file="i386/t-cygming i386/t-mingw32"
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt"
 	extra_objs="winnt.o winnt-stubs.o"
-	cxx_target_objs=winnt-cxx.o
+	c_target_objs="msformat-c.o"
+	cxx_target_objs="winnt-cxx.o msformat-c.o"
 	default_use_cxa_atexit=yes
 	case ${enable_threads} in
 	  "" | yes | win32)
@@ -1395,10 +1396,17 @@ i[34567]86-*-mingw32* | x86_64-*-mingw32*)
 	  ;;
 	esac
 	case ${target} in
-		*mingw32crt*)
-			tm_file="${tm_file} i386/crtdll.h"
+		x86_64-*-mingw*)
+			tmake_file="${tmake_file} i386/t-crtfm"
 			;;
-		*mingw32msv* | *mingw32*)
+		*)
+			;;
+	esac
+	case ${target} in
+ 		*mingw32crt*)
+ 			tm_file="${tm_file} i386/crtdll.h"
+ 			;;
+		*mingw32msv* | *mingw*)
 			;;
 	esac
 	;;
@@ -1515,19 +1523,19 @@ m32rle-*-linux*)
 	;;
 # m68hc11 and m68hc12 share the same machine description.
 m68hc11-*-*|m6811-*-*)
-	tm_file="dbxelf.h elfos.h m68hc11/m68hc11.h"
+	tm_file="dbxelf.h elfos.h usegas.h m68hc11/m68hc11.h"
 	tm_p_file="m68hc11/m68hc11-protos.h"
 	md_file="m68hc11/m68hc11.md"
 	out_file="m68hc11/m68hc11.c"
-	tmake_file="m68hc11/t-m68hc11-gas"
+	tmake_file="m68hc11/t-m68hc11"
 	use_fixproto=yes
         ;;
 m68hc12-*-*|m6812-*-*)
-	tm_file="m68hc11/m68hc12.h dbxelf.h elfos.h m68hc11/m68hc11.h"
+	tm_file="m68hc11/m68hc12.h dbxelf.h elfos.h usegas.h m68hc11/m68hc11.h"
 	tm_p_file="m68hc11/m68hc11-protos.h"
 	md_file="m68hc11/m68hc11.md"
 	out_file="m68hc11/m68hc11.c"
-	tmake_file="m68hc11/t-m68hc11-gas"
+	tmake_file="m68hc11/t-m68hc11"
 	extra_options="${extra_options} m68hc11/m68hc11.opt"
 	use_fixproto=yes
         ;;
@@ -1640,11 +1648,13 @@ mcore-*-elf)
 	tm_file="dbxelf.h elfos.h svr4.h ${tm_file} mcore/mcore-elf.h"
 	tmake_file=mcore/t-mcore
 	use_fixproto=yes
+	inhibit_libc=true
 	;;
 mcore-*-pe*)
 	tm_file="svr3.h dbxcoff.h ${tm_file} mcore/mcore-pe.h"
 	tmake_file=mcore/t-mcore-pe
 	use_fixproto=yes
+	inhibit_libc=true
 	;;
 mips-sgi-irix[56]*)
 	tm_file="elfos.h ${tm_file} mips/iris.h"
@@ -2344,9 +2354,15 @@ sparc-*-elf*)
 	use_fixproto=yes
 	;;
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h linux.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
-	tmake_file="${tmake_file} sparc/t-linux sparc/t-crtfm"
+	if test x$enable_targets = xall; then
+		tm_file="sparc/biarch64.h ${tm_file} sparc/linux64.h"
+		tmake_file="${tmake_file} sparc/t-linux64 sparc/t-crtfm"
+	else
+		tm_file="${tm_file} sparc/linux.h"
+		tmake_file="${tmake_file} sparc/t-linux sparc/t-crtfm"
+	fi
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sp-elf.h sparc/rtemself.h rtems.h"
@@ -2383,7 +2399,6 @@ sparc64-*-solaris2* | sparcv9-*-solaris2*)
 	  "":yes:* | yes:yes:* ) thread_file=posix ;;
 	  "":*:yes | yes:*:yes ) thread_file=solaris ;;
 	esac
-	need_64bit_hwint=yes
 	;;
 sparc-*-solaris2*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h"
@@ -2424,7 +2439,6 @@ sparc-*-solaris2*)
 		fi
 		tm_file="${tm_file} tm-dwarf2.h"
 		tmake_file="$tmake_file sparc/t-sol2-64"
-		need_64bit_hwint=yes
 		test x$with_cpu != x || with_cpu=v9
 		;;
 	esac
@@ -2475,10 +2489,9 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 		x) with_cpu=ultrasparc ;;
 		*) echo "$with_cpu not supported for freebsd target"; exit 1 ;;
 	esac
-	need_64bit_hwint=yes
 	;;
 sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
-	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
+	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h linux.h sparc/linux64.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
 	tmake_file="${tmake_file} sparc/t-linux sparc/t-linux64 sparc/t-crtfm"
 	;;

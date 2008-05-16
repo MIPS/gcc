@@ -1881,7 +1881,7 @@ For instance,
 
 @smallexample
 void* my_calloc(size_t, size_t) __attribute__((alloc_size(1,2)))
-void my_realloc(void* size_t) __attribute__((alloc_size(2)))
+void my_realloc(void*, size_t) __attribute__((alloc_size(2)))
 @end smallexample
 
 declares that my_calloc will return memory of the size given by
@@ -2204,13 +2204,22 @@ for consistency with the @code{printf} style format string argument
 @code{my_format}.
 
 The parameter @var{archetype} determines how the format string is
-interpreted, and should be @code{printf}, @code{scanf}, @code{strftime}
-or @code{strfmon}.  (You can also use @code{__printf__},
-@code{__scanf__}, @code{__strftime__} or @code{__strfmon__}.)  The
-parameter @var{string-index} specifies which argument is the format
-string argument (starting from 1), while @var{first-to-check} is the
-number of the first argument to check against the format string.  For
-functions where the arguments are not available to be checked (such as
+interpreted, and should be @code{printf}, @code{scanf}, @code{strftime},
+@code{gnu_printf}, @code{gnu_scanf}, @code{gnu_strftime} or
+@code{strfmon}.  (You can also use @code{__printf__},
+@code{__scanf__}, @code{__strftime__} or @code{__strfmon__}.)  On
+MinGW targets, @code{ms_printf}, @code{ms_scanf}, and
+@code{ms_strftime} are also present.
+@var{archtype} values such as @code{printf} refer to the formats accepted
+by the system's C run-time library, while @code{gnu_} values always refer
+to the formats accepted by the GNU C Library.  On Microsoft Windows
+targets, @code{ms_} values refer to the formats accepted by the
+@file{msvcrt.dll} library.
+The parameter @var{string-index}
+specifies which argument is the format string argument (starting
+from 1), while @var{first-to-check} is the number of the first
+argument to check against the format string.  For functions
+where the arguments are not available to be checked (such as
 @code{vprintf}), specify the third parameter as zero.  In this case the
 compiler only checks the format string for consistency.  For
 @code{strftime} formats, the third parameter is required to be zero.
@@ -2290,15 +2299,32 @@ is used.  @xref{C Dialect Options,,Options
 Controlling C Dialect}.
 
 @item function_vector
-@cindex calling functions through the function vector on H8/300, M16C, and M32C processors
+@cindex calling functions through the function vector on H8/300, M16C, M32C and SH2A processors
 Use this attribute on the H8/300, H8/300H, and H8S to indicate that the specified
 function should be called through the function vector.  Calling a
 function through the function vector will reduce code size, however;
 the function vector has a limited size (maximum 128 entries on the H8/300
 and 64 entries on the H8/300H and H8S) and shares space with the interrupt vector.
 
+In SH2A target, this attribute declares a function to be called using the
+TBR relative addressing mode.  The argument to this attribute is the entry
+number of the same function in a vector table containing all the TBR
+relative addressable functions.  For the successful jump, register TBR
+should contain the start address of this TBR relative vector table.
+In the startup routine of the user application, user needs to care of this
+TBR register initialization.  The TBR relative vector table can have at
+max 256 function entries.  The jumps to these functions will be generated
+using a SH2A specific, non delayed branch instruction JSR/N @@(disp8,TBR).
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
+
+Please refer the example of M16C target, to see the use of this
+attribute while declaring a function,
+
+In an application, for a function being called once, this attribute will
+save at least 8 bytes of code; and if other successive calls are being
+made to the same function, it will save 2 bytes of code per each of these
+calls.
 
 On M16C/M32C targets, the @code{function_vector} attribute declares a
 special page subroutine call function. Use of this attribute reduces
@@ -2712,6 +2738,19 @@ number of registers available if used in conjunction with the
 @code{regparm} attribute.  The @code{force_align_arg_pointer}
 attribute is incompatible with nested functions; this is considered a
 hard error.
+
+@item resbank
+@cindex @code{resbank} attribute
+On the SH2A target, this attribute enables the high-speed register
+saving and restoration using a register bank for @code{interrupt_handler}
+routines.  Saving to the bank is performed automatcially after the CPU
+accepts an interrupt that uses a register bank.
+
+The nineteen 32-bit registers comprising general register R0 to R14,
+control register GBR, and system registers MACH, MACL, and PR and the
+vector table address offset are saved into a register bank.  Register
+banks are stacked in first-in last-out (FILO) sequence.  Restoration
+from the bank is executed by issuing a RESBANK instruction.
 
 @item returns_twice
 @cindex @code{returns_twice} attribute
@@ -3380,7 +3419,8 @@ designs, @code{__alignof__ (double)} is 4 or even 2.
 
 Some machines never actually require alignment; they allow reference to any
 data type even at an odd address.  For these machines, @code{__alignof__}
-reports the @emph{recommended} alignment of a type.
+reports the smallest alignment that GCC will give the data type, usually as
+mandated by the target ABI.
 
 If the operand of @code{__alignof__} is an lvalue rather than a type,
 its value is the required alignment for its type, taking into account
@@ -7406,7 +7446,7 @@ The following machine modes are available for use with MMX built-in functions
 (@pxref{Vector Extensions}): @code{V2SI} for a vector of two 32-bit integers,
 @code{V4HI} for a vector of four 16-bit integers, and @code{V8QI} for a
 vector of eight 8-bit integers.  Some of the built-in functions operate on
-MMX registers as a whole 64-bit entity, these use @code{DI} as their mode.
+MMX registers as a whole 64-bit entity, these use @code{V1DI} as their mode.
 
 If 3Dnow extensions are enabled, @code{V2SF} is used as a mode for a vector
 of two 32-bit floating point values.
@@ -7477,22 +7517,22 @@ v8qi __builtin_ia32_packsswb (v4hi, v4hi)
 v4hi __builtin_ia32_packssdw (v2si, v2si)
 v8qi __builtin_ia32_packuswb (v4hi, v4hi)
 
-v8hi __builtin_ia32_psllw (v4hi, v4hi)
-v4si __builtin_ia32_pslld (v2si, v2si)
-v2di __builtin_ia32_psllq (v1di, v1di)
-v8hi __builtin_ia32_psrlw (v8hi, v2si)
-v4si __builtin_ia32_psrld (v4si, v2si)
-v2di __builtin_ia32_psrlq (v1di, v1di)
-v8hi __builtin_ia32_psraw (v4hi, v4hi)
-v4si __builtin_ia32_psrad (v2si, v2si)
-v8hi __builtin_ia32_psllwi (v4hi, int)
-v4si __builtin_ia32_pslldi (v2si, int)
-v2di __builtin_ia32_psllqi (v1di, int)
-v8hi __builtin_ia32_psrlwi (v4hi, int)
-v4si __builtin_ia32_psrldi (v2si, int)
-v2di __builtin_ia32_psrlqi (v1di, int)
-v8hi __builtin_ia32_psrawi (v4hi, int)
-v4si __builtin_ia32_psradi (v2si, int)
+v4hi __builtin_ia32_psllw (v4hi, v4hi)
+v2si __builtin_ia32_pslld (v2si, v2si)
+v1di __builtin_ia32_psllq (v1di, v1di)
+v4hi __builtin_ia32_psrlw (v4hi, v4hi)
+v2si __builtin_ia32_psrld (v2si, v2si)
+v1di __builtin_ia32_psrlq (v1di, v1di)
+v4hi __builtin_ia32_psraw (v4hi, v4hi)
+v2si __builtin_ia32_psrad (v2si, v2si)
+v4hi __builtin_ia32_psllwi (v4hi, int)
+v2si __builtin_ia32_pslldi (v2si, int)
+v1di __builtin_ia32_psllqi (v1di, int)
+v4hi __builtin_ia32_psrlwi (v4hi, int)
+v2si __builtin_ia32_psrldi (v2si, int)
+v1di __builtin_ia32_psrlqi (v1di, int)
+v4hi __builtin_ia32_psrawi (v4hi, int)
+v2si __builtin_ia32_psradi (v2si, int)
 
 @end smallexample
 
@@ -7505,7 +7545,7 @@ instruction that is part of the name.
 v4hi __builtin_ia32_pmulhuw (v4hi, v4hi)
 v8qi __builtin_ia32_pavgb (v8qi, v8qi)
 v4hi __builtin_ia32_pavgw (v4hi, v4hi)
-v4hi __builtin_ia32_psadbw (v8qi, v8qi)
+v1di __builtin_ia32_psadbw (v8qi, v8qi)
 v8qi __builtin_ia32_pmaxub (v8qi, v8qi)
 v4hi __builtin_ia32_pmaxsw (v4hi, v4hi)
 v8qi __builtin_ia32_pminub (v8qi, v8qi)
@@ -7607,13 +7647,13 @@ Generates the @code{movups} machine instruction as a store to memory.
 Generates the @code{movss} machine instruction as a load from memory.
 @item void __builtin_ia32_storess (float *, v4sf)
 Generates the @code{movss} machine instruction as a store to memory.
-@item v4sf __builtin_ia32_loadhps (v4sf, v2si *)
+@item v4sf __builtin_ia32_loadhps (v4sf, const v2sf *)
 Generates the @code{movhps} machine instruction as a load from memory.
-@item v4sf __builtin_ia32_loadlps (v4sf, v2si *)
+@item v4sf __builtin_ia32_loadlps (v4sf, const v2sf *)
 Generates the @code{movlps} machine instruction as a load from memory
-@item void __builtin_ia32_storehps (v4sf, v2si *)
+@item void __builtin_ia32_storehps (v2sf *, v4sf)
 Generates the @code{movhps} machine instruction as a store to memory.
-@item void __builtin_ia32_storelps (v4sf, v2si *)
+@item void __builtin_ia32_storelps (v2sf *, v4sf)
 Generates the @code{movlps} machine instruction as a store to memory.
 @end table
 
@@ -7708,15 +7748,15 @@ v16qi __builtin_ia32_punpcklbw128 (v16qi, v16qi)
 v8hi __builtin_ia32_punpcklwd128 (v8hi, v8hi)
 v4si __builtin_ia32_punpckldq128 (v4si, v4si)
 v2di __builtin_ia32_punpcklqdq128 (v2di, v2di)
-v16qi __builtin_ia32_packsswb128 (v16qi, v16qi)
-v8hi __builtin_ia32_packssdw128 (v8hi, v8hi)
-v16qi __builtin_ia32_packuswb128 (v16qi, v16qi)
+v16qi __builtin_ia32_packsswb128 (v8hi, v8hi)
+v8hi __builtin_ia32_packssdw128 (v4si, v4si)
+v16qi __builtin_ia32_packuswb128 (v8hi, v8hi)
 v8hi __builtin_ia32_pmulhuw128 (v8hi, v8hi)
 void __builtin_ia32_maskmovdqu (v16qi, v16qi)
 v2df __builtin_ia32_loadupd (double *)
 void __builtin_ia32_storeupd (double *, v2df)
-v2df __builtin_ia32_loadhpd (v2df, double *)
-v2df __builtin_ia32_loadlpd (v2df, double *)
+v2df __builtin_ia32_loadhpd (v2df, double const *)
+v2df __builtin_ia32_loadlpd (v2df, double const *)
 int __builtin_ia32_movmskpd (v2df)
 int __builtin_ia32_pmovmskb128 (v16qi)
 void __builtin_ia32_movnti (int *, int)
@@ -7753,16 +7793,16 @@ void __builtin_ia32_lfence (void)
 void __builtin_ia32_mfence (void)
 v16qi __builtin_ia32_loaddqu (const char *)
 void __builtin_ia32_storedqu (char *, v16qi)
-unsigned long long __builtin_ia32_pmuludq (v2si, v2si)
+v1di __builtin_ia32_pmuludq (v2si, v2si)
 v2di __builtin_ia32_pmuludq128 (v4si, v4si)
-v8hi __builtin_ia32_psllw128 (v8hi, v2di)
-v4si __builtin_ia32_pslld128 (v4si, v2di)
-v2di __builtin_ia32_psllq128 (v4si, v2di)
-v8hi __builtin_ia32_psrlw128 (v8hi, v2di)
-v4si __builtin_ia32_psrld128 (v4si, v2di)
+v8hi __builtin_ia32_psllw128 (v8hi, v8hi)
+v4si __builtin_ia32_pslld128 (v4si, v4si)
+v2di __builtin_ia32_psllq128 (v2di, v2di)
+v8hi __builtin_ia32_psrlw128 (v8hi, v8hi)
+v4si __builtin_ia32_psrld128 (v4si, v4si)
 v2di __builtin_ia32_psrlq128 (v2di, v2di)
-v8hi __builtin_ia32_psraw128 (v8hi, v2di)
-v4si __builtin_ia32_psrad128 (v4si, v2di)
+v8hi __builtin_ia32_psraw128 (v8hi, v8hi)
+v4si __builtin_ia32_psrad128 (v4si, v4si)
 v2di __builtin_ia32_pslldqi128 (v2di, int)
 v8hi __builtin_ia32_psllwi128 (v8hi, int)
 v4si __builtin_ia32_pslldi128 (v4si, int)
@@ -7812,13 +7852,13 @@ v4hi __builtin_ia32_phaddsw (v4hi, v4hi)
 v2si __builtin_ia32_phsubd (v2si, v2si)
 v4hi __builtin_ia32_phsubw (v4hi, v4hi)
 v4hi __builtin_ia32_phsubsw (v4hi, v4hi)
-v8qi __builtin_ia32_pmaddubsw (v8qi, v8qi)
+v4hi __builtin_ia32_pmaddubsw (v8qi, v8qi)
 v4hi __builtin_ia32_pmulhrsw (v4hi, v4hi)
 v8qi __builtin_ia32_pshufb (v8qi, v8qi)
 v8qi __builtin_ia32_psignb (v8qi, v8qi)
 v2si __builtin_ia32_psignd (v2si, v2si)
 v4hi __builtin_ia32_psignw (v4hi, v4hi)
-long long __builtin_ia32_palignr (long long, long long, int)
+v1di __builtin_ia32_palignr (v1di, v1di, int)
 v8qi __builtin_ia32_pabsb (v8qi)
 v2si __builtin_ia32_pabsd (v2si)
 v4hi __builtin_ia32_pabsw (v4hi)
@@ -7835,13 +7875,13 @@ v8hi __builtin_ia32_phaddsw128 (v8hi, v8hi)
 v4si __builtin_ia32_phsubd128 (v4si, v4si)
 v8hi __builtin_ia32_phsubw128 (v8hi, v8hi)
 v8hi __builtin_ia32_phsubsw128 (v8hi, v8hi)
-v16qi __builtin_ia32_pmaddubsw128 (v16qi, v16qi)
+v8hi __builtin_ia32_pmaddubsw128 (v16qi, v16qi)
 v8hi __builtin_ia32_pmulhrsw128 (v8hi, v8hi)
 v16qi __builtin_ia32_pshufb128 (v16qi, v16qi)
 v16qi __builtin_ia32_psignb128 (v16qi, v16qi)
 v4si __builtin_ia32_psignd128 (v4si, v4si)
 v8hi __builtin_ia32_psignw128 (v8hi, v8hi)
-v2di __builtin_ia32_palignr (v2di, v2di, int)
+v2di __builtin_ia32_palignr128 (v2di, v2di, int)
 v16qi __builtin_ia32_pabsb128 (v16qi)
 v4si __builtin_ia32_pabsd128 (v4si)
 v8hi __builtin_ia32_pabsw128 (v8hi)
@@ -7957,7 +7997,7 @@ Generates the @code{crc32b} machine instruction.
 Generates the @code{crc32w} machine instruction.
 @item unsigned int __builtin_ia32_crc32si (unsigned int, unsigned int)
 Generates the @code{crc32l} machine instruction.
-@item unsigned long long __builtin_ia32_crc32di (unsigned int, unsigned long long)
+@item unsigned long long __builtin_ia32_crc32di (unsigned long long, unsigned long long)
 @end table
 
 The following built-in functions are changed to generate new SSE4.2
@@ -7971,6 +8011,27 @@ Generates the @code{popcntl} or @code{popcntq} machine instruction,
 depending on the size of @code{unsigned long}.
 @item int __builtin_popcountll (unsigned long long)
 Generates the @code{popcntq} machine instruction.
+@end table
+
+The following built-in functions are available when @option{-maes} is
+used.  All of them generate the machine instruction that is part of the
+name.
+
+@smallexample
+v2di __builtin_ia32_aesenc128 (v2di, v2di)
+v2di __builtin_ia32_aesenclast128 (v2di, v2di)
+v2di __builtin_ia32_aesdec128 (v2di, v2di)
+v2di __builtin_ia32_aesdeclast128 (v2di, v2di)
+v2di __builtin_ia32_aeskeygenassist128 (v2di, const int)
+v2di __builtin_ia32_aesimc128 (v2di)
+@end smallexample
+
+The following built-in function is available when @option{-mpclmul} is
+used.
+
+@table @code
+@item v2di __builtin_ia32_pclmulqdq128 (v2di, v2di, const int)
+Generates the @code{pclmulqdq} machine instruction.
 @end table
 
 The following built-in functions are available when @option{-msse4a} is used.

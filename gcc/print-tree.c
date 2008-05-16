@@ -127,7 +127,8 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 		 -TREE_INT_CST_LOW (node));
       else
 	fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		 TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
     }
   if (TREE_CODE (node) == REAL_CST)
     {
@@ -292,8 +293,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
     fputs (" sizes-gimplified", file);
 
-  if (TREE_INVARIANT (node))
-    fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
     fputs (" addressable", file);
   if (TREE_THIS_VOLATILE (node))
@@ -535,15 +534,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  && DECL_HAS_VALUE_EXPR_P (node))
 	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
 
-      if (TREE_CODE (node) == STRUCT_FIELD_TAG)
-	{
-	  fprintf (file, " sft size " HOST_WIDE_INT_PRINT_DEC, 
-		   SFT_SIZE (node));
-	  fprintf (file, " sft offset " HOST_WIDE_INT_PRINT_DEC,
-		   SFT_OFFSET (node));
-	  print_node_brief (file, "parent var", SFT_PARENT_VAR (node), 
-			    indent + 4);
-	}
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -565,9 +555,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       else if (TREE_CODE (node) == INTEGER_TYPE
 	       && TYPE_IS_SIZETYPE (node))
 	fputs (" sizetype", file);
-      else if (TREE_CODE (node) == FUNCTION_TYPE
-	       && TYPE_RETURNS_STACK_DEPRESSED (node))
-	fputs (" returns-stack-depressed", file);
 
       if (TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
@@ -744,7 +731,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		     -TREE_INT_CST_LOW (node));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
 	  break;
 
 	case REAL_CST:

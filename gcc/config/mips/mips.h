@@ -1883,7 +1883,7 @@ enum reg_class
    See mips_compute_frame_info for details about the frame layout.  */
 
 #define STARTING_FRAME_OFFSET						\
-  (current_function_outgoing_args_size					\
+  (crtl->outgoing_args_size					\
    + (TARGET_CALL_CLOBBERED_GP ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
 
 #define RETURN_ADDR_RTX mips_return_addr
@@ -1935,8 +1935,8 @@ enum reg_class
    allocate the area reserved for arguments passed in registers.
    If `ACCUMULATE_OUTGOING_ARGS' is also defined, the only effect
    of this macro is to determine whether the space is included in
-   `current_function_outgoing_args_size'.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+   `crtl->outgoing_args_size'.  */
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 #define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
 
@@ -2902,7 +2902,46 @@ while (0)
   "\tsc" SUFFIX "\t%@,%1\n"			\
   "\tbeq\t%@,%.,1b\n"				\
   "\tnop\n"					\
-  "2:\tsync%-%]%>%)"
+  "\tsync%-%]%>%)\n"				\
+  "2:\n"
+
+/* Return an asm string that atomically:
+
+     - Given that %2 contains a bit mask and %3 the inverted mask and
+       that %4 and %5 have already been ANDed with $2.
+
+     - Compares the bits in memory reference %1 selected by mask %2 to
+       register %4 and, if they are equal, changes the selected bits
+       in memory to %5.
+
+     - Sets register %0 to the old value of memory reference %1.
+ */
+#define MIPS_COMPARE_AND_SWAP_12		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%2\n"				\
+  "\tbne\t%@,%z4,2f\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  "\tor\t%@,%@,%5\n"				\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)\n"				\
+  "2:\n"
+
+/* Like MIPS_COMPARE_AND_SWAP_12, except %5 is a constant zero,
+   so the OR can be omitted.  */
+#define MIPS_COMPARE_AND_SWAP_12_0		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%2\n"				\
+  "\tbne\t%@,%z4,2f\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)\n"				\
+  "2:\n"
 
 /* Return an asm string that atomically:
 

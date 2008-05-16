@@ -277,7 +277,7 @@ void gfc_make_safe_expr (gfc_se * se);
 void gfc_conv_string_parameter (gfc_se * se);
 
 /* Compare two strings.  */
-tree gfc_build_compare_string (tree, tree, tree, tree);
+tree gfc_build_compare_string (tree, tree, tree, tree, int);
 
 /* Add an item to the end of TREE_LIST.  */
 tree gfc_chainon_list (tree, tree);
@@ -404,6 +404,9 @@ tree gfc_get_symbol_decl (gfc_symbol *);
 
 /* Build a static initializer.  */
 tree gfc_conv_initializer (gfc_expr *, gfc_typespec *, tree, bool, bool);
+
+/* Assign a default initializer to a derived type.  */
+tree gfc_init_default_dt (gfc_symbol *, tree);
 
 /* Substitute a temporary variable in place of the real one.  */
 void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
@@ -551,13 +554,24 @@ extern GTY(()) tree gfor_fndecl_string_trim;
 extern GTY(()) tree gfor_fndecl_string_minmax;
 extern GTY(()) tree gfor_fndecl_adjustl;
 extern GTY(()) tree gfor_fndecl_adjustr;
+extern GTY(()) tree gfor_fndecl_compare_string_char4;
+extern GTY(()) tree gfor_fndecl_concat_string_char4;
+extern GTY(()) tree gfor_fndecl_string_len_trim_char4;
+extern GTY(()) tree gfor_fndecl_string_index_char4;
+extern GTY(()) tree gfor_fndecl_string_scan_char4;
+extern GTY(()) tree gfor_fndecl_string_verify_char4;
+extern GTY(()) tree gfor_fndecl_string_trim_char4;
+extern GTY(()) tree gfor_fndecl_string_minmax_char4;
+extern GTY(()) tree gfor_fndecl_adjustl_char4;
+extern GTY(()) tree gfor_fndecl_adjustr_char4;
 
 /* Other misc. runtime library functions.  */
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
 extern GTY(()) tree gfor_fndecl_iargc;
 
-/* Implemented in FORTRAN.  */
+/* Implemented in Fortran.  */
+extern GTY(()) tree gfor_fndecl_sc_kind;
 extern GTY(()) tree gfor_fndecl_si_kind;
 extern GTY(()) tree gfor_fndecl_sr_kind;
 
@@ -641,11 +655,11 @@ struct lang_decl		GTY(())
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build1(code, void_type_node, arg)
-#define build2_v(code, arg1, arg2) build2(code, void_type_node, \
-                                          arg1, arg2)
-#define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
-                                                arg1, arg2, arg3)
+#define build1_v(code, arg) fold_build1(code, void_type_node, arg)
+#define build2_v(code, arg1, arg2) fold_build2(code, void_type_node, \
+                                               arg1, arg2)
+#define build3_v(code, arg1, arg2, arg3) fold_build3(code, void_type_node, \
+                                                     arg1, arg2, arg3)
 #define build4_v(code, arg1, arg2, arg3, arg4) build4(code, void_type_node, \
 						      arg1, arg2, arg3, arg4)
 

@@ -95,7 +95,6 @@ static void gfc_print_identifier (FILE *, tree, int);
 static bool gfc_mark_addressable (tree);
 void do_function_end (void);
 int global_bindings_p (void);
-void insert_block (tree);
 static void clear_binding_stack (void);
 static void gfc_be_parse_file (int);
 static alias_set_type gfc_get_alias_set (tree);
@@ -126,7 +125,7 @@ static alias_set_type gfc_get_alias_set (tree);
 #undef LANG_HOOKS_GET_ARRAY_DESCR_INFO
 
 /* Define lang hooks.  */
-#define LANG_HOOKS_NAME                 "GNU F95"
+#define LANG_HOOKS_NAME                 "GNU Fortran"
 #define LANG_HOOKS_INIT                 gfc_init
 #define LANG_HOOKS_FINISH               gfc_finish
 #define LANG_HOOKS_INIT_OPTIONS         gfc_init_options
@@ -481,19 +480,6 @@ poplevel (int keep, int reverse, int functionbody)
 }
 
 
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
-}
-
-
 /* Records a ..._DECL node DECL as belonging to the current lexical scope.
    Returns the ..._DECL node.  */
 
@@ -585,9 +571,9 @@ gfc_init_decl_processing (void)
   /* x86_64 minw32 has a sizetype of "unsigned long long", most other hosts
      have a sizetype of "unsigned long". Therefore choose the correct size
      in mostly target independent way.  */
-  if (TYPE_MODE (long_unsigned_type_node) == Pmode)
+  if (TYPE_MODE (long_unsigned_type_node) == ptr_mode)
     set_sizetype (long_unsigned_type_node);
-  else if (TYPE_MODE (long_long_unsigned_type_node) == Pmode)
+  else if (TYPE_MODE (long_long_unsigned_type_node) == ptr_mode)
     set_sizetype (long_long_unsigned_type_node);
   else
     set_sizetype (long_unsigned_type_node);
@@ -870,21 +856,21 @@ gfc_init_builtin_functions (void)
   ptype = build_pointer_type (float_type_node);
   tmp = tree_cons (NULL_TREE, float_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_float_floatp_floatp =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (double_type_node);
   tmp = tree_cons (NULL_TREE, double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_double_doublep_doublep =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (long_double_type_node);
   tmp = tree_cons (NULL_TREE, long_double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_longdouble_longdoublep_longdoublep =
     build_function_type (void_type_node, tmp);
 

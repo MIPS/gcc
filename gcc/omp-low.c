@@ -1286,7 +1286,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SHARED:
 	  gcc_assert (is_taskreg_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
-	  gcc_assert (!is_variable_sized (decl));
+	  gcc_assert (!COMPLETE_TYPE_P (TREE_TYPE (decl))
+		      || !is_variable_sized (decl));
 	  /* Global variables don't need to be copied,
 	     the receiver side will use them directly.  */
 	  if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx)))
@@ -2893,7 +2894,6 @@ expand_task_copyfn (tree task_stmt)
   current_function_decl = child_fn;
   gimplify_body (&DECL_SAVED_TREE (child_fn), child_fn, false);
   maybe_catch_exception (&BIND_EXPR_BODY (DECL_SAVED_TREE (child_fn)));
-  child_cfun->gimplified = true;
   pop_cfun ();
   current_function_decl = old_fn;
 
@@ -3236,7 +3236,7 @@ expand_omp_taskreg (struct omp_region *region)
 
       /* Declare local variables needed in CHILD_CFUN.  */
       block = DECL_INITIAL (child_fn);
-      BLOCK_VARS (block) = list2chain (child_cfun->unexpanded_var_list);
+      BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
       DECL_SAVED_TREE (child_fn) = bb_stmt_list (single_succ (entry_bb));
 
       /* Reset DECL_CONTEXT on function arguments.  */
@@ -3270,7 +3270,7 @@ expand_omp_taskreg (struct omp_region *region)
       if (gimple_in_ssa_p (cfun))
 	{
 	  push_cfun (child_cfun);
-	  init_tree_ssa ();
+	  init_tree_ssa (child_cfun);
 	  init_ssa_operands ();
 	  cfun->gimple_df->in_ssa_p = true;
 	  pop_cfun ();
@@ -4713,7 +4713,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 			    tree addr, tree loaded_val, tree stored_val,
 			    int index)
 {
-  tree loadedi, storedi, initial, new_stored, new_storedi, old_vali;
+  tree loadedi, storedi, initial, new_storedi, old_vali;
   tree type, itype, cmpxchg, iaddr;
   block_stmt_iterator bsi;
   basic_block loop_header = single_succ (load_bb);
@@ -4730,48 +4730,81 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   /* Load the initial value, replacing the OMP_ATOMIC_LOAD.  */
   bsi = bsi_last (load_bb);
   gcc_assert (TREE_CODE (bsi_stmt (bsi)) == OMP_ATOMIC_LOAD);
-  initial = force_gimple_operand_bsi (&bsi, build_fold_indirect_ref (addr),
+  /* For floating-point values, we'll need to view-convert them to integers
+     so that we can perform the atomic compare and swap.  Simplify the
+     following code by always setting up the "i"ntegral variables.  */
+  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
+    {
+      iaddr = create_tmp_var (build_pointer_type (itype), NULL);
+      x = build_gimple_modify_stmt (iaddr,
+				    fold_convert (TREE_TYPE (iaddr), addr));
+      force_gimple_operand_bsi (&bsi, x, true, NULL_TREE,
+				true, BSI_SAME_STMT);
+      DECL_NO_TBAA_P (iaddr) = 1;
+      DECL_POINTER_ALIAS_SET (iaddr) = 0;
+      loadedi = create_tmp_var (itype, NULL);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  add_referenced_var (iaddr);
+	  add_referenced_var (loadedi);
+	  loadedi = make_ssa_name (loadedi, NULL);
+	}
+    }
+  else
+    {
+      iaddr = addr;
+      loadedi = loaded_val;
+    }
+  initial = force_gimple_operand_bsi (&bsi, build_fold_indirect_ref (iaddr),
 				      true, NULL_TREE, true, BSI_SAME_STMT);
-  /* Move the value to the LOADED_VAL temporary.  */
+
+  /* Move the value to the LOADEDI temporary.  */
   if (gimple_in_ssa_p (cfun))
     {
       gcc_assert (phi_nodes (loop_header) == NULL_TREE);
-      phi = create_phi_node (loaded_val, loop_header);
-      SSA_NAME_DEF_STMT (loaded_val) = phi;
+      phi = create_phi_node (loadedi, loop_header);
+      SSA_NAME_DEF_STMT (loadedi) = phi;
       SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (load_bb)),
 	       initial);
     }
   else
     bsi_insert_before (&bsi,
-		       build_gimple_modify_stmt (loaded_val, initial),
+		       build_gimple_modify_stmt (loadedi, initial),
 		       BSI_SAME_STMT);
+  if (loadedi != loaded_val)
+    {
+      block_stmt_iterator bsi2;
+
+      x = build1 (VIEW_CONVERT_EXPR, type, loadedi);
+      bsi2 = bsi_start (loop_header);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  x = force_gimple_operand_bsi (&bsi2, x, true, NULL_TREE,
+					true, BSI_SAME_STMT);
+	  x = build_gimple_modify_stmt (loaded_val, x);
+	  bsi_insert_before (&bsi2, x, BSI_SAME_STMT);
+	  SSA_NAME_DEF_STMT (loaded_val) = x;
+	}
+      else
+	{
+	  x = build_gimple_modify_stmt (loaded_val, x);
+	  force_gimple_operand_bsi (&bsi2, x, true, NULL_TREE,
+				    true, BSI_SAME_STMT);
+	}
+    }
   bsi_remove (&bsi, true);
 
   bsi = bsi_last (store_bb);
   gcc_assert (TREE_CODE (bsi_stmt (bsi)) == OMP_ATOMIC_STORE);
 
-  /* For floating-point values, we'll need to view-convert them to integers
-     so that we can perform the atomic compare and swap.  Simplify the 
-     following code by always setting up the "i"ntegral variables.  */
-  if (INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
-    {
-      loadedi = loaded_val;
-      storedi = stored_val;
-      iaddr = addr;
-    }
+  if (iaddr == addr)
+    storedi = stored_val;
   else
-    {
-      loadedi = force_gimple_operand_bsi (&bsi,
-					  build1 (VIEW_CONVERT_EXPR, itype,
-						  loaded_val), true,
-					  NULL_TREE, true, BSI_SAME_STMT);
-      storedi =
-	force_gimple_operand_bsi (&bsi,
-				  build1 (VIEW_CONVERT_EXPR, itype,
-					  stored_val), true, NULL_TREE, true,
-				  BSI_SAME_STMT);
-      iaddr = fold_convert (build_pointer_type (itype), addr);
-    }
+    storedi =
+      force_gimple_operand_bsi (&bsi,
+				build1 (VIEW_CONVERT_EXPR, itype,
+					stored_val), true, NULL_TREE, true,
+				BSI_SAME_STMT);
 
   /* Build the compare&swap statement.  */
   new_storedi = build_call_expr (cmpxchg, 3, iaddr, loadedi, storedi);
@@ -4779,32 +4812,28 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 					  fold_convert (itype, new_storedi),
 					  true, NULL_TREE,
 					  true, BSI_SAME_STMT);
-  if (storedi == stored_val)
-    new_stored = new_storedi;
-  else
-    new_stored = force_gimple_operand_bsi (&bsi,
-					   build1 (VIEW_CONVERT_EXPR, type,
-						   new_storedi), true,
-					   NULL_TREE, true, BSI_SAME_STMT);
 
   if (gimple_in_ssa_p (cfun))
     old_vali = loadedi;
   else
     {
       old_vali = create_tmp_var (itype, NULL);
+      if (gimple_in_ssa_p (cfun))
+	add_referenced_var (old_vali);
       x = build_gimple_modify_stmt (old_vali, loadedi);
-      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+      force_gimple_operand_bsi (&bsi, x, true, NULL_TREE,
+				true, BSI_SAME_STMT);
 
-      x = build_gimple_modify_stmt (loaded_val, new_stored);
-      bsi_insert_before (&bsi, x, BSI_SAME_STMT);
+      x = build_gimple_modify_stmt (loadedi, new_storedi);
+      force_gimple_operand_bsi (&bsi, x, true, NULL_TREE,
+				true, BSI_SAME_STMT);
     }
 
   /* Note that we always perform the comparison as an integer, even for
      floating point.  This allows the atomic operation to properly 
      succeed even with NaNs and -0.0.  */
-  x = build3 (COND_EXPR, void_type_node,
-	      build2 (NE_EXPR, boolean_type_node,
-		      new_storedi, old_vali), NULL_TREE, NULL_TREE);
+  x = build2 (NE_EXPR, boolean_type_node, new_storedi, old_vali);
+  x = build3 (COND_EXPR, void_type_node, x, NULL_TREE, NULL_TREE);
   bsi_insert_before (&bsi, x, BSI_SAME_STMT);
 
   /* Update cfg.  */
@@ -4814,12 +4843,12 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
 
   e = make_edge (store_bb, loop_header, EDGE_TRUE_VALUE);
 
-  /* Copy the new value to loaded_val (we already did that before the condition
+  /* Copy the new value to loadedi (we already did that before the condition
      if we are not in SSA).  */
   if (gimple_in_ssa_p (cfun))
     {
       phi = phi_nodes (loop_header);
-      SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), new_stored);
+      SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), new_storedi);
     }
 
   /* Remove OMP_ATOMIC_STORE.  */
@@ -5155,8 +5184,10 @@ gate_expand_omp_ssa (void)
   return flag_openmp_ssa && flag_openmp != 0 && errorcount == 0;
 }
 
-struct tree_opt_pass pass_expand_omp_ssa = 
+struct gimple_opt_pass pass_expand_omp_ssa = 
 {
+ {
+  GIMPLE_PASS,
   "ompexpssa",				/* name */
   gate_expand_omp_ssa,			/* gate */
   execute_expand_omp,			/* execute */
@@ -5168,8 +5199,8 @@ struct tree_opt_pass pass_expand_omp_ssa =
   PROP_gimple_lomp,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 /* OMP expansion -- the default pass, run before creation of SSA form.  */
@@ -5181,8 +5212,10 @@ gate_expand_omp (void)
 	  && flag_openmp != 0 && errorcount == 0);
 }
 
-struct tree_opt_pass pass_expand_omp = 
+struct gimple_opt_pass pass_expand_omp = 
 {
+ {
+  GIMPLE_PASS,
   "ompexp",				/* name */
   gate_expand_omp,			/* gate */
   execute_expand_omp,			/* execute */
@@ -5194,8 +5227,8 @@ struct tree_opt_pass pass_expand_omp =
   PROP_gimple_lomp,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
@@ -5826,7 +5859,7 @@ create_task_copyfn (tree task_stmt, omp_context *ctx)
   child_fn = OMP_TASK_COPYFN (task_stmt);
   child_cfun = DECL_STRUCT_FUNCTION (child_fn);
   gcc_assert (child_cfun->cfg == NULL);
-  child_cfun->x_dont_save_pending_sizes_p = 1;
+  child_cfun->dont_save_pending_sizes_p = 1;
   DECL_SAVED_TREE (child_fn) = alloc_stmt_list ();
 
   /* Reset DECL_CONTEXT on function arguments.  */
@@ -5834,7 +5867,6 @@ create_task_copyfn (tree task_stmt, omp_context *ctx)
     DECL_CONTEXT (t) = child_fn;
 
   /* Populate the function.  */
-  push_cfun (child_cfun);
   push_gimplify_context ();
   current_function_decl = child_fn;
 
@@ -5881,6 +5913,8 @@ create_task_copyfn (tree task_stmt, omp_context *ctx)
     }
   else
     tcctx.cb.decl_map = NULL;
+
+  push_cfun (child_cfun);
 
   arg = DECL_ARGUMENTS (child_fn);
   TREE_TYPE (arg) = build_pointer_type (record_type);
@@ -6346,8 +6380,10 @@ gate_lower_omp (void)
   return flag_openmp != 0;
 }
 
-struct tree_opt_pass pass_lower_omp = 
+struct gimple_opt_pass pass_lower_omp = 
 {
+ {
+  GIMPLE_PASS,
   "omplower",				/* name */
   gate_lower_omp,			/* gate */
   execute_lower_omp,			/* execute */
@@ -6359,8 +6395,8 @@ struct tree_opt_pass pass_lower_omp =
   PROP_gimple_lomp,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 /* The following is a utility to diagnose OpenMP structured block violations.

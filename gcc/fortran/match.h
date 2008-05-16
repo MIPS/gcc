@@ -38,7 +38,7 @@ extern gfc_st_label *gfc_statement_label;
 /* match.c.  */
 
 /* Generic match subroutines.  */
-match gfc_match_special_char (int *);
+match gfc_match_special_char (gfc_char_t *);
 match gfc_match_space (void);
 match gfc_match_eos (void);
 match gfc_match_small_literal_int (int *, int *);
@@ -214,6 +214,7 @@ match gfc_match_rewind (void);
 match gfc_match_flush (void);
 match gfc_match_inquire (void);
 match gfc_match_read (void);
+match gfc_match_wait (void);
 match gfc_match_write (void);
 match gfc_match_print (void);
 

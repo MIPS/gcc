@@ -122,7 +122,7 @@ lower_function_body (void)
       disp_label = create_artificial_label ();
       /* This mark will create forward edges from every call site.  */
       DECL_NONLOCAL (disp_label) = 1;
-      current_function_has_nonlocal_label = 1;
+      cfun->has_nonlocal_label = 1;
       x = build1 (LABEL_EXPR, void_type_node, disp_label);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
@@ -148,8 +148,10 @@ lower_function_body (void)
   return 0;
 }
 
-struct tree_opt_pass pass_lower_cf = 
+struct gimple_opt_pass pass_lower_cf = 
 {
+ {
+  GIMPLE_PASS,
   "lower",				/* name */
   NULL,					/* gate */
   lower_function_body,			/* execute */
@@ -161,8 +163,8 @@ struct tree_opt_pass pass_lower_cf =
   PROP_gimple_lcf,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 
@@ -235,6 +237,7 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case NOP_EXPR:
     case ASM_EXPR:
     case GOTO_EXPR:
+    case PREDICT_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
     case CHANGE_DYNAMIC_TYPE_EXPR:
@@ -734,8 +737,8 @@ record_vars_into (tree vars, tree fn)
 	continue;
 
       /* Record the variable.  */
-      cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
-					     cfun->unexpanded_var_list);
+      cfun->local_decls = tree_cons (NULL_TREE, var,
+					     cfun->local_decls);
     }
 
   if (fn != current_function_decl)
@@ -790,8 +793,10 @@ mark_used_blocks (void)
 }
 
 
-struct tree_opt_pass pass_mark_used_blocks = 
+struct gimple_opt_pass pass_mark_used_blocks = 
 {
+ {
+  GIMPLE_PASS,
   "blocks",				/* name */
   NULL,					/* gate */
   mark_used_blocks,			/* execute */
@@ -803,6 +808,6 @@ struct tree_opt_pass pass_mark_used_blocks =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };

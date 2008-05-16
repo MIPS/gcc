@@ -1429,13 +1429,22 @@ echo "$as_me: error: \`$ac_var' was not set in the previous run" >&2;}
     ,);;
     *)
       if test "x$ac_old_val" != "x$ac_new_val"; then
-	{ echo "$as_me:$LINENO: error: \`$ac_var' has changed since the previous run:" >&5
+        # differences in whitespace do not lead to failure.
+        ac_old_val_w=`echo x $ac_old_val`
+        ac_new_val_w=`echo x $ac_new_val`
+        if test "$ac_old_val_w" != "$ac_new_val_w"; then
+          { echo "$as_me:$LINENO: error: \`$ac_var' has changed since the previous run:" >&5
 echo "$as_me: error: \`$ac_var' has changed since the previous run:" >&2;}
-	{ echo "$as_me:$LINENO:   former value:  $ac_old_val" >&5
-echo "$as_me:   former value:  $ac_old_val" >&2;}
-	{ echo "$as_me:$LINENO:   current value: $ac_new_val" >&5
-echo "$as_me:   current value: $ac_new_val" >&2;}
-	ac_cache_corrupted=:
+          ac_cache_corrupted=:
+        else
+          { echo "$as_me:$LINENO: warning: ignoring whitespace changes in \`$ac_var' since the previous run:" >&5
+echo "$as_me: warning: ignoring whitespace changes in \`$ac_var' since the previous run:" >&2;}
+          eval $ac_var=\$ac_old_val
+        fi
+        { echo "$as_me:$LINENO:   former value:  \`$ac_old_val'" >&5
+echo "$as_me:   former value:  \`$ac_old_val'" >&2;}
+        { echo "$as_me:$LINENO:   current value: \`$ac_new_val'" >&5
+echo "$as_me:   current value: \`$ac_new_val'" >&2;}
       fi;;
   esac
   # Pass precious variables to config.status.
@@ -1706,6 +1715,7 @@ am__api_version="1.9"
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
 # OS/2's system install, which has a completely different semantic
 # ./install, which can be erroneously created by make from ./install.sh.
+# Reject install programs that cannot install multiple files.
 echo "$as_me:$LINENO: checking for a BSD-compatible install" >&5
 echo $ECHO_N "checking for a BSD-compatible install... $ECHO_C" >&6
 if test -z "$INSTALL"; then
@@ -1739,8 +1749,18 @@ case $as_dir/ in
 	    # program-specific install script used by HP pwplus--don't use.
 	    :
 	  else
-	    ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
-	    break 3
+	    rm -rf conftest.one conftest.two conftest.dir
+	    echo one > conftest.one
+	    echo two > conftest.two
+	    mkdir conftest.dir
+	    if "$as_dir/$ac_prog$ac_exec_ext" -c conftest.one conftest.two "`pwd`/conftest.dir" &&
+	      test -s conftest.one && test -s conftest.two &&
+	      test -s conftest.dir/conftest.one &&
+	      test -s conftest.dir/conftest.two
+	    then
+	      ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
+	      break 3
+	    fi
 	  fi
 	fi
       done
@@ -1749,15 +1769,16 @@ case $as_dir/ in
 esac
 done
 
+rm -rf conftest.one conftest.two conftest.dir
 
 fi
   if test "${ac_cv_path_install+set}" = set; then
     INSTALL=$ac_cv_path_install
   else
-    # As a last resort, use the slow shell script.  We don't cache a
-    # path for INSTALL within a source directory, because that will
+    # As a last resort, use the slow shell script.  Don't cache a
+    # value for INSTALL within a source directory, because that will
     # break other packages using the cache if that directory is
-    # removed, or if the path is relative.
+    # removed, or if the value is a relative name.
     INSTALL=$ac_install_sh
   fi
 fi
@@ -3542,6 +3563,7 @@ fi
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
 # OS/2's system install, which has a completely different semantic
 # ./install, which can be erroneously created by make from ./install.sh.
+# Reject install programs that cannot install multiple files.
 echo "$as_me:$LINENO: checking for a BSD-compatible install" >&5
 echo $ECHO_N "checking for a BSD-compatible install... $ECHO_C" >&6
 if test -z "$INSTALL"; then
@@ -3575,8 +3597,18 @@ case $as_dir/ in
 	    # program-specific install script used by HP pwplus--don't use.
 	    :
 	  else
-	    ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
-	    break 3
+	    rm -rf conftest.one conftest.two conftest.dir
+	    echo one > conftest.one
+	    echo two > conftest.two
+	    mkdir conftest.dir
+	    if "$as_dir/$ac_prog$ac_exec_ext" -c conftest.one conftest.two "`pwd`/conftest.dir" &&
+	      test -s conftest.one && test -s conftest.two &&
+	      test -s conftest.dir/conftest.one &&
+	      test -s conftest.dir/conftest.two
+	    then
+	      ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
+	      break 3
+	    fi
 	  fi
 	fi
       done
@@ -3585,15 +3617,16 @@ case $as_dir/ in
 esac
 done
 
+rm -rf conftest.one conftest.two conftest.dir
 
 fi
   if test "${ac_cv_path_install+set}" = set; then
     INSTALL=$ac_cv_path_install
   else
-    # As a last resort, use the slow shell script.  We don't cache a
-    # path for INSTALL within a source directory, because that will
+    # As a last resort, use the slow shell script.  Don't cache a
+    # value for INSTALL within a source directory, because that will
     # break other packages using the cache if that directory is
-    # removed, or if the path is relative.
+    # removed, or if the value is a relative name.
     INSTALL=$ac_install_sh
   fi
 fi
@@ -4219,13 +4252,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:4222: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:4255: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:4225: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:4258: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:4228: output\"" >&5)
+  (eval echo "\"\$as_me:4261: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -5281,7 +5314,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 5284 "configure"' > conftest.$ac_ext
+  echo '#line 5317 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6381,11 +6414,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6384: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:6417: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:6388: \$? = $ac_status" >&5
+   echo "$as_me:6421: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -6703,11 +6736,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6706: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:6739: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:6710: \$? = $ac_status" >&5
+   echo "$as_me:6743: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -6808,11 +6841,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6811: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:6844: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:6815: \$? = $ac_status" >&5
+   echo "$as_me:6848: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -6863,11 +6896,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:6866: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:6899: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:6870: \$? = $ac_status" >&5
+   echo "$as_me:6903: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -9660,7 +9693,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 9663 "configure"
+#line 9696 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -9760,7 +9793,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 9763 "configure"
+#line 9796 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10115,7 +10148,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:10118:" \
+echo "$as_me:10151:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -10351,7 +10384,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:10354:" \
+echo "$as_me:10387:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -11067,11 +11100,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:11070: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:11103: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:11074: \$? = $ac_status" >&5
+   echo "$as_me:11107: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -11166,11 +11199,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:11169: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:11202: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:11173: \$? = $ac_status" >&5
+   echo "$as_me:11206: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -11218,11 +11251,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:11221: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:11254: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:11225: \$? = $ac_status" >&5
+   echo "$as_me:11258: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -17331,7 +17364,7 @@ _ACEOF
 
   echo "$as_me:$LINENO: checking whether the target supports hidden visibility" >&5
 echo $ECHO_N "checking whether the target supports hidden visibility... $ECHO_C" >&6
-if test "${have_attribute_visibility+set}" = set; then
+if test "${libgomp_cv_have_attribute_visibility+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -17374,19 +17407,19 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_attribute_visibility=yes
+  libgomp_cv_have_attribute_visibility=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_attribute_visibility=no
+libgomp_cv_have_attribute_visibility=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
   CFLAGS="$save_CFLAGS"
 fi
-echo "$as_me:$LINENO: result: $have_attribute_visibility" >&5
-echo "${ECHO_T}$have_attribute_visibility" >&6
-  if test $have_attribute_visibility = yes; then
+echo "$as_me:$LINENO: result: $libgomp_cv_have_attribute_visibility" >&5
+echo "${ECHO_T}$libgomp_cv_have_attribute_visibility" >&6
+  if test $libgomp_cv_have_attribute_visibility = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_ATTRIBUTE_VISIBILITY 1
@@ -17396,7 +17429,7 @@ _ACEOF
 
   echo "$as_me:$LINENO: checking whether the target supports dllexport" >&5
 echo $ECHO_N "checking whether the target supports dllexport... $ECHO_C" >&6
-if test "${have_attribute_dllexport+set}" = set; then
+if test "${libgomp_cv_have_attribute_dllexport+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -17439,19 +17472,19 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_attribute_dllexport=yes
+  libgomp_cv_have_attribute_dllexport=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_attribute_dllexport=no
+libgomp_cv_have_attribute_dllexport=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
   CFLAGS="$save_CFLAGS"
 fi
-echo "$as_me:$LINENO: result: $have_attribute_dllexport" >&5
-echo "${ECHO_T}$have_attribute_dllexport" >&6
-  if test $have_attribute_dllexport = yes; then
+echo "$as_me:$LINENO: result: $libgomp_cv_have_attribute_dllexport" >&5
+echo "${ECHO_T}$libgomp_cv_have_attribute_dllexport" >&6
+  if test $libgomp_cv_have_attribute_dllexport = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_ATTRIBUTE_DLLEXPORT 1
@@ -17461,7 +17494,7 @@ _ACEOF
 
   echo "$as_me:$LINENO: checking whether the target supports symbol aliases" >&5
 echo $ECHO_N "checking whether the target supports symbol aliases... $ECHO_C" >&6
-if test "${have_attribute_alias+set}" = set; then
+if test "${libgomp_cv_have_attribute_alias+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -17504,19 +17537,19 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_attribute_alias=yes
+  libgomp_cv_have_attribute_alias=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_attribute_alias=no
+libgomp_cv_have_attribute_alias=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 fi
-echo "$as_me:$LINENO: result: $have_attribute_alias" >&5
-echo "${ECHO_T}$have_attribute_alias" >&6
-  if test $have_attribute_alias = yes; then
+echo "$as_me:$LINENO: result: $libgomp_cv_have_attribute_alias" >&5
+echo "${ECHO_T}$libgomp_cv_have_attribute_alias" >&6
+  if test $libgomp_cv_have_attribute_alias = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_ATTRIBUTE_ALIAS 1
@@ -17972,7 +18005,7 @@ CFLAGS="$save_CFLAGS $XCFLAGS"
 
   echo "$as_me:$LINENO: checking whether the target supports __sync_*_compare_and_swap" >&5
 echo $ECHO_N "checking whether the target supports __sync_*_compare_and_swap... $ECHO_C" >&6
-if test "${have_sync_builtins+set}" = set; then
+if test "${libgomp_cv_have_sync_builtins+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
@@ -18013,19 +18046,19 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  have_sync_builtins=yes
+  libgomp_cv_have_sync_builtins=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-have_sync_builtins=no
+libgomp_cv_have_sync_builtins=no
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 fi
-echo "$as_me:$LINENO: result: $have_sync_builtins" >&5
-echo "${ECHO_T}$have_sync_builtins" >&6
-  if test $have_sync_builtins = yes; then
+echo "$as_me:$LINENO: result: $libgomp_cv_have_sync_builtins" >&5
+echo "${ECHO_T}$libgomp_cv_have_sync_builtins" >&6
+  if test $libgomp_cv_have_sync_builtins = yes; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_SYNC_BUILTINS 1

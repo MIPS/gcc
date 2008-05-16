@@ -305,8 +305,9 @@ alias_set_subset_of (alias_set_type set1, alias_set_type set2)
   /* Otherwise, check if set1 is a subset of set2.  */
   ase = get_alias_set_entry (set2);
   if (ase != 0
-      && (splay_tree_lookup (ase->children,
-			     (splay_tree_key) set1)))
+      && ((ase->has_zero_child && set1 == 0)
+	  || splay_tree_lookup (ase->children,
+			        (splay_tree_key) set1)))
     return true;
   return false;
 }
@@ -583,13 +584,6 @@ get_alias_set (tree t)
 	    return 0;
 	}
 
-      /* For non-addressable fields we return the alias set of the
-	 outermost object that could have its address taken.  If this
-	 is an SFT use the precomputed value.  */
-      if (TREE_CODE (t) == STRUCT_FIELD_TAG
-	  && SFT_NONADDRESSABLE_P (t))
-	return SFT_ALIAS_SET (t);
-
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */
       while (component_uses_parent_alias_set (t))
@@ -739,9 +733,8 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
 
 /* Record that component types of TYPE, if any, are part of that type for
    aliasing purposes.  For record types, we only record component types
-   for fields that are marked addressable.  For array types, we always
-   record the component types, so the front end should not call this
-   function if the individual component aren't addressable.  */
+   for fields that are not marked non-addressable.  For array types, we
+   only record the component type if it is not marked non-aliased.  */
 
 void
 record_component_aliases (tree type)
@@ -755,7 +748,7 @@ record_component_aliases (tree type)
   switch (TREE_CODE (type))
     {
     case ARRAY_TYPE:
-      if (! TYPE_NONALIASED_COMPONENT (type))
+      if (!TYPE_NONALIASED_COMPONENT (type))
 	record_alias_subset (superset, get_alias_set (TREE_TYPE (type)));
       break;
 
@@ -774,7 +767,7 @@ record_component_aliases (tree type)
 				 get_alias_set (BINFO_TYPE (base_binfo)));
 	}
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
+	if (TREE_CODE (field) == FIELD_DECL && !DECL_NONADDRESSABLE_P (field))
 	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
       break;
 

@@ -2172,8 +2172,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         }
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       if (BYTES_BIG_ENDIAN)
         {
           c1 = VEC_UNPACK_HI_EXPR;
@@ -2212,13 +2211,13 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   if (code == FIX_TRUNC_EXPR)
     {
       /* The signedness is determined from output operand.  */
-      optab1 = optab_for_tree_code (c1, type);
-      optab2 = optab_for_tree_code (c2, type);
+      optab1 = optab_for_tree_code (c1, type, optab_default);
+      optab2 = optab_for_tree_code (c2, type, optab_default);
     }
   else
     {
-      optab1 = optab_for_tree_code (c1, vectype);
-      optab2 = optab_for_tree_code (c2, vectype);
+      optab1 = optab_for_tree_code (c1, vectype, optab_default);
+      optab2 = optab_for_tree_code (c2, vectype, optab_default);
     }
 
   if (!optab1 || !optab2)
@@ -2267,8 +2266,7 @@ supportable_narrowing_operation (enum tree_code code,
 
   switch (code)
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       c1 = VEC_PACK_TRUNC_EXPR;
       break;
 
@@ -2287,9 +2285,9 @@ supportable_narrowing_operation (enum tree_code code,
 
   if (code == FIX_TRUNC_EXPR)
     /* The signedness is determined from output operand.  */
-    optab1 = optab_for_tree_code (c1, type);
+    optab1 = optab_for_tree_code (c1, type, optab_default);
   else
-    optab1 = optab_for_tree_code (c1, vectype);
+    optab1 = optab_for_tree_code (c1, vectype, optab_default);
 
   if (!optab1)
     return false;
@@ -2767,8 +2765,10 @@ gate_increase_alignment (void)
   return flag_section_anchors && flag_tree_vectorize;
 }
 
-struct tree_opt_pass pass_ipa_increase_alignment = 
+struct simple_ipa_opt_pass pass_ipa_increase_alignment = 
 {
+ {
+  SIMPLE_IPA_PASS,
   "increase_alignment",			/* name */
   gate_increase_alignment,		/* gate */
   increase_alignment,			/* execute */
@@ -2780,6 +2780,6 @@ struct tree_opt_pass pass_ipa_increase_alignment =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0, 					/* todo_flags_finish */
-  0					/* letter */
+  0 					/* todo_flags_finish */
+ }
 };

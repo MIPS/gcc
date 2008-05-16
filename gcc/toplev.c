@@ -152,6 +152,9 @@ const char *dump_base_name;
 
 const char *aux_base_name;
 
+/* Prefix for profile data files */
+const char *profile_data_prefix;
+
 /* A mask of target_flags that includes bit X if X was set or cleared
    on the command line.  */
 
@@ -951,6 +954,7 @@ compile_file (void)
   init_cgraph ();
   init_final (main_input_filename);
   coverage_init (aux_base_name);
+  statistics_init ();
 
   timevar_push (TV_PARSE);
 
@@ -1062,14 +1066,18 @@ decode_d_option (const char *arg)
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
+      case 'M':
+      case 'N':
+      case 'U':
 	break;
       case 'H':
 	setup_core_dumping();
 	break;
-
       case 'a':
+	enable_rtl_dump_file ();
+	break;
+
       default:
-	if (!enable_rtl_dump_file (c))
 	  warning (0, "unrecognized gcc debugging option: %c", c);
 	break;
       }
@@ -1591,6 +1599,7 @@ general_init (const char *argv0)
   /* This must be done after add_params but before argument processing.  */
   init_ggc_heuristics();
   init_optimization_passes ();
+  statistics_early_init ();
 }
 
 /* Return true if the current target supports -fsection-anchors.  */
@@ -1889,13 +1898,6 @@ process_options (void)
       flag_prefetch_loop_arrays = 0;
     }
 
-#ifndef OBJECT_FORMAT_ELF
-#ifndef OBJECT_FORMAT_MACHO
-  if (flag_function_sections && write_symbols != NO_DEBUG)
-    warning (0, "-ffunction-sections may affect debugging on some targets");
-#endif
-#endif
-
   /* The presence of IEEE signaling NaNs, implies all math can trap.  */
   if (flag_signaling_nans)
     flag_trapping_math = 1;
@@ -2118,6 +2120,7 @@ finalize (void)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
 
+  statistics_fini ();
   finish_optimization_passes ();
 
   if (mem_report)

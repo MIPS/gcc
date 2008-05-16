@@ -285,7 +285,7 @@ requirements.
 Necessary to uncompress GCC @command{tar} files when source code is
 obtained via FTP mirror sites.
 
-@item GNU make version 3.79.1 (or later)
+@item GNU make version 3.80 (or later)
 
 You must have GNU make installed to build GCC@.
 
@@ -1201,7 +1201,8 @@ powerpc-linux for powerpc64-linux, only generates 32-bit code.  This
 option enables the 32-bit target to be a bi-arch compiler, which is
 useful when you want a bi-arch compiler that defaults to 32-bit, and
 you are building a bi-arch or multi-arch binutils in a combined tree.
-Currently, this option only affects powerpc-linux and x86-linux.
+Currently, this option only affects sparc-linux, powerpc-linux and
+x86-linux.
 
 @item --enable-secureplt
 This option enables @option{-msecure-plt} by default for powerpc-linux.
@@ -2356,7 +2357,10 @@ AIX:
 @uref{http://www.bullfreeware.com,,Bull's Freeware and Shareware Archive for AIX};
 
 @item
-@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX}.
+@uref{http://pware.hvcc.edu,,Hudson Valley Community College Open Source Softeware for IBM System p};
+
+@item
+@uref{http://www.perzl.org/aix,,AIX 5L and 6 Open Source Packages}.
 @end itemize
 
 @item
@@ -2402,12 +2406,12 @@ The @uref{http://www.mingw.org/,,MinGW} project.
 @item
 @uref{ftp://ftp.thewrittenword.com/packages/by-name/,,The
 Written Word} offers binaries for
-AIX 4.3.2.
+AIX 4.3.3, 5.1 and 5.2,
 IRIX 6.5,
-Digital UNIX 4.0D and 5.1,
+Tru64 UNIX 4.0D and 5.1,
 GNU/Linux (i386),
 HP-UX 10.20, 11.00, and 11.11, and
-Solaris/SPARC 2.5.1, 2.6, 7, 8, and 9.
+Solaris/SPARC 2.5.1, 2.6, 7, 8, 9 and 10.
 
 @item
 @uref{http://www.openpkg.org/,,OpenPKG} offers binaries for quite a

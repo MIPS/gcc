@@ -175,7 +175,8 @@ gfc_omp_clause_default_ctor (tree clause, tree decl, tree outer)
 		      fold_convert (pvoid_type_node,
 				    gfc_conv_descriptor_data_get (outer)),
 		      null_pointer_node);
-  gfc_add_expr_to_block (&block, build3_v (COND_EXPR, cond, then_b, else_b));
+  gfc_add_expr_to_block (&block, build3 (COND_EXPR, void_type_node,
+			 cond, then_b, else_b));
 
   return gfc_finish_block (&block);
 }
@@ -1114,7 +1115,7 @@ gfc_trans_omp_critical (gfc_code *code)
   if (code->ext.omp_name != NULL)
     name = get_identifier (code->ext.omp_name);
   stmt = gfc_trans_code (code->block->next);
-  return build2_v (OMP_CRITICAL, stmt, name);
+  return build2 (OMP_CRITICAL, void_type_node, stmt, name);
 }
 
 static tree
@@ -1513,7 +1514,7 @@ gfc_trans_omp_single (gfc_code *code, gfc_omp_clauses *clauses)
 {
   tree omp_clauses = gfc_trans_omp_clauses (NULL, clauses, code->loc);
   tree stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_v (OMP_SINGLE, stmt, omp_clauses);
+  stmt = build2 (OMP_SINGLE, void_type_node, stmt, omp_clauses);
   return stmt;
 }
 

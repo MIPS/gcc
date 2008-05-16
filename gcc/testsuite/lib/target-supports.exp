@@ -383,6 +383,21 @@ proc check_gc_sections_available { } {
     return $gc_sections_available_saved
 }
 
+# Return 1 if according to target_info struct and explicit target list
+# target is supposed to support trampolines.
+ 
+proc check_effective_target_trampolines { } {
+    if [target_info exists no_trampolines] {
+      return 0
+    }
+    if { [istarget avr-*-*]
+	 || [istarget hppa2.0w-hp-hpux11.23]
+	|| [istarget hppa64-hp-hpux11.23] } {
+	return 0;   
+    }
+    return 1
+}
+
 # Return true if profiling is supported on the target.
 
 proc check_profiling_available { test_what } {
@@ -435,6 +450,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget arm*-*-eabi*]
 	     || [istarget arm*-*-elf]
 	     || [istarget arm*-*-symbianelf*]
+	     || [istarget avr-*-*]
 	     || [istarget bfin-*-*]
 	     || [istarget powerpc-*-eabi*]
 	     || [istarget strongarm*-*-elf]
@@ -502,6 +518,13 @@ proc check_effective_target_tls {} {
 # This won't change for different subtargets so cache the result.
 
 proc check_effective_target_tls_native {} {
+    # VxWorks uses emulated TLS machinery, but with non-standard helper
+    # functions, so we fail to automatically detect it.
+    global target_triplet
+    if { [regexp ".*-.*-vxworks.*" $target_triplet] } {
+	return 0
+    }
+    
     return [check_no_messages_and_pattern tls_native "!emutls" assembly {
 	__thread int i;
 	int f (void) { return i; }
@@ -627,7 +650,7 @@ proc check_effective_target_nomips16 { } {
 # we don't support MIPS16 PIC.
 
 proc add_options_for_mips16_attribute { flags } {
-    return "$flags -mno-abicalls -fno-pic"
+    return "$flags -mno-abicalls -fno-pic -DMIPS16=__attribute__((mips16))"
 }
 
 # Return true if we can force a mode that allows MIPS16 code generation.
@@ -728,6 +751,18 @@ proc check_effective_target_fortran_large_int { } {
     }]
 }
 
+# Return 1 if the target supports Fortran integer(16), 0 otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_fortran_integer_16 { } {
+    return [check_no_compiler_messages fortran_integer_16 executable {
+        ! Fortran
+        integer(16) :: i
+        end
+    }]
+}
+
 # Return 1 if we can statically link libgfortran, 0 otherwise.
 #
 # When the target name changes, replace the cached result.
@@ -760,6 +795,29 @@ proc check_750cl_hw_available { } {
 		   return 0;
 		 }
 	    } "-mpaired"
+	}
+    }]
+}
+
+# Return 1 if the target supports executing SSE2 instructions, 0
+# otherwise.  Cache the result.
+
+proc check_sse2_hw_available { } {
+    return [check_cached_effective_target sse2_hw_available {
+	# If this is not the right target then we can skip the test.
+	if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	    expr 0
+	} else {
+	    check_runtime_nocache sse2_hw_available {
+		#include "cpuid.h"
+		int main ()
+		{
+		  unsigned int eax, ebx, ecx, edx = 0;
+		  if (__get_cpuid (1, &eax, &ebx, &ecx, &edx))
+		    return !(edx & bit_SSE2);
+		  return 1;
+		}
+	    } ""
 	}
     }]
 }
@@ -2006,7 +2064,8 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget s390*-*-*] 
 	     || [istarget powerpc*-*-*]
 	     || [istarget sparc64-*-*]
-	     || [istarget sparcv9-*-*] } {
+	     || [istarget sparcv9-*-*]
+	     || [istarget mips*-*-*] } {
            set et_sync_int_long_saved 1
         }
     }
@@ -2033,7 +2092,8 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget s390*-*-*] 
 	     || [istarget powerpc*-*-*]
 	     || [istarget sparc64-*-*]
-	     || [istarget sparcv9-*-*] } {
+	     || [istarget sparcv9-*-*]
+	     || [istarget mips*-*-*] } {
            set et_sync_char_short_saved 1
         }
     }
@@ -2198,11 +2258,21 @@ proc check_effective_target_simulator { } {
     return 0
 }
 
-# Return 1 if the target is a VxWorks RTP.
+# Return 1 if the target is a VxWorks kernel.
 
 proc check_effective_target_vxworks_kernel { } {
     return [check_no_compiler_messages vxworks_kernel assembly {
 	#if !defined __vxworks || defined __RTP__
+	#error NO
+	#endif
+    }]
+}
+
+# Return 1 if the target is a VxWorks RTP.
+
+proc check_effective_target_vxworks_rtp { } {
+    return [check_no_compiler_messages vxworks_rtp assembly {
+	#if !defined __vxworks || !defined __RTP__
 	#error NO
 	#endif
     }]
@@ -2294,5 +2364,13 @@ proc check_effective_target_c99_runtime { } {
 	}
 	check_no_compiler_messages_nocache c99_runtime assembly \
 	    $contents [add_options_for_c99_runtime ""]
+    }]
+}
+
+# Return 1 if  target wchar_t is at least 4 bytes.
+
+proc check_effective_target_4byte_wchar_t { } {
+    return [check_no_compiler_messages 4byte_wchar_t object {
+	int dummy[sizeof (__WCHAR_TYPE__) >= 4 ? 1 : -1];
     }]
 }

@@ -906,7 +906,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_ResolvePoolEntry",
 			    build_function_type (ptr_type_node, t),
 			    0,NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_resolvepoolentry_node) = 1;
+  DECL_PURE_P (soft_resolvepoolentry_node) = 1;
   throw_node = add_builtin_function ("_Jv_Throw",
 				     build_function_type (void_type_node, t),
 				     0, NOT_BUILT_IN, NULL, NULL_TREE);
@@ -1000,7 +1000,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_IsInstanceOf",
 			    build_function_type (boolean_type_node, t),
 			    0, NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_instanceof_node) = 1;
+  DECL_PURE_P (soft_instanceof_node) = 1;
   t = tree_cons (NULL_TREE, object_ptr_type_node,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkarraystore_node
@@ -1014,7 +1014,7 @@ java_init_decl_processing (void)
     = add_builtin_function ("_Jv_LookupInterfaceMethodIdx",
 			    build_function_type (ptr_type_node, t),
 			    0, NOT_BUILT_IN, NULL, NULL_TREE);
-  DECL_IS_PURE (soft_lookupinterfacemethod_node) = 1;
+  DECL_PURE_P (soft_lookupinterfacemethod_node) = 1;
   t = tree_cons (NULL_TREE, ptr_type_node,
 		 tree_cons (NULL_TREE, ptr_type_node,
 			    tree_cons (NULL_TREE, ptr_type_node, endlink)));
@@ -1579,18 +1579,6 @@ force_poplevels (int start_pc)
 		 current_binding_level->start_pc);
       poplevel (1, 0, 0);
     }
-}
-
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
 }
 
 /* integrate_decl_tree calls this function. */

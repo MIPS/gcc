@@ -124,6 +124,14 @@ along with GCC; see the file COPYING3.  If not see
      res = x->y->z;
 
    Or
+     ptr = (type1*)&type2var;
+     res = *ptr
+
+   Will get turned into (if type1 and type2 are the same size
+   and neither have volatile on them):
+     res = VIEW_CONVERT_EXPR<type1>(type2var)
+
+   Or
 
      ptr = &x[0];
      ptr2 = ptr + <constant>;
@@ -218,14 +226,27 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
     /* If name is not a simple copy destination, we found it.  */
     if (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) != SSA_NAME)
       {
+	tree rhs;
+
 	if (!single_use_only && single_use_p)
 	  *single_use_p = single_use;
 
-	return def_stmt;
+	/* We can look through pointer conversions in the search
+	   for a useful stmt for the comparison folding.  */
+	rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
+	if (CONVERT_EXPR_P (rhs)
+	    && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+	    && POINTER_TYPE_P (TREE_TYPE (rhs))
+	    && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
+	  name = TREE_OPERAND (rhs, 0);
+	else
+	  return def_stmt;
       }
-
-    /* Continue searching the def of the copy source name.  */
-    name = GIMPLE_STMT_OPERAND (def_stmt, 1);
+    else
+      {
+	/* Continue searching the def of the copy source name.  */
+	name = GIMPLE_STMT_OPERAND (def_stmt, 1);
+      }
   } while (1);
 }
 
@@ -244,6 +265,10 @@ can_propagate_from (tree def_stmt)
   /* If the rhs is a load we cannot propagate from it.  */
   if (REFERENCE_CLASS_P (rhs))
     return false;
+
+  /* Constants can be always propagated.  */
+  if (is_gimple_min_invariant (rhs))
+    return true;
 
   /* We cannot propagate ssa names that occur in abnormal phi nodes.  */
   switch (TREE_CODE_LENGTH (TREE_CODE (rhs)))
@@ -273,8 +298,7 @@ can_propagate_from (tree def_stmt)
      then we can not apply optimizations as some targets require function
      pointers to be canonicalized and in this case this optimization could
      eliminate a necessary canonicalization.  */
-  if ((TREE_CODE (rhs) == NOP_EXPR
-       || TREE_CODE (rhs) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (rhs)
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0)))
       && TREE_CODE (TREE_TYPE (TREE_TYPE
 			        (TREE_OPERAND (rhs, 0)))) == FUNCTION_TYPE)
@@ -560,8 +584,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
      a conversion to def_rhs type separate, though.  */
   if (TREE_CODE (lhs) == SSA_NAME
       && (rhs == name
-	  || TREE_CODE (rhs) == NOP_EXPR
-	  || TREE_CODE (rhs) == CONVERT_EXPR)
+	  || CONVERT_EXPR_P (rhs))
       && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (def_rhs)))
     {
       /* Only recurse if we don't deal with a single use.  */
@@ -583,14 +606,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (lhs) == INDIRECT_REF
       && TREE_OPERAND (lhs, 0) == name
-      /* This will not allow stripping const qualification from
-	 pointers which we want to allow specifically here to clean up
-	 the IL for initialization of constant objects.   */
-      && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
-				     TREE_TYPE (def_rhs))
-	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (lhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (lhs, 0)),
+				    TREE_TYPE (def_rhs))
       /* ???  This looks redundant, but is required for bogus types
 	 that can sometimes occur.  */
       && useless_type_conversion_p (TREE_TYPE (lhs),
@@ -617,13 +634,10 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
   if (TREE_CODE (rhs) == INDIRECT_REF
       && TREE_OPERAND (rhs, 0) == name
-      /* ???  This doesn't allow stripping const qualification to
-	 streamline the IL for reads from non-constant objects.  */
-      && (useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
-				     TREE_TYPE (def_rhs))
-	  /* So explicitly check for this here.  */
-	  || (TYPE_QUALS (TREE_TYPE (TREE_TYPE (TREE_OPERAND (rhs, 0))))
-	      ^ TYPE_QUALS (TREE_TYPE (TREE_TYPE (def_rhs)))) == TYPE_QUAL_CONST)
+      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (rhs, 0)),
+				    TREE_TYPE (def_rhs))
+      /* ???  This looks redundant, but is required for bogus types
+	 that can sometimes occur.  */
       && useless_type_conversion_p (TREE_TYPE (rhs),
 				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
     {
@@ -632,6 +646,40 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, tree use_stmt,
       tidy_after_forward_propagate_addr (use_stmt);
       return true;
     }
+
+  /* Now see if the RHS node is an INDIRECT_REF using NAME.  If so, 
+     propagate the ADDR_EXPR into the use of NAME and try to
+     create a VCE and fold the result.  */
+  if (TREE_CODE (rhs) == INDIRECT_REF
+      && TREE_OPERAND (rhs, 0) == name
+      && TYPE_SIZE (TREE_TYPE (rhs))
+      && TYPE_SIZE (TREE_TYPE (TREE_OPERAND (def_rhs, 0)))
+      /* Function decls should not be used for VCE either as it could be
+         a function descriptor that we want and not the actual function code.  */
+      && TREE_CODE (TREE_OPERAND (def_rhs, 0)) != FUNCTION_DECL
+      /* We should not convert volatile loads to non volatile loads. */
+      && !TYPE_VOLATILE (TREE_TYPE (rhs))
+      && !TYPE_VOLATILE (TREE_TYPE (TREE_OPERAND (def_rhs, 0)))
+      && operand_equal_p (TYPE_SIZE (TREE_TYPE (rhs)),
+			  TYPE_SIZE (TREE_TYPE (TREE_OPERAND (def_rhs, 0))), 0)) 
+   {
+      bool res = true;
+      tree new_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
+      new_rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (rhs), new_rhs);
+      /* If we have folded the VCE, then we have to create a new statement.  */
+      if (TREE_CODE (new_rhs) != VIEW_CONVERT_EXPR)
+	{
+	  block_stmt_iterator bsi = bsi_for_stmt (use_stmt);
+	  new_rhs = force_gimple_operand_bsi (&bsi, new_rhs, true, NULL, true, BSI_SAME_STMT);
+	  /* As we change the deference to a SSA_NAME, we need to return false to make sure that
+	     the statement does not get removed.  */
+	  res = false;
+	}
+      *rhsp = new_rhs;
+      fold_stmt_inplace (use_stmt);
+      tidy_after_forward_propagate_addr (use_stmt);
+      return res;
+   }
 
   /* If the use of the ADDR_EXPR is not a POINTER_PLUS_EXPR, there
      is nothing to do. */
@@ -741,8 +789,7 @@ forward_propagate_addr_expr (tree name, tree rhs)
       if (result
 	  && TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 0)) == SSA_NAME
 	  && (TREE_CODE (use_rhs) == SSA_NAME
-	      || ((TREE_CODE (use_rhs) == NOP_EXPR
-	           || TREE_CODE (use_rhs) == CONVERT_EXPR)
+	      || (CONVERT_EXPR_P (use_rhs)
 		  && TREE_CODE (TREE_OPERAND (use_rhs, 0)) == SSA_NAME)))
 	{
 	  block_stmt_iterator bsi = bsi_for_stmt (use_stmt);
@@ -781,8 +828,7 @@ forward_propagate_comparison (tree cond, tree stmt)
 
   /* Conversion of the condition result to another integral type.  */
   if (TREE_CODE (use_stmt) == GIMPLE_MODIFY_STMT
-      && (TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == CONVERT_EXPR
-	  || TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == NOP_EXPR
+      && (CONVERT_EXPR_P (GIMPLE_STMT_OPERAND (use_stmt, 1))
           || COMPARISON_CLASS_P (GIMPLE_STMT_OPERAND (use_stmt, 1))
           || TREE_CODE (GIMPLE_STMT_OPERAND (use_stmt, 1)) == TRUTH_NOT_EXPR)
       && INTEGRAL_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (use_stmt, 0))))
@@ -791,8 +837,7 @@ forward_propagate_comparison (tree cond, tree stmt)
       tree rhs = GIMPLE_STMT_OPERAND (use_stmt, 1);
 
       /* We can propagate the condition into a conversion.  */
-      if (TREE_CODE (rhs) == CONVERT_EXPR
-	  || TREE_CODE (rhs) == NOP_EXPR)
+      if (CONVERT_EXPR_P (rhs))
 	{
 	  /* Avoid using fold here as that may create a COND_EXPR with
 	     non-boolean condition as canonical form.  */
@@ -982,8 +1027,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	      if (TREE_CODE (rhs) == ADDR_EXPR
 		  /* Handle pointer conversions on invariant addresses
 		     as well, as this is valid gimple.  */
-		  || ((TREE_CODE (rhs) == NOP_EXPR
-		       || TREE_CODE (rhs) == CONVERT_EXPR)
+		  || (CONVERT_EXPR_P (rhs)
 		      && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
 		      && POINTER_TYPE_P (TREE_TYPE (rhs))))
 		{
@@ -1063,7 +1107,10 @@ gate_forwprop (void)
   return 1;
 }
 
-struct tree_opt_pass pass_forwprop = {
+struct gimple_opt_pass pass_forwprop = 
+{
+ {
+  GIMPLE_PASS,
   "forwprop",			/* name */
   gate_forwprop,		/* gate */
   tree_ssa_forward_propagate_single_use_vars,	/* execute */
@@ -1078,7 +1125,7 @@ struct tree_opt_pass pass_forwprop = {
   TODO_dump_func
   | TODO_ggc_collect
   | TODO_update_ssa
-  | TODO_verify_ssa,		/* todo_flags_finish */
-  0				/* letter */
+  | TODO_verify_ssa		/* todo_flags_finish */
+ }
 };
 
