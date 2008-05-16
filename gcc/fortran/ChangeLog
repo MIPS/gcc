@@ -1,3 +1,122 @@
+2008-05-16  Daniel Kraft  <d@domob.eu>
+
+	* primary.c:  New private structure "gfc_structure_ctor_component".
+	(gfc_free_structure_ctor_component):  New helper function.
+	(gfc_match_structure_constructor):  Extended largely to support named
+	arguments and default initialization for structure constructors.
+
+2008-05-15  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_dble, gfc_simplify_float,
+	simplify_bound, gfc_simplify_nearest, gfc_simplify_real): Plug
+	possible memory leaks.
+	(gfc_simplify_reshape): Plug possible memory leaks and dereferencing
+	of NULL pointers.
+
+2008-05-15  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/36239
+	* simplify.c (gfc_simplify_int, gfc_simplify_intconv): Replaced hand
+	rolled integer conversion with gfc_int2int, gfc_real2int, and
+	gfc_complex2int.
+	(gfc_simplify_intconv): Renamed to simplify_intconv.
+	
+2008-05-15  Steven G. Kargl,   <kargl@comcast.net>
+	* gfortran.dg/and_or_xor.f90: New test
+
+	* fortran/simplify.c (gfc_simplify_and, gfc_simplify_or,
+	gfc_simplify_xor): Don't range check logical results.
+
+2008-05-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* trans-expr.c (gfc_conv_concat_op): Take care of nondefault
+	character kinds.
+	(gfc_build_compare_string): Add kind argument and use it.
+	(gfc_conv_statement_function): Fix indentation.
+	* gfortran.h (gfc_character_info): New structure.
+	(gfc_character_kinds): New array.
+	* trans-types.c (gfc_character_kinds, gfc_character_types,
+	gfc_pcharacter_types): New array.
+	(gfc_init_kinds): Fill character kinds array.
+	(validate_character): Take care of nondefault character kinds.
+	(gfc_build_uint_type): New function.
+	(gfc_init_types): Take care of nondefault character kinds.
+	(gfc_get_char_type, gfc_get_pchar_type): New functions.
+	(gfc_get_character_type_len): Use gfc_get_char_type.
+	* trans.h (gfc_build_compare_string): Adjust prototype.
+	(gfor_fndecl_compare_string_char4, gfor_fndecl_concat_string_char4,
+	gfor_fndecl_string_len_trim_char4, gfor_fndecl_string_index_char4,
+	gfor_fndecl_string_scan_char4, gfor_fndecl_string_verify_char4,
+	gfor_fndecl_string_trim_char4, gfor_fndecl_string_minmax_char4,
+	gfor_fndecl_adjustl_char4, gfor_fndecl_adjustr_char4): New
+	prototypes.
+	* trans-types.h (gfc_get_char_type, gfc_get_pchar_type): New
+	prototypes.
+	* trans-decl.c (gfor_fndecl_compare_string_char4,
+	gfor_fndecl_string_len_trim_char4, gfor_fndecl_string_index_char4,
+	gfor_fndecl_string_scan_char4, gfor_fndecl_string_verify_char4,
+	gfor_fndecl_string_trim_char4, gfor_fndecl_string_minmax_char4,
+	gfor_fndecl_adjustl_char4, gfor_fndecl_adjustr_char4,
+	gfor_fndecl_concat_string_char4): New function decls.
+	(gfc_build_intrinsic_function_decls): Define new *_char4 function
+	decls.
+	* trans-intrinsic.c (gfc_conv_intrinsic_minmax_char,
+	gfc_conv_intrinsic_len_trim, gfc_conv_intrinsic_ichar,
+	gfc_conv_intrinsic_strcmp, gfc_conv_intrinsic_trim,
+	gfc_conv_intrinsic_function): Deal with nondefault character kinds.
+
+2008-05-15  Sa Liu  <saliu@de.ibm.com>
+
+	* iso-c-binding.def: Add standard parameter to macro NAMED_INTCST.
+	All existing NAMED_INTCST definitions has standard GFC_STD_F2003,
+	c_int128_t, c_int_least128_t and c_int_fast128_t are added as
+	GNU extensions.
+	* iso-fortran-evn.def: Add standard parameter GFC_STD_F2003
+	to macro NAMED_INTCST.
+	* symbol.c (std_for_isocbinding_symbol): New helper function to 
+	return the standard that supports this isocbinding symbol.
+	(generate_isocbinding_symbol): Do not generate GNU extension symbols
+	if std=f2003. Add new parameter to NAMED_INTCST.
+	* module.c (use_iso_fortran_env_module): Add new parameter to
+	NAMED_INTCST and new field standard to struct intmod_sym.
+	* gfortran.h: Add new parameter to NAMED_INTCST.
+	* trans-types.c (init_c_interop_kinds): Add new parameter to 
+	NAMED_INTCST.
+	* intrinsic.texi: Documented new types C_INT128_T, C_INT_LEASE128_T
+	and C_INT_FAST128_T.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36059
+	* trans-decl.c (gfc_build_dummy_array_decl): Don't repack
+	arrays that have the TARGET attribute.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36186
+	* simplify.c (only_convert_cmplx_boz): New function.
+	(gfc_simplify_cmplx, gfc_simplify_complex, gfc_simplify_dcmplx):
+	Call only_convert_cmplx_boz.
+
+2008-05-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/36233
+	* interface.c (compare_actual_formal): Do not check sizes if the
+	actual is BT_PROCEDURE.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35682
+	* trans-array.c (gfc_conv_ss_startstride): Any negative size is
+	the same as zero size.
+	(gfc_conv_loop_setup): Fix size calculation.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35685
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Correctly
+	handle zero-size sections.
+
 2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/36215

@@ -157,24 +157,24 @@ struct ipa_opt_pass
 {
   struct opt_pass pass;
 
-  /* IPA passes can analyze function body and variable initializers using this
-      hook and produce summary.  */
-  void (*function_generate_summary) (struct cgraph_node *);
-  void (*variable_generate_summary) (struct varpool_node *);
+  /* IPA passes can analyze function body and variable initializers
+      using this hook and produce summary.  */
+  void (*generate_summary) (void);
 
-  /* These hooks will be used to serialize IPA summaries on disk.  For a moment
-      they are just placeholders.  */
-  void (*function_write_summary) (struct cgraph_node *); 
-  void (*variable_write_summary) (struct varpool_node *);
+  /* This hook is used to serialize IPA summaries on disk.  */
+  void (*write_summary) (void);
+
+  /* For most ipa passes, the information can only be deserialized in
+     one chunk.  However, function bodies are read function at a time
+     as needed so both calls are necessary.  */
+  void (*read_summary) (void);
   void (*function_read_summary) (struct cgraph_node *);
-  void (*variable_read_summary) (struct varpool_node *);
-
+  
   /* Results of interprocedural propagation of an IPA pass is applied to
      function body via this hook.  */
   unsigned int function_transform_todo_flags_start;
   unsigned int (*function_transform) (struct cgraph_node *);
   void (*variable_transform) (struct varpool_node *);
-
 };
 
 /* Description of simple IPA pass.  Simple IPA passes have just one execute
@@ -513,6 +513,10 @@ extern struct gimple_opt_pass pass_update_address_taken;
 /* The root of the compilation pass tree, once constructed.  */
 extern struct opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
 
+/* Current optimization pass.  */
+extern struct opt_pass *current_pass;
+
+extern struct opt_pass * get_pass_for_id (int);
 extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
 extern void print_current_pass (FILE *);

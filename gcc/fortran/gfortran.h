@@ -556,7 +556,7 @@ init_local_integer;
 /* Used for keeping things in balanced binary trees.  */
 #define BBT_HEADER(self) int priority; struct self *left, *right
 
-#define NAMED_INTCST(a,b,c) a,
+#define NAMED_INTCST(a,b,c,d) a,
 typedef enum
 {
   ISOFORTRANENV_INVALID = -1,
@@ -566,7 +566,7 @@ typedef enum
 iso_fortran_env_symbol;
 #undef NAMED_INTCST
 
-#define NAMED_INTCST(a,b,c) a,
+#define NAMED_INTCST(a,b,c,d) a,
 #define NAMED_REALCST(a,b,c) a,
 #define NAMED_CMPXCST(a,b,c) a,
 #define NAMED_LOGCST(a,b,c) a,
@@ -1566,6 +1566,15 @@ typedef struct
 gfc_real_info;
 
 extern gfc_real_info gfc_real_kinds[];
+
+typedef struct
+{
+  int kind, bit_size;
+  const char *name;
+}
+gfc_character_info;
+
+extern gfc_character_info gfc_character_kinds[];
 
 
 /* Equivalence structures.  Equivalent lvalues are linked along the

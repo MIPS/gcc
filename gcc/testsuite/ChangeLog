@@ -1,3 +1,162 @@
+2008-05-16  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/private_type_6.f90:  Adapted expected error messages.
+	* gfortran.dg/structure_constructor_1.f03:  New test.
+	* gfortran.dg/structure_constructor_2.f03:  New test.
+	* gfortran.dg/structure_constructor_3.f03:  New test.
+	* gfortran.dg/structure_constructor_4.f03:  New test.
+	* gfortran.dg/structure_constructor_5.f03:  New test.
+	* gfortran.dg/structure_constructor_6.f03:  New test.
+	* gfortran.dg/structure_constructor_7.f03:  New test.
+	* gfortran.dg/structure_constructor_8.f03:  New test.
+	* gfortran.dg/structure_constructor_9.f90:  New test.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/m128-check.h: New.
+	* gcc.target/i386/set-v16qi-1.h: Likewise.
+	* gcc.target/i386/set-v16qi-2.h: Likewise.
+	* gcc.target/i386/set-v8hi-1.h: Likewise.
+	* gcc.target/i386/set-v8hi-2.h: Likewise.
+	* gcc.target/i386/sse2-set-v16qi-1.c: Likewise.
+	* gcc.target/i386/sse2-set-v16qi-2.c: Likewise.
+	* gcc.target/i386/sse2-set-v8hi-1.c: Likewise.
+	* gcc.target/i386/sse2-set-v8hi-2.c: Likewise.
+	* gcc.target/i386/sse4_1-set-v16qi-1.c: Likewise.
+	* gcc.target/i386/sse4_1-set-v16qi-2.c: Likewise.
+
+	* gcc.target/i386/sse2-check.h: Include m128-check.h. Don't
+	include <stdio.h>.
+	* gcc.target/i386/sse4_1-check.h: Likewise.
+
+2008-05-15  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/36194
+	* gcc.dg/pr36194.c: New test.
+
+2008-05-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/34974
+	* gfortran.dg/fmt_t_7.f: Remove XFAIL, patch for PR 25561/Part 1 fixes
+	this.
+
+2008-05-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* lib/torture-options.exp: New support for torture options.
+	* lib/gfortran-dg.exp (gfortran-dg-runtest): Use new torture
+	procs.
+	* lib/c-torture.exp: Define C_TORTURE_OPTIONS instead of
+	TORTURE_OPTIONS; don't define torture_with_loops and
+	torture_without_loops.
+	* lib/gcc-dg.exp: Define DG_TORTURE_OPTIONS instead of
+	TORTURE_OPTIONS; don't define torture_with_loops and
+	torture_without_loops.
+	(gcc-dg-runtest): Use new torture procs if no torture options
+	defined.
+	* lib/fortran-torture.exp: Define FORTRAN_TORTURE_OPTIONS instead of
+	TORTURE_OPTIONS.
+	(fortran-torture-execute): Use torture_with_loops instead of
+	TORTURE_OPTIONS.
+	(fortran-torture): Ditto.
+	* lib/objc-torture.exp: Define OBJC_TORTURE_OPTIONS instead of
+	TORTURE_OPTIONS; don't define torture_with_loops and
+	torture_without_loops.
+	* gcc.c-torture/execute/execute.exp: Use new torture procs.
+	* gcc.c-torture/execute/builtins/builtins.exp: Ditto.
+	* gcc.c-torture/execute/ieee/ieee.exp: Ditto.
+	* gcc.c-torture/unsorted/unsorted.exp: Ditto.
+	* gfortran.fortran-torture/execute/execute.exp: Ditto.
+	* gfortran.fortran-torture/compile/compile.exp: Ditto.
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Ditto.
+	* gcc.target/i386/math-torture/math-torture.exp: Define
+	MATH_TORTURE_OPTIONS, use new torture procs.
+	* gcc.dg/pch/pch.exp: Use new torture procs.
+	* gcc.dg/format/format.exp: Ditto.
+	* gcc.misc-tests/i386-prefetch.exp: Ditto.
+	* gcc.misc-tests/dectest.exp: Ditto.
+	* objc.dg/pch/pch.exp: Ditto.
+	* objc/execute/execute.exp: Ditto.
+	* objc/execute/exceptions/exceptions.exp: Ditto.
+	* objc/compile/compile.exp: Ditto.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36245
+	* gcc.c-torture/compile/pr36245.c: New testcase.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/loadpre7.c: Adjust scan for not performed
+	transformation.
+	* gcc.dg/tree-ssa/ssa-fre-10.c: Likewise.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36244
+	* gcc.dg/torture/pr36244.c: New testcase.
+
+2008-05-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr8.ad[sb]: New test.
+	* gnat.dg/discr8_pkg[123].ads: New helpers.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/sse-set-ps-1.c: New.
+	* gcc.target/i386/sse4_1-set-ps-1.c: Likewise.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36009
+	PR tree-optimization/36204
+	* gcc.dg/tree-ssa/ssa-lim-5.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-lim-6.c: Likewise.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34330
+	* gcc.dg/torture/pr34330.c: New testcase.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36059
+	* gfortran.dg/repack_arrays_1.f90: New test.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36186
+	* gfortran.dg/boz_11.f90: New test.
+	* gfortran.dg/boz_12.f90: New test.
+
+2008-05-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/36233
+	* gfortran.dg/actual_procedure_1.f90: New test
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35682
+	* gfortran.dg/bound_4.f90: New test.
+	* gfortran.dg/bounds_check_14.f90: New test.
+
+2008-05-14  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/35685
+	* gfortran.dg/bound_3.f90: New test.
+
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* gcc.target/i386/sse5-imul32widen-vector.c: New file to test x86
+	SSE5 optimizations.
+	* gcc.target/i386/sse5-imul64-vector.c: Ditto.
+	* gcc.target/i386/sse5-rotate1-vector.c: Ditto.
+	* gcc.target/i386/sse5-rotate2-vector.c: Ditto.
+	* gcc.target/i386/sse5-rotate3-vector.c: Ditto.
+	* gcc.target/i386/sse5-shift1-vector.c: Ditto.
+	* gcc.target/i386/sse5-shift2-vector.c: Ditto.
+	* gcc.target/i386/sse5-shift3-vector.c: Ditto.
+
 2008-05-14  Michael Meissner  <michael.meissner@amd.com>
 
 	PR target/36224
