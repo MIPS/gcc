@@ -4048,6 +4048,7 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
 #else
   gimple_unreachable ();
 #endif
+  return 0;
 }
 
 /* Gate and execute functions for PRE.  */

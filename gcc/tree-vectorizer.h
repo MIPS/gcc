@@ -264,6 +264,7 @@ nested_in_vect_loop_p (struct loop *loop ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_U
 #else
   gimple_unreachable ();
 #endif
+  return false;
 }
 
 /*-----------------------------------------------------------------*/

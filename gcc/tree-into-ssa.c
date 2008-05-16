@@ -275,7 +275,7 @@ rewrite_uses_p (gimple stmt)
 
 /* Set the rewrite marker on STMT to the value given by REWRITE_P.  */
 
-static inline bool
+static inline void
 set_rewrite_uses (gimple stmt, bool rewrite_p)
 {
   gimple_set_visited (stmt, rewrite_p);

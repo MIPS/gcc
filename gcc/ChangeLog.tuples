@@ -1,3 +1,9 @@
+2008-05-16  Diego Novillo  <dnovillo@google.com>
+
+	* tree-into-ssa.c (rewrite_uses_p): Fix return type.
+	* tree-vectorizer.h (nested_in_vect_loop_p): Add return value.
+	* tree-ssa-pre.c (execute_pre): Add return value.
+
 2008-05-15  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/s390/s390.c (s390_gimplify_va_arg): Adjust for tuples.
