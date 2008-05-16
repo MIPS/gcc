@@ -1,3 +1,11 @@
+2008-05-16  Ollie Wild  <aaw@google.com>
+
+	* lto-lang.c (tree-inline.h): Include.
+	(lto_post_options): New function.
+	(LANG_HOOKS_POST_OPTIONS): Define.
+	* lto-cgraph-in.c (overwrite_node): Set node->global.insns.
+	* lto-function-in.c (input_bb): Set TREE_BLOCK (stmt).
+
 2008-05-13  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-in.c (input_ssa_names): Call

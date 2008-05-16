@@ -31,6 +31,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "lto-tree.h"
 #include "lto.h"
+#include "tree-inline.h"
 #include "toplev.h"
 
 /* Tables of information about tree codes.  */
@@ -320,6 +321,35 @@ lto_handle_option (size_t scode, const char *arg, int value)
     }
 
   return result;
+}
+
+/* Perform post-option processing.  Does additional initialization based on
+   command-line options.  PFILENAME is the main input filename.  Returns false
+   to enable subsequent back-end initialization.  */
+
+static bool
+lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
+{
+  /* Use tree inlining.  */
+  flag_inline_trees = 1;
+
+  /* Other front ends have code like:
+
+       if (!flag_no_inline)
+	 flag_no_inline = 1;
+       if (flag_inline_functions)
+	 flag_inline_trees = 2;
+
+     As far as I can tell, though, the flag_no_inline assignment doesn't do
+     anything because flag_really_no_inline has already been set.
+
+     The (flag_inline_trees == 2) condition is *only* used inside
+     grokdeclarator, which is never invoked inside lto1.
+
+     I think inlining is in need of some serious cleanup.  */
+
+  /* Initialize the compiler back end.  */
+  return false;
 }
 
 static bool 
@@ -619,6 +649,8 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_INIT_OPTIONS lto_init_options
 #undef LANG_HOOKS_HANDLE_OPTION
 #define LANG_HOOKS_HANDLE_OPTION lto_handle_option
+#undef LANG_HOOKS_POST_OPTIONS
+#define LANG_HOOKS_POST_OPTIONS lto_post_options
 #define LANG_HOOKS_MARK_ADDRESSABLE lto_mark_addressable
 #define LANG_HOOKS_TYPE_FOR_MODE lto_type_for_mode
 #define LANG_HOOKS_TYPE_FOR_SIZE lto_type_for_size

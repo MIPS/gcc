@@ -1472,6 +1472,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   while (tag)
     {
       tree stmt = input_expr_operand (ib, data_in, fn, tag);
+      TREE_BLOCK (stmt) = DECL_INITIAL (fn->decl);
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
       LTO_DEBUG_INDENT_TOKEN ("stmt");
       tag = input_record_start (ib);

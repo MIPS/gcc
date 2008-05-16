@@ -88,6 +88,7 @@ overwrite_node (struct data_in *data_in,
   node->aux = (void *)tag;
   node->local.inline_summary.estimated_self_stack_size = stack_size;
   node->local.inline_summary.self_insns = self_insns;
+  node->global.insns = self_insns;
   if (!node->local.lto_file_data)
     node->local.lto_file_data = xcalloc (1, sizeof (struct lto_file_decl_data));
   
