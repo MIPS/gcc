@@ -240,6 +240,7 @@ handle_option_attribute (tree *node,
 	    *no_add_attrs = true;
 
 	  target_specific_pop ();
+	  target_specific_free_arguments (ap);
 	}
     }
 
