@@ -1840,28 +1840,6 @@ tree (*ix86_veclib_handler)(enum built_in_function, tree, tree) = NULL;
 static tree ix86_veclibabi_svml (enum built_in_function, tree, tree);
 static tree ix86_veclibabi_acml (enum built_in_function, tree, tree);
 
-/* List of all of the string opts to be saved and restored for target specific
-   option handling.  */
-#define INIT_STRING_OPS(OPT, VAR) { OPT, &VAR, sizeof (OPT)-1 }
-
-static struct
-{
-  const char *option;
-  const char **string_var;
-  size_t len;
-} ix86_string_ops[] = {
-  INIT_STRING_OPS ("-mtune=", ix86_tune_string),
-  INIT_STRING_OPS ("-march=", ix86_arch_string),
-  INIT_STRING_OPS ("-mstring-op-strategy=", ix86_stringop_string),
-};
-
-/* Save list to restore string ops.  */
-static struct ix86_save_string_ops
-{
-  struct ix86_save_string_ops *prev;
-  const char *options[ sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]) ];
-} *ix86_prev_string_ops = NULL;
-
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
@@ -2027,12 +2005,30 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 void
-override_options (bool first_time ATTRIBUTE_UNUSED)
+override_options (bool main_args_p)
 {
   int i;
   int ix86_tune_defaulted = 0;
   int ix86_arch_specified = 0;
   unsigned int ix86_arch_mask, ix86_tune_mask;
+  const char *prefix;
+  const char *suffix;
+  const char *sw;
+
+  /* Set up prefix/suffix so the error messages refer to either the command
+     line argument, or the attribute(option).  */
+  if (main_args_p)
+    {
+      prefix = "-";
+      suffix = "";
+      sw = "switch";
+    }
+  else
+    {
+      prefix = "option(\"";
+      suffix = "\")";
+      sw = "attribute";
+    }
 
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
@@ -2208,7 +2204,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
 #ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "override_options, arch = '%s', tune = '%s'\n", ix86_arch_string, ix86_tune_string);
+  fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);
 #endif
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -2262,10 +2258,14 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 	  else
 	    ix86_tune_string = "generic32";
 	}
-      else if ((strcmp (ix86_tune_string, "generic64") || !TARGET_64BIT)
-	       && strcmp (ix86_tune_string, "generic32")
-	       && !strncmp (ix86_tune_string, "generic", 7))
-	error ("bad value (%s) for -mtune= switch", ix86_tune_string);
+      /* allow generic32/generic64 in attribute(option) handling */
+      else if (!main_args_p 
+	       && ((TARGET_64BIT && !strcmp (ix86_tune_string, "generic64"))
+		   || !strcmp (ix86_tune_string, "generic32")))
+	;
+      else if (!strncmp (ix86_tune_string, "generic", 7))
+	error ("bad value (%s) for %smtune=%s %s",
+	       ix86_tune_string, prefix, suffix, sw);
     }
   else
     {
@@ -2306,11 +2306,13 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       else if (!strcmp (ix86_stringop_string, "unrolled_loop"))
 	stringop_alg = unrolled_loop;
       else
-	error ("bad value (%s) for -mstringop-strategy= switch", ix86_stringop_string);
+	error ("bad value (%s) for %smstringop-strategy=%s %s",
+	       ix86_stringop_string, prefix, suffix, sw);
     }
   if (!strcmp (ix86_tune_string, "x86-64"))
-    warning (OPT_Wdeprecated, "-mtune=x86-64 is deprecated.  Use -mtune=k8 or "
-	     "-mtune=generic instead as appropriate.");
+    warning (OPT_Wdeprecated, "%smtune=x86-64%s is deprecated.  Use "
+	     "%stune=k8%s or %stune=generic%s instead as appropriate.",
+	     prefix, suffix, prefix, suffix, prefix, suffix);
 
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
@@ -2318,11 +2320,16 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     ix86_arch_specified = 1;
 
   if (!strcmp (ix86_arch_string, "generic"))
-    error ("generic CPU can be used only for -mtune= switch");
-  else if ((strcmp (ix86_arch_string, "generic64") || !TARGET_64BIT)
-	   && strcmp (ix86_arch_string, "generic32")
-	   && !strncmp (ix86_arch_string, "generic", 7))
-    error ("bad value (%s) for -march= switch", ix86_arch_string);
+    error ("generic CPU can be used only for %smtune=%s %s",
+	   prefix, suffix, sw);
+  /* allow generic32/generic64 in attribute(option) handling */
+  else if (!main_args_p 
+	   && ((TARGET_64BIT && !strcmp (ix86_arch_string, "generic64"))
+	       || !strcmp (ix86_arch_string, "generic32")))
+    ;
+  else if (!strncmp (ix86_arch_string, "generic", 7))
+    error ("bad value (%s) for %smarch=%s %s",
+	   ix86_arch_string, prefix, suffix, sw);
 
   if (ix86_cmodel_string != 0)
     {
@@ -2339,7 +2346,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       else if (!strcmp (ix86_cmodel_string, "kernel") && !flag_pic)
 	ix86_cmodel = CM_KERNEL;
       else
-	error ("bad value (%s) for -mcmodel= switch", ix86_cmodel_string);
+	error ("bad value (%s) for %smcmodel=%s %s",
+	       ix86_cmodel_string, prefix, suffix, sw);
     }
   else
     {
@@ -2362,7 +2370,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       else if (!strcmp (ix86_asm_string, "att"))
 	ix86_asm_dialect = ASM_ATT;
       else
-	error ("bad value (%s) for -masm= switch", ix86_asm_string);
+	error ("bad value (%s) for %smasm=%s %s",
+	       ix86_asm_string, prefix, suffix, sw);
     }
   if ((TARGET_64BIT == 0) != (ix86_cmodel == CM_32))
     error ("code model %qs not supported in the %s bit mode",
@@ -2441,7 +2450,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       }
 
   if (i == pta_size)
-    error ("bad value (%s) for -march= switch", ix86_arch_string);
+    error ("bad value (%s) for %smarch=%s %s",
+	   ix86_arch_string, prefix, suffix, sw);
 
   ix86_arch_mask = 1u << ix86_arch;
   for (i = 0; i < X86_ARCH_LAST; ++i)
@@ -2477,7 +2487,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 	break;
       }
   if (i == pta_size)
-    error ("bad value (%s) for -mtune= switch", ix86_tune_string);
+    error ("bad value (%s) for %smtune=%s %s",
+	   ix86_tune_string, prefix, suffix, sw);
 
   /* Enable SSE2 if AES or PCLMUL is enabled.  */
   if ((x86_aes || x86_pclmul)
@@ -2503,10 +2514,11 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
   if (ix86_regparm_string)
     {
       if (TARGET_64BIT)
-	warning (0, "-mregparm is ignored in 64-bit mode");
+	warning (0, "%sregparm%s is ignored in 64-bit mode", prefix, suffix);
       i = atoi (ix86_regparm_string);
       if (i < 0 || i > REGPARM_MAX)
-	error ("-mregparm=%d is not between 0 and %d", i, REGPARM_MAX);
+	error ("%smregparm=%d%s is not between 0 and %d",
+	       prefix, i, suffix, REGPARM_MAX);
       else
 	ix86_regparm = i;
     }
@@ -2522,12 +2534,14 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
      Remove this code in GCC 3.2 or later.  */
   if (ix86_align_loops_string)
     {
-      warning (0, "-malign-loops is obsolete, use -falign-loops");
+      warning (0, "%smalign-loops%s is obsolete, use %salign-loops%s",
+	       prefix, suffix, prefix, suffix);
       if (align_loops == 0)
 	{
 	  i = atoi (ix86_align_loops_string);
 	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+	    error ("%smalign-loops=%d%s is not between 0 and %d",
+		   prefix, i, suffix, MAX_CODE_ALIGN);
 	  else
 	    align_loops = 1 << i;
 	}
@@ -2535,12 +2549,14 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 
   if (ix86_align_jumps_string)
     {
-      warning (0, "-malign-jumps is obsolete, use -falign-jumps");
+      warning (0, "%smalign-jumps%s is obsolete, use %salign-jumps%s",
+	       prefix, suffix, prefix, suffix);
       if (align_jumps == 0)
 	{
 	  i = atoi (ix86_align_jumps_string);
 	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+	    error ("%smalign-loops=%d%s is not between 0 and %d",
+		   prefix, i, suffix, MAX_CODE_ALIGN);
 	  else
 	    align_jumps = 1 << i;
 	}
@@ -2548,12 +2564,14 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 
   if (ix86_align_funcs_string)
     {
-      warning (0, "-malign-functions is obsolete, use -falign-functions");
+      warning (0, "%smalign-functions%s is obsolete, use %salign-functions%s",
+	       prefix, suffix, prefix, suffix);
       if (align_functions == 0)
 	{
 	  i = atoi (ix86_align_funcs_string);
 	  if (i < 0 || i > MAX_CODE_ALIGN)
-	    error ("-malign-loops=%d is not between 0 and %d", i, MAX_CODE_ALIGN);
+	    error ("%smalign-loops=%d%s is not between 0 and %d",
+		   prefix, i, suffix, MAX_CODE_ALIGN);
 	  else
 	    align_functions = 1 << i;
 	}
@@ -2581,7 +2599,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     {
       i = atoi (ix86_branch_cost_string);
       if (i < 0 || i > 5)
-	error ("-mbranch-cost=%d is not between 0 and 5", i);
+	error ("%smbranch-cost=%d%s is not between 0 and 5", prefix, i, suffix);
       else
 	ix86_branch_cost = i;
     }
@@ -2589,7 +2607,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     {
       i = atoi (ix86_section_threshold_string);
       if (i < 0)
-	error ("-mlarge-data-threshold=%d is negative", i);
+	error ("%smlarge-data-threshold=%d%s is negative", prefix, i, suffix);
       else
 	ix86_section_threshold = i;
     }
@@ -2603,8 +2621,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       else if (strcmp (ix86_tls_dialect_string, "sun") == 0)
 	ix86_tls_dialect = TLS_DIALECT_SUN;
       else
-	error ("bad value (%s) for -mtls-dialect= switch",
-	       ix86_tls_dialect_string);
+	error ("bad value (%s) for %smtls-dialect=%s %s",
+	       ix86_tls_dialect_string, prefix, suffix, sw);
     }
 
   if (ix87_precision_string)
@@ -2627,7 +2645,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 	     | TARGET_SUBTARGET64_ISA_DEFAULT) & ~ix86_isa_flags_explicit);
 
       if (TARGET_RTD)
-	warning (0, "-mrtd is ignored in 64bit mode");
+	warning (0, "%smrtd%s is ignored in 64bit mode", prefix, suffix);
     }
   else
     {
@@ -2684,8 +2702,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
       if (i < (TARGET_64BIT ? 4 : 2) || i > 12)
-	error ("-mpreferred-stack-boundary=%d is not between %d and 12", i,
-	       TARGET_64BIT ? 4 : 2);
+	error ("%smpreferred-stack-boundary=%d%s is not between %d and 12",
+	       prefix, i, suffix, TARGET_64BIT ? 4 : 2);
       else
 	ix86_preferred_stack_boundary = (1 << i) * BITS_PER_UNIT;
     }
@@ -2693,7 +2711,7 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
   /* Accept -msseregparm only if at least SSE support is enabled.  */
   if (TARGET_SSEREGPARM
       && ! TARGET_SSE)
-    error ("-msseregparm used without SSE enabled");
+    error ("%smsseregparm%s used without SSE enabled", prefix, suffix);
 
   ix86_fpmath = TARGET_FPMATH_DEFAULT;
   if (ix86_fpmath_string != 0)
@@ -2727,7 +2745,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 	    ix86_fpmath = (enum fpmath_unit) (FPMATH_SSE | FPMATH_387);
 	}
       else
-	error ("bad value (%s) for -mfpmath= switch", ix86_fpmath_string);
+	error ("bad value (%s) for %smfpmath=%s %s",
+	       ix86_fpmath_string, prefix, suffix, sw);
     }
 
   /* If the i387 is disabled, then do not return values in it. */
@@ -2743,7 +2762,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
 	ix86_veclib_handler = ix86_veclibabi_acml;
       else
 	error ("unknown vectorization library ABI type (%s) for "
-	       "-mveclibabi= switch", ix86_veclibabi_string);
+	       "%smveclibabi=%s %s", ix86_veclibabi_string,
+	       prefix, suffix, sw);
     }
 
   if ((x86_accumulate_outgoing_args & ix86_tune_mask)
@@ -2762,7 +2782,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
     {
       if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
 	warning (0, "unwind tables currently require either a frame pointer "
-		 "or -maccumulate-outgoing-args for correctness");
+		 "or %smaccumulate-outgoing-args%s for correctness",
+		 prefix, suffix);
       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -2773,8 +2794,8 @@ override_options (bool first_time ATTRIBUTE_UNUSED)
       && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
     {
       if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "stack probing requires -maccumulate-outgoing-args "
-		 "for correctness");
+	warning (0, "stack probing requires %smaccumulate-outgoing-args%s "
+		 "for correctness", prefix, suffix);
       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
 
@@ -2823,12 +2844,42 @@ ix86_target_specific_push (int argc, const char **argv)
 {
   int i;
   unsigned j;
-  struct ix86_save_string_ops *ops
-    = xcalloc (sizeof (struct ix86_save_string_ops), 1);
+  bool ret;
 
-  ops->prev = ix86_prev_string_ops;
+  /* List of all of the string opts to be saved and restored for target
+     specific option handling.  */
+#define INIT_STRING_OPS(OPT, VAR) { OPT, &VAR, sizeof (OPT)-1 }
+
+  static struct
+  {
+    const char *option;
+    const char **string_var;
+    size_t len;
+  } ix86_string_ops[] = {
+    INIT_STRING_OPS ("-malign-functions=", ix86_align_funcs_string),
+    INIT_STRING_OPS ("-malign-jumps=", ix86_align_jumps_string),
+    INIT_STRING_OPS ("-malign-loops=", ix86_align_loops_string),
+    INIT_STRING_OPS ("-march=", ix86_arch_string),
+    INIT_STRING_OPS ("-mash=", ix86_asm_string),
+    INIT_STRING_OPS ("-mbranch-cost=", ix86_branch_cost_string),
+    INIT_STRING_OPS ("-mlarge-data-threshold=", ix86_section_threshold_string),
+    INIT_STRING_OPS ("-mcmodel=", ix86_cmodel_string),
+    INIT_STRING_OPS ("-mfpmath=", ix86_fpmath_string),
+    INIT_STRING_OPS ("mpc=", ix87_precision_string),
+    INIT_STRING_OPS ("-mpreferred-stack-boundary=",
+		     ix86_preferred_stack_boundary_string),
+    INIT_STRING_OPS ("-mregparm=", ix86_regparm_string),
+    INIT_STRING_OPS ("-mstringop-strategy=", ix86_stringop_string),
+    INIT_STRING_OPS ("-mtls-dialect=", ix86_tls_dialect_string),
+    INIT_STRING_OPS ("-mtune=", ix86_tune_string),
+    INIT_STRING_OPS ("-mveclibabi=", ix86_veclibabi_string),
+  };
+
+  const char *save_string[ sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]) ];
+
+  /* Save all of the current strings */
   for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
-    ops->options[j] = *ix86_string_ops[j].string_var;
+    save_string[j] = *ix86_string_ops[j].string_var;
 
 #ifdef DEBUG_TARGET_SPECIFIC
   fputs ("ix86_target_specific_push:", stderr);
@@ -2864,15 +2915,25 @@ ix86_target_specific_push (int argc, const char **argv)
 	}
     }
 
-  if (! handle_option (argv, 0, 1))
+  ret = handle_option (argv, 0, 1);
+  if (! ret)
     {
 #ifdef DEBUG_TARGET_SPECIFIC
       fputs ("\tfailed\n", stderr);
 #endif
+      /* Restore the string arguments */
+      for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
+	*ix86_string_ops[j].string_var = save_string[j];
+
       return false;
     }
 
   override_options (false);
+
+  /* Restore the string arguments */
+  for (j = 0; j < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]); j++)
+    *ix86_string_ops[j].string_var = save_string[j];
+
   return true;
 }
 
@@ -2883,34 +2944,9 @@ ix86_target_specific_push (int argc, const char **argv)
 void
 ix86_target_specific_pop (void)
 {
-  unsigned i;
-
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "ix86_target_specific_pop\n");
 #endif
-
-  /* Reset the string variables */
-  if (ix86_prev_string_ops)
-    {
-      struct ix86_save_string_ops *p = ix86_prev_string_ops;
-      ix86_prev_string_ops = p->prev;
-
-      for (i = 0;
-	   i < sizeof (ix86_string_ops) / sizeof (ix86_string_ops[0]);
-	   i++)
-	{
-#ifdef DEBUG_TARGET_SPECIFIC
-	  fprintf (stderr, "\t%-32s addr = 0x%.8lx value = '%s'\n",
-		   ix86_string_ops[i].option,
-		   (long) ix86_string_ops[i].string_var,
-		   p->options[i] ? p->options[i] : "<NULL>");
-#endif
-
-	  *ix86_string_ops[i].string_var = p->options[i];
-	}
-
-      free (p);
-    }
 
   override_options (false);
 }

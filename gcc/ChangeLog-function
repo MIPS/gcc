@@ -1,5 +1,11 @@
 2008-05-16  Michael Meissner  <michael.meissner@amd.com>
 
+	* config/i386/i386.c (override_options): Fix up error messages, so
+	it correctly complains about -mxxx or option("xxx").
+	(ix86_target_specific_push): Move restoring string opts to the
+	push function from the pop function.
+	(ix86_target_specific_pop): Ditto.
+
 	* tree.h (handle_option_attribute): Add declaration.
 
 	* tree-opt.c: Delete, file rename to target-specific.c.
