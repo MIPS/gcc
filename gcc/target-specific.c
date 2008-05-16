@@ -298,33 +298,80 @@ handle_option_attribute (tree *node,
 /* Determine whether one function can inline another based on the target
    specific options.  */
 bool
-default_target_specific_can_inline_p (const_tree caller, const_tree callee)
+default_target_specific_can_inline_p (const_tree caller ATTRIBUTE_UNUSED,
+				      const_tree callee)
 {
+  bool ret = false;
   tree callee_attrs = DECL_ATTRIBUTES (callee);
-  tree callee_target_specific = (callee_attrs
-				 ? lookup_attribute ("option", callee_attrs)
-				 : NULL_TREE);
+  tree callee_ts = (callee_attrs
+		    ? lookup_attribute ("option", callee_attrs)
+		    : NULL_TREE);
 
-  if (!callee_target_specific)
-    return true;		/* anything calling generic is fine */
+  if (!callee_ts)
+    ret = true;			/* anything calling generic is fine */
 
   else
     {
+#if 1
+      ret = false;
+#else
       tree caller_attrs = DECL_ATTRIBUTES (caller);
-      tree caller_target_specific = (caller_attrs
-				     ? lookup_attribute ("option", caller_attrs)
-				     : NULL_TREE);
+      tree caller_ts = (caller_attrs
+			? lookup_attribute ("option", caller_attrs)
+			: NULL_TREE);
 
 
-      if (caller_target_specific)
+      if (!caller_ts)
+	ret = false;		/* generic calling target specific */
+
+      else			/* target specific calling target specific */
 	{
-	  /* XXX should add code to check if we have exactly the same options */
-	  return false;		/* target specific calling target specific */
-	}
+	  cl_option_args *caller_ap = NULL;
+	  cl_option_args *callee_ap = NULL;
 
-      else
-	return false;		/* generic calling target specific */
+	  for (; caller_ts; caller_ts = TREE_CHAIN (caller_ts))
+	    caller_ap = target_specific_build_arguments (caller_ap,
+							 TREE_VALUE (caller_ts),
+							 true);
+
+	  for (; callee_ts; callee_ts = TREE_CHAIN (callee_ts))
+	    callee_ap = target_specific_build_arguments (callee_ap,
+							 TREE_VALUE (callee_ts),
+							 true);
+
+	  if (!caller_ap || !callee_ap)
+	    ret = false;
+
+	  else if (caller_ap->argc != callee_ap->argc)
+	    ret = false;
+
+	  else
+	    {
+	      int i;
+
+	      ret = true;
+	      for (i = 0; i < caller_ap->argc; i++)
+		{
+		  fprintf (stderr, "compare %s %s\n", caller_ap->argv[i], callee_ap->argv[i]);
+		  if (caller_ap->argv[i] != callee_ap->argv[i]
+		      && strcmp (caller_ap->argv[i], callee_ap->argv[i]))
+		    {
+		      ret = false;
+		      break;
+		    }
+		}
+
+	      if (caller_ap)
+		target_specific_free_arguments (caller_ap);
+
+	      if (callee_ap)
+		target_specific_free_arguments (callee_ap);
+	    }
+	}
+#endif
     }
+
+  return ret;
 }
 
 /* RTL pass to push the current options if the function used
