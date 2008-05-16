@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm_p.h"
 #include "target.h"
+#include "targhooks.h"
 #include "tree-pass.h"
 #include "diagnostic.h"
 #include "opts.h"
@@ -62,17 +63,27 @@ typedef struct
 #define MIN_ALLOC_ARGS		10	/* number of arguments to allocate at a time */
 #define STRING_POOL_SIZE	250	/* size of the string pool to allocate */
 
+static int target_specific_qsort (const void *ptr_a, const void *ptr_b);
 static cl_option_args *target_specific_build_arguments (cl_option_args *ap,
-							tree args);
+							tree args,
+							bool compare_p);
 static void target_specific_free_arguments (cl_option_args *ap);
 static bool target_specific_push (int argc, char **argv);
 static void target_specific_pop (void);
 static unsigned int driver_push_set_options (void);
 static unsigned int driver_pop_options (void);
 
+
+/* Internal function to sort an array of character pointers.  */
+static int
+target_specific_qsort (const void *ptr_a, const void *ptr_b)
+{
+  return strcmp (*(char **)ptr_a, *(char **)ptr_b);
+}
+
 /* Internal function to build argument vectors.  */
 static cl_option_args *
-target_specific_build_arguments (cl_option_args *ap, tree args)
+target_specific_build_arguments (cl_option_args *ap, tree args, bool compare_p)
 {
   for (; args; args = TREE_CHAIN (args))
     {
@@ -92,7 +103,9 @@ target_specific_build_arguments (cl_option_args *ap, tree args)
 	      ap->max_argc = MIN_ALLOC_ARGS;
 	      ap->string_alloc = STRING_POOL_SIZE;
 	      ap->string_num = 0;
-	      ap->string_pool = xmalloc (STRING_POOL_SIZE);
+	      ap->string_pool = (compare_p
+				 ? NULL
+				 : xmalloc (STRING_POOL_SIZE));
 	    }
 	  else if (ap->argc == ap->max_argc)
 	    {
@@ -101,29 +114,40 @@ target_specific_build_arguments (cl_option_args *ap, tree args)
 				  + (ap->max_argc * sizeof (char *))));
 	    }
 
-	  /* Grow string pool if needed */
-	  if (ap->string_num + len + 2 >= ap->string_alloc)
+	  if (compare_p)
 	    {
-	      size_t slen = ap->string_alloc + len + STRING_POOL_SIZE;
-	      char *old_str = ap->string_pool;
-	      char *new_str = xrealloc (old_str, slen);
-	      int i;
-
-	      ap->string_alloc = slen;
-	      for (i = 0; i < ap->argc; i++)
-		ap->argv[i] = new_str + (ap->argv[i] - old_str);
+	      ap->argv[ap->argc++] = (char *)TREE_STRING_POINTER (args2);
+	      ap->argv[ap->argc] = NULL;
 	    }
+	  else
+	    {
+	      /* Grow string pool if needed */
+	      if (ap->string_num + len + 2 >= ap->string_alloc)
+		{
+		  size_t slen = ap->string_alloc + len + STRING_POOL_SIZE;
+		  char *old_str = ap->string_pool;
+		  char *new_str = xrealloc (old_str, slen);
+		  int i;
 
-	  /* Add '-' in front of the argument.  */
-	  p = ap->string_pool + ap->string_num;
-	  ap->string_num += len + 2;
-	  p[0] = '-';
-	  memcpy (p+1, TREE_STRING_POINTER (args2), len);
-	  p[len+1] = '\0';
-	  ap->argv[ap->argc++] = p;
-	  ap->argv[ap->argc] = NULL;
+		  ap->string_alloc = slen;
+		  for (i = 0; i < ap->argc; i++)
+		    ap->argv[i] = new_str + (ap->argv[i] - old_str);
+		}
+
+	      /* Add '-' in front of the argument.  */
+	      p = ap->string_pool + ap->string_num;
+	      ap->string_num += len + 2;
+	      p[0] = '-';
+	      memcpy (p+1, TREE_STRING_POINTER (args2), len);
+	      p[len+1] = '\0';
+	      ap->argv[ap->argc++] = p;
+	      ap->argv[ap->argc] = NULL;
+	    }
 	}
     }
+
+  if (ap && compare_p && ap->argc > 1)
+    qsort (ap->argv, ap->argc, sizeof (char *), target_specific_qsort);
 
   return ap;
 }
@@ -134,12 +158,13 @@ target_specific_free_arguments (cl_option_args *ap)
 {
   if (ap)
     {
-      free (ap->string_pool);
+      if (ap->string_pool)
+	free (ap->string_pool);
       free (ap);
     }
 }
 
-
+
 /* Save attribute settable options to stack, pass new options to backend hook,
    and return true/false if the new options are valid.  */
 
@@ -184,6 +209,7 @@ target_specific_pop (void)
     }
 }
 
+
 /* Apply options to the function. */
 static unsigned int
 driver_push_set_options (void)
@@ -199,7 +225,9 @@ driver_push_set_options (void)
 
 	  /* Fill in the arguments */
 	  for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
-	    ap = target_specific_build_arguments (ap, TREE_VALUE (opt_attrs));
+	    ap = target_specific_build_arguments (ap,
+						  TREE_VALUE (opt_attrs),
+						  false);
 
 	  if (ap)
 	    {
@@ -227,6 +255,7 @@ driver_pop_options (void)
   return true;
 }
 
+
 /* For handling "option" attribute. arguments as in
    struct attribute_spec.handler.  */
 
@@ -250,7 +279,7 @@ handle_option_attribute (tree *node,
     }
   else
     {
-      cl_option_args *ap = target_specific_build_arguments (NULL, args);
+      cl_option_args *ap = target_specific_build_arguments (NULL, args, false);
 
       if (ap)
 	{
@@ -263,6 +292,39 @@ handle_option_attribute (tree *node,
     }
 
   return NULL_TREE;
+}
+
+
+/* Determine whether one function can inline another based on the target
+   specific options.  */
+bool
+default_target_specific_can_inline_p (const_tree caller, const_tree callee)
+{
+  tree callee_attrs = DECL_ATTRIBUTES (callee);
+  tree callee_target_specific = (callee_attrs
+				 ? lookup_attribute ("option", callee_attrs)
+				 : NULL_TREE);
+
+  if (!callee_target_specific)
+    return true;		/* anything calling generic is fine */
+
+  else
+    {
+      tree caller_attrs = DECL_ATTRIBUTES (caller);
+      tree caller_target_specific = (caller_attrs
+				     ? lookup_attribute ("option", caller_attrs)
+				     : NULL_TREE);
+
+
+      if (caller_target_specific)
+	{
+	  /* XXX should add code to check if we have exactly the same options */
+	  return false;		/* target specific calling target specific */
+	}
+
+      else
+	return false;		/* generic calling target specific */
+    }
 }
 
 /* RTL pass to push the current options if the function used

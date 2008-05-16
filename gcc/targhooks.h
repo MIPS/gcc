@@ -96,3 +96,4 @@ extern int default_reloc_rw_mask (void);
 extern tree default_mangle_decl_assembler_name (tree, tree);
 extern tree default_emutls_var_fields (tree, tree *);
 extern tree default_emutls_var_init (tree, tree, tree);
+extern bool default_target_specific_can_inline_p (const_tree, const_tree);

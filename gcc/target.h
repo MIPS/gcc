@@ -953,7 +953,7 @@ struct gcc_target
     void (*pop_options) (void);
     /* Function to decide whether one function can inline another with target
        specific options.  */
-    bool (*can_inline_p) (tree, tree);
+    bool (*can_inline_p) (const_tree, const_tree);
   } target_specific;
 
   /* For targets that need to mark extra registers as live on entry to

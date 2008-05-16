@@ -759,7 +759,7 @@
 #endif
 
 #ifndef TARGET_TARGET_SPECIFIC_CAN_INLINE_P
-#define TARGET_TARGET_SPECIFIC_CAN_INLINE_P NULL
+#define TARGET_TARGET_SPECIFIC_CAN_INLINE_P default_target_specific_can_inline_p
 #endif
 
 #define TARGET_TARGET_SPECIFIC			\

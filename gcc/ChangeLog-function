@@ -1,5 +1,18 @@
 2008-05-16  Michael Meissner  <michael.meissner@amd.com>
 
+	* tree-inline.c (inlinable_function_p): Call the target specfic
+	backend hook to determine if it is safe to inline a function.
+
+	* targhooks.c (default_target_specific_can_inline_p): Add default
+	version to prevent functions with target specific options from
+	being inlined.
+
+	* target-def.h (TARGET_TARGET_SPECIFIC_CAN_INLINE_P): Change
+	default to default_target_specific_can_inline_p.
+
+	* target.h (struct target_specific): Change signature of
+	can_inline_p function from tree to const_tree.
+
 	* config/i386/i386.c (override_options): Fix up error messages, so
 	it correctly complains about -mxxx or option("xxx").
 	(ix86_target_specific_push): Move restoring string opts to the
@@ -17,19 +30,26 @@
 	(target_specific_pop): Moved from opts-common.c, make static.
 	Rename from pop_attribute_options.  Call target backend hook.
 	(cl_option_stor_stack): Moved from opts-common.c, make static.
+	(cl_option_stor_stack): Ditto.
 	(handle_option_attribute): Moved from c-common.c, make static.
 	(target_specific_build_arguments): New function to build argc,
 	argv for arguments.
 	(target_specific_free_arguments): New function to release memory
 	allocated via target_specific_build_arguments.
-	(cl_option_stor_stack): Move the option push and popping support here from opts-common.c.  Have the push/pop
-	functions call the target backend hooks.  Simplify to use a single
-	malloc instead of two.
 	(cl_option_top): Renamed from top.
+	(default_target_specific_can_inline_p): Add default version to
+	restrict inlining of target specific functions with different
+	options.
+	(targhooks.h): Include for default_target_specific_can_inline_p.
+	(default_target_specific_can_inline_p): New function to determine
+	if one function can inline another based on the target specific
+	options.
+	(target_specific_qsort): New function to sort char * array.
 
 	* c-common.c (handle_option_attribute): Move to target-specific.c.
 
-	* Makefile.in (target-specific.o): Rename from tree-opt.o.
+	* Makefile.in (target-specific.o): Rename from tree-opt.o.  Add
+	gt-targhooks.h dependency.
 
 	* config/i386/i386.c (ix86_string_ops): Add initial '-'.
 	(ix86_target_specific_push): Eliminate adding '-', since our
