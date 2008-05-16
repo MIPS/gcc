@@ -5106,7 +5106,6 @@ handle_option_attribute (tree *node,
       int max_argc = 0;
       int argc = 0;
       const char **argv;
-      bool ok_p;
 
       /* Validate the options by doing a push and then a pop.  Assume the
 	 backend generates the appropriate messages.  */
@@ -5128,12 +5127,10 @@ handle_option_attribute (tree *node,
 	}
 
       argv[argc] = NULL;
-      push_attribute_options ();
-      ok_p = targetm.target_specific.push_options (argc, argv);
-      pop_attribute_options ();
-      targetm.target_specific.pop_options ();
-      if (! ok_p)
+      if (! push_attribute_options (argc, argv))
 	*no_add_attrs = true;
+
+      pop_attribute_options ();
     }
 
   return NULL_TREE;

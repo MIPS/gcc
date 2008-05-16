@@ -1,3 +1,23 @@
+2008-05-16  Michael Meissner  <michael.meissner@amd.com>
+
+	* opts-common.c (cl_option_stors_stack): Move to tree-opt.c.
+	(push_attribute_options): Ditto.
+	(pop_attribute_options): Ditto.
+
+	* tree-opt.c (cl_option_stor_stack): Move the option push and
+	popping support here from opts-common.c.  Have the push/pop
+	functions call the target backend hooks.  Simplify to use a single
+	malloc instead of two.
+	(push_attribute_options): Ditto.
+	(pop_attribute_options): Ditto.
+	(cl_option_top): Renamed from top.
+
+	* opts.h (push_attribute_options): Change calling signature.
+
+	* c-common.c (handle_option_attribute): Remove call to target
+	backend hooks, since the push/pop attribute functions now call
+	them.
+
 2008-05-15  Michael Meissner  <michael.meissner@amd.com>
 
 	* target.h (struct target_specific): New structure to gather
