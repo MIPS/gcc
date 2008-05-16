@@ -8115,8 +8115,8 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
    } */
 
 static tree
-s390_gimplify_va_arg (tree valist, tree type, tree *pre_p, 
-		      tree *post_p ATTRIBUTE_UNUSED)
+s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p, 
+		      gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree f_gpr, f_fpr, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, reg, t, u;
@@ -8220,11 +8220,9 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
   t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
   gimplify_and_add (t, pre_p);
 
-  t = build1 (GOTO_EXPR, void_type_node, lab_over);
-  gimplify_and_add (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_over));
 
-  t = build1 (LABEL_EXPR, void_type_node, lab_false);
-  append_to_statement_list (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (lab_false));
 
 
   /* ... Otherwise out of the overflow area.  */
@@ -8244,8 +8242,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
   t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, ovf, t);
   gimplify_and_add (t, pre_p);
 
-  t = build1 (LABEL_EXPR, void_type_node, lab_over);
-  append_to_statement_list (t, pre_p);
+  gimple_seq_add_stmt (pre_p, gimple_build_label (lab_over));
 
 
   /* Increment register save count.  */
