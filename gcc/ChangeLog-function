@@ -26,6 +26,9 @@
 	specific hook to just look at the function itself, since we don't
 	have the caller at this point.
 
+	* targhooks.h (default_target_specific_can_inline_p): Change
+	calling signature.
+
 2008-05-16  Michael Meissner  <michael.meissner@amd.com>
 
 	* tree-inline.c (inlinable_function_p): Call the target specfic
