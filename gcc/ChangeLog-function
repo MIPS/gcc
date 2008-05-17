@@ -52,7 +52,7 @@
 
 	* tree.h (handle_option_attribute): Add declaration.
 
-	* tree-opt.c: Delete, file rename to target-specific.c.
+	* tree-opt.c: Delete file.  Rename to target-specific.c.
 
 	* target-specific.c: New file, renamed from tree-opt.c.
 	(target_specific_push): Moved from opts-common.c, make static.
