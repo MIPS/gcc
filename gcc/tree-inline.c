@@ -2096,7 +2096,7 @@ inlinable_function_p (tree fn)
 	   && DECL_REPLACEABLE_P (fn))
     inlinable = false;
 
-  else if (!targetm.target_specific.can_inline_p (current_function_decl, fn))
+  else if (!targetm.target_specific.can_inline_p (fn))
     inlinable = false;
 
   else if (!function_attribute_inlinable_p (fn))

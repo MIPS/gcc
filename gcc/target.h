@@ -951,9 +951,8 @@ struct gcc_target
     bool (*push_options) (int, const char **);
     /* Function to handle popping target specific options.  */
     void (*pop_options) (void);
-    /* Function to decide whether one function can inline another with target
-       specific options.  */
-    bool (*can_inline_p) (const_tree, const_tree);
+    /* Function to decide whether a function can be inlined.  */
+    bool (*can_inline_p) (const_tree);
   } target_specific;
 
   /* For targets that need to mark extra registers as live on entry to

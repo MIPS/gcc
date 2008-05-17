@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 struct cl_option_stors_stack
 {
   struct cl_option_stors_stack *prev;
-  union cl_option_stor copy[1];
+  union cl_option_stor copy[1];			/* must be last */
 };
 
 static struct cl_option_stors_stack *cl_option_top = NULL;
@@ -52,109 +52,144 @@ static struct cl_option_stors_stack *cl_option_top = NULL;
 
 typedef struct
 {
+  char *string_pool;		/* pointer to strings */
   int argc;			/* current number of arguments */
-  int max_argc;			/* max arguments allocated */
-  char *string_pool;		/* pointer to the string pool */
-  size_t string_alloc;		/* # bytes allocated to the string pool */
-  size_t string_num;		/* # bytes used in the string pool */
-  char *argv[1];		/* arguments */
+  int max_argc;			/* current number of arguments */
+  size_t string_size;		/* # bytes needed to hold all arguments */
+  size_t string_cur;		/* current string position */
+  const char *argv[1];		/* argument vector (must be last) */
 } cl_option_args;
 
-#define MIN_ALLOC_ARGS		10	/* number of arguments to allocate at a time */
-#define STRING_POOL_SIZE	250	/* size of the string pool to allocate */
-
 static int target_specific_qsort (const void *ptr_a, const void *ptr_b);
-static cl_option_args *target_specific_build_arguments (cl_option_args *ap,
-							tree args,
-							bool compare_p);
-static void target_specific_free_arguments (cl_option_args *ap);
-static bool target_specific_push (int argc, char **argv);
+static int target_specific_count_args (tree args, size_t *p_str_size);
+static void target_specific_build_args_internal (cl_option_args *ap,
+						 tree args,
+						 bool compare_p);
+static cl_option_args *target_specific_build_args (tree args,
+						   bool compare_p);
+static void target_specific_free_args (cl_option_args *ap);
+static bool target_specific_push (int argc, const char **argv);
 static void target_specific_pop (void);
 static unsigned int driver_push_set_options (void);
 static unsigned int driver_pop_options (void);
 
 
-/* Internal function to sort an array of character pointers.  */
-static int
-target_specific_qsort (const void *ptr_a, const void *ptr_b)
+/* Count how many target specific options there are in ARGS, and record how
+   much space is needed to build the strings in P_STR_SIZE.
+
+   The ARGS argument is either a TREE_LIST that points to STRING_CST nodes
+   (when we are called from handle_option_attribute to valid the attributes),
+   or a TREE_LIST that points to a TREE_LIST which in turn points to STRING_CST
+   nodes (when we use the result of lookup_attribute ("option")).  */
+
+static int target_specific_count_args (tree args, size_t *p_str_size)
 {
-  return strcmp (*(char **)ptr_a, *(char **)ptr_b);
+  int ret = 0;
+
+  if (TREE_CODE (args) == TREE_LIST)
+    {
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args))
+	  ret += target_specific_count_args (TREE_VALUE (args), p_str_size);
+    }
+
+  else if (TREE_CODE (args) == STRING_CST)
+    {
+      ret++;
+      *p_str_size += TREE_STRING_LENGTH (args) + 2; /* room for '-' and '\0' */
+    }
+
+  else
+    gcc_unreachable ();
+
+  return ret;
 }
 
-/* Internal function to build argument vectors.  */
-static cl_option_args *
-target_specific_build_arguments (cl_option_args *ap, tree args, bool compare_p)
+/* Build the argument vector in AP, using the target specific options in ARGS.
+   If COMPARE_P is true, we don't need the initial '-' in front of the
+   argument. */
+
+static void
+target_specific_build_args_internal (cl_option_args *ap, tree args, bool compare_p)
 {
-  for (; args; args = TREE_CHAIN (args))
+  if (TREE_CODE (args) == TREE_LIST)
     {
-      tree args2 = TREE_VALUE (args);
-      if (args)
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args))
+	  target_specific_build_args_internal (ap, TREE_VALUE (args), compare_p);
+    }
+
+  else if (TREE_CODE (args) == STRING_CST)
+    {
+      gcc_assert (ap->argc < ap->max_argc);
+      if (compare_p)
+	ap->argv[ap->argc++] = TREE_STRING_POINTER (args);
+
+      else
 	{
-	  size_t len = TREE_STRING_LENGTH (args2);
-	  char *p;
+	  char *p = ap->string_pool + ap->string_cur;
+	  size_t len = TREE_STRING_LENGTH (args);
 
-	  /* Allocate or grow arguments */
-	  if (! ap)
-	    {
-	      ap = xmalloc (sizeof (cl_option_args)
-			    + MIN_ALLOC_ARGS * (sizeof (char *)));
-
-	      ap->argc = 0;
-	      ap->max_argc = MIN_ALLOC_ARGS;
-	      ap->string_alloc = STRING_POOL_SIZE;
-	      ap->string_num = 0;
-	      ap->string_pool = (compare_p
-				 ? NULL
-				 : xmalloc (STRING_POOL_SIZE));
-	    }
-	  else if (ap->argc == ap->max_argc)
-	    {
-	      ap->max_argc += MIN_ALLOC_ARGS;
-	      ap = xrealloc (ap, (sizeof (cl_option_args)
-				  + (ap->max_argc * sizeof (char *))));
-	    }
-
-	  if (compare_p)
-	    {
-	      ap->argv[ap->argc++] = (char *)TREE_STRING_POINTER (args2);
-	      ap->argv[ap->argc] = NULL;
-	    }
-	  else
-	    {
-	      /* Grow string pool if needed */
-	      if (ap->string_num + len + 2 >= ap->string_alloc)
-		{
-		  size_t slen = ap->string_alloc + len + STRING_POOL_SIZE;
-		  char *old_str = ap->string_pool;
-		  char *new_str = xrealloc (old_str, slen);
-		  int i;
-
-		  ap->string_alloc = slen;
-		  for (i = 0; i < ap->argc; i++)
-		    ap->argv[i] = new_str + (ap->argv[i] - old_str);
-		}
-
-	      /* Add '-' in front of the argument.  */
-	      p = ap->string_pool + ap->string_num;
-	      ap->string_num += len + 2;
-	      p[0] = '-';
-	      memcpy (p+1, TREE_STRING_POINTER (args2), len);
-	      p[len+1] = '\0';
-	      ap->argv[ap->argc++] = p;
-	      ap->argv[ap->argc] = NULL;
-	    }
+	  gcc_assert (ap->string_cur + len + 2 <= ap->string_size);
+	  p[0] = '-';
+	  memcpy (p+1, TREE_STRING_POINTER (args), len);
+	  p[len+1] = '\0';
+	  ap->argv[ap->argc++] = p;
 	}
     }
 
-  if (ap && compare_p && ap->argc > 1)
-    qsort (ap->argv, ap->argc, sizeof (char *), target_specific_qsort);
+  else
+    gcc_unreachable ();
+}
+
+/* Sort an array of character pointers.  */
+
+static int
+target_specific_qsort (const void *ptr_a, const void *ptr_b)
+{
+  return strcmp (*(const char **)ptr_a, *(const char **)ptr_b);
+}
+
+/* Build argument vectors from the target specific options ARGS.  If COMPARE_P
+   is true, we don't need to add a '-' in front of each argument, and we should
+   sort the arguments to be able to compare to see if two functions have the
+   same target specific options.  */
+
+static cl_option_args *
+target_specific_build_args (tree args, bool compare_p)
+{
+  size_t string_size = 0;
+  int max_argc = target_specific_count_args (args, &string_size);
+  cl_option_args *ap;
+
+  if (! max_argc)
+    ap = NULL;
+
+  else
+    {
+      ap = xmalloc (sizeof (cl_option_args) + (sizeof (char *) * max_argc));
+      ap->argc = 0;
+      ap->max_argc = max_argc;
+      ap->string_size = string_size;
+      ap->string_cur = 0;
+      ap->string_pool = (!compare_p ? xmalloc (string_size) : NULL);
+
+      target_specific_build_args_internal (ap, args, compare_p);
+
+      gcc_assert (ap->argc == ap->max_argc);
+      ap->argv[ap->argc] = NULL;
+
+      if (compare_p && ap->argc > 1)
+	qsort (ap->argv, ap->argc, sizeof (char *), target_specific_qsort);
+    }
 
   return ap;
 }
 
-/* Internal function to release memory allocated for argument vectors */
+/* Release memory allocated for argument vectors */
+
 static void
-target_specific_free_arguments (cl_option_args *ap)
+target_specific_free_args (cl_option_args *ap)
 {
   if (ap)
     {
@@ -169,7 +204,7 @@ target_specific_free_arguments (cl_option_args *ap)
    and return true/false if the new options are valid.  */
 
 static bool
-target_specific_push (int argc, char **argv)
+target_specific_push (int argc, const char **argv)
 {
   bool ret = true;
   struct cl_option_stors_stack *ptr
@@ -184,7 +219,7 @@ target_specific_push (int argc, char **argv)
   cl_option_top = ptr;
 
   if (targetm.target_specific.push_options)
-    ret = targetm.target_specific.push_options (argc, (const char **)argv);
+    ret = targetm.target_specific.push_options (argc, argv);
 
   return ret;
 }
@@ -221,18 +256,12 @@ driver_push_set_options (void)
 
       if (opt_attrs)
 	{
-	  cl_option_args *ap = NULL;
-
-	  /* Fill in the arguments */
-	  for (; opt_attrs; opt_attrs = TREE_CHAIN (opt_attrs))
-	    ap = target_specific_build_arguments (ap,
-						  TREE_VALUE (opt_attrs),
-						  false);
+	  cl_option_args *ap = target_specific_build_args (opt_attrs, false);
 
 	  if (ap)
 	    {
 	      target_specific_push (ap->argc, ap->argv);
-	      target_specific_free_arguments (ap);
+	      target_specific_free_args (ap);
 	    }
 	}
     }
@@ -279,7 +308,7 @@ handle_option_attribute (tree *node,
     }
   else
     {
-      cl_option_args *ap = target_specific_build_arguments (NULL, args, false);
+      cl_option_args *ap = target_specific_build_args (args, false);
 
       if (ap)
 	{
@@ -287,7 +316,7 @@ handle_option_attribute (tree *node,
 	    *no_add_attrs = true;
 
 	  target_specific_pop ();
-	  target_specific_free_arguments (ap);
+	  target_specific_free_args (ap);
 	}
     }
 
@@ -295,83 +324,19 @@ handle_option_attribute (tree *node,
 }
 
 
-/* Determine whether one function can inline another based on the target
-   specific options.  */
+/* Determine whether a function FN can be inlined.  Be conservative, and assume
+   any function with target specific options cannot be inlined.  */
+
 bool
-default_target_specific_can_inline_p (const_tree caller ATTRIBUTE_UNUSED,
-				      const_tree callee)
+default_target_specific_can_inline_p (const_tree fn)
 {
-  bool ret = false;
-  tree callee_attrs = DECL_ATTRIBUTES (callee);
-  tree callee_ts = (callee_attrs
-		    ? lookup_attribute ("option", callee_attrs)
-		    : NULL_TREE);
+  if (! DECL_ATTRIBUTES (fn))
+    return true;
 
-  if (!callee_ts)
-    ret = true;			/* anything calling generic is fine */
+  else if (lookup_attribute ("option", DECL_ATTRIBUTES (fn)))
+    return false;
 
-  else
-    {
-#if 1
-      ret = false;
-#else
-      tree caller_attrs = DECL_ATTRIBUTES (caller);
-      tree caller_ts = (caller_attrs
-			? lookup_attribute ("option", caller_attrs)
-			: NULL_TREE);
-
-
-      if (!caller_ts)
-	ret = false;		/* generic calling target specific */
-
-      else			/* target specific calling target specific */
-	{
-	  cl_option_args *caller_ap = NULL;
-	  cl_option_args *callee_ap = NULL;
-
-	  for (; caller_ts; caller_ts = TREE_CHAIN (caller_ts))
-	    caller_ap = target_specific_build_arguments (caller_ap,
-							 TREE_VALUE (caller_ts),
-							 true);
-
-	  for (; callee_ts; callee_ts = TREE_CHAIN (callee_ts))
-	    callee_ap = target_specific_build_arguments (callee_ap,
-							 TREE_VALUE (callee_ts),
-							 true);
-
-	  if (!caller_ap || !callee_ap)
-	    ret = false;
-
-	  else if (caller_ap->argc != callee_ap->argc)
-	    ret = false;
-
-	  else
-	    {
-	      int i;
-
-	      ret = true;
-	      for (i = 0; i < caller_ap->argc; i++)
-		{
-		  fprintf (stderr, "compare %s %s\n", caller_ap->argv[i], callee_ap->argv[i]);
-		  if (caller_ap->argv[i] != callee_ap->argv[i]
-		      && strcmp (caller_ap->argv[i], callee_ap->argv[i]))
-		    {
-		      ret = false;
-		      break;
-		    }
-		}
-
-	      if (caller_ap)
-		target_specific_free_arguments (caller_ap);
-
-	      if (callee_ap)
-		target_specific_free_arguments (callee_ap);
-	    }
-	}
-#endif
-    }
-
-  return ret;
+  return true;
 }
 
 /* RTL pass to push the current options if the function used

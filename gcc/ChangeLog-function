@@ -1,3 +1,31 @@
+2008-05-17  Michael Meissner  <michael.meissner@amd.com>
+
+	* target.h (struct target_specific): Change can_inline_p to take
+	only one argument.
+
+	* target-specific.c (cl_option_args): Rewrite how arguments are
+	built.
+	(MIN_ALLOC_ARGS): Delete.
+	(STRING_POOL_SIZE): Ditto.
+	(target_specific_count_args): New function to count arguments.
+	(target_specific_build_args_internal): New worker function to
+	build the argument vector.
+	(target_specific_build_args): Rewrite building arguments.  Rename
+	from target_specific_build_arguments, change callers.
+	(target_specific_free_args): Rename from
+	target_specific_free_arguments.
+	(target_specific_qsort): Convert pointers to const char **.
+	(target_specific_push): Argv is now const char **.
+	(driver_push_set_options): Change how argv vector is built.
+	(handle_option_attribute): Ditto.
+	(default_target_specific_can_inline_p): Change function to take
+	only one argument, and return false if the function has target
+	specific options.
+
+	* tree-inline.c (inlinable_function_p): Change call to target
+	specific hook to just look at the function itself, since we don't
+	have the caller at this point.
+
 2008-05-16  Michael Meissner  <michael.meissner@amd.com>
 
 	* tree-inline.c (inlinable_function_p): Call the target specfic
