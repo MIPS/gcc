@@ -1,3 +1,43 @@
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36253
+	* caller-save.c (insert_restore): Verify alignment of spill
+	space.
+	(insert_save): Likewise.
+
+	* cfgexpand.c (LOCAL_ALIGNMENT): Removed.
+	(get_decl_align_unit): Pass VOIDmode to LOCAL_ALIGNMENT.
+
+	* defaults.h (LOCAL_ALIGNMENT): New. Provide default.
+
+	* function.c (LOCAL_ALIGNMENT): Removed.
+	(get_stack_local_alignment): New.
+	(assign_stack_local): Use it.  Set alignment on stack slot.
+	(assign_stack_temp_for_type): Use get_stack_local_alignment.
+
+	* config/bfin/bfin.c (bfin_local_alignment): Updated.
+	* config/bfin/bfin.h (LOCAL_ALIGNMENT): Likewise.
+	* config/bfin/bfin-protos.h (bfin_local_alignment): Likewise.
+	* config/i386/i386.h (LOCAL_ALIGNMENT): Likewise.
+	* config/i386/i386-protos.h (ix86_local_alignment): Likewise.
+	* config/mips/mips.h (LOCAL_ALIGNMENT): Likewise.
+	* config/mmix/mmix.c (mmix_local_alignment): Likewise.
+	* config/mmix/mmix.h (LOCAL_ALIGNMENT): Likewise.
+	* config/mmix/mmix-protos.h (mmix_local_alignment): Likewise.
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): Likewise.
+	* config/score/score.h (LOCAL_ALIGNMENT): Likewise.
+	* config/sh/sh.h (LOCAL_ALIGNMENT): Likewise.
+	* config/sparc/sparc.h (LOCAL_ALIGNMENT): Likewise.
+	* config/spu/spu.h (LOCAL_ALIGNMENT): Likewise.
+
+	* config/i386/i386.c (ix86_local_alignment): Handle caller-save
+	stack slot in XFmode.
+
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT_1): New.
+	* config/sh/sh.h (LOCAL_ALIGNMENT_1): Likewise.
+
+	* doc/tm.texi (LOCAL_ALIGNMENT): Add mode.
+
 2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.h (GET_MODE_SPILL_ALIGNMENT): Removed.

@@ -271,10 +271,12 @@ mmix_constant_alignment (tree constant ATTRIBUTE_UNUSED, int basic_align)
 
 /* LOCAL_ALIGNMENT.  */
 
-int
-mmix_local_alignment (tree type ATTRIBUTE_UNUSED, int basic_align)
+unsigned int
+mmix_local_alignment (tree type,
+		      enum machine_mode mode ATTRIBUTE_UNUSED,
+		      int basic_align)
 {
-  if (basic_align < 32)
+  if (type && basic_align < 32)
     return 32;
 
   return basic_align;

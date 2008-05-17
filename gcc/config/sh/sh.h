@@ -849,11 +849,13 @@ do {									\
    held in a single integer register.  SH5 also holds CSImode and SCmode
    values in integer registers.  This is relevant for argument passing on
    SHcompact as we use a stack temp in order to pass CSImode by reference.  */
-#define LOCAL_ALIGNMENT(TYPE, ALIGN) \
+#define LOCAL_ALIGNMENT_1(TYPE, ALIGN) \
   ((GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_INT \
     || GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_FLOAT) \
    ? (unsigned) MIN (BIGGEST_ALIGNMENT, GET_MODE_BITSIZE (TYPE_MODE (TYPE))) \
    : (unsigned) DATA_ALIGNMENT(TYPE, ALIGN))
+#define LOCAL_ALIGNMENT(TYPE, MODE, ALIGN) \
+  ((TYPE) ? LOCAL_ALIGNMENT_1 (TYPE, ALIGN) : (ALIGN))
 
 /* Make arrays of chars word-aligned for the same reasons.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\

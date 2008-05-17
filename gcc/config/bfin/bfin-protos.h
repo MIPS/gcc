@@ -120,7 +120,8 @@ extern void override_options (void);
 extern void asm_conditional_branch (rtx, rtx *, int, int);
 extern rtx bfin_gen_compare (rtx, Mmode);
 
-extern int bfin_local_alignment (tree, int);
+extern unsigned int bfin_local_alignment (tree, enum machine_mode,
+					  unsigned int);
 extern void initialize_trampoline (rtx, rtx, rtx);
 extern bool bfin_legitimate_address_p (Mmode, rtx, int);
 extern rtx bfin_va_arg (tree, tree);

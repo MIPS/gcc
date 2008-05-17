@@ -100,7 +100,8 @@ extern GTY(()) int spu_tune;
    unaligned.)  */
 #define DATA_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
 #define CONSTANT_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
-#define LOCAL_ALIGNMENT(TYPE,ALIGN) ((ALIGN) > 128 ? (ALIGN) : 128)
+#define LOCAL_ALIGNMENT(TYPE,MODE,ALIGN) \
+  ((!(TYPE) || (ALIGN) > 128) ? (ALIGN) : 128)
 
 #define EMPTY_FIELD_BOUNDARY 32
 

@@ -86,10 +86,6 @@ failed:
 }
 
 
-#ifndef LOCAL_ALIGNMENT
-#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
-#endif
-
 #ifndef STACK_ALIGNMENT_NEEDED
 #define STACK_ALIGNMENT_NEEDED 1
 #endif
@@ -160,7 +156,7 @@ get_decl_align_unit (tree decl)
   unsigned int align;
 
   align = DECL_ALIGN (decl);
-  align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
+  align = LOCAL_ALIGNMENT (TREE_TYPE (decl), VOIDmode, align);
 
   if (MAX_VECTORIZE_STACK_ALIGNMENT)
     {

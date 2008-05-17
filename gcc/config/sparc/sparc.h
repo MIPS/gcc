@@ -702,7 +702,8 @@ if (TARGET_ARCH64				\
    && (ALIGN) < FASTEST_ALIGNMENT ? FASTEST_ALIGNMENT : (ALIGN))
 
 /* Make local arrays of chars word-aligned for the same reasons.  */
-#define LOCAL_ALIGNMENT(TYPE, ALIGN) DATA_ALIGNMENT (TYPE, ALIGN)
+#define LOCAL_ALIGNMENT(TYPE, ALIGN) \
+  ((TYPE) ? DATA_ALIGNMENT (TYPE, ALIGN) : (ALIGN))
 
 /* Set this nonzero if move instructions will actually fail to work
    when given unaligned data.  */

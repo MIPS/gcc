@@ -576,9 +576,9 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define BIGGEST_ALIGNMENT 128
 
 /* A C expression to compute the alignment for a variables in the
-   local store.  TYPE is the data type, and ALIGN is the alignment
-   that the object would ordinarily have.  */
-#define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
+   local store.  TYPE is the data type, MODE is the mode, and ALIGN
+   is the alignment that the object would ordinarily have.  */
+#define LOCAL_ALIGNMENT_1(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
     (TARGET_E500_DOUBLE						\
      && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 : \
@@ -586,6 +586,8 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
      && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
         && TREE_CODE (TYPE) == VECTOR_TYPE \
         && PAIRED_VECTOR_MODE (TYPE_MODE (TYPE)))) ? 64 : ALIGN)
+#define LOCAL_ALIGNMENT(TYPE, MODE, ALIGN)				\
+  ((TYPE) ? LOCAL_ALIGNMENT_1 (TYPE, ALIGN) : (ALIGN))
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 32

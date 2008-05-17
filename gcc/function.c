@@ -69,10 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 /* So we can assign to cfun in this file.  */
 #undef cfun
 
-#ifndef LOCAL_ALIGNMENT
-#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
-#endif
-
 #ifndef STACK_ALIGNMENT_NEEDED
 #define STACK_ALIGNMENT_NEEDED 1
 #endif
@@ -325,6 +321,26 @@ frame_offset_overflow (HOST_WIDE_INT offset, tree func)
   return FALSE;
 }
 
+/* Return stack slot alignment in bits for TYPE and MODE.  */
+static unsigned int
+get_stack_local_alignment (tree type, enum machine_mode mode)
+{
+  unsigned int alignment;
+
+  if (mode == BLKmode)
+    alignment = BIGGEST_ALIGNMENT;
+  else
+    alignment = GET_MODE_ALIGNMENT (mode);
+
+  /* Allow the frond-end to (possibly) increase the alignment of this
+     stack slot.  */
+  if (! type)
+    type = lang_hooks.types.type_for_mode (mode, 0);
+
+  alignment = LOCAL_ALIGNMENT (type, mode, alignment);
+  return alignment;
+}
+
 /* Allocate a stack slot of SIZE bytes and return a MEM rtx for it
    with machine mode MODE.
 
@@ -341,26 +357,12 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 {
   rtx x, addr;
   int bigend_correction = 0;
-  unsigned int alignment, mode_alignment, alignment_in_bits;
+  unsigned int alignment, alignment_in_bits;
   int frame_off, frame_alignment, frame_phase;
-
-  if (mode == BLKmode)
-    mode_alignment = BIGGEST_ALIGNMENT;
-  else
-    mode_alignment = GET_MODE_ALIGNMENT (mode);
 
   if (align == 0)
     {
-      tree type;
-
-      alignment = mode_alignment;
-
-      /* Allow the target to (possibly) increase the alignment of this
-	 stack slot.  */
-      type = lang_hooks.types.type_for_mode (mode, 0);
-      if (type)
-	alignment = LOCAL_ALIGNMENT (type, alignment);
-
+      alignment = get_stack_local_alignment (NULL, mode);
       alignment /= BITS_PER_UNIT;
     }
   else if (align == -1)
@@ -394,7 +396,7 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 		     alignment >= mode alignment.  */
 		  gcc_assert (size == 0
 			      || (crtl->stack_alignment_estimated
-				  >= mode_alignment));
+				  >= GET_MODE_ALIGNMENT (mode)));
 		  alignment_in_bits = crtl->stack_alignment_estimated;
 		  alignment = alignment_in_bits / BITS_PER_UNIT;
 		}
@@ -580,16 +582,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   /* These are now unused.  */
   gcc_assert (keep <= 1);
 
-  if (mode == BLKmode)
-    align = BIGGEST_ALIGNMENT;
-  else
-    align = GET_MODE_ALIGNMENT (mode);
-
-  if (! type)
-    type = lang_hooks.types.type_for_mode (mode, 0);
-
-  if (type)
-    align = LOCAL_ALIGNMENT (type, align);
+  align = get_stack_local_alignment (type, mode);
 
   /* Try to find an available, already-allocated temporary of the proper
      mode which meets the size and alignment requirements.  Choose the
