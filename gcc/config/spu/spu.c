@@ -1,4 +1,4 @@
-/* Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -118,8 +118,8 @@ static unsigned char spu_pass_by_reference (CUMULATIVE_ARGS *cum, enum machine_m
 					    const_tree type, unsigned char named);
 static tree spu_build_builtin_va_list (void);
 static void spu_va_start (tree, rtx);
-static tree spu_gimplify_va_arg_expr (tree valist, tree type, tree * pre_p,
-				      tree * post_p);
+static tree spu_gimplify_va_arg_expr (tree valist, tree type,
+				      gimple_seq * pre_p, gimple_seq * post_p);
 static int regno_aligned_for_load (int regno);
 static int store_with_one_insn_p (rtx mem);
 static int reg_align (rtx reg);
@@ -3270,8 +3270,8 @@ spu_va_start (tree valist, rtx nextarg)
     ret = *(TYPE *)addr;
  */
 static tree
-spu_gimplify_va_arg_expr (tree valist, tree type, tree * pre_p,
-			  tree * post_p ATTRIBUTE_UNUSED)
+spu_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
+			  gimple_seq * post_p ATTRIBUTE_UNUSED)
 {
   tree f_args, f_skip;
   tree args, skip;

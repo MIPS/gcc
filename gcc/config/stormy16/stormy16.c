@@ -1366,8 +1366,8 @@ xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
    Note:  This algorithm is documented in stormy-abi.  */
    
 static tree
-xstormy16_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-				tree *post_p ATTRIBUTE_UNUSED)
+xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+				gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree f_base, f_count;
   tree base, count;

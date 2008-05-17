@@ -275,7 +275,7 @@ static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static tree ia64_handle_version_id_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
-static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
+static tree ia64_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 static bool ia64_cannot_force_const_mem (rtx);
@@ -4334,7 +4334,8 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 /* Implement va_arg.  */
 
 static tree
-ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+ia64_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+		      gimple_seq *post_p)
 {
   /* Variable sized types are passed by reference.  */
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))

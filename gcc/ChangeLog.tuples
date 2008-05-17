@@ -1,5 +1,13 @@
 2008-05-16  Andreas Tobler  <a.tobler@schweiz.org>
 
+	* config/alpha/alpha.c (alpha_gimplify_va_arg): Adjust arguments.
+	* config/ia64/ia64.c (ia64_gimplify_va_arg): Likewise.
+	* config/pa/pa.c (hppa_gimplify_va_arg_expr): Likewise.
+	* config/m32c/m32c-protos.h (m32c_gimplify_va_arg_expr): Likewise.
+	* config/spu/spu.c (spu_gimplify_va_arg_expr): Likewise.
+	* config/stormy16/stormy16.c (xstormy16_gimplify_va_arg_expr): Likewise.
+	* config/xtensa/xtensa.c (xtensa_gimplify_va_arg_expr): Likewise.
+
 	* config/sparc/sparc.c (sparc_gimplify_va_arg): Adjust arguments.
 
 2008-05-16  Diego Novillo  <dnovillo@google.com>

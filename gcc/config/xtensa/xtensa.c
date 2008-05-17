@@ -142,7 +142,8 @@ static section *xtensa_select_rtx_section (enum machine_mode, rtx,
 static bool xtensa_rtx_costs (rtx, int, int, int *);
 static tree xtensa_build_builtin_va_list (void);
 static bool xtensa_return_in_memory (const_tree, const_tree);
-static tree xtensa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static tree xtensa_gimplify_va_arg_expr (tree, tree, gimple_seq *,
+					 gimple_seq *);
 static void xtensa_init_builtins (void);
 static tree xtensa_fold_builtin (tree, tree, bool);
 static rtx xtensa_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -2561,8 +2562,8 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 /* Implement `va_arg'.  */
 
 static tree
-xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-			     tree *post_p ATTRIBUTE_UNUSED)
+xtensa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			     gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree f_stk, stk;
   tree f_reg, reg;
