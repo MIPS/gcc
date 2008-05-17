@@ -1,5 +1,32 @@
 2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/gmmintrin.h (_mm256_extract_ps): New.
+	(_mm256_extract_epi32): Likewise.
+	(_mm256_extract_epi16): Likewise.
+	(_mm256_extract_epi8): Likewise.
+	(_mm256_extract_epi64): Likewise.
+
+	* config/i386/i386.c (bdesc_args): Updated.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_vector_init_general): Properly expand V16HImode,
+	V32QImode, V8HImode and V16QImode.
+
+	* config/i386/sse.md (SSEMODE4F): New.
+	(SSEMODEIF4): Likewise.
+	(avxextractmode): Remove V16QI, V8HI and V2DI.
+	(avx_vextractf128<mode>): Removed.
+	(avx_vextractf128_<avxmodesuffixp>256): New.
+	(avx_vextractf128_pd256_0): Likewise.
+	(avx_vextractf128_pd256_1): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_1): Likewise.
+	(avx_vinsertf128_pd256_0): Set type attribute to sselog.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_1): Likewise.
+
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (ix86_expand_vector_init_general): Fix
 	compilation for merge.
 

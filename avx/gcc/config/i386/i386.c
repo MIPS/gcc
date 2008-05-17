@@ -19250,9 +19250,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv4sf3, "__builtin_ia32_cmpps", IX86_BUILTIN_CMPPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppdv4df3, "__builtin_ia32_cmppd256", IX86_BUILTIN_CMPPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv8sf3, "__builtin_ia32_cmpps256", IX86_BUILTIN_CMPPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v2df, "__builtin_ia32_vextractf128_pd256", IX86_BUILTIN_EXTRACTF128PD256, UNKNOWN, (int) V2DF_FTYPE_V4DF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v4sf, "__builtin_ia32_vextractf128_ps256", IX86_BUILTIN_EXTRACTF128PS256, UNKNOWN, (int) V4SF_FTYPE_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v4si, "__builtin_ia32_vextractf128_si256", IX86_BUILTIN_EXTRACTF128SI256, UNKNOWN, (int) V4SI_FTYPE_V8SI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_pd256, "__builtin_ia32_vextractf128_pd256", IX86_BUILTIN_EXTRACTF128PD256, UNKNOWN, (int) V2DF_FTYPE_V4DF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_ps256, "__builtin_ia32_vextractf128_ps256", IX86_BUILTIN_EXTRACTF128PS256, UNKNOWN, (int) V4SF_FTYPE_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_si256, "__builtin_ia32_vextractf128_si256", IX86_BUILTIN_EXTRACTF128SI256, UNKNOWN, (int) V4SI_FTYPE_V8SI_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2pd256, "__builtin_ia32_cvtdq2pd256", IX86_BUILTIN_CVTDQ2PD256, UNKNOWN, (int) V4DF_FTYPE_V4SI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2ps256, "__builtin_ia32_cvtdq2ps256", IX86_BUILTIN_CVTDQ2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtpd2ps256, "__builtin_ia32_cvtpd2ps256", IX86_BUILTIN_CVTPD2PS256, UNKNOWN, (int) V4SF_FTYPE_V4DF },
@@ -22108,9 +22108,9 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 		error ("the last argument must be a 2-bit immediate");
 		return const0_rtx;
 
-	      case CODE_FOR_avx_vextractf128v2df:
-	      case CODE_FOR_avx_vextractf128v4sf:
-	      case CODE_FOR_avx_vextractf128v4si:
+	      case CODE_FOR_avx_vextractf128_pd256:
+	      case CODE_FOR_avx_vextractf128_ps256:
+	      case CODE_FOR_avx_vextractf128_si256:
 	      case CODE_FOR_avx_vinsertf128_pd256:
 	      case CODE_FOR_avx_vinsertf128_ps256:
 	      case CODE_FOR_avx_vinsertf128_si256:
@@ -25216,12 +25216,10 @@ vec_concat2:
       ix86_expand_vector_init_concat (mode, target, ops, n);
       return;
 
-    case V16HImode:
-    case V32QImode:
     case V8HImode:
       if (TARGET_SSE2)
 	{
-	  for (i = 0; i < ARRAY_SIZE (ops); i++)
+	  for (i = 0; i < 4; i++)
 	    {
 	      /* Extend the odd elment from HImode to SImode using
 		 a paradoxical SUBREG.  */
@@ -25255,7 +25253,7 @@ vec_concat2:
 	    }
 
 	  /* Interleave low V4SIs.  */
-	  for (i = j = 0; i < ARRAY_SIZE (ops); i += 2, j++)
+	  for (i = j = 0; i < 4; i += 2, j++)
 	    {
 	      op0 = gen_reg_rtx (V4SImode);
 	      emit_insn (gen_vec_interleave_lowv4si (op0, ops[i],
@@ -25280,7 +25278,7 @@ vec_concat2:
     case V16QImode:
       if (TARGET_SSE4_1)
 	{
-	  for (i = 0; i < ARRAY_SIZE (ops); i++)
+	  for (i = 0; i < 8; i++)
 	    {
 	      /* Extend the odd elment from QImode to SImode using
 		 a paradoxical SUBREG.  */
@@ -25314,7 +25312,7 @@ vec_concat2:
 	    }
 
 	  /* Interleave low V8HIs.  */
-	  for (i = j = 0; i < ARRAY_SIZE (ops); i += 2, j++)
+	  for (i = j = 0; i < 8; i += 2, j++)
 	    {
 	      op0 = gen_reg_rtx (V8HImode);
 	      emit_insn (gen_vec_interleave_lowv8hi (op0, ops[i],
@@ -25327,7 +25325,7 @@ vec_concat2:
 	    }
 
 	  /* Interleave low V4SIs.  */
-	  for (i = j = 0; i < ARRAY_SIZE (ops) / 2; i += 2, j++)
+	  for (i = j = 0; i < 8 / 2; i += 2, j++)
 	    {
 	      op0 = gen_reg_rtx (V4SImode);
 	      emit_insn (gen_vec_interleave_lowv4si (op0, ops[i],
@@ -25349,6 +25347,8 @@ vec_concat2:
 	  return;
 	}
 
+    case V16HImode:
+    case V32QImode:
     case V4HImode:
     case V8QImode:
       break;

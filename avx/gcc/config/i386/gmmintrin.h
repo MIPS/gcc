@@ -495,6 +495,43 @@ _mm256_extractf128_si256 (__m256i __X, const int __N)
 {
   return (__m128i) __builtin_ia32_vextractf128_si256 ((__v8si)__X, __N);
 }
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_extract_ps (__m256 __X, const int __N)
+{
+  __m128 __Y = _mm256_extractf128_ps (__X, __N >> 2);
+  return _mm_extract_ps (__Y, __N % 4);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_extract_epi32 (__m256i const __X, int const __N)
+{
+  __m128i __Y = _mm256_extractf128_si256 (__X, __N >> 2);
+  return _mm_extract_epi32 (__Y, __N % 4);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_extract_epi16 (__m256i const __X, int const __N)
+{
+  __m128i __Y = _mm256_extractf128_si256 (__X, __N >> 3);
+  return _mm_extract_epi16 (__Y, __N % 8);
+}
+
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_extract_epi8 (__m256i const __X, int const __N)
+{
+  __m128i __Y = _mm256_extractf128_si256 (__X, __N >> 4);
+  return _mm_extract_epi8 (__Y, __N % 16);
+}
+
+#ifdef __x86_64__
+extern __inline long long  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm256_extract_epi64 (__m256i const __X, const int __N)
+{
+  __m128i __Y = _mm256_extractf128_si256 (__X, __N >> 1);
+  return _mm_extract_epi64 (__Y, __N % 2);
+}
+#endif
 #else
 #define _mm256_extractf128_pd(X, N)					\
   ((__m128d) __builtin_ia32_vextractf128_pd256 ((__v4df)(__m256d)(X),	\
@@ -507,6 +544,43 @@ _mm256_extractf128_si256 (__m256i __X, const int __N)
 #define _mm256_extractf128_si256(X, N)					\
   ((__m128i) __builtin_ia32_vextractf128_si256 ((__v8si)(__m256i)(X),	\
 						(int)(N)))
+
+#define _mm256_extract_ps(X, N)						\
+  (__extension__							\
+   ({									\
+      __m128 __Y = _mm256_extractf128_ps ((X), (N) >> 2);		\
+    _mm_extract_ps (__Y, (N) % 4);					\
+    }))
+
+#define _mm256_extract_epi32(X, N)					\
+  (__extension__							\
+   ({									\
+      __m128i __Y = _mm256_extractf128_si256 ((X), (N) >> 2);		\
+    _mm_extract_epi32 (__Y, (N) % 4);					\
+    }))
+
+#define _mm256_extract_epi16(X, N)					\
+  (__extension__							\
+   ({									\
+      __m128i __Y = _mm256_extractf128_si256 ((X), (N) >> 3);		\
+    _mm_extract_epi16 (__Y, (N) % 8);					\
+    }))
+
+#define _mm256_extract_epi8(X, N)					\
+  (__extension__							\
+   ({									\
+      __m128i __Y = _mm256_extractf128_si256 ((X), (N) >> 4);		\
+    _mm_extract_epi8 (__Y, (N) % 16);					\
+    }))
+
+#ifdef __x86_64__
+#define _mm256_extract_epi64(X, N)					\
+  (__extension__							\
+   ({									\
+      __m128i __Y = _mm256_extractf128_si256 ((X), (N) >> 1);		\
+    _mm_extract_epi64 (__Y, (N) % 2);					\
+    }))
+#endif
 #endif
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
