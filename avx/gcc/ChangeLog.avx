@@ -1,5 +1,17 @@
 2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/gmmintrin.h (_mm256_extract_ps): Removed.
+	(_mm256_extract_epi32): Remove const.
+	(_mm256_extract_epi16): Likewise.
+	(_mm256_extract_epi8): Likewise.
+	(_mm256_extract_epi64): Likewise.
+	(_mm256_insert_epi32): New.
+	(_mm256_insert_epi16): Likewise. 
+	(_mm256_insert_epi8): Likewise. 
+	(_mm256_insert_epi64): Likewise. 
+
+2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/gmmintrin.h (_mm256_extract_ps): New.
 	(_mm256_extract_epi32): Likewise.
 	(_mm256_extract_epi16): Likewise.
