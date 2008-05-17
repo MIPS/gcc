@@ -2015,21 +2015,6 @@ override_options (bool main_args_p)
   const char *suffix;
   const char *sw;
 
-  /* Set up prefix/suffix so the error messages refer to either the command
-     line argument, or the attribute(option).  */
-  if (main_args_p)
-    {
-      prefix = "-";
-      suffix = "";
-      sw = "switch";
-    }
-  else
-    {
-      prefix = "option(\"";
-      suffix = "\")";
-      sw = "attribute";
-    }
-
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
 
@@ -2202,6 +2187,21 @@ override_options (bool main_args_p)
     };
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
+
+  /* Set up prefix/suffix so the error messages refer to either the command
+     line argument, or the attribute(option).  */
+  if (main_args_p)
+    {
+      prefix = "-";
+      suffix = "";
+      sw = "switch";
+    }
+  else
+    {
+      prefix = "option(\"";
+      suffix = "\")";
+      sw = "attribute";
+    }
 
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);

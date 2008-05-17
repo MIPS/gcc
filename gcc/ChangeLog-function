@@ -1,5 +1,8 @@
 2008-05-17  Michael Meissner  <michael.meissner@amd.com>
 
+	* config/i386/i386.c (override_options): Move code around to be
+	C90 compliant.
+
 	* target.h (struct target_specific): Change can_inline_p to take
 	only one argument.
 
