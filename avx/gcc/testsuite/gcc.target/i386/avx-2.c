@@ -68,6 +68,12 @@ test_2 (_mm256_cmp_ps, __m256, __m256, __m256, 1)
 test_1 (_mm256_extractf128_pd, __m128d, __m256d, 1)
 test_1 (_mm256_extractf128_ps, __m128, __m256, 1)
 test_1 (_mm256_extractf128_si256, __m128i, __m256i, 1)
+test_1 (_mm256_extract_epi8, int, __m256i, 20)
+test_1 (_mm256_extract_epi16, int, __m256i, 13)
+test_1 (_mm256_extract_epi32, int, __m256i, 6)
+#ifdef __x86_64__
+test_1 (_mm256_extract_epi64, long long, __m256i, 2)
+#endif
 test_1 (_mm_permute_pd, __m128d, __m128d, 1)
 test_1 (_mm256_permute_pd, __m256d, __m256d, 1)
 test_1 (_mm_permute_ps, __m128, __m128, 1)
@@ -82,6 +88,12 @@ test_2 (_mm256_permute2f128_si256, __m256i, __m256i, __m256i, 1)
 test_2 (_mm256_insertf128_pd, __m256d, __m256d, __m128d, 1)
 test_2 (_mm256_insertf128_ps, __m256, __m256, __m128, 1)
 test_2 (_mm256_insertf128_si256, __m256i, __m256i, __m128i, 1)
+test_2 (_mm256_insert_epi8, __m256i, __m256i, int, 30)
+test_2 (_mm256_insert_epi16, __m256i, __m256i, int, 7)
+test_2 (_mm256_insert_epi32, __m256i, __m256i, int, 3)
+#ifdef __x86_64__
+test_2 (_mm256_insert_epi64, __m256i, __m256i, long long, 1)
+#endif
 test_1 (_mm256_round_pd, __m256d, __m256d, 1)
 test_1 (_mm256_round_ps, __m256, __m256, 1)
 
