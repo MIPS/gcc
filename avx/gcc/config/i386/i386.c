@@ -25178,8 +25178,9 @@ static void
 ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 				 rtx target, rtx vals)
 {
-  rtx ops[8];
+  rtx ops[8], op0, op1;
   int n = 2;
+  unsigned int i, j;
 
   switch (mode)
     {
@@ -25220,9 +25221,6 @@ vec_concat2:
     case V8HImode:
       if (TARGET_SSE2)
 	{
-	  rtx ops[4];
-	  unsigned int i, j;
-
 	  for (i = 0; i < ARRAY_SIZE (ops); i++)
 	    {
 	      /* Extend the odd elment from HImode to SImode using
@@ -25282,9 +25280,6 @@ vec_concat2:
     case V16QImode:
       if (TARGET_SSE4_1)
 	{
-	  rtx ops[8];
-	  unsigned int i, j;
-
 	  for (i = 0; i < ARRAY_SIZE (ops); i++)
 	    {
 	      /* Extend the odd elment from QImode to SImode using
