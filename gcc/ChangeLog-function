@@ -1,5 +1,16 @@
 2008-05-17  Michael Meissner  <michael.meissner@amd.com>
 
+	* ammintrin.h: Undo 2008-04-21 changes adding machine specific
+	option attributes, since this now prevents inlining.
+	* bmmintrin.h: Ditto.
+	* emmintrin.h: Ditto.
+	* mmintrin-common.h: Ditto.
+	* mmintrin.h: Ditto.
+	* smmintrin.h: Ditto.
+	* tmmintrin.h: Ditto.
+	* xmmintrin.h: Ditto.
+	* mm3dnow.h: Ditto.
+
 	* config/i386/i386.c (override_options): Move code around to be
 	C90 compliant.
 

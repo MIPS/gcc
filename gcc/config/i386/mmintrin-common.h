@@ -34,24 +34,6 @@
 # error "SSE5 or SSE4.1 instruction set not enabled"
 #else
 
-#ifndef __ATTR_SSE41__
-#define __ATTR_SSE41__ ,option("msse4.1")
-#endif /* __ATTR_SSE41__ */
-
-#ifndef __ATTR_SSE5__
-#define __ATTR_SSE5__ ,option("msse5")
-#endif /* __ATTR_SSE5__ */
-
-#if !defined(__SSE5__)
-#define __REQ_ATTR__ __ATTR_SSE41__
-#else
-#if !defined(__SSE4_1__)
-#define __REQ_ATTR__ __ATTR_SSE5__
-#else
-#define __REQ_ATTR__ __ATTR_SSE41__ __ATTR_SSE5__
-#endif /* __SSE_4_1__ */
-#endif /* __SSE5__ */
-
 /* Rounding mode macros. */
 #define _MM_FROUND_TO_NEAREST_INT	0x00
 #define _MM_FROUND_TO_NEG_INF		0x01
@@ -75,12 +57,10 @@
 #define _MM_FROUND_NEARBYINT	\
   (_MM_FROUND_CUR_DIRECTION | _MM_FROUND_NO_EXC)
 
-
-
 /* Test Instruction */
 /* Packed integer 128-bit bitwise comparison. Return 1 if
    (__V & __M) == 0.  */
-static __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_testz_si128 (__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestz128 ((__v2di)__M, (__v2di)__V);
@@ -88,7 +68,7 @@ _mm_testz_si128 (__m128i __M, __m128i __V)
 
 /* Packed integer 128-bit bitwise comparison. Return 1 if
    (__V & ~__M) == 0.  */
-static __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_testc_si128 (__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestc128 ((__v2di)__M, (__v2di)__V);
@@ -96,7 +76,7 @@ _mm_testc_si128 (__m128i __M, __m128i __V)
 
 /* Packed integer 128-bit bitwise comparison. Return 1 if
    (__V & __M) != 0 && (__V & ~__M) != 0.  */
-static __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_testnzc_si128 (__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestnzc128 ((__v2di)__M, (__v2di)__V);
@@ -113,13 +93,13 @@ _mm_testnzc_si128 (__m128i __M, __m128i __V)
 /* Packed/scalar double precision floating point rounding.  */
 
 #ifdef __OPTIMIZE__
-static __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_round_pd (__m128d __V, const int __M)
 {
   return (__m128d) __builtin_ia32_roundpd ((__v2df)__V, __M);
 }
 
-static __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline __m128d __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_round_sd(__m128d __D, __m128d __V, const int __M)
 {
   return (__m128d) __builtin_ia32_roundsd ((__v2df)__D,
@@ -138,13 +118,13 @@ _mm_round_sd(__m128d __D, __m128d __V, const int __M)
 /* Packed/scalar single precision floating point rounding.  */
 
 #ifdef __OPTIMIZE__
-static __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_round_ps (__m128 __V, const int __M)
 {
   return (__m128) __builtin_ia32_roundps ((__v4sf)__V, __M);
 }
 
-static __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__ __REQ_ATTR__))
+extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_round_ss (__m128 __D, __m128 __V, const int __M)
 {
   return (__m128) __builtin_ia32_roundss ((__v4sf)__D,
