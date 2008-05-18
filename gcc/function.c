@@ -350,10 +350,14 @@ get_stack_local_alignment (tree type, enum machine_mode mode)
    -2 means use BITS_PER_UNIT,
    positive specifies alignment boundary in bits.
 
+   If REDUCE_ALIGNMENT_OK is true, it is OK to reduce alignment.
+
    We do not round to stack_boundary here.  */
 
 rtx
-assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
+assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
+		      int align,
+		      bool reduce_alignment_ok ATTRIBUTE_UNUSED)
 {
   rtx x, addr;
   int bigend_correction = 0;
@@ -394,7 +398,8 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
 		  /* It is OK to reduce the alignment as long as the
 		     requested size is 0 or the estimated stack
 		     alignment >= mode alignment.  */
-		  gcc_assert (size == 0
+		  gcc_assert (reduce_alignment_ok
+		              || size == 0
 			      || (crtl->stack_alignment_estimated
 				  >= GET_MODE_ALIGNMENT (mode)));
 		  alignment_in_bits = crtl->stack_alignment_estimated;
@@ -479,6 +484,14 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
     frame_offset = 0;
 
   return x;
+}
+
+/* Wrap up assign_stack_local_1 with last parameter as false.  */
+
+rtx
+assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
+{
+  return assign_stack_local_1 (mode, size, align, false);
 }
 
 /* Removes temporary slot TEMP from LIST.  */

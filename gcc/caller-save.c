@@ -358,8 +358,9 @@ setup_save_areas (void)
 
 	/* We have found an acceptable mode to store in.  */
 	regno_save_mem[i][j]
-	  = assign_stack_local (regno_save_mode[i][j],
-				GET_MODE_SIZE (regno_save_mode[i][j]), 0);
+	  = assign_stack_local_1 (regno_save_mode[i][j],
+				GET_MODE_SIZE (regno_save_mode[i][j]),
+				0, true);
 
 	/* Setup single word save area just in case...  */
 	for (k = 0; k < j; k++)
