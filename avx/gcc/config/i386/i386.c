@@ -25334,6 +25334,7 @@ vec_concat:
     case V16HImode:
       half_mode = V8HImode;
       n = 16;
+      goto half;
 
 half:
       for (i = 0; i < n; i++)

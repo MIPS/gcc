@@ -1,3 +1,8 @@
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Add
+	goto half for consistency.
+
 2008-05-18  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_expand_vector_init_interleave): New.
