@@ -1,3 +1,9 @@
+2008-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_interleave): New.
+	(ix86_expand_vector_init_general): Use it.  Assert word_mode
+	== SImode when n_words == 4.
+
 2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/gmmintrin.h (_mm256_extract_ps): Removed.
