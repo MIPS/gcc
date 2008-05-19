@@ -505,10 +505,6 @@ finish_calls (void)
 /* Pools for allocnos and allocno live ranges.  */
 static alloc_pool allocno_pool, allocno_live_range_pool;
 
-/* Definition of vector of allocnos.  */
-DEF_VEC_P(allocno_t);
-DEF_VEC_ALLOC_P(allocno_t, heap);
-
 /* Vec containing references to all created allocnos.  It is a
    container of array allocnos.  */
 static VEC(allocno_t,heap) *allocno_vec;
@@ -581,6 +577,7 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_IN_GRAPH_P (a) = FALSE;
   ALLOCNO_ASSIGNED_P (a) = FALSE;
   ALLOCNO_MAY_BE_SPILLED_P (a) = FALSE;
+  ALLOCNO_SPLAY_REMOVED_P (a) = FALSE;
   ALLOCNO_CONFLICT_VEC_P (a) = FALSE;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
   ALLOCNO_COPIES (a) = NULL;
@@ -1113,10 +1110,6 @@ finish_allocnos (void)
 
 /* Pools for copies.  */
 static alloc_pool copy_pool;
-
-/* Definition of vector of copies.  */
-DEF_VEC_P(copy_t);
-DEF_VEC_ALLOC_P(copy_t, heap);
 
 /* Vec containing references to all created copies.  It is a
    container of array copies.  */

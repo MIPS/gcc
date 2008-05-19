@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "params.h"
 #include "df.h"
+#include "splay-tree.h"
 #include "ira-int.h"
 
 /* This file contains code for regional graph coloring, spill/restore
@@ -62,6 +63,9 @@ static void remove_allocno_from_bucket_and_push (allocno_t, int);
 static void push_only_colorable (void);
 static void push_allocno_to_spill (allocno_t);
 static int calculate_allocno_spill_cost (allocno_t);
+static int allocno_spill_priority_compare (splay_tree_key, splay_tree_key);
+static void *splay_tree_allocate (int, void *);
+static void splay_tree_free (void *, void *);
 static void push_allocnos_to_stack (void);
 static void pop_allocnos_from_stack (void);
 static void setup_allocno_available_regs_num (allocno_t);
@@ -116,15 +120,22 @@ static bitmap processed_coalesced_allocno_bitmap;
 /* All allocnos sorted according their priorities.  */
 static allocno_t *sorted_allocnos;
 
-/* Array used to sort allocnos to choose an allocno for spilling.  */
-static allocno_t *sorted_allocnos_for_spilling;
-
-/* Definition of vector of allocnos.  */
-DEF_VEC_P(allocno_t);
-DEF_VEC_ALLOC_P(allocno_t, heap);
-
 /* Vec representing the stack of allocnos used during coloring.  */
 static VEC(allocno_t,heap) *allocno_stack_vec;
+
+/* Array used to choose an allocno for spilling.  */
+static allocno_t *allocnos_for_spilling;
+
+/* Pool for splay tree nodes.  */
+static alloc_pool splay_tree_node_pool;
+
+/* When an allocno is removed from the splay tree, it is put in the
+   following vector for subsequent inserting it into the splay tree
+   after putting all colorable allocnos onto the stack.  The allocno
+   could be removed from and inserted to the splay tree every time
+   when its spilling priority is changed but such solution would be
+   more costly although simpler.  */
+static VEC(allocno_t,heap) *removed_splay_allocno_vec;
 
 
 
@@ -518,13 +529,24 @@ static allocno_t colorable_allocno_bucket;
    spilling.  */
 static allocno_t uncolorable_allocno_bucket;
 
+/* Each element of the array contains the current number of allocnos
+   of given *cover* class in the uncolorable_bucket.  */
+static int uncolorable_allocnos_num[N_REG_CLASSES];
+
 /* Add ALLOCNO to bucket *BUCKET_PTR.  ALLOCNO should be not in a bucket
    before the call.  */
 static void
 add_allocno_to_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 {
   allocno_t first_allocno;
+  enum reg_class cover_class;
 
+  if (bucket_ptr == &uncolorable_allocno_bucket
+      && (cover_class = ALLOCNO_COVER_CLASS (allocno)) != NO_REGS)
+    {
+      uncolorable_allocnos_num[cover_class]++;
+      ira_assert (uncolorable_allocnos_num[cover_class] > 0);
+    }
   first_allocno = *bucket_ptr;
   ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno) = first_allocno;
   ALLOCNO_PREV_BUCKET_ALLOCNO (allocno) = NULL;
@@ -610,7 +632,14 @@ static void
 add_allocno_to_ordered_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 {
   allocno_t before, after;
+  enum reg_class cover_class;
 
+  if (bucket_ptr == &uncolorable_allocno_bucket
+      && (cover_class = ALLOCNO_COVER_CLASS (allocno)) != NO_REGS)
+    {
+      uncolorable_allocnos_num[cover_class]++;
+      ira_assert (uncolorable_allocnos_num[cover_class] > 0);
+    }
   for (before = *bucket_ptr, after = NULL;
        before != NULL;
        after = before, before = ALLOCNO_NEXT_BUCKET_ALLOCNO (before))
@@ -632,7 +661,14 @@ static void
 delete_allocno_from_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 {
   allocno_t prev_allocno, next_allocno;
+  enum reg_class cover_class;
 
+  if (bucket_ptr == &uncolorable_allocno_bucket
+      && (cover_class = ALLOCNO_COVER_CLASS (allocno)) != NO_REGS)
+    {
+      uncolorable_allocnos_num[cover_class]--;
+      ira_assert (uncolorable_allocnos_num[cover_class] >= 0);
+    }
   prev_allocno = ALLOCNO_PREV_BUCKET_ALLOCNO (allocno);
   next_allocno = ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno);
   if (prev_allocno != NULL)
@@ -645,6 +681,21 @@ delete_allocno_from_bucket (allocno_t allocno, allocno_t *bucket_ptr)
   if (next_allocno != NULL)
     ALLOCNO_PREV_BUCKET_ALLOCNO (next_allocno) = prev_allocno;
 }
+
+/* Splay tree for each cover class.  The trees are indexed by the
+   corresponding cover classes.  Splay trees contain uncolorable
+   allocnos.  */
+static splay_tree uncolorable_allocnos_splay_tree[N_REG_CLASSES];
+
+/* If the following macro is TRUE, splay tree is used to choose an
+   allocno of the corresponding cover class for spilling.  When the
+   number uncolorable allocnos of given cover class decreases to some
+   threshold, linear array search is used to find the best allocno for
+   spilling.  This threshold is actually pretty big because, although
+   splay trees asymptotically is much faster, each splay tree
+   operation is sufficiently costly especially taking cache locality
+   into account.  */
+#define USE_SPLAY_P(CLASS) (uncolorable_allocnos_num[CLASS] > 4000)
 
 /* The function puts ALLOCNO onto the coloring stack without removing
    it from its bucket.  Pushing allocno to the coloring stack can
@@ -691,16 +742,35 @@ push_allocno_to_stack (allocno_t allocno)
 		     [cover_class][ALLOCNO_MODE (conflict_allocno)]);
 		ira_assert
 		  (ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) >= size);
-		ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) -= size;
-		if (conflicts_num + conflict_size
-		    <= ALLOCNO_AVAILABLE_REGS_NUM (conflict_allocno))
-		  continue;
-		conflicts_num = ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno);
 		if (conflicts_num + conflict_size
 		    <= ALLOCNO_AVAILABLE_REGS_NUM (conflict_allocno))
 		  {
-		    delete_allocno_from_bucket
-		      (conflict_allocno, &uncolorable_allocno_bucket);
+		    ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) -= size;
+		    continue;
+		  }
+		conflicts_num
+		  = ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) - size;
+		if (uncolorable_allocnos_splay_tree[cover_class] != NULL
+		    && !ALLOCNO_SPLAY_REMOVED_P (conflict_allocno)
+		    && USE_SPLAY_P (cover_class))
+		  {
+		    ira_assert
+		      (splay_tree_lookup
+		       (uncolorable_allocnos_splay_tree[cover_class],
+			(splay_tree_key) conflict_allocno) != NULL);
+		    splay_tree_remove
+		      (uncolorable_allocnos_splay_tree[cover_class],
+		       (splay_tree_key) conflict_allocno);
+		    ALLOCNO_SPLAY_REMOVED_P (conflict_allocno) = TRUE;
+		    VEC_safe_push (allocno_t, heap, removed_splay_allocno_vec,
+				   conflict_allocno);
+		  }
+		ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) = conflicts_num;
+		if (conflicts_num + conflict_size
+		    <= ALLOCNO_AVAILABLE_REGS_NUM (conflict_allocno))
+		  {
+		    delete_allocno_from_bucket (conflict_allocno,
+						&uncolorable_allocno_bucket);
 		    add_allocno_to_ordered_bucket (conflict_allocno,
 						   &colorable_allocno_bucket);
 		  }
@@ -718,11 +788,11 @@ static void
 remove_allocno_from_bucket_and_push (allocno_t allocno, int colorable_p)
 {
   enum reg_class cover_class;
-  allocno_t *bucket_ptr;
 
-  bucket_ptr = (colorable_p
-		? &colorable_allocno_bucket : &uncolorable_allocno_bucket);
-  delete_allocno_from_bucket (allocno, bucket_ptr);
+  if (colorable_p)
+    delete_allocno_from_bucket (allocno, &colorable_allocno_bucket);
+  else
+    delete_allocno_from_bucket (allocno, &uncolorable_allocno_bucket);
   if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
     {
       fprintf (ira_dump_file, "      Pushing");
@@ -840,19 +910,73 @@ calculate_allocno_spill_cost (allocno_t a)
   return cost;
 }
 
+/* The function is used to compare keys in the splay tree used to
+   choose best allocno for spilling.  The best allocno has the minimal
+   key.  */
+static int
+allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
+{
+  int pri1, pri2, diff;
+  allocno_t a1 = (allocno_t) k1, a2 = (allocno_t) k2;
+  
+  pri1 = (ALLOCNO_TEMP (a1)
+	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a1)
+	     * reg_class_nregs[ALLOCNO_COVER_CLASS (a1)][ALLOCNO_MODE (a1)]
+	     + 1));
+  pri2 = (ALLOCNO_TEMP (a2)
+	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a2)
+	     * reg_class_nregs[ALLOCNO_COVER_CLASS (a2)][ALLOCNO_MODE (a2)]
+	     + 1));
+  if ((diff = pri1 - pri2) != 0)
+    return diff;
+  if ((diff = ALLOCNO_TEMP (a1) - ALLOCNO_TEMP (a2)) != 0)
+    return diff;
+  return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
+}
+
+/* The function is used to allocate data of SIZE for the splay trees.
+   We allocate only spay tree roots or splay tree nodes.  If you
+   change this, please rewrite the function.  */
+static void *
+splay_tree_allocate (int size, void *data ATTRIBUTE_UNUSED)
+{
+  if (size != sizeof (struct splay_tree_node_s))
+    return ira_allocate (size);
+  return pool_alloc (splay_tree_node_pool);
+}
+
+/* The function is used to free data NODE for the splay trees.  We
+   allocate and free only spay tree roots or splay tree nodes.  If you
+   change this, please rewrite the function.  */
+static void
+splay_tree_free (void *node, void *data ATTRIBUTE_UNUSED)
+{
+  int i;
+  enum reg_class cover_class;
+
+  for (i = 0; i < reg_class_cover_size; i++)
+    {
+      cover_class = reg_class_cover[i];
+      if (node == uncolorable_allocnos_splay_tree[cover_class])
+	{
+	  ira_free (node);
+	  return;
+	}
+    }
+  pool_free (splay_tree_node_pool, node);
+}
+
 /* Push allocnos to the coloring stack.  The order of allocnos in the
    stack defines the order for the subsequent coloring.  */
 static void
 push_allocnos_to_stack (void)
 {
-  int i, j;
-  int allocno_pri, i_allocno_pri;
-  int allocno_cost, i_allocno_cost;
-  allocno_t allocno, i_allocno;
-  allocno_t *allocno_vec;
-  enum reg_class cover_class;
-  int num, cover_class_allocnos_num[N_REG_CLASSES];
+  allocno_t allocno, a, i_allocno, *allocno_vec;
+  enum reg_class cover_class, class;
+  int allocno_pri, i_allocno_pri, allocno_cost, i_allocno_cost;
+  int i, j, num, cover_class_allocnos_num[N_REG_CLASSES];
   allocno_t *cover_class_allocnos[N_REG_CLASSES];
+  int cost;
 
   /* Initialize.  */
   for (i = 0; i < reg_class_cover_size; i++)
@@ -860,37 +984,60 @@ push_allocnos_to_stack (void)
       cover_class = reg_class_cover[i];
       cover_class_allocnos_num[cover_class] = 0;
       cover_class_allocnos[cover_class] = NULL;
+      uncolorable_allocnos_splay_tree[cover_class] = NULL;
     }
-  /* Calculate uncolorable allocnos of each cover class.  */
+  /* Calculate uncolorable allocno spill costs.  */
   for (allocno = uncolorable_allocno_bucket;
        allocno != NULL;
        allocno = ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno))
     if ((cover_class = ALLOCNO_COVER_CLASS (allocno)) != NO_REGS)
       {
 	cover_class_allocnos_num[cover_class]++;
-	ALLOCNO_TEMP (allocno) = INT_MAX;
+	cost = 0;
+	for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
+	     a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+	  {
+	    cost += calculate_allocno_spill_cost (a);
+	    if (a == allocno)
+	      break;
+	  }
+	/* ??? Remove cost of copies between the coalesced
+	   allocnos.  */
+	ALLOCNO_TEMP (allocno) = cost;
       }
   /* Define place where to put uncolorable allocnos of the same cover
      class.  */
   for (num = i = 0; i < reg_class_cover_size; i++)
     {
       cover_class = reg_class_cover[i];
+      ira_assert (cover_class_allocnos_num[cover_class]
+		  == uncolorable_allocnos_num[cover_class]);
       if (cover_class_allocnos_num[cover_class] != 0)
-	{
-	  cover_class_allocnos[cover_class]
-	    = sorted_allocnos_for_spilling + num;
+ 	{
+	  cover_class_allocnos[cover_class] = allocnos_for_spilling + num;
 	  num += cover_class_allocnos_num[cover_class];
 	  cover_class_allocnos_num[cover_class] = 0;
 	}
+      if (USE_SPLAY_P (cover_class))
+	uncolorable_allocnos_splay_tree[cover_class]
+	  = splay_tree_new_with_allocator (allocno_spill_priority_compare,
+					   NULL, NULL, splay_tree_allocate,
+					   splay_tree_free, NULL);
     }
   ira_assert (num <= allocnos_num);
-  /* Put uncolorable allocnos of the same cover class together.  */
+  /* Collect uncolorable allocnos of each cover class.  */
   for (allocno = uncolorable_allocno_bucket;
        allocno != NULL;
        allocno = ALLOCNO_NEXT_BUCKET_ALLOCNO (allocno))
     if ((cover_class = ALLOCNO_COVER_CLASS (allocno)) != NO_REGS)
-      cover_class_allocnos
-	[cover_class][cover_class_allocnos_num[cover_class]++] = allocno;
+      {
+	cover_class_allocnos
+	  [cover_class][cover_class_allocnos_num[cover_class]++] = allocno;
+	if (uncolorable_allocnos_splay_tree[cover_class] != NULL)
+	  splay_tree_insert (uncolorable_allocnos_splay_tree[cover_class],
+			     (splay_tree_key) allocno,
+			     (splay_tree_value) allocno);
+      }
   for (;;)
     {
       push_only_colorable ();
@@ -905,71 +1052,103 @@ push_allocnos_to_stack (void)
 	}
       /* Potential spilling.  */
       ira_assert (reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)] > 0);
-      num = cover_class_allocnos_num[cover_class];
-      ira_assert (num > 0);
-      allocno_vec = cover_class_allocnos[cover_class];
-      allocno = NULL;
-      allocno_pri = allocno_cost = 0;
-      /* Sort uncolorable allocno to find the one with the lowest spill
-	 cost.  */
-      for (i = 0, j = num - 1; i <= j;)
+      if (USE_SPLAY_P (cover_class))
 	{
-	  i_allocno = allocno_vec[i];
-	  if (! ALLOCNO_IN_GRAPH_P (i_allocno)
-	      && ALLOCNO_IN_GRAPH_P (allocno_vec[j]))
+	  for (;VEC_length (allocno_t, removed_splay_allocno_vec) != 0;)
 	    {
-	      i_allocno = allocno_vec[j];
-	      allocno_vec[j] = allocno_vec[i];
-	      allocno_vec[i] = i_allocno;
+	      allocno = VEC_pop (allocno_t, removed_splay_allocno_vec);
+	      ALLOCNO_SPLAY_REMOVED_P (allocno) = FALSE;
+	      class = ALLOCNO_COVER_CLASS (allocno);
+	      if (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
+		  + reg_class_nregs [class][ALLOCNO_MODE (allocno)]
+		  > ALLOCNO_AVAILABLE_REGS_NUM (allocno))
+		splay_tree_insert
+		  (uncolorable_allocnos_splay_tree[class],
+		   (splay_tree_key) allocno, (splay_tree_value) allocno);
 	    }
-	  if (ALLOCNO_IN_GRAPH_P (i_allocno))
-	    {
-	      i++;
-	      if (ALLOCNO_TEMP (i_allocno) == INT_MAX)
-		{
-		  allocno_t a;
-		  int cost = 0;
-
-		  for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (i_allocno);;
-		       a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
-		    {
-		      cost += calculate_allocno_spill_cost (i_allocno);
-		      if (a == i_allocno)
-			break;
-		    }
-		  /* ??? Remove cost of copies between the coalesced
-		     allocnos.  */
-		  ALLOCNO_TEMP (i_allocno) = cost;
-		}
-	      i_allocno_cost = ALLOCNO_TEMP (i_allocno);
-	      i_allocno_pri
-		= (i_allocno_cost
-		   / (ALLOCNO_LEFT_CONFLICTS_NUM (i_allocno)
-		      * reg_class_nregs[ALLOCNO_COVER_CLASS (i_allocno)]
-		                       [ALLOCNO_MODE (i_allocno)] + 1));
-	      if (allocno == NULL || allocno_pri > i_allocno_pri
-		  || (allocno_pri == i_allocno_pri
-		      && (allocno_cost > i_allocno_cost
-			  || (allocno_cost == i_allocno_cost 
-			      && (ALLOCNO_NUM (allocno)
-				  > ALLOCNO_NUM (i_allocno))))))
-		{
-		  allocno = i_allocno;
-		  allocno_cost = i_allocno_cost;
-		  allocno_pri = i_allocno_pri;
-		}
-	    }
-	  if (! ALLOCNO_IN_GRAPH_P (allocno_vec[j]))
-	    j--;
+	  allocno = ((allocno_t)
+		     splay_tree_min
+		     (uncolorable_allocnos_splay_tree[cover_class])->key);
+	  splay_tree_remove (uncolorable_allocnos_splay_tree[cover_class],
+			     (splay_tree_key) allocno);
 	}
-      ira_assert (allocno != NULL && j >= 0);
-      cover_class_allocnos_num[cover_class] = j + 1;
+      else
+	{
+	  num = cover_class_allocnos_num[cover_class];
+	  ira_assert (num > 0);
+	  allocno_vec = cover_class_allocnos[cover_class];
+	  allocno = NULL;
+	  allocno_pri = allocno_cost = 0;
+	  /* Sort uncolorable allocno to find the one with the lowest
+	     spill cost.  */
+	  for (i = 0, j = num - 1; i <= j;)
+	    {
+	      i_allocno = allocno_vec[i];
+	      if (! ALLOCNO_IN_GRAPH_P (i_allocno)
+		  && ALLOCNO_IN_GRAPH_P (allocno_vec[j]))
+		{
+		  i_allocno = allocno_vec[j];
+		  allocno_vec[j] = allocno_vec[i];
+		  allocno_vec[i] = i_allocno;
+		}
+	      if (ALLOCNO_IN_GRAPH_P (i_allocno))
+		{
+		  i++;
+		  if (ALLOCNO_TEMP (i_allocno) == INT_MAX)
+		    {
+		      allocno_t a;
+		      int cost = 0;
+		      
+		      for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (i_allocno);;
+			   a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
+			{
+			  cost += calculate_allocno_spill_cost (i_allocno);
+			  if (a == i_allocno)
+			    break;
+			}
+		      /* ??? Remove cost of copies between the coalesced
+			 allocnos.  */
+		      ALLOCNO_TEMP (i_allocno) = cost;
+		    }
+		  i_allocno_cost = ALLOCNO_TEMP (i_allocno);
+		  i_allocno_pri
+		    = (i_allocno_cost
+		       / (ALLOCNO_LEFT_CONFLICTS_NUM (i_allocno)
+			  * reg_class_nregs[ALLOCNO_COVER_CLASS (i_allocno)]
+			  [ALLOCNO_MODE (i_allocno)] + 1));
+		  if (allocno == NULL || allocno_pri > i_allocno_pri
+		      || (allocno_pri == i_allocno_pri
+			  && (allocno_cost > i_allocno_cost
+			      || (allocno_cost == i_allocno_cost 
+				  && (ALLOCNO_NUM (allocno)
+				      > ALLOCNO_NUM (i_allocno))))))
+		    {
+		      allocno = i_allocno;
+		      allocno_cost = i_allocno_cost;
+		      allocno_pri = i_allocno_pri;
+		    }
+		}
+	      if (! ALLOCNO_IN_GRAPH_P (allocno_vec[j]))
+		j--;
+	    }
+	  ira_assert (allocno != NULL && j >= 0);
+	  cover_class_allocnos_num[cover_class] = j + 1;
+	}
       ira_assert (ALLOCNO_IN_GRAPH_P (allocno)
 		  && ALLOCNO_COVER_CLASS (allocno) == cover_class
 		  && (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
 		      + reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
 		      > ALLOCNO_AVAILABLE_REGS_NUM (allocno)));
       remove_allocno_from_bucket_and_push (allocno, FALSE);
+    }
+  ira_assert (colorable_allocno_bucket == NULL
+	      && uncolorable_allocno_bucket == NULL);
+  for (i = 0; i < reg_class_cover_size; i++)
+    {
+      cover_class = reg_class_cover[i];
+      ira_assert (uncolorable_allocnos_num[cover_class] == 0);
+      if (uncolorable_allocnos_splay_tree[cover_class] != NULL)
+	splay_tree_delete (uncolorable_allocnos_splay_tree[cover_class]);
     }
 }
 
@@ -1608,7 +1787,10 @@ static void
 do_coloring (void)
 {
   coloring_allocno_bitmap = ira_allocate_bitmap ();
-
+  allocnos_for_spilling = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  splay_tree_node_pool = create_alloc_pool ("splay tree nodes",
+					    sizeof (struct splay_tree_node_s),
+					    100);
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "\n**** Allocnos coloring:\n\n");
   
@@ -1617,7 +1799,9 @@ do_coloring (void)
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     print_disposition (ira_dump_file);
 
+  free_alloc_pool (splay_tree_node_pool);
   ira_free_bitmap (coloring_allocno_bitmap);
+  ira_free (allocnos_for_spilling);
 }
 
 
@@ -2705,8 +2889,6 @@ void
 initiate_ira_assign (void)
 {
   sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
-  sorted_allocnos_for_spilling
-    = ira_allocate (sizeof (allocno_t) * allocnos_num);
   consideration_allocno_bitmap = ira_allocate_bitmap ();
   initiate_cost_update ();
   allocno_priorities = ira_allocate (sizeof (int) * allocnos_num);
@@ -2716,7 +2898,6 @@ initiate_ira_assign (void)
 void
 finish_ira_assign (void)
 {
-  ira_free (sorted_allocnos_for_spilling);
   ira_free (sorted_allocnos);
   ira_free_bitmap (consideration_allocno_bitmap);
   finish_cost_update ();
@@ -2730,10 +2911,12 @@ void
 ira_color (void)
 {
   allocno_stack_vec = VEC_alloc (allocno_t, heap, allocnos_num);
+  removed_splay_allocno_vec = VEC_alloc (allocno_t, heap, allocnos_num);
   memset (allocated_hardreg_p, 0, sizeof (allocated_hardreg_p));
   initiate_ira_assign ();
   do_coloring ();
   finish_ira_assign ();
+  VEC_free (allocno_t, heap, removed_splay_allocno_vec);
   VEC_free (allocno_t, heap, allocno_stack_vec);
   move_spill_restore ();
 }

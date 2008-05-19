@@ -1764,6 +1764,8 @@ ira (FILE *f)
   int rebuild_p, saved_flag_ira_algorithm;
   basic_block bb;
 
+  timevar_push (TV_IRA);
+
   if (flag_ira_verbose < 10)
     {
       internal_flag_ira_verbose = flag_ira_verbose;
@@ -1933,6 +1935,9 @@ ira (FILE *f)
 	      max_regno * sizeof (struct spilled_reg_stack_slot));
     }
   
+  timevar_pop (TV_IRA);
+
+  timevar_push (TV_RELOAD);
   df_set_flags (DF_NO_INSN_RESCAN);
   build_insn_chain ();
 
@@ -1940,6 +1945,10 @@ ira (FILE *f)
     sort_insn_chain (TRUE);
 
   reload_completed = !reload (get_insns (), optimize > 0);
+
+  timevar_pop (TV_RELOAD);
+
+  timevar_push (TV_IRA);
 
   if (optimize)
     {
@@ -1989,6 +1998,8 @@ ira (FILE *f)
 
   if (optimize)
     df_analyze ();
+
+  timevar_pop (TV_IRA);
 }
 
 
@@ -2017,7 +2028,7 @@ struct rtl_opt_pass pass_ira =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_IRA,	                        /* tv_id */
+  0,		                        /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */

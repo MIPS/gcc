@@ -58,6 +58,12 @@ typedef struct allocno_live_range *allocno_live_range_t;
 typedef struct allocno *allocno_t;
 typedef struct allocno_copy *copy_t;
 
+/* Definition of vector of allocnos and copies.  */
+DEF_VEC_P(allocno_t);
+DEF_VEC_ALLOC_P(allocno_t, heap);
+DEF_VEC_P(copy_t);
+DEF_VEC_ALLOC_P(copy_t, heap);
+
 /* Typedef for pointer to the subsequent structure.  */
 typedef struct loop_tree_node *loop_tree_node_t;
 
@@ -351,6 +357,9 @@ struct allocno
   /* TRUE if it is put on the stack to make other allocnos
      colorable.  */
   unsigned int may_be_spilled_p : 1;
+  /* TRUE if the allocno was removed from the splay tree used to
+     choose allocn for spilling (see ira-color.c::.  */
+  unsigned int splay_removed_p : 1;
   /* TRUE if conflicts for given allocno are represented by vector of
      pointers to the conflicting allocnos.  Otherwise, we use a bit
      vector where a bit with given index represents allocno with the
@@ -427,6 +436,7 @@ struct allocno
 #define ALLOCNO_IN_GRAPH_P(A) ((A)->in_graph_p)
 #define ALLOCNO_ASSIGNED_P(A) ((A)->assigned_p)
 #define ALLOCNO_MAY_BE_SPILLED_P(A) ((A)->may_be_spilled_p)
+#define ALLOCNO_SPLAY_REMOVED_P(A) ((A)->splay_removed_p)
 #define ALLOCNO_CONFLICT_VEC_P(A) ((A)->conflict_vec_p)
 #define ALLOCNO_MODE(A) ((A)->mode)
 #define ALLOCNO_COPIES(A) ((A)->allocno_copies)

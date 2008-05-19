@@ -1,3 +1,42 @@
+2008-05-18  Vladimir Makarov  <vmakarov@redhat.com>
+	PR tree-optimization/26854
+
+	* timevar.def (TV_RELOAD): New timer.
+
+	* ira.c (ira): Use TV_IRA and TV_RELOAD.
+	(pass_ira): Remove TV_IRA.
+
+	* Makefile.in (ira-color.o): Add SPLAY_TREE_H.
+
+	* ira-conflicts.c (DEF_VEC_P, DEF_ALLOCC_P): Move to ira-int.h.
+
+	* ira-int.h (DEF_VEC_P, DEF_ALLOCC_P): Move from ira-conflicts.c and
+	ira-color.c.
+	(struct allocno): New bitfield splay_removed_p.
+	(ALLOCNO_MAY_BE_SPILLED_P): New macro.
+
+	* ira-color.c (splay-tree.h): Add the header.
+	(allocno_spill_priority_compare, splay_tree_allocate,
+	splay_tree_free): New functions.
+	(DEF_VEC_P, DEF_ALLOCC_P): Move to ira-int.h.
+	(sorted_allocnos_for_spilling): Rename to allocnos_for_spilling.
+	(splay_tree_node_pool, removed_splay_allocno_vec,
+	uncolorable_allocnos_num, uncolorable_allocnos_splay_tree): New
+	global variables.
+	(add_allocno_to_bucket, add_allocno_to_ordered_bucket,
+	delete_allocno_from_bucket): Update uncolorable_allocnos_num.
+	(USE_SPLAY_P): New macro.
+	(push_allocno_to_stack): Remove allocno from the splay tree.
+	(push_allocnos_to_stack): Use the splay trees.
+	(do_coloring): Create and finish splay_tree_node_pool.
+	Move allocation/deallocation of allocnos_for_spilling to here...
+	(initiate_ira_assign, finish_ira_assign): Move
+	allocnos_for_spilling from here...
+	(ira_color): Allocate/deallocate removed_splay_allocno_vec.
+
+	* ira-build.c (DEF_VEC_P, DEF_ALLOCC_P): Move to ira-int.h.
+	(create_allocno): Initiate ALLOCNO_SPLAY_REMOVED_P.
+	
 2008-05-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* Makefile.in (ira-build.o): Add sparseset.h.

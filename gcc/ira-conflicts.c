@@ -684,10 +684,6 @@ pseudo_live_ranges_intersect_p (int regno1, int regno2)
   return allocno_live_ranges_intersect_p (a1, a2);
 }
 
-/* Definition of vector of copies.  */
-DEF_VEC_P(copy_t);
-DEF_VEC_ALLOC_P(copy_t, heap);
-
 /* Remove copies involving conflicting allocnos.  We can not do this
    at the copy creation time because there are no conflicts at that
    time yet.  */
