@@ -1,3 +1,75 @@
+2008-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36265
+	* gfortran.dg/char_length_11.f90: New test.
+
+2008-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/widechar_intrinsics_5.f90: Add dg-do directive and
+	use -fbackslash option.
+
+2008-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/char_cast_2.f90: Adjust count in scanning the tree
+	dump file.
+
+2008-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/bind_c_module.f90: Adjust expected error messages.
+
+2008-05-19  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/char_cast_1.f90: Adjust count in scanning the tree
+	dump file.
+
+2008-05-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-error.c: Test __builtin_isinf_sign.
+	* gcc.dg/tg-tests.h: Likewise.  Mark variables volatile.
+	* gcc.dg/torture/builtin-isinf_sign-1.c: New test.
+
+2008-05-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/achar_3.f90: Adjust error messages.
+	* gfortran.dg/achar_5.f90: New test.
+	* gfortran.dg/achar_6.F90: New test.
+	* gfortran.dg/widechar_1.f90: New test.
+	* gfortran.dg/widechar_2.f90: New test.
+	* gfortran.dg/widechar_3.f90: New test.
+	* gfortran.dg/widechar_4.f90: New test.
+	* gfortran.dg/widechar_intrinsics_1.f90: New test.
+	* gfortran.dg/widechar_intrinsics_2.f90: New test.
+	* gfortran.dg/widechar_intrinsics_3.f90: New test.
+	* gfortran.dg/widechar_intrinsics_4.f90: New test.
+	* gfortran.dg/widechar_intrinsics_5.f90: New test.
+	* gfortran.dg/widechar_select_1.f90: New test.
+	* gfortran.dg/widechar_select_2.f90: New test.
+
+2008-05-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization2.ad[sb]: New test.
+
+2008-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36090
+	* gcc.c-torture/execute/20080502-1.c: New test.
+
+2008-05-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.dg/stat_1.f90: Skip on mingw.
+	* gfortran.dg/stat_2.f90: Skip on mingw.
+
+2008-05-18  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/36251
+	gfortran.dg/public_private_module.f90: new test.
+	gfortran.dg/bind_c_module.f90: new test.
+
+2008-05-17  Xinliang David Li <davidxl@google.com>
+
+	* gcc.dg/cdce1.c: New test
+	* gcc.dg/cdce2.c: New test
+
 2008-05-17  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/initialization_19.f90: New test.
