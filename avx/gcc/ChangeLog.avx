@@ -1,3 +1,10 @@
+2008-05-20  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* config/i386/sse.md (*avx_vmmul<mode>3): New.
+	(*avx_pcmpestr_cconly): Likewise.
+	(sse4_2_pcmpestri): Support AVX.
+	(sse4_2_pcmpestrm): Likewise.
+
 2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* defaults.h (UNITS_PER_SIMD_WORD): Use mode instead of type

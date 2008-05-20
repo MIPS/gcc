@@ -569,6 +569,20 @@
   [(set_attr "type" "ssemul")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*avx_vmmul<mode>3"
+  [(set (match_operand:SSEMODEF2P 0 "register_operand" "=x")
+	(vec_merge:SSEMODEF2P
+	  (mult:SSEMODEF2P
+	    (match_operand:SSEMODEF2P 1 "register_operand" "x")
+	    (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm"))
+	  (match_dup 1)
+	  (const_int 1)))]
+  "AVX_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "vmuls<ssemodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "ssemul")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "<ssescalarmode>")])
+
 (define_insn "<sse>_vmmul<mode>3"
   [(set (match_operand:SSEMODEF2P 0 "register_operand" "=x")
 	(vec_merge:SSEMODEF2P
@@ -9508,10 +9522,12 @@
 	   (match_dup 5)]
 	  UNSPEC_PCMPESTR))]
   "TARGET_SSE4_2"
-  "pcmpestri\t{%5, %3, %1|%1, %3, %5}"
+  "* return TARGET_AVX ? \"vpcmpestri\t{%5, %3, %1|%1, %3, %5}\"
+                       : \"pcmpestri\t{%5, %3, %1|%1, %3, %5}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_data16" "1")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "memory" "none,load")
    (set_attr "mode" "TI")])
 
@@ -9533,11 +9549,35 @@
 	   (match_dup 5)]
 	  UNSPEC_PCMPESTR))]
   "TARGET_SSE4_2"
-  "pcmpestrm\t{%5, %3, %1|%1, %3, %5}"
+  "* return TARGET_AVX ? \"vpcmpestrm\t{%5, %3, %1|%1, %3, %5}\"
+                       : \"pcmpestrm\t{%5, %3, %1|%1, %3, %5}\";"
   [(set_attr "type" "sselog")
    (set_attr "prefix_data16" "1")
    (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "memory" "none,load")
+   (set_attr "mode" "TI")])
+
+(define_insn "*avx_pcmpestr_cconly"
+  [(set (reg:CC FLAGS_REG)
+	(unspec:CC
+	  [(match_operand:V16QI 2 "register_operand" "x,x,x,x")
+	   (match_operand:SI 3 "register_operand" "a,a,a,a")
+	   (match_operand:V16QI 4 "nonimmediate_operand" "x,m,x,m")
+	   (match_operand:SI 5 "register_operand" "d,d,d,d")
+	   (match_operand:SI 6 "const_0_to_255_operand" "n,n,n,n")]
+	  UNSPEC_PCMPESTR))
+   (clobber (match_scratch:V16QI 0 "=Yz,Yz,X,X"))
+   (clobber (match_scratch:SI    1 "= X, X,c,c"))]
+  "TARGET_AVX"
+  "@
+   vpcmpestrm\t{%6, %4, %2|%2, %4, %6}
+   vpcmpestrm\t{%6, %4, %2|%2, %4, %6}
+   vpcmpestri\t{%6, %4, %2|%2, %4, %6}
+   vpcmpestri\t{%6, %4, %2|%2, %4, %6}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix" "vex")
+   (set_attr "memory" "none,load,none,load")
    (set_attr "mode" "TI")])
 
 (define_insn "sse4_2_pcmpestr_cconly"
