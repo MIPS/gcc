@@ -1,5 +1,30 @@
 2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* defaults.h (UNITS_PER_SIMD_WORD): Add type as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vectorizer.c (tree-vectorizer.c): Pass scalar_type
+	to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): For AVX, return
+	32 only for DF/SF, 16 otherwise.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Replace
+	UNITS_PER_SIMD_WORD with GET_MODE_SIZE (TYPE_MODE (vectype)).
+	(vect_update_misalignment_for_peel): Likewise.
+	(vector_alignment_reachable_p): Likewise.
+	* tree-vect-transform.c (vectorizable_load): Likewise.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Likewise.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (ix86_expand_vector_init_general): Add
 	goto half for consistency.
 
