@@ -1,5 +1,21 @@
 2008-05-20  Aldy Hernandez  <aldyh@redhat.com>
 
+	* omp-low.c (WALK_SUBSTMTS): New.
+	(check_combined_parallel): Walk sub-statements.
+	(diagnose_sb_1): Same.
+	(diagnose_sb_2): Same.
+	Handle switch labels and return statements correctly.
+	* testsuite/gcc.dg/gomp/block-7.c: Adjust for new error message.
+	* testsuite/gcc.dg/gomp/block-2.c: Same.
+	* testsuite/gcc.dg/gomp/block-4.c: Same.
+	* testsuite/gcc.dg/gomp/block-6.c: Same.
+	* testsuite/gcc.dg/gomp/block-8.c: Same.
+	* testsuite/gcc.dg/gomp/block-1.c: Same.
+	* testsuite/gcc.dg/gomp/block-3.c: Same.
+	* testsuite/gcc.dg/gomp/block-5.c: Same.
+
+2008-05-20  Aldy Hernandez  <aldyh@redhat.com>
+
 	* omp-low.c (lower_omp_single): Append to bind variables.
 	(lower_omp_master): Same.
 	(lower_omp_ordered): Same.

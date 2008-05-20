@@ -129,6 +129,15 @@ struct omp_region *root_omp_region;
 static void scan_omp (gimple_seq, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
 
+#define WALK_SUBSTMTS  \
+    case GIMPLE_BIND: \
+    case GIMPLE_TRY: \
+    case GIMPLE_CATCH: \
+    case GIMPLE_EH_FILTER: \
+      /* The sub-statements for these should be walked.  */ \
+      *handled_ops_p = false; \
+      break;
+
 /* Convenience function for calling scan_omp_1_op on tree operands.  */
 
 static inline tree
@@ -4896,14 +4905,17 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
 static tree
 check_combined_parallel (gimple_stmt_iterator *gsi_p,
-    			 bool *handled_ops_p ATTRIBUTE_UNUSED,
+    			 bool *handled_ops_p,
     			 struct walk_stmt_info *wi)
 {
   int *info = wi->info;
   gimple stmt = gsi_stmt (*gsi_p);
 
+  *handled_ops_p = true;
   switch (gimple_code (stmt))
     {
+    WALK_SUBSTMTS;
+
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_SECTIONS:
       *info = *info == 0 ? 1 : -1;
@@ -5254,6 +5266,8 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
  switch (gimple_code (stmt))
     {
+    WALK_SUBSTMTS;
+      
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
@@ -5306,6 +5320,8 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
   switch (gimple_code (stmt))
     {
+    WALK_SUBSTMTS;
+
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
@@ -5344,17 +5360,16 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	unsigned int i;
 	for (i = 0; i < gimple_switch_num_labels (stmt); ++i)
 	  {
-	    tree lab = gimple_switch_label (stmt, i);
+	    tree lab = CASE_LABEL (gimple_switch_label (stmt, i));
 	    n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
-	    if (diagnose_sb_0 (gsi_p, context, (gimple) n->value))
+	    if (n && diagnose_sb_0 (gsi_p, context, (gimple) n->value))
 	      break;
 	  }
       }
       break;
 
     case GIMPLE_RETURN:
-      if (!context)
-	diagnose_sb_0 (gsi_p, context, NULL);
+      diagnose_sb_0 (gsi_p, context, NULL);
       break;
 
     default:
