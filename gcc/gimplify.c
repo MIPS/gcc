@@ -2972,7 +2972,13 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
   from = GENERIC_TREE_OPERAND (*expr_p, 1);
 
   from_ptr = build_fold_addr_expr (from);
+  if (!is_gimple_operand (from_ptr))
+    gimplify_expr (&from_ptr, seq_p, NULL, is_gimple_lvalue, fb_lvalue);
+
   to_ptr = build_fold_addr_expr (to);
+  if (!is_gimple_lvalue (to_ptr))
+    gimplify_expr (&to_ptr, seq_p, NULL, is_gimple_lvalue, fb_lvalue);
+
   t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 
   gs = gimple_build_call (t, 3, to_ptr, from_ptr, size);
@@ -5643,6 +5649,10 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	default:
 	  gcc_unreachable ();
 	}
+
+      ret |= gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
+			    is_gimple_val, fb_rvalue);
+
       for_incr = OMP_FOR_INCR (for_stmt);
 
       break;
@@ -5662,7 +5672,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     (pre_p, gimple_build_omp_for (for_body, OMP_FOR_CLAUSES (for_stmt),
 				  for_index, for_initial, for_final, for_incr,
 				  for_pre_body, for_predicate));
-  return GS_ALL_DONE;
+  return ret == GS_ALL_DONE ? GS_ALL_DONE : GS_ERROR;
 }
 
 /* Gimplify the gross structure of other OpenMP worksharing constructs.

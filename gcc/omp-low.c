@@ -4593,7 +4593,7 @@ lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   pop_gimplify_context (bind);
 
-  gimple_bind_set_vars (bind, ctx->block_vars);
+  gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = ctx->block_vars;
   gsi_replace (gsi_p, bind, true);
 }
@@ -4632,7 +4632,7 @@ lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   pop_gimplify_context (bind);
 
-  gimple_bind_set_vars (bind, ctx->block_vars);
+  gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = ctx->block_vars;
   gsi_replace (gsi_p, bind, true);
 }
@@ -4667,7 +4667,7 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   pop_gimplify_context (bind);
 
-  gimple_bind_set_vars (bind, ctx->block_vars);
+  gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = gimple_bind_vars (bind);
   gsi_replace (gsi_p, bind, true);
 }
@@ -4758,7 +4758,7 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   pop_gimplify_context (bind);
-  gimple_bind_set_vars (bind, ctx->block_vars);
+  gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = gimple_bind_vars (bind);
   gsi_replace (gsi_p, bind, true);
 }

@@ -1991,6 +1991,17 @@ gimple_bind_set_vars (gimple gs, tree vars)
 }
 
 
+/* Append VARS to the set of variables declared in the GIMPLE_BIND
+   statement GS.  */
+
+static inline void
+gimple_bind_append_vars (gimple gs, tree vars)
+{
+  GIMPLE_CHECK (gs, GIMPLE_BIND);
+  gs->gimple_bind.vars = chainon (gs->gimple_bind.vars, vars);
+}
+
+
 /* Return the GIMPLE sequence contained in the GIMPLE_BIND statement GS.  */
 
 static inline gimple_seq

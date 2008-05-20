@@ -1,3 +1,14 @@
+2008-05-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (lower_omp_single): Append to bind variables.
+	(lower_omp_master): Same.
+	(lower_omp_ordered): Same.
+	(lower_omp_critical): Same.
+	* gimplify.c (gimplify_modify_expr_to_memcpy): Make sure we are
+	fully gimplified.
+	(gimplify_omp_for): Same.
+	* gimple.h (gimple_bind_set_vars): New.
+
 2008-05-16  Andreas Tobler  <a.tobler@schweiz.org>
 
 	* config/alpha/alpha.c (alpha_gimplify_va_arg): Adjust arguments.
