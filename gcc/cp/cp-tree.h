@@ -4234,6 +4234,7 @@ extern void start_preparsed_function		(tree, tree, int);
 extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
+extern tree outer_curly_brace_block		(tree);
 extern tree finish_function			(int);
 extern tree start_method			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree finish_method			(tree);
@@ -4679,7 +4680,9 @@ extern tree cxx_omp_clause_default_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
+extern void cxx_omp_finish_clause		(tree);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
+extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool, bool);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);

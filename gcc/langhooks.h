@@ -215,6 +215,9 @@ struct lang_hooks_for_decls
   /* Build and return code destructing DECL.  Return NULL if nothing
      to be done.  */
   tree (*omp_clause_dtor) (tree clause, tree decl);
+
+  /* Do language specific checking on an implicitly determined clause.  */
+  void (*omp_finish_clause) (tree clause);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

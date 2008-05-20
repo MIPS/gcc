@@ -1,3 +1,16 @@
+2008-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (outer_curly_brace_block, cxx_omp_finish_clause,
+	cxx_omp_create_clause_info): New prototypes.
+	* decl.c (outer_curly_brace_block): No longer static.
+	* cp-gimplify.c (cxx_omp_finish_clause): New function.
+	(cxx_omp_predetermined_sharing): Moved from semantics.c,
+	rewritten.
+	* cp-objcp-common.h (LANG_HOOKS_OMP_FINISH_CLAUSE): Define.
+	* semantics.c (cxx_omp_create_clause_info): New function.
+	(finish_omp_clauses): Call it.
+	(cxx_omp_predetermined_sharing): Removed.
+
 2008-05-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_for): Allow pointer iterators.

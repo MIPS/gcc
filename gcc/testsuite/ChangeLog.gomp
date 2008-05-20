@@ -1,3 +1,8 @@
+2008-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/task-1.C: New test.
+	* g++.dg/gomp/predetermined-1.C: New test.
+
 2008-05-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/pr27499.c (foo): Remove is unsigned dg-warning.

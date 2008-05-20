@@ -1,3 +1,11 @@
+2008-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* langhooks.h (struct lang_hooks_for_decls): Add omp_finish_clause.
+	* langhooks-def.h (LANG_HOOKS_OMP_FINISH_CLAUSE): Define.
+	(LANG_HOOKS_DECLS): Add LANG_HOOKS_OMP_FINISH_CLAUSE.
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Call omp_finish_clause
+	langhook.
+
 2008-05-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_for_loop): Call

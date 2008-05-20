@@ -3331,6 +3331,97 @@ finalize_nrv (tree *tp, tree var, tree result)
   htab_delete (data.visited);
 }
 
+/* Create CP_OMP_CLAUSE_INFO for clause C.  Returns true if it is invalid.  */
+
+bool
+cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
+			    bool need_copy_ctor, bool need_copy_assignment)
+{
+  int save_errorcount = errorcount;
+  tree info, t;
+
+  /* Always allocate 3 elements for simplicity.  These are the
+     function decls for the ctor, dtor, and assignment op.
+     This layout is known to the three lang hooks,
+     cxx_omp_clause_default_init, cxx_omp_clause_copy_init,
+     and cxx_omp_clause_assign_op.  */
+  info = make_tree_vec (3);
+  CP_OMP_CLAUSE_INFO (c) = info;
+
+  if (need_default_ctor
+      || (need_copy_ctor && !TYPE_HAS_TRIVIAL_INIT_REF (type)))
+    {
+      if (need_default_ctor)
+	t = NULL;
+      else
+	{
+	  t = build_int_cst (build_pointer_type (type), 0);
+	  t = build1 (INDIRECT_REF, type, t);
+	  t = build_tree_list (NULL, t);
+	}
+      t = build_special_member_call (NULL_TREE, complete_ctor_identifier,
+				     t, type, LOOKUP_NORMAL,
+				     tf_warning_or_error);
+
+      if (targetm.cxx.cdtor_returns_this () || errorcount)
+	/* Because constructors and destructors return this,
+	   the call will have been cast to "void".  Remove the
+	   cast here.  We would like to use STRIP_NOPS, but it
+	   wouldn't work here because TYPE_MODE (t) and
+	   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+	   They are VOIDmode and Pmode, respectively.  */
+	if (TREE_CODE (t) == NOP_EXPR)
+	  t = TREE_OPERAND (t, 0);
+
+      t = get_callee_fndecl (t);
+      TREE_VEC_ELT (info, 0) = t;
+    }
+
+  if ((need_default_ctor || need_copy_ctor)
+      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+    {
+      t = build_int_cst (build_pointer_type (type), 0);
+      t = build1 (INDIRECT_REF, type, t);
+      t = build_special_member_call (t, complete_dtor_identifier,
+				     NULL, type, LOOKUP_NORMAL,
+				     tf_warning_or_error);
+
+      if (targetm.cxx.cdtor_returns_this () || errorcount)
+	/* Because constructors and destructors return this,
+	   the call will have been cast to "void".  Remove the
+	   cast here.  We would like to use STRIP_NOPS, but it
+	   wouldn't work here because TYPE_MODE (t) and
+	   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
+	   They are VOIDmode and Pmode, respectively.  */
+	if (TREE_CODE (t) == NOP_EXPR)
+	  t = TREE_OPERAND (t, 0);
+
+      t = get_callee_fndecl (t);
+      TREE_VEC_ELT (info, 1) = t;
+    }
+
+  if (need_copy_assignment && !TYPE_HAS_TRIVIAL_ASSIGN_REF (type))
+    {
+      t = build_int_cst (build_pointer_type (type), 0);
+      t = build1 (INDIRECT_REF, type, t);
+      t = build_special_member_call (t, ansi_assopname (NOP_EXPR),
+				     build_tree_list (NULL, t),
+				     type, LOOKUP_NORMAL,
+				     tf_warning_or_error);
+
+      /* We'll have called convert_from_reference on the call, which
+	 may well have added an indirect_ref.  It's unneeded here,
+	 and in the way, so kill it.  */
+      if (TREE_CODE (t) == INDIRECT_REF)
+	t = TREE_OPERAND (t, 0);
+
+      t = get_callee_fndecl (t);
+      TREE_VEC_ELT (info, 2) = t;
+    }
+
+  return errorcount != save_errorcount;
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
@@ -3636,96 +3727,10 @@ finish_omp_clauses (tree clauses)
 	 for making these queries.  */
       if (CLASS_TYPE_P (inner_type)
 	  && (need_default_ctor || need_copy_ctor || need_copy_assignment)
-	  && !type_dependent_expression_p (t))
-	{
-	  int save_errorcount = errorcount;
-	  tree info;
-
-	  /* Always allocate 3 elements for simplicity.  These are the
-	     function decls for the ctor, dtor, and assignment op.
-	     This layout is known to the three lang hooks,
-	     cxx_omp_clause_default_init, cxx_omp_clause_copy_init,
-	     and cxx_omp_clause_assign_op.  */
-	  info = make_tree_vec (3);
-	  CP_OMP_CLAUSE_INFO (c) = info;
-
-	  if (need_default_ctor
-	      || (need_copy_ctor
-		  && !TYPE_HAS_TRIVIAL_INIT_REF (inner_type)))
-	    {
-	      if (need_default_ctor)
-		t = NULL;
-	      else
-		{
-		  t = build_int_cst (build_pointer_type (inner_type), 0);
-		  t = build1 (INDIRECT_REF, inner_type, t);
-		  t = build_tree_list (NULL, t);
-		}
-	      t = build_special_member_call (NULL_TREE,
-					     complete_ctor_identifier,
-					     t, inner_type, LOOKUP_NORMAL,
-                                             tf_warning_or_error);
-
-	      if (targetm.cxx.cdtor_returns_this () || errorcount)
-		/* Because constructors and destructors return this,
-		   the call will have been cast to "void".  Remove the
-		   cast here.  We would like to use STRIP_NOPS, but it
-		   wouldn't work here because TYPE_MODE (t) and
-		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
-		   They are VOIDmode and Pmode, respectively.  */
-		if (TREE_CODE (t) == NOP_EXPR)
-		  t = TREE_OPERAND (t, 0);
-
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 0) = t;
-	    }
-
-	  if ((need_default_ctor || need_copy_ctor)
-	      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_type))
-	    {
-	      t = build_int_cst (build_pointer_type (inner_type), 0);
-	      t = build1 (INDIRECT_REF, inner_type, t);
-	      t = build_special_member_call (t, complete_dtor_identifier,
-					     NULL, inner_type, LOOKUP_NORMAL,
-                                             tf_warning_or_error);
-
-	      if (targetm.cxx.cdtor_returns_this () || errorcount)
-		/* Because constructors and destructors return this,
-		   the call will have been cast to "void".  Remove the
-		   cast here.  We would like to use STRIP_NOPS, but it
-		   wouldn't work here because TYPE_MODE (t) and
-		   TYPE_MODE (TREE_OPERAND (t, 0)) are different.
-		   They are VOIDmode and Pmode, respectively.  */
-		if (TREE_CODE (t) == NOP_EXPR)
-		  t = TREE_OPERAND (t, 0);
-
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 1) = t;
-	    }
-
-	  if (need_copy_assignment
-	      && !TYPE_HAS_TRIVIAL_ASSIGN_REF (inner_type))
-	    {
-	      t = build_int_cst (build_pointer_type (inner_type), 0);
-	      t = build1 (INDIRECT_REF, inner_type, t);
-	      t = build_special_member_call (t, ansi_assopname (NOP_EXPR),
-					     build_tree_list (NULL, t),
-					     inner_type, LOOKUP_NORMAL,
-                                             tf_warning_or_error);
-
-	      /* We'll have called convert_from_reference on the call, which
-		 may well have added an indirect_ref.  It's unneeded here,
-		 and in the way, so kill it.  */
-	      if (TREE_CODE (t) == INDIRECT_REF)
-		t = TREE_OPERAND (t, 0);
-
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 2) = t;
-	    }
-
-	  if (errorcount != save_errorcount)
-	    remove = true;
-	}
+	  && !type_dependent_expression_p (t)
+	  && cxx_omp_create_clause_info (c, inner_type, need_default_ctor,
+					 need_copy_ctor, need_copy_assignment))
+	remove = true;
 
       if (remove)
 	*pc = OMP_CLAUSE_CHAIN (c);
@@ -4346,28 +4351,6 @@ finish_omp_taskwait (void)
   tree fn = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
   tree stmt = finish_call_expr (fn, NULL, false, false, tf_warning_or_error);
   finish_expr_stmt (stmt);
-}
-
-/* True if OpenMP sharing attribute of DECL is predetermined.  */
-
-enum omp_clause_default_kind
-cxx_omp_predetermined_sharing (tree decl)
-{
-  enum omp_clause_default_kind kind;
-
-  kind = c_omp_predetermined_sharing (decl);
-  if (kind != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
-    return kind;
-
-  /* Static data members are predetermined as shared.  */
-  if (TREE_STATIC (decl))
-    {
-      tree ctx = CP_DECL_CONTEXT (decl);
-      if (TYPE_P (ctx) && MAYBE_CLASS_TYPE_P (ctx))
-	return OMP_CLAUSE_DEFAULT_SHARED;
-    }
-
-  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }
 
 void

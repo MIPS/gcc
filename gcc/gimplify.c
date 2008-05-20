@@ -5291,6 +5291,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (code == OMP_CLAUSE_PRIVATE && (flags & GOVD_PRIVATE_OUTER_REF))
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   *list_p = clause;
+  lang_hooks.decls.omp_finish_clause (clause);
 
   return 0;
 }
