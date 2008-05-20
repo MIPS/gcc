@@ -1,10 +1,25 @@
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (UNITS_PER_SIMD_WORD): Use mode instead of type
+	as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Pass mod
+	of scalar_type to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
 2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* defaults.h (UNITS_PER_SIMD_WORD): Add type as argument.
 	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
 
-	* tree-vectorizer.c (tree-vectorizer.c): Pass scalar_type
-	to UNITS_PER_SIMD_WORD.
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Pass
+	scalar_type to UNITS_PER_SIMD_WORD.
 
 	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
 	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.

@@ -1142,9 +1142,8 @@ do {									\
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
    place emms and femms instructions.  */
-#define UNITS_PER_SIMD_WORD(TYPE)					\
-  (TARGET_AVX ? ((TYPE_MODE (TYPE) == DFmode				\
-		  || TYPE_MODE (TYPE) == SFmode) ? 32 : 16)		\
+#define UNITS_PER_SIMD_WORD(MODE)					\
+  (TARGET_AVX ? (((MODE) == DFmode || (MODE) == SFmode) ? 32 : 16)	\
    	      : (TARGET_SSE ? 16 : UNITS_PER_WORD))
 
 #define VALID_DFP_MODE_P(MODE) \
