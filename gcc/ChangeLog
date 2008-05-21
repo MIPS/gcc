@@ -1,3 +1,7 @@
+2008-05-21  Tom Tromey  <tromey@redhat.com>
+
+	* gdbinit.in: Add macros for tree accessors.
+
 2008-04-28  Tom Tromey  <tromey@redhat.com>
 
 	* c-parser.c (c_parser_lex_all): Don't enforce location constraint

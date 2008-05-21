@@ -149,3 +149,35 @@ set complaints 0
 # USE_SYSTEM_ABORT is defined, so gdb may complain and bail out.
 b exit
 b abort
+
+# Redefine any macro from tree.h that uses a statement expression.
+# Last in case of failure.
+macro define TREE_CHECK(T, CODE) (T)
+macro define TREE_NOT_CHECK(T, CODE) (T)
+macro define TREE_CHECK2(T, CODE1, CODE2) (T)
+macro define TREE_NOT_CHECK2(T, CODE1, CODE2) (T)
+macro define TREE_CHECK3(T, CODE1, CODE2, CODE3) (T)
+macro define TREE_NOT_CHECK3(T, CODE1, CODE2, CODE3) (T)
+macro define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) (T)
+macro define NON_TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) (T)
+macro define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
+macro define TREE_NOT_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
+macro define CONTAINS_STRUCT_CHECK(T, STRUCT) (T)
+macro define TREE_CLASS_CHECK(T, CLASS) (T)
+macro define TREE_RANGE_CHECK(T, CODE1, CODE2) (T)
+macro define OMP_CLAUSE_SUBCODE_CHECK(T, CODE) (T)
+macro define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2) (T)
+macro define EXPR_CHECK(T) (T)
+macro define GIMPLE_STMT_CHECK(T) (T)
+macro define NON_TYPE_CHECK(T) (T)
+macro define TREE_VEC_ELT_CHECK(T, I) ((T)->vec.a[I])
+macro define PHI_NODE_ELT_CHECK(T, I) ((T)->phi.a[I])
+macro define OMP_CLAUSE_ELT_CHECK(T, I) ((T)->omp_clause.ops[I])
+macro define TREE_OPERAND_CHECK(T, I) ((T)->exp.operands[I])
+macro define TREE_OPERAND_CHECK_CODE(T, CODE, I) ((T)->exp.operands[I])
+macro define GIMPLE_STMT_OPERAND_CHECK(T, I) ((T)->gstmt.operands[I])
+macro define TREE_RTL_OPERAND_CHECK(T, CODE, I) ((T)->exp.operands[I])
+macro define TREE_CHAIN(NODE) ((T)->common.chain)
+macro define TREE_TYPE(NODE) ((T)->common.type)
+# Another handy one.
+macro define __builtin_offsetof(T, F) ((int) &(((T *) 0)->F))
