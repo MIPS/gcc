@@ -24837,14 +24837,16 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
     case V8SImode:
       hmode = V4SImode;
       goto half;
+    case V16HImode:
+      hmode = V8HImode;
+      goto half;
+    case V32QImode:
+      hmode = V16QImode;
+      goto half;
 half:
       {
-	rtx tmp;
-
-	val = force_reg (GET_MODE_INNER (mode), val);
-	x = gen_rtx_VEC_DUPLICATE (hmode, val);
-	tmp = gen_reg_rtx (hmode);
-	emit_insn (gen_rtx_SET (VOIDmode, tmp, x));
+	rtx tmp = gen_reg_rtx (hmode);
+	ix86_expand_vector_init_duplicate (mmx_ok, hmode, tmp, val);
 	emit_insn (gen_rtx_SET (VOIDmode, target,
 				gen_rtx_VEC_CONCAT (mode, tmp, tmp)));
       }
@@ -24883,6 +24885,15 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
       break;
     case V4HImode:
       use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
+      break;
+    case V32QImode:
+    case V16HImode:
+    case V8SImode:
+    case V8SFmode:
+    case V4DImode:
+    case V4DFmode:
+      use_vector_set = TARGET_AVX;
+      break;
     default:
       break;
     }
@@ -25526,8 +25537,12 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 {
   enum machine_mode mode = GET_MODE (target);
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
+  enum machine_mode half_mode;
   bool use_vec_merge = false;
-  rtx tmp;
+  rtx tmp, op0, op1;
+  rtx (*gen_extract) (rtx, rtx); 
+  rtx (*gen_insert) (rtx, rtx, rtx); 
+  int i, n;
 
   switch (mode)
     {
@@ -25675,6 +25690,83 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
       break;
 
     case V8QImode:
+      break;
+
+    case V32QImode:
+      half_mode = V16QImode;
+      n = 16;
+      goto half;
+
+    case V16HImode:
+      half_mode = V8HImode;
+      n = 8;
+      goto half;
+
+    case V8SImode:
+      half_mode = V4SImode;
+      n = 4;
+      goto half;
+
+    case V8SFmode:
+      half_mode = V4SFmode;
+      n = 4;
+      goto half;
+
+    case V4DImode:
+      half_mode = V2DImode;
+      n = 2;
+      goto half;
+
+    case V4DFmode:
+      half_mode = V2DFmode;
+      n = 2;
+      goto half;
+
+half:
+      /* Compute offset.  */
+      i = elt / n;
+      elt %= n;
+
+      switch (i)
+	{
+	case 0:
+	  gen_extract = gen_avx_vextractf128_pd256_0;
+	  gen_insert = gen_avx_vinsertf128_pd256_0;
+	  break;
+	case 1:
+	  gen_extract = gen_avx_vextractf128_pd256_1;
+	  gen_insert = gen_avx_vinsertf128_pd256_1;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      /* Cast to V4DFmode. */
+      tmp = gen_reg_rtx (V4DFmode);
+      emit_move_insn (tmp, gen_lowpart (V4DFmode, target));
+
+      /* Extract the half.  */
+      op0 = gen_reg_rtx (V2DFmode);
+      emit_insn ((*gen_extract) (op0, tmp));
+
+      /* Cast to half mode. */
+      op1 = gen_reg_rtx (half_mode);
+      emit_move_insn (op1, gen_lowpart (half_mode, op0));
+
+      /* Put val in op1 at elt.  */
+      ix86_expand_vector_set (false, op1, val, elt);
+
+      /* Cast to V2DFmode. */
+      op0 = gen_reg_rtx (V2DFmode);
+      emit_move_insn (op0, gen_lowpart (V2DFmode, op1));
+
+      /* Put it back.  */
+      emit_insn ((*gen_insert) (tmp, tmp, op0));
+
+      /* Cast to original mode and store in target. */
+      emit_move_insn (target, gen_lowpart (mode, tmp));
+      return;
+
     default:
       break;
     }
