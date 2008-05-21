@@ -232,9 +232,17 @@ extract_omp_for_data (tree for_stmt, struct omp_for_data *fd,
 	break;
       }
 
+  /* FIXME: for now map schedule(auto) to schedule(static).
+     There should be analysis to determine whether all iterations
+     are approximately the same amount of work (then schedule(static)
+     is best) or if it varries (then schedule(dynamic,N) is better).  */
+  if (fd->sched_kind == OMP_CLAUSE_SCHEDULE_AUTO)
+    {
+      fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
+      gcc_assert (fd->chunk_size == NULL);
+    }
   gcc_assert (fd->collapse == 1 || collapse_iter != NULL);
-  if (fd->sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME
-      || fd->sched_kind == OMP_CLAUSE_SCHEDULE_AUTO)
+  if (fd->sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
     gcc_assert (fd->chunk_size == NULL);
   else if (fd->chunk_size == NULL)
     {
@@ -2727,8 +2735,11 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
       switch (region->inner->type)
 	{
 	case OMP_FOR:
+	  gcc_assert (region->inner->sched_kind != OMP_CLAUSE_SCHEDULE_AUTO);
 	  start_ix = BUILT_IN_GOMP_PARALLEL_LOOP_STATIC_START
-		     + region->inner->sched_kind;
+		     + (region->inner->sched_kind
+			== OMP_CLAUSE_SCHEDULE_RUNTIME
+			? 3 : region->inner->sched_kind);
 	  break;
 	case OMP_SECTIONS:
 	  start_ix = BUILT_IN_GOMP_PARALLEL_SECTIONS_START;
@@ -4322,9 +4333,14 @@ expand_omp_for (struct omp_region *region)
     }
   else
     {
-      int fn_index = fd.sched_kind + fd.have_ordered * 5;
-      int start_ix = BUILT_IN_GOMP_LOOP_STATIC_START + fn_index;
-      int next_ix = BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index;
+      int fn_index, start_ix, next_ix;
+
+      gcc_assert (fd.sched_kind != OMP_CLAUSE_SCHEDULE_AUTO);
+      fn_index = (fd.sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
+		 ? 3 : fd.sched_kind;
+      fn_index += fd.have_ordered * 4;
+      start_ix = BUILT_IN_GOMP_LOOP_STATIC_START + fn_index;
+      next_ix = BUILT_IN_GOMP_LOOP_STATIC_NEXT + fn_index;
       if (fd.iter_type == long_long_unsigned_type_node)
 	{
 	  start_ix += BUILT_IN_GOMP_LOOP_ULL_STATIC_START

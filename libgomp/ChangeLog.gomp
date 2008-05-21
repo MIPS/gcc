@@ -1,3 +1,13 @@
+2008-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* loop_ull.c (GOMP_loop_ull_runtime_start,
+	GOMP_loop_ull_ordered_runtime_start, GOMP_loop_ull_runtime_next,
+	GOMP_loop_ull_ordered_runtime_next): Handle GFS_AUTO.
+	* loop.c (GOMP_loop_runtime_start,
+	GOMP_loop_ordered_runtime_start, GOMP_loop_runtime_next,
+	GOMP_loop_ordered_runtime_next): Handle GFS_AUTO.
+	* testsuite/libgomp.c/loop-8.c: New test.
+
 2008-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/task-5.C: New test.

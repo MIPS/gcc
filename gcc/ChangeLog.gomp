@@ -1,3 +1,18 @@
+2008-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ORDERED_AUTO_START,
+	BUILT_IN_GOMP_LOOP_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ORDERED_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_AUTO_START,
+	BUILT_IN_GOMP_LOOP_ULL_AUTO_NEXT,
+	BUILT_IN_GOMP_LOOP_ULL_ORDERED_AUTO_NEXT): Remove.
+	* omp-low.c (extract_omp_for_data): Use schedule(static)
+	for schedule(auto).
+	(expand_parallel_call, expand_omp_for): Assert sched_kind
+	isn't auto, map runtime schedule to index 3.
+
 2008-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* langhooks.h (struct lang_hooks_for_decls): Add omp_finish_clause.

@@ -187,6 +187,11 @@ GOMP_loop_ull_runtime_start (bool up, gomp_ull start, gomp_ull end,
       return gomp_loop_ull_guided_start (up, start, end, incr,
 					 icv->run_sched_modifier,
 					 istart, iend);
+    case GFS_AUTO:
+      /* For now map to schedule(static), later on we could play with feedback
+	 driven choice.  */
+      return gomp_loop_ull_static_start (up, start, end, incr,
+					 0, istart, iend);
     default:
       abort ();
     }
@@ -286,6 +291,11 @@ GOMP_loop_ull_ordered_runtime_start (bool up, gomp_ull start, gomp_ull end,
       return gomp_loop_ull_ordered_guided_start (up, start, end, incr,
 						 icv->run_sched_modifier,
 						 istart, iend);
+    case GFS_AUTO:
+      /* For now map to schedule(static), later on we could play with feedback
+	 driven choice.  */
+      return gomp_loop_ull_ordered_static_start (up, start, end, incr,
+						 0, istart, iend);
     default:
       abort ();
     }
@@ -349,6 +359,7 @@ GOMP_loop_ull_runtime_next (gomp_ull *istart, gomp_ull *iend)
   switch (thr->ts.work_share->sched)
     {
     case GFS_STATIC:
+    case GFS_AUTO:
       return gomp_loop_ull_static_next (istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ull_dynamic_next (istart, iend);
@@ -426,6 +437,7 @@ GOMP_loop_ull_ordered_runtime_next (gomp_ull *istart, gomp_ull *iend)
   switch (thr->ts.work_share->sched)
     {
     case GFS_STATIC:
+    case GFS_AUTO:
       return gomp_loop_ull_ordered_static_next (istart, iend);
     case GFS_DYNAMIC:
       return gomp_loop_ull_ordered_dynamic_next (istart, iend);
