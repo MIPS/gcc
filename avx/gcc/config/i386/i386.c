@@ -19250,9 +19250,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv4sf3, "__builtin_ia32_cmpps", IX86_BUILTIN_CMPPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppdv4df3, "__builtin_ia32_cmppd256", IX86_BUILTIN_CMPPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cmppsv8sf3, "__builtin_ia32_cmpps256", IX86_BUILTIN_CMPPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_pd256, "__builtin_ia32_vextractf128_pd256", IX86_BUILTIN_EXTRACTF128PD256, UNKNOWN, (int) V2DF_FTYPE_V4DF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_ps256, "__builtin_ia32_vextractf128_ps256", IX86_BUILTIN_EXTRACTF128PS256, UNKNOWN, (int) V4SF_FTYPE_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128_si256, "__builtin_ia32_vextractf128_si256", IX86_BUILTIN_EXTRACTF128SI256, UNKNOWN, (int) V4SI_FTYPE_V8SI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v4df, "__builtin_ia32_vextractf128_pd256", IX86_BUILTIN_EXTRACTF128PD256, UNKNOWN, (int) V2DF_FTYPE_V4DF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v8sf, "__builtin_ia32_vextractf128_ps256", IX86_BUILTIN_EXTRACTF128PS256, UNKNOWN, (int) V4SF_FTYPE_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vextractf128v8si, "__builtin_ia32_vextractf128_si256", IX86_BUILTIN_EXTRACTF128SI256, UNKNOWN, (int) V4SI_FTYPE_V8SI_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2pd256, "__builtin_ia32_cvtdq2pd256", IX86_BUILTIN_CVTDQ2PD256, UNKNOWN, (int) V4DF_FTYPE_V4SI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtdq2ps256, "__builtin_ia32_cvtdq2ps256", IX86_BUILTIN_CVTDQ2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_cvtpd2ps256, "__builtin_ia32_cvtpd2ps256", IX86_BUILTIN_CVTPD2PS256, UNKNOWN, (int) V4SF_FTYPE_V4DF },
@@ -19272,9 +19272,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4sf3,  "__builtin_ia32_vpermil2ps", IX86_BUILTIN_VPERMIL2PS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4df3,  "__builtin_ia32_vpermil2pd256", IX86_BUILTIN_VPERMIL2PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v8sf3,  "__builtin_ia32_vpermil2ps256", IX86_BUILTIN_VPERMIL2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_pd256, "__builtin_ia32_vinsertf128_pd256", IX86_BUILTIN_VINSERTF128PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V2DF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_ps256, "__builtin_ia32_vinsertf128_ps256", IX86_BUILTIN_VINSERTF128PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V4SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128_si256, "__builtin_ia32_vinsertf128_si256", IX86_BUILTIN_VINSERTF128SI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v4df, "__builtin_ia32_vinsertf128_pd256", IX86_BUILTIN_VINSERTF128PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V2DF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v8sf, "__builtin_ia32_vinsertf128_ps256", IX86_BUILTIN_VINSERTF128PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V4SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v8si, "__builtin_ia32_vinsertf128_si256", IX86_BUILTIN_VINSERTF128SI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_INT },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movshdup256, "__builtin_ia32_movshdup256", IX86_BUILTIN_MOVSHDUP256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movsldup256, "__builtin_ia32_movsldup256", IX86_BUILTIN_MOVSLDUP256, UNKNOWN, (int) V8SF_FTYPE_V8SF },
@@ -22108,12 +22108,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 		error ("the last argument must be a 2-bit immediate");
 		return const0_rtx;
 
-	      case CODE_FOR_avx_vextractf128_pd256:
-	      case CODE_FOR_avx_vextractf128_ps256:
-	      case CODE_FOR_avx_vextractf128_si256:
-	      case CODE_FOR_avx_vinsertf128_pd256:
-	      case CODE_FOR_avx_vinsertf128_ps256:
-	      case CODE_FOR_avx_vinsertf128_si256:
+	      case CODE_FOR_avx_vextractf128v4df:
+	      case CODE_FOR_avx_vextractf128v8sf:
+	      case CODE_FOR_avx_vextractf128v8si:
+	      case CODE_FOR_avx_vinsertf128v4df:
+	      case CODE_FOR_avx_vinsertf128v8sf:
+	      case CODE_FOR_avx_vinsertf128v8si:
 		error ("the last argument must be a 1-bit immediate");
 		return const0_rtx;
 
@@ -25539,10 +25539,26 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
   enum machine_mode inner_mode = GET_MODE_INNER (mode);
   enum machine_mode half_mode;
   bool use_vec_merge = false;
-  rtx tmp, op0, op1;
-  rtx (*gen_extract) (rtx, rtx); 
-  rtx (*gen_insert) (rtx, rtx, rtx); 
-  int i, n;
+  rtx tmp;
+  static rtx (*gen_extract[6][2]) (rtx, rtx)
+    = {
+	{ gen_vec_extract_lo_v32qi, gen_vec_extract_hi_v32qi },
+	{ gen_vec_extract_lo_v16hi, gen_vec_extract_hi_v16hi },
+	{ gen_vec_extract_lo_v8si, gen_vec_extract_hi_v8si },
+	{ gen_vec_extract_lo_v4di, gen_vec_extract_hi_v4di },
+	{ gen_vec_extract_lo_v8sf, gen_vec_extract_hi_v8sf },
+	{ gen_vec_extract_lo_v4df, gen_vec_extract_hi_v4df }
+      };
+  static rtx (*gen_insert[6][2]) (rtx, rtx, rtx)
+    = {
+	{ gen_vec_set_lo_v32qi, gen_vec_set_hi_v32qi },
+	{ gen_vec_set_lo_v16hi, gen_vec_set_hi_v16hi },
+	{ gen_vec_set_lo_v8si, gen_vec_set_hi_v8si },
+	{ gen_vec_set_lo_v4di, gen_vec_set_hi_v4di },
+	{ gen_vec_set_lo_v8sf, gen_vec_set_hi_v8sf },
+	{ gen_vec_set_lo_v4df, gen_vec_set_hi_v4df }
+      };
+  int i, j, n;
 
   switch (mode)
     {
@@ -25694,31 +25710,37 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 
     case V32QImode:
       half_mode = V16QImode;
+      j = 0;
       n = 16;
       goto half;
 
     case V16HImode:
       half_mode = V8HImode;
+      j = 1;
       n = 8;
       goto half;
 
     case V8SImode:
       half_mode = V4SImode;
-      n = 4;
-      goto half;
-
-    case V8SFmode:
-      half_mode = V4SFmode;
+      j = 2;
       n = 4;
       goto half;
 
     case V4DImode:
       half_mode = V2DImode;
+      j = 3;
       n = 2;
+      goto half;
+
+    case V8SFmode:
+      half_mode = V4SFmode;
+      j = 4;
+      n = 4;
       goto half;
 
     case V4DFmode:
       half_mode = V2DFmode;
+      j = 5;
       n = 2;
       goto half;
 
@@ -25727,44 +25749,17 @@ half:
       i = elt / n;
       elt %= n;
 
-      switch (i)
-	{
-	case 0:
-	  gen_extract = gen_avx_vextractf128_pd256_0;
-	  gen_insert = gen_avx_vinsertf128_pd256_0;
-	  break;
-	case 1:
-	  gen_extract = gen_avx_vextractf128_pd256_1;
-	  gen_insert = gen_avx_vinsertf128_pd256_1;
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
-      /* Cast to V4DFmode. */
-      tmp = gen_reg_rtx (V4DFmode);
-      emit_move_insn (tmp, gen_lowpart (V4DFmode, target));
+      gcc_assert (i <= 1);
 
       /* Extract the half.  */
-      op0 = gen_reg_rtx (V2DFmode);
-      emit_insn ((*gen_extract) (op0, tmp));
+      tmp = gen_reg_rtx (half_mode);
+      emit_insn ((*gen_extract[j][i]) (tmp, target));
 
-      /* Cast to half mode. */
-      op1 = gen_reg_rtx (half_mode);
-      emit_move_insn (op1, gen_lowpart (half_mode, op0));
-
-      /* Put val in op1 at elt.  */
-      ix86_expand_vector_set (false, op1, val, elt);
-
-      /* Cast to V2DFmode. */
-      op0 = gen_reg_rtx (V2DFmode);
-      emit_move_insn (op0, gen_lowpart (V2DFmode, op1));
+      /* Put val in tmp at elt.  */
+      ix86_expand_vector_set (false, tmp, val, elt);
 
       /* Put it back.  */
-      emit_insn ((*gen_insert) (tmp, tmp, op0));
-
-      /* Cast to original mode and store in target. */
-      emit_move_insn (target, gen_lowpart (mode, tmp));
+      emit_insn ((*gen_insert[j][i]) (target, target, tmp));
       return;
 
     default:

@@ -1,3 +1,43 @@
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (bdesc_args): Updated.
+	(ix86_expand_args_builtin): Likewise.
+	(ix86_expand_vector_set): Don't cast to V4DFmode for 256bit AVX
+	modes.
+
+	* config/i386/sse.md (SSEMODE4F): Removed.
+	(SSEMODEIF4): Likewise.
+	(avxextractmode): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256): Likewise.
+	(avx_vextractf128_pd256_0): Likewise.
+	(avx_vextractf128_pd256_1): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vextractf128_<avxmodesuffixp>256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256): Likewise.
+	(avx_vinsertf128_pd256_0): Likewise.
+	(avx_vinsertf128_pd256_1): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_0): Likewise.
+	(avx_vinsertf128_<avxmodesuffixp>256_1): Likewise.
+	(AVX256MODE4P): New.
+	(avx_vextractf128<mode>): Likewise.
+	(vec_extract_lo_<mode>): Likewise.
+	(vec_extract_hi_<mode>): Likewise.
+	(vec_extract_lo_<mode>): Likewise.
+	(vec_extract_hi_<mode>): Likewise.
+	(vec_extract_lo_v16hi): Likewise.
+	(vec_extract_hi_v16hi): Likewise.
+	(vec_extract_lo_v32qi): Likewise.
+	(vec_extract_hi_v32qi): Likewise.
+	(avx_vinsertf128<mode>): Likewise.
+	(vec_set_lo_<mode>): Likewise.
+	(vec_set_hi_<mode>): Likewise.
+	(vec_set_lo_<mode>): Likewise.
+	(vec_set_hi_<mode>): Likewise.
+	(vec_set_lo_v16hi): Likewise.
+	(vec_set_hi_v16hi): Likewise.
+	(vec_set_lo_v32qi): Likewise.
+	(vec_set_hi_v32qi): Likewise.
+
 2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_expand_vector_init_duplicate): Add
