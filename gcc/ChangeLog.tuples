@@ -1,3 +1,8 @@
+2008-05-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (lower_reduction_clauses): Generate OMP_ATOMIC_* directly.
+	Concatenate atomic code correctly.
+
 2008-05-20  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (WALK_SUBSTMTS): New.

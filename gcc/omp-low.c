@@ -2001,6 +2001,7 @@ static void
 lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 {
   gimple_seq sub_seq = NULL;
+  gimple stmt;
   tree x, c;
   int count = 0;
 
@@ -2074,13 +2075,13 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	}
     }
 
-  x = build_call_expr (built_in_decls[BUILT_IN_GOMP_ATOMIC_START], 0);
-  gimplify_and_add (x, stmt_seqp);
+  stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_ATOMIC_START], 0);
+  gimple_seq_add_stmt (stmt_seqp, stmt);
 
-  gimple_seq_add_seq (&sub_seq, *stmt_seqp);
+  gimple_seq_add_seq (stmt_seqp, sub_seq);
 
-  x = build_call_expr (built_in_decls[BUILT_IN_GOMP_ATOMIC_END], 0);
-  gimplify_and_add (x, stmt_seqp);
+  stmt = gimple_build_call (built_in_decls[BUILT_IN_GOMP_ATOMIC_END], 0);
+  gimple_seq_add_stmt (stmt_seqp, stmt);
 }
 
 
