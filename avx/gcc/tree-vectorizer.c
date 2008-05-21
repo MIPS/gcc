@@ -1806,12 +1806,12 @@ get_vectype_for_scalar_type (tree scalar_type)
   int nunits;
   tree vectype;
 
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (scalar_type))
+  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
     return NULL_TREE;
 
   /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
      is expected.  */
-  nunits = UNITS_PER_SIMD_WORD (TYPE_MODE (scalar_type)) / nbytes;
+  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
 
   vectype = build_vector_type (scalar_type, nunits);
   if (vect_print_dump_info (REPORT_DETAILS))

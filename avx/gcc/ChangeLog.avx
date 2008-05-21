@@ -1,3 +1,7 @@
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Fix typo.
+
 2008-05-20  Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* config/i386/sse.md (*avx_vmmul<mode>3): New.
