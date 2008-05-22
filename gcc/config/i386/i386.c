@@ -2954,7 +2954,7 @@ ix86_target_specific_push (int argc, const char **argv)
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
 void
-ix86_set_current_function (tree fndecl)
+ix86_set_current_function (tree fndecl ATTRIBUTE_UNUSED)
 {
 #ifdef DEBUG_TARGET_SPECIFIC
   if (! fndecl)
