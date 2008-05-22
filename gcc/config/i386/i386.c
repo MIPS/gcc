@@ -2203,6 +2203,7 @@ override_options (bool main_args_p)
       sw = "attribute";
     }
 
+#define DEBUG_TARGET_SPECIFIC 1
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);
 #endif
@@ -2214,8 +2215,13 @@ override_options (bool main_args_p)
   SUBSUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
-  memcpy(ix86_tune_features, initial_ix86_tune_features, sizeof(initial_ix86_tune_features));
-  memcpy(ix86_arch_features, initial_ix86_arch_features, sizeof(initial_ix86_arch_features));
+  memcpy (ix86_tune_features,
+	  initial_ix86_tune_features,
+	  sizeof (initial_ix86_tune_features));
+
+  memcpy (ix86_arch_features,
+	  initial_ix86_arch_features,
+	  sizeof (initial_ix86_arch_features));
 
   /* -fPIC is the default for x86_64.  */
   if (TARGET_MACHO && TARGET_64BIT)
@@ -2845,6 +2851,8 @@ ix86_target_specific_push (int argc, const char **argv)
   int i;
   unsigned j;
   bool ret;
+  const char *old_tune_string = ix86_tune_string;
+  const char *old_arch_string = ix86_arch_string;
 
   /* List of all of the string opts to be saved and restored for target
      specific option handling.  */
@@ -2915,6 +2923,11 @@ ix86_target_specific_push (int argc, const char **argv)
 	}
     }
 
+  /* If the user did option("march=xxxx"), but not option("mtune=xxxx"), set the tune string
+     as well.  */
+  if (ix86_arch_string != old_arch_string && ix86_tune_string == old_tune_string)
+    ix86_tune_string = ix86_arch_string;
+
   ret = handle_option (argv, 0, 1);
   if (! ret)
     {
@@ -2935,6 +2948,23 @@ ix86_target_specific_push (int argc, const char **argv)
     *ix86_string_ops[j].string_var = save_string[j];
 
   return true;
+}
+
+
+/* Establish appropriate back-end context for processing the function
+   FNDECL.  The argument might be NULL to indicate processing at top
+   level, outside of any function scope.  */
+void
+ix86_set_current_function (tree fndecl)
+{
+#ifdef DEBUG_TARGET_SPECIFIC
+  if (! fndecl)
+    fprintf (stderr, "ix86_set_current_function: top level\n");
+  else if (! DECL_NAME (fndecl))
+    fprintf (stderr, "ix86_set_current_function: no decl name\n");
+  else
+    fprintf (stderr, "ix86_set_current_function: %s:\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+#endif
 }
 
 

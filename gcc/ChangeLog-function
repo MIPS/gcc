@@ -1,3 +1,15 @@
+2008-05-22  Michael Meissner  <michael.meissner@amd.com>
+
+	* config/i386/i386-protos.h (ix86_set_current_function): Declare.
+
+	* config/i386/i386.c (override_options): White space changes.
+	(ix86_target_specific_push): If arch changed but not tune, update
+	tune string also.
+	(ix86_set_current_function): New function, stub for now.
+
+	* config/i386/i386.h (TARGET_SET_CURRENT_FUNCTION): Define, call
+	ix86_set_current_function.
+
 2008-05-18  Michael Meissner  <michael.meissner@amd.com>
 
 	* ammintrin.h: Undo 2008-04-21 changes adding machine specific

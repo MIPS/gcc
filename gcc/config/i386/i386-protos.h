@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Functions in i386.c */
 extern bool ix86_target_specific_push (int, const char **);
 extern void ix86_target_specific_pop (void);
+extern void ix86_set_current_function (tree);
 extern void override_options (bool);
 extern void optimization_options (int, int);
 

@@ -468,6 +468,11 @@ extern tree x86_mfence;
 /* Hook to undo the result of setting target specific options.  */
 #define TARGET_TARGET_SPECIFIC_POP ix86_target_specific_pop
 
+/* Establish appropriate back-end context for processing the function
+   FNDECL.  The argument might be NULL to indicate processing at top
+   level, outside of any function scope.  */
+#define TARGET_SET_CURRENT_FUNCTION ix86_set_current_function
+
 /* Define this to change the optimizations performed by default.  */
 #define OPTIMIZATION_OPTIONS(LEVEL, SIZE) \
   optimization_options ((LEVEL), (SIZE))
