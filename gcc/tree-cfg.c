@@ -541,10 +541,11 @@ make_edges (void)
 
 
 	    case GIMPLE_OMP_RETURN:
-	      /* In the case of an OMP_SECTION, the edge will go somewhere
-		 other than the next block.  This will be created later.  */
+	      /* In the case of a GIMPLE_OMP_SECTION, the edge will go
+		 somewhere other than the next block.  This will be
+		 created later.  */
 	      cur_region->exit = bb;
-	      fallthru = cur_region->type != OMP_SECTION;
+	      fallthru = cur_region->type != GIMPLE_OMP_SECTION;
 	      cur_region = cur_region->outer;
 	      break;
 
@@ -553,16 +554,17 @@ make_edges (void)
 	      switch (cur_region->type)
 		{
 		case GIMPLE_OMP_FOR:
-		  /* Mark all OMP_FOR and OMP_CONTINUE succs edges as abnormal
-		     to prevent splitting them.  */
+		  /* Mark all GIMPLE_OMP_FOR and GIMPLE_OMP_CONTINUE
+		     succs edges as abnormal to prevent splitting
+		     them.  */
 		  single_succ_edge (cur_region->entry)->flags |= EDGE_ABNORMAL;
 		  /* Make the loopback edge.  */
 		  make_edge (bb, single_succ (cur_region->entry),
 			     EDGE_ABNORMAL);
 
-		  /* Create an edge from OMP_FOR to exit, which corresponds to
-		     the case that the body of the loop is not executed at
-		     all.  */
+		  /* Create an edge from GIMPLE_OMP_FOR to exit, which
+		     corresponds to the case that the body of the loop
+		     is not executed at all.  */
 		  make_edge (cur_region->entry, bb->next_bb, EDGE_ABNORMAL);
 		  make_edge (bb, bb->next_bb, EDGE_FALLTHRU | EDGE_ABNORMAL);
 		  fallthru = false;
@@ -3671,10 +3673,10 @@ verify_types_in_gimple_stmt (gimple stmt)
   if (is_gimple_omp (stmt))
     {
       /* OpenMP directives are validated by the FE and never operated
-	 on by the optimizers.  Furthermore, OMP_FOR may contain
+	 on by the optimizers.  Furthermore, GIMPLE_OMP_FOR may contain
 	 non-gimple expressions when the main index variable has had
 	 its address taken.  This does not affect the loop itself
-	 because the header of an OMP_FOR is merely used to determine
+	 because the header of an GIMPLE_OMP_FOR is merely used to determine
 	 how to setup the parallel iteration.  */
       return false;
     }
@@ -3809,10 +3811,10 @@ verify_stmt (gimple_stmt_iterator *gsi)
   if (is_gimple_omp (stmt))
     {
       /* OpenMP directives are validated by the FE and never operated
-	 on by the optimizers.  Furthermore, OMP_FOR may contain
+	 on by the optimizers.  Furthermore, GIMPLE_OMP_FOR may contain
 	 non-gimple expressions when the main index variable has had
 	 its address taken.  This does not affect the loop itself
-	 because the header of an OMP_FOR is merely used to determine
+	 because the header of an GIMPLE_OMP_FOR is merely used to determine
 	 how to setup the parallel iteration.  */
       return false;
     }
