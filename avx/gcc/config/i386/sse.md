@@ -3431,7 +3431,10 @@
    punpckldq\t{%2, %0|%0, %2}
    movd\t{%1, %0|%0, %1}"
   [(set_attr "type" "sselog,sselog,ssemov,mmxcvt,mmxmov")
-   (set_attr "prefix" "vex")
+   (set (attr "prefix")
+     (if_then_else (eq_attr "alternative" "3,4")
+       (const_string "orig")
+       (const_string "vex")))
    (set_attr "mode" "V4SF,V4SF,SF,DI,DI")])
 
 ;; Although insertps takes register source, we prefer
@@ -6825,6 +6828,24 @@
   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
 })
 
+(define_insn "*vec_extractv2di_1_rex64_avx"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x,r")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,x,o,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_64BIT
+   && TARGET_AVX
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   vmovhps\t{%1, %0|%0, %1}
+   vpsrldq\t{$8, %1, %0|%0, %1, 8}
+   vmovq\t{%H1, %0|%0, %H1}
+   vmov{q}\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov,imov")
+   (set_attr "memory" "*,none,*,*")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V2SF,TI,TI,DI")])
+
 (define_insn "*vec_extractv2di_1_rex64"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x,r")
 	(vec_select:DI
@@ -6839,6 +6860,23 @@
   [(set_attr "type" "ssemov,sseishft,ssemov,imov")
    (set_attr "memory" "*,none,*,*")
    (set_attr "mode" "V2SF,TI,TI,DI")])
+
+(define_insn "*vec_extractv2di_1_avx"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_64BIT
+   && TARGET_AVX
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   vmovhps\t{%1, %0|%0, %1}
+   vpsrldq\t{$8, %1, %0|%0, %1, 8}
+   vmovq\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov")
+   (set_attr "memory" "*,none,*")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "V2SF,TI,TI")])
 
 (define_insn "*vec_extractv2di_1_sse2"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
@@ -6924,7 +6962,10 @@
    punpckldq\t{%2, %0|%0, %2}
    movd\t{%1, %0|%0, %1}"
   [(set_attr "type" "sselog,sselog,ssemov,mmxcvt,mmxmov")
-   (set_attr "prefix" "vex")
+   (set (attr "prefix")
+     (if_then_else (eq_attr "alternative" "3,4")
+       (const_string "orig")
+       (const_string "vex")))
    (set_attr "mode" "TI,TI,TI,DI,DI")])
 
 (define_insn "*vec_concatv2si_sse4_1"
@@ -7013,7 +7054,10 @@
    vmovhps\t{%2, %1, %0|%0, %1, %2}
    vmovlps\t{%1, %2, %0|%0, %2, %1}"
   [(set_attr "type" "ssemov,ssemov,sselog,ssemov,ssemov")
-   (set_attr "prefix" "vex")
+   (set (attr "prefix")
+     (if_then_else (eq_attr "alternative" "1")
+       (const_string "orig")
+       (const_string "vex")))
    (set_attr "mode" "TI,TI,TI,V2SF,V2SF")])
 
 (define_insn "vec_concatv2di"
@@ -7047,7 +7091,10 @@
    vmovhps\t{%2, %1, %0|%0, %1, %2}
    vmovlps\t{%1, %2, %0|%0, %2, %1}"
   [(set_attr "type" "sselog,ssemov,ssemov,ssemov,sselog,ssemov,ssemov")
-   (set_attr "prefix" "vex")
+   (set (attr "prefix")
+     (if_then_else (eq_attr "alternative" "3")
+       (const_string "orig")
+       (const_string "vex")))
    (set_attr "mode" "TI,TI,TI,TI,TI,V2SF,V2SF")])
 
 (define_insn "*vec_concatv2di_rex64_sse4_1"

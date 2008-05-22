@@ -25032,6 +25032,12 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
 	 the general case.  */
       return false;
 
+    case V4DFmode:
+    case V4DImode:
+    case V8SFmode:
+    case V8SImode:
+    case V16HImode:
+    case V32QImode:
     case V4SFmode:
     case V4SImode:
     case V8HImode:
@@ -25340,28 +25346,17 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
     case V2SImode:
       if (!mmx_ok && !TARGET_SSE)
 	break;
+      /* FALLTHRU */
 
-      n = 2;
-      goto vec_concat;
-
+    case V8SFmode:
+    case V8SImode:
     case V4DFmode:
     case V4DImode:
     case V4SFmode:
     case V4SImode:
-      n = 4;
-      goto vec_concat;
-
     case V2DFmode:
     case V2DImode:
-      n = 2;
-      goto vec_concat;
-
-    case V8SFmode:
-    case V8SImode:
-      n = 8;
-      goto vec_concat;
-
-vec_concat:
+      n = GET_MODE_NUNITS (mode);
       for (i = 0; i < n; i++)
 	ops[i] = XVECEXP (vals, 0, i);
       ix86_expand_vector_init_concat (mode, target, ops, n);
@@ -25369,15 +25364,14 @@ vec_concat:
 
     case V32QImode:
       half_mode = V16QImode;
-      n = 32;
       goto half;
 
     case V16HImode:
       half_mode = V8HImode;
-      n = 16;
       goto half;
 
 half:
+      n = GET_MODE_NUNITS (mode);
       for (i = 0; i < n; i++)
 	ops[i] = XVECEXP (vals, 0, i);
       op0 = gen_reg_rtx (half_mode);
@@ -25393,18 +25387,13 @@ half:
     case V16QImode:
       if (!TARGET_SSE4_1)
 	break;
-
-      n = 16;
-      goto vec_interleave;
+      /* FALLTHRU */
 
     case V8HImode:
       if (!TARGET_SSE2)
 	break;
 
-      n = 8;
-      goto vec_interleave;
-
-vec_interleave:
+      n = GET_MODE_NUNITS (mode);
       for (i = 0; i < n; i++)
 	ops[i] = XVECEXP (vals, 0, i);
       ix86_expand_vector_init_interleave (mode, target, ops, n >> 1);

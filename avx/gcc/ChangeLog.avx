@@ -1,5 +1,37 @@
 2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_expand_vector_init_one_var): Support
+	256bit AVX modes.
+
+	* config/i386/mmx.md (*mov<mode>_internal_rex64_avx): New for
+	AVX.
+	(*mov<mode>_internal_avx): Likewise.
+
+	* config/i386/sse.md (*vec_concatv2sf_avx): Set prefix to
+	orig for MMX instructions.
+	(*vec_concatv2di_avx): Likewise.
+	(*vec_concatv2si_avx): Likewise.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Remove
+	goto for vec_concat and vec_interleave.
+
+2008-05-21  Joey Ye  <joey.ye@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movsi_1): Support AVX.
+	(*movsf_1): Likewise.
+	(*truncdfsf_fast_sse): Likewise.
+	(*sse4_1_round<mode>2): Likewise.
+
+	* config/i386/sse.md (*vec_extractv2di_1_rex64_avx): New.
+	(*vec_extractv2di_1_avx): Likewise.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (bdesc_args): Updated.
 	(ix86_expand_args_builtin): Likewise.
 	(ix86_expand_vector_set): Don't cast to V4DFmode for 256bit AVX
