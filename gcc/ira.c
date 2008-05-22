@@ -354,7 +354,7 @@ static void fix_reg_equiv_init (void);
 #ifdef ENABLE_IRA_CHECKING
 static void print_redundant_copies (void);
 #endif
-static void setup_preferred_alternate_classes (void);
+static void setup_preferred_alternate_classes_for_new_pseudos (int);
 static void expand_reg_info (int);
 static int chain_freq_compare (const void *, const void *);
 static int chain_bb_compare (const void *, const void *);
@@ -540,6 +540,9 @@ setup_class_subset_and_memory_move_costs (void)
   enum machine_mode mode;
   HARD_REG_SET temp_hard_regset2;
 
+  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+    memory_move_cost[mode][NO_REGS][0]
+      = memory_move_cost[mode][NO_REGS][1] = SHRT_MAX;
   for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
     {
       if (cl != (int) NO_REGS)
@@ -547,8 +550,18 @@ setup_class_subset_and_memory_move_costs (void)
 	  {
 	    memory_move_cost[mode][cl][0] = MEMORY_MOVE_COST (mode, cl, 0);
 	    memory_move_cost[mode][cl][1] = MEMORY_MOVE_COST (mode, cl, 1);
+	    /* Costs for NO_REGS are used in cost calculation on the
+	       1st pass when the preferred register classes are not
+	       known yet.  In this case we take the best scenario.  */
+	    if (memory_move_cost[mode][NO_REGS][0]
+		> memory_move_cost[mode][cl][0])
+	      memory_move_cost[mode][NO_REGS][0]
+		= memory_move_cost[mode][cl][0];
+	    if (memory_move_cost[mode][NO_REGS][1]
+		> memory_move_cost[mode][cl][1])
+	      memory_move_cost[mode][NO_REGS][1]
+		= memory_move_cost[mode][cl][1];
 	  }
-
       for (cl2 = (int) N_REG_CLASSES - 1; cl2 >= 0; cl2--)
 	{
 	  COPY_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
@@ -1633,21 +1646,25 @@ print_redundant_copies (void)
 }
 #endif
 
-/* Setup preferred and alternative classes for pseudo-registers for
-   other passes.  */
+/* Setup preferred and alternative classes for new pseudo-registers
+   created by IRA starting with START.  */
 static void
-setup_preferred_alternate_classes (void)
+setup_preferred_alternate_classes_for_new_pseudos (int start)
 {
-  enum reg_class cover_class;
-  allocno_t a;
-  allocno_iterator ai;
+  int i, old_regno;
+  int max_regno = max_reg_num ();
 
-  FOR_EACH_ALLOCNO (a, ai)
+  for (i = start; i < max_regno; i++)
     {
-      cover_class = ALLOCNO_COVER_CLASS (a);
-      if (cover_class == NO_REGS)
-	cover_class = GENERAL_REGS;
-      setup_reg_classes (ALLOCNO_REGNO (a), cover_class, NO_REGS);
+      old_regno = ORIGINAL_REGNO (regno_reg_rtx[i]);
+      ira_assert (i != old_regno); 
+      setup_reg_classes (i, reg_preferred_class (old_regno),
+			 reg_alternate_class (old_regno));
+      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
+	fprintf (ira_dump_file,
+		 "    New r%d: setting preferred %s, alternative %s\n",
+		 i, reg_class_names[reg_preferred_class (old_regno)],
+		 reg_class_names[reg_alternate_class (old_regno)]);
     }
 }
 
@@ -1861,6 +1878,8 @@ ira (FILE *f)
       else
 	{
 	  expand_reg_info (allocated_reg_info_size);
+	  setup_preferred_alternate_classes_for_new_pseudos
+	    (allocated_reg_info_size);
 	  allocated_reg_info_size = max_regno;
 	  
 	  if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
@@ -1892,8 +1911,6 @@ ira (FILE *f)
   if (optimize)
     check_allocation ();
 #endif
-      
-  setup_preferred_alternate_classes ();
       
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   max_regno = max_reg_num ();

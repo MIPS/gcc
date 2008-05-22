@@ -42,8 +42,8 @@ along with GCC; see the file COPYING3.  If not see
    works on the allocno basis.  */
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
-/* Indexed by n, is nonzero if (REG n) is used in an auto-inc or
-   auto-dec context.  */
+/* Indexed by n, is nonzero if allocno with number N is used in an
+   auto-inc or auto-dec context.  */
 static char *in_inc_dec;
 #endif
 
@@ -319,11 +319,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  pp->mem_cost
 		    = ((recog_data.operand_type[i] != OP_IN
 			? memory_move_cost[mode][classes[i]][0] : 0)
-		       * frequency
 		       + (recog_data.operand_type[i] != OP_OUT
 			  ? memory_move_cost[mode][classes[i]][1] : 0)
-		       * frequency - allows_mem[i] * frequency / 2);
-
+		       - allows_mem[i]) * frequency;
 		  /* If we have assigned a class to this allocno in our
 		     first pass, add a cost to this alternative
 		     corresponding to what we would add if this allocno
@@ -563,12 +561,10 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     insn to load it.  */
 		  pp->mem_cost
 		    = ((recog_data.operand_type[i] != OP_IN
-		        ? memory_move_cost[mode][classes[i]][0]
-			: 0) * frequency
+			? memory_move_cost[mode][classes[i]][0] : 0)
 		       + (recog_data.operand_type[i] != OP_OUT
-			  ? memory_move_cost[mode][classes[i]][1]
-			  : 0) * frequency - allows_mem[i] * frequency / 2);
-
+			  ? memory_move_cost[mode][classes[i]][1] : 0)
+		       - allows_mem[i]) * frequency;
 		  /* If we have assigned a class to this allocno in our
 		     first pass, add a cost to this alternative
 		     corresponding to what we would add if this allocno
@@ -938,7 +934,7 @@ record_operand_costs (rtx insn, struct costs **op_costs,
      commutative.  */
   for (i = 0; i < recog_data.n_operands; i++)
     {
-      memmove (op_costs[i], init_cost, struct_costs_size);
+      memcpy (op_costs[i], init_cost, struct_costs_size);
 
       if (GET_CODE (recog_data.operand[i]) == SUBREG)
 	recog_data.operand[i] = SUBREG_REG (recog_data.operand[i]);
@@ -1072,7 +1068,7 @@ print_costs (FILE *f)
 	      && (! in_inc_dec[i] || ! forbidden_inc_dec_class[class])
 #endif
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	      && ! invalid_mode_change_p (i, (enum reg_class) class,
+	      && ! invalid_mode_change_p (regno, (enum reg_class) class,
 					  PSEUDO_REGNO_MODE (regno))
 #endif
 	      )
@@ -1179,7 +1175,7 @@ find_allocno_class_costs (void)
 	  int class, a_num, father_a_num;
 	  loop_tree_node_t father;
 	  int best_cost;
-	  enum reg_class best, common_class;
+	  enum reg_class best, alt_class, common_class;
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 	  int inc_dec_p = FALSE;
 #endif
@@ -1219,6 +1215,7 @@ find_allocno_class_costs (void)
 	    }
 	  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
 	  best = ALL_REGS;
+	  alt_class = NO_REGS;
 	  /* Find best common class for all allocnos with the same
 	     regno.  */
 	  for (k = 0; k < cost_classes_num; k++)
@@ -1235,14 +1232,31 @@ find_allocno_class_costs (void)
 					    PSEUDO_REGNO_MODE (i))
 #endif
 		  )
-		;
-	      else if (temp_costs->cost[k] < best_cost)
+		continue;
+	      if (temp_costs->cost[k] < best_cost)
 		{
 		  best_cost = temp_costs->cost[k];
 		  best = (enum reg_class) class;
 		}
 	      else if (temp_costs->cost[k] == best_cost)
 		best = reg_class_union[best][class];
+	      if (pass == flag_expensive_optimizations
+		  && temp_costs->cost[k] < temp_costs->mem_cost
+		  && (reg_class_size[reg_class_subunion[alt_class][class]]
+		      > reg_class_size[alt_class]))
+		alt_class = reg_class_subunion[alt_class][class];
+	    }
+	  if (pass == flag_expensive_optimizations)
+	    {
+	      if (best_cost > temp_costs->mem_cost)
+		best = alt_class = NO_REGS;
+	      else if (best == alt_class)
+		alt_class = NO_REGS;
+	      setup_reg_classes (i, best, alt_class);
+	      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
+		fprintf (ira_dump_file,
+			 "    r%d: preferred %s, alternative %s\n",
+			 i, reg_class_names[best], reg_class_names[alt_class]);
 	    }
 	  if (best_cost > temp_costs->mem_cost)
 	    common_class = NO_REGS;

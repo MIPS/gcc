@@ -1,3 +1,20 @@
+2008-05-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.c (setup_preferred_alternate_classes): Remove.
+	(setup_preferred_alternate_classes_for_new_pseudos): New.
+	(setup_preferred_alternate_classes): Set memory cost for NO_REGS
+	to minimal one.
+	(ira): Remove setup_preferred_alternate_classes.  Call
+	setup_preferred_alternate_classes_for_new_pseudos.
+
+	* ira-costs.c (record_reg_classes): Don't decrease frequency for
+	allows_mem.
+	(record_operand_costs): Use memcpy instead of memmove.
+	(print_costs): Use regno instead of allocno number in
+	invalid_mode_change_p.
+	(find_allocno_class_costs): Set up preferred and alternative
+	classes.
+	
 2008-05-18  Vladimir Makarov  <vmakarov@redhat.com>
 	PR tree-optimization/26854
 
