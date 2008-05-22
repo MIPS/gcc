@@ -2203,7 +2203,6 @@ override_options (bool main_args_p)
       sw = "attribute";
     }
 
-#define DEBUG_TARGET_SPECIFIC 1
 #ifdef DEBUG_TARGET_SPECIFIC
   fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);
 #endif
