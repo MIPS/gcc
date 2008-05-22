@@ -1155,7 +1155,7 @@ do {									\
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
    place emms and femms instructions.  */
-#define UNITS_PER_SIMD_WORD (TARGET_SSE ? 16 : UNITS_PER_WORD)
+#define UNITS_PER_SIMD_WORD(MODE) (TARGET_SSE ? 16 : UNITS_PER_WORD)
 
 #define VALID_DFP_MODE_P(MODE) \
   ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
@@ -1283,25 +1283,6 @@ do {									\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
 
 #define GOT_SYMBOL_NAME "_GLOBAL_OFFSET_TABLE_"
-
-/* A C expression which can inhibit the returning of certain function
-   values in registers, based on the type of value.  A nonzero value
-   says to return the function value in memory, just as large
-   structures are always returned.  Here TYPE will be a C expression
-   of type `tree', representing the data type of the value.
-
-   Note that values of mode `BLKmode' must be explicitly handled by
-   this macro.  Also, the option `-fpcc-struct-return' takes effect
-   regardless of this macro.  On most systems, it is possible to
-   leave the macro undefined; this causes a default definition to be
-   used, whose value is the constant 1 for `BLKmode' values, and 0
-   otherwise.
-
-   Do not use this macro to indicate that structures and unions
-   should always be returned in memory.  You should instead use
-   `DEFAULT_PCC_STRUCT_RETURN' to indicate this.  */
-
-#define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
 
 /* This is overridden by <cygwin.h>.  */
 #define MS_AGGREGATE_RETURN 0

@@ -1,6 +1,360 @@
+2008-05-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (UNITS_PER_SIMD_WORD): Add scalar mode as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Replace
+	UNITS_PER_SIMD_WORD with GET_MODE_SIZE (TYPE_MODE (vectype)).
+	(vect_update_misalignment_for_peel): Likewise.
+	(vector_alignment_reachable_p): Likewise.
+	* tree-vect-transform.c (vectorizable_load): Likewise.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Likewise.
+
+	* tree-vectorizer.c (get_vectype_for_scalar_type): Pass mode of
+	scalar_type to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
+2008-05-22  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36293
+	* tree-vect-transform.c (vect_transform_strided_load): Don't check
+	if the first load must be skipped because of a gap.
+
+2008-05-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Exit early if possible.  Handle
+	more cases of offset disambiguation that is possible if
+	strict-aliasing rules apply.
+	* tree-ssa-loop-im.c (mem_refs_may_alias_p): Use refs_may_alias_p
+	for basic offset and type-based disambiguation.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_var): Use
+	ix86_expand_vector_set on V16QImode for SSE4.1.
+
+2008-05-21  Tom Tromey  <tromey@redhat.com>
+
+	* c.opt (Wimport): Mark as undocumented.
+	* doc/invoke.texi (Option Summary): Don't mention -Wimport or
+	-Wno-import.
+	(Warning Options): Likewise.
+	* doc/cppopts.texi: Don't mention -Wimport.
+
+2008-05-21  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36287
+	PR tree-optimization/36286
+	* lambda-code.c (build_access_matrix): Do not use the loop->num
+	for computing the number of induction variables: use the loop depth
+	instead.
+
+2008-05-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/36280
+	* config/i386/cygming.h (ASM_OUTPUT_LABELREF): Honor
+	option -f(no-)leading-underscore.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Use
+	GET_MODE_NUNITS (mode).
+
+2008-05-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type's 464 and 464fp.
+	(-mmulhw): Add 464 to description.
+	(-mdlmzb): Likewise.
+	* config.gcc: Handle --with-cpu=464 and --with-cpu=464fp.
+	* config/rs6000/rs6000.c (processor_target_table): Add 464 and
+	464fp entries.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add 464 and 464fp support.
+	* config/rs6000/t-fprules (MULTILIB_MATCHES_FLOAT): Include -mcpu=464.
+	* config/rs6000/rs6000.md: Update comments for 464.
+
+2008-05-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Directives): Add dg-xfail-run-if.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_extractv4sf): Removed.
+	(vec_extractv2df): Likewise.
+	(vec_extractv2di): Likewise.
+	(vec_extractv4si): Likewise.
+	(vec_extractv8hi): Likewise.
+	(vec_extractv16qi): Likewise.
+	(vec_extract<mode>): New.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_setv4sf): Removed.
+	(vec_setv2df): Likewise.
+	(vec_setv2di): Likewise.
+	(vec_setv4si): Likewise.
+	(vec_setv8hi): Likewise.
+	(vec_setv16qi): Likewise.
+	(vec_set<mode>): New.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Remove
+	goto for vec_concat and vec_interleave.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_initv4sf): Removed.
+	(vec_initv2df): Likewise.
+	(vec_initv2di): Likewise.
+	(vec_initv4si): Likewise.
+	(vec_initv8hi): Likewise.
+	(vec_initv16qi): Likewise.
+	(vec_init<mode>): New.
+
+2008-05-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* collect2.c (find_a_file): Use IS_ABSOLUTE_PATH.
+
+2008-05-21  Tom Tromey  <tromey@redhat.com>
+
+	* ggc-zone.c (lookup_page_table_if_allocated): New function.
+	(zone_find_object_offset): Likewise.
+	(gt_ggc_m_S): Likewise.
+	(highest_bit): Likewise.
+	* ggc-page.c (gt_ggc_m_S): New function.
+	* stringpool.c (string_stack): Remove.
+	(init_stringpool): Update.
+	(ggc_alloc_string): Use ggc_alloc.
+	(maybe_delete_ident): New function.
+	(ggc_purge_stringpool): Likewise.
+	(gt_ggc_m_S): Remove.
+	* ggc-common.c (ggc_protect_identifiers): New global.
+	(ggc_mark_roots): Call ggc_purge_stringpool.  Use
+	ggc_protect_identifiers.
+	* ggc.h (ggc_protect_identifiers): Declare.
+	(gt_ggc_m_S): Update.
+	(ggc_purge_stringpool): Declare.
+	* toplev.c (compile_file): Set and reset ggc_protect_identifiers.
+	* gengtype.c (write_types_process_field) <TYPE_STRING>: Remove
+	special case.
+	(write_root): Cast gt_ggc_m_S to gt_pointer_walker.
+
+2008-05-21  David S. Miller  <davem@davemloft.net>
+
+	* config.gcc (sparc-*-linux*): Always include sparc/t-linux in
+	tmake_file.
+
+2008-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgexpand.c (tree_expand_cfg): Zap the EH throw statement table
+	once finished.
+
+2008-05-20  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.md (UNSPEC_SYNC_NEW_OP_12,
+	UNSPEC_SYNC_OLD_OP_12,
+	UNSPEC_SYNC_EXCHANGE_12): New define_constants.
+	(UNSPEC_SYNC_EXCHANGE, UNSPEC_MEMORY_BARRIER,
+	UNSPEC_SET_GOT_VERSION,
+	UNSPEC_UPDATE_GOT_VERSION): Renumber.
+	(optab, insn): Add 'plus' and 'minus' to define_code_attr.
+	(atomic_hiqi_op): New define_code_iterator.
+	(sync_compare_and_swap<mode>): Call
+	mips_expand_atomic_qihi instead of
+	mips_expand_compare_and_swap_12.
+	(compare_and_swap_12): Use MIPS_COMPARE_AND_SWAP_12 instead of
+	MIPS_COMPARE_AND_SWAP_12_0.  Pass argument to
+	MIPS_COMPARE_AND_SWAP_12.
+	(sync_<optab><mode>, sync_old_<optab><mode>,
+	sync_new_<optab><mode>, sync_nand<mode>, sync_old_nand<mode>,
+	sync_new_nand<mode>): New define_expands for HI and QI mode
+	operands.
+	(sync_<optab>_12, sync_old_<optab>_12, sync_new_<optab>_12,
+	sync_nand_12, sync_old_nand_12, sync_new_nand_12): New insns.
+	(sync_lock_test_and_set<mode>): New define_expand for HI and QI
+	modes.
+	(test_and_set_12): New insn.
+	(sync_old_add<mode>, sync_new_add<mode>, sync_old_<optab><mode>,
+	sync_new_<optab><mode>, sync_old_nand<mode>,
+	sync_new_nand<mode>, sync_lock_test_and_set<mode>):  Add early
+	clobber to operand 0 for SI and DI mode insns.
+	* config/mips/mips-protos.h (mips_gen_fn_6, mips_gen_fn_5,
+	mips_gen_fn_4): New typedefs.
+	(mips_gen_fn_ptrs): Define new union type.
+	(mips_expand_compare_and_swap_12): Remove declaration.
+	(mips_expand_atomic_qihi): Declare function.
+	* config/mips/mips.c (mips_expand_compare_and_swap_12): Rename to...
+	(mips_expand_atomic_qihi): ... this.  Use new generator function
+	parameter.
+	* config/mips/mips.h (MIPS_COMPARE_AND_SWAP_12): Add OPS parameter.
+	(MIPS_COMPARE_AND_SWAP_12_0): Delete macro.
+	(MIPS_COMPARE_AND_SWAP_12_ZERO_OP,
+	MIPS_COMPARE_AND_SWAP_12_NONZERO_OP,
+	MIPS_SYNC_OP_12, MIPS_SYNC_OP_12_NOT_NOP,
+	MIPS_SYNC_OP_12_NOT_NOT, MIPS_SYNC_OLD_OP_12,
+	MIPS_SYNC_OLD_OP_12_NOT_NOP, MIPS_SYNC_OLD_OP_12_NOT_NOP_REG,
+	MIPS_SYNC_OLD_OP_12_NOT_NOT, MIPS_SYNC_OLD_OP_12_NOT_NOT_REG,
+	MIPS_SYNC_NEW_OP_12, MIPS_SYNC_NEW_OP_12_NOT_NOP,
+	MIPS_SYNC_NEW_OP_12_NOT_NOT, MIPS_SYNC_EXCHANGE_12,
+	MIPS_SYNC_EXCHANGE_12_ZERO_OP,
+	MIPS_SYNC_EXCHANGE_12_NONZERO_OP): New macros.
+
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): Add
+	the missing break.
+
+2008-05-20  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (machine_function): Add 'is_OS_main' field.
+	* config/avr/avr.c (avr_OS_main_function_p): Add new function.
+	(avr_attribute_table): Add 'OS_main' function attribute.
+	(avr_regs_to_save, expand_prologue, expand_epilogue): Handle
+	functions with 'OS_main' attribute.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35204
+	* tree-ssa-sccvn.c (extract_and_process_scc_for_name): New
+	helper, split out from ...
+	(DFS): ... here.  Make the DFS walk non-recursive.
+
+2008-05-20  Sebastian Pop  <sebastian.pop@amd.com>
+	    Jan Sjodin  <jan.sjodin@amd.com>
+
+	PR tree-optimization/36181
+	* tree-parloops.c (loop_has_vector_phi_nodes): New.
+	(parallelize_loops): Don't parallelize when the loop has vector
+	phi nodes.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-loop-linear.c (gather_interchange_stats): Look in the access matrix,
+	and never look at the tree representation of the memory accesses.
+	(linear_transform_loops): Computes parameters and access matrices.
+	* tree-data-ref.c (compute_data_dependences_for_loop): Returns false when fails.
+	(access_matrix_get_index_for_parameter): New.
+	* tree-data-ref.h (struct access_matrix): New.
+	(AM_LOOP_NEST_NUM, AM_NB_INDUCTION_VARS, AM_PARAMETERS, AM_MATRIX,
+	AM_NB_PARAMETERS, AM_CONST_COLUMN_INDEX, AM_NB_COLUMNS,
+	AM_GET_SUBSCRIPT_ACCESS_VECTOR, AM_GET_ACCESS_MATRIX_ELEMENT,
+	am_vector_index_for_loop): New.
+	(struct data_reference): Add field access_matrix.
+	(DR_ACCESS_MATRIX): New.
+	(compute_data_dependences_for_loop): Update declaration.
+	(lambda_collect_parameters, lambda_compute_access_matrices): Declared.
+	* lambda.h (lambda_vector_vec_p): Declared.
+	* lambda-code.c: Depend on pointer-set.h.
+	(lambda_collect_parameters_from_af, lambda_collect_parameters,
+	av_for_af_base, av_for_af, build_access_matrix,
+	lambda_compute_access_matrices): New.
+	* Makefile.in (lambda-code.o): Depend on pointer-set.h.
+
+2008-05-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/install.texi2html: Generate gcc-vers.texi in $DESTDIR not
+	$SOURCEDIR/include.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36206
+	* tree-scalar-evolution.c: Remove enum INSERT_SUPERLOOP_CHRECS,
+	FOLD_CONVERSIONS.
+	(instantiate_scev_1): Rename flags to fold_conversions.
+	Do not check for INSERT_SUPERLOOP_CHRECS, keep SSA_NAMEs defined
+	outeside instantiation_loop.
+	* tree-chrec.h (evolution_function_is_affine_in_loop): New.
+	(evolution_function_is_affine_or_constant_p): Removed.
+	* tree-data-ref.c (dr_analyze_indices): Replace resolve_mixers with
+	instantiate_scev.
+	(analyze_siv_subscript): Pass in the loop nest number.
+	Call evolution_function_is_affine_in_loop instead of 
+	evolution_function_is_affine_p.
+	(analyze_overlapping_iterations): Pass in the loop nest number.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36206
+	* tree-chrec.h (chrec_fold_op): New.
+	* tree-data-ref.c (initialize_matrix_A): Traverse NOP_EXPR, PLUS_EXPR, and
+	other trees.
+
+2008-05-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-incpath.c (INO_T_EQ): Do not define on non-inode systems.
+	(DIRS_EQ): New.
+	(remove_duplicates): Do not set inode on non-inode systems.  Use
+	DIRS_EQ.
+
+2008-05-20  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config.gcc (tm_file): Update comments about relative pathnames.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-reassoc.c (fini_reassoc): Use the statistics
+	infrastructure.
+	* tree-ssa-sccvn.c (process_scc): Likewise.
+	* tree-ssa-sink.c (execute_sink_code): Likewise.
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Likewise.
+	* tree-vrp.c (process_assert_insertions): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	(perform_tree_ssa_dce): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
+	(dump_dominator_optimization_stats): Likewise.
+	* tree-vectorizer.c (vectorize_loops): Likewise.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vn.c (vn_lookup_with_vuses): Do not use the alias oracle.
+
+2008-05-20  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386-protos.h (ix86_return_in_memory): Removed.
+	(ix86_i386elf_return_in_memory): Likewise.
+	(ix86_i386interix_return_in_memory): Likewise.
+	* config/i386/i386-interix.h (TARGET_RETURN_IN_MEMORY): Removed.
+	(SUBTARGET_RETURN_IN_MEMORY): New.
+	* config/i386/i386elf.h: Likewise.
+	* config/i386/ptx4-i.h: Likewise.
+	* config/i386/sol2-10.h: Likewise.
+	* config/i386/sysv4.h: Likewise.
+	* config/i386/vx-common.h: Likewise.
+	* config/i386/i386.h (TARGET_RETURN_IN_MEMORY): Removed.
+	* config/i386/i386.c (ix86_return_in_memory): Made static and
+	make use of optional SUBTARGET_RETURN_IN_MEMORY macro.
+	(ix86_i386elf_return_in_memory): Removed.
+	(ix86_i386interix_return_in_memory): Removed.
+	(TARGET_RETURN_IN_MEMORY): Declared within i386.c only.
+	* target-def.h (TARGET_RETURN_IN_MEMORY): Remove protection #ifdef.
+
+2008-05-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cselib.c (cselib_record_sets): Use correct mode for IF_THEN_ELSE.
+
+2008-05-19  Xinliang David Li  <davidxl@google.com>
+
+	* tree-ssa-dce.c: Revert patches of 2008-05-17 and 2008-05-18. 
+	* opts.c: Ditto.
+	* common.opt: Ditto.
+	* doc/invoke.texi: Ditto.
+
+2008-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (substitute_in_expr) <tcc_vl_exp>: Fix thinko.
+	(substitute_placeholder_in_expr) <tcc_vl_exp>: Minor tweak.
+
 2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
 
-	* gcc/config/i386/i386.c (ix86_expand_vector_init_concat): Change
+	* config/i386/i386.c (ix86_expand_vector_init_concat): Change
 	sizes of operand array from 8/4 to 4/2.
 	(ix86_expand_vector_init_general): Change size of operand array
 	from 32 to 16.  Remove op0, op1 and half_mode.

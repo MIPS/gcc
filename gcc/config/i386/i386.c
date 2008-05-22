@@ -4918,17 +4918,21 @@ return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
   return (size != 1 && size != 2 && size != 4 && size != 8);
 }
 
-bool
+static bool
 ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const enum machine_mode mode = type_natural_mode (type);
-
+#ifdef SUBTARGET_RETURN_IN_MEMORY
+  return SUBTARGET_RETURN_IN_MEMORY (type, fntype);
+#else
+   const enum machine_mode mode = type_natural_mode (type);
+ 
   if (TARGET_64BIT_MS_ABI)
-    return return_in_memory_ms_64 (type, mode);
-  else if (TARGET_64BIT)
-    return return_in_memory_64 (type, mode);
-  else
-    return return_in_memory_32 (type, mode);
+     return return_in_memory_ms_64 (type, mode);
+   else if (TARGET_64BIT)
+     return return_in_memory_64 (type, mode);
+   else
+     return return_in_memory_32 (type, mode);
+#endif
 }
 
 /* Return false iff TYPE is returned in memory.  This version is used
@@ -4966,20 +4970,6 @@ ix86_sol10_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED
     return 0;
 
   return size > 12;
-}
-
-bool
-ix86_i386elf_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
-{
-  return (TYPE_MODE (type) == BLKmode
-	  || (VECTOR_MODE_P (TYPE_MODE (type)) && int_size_in_bytes (type) == 8));
-}
-
-bool
-ix86_i386interix_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
-{
-  return (TYPE_MODE (type) == BLKmode
-          || (AGGREGATE_TYPE_P (type) && int_size_in_bytes(type) > 8 ));
 }
 
 /* When returning SSE vector types, we have a choice of either
@@ -23913,6 +23903,7 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
       break;
     case V4HImode:
       use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
+      break;
     default:
       break;
     }
@@ -24058,6 +24049,8 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
       break;
 
     case V16QImode:
+      if (TARGET_SSE4_1)
+	break;
       wmode = V8HImode;
       goto widen;
     case V8QImode:
@@ -24324,21 +24317,13 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
     case V2SImode:
       if (!mmx_ok && !TARGET_SSE)
 	break;
-
-      n = 2;
-      goto vec_concat;
+      /* FALLTHRU */
 
     case V4SFmode:
     case V4SImode:
-      n = 4;
-      goto vec_concat;
-
     case V2DFmode:
     case V2DImode:
-      n = 2;
-      goto vec_concat;
-
-vec_concat:
+      n = GET_MODE_NUNITS (mode);
       for (i = 0; i < n; i++)
 	ops[i] = XVECEXP (vals, 0, i);
       ix86_expand_vector_init_concat (mode, target, ops, n);
@@ -24347,18 +24332,13 @@ vec_concat:
     case V16QImode:
       if (!TARGET_SSE4_1)
 	break;
-
-      n = 16;
-      goto vec_interleave;
+      /* FALLTHRU */
 
     case V8HImode:
       if (!TARGET_SSE2)
 	break;
 
-      n = 8;
-      goto vec_interleave;
-
-vec_interleave:
+      n = GET_MODE_NUNITS (mode);
       for (i = 0; i < n; i++)
 	ops[i] = XVECEXP (vals, 0, i);
       ix86_expand_vector_init_interleave (mode, target, ops, n >> 1);
@@ -26026,6 +26006,9 @@ x86_builtin_vectorization_cost (bool runtime_test)
 }
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
+
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
