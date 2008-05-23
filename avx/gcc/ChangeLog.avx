@@ -1,3 +1,33 @@
+2008-05-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (maxmin): New.
+	(*avx_<code><mode>3): Likewise.
+	(*avx_ieee_smin<mode>3): Likewise.
+	(*avx_ieee_smax<mode>3): Likewise.
+	(*movdi_1_rex64): Support AVX.
+
+	* config/i386/mmx.md (*movv2sf_internal_rex64_avx): New.
+	(*movv2sf_internal_avx): Likewise.
+
+	* config/i386/sse.md (*avx_vm<plusminus_insn><mode>3): New.
+	(*avx_div<mode>3): Likewise.
+	(*avx_<code><mode>3_finite: Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(*avx_vm<code><mode>3): Likewise.
+	(*avx_pmaddwd): Likewise.
+	(*avx_<code><mode>3): Likewise.
+	(<code><mode>3): Check flag_finite_math_only.
+	(*avx_<code><mode>3): Moved before "*<code><mode>3".
+	(sse_stmxcsr): Support AVX.
+	(abs<mode>2): Likewise.
+	
+2008-05-23  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*movsf_1): Insert the missing 'v'.
+	(fix_trunc<mode>di_sse): Support AVX.
+	(fix_trunc<mode>si_sse): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_interunit): Likewise.
+
 2008-05-23  Joey Ye <joey.ye@intel.com>
 
 	* final.c (output_asm_name): Don't add one to which_alternative.
