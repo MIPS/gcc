@@ -1,3 +1,7 @@
+2008-05-23  Joey Ye <joey.ye@intel.com>
+
+	* final.c (output_asm_name): Don't add one to which_alternative.
+
 2008-05-22  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 

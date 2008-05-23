@@ -3000,7 +3000,7 @@ output_asm_name (void)
 	       ASM_COMMENT_START, INSN_UID (debug_insn),
 	       insn_data[num].name);
       if (insn_data[num].n_alternatives > 1)
-	fprintf (asm_out_file, "/%d", which_alternative + 1);
+	fprintf (asm_out_file, "/%d", which_alternative);
 #ifdef HAVE_ATTR_length
       fprintf (asm_out_file, "\t[length = %d]",
 	       get_attr_length (debug_insn));
