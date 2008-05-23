@@ -325,18 +325,71 @@ handle_option_attribute (tree *node,
 
 
 /* Determine whether a function FN can be inlined.  Be conservative, and assume
-   any function with target specific options cannot be inlined.  */
+   any function with different target specific options cannot be inlined.
+
+   Backends should really provide their own hook, as this function will be slow
+   since it has to do a lot of string comparison and copies to determine if two
+   functions have the same target specific options.
+*/
 
 bool
-default_target_specific_can_inline_p (const_tree fn)
+default_target_specific_can_inline_p (tree caller, tree callee)
 {
-  if (! DECL_ATTRIBUTES (fn))
-    return true;
+  bool ret = false;
+  tree callee_opts = NULL_TREE;
+  tree caller_opts = NULL_TREE;
 
-  else if (lookup_attribute ("option", DECL_ATTRIBUTES (fn)))
-    return false;
+  /* If callee has no option attributes, then it is ok to inline */
+  if (!DECL_ATTRIBUTES (callee)
+      || !(callee_opts = lookup_attribute ("option", DECL_ATTRIBUTES (callee))))
+    ret = true;
 
-  return true;
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline */
+  else if (!DECL_ATTRIBUTES (caller)
+	   || !(caller_opts = lookup_attribute ("option",
+						DECL_ATTRIBUTES (caller))))
+    ret = false;
+
+  /* Both caller and callee have attributes, see if they are the same */
+  else
+    {
+      cl_option_args *callee_args
+	= target_specific_build_args (callee_opts, true);
+      cl_option_args *caller_args
+	= target_specific_build_args (caller_opts, true);
+
+      /* Neither side had attributes?  */
+      if (!callee_args && !caller_args)
+	ret = true;
+
+      /* One function had attributes and the other did not? */
+      else if (!callee_args || !caller_args)
+	ret = false;
+
+      /* Different number of attributes? */
+      else if (callee_args->argc != caller_args->argc)
+	ret = false;
+
+      /* Compare attributes */
+      else
+	{
+	  int i;
+
+	  ret = true;
+	  for (i = 0; i < callee_args->argc; i++)
+	    if (strcmp (callee_args->argv[i], caller_args->argv[i]) != 0)
+	      {
+		ret = false;
+		break;
+	      }
+	}
+
+      target_specific_free_args (callee_args);
+      target_specific_free_args (caller_args);
+    }
+
+  return ret;
 }
 
 /* RTL pass to push the current options if the function used

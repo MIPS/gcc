@@ -2096,9 +2096,6 @@ inlinable_function_p (tree fn)
 	   && DECL_REPLACEABLE_P (fn))
     inlinable = false;
 
-  else if (!targetm.target_specific.can_inline_p (fn))
-    inlinable = false;
-
   else if (!function_attribute_inlinable_p (fn))
     {
       if (do_warning)
@@ -3693,4 +3690,12 @@ build_duplicate_type (tree type)
   TYPE_CANONICAL (type) = type;
 
   return type;
+}
+
+/* Return whether it is safe to inline a function because it used different
+   target specific options.  */
+bool
+tree_target_specific_can_inline_p (tree caller, tree callee)
+{
+  return targetm.target_specific.can_inline_p (caller, callee);
 }

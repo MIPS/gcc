@@ -1,3 +1,61 @@
+2008-05-23  Michael Meissner  <michael.meissner@amd.com>
+
+	* target.h (struct target_specific): Change can_inline_p hook to
+	take caller and callee argument instead of one argument.
+
+	* target-specific.c (default_target_specific_can_inline_p):
+	Rewrite to consider the caller and callee, and allow a caller to
+	inline a callee that has the same target specific options.
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function): Call
+	tree_target_specific_can_inline_p to determine if one function can
+	inline another due to target specific options.
+	(cgraph_decide_inlining): Ditto.
+	(cgraph_decide_inlining_incrementally): Ditto.
+
+	* tree-inline.c (inlinable_function_p): Remove call for target
+	specific can_inline_p hook here, move it to ipa-inline.c.
+	(tree_target_specific_can_inline_p): New function to call the
+	target hook to determine if one function can inline another in a
+	target specfic fashion.
+
+	* tree-inline.h (tree_target_specific_can_inline_p): Add
+	declaration.
+
+	* config/i386/i386.h (TARGET_ABM): Make -mabm, -mpopcnt, -mcx16,
+	-maes, -mpclmul ISA options rather than using unique variables.
+	(TARGET_POPCNT): Ditto.
+	(TARGET_CX16): Ditto.
+	(TARGET_AES): Ditto.
+	(TARGET_PCLMUL): Ditto.
+	(TARGET_SAHF): Move -msahf, -mrecip, -mfused-madd into extra
+	options, instead of using unique variables.
+	(TARGET_RECIP): Ditto.
+	(TARGET_FUSED_MADD): Ditto.
+	(ix86_tune_features): Change type to unsigned char.
+	(ix86_arch_features): Ditto.
+	(struct machine_function): Add fields for remembering the ISA and
+	other options used to compile a given function.
+
+	* config/i386/i386.opt (mabm): Make -mabm, -mpopcnt, -mcx16,
+	-maes, -mpclmul ISA options rather than using unique variables.
+	(mpopcnt): Ditto.
+	(mcx16): Ditto.
+	(maes): Ditto.
+	(mpclmul): Ditto.
+	(msahf): Move -msahf, -mrecip, -mfused-madd into extra options,
+	instead of using unique variables.
+
+	* config/i386/i386.c (ix86_tune_features): Change type to unsigned
+	char.
+	(ix86_arch_features): Ditto.
+	(OPTION_MASK_ISA_SSE4A_SET): Add popcnt, abm to sse4a.
+	(override_options): Change initialization of ix86_tune_features
+	and ix86_arch_features.  Make -mabm, -mpopcnt, -mcx16, -maes,
+	-mpclmul ISA options rather than using unique variables.  Move
+	-msahf, -mrecip, -mfused-madd into extra options, instead of using
+	unique variables.
+
 2008-05-22  Michael Meissner  <michael.meissner@amd.com>
 
 	* config/i386/i386-protos.h (ix86_set_current_function): Declare.

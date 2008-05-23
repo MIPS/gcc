@@ -1210,7 +1210,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
 /* Feature tests against the various tunings.  */
-unsigned int ix86_tune_features[X86_TUNE_LAST];
+unsigned char ix86_tune_features[X86_TUNE_LAST];
 
 /* Feature tests against the various tunings used to create ix86_tune_features
    based on the processor mask.  */
@@ -1442,7 +1442,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 };
 
 /* Feature tests against the various architecture variations.  */
-unsigned int ix86_arch_features[X86_ARCH_LAST];
+unsigned char ix86_arch_features[X86_ARCH_LAST];
 
 /* Feature tests against the various architecture variations, used to create
    ix86_arch_features based on the processor mask.  */
@@ -1799,7 +1799,8 @@ static int ix86_isa_flags_explicit;
 #define OPTION_MASK_ISA_SSE4_SET OPTION_MASK_ISA_SSE4_2_SET
 
 #define OPTION_MASK_ISA_SSE4A_SET \
-  (OPTION_MASK_ISA_SSE4A | OPTION_MASK_ISA_SSE3_SET)
+  (OPTION_MASK_ISA_SSE4A | OPTION_MASK_ISA_SSE3_SET | \
+   OPTION_MASK_ISA_POPCNT | OPTION_MASK_ISA_ABM)
 #define OPTION_MASK_ISA_SSE5_SET \
   (OPTION_MASK_ISA_SSE5 | OPTION_MASK_ISA_SSE4A_SET)
 
@@ -2214,14 +2215,6 @@ override_options (bool main_args_p)
   SUBSUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
-  memcpy (ix86_tune_features,
-	  initial_ix86_tune_features,
-	  sizeof (initial_ix86_tune_features));
-
-  memcpy (ix86_arch_features,
-	  initial_ix86_arch_features,
-	  sizeof (initial_ix86_arch_features));
-
   /* -fPIC is the default for x86_64.  */
   if (TARGET_MACHO && TARGET_64BIT)
     flag_pic = 2;
@@ -2385,12 +2378,6 @@ override_options (bool main_args_p)
     sorry ("%i-bit mode not compiled in",
 	   (ix86_isa_flags & OPTION_MASK_ISA_64BIT) ? 64 : 32);
 
-  x86_abm = false;
-  x86_cmpxchg16b = false;
-  x86_popcnt = false;
-  x86_prefetch_sse = false;
-  x86_sahf = false;
-
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_arch_string, processor_alias_table[i].name))
       {
@@ -2402,6 +2389,19 @@ override_options (bool main_args_p)
 	  error ("CPU you selected does not support x86-64 "
 		 "instruction set");
 
+	/* Enable SSE2 if AES or PCLMUL is enabled.  */
+	if (processor_alias_table[i].flags & PTA_AES
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AES))
+	  {
+	    ix86_isa_flags |= OPTION_MASK_ISA_AES | OPTION_MASK_ISA_SSE2;
+	    ix86_isa_flags_explicit |= OPTION_MASK_ISA_SSE2_SET;
+	  }
+	if (processor_alias_table[i].flags & PTA_PCLMUL
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_PCLMUL))
+	  {
+	    ix86_isa_flags |= OPTION_MASK_ISA_PCLMUL | OPTION_MASK_ISA_SSE2;
+	    ix86_isa_flags_explicit |= OPTION_MASK_ISA_SSE2_SET;
+	  }
 	if (processor_alias_table[i].flags & PTA_MMX
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_MMX))
 	  ix86_isa_flags |= OPTION_MASK_ISA_MMX;
@@ -2435,21 +2435,21 @@ override_options (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_SSE5
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SSE5))
 	  ix86_isa_flags |= OPTION_MASK_ISA_SSE5;
+	if (processor_alias_table[i].flags & PTA_ABM
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_ABM))
+	  ix86_isa_flags |= OPTION_MASK_ISA_ABM;
+	if (processor_alias_table[i].flags & PTA_CX16
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_CX16))
+	  ix86_isa_flags |= OPTION_MASK_ISA_CX16;
+	if (processor_alias_table[i].flags & (PTA_POPCNT | PTA_ABM)
+	    && !(ix86_isa_flags_explicit
+		 & (OPTION_MASK_ISA_POPCNT | OPTION_MASK_ISA_ABM)))
+	  ix86_isa_flags |= OPTION_MASK_ISA_POPCNT;
 
-	if (processor_alias_table[i].flags & PTA_ABM)
-	  x86_abm = true;
-	if (processor_alias_table[i].flags & PTA_CX16)
-	  x86_cmpxchg16b = true;
-	if (processor_alias_table[i].flags & (PTA_POPCNT | PTA_ABM))
-	  x86_popcnt = true;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF)))
-	  x86_sahf = true;
-	if (processor_alias_table[i].flags & PTA_AES)
-	  x86_aes = true;
-	if (processor_alias_table[i].flags & PTA_PCLMUL)
-	  x86_pclmul = true;
+	  ix86_extra_flags |= OPTION_MASK_EXTRA_SAHF;
 
 	break;
       }
@@ -2460,7 +2460,7 @@ override_options (bool main_args_p)
 
   ix86_arch_mask = 1u << ix86_arch;
   for (i = 0; i < X86_ARCH_LAST; ++i)
-    ix86_arch_features[i] &= ix86_arch_mask;
+    ix86_arch_features[i] = !!(initial_ix86_arch_features[i] & ix86_arch_mask);
 
   for (i = 0; i < pta_size; i++)
     if (! strcmp (ix86_tune_string, processor_alias_table[i].name))
@@ -2495,17 +2495,9 @@ override_options (bool main_args_p)
     error ("bad value (%s) for %smtune=%s %s",
 	   ix86_tune_string, prefix, suffix, sw);
 
-  /* Enable SSE2 if AES or PCLMUL is enabled.  */
-  if ((x86_aes || x86_pclmul)
-      && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SSE2))
-    {
-      ix86_isa_flags |= OPTION_MASK_ISA_SSE2_SET;
-      ix86_isa_flags_explicit |= OPTION_MASK_ISA_SSE2_SET;
-    }
-
   ix86_tune_mask = 1u << ix86_tune;
   for (i = 0; i < X86_TUNE_LAST; ++i)
-    ix86_tune_features[i] &= ix86_tune_mask;
+    ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
 
   if (optimize_size)
     ix86_cost = &size_cost;
@@ -2696,7 +2688,7 @@ override_options (bool main_args_p)
 
   /* Turn on popcnt instruction for -msse4.2 or -mabm.  */
   if (TARGET_SSE4_2 || TARGET_ABM)
-    x86_popcnt = true;
+    ix86_isa_flags |= OPTION_MASK_ISA_POPCNT & ~ix86_isa_flags_explicit;
 
   /* Validate -mpreferred-stack-boundary= value, or provide default.
      The default of 128 bits is for Pentium III's SSE __m128.  We can't

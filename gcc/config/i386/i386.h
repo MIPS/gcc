@@ -36,19 +36,27 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Redefines for option macros.  */
 
-#define TARGET_64BIT	OPTION_ISA_64BIT
-#define TARGET_MMX	OPTION_ISA_MMX
-#define TARGET_3DNOW	OPTION_ISA_3DNOW
-#define TARGET_3DNOW_A	OPTION_ISA_3DNOW_A
-#define TARGET_SSE	OPTION_ISA_SSE
-#define TARGET_SSE2	OPTION_ISA_SSE2
-#define TARGET_SSE3	OPTION_ISA_SSE3
-#define TARGET_SSSE3	OPTION_ISA_SSSE3
-#define TARGET_SSE4_1	OPTION_ISA_SSE4_1
-#define TARGET_SSE4_2	OPTION_ISA_SSE4_2
-#define TARGET_SSE4A	OPTION_ISA_SSE4A
-#define TARGET_SSE5	OPTION_ISA_SSE5
-#define TARGET_ROUND	OPTION_ISA_ROUND
+#define TARGET_64BIT		OPTION_ISA_64BIT
+#define TARGET_MMX		OPTION_ISA_MMX
+#define TARGET_3DNOW		OPTION_ISA_3DNOW
+#define TARGET_3DNOW_A		OPTION_ISA_3DNOW_A
+#define TARGET_SSE		OPTION_ISA_SSE
+#define TARGET_SSE2		OPTION_ISA_SSE2
+#define TARGET_SSE3		OPTION_ISA_SSE3
+#define TARGET_SSSE3		OPTION_ISA_SSSE3
+#define TARGET_SSE4_1		OPTION_ISA_SSE4_1
+#define TARGET_SSE4_2		OPTION_ISA_SSE4_2
+#define TARGET_SSE4A		OPTION_ISA_SSE4A
+#define TARGET_SSE5		OPTION_ISA_SSE5
+#define TARGET_ROUND		OPTION_ISA_ROUND
+#define TARGET_ABM		OPTION_ISA_ABM
+#define TARGET_POPCNT		OPTION_ISA_POPCNT
+#define TARGET_CMPXCHG16B	OPTION_ISA_CX16
+#define TARGET_AES		(TARGET_SSE2 && OPTION_ISA_AES)
+#define TARGET_PCLMUL		(TARGET_SSE2 && OPTION_ISA_PCLMUL)
+#define TARGET_SAHF		OPTION_EXTRA_SAHF
+#define TARGET_RECIP		OPTION_EXTRA_RECIP
+#define TARGET_FUSED_MADD	OPTION_EXTRA_FUSED_MADD
 
 /* SSE5 and SSE4.1 define the same round instructions */
 #define	OPTION_MASK_ISA_ROUND	(OPTION_MASK_ISA_SSE4_1 | OPTION_MASK_ISA_SSE5)
@@ -285,7 +293,7 @@ enum ix86_tune_indices {
   X86_TUNE_LAST
 };
 
-extern unsigned int ix86_tune_features[X86_TUNE_LAST];
+extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 
 #define TARGET_USE_LEAVE	ix86_tune_features[X86_TUNE_USE_LEAVE]
 #define TARGET_PUSH_MEMORY	ix86_tune_features[X86_TUNE_PUSH_MEMORY]
@@ -376,7 +384,7 @@ enum ix86_arch_indices {
   X86_ARCH_LAST
 };
 
-extern unsigned int ix86_arch_features[X86_ARCH_LAST];
+extern unsigned char ix86_arch_features[X86_ARCH_LAST];
 
 #define TARGET_CMOVE		ix86_arch_features[X86_ARCH_CMOVE]
 #define TARGET_CMPXCHG		ix86_arch_features[X86_ARCH_CMPXCHG]
@@ -388,15 +396,7 @@ extern unsigned int ix86_arch_features[X86_ARCH_LAST];
 
 extern int x86_prefetch_sse;
 
-#define TARGET_ABM		x86_abm
-#define TARGET_CMPXCHG16B	x86_cmpxchg16b
-#define TARGET_POPCNT		x86_popcnt
 #define TARGET_PREFETCH_SSE	x86_prefetch_sse
-#define TARGET_SAHF		x86_sahf
-#define TARGET_RECIP		x86_recip
-#define TARGET_FUSED_MADD	x86_fused_muladd
-#define TARGET_AES		(TARGET_SSE2 && x86_aes)
-#define TARGET_PCLMUL		(TARGET_SSE2 && x86_pclmul)
 
 #define ASSEMBLER_DIALECT	(ix86_asm_dialect)
 
@@ -2478,6 +2478,15 @@ struct machine_function GTY(())
      ix86_current_function_calls_tls_descriptor macro for a better
      approximation.  */
   int tls_descriptor_call_expanded_p;
+  /* target options used to compile this function.  Normally these would be the
+     global flags set by the -m options, but if target specific options are
+     used, it is the flags for compiling this particular function. */
+  int function_target_flags;		/* non ISA options */
+  int function_isa_flags;		/* ISA options like sse2, sse3, etc. */
+  int function_extra_flags;		/* non ISA target specific options */
+  int funcion_target_flags_explicit;	/* ISA options explicitly set by user */
+  enum processor_type function_arch;	/* -march= processor */
+  enum processor_type function_tune;	/* -mtune= processor */
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)

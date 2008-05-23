@@ -248,38 +248,38 @@ msse5
 Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Attribute
 Support SSE5 built-in functions and code generation
 
-;; Instruction support
-
 mabm
-Target Report RejectNegative Var(x86_abm)
+Target Report Mask(ISA_ABM) Var(ix86_isa_flags) Attribute
 Support code generation of Advanced Bit Manipulation (ABM) instructions.
 
 mcx16
-Target Report RejectNegative Var(x86_cmpxchg16b)
+Target Report Mask(ISA_CX16) Var(ix86_isa_flags) VarExists Attribute
 Support code generation of cmpxchg16b instruction.
 
 mpopcnt
-Target Report RejectNegative Var(x86_popcnt)
+Target Report Mask(ISA_POPCNT) Var(ix86_isa_flags) VarExists Attribute
 Support code generation of popcnt instruction.
 
-msahf
-Target Report RejectNegative Var(x86_sahf)
-Support code generation of sahf instruction in 64bit x86-64 code.
+maes
+Target Report Mask(ISA_AES) Var(ix86_isa_flags) VarExists Attribute
+Support AES built-in functions and code generation
 
-mrecip
-Target Report RejectNegative Var(x86_recip)
-Generate reciprocals instead of divss and sqrtss.
+mpclmul
+Target Report Mask(ISA_PCLMUL) Var(ix86_isa_flags) VarExists Attribute
+Support PCLMUL built-in functions and code generation
 
+;; Instruction support
 mfused-madd
-Target Report Var(x86_fused_muladd) Init(1)
+Target Report Mask(EXTRA_FUSED_MADD) Var(ix86_extra_flags) Init(OPTION_MASK_EXTRA_FUSED_MADD) Attribute
 Enable automatic generation of fused floating point multiply-add instructions
 if the ISA supports such instructions.  The -mfused-madd option is on by
 default.
 
-maes
-Target Report RejectNegative Var(x86_aes)
-Support AES built-in functions and code generation
+mrecip
+Target Report Mask(EXTRA_RECIP) Var(ix86_extra_flags) VarExists Attribute
+Generate reciprocals instead of divss and sqrtss.
 
-mpclmul
-Target Report RejectNegative Var(x86_pclmul)
-Support PCLMUL built-in functions and code generation
+msahf
+Target Report Mask(EXTRA_SAHF) Var(ix86_extra_flags) VarExists Attribute
+Support code generation of sahf instruction in 64bit x86-64 code.
+
