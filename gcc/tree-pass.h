@@ -428,7 +428,6 @@ extern struct rtl_opt_pass pass_mode_switching;
 extern struct rtl_opt_pass pass_see;
 extern struct rtl_opt_pass pass_sms;
 extern struct rtl_opt_pass pass_sched;
-extern struct rtl_opt_pass pass_sel_sched;
 extern struct rtl_opt_pass pass_local_alloc;
 extern struct rtl_opt_pass pass_global_alloc;
 extern struct rtl_opt_pass pass_postreload;

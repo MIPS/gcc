@@ -1,3 +1,38 @@
+2008-05-23  Andrey Belevantsev  <abel@ispras.ru>
+
+	* tree-pass.h (pass_sel_sched): Remove.
+	* sel-sched.c (maybe_skip_selective_scheduling): New.  Export it.
+	(gate_handle_sel_sched, handle_sel_sched, pass_sel_sched): Remove.
+	(debug_state): New.
+	(advance_one_cycle, advance_state_on_fence): Use it.
+	(extract_new_fences_from): Fix formatting.
+	(can_substitute_through_p): Disallow substitutions through CONST_INTs.
+	(estimate_insn_cost): New, factored from ...
+	(vinsn_dfa_cost): ... here.  Renamed to get_expr_cost.
+	(choose_best_insn): When max_issue is not used, try to select
+	the first available insn from the ready list.  Correctly set can_issue.
+	(stall_for_cycles): When stalling for more than one cycle, always
+	set FENCE_AFTER_STALL_P.
+	(track_scheduled_insns_and_blocks): Always add found insns to
+        current_originators.
+	(reset_sched_cycles_in_current_ebb): New variables real_insn,
+        after_stall.  Use estimate_insn_cost.  Handle the corner case when
+        state_transition seems to be lying about the cost.
+	* sel-sched-ir.c (state_create): Always start from advanced state.
+	(deps_init_id_note_reg_set): When stack registers are used,
+        make the instruction of type use to avoid renaming.
+	(maybe_downgrade_id_to_use): Likewise.  Downgrade only SETs.
+        (setup_id_reg_sets): Treat writes/reads to/from stack registers
+        as corresponding action with the first stack reg.
+	(has_dependence_p): Also punt for MOVE_BARRIER.
+	* sched-rgn.c (rest_of_handle_sched, rest_of_handle_sched2): Run
+        selective scheduling if requested.
+	* passes.c (init_optimization_passes): Remove mentions of pass_sel_sched.
+	* config/i386/i386.c (override_options): Turn on selective scheduling
+	with -O2 for testing purposes.
+	* config/ia64/ia64.c (ia64_reorg): Remove debug handling of selective
+        scheduling.
+
 2008-05-13  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched-ir.c (vinsn_init): Call init_id_from_df when possible.

@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfglayout.h"
 #include "params.h"
 #include "sched-int.h"
+#include "sel-sched.h"
 #include "cselib.h"
 #include "target.h"
 #include "timevar.h"
@@ -3412,7 +3413,11 @@ static unsigned int
 rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  schedule_insns ();
+  if (flag_selective_scheduling
+      && ! maybe_skip_selective_scheduling ())
+    run_selective_scheduling ();
+  else
+    schedule_insns ();
 #endif
   return 0;
 }
@@ -3433,12 +3438,18 @@ static unsigned int
 rest_of_handle_sched2 (void)
 {
 #ifdef INSN_SCHEDULING
-  /* Do control and data sched analysis again,
-     and write some more of the results to dump file.  */
-  if (flag_sched2_use_superblocks || flag_sched2_use_traces)
-    schedule_ebbs ();
+  if (flag_selective_scheduling2
+      && ! maybe_skip_selective_scheduling ())
+    run_selective_scheduling ();
   else
-    schedule_insns ();
+    {
+      /* Do control and data sched analysis again,
+	 and write some more of the results to dump file.  */
+      if (flag_sched2_use_superblocks || flag_sched2_use_traces)
+	schedule_ebbs ();
+      else
+	schedule_insns ();
+    }
 #endif
   return 0;
 }

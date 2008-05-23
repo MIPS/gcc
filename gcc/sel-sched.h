@@ -21,5 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_SEL_SCHED_H
 
 /* The main entry point.  */
-extern void selective_scheduling_run (void);
+extern void run_selective_scheduling (void);
+extern bool maybe_skip_selective_scheduling (void);
+
 #endif /* GCC_SEL_SCHED_H */

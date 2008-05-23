@@ -1559,7 +1559,6 @@ extern void sel_finish_new_insns (void);
 
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
 extern bool sel_remove_insn (insn_t, bool, bool);
-extern int vinsn_dfa_cost (vinsn_t, fence_t);
 extern bool bb_header_p (insn_t);
 extern void sel_init_invalid_data_sets (insn_t);
 extern bool insn_at_boundary_p (insn_t);

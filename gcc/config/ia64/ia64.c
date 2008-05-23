@@ -9096,9 +9096,6 @@ emit_predicate_relation_info (void)
     }
 }
 
-/* Counts how many times selective scheduling was run.  */
-static int sel2_run = 0;
-
 /* Perform machine dependent operations on the rtl chain INSNS.  */
 
 static void
@@ -9187,28 +9184,13 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      {
-	int now;
-	int start;
-	int stop;
-	bool do_p;
-
-	now = ++sel2_run;
-	start = PARAM_VALUE (PARAM_SEL2_START);
-	stop = PARAM_VALUE (PARAM_SEL2_STOP);
-	do_p = (PARAM_VALUE (PARAM_SEL2_P) == 1);
-
-	if (do_p)
-	  do_p = (start <= now) && (now <= stop);
-	else
-	  do_p = (start > now) || (now > stop);
-
-	if (flag_selective_scheduling2 && do_p)
-	  selective_scheduling_run ();
+      
+      if (flag_selective_scheduling2 
+	  && !maybe_skip_selective_scheduling ())
+	  run_selective_scheduling ();
 	else
 	  schedule_ebbs ();
-      }
-
+      
       /* We cannot reuse this one because it has been corrupted by the
 	 evil glat.  */
       finish_bundle_states ();

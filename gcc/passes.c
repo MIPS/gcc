@@ -738,7 +738,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_see);
       NEXT_PASS (pass_match_asm_constraints);
       NEXT_PASS (pass_sms);
-      NEXT_PASS (pass_sel_sched);
       NEXT_PASS (pass_sched);
       NEXT_PASS (pass_subregs_of_mode_init);
       NEXT_PASS (pass_local_alloc);
@@ -764,7 +763,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_branch_target_load_optimize2);
 	  NEXT_PASS (pass_leaf_regs);
 	  NEXT_PASS (pass_split_before_sched2);
-          NEXT_PASS (pass_sel_sched);
 	  NEXT_PASS (pass_sched2);
 	  NEXT_PASS (pass_stack_regs);
 	    {

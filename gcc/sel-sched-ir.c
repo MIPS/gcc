@@ -510,6 +510,7 @@ state_create (void)
   state_t state = state_alloc ();
 
   state_reset (state);
+  advance_state (state);
   return state;
 }
 
@@ -2406,6 +2407,13 @@ deps_init_id_note_reg_set (int regno)
 
   if (IDATA_TYPE (deps_init_id_data.id) != PC)
     SET_REGNO_REG_SET (IDATA_REG_SETS (deps_init_id_data.id), regno);
+
+#ifdef STACK_REGS
+  /* Make instructions that set stack registers to be ineligible for 
+     renaming to avoid issues with find_used_regs.  */
+  if (IN_RANGE (regno, FIRST_STACK_REG, LAST_STACK_REG))
+    deps_init_id_data.force_use_p = true;
+#endif
 }
 
 /* Note a clobber of REGNO.  */
@@ -2532,8 +2540,11 @@ maybe_downgrade_id_to_use (idata_t id, insn_t insn)
   rtx lhs = IDATA_LHS (id);
   rtx rhs = IDATA_RHS (id);
   
-  if (IDATA_TYPE (id) == SET 
-      && (!lhs || !lhs_and_rhs_separable_p (lhs, rhs)))
+  /* We downgrade only SETs.  */
+  if (IDATA_TYPE (id) != SET)
+    return;
+
+  if (!lhs || !lhs_and_rhs_separable_p (lhs, rhs))
     {
       IDATA_TYPE (id) = USE;
       return;
@@ -2550,6 +2561,16 @@ maybe_downgrade_id_to_use (idata_t id, insn_t insn)
           must_be_use = true;
           break;
         }
+
+#ifdef STACK_REGS
+      /* Make instructions that set stack registers to be ineligible for 
+	 renaming to avoid issues with find_used_regs.  */
+      if (IN_RANGE (DF_REF_REGNO (def), FIRST_STACK_REG, LAST_STACK_REG))
+	{
+	  must_be_use = true;
+	  break;
+	}
+#endif
     }    
   
   if (must_be_use)
@@ -2574,8 +2595,16 @@ setup_id_reg_sets (idata_t id, insn_t insn)
                                      | DF_REF_PRE_POST_MODIFY)))
         SET_REGNO_REG_SET (IDATA_REG_CLOBBERS (id), regno);
       else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
-        SET_REGNO_REG_SET (IDATA_REG_SETS (id), regno);
-      
+        {
+	  SET_REGNO_REG_SET (IDATA_REG_SETS (id), regno);
+
+#ifdef STACK_REGS
+	  /* For stack registers, treat writes to them as writes 
+	     to the first one to be consistent with sched-deps.c.  */
+	  if (IN_RANGE (regno, FIRST_STACK_REG, LAST_STACK_REG))
+	    SET_REGNO_REG_SET (IDATA_REG_SETS (id), FIRST_STACK_REG);
+#endif
+	}
       /* Mark special refs that generate read/write def pair.  */
       if (DF_REF_FLAGS_IS_SET (def, DF_REF_CONDITIONAL)
           || regno == STACK_POINTER_REGNUM)
@@ -2592,7 +2621,16 @@ setup_id_reg_sets (idata_t id, insn_t insn)
       if (bitmap_bit_p (tmp, regno))
         bitmap_clear_bit (tmp, regno);
       else if (! DF_REF_FLAGS_IS_SET (use, DF_REF_CALL_STACK_USAGE))
-        SET_REGNO_REG_SET (IDATA_REG_USES (id), regno);
+	{
+	  SET_REGNO_REG_SET (IDATA_REG_USES (id), regno);
+
+#ifdef STACK_REGS
+	  /* For stack registers, treat reads from them as reads from 
+	     the first one to be consistent with sched-deps.c.  */
+	  if (IN_RANGE (regno, FIRST_STACK_REG, LAST_STACK_REG))
+	    SET_REGNO_REG_SET (IDATA_REG_USES (id), FIRST_STACK_REG);
+#endif
+	}
     }
 
   return_regset_to_pool (tmp);
@@ -3186,7 +3224,9 @@ has_dependence_p (expr_t expr, insn_t pred, ds_t **has_dep_pp)
   /* When a barrier was found, set DEPS_IN_INSN bits.  */
   if (dc->last_reg_pending_barrier == TRUE_BARRIER)
     has_dependence_data.has_dep_p[DEPS_IN_INSN] = DEP_TRUE;
-  
+  else if (dc->last_reg_pending_barrier == MOVE_BARRIER)
+    has_dependence_data.has_dep_p[DEPS_IN_INSN] = DEP_ANTI;
+
   /* Do not allow stores to memory to move through checks.  Currently
      we don't move this to sched-deps.c as the check doesn't have
      obvious places to which this dependence can be attached.  
@@ -4006,45 +4046,6 @@ sel_finish_new_insns (void)
   gcc_assert (VEC_empty (rtx, new_insns));
 
   VEC_free (rtx, heap, new_insns);
-}
-
-/* Return the cost of VINSN as estimated by DFA.  This function properly
-   handles ASMs, USEs etc.  */
-int
-vinsn_dfa_cost (vinsn_t vinsn, fence_t fence)
-{
-  rtx insn = VINSN_INSN_RTX (vinsn);
-
-  if (recog_memoized (insn) < 0)
-    {
-      if (!FENCE_STARTS_CYCLE_P (fence) && VINSN_UNIQUE_P (vinsn)
-	  && INSN_ASM_P (insn))
-	/* This is asm insn which is tryed to be issued on the
-	   cycle not first.  Issue it on the next cycle.  */
-	return 1;
-      else
-	/* A USE insn, or something else we don't need to
-	   understand.  We can't pass these directly to
-	   state_transition because it will trigger a
-	   fatal error for unrecognizable insns.  */
-	return 0;
-    }
-  else
-    {
-      int cost;
-      state_t temp_state = alloca (dfa_state_size);
-
-      state_copy (temp_state, FENCE_STATE (fence));
-
-      cost = state_transition (temp_state, insn);
-
-      if (cost < 0)
-	return 0;
-      else if (cost == 0)
-	return 1;
-
-      return cost;
-    }
 }
 
 

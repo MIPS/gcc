@@ -2763,6 +2763,13 @@ override_options (void)
      can be optimized to ap = __builtin_next_arg (0).  */
   if (!TARGET_64BIT || TARGET_64BIT_MS_ABI)
     targetm.expand_builtin_va_start = NULL;
+
+  if (optimize >= 2
+      && ! sel_sched_switch_set)
+    {
+      flag_selective_scheduling2 = 1;
+      flag_sel_sched_pipelining = 1;
+    }
 }
 
 /* Return true if this goes in large data/bss.  */

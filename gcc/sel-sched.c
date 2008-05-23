@@ -553,6 +553,8 @@ static int code_motion_path_driver (insn_t, av_set_t, ilist_t,
 static void sel_sched_region_1 (void);
 static void sel_sched_region_2 (sel_sched_region_2_data_t);
 static av_set_t compute_av_set_inside_bb (insn_t, ilist_t, int, bool);
+
+static void debug_state (state_t);
 
 
 /* Functions that work with fences.  */
@@ -582,7 +584,10 @@ advance_one_cycle (fence_t fence)
       i++;
     }
   if (sched_verbose >= 2)
-    sel_print ("Finished a cycle.  Current cycle = %d\n", FENCE_CYCLE (fence));
+    {
+      sel_print ("Finished a cycle.  Current cycle = %d\n", FENCE_CYCLE (fence));
+      debug_state (FENCE_STATE (fence));
+    }
 }
 
 /* Returns true when SUCC in a fallthru bb of INSN, possibly
@@ -665,8 +670,8 @@ extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
       if (0 < seqno && seqno <= orig_max_seqno
           && (pipelining_p || INSN_SCHED_TIMES (succ) <= 0))
         {
-          bool b = in_same_ebb_p (insn, succ)
-            || in_fallthru_bb_p (insn, succ);
+          bool b = (in_same_ebb_p (insn, succ)
+                    || in_fallthru_bb_p (insn, succ)); 
 
           if (sched_verbose >= 1)
             sel_print ("Fence %d continues as %d[%d] (state %s)\n", 
@@ -704,9 +709,8 @@ can_substitute_through_p (insn_t insn, ds_t ds)
 
   /* Now we just need to make sure the INSN_RHS consists of only one 
      simple REG rtx.  */
-  if ((REG_P (INSN_LHS (insn)) 
-       && (REG_P (INSN_RHS (insn))
-           || GET_CODE (INSN_RHS (insn)) == CONST_INT)))
+  if (REG_P (INSN_LHS (insn)) 
+      && REG_P (INSN_RHS (insn)))
     return true;             
   return false;
 }
@@ -4058,6 +4062,53 @@ invoke_aftermath_hooks (fence_t fence, rtx best_insn, int issue_more)
   return issue_more;
 }
 
+/* Estimate the cost of issuing INSN on DFA state STATE.  */
+static int
+estimate_insn_cost (rtx insn, state_t state)
+{
+  static state_t temp = NULL;
+  int cost;
+
+  if (!temp)
+    temp = xmalloc (dfa_state_size);
+
+  memcpy (temp, state, dfa_state_size);
+  cost = state_transition (temp, insn);
+
+  if (cost < 0)
+    return 0;
+  else if (cost == 0)
+    return 1;
+  return cost;
+}
+
+/* Return the cost of issuing EXPR on the FENCE as estimated by DFA.  
+   This function properly handles ASMs, USEs etc.  */
+static int
+get_expr_cost (expr_t expr, fence_t fence)
+{
+  rtx insn = EXPR_INSN_RTX (expr);
+
+  if (recog_memoized (insn) < 0)
+    {
+      if (!FENCE_STARTS_CYCLE_P (fence) 
+          /* FIXME: Is this condition necessary?  */
+          && VINSN_UNIQUE_P (EXPR_VINSN (expr))
+	  && INSN_ASM_P (insn))
+	/* This is asm insn which is tryed to be issued on the
+	   cycle not first.  Issue it on the next cycle.  */
+	return 1;
+      else
+	/* A USE insn, or something else we don't need to
+	   understand.  We can't pass these directly to
+	   state_transition because it will trigger a
+	   fatal error for unrecognizable insns.  */
+	return 0;
+    }
+  else
+    return estimate_insn_cost (insn, FENCE_STATE (fence));
+}
+
 /* Find the best insn for scheduling, either via max_issue or just take 
    the most prioritized available.  */
 static int
@@ -4076,21 +4127,30 @@ choose_best_insn (fence_t fence, int privileged_n, int *index)
     }
   else
     {
-      /* We can't use max_issue; just return the first element.  */
-      expr_t expr = find_expr_for_ready (0, true);
+      /* We can't use max_issue; just return the first available element.  */
+      int i;
 
-      if (vinsn_dfa_cost (EXPR_VINSN (expr), fence) >= 1)
-        {
-          can_issue = 0;
-          *index = -1;
-        }
-      else
-        {
-          can_issue = 1;
-          *index = 0;
-          if (sched_verbose >= 2)
-            sel_print ("using first insn from the ready list\n");
-        }
+      for (i = 0; i < ready.n_ready; i++)
+	{
+	  expr_t expr = find_expr_for_ready (i, true);
+
+	  if (get_expr_cost (expr, fence) < 1)
+	    {
+	      can_issue = can_issue_more;
+	      *index = i;
+
+	      if (sched_verbose >= 2)
+		sel_print ("using %dth insn from the ready list\n", i + 1);
+
+	      break;
+	    }
+	}
+
+      if (i == ready.n_ready)
+	{
+	  can_issue = 0;
+	  *index = -1;
+	}
     }
 
   return can_issue;
@@ -4813,6 +4873,20 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
     }
 }
 
+
+/* Debug a DFA state as an array of bytes.  */
+static void
+debug_state (state_t state)
+{
+  unsigned char *p;
+  unsigned int i, size = dfa_state_size;
+
+  sel_print ("state (%u):", size);
+  for (i = 0, p = (unsigned char *) state; i < size; i++)
+    sel_print (" %d", p[i]);
+  sel_print ("\n");
+}
+
 /* Advance state on FENCE with INSN.  Return true if INSN is 
    an ASM, and we should advance state once more.  */
 static bool
@@ -4850,6 +4924,8 @@ advance_state_on_fence (fence_t fence, insn_t insn)
         advance_one_cycle (fence);
     }
 
+  if (sched_verbose >= 2)
+    debug_state (FENCE_STATE (fence));
   FENCE_STARTS_CYCLE_P (fence) = 0;
   return asm_p;
 }
@@ -5002,7 +5078,7 @@ stall_for_cycles (fence_t fence, int n)
 {
   int could_more;
               
-  could_more = FENCE_ISSUED_INSNS (fence) < issue_rate;
+  could_more = n > 1 || FENCE_ISSUED_INSNS (fence) < issue_rate;
   while (n--)
     advance_one_cycle (fence);
   if (could_more)
@@ -5312,14 +5388,15 @@ move_op_after_merge_succs (cmpd_local_params_p lp, void *sparams)
 static void
 track_scheduled_insns_and_blocks (rtx insn)
 {
-  /* This can be previously created bookkeeping copy; do not count these.  */
+  /* Even if this insn can be a copy that will be removed during current move_op,
+     we still need to count it as an originator.  */
+  bitmap_set_bit (current_originators, INSN_UID (insn));
+
   if (!bitmap_bit_p (current_copies, INSN_UID (insn)))
     {
-      bitmap_set_bit (current_originators, INSN_UID (insn));
-
+      /* Note that original block needs to be rescheduled, as we pulled an
+	 instruction out of it.  */
       if (INSN_SCHED_TIMES (insn) > 0)
-	/* Note that original block needs to be rescheduled, as we pulled an
-	   instruction out of it.  */
 	bitmap_set_bit (blocks_to_reschedule, BLOCK_FOR_INSN (insn)->index);
       else if (INSN_UID (insn) < first_emitted_uid)
 	num_insns_scheduled++;
@@ -6426,25 +6503,27 @@ reset_sched_cycles_in_current_ebb (void)
 
   state_reset (curr_state);
   advance_state (curr_state);
-
-  for (insn = current_sched_info->head; insn != current_sched_info->next_tail;
+  
+  for (insn = current_sched_info->head;
+       insn != current_sched_info->next_tail;
        insn = NEXT_INSN (insn))
     {
       int cost, haifa_cost;
       int sort_p;
-      bool asm_p;
+      bool asm_p, real_insn, after_stall;
       int clock;
 
       if (!INSN_P (insn))
 	continue;
 
       asm_p = false;
+      real_insn = recog_memoized (insn) >= 0;
       clock = INSN_SCHED_CYCLE (insn);
 
       cost = clock - last_clock;
 
       /* Initialize HAIFA_COST.  */
-      if (recog_memoized (insn) < 0)
+      if (! real_insn)
 	{
 	  asm_p = INSN_ASM_P (insn);
 
@@ -6458,38 +6537,42 @@ reset_sched_cycles_in_current_ebb (void)
 	    haifa_cost = 0;
 	}
       else
-	{
-	  state_t tmp_state = alloca (dfa_state_size);
-
-	  memcpy (tmp_state, curr_state, dfa_state_size);
-	  haifa_cost = state_transition (tmp_state, insn);
-
-	  /* ??? We can't assert anything about cost here yet,
-	     because sometimes our scheduler gets out of sync with
-	     Haifa.
-	     This is to be fixed.  */
-	  if (haifa_cost == 0)
-	    haifa_cost = 1;
-	  else if (haifa_cost < 0)
-	    haifa_cost = 0;
-	}
+        haifa_cost = estimate_insn_cost (insn, curr_state);
 
       /* Stall for whatever cycles we've stalled before.  */
+      after_stall = 0;
       if (INSN_AFTER_STALL_P (insn) && cost > haifa_cost)
-	haifa_cost = cost;
+        {
+          haifa_cost = cost;
+          after_stall = 1;
+        }
 
       if (haifa_cost > 0)
 	{
-	  int i = haifa_cost;
+	  int i = 0;
 
-	  while (i--)
+	  while (haifa_cost--)
 	    {
 	      advance_state (curr_state);
+              i++;
+
 	      if (sched_verbose >= 2)
-		sel_print ("advance_state (state_transition)\n");
+                {
+                  sel_print ("advance_state (state_transition)\n");
+                  debug_state (curr_state);
+                }
+
+              /* The DFA may report that e.g. insn requires 2 cycles to be 
+                 issued, but on the next cycle it says that insn is ready 
+                 to go.  Check this here.  */
+              if (!after_stall
+                  && real_insn 
+                  && haifa_cost > 0
+                  && estimate_insn_cost (insn, curr_state) == 0)
+                break;
 	    }
 
-	  haifa_clock += haifa_cost;
+	  haifa_clock += i;
 	}
       else
 	gcc_assert (haifa_cost == 0);
@@ -6505,12 +6588,19 @@ reset_sched_cycles_in_current_ebb (void)
 	    advance_state (curr_state);
 	    haifa_clock++;
 	    if (sched_verbose >= 2)
-	      sel_print ("advance_state (dfa_new_cycle)\n");
-	  }
+              {
+                sel_print ("advance_state (dfa_new_cycle)\n");
+                debug_state (curr_state);
+              }
+          }
 
-      if (recog_memoized (insn) >= 0)
+      if (real_insn)
 	{
 	  cost = state_transition (curr_state, insn);
+
+          if (sched_verbose >= 2)
+            debug_state (curr_state);
+
 	  gcc_assert (cost < 0);
 	}
 
@@ -7144,9 +7234,43 @@ sel_global_finish (void)
   free_dominance_info (CDI_DOMINATORS);
 }
 
+/* Return true when we need to skip selective scheduling.  Used for debugging.  */
+bool
+maybe_skip_selective_scheduling (void)
+{
+  int now;
+  int start;
+  int stop;
+  bool do_p;
+  static int sel1_run = 0;
+  static int sel2_run = 0;
+
+  if (!reload_completed)
+    {
+      now = ++sel1_run;
+      start = PARAM_VALUE (PARAM_SEL1_START);
+      stop = PARAM_VALUE (PARAM_SEL1_STOP);
+      do_p = (PARAM_VALUE (PARAM_SEL1_P) == 1);
+    }
+  else
+    {
+      now = ++sel2_run;
+      start = PARAM_VALUE (PARAM_SEL2_START);
+      stop = PARAM_VALUE (PARAM_SEL2_STOP);
+      do_p = (PARAM_VALUE (PARAM_SEL2_P) == 1);
+    }
+
+  if (do_p)
+    do_p = (start <= now) && (now <= stop);
+  else
+    do_p = (start > now) || (now > stop);
+  
+  return !do_p;
+}
+
 /* The entry point.  */
 void
-selective_scheduling_run (void)
+run_selective_scheduling (void)
 {
   int rgn;
 
@@ -7185,72 +7309,3 @@ selective_scheduling_run (void)
 }
 
 #endif
-
-/* A gate function for selective scheduling.  */
-static bool
-gate_handle_sel_sched (void)
-{
-#ifdef INSN_SCHEDULING
-  return (reload_completed 
-          ? flag_selective_scheduling2 && flag_schedule_insns_after_reload
-          : flag_selective_scheduling && flag_schedule_insns);
-#else
-  return false;
-#endif
-}
-
-static int sel1_run = 0;
-
-/* Run instruction scheduler.  */
-static unsigned int
-handle_sel_sched (void)
-{
-  if (reload_completed)
-    split_all_insns ();
-#ifdef INSN_SCHEDULING
-  {
-    int now;
-    int start;
-    int stop;
-    bool do_p;
-
-    now = ++sel1_run;
-    start = PARAM_VALUE (PARAM_SEL1_START);
-    stop = PARAM_VALUE (PARAM_SEL1_STOP);
-    do_p = (PARAM_VALUE (PARAM_SEL1_P) == 1);
-
-    if (do_p)
-      do_p = (start <= now) && (now <= stop);
-    else
-      do_p = (start > now) || (now > stop);
-
-    if ((flag_selective_scheduling || flag_selective_scheduling2) && do_p)
-      selective_scheduling_run ();
-    else
-      schedule_insns ();
-  }
-#endif
-  return 0;
-}
-
-struct rtl_opt_pass pass_sel_sched =
-{
-  {
-    RTL_PASS,
-    "sel-sched",                          /* name */
-    gate_handle_sel_sched,                /* gate */
-    handle_sel_sched,                 	/* execute */
-    NULL,                                 /* sub */
-    NULL,                                 /* next */
-    0,                                    /* static_pass_number */
-    TV_SEL_SCHED,                         /* tv_id */
-    0,                                    /* properties_required */
-    0,                                    /* properties_provided */
-    0,                                    /* properties_destroyed */
-    0,                                    /* todo_flags_start */
-    TODO_df_finish | TODO_verify_rtl_sharing |
-    TODO_dump_func |
-    TODO_verify_flow |
-    TODO_ggc_collect                      /* todo_flags_finish */
-  }
-};
