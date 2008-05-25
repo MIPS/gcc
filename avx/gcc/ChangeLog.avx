@@ -1,5 +1,9 @@
 2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.md (*sse_prologue_save_insn): Support AVX.
+
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/gas.h (ASM_OUTPUT_OPCODE): Undefine before
 	define.  Use ASM_OUTPUT_AVX_PREFIX.
 
