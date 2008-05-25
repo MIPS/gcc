@@ -384,7 +384,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
   if (FRAME_GROWS_DOWNWARD)
     frame_offset -= size;
 
-  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+  if (MAX_STACK_ALIGNMENT)
     {
       if (crtl->stack_alignment_estimated < alignment_in_bits)
 	{
@@ -3024,7 +3024,7 @@ assign_parms (tree fndecl)
 	}
 
       /* Estimate stack alignment from parameter alignment */
-      if (MAX_VECTORIZE_STACK_ALIGNMENT)
+      if (MAX_STACK_ALIGNMENT)
         {
           unsigned int align = FUNCTION_ARG_BOUNDARY (data.promoted_mode,
 						      data.passed_type);
@@ -3075,7 +3075,7 @@ assign_parms (tree fndecl)
   emit_insn (all.first_conversion_insn);
 
   /* Estimate reload stack alignment from scalar return mode.  */
-  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+  if (MAX_STACK_ALIGNMENT)
     {
       if (DECL_RESULT (fndecl))
 	{
@@ -3373,7 +3373,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   locate->where_pad = where_pad;
   locate->boundary = boundary;
 
-  if (MAX_VECTORIZE_STACK_ALIGNMENT)
+  if (MAX_STACK_ALIGNMENT)
     {
       /* stack_alignment_estimated can't change after stack has been
 	 realigned.  */

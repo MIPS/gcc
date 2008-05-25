@@ -1,5 +1,35 @@
 2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* builtins.c (expand_builtin_longjmp): Replace
+	MAX_VECTORIZE_STACK_ALIGNMENT with MAX_STACK_ALIGNMENT.
+	(expand_builtin_apply): Likewise.
+	* calls.c (emit_call_1): Likewise.
+	* cfgexpand.c (get_decl_align_unit): Likewise.
+	(expand_one_var): Likewise.
+	(handle_drap): Likewise.
+	(): Likewise.
+	* emit-rtl.c (gen_reg_rtx): Likewise.
+	* function.c (assign_stack_local_1): Likewise.
+	(assign_parms): Likewise.
+	(locate_and_pad_parm): Likewise.
+	* global.c (compute_regsets): Likewise.
+	* reload1.c (set_label_offsets): Likewise.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+	(update_eliminables): Likewise.
+	(init_elim_table): Likewise.
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p): Likewise.
+
+	* defaults.h (MAX_VECTORIZE_STACK_ALIGNMENT): Renamed to ...
+	(MAX_STACK_ALIGNMENT): This.
+
+	* config/i386/i386.h (MAX_VECTORIZE_STACK_ALIGNMENT): Removed.
+	(MAX_STACK_ALIGNMENT): New.
+
+	* doc/tm.texi (MAX_STACK_ALIGNMENT): New.
+
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* function.h (rtl_data): Replace need_frame_pointer and
 	need_frame_pointer_set with frame_pointer_needed and
 	frame_pointer_needed_set, respectively.

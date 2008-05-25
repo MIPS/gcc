@@ -1786,8 +1786,8 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
-  else if (MAX_VECTORIZE_STACK_ALIGNMENT)
-    return (alignment <= MAX_VECTORIZE_STACK_ALIGNMENT);
+  else if (MAX_STACK_ALIGNMENT)
+    return (alignment <= MAX_STACK_ALIGNMENT);
   else
     return (alignment <= STACK_BOUNDARY); 
 }

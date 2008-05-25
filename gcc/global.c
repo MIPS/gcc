@@ -258,8 +258,7 @@ compute_regsets (HARD_REG_SET *elim_set,
 	= (! CAN_ELIMINATE (eliminables[i].from, eliminables[i].to)
 	   || (eliminables[i].to == STACK_POINTER_REGNUM
 	       && need_fp 
-	       && (! MAX_VECTORIZE_STACK_ALIGNMENT
-		   || ! stack_realign_fp)));
+	       && (! MAX_STACK_ALIGNMENT || ! stack_realign_fp)));
 
       if (!regs_asm_clobbered[eliminables[i].from])
 	{

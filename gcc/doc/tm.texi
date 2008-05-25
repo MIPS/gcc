@@ -1118,6 +1118,13 @@ field alignment has not been set by the
 @code{__attribute__ ((aligned (@var{n})))} construct.
 @end defmac
 
+@defmac MAX_STACK_ALIGNMENT
+Biggest stack alignment supported by the backend.  Use this macro
+to specify the maximum alignment of a variable on stack if it is
+greater than @code{PREFERRED_STACK_BOUNDARY}.  If not defined, the
+default value is zero.
+@end defmac
+
 @defmac MAX_OFILE_ALIGNMENT
 Biggest alignment supported by the object file format of this machine.
 Use this macro to limit the alignment which can be specified using the

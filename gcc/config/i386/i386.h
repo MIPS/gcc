@@ -858,8 +858,8 @@ enum target_cpu_default
 
 #define BIGGEST_ALIGNMENT 128
 
-/* Maximum stack alignment for vectorizer.  */
-#define MAX_VECTORIZE_STACK_ALIGNMENT BIGGEST_ALIGNMENT
+/* Maximum stack alignment.  */
+#define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
 
 /* Decide whether a variable of mode MODE should be 128 bit aligned.  */
 #define ALIGN_MODE_128(MODE) \
