@@ -1,16 +1,28 @@
+2008-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* trans.c (gnat_to_gnu): Do not set source location info on NOP_EXPRs.
+	(Sloc_to_locus): Do not overwrite known GCC locations when translating
+	GNAT standard locations.
+
+2008-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gigi.h (mark_visited): Declare.
+	* decl.c (gnat_to_gnu_entity): Use mark_visited instead of marking
+	only the topmost node of expressions.
+	(elaborate_expression_1): Look deeper for read-only variables.
+	* trans.c (add_decl_expr): Use mark_visited instead of marking by hand.
+	(mark_visited): Move logic to mark_visited_r.  Invoke walk_tree.
+	(mark_visited_r): New function.
+
 2008-05-23  Vincent Celier  <celier@adacore.com>
 
-	* snames.adb:
-	New standard name Excluded_Source_List_File
+	* snames.adb: New standard name Excluded_Source_List_File.
 
-	* snames.ads:
-	New standard name Excluded_Source_List_File
+	* snames.ads: New standard name Excluded_Source_List_File.
 
-	* prj-attr.adb:
-	New project level attribute Excluded_Source_List_File
+	* prj-attr.adb: New project level attribute Excluded_Source_List_File.
 
-	* prj-nmsc.adb:
-	(Find_Excluded_Sources): New parameter Project.
+	* prj-nmsc.adb: (Find_Excluded_Sources): New parameter Project.
 	Get excluded sources from
 	file indicated by attribute Excluded_Source_List_File, when present and
 	neither Excluded_Source_Files nor Locally_Removed_Files are declared.
