@@ -719,6 +719,7 @@ package body Snames is
      "driver#" &
      "excluded_source_dirs#" &
      "excluded_source_files#" &
+     "excluded_source_list_file#" &
      "exec_dir#" &
      "executable#" &
      "executable_suffix#" &
@@ -771,6 +772,8 @@ package body Snames is
      "mapping_body_suffix#" &
      "metrics#" &
      "naming#" &
+     "object_generated#" &
+     "objects_linked#" &
      "objects_path#" &
      "objects_path_file#" &
      "object_dir#" &

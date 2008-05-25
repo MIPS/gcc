@@ -1278,7 +1278,8 @@ package body Sem_Attr is
            and then Convention (Etype (P)) = Convention_CPP
            and then Is_CPP_Class (Root_Type (Etype (P)))
          then
-            Error_Attr_P ("invalid use of % attribute with CPP tagged type");
+            Error_Attr_P
+              ("invalid use of % attribute with 'C'P'P tagged type");
          end if;
       end Check_Not_CPP_Type;
 
@@ -1459,6 +1460,14 @@ package body Sem_Attr is
          Etyp : Entity_Id;
          Btyp : Entity_Id;
 
+         In_Shared_Var_Procs : Boolean;
+         --  True when compiling the body of System.Shared_Storage.
+         --  Shared_Var_Procs. For this runtime package (always compiled in
+         --  GNAT mode), we allow stream attributes references for limited
+         --  types for the case where shared passive objects are implemented
+         --  using stream attributes, which is the default in GNAT's persistent
+         --  storage implementation.
+
       begin
          Validate_Non_Static_Attribute_Function_Call;
 
@@ -1492,7 +1501,19 @@ package body Sem_Attr is
          --  in Ada 2005 mode), or a pragma Stream_Convert applies to Btyp
          --  (with no visibility restriction).
 
-         if Comes_From_Source (N)
+         declare
+            Gen_Body : constant Node_Id := Enclosing_Generic_Body (N);
+         begin
+            if Present (Gen_Body) then
+               In_Shared_Var_Procs :=
+                 Is_RTE (Corresponding_Spec (Gen_Body), RE_Shared_Var_Procs);
+            else
+               In_Shared_Var_Procs := False;
+            end if;
+         end;
+
+         if (Comes_From_Source (N)
+              and then not (In_Shared_Var_Procs or In_Instance))
            and then not Stream_Attribute_Available (P_Type, Nam)
            and then not Has_Rep_Pragma (Btyp, Name_Stream_Convert)
          then
@@ -8061,6 +8082,36 @@ package body Sem_Attr is
 
             if Is_Entity_Name (P) then
                Set_Address_Taken (Entity (P));
+            end if;
+
+            if Nkind (P) = N_Slice then
+
+               --  Arr (X .. Y)'address is identical to Arr (X)'address,
+               --  even if the array is packed and the slice itself is not
+               --  addressable. Transform the prefix into an indexed component.
+
+               declare
+                  Loc : constant Source_Ptr := Sloc (P);
+                  D   : constant Node_Id := Discrete_Range (P);
+                  Lo  : Node_Id;
+
+               begin
+                  if Is_Entity_Name (D) then
+                     Lo :=
+                       Make_Attribute_Reference (Loc,
+                          Prefix => (New_Occurrence_Of (Entity (D), Loc)),
+                          Attribute_Name => Name_First);
+                  else
+                     Lo := Low_Bound (D);
+                  end if;
+
+                  Rewrite (P,
+                     Make_Indexed_Component (Loc,
+                        Prefix =>  Relocate_Node (Prefix (P)),
+                        Expressions => New_List (Lo)));
+
+                  Analyze_And_Resolve (P);
+               end;
             end if;
          end Address_Attribute;
 

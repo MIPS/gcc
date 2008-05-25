@@ -1776,6 +1776,9 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 bool
 use_register_for_decl (const_tree decl)
 {
+  if (!targetm.calls.allocate_stack_slots_for_args())
+    return true;
+  
   /* Honor volatile.  */
   if (TREE_SIDE_EFFECTS (decl))
     return false;
@@ -4231,7 +4234,7 @@ expand_function_start (tree subr)
       r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
       r_save = convert_memory_address (Pmode, r_save);
 
-      emit_move_insn (r_save, virtual_stack_vars_rtx);
+      emit_move_insn (r_save, targetm.builtin_setjmp_frame_value ());
       update_nonlocal_goto_save_area ();
     }
 
