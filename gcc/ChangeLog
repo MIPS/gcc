@@ -1,3 +1,20 @@
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* final.c (frame_pointer_needed): Removed.
+	* flags.h (frame_pointer_needed): Likewise.
+
+	* function.h (rtl_data): Add frame_pointer_needed.
+	(frame_pointer_needed): New.
+
+2008-05-25  Arthur Loiret  <arthur.loiret@u-psud.fr>
+
+	* config.gcc (sh2[lbe]*-*-linux*): Allow target.
+
+2008-05-25  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* gcse.c (hash_scan_set): Do not pick up a REG_EQUAL value if
+	SRC is a REG.
+
 2008-05-25  Alan Modra  <amodra@bigpond.net.au>
 
 	* c-common.c (strip_array_types): Move function to..
