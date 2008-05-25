@@ -1,3 +1,25 @@
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/gas.h (ASM_OUTPUT_OPCODE): Undefine before
+	define.  Use ASM_OUTPUT_AVX_PREFIX.
+
+	* config/i386/i386.c (print_reg): Handle 'd' to duplicate
+	the operand.
+	(print_operand): Handle 'd'.
+
+	* config/i386/i386.h (ASM_OUTPUT_AVX_PREFIX): New.
+	(ASM_OUTPUT_OPCODE): Likewise.
+
+	* config/i386/i386.md (*movdi_2): Support AVX.
+	(*movdf_nointeger): Likewise.
+
+	* config/i386/mmx.md (*mov<mode>_internal_rex64_avx): Removed.
+	(*mov<mode>_internal_rex64): Support AVX.
+
+	* config/i386/sse.md (*avx_storehps): Removed.
+	(sse_storehps): Support AVX.
+	(*vec_dupv2df): Remove AVX support.
+
 2008-05-23  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (maxmin): New.

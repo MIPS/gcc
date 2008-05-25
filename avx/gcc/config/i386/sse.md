@@ -3295,20 +3295,6 @@
   [(set_attr "type" "sselog")
    (set_attr "mode" "V4SF")])
 
-(define_insn "*avx_storehps"
-  [(set (match_operand:V2SF 0 "nonimmediate_operand" "=m,x,x")
-	(vec_select:V2SF
-	  (match_operand:V4SF 1 "nonimmediate_operand" "x,x,o")
-	  (parallel [(const_int 2) (const_int 3)])))]
-  "TARGET_AVX"
-  "@
-   vmovhps\t{%1, %0|%0, %1}
-   vmovhlps\t{%1, %0, %0|%0, %0, %1}
-   vmovlps\t{%H1, %0, %0|%0, %0, %H1}"
-  [(set_attr "type" "ssemov")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "V2SF,V4SF,V2SF")])
-
 (define_insn "sse_storehps"
   [(set (match_operand:V2SF 0 "nonimmediate_operand" "=m,x,x")
 	(vec_select:V2SF
@@ -3316,10 +3302,11 @@
 	  (parallel [(const_int 2) (const_int 3)])))]
   "TARGET_SSE"
   "@
-   movhps\t{%1, %0|%0, %1}
-   movhlps\t{%1, %0|%0, %1}
-   movlps\t{%H1, %0|%0, %H1}"
+   %vmovhps\t{%1, %0|%0, %1}
+   %vmovhlps\t{%1, %d0|%d0, %1}
+   %vmovlps\t{%H1, %d0|%d0, %H1}"
   [(set_attr "type" "ssemov")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "V2SF,V4SF,V2SF")])
 
 (define_expand "sse_loadhps_exp"
@@ -4425,10 +4412,8 @@
 	(vec_duplicate:V2DF
 	  (match_operand:DF 1 "register_operand" "0")))]
   "TARGET_SSE2"
-  "* return TARGET_AVX ? \"vunpcklpd\t%0, %0, %0\"
-                       : \"unpcklpd\t%0, %0\";"
+  "unpcklpd\t%0, %0"
   [(set_attr "type" "sselog1")
-   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "V2DF")])
 
 (define_insn "*vec_concatv2df_sse3"

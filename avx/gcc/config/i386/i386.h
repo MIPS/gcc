@@ -2246,6 +2246,29 @@ do {									\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   ix86_output_addr_diff_elt ((FILE), (VALUE), (REL))
 
+/* When we see %v, we will print the 'v' prefix if TARGET_AVX is
+   true.  */
+
+#define ASM_OUTPUT_AVX_PREFIX(STREAM, PTR)	\
+{						\
+  if ((PTR)[0] == '%' && (PTR)[1] == 'v')	\
+    {						\
+      if (TARGET_AVX)				\
+	(PTR) += 1;				\
+      else					\
+	(PTR) += 2;				\
+    }						\
+}
+
+/* A C statement or statements which output an assembler instruction
+   opcode to the stdio stream STREAM.  The macro-operand PTR is a
+   variable of type `char *' which points to the opcode name in
+   its "internal" form--the form that is written in the machine
+   description.  */
+
+#define ASM_OUTPUT_OPCODE(STREAM, PTR) \
+  ASM_OUTPUT_AVX_PREFIX ((STREAM), (PTR))
+
 /* Under some conditions we need jump tables in the text section,
    because the assembler cannot handle label differences between
    sections.  This is the case for x86_64 on Mach-O for example.  */

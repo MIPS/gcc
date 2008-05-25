@@ -8890,11 +8890,16 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
    If CODE is 'x', pretend the mode is V4SFmode.
    If CODE is 't', pretend the mode is V8SFmode.
    If CODE is 'h', pretend the reg is the 'high' byte register.
-   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.  */
+   If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.
+   If CODE is 'd', duplicate the operand for AVX instruction.
+ */
 
 void
 print_reg (rtx x, int code, FILE *file)
 {
+  const char *reg;
+  bool duplicated = code == 'd' && TARGET_AVX;
+
   gcc_assert (x == pc_rtx
 	      || (REGNO (x) != ARG_POINTER_REGNUM
 		  && REGNO (x) != FRAME_POINTER_REGNUM
@@ -8959,12 +8964,14 @@ print_reg (rtx x, int code, FILE *file)
 	}
       return;
     }
+
+  reg = NULL;
   switch (code)
     {
     case 3:
       if (STACK_TOP_P (x))
 	{
-	  fputs ("st(0)", file);
+	  reg = "st(0)";
 	  break;
 	}
       /* FALLTHRU */
@@ -8977,27 +8984,38 @@ print_reg (rtx x, int code, FILE *file)
     case 16:
     case 2:
     normal:
-      fputs (hi_reg_name[REGNO (x)], file);
+      reg = hi_reg_name[REGNO (x)];
       break;
     case 1:
       if (REGNO (x) >= ARRAY_SIZE (qi_reg_name))
 	goto normal;
-      fputs (qi_reg_name[REGNO (x)], file);
+      reg = qi_reg_name[REGNO (x)];
       break;
     case 0:
       if (REGNO (x) >= ARRAY_SIZE (qi_high_reg_name))
 	goto normal;
-      fputs (qi_high_reg_name[REGNO (x)], file);
+      reg = qi_high_reg_name[REGNO (x)];
       break;
     case 32:
       if (SSE_REG_P (x))
 	{
+	  gcc_assert (!duplicated);
 	  putc ('y', file);
 	  fputs (hi_reg_name[REGNO (x)] + 1, file);
+	  return;
 	}
       break;
     default:
       gcc_unreachable ();
+    }
+
+  fputs (reg, file);
+  if (duplicated)
+    {
+      if (ASSEMBLER_DIALECT == ASM_ATT)
+	fprintf (file, ", %%%s", reg);
+      else
+	fprintf (file, ", %s", reg);
     }
 }
 
@@ -9059,6 +9077,7 @@ get_some_local_dynamic_name (void)
    t --  likewise, print the V8SFmode name of the register.
    h -- print the QImode name for a "high" register, either ah, bh, ch or dh.
    y -- print "st(0)" instead of "st" as a register.
+   d -- print duplicated register operand for AVX instruction.
    D -- print condition for SSE cmp instruction.
    P -- if PIC, print an @PLT suffix.
    X -- don't print any sort of PIC '@' suffix for a symbol.
@@ -9204,6 +9223,7 @@ print_operand (FILE *file, rtx x, int code)
 	      gcc_unreachable ();
 	    }
 
+	case 'd':
 	case 'b':
 	case 'w':
 	case 'k':
