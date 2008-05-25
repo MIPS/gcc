@@ -405,10 +405,10 @@ struct rtl_data GTY(())
 
   /* Nonzero if current function must be given a frame pointer.
      Set in global.c if anything is allocated on the stack there.  */
-  bool need_frame_pointer;
+  bool frame_pointer_needed;
 
-  /* Nonzero if need_frame_pointer has been set.  */
-  bool need_frame_pointer_set;
+  /* Nonzero if frame_pointer_needed has been set.  */
+  bool frame_pointer_needed_set;
 
   /* Nonzero if, by estimation, current function stack needs realignment. */
   bool stack_realign_needed;
@@ -447,7 +447,7 @@ struct rtl_data GTY(())
 #define avail_temp_slots (crtl->x_avail_temp_slots)
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
-#define frame_pointer_needed (crtl->need_frame_pointer)
+#define frame_pointer_needed (crtl->frame_pointer_needed)
 #define stack_realign_fp (crtl->stack_realign_needed && !crtl->need_drap)
 #define stack_realign_drap (crtl->stack_realign_needed && crtl->need_drap)
 

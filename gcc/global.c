@@ -235,7 +235,7 @@ compute_regsets (HARD_REG_SET *elim_set,
        || crtl->stack_realign_needed);
 
   frame_pointer_needed = need_fp;
-  crtl->need_frame_pointer_set = 1;
+  crtl->frame_pointer_needed_set = 1;
 
   max_regno = max_reg_num ();
   compact_blocks ();

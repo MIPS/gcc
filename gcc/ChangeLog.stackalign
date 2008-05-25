@@ -1,3 +1,15 @@
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.h (rtl_data): Replace need_frame_pointer and
+	need_frame_pointer_set with frame_pointer_needed and
+	frame_pointer_needed_set, respectively.
+	(frame_pointer_needed): Replace need_frame_pointer with
+	frame_pointer_needed.
+
+	* global.c (compute_regsets): Replace need_frame_pointer_set
+	with frame_pointer_needed_set.
+	* reload1.c (init_elim_table): Likewise.
+
 2008-05-18  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
