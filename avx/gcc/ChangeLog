@@ -1,3 +1,69 @@
+2008-05-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* c-common.c (strip_array_types): Move function to..
+	* tree.c: ..here.
+	(get_inner_array_type): Delete.
+	* c-common.h (strip_array_types): Move declaration to..
+	* tree.h: ..here.
+	(get_inner_array_type): Delete.
+	* config/i386/i386.c (x86_field_alignment): Use strip_array_types.
+	* config/rs6000/aix.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/pa/pa.c (emit_move_sequence): Likewise.
+
+2008-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*sse_prologue_save_insn): Set length
+	attribute to 34.
+
+2008-05-24  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* function.c: Include target hook for nonlocal_goto frame value.
+
+2008-05-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Re-instantiate case that
+	a scalar variable can be only accessed through a pointer
+	or a union.
+
+2008-05-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_fpclassify): Fix spelling of FP_INFINITE.
+	* doc/extend.texi: Likewise.
+
+2008-05-23  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/jump.md (untyped_call): Add.
+
+	* config/m32c/m32c.c (m32c_return_addr_rtx): Change pointer type
+	for A24 to PSImode.
+	(m32c_address_cost): Detail costs for indirect offsets.
+
+2008-05-23  Rafael Espindola  <espindola@google.com>
+
+	* see.c (see_get_extension_data): Don't use SUBREG_REG to test
+	if a node is a SUBREG.
+	(see_analyze_one_def): Don't use SUBREG_REG to test if a node
+	is a SUBREG.
+
+2008-05-23  Paul Brook  <paul@codesourcery.com>
+	    Carlos O'Donell  <carlos@codesourcery.com>
+
+	* doc/extend.texi: Clarify use of __attribute__((naked)).
+	* doc/tm.texi: Document TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS.
+	* target.h (gcc_target): Add allocate_stack_slots_for_args.
+	* function.c (use_register_for_decl): Use
+	targetm.calls.allocate_stack_slots_for_args.
+	* target-def.h (TARGET_CALLS): Add 
+	TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS.
+	* config/arm/arm.c (arm_allocate_stack_slots_for_args): 
+	New function.
+	(TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS): Define.
+
+2008-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (highest_pow2_factor) <BIT_AND_EXPR>: New case.
+
 2008-05-23  Steven Munroe  <sjmunroe@us.ibm.com>
 
 	* config/rs6000/darwin-ldouble.c (fmsub): Eliminate the full
