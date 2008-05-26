@@ -1473,6 +1473,9 @@ enum reg_class
 #define SSE_VEC_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == V4SFmode) || (TARGET_SSE2 && (MODE) == V2DFmode))
 
+#define AVX_FLOAT_MODE_P(MODE) \
+  (TARGET_AVX && ((MODE) == SFmode || (MODE) == DFmode))
+
 #define AVX256_VEC_FLOAT_MODE_P(MODE) \
   (TARGET_AVX && ((MODE) == V8SFmode || (MODE) == V4DFmode))
 
