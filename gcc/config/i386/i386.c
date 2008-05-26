@@ -17216,10 +17216,10 @@ ix86_data_alignment (tree type, int align)
   return align;
 }
 
-/* Compute the alignment for a local variable.
-   TYPE is the data type, and ALIGN is the alignment that
-   the object would ordinarily have.  The value of this macro is used
-   instead of that alignment to align the object.  */
+/* Compute the alignment for a local variable or a stack slot.  TYPE is
+   the data type, MODE is the widest mode available and ALIGN is the
+   alignment that the object would ordinarily have.  The value of this
+   macro is used instead of that alignment to align the object.  */
 
 unsigned int
 ix86_local_alignment (tree type, enum machine_mode mode,

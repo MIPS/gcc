@@ -1,3 +1,100 @@
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36253
+	* caller-save.c (insert_restore): Verify alignment of spill
+	space.
+	(insert_save): Likewise.
+
+	* cfgexpand.c (LOCAL_ALIGNMENT): Removed.
+
+	* defaults.h (LOCAL_ALIGNMENT): New. Provide default.
+	(STACK_SLOT_ALIGNMENT): Likewise.
+
+	* function.c (LOCAL_ALIGNMENT): Removed.
+	(get_stack_local_alignment): New.
+	(assign_stack_local): Use it.  Set alignment on stack slot.
+	(assign_stack_temp_for_type): Use get_stack_local_alignment.
+
+	* config/i386/i386.h (LOCAL_ALIGNMENT): Updated.
+	(STACK_SLOT_ALIGNMENT): New.
+
+	* config/i386/i386.c (ix86_local_alignment): Handle caller-save
+	stack slot in XFmode.
+
+	* doc/tm.texi (STACK_SLOT_ALIGNMENT): New.
+
+2008-05-26  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/36321
+	* config/i386/i386.md (allocate_stack_worker_64): Make sure
+	argument operand in rax isn't removed.
+
+2008-05-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36300
+	* fold-const.c (extract_muldiv_1): Use TYPE_OVERFLOW_WRAPS,
+	not TYPE_UNSIGNED.  Use TYPE_PRECISION instead of GET_MODE_SIZE.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR bootstrap/36331
+	* c-cppbuiltin.c (define__GNUC__): Re-add definition of __GNUG__.
+
+2008-05-26  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	* config/darwin-c.c: Include "incpath.h" instead of "c-incpath.h".
+	* config/t-darwin: Use "incpath.h" instead of "c-incpath.h".
+
+2008-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	 * tree-nested.c (convert_tramp_reference) <ADDR_EXPR>: Do not
+	build a trampoline if we don't want one.
+	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Do not
+	return zero for nested functions if we don't want a trampoline.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	* doc/invoke.texi: Added f77, f77-cpp-input to list of file types.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/18428
+	* c.opt: Removed undocumented option '-lang-fortran'.
+	* c-common.h: Removed global variable 'lang_fortran'.
+	* c-opts.c (c_common_handle_option): Removed code to handle
+	option '-lang-fortran'. Updated includes.
+	* c-cppbuiltin.c (c_cpp_builtins): Removed conditional
+	definition of '__GFORTRAN__'.
+	(define__GNUC__): Reimplemented to use BASEVER and
+	cpp_define_formatted.
+	(builtin_define_with_value_n): Removed.
+	* c-incpath.h: Renamed to ...
+	* incpath.h: ... this.
+	* c-incpath.c: Renamed to ...
+	* incpath.c: ... this. Updated includes.
+	* fix-header.c: Updated includes.
+	* Makefile.in: Replaced c-incpath.[ch] by incpath.[ch].
+	(c-cppbuiltin.o): Added dependency on and definition of BASEVER.
+	(OBJ-archive): Added cppdefault.o, incpath.o and prefix.o.
+
+2008-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.h: Update the table of flags used on tree nodes.
+	(TREE_NO_TRAMPOLINE): New accessor for static_flag.
+	(SAVE_EXPR_RESOLVED_P): Use automatically-built access check.
+	(FORCED_LABEL): Add access check.
+	(CALL_EXPR_RETURN_SLOT_OPT): Likewise.
+	(ASM_INPUT_P): Likewise.
+	(ASM_VOLATILE_P): Likewise.
+	(EH_FILTER_MUST_NOT_THROW): Access static_flag directly.
+	(OMP_SECTION_LAST): Access private_flag directly.
+	(OMP_RETURN_NOWAIT): Likewise.
+	(OMP_PARALLEL_COMBINED): Likewise.
+	(OMP_CLAUSE_PRIVATE_DEBUG): Access public_flag directly.
+	(OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE): Likewise.
+	* tree-ssa-propagate.c (STMT_IN_SSA_EDGE_WORKLIST): Access
+	deprecated_flag directly.
+
 2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* final.c (frame_pointer_needed): Removed.

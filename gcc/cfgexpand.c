@@ -156,7 +156,7 @@ get_decl_align_unit (tree decl)
   unsigned int align;
 
   align = DECL_ALIGN (decl);
-  align = LOCAL_ALIGNMENT (TREE_TYPE (decl), VOIDmode, align);
+  align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
 
   if (MAX_STACK_ALIGNMENT)
     {

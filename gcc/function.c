@@ -322,6 +322,7 @@ frame_offset_overflow (HOST_WIDE_INT offset, tree func)
 }
 
 /* Return stack slot alignment in bits for TYPE and MODE.  */
+
 static unsigned int
 get_stack_local_alignment (tree type, enum machine_mode mode)
 {
@@ -337,8 +338,7 @@ get_stack_local_alignment (tree type, enum machine_mode mode)
   if (! type)
     type = lang_hooks.types.type_for_mode (mode, 0);
 
-  alignment = LOCAL_ALIGNMENT (type, mode, alignment);
-  return alignment;
+  return STACK_SLOT_ALIGNMENT (type, mode, alignment);
 }
 
 /* Allocate a stack slot of SIZE bytes and return a MEM rtx for it
