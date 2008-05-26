@@ -1,3 +1,22 @@
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*movsi_1): Use "%v" and "%d0" for AVX
+	support.
+	(*movsf_1): Likewise.
+	(*movdf_integer_rex64): Likewise.
+	(*extendsfdf2_mixed): Likewise.
+	(*truncdfsf_fast_mixed): Likewise.
+	(*truncdfsf_fast_sse): Likewise.
+	(*truncdfsf_mixed): Likewise.
+	(fix_trunc<mode>di_sse): Likewise.
+	(*extendsfdf2_sse): Likewise.
+	(fix_trunc<mode>si_sse): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_interunit): Likewise.
+	(*rcpsf2_sse): Likewise.
+	(*rsqrtsf2_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(sse4_1_round<mode>2): Likewise.
+
 2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (*sse_prologue_save_insn): Support AVX.
