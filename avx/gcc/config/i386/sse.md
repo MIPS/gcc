@@ -6810,8 +6810,8 @@
    #
    %vmov{q}\t{%1, %0|%0, %1}"
   [(set_attr "type" "*,*,imov")
-   (set_attr "mode" "*,*,DI")])
    (set_attr "prefix" "*,*,maybe_vex")
+   (set_attr "mode" "*,*,DI")])
 
 (define_insn "*sse2_storeq"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=mx")

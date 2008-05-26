@@ -1,5 +1,9 @@
 2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (*sse2_storeq_rex64): Fix a typo.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (<sse>_movnt<mode>): Use "%v" for AVX
 	support.
 	(sse_rcpv4sf2): Likewise.
