@@ -1,3 +1,7 @@
+2008-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/task-6.C: New test.
+
 2008-05-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* loop_ull.c (GOMP_loop_ull_runtime_start,

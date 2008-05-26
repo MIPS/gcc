@@ -10736,6 +10736,14 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	= OMP_PARALLEL_COMBINED (t);
       break;
 
+    case OMP_TASK:
+      tmp = tsubst_omp_clauses (OMP_TASK_CLAUSES (t),
+				args, complain, in_decl);
+      stmt = begin_omp_task ();
+      RECUR (OMP_TASK_BODY (t));
+      finish_omp_task (tmp, stmt);
+      break;
+
     case OMP_FOR:
       {
 	tree clauses, body, pre_body;
