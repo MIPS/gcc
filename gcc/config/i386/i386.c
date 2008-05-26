@@ -6514,7 +6514,7 @@ ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
     }
 }
 
-/* Finalize stack_realign_really flag, which will guide prologue/epilogue
+/* Finalize stack_realign_needed flag, which will guide prologue/epilogue
    to be generated in correct form.  */
 static void 
 ix86_finalize_stack_realign_flags (void)
@@ -6523,18 +6523,18 @@ ix86_finalize_stack_realign_flags (void)
      stores result in cfun */
   unsigned int stack_realign = (ix86_incoming_stack_boundary
 				< (current_function_is_leaf
-				   ? crtl->stack_alignment_used
+				   ? crtl->max_used_stack_slot_alignment
 				   : crtl->stack_alignment_needed));
 
   if (crtl->stack_realign_finalized)
     {
-      /* After stack_realign_really is finalized, we can't no longer
+      /* After stack_realign_needed is finalized, we can't no longer
 	 change it.  */
-      gcc_assert (crtl->stack_realign_really == stack_realign);
+      gcc_assert (crtl->stack_realign_needed == stack_realign);
     }
   else
     {
-      crtl->stack_realign_really = stack_realign;
+      crtl->stack_realign_needed = stack_realign;
       crtl->stack_realign_finalized = true;
     }
 }
@@ -6559,7 +6559,7 @@ ix86_expand_prologue (void)
 
   /* Emit prologue code to adjust stack alignment and setup DRAP, in case
      of DRAP is needed and stack realignment is really needed after reload */
-  if (crtl->drap_reg && crtl->stack_realign_really)
+  if (crtl->drap_reg && crtl->stack_realign_needed)
     {
       rtx x, y;
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
@@ -6613,7 +6613,7 @@ ix86_expand_prologue (void)
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
-  if (stack_realign_fp && crtl->stack_realign_really)
+  if (stack_realign_fp)
     {
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
       gcc_assert (align_bytes > STACK_BOUNDARY / BITS_PER_UNIT);
@@ -6641,7 +6641,7 @@ ix86_expand_prologue (void)
   if (TARGET_RED_ZONE && frame.save_regs_using_mov
       && (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT))
     ix86_emit_save_regs_using_mov ((frame_pointer_needed
-				     && !crtl->stack_realign_really) 
+				     && !crtl->stack_realign_needed) 
                                    ? hard_frame_pointer_rtx
 				   : stack_pointer_rtx,
 				   -frame.nregs * UNITS_PER_WORD);
@@ -6703,7 +6703,7 @@ ix86_expand_prologue (void)
     {
       if (!frame_pointer_needed
 	  || !frame.to_allocate
-	  || crtl->stack_realign_really)
+	  || crtl->stack_realign_needed)
         ix86_emit_save_regs_using_mov (stack_pointer_rtx,
 				       frame.to_allocate);
       else
@@ -6756,7 +6756,7 @@ ix86_expand_prologue (void)
       emit_insn (gen_blockage ());
     }
 
-  if (crtl->drap_reg && !crtl->stack_realign_really)
+  if (crtl->drap_reg && !crtl->stack_realign_needed)
     {
       /* vDRAP is setup but after reload it turns out stack realign
          isn't necessary, here we will emit prologue to setup DRAP
@@ -6816,7 +6816,7 @@ ix86_expand_epilogue (int style)
  /* When stack is realigned, SP must be valid.  */
   sp_valid = (!frame_pointer_needed
 	      || current_function_sp_is_unchanging
-	      || (stack_realign_fp && crtl->stack_realign_really));
+	      || stack_realign_fp);
 
   ix86_compute_frame_layout (&frame);
 
@@ -6860,7 +6860,7 @@ ix86_expand_epilogue (int style)
 
       if (!frame_pointer_needed
 	  || (sp_valid && !frame.to_allocate) 
-	  || (stack_realign_fp && crtl->stack_realign_really))
+	  || stack_realign_fp)
 	ix86_emit_restore_regs_using_mov (stack_pointer_rtx,
 					  frame.to_allocate, style == 2);
       else
@@ -6873,7 +6873,7 @@ ix86_expand_epilogue (int style)
 	  rtx tmp, sa = EH_RETURN_STACKADJ_RTX;
 	  if (frame_pointer_needed)
 	    {
-              if (crtl->stack_realign_really)
+              if (crtl->stack_realign_needed)
                 {
                   gcc_assert (!stack_realign_fp);
                   gcc_assert (crtl->calls_eh_return);
@@ -6933,7 +6933,7 @@ ix86_expand_epilogue (int style)
       if (!sp_valid)
 	{
 	  gcc_assert (frame_pointer_needed);
-          gcc_assert (!(stack_realign_fp && crtl->stack_realign_really));
+          gcc_assert (!stack_realign_fp);
 	  pro_epilogue_adjust_stack (stack_pointer_rtx,
 				     hard_frame_pointer_rtx,
 				     GEN_INT (offset), style);
@@ -6961,7 +6961,7 @@ ix86_expand_epilogue (int style)
               /* For stack realigned really happens, recover stack 
                  pointer to hard frame pointer is a must, if not using 
                  leave.  */
-              if (stack_realign_fp && crtl->stack_realign_really)
+              if (stack_realign_fp)
 		pro_epilogue_adjust_stack (stack_pointer_rtx,
 					   hard_frame_pointer_rtx,
 					   const0_rtx, style);
@@ -6975,7 +6975,7 @@ ix86_expand_epilogue (int style)
 
   if (style != 2
       && crtl->drap_reg
-      && crtl->stack_realign_really)
+      && crtl->stack_realign_needed)
     {
       int param_ptr_offset = (crtl->save_param_ptr_reg
 			      ? STACK_BOUNDARY / BITS_PER_UNIT : 0);

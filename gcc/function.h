@@ -335,13 +335,20 @@ struct rtl_data GTY(())
      for outgoing stack alignment.  */
   unsigned int stack_alignment_needed;
 
-  /* Preferred alignment of the end of stack frame.  */
+  /* Preferred alignment of the end of stack frame, which is preferred
+     to call other functions.  */
   unsigned int preferred_stack_boundary;
 
   /* The largest alignment of slot allocated on the stack.  */
-  unsigned int stack_alignment_used;
+  unsigned int max_used_stack_slot_alignment;
 
-  /* The estimated stack alignment.  */
+  /* The stack alignment estimated before reload, with consideration of
+     following factors:
+     1. Alignment of local stack variables (max_used_stack_slot_alignment)
+     2. Alignment requirement to call other functions 
+        (preferred_stack_boundary)
+     3. Alignment of non-local stack variables but might be spilled in
+        local stack.  */
   unsigned int stack_alignment_estimated;
 
   /* For reorg.  */
@@ -407,19 +414,15 @@ struct rtl_data GTY(())
      Set in global.c if anything is allocated on the stack there.  */
   bool frame_pointer_needed;
 
-  /* Nonzero if frame_pointer_needed has been set.  */
+  /* Nonzero if flag frame_pointer_needed was set.  */
   bool frame_pointer_needed_set;
 
-  /* Nonzero if, by estimation, current function stack needs realignment. */
+  /* Nonzero if function stack realignment is needed. This flag may be
+     set twice: before and after reload. It is set before reload wrt
+     stack alignment estimation before reload. It will be changed after 
+     reload if by then criteria of stack realignment is different. 
+     The value set after reload is the accurate one and is finalized.  */
   bool stack_realign_needed;
-
-  /* Nonzero if function stack realignment is really needed. This flag
-     will be set after reload if by then criteria of stack realignment
-     is still true. Its value may be contridition to stack_realign_needed
-     since the latter was set before reload. This flag is more accurate
-     than stack_realign_needed so prologue/epilogue should be generated
-     according to both flags  */
-  bool stack_realign_really;
 
   /* Nonzero if function being compiled needs dynamic realigned
      argument pointer (drap) if stack needs realigning.  */
@@ -429,10 +432,13 @@ struct rtl_data GTY(())
      pointer register in prolog, because it is a callee save reg.  */
   bool save_param_ptr_reg;
 
-  /* Nonzero if function stack realignment estimatoin is done.  */
+  /* Nonzero if function stack realignment estimation is done, namely
+     stack_realign_needed flag has been set before reload wrt
+     estimated stack alignment info.  */
   bool stack_realign_processed;
 
-  /* Nonzero if function stack realignment has been finalized.  */
+  /* Nonzero if function stack realignment has been finalized, namely
+     stack_realign_needed flag has been set and finalized after reload.  */
   bool stack_realign_finalized;
 };
 

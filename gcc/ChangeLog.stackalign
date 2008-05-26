@@ -1,3 +1,23 @@
+2008-05-26  Joey Ye  <joey.ye@intel.com>
+
+	* function.h (rtl_data): Add more descriptive comments to
+	preferred_stack_boundary, stack_alignment_estimated,
+	frame_pointer_needed_set, stack_realign_needed,
+	stack_realign_processed, stack_realign_finalized.  Remove
+	stack_realign_really.  Rename stack_alignment_used to
+	max_used_stack_slot_alignment.
+
+	* cfgexpand.c (get_decl_align_unit): Updated.
+	(tree_expand_cfg): Likewise.
+	* function.c (assign_stack_local_1): Likewise.
+	(locate_and_pad_parm): Likewise.
+	* config/i386/i386.c (ix86_finalize_stack_realign_flags): Likewise.
+
+	* config/i386/i386.c (ix86_finalize_stack_realign_flags): Remove
+	stack_realign_really and reuse stack_realign_needed.
+	(ix86_expand_prologue): Likewise.
+	(ix86_expand_epilogue): Likewise.
+
 2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* builtins.c (expand_builtin_longjmp): Replace
