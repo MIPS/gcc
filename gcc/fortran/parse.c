@@ -643,7 +643,7 @@ next_free (void)
 	  for (i = 0; i < 5; i++, c = gfc_next_ascii_char ())
 	    gcc_assert (c == "!$omp"[i]);
 
-	  gcc_assert (c == ' ');
+	  gcc_assert (c == ' ' || c == '\t');
 	  gfc_gobble_whitespace ();
 	  return decode_omp_directive ();
 	}

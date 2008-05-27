@@ -1,3 +1,7 @@
+2008-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/omp_parse1.f90: Remove !$omp tab test.
+
 2008-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/task-1.C: New test.

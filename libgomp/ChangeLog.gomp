@@ -1,5 +1,8 @@
 2008-05-27  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.fortran/tabs1.f90: New test.
+	* testsuite/libgomp.fortran/tabs2.f: Likewise.
+
 	* libgomp.h (enum gomp_task_kind): New type.
 	(struct gomp_task): Rename prev field to parent.  Add children,
 	next_child, prev_child, next_queue, prev_queue, fn, fn_data,
