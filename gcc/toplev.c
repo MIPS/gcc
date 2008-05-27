@@ -1933,6 +1933,12 @@ process_options (void)
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
+
+#ifdef HAS_OPTION_ATTRIBUTE
+  /* Preserve a copy of the initial options that are changable with
+     attribute(option).  */
+  cl_attr_initial = cl_attr_current;
+#endif
 }
 
 /* This function can be called multiple times to reinitialize the compiler

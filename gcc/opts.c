@@ -960,6 +960,11 @@ decode_options (unsigned int argc, const char **argv)
   /* Some tagets have ABI-specified unwind tables.  */
   flag_unwind_tables = targetm.unwind_tables_default;
 
+#ifdef HAS_ATTRIBUTE_OPTION
+  /* Initialize the attribute options that are not statically initialized.  */
+  initialize_attribute_options ();
+#endif
+
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
   OPTIMIZATION_OPTIONS (optimize, optimize_size);

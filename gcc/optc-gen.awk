@@ -63,6 +63,7 @@ print "#include " quote "opts.h" quote
 print "#include " quote "intl.h" quote
 print ""
 
+n_attr = 0;
 for (i = 0; i < n_opts; i++) {
         name = var_name(flags[i]);
         if (name == "")
@@ -70,6 +71,7 @@ for (i = 0; i < n_opts; i++) {
 
 	if (flag_set_p("Attribute", flags[i])) {
 		attr_flags[name] ++
+		n_attr ++
 		continue;
 	}
 
@@ -112,37 +114,52 @@ for (i = 0; i < n_opts; i++) {
 
 print ""
 
-print "/* Resets attribute options to default values */"
-print "void initialize_attribute_options(void) {\n"
-for (i = 0; i < n_opts; i++) {
-	name = var_name(flags[i]);
-	if (name == "")
-		continue;
+if (n_attr > 0) {
+	print "/* Options declared with Attribute that are grouped together"
+	print "   in a single structure.  */"
+	print "struct cl_option_attr cl_attr_current;";
+	print "";
+	print "/* Copy of the attribute options after initialization.  */"
+	print "struct cl_option_attr cl_attr_initial;";
+	print "";
 
-	if (name in attr_flags) {
-		if (name in attr_var_written_seen) continue;
+	print "/* Resets attribute options to default values */";
+	print "void";
+	print "initialize_attribute_options(void)";
+	print "{";
+	print "  /* Zero out the array */";
+	print "  memset (&cl_attr_current, '\\0', sizeof (cl_attr_current));";
+	print "";
 
-		init = opt_args("Init", flags[i])
-		type = var_type(flags[i])
-
-		if (init == "") {
-			if(type=="int") init = " = 0 "
-			else init = " = NULL "
+	for (i = 0; i < n_opts; i++) {
+		name = var_name(flags[i]);
+		if (name == "") {
+			if (flag_set_p("Attribute", flags[i]))
+				name = "target_flags";
+			else
+				continue;
 		}
-		else
-			 init = " = " init
 
-		print "/* Set by -" opts[i] "."
-		print "   " help[i] "  */"
-		print name init ";"
-		print ""
+		if (flag_set_p("Attribute", flags[i])) {
+			if (name in attr_var_written_seen)
+				continue;
 
-		attr_var_written_seen[name] ++
+			attr_var_written_seen[name] ++
+			init = opt_args("Init", flags[i])
+
+			if (init != "") {
+				print "  /* Set by -" opts[i] ".";
+				print "     " help[i] "  */";
+				print "  " name " = " init ";";
+				print "";
+			}
+		}
 	}
-}
-print "}"
 
-print ""
+	print "}"
+	print ""
+}
+
 print "/* Local state variables.  */"
 for (i = 0; i < n_opts; i++) {
 	name = static_var(opts[i], flags[i]);
@@ -160,10 +177,6 @@ for (i = 0; i < n_langs; i++) {
     }
 
 print "  0\n};\n"
-
-print "union cl_option_stor cl_option_stors[N_OPTS_STOR];\n"
-print "const unsigned int cl_option_stors_count = N_OPTS_STOR;\n"
-
 print "const unsigned int cl_options_count = N_OPTS;\n"
 print "const unsigned int cl_lang_count = " n_langs ";\n"
 

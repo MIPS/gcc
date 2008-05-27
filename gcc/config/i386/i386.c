@@ -2205,7 +2205,7 @@ override_options (bool main_args_p)
     }
 
 #ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);
+  fprintf (stderr, "override_options, cfun = %p, arch = '%s', tune = '%s', main_args_p = %d\n", (void *)cfun, ix86_arch_string, ix86_tune_string, main_args_p);
 #endif
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;

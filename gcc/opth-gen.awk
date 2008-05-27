@@ -60,51 +60,78 @@ print ""
 print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
-print "#include " quote "opts.h" quote 
-print ""
 
-# Need for Function Specific for more options
-attr_flags["target_flags"]=".ival";
-attr_flags["target_flags_explicit"]=".ival";
+have_attribute = 0;
+have_attribute_target_flags = 0;
 
 for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i])
-	if(name == "") 
-		continue;
-
-	if(name in var_written_seen) continue;
-	var_written_seen[name] ++	
-
 	if (!flag_set_p("Attribute", flags[i])) {
-		print "extern " var_type(flags[i]) " " name";"
-		continue;
-	} 
+		have_attribute = 1;
 
-	attr_flags[name] = var_decl(flags[i]);
+		if(name == "")
+			have_attribute_target_flags = 1;
+	}
+}
+
+if (!have_attribute_target_flags) {
+	print "extern int target_flags;"
+	print "extern int target_flags_explicit;"
+}
+
+print "#include " quote "opts.h" quote
+print ""
+
+for (i = 0; i < n_opts; i++) {
+	name = var_name(flags[i])
+	if(name == "") {
+		if (!flag_set_p("Attribute", flags[i]))
+			continue;
+
+		name = "target_flags";
+	}
+
+	if(name in var_written_seen)
+		continue;
+
+	var_written_seen[name] ++	
+	if (!flag_set_p("Attribute", flags[i]))
+		print "extern " var_type(flags[i]) " " name ";";
+
+	else {
+		print "#define " name " cl_attr_current.attr_" name;
+		if (name == "target_flags")
+			print "#define target_flags_explicit cl_attr_current.attr_target_flags_explicit";
+	}
 }
 print ""
 
-print "enum optstor_code"
-print "{"
-for (attr_flag_name in attr_flags) {
-	if(attr_flag_name == "")
-		continue;
-	print "  OPTS_"attr_flag_name comma
-}
-#For avoiding zero-sized arrays.
-print "  OPTS_dummyindex" comma
-print "  N_OPTS_STOR"
-print "};\n"
+if (have_attribute) {
+	print "struct cl_option_attr GTY(())";
+	print "{";
+	for (i = 0; i < n_opts; i++) {
+		if (flag_set_p("Attribute", flags[i])) {
+			name = var_name(flags[i])
+			if(name == "")
+				name = "target_flags";
 
-for (attr_flag_name in attr_flags) {
-	if(attr_flag_name == "") 
-		continue;
-	attr_flag_decl = attr_flags[attr_flag_name];
-        print "#define " attr_flag_name " (cl_option_stors [ OPTS_" attr_flag_name " ]" attr_flag_decl ")";
-        print "#define ver_" attr_flag_name "(a) ((a) [ OPTS_" attr_flag_name " ]" attr_flag_decl ")";
-}
+			if(name in var_attr_seen)
+				continue;
 
-print ""
+			var_attr_seen[name] ++	
+			print "  " var_type(flags[i]) " attr_" name ";";
+			if (name == "target_flags")
+				print "  " var_type(flags[i]) " attr_target_flags_explicit;";
+		}
+	}
+	print "};";
+	print "";
+	print "extern GTY(()) struct cl_option_attr cl_attr_current;"
+	print "extern GTY(()) struct cl_option_attr cl_attr_initial;"
+	print "#define HAS_OPTION_ATTRIBUTE"
+	print "extern void initialize_attribute_options (void);";
+	print "";
+}
 
 for (i = 0; i < n_opts; i++) {
 	name = opt_args("Mask", flags[i])
@@ -140,20 +167,13 @@ for (i = 0; i < n_opts; i++) {
 		macro = "TARGET_"
 		mask = "MASK_"
 	}
-	if (name != "" && !flag_set_p("MaskExists", flags[i])) {
+	if (name != "" && !flag_set_p("MaskExists", flags[i]))
 		print "#define " macro name \
 		      " ((" vname " & " mask name ") != 0)"
-		if(vname in attr_flags) {
-		print "#define VER_" macro name \
-		      "(a) (((ver_" vname "(a)) & " mask name ") != 0)"
-		}
-	}
 }
 for (i = 0; i < n_extra_masks; i++) {
 	print "#define TARGET_" extra_masks[i] \
 	      " ((target_flags & MASK_" extra_masks[i] ") != 0)"
-	print "#define VER_TARGET_" extra_masks[i] \
-	      "(a) (((ver_target_flags(a)) & MASK_" extra_masks[i] ") != 0)"
 }
 print ""
 
@@ -170,10 +190,6 @@ for (i = 0; i < n_opts; i++) {
 		}
 		print "#define " macro nth_arg(1, opt) \
 		      " ((" vname " & " mask nth_arg(0, opt) ") == 0)"
-		if(vname in attr_flags) {
-			print "#define VER_" macro nth_arg(1,opt) \
-		      	"(a) (((ver_" vname "(a)) & " mask nth_arg(0, opt) ") == 0)"
-		}
 	}
 }
 print ""

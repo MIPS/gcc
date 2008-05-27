@@ -39,13 +39,13 @@ along with GCC; see the file COPYING3.  If not see
 /* Stack of options that are saved when processing an function with
    attribute(option).  */
 
-struct cl_option_stors_stack
+struct cl_attr_stack GTY(())
 {
-  struct cl_option_stors_stack *prev;
-  union cl_option_stor copy[1];			/* must be last */
+  struct cl_attr_stack *prev;
+  struct cl_option_attr save;
 };
 
-static struct cl_option_stors_stack *cl_option_top = NULL;
+static GTY(()) struct cl_attr_stack *cl_option_top = NULL;
 
 /* Structure to hold target options that are accumulated for passing on to
    the target backend hook.  */
@@ -207,14 +207,9 @@ static bool
 target_specific_push (int argc, const char **argv)
 {
   bool ret = true;
-  struct cl_option_stors_stack *ptr
-    = xmalloc (sizeof(struct cl_option_stors_stack)
-	       + (sizeof (union cl_option_stor) * (cl_option_stors_count - 1)));
+  struct cl_attr_stack *ptr = ggc_alloc (sizeof (struct cl_attr_stack));
 
-  memcpy (ptr->copy,
-	  cl_option_stors,
-	  sizeof(union cl_option_stor) * cl_option_stors_count);
-
+  ptr->save = cl_attr_current;
   ptr->prev = cl_option_top;
   cl_option_top = ptr;
 
@@ -228,16 +223,13 @@ target_specific_push (int argc, const char **argv)
 static void
 target_specific_pop (void)
 {
-  struct cl_option_stors_stack *ptr = cl_option_top;
+  struct cl_attr_stack *ptr = cl_option_top;
 
   if (ptr)
     {
-      memcpy (cl_option_stors,
-	      ptr->copy,
-	      sizeof(union cl_option_stor) * cl_option_stors_count);
-
+      cl_attr_current = ptr->save;
       cl_option_top = ptr->prev;
-      free (ptr);
+      ggc_free (ptr);
 
       if (targetm.target_specific.pop_options)
 	targetm.target_specific.pop_options ();
