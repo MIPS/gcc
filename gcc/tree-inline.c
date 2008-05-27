@@ -1670,7 +1670,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
 
   if (src_cfun->gimple_df)
     {
-      init_tree_ssa ();
+      init_tree_ssa (cfun);
       cfun->gimple_df->in_ssa_p = true;
       init_ssa_operands ();
     }
@@ -1798,7 +1798,6 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 {
   gimple init_stmt;
   tree var;
-  tree var_sub;
   tree rhs = value;
   tree def = (gimple_in_ssa_p (cfun)
 	      ? gimple_default_def (id->src_cfun, p) : NULL);
@@ -1854,23 +1853,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
       add_referenced_var (var);
     }
 
-  /* See if the frontend wants to pass this by invisible reference.  If
-     so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
-     replace uses of the PARM_DECL with dereferences.  */
-  if (TREE_TYPE (var) != TREE_TYPE (p)
-      && POINTER_TYPE_P (TREE_TYPE (var))
-      && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
-    {
-      insert_decl_map (id, var, var);
-      var_sub = build_fold_indirect_ref (var);
-    }
-  else
-    var_sub = var;
-
   /* Register the VAR_DECL as the equivalent for the PARM_DECL;
      that way, when the PARM_DECL is encountered, it will be
      automatically replaced by the VAR_DECL.  */
-  insert_decl_map (id, p, var_sub);
+  insert_decl_map (id, p, var);
 
   /* Declare this new variable.  */
   TREE_CHAIN (var) = *vars;
@@ -1930,7 +1916,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 
       if (rhs == error_mark_node)
 	{
-  	  insert_decl_map (id, p, var_sub);
+	  insert_decl_map (id, p, var);
 	  return;
 	}
 

@@ -735,6 +735,7 @@ extern tree gimplify_build2 (gimple_stmt_iterator *, enum tree_code,
 extern tree gimplify_build3 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
+extern void init_empty_tree_cfg_for_function (struct function *);
 extern void fold_cond_expr_cond (void);
 extern void make_abnormal_goto_edges (basic_block, bool);
 extern void replace_uses_by (tree, tree);
@@ -756,6 +757,7 @@ extern const char *op_symbol_code (enum tree_code);
 /* In tree-dfa.c  */
 extern var_ann_t create_var_ann (tree);
 extern function_ann_t create_function_ann (tree);
+extern void renumber_gimple_stmt_uids (void);
 extern tree_ann_common_t create_tree_common_ann (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
@@ -783,6 +785,12 @@ extern gimple create_phi_node (tree, basic_block);
 extern void add_phi_arg (gimple, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);
+extern void init_phinodes (void);
+extern void fini_phinodes (void);
+extern void release_phi_node (gimple);
+#ifdef GATHER_STATISTICS
+extern void phinodes_print_statistics (void);
+#endif
 
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
@@ -843,14 +851,13 @@ DEF_VEC_ALLOC_O(edge_var_map, heap);
 /* A vector of var maps.  */
 typedef VEC(edge_var_map, heap) *edge_var_map_vector;
 
+extern void init_tree_ssa (struct function *);
 extern void redirect_edge_var_map_add (edge, tree, tree);
 extern void redirect_edge_var_map_clear (edge);
 extern void redirect_edge_var_map_dup (edge, edge);
 extern edge_var_map_vector redirect_edge_var_map_vector (edge);
 extern void redirect_edge_var_map_destroy (void);
 
-
-extern void init_tree_ssa (void);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
@@ -877,6 +884,20 @@ void mark_sym_for_renaming (tree);
 void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
+
+/* In tree-ssanames.c  */
+extern void init_ssanames (struct function *, int);
+extern void fini_ssanames (void);
+extern tree make_ssa_name_fn (struct function *, tree, gimple);
+extern tree duplicate_ssa_name (tree, gimple);
+extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
+extern void release_ssa_name (tree);
+extern void release_defs (gimple);
+extern void replace_ssa_name_symbol (tree, tree);
+
+#ifdef GATHER_STATISTICS
+extern void ssanames_print_statistics (void);
+#endif
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (gimple_stmt_iterator *);

@@ -1,10 +1,1408 @@
+2008-05-26  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (expr_has_constants): Declare.
+	(visit_reference_op_load): Initialize VN_INFO->has_constants
+	properly.
+
+2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36253
+	* caller-save.c (insert_restore): Verify alignment of spill
+	space.
+	(insert_save): Likewise.
+
+	* cfgexpand.c (LOCAL_ALIGNMENT): Removed.
+
+	* defaults.h (LOCAL_ALIGNMENT): New. Provide default.
+	(STACK_SLOT_ALIGNMENT): Likewise.
+
+	* function.c (LOCAL_ALIGNMENT): Removed.
+	(get_stack_local_alignment): New.
+	(assign_stack_local): Use it.  Set alignment on stack slot.
+	(assign_stack_temp_for_type): Use get_stack_local_alignment.
+
+	* config/i386/i386.h (LOCAL_ALIGNMENT): Updated.
+	(STACK_SLOT_ALIGNMENT): New.
+
+	* config/i386/i386.c (ix86_local_alignment): Handle caller-save
+	stack slot in XFmode.
+
+	* doc/tm.texi (STACK_SLOT_ALIGNMENT): New.
+
+2008-05-26  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/36321
+	* config/i386/i386.md (allocate_stack_worker_64): Make sure
+	argument operand in rax isn't removed.
+
+2008-05-26  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36300
+	* fold-const.c (extract_muldiv_1): Use TYPE_OVERFLOW_WRAPS,
+	not TYPE_UNSIGNED.  Use TYPE_PRECISION instead of GET_MODE_SIZE.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR bootstrap/36331
+	* c-cppbuiltin.c (define__GNUC__): Re-add definition of __GNUG__.
+
+2008-05-26  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	* config/darwin-c.c: Include "incpath.h" instead of "c-incpath.h".
+	* config/t-darwin: Use "incpath.h" instead of "c-incpath.h".
+
+2008-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	 * tree-nested.c (convert_tramp_reference) <ADDR_EXPR>: Do not
+	build a trampoline if we don't want one.
+	* varasm.c (initializer_constant_valid_p) <ADDR_EXPR>: Do not
+	return zero for nested functions if we don't want a trampoline.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	* doc/invoke.texi: Added f77, f77-cpp-input to list of file types.
+
+2008-05-26  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/18428
+	* c.opt: Removed undocumented option '-lang-fortran'.
+	* c-common.h: Removed global variable 'lang_fortran'.
+	* c-opts.c (c_common_handle_option): Removed code to handle
+	option '-lang-fortran'. Updated includes.
+	* c-cppbuiltin.c (c_cpp_builtins): Removed conditional
+	definition of '__GFORTRAN__'.
+	(define__GNUC__): Reimplemented to use BASEVER and
+	cpp_define_formatted.
+	(builtin_define_with_value_n): Removed.
+	* c-incpath.h: Renamed to ...
+	* incpath.h: ... this.
+	* c-incpath.c: Renamed to ...
+	* incpath.c: ... this. Updated includes.
+	* fix-header.c: Updated includes.
+	* Makefile.in: Replaced c-incpath.[ch] by incpath.[ch].
+	(c-cppbuiltin.o): Added dependency on and definition of BASEVER.
+	(OBJ-archive): Added cppdefault.o, incpath.o and prefix.o.
+
+2008-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.h: Update the table of flags used on tree nodes.
+	(TREE_NO_TRAMPOLINE): New accessor for static_flag.
+	(SAVE_EXPR_RESOLVED_P): Use automatically-built access check.
+	(FORCED_LABEL): Add access check.
+	(CALL_EXPR_RETURN_SLOT_OPT): Likewise.
+	(ASM_INPUT_P): Likewise.
+	(ASM_VOLATILE_P): Likewise.
+	(EH_FILTER_MUST_NOT_THROW): Access static_flag directly.
+	(OMP_SECTION_LAST): Access private_flag directly.
+	(OMP_RETURN_NOWAIT): Likewise.
+	(OMP_PARALLEL_COMBINED): Likewise.
+	(OMP_CLAUSE_PRIVATE_DEBUG): Access public_flag directly.
+	(OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE): Likewise.
+	* tree-ssa-propagate.c (STMT_IN_SSA_EDGE_WORKLIST): Access
+	deprecated_flag directly.
+
+2008-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* final.c (frame_pointer_needed): Removed.
+	* flags.h (frame_pointer_needed): Likewise.
+
+	* function.h (rtl_data): Add frame_pointer_needed.
+	(frame_pointer_needed): New.
+
+2008-05-25  Arthur Loiret  <arthur.loiret@u-psud.fr>
+
+	* config.gcc (sh2[lbe]*-*-linux*): Allow target.
+
+2008-05-25  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* gcse.c (hash_scan_set): Do not pick up a REG_EQUAL value if
+	SRC is a REG.
+
+2008-05-25  Alan Modra  <amodra@bigpond.net.au>
+
+	* c-common.c (strip_array_types): Move function to..
+	* tree.c: ..here.
+	(get_inner_array_type): Delete.
+	* c-common.h (strip_array_types): Move declaration to..
+	* tree.h: ..here.
+	(get_inner_array_type): Delete.
+	* config/i386/i386.c (x86_field_alignment): Use strip_array_types.
+	* config/rs6000/aix.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/pa/pa.c (emit_move_sequence): Likewise.
+
+2008-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*sse_prologue_save_insn): Set length
+	attribute to 34.
+
+2008-05-24  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* function.c: Include target hook for nonlocal_goto frame value.
+
+2008-05-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Re-instantiate case that
+	a scalar variable can be only accessed through a pointer
+	or a union.
+
+2008-05-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtins.c (fold_builtin_fpclassify): Fix spelling of FP_INFINITE.
+	* doc/extend.texi: Likewise.
+
+2008-05-23  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/jump.md (untyped_call): Add.
+
+	* config/m32c/m32c.c (m32c_return_addr_rtx): Change pointer type
+	for A24 to PSImode.
+	(m32c_address_cost): Detail costs for indirect offsets.
+
+2008-05-23  Rafael Espindola  <espindola@google.com>
+
+	* see.c (see_get_extension_data): Don't use SUBREG_REG to test
+	if a node is a SUBREG.
+	(see_analyze_one_def): Don't use SUBREG_REG to test if a node
+	is a SUBREG.
+
+2008-05-23  Paul Brook  <paul@codesourcery.com>
+	    Carlos O'Donell  <carlos@codesourcery.com>
+
+	* doc/extend.texi: Clarify use of __attribute__((naked)).
+	* doc/tm.texi: Document TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS.
+	* target.h (gcc_target): Add allocate_stack_slots_for_args.
+	* function.c (use_register_for_decl): Use
+	targetm.calls.allocate_stack_slots_for_args.
+	* target-def.h (TARGET_CALLS): Add 
+	TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS.
+	* config/arm/arm.c (arm_allocate_stack_slots_for_args): 
+	New function.
+	(TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS): Define.
+
+2008-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (highest_pow2_factor) <BIT_AND_EXPR>: New case.
+
+2008-05-23  Steven Munroe  <sjmunroe@us.ibm.com>
+
+	* config/rs6000/darwin-ldouble.c (fmsub): Eliminate the full
+	PACK/UNPACK between FP_SUB_Q and FD_TRUNC so that the result
+	is only rounded once.
+
+2008-05-23  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-operands.c (mark_difference_for_renaming): Use
+	bitmap_xor.
+
+2008-05-23  Uros Bizjak  <ubizjak@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36079
+	* configure.ac: Handle --enable-cld.
+	* configure: Regenerated.
+	* config.gcc: Add USE_IX86_CLD to tm_defines for x86 targets.
+	* config/i386/i386.h (struct machine_function): Add needs_cld field.
+	(ix86_current_function_needs_cld): New define.
+	* config/i386/i386.md (UNSPEC_CLD): New unspec volatile constant.
+	(cld): New isns pattern.
+	(strmov_singleop, rep_mov, strset_singleop, rep_stos, cmpstrnqi_nz_1,
+	cmpstrnqi_1, strlenqi_1): Set ix86_current_function_needs_cld flag.
+	* config/i386/i386.opt (mcld): New option.
+	* config/i386/i386.c (ix86_expand_prologue): Emit cld insn if
+	TARGET_CLD and ix86_current_function_needs_cld.
+	(override_options): Use -mcld by default for 32-bit code if
+	USE_IX86_CLD.
+
+	* doc/install.texi (Options specification): Document --enable-cld.
+	* doc/invoke.texi (Machine Dependent Options)
+        [i386 and x86-64 Options]: Add -mcld option.
+        (Intel 386 and AMD x86-64 Options): Document -mcld option.
+
+2008-05-23  Kai Tietz  <kai.tietz@onevison.com>
+	* config/i386/i386.c (return_in_memory_32): Add ATTRIBUTE_UNUSED.
+	(return_in_memory_64): Likewise.
+	(return_in_memory_ms_64): Likewise.
+
+2008-05-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* builtin-types.def (BT_FN_INT_INT_INT_INT_INT_INT_VAR): New.
+	* builtins.c (fold_builtin_fpclassify): New.
+	(fold_builtin_varargs): Handle BUILT_IN_FPCLASSIFY.
+	* builtins.def (BUILT_IN_FPCLASSIFY): New.
+	* c-common.c (handle_type_generic_attribute): Adjust to accept
+	fixed arguments before an elipsis.
+	(check_builtin_function_arguments): Handle BUILT_IN_FPCLASSIFY.
+	* doc/extend.texi: Document __builtin_fpclassify.
+
+2008-05-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (gate_expand_omp_ssa): Remove.
+	(pass_expand_omp_ssa): Remove.
+	(gate_expand_omp): Do not check for flag_openmp_ssa.
+	* common.opt (-fopenmp-ssa): Remove.
+	* passes.c (init_optimization_passes): Remove pass_expand_omp_ssa.
+
+2008-05-22  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.opt (mfixed-range): New option.
+	* config/sh/sh-protos.h (sh_fix_range): Declare.
+	* config/sh/sh.c (sh_fix_range): New function.
+	* config/sh/sh.h (sh_fixed_range_str): Declare.
+	(OVERRIDE_OPTIONS): Call sh_fix_range if sh_fixed_range_str
+	is not empty.
+	* doc/invoke.texi (SH Options): Document -mfixed-range.
+
+2008-05-22  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/sol2-10.h (SUBTARGET_RETURN_IN_MEMORY): Undefine
+	it before the redeclaration.
+
+2008-05-22  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (get_sequence_length): Add new function.
+	(expand_prologue, expand_epilogue): Remove duplicate code.
+
+2008-05-22  Rafael Espindola  <espindola@google.com>
+
+	* see.c (see_pre_insert_extensions): Use copy_rtx to avoid invalid rtx
+	sharing.
+
+2008-05-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (UNITS_PER_SIMD_WORD): Add scalar mode as argument.
+	* doc/tm.texi (UNITS_PER_SIMD_WORD): Likewise.
+
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Replace
+	UNITS_PER_SIMD_WORD with GET_MODE_SIZE (TYPE_MODE (vectype)).
+	(vect_update_misalignment_for_peel): Likewise.
+	(vector_alignment_reachable_p): Likewise.
+	* tree-vect-transform.c (vectorizable_load): Likewise.
+	* tree-vectorizer.c (vect_supportable_dr_alignment): Likewise.
+	(get_vectype_for_scalar_type): Pass mode of scalar_type
+	to UNITS_PER_SIMD_WORD.
+
+	* config/arm/arm.h (UNITS_PER_SIMD_WORD): Updated.
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/mips/mips.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/rs6000/rs6000.h (UNITS_PER_SIMD_WORD): Likewise.
+	* config/sparc/sparc.h (UNITS_PER_SIMD_WORD): Likewise.
+
+2008-05-22  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36293
+	* tree-vect-transform.c (vect_transform_strided_load): Don't check
+	if the first load must be skipped because of a gap.
+
+2008-05-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Exit early if possible.  Handle
+	more cases of offset disambiguation that is possible if
+	strict-aliasing rules apply.
+	* tree-ssa-loop-im.c (mem_refs_may_alias_p): Use refs_may_alias_p
+	for basic offset and type-based disambiguation.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_var): Use
+	ix86_expand_vector_set on V16QImode for SSE4.1.
+
+2008-05-21  Tom Tromey  <tromey@redhat.com>
+
+	* c.opt (Wimport): Mark as undocumented.
+	* doc/invoke.texi (Option Summary): Don't mention -Wimport or
+	-Wno-import.
+	(Warning Options): Likewise.
+	* doc/cppopts.texi: Don't mention -Wimport.
+
+2008-05-21  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36287
+	PR tree-optimization/36286
+	* lambda-code.c (build_access_matrix): Do not use the loop->num
+	for computing the number of induction variables: use the loop depth
+	instead.
+
+2008-05-21  Kai Tietz  <kai.tietz@onevision.com>
+
+	PR/36280
+	* config/i386/cygming.h (ASM_OUTPUT_LABELREF): Honor
+	option -f(no-)leading-underscore.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Use
+	GET_MODE_NUNITS (mode).
+
+2008-05-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type's 464 and 464fp.
+	(-mmulhw): Add 464 to description.
+	(-mdlmzb): Likewise.
+	* config.gcc: Handle --with-cpu=464 and --with-cpu=464fp.
+	* config/rs6000/rs6000.c (processor_target_table): Add 464 and
+	464fp entries.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add 464 and 464fp support.
+	* config/rs6000/t-fprules (MULTILIB_MATCHES_FLOAT): Include -mcpu=464.
+	* config/rs6000/rs6000.md: Update comments for 464.
+
+2008-05-21  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Directives): Add dg-xfail-run-if.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_extractv4sf): Removed.
+	(vec_extractv2df): Likewise.
+	(vec_extractv2di): Likewise.
+	(vec_extractv4si): Likewise.
+	(vec_extractv8hi): Likewise.
+	(vec_extractv16qi): Likewise.
+	(vec_extract<mode>): New.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_setv4sf): Removed.
+	(vec_setv2df): Likewise.
+	(vec_setv2di): Likewise.
+	(vec_setv4si): Likewise.
+	(vec_setv8hi): Likewise.
+	(vec_setv16qi): Likewise.
+	(vec_set<mode>): New.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Remove
+	goto for vec_concat and vec_interleave.
+
+2008-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (vec_initv4sf): Removed.
+	(vec_initv2df): Likewise.
+	(vec_initv2di): Likewise.
+	(vec_initv4si): Likewise.
+	(vec_initv8hi): Likewise.
+	(vec_initv16qi): Likewise.
+	(vec_init<mode>): New.
+
+2008-05-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* collect2.c (find_a_file): Use IS_ABSOLUTE_PATH.
+
+2008-05-21  Tom Tromey  <tromey@redhat.com>
+
+	* ggc-zone.c (lookup_page_table_if_allocated): New function.
+	(zone_find_object_offset): Likewise.
+	(gt_ggc_m_S): Likewise.
+	(highest_bit): Likewise.
+	* ggc-page.c (gt_ggc_m_S): New function.
+	* stringpool.c (string_stack): Remove.
+	(init_stringpool): Update.
+	(ggc_alloc_string): Use ggc_alloc.
+	(maybe_delete_ident): New function.
+	(ggc_purge_stringpool): Likewise.
+	(gt_ggc_m_S): Remove.
+	* ggc-common.c (ggc_protect_identifiers): New global.
+	(ggc_mark_roots): Call ggc_purge_stringpool.  Use
+	ggc_protect_identifiers.
+	* ggc.h (ggc_protect_identifiers): Declare.
+	(gt_ggc_m_S): Update.
+	(ggc_purge_stringpool): Declare.
+	* toplev.c (compile_file): Set and reset ggc_protect_identifiers.
+	* gengtype.c (write_types_process_field) <TYPE_STRING>: Remove
+	special case.
+	(write_root): Cast gt_ggc_m_S to gt_pointer_walker.
+
+2008-05-21  David S. Miller  <davem@davemloft.net>
+
+	* config.gcc (sparc-*-linux*): Always include sparc/t-linux in
+	tmake_file.
+
+2008-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgexpand.c (tree_expand_cfg): Zap the EH throw statement table
+	once finished.
+
+2008-05-20  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/mips.md (UNSPEC_SYNC_NEW_OP_12,
+	UNSPEC_SYNC_OLD_OP_12, UNSPEC_SYNC_EXCHANGE_12): New define_constants.
+	(UNSPEC_SYNC_EXCHANGE, UNSPEC_MEMORY_BARRIER, UNSPEC_SET_GOT_VERSION,
+	UNSPEC_UPDATE_GOT_VERSION): Renumber.
+	(optab, insn): Add 'plus' and 'minus' to define_code_attr.
+	(atomic_hiqi_op): New define_code_iterator.
+	(sync_compare_and_swap<mode>): Call mips_expand_atomic_qihi instead of
+	mips_expand_compare_and_swap_12.
+	(compare_and_swap_12): Use MIPS_COMPARE_AND_SWAP_12 instead of
+	MIPS_COMPARE_AND_SWAP_12_0.  Pass argument to MIPS_COMPARE_AND_SWAP_12.
+	(sync_<optab><mode>, sync_old_<optab><mode>,
+	sync_new_<optab><mode>, sync_nand<mode>, sync_old_nand<mode>,
+	sync_new_nand<mode>): New define_expands for HI and QI mode operands.
+	(sync_<optab>_12, sync_old_<optab>_12, sync_new_<optab>_12,
+	sync_nand_12, sync_old_nand_12, sync_new_nand_12): New insns.
+	(sync_lock_test_and_set<mode>): New define_expand for HI and QI modes.
+	(test_and_set_12): New insn.
+	(sync_old_add<mode>, sync_new_add<mode>, sync_old_<optab><mode>,
+	sync_new_<optab><mode>, sync_old_nand<mode>,
+	sync_new_nand<mode>, sync_lock_test_and_set<mode>):  Add early
+	clobber to operand 0 for SI and DI mode insns.
+	* config/mips/mips-protos.h (mips_gen_fn_6, mips_gen_fn_5,
+	mips_gen_fn_4): New typedefs.
+	(mips_gen_fn_ptrs): Define new union type.
+	(mips_expand_compare_and_swap_12): Remove declaration.
+	(mips_expand_atomic_qihi): Declare function.
+	* config/mips/mips.c (mips_expand_compare_and_swap_12): Rename to...
+	(mips_expand_atomic_qihi): ... this.  Use new generator function
+	parameter.
+	* config/mips/mips.h (MIPS_COMPARE_AND_SWAP_12): Add OPS parameter.
+	(MIPS_COMPARE_AND_SWAP_12_0): Delete macro.
+	(MIPS_COMPARE_AND_SWAP_12_ZERO_OP,
+	MIPS_COMPARE_AND_SWAP_12_NONZERO_OP,
+	MIPS_SYNC_OP_12, MIPS_SYNC_OP_12_NOT_NOP,
+	MIPS_SYNC_OP_12_NOT_NOT, MIPS_SYNC_OLD_OP_12,
+	MIPS_SYNC_OLD_OP_12_NOT_NOP, MIPS_SYNC_OLD_OP_12_NOT_NOP_REG,
+	MIPS_SYNC_OLD_OP_12_NOT_NOT, MIPS_SYNC_OLD_OP_12_NOT_NOT_REG,
+	MIPS_SYNC_NEW_OP_12, MIPS_SYNC_NEW_OP_12_NOT_NOP,
+	MIPS_SYNC_NEW_OP_12_NOT_NOT, MIPS_SYNC_EXCHANGE_12,
+	MIPS_SYNC_EXCHANGE_12_ZERO_OP,
+	MIPS_SYNC_EXCHANGE_12_NONZERO_OP): New macros.
+
+2008-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): Add
+	the missing break.
+
+2008-05-20  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (machine_function): Add 'is_OS_main' field.
+	* config/avr/avr.c (avr_OS_main_function_p): Add new function.
+	(avr_attribute_table): Add 'OS_main' function attribute.
+	(avr_regs_to_save, expand_prologue, expand_epilogue): Handle
+	functions with 'OS_main' attribute.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35204
+	* tree-ssa-sccvn.c (extract_and_process_scc_for_name): New
+	helper, split out from ...
+	(DFS): ... here.  Make the DFS walk non-recursive.
+
+2008-05-20  Sebastian Pop  <sebastian.pop@amd.com>
+	    Jan Sjodin  <jan.sjodin@amd.com>
+
+	PR tree-optimization/36181
+	* tree-parloops.c (loop_has_vector_phi_nodes): New.
+	(parallelize_loops): Don't parallelize when the loop has vector
+	phi nodes.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	* tree-loop-linear.c (gather_interchange_stats): Look in the access
+	matrix, and never look at the tree representation of the memory
+	accesses.
+	(linear_transform_loops): Computes parameters and access matrices.
+	* tree-data-ref.c (compute_data_dependences_for_loop): Returns false
+	when fails.
+	(access_matrix_get_index_for_parameter): New.
+	* tree-data-ref.h (struct access_matrix): New.
+	(AM_LOOP_NEST_NUM, AM_NB_INDUCTION_VARS, AM_PARAMETERS, AM_MATRIX,
+	AM_NB_PARAMETERS, AM_CONST_COLUMN_INDEX, AM_NB_COLUMNS,
+	AM_GET_SUBSCRIPT_ACCESS_VECTOR, AM_GET_ACCESS_MATRIX_ELEMENT,
+	am_vector_index_for_loop): New.
+	(struct data_reference): Add field access_matrix.
+	(DR_ACCESS_MATRIX): New.
+	(compute_data_dependences_for_loop): Update declaration.
+	(lambda_collect_parameters, lambda_compute_access_matrices): Declared.
+	* lambda.h (lambda_vector_vec_p): Declared.
+	* lambda-code.c: Depend on pointer-set.h.
+	(lambda_collect_parameters_from_af, lambda_collect_parameters,
+	av_for_af_base, av_for_af, build_access_matrix,
+	lambda_compute_access_matrices): New.
+	* Makefile.in (lambda-code.o): Depend on pointer-set.h.
+
+2008-05-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/install.texi2html: Generate gcc-vers.texi in $DESTDIR not
+	$SOURCEDIR/include.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36206
+	* tree-scalar-evolution.c: Remove enum INSERT_SUPERLOOP_CHRECS,
+	FOLD_CONVERSIONS.
+	(instantiate_scev_1): Rename flags to fold_conversions.
+	Do not check for INSERT_SUPERLOOP_CHRECS, keep SSA_NAMEs defined
+	outeside instantiation_loop.
+	* tree-chrec.h (evolution_function_is_affine_in_loop): New.
+	(evolution_function_is_affine_or_constant_p): Removed.
+	* tree-data-ref.c (dr_analyze_indices): Replace resolve_mixers with
+	instantiate_scev.
+	(analyze_siv_subscript): Pass in the loop nest number.
+	Call evolution_function_is_affine_in_loop instead of 
+	evolution_function_is_affine_p.
+	(analyze_overlapping_iterations): Pass in the loop nest number.
+
+2008-05-20  Jan Sjodin  <jan.sjodin@amd.com>
+	    Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/36206
+	* tree-chrec.h (chrec_fold_op): New.
+	* tree-data-ref.c (initialize_matrix_A): Traverse NOP_EXPR, PLUS_EXPR,
+	and other trees.
+
+2008-05-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-incpath.c (INO_T_EQ): Do not define on non-inode systems.
+	(DIRS_EQ): New.
+	(remove_duplicates): Do not set inode on non-inode systems.
+	Use DIRS_EQ.
+
+2008-05-20  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config.gcc (tm_file): Update comments about relative pathnames.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-reassoc.c (fini_reassoc): Use the statistics infrastructure.
+	* tree-ssa-sccvn.c (process_scc): Likewise.
+	* tree-ssa-sink.c (execute_sink_code): Likewise.
+	* tree-ssa-threadupdate.c (thread_through_all_blocks): Likewise.
+	* tree-vrp.c (process_assert_insertions): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	(perform_tree_ssa_dce): Likewise.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Likewise.
+	(dump_dominator_optimization_stats): Likewise.
+	* tree-vectorizer.c (vectorize_loops): Likewise.
+
+2008-05-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vn.c (vn_lookup_with_vuses): Do not use the alias oracle.
+
+2008-05-20  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386-protos.h (ix86_return_in_memory): Removed.
+	(ix86_i386elf_return_in_memory): Likewise.
+	(ix86_i386interix_return_in_memory): Likewise.
+	* config/i386/i386-interix.h (TARGET_RETURN_IN_MEMORY): Removed.
+	(SUBTARGET_RETURN_IN_MEMORY): New.
+	* config/i386/i386elf.h: Likewise.
+	* config/i386/ptx4-i.h: Likewise.
+	* config/i386/sol2-10.h: Likewise.
+	* config/i386/sysv4.h: Likewise.
+	* config/i386/vx-common.h: Likewise.
+	* config/i386/i386.h (TARGET_RETURN_IN_MEMORY): Removed.
+	* config/i386/i386.c (ix86_return_in_memory): Made static and
+	make use of optional SUBTARGET_RETURN_IN_MEMORY macro.
+	(ix86_i386elf_return_in_memory): Removed.
+	(ix86_i386interix_return_in_memory): Removed.
+	(TARGET_RETURN_IN_MEMORY): Declared within i386.c only.
+	* target-def.h (TARGET_RETURN_IN_MEMORY): Remove protection #ifdef.
+
+2008-05-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cselib.c (cselib_record_sets): Use correct mode for IF_THEN_ELSE.
+
+2008-05-19  Xinliang David Li  <davidxl@google.com>
+
+	* tree-ssa-dce.c: Revert patches of 2008-05-17 and 2008-05-18. 
+	* opts.c: Ditto.
+	* common.opt: Ditto.
+	* doc/invoke.texi: Ditto.
+
+2008-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (substitute_in_expr) <tcc_vl_exp>: Fix thinko.
+	(substitute_placeholder_in_expr) <tcc_vl_exp>: Minor tweak.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_concat): Change
+	sizes of operand array from 8/4 to 4/2.
+	(ix86_expand_vector_init_general): Change size of operand array
+	from 32 to 16.  Remove op0, op1 and half_mode.
+
+2008-05-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_concat): New.
+	(ix86_expand_vector_init_interleave): Likewise.
+	(ix86_expand_vector_init_general): Use them.  Assert word_mode
+	== SImode when n_words == 4.
+
+2008-05-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_secondary_reload): New static function.
+	(TARGET_SECONDARY_RELOAD): New define.
+	* config/i386/i386.h (SECONDARY_OUTPUT_RELOAD_CLASS): Remove.
+	* config/i386/i386.md (reload_outqi): Remove.
+
+2008-05-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR middle-end/35509
+	* builtins.c (mathfn_built_in_1): Renamed from mathfn_built_in.
+	Add `implicit' parameter.  Handle BUILT_IN_SIGNBIT.
+	(mathfn_built_in): Rewrite in terms of mathfn_built_in_1.
+	(fold_builtin_classify): Handle BUILT_IN_ISINF_SIGN.
+	(fold_builtin_1): Likewise.
+	* builtins.def (BUILT_IN_ISINF_SIGN): New.
+	c-common.c (check_builtin_function_arguments): Handle
+	BUILT_IN_ISINF_SIGN.
+	* doc/extend.texi: Document __builtin_isinf_sign.
+	* fold-const.c (operand_equal_p): Handle COND_EXPR.
+
+2008-05-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): If some blocks need
+	EH cleanup at the end of the pass, search for those that have been
+	turned into forwarder blocks and do the cleanup on their successor.
+
+2008-05-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-cfg.c (verify_gimple_expr): Allow conversions from
+	pointers to sizetype and vice versa.
+
+2008-05-18 Xinliang David Li   <davidxl@google.com>
+
+	* gcc/tree-ssa-dce.c: Coding style fix.
+	(check_pow): Documentation comment. 
+	(check_log): Documenation comment. Coding style fix.
+	(is_unnecessary_except_errno_call): Ditto.
+	(gen_conditions_for_pow): Ditto.
+	(gen_conditions_for_log): Ditto.
+	(gen_shrink_wrap_conditions): Ditto.
+	(shrink_wrap_one_built_in_calls): Ditto.
+	* gcc/doc/invoke.texi: Better documentation string.
+	* ChangeLog: Fix wrong change log entries from 
+	May 17 checkin on function call DCE.
+
+2008-05-17  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_output_mi_thunk): Update the use of init_flow.
+
+2008-05-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.texi (RTL_CONST_CALL_P, RTL_PURE_CALL_P): Fixed typos.
+	* df-problems.c (simulation routines): Fixed block comment to
+	properly say how to add forwards scanning functions.
+	
+2008-05-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-inline.c (setup_one_parameter): Remove dead code.
+
+2008-05-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (fold_unary) <CASE_CONVERT>: Fold the cast into
+	a BIT_AND_EXPR only for an INTEGER_TYPE.
+
+2008-05-17 Xinliang David Li   <davidxl@google.com>
+
+	* gcc/tree-ssa-dce.c (cond_dead_built_in_calls): New static variable.
+	(check_pow, check_log, is_unnecessary_except_errno_call): New 
+	functions to check for eliminating math functions that are pure 
+	except for setting errno.
+	(gen_conditions_for_pow, gen_conditionas_for_log): New functions to
+	general condition expressions for shrink-wrapping pow/log calls.
+	(gen_shrink_wrap_conditions): Ditto.
+	(shrink_wrap_one_built_in_call): Ditto.
+	(shrink_wrap_conditional_dead_built_in_calls): Ditto.
+	(mark_operand_necessary): If debugging, output if OP is necessary.
+	(eliminate_unnecessary_stmts): Eliminate pow, log calls that are
+	unnecessary.
+	* gcc/opts.c (decode_options): set flag_tree_builtin_dce to 1 when
+	opt level >= 2.
+	* gcc/common.opt: New user flag -ftree-builtin-dce.
+	* gcc/doc/invoke.texi (-ftree-builtin-dce): New option.
+
+2008-05-16  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/linux.h (NO_PROFILE_COUNTERS): Undef before overriding.
+	* config/sparc/linux64.h (NO_PROFILE_COUNTERS): Likewise.
+
+2008-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36246
+	* config/i386/i386.h (SECONDARY_MEMORY_NEEDED_MODE): New define.
+
+2008-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* ifcvt.c (dead_or_predicable): Rename
+	df_simulate_one_insn_backwards to df_simulate_one_insn.
+	* recog.c (peephole2_optimize): Ditto.
+	* rtl-factoring.c (collect_pattern_seqs, clear_regs_live_in_seq):
+	Ditto.
+	* df.h: Rename df_simulate_one_insn_backwards to
+	df_simulate_one_insn.  and delete df_simulate_one_insn_forwards.
+	* df-problems.c (df_simulate_artificial_refs_at_top) Reversed
+	scanning of defs and uses.
+	(df_simulate_one_insn_backwards): Renamed to df_simulate_one_insn.
+	(df_simulate_one_insn_forwards): Removed.
+
+2008-05-16  Doug Kwan  <dougkwan@google.com>
+
+	* real.c (real_to_decimal, real_to_hexadecimal): Distinguish
+	QNaN & SNaN.
+	(real_from_string): Handle NaNs and Inf as approriate.
+
+2008-05-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* doc/gty.texi (Source Files Containing Type Information): Note
+	that headers should appear first in the gtfiles list.
+
+2008-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree.def (COND_EXEC): Properly documented this code.
+
+2008-05-16  Diego Novillo  <dnovillo@google.com>
+
+	* dwarf2asm.c (dw2_assemble_integer): Clarify comment.
+	* tree-nested.c (get_trampoline_type): Set DECL_CONTEXT for
+	the new field.
+
+2008-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-ssa-dse (max_stmt_uid): Removed.
+	(get_stmt_uid, dse_possible_dead_store_p, dse_optimize_stmt, 
+	tree_ssa_dse): Encapsulate all uses of stmt_ann->uid.
+	* tree-ssa-sccvn.c (compare_ops, init_scc_vn): Ditto.
+	* function.h (cfun.last_stmt_uid): New field.
+	* tree-flow-inline.h (set_gimple_stmt_uid, gimple_stmt_uid,
+	gimple_stmt_max_uid, set_gimple_stmt_max_uid, inc_gimple_stmt_max_uid):
+	New functions.
+	* tree-dfa.c (renumber_gimple_stmt_uids): New function.
+	(create_stmt_ann): Initialize the ann->uid field.
+	* tree-ssa-pre.c (compute_avail): Encapsulate the stmt_ann->uid
+	with new calls.
+	* tree-flow.h (renumber_gimple_stmt_uids): New function.
+
+2008-05-16  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* tree-flow.h (init_empty_tree_cfg_for_function): Declare.
+	* tree-cfg.c (init_empty_tree_cfg_for_function): Define.
+	(init_empty_tree_cfg): Call it.
+
+2008-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cfg.c (init_flow): Add argument THE_FUN.  Use it instead of cfun.
+	Update all users.
+
+2008-05-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/invoke.text (-fdump-tree-*-verbose): New option.
+	* tree-dump.c (dump_options): New verbose option.
+	* tree-pretty-print.c (dump_phi_nodes, dump_generic_bb_buff):
+	Add verbose dump.
+	* tree-pass.h (TDF_VERBOSE): New dump flag.
+	* print-tree.c (print_node): Added code to be able to print PHI_NODES.
+	(tree-flow.h): Added include.
+	* Makefile.in (print-tree.o):  Added TREE_FLOW_H.
+
+2008-05-16  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.c (bfin_discover_loops): Delete empty loops.
+
+	From Jie Zhang  <jie.zhang@analog.com>
+	* config/bfin/t-bfin-elf (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Remove mcpu=bf532-0.3,
+	mcpu=bf561-none and mcpu=bf561-0.2.
+	* config/bfin/t-bfin-uclinux (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Likewise.
+	* config/bfin/t-bfin-linux (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_MATCHES, MULTILIB_EXCEPTIONS): Likewise.
+	* config/bfin/bfin-protos.h (enum bfin_cpu_type): Add BFIN_CPU_UNKNOWN.
+	* config/bfin/elf.h (STARTFILE_SPEC): Use specific CRT for BF561.
+	(LIB_SPEC): Use proper linker script for bf561.  Error if no mcpu
+	option.
+	* config/bfin/bfin.c (bfin_cpu_type): Set to BFIN_CPU_UNKNOWN.
+	(cputype_selected): Remove.
+	(bfin_handle_option): Don't use cputype_selected.
+	(override_options): When no mcpu option, enable all workarounds.
+	Don't use bfin_workarounds.
+	* config/bfin/bfin.h (DRIVER_SELF_SPECS): Don't set default
+	processor type.
+	(DEFAULT_CPU_TYPE): Don't define.
+
+2008-05-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-propagate.c (substitute_and_fold): Fix stmt walking
+	on deletion of the last stmt.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_general): Optimize
+	V8HImode for SSE2 and V16QImode for SSE4.1.
+
+2008-05-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cgraph.h (compute_inline_parameters): Made public.
+	* tree-pass.h (ipa_opt_pass): Removed function_generate_summary,
+	variable_generate_summary, function_write_summary,
+	variable_write_summary, variable_read_summary.  Added generate_summary,
+	write_summary, read_summary.
+	* cgraphunit.c (cgraph_process_new_functions): Changed call from
+	pass_ipa_inline.function_generate_summary, to
+	compute_inline_parameters. 
+	* ipa-inline.c (compute_inline_parameters): Made public and added
+	node parameter.
+	(compute_inline_parameters_for_current): New function.
+	(pass_inline_param): Now calls compute_inline_parameters_for_current.
+	(inline_generate_summary): Removed parameter and made to loop over
+	all cgraph nodes.
+	(pass_ipa_inline): Updated for new IPA_PASS structure.
+	* passes.c (execute_ipa_summary_passes): Now is called once per
+	pass rather than once per node*pass.
+	
+2008-05-15  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.c (avr_base_arch_macro, avr_have_movw_lpmx_p, 
+	avr_have_mul_p, avr_asm_only_p): Remove variables.
+	(avr_override_options): Remove initialization of removed variables.
+	(avr_file_start):  Convert removed variables to fields of 
+	'struct base_arch_s *avr_current_arch'. 
+	* config/avr/avr.h (TARGET_CPU_CPP_BUILTINS): (Ditto.).
+	(AVR_HAVE_MUL): (Ditto.).
+	(AVR_HAVE_MOVW): (Ditto.).
+	(AVR_HAVE_LPMX): (Ditto.). 
+	(avr_base_arch_macro, avr_have_movw_lpmx_p, avr_have_mul_p, 
+	avr_asm_only_p): Remove declaration.
+
+2008-05-15  Diego Novillo  <dnovillo@google.com>
+
+	* config/arm/arm.c (arm_return_in_memory): Fix return type.
+	* config/arm/arm-protos.h (arm_return_in_memory): Likewise.
+
+2008-05-15  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/36194
+	* combine.c (check_conversion): Rename back to check_promoted_subreg.
+	Don't call record_truncated_value from here.
+	(record_truncated_value): Turn it into a for_each_rtx callback.
+	(record_truncated_values): New function.
+	(combine_instructions): Call note_uses with record_truncated_values.
+	Change name of check_conversion to check_promoted_subreg. 
+
+2008-05-15  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi: Document support for torture tests.
+
+2008-05-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_sse4_1): Add "m" constraint
+	to alternative 4 of operand 2.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-pass.h (current_pass): Declare.
+	(get_pass_for_id): Likewise.
+	* passes.c (passes_by_id, passes_by_id_size): New globals.
+	(set_pass_for_id): New function.
+	(get_pass_for_id): Likewise.
+	(register_one_dump_file): Use set_pass_for_id to populate passes_by_id.
+	(execute_function_todo): Flush per function statistics.
+	* toplev.c (compile_file): Init statistics.
+	(general_init): Do early statistics initialization.
+	(finalize): Finish statistics.
+	* statistics.h (statistics_early_init): Declare.
+	(statistics_init): Likewise.
+	(statistics_fini): Likewise.
+	(statistics_fini_pass): Likewise.
+	(statistics_counter_event): Likewise.
+	(statistics_histogram_event): Likewise.
+	* statistics.c: New file.
+	* Makefile.in (OBJS-common): Add statistics.o.
+	(statistics.o): Add dependencies.
+	* doc/invoke.texi (-fdump-statistics): Document.
+
+	* tree-ssa-pre.c (compute_antic): Use statistics_histogram_event.
+	(insert): Likewise.
+	(execute_pre): Use statistics_counter_event.
+	* tree-ssa-propagate.c (struct prop_stats_d): Add num_dce field.
+	(substitute_and_fold): Increment it.  Use statistics_counter_event.
+
+2008-05-15  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00893.html
+
+	* treestruct.def (TS_STRUCT_FIELD_TAG): Remove.
+	* tree-ssa-alias.c (new_type_alias): Remove references to
+	sub-variables from comment.
+	* tree-ssa-operands.c (swap_tree_operands): Likewise.
+
+2008-05-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_sse4_1): Set prefix_extra
+	attribute to 1 only for insertps alternative.
+
+2008-05-15  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.md (loadbytes): New pattern.
+	* config/bfin/bfin.c (enum bfin_builtins): Add BFIN_BUILTIN_LOADBYTES.
+	(bfin_init_builtins): Initialize it.
+	(bdesc_1arg): Add it.
+
+2008-05-15  Sa Liu  <saliu@de.ibm.com>
+
+	* testsuite/gfortran.dg/c_kind_int128_test1.f03: New.
+	* testsuite/gfortran.dg/c_kind_int128_test2.f03: New.
+	* testsuite/lib/target-supports.exp: Add
+	check_effective_target_fortran_integer_16.
+
+2008-05-15  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/bfin.h (TARGET_RETURN_IN_MEMORY): Don't define here.
+	* config/bfin/bfin-protos.h (bfin_return_in_memory): Don't declare.
+	* config/bfin/bfin.c (bfin_return_in_memory): Now static.  Return bool.
+	(TARGET_RETURN_IN_MEMORY): Define.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36244
+	* tree-ssa-alias.c (new_type_alias): Do not set TREE_READONLY.
+	* tree-flow-inline.h (unmodifiable_var_p): Memory tags never
+	represent unmodifiable vars.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (refs_may_alias_p): Allow all kinds of
+	INDIRECT_REF and TARGET_MEM_REF.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Handle
+	TARGET_MEM_REF.
+
+2008-05-15  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*vec_concatv2sf_sse4_1): New insn pattern.
+	(*vec_concatv2si_sse4_1): Use vector_move_operand predicate
+	for operand 2.  Remove pinsr{q,d} with 0x0 immediate operand from
+	insn alternatives.  Add missing alternatives.
+	(*vec_concatv2di_rex64_sse4_1): Likewise.
+	(*vec_concatv2si_sse2): Use "x" register constraint instead of "Y2".
+	(*vec_concatv2di_rex64_sse): Rename from *vec_concatv2di_rex64.
+	Require TARGET_SSE.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36009
+	PR tree-optimization/36204
+	* tree-ssa-loop-im.c (tree-ssa-propagate.h): Include.
+	(determine_invariantness_stmt): Record the loop a store is
+	always executed in.
+	* Makefile.in (tree-ssa-loop-im.o): Add tree-ssa-propagate.h
+	dependency.
+
+2008-05-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34330
+	* tree-ssa-alias.c (get_smt_for): Only assert that accesses
+	through the pointer will alias the SMT.
+
+2008-05-14  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* config/sparc/sparc.h (NO_PROFILE_COUNTERS): Define as 0.
+
+2008-05-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*sse4_1_pinsrq): Make it 64bit only.
+
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+	    Dwarakanath Rajagopal  <dwarak.rajagopal@amd.com>
+
+	* optabs.h (optab_index): Add OTI_vashl, OTI_vlshr, OTI_vashr,
+	OTI_vrotl, OTI_vrotr to support vector/vector shifts.
+	(vashl_optab): New optab for vector/vector shifts.
+	(vashr_optab): Ditto.
+	(vlshr_optab): Ditto.
+	(vrotl_optab): Ditto.
+	(vrotr_optab): Ditto.
+	(optab_subtype): New enum for optab_for_tree_code call.
+	(optab_for_tree_code): Add enum optab_subtype argument.
+
+	* optabs.c (optab_for_tree_code): Take an additional argument to
+	distinguish between a vector shift by a scalar and vector shift by
+	a vector.  Make lshr/ashr/ashl/rotl/rotr optabs just vector
+	shifted by a scalar.  Use vlshr/vashr/vashl/vrotl/vrotr for the
+	vector shift by a vector.
+	(expand_widen_pattern_expr): Pass additional argument to
+	optab_for_tree_code.
+
+	* genopinit.c (optabs): Add vashr_optab, vashl_optab, vlshr_optab,
+	vrotl_optab, vrotr_optab.
+
+	* expr.c (expand_expr_real_1): Update calls to
+	optab_for_tree_code to distinguish between vector shifted by a
+	scalar and vector shifted by a vector.
+	* tree-vectorizer.c (supportable_widening_operation): Ditto.
+	(supportable_narrowing_operation): Ditto.
+	* tree-vect-analyze.c (vect_build_slp_tree): Ditto.
+	* tree-vect-patterns.c (vect_pattern_recog_1): Ditto.
+	* tree-vect-transform.c (vect_model_reduction_cost): Ditto.
+	(vect_create_epilog_for_reduction): Ditto.
+	(vectorizable_reduction): Ditto.
+	(vectorizable_operation): Ditto.
+	(vect_strided_store_supported): Ditto.
+	(vect_strided_load_supported): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Ditto.
+	* expmed.c (expand_shift): Ditto.
+
+	* doc/md.texi (ashl@var{m}3): Document that operand 2 is always a
+	scalar type.
+	(ashr@var{m}3): Ditto.
+	(vashl@var{m}3): Document new vector/vector shift standard name.
+	(vashr@var{m}3): Ditto.
+	(vlshr@var{m}3): Ditto.
+	(vrotl@var{m}3): Ditto.
+	(vrotr@var{m}3): Ditto.
+
+	* config/i386/i386.md (PPERM_SRC): Move PPERM masks here from i386.c.
+	(PPERM_INVERT): Ditto.
+	(PPERM_REVERSE): Ditto.
+	(PPERM_REV_INV): Ditto.
+	(PPERM_ZERO): Ditto.
+	(PPERM_ONES): Ditto.
+	(PPERM_SIGN): Ditto.
+	(PPERM_INV_SIGN): Ditto.
+	(PPERM_SRC1): Ditto.
+	(PPERM_SRC2): Ditto.
+
+	* config/i386/sse.md (mulv2di3): Add SSE5 support.
+	(sse5_pmacsdql_mem): New SSE5 define_and_split that temporarily
+	allows a memory operand to be the value being added, and split it
+	to improve vectorization.
+	(sse5_pmacsdqh_mem): Ditto.
+	(sse5_mulv2div2di3_low): SSE5 32-bit multiply and extend function.
+	(sse5_mulv2div2di3_high): Ditto.
+	(vec_pack_trunc_v8hi): Add SSE5 pperm support.
+	(vec_pack_trunc_v4si): Ditto.
+	(vec_pack_trunc_v2di): Ditto.
+	(sse5_pcmov_<mode>): Remove code that tried to use use
+	andps/andnps instead of pcmov.
+	(vec_widen_smult_hi_v4si): If we have SSE5, use the pmacsdql and
+	pmacsdqh instructions.
+	(vec_widen_smult_lo_v4si): Ditto.
+
+	* config/i386/i386.c (PPERM_SRC): Move PPERM masks to i386.md.
+	(PPERM_INVERT): Ditto.
+	(PPERM_REVERSE): Ditto.
+	(PPERM_REV_INV): Ditto.
+	(PPERM_ZERO): Ditto.
+	(PPERM_ONES): Ditto.
+	(PPERM_SIGN): Ditto.
+	(PPERM_INV_SIGN): Ditto.
+	(PPERM_SRC1): Ditto.
+	(PPERM_SRC2): Ditto.
+	(ix86_expand_sse_movcc): Move the SSE5 test after the if
+	true/false tests.
+	(ix86_expand_int_vcond): If SSE5 generate all possible integer
+	comparisons.
+	(ix86_sse5_valid_op_p): Allow num_memory to be negative, which
+	says ignore whether the last reference is a memory operand.
+
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+	    Paolo Bonzini <bonzini at gnu dot org>
+
+	* config/rs6000/rs6000.c (bdesc_2arg): Change the names of vector
+	shift patterns.
+
+	* config/rs6000/altivec.md (vashl<mode>3): Rename from ashl<mode>3.
+	(vlshr<mode>3): Rename from vlshr<mode>3.
+	(vashr<mode>3): Rename from vashr<mode>3.
+	(mulv4sf3): Change the names of vector shift patterns.
+	(mulv4si3): Ditto.
+	(negv4sf2): Ditt.
+
+	* config/spu/spu.c (spu_initialize_trampoline): Rename vector
+	shift insns.
+
+	* config/spu/spu-builtins.def (SI_SHLH): Rename vector shift insns.
+	(SI_SHLHI): Ditto.
+	(SI_SHL): Ditto.
+	(SI_SHLI): Ditto.
+	(SI_ROTH): Ditto.
+	(SI_ROTHI): Ditto.
+	(SI_ROT): Ditto.
+	(SI_ROTI): Ditto.
+	(SPU_RL_0): Ditto.
+	(SPU_RL_1): Ditto.
+	(SPU_RL_2): Ditto.
+	(SPU_RL_3): Ditto.
+	(SPU_RL_4): Ditto.
+	(SPU_RL_5): Ditto.
+	(SPU_RL_6): Ditto.
+	(SPU_RL_7): Ditto.
+	(SPU_SL_0): Ditto.
+	(SPU_SL_1): Ditto.
+	(SPU_SL_2): Ditto.
+	(SPU_SL_3): Ditto.
+	(SPU_SL_4): Ditto.
+	(SPU_SL_5): Ditto.
+	(SPU_SL_6): Ditto.
+	(SPU_SL_7): Ditto.
+
+	* config/spu/spu.md (v): New iterator macro to add v for vector types.
+	(floatunssidf2_internal): Change vector/vector shift names.
+	(floatunsdidf2_internal): Ditto.
+	(mulv8hi3): Ditto.
+	(ashrdi3): Ditto.
+	(ashrti3): Ditto.
+	(cgt_df): Ditto.
+	(cgt_v2df): Ditto.
+	(dftsv): Ditto.
+	(vashl<mode>3): Rename from ashl<mode>3.
+	(vashr<mode>3): Rename from ashr<mode>3.
+	(vlshr<mode>3): Rename from lshr<mode>3.
+	(vrotl<mode>3): Rename from rotl<mode>3.
+
+2008-05-14  Michael Meissner  <michael.meissner@amd.com>
+
+	PR target/36224
+	* config/i386/sse.md (vec_widen_smult_hi_v4si): Delete, using unsigned
+	multiply gives the wrong value when doing widening multiplies.
+	(vec_widen_smult_lo_v4si): Ditto.
+
+2008-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* optabs.c (prepare_cmp_insn): Changed LCT_PURE_MAKE_BLOCK to
+	LCT_PURE and LCT_CONST_MAKE_BLOCK to LCT_CONST in calls to
+	emit_library_call_value. 
+	* builtins.c (expand_builtin_powi, expand_builtin_memcmp): Ditto.
+	* tree.h (ECF_LIBCALL_BLOCK): Removed.
+	* calls.c (initialize_argument_information, precompute_arguments, 
+	expand_call, emit_library_call_value_1): Remove ECF_LIBCALL_BLOCK.
+	(precompute_arguments): Removed flags parameter.
+	* rtl.h (LCT_CONST_MAKE_BLOCK, LCT_PURE_MAKE_BLOCK): Removed.
+	
+2008-05-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Remove dead code.
+	Make sure to register the store if the use is a PHI_NODE.
+
+2008-05-14  Olivier Hainque  <hainque@adacore.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Force op0 to
+	memory if the component is to be referenced in BLKmode according
+	to get_inner_reference.
+
+2008-05-14  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* calls.c (emit_library_call_value_1): Restore code clearing
+	ECF_LIBCALL_BLOCK to ensure that we only call end_sequence once.
+
+2008-05-14  Olivier Hainque  <hainque@adacore.com>
+	    Nicolas Roche  <roche@adacore.com>
+
+	* configure.ac: Add support for a "gcc_subdir" variable in
+	config-lang.in, to denote a subdirectory where the language/GCC
+	integration files are to be found.
+	* configure: Regenerate.
+
+2008-05-14  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36098
+	* tree-vect-analyze.c (vect_analyze_group_access): Set the gap
+	value for the first load in the group in case of a gap.
+	(vect_build_slp_tree): Check that there are no gaps in loads.
+
+2008-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.texi: Removed reference to REG_NO_CONFLICT notes.
+	* optabs.c (expand_binop, expand_absneg_bit, expand_unop,
+	expand_copysign_bit, ): Change call to emit_no_conflict_block to
+	emit_insn and remove unneeded code to construct extra args.
+	(emit_no_conflict_block): Removed.
+	* optabls.h: (emit_no_conflict_block): Removed.
+	* cse.c (cse_extended_basic_block): Remove search for
+	REG_NO_CONFLICT note.
+	* global.c: Removed incorrect comment added in revision 117.
+	* expr.c (convert_move): Change call to emit_no_conflict_block to
+	emit_insn.
+	* recog.c: Change comments so that they do not mention
+	REG_NO_CONFLICT.
+	* local_alloc.c (combine_regs): Removed last parameter.
+	(no_conflict_p): Removed.
+	(block_alloc): Removed note, no_conflict_combined_regno and set
+	local vars. Removed all code to process REG_NO_CONFLICT blocks.
+	(combine_regs): Removed already_dead and code to look for
+	REG_NO_CONFLICT notes.
+	* lower_subreg (remove_retval_note): Removed code to look for
+	REG_NO_CONFLICT block.
+	(resolve_reg_notes): Removed REG_NO_CONFLICT case.
+	(resolve_clobber): Remove code to process libcalls that have
+	REG_NO_CONFLICT notes.
+	* loop_invariant.c (find_invariant_insn): Removed REG_NO_CONFLICT
+	case.
+	* combine.c (can_combine_p, distribute_notes):  Removed
+	REG_NO_CONFLICT case.
+	* config/cris/cris.md (movdi pattern): Changed emit_no_conflict_block
+	to emit_insns.
+	* config/mn10300/mn10300.md (absdf2, negdf2 patterns): Ditto.
+	* config/m68k/m68k.md (negdf2, negxf2, absdf2, absxf2 patterns):
+	Ditto.
+	* reg-notes.def (NO_CONFLICT): Removed.
+
+2008-05-14  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.c (sparc_profile_hook): If
+	NO_PROFILE_COUNTERS, don't generate and pass a label into mcount.
+	* config/sparc/linux.h (NO_PROFILE_COUNTERS): Define as 1.
+	* config/sparc/linux64.h (NO_PROFILE_COUNTERS): Likewise.
+
+2008-05-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* cse.c (cse_cc_succs): Invoke delete_insn_and_edges.
+
+2008-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36222
+	* config/i386/i386.c (ix86_expand_vector_init_general): Rearrange op0
+	and op1 expansion before vector concat to have less live pseudos.
+
+2008-05-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_vector_init_one_nonzero): Use
+	ix86_expand_vector_set if supported.
+
+2008-05-13  Diego Novillo  <dnovillo@google.com>
+	    Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-05/msg00748.html
+
+	* tree.h (init_phinodes, fini_phinodes, release_phi_node,
+	phinodes_print_statistics, init_ssanames, fini_ssanames,
+	make_ssa_name, duplicate_ssa_name, duplicate_ssa_name_ptr_info,
+	release_ssa_name, release_defs, replace_ssa_name_symbol,
+	ssanames_print_statistics): Move ...
+	* tree-flow.h: ... here.
+	* tree-ssanames.c (init_ssanames): Add arguments FN and SIZE.
+	Use FN instead of cfun.
+	(make_ssa_name_fn): Rename from make_ssa_name.
+	(pass_release_ssa_names): Add TODO_dump_func to finish flags.
+	* tree-flow-inline.h (make_ssa_name): Move from
+	tree-ssanames.c.  Convert to static inline.  Call make_ssa_name_fn.
+	* omp-low.c (expand_omp_parallel):
+	* tree-flow-inline.h (redirect_edge_var_map_result):
+	* tree-ssa.c (init_tree_ssa): Add argument FN.
+	Use it instead of cfun.  Update all users.
+
+2008-05-13  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/22168:
+	* doc/cpp.texi (Top): Update menu.
+	(Alternatives to Wrapper #ifndef): New node.
+	(Other Directives): Document deprecation.
+	(Obsolete Features): Remove menu.
+	(Assertions): Merge node into Obsolete Features.
+	(Obsolete once-only headers): Move earlier; rename to Alternatives
+	to Wrapper #ifndef.
+	* doc/cppopts.texi: Update.
+	* c.opt (Wdeprecated): Enable for C and ObjC.
+	* doc/invoke.texi (Option Summary): Move -Wno-deprecated.
+	(C++ Dialect Options): Move -Wno-deprecated from here to...
+	(Warning Options): ... here.
+
+2008-05-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36227
+	* fold-const.c (fold_sign_changed_comparison): Do not allow
+	changes in pointer-ness.
+
+2008-05-12  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/24713
+	* config/sh/sh.c (sh_expand_prologue): Don't clear
+	RTX_FRAME_RELATED_P for push insns.
+
+2008-05-12  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* config/avr/avr.h (MAX_OFILE_ALIGNMENT): Define.
+
+2008-05-12  Anatoly Sokolov <aesok@post.ru>
+
+	* config/avr/avr.h (machine_function): Add 'is_leaf' field.
+	* config/avr/avr.c (avr_regs_to_save): Compute 'machine->is_leaf'.
+	Use 'machine->is_leaf' instead of 'leaf_func_p'.
+
+2008-05-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*sse_concatv4sf): Renamed to ...
+	(*vec_concatv4sf_sse): This.
+	(*sse2_concatv2si): Renamed to ...
+	(*vec_concatv2si_sse2): This.
+	(*sse1_concatv2si): Renamed to ...
+	(*vec_concatv2si_sse): This.
+	(*vec_concatv2di_rex): Renamed to ...
+	(*vec_concatv2di_rex64): This.
+	(*vec_concatv2si_sse4_1): New.
+	(*vec_concatv2di_rex64_sse4_1): Likewise.
+
+2008-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36111
+	* recog.c (validate_replace_rtx_1): Unshare new RTL expression
+	that was created for swappable operands.
+
+2008-05-12  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/36001
+	* Makefile.in: Substitute GNATMAKE and GNATBIND.
+	* configure.ac: Add call to ACX_PROG_GNAT.
+
+2008-05-11  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* optc-gen.awk: Fix comment typo.
+
+2008-05-11  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* pretty-print.c (pp_integer_with_precision): Use
+	HOST_LONG_LONG_FORMAT.
+
+2008-05-10  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* gcse.c (store_killed_in_insn): Negated call to RTL_CONST_CALL_P.
+		
+2008-05-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (bdesc_ptest): Removed.
+	(ix86_builtin_type): Add INT_FTYPE_V2DI_V2DI_PTEST.
+	(bdesc_args): Add __builtin_ia32_ptestz128,
+	__builtin_ia32_ptestc128 and __builtin_ia32_ptestnzc128.
+	(ix86_init_mmx_sse_builtins): Updated.
+	(ix86_expand_args_builtin): Handle INT_FTYPE_V2DI_V2DI_PTEST.
+	(ix86_expand_builtin): Updated.
+
+2008-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree-cfg.c (valid_fixed_convert_types_p): New function.
+	(verify_gimple_expr): Handle FIXED_CONVERT_EXPR.
+
+2008-05-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* value-prof.c (interesting_stringop_to_profile): Do not
+	return early for BUILT_IN_MEMPCPY.
+
+2008-05-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* calls.c (expand_call): Don't use callgraph to increase
+	preferred_stack_boundary.
+
+	* cgraph.h (cgraph_rtl_info): Use unsigned on
+	preferred_incoming_stack_boundary.
+
+	* final.c (rest_of_clean_state): Use unsigned on
+	preferred_stack_boundary.
+
+2008-05-09  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/22231:
+	* c-opts.c (sanitize_cpp_opts): Disallow -MG if compilation is
+	proceeding.
+
 2008-05-09  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR tree-optimization/36129
-	* tree-ssa-cpp.c: Include value-prof.h.
+	* tree-ssa-ccp.c: Include value-prof.h.
 	(execute_fold_all_builtins): Call gimple_remove_stmt_histograms if
 	built-in function was folded to a constant.
-	* Makefile.in (tree-ssa-cpp.c): Depend on value-prof.h
+	* Makefile.in (tree-ssa-ccp.c): Depend on value-prof.h
 
 2008-05-09  Jan Sjodin  <jan.sjodin@amd.com>
 	    Sebastian Pop  <sebastian.pop@amd.com>
@@ -58,7 +1456,8 @@
 	* convert.c (strip_float_extensions): Use CONVERT_EXPR_P.
 	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
 	* config/alpha/alpha.c (va_list_skip_additions): Likewise.
-	* c-common.c (c_alignof_expr, check_function_arguments_recurse): Likewise.
+	* c-common.c (c_alignof_expr, check_function_arguments_recurse):
+	Likewise.
 	* tree-ssa.c (tree_ssa_useless_type_conversion): Likewise.
 	* varasm.c (initializer_constant_valid_p, output_constant): Likewise.
 	* tree-ssa-forwprop.c (get_prop_source_stmt, can_propagate_from)
@@ -69,12 +1468,14 @@
 	* emit-rtl.c (component_ref_for_mem_expr)
 	(set_mem_attributes_minus_bitpos): Likewise.
 	* tree-ssa-phiopt.c (conditional_replacement): Likewise.
-	* gimplify.c (gimplify_conversion, goa_lhs_expr_p, gimplify_expr): Likewise.
+	* gimplify.c (gimplify_conversion, goa_lhs_expr_p, gimplify_expr):
+	Likewise.
 	* c-typeck.c (default_function_array_conversion, build_indirect_ref)
 	(build_function_call, pointer_diff, build_compound_expr)
 	(c_finish_return): Likewise.
 	* tree-vect-analyze.c (vect_determine_vectorization_factor): Likewise.
-	* matrix-reorg.c (get_inner_of_cast_expr, may_flatten_matrices_1): Likewise.
+	* matrix-reorg.c (get_inner_of_cast_expr, may_flatten_matrices_1):
+	Likewise.
 	* tree-ssa-ifcombine.c (recognize_single_bit_test): Likewise.
 	* expr.c (is_aligning_offset): Likewise.
 	* tree-ssa-alias.c (is_escape_site): Likewise.
@@ -94,22 +1495,22 @@
 	* tree.c (really_constant_p, get_unwidened): Likewise.
 	* tree-ssa-loop-niter.c (expand_simple_operations): Likewise.
 	* tree-ssa-loop-im.c (rewrite_bittest): Likewise.
-	* tree-vrp.c (register_edge_assert_for_2, register_edge_assert_for_1): Likewise.
-	* tree.h (STRIP_NOPS, STRIP_SIGN_NOPS, STRIP_TYPE_NOPS): Use CONVERT_EXPR_P.
+	* tree-vrp.c (register_edge_assert_for_2, register_edge_assert_for_1):
+	Likewise.
+	* tree.h (STRIP_NOPS, STRIP_SIGN_NOPS, STRIP_TYPE_NOPS): Use
+	CONVERT_EXPR_P.
 	(CONVERT_EXPR_P): Define.
 	(CASE_CONVERT): Define.
 	
 2008-05-08  Kenneth Zadeck  <zadeck@naturalbridge.com>
 
 	PR middle-end/36117
-	* dce.c (deletable_insn_p): Do not delete calls if 
-	df_in_progress.
-	(delete_unmarked_insns): When deleting a call, call 
+	* dce.c (deletable_insn_p): Do not delete calls if df_in_progress.
+	(delete_unmarked_insns): When deleting a call, call
 	delete_unreachable_blocks.
 	* rtl.texi (RTL_CONST_CALL_P, RTL_PURE_CALL_P,
-	RTL_CONST_OR_PURE_CALL_P, RTL_LOOPING_CONST_OR_PURE_CALL_P): Fixed
-	doc.
-	
+	RTL_CONST_OR_PURE_CALL_P, RTL_LOOPING_CONST_OR_PURE_CALL_P): Fixed doc.
+
 2008-05-08  Richard Guenther  <rguenther@suse.de>
 
 	* doc/invoke.texi (-fdump-tree-salias): Remove documentation.
@@ -297,8 +1698,7 @@
 	(add_to_addressable_set): Likewise.
 	* tree-ssa.c (verify_ssa_name): Do not handle SFTs.
 	* tree-tailcall.c (suitable_for_tail_opt_p): Likewise.
-	* tree-vect-transform.c (vect_create_data_ref_ptr): Do not
-	set subvars.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Do not set subvars.
 	* tree.c (init_ttree): Remove STRUCT_FIELD_TAG initialization.
 	(tree_code_size): Remove STRUCT_FIELD_TAG handling.
 	(tree_node_structure): Likewise.

@@ -90,6 +90,7 @@ get_gimple_rhs_class (enum tree_code code)
     case EXC_PTR_EXPR:
     case SSA_NAME:
     case FILTER_EXPR:
+    case POLYNOMIAL_CHREC:
       return GIMPLE_SINGLE_RHS;
 
     default:

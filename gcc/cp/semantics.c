@@ -2124,6 +2124,9 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
     }
 
   type = complete_type (type);
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && check_array_initializer (NULL_TREE, type, compound_literal))
+    return error_mark_node;
   compound_literal = reshape_init (type, compound_literal);
   if (TREE_CODE (type) == ARRAY_TYPE)
     cp_complete_array_type (&type, compound_literal, false);
@@ -2224,7 +2227,7 @@ check_template_template_default_arg (tree argument)
 tree
 begin_class_definition (tree t, tree attributes)
 {
-  if (t == error_mark_node)
+  if (error_operand_p (t) || error_operand_p (TYPE_MAIN_DECL (t)))
     return error_mark_node;
 
   if (processing_template_parmlist)
@@ -3334,6 +3337,31 @@ finalize_nrv (tree *tp, tree var, tree result)
   htab_delete (data.visited);
 }
 
+/* Return the declaration for the function called by CALL_EXPR T,
+   TYPE is the class type of the clause decl.  */
+
+static tree
+omp_clause_info_fndecl (tree t, tree type)
+{
+  tree ret = get_callee_fndecl (t);
+
+  if (ret)
+    return ret;
+
+  gcc_assert (TREE_CODE (t) == CALL_EXPR);
+  t = CALL_EXPR_FN (t);
+  STRIP_NOPS (t);
+  if (TREE_CODE (t) == OBJ_TYPE_REF)
+    {
+      t = cp_fold_obj_type_ref (t, type);
+      if (TREE_CODE (t) == ADDR_EXPR
+	  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
+	return TREE_OPERAND (t, 0);
+    }
+
+  return NULL_TREE;
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
@@ -3677,8 +3705,7 @@ finish_omp_clauses (tree clauses)
 		if (TREE_CODE (t) == NOP_EXPR)
 		  t = TREE_OPERAND (t, 0);
 
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 0) = t;
+	      TREE_VEC_ELT (info, 0) = get_callee_fndecl (t);
 	    }
 
 	  if ((need_default_ctor || need_copy_ctor)
@@ -3700,8 +3727,7 @@ finish_omp_clauses (tree clauses)
 		if (TREE_CODE (t) == NOP_EXPR)
 		  t = TREE_OPERAND (t, 0);
 
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 1) = t;
+	      TREE_VEC_ELT (info, 1) = omp_clause_info_fndecl (t, inner_type);
 	    }
 
 	  if (need_copy_assignment
@@ -3720,8 +3746,7 @@ finish_omp_clauses (tree clauses)
 	      if (TREE_CODE (t) == INDIRECT_REF)
 		t = TREE_OPERAND (t, 0);
 
-	      t = get_callee_fndecl (t);
-	      TREE_VEC_ELT (info, 2) = t;
+	      TREE_VEC_ELT (info, 2) = omp_clause_info_fndecl (t, inner_type);
 	    }
 
 	  if (errorcount != save_errorcount)

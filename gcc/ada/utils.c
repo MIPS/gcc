@@ -1096,8 +1096,7 @@ rest_of_record_type_compilation (tree record_type)
 
 	      /* Strip off any conversions.  */
 	      while (TREE_CODE (offset) == NON_LVALUE_EXPR
-		     || TREE_CODE (offset) == NOP_EXPR
-		     || TREE_CODE (offset) == CONVERT_EXPR)
+		     || CONVERT_EXPR_P (offset))
 		offset = TREE_OPERAND (offset, 0);
 
 	      /* An offset which is a bitwise AND with a negative power of 2
@@ -3628,7 +3627,7 @@ convert (tree type, tree expr)
   if (TYPE_FAT_POINTER_P (type) && !TYPE_FAT_POINTER_P (etype))
     return convert_to_fat_pointer (type, expr);
 
-  /* If we're converting between two aggregate types that are mere
+  /* If we are converting between two aggregate types that are mere
      variants, just make a VIEW_CONVERT_EXPR.  */
   else if (code == ecode
 	   && AGGREGATE_TYPE_P (type)
@@ -3663,6 +3662,30 @@ convert (tree type, tree expr)
       /* ... fall through ... */
 
     case ENUMERAL_TYPE:
+      /* If we are converting an additive expression to an integer type
+	 with lower precision, be wary of the optimization that can be
+	 applied by convert_to_integer.  There are 2 problematic cases:
+	   - if the first operand was originally of a biased type,
+	     because we could be recursively called to convert it
+	     to an intermediate type and thus rematerialize the
+	     additive operator endlessly,
+	   - if the expression contains a placeholder, because an
+	     intermediate conversion that changes the sign could
+	     be inserted and thus introduce an artificial overflow
+	     at compile time when the placeholder is substituted.  */
+      if (code == INTEGER_TYPE
+	  && ecode == INTEGER_TYPE
+	  && TYPE_PRECISION (type) < TYPE_PRECISION (etype)
+	  && (TREE_CODE (expr) == PLUS_EXPR || TREE_CODE (expr) == MINUS_EXPR))
+	{
+	  tree op0 = get_unwidened (TREE_OPERAND (expr, 0), type);
+
+	  if ((TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE
+	       && TYPE_BIASED_REPRESENTATION_P (TREE_TYPE (op0)))
+	      || CONTAINS_PLACEHOLDER_P (expr))
+	    return build1 (NOP_EXPR, type, expr);
+	}
+
       return fold (convert_to_integer (type, expr));
 
     case POINTER_TYPE:
@@ -3788,7 +3811,7 @@ remove_conversions (tree exp, bool true_address)
       break;
 
     case VIEW_CONVERT_EXPR:  case NON_LVALUE_EXPR:
-    case NOP_EXPR:  case CONVERT_EXPR:
+    CASE_CONVERT:
       return remove_conversions (TREE_OPERAND (exp, 0), true_address);
 
     default:
@@ -4689,8 +4712,17 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
-  /* Ensure we have a function type, with no arguments.  */
-  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE && ! TYPE_ARG_TYPES (*node));
+  tree params;
+  
+  /* Ensure we have a function type.  */
+  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE);
+  
+  params = TYPE_ARG_TYPES (*node);
+  while (params && ! VOID_TYPE_P (TREE_VALUE (params)))
+    params = TREE_CHAIN (params);
+
+  /* Ensure we have a variadic function.  */
+  gcc_assert (!params);
 
   return NULL_TREE;
 }
@@ -4731,8 +4763,8 @@ def_builtin_1 (enum built_in_function fncode,
   if (both_p)
     /* ??? This is normally further controlled by command-line options
        like -fno-builtin, but we don't have them for Ada.  */
-      add_builtin_function (libname, libtype, fncode, fnclass,
-			    NULL, fnattrs);
+    add_builtin_function (libname, libtype, fncode, fnclass,
+			  NULL, fnattrs);
 
   built_in_decls[(int) fncode] = decl;
   if (implicit_p)

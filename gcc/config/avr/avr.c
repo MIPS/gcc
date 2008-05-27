@@ -52,7 +52,9 @@ static int avr_naked_function_p (tree);
 static int interrupt_function_p (tree);
 static int signal_function_p (tree);
 static int avr_OS_task_function_p (tree);
+static int avr_OS_main_function_p (tree);
 static int avr_regs_to_save (HARD_REG_SET *);
+static int get_sequence_length (rtx insns);
 static int sequent_regs_live (void);
 static const char *ptrreg_to_str (int);
 static const char *cond_string (enum rtx_code);
@@ -97,22 +99,12 @@ static const char *const avr_regnames[] = REGISTER_NAMES;
 static int last_insn_address = 0;
 
 /* Preprocessor macros to define depending on MCU type.  */
-const char *avr_base_arch_macro;
 const char *avr_extra_arch_macro;
 
 /* Current architecture.  */
 const struct base_arch_s *avr_current_arch;
 
 section *progmem_section;
-
-/* Core have 'MUL*' instructions.  */
-int avr_have_mul_p = 0;
-
-/* Assembler only.  */
-int avr_asm_only_p = 0;
-
-/* Core have 'MOVW' and 'LPM Rx,Z' instructions.  */
-int avr_have_movw_lpmx_p = 0;
 
 static const struct base_arch_s avr_arch_types[] = {
   { 1, 0, 0, 0, 0, 0, 0, 0, NULL },  /* unknown device specified */
@@ -337,7 +329,6 @@ void
 avr_override_options (void)
 {
   const struct mcu_type_s *t;
-  const struct base_arch_s *base;
 
   flag_delete_null_pointer_checks = 0;
 
@@ -354,11 +345,6 @@ avr_override_options (void)
     }
 
   avr_current_arch = &avr_arch_types[t->arch];
-  base = &avr_arch_types[t->arch];
-  avr_asm_only_p = base->asm_only;
-  avr_have_mul_p = base->have_mul;
-  avr_have_movw_lpmx_p = base->have_movw_lpmx;
-  avr_base_arch_macro = base->macro;
   avr_extra_arch_macro = t->macro;
 
   if (optimize && !TARGET_NO_TABLEJUMP)
@@ -462,6 +448,19 @@ avr_OS_task_function_p (tree func)
   return a != NULL_TREE;
 }
 
+/* Return nonzero if FUNC is a OS_main function.  */
+
+static int
+avr_OS_main_function_p (tree func)
+{
+  tree a;
+
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
+  
+  a = lookup_attribute ("OS_main", TYPE_ATTRIBUTES (TREE_TYPE (func)));
+  return a != NULL_TREE;
+}
+
 /* Return the number of hard registers to push/pop in the prologue/epilogue
    of the current function, and optionally store these registers in SET.  */
 
@@ -471,16 +470,19 @@ avr_regs_to_save (HARD_REG_SET *set)
   int reg, count;
   int int_or_sig_p = (interrupt_function_p (current_function_decl)
 		      || signal_function_p (current_function_decl));
-  int leaf_func_p = leaf_function_p ();
+
+  if (!reload_completed)
+    cfun->machine->is_leaf = leaf_function_p ();
 
   if (set)
     CLEAR_HARD_REG_SET (*set);
   count = 0;
 
   /* No need to save any registers if the function never returns or 
-     is have "OS_task" attribute.  */
+     is have "OS_task" or "OS_main" attribute.  */
   if (TREE_THIS_VOLATILE (current_function_decl)
-      || cfun->machine->is_OS_task)
+      || cfun->machine->is_OS_task
+      || cfun->machine->is_OS_main)
     return 0;
 
   for (reg = 0; reg < 32; reg++)
@@ -490,7 +492,7 @@ avr_regs_to_save (HARD_REG_SET *set)
       if (fixed_regs[reg])
 	continue;
 
-      if ((int_or_sig_p && !leaf_func_p && call_used_regs[reg])
+      if ((int_or_sig_p && !cfun->machine->is_leaf && call_used_regs[reg])
 	  || (df_regs_ever_live_p (reg)
 	      && (int_or_sig_p || !call_used_regs[reg])
 	      && !(frame_pointer_needed
@@ -584,6 +586,20 @@ sequent_regs_live (void)
   return (cur_seq == live_seq) ? live_seq : 0;
 }
 
+/* Obtain the length sequence of insns.  */
+
+int
+get_sequence_length (rtx insns)
+{
+  rtx insn;
+  int length;
+  
+  for (insn = insns, length = 0; insn; insn = NEXT_INSN (insn))
+    length += get_attr_length (insn);
+		
+  return length;
+}
+
 /*  Output function prologue.  */
 
 void
@@ -607,6 +623,7 @@ expand_prologue (void)
   cfun->machine->is_interrupt = interrupt_function_p (current_function_decl);
   cfun->machine->is_signal = signal_function_p (current_function_decl);
   cfun->machine->is_OS_task = avr_OS_task_function_p (current_function_decl);
+  cfun->machine->is_OS_main = avr_OS_main_function_p (current_function_decl);
   
   /* Prologue: naked.  */
   if (cfun->machine->is_naked)
@@ -620,6 +637,7 @@ expand_prologue (void)
 	      && !cfun->machine->is_interrupt
 	      && !cfun->machine->is_signal
 	      && !cfun->machine->is_OS_task
+	      && !cfun->machine->is_OS_main
 	      && live_seq);
 
   if (cfun->machine->is_interrupt || cfun->machine->is_signal)
@@ -689,7 +707,7 @@ expand_prologue (void)
         }
       if (frame_pointer_needed)
         {
-	  if(!cfun->machine->is_OS_task)
+	  if (!(cfun->machine->is_OS_task || cfun->machine->is_OS_main))
 	    {
               /* Push frame pointer.  */
 	      insn = emit_move_insn (pushword, frame_pointer_rtx);
@@ -715,12 +733,11 @@ expand_prologue (void)
               To avoid a complex logic, both methods are tested and shortest
               is selected.  */
               rtx myfp;
-              /*  First method.  */
+	      rtx fp_plus_insns; 
+	      rtx sp_plus_insns = NULL_RTX;
+
               if (TARGET_TINY_STACK)
                 {
-                  if (size < -63 || size > 63)
-                    warning (0, "large frame pointer change (%d) with -mtiny-stack", size);
-                    
                   /* The high byte (r29) doesn't change - prefer 'subi' (1 cycle)
                      over 'sbiw' (2 cycles, same size).  */
                   myfp = gen_rtx_REG (QImode, REGNO (frame_pointer_rtx));
@@ -730,51 +747,53 @@ expand_prologue (void)
                   /*  Normal sized addition.  */
                   myfp = frame_pointer_rtx;
                 }
-              /* Calculate length.  */ 
-              int method1_length;
-              method1_length =
-	        get_attr_length (gen_move_insn (frame_pointer_rtx, stack_pointer_rtx));
-              method1_length +=
-	        get_attr_length (gen_move_insn (myfp, 
-                                                gen_rtx_PLUS (GET_MODE(myfp), myfp,
-                                                              gen_int_mode (-size, 
-							                    GET_MODE(myfp)))));
-              method1_length += 
-	        get_attr_length (gen_move_insn (stack_pointer_rtx, frame_pointer_rtx));
-              
+
+	      /* Method 1-Adjust frame pointer.  */
+	      start_sequence ();
+
+              insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
+              RTX_FRAME_RELATED_P (insn) = 1;
+
+              insn = 
+	        emit_move_insn (myfp,
+				gen_rtx_PLUS (GET_MODE(myfp), myfp, 
+					      gen_int_mode (-size, 
+							    GET_MODE(myfp))));
+              RTX_FRAME_RELATED_P (insn) = 1;
+
+              insn = emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+              RTX_FRAME_RELATED_P (insn) = 1;
+
+	      fp_plus_insns = get_insns ();
+	      end_sequence ();
+
 	      /* Method 2-Adjust Stack pointer.  */
-              int sp_plus_length = 0;
               if (size <= 6)
                 {
-                  sp_plus_length = 
-		    get_attr_length (gen_move_insn (stack_pointer_rtx,
-                                                    gen_rtx_PLUS (HImode, stack_pointer_rtx,
-                                                                  gen_int_mode (-size, 
-								                HImode))));
-		  sp_plus_length += 
-		    get_attr_length (gen_move_insn (frame_pointer_rtx, stack_pointer_rtx));
+		  start_sequence ();
+
+		  insn = 
+		    emit_move_insn (stack_pointer_rtx,
+				    gen_rtx_PLUS (HImode, 
+						  stack_pointer_rtx, 
+						  gen_int_mode (-size, 
+								HImode)));
+		  RTX_FRAME_RELATED_P (insn) = 1;
+		  
+		  insn = 
+		    emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
+		  RTX_FRAME_RELATED_P (insn) = 1;
+
+		  sp_plus_insns = get_insns ();
+		  end_sequence ();
                 }
+
               /* Use shortest method.  */
-              if (size <= 6 && (sp_plus_length < method1_length))
-                {
-                  insn = emit_move_insn (stack_pointer_rtx,
-                                         gen_rtx_PLUS (HImode, stack_pointer_rtx, 
-                                                       gen_int_mode (-size, HImode)));
-                  RTX_FRAME_RELATED_P (insn) = 1;
-		  insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
-                  RTX_FRAME_RELATED_P (insn) = 1;
-                }
+              if (size <= 6 && (get_sequence_length (sp_plus_insns) 
+				 < get_sequence_length (fp_plus_insns)))
+		emit_insn (sp_plus_insns);
               else
-                {		
-                  insn = emit_move_insn (frame_pointer_rtx, stack_pointer_rtx);
-                  RTX_FRAME_RELATED_P (insn) = 1;
-                  insn = emit_move_insn (myfp,
-                                         gen_rtx_PLUS (GET_MODE(myfp), myfp, 
-                                                       gen_int_mode (-size, GET_MODE(myfp))));
-                  RTX_FRAME_RELATED_P (insn) = 1;
-                  insn = emit_move_insn ( stack_pointer_rtx, frame_pointer_rtx);
-                  RTX_FRAME_RELATED_P (insn) = 1;
-                }
+		emit_insn (fp_plus_insns);
             }
         }
     }
@@ -843,6 +862,7 @@ expand_epilogue (void)
 	      && !cfun->machine->is_interrupt
 	      && !cfun->machine->is_signal
 	      && !cfun->machine->is_OS_task
+	      && !cfun->machine->is_OS_main
 	      && live_seq);
   
   if (minimize && (frame_pointer_needed || live_seq > 4))
@@ -868,44 +888,58 @@ expand_epilogue (void)
 	  if (size)
 	    {
               /* Try two methods to adjust stack and select shortest.  */
-              int fp_plus_length;
+	      rtx myfp;
+	      rtx fp_plus_insns;
+	      rtx sp_plus_insns = NULL_RTX;
+	      
+	      if (TARGET_TINY_STACK)
+                {
+                  /* The high byte (r29) doesn't change - prefer 'subi' 
+                     (1 cycle) over 'sbiw' (2 cycles, same size).  */
+                  myfp = gen_rtx_REG (QImode, REGNO (frame_pointer_rtx));
+                }
+              else 
+                {
+                  /* Normal sized addition.  */
+                  myfp = frame_pointer_rtx;
+                }
+	      
               /* Method 1-Adjust frame pointer.  */
-              fp_plus_length = 
-	        get_attr_length (gen_move_insn (frame_pointer_rtx,
-                                                gen_rtx_PLUS (HImode, frame_pointer_rtx,
-                                                              gen_int_mode (size,
-									    HImode))));
-              /* Copy to stack pointer.  */
-              fp_plus_length += 
-	        get_attr_length (gen_move_insn (stack_pointer_rtx, frame_pointer_rtx));    
-          
+	      start_sequence ();
+
+	      emit_move_insn (myfp,
+			      gen_rtx_PLUS (HImode, myfp,
+					    gen_int_mode (size, 
+							  GET_MODE(myfp))));
+
+	      /* Copy to stack pointer.  */
+	      emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+
+	      fp_plus_insns = get_insns ();
+	      end_sequence ();	      
+
               /* Method 2-Adjust Stack pointer.  */
-              int sp_plus_length = 0;
               if (size <= 5)
                 {
-                  sp_plus_length = 
-		    get_attr_length (gen_move_insn (stack_pointer_rtx,
-                                                    gen_rtx_PLUS (HImode, stack_pointer_rtx,
-                                                                  gen_int_mode (size,
-										HImode))));
+		  start_sequence ();
+
+		  emit_move_insn (stack_pointer_rtx,
+				  gen_rtx_PLUS (HImode, stack_pointer_rtx,
+						gen_int_mode (size, 
+							      HImode)));
+
+		  sp_plus_insns = get_insns ();
+		  end_sequence ();
                 }
+
               /* Use shortest method.  */
-              if (size <= 5 && (sp_plus_length < fp_plus_length))
-                {
-                  emit_move_insn (stack_pointer_rtx,
-                                  gen_rtx_PLUS (HImode, stack_pointer_rtx,
-                                                gen_int_mode (size, HImode)));
-                }
+              if (size <= 5 && (get_sequence_length (sp_plus_insns) 
+				 < get_sequence_length (fp_plus_insns)))
+	      	emit_insn (sp_plus_insns);
               else
-                {
-                  emit_move_insn (frame_pointer_rtx,
-                                  gen_rtx_PLUS (HImode, frame_pointer_rtx,
-                                                gen_int_mode (size, HImode)));
-                  /* Copy to stack pointer.  */
-                  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
-                }
+		emit_insn (fp_plus_insns);
             }
-	  if(!cfun->machine->is_OS_task)
+	  if (!(cfun->machine->is_OS_task || cfun->machine->is_OS_main))
 	    {
               /* Restore previous frame_pointer.  */
 	      emit_insn (gen_pophi (frame_pointer_rtx));
@@ -4607,6 +4641,7 @@ const struct attribute_spec avr_attribute_table[] =
   { "interrupt", 0, 0, true,  false, false,  avr_handle_fndecl_attribute },
   { "naked",     0, 0, false, true,  true,   avr_handle_fntype_attribute },
   { "OS_task",   0, 0, false, true,  true,   avr_handle_fntype_attribute },
+  { "OS_main",   0, 0, false, true,  true,   avr_handle_fntype_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -4810,7 +4845,7 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 static void
 avr_file_start (void)
 {
-  if (avr_asm_only_p)
+  if (avr_current_arch->asm_only)
     error ("MCU %qs supported for assembler only", avr_mcu_name);
 
   default_file_start ();

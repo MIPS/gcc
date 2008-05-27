@@ -101,17 +101,14 @@ static void dse_record_phis (struct dom_walk_data *, basic_block);
 static void dse_finalize_block (struct dom_walk_data *, basic_block);
 static void record_voperand_set (bitmap, bitmap *, unsigned int);
 
-static unsigned max_stmt_uid;	/* Maximal uid of a statement.  Uids to phi
-				   nodes are assigned using the versions of
-				   ssa names they define.  */
-
 /* Returns uid of statement STMT.  */
 
 static unsigned
 get_stmt_uid (gimple stmt)
 {
   if (gimple_code (stmt) == GIMPLE_PHI)
-    return SSA_NAME_VERSION (gimple_phi_result (stmt)) + max_stmt_uid;
+    return SSA_NAME_VERSION (gimple_phi_result (stmt))
+           + gimple_stmt_max_uid (cfun);
 
   return gimple_uid (stmt);
 }
@@ -319,6 +316,14 @@ dse_possible_dead_store_p (gimple stmt,
       gcc_assert (*use_p != NULL_USE_OPERAND_P);
       *first_use_p = *use_p;
 
+      /* ???  If we hit a GIMPLE_PHI we could skip to the PHI_RESULT uses.
+	 Don't bother to do that for now.  */
+      if (gimple_code (temp) == GIMPLE_PHI)
+	{
+	  fail = true;
+	  break;
+	}
+
       /* In the case of memory partitions, we may get:
 
 	   # MPT.764_162 = VDEF <MPT.764_161(D)>
@@ -364,29 +369,6 @@ dse_possible_dead_store_p (gimple stmt,
     {
       record_voperand_set (dse_gd->stores, &bd->stores, gimple_uid (stmt));
       return false;
-    }
-
-  /* Skip through any PHI nodes we have already seen if the PHI
-     represents the only use of this store.
-
-     Note this does not handle the case where the store has
-     multiple VDEFs which all reach a set of PHI nodes in the same block.  */
-  while (*use_p != NULL_USE_OPERAND_P
-	 && gimple_code (*use_stmt) == GIMPLE_PHI
-	 && bitmap_bit_p (dse_gd->stores, get_stmt_uid (*use_stmt)))
-    {
-      /* A PHI node can both define and use the same SSA_NAME if
-	 the PHI is at the top of a loop and the PHI_RESULT is
-	 a loop invariant and copies have not been fully propagated.
-
-	 The safe thing to do is exit assuming no optimization is
-	 possible.  */
-      if (SSA_NAME_DEF_STMT (gimple_phi_result (*use_stmt)) == *use_stmt)
-	return false;
-
-      /* Skip past this PHI and loop again in case we had a PHI
-	 chain.  */
-      single_imm_use (gimple_phi_result (*use_stmt), use_p, use_stmt);
     }
 
   return true;
@@ -581,18 +563,8 @@ tree_ssa_dse (void)
 {
   struct dom_walk_data walk_data;
   struct dse_global_data dse_gd;
-  basic_block bb;
 
-  /* Create a UID for each statement in the function.  Ordering of the
-     UIDs is not important for this pass.  */
-  max_stmt_uid = 0;
-  FOR_EACH_BB (bb)
-    {
-      gimple_stmt_iterator gsi;
-
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	gimple_set_uid (gsi_stmt (gsi), max_stmt_uid++);
-    }
+  renumber_gimple_stmt_uids ();
 
   /* We might consider making this a property of each pass so that it
      can be [re]computed on an as-needed basis.  Particularly since

@@ -1670,10 +1670,15 @@ expand_builtin_classify_type (tree exp)
   fcodel = BUILT_IN_MATHFN##L_R ; break;
 
 /* Return mathematic function equivalent to FN but operating directly
-   on TYPE, if available.  If we can't do the conversion, return zero.  */
-tree
-mathfn_built_in (tree type, enum built_in_function fn)
+   on TYPE, if available.  If IMPLICIT is true find the function in
+   implicit_built_in_decls[], otherwise use built_in_decls[].  If we
+   can't do the conversion, return zero.  */
+
+static tree
+mathfn_built_in_1 (tree type, enum built_in_function fn, bool implicit)
 {
+  tree const *const fn_arr
+    = implicit ? implicit_built_in_decls : built_in_decls;
   enum built_in_function fcode, fcodef, fcodel;
 
   switch (fn)
@@ -1748,6 +1753,7 @@ mathfn_built_in (tree type, enum built_in_function fn)
       CASE_MATHFN (BUILT_IN_SCALB)
       CASE_MATHFN (BUILT_IN_SCALBLN)
       CASE_MATHFN (BUILT_IN_SCALBN)
+      CASE_MATHFN (BUILT_IN_SIGNBIT)
       CASE_MATHFN (BUILT_IN_SIGNIFICAND)
       CASE_MATHFN (BUILT_IN_SIN)
       CASE_MATHFN (BUILT_IN_SINCOS)
@@ -1766,13 +1772,21 @@ mathfn_built_in (tree type, enum built_in_function fn)
       }
 
   if (TYPE_MAIN_VARIANT (type) == double_type_node)
-    return implicit_built_in_decls[fcode];
+    return fn_arr[fcode];
   else if (TYPE_MAIN_VARIANT (type) == float_type_node)
-    return implicit_built_in_decls[fcodef];
+    return fn_arr[fcodef];
   else if (TYPE_MAIN_VARIANT (type) == long_double_type_node)
-    return implicit_built_in_decls[fcodel];
+    return fn_arr[fcodel];
   else
     return NULL_TREE;
+}
+
+/* Like mathfn_built_in_1(), but always use the implicit array.  */
+
+tree
+mathfn_built_in (tree type, enum built_in_function fn)
+{
+  return mathfn_built_in_1 (type, fn, /*implicit=*/ 1);
 }
 
 /* If errno must be maintained, expand the RTL to check if the result,
@@ -3083,7 +3097,7 @@ expand_builtin_powi (tree exp, rtx target, rtx subtarget)
     op1 = convert_to_mode (mode2, op1, 0);
 
   target = emit_library_call_value (optab_libfunc (powi_optab, mode),
-				    target, LCT_CONST_MAKE_BLOCK, mode, 2,
+				    target, LCT_CONST, mode, 2,
 				    op0, mode, op1, mode2);
 
   return target;
@@ -4160,7 +4174,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
     if (insn)
       emit_insn (insn);
     else
-      emit_library_call_value (memcmp_libfunc, result, LCT_PURE_MAKE_BLOCK,
+      emit_library_call_value (memcmp_libfunc, result, LCT_PURE,
 			       TYPE_MODE (integer_type_node), 3,
 			       XEXP (arg1_rtx, 0), Pmode,
 			       XEXP (arg2_rtx, 0), Pmode,
@@ -9688,6 +9702,37 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
 
       return NULL_TREE;
 
+    case BUILT_IN_ISINF_SIGN:
+      {
+	/* isinf_sign(x) -> isinf(x) ? (signbit(x) ? -1 : 1) : 0 */
+	/* In a boolean context, GCC will fold the inner COND_EXPR to
+	   1.  So e.g. "if (isinf_sign(x))" would be folded to just
+	   "if (isinf(x) ? 1 : 0)" which becomes "if (isinf(x))". */
+	tree signbit_fn = mathfn_built_in_1 (TREE_TYPE (arg), BUILT_IN_SIGNBIT, 0);
+	tree isinf_fn = built_in_decls[BUILT_IN_ISINF];
+	tree tmp = NULL_TREE;
+
+	arg = builtin_save_expr (arg);
+
+	if (signbit_fn && isinf_fn)
+	  {
+	    tree signbit_call = build_call_expr (signbit_fn, 1, arg);
+	    tree isinf_call = build_call_expr (isinf_fn, 1, arg);
+
+	    signbit_call = fold_build2 (NE_EXPR, integer_type_node,
+					signbit_call, integer_zero_node);
+	    isinf_call = fold_build2 (NE_EXPR, integer_type_node,
+				      isinf_call, integer_zero_node);
+	    
+	    tmp = fold_build3 (COND_EXPR, integer_type_node, signbit_call,
+			       integer_minus_one_node, integer_one_node);
+	    tmp = fold_build3 (COND_EXPR, integer_type_node, isinf_call, tmp,
+			       integer_zero_node);
+	  }
+
+	return tmp;
+      }
+
     case BUILT_IN_ISFINITE:
       if (!HONOR_NANS (TYPE_MODE (TREE_TYPE (arg)))
 	  && !HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg))))
@@ -9717,6 +9762,71 @@ fold_builtin_classify (tree fndecl, tree arg, int builtin_index)
     default:
       gcc_unreachable ();
     }
+}
+
+/* Fold a call to __builtin_fpclassify(int, int, int, int, int, ...).
+   This builtin will generate code to return the appropriate floating
+   point classification depending on the value of the floating point
+   number passed in.  The possible return values must be supplied as
+   int arguments to the call in the following order: FP_NAN, FP_INFINITE,
+   FP_NORMAL, FP_SUBNORMAL and FP_ZERO.  The ellipses is for exactly
+   one floating point argument which is "type generic".  */
+
+static tree
+fold_builtin_fpclassify (tree exp)
+{
+  tree fp_nan, fp_infinite, fp_normal, fp_subnormal, fp_zero,
+    arg, type, res, tmp;
+  enum machine_mode mode;
+  REAL_VALUE_TYPE r;
+  char buf[128];
+  
+  /* Verify the required arguments in the original call.  */
+  if (!validate_arglist (exp, INTEGER_TYPE, INTEGER_TYPE,
+			 INTEGER_TYPE, INTEGER_TYPE,
+			 INTEGER_TYPE, REAL_TYPE, VOID_TYPE))
+    return NULL_TREE;
+  
+  fp_nan = CALL_EXPR_ARG (exp, 0);
+  fp_infinite = CALL_EXPR_ARG (exp, 1);
+  fp_normal = CALL_EXPR_ARG (exp, 2);
+  fp_subnormal = CALL_EXPR_ARG (exp, 3);
+  fp_zero = CALL_EXPR_ARG (exp, 4);
+  arg = CALL_EXPR_ARG (exp, 5);
+  type = TREE_TYPE (arg);
+  mode = TYPE_MODE (type);
+  arg = builtin_save_expr (fold_build1 (ABS_EXPR, type, arg));
+
+  /* fpclassify(x) -> 
+       isnan(x) ? FP_NAN :
+         (fabs(x) == Inf ? FP_INFINITE :
+	   (fabs(x) >= DBL_MIN ? FP_NORMAL :
+	     (x == 0 ? FP_ZERO : FP_SUBNORMAL))).  */
+  
+  tmp = fold_build2 (EQ_EXPR, integer_type_node, arg,
+		     build_real (type, dconst0));
+  res = fold_build3 (COND_EXPR, integer_type_node, tmp, fp_zero, fp_subnormal);
+
+  sprintf (buf, "0x1p%d", REAL_MODE_FORMAT (mode)->emin - 1);
+  real_from_string (&r, buf);
+  tmp = fold_build2 (GE_EXPR, integer_type_node, arg, build_real (type, r));
+  res = fold_build3 (COND_EXPR, integer_type_node, tmp, fp_normal, res);
+  
+  if (HONOR_INFINITIES (mode))
+    {
+      real_inf (&r);
+      tmp = fold_build2 (EQ_EXPR, integer_type_node, arg,
+			 build_real (type, r));
+      res = fold_build3 (COND_EXPR, integer_type_node, tmp, fp_infinite, res);
+    }
+
+  if (HONOR_NANS (mode))
+    {
+      tmp = fold_build2 (ORDERED_EXPR, integer_type_node, arg, arg);
+      res = fold_build3 (COND_EXPR, integer_type_node, tmp, res, fp_nan);
+    }
+  
+  return res;
 }
 
 /* Fold a call to an unordered comparison function such as
@@ -10093,6 +10203,9 @@ fold_builtin_1 (tree fndecl, tree arg0, bool ignore)
     case BUILT_IN_ISINFD64:
     case BUILT_IN_ISINFD128:
       return fold_builtin_classify (fndecl, arg0, BUILT_IN_ISINF);
+
+    case BUILT_IN_ISINF_SIGN:
+      return fold_builtin_classify (fndecl, arg0, BUILT_IN_ISINF_SIGN);
 
     CASE_FLT_FN (BUILT_IN_ISNAN):
     case BUILT_IN_ISNAND32:
@@ -10500,6 +10613,11 @@ fold_builtin_varargs (tree fndecl, tree exp, bool ignore ATTRIBUTE_UNUSED)
     case BUILT_IN_SNPRINTF_CHK:
     case BUILT_IN_VSNPRINTF_CHK:
       ret = fold_builtin_snprintf_chk (exp, NULL_TREE, fcode);
+      break;
+
+    case BUILT_IN_FPCLASSIFY:
+      ret = fold_builtin_fpclassify (exp);
+      break;
 
     default:
       break;

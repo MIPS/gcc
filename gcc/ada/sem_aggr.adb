@@ -198,8 +198,8 @@ package body Sem_Aggr is
    --  quadratic in the size of the association list.
 
    procedure Check_Misspelled_Component
-     (Elements      : Elist_Id;
-      Component     : Node_Id);
+     (Elements  : Elist_Id;
+      Component : Node_Id);
    --  Give possible misspelling diagnostic if Component is likely to be
    --  a misspelling of one of the components of the Assoc_List.
    --  This is called by Resolve_Aggr_Expr after producing
@@ -716,8 +716,8 @@ package body Sem_Aggr is
    --------------------------------
 
    procedure Check_Misspelled_Component
-     (Elements      : Elist_Id;
-      Component     : Node_Id)
+     (Elements  : Elist_Id;
+      Component : Node_Id)
    is
       Max_Suggestions   : constant := 2;
 
@@ -2113,7 +2113,7 @@ package body Sem_Aggr is
 
       function Valid_Ancestor_Type return Boolean;
       --  Verify that the type of the ancestor part is a non-private ancestor
-      --  of the expected type.
+      --  of the expected type, which must be a type extension.
 
       ----------------------------
       -- Valid_Limited_Ancestor --
@@ -2159,8 +2159,8 @@ package body Sem_Aggr is
             Imm_Type := Etype (Base_Type (Imm_Type));
          end loop;
 
-         if Etype (Imm_Type) /= Base_Type (A_Type)
-           or else Base_Type (Typ) = Base_Type (A_Type)
+         if not Is_Derived_Type (Base_Type (Typ))
+           or else Etype (Imm_Type) /= Base_Type (A_Type)
          then
             Error_Msg_NE ("expect ancestor type of &", A, Typ);
             return False;

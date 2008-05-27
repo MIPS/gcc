@@ -111,26 +111,41 @@ static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (gimple, tree);
 
 void
-init_empty_tree_cfg (void)
+init_empty_tree_cfg_for_function (struct function *fn)
 {
   /* Initialize the basic block array.  */
-  init_flow ();
-  profile_status = PROFILE_ABSENT;
-  n_basic_blocks = NUM_FIXED_BLOCKS;
-  last_basic_block = NUM_FIXED_BLOCKS;
-  basic_block_info = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow_cleared (basic_block, gc, basic_block_info,
+  init_flow (fn);
+  profile_status_for_function (fn) = PROFILE_ABSENT;
+  n_basic_blocks_for_function (fn) = NUM_FIXED_BLOCKS;
+  last_basic_block_for_function (fn) = NUM_FIXED_BLOCKS;
+  basic_block_info_for_function (fn)
+    = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc,
+			 basic_block_info_for_function (fn),
 			 initial_cfg_capacity);
 
   /* Build a mapping of labels to their associated blocks.  */
-  label_to_block_map = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
+  label_to_block_map_for_function (fn)
+    = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc,
+			 label_to_block_map_for_function (fn),
 			 initial_cfg_capacity);
 
-  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
-  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
-  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  SET_BASIC_BLOCK_FOR_FUNCTION (fn, ENTRY_BLOCK, 
+				ENTRY_BLOCK_PTR_FOR_FUNCTION (fn));
+  SET_BASIC_BLOCK_FOR_FUNCTION (fn, EXIT_BLOCK, 
+		   EXIT_BLOCK_PTR_FOR_FUNCTION (fn));
+
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (fn)->next_bb
+    = EXIT_BLOCK_PTR_FOR_FUNCTION (fn);
+  EXIT_BLOCK_PTR_FOR_FUNCTION (fn)->prev_bb
+    = ENTRY_BLOCK_PTR_FOR_FUNCTION (fn);
+}
+
+void
+init_empty_tree_cfg (void)
+{
+  init_empty_tree_cfg_for_function (cfun);
 }
 
 /*---------------------------------------------------------------------------
@@ -3194,6 +3209,18 @@ one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
   return false;
 }
 
+/* Return true if TYPE1 is a fixed-point type and if conversions to and
+   from TYPE2 can be handled by FIXED_CONVERT_EXPR.  */
+
+static bool
+valid_fixed_convert_types_p (tree type1, tree type2)
+{
+  return (FIXED_POINT_TYPE_P (type1)
+	  && (INTEGRAL_TYPE_P (type2)
+	      || SCALAR_FLOAT_TYPE_P (type2)
+	      || FIXED_POINT_TYPE_P (type2)));
+}
+
 /* Verify that OP is a valid GIMPLE operand.  Return true if there is
    an error, false otherwise.  */
 
@@ -3291,7 +3318,10 @@ verify_types_in_gimple_assign (gimple stmt)
 	   there is no sign or zero extension involved.  */
 	if (((POINTER_TYPE_P (lhs_type) && INTEGRAL_TYPE_P (rhs1_type))
 	     || (POINTER_TYPE_P (rhs1_type) && INTEGRAL_TYPE_P (lhs_type)))
-	    && TYPE_PRECISION (lhs_type) == TYPE_PRECISION (rhs1_type))
+	    && (TYPE_PRECISION (lhs_type) == TYPE_PRECISION (rhs1_type)
+		/* For targets were the precision of sizetype doesn't
+		   match that of pointers we need the following.  */
+		|| lhs_type == sizetype || rhs1_type == sizetype))
 	  return false;
 
 	/* Allow conversion from integer to offset type and vice versa.  */
@@ -3306,6 +3336,26 @@ verify_types_in_gimple_assign (gimple stmt)
 	if (INTEGRAL_TYPE_P (lhs_type) != INTEGRAL_TYPE_P (rhs1_type))
 	  {
 	    error ("invalid types in nop conversion");
+	    debug_generic_expr (lhs_type);
+	    debug_generic_expr (rhs1_type);
+	    return true;
+	  }
+
+	return false;
+      }
+
+    case FIXED_CONVERT_EXPR:
+      {
+	if (!is_gimple_val (rhs1))
+	  {
+	    error ("invalid operand in conversion");
+	    return true;
+	  }
+
+	if (!valid_fixed_convert_types_p (lhs_type, rhs1_type)
+	    && !valid_fixed_convert_types_p (rhs1_type, lhs_type))
+	  {
+	    error ("invalid types in fixed-point conversion");
 	    debug_generic_expr (lhs_type);
 	    debug_generic_expr (rhs1_type);
 	    return true;
@@ -3554,23 +3604,14 @@ verify_types_in_gimple_assign (gimple stmt)
   switch (TREE_CODE_CLASS (rhs_code))
     {
     case tcc_unary:
-    case tcc_binary:
-      {
-	size_t i;
-	for (i = 1; i < gimple_num_ops (stmt); i++)
-	  {
-	    tree op = gimple_op (stmt, i);
-
-	    if (!useless_type_conversion_p (lhs_type, TREE_TYPE (op)))
-	      {
-		error ("non-trivial conversion at assignment");
-		debug_generic_expr (lhs_type);
-		debug_generic_expr (TREE_TYPE (op));
-		return true;
-	      }
-	  }
-	break;
-      }
+      if (!useless_type_conversion_p (lhs_type, rhs1_type))
+	{
+	  error ("non-trivial conversion at assignment");
+	  debug_generic_expr (lhs);
+	  debug_generic_expr (rhs1);
+	  return true;
+	}
+      break;
 
     case tcc_reference:
       return verify_types_in_gimple_reference (rhs1);
@@ -5805,11 +5846,16 @@ dump_function_to_file (tree fn, FILE *file, int flags)
       print_generic_expr (file, TREE_TYPE (arg), dump_flags);
       fprintf (file, " ");
       print_generic_expr (file, arg, dump_flags);
+      if (flags & TDF_VERBOSE)
+	print_node (file, "", arg, 4);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);
     }
   fprintf (file, ")\n");
+
+  if (flags & TDF_VERBOSE)
+    print_node (file, "", fn, 2);
 
   dsf = DECL_STRUCT_FUNCTION (fn);
   if (dsf && (flags & TDF_DETAILS))
@@ -5836,6 +5882,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	  var = TREE_VALUE (vars);
 
 	  print_generic_decl (file, var, flags);
+	  if (flags & TDF_VERBOSE)
+	    print_node (file, "", var, 4);
 	  fprintf (file, "\n");
 
 	  any_var = true;

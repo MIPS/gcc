@@ -1205,8 +1205,8 @@ interesting_stringop_to_profile_p (tree fndecl, gimple call)
 {
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
 
-  if (fcode != BUILT_IN_MEMSET && fcode != BUILT_IN_MEMCPY
-      && fcode != BUILT_IN_BZERO)
+  if (fcode != BUILT_IN_MEMCPY && fcode != BUILT_IN_MEMPCPY
+      && fcode != BUILT_IN_MEMSET && fcode != BUILT_IN_BZERO)
     return false;
 
   switch (fcode)
