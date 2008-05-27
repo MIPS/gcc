@@ -1,5 +1,12 @@
 2008-05-26  Joey Ye  <joey.ye@intel.com>
 
+	* function.h (frame_pointer_needed_set): Remove.
+	* global.c (compute_regsets): Remove frame_pointer_needed_set
+	and add comments.
+	* reload1.c (init_elim_table): Likewise.
+
+2008-05-26  Joey Ye  <joey.ye@intel.com>
+
 	* function.h (rtl_data): Add more descriptive comments to
 	preferred_stack_boundary, stack_alignment_estimated,
 	frame_pointer_needed_set, stack_realign_needed,

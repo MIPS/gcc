@@ -206,7 +206,9 @@ static void build_insn_chain (void);
 
    This will normally be called with ELIM_SET as the file static
    variable eliminable_regset, and NO_GLOBAL_SET as the file static
-   variable NO_GLOBAL_ALLOC_REGS.  */
+   variable NO_GLOBAL_ALLOC_REGS.
+
+   It also initializes global flag frame_pointer_needed.  */
 
 static void
 compute_regsets (HARD_REG_SET *elim_set, 
@@ -235,7 +237,6 @@ compute_regsets (HARD_REG_SET *elim_set,
        || crtl->stack_realign_needed);
 
   frame_pointer_needed = need_fp;
-  crtl->frame_pointer_needed_set = 1;
 
   max_regno = max_reg_num ();
   compact_blocks ();

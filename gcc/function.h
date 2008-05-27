@@ -414,9 +414,6 @@ struct rtl_data GTY(())
      Set in global.c if anything is allocated on the stack there.  */
   bool frame_pointer_needed;
 
-  /* Nonzero if flag frame_pointer_needed was set.  */
-  bool frame_pointer_needed_set;
-
   /* Nonzero if function stack realignment is needed. This flag may be
      set twice: before and after reload. It is set before reload wrt
      stack alignment estimation before reload. It will be changed after 

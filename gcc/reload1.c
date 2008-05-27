@@ -3764,7 +3764,9 @@ elimination_target_reg_p (rtx x)
   return false;
 }
 
-/* Initialize the table of registers to eliminate.  */
+/* Initialize the table of registers to eliminate.
+   Pre-condition: global flag frame_pointer_needed has been set before
+   calling this function.  */
 
 static void
 init_elim_table (void)
@@ -3776,9 +3778,6 @@ init_elim_table (void)
 
   if (!reg_eliminate)
     reg_eliminate = xcalloc (sizeof (struct elim_table), NUM_ELIMINABLE_REGS);
-
-  /* frame_pointer_needed should has been set.  */
-  gcc_assert (crtl->frame_pointer_needed_set);
 
   num_eliminable = 0;
 
