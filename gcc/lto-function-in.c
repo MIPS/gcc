@@ -50,7 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "dwarf2out.h"
 #include "output.h"
 #include "lto-tags.h"
-#include "lto.h"
+#include "lto-section-in.h"
 #include <ctype.h>
 #include "cpplib.h"
 
@@ -148,14 +148,15 @@ static const char *
 input_string_internal (struct data_in *data_in, unsigned int loc, 
 		       unsigned int *rlen)
 {
-  struct lto_input_block str_tab 
-    = {data_in->strings, loc, data_in->strings_len};
+  struct lto_input_block str_tab;
   unsigned int len = lto_input_uleb128 (&str_tab);
   const char * result;
-
+  
+  LTO_INIT_INPUT_BLOCK (str_tab, data_in->strings,
+			loc, data_in->strings_len);
   *rlen = len;
   gcc_assert (str_tab.p + len <= data_in->strings_len);
-
+  
   result = (const char *)(data_in->strings + str_tab.p);
   LTO_DEBUG_STRING (result, len);
   return result;
@@ -351,11 +352,10 @@ canon_file_name (const char *string)
     {
       size_t len = strlen (string);
       char * saved_string = xmalloc (len + 1);
-      strcpy (saved_string, string);
-
       struct string_slot *new_slot
 	= xmalloc (sizeof (struct string_slot));
 
+      strcpy (saved_string, string);
       new_slot->s = saved_string;
       *slot = new_slot;
       return saved_string;
@@ -442,10 +442,10 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
   enum tree_code code = tag_to_expr[tag];
   tree type = NULL_TREE;
   lto_flags_type flags;
-  gcc_assert (code);
   tree result = NULL_TREE;
   bool needs_line_set = false;
   
+  gcc_assert (code);
   if (TEST_BIT (lto_types_needed_for, code))
     type = input_type_ref (data_in, ib);
 
@@ -1718,11 +1718,11 @@ lto_static_init_local (void)
 static void 
 lto_read_body (struct lto_file_decl_data* file_data,
 	       tree fn_decl,
-	       const void *data,
+	       const char *data,
 	       enum lto_section_type section_type)
 {
-  struct lto_function_header * header 
-    = (struct lto_function_header *) data;
+  const struct lto_function_header * header 
+    = (const struct lto_function_header *) data;
   struct data_in data_in;
 
   int32_t named_label_offset = sizeof (struct lto_function_header); 
@@ -1743,34 +1743,59 @@ lto_read_body (struct lto_file_decl_data* file_data,
   int32_t debug_cfg_offset = debug_ssa_names_offset + header->debug_ssa_names_size;
   int32_t debug_main_offset = debug_cfg_offset + header->debug_cfg_size;
 
-  struct lto_input_block debug_decl_index 
-    = {data + debug_decl_index_offset, 0, header->debug_decl_index_size};
-  struct lto_input_block debug_decl 
-    = {data + debug_decl_offset, 0, header->debug_decl_size};
-  struct lto_input_block debug_label 
-    = {data + debug_label_offset, 0, header->debug_label_size};
-  struct lto_input_block debug_ssa_names 
-    = {data + debug_ssa_names_offset, 0, header->debug_ssa_names_size};
-  struct lto_input_block debug_cfg 
-    = {data + debug_cfg_offset, 0, header->debug_cfg_size};
-  struct lto_input_block debug_main 
-    = {data + debug_main_offset, 0, header->debug_main_size};
+  struct lto_input_block debug_decl_index;
+  struct lto_input_block debug_decl;
+  struct lto_input_block debug_label;
+  struct lto_input_block debug_ssa_names;
+  struct lto_input_block debug_cfg;
+  struct lto_input_block debug_main;
 #endif
 
-  struct lto_input_block ib_named_labels 
-    = {data + named_label_offset, 0, header->named_label_size};
-  struct lto_input_block ib_ssa_names 
-    = {data + ssa_names_offset, 0, header->ssa_names_size};
-  struct lto_input_block ib_cfg 
-    = {data + cfg_offset, 0, header->cfg_size};
-  struct lto_input_block ib_local_decls_index 
-    = {data + local_decls_index_offset, 0, header->local_decls_index_size};
-  struct lto_input_block ib_local_decls 
-    = {data + local_decls_offset, 0, header->local_decls_size};
-  struct lto_input_block ib_main 
-    = {data + main_offset, 0, header->main_size};
+  struct lto_input_block ib_named_labels;
+  struct lto_input_block ib_ssa_names;
+  struct lto_input_block ib_cfg;
+  struct lto_input_block ib_local_decls_index;
+  struct lto_input_block ib_local_decls;
+  struct lto_input_block ib_main;
 
+  LTO_INIT_INPUT_BLOCK (ib_named_labels, 
+			data + named_label_offset, 0, 
+			header->named_label_size);
+  LTO_INIT_INPUT_BLOCK (ib_ssa_names, 
+			data + ssa_names_offset, 0, 
+			header->ssa_names_size);
+  LTO_INIT_INPUT_BLOCK (ib_cfg, 
+			data + cfg_offset, 0, 
+			header->cfg_size);
+  LTO_INIT_INPUT_BLOCK (ib_local_decls_index, 
+			data + local_decls_index_offset, 0, 
+			header->local_decls_index_size);
+  LTO_INIT_INPUT_BLOCK (ib_local_decls, 
+			data + local_decls_offset, 0, 
+			header->local_decls_size);
+  LTO_INIT_INPUT_BLOCK (ib_main, 
+			data + main_offset, 0, 
+			header->main_size);
+  
 #ifdef LTO_STREAM_DEBUGGING
+  LTO_INIT_INPUT_BLOCK (debug_decl_index, 
+			data + debug_decl_index_offset, 0, 
+			header->debug_decl_index_size);
+  LTO_INIT_INPUT_BLOCK (debug_decl, 
+			data + debug_decl_offset, 0, 
+			header->debug_decl_size);
+  LTO_INIT_INPUT_BLOCK (debug_label, 
+			data + debug_label_offset, 0, 
+			header->debug_label_size);
+  LTO_INIT_INPUT_BLOCK (debug_ssa_names, 
+			data + debug_ssa_names_offset, 0, 
+			header->debug_ssa_names_size);
+  LTO_INIT_INPUT_BLOCK (debug_cfg, 
+			data + debug_cfg_offset, 0, 
+			header->debug_cfg_size);
+  LTO_INIT_INPUT_BLOCK (debug_main, 
+			data + debug_main_offset, 0, 
+			header->debug_main_size);
   lto_debug_context.out = lto_debug_in_fun;
   lto_debug_context.indent = 0;
   lto_debug_context.tag_names = LTO_tree_tag_names;
@@ -1867,7 +1892,7 @@ lto_read_body (struct lto_file_decl_data* file_data,
 void 
 lto_input_function_body (struct lto_file_decl_data* file_data,
 			 tree fn_decl,
-			 const void *data)
+			 const char *data)
 {
   current_function_decl = fn_decl;
   lto_read_body (file_data, fn_decl, data, LTO_section_function_body);
@@ -1878,7 +1903,7 @@ lto_input_function_body (struct lto_file_decl_data* file_data,
 
 void 
 lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
-				  const void *data)
+				  const char *data)
 {
   lto_read_body (file_data, NULL, data, LTO_section_static_initializer);
 }

@@ -243,40 +243,6 @@ extern void lto_elf_file_close (lto_file *file);
 /* Build and index of all lto sections in an elf file.  */
 extern htab_t lto_elf_build_section_table (lto_file *file);
 
-/* lto-function-in.c */
-
-struct lto_file_decl_data* lto_read_decls (lto_info_fd *, lto_context *, const void *data);
-
-/* FN is a FUNCTION_DECL.  DATA is the LTO data written out during
-   ordinary compilation, encoding the body of FN.  FILE_DATA are the
-   tables holding all of the global types and decls used by FN.  Upon
-   return, DECL_SAVED_TREE for FN contains the reconstituted body of
-   FN and DECL_INITIAL contains the BLOCK tree for the function.
-   However, it is not this function's responsibility to provide FN to
-   the optimizers or code-generators; that will be done by the
-   caller.  */
-extern void
-lto_input_function_body (struct lto_file_decl_data* file_data,
-			tree fn,
-			const void *data);
-
-/* DATA is the LTO data written out during ordinary compilation,
-   encoding the initializers for the static and external vars.
-   FILE_DATA are the tables holding all of the global types and decls
-   used in that file.  */
-extern void
-lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
-				  const void *data);
-
-/* DATA is the LTO data written out during ordinary compilation,
-   encoding the initializers for the static and external vars.
-   FILE_DATA are the tables holding all of the global types and decls
-   used un that file.   */
-extern void
-lto_input_cgraph (struct lto_file_decl_data* file_data,
-		  const void *data);
-
-
 /* lto-symtab.c */
 
 /* The NEW_VAR (a VAR_DECL) has just been read.  If there is an

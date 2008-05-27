@@ -28,6 +28,12 @@ struct lto_input_block
   unsigned int len;
 };
 
+#define LTO_INIT_INPUT_BLOCK(BASE,D,P,L)   \
+  do {                                     \
+    BASE.data = D;                         \
+    BASE.p = P;                            \
+    BASE.len = L;                          \
+  } while (0)
 
 /* Hash table entry to hold the start offset and length of an lto
    section in a .o file.  */
@@ -68,6 +74,35 @@ struct lto_file_decl_data
   htab_t section_hash_table;
 };
 
+
+/* lto-function-in.c */
+
+/* FN is a FUNCTION_DECL.  DATA is the LTO data written out during
+   ordinary compilation, encoding the body of FN.  FILE_DATA are the
+   tables holding all of the global types and decls used by FN.  Upon
+   return, DECL_SAVED_TREE for FN contains the reconstituted body of
+   FN and DECL_INITIAL contains the BLOCK tree for the function.
+   However, it is not this function's responsibility to provide FN to
+   the optimizers or code-generators; that will be done by the
+   caller.  */
+extern void
+lto_input_function_body (struct lto_file_decl_data* file_data,
+			tree fn, const char *data);
+
+/* DATA is the LTO data written out during ordinary compilation,
+   encoding the initializers for the static and external vars.
+   FILE_DATA are the tables holding all of the global types and decls
+   used in that file.  */
+extern void
+lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
+				  const char *data);
+
+/* DATA is the LTO data written out during ordinary compilation,
+   encoding the initializers for the static and external vars.
+   FILE_DATA are the tables holding all of the global types and decls
+   used un that file.   */
+extern void
+lto_input_cgraph (struct lto_file_decl_data* file_data, const char *data);
 
 extern unsigned char lto_input_1_unsigned (struct lto_input_block *);
 extern unsigned HOST_WIDE_INT lto_input_uleb128 (struct lto_input_block *);

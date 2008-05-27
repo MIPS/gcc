@@ -34,6 +34,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tree.h"
 #include "tree-ssa-operands.h"  /* For init_ssa_operands.  */
 #include "langhooks.h"
+#include "lto-section.h"
 #include "lto-section-in.h"
 
 /* References 
@@ -2490,6 +2491,81 @@ lto_materialize_cgraph (struct lto_file_decl_data * file_data)
   free ((char *)data);
 }
 
+/* Load in the global vars and all of the types from the main symbol
+   table.  */
+
+static struct lto_file_decl_data*
+lto_read_decls (lto_info_fd *fd,
+		lto_context *context,
+		const void *data)
+{
+  struct lto_decl_header * header 
+    = (struct lto_decl_header *) data;
+  struct lto_file_decl_data *data_in = xmalloc (sizeof (struct lto_file_decl_data));
+
+  int32_t fields_offset = sizeof (struct lto_decl_header); 
+  int32_t fns_offset 
+    = fields_offset + (header->num_field_decls * sizeof (lto_ref));
+  int32_t vars_offset 
+    = fns_offset + (header->num_fn_decls * sizeof (lto_ref));
+  int32_t type_decls_offset 
+    = vars_offset + (header->num_var_decls * sizeof (lto_ref));
+  int32_t namespace_decls_offset
+    = type_decls_offset + (header->num_type_decls * sizeof (lto_ref));
+  int32_t types_offset
+    = namespace_decls_offset + (header->num_namespace_decls * sizeof (lto_ref));
+
+  lto_ref *in_field_decls = (lto_ref*)(data + fields_offset);
+  lto_ref *in_fn_decls    = (lto_ref*)(data + fns_offset);
+  lto_ref *in_var_decls   = (lto_ref*)(data + vars_offset);
+  lto_ref *in_type_decls  = (lto_ref*)(data + type_decls_offset);
+  lto_ref *in_namespace_decls  = (lto_ref*)(data + namespace_decls_offset);
+  lto_ref *in_types       = (lto_ref*)(data + types_offset);
+  int i;
+
+  data_in->field_decls = xcalloc (header->num_field_decls, sizeof (tree*));
+  data_in->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree*));
+  data_in->var_decls   = xcalloc (header->num_var_decls, sizeof (tree*));
+  data_in->type_decls  = xcalloc (header->num_type_decls, sizeof (tree*));
+  data_in->namespace_decls
+    = xcalloc (header->num_namespace_decls, sizeof (tree*));
+  data_in->types       = xcalloc (header->num_types, sizeof (tree*));
+
+  for (i=0; i<header->num_field_decls; i++)
+    data_in->field_decls[i] 
+      = lto_resolve_field_ref (fd, context, &in_field_decls[i]);
+  data_in->num_field_decls = header->num_field_decls;
+
+  for (i=0; i<header->num_fn_decls; i++)
+    data_in->fn_decls[i] 
+      = lto_resolve_fn_ref (fd, context, &in_fn_decls[i]);
+  data_in->num_fn_decls = header->num_fn_decls;
+
+  for (i=0; i<header->num_var_decls; i++)
+    data_in->var_decls[i] 
+      = lto_resolve_var_ref (fd, context, &in_var_decls[i]);
+  data_in->num_var_decls = header->num_var_decls;
+
+  for (i=0; i<header->num_type_decls; i++)
+    data_in->type_decls[i] 
+      = lto_resolve_typedecl_ref (fd, context, &in_type_decls[i]);
+  data_in->num_type_decls = header->num_type_decls;
+
+  for (i = 0; i < header->num_namespace_decls; i++)
+    data_in->namespace_decls[i]
+      = lto_resolve_namespacedecl_ref (fd, context, &in_namespace_decls[i]);
+  data_in->num_namespace_decls = header->num_namespace_decls;
+
+  for (i=0; i<header->num_types; i++)
+    data_in->types[i] = lto_resolve_type_ref (fd, context, &in_types[i]);
+  data_in->num_types = header->num_types;
+
+  data_in->file_name = lto_get_file_name (fd);
+
+  return data_in;
+}
+
+
 /* Read the indirection tables for the global decls and types.  */
 
 static struct lto_file_decl_data *
@@ -3417,19 +3493,20 @@ lto_read_DIE (lto_info_fd *fd, lto_context *context, bool *more)
 	  if (val)
 	    /* If this DIE refers to a type, cache the value so that future
 	       references to the type can be processed quickly.  */
-	    if (TYPE_P (val))
-	      {
-		/* In the absence of a better solution, say that we alias
-		   everything FIXME.  */
-		TYPE_ALIAS_SET (val) = 0;
-
+	    {
+	      if (TYPE_P (val))
+		{
+		  /* In the absence of a better solution, say that we alias
+		     everything FIXME.  */
+		  TYPE_ALIAS_SET (val) = 0;
+		  
+		  lto_cache_store_DIE (fd, die, val);
+		}
+	      /* If this DIE refers to a namespace, we must cache the value
+		 or future references will not properly set DECL_CONTEXT.  */
+	      else if (TREE_CODE (val) == NAMESPACE_DECL)
 		lto_cache_store_DIE (fd, die, val);
-	      }
-	    /* If this DIE refers to a namespace, we must cache the value
-	       or future references will not properly set DECL_CONTEXT.  */
-	    else if (TREE_CODE (val) == NAMESPACE_DECL)
-	      lto_cache_store_DIE (fd, die, val);
-
+	    }
           context->skip_non_parameters = saved_skip_non_parameters;
 	}
       else

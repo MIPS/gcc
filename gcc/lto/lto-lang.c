@@ -306,7 +306,7 @@ lto_init_options (unsigned int argc ATTRIBUTE_UNUSED,
    of the option was supplied.  */
 
 static int
-lto_handle_option (size_t scode, const char *arg, int value)
+lto_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value ATTRIBUTE_UNUSED)
 {
   enum opt_code code = (enum opt_code) scode;
   int result;
@@ -453,12 +453,6 @@ lto_type_for_mode (enum machine_mode mode ATTRIBUTE_UNUSED,
 
 static int
 lto_global_bindings_p (void) 
-{
-  gcc_unreachable ();
-}
-
-static void
-lto_insert_block (tree block ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -658,8 +652,6 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME lto_set_decl_assembler_name
 #undef LANG_HOOKS_GLOBAL_BINDINGS_P
 #define LANG_HOOKS_GLOBAL_BINDINGS_P lto_global_bindings_p
-#undef LANG_HOOKS_INSERT_BLOCK
-#define LANG_HOOKS_INSERT_BLOCK lto_insert_block
 #undef LANG_HOOKS_PUSHDECL
 #define LANG_HOOKS_PUSHDECL lto_pushdecl
 #undef LANG_HOOKS_GETDECLS

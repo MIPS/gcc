@@ -1,3 +1,19 @@
+2008-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* lto.h (lto_read_decls): Made local.
+	(lto_input_function_body, lto_input_constructors_and_inits, 
+	lto_input_cgraph): Declarations moved to lto-section-in.h.
+	* lto-section-in.c: Moved to .. .
+	* lto-cgraph-in.c: Ditto.
+	* lto-section-in.h: Ditto.
+	* lto-function-in.c: Ditto.
+	* lto-lang.c (lto_handle_option): Added ATTRIBUTE_UNUSED to parms.
+	(lto_insert_block): Removed.
+	(LANG_HOOKS_INSERT_BLOCK): Removed.
+	* Make-lang.in (lto-cgraph-in.o, lto-function-in.o,
+	lto-section-in.o): Rules moved to lto/Makefile.in.
+	
+
 2008-05-16  Ollie Wild  <aaw@google.com>
 
 	* lto-lang.c (tree-inline.h): Include.

@@ -186,7 +186,6 @@ static void Compilation_Unit_to_gnu (Node_Id);
 static void record_code_position (Node_Id);
 static void insert_code_for (Node_Id);
 static void add_cleanup (tree, Node_Id);
-static tree mark_visited (tree *, int *, void *);
 static tree unshare_save_expr (tree *, int *, void *);
 static void add_stmt_list (List_Id);
 static void push_exception_label_stack (tree *, Entity_Id);
@@ -4777,45 +4776,71 @@ gnat_to_gnu (Node_Id gnat_node)
       break;
 
     case N_Validate_Unchecked_Conversion:
-      /* If the result is a pointer type, see if we are either converting
-	 from a non-pointer or from a pointer to a type with a different
-	 alias set and warn if so.  If the result defined in the same unit as
-	 this unchecked conversion, we can allow this because we can know to
-	 make that type have alias set 0.  */
       {
+	Entity_Id gnat_target_type = Target_Type (gnat_node);
 	tree gnu_source_type = gnat_to_gnu_type (Source_Type (gnat_node));
-	tree gnu_target_type = gnat_to_gnu_type (Target_Type (gnat_node));
+	tree gnu_target_type = gnat_to_gnu_type (gnat_target_type);
 
-	if (POINTER_TYPE_P (gnu_target_type)
-	    && !In_Same_Source_Unit (Target_Type (gnat_node), gnat_node)
-	    && get_alias_set (TREE_TYPE (gnu_target_type)) != 0
-	    && !No_Strict_Aliasing (Underlying_Type (Target_Type (gnat_node)))
-	    && (!POINTER_TYPE_P (gnu_source_type)
-		|| (get_alias_set (TREE_TYPE (gnu_source_type))
-		    != get_alias_set (TREE_TYPE (gnu_target_type)))))
+	/* No need for any warning in this case.  */
+	if (!flag_strict_aliasing)
+	  ;
+
+	/* If the result is a pointer type, see if we are either converting
+	   from a non-pointer or from a pointer to a type with a different
+	   alias set and warn if so.  If the result is defined in the same
+	   unit as this unchecked conversion, we can allow this because we
+	   can know to make the pointer type behave properly.  */
+	else if (POINTER_TYPE_P (gnu_target_type)
+		 && !In_Same_Source_Unit (gnat_target_type, gnat_node)
+		 && !No_Strict_Aliasing (Underlying_Type (gnat_target_type)))
 	  {
-	    post_error_ne
-	      ("?possible aliasing problem for type&",
-	       gnat_node, Target_Type (gnat_node));
-	    post_error
-	      ("\\?use -fno-strict-aliasing switch for references",
-	       gnat_node);
-	    post_error_ne
-	      ("\\?or use `pragma No_Strict_Aliasing (&);`",
-	       gnat_node, Target_Type (gnat_node));
+	    tree gnu_source_desig_type = POINTER_TYPE_P (gnu_source_type)
+					 ? TREE_TYPE (gnu_source_type)
+					 : NULL_TREE;
+	    tree gnu_target_desig_type = TREE_TYPE (gnu_target_type);
+
+	    if ((TYPE_DUMMY_P (gnu_target_desig_type)
+		 || get_alias_set (gnu_target_desig_type) != 0)
+	        && (!POINTER_TYPE_P (gnu_source_type)
+		    || (TYPE_DUMMY_P (gnu_source_desig_type)
+			!= TYPE_DUMMY_P (gnu_target_desig_type))
+		    || (TYPE_DUMMY_P (gnu_source_desig_type)
+			&& gnu_source_desig_type != gnu_target_desig_type)
+		    || (get_alias_set (gnu_source_desig_type)
+			!= get_alias_set (gnu_target_desig_type))))
+	      {
+		post_error_ne
+		  ("?possible aliasing problem for type&",
+		   gnat_node, Target_Type (gnat_node));
+		post_error
+		  ("\\?use -fno-strict-aliasing switch for references",
+		   gnat_node);
+		post_error_ne
+		  ("\\?or use `pragma No_Strict_Aliasing (&);`",
+		   gnat_node, Target_Type (gnat_node));
+	      }
 	  }
 
-	/* The No_Strict_Aliasing flag is not propagated to the back-end for
-	   fat pointers so unconditionally warn in problematic cases.  */
+	/* But if the result is a fat pointer type, we have no mechanism to
+	   do that, so we unconditionally warn in problematic cases.  */
 	else if (TYPE_FAT_POINTER_P (gnu_target_type))
 	  {
-	    tree array_type
+	    tree gnu_source_array_type
+	      = TYPE_FAT_POINTER_P (gnu_source_type)
+		? TREE_TYPE (TREE_TYPE (TYPE_FIELDS (gnu_source_type)))
+		: NULL_TREE;
+	    tree gnu_target_array_type
 	      = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (gnu_target_type)));
 
-	    if (get_alias_set (array_type) != 0
+	    if ((TYPE_DUMMY_P (gnu_target_array_type)
+		 || get_alias_set (gnu_target_array_type) != 0)
 		&& (!TYPE_FAT_POINTER_P (gnu_source_type)
-		    || (get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (gnu_source_type))))
-			!= get_alias_set (array_type))))
+		    || (TYPE_DUMMY_P (gnu_source_array_type)
+			!= TYPE_DUMMY_P (gnu_target_array_type))
+		    || (TYPE_DUMMY_P (gnu_source_array_type)
+			&& gnu_source_array_type != gnu_target_array_type)
+		    || (get_alias_set (gnu_source_array_type)
+			!= get_alias_set (gnu_target_array_type))))
 	      {
 		post_error_ne
 		  ("?possible aliasing problem for type&",
@@ -4855,7 +4880,10 @@ gnat_to_gnu (Node_Id gnat_node)
      the location information of their last use.  Note that we may have
      no result if we tried to build a CALL_EXPR node to a procedure with
      no side-effects and optimization is enabled.  */
-  if (gnu_result && EXPR_P (gnu_result) && !REFERENCE_CLASS_P (gnu_result))
+  if (gnu_result
+      && EXPR_P (gnu_result)
+      && TREE_CODE (gnu_result) != NOP_EXPR
+      && !REFERENCE_CLASS_P (gnu_result))
     set_expr_location_from_node (gnu_result, gnat_node);
 
   /* If we're supposed to return something of void_type, it means we have
@@ -5076,13 +5104,13 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
       /* Mark everything as used to prevent node sharing with subprograms.
 	 Note that walk_tree knows how to deal with TYPE_DECL, but neither
 	 VAR_DECL nor CONST_DECL.  This appears to be somewhat arbitrary.  */
-      walk_tree (&gnu_stmt, mark_visited, NULL, NULL);
+      mark_visited (&gnu_stmt);
       if (TREE_CODE (gnu_decl) == VAR_DECL
 	  || TREE_CODE (gnu_decl) == CONST_DECL)
 	{
-	  walk_tree (&DECL_SIZE (gnu_decl), mark_visited, NULL, NULL);
-	  walk_tree (&DECL_SIZE_UNIT (gnu_decl), mark_visited, NULL, NULL);
-	  walk_tree (&DECL_INITIAL (gnu_decl), mark_visited, NULL, NULL);
+	  mark_visited (&DECL_SIZE (gnu_decl));
+	  mark_visited (&DECL_SIZE_UNIT (gnu_decl));
+	  mark_visited (&DECL_INITIAL (gnu_decl));
 	}
       /* In any case, we have to deal with our own TYPE_ADA_SIZE field.  */
       if (TREE_CODE (gnu_decl) == TYPE_DECL
@@ -5090,7 +5118,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == QUAL_UNION_TYPE)
 	  && (t = TYPE_ADA_SIZE (type)))
-	walk_tree (&t, mark_visited, NULL, NULL);
+	mark_visited (&t);
     }
   else
     add_stmt_with_node (gnu_stmt, gnat_entity);
@@ -5124,13 +5152,10 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
     }
 }
 
-/* Utility function to mark nodes with TREE_VISITED and types as having their
-   sized gimplified.  Called from walk_tree.  We use this to indicate all
-   variable sizes and positions in global types may not be shared by any
-   subprogram.  */
+/* Callback for walk_tree to mark the visited trees rooted at *TP.  */
 
 static tree
-mark_visited (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+mark_visited_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   if (TREE_VISITED (*tp))
     *walk_subtrees = 0;
@@ -5158,6 +5183,16 @@ unshare_save_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     TREE_OPERAND (t, 0) = unshare_expr (TREE_OPERAND (t, 0));
 
   return NULL_TREE;
+}
+
+/* Mark nodes rooted at *TP with TREE_VISITED and types as having their
+   sized gimplified.  We use this to indicate all variable sizes and
+   positions in global types may not be shared by any subprogram.  */
+
+void
+mark_visited (tree *tp)
+{
+  walk_tree (tp, mark_visited_r, NULL, NULL);
 }
 
 /* Add GNU_CLEANUP, a cleanup action, to the current code group and
@@ -6821,7 +6856,8 @@ Sloc_to_locus (Source_Ptr Sloc, location_t *locus)
 
   if (Sloc <= Standard_Location)
     {
-      *locus = BUILTINS_LOCATION;
+      if (*locus == UNKNOWN_LOCATION)
+	*locus = BUILTINS_LOCATION;
       return false;
     }
   else

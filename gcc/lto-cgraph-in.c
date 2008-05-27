@@ -49,7 +49,6 @@ Boston, MA 02110-1301, USA.  */
 #include "dwarf2out.h"
 #include "output.h"
 #include "lto-cgraph.h"
-#include "lto.h"
 #include "lto-section-in.h"
 #include <ctype.h>
 #include "cpplib.h"
@@ -210,31 +209,31 @@ input_cgraph (struct lto_input_block *ib,
     }
 }
 
-
 /* Read the body form DATA using the symbols in FILE_DATA to
    reconstruct the part of the cgraph associated with FILE_DATA.  */
 
 void 
-lto_input_cgraph (struct lto_file_decl_data* file_data, const void *data)
+lto_input_cgraph (struct lto_file_decl_data* file_data, const char *data)
 {
   const struct lto_cgraph_header * header 
     = (const struct lto_cgraph_header *) data;
   struct data_in data_in;
+  struct lto_input_block ib_main;
   
   int32_t main_offset = sizeof (struct lto_cgraph_header); 
 #ifdef LTO_STREAM_DEBUGGING
   int32_t debug_main_offset = main_offset + header->main_size;
-  struct lto_input_block debug_main 
-    = {data + debug_main_offset, 0, header->debug_main_size};
+  struct lto_input_block debug_main;
 #endif
-  
-  struct lto_input_block ib_main 
-    = {data + main_offset, 0, header->main_size};
-  
+
+  LTO_INIT_INPUT_BLOCK (ib_main, data + main_offset,
+			0, header->main_size);
   memset (&data_in, 0, sizeof (struct data_in));
   data_in.file_data          = file_data;
   
 #ifdef LTO_STREAM_DEBUGGING
+  LTO_INIT_INPUT_BLOCK (debug_main, data + debug_main_offset,
+			0, header->debug_main_size);
   lto_debug_context.current_data = &debug_main;
   lto_debug_context.indent = 0;
   lto_debug_context.stream_name = "cgraph";
