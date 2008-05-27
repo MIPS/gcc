@@ -20442,6 +20442,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
   condv = make_tree_vec (collapse);
   incrv = make_tree_vec (collapse);
 
+  loc_first = cp_lexer_peek_token (parser->lexer)->location;
+
   for (i = 0; i < collapse; i++)
     {
       int bracecount = 0;
@@ -20454,8 +20456,6 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	  return NULL;
 	}
       loc = cp_lexer_consume_token (parser->lexer)->location;
-      if (i == 0)
-	loc_first = loc;
 
       if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
 	return NULL;
