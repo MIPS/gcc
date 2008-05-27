@@ -1439,8 +1439,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_FOR:
-      /* FIXME tuples */
-      /* This may need adjusting because of Jakub's code.  */
       ret = walk_tree (gimple_omp_for_clauses_ptr (stmt), callback_op, wi,
 		       pset);
       if (ret)
