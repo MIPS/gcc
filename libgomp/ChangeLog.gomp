@@ -1,3 +1,76 @@
+2008-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (enum gomp_task_kind): New type.
+	(struct gomp_task): Rename prev field to parent.  Add children,
+	next_child, prev_child, next_queue, prev_queue, fn, fn_data,
+	kind, in_taskwait and taskwait_sem fields.
+	(struct gomp_team): Add task_lock, task_queue, task_count and
+	task_running_count fields.
+	(struct gomp_thread_pool): Add last_team field.
+	(gomp_barrier_handle_tasks): New prototype.
+	(gomp_finish_task): New inline function.
+	* config/linux/bar.h (gomp_team_barrier_wait,
+	gomp_team_barrier_wait_end, gomp_team_barrier_wake): New prototypes.
+	(gomp_barrier_wait_start): Clear low 2 bits from generation in
+	return value.
+	(gomp_team_barrier_set_task_pending,
+	gomp_team_barrier_clear_task_pending,
+	gomp_team_barrier_set_waiting_for_tasks,
+	gomp_team_barrier_waiting_for_tasks,
+	gomp_team_barrier_done): New inlines.
+	* config/linux/bar.c (gomp_barrier_wait_end): Add 4 rather than 2
+	to generation in last thread.
+	(gomp_team_barrier_wait, gomp_team_barrier_wait_end,
+	gomp_team_barrier_wake): New functions.
+	* config/posix/bar.h (gomp_barrier_t): Add generation field.
+	(gomp_barrier_state_t): Change into unsigned int.
+	(gomp_team_barrier_wait,
+	gomp_team_barrier_wait_end, gomp_team_barrier_wake): New prototypes.
+	(gomp_barrier_wait_start): Or all but low 2 bits from generation
+	into the return value.
+	(gomp_barrier_last_thread): Return true if low bit is non-zero.
+	(gomp_team_barrier_set_task_pending,
+	gomp_team_barrier_clear_task_pending,
+	gomp_team_barrier_set_waiting_for_tasks,
+	gomp_team_barrier_waiting_for_tasks,
+	gomp_team_barrier_done): New inlines.
+	* config/posix/bar.c (gomp_barrier_init): Clear generation field.
+	(gomp_barrier_wait_end): Adjust for gomp_barrier_state_t change.
+	(gomp_team_barrier_wait, gomp_team_barrier_wait_end,
+	gomp_team_barrier_wake): New functions.
+	* team.c (gomp_thread_start): Add gomp_team_barrier_wait call.
+	For non-nested case remove clearing of docked thread thr fields
+	and gomp_barrier_wait_last.  Add gomp_finish_task calls, instead
+	of gomp_end_task.
+	(gomp_new_team): Initialize task_{lock,queue,count,running_count}
+	fields.
+	(free_team): Only destroy team barrier, task_lock here and free it.
+	(gomp_new_thread_pool): Initialize last_team.
+	(gomp_free_thread): Free last_team if non-NULL.
+	(gomp_team_end): Call gomp_team_barrier_wait instead of
+	gomp_barrier_wait.  For nested case call one extra
+	gomp_barrier_wait.  Move here some destruction from free_team.
+	Call free_team on pool->last_team if any, rather than freeing
+	current team.
+	* barrier.c (GOMP_barrier): Call gomp_team_barrier_wait instead
+	of gomp_barrier_wait.
+	* single.c (GOMP_single_copy_start, GOMP_single_copy_end): Likewise.
+	* work.c (gomp_work_share_end): Call gomp_team_barrier_wait_end
+	instead of gomp_barrier_wait_end.
+	* task.c (gomp_init_task): Adjust prev to parent.  Initialize
+	kind, in_taskwait, children and taskwait_sem fields.
+	(gomp_end_task): Adjust prev to parent.  Call gomp_finish_task.
+	(gomp_clear_parent): New inline function.
+	(GOMP_task): Add support for tied non-if(0) tasks.
+	(gomp_barrier_handle_tasks): New function.
+	(GOMP_taskwait): Rewritten.
+	* omp_lib.f90.in (openmp_version): Set to 200805.
+	* omp_lib.h.in (openmp_version): Likewise.
+	* testsuite/libgomp.fortran/task1.f90: Make task if (.false.).
+	* testsuite/libgomp.c/lock-3.c (main): Call omp_init_nest_lock
+	and omp_destroy_nest_lock.
+	* testsuite/libgomp.c/sort-1.c: New test.
+
 2008-05-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/task-6.C: New test.

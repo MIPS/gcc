@@ -227,7 +227,7 @@ gomp_work_share_end (void)
 	free_work_share (team, thr->ts.last_work_share);
     }
 
-  gomp_barrier_wait_end (&team->barrier, bstate);
+  gomp_team_barrier_wait_end (&team->barrier, bstate);
   thr->ts.last_work_share = NULL;
 }
 

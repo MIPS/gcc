@@ -95,9 +95,15 @@ gomp_thread_start (void *xdata)
 
   if (data->nested)
     {
-      gomp_barrier_wait (&thr->ts.team->barrier);
+      struct gomp_team *team = thr->ts.team;
+      struct gomp_task *task = thr->task;
+
+      gomp_barrier_wait (&team->barrier);
+
       local_fn (local_data);
-      gomp_barrier_wait_last (&thr->ts.team->barrier);
+      gomp_team_barrier_wait (&team->barrier);
+      gomp_finish_task (task);
+      gomp_barrier_wait_last (&team->barrier);
     }
   else
     {
@@ -106,28 +112,18 @@ gomp_thread_start (void *xdata)
       gomp_barrier_wait (&pool->threads_dock);
       do
 	{
-	  struct gomp_team *team;
+	  struct gomp_team *team = thr->ts.team;
+	  struct gomp_task *task = thr->task;
 
 	  local_fn (local_data);
-	  gomp_end_task ();
+	  gomp_team_barrier_wait (&team->barrier);
+	  gomp_finish_task (task);
 
-	  /* Clear out the team and function data.  This is a debugging
-	     signal that we're in fact back in the dock.  */
-	  team = thr->ts.team;
-	  thr->fn = NULL;
-	  thr->data = NULL;
-	  thr->ts.team = NULL;
-	  thr->ts.work_share = NULL;
-	  thr->ts.last_work_share = NULL;
-	  thr->ts.team_id = 0;
-	  thr->ts.level = 0;
-	  thr->ts.active_level = 0;
-
-	  gomp_barrier_wait_last (&team->barrier);
 	  gomp_barrier_wait (&pool->threads_dock);
 
 	  local_fn = thr->fn;
 	  local_data = thr->data;
+	  thr->fn = NULL;
 	}
       while (local_fn);
     }
@@ -170,6 +166,11 @@ gomp_new_team (unsigned nthreads)
   team->ordered_release = (void *) &team->implicit_task[nthreads];
   team->ordered_release[0] = &team->master_release;
 
+  gomp_mutex_init (&team->task_lock);
+  team->task_queue = NULL;
+  team->task_count = 0;
+  team->task_running_count = 0;
+
   return team;
 }
 
@@ -179,25 +180,10 @@ gomp_new_team (unsigned nthreads)
 static void
 free_team (struct gomp_team *team)
 {
-  if (__builtin_expect (team->work_shares[0].next_alloc != NULL, 0))
-    {
-      struct gomp_work_share *ws = team->work_shares[0].next_alloc;
-      do
-	{
-	  struct gomp_work_share *next_ws = ws->next_alloc;
-	  free (ws);
-	  ws = next_ws;
-	}
-      while (ws != NULL);
-    }
   gomp_barrier_destroy (&team->barrier);
-  gomp_sem_destroy (&team->master_release);
-#ifndef HAVE_SYNC_BUILTINS
-  gomp_mutex_destroy (&team->work_share_list_free_lock);
-#endif
+  gomp_mutex_destroy (&team->task_lock);
   free (team);
 }
-
 
 /* Allocate and initialize a thread pool. */
 
@@ -207,7 +193,8 @@ static struct gomp_thread_pool *gomp_new_thread_pool (void)
     = gomp_malloc (sizeof(struct gomp_thread_pool));
   pool->threads = NULL;
   pool->threads_size = 0;
-  pool->threads_used = 0;  
+  pool->threads_used = 0;
+  pool->last_team = NULL;
   return pool;
 }
 
@@ -222,7 +209,7 @@ gomp_free_pool_helper (void *thread_pool)
 
 /* Free a thread pool and release its threads. */
 
-static void 
+static void
 gomp_free_thread (void *arg __attribute__((unused)))
 {
   struct gomp_thread *thr = gomp_thread ();
@@ -247,7 +234,9 @@ gomp_free_thread (void *arg __attribute__((unused)))
 	  gomp_barrier_destroy (&pool->threads_dock);
 	}
       free (pool->threads);
-      free (pool); 
+      if (pool->last_team)
+	free_team (pool->last_team);
+      free (pool);
       thr->thread_pool = NULL;
     }
   if (thr->task != NULL)
@@ -334,7 +323,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	}
 
       /* Not true yet, but soon will be.  We're going to release all
-	 threads from the dock, and those that aren't part of the 
+	 threads from the dock, and those that aren't part of the
 	 team will exit.  */
       pool->threads_used = nthreads;
 
@@ -472,8 +461,8 @@ gomp_team_end (void)
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
 
-  gomp_barrier_wait (&team->barrier);
-
+  /* This barrier handles all pending explicit threads.  */
+  gomp_team_barrier_wait (&team->barrier);
   gomp_fini_work_share (thr->ts.work_share);
 
   gomp_end_task ();
@@ -488,9 +477,36 @@ gomp_team_end (void)
       gomp_managed_threads -= team->nthreads - 1L;
       gomp_mutex_unlock (&gomp_remaining_threads_lock);
 #endif
+      /* This barrier has gomp_barrier_wait_last counterparts
+	 and ensures the team can be safely destroyed.  */
+      gomp_barrier_wait (&team->barrier);
     }
 
-  free_team (team);
+  if (__builtin_expect (team->work_shares[0].next_alloc != NULL, 0))
+    {
+      struct gomp_work_share *ws = team->work_shares[0].next_alloc;
+      do
+	{
+	  struct gomp_work_share *next_ws = ws->next_alloc;
+	  free (ws);
+	  ws = next_ws;
+	}
+      while (ws != NULL);
+    }
+  gomp_sem_destroy (&team->master_release);
+#ifndef HAVE_SYNC_BUILTINS
+  gomp_mutex_destroy (&team->work_share_list_free_lock);
+#endif
+
+  if (__builtin_expect (thr->ts.team != NULL, 0))
+    free_team (team);
+  else
+    {
+      struct gomp_thread_pool *pool = thr->thread_pool;
+      if (pool->last_team)
+	free_team (pool->last_team);
+      pool->last_team = team;
+    }
 }
 
 
@@ -507,7 +523,7 @@ initialize_team (void)
   pthread_key_create (&gomp_tls_key, NULL);
   pthread_setspecific (gomp_tls_key, &initial_thread_tls_data);
 #endif
-  
+
   if (pthread_key_create (&gomp_thread_destructor, gomp_free_thread) != 0)
     gomp_fatal ("could not create thread pool destructor.");
 

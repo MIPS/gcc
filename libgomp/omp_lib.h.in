@@ -1,4 +1,4 @@
-!  Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+!  Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
 !  Contributed by Jakub Jelinek <jakub@redhat.com>.
 
 !  This file is part of the GNU OpenMP Library (libgomp).
@@ -35,7 +35,7 @@
       parameter (omp_sched_dynamic = 2)
       parameter (omp_sched_guided = 3)
       parameter (omp_sched_auto = 4)
-      parameter (openmp_version = 200505)
+      parameter (openmp_version = 200805)
 
       external omp_init_lock, omp_init_nest_lock
       external omp_destroy_lock, omp_destroy_nest_lock

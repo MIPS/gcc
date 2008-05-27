@@ -230,14 +230,30 @@ extern unsigned long gomp_max_active_levels_var;
 extern unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
 extern unsigned long gomp_available_cpus, gomp_managed_threads;
 
-/* This structure describes a "task" to be run by a thread.  At present
-   we implement only synchronous tasks, i.e. no tasks are deferred or
-   untied.  As such, all we need is the state of the ICVs.  */
+enum gomp_task_kind
+{
+  GOMP_TASK_IMPLICIT,
+  GOMP_TASK_IFFALSE,
+  GOMP_TASK_WAITING,
+  GOMP_TASK_TIED
+};
+
+/* This structure describes a "task" to be run by a thread.  */
 
 struct gomp_task
 {
-  struct gomp_task *prev;
+  struct gomp_task *parent;
+  struct gomp_task *children;
+  struct gomp_task *next_child;
+  struct gomp_task *prev_child;
+  struct gomp_task *next_queue;
+  struct gomp_task *prev_queue;
   struct gomp_task_icv icv;
+  void (*fn) (void *);
+  void *fn_data;
+  enum gomp_task_kind kind;
+  bool in_taskwait;
+  gomp_sem_t taskwait_sem;
 };
 
 /* This structure describes a "team" of threads.  These are the threads
@@ -295,6 +311,11 @@ struct gomp_team
      structs in the common case.  */
   struct gomp_work_share work_shares[8];
 
+  gomp_mutex_t task_lock;
+  struct gomp_task *task_queue;
+  int task_count;
+  int task_running_count;
+
   /* This array contains structures for implicit tasks.  */
   struct gomp_task implicit_task[];
 };
@@ -330,6 +351,7 @@ struct gomp_thread_pool
   struct gomp_thread **threads;
   unsigned threads_size;
   unsigned threads_used;
+  struct gomp_team *last_team;
 
   /* This barrier holds and releases threads waiting in threads.  */
   gomp_barrier_t threads_dock;
@@ -448,6 +470,13 @@ extern unsigned gomp_dynamic_max_threads (void);
 extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
 			    struct gomp_task_icv *);
 extern void gomp_end_task (void);
+extern void gomp_barrier_handle_tasks (gomp_barrier_state_t);
+
+static void inline
+gomp_finish_task (struct gomp_task *task)
+{
+  gomp_sem_destroy (&task->taskwait_sem);
+}
 
 /* team.c */
 

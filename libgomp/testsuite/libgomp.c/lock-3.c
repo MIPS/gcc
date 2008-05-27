@@ -50,9 +50,11 @@ int
 main (void)
 {
   pthread_t th;
+  omp_init_nest_lock (&lock);
   pthread_barrier_init (&bar, NULL, 2);
   pthread_create (&th, NULL, tf, NULL);
   tf ("");
   pthread_join (th, NULL);
+  omp_destroy_nest_lock (&lock);
   return 0;
 }

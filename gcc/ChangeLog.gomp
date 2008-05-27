@@ -1,3 +1,8 @@
+2008-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP value to
+	200805.
+
 2008-05-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_LOOP_AUTO_START,

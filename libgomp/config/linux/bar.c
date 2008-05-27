@@ -41,7 +41,7 @@ gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
       /* Next time we'll be awaiting TOTAL threads again.  */
       bar->awaited = bar->total;
       atomic_write_barrier ();
-      bar->generation += 2;
+      bar->generation += 4;
       futex_wake ((int *) &bar->generation, INT_MAX);
     }
   else
@@ -55,9 +55,9 @@ gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 }
 
 void
-gomp_barrier_wait (gomp_barrier_t *barrier)
+gomp_barrier_wait (gomp_barrier_t *bar)
 {
-  gomp_barrier_wait_end (barrier, gomp_barrier_wait_start (barrier));
+  gomp_barrier_wait_end (bar, gomp_barrier_wait_start (bar));
 }
 
 /* Like gomp_barrier_wait, except that if the encountering thread
@@ -68,9 +68,58 @@ gomp_barrier_wait (gomp_barrier_t *barrier)
    the barrier can be safely destroyed.  */
 
 void
-gomp_barrier_wait_last (gomp_barrier_t *barrier)
+gomp_barrier_wait_last (gomp_barrier_t *bar)
 {
-  gomp_barrier_state_t state = gomp_barrier_wait_start (barrier);
+  gomp_barrier_state_t state = gomp_barrier_wait_start (bar);
   if (state & 1)
-    gomp_barrier_wait_end (barrier, state);
+    gomp_barrier_wait_end (bar, state);
+}
+
+void
+gomp_team_barrier_wake (gomp_barrier_t *bar, int count)
+{
+  futex_wake ((int *) &bar->generation, count == 0 ? INT_MAX : count);
+}
+
+void
+gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
+{
+  unsigned int generation;
+
+  if (__builtin_expect ((state & 1) != 0, 0))
+    {
+      /* Next time we'll be awaiting TOTAL threads again.  */
+      struct gomp_thread *thr = gomp_thread ();
+      struct gomp_team *team = thr->ts.team;
+      bar->awaited = bar->total;
+      atomic_write_barrier ();
+      if (__builtin_expect (team->task_count, 0))
+	{
+	  gomp_barrier_handle_tasks (state);
+	  state &= ~1;
+	}
+      else
+	{
+	  bar->generation = state + 3;
+	  futex_wake ((int *) &bar->generation, INT_MAX);
+	  return;
+	}
+    }
+
+  generation = state;
+  do
+    {
+      do_wait ((int *) &bar->generation, generation);
+      if (__builtin_expect (bar->generation & 1, 0))
+	gomp_barrier_handle_tasks (state);
+      if ((bar->generation & 2))
+	generation |= 2;
+    }
+  while (bar->generation != state + 4);
+}
+
+void
+gomp_team_barrier_wait (gomp_barrier_t *bar)
+{
+  gomp_team_barrier_wait_end (bar, gomp_barrier_wait_start (bar));
 }

@@ -8,11 +8,10 @@ program tasktest
   !$omp parallel private (i)
     i = omp_get_thread_num ()
     if (i.lt.2) then
-      !$omp task untied default(firstprivate)
+      !$omp task if (.false.) default(firstprivate)
         call subr (i + 1)
       !$omp end task
     end if
-    !$omp taskwait
   !$omp end parallel
   if (j.gt.0) call abort
 contains
