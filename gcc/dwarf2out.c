@@ -110,9 +110,6 @@ static void dwarf2out_source_line (unsigned int, const char *);
 #define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
 #endif
 
-/* Define the current fde_table entry we should use. */
-#define CUR_FDE fde_table[fde_table_in_use - 1]
-
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
@@ -242,19 +239,21 @@ typedef struct dw_fde_struct GTY(())
   bool dw_fde_switched_sections;
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
-  /* If it is drap, which register is employed. */
+  /* If using Dynamic Realign Argument Pointer, show which register 
+     is used.  */
   int drap_regnum;
   HOST_WIDE_INT stack_realignment;
   unsigned all_throwers_are_sibcalls : 1;
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
-  /* Whether we did stack realign in this call frame.*/
+  /* Whether we did stack realign in this call frame.  */
   unsigned stack_realign : 1;
-  /* Whether stack realign is drap. */
+  /* Whether stack realign uses Dynamic Realign Argument Pointer.  */
   unsigned is_drap : 1;
-  /* Whether we saved this drap register. */
+  /* Whether we saved the register used by Dynamic Realign Argument
+     Pointer.  */
   unsigned drap_reg_saved : 1;
-  /* Whether called __builtin_eh_return */
+  /* Whether called __builtin_eh_return.  */
   unsigned calls_eh_return : 1;
 }
 dw_fde_node;
@@ -636,15 +635,18 @@ static inline void
 add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
 {
   dw_cfi_ref *p;
+  dw_fde_ref fde = current_fde ();
 
   /* Find the end of the chain.  */
   for (p = list_head; (*p) != NULL; p = &(*p)->dw_cfi_next)
     ;
 
-  /* If stack is realigned, accessing the stored register via CFA+offset will
-     be invalid. Here we will use a series of expressions in dwarf2 to simulate
-     the stack realign and represent the location of the stored register. */
-  if (fde_table_in_use && (CUR_FDE.stack_realign || CUR_FDE.is_drap) 
+  /* If stack is realigned, accessing the stored register via
+     CFA+offset will be invalid. Here we will use a series of
+     expressions in dwarf2 to simulate the stack realign and
+     represent the location of the stored register.  */
+  if (fde
+      && (fde->stack_realign || fde->is_drap)
       && cfi->dw_cfi_opc == DW_CFA_offset)
     reg_save_with_expression (cfi);
 
@@ -1467,9 +1469,10 @@ static dw_cfa_location cfa_temp;
 	       difference of the original location and cfa_store's
 	       location (or cfa_temp's location if cfa_temp is used).
   
-  Rules 16-19: If AND operation happens on sp in prologue, we assume stack is
-               realigned. We will use a group of DW_OP_?? expressions to represent
-               the location of the stored register instead of CFA+offset.
+  Rules 16-19: If AND operation happens on sp in prologue, we assume
+	       stack is realigned.  We will use a group of DW_OP_XXX
+	       expressions to represent the location of the stored
+	       register instead of CFA+offset.
 
   The Rules
 
@@ -1568,11 +1571,11 @@ static dw_cfa_location cfa_temp;
   
   Rule 16:
   (set sp (and: sp <const_int>))
-  effects: CUR_FDE.stack_realign = 1
+  effects: current_fde.stack_realign = 1
            cfa_store.offset = 0
 
            if cfa_store.offset >= UNITS_PER_WORD
-             effects: CUR_FDE.drap_reg_saved = 1
+             effects: current_fde.drap_reg_saved = 1
 
   Rule 17:
   (set (mem ({pre_inc, pre_dec} sp)) (mem (plus (cfa.reg) (const_int))))
@@ -1580,14 +1583,14 @@ static dw_cfa_location cfa_temp;
   
   Rule 18:
   (set (mem({pre_inc, pre_dec} sp)) fp)
-  constraints: CUR_FDE.stack_realign == 1
-  effects: CUR_FDE.stack_realign = 0
-           CUR_FDE.is_drap = 1
-           CUR_FDE.drap_regnum = cfa.reg
+  constraints: current_fde.stack_realign == 1
+  effects: current_fde.stack_realign = 0
+           current_fde.is_drap = 1
+           current_fde.drap_regnum = cfa.reg
 
   Rule 19:
   (set fp sp)
-  constraints: CUR_FDE.is_drap == 1
+  constraints: current_fde.is_drap == 1
   effects: cfa.reg = fp
            cfa.offset = cfa_store.offset */
 
@@ -1596,6 +1599,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 {
   rtx src, dest, span;
   HOST_WIDE_INT offset;
+  dw_fde_ref fde;
 
   /* If RTX_FRAME_RELATED_P is set on a PARALLEL, process each member of
      the PARALLEL independently. The first element is always processed if
@@ -1646,6 +1650,8 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	src = rsi;
     }
 
+  fde = current_fde ();
+
   switch (GET_CODE (dest))
     {
     case REG:
@@ -1667,14 +1673,17 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      cfa_temp.reg = cfa.reg;
 	      cfa_temp.offset = cfa.offset;
 	    }
-            /* Rule 19 */
-            /* Eachtime when setting FP to SP under the condition of that the stack
-               is realigned we assume the realign is drap and the drap register is
-               the current cfa's register. We update cfa's register to FP. */
-	  else if (fde_table_in_use && CUR_FDE.is_drap 
+	  else if (fde
+		   && fde->is_drap 
                    && REGNO (src) == STACK_POINTER_REGNUM 
                    && REGNO (dest) == HARD_FRAME_POINTER_REGNUM)
             {
+	      /* Rule 19 */
+	      /* Each time when setting FP to SP under the condition of
+		 that the stack is realigned we assume the realign used
+		 Dynamic Realign Argument Pointer and the register used
+		 is the current cfa's register. We update cfa's register
+		 to FP.  */
               cfa.reg = REGNO (dest);
               cfa.offset = cfa_store.offset;
               cfa_temp.reg = cfa.reg;
@@ -1822,16 +1831,18 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
 	  /* Rule 16 */
 	case AND:
-          /* If this AND operation happens on stack pointer in prologue, we 
-             assume the stack is realigned and we extract the alignment. */
-          if (XEXP (src, 0) == stack_pointer_rtx && fde_table_in_use)
+          /* If this AND operation happens on stack pointer in prologue,
+	     we assume the stack is realigned and we extract the
+	     alignment.  */
+          if (fde && XEXP (src, 0) == stack_pointer_rtx)
             {
-              CUR_FDE.stack_realign = 1;
-              CUR_FDE.stack_realignment = INTVAL (XEXP (src, 1));
-              /* If we didn't push anything to stack before stack is realigned,
-                  we assume the drap register isn't saved. */
+              fde->stack_realign = 1;
+              fde->stack_realignment = INTVAL (XEXP (src, 1));
+              /* If we didn't push anything to stack before stack is
+		 realigned, we assume the register used by Dynamic
+		 Realign Argument Pointer isn't saved.  */
               if (cfa_store.offset > UNITS_PER_WORD)
-                CUR_FDE.drap_reg_saved = 1;
+                fde->drap_reg_saved = 1;
               cfa_store.offset = 0;
             }
           return;
@@ -1874,18 +1885,22 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  if (GET_CODE (XEXP (dest, 0)) == PRE_INC)
 	    offset = -offset;
 
-	  gcc_assert (REGNO (XEXP (XEXP (dest, 0), 0)) == STACK_POINTER_REGNUM
+	  gcc_assert ((REGNO (XEXP (XEXP (dest, 0), 0))
+		       == STACK_POINTER_REGNUM)
 		      && cfa_store.reg == STACK_POINTER_REGNUM);
           
-          /* Rule 18 */
-          /* If we push FP after stack is realigned, we assume this realignment
-             is drap, we will recorde the drap register. */
-          if (fde_table_in_use && CUR_FDE.stack_realign
+          if (fde
+	      && fde->stack_realign
               && REGNO (src) == HARD_FRAME_POINTER_REGNUM)
             {
-              CUR_FDE.stack_realign = 0;
-              CUR_FDE.is_drap = 1;
-              CUR_FDE.drap_regnum = DWARF_FRAME_REGNUM (cfa.reg);
+	      /* Rule 18 */
+	      /* If we push FP after stack is realigned, we assume this
+		 realignment used Dynamic Realign Argument Pointer. We
+		 will record the register used by Dynamic Realign
+		 Argument Pointer.  */
+              fde->stack_realign = 0;
+              fde->is_drap = 1;
+              fde->drap_regnum = DWARF_FRAME_REGNUM (cfa.reg);
             }            
 
 	  cfa_store.offset += offset;
@@ -1982,9 +1997,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	    }
 	}
         /* Rule 17 */
-        /* If the source operand of this MEM operation is not a register, 
-           basically the source is return address. Here we just care how 
-           much stack grew and ignore to save it. */ 
+        /* If the source operand of this MEM operation is not a
+	   register, basically the source is return address.  Here
+	   we only care how much stack grew and we don't save it.  */ 
       if (!REG_P (src))
         break;
 
@@ -15477,12 +15492,17 @@ static void
 reg_save_with_expression (dw_cfi_ref cfi)
 {
   struct dw_loc_descr_struct *head, *tmp;
-  HOST_WIDE_INT alignment = CUR_FDE.stack_realignment;
+  HOST_WIDE_INT alignment;
+  dw_fde_ref fde = current_fde ();
   HOST_WIDE_INT offset = cfi->dw_cfi_oprnd2.dw_cfi_offset * UNITS_PER_WORD;
   int reg = cfi->dw_cfi_oprnd1.dw_cfi_reg_num;
   unsigned int dwarf_sp = (unsigned)DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
   
-  if (CUR_FDE.stack_realign)
+  gcc_assert (fde != NULL);
+
+  alignment = fde->stack_realignment;
+
+  if (fde->stack_realign)
     {
       head = tmp = new_loc_descr (DW_OP_const4s, 2 * UNITS_PER_WORD, 0);
       tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
@@ -15498,9 +15518,9 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
     }
 
-  /* We need restore drap register through dereference.  If we needn't
-     to restore the drap register, we just ignore it.  */
-  if (CUR_FDE.is_drap && reg == CUR_FDE.drap_regnum)
+  /* We need to restore register used by Dynamic Realign Argument
+     Pointer through dereference.   */
+  if (fde->is_drap && reg == fde->drap_regnum)
     {
        
       dw_cfi_ref cfi2 = new_cfi();
@@ -15508,7 +15528,7 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_opc = DW_CFA_expression;
       head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
       tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
-      if (CUR_FDE.drap_reg_saved)
+      if (fde->drap_reg_saved)
         {
           tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_deref, 0, 0);
           tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_const4s, 
@@ -15526,7 +15546,7 @@ reg_save_with_expression (dw_cfi_ref cfi)
 	 to zero.  So here if functions call __builtin_eh_return,
 	 there will be no unwind information for restoring the stack
 	 pointer.  */ 
-      if (!CUR_FDE.calls_eh_return)
+      if (!fde->calls_eh_return)
         {
           head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
           tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);

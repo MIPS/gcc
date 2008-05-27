@@ -1,3 +1,13 @@
+2008-05-27  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (CUR_FDE): Removed.
+	(dw_fde_struct): Reformat comments.
+	(add_cfi): Updated to replace CUR_FDE with current_fde.
+	Reformat and update comments.
+	(dwarf2out_frame_debug_expr): Likewise.
+	(reg_save_with_expression): Likewise.
+
 2008-05-26  Joey Ye  <joey.ye@intel.com>
 
 	* dwarf2out.c (based_loc_descr): Update assertion for stack
