@@ -1,3 +1,36 @@
+2008-04-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cgraph.h (lto_file_decl_data): Removed.
+	* lto-function-in.c: Moved from lto directory.
+	(lto-section-in.h): Added include.
+	(lto.h): Deleted include.
+	(input_string_internal): Initialized str_tab with
+	LTO_INIT_INPUT_BLOCK.
+	(canon_file_name): Reordered to remove stmt before decl.
+	(input_expr_operand): Ditto.
+	(input_bb): Removed assignment to TREE_BLOCK.
+	(lto_static_init_local): Changed data to be char* rather than
+	void*.
+	(lto_read_body): Changed all vars of type struct lto_input_block
+	to be initialized with LTO_INIT_INPUT_BLOCK.
+	(lto_read_body, lto_input_constructors_and_inits): Changed data to
+	be char* rather than void*.
+	* lto-cgraph-in.c: Moved from lto directory.
+	(lto.h): Removed include.
+	(lto_input_cgraph): Changed data to be char* rather than
+	void*. Changed ib_main and debug_main to be initialized with
+	LTO_INIT_INPUT_BLOCK.
+	* lto-section-in.c: Moved from lto directory.
+	(lto.h): Removed include.
+	(lto_read_decls): Moved to lto/lto.c.
+	* lto-section-in.h: Moved from lto directory.
+	(LTO_INIT_INPUT_BLOCK): New macro.
+	(lto_input_function_body, lto_input_constructors_and_inits, 
+	lto_input_cgraph): Declarations moved from lto.h.
+	* Makefile.in (lto-cgraph-in.o, lto-function-in.o,
+	lto-section-in.o): Rules moved from lto/Make-lang.in.
+	
+	
 2008-05-25  Rafael Espindola  <espindola@google.com>
 
 	Mainline merge @135852

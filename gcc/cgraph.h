@@ -24,8 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 
-struct lto_file_decl_data;
-
 enum availability
 {
   /* Not yet set by cgraph_function_body_availability.  */
