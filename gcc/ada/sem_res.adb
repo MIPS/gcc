@@ -6561,7 +6561,7 @@ package body Sem_Res is
    procedure Resolve_Null (N : Node_Id; Typ : Entity_Id) is
    begin
       --  Handle restriction against anonymous null access values This
-      --  restriction can be turned off using -gnatdh.
+      --  restriction can be turned off using -gnatdj.
 
       --  Ada 2005 (AI-231): Remove restriction
 
@@ -6571,7 +6571,7 @@ package body Sem_Res is
         and then Comes_From_Source (N)
       then
          --  In the common case of a call which uses an explicitly null
-         --  value for an access parameter, give specialized error msg
+         --  value for an access parameter, give specialized error message.
 
          if Nkind_In (Parent (N), N_Procedure_Call_Statement,
                                   N_Function_Call)
@@ -6974,6 +6974,19 @@ package body Sem_Res is
          then
             Error_Msg_N ("?not expression should be parenthesized here!", N);
          end if;
+
+         --  Warn on double negation if checking redundant constructs
+
+         if Warn_On_Redundant_Constructs
+           and then Comes_From_Source (N)
+           and then Comes_From_Source (Right_Opnd (N))
+           and then Root_Type (Typ) = Standard_Boolean
+           and then Nkind (Right_Opnd (N)) = N_Op_Not
+         then
+            Error_Msg_N ("redundant double negation?", N);
+         end if;
+
+         --  Complete resolution and evaluation of NOT
 
          Resolve (Right_Opnd (N), B_Typ);
          Check_Unset_Reference (Right_Opnd (N));

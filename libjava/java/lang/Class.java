@@ -1075,22 +1075,29 @@ public final class Class<T>
    */
   public String getSimpleName()
   {
-    StringBuffer sb = new StringBuffer();
-    Class klass = this;
-    int arrayCount = 0;
-    while (klass.isArray())
+    if (isAnonymousClass())
+      return "";
+    if (isArray())
       {
-	klass = klass.getComponentType();
-	++arrayCount;
+	return getComponentType().getSimpleName() + "[]";
       }
-    if (! klass.isAnonymousClass())
+    String fullName = getName();
+    int pos = fullName.lastIndexOf("$");
+    if (pos == -1)
+      pos = 0;
+    else
       {
-	String fullName = klass.getName();
-	sb.append(fullName, fullName.lastIndexOf(".") + 1, fullName.length());
+	++pos;
+	while (Character.isDigit(fullName.charAt(pos)))
+	  ++pos;
+	fullName = fullName.substring(pos);
       }
-    while (arrayCount-- > 0)
-      sb.append("[]");
-    return sb.toString();
+
+    int packagePos = fullName.lastIndexOf(".");
+    if (packagePos == -1)
+      return fullName;
+    else
+      return fullName.substring(packagePos + 1);
   }
 
   /**

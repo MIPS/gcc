@@ -433,6 +433,7 @@ get_trampoline_type (void)
   TYPE_NAME (trampoline_type) = get_identifier ("__builtin_trampoline");
   TYPE_FIELDS (trampoline_type) = t;
   layout_type (trampoline_type);
+  DECL_CONTEXT (t) = trampoline_type;
 
   return trampoline_type;
 }
@@ -1734,6 +1735,10 @@ convert_tramp_reference (tree *tp, int *walk_subtrees, void *data)
       /* If the nested function doesn't use a static chain, then
 	 it doesn't need a trampoline.  */
       if (DECL_NO_STATIC_CHAIN (decl))
+	break;
+
+      /* If we don't want a trampoline, then don't build one.  */
+      if (TREE_NO_TRAMPOLINE (t))
 	break;
 
       /* Lookup the immediate parent of the callee, as that's where

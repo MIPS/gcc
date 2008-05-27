@@ -83,7 +83,7 @@ package Rtsfind is
 
    --    Names of the form System_Tasking_xxx are second level children of the
    --    package System.Tasking. For example, System_Tasking_Stages refers to
-   --    refers to the package System.Tasking.Stages.
+   --    the package System.Tasking.Stages.
 
    --    Other names stand for themselves (e.g. System for package System)
 
@@ -1078,6 +1078,7 @@ package Rtsfind is
 
      RE_DSA_Implementation,              -- System.Partition_Interface
      RE_PCS_Version,                     -- System.Partition_Interface
+     RE_Get_RACW,                        -- System.Partition_Interface
      RE_Get_RCI_Package_Receiver,        -- System.Partition_Interface
      RE_Get_Unique_Remote_Pointer,       -- System.Partition_Interface
      RE_RACW_Stub_Type_Access,           -- System.Partition_Interface
@@ -1255,6 +1256,7 @@ package Rtsfind is
      RE_Shared_Var_ROpen,                -- System.Shared_Storage
      RE_Shared_Var_Unlock,               -- System.Shared_Storage
      RE_Shared_Var_WOpen,                -- System.Shared_Storage
+     RE_Shared_Var_Procs,                -- System.Shared_Storage
 
      RE_Abort_Undefer_Direct,            -- System.Standard_Library
      RE_Exception_Code,                  -- System.Standard_Library
@@ -1450,6 +1452,9 @@ package Rtsfind is
      RE_Mul_G,                           -- System.Vax_Float_Operations
      RE_Neg_F,                           -- System.Vax_Float_Operations
      RE_Neg_G,                           -- System.Vax_Float_Operations
+     RE_Return_D,                        -- System.Vax_Float_Operations
+     RE_Return_F,                        -- System.Vax_Float_Operations
+     RE_Return_G,                        -- System.Vax_Float_Operations
      RE_Sub_F,                           -- System.Vax_Float_Operations
      RE_Sub_G,                           -- System.Vax_Float_Operations
 
@@ -1515,7 +1520,9 @@ package Rtsfind is
      RE_Lock_Entries,                    -- Tasking.Protected_Objects.Entries
      RO_PE_Get_Ceiling,                  -- Tasking.Protected_Objects.Entries
      RO_PE_Set_Ceiling,                  -- Tasking.Protected_Objects.Entries
+     RO_PE_Set_Entry_Name,               -- Tasking.Protected_Objects.Entries
      RE_Unlock_Entries,                  -- Tasking.Protected_Objects.Entries
+
      RE_Communication_Block,             -- Protected_Objects.Operations
      RE_Protected_Entry_Call,            -- Protected_Objects.Operations
      RE_Service_Entries,                 -- Protected_Objects.Operations
@@ -1589,6 +1596,7 @@ package Rtsfind is
      RE_Free_Task,                       -- System.Tasking.Stages
      RE_Expunge_Unactivated_Tasks,       -- System.Tasking.Stages
      RE_Move_Activation_Chain,           -- System_Tasking_Stages
+     RO_TS_Set_Entry_Name,               -- System.Tasking.Stages
      RE_Terminated);                     -- System.Tasking.Stages
 
    --  The following declarations build a table that is indexed by the
@@ -2205,6 +2213,7 @@ package Rtsfind is
 
      RE_DSA_Implementation               => System_Partition_Interface,
      RE_PCS_Version                      => System_Partition_Interface,
+     RE_Get_RACW                         => System_Partition_Interface,
      RE_Get_RCI_Package_Receiver         => System_Partition_Interface,
      RE_Get_Unique_Remote_Pointer        => System_Partition_Interface,
      RE_RACW_Stub_Type_Access            => System_Partition_Interface,
@@ -2382,6 +2391,7 @@ package Rtsfind is
      RE_Shared_Var_ROpen                 => System_Shared_Storage,
      RE_Shared_Var_Unlock                => System_Shared_Storage,
      RE_Shared_Var_WOpen                 => System_Shared_Storage,
+     RE_Shared_Var_Procs                 => System_Shared_Storage,
 
      RE_Abort_Undefer_Direct             => System_Standard_Library,
      RE_Exception_Code                   => System_Standard_Library,
@@ -2577,6 +2587,9 @@ package Rtsfind is
      RE_Mul_G                            => System_Vax_Float_Operations,
      RE_Neg_F                            => System_Vax_Float_Operations,
      RE_Neg_G                            => System_Vax_Float_Operations,
+     RE_Return_D                         => System_Vax_Float_Operations,
+     RE_Return_F                         => System_Vax_Float_Operations,
+     RE_Return_G                         => System_Vax_Float_Operations,
      RE_Sub_F                            => System_Vax_Float_Operations,
      RE_Sub_G                            => System_Vax_Float_Operations,
 
@@ -2650,8 +2663,11 @@ package Rtsfind is
        System_Tasking_Protected_Objects_Entries,
      RO_PE_Set_Ceiling                   =>
        System_Tasking_Protected_Objects_Entries,
+     RO_PE_Set_Entry_Name                =>
+       System_Tasking_Protected_Objects_Entries,
      RE_Unlock_Entries                   =>
        System_Tasking_Protected_Objects_Entries,
+
      RE_Communication_Block              =>
        System_Tasking_Protected_Objects_Operations,
      RE_Protected_Entry_Call             =>
@@ -2752,6 +2768,7 @@ package Rtsfind is
      RE_Free_Task                        => System_Tasking_Stages,
      RE_Expunge_Unactivated_Tasks        => System_Tasking_Stages,
      RE_Move_Activation_Chain            => System_Tasking_Stages,
+     RO_TS_Set_Entry_Name                => System_Tasking_Stages,
      RE_Terminated                       => System_Tasking_Stages);
 
    --------------------------------

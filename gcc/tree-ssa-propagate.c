@@ -117,13 +117,13 @@
 static ssa_prop_visit_stmt_fn ssa_prop_visit_stmt;
 static ssa_prop_visit_phi_fn ssa_prop_visit_phi;
 
-/* Use the TREE_DEPRECATED bitflag to mark statements that have been
+/* Use the deprecated flag to mark statements that have been
    added to one of the SSA edges worklists.  This flag is used to
    avoid visiting statements unnecessarily when draining an SSA edge
    worklist.  If while simulating a basic block, we find a statement with
    STMT_IN_SSA_EDGE_WORKLIST set, we clear it to prevent SSA edge
    processing from visiting it again.  */
-#define STMT_IN_SSA_EDGE_WORKLIST(T)	TREE_DEPRECATED (T)
+#define STMT_IN_SSA_EDGE_WORKLIST(T) ((T)->base.deprecated_flag)
 
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
@@ -1250,6 +1250,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      && (!(call = get_call_expr_in (stmt))
 		  || !TREE_SIDE_EFFECTS (call)))
 	    {
+	      block_stmt_iterator i2;
 	      if (dump_file && dump_flags & TDF_DETAILS)
 		{
 		  fprintf (dump_file, "Removing dead stmt ");
@@ -1257,10 +1258,10 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		  fprintf (dump_file, "\n");
 		}
 	      prop_stats.num_dce++;
-	      bsi_remove (&i, true);
+	      bsi_prev (&i);
+	      i2 = bsi_for_stmt (stmt);
+	      bsi_remove (&i2, true);
 	      release_defs (stmt);
-	      if (!bsi_end_p (i))
-	        bsi_prev (&i);
 	      continue;
 	    }
 

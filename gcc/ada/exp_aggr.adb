@@ -2573,11 +2573,7 @@ package body Exp_Aggr is
                   --  Ada 2005 (AI-251): If tagged type has progenitors we must
                   --  also initialize tags of the secondary dispatch tables.
 
-                  if Present (Abstract_Interfaces (Base_Type (Typ)))
-                    and then not
-                      Is_Empty_Elmt_List
-                        (Abstract_Interfaces (Base_Type (Typ)))
-                  then
+                  if Has_Interfaces (Base_Type (Typ)) then
                      Init_Secondary_Tags
                        (Typ        => Base_Type (Typ),
                         Target     => Target,
@@ -3084,10 +3080,7 @@ package body Exp_Aggr is
          --  abstract interfaces we must also initialize the tags of the
          --  secondary dispatch tables.
 
-         if Present (Abstract_Interfaces (Base_Type (Typ)))
-           and then not
-             Is_Empty_Elmt_List (Abstract_Interfaces (Base_Type (Typ)))
-         then
+         if Has_Interfaces (Base_Type (Typ)) then
             Init_Secondary_Tags
               (Typ        => Base_Type (Typ),
                Target     => Target,
@@ -3317,8 +3310,10 @@ package body Exp_Aggr is
         and then Ekind (Current_Scope) /= E_Return_Statement
         and then not Is_Limited_Type (Typ)
       then
-         Establish_Transient_Scope (Aggr, Sec_Stack =>
-           Is_Controlled (Typ) or else Has_Controlled_Component (Typ));
+         Establish_Transient_Scope
+           (Aggr,
+            Sec_Stack =>
+              Is_Controlled (Typ) or else Has_Controlled_Component (Typ));
       end if;
 
       Insert_Actions_After (N, Late_Expansion (Aggr, Typ, Occ, Obj => Obj));
@@ -4046,7 +4041,7 @@ package body Exp_Aggr is
          --      Aggr_Lo <= Aggr_Hi and then
          --        (Aggr_Lo < Ind_Lo or else Aggr_Hi > Ind_Hi)]
 
-         --  As an optimization try to see if some tests are trivially vacuos
+         --  As an optimization try to see if some tests are trivially vacuous
          --  because we are comparing an expression against itself.
 
          if Aggr_Lo = Ind_Lo and then Aggr_Hi = Ind_Hi then
@@ -4677,6 +4672,8 @@ package body Exp_Aggr is
               Make_Raise_Constraint_Error (Loc,
                 Condition => Cond,
                 Reason    => CE_Length_Check_Failed));
+            --  Questionable reason code, shouldn't that be a
+            --  CE_Range_Check_Failed ???
          end if;
 
          --  Now look inside the sub-aggregate to see if there is more work
@@ -5374,7 +5371,7 @@ package body Exp_Aggr is
       --  If the tagged types covers interface types we need to initialize all
       --  hidden components containing pointers to secondary dispatch tables.
 
-      elsif Is_Tagged_Type (Typ) and then Has_Abstract_Interfaces (Typ) then
+      elsif Is_Tagged_Type (Typ) and then Has_Interfaces (Typ) then
          Convert_To_Assignments (N, Typ);
 
       --  If some components are mutable, the size of the aggregate component

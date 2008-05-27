@@ -734,8 +734,8 @@ package body Exp_Ch5 is
               and then not No_Ctrl_Actions (N)
             then
                declare
-                  Proc : constant Entity_Id :=
-                           TSS (Base_Type (L_Type), TSS_Slice_Assign);
+                  Proc    : constant Entity_Id :=
+                              TSS (Base_Type (L_Type), TSS_Slice_Assign);
                   Actuals : List_Id;
 
                begin
@@ -872,7 +872,7 @@ package body Exp_Ch5 is
                --  explicit bounds of right and left hand sides.
 
                declare
-                  Proc    : constant Node_Id :=
+                  Proc    : constant Entity_Id :=
                               TSS (Base_Type (L_Type), TSS_Slice_Assign);
                   Actuals : List_Id;
 
@@ -1886,8 +1886,11 @@ package body Exp_Ch5 is
                --       <code for controlled and/or tagged assignment>
                --    end if;
 
+               --  Skip this if Restriction (No_Finalization) is active
+
                if not Statically_Different (Lhs, Rhs)
                  and then Expand_Ctrl_Actions
+                 and then not Restriction_Active (No_Finalization)
                then
                   L := New_List (
                     Make_Implicit_If_Statement (N,
@@ -4183,13 +4186,16 @@ package body Exp_Ch5 is
       if not Ctrl_Act then
          null;
 
-      --  The left hand side is an uninitialized temporary
+      --  The left hand side is an uninitialized temporary object
 
       elsif Nkind (L) = N_Type_Conversion
         and then Is_Entity_Name (Expression (L))
+        and then Nkind (Parent (Entity (Expression (L))))
+                   = N_Object_Declaration
         and then No_Initialization (Parent (Entity (Expression (L))))
       then
          null;
+
       else
          Append_List_To (Res,
            Make_Final_Call (

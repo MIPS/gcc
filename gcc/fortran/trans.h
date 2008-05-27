@@ -201,8 +201,9 @@ typedef struct gfc_ss
 
   /* This is used by assignments requiring temporaries. The bits specify which
      loops the terms appear in.  This will be 1 for the RHS expressions,
-     2 for the LHS expressions, and 3(=1|2) for the temporary.  */
-  unsigned useflags:2;
+     2 for the LHS expressions, and 3(=1|2) for the temporary.  The bit
+     'where' suppresses precalculation of scalars in WHERE assignments.  */
+  unsigned useflags:2, where:1;
 }
 gfc_ss;
 #define gfc_get_ss() gfc_getmem(sizeof(gfc_ss))
@@ -507,7 +508,6 @@ extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
 extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
-extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
 extern GTY(()) tree gfor_fndecl_runtime_error_at;
 extern GTY(()) tree gfor_fndecl_os_error;
@@ -554,6 +554,7 @@ extern GTY(()) tree gfor_fndecl_string_trim;
 extern GTY(()) tree gfor_fndecl_string_minmax;
 extern GTY(()) tree gfor_fndecl_adjustl;
 extern GTY(()) tree gfor_fndecl_adjustr;
+extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_compare_string_char4;
 extern GTY(()) tree gfor_fndecl_concat_string_char4;
 extern GTY(()) tree gfor_fndecl_string_len_trim_char4;
@@ -564,6 +565,11 @@ extern GTY(()) tree gfor_fndecl_string_trim_char4;
 extern GTY(()) tree gfor_fndecl_string_minmax_char4;
 extern GTY(()) tree gfor_fndecl_adjustl_char4;
 extern GTY(()) tree gfor_fndecl_adjustr_char4;
+extern GTY(()) tree gfor_fndecl_select_string_char4;
+
+/* Conversion between character kinds.  */
+extern GTY(()) tree gfor_fndecl_convert_char1_to_char4;
+extern GTY(()) tree gfor_fndecl_convert_char4_to_char1;
 
 /* Other misc. runtime library functions.  */
 extern GTY(()) tree gfor_fndecl_size0;
