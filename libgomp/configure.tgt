@@ -23,7 +23,6 @@ fi
 # Since we require POSIX threads, assume a POSIX system by default.
 config_path="posix"
 
-enable_linux_futex=no
 # Check for futex enabled all at once.
 if test $enable_linux_futex = yes; then
   case "${target}" in
