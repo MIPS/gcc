@@ -1,5 +1,10 @@
 2008-05-26  Joey Ye  <joey.ye@intel.com>
 
+	* dwarf2out.c (based_loc_descr): Update assertion for stack
+	realign.
+
+2008-05-26  Joey Ye  <joey.ye@intel.com>
+
 	* function.h (frame_pointer_needed_set): Remove.
 	* global.c (compute_regsets): Remove frame_pointer_needed_set
 	and add comments.
