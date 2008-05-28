@@ -355,13 +355,17 @@ update_stmt (tree t)
     return;
   mark_stmt_modified (t);
   update_stmt_operands (t);
+  LOG_PASS_ACTION_CHANGE_STMT;
 }
 
 static inline void
 update_stmt_if_modified (tree t)
 {
   if (stmt_modified_p (t))
-    update_stmt_operands (t);
+    {
+      update_stmt_operands (t);
+      LOG_PASS_ACTION_CHANGE_STMT;
+    }
 }
 
 /* Return true if T is marked as modified, false otherwise.  */
@@ -388,6 +392,7 @@ delink_imm_use (ssa_use_operand_t *linknode)
   linknode->next->prev = linknode->prev;
   linknode->prev = NULL;
   linknode->next = NULL;
+  LOG_PASS_ACTION_IMM_DELINK;
 }
 
 /* Link ssa_imm_use node LINKNODE into the chain for LIST.  */
@@ -400,6 +405,7 @@ link_imm_use_to_list (ssa_use_operand_t *linknode, ssa_use_operand_t *list)
   linknode->next = list->next;
   list->next->prev = linknode;
   list->next = linknode;
+  LOG_PASS_ACTION_IMM_LINK;
 }
 
 /* Link ssa_imm_use node LINKNODE into the chain for DEF.  */
@@ -428,6 +434,7 @@ set_ssa_use_from_ptr (use_operand_p use, tree val)
   delink_imm_use (use);
   *(use->use) = val;
   link_imm_use (use, val);
+  LOG_PASS_ACTION_CHANGE_STMT;
 }
 
 /* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occurring 

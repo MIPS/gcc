@@ -380,6 +380,7 @@ tree_rest_of_compilation (tree fndecl)
 
   gcc_assert (!flag_unit_at_a_time || cgraph_global_info_ready);
 
+  initialize_logging (fndecl);
   node = cgraph_node (fndecl);
 
   /* Initialize the default bitmap obstack.  */
@@ -454,5 +455,6 @@ tree_rest_of_compilation (tree fndecl)
   input_location = saved_loc;
 
   ggc_collect ();
+  finalize_logging ();
   timevar_pop (TV_EXPAND);
 }

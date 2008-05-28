@@ -159,6 +159,8 @@ make_ssa_name (tree var, tree stmt)
   imm->next = imm;
   imm->stmt = t;
 
+  LOG_PASS_ACTION_CREATE_NAME;
+
   return t;
 }
 
@@ -234,6 +236,9 @@ release_ssa_name (tree var)
       TREE_CHAIN (var) = FREE_SSANAMES (cfun);
       FREE_SSANAMES (cfun) = var;
     }
+
+  LOG_PASS_ACTION_REMOVE_NAME;
+
 }
 
 /* Creates a duplicate of a ssa name NAME defined in statement STMT.  */

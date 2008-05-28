@@ -2768,6 +2768,7 @@ bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
   set_bb_for_stmt (t, i->bb);
   update_modified_stmts (t);
   tsi_link_before (&i->tsi, t, m);
+  LOG_PASS_ACTION_INSERT_STMT;
 }
 
 
@@ -2781,6 +2782,7 @@ bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
   set_bb_for_stmt (t, i->bb);
   update_modified_stmts (t);
   tsi_link_after (&i->tsi, t, m);
+  LOG_PASS_ACTION_INSERT_STMT;
 }
 
 
@@ -2807,6 +2809,7 @@ bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
       remove_stmt_from_eh_region (t);
       gimple_remove_stmt_histograms (cfun, t);
     }
+  LOG_PASS_ACTION_REMOVE_STMT;
 }
 
 
@@ -2820,6 +2823,7 @@ bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
   /* We must have BSI_NEW_STMT here, as bsi_move_after is sometimes used to
      move statements to an empty block.  */
   bsi_insert_after (to, stmt, BSI_NEW_STMT);
+  LOG_PASS_ACTION_MOVE_STMT;
 }
 
 
@@ -2834,6 +2838,7 @@ bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
      BSI_NEW_STMT here; however, that breaks several places that expect
      that TO does not change.  */
   bsi_insert_before (to, stmt, BSI_SAME_STMT);
+  LOG_PASS_ACTION_MOVE_STMT;
 }
 
 
@@ -2849,6 +2854,7 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
     bsi_move_before (from, &last);
   else
     bsi_move_after (from, &last);
+  LOG_PASS_ACTION_MOVE_STMT;
 }
 
 
@@ -2885,6 +2891,8 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
   *bsi_stmt_ptr (*bsi) = stmt;
   mark_stmt_modified (stmt);
   update_modified_stmts (stmt);
+  LOG_PASS_ACTION_REMOVE_STMT;
+  LOG_PASS_ACTION_ADD_STMT;
 }
 
 

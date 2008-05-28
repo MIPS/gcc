@@ -1081,6 +1081,9 @@ execute_one_pass (struct tree_opt_pass *pass)
      This is a hack until the new folder is ready.  */
   in_gimple_form = (cfun && (cfun->curr_properties & PROP_trees)) != 0;
 
+  if (in_gimple_form)
+    start_pass_logging (pass->name);
+
   /* Run pre-pass verification.  */
   execute_todo (pass->todo_flags_start);
 
@@ -1143,6 +1146,9 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run post-pass cleanup and verification.  */
   execute_todo (todo_after | pass->todo_flags_finish);
   verify_interpass_invariants ();
+
+  if (in_gimple_form)
+    finish_pass_logging (pass->name);
 
   if (!current_function_decl)
     cgraph_process_new_functions ();

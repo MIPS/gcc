@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
 #include "ipa-reference.h"
+#include "logging.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
