@@ -512,7 +512,7 @@
 	    (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm"))
 	  (match_dup 1)
 	  (const_int 1)))]
-  "TARGET_AVX && SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX128_VEC_FLOAT_MODE_P (<MODE>mode)"
   "v<plusminus_mnemonic>s<ssemodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "prefix" "vex")
@@ -661,7 +661,7 @@
 	(div:SSEMODEF2P
 	  (match_operand:SSEMODEF2P 1 "register_operand" "x")
 	  (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm")))]
-  "TARGET_AVX && SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX128_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vdivp<ssemodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssediv")
    (set_attr "prefix" "vex")
@@ -685,7 +685,7 @@
 	    (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm"))
 	  (match_dup 1)
 	  (const_int 1)))]
-  "TARGET_AVX && SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX128_VEC_FLOAT_MODE_P (<MODE>mode)"
   "vdivs<ssemodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssediv")
    (set_attr "prefix" "vex")
@@ -983,7 +983,7 @@
 	    (match_operand:SSEMODEF2P 2 "nonimmediate_operand" "xm"))
 	 (match_dup 1)
 	 (const_int 1)))]
-  "TARGET_AVX && SSE_VEC_FLOAT_MODE_P (<MODE>mode)"
+  "AVX128_VEC_FLOAT_MODE_P (<MODE>mode)"
   "v<maxminfprefix>s<ssemodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sse")
    (set_attr "prefix" "vex")

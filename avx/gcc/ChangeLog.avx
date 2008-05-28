@@ -1,3 +1,11 @@
+2008-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.h (AVX128_VEC_FLOAT_MODE_P): New.
+	* config/i386/sse.md (*avx_vm<plusminus_insn><mode>3): Use it.
+	(*avx_div<mode>3): Likewise.
+	(*avx_vmdiv<mode>3): Likewise.
+	(*avx_vm<code><mode>3): Likewise.
+
 2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/sse.md (*sse2_storeq_rex64): Fix a typo.
