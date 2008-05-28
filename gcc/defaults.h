@@ -944,9 +944,15 @@ along with GCC; see the file COPYING3.  If not see
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 0
 #endif
 
+/* FIXME: The default should be PREFERRED_STACK_BOUNDARY.  But the fix
+   for PR 32893 indicates that we can only guarantee maximum stack
+   alignment on stack up to STACK_BOUNDARY, not PREFERRED_STACK_BOUNDARY,
+   if stack alignment isn't supported.  */
 #ifndef MAX_STACK_ALIGNMENT
 #define MAX_STACK_ALIGNMENT STACK_BOUNDARY
 #endif
+
+#define SUPPORTS_STACK_ALIGNMENT (MAX_STACK_ALIGNMENT > STACK_BOUNDARY)
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT

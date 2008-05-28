@@ -419,7 +419,7 @@ emit_call_1 (rtx funexp, tree fntree, tree fndecl ATTRIBUTE_UNUSED,
       stack_pointer_delta -= n_popped;
 
       /* If popup is needed, stack realign must use DRAP  */
-      if (MAX_STACK_ALIGNMENT > STACK_BOUNDARY)
+      if (SUPPORTS_STACK_ALIGNMENT)
         crtl->need_drap = true;
     }
 
