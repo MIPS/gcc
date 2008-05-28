@@ -2323,7 +2323,7 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 {
   size_t i, num_ops = gimple_num_ops (stmt);
 
-  for (i = 0; i < gimple_num_ops (stmt); i++)
+  for (i = 0; i < num_ops; i++)
     {
       /* NOTE: We start gimplifying operands from last to first to
 	 make sure that side-effects on the RHS of calls, assignments
@@ -2339,7 +2339,7 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	{
 	  op = force_gimple_operand_gsi (gsi_p, op, true, NULL, true,
 					 GSI_SAME_STMT);
-	  gimple_set_op (stmt, i, op);
+	  gimple_set_op (stmt, num_ops - i - 1, op);
 	}
     }
 }

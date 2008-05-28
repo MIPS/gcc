@@ -3345,7 +3345,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 
 /* Returns the appropriate RHS predicate for this LHS.  */
 
-static gimple_predicate
+gimple_predicate
 rhs_predicate_for (tree lhs)
 {
   if (is_gimple_formal_tmp_var (lhs))

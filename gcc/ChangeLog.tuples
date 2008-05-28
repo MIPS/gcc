@@ -1,5 +1,13 @@
 2008-05-28  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple.c (gimple_regimplify_operands): Don't call gimple_num_ops
+	twice.  Write regimplified operand to the correct operand slot.
+	* gimplify.c (rhs_predicate_for): No longer static.
+	* tree-gimple.h (rhs_predicate_for): New prototype.
+	* omp-low.c (lower_omp_1): Don't call gimple_regimplify_operands,
+	instead forcefully gimplify_expr each operand with the right
+	predicate.
+
 	* gimple.h (gimple_omp_atomic_store_val_ptr,
 	gimple_omp_atomic_load_lhs_ptr, gimple_omp_atomic_load_rhs_ptr): New
 	inlines.
