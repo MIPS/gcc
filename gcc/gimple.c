@@ -1496,6 +1496,25 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	return ret;
       break;
 
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      ret = walk_tree (gimple_omp_atomic_load_lhs_ptr (stmt), callback_op, wi,
+		       pset);
+      if (ret)
+	return ret;
+
+      ret = walk_tree (gimple_omp_atomic_load_rhs_ptr (stmt), callback_op, wi,
+		       pset);
+      if (ret)
+	return ret;
+      break;
+
+    case GIMPLE_OMP_ATOMIC_STORE:
+      ret = walk_tree (gimple_omp_atomic_store_val_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      break;
+
       /* Tuples that do not have operands.  */
     case GIMPLE_NOP:
     case GIMPLE_RESX:

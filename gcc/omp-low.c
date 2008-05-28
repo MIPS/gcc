@@ -5078,6 +5078,19 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       gcc_assert (ctx);
       lower_omp_critical (gsi_p, ctx);
       break;
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      {
+	tree addr = gimple_omp_atomic_load_rhs (stmt);
+	if (ctx && walk_tree (&addr, lower_omp_regimplify_p, NULL, NULL))
+	  {
+	    gimple_seq pre = NULL;
+	    gimplify_expr (&addr, &pre, NULL, is_gimple_val, fb_rvalue);
+	    if (!gimple_seq_empty_p (pre))
+	      gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
+	    gimple_omp_atomic_load_set_rhs (stmt, addr);
+	  }
+      }
+      break;
 
     default:
       if (ctx && walk_gimple_op (stmt, lower_omp_regimplify_p, NULL))

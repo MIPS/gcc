@@ -3121,6 +3121,16 @@ gimple_omp_atomic_store_val (const_gimple g)
 }
 
 
+/* Return a pointer to the value being stored in an atomic store.  */
+
+static inline tree *
+gimple_omp_atomic_store_val_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_STORE);
+  return &g->gimple_omp_atomic_store.val;
+}
+
+
 /* Set the LHS of an atomic load.  */
 
 static inline void
@@ -3141,7 +3151,17 @@ gimple_omp_atomic_load_lhs (const_gimple g)
 }
 
 
-/* Set the RHS of an atomic set.  */
+/* Return a pointer to the LHS of an atomic load.  */
+
+static inline tree *
+gimple_omp_atomic_load_lhs_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  return &g->gimple_omp_atomic_load.lhs;
+}
+
+
+/* Set the RHS of an atomic load.  */
 
 static inline void
 gimple_omp_atomic_load_set_rhs (gimple g, tree rhs)
@@ -3151,13 +3171,23 @@ gimple_omp_atomic_load_set_rhs (gimple g, tree rhs)
 }
 
 
-/* Get the RHS of an atomic set.  */
+/* Get the RHS of an atomic load.  */
 
 static inline tree
 gimple_omp_atomic_load_rhs (const_gimple g)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
   return g->gimple_omp_atomic_load.rhs;
+}
+
+
+/* Return a pointer to the RHS of an atomic load.  */
+
+static inline tree *
+gimple_omp_atomic_load_rhs_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_ATOMIC_LOAD);
+  return &g->gimple_omp_atomic_load.rhs;
 }
 
 

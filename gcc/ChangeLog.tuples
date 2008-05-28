@@ -1,5 +1,12 @@
 2008-05-28  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple.h (gimple_omp_atomic_store_val_ptr,
+	gimple_omp_atomic_load_lhs_ptr, gimple_omp_atomic_load_rhs_ptr): New
+	inlines.
+	* gimple.c (walk_gimple_op): Handle GIMPLE_OMP_ATOMIC_LOAD and
+	GIMPLE_OMP_ATOMIC_STORE.
+	* omp-low.c (lower_omp_1): Handle GIMPLE_OMP_ATOMIC_LOAD.
+
 	* gimple-pretty-print.c (dump_gimple_omp_for): Don't indent twice
 	before gimple_omp_body, don't emit extra newline after it.
 	(dump_gimple_omp_single): Likewise.
