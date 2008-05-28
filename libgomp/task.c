@@ -100,17 +100,20 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       || team->task_count > 64 * team->nthreads)
     {
       struct gomp_task task;
-      char buf[arg_size + arg_align - 1];
-      char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
-			    & ~(uintptr_t) (arg_align - 1));
+
       gomp_init_task (&task, thr->task, gomp_icv (false));
       task.kind = GOMP_TASK_IFFALSE;
       thr->task = &task;
-      if (cpyfn)
-	cpyfn (arg, data);
+      if (__builtin_expect (cpyfn != NULL, 0))
+	{
+	  char buf[arg_size + arg_align - 1];
+	  char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
+				& ~(uintptr_t) (arg_align - 1));
+	  cpyfn (arg, data);
+	  fn (arg);
+	}
       else
-	memcpy (arg, data, arg_size);
-      fn (arg);
+	fn (data);
       if (task.children)
 	{
 	  gomp_mutex_lock (&team->task_lock);
