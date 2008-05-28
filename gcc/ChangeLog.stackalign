@@ -1,3 +1,11 @@
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* reload1.c (set_not_eliminatable): Renamed to ...
+	(set_not_eliminable): This.
+	(set_label_offsets): Updated.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+
 2008-05-28  Richard Guenther  <rguenther@suse.de>
 	    Joey Ye  <joey.ye@intel.com>
 
