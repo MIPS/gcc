@@ -1,3 +1,19 @@
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/tm.texi (LOCAL_ALIGNMENT): Revert the last change.
+	* config/bfin/bfin.c (bfin_local_alignment): Likewise.
+	* config/bfin/bfin.h (LOCAL_ALIGNMENT): Likewise.
+	* config/bfin/bfin-protos.h (bfin_local_alignment): Likewise.
+	* config/mips/mips.h (LOCAL_ALIGNMENT): Likewise.
+	* config/mmix/mmix.c (mmix_local_alignment): Likewise.
+	* config/mmix/mmix.h (LOCAL_ALIGNMENT): Likewise.
+	* config/mmix/mmix-protos.h (mmix_local_alignment): Likewise.
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): Likewise.
+	* config/score/score.h (LOCAL_ALIGNMENT): Likewise.
+	* config/sh/sh.h (LOCAL_ALIGNMENT): Likewise.
+	* config/sparc/sparc.h (LOCAL_ALIGNMENT): Likewise.
+	* config/spu/spu.h (LOCAL_ALIGNMENT): Likewise.
+
 2008-05-27  Xuepeng Guo  <xuepeng.guo@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 

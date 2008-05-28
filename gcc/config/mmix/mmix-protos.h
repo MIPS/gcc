@@ -58,8 +58,7 @@ extern rtx mmix_function_outgoing_value (const_tree, const_tree);
 extern int mmix_function_value_regno_p (int);
 extern int mmix_data_alignment (tree, int);
 extern int mmix_constant_alignment (tree, int);
-extern unsigned int mmix_local_alignment (tree, enum machine_mode mode,
-					  unsigned int);
+extern int mmix_local_alignment (tree, int);
 extern void mmix_asm_output_pool_prologue (FILE *, const char *, tree, int);
 extern void mmix_asm_output_aligned_common (FILE *, const char *, int, int);
 extern void mmix_asm_output_aligned_local (FILE *, const char *, int, int);

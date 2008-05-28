@@ -223,8 +223,8 @@ extern int target_flags;
 #define CONSTANT_ALIGNMENT(CONSTANT, BASIC_ALIGN) \
  mmix_constant_alignment (CONSTANT, BASIC_ALIGN)
 
-#define LOCAL_ALIGNMENT(TYPE, (MODE), BASIC_ALIGN) \
- mmix_local_alignment (TYPE, (MODE), BASIC_ALIGN)
+#define LOCAL_ALIGNMENT(TYPE, BASIC_ALIGN) \
+ mmix_local_alignment (TYPE, BASIC_ALIGN)
 
 /* Following other ports, this seems to most commonly be the word-size,
    so let's do that here too.  */

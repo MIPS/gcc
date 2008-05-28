@@ -1167,16 +1167,11 @@ constants to be word aligned so that @code{strcpy} calls that copy
 constants can be done inline.
 @end defmac
 
-@defmac LOCAL_ALIGNMENT (@var{type}, @var{mode}, @var{basic-align})
+@defmac LOCAL_ALIGNMENT (@var{type}, @var{basic-align})
 If defined, a C expression to compute the alignment for a variable in
-the local store.  @var{type} is the data type, @var{mode} is the mode,
-and @var{basic-align} is the alignment that the object would ordinarily
-have.  The value of this macro is used instead of that alignment to
-align the object.
-
-If @var{type} is @code{NULL}, we are allocating a stack slot for
-caller-save register in @var{mode}.  If @var{mode} is @code{VOIDmode},
-it is ignored.
+the local store.  @var{type} is the data type, and @var{basic-align} is
+the alignment that the object would ordinarily have.  The value of this
+macro is used instead of that alignment to align the object.
 
 If this macro is not defined, then @var{basic-align} is used.
 

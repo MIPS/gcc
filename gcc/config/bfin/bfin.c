@@ -3369,15 +3369,12 @@ bfin_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp)
    the object would ordinarily have.  The value of this macro is used
    instead of that alignment to align the object.  */
 
-unsigned int
-bfin_local_alignment (tree type,
-		      enum machine_mode mode ATTRIBUTE_UNUSED,
-		      unsigned int align)
+int
+bfin_local_alignment (tree type, int align)
 {
   /* Increasing alignment for (relatively) big types allows the builtin
      memcpy can use 32 bit loads/stores.  */
-  if (type
-      && TYPE_SIZE (type)
+  if (TYPE_SIZE (type)
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
       && (TREE_INT_CST_LOW (TYPE_SIZE (type)) > 8
 	  || TREE_INT_CST_HIGH (TYPE_SIZE (type))) && align < 32)

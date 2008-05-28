@@ -172,20 +172,16 @@
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
 
 /* If defined, a C expression to compute the alignment for a local
-   variable.  TYPE is the data type, MODE is the mode, and ALIGN is
-   the alignment that the object would ordinarily have.  The value of
-   this macro is used instead of that alignment to align the object.
-
-   If TYPE is NULL, we are allocating a stack slot for caller-save
-   register.  If MODE is VOIDmode, it is ignored.
+   variable.  TYPE is the data type, and ALIGN is the alignment that
+   the object would ordinarily have.  The value of this macro is used
+   instead of that alignment to align the object.
 
    If this macro is not defined, then ALIGN is used.
 
    One use of this macro is to increase alignment of medium-size
    data to make it all fit in fewer cache lines.  */
-#define LOCAL_ALIGNMENT(TYPE, MODE, ALIGN)                              \
-  (((TYPE)								\
-    && TREE_CODE (TYPE) == ARRAY_TYPE                                   \
+#define LOCAL_ALIGNMENT(TYPE, ALIGN)                                    \
+  ((TREE_CODE (TYPE) == ARRAY_TYPE                                      \
     && TYPE_MODE (TREE_TYPE (TYPE)) == QImode                           \
     && (ALIGN) < BITS_PER_WORD) ? BITS_PER_WORD : (ALIGN))
 
