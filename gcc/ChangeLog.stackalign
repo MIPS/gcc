@@ -1,3 +1,8 @@
+2008-05-28  Joey Ye  <joey.ye@intel.com>
+
+	* dwarf2out.c (compute_frame_pointer_to_fb_displacement): Change
+	assertion for stack realign.
+
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* doc/tm.texi (LOCAL_ALIGNMENT): Revert the last change.

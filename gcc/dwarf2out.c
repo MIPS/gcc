@@ -11205,7 +11205,7 @@ compute_frame_pointer_to_fb_displacement (HOST_WIDE_INT offset)
       elim = XEXP (elim, 0);
     }
 
-  gcc_assert (stack_realign_fp 
+  gcc_assert (MAX_STACK_ALIGNMENT
               || elim == (frame_pointer_needed ? hard_frame_pointer_rtx
 		       : stack_pointer_rtx));
   frame_pointer_fb_offset = -offset;
