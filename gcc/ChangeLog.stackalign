@@ -1,3 +1,11 @@
+2008-05-28  Richard Guenther  <rguenther@suse.de>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* reload1.c (set_not_eliminatable): New.
+	(set_label_offsets): Use it.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+
 2008-05-28  Joey Ye  <joey.ye@intel.com>
 
 	* dwarf2out.c (compute_frame_pointer_to_fb_displacement): Change
