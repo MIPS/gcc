@@ -9850,7 +9850,6 @@ package body Sem_Ch3 is
       function Get_Discr_Value (Discrim : Entity_Id) return Node_Id is
          D : Entity_Id;
          E : Elmt_Id;
-         G : Elmt_Id;
 
       begin
          --  The discriminant may be declared for the type, in which case we
@@ -9880,14 +9879,15 @@ package body Sem_Ch3 is
          --  to one: one new discriminant can constrain several old ones. In
          --  that case, scan sequentially the stored_constraint, the list of
          --  discriminants of the parents, and the constraints.
+         --  Previous code checked for the present of the Stored_Constraint
+         --  list for the derived type, but did not use it at all. Should it
+         --  be present when the component is a discriminated task type?
 
          if Is_Derived_Type (Typ)
-           and then Present (Stored_Constraint (Typ))
            and then Scope (Entity (Discrim)) = Etype (Typ)
          then
             D := First_Discriminant (Etype (Typ));
             E := First_Elmt (Constraints);
-            G := First_Elmt (Stored_Constraint (Typ));
             while Present (D) loop
                if D = Entity (Discrim) then
                   return Node (E);
@@ -9895,7 +9895,6 @@ package body Sem_Ch3 is
 
                Next_Discriminant (D);
                Next_Elmt (E);
-               Next_Elmt (G);
             end loop;
          end if;
 
@@ -10186,7 +10185,9 @@ package body Sem_Ch3 is
             Set_Ekind (Def_Id, Subtype_Kind (Ekind (T)));
          end if;
 
-         Set_Etype (Def_Id, Any_Type);
+         --  Set Etype to the known type, to reduce chances of cascaded errors
+
+         Set_Etype (Def_Id, E);
          Set_Error_Posted (Def_Id);
       end Fixup_Bad_Constraint;
 
@@ -13052,7 +13053,7 @@ package body Sem_Ch3 is
       Prev_Par : Node_Id;
 
       procedure Tag_Mismatch;
-      --  Diagnose a tagged partial view whose full view is untagged;
+      --  Diagnose a tagged partial view whose full view is untagged.
       --  We post the message on the full view, with a reference to
       --  the previous partial view. The partial view can be private
       --  or incomplete, and these are handled in a different manner,
@@ -13233,9 +13234,9 @@ package body Sem_Ch3 is
          end if;
 
          --  A prior untagged partial view can have an associated class-wide
-         --  type due to use of the class attribute, and in this case also the
-         --  full type is required to be tagged. This Ada95 usage is deprecated
-         --  in favor of incomplete tagged declarations but we check for it.
+         --  type due to use of the class attribute, and in this case the full
+         --  type must also be tagged. This Ada 95 usage is deprecated in favor
+         --  of incomplete tagged declarations, but we check for it.
 
          if Is_Type (Prev)
            and then (Is_Tagged_Type (Prev)
@@ -16618,7 +16619,8 @@ package body Sem_Ch3 is
       --  view of the type.
 
       function Designates_T (Subt : Node_Id) return Boolean;
-      --  Check whether a node designates the enclosing record type
+      --  Check whether a node designates the enclosing record type, or 'Class
+      --  of that type
 
       function Mentions_T (Acc_Def : Node_Id) return Boolean;
       --  Check whether an access definition includes a reference to
@@ -16636,13 +16638,25 @@ package body Sem_Ch3 is
          Inc_T : Entity_Id;
          H     : Entity_Id;
 
+         --  Is_Tagged indicates whether the type is tagged. It is tagged if
+         --  it's "is new ... with record" or else "is tagged record ...".
+
+         Is_Tagged : constant Boolean :=
+             (Nkind (Type_Definition (Typ_Decl)) = N_Derived_Type_Definition
+                 and then
+                   Present
+                     (Record_Extension_Part (Type_Definition (Typ_Decl))))
+           or else
+             (Nkind (Type_Definition (Typ_Decl)) = N_Record_Definition
+                 and then Tagged_Present (Type_Definition (Typ_Decl)));
+
       begin
          --  If there is a previous partial view, no need to create a new one
          --  If the partial view, given by Prev, is incomplete,  If Prev is
          --  a private declaration, full declaration is flagged accordingly.
 
          if Prev /= Typ then
-            if Tagged_Present (Type_Definition (Typ_Decl)) then
+            if Is_Tagged then
                Make_Class_Wide_Type (Prev);
                Set_Class_Wide_Type (Typ, Class_Wide_Type (Prev));
                Set_Etype (Class_Wide_Type (Typ), Typ);
@@ -16651,6 +16665,15 @@ package body Sem_Ch3 is
             return;
 
          elsif Has_Private_Declaration (Typ) then
+
+            --  If we refer to T'Class inside T, and T is the completion of a
+            --  private type, then we need to make sure the class-wide type
+            --  exists.
+
+            if Is_Tagged then
+               Make_Class_Wide_Type (Typ);
+            end if;
+
             return;
 
          --  If there was a previous anonymous access type, the incomplete
@@ -16692,14 +16715,9 @@ package body Sem_Ch3 is
             Analyze (Decl);
             Set_Full_View (Inc_T, Typ);
 
-            if (Nkind (Type_Definition (Typ_Decl)) = N_Derived_Type_Definition
-                 and then
-                   Present
-                     (Record_Extension_Part (Type_Definition (Typ_Decl))))
-              or else Tagged_Present (Type_Definition (Typ_Decl))
-            then
+            if Is_Tagged then
                --  Create a common class-wide type for both views, and set
-               --  the etype of the class-wide type to the full view.
+               --  the Etype of the class-wide type to the full view.
 
                Make_Class_Wide_Type (Inc_T);
                Set_Class_Wide_Type (Typ, Class_Wide_Type (Inc_T));

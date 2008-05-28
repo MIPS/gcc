@@ -1,3 +1,166 @@
+2008-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/35767
+	PR target/35771
+	* config/i386/i386.c (ix86_function_arg_boundary): Use
+	alignment of canonical type.
+	(ix86_expand_vector_move): Check unaligned memory access for
+	all SSE modes.
+
+2008-05-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (current_fde): Change return type to dw_fde_ref.
+	Moved to the front of file.
+
+2008-05-27  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (current_fde): New.
+	(add_cfi): Use it.
+	(lookup_cfa:): Likewise.
+	(dwarf2out_end_epilogue): Likewise.
+	(dwarf2out_note_section_used): Likewise.
+
+2008-05-27  Michael Matz  <matz@suse.de>
+
+	PR c++/27975
+	* c.opt (Wenum-compare): New warning option.
+	* doc/invoke.texi  (Warning Options): Document -Wenum-compare.
+
+2008-05-27  Michael Matz  <matz@suse.de>
+
+	PR middle-end/36326
+	* tree-gimple.c (is_gimple_mem_rhs): Remove work-around for
+	non-BLKmode types.
+	* tree-tailcall.c (find_tail_calls): Don't mark calls storing
+	into memory as tail calls.
+
+2008-05-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36339
+	* tree-ssa-alias.c (set_initial_properties): Escaped pt_anything
+	pointers cause all addressable variables to be call clobbered.
+
+2008-05-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36245
+	* tree-ssa-address.c (add_to_parts): Deal with non-pointer
+	bases.
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md: Replace all occurences of the 'm'
+	constraint with 'RT'.
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("cpu_facility", "enabled"): Attribute
+	definitions added.
+	("*movdi_64dfp", "*movdi_64extimm", "*movdi_64"): Merged into
+	"*movdi_64".
+	("*anddi3_extimm", "*anddi3"): Merged into "*anddi3".
+	("*iordi3_extimm", "*iordi3"): Merged into "*iordi3".
+	("*xordi3_extimm", "*xordi3"): Merged into "*xordi3".
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* reload.c: (find_reloads): Skip alternatives according to the
+	"enabled" attribute. Constify the constraint variable.
+	* recog.c (get_attr_enabled): Add default implementation.
+	(extract_insn): Set the alternative_enabled_p array
+	in the recog_data struct.
+	(preprocess_constraints, constrain_operands): Skip
+	alternatives according to the "enabled" attribute
+	* recog.h (struct recog_data): New field alternative_enabled_p.
+	(skip_alternative): New inline function.
+	* regclass.c: (record_operand_costs): Check the "enabled"
+	attribute.
+	(record_reg_classes): Skip alternative according to the
+	"enabled" attribute.
+
+	* doc/md.texi: Add documention for the "enabled" attribute.
+
+2008-05-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* defaults.h (TARGET_MEM_CONSTRAINT): New target macro added.
+	* postreload.c (reload_cse_simplify_operands): Replace 'm'
+	constraint with TARGET_MEM_CONSTRAINT.
+	* recog.c (asm_operand_ok, preprocess_constraints,
+	constrain_operands): Likewise.
+	* regclass.c (record_reg_classes): Likewise.
+	* reload.c (find_reloads, alternative_allows_const_pool_ref):
+	Likewise.
+	* reload1.c (maybe_fix_stack_asms): Likewise.
+	* stmt.c (parse_output_constraint, parse_input_constraint):
+	Likewise.
+	* recog.h: Adjust comment.
+	* genpreds.c (generic_constraint_letters): Remove 'm' constraint.
+	* genoutput.c (note_constraint): Don't emit error for 'm'
+	constraint.
+	* doc/md.texi: Add a note to description of 'm' constraint.
+	* doc/tm.texi: Document the new TARGET_MEM_CONSTRAINT macro.
+
+2008-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-sra.c (sra_type_can_be_decomposed_p) <RECORD_TYPE>: Make sure
+	that the bitfield is of integral type before testing its precision.
+
+2008-05-27  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+	    Sa Liu  <saliu@de.ibm.com> 
+
+	* config/spu/spu.c (spu_init_libfuncs): Add __multi3, __divti3, 
+	__modti3, __udivti3, __umodti3 and __udivmodti4.
+	* config/spu/t-spu-elf (LIB2FUNCS_STATIC_EXTRA): Add files
+	that implement TImode mul and div functions.
+	* config/spu/multi3.c: New. Implement __multi3.
+	* config/spu/divmodti4.c: New. Implement _udivmodti4 and others.
+	* testsuite/gcc.target/spu/muldivti3.c: New. Test TImode mul and div
+	functions on SPU.
+
+2008-05-26  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_tls_address): Generate
+	new tls_gd_* and tls_ld_* insns instead of an insn sequence.
+	* config/rs6000/rs6000.md (TLSmode, tls_abi_suffix, tls_insn_suffix,
+	tls_sysv_suffix): New mode and mode attribute iterators.
+	(tls_gd_32, tls_gd_64, tls_ld_32, tls_ld_64): Remove.
+	(lts_gd_aix*, tls_gd_sysv*, tls_ld_aix*, tls_ld_sysv*): New patterns.
+	(tls_dtprel_*, tls_dtprel_ha_*, tls_dtprel_lo_*, tls_got_dtprel_*,
+	tls_tprel_*, tls_tprel_ha_*, tls_tprel_lo_*, tls_got_tprel_*,
+	tls_tls_*): Merge 32 bit and 64 bit variants using aforementioned
+	iterators.
+
+2008-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/36329
+	* tree.h (CALL_CANNOT_INLINE_P): Add access check.
+	* tree-gimple.h (CALL_STMT_CANNOT_INLINE_P): New macro.
+	* cgraphbuild.c (initialize_inline_failed): Use the latter
+	macro in lieu of the former.
+	* ipa-inline.c (cgraph_mark_inline): Likewise.
+	(cgraph_decide_inlining_of_small_function): Likewise.
+	(cgraph_decide_inlining): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise.
+
+2008-05-26  Tristan Gingold  <gingold@adacore.com>
+            Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.md ("call_prologue_saves"): Use hi8(gs())/lo8(gs())
+	instead of pm_lo8/pm_hi8 to makes this call working on avr6.
+	* config/avr/avr.c (expand_prologue): Tune "call_prologue" 
+	optimization for 'avr6' architecture.
+
+2008-05-26  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/34932
+	* config/avr/avr.md (*addhi3_zero_extend2): Remove.
+
+2008-05-26  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (expr_has_constants): Declare.
+	(visit_reference_op_load): Initialize VN_INFO->has_constants
+	properly.
+
 2008-05-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/36253

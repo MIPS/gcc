@@ -9,6 +9,7 @@
 
 #include "options.h"
 #include "gfortran.h"
+#include "tm_p.h"		/* Target prototypes.  */
 #include "target.h"
 #include "toplev.h"
 #include "diagnostic.h"
@@ -218,9 +219,18 @@ cpp_define_builtins (cpp_reader *pfile)
 # define builtin_define_std(TXT)
 # define builtin_assert(TXT) cpp_assert (pfile, TXT)
 
+  /* FIXME: Pandora's Box
+    Using the macros below results in multiple breakages:
+     - mingw will fail to compile this file as dependent macros
+       assume to be used in c-cppbuiltin.c only. Further, they use
+       flags only valid/defined in C (same as noted above).
+       [config/i386/mingw32.h, config/i386/cygming.h]
+     - other platforms (not as popular) break similarly
+       [grep for 'builtin_define_with_int_value' in gcc/config/]
+
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
-  TARGET_OBJFMT_CPP_BUILTINS ();
+  TARGET_OBJFMT_CPP_BUILTINS (); */
 
 #undef builtin_define
 #undef builtin_define_std
