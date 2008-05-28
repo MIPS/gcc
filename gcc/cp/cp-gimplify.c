@@ -348,10 +348,12 @@ gimplify_switch_stmt (tree *stmt_p, gimple_seq *pre_p)
    regular gimplifier.  */
 
 static enum gimplify_status
-cp_gimplify_omp_for (tree *expr_p)
+cp_gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 {
   tree for_stmt = *expr_p;
   tree cont_block;
+  gimple stmt;
+  gimple_seq seq = NULL;
 
   /* Protect ourselves from recursion.  */
   if (OMP_FOR_GIMPLIFYING_P (for_stmt))
@@ -363,17 +365,14 @@ cp_gimplify_omp_for (tree *expr_p)
      statement expressions within the INIT, COND, or INCR expressions.  */
   cont_block = begin_bc_block (bc_continue);
 
-  /* FIXME tuples.  */
-#if 0
-  gimplify_stmt (expr_p);
-  OMP_FOR_BODY (for_stmt)
-    = finish_bc_block (bc_continue, cont_block, OMP_FOR_BODY (for_stmt));
-#else
-  gimple_unreachable ();
-
-  /* Temporary code to pop continue-label stack.  */
-  finish_bc_block (bc_continue, cont_block, NULL);
-#endif
+  gimplify_and_add (for_stmt, &seq);
+  stmt = gimple_seq_last_stmt (seq);
+  if (gimple_code (stmt) == GIMPLE_OMP_FOR)
+    gimple_omp_set_body (stmt, finish_bc_block (bc_continue, cont_block,
+						gimple_omp_body (stmt)));
+  else
+    seq = finish_bc_block (bc_continue, cont_block, seq);
+  gimple_seq_add_seq (pre_p, seq);
 
   OMP_FOR_GIMPLIFYING_P (for_stmt) = 0;
 
@@ -603,7 +602,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       break;
 
     case OMP_FOR:
-      ret = cp_gimplify_omp_for (expr_p);
+      ret = cp_gimplify_omp_for (expr_p, pre_p);
       break;
 
     case CONTINUE_STMT:
