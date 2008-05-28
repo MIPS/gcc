@@ -1,3 +1,9 @@
+2008-05-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_omp_for): Don't indent twice
+	before gimple_omp_body, don't emit extra newline after it.
+	(dump_gimple_omp_single): Likewise.
+
 2008-05-27  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-nested.c (walk_omp_for): Rename to...

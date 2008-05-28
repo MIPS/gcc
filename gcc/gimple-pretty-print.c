@@ -750,9 +750,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	  newline_and_indent (buffer, spc + 2);
 	  pp_character (buffer, '{');
-	  newline_and_indent (buffer, spc + 4);
+	  pp_newline (buffer);
 	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
-	  newline_and_indent (buffer, spc + 2);
+	  INDENT (spc + 2);
 	  pp_character (buffer, '}');
 	}
     }
@@ -802,9 +802,9 @@ dump_gimple_omp_single (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	  newline_and_indent (buffer, spc + 2);
 	  pp_character (buffer, '{');
-	  newline_and_indent (buffer, spc + 4);
+	  pp_newline (buffer);
 	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
-	  newline_and_indent (buffer, spc + 2);
+	  INDENT (spc + 2);
 	  pp_character (buffer, '}');
 	}
     }
