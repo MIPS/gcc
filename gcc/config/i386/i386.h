@@ -1804,6 +1804,16 @@ typedef struct ix86_args {
 
 #define CAN_ELIMINATE(FROM, TO) ix86_can_eliminate ((FROM), (TO))
 
+/* Set the can_eliminate field of elim_table pointed by P to false. 
+   Must not disable register elimination because stack realignment
+   must eliminate frame pointer to stack pointer and argument pointer
+   to frame pointer.  */
+#define SET_NOT_ELIMINABLE(P)				\
+  {							\
+    gcc_assert (! stack_realign_fp);			\
+    set_not_eliminable (P);				\
+  }
+
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
 

@@ -3753,6 +3753,16 @@ preventing register elimination are things that the compiler already
 knows about.
 @end defmac
 
+@defmac SET_NOT_ELIMINABLE (@var{elim_table_p})
+A C statement that sets the can_eliminate field of @var{elim_table_p}
+to false.  @var{elim_table_p} points to a data structure,
+@code{struct elim_table}, which contains information about register
+eliminations.  This macro is defined for purpose of debugging
+backend register elimination.
+
+If this macro is not defined, then @code{set_not_eliminable} is used.
+@end defmac
+
 @defmac INITIAL_ELIMINATION_OFFSET (@var{from-reg}, @var{to-reg}, @var{offset-var})
 This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
 specifies the initial difference between the specified pair of

@@ -6115,7 +6115,7 @@ ix86_nsaved_regs (void)
    handled and all other eliminations are valid.  */
 
 int
-ix86_can_elimination (int from, int to)
+ix86_can_eliminate (int from, int to)
 {
   if (stack_realign_fp)
     return ((from == ARG_POINTER_REGNUM

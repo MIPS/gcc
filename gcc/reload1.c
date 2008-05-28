@@ -349,6 +349,11 @@ static const struct elim_table_1
 
 #define NUM_ELIMINABLE_REGS ARRAY_SIZE (reg_eliminate_1)
 
+/* Set the can_eliminate field of elim_table pointed by P to false.  */
+#ifndef SET_NOT_ELIMINABLE
+#define SET_NOT_ELIMINABLE(P) set_not_eliminable (P)
+#endif
+
 /* Record the number of pending eliminations that have an offset not equal
    to their initial offset.  If nonzero, we use a new copy of each
    replacement result in any insns encountered.  */
@@ -2217,15 +2222,12 @@ mark_home_live (int regno)
     mark_home_live_1 (regno, PSEUDO_REGNO_MODE (regno));
 }
 
-/* This function sets the can_eliminate field of elim_table to false, and
-   checks if such an operation will break stack realignment scheme.  */
+/* This function sets the can_eliminate field of elim_table to
+   false.  */
 
 static inline void
 set_not_eliminable (struct elim_table *p)
 {
-  /* Must not disable reg eliminate because stack realignment
-     must eliminate frame pointer to stack pointer.  */
-  gcc_assert (! MAX_STACK_ALIGNMENT || ! stack_realign_fp);
   p->can_eliminate = 0;
 }
 
@@ -2291,7 +2293,7 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 	  if (offsets_at[CODE_LABEL_NUMBER (x) - first_label_num][i]
 	      != (initial_p ? reg_eliminate[i].initial_offset
 		  : reg_eliminate[i].offset))
-	    set_not_eliminable (&reg_eliminate[i]);
+	    SET_NOT_ELIMINABLE (&reg_eliminate[i]);
 
       return;
 
@@ -2370,7 +2372,7 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 	 offset because we are doing a jump to a variable address.  */
       for (p = reg_eliminate; p < &reg_eliminate[NUM_ELIMINABLE_REGS]; p++)
 	if (p->offset != p->initial_offset)
-	  set_not_eliminable (p);
+	  SET_NOT_ELIMINABLE (p);
       break;
 
     default:
@@ -2861,7 +2863,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
       /* If we modify the source of an elimination rule, disable it.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == XEXP (x, 0))
-	  set_not_eliminable (ep);
+	  SET_NOT_ELIMINABLE (ep);
 
       /* If we modify the target of an elimination rule by adding a constant,
 	 update its offset.  If we modify the target in any other way, we'll
@@ -2887,7 +2889,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 		    && CONST_INT_P (XEXP (XEXP (x, 1), 1)))
 		  ep->offset -= INTVAL (XEXP (XEXP (x, 1), 1));
 		else
-		  set_not_eliminable (ep);
+		  SET_NOT_ELIMINABLE (ep);
 	      }
 	  }
 
@@ -2930,7 +2932,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	 know how this register is used.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->from_rtx == XEXP (x, 0))
-	  set_not_eliminable (ep);
+	  SET_NOT_ELIMINABLE (ep);
 
       elimination_effects (XEXP (x, 0), mem_mode);
       return;
@@ -2941,7 +2943,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 	 be performed.  Otherwise, we need not be concerned about it.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (ep->to_rtx == XEXP (x, 0))
-	  set_not_eliminable (ep);
+	  SET_NOT_ELIMINABLE (ep);
 
       elimination_effects (XEXP (x, 0), mem_mode);
       return;
@@ -2975,7 +2977,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 		    && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		  ep->offset -= INTVAL (XEXP (src, 1));
 		else
-		  set_not_eliminable (ep);
+		  SET_NOT_ELIMINABLE (ep);
 	      }
 	}
 
@@ -3304,7 +3306,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 		   ep++)
 		if (ep->from_rtx == orig_operand[i])
-		  set_not_eliminable (ep);
+		  SET_NOT_ELIMINABLE (ep);
 	    }
 
 	  /* Companion to the above plus substitution, we can allow
@@ -3434,7 +3436,7 @@ eliminate_regs_in_insn (rtx insn, int replace)
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       if (ep->previous_offset != ep->offset && ep->ref_outside_mem)
-	set_not_eliminable (ep);
+	SET_NOT_ELIMINABLE (ep);
 
       ep->ref_outside_mem = 0;
 

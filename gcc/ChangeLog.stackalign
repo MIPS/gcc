@@ -1,5 +1,21 @@
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* reload1.c (SET_NOT_ELIMINABLE): New.
+	(set_not_eliminable): Remove gcc_assert.
+	(set_label_offsets): Use SET_NOT_ELIMINABLE instead of
+	set_not_eliminable.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+
+	* config/i386/i386.c (ix86_can_elimination): Renamed to ...
+	(ix86_can_eliminate): This.
+
+	* config/i386/i386.h (SET_NOT_ELIMINABLE): New.
+
+	* doc/tm.texi (SET_NOT_ELIMINABLE): New.
+
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (ix86_can_elimination): New.
 	* config/i386/i386-protos.h (ix86_can_eliminate): Likewise.
 	* config/i386/i386.h (CAN_ELIMINATE): Use it.
