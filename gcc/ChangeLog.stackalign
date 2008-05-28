@@ -1,5 +1,13 @@
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* reload1.c (SET_NOT_ELIMINABLE): Set can_eliminate directly.
+	(set_not_eliminable): Removed.
+
+	* config/i386/i386.h (SET_NOT_ELIMINABLE): Set can_eliminate
+	directly.
+
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* builtins.c (expand_builtin_longjmp): Replace comparison of
 	MAX_STACK_ALIGNMENT and STACK_BOUNDARY with
 	SUPPORTS_STACK_ALIGNMENT.

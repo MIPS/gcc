@@ -351,7 +351,7 @@ static const struct elim_table_1
 
 /* Set the can_eliminate field of elim_table pointed by P to false.  */
 #ifndef SET_NOT_ELIMINABLE
-#define SET_NOT_ELIMINABLE(P) set_not_eliminable (P)
+#define SET_NOT_ELIMINABLE(P) { (P)->can_eliminate = 0; }
 #endif
 
 /* Record the number of pending eliminations that have an offset not equal
@@ -2222,15 +2222,6 @@ mark_home_live (int regno)
     mark_home_live_1 (regno, PSEUDO_REGNO_MODE (regno));
 }
 
-/* This function sets the can_eliminate field of elim_table to
-   false.  */
-
-static inline void
-set_not_eliminable (struct elim_table *p)
-{
-  p->can_eliminate = 0;
-}
-
 /* This function handles the tracking of elimination offsets around branches.
 
    X is a piece of RTL being scanned.

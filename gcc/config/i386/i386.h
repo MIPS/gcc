@@ -1811,7 +1811,7 @@ typedef struct ix86_args {
 #define SET_NOT_ELIMINABLE(P)				\
   {							\
     gcc_assert (! stack_realign_fp);			\
-    set_not_eliminable (P);				\
+    (P)->can_eliminate = 0;				\
   }
 
 /* Define the offset between two registers, one to be eliminated, and the other
