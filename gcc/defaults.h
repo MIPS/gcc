@@ -945,7 +945,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #ifndef MAX_STACK_ALIGNMENT
-#define MAX_STACK_ALIGNMENT 0
+#define MAX_STACK_ALIGNMENT STACK_BOUNDARY
 #endif
 
 #ifndef LOCAL_ALIGNMENT

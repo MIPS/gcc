@@ -1,5 +1,31 @@
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* builtins.c (expand_builtin_longjmp): Replace MAX_STACK_ALIGNMENT
+	with comparison of MAX_STACK_ALIGNMENT and STACK_BOUNDARY.
+	(expand_builtin_apply): Likewise.
+	* calls.c (emit_call_1): Likewise.
+	* cfgexpand.c (get_decl_align_unit): Likewise.
+	(expand_one_var): Likewise.
+	(handle_drap): Likewise.
+	* emit-rtl.c (gen_reg_rtx): Likewise.
+	* function.c (assign_stack_local_1): Likewise.
+	(assign_parms): Likewise.
+	(locate_and_pad_parm): Likewise.
+	* global.c (compute_regsets): Likewise.
+	* reload1.c (set_label_offsets): Likewise.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+	(update_eliminables): Likewise.
+	(init_elim_table): Likewise.
+
+	* tree-vectorizer.c (vect_can_force_dr_alignment_p): Use
+	MAX_STACK_ALIGNMENT to check stack alignment.
+
+	* defaults.h (MAX_STACK_ALIGNMENT): Default to STACK_BOUNDARY.
+	* doc/tm.texi (MAX_STACK_ALIGNMENT): Likewise.
+
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* reload1.c (SET_NOT_ELIMINABLE): New.
 	(set_not_eliminable): Remove gcc_assert.
 	(set_label_offsets): Use SET_NOT_ELIMINABLE instead of
@@ -108,7 +134,6 @@
 	* cfgexpand.c (get_decl_align_unit): Likewise.
 	(expand_one_var): Likewise.
 	(handle_drap): Likewise.
-	(): Likewise.
 	* emit-rtl.c (gen_reg_rtx): Likewise.
 	* function.c (assign_stack_local_1): Likewise.
 	(assign_parms): Likewise.

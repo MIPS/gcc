@@ -871,7 +871,7 @@ gen_reg_rtx (enum machine_mode mode)
   /* If a virtual register with bigger mode alignment is generated,
      increase stack alignment estimation because it might be spilled
      to stack later.  */
-  if (MAX_STACK_ALIGNMENT 
+  if (MAX_STACK_ALIGNMENT > STACK_BOUNDARY 
       && crtl->stack_alignment_estimated < align
       && !crtl->stack_realign_processed)
     crtl->stack_alignment_estimated = align;

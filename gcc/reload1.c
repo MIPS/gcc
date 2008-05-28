@@ -3514,7 +3514,7 @@ mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
       {
 	/* Must not disable reg eliminate because stack realignment
 	   must eliminate frame pointer to stack pointer.  */
-	gcc_assert (! MAX_STACK_ALIGNMENT
+	gcc_assert (MAX_STACK_ALIGNMENT <= STACK_BOUNDARY
 		    || ! stack_realign_fp);
 
 	reg_eliminate[i].can_eliminate_previous
@@ -3690,7 +3690,8 @@ update_eliminables (HARD_REG_SET *pset)
       if (ep->can_eliminate
 	  && ep->from == FRAME_POINTER_REGNUM
 	  && ep->to != HARD_FRAME_POINTER_REGNUM
-	  && (! MAX_STACK_ALIGNMENT || ! crtl->stack_realign_needed))
+	  && (MAX_STACK_ALIGNMENT <= STACK_BOUNDARY
+	      || ! crtl->stack_realign_needed))
 	frame_pointer_needed = 0;
 
       if (! ep->can_eliminate && ep->can_eliminate_previous)
@@ -3748,7 +3749,8 @@ init_elim_table (void)
 	= (CAN_ELIMINATE (ep->from, ep->to)
 	   && ! (ep->to == STACK_POINTER_REGNUM
 		 && frame_pointer_needed 
-		 && (! MAX_STACK_ALIGNMENT || ! stack_realign_fp)));
+		 && (MAX_STACK_ALIGNMENT <= STACK_BOUNDARY
+		     || ! stack_realign_fp)));
     }
 #else
   reg_eliminate[0].from = reg_eliminate_1[0].from;

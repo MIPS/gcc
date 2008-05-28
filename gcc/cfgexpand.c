@@ -158,7 +158,7 @@ get_decl_align_unit (tree decl)
   align = DECL_ALIGN (decl);
   align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
 
-  if (MAX_STACK_ALIGNMENT)
+  if (MAX_STACK_ALIGNMENT > STACK_BOUNDARY)
     {
       if (crtl->stack_alignment_estimated < align)
 	{
@@ -756,7 +756,7 @@ defer_stack_allocation (tree var, bool toplevel)
 static HOST_WIDE_INT
 expand_one_var (tree var, bool toplevel, bool really_expand)
 {
-  if (MAX_STACK_ALIGNMENT
+  if (MAX_STACK_ALIGNMENT > STACK_BOUNDARY
       && TREE_TYPE (var) != error_mark_node
       && TREE_CODE (var) == VAR_DECL)
     {
@@ -1874,7 +1874,7 @@ handle_drap (void)
 {
   rtx internal_arg_rtx; 
 
-  if (!MAX_STACK_ALIGNMENT)
+  if (MAX_STACK_ALIGNMENT <= STACK_BOUNDARY)
     return;
   
   if (cfun->calls_alloca

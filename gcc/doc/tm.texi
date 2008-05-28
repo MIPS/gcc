@@ -1120,9 +1120,9 @@ field alignment has not been set by the
 
 @defmac MAX_STACK_ALIGNMENT
 Biggest stack alignment supported by the backend.  Use this macro
-to specify the maximum alignment of a variable on stack if it is
-greater than @code{PREFERRED_STACK_BOUNDARY}.  If not defined, the
-default value is zero.
+to specify the maximum alignment of a variable on stack.
+
+If not defined, the default value is @code{STACK_BOUNDARY}.
 @end defmac
 
 @defmac MAX_OFILE_ALIGNMENT
