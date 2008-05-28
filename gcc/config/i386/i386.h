@@ -1800,15 +1800,9 @@ typedef struct ix86_args {
  { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}	\
 
 /* Given FROM and TO register numbers, say whether this elimination is
-   allowed.  Frame pointer elimination is automatically handled.
+   allowed.   */
 
-   All other eliminations are valid.  */
-
-#define CAN_ELIMINATE(FROM, TO) \
-  (stack_realign_fp \
-  ? ((FROM) == ARG_POINTER_REGNUM && (TO) == HARD_FRAME_POINTER_REGNUM) \
-    || ((FROM) == FRAME_POINTER_REGNUM && (TO) == STACK_POINTER_REGNUM) \
-  : ((TO) == STACK_POINTER_REGNUM ? !frame_pointer_needed : 1))
+#define CAN_ELIMINATE(FROM, TO) ix86_can_eliminate ((FROM), (TO))
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */

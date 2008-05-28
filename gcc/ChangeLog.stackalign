@@ -1,5 +1,11 @@
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_can_elimination): New.
+	* config/i386/i386-protos.h (ix86_can_eliminate): Likewise.
+	* config/i386/i386.h (CAN_ELIMINATE): Use it.
+
+2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* reload1.c (set_not_eliminatable): Renamed to ...
 	(set_not_eliminable): This.
 	(set_label_offsets): Updated.
