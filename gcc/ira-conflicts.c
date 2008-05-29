@@ -96,6 +96,11 @@ build_conflict_bit_table (void)
   FOR_EACH_ALLOCNO (allocno, ai)
     {
       num = ALLOCNO_NUM (allocno);
+      if (ALLOCNO_MAX (allocno) < ALLOCNO_MIN (allocno))
+	{
+	  conflicts[num] = NULL;
+	  continue;
+	}
       conflict_bit_vec_words_num
 	= (ALLOCNO_MAX (allocno) - ALLOCNO_MIN (allocno) + INT_BITS) / INT_BITS;
       allocated_words_num += conflict_bit_vec_words_num;
@@ -756,8 +761,11 @@ build_allocno_conflicts (void)
 	  {
 	    free_p = FALSE;
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = conflicts[ALLOCNO_NUM (a)];
-	    conflict_bit_vec_words_num
-	      = (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + INT_BITS) / INT_BITS;
+	    if (ALLOCNO_MAX (a) < ALLOCNO_MIN (a))
+	      conflict_bit_vec_words_num = 0;
+	    else
+	      conflict_bit_vec_words_num
+		= (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + INT_BITS) / INT_BITS;
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a)
 	      = conflict_bit_vec_words_num * sizeof (INT_TYPE);
 	  }

@@ -1889,14 +1889,9 @@ ira (FILE *f)
 	     info.  */
 	  df_analyze ();
 	  
-	  {
-	    basic_block bb;
-	    
-	    FOR_ALL_BB (bb)
-	      bb->loop_father = NULL;
-	    current_loops = NULL;
-	  }
-	  
+	  flow_loops_find (&ira_loops);
+	  current_loops = &ira_loops;
+
 	  setup_allocno_assignment_flags ();
 	  initiate_ira_assign ();
 	  reassign_conflict_allocnos (max_regno);

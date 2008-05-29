@@ -258,6 +258,9 @@ static unsigned int spill_stack_slot_width[FIRST_PSEUDO_REGISTER];
 /* Record which pseudos needed to be spilled.  */
 static regset_head spilled_pseudos;
 
+/* Record which pseudos changed their allocation in finish_spills.  */
+static regset_head changed_allocation_pseudos;
+
 /* Used for communication between order_regs_for_reload and count_pseudo.
    Used to avoid counting one pseudo twice.  */
 static regset_head pseudos_counted;
@@ -504,6 +507,7 @@ init_reload (void)
   reload_startobj = obstack_alloc (&reload_obstack, 0);
 
   INIT_REG_SET (&spilled_pseudos);
+  INIT_REG_SET (&changed_allocation_pseudos);
   INIT_REG_SET (&pseudos_counted);
 }
 
@@ -521,6 +525,7 @@ new_insn_chain (void)
       c = obstack_alloc (&reload_obstack, sizeof (struct insn_chain));
       INIT_REG_SET (&c->live_throughout);
       INIT_REG_SET (&c->dead_or_set);
+      INIT_REG_SET (&c->saved);
     }
   else
     {
@@ -1783,11 +1788,13 @@ order_regs_for_reload (struct insn_chain *chain)
   EXECUTE_IF_SET_IN_REG_SET
     (&chain->live_throughout, FIRST_PSEUDO_REGISTER, i, rsi)
     {
-      count_pseudo (i);
+      if (!REGNO_REG_SET_P (&chain->saved, i))
+	count_pseudo (i);
     }
   EXECUTE_IF_SET_IN_REG_SET
     (&chain->dead_or_set, FIRST_PSEUDO_REGISTER, i, rsi)
     {
+      gcc_assert (!REGNO_REG_SET_P (&chain->saved, i));
       count_pseudo (i);
     }
   CLEAR_REG_SET (&pseudos_counted);
@@ -1945,14 +1952,35 @@ find_reg (struct insn_chain *chain, int order)
   rl->regno = best_reg;
 
   EXECUTE_IF_SET_IN_REG_SET
+    (&chain->saved, FIRST_PSEUDO_REGISTER, j, rsi)
+    {
+      int nregs;
+      int r = reg_renumber[j];
+      
+      if (r < 0)
+	continue;
+      nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (j)];
+      if (dump_file != NULL
+	  && ((best_reg <= r && r < best_reg + (int) rl->nregs)
+	      || (r <= best_reg && best_reg < r + nregs)))
+	{
+	  fprintf (dump_file, "using saved reg %d (of %u) for insn %u\n",
+		   r, j, INSN_UID (chain->insn));
+	  break;
+	}
+    }
+
+  EXECUTE_IF_SET_IN_REG_SET
     (&chain->live_throughout, FIRST_PSEUDO_REGISTER, j, rsi)
     {
-      count_spilled_pseudo (best_reg, rl->nregs, j);
+      if (!REGNO_REG_SET_P (&chain->saved, j))
+	count_spilled_pseudo (best_reg, rl->nregs, j);
     }
 
   EXECUTE_IF_SET_IN_REG_SET
     (&chain->dead_or_set, FIRST_PSEUDO_REGISTER, j, rsi)
     {
+      gcc_assert (!REGNO_REG_SET_P (&chain->saved, j));
       count_spilled_pseudo (best_reg, rl->nregs, j);
     }
 
@@ -2052,12 +2080,17 @@ delete_caller_save_insns (void)
 {
   struct insn_chain *c = reload_insn_chain;
 
-  while (c != 0)
+  CLEAR_HARD_REG_SET (used_spill_regs);
+  for (;;)
     {
       while (c != 0 && c->is_caller_save_insn)
 	{
 	  struct insn_chain *next = c->next;
 	  rtx insn = c->insn;
+
+	  if (dump_file)
+	    fprintf (dump_file, "removing caller save insn %u\n",
+		     INSN_UID (insn));
 
 	  if (c == reload_insn_chain)
 	    reload_insn_chain = next;
@@ -2071,8 +2104,52 @@ delete_caller_save_insns (void)
 	  unused_insn_chains = c;
 	  c = next;
 	}
-      if (c != 0)
-	c = c->next;
+      if (c == 0)
+	break;
+      /* Invalidating spill hard registers got from caller-saved hard
+	 registers.  */
+      if (c->need_reload)
+	{
+	  HARD_REG_SET saved;
+	  int i;
+	  unsigned int regno;
+	  reg_set_iterator rsi;
+
+	  CLEAR_HARD_REG_SET (saved);
+	  EXECUTE_IF_SET_IN_REG_SET (&c->saved, FIRST_PSEUDO_REGISTER,
+				     regno, rsi)
+	    {
+	      int r = reg_renumber[regno];
+
+	      if (r < 0)
+		continue;
+	      add_to_hard_reg_set (&saved, PSEUDO_REGNO_MODE (regno), r);
+	    }
+	  if (!hard_reg_set_empty_p (saved))
+	    for (i = 0; i < c->n_reloads; i++)
+	      {
+		int nregs;
+		struct reload *rl = &c->rld[i];
+		int r = rl->regno;
+		
+		if (rl->regno < 0)
+		  continue;
+		nregs = rl->nregs;
+		for (nregs--; nregs >= 0; nregs--)
+		  if (TEST_HARD_REG_BIT (saved, r + nregs))
+		    {
+		      if (dump_file != NULL)
+			fprintf (dump_file,
+				 "invalidating %d reg for insn %u reload\n",
+				 rl->regno, INSN_UID (c->insn));
+		      rl->regno = -1;
+		      break;
+		    }
+	      }
+	  AND_COMPL_HARD_REG_SET (c->used_spill_regs, saved);
+	  IOR_HARD_REG_SET (used_spill_regs, c->used_spill_regs);
+	}
+      c = c->next;
     }
 }
 
@@ -3979,6 +4056,7 @@ finish_spills (int global)
 	  EXECUTE_IF_SET_IN_REG_SET
 	    (&chain->dead_or_set, FIRST_PSEUDO_REGISTER, i, rsi)
 	    {
+	      gcc_assert (!REGNO_REG_SET_P (&chain->saved, i));
 	      IOR_HARD_REG_SET (pseudo_forbidden_regs[i],
 				chain->used_spill_regs);
 	    }
@@ -4051,26 +4129,26 @@ finish_spills (int global)
 	  REG_SET_TO_HARD_REG_SET (used_by_pseudos2, &chain->dead_or_set);
 	  IOR_HARD_REG_SET (used_by_pseudos, used_by_pseudos2);
 
-	  /* Save the old value for the sanity test below.  */
-	  COPY_HARD_REG_SET (used_by_pseudos2, chain->used_spill_regs);
-
 	  compute_use_by_pseudos (&used_by_pseudos, &chain->live_throughout);
 	  compute_use_by_pseudos (&used_by_pseudos, &chain->dead_or_set);
+	  /* Value of chain->used_spill_regs from previous iteration
+	     may be not included in the value calculated here because
+	     of possible removing caller-saves insns (see function
+	     delete_caller_save_insns.  */
 	  COMPL_HARD_REG_SET (chain->used_spill_regs, used_by_pseudos);
 	  AND_HARD_REG_SET (chain->used_spill_regs, used_spill_regs);
-
-	  /* Make sure we only enlarge the set.  */
-	  gcc_assert (hard_reg_set_subset_p (used_by_pseudos2,
-					    chain->used_spill_regs));
 	}
     }
 
+  CLEAR_REG_SET (&changed_allocation_pseudos);
   /* Let alter_reg modify the reg rtx's for the modified pseudos.  */
   for (i = FIRST_PSEUDO_REGISTER; i < (unsigned)max_regno; i++)
     {
       int regno = reg_renumber[i];
       if (reg_old_renumber[i] == regno)
 	continue;
+
+      SET_REGNO_REG_SET (&changed_allocation_pseudos, i);
 
       alter_reg (i, reg_old_renumber[i], false);
       reg_old_renumber[i] = regno;
@@ -4459,8 +4537,8 @@ reload_as_needed (int live_known)
          be partially clobbered by the call.  */
       else if (CALL_P (insn))
 	{
-	AND_COMPL_HARD_REG_SET (reg_reloaded_valid, call_used_reg_set);
-	AND_COMPL_HARD_REG_SET (reg_reloaded_valid, reg_reloaded_call_part_clobbered);
+	  AND_COMPL_HARD_REG_SET (reg_reloaded_valid, call_used_reg_set);
+	  AND_COMPL_HARD_REG_SET (reg_reloaded_valid, reg_reloaded_call_part_clobbered);
 	}
     }
 

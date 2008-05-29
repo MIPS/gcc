@@ -624,8 +624,14 @@ set_allocno_cover_class (allocno_t a, enum reg_class cover_class)
 int
 conflict_vector_profitable_p (allocno_t a, int num)
 {
-  int nw = (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + INT_BITS) / INT_BITS;
+  int nw;
 
+  if (ALLOCNO_MAX (a) < ALLOCNO_MIN (a))
+    /* We prefer bit vector in such case because it does not result in
+       allocation.  */
+    return FALSE;
+
+  nw = (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + INT_BITS) / INT_BITS;
   return 2 * sizeof (allocno_t) * (num + 1) < 3 * nw * sizeof (INT_TYPE);
 }
 
@@ -778,7 +784,7 @@ clear_allocno_conflicts (allocno_t a)
       ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
       ((allocno_t *) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a))[0] = NULL;
     }
-  else
+  else if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) != 0)
     {
       int nw;
 

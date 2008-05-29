@@ -1,3 +1,58 @@
+2008-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* Makefile.in (caller-save.o): Add CFGLOOP_H.
+
+	* ira.c (ira): Call flow_loops_find after the allocation before
+	the reload.
+
+	* global.c (print_insn_chain): Print bitmap saved.
+
+	* reload.h (insn_chain): Add members saved and saved_pseudo_regno.
+
+	* reload1.c (changed_allocation_pseudos): New bitmap.
+	(init_reload): Initiate the bitmap.
+	(new_insn_chain): Initiate bitmap saved.
+	(order_regs_for_reload): Check bitmap saved.
+	(find_reg): Check bitmap saved to find register.
+	(delete_caller_save_insns): Print about removing caller-save insn.
+	Invalidate reload register taken from saved registers.
+	Recalculate used_spill_regs.
+	(finish_spills): Check bitmap saved.  Set up
+	changed_allocation_pseudos.  Remove sanity check.
+
+	* caller-save.c (cfgloop.h): Add the header.
+	(set_regs): New variable.
+	(bb_info): Remove members empty_save_in_p, kill, gen.  Add members
+	empty_save_out_p, empty_restore_in_p, save_kill, save_gen,
+	restore_kill, restore_gen, free_gen, restore_in, restore_out,
+	free_in, free_out, live_at_end, restore_here, restore_in_mode,
+	restore_out_mode, save_in_pseudo, save_out_pseudo,
+	restore_in_pseudo, restore_out_pseudo.
+	(loop_info): New structure.
+	(LOOP_INFO): New macro.
+	(calculate_local_save_info): Add calculation of new bb_info
+	members for local info.
+	(restore_trans_fun, restore_con_fun_0, restore_con_fun_n,
+	calculate_restore_in_out, calculate_restore_here, free_trans_fun,
+	free_con_fun_0, free_con_fun_n, calculate_free_in_out): New
+	functions.
+	(make_global_save_analysis): Add calculation of new bb_info
+	members for global info.
+	(print_hard_reg_set_and_mode): Rename to
+	print_annotated_hard_reg_set.  Print pseudo regnos too.
+	(print_save_data): Add printing new bb_info members.
+	(set_hard_reg_saved): New parameters from_saved_pseudo,
+	save_pseudo.  Set them up.
+	(save_call_clobbered_regs): Rewrite.
+	(mark_referenced_regs): Set up set_regs.
+	(insert_restore, insert_save): New parameter save_pseudo.  Use it
+	for setting save_pseudo_regno and for debugging output.
+
+	* ira-conflicts.c (build_conflict_bit_table): Check min/max.
+
+	* ira-build.c (conflict_vector_profitable_p): Ditto.
+	(clear_allocno_conflicts): Check that conflict allocno array size.
+	
 2008-05-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira.c (setup_preferred_alternate_classes): Remove.

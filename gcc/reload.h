@@ -213,10 +213,15 @@ struct insn_chain
      live pseudos that have a hard register.  */
   regset_head live_throughout;
   regset_head dead_or_set;
-
+  /* Register life information: record all all live pseudos that was
+     saved through given insn.  */
+  regset_head saved;
   /* Copies of the global variables computed by find_reloads.  */
   struct reload *rld;
   int n_reloads;
+  /* It is defined only when IS_CALLER_SAVE_INSN is TRUE.  The value
+     is regno of pseudo saved/restored by the insn.  */
+  int saved_pseudo_regno;
 
   /* Indicates which registers have already been used for spills.  */
   HARD_REG_SET used_spill_regs;
