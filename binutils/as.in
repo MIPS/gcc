@@ -1,0 +1,25 @@
+#!/bin/sh
+
+ILASM=@ILASM@
+OPTIONS=
+CMD=
+VERBOSE=
+
+while test -n "$1"; do
+  case $1 in
+      --verbose)
+          VERBOSE=true
+          shift
+          ;;
+      *)
+          OPTIONS="$OPTIONS $1"
+          shift
+          ;;
+  esac
+done
+
+CMD="$ILASM $OPTIONS"
+if test -n "$VERBOSE"; then
+    echo $CMD
+fi
+$CMD
