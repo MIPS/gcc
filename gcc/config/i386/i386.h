@@ -1808,10 +1808,14 @@ typedef struct ix86_args {
    Must not disable register elimination because stack realignment
    must eliminate frame pointer to stack pointer and argument pointer
    to frame pointer.  */
-#define SET_NOT_ELIMINABLE(P)				\
-  {							\
-    gcc_assert (! stack_realign_fp);			\
-    (P)->can_eliminate = 0;				\
+#define SET_NOT_ELIMINABLE(P)                        			\
+  {                        						\
+    gcc_assert (!(stack_realign_fp                  			\
+		  && (((P)->from == ARG_POINTER_REGNUM 			\
+		       && (P)->to == HARD_FRAME_POINTER_REGNUM)		\
+		      || ((P)->from == FRAME_POINTER_REGNUM 		\
+			  && (P)->to == STACK_POINTER_REGNUM))));	\
+    (P)->can_eliminate = 0;                             		\
   }
 
 /* Define the offset between two registers, one to be eliminated, and the other

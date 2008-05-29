@@ -1,3 +1,8 @@
+2008-05-29  Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.h (SET_NOT_ELIMINABLE): Add more checks on
+	eliminable registers.
+
 2008-05-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* reload1.c (SET_NOT_ELIMINABLE): Set can_eliminate directly.
