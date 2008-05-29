@@ -1,5 +1,10 @@
 2008-05-29  Aldy Hernandez  <aldyh@redhat.com>
 
+	* gimple-pretty-print.c (dump_gimple_stmt): Add cases for
+	GIMPLE_OMP_MASTER and GIMPLE_OMP_ORDERED.
+
+2008-05-29  Aldy Hernandez  <aldyh@redhat.com>
+
 	* omp-low.c (expand_omp_parallel): Parse an assignment from an
 	ADDR_EXPR correctly.
 	* gimple-pretty-print.c (dump_gimple_omp_parallel): Print braces when

@@ -1247,8 +1247,16 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_goto (buffer, gs, spc, flags);
       break;
 
+    case GIMPLE_OMP_MASTER:
+      pp_string (buffer, "#pragma omp master");
+      break;
+
     case GIMPLE_NOP:
       pp_string (buffer, "GIMPLE_NOP");
+      break;
+
+    case GIMPLE_OMP_ORDERED:
+      pp_string (buffer, "#pragma omp ordered");
       break;
 
     case GIMPLE_RETURN:
