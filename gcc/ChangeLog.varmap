@@ -1,5 +1,14 @@
 2008-05-29  Michael Matz  <matz@suse.de>
 
+	* var-tracking.c (enum micro_operation_type): Add MO_ASSOC type.
+	(assoc_reg_set, assoc_mem_set, count_assocs, add_assocs): New
+	functions.
+	(compute_bb_dataflow): Use them to remember decl associations.
+	(emit_notes_in_bb): Deal with new micro ops.
+	(vt_initialize): Count new micro ops and call add_assocs.
+
+2008-05-29  Michael Matz  <matz@suse.de>
+
 	* dwarf2out.c (add_location_or_const_value_attribute): When a
 	decl only has one location nevertheless note it's start of live.
 

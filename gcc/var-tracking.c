@@ -117,7 +117,8 @@ enum micro_operation_type
 		   location to another.  */
   MO_CLOBBER,	/* Clobber location.  */
   MO_CALL,	/* Call insn.  */
-  MO_ADJUST	/* Adjust stack pointer.  */
+  MO_ADJUST,	/* Adjust stack pointer.  */
+  MO_ASSOC      /* Association with decl uid bitmap.  */
 };
 
 /* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
@@ -861,6 +862,22 @@ var_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   set_variable_part (set, loc, decl, offset, initialized, set_src);
 }
 
+static void
+assoc_reg_set (dataflow_set *set, rtx loc, enum var_init_status initialized, 
+	     rtx set_src, tree decl)
+{
+  attrs node;
+
+  decl = var_debug_decl (decl);
+
+  for (node = set->regs[REGNO (loc)]; node; node = node->next)
+    if (node->decl == decl && node->offset == 0)
+      break;
+  if (!node)
+    attrs_list_insert (&set->regs[REGNO (loc)], decl, 0, loc);
+  set_variable_part (set, loc, decl, 0, initialized, set_src);
+}
+
 static int
 get_init_value (dataflow_set *set, rtx loc, tree decl)
 {
@@ -994,6 +1011,15 @@ var_mem_set (dataflow_set *set, rtx loc, enum var_init_status initialized,
   decl = var_debug_decl (decl);
 
   set_variable_part (set, loc, decl, offset, initialized, set_src);
+}
+
+static void
+assoc_mem_set (dataflow_set *set, rtx loc, enum var_init_status initialized, 
+	     rtx set_src, tree decl)
+{
+  decl = var_debug_decl (decl);
+
+  set_variable_part (set, loc, decl, 0, initialized, set_src);
 }
 
 /* Delete and set the location part of variable MEM_EXPR (LOC) in
@@ -2021,11 +2047,12 @@ compute_bb_dataflow (basic_block bb)
   dataflow_set_init (&old_out, htab_elements (VTI (bb)->out.vars) + 3);
   dataflow_set_copy (&old_out, out);
   dataflow_set_copy (out, in);
+  variable_tracking_info vti = VTI(bb);
 
-  n = VTI (bb)->n_mos;
+  n = vti->n_mos;
   for (i = 0; i < n; i++)
     {
-      switch (VTI (bb)->mos[i].type)
+      switch (vti->mos[i].type)
 	{
 	  case MO_CALL:
 	    for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
@@ -2121,6 +2148,28 @@ compute_bb_dataflow (basic_block bb)
 
 	  case MO_ADJUST:
 	    out->stack_adjust += VTI (bb)->mos[i].u.adjust;
+	    break;
+
+	  case MO_ASSOC:
+	    {
+	      rtx set = VTI (bb)->mos[i].u.loc;
+	      bitmap b = XBITMAP (set, 2);
+	      rtx loc = SET_DEST (set);
+	      bitmap_iterator bi;
+	      unsigned int i;
+	      EXECUTE_IF_SET_IN_BITMAP (b, 0, i, bi)
+	        {
+		  tree var = ssa_varmap_get_ref (i);
+		  if (!var)
+		    continue;
+		  if (REG_P (loc))
+		    assoc_reg_set (out, loc, VAR_INIT_STATUS_INITIALIZED,
+				   SET_SRC (set), var);
+		  else if (MEM_P (loc))
+		    assoc_mem_set (out, loc, VAR_INIT_STATUS_INITIALIZED,
+				   SET_SRC (set), var);
+		}
+	    }
 	    break;
 	}
     }
@@ -3065,6 +3114,29 @@ emit_notes_in_bb (basic_block bb)
 	  case MO_ADJUST:
 	    set.stack_adjust += VTI (bb)->mos[i].u.adjust;
 	    break;
+
+	  case MO_ASSOC:
+	    {
+	      rtx rt = VTI (bb)->mos[i].u.loc;
+	      bitmap b = XBITMAP (rt, 2);
+	      rtx loc = SET_DEST (rt);
+	      bitmap_iterator bi;
+	      unsigned int i;
+	      EXECUTE_IF_SET_IN_BITMAP (b, 0, i, bi)
+	        {
+		  tree var = ssa_varmap_get_ref (i);
+		  if (!var)
+		    continue;
+		  if (REG_P (loc))
+		    assoc_reg_set (&set, loc, VAR_INIT_STATUS_INITIALIZED,
+				   SET_SRC (rt), var);
+		  else if (MEM_P (loc))
+		    assoc_mem_set (&set, loc, VAR_INIT_STATUS_INITIALIZED,
+				   SET_SRC (rt), var);
+		}
+	      emit_notes_for_changes (NEXT_INSN (insn), EMIT_NOTE_BEFORE_INSN);
+	    }
+	    break;
 	}
     }
   dataflow_set_destroy (&set);
@@ -3195,6 +3267,46 @@ vt_add_function_parameters (void)
     }
 }
 
+static int
+count_assocs (rtx insn)
+{
+  rtx pat = PATTERN (insn);
+  if (GET_CODE (pat) == SET)
+    return XBITMAP (pat, 2) ? 1 : 0;
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int num = 0;
+      int i;
+      for ( i = XVECLEN (pat, 0) - 1; i >= 0; i--)
+	if (GET_CODE (XVECEXP (pat, 0, i)) == SET
+	    && XBITMAP (XVECEXP (pat, 0, i), 2))
+	  num ++;
+      return num;
+    }
+  else
+    return 0;
+}
+
+static void
+add_assocs (basic_block bb, rtx insn, rtx pat)
+{
+  if (GET_CODE (pat) == SET
+      && XBITMAP (pat, 2))
+    {
+      micro_operation *mo = VTI (bb)->mos + VTI (bb)->n_mos++;
+
+      mo->type = MO_ASSOC;
+      mo->u.loc = pat;
+      mo->insn = insn;
+    }
+  else if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+      for ( i = XVECLEN (pat, 0) - 1; i >= 0; i--)
+	add_assocs (bb, insn, XVECEXP (pat, 0, i));
+    }
+}
+
 /* Allocate and initialize the data structures for variable tracking
    and parse the RTL to get the micro operations.  */
 
@@ -3229,6 +3341,7 @@ vt_initialize (void)
 	      note_stores (PATTERN (insn), count_stores, insn);
 	      if (CALL_P (insn))
 		VTI (bb)->n_mos++;
+	      VTI (bb)->n_mos += count_assocs (insn);
 	    }
 	}
 
@@ -3308,6 +3421,8 @@ vt_initialize (void)
 		      VTI (bb)->mos[n2] = sw;
 		    }
 		}
+
+	      add_assocs (bb, insn, PATTERN (insn));
 
 	      if (!frame_pointer_needed && post)
 		{
