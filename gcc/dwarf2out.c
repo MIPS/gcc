@@ -10833,7 +10833,29 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
       descr = loc_descriptor (NOTE_VAR_LOCATION (node->var_loc_note), status);
       if (descr)
 	{
-	  add_AT_location_description (die, attr, descr);
+	  /* If we have a label the life of DECL starts there, so make
+	     a location list.  */
+	  if (node->label)
+	    {
+	      dw_loc_list_ref list;
+	      const char *endname;
+	      char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
+	      if (!current_function_decl)
+		endname = text_end_label;
+	      else
+		{
+		  ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
+					       current_function_funcdef_no);
+		  endname = ggc_strdup (label_id);
+		}
+	      list = new_loc_list (descr, node->label, endname,
+				   secname_for_decl (decl), 1);
+	      add_AT_loc_list (die, attr, list);
+	    }
+	  else
+	    /* Otherwise at least note the location, as if it was valid
+	       for the whole function.  */
+	    add_AT_location_description (die, attr, descr);
 	  return;
 	}
     }

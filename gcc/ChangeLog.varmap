@@ -1,5 +1,10 @@
 2008-05-29  Michael Matz  <matz@suse.de>
 
+	* dwarf2out.c (add_location_or_const_value_attribute): When a
+	decl only has one location nevertheless note it's start of live.
+
+2008-05-29  Michael Matz  <matz@suse.de>
+
 	* var-tracking.c (track_expr_p): Also track decls that have
 	no RTL set.
 
