@@ -5029,7 +5029,15 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      		 NULL, NULL)
 	      || walk_tree (gimple_cond_rhs_ptr (stmt), lower_omp_regimplify_p,
 			    NULL, NULL)))
-	goto regimplify;
+	{
+	  gimple_seq pre = NULL;
+	  gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
+			 is_gimple_val, fb_rvalue);
+	  gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
+			 is_gimple_val, fb_rvalue);
+	  if (!gimple_seq_empty_p (pre))
+	    gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
+	}
       break;
     case GIMPLE_CATCH:
       lower_omp (gimple_catch_handler (stmt), ctx);
@@ -5097,7 +5105,6 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	{
 	  size_t i, num_ops;
 
-	regimplify:
 	  /* This is similar to gimple_regimplify_operands, but uses
 	     forcefully uses gimplify_expr with the right predicates
 	     on the operands.  is_gimple_val etc. don't look at
@@ -5116,9 +5123,15 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		gimplify_expr (&op, &pre, NULL, is_gimple_lvalue, fb_lvalue);
 	      else if (i == 2 && is_gimple_assign (stmt) && num_ops == 2)
 		gimplify_expr (&op, &pre, NULL,
-			       rhs_predicate_for (gimple_op (stmt, 0)), fb_rvalue);
-	      else
-		gimplify_expr (&op, &pre, NULL, is_gimple_val, fb_rvalue);
+			       rhs_predicate_for (gimple_op (stmt, 0)),
+			       fb_rvalue);
+	      else if (i == 2 && is_gimple_call (stmt))
+		{
+		  if (TREE_CODE (op) == FUNCTION_DECL)
+		    continue;
+		  gimplify_expr (&op, &pre, NULL, is_gimple_call_addr,
+				 fb_rvalue);
+		}
 	      if (!gimple_seq_empty_p (pre))
 		gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
 	      gimple_set_op (stmt, i - 1, op);

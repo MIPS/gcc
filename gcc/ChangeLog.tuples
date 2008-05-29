@@ -1,3 +1,8 @@
+2008-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_1): Fix regimplification of GIMPLE_COND and
+	GIMPLE_CALL.
+
 2008-05-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple.c (gimple_regimplify_operands): Don't call gimple_num_ops
