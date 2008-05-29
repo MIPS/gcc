@@ -1,5 +1,9 @@
 2008-05-29  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-inline.c (remap_gimple_stmt): Handle GIMPLE_OMP_* cases.
+
+2008-05-29  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gimple-pretty-print.c (dump_gimple_stmt): Add cases for
 	GIMPLE_OMP_MASTER and GIMPLE_OMP_ORDERED.
 

@@ -1090,14 +1090,56 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy = gimple_build_wce (s1);
 	  break;
 
-	  /* FIXME tuples.  */
-	case GIMPLE_OMP_FOR:
-	case GIMPLE_OMP_MASTER:
-	case GIMPLE_OMP_ORDERED:
-	case GIMPLE_OMP_SECTION:
 	case GIMPLE_OMP_PARALLEL:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_parallel
+	           (s1,
+		    gimple_omp_parallel_clauses (stmt),
+		    gimple_omp_parallel_child_fn (stmt),
+		    gimple_omp_parallel_data_arg (stmt));
+	  break;
+
+	case GIMPLE_OMP_FOR:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
+	  copy = gimple_build_omp_for
+	           (s1,
+		    gimple_omp_for_clauses (stmt),
+		    gimple_omp_for_index (stmt),
+		    gimple_omp_for_initial (stmt),
+		    gimple_omp_for_final (stmt),
+		    gimple_omp_for_incr (stmt),
+		    s2,
+		    gimple_omp_for_cond (stmt));
+	  break;
+
+	case GIMPLE_OMP_MASTER:
+	  s1 = gimple_omp_body (stmt);
+	  copy = gimple_build_omp_master (s1);
+	  break;
+
+	case GIMPLE_OMP_ORDERED:
+	  s1 = gimple_omp_body (stmt);
+	  copy = gimple_build_omp_ordered (s1);
+	  break;
+
+	case GIMPLE_OMP_SECTION:
+	  s1 = gimple_omp_body (stmt);
+	  copy = gimple_build_omp_section (s1);
+	  break;
+
 	case GIMPLE_OMP_SECTIONS:
+	  s1 = gimple_omp_body (stmt);
+	  copy = gimple_build_omp_sections
+	           (s1, gimple_omp_sections_clauses (stmt));
+	  break;
+
 	case GIMPLE_OMP_SINGLE:
+	  s1 = gimple_omp_body (stmt);
+	  copy = gimple_build_omp_single
+	           (s1, gimple_omp_single_clauses (stmt));
+	  break;
+
 	default:
 	  gcc_unreachable ();
 	}
