@@ -3506,13 +3506,8 @@ mark_not_eliminable (rtx dest, const_rtx x, void *data ATTRIBUTE_UNUSED)
 	    || XEXP (SET_SRC (x), 0) != dest
 	    || GET_CODE (XEXP (SET_SRC (x), 1)) != CONST_INT))
       {
-	/* Must not disable reg eliminate because stack realignment
-	   must eliminate frame pointer to stack pointer.  */
-	gcc_assert (! SUPPORTS_STACK_ALIGNMENT
-		    || ! stack_realign_fp);
-
-	reg_eliminate[i].can_eliminate_previous
-	  = reg_eliminate[i].can_eliminate = 0;
+	reg_eliminate[i].can_eliminate_previous = 0;
+	clear_can_eliminate (&reg_eliminate[i]);
 	num_eliminable--;
       }
 }

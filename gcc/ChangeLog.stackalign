@@ -1,5 +1,10 @@
 2008-05-29  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* reload1.c (mark_not_eliminable): Call clear_can_eliminate
+	to clear the can_eliminate field.
+
+2008-05-29  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* reload1.c (SET_NOT_ELIMINABLE): Removed.
 	(clear_can_eliminate): New.
 	(set_label_offsets): Replace SET_NOT_ELIMINABLE with
