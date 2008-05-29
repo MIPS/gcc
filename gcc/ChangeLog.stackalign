@@ -1,5 +1,17 @@
 2008-05-29  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* reload1.c (SET_NOT_ELIMINABLE): Removed.
+	(clear_can_eliminate): New.
+	(set_label_offsets): Replace SET_NOT_ELIMINABLE with
+	clear_can_eliminate.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+
+	* config/i386/i386.h (SET_NOT_ELIMINABLE): Removed.
+	* doc/tm.texi (SET_NOT_ELIMINABLE): Likewise.
+
+2008-05-29  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* doc/tm.texi (SET_NOT_ELIMINABLE): Updated.
 
 2008-05-29  Joey Ye  <joey.ye@intel.com>
