@@ -1,6 +1,11 @@
+2008-05-29  Bill Maddox  <maddox@google.com>
+
+	* lto-tree-in.h, lto-tree-out.h: New files,
+	accidently omitted from previous commit.
+
 2008-05-28  Bill Maddox  <maddox@google.com>
 	
-Replace the DWARF reader in the LTO front-end.
+	Replace the DWARF reader in the LTO front-end.
 
 	* lto-tree-flags.def: Add flags for *_DECL
 	and *_TYPE for use by g lobal streamer.
