@@ -1,3 +1,12 @@
+2008-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_1): Handle regimplification of GIMPLE_ASM.
+	Fix GIMPLE_ASSIGN regimplification.
+	* gimple-pretty-print.c (dump_gimple_omp_sections,
+	dump_gimple_omp_block, dump_gimple_omp_critical): New functions.
+	(dump_gimple_omp_parallel): Formatting.
+	(dump_gimple_stmt): Handle remaining GIMPLE_OMP_* statements.
+
 2008-05-29  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-inline.c (remap_gimple_stmt): Handle GIMPLE_OMP_* cases.

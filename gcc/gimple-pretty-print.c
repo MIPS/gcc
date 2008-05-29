@@ -1,5 +1,5 @@
 /* Pretty formatting of GIMPLE statements and expressions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com> and
    Diego Novillo <dnovillo@google.com>
@@ -810,6 +810,110 @@ dump_gimple_omp_single (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
+/* Dump a GIMPLE_OMP_SECTIONS tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_sections (pretty_printer *buffer, gimple gs, int spc,
+			  int flags)
+{
+  if (flags & TDF_RAW)
+    {
+      dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+		       gimple_omp_body (gs));
+      dump_omp_clauses (buffer, gimple_omp_sections_clauses (gs), spc, flags);
+      dump_gimple_fmt (buffer, spc, flags, " >");
+    }
+  else
+    {
+      pp_string (buffer, "#pragma omp sections");
+      if (gimple_omp_sections_control (gs))
+	{
+	  pp_string (buffer, " <");
+	  dump_generic_node (buffer, gimple_omp_sections_control (gs), spc,
+			     flags, false);
+	  pp_character (buffer, '>');
+	}
+      dump_omp_clauses (buffer, gimple_omp_sections_clauses (gs), spc, flags);
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  INDENT (spc + 2);
+	  pp_character (buffer, '}');
+	}
+    }
+}
+
+/* Dump a GIMPLE_OMP_{MASTER,ORDERED,SECTION} tuple on the pretty_printer
+   BUFFER.  */
+
+static void
+dump_gimple_omp_block (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (flags & TDF_RAW)
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S> >", gs,
+		     gimple_omp_body (gs));
+  else
+    {
+      switch (gimple_code (gs))
+	{
+	case GIMPLE_OMP_MASTER:
+	  pp_string (buffer, "#pragma omp master");
+	  break;
+	case GIMPLE_OMP_ORDERED:
+	  pp_string (buffer, "#pragma omp ordered");
+	  break;
+	case GIMPLE_OMP_SECTION:
+	  pp_string (buffer, "#pragma omp section");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  INDENT (spc + 2);
+	  pp_character (buffer, '}');
+	}
+    }
+}
+
+/* Dump a GIMPLE_OMP_CRITICAL tuple on the pretty_printer BUFFER.  */
+
+static void
+dump_gimple_omp_critical (pretty_printer *buffer, gimple gs, int spc,
+			  int flags)
+{
+  if (flags & TDF_RAW)
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S> >", gs,
+		     gimple_omp_body (gs));
+  else
+    {
+      pp_string (buffer, "#pragma omp critical");
+      if (gimple_omp_critical_name (gs))
+	{
+	  pp_string (buffer, " (");
+	  dump_generic_node (buffer, gimple_omp_critical_name (gs), spc,
+			     flags, false);
+	  pp_character (buffer, ')');
+	}
+      if (!gimple_seq_empty_p (gimple_omp_body (gs)))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  INDENT (spc + 2);
+	  pp_character (buffer, '}');
+	}
+    }
+}
+
 /* Dump a GIMPLE_OMP_RETURN tuple on the pretty_printer BUFFER.  */
 
 static void
@@ -997,6 +1101,7 @@ dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
     }
   else
     {
+      gimple_seq body;
       pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, gimple_omp_parallel_clauses (gs), spc, flags);
       if (gimple_omp_parallel_child_fn (gs))
@@ -1012,19 +1117,18 @@ dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
 	    pp_string (buffer, "???");
 	  pp_string (buffer, ")]");
 	}
-      if (gimple_omp_body (gs) &&
-	  gimple_code
-	  (gimple_seq_first_stmt (gimple_omp_body (gs))) != GIMPLE_BIND)
+      body = gimple_omp_body (gs);
+      if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
 	{
 	  newline_and_indent (buffer, spc + 2);
 	  pp_character (buffer, '{');
 	  pp_newline (buffer);
-	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  dump_gimple_seq (buffer, body, spc + 4, flags);
 	  INDENT (spc + 2);
 	  pp_character (buffer, '}');
 	}
       else
-	dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+	dump_gimple_seq (buffer, body, spc + 2, flags);
     }
 }
 
@@ -1247,16 +1351,8 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_goto (buffer, gs, spc, flags);
       break;
 
-    case GIMPLE_OMP_MASTER:
-      pp_string (buffer, "#pragma omp master");
-      break;
-
     case GIMPLE_NOP:
       pp_string (buffer, "GIMPLE_NOP");
-      break;
-
-    case GIMPLE_OMP_ORDERED:
-      pp_string (buffer, "#pragma omp ordered");
       break;
 
     case GIMPLE_RETURN:
@@ -1302,6 +1398,24 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_OMP_RETURN:
       dump_gimple_omp_return (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_SECTIONS:
+      dump_gimple_omp_sections (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_SECTIONS_SWITCH:
+      pp_string (buffer, "GIMPLE_SECTIONS_SWITCH");
+      break;
+
+    case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_ORDERED:
+    case GIMPLE_OMP_SECTION:
+      dump_gimple_omp_block (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_CRITICAL:
+      dump_gimple_omp_critical (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_CHANGE_DYNAMIC_TYPE:

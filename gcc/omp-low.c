@@ -5107,6 +5107,48 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
       }
       break;
+    case GIMPLE_ASM:
+      if (ctx && walk_gimple_op (stmt, lower_omp_regimplify_p, NULL))
+	{
+	  gimple_seq pre = NULL;
+	  size_t i, noutputs = gimple_asm_noutputs (stmt);
+	  const char *constraint, **oconstraints;
+	  bool allows_mem, allows_reg, is_inout;
+
+	  oconstraints
+	    = (const char **) alloca ((noutputs) * sizeof (const char *));
+	  for (i = 0; i < noutputs; i++)
+	    {
+	      tree op = gimple_asm_output_op (stmt, i);
+	      constraint
+		= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
+	      oconstraints[i] = constraint;
+	      parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
+				       &allows_reg, &is_inout);
+	      gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			     is_inout ? is_gimple_min_lval : is_gimple_lvalue,
+			     fb_lvalue | fb_mayfail);
+	    }
+	  for (i = 0; i < gimple_asm_ninputs (stmt); i++)
+	    {
+	      tree op = gimple_asm_input_op (stmt, i);
+	      constraint
+		= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
+	      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+				      oconstraints, &allows_mem, &allows_reg);
+	      if (TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (op))) && allows_mem)
+		allows_reg = 0;
+	      if (!allows_reg && allows_mem)
+		gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			       is_gimple_lvalue, fb_lvalue | fb_mayfail);
+	      else
+		gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			       is_gimple_asm_val, fb_rvalue);
+	    }
+	  if (!gimple_seq_empty_p (pre))
+	    gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
+	}
+      break;
 
     default:
       if (ctx && walk_gimple_op (stmt, lower_omp_regimplify_p, NULL))
@@ -5140,6 +5182,8 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  gimplify_expr (&op, &pre, NULL, is_gimple_call_addr,
 				 fb_rvalue);
 		}
+	      else
+		gimplify_expr (&op, &pre, NULL, is_gimple_val, fb_rvalue);
 	      if (!gimple_seq_empty_p (pre))
 		gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
 	      gimple_set_op (stmt, i - 1, op);
