@@ -1,4 +1,9 @@
 2008-05-29  Michael Matz  <matz@suse.de>
+
+	* var-tracking.c (track_expr_p): Also track decls that have
+	no RTL set.
+
+2008-05-29  Michael Matz  <matz@suse.de>
 	    Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-live.c (remove_unused_scope_block_p): Preserve

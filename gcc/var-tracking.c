@@ -1589,11 +1589,6 @@ track_expr_p (tree expr)
   if (!DECL_NAME (expr))
     return 0;
 
-  /* ... and a RTL assigned to it.  */
-  decl_rtl = DECL_RTL_IF_SET (expr);
-  if (!decl_rtl)
-    return 0;
-  
   /* If this expression is really a debug alias of some other declaration, we 
      don't need to track this expression if the ultimate declaration is
      ignored.  */
@@ -1616,6 +1611,10 @@ track_expr_p (tree expr)
      list for them.  */
   if (TREE_STATIC (realdecl))
     return 0;
+
+  decl_rtl = DECL_RTL_IF_SET (expr);
+  if (!decl_rtl)
+    return 1;
 
   /* When the EXPR is a DECL for alias of some variable (see example)
      the TREE_STATIC flag is not used.  Disable tracking all DECLs whose
