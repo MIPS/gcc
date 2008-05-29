@@ -1835,6 +1835,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	      = C_DECL_BUILTIN_PROTOTYPE (olddecl);
 	}
 
+      /* Preserve target specific options */
+      if (DECL_TARGET_SPECIFIC (olddecl) && !DECL_TARGET_SPECIFIC (newdecl))
+	DECL_TARGET_SPECIFIC (newdecl) = DECL_TARGET_SPECIFIC (olddecl);
+
       /* Also preserve various other info from the definition.  */
       if (!new_is_definition)
 	{

@@ -60,57 +60,40 @@ print ""
 print "#ifndef OPTIONS_H"
 print "#define OPTIONS_H"
 print ""
-
-have_attribute = 0;
-have_attribute_target_flags = 0;
-
-for (i = 0; i < n_opts; i++) {
-	name = var_name(flags[i])
-	if (!flag_set_p("Attribute", flags[i])) {
-		have_attribute = 1;
-
-		if(name == "")
-			have_attribute_target_flags = 1;
-	}
-}
-
-if (!have_attribute_target_flags) {
-	print "extern int target_flags;"
-	print "extern int target_flags_explicit;"
-}
-
-print "#include " quote "opts.h" quote
+print "extern int target_flags;"
+print "extern int target_flags_explicit;"
 print ""
 
+have_attribute = 0;
+
 for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i])
-	if(name == "") {
-		if (!flag_set_p("Attribute", flags[i]))
-			continue;
+	if (flag_set_p("Attribute", flags[i]))
+		have_attribute = 1;
+}
 
-		name = "target_flags";
-	}
-
-	if(name in var_written_seen)
+for (i = 0; i < n_opts; i++) {
+	name = var_name(flags[i]);
+	if (name == "")
 		continue;
 
-	var_written_seen[name] ++	
-	if (!flag_set_p("Attribute", flags[i]))
-		print "extern " var_type(flags[i]) " " name ";";
+	if (name in var_seen)
+		continue;
 
-	else {
-		print "#define " name " cl_attr_current.attr_" name;
-		if (name == "target_flags")
-			print "#define target_flags_explicit cl_attr_current.attr_target_flags_explicit";
-	}
+	var_seen[name] = 1;
+	print "extern " var_type(flags[i]) name ";"
 }
 print ""
 
 if (have_attribute) {
 	print "struct cl_option_attr GTY(())";
 	print "{";
+
+	# as a slight optimization, put pointer fields before integer fields.
+	# On systems like the x86_64 with 32-bit ints and 64-bit pointers, this
+	# might leave gapes if you have pointer, int, point, int....
 	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Attribute", flags[i])) {
+		if (flag_set_p("Attribute", flags[i]) && !(var_type(flags[i]) ~ "int")) {
 			name = var_name(flags[i])
 			if(name == "")
 				name = "target_flags";
@@ -119,17 +102,33 @@ if (have_attribute) {
 				continue;
 
 			var_attr_seen[name] ++	
-			print "  " var_type(flags[i]) " attr_" name ";";
+			print "  " var_type(flags[i]) name ";";
 			if (name == "target_flags")
-				print "  " var_type(flags[i]) " attr_target_flags_explicit;";
+				print "  " var_type(flags[i]) "target_flags_explicit;";
+		}
+	}
+
+	for (i = 0; i < n_opts; i++) {
+		if (flag_set_p("Attribute", flags[i]) && (var_type(flags[i]) ~ "int")) {
+			name = var_name(flags[i])
+			if(name == "")
+				name = "target_flags";
+
+			if(name in var_attr_seen)
+				continue;
+
+			var_attr_seen[name] ++	
+			print "  " var_type(flags[i]) name ";";
+			if (name == "target_flags")
+				print "  " var_type(flags[i]) "target_flags_explicit;";
 		}
 	}
 	print "};";
 	print "";
-	print "extern GTY(()) struct cl_option_attr cl_attr_current;"
-	print "extern GTY(()) struct cl_option_attr cl_attr_initial;"
-	print "#define HAS_OPTION_ATTRIBUTE"
-	print "extern void initialize_attribute_options (void);";
+	print "#define HAVE_TARGET_SPECIFIC";
+	print "";
+	print "extern void target_specific_save (struct cl_option_attr *);";
+	print "extern void target_specific_restore (struct cl_option_attr *);";
 	print "";
 }
 

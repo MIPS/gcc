@@ -750,22 +750,18 @@
   }
 
 /* Target specific option attribute support.  */
-#ifndef TARGET_TARGET_SPECIFIC_PUSH
-#define TARGET_TARGET_SPECIFIC_PUSH NULL
-#endif
-
-#ifndef TARGET_TARGET_SPECIFIC_POP
-#define TARGET_TARGET_SPECIFIC_POP NULL
+#ifndef TARGET_TARGET_SPECIFIC_VALIDATE
+#define TARGET_TARGET_SPECIFIC_VALIDATE NULL
 #endif
 
 #ifndef TARGET_TARGET_SPECIFIC_CAN_INLINE_P
-#define TARGET_TARGET_SPECIFIC_CAN_INLINE_P default_target_specific_can_inline_p
+#define TARGET_TARGET_SPECIFIC_CAN_INLINE_P \
+  default_target_specific_can_inline_p
 #endif
 
 #define TARGET_TARGET_SPECIFIC			\
   {						\
-    TARGET_TARGET_SPECIFIC_PUSH,		\
-    TARGET_TARGET_SPECIFIC_POP,			\
+    TARGET_TARGET_SPECIFIC_VALIDATE,		\
     TARGET_TARGET_SPECIFIC_CAN_INLINE_P		\
   }
 

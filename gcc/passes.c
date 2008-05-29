@@ -717,7 +717,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
-      NEXT_PASS (pass_push_set_options); 
       NEXT_PASS (pass_init_function);
       NEXT_PASS (pass_jump);
       NEXT_PASS (pass_rtl_eh);
@@ -815,7 +814,6 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_df_finish);
     }
-  NEXT_PASS (pass_pop_options);
   NEXT_PASS (pass_clean_state);
   *p = NULL;
 

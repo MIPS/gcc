@@ -947,10 +947,8 @@ struct gcc_target
 
   /* Functions and data for target specific option support.  */
   struct target_specific {
-    /* Function to handle pushing new target specific options */
-    bool (*push_options) (int, const char **);
-    /* Function to handle popping target specific options.  */
-    void (*pop_options) (void);
+    /* Function to validate a target specific option stream */
+    bool (*validate) (int, const char **, tree);
     /* Function to decide whether a function can be inlined.  */
     bool (*can_inline_p) (tree, tree);
   } target_specific;

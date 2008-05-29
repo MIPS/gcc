@@ -62,109 +62,52 @@ for (i = 1; i <= n_headers; i++)
 print "#include " quote "opts.h" quote
 print "#include " quote "intl.h" quote
 print ""
+print "#ifdef GCC_DRIVER"
+print "int target_flags;"
+print "#endif /* GCC_DRIVER */"
+print ""
 
-n_attr = 0;
 for (i = 0; i < n_opts; i++) {
-        name = var_name(flags[i]);
-        if (name == "")
-                continue;
+	name = var_name(flags[i]);
+	if (name == "")
+		name = "target_flags";
 
-	if (flag_set_p("Attribute", flags[i])) {
-		attr_flags[name] ++
-		n_attr ++
-		continue;
+	if (flag_set_p("VarExists", flags[i])) {
+		# Need it for the gcc driver.
+		if (name in var_seen)
+			continue;
+		init = ""
+		gcc_driver = 1
+	}
+	else {
+		init = opt_args("Init", flags[i])
+		if (init != "")
+			init = " = " init;
+		else if (name in var_seen)
+			continue;
+		gcc_driver = 0
 	}
 
-        if (flag_set_p("VarExists", flags[i])) {
-                # Need it for the gcc driver.
-                if (name in var_written_seen)
-                        continue;
-        	if (name in attr_flags)
-                	continue;
-                init = ""
-                gcc_driver = 1
-        }
-        else {
-                init = opt_args("Init", flags[i])
-                if (init == "") {
-                	if (name in var_written_seen)
-                        	continue;
-        		if (name in attr_flags)
-                		continue;
-		}
-                gcc_driver = 0
-        }
+	if (gcc_driver == 1)
+		print "#ifdef GCC_DRIVER"
+	print "/* Set by -" opts[i] "."
+	print "   " help[i] "  */"
+	print var_type(flags[i]) name init ";"
+	if (name == "target_flags")
+		print var_type(flags[i]) "target_flags_explicit;"
+	if (gcc_driver == 1)
+		print "#endif /* GCC_DRIVER */"
+	print ""
 
-	type = var_type(flags[i])
-
-	if (init != "") 
-		 init = " = " init
-
-        if (gcc_driver == 1)
-                print "#ifdef GCC_DRIVER"
-        print "/* Set by -" opts[i] "."
-        print "   " help[i] "  */"
-        print type " " name init ";"
-        if (gcc_driver == 1)
-                print "#endif /* GCC_DRIVER */"
-        print ""
-
-        var_written_seen[name] = 1;
+	var_seen[name] = 1;
 }
 
 print ""
-
-if (n_attr > 0) {
-	print "/* Options declared with Attribute that are grouped together"
-	print "   in a single structure.  */"
-	print "struct cl_option_attr cl_attr_current;";
-	print "";
-	print "/* Copy of the attribute options after initialization.  */"
-	print "struct cl_option_attr cl_attr_initial;";
-	print "";
-
-	print "/* Resets attribute options to default values */";
-	print "void";
-	print "initialize_attribute_options(void)";
-	print "{";
-	print "  /* Zero out the array */";
-	print "  memset (&cl_attr_current, '\\0', sizeof (cl_attr_current));";
-	print "";
-
-	for (i = 0; i < n_opts; i++) {
-		name = var_name(flags[i]);
-		if (name == "") {
-			if (flag_set_p("Attribute", flags[i]))
-				name = "target_flags";
-			else
-				continue;
-		}
-
-		if (flag_set_p("Attribute", flags[i])) {
-			if (name in attr_var_written_seen)
-				continue;
-
-			attr_var_written_seen[name] ++
-			init = opt_args("Init", flags[i])
-
-			if (init != "") {
-				print "  /* Set by -" opts[i] ".";
-				print "     " help[i] "  */";
-				print "  " name " = " init ";";
-				print "";
-			}
-		}
-	}
-
-	print "}"
-	print ""
-}
-
 print "/* Local state variables.  */"
 for (i = 0; i < n_opts; i++) {
 	name = static_var(opts[i], flags[i]);
 	if (name != "")
-		print "static " var_type(flags[i]) " " name ";"
+		print "static " var_type(flags[i]) name ";"
 }
 print ""
 
@@ -269,4 +212,62 @@ for (i = 0; i < n_opts; i++) {
 }
 
 print "};"
+
+have_attribute = 0;
+
+for (i = 0; i < n_opts; i++) {
+	if (flag_set_p("Attribute", flags[i]))
+		have_attribute = 1;
+}
+
+if (have_attribute) {
+	print "";
+	print "/* Save current attribute options in a structure */"
+	print "void";
+	print "target_specific_save (struct cl_option_attr *ptr)";
+	print "{";
+
+	for (i = 0; i < n_opts; i++) {
+		if (flag_set_p("Attribute", flags[i])) {
+			name = var_name(flags[i]);
+			if (name == "")
+				name = "target_flags";
+
+			if (name in var_seen_save)
+				continue;
+
+			var_seen_save[name] = 1;
+			print "  ptr->" name " = " name ";";
+			if (name == "target_flags")
+				print "  ptr->target_flags_explicit = target_flags_explicit;";
+		}
+	}
+
+	print "}";
+
+	print "";
+	print "/* Restore current attribute options from a structure */"
+	print "void";
+	print "target_specific_restore (struct cl_option_attr *ptr)";
+	print "{";
+
+	for (i = 0; i < n_opts; i++) {
+		if (flag_set_p("Attribute", flags[i])) {
+			name = var_name(flags[i]);
+			if (name == "")
+				name = "target_flags";
+
+			if (name in var_seen_restore)
+				continue;
+
+			var_seen_restore[name] = 1;
+			print "  " name " = ptr->" name ";";
+			if (name == "target_flags")
+				print "  target_flags_explicit = ptr->target_flags_explicit;";
+		}
+	}
+
+	print "}";
+}
+
 }

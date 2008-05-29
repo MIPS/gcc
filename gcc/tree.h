@@ -3312,6 +3312,11 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
+/* In FUNCTION_DECL, the target specific options to use when compiling this
+   function.  */
+#define DECL_TARGET_SPECIFIC(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.target_specific)
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3322,6 +3327,9 @@ struct tree_function_decl GTY(())
   struct tree_decl_non_common common;
 
   struct function *f;
+
+  /* Target specific options that are used by this function.  */
+  struct target_specific_data * GTY((maybe_undef)) target_specific;
 
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
      DECL_FUNCTION_CODE.  Otherwise unused.

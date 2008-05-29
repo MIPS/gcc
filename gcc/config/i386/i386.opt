@@ -83,7 +83,7 @@ Target Report Mask(FLOAT_RETURNS)
 Return values of functions in FPU registers
 
 mfpmath=
-Target RejectNegative Joined Var(ix86_fpmath_string)
+Target RejectNegative Joined Var(ix86_fpmath_string) Attribute
 Generate floating point mathematics using given instruction set
 
 mhard-float
@@ -249,7 +249,7 @@ Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Attribute
 Support SSE5 built-in functions and code generation
 
 mabm
-Target Report Mask(ISA_ABM) Var(ix86_isa_flags) Attribute
+Target Report Mask(ISA_ABM) Var(ix86_isa_flags) VarExists Attribute
 Support code generation of Advanced Bit Manipulation (ABM) instructions.
 
 mcx16

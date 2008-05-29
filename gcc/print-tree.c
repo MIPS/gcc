@@ -364,6 +364,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);
 
+      if (TREE_CODE (node) == FUNCTION_DECL && DECL_TARGET_SPECIFIC (node))
+	fputs (" target-specific", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_INLINE (node))
 	fputs (DECL_DECLARED_INLINE_P (node) ? " inline" : " autoinline", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
