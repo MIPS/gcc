@@ -493,8 +493,11 @@ remove_unused_scope_block_p (tree scope)
 	 info about optimized-out variables in the scope blocks.
 	 Exception are the scope blocks not containing any instructions
 	 at all so user can't get into the scopes at first place.  */
-      else if ((ann = var_ann (*t)) != NULL
+      else if (((ann = var_ann (*t)) != NULL
 		&& ann->used)
+	       /* Preserve block scopes of decls we want to preserve for
+		  debugging purposes.  */
+	       || DECL_NOGC_P (*t))
 	unused = false;
 
       /* When we are not doing full debug info, we however can keep around

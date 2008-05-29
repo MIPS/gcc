@@ -1,3 +1,11 @@
+2008-05-29  Michael Matz  <matz@suse.de>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Preserve
+	some more scopes.
+	* tree-inline.c (setup_one_parameter): Associate new decl,
+	not the one from the origin.
+
 2007-12-12  Sebastian Pop  <sebastian.pop@amd.com>
 
 	* tree-pretty-print.c (print_varmap, print_expr_varmap): Document.
