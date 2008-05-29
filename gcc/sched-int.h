@@ -1123,6 +1123,8 @@ extern void haifa_note_reg_set (int);
 extern void haifa_note_reg_clobber (int);
 extern void haifa_note_reg_use (int);
 
+extern void maybe_extend_reg_info_p (void);
+
 extern void deps_start_bb (struct deps *, rtx);
 extern enum reg_note ds_to_dt (ds_t);
 

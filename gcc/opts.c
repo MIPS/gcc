@@ -1799,6 +1799,7 @@ common_handle_option (size_t scode, const char *arg, int value,
       set_random_seed (arg);
       break;
 
+    case OPT_fselective_scheduling:
     case OPT_fselective_scheduling2:
       sel_sched_switch_set = true;
       break;

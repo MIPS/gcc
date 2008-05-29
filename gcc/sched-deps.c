@@ -1673,6 +1673,23 @@ extend_deps_reg_info (struct deps *deps, int regno)
     }
 }
 
+/* Extends REG_INFO_P if needed.  */
+void
+maybe_extend_reg_info_p (void)
+{
+  /* Extend REG_INFO_P, if needed.  */
+  if ((unsigned int)max_regno - 1 >= reg_info_p_size)
+    {
+      size_t new_reg_info_p_size = max_regno + 128;
+
+      gcc_assert (!reload_completed && sel_sched_p ());
+
+      reg_info_p = xrecalloc (reg_info_p, new_reg_info_p_size, 
+			      reg_info_p_size, sizeof (*reg_info_p));
+      reg_info_p_size = new_reg_info_p_size;
+    }
+}
+
 /* Analyze a single reference to register (reg:MODE REGNO) in INSN.
    The type of the reference is specified by REF and can be SET,
    CLOBBER, PRE_DEC, POST_DEC, PRE_INC, POST_INC or USE.  */
@@ -1685,6 +1702,8 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
   if (!reload_completed && sel_sched_p ()
       && (regno >= max_reg_num () - 1 || regno >= deps->max_reg))
     extend_deps_reg_info (deps, regno);
+
+  maybe_extend_reg_info_p ();
 
   /* A hard reg in a wide mode may really be multiple registers.
      If so, mark all of them just like the first.  */
@@ -1737,13 +1756,8 @@ sched_analyze_reg (struct deps *deps, int regno, enum machine_mode mode,
 	}
 
       /* Don't let it cross a call after scheduling if it doesn't
-	 already cross one.
-	 If REGNO >= REG_INFO_P_SIZE, then it was introduced in selective
-	 scheduling, and it could have happened only before reload.
-	 Thus, we can consider INSN moveable, since reload should take care of
-	 the all the operations renamed into new pseudos.  */
-      if ((!sel_sched_p () || regno < FIRST_PSEUDO_REGISTER)
-	  && REG_N_CALLS_CROSSED (regno) == 0)
+	 already cross one.  */
+      if (REG_N_CALLS_CROSSED (regno) == 0)
 	{
 	  if (!deps->readonly 
               && ref == USE)

@@ -1,3 +1,63 @@
+2008-05-29  Dmitry Melnik  <dm@ispras.ru>
+	    Andrey Belevantsev  <abel@ispras.ru>
+
+	* sel-sched.c (struct rtx_search_arg): Kill y, max_occur, iter, and
+	bitmask fields.  Adjust all uses.
+	(struct reg_rename): Add crosses_call field. 
+	(struct cmpd_local_params): Kill generated_nop field.
+	MAke removed_last_insn a bool bitfield.
+	(struct moveop_static_params): New field was_renamed.
+	(vec_blocked_vinsns): Rename to vec_bookkeeping_blocked_vinsns.
+	(vec_target_unavailable_vinsns): New.
+	(rtx_search): Rename to rtx_ok_for_substitution_p.  Adjust all uses.
+	(count_occurrences_1): Bail out if we find a multi-reg reference.
+	(choose_best_pseudo_reg): Do not let a register cross a call if 
+	it doesn't already cross one.  Initialize REG_N_CALLS_CROSSED for
+	the new pseudo register.
+	(verify_target_availability): Pass reg_rename instead of 
+	unavailable_hard_regs to it.  Fix assert to consider 
+	REG_N_CALLS_CROSSED.
+	(find_used_regs): Compute reg_rename_p->crosses_call.
+	(vinsn_vec_has_expr_p, vinsn_vec_clear, vinsn_vec_add, 
+	vinsn_vec_free): New functions instead of add_to_blocked_exprs, 
+	free_blocked_exprs, clear_blocked_exprs, expr_blocked_by_bookkeeping_p.
+	Adjust all uses.
+	(fill_vec_av_set): Reset target_available bit for expressions which 
+	were already scheduled with another register on the fences.
+	(emit_insn_from_expr_after): Restore the check for HARD_REGISTER_NUM_P.
+	(compute_av_set_on_boundaries): When rewinding a boundary, also set
+	FENCE_INSN correctly.
+	(fill_insns): Pass fence to compute_av_set_on_boundaries.
+	(schedule_expr_on_boundary): Compute cant_move before move_op.
+	Add only renamed exprs to vec_target_unavailable_vinsns.
+	(maybe_emit_renaming_copy): Set params->was_renamed to true.
+	(remove_insn_from_stream): Also generate nop when we hit another fence.
+	(move_op_at_first_insn): Generate bookkeeping and update sets only
+	on non-toplevel move_op.
+	(code_motion_process_successors): Also rescan when number of successors
+	has changed.
+	(move_op): Set EXPR_WAS_RENAMED to true when we renamed any of the insns
+	found.
+	(init_seqno): When not rescheduling, pass number of insns in a region
+	instead of computing it from sched_max_luid.
+	(purge_empty_blocks): New, factored out from ... 
+	(sel_region_init): ... here.  Even when we do not have to schedule
+	the region, initialize its data for bundling.
+	(sel_sched_region_1): Call purge_empty_blocks from here.
+	* opts.c Set sel_sched_switch_set also when -fselective-scheduling.
+	* sel-sched-ir.c (sel_move_insn): Assert that we have disconnected
+	this insn properly.
+	(merge_expr_data): Fix thinko.
+	(set_unavailable_target_for_expr): Properly set EXPR_TARGET_AVAILABLE.
+	(maybe_tidy_empty_bb): Export.  Free data sets in here, not ... 
+	(tidy_control_flow): ... here.  Do not apply the optimization
+	to empty bbs.  Verify backedges later.
+	(remove_empty_bb): Use sel_redirect_edge_and_branch.
+	* sched-deps.c (maybe_extend_reg_info_p): New.
+	(sched_analyze_reg): Use it.
+	* config/ia64/ia64.c (ia64_set_sched_flags): Disable control speculation
+	before reload.
+
 2008-05-23  Andrey Belevantsev  <abel@ispras.ru>
 
 	* tree-pass.h (pass_sel_sched): Remove.

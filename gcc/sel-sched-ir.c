@@ -1360,6 +1360,8 @@ sel_move_insn (expr_t expr, int seqno, insn_t after)
   basic_block bb = BLOCK_FOR_INSN (after);
   insn_t next = NEXT_INSN (after);
 
+  /* Assert that in move_op we disconnected this insn properly.  */
+  gcc_assert (EXPR_VINSN (INSN_EXPR (insn)) != NULL);
   PREV_INSN (insn) = after;
   NEXT_INSN (insn) = next;
 
@@ -1779,7 +1781,7 @@ merge_expr_data (expr_t to, expr_t from, insn_t split_point)
                             phist->spec_ds);
 
   EXPR_WAS_SUBSTITUTED (to) |= EXPR_WAS_SUBSTITUTED (from);
-  EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (to);
+  EXPR_WAS_RENAMED (to) |= EXPR_WAS_RENAMED (from);
   EXPR_CANT_MOVE (to) |= EXPR_CANT_MOVE (from);
 
   update_target_availability (to, from, split_point);
@@ -1825,7 +1827,32 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
     {
       if (REG_P (EXPR_LHS (expr))
           && bitmap_bit_p (lv_set, REGNO (EXPR_LHS (expr))))
-        EXPR_TARGET_AVAILABLE (expr) = false;
+	{
+	  /* If it's an insn like r1 = use (r1, ...), and it exists in 
+	     different forms in each of the av_sets being merged, we can't say 
+	     whether original destination register is available or not.  
+	     However, this still works if destination register is not used 
+	     in the original expression: if the branch at which LV_SET we're
+	     looking here is not actually 'other branch' in sense that same
+	     expression is available through it (but it can't be determined 
+	     at computation stage because of transformations on one of the
+	     branches), it still won't affect the availability.  
+	     Liveness of a register somewhere on a code motion path means 
+	     it's either read somewhere on a codemotion path, live on 
+	     'other' branch, live at the point immediately following
+	     the original operation, or is read by the original operation.
+	     The latter case is filtered out in the condition below.
+	     It still doesn't cover the case when register is defined and used
+	     somewhere within the code motion path, and in this case we could
+	     miss a unifying code motion along both branches using a renamed
+	     register, but it won't affect a code correctness since upon
+	     an actual code motion a bookkeeping code would be generated.  */
+	  if (bitmap_bit_p (VINSN_REG_USES (EXPR_VINSN (expr)), 
+			    REGNO (EXPR_LHS (expr))))
+	    EXPR_TARGET_AVAILABLE (expr) = -1;
+	  else
+	    EXPR_TARGET_AVAILABLE (expr) = false;
+	}
     }
   else
     {
@@ -3489,7 +3516,7 @@ verify_backedges (void)
 #endif
 
 /* Tidy the possibly empty block BB.  */
-static bool
+bool
 maybe_tidy_empty_bb (basic_block bb)
 {
   basic_block succ_bb, pred_bb;
@@ -3503,6 +3530,8 @@ maybe_tidy_empty_bb (basic_block bb)
           && (!single_pred_p (bb) 
               || !(single_pred_edge (bb)->flags & EDGE_FALLTHRU))))
     return false;
+
+  free_data_sets (bb);
 
   /* Do not delete BB if it has more than one successor.
      That can occur when we moving a jump.  */
@@ -3588,6 +3617,7 @@ tidy_control_flow (basic_block xbb, bool full_tidying)
      basic block we will not get a jump to next instruction, which 
      can be harmful.  */
   if (sel_bb_head (xbb) == sel_bb_end (xbb) 
+      && !sel_bb_empty_p (xbb)
       && INSN_NOP_P (sel_bb_end (xbb))
       /* Flow goes fallthru from current block to the next.  */
       && EDGE_COUNT (xbb->succs) == 1
@@ -3611,14 +3641,9 @@ tidy_control_flow (basic_block xbb, bool full_tidying)
          remove it too.  */
       if (sel_bb_empty_p (xbb->prev_bb))
         {
-          free_data_sets (xbb->prev_bb);
           changed = maybe_tidy_empty_bb (xbb->prev_bb);
         }
     }
-
-#ifdef ENABLE_CHECKING
-  verify_backedges ();
-#endif
 
   return changed;
 }
@@ -3659,9 +3684,6 @@ sel_remove_insn (insn_t insn, bool only_disconnect, bool full_tidying)
   /* It is necessary to null this fields before calling add_insn ().  */
   PREV_INSN (insn) = NULL_RTX;
   NEXT_INSN (insn) = NULL_RTX;
-
-  if (sel_bb_empty_p (bb))
-    free_data_sets (bb);
 
   return tidy_control_flow (bb, full_tidying);
 }
@@ -5235,7 +5257,7 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
 	succ = NULL;
 
       if (EDGE_COUNT (empty_bb->preds) > 0 && succ != NULL)
-	redirect_edge_succ_nodup (EDGE_PRED (empty_bb, 0), succ);
+        sel_redirect_edge_and_branch (EDGE_PRED (empty_bb, 0), succ);
 
       if (EDGE_COUNT (empty_bb->succs) > 0 && pred != NULL)
 	{
@@ -5525,7 +5547,7 @@ sel_redirect_edge_and_branch (edge e, basic_block to)
       gcc_assert (loop_latch_edge (current_loop_nest));
     }
 
-  gcc_assert (ee == e && last_added_blocks == NULL);
+  gcc_assert (last_added_blocks == NULL);
 
   /* Now the CFG has been updated, and we can init data for the newly 
      created insns.  */
@@ -6182,7 +6204,7 @@ jump_leads_only_to_bb_p (insn_t jump, basic_block dest_bb)
   /* It is not jump, jump with side-effects or jump can lead to several 
      basic blocks.  */
   if (!onlyjump_p (jump)
-      || !any_uncondjump_p(jump))
+      || !any_uncondjump_p (jump))
     return false;
 
   /* Several outgoing edges, abnormal edge or destination of jump is 

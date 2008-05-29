@@ -5266,7 +5266,7 @@ ia64_override_options (void)
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
   
-  if (optimize >= 3
+  if (optimize >= 3 
       && ! sel_sched_switch_set)
     {
       flag_selective_scheduling2 = 1;
@@ -5274,9 +5274,9 @@ ia64_override_options (void)
     }
   if (flag_sel_sched_pipelining && flag_auto_inc_dec)
     {
+      /* FIXME: remove this when we'd implement breaking autoinsns as 
+         a transformation.  */
       flag_auto_inc_dec = 0;
-      /* warning (0, "-fauto-inc-dec is turned off"
-         " when the selective pipeliner is used"); */
     }
 
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
@@ -7227,7 +7227,9 @@ ia64_set_sched_flags (spec_info_t spec_info)
 	}
       
       if ((!sel_sched_p () && mflag_sched_control_spec)
-	  || (sel_sched_p () && mflag_sel_sched_control_spec))
+	  || (sel_sched_p () 
+              && reload_completed
+              && mflag_sel_sched_control_spec))
 	{
 	  mask |= BEGIN_CONTROL;
 	  
