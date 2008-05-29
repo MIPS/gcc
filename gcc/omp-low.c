@@ -2666,12 +2666,20 @@ expand_omp_parallel (struct omp_region *region)
 	      if (gimple_code (stmt) != GIMPLE_ASSIGN)
 		continue;
 
-	      if (gimple_subcode (stmt) == ADDR_EXPR
-		  && TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
-		     == gimple_omp_parallel_data_arg (entry_stmt))
+	      if (gimple_num_ops (stmt) == 2)
 		{
-		  parcopy_stmt = stmt;
-		  break;
+		  tree arg = gimple_assign_rhs1 (stmt);
+
+		  /* We're ignore the subcode because we're
+		     effectively doing a STRIP_NOPS.  */
+
+		  if (TREE_CODE (arg) == ADDR_EXPR
+		      && TREE_OPERAND (arg, 0)
+		        == gimple_omp_parallel_data_arg (entry_stmt))
+		    {
+		      parcopy_stmt = stmt;
+		      break;
+		    }
 		}
 	    }
 

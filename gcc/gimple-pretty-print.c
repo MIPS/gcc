@@ -1012,8 +1012,19 @@ dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
 	    pp_string (buffer, "???");
 	  pp_string (buffer, ")]");
 	}
-      pp_newline (buffer);
-      dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
+      if (gimple_omp_body (gs) &&
+	  gimple_code
+	  (gimple_seq_first_stmt (gimple_omp_body (gs))) != GIMPLE_BIND)
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 4, flags);
+	  INDENT (spc + 2);
+	  pp_character (buffer, '}');
+	}
+      else
+	dump_gimple_seq (buffer, gimple_omp_body (gs), spc + 2, flags);
     }
 }
 
