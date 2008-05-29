@@ -13,6 +13,7 @@ SRC = _Exit.c \
       abs.c \
       asctime.c \
       assert.c \
+      basename.c \
       bsearch.c \
       calloc.c \
       clearerr.c \
@@ -20,6 +21,7 @@ SRC = _Exit.c \
       creat.c \
       ctime.c \
       ctype.c \
+      dirname.c \
       div.c \
       errno.c \
       exit.c \
@@ -106,6 +108,7 @@ SRC = _Exit.c \
       strtollull.c \
       strxfrm.c \
       system.c \
+      systime.c \
       time.c \
       tmpfile.c \
       tmpnam.c \

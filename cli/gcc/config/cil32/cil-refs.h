@@ -35,7 +35,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "coretypes.h"
 #include "ggc.h"
 #include "debug.h"
-#include "vec.h"
+#include "hashtab.h"
 #include "tree.h"
 #include "cil-types.h"
 
@@ -65,71 +65,13 @@ Erven Rohou             <erven.rohou@st.com>
 
 extern void refs_init (void);
 extern void refs_fini (void);
-extern void refs_begin_new_function (void);
 
 /*****************************************************************************
  * Types                                                                     *
  *****************************************************************************/
 
 extern void mark_referenced_type (tree);
-
-/* Referenced pinvoke functions iterator.  */
-
-struct types_iterator_d
-{
-  /* Vector of referenced types.  */
-  VEC (tree, heap) *types;
-
-  /* Current type.  */
-  unsigned int i;
-};
-
-typedef struct types_iterator_d *types_iterator;
-
-extern types_iterator rti_begin (void);
-static inline void rti_destroy (types_iterator);
-static inline bool rti_end_p (types_iterator);
-static inline tree rti_type (types_iterator);
-static inline void rti_next (types_iterator);
-
-/* Disposes of the referenced types iterator specified by RTI.  */
-
-static inline void
-rti_destroy (types_iterator rti)
-{
-  VEC_free (tree, heap, rti->types);
-  XDELETE (rti);
-}
-
-/* Returns false if some referenced types which haven't yet been iterated
-   over are present, true otherwise.  */
-
-static inline bool
-rti_end_p (types_iterator rti)
-{
-  if (rti->i == VEC_length (tree, rti->types))
-    return true;
-  else
-    return false;
-}
-
-/* Returns the TYPE_DECL of the current referenced type.  */
-
-static inline tree
-rti_type (types_iterator rti)
-{
-  return VEC_index (tree, rti->types, rti->i);
-}
-
-/* Move to the next type.  */
-
-static inline void
-rti_next (types_iterator rti)
-{
-  gcc_assert (rti->i < VEC_length (tree, rti->types));
-
-  rti->i++;
-}
+extern htab_t referenced_types_htab ( void );
 
 /******************************************************************************
  * Strings                                                                    *
@@ -137,144 +79,14 @@ rti_next (types_iterator rti)
 
 extern tree mark_referenced_string (tree);
 extern unsigned int get_string_cst_id (tree);
-
-/* Referenced strings vector.  */
-
-DEF_VEC_P(str_ref);
-DEF_VEC_ALLOC_P(str_ref, heap);
-
-/* Referenced strings iterator.  */
-
-struct ref_str_iterator_d
-{
-  /* Vector of referenced strings.  */
-  VEC (str_ref, heap) *strings;
-
-  /* Current string.  */
-  unsigned int i;
-};
-
-typedef struct ref_str_iterator_d *ref_str_iterator;
-
-extern ref_str_iterator rsi_begin (void);
-static inline void rsi_destroy (ref_str_iterator);
-static inline bool rsi_end_p (ref_str_iterator);
-static inline tree rsi_string (ref_str_iterator);
-static inline unsigned int rsi_id (ref_str_iterator);
-static inline void rsi_next (ref_str_iterator);
-
-/* Disposes of the string reference iterator specified by RSI.  */
-
-static inline void
-rsi_destroy (ref_str_iterator rsi)
-{
-  VEC_free (str_ref, heap, rsi->strings);
-  XDELETE (rsi);
-}
-
-/* Returns false if some strings which haven't yet been iterated over are
-   present, true otherwise.  */
-
-static inline bool
-rsi_end_p (ref_str_iterator rsi)
-{
-  if (rsi->i == VEC_length (str_ref, rsi->strings))
-    return true;
-  else
-    return false;
-}
-
-/* Returns the STRING_CST associated with the current string.  */
-
-static inline tree
-rsi_string (ref_str_iterator rsi)
-{
-  str_ref elem = VEC_index (str_ref, rsi->strings, rsi->i);
-
-  return elem->cst;
-}
-
-/* Return the unique ID associated with the current string.  */
-
-static inline unsigned int
-rsi_id (ref_str_iterator rsi)
-{
-  return VEC_index (str_ref, rsi->strings, rsi->i)->id;
-}
-
-/* Move to the next string.  */
-
-static inline void
-rsi_next (ref_str_iterator rsi)
-{
-  gcc_assert (rsi->i < VEC_length (str_ref, rsi->strings));
-
-  rsi->i++;
-}
+extern htab_t referenced_strings_htab ( void );
 
 /******************************************************************************
  * Functions                                                                  *
  ******************************************************************************/
 
 extern void cil_add_pinvoke (tree);
-
-/* Referenced pinvoke functions iterator.  */
-
-struct pinvoke_iterator_d
-{
-  /* Vector of referenced pinvoke functions.  */
-  VEC (tree, heap) *functions;
-
-  /* Current function.  */
-  unsigned int i;
-};
-
-typedef struct pinvoke_iterator_d *pinvoke_iterator;
-
-extern pinvoke_iterator rpi_begin (void);
-static inline void rpi_destroy (pinvoke_iterator);
-static inline bool rpi_end_p (pinvoke_iterator);
-static inline tree rpi_function (pinvoke_iterator);
-static inline void rpi_next (pinvoke_iterator);
-
-/* Disposes of the pinvoked function iterator specified by RPI.  */
-
-static inline void
-rpi_destroy (pinvoke_iterator rpi)
-{
-  VEC_free (tree, heap, rpi->functions);
-  XDELETE (rpi);
-}
-
-/* Returns false if some pinvoked functions which haven't yet been iterated
-   over are present, true otherwise.  */
-
-static inline bool
-rpi_end_p (pinvoke_iterator rpi)
-{
-  if (rpi->i == VEC_length (tree, rpi->functions))
-    return true;
-  else
-    return false;
-}
-
-/* Returns the FUNCTION_DECL of the current pinvoked function.  */
-
-static inline tree
-rpi_function (pinvoke_iterator rpi)
-{
-  return VEC_index (tree, rpi->functions, rpi->i);
-}
-
-/* Move to the next function.  */
-
-static inline void
-rpi_next (pinvoke_iterator rpi)
-{
-  gcc_assert (rpi->i < VEC_length (tree, rpi->functions));
-
-  rpi->i++;
-}
+extern htab_t pinvokes_htab ( void );
 
 /******************************************************************************
  * Labels                                                                     *
@@ -282,7 +94,14 @@ rpi_next (pinvoke_iterator rpi)
 
 extern void record_addr_taken_label (tree);
 extern tree get_addr_taken_label_id (tree);
-extern tree *get_label_addrs ( void );
-extern unsigned int get_label_addrs_n ( void );
+extern tree get_label_addrs ( void );
+
+/******************************************************************************
+ * Constructors                                                               *
+ ******************************************************************************/
+
+extern void record_ctor (tree);
+extern void create_init_method (void);
+extern void expand_init_to_stmt_list (tree, tree, tree *);
 
 #endif /* !CIL_REFS_H */

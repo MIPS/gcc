@@ -34,3 +34,5 @@ extern void cil32_ivdep (struct cpp_reader *);
 extern void cil32_loopdep_liberal (struct cpp_reader *);
 extern void cil32_loopdep_parallel (struct cpp_reader *);
 extern void cil32_loopdep_vector (struct cpp_reader *);
+
+extern void cil_override_options (void);

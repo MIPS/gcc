@@ -30,6 +30,9 @@ float.h:
          FLT_EVAL_METHOD(for us 0),
          DIG, MANT_DIG DECIMAL_DIG MIN_EXP, MIN_10_EXP, MAX_EXP, MAX_10_EXP
 
+libgen.h:
+ - only basename and dirname implemented
+
 locale.h:
  - supports only "C" locale
 
@@ -69,6 +72,9 @@ stdlib.h:
    implemented with __strtolul
  - atoll, strtoll, strtoull, strtoimax, strtoumax
    implemented with __strtollull
+
+sys/time.h:
+ - only gettimeofday implemented
 
 tgmath.h:
  - missing all complex support

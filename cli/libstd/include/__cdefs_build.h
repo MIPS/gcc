@@ -40,7 +40,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #  define LIBSTD_SPROTO(type, name, ...) \
     static type LIBSTD_SNAME(name)(__VA_ARGS__) __attribute__((cil_strattr("Libstd")))
 #  define LIBSTD_HPROTO(type, name, ...) \
-    extern type LIBSTD_HNAME(name)(__VA_ARGS__) __attribute__((cil_name("MSCorelibWrapper::"#name), cil_strattr("Libstd") ))
+    extern type LIBSTD_HNAME(name)(__VA_ARGS__) __attribute__((assembly_name("MSCorelibWrapper"), cil_name("MSCorelibWrapper::"#name), cil_strattr("Libstd") ))
 
 #  define LIBSTD_LPROTO_IMPL(type, name, ...) \
     type LIBSTD_LNAME(name)(__VA_ARGS__)

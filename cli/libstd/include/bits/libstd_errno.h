@@ -48,6 +48,7 @@ enum {
     __LIBSTD_ERANGE       = 34,  /* Math result not representable */
     __LIBSTD_ENAMETOOLONG = 36,  /* File name too long */
     __LIBSTD_EILSEQ       = 88,  /* Illegal byte sequence */
+    __LIBSTD_ENOTSUP      = 134, /* Not Supported */
     __LIBSTD_ENOSYS       = 333  /* Feature not implemented */
 };
 

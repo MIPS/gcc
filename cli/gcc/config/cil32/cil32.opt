@@ -29,13 +29,13 @@
 ; Andrea C. Ornstein   <andrea.ornstein@st.com>
 ; Erven Rohou          <erven.rohou@st.com>
 
+mgcc4net-linker
+Target Mask(GCC4NET_LINKER)
+Uses gcc4net specific Linker
+
 mopensystemc
 Target Undocumented Mask(OPENSYSTEMC)
 Use OpenSystem.C Attributes
-
-mnoopensystemc
-Target InverseMask(OPENSYSTEMC)
-Disable use of OpenSystem.C Attributes
 
 mno-stloc-ldloc-removal
 Target Mask(NO_STLOC_LDLOC_REMOVAL)
@@ -52,10 +52,6 @@ Expand min and max instead of generating a call to Crt::{min,max}
 memit-gimple-comments
 Target Mask(EMIT_GIMPLE_COMMENTS)
 Emits the GIMPLE node as a CIL comment before the CIL sequence
-
-memit-external-assembly
-Target Mask(EMIT_EXTERNAL_ASSEMBLY)
-Emits all external symbols as if defined in an assembly called ExternalAssembly
 
 memit-vcg
 Target Mask(EMIT_VCG)

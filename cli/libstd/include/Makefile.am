@@ -14,6 +14,7 @@ include_HEADERS = \
 	float.h \
 	inttypes.h \
 	iso646.h \
+	libgen.h \
 	limits.h \
 	locale.h \
 	malloc.h \
@@ -43,6 +44,7 @@ includebits_HEADERS = \
 	bits/libstd_types.h
 
 includesys_HEADERS = \
+	sys/time.h \
 	sys/types.h \
 	sys/stat.h
 

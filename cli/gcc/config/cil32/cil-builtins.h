@@ -1,4 +1,4 @@
-/* Type related function prototypes and declarations.
+/*
 
    Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
@@ -29,47 +29,25 @@ Andrea C. Ornstein      <andrea.ornstein@st.com>
 Erven Rohou             <erven.rohou@st.com>
 */
 
-#ifndef CIL_TYPES_H
-#define CIL_TYPES_H
+#ifndef CIL_BUILTINS_H
+#define CIL_BUILTINS_H
 
 #include "coretypes.h"
 
-/******************************************************************************
- * Misc types                                                                 *
- ******************************************************************************/
-
- /* Per-function machine data.  */
-
-struct machine_function GTY(())
-{
-  unsigned int label_id;
-  tree label_addrs;
+enum cil32_builtin {
+#define DEF_CILBUILTIN(bid, name, ret_type, num_par, ...) \
+    CIL32_##bid,
+#  include "cil-builtins.def"
+#undef DEF_CILBUILTIN
+  CIL32_MAX_BUILT_IN
 };
 
-/* Referenced string entry.  */
+extern GTY(()) tree cil32_builtins[CIL32_MAX_BUILT_IN];
 
-struct str_ref_d GTY(())
-{
-  /* STRING_CST node.  */
-  tree cst;
+extern GTY(()) tree cil32_va_list_type;
+extern GTY(()) tree cil32_arg_iterator_type;
 
-  /* Unique ID.  */
-  size_t id;
-};
+extern void cil_init_builtins (void);
+extern tree cil_build_builtin_va_list (void);
 
-typedef struct str_ref_d *str_ref;
-
-/* Mapping for label's whose addresses have been taken.  */
-
-struct label_addr_d GTY(())
-{
-  /* LABEL_DECL node.  */
-  tree label;
-
-  /* Unique id as an INTEGER_CST of type intSI_type_node.  */
-  tree id;
-};
-
-typedef struct label_addr_d *label_addr;
-
-#endif /* !CIL_TYPES_H */
+#endif /* !CIL_BUILTINS_H */

@@ -87,6 +87,7 @@ public class MSCorelibWrapper
     private const int __LIBSTD_ERANGE       = 34;
     private const int __LIBSTD_ENAMETOOLONG = 36;
     private const int __LIBSTD_EILSEQ       = 88;
+    private const int __LIBSTD_ENOTSUP      = 134;
     private const int __LIBSTD_ENOSYS       = 333;
 
 
@@ -509,6 +510,20 @@ public class MSCorelibWrapper
         *tm_yday  = dt.DayOfYear;
         *tm_isdst = 0;  /* TODO - tm_isdst */
     }
+
+    unsafe public static void gettimeofday (void *_tv_sec, void *_tv_usec)
+    {
+        int *tv_sec  = (int *)_tv_sec;
+        int *tv_usec = (int *)_tv_usec;
+
+        long t = DateTime.UtcNow.Ticks;
+
+        //*tv_sec = (time_t)((t / TICKS_PER_SEC) - EPOCH_ADJUST);
+        //*tv_usec = (suseconds_t)((t % TICKS_PER_SEC) / TICKS_PER_USEC);
+        *tv_sec = (int)((t / 10000000) - 62135596800);
+        *tv_usec = (int)((t % 10000000) / 10);
+    }
+
 
     public static void exit(int status)
     {

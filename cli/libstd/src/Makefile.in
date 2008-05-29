@@ -65,28 +65,29 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-__io_fread.lo libstd_la-__io_ftable.lo \
 	libstd_la-__io_perm.lo libstd_la-__libinfo.lo \
 	libstd_la-abort.lo libstd_la-abs.lo libstd_la-asctime.lo \
-	libstd_la-assert.lo libstd_la-bsearch.lo libstd_la-calloc.lo \
-	libstd_la-clearerr.lo libstd_la-close.lo libstd_la-creat.lo \
-	libstd_la-ctime.lo libstd_la-ctype.lo libstd_la-div.lo \
-	libstd_la-errno.lo libstd_la-exit.lo libstd_la-fclose.lo \
-	libstd_la-fenv.lo libstd_la-feof.lo libstd_la-ferror.lo \
-	libstd_la-fflush.lo libstd_la-fgetc.lo libstd_la-fgetpos.lo \
-	libstd_la-fgets.lo libstd_la-float.lo libstd_la-fopen.lo \
-	libstd_la-fprintf.lo libstd_la-fputc.lo libstd_la-fputs.lo \
-	libstd_la-fread.lo libstd_la-free.lo libstd_la-freopen.lo \
-	libstd_la-fscanf.lo libstd_la-fseek.lo libstd_la-fsetpos.lo \
-	libstd_la-ftell.lo libstd_la-fwrite.lo libstd_la-getenv.lo \
-	libstd_la-imaxabs.lo libstd_la-imaxdiv.lo libstd_la-isatty.lo \
-	libstd_la-labs.lo libstd_la-ldiv.lo libstd_la-llabs.lo \
-	libstd_la-lldiv.lo libstd_la-localeconv.lo libstd_la-lseek.lo \
-	libstd_la-malloc.lo libstd_la-math.lo libstd_la-math_ld.lo \
-	libstd_la-mblen.lo libstd_la-mbstowcs.lo libstd_la-mbtowc.lo \
-	libstd_la-memchr.lo libstd_la-memcmp.lo libstd_la-memcpy.lo \
-	libstd_la-memmove.lo libstd_la-memset.lo libstd_la-open.lo \
-	libstd_la-perror.lo libstd_la-printf.lo libstd_la-qsort.lo \
-	libstd_la-rand.lo libstd_la-read.lo libstd_la-realloc.lo \
-	libstd_la-remove.lo libstd_la-rename.lo libstd_la-rewind.lo \
-	libstd_la-scanf.lo libstd_la-setbuf.lo libstd_la-setlocale.lo \
+	libstd_la-assert.lo libstd_la-basename.lo libstd_la-bsearch.lo \
+	libstd_la-calloc.lo libstd_la-clearerr.lo libstd_la-close.lo \
+	libstd_la-creat.lo libstd_la-ctime.lo libstd_la-ctype.lo \
+	libstd_la-dirname.lo libstd_la-div.lo libstd_la-errno.lo \
+	libstd_la-exit.lo libstd_la-fclose.lo libstd_la-fenv.lo \
+	libstd_la-feof.lo libstd_la-ferror.lo libstd_la-fflush.lo \
+	libstd_la-fgetc.lo libstd_la-fgetpos.lo libstd_la-fgets.lo \
+	libstd_la-float.lo libstd_la-fopen.lo libstd_la-fprintf.lo \
+	libstd_la-fputc.lo libstd_la-fputs.lo libstd_la-fread.lo \
+	libstd_la-free.lo libstd_la-freopen.lo libstd_la-fscanf.lo \
+	libstd_la-fseek.lo libstd_la-fsetpos.lo libstd_la-ftell.lo \
+	libstd_la-fwrite.lo libstd_la-getenv.lo libstd_la-imaxabs.lo \
+	libstd_la-imaxdiv.lo libstd_la-isatty.lo libstd_la-labs.lo \
+	libstd_la-ldiv.lo libstd_la-llabs.lo libstd_la-lldiv.lo \
+	libstd_la-localeconv.lo libstd_la-lseek.lo libstd_la-malloc.lo \
+	libstd_la-math.lo libstd_la-math_ld.lo libstd_la-mblen.lo \
+	libstd_la-mbstowcs.lo libstd_la-mbtowc.lo libstd_la-memchr.lo \
+	libstd_la-memcmp.lo libstd_la-memcpy.lo libstd_la-memmove.lo \
+	libstd_la-memset.lo libstd_la-open.lo libstd_la-perror.lo \
+	libstd_la-printf.lo libstd_la-qsort.lo libstd_la-rand.lo \
+	libstd_la-read.lo libstd_la-realloc.lo libstd_la-remove.lo \
+	libstd_la-rename.lo libstd_la-rewind.lo libstd_la-scanf.lo \
+	libstd_la-setbuf.lo libstd_la-setlocale.lo \
 	libstd_la-setvbuf.lo libstd_la-signal.lo libstd_la-snprintf.lo \
 	libstd_la-sprintf.lo libstd_la-sscanf.lo libstd_la-stat.lo \
 	libstd_la-strcat.lo libstd_la-strchr.lo libstd_la-strcmp.lo \
@@ -97,12 +98,12 @@ am__objects_1 = libstd_la-_Exit.lo libstd_la-__io_device.lo \
 	libstd_la-strspn.lo libstd_la-strstr.lo libstd_la-strtod.lo \
 	libstd_la-strtok.lo libstd_la-strtolul.lo \
 	libstd_la-strtollull.lo libstd_la-strxfrm.lo \
-	libstd_la-system.lo libstd_la-time.lo libstd_la-tmpfile.lo \
-	libstd_la-tmpnam.lo libstd_la-ungetc.lo libstd_la-vfprintf.lo \
-	libstd_la-vfscanf.lo libstd_la-vprintf.lo \
-	libstd_la-vsnprintf.lo libstd_la-vsprintf.lo \
-	libstd_la-vscanf.lo libstd_la-vsscanf.lo libstd_la-wcstombs.lo \
-	libstd_la-wctomb.lo libstd_la-write.lo
+	libstd_la-system.lo libstd_la-systime.lo libstd_la-time.lo \
+	libstd_la-tmpfile.lo libstd_la-tmpnam.lo libstd_la-ungetc.lo \
+	libstd_la-vfprintf.lo libstd_la-vfscanf.lo \
+	libstd_la-vprintf.lo libstd_la-vsnprintf.lo \
+	libstd_la-vsprintf.lo libstd_la-vscanf.lo libstd_la-vsscanf.lo \
+	libstd_la-wcstombs.lo libstd_la-wctomb.lo libstd_la-write.lo
 am_libstd_la_OBJECTS = $(am__objects_1)
 libstd_la_OBJECTS = $(am_libstd_la_OBJECTS)
 @NATIVE_LIB_TRUE@am_libstd_la_rpath = -rpath $(libnativedir)
@@ -120,10 +121,11 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-__io_perm.$(OBJEXT) libstd_dll-__libinfo.$(OBJEXT) \
 	libstd_dll-abort.$(OBJEXT) libstd_dll-abs.$(OBJEXT) \
 	libstd_dll-asctime.$(OBJEXT) libstd_dll-assert.$(OBJEXT) \
-	libstd_dll-bsearch.$(OBJEXT) libstd_dll-calloc.$(OBJEXT) \
-	libstd_dll-clearerr.$(OBJEXT) libstd_dll-close.$(OBJEXT) \
-	libstd_dll-creat.$(OBJEXT) libstd_dll-ctime.$(OBJEXT) \
-	libstd_dll-ctype.$(OBJEXT) libstd_dll-div.$(OBJEXT) \
+	libstd_dll-basename.$(OBJEXT) libstd_dll-bsearch.$(OBJEXT) \
+	libstd_dll-calloc.$(OBJEXT) libstd_dll-clearerr.$(OBJEXT) \
+	libstd_dll-close.$(OBJEXT) libstd_dll-creat.$(OBJEXT) \
+	libstd_dll-ctime.$(OBJEXT) libstd_dll-ctype.$(OBJEXT) \
+	libstd_dll-dirname.$(OBJEXT) libstd_dll-div.$(OBJEXT) \
 	libstd_dll-errno.$(OBJEXT) libstd_dll-exit.$(OBJEXT) \
 	libstd_dll-fclose.$(OBJEXT) libstd_dll-fenv.$(OBJEXT) \
 	libstd_dll-feof.$(OBJEXT) libstd_dll-ferror.$(OBJEXT) \
@@ -166,14 +168,14 @@ am__objects_2 = libstd_dll-_Exit.$(OBJEXT) \
 	libstd_dll-strstr.$(OBJEXT) libstd_dll-strtod.$(OBJEXT) \
 	libstd_dll-strtok.$(OBJEXT) libstd_dll-strtolul.$(OBJEXT) \
 	libstd_dll-strtollull.$(OBJEXT) libstd_dll-strxfrm.$(OBJEXT) \
-	libstd_dll-system.$(OBJEXT) libstd_dll-time.$(OBJEXT) \
-	libstd_dll-tmpfile.$(OBJEXT) libstd_dll-tmpnam.$(OBJEXT) \
-	libstd_dll-ungetc.$(OBJEXT) libstd_dll-vfprintf.$(OBJEXT) \
-	libstd_dll-vfscanf.$(OBJEXT) libstd_dll-vprintf.$(OBJEXT) \
-	libstd_dll-vsnprintf.$(OBJEXT) libstd_dll-vsprintf.$(OBJEXT) \
-	libstd_dll-vscanf.$(OBJEXT) libstd_dll-vsscanf.$(OBJEXT) \
-	libstd_dll-wcstombs.$(OBJEXT) libstd_dll-wctomb.$(OBJEXT) \
-	libstd_dll-write.$(OBJEXT)
+	libstd_dll-system.$(OBJEXT) libstd_dll-systime.$(OBJEXT) \
+	libstd_dll-time.$(OBJEXT) libstd_dll-tmpfile.$(OBJEXT) \
+	libstd_dll-tmpnam.$(OBJEXT) libstd_dll-ungetc.$(OBJEXT) \
+	libstd_dll-vfprintf.$(OBJEXT) libstd_dll-vfscanf.$(OBJEXT) \
+	libstd_dll-vprintf.$(OBJEXT) libstd_dll-vsnprintf.$(OBJEXT) \
+	libstd_dll-vsprintf.$(OBJEXT) libstd_dll-vscanf.$(OBJEXT) \
+	libstd_dll-vsscanf.$(OBJEXT) libstd_dll-wcstombs.$(OBJEXT) \
+	libstd_dll-wctomb.$(OBJEXT) libstd_dll-write.$(OBJEXT)
 am_libstd_dll_OBJECTS = $(am__objects_2)
 libstd_dll_OBJECTS = $(am_libstd_dll_OBJECTS)
 libstd_dll_LDADD = $(LDADD)
@@ -325,6 +327,7 @@ SRC = _Exit.c \
       abs.c \
       asctime.c \
       assert.c \
+      basename.c \
       bsearch.c \
       calloc.c \
       clearerr.c \
@@ -332,6 +335,7 @@ SRC = _Exit.c \
       creat.c \
       ctime.c \
       ctype.c \
+      dirname.c \
       div.c \
       errno.c \
       exit.c \
@@ -418,6 +422,7 @@ SRC = _Exit.c \
       strtollull.c \
       strxfrm.c \
       system.c \
+      systime.c \
       time.c \
       tmpfile.c \
       tmpnam.c \
@@ -539,6 +544,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-abs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-asctime.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-assert.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-basename.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-bsearch.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-calloc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-clearerr.Po@am__quote@
@@ -546,6 +552,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-creat.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-ctime.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-ctype.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-dirname.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-div.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-errno.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-exit.Po@am__quote@
@@ -632,6 +639,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-strtolul.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-strxfrm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-system.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-systime.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-tmpfile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_dll-tmpnam.Po@am__quote@
@@ -660,6 +668,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-abs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-asctime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-assert.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-basename.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-bsearch.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-calloc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-clearerr.Plo@am__quote@
@@ -667,6 +676,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-creat.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-ctime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-ctype.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-dirname.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-div.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-errno.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-exit.Plo@am__quote@
@@ -753,6 +763,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-strtolul.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-strxfrm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-system.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-systime.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-time.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-tmpfile.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libstd_la-tmpnam.Plo@am__quote@
@@ -887,6 +898,13 @@ libstd_la-assert.lo: assert.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-assert.lo `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
 
+libstd_la-basename.lo: basename.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-basename.lo -MD -MP -MF "$(DEPDIR)/libstd_la-basename.Tpo" -c -o libstd_la-basename.lo `test -f 'basename.c' || echo '$(srcdir)/'`basename.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-basename.Tpo" "$(DEPDIR)/libstd_la-basename.Plo"; else rm -f "$(DEPDIR)/libstd_la-basename.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='basename.c' object='libstd_la-basename.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-basename.lo `test -f 'basename.c' || echo '$(srcdir)/'`basename.c
+
 libstd_la-bsearch.lo: bsearch.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-bsearch.lo -MD -MP -MF "$(DEPDIR)/libstd_la-bsearch.Tpo" -c -o libstd_la-bsearch.lo `test -f 'bsearch.c' || echo '$(srcdir)/'`bsearch.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-bsearch.Tpo" "$(DEPDIR)/libstd_la-bsearch.Plo"; else rm -f "$(DEPDIR)/libstd_la-bsearch.Tpo"; exit 1; fi
@@ -935,6 +953,13 @@ libstd_la-ctype.lo: ctype.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ctype.c' object='libstd_la-ctype.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-ctype.lo `test -f 'ctype.c' || echo '$(srcdir)/'`ctype.c
+
+libstd_la-dirname.lo: dirname.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-dirname.lo -MD -MP -MF "$(DEPDIR)/libstd_la-dirname.Tpo" -c -o libstd_la-dirname.lo `test -f 'dirname.c' || echo '$(srcdir)/'`dirname.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-dirname.Tpo" "$(DEPDIR)/libstd_la-dirname.Plo"; else rm -f "$(DEPDIR)/libstd_la-dirname.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dirname.c' object='libstd_la-dirname.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-dirname.lo `test -f 'dirname.c' || echo '$(srcdir)/'`dirname.c
 
 libstd_la-div.lo: div.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-div.lo -MD -MP -MF "$(DEPDIR)/libstd_la-div.Tpo" -c -o libstd_la-div.lo `test -f 'div.c' || echo '$(srcdir)/'`div.c; \
@@ -1538,6 +1563,13 @@ libstd_la-system.lo: system.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-system.lo `test -f 'system.c' || echo '$(srcdir)/'`system.c
 
+libstd_la-systime.lo: systime.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-systime.lo -MD -MP -MF "$(DEPDIR)/libstd_la-systime.Tpo" -c -o libstd_la-systime.lo `test -f 'systime.c' || echo '$(srcdir)/'`systime.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-systime.Tpo" "$(DEPDIR)/libstd_la-systime.Plo"; else rm -f "$(DEPDIR)/libstd_la-systime.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='systime.c' object='libstd_la-systime.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -c -o libstd_la-systime.lo `test -f 'systime.c' || echo '$(srcdir)/'`systime.c
+
 libstd_la-time.lo: time.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_la_CFLAGS) $(CFLAGS) -MT libstd_la-time.lo -MD -MP -MF "$(DEPDIR)/libstd_la-time.Tpo" -c -o libstd_la-time.lo `test -f 'time.c' || echo '$(srcdir)/'`time.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_la-time.Tpo" "$(DEPDIR)/libstd_la-time.Plo"; else rm -f "$(DEPDIR)/libstd_la-time.Tpo"; exit 1; fi
@@ -1832,6 +1864,20 @@ libstd_dll-assert.obj: assert.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
 
+libstd_dll-basename.o: basename.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-basename.o -MD -MP -MF "$(DEPDIR)/libstd_dll-basename.Tpo" -c -o libstd_dll-basename.o `test -f 'basename.c' || echo '$(srcdir)/'`basename.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-basename.Tpo" "$(DEPDIR)/libstd_dll-basename.Po"; else rm -f "$(DEPDIR)/libstd_dll-basename.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='basename.c' object='libstd_dll-basename.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-basename.o `test -f 'basename.c' || echo '$(srcdir)/'`basename.c
+
+libstd_dll-basename.obj: basename.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-basename.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-basename.Tpo" -c -o libstd_dll-basename.obj `if test -f 'basename.c'; then $(CYGPATH_W) 'basename.c'; else $(CYGPATH_W) '$(srcdir)/basename.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-basename.Tpo" "$(DEPDIR)/libstd_dll-basename.Po"; else rm -f "$(DEPDIR)/libstd_dll-basename.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='basename.c' object='libstd_dll-basename.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-basename.obj `if test -f 'basename.c'; then $(CYGPATH_W) 'basename.c'; else $(CYGPATH_W) '$(srcdir)/basename.c'; fi`
+
 libstd_dll-bsearch.o: bsearch.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-bsearch.o -MD -MP -MF "$(DEPDIR)/libstd_dll-bsearch.Tpo" -c -o libstd_dll-bsearch.o `test -f 'bsearch.c' || echo '$(srcdir)/'`bsearch.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-bsearch.Tpo" "$(DEPDIR)/libstd_dll-bsearch.Po"; else rm -f "$(DEPDIR)/libstd_dll-bsearch.Tpo"; exit 1; fi
@@ -1929,6 +1975,20 @@ libstd_dll-ctype.obj: ctype.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ctype.c' object='libstd_dll-ctype.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-ctype.obj `if test -f 'ctype.c'; then $(CYGPATH_W) 'ctype.c'; else $(CYGPATH_W) '$(srcdir)/ctype.c'; fi`
+
+libstd_dll-dirname.o: dirname.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-dirname.o -MD -MP -MF "$(DEPDIR)/libstd_dll-dirname.Tpo" -c -o libstd_dll-dirname.o `test -f 'dirname.c' || echo '$(srcdir)/'`dirname.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-dirname.Tpo" "$(DEPDIR)/libstd_dll-dirname.Po"; else rm -f "$(DEPDIR)/libstd_dll-dirname.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dirname.c' object='libstd_dll-dirname.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-dirname.o `test -f 'dirname.c' || echo '$(srcdir)/'`dirname.c
+
+libstd_dll-dirname.obj: dirname.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-dirname.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-dirname.Tpo" -c -o libstd_dll-dirname.obj `if test -f 'dirname.c'; then $(CYGPATH_W) 'dirname.c'; else $(CYGPATH_W) '$(srcdir)/dirname.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-dirname.Tpo" "$(DEPDIR)/libstd_dll-dirname.Po"; else rm -f "$(DEPDIR)/libstd_dll-dirname.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='dirname.c' object='libstd_dll-dirname.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-dirname.obj `if test -f 'dirname.c'; then $(CYGPATH_W) 'dirname.c'; else $(CYGPATH_W) '$(srcdir)/dirname.c'; fi`
 
 libstd_dll-div.o: div.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-div.o -MD -MP -MF "$(DEPDIR)/libstd_dll-div.Tpo" -c -o libstd_dll-div.o `test -f 'div.c' || echo '$(srcdir)/'`div.c; \
@@ -3133,6 +3193,20 @@ libstd_dll-system.obj: system.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='system.c' object='libstd_dll-system.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-system.obj `if test -f 'system.c'; then $(CYGPATH_W) 'system.c'; else $(CYGPATH_W) '$(srcdir)/system.c'; fi`
+
+libstd_dll-systime.o: systime.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-systime.o -MD -MP -MF "$(DEPDIR)/libstd_dll-systime.Tpo" -c -o libstd_dll-systime.o `test -f 'systime.c' || echo '$(srcdir)/'`systime.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-systime.Tpo" "$(DEPDIR)/libstd_dll-systime.Po"; else rm -f "$(DEPDIR)/libstd_dll-systime.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='systime.c' object='libstd_dll-systime.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-systime.o `test -f 'systime.c' || echo '$(srcdir)/'`systime.c
+
+libstd_dll-systime.obj: systime.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-systime.obj -MD -MP -MF "$(DEPDIR)/libstd_dll-systime.Tpo" -c -o libstd_dll-systime.obj `if test -f 'systime.c'; then $(CYGPATH_W) 'systime.c'; else $(CYGPATH_W) '$(srcdir)/systime.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libstd_dll-systime.Tpo" "$(DEPDIR)/libstd_dll-systime.Po"; else rm -f "$(DEPDIR)/libstd_dll-systime.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='systime.c' object='libstd_dll-systime.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -c -o libstd_dll-systime.obj `if test -f 'systime.c'; then $(CYGPATH_W) 'systime.c'; else $(CYGPATH_W) '$(srcdir)/systime.c'; fi`
 
 libstd_dll-time.o: time.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libstd_dll_CFLAGS) $(CFLAGS) -MT libstd_dll-time.o -MD -MP -MF "$(DEPDIR)/libstd_dll-time.Tpo" -c -o libstd_dll-time.o `test -f 'time.c' || echo '$(srcdir)/'`time.c; \

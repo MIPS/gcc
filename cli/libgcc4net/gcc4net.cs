@@ -291,14 +291,41 @@ namespace gcc4net {
     }
 
     namespace C_Attributes {
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CObjectFile : Attribute {
+            public CObjectFile () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CExecutable : Attribute {
+            public CExecutable () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CStaticLibrary : Attribute {
+            public CStaticLibrary () { }
+        }
+        [AttributeUsage (AttributeTargets.Assembly)]
+        public sealed class CDynamicLibrary : Attribute {
+            public CDynamicLibrary () { }
+        }
+        [AttributeUsage (AttributeTargets.Method)]
+        public sealed class Initializer : Attribute {
+            public Initializer () { }
+        }
+        [AttributeUsage (AttributeTargets.Method)]
+        public sealed class Finalizer : Attribute {
+            public Finalizer () { }
+        }
         [AttributeUsage (AttributeTargets.Struct)]
         public sealed class ConstStringType : Attribute {
             public ConstStringType () { }
         }
         [AttributeUsage (AttributeTargets.Struct)]
         public sealed class ArrayType : Attribute {
-            public ArrayType () {
-            }
+            public ArrayType () { }
+        }
+        [AttributeUsage (AttributeTargets.Struct)]
+        public sealed class IncompleteType : Attribute {
+            public IncompleteType () { }
         }
     }
 

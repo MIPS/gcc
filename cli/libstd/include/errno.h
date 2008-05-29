@@ -46,6 +46,7 @@ __BEGIN_EXTERN_C
 #define ERANGE       __LIBSTD_ERANGE
 #define ENAMETOOLONG __LIBSTD_ENAMETOOLONG
 #define EILSEQ       __LIBSTD_EILSEQ
+#define ENOTSUP      __LIBSTD_ENOTSUP
 #define ENOSYS       __LIBSTD_ENOSYS
 
 #define errno (*LIBSTD_LNAME(__errno__get_ptr)())

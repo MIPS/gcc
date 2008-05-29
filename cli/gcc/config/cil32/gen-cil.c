@@ -51,6 +51,7 @@ Erven Rohou             <erven.rohou@st.com>
 #include "ggc.h"
 #include "tree-simp-cil.h"
 #include "cil-refs.h"
+#include "cil-builtins.h"
 #include "gen-cil.h"
 #include "emit-hints.h"
 
@@ -76,6 +77,7 @@ static void print_type_suffix (FILE *, tree, bool);
 static void gen_cil_modify_expr (FILE *, tree, tree);
 static void print_valuetype_decl (FILE *, tree);
 static void print_array_decl (FILE *, tree);
+static void print_incomplete_decl (FILE *, tree);
 static void print_enum_decl (FILE *, tree);
 static void print_struct_union_decl (FILE *, tree);
 static void dump_type (FILE *, tree, bool, bool);
@@ -109,10 +111,7 @@ static void print_string_decl (FILE *, tree);
 static void print_used_strings (FILE *);
 static void print_referenced_types (FILE *);
 static void print_referenced_pinvokes (FILE *);
-static void create_init_method(void);
 
-
-static GTY(()) varray_type pending_ctors;
 static unsigned int stack;
 static unsigned int max_stack;
 static basic_block bb;
@@ -280,23 +279,37 @@ dump_entry_label_name (FILE *stream, basic_block bb)
 static void
 dump_valuetype_name (FILE *file, tree t)
 {
-  tree type_name;
+  tree name = TYPE_NAME (t);
+  const char *str;
+  size_t i;
 
   gcc_assert (AGGREGATE_TYPE_P (t) || TREE_CODE (t) == ENUMERAL_TYPE);
   gcc_assert (TYPE_MAIN_VARIANT (t) == t);
   gcc_assert (TYPE_FILE_SCOPE_P (t));
-  gcc_assert (TYPE_NAME (t));
-
-  type_name = TYPE_NAME (t);
-  gcc_assert (DECL_P (type_name) || TREE_CODE (type_name) == IDENTIFIER_NODE);
+  gcc_assert (DECL_P (name) || TREE_CODE (name) == IDENTIFIER_NODE);
 
   fputs ("'", file);
-  if (TREE_CODE (type_name) == IDENTIFIER_NODE)
-    fprintf (file, IDENTIFIER_POINTER (type_name));
-  else if (DECL_NAME (type_name))
-    fprintf (file, IDENTIFIER_POINTER (DECL_NAME (type_name)));
+
+  if (TREE_CODE (name) == IDENTIFIER_NODE)
+    str = IDENTIFIER_POINTER (name);
+  else if (DECL_NAME (name))
+    str = IDENTIFIER_POINTER (DECL_NAME (name));
   else
-    fprintf (file, "?UNNAMED%d", DECL_UID (type_name));
+    str = NULL;
+
+  if (str)
+    {
+      for (i = 0; i < strlen (str); i++)
+	{
+	  if (str[i] == '.')
+            fprintf (file, "?");
+	  else
+            fprintf (file, "%c", str[i]);
+	}
+    }
+  else
+    fprintf (file, "?UNNAMED%d", DECL_UID (name));
+
   fputs ("'", file);
 }
 
@@ -353,8 +366,12 @@ dump_fun_type (FILE *stream, tree fun_type, tree fun, const char *name, bool ref
 
       if (attrs.assembly_name)
         fprintf (stream, "[%s]", attrs.assembly_name);
-      else if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (fun))
-        fputs ("[ExternalAssembly]ExternalAssembly::", stream);
+      else if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (fun) && TREE_PUBLIC (fun))
+        {
+          fputs ("[ExternalAssembly]", stream);
+          if (!attrs.cil_name)
+            fputs ("ExternalAssembly::", stream);
+        }
 
       if (attrs.cil_name)
         fprintf (stream, "%s", attrs.cil_name);
@@ -917,7 +934,7 @@ gen_addr_expr (FILE *file, tree t)
           else
             fputs ("native int", file);
           fputs (" ", file);
-          if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (t))
+          if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (t) && TREE_PUBLIC (t))
             fputs ("[ExternalAssembly]ExternalAssembly::", file);
         }
 
@@ -1782,8 +1799,12 @@ gen_call_expr (FILE *file, tree node)
 
           if (attrs.assembly_name)
             fprintf (file, "[%s]", attrs.assembly_name);
-          else if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (fdecl))
-            fputs ("[ExternalAssembly]ExternalAssembly::", file);
+          else if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (fdecl) && TREE_PUBLIC (fdecl))
+            {
+              fputs ("[ExternalAssembly]", file);
+              if (!attrs.cil_name)
+                fputs ("ExternalAssembly::", file);
+            }
 
           if (attrs.cil_name)
             fprintf (file, "%s", attrs.cil_name);
@@ -2776,7 +2797,7 @@ gen_cil_node (FILE *file, tree node)
           fputs ("\n\tldsfld\t", file);
           dump_type (file, TREE_TYPE (node), true, false);
           fputs (" ", file);
-          if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (node))
+          if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (node) && TREE_PUBLIC (node))
             fputs ("[ExternalAssembly]ExternalAssembly::", file);
           dump_decl_name (file, node);
         }
@@ -3110,7 +3131,7 @@ gen_cil_modify_expr (FILE *file, tree lhs, tree rhs)
           fputs ("\n\tstsfld\t", file);
           dump_type (file, TREE_TYPE (lhs), true, false);
           fputs (" ", file);
-          if (TARGET_EMIT_EXTERNAL_ASSEMBLY && DECL_EXTERNAL (lhs))
+          if (TARGET_GCC4NET_LINKER && DECL_EXTERNAL (lhs) && TREE_PUBLIC (lhs))
             fputs ("[ExternalAssembly]ExternalAssembly::", file);
           dump_decl_name (file, lhs);
           stack_pop (1);
@@ -3156,7 +3177,30 @@ gen_cil_modify_expr (FILE *file, tree lhs, tree rhs)
     }
 }
 
-/* */
+static void
+print_incomplete_decl (FILE *file, tree t)
+{
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
+
+  if (!AGGREGATE_TYPE_P (t) && TREE_CODE (t) != ENUMERAL_TYPE)
+    return;
+
+  gcc_assert (file != 0);
+
+  gcc_assert (TYPE_MAIN_VARIANT (t) == t);
+  gcc_assert (TYPE_NAME (t));
+  gcc_assert (!COMPLETE_TYPE_P (t));
+
+  fputs ("\n.class public sealed ", file);
+  dump_valuetype_name (file, t);
+  fputs (" extends ['mscorlib']System.ValueType\n"
+         "{\n", file);
+  fputs ("\t.custom instance "
+         "void [gcc4net]gcc4net.C_Attributes.IncompleteType::.ctor() "
+         "= (01 00 00 00)\n", file);
+  fputs ("}\n", file);
+}
 
 static void
 gen_cil_bb (FILE *stream, basic_block bb)
@@ -3398,8 +3442,8 @@ gen_string_custom_attr (FILE *stream, const char* parameter)
 static void
 gen_computed_goto (FILE *file, tree node)
 {
-  tree *addrs = get_label_addrs ();
-  unsigned int n = get_label_addrs_n ();
+  tree addrs = get_label_addrs ();
+  unsigned int n = TREE_VEC_LENGTH (addrs);
   unsigned int i;
 
   gen_cil_node (file, node);
@@ -3407,7 +3451,7 @@ gen_computed_goto (FILE *file, tree node)
 
   for (i = 0; i < n; i++)
     {
-      dump_label_name (file, addrs[i]);
+      dump_label_name (file, CASE_LABEL (TREE_VEC_ELT (addrs, i)));
 
       if (i + 1 < n)
 	fprintf (file, ", ");
@@ -3458,26 +3502,23 @@ print_string_decl (FILE *file, tree t)
 static void
 print_used_strings (FILE *file)
 {
-  ref_str_iterator rsi;
-  ebitmap used_stringtypes;
+  htab_iterator hti;
+  str_ref ref;
   tree str;
   unsigned int str_size;
+  ebitmap used_stringtypes;
   ebitmap_iterator ebi;
 
   used_stringtypes = ebitmap_alloc (1);
-  rsi = rsi_begin ();
 
-  while (!rsi_end_p (rsi))
+  FOR_EACH_HTAB_ELEMENT (referenced_strings_htab (), ref, str_ref, hti)
     {
-      str = rsi_string (rsi);
-      rsi_next (rsi);
+      str = ref->cst;
       str_size = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (str))),
 			       1) + 1;
       print_string_decl (file, str);
       ebitmap_set_bit (used_stringtypes, str_size);
     }
-
-  rsi_destroy (rsi);
 
   EXECUTE_IF_SET_IN_EBITMAP(used_stringtypes, 0, str_size, ebi)
     {
@@ -3511,13 +3552,13 @@ print_referenced_types (FILE *file)
      Hence, before emitting a type, make sure no type with the same name
      has already been emitted.  */
 
+  htab_iterator hti;
+  tree type;
   struct pointer_set_t *emitted_types = pointer_set_create ();
-  types_iterator rti = rti_begin ();
+  struct pointer_set_t *incomplete_types = pointer_set_create ();
 
-  while (!rti_end_p (rti))
+  FOR_EACH_HTAB_ELEMENT (referenced_types_htab (), type, tree, hti)
     {
-      tree type = rti_type (rti);
-
       if (COMPLETE_TYPE_P (type))
 	{
 	  tree type_name = TYPE_NAME (type);
@@ -3534,11 +3575,36 @@ print_referenced_types (FILE *file)
 	      pointer_set_insert (emitted_types, type_name);
 	    }
 	}
-
-      rti_next (rti);
+      else if (TARGET_GCC4NET_LINKER)
+        pointer_set_insert (incomplete_types, type);
     }
 
-  rti_destroy (rti);
+  /* emit incomplete types */
+  if (TARGET_GCC4NET_LINKER)
+    {
+      struct pointer_set_iter_t it = pointer_set_begin (incomplete_types);
+      while (!POINTER_SET_ITER_IS_END (it))
+        {
+          tree type = (tree)POINTER_SET_ITER_ELEM (it);
+
+          tree type_name = TYPE_NAME (type);
+          gcc_assert (DECL_P (type_name)
+                      || TREE_CODE (type_name) == IDENTIFIER_NODE);
+
+          if (TREE_CODE (type_name) != IDENTIFIER_NODE)
+            type_name = DECL_NAME (type_name);
+
+          if (!pointer_set_contains (emitted_types, type_name))
+            {
+              print_incomplete_decl (file, type);
+              pointer_set_insert (emitted_types, type_name);
+            }
+
+          it = pointer_set_next (incomplete_types, it);
+        }
+    }
+
+  pointer_set_destroy (incomplete_types);
   pointer_set_destroy (emitted_types);
 }
 
@@ -3562,6 +3628,7 @@ print_pinvoke_function (FILE *file, tree fun)
 
   fputs (") ", file);
 
+  DECL_EXTERNAL (fun) = 0;
   dump_fun_type (file, fun_type, fun, NULL, false);
 
   fputs (" cil managed {}\n", file);
@@ -3572,19 +3639,13 @@ print_pinvoke_function (FILE *file, tree fun)
 static void
 print_referenced_pinvokes (FILE *file)
 {
-  pinvoke_iterator rpi;
+  htab_iterator hti;
   tree pinvoke;
 
-  rpi = rpi_begin ();
-
-  while (!rpi_end_p (rpi))
+  FOR_EACH_HTAB_ELEMENT (pinvokes_htab (), pinvoke, tree, hti)
     {
-      pinvoke = rpi_function (rpi);
-      rpi_next (rpi);
       print_pinvoke_function (file, pinvoke);
     }
-
-  rpi_destroy (rpi);
 }
 
 static void
@@ -3691,8 +3752,10 @@ gen_cil_1 (FILE *stream)
   stack_reset ();
   max_stack = 0;
 
-  if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
-    gen_start_function (stream);
+  if (TARGET_OPENSYSTEMC)
+    if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
+      gen_start_function (stream);
+
 
   {
     tree var, cell;
@@ -3791,7 +3854,11 @@ gen_cil_1 (FILE *stream)
       /* For the time being this attribute is a String. */
       gen_string_custom_attr (stream, "initfun");
 
-      if (TARGET_OPENSYSTEMC)
+      if (TARGET_GCC4NET_LINKER)
+        fputs ("\t.custom instance "
+               "void [gcc4net]gcc4net.C_Attributes.Initializer::.ctor() "
+               "= (01 00 00 00)\n", stream);
+      else if (TARGET_OPENSYSTEMC)
         fputs ("\t.custom instance "
                "void ['OpenSystem.C']'OpenSystem.C'.InitializerAttribute::.ctor() "
                "= (01 00 00 00)\n", stream);
@@ -3842,72 +3909,6 @@ gen_cil_1 (FILE *stream)
   TREE_ASM_WRITTEN (current_function_decl) = 1;
 }
 
-static void
-create_init_method (void)
-{
-  struct function *current_cfun = cfun;
-  tree fun_type;
-  tree fun_decl;
-  tree init_expr = NULL;
-  tree result;
-
-  fun_type = build_function_type (void_type_node, void_list_node);
-  fun_decl = build_decl (FUNCTION_DECL, get_identifier ("COBJ?init"), fun_type);
-
-  result = build_decl (RESULT_DECL, NULL_TREE, void_type_node);
-  DECL_ARTIFICIAL (result) = 1;
-  DECL_IGNORED_P (result) = 1;
-  DECL_RESULT (fun_decl) = result;
-
-  /* Allocate memory for the function structure.  The call to
-     allocate_struct_function clobbers CFUN, so we need to restore
-     it afterward.  */
-  allocate_struct_function (fun_decl);
-/*   DECL_SOURCE_LOCATION (fun_decl) = DECL_SOURCE_LOCATION (decl); */
-/*   cfun->function_end_locus = DECL_SOURCE_LOCATION (decl); */
-
-  TREE_STATIC (fun_decl) = 1;
-  TREE_USED (fun_decl) = 1;
-  DECL_ARTIFICIAL (fun_decl) = 1;
-  DECL_IGNORED_P (fun_decl) = 0;
-  TREE_PUBLIC (fun_decl) = 0;
-  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fun_decl) = 1;
-  DECL_UNINLINABLE (fun_decl) = 1;
-  DECL_EXTERNAL (fun_decl) = 0;
-  DECL_STATIC_CONSTRUCTOR (fun_decl) = 1;
-  DECL_CONTEXT (fun_decl) = NULL_TREE;
-  DECL_INITIAL (fun_decl) = make_node (BLOCK);
-
-  {
-    int i, n;
-
-    i = 0;
-    n = VARRAY_ACTIVE_SIZE (pending_ctors);
-    while (i<n)
-      {
-        for (; i < n; ++i)
-          {
-            tree decl = VARRAY_TREE (pending_ctors, i);
-            tree init = DECL_INITIAL (decl);
-
-            DECL_INITIAL (decl) = NULL_TREE;
-
-            expand_init_to_stmt_list (decl, init, &init_expr);
-
-          }
-        n = VARRAY_ACTIVE_SIZE (pending_ctors);
-      }
-  }
-  DECL_SAVED_TREE (fun_decl) = init_expr;
-
-  gimplify_function_tree (fun_decl);
-  tree_lowering_passes (fun_decl);
-  tree_rest_of_compilation (fun_decl);
-
-  /* Restore the current function */
-  cfun = current_cfun;
-}
-
 void
 make_decl_cil (FILE *stream, tree decl)
 {
@@ -3929,7 +3930,7 @@ make_decl_cil (FILE *stream, tree decl)
       fputs ("\n", stream);
 
       if (init && init != error_mark_node)
-        VARRAY_PUSH_TREE (pending_ctors, decl);
+	record_ctor (decl);
 
       TREE_ASM_WRITTEN (decl) = 1;
     }
@@ -3940,17 +3941,27 @@ gen_cil_init (void)
 {
   FILE *stream = asm_out_file;
 
-  fputs (".assembly extern gcc4net {}\n", stream);
-  if (TARGET_EMIT_EXTERNAL_ASSEMBLY)
-    fputs (".assembly '_C_MONO_ASSEMBLY' {}\n", stream);
-  fputs (".module '<Module>'\n", stream);
 
-  if (TARGET_OPENSYSTEMC)
-    fputs (".custom instance "
-           "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
-           "= (01 00 00 00)\n", stream);
-
-  VARRAY_TREE_INIT (pending_ctors, 32, "pending ctors");
+  if (TARGET_GCC4NET_LINKER)
+    {
+      fputs (".assembly extern mscorlib {}\n"
+             ".assembly extern gcc4net {}\n"
+             ".assembly extern ExternalAssembly {}\n", stream);
+      fprintf (stream, ".assembly '%s' {\n", aux_base_name);
+      fputs ("\t.custom instance "
+             "void [gcc4net]gcc4net.C_Attributes.CObjectFile::.ctor() "
+             "= (01 00 00 00)\n"
+             "}\n", stream);
+      fprintf (stream, ".module '%s'\n", aux_base_name);
+    }
+  else if (TARGET_OPENSYSTEMC)
+    {
+      fputs (".assembly extern gcc4net {}\n"
+             ".module '<Module>'\n"
+             ".custom instance "
+             "void ['OpenSystem.C']'OpenSystem.C'.ModuleAttribute::.ctor() "
+             "= (01 00 00 00)\n", stream);
+    }
 }
 
 void
@@ -3958,12 +3969,7 @@ gen_cil_fini (void)
 {
   FILE *stream = asm_out_file;
 
-  if (VARRAY_ACTIVE_SIZE (pending_ctors) > 0)
-    {
-      create_init_method ();
-    }
-  VARRAY_CLEAR (pending_ctors);
-
+  create_init_method ();
   print_used_strings (stream);
   print_referenced_types (stream);
   print_referenced_pinvokes (stream);
@@ -4106,8 +4112,6 @@ struct tree_opt_pass pass_cil_vcg =
   0,
   0                                     /* letter */
 };
-
-#include "gt-gen-cil.h"
 
 /*
  * Local variables:

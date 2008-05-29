@@ -43,9 +43,9 @@ Erven Rohou             <erven.rohou@st.com>
 
 /* Node: Driver */
 
-#define CC1_SPEC "%{!mnoopensystemc:-mopensystemc}"
+#define CC1_SPEC "%{!mgcc4net-linker:-mopensystemc}"
 #define LIB_SPEC "-l libstd.dll"
-#define LIBGCC_SPEC "-l gcc4net.dll"
+#define LIBGCC_SPEC "%{!mgcc4net-linker:-l gcc4net.dll}"
 #define LINK_SPEC "%{shared:--shared}"
 #define STARTFILE_SPEC ""
 #define ENDFILE_SPEC ""
@@ -75,6 +75,9 @@ extern int target_flags;
    the version (no need for major.minor versions, I believe).  */
 #define TARGET_VERSION \
  fprintf (stderr, " [cil32]")
+
+
+#define OVERRIDE_OPTIONS cil_override_options ()
 
 /* Node: Storage Layout */
 
@@ -347,26 +350,12 @@ struct cum_args {int regs;};
 
 #define CONSTANT_ADDRESS_P(X) CONSTANT_P (X)
 
-#define MAX_REGS_PER_ADDRESS 2
-
-#define CONSTANT_INDEX_P(X) \
- (CONSTANT_P (X))
+#define MAX_REGS_PER_ADDRESS 1
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)                 \
  {								\
    if (REG_P (X))			                        \
      goto ADDR;							\
-   if (CONSTANT_INDEX_P (X))					\
-     goto ADDR;							\
-   if (GET_CODE (X) == PLUS)					\
-     {								\
-       rtx x1 = XEXP (X, 0);					\
-       rtx x2 = XEXP (X, 1);					\
-       /* BDAP o, Rd.  */					\
-       if ((REG_P (x1) || CONSTANT_INDEX_P (x1))		\
-	   && (REG_P (x2) && CONSTANT_INDEX_P (x2)))		\
-	 goto ADDR;						\
-     }								\
  }
 
 #ifndef REG_OK_STRICT
@@ -541,40 +530,6 @@ extern struct tree_opt_pass pass_simp_cil_early;
 extern struct tree_opt_pass pass_simp_cil_final;
 extern struct tree_opt_pass pass_gen_cil;
 extern struct tree_opt_pass pass_cil_vcg;
-
-/* cil32 builtin ID */
-enum cil32_builtin
-{
-  CIL32_BUILT_IN_VA_START = 0,
-  CIL32_BUILT_IN_VA_ARG,
-  CIL32_BUILT_IN_VA_END,
-  CIL32_BUILT_IN_VA_COPY,
-  CIL32_BUILT_IN_CPBLK,
-  CIL32_BUILT_IN_INITBLK,
-  CIL32_BUILT_IN_IS_LITTLE_ENDIAN,
-  CIL32_BUILT_IN_ENDIAN_SELECT,
-/* constructors of vector types. */
-/* float */
-  CIL32_V2SF_CTOR,
-  CIL32_V4SF_CTOR,
-/* 32-bit integer */
-  CIL32_V4QI_CTOR,
-  CIL32_V2HI_CTOR,
-/* 64-bit integer */
-  CIL32_V8QI_CTOR,
-  CIL32_V4HI_CTOR,
-  CIL32_V2SI_CTOR,
-/* 128-bit integer */
-  CIL32_V4SI_CTOR,
-  CIL32_V8HI_CTOR,
-  CIL32_V16QI_CTOR,
-  CIL32_MAX_BUILT_IN
-};
-
-extern GTY(()) tree cil32_builtins[CIL32_MAX_BUILT_IN];
-
-extern GTY(()) tree cil32_va_list_type;
-extern GTY(()) tree cil32_arg_iterator_type;
 
 /*
  * Local variables:

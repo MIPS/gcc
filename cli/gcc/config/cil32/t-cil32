@@ -40,6 +40,14 @@ cil-refs.o : $(srcdir)/config/cil32/cil-refs.c \
    debug.h errors.h gt-cil-refs.h vec.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
+$(srcdir)/config/cil32/cil-builtins.h: $(srcdir)/config/cil32/cil-builtins.def
+	#-
+
+cil-builtins.o : $(srcdir)/config/cil32/cil-builtins.c \
+   $(srcdir)/config/cil32/cil-builtins.h $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+   $(srcdir)/config/cil32/cil-builtins.def coretypes.h langhooks.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+
 emit-hints.o: $(srcdir)/config/cil32/emit-hints.c \
    $(srcdir)/config/cil32/emit-hints.h $(srcdir)/config/cil32/bit-stream.h \
    $(srcdir)/config/cil32/gen-cil.h $(CONFIG_H) $(SYSTEM_H) $(TM_H) $(TREE_H) \
@@ -49,7 +57,7 @@ emit-hints.o: $(srcdir)/config/cil32/emit-hints.c \
 gen-cil.o: $(srcdir)/config/cil32/gen-cil.c $(srcdir)/config/cil32/gen-cil.h \
    $(srcdir)/config/cil32/emit-hints.h $(srcdir)/config/cil32/tree-simp-cil.h \
    $(srcdir)/config/cil32/cil-refs.h $(srcdir)/config/cil32/cil-types.h \
-   gt-gen-cil.h $(CONFIG_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(SYSTEM_H) \
+   $(CONFIG_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(SYSTEM_H) \
    $(TIMEVAR_H) $(TM_H) $(TREE_H) $(TREE_FLOW_H) coretypes.h ggc.h langhooks.h \
    output.h pointer-set.h real.h toplev.h tree-iterator.h tree-pass.h varray.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
@@ -76,6 +84,5 @@ bb-layout.o: $(srcdir)/config/cil32/bb-layout.c \
    coretypes.h tree-pass.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
-$(out_object_file): gt-gen-cil.h
-gt-gen-cil.h : s-gtype ; @true
+$(out_object_file): gt-cil-refs.h
 gt-cil-refs.h : s-gtype ; @true

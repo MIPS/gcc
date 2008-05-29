@@ -48,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include <math.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 
 
@@ -316,6 +317,20 @@ LIBSTD_HPROTO_IMPL(void, gmtime, void *timer,
     *tm_wday  = _tm->tm_wday;
     *tm_yday  = _tm->tm_yday;
     *tm_isdst = _tm->tm_isdst;
+}
+
+LIBSTD_HPROTO_IMPL(void, gettimeofday, void *_tv_sec, void *_tv_usec)
+{
+    long *tv_sec  = (long *)_tv_sec;
+    long *tv_usec = (long *)_tv_usec;
+
+    struct timeval tv;
+
+    gettimeofday (&tv, NULL);
+
+    *tv_sec  = (long)(tv.tv_sec);
+    *tv_usec = (long)(tv.tv_usec);
+    
 }
 
 LIBSTD_HPROTO_IMPL(int, fpclassify, double p0)
