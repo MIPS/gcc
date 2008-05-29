@@ -227,9 +227,16 @@ lto_compatible_attributes_p (tree decl ATTRIBUTE_UNUSED,
 			     tree attributes_1, 
 			     tree attributes_2)
 {
+#if 0
   /* ??? For now, assume two attribute sets are compatible only if they
      are both empty.  */
   return !attributes_1 && !attributes_2;
+#else
+  /* ### */
+  /* For the moment, live dangerously, and assume the user knows what he's doing.
+     I don't think the linker would distinguish these cases.  */
+  return true || (!attributes_1 && !attributes_2);
+#endif
 }
 
 

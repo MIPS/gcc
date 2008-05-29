@@ -37,6 +37,29 @@ Boston, MA 02110-1301, USA.  */
 #include "libiberty.h"
 #include "ggc.h"
 
+
+/* ### Moved lto_file_init and lto_file_close here from lto.c.
+   The lto_file vs. lto_elf_file distinction now appears superfluous.  */
+
+/* Initialize FILE, an LTO file object for FILENAME.  */
+static void
+lto_file_init (lto_file *file, 
+	       const lto_file_vtable *vtable,
+	       const char *filename)
+{
+  file->vtable = vtable;
+  file->filename = filename;
+  /* ### We no longer use the debug_info and debug_abbrev fields. */
+}
+
+/* Close FILE.  */
+static void
+lto_file_close (lto_file *file ATTRIBUTE_UNUSED)
+{
+  /* ### We no longer use the debug_info and debug_abbrev fields. */
+  ggc_free (file);
+}
+
 /* An ELF input file.  */
 struct lto_elf_file 
 {
@@ -283,9 +306,7 @@ lto_elf_file_open (const char *filename)
   lto_elf_file *elf_file;
   size_t bits;
   const char *elf_ident;
-  Elf_Data *data;
   lto_file *result;
-  lto_fd *fd;
 
   /* Set up.  */
   elf_file = GGC_NEW (lto_elf_file);
@@ -379,29 +400,6 @@ lto_elf_file_open (const char *filename)
       error ("could not locate ELF string table: %s", elf_errmsg (0));
       goto fail;
     }
-
-  /* Find the .debug_info and .debug_abbrev sections.  */
-  data = lto_elf_find_section_data (elf_file, ".debug_info");
-  if (!data)
-    {
-      error ("could not read %qs section: %s",
-             ".debug_info", elf_errmsg (0));
-      goto fail;
-    }
-  fd = (lto_fd *) &result->debug_info;
-  fd->start = (const char *) data->d_buf;
-  fd->end = fd->start + data->d_size;
-
-  data = lto_elf_find_section_data (elf_file, ".debug_abbrev");
-  if (!data)
-    {
-      error ("could not read %qs section: %s", 
-             ".debug_abbrev", elf_errmsg (0));
-      goto fail;
-    }
-  fd = (lto_fd *) &result->debug_abbrev;
-  fd->start = (const char *) data->d_buf;
-  fd->end = fd->start + data->d_size;
 
   return result;
 

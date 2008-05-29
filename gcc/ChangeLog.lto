@@ -1,4 +1,55 @@
-2008-04-27  Kenneth Zadeck <zadeck@naturalbridge.com>
+2008-05-28  Bill Maddox  <maddox@google.com>
+	
+Replace the DWARF reader in the LTO front-end.
+
+	* lto-tree-flags.def: Add flags for *_DECL
+	and *_TYPE for use by g lobal streamer.
+	* lto-function-out.c: Include lto-tree-out.h.
+	(struct output_block): Moved to lto-tree-out.h.
+	(create_output_block, destroy_output_block):
+	Make non-static, now exported.
+	(output_tree_flags, debug_tree_flags): Add ADD_CLASS_TYPE,
+	ADD_TYPE_FLAG, ADD_FUN_FLAG macros.  Fix bug where stream
+	debugging info was sometimes omitted.
+	(lto_static_init): Adjust lto_flags_needed_for and
+	lto_types_needed_for for node types now newly handled by
+	the global streamer.
+	(output_tree, output_type_tree, output_global_record_start,
+	output_field_decl, output_function_decl, output_var_decl,
+	output_parm_decl, output_result_decl, output_type_decl,
+	output_namespace_decl, output_translation_unit_decl,
+	output_binfo, output_type, output_global_constructor)
+	New functions.
+	* lto_function-in.c: Include lto-tree-in.h.
+	(struct data_in): Moved to lto-tree-in.h.
+	(input_string_internal): Initialize input_block before
+	reading string table size from the stream.
+	(process_tree_flags): Add ADD_CLASS_TYPE_FLAG, ADD_TYPE_FLAG,
+	ADD_FUN_FLAG.
+	(input_local_var): Handle stream debugging information
+	that was previously omitted due to a bug in the writer.
+	(lto_static_init_local): Make non-static, now exported.
+	 Add ADD_CLASS_TYPE_FLAG, ADD_TYPE_FLAG, ADD_FUN_FLAG.
+	(input_tree, input_type_tree, input_tree_operand,
+	global_vector_enter, global_vector_fixup, input_field_decl,
+	input_function_decl, input_var_decl, input_parm_decl,
+	input_result_decl, input_type_decl, input_namespace_decl,
+	input_translation_unit_decl, input_binfo, input_type):
+	New functions.
+	* lto-section.h (struct lto_decl_header): Add fields for
+	sizes of globals stream and its associated debug and string
+	table streams.
+	* lto-tree-tags.def: MAP_EXPR_TAG and SET_NAME macro calls
+	for newly-handled tree codes for global decls and types.
+	* lto-section-in.c (dump_debug_stream): Fix typo in error message.
+	* lto-section-in.h (lto_input_function_body,
+	lto_input_constructors_and_inits): Moved to lto-tree-in.h.
+	* lto-tags.h (enum LTO_tags): Added literals LTO_tree_vec,
+	LTO_translation_unit_decl, LTO_*_type, LTO_tree_binfo,
+	LTO_pickle_reference.
+	
+
+2008-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* cgraph.h (lto_file_decl_data): Removed.
 	* lto-function-in.c: Moved from lto directory.

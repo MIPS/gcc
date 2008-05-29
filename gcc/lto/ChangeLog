@@ -1,3 +1,63 @@
+2008-05-28  Bill Maddox  <maddox@google.com>
+
+	Replace the DWARF reader in the LTO front-end.
+
+	* lto.c: Include lto-tree-in.h, lto-tags.h.
+	(enum DWARF2_class, DW_cl_constant, struct DWARF2_form_data,
+	struct lto_context, lto_fd_init, lto_info_fd_init,
+	lto_abbrev_fd_init, lto_info_fd_close, lto_file_init,
+	lto_file_close, lto_file_corrupt_error, lto_abi_mismatch_error,
+	LTO_CHECK_INT_VAL, LTO_READ_TYPE, lto_read_uleb128, lto_read_sleb128,
+	lto_read_initial_length, lto_abbrev_read_attrs, lto_abbrev_read,
+	lto_abbrev_read_lookup, lto_read_section_offset,
+	lto_read_comp_unit_header, find_cu_for_offset, lto_get_file_name,
+	lto_resolve_reference,lto_read_form, attribute_value_as_int,
+	make_signed_host_wide_int, attribute_value_as_constant, lto_cache_hash,
+	lto_cache_eq, lto_cache_store_DIE, lto_cache_lookup_DIE,
+	lto_find_integral_type,	lto_find_integral_type_1,
+	LTO_BEGIN_READ_ATTRS_UNCHECKED, LTO_BEGIN_READ_ATTRS, LTO_END_READ_ATTRS,
+	lto_unsupported_attr_error, lto_get_identifier, lto_read_referenced_type_DIE,
+	lto_read_compile_unit_DIE, lto_read_array_type_DIE,
+	lto_read_structure_union_class_type_DIE, lto_read_enumerator_DIE,
+	lto_read_enumeration_type_DIE, lto_read_only_for_child_DIEs,
+	lto_read_only_for_child_DIEs, lto_read_member_DIE, lto_read_abbrev,
+	lto_read_variable_formal_parameter_constant_DIE, lto_get_body):
+	Removed.
+	(preload_common_nodes): New function.
+	(lto_read_decls): Convert for new global streamer.
+	(lto_materialze_file_data, lto_read_subroutine_type_subprogram_die,
+	lto_read_unspecified_parameters_DIE, lto_read_typedef_DIE,
+	lto_read_pointer_reference_type_DIE, lto_read_subrange_type_DIE,
+	lto_read_base_type_DIE, lto_read_const_volatile_restrict_type_DIE,
+	lto_read_namespace_DIE, lto_read_unspecified_type_DIE, lto_read_DIE,
+	lto_read_child_DIEs, lto_collect_child_DIEs): Removed.
+	(lto_info_read, lto_set_cu_context): Removed.
+	(lto_file_read): Convert for new global streamer.
+	(lto_resolve_type_ref, lto_read_DIE_at_ptr, lto_resolve_var_ref,
+	lto_resolve_fn_ref, lto_resolve_field_ref, lto_resolve_typedecl_ref,
+	lto_resolve_namespacedecl_ref): Removed.
+	(lto_file_init, lto_file_close): Moved to lto-elf.c.
+	* lto-tree.h (lto_symtab_merge_var, lto_symtab_mergee_fun): Declare here.
+	* lto-elf.c (lto_file_init, lto_file_close): Moved from lto.c.
+	(lto_elf_file_open): Removed code to read DWARF debug sections.
+	* lto.h (lto_context, DWARF2_attr, DWARF2_abbrev, DWARF2_CompUnit,
+	lto_die_ptr, lto_die_cache_entry, lto_fd, lto_info_fd, lto_abbrev_fd):
+	Removed.
+	(lto_file): Removed debug_info and debug_abbrev fields.
+	(lto_ref): Removed.
+	(lto_file_init, lto_file_close, lto_resolve_type_ref, lto_resolve_var_ref,
+	lto_resolve_fn_ref, lto_resolve_field_ref, lto_resolve_typedecl_ref,
+	lto_resolve_namespacedecl_ref, lto_get_file_name): Removed declarations.
+	(lto_symtab_merge_var, lto_symtab_merge_fn): Declarations moved to lto-tree.h.
+	* lto-symtab.c (lto_compatible_attributes_p): Lobotomize this, as it barfs
+	on "Hello, world!".
+	* lto-section-out.c: Include lto-tree-out.h.
+	(lto_hash_global_slot_node, lto_eq_global_slot_node, preload_common_nodes,
+	write_global_stream, write_global_references): New functions.
+	(produce_asm_for_decls): Convert for new global streamer.
+	* lto-section-out.h (lto_hash_global_slot_node, lto_eq_global_slot_node):
+	Declare.
+	
 2008-05-27  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* lto.h (lto_read_decls): Made local.

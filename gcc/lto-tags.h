@@ -388,9 +388,10 @@ enum LTO_tags {
   LTO_ssa_name,
   LTO_string_cst,
 
-/* Cases are terminated a zero.  */
+/* Cases are terminated with a zero.  */
   LTO_switch_expr,
   LTO_tree_list,
+  LTO_tree_vec,
   LTO_trunc_div_expr,
   LTO_trunc_mod_expr,
   LTO_truth_and_expr,
@@ -399,6 +400,7 @@ enum LTO_tags {
   LTO_truth_xor_expr,
   LTO_type_decl,
   LTO_namespace_decl,
+  LTO_translation_unit_decl,
   LTO_uneq_expr,
   LTO_unge_expr,
   LTO_ungt_expr,
@@ -428,7 +430,29 @@ enum LTO_tags {
   LTO_asm_clobbers,
 
   LTO_function,
+
+/* Type reference used in cgraph.  */
   LTO_type,
+
+/* Types */
+  LTO_void_type,
+  LTO_integer_type,
+  LTO_real_type,
+  LTO_fixed_point_type,
+  LTO_complex_type,
+  LTO_boolean_type,
+  LTO_offset_type,
+  LTO_enumeral_type,
+  LTO_pointer_type,
+  LTO_reference_type,
+  LTO_vector_type,
+  LTO_array_type,
+  LTO_record_type,
+  LTO_union_type,
+  LTO_qual_union_type,
+  LTO_function_type,
+  LTO_method_type,
+
   LTO_eh_table,
 
 /* Each of these requires 4 variants.  1 and 3 are have_inner and 2
@@ -454,6 +478,12 @@ enum LTO_tags {
   LTO_eh_table_must_not_throw2,
   LTO_eh_table_must_not_throw3,
 
+/* Base info, e.g., for C++ */
+  LTO_tree_binfo,
+
+/* Special for global streamer. Reference to previously-streamed node.  */
+  LTO_tree_pickle_reference,
+
 /* There are 16 variants of the following decl bodies depending on the
    subtrees that may or may not be there in the decl_common part of
    the tree.
@@ -465,6 +495,8 @@ enum LTO_tags {
    These next two tags must have their last hex digit be 0. */
   LTO_local_var_decl_body0 = 0x0C0,
   LTO_parm_decl_body0      = 0x0D0,
+
+/* This is a special literal that must always appear last! */
   LTO_tree_last_tag        = 0x0E0
 };
 

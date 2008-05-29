@@ -266,7 +266,7 @@ dump_debug_stream (struct lto_input_block *stream,
   int chars = 0;
   int hit_pos = -1;
   fprintf (stderr, 
-	   "stream failure: looking for a '%c'[0x%x] in the %s debug stream.\nHowever the data translated into a '%c'[0x%x]at position%d\n\n",
+	   "stream failure: looking for a '%c'[0x%x] in the %s debug stream.\nHowever the data translated into a '%c'[0x%x]at position %d\n\n",
 	   c, c, stream_name, b, b, stream->p);
   
   while (i < stream->len)
