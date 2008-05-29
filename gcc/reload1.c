@@ -1869,7 +1869,11 @@ find_reg (struct insn_chain *chain, int order)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
+#ifdef REG_ALLOC_ORDER
+      unsigned int regno = reg_alloc_order[i];
+#else
       unsigned int regno = i;
+#endif
 
       if (! TEST_HARD_REG_BIT (not_usable, regno)
 	  && ! TEST_HARD_REG_BIT (used_by_other_reload, regno)
