@@ -235,10 +235,7 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 
   switch (rhs_code)
     {
-    case FIXED_CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-    case FLOAT_EXPR:
-    case CONVERT_EXPR:
+    case VIEW_CONVERT_EXPR:
       pp_string (buffer, tree_code_name [rhs_code]);
       pp_string (buffer, " <");
       dump_generic_node (buffer, TREE_TYPE (lhs), spc, flags, false);
@@ -247,11 +244,26 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, ">");
       break;
 
-    case NOP_EXPR:
+    case FIXED_CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
+    CASE_CONVERT:
       pp_string (buffer, "(");
       dump_generic_node (buffer, TREE_TYPE (lhs), spc, flags, false);
       pp_string (buffer, ") ");
       dump_generic_node (buffer, rhs, spc, flags, false);
+      break;
+      
+    case PAREN_EXPR:
+      pp_string (buffer, "((");
+      dump_generic_node (buffer, rhs, spc, flags, false);
+      pp_string (buffer, "))");
+      break;
+      
+    case ABS_EXPR:
+      pp_string (buffer, "ABS_EXPR <");
+      dump_generic_node (buffer, rhs, spc, flags, false);
+      pp_string (buffer, ">");
       break;
 
     default:
@@ -265,6 +277,8 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 	pp_string (buffer, "~");
       else if (rhs_code == TRUTH_NOT_EXPR)
 	pp_string (buffer, "!");
+      else if (rhs_code == NEGATE_EXPR)
+	pp_string (buffer, "-");
       else
 	{
 	  pp_string (buffer, "[");
