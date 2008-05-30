@@ -1085,6 +1085,12 @@ macro must evaluate to a value equal to or larger than
 @code{STACK_BOUNDARY}.
 @end defmac
 
+@defmac INCOMING_STACK_BOUNDARY
+Define this macro if the incoming stack boundary may be different
+from @code{PREFERRED_STACK_BOUNDARY}.  This macro must evaluate
+to a value equal to or larger than @code{STACK_BOUNDARY}.
+@end defmac
+
 @defmac FUNCTION_BOUNDARY
 Alignment required for a function entry point, in bits.
 @end defmac
@@ -10504,9 +10510,14 @@ call stack unwinding.  It is used in declarations in @file{unwind-generic.h}
 and the associated definitions of those functions.
 @end defmac
 
+@deftypefn {Target Hook} void TARGET_UPDATE_STACK_BOUNDARY (void)
+Define this macro to update the current function stack boundary if
+necessary.
+@end deftypefn
+
 @deftypefn {Target Hook} rtx TARGET_GET_DRAP_RTX (void)
-Define this macro to handle stack alignment and return an rtx for
-Dynamic Realign Argument Pointer if necessary.
+Define this macro to an rtx for Dynamic Realign Argument Pointer if
+necessary.
 @end deftypefn
 
 @deftypefn {Target Hook} {bool} TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS (void)

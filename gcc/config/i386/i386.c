@@ -6425,19 +6425,11 @@ find_drap_reg (void)
   return DI_REG;
 }
 
-/* Handle DRAP related code. Decide
-   1. if stack alignment is needed based on stack alignment
-   estimation before reload.
-   2. if DRAP is needed based on options and other conditions.
- 
-   Return: NULL if no DRAP is needed.
-           An rtx for DRAP otherwise.  */
+/* Update incoming stack boundary and estimated stack alignment.  */
 
-static rtx
-ix86_handle_drap (void)
+static void
+ix86_update_stack_boundary (void)
 {
-  unsigned int preferred_stack_boundary;
-
   /* Prefer the one specified at command line. */
   ix86_incoming_stack_boundary 
     = (ix86_user_incoming_stack_boundary
@@ -6460,35 +6452,25 @@ ix86_handle_drap (void)
       && DECL_FILE_SCOPE_P (current_function_decl))
     ix86_incoming_stack_boundary = MAIN_STACK_BOUNDARY;
 
-  gcc_assert (crtl->stack_alignment_needed 
-              <= crtl->stack_alignment_estimated);
-
   /* x86_64 vararg needs 16byte stack alignment for register save
      area.  */
   if (TARGET_64BIT
       && cfun->stdarg
       && crtl->stack_alignment_estimated < 128)
     crtl->stack_alignment_estimated = 128;
+}
 
-  /* Update crtl->stack_alignment_estimated and use it later to align
-     stack.  We check PREFERRED_STACK_BOUNDARY if there may be non-call
-     exceptions since callgraph doesn't collect incoming stack alignment
-     in this case.  */
-  if (flag_non_call_exceptions
-      && PREFERRED_STACK_BOUNDARY > crtl->preferred_stack_boundary)
-    preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-  else
-    preferred_stack_boundary = crtl->preferred_stack_boundary;
-  if (preferred_stack_boundary > crtl->stack_alignment_estimated)
-    crtl->stack_alignment_estimated = preferred_stack_boundary;
-  if (preferred_stack_boundary > crtl->stack_alignment_needed)
-    crtl->stack_alignment_needed = preferred_stack_boundary;
+/* Handle DRAP related code. Decide
+   1. if stack alignment is needed based on stack alignment
+   estimation before reload.
+   2. if DRAP is needed based on options and other conditions.
+ 
+   Return: NULL if no DRAP is needed.
+           An rtx for DRAP otherwise.  */
 
-  crtl->stack_realign_needed
-    = ix86_incoming_stack_boundary < crtl->stack_alignment_estimated;
-
-  crtl->stack_realign_processed = true;
-
+static rtx
+ix86_get_drap_rtx (void)
+{
   if (ix86_force_drap || !ACCUMULATE_OUTGOING_ARGS)
     crtl->need_drap = true;
 
@@ -26194,8 +26176,10 @@ x86_builtin_vectorization_cost (bool runtime_test)
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
 #undef TARGET_INTERNAL_ARG_POINTER
 #define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_UPDATE_STACK_BOUNDARY
+#define TARGET_UPDATE_STACK_BOUNDARY ix86_update_stack_boundary
 #undef TARGET_GET_DRAP_RTX
-#define TARGET_GET_DRAP_RTX ix86_handle_drap
+#define TARGET_GET_DRAP_RTX ix86_get_drap_rtx
 #undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
 #undef TARGET_STRICT_ARGUMENT_NAMING

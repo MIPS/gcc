@@ -1,3 +1,27 @@
+2008-05-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (INCOMING_STACK_BOUNDARY): New.
+
+	* cfgexpand.c (expand_stack_alignment): Call
+	targetm.calls.update_stack_boundary to update stack boundary
+	if needed.  Check if stack alignment is needed.
+
+	* target.h (gcc_target): Add update_stack_boundary.
+
+	* target-def.h (TARGET_UPDATE_STACK_BOUNDARY): New.
+	(TARGET_CALLS): Add TARGET_UPDATE_STACK_BOUNDARY.
+
+	* config/i386/i386.c (ix86_update_stack_boundary): New.
+	(ix86_get_drap_rtx): Likewise.
+	(TARGET_UPDATE_STACK_BOUNDARY): Likewise.
+	(ix86_handle_drap): Removed.
+	(TARGET_GET_DRAP_RTX): Replace ix86_handle_drap with
+	ix86_get_drap_rtx.
+
+	* doc/tm.texi (INCOMING_STACK_BOUNDARY): New.
+	(TARGET_UPDATE_STACK_BOUNDARY): Likewise.
+	(TARGET_GET_DRAP_RTX): Updated.
+
 2008-05-30  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 

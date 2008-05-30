@@ -1873,6 +1873,7 @@ static void
 expand_stack_alignment (void)
 {
   rtx drap_rtx;
+  unsigned int preferred_stack_boundary;
 
   if (! SUPPORTS_STACK_ALIGNMENT)
     return;
@@ -1883,7 +1884,34 @@ expand_stack_alignment (void)
       || crtl->calls_eh_return)
     crtl->need_drap = true;
 
-  /* Call targetm.calls.get_drap_rtx.  */
+  gcc_assert (crtl->stack_alignment_needed
+	      <= crtl->stack_alignment_estimated);
+
+  /* Update stack boundary if needed.  */
+  if (targetm.calls.update_stack_boundary)
+    targetm.calls.update_stack_boundary (); 
+
+  /* Update crtl->stack_alignment_estimated and use it later to align
+     stack.  We check PREFERRED_STACK_BOUNDARY if there may be non-call
+     exceptions since callgraph doesn't collect incoming stack alignment
+     in this case.  */
+  if (flag_non_call_exceptions
+      && PREFERRED_STACK_BOUNDARY > crtl->preferred_stack_boundary)
+    preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  else
+    preferred_stack_boundary = crtl->preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_estimated)
+    crtl->stack_alignment_estimated = preferred_stack_boundary;
+  if (preferred_stack_boundary > crtl->stack_alignment_needed)
+    crtl->stack_alignment_needed = preferred_stack_boundary;
+
+  crtl->stack_realign_needed
+    = INCOMING_STACK_BOUNDARY < crtl->stack_alignment_estimated;
+
+  crtl->stack_realign_processed = true;
+
+  /* Target has to redefine TARGET_GET_DRAP_RTX to support stack
+     alignment.  */
   gcc_assert (targetm.calls.get_drap_rtx != NULL);
   drap_rtx = targetm.calls.get_drap_rtx (); 
 

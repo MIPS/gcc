@@ -831,6 +831,9 @@ struct gcc_target
        current function.  */
     rtx (*internal_arg_pointer) (void);
 
+    /* Update the current function stack boundary if needed.  */
+    void (*update_stack_boundary) (void);
+
     /* Handle stack alignment and return an rtx for Dynamic Realign
        Argument Pointer if necessary.  */
     rtx (*get_drap_rtx) (void);
