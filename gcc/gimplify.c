@@ -5304,6 +5304,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p, bool in_parallel,
 		  		&OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
 	      pop_gimplify_context 
 		(gimple_seq_first_stmt (OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c)));
+	      OMP_CLAUSE_REDUCTION_INIT (c) = NULL_TREE;
+	      OMP_CLAUSE_REDUCTION_MERGE (c) = NULL_TREE;
 
 	      gimplify_omp_ctxp = outer_ctx;
 	    }

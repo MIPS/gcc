@@ -1,5 +1,16 @@
 2008-05-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (scan_sharing_clauses): Call scan_omp on
+	OMP_CLAUSE_REDUCTION_GIMPLE_{INIT,MERGE} instead of
+	scan_omp_op on OMP_CLAUSE_REDUCTION_{INIT,MERGE}.
+	(lower_rec_input_clauses): Clear
+	OMP_CLAUSE_REDUCTION_GIMPLE_{INIT,MERGE} instead of
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE}.  Call lower_omp
+	on OMP_CLAUSE_REDUCTION_GIMPLE_MERGE before gimple_seq_add_seq
+	to replace all occurences of placeholder in the seq.
+	* gimplify.c (gimplify_scan_omp_clauses): Clear
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE} after gimplifying it.
+
 	* tree-nested.c (init_tmp_var_with_call, init_tmp_var, save_tmp_var):
 	Only set location if not gsi_end_p.
 	(walk_gimple_omp_for): Avoid adding an empty statement to seq.

@@ -1155,8 +1155,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	  && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	{
-	  scan_omp_op (&OMP_CLAUSE_REDUCTION_INIT (c), ctx);
-	  scan_omp_op (&OMP_CLAUSE_REDUCTION_MERGE (c), ctx);
+	  scan_omp (OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c), ctx);
+	  scan_omp (OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c), ctx);
 	}
 }
 
@@ -1898,7 +1898,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  gimple_seq_add_seq (ilist,
 		      		     OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c));
 
-		  OMP_CLAUSE_REDUCTION_INIT (c) = NULL;
+		  OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c) = NULL;
 		}
 	      else
 		{
@@ -2062,8 +2062,9 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	    ref = build_fold_addr_expr (ref);
 	  SET_DECL_VALUE_EXPR (placeholder, ref);
 	  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
+	  lower_omp (OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c), ctx);
 	  gimple_seq_add_seq (&sub_seq, OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c));
-	  OMP_CLAUSE_REDUCTION_MERGE (c) = NULL;
+	  OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = NULL;
 	  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL;
 	}
       else
