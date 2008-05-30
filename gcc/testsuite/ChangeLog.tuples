@@ -1,3 +1,7 @@
+2008-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/block-1.f90: Adjust dg-error.
+
 2008-03-24  Andrew Pinski  <pinskia@gmail.com>
 
 	* gcc.dg/tree-ssa/20030728-1.c: Test final_cleanup instead of

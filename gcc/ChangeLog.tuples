@@ -1,5 +1,8 @@
 2008-05-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (diagnose_omp_structured_block_errors): Temporarily
+	switch cfun to DECL_STRUCT_FUNCTION (fndecl).
+
 	* omp-low.c (scan_sharing_clauses): Call scan_omp on
 	OMP_CLAUSE_REDUCTION_GIMPLE_{INIT,MERGE} instead of
 	scan_omp_op on OMP_CLAUSE_REDUCTION_{INIT,MERGE}.

@@ -5449,9 +5449,11 @@ diagnose_omp_structured_block_errors (tree fndecl)
 {
   tree save_current = current_function_decl;
   struct walk_stmt_info wi;
+  struct function *old_cfun = cfun;
   gimple_seq body = gimple_body (fndecl);
 
   current_function_decl = fndecl;
+  set_cfun (DECL_STRUCT_FUNCTION (fndecl));
 
   all_labels = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
@@ -5465,6 +5467,7 @@ diagnose_omp_structured_block_errors (tree fndecl)
   splay_tree_delete (all_labels);
   all_labels = NULL;
 
+  set_cfun (old_cfun);
   current_function_decl = save_current;
 }
 
