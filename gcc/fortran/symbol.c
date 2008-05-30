@@ -434,12 +434,14 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
 
   conf (target, external);
   conf (target, intrinsic);
-  conf (external, dimension);   /* See Fortran 95's R504.  */
+
+  if (!attr->if_source)
+    conf (external, dimension);   /* See Fortran 95's R504.  */
 
   conf (external, intrinsic);
   conf (entry, intrinsic);
 
-  if ((attr->if_source && !attr->procedure) || attr->contained)
+  if ((attr->if_source == IFSRC_DECL && !attr->procedure) || attr->contained)
     {
       conf (external, subroutine);
       conf (external, function);
@@ -595,6 +597,21 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (function);
       conf2 (subroutine);
       conf2 (threadprivate);
+
+      if (attr->access == ACCESS_PUBLIC || attr->access == ACCESS_PRIVATE)
+	{
+	  a2 = attr->access == ACCESS_PUBLIC ? public : private;
+	  gfc_error ("%s attribute applied to %s %s at %L", a2, a1,
+	    name, where);
+	  return FAILURE;
+	}
+
+      if (attr->is_bind_c)
+	{
+	  gfc_error_now ("BIND(C) applied to %s %s at %L", a1, name, where);
+	  return FAILURE;
+	}
+
       break;
 
     case FL_VARIABLE:
@@ -3625,7 +3642,8 @@ add_proc_interface (gfc_symbol *sym, ifsrc source,
    declaration statement (see match_proc_decl()) to create the formal
    args based on the args of a given named interface.  */
 
-void copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
+void
+copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
 {
   gfc_formal_arglist *head = NULL;
   gfc_formal_arglist *tail = NULL;
@@ -3648,6 +3666,7 @@ void copy_formal_args (gfc_symbol *dest, gfc_symbol *src)
       /* May need to copy more info for the symbol.  */
       formal_arg->sym->attr = curr_arg->sym->attr;
       formal_arg->sym->ts = curr_arg->sym->ts;
+      formal_arg->sym->as = gfc_copy_array_spec (curr_arg->sym->as);
 
       /* If this isn't the first arg, set up the next ptr.  For the
         last arg built, the formal_arg->next will never get set to

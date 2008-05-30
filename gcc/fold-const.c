@@ -3258,6 +3258,9 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
 				      TREE_OPERAND (arg1, 0), flags));
 
+	case COND_EXPR:
+	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2);
+	  
 	default:
 	  return 0;
 	}
@@ -5733,17 +5736,17 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 	   || BINARY_CLASS_P (op0)
 	   || VL_EXP_CLASS_P (op0)
 	   || EXPRESSION_CLASS_P (op0))
-	  /* ... and is unsigned, and its type is smaller than ctype,
-	     then we cannot pass through as widening.  */
-	  && ((TYPE_UNSIGNED (TREE_TYPE (op0))
+	  /* ... and has wrapping overflow, and its type is smaller
+	     than ctype, then we cannot pass through as widening.  */
+	  && ((TYPE_OVERFLOW_WRAPS (TREE_TYPE (op0))
 	       && ! (TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE
 		     && TYPE_IS_SIZETYPE (TREE_TYPE (op0)))
-	       && (GET_MODE_SIZE (TYPE_MODE (ctype))
-	           > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))))
+	       && (TYPE_PRECISION (ctype)
+	           > TYPE_PRECISION (TREE_TYPE (op0))))
 	      /* ... or this is a truncation (t is narrower than op0),
 		 then we cannot pass through this narrowing.  */
-	      || (GET_MODE_SIZE (TYPE_MODE (type))
-		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
+	      || (TYPE_PRECISION (type)
+		  < TYPE_PRECISION (TREE_TYPE (op0)))
 	      /* ... or signedness changes for division or modulus,
 		 then we cannot pass through this conversion.  */
 	      || (code != MULT_EXPR
@@ -7863,9 +7866,11 @@ fold_unary (enum tree_code code, tree type, tree op0)
 
       /* Convert (T)(x & c) into (T)x & (T)c, if c is an integer
 	 constants (if x has signed type, the sign bit cannot be set
-	 in c).  This folds extension into the BIT_AND_EXPR.  */
-      if (INTEGRAL_TYPE_P (type)
-	  && TREE_CODE (type) != BOOLEAN_TYPE
+	 in c).  This folds extension into the BIT_AND_EXPR.
+	 ??? We don't do it for BOOLEAN_TYPE or ENUMERAL_TYPE because they
+	 very likely don't have maximal range for their precision and this
+	 transformation effectively doesn't preserve non-maximal ranges.  */
+      if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (op0) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{

@@ -1,3 +1,7 @@
+2008-05-30  Michael Meissner  <michael.meissner@amd.com>
+
+	* Sync up to 136210.
+
 2008-05-29  Michael Meissner  <michael.meissner@amd.com>
 
 	* tree.h (DECL_TARGET_SPECIFIC): New accessor macro.

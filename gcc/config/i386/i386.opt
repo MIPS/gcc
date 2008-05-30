@@ -248,6 +248,10 @@ msse5
 Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Attribute
 Support SSE5 built-in functions and code generation
 
+mcld
+Target Report Mask(CLD)
+Generate cld instruction in the function prologue.
+
 mabm
 Target Report Mask(ISA_ABM) Var(ix86_isa_flags) VarExists Attribute
 Support code generation of Advanced Bit Manipulation (ABM) instructions.

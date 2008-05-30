@@ -86,10 +86,6 @@ failed:
 }
 
 
-#ifndef LOCAL_ALIGNMENT
-#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
-#endif
-
 #ifndef STACK_ALIGNMENT_NEEDED
 #define STACK_ALIGNMENT_NEEDED 1
 #endif
@@ -1920,9 +1916,9 @@ tree_expand_cfg (void)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
-  /* Convert tree EH labels to RTL EH labels, and clean out any unreachable
-     EH regions.  */
+  /* Convert tree EH labels to RTL EH labels and zap the tree EH table.  */
   convert_from_eh_region_ranges ();
+  set_eh_throw_stmt_table (cfun, NULL);
 
   rebuild_jump_labels (get_insns ());
   find_exception_handler_labels ();

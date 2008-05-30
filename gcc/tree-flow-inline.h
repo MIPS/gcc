@@ -91,14 +91,6 @@ gimple_nonlocal_all (const struct function *fun)
   return fun->gimple_df->nonlocal_all;
 }
 
-/* Hashtable of variables annotations.  Used for static variables only;
-   local variables have direct pointer in the tree node.  */
-static inline htab_t
-gimple_var_anns (const struct function *fun)
-{
-  return fun->gimple_df->var_anns;
-}
-
 /* Initialize the hashtable iterator HTI to point to hashtable TABLE */
 
 static inline void *
@@ -192,22 +184,9 @@ var_ann (const_tree t)
 {
   var_ann_t ann;
 
-  if (!MTAG_P (t)
-      && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
-    {
-      struct static_var_ann_d *sann
-        = ((struct static_var_ann_d *)
-	   htab_find_with_hash (gimple_var_anns (cfun), t, DECL_UID (t)));
-      if (!sann)
-	return NULL;
-      ann = &sann->ann;
-    }
-  else
-    {
-      if (!t->base.ann)
-	return NULL;
-      ann = (var_ann_t) t->base.ann;
-    }
+  if (!t->base.ann)
+    return NULL;
+  ann = (var_ann_t) t->base.ann;
 
   gcc_assert (ann->common.type == VAR_ANN);
 
@@ -276,6 +255,41 @@ get_stmt_ann (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return (ann) ? ann : create_stmt_ann (stmt);
+}
+
+/* Set the uid of all non phi function statements.  */
+static inline void
+set_gimple_stmt_uid (tree stmt, unsigned int uid)
+{
+  get_stmt_ann (stmt)->uid = uid;
+}
+
+/* Get the uid of all non phi function statements.  */
+static inline unsigned int
+gimple_stmt_uid (tree stmt)
+{
+  return get_stmt_ann (stmt)->uid;
+}
+
+/* Get the number of the next statement uid to be allocated.  */
+static inline unsigned int
+gimple_stmt_max_uid (struct function *fn)
+{
+  return fn->last_stmt_uid;
+}
+
+/* Set the number of the next statement uid to be allocated.  */
+static inline void
+set_gimple_stmt_max_uid (struct function *fn, unsigned int maxid)
+{
+  fn->last_stmt_uid = maxid;
+}
+
+/* Set the number of the next statement uid to be allocated.  */
+static inline unsigned int
+inc_gimple_stmt_max_uid (struct function *fn)
+{
+  return fn->last_stmt_uid++;
 }
 
 /* Return the annotation type for annotation ANN.  */

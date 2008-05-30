@@ -508,6 +508,10 @@ struct cpp_dir
   char *name;
   unsigned int len;
 
+  /* The canonicalized NAME as determined by lrealpath.  This field 
+     is only used by hosts that lack reliable inode numbers.  */
+  char *canonical_name;
+
   /* One if a system header, two if a system header that has extern
      "C" guards for C++.  */
   unsigned char sysp;
@@ -844,6 +848,8 @@ extern void cpp_error_with_line (cpp_reader *, int, source_location, unsigned,
 /* In lex.c */
 extern int cpp_ideq (const cpp_token *, const char *);
 extern void cpp_output_line (cpp_reader *, FILE *);
+extern unsigned char *cpp_output_line_to_string (cpp_reader *,
+						 const unsigned char *);
 extern void cpp_output_token (const cpp_token *, FILE *);
 extern const char *cpp_type2name (enum cpp_ttype);
 /* Returns the value of an escape sequence, truncated to the correct

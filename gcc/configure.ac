@@ -1528,6 +1528,10 @@ AC_ARG_ENABLE(secureplt,
 [  --enable-secureplt      enable -msecure-plt by default for PowerPC],
 [], [])
 
+AC_ARG_ENABLE(cld,
+[  --enable-cld            enable -mcld by default for 32bit x86], [],
+[enable_cld=no])
+
 # Windows32 Registry support for specifying GCC installation paths.
 AC_ARG_ENABLE(win32-registry,
 [  --disable-win32-registry
@@ -3799,6 +3803,7 @@ AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
+AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)

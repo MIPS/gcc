@@ -28,22 +28,24 @@
 #include "cpplib.h"
 #include "prefix.h"
 #include "intl.h"
-#include "c-incpath.h"
+#include "incpath.h"
 #include "cppdefault.h"
 
-/* Windows does not natively support inodes, and neither does MSDOS.
-   Cygwin's emulation can generate non-unique inodes, so don't use it.
+/* Microsoft Windows does not natively support inodes.
    VMS has non-numeric inodes.  */
 #ifdef VMS
 # define INO_T_EQ(A, B) (!memcmp (&(A), &(B), sizeof (A)))
 # define INO_T_COPY(DEST, SRC) memcpy(&(DEST), &(SRC), sizeof (SRC))
-#else
-# if (defined _WIN32 && !defined (_UWIN)) || defined __MSDOS__
-#  define INO_T_EQ(A, B) 0
-# else
-#  define INO_T_EQ(A, B) ((A) == (B))
-# endif
+#elif !defined (HOST_LACKS_INODE_NUMBERS)
+# define INO_T_EQ(A, B) ((A) == (B))
 # define INO_T_COPY(DEST, SRC) (DEST) = (SRC)
+#endif
+
+#if defined INO_T_EQ
+#define DIRS_EQ(A, B) ((A)->dev == (B)->dev \
+	&& INO_T_EQ((A)->ino, (B)->ino))
+#else
+#define DIRS_EQ(A, B) (!strcmp ((A)->canonical_name, (B)->canonical_name))
 #endif
 
 static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
@@ -241,14 +243,15 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 			     "%s: not a directory", cur->name);
       else
 	{
+#if defined (INO_T_COPY)
 	  INO_T_COPY (cur->ino, st.st_ino);
 	  cur->dev  = st.st_dev;
+#endif
 
 	  /* Remove this one if it is in the system chain.  */
 	  reason = REASON_DUP_SYS;
 	  for (tmp = system; tmp; tmp = tmp->next)
-	   if (INO_T_EQ (tmp->ino, cur->ino) && tmp->dev == cur->dev
-	       && cur->construct == tmp->construct)
+	   if (DIRS_EQ (tmp, cur) && cur->construct == tmp->construct)
 	      break;
 
 	  if (!tmp)
@@ -256,16 +259,14 @@ remove_duplicates (cpp_reader *pfile, struct cpp_dir *head,
 	      /* Duplicate of something earlier in the same chain?  */
 	      reason = REASON_DUP;
 	      for (tmp = head; tmp != cur; tmp = tmp->next)
-	       if (INO_T_EQ (cur->ino, tmp->ino) && cur->dev == tmp->dev
-		   && cur->construct == tmp->construct)
+	       if (DIRS_EQ (cur, tmp) && cur->construct == tmp->construct)
 		  break;
 
 	      if (tmp == cur
 		  /* Last in the chain and duplicate of JOIN?  */
 		  && !(cur->next == NULL && join
-		       && INO_T_EQ (cur->ino, join->ino)
-		      && cur->dev == join->dev
-		      && cur->construct == join->construct))
+		       && DIRS_EQ (cur, join)
+		       && cur->construct == join->construct))
 		{
 		  /* Unique, so keep this directory.  */
 		  pcur = &cur->next;
@@ -297,8 +298,8 @@ add_sysroot_to_chain (const char *sysroot, int chain)
 }
 
 /* Merge the four include chains together in the order quote, bracket,
-   system, after.  Remove duplicate dirs (as determined by
-   INO_T_EQ()).
+   system, after.  Remove duplicate dirs (determined in
+   system-specific manner).
 
    We can't just merge the lists and then uniquify them because then
    we may lose directories from the <> search path that should be
@@ -406,6 +407,9 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
   p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
+#ifndef INO_T_EQ
+  p->canonical_name = lrealpath (path);
+#endif
   if (chain == SYSTEM || chain == AFTER)
     p->sysp = 1 + !cxx_aware;
   else

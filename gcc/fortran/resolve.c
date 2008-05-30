@@ -1571,7 +1571,8 @@ resolve_specific_f0 (gfc_symbol *sym, gfc_expr *expr)
       /* Existance of isym should be checked already.  */
       gcc_assert (isym);
 
-      sym->ts = isym->ts;
+      sym->ts.type = isym->ts.type;
+      sym->ts.kind = isym->ts.kind;
       sym->attr.function = 1;
       sym->attr.proc = PROC_EXTERNAL;
       goto found;
@@ -2646,8 +2647,9 @@ resolve_specific_s0 (gfc_code *c, gfc_symbol *sym)
       /* Existance of isym should be checked already.  */
       gcc_assert (isym);
 
-      sym->ts = isym->ts;
-      sym->attr.function = 1;
+      sym->ts.type = isym->ts.type;
+      sym->ts.kind = isym->ts.kind;
+      sym->attr.subroutine = 1;
       goto found;
     }
 
@@ -2965,7 +2967,8 @@ resolve_operator (gfc_expr *e)
       goto bad_op;
 
     case INTRINSIC_CONCAT:
-      if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER)
+      if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER
+	  && op1->ts.kind == op2->ts.kind)
 	{
 	  e->ts.type = BT_CHARACTER;
 	  e->ts.kind = op1->ts.kind;
@@ -3030,7 +3033,8 @@ resolve_operator (gfc_expr *e)
     case INTRINSIC_EQ_OS:
     case INTRINSIC_NE:
     case INTRINSIC_NE_OS:
-      if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER)
+      if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER
+	  && op1->ts.kind == op2->ts.kind)
 	{
 	  e->ts.type = BT_LOGICAL;
 	  e->ts.kind = gfc_default_logical_kind;
@@ -3510,8 +3514,8 @@ gfc_resolve_index (gfc_expr *index, int check_scalar)
 
   if (index->ts.type != BT_INTEGER && index->ts.type != BT_REAL)
     {
-      gfc_error ("Array index at %L must be of INTEGER type",
-		 &index->where);
+      gfc_error ("Array index at %L must be of INTEGER type, found %s",
+		 &index->where, gfc_basic_typename (index->ts.type));
       return FAILURE;
     }
 
@@ -5124,8 +5128,8 @@ validate_case_label_expr (gfc_expr *e, gfc_expr *case_expr)
 
   if (case_expr->ts.type == BT_CHARACTER && e->ts.kind != case_expr->ts.kind)
     {
-      gfc_error("Expression in CASE statement at %L must be kind %d",
-		&e->where, case_expr->ts.kind);
+      gfc_error ("Expression in CASE statement at %L must be of kind %d",
+		 &e->where, case_expr->ts.kind);
       return FAILURE;
     }
 
@@ -6612,10 +6616,10 @@ gfc_verify_binding_labels (gfc_symbol *sym)
               has_error = 1;
             }
           else if (sym->attr.contained == 0 
-                   && (sym->attr.if_source == IFSRC_UNKNOWN))
-            if ((sym->attr.use_assoc 
-                 && (strcmp (bind_c_sym->mod_name, sym->module) != 0)) 
-                || sym->attr.use_assoc == 0)
+                   && sym->attr.if_source == IFSRC_UNKNOWN)
+	    if ((sym->attr.use_assoc && bind_c_sym->mod_name
+		 && strcmp (bind_c_sym->mod_name, sym->module) != 0) 
+		|| sym->attr.use_assoc == 0)
               {
                 gfc_error ("Binding label '%s' at %L collides with global "
                            "entity '%s' at %L", sym->binding_label,

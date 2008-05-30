@@ -2516,8 +2516,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 {
   enum tree_code code = TREE_CODE (exp);
   tree op0, op1, op2, op3;
-  tree new;
-  tree inner;
+  tree new, inner;
 
   /* We handle TREE_LIST and COMPONENT_REF separately.  */
   if (code == TREE_LIST)
@@ -2627,13 +2626,15 @@ substitute_in_expr (tree exp, tree f, tree r)
 	  for (i = 1; i < TREE_OPERAND_LENGTH (exp); i++)
 	    {
 	      tree op = TREE_OPERAND (exp, i);
-	      tree newop = SUBSTITUTE_IN_EXPR (op, f, r);
-	      if (newop != op)
+	      tree new_op = SUBSTITUTE_IN_EXPR (op, f, r);
+	      if (new_op != op)
 		{
-		  copy = copy_node (exp);
-		  TREE_OPERAND (copy, i) = newop;
+		  if (!copy)
+		    copy = copy_node (exp);
+		  TREE_OPERAND (copy, i) = new_op;
 		}
 	    }
+
 	  if (copy)
 	    new = fold (copy);
 	  else
@@ -2777,18 +2778,19 @@ substitute_placeholder_in_expr (tree exp, tree obj)
 	{
 	  tree copy = NULL_TREE;
 	  int i;
-	  int n = TREE_OPERAND_LENGTH (exp);
-	  for (i = 1; i < n; i++)
+
+	  for (i = 1; i < TREE_OPERAND_LENGTH (exp); i++)
 	    {
 	      tree op = TREE_OPERAND (exp, i);
-	      tree newop = SUBSTITUTE_PLACEHOLDER_IN_EXPR (op, obj);
-	      if (newop != op)
+	      tree new_op = SUBSTITUTE_PLACEHOLDER_IN_EXPR (op, obj);
+	      if (new_op != op)
 		{
 		  if (!copy)
 		    copy = copy_node (exp);
-		  TREE_OPERAND (copy, i) = newop;
+		  TREE_OPERAND (copy, i) = new_op;
 		}
 	    }
+
 	  if (copy)
 	    return fold (copy);
 	  else
@@ -5680,14 +5682,12 @@ build_array_type (tree elt_type, tree index_type)
   return t;
 }
 
-/* Return the TYPE of the elements comprising
-   the innermost dimension of ARRAY.  */
+/* Recursively examines the array elements of TYPE, until a non-array
+   element type is found.  */
 
 tree
-get_inner_array_type (const_tree array)
+strip_array_types (tree type)
 {
-  tree type = TREE_TYPE (array);
-
   while (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
 

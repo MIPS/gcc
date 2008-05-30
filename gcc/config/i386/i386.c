@@ -2877,6 +2877,12 @@ override_options (bool main_args_p)
   if (!TARGET_64BIT || TARGET_64BIT_MS_ABI)
     targetm.expand_builtin_va_start = NULL;
 
+#ifdef USE_IX86_CLD
+  /* Use -mcld by default for 32-bit code if configured with --enable-cld.  */
+  if (!TARGET_64BIT)
+    target_flags |= MASK_CLD & ~target_flags_explicit;
+#endif
+
   /* Save the initial options in case the user does target specific options */
   if (main_args_p)
     {
@@ -5067,7 +5073,13 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
 {
   int align;
   if (type)
-    align = TYPE_ALIGN (type);
+    {
+      /* Since canonical type is used for call, we convert it to
+	 canonical type if needed.  */
+      if (!TYPE_STRUCTURAL_EQUALITY_P (type))
+	type = TYPE_CANONICAL (type);
+      align = TYPE_ALIGN (type);
+    }
   else
     align = GET_MODE_ALIGNMENT (mode);
   if (align < PARM_BOUNDARY)
@@ -5275,7 +5287,7 @@ ix86_libcall_value (enum machine_mode mode)
 
 /* Return true iff type is returned in memory.  */
 
-static int
+static int ATTRIBUTE_UNUSED
 return_in_memory_32 (const_tree type, enum machine_mode mode)
 {
   HOST_WIDE_INT size;
@@ -5315,14 +5327,14 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
   return 0;
 }
 
-static int
+static int ATTRIBUTE_UNUSED
 return_in_memory_64 (const_tree type, enum machine_mode mode)
 {
   int needed_intregs, needed_sseregs;
   return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
 }
 
-static int
+static int ATTRIBUTE_UNUSED
 return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
 {
   HOST_WIDE_INT size = int_size_in_bytes (type);
@@ -5336,17 +5348,21 @@ return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
   return (size != 1 && size != 2 && size != 4 && size != 8);
 }
 
-bool
+static bool
 ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
-  const enum machine_mode mode = type_natural_mode (type);
-
+#ifdef SUBTARGET_RETURN_IN_MEMORY
+  return SUBTARGET_RETURN_IN_MEMORY (type, fntype);
+#else
+   const enum machine_mode mode = type_natural_mode (type);
+ 
   if (TARGET_64BIT_MS_ABI)
-    return return_in_memory_ms_64 (type, mode);
-  else if (TARGET_64BIT)
-    return return_in_memory_64 (type, mode);
-  else
-    return return_in_memory_32 (type, mode);
+     return return_in_memory_ms_64 (type, mode);
+   else if (TARGET_64BIT)
+     return return_in_memory_64 (type, mode);
+   else
+     return return_in_memory_32 (type, mode);
+#endif
 }
 
 /* Return false iff TYPE is returned in memory.  This version is used
@@ -5384,20 +5400,6 @@ ix86_sol10_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED
     return 0;
 
   return size > 12;
-}
-
-bool
-ix86_i386elf_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
-{
-  return (TYPE_MODE (type) == BLKmode
-	  || (VECTOR_MODE_P (TYPE_MODE (type)) && int_size_in_bytes (type) == 8));
-}
-
-bool
-ix86_i386interix_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
-{
-  return (TYPE_MODE (type) == BLKmode
-          || (AGGREGATE_TYPE_P (type) && int_size_in_bytes(type) > 8 ));
 }
 
 /* When returning SSE vector types, we have a choice of either
@@ -7042,6 +7044,10 @@ ix86_expand_prologue (void)
 	emit_insn (gen_prologue_use (pic_offset_table_rtx));
       emit_insn (gen_blockage ());
     }
+
+  /* Emit cld instruction if stringops are used in the function.  */
+  if (TARGET_CLD && ix86_current_function_needs_cld)
+    emit_insn (gen_cld ());
 }
 
 /* Emit code to restore saved registers using MOV insns.  First register
@@ -10843,12 +10849,10 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
       && standard_sse_constant_p (op1) <= 0)
     op1 = validize_mem (force_const_mem (mode, op1));
 
-  /* TDmode values are passed as TImode on the stack.  TImode values
-     are moved via xmm registers, and moving them to stack can result in
-     unaligned memory access.  Use ix86_expand_vector_move_misalign()
-     if memory operand is not aligned correctly.  */
+  /* We need to check memory alignment for SSE mode since attribute
+     can make operands unaligned.  */
   if (can_create_pseudo_p ()
-      && (mode == TImode) && !TARGET_64BIT
+      && SSE_REG_MODE_P (mode)
       && ((MEM_P (op0) && (MEM_ALIGN (op0) < align))
 	  || (MEM_P (op1) && (MEM_ALIGN (op1) < align))))
     {
@@ -17431,14 +17435,25 @@ ix86_data_alignment (tree type, int align)
   return align;
 }
 
-/* Compute the alignment for a local variable.
-   TYPE is the data type, and ALIGN is the alignment that
-   the object would ordinarily have.  The value of this macro is used
-   instead of that alignment to align the object.  */
+/* Compute the alignment for a local variable or a stack slot.  TYPE is
+   the data type, MODE is the widest mode available and ALIGN is the
+   alignment that the object would ordinarily have.  The value of this
+   macro is used instead of that alignment to align the object.  */
 
-int
-ix86_local_alignment (tree type, int align)
+unsigned int
+ix86_local_alignment (tree type, enum machine_mode mode,
+		      unsigned int align)
 {
+  /* If TYPE is NULL, we are allocating a stack slot for caller-save
+     register in MODE.  We will return the largest alignment of XF
+     and DF.  */
+  if (!type)
+    {
+      if (mode == XFmode && align < GET_MODE_ALIGNMENT (DFmode))
+	align = GET_MODE_ALIGNMENT (DFmode);
+      return align;
+    }
+
   /* x86-64 ABI requires arrays greater than 16 bytes to be aligned
      to 16byte boundary.  */
   if (TARGET_64BIT)
@@ -22458,6 +22473,36 @@ ix86_preferred_output_reload_class (rtx x, enum reg_class regclass)
   return regclass;
 }
 
+static enum reg_class
+ix86_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		       enum machine_mode mode,
+		       secondary_reload_info *sri ATTRIBUTE_UNUSED)
+{
+  /* QImode spills from non-QI registers require
+     intermediate register on 32bit targets.  */
+  if (!in_p && mode == QImode && !TARGET_64BIT
+      && (class == GENERAL_REGS
+	  || class == LEGACY_REGS
+	  || class == INDEX_REGS))
+    {
+      int regno;
+
+      if (REG_P (x))
+	regno = REGNO (x);
+      else
+	regno = -1;
+
+      if (regno >= FIRST_PSEUDO_REGISTER || GET_CODE (x) == SUBREG)
+	regno = true_regnum (x);
+
+      /* Return Q_REGS if the operand is in memory.  */
+      if (regno == -1)
+	return Q_REGS;
+    }
+
+  return NO_REGS;
+}
+
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.
 
@@ -23630,8 +23675,7 @@ x86_field_alignment (tree field, int computed)
 
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
-  mode = TYPE_MODE (TREE_CODE (type) == ARRAY_TYPE
-		    ? get_inner_array_type (type) : type);
+  mode = TYPE_MODE (strip_array_types (type));
   if (mode == DFmode || mode == DCmode
       || GET_MODE_CLASS (mode) == MODE_INT
       || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)
@@ -24087,6 +24131,7 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
       break;
     case V4HImode:
       use_vector_set = TARGET_SSE || TARGET_3DNOW_A;
+      break;
     default:
       break;
     }
@@ -24232,6 +24277,8 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
       break;
 
     case V16QImode:
+      if (TARGET_SSE4_1)
+	break;
       wmode = V8HImode;
       goto widen;
     case V8QImode:
@@ -24274,6 +24321,214 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
   return true;
 }
 
+/* A subroutine of ix86_expand_vector_init_general.  Use vector
+   concatenate to handle the most general case: all values variable,
+   and none identical.  */
+
+static void
+ix86_expand_vector_init_concat (enum machine_mode mode,
+				rtx target, rtx *ops, int n)
+{
+  enum machine_mode cmode, hmode = VOIDmode;
+  rtx first[4], second[2];
+  rtvec v;
+  int i, j;
+
+  switch (n)
+    {
+    case 2:
+      switch (mode)
+	{
+	case V4SImode:
+	  cmode = V2SImode;
+	  break;
+	case V4SFmode:
+	  cmode = V2SFmode;
+	  break;
+	case V2DImode:
+	  cmode = DImode;
+	  break;
+	case V2SImode:
+	  cmode = SImode;
+	  break;
+	case V2DFmode:
+	  cmode = DFmode;
+	  break;
+	case V2SFmode:
+	  cmode = SFmode;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+
+      if (!register_operand (ops[1], cmode))
+	ops[1] = force_reg (cmode, ops[1]);
+      if (!register_operand (ops[0], cmode))
+	ops[0] = force_reg (cmode, ops[0]);
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_VEC_CONCAT (mode, ops[0],
+						  ops[1])));
+      break;
+
+    case 4:
+      switch (mode)
+	{
+	case V4SImode:
+	  cmode = V2SImode;
+	  break;
+	case V4SFmode:
+	  cmode = V2SFmode;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      goto half;
+
+half:
+      /* FIXME: We process inputs backward to help RA.  PR 36222.  */
+      i = n - 1;
+      j = (n >> 1) - 1;
+      for (; i > 0; i -= 2, j--)
+	{
+	  first[j] = gen_reg_rtx (cmode);
+	  v = gen_rtvec (2, ops[i - 1], ops[i]);
+	  ix86_expand_vector_init (false, first[j],
+				   gen_rtx_PARALLEL (cmode, v));
+	}
+
+      n >>= 1;
+      if (n > 2)
+	{
+	  gcc_assert (hmode != VOIDmode);
+	  for (i = j = 0; i < n; i += 2, j++)
+	    {
+	      second[j] = gen_reg_rtx (hmode);
+	      ix86_expand_vector_init_concat (hmode, second [j],
+					      &first [i], 2);
+	    }
+	  n >>= 1;
+	  ix86_expand_vector_init_concat (mode, target, second, n);
+	}
+      else
+	ix86_expand_vector_init_concat (mode, target, first, n);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* A subroutine of ix86_expand_vector_init_general.  Use vector
+   interleave to handle the most general case: all values variable,
+   and none identical.  */
+
+static void
+ix86_expand_vector_init_interleave (enum machine_mode mode,
+				    rtx target, rtx *ops, int n)
+{
+  enum machine_mode first_imode, second_imode, third_imode;
+  int i, j;
+  rtx op0, op1;
+  rtx (*gen_load_even) (rtx, rtx, rtx);
+  rtx (*gen_interleave_first_low) (rtx, rtx, rtx);
+  rtx (*gen_interleave_second_low) (rtx, rtx, rtx);
+  
+  switch (mode)
+    {
+    case V8HImode:
+      gen_load_even = gen_vec_setv8hi;
+      gen_interleave_first_low = gen_vec_interleave_lowv4si;
+      gen_interleave_second_low = gen_vec_interleave_lowv2di;
+      first_imode = V4SImode;
+      second_imode = V2DImode;
+      third_imode = VOIDmode;
+      break;
+    case V16QImode:
+      gen_load_even = gen_vec_setv16qi;
+      gen_interleave_first_low = gen_vec_interleave_lowv8hi;
+      gen_interleave_second_low = gen_vec_interleave_lowv4si;
+      first_imode = V8HImode;
+      second_imode = V4SImode;
+      third_imode = V2DImode;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+     
+  for (i = 0; i < n; i++)
+    {
+      /* Extend the odd elment to SImode using a paradoxical SUBREG.  */
+      op0 = gen_reg_rtx (SImode);
+      emit_move_insn (op0, gen_lowpart (SImode, ops [i + i]));
+
+      /* Insert the SImode value as low element of V4SImode vector. */
+      op1 = gen_reg_rtx (V4SImode);
+      op0 = gen_rtx_VEC_MERGE (V4SImode,
+			       gen_rtx_VEC_DUPLICATE (V4SImode,
+						      op0),
+			       CONST0_RTX (V4SImode),
+			       const1_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, op1, op0));
+
+      /* Cast the V4SImode vector back to a vector in orignal mode.  */
+      op0 = gen_reg_rtx (mode);
+      emit_move_insn (op0, gen_lowpart (mode, op1));
+      
+      /* Load even elements into the second positon.  */
+      emit_insn ((*gen_load_even) (op0, ops [i + i + 1],
+				   const1_rtx));
+
+      /* Cast vector to FIRST_IMODE vector.  */
+      ops[i] = gen_reg_rtx (first_imode);
+      emit_move_insn (ops[i], gen_lowpart (first_imode, op0));
+    }
+
+  /* Interleave low FIRST_IMODE vectors.  */
+  for (i = j = 0; i < n; i += 2, j++)
+    {
+      op0 = gen_reg_rtx (first_imode);
+      emit_insn ((*gen_interleave_first_low) (op0, ops[i], ops[i + 1]));
+
+      /* Cast FIRST_IMODE vector to SECOND_IMODE vector.  */
+      ops[j] = gen_reg_rtx (second_imode);
+      emit_move_insn (ops[j], gen_lowpart (second_imode, op0));
+    }
+
+  /* Interleave low SECOND_IMODE vectors.  */
+  switch (second_imode)
+    {
+    case V4SImode:
+      for (i = j = 0; i < n / 2; i += 2, j++)
+	{
+	  op0 = gen_reg_rtx (second_imode);
+	  emit_insn ((*gen_interleave_second_low) (op0, ops[i],
+						   ops[i + 1]));
+
+	  /* Cast the SECOND_IMODE vector to the THIRD_IMODE
+	     vector.  */
+	  ops[j] = gen_reg_rtx (third_imode);
+	  emit_move_insn (ops[j], gen_lowpart (third_imode, op0));
+	}
+      second_imode = V2DImode;
+      gen_interleave_second_low = gen_vec_interleave_lowv2di;
+      /* FALLTHRU */
+
+    case V2DImode:
+      op0 = gen_reg_rtx (second_imode);
+      emit_insn ((*gen_interleave_second_low) (op0, ops[0],
+					       ops[1]));
+
+      /* Cast the SECOND_IMODE vector back to a vector on original
+	 mode.  */
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_lowpart (mode, op0)));
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* A subroutine of ix86_expand_vector_init.  Handle the most general case:
    all values variable, and none identical.  */
 
@@ -24281,9 +24536,8 @@ static void
 ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 				 rtx target, rtx vals)
 {
-  enum machine_mode half_mode = GET_MODE_INNER (mode);
-  rtx op0 = NULL, op1 = NULL;
-  bool use_vec_concat = false;
+  rtx ops[16];
+  int n, i;
 
   switch (mode)
     {
@@ -24293,41 +24547,31 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
 	break;
       /* FALLTHRU */
 
+    case V4SFmode:
+    case V4SImode:
     case V2DFmode:
     case V2DImode:
-      /* For the two element vectors, we always implement VEC_CONCAT.  */
-      op0 = XVECEXP (vals, 0, 0);
-      op1 = XVECEXP (vals, 0, 1);
-      use_vec_concat = true;
-      break;
+      n = GET_MODE_NUNITS (mode);
+      for (i = 0; i < n; i++)
+	ops[i] = XVECEXP (vals, 0, i);
+      ix86_expand_vector_init_concat (mode, target, ops, n);
+      return;
 
-    case V4SFmode:
-      half_mode = V2SFmode;
-      goto half;
-    case V4SImode:
-      half_mode = V2SImode;
-      goto half;
-    half:
-      {
-	rtvec v;
-
-	/* For V4SF and V4SI, we implement a concat of two V2 vectors.
-	   Recurse to load the two halves.  */
-
-	op1 = gen_reg_rtx (half_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 2), XVECEXP (vals, 0, 3));
-	ix86_expand_vector_init (false, op1, gen_rtx_PARALLEL (half_mode, v));
-
-	op0 = gen_reg_rtx (half_mode);
-	v = gen_rtvec (2, XVECEXP (vals, 0, 0), XVECEXP (vals, 0, 1));
-	ix86_expand_vector_init (false, op0, gen_rtx_PARALLEL (half_mode, v));
-
-	use_vec_concat = true;
-      }
-      break;
+    case V16QImode:
+      if (!TARGET_SSE4_1)
+	break;
+      /* FALLTHRU */
 
     case V8HImode:
-    case V16QImode:
+      if (!TARGET_SSE2)
+	break;
+
+      n = GET_MODE_NUNITS (mode);
+      for (i = 0; i < n; i++)
+	ops[i] = XVECEXP (vals, 0, i);
+      ix86_expand_vector_init_interleave (mode, target, ops, n >> 1);
+      return;
+
     case V4HImode:
     case V8QImode:
       break;
@@ -24336,17 +24580,6 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
       gcc_unreachable ();
     }
 
-  if (use_vec_concat)
-    {
-      if (!register_operand (op1, half_mode))
-	op1 = force_reg (half_mode, op1);
-      if (!register_operand (op0, half_mode))
-	op0 = force_reg (half_mode, op0);
-
-      emit_insn (gen_rtx_SET (VOIDmode, target,
-			      gen_rtx_VEC_CONCAT (mode, op0, op1)));
-    }
-  else
     {
       int i, j, n_elts, n_words, n_elt_per_word;
       enum machine_mode inner_mode;
@@ -24394,6 +24627,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
       else if (n_words == 4)
 	{
 	  rtx tmp = gen_reg_rtx (V4SImode);
+	  gcc_assert (word_mode == SImode);
 	  vals = gen_rtx_PARALLEL (V4SImode, gen_rtvec_v (4, words));
 	  ix86_expand_vector_init_general (false, V4SImode, tmp, vals);
 	  emit_move_insn (target, gen_lowpart (mode, tmp));
@@ -26000,6 +26234,9 @@ x86_builtin_vectorization_cost (bool runtime_test)
 }
 
 /* Initialize the GCC target structure.  */
+#undef TARGET_RETURN_IN_MEMORY
+#define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
+
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -26177,6 +26414,9 @@ x86_builtin_vectorization_cost (bool runtime_test)
 
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE ix86_function_value
+
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD ix86_secondary_reload
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST x86_builtin_vectorization_cost
