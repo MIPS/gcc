@@ -1114,28 +1114,28 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_MASTER:
-	  s1 = gimple_omp_body (stmt);
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_master (s1);
 	  break;
 
 	case GIMPLE_OMP_ORDERED:
-	  s1 = gimple_omp_body (stmt);
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_ordered (s1);
 	  break;
 
 	case GIMPLE_OMP_SECTION:
-	  s1 = gimple_omp_body (stmt);
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_section (s1);
 	  break;
 
 	case GIMPLE_OMP_SECTIONS:
-	  s1 = gimple_omp_body (stmt);
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_sections
 	           (s1, gimple_omp_sections_clauses (stmt));
 	  break;
 
 	case GIMPLE_OMP_SINGLE:
-	  s1 = gimple_omp_body (stmt);
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_single
 	           (s1, gimple_omp_single_clauses (stmt));
 	  break;

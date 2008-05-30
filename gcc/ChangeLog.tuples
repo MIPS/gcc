@@ -1,3 +1,8 @@
+2008-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-inline.c (remap_gimple_stmt): Remap body of
+	GIMPLE_OMP_{MASTER,ORDERED,SECTION,SECTIONS,SINGLE}.
+
 2008-05-28  Andrew Pinski  <pinskia@gmail.com>
 
 	* gimple-pretty-print.c (dump_unary_rhs): Handle conversions correctly.
