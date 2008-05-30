@@ -522,9 +522,8 @@ setup_save_areas (void)
 	  CLEAR_HARD_REG_SET (this_insn_sets);
 	  note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
 	  /* Sibcalls are considered to set the return value.  */
-	  if (SIBLING_CALL_P (insn) && current_function_return_rtx)
-	    mark_set_regs (current_function_return_rtx, NULL_RTX,
-			   &this_insn_sets);
+	  if (SIBLING_CALL_P (insn) && crtl->return_rtx)
+	    mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 
 	  AND_COMPL_HARD_REG_SET (used_regs, call_fixed_reg_set);
 	  AND_COMPL_HARD_REG_SET (used_regs, this_insn_sets);
@@ -583,9 +582,8 @@ setup_save_areas (void)
 	  note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
 	  /* Sibcalls are considered to set the return value,
 	     compare flow.c:propagate_one_insn.  */
-	  if (SIBLING_CALL_P (insn) && current_function_return_rtx)
-	    mark_set_regs (current_function_return_rtx, NULL_RTX,
-			   &this_insn_sets);
+	  if (SIBLING_CALL_P (insn) && crtl->return_rtx)
+	    mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 
 	  AND_COMPL_HARD_REG_SET (used_regs, call_fixed_reg_set);
 	  AND_COMPL_HARD_REG_SET (used_regs, this_insn_sets);
@@ -949,9 +947,8 @@ calculate_local_save_info (void)
 	      CLEAR_HARD_REG_SET (this_insn_sets);
 	      note_stores (PATTERN (insn), mark_set_regs, &this_insn_sets);
 	      /* Sibcalls are considered to set the return value.  */
-	      if (SIBLING_CALL_P (insn) && current_function_return_rtx)
-		mark_set_regs (current_function_return_rtx, NULL_RTX,
-			       &this_insn_sets);
+	      if (SIBLING_CALL_P (insn) && crtl->return_rtx)
+		mark_set_regs (crtl->return_rtx, NULL_RTX, &this_insn_sets);
 	      
 	      /* Compute which hard regs must be saved before this call.  */
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
@@ -1841,7 +1838,9 @@ save_call_clobbered_regs (void)
   n_regs_saved = 0;
   last_restore_chain = NULL;
   
-  if (last != NULL)
+  if (last == NULL)
+    CLEAR_HARD_REG_SET (saved);
+  else
     {
       bb_info = BB_INFO_BY_INDEX (last->block);
       set_hard_reg_saved (bb_info->save_out,
@@ -2322,6 +2321,11 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
     mem = adjust_address_nv (mem, save_mode[regno], 0);
   else
     mem = copy_rtx (mem);
+
+  /* Verify that the alignment of spill space is equal to or greater
+     than required.  */
+  gcc_assert (GET_MODE_ALIGNMENT (GET_MODE (mem)) <= MEM_ALIGN (mem));
+
   pat = gen_rtx_SET (VOIDmode,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno), mem);
@@ -2402,6 +2406,11 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
     mem = adjust_address_nv (mem, save_mode[regno], 0);
   else
     mem = copy_rtx (mem);
+
+  /* Verify that the alignment of spill space is equal to or greater
+     than required.  */
+  gcc_assert (GET_MODE_ALIGNMENT (GET_MODE (mem)) <= MEM_ALIGN (mem));
+
   pat = gen_rtx_SET (VOIDmode, mem,
 		     gen_rtx_REG (GET_MODE (mem),
 				  regno));

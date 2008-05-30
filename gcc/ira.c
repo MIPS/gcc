@@ -1291,7 +1291,7 @@ setup_eliminable_regset (void)
 #endif
   int need_fp
     = (! flag_omit_frame_pointer
-       || (current_function_calls_alloca && EXIT_IGNORE_STACK)
+       || (cfun->calls_alloca && EXIT_IGNORE_STACK)
        || FRAME_POINTER_REQUIRED);
 
   COPY_HARD_REG_SET (no_alloc_regs, no_unit_alloc_regs);
@@ -1803,10 +1803,11 @@ ira (FILE *f)
       df_live_add_problem ();
       df_live_set_all_dirty ();
     }
+#ifdef ENABLE_CHECKING
+  df->changeable_flags |= DF_VERIFY_SCHEDULED;
+#endif
   df_analyze ();
-
   df_clear_flags (DF_NO_INSN_RESCAN);
-
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
 

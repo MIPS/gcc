@@ -13,9 +13,11 @@ else
 version_arg =
 endif
 
+LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
 toolexeclib_LTLIBRARIES = libgfortran.la
 libgfortran_la_LINK = $(LINK)
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran) $(version_arg)
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LTLDFLAGS) -lm $(extra_ldflags_libgfortran) $(version_arg)
 
 myexeclib_LTLIBRARIES = libgfortranbegin.la
 myexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
@@ -45,7 +47,8 @@ io/size_from_kind.c \
 io/transfer.c \
 io/unit.c \
 io/unix.c \
-io/write.c
+io/write.c \
+io/fbuf.c
 
 gfor_io_headers= \
 io/io.h
@@ -87,6 +90,7 @@ intrinsics/mvbits.c \
 intrinsics/move_alloc.c \
 intrinsics/pack_generic.c \
 intrinsics/perror.c \
+intrinsics/selected_char_kind.c \
 intrinsics/signal.c \
 intrinsics/size.c \
 intrinsics/sleep.c \
@@ -114,6 +118,7 @@ runtime/in_unpack_generic.c
 gfor_src= \
 runtime/backtrace.c \
 runtime/compile_options.c \
+runtime/convert_char.c \
 runtime/environ.c \
 runtime/error.c \
 runtime/fpu.c \
@@ -506,6 +511,21 @@ $(srcdir)/generated/unpack_c8.c \
 $(srcdir)/generated/unpack_c10.c \
 $(srcdir)/generated/unpack_c16.c
 
+i_spread_c = \
+$(srcdir)/generated/spread_i1.c \
+$(srcdir)/generated/spread_i2.c \
+$(srcdir)/generated/spread_i4.c \
+$(srcdir)/generated/spread_i8.c \
+$(srcdir)/generated/spread_i16.c \
+$(srcdir)/generated/spread_r4.c \
+$(srcdir)/generated/spread_r8.c \
+$(srcdir)/generated/spread_r10.c \
+$(srcdir)/generated/spread_r16.c \
+$(srcdir)/generated/spread_c4.c \
+$(srcdir)/generated/spread_c8.c \
+$(srcdir)/generated/spread_c10.c \
+$(srcdir)/generated/spread_c16.c 
+
 m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/any.m4 m4/count.m4 m4/maxloc0.m4 m4/maxloc1.m4 m4/maxval.m4 \
     m4/minloc0.m4 m4/minloc1.m4 m4/minval.m4 m4/product.m4 m4/sum.m4 \
@@ -515,7 +535,7 @@ m4_files= m4/iparm.m4 m4/ifunction.m4 m4/iforeach.m4 m4/all.m4 \
     m4/transpose.m4 m4/eoshift1.m4 m4/eoshift3.m4 m4/exponent.m4 \
     m4/fraction.m4 m4/nearest.m4 m4/set_exponent.m4 m4/pow.m4 \
     m4/misc_specifics.m4 m4/rrspacing.m4 m4/spacing.m4 m4/pack.m4 \
-    m4/unpack.m4
+    m4/unpack.m4 m4/spread.m4
 
 gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_maxloc1_c) $(i_maxval_c) $(i_minloc0_c) $(i_minloc1_c) $(i_minval_c) \
@@ -524,7 +544,7 @@ gfor_built_src= $(i_all_c) $(i_any_c) $(i_count_c) $(i_maxloc0_c) \
     $(i_eoshift3_c) $(i_cshift1_c) $(i_reshape_c) $(in_pack_c) $(in_unpack_c) \
     $(i_exponent_c) $(i_fraction_c) $(i_nearest_c) $(i_set_exponent_c) \
     $(i_pow_c) $(i_rrspacing_c) $(i_spacing_c) $(i_pack_c) $(i_unpack_c) \
-    selected_int_kind.inc selected_real_kind.inc kinds.h \
+    $(i_spread_c) selected_int_kind.inc selected_real_kind.inc kinds.h \
     kinds.inc c99_protos.inc fpu-target.h
 
 # Machine generated specifics
@@ -844,6 +864,9 @@ $(i_pack_c): m4/pack.m4 $(I_M4_DEPS)
 
 $(i_unpack_c): m4/unpack.m4 $(I_M4_DEPS)
 	$(M4) -Dfile=$@ -I$(srcdir)/m4 unpack.m4 > $@
+
+$(i_spread_c): m4/spread.m4 $(I_M4_DEPS)
+	$(M4) -Dfile=$@ -I$(srcdir)/m4 spread.m4 > $@
 
 $(gfor_built_specific_src): m4/specific.m4 m4/head.m4
 	$(M4) -Dfile=$@ -I$(srcdir)/m4 specific.m4 > $@

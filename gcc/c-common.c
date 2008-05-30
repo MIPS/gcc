@@ -66,6 +66,14 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 #define PID_TYPE "int"
 #endif
 
+#ifndef CHAR16_TYPE
+#define CHAR16_TYPE "short unsigned int"
+#endif
+
+#ifndef CHAR32_TYPE
+#define CHAR32_TYPE "unsigned int"
+#endif
+
 #ifndef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 #endif
@@ -123,6 +131,9 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 	tree signed_wchar_type_node;
 	tree unsigned_wchar_type_node;
 
+	tree char16_type_node;
+	tree char32_type_node;
+
 	tree float_type_node;
 	tree double_type_node;
 	tree long_double_type_node;
@@ -173,6 +184,16 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
    Used when a wide string literal is created.
 
 	tree wchar_array_type_node;
+
+   Type `char16_t[SOMENUMBER]' or something like it.
+   Used when a UTF-16 string literal is created.
+
+	tree char16_array_type_node;
+
+   Type `char32_t[SOMENUMBER]' or something like it.
+   Used when a UTF-32 string literal is created.
+
+	tree char32_array_type_node;
 
    Type `int ()' -- used for implicit declaration of functions.
 
@@ -777,7 +798,7 @@ fname_as_string (int pretty_p)
   strname.text = (unsigned char *) namep;
   strname.len = len - 1;
 
-  if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
+  if (cpp_interpret_string (parse_in, &strname, 1, &cstr, CPP_STRING))
     {
       XDELETEVEC (namep);
       return (const char *) cstr.text;
@@ -857,14 +878,31 @@ fname_decl (unsigned int rid, tree id)
 tree
 fix_string_type (tree value)
 {
-  const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
-  const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
   tree e_type, i_type, a_type;
 
   /* Compute the number of elements, for the array type.  */
-  nchars = wide_flag ? length / wchar_bytes : length;
+  if (TREE_TYPE (value) == char_array_type_node || !TREE_TYPE (value))
+    {
+      nchars = length;
+      e_type = char_type_node;
+    }
+  else if (TREE_TYPE (value) == char16_array_type_node)
+    {
+      nchars = length / (TYPE_PRECISION (char16_type_node) / BITS_PER_UNIT);
+      e_type = char16_type_node;
+    }
+  else if (TREE_TYPE (value) == char32_array_type_node)
+    {
+      nchars = length / (TYPE_PRECISION (char32_type_node) / BITS_PER_UNIT);
+      e_type = char32_type_node;
+    }
+  else
+    {
+      nchars = length / (TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT);
+      e_type = wchar_type_node;
+    }
 
   /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
      limit in C++98 Annex B is very large (65536) and is not normative,
@@ -899,7 +937,6 @@ fix_string_type (tree value)
      construct the matching unqualified array type first.  The C front
      end does not require this, but it does no harm, so we do it
      unconditionally.  */
-  e_type = wide_flag ? wchar_type_node : char_type_node;
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
   if (c_dialect_cxx() || warn_write_strings)
@@ -907,7 +944,6 @@ fix_string_type (tree value)
 
   TREE_TYPE (value) = a_type;
   TREE_CONSTANT (value) = 1;
-  TREE_INVARIANT (value) = 1;
   TREE_READONLY (value) = 1;
   TREE_STATIC (value) = 1;
   return value;
@@ -3036,8 +3072,7 @@ c_common_truthvalue_conversion (tree expr)
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 1)),
 		c_common_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
 	 since that affects how `default_conversion' will behave.  */
       if (TREE_CODE (TREE_TYPE (expr)) == REFERENCE_TYPE
@@ -3420,7 +3455,7 @@ c_alignof_expr (tree expr)
       tree best = t;
       int bestalign = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (t)));
 
-      while ((TREE_CODE (t) == NOP_EXPR || TREE_CODE (t) == CONVERT_EXPR)
+      while (CONVERT_EXPR_P (t)
 	     && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == POINTER_TYPE)
 	{
 	  int thisalign;
@@ -3629,6 +3664,8 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 void
 c_common_nodes_and_builtins (void)
 {
+  int char16_type_size;
+  int char32_type_size;
   int wchar_type_size;
   tree array_domain_type;
   tree va_list_ref_type_node;
@@ -3878,6 +3915,38 @@ c_common_nodes_and_builtins (void)
   wchar_array_type_node
     = build_array_type (wchar_type_node, array_domain_type);
 
+  /* Define 'char16_t'.  */
+  char16_type_node = get_identifier (CHAR16_TYPE);
+  char16_type_node = TREE_TYPE (identifier_global_value (char16_type_node));
+  char16_type_size = TYPE_PRECISION (char16_type_node);
+  if (c_dialect_cxx ())
+    {
+      char16_type_node = make_unsigned_type (char16_type_size);
+
+      if (cxx_dialect == cxx0x)
+	record_builtin_type (RID_CHAR16, "char16_t", char16_type_node);
+    }
+
+  /* This is for UTF-16 string constants.  */
+  char16_array_type_node
+    = build_array_type (char16_type_node, array_domain_type);
+
+  /* Define 'char32_t'.  */
+  char32_type_node = get_identifier (CHAR32_TYPE);
+  char32_type_node = TREE_TYPE (identifier_global_value (char32_type_node));
+  char32_type_size = TYPE_PRECISION (char32_type_node);
+  if (c_dialect_cxx ())
+    {
+      char32_type_node = make_unsigned_type (char32_type_size);
+
+      if (cxx_dialect == cxx0x)
+	record_builtin_type (RID_CHAR32, "char32_t", char32_type_node);
+    }
+
+  /* This is for UTF-32 string constants.  */
+  char32_array_type_node
+    = build_array_type (char32_type_node, array_domain_type);
+
   wint_type_node =
     TREE_TYPE (identifier_global_value (get_identifier (WINT_TYPE)));
 
@@ -4104,18 +4173,6 @@ self_promoting_args_p (const_tree parms)
   return 1;
 }
 
-/* Recursively examines the array elements of TYPE, until a non-array
-   element type is found.  */
-
-tree
-strip_array_types (tree type)
-{
-  while (TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
-  return type;
-}
-
 /* Recursively remove any '*' or '&' operator from TYPE.  */
 tree
 strip_pointer_operator (tree t)
@@ -4332,7 +4389,8 @@ match_case_to_enum_1 (tree key, tree type, tree label)
 	      -TREE_INT_CST_LOW (key));
   else
     snprintf (buf, sizeof (buf), HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	      TREE_INT_CST_HIGH (key), TREE_INT_CST_LOW (key));
+	      (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (key),
+	      (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (key));
 
   if (TYPE_NAME (type) == 0)
     warning (warn_switch ? OPT_Wswitch : OPT_Wswitch_enum,
@@ -5405,6 +5463,13 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 		     *node);
 	      *no_add_attrs = true;
 	    }
+	  else if (TREE_CODE (decl) == VAR_DECL
+		   && !targetm.have_tls && targetm.emutls.tmpl_section
+		   && DECL_THREAD_LOCAL_P (decl))
+	    {
+	      error ("section of %q+D cannot be overridden", *node);
+	      *no_add_attrs = true;
+	    }
 	  else
 	    DECL_SECTION_NAME (decl) = TREE_VALUE (args);
 	}
@@ -5869,12 +5934,7 @@ static tree
 handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 			     int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  tree params = TYPE_ARG_TYPES (*node);
-  unsigned arg_count = 0;
-
-  for (; TREE_CHAIN (params); params = TREE_CHAIN (params))
-    arg_count ++;
-
+  unsigned arg_count = type_num_arguments (*node);
   for (; args; args = TREE_CHAIN (args))
     {
       tree position = TREE_VALUE (args);
@@ -5946,7 +6006,7 @@ handle_pure_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
-    DECL_IS_PURE (*node) = 1;
+    DECL_PURE_P (*node) = 1;
   /* ??? TODO: Support types.  */
   else
     {
@@ -6104,7 +6164,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   new_type = build_vector_type (type, nunits);
 
   /* Build back pointers if needed.  */
-  *node = reconstruct_complex_type (*node, new_type);
+  *node = lang_hooks.types.reconstruct_complex_type (*node, new_type);
 
   return NULL_TREE;
 }
@@ -6456,8 +6516,17 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
-  /* Ensure we have a function type, with no arguments.  */
-  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE && ! TYPE_ARG_TYPES (*node));
+  tree params;
+  
+  /* Ensure we have a function type.  */
+  gcc_assert (TREE_CODE (*node) == FUNCTION_TYPE);
+  
+  params = TYPE_ARG_TYPES (*node);
+  while (params && ! VOID_TYPE_P (TREE_VALUE (params)))
+    params = TREE_CHAIN (params);
+
+  /* Ensure we have a variadic function.  */
+  gcc_assert (!params);
 
   return NULL_TREE;
 }
@@ -6493,7 +6562,7 @@ check_function_arguments_recurse (void (*callback)
 				  void *ctx, tree param,
 				  unsigned HOST_WIDE_INT param_num)
 {
-  if ((TREE_CODE (param) == NOP_EXPR || TREE_CODE (param) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (param)
       && (TYPE_PRECISION (TREE_TYPE (param))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (param, 0)))))
     {
@@ -6563,6 +6632,109 @@ check_function_arguments_recurse (void (*callback)
     }
 
   (*callback) (ctx, param, param_num);
+}
+
+/* Checks the number of arguments NARGS against the required number
+   REQUIRED and issues an error if there is a mismatch.  Returns true
+   if the number of arguments is correct, otherwise false.  */
+
+static bool
+validate_nargs (tree fndecl, int nargs, int required)
+{
+  if (nargs < required)
+    {
+      error ("not enough arguments to function %qE", fndecl);
+      return false;
+    }
+  else if (nargs > required)
+    {
+      error ("too many arguments to function %qE", fndecl);
+      return false;
+    }
+  return true;
+}
+
+/* Verifies the NARGS arguments ARGS to the builtin function FNDECL.
+   Returns false if there was an error, otherwise true.  */
+
+bool
+check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
+{
+  if (!DECL_BUILT_IN (fndecl)
+      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+    return true;
+
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case BUILT_IN_CONSTANT_P:
+      return validate_nargs (fndecl, nargs, 1);
+
+    case BUILT_IN_ISFINITE:
+    case BUILT_IN_ISINF:
+    case BUILT_IN_ISINF_SIGN:
+    case BUILT_IN_ISNAN:
+    case BUILT_IN_ISNORMAL:
+      if (validate_nargs (fndecl, nargs, 1))
+	{
+	  if (TREE_CODE (TREE_TYPE (args[0])) != REAL_TYPE)
+	    {
+	      error ("non-floating-point argument in call to "
+		     "function %qE", fndecl);
+	      return false;
+	    }
+	  return true;
+	}
+      return false;
+
+    case BUILT_IN_ISGREATER:
+    case BUILT_IN_ISGREATEREQUAL:
+    case BUILT_IN_ISLESS:
+    case BUILT_IN_ISLESSEQUAL:
+    case BUILT_IN_ISLESSGREATER:
+    case BUILT_IN_ISUNORDERED:
+      if (validate_nargs (fndecl, nargs, 2))
+	{
+	  enum tree_code code0, code1;
+	  code0 = TREE_CODE (TREE_TYPE (args[0]));
+	  code1 = TREE_CODE (TREE_TYPE (args[1]));
+	  if (!((code0 == REAL_TYPE && code1 == REAL_TYPE)
+		|| (code0 == REAL_TYPE && code1 == INTEGER_TYPE)
+		|| (code0 == INTEGER_TYPE && code1 == REAL_TYPE)))
+	    {
+	      error ("non-floating-point arguments in call to "
+		     "function %qE", fndecl);
+	      return false;
+	    }
+	  return true;
+	}
+      return false;
+
+    case BUILT_IN_FPCLASSIFY:
+      if (validate_nargs (fndecl, nargs, 6))
+	{
+	  unsigned i;
+	  
+	  for (i=0; i<5; i++)
+	    if (TREE_CODE (args[i]) != INTEGER_CST)
+	      {
+		error ("non-const integer argument %u in call to function %qE",
+		       i+1, fndecl);
+		return false;
+	      }
+
+	  if (TREE_CODE (TREE_TYPE (args[5])) != REAL_TYPE)
+	    {
+	      error ("non-floating-point argument in call to function %qE",
+		     fndecl);
+	      return false;
+	    }
+	  return true;
+	}
+      return false;
+
+    default:
+      return true;
+    }
 }
 
 /* Function to help qsort sort FIELD_DECLs by name order.  */
@@ -6661,20 +6833,39 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
 
   if (token == CPP_EOF)
     message = catenate_messages (gmsgid, " at end of input");
-  else if (token == CPP_CHAR || token == CPP_WCHAR)
+  else if (token == CPP_CHAR || token == CPP_WCHAR || token == CPP_CHAR16
+	   || token == CPP_CHAR32)
     {
       unsigned int val = TREE_INT_CST_LOW (value);
-      const char *const ell = (token == CPP_CHAR) ? "" : "L";
+      const char *prefix;
+
+      switch (token)
+	{
+	default:
+	  prefix = "";
+	  break;
+	case CPP_WCHAR:
+	  prefix = "L";
+	  break;
+	case CPP_CHAR16:
+	  prefix = "u";
+	  break;
+	case CPP_CHAR32:
+	  prefix = "U";
+	  break;
+        }
+
       if (val <= UCHAR_MAX && ISGRAPH (val))
 	message = catenate_messages (gmsgid, " before %s'%c'");
       else
 	message = catenate_messages (gmsgid, " before %s'\\x%x'");
 
-      error (message, ell, val);
+      error (message, prefix, val);
       free (message);
       message = NULL;
     }
-  else if (token == CPP_STRING || token == CPP_WSTRING)
+  else if (token == CPP_STRING || token == CPP_WSTRING || token == CPP_STRING16
+	   || token == CPP_STRING32)
     message = catenate_messages (gmsgid, " before string constant");
   else if (token == CPP_NUMBER)
     message = catenate_messages (gmsgid, " before numeric constant");

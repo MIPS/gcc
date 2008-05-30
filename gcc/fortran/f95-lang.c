@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 
 #include "gfortran.h"
+#include "cpp.h"
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
@@ -95,7 +96,6 @@ static void gfc_print_identifier (FILE *, tree, int);
 static bool gfc_mark_addressable (tree);
 void do_function_end (void);
 int global_bindings_p (void);
-void insert_block (tree);
 static void clear_binding_stack (void);
 static void gfc_be_parse_file (int);
 static alias_set_type gfc_get_alias_set (tree);
@@ -122,7 +122,7 @@ static alias_set_type gfc_get_alias_set (tree);
 #undef LANG_HOOKS_GET_ARRAY_DESCR_INFO
 
 /* Define lang hooks.  */
-#define LANG_HOOKS_NAME                 "GNU F95"
+#define LANG_HOOKS_NAME                 "GNU Fortran"
 #define LANG_HOOKS_INIT                 gfc_init
 #define LANG_HOOKS_FINISH               gfc_finish
 #define LANG_HOOKS_INIT_OPTIONS         gfc_init_options
@@ -276,18 +276,25 @@ gfc_be_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 static bool
 gfc_init (void)
 {
-  linemap_add (line_table, LC_ENTER, false, gfc_source_file, 1);
-  linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
+  if (!gfc_cpp_enabled ())
+    {
+      linemap_add (line_table, LC_ENTER, false, gfc_source_file, 1);
+      linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
+    }
+  else
+    gfc_cpp_init_0 ();
 
-  /* First initialize the backend.  */
   gfc_init_decl_processing ();
   gfc_static_ctors = NULL_TREE;
 
-  /* Then the frontend.  */
+  if (gfc_cpp_enabled ())
+    gfc_cpp_init ();
+
   gfc_init_1 ();
 
   if (gfc_new_file () != SUCCESS)
     fatal_error ("can't open input file: %s", gfc_source_file);
+
   return true;
 }
 
@@ -295,6 +302,7 @@ gfc_init (void)
 static void
 gfc_finish (void)
 {
+  gfc_cpp_done ();
   gfc_done_1 ();
   gfc_release_include_path ();
   return;
@@ -473,19 +481,6 @@ poplevel (int keep, int reverse, int functionbody)
 }
 
 
-/* Insert BLOCK at the end of the list of subblocks of the
-   current binding level.  This is used when a BIND_EXPR is expanded,
-   to handle the BLOCK node inside the BIND_EXPR.  */
-
-void
-insert_block (tree block)
-{
-  TREE_USED (block) = 1;
-  current_binding_level->blocks
-    = chainon (current_binding_level->blocks, block);
-}
-
-
 /* Records a ..._DECL node DECL as belonging to the current lexical scope.
    Returns the ..._DECL node.  */
 
@@ -577,9 +572,9 @@ gfc_init_decl_processing (void)
   /* x86_64 minw32 has a sizetype of "unsigned long long", most other hosts
      have a sizetype of "unsigned long". Therefore choose the correct size
      in mostly target independent way.  */
-  if (TYPE_MODE (long_unsigned_type_node) == Pmode)
+  if (TYPE_MODE (long_unsigned_type_node) == ptr_mode)
     set_sizetype (long_unsigned_type_node);
-  else if (TYPE_MODE (long_long_unsigned_type_node) == Pmode)
+  else if (TYPE_MODE (long_long_unsigned_type_node) == ptr_mode)
     set_sizetype (long_long_unsigned_type_node);
   else
     set_sizetype (long_unsigned_type_node);
@@ -862,21 +857,21 @@ gfc_init_builtin_functions (void)
   ptype = build_pointer_type (float_type_node);
   tmp = tree_cons (NULL_TREE, float_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_float_floatp_floatp =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (double_type_node);
   tmp = tree_cons (NULL_TREE, double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_double_doublep_doublep =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (long_double_type_node);
   tmp = tree_cons (NULL_TREE, long_double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_longdouble_longdoublep_longdoublep =
     build_function_type (void_type_node, tmp);
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,12 +26,16 @@
 --  This package contains utility routines used for the generation of the
 --  stubs relevant to the distribution annex.
 
-with Namet; use Namet;
-with Types; use Types;
+with Namet;  use Namet;
+with Snames; use Snames;
+with Types;  use Types;
 
 package Exp_Dist is
 
-   PCS_Version_Number : constant := 1;
+   PCS_Version_Number : constant array (PCS_Names) of Int :=
+                          (Name_No_DSA      => 1,
+                           Name_GARLIC_DSA  => 1,
+                           Name_PolyORB_DSA => 2);
    --  PCS interface version. This is used to check for consistency between the
    --  compiler used to generate distribution stubs and the PCS implementation.
    --  It must be incremented whenever a change is made to the generated code
@@ -53,7 +57,7 @@ package Exp_Dist is
       Insertion_Node  : Node_Id;
       Body_Decls      : List_Id);
    --  Add primitive for the stub type, and the RPC receiver. The declarations
-   --  are inserted after insertion_Node, while the bodies are appended at the
+   --  are inserted after Insertion_Node, while the bodies are appended at the
    --  end of Decls.
 
    procedure Remote_Types_Tagged_Full_View_Encountered

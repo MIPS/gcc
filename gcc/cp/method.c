@@ -437,7 +437,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       BLOCK_VARS (fn_block) = a;
       DECL_INITIAL (thunk_fndecl) = fn_block;
       init_function_start (thunk_fndecl);
-      current_function_is_thunk = 1;
+      crtl->is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
 
       targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl,
@@ -772,7 +772,7 @@ synthesize_method (tree fndecl)
   if (! context)
     push_to_top_level ();
   else if (nested)
-    push_function_context_to (context);
+    push_function_context ();
 
   input_location = DECL_SOURCE_LOCATION (fndecl);
 
@@ -810,7 +810,7 @@ synthesize_method (tree fndecl)
   if (! context)
     pop_from_top_level ();
   else if (nested)
-    pop_function_context_from (context);
+    pop_function_context ();
 
   pop_deferring_access_checks ();
 

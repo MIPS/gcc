@@ -385,7 +385,6 @@ build_base_path (enum tree_code code,
 			 v_offset);
       v_offset = cp_build_indirect_ref (v_offset, NULL, tf_warning_or_error);
       TREE_CONSTANT (v_offset) = 1;
-      TREE_INVARIANT (v_offset) = 1;
 
       offset = convert_to_integer (ptrdiff_type_node,
 				   size_diffop (offset,
@@ -630,7 +629,6 @@ build_vtbl_ref_1 (tree instance, tree idx)
 
   aref = build_array_ref (vtbl, idx);
   TREE_CONSTANT (aref) |= TREE_CONSTANT (vtbl) && TREE_CONSTANT (idx);
-  TREE_INVARIANT (aref) = TREE_CONSTANT (aref);
 
   return aref;
 }
@@ -4060,7 +4058,9 @@ type_has_user_nondefault_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (!DECL_ARTIFICIAL (fn)
-	  && skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn)) != NULL_TREE)
+	  && (TREE_CODE (fn) == TEMPLATE_DECL
+	      || (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
+		  != NULL_TREE)))
 	return true;
     }
 
@@ -5411,8 +5411,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 
       return NULL_TREE;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       return RECUR (TREE_OPERAND (instance, 0));
 
     case ADDR_EXPR:
@@ -7448,7 +7447,6 @@ build_vtbl_initializer (tree binfo,
 				     TREE_OPERAND (init, 0),
 				     build_int_cst (NULL_TREE, i));
 		TREE_CONSTANT (fdesc) = 1;
-		TREE_INVARIANT (fdesc) = 1;
 
 		vfun_inits = tree_cons (NULL_TREE, fdesc, vfun_inits);
 	      }

@@ -102,6 +102,7 @@ static int tree_verify_flow_info (void);
 static void tree_make_forwarder_block (edge);
 static void tree_cfg2vcg (FILE *);
 static inline void change_bb_for_stmt (tree t, basic_block bb);
+static bool computed_goto_p (const_tree);
 
 /* Flowgraph optimization and cleanup.  */
 static void tree_merge_blocks (basic_block, basic_block);
@@ -113,26 +114,41 @@ static edge find_taken_edge_switch_expr (basic_block, tree);
 static tree find_case_label_for_value (tree, tree);
 
 void
-init_empty_tree_cfg (void)
+init_empty_tree_cfg_for_function (struct function *fn)
 {
   /* Initialize the basic block array.  */
-  init_flow ();
-  profile_status = PROFILE_ABSENT;
-  n_basic_blocks = NUM_FIXED_BLOCKS;
-  last_basic_block = NUM_FIXED_BLOCKS;
-  basic_block_info = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow_cleared (basic_block, gc, basic_block_info,
+  init_flow (fn);
+  profile_status_for_function (fn) = PROFILE_ABSENT;
+  n_basic_blocks_for_function (fn) = NUM_FIXED_BLOCKS;
+  last_basic_block_for_function (fn) = NUM_FIXED_BLOCKS;
+  basic_block_info_for_function (fn)
+    = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc,
+			 basic_block_info_for_function (fn),
 			 initial_cfg_capacity);
 
   /* Build a mapping of labels to their associated blocks.  */
-  label_to_block_map = VEC_alloc (basic_block, gc, initial_cfg_capacity);
-  VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
+  label_to_block_map_for_function (fn)
+    = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow_cleared (basic_block, gc,
+			 label_to_block_map_for_function (fn),
 			 initial_cfg_capacity);
 
-  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
-  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
-  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  SET_BASIC_BLOCK_FOR_FUNCTION (fn, ENTRY_BLOCK, 
+				ENTRY_BLOCK_PTR_FOR_FUNCTION (fn));
+  SET_BASIC_BLOCK_FOR_FUNCTION (fn, EXIT_BLOCK, 
+		   EXIT_BLOCK_PTR_FOR_FUNCTION (fn));
+
+  ENTRY_BLOCK_PTR_FOR_FUNCTION (fn)->next_bb
+    = EXIT_BLOCK_PTR_FOR_FUNCTION (fn);
+  EXIT_BLOCK_PTR_FOR_FUNCTION (fn)->prev_bb
+    = ENTRY_BLOCK_PTR_FOR_FUNCTION (fn);
+}
+
+void
+init_empty_tree_cfg (void)
+{
+  init_empty_tree_cfg_for_function (cfun);
 }
 
 /*---------------------------------------------------------------------------
@@ -1060,18 +1076,23 @@ group_case_labels (void)
 	  tree labels = SWITCH_LABELS (stmt);
 	  int old_size = TREE_VEC_LENGTH (labels);
 	  int i, j, new_size = old_size;
-	  tree default_case = TREE_VEC_ELT (labels, old_size - 1);
-	  tree default_label;
+	  tree default_case = NULL_TREE;
+	  tree default_label = NULL_TREE;
 
 	  /* The default label is always the last case in a switch
-	     statement after gimplification.  */
-	  default_label = CASE_LABEL (default_case);
+	     statement after gimplification if it was not optimized
+	     away.  */
+	  if (!CASE_LOW (TREE_VEC_ELT (labels, old_size - 1))
+	      && !CASE_HIGH (TREE_VEC_ELT (labels, old_size - 1)))
+	    {
+	      default_case = TREE_VEC_ELT (labels, old_size - 1);
+	      default_label = CASE_LABEL (default_case);
+	      old_size--;
+	    }
 
-	  /* Look for possible opportunities to merge cases.
-	     Ignore the last element of the label vector because it
-	     must be the default case.  */
+	  /* Look for possible opportunities to merge cases.  */
           i = 0;
-	  while (i < old_size - 1)
+	  while (i < old_size)
 	    {
 	      tree base_case, base_label, base_high;
 	      base_case = TREE_VEC_ELT (labels, i);
@@ -1095,7 +1116,7 @@ group_case_labels (void)
 	      /* Try to merge case labels.  Break out when we reach the end
 		 of the label vector or when we cannot merge the next case
 		 label with the current one.  */
-	      while (i < old_size - 1)
+	      while (i < old_size)
 		{
 		  tree merge_case = TREE_VEC_ELT (labels, i);
 	          tree merge_label = CASE_LABEL (merge_case);
@@ -1786,9 +1807,11 @@ static void
 update_call_expr_flags (tree call)
 {
   tree decl = get_callee_fndecl (call);
+  int flags;
   if (!decl)
     return;
-  if (call_expr_flags (call) & (ECF_CONST | ECF_PURE))
+  flags = call_expr_flags (call);
+  if (flags & (ECF_CONST | ECF_PURE) && !(flags & ECF_LOOPING_CONST_OR_PURE))
     TREE_SIDE_EFFECTS (call) = 0;
   if (TREE_NOTHROW (decl))
     TREE_NOTHROW (call) = 1;
@@ -1803,9 +1826,9 @@ notice_special_calls (tree t)
   int flags = call_expr_flags (t);
 
   if (flags & ECF_MAY_BE_ALLOCA)
-    current_function_calls_alloca = true;
+    cfun->calls_alloca = true;
   if (flags & ECF_RETURNS_TWICE)
-    current_function_calls_setjmp = true;
+    cfun->calls_setjmp = true;
 }
 
 
@@ -1815,8 +1838,8 @@ notice_special_calls (tree t)
 void
 clear_special_calls (void)
 {
-  current_function_calls_alloca = false;
-  current_function_calls_setjmp = false;
+  cfun->calls_alloca = false;
+  cfun->calls_setjmp = false;
 }
 
 
@@ -1910,6 +1933,33 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     case ASM_EXPR:
       fold_stmt (tp);
       data->last_goto = NULL;
+      break;
+
+    case OMP_PARALLEL:
+      /* Make sure the outermost BIND_EXPR in OMP_BODY isn't removed
+	 as useless.  */
+      remove_useless_stmts_1 (&BIND_EXPR_BODY (OMP_BODY (*tp)), data);
+      data->last_goto = NULL;
+      break;
+
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER :
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      remove_useless_stmts_1 (&OMP_BODY (*tp), data);
+      data->last_goto = NULL;
+      break;
+
+    case OMP_FOR:
+      remove_useless_stmts_1 (&OMP_FOR_BODY (*tp), data);
+      data->last_goto = NULL;
+      if (OMP_FOR_PRE_BODY (*tp))
+	{
+	  remove_useless_stmts_1 (&OMP_FOR_PRE_BODY (*tp), data);
+	  data->last_goto = NULL;
+	}
       break;
 
     default:
@@ -2463,7 +2513,7 @@ is_ctrl_altering_stmt (const_tree t)
     {
       /* A non-pure/const CALL_EXPR alters flow control if the current
 	 function has nonlocal labels.  */
-      if (TREE_SIDE_EFFECTS (call) && current_function_has_nonlocal_label)
+      if (TREE_SIDE_EFFECTS (call) && cfun->has_nonlocal_label)
 	return true;
 
       /* A CALL_EXPR also alters control flow if it does not return.  */
@@ -2482,7 +2532,7 @@ is_ctrl_altering_stmt (const_tree t)
 
 /* Return true if T is a computed goto.  */
 
-bool
+static bool
 computed_goto_p (const_tree t)
 {
   return (TREE_CODE (t) == GOTO_EXPR
@@ -2513,7 +2563,7 @@ tree_can_make_abnormal_goto (const_tree t)
   if (TREE_CODE (t) == WITH_SIZE_EXPR)
     t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == CALL_EXPR)
-    return TREE_SIDE_EFFECTS (t) && current_function_has_nonlocal_label;
+    return TREE_SIDE_EFFECTS (t) && cfun->has_nonlocal_label;
   return false;
 }
 
@@ -2665,7 +2715,7 @@ set_bb_for_stmt (tree t, basic_block bb)
 	  if (uid == -1)
 	    {
 	      unsigned old_len = VEC_length (basic_block, label_to_block_map);
-	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
+	      LABEL_DECL_UID (t) = uid = cfun->cfg->last_label_uid++;
 	      if (old_len <= (unsigned) uid)
 		{
 		  unsigned new_len = 3 * uid / 2;
@@ -3113,7 +3163,6 @@ static tree
 verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp, x;
-  bool in_phi = (data != NULL);
 
   if (TYPE_P (t))
     *walk_subtrees = 0;
@@ -3157,44 +3206,19 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
     case ADDR_EXPR:
       {
-	bool old_invariant;
 	bool old_constant;
 	bool old_side_effects;
-	bool new_invariant;
 	bool new_constant;
 	bool new_side_effects;
 
-        /* ??? tree-ssa-alias.c may have overlooked dead PHI nodes, missing
-	   dead PHIs that take the address of something.  But if the PHI
-	   result is dead, the fact that it takes the address of anything
-	   is irrelevant.  Because we can not tell from here if a PHI result
-	   is dead, we just skip this check for PHIs altogether.  This means
-	   we may be missing "valid" checks, but what can you do?
-	   This was PR19217.  */
-        if (in_phi)
-	  {
-	    if (!is_gimple_min_invariant (t))
-	      {
-		error ("non-invariant address expression in PHI argument");
-		return t;
-	      }
-	    break;
-	  }
+	gcc_assert (is_gimple_address (t));
 
-	old_invariant = TREE_INVARIANT (t);
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
 	recompute_tree_invariant_for_addr_expr (t);
-	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
-
-	if (old_invariant != new_invariant)
-	  {
-	    error ("invariant not recomputed when ADDR_EXPR changed");
-	    return t;
-	  }
 
         if (old_constant != new_constant)
 	  {
@@ -3240,14 +3264,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	}
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    case NON_LVALUE_EXPR:
+	gcc_unreachable ();
+
+    CASE_CONVERT:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
     case NEGATE_EXPR:
     case ABS_EXPR:
     case BIT_NOT_EXPR:
-    case NON_LVALUE_EXPR:
     case TRUTH_NOT_EXPR:
       CHECK_OP (0, "invalid operand to unary operator");
       break;
@@ -3588,6 +3613,18 @@ one_pointer_to_useless_type_conversion_p (tree dest, tree src_obj)
   return false;
 }
 
+/* Return true if TYPE1 is a fixed-point type and if conversions to and
+   from TYPE2 can be handled by FIXED_CONVERT_EXPR.  */
+
+static bool
+valid_fixed_convert_types_p (tree type1, tree type2)
+{
+  return (FIXED_POINT_TYPE_P (type1)
+	  && (INTEGRAL_TYPE_P (type2)
+	      || SCALAR_FLOAT_TYPE_P (type2)
+	      || FIXED_POINT_TYPE_P (type2)));
+}
+
 /* Verify the GIMPLE expression EXPR.  Returns true if there is an
    error, otherwise false.  */
 
@@ -3602,8 +3639,7 @@ verify_gimple_expr (tree expr)
   /* Special codes we cannot handle via their class.  */
   switch (TREE_CODE (expr))
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       {
 	tree op = TREE_OPERAND (expr, 0);
 	if (!is_gimple_val (op))
@@ -3622,7 +3658,10 @@ verify_gimple_expr (tree expr)
 	   there is no sign or zero extension involved.  */
 	if (((POINTER_TYPE_P (type) && INTEGRAL_TYPE_P (TREE_TYPE (op)))
 	     || (POINTER_TYPE_P (TREE_TYPE (op)) && INTEGRAL_TYPE_P (type)))
-	    && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (op)))
+	    && (TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (op))
+		/* For targets were the precision of sizetype doesn't
+		   match that of pointers we need the following.  */
+		|| type == sizetype || TREE_TYPE (op) == sizetype))
 	  return false;
 
 	/* Allow conversion from integer to offset type and vice versa.  */
@@ -3637,6 +3676,27 @@ verify_gimple_expr (tree expr)
 	if (TREE_CODE (type) != TREE_CODE (TREE_TYPE (op)))
 	  {
 	    error ("invalid types in nop conversion");
+	    debug_generic_expr (type);
+	    debug_generic_expr (TREE_TYPE (op));
+	    return true;
+	  }
+
+	return false;
+      }
+
+    case FIXED_CONVERT_EXPR:
+      {
+	tree op = TREE_OPERAND (expr, 0);
+	if (!is_gimple_val (op))
+	  {
+	    error ("invalid operand in conversion");
+	    return true;
+	  }
+
+	if (!valid_fixed_convert_types_p (type, TREE_TYPE (op))
+	    && !valid_fixed_convert_types_p (TREE_TYPE (op), type))
+	  {
+	    error ("invalid types in fixed-point conversion");
 	    debug_generic_expr (type);
 	    debug_generic_expr (TREE_TYPE (op));
 	    return true;
@@ -3840,6 +3900,8 @@ verify_gimple_expr (tree expr)
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
+      gcc_unreachable ();
+
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
     case TRUTH_XOR_EXPR:
@@ -3895,7 +3957,19 @@ verify_gimple_expr (tree expr)
     case CALL_EXPR:
       /* FIXME.  The C frontend passes unpromoted arguments in case it
 	 didn't see a function declaration before the call.  */
-      return false;
+      {
+	tree decl = CALL_EXPR_FN (expr);
+
+	if (TREE_CODE (decl) == FUNCTION_DECL 
+	    && DECL_LOOPING_CONST_OR_PURE_P (decl)
+	    && (!DECL_PURE_P (decl))
+	    && (!TREE_READONLY (decl)))
+	  {
+	    error ("invalid pure const state for function");
+	    return true;
+	  }
+	return false;
+      }
 
     case OBJ_TYPE_REF:
       /* FIXME.  */
@@ -4167,6 +4241,11 @@ verify_stmt (tree stmt, bool last_in_block)
   if (addr)
     {
       debug_generic_stmt (addr);
+      if (addr != stmt)
+	{
+	  inform ("in statement");
+	  debug_generic_stmt (stmt);
+	}
       return true;
     }
 
@@ -4338,18 +4417,11 @@ verify_stmts (void)
 		 are not considered gimple values.  */
 	      else if (TREE_CODE (t) != SSA_NAME
 		       && TREE_CODE (t) != FUNCTION_DECL
-		       && !is_gimple_val (t))
+		       && !is_gimple_min_invariant (t))
 		{
 		  error ("PHI def is not a GIMPLE value");
 		  debug_generic_stmt (phi);
 		  debug_generic_stmt (t);
-		  err |= true;
-		}
-
-	      addr = walk_tree (&t, verify_expr, (void *) 1, NULL);
-	      if (addr)
-		{
-		  debug_generic_stmt (addr);
 		  err |= true;
 		}
 
@@ -4629,13 +4701,16 @@ tree_verify_flow_info (void)
 
 	    /* Verify that the case labels are sorted.  */
 	    prev = TREE_VEC_ELT (vec, 0);
-	    for (i = 1; i < n - 1; ++i)
+	    for (i = 1; i < n; ++i)
 	      {
 		tree c = TREE_VEC_ELT (vec, i);
 		if (! CASE_LOW (c))
 		  {
-		    error ("found default case not at end of case vector");
-		    err = 1;
+		    if (i != n - 1)
+		      {
+			error ("found default case not at end of case vector");
+			err = 1;
+		      }
 		    continue;
 		  }
 		if (! tree_int_cst_lt (CASE_LOW (prev), CASE_LOW (c)))
@@ -4649,11 +4724,9 @@ tree_verify_flow_info (void)
 		  }
 		prev = c;
 	      }
-	    if (CASE_LOW (TREE_VEC_ELT (vec, n - 1)))
-	      {
-		error ("no default case found at end of case vector");
-		err = 1;
-	      }
+	    /* VRP will remove the default case if it can prove it will
+	       never be executed.  So do not verify there always exists
+	       a default case here.  */
 
 	    FOR_EACH_EDGE (e, ei, bb->succs)
 	      {
@@ -5496,7 +5569,7 @@ DEF_VEC_ALLOC_P(basic_block,heap);
    adding blocks when the dominator traversal reaches EXIT.  This
    function silently assumes that ENTRY strictly dominates EXIT.  */
 
-static void
+void
 gather_blocks_in_sese_region (basic_block entry, basic_block exit,
 			      VEC(basic_block,heap) **bbs_p)
 {
@@ -5535,8 +5608,7 @@ replace_by_duplicate_decl (tree *tp, struct pointer_map_t *vars_map,
       if (SSA_VAR_P (t))
 	{
 	  new_t = copy_var_decl (t, DECL_NAME (t), TREE_TYPE (t));
-	  f->unexpanded_var_list
-		  = tree_cons (NULL_TREE, new_t, f->unexpanded_var_list);
+	  f->local_decls = tree_cons (NULL_TREE, new_t, f->local_decls);
 	}
       else
 	{
@@ -5829,8 +5901,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 
 	  gcc_assert (DECL_CONTEXT (label) == dest_cfun->decl);
 
-	  if (uid >= dest_cfun->last_label_uid)
-	    dest_cfun->last_label_uid = uid + 1;
+	  if (uid >= dest_cfun->cfg->last_label_uid)
+	    dest_cfun->cfg->last_label_uid = uid + 1;
 	}
       else if (TREE_CODE (stmt) == RESX_EXPR && eh_offset != 0)
 	TREE_OPERAND (stmt, 0) =
@@ -5903,8 +5975,8 @@ new_label_mapper (tree decl, void *data)
   m->base.from = decl;
   m->to = create_artificial_label ();
   LABEL_DECL_UID (m->to) = LABEL_DECL_UID (decl);
-  if (LABEL_DECL_UID (m->to) >= cfun->last_label_uid)
-    cfun->last_label_uid = LABEL_DECL_UID (m->to) + 1;
+  if (LABEL_DECL_UID (m->to) >= cfun->cfg->last_label_uid)
+    cfun->cfg->last_label_uid = LABEL_DECL_UID (m->to) + 1;
 
   slot = htab_find_slot_with_hash (hash, m, m->hash, INSERT);
   gcc_assert (*slot == NULL);
@@ -6122,12 +6194,19 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   arg = DECL_ARGUMENTS (fn);
   while (arg)
     {
+      print_generic_expr (file, TREE_TYPE (arg), dump_flags);
+      fprintf (file, " ");
       print_generic_expr (file, arg, dump_flags);
+      if (flags & TDF_VERBOSE)
+	print_node (file, "", arg, 4);
       if (TREE_CHAIN (arg))
 	fprintf (file, ", ");
       arg = TREE_CHAIN (arg);
     }
   fprintf (file, ")\n");
+
+  if (flags & TDF_VERBOSE)
+    print_node (file, "", fn, 2);
 
   dsf = DECL_STRUCT_FUNCTION (fn);
   if (dsf && (flags & TDF_DETAILS))
@@ -6144,16 +6223,18 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 
   /* When GIMPLE is lowered, the variables are no longer available in
      BIND_EXPRs, so display them separately.  */
-  if (cfun && cfun->decl == fn && cfun->unexpanded_var_list)
+  if (cfun && cfun->decl == fn && cfun->local_decls)
     {
       ignore_topmost_bind = true;
 
       fprintf (file, "{\n");
-      for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
+      for (vars = cfun->local_decls; vars; vars = TREE_CHAIN (vars))
 	{
 	  var = TREE_VALUE (vars);
 
 	  print_generic_decl (file, var, flags);
+	  if (flags & TDF_VERBOSE)
+	    print_node (file, "", var, 4);
 	  fprintf (file, "\n");
 
 	  any_var = true;
@@ -6412,7 +6493,8 @@ tree_block_ends_with_condjump_p (const_basic_block bb)
 static bool
 need_fake_edge_p (tree t)
 {
-  tree call;
+  tree call, fndecl = NULL_TREE;
+  int call_flags;
 
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST and PURE calls do not need one.
@@ -6422,8 +6504,19 @@ need_fake_edge_p (tree t)
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
   call = get_call_expr_in (t);
-  if (call
-      && !(call_expr_flags (call) & ECF_NORETURN))
+  if (call)
+    {
+      fndecl = get_callee_fndecl (call);
+      call_flags = call_expr_flags (call);
+    }
+
+  if (call && fndecl && DECL_BUILT_IN (fndecl)
+      && (call_flags & ECF_NOTHROW)
+      && !(call_flags & ECF_NORETURN)
+      && !(call_flags & ECF_RETURNS_TWICE))
+   return false;
+
+  if (call && !(call_flags & ECF_NORETURN))
     return true;
 
   if (TREE_CODE (t) == ASM_EXPR
@@ -6558,7 +6651,7 @@ tree_purge_dead_abnormal_call_edges (basic_block bb)
 {
   bool changed = tree_purge_dead_eh_edges (bb);
 
-  if (current_function_has_nonlocal_label)
+  if (cfun->has_nonlocal_label)
     {
       tree stmt = last_stmt (bb);
       edge_iterator ei;
@@ -7104,7 +7197,7 @@ execute_warn_function_noreturn (void)
   if (warn_missing_noreturn
       && !TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
-      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
+      && !lang_hooks.missing_noreturn_ok_p (cfun->decl))
     warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
 	     "for attribute %<noreturn%>",
 	     cfun->decl);

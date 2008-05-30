@@ -309,10 +309,6 @@ package body Lib.Xref is
                return False;
             end if;
          end loop;
-
-         --  Parent (N) is assignment statement, check whether N is its name
-
-         return Name (Parent (N)) = N;
       end Is_On_LHS;
 
       ---------------------------
@@ -864,7 +860,7 @@ package body Lib.Xref is
       --  set to Empty, and Left/Right are set to space.
 
       procedure Output_Import_Export_Info (Ent : Entity_Id);
-      --  Ouput language and external name information for an interfaced
+      --  Output language and external name information for an interfaced
       --  entity, using the format <language, external_name>,
 
       ------------------------
@@ -1154,16 +1150,14 @@ package body Lib.Xref is
                New_Entry (Tref);
 
                if Is_Record_Type (Ent)
-                 and then Present (Abstract_Interfaces (Ent))
+                 and then Present (Interfaces (Ent))
                then
                   --  Add an entry for each one of the given interfaces
                   --  implemented by type Ent.
 
                   declare
-                     Elmt : Elmt_Id;
-
+                     Elmt : Elmt_Id := First_Elmt (Interfaces (Ent));
                   begin
-                     Elmt := First_Elmt (Abstract_Interfaces (Ent));
                      while Present (Elmt) loop
                         New_Entry (Node (Elmt));
                         Next_Elmt (Elmt);
@@ -1579,14 +1573,34 @@ package body Lib.Xref is
                --------------------------
 
                procedure Output_Overridden_Op (Old_E : Entity_Id) is
+                  Op : Entity_Id;
+
                begin
-                  if Present (Old_E)
-                    and then Sloc (Old_E) /= Standard_Location
+                  --  The overridden operation has an implicit declaration
+                  --  at the point of derivation. What we want to display
+                  --  is the original operation, which has the actual body
+                  --  (or abstract declaration) that is being overridden.
+                  --  The overridden operation is not always set, e.g. when
+                  --  it is a predefined operator.
+
+                  if No (Old_E) then
+                     return;
+
+                  elsif Present (Alias (Old_E)) then
+                     Op := Alias (Old_E);
+
+                  else
+                     Op := Old_E;
+                  end if;
+
+                  if Present (Op)
+                    and then Sloc (Op) /= Standard_Location
                   then
                      declare
-                        Loc      : constant Source_Ptr := Sloc (Old_E);
+                        Loc      : constant Source_Ptr := Sloc (Op);
                         Par_Unit : constant Unit_Number_Type :=
                                      Get_Source_Unit (Loc);
+
                      begin
                         Write_Info_Char ('<');
 
@@ -2016,13 +2030,11 @@ package body Lib.Xref is
                      --  Additional information for types with progenitors
 
                      if Is_Record_Type (XE.Ent)
-                       and then Present (Abstract_Interfaces (XE.Ent))
+                       and then Present (Interfaces (XE.Ent))
                      then
                         declare
-                           Elmt : Elmt_Id;
-
+                           Elmt : Elmt_Id := First_Elmt (Interfaces (XE.Ent));
                         begin
-                           Elmt := First_Elmt (Abstract_Interfaces (XE.Ent));
                            while Present (Elmt) loop
                               Check_Type_Reference (Node (Elmt), True);
                               Next_Elmt (Elmt);

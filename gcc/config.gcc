@@ -70,6 +70,10 @@
 #			This helps to keep OS specific stuff out of the CPU
 #			defining header ${cpu_type}/${cpu_type.h}.
 #
+#			It is possible to include automatically-generated
+#			build-directory files by prefixing them with "./".
+#			All other files should relative to $srcdir/config.
+#
 #  tm_p_file		Location of file with declarations for functions
 #			in $out_file.
 #
@@ -116,6 +120,9 @@
 #  cxx_target_objs	List of extra target-dependent objects that be
 #			linked into the C++ compiler only.
 #
+#  fortran_target_objs	List of extra target-dependent objects that be
+#			linked into the fortran compiler only.
+#
 #  target_gtfiles       List of extra source files with type information.
 #
 #  xm_defines		List of macros to define when compiling for the
@@ -141,6 +148,8 @@
 #  need_64bit_hwint	Set to yes if HOST_WIDE_INT must be 64 bits wide
 #			for this target.  This is true iff this target
 #			supports "long" or "wchar_t" wider than 32 bits.
+#			The setting made here must match the one made in
+#			other locations such as libcpp/configure.ac
 #
 #  configure_default_options
 #			Set to an initializer for configure_default_options
@@ -167,6 +176,7 @@ extra_gcc_objs=
 extra_options=
 c_target_objs=
 cxx_target_objs=
+fortran_target_objs=
 tm_defines=
 xm_defines=
 # Set this to force installation and use of collect2.
@@ -195,8 +205,7 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
-   crx-*		\
- | mt-*			\
+   mt-*			\
  | strongarm*-*		\
  | ep9312*-*		\
  | xscale*-*		\
@@ -309,13 +318,15 @@ i[34567]86-*-*)
 	cpu_type=i386
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h
+		       wmmintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
 	extra_headers="cpuid.h mmintrin.h mm3dnow.h xmmintrin.h emmintrin.h
 		       pmmintrin.h tmmintrin.h ammintrin.h smmintrin.h
-		       nmmintrin.h bmmintrin.h mmintrin-common.h"
+		       nmmintrin.h bmmintrin.h mmintrin-common.h
+		       wmmintrin.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -355,12 +366,9 @@ rs6000*-*-*)
 score*-*-*)
 	cpu_type=score
 	;;
-sparc64*-*-*)
-	cpu_type=sparc
-	need_64bit_hwint=yes
-	;;
 sparc*-*-*)
 	cpu_type=sparc
+	need_64bit_hwint=yes
 	;;
 spu*-*-*)
 	cpu_type=spu
@@ -371,7 +379,7 @@ s390*-*-*)
 	need_64bit_hwint=yes
 	;;
 # Note the 'l'; we need to be able to match e.g. "shle" or "shl".
-sh[123456789lbe]*-*-*)
+sh[123456789lbe]*-*-* | sh-*-*)
 	cpu_type=sh
 	need_64bit_hwint=yes
 	;;
@@ -393,8 +401,16 @@ then
 fi
 
 case ${target} in
+i[34567]86-*-*)
+	if test $enable_cld = yes; then
+		tm_defines="${tm_defines} USE_IX86_CLD=1"
+	fi
+	;;
 x86_64-*-*)
 	tm_file="i386/biarch64.h ${tm_file}"
+	if test $enable_cld = yes; then
+		tm_defines="${tm_defines} USE_IX86_CLD=1"
+	fi
 	;;
 esac
 
@@ -421,6 +437,7 @@ case ${target} in
   extra_options="${extra_options} darwin.opt"
   c_target_objs="darwin-c.o"
   cxx_target_objs="darwin-c.o"
+  fortran_target_objs="darwin-f.o"
   extra_objs="darwin.o"
   extra_gcc_objs="darwin-driver.o"
   default_use_cxa_atexit=yes
@@ -1379,7 +1396,7 @@ i[34567]86-*-pe | i[34567]86-*-cygwin*)
 		thread_file='posix'
 	fi
 	;;
-i[34567]86-*-mingw32* | x86_64-*-mingw32*)
+i[34567]86-*-mingw* | x86_64-*-mingw*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/mingw32.h"
 	xm_file=i386/xm-mingw32.h
 	tmake_file="i386/t-cygming i386/t-mingw32"
@@ -1396,10 +1413,17 @@ i[34567]86-*-mingw32* | x86_64-*-mingw32*)
 	  ;;
 	esac
 	case ${target} in
-		*mingw32crt*)
-			tm_file="${tm_file} i386/crtdll.h"
+		x86_64-*-mingw*)
+			tmake_file="${tmake_file} i386/t-crtfm"
 			;;
-		*mingw32msv* | *mingw32*)
+		*)
+			;;
+	esac
+	case ${target} in
+ 		*mingw32crt*)
+ 			tm_file="${tm_file} i386/crtdll.h"
+ 			;;
+		*mingw32msv* | *mingw*)
 			;;
 	esac
 	;;
@@ -2152,7 +2176,7 @@ score-*-elf)
         ;;
 sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 sh-*-symbianelf* | sh[12346l]*-*-symbianelf* | \
-  sh-*-linux* | sh[346lbe]*-*-linux* | \
+  sh-*-linux* | sh[2346lbe]*-*-linux* | \
   sh-*-netbsdelf* | shl*-*-netbsdelf* | sh5-*-netbsd* | sh5l*-*-netbsd* | \
    sh64-*-netbsd* | sh64l*-*-netbsd*)
 	tmake_file="${tmake_file} sh/t-sh sh/t-elf"
@@ -2347,9 +2371,16 @@ sparc-*-elf*)
 	use_fixproto=yes
 	;;
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h linux.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
-	tmake_file="${tmake_file} sparc/t-linux sparc/t-crtfm"
+	tmake_file="${tmake_file} sparc/t-linux"
+	if test x$enable_targets = xall; then
+		tm_file="sparc/biarch64.h ${tm_file} sparc/linux64.h"
+		tmake_file="${tmake_file} sparc/t-linux64"
+	else
+		tm_file="${tm_file} sparc/linux.h"
+	fi
+	tmake_file="${tmake_file} sparc/t-crtfm"
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sp-elf.h sparc/rtemself.h rtems.h"
@@ -2386,7 +2417,6 @@ sparc64-*-solaris2* | sparcv9-*-solaris2*)
 	  "":yes:* | yes:yes:* ) thread_file=posix ;;
 	  "":*:yes | yes:*:yes ) thread_file=solaris ;;
 	esac
-	need_64bit_hwint=yes
 	;;
 sparc-*-solaris2*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h"
@@ -2427,7 +2457,6 @@ sparc-*-solaris2*)
 		fi
 		tm_file="${tm_file} tm-dwarf2.h"
 		tmake_file="$tmake_file sparc/t-sol2-64"
-		need_64bit_hwint=yes
 		test x$with_cpu != x || with_cpu=v9
 		;;
 	esac
@@ -2478,10 +2507,9 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 		x) with_cpu=ultrasparc ;;
 		*) echo "$with_cpu not supported for freebsd target"; exit 1 ;;
 	esac
-	need_64bit_hwint=yes
 	;;
 sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
-	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
+	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h linux.h sparc/linux64.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
 	tmake_file="${tmake_file} sparc/t-linux sparc/t-linux64 sparc/t-crtfm"
 	;;
@@ -3139,8 +3167,8 @@ case "${target}" in
 			"" | common \
 			| power | power[23456] | power6x | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
-			| 401 | 403 | 405 | 405fp | 440 | 440fp | 505 \
-			| 601 | 602 | 603 | 603e | ec603e | 604 \
+			| 401 | 403 | 405 | 405fp | 440 | 440fp | 464 | 464fp \
+			| 505 | 601 | 602 | 603 | 603e | ec603e | 604 \
 			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 | e300c[23] \
 			| 854[08] | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5 | cell)
 				# OK
@@ -3159,7 +3187,7 @@ case "${target}" in
 		for which in arch tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec)
+			"" | g5 | g6 | z900 | z990 | z9-109 | z9-ec | z10)
 				# OK
 				;;
 			*)

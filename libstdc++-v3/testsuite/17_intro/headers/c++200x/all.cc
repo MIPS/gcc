@@ -36,6 +36,7 @@
 #include <csetjmp>
 #include <csignal>
 #include <cstdarg>
+#include <cstdatomic>
 #include <cstdbool>
 #include <cstddef>
 #include <cstdint>
@@ -67,6 +68,7 @@
 #include <math.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdarg.h>
 #ifdef _GLIBCXX_HAVE_STDBOOL_H
 #include <stdbool.h>
@@ -93,6 +95,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <condition_variable>
 #include <complex>
 #include <date_time>
 #include <deque>
@@ -110,6 +113,7 @@
 #include <locale>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <numeric>
 #include <ostream>

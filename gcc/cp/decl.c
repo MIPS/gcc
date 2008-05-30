@@ -1802,11 +1802,13 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	  DECL_NO_LIMIT_STACK (newdecl) |= DECL_NO_LIMIT_STACK (olddecl);
 	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
-	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
 	  TREE_NOTHROW (newdecl) |= TREE_NOTHROW (olddecl);
 	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
 	  DECL_IS_OPERATOR_NEW (newdecl) |= DECL_IS_OPERATOR_NEW (olddecl);
-	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
+	  DECL_PURE_P (newdecl) |= DECL_PURE_P (olddecl);
+	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
+	  DECL_LOOPING_CONST_OR_PURE_P (newdecl) 
+	    |= DECL_LOOPING_CONST_OR_PURE_P (olddecl);
 	  /* Keep the old RTL.  */
 	  COPY_DECL_RTL (olddecl, newdecl);
 	}
@@ -4442,7 +4444,10 @@ layout_var_decl (tree decl)
       if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
 	constant_expression_warning (DECL_SIZE (decl));
       else
-	error ("storage size of %qD isn't constant", decl);
+	{
+	  error ("storage size of %qD isn't constant", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	}
     }
 }
 
@@ -4889,6 +4894,38 @@ reshape_init (tree type, tree init)
   return new_init;
 }
 
+/* Verify array initializer.  Returns true if errors have been reported.  */
+
+bool
+check_array_initializer (tree decl, tree type, tree init)
+{
+  tree element_type = TREE_TYPE (type);
+
+  /* The array type itself need not be complete, because the
+     initializer may tell us how many elements are in the array.
+     But, the elements of the array must be complete.  */
+  if (!COMPLETE_TYPE_P (complete_type (element_type)))
+    {
+      if (decl)
+	error ("elements of array %q#D have incomplete type", decl);
+      else
+	error ("elements of array %q#T have incomplete type", type);
+      return true;
+    }
+  /* It is not valid to initialize a VLA.  */
+  if (init
+      && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
+	  || !TREE_CONSTANT (TYPE_SIZE (element_type))))
+    {
+      if (decl)
+	error ("variable-sized object %qD may not be initialized", decl);
+      else
+	error ("variable-sized compound literal");
+      return true;
+    }
+  return false;
+}
+
 /* Verify INIT (the initializer for DECL), and record the
    initialization in DECL_INITIAL, if appropriate.  CLEANUP is as for
    grok_reference_init.
@@ -4912,24 +4949,8 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree element_type = TREE_TYPE (type);
-
-      /* The array type itself need not be complete, because the
-	 initializer may tell us how many elements are in the array.
-	 But, the elements of the array must be complete.  */
-      if (!COMPLETE_TYPE_P (complete_type (element_type)))
-	{
-	  error ("elements of array %q#D have incomplete type", decl);
-	  return NULL_TREE;
-	}
-      /* It is not valid to initialize a VLA.  */
-      if (init
-	  && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
-	      || !TREE_CONSTANT (TYPE_SIZE (element_type))))
-	{
-	  error ("variable-sized object %qD may not be initialized", decl);
-	  return NULL_TREE;
-	}
+      if (check_array_initializer (decl, type, init))
+	return NULL_TREE;
     }
   else if (!COMPLETE_TYPE_P (type))
     {
@@ -7729,6 +7750,13 @@ grokdeclarator (const cp_declarator *declarator,
 	error ("%<long%> or %<short%> specified with char for %qs", name);
       else if (long_p && short_p)
 	error ("%<long%> and %<short%> specified together for %qs", name);
+      else if (type == char16_type_node || type == char32_type_node)
+	{
+	  if (signed_p || unsigned_p)
+	    error ("%<signed%> or %<unsigned%> invalid for %qs", name);
+	  else if (short_p || long_p)
+	    error ("%<short%> or %<long%> invalid for %qs", name);
+	}
       else
 	{
 	  ok = 1;
@@ -7892,7 +7920,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp
       && (current_class_name == NULL_TREE || decl_context != FIELD))
     {
-      error ("virtual outside class declaration");
+      error ("%<virtual%> outside class declaration");
       virtualp = 0;
     }
 
@@ -10957,7 +10985,6 @@ build_enumerator (tree name, tree value, tree enumtype)
 
   DECL_CONTEXT (decl) = FROB_CONTEXT (context);
   TREE_CONSTANT (decl) = 1;
-  TREE_INVARIANT (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
 
@@ -11258,13 +11285,18 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      FIXME factor out the non-RTL stuff.  */
   bl = current_binding_level;
   allocate_struct_function (decl1, processing_template_decl);
+
+  /* Initialize the language data structures.  Whenever we start
+     a new function, we destroy temporaries in the usual way.  */
+  cfun->language = GGC_CNEW (struct language_function);
+  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
   current_binding_level = bl;
 
   /* Even though we're inside a function body, we still don't want to
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->dont_save_pending_sizes_p = 1;
 
   /* Start the statement-tree, start the tree now.  */
   DECL_SAVED_TREE (decl1) = push_stmt_list ();
@@ -12267,47 +12299,6 @@ revert_static_member_fn (tree decl)
   if (DECL_ARGUMENTS (decl))
     DECL_ARGUMENTS (decl) = TREE_CHAIN (DECL_ARGUMENTS (decl));
   DECL_STATIC_FUNCTION_P (decl) = 1;
-}
-
-/* Initialize the variables used during compilation of a C++
-   function.  */
-
-void
-cxx_push_function_context (struct function * f)
-{
-  struct language_function *p = GGC_CNEW (struct language_function);
-  f->language = p;
-
-  /* Whenever we start a new function, we destroy temporaries in the
-     usual way.  */
-  current_stmt_tree ()->stmts_are_full_exprs_p = 1;
-
-  if (f->decl)
-    {
-      tree fn = f->decl;
-
-      if (DECL_SAVED_FUNCTION_DATA (fn))
-	{
-	  /* If we already parsed this function, and we're just expanding it
-	     now, restore saved state.  */
-	  *cp_function_chain = *DECL_SAVED_FUNCTION_DATA (fn);
-
-	  /* We don't need the saved data anymore.  Unless this is an inline
-	     function; we need the named return value info for
-	     declare_return_variable.  */
-	  if (! DECL_INLINE (fn))
-	    DECL_SAVED_FUNCTION_DATA (fn) = NULL;
-	}
-    }
-}
-
-/* Free the language-specific parts of F, now that we've finished
-   compiling the function.  */
-
-void
-cxx_pop_function_context (struct function * f)
-{
-  f->language = 0;
 }
 
 /* Return which tree structure is used by T, or TS_CP_GENERIC if T is

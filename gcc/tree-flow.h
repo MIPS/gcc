@@ -188,10 +188,6 @@ struct gimple_df GTY(())
 
   struct ssa_operands ssa_operands;
 
-  /* Hashtable of variables annotations.  Used for static variables only;
-     local variables have direct pointer in the tree node.  */
-  htab_t GTY((param_is (struct static_var_ann_d))) var_anns;
-
   /* Memory reference statistics collected during alias analysis.
      This information is used to drive the memory partitioning
      heuristics in compute_memory_partitions.  */
@@ -327,8 +323,6 @@ enum noalias_state {
 };
 
 
-typedef VEC(tree,gc) *subvar_t;
-
 struct var_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -395,10 +389,6 @@ struct var_ann_d GTY(())
   /* During into-ssa and the dominator optimizer, this field holds the
      current version of this variable (an SSA_NAME).  */
   tree current_def;
-
-  /* If this variable is a structure, this fields holds an array
-     of symbols representing each of the fields of the structure.  */
-  VEC(tree,gc) *subvars;
 };
 
 /* Container for variable annotation used by hashtable for annotations for
@@ -491,9 +481,11 @@ struct stmt_ann_d GTY(())
   /* Set of variables that have had their address taken in the statement.  */
   bitmap addresses_taken;
 
-  /* Unique identifier for this statement.  These ID's are to be created
-     by each pass on an as-needed basis in any order convenient for the
-     pass which needs statement UIDs.  */
+  /* Unique identifier for this statement.  These ID's are to be
+     created by each pass on an as-needed basis in any order
+     convenient for the pass which needs statement UIDs.  This field
+     should only be accessed thru set_gimple_stmt_uid and
+     gimple_stmt_uid functions.  */
   unsigned int uid;
 
   /* Nonzero if the statement references memory (at least one of its
@@ -731,7 +723,6 @@ extern void delete_tree_cfg_annotations (void);
 extern bool stmt_ends_bb_p (const_tree);
 extern bool is_ctrl_stmt (const_tree);
 extern bool is_ctrl_altering_stmt (const_tree);
-extern bool computed_goto_p (const_tree);
 extern bool simple_goto_p (const_tree);
 extern bool tree_can_make_abnormal_goto (const_tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
@@ -771,6 +762,8 @@ extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
 					basic_block *);
 extern bool tree_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
+extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,
+					  VEC(basic_block,heap) **bbs_p);
 extern void add_phi_args_after_copy_bb (basic_block);
 extern void add_phi_args_after_copy (basic_block *, unsigned, edge);
 extern bool tree_purge_dead_abnormal_call_edges (basic_block);
@@ -784,6 +777,7 @@ extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
 extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 			     tree, tree, tree, tree);
 extern void init_empty_tree_cfg (void);
+extern void init_empty_tree_cfg_for_function (struct function *);
 extern void fold_cond_expr_cond (void);
 extern void make_abnormal_goto_edges (basic_block, bool);
 extern void replace_uses_by (tree, tree);
@@ -806,6 +800,7 @@ extern const char *op_symbol_code (enum tree_code);
 extern var_ann_t create_var_ann (tree);
 extern function_ann_t create_function_ann (tree);
 extern stmt_ann_t create_stmt_ann (tree);
+extern void renumber_gimple_stmt_uids (void);
 extern tree_ann_common_t create_tree_common_ann (tree);
 extern void dump_dfa_stats (FILE *);
 extern void debug_dfa_stats (void);
@@ -813,8 +808,6 @@ extern void debug_referenced_vars (void);
 extern void dump_referenced_vars (FILE *);
 extern void dump_variable (FILE *, tree);
 extern void debug_variable (tree);
-extern void dump_subvars_for (FILE *, tree);
-extern void debug_subvars_for (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_var (tree);
 extern void remove_referenced_var (tree);
@@ -836,6 +829,12 @@ extern void add_phi_arg (tree, tree, edge);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (tree, tree, bool);
 extern tree phi_reverse (tree);
+extern void init_phinodes (void);
+extern void fini_phinodes (void);
+extern void release_phi_node (tree);
+#ifdef GATHER_STATISTICS
+extern void phinodes_print_statistics (void);
+#endif
 
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
@@ -857,16 +856,10 @@ extern struct ptr_info_def *get_ptr_info (tree);
 extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
 				   unsigned *);
-static inline subvar_t get_subvars_for_var (tree);
-static inline tree get_subvar_at (tree, unsigned HOST_WIDE_INT);
 static inline bool ref_contains_array_ref (const_tree);
 static inline bool array_ref_contains_indirect_ref (const_tree);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 				     HOST_WIDE_INT *, HOST_WIDE_INT *);
-static inline bool var_can_have_subvars (const_tree);
-static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
-				   unsigned HOST_WIDE_INT,
-				   const_tree, bool *);
 extern tree create_tag_raw (enum tree_code, tree, const char *);
 extern void delete_mem_ref_stats (struct function *);
 extern void dump_mem_ref_stats (FILE *);
@@ -900,14 +893,13 @@ DEF_VEC_ALLOC_O(edge_var_map, heap);
 /* A vector of var maps.  */
 typedef VEC(edge_var_map, heap) *edge_var_map_vector;
 
+extern void init_tree_ssa (struct function *);
 extern void redirect_edge_var_map_add (edge, tree, tree);
 extern void redirect_edge_var_map_clear (edge);
 extern void redirect_edge_var_map_dup (edge, edge);
 extern edge_var_map_vector redirect_edge_var_map_vector (edge);
 extern void redirect_edge_var_map_destroy (void);
 
-
-extern void init_tree_ssa (void);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
 extern bool tree_ssa_useless_type_conversion (tree);
@@ -937,6 +929,20 @@ void mark_set_for_renaming (bitmap);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
 
+/* In tree-ssanames.c  */
+extern void init_ssanames (struct function *, int);
+extern void fini_ssanames (void);
+extern tree make_ssa_name_fn (struct function *, tree, tree);
+extern tree duplicate_ssa_name (tree, tree);
+extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
+extern void release_ssa_name (tree);
+extern void release_defs (tree);
+extern void replace_ssa_name_symbol (tree, tree);
+
+#ifdef GATHER_STATISTICS
+extern void ssanames_print_statistics (void);
+#endif
+
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
 bool fold_stmt_inplace (tree);
@@ -944,7 +950,7 @@ tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
 
 /* In tree-vrp.c  */
-tree vrp_evaluate_conditional (tree, tree);
+tree vrp_evaluate_conditional (enum tree_code, tree, tree, tree);
 void simplify_stmt_using_ranges (tree);
 
 /* In tree-ssa-dom.c  */
@@ -1016,7 +1022,7 @@ basic_block *blocks_in_phiopt_order (void);
 void tree_ssa_lim (void);
 unsigned int tree_ssa_unswitch_loops (void);
 unsigned int canonicalize_induction_variables (void);
-unsigned int tree_unroll_loops_completely (bool);
+unsigned int tree_unroll_loops_completely (bool, bool);
 unsigned int tree_ssa_prefetch_arrays (void);
 unsigned int remove_empty_loops (void);
 void tree_ssa_iv_optimize (void);
@@ -1161,6 +1167,7 @@ tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
+bool clobber_what_p_points_to (tree);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);
@@ -1180,39 +1187,6 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
-
-/* This structure is used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it
-   relative to its immediate containing type, and we want it relative
-   to the ultimate containing object.  */
-
-struct fieldoff
-{
-  /* Type of the field.  */
-  tree type;
-
-  /* Size, in bits, of the field.  */
-  tree size;
-
-  /* Field.  */
-  tree decl;
-
-  /* Offset from the base of the base containing object to this field.  */
-  HOST_WIDE_INT offset;  
-
-  /* Alias set for the field.  */
-  alias_set_type alias_set;
-
-  /* True, if this offset can be a base for further component accesses.  */
-  unsigned base_for_components : 1;
-};
-typedef struct fieldoff fieldoff_s;
-
-DEF_VEC_O(fieldoff_s);
-DEF_VEC_ALLOC_O(fieldoff_s,heap);
-int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
-				 HOST_WIDE_INT, bool *, tree);
-void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 void init_alias_heapvars (void);
 void delete_alias_heapvars (void);

@@ -732,7 +732,7 @@ see_get_extension_data (rtx extension, enum machine_mode *source_mode)
 
   /* Don't handle extensions to something other then register or
      subregister.  */
-  if (!REG_P (lhs) && !SUBREG_REG (lhs))
+  if (!REG_P (lhs) && GET_CODE (lhs) != SUBREG)
     return UNKNOWN;
 
   if (GET_CODE (rhs) != SIGN_EXTEND && GET_CODE (rhs) != ZERO_EXTEND)
@@ -1686,7 +1686,7 @@ see_pre_insert_extensions (struct see_pre_extension_expr **index_map)
 		edge eg = INDEX_EDGE (edge_list, e);
 
 		start_sequence ();
-		emit_insn (PATTERN (expr->se_insn));
+		emit_insn (copy_insn (PATTERN (expr->se_insn)));
 		se_insn = get_insns ();
 		end_sequence ();
 
@@ -2430,7 +2430,10 @@ see_copy_insn (rtx insn)
 	CALL_INSN_FUNCTION_USAGE (ret)
 	  = copy_rtx (CALL_INSN_FUNCTION_USAGE (insn));
       SIBLING_CALL_P (ret) = SIBLING_CALL_P (insn);
-      CONST_OR_PURE_CALL_P (ret) = CONST_OR_PURE_CALL_P (insn);
+      RTL_CONST_CALL_P (ret) = RTL_CONST_CALL_P (insn);
+      RTL_PURE_CALL_P (ret) = RTL_PURE_CALL_P (insn);
+      RTL_LOOPING_CONST_OR_PURE_CALL_P (ret) 
+	= RTL_LOOPING_CONST_OR_PURE_CALL_P (insn);
     }
   else
     gcc_unreachable ();
@@ -2550,6 +2553,17 @@ see_def_extension_not_merged (struct see_ref_s *curr_ref_s, rtx def_se)
     }
 
   /* The manipulation succeeded.  Store the new manipulated reference.  */
+
+  /* It is possible for dest_reg to appear multiple times in ref_copy. In this
+     case, ref_copy now has invalid sharing. Copying solves the problem.
+     We don't use copy_rtx as an optimization for the common case (no sharing).
+     We can't just use copy_rtx_if_shared since it does nothing on INSNs.
+     Another possible solution would be to make validate_replace_rtx_1
+     public and use it instead of replace_rtx. */
+  reset_used_flags (PATTERN (ref_copy));
+  reset_used_flags (REG_NOTES (ref_copy));
+  PATTERN (ref_copy) = copy_rtx_if_shared (PATTERN (ref_copy));
+  REG_NOTES (ref_copy) = copy_rtx_if_shared (REG_NOTES (ref_copy));
 
   /* Try to simplify the new manipulated insn.  */
   validate_simplify_insn (ref_copy);
@@ -3520,7 +3534,7 @@ see_analyze_one_def (rtx insn, enum machine_mode *source_mode,
 
       /* Don't handle extensions to something other then register or
 	 subregister.  */
-      if (!REG_P (lhs) && !SUBREG_REG (lhs))
+      if (!REG_P (lhs) && GET_CODE (lhs) != SUBREG)
 	return NOT_RELEVANT;
 
       switch (GET_CODE (rhs))

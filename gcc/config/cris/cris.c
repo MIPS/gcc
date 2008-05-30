@@ -412,13 +412,13 @@ cris_conditional_register_usage (void)
     reg_names[CRIS_CC0_REGNUM] = "ccr";
 }
 
-/* Return current_function_uses_pic_offset_table.  For use in cris.md,
+/* Return crtl->uses_pic_offset_table.  For use in cris.md,
    since some generated files do not include function.h.  */
 
 int
 cris_cfun_uses_pic_table (void)
 {
-  return current_function_uses_pic_offset_table;
+  return crtl->uses_pic_offset_table;
 }
 
 /* Given an rtx, return the text string corresponding to the CODE of X.
@@ -604,7 +604,7 @@ cris_reg_saved_in_regsave_area (unsigned int regno, bool got_really_used)
 		  && !call_used_regs[regno + 1]))))
      && (regno != FRAME_POINTER_REGNUM || !frame_pointer_needed)
      && regno != CRIS_SRP_REGNUM)
-    || (current_function_calls_eh_return
+    || (crtl->calls_eh_return
 	&& (regno == EH_RETURN_DATA_REGNO (0)
 	    || regno == EH_RETURN_DATA_REGNO (1)
 	    || regno == EH_RETURN_DATA_REGNO (2)
@@ -1188,7 +1188,7 @@ cris_initial_frame_pointer_offset (void)
   int offs = 0;
   bool got_really_used = false;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       push_topmost_sequence ();
       got_really_used
@@ -1206,7 +1206,7 @@ cris_initial_frame_pointer_offset (void)
   offs += get_frame_size ();
 
   /* And more; the accumulated args size.  */
-  offs += current_function_outgoing_args_size;
+  offs += crtl->outgoing_args_size;
 
   /* Then round it off, in case we use aligned stack.  */
   if (TARGET_STACK_ALIGN)
@@ -1700,10 +1700,10 @@ cris_simple_epilogue (void)
   if (! reload_completed
       || frame_pointer_needed
       || get_frame_size () != 0
-      || current_function_pretend_args_size
-      || current_function_args_size
-      || current_function_outgoing_args_size
-      || current_function_calls_eh_return
+      || crtl->args.pretend_args_size
+      || crtl->args.size
+      || crtl->outgoing_args_size
+      || crtl->calls_eh_return
 
       /* If we're not supposed to emit prologue and epilogue, we must
 	 not emit return-type instructions.  */
@@ -1714,7 +1714,7 @@ cris_simple_epilogue (void)
   if (TARGET_V32 && cris_return_address_on_stack ())
     return false;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       push_topmost_sequence ();
       got_really_used
@@ -1883,7 +1883,12 @@ cris_address_cost (rtx x)
       rtx tem1 = XEXP (x, 0);
       rtx tem2 = XEXP (x, 1);
 
-      /* We'll "assume" canonical RTX.  */
+      /* Local extended canonicalization rule: the first operand must
+	 be REG, unless it's an operation (MULT).  */
+      if (!REG_P (tem1) && GET_CODE (tem1) != MULT)
+	tem1 = tem2, tem2 = XEXP (x, 0);
+
+      /* We'll "assume" we have canonical RTX now.  */
       gcc_assert (REG_P (tem1) || GET_CODE (tem1) == MULT);
 
       /* A BIAP is 2 extra bytes for the prefix insn, nothing more.  We
@@ -2731,14 +2736,14 @@ cris_expand_prologue (void)
   int regno;
   int size = get_frame_size ();
   /* Shorten the used name for readability.  */
-  int cfoa_size = current_function_outgoing_args_size;
+  int cfoa_size = crtl->outgoing_args_size;
   int last_movem_reg = -1;
   int framesize = 0;
   rtx mem, insn;
   int return_address_on_stack = cris_return_address_on_stack ();
   int got_really_used = false;
   int n_movem_regs = 0;
-  int pretend = current_function_pretend_args_size;
+  int pretend = crtl->args.pretend_args_size;
 
   /* Don't do anything if no prologues or epilogues are wanted.  */
   if (!TARGET_PROLOGUE_EPILOGUE)
@@ -2746,7 +2751,7 @@ cris_expand_prologue (void)
 
   CRIS_ASSERT (size >= 0);
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       /* A reference may have been optimized out (like the abort () in
 	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
@@ -2765,7 +2770,7 @@ cris_expand_prologue (void)
     {
       /* See also cris_setup_incoming_varargs where
 	 cfun->machine->stdarg_regs is set.  There are other setters of
-	 current_function_pretend_args_size than stdarg handling, like
+	 crtl->args.pretend_args_size than stdarg handling, like
 	 for an argument passed with parts in R13 and stack.  We must
 	 not store R13 into the pretend-area for that case, as GCC does
 	 that itself.  "Our" store would be marked as redundant and GCC
@@ -2799,7 +2804,7 @@ cris_expand_prologue (void)
 	     get confused.  */
 	}
 
-      /* For other setters of current_function_pretend_args_size, we
+      /* For other setters of crtl->args.pretend_args_size, we
 	 just adjust the stack by leaving the remaining size in
 	 "pretend", handled below.  */
     }
@@ -3012,8 +3017,8 @@ cris_expand_epilogue (void)
   int regno;
   int size = get_frame_size ();
   int last_movem_reg = -1;
-  int argspace_offset = current_function_outgoing_args_size;
-  int pretend =	 current_function_pretend_args_size;
+  int argspace_offset = crtl->outgoing_args_size;
+  int pretend =	 crtl->args.pretend_args_size;
   rtx mem;
   bool return_address_on_stack = cris_return_address_on_stack ();
   /* A reference may have been optimized out
@@ -3025,7 +3030,7 @@ cris_expand_epilogue (void)
   if (!TARGET_PROLOGUE_EPILOGUE)
     return;
 
-  if (current_function_uses_pic_offset_table)
+  if (crtl->uses_pic_offset_table)
     {
       /* A reference may have been optimized out (like the abort () in
 	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
@@ -3168,7 +3173,7 @@ cris_expand_epilogue (void)
      the return address on the stack.  */
   if (return_address_on_stack && pretend == 0)
     {
-      if (TARGET_V32 || current_function_calls_eh_return)
+      if (TARGET_V32 || crtl->calls_eh_return)
 	{
 	  rtx mem;
 	  rtx insn;
@@ -3184,7 +3189,7 @@ cris_expand_epilogue (void)
 	  REG_NOTES (insn)
 	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 
-	  if (current_function_calls_eh_return)
+	  if (crtl->calls_eh_return)
 	    emit_insn (gen_addsi3 (stack_pointer_rtx,
 				   stack_pointer_rtx,
 				   gen_rtx_raw_REG (SImode,
@@ -3226,7 +3231,7 @@ cris_expand_epilogue (void)
     }
 
   /* Perform the "physical" unwinding that the EH machinery calculated.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
 			   gen_rtx_raw_REG (SImode,
@@ -3479,7 +3484,7 @@ cris_expand_pic_call_address (rtx *opp)
 		 for v32.  */
 	      rtx tem, rm, ro;
 	      gcc_assert (can_create_pseudo_p ());
-	      current_function_uses_pic_offset_table = 1;
+	      crtl->uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    TARGET_V32
 				    ? CRIS_UNSPEC_PLT_PCREL
@@ -3514,7 +3519,7 @@ cris_expand_pic_call_address (rtx *opp)
 	      rtx tem, mem, rm, ro;
 
 	      gcc_assert (can_create_pseudo_p ());
-	      current_function_uses_pic_offset_table = 1;
+	      crtl->uses_pic_offset_table = 1;
 	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
 				    CRIS_UNSPEC_PLTGOTREAD);
 	      rm = gen_reg_rtx (Pmode);
@@ -3586,7 +3591,7 @@ cris_asm_output_symbol_ref (FILE *file, rtx x)
      assemble_name (file, str);
 
      /* Sanity check.  */
-     if (!TARGET_V32 && !current_function_uses_pic_offset_table)
+     if (!TARGET_V32 && !crtl->uses_pic_offset_table)
        output_operand_lossage ("PIC register isn't set up");
     }
   else
@@ -3603,7 +3608,7 @@ cris_asm_output_label_ref (FILE *file, char *buf)
       assemble_name (file, buf);
 
       /* Sanity check.  */
-      if (!TARGET_V32 && !current_function_uses_pic_offset_table)
+      if (!TARGET_V32 && !crtl->uses_pic_offset_table)
 	internal_error ("emitting PIC operand, but PIC register isn't set up");
     }
   else

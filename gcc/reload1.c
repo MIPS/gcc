@@ -753,11 +753,11 @@ reload (rtx first, int global)
   /* A function that has a nonlocal label that can reach the exit
      block via non-exceptional paths must save all call-saved
      registers.  */
-  if (current_function_has_nonlocal_label
+  if (cfun->has_nonlocal_label
       && has_nonexceptional_receiver ())
-    current_function_saves_all_registers = 1;
+    crtl->saves_all_registers = 1;
 
-  if (current_function_saves_all_registers)
+  if (crtl->saves_all_registers)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
@@ -1032,7 +1032,7 @@ reload (rtx first, int global)
       /* If we allocated another stack slot, redo elimination bookkeeping.  */
       if (starting_frame_size != get_frame_size ())
 	continue;
-      if (starting_frame_size && cfun->stack_alignment_needed)
+      if (starting_frame_size && crtl->stack_alignment_needed)
 	{
 	  /* If we have a stack frame, we must align it now.  The
 	     stack size may be a part of the offset computation for
@@ -1042,7 +1042,7 @@ reload (rtx first, int global)
 	     stack frame when none is needed should
 	     STARTING_FRAME_OFFSET not be already aligned to
 	     STACK_BOUNDARY.  */
-	  assign_stack_local (BLKmode, 0, cfun->stack_alignment_needed);
+	  assign_stack_local (BLKmode, 0, crtl->stack_alignment_needed);
 	  if (starting_frame_size != get_frame_size ())
 	    continue;
 	}
@@ -1263,7 +1263,7 @@ reload (rtx first, int global)
 	    HARD_REG_SET used_function_regs;
 
 	    get_call_invalidated_used_regs (insn, &used_function_regs, false);
-	    IOR_HARD_REG_SET (cfun->emit->call_used_regs, used_function_regs);
+	    IOR_HARD_REG_SET (crtl->emit.call_used_regs, used_function_regs);
 	    replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
 				VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
 	  }
@@ -1492,11 +1492,11 @@ maybe_fix_stack_asms (void)
 	      switch (c)
 		{
 		case '=': case '+': case '*': case '%': case '?': case '!':
-		case '0': case '1': case '2': case '3': case '4': case 'm':
-		case '<': case '>': case 'V': case 'o': case '&': case 'E':
-		case 'F': case 's': case 'i': case 'n': case 'X': case 'I':
-		case 'J': case 'K': case 'L': case 'M': case 'N': case 'O':
-		case 'P':
+		case '0': case '1': case '2': case '3': case '4': case '<':
+		case '>': case 'V': case 'o': case '&': case 'E': case 'F':
+		case 's': case 'i': case 'n': case 'X': case 'I': case 'J':
+		case 'K': case 'L': case 'M': case 'N': case 'O': case 'P':
+		case TARGET_MEM_CONSTRAINT:
 		  break;
 
 		case 'p':
@@ -3919,9 +3919,9 @@ init_elim_table (void)
 			     the frame pointer in that case.  At some point,
 			     we should improve this by emitting the
 			     sp-adjusting insns for this case.  */
-			  || (current_function_calls_alloca
+			  || (cfun->calls_alloca
 			      && EXIT_IGNORE_STACK)
-			  || current_function_accesses_prior_frames
+			  || crtl->accesses_prior_frames
 			  || FRAME_POINTER_REQUIRED);
 
   num_eliminable = 0;

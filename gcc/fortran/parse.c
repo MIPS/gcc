@@ -100,7 +100,7 @@ decode_specification_statement (void)
 {
   gfc_statement st;
   locus old_locus;
-  int c;
+  char c;
 
   if (gfc_match_eos () == MATCH_YES)
     return ST_NONE;
@@ -121,7 +121,7 @@ decode_specification_statement (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -229,7 +229,7 @@ decode_statement (void)
   gfc_statement st;
   locus old_locus;
   match m;
-  int c;
+  char c;
 
 #ifdef GFC_DEBUG
   gfc_symbol_state ();
@@ -315,7 +315,7 @@ decode_statement (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -440,6 +440,7 @@ decode_statement (void)
       break;
 
     case 'w':
+      match ("wait", gfc_match_wait, ST_WAIT);
       match ("write", gfc_match_write, ST_WRITE);
       break;
     }
@@ -461,7 +462,7 @@ static gfc_statement
 decode_omp_directive (void)
 {
   locus old_locus;
-  int c;
+  char c;
 
 #ifdef GFC_DEBUG
   gfc_symbol_state ();
@@ -484,7 +485,7 @@ decode_omp_directive (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -568,31 +569,34 @@ static gfc_statement
 next_free (void)
 {
   match m;
-  int c, d, cnt, at_bol;
+  int i, cnt, at_bol;
+  char c;
 
   at_bol = gfc_at_bol ();
   gfc_gobble_whitespace ();
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   if (ISDIGIT (c))
     {
+      char d;
+
       /* Found a statement label?  */
       m = gfc_match_st_label (&gfc_statement_label);
 
-      d = gfc_peek_char ();
+      d = gfc_peek_ascii_char ();
       if (m != MATCH_YES || !gfc_is_whitespace (d))
 	{
-	  gfc_match_small_literal_int (&c, &cnt);
+	  gfc_match_small_literal_int (&i, &cnt);
 
 	  if (cnt > 5)
 	    gfc_error_now ("Too many digits in statement label at %C");
 
-	  if (c == 0)
+	  if (i == 0)
 	    gfc_error_now ("Zero is not a valid statement label at %C");
 
 	  do
-	    c = gfc_next_char ();
+	    c = gfc_next_ascii_char ();
 	  while (ISDIGIT(c));
 
 	  if (!gfc_is_whitespace (c))
@@ -606,11 +610,11 @@ next_free (void)
 
 	  gfc_gobble_whitespace ();
 
-	  if (at_bol && gfc_peek_char () == ';')
+	  if (at_bol && gfc_peek_ascii_char () == ';')
 	    {
 	      gfc_error_now ("Semicolon at %C needs to be preceded by "
 			     "statement");
-	      gfc_next_char (); /* Eat up the semicolon.  */
+	      gfc_next_ascii_char (); /* Eat up the semicolon.  */
 	      return ST_NONE;
 	    }
 
@@ -632,8 +636,8 @@ next_free (void)
 	{
 	  int i;
 
-	  c = gfc_next_char ();
-	  for (i = 0; i < 5; i++, c = gfc_next_char ())
+	  c = gfc_next_ascii_char ();
+	  for (i = 0; i < 5; i++, c = gfc_next_ascii_char ())
 	    gcc_assert (c == "!$omp"[i]);
 
 	  gcc_assert (c == ' ');
@@ -645,7 +649,7 @@ next_free (void)
   if (at_bol && c == ';')
     {
       gfc_error_now ("Semicolon at %C needs to be preceded by statement");
-      gfc_next_char (); /* Eat up the semicolon.  */
+      gfc_next_ascii_char (); /* Eat up the semicolon.  */
       return ST_NONE;
     }
 
@@ -660,7 +664,7 @@ next_fixed (void)
 {
   int label, digit_flag, i;
   locus loc;
-  char c;
+  gfc_char_t c;
 
   if (!gfc_at_bol ())
     return decode_statement ();
@@ -693,7 +697,7 @@ next_fixed (void)
 	case '7':
 	case '8':
 	case '9':
-	  label = label * 10 + c - '0';
+	  label = label * 10 + ((unsigned char) c - '0');
 	  label_locus = gfc_current_locus;
 	  digit_flag = 1;
 	  break;
@@ -704,7 +708,7 @@ next_fixed (void)
 	  if (gfc_option.flag_openmp)
 	    {
 	      for (i = 0; i < 5; i++, c = gfc_next_char_literal (0))
-		gcc_assert (TOLOWER (c) == "*$omp"[i]);
+		gcc_assert ((char) gfc_wide_tolower (c) == "*$omp"[i]);
 
 	      if (c != ' ' && c != '0')
 		{
@@ -861,9 +865,9 @@ next_statement (void)
   case ST_CLOSE: case ST_CONTINUE: case ST_DEALLOCATE: case ST_END_FILE: \
   case ST_GOTO: case ST_INQUIRE: case ST_NULLIFY: case ST_OPEN: \
   case ST_READ: case ST_RETURN: case ST_REWIND: case ST_SIMPLE_IF: \
-  case ST_PAUSE: case ST_STOP: case ST_WRITE: case ST_ASSIGNMENT: \
+  case ST_PAUSE: case ST_STOP: case ST_WAIT: case ST_WRITE: \
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
-  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
+  case ST_ASSIGNMENT: case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
   case ST_OMP_BARRIER
 
@@ -1267,6 +1271,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_WHERE_BLOCK:	/* Fall through */
     case ST_WHERE:
       p = "WHERE";
+      break;
+    case ST_WAIT:
+      p = "WAIT";
       break;
     case ST_WRITE:
       p = "WRITE";
@@ -1910,12 +1917,28 @@ loop:
       new_state = COMP_SUBROUTINE;
       gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
 				  gfc_new_block->formal, NULL);
+      if (current_interface.type != INTERFACE_ABSTRACT &&
+	 !gfc_new_block->attr.dummy &&
+	 gfc_add_external (&gfc_new_block->attr, &gfc_current_locus) == FAILURE)
+	{
+	  reject_statement ();
+	  gfc_free_namespace (gfc_current_ns);
+	  goto loop;
+	}
       break;
 
     case ST_FUNCTION:
       new_state = COMP_FUNCTION;
       gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
 				  gfc_new_block->formal, NULL);
+      if (current_interface.type != INTERFACE_ABSTRACT &&
+	 !gfc_new_block->attr.dummy &&
+	 gfc_add_external (&gfc_new_block->attr, &gfc_current_locus) == FAILURE)
+	{
+	  reject_statement ();
+	  gfc_free_namespace (gfc_current_ns);
+	  goto loop;
+	}
       break;
 
     case ST_PROCEDURE:
@@ -3562,8 +3585,8 @@ loop:
   gfc_resolve (gfc_current_ns);
 
   /* Dump the parse tree if requested.  */
-  if (gfc_option.verbose)
-    gfc_show_namespace (gfc_current_ns);
+  if (gfc_option.dump_parse_tree)
+    gfc_dump_parse_tree (gfc_current_ns, stdout);
 
   gfc_get_errors (NULL, &errors);
   if (s.state == COMP_MODULE)

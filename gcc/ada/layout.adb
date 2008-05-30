@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -956,7 +956,7 @@ package body Layout is
 
       Make_Size_Function : Boolean := False;
       --  Indicates whether to request that SO_Ref_From_Expr should
-      --  encapsulate the array size expresion in a function.
+      --  encapsulate the array size expression in a function.
 
       procedure Discrimify (N : in out Node_Id);
       --  If N represents a discriminant, then the Size.Status is set to
@@ -2490,7 +2490,7 @@ package body Layout is
                end;
             end if;
 
-         --  For non-discrete sclar types, if the RM_Size is not set,
+         --  For non-discrete scalar types, if the RM_Size is not set,
          --  then set it now to a copy of the Esize if the Esize is set.
 
          else
@@ -2591,7 +2591,7 @@ package body Layout is
                Set_Composite_Alignment (E);
             end if;
 
-         --  Procressing for array types
+         --  Processing for array types
 
          elsif Is_Array_Type (E) then
 
@@ -2804,10 +2804,10 @@ package body Layout is
       --  the setting of the Optimize_Alignment mode.
 
       --  If Optimize_Alignment is set to Space, then packed records always
-      --  have an aligmment of 1. But don't do anything for atomic records
+      --  have an alignment of 1. But don't do anything for atomic records
       --  since we may need higher alignment for indivisible access.
 
-      if Optimize_Alignment = 'S'
+      if Optimize_Alignment_Space (E)
         and then Is_Record_Type (E)
         and then Is_Packed (E)
         and then not Is_Atomic (E)
@@ -2818,7 +2818,7 @@ package body Layout is
 
       else
          --  The only other cases we worry about here are where the size is
-         --  staticallly known at compile time.
+         --  statically known at compile time.
 
          if Known_Static_Esize (E) then
             Siz := Esize (E);
@@ -2848,7 +2848,7 @@ package body Layout is
             --  alignment matches the size, for example, if the size is 17
             --  bytes then we want an alignment of 1 for the type.
 
-         elsif Optimize_Alignment = 'S' then
+         elsif Optimize_Alignment_Space (E) then
             if Siz mod (8 * System_Storage_Unit) = 0 then
                Align := 8;
             elsif Siz mod (4 * System_Storage_Unit) = 0 then
@@ -2864,7 +2864,7 @@ package body Layout is
             --  alignment of 4. Note that this matches the old VMS behavior
             --  in versions of GNAT prior to 6.1.1.
 
-         elsif Optimize_Alignment = 'T'
+         elsif Optimize_Alignment_Time (E)
            and then Siz > System_Storage_Unit
            and then Siz <= 8 * System_Storage_Unit
          then
@@ -2902,7 +2902,7 @@ package body Layout is
          --  since conceivably we may be able to do better.
 
          if Align > System_Word_Size / System_Storage_Unit
-           and then Optimize_Alignment /= 'T'
+           and then not Optimize_Alignment_Time (E)
          then
             Align := System_Word_Size / System_Storage_Unit;
          end if;
@@ -2910,9 +2910,9 @@ package body Layout is
          --  Check components. If any component requires a higher alignment,
          --  then we set that higher alignment in any case. Don't do this if
          --  we have Optimize_Alignment set to Space. Note that that covers
-         --  the case of packed records, where we arleady set alignment to 1.
+         --  the case of packed records, where we already set alignment to 1.
 
-         if Optimize_Alignment  /= 'S' then
+         if not Optimize_Alignment_Space (E) then
             declare
                Comp : Entity_Id;
 

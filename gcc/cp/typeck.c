@@ -1507,7 +1507,7 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	tree field;
 	
 	field = TREE_OPERAND (exp, 1);
-	if (TREE_CODE (field) != FIELD_DECL || !DECL_C_BIT_FIELD (field))
+	if (TREE_CODE (field) != FIELD_DECL || !DECL_BIT_FIELD_TYPE (field))
 	  return NULL_TREE;
 	if (same_type_ignoring_top_level_qualifiers_p
 	    (TREE_TYPE (exp), DECL_BIT_FIELD_TYPE (field)))
@@ -1722,12 +1722,14 @@ string_conv_p (const_tree totype, const_tree exp, int warn)
 
   t = TREE_TYPE (totype);
   if (!same_type_p (t, char_type_node)
+      && !same_type_p (t, char16_type_node)
+      && !same_type_p (t, char32_type_node)
       && !same_type_p (t, wchar_type_node))
     return 0;
 
   if (TREE_CODE (exp) == STRING_CST)
     {
-      /* Make sure that we don't try to convert between char and wchar_t.  */
+      /* Make sure that we don't try to convert between char and wide chars.  */
       if (!same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (exp))), t))
 	return 0;
     }
@@ -2764,7 +2766,6 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 			fold_convert (sizetype, idx));
       e2 = cp_build_indirect_ref (e2, NULL, tf_warning_or_error);
       TREE_CONSTANT (e2) = 1;
-      TREE_INVARIANT (e2) = 1;
 
       /* When using function descriptors, the address of the
 	 vtable entry is treated as a function pointer.  */
@@ -2888,9 +2889,15 @@ cp_build_function_call (tree function, tree params, tsubst_flags_t complain)
   if (nargs < 0)
     return error_mark_node;
 
+  /* Check that arguments to builtin functions match the expectations.  */
+  if (fndecl
+      && DECL_BUILT_IN (fndecl)
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && !check_builtin_function_arguments (fndecl, nargs, argarray))
+    return error_mark_node;
+
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
 			    parm_types);
 
@@ -5938,10 +5945,11 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	lhs = build2 (TREE_CODE (lhs), TREE_TYPE (lhs),
 		      stabilize_reference (TREE_OPERAND (lhs, 0)),
 		      TREE_OPERAND (lhs, 1));
-      return build2 (COMPOUND_EXPR, lhstype,
-		     lhs,
-		     cp_build_modify_expr (TREE_OPERAND (lhs, 0),
-					   modifycode, rhs, complain));
+      newrhs = cp_build_modify_expr (TREE_OPERAND (lhs, 0),
+				     modifycode, rhs, complain);
+      if (newrhs == error_mark_node)
+	return error_mark_node;
+      return build2 (COMPOUND_EXPR, lhstype, lhs, newrhs);
 
       /* Handle (a, b) used as an "lvalue".  */
     case COMPOUND_EXPR:
@@ -6394,7 +6402,6 @@ build_ptrmemfunc1 (tree type, tree delta, tree pfn)
   CONSTRUCTOR_APPEND_ELT(v, delta_field, delta);
   u = build_constructor (type, v);
   TREE_CONSTANT (u) = TREE_CONSTANT (pfn) & TREE_CONSTANT (delta);
-  TREE_INVARIANT (u) = TREE_INVARIANT (pfn) & TREE_INVARIANT (delta);
   TREE_STATIC (u) = (TREE_CONSTANT (u)
 		     && (initializer_constant_valid_p (pfn, TREE_TYPE (pfn))
 			 != NULL_TREE)
@@ -7132,7 +7139,7 @@ check_return_expr (tree retval, bool *no_warning)
       if (retval == error_mark_node)
 	return retval;
       /* We can't initialize a register from a AGGR_INIT_EXPR.  */
-      else if (! current_function_returns_struct
+      else if (! cfun->returns_struct
 	       && TREE_CODE (retval) == TARGET_EXPR
 	       && TREE_CODE (TREE_OPERAND (retval, 1)) == AGGR_INIT_EXPR)
 	retval = build2 (COMPOUND_EXPR, TREE_TYPE (retval), retval,

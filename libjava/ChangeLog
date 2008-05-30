@@ -1,3 +1,63 @@
+2008-05-28  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Class.java (getSimpleName): Use getEnclosingClass().	
+	* testsuite/libjava.lang/PR35020.java: New cases.
+	* testsuite/libjava.lang/PR35020.out: New cases.
+
+2008-05-22  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/35020
+	* java/lang/Class.java (getSimpleName): Replace incorrect use of
+	String.lastIndexOf(String, int) with String.substring.
+	* testsuite/libjava.lang/PR35020.java: New file.
+	* testsuite/libjava.lang/PR35020.out: New file.
+
+2008-05-22  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/35020
+	* java/lang/Class.java (getSimpleName): Import from GNU Classpath.
+
+2008-05-20  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/36252
+	* java/lang/natString.ccn: Add
+	#include <java/io/CharConversionException.h>.
+	(init (byte[], int, int, String)): Catch and ignore
+	CharConversionException.  Break out of conversion loop
+	on incomplete input.
+	* testsuite/libjava.lang/PR36252.java: New test.
+	* testsuite/libjava.lang/PR36252.out: New file, its expected output.
+	* testsuite/libjava.lang/PR36252.jar: New file, its pre-compiled
+	jar file.
+
+2008-04-19  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/35979:
+	* jni.cc (_Jv_JNI_NewStringUTF): Return NULL if bytes==NULL.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2008-04-16  Andrew Haley  <aph@littlepinkcloud.com>
+
+	* libgcj_bc.c: (_Jv_LookupInterfaceMethod, _Jv_MonitorExit,
+	_Jv_RegisterResource, _Jv_JNI_PopSystemFrame): Add.
+
+2008-04-16  Andrew Haley  <aph@redhat.com>
+
+	* libgcj_bc.c: Sort lines.
+
+2008-04-02  Peter O'Gorman  <pogma@thewrittenword.com>
+
+	PR bootstrap/35216
+	* scripts/makemake.tcl: Replace org/omg build with build of all
+	its subpackages.
+	* sources.am: Regenerate.
+	* Makefile.in: Regenerate.
+
 2008-03-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* Makefile.am (install-data-local): Rewrite to be more efficient,

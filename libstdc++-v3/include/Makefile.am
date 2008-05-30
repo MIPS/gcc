@@ -33,6 +33,7 @@ std_headers = \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
 	${std_srcdir}/complex \
+	${std_srcdir}/condition_variable \
 	${std_srcdir}/date_time \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
@@ -48,6 +49,7 @@ std_headers = \
 	${std_srcdir}/locale \
 	${std_srcdir}/map \
 	${std_srcdir}/memory \
+	${std_srcdir}/mutex \
 	${std_srcdir}/numeric \
 	${std_srcdir}/ostream \
 	${std_srcdir}/queue \
@@ -620,6 +622,7 @@ c_base_headers = \
 	${c_base_srcdir}/csetjmp \
 	${c_base_srcdir}/csignal \
 	${c_base_srcdir}/cstdarg \
+	${c_base_srcdir}/cstdatomic \
 	${c_base_srcdir}/cstdbool \
 	${c_base_srcdir}/cstddef \
 	${c_base_srcdir}/cstdint \
@@ -643,7 +646,8 @@ if GLIBCXX_C_HEADERS_C_GLOBAL
 c_compatibility_headers = \
 	${c_compatibility_srcdir}/complex.h \
 	${c_compatibility_srcdir}/fenv.h \
-	${c_compatibility_srcdir}/tgmath.h 
+	${c_compatibility_srcdir}/tgmath.h \
+	${c_compatibility_srcdir}/stdatomic.h 
 endif
 
 if GLIBCXX_C_HEADERS_C
@@ -704,6 +708,7 @@ debug_headers = \
 # Parallel mode headers
 parallel_srcdir = ${glibcxx_srcdir}/include/parallel
 parallel_builddir = ./parallel
+if ENABLE_PARALLEL
 parallel_headers = \
         ${parallel_srcdir}/algorithm \
         ${parallel_srcdir}/algobase.h \
@@ -749,6 +754,9 @@ parallel_headers = \
         ${parallel_srcdir}/types.h \
         ${parallel_srcdir}/unique_copy.h \
         ${parallel_srcdir}/workstealing.h 
+else
+parallel_headers =
+endif
 
 
 # Some of the different "C" header models need extra files.
@@ -856,72 +864,46 @@ allcreated = \
 # Here are the rules for building the headers
 all-local: ${allstamped} ${allcreated}
 
-# This rule is slightly different, in that we must change the name of the
-# local file from std_foo.h to foo.
+# Ignore errors from 'mkdir -p' to avoid parallel make failure on
+# systems with broken mkdir.  Call mkdir unconditionally because
+# it is just as cheap to avoid going through the shell.
+# Ignore errors from $(LN_S) because the links may already exist.
 stamp-std: ${std_headers}
-	@if [ ! -d "${std_builddir}" ]; then \
-	  mkdir -p ${std_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-std ]; then \
-	  (cd ${std_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-std
+	@-mkdir -p ${std_builddir}
+	@-cd ${std_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-std
 
 stamp-bits: ${bits_headers}
-	@if [ ! -d "${bits_builddir}" ]; then \
-	  mkdir -p ${bits_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-bits ]; then \
-	  (cd ${bits_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-bits
+	@-mkdir -p ${bits_builddir}
+	@-cd ${bits_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-bits
 
-stamp-c_base: ${c_base_headers} 
-	@if [ ! -d "${c_base_builddir}" ]; then \
-	  mkdir -p ${c_base_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-c_base ]; then \
-	  (cd ${c_base_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-c_base
+stamp-c_base: ${c_base_headers}
+	@-mkdir -p ${c_base_builddir}
+	@-cd ${c_base_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-c_base
 
 stamp-c_base_extra: ${c_base_headers_extra}
-	@if [ ! -d "${bits_builddir}" ]; then \
-	  mkdir -p ${bits_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-c_base_extra ]; then \
-	  (cd ${bits_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-c_base_extra
+	@-mkdir -p ${bits_builddir}
+	@-cd ${bits_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-c_base_extra
 
 stamp-c_compatibility: ${c_compatibility_headers_extra}
-	@if [ ! -d "${c_compatibility_builddir}" ]; then \
-	  mkdir -p ${c_compatibility_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-c_compatibility ]; then \
-	  if [ ! -z "${c_compatibility_headers_extra}" ]; then \
-	    (cd ${c_compatibility_builddir} && $(LN_S) $? . || true) ;\
-	  fi ;\
-	fi ;\
-	$(STAMP) stamp-c_compatibility
+	@-mkdir -p ${c_compatibility_builddir}
+	@-if [ ! -z "${c_compatibility_headers_extra}" ]; then \
+	  cd ${c_compatibility_builddir} && $(LN_S) $? . 2>/dev/null ;\
+	fi
+	@$(STAMP) stamp-c_compatibility
 
 stamp-backward: ${backward_headers}
-	@if [ ! -d "${backward_builddir}" ]; then \
-	  mkdir -p ${backward_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-backward ]; then \
-	  (cd ${backward_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-backward
+	@-mkdir -p ${backward_builddir}
+	@-cd ${backward_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-backward
 
 stamp-ext: ${ext_headers}
-	@if [ ! -d "${ext_builddir}" ]; then \
-	    mkdir -p ${ext_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-ext ]; then \
-	  (cd ${ext_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-ext
+	@-mkdir -p ${ext_builddir}
+	@-cd ${ext_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-ext
 
 # Have to deal with nested include directories, gah! Strip off source
 # directory before making the link.
@@ -975,52 +957,33 @@ stamp-pb:
 	$(STAMP) stamp-pb
 
 stamp-tr1: ${tr1_headers}
-	@if [ ! -d "${tr1_builddir}" ]; then \
-	    mkdir -p ${tr1_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-tr1 ]; then \
-	  (cd ${tr1_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-tr1
+	@-mkdir -p ${tr1_builddir}
+	@-cd ${tr1_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-tr1
 
 stamp-tr1-impl: ${tr1_impl_headers}
-	@if [ ! -d "${tr1_impl_builddir}" ]; then \
-	    mkdir -p ${tr1_impl_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-tr1-impl ]; then \
-	  (cd ${tr1_impl_builddir} && $(LN_S) $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-tr1-impl
+	@-mkdir -p ${tr1_impl_builddir}
+	@-cd ${tr1_impl_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-tr1-impl
 
 stamp-debug: ${debug_headers}
-	@if [ ! -d "${debug_builddir}" ]; then \
-	  mkdir -p ${debug_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-debug ]; then \
-	  (cd ${debug_builddir} && @LN_S@ $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-debug
+	@-mkdir -p ${debug_builddir}
+	@-cd ${debug_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-debug
 
 stamp-parallel: ${parallel_headers}
-	@if [ ! -d "${parallel_builddir}" ]; then \
-	  mkdir -p ${parallel_builddir} ;\
-	fi ;\
-	if [ ! -f stamp-parallel ]; then \
-	  (cd ${parallel_builddir} && @LN_S@ $? . || true) ;\
-	fi ;\
-	$(STAMP) stamp-parallel
+	@-mkdir -p ${parallel_builddir}
+	@-cd ${parallel_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-parallel
 
 stamp-${host_alias}:
-	@if [ ! -d ${host_builddir} ]; then \
-	  mkdir -p ${host_builddir} ;\
-	fi ;\
-	$(STAMP) stamp-${host_alias}
+	@-mkdir -p ${host_builddir}
+	@$(STAMP) stamp-${host_alias}
 
 # Host includes static.
 # XXX Missing dependency info for {host_headers_extra}
 stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
-	@if [ ! -f stamp-host ]; then \
-	  (cd ${host_builddir} ;\
+	@cd ${host_builddir} && {\
 	  $(LN_S) ${host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
@@ -1029,8 +992,8 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  $(LN_S) ${glibcxx_srcdir}/$(CLOCALE_INTERNAL_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(COMPATIBILITY_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_H) messages_members.h || true ;\
-	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true);\
-	fi ;\
+	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true;\
+	} 2>/dev/null
 	$(STAMP) stamp-host
 
 # Host includes dynamic.
@@ -1123,34 +1086,22 @@ ${host_builddir}/gthr-default.h: ${toplevel_srcdir}/gcc/${glibcxx_thread_h} \
 
 # Build two precompiled C++ includes, stdc++.h.gch/*.gch
 ${pch1a_output}: ${allstamped} ${host_builddir}/c++config.h ${pch1_source}
-	if [ ! -d "${pch1_output_builddir}" ]; then \
-	  mkdir -p ${pch1_output_builddir}; \
-	fi; \
+	-mkdir -p ${pch1_output_builddir}
 	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O0 -g ${pch1_source} -o $@
-	touch ${pch1_output_anchor}
 
 ${pch1b_output}: ${allstamped} ${host_builddir}/c++config.h ${pch1_source}
-	if [ ! -d "${pch1_output_builddir}" ]; then \
-	  mkdir -p ${pch1_output_builddir}; \
-	fi; \
+	-mkdir -p ${pch1_output_builddir}
 	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch1_source} -o $@
-	touch ${pch1_output_anchor}
 
 # Build a precompiled TR1 include, stdtr1c++.h.gch/O2.gch
 ${pch2_output}: ${pch2_source} ${pch1_output}
-	if [ ! -d "${pch2_output_builddir}" ]; then \
-	  mkdir -p ${pch2_output_builddir}; \
-	fi; \
+	-mkdir -p ${pch2_output_builddir}
 	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch2_source} -o $@
-	touch ${pch2_output_anchor}
 
 # Build a precompiled extension include, extc++.h.gch/O2.gch
 ${pch3_output}: ${pch3_source} ${pch2_output}
-	if [ ! -d "${pch3_output_builddir}" ]; then \
-	  mkdir -p ${pch3_output_builddir}; \
-	fi; \
+	-mkdir -p ${pch3_output_builddir}
 	$(CXX) $(PCHFLAGS) $(AM_CPPFLAGS) -O2 -g ${pch3_source} -o $@
-	touch ${pch3_output_anchor}
 
 # For robustness sake (in light of junk files or in-source
 # configuration), copy from the build or source tree to the install
@@ -1247,8 +1198,10 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
 	for file in ${debug_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
-	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir}
-	for file in ${parallel_headers}; do \
+	parallel_headers_install='${parallel_headers}';\
+	test -z "$$parallel_headers_install" || \
+	  $(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir};\
+	for file in $$parallel_headers_install; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${parallel_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${host_installdir}
 	for file in ${host_headers} ${host_headers_extra} \

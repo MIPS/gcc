@@ -2353,7 +2353,7 @@ ira_build (int loops_p)
   df_analyze ();
 
   allocnos_bitmap = ira_allocate_bitmap ();
-  CLEAR_HARD_REG_SET (cfun->emit->call_used_regs);
+  CLEAR_HARD_REG_SET (crtl->emit.call_used_regs);
   initiate_calls ();
   initiate_cost_vectors ();
   initiate_allocnos ();

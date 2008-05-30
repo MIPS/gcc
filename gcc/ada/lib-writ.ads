@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -77,7 +77,7 @@ package Lib.Writ is
 
    --    Adding entirely new lines (with a new key letter) to the ali
    --    file is always safe, at any point (other than before the V
-   --    line), since suchy lines will be ignored.
+   --    line), since such lines will be ignored.
 
    --  Following the guidelines in this section should ensure that this
    --  problem is minimized and that old tools will be able to deal
@@ -167,7 +167,7 @@ package Lib.Writ is
    --    P <<parameters>>
 
    --      Indicates various information that applies to the compilation
-   --      of the corresponding source unit. Parameters is a sequence of
+   --      of the corresponding source file. Parameters is a sequence of
    --      zero or more two letter codes that indicate configuration
    --      pragmas and other parameters that apply:
    --
@@ -210,10 +210,6 @@ package Lib.Writ is
    --
    --         NS   Normalize_Scalars pragma in effect for all units in
    --              this file.
-   --
-   --         OS   Optimize_Alignment (Space) active for all units in this file
-   --
-   --         OT   Optimize_Alignment (Time) active for all units in this file
    --
    --         Qx   A valid Queueing_Policy pragma applies to all the units
    --              in this file, where x is the first character (upper case)
@@ -399,7 +395,7 @@ package Lib.Writ is
    --  each compilation unit that appears in the corresponding object file.
    --  In particular, when a package body or subprogram body is compiled,
    --  there will be two sets of information, one for the spec and one for
-   --  the body. with the entry for the body appearing first. This is the
+   --  the body, with the entry for the body appearing first. This is the
    --  only case in which a single ALI file contains more than one unit (in
    --  particular note that subunits do *not* count as compilation units for
    --  this purpose, and generate no library information, since they are
@@ -462,7 +458,8 @@ package Lib.Writ is
    --             case usage is detected, or the compiler cannot determine
    --             the style, then no I parameter will appear.
    --
-   --         IS  Initialize_Scalars pragma applies to this unit
+   --         IS  Initialize_Scalars pragma applies to this unit, or else there
+   --             is at least one use of the Invalid_Value attribute.
    --
    --         KM  Unit source uses a style with keywords in mixed case
    --         KU  (KM) or all upper case (KU). If the standard lower-case
@@ -474,6 +471,23 @@ package Lib.Writ is
    --             may or may not have NE set, depending on whether or not
    --             elaboration code is required. Set if N_Compilation_Unit
    --             node has flag Has_No_Elaboration_Code set.
+   --
+   --         OL   The units in this file are compiled with a local pragma
+   --              Optimize_Alignment, so no consistency requirement applies
+   --              to these units. All internal units have this status since
+   --              they have an automatic default of Optimize_Alignment (Off).
+   --
+   --         OO   Optimize_Alignment (Off) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
+   --
+   --         OS   Optimize_Alignment (Space) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
+   --
+   --         OT   Optimize_Alignment (Time) is the default setting for all
+   --              units in this file. All files in the partition that specify
+   --              a default must specify the same default.
    --
    --         PK  Unit is package, rather than a subprogram
    --
@@ -540,7 +554,7 @@ package Lib.Writ is
 
    --  Following the W lines (if any, or the U line if not), are an
    --  optional series of lines that indicates the usage of the pragma
-   --  Linker_Options in the associated unit. For each appearence of a
+   --  Linker_Options in the associated unit. For each appearance of a
    --  pragma Linker_Options (or Link_With) in the unit, a line is
    --  present with the form:
 

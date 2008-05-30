@@ -31,14 +31,14 @@
  *  This is a Standard C++ Library header.
  */
 
-#ifndef _GLIBCXX_CXX0X_TYPE_TRAITS
-#define _GLIBCXX_CXX0X_TYPE_TRAITS 1
+#ifndef _GLIBCXX_TYPE_TRAITS
+#define _GLIBCXX_TYPE_TRAITS 1
 
 #pragma GCC system_header
 
 #ifndef __GXX_EXPERIMENTAL_CXX0X__
 # include <c++0x_warning.h>
-#endif
+#else
 
 #if defined(_GLIBCXX_INCLUDE_AS_TR1)
 #  error C++0x header cannot be included from TR1 header
@@ -553,5 +553,7 @@ namespace std
     struct make_signed<bool>;
 }
 
-#endif  // _GLIBCXX_CXX0X_TYPE_TRAITS 
+#endif  // __GXX_EXPERIMENTAL_CXX0X__
+
+#endif  // _GLIBCXX_TYPE_TRAITS 
 

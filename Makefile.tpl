@@ -23,6 +23,14 @@ in
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 
+# First, test for a proper version of make, but only where one is required.
+
+@if gcc
+ifeq (,$(.VARIABLES)) # The variable .VARIABLES, new with 3.80, is never empty.
+$(error GNU make version 3.80 or newer is required.)
+endif
+@endif gcc
+
 # -------------------------------
 # Standard Autoconf-set variables
 # -------------------------------
@@ -1442,11 +1450,11 @@ stage_current:
 	@if test -f stage_last; then $(unstage); else $(MAKE) stage1-start; fi
 
 .PHONY: restrap
-restrap:
+restrap::
 	@: $(MAKE); $(stage)
 	rm -rf stage1-$(TARGET_SUBDIR) [+ FOR bootstrap-stage +][+ IF prev
 	  +]stage[+id+]-* [+ ENDIF prev +][+ ENDFOR bootstrap-stage +]
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+restrap:: all
 @endif gcc-bootstrap
 
 # --------------------------------------

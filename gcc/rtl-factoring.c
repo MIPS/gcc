@@ -444,15 +444,17 @@ collect_pattern_seqs (void)
   htab_iterator hti0, hti1, hti2;
   p_hash_bucket hash_bucket;
   p_hash_elem e0, e1;
-#ifdef STACK_REGS
+#if defined STACK_REGS || defined HAVE_cc0
   basic_block bb;
-  bitmap_head stack_reg_live;
+  bitmap_head dont_collect;
 
   /* Extra initialization step to ensure that no stack registers (if present)
-     are live across abnormal edges. Set a flag in STACK_REG_LIVE for an insn
-     if a stack register is live after the insn.  */
-  bitmap_initialize (&stack_reg_live, NULL);
+     or cc0 code (if present) are live across abnormal edges.
+     Set a flag in DONT_COLLECT for an insn if a stack register is live
+     after the insn or the insn is cc0 setter or user.  */
+  bitmap_initialize (&dont_collect, NULL);
 
+#ifdef STACK_REGS
   FOR_EACH_BB (bb)
   {
     regset_head live;
@@ -476,7 +478,7 @@ collect_pattern_seqs (void)
 	      {
 		if (REGNO_REG_SET_P (&live, reg))
 		  {
-		    bitmap_set_bit (&stack_reg_live, INSN_UID (insn));
+		    bitmap_set_bit (&dont_collect, INSN_UID (insn));
 		    break;
 		  }
 	      }
@@ -484,7 +486,7 @@ collect_pattern_seqs (void)
 	  }
 	if (insn == BB_HEAD (bb))
 	  break;
-	df_simulate_one_insn_backwards (bb, insn, &live);
+	df_simulate_one_insn (bb, insn, &live);
 	insn = prev;
       }
 
@@ -492,6 +494,28 @@ collect_pattern_seqs (void)
     CLEAR_REG_SET (&live);
   }
 #endif
+
+#ifdef HAVE_cc0
+  /* Mark CC0 setters and users as ineligible for collection into sequences.
+     This is an over-conservative fix, since it is OK to include
+     a cc0_setter, but only if we also include the corresponding cc0_user,
+     and vice versa.  */
+  FOR_EACH_BB (bb)
+  {
+    rtx insn;
+    rtx next_tail;
+
+    next_tail = NEXT_INSN (BB_END (bb));
+
+    for (insn = BB_HEAD (bb); insn != next_tail; insn = NEXT_INSN (insn))
+      {
+	if (INSN_P (insn) && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+	  bitmap_set_bit (&dont_collect, INSN_UID (insn));
+      }
+  }
+#endif
+
+#endif /* defined STACK_REGS || defined HAVE_cc0 */
 
   /* Initialize PATTERN_SEQS to empty.  */
   pattern_seqs = 0;
@@ -505,15 +529,15 @@ collect_pattern_seqs (void)
         FOR_EACH_HTAB_ELEMENT (hash_bucket->seq_candidates, e1, p_hash_elem,
                                hti2)
           if (e0 != e1
-#ifdef STACK_REGS
-              && !bitmap_bit_p (&stack_reg_live, INSN_UID (e0->insn))
-              && !bitmap_bit_p (&stack_reg_live, INSN_UID (e1->insn))
+#if defined STACK_REGS || defined HAVE_cc0
+              && !bitmap_bit_p (&dont_collect, INSN_UID (e0->insn))
+              && !bitmap_bit_p (&dont_collect, INSN_UID (e1->insn))
 #endif
              )
             match_seqs (e0, e1);
-#ifdef STACK_REGS
+#if defined STACK_REGS || defined HAVE_cc0
   /* Free unused data.  */
-  bitmap_clear (&stack_reg_live);
+  bitmap_clear (&dont_collect);
 #endif
 }
 
@@ -552,7 +576,7 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
 
   /* Propagate until INSN if found.  */
   for (x = BB_END (bb); x != insn; x = PREV_INSN (x))
-    df_simulate_one_insn_backwards (bb, x, &live);
+    df_simulate_one_insn (bb, x, &live);
 
   /* Clear registers live after INSN.  */
   renumbered_reg_set_to_hard_reg_set (&hlive, &live);
@@ -562,7 +586,7 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
   for (i = 0; i < length;)
     {
       rtx prev = PREV_INSN (x);
-      df_simulate_one_insn_backwards (bb, x, &live);
+      df_simulate_one_insn (bb, x, &live);
 
       if (INSN_P (x))
         {

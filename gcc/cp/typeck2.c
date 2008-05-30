@@ -713,7 +713,7 @@ digest_init (tree type, tree init)
 
       /* Skip any conversions since we'll be outputting the underlying
 	 constant.  */
-      while (TREE_CODE (*exp) == NOP_EXPR || TREE_CODE (*exp) == CONVERT_EXPR
+      while (CONVERT_EXPR_P (*exp)
 	     || TREE_CODE (*exp) == NON_LVALUE_EXPR)
 	exp = &TREE_OPERAND (*exp, 0);
 
@@ -1081,7 +1081,6 @@ process_init_constructor (tree type, tree init)
   if (!(flags & PICFLAG_NOT_ALL_CONSTANT))
     {
       TREE_CONSTANT (init) = 1;
-      TREE_INVARIANT (init) = 1;
       if (!(flags & PICFLAG_NOT_ALL_SIMPLE))
 	TREE_STATIC (init) = 1;
     }

@@ -463,6 +463,11 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   tree new_var = NULL;
   tree new_var1;
 
+  /* FIXME: Gimplification of complex type is too hard for now.  */
+  if (TREE_CODE (TREE_TYPE (arg0)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (arg1)) == COMPLEX_TYPE)
+    return false;
+
   /* The PHI arguments have the constants 0 and 1, then convert
      it to the conditional.  */
   if ((integer_zerop (arg0) && integer_onep (arg1))
@@ -587,8 +592,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 	  /* Only "real" casts are OK here, not everything that is
 	     acceptable to is_gimple_cast.  Make sure we don't do
 	     anything stupid here.  */
-	  gcc_assert (TREE_CODE (cond) == NOP_EXPR
-		      || TREE_CODE (cond) == CONVERT_EXPR);
+	  gcc_assert (CONVERT_EXPR_P (cond));
 
 	  op0 = TREE_OPERAND (cond, 0);
 	  tmp = create_tmp_var (TREE_TYPE (op0), NULL);

@@ -31,7 +31,8 @@
 ;;  o  Displacement for (mem (plus (reg) (const_int))) operands.
 ;;  p  POST_INC or PRE_DEC address as a pointer (X, Y, Z)
 ;;  r  POST_INC or PRE_DEC address as a register (r26, r28, r30)
-;;  ~  Output 'r' if not AVR_MEGA.
+;;  ~  Output 'r' if not AVR_HAVE_JMP_CALL.
+;;  !  Output 'e' if AVR_HAVE_EIJMP_EICALL.
 ;;  !  Output 'e' if AVR_HAVE_EIJMP_EICALL.
 
 ;; UNSPEC usage:
@@ -74,7 +75,7 @@
 		       (const_string "no"))))
 
 (define_attr "mcu_mega" "yes,no"
-  (const (if_then_else (symbol_ref "AVR_MEGA")
+  (const (if_then_else (symbol_ref "AVR_HAVE_JMP_CALL")
 		       (const_string "yes")
 		       (const_string "no"))))
   
@@ -585,18 +586,6 @@
   "add %A0,%2
 	adc %B0,__zero_reg__"
   [(set_attr "length" "2")
-   (set_attr "cc" "set_n")])
-
-(define_insn "*addhi3_zero_extend2"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(plus:HI
-	 (zero_extend:HI (match_operand:QI 1 "register_operand" "%0"))
-	 (zero_extend:HI (match_operand:QI 2 "register_operand" "r"))))]
-  ""
-  "add %0,%2
-	mov %B0,__zero_reg__
-	adc %B0,__zero_reg__"
-  [(set_attr "length" "3")
    (set_attr "cc" "set_n")])
 
 (define_insn "*addhi3_sp_R_pc2"
@@ -2056,7 +2045,7 @@
   [(set (pc)
         (if_then_else
 	 (match_operator 0 "eqne_operator"
-			 [(zero_extract
+			 [(zero_extract:HI
 			   (match_operand:QI 1 "register_operand" "r")
 			   (const_int 1)
 			   (match_operand 2 "const_int_operand" "n"))
@@ -2123,9 +2112,9 @@
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
   ""
-  [(set (pc) (if_then_else (eq (zero_extract (match_dup 0)
-					     (const_int 1)
-					     (const_int 7))
+  [(set (pc) (if_then_else (eq (zero_extract:HI (match_dup 0)
+						(const_int 1)
+						(const_int 7))
 			       (const_int 0))
 			   (label_ref (match_dup 1))
 			   (pc)))]
@@ -2137,9 +2126,9 @@
 			   (label_ref (match_operand 1 "" ""))
 			   (pc)))]
   ""
-  [(set (pc) (if_then_else (ne (zero_extract (match_dup 0)
-					     (const_int 1)
-					     (const_int 7))
+  [(set (pc) (if_then_else (ne (zero_extract:HI (match_dup 0)
+						(const_int 1)
+						(const_int 7))
 			       (const_int 0))
 			   (label_ref (match_dup 1))
 			   (pc)))]
@@ -2260,7 +2249,7 @@
         (label_ref (match_operand 0 "" "")))]
   ""
   "*{
-  if (AVR_MEGA && get_attr_length (insn) != 1)
+  if (AVR_HAVE_JMP_CALL && get_attr_length (insn) != 1)
     return AS1 (jmp,%0);
   return AS1 (rjmp,%0);
 }"
@@ -2412,7 +2401,7 @@
 			UNSPEC_INDEX_JMP))
    (use (label_ref (match_operand 1 "" "")))
    (clobber (match_dup 0))]
-  "AVR_MEGA && TARGET_CALL_PROLOGUES"
+  "AVR_HAVE_JMP_CALL && TARGET_CALL_PROLOGUES"
   "jmp __tablejump2__"
   [(set_attr "length" "2")
    (set_attr "cc" "clobber")])
@@ -2422,7 +2411,7 @@
 			UNSPEC_INDEX_JMP))
    (use (label_ref (match_operand 1 "" "")))
    (clobber (match_dup 0))]
-  "AVR_MEGA && AVR_HAVE_LPMX"
+  "AVR_HAVE_JMP_CALL && AVR_HAVE_LPMX"
   "lsl r30
 	rol r31
 	lpm __tmp_reg__,Z+
@@ -2518,7 +2507,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "eqne_operator"
-			 [(zero_extract
+			 [(zero_extract:HI
 			   (mem:QI (match_operand 1 "low_io_address_operand" "n"))
 			   (const_int 1)
 			   (match_operand 2 "const_int_operand" "n"))
@@ -2565,7 +2554,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "eqne_operator"
-			 [(zero_extract
+			 [(zero_extract:HI
 			   (mem:QI (match_operand 1 "high_io_address_operand" "n"))
 			   (const_int 1)
 			   (match_operand 2 "const_int_operand" "n"))
@@ -2777,8 +2766,8 @@
    (use (reg:HI REG_X))
    (clobber (reg:HI REG_Z))]
   ""
-  "ldi r30,pm_lo8(1f)
-	ldi r31,pm_hi8(1f)
+  "ldi r30,lo8(gs(1f))
+	ldi r31,hi8(gs(1f))
 	%~jmp __prologue_saves__+((18 - %0) * 2)
 1:"
   [(set_attr_alternative "length"

@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
    won't allow it.  */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
   do {								\
-    if (SIZE != 4)						\
+    if (SIZE != 4 && (!TARGET_64BIT || SIZE != 8))		\
       abort ();							\
 								\
     fputs ("\t.secrel32\t", FILE);				\
@@ -127,7 +127,7 @@ along with GCC; see the file COPYING3.  If not see
 #define REG_PARM_STACK_SPACE(FNDECL) (TARGET_64BIT_MS_ABI ? 32 : 0)
 
 #undef OUTGOING_REG_PARM_STACK_SPACE
-#define OUTGOING_REG_PARM_STACK_SPACE (TARGET_64BIT_MS_ABI ? 1 : 0)
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) (TARGET_64BIT_MS_ABI ? 1 : 0)
 
 #undef REGPARM_MAX
 #define REGPARM_MAX (TARGET_64BIT_MS_ABI ? 4 : 3)
@@ -199,12 +199,12 @@ do {							\
 
 /* Output a reference to a label. Fastcall function symbols
    keep their '@' prefix, while other symbols are prefixed
-   with USER_LABEL_PREFIX.  */
+   with user_label_prefix.  */
 #undef ASM_OUTPUT_LABELREF
 #define  ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   if ((NAME)[0] != FASTCALL_PREFIX)		\
-    fputs (USER_LABEL_PREFIX, (STREAM));	\
+    fputs (user_label_prefix, (STREAM));	\
   fputs ((NAME), (STREAM));			\
 } while (0)
 

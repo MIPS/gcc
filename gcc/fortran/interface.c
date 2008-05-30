@@ -1942,7 +1942,9 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       actual_size = get_expr_storage_size (a->expr);
       formal_size = get_sym_storage_size (f->sym);
-      if (actual_size != 0 && actual_size < formal_size)
+      if (actual_size != 0
+	    && actual_size < formal_size
+	    && a->expr->ts.type != BT_PROCEDURE)
 	{
 	  if (a->expr->ts.type == BT_CHARACTER && !f->sym->as && where)
 	    gfc_warning ("Character length of actual argument shorter "
@@ -2405,13 +2407,13 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
     gfc_warning ("Procedure '%s' called with an implicit interface at %L",
 		 sym->name, where);
 
-  if (sym->interface && sym->interface->attr.intrinsic)
+  if (sym->ts.interface && sym->ts.interface->attr.intrinsic)
     {
       gfc_intrinsic_sym *isym;
-      isym = gfc_find_function (sym->interface->name);
+      isym = gfc_find_function (sym->ts.interface->name);
       if (isym != NULL)
 	{
-	  if (compare_actual_formal_intr (ap, sym->interface))
+	  if (compare_actual_formal_intr (ap, sym->ts.interface))
 	    return;
 	  gfc_error ("Type/rank mismatch in argument '%s' at %L",
 		     sym->name, where);
@@ -2419,8 +2421,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	}
     }
 
-  if (sym->attr.external
-      || sym->attr.if_source == IFSRC_UNKNOWN)
+  if (sym->attr.if_source == IFSRC_UNKNOWN)
     {
       gfc_actual_arglist *a;
       for (a = *ap; a; a = a->next)

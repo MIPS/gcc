@@ -158,7 +158,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 		  {
 		    cpp_errno (pfile, CPP_DL_WARNING,
 			"could not determine file timestamp");
-		    pbuffer->timestamp = U"\"??? ??? ?? ??:??:?? ????\"";
+		    pbuffer->timestamp = UC"\"??? ??? ?? ??:??:?? ????\"";
 		  }
 	      }
 	  }
@@ -256,8 +256,8 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 	      cpp_errno (pfile, CPP_DL_WARNING,
 			 "could not determine date and time");
 		
-	      pfile->date = U"\"??? ?? ????\"";
-	      pfile->time = U"\"??:??:??\"";
+	      pfile->date = UC"\"??? ?? ????\"";
+	      pfile->time = UC"\"??:??:??\"";
 	    }
 	}
 
@@ -375,8 +375,10 @@ stringify_arg (cpp_reader *pfile, macro_arg *arg)
 	  continue;
 	}
 
-      escape_it = (token->type == CPP_STRING || token->type == CPP_WSTRING
-		   || token->type == CPP_CHAR || token->type == CPP_WCHAR);
+      escape_it = (token->type == CPP_STRING || token->type == CPP_CHAR
+		   || token->type == CPP_WSTRING || token->type == CPP_STRING
+		   || token->type == CPP_STRING32 || token->type == CPP_CHAR32
+		   || token->type == CPP_STRING16 || token->type == CPP_CHAR16);
 
       /* Room for each char being written in octal, initial space and
 	 final quote and NUL.  */
@@ -815,6 +817,13 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
 
   pfile->state.angled_headers = false;
 
+  if ((node->flags & NODE_BUILTIN) && !(node->flags & NODE_USED))
+    {
+      node->flags |= NODE_USED;
+      if (pfile->cb.used_define)
+	pfile->cb.used_define (pfile, pfile->directive_line, node);
+    }
+
   /* Handle standard macros.  */
   if (! (node->flags & NODE_BUILTIN))
     {
@@ -853,6 +862,13 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
 
       /* Disable the macro within its expansion.  */
       node->flags |= NODE_DISABLED;
+
+      if (!(node->flags & NODE_USED))
+	{
+	  node->flags |= NODE_USED;
+	  if (pfile->cb.used_define)
+	    pfile->cb.used_define (pfile, pfile->directive_line, node);
+	}
 
       macro->used = 1;
 
@@ -1393,7 +1409,7 @@ _cpp_free_definition (cpp_hashnode *h)
   /* Macros and assertions no longer have anything to free.  */
   h->type = NT_VOID;
   /* Clear builtin flag in case of redefinition.  */
-  h->flags &= ~(NODE_BUILTIN | NODE_DISABLED);
+  h->flags &= ~(NODE_BUILTIN | NODE_DISABLED | NODE_USED);
 }
 
 /* Save parameter NODE to the parameter list of macro MACRO.  Returns

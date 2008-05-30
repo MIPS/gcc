@@ -1,3 +1,119 @@
+
+2008-05-18 Xinliang David Li   <davidxl@google.com>
+
+	* ChangeLog: Remove wrong ChangeLog entry. 
+
+2008-05-17 Xinliang David Li   <davidxl@google.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-05-15  Janus Weil  <janus@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-05-14  Rafael Espindola  <espindola@google.com>
+
+	* config-ml.in: don't handle --enable-shared and --enable-static.
+
+2008-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* MAINTAINERS: Update my email address.
+
+2008-05-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* MAINTAINERS: Update my email address.
+	
+2008-05-03  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-28  Gabriele Svelto  <gabriele.svelto@st.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-25  Pompapathi V Gadad <Pompapathi.V.Gadad@nsc.com>
+
+	* MAINTAINERS (crx): Add myself.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	Sync with src:
+	2008-04-14  David S. Miller  <davem@davemloft.net>
+
+        * configure.ac: Add sparc*-*-* to gold supported targets.
+        * configure: Regenerate.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35457
+	* configure.ac: Include override.m4.
+	* configure: Regenerate.
+
+2008-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+        * Makefile.tpl (restrap): Call `make all' using double-colon rules.
+        * Makefile.in: Regenerate.
+
+2008-04-18  M R Swami Reddy <MR.Swami.Reddy@nsc.com>
+
+        * configure.ac (cr16-*-*): Add case for cr16 target and include gdb
+	as nonconfigurable directories list.
+        * configure: Regenerate.
+
+2008-04-14  Ben Elliston  <bje@au.ibm.com>
+
+	* config.sub, config.guess: Update from upstream sources.
+
+2008-04-12  Hans-Peter Nilsson  <hp@axis.com>
+
+	* Makefile.tpl <gcc>: Error early unless at least GNU make 3.80.
+	* Makefile.in: Regenerate.
+
+2008-04-11  Eric B. Weddington  <eweddington@cso.atmel.com>
+
+	* configure.ac: Do not build libssp for the AVR.
+	* configure: Regenerate.
+
+2008-04-07  Ian Lance Taylor  <iant@google.com>
+
+	* Makefile.def: check-gold depends upon all-binutils.
+	* Makefile.in: Regenerate.
+
+2008-04-04  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-04  Nick Clifton  <nickc@redhat.com>
+
+	PR binutils/4334
+	* configure.ac: Run ACX_CHECK_CYGWIN_CAT_WORKS for cygwin hosted
+	builds.
+	* configure: Regenerate.
+
+2008-04-04  NightStrike  <NightStrike@gmail.com>
+
+	PR other/35151
+        * configure.ac: Combine rules for mingw32 and mingw64.
+        * configure: Regenerate.
+
+2008-04-02  Kai Tietz  <kai.tietz@onvision.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-04-01  Seongbae Park <seongbae.park@gmail.com>
+
+	* Makefile.tpl (.NOTPARALLEL): Revert previous change.
+	* Makefile.in (.NOTPARALLEL): Ditto.
+
+2008-04-01  Peter O'Gorman  <pogma@thewrittenword.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2008-03-31  Seongbae Park <seongbae.park@gmail.com>
+
+	* Makefile.tpl (.NOTPARALLEL): Serialize stageprofile libiberty.
+	* Makefile.in (.NOTPARALLEL): Regenerate.
+
 2008-03-27  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Makefile.tpl (PICFLAG, PICFLAG_FOR_TARGET): Remove.

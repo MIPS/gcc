@@ -1937,6 +1937,8 @@ walk_type (type_p t, struct walk_type_data *d)
       ;
     else if (strcmp (oo->name, "chain_prev") == 0)
       ;
+    else if (strcmp (oo->name, "chain_circular") == 0)
+      ;
     else if (strcmp (oo->name, "reorder") == 0)
       ;
     else
@@ -2355,9 +2357,6 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
       break;
 
     case TYPE_STRING:
-      if (wtd->param_prefix == NULL)
-	break;
-
     case TYPE_STRUCT:
     case TYPE_UNION:
     case TYPE_LANG_STRUCT:
@@ -2414,6 +2413,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   int i;
   const char *chain_next = NULL;
   const char *chain_prev = NULL;
+  const char *chain_circular = NULL;
   const char *mark_hook_name = NULL;
   options_p opt;
   struct walk_type_data d;
@@ -2432,11 +2432,17 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
       chain_next = opt->info;
     else if (strcmp (opt->name, "chain_prev") == 0)
       chain_prev = opt->info;
+    else if (strcmp (opt->name, "chain_circular") == 0)
+      chain_circular = opt->info;
     else if (strcmp (opt->name, "mark_hook") == 0)
       mark_hook_name = opt->info;
 
   if (chain_prev != NULL && chain_next == NULL)
     error_at_line (&s->u.s.line, "chain_prev without chain_next");
+  if (chain_circular != NULL && chain_next != NULL)
+    error_at_line (&s->u.s.line, "chain_circular with chain_next");
+  if (chain_circular != NULL)
+    chain_next = chain_circular;
 
   d.process_field = write_types_process_field;
   d.cookie = wtd;
@@ -2481,7 +2487,10 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
     }
   else
     {
-      oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
+      if (chain_circular != NULL)
+	oprintf (d.of, "  if (!%s (xlimit", wtd->marker_routine);
+      else
+	oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
       if (wtd->param_prefix)
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
@@ -2489,6 +2498,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
+      if (chain_circular != NULL)
+	oprintf (d.of, "    return;\n  do\n");
       if (mark_hook_name && !wtd->skip_hooks)
 	{
 	  oprintf (d.of, "    {\n");
@@ -2524,7 +2535,22 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");
 	}
-      oprintf (d.of, "  while (x != xlimit)\n");
+      if (chain_circular != NULL)
+	{
+	  oprintf (d.of, "  while (%s (xlimit", wtd->marker_routine);
+	  if (wtd->param_prefix)
+	    {
+	      oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
+	      output_mangled_typename (d.of, orig_s);
+	      output_type_enum (d.of, orig_s);
+	    }
+	  oprintf (d.of, "));\n");
+	  if (mark_hook_name && !wtd->skip_hooks)
+	    oprintf (d.of, "  %s (xlimit);\n", mark_hook_name);
+	  oprintf (d.of, "  do\n");
+	}
+      else
+	oprintf (d.of, "  while (x != xlimit)\n");
     }
   oprintf (d.of, "    {\n");
   if (mark_hook_name && chain_next == NULL && !wtd->skip_hooks)
@@ -2543,6 +2569,8 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
     }
 
   oprintf (d.of, "    }\n");
+  if (chain_circular != NULL)
+    oprintf (d.of, "  while (x != xlimit);\n");
   oprintf (d.of, "}\n");
 }
 
@@ -2980,6 +3008,8 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 		skip_p = 1;
 	      else if (strcmp (o->name, "desc") == 0)
 		desc = o->info;
+	      else if (strcmp (o->name, "param_is") == 0)
+		;
 	      else
 		error_at_line (line,
 		       "field `%s' of global `%s' has unknown option `%s'",
@@ -3101,7 +3131,7 @@ write_root (outf_p f, pair_p v, type_p type, const char *name, int has_length,
 	oprintf (f, "    &%s,\n", name);
 	oprintf (f, "    1, \n");
 	oprintf (f, "    sizeof (%s),\n", v->name);
-	oprintf (f, "    &gt_ggc_m_S,\n");
+	oprintf (f, "    (gt_pointer_walker) &gt_ggc_m_S,\n");
 	oprintf (f, "    (gt_pointer_walker) &gt_pch_n_S\n");
 	oprintf (f, "  },\n");
       }

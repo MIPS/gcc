@@ -83,8 +83,6 @@ expressions_equal_p (tree e1, tree e2)
 
     }
   else if (TREE_CODE (e1) == TREE_CODE (e2)
-	   && (te1 == te2
-	       || types_compatible_p (te1, te2))
 	   && operand_equal_p (e1, e2, OEP_PURE_SAME))
     return true;
 
@@ -255,7 +253,7 @@ vn_lookup (tree expr)
       /* In the case of array-refs of constants, for example, we can
 	 end up with no vuses.  */
     case tcc_reference:
-      return vn_reference_lookup (expr, NULL);
+      return vn_reference_lookup (expr, NULL, false);
       break;
       /* It is possible to have CALL_EXPR with no vuses for things
 	 like "cos", and these will fall into vn_lookup.   */
@@ -264,7 +262,7 @@ vn_lookup (tree expr)
     case tcc_expression:
     case tcc_declaration:
       if (TREE_CODE (expr) == CALL_EXPR || DECL_P (expr))
-	return vn_reference_lookup (expr, NULL);
+	return vn_reference_lookup (expr, NULL, false);
       else if (TREE_CODE (expr) == SSA_NAME)
 	return SSA_NAME_VALUE (expr);
       else if (TREE_CODE (expr) == ADDR_EXPR)
@@ -308,7 +306,9 @@ vn_lookup_with_vuses (tree expr, VEC (tree, gc) *vuses)
   if (is_gimple_min_invariant (expr) || TREE_CODE (expr) == FIELD_DECL)
     return expr;
 
-  return vn_reference_lookup (expr, vuses);
+  /* We may not walk the use-def chains here as the alias oracle cannot
+     properly deal with VALUE_HANDLE tree nodes we feed it here.  */
+  return vn_reference_lookup (expr, vuses, false);
 }
 
 static tree

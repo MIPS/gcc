@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans.h"
 #include "trans-const.h"
 #include "trans-types.h"
+#include "target-memory.h"
 
 tree gfc_rank_cst[GFC_MAX_DIMENSIONS + 1];
 
@@ -66,6 +67,8 @@ gfc_build_const (tree type, tree intval)
   return val;
 }
 
+/* Build a string constant with C char type.  */
+
 tree
 gfc_build_string_const (int length, const char *s)
 {
@@ -80,6 +83,36 @@ gfc_build_string_const (int length, const char *s)
 					integer_one_node, len));
   return str;
 }
+
+
+/* Build a string constant with a type given by its kind; take care of
+   non-default character kinds.  */
+
+tree
+gfc_build_wide_string_const (int kind, int length, const gfc_char_t *string)
+{
+  int i;
+  tree str, len;
+  size_t size;
+  char *s;
+
+  i = gfc_validate_kind (BT_CHARACTER, kind, false);
+  size = length * gfc_character_kinds[i].bit_size / 8;
+
+  s = gfc_getmem (size);
+  gfc_encode_character (kind, length, string, (unsigned char *) s, size);
+
+  str = build_string (size, s);
+  gfc_free (s);
+
+  len = build_int_cst (NULL_TREE, length);
+  TREE_TYPE (str) =
+    build_array_type (gfc_get_char_type (kind),
+		      build_range_type (gfc_charlen_type_node,
+					integer_one_node, len));
+  return str;
+}
+
 
 /* Build a Fortran character constant from a zero-terminated string.
    There a two version of this function, one that translates the string
@@ -105,13 +138,14 @@ gfc_build_localized_cstring_const (const char *msgid)
 tree
 gfc_conv_string_init (tree length, gfc_expr * expr)
 {
-  char *s;
+  gfc_char_t *s;
   HOST_WIDE_INT len;
   int slen;
   tree str;
+  bool free_s = false;
 
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
-  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+  gcc_assert (expr->ts.type == BT_CHARACTER);
   gcc_assert (INTEGER_CST_P (length));
   gcc_assert (TREE_INT_CST_HIGH (length) == 0);
 
@@ -120,14 +154,18 @@ gfc_conv_string_init (tree length, gfc_expr * expr)
 
   if (len > slen)
     {
-      s = gfc_getmem (len);
-      memcpy (s, expr->value.character.string, slen);
-      memset (&s[slen], ' ', len - slen);
-      str = gfc_build_string_const (len, s);
-      gfc_free (s);
+      s = gfc_get_wide_string (len);
+      memcpy (s, expr->value.character.string, slen * sizeof (gfc_char_t));
+      gfc_wide_memset (&s[slen], ' ', len - slen);
+      free_s = true;
     }
   else
-    str = gfc_build_string_const (len, expr->value.character.string);
+    s = expr->value.character.string;
+
+  str = gfc_build_wide_string_const (expr->ts.kind, len, s);
+
+  if (free_s)
+    gfc_free (s);
 
   return str;
 }
@@ -214,6 +252,8 @@ gfc_conv_tree_to_mpfr (mpfr_ptr f, tree source)
 tree
 gfc_conv_constant_to_tree (gfc_expr * expr)
 {
+  tree res;
+
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
   /* If it is has a prescribed memory representation, we build a string
@@ -267,8 +307,10 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 	}
 
     case BT_CHARACTER:
-      return gfc_build_string_const (expr->value.character.length,
-				     expr->value.character.string);
+      res = gfc_build_wide_string_const (expr->ts.kind,
+					 expr->value.character.length,
+					 expr->value.character.string);
+      return res;
 
     case BT_HOLLERITH:
       return gfc_build_string_const (expr->representation.length,

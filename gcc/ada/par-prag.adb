@@ -234,7 +234,8 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
          elsif Id = Name_No_Dependence then
             Set_Restriction_No_Dependence
               (Unit => Expr,
-               Warn => Prag_Id = Pragma_Restriction_Warnings);
+               Warn => Prag_Id = Pragma_Restriction_Warnings
+                         or else Treat_Restrictions_As_Warnings);
          end if;
 
          Next (Arg);
@@ -527,7 +528,7 @@ begin
             --  Process Casing argument of pattern form of pragma
 
             procedure Process_Dot_Replacement (Arg : Node_Id);
-            --  Process Dot_Replacement argument of patterm form of pragma
+            --  Process Dot_Replacement argument of pattern form of pragma
 
             ---------------
             -- Get_Fname --
@@ -1053,7 +1054,9 @@ begin
            Pragma_Atomic                        |
            Pragma_Atomic_Components             |
            Pragma_Attach_Handler                |
+           Pragma_Check                         |
            Pragma_Check_Name                    |
+           Pragma_Check_Policy                  |
            Pragma_CIL_Constructor               |
            Pragma_Compile_Time_Error            |
            Pragma_Compile_Time_Warning          |
@@ -1141,6 +1144,8 @@ begin
            Pragma_Preelaborable_Initialization  |
            Pragma_Polling                       |
            Pragma_Persistent_BSS                |
+           Pragma_Postcondition                 |
+           Pragma_Precondition                  |
            Pragma_Preelaborate                  |
            Pragma_Preelaborate_05               |
            Pragma_Priority                      |
@@ -1153,6 +1158,7 @@ begin
            Pragma_Pure_05                       |
            Pragma_Pure_Function                 |
            Pragma_Queuing_Policy                |
+           Pragma_Relative_Deadline             |
            Pragma_Remote_Call_Interface         |
            Pragma_Remote_Types                  |
            Pragma_Restricted_Run_Time           |

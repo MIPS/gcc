@@ -229,7 +229,7 @@ struct store_info
   /* An bitmask as wide as the number of bytes in the word that
      contains a 1 if the byte may be needed.  The store is unused if
      all of the bits are 0.  */
-  long positions_needed;
+  unsigned HOST_WIDE_INT positions_needed;
 
   /* The next store info for this insn.  */
   struct store_info *next;
@@ -239,6 +239,15 @@ struct store_info
      basic block.  */
   rtx rhs;  
 };
+
+/* Return a bitmask with the first N low bits set.  */
+
+static unsigned HOST_WIDE_INT
+lowpart_bitmask (int n)
+{
+  unsigned HOST_WIDE_INT mask = ~(unsigned HOST_WIDE_INT) 0;
+  return mask >> (HOST_BITS_PER_WIDE_INT - n);
+}
 
 typedef struct store_info *store_info_t;
 static alloc_pool cse_store_info_pool;
@@ -522,11 +531,8 @@ struct clear_alias_mode_holder
 
 static alloc_pool clear_alias_mode_pool;
 
-/* This is true except for two cases:
-   (1) current_function_stdarg -- i.e. we cannot do this 
-       for vararg functions because they play games with the frame.  
-   (2) In ada, it is sometimes not safe to do assume that any stores
-       based off the stack frame go dead at the exit to a function.  */
+/* This is true except if cfun->stdarg -- i.e. we cannot do
+   this for vararg functions because they play games with the frame.  */
 static bool stores_off_frame_dead_at_return;
 
 /* Counter for stats.  */
@@ -712,10 +718,7 @@ dse_step0 (void)
   bb_table = XCNEWVEC (bb_info_t, last_basic_block);
   rtx_group_next_id = 0;
 
-  stores_off_frame_dead_at_return = 
-    (!(TREE_CODE (TREE_TYPE (current_function_decl)) == FUNCTION_TYPE
-       && (TYPE_RETURNS_STACK_DEPRESSED (TREE_TYPE (current_function_decl)))))
-    && (!current_function_stdarg);
+  stores_off_frame_dead_at_return = !cfun->stdarg;
 
   init_alias_analysis ();
   
@@ -1314,7 +1317,7 @@ record_store (rtx body, bb_info_t bb_info)
 	      && (GET_MODE (mem) == entry->mode))
 	    {
 	      delete = true;
-	      s_info->positions_needed = 0;
+	      s_info->positions_needed = (unsigned HOST_WIDE_INT) 0;
 	    }
 	  if (dump_file)
 	    fprintf (dump_file, "    trying spill store in insn=%d alias_set=%d\n",
@@ -1330,7 +1333,8 @@ record_store (rtx body, bb_info_t bb_info)
 		     (int)s_info->begin, (int)s_info->end);
 	  for (i = offset; i < offset+width; i++)
 	    if (i >= s_info->begin && i < s_info->end)
-	      s_info->positions_needed &= ~(1L << (i - s_info->begin));
+	      s_info->positions_needed
+		&= ~(((unsigned HOST_WIDE_INT) 1) << (i - s_info->begin));
 	}
       else if (s_info->rhs)
 	/* Need to see if it is possible for this store to overwrite
@@ -1346,7 +1350,7 @@ record_store (rtx body, bb_info_t bb_info)
       
       /* An insn can be deleted if every position of every one of
 	 its s_infos is zero.  */
-      if (s_info->positions_needed != 0)
+      if (s_info->positions_needed != (unsigned HOST_WIDE_INT) 0)
 	delete = false;
       
       if (delete)
@@ -1366,7 +1370,7 @@ record_store (rtx body, bb_info_t bb_info)
       ptr = next;
     }
   
-  gcc_assert ((unsigned) width < sizeof (store_info->positions_needed) * CHAR_BIT);
+  gcc_assert ((unsigned) width <= HOST_BITS_PER_WIDE_INT);
   
   /* Finish filling in the store_info.  */
   store_info->next = insn_info->store_rec;
@@ -1375,7 +1379,7 @@ record_store (rtx body, bb_info_t bb_info)
   store_info->alias_set = spill_alias_set;
   store_info->mem_addr = get_addr (XEXP (mem, 0));
   store_info->cse_base = base;
-  store_info->positions_needed = (1L << width) - 1;
+  store_info->positions_needed = lowpart_bitmask (width);
   store_info->group_id = group_id;
   store_info->begin = offset;
   store_info->end = offset + width;
@@ -1442,7 +1446,7 @@ find_shift_sequence (int access_size,
        new_mode = GET_MODE_WIDER_MODE (new_mode))
     {
       rtx target, new_reg, shift_seq, insn, new_lhs;
-      int cost;
+      int cost, offset;
 
       /* Try a wider mode if truncating the store mode to NEW_MODE
 	 requires a real instruction.  */
@@ -1456,8 +1460,9 @@ find_shift_sequence (int access_size,
       if (!CONSTANT_P (store_info->rhs)
 	  && !MODES_TIEABLE_P (new_mode, store_mode))
 	continue;
+      offset = subreg_lowpart_offset (new_mode, store_mode);
       new_lhs = simplify_gen_subreg (new_mode, copy_rtx (store_info->rhs),
-				     store_mode, 0);
+				     store_mode, offset);
       if (new_lhs == NULL_RTX)
 	continue;
 
@@ -1807,8 +1812,10 @@ check_mem_read_rtx (rtx *loc, void *data)
 		      && (offset >= store_info->begin)
 		      && (offset + width <= store_info->end))
 		    {
-		      int mask = ((1L << width) - 1) << (offset - store_info->begin);
-		      
+		      unsigned HOST_WIDE_INT mask
+			= (lowpart_bitmask (width)
+			   << (offset - store_info->begin));
+
 		      if ((store_info->positions_needed & mask) == mask
 			  && replace_read (store_info, i_ptr, 
 					   read_info, insn_info, loc))
@@ -1874,8 +1881,10 @@ check_mem_read_rtx (rtx *loc, void *data)
 	      && (offset >= store_info->begin)
 	      && (offset + width <= store_info->end))
 	    {
-	      int mask = ((1L << width) - 1) << (offset - store_info->begin);
-	      
+	      unsigned HOST_WIDE_INT mask
+		= (lowpart_bitmask (width)
+		   << (offset - store_info->begin));
+
 	      if ((store_info->positions_needed & mask) == mask
 		  && replace_read (store_info, i_ptr, 
 				   read_info, insn_info, loc))
@@ -1958,7 +1967,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
       /* Const functions cannot do anything bad i.e. read memory,
 	 however, they can read their parameters which may have
 	 been pushed onto the stack.  */
-      if (CONST_OR_PURE_CALL_P (insn) && !pure_call_p (insn))
+      if (RTL_CONST_CALL_P (insn))
 	{
 	  insn_info_t i_ptr = active_local_stores;
 	  insn_info_t last = NULL;
@@ -2154,7 +2163,7 @@ dse_step1 (void)
 	      && (EDGE_COUNT (bb->succs) == 0
 		  || (single_succ_p (bb)
 		      && single_succ (bb) == EXIT_BLOCK_PTR
-		      && ! current_function_calls_eh_return)))
+		      && ! crtl->calls_eh_return)))
 	    {
 	      insn_info_t i_ptr = active_local_stores;
 	      while (i_ptr)

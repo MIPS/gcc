@@ -1099,7 +1099,8 @@ m32c_return_addr_rtx (int count)
 
   if (TARGET_A24)
     {
-      mode = SImode;
+      /* It's four bytes */
+      mode = PSImode;
       offset = 4;
     }
   else
@@ -1251,7 +1252,7 @@ need_to_save (int regno)
 {
   if (fixed_regs[regno])
     return 0;
-  if (cfun->calls_eh_return)
+  if (crtl->calls_eh_return)
     return 1;
   if (regno == FP_REGNO)
     return 0;
@@ -1281,11 +1282,11 @@ m32c_pushm_popm (Push_Pop_Type ppt)
   int n_dwarfs = 0;
   int nosave_mask = 0;
 
-  if (cfun->return_rtx
-      && GET_CODE (cfun->return_rtx) == PARALLEL
-      && !(cfun->calls_eh_return || cfun->machine->is_interrupt))
+  if (crtl->return_rtx
+      && GET_CODE (crtl->return_rtx) == PARALLEL
+      && !(crtl->calls_eh_return || cfun->machine->is_interrupt))
     {
-      rtx exp = XVECEXP (cfun->return_rtx, 0, 0);
+      rtx exp = XVECEXP (crtl->return_rtx, 0, 0);
       rtx rv = XEXP (exp, 0);
       int rv_bytes = GET_MODE_SIZE (GET_MODE (rv));
 
@@ -2199,16 +2200,36 @@ m32c_rtx_costs (rtx x, int code, int outer_code, int *total)
 static int
 m32c_address_cost (rtx addr)
 {
+  int i;
   /*  fprintf(stderr, "\naddress_cost\n");
       debug_rtx(addr);*/
   switch (GET_CODE (addr))
     {
     case CONST_INT:
-      return COSTS_N_INSNS(1);
+      i = INTVAL (addr);
+      if (i == 0)
+	return COSTS_N_INSNS(1);
+      if (0 < i && i <= 255)
+	return COSTS_N_INSNS(2);
+      if (0 < i && i <= 65535)
+	return COSTS_N_INSNS(3);
+      return COSTS_N_INSNS(4);
     case SYMBOL_REF:
-      return COSTS_N_INSNS(3);
+      return COSTS_N_INSNS(4);
     case REG:
-      return COSTS_N_INSNS(2);
+      return COSTS_N_INSNS(1);
+    case PLUS:
+      if (GET_CODE (XEXP (addr, 1)) == CONST_INT)
+	{
+	  i = INTVAL (XEXP (addr, 1));
+	  if (i == 0)
+	    return COSTS_N_INSNS(1);
+	  if (0 < i && i <= 255)
+	    return COSTS_N_INSNS(2);
+	  if (0 < i && i <= 65535)
+	    return COSTS_N_INSNS(3);
+	}
+      return COSTS_N_INSNS(4);
     default:
       return 0;
     }
@@ -3889,20 +3910,20 @@ m32c_leaf_function_p (void)
   struct sequence_stack *seq;
   int rv;
 
-  saved_first = cfun->emit->x_first_insn;
-  saved_last = cfun->emit->x_last_insn;
-  for (seq = cfun->emit->sequence_stack; seq && seq->next; seq = seq->next)
+  saved_first = crtl->emit.x_first_insn;
+  saved_last = crtl->emit.x_last_insn;
+  for (seq = crtl->emit.sequence_stack; seq && seq->next; seq = seq->next)
     ;
   if (seq)
     {
-      cfun->emit->x_first_insn = seq->first;
-      cfun->emit->x_last_insn = seq->last;
+      crtl->emit.x_first_insn = seq->first;
+      crtl->emit.x_last_insn = seq->last;
     }
 
   rv = leaf_function_p ();
 
-  cfun->emit->x_first_insn = saved_first;
-  cfun->emit->x_last_insn = saved_last;
+  crtl->emit.x_first_insn = saved_first;
+  crtl->emit.x_last_insn = saved_last;
   return rv;
 }
 
@@ -3918,7 +3939,7 @@ m32c_function_needs_enter (void)
   rtx fb = gen_rtx_REG (Pmode, FB_REGNO);
 
   insn = get_insns ();
-  for (seq = cfun->emit->sequence_stack;
+  for (seq = crtl->emit.sequence_stack;
        seq;
        insn = seq->first, seq = seq->next);
 

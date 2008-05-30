@@ -97,7 +97,7 @@ initialize_inline_failed (struct cgraph_node *node)
 			   "considered for inlining");
       else if (!node->local.inlinable)
 	e->inline_failed = N_("function not inlinable");
-      else if (CALL_CANNOT_INLINE_P (e->call_stmt))
+      else if (CALL_STMT_CANNOT_INLINE_P (e->call_stmt))
 	e->inline_failed = N_("mismatched arguments");
       else
 	e->inline_failed = N_("function not considered for inlining");
@@ -152,7 +152,7 @@ build_cgraph_edges (void)
       }
 
   /* Look for initializers of constant variables and private statics.  */
-  for (step = cfun->unexpanded_var_list;
+  for (step = cfun->local_decls;
        step;
        step = TREE_CHAIN (step))
     {

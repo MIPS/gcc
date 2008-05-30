@@ -1,7 +1,7 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007 Free Software Foundation, Inc.
+   2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -658,7 +658,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
   /* We do not construct an accurate cfg in functions which call
      setjmp, so just punt to be safe.  */
-  if (current_function_calls_setjmp)
+  if (cfun->calls_setjmp)
     return 0;
 
   /* Assume that we do not need to run jump optimizations after gcse.  */
@@ -1692,12 +1692,25 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
       unsigned int regno = REGNO (dest);
       rtx tmp;
 
-      /* See if a REG_NOTE shows this equivalent to a simpler expression.
+      /* See if a REG_EQUAL note shows this equivalent to a simpler expression.
+
 	 This allows us to do a single GCSE pass and still eliminate
 	 redundant constants, addresses or other expressions that are
-	 constructed with multiple instructions.  */
+	 constructed with multiple instructions.
+
+	 However, keep the original SRC if INSN is a simple reg-reg move.  In
+	 In this case, there will almost always be a REG_EQUAL note on the
+	 insn that sets SRC.  By recording the REG_EQUAL value here as SRC
+	 for INSN, we miss copy propagation opportunities and we perform the
+	 same PRE GCSE operation repeatedly on the same REG_EQUAL value if we
+	 do more than one PRE GCSE pass.
+
+	 Note that this does not impede profitale constant propagations.  We
+	 "look through" reg-reg sets in lookup_avail_set.  */
       note = find_reg_equal_equiv_note (insn);
       if (note != 0
+	  && REG_NOTE_KIND (note) == REG_EQUAL
+	  && !REG_P (src)
 	  && (table->set_p
 	      ? gcse_constant_p (XEXP (note, 0))
 	      : want_to_gcse_p (XEXP (note, 0))))
@@ -2312,7 +2325,7 @@ oprs_not_set_p (const_rtx x, const_rtx insn)
 static void
 mark_call (rtx insn)
 {
-  if (! CONST_OR_PURE_CALL_P (insn))
+  if (! RTL_CONST_OR_PURE_CALL_P (insn))
     record_last_mem_set_info (insn);
 }
 
@@ -4466,8 +4479,7 @@ pre_delete (void)
 		   expressions into.  Get the mode for the new pseudo from
 		   the mode of the original destination pseudo.  */
 		if (expr->reaching_reg == NULL)
-		  expr->reaching_reg
-		    = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+		  expr->reaching_reg = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		delete_insn (insn);
@@ -4991,7 +5003,7 @@ hoist_code (void)
 			 from the mode of the original destination pseudo.  */
 		      if (expr->reaching_reg == NULL)
 			expr->reaching_reg
-			  = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+			  = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		      gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		      delete_insn (insn);
@@ -6000,7 +6012,7 @@ store_killed_in_insn (const_rtx x, const_rtx x_regs, const_rtx insn, int after)
     {
       /* A normal or pure call might read from pattern,
 	 but a const call will not.  */
-      if (! CONST_OR_PURE_CALL_P (insn) || pure_call_p (insn))
+      if (!RTL_CONST_CALL_P (insn))
 	return true;
 
       /* But even a const call reads its parameters.  Check whether the
@@ -6133,7 +6145,7 @@ build_store_vectors (void)
 	     are any side effects.  */
 	  if (TEST_BIT (ae_gen[bb->index], ptr->index))
 	    {
-	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
+	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
 		fprintf (dump_file, "Removing redundant store:\n");
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
@@ -6456,7 +6468,7 @@ delete_store (struct ls_expr * expr, basic_block bb)
   rtx reg, i, del;
 
   if (expr->reaching_reg == NULL_RTX)
-    expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+    expr->reaching_reg = gen_reg_rtx_and_attrs (expr->pattern);
 
   reg = expr->reaching_reg;
 
@@ -6588,7 +6600,7 @@ bypass_jumps (void)
 
   /* We do not construct an accurate cfg in functions which call
      setjmp, so just punt to be safe.  */
-  if (current_function_calls_setjmp)
+  if (cfun->calls_setjmp)
     return 0;
 
   /* Identify the basic block information for this function, including

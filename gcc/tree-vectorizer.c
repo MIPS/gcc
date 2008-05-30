@@ -1806,12 +1806,12 @@ get_vectype_for_scalar_type (tree scalar_type)
   int nunits;
   tree vectype;
 
-  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD)
+  if (nbytes == 0 || nbytes >= UNITS_PER_SIMD_WORD (inner_mode))
     return NULL_TREE;
 
-  /* FORNOW: Only a single vector size per target (UNITS_PER_SIMD_WORD)
+  /* FORNOW: Only a single vector size per mode (UNITS_PER_SIMD_WORD)
      is expected.  */
-  nunits = UNITS_PER_SIMD_WORD / nbytes;
+  nunits = UNITS_PER_SIMD_WORD (inner_mode) / nbytes;
 
   vectype = build_vector_type (scalar_type, nunits);
   if (vect_print_dump_info (REPORT_DETAILS))
@@ -1937,11 +1937,13 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 	  && (!targetm.vectorize.builtin_mask_for_load
 	      || targetm.vectorize.builtin_mask_for_load ()))
 	{
-	    if (nested_in_vect_loop
-		&& TREE_INT_CST_LOW (DR_STEP (dr)) != UNITS_PER_SIMD_WORD)
-	      return dr_explicit_realign;
-	    else
-	      return dr_explicit_realign_optimized;
+	  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+	  if (nested_in_vect_loop
+	      && (TREE_INT_CST_LOW (DR_STEP (dr))
+		  != GET_MODE_SIZE (TYPE_MODE (vectype))))
+	    return dr_explicit_realign;
+	  else
+	    return dr_explicit_realign_optimized;
 	}
 
       if (optab_handler (movmisalign_optab, mode)->insn_code != 
@@ -2172,8 +2174,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
         }
       break;
 
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       if (BYTES_BIG_ENDIAN)
         {
           c1 = VEC_UNPACK_HI_EXPR;
@@ -2212,13 +2213,13 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
   if (code == FIX_TRUNC_EXPR)
     {
       /* The signedness is determined from output operand.  */
-      optab1 = optab_for_tree_code (c1, type);
-      optab2 = optab_for_tree_code (c2, type);
+      optab1 = optab_for_tree_code (c1, type, optab_default);
+      optab2 = optab_for_tree_code (c2, type, optab_default);
     }
   else
     {
-      optab1 = optab_for_tree_code (c1, vectype);
-      optab2 = optab_for_tree_code (c2, vectype);
+      optab1 = optab_for_tree_code (c1, vectype, optab_default);
+      optab2 = optab_for_tree_code (c2, vectype, optab_default);
     }
 
   if (!optab1 || !optab2)
@@ -2267,8 +2268,7 @@ supportable_narrowing_operation (enum tree_code code,
 
   switch (code)
     {
-    case NOP_EXPR:
-    case CONVERT_EXPR:
+    CASE_CONVERT:
       c1 = VEC_PACK_TRUNC_EXPR;
       break;
 
@@ -2287,9 +2287,9 @@ supportable_narrowing_operation (enum tree_code code,
 
   if (code == FIX_TRUNC_EXPR)
     /* The signedness is determined from output operand.  */
-    optab1 = optab_for_tree_code (c1, type);
+    optab1 = optab_for_tree_code (c1, type, optab_default);
   else
-    optab1 = optab_for_tree_code (c1, vectype);
+    optab1 = optab_for_tree_code (c1, vectype, optab_default);
 
   if (!optab1)
     return false;
@@ -2693,6 +2693,7 @@ vectorize_loops (void)
     }
   vect_loop_location = UNKNOWN_LOC;
 
+  statistics_counter_event (cfun, "Vectorized loops", num_vectorized_loops);
   if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS)
       || (vect_print_dump_info (REPORT_VECTORIZED_LOOPS)
 	  && num_vectorized_loops > 0))

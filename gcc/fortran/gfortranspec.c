@@ -175,6 +175,8 @@ lookup_option (Option *xopt, int *xskip, const char **xarg, const char *text)
     opt = OPTION_v, skip = 0;
   else if (text[1] == 'x')
     opt = OPTION_x, arg = text + 2;
+  else if (text[1] == 'J')
+    ;
   else
     {
       if ((skip = WORD_SWITCH_TAKES_ARG (text + 1)) != 0)  /* See gcc.c.  */
@@ -427,18 +429,27 @@ For more information about these matters, see the file named COPYING\n\n"));
 	{
 	  char *p;
 
+	  fprintf (stderr, _("Warning: Using -M <directory> is deprecated, "
+	           "use -J instead\n"));
 	  if (argv[i][2] == '\0')
 	    {
-	      p = XNEWVEC (char, strlen (argv[i + 1]) + 2);
-	      p[0] = '-';
-	      p[1] = 'J';
-	      strcpy (&p[2], argv[i + 1]);
-	      i++;
+	      if (i+1 < argc)
+		{
+		  p = XNEWVEC (char, strlen (argv[i + 1]) + 3);
+		  p[0] = '-';
+		  p[1] = 'J';
+		  strcpy (&p[2], argv[i + 1]);
+		  i++;
+		}
+	      else
+		fatal ("argument to '%s' missing", argv[i]);
 	    }
 	  else
 	    {
 	      p = XNEWVEC (char, strlen (argv[i]) + 1);
-	      strcpy (p, argv[i]);
+	      p[0] = '-';
+	      p[1] = 'J';
+	      strcpy (&p[2], argv[i] + 2);
 	    }
 	  append_arg (p);
 	  continue;

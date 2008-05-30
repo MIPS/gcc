@@ -721,7 +721,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	  /* No need to record conflicts for call clobbered regs if we
 	     have nonlocal labels around, as we don't ever try to
 	     allocate such regs in this case.  */
-	  if (! current_function_has_nonlocal_label)
+	  if (!cfun->has_nonlocal_label)
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
 	      if (call_used_regs[px])
 		make_regno_born_and_dead (px);
@@ -768,7 +768,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 	      HARD_REG_SET clobbered_regs;
 	      
 	      get_call_invalidated_used_regs (insn, &clobbered_regs, FALSE);
-	      IOR_HARD_REG_SET (cfun->emit->call_used_regs, clobbered_regs);
+	      IOR_HARD_REG_SET (crtl->emit.call_used_regs, clobbered_regs);
 	      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 	        {
 		  allocno_t a = allocnos[i];
@@ -780,7 +780,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
 		  ALLOCNO_CALLS_CROSSED_NUM (a)++;
 		  /* Don't allocate allocnos that cross calls, if this
 		     function receives a nonlocal goto.  */
-		  if (current_function_has_nonlocal_label)
+		  if (cfun->has_nonlocal_label)
 		    {
 		      SET_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
 		      SET_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
