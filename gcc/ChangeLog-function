@@ -1,3 +1,109 @@
+2008-05-29  Michael Meissner  <michael.meissner@amd.com>
+
+	* tree.h (DECL_TARGET_SPECIFIC): New accessor macro.
+	(struct function_decl): Add target_specific field.
+
+	* target.h (struct target_specific): Delete push_options and
+	pop_options hook.  Add validate hook.
+
+	* toplev.c (process_options): Delete preserving target specific
+	options.
+	(toplev_main): Delete initialize_attribute_options call.
+
+	* target-specific.c (struct cl_attr_stack): Delete stacking and
+	saving options.
+	(cl_option_top): Ditto.
+	(target_specific_push): Delete.
+	(target_specific_pop): Ditto.
+	(driver_push_set_options): Ditto.
+	(driver_pop_options): Ditto.
+	(target_specific_qsort): Ditto.
+	(target_specific_count_args): Simplify, remove counting string
+	size.
+	(target_specific_build_args): Rewrite, make caller allocate argv
+	array.
+	(handle_option_attribute): Change to use validate hook.  Add ifdef
+	in case port does not support target specific options.  Change to
+	new calling sequence of target_specific_build_args.
+	(default_target_specific_can_inline_p): Only check whether the
+	target specific pointer is the same or not.
+	(pass_push_set_options): Delete, change to use set current
+	function hook.
+	(pass_pop_options): Ditto.
+
+	* ipa-inline.c (cgraph_decide_inling_of_small_function): Set
+	CALL_CANNOT_INLINE_P if the target specific option hook indicates
+	we should not inline the functions.
+	(cgraph_decide_inling_incrementally): Ditto.
+
+	* opts.h (initialize_attribute_options): Delete.
+
+	* optc-gen.awk: Rewrite attribute support so we provide functions
+	to save/restore the attributes instead of a global structure.
+	* opth-gen.awk: Ditto.
+
+	* c-decl.c (merge_decls): Merge target specific data.
+
+	* coretypes.h (struct cl_option_attr): Add forward reference.
+	(struct target_specific_data): Ditto.
+
+	* print-tree.c (print_node): Print out if the function has target
+	specific data.
+
+	* common.opt (-falign-functions): Remove option Attribute.
+	(-falign-functions=): Ditto.
+	(-falign-jumps): Ditto.
+	(-falign-jumps=): Ditto.
+	(-falign-labels): Ditto.
+	(-falign-labels=): Ditto.
+	(-falign-loops): Ditto.
+	(-falign-loops=): Ditto.
+
+	* target-def.h (TARGET_TARGET_SPECIFIC_PUSH): Delete.
+	(TARGET_TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_TARGET_SPECIFIC_VALIDATE): New hook.
+	(TARGET_TARGET_SPECIFIC): Update hooks.
+
+	* passes.c (pass_rest_of_compilation): Remove
+	pass_push_set_options and pass_pop_options.
+
+	* config/i386/i386.h (TARGET_TARGET_SPECIFIC_PUSH): Delete.
+	(TARGET_TARGET_SPECIFIC_POP): Ditto.
+	(TARGET_TARGET_SPECIFIC_VALIDATE): Define to
+	ix86_target_specific_validate.
+	(struct machine_function): Delete unused fields added previously.
+	(struct machine_option_attr): New structure to collect target
+	specific information not in the cl_option_attr structure.
+	(struct targe_specific_data): Collect all of the target specific
+	data in one place.
+
+	* config/i386/i386.opt (-mfpmath=): Make attribute option.
+	(-mabm): Add VarExists.
+
+	* config/i386/i386-protos.h (ix86_target_specific_push): Delete.
+	(ix86_target_specific_pop): Ditto.
+	(ix86_target_specific_validate): New declaration.
+
+	* config/i386/i386.c (ix86_target_specific_save): New function to
+	save target specific options.
+	(ix86_target_specific_restore): New function to restore target
+	specific options.
+	(struct ptt): Move to toplevel from override_options.
+	(processor_target_table): Ditto.
+	(ix86_tune_defaulted): Ditto.
+	(ix86_arch_specified): Ditto.
+	(cpu_names): Ditto.
+	(ix86_debug_option): Temporary debug function.
+	(override_options): Improve error message for attribute(option).
+	Save current options if this is the main function.
+	(ix86_target_specific_validate): New function to validate
+	attribute(option).
+	(ix86_target_specific_push): Delete.
+	(ix86_target_specific_pop): Ditto.
+	(ix86_target_specific_can_inline_p): New function, validate
+	whether one function can inline another.
+	(ix86_set_current_function): Rewrite to properly switch options.
+	
 2008-05-23  Michael Meissner  <michael.meissner@amd.com>
 
 	* target.h (struct target_specific): Change can_inline_p hook to
