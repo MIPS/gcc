@@ -189,6 +189,7 @@ static gimple
 gimple_alloc (enum gimple_code code)
 {
   size_t size = gimple_size (code);
+  gimple stmt;
 
 #ifdef GATHER_STATISTICS
   enum gimple_alloc_kind kind = gimple_alloc_kind (code);
@@ -198,7 +199,7 @@ gimple_alloc (enum gimple_code code)
   gimple_alloc_sizes[(int) kind] += size;
 #endif
 
-  gimple stmt = ggc_alloc_cleared (size);
+  stmt = ggc_alloc_cleared (size);
   gimple_set_code (stmt, code);
   return stmt;
 }

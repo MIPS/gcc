@@ -123,7 +123,7 @@ struct gimple_opt_pass pass_referenced_vars =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_FIND_REFERENCED_VARS,		/* tv_id */
-  PROP_cfg,	/* FIXME tuples PROP_gimple_leh | PROP_cfg, */		/* properties_required */
+  PROP_gimple_leh | PROP_cfg,		/* properties_required */
   PROP_referenced_vars,			/* properties_provided */
   0,					/* properties_destroyed */
   TODO_dump_func,			/* todo_flags_start */

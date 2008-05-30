@@ -2260,7 +2260,7 @@ struct rtl_opt_pass pass_expand =
   0,                                    /* static_pass_number */
   TV_EXPAND,				/* tv_id */
   /* ??? If TER is enabled, we actually receive GENERIC.  */
-  /* FIXME tuples PROP_gimple_leh |*/ PROP_cfg,           /* properties_required */
+  PROP_gimple_leh | PROP_cfg,           /* properties_required */
   PROP_rtl,                             /* properties_provided */
   PROP_trees,				/* properties_destroyed */
   0,                                    /* todo_flags_start */

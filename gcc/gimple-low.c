@@ -207,14 +207,7 @@ struct gimple_opt_pass pass_lower_cf =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  /* FIXME tuples: PROP_gimple_any is not available yet, because it
-     gets set through todo_flags_start in remove_useless_stmts, which
-     is still not converted.  */
-#if 0
   PROP_gimple_any,			/* properties_required */
-#else
-  0,
-#endif
   PROP_gimple_lcf,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

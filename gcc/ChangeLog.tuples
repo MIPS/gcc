@@ -1,3 +1,16 @@
+2008-05-30  Diego Novillo  <dnovillo@google.com>
+
+	* toplev.c: Include gimple.h.
+	(dump_memory_report): Call dump_gimple_statistics.
+	* Makefile.in (toplev.o): Add dependency on GIMPLE_H.
+	* gimple-low.c (pass_lower_cf): Restore disabled bits.
+	* tree-dfa.c (pass_referenced_vars): Likewise.
+	* cfgexpand.c (pass_expand): Likewise.
+	* tree-outof-ssa.c (pass_del_ssa): Likewise.
+	* gimple.c (gimple_alloc): Fix non-C99 declaration.
+	* gimplify.c (gimplify_function_tree): Remove calls to
+	dump_tree_statistics and dump_gimple_statistics.
+
 2008-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (diagnose_omp_structured_block_errors): Temporarily
