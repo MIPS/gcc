@@ -366,7 +366,8 @@ init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
   t = create_tmp_var_for (info, TREE_TYPE (TREE_TYPE (gimple_call_fn (call))),
                           NULL);
   gimple_call_set_lhs (call, t);
-  gimple_set_location (call, gimple_location (gsi_stmt (*gsi)));
+  if (! gsi_end_p (*gsi))
+    gimple_set_location (call, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_before (gsi, call, GSI_SAME_STMT);
 
   return t;
@@ -384,7 +385,8 @@ init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
-  gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
+  if (! gsi_end_p (*gsi))
+    gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_before_without_update (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -414,7 +416,8 @@ save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
-  gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
+  if (! gsi_end_p (*gsi))
+    gimple_set_location (stmt, gimple_location (gsi_stmt (*gsi)));
   gsi_insert_after_without_update (gsi, stmt, GSI_SAME_STMT);
 
   return t;
@@ -567,19 +570,15 @@ walk_gimple_omp_for (gimple for_stmt,
 {
   struct walk_stmt_info wi;
   gimple_seq seq;
-  gimple empty;
   tree t;
 
   walk_body (callback_stmt, callback_op, info, gimple_omp_for_pre_body (for_stmt));
 
-  empty = gimple_build_nop ();
-  seq = NULL;
-  gimple_seq_add_stmt (&seq, empty);
+  seq = gimple_seq_alloc ();
   memset (&wi, 0, sizeof (wi));
   wi.info = info;
   wi.gsi = gsi_last (seq);
 
-  gimple_set_location (empty, gimple_location (for_stmt));
   wi.val_only = false;
   walk_tree (gimple_omp_for_index_ptr (for_stmt), callback_op, &wi, NULL);
   wi.val_only = true;
@@ -589,10 +588,10 @@ walk_gimple_omp_for (gimple for_stmt,
   wi.val_only = true;
   wi.is_lhs = false;
   walk_tree (gimple_omp_for_final_ptr (for_stmt), callback_op, &wi, NULL);
+  annotate_all_with_location (seq, gimple_location (for_stmt));
 
   t = gimple_omp_for_incr (for_stmt);
   gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  gimple_set_location (empty, *EXPR_LOCUS (gimple_omp_for_incr (for_stmt)));
   wi.val_only = false;
   walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback_op, &wi, NULL);
   t = GIMPLE_STMT_OPERAND (t, 1);
@@ -602,14 +601,17 @@ walk_gimple_omp_for (gimple for_stmt,
   wi.val_only = true;
   wi.is_lhs = false;
   walk_tree (&TREE_OPERAND (t, 1), callback_op, &wi, NULL);
+  annotate_all_with_location (seq,
+			      *EXPR_LOCUS (gimple_omp_for_incr (for_stmt)));
 
-  /* Remove empty statement added above from the end of statement list.  */
-  gsi_remove (&wi.gsi, true);
-  {
-    gimple_seq pre_body = gimple_omp_for_pre_body (for_stmt);
-    gimple_seq_add_seq (&pre_body, seq);
-    gimple_omp_for_set_pre_body (for_stmt, pre_body);
-  }
+  if (gimple_seq_empty_p (seq))
+    gimple_seq_free (seq);
+  else
+    {
+      gimple_seq pre_body = gimple_omp_for_pre_body (for_stmt);
+      gimple_seq_add_seq (&pre_body, seq);
+      gimple_omp_for_set_pre_body (for_stmt, pre_body);
+    }
 }
 
 /* Similarly for ROOT and all functions nested underneath, depth first.  */

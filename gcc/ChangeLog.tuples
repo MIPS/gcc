@@ -1,5 +1,9 @@
 2008-05-30  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-nested.c (init_tmp_var_with_call, init_tmp_var, save_tmp_var):
+	Only set location if not gsi_end_p.
+	(walk_gimple_omp_for): Avoid adding an empty statement to seq.
+
 	* tree-inline.c (remap_gimple_stmt): Remap body of
 	GIMPLE_OMP_{MASTER,ORDERED,SECTION,SECTIONS,SINGLE}.
 
