@@ -3207,9 +3207,6 @@ struct tree_decl_non_common GTY(())
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.uninlinable)
 
-/* In a FUNCTION_DECL this is the field where versioned options are stored.  */
-#define DECL_OPTIONS(NODE) (DECL_COMMON_CHECK (NODE)->function_decl.stor)
-
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
 #define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
