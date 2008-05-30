@@ -1,3 +1,13 @@
+2008-05-30  Diego Novillo  <dnovillo@google.com>
+
+	Backport from trunk:
+
+	2008-05-27  Richard Guenther  <rguenther@suse.de>
+
+		PR tree-optimization/36245
+		* tree-ssa-address.c (add_to_parts): Deal with non-pointer
+		bases.
+
 2008-05-29  Bill Maddox  <maddox@google.com>
 
 	* lto-tree-in.h, lto-tree-out.h: New files,
