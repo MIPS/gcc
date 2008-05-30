@@ -1870,9 +1870,9 @@ discover_nonconstant_array_refs (void)
    virtual_incoming_args_rtx with the virtual register.  */
 
 static void
-handle_drap (void)
+expand_stack_alignment (void)
 {
-  rtx internal_arg_rtx; 
+  rtx drap_rtx;
 
   if (! SUPPORTS_STACK_ALIGNMENT)
     return;
@@ -1883,19 +1883,14 @@ handle_drap (void)
       || crtl->calls_eh_return)
     crtl->need_drap = true;
 
-  /* Call targetm.calls.internal_arg_pointer again.  This time it will
-     return a virtual register if DRAP is needed.  */
-  internal_arg_rtx = targetm.calls.internal_arg_pointer (); 
+  /* Call targetm.calls.get_drap_rtx.  */
+  gcc_assert (targetm.calls.get_drap_rtx != NULL);
+  drap_rtx = targetm.calls.get_drap_rtx (); 
 
-  /* Assertion to check internal_arg_pointer is set to the right rtx
-     here.  */
-  gcc_assert (crtl->args.internal_arg_pointer
-	      == virtual_incoming_args_rtx);
-
-  /* Do nothing if no need to replace virtual_incoming_args_rtx.  */
-  if (crtl->args.internal_arg_pointer != internal_arg_rtx)
+  /* Do nothing if NULL is returned, which means DRAP is not needed.  */
+  if (NULL != drap_rtx)
     {
-      crtl->args.internal_arg_pointer = internal_arg_rtx;
+      crtl->args.internal_arg_pointer = drap_rtx;
 
       /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
          needed. */
@@ -2013,7 +2008,7 @@ tree_expand_cfg (void)
 
   compact_blocks ();
 
-  handle_drap ();
+  expand_stack_alignment ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();

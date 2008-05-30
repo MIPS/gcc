@@ -1,3 +1,26 @@
+2008-05-30  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (handle_drap): Renamed to ...
+	(expand_stack_alignment): This.  Call targetm.calls.get_drap_rtx
+	instead of targetm.calls.internal_arg_pointer for virtual
+	DRAP.
+	(tree_expand_cfg): Updated.
+
+	* target.h (gcc_target): Add get_drap_rtx.
+
+	* target-def.h (TARGET_GET_DRAP_RTX): New.
+	(TARGET_CALLS): Add TARGET_GET_DRAP_RTX.
+
+	* config/i386/i386.c (find_drap_reg): Add a FIXME to use an
+	unused call-clobbered register.
+	(ix86_internal_arg_pointer): Move stack alignment and virtual
+	drap processing to ...
+	(ix86_handle_drap): This.  New.
+	(TARGET_GET_DRAP_RTX): New.
+
+	* doc/tm.texi (TARGET_GET_DRAP_RTX): New.
+
 2008-05-29  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* reload1.c (mark_not_eliminable): Call clear_can_eliminate

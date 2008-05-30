@@ -6393,7 +6393,10 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
    we just pick DI.
    For x86_64, we just pick R13 directly.
 
-   Return: the regno of choosed register.  */
+   Return: the regno of choosed register.
+
+   FIXME: Can we use an unused call-clobbered register, similar to
+   ix86_select_alt_pic_regnum?  */
 
 static unsigned int 
 find_drap_reg (void)
@@ -6422,17 +6425,18 @@ find_drap_reg (void)
   return DI_REG;
 }
 
-/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+/* Handle DRAP related code. Decide
+   1. if stack alignment is needed based on stack alignment
+   estimation before reload.
+   2. if DRAP is needed based on options and other conditions.
+ 
+   Return: NULL if no DRAP is needed.
+           An rtx for DRAP otherwise.  */
 
 static rtx
-ix86_internal_arg_pointer (void)
+ix86_handle_drap (void)
 {
   unsigned int preferred_stack_boundary;
-
-  /* If called in "expand" pass, currently_expanding_to_rtl will
-     be true */
-  if (currently_expanding_to_rtl) 
-    return virtual_incoming_args_rtx;
 
   /* Prefer the one specified at command line. */
   ix86_incoming_stack_boundary 
@@ -6503,7 +6507,7 @@ ix86_internal_arg_pointer (void)
       crtl->drap_reg = arg_ptr;
 
       start_sequence ();
-      drap_vreg = copy_to_reg(arg_ptr);
+      drap_vreg = copy_to_reg (arg_ptr);
       seq = get_insns ();
       end_sequence ();
       
@@ -6511,6 +6515,14 @@ ix86_internal_arg_pointer (void)
       return drap_vreg;
     }
   else
+    return NULL;
+}
+
+/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+
+static rtx
+ix86_internal_arg_pointer (void)
+{
     return virtual_incoming_args_rtx;
 }
 
@@ -26182,6 +26194,8 @@ x86_builtin_vectorization_cost (bool runtime_test)
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
 #undef TARGET_INTERNAL_ARG_POINTER
 #define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_GET_DRAP_RTX
+#define TARGET_GET_DRAP_RTX ix86_handle_drap
 #undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
 #undef TARGET_STRICT_ARGUMENT_NAMING
