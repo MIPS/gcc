@@ -1,5 +1,10 @@
 2008-05-30  Diego Novillo  <dnovillo@google.com>
 
+	* calls.c (gimple_alloca_call_p): Fix detection of
+	alloca() calls.
+
+2008-05-30  Diego Novillo  <dnovillo@google.com>
+
 	* toplev.c: Include gimple.h.
 	(dump_memory_report): Call dump_gimple_statistics.
 	* Makefile.in (toplev.o): Add dependency on GIMPLE_H.

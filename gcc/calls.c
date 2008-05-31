@@ -552,12 +552,15 @@ setjmp_call_p (const_tree fndecl)
 bool
 gimple_alloca_call_p (const_gimple stmt)
 {
-  if (is_gimple_call (stmt)
-      && TREE_CODE (gimple_call_fn (stmt)) == ADDR_EXPR
-      && (TREE_CODE (TREE_OPERAND (gimple_call_fn (stmt), 0)) == FUNCTION_DECL)
-      && (special_function_p (TREE_OPERAND (gimple_call_fn (stmt), 0), 0)
-          & ECF_MAY_BE_ALLOCA))
+  tree fndecl;
+
+  if (!is_gimple_call (stmt))
+    return false;
+
+  fndecl = gimple_call_fndecl (stmt);
+  if (fndecl && (special_function_p (fndecl, 0) & ECF_MAY_BE_ALLOCA))
     return true;
+
   return false;
 }
 

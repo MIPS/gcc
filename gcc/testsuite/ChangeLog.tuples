@@ -1,3 +1,8 @@
+2008-05-30  Diego Novillo  <dnovillo@google.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/20080530.c: New test.
+
 2008-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/block-1.f90: Adjust dg-error.
