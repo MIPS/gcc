@@ -2473,13 +2473,14 @@ output_namespace_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_with_vis.assembler_name);
   output_tree (ob, decl->decl_with_vis.section_name);
 
-  gcc_assert (decl->common.type == NULL_TREE);
+  gcc_assert (decl->common.type == void_type_node
+	      || decl->common.type == NULL_TREE);
 
   output_tree (ob, decl->decl_common.attributes);
   output_tree (ob, decl->decl_common.abstract_origin);
 
   gcc_assert (decl->decl_common.mode == 0);
-  gcc_assert (decl->decl_common.align == 0);
+  gcc_assert (decl->decl_common.align == 1);
 
   gcc_assert (decl->decl_common.size == NULL_TREE);
   gcc_assert (decl->decl_common.size_unit == NULL_TREE);

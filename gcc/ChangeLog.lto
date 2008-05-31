@@ -1,5 +1,10 @@
 2008-05-30  Diego Novillo  <dnovillo@google.com>
 
+	* lto-function-out.c (output_namespace_decl): Fix
+	assertions for NAMESPACE_DECL.
+
+2008-05-30  Diego Novillo  <dnovillo@google.com>
+
 	Backport from trunk:
 
 	2008-05-27  Richard Guenther  <rguenther@suse.de>
