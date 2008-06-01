@@ -1,3 +1,11 @@
+2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.h (rtl_data): Remove save_param_ptr_reg.
+	* config/i386/i386.c (ix86_get_drap_rtx): Likewise.
+	(ix86_expand_prologue): Check call_used_regs on DRAP register
+	instead of crtl->save_param_ptr_reg.
+	(ix86_expand_epilogue): Likewise.
+
 2008-05-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* defaults.h (INCOMING_STACK_BOUNDARY): New.

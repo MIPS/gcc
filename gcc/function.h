@@ -425,10 +425,6 @@ struct rtl_data GTY(())
      argument pointer (drap) if stack needs realigning.  */
   bool need_drap;
 
-  /* Nonzero if current function needs to save/restore parameter
-     pointer register in prolog, because it is a callee save reg.  */
-  bool save_param_ptr_reg;
-
   /* Nonzero if function stack realignment estimation is done, namely
      stack_realign_needed flag has been set before reload wrt
      estimated stack alignment info.  */

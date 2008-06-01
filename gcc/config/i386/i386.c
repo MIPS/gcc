@@ -6482,9 +6482,6 @@ ix86_get_drap_rtx (void)
       rtx arg_ptr;
       rtx seq;
 
-      if (regno != CX_REG)
-	crtl->save_param_ptr_reg = true;
-
       arg_ptr = gen_rtx_REG (Pmode, regno);
       crtl->drap_reg = arg_ptr;
 
@@ -6581,8 +6578,8 @@ ix86_expand_prologue (void)
     {
       rtx x, y;
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
-      int param_ptr_offset = (crtl->save_param_ptr_reg
-			      ?  STACK_BOUNDARY / BITS_PER_UNIT : 0);
+      int param_ptr_offset = (call_used_regs[REGNO (crtl->drap_reg)]
+			      ? 0 : STACK_BOUNDARY / BITS_PER_UNIT);
 
       gcc_assert (stack_realign_drap);
 
@@ -6594,7 +6591,7 @@ ix86_expand_prologue (void)
 
       /* Only need to push parameter pointer reg if it is caller
 	 saved reg */
-      if (crtl->save_param_ptr_reg)
+      if (!call_used_regs[REGNO (crtl->drap_reg)])
 	{
 	  /* Push arg pointer reg */
 	  insn = emit_insn (gen_push (y));
@@ -6995,8 +6992,8 @@ ix86_expand_epilogue (int style)
       && crtl->drap_reg
       && crtl->stack_realign_needed)
     {
-      int param_ptr_offset = (crtl->save_param_ptr_reg
-			      ? STACK_BOUNDARY / BITS_PER_UNIT : 0);
+      int param_ptr_offset = (call_used_regs[REGNO (crtl->drap_reg)]
+			      ? 0 : STACK_BOUNDARY / BITS_PER_UNIT);
       gcc_assert (stack_realign_drap);
       if (TARGET_64BIT)
         {
@@ -7004,7 +7001,7 @@ ix86_expand_epilogue (int style)
 				 crtl->drap_reg,
 				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT
 					    + param_ptr_offset))));
-          if (crtl->save_param_ptr_reg)
+          if (!call_used_regs[REGNO (crtl->drap_reg)])
             emit_insn (gen_popdi1 (crtl->drap_reg));
         }
       else
@@ -7013,7 +7010,7 @@ ix86_expand_epilogue (int style)
 				 crtl->drap_reg,
 				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT 
 					    + param_ptr_offset))));
-          if (crtl->save_param_ptr_reg)
+          if (!call_used_regs[REGNO (crtl->drap_reg)])
             emit_insn (gen_popsi1 (crtl->drap_reg));
         }
       
