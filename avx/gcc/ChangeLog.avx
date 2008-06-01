@@ -1,3 +1,18 @@
+2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*fop_sf_comm_mixed_avx): Removed.
+	(*fop_sf_comm_avx): Likewise.
+	(*fop_sf_1_mixed_avx): Likewise.
+	(*fop_sf_1_avx): Likewise.
+	(*fop_df_comm_mixed_avx): Likewise.
+	(*fop_df_comm_avx): Likewise.
+	(*fop_df_1_mixed_avx): Likewise.
+	(*fop_df_1_avx): Likewise.
+	(*fop_<mode>_comm_mixed_avx): New.
+	(*fop_<mode>_comm_avx): Likewise.
+	(*fop_<mode>_1_mixed_avx): Likewise.
+	(*fop_<mode>_1_avx): Likewise.
+
 2008-05-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (*movdf_integer_rex64): Use %vmovd
