@@ -1,5 +1,9 @@
 2008-06-02  Andrey Belevantsev  <abel@ispras.ru>
 
+	* timevar.def (TV_SEL_SCHED): Remove.
+
+2008-06-02  Andrey Belevantsev  <abel@ispras.ru>
+
 	* cfghooks.h (rtl_delete_block_not_barriers): Remove prototype.
 	* cfghooks.c (rtl_delete_block_not_barriers, rtl_delete_block_1,
 	get_last_bb_insn_1): Remove.
