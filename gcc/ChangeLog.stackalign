@@ -1,5 +1,13 @@
 2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* reload1.c (clear_can_eliminate): Removed.
+	(set_label_offsets): Updated.
+	(elimination_effects): Likewise.
+	(eliminate_regs_in_insn): Likewise.
+	(mark_not_eliminable): Likewise.
+
+2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* function.h (rtl_data): Remove save_param_ptr_reg.
 	* config/i386/i386.c (ix86_get_drap_rtx): Likewise.
 	(ix86_expand_prologue): Check call_used_regs on DRAP register
