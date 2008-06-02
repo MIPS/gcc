@@ -1,3 +1,14 @@
+2008-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36389
+	* gimplify.c (gimplify_cond_expr): If one or both branches are
+	GOTO_EXPRs jumping to LABEL_DECLs, don't create unnecessary
+	extra LABEL_DECLs and jumps around.
+	* tree-cfg.c (remove_useless_stmts_cond): Set may_branch also
+	for GIMPLE_COND stmts.
+	* tree-eh.c (replace_goto_queue_cond_clause): Set label to
+	create_artificial_label () rather than LABEL_EXPR.
+
 2008-05-30  Diego Novillo  <dnovillo@google.com>
 
 	* calls.c (gimple_alloca_call_p): Fix detection of

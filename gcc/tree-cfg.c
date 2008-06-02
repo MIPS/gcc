@@ -1558,6 +1558,8 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
   /* The folded result must still be a conditional statement.  */
   fold_stmt_inplace (stmt);
 
+  data->may_branch = true;
+
   /* Attempt to evaluate the condition at compile-time.
      Because we are in GIMPLE here, only the most trivial
      comparisons of a constant to a constant can be handled.

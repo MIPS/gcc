@@ -496,7 +496,7 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
       return;
     }
 
-  label = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
+  label = create_artificial_label ();
   /* Set the new label for the GIMPLE_COND */
   *tp = label;
 

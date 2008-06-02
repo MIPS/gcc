@@ -2923,8 +2923,29 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 
   gimple_push_condition ();
 
-  label_true = create_artificial_label ();
-  label_false = create_artificial_label ();
+  have_then_clause_p = have_else_clause_p = false;
+  if (TREE_OPERAND (expr, 1) != NULL
+      && TREE_CODE (TREE_OPERAND (expr, 1)) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 1))) == LABEL_DECL
+      && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 1)))
+	  == current_function_decl))
+    {
+      label_true = GOTO_DESTINATION (TREE_OPERAND (expr, 1));
+      have_then_clause_p = true;
+    }
+  else
+    label_true = create_artificial_label ();
+  if (TREE_OPERAND (expr, 2) != NULL
+      && TREE_CODE (TREE_OPERAND (expr, 2)) == GOTO_EXPR
+      && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 2))) == LABEL_DECL
+      && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 2)))
+	  == current_function_decl))
+    {
+      label_false = GOTO_DESTINATION (TREE_OPERAND (expr, 2));
+      have_else_clause_p = true;
+    }
+  else
+    label_false = create_artificial_label ();
 
   gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
 				 &arm2);
@@ -2933,13 +2954,36 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
                                    label_false);
 
   gimplify_seq_add_stmt (pre_p, gimple_cond);
-  gimplify_seq_add_stmt (pre_p, gimple_build_label (label_true));
-  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
-  label_cont = create_artificial_label ();
-  gimplify_seq_add_stmt (pre_p, gimple_build_goto (label_cont));
-  gimplify_seq_add_stmt (pre_p, gimple_build_label (label_false));
-  have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
-  gimplify_seq_add_stmt (pre_p, gimple_build_label (label_cont));
+  label_cont = NULL_TREE;
+  if (!have_then_clause_p)
+    {
+      /* For if (...) {} else { code; } put label_true after
+	 the else block.  */
+      if (TREE_OPERAND (expr, 1) == NULL_TREE
+	  && !have_else_clause_p
+	  && TREE_OPERAND (expr, 2) != NULL_TREE)
+	label_cont = label_true;
+      else
+	{
+	  gimplify_seq_add_stmt (pre_p, gimple_build_label (label_true));
+	  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
+	  /* For if (...) { code; } else {} or
+	     if (...) { code; } else goto label;
+	     label_cont isn't needed.  */
+	  if (!have_else_clause_p && TREE_OPERAND (expr, 2) != NULL_TREE)
+	    {
+	      label_cont = create_artificial_label ();
+	      gimplify_seq_add_stmt (pre_p, gimple_build_goto (label_cont));
+	    }
+	}
+    }
+  if (!have_else_clause_p)
+    {
+      gimplify_seq_add_stmt (pre_p, gimple_build_label (label_false));
+      have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
+    }
+  if (label_cont)
+    gimplify_seq_add_stmt (pre_p, gimple_build_label (label_cont));
 
   gimple_pop_condition (pre_p);
 
