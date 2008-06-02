@@ -3622,6 +3622,8 @@ tidy_control_flow (basic_block xbb, bool full_tidying)
       /* Flow goes fallthru from current block to the next.  */
       && EDGE_COUNT (xbb->succs) == 1
       && (EDGE_SUCC (xbb, 0)->flags & EDGE_FALLTHRU)
+      /* When successor is an EXIT block, it may not be the next block.  */
+      && single_succ (xbb) != EXIT_BLOCK_PTR
       /* And unconditional jump in previous basic block leads to
          next basic block of XBB and this jump can be safely removed.  */
       && in_current_region_p (xbb->prev_bb)
@@ -3640,9 +3642,7 @@ tidy_control_flow (basic_block xbb, bool full_tidying)
          that contained that jump, becomes empty too.  In such case
          remove it too.  */
       if (sel_bb_empty_p (xbb->prev_bb))
-        {
-          changed = maybe_tidy_empty_bb (xbb->prev_bb);
-        }
+        changed = maybe_tidy_empty_bb (xbb->prev_bb);
     }
 
   return changed;
