@@ -52,7 +52,7 @@ struct lto_header
 };
 
 /* In lto-section-out.c.  */
-const char *lto_get_section_name (enum lto_section_type, const char *);
+char *lto_get_section_name (enum lto_section_type, const char *);
 section *lto_get_section (enum lto_section_type, const char *);
 
 /* Define this symbol if you want to debug an lto stream.  This causes

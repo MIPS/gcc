@@ -53,8 +53,6 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-tags.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
-#include <ctype.h>
-
 
 sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
@@ -67,7 +65,6 @@ const char *LTO_tree_tag_names[LTO_tree_last_tag];
 /* The index of the last eh_region seen for an instruction.  The
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
-
 static int last_eh_region_seen;
 static unsigned int expr_to_tag[NUM_TREE_CODES];
 
@@ -92,7 +89,6 @@ hash_label_slot_node (const void *p)
   const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
   return (hashval_t) LABEL_DECL_UID (ds->t);
 }
-
 
 
 struct string_slot {
@@ -2267,13 +2263,15 @@ output_field_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->field_decl.fcontext);
 
   /* lang_specific */
-
   output_tree (ob, decl->decl_common.initial);
 
   /* Write out current field before its siblings,
      so follow the chain last.  */
   output_tree (ob, decl->common.chain);
 }
+
+
+/* Write FUNCTION_DECL DECL to the output block OB.  */
 
 static void
 output_function_decl (struct output_block *ob, tree decl)
@@ -3148,7 +3146,8 @@ output_tree (struct output_block *ob, tree expr)
   LTO_DEBUG_UNDENT ();
 }
 
-/* ### Replacement for output_type_ref when serializing globals.  */
+/* Replacement for output_type_ref when serializing globals.  */
+
 void
 output_type_tree (struct output_block *ob, tree type)
 {

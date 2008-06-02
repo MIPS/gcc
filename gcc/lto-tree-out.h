@@ -103,18 +103,18 @@ struct output_block
   int current_line;
   int current_col;
 
-  /* ### */
   /* True if writing globals and types.  */
   bool global;
+
   /* Map global decls and types to indices in the main stream.  */
   htab_t main_hash_table;
+
   /* Index in main stream of next node. */
   unsigned int next_main_index;
 };
 
-struct output_block * create_output_block (enum lto_section_type);
+struct output_block *create_output_block (enum lto_section_type);
 void destroy_output_block (struct output_block *);
-
 extern void output_tree (struct output_block *, tree);
 
 #endif  /* GCC_LTO_TREE_OUT_H  */

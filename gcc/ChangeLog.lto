@@ -1,3 +1,26 @@
+2008-06-02  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c: Do not include ctype.h.
+	Tidy whitespace.
+	(output_function_decl): Add comment.
+	(output_type_tree): Reformat comment.
+	* lto-header.h (lto_get_section_name): Fix return type.
+	Tidy whitespace.
+	* lto-tree-out.h: Tidy whitespace and comments.
+	* lto-section-out.c (lto_get_section_name): Fix return
+	type.
+	(lto_get_section): Fix type of section_name.
+	(lto_get_out_decl_state): Reformat comment.
+	(out_state): Declare as local static to
+	lto_get_out_decl_state.
+	Fix wraparound problems.
+	(preload_common_node): Reformat comment.
+	Tidy whitespace.
+	(produce_asm_for_decls): Remove extern declarations.
+	Fix wraparound problems.
+	(lto_debug_out_fun): Fix comment.
+	* lto-section-out.h: Tidy whitesace and formatting.
+
 2008-05-30  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_namespace_decl): Fix

@@ -119,19 +119,19 @@ hashval_t lto_hash_decl_slot_node (const void *);
 int lto_eq_decl_slot_node (const void *, const void *);
 hashval_t lto_hash_type_slot_node (const void *);
 int lto_eq_type_slot_node (const void *, const void *);
-/* ### */
 hashval_t lto_hash_global_slot_node (const void *);
 int lto_eq_global_slot_node (const void *, const void *);
-
 struct lto_out_decl_state *lto_get_out_decl_state (void);
 void lto_write_stream (struct lto_output_stream *);
 void lto_output_1_stream (struct lto_output_stream *, char);
-void lto_output_uleb128_stream (struct lto_output_stream *, unsigned HOST_WIDE_INT);
+void lto_output_uleb128_stream (struct lto_output_stream *,
+				unsigned HOST_WIDE_INT);
 void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
 					    unsigned HOST_WIDEST_INT);
 void lto_output_sleb128_stream (struct lto_output_stream *, HOST_WIDE_INT);
 void lto_output_integer_stream (struct lto_output_stream *, tree);
-bool lto_output_decl_index (struct lto_output_stream *, htab_t, unsigned int *, tree, unsigned int *);
+bool lto_output_decl_index (struct lto_output_stream *, htab_t, unsigned int *, 
+			    tree, unsigned int *);
 bool gate_lto_out (void);
 
 #endif  /* GCC_LTO_SECTION_OUT_H  */

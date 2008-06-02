@@ -131,8 +131,9 @@ lto_eq_global_slot_node (const void *p1, const void *p2)
    is only used if SECTION_TYPE is LTO_section_function_body or
    lto_static_initializer.  For all others it is ignored.  The callee
    of this function is responcible to free the returned name.  */
-const char *
-lto_get_section_name (enum lto_section_type section_type, const char * name)
+
+char *
+lto_get_section_name (enum lto_section_type section_type, const char *name)
 {
   switch (section_type)
     {
@@ -157,12 +158,13 @@ lto_get_section_name (enum lto_section_type section_type, const char * name)
 /* Get a section for particular type or name.  The NAME field is only
    used if SECTION_TYPE is LTO_section_function_body or
    lto_static_initializer.  */
+
 section *
-lto_get_section (enum lto_section_type section_type, const char * name)
+lto_get_section (enum lto_section_type section_type, const char *name)
 {
-  const char *section_name = lto_get_section_name (section_type, name);
+  char *section_name = lto_get_section_name (section_type, name);
   section *section = get_section (section_name, SECTION_DEBUG, NULL);
-  free ((char *)section_name);
+  free (section_name);
   return section;
 }
 
@@ -409,39 +411,46 @@ lto_output_decl_index (struct lto_output_stream * obs, htab_t table,
     }
 }
 
-/*****************************************************************************/
-/*  This part is used to store all of the global decls and types that are    */
-/*  serialized out in this file so that a table for this file can be built   */
-/*  that allows the decls and types to be reconnected to the code or the     */
-/*  ipa summary information.                                                 */ 
-/*****************************************************************************/
-static struct lto_out_decl_state *out_state;
+/* This part is used to store all of the global decls and types that
+   are serialized out in this file so that a table for this file can
+   be built that allows the decls and types to be reconnected to the
+   code or the ipa summary information.  */
 
 struct lto_out_decl_state *
 lto_get_out_decl_state (void)
 {
+  static struct lto_out_decl_state *out_state;
+
   if (!out_state)
     {
       out_state = xcalloc (1, sizeof (struct lto_out_decl_state));
 
       out_state->field_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+	               free);
       out_state->fn_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+		       free);
       out_state->type_hash_table
-	= htab_create (37, lto_hash_type_slot_node, lto_eq_type_slot_node, free);
+	= htab_create (37, lto_hash_type_slot_node, lto_eq_type_slot_node,
+		       free);
       out_state->type_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+		       free);
       out_state->namespace_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+		       free);
       out_state->var_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
+	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+		       free);
     }
+
   return out_state;
 }
 
-/* ### */
-/* Assign an index to a tree and enter it into the global streamer hash table.  */
+
+/* Assign an index to tree node T and enter it in the global streamer
+   hash table OB->MAIN_HASH_TABLE.  */
 
 static void
 preload_common_node (struct output_block *ob, tree t)
@@ -451,6 +460,7 @@ preload_common_node (struct output_block *ob, tree t)
 
   d_slot.t = t;
   slot = htab_find_slot (ob->main_hash_table, &d_slot, INSERT);
+
   /* If well-known trees are not unique, we don't create duplicate entries.  */
   if (*slot == NULL)
     {
@@ -474,7 +484,7 @@ preload_common_node (struct output_block *ob, tree t)
     ob->next_main_index++;
 }
 
-/* ### */
+
 /* Preload the streamer hash table with pointers to well-known objects
    so that they will not be streamed out, and will be replaced with the
    corresponding objects when streamed back in.  */
@@ -486,11 +496,12 @@ preload_common_nodes (struct output_block *ob)
 
   for (i = 0; i < TI_MAX; i++)
     preload_common_node (ob, global_trees[i]);
+
   for (i = 0; i < itk_none; i++)
     preload_common_node (ob, integer_types[i]);
 }
 
-/* ### */
+
 /* Write each node in vector V to OB, as well as those reachable
    from it and required for correct representation of its semantics.
    Each node in V must be a global declaration or a type.  A node
@@ -517,7 +528,7 @@ write_global_stream (struct output_block *ob, VEC(tree,heap) *v)
     }
 }
 
-/* ### */
+
 /* Write a sequence of indices into the globals vector corresponding
    to the trees in vector V.  These are used by the reader to map the
    indices used to refer to global entities within function bodies to
@@ -550,9 +561,9 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
     }
 }
 
-/* ### */
+
 /* This pass is run after all of the functions are serialized and all
-   of the ipa passes have written their serialized forms.  This pass
+   of the IPA passes have written their serialized forms.  This pass
    causes the vector of all of the global decls and types used from
    this file to be written in to a section that can then be read in to
    recover these on other side.  */
@@ -560,20 +571,18 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
 static unsigned int
 produce_asm_for_decls (void)
 {
-  extern struct output_block *create_output_block (enum lto_section_type);
-  extern void destroy_output_block (struct output_block *);
-
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
-
   struct lto_decl_header header;
   section *decl_section = lto_get_section (LTO_section_decls, NULL);
   struct output_block *ob = create_output_block (LTO_section_decls);
 
   ob->global = true;
-  ob->main_hash_table = htab_create (37, lto_hash_global_slot_node, lto_eq_global_slot_node, free);
+  ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
+				     lto_eq_global_slot_node, free);
   ob->next_main_index = 0;
 
-  /* Assign reference indices for predefined trees.  These need not be serialized.  */
+  /* Assign reference indices for predefined trees.  These need not be
+     serialized.  */
   preload_common_nodes (ob);
   
   memset (&header, 0, sizeof (struct lto_decl_header)); 
@@ -611,8 +620,7 @@ produce_asm_for_decls (void)
   header.string_size = ob->string_stream->total_size;
   header.debug_main_size = ob->debug_main_stream->total_size;
 
-  assemble_string ((const char *)&header, 
-		   sizeof (struct lto_decl_header));
+  assemble_string ((const char *)&header, sizeof (struct lto_decl_header));
 
   /* We must write the types first.  */
   write_global_references (ob, out_state->types);
@@ -624,10 +632,12 @@ produce_asm_for_decls (void)
 
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
+
 #ifdef LTO_STREAM_DEBUGGING
   lto_write_stream (ob->debug_main_stream);
 #endif
 
+  /* Deallocate memory and clean up.  */
   destroy_output_block (ob);
 
   htab_delete (out_state->field_decl_hash_table);
@@ -636,8 +646,6 @@ produce_asm_for_decls (void)
   htab_delete (out_state->type_decl_hash_table);
   htab_delete (out_state->namespace_decl_hash_table);
   htab_delete (out_state->type_hash_table);
-
-  /* ### */
   htab_delete (ob->main_hash_table);
 
   VEC_free (tree, heap, out_state->field_decls);
@@ -652,7 +660,9 @@ produce_asm_for_decls (void)
   return 0;
 }
 
+
 /* Gate function for all lto streaming passes.  */
+
 bool
 gate_lto_out (void)
 {
@@ -681,21 +691,16 @@ struct simple_ipa_opt_pass pass_ipa_lto_finish_out =
  }
 };
 
-
-
 #ifdef LTO_STREAM_DEBUGGING
-
 struct lto_debug_context lto_debug_context;
 
-/* The low level output routine to print a single character to the
-   debugging stream.  */
+/* Print character C to the debugging stream in CONTEXT.  */
 
 void
 lto_debug_out_fun (struct lto_debug_context *context, char c)
 {
-  struct lto_output_stream * stream 
+  struct lto_output_stream *stream 
     = (struct lto_output_stream *)context->current_data;
   lto_output_1_stream (stream, c);
 }
-
 #endif
