@@ -1765,6 +1765,9 @@ static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
 static void ix86_target_specific_save (struct target_specific_data *);
 static void ix86_target_specific_restore (struct target_specific_data *);
+static bool ix86_target_specific_validate (int, const char **, tree);
+static bool ix86_target_specific_can_inline_p (tree, tree);
+static void ix86_set_current_function (tree);
 
 static GTY(()) struct target_specific_data *ix86_initial_options;
 
@@ -2940,7 +2943,7 @@ ix86_target_specific_restore (struct target_specific_data *ptr)
 
 /* Hook to validate the target specific options */
 
-bool
+static bool
 ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
 {
   int i;
@@ -3097,7 +3100,7 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
 
 /* Hook to determine if one function can safely inline another */
 
-bool
+static bool
 ix86_target_specific_can_inline_p (tree caller, tree callee)
 {
   bool ret = false;
@@ -3151,7 +3154,7 @@ ix86_target_specific_can_inline_p (tree caller, tree callee)
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
-void
+static void
 ix86_set_current_function (tree fndecl)
 {
   static tree previous_fndecl = NULL_TREE;

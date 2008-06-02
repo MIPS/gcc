@@ -951,7 +951,7 @@ struct gcc_target
   } emutls;  
 
   /* Functions and data for target specific option support.  */
-  struct target_specific {
+  struct target_specific_hooks {
     /* Function to validate a target specific option stream */
     bool (*validate) (int, const char **, tree);
     /* Function to decide whether a function can be inlined.  */

@@ -47,11 +47,11 @@ along with GCC; see the file COPYING3.  If not see
    front end in question wins.  If there is no match for the current
    front end, the longest match for a different front end is returned
    (or N_OPTS if none) and the caller emits an error message.  */
-unsigned long
+size_t
 find_opt (const char *input, int lang_mask)
 {
-  unsigned long mn, mx, md, opt_len;
-  unsigned long match_wrong_lang;
+  size_t mn, mx, md, opt_len;
+  size_t match_wrong_lang;
   int comp;
 
   mn = 0;

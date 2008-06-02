@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "double-int.h"
 #include "alias.h"
-#include "opts.h"
 
 /* Codes of tree nodes */
 

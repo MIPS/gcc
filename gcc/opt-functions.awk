@@ -79,8 +79,7 @@ function switch_flags (flags)
 	  test_flag("Undocumented", flags,  " | CL_UNDOCUMENTED") \
 	  test_flag("Warning", flags,  " | CL_WARNING") \
 	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION") \
-	  test_flag("Report", flags, " | CL_REPORT") \
-	  test_flag("Attribute", flags, " | CL_ATTRIBUTE")
+	  test_flag("Report", flags, " | CL_REPORT")
 	sub( "^0 \\| ", "", result )
 	return result
 }

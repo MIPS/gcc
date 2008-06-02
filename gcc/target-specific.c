@@ -108,11 +108,6 @@ handle_option_attribute (tree *node,
 			 int ARG_UNUSED (flags),
 			 bool *no_add_attrs)
 {
-#ifndef HAVE_TARGET_SPECIFIC
-  error ("option attribute is not supported on this machine");
-  *no_add_attrs = true;
-
-#else
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "option attribute ignored");
@@ -138,8 +133,6 @@ handle_option_attribute (tree *node,
 	    *no_add_attrs = true;
 	}
     }
-
-#endif
 
   return NULL_TREE;
 }

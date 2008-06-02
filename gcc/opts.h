@@ -39,14 +39,6 @@ enum cl_var_type {
   CLVC_STRING
 };
 
-union cl_option_stor
-{
-  int ival;
-  const char *pcval;
-};
-
-typedef union cl_option_stor *cl_option_storp;
-
 struct cl_option
 {
   const char *opt_text;
@@ -64,23 +56,21 @@ struct cl_option
    at DATA.  DATA might point to CH in some cases.  */
 struct cl_option_state {
   const void *data;
-  unsigned long size;
+  size_t size;
   char ch;
 };
 
-extern const unsigned int cl_option_stors_count;
-extern union cl_option_stor cl_option_stors[];
 extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
 extern const unsigned int cl_lang_count;
-extern int no_unit_at_a_time_default;
+extern bool no_unit_at_a_time_default;
 
-#define CL_PARAMS               (1u << 18) /* Fake entry.  Used to display --param info with --help.  */
-#define CL_WARNING		(1u << 19) /* Enables an (optional) warning message.  */
-#define CL_OPTIMIZATION		(1u << 20) /* Enables an (optional) optimization.  */
-#define CL_TARGET		(1u << 21) /* Target-specific option.  */
-#define CL_COMMON		(1u << 22) /* Language-independent.  */
+#define CL_PARAMS               (1 << 18) /* Fake entry.  Used to display --param info with --help.  */
+#define CL_WARNING		(1 << 19) /* Enables an (optional) warning message.  */
+#define CL_OPTIMIZATION		(1 << 20) /* Enables an (optional) optimization.  */
+#define CL_TARGET		(1 << 21) /* Target-specific option.  */
+#define CL_COMMON		(1 << 22) /* Language-independent.  */
 
 #define CL_MIN_OPTION_CLASS	CL_PARAMS
 #define CL_MAX_OPTION_CLASS	CL_COMMON
@@ -90,15 +80,14 @@ extern int no_unit_at_a_time_default;
    This distinction is important because --help will not list options
    which only have these higher bits set.  */
 
-#define CL_DISABLED		(1u << 23) /* Disabled in this configuration.  */
-#define CL_REPORT		(1u << 24) /* Report argument with -fverbose-asm  */
-#define CL_JOINED		(1u << 25) /* If takes joined argument.  */
-#define CL_SEPARATE		(1u << 26) /* If takes a separate argument.  */
-#define CL_REJECT_NEGATIVE	(1u << 27) /* Reject no- form.  */
-#define CL_MISSING_OK		(1u << 28) /* Missing argument OK (joined).  */
-#define CL_UINTEGER		(1u << 29) /* Argument is an integer >=0.  */
-#define CL_ATTRIBUTE		(1u << 30) /* Accept for attributeis.  */
-#define CL_UNDOCUMENTED		(1u << 31) /* Do not output with --help.  */
+#define CL_DISABLED		(1 << 23) /* Disabled in this configuration.  */
+#define CL_REPORT		(1 << 24) /* Report argument with -fverbose-asm  */
+#define CL_JOINED		(1 << 25) /* If takes joined argument.  */
+#define CL_SEPARATE		(1 << 26) /* If takes a separate argument.  */
+#define CL_REJECT_NEGATIVE	(1 << 27) /* Reject no- form.  */
+#define CL_MISSING_OK		(1 << 28) /* Missing argument OK (joined).  */
+#define CL_UINTEGER		(1 << 29) /* Argument is an integer >=0.  */
+#define CL_UNDOCUMENTED		(1 << 30) /* Do not output with --help.  */
 
 /* Input file names.  */
 
@@ -108,16 +97,13 @@ extern const char **in_fnames;
 
 extern unsigned num_in_fnames;
 
-unsigned long find_opt (const char *input, int lang_mask);
+size_t find_opt (const char *input, int lang_mask);
 extern void prune_options (int *argcp, char ***argvp);
 extern void decode_options (unsigned int argc, const char **argv);
 extern int option_enabled (int opt_idx);
-extern int get_option_state (int, struct cl_option_state *);
+extern bool get_option_state (int, struct cl_option_state *);
 
 extern void enable_warning_as_error (const char *arg, int value,
 				     unsigned int lang_mask);
 extern void print_ignored_options (void);
-unsigned int handle_option (const char **argv,
-			    unsigned int lang_mask,
-			    unsigned int check_attribute);
 #endif

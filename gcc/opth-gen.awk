@@ -64,12 +64,12 @@ print "extern int target_flags;"
 print "extern int target_flags_explicit;"
 print ""
 
-have_attribute = 0;
+have_save = 0;
 
 for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i])
-	if (flag_set_p("Attribute", flags[i]))
-		have_attribute = 1;
+	if (flag_set_p("Save", flags[i]))
+		have_save = 1;
 }
 
 for (i = 0; i < n_opts; i++) {
@@ -85,15 +85,12 @@ for (i = 0; i < n_opts; i++) {
 }
 print ""
 
-if (have_attribute) {
-	print "struct cl_option_attr GTY(())";
-	print "{";
+print "struct cl_option_attr GTY(())";
+print "{";
 
-	# as a slight optimization, put pointer fields before integer fields.
-	# On systems like the x86_64 with 32-bit ints and 64-bit pointers, this
-	# might leave gapes if you have pointer, int, point, int....
+if (have_save) {
 	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Attribute", flags[i]) && !(var_type(flags[i]) ~ "int")) {
+		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i])
 			if(name == "")
 				name = "target_flags";
@@ -108,29 +105,16 @@ if (have_attribute) {
 		}
 	}
 
-	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Attribute", flags[i]) && (var_type(flags[i]) ~ "int")) {
-			name = var_name(flags[i])
-			if(name == "")
-				name = "target_flags";
-
-			if(name in var_attr_seen)
-				continue;
-
-			var_attr_seen[name] ++	
-			print "  " var_type(flags[i]) name ";";
-			if (name == "target_flags")
-				print "  " var_type(flags[i]) "target_flags_explicit;";
-		}
-	}
-	print "};";
-	print "";
-	print "#define HAVE_TARGET_SPECIFIC";
-	print "";
-	print "extern void target_specific_save (struct cl_option_attr *);";
-	print "extern void target_specific_restore (struct cl_option_attr *);";
-	print "";
+} else {
+	print "  int targt_flags;";
+	print "  int targt_flags_explicit;";
 }
+
+print "};";
+print "";
+print "extern void target_specific_save (struct cl_option_attr *);";
+print "extern void target_specific_restore (struct cl_option_attr *);";
+print "";
 
 for (i = 0; i < n_opts; i++) {
 	name = opt_args("Mask", flags[i])

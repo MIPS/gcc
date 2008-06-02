@@ -1,3 +1,83 @@
+2008-06-02  Michael Meissner  <michael.meissner@amd.com>
+
+	* opts-common.c (find_opt): Undo size_t to unsigned long change.
+
+	* tree.h (opts.h): Undo change to include opts.h.
+
+	* tree-pass.h (pass_push_set_options): Delete, no longer used.
+	(pass_pop_options): Ditto.
+
+	* target.h (struct target_specific_hooks): Rename from
+	target_specfic.
+
+	* target-specific.c (handle_option_attribute): Remove #ifdef to
+	see if we have function specific options, just look at the
+	validate hook.
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function): Use
+	CALL_STMT_CANNOT_INLINE_P, not CALL_CANNOT_INLINE_P.
+	(cgraph_decide_inlining): Ditto.
+	(cgraph_decide_inlining_incrementally): Ditto.
+	(cgraph_decide_inlining_incrementally): Move target hook check a
+	little later.
+
+	* opts.c (no_unit_at_a_time_default): Undo bool to int change.
+	(handle_option): Undo change to make this global and add an
+	argument for checking attribute arguments.
+	(handle_options): Remove 3rd argument to handle_option.
+	(decode_options): Remove call to initialize_attribute_options.
+	(option_enable): Undo bool to int type change.
+	(get_option_state): Ditto.
+
+	* opts.h (union cl_option_stor): Delete, no longer used.
+	(cl_option_storp): Ditto.
+	(cl_option_stors_count): Ditto.
+	(cl_option_stors): Ditto.
+	(struct cl_option): Undo size_t to long unsigned type change.
+	(CL_PARAMS): Undo change to unsigned for bitmask.
+	(CL_WARNING): Ditto.
+	(CL_OPTIMIZATION): Ditto.
+	(CL_TARGET): Ditto.
+	(CL_COMMON): Ditto.
+	(CL_DISABLED): Ditto.
+	(CL_REPORT): Ditto.
+	(CL_JOINED): Ditto.
+	(CL_SEPARATE): Ditto.
+	(CL_REJECT_NEGATIVE): Ditto.
+	(CL_MISSING_OK): Ditto.
+	(CL_UINTEGER): Ditto.
+	(CL_UNDOCUMENTED): Ditto.
+	(CL_ATTRIBUTE): Delete, no longer used.
+	(find_opt): Undo size_to to unsigned long type change.
+	(get_option_state): Undo bool to int type change.
+	(handle_option): Delete declaration.
+
+	* opth-gen.awk: Change from using Attribute to Save to better
+	reflect the usage.  If the port declared no options with Save,
+	just save target_flags and target_flags_explicit.  Do not define
+	HAVE_TARGET_SPECIFIC. 
+	* optc-gen.awk: Ditto.
+
+	* opt-functions.awk (switch_flags): Don't set CL_ATTRIBUTE.
+
+	* Makefile.in (TREE_H): Do not include opts.h.
+
+	* config/i386/i386.opt (ix86_arch_string): Remove attribute
+	declaration.
+	(ix86_tune_string): Ditto.
+	(ix86_fpmath_string): Ditto.
+	(ix86_isa_flags): Change Attribute to Save.
+	(ix86_extra_flags): Ditto.
+
+	* config/i386/i386-protos.h (ix86_target_specific_validate):
+	Remove delcaration, make static.
+	(ix86_target_specific_can_inline_p): Ditto.
+
+	* config/i386/i386.c (ix86_target_specific_validate): Make
+	static.
+	(ix86_target_specific_can_inline_p): Ditto.
+	(ix86_set_current_function): Ditto.
+	
 2008-05-30  Michael Meissner  <michael.meissner@amd.com>
 
 	* Sync up to 136210.

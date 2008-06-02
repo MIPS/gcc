@@ -213,22 +213,22 @@ for (i = 0; i < n_opts; i++) {
 
 print "};"
 
-have_attribute = 0;
+have_save = 0;
 
 for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Attribute", flags[i]))
-		have_attribute = 1;
+	if (flag_set_p("Save", flags[i]))
+		have_save = 1;
 }
 
-if (have_attribute) {
-	print "";
-	print "/* Save current attribute options in a structure */"
-	print "void";
-	print "target_specific_save (struct cl_option_attr *ptr)";
-	print "{";
+print "";
+print "/* Save selected option variables into a structure. */"
+print "void";
+print "target_specific_save (struct cl_option_attr *ptr)";
+print "{";
 
+if (have_save) {
 	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Attribute", flags[i])) {
+		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i]);
 			if (name == "")
 				name = "target_flags";
@@ -243,16 +243,22 @@ if (have_attribute) {
 		}
 	}
 
-	print "}";
+} else {
+	print "  ptr->target_flags = target_flags;";
+	print "  ptr->target_flags_explicit = target_flags_explicit;";
+}
 
-	print "";
-	print "/* Restore current attribute options from a structure */"
-	print "void";
-	print "target_specific_restore (struct cl_option_attr *ptr)";
-	print "{";
+print "}";
 
+print "";
+print "/* Restore selected option variables from a structure. */"
+print "void";
+print "target_specific_restore (struct cl_option_attr *ptr)";
+print "{";
+
+if (have_save) {
 	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Attribute", flags[i])) {
+		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i]);
 			if (name == "")
 				name = "target_flags";
@@ -267,7 +273,11 @@ if (have_attribute) {
 		}
 	}
 
-	print "}";
+} else {
+	print "  target_flags = ptr->target_flags;";
+	print "  target_flags_explicit = ptr->target_flags_explicit;";
 }
+
+print "}";
 
 }
