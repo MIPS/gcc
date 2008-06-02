@@ -1,3 +1,11 @@
+2008-06-02  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* dwarf2out.c (dw_fde_struct): Rename is_drap to uses_drap.
+	(add_cfi): Replace is_drap with uses_drap.
+	(dwarf2out_frame_debug_expr): Update the comments, replace is_drap
+	with uses_drap and add two assertions.
+	(reg_save_with_expression): Replace is_drap with uses_drap.
+
 2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* reload1.c (clear_can_eliminate): Removed.

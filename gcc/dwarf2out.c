@@ -249,7 +249,7 @@ typedef struct dw_fde_struct GTY(())
   /* Whether we did stack realign in this call frame.  */
   unsigned stack_realign : 1;
   /* Whether stack realign uses Dynamic Realign Argument Pointer.  */
-  unsigned is_drap : 1;
+  unsigned uses_drap : 1;
   /* Whether we saved the register used by Dynamic Realign Argument
      Pointer.  */
   unsigned drap_reg_saved : 1;
@@ -646,7 +646,7 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
      expressions in dwarf2 to simulate the stack realign and
      represent the location of the stored register.  */
   if (fde
-      && (fde->stack_realign || fde->is_drap)
+      && (fde->stack_realign || fde->uses_drap)
       && cfi->dw_cfi_opc == DW_CFA_offset)
     reg_save_with_expression (cfi);
 
@@ -1571,6 +1571,7 @@ static dw_cfa_location cfa_temp;
   
   Rule 16:
   (set sp (and: sp <const_int>))
+  constraints: cfa_store.reg == sp
   effects: current_fde.stack_realign = 1
            cfa_store.offset = 0
 
@@ -1585,12 +1586,12 @@ static dw_cfa_location cfa_temp;
   (set (mem({pre_inc, pre_dec} sp)) fp)
   constraints: current_fde.stack_realign == 1
   effects: current_fde.stack_realign = 0
-           current_fde.is_drap = 1
+           current_fde.uses_drap = 1
            current_fde.drap_regnum = cfa.reg
 
   Rule 19:
   (set fp sp)
-  constraints: current_fde.is_drap == 1
+  constraints: current_fde.uses_drap == 1 
   effects: cfa.reg = fp
            cfa.offset = cfa_store.offset */
 
@@ -1674,16 +1675,17 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	      cfa_temp.offset = cfa.offset;
 	    }
 	  else if (fde
-		   && fde->is_drap 
+		   && fde->uses_drap 
                    && REGNO (src) == STACK_POINTER_REGNUM 
                    && REGNO (dest) == HARD_FRAME_POINTER_REGNUM)
             {
 	      /* Rule 19 */
 	      /* Each time when setting FP to SP under the condition of
-		 that the stack is realigned we assume the realign used
+		 that the stack is realigned and the realignment used
 		 Dynamic Realign Argument Pointer and the register used
 		 is the current cfa's register. We update cfa's register
 		 to FP.  */
+              gcc_assert (DWARF_FRAME_REGNUM (cfa.reg) == fde->drap_regnum); 
               cfa.reg = REGNO (dest);
               cfa.offset = cfa_store.offset;
               cfa_temp.reg = cfa.reg;
@@ -1836,6 +1838,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	     alignment.  */
           if (fde && XEXP (src, 0) == stack_pointer_rtx)
             {
+              gcc_assert (cfa_store.reg == REGNO (XEXP (src, 0)));
               fde->stack_realign = 1;
               fde->stack_realignment = INTVAL (XEXP (src, 1));
               /* If we didn't push anything to stack before stack is
@@ -1899,7 +1902,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		 will record the register used by Dynamic Realign
 		 Argument Pointer.  */
               fde->stack_realign = 0;
-              fde->is_drap = 1;
+              fde->uses_drap = 1;
               fde->drap_regnum = DWARF_FRAME_REGNUM (cfa.reg);
             }            
 
@@ -15520,7 +15523,7 @@ reg_save_with_expression (dw_cfi_ref cfi)
 
   /* We need to restore register used by Dynamic Realign Argument
      Pointer through dereference.   */
-  if (fde->is_drap && reg == fde->drap_regnum)
+  if (fde->uses_drap && reg == fde->drap_regnum)
     {
        
       dw_cfi_ref cfi2 = new_cfi();
