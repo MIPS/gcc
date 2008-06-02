@@ -5257,7 +5257,14 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
 	succ = NULL;
 
       if (EDGE_COUNT (empty_bb->preds) > 0 && succ != NULL)
-        sel_redirect_edge_and_branch (EDGE_PRED (empty_bb, 0), succ);
+        {
+          edge e = EDGE_PRED (empty_bb, 0);
+
+          if (e->flags & EDGE_FALLTHRU)
+            redirect_edge_succ (e, succ);
+          else
+            sel_redirect_edge_and_branch (EDGE_PRED (empty_bb, 0), succ);
+        }
 
       if (EDGE_COUNT (empty_bb->succs) > 0 && pred != NULL)
 	{
@@ -5567,7 +5574,6 @@ sel_register_cfg_hooks (void)
   sel_cfg_hooks = orig_cfg_hooks;
 
   sel_cfg_hooks.create_basic_block = sel_create_basic_block;
-  sel_cfg_hooks.delete_basic_block = rtl_delete_block_not_barriers;
 
   set_cfg_hooks (sel_cfg_hooks);
 
