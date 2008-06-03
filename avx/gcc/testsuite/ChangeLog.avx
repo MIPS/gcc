@@ -1,3 +1,14 @@
+2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Replace asm-support.s
+	with asm-support.S.
+
+	* gcc.target/x86_64/abi/asm-support.s: Moved to ...
+	* gcc.target/x86_64/abi/asm-support.S: This.
+
+	* gcc.target/x86_64/abi/asm-support.S: Add ".sse_check none"
+	if __AVX__ is defined.
+
 2008-05-17  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.target/i386/avx-2.c: Add more tests for gmmintrin.h.
