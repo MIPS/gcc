@@ -1,3 +1,22 @@
+2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	* config/i386/i386.md (*cmpfp_i_mixed): Move prefix attribute
+	before mode attribute.
+	(*cmpfp_i_sse): Likewise.
+	(*cmpfp_iu_mixed): Likewise.
+	(*cmpfp_iu_sse): Likewise.
+	(*sqrt<mode>2_sse): Likewise.
+	(*movti_internal): Support AVX.
+	(*movti_rex64): Likewise.
+	(*movtf_internal): Likewise.
+	(zero_extendsidi2_32): Likewise.
+	(zero_extendsidi2_rex64): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_interunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_mixed_nointerunit): Likewise.
+	(*float<SSEMODEI24:mode><MODEF:mode>2_sse_nointerunit): Likewise.
+
 2008-06-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.md (*fop_sf_comm_mixed_avx): Removed.
