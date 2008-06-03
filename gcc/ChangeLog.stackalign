@@ -1,3 +1,9 @@
+2008-06-03  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (find_drap_reg): Use static-chain register
+	if possible.
+
 2008-06-02  Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* dwarf2out.c (dw_fde_struct): Rename is_drap to uses_drap.

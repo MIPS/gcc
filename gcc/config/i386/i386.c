@@ -6389,40 +6389,52 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
    used in begin of body, so it must not be
 	1. parameter passing register.
 	2. GOT pointer.
-   For i386, we use CX if it is not used to pass parameter. Otherwise
-   we just pick DI.
-   For x86_64, we just pick R13 directly.
+   We reuse static-chain register if it is available.  Othewise, we
+   use DI for i386 and R13 for x86-64.  We chose R13 since it has
+   shorter encoding.
 
-   Return: the regno of choosed register.
-
-   FIXME: Can we use an unused call-clobbered register, similar to
-   ix86_select_alt_pic_regnum?  */
+   Return: the regno of chosen register.  */
 
 static unsigned int 
 find_drap_reg (void)
 {
-  int param_reg_num;
+  tree decl = cfun->decl;
 
   if (TARGET_64BIT)
-    return R13_REG;
+    {
+      /* Use R13 for nested function or function need static chain.
+         Since function with tail call or eh_return may use any
+	 caller-saved registers in epilogue, DRAP must not use
+	 caller-saved register in such case.  */
+      if ((decl_function_context (decl)
+	   && !DECL_NO_STATIC_CHAIN (decl))
+	  || crtl->tail_call_emit
+	  || crtl->calls_eh_return)
+	return R13_REG;
 
-  /* Use DI for nested function or function need static chain.  */
-  if (decl_function_context (cfun->decl)
-      && !DECL_NO_STATIC_CHAIN (cfun->decl))
-    return DI_REG;
-
-  if (crtl->tail_call_emit || crtl->calls_eh_return)
-    return DI_REG;
-
-  param_reg_num = ix86_function_regparm (TREE_TYPE (cfun->decl),
-					 cfun->decl);
-
-  if (param_reg_num <= 2
-      && !lookup_attribute ("fastcall",
-			    TYPE_ATTRIBUTES (TREE_TYPE (cfun->decl))))
-    return CX_REG;
-
-  return DI_REG;
+      return R10_REG;
+    }
+  else
+    {
+      /* Use DI for nested function or function need static chain.
+         Since function with tail call or eh_return may use any
+	 caller-saved registers in epilogue, DRAP must not use
+	 caller-saved register in such case.  */
+      if ((decl_function_context (decl)
+	   && !DECL_NO_STATIC_CHAIN (decl))
+	  || crtl->tail_call_emit
+	  || crtl->calls_eh_return)
+	return DI_REG;
+    
+      /* Reuse static chain register if it isn't used for parameter
+         passing.  */
+      if (ix86_function_regparm (TREE_TYPE (decl), decl) <= 2
+	  && !lookup_attribute ("fastcall",
+    				TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+	return CX_REG;
+      else
+	return DI_REG;
+    }
 }
 
 /* Update incoming stack boundary and estimated stack alignment.  */
