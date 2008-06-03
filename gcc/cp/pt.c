@@ -3791,7 +3791,10 @@ push_template_decl_real (tree decl, bool is_friend)
 	member_template_p = true;
       if (TREE_CODE (decl) == TYPE_DECL
 	  && ANON_AGGRNAME_P (DECL_NAME (decl)))
-	error ("template class without a name");
+	{
+	  error ("template class without a name");
+	  return error_mark_node;
+	}
       else if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
 	  if (DECL_DESTRUCTOR_P (decl))
@@ -15500,6 +15503,8 @@ tsubst_initializer_list (tree t, tree argvec)
 		    = tsubst_pack_expansion (expr, argvec,
 					     tf_warning_or_error,
 					     NULL_TREE);
+		  if (expanded_exprs == error_mark_node)
+		    continue;
 
 		  /* Prepend each of the expanded expressions to the
 		     corresponding TREE_LIST in EXPANDED_ARGUMENTS.  */

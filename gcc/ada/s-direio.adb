@@ -251,21 +251,23 @@ package body System.Direct_IO is
    -----------
 
    procedure Reset (File : in out File_Type; Mode : FCB.File_Mode) is
-      AFCB : aliased AP;
-      for AFCB'Address use File'Address;
-      pragma Import (Ada, AFCB);
+      pragma Unmodified (File);
+      --  File is actually modified via Unrestricted_Access below, but
+      --  GNAT will generate a warning anyway.
+
    begin
-      FIO.Reset (AFCB'Access, Mode);
+      FIO.Reset (AP (File)'Unrestricted_Access, Mode);
       File.Index := 1;
       File.Last_Op := Op_Read;
    end Reset;
 
    procedure Reset (File : in out File_Type) is
-      AFCB : aliased AP;
-      for AFCB'Address use File'Address;
-      pragma Import (Ada, AFCB);
+      pragma Unmodified (File);
+      --  File is actually modified via Unrestricted_Access below, but
+      --  GNAT will generate a warning anyway.
+
    begin
-      FIO.Reset (AFCB'Access);
+      FIO.Reset (AP (File)'Unrestricted_Access);
       File.Index := 1;
       File.Last_Op := Op_Read;
    end Reset;

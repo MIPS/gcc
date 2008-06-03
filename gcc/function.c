@@ -3852,6 +3852,10 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   if (init_machine_status)
     cfun->machine = (*init_machine_status) ();
 
+#ifdef OVERRIDE_ABI_FORMAT
+  OVERRIDE_ABI_FORMAT (fndecl);
+#endif
+
   if (fndecl != NULL_TREE)
     {
       DECL_STRUCT_FUNCTION (fndecl) = cfun;
@@ -4311,7 +4315,7 @@ diddle_return_value (void (*doit) (rtx, void *), void *arg)
 static void
 do_clobber_return_reg (rtx reg, void *arg ATTRIBUTE_UNUSED)
 {
-  emit_insn (gen_rtx_CLOBBER (VOIDmode, reg));
+  emit_clobber (reg);
 }
 
 void
@@ -4334,7 +4338,7 @@ clobber_return_register (void)
 static void
 do_use_return_reg (rtx reg, void *arg ATTRIBUTE_UNUSED)
 {
-  emit_insn (gen_rtx_USE (VOIDmode, reg));
+  emit_use (reg);
 }
 
 static void
@@ -4740,7 +4744,7 @@ thread_prologue_and_epilogue_insns (void)
       /* Insert an explicit USE for the frame pointer 
          if the profiling is on and the frame pointer is required.  */
       if (crtl->profile && frame_pointer_needed)
-        emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+	emit_use (hard_frame_pointer_rtx);
 
       /* Retain a map of the prologue insns.  */
       record_insns (seq, &prologue);

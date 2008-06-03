@@ -787,7 +787,7 @@ procedure GNATCmd is
       Name : Path_Name_Type;
       --  Path of the file FD
 
-      GN_Name : constant String := Program_Name ("gnatmake").all;
+      GN_Name : constant String := Program_Name ("gnatmake", "gnat").all;
       --  Name for gnatmake
 
       GN_Path : constant String_Access := Locate_Exec_On_Path (GN_Name);
@@ -1340,12 +1340,12 @@ procedure GNATCmd is
             Put (To_Lower (Command_List (C).Cname.all));
             Set_Col (25);
 
-            --  No prefix for gnatstack
+            --  Never call gnatstack with a prefix
 
             if C = Stack then
                Put (Command_List (C).Unixcmd.all);
             else
-               Put (Program_Name (Command_List (C).Unixcmd.all).all);
+               Put (Program_Name (Command_List (C).Unixcmd.all, "gnat").all);
             end if;
 
             declare
@@ -1575,11 +1575,13 @@ begin
 
    begin
       if The_Command = Stack then
+         --  Never call gnatstack with a prefix
+
          Program := new String'(Command_List (The_Command).Unixcmd.all);
 
       else
          Program :=
-           Program_Name (Command_List (The_Command).Unixcmd.all);
+           Program_Name (Command_List (The_Command).Unixcmd.all, "gnat");
       end if;
 
       --  Locate the executable for the command

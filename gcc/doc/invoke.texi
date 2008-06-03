@@ -232,7 +232,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-deprecated  @gol
 -Wno-deprecated-declarations -Wdisabled-optimization  -Wno-div-by-zero  @gol
--Wempty-body  -Wno-endif-labels @gol
+-Wempty-body  -Wenum-compare -Wno-endif-labels @gol
 -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
@@ -3657,6 +3657,11 @@ Warn if an empty body occurs in an @samp{if}, @samp{else} or @samp{do
 while} statement.  Additionally, in C++, warn when an empty body occurs
 in a @samp{while} or @samp{for} statement with no whitespacing before
 the semicolon.  This warning is also enabled by @option{-Wextra}.
+
+@item -Wenum-compare @r{(C++ and Objective-C++ only)}
+@opindex Wenum-compare
+@opindex Wno-enum-compare
+Warn about a comparison between values of different enum types.
 
 @item -Wsign-compare
 @opindex Wsign-compare
@@ -11931,6 +11936,7 @@ The processor names are:
 @samp{24kec}, @samp{24kef2_1}, @samp{24kef1_1},
 @samp{34kc}, @samp{34kf2_1}, @samp{34kf1_1},
 @samp{74kc}, @samp{74kf2_1}, @samp{74kf1_1}, @samp{74kf3_2},
+@samp{loongson2e}, @samp{loongson2f},
 @samp{m4k},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
