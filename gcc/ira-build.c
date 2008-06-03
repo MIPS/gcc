@@ -1711,7 +1711,9 @@ allocno_range_compare_func (const void *v1p, const void *v2p)
     return diff;
   if ((diff = ALLOCNO_MIN (a1) - ALLOCNO_MIN (a2)) != 0)
     return diff;
-  return ALLOCNO_MAX (a1) - ALLOCNO_MAX (a2);
+  if ((diff = ALLOCNO_MAX (a1) - ALLOCNO_MAX (a2)) != 0)
+     return diff;
+  return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
 }
 
 /* The function sorts conflict_id_allocno_map and sets up conflict id

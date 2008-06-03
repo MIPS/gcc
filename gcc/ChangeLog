@@ -1,3 +1,7 @@
+2008-06-03  Steve Chamberlain <steve.chamberlain@gmail.com>
+
+	* ira-build.c (allocno_range_compare_func): Stabilize sort.
+
 2008-05-30  Vladimir Makarov  <vmakarov@redhat.com>
 	Merge 132243:136204 from trunk
 	* ira.c (setup_eliminable_regset): Use cfun.
