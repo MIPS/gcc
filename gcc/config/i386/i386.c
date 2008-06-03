@@ -1705,6 +1705,7 @@ static rtx (*ix86_gen_sub3) (rtx, rtx, rtx);
 static rtx (*ix86_gen_sub3_carry) (rtx, rtx, rtx, rtx);
 static rtx (*ix86_gen_one_cmpl2) (rtx, rtx);
 static rtx (*ix86_gen_monitor) (rtx, rtx, rtx);
+static rtx (*ix86_gen_andsp) (rtx, rtx, rtx);
 
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
@@ -2817,6 +2818,7 @@ override_options (void)
       ix86_gen_sub3_carry = gen_subdi3_carry_rex64;
       ix86_gen_one_cmpl2 = gen_one_cmpldi2;
       ix86_gen_monitor = gen_sse3_monitor64;
+      ix86_gen_andsp = gen_anddi3;
     }
   else
     {
@@ -2827,6 +2829,7 @@ override_options (void)
       ix86_gen_sub3_carry = gen_subsi3_carry;
       ix86_gen_one_cmpl2 = gen_one_cmplsi2;
       ix86_gen_monitor = gen_sse3_monitor;
+      ix86_gen_andsp = gen_andsi3;
     }
 
 #ifdef USE_IX86_CLD
@@ -6709,7 +6712,6 @@ ix86_expand_prologue (void)
   bool pic_reg_used;
   struct ix86_frame frame;
   HOST_WIDE_INT allocate;
-  rtx (*gen_andsp) (rtx, rtx, rtx);
 
   ix86_finalize_stack_realign_flags ();
 
@@ -6747,11 +6749,10 @@ ix86_expand_prologue (void)
       insn = emit_insn (gen_rtx_SET (VOIDmode, y, x));
       RTX_FRAME_RELATED_P (insn) = 1; 
 
-      gen_andsp = TARGET_64BIT ? gen_anddi3 : gen_andsi3;
       /* Align the stack.  */
-      insn = emit_insn ((*gen_andsp) (stack_pointer_rtx,
-				  stack_pointer_rtx,
-				  GEN_INT (-align_bytes)));
+      insn = emit_insn ((*ix86_gen_andsp) (stack_pointer_rtx,
+					   stack_pointer_rtx,
+					   GEN_INT (-align_bytes)));
       RTX_FRAME_RELATED_P (insn) = 1;
 
       x = crtl->drap_reg;
@@ -6779,11 +6780,10 @@ ix86_expand_prologue (void)
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
       gcc_assert (align_bytes > STACK_BOUNDARY / BITS_PER_UNIT);
 
-      gen_andsp = TARGET_64BIT ? gen_anddi3 : gen_andsi3;
       /* Align the stack.  */
-      insn = emit_insn ((*gen_andsp) (stack_pointer_rtx,
-				      stack_pointer_rtx,
-				      GEN_INT (-align_bytes)));
+      insn = emit_insn ((*ix86_gen_andsp) (stack_pointer_rtx,
+					   stack_pointer_rtx,
+					   GEN_INT (-align_bytes)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
@@ -7131,24 +7131,12 @@ ix86_expand_epilogue (int style)
       int param_ptr_offset = (call_used_regs[REGNO (crtl->drap_reg)]
 			      ? 0 : STACK_BOUNDARY / BITS_PER_UNIT);
       gcc_assert (stack_realign_drap);
-      if (TARGET_64BIT)
-        {
-          emit_insn (gen_adddi3 (stack_pointer_rtx,
-				 crtl->drap_reg,
-				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT
-					    + param_ptr_offset))));
-          if (!call_used_regs[REGNO (crtl->drap_reg)])
-            emit_insn (gen_popdi1 (crtl->drap_reg));
-        }
-      else
-        {
-          emit_insn (gen_addsi3 (stack_pointer_rtx,
-				 crtl->drap_reg,
-				 GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT 
-					    + param_ptr_offset))));
-          if (!call_used_regs[REGNO (crtl->drap_reg)])
-            emit_insn (gen_popsi1 (crtl->drap_reg));
-        }
+      emit_insn ((*ix86_gen_add3) (stack_pointer_rtx,
+				   crtl->drap_reg,
+				   GEN_INT (-(STACK_BOUNDARY / BITS_PER_UNIT
+					      + param_ptr_offset))));
+      if (!call_used_regs[REGNO (crtl->drap_reg)])
+	emit_insn ((*ix86_gen_pop1) (crtl->drap_reg));
       
     }
 

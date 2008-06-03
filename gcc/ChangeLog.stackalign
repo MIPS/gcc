@@ -1,5 +1,12 @@
 2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_gen_andsp): New.
+	(override_options): Initialize ix86_gen_andsp.
+	(ix86_expand_prologue): Updated.
+	(ix86_expand_epilogue): Likewise.
+
+2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (find_drap_reg): Fix a comment typo.
 
 2008-06-03  Joey Ye  <joey.ye@intel.com>
