@@ -1,3 +1,7 @@
+2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (find_drap_reg): Fix a comment typo.
+
 2008-06-03  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 

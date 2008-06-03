@@ -6523,7 +6523,7 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
    used in begin of body, so it must not be
 	1. parameter passing register.
 	2. GOT pointer.
-   We reuse static-chain register if it is available.  Othewise, we
+   We reuse static-chain register if it is available.  Otherwise, we
    use DI for i386 and R13 for x86-64.  We chose R13 since it has
    shorter encoding.
 
