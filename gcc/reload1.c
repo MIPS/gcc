@@ -1193,6 +1193,7 @@ reload (rtx first, int global)
      regs.  */
  failed:
 
+  CLEAR_REG_SET (&changed_allocation_pseudos);
   CLEAR_REG_SET (&spilled_pseudos);
   reload_in_progress = 0;
 

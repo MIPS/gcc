@@ -97,8 +97,8 @@ static int n_regs_saved;
 /* Computed by mark_referenced_regs, all regs referenced in a given
    insn.  */
 static HARD_REG_SET referenced_regs;
-/* Computed by mark_referenced_regs, all regs set in a given insn.  */
-static HARD_REG_SET set_regs;
+/* Computed by mark_referenced_regs, all regs modified in a given insn.  */
+static HARD_REG_SET modified_regs;
 
 
 static int reg_save_code (int, enum machine_mode);
@@ -135,7 +135,7 @@ static void set_hard_reg_saved (HARD_REG_SET, unsigned char *,
 
 static void mark_set_regs (rtx, const_rtx, void *);
 static void add_stored_regs (rtx, const_rtx, void *);
-static void mark_referenced_regs (rtx);
+static void mark_referenced_regs (rtx, int);
 static int insert_save (struct insn_chain *, int, int, HARD_REG_SET *,
 			enum machine_mode *, int *);
 static int insert_restore (struct insn_chain *, int, int, int,
@@ -884,11 +884,11 @@ calculate_local_save_info (void)
       if (INSN_P (insn))
 	{
 	  CLEAR_HARD_REG_SET (referenced_regs);
-	  CLEAR_HARD_REG_SET (set_regs);
-	  mark_referenced_regs (PATTERN (insn));
+	  CLEAR_HARD_REG_SET (modified_regs);
+	  mark_referenced_regs (PATTERN (insn), FALSE);
 	  AND_COMPL_HARD_REG_SET (restore_gen, referenced_regs);
 	  IOR_HARD_REG_SET (restore_kill, referenced_regs);
-	  IOR_HARD_REG_SET (save_kill, set_regs);
+	  IOR_HARD_REG_SET (save_kill, modified_regs);
 
 	  if (code == CALL_INSN && find_reg_note (insn, REG_NORETURN, NULL))
 	    {
@@ -1679,8 +1679,8 @@ save_call_clobbered_regs (void)
 	      else
 		{
 		  CLEAR_HARD_REG_SET (referenced_regs);
-		  CLEAR_HARD_REG_SET (set_regs);
-		  mark_referenced_regs (PATTERN (insn));
+		  CLEAR_HARD_REG_SET (modified_regs);
+		  mark_referenced_regs (PATTERN (insn), FALSE);
 		  AND_HARD_REG_SET (referenced_regs, hard_regs_saved);
 		}
 
@@ -1874,11 +1874,11 @@ save_call_clobbered_regs (void)
 	  bb_info = BB_INFO_BY_INDEX (chain->block);
 	  
 	  CLEAR_HARD_REG_SET (referenced_regs);
-	  CLEAR_HARD_REG_SET (set_regs);
-	  mark_referenced_regs (PATTERN (insn));
-	  AND_HARD_REG_SET (set_regs, hard_regs_to_save);
+	  CLEAR_HARD_REG_SET (modified_regs);
+	  mark_referenced_regs (PATTERN (insn), FALSE);
+	  AND_HARD_REG_SET (modified_regs, hard_regs_to_save);
 	  AND_COMPL_HARD_REG_SET (saved, referenced_regs);
-	  AND_COMPL_HARD_REG_SET (saved, set_regs);
+	  AND_COMPL_HARD_REG_SET (saved, modified_regs);
 	  
 	  if (chain->is_caller_save_insn)
 	    {
@@ -1892,7 +1892,7 @@ save_call_clobbered_regs (void)
 		 the insn if so.  */
 	      
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-		if (TEST_HARD_REG_BIT (set_regs, regno))
+		if (TEST_HARD_REG_BIT (modified_regs, regno))
 		  {
 		    unsigned int before = regno;
 		    
@@ -2176,79 +2176,84 @@ add_stored_regs (rtx reg, const_rtx setter, void *data)
     SET_REGNO_REG_SET ((regset) data, i);
 }
 
-
-/* Walk X and record all referenced registers in REFERENCED_REG.  */
+/* Walk X and record all referenced registers in REFERENCED_REG and
+   modified registers in MODIFIED_REGS.  */
 static void
-mark_referenced_regs (rtx x)
+mark_referenced_regs (rtx x, int set_p)
 {
-  enum rtx_code code = GET_CODE (x);
+  enum rtx_code code;
   const char *fmt;
   int i, j;
-  rtx dest;
-
-  if (code == SET)
-    mark_referenced_regs (SET_SRC (x));
-  if (code == SET || code == CLOBBER)
+  int stop_p;
+  
+  for (stop_p = FALSE; !stop_p; )
     {
-      dest = x = SET_DEST (x);
-      while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SUBREG
-	     || GET_CODE (dest) == ZERO_EXTRACT)
-	dest = XEXP (dest, 0);
-      if (GET_CODE (dest) == REG)
+      while (GET_CODE (x) == STRICT_LOW_PART || GET_CODE (x) == ZERO_EXTRACT)
+	x = XEXP (x, 0);
+      code = GET_CODE (x);
+      switch (code)
 	{
-	  int regno = REGNO (dest);
-	  int hardregno = (regno < FIRST_PSEUDO_REGISTER ? regno
-			   : reg_renumber[regno]);
-	  
-	  if (hardregno >= 0)
-	    add_to_hard_reg_set (&set_regs, GET_MODE (dest), hardregno);
+	case SET:
+	  gcc_assert (!set_p);
+	  mark_referenced_regs (SET_DEST (x), TRUE);
+	  x = SET_SRC (x);
+	  break;
+	case CLOBBER:
+	  mark_referenced_regs (SET_DEST (x), TRUE);
+	  return;
+	case PRE_INC:
+	case POST_INC:
+	case PRE_DEC:
+	case POST_DEC:
+	  gcc_assert (!set_p);
+	  x = XEXP (x, 0);
+	  mark_referenced_regs (x, TRUE);
+	  break;
+	case PRE_MODIFY:
+	case POST_MODIFY:
+	  set_p = FALSE;
+	  mark_referenced_regs (XEXP (x, 0), FALSE);
+	  mark_referenced_regs (XEXP (x, 0), TRUE);
+	  x = XEXP (x, 1);
+	  mark_referenced_regs (x, FALSE);
+	  break;
+	case SUBREG:
+	  x = SUBREG_REG (x);
+	  break;
+	case REG:
+	  {
+	    int regno = REGNO (x);
+	    int hardregno = (regno < FIRST_PSEUDO_REGISTER ? regno
+			     : reg_renumber[regno]);
+	    
+	    if (hardregno >= 0)
+	      {
+		if (set_p)
+		  add_to_hard_reg_set (&modified_regs, GET_MODE (x), hardregno);
+		add_to_hard_reg_set (&referenced_regs, GET_MODE (x), hardregno);
+	      }
+	    /* If this is a pseudo that did not get a hard register, scan
+	       its memory location, since it might involve the use of
+	       another register, which might be saved.  */
+	    else if (reg_equiv_mem[regno] != 0)
+	      mark_referenced_regs (XEXP (reg_equiv_mem[regno], 0), set_p);
+	    else if (reg_equiv_address[regno] != 0)
+	      mark_referenced_regs (reg_equiv_address[regno], set_p);
+	    return;
+	  }
+	default:
+	  fmt = GET_RTX_FORMAT (code);
+	  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+	    {
+	      if (fmt[i] == 'e')
+		mark_referenced_regs (XEXP (x, i), FALSE);
+	      else if (fmt[i] == 'E')
+		for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+		  mark_referenced_regs (XVECEXP (x, i, j), FALSE);
+	    }
+	  stop_p = TRUE;
+	  break;
 	}
-      code = GET_CODE (x);
-      if ((code == REG && REGNO (x) < FIRST_PSEUDO_REGISTER)
-	  || code == PC || code == CC0
-	  || (code == SUBREG && REG_P (SUBREG_REG (x))
-	      && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
-	      /* If we're setting only part of a multi-word register,
-		 we shall mark it as referenced, because the words
-		 that are not being set should be restored.  */
-	      && ((GET_MODE_SIZE (GET_MODE (x))
-		   >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-		  || (GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))
-		      <= UNITS_PER_WORD))))
-	return;
-    }
-  if (code == MEM || code == SUBREG)
-    {
-      x = XEXP (x, 0);
-      code = GET_CODE (x);
-    }
-
-  if (code == REG)
-    {
-      int regno = REGNO (x);
-      int hardregno = (regno < FIRST_PSEUDO_REGISTER ? regno
-		       : reg_renumber[regno]);
-
-      if (hardregno >= 0)
-	add_to_hard_reg_set (&referenced_regs, GET_MODE (x), hardregno);
-      /* If this is a pseudo that did not get a hard register, scan its
-	 memory location, since it might involve the use of another
-	 register, which might be saved.  */
-      else if (reg_equiv_mem[regno] != 0)
-	mark_referenced_regs (XEXP (reg_equiv_mem[regno], 0));
-      else if (reg_equiv_address[regno] != 0)
-	mark_referenced_regs (reg_equiv_address[regno]);
-      return;
-    }
-
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	mark_referenced_regs (XEXP (x, i));
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  mark_referenced_regs (XVECEXP (x, i, j));
     }
 }
 

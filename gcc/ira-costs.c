@@ -1121,34 +1121,17 @@ find_allocno_class_costs (void)
       if (internal_flag_ira_verbose > 0 && ira_dump_file)
 	fprintf (ira_dump_file, "\nPass %i for finding allocno costs\n\n",
 		 pass);
-      if (optimize)
+      /* We could use only cover classes.  Unfortunately it does not
+	 work well for some targets where some subclass of cover class
+	 is costly and wrong cover class is chosen.  */
+      for (cost_classes_num = 0;
+	   cost_classes_num < important_classes_num;
+	   cost_classes_num++)
 	{
-	  /* We could use only cover classes on the 1st iteration.
-	     Unfortunately it does not work well for some targets where
-	     some subclass of cover class is costly and wrong cover class
-	     is chosen on the first iteration and it can not be fixed on
-	     the 2nd iteration.  */
-	  for (cost_classes_num = 0;
-	       cost_classes_num < important_classes_num;
-	       cost_classes_num++)
-	    {
-	      cost_classes[cost_classes_num]
-		= important_classes[cost_classes_num];
-	      cost_class_nums[cost_classes[cost_classes_num]]
-		= cost_classes_num;
-	    }
-	}
-      else
-	{
-	  for (cost_classes_num = 0;
-	       cost_classes_num < reg_class_cover_size;
-	       cost_classes_num++)
-	    {
-	      cost_classes[cost_classes_num]
-		= reg_class_cover[cost_classes_num];
-	      cost_class_nums[cost_classes[cost_classes_num]]
-		= cost_classes_num;
-	    }
+	  cost_classes[cost_classes_num]
+	    = important_classes[cost_classes_num];
+	  cost_class_nums[cost_classes[cost_classes_num]]
+	    = cost_classes_num;
 	}
       struct_costs_size
 	= sizeof (struct costs) + sizeof (int) * (cost_classes_num - 1);

@@ -1,3 +1,17 @@
+2008-06-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* caller-saves.c (mark_referenced_regs): Add new parameter.
+	Process increments/decrements.
+	(set_regs): Rename to modified_regs.
+	(calculate_local_save_info, save_call_clobbered_regs): Pass the
+	new parameter value to mark_referenced_regs.
+
+	* ira-costs.c (find_allocno_class_costs): Always use important
+	classes.
+
+	* reload1.c (reload): Clear changed_allocation_pseudos at the end
+	of reload.
+	
 2008-06-03  Steve Chamberlain <steve.chamberlain@gmail.com>
 
 	* ira-build.c (allocno_range_compare_func): Stabilize sort.
