@@ -2236,8 +2236,8 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
   decl->decl_common.attributes = input_tree (ib, data_in);
   decl->decl_common.abstract_origin = input_tree (ib, data_in);
 
-  /* omit mode */
-  decl->decl_common.align  = lto_input_uleb128 (ib);
+  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.align = lto_input_uleb128 (ib);
 
   decl->decl_common.size = input_tree (ib, data_in);
   decl->decl_common.size_unit = input_tree (ib, data_in);

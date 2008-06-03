@@ -1,3 +1,12 @@
+2008-06-03  Diego Novillo  <dnovillo@google.com>
+
+	* lto-function-out.c (output_tree_flags): Tidy
+	formatting.
+	(output_type_decl): Emit TYPE_MODE.
+	(output_tree): Add comment.
+	Ignore language codes.  Add pointer to proper fix.
+	* lto-function-in.c (input_type_decl): Read TYPE_MODE.
+
 2008-06-02  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c: Do not include ctype.h.

@@ -361,9 +361,7 @@ output_integer (struct output_block *ob, tree t)
 
 
 static void
-output_tree_flags (struct output_block *ob, 
-		   enum tree_code code, 
-		   tree expr, 
+output_tree_flags (struct output_block *ob, enum tree_code code, tree expr, 
 		   bool force_loc)
 {
   lto_flags_type flags = 0;
@@ -407,7 +405,7 @@ output_tree_flags (struct output_block *ob,
       { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
       { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
-#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+#define ADD_VIS_FLAG_SIZE(flag_name,size)	\
       { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
 #define ADD_FUN_FLAG(flag_name)  \
       { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
@@ -2439,7 +2437,7 @@ output_type_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_common.attributes);
   output_tree (ob, decl->decl_common.abstract_origin);
 
-  gcc_assert (decl->decl_common.mode == 0);
+  output_uleb128 (ob, decl->decl_common.mode);
   output_uleb128 (ob, decl->decl_common.align);
 
   output_tree (ob, decl->decl_common.size);			/* ??? */
@@ -2658,6 +2656,9 @@ output_global_constructor (struct output_block *ob, tree ctor)
     }
 }
 
+
+/* Emit tree node EXPR to output block OB.  */
+
 void
 output_tree (struct output_block *ob, tree expr)
 {
@@ -2855,6 +2856,7 @@ output_tree (struct output_block *ob, tree expr)
     case TRANSLATION_UNIT_DECL:
       output_translation_unit_decl (ob, expr);
       break;
+
 
     case LABEL_DECL:
     case LABEL_EXPR:
@@ -3137,10 +3139,25 @@ output_tree (struct output_block *ob, tree expr)
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:
     default:
-      /* We cannot have forms that are not explicity handled.  So when
-	 this is triggered, there is some form that is not being
-	 output.  */
-      gcc_unreachable ();
+      if (TREE_CODE (expr) >= NUM_TREE_CODES)
+	{
+	  /* When this happens, it means that EXPR is a
+	     language-specific tree node.  Since these codes have no
+	     meaning outside of the front-end, and in fact they cannot
+	     be handled, we just ignore them.  FIXME, we should really
+	     abort here.  These codes should not have escaped from
+	     the front end.  Something along the lines of
+	     http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+	     should be implemented.  */
+	  break;
+	}
+      else
+	{
+	  /* We cannot have forms that are not explicity handled.  So when
+	     this is triggered, there is some form that is not being
+	     output.  */
+	  gcc_unreachable ();
+	}
     }
 
   LTO_DEBUG_UNDENT ();
