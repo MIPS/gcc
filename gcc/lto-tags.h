@@ -45,7 +45,7 @@
    5)    type_decls
    6)    types.
    7)    Names for the labels that have names
-   8)    The ssa names.
+   8)    The SSA names.
    9)    The control flow graph.
    10-11)Gimple for local decls.
    12)   Gimple for the function.
@@ -65,23 +65,31 @@
 struct lto_function_header
 {
   struct lto_header lto_header;   /* The header for all types of sections. */
-  int32_t num_local_decls;        /* Number of local VAR_DECLS and PARM_DECLS.  */
+  int32_t num_local_decls;        /* Number of local VAR_DECLS and
+				     PARM_DECLS.  */
   int32_t num_named_labels;       /* Number of labels with names.  */
   int32_t num_unnamed_labels;     /* Number of labels without names.  */
   int32_t compressed_size;        /* Size compressed or 0 if not compressed.  */
   int32_t named_label_size;       /* Size of names for named labels.  */
   int32_t ssa_names_size;         /* Size of the SSA_NAMES table.  */
   int32_t cfg_size;               /* Size of the cfg.  */
-  int32_t local_decls_index_size; /* Size of local parm and var decl index region. */
+  int32_t local_decls_index_size; /* Size of local parm and var decl index 
+				     region. */
   int32_t local_decls_size;       /* Size of local parm and var decl region. */
   int32_t main_size;              /* Size of main gimple body of function.  */
   int32_t string_size;            /* Size of the string table.  */
-  int32_t debug_decl_index_size;  /* Size of local decl index debugging information.  */
-  int32_t debug_decl_size;        /* Size of local decl debugging information.  */
-  int32_t debug_label_size;       /* Size of label stream debugging information.  */
-  int32_t debug_ssa_names_size;   /* Size of ssa_names stream debugging information.  */
-  int32_t debug_cfg_size;         /* Size of cfg stream debugging information.  */
-  int32_t debug_main_size;        /* Size of main stream debugging information.  */
+  int32_t debug_decl_index_size;  /* Size of local decl index debugging 
+				     information.  */
+  int32_t debug_decl_size;        /* Size of local decl debugging 
+				     information.  */
+  int32_t debug_label_size;       /* Size of label stream debugging 
+				     information.  */
+  int32_t debug_ssa_names_size;   /* Size of ssa_names stream debugging 
+				     information.  */
+  int32_t debug_cfg_size;         /* Size of cfg stream debugging 
+				     information.  */
+  int32_t debug_main_size;        /* Size of main stream debugging 
+				     information.  */
 };
 
 /* 2-6) THE GLOBAL DECLS AND TYPES.

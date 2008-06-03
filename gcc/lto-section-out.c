@@ -374,12 +374,12 @@ lto_output_integer_stream (struct lto_output_stream *obs, tree t)
 /* Lookup NAME in TABLE.  If NAME is not found, create a new entry in
    TABLE for NAME with NEXT_INDEX and increment NEXT_INDEX.  Then
    print the index to OBS.  True is returned if NAME was added to the
-   table.  The resulting index is store in THIS_INDEX.
+   table.  The resulting index is stored in THIS_INDEX.
 
    If OBS is NULL, the only action is to add NAME to the table. */
 
 bool
-lto_output_decl_index (struct lto_output_stream * obs, htab_t table,
+lto_output_decl_index (struct lto_output_stream *obs, htab_t table,
 		       unsigned int *next_index, tree name, 
 		       unsigned int *this_index)
 {

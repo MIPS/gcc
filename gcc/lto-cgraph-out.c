@@ -123,6 +123,8 @@ output_sleb128 (struct output_block *ob, HOST_WIDE_INT work)
 }
 
 
+/* Output FUNCTION_DECL EXPR to output block OB.  */
+
 static void
 output_fn_decl (struct output_block *ob, tree expr)
 {

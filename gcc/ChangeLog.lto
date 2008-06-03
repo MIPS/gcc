@@ -1,5 +1,15 @@
 2008-06-03  Diego Novillo  <dnovillo@google.com>
 
+	* lto-header.h: Tidy formatting.
+	* lto-section-in.c (lto_get_section_data): Fix type for
+	SECTION_NAME.
+	(lto_debug_in_fun): Tidy formatting.
+	* lto-tags.h (enum): Tidy formatting.
+	* lto-cgraph-out.c (output_fn_decl): Add comment.
+	* lto-section-out.c (lto_output_decl_index):  Tidy formatting.
+
+2008-06-03  Diego Novillo  <dnovillo@google.com>
+
 	* lto-function-out.c (output_tree_flags): Tidy
 	formatting.
 	(output_type_decl): Emit TYPE_MODE.
