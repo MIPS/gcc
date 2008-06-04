@@ -1,3 +1,14 @@
+2008-06-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Support
+	AVX encoding for *sse_prologue_save_insn.
+
+	* config/i386/i386.h (UNITS_PER_SIMD_WORD): Limit AVX to
+	128bit.
+
+	* config/i386/i386.md (*sse_prologue_save_insn): Disallow
+	REX prefix for AVX.  Set length attribute properly for AVX.
+
 2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
 	    Xuepeng Guo  <xuepeng.guo@intel.com>
 	    Joey Ye  <joey.ye@intel.com>
