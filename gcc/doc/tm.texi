@@ -912,6 +912,17 @@ Generally, any memory that they reference must be allocated by using
 @code{ggc_alloc}, including the structure itself.
 @end deftypevar
 
+@deftypevar {struct target_specific_data} DECL_TARGET_SPECIFIC
+If the target machine supports compiling a function with different
+options, via @code{__attribute__((__option__("string")))}, the
+@code{struct target_specific_data} structure should be defined to hold
+the appropriate information.  The 
+@code{TARGET_TARGET_SPECIFIC_VALIDATE} hook should be used to create
+the structure stored in the @code{DECL_TARGET_SPECIFIC} field, and the
+@code{TARGET_TARGET_SPECIFIC_CAN_INLINE_P} hook can use the information to
+determine if one function can inline another.
+@end deftypevar
+
 @node Storage Layout
 @section Storage Layout
 @cindex storage layout
@@ -10299,6 +10310,25 @@ GCC sets @code{cfun} to a dummy function context during initialization of
 some parts of the back end.  The hook function is not invoked in this
 situation; you need not worry about the hook being invoked recursively,
 or when the back end is in a partially-initialized state.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_TARGET_SPECIFIC_VALIDATE (int @var{argc}, const car **@var{argv}, tree @var{fndecl})
+The compiler invokes this hook in order to parse the options specified
+in @code{__attribute__((__option__("string"))} which allows the user
+to override the target options for a specific function.  The
+@code{TARGET_TARGET_SPECIFIC_VALIDATE} hook should create a
+@code{struct target_specific_data} structure and store the pointer in
+the @code{DECL_TARGET_SPECIFIC} node in the function declaration to
+hold the necessary information for compiling this function.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_TARGET_SPECIFIC_CAN_INLINE_P (tree @var{caller}, tree @var{callee})
+The compiler invokes this hook to determine whether a specific
+function can inline another function.  For example on an x86_64 system
+if you have a function that was specified to be compiled with
+@samp{sse5} options, you would not want to expand it in a generic
+function that does not know about the @samp{sse5} extended instruction
+set.
 @end deftypefn
 
 @defmac TARGET_OBJECT_SUFFIX

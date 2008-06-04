@@ -1763,6 +1763,8 @@ static int ix86_function_regparm (const_tree, const_tree);
 static void ix86_compute_frame_layout (struct ix86_frame *);
 static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
+static char *ix86_target_string (void);
+static void ix86_debug_options (void) ATTRIBUTE_UNUSED;
 static void ix86_target_specific_save (struct target_specific_data *);
 static void ix86_target_specific_restore (struct target_specific_data *);
 static bool ix86_target_specific_validate (int, const char **, tree);
@@ -2062,41 +2064,139 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
     }
 }
 
-#ifdef DEBUG_TARGET_SPECIFIC
+/* Return a string the documents the current -m options.  The caller is
+   responsible for freeing the string.  */
+static char *
+ix86_target_string (void)
+{
+  struct ix86_target_opts
+  {
+    const char *option;		/* option string */
+    int mask;			/* isa mask options */
+  };
+
+  /* This table is ordered so that options like -msse5 or -msse4.2 that imply
+     preceding options while match those first.  */
+  static struct ix86_target_opts opts[] =
+  {
+    { "-m64",		OPTION_MASK_ISA_64BIT },
+    { "-msse5",		OPTION_MASK_ISA_SSE5_SET },
+    { "-msse4a",	OPTION_MASK_ISA_SSE4A_SET },
+    { "-msse4.2",	OPTION_MASK_ISA_SSE4_2_SET },
+    { "-msse4.1",	OPTION_MASK_ISA_SSE4_1_SET },
+    { "-mssse3",	OPTION_MASK_ISA_SSSE3_SET },
+    { "-msse2",		OPTION_MASK_ISA_SSE2_SET },
+    { "-msse",		OPTION_MASK_ISA_SSE_SET },
+    { "-m3dnow",	OPTION_MASK_ISA_3DNOW_SET },
+    { "-mmmx",		OPTION_MASK_ISA_MMX_SET },
+  };
+
+  int pass;
+  size_t len = 0;
+  char *ret = NULL;
+  char *ptr = NULL;
+
+  /* Use two passes, the first pass figures out the size of the string needed,
+     and the second pass builds it.  */
+  for (pass = 0; pass < 2; pass++)
+    {
+      int isa = ix86_isa_flags;
+      bool modified_p = true;
+
+      if (pass)
+	{
+	  ret = ptr = ggc_alloc_cleared (len + 1);
+	  len = 0;
+	}
+
+      /* Pick out the options in isa options.  */
+      while (isa && modified_p)
+	{
+	  unsigned i;
+
+	  modified_p = false;
+	  for (i = 0; i < sizeof (opts) / sizeof (opts[0]); i++)
+	    {
+	      if ((isa & opts[i].mask) == opts[i].mask)
+		{
+		  len += strlen (opts[i].option) + 1;
+		  modified_p = true;
+		  isa &= ~ opts[i].mask;
+		  if (pass)
+		    {
+		      ptr = strcat (ptr, opts[i].option);
+		      ptr = strcat (ptr, " ");
+		    }
+		  break;
+		}
+	    }
+	}
+
+      /* Add -march= */
+      if (ix86_arch_specified && ix86_arch_string)
+	{
+	  len += strlen (ix86_arch_string) + sizeof ("-march=");
+	  if (pass)
+	    {
+	      ptr = strcat (ptr, "-march=");
+	      ptr = strcat (ptr, ix86_arch_string);
+	      ptr = strcat (ptr, " ");
+	    }
+	}
+
+      /* Add -mtune= */
+      if (!ix86_tune_defaulted && ix86_tune_string)
+	{
+	  size_t len2 = strlen (ix86_tune_string);
+	  len += len2 + sizeof ("-tune=");
+	  if (pass)
+	    {
+	      ptr = strcat (ptr, "-mtune=");
+	      ptr = strcat (ptr, ix86_tune_string);
+	      ptr = strcat (ptr, " ");
+	    }
+	}
+
+      /* Add -fpmath= */
+      if (ix86_fpmath_string)
+	{
+	  size_t len2 = strlen (ix86_fpmath_string);
+	  len += len2 + sizeof ("-mfpmath=");
+	  if (pass)
+	    {
+	      ptr = strcat (ptr, "-mfpmath=");
+	      ptr = strcat (ptr, ix86_fpmath_string);
+	      ptr = strcat (ptr, " ");
+	    }
+	}
+
+      /* Make sure we have some options */
+      if (len == 0)
+	{
+	  len = sizeof ("<no options>");
+	  if (pass)
+	    ptr = strcat (ptr, "<no options> ");
+	}
+    }
+
+  /* Eliminate trailing space */
+  ptr = ret + strlen (ret);
+  if (ptr != ret && ptr[-1] == ' ')
+    ptr[-1] = '\0';
+
+  return ret;
+}
+
+/* Function that is callable from the debugger to print the current
+   options.  */
 static void
 ix86_debug_options (void)
 {
-  fputs ("i386 options:", stderr);
-  if (TARGET_ABM)
-    fputs (" abm", stderr);
-  if (TARGET_FUSED_MADD)
-    fputs (" fused-madd", stderr);
-  if (TARGET_POPCNT)
-    fputs (" popcnt", stderr);
-  if (TARGET_MMX)
-    fputs (" mmx", stderr);
-  if (TARGET_SSE)
-    fputs (" sse", stderr);
-  if (TARGET_SSE2)
-    fputs (" sse2", stderr);
-  if (TARGET_SSE3)
-    fputs (" sse3", stderr);
-  if (TARGET_SSE4_1)
-    fputs (" sse4.1", stderr);
-  if (TARGET_SSE4_2)
-    fputs (" sse4.2", stderr);
-  if (TARGET_SSE4A)
-    fputs (" sse4a", stderr);
-  if (TARGET_SSE5)
-    fputs (" sse5", stderr);
-  if (TARGET_SSSE3)
-    fputs (" ssse3", stderr);
-  fprintf (stderr, ", arch=%s (%d)", ix86_arch_string, ix86_arch);
-  fprintf (stderr, ", tune=%s (%d)", ix86_tune_string, ix86_tune);
-  fprintf (stderr, ", fpmath=%s (%d)", ix86_fpmath_string, ix86_fpmath);
-  fputs ("\n", stderr);
+  char *opts = ix86_target_string ();
+
+  fprintf (stderr, "i386 options: %s\n", opts);
+  ggc_free (opts);
 }
-#endif
 
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -2252,9 +2352,6 @@ override_options (bool main_args_p)
       sw = "attribute";
     }
 
-#ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "override_options, arch = '%s', tune = '%s', main_args_p = %d\n", ix86_arch_string, ix86_tune_string, main_args_p);
-#endif
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -2892,10 +2989,6 @@ override_options (bool main_args_p)
       ix86_initial_options = ggc_alloc (sizeof (struct target_specific_data));
       ix86_target_specific_save (ix86_initial_options);
     }
-
-#ifdef DEBUG_TARGET_SPECIFIC
-  ix86_debug_options ();
-#endif
 }
 
 /* Save the current options */
@@ -2974,22 +3067,9 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
     { "ssse3",		sizeof ("ssse3")-1,		OPT_mssse3 },
   };
 
-#ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "ix86_target_specific_validate: fndecl = %p", fndecl);
-  for (i = 0; i < argc; i++)
-    fprintf (stderr, " %s", argv[i]);
-
-  putc ('\n', stderr);
-#endif
-
   /* If we've already figured out the options, quit now */
   if (DECL_TARGET_SPECIFIC (fndecl))
-    {
-#ifdef DEBUG_TARGET_SPECIFIC
-      fprintf (stderr, "ix86_target_specific_push: previous target specific options found\n");
-#endif
-      return ret;
-    }
+    return ret;
 
   /* Make sure we start with clean options */
   ix86_target_specific_restore (ix86_initial_options);
@@ -3029,12 +3109,7 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
 	}
 
       if (opt != N_OPTS)
-	{
-#ifdef DEBUG_TARGET_SPECIFIC
-	  fprintf (stderr, "ix86_target_specific_validate: call ix86_handle_option (%d, %s, %d)\n", opt, argv[i], opt_set_p);
-#endif
-	  ix86_handle_option (opt, argv[i], opt_set_p);
-	}
+	ix86_handle_option (opt, argv[i], opt_set_p);
 
       /* If it wasn't a simple option, maybe it is arch=, tune=, or fpmath= */
       else
@@ -3141,12 +3216,6 @@ ix86_target_specific_can_inline_p (tree caller, tree callee)
   else
     ret = true;
 
-#ifdef DEBUG_TARGET_SPECIFIC
-  fprintf (stderr, "ix86_target_specific_can_inline_p: %s %s %s\n",
-	   IDENTIFIER_POINTER (DECL_NAME (caller)),
-	   ret ? "can" : "cannot",
-	   IDENTIFIER_POINTER (DECL_NAME (callee)));
-#endif
   return ret;
 }
 
@@ -3159,23 +3228,9 @@ ix86_set_current_function (tree fndecl)
 {
   static tree previous_fndecl = NULL_TREE;
 
-#ifdef DEBUG_TARGET_SPECIFIC
-  if (! fndecl)
-    fprintf (stderr, "ix86_set_current_function: top level\n");
-  else if (! DECL_NAME (fndecl))
-    fprintf (stderr, "ix86_set_current_function: fndecl = %p, no decl name\n", fndecl);
-  else
-    {
-      fprintf (stderr, "ix86_set_current_function: fndecl = %p, %s:%s\n",
-	       fndecl,
-	       IDENTIFIER_POINTER (DECL_NAME (fndecl)),
-	       DECL_TARGET_SPECIFIC (fndecl) ? " target specific" : "");
-    }
-#endif
-
   /* Only change the context if the function changes.  This hook is called
-     several times in the course of compiling a function, and we don't
-     want to slow things down too much.  */
+     several times in the course of compiling a function, and we don't want to
+     slow things down too much or call target_reinit when it isn't safe.  */
   if (fndecl && fndecl != previous_fndecl)
     {
       struct target_specific_data *old_p
@@ -3191,19 +3246,12 @@ ix86_set_current_function (tree fndecl)
       else if (cur_p)
 	{
 	  ix86_target_specific_restore (cur_p);
-#ifdef DEBUG_TARGET_SPECIFIC
-	  fprintf (stderr, "ix86_set_current_function target specific function\n");
-	  ix86_debug_options ();
-#endif
 	  target_reinit ();
 	}
+
       else if (old_p)
 	{
 	  ix86_target_specific_restore (ix86_initial_options);
-#ifdef DEBUG_TARGET_SPECIFIC
-	  fprintf (stderr, "ix86_set_current_function generic function\n");
-	  ix86_debug_options ();
-#endif
 	  target_reinit ();
 	}
     }
@@ -18357,22 +18405,29 @@ enum ix86_builtins
 /* Table for the ix86 builtin decls.  */
 static GTY(()) tree ix86_builtins[(int) IX86_BUILTIN_MAX];
 
-/* Add an ix86 target builtin function with CODE, NAME and TYPE.  Do so,
- * if the target_flags include one of MASK.  Stores the function decl
- * in the ix86_builtins array.
- * Returns the function decl or NULL_TREE, if the builtin was not added.  */
+/* Table to record which ISA options the builtin needs.  */
+static int ix86_builtins_isa[(int) IX86_BUILTIN_MAX];
+
+/* Add an ix86 target builtin function with CODE, NAME and TYPE.  Save the MASK
+ * of which isa_flags to use in the ix86_builtins_isa array.  Stores the
+ * function decl in the ix86_builtins array.  Returns the function decl or
+ * NULL_TREE, if the builtin was not added.
+ *
+ * Record all builtins, even if it isn't an instruction set in the current ISA
+ * in case the user uses function specific options for a different ISA.  When
+ * the builtin is expanded, check at that time whether it is valid.  */
 
 static inline tree
 def_builtin (int mask, const char *name, tree type, enum ix86_builtins code)
 {
   tree decl = NULL_TREE;
 
-  if (mask & ix86_isa_flags
-      && (!(mask & OPTION_MASK_ISA_64BIT) || TARGET_64BIT))
+  if (!(mask & OPTION_MASK_ISA_64BIT) || TARGET_64BIT)
     {
       decl = add_builtin_function (name, type, code, BUILT_IN_MD,
 				   NULL, NULL_TREE);
       ix86_builtins[(int) code] = decl;
+      ix86_builtins_isa[(int) code] = mask;
     }
 
   return decl;
@@ -21782,6 +21837,19 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   rtx op0, op1, op2, pat;
   enum machine_mode mode0, mode1, mode2;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  /* Determine whether the builtin function is available under the current ISA.
+     Originally the builtin was not created if it wasn't applicable to the
+     current ISA based on the command line switches.  With function specific
+     options, we need to check in the context of the function making the
+     call whether it is supported.  */
+  if (!(ix86_builtins_isa[fcode] & ix86_isa_flags))
+    {
+      char *opts = ix86_target_string ();
+      error ("%qE cannot be used with %s", fndecl, opts);
+      ggc_free (opts);
+      return const0_rtx;
+    }
 
   switch (fcode)
     {

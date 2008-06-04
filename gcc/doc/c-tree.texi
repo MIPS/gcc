@@ -1330,6 +1330,7 @@ a containing function, and the back end must take appropriate action.
 @findex DECL_GLOBAL_CTOR_P
 @findex DECL_GLOBAL_DTOR_P
 @findex GLOBAL_INIT_PRIORITY
+@findex DECL_TARGET_SPECIFIC
 
 The following macros and functions can be used on a @code{FUNCTION_DECL}:
 @ftable @code
@@ -1514,6 +1515,9 @@ is of the form `@code{()}'.
 This predicate holds if the function an overloaded
 @code{operator delete[]}.
 
+@item DECL_TARGET_SPECIFIC
+This macro points to the @code{struct target_specific_data} structure
+created for target specific function options.
 @end ftable
 
 @c ---------------------------------------------------------------------

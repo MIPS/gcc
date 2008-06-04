@@ -1,3 +1,29 @@
+2008-06-04  Michael Meissner  <michael.meissner@amd.com>
+
+	* doc/tm.texi (Per-Function Data): Document
+	TARGET_TARGET_SPECIFIC_VALIDATE,
+	TARGET_TARGET_SPECIFIC_CAN_INLINE_P.
+	(Misc): Document struct target_specific_data.
+
+	* doc/c-tree.texi (Function Basics): Add documentation of
+	DECL_TARGET_SPECIFIC.
+
+	* config/i386/i386.c (ix86_target_string): New function to return
+	a string with the various machine dependent options.
+	(ix86_debug_options): Remove DEBUG_TARGET_SPECIFIC and make it
+	have the unused attribute so it can be called from the debugger.
+	(override_options): Remove debug code.
+	(ix86_target_specific_validate): Ditto.
+	(ix86_set_current_function): Ditto.
+	(ix86_builtins_isa): New static array to record the isa options
+	needed for a builtin.
+	(def_builtin): Add declarations for all builtins, except for
+	64-bit specific builtins on 32-bit to allow for target specfic
+	functions to call builtins that aren't available with the normal
+	compilation switches.
+	(ix86_expand_builtin): Check whether the builtin function is
+	applicable for the current ISA and complain if it isn't.
+
 2008-06-02  Michael Meissner  <michael.meissner@amd.com>
 
 	* opts-common.c (find_opt): Undo size_t to unsigned long change.
