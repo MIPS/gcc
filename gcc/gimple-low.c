@@ -320,6 +320,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       break;
 
     case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_TASK:
       lower_omp_directive (gsi, data);
       return;
 

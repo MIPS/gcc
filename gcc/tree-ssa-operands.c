@@ -2071,17 +2071,22 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       {
 	/* FIXME tuples.  */
 #if 0
-	tree init = OMP_FOR_INIT (expr);
-	tree cond = OMP_FOR_COND (expr);
-	tree incr = OMP_FOR_INCR (expr);
 	tree c, clauses = gimple_omp_for_clauses (stmt);
+	int i;
 
-	get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 0), opf_def);
-	get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 1), opf_use);
-	get_expr_operands (stmt, &TREE_OPERAND (cond, 1), opf_use);
-	get_expr_operands (stmt,
-	                   &TREE_OPERAND (GIMPLE_STMT_OPERAND (incr, 1), 1),
-			   opf_use);
+	for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (expr)); i++)
+	  {
+	    tree init = TREE_VEC_ELT (OMP_FOR_INIT (expr), i);
+	    tree cond = TREE_VEC_ELT (OMP_FOR_COND (expr), i);
+	    tree incr = TREE_VEC_ELT (OMP_FOR_INCR (expr), i);
+
+	    get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 0), opf_def);
+	    get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 1), opf_use);
+	    get_expr_operands (stmt, &TREE_OPERAND (cond, 1), opf_use);
+	    get_expr_operands (stmt,
+			       &TREE_OPERAND (GIMPLE_STMT_OPERAND (incr, 1),
+					      1), opf_use);
+	  }
 
 	c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
 	if (c)
@@ -2094,6 +2099,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       }
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       {
 	/* FIXME tuples.  */
 #if 0

@@ -711,55 +711,72 @@ dump_gimple_resx (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
+  size_t i;
+
   if (flags & TDF_RAW)
     {
       dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
                        gimple_omp_body (gs));
       dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
-      dump_gimple_fmt (buffer, spc, flags,
-                       " >,%+%T, %T, %T, %s, %T,%nPRE_BODY <%S>%->",
-                       gimple_omp_for_index (gs), gimple_omp_for_initial (gs),
-                       gimple_omp_for_final (gs),
-                       tree_code_name[gimple_omp_for_cond (gs)],
-                       gimple_omp_for_incr (gs), gimple_omp_for_pre_body (gs));
+      dump_gimple_fmt (buffer, spc, flags, " >,");
+      for (i = 0; i < gimple_omp_for_collapse (gs); i++)
+	dump_gimple_fmt (buffer, spc, flags,
+			 "%+%T, %T, %T, %s, %T,%n",
+			 gimple_omp_for_index (gs, i),
+			 gimple_omp_for_initial (gs, i),
+			 gimple_omp_for_final (gs, i),
+			 tree_code_name[gimple_omp_for_cond (gs, i)],
+			 gimple_omp_for_incr (gs, i));
+      dump_gimple_fmt (buffer, spc, flags, "PRE_BODY <%S>%->",
+		       gimple_omp_for_pre_body (gs));
     }
   else
     {
       pp_string (buffer, "#pragma omp for");
       dump_omp_clauses (buffer, gimple_omp_for_clauses (gs), spc, flags);
-      newline_and_indent (buffer, spc);
-      pp_string (buffer, "for (");
-      dump_generic_node (buffer, gimple_omp_for_index (gs), spc, flags, false);
-      pp_string (buffer, " = ");
-      dump_generic_node (buffer, gimple_omp_for_initial (gs), spc, flags,
-                         false);
-      pp_string (buffer, "; ");
+      for (i = 0; i < gimple_omp_for_collapse (gs); i++)
+	{
+	  if (i)
+	    spc += 2;
+	  newline_and_indent (buffer, spc);
+	  pp_string (buffer, "for (");
+	  dump_generic_node (buffer, gimple_omp_for_index (gs, i), spc,
+			     flags, false);
+	  pp_string (buffer, " = ");
+	  dump_generic_node (buffer, gimple_omp_for_initial (gs, i), spc,
+			     flags, false);
+	  pp_string (buffer, "; ");
 
-      dump_generic_node (buffer, gimple_omp_for_index (gs), spc, flags, false);
-      pp_space (buffer);
-      switch (gimple_omp_for_cond (gs))
-        {
-        case LT_EXPR:
-          pp_character (buffer, '<');
-          break;
-        case GT_EXPR:
-          pp_character (buffer, '>');
-          break;
-        case LE_EXPR:
-          pp_string (buffer, "<=");
-          break;
-        case GE_EXPR:
-          pp_string (buffer, ">=");
-          break;
-        default:
-          gcc_unreachable ();
-        }
-      pp_space (buffer);
-      dump_generic_node (buffer, gimple_omp_for_final (gs), spc, flags, false);
-      pp_string (buffer, "; ");
+	  dump_generic_node (buffer, gimple_omp_for_index (gs, i), spc,
+			     flags, false);
+	  pp_space (buffer);
+	  switch (gimple_omp_for_cond (gs, i))
+	    {
+	    case LT_EXPR:
+	      pp_character (buffer, '<');
+	      break;
+	    case GT_EXPR:
+	      pp_character (buffer, '>');
+	      break;
+	    case LE_EXPR:
+	      pp_string (buffer, "<=");
+	      break;
+	    case GE_EXPR:
+	      pp_string (buffer, ">=");
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  pp_space (buffer);
+	  dump_generic_node (buffer, gimple_omp_for_final (gs, i), spc,
+			     flags, false);
+	  pp_string (buffer, "; ");
 
-      dump_generic_node (buffer, gimple_omp_for_incr (gs), spc, flags, false);
-      pp_character (buffer, ')');
+	  dump_generic_node (buffer, gimple_omp_for_incr (gs, i), spc,
+			     flags, false);
+	  pp_character (buffer, ')');
+	}
+
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
 	  newline_and_indent (buffer, spc + 2);
@@ -1141,8 +1158,68 @@ dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
 	  INDENT (spc + 2);
 	  pp_character (buffer, '}');
 	}
-      else
-	dump_gimple_seq (buffer, body, spc + 2, flags);
+      else if (body)
+	{
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, body, spc + 2, flags);
+	}
+    }
+}
+
+
+/* Dump a GIMPLE_OMP_TASK tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   tree-pass.h).  */
+
+static void
+dump_gimple_omp_task (pretty_printer *buffer, gimple gs, int spc,
+		      int flags)
+{
+  if (flags & TDF_RAW)
+    {
+      dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                       gimple_omp_body (gs));
+      dump_omp_clauses (buffer, gimple_omp_task_clauses (gs), spc, flags);
+      dump_gimple_fmt (buffer, spc, flags, " >, %T, %T, %T, %T, %T%n>",
+                       gimple_omp_task_child_fn (gs),
+                       gimple_omp_task_data_arg (gs),
+		       gimple_omp_task_copy_fn (gs),
+		       gimple_omp_task_arg_size (gs),
+		       gimple_omp_task_arg_size (gs));
+    }
+  else
+    {
+      gimple_seq body;
+      pp_string (buffer, "#pragma omp task");
+      dump_omp_clauses (buffer, gimple_omp_task_clauses (gs), spc, flags);
+      if (gimple_omp_task_child_fn (gs))
+	{
+	  pp_string (buffer, " [child fn: ");
+	  dump_generic_node (buffer, gimple_omp_task_child_fn (gs),
+			     spc, flags, false);
+	  pp_string (buffer, " (");
+	  if (gimple_omp_task_data_arg (gs))
+	    dump_generic_node (buffer, gimple_omp_task_data_arg (gs),
+			       spc, flags, false);
+	  else
+	    pp_string (buffer, "???");
+	  pp_string (buffer, ")]");
+	}
+      body = gimple_omp_body (gs);
+      if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, body, spc + 4, flags);
+	  INDENT (spc + 2);
+	  pp_character (buffer, '}');
+	}
+      else if (body)
+	{
+	  pp_newline (buffer);
+	  dump_gimple_seq (buffer, body, spc + 2, flags);
+	}
     }
 }
 
@@ -1387,6 +1464,10 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_OMP_PARALLEL:
       dump_gimple_omp_parallel (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_OMP_TASK:
+      dump_gimple_omp_task (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_OMP_ATOMIC_LOAD:

@@ -529,6 +529,7 @@ make_edges (void)
 	      break;
 
 	    case GIMPLE_OMP_PARALLEL:
+	    case GIMPLE_OMP_TASK:
 	    case GIMPLE_OMP_FOR:
 	    case GIMPLE_OMP_SINGLE:
 	    case GIMPLE_OMP_MASTER:
@@ -1534,6 +1535,7 @@ remove_useless_stmts_warn_notreached (gimple_seq stmts)
         case GIMPLE_OMP_ORDERED:
         case GIMPLE_OMP_SECTION:
         case GIMPLE_OMP_PARALLEL:
+	case GIMPLE_OMP_TASK:
         case GIMPLE_OMP_SECTIONS:
         case GIMPLE_OMP_SINGLE:
           return remove_useless_stmts_warn_notreached (gimple_omp_body (stmt));
@@ -1557,6 +1559,8 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
 
   /* The folded result must still be a conditional statement.  */
   fold_stmt_inplace (stmt);
+
+  data->may_branch = true;
 
   /* Attempt to evaluate the condition at compile-time.
      Because we are in GIMPLE here, only the most trivial
@@ -1991,16 +1995,13 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
           gsi_remove (gsi, false);
           break;
 
-        /* FIXME tuples. The original pre-tuples code did not simplify OMP
-           statements, so I'd rather not enable this until we get everything
-           else working, and verify that such simplification is appropriate.  */
-#if 0
         case GIMPLE_OMP_FOR:
           {
-            gimple_seq pre_body_seq = gimple_omp_body (stmt);
+            gimple_seq pre_body_seq = gimple_omp_for_pre_body (stmt);
             gimple_stmt_iterator pre_body_gsi = gsi_start (pre_body_seq);
 
             remove_useless_stmts_1 (&pre_body_gsi, data);
+	    data->last_was_goto = false;
           }
           /* FALLTHROUGH */
         case GIMPLE_OMP_CRITICAL:
@@ -2008,7 +2009,6 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
         case GIMPLE_OMP_MASTER:
         case GIMPLE_OMP_ORDERED:
         case GIMPLE_OMP_SECTION:
-        case GIMPLE_OMP_PARALLEL:
         case GIMPLE_OMP_SECTIONS:
         case GIMPLE_OMP_SINGLE:
           {
@@ -2016,36 +2016,27 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
             gimple_stmt_iterator body_gsi = gsi_start (body_seq);
 
             remove_useless_stmts_1 (&body_gsi, data);
+	    data->last_was_goto = false;
+	    gsi_next (gsi);
           }
           break;
 
-	case OMP_PARALLEL:
-	  /* Make sure the outermost BIND_EXPR in OMP_BODY isn't removed
-	     as useless.  */
-	  remove_useless_stmts_1 (&BIND_EXPR_BODY (OMP_BODY (*tp)), data);
-	  data->last_goto = NULL;
-	  break;
+        case GIMPLE_OMP_PARALLEL:
+	case GIMPLE_OMP_TASK:
+          {
+	    /* Make sure the outermost GIMPLE_BIND isn't removed
+	       as useless.  */
+            gimple_seq body_seq = gimple_omp_body (stmt);
+            gimple bind = gimple_seq_first_stmt (body_seq);
+            gimple_seq bind_seq = gimple_bind_body (bind);
+            gimple_stmt_iterator bind_gsi = gsi_start (bind_seq);
 
-	case OMP_SECTIONS:
-	case OMP_SINGLE:
-	case OMP_SECTION:
-	case OMP_MASTER :
-	case OMP_ORDERED:
-	case OMP_CRITICAL:
-	  remove_useless_stmts_1 (&OMP_BODY (*tp), data);
-	  data->last_goto = NULL;
-	  break;
+            remove_useless_stmts_1 (&bind_gsi, data);
+	    data->last_was_goto = false;
+	    gsi_next (gsi);
+          }
+          break;
 
-	case OMP_FOR:
-	  remove_useless_stmts_1 (&OMP_FOR_BODY (*tp), data);
-	  data->last_goto = NULL;
-	  if (OMP_FOR_PRE_BODY (*tp))
-	    {
-	      remove_useless_stmts_1 (&OMP_FOR_PRE_BODY (*tp), data);
-	      data->last_goto = NULL;
-	    }
-	  break;
-#endif
 
         default:
           data->last_was_goto = false;
@@ -3802,6 +3793,7 @@ verify_types_in_gimple_seq_2 (gimple_seq stmts)
           case GIMPLE_OMP_SECTION:
           case GIMPLE_OMP_FOR:
           case GIMPLE_OMP_PARALLEL:
+	  case GIMPLE_OMP_TASK:
           case GIMPLE_OMP_SECTIONS:
           case GIMPLE_OMP_SINGLE:
 	  case GIMPLE_OMP_ATOMIC_STORE:

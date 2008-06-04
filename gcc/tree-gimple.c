@@ -373,6 +373,7 @@ is_gimple_stmt (tree t)
     case OMP_MASTER:
     case OMP_ORDERED:
     case OMP_CRITICAL:
+    case OMP_TASK:
     case OMP_ATOMIC_LOAD:
     case OMP_ATOMIC_STORE:
       /* These are always void.  */

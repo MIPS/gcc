@@ -444,12 +444,10 @@ struct gimple_statement_omp_critical GTY(())
 };
 
 
-/* GIMPLE_OMP_FOR */
-
-struct gimple_statement_omp_for GTY(())
+struct gimple_omp_for_iter GTY(())
 {
-  struct gimple_statement_omp omp;
-  tree clauses;
+  /* Condition code.  */
+  enum tree_code cond;
 
   /* Index variable.  */
   tree index;
@@ -462,6 +460,19 @@ struct gimple_statement_omp_for GTY(())
 
   /* Increment.  */
   tree incr;
+};
+
+/* GIMPLE_OMP_FOR */
+
+struct gimple_statement_omp_for GTY(())
+{
+  struct gimple_statement_omp omp;
+  tree clauses;
+
+  /* Number of elements in iter array.  */
+  size_t collapse;
+
+  struct gimple_omp_for_iter * GTY((length ("%h.collapse"))) iter;
 
   /* Pre-body evaluated before the loop body begins.  */
   gimple_seq pre_body;
@@ -483,6 +494,22 @@ struct gimple_statement_omp_parallel GTY(())
   /* Shared data argument.  */
   tree data_arg;
 };
+
+
+/* GIMPLE_OMP_TASK */
+
+struct gimple_statement_omp_task GTY(())
+{
+  struct gimple_statement_omp_parallel par;
+
+  /* Child function holding firstprivate initialization if needed.  */
+  tree copy_fn;
+
+  /* Size and alignment in bytes of the argument data block.  */
+  tree arg_size;
+  tree arg_align;
+};
+
 
 /* GIMPLE_OMP_SECTION */
 /* Uses struct gimple_statement_omp.  */
@@ -577,6 +604,7 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
   struct gimple_statement_omp_critical GTY ((tag ("GSS_OMP_CRITICAL"))) gimple_omp_critical;
   struct gimple_statement_omp_for GTY ((tag ("GSS_OMP_FOR"))) gimple_omp_for;
   struct gimple_statement_omp_parallel GTY ((tag ("GSS_OMP_PARALLEL"))) gimple_omp_parallel;
+  struct gimple_statement_omp_task GTY ((tag ("GSS_OMP_TASK"))) gimple_omp_task;
   struct gimple_statement_omp_sections GTY ((tag ("GSS_OMP_SECTIONS"))) gimple_omp_sections;
   struct gimple_statement_omp_single GTY ((tag ("GSS_OMP_SINGLE"))) gimple_omp_single;
   struct gimple_statement_omp_continue GTY ((tag ("GSS_OMP_CONTINUE"))) gimple_omp_continue;
@@ -609,8 +637,8 @@ gimple gimple_build_resx (int);
 gimple gimple_build_switch (size_t, tree, tree, ...);
 gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
 gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
-gimple gimple_build_omp_for (gimple_seq, tree, tree, tree, tree, tree,
-                             gimple_seq, enum tree_code);
+gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
+gimple gimple_build_omp_for (gimple_seq, tree, size_t, gimple_seq);
 gimple gimple_build_omp_critical (gimple_seq, tree);
 gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_continue (tree, tree);
@@ -715,6 +743,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
     case GIMPLE_WITH_CLEANUP_EXPR:
@@ -2752,123 +2781,145 @@ gimple_omp_for_set_clauses (gimple gs, tree clauses)
 }
 
 
+/* Get the collapse count of OMP_FOR GS.  */
+
+static inline size_t
+gimple_omp_for_collapse (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
+  return gs->gimple_omp_for.collapse;
+}
+
+
 /* Return the index variable for OMP_FOR GS.  */
 
 static inline tree
-gimple_omp_for_index (const_gimple gs)
+gimple_omp_for_index (const_gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return gs->gimple_omp_for.index;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return gs->gimple_omp_for.iter[i].index;
 }
 
 
 /* Return a pointer to the index variable for OMP_FOR GS.  */
 
 static inline tree *
-gimple_omp_for_index_ptr (gimple gs)
+gimple_omp_for_index_ptr (gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return &gs->gimple_omp_for.index;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return &gs->gimple_omp_for.iter[i].index;
 }
 
 
 /* Set INDEX to be the index variable for OMP_FOR GS.  */
 
 static inline void
-gimple_omp_for_set_index (gimple gs, tree index)
+gimple_omp_for_set_index (gimple gs, size_t i, tree index)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  gs->gimple_omp_for.index = index;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  gs->gimple_omp_for.iter[i].index = index;
 }
 
 
 /* Return the initial value for OMP_FOR GS.  */
 
 static inline tree
-gimple_omp_for_initial (const_gimple gs)
+gimple_omp_for_initial (const_gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return gs->gimple_omp_for.initial;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return gs->gimple_omp_for.iter[i].initial;
 }
 
 
 /* Return a pointer to the initial value for OMP_FOR GS.  */
 
 static inline tree *
-gimple_omp_for_initial_ptr (gimple gs)
+gimple_omp_for_initial_ptr (gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return &gs->gimple_omp_for.initial;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return &gs->gimple_omp_for.iter[i].initial;
 }
 
 
 /* Set INITIAL to be the initial value for OMP_FOR GS.  */
 
 static inline void
-gimple_omp_for_set_initial (gimple gs, tree initial)
+gimple_omp_for_set_initial (gimple gs, size_t i, tree initial)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  gs->gimple_omp_for.initial = initial;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  gs->gimple_omp_for.iter[i].initial = initial;
 }
 
 
 /* Return the final value for OMP_FOR GS.  */
 
 static inline tree
-gimple_omp_for_final (const_gimple gs)
+gimple_omp_for_final (const_gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return gs->gimple_omp_for.final;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return gs->gimple_omp_for.iter[i].final;
 }
 
 
 /* Return a pointer to the final value for OMP_FOR GS.  */
 
 static inline tree *
-gimple_omp_for_final_ptr (gimple gs)
+gimple_omp_for_final_ptr (gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return &gs->gimple_omp_for.final;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return &gs->gimple_omp_for.iter[i].final;
 }
 
 
 /* Set FINAL to be the final value for OMP_FOR GS.  */
 
 static inline void
-gimple_omp_for_set_final (gimple gs, tree final)
+gimple_omp_for_set_final (gimple gs, size_t i, tree final)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  gs->gimple_omp_for.final = final;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  gs->gimple_omp_for.iter[i].final = final;
 }
 
 
 /* Return the increment value for OMP_FOR GS.  */
 
 static inline tree
-gimple_omp_for_incr (const_gimple gs)
+gimple_omp_for_incr (const_gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return gs->gimple_omp_for.incr;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return gs->gimple_omp_for.iter[i].incr;
 }
 
 
 /* Return a pointer to the increment value for OMP_FOR GS.  */
 
 static inline tree *
-gimple_omp_for_incr_ptr (gimple gs)
+gimple_omp_for_incr_ptr (gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return &gs->gimple_omp_for.incr;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return &gs->gimple_omp_for.iter[i].incr;
 }
 
 
 /* Set INCR to be the increment value for OMP_FOR GS.  */
 
 static inline void
-gimple_omp_for_set_incr (gimple gs, tree incr)
+gimple_omp_for_set_incr (gimple gs, size_t i, tree incr)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  gs->gimple_omp_for.incr = incr;
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  gs->gimple_omp_for.iter[i].incr = incr;
 }
 
 
@@ -2986,6 +3037,289 @@ gimple_omp_parallel_set_data_arg (gimple gs, tree data_arg)
 }
 
 
+/* Return the clauses associated with OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_clauses (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.clauses;
+}
+
+
+/* Return a pointer to the clauses associated with OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_clauses_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.clauses;
+}
+
+
+/* Set CLAUSES to be the list of clauses associated with OMP_TASK
+   GS.  */
+
+static inline void
+gimple_omp_task_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.clauses = clauses;
+}
+
+
+/* Return the child function used to hold the body of OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_child_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.child_fn;
+}
+
+/* Return a pointer to the child function used to hold the body of
+   OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_child_fn_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.child_fn;
+}
+
+
+/* Set CHILD_FN to be the child function for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_task_set_child_fn (gimple gs, tree child_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.child_fn = child_fn;
+}
+
+
+/* Return the artificial argument used to send variables and values
+   from the parent to the children threads in OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_data_arg (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Return a pointer to the data argument for OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_data_arg_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Set DATA_ARG to be the data argument for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_task_set_data_arg (gimple gs, tree data_arg)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.data_arg = data_arg;
+}
+
+
+/* Return the clauses associated with OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_taskreg_clauses (const_gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.clauses;
+}
+
+
+/* Return a pointer to the clauses associated with OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_taskreg_clauses_ptr (gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.clauses;
+}
+
+
+/* Set CLAUSES to be the list of clauses associated with OMP_TASK
+   GS.  */
+
+static inline void
+gimple_omp_taskreg_set_clauses (gimple gs, tree clauses)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.clauses = clauses;
+}
+
+
+/* Return the child function used to hold the body of OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_taskreg_child_fn (const_gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.child_fn;
+}
+
+/* Return a pointer to the child function used to hold the body of
+   OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_taskreg_child_fn_ptr (gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.child_fn;
+}
+
+
+/* Set CHILD_FN to be the child function for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_taskreg_set_child_fn (gimple gs, tree child_fn)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.child_fn = child_fn;
+}
+
+
+/* Return the artificial argument used to send variables and values
+   from the parent to the children threads in OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_taskreg_data_arg (const_gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Return a pointer to the data argument for OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_taskreg_data_arg_ptr (gimple gs)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Set DATA_ARG to be the data argument for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_taskreg_set_data_arg (gimple gs, tree data_arg)
+{
+  if (gimple_code (gs) != GIMPLE_OMP_PARALLEL)
+    GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_parallel.data_arg = data_arg;
+}
+
+
+/* Return the copy function used to hold the body of OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_copy_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_task.copy_fn;
+}
+
+/* Return a pointer to the copy function used to hold the body of
+   OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_copy_fn_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_task.copy_fn;
+}
+
+
+/* Set CHILD_FN to be the copy function for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_task_set_copy_fn (gimple gs, tree copy_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_task.copy_fn = copy_fn;
+}
+
+
+/* Return size of the data block in bytes in OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_arg_size (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_task.arg_size;
+}
+
+
+/* Return a pointer to the data block size for OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_arg_size_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_task.arg_size;
+}
+
+
+/* Set ARG_SIZE to be the data block size for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_task_set_arg_size (gimple gs, tree arg_size)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_task.arg_size = arg_size;
+}
+
+
+/* Return align of the data block in bytes in OMP_TASK GS.  */
+
+static inline tree
+gimple_omp_task_arg_align (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return gs->gimple_omp_task.arg_align;
+}
+
+
+/* Return a pointer to the data block align for OMP_TASK GS.  */
+
+static inline tree *
+gimple_omp_task_arg_align_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  return &gs->gimple_omp_task.arg_align;
+}
+
+
+/* Set ARG_SIZE to be the data block align for OMP_TASK GS.  */
+
+static inline void
+gimple_omp_task_set_arg_align (gimple gs, tree arg_align)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TASK);
+  gs->gimple_omp_task.arg_align = arg_align;
+}
+
+
 /* Return the clauses associated with OMP_SINGLE GS.  */
 
 static inline tree
@@ -3083,21 +3417,23 @@ gimple_omp_sections_set_control (gimple gs, tree control)
 /* Set COND to be the condition code for OMP_FOR GS.  */
 
 static inline void
-gimple_omp_for_set_cond (gimple gs, enum tree_code cond)
+gimple_omp_for_set_cond (gimple gs, size_t i, enum tree_code cond)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
   gcc_assert (TREE_CODE_CLASS (cond) == tcc_comparison);
-  gimple_set_subcode (gs, cond);
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  gs->gimple_omp_for.iter[i].cond = cond;
 }
 
 
 /* Return the condition code associated with OMP_FOR GS.  */
 
 static inline enum tree_code
-gimple_omp_for_cond (const_gimple gs)
+gimple_omp_for_cond (const_gimple gs, size_t i)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_FOR);
-  return gimple_subcode (gs);
+  gcc_assert (i < gs->gimple_omp_for.collapse);
+  return gs->gimple_omp_for.iter[i].cond;
 }
 
 
@@ -3290,6 +3626,7 @@ static inline bool
 is_gimple_omp (const_gimple stmt)
 {
   return (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+	  || gimple_code (stmt) == GIMPLE_OMP_TASK
 	  || gimple_code (stmt) == GIMPLE_OMP_FOR
 	  || gimple_code (stmt) == GIMPLE_OMP_SECTIONS
 	  || gimple_code (stmt) == GIMPLE_OMP_SECTIONS_SWITCH
