@@ -1702,7 +1702,7 @@ lto_static_init_local (void)
 }
 
 
-/* Read the body form DATA for tree T and fill it in.  File_data are
+/* Read the body from DATA for tree T and fill it in.  File_data are
    the global decls and types.  SECTION_TYPE is either
    LTO_section_function_body or LTO_section_static_initializer.  IF
    section type is LTO_section_function_body, FN must be the decl for
@@ -2256,6 +2256,43 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
 }
 
 static tree
+input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
+{
+  tree decl = make_node (LABEL_DECL);
+
+  lto_flags_type flags = input_tree_flags (ib, LABEL_DECL, true);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, decl);
+  process_tree_flags (decl, flags);
+
+  global_vector_enter (data_in, decl);
+
+  /* omit locus, uid */
+  decl->decl_minimal.name = input_tree (ib, data_in);
+  decl->decl_minimal.context = input_tree (ib, data_in);
+
+  decl->common.type = input_tree (ib, data_in);
+
+  decl->decl_common.attributes = input_tree (ib, data_in);
+  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+
+  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.align = lto_input_uleb128 (ib);
+  /* omit off_align */
+
+  /*decl->decl_common.size = input_tree (ib, data_in);*/
+  /*decl->decl_common.size_unit = input_tree (ib, data_in);*/
+
+  decl->decl_common.initial = input_tree (ib, data_in);
+
+  /* lang_specific */
+  /* omit rtl, incoming_rtl */
+  /* omit chain */
+
+  return decl;
+}
+
+static tree
 input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
 {
   tree decl = make_node (NAMESPACE_DECL);
@@ -2571,7 +2608,24 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case CASE_LABEL_EXPR:
       /* ### We shouldn't see these here.  */
-      gcc_unreachable ();
+      {
+	int variant = tag - LTO_case_label_expr0;
+	tree op0 = NULL_TREE;
+	tree op1 = NULL_TREE;
+        tree label;
+	
+	if (variant & 0x1)
+	  op0 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
+        
+	if (variant & 0x2)
+	  op1 = input_tree_operand (ib, data_in, fn, input_record_start (ib));
+
+        label = input_tree_operand (ib, data_in, fn, input_record_start (ib));
+        gcc_assert (label && TREE_CODE (label) == LABEL_DECL);
+
+	result = build3 (code, void_type_node, op0, op1, label);
+      }
+      break;
 
     case CONSTRUCTOR:
       {
@@ -2660,8 +2714,22 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case LABEL_DECL:
+      result = input_label_decl (ib, data_in);
+      break;
+
     case LABEL_EXPR:
-      gcc_unreachable ();
+      {
+        tree label;
+        label = input_tree_operand (ib, data_in, fn, 
+				    input_record_start (ib));
+        gcc_assert (label && TREE_CODE (label) == LABEL_DECL);
+        result = build1 (code, void_type_node, label);
+        /* ###
+        if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
+          DECL_CONTEXT (LABEL_EXPR_LABEL (result)) = fn->decl;
+        */
+        gcc_assert (DECL_CONTEXT (LABEL_EXPR_LABEL (result)));
+      }
       break;
 
     case COND_EXPR:
@@ -2823,7 +2891,20 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
     case SWITCH_EXPR:
       /* ### We shouldn't see these here.  */
-      gcc_unreachable ();
+      {
+	unsigned int len = lto_input_uleb128 (ib);
+	unsigned int i;
+	tree op0 = input_tree_operand (ib, data_in, fn, 
+				       input_record_start (ib));
+	tree op2 = make_tree_vec (len);
+	
+	for (i = 0; i < len; ++i)
+	  TREE_VEC_ELT (op2, i) 
+            = input_tree_operand (ib, data_in, fn,
+				  input_record_start (ib));
+	result = build3 (code, type, op0, NULL_TREE, op2);
+      }
+      break;
 
     case TREE_LIST:
       {

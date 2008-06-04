@@ -428,8 +428,10 @@
     END_EXPR_CASE (INTEGER_TYPE)
       
     START_EXPR_CASE (LABEL_DECL)
-      ADD_EXPR_FLAG (addressable_flag)
-      ADD_EXPR_FLAG (side_effects_flag)
+      ADD_EXPR_FLAG (addressable_flag)		/* TREE_ADDRESSABLE */
+      ADD_EXPR_FLAG (side_effects_flag)		/* FORCED_LABEL */
+      ADD_DECL_FLAG (nonlocal_flag)		/* DECL_NONLOCAL */
+      ADD_DECL_FLAG (decl_flag_0)		/* DECL_ERROR_ISSUED */
     END_EXPR_CASE (LABEL_DECL)
       
     START_EXPR_CASE (LABEL_EXPR)

@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
 #include <ctype.h>
+#include <strings.h>
 
 
 /* Returns a hash code for P.  */
@@ -493,6 +494,15 @@ static void
 preload_common_nodes (struct output_block *ob)
 {
   unsigned i;
+  
+  /* The MAIN_IDENTIFIER_NODE is normally set up by the front-end, but the
+     LTO back-end must agree. Currently, the only languages that set this
+     use the name "main".  */
+  if (main_identifier_node)
+    {
+      const char *main_name = IDENTIFIER_POINTER (main_identifier_node);
+      gcc_assert (strcmp (main_name, "main") == 0);
+    }
 
   for (i = 0; i < TI_MAX; i++)
     preload_common_node (ob, global_trees[i]);

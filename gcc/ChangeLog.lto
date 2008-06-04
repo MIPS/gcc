@@ -1,3 +1,19 @@
+2008-06-03  Bill Maddox  <maddox@google.com>
+	
+	* lto-tree-flags.def: Add flags for LABEL_DECL.
+	* lto-function-out.c (output_label_decl): New function.
+	(output_tree): Make sure that we do not stream out
+	well-known nodes, even for node types for which we
+	would not necessarily force sharing.  Reinstate handlers
+	for SWITCH_EXPR	and CASE_LABEL. Add case for LABEL_DECL.
+	* lto-function-in.c (input_label_decl): New function.
+	(input_tree_operand): Reinstate handlers for 
+	SWITCH_EXPR and CASE_LABEL. Add case for LABEL_DECL.
+	* lto-section-out.c (preload_common_nodes): Verify
+	that main_identifier_name is as expected by the reader.
+	* lto.c (preload_common_nodes): Initialize
+	main_identifier_node.
+
 2008-06-03  Diego Novillo  <dnovillo@google.com>
 
 	* lto-header.h: Tidy formatting.

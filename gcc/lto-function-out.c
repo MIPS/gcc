@@ -2456,6 +2456,36 @@ output_type_decl (struct output_block *ob, tree decl)
 }
 
 static void
+output_label_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_label_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+        
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);		/* ??? */
+  output_tree (ob, decl->decl_common.abstract_origin);		/* ??? */
+
+  output_uleb128 (ob, decl->decl_common.mode);			/* ??? */
+  output_uleb128 (ob, decl->decl_common.align);			/* ??? */
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  gcc_assert (decl->decl_common.size == NULL_TREE);
+  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
+
+  output_tree (ob, decl->decl_common.initial);
+
+  /* lang_specific */
+  /* omit rtl, incoming_rtl */
+  /* omit chain */
+}
+
+static void
 output_namespace_decl (struct output_block *ob, tree decl)
 {
   /* tag and flags */
@@ -2665,6 +2695,8 @@ output_tree (struct output_block *ob, tree expr)
   enum tree_code code;
   enum tree_code_class class;
   unsigned int tag;
+  void **slot;
+  struct lto_decl_slot d_slot;
 
   if (expr == NULL_TREE)
   {
@@ -2680,8 +2712,6 @@ output_tree (struct output_block *ob, tree expr)
 
   if (TYPE_P (expr) || DECL_P (expr) || TREE_CODE (expr) == TREE_BINFO)
     {
-      void **slot;
-      struct lto_decl_slot d_slot;
       unsigned int global_index;
       struct lto_decl_slot *new_slot;
 
@@ -2711,6 +2741,25 @@ output_tree (struct output_block *ob, tree expr)
 #ifdef GLOBAL_STREAMER_TRACE
     fprintf (stderr, "%p -> NEW %d\n", expr, new_slot->slot_num);
 #endif
+    }
+  else
+    {
+      /* We don't share new instances of other classes of tree nodes,
+         but we always want to share the preloaded "well-known" nodes.  */
+
+      d_slot.t = expr;
+      slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
+      if (slot != NULL)
+        {
+          struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
+#ifdef GLOBAL_STREAMER_TRACE
+          fprintf (stderr, "%p -> OLD %d\n", expr, old_slot->slot_num);
+#endif
+          output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
+          output_uleb128 (ob, old_slot->slot_num);
+          LTO_DEBUG_UNDENT ();
+          return;
+        }
     }
 
   code = TREE_CODE (expr);
@@ -2802,7 +2851,22 @@ output_tree (struct output_block *ob, tree expr)
 
     case CASE_LABEL_EXPR:
       /* ### We should not be seeing case labels here.  */
-      gcc_unreachable ();
+      {
+	int variant = 0;
+	if (CASE_LOW (expr) != NULL_TREE)
+	  variant |= 0x1;
+	if (CASE_HIGH (expr) != NULL_TREE)
+	  variant |= 0x2;
+	output_global_record_start (ob, expr, NULL,
+                                    LTO_case_label_expr0 + variant);
+
+	if (CASE_LOW (expr) != NULL_TREE)
+	  output_tree (ob, CASE_LOW (expr));
+	if (CASE_HIGH (expr) != NULL_TREE)
+	  output_tree (ob, CASE_HIGH (expr));
+	output_tree (ob, CASE_LABEL (expr));
+      }
+      break;
 
     case CONSTRUCTOR:
       output_global_constructor (ob, expr);
@@ -2859,9 +2923,13 @@ output_tree (struct output_block *ob, tree expr)
 
 
     case LABEL_DECL:
+      output_label_decl (ob, expr);
+      break;
+
     case LABEL_EXPR:
-      /* ### These should occur only within a function body.  */
-      gcc_unreachable ();
+      output_global_record_start (ob, expr, NULL, tag);
+      output_tree (ob, TREE_OPERAND (expr, 0));
+      break;
 
     case COND_EXPR:
       if (TREE_OPERAND (expr, 1))
@@ -3026,7 +3094,19 @@ output_tree (struct output_block *ob, tree expr)
 
     case SWITCH_EXPR:
       /* ### We shouldn't see these here.  */
-      gcc_unreachable ();
+      {
+	tree label_vec = TREE_OPERAND (expr, 2);
+	size_t len = TREE_VEC_LENGTH (label_vec);
+	size_t i;
+	output_global_record_start (ob, expr, expr, tag);
+	output_uleb128 (ob, len);
+	output_tree (ob, TREE_OPERAND (expr, 0));
+	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
+
+	for (i = 0; i < len; ++i)
+	  output_tree (ob, TREE_VEC_ELT (label_vec, i));
+      }
+      break;
 
     case TREE_LIST:
       {

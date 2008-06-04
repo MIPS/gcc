@@ -118,10 +118,32 @@ preload_common_nodes (struct data_in *data_in)
 {
   unsigned i;
 
+  /* The global tree for the main identifier is filled in by language-specific
+     front-end initialization that is not run in the LTO back-end.  It appears
+     that all languages that perform such initialization currently do so in the
+     same way, so we do it here.  */
+  if (!main_identifier_node)
+    main_identifier_node = get_identifier ("main");
+
   for (i = 0; i < TI_MAX; i++)
-    VEC_safe_push (tree, heap, data_in->globals_index, global_trees[i]);
+    {
+#ifdef GLOBAL_STREAMER_TRACE
+      fprintf (stderr, "preloaded 0x%x: ", i);
+      print_generic_expr (stderr, global_trees[i], 0);
+      fprintf (stderr, "\n");
+#endif
+      VEC_safe_push (tree, heap, data_in->globals_index, global_trees[i]);
+    }
+
   for (i = 0; i < itk_none; i++)
-    VEC_safe_push (tree, heap, data_in->globals_index, integer_types[i]);
+    {
+#ifdef GLOBAL_STREAMER_TRACE
+      fprintf (stderr, "preloaded 0x%x: ", i);
+      print_generic_expr (stderr, integer_types[i], 0);
+      fprintf (stderr, "\n");
+#endif
+      VEC_safe_push (tree, heap, data_in->globals_index, integer_types[i]);
+    }
 }
 
 /* ### */
