@@ -1,3 +1,8 @@
+2008-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Allow POINTER_PLUS_EXPR
+	in assertion.
+
 2008-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP value to

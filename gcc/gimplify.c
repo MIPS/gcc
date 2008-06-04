@@ -5564,7 +5564,8 @@ gimplify_omp_for (tree *expr_p, tree *pre_p)
 	      gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == var);
 	      t = GIMPLE_STMT_OPERAND (t, 1);
 	      gcc_assert (TREE_CODE (t) == PLUS_EXPR
-			  || TREE_CODE (t) == MINUS_EXPR);
+			  || TREE_CODE (t) == MINUS_EXPR
+			  || TREE_CODE (t) == POINTER_PLUS_EXPR);
 	      gcc_assert (TREE_OPERAND (t, 0) == var);
 	      t = build2 (TREE_CODE (t), TREE_TYPE (decl), decl,
 			  TREE_OPERAND (t, 1));
