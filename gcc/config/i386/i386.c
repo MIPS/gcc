@@ -4638,7 +4638,12 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
 {
   int align;
   if (type)
-    align = TYPE_ALIGN (type);
+    {
+      if (TYPE_STRUCTURAL_EQUALITY_P (type))
+	align = TYPE_ALIGN (type);
+      else
+	align = TYPE_ALIGN (TYPE_CANONICAL (type));
+    }
   else
     align = GET_MODE_ALIGNMENT (mode);
   if (align < PARM_BOUNDARY)
@@ -10408,12 +10413,10 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
       && standard_sse_constant_p (op1) <= 0)
     op1 = validize_mem (force_const_mem (mode, op1));
 
-  /* TDmode values are passed as TImode on the stack.  TImode values
-     are moved via xmm registers, and moving them to stack can result in
-     unaligned memory access.  Use ix86_expand_vector_move_misalign()
-     if memory operand is not aligned correctly.  */
+  /* We need to check memory alignment for SSE mode since attribute
+     can make operands unaligned.  */
   if (can_create_pseudo_p ()
-      && (mode == TImode) && !TARGET_64BIT
+      && SSE_REG_MODE_P (mode)
       && ((MEM_P (op0) && (MEM_ALIGN (op0) < align))
 	  || (MEM_P (op1) && (MEM_ALIGN (op1) < align))))
     {
@@ -16996,14 +16999,25 @@ ix86_data_alignment (tree type, int align)
   return align;
 }
 
-/* Compute the alignment for a local variable.
-   TYPE is the data type, and ALIGN is the alignment that
-   the object would ordinarily have.  The value of this macro is used
-   instead of that alignment to align the object.  */
+/* Compute the alignment for a local variable or a stack slot.  TYPE is
+   the data type, MODE is the widest mode available and ALIGN is the
+   alignment that the object would ordinarily have.  The value of this
+   macro is used instead of that alignment to align the object.  */
 
-int
-ix86_local_alignment (tree type, int align)
+unsigned int
+ix86_local_alignment (tree type, enum machine_mode mode,
+		      unsigned int align)
 {
+  /* If TYPE is NULL, we are allocating a stack slot for caller-save
+     register in MODE.  We will return the largest alignment of XF
+     and DF.  */
+  if (!type)
+    {
+      if (mode == XFmode && align < GET_MODE_ALIGNMENT (DFmode))
+	align = GET_MODE_ALIGNMENT (DFmode);
+      return align;
+    }
+
   /* x86-64 ABI requires arrays greater than 16 bytes to be aligned
      to 16byte boundary.  */
   if (TARGET_64BIT)
@@ -23225,8 +23239,7 @@ x86_field_alignment (tree field, int computed)
 
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
-  mode = TYPE_MODE (TREE_CODE (type) == ARRAY_TYPE
-		    ? get_inner_array_type (type) : type);
+  mode = TYPE_MODE (strip_array_types (type));
   if (mode == DFmode || mode == DCmode
       || GET_MODE_CLASS (mode) == MODE_INT
       || GET_MODE_CLASS (mode) == MODE_COMPLEX_INT)

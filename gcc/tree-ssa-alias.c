@@ -521,6 +521,8 @@ set_initial_properties (struct alias_info *ai)
   referenced_var_iterator rvi;
   tree var;
   tree ptr;
+  bool any_pt_anything = false;
+  enum escape_type pt_anything_mask = 0;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
@@ -571,6 +573,11 @@ set_initial_properties (struct alias_info *ai)
 		    mark_call_clobbered (alias, pi->escape_mask);
 		}
 	    }
+	  else if (pi->pt_anything)
+	    {
+	      any_pt_anything = true;
+	      pt_anything_mask |= pi->escape_mask;
+	    }
 	}
 
       /* If the name tag is call clobbered, so is the symbol tag
@@ -601,6 +608,21 @@ set_initial_properties (struct alias_info *ai)
 	{
 	  mark_call_clobbered (tag, ESCAPE_IS_GLOBAL);
 	  MTAG_GLOBAL (tag) = true;
+	}
+    }
+
+  /* If a pt_anything pointer escaped we need to mark all addressable
+     variables call clobbered.  */
+  if (any_pt_anything)
+    {
+      bitmap_iterator bi;
+      unsigned int j;
+
+      EXECUTE_IF_SET_IN_BITMAP (gimple_addressable_vars (cfun), 0, j, bi)
+	{
+	  tree var = referenced_var (j);
+	  if (!unmodifiable_var_p (var))
+	    mark_call_clobbered (var, pt_anything_mask);
 	}
     }
 }

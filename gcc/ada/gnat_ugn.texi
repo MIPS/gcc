@@ -12072,7 +12072,9 @@ the inherited body is not part of the sources of the project, otherwise there
 will be a compilation error when compiling the spec.
 
 For that purpose, the attribute @code{Excluded_Source_Files} is used.
-Its value is a string list: a list of file names.
+Its value is a string list: a list of file names. It is also possible to use
+attribute @code{Excluded_Source_List_File}. Its value is a single string:
+the file name of a text file containing a list of file names, one per line.
 
 @smallexample @c @projectfile
 project B extends "a" is
@@ -12495,6 +12497,8 @@ The following attributes are defined on projects (all are simple attributes):
 @tab string list
 @item @code{Excluded_Source_Files}
 @tab string list
+@item @code{Excluded_Source_List_File}
+@tab string
 @item @code{Languages}
 @tab string list
 @item @code{Main}
@@ -17833,6 +17837,21 @@ In this example, @i{expression} is defined by the following grammar:
 @i{expression} ::=  ( @i{expression} )
 @end smallexample
 
+The following restriction exists: it is not allowed to have "and" or "or"
+following "not" in the same expression without parentheses. For example, this
+is not allowed:
+
+@smallexample
+   not X or Y
+@end smallexample
+
+This should be one of the following:
+
+@smallexample
+   (not X) or Y
+   not (X or Y)
+@end smallexample
+
 @noindent
 For the first test (@i{expression} ::= <symbol>) the symbol must have
 either the value true or false, that is to say the right-hand of the
@@ -20513,6 +20532,7 @@ used as a parameter of the @option{+R} or @option{-R} options.
 * Predefined_Numeric_Types::
 * Raising_External_Exceptions::
 * Raising_Predefined_Exceptions::
+* Separate_Numeric_Error_Handlers::
 @ignore
 * Recursion::
 * Side_Effect_Functions::
@@ -21707,6 +21727,18 @@ Flag each @code{raise} statement that raises a predefined exception
 
 This rule has no parameters.
 
+@node Separate_Numeric_Error_Handlers
+@subsection @code{Separate_Numeric_Error_Handlers}
+@cindex @code{Separate_Numeric_Error_Handlers} rule (for @command{gnatcheck})
+
+@noindent
+Flags each exception handler that contains a choice for
+the predefined @code{Constraint_Error} exception, but does not contain
+the choice for the predefined @code{Numeric_Error} exception, or
+that contains the choice for @code{Numeric_Error}, but does not contain the
+choice for @code{Constraint_Error}.
+
+This rule has no parameters.
 
 @ignore
 @node Recursion

@@ -367,7 +367,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   pow(long double __x, long double __y)
   { return __builtin_powl(__x, __y); }
 
-  // DR 550.
+#ifndef __GXX_EXPERIMENTAL_CXX0X__
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // DR 550. What should the return type of pow(float,int) be?
   inline double
   pow(double __x, int __i)
   { return __builtin_powi(__x, __i); }
@@ -379,6 +381,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   inline long double
   pow(long double __x, int __n)
   { return __builtin_powil(__x, __n); }
+#endif
 
   template<typename _Tp, typename _Up>
     inline
@@ -476,11 +479,8 @@ _GLIBCXX_END_NAMESPACE
 
 #if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
-// These are possible macros imported from C99-land. For strict
-// conformance, remove possible C99-injected names from the global
-// namespace, and sequester them in the __gnu_cxx extension namespace.
 
-// Only undefine the C99 FP macros, if actually captured for namespace movement
+// These are possible macros imported from C99-land.
 #undef fpclassify
 #undef isfinite
 #undef isinf
