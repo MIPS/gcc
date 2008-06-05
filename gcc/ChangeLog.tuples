@@ -1,3 +1,9 @@
+2008-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_modify_expr_to_memcpy): Use gimplify_arg
+	for gimplification of call arguments.
+	(gimplify_modify_expr_to_memset): Likewise.
+
 2008-06-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/36389

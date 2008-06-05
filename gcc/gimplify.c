@@ -3016,12 +3016,10 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
   from = GENERIC_TREE_OPERAND (*expr_p, 1);
 
   from_ptr = build_fold_addr_expr (from);
-  if (!is_gimple_operand (from_ptr))
-    gimplify_expr (&from_ptr, seq_p, NULL, is_gimple_lvalue, fb_lvalue);
+  gimplify_arg (&from_ptr, seq_p);
 
   to_ptr = build_fold_addr_expr (to);
-  if (!is_gimple_lvalue (to_ptr))
-    gimplify_expr (&to_ptr, seq_p, NULL, is_gimple_lvalue, fb_lvalue);
+  gimplify_arg (&to_ptr, seq_p);
 
   t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 
@@ -3057,6 +3055,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
   to = GENERIC_TREE_OPERAND (*expr_p, 0);
 
   to_ptr = build_fold_addr_expr (to);
+  gimplify_arg (&to_ptr, seq_p);
   t = implicit_built_in_decls[BUILT_IN_MEMSET];
 
   gs = gimple_build_call (t, 3, to_ptr, integer_zero_node, size);
