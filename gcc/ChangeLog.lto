@@ -1,3 +1,7 @@
+2008-06-04  Rafael Espindola  <espindola@google.com>
+
+	* lto-function-out.c (output_tree): call error with the TREE_CODE name.
+
 2008-06-04  Ollie Wild  <aaw@google.com>
 
 	* dwarf2out.c (dwarf2_called_from_lto_p): Remove.

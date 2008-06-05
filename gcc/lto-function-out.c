@@ -3216,6 +3216,7 @@ output_tree (struct output_block *ob, tree expr)
 	  /* We cannot have forms that are not explicity handled.  So when
 	     this is triggered, there is some form that is not being
 	     output.  */
+	  error ("Unimplemented code: %s", tree_code_name[code]);
 	  gcc_unreachable ();
 	}
     }
