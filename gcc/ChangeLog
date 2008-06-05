@@ -1,3 +1,84 @@
+2008-06-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Fix a typo
+	in comments.
+
+2008-06-04  Junjie Gu <jgu@tensilica.com>
+
+	* config/xtensa/lib2funcs.S (__xtensa_nonlocal_goto): Use unsigned
+	comparison for frame pointers.
+
+2008-06-04  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/27386
+	* config/avr/avr.h: (PUSH_ROUNDING): Remove.
+
+2008-06-04  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/30243
+	* builtins.c (expand_builtin_signbit): Don't take lowpart when
+	register is already smaller or equal to required mode. 
+
+2008-06-04  Xinliang David Li  <davidxl@google.com>
+
+	* tree-call-cdce.c: New file. 
+	(cond_dead_built_in_calls): New static variable.
+	(input_domain): New struct.
+	(check_pow): New function.
+	(check_builtin_call): Ditto.
+	(check_target_format): Ditto.
+	(is_call_dce_candidate): Ditto.
+	(gen_one_condition): Ditto.
+	(gen_conditions_for_domain): Ditto.
+	(get_domain): Ditto.
+	(gen_conditions_for_pow_cst_base): Ditto.
+	(gen_conditions_for_pow_int_base): Ditto.
+	(gen_conditions_for_pow): Ditto.
+	(get_no_error_domain): Ditto.
+	(gen_shrink_wrap_conditions): Ditto.
+	(shrink_wrap_one_built_in_call): Ditto.
+	(shink_wrap_conditional_dead_built_in_calls): Ditto.
+	(tree_call_cdce): Ditto.
+	(gate_call_cdce): Ditto.
+	(pass_call_cdce): New gimple pass.
+	* passes.c: (init_optimization_passes): New pass.
+	* tree-pass.h: New pass declaration.
+	* opts.c (decode_options): New flag setting.
+	* common.opt: Add -ftree-builtin-call-dce flag.
+	* Makefile.in: Add new source file.
+	* tempvar.def: New tv_id.
+	* doc/invoke.texi (-ftree-builtin-call-dce): New flag.
+
+2008-06-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow-inline.h (is_global_var): Do not check TREE_STATIC
+	on MTAGs.
+	(is_call_clobbered): Always check var_ann->call_clobbered.
+	(mark_call_clobbered): Always set var_ann->call_clobbered.
+	(clear_call_clobbered): Always clear var_ann->call_clobbered.
+	* tree-ssa-alias.c (mark_non_addressable): Use clear_call_clobbered.
+	(reset_alias_info): Clear call clobbering info on MTAGs and
+	globals as well.
+	(set_pt_anything): Set pt_global_mem.
+	(create_tag_raw): Adjust comment.
+	(may_be_aliased): Do not check TREE_PUBLIC on MTAGs.
+
+2008-06-04  Joseph Myers  <joseph@codesourcery.com>
+            Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/m68k/m68k.opt (mxgot): New option.
+	* config/m68k/m68k.c (legitimize_pic_address): Handle -mxgot.
+	(m68k_output_addr_const_extra): New.
+	* config/m68k/m68k.h (OUTPUT_ADDR_CONST_EXTRA): New.
+	* config/m68k/m68k-protos.h (m68k_output_addr_const_extra): Declare.
+	* config/m68k/m68k.md (UNSPEC_GOTOFF): Define.
+	* doc/invoke.texi (M680x0 Options): Document -mxgot.
+
+2008-06-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (handle_ptr_arith): Correctly handle
+	negative or non-representable offsets.
+
 2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	*  config/i386/i386.c (ix86_gen_leave): New.
@@ -26,12 +107,13 @@
 	* config/i386/i386.md (P): New mode iterator.
 	(SFmode push_operand splitter): Macroize DImode and SImode pushes
 	using P mode iterator.
-	(DFmode ...): Ditto.
-	(XFmode ...): Ditto.
+	(DFmode push_operand splitter): Ditto.
+	(XFmode push_operand splitter): Ditto.
 	(DFmode float_extend SFmode push_operand splitter): Ditto.
 	(XFmode float_extend SFmode push_operand splitter): Do not generate
-	SImode pushes for 64bit target.  Macroize Dimode and SImode ...
-	(XFmode float_extedn DFmode push_operand splitter): Ditto.
+	SImode pushes for 64bit target.  Macroize Dimode and SImode
+	pushes using P mode iterator.
+	(XFmode float_extend DFmode push_operand splitter): Ditto.
 
 2008-06-03  Kai Tietz  <kai.tietz@onevision.com>
 
