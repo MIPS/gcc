@@ -46,8 +46,6 @@ Boston, MA 02110-1301, USA.  */
 #include "vec.h"
 #include "tree-vectorizer.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
 #include "lto-cgraph.h"
 #include "lto-section-out.h"
@@ -293,9 +291,6 @@ lto_output_cgraph (void)
 
   LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
 
-  /* Turn off some DWARF2 bits.  */
-  dwarf2_called_from_lto_p = true;
-
   for (node = cgraph_nodes; node; node = node->next)
     {
       output_node (ob, node);
@@ -339,8 +334,6 @@ lto_output_cgraph (void)
      writing lto info.  */
   if (saved_section)
     switch_to_section (saved_section);
-
-  dwarf2_called_from_lto_p = false;
 
   return 0;
 }

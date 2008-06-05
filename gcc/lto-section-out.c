@@ -45,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "timevar.h"
 #include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
 #include "lto-section.h"
 #include "lto-section-out.h"

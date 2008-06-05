@@ -46,8 +46,6 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "vec.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
 #include "lto-tags.h"
 #include "lto-section-in.h"

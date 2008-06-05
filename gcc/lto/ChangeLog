@@ -1,3 +1,8 @@
+2008-06-04  Ollie Wild  <aaw@google.com>
+
+	* lto.c: Remove inclusion of dwarf2.h and dwarf2out.h.
+	* Make-lang.in (lto.o): Remove dependency on dwarf2.h.
+
 2008-05-28  Bill Maddox  <maddox@google.com>
 
 	Replace the DWARF reader in the LTO front-end.

@@ -24,8 +24,6 @@ Boston, MA 02110-1301, USA.  */
 #include "coretypes.h"
 #include "opts.h"
 #include "toplev.h"
-#include "dwarf2.h"
-#include "dwarf2out.h"          /* For dwarf_attr_name.  */
 #include "tree.h"
 #include "tm.h"
 #include "cgraph.h"

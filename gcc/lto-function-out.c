@@ -47,8 +47,6 @@ Boston, MA 02110-1301, USA.  */
 #include "vec.h"
 #include "tree-vectorizer.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
 #include "lto-tags.h"
 #include "lto-section-out.h"
@@ -1922,16 +1920,6 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
-/* Generate complete DWARF information for the function now so that we
-   don't run into missing or incomplete information later.  */
-
-static void
-generate_early_dwarf_information (tree function)
-{
-  /* Don't bother with frame information, since we have no RTL.  */
-  dwarf2out_decl (function);
-}
-
 /* Output FN.  */
 
 static void
@@ -1949,12 +1937,9 @@ output_function (struct cgraph_node* node)
 
   gcc_assert (!current_function_decl && !cfun);
 
-  /* Set current_function_decl to what the dwarf2 machinery expects.  */
+  /* Set current_function_decl and cfun.  */
   current_function_decl = function;
   push_cfun (fn);
-
-  /* Generate debugging info as early as we can.  */
-  generate_early_dwarf_information (function);
 
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
@@ -2088,9 +2073,6 @@ lto_output (void)
 
   lto_static_init_local ();
 
-  /* Turn off some DWARF2 bits.  */
-  dwarf2_called_from_lto_p = true;
-
   /* Process only the fuctions with bodies and only process the master
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
@@ -2103,8 +2085,6 @@ lto_output (void)
      writing lto info.  */
   if (saved_section)
     switch_to_section (saved_section);
-
-  dwarf2_called_from_lto_p = false;
 
   return 0;
 }
