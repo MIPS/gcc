@@ -1371,7 +1371,7 @@
 	 (match_dup 1)
 	 (const_int 1)))]
   "TARGET_AVX"
-  "vcmps<avxmodesuffixf2c>\t{%3, %2, %1, %0|%0, %1, %2, %3}"
+  "vcmps<ssemodesuffixf2c>\t{%3, %2, %1, %0|%0, %1, %2, %3}"
   [(set_attr "type" "ssecmp")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<ssescalarmode>")])
@@ -8778,7 +8778,7 @@
 	   (match_operand:SI 3 "const_0_to_255_operand" "n")]
 	  UNSPEC_DP))]
   "TARGET_AVX"
-  "vdpps\t{%3, %2, %1, %0|%0, %1, %2, %3}"
+  "vdpp<avxmodesuffixf2c>\t{%3, %2, %1, %0|%0, %1, %2, %3}"
   [(set_attr "type" "ssemul")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<avxvecmode>")])

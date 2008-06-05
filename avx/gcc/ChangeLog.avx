@@ -1,5 +1,12 @@
 2008-06-05  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (avx_cmps<ssemodesuffixf2c><mode>3): Use
+	<ssemodesuffixf2c> instead of <avxmodesuffixf2c>.
+	(avx_dpp<avxmodesuffixf2c><avxmodesuffix>): Replace vdpps
+	with vdpps<avxmodesuffixf2c>.
+
+2008-06-05  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/i386.c (setup_incoming_varargs_64): Fix typos
 	in comments.
 
