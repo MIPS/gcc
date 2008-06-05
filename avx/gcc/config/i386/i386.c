@@ -5372,8 +5372,8 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 
       /* FIXME: It doesn't work for 256bit AVX registers.  */
       /* Compute address to jump to :
-         label - (4*eax + nnamed_sse_arguments*4) Or
-         label - (5*eax + nnamed_sse_arguments*5) for AVX.  */
+         label - eax*4 + nnamed_sse_arguments*4 Or
+         label - eax*5 + nnamed_sse_arguments*5 for AVX.  */
       tmp_reg = gen_reg_rtx (Pmode);
       nsse_reg = gen_reg_rtx (Pmode);
       emit_insn (gen_zero_extendqidi2 (nsse_reg, gen_rtx_REG (QImode, AX_REG)));
