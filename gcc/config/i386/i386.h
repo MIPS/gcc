@@ -2482,7 +2482,6 @@ struct machine_option_attr GTY(())
   enum processor_type arch;		/* -march= processor */
   enum processor_type tune;		/* -mtune= processor */
   enum fpmath_unit fpmath;		/* which fp unit to use */
-  int isa_flags_explicit;		/* isa flag set on cmd line */
   int branch_cost;			/* branch cost */
   unsigned char tune_defaulted;		/* whether -mtune was not specified */
   unsigned char arch_specified;		/* whether -march was specified */
@@ -2492,7 +2491,7 @@ struct machine_option_attr GTY(())
    and by the x86 specific data.  */
 struct target_specific_data GTY(())
 {
-  struct cl_option_attr options;		/* option data */
+  struct cl_option_save options;		/* option data */
   struct machine_option_attr machine;		/* machine data */
 };
 

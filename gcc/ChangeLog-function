@@ -1,3 +1,26 @@
+2008-06-05  Michael Meissner  <michael.meissner@amd.com>
+
+	* optc-gen.awk: Change cl_option_attr structure name to
+	cl_option_save.  Add support 'Explicit' which builds a
+	<var>_explicit variable as well as <var>.
+	* opth-gen.awk: Ditto.
+
+	* coretypes.h (struct cl_option_save): Rename from
+	cl_option_attr.
+
+	* config/i386/i386.h (struct machine_option_attr): Remove
+	isa_flags_explicit.
+	(struct target_specific_data): Rename struct cl_option_attr to
+	cl_option_save.
+
+	* config/i386/i386.opt (ix86_isa_flags): Add Explicit tag.
+
+	* config/i386/i386.c (ix86_isa_flags_explicit): Delete, now
+	created in options.c.
+	(ix86_target_specific_save): Delete ix86_isa_flags_explicit
+	reference.
+	(ix86_target_specific_restore): Ditto.
+
 2008-06-04  Michael Meissner  <michael.meissner@amd.com>
 
 	* doc/tm.texi (Per-Function Data): Document

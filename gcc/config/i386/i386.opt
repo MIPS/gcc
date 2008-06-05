@@ -189,63 +189,63 @@ Vector library ABI to use
 ;; ISA support
 
 m32
-Target RejectNegative Negative(m64) Report InverseMask(ISA_64BIT) Var(ix86_isa_flags) Init(TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_ISA_DEFAULT) Save
+Target RejectNegative Negative(m64) Report InverseMask(ISA_64BIT) Var(ix86_isa_flags) Init(TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_ISA_DEFAULT) Save Explicit
 Generate 32bit i386 code
 
 m64
-Target RejectNegative Negative(m32) Report Mask(ISA_64BIT) Var(ix86_isa_flags) VarExists Save
+Target RejectNegative Negative(m32) Report Mask(ISA_64BIT) Var(ix86_isa_flags) VarExists Save Explicit
 Generate 64bit x86-64 code
 
 mmmx
-Target Report Mask(ISA_MMX) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_MMX) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX built-in functions
 
 m3dnow
-Target Report Mask(ISA_3DNOW) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_3DNOW) Var(ix86_isa_flags) VarExists Save Explicit
 Support 3DNow! built-in functions
 
 m3dnowa
-Target Undocumented Mask(ISA_3DNOW_A) Var(ix86_isa_flags) VarExists Save
+Target Undocumented Mask(ISA_3DNOW_A) Var(ix86_isa_flags) VarExists Save Explicit
 Support Athlon 3Dnow! built-in functions
 
 msse
-Target Report Mask(ISA_SSE) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX and SSE built-in functions and code generation
 
 msse2
-Target Report Mask(ISA_SSE2) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE2) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE and SSE2 built-in functions and code generation
 
 msse3
-Target Report Mask(ISA_SSE3) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE3) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation
 
 mssse3
-Target Report Mask(ISA_SSSE3) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSSE3) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
 
 msse4.1
-Target Report Mask(ISA_SSE4_1) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE4_1) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2, SSE3, SSSE3 and SSE4.1 built-in functions and code generation
 
 msse4.2
-Target Report Mask(ISA_SSE4_2) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE4_2) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1 and SSE4.2 built-in functions and code generation
 
 msse4
-Target RejectNegative Report Mask(ISA_SSE4_2) MaskExists Var(ix86_isa_flags) VarExists Save
+Target RejectNegative Report Mask(ISA_SSE4_2) MaskExists Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1 and SSE4.2 built-in functions and code generation
 
 mno-sse4
-Target RejectNegative Report InverseMask(ISA_SSE4_1) MaskExists Var(ix86_isa_flags) VarExists Save
+Target RejectNegative Report InverseMask(ISA_SSE4_1) MaskExists Var(ix86_isa_flags) VarExists Save Explicit
 Do not support SSE4.1 and SSE4.2 built-in functions and code generation
 
 msse4a
-Target Report Mask(ISA_SSE4A) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE4A) Var(ix86_isa_flags) VarExists Save Explicit
 Support MMX, SSE, SSE2, SSE3 and SSE4A built-in functions and code generation
 
 msse5
-Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_SSE5) Var(ix86_isa_flags) VarExists Save Explicit
 Support SSE5 built-in functions and code generation
 
 mcld
@@ -253,23 +253,23 @@ Target Report Mask(CLD)
 Generate cld instruction in the function prologue.
 
 mabm
-Target Report Mask(ISA_ABM) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_ABM) Var(ix86_isa_flags) VarExists Save Explicit
 Support code generation of Advanced Bit Manipulation (ABM) instructions.
 
 mcx16
-Target Report Mask(ISA_CX16) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_CX16) Var(ix86_isa_flags) VarExists Save Explicit
 Support code generation of cmpxchg16b instruction.
 
 mpopcnt
-Target Report Mask(ISA_POPCNT) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_POPCNT) Var(ix86_isa_flags) VarExists Save Explicit
 Support code generation of popcnt instruction.
 
 maes
-Target Report Mask(ISA_AES) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_AES) Var(ix86_isa_flags) VarExists Save Explicit
 Support AES built-in functions and code generation
 
 mpclmul
-Target Report Mask(ISA_PCLMUL) Var(ix86_isa_flags) VarExists Save
+Target Report Mask(ISA_PCLMUL) Var(ix86_isa_flags) VarExists Save Explicit
 Support PCLMUL built-in functions and code generation
 
 ;; Instruction support

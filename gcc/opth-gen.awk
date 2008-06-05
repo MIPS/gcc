@@ -82,10 +82,16 @@ for (i = 0; i < n_opts; i++) {
 
 	var_seen[name] = 1;
 	print "extern " var_type(flags[i]) name ";"
+
+	if (flag_set_p("Explicit", flags[i]) && !(name in var_explicit)) {
+	    var_explicit[name] = 1;
+	    print "extern " var_type(flags[i]) name "_explicit;";
+	}
+
 }
 print ""
 
-print "struct cl_option_attr GTY(())";
+print "struct cl_option_save GTY(())";
 print "{";
 
 if (have_save) {
@@ -95,13 +101,13 @@ if (have_save) {
 			if(name == "")
 				name = "target_flags";
 
-			if(name in var_attr_seen)
+			if(name in var_save_seen)
 				continue;
 
-			var_attr_seen[name] ++	
+			var_save_seen[name] ++	
 			print "  " var_type(flags[i]) name ";";
-			if (name == "target_flags")
-				print "  " var_type(flags[i]) "target_flags_explicit;";
+			if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
+				print "  " var_type(flags[i]) name "_explicit;";
 		}
 	}
 
@@ -112,8 +118,8 @@ if (have_save) {
 
 print "};";
 print "";
-print "extern void target_specific_save (struct cl_option_attr *);";
-print "extern void target_specific_restore (struct cl_option_attr *);";
+print "extern void target_specific_save (struct cl_option_save *);";
+print "extern void target_specific_restore (struct cl_option_save *);";
 print "";
 
 for (i = 0; i < n_opts; i++) {

@@ -1781,10 +1781,6 @@ static GTY(()) struct target_specific_data *ix86_initial_options;
 #define DEFAULT_PCC_STRUCT_RETURN 1
 #endif
 
-/* A mask of ix86_isa_flags that includes bit X if X
-   was set or cleared on the command line.  */
-static int ix86_isa_flags_explicit;
-
 /* Whether -mtune= or -march= were specified */
 static int ix86_tune_defaulted;
 static int ix86_arch_specified;
@@ -3001,7 +2997,6 @@ ix86_target_specific_save (struct target_specific_data *ptr)
   ptr->machine.arch = ix86_arch;
   ptr->machine.tune = ix86_tune;
   ptr->machine.fpmath = ix86_fpmath;
-  ptr->machine.isa_flags_explicit = ix86_isa_flags_explicit;
   ptr->machine.branch_cost = ix86_branch_cost;
   ptr->machine.tune_defaulted = ix86_tune_defaulted;
   ptr->machine.arch_specified = ix86_arch_specified;
@@ -3019,7 +3014,6 @@ ix86_target_specific_restore (struct target_specific_data *ptr)
   ix86_arch = ptr->machine.arch;
   ix86_tune = ptr->machine.tune;
   ix86_fpmath = ptr->machine.fpmath;
-  ix86_isa_flags_explicit = ptr->machine.isa_flags_explicit;
   ix86_branch_cost = ptr->machine.branch_cost;
   ix86_tune_defaulted = ptr->machine.tune_defaulted;
   ix86_arch_specified = ptr->machine.arch_specified;
