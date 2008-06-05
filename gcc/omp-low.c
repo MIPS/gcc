@@ -2482,8 +2482,11 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	  new_var = lookup_decl (var, ctx);
 
 	  if (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c))
-	    gimple_seq_add_seq (stmt_list,
-				OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c));
+	    {
+	      lower_omp (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c), ctx);
+	      gimple_seq_add_seq (stmt_list,
+				  OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c));
+	    }
 	  OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c) = NULL;
 
 	  x = build_outer_var_ref (var, ctx);
