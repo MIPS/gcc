@@ -67,12 +67,9 @@ print ""
 have_save = 0;
 
 for (i = 0; i < n_opts; i++) {
-	name = var_name(flags[i])
 	if (flag_set_p("Save", flags[i]))
 		have_save = 1;
-}
 
-for (i = 0; i < n_opts; i++) {
 	name = var_name(flags[i]);
 	if (name == "")
 		continue;
@@ -91,10 +88,11 @@ for (i = 0; i < n_opts; i++) {
 }
 print ""
 
-print "struct cl_option_save GTY(())";
-print "{";
-
 if (have_save) {
+	print "/* Structure to save/restore selected options.  */";
+	print "struct cl_option_save GTY(())";
+	print "{";
+
 	for (i = 0; i < n_opts; i++) {
 		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i])
@@ -111,16 +109,15 @@ if (have_save) {
 		}
 	}
 
-} else {
-	print "  int targt_flags;";
-	print "  int targt_flags_explicit;";
+	print "};";
+	print "";
+	print "/* Save selected option variables into a structure.  */"
+	print "extern void cl_options_save (struct cl_option_save *);";
+	print "";
+	print "/* Restore selected current options from a structure.  */";
+	print "extern void cl_options_restore (struct cl_option_save *);";
+	print "";
 }
-
-print "};";
-print "";
-print "extern void target_specific_save (struct cl_option_save *);";
-print "extern void target_specific_restore (struct cl_option_save *);";
-print "";
 
 for (i = 0; i < n_opts; i++) {
 	name = opt_args("Mask", flags[i])

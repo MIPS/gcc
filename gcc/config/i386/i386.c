@@ -2993,7 +2993,7 @@ static void
 ix86_target_specific_save (struct target_specific_data *ptr)
 {
   memset (ptr, '\0', sizeof (struct target_specific_data));
-  target_specific_save (&ptr->options);
+  cl_options_save (&ptr->options);
   ptr->machine.arch = ix86_arch;
   ptr->machine.tune = ix86_tune;
   ptr->machine.fpmath = ix86_fpmath;
@@ -3010,7 +3010,7 @@ ix86_target_specific_restore (struct target_specific_data *ptr)
   unsigned int ix86_arch_mask, ix86_tune_mask;
   int i;
 
-  target_specific_restore (&ptr->options);
+  cl_options_restore (&ptr->options);
   ix86_arch = ptr->machine.arch;
   ix86_tune = ptr->machine.tune;
   ix86_fpmath = ptr->machine.fpmath;

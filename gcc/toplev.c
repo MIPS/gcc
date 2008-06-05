@@ -155,6 +155,11 @@ const char *aux_base_name;
 /* Prefix for profile data files */
 const char *profile_data_prefix;
 
+/* A mask of target_flags that includes bit X if X was set or cleared
+   on the command line.  */
+
+int target_flags_explicit;
+
 /* Debug hooks - dependent upon command line options.  */
 
 const struct gcc_debug_hooks *debug_hooks;
@@ -1901,7 +1906,7 @@ process_options (void)
   if (flag_signaling_nans)
     flag_trapping_math = 1;
 
-  /* We cannot reassociate if we want traps or signed zeros. Â */
+  /* We cannot reassociate if we want traps or signed zeros.  */
   if (flag_associative_math && (flag_trapping_math || flag_signed_zeros))
     {
       warning (0, "-fassociative-math disabled; other options take precedence");

@@ -1,5 +1,21 @@
 2008-06-05  Michael Meissner  <michael.meissner@amd.com>
 
+	* doc/options.texi: Port changes from mainline patch
+	http://gcc.gnu.org/ml/gcc-patches/2008-06/msg00277.html.
+	* optc-gen.awk: Ditto.
+	* opth-gen.awk: Ditto.
+	
+	* rtlanal.c (target_flags): Undo 4/11 change.
+
+	* gensupport.c (target_flags): Undo 4/11 change.
+
+	* toplev.c (target_flags_explicit): Undo 4/11 change.
+
+	* config/i386/i386.c (ix86_target_specific_save): Rename save
+	function to cl_options_save.
+	(ix86_target_specific_restore): Rename restore function to
+	cl_options_restore.
+	
 	* optc-gen.awk: Change cl_option_attr structure name to
 	cl_option_save.  Add support 'Explicit' which builds a
 	<var>_explicit variable as well as <var>.

@@ -67,10 +67,14 @@ print "int target_flags;"
 print "#endif /* GCC_DRIVER */"
 print ""
 
+have_save = 0;
 for (i = 0; i < n_opts; i++) {
+	if (flag_set_p("Save", flags[i]))
+		have_save = 1;
+
 	name = var_name(flags[i]);
 	if (name == "")
-		name = "target_flags";
+		continue;
 
 	if (flag_set_p("VarExists", flags[i])) {
 		# Need it for the gcc driver.
@@ -93,7 +97,7 @@ for (i = 0; i < n_opts; i++) {
 	print "/* Set by -" opts[i] "."
 	print "   " help[i] "  */"
 	print var_type(flags[i]) name init ";"
-	if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
+	if (flag_set_p("Explicit", flags[i]))
 		print var_type(flags[i]) name "_explicit;"
 	if (gcc_driver == 1)
 		print "#endif /* GCC_DRIVER */"
@@ -213,20 +217,13 @@ for (i = 0; i < n_opts; i++) {
 
 print "};"
 
-have_save = 0;
-
-for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Save", flags[i]))
-		have_save = 1;
-}
-
-print "";
-print "/* Save selected option variables into a structure. */"
-print "void";
-print "target_specific_save (struct cl_option_save *ptr)";
-print "{";
-
 if (have_save) {
+	print "";
+	print "/* Save selected option variables into a structure.  */"
+	print "void";
+	print "cl_options_save (struct cl_option_save *ptr)";
+	print "{";
+
 	for (i = 0; i < n_opts; i++) {
 		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i]);
@@ -243,20 +240,14 @@ if (have_save) {
 		}
 	}
 
-} else {
-	print "  ptr->target_flags = target_flags;";
-	print "  ptr->target_flags_explicit = target_flags_explicit;";
-}
+	print "}";
 
-print "}";
+	print "";
+	print "/* Restore selected current options from a structure.  */";
+	print "void";
+	print "cl_options_restore (struct cl_option_save *ptr)";
+	print "{";
 
-print "";
-print "/* Restore selected option variables from a structure. */"
-print "void";
-print "target_specific_restore (struct cl_option_save *ptr)";
-print "{";
-
-if (have_save) {
 	for (i = 0; i < n_opts; i++) {
 		if (flag_set_p("Save", flags[i])) {
 			name = var_name(flags[i]);
@@ -273,11 +264,7 @@ if (have_save) {
 		}
 	}
 
-} else {
-	print "  target_flags = ptr->target_flags;";
-	print "  target_flags_explicit = ptr->target_flags_explicit;";
+	print "}";
 }
-
-print "}";
 
 }

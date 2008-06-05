@@ -78,6 +78,12 @@ static unsigned int num_sign_bit_copies1 (const_rtx, enum machine_mode, const_rt
    -1 if a code has no such operand.  */
 static int non_rtx_starting_operands[NUM_RTX_CODE];
 
+/* Bit flags that specify the machine subtype we are compiling for.
+   Bits are tested using macros TARGET_... defined in the tm.h file
+   and set by `-m...' switches.  Must be defined in rtlanal.c.  */
+
+int target_flags;
+
 /* Truncation narrows the mode from SOURCE mode to DESTINATION mode.
    If TARGET_MODE_REP_EXTENDED (DESTINATION, DESTINATION_REP) is
    SIGN_EXTEND then while narrowing we also have to enforce the
