@@ -6609,13 +6609,8 @@ ix86_update_stack_boundary (void)
     crtl->stack_alignment_estimated = 128;
 }
 
-/* Handle DRAP related code. Decide
-   1. if stack alignment is needed based on stack alignment
-   estimation before reload.
-   2. if DRAP is needed based on options and other conditions.
- 
-   Return: NULL if no DRAP is needed.
-           An rtx for DRAP otherwise.  */
+/* Handle the TARGET_GET_DRAP_RTX hook.  Return NULL if no DRAP is
+   needed or an rtx for DRAP otherwise.  */
 
 static rtx
 ix86_get_drap_rtx (void)
@@ -6651,7 +6646,7 @@ ix86_get_drap_rtx (void)
 static rtx
 ix86_internal_arg_pointer (void)
 {
-    return virtual_incoming_args_rtx;
+  return virtual_incoming_args_rtx;
 }
 
 /* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
