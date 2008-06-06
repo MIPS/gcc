@@ -697,4 +697,33 @@ default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
   return true;
 }
 
+/* Determine whether a function FN can be inlined.  Be conservative, and assume
+   any function with different target specific options cannot be inlined.  */
+
+bool
+default_can_inline_p (tree caller, tree callee)
+{
+  bool ret = false;
+  struct function_specific_data *callee_opts = DECL_FUNCTION_SPECIFIC (callee);
+  struct function_specific_data *caller_opts = DECL_FUNCTION_SPECIFIC (caller);
+
+  /* If callee has no option attributes, then it is ok to inline */
+  if (!callee_opts)
+    ret = true;
+
+  /* If caller has no option attributes, but callee does then it is not ok to
+     inline */
+  else if (!caller_opts)
+    ret = false;
+
+  /* Both caller and callee have attributes.  Because we don't know anything
+     about target specific options, assume if we get here the port hashes the
+     target specific information to a common pointer, and if the pointers are
+     the same, then they are the same target.  */
+  else
+    ret = (callee_opts == caller_opts);
+
+  return ret;
+}
+
 #include "gt-targhooks.h"

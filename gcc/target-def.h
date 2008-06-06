@@ -751,21 +751,14 @@
     TARGET_EMUTLS_DEBUG_FORM_TLS_ADDRESS	\
   }
 
-/* Target specific option attribute support.  */
-#ifndef TARGET_TARGET_SPECIFIC_VALIDATE
-#define TARGET_TARGET_SPECIFIC_VALIDATE NULL
+/* Function specific option attribute support.  */
+#ifndef TARGET_VALID_OPTION_ATTRIBUTE_P
+#define TARGET_VALID_OPTION_ATTRIBUTE_P NULL
 #endif
 
-#ifndef TARGET_TARGET_SPECIFIC_CAN_INLINE_P
-#define TARGET_TARGET_SPECIFIC_CAN_INLINE_P \
-  default_target_specific_can_inline_p
+#ifndef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P default_can_inline_p
 #endif
-
-#define TARGET_TARGET_SPECIFIC			\
-  {						\
-    TARGET_TARGET_SPECIFIC_VALIDATE,		\
-    TARGET_TARGET_SPECIFIC_CAN_INLINE_P		\
-  }
 
 /* The whole shebang.  */
 #define TARGET_INITIALIZER			\
@@ -859,7 +852,8 @@
   TARGET_C,					\
   TARGET_CXX,					\
   TARGET_EMUTLS,				\
-  TARGET_TARGET_SPECIFIC,			\
+  TARGET_VALID_OPTION_ATTRIBUTE_P,		\
+  TARGET_CAN_INLINE_P,				\
   TARGET_EXTRA_LIVE_ON_ENTRY,			\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\

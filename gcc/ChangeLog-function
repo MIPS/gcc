@@ -1,5 +1,89 @@
 2008-06-05  Michael Meissner  <michael.meissner@amd.com>
 
+	* targhooks.c (default_can_inline_p): Move default hook here from
+	target-specific.c and rename it.
+
+	* targhooks.h (default_can_inline_p): Rename from
+	default_target_specific_can_inline_p.
+
+	* tree.h (DECL_FUNCTION_SPECIFIC): Rename from
+	DECL_TARGET_SPECIFIC.
+	(struct tree_function_decl): Rename target_specific field to
+	function_specific.
+	(handle_option_attribute): Delete declaration.
+
+	* target.h (struct target_specific_hooks): Delete.
+	(struct gcc_target): Replace target_specific hook with
+	valid_option_attribute_p and can_inline_p hooks.  Change calling
+	sequence on valid_option_attribute_p to more closely match the
+	attribute calling sequence.
+
+	* target-specific.c: Delete file, move functions to targhooks.c
+	and c-common.c.
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function): Change
+	tree_target_specific_can_inline_p to tree_can_inline_p.
+	(cgraph_decide_inlining): Ditto.
+	(cgraph_decide_inlining_incrementally): Ditto.
+
+	* c-decl.c (merge_decls): Rename DECL_TARGET_SPECIFIC to
+	DECL_FUNCTION_SPECIFIC. 
+
+	* coretypes.h (struct function_specific_data): Rename from
+	target_specific_data.
+
+	* print-tree.c (print_node): Rename DECL_TARGET_SPECIFIC to
+	DECL_FUNCTION_SPECIFIC.
+
+	* target-def.h (TARGET_VALID_OPTION_ATTRIBUTE_P): Rename from
+	TARGET_TARGET_SPECIFIC_VALIDATE.
+	(TARGET_CAN_INLINE_P): Rename from
+	TARGET_TARGET_SPECIFIC_CAN_INLINE_P.
+	(TARGET_TARGET_SPECIFIC): Delete.
+	(TARGET_INITIALIZER): Delete TARGET_TARGET_SPECIFIC, use
+	TARGET_VALID_OPTION_ATTRIBUTE_P and TARGET_CAN_INLINE_P.
+
+	* tree-inline.c (tree_can_inline_p): Rename from
+	tree_target_specific_can_inline_p.
+
+	* tree-inline.h (tree_can_inline_p): Rename from
+	tree_target_specific_can_inline_p.
+
+	* c-common.c (c_common_attribute_table): Remove FIXME comment on
+	"option" attribute, and move it to the end.
+	(handle_option_attribute): Move this here from target-specific.c
+	and change the calling sequence of the backend hook.
+
+	* Makefile.in (OBJS-common): Delete target-specific.o.
+	(target-specific.o): Delete.
+
+	* config/i386/i386.h (TARGET_VALID_OPTION_ATTRIBUTE_P): Rename
+	from TARGET_TARGET_SPECIFIC_VALIDATE.
+	(TARGET_CAN_INLINE_P): Rename from
+	TARGET_TARGET_SPECIFIC_CAN_INLINE_P.
+	(struct function_specific_data): Rename from
+	target_specific_data.
+
+	* config/i386/i386.c (ix86_function_specific_save): Rename from
+	ix86_target_specific_save.  Change callers.
+	(ix86_function_specific_restore): Rename from
+	ix86_target_specific_save.  Change callers.
+	(ix86_can_inline_p): Rename from
+	ix86_target_specific_can_inline_p.
+	(ix86_valid_option_attribute_p): New function that is called from
+	handle_option_attribute, and has the new calling sequence.
+	(ix86_valid_option_attribute_inner_p): Rename from
+	ix86_target_specific_validate.  Change DECL_TARGET_SPECIFIC to
+	DECL_FUNCTION_SPECIFIC.
+	(ix86_option_count_args): Move from target-specific.c and rename
+	from target_specific_count_args.
+	(ix86_option_build_args): Move from target-specific.c and rename
+	from target_specific_build_args.
+	(ix86_can_inline_p): Rename from ix86_target_specific_can_inline_p
+	and change other target specific -> function specific references.
+
+2008-06-05  Michael Meissner  <michael.meissner@amd.com>
+
 	* doc/options.texi: Port changes from mainline patch
 	http://gcc.gnu.org/ml/gcc-patches/2008-06/msg00277.html.
 	* optc-gen.awk: Ditto.

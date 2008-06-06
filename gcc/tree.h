@@ -3366,10 +3366,10 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
-/* In FUNCTION_DECL, the target specific options to use when compiling this
+/* In FUNCTION_DECL, the function specific options to use when compiling this
    function.  */
-#define DECL_TARGET_SPECIFIC(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.target_specific)
+#define DECL_FUNCTION_SPECIFIC(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific)
 
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
@@ -3382,8 +3382,8 @@ struct tree_function_decl GTY(())
 
   struct function *f;
 
-  /* Target specific options that are used by this function.  */
-  struct target_specific_data * GTY((maybe_undef)) target_specific;
+  /* Function specific options that are used by this function.  */
+  struct function_specific_data * GTY((maybe_undef)) function_specific;
 
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
      DECL_FUNCTION_CODE.  Otherwise unused.
@@ -5108,9 +5108,6 @@ extern void gimplify_function_tree (tree);
 extern const char *get_name (const_tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);
-
-/* In target-specific.c */
-extern tree handle_option_attribute (tree *, tree, tree, int, bool *);
 
 /* Interface of the DWARF2 unwind info support.  */
 

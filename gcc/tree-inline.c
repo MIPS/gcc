@@ -3681,7 +3681,7 @@ build_duplicate_type (tree type)
 /* Return whether it is safe to inline a function because it used different
    target specific options.  */
 bool
-tree_target_specific_can_inline_p (tree caller, tree callee)
+tree_can_inline_p (tree caller, tree callee)
 {
-  return targetm.target_specific.can_inline_p (caller, callee);
+  return targetm.can_inline_p (caller, callee);
 }

@@ -950,13 +950,13 @@ struct gcc_target
     bool debug_form_tls_address;
   } emutls;  
 
-  /* Functions and data for target specific option support.  */
-  struct target_specific_hooks {
-    /* Function to validate a target specific option stream */
-    bool (*validate) (int, const char **, tree);
-    /* Function to decide whether a function can be inlined.  */
-    bool (*can_inline_p) (tree, tree);
-  } target_specific;
+  /* Function to validate the attribute((option(...))) strings or NULL.  If the
+     option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will be
+     filled in in the function decl node.  */
+  bool (*valid_option_attribute_p) (tree, tree, tree, int);
+
+  /* Function to determine if one function can inline another function.  */
+  bool (*can_inline_p) (tree, tree);
 
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their

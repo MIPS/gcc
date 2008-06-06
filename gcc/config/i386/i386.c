@@ -1765,13 +1765,17 @@ static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
 static char *ix86_target_string (void);
 static void ix86_debug_options (void) ATTRIBUTE_UNUSED;
-static void ix86_target_specific_save (struct target_specific_data *);
-static void ix86_target_specific_restore (struct target_specific_data *);
-static bool ix86_target_specific_validate (int, const char **, tree);
-static bool ix86_target_specific_can_inline_p (tree, tree);
+static void ix86_function_specific_save (struct function_specific_data *);
+static void ix86_function_specific_restore (struct function_specific_data *);
+static bool ix86_valid_option_attribute_p (tree, tree, tree, int);
+static bool ix86_valid_option_attribute_inner_p (int, const char **, tree);
+static int ix86_option_count_args (tree);
+static void ix86_option_build_args (tree, int *, int, const char **);
+
+static bool ix86_can_inline_p (tree, tree);
 static void ix86_set_current_function (tree);
 
-static GTY(()) struct target_specific_data *ix86_initial_options;
+static GTY(()) struct function_specific_data *ix86_initial_options;
 
 
 
@@ -2979,20 +2983,21 @@ override_options (bool main_args_p)
     target_flags |= MASK_CLD & ~target_flags_explicit;
 #endif
 
-  /* Save the initial options in case the user does target specific options */
+  /* Save the initial options in case the user does function specific options */
   if (main_args_p)
     {
-      ix86_initial_options = ggc_alloc (sizeof (struct target_specific_data));
-      ix86_target_specific_save (ix86_initial_options);
+      ix86_initial_options
+	= ggc_alloc (sizeof (struct function_specific_data));
+      ix86_function_specific_save (ix86_initial_options);
     }
 }
 
 /* Save the current options */
 
 static void
-ix86_target_specific_save (struct target_specific_data *ptr)
+ix86_function_specific_save (struct function_specific_data *ptr)
 {
-  memset (ptr, '\0', sizeof (struct target_specific_data));
+  memset (ptr, '\0', sizeof (struct function_specific_data));
   cl_options_save (&ptr->options);
   ptr->machine.arch = ix86_arch;
   ptr->machine.tune = ix86_tune;
@@ -3005,7 +3010,7 @@ ix86_target_specific_save (struct target_specific_data *ptr)
 /* Restore the current options */
 
 static void
-ix86_target_specific_restore (struct target_specific_data *ptr)
+ix86_function_specific_restore (struct function_specific_data *ptr)
 {
   unsigned int ix86_arch_mask, ix86_tune_mask;
   int i;
@@ -3028,10 +3033,10 @@ ix86_target_specific_restore (struct target_specific_data *ptr)
 }
 
 
-/* Hook to validate the target specific options */
+/* Hook to validate the function specific options */
 
 static bool
-ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
+ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
 {
   int i;
   unsigned j;
@@ -3062,11 +3067,11 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
   };
 
   /* If we've already figured out the options, quit now */
-  if (DECL_TARGET_SPECIFIC (fndecl))
+  if (DECL_FUNCTION_SPECIFIC (fndecl))
     return ret;
 
   /* Make sure we start with clean options */
-  ix86_target_specific_restore (ix86_initial_options);
+  ix86_function_specific_restore (ix86_initial_options);
 
   for (i = 0; i < argc; i++)
     {
@@ -3134,7 +3139,7 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
       || ix86_tune_string != orig_tune_string
       || ix86_fpmath_string != orig_fpmath_string)
     {
-      struct target_specific_data *p;
+      struct function_specific_data *p;
 
       /* If we are using the default tune= or arch=, undo the string assigned,
 	 and use the default.  */
@@ -3152,15 +3157,90 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
       override_options (false);
 
       /* Save the current options */
-      p = ggc_alloc (sizeof (struct target_specific_data));
-      DECL_TARGET_SPECIFIC (fndecl) = p;
-      ix86_target_specific_save (p);
+      p = ggc_alloc (sizeof (struct function_specific_data));
+      DECL_FUNCTION_SPECIFIC (fndecl) = p;
+      ix86_function_specific_save (p);
 
       /* Restore options */
-      ix86_target_specific_restore (ix86_initial_options);
+      ix86_function_specific_restore (ix86_initial_options);
       ix86_arch_string = orig_arch_string;
       ix86_tune_string = orig_tune_string;
       ix86_fpmath_string = orig_fpmath_string;
+    }
+
+  return ret;
+}
+
+/* Count how many function specific options there are in ARGS.
+
+   The ARGS argument is a TREE_LIST that points to STRING_CST nodes.  */
+
+static int
+ix86_option_count_args (tree args)
+{
+  int ret = 0;
+
+  if (TREE_CODE (args) == TREE_LIST)
+    {
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args))
+	  ret += ix86_option_count_args (TREE_VALUE (args));
+    }
+
+  else if (TREE_CODE (args) == STRING_CST)
+    ret++;
+
+  else
+    gcc_unreachable ();
+
+  return ret;
+}
+
+/* Build the argument vector from the attribute list of ARGS, updating the
+   current argument count in the int pointed to by P_ARGC, with a maximum count
+   of MAX_ARGC, and the vector in ARGV.  */
+
+static void
+ix86_option_build_args (tree args, int *p_argc, int max_argc,
+			const char *argv[])
+{
+  if (TREE_CODE (args) == TREE_LIST)
+    {
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args))
+	  ix86_option_build_args (TREE_VALUE (args), p_argc, max_argc, argv);
+    }
+
+  else if (TREE_CODE (args) == STRING_CST)
+    {
+      gcc_assert (*p_argc < max_argc);
+      argv[*p_argc] = TREE_STRING_POINTER (args);
+      (*p_argc)++;
+    }
+
+  else
+    gcc_unreachable ();
+}
+
+/* Validate attribute((option("string"))).  */
+
+static bool
+ix86_valid_option_attribute_p (tree fndecl,
+			       tree ARG_UNUSED (name),
+			       tree args,
+			       int ARG_UNUSED (flags))
+{
+  int max_argc = ix86_option_count_args (args);
+  bool ret = true;
+
+  if (max_argc > 0)
+    {
+      int argc = 0;
+      const char **argv = alloca ((max_argc + 1) * sizeof (char *));
+
+      ix86_option_build_args (args, &argc, max_argc, argv);
+      argv[max_argc] = NULL;
+      ret = ix86_valid_option_attribute_inner_p (argc, argv, fndecl);
     }
 
   return ret;
@@ -3170,11 +3250,11 @@ ix86_target_specific_validate (int argc, const char **argv, tree fndecl)
 /* Hook to determine if one function can safely inline another */
 
 static bool
-ix86_target_specific_can_inline_p (tree caller, tree callee)
+ix86_can_inline_p (tree caller, tree callee)
 {
   bool ret = false;
-  struct target_specific_data *caller_opts = DECL_TARGET_SPECIFIC (caller);
-  struct target_specific_data *callee_opts = DECL_TARGET_SPECIFIC (callee);
+  struct function_specific_data *caller_opts = DECL_FUNCTION_SPECIFIC (caller);
+  struct function_specific_data *callee_opts = DECL_FUNCTION_SPECIFIC (callee);
 
   /* If callee has no option attributes, then it is ok to inline */
   if (!callee_opts)
@@ -3227,11 +3307,11 @@ ix86_set_current_function (tree fndecl)
      slow things down too much or call target_reinit when it isn't safe.  */
   if (fndecl && fndecl != previous_fndecl)
     {
-      struct target_specific_data *old_p
-	= (previous_fndecl ? DECL_TARGET_SPECIFIC (previous_fndecl) : NULL);
+      struct function_specific_data *old_p
+	= (previous_fndecl ? DECL_FUNCTION_SPECIFIC (previous_fndecl) : NULL);
 
-      struct target_specific_data *cur_p
-	= (fndecl ? DECL_TARGET_SPECIFIC (fndecl) : NULL);
+      struct function_specific_data *cur_p
+	= (fndecl ? DECL_FUNCTION_SPECIFIC (fndecl) : NULL);
 
       previous_fndecl = fndecl;
       if (cur_p == old_p)
@@ -3239,13 +3319,13 @@ ix86_set_current_function (tree fndecl)
 
       else if (cur_p)
 	{
-	  ix86_target_specific_restore (cur_p);
+	  ix86_function_specific_restore (cur_p);
 	  target_reinit ();
 	}
 
       else if (old_p)
 	{
-	  ix86_target_specific_restore (ix86_initial_options);
+	  ix86_function_specific_restore (ix86_initial_options);
 	  target_reinit ();
 	}
     }

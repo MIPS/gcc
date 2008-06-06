@@ -954,8 +954,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	    }
 	  continue;
 	}
-      if (!tree_target_specific_can_inline_p (edge->caller->decl,
-					      edge->callee->decl))
+      if (!tree_can_inline_p (edge->caller->decl, edge->callee->decl))
 	{
 	  CALL_STMT_CANNOT_INLINE_P (edge->call_stmt) = true;
 	  edge->inline_failed = N_("target specific option mismatch");
@@ -1107,8 +1106,7 @@ cgraph_decide_inlining (void)
 	  if (cgraph_recursive_inlining_p (e->caller, e->callee,
 				  	   &e->inline_failed))
 	    continue;
-	  if (!tree_target_specific_can_inline_p (e->caller->decl,
-						  e->callee->decl))
+	  if (!tree_can_inline_p (e->caller->decl, e->callee->decl))
 	    {
 	      CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
 	      continue;
@@ -1337,7 +1335,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	    }
 	  continue;
 	}
-      if (!tree_target_specific_can_inline_p (node->decl, e->callee->decl))
+      if (!tree_can_inline_p (node->decl, e->callee->decl))
 	{
 	  CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
 	  if (dump_file)
@@ -1444,7 +1442,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	      }
 	    continue;
 	  }
-	if (!tree_target_specific_can_inline_p (node->decl, e->callee->decl))
+	if (!tree_can_inline_p (node->decl, e->callee->decl))
 	  {
 	    CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
 	    if (dump_file)

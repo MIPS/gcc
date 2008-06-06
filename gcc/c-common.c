@@ -574,6 +574,7 @@ static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_option_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -616,9 +617,6 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_unused_attribute },
   { "externally_visible",     0, 0, true,  false, false,
 			      handle_externally_visible_attribute },
-  /* For handling options specific to a specific function.  */
-  { "option",                 1, -1, true, false, false, /* XXX FIXME */
-			      handle_option_attribute },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute },
@@ -687,6 +685,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_error_attribute },
   { "error",		      1, 1, true,  false, false,
 			      handle_error_attribute },
+  { "option",                 1, -1, true, false, false,
+			      handle_option_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -6530,6 +6530,32 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* Ensure we have a variadic function.  */
   gcc_assert (!params);
+
+  return NULL_TREE;
+}
+
+/* For handling "option" attribute. arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_option_attribute (tree *node, tree name, tree args, int flags,
+			 bool *no_add_attrs)
+{
+  /* Ensure we have a function type.  */
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  else if (! targetm.valid_option_attribute_p)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute is not supported on this machine",
+	       name);
+      *no_add_attrs = true;
+    }
+  else if (! targetm.valid_option_attribute_p (*node, name, args, flags))
+    *no_add_attrs = true;
 
   return NULL_TREE;
 }
