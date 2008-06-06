@@ -260,4 +260,14 @@ extern tree lto_symtab_merge_var (tree new_var);
 /* Like lto_symtab_merge_var, but for functions.  */
 extern tree lto_symtab_merge_fn (tree new_fn);
 
+/* Hash table entry to hold the start offset and length of an lto
+   section in a .o file.  */
+
+struct lto_section_slot {
+  const char * name;
+  intptr_t start;
+  size_t len;
+};
+
+
 #endif /* LTO_H */

@@ -41,7 +41,8 @@ enum lto_section_type
   LTO_section_decls,
   LTO_section_function_body,
   LTO_section_static_initializer,
-  LTO_section_cgraph
+  LTO_section_cgraph,
+  LTO_section_ipa_pure_const
 };
 
 struct lto_header
@@ -49,6 +50,16 @@ struct lto_header
   int16_t major_version;          /* LTO_major_version. */
   int16_t minor_version;          /* LTO_minor_version. */
   enum lto_section_type section_type;
+};
+
+/* The is the first part of the record in the .o file for many of the
+   ipa passes.  */
+struct lto_simple_header
+{
+  struct lto_header lto_header;   /* The header for all types of sections. */
+  int32_t main_size;              /* Size of main gimple body of function.  */
+  int32_t debug_main_size;        /* Size of main stream debugging information.  */
+  int32_t compressed_size;
 };
 
 /* In lto-section-out.c.  */

@@ -115,12 +115,31 @@ struct lto_out_decl_state
   VEC(tree,heap) *types;
 };
 
+
+/* A simple output block.  This can be used for simple ipa passes that
+   do not need more than one stream.  */
+struct lto_simple_output_block
+{
+  enum lto_section_type section_type;
+  struct lto_out_decl_state *decl_state;
+
+  /* The stream that the main tree codes are written to.  */
+  struct lto_output_stream *main_stream;
+
+#ifdef LTO_STREAM_DEBUGGING
+  /* The stream that contains the gimple debugging information.  */
+  struct lto_output_stream *debug_main_stream;
+#endif
+};
+
+
+void lto_set_flag (unsigned HOST_WIDEST_INT *, unsigned int);
+void lto_set_flags (unsigned HOST_WIDEST_INT *, unsigned int, unsigned int);
 hashval_t lto_hash_decl_slot_node (const void *);
 int lto_eq_decl_slot_node (const void *, const void *);
 hashval_t lto_hash_type_slot_node (const void *);
 int lto_eq_type_slot_node (const void *, const void *);
 
-struct lto_out_decl_state *lto_get_out_decl_state (void);
 void lto_write_stream (struct lto_output_stream *);
 void lto_output_1_stream (struct lto_output_stream *, char);
 void lto_output_uleb128_stream (struct lto_output_stream *, unsigned HOST_WIDE_INT);
@@ -128,6 +147,25 @@ void lto_output_widest_uint_uleb128_stream (struct lto_output_stream *,
 					    unsigned HOST_WIDEST_INT);
 void lto_output_sleb128_stream (struct lto_output_stream *, HOST_WIDE_INT);
 void lto_output_integer_stream (struct lto_output_stream *, tree);
-bool lto_output_decl_index (struct lto_output_stream *, htab_t, unsigned int *, tree, unsigned int *);
+bool lto_output_decl_index (struct lto_output_stream *, htab_t, 
+			    unsigned int *, tree, unsigned int *);
+void lto_output_field_decl_index (struct lto_out_decl_state *,
+				  struct lto_output_stream *, tree);
+void lto_output_fn_decl_index (struct lto_out_decl_state *,
+			       struct lto_output_stream *, tree);
+void lto_output_namespace_decl_index (struct lto_out_decl_state *,
+				      struct lto_output_stream *, tree);
+void lto_output_var_decl_index (struct lto_out_decl_state *,
+				struct lto_output_stream *, tree);
+void lto_output_type_decl_index (struct lto_out_decl_state *,
+				 struct lto_output_stream *, tree);
+void lto_output_type_ref_index (struct lto_out_decl_state *,
+				struct lto_output_stream *, tree);
+
+struct lto_simple_output_block *lto_create_simple_output_block (enum lto_section_type);
+void lto_destroy_simple_output_block (struct lto_simple_output_block * ob);
+
+struct lto_out_decl_state *lto_get_out_decl_state (void);
+
 bool gate_lto_out (void);
 #endif  /* GCC_LTO_SECTION_OUT_H  */

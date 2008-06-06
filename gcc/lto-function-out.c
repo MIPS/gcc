@@ -93,7 +93,6 @@ hash_label_slot_node (const void *p)
 }
 
 
-
 struct string_slot {
   const char *s;
   int len;
@@ -131,6 +130,18 @@ eq_string_slot_node (const void *p1, const void *p2)
     }
   else return 0;
 }
+
+
+/* Free the string slot.  */
+
+static void 
+string_slot_free (void *p)
+{
+  struct string_slot *slot = (struct string_slot *)p;
+  free ((void *)slot->s);
+  free (slot);
+}
+
 
 /* The fields written to a function or extern variable header.  */
 
@@ -196,8 +207,6 @@ struct output_block
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
   htab_t string_hash_table;
-  unsigned int next_string_index;
-
 
   /* The current cgraph_node that we are currently serializing.  Null
      if we are serializing something else.  */
@@ -265,7 +274,7 @@ create_output_block (enum lto_section_type section_type)
     }
 
   ob->string_hash_table
-    = htab_create (37, hash_string_slot_node, eq_string_slot_node, free);
+    = htab_create (37, hash_string_slot_node, eq_string_slot_node, string_slot_free);
 
   /* The unnamed labels must all be negative.  */
   ob->next_unnamed_label_index = -1;
@@ -337,6 +346,7 @@ output_string (struct output_block *ob,
   struct string_slot s_slot;
   s_slot.s = string;
   s_slot.len = len;
+  s_slot.slot_num = 0;
 
   slot = htab_find_slot (ob->string_hash_table, &s_slot, INSERT);
   if (*slot == NULL)
@@ -346,8 +356,11 @@ output_string (struct output_block *ob,
       struct string_slot *new_slot
 	= xmalloc (sizeof (struct string_slot));
       unsigned int i;
+      char *new_string = xmalloc (len);
 
-      new_slot->s = string;
+      memcpy (new_string, string, len);
+      new_slot->s = new_string;
+      new_slot->len = len;
       new_slot->slot_num = start;
       *slot = new_slot;
       lto_output_uleb128_stream (index_stream, start);
@@ -594,24 +607,6 @@ output_tree_flags (struct output_block *ob,
 }
 
 
-/* Like output_type_ref, but no debug information is written.  */
-
-static void
-output_type_ref_1 (struct output_block *ob, tree node)
-{
-  bool new;
-  unsigned int index;
-
-  new = lto_output_decl_index (ob->main_stream, 
-			       ob->decl_state->type_hash_table,
-			       &ob->decl_state->next_type_index, 
-			       node, &index);
-
-  if (new)
-    VEC_safe_push (tree, heap, ob->decl_state->types, node);
-}
-
-
 /* Look up NODE in the type table and write the uleb128 index for it to OB.
    This is a hack and will be replaced with a real reference to the type.  */
 
@@ -619,7 +614,7 @@ static void
 output_type_ref (struct output_block *ob, tree node)
 {
   LTO_DEBUG_TOKEN ("type");
-  output_type_ref_1 (ob, node);
+  lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
 }
 
 
@@ -1029,49 +1024,20 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case FIELD_DECL:
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-	
-	new = lto_output_decl_index (ob->main_stream, 
-				     ob->decl_state->field_decl_hash_table,
-				     &ob->decl_state->next_field_decl_index, 
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->field_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case FUNCTION_DECL:
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-	
-	new = lto_output_decl_index (ob->main_stream, 
-				     ob->decl_state->fn_decl_hash_table,
-				     &ob->decl_state->next_fn_decl_index, 
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->fn_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_fn_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case VAR_DECL:
       if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
 	{
-	  /* Static or extern VAR_DECLs.  */
-	  unsigned int index;
-	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
-
-	  new = lto_output_decl_index (ob->main_stream, 
-				       ob->decl_state->var_decl_hash_table,
-				       &ob->decl_state->next_var_decl_index, 
-				       expr, &index);
-	  if (new)
-	    VEC_safe_push (tree, heap, ob->decl_state->var_decls, expr);
+	  lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
 	}
       else
 	{
@@ -1082,33 +1048,13 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case TYPE_DECL:
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-	
-	new = lto_output_decl_index (ob->main_stream, 
-				     ob->decl_state->type_decl_hash_table,
-				     &ob->decl_state->next_type_decl_index, 
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->type_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case NAMESPACE_DECL:
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-
-	new = lto_output_decl_index (ob->main_stream,
-				     ob->decl_state->namespace_decl_hash_table,
-				     &ob->decl_state->next_namespace_decl_index,
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->namespace_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_namespace_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case PARM_DECL:
@@ -2016,7 +1962,7 @@ output_function (struct cgraph_node* node)
   else if (TYPE_P (context))
     {
       output_record_start (ob, NULL, NULL, LTO_type);
-      output_type_ref_1 (ob, context);
+      lto_output_type_ref_index (ob->decl_state, ob->main_stream, context);
       LTO_DEBUG_UNDENT ();
     }
   else
@@ -2116,7 +2062,7 @@ output_constructors_and_inits (void)
 
 /* Main entry point from the pass manager.  */
 
-static unsigned int
+static void
 lto_output (void)
 {
   struct cgraph_node *node;
@@ -2141,17 +2087,15 @@ lto_output (void)
     switch_to_section (saved_section);
 
   dwarf2_called_from_lto_p = false;
-
-  return 0;
 }
 
-struct simple_ipa_opt_pass pass_ipa_lto_gimple_out =
+struct ipa_opt_pass pass_ipa_lto_gimple_out =
 {
  {
-  SIMPLE_IPA_PASS,
+  IPA_PASS,
   "lto_gimple_out",	                /* name */
   gate_lto_out,			        /* gate */
-  lto_output,		        	/* execute */
+  NULL,		                	/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -2161,7 +2105,14 @@ struct simple_ipa_opt_pass pass_ipa_lto_gimple_out =
   0,					/* properties_destroyed */
   0,            			/* todo_flags_start */
   TODO_dump_func                        /* todo_flags_finish */
- }
+ },
+ NULL,		                        /* generate_summary */
+ lto_output,           			/* write_summary */
+ NULL,		         		/* read_summary */
+ NULL,					/* function_read_summary */
+ 0,					/* TODOs */
+ NULL,			                /* function_transform */
+ NULL					/* variable_transform */
 };
 
 

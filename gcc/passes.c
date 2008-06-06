@@ -569,19 +569,20 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
-  NEXT_PASS (pass_ipa_lto_gimple_out);
-  NEXT_PASS (pass_ipa_lto_cgraph_out);
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_cp);
-  NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
+  /* All regular IPA_PASSes need to be clumped together.  */
+  NEXT_PASS (pass_ipa_lto_gimple_out);
+  NEXT_PASS (pass_ipa_lto_cgraph);
+  NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_pure_const); 
+  /* This must be the last IPA_PASS.  */
+  NEXT_PASS (pass_ipa_lto_finish_out);
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_pta);
   NEXT_PASS (pass_ipa_struct_reorg);
-  /* This must be the last ipa pass.  */
-  NEXT_PASS (pass_ipa_lto_finish_out);
   
   *p = NULL;
 
@@ -1172,7 +1173,8 @@ execute_ipa_summary_passes (struct ipa_opt_pass *ipa_pass)
 
       /* Execute all of the IPA_PASSes in the list.  */
       if (ipa_pass->pass.type == IPA_PASS 
-	  && (!pass->gate || pass->gate ()))
+	  && (!pass->gate || pass->gate ())
+	  && ipa_pass->generate_summary)
 	{
 	  pass_init_dump_file (pass);
 	  ipa_pass->generate_summary ();
@@ -1345,6 +1347,59 @@ execute_pass_list (struct opt_pass *pass)
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
    are local passes.  */
+static void
+ipa_write_summaries_1 (struct opt_pass *pass)
+{
+  do
+    {
+      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
+      gcc_assert (!current_function_decl);
+      gcc_assert (!cfun);
+      gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
+      if (pass->type == IPA_PASS && ipa_pass->write_summary && (!pass->gate || pass->gate ()))
+	ipa_pass->write_summary ();
+      if (pass->sub && pass->sub->type != GIMPLE_PASS)
+	ipa_write_summaries_1 (pass->sub);
+      pass = pass->next;
+    }
+  while (pass);
+}
+
+void
+ipa_write_summaries (void)
+{
+  if (flag_generate_lto && !(errorcount || sorrycount))
+    ipa_write_summaries_1 (all_ipa_passes);
+}
+
+/* Same as execute_pass_list but assume that subpasses of IPA passes
+   are local passes.  */
+static void
+ipa_read_summaries_1 (struct opt_pass *pass)
+{
+  do
+    {
+      struct ipa_opt_pass *ipa_pass = (struct ipa_opt_pass *)pass;
+      gcc_assert (!current_function_decl);
+      gcc_assert (!cfun);
+      gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
+      if (pass->type == IPA_PASS && ipa_pass->read_summary)
+	ipa_pass->read_summary ();
+      if (pass->sub && pass->sub->type != GIMPLE_PASS)
+	ipa_read_summaries_1 (pass->sub);
+      pass = pass->next;
+    }
+  while (pass);
+}
+
+void
+ipa_read_summaries (void)
+{
+  ipa_read_summaries_1 (all_ipa_passes);
+}
+
+/* Same as execute_pass_list but assume that subpasses of IPA passes
+   are local passes.  */
 void
 execute_ipa_pass_list (struct opt_pass *pass)
 {
@@ -1361,11 +1416,10 @@ execute_ipa_pass_list (struct opt_pass *pass)
 	      if (!quiet_flag && !cfun)
 		fprintf (stderr, " <summary generate>");
 	      execute_ipa_summary_passes ((struct ipa_opt_pass *) pass);
+              ipa_write_summaries ();
 	    }
 	  summaries_generated = true;
 	}
-      else
-	summaries_generated = false;
       if (execute_one_pass (pass) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)

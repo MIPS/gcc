@@ -1,3 +1,105 @@
+2008-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Jan Hubicka  <jh@suse.cz>
+	
+	* tree-pass.h (ipa_opt_pass pass_ipa_lto_gimple_out,
+	pass_ipa_pure_const, pass_ipa_lto_finish_out): Changed from being 
+	simple_ipa_opt_pass to ipa_opt_pass. 
+	(ipa_opt_pass pass_ipa_lto_cgraph): Renamed from
+	ipa_opt_pass pass_ipa_lto_cgraph_out.
+	(ipa_write_summaries, ipa_read_summaries): New functions.
+	* lto-function-out.c (string_slot_free): New function.
+	(next_string_index): Removed.
+	(string_hash_table): Now use string_slot_free.
+	(output_string): Copy string to malloced space and properly
+	initialize slots.
+	(output_type_ref_1): Renamed to lto_output_type_ref_index and
+	moved to lto_section_out.c
+	(output_type_ref, output_function): Now calls lto_output_type_ref_index.
+	(output_expr_operand): Moved bodies of FIELD_DECL, FUNCTION_DECL,
+	VAR_DECL, TYPE_DECL, NAMESPACE_DECL to new functions in
+	lto_section_out.c.
+	(lto_output): Now returns void.
+	(pass_ipa_lto_gimple_out): Now a IPA_PASS with lto_output as
+	write_summary method.
+	* lto-function-in.c (input_string_internal): Moved initialization
+	of len to proper place.
+	* lto-cgraph.c: New file that is combination of lto-cgraph-out.c
+	lto-cgraph-in.c and cgraph.h.
+	(lto-section-in.h, lto-section-out.h): Added includes.
+	(tree-vectorizer.h, tree-iterator.h): Removed includes.
+	(LTO_cgraph_tag_names, LTO_cgraph_tags): Added from cgraph.h.
+	(create_output_block, destroy_output_block, output_uleb128,
+	output_sleb128, output_fun_decl, add_flag): Moved to
+	lto-section-out.c, renamed with "lto_" prefix and generalized.
+	(output_node, output_cgraph, input_overwrite_mode, input_cgraph):
+	Changed to call moved and renamed functions.
+	(input_overwrite_mode): Renamed from overwrite_mode.
+	(input_cgraph): Renamed from lto_input_cgraph and made private and
+	now loops over all file_datas.
+	(pass_ipa_lto_cgraph): Renamed from pass_ipa_lto_cgraph_out and
+	made into IPA_PASS.
+	* lto-cgraph.h: File deleted and all infomation moved to
+	lto-cgraph.c.
+	* lto-header.h (LTO_section_ipa_pure_const): New section type.
+	(lto_simple_header): New structure.
+	* ipa-pure-const.c (lto-section-in.h, lto-section-out.h): New
+	includes.
+	(init_state, finish_state, set_function_state, generate_summary,
+	write_summary, read_summary): New functions.
+	(scan_stmt): Renamed from scan_function.  Changed to keep state in
+	local static vars rather than cgraph aux field.
+	(propagate): Renamed from static_execute. Changed to keep state in
+	local static vars rather than cgraph aux field.
+	(pass_ipa_pure_const): Changed from SIMPLE_IPA_PASS to IPA_PASS.
+	* lto-cgraph-in.c: Content moved to lto-cgraph.c.
+	* lto-section-in.c (lto_get_flag, lto_get_flags): Moved from
+	lto-cgraph-in.c and renamed from add_flag and add_flags.
+	(lto_read_section_data): Moved to lto/lto.c and modified to use
+	mmap.
+	(lto_set_in_hooks, lto_get_file_decl_data, lto_free_section_data, 
+	lto_create_simple_input_block, lto_destroy_simple_input_block):
+	New functions.
+	(lto_get_section_data): Modified to call hook in lto front end.
+	* lto-section-in.h (lto_section_slot): Moved to lto.h.
+	(LTO_INIT_INPUT_BLOCK_PTR): New macro.
+	(lto_file_decl_data.fd): New field.
+	(lto_get_section_data_f, lto_free_section_data_f): New typedefs.
+	(lto_create_simple_input_block, lto_destroy_simple_input_block,
+	lto_get_flag, lto_get_flags, lto_set_in_hooks, lto_file_decl_data,
+	lto_free_section_data): New functions.
+	(lto_get_section_data): Added parms.
+	* Makefile.in (lto-cgaph.o): Combined rules from lto-cgraph-in.o
+	and lto-cgraph-out.o.
+	(lto-function-in.o, lto-function-out.o): Added dependencies.
+	* passes.c (init_optimization_passes): Reordered ipa passes.
+	(execute_ipa_summary_passes): Added check to see that pass was
+	there.
+	(ipa_write_summaries_1, ipa_write_summaries,
+	ipa_read_summaries_1): New function.
+	(execute_ipa_pass_list): Added call to ipa_write_summaries and
+	fixed bug.
+	* lto-cgraph-out.c: Content moved to lto-cgraph.c.
+	* lto-section-out.c (lto_set_flag, lto_set_flags): Functions moved
+	and renamed (with lto_ prefix) from lto-cgraph-out.c.
+	(lto_output_field_decl_index, lto_output_fn_decl_index,
+	lto_output_namespace_decl_index, lto_output_var_decl_index,
+	lto_output_type_decl_index, lto_output_type_ref_index): New
+	functions.  The code for these functions was taken from
+	lto-function-out.c
+	(lto_create_simple_output_block, lto_destroy_simple_output_block):
+	New functions.
+	(produce_asm_for_decls): Now returns void.
+	(pass_ipa_lto_finish_out): Now an IPA_PASS.
+	* lto-section-out.h (lto_simple_output_block): New structure.
+	(lto_set_flag, lto_set_flags, lto_output_field_decl_index,
+	lto_output_fn_decl_index, lto_output_namespace_decl_index,
+	lto_output_var_decl_index, lto_output_type_decl_index,
+	lto_output_type_ref_index, lto_create_simple_output_block,
+	lto_destroy_simple_output_block): New functions.
+	(lto_get_out_decl_state): Removed function
+	(lto_output_decl_index): Added parms.
+	
+	
 2008-05-29  Rafael Espindola  <espindola@google.com>
 
 	Mainline merge @136135
