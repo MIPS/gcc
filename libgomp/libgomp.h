@@ -339,7 +339,7 @@ struct gomp_thread
   /* This semaphore is used for ordered loops.  */
   gomp_sem_t release;
 
-  /* user pthread thread pool */ 
+  /* user pthread thread pool */
   struct gomp_thread_pool *thread_pool;
 };
 

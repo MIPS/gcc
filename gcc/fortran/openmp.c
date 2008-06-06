@@ -397,14 +397,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 	      if (p)
 		{
 		  gfc_error (p);
-                  collapse = 1;
+		  collapse = 1;
 		}
 	      else if (collapse <= 0)
 		{
 		  gfc_error ("COLLAPSE clause argument not constant positive integer at %C");
 		  collapse = 1;
 		}
-              c->collapse = collapse;
+	      c->collapse = collapse;
 	      gfc_free_expr (cexpr);
 	      continue;
 	    }

@@ -234,7 +234,7 @@ gomp_test_nest_lock_25 (omp_nest_lock_25_t *lock)
 
 omp_lock_symver (omp_init_lock)
 omp_lock_symver (omp_destroy_lock)
-omp_lock_symver (omp_set_lock) 
+omp_lock_symver (omp_set_lock)
 omp_lock_symver (omp_unset_lock)
 omp_lock_symver (omp_test_lock)
 omp_lock_symver (omp_init_nest_lock)

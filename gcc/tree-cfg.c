@@ -1963,7 +1963,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 	  data->last_goto = NULL;
 	}
       break;
-    
+
     default:
       data->last_goto = NULL;
       break;

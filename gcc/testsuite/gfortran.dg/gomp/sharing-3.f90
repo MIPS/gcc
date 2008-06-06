@@ -5,7 +5,7 @@ subroutine foo (vara, varb, varc, vard, n)
   integer :: n, vara(n), varb(*), varc(:), vard(6), vare(6)
   vare(:) = 0
   !$omp parallel default(none) shared(vara, varb, varc, vard, vare)
-    !$omp master   
+    !$omp master
       vara(1) = 1
       varb(1) = 1
       varc(1) = 1
