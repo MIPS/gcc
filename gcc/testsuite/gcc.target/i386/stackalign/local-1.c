@@ -1,8 +1,10 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target ilp32 } */
-/* { dg-require-effective-target nonpic } */
+/* { dg-require-effective-target ilp32 && nonpic } */
 /* { dg-options "-O2 -funit-at-a-time -fomit-frame-pointer -mpreferred-stack-boundary=4" } */
 /* { dg-final { scan-assembler-not "sub\[^\\n\]*sp" } } */
+
+/* This compile only test is to detect an assertion failure in stack branch
+   development.  */
 
 static __attribute__ ((noinline)) q ();
 int a;

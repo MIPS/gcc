@@ -11,7 +11,7 @@ bar(int arg1, int arg2, int arg3, int arg4)
   char * s = (char *) __builtin_alloca (arg4 + 1);
 
   copy (s, arg4);
-  if (strncmp (s, "good", arg4) != 0)
+  if (__builtin_strncmp (s, "good", arg4) != 0)
     {
 #ifdef DEBUG
       s[arg4] = '\0';

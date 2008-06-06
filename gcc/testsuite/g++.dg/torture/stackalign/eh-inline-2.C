@@ -1,6 +1,5 @@
 /* { dg-do run } */
 
-#include <string.h>
 #include "check.h"
 
 #ifndef ALIGNMENT
@@ -14,7 +13,7 @@ int global;
 void
 bar (char *p, int size)
 {
-  strncpy (p, "good", size);
+  __builtin_strncpy (p, "good", size);
 }
 
 class Base {};
@@ -34,7 +33,7 @@ foo (int size) throw (B,A)
   aligned i;
 
   bar (p, size);
-  if (strncmp (p, "good", size) != 0)
+  if (__builtin_strncmp (p, "good", size) != 0)
     {
 #ifdef DEBUG
       p[size] = '\0';

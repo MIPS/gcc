@@ -1,6 +1,5 @@
 /* { dg-do run } */
-/* { dg-require-effective-target ilp32 } */
-/* { dg-require-effective-target dfp } */
+/* { dg-require-effective-target ilp32 && dfp } */
 /* { dg-options "-O -msse2 -std=gnu99 -mpreferred-stack-boundary=2" } */
 
 #include "sse2-check.h"

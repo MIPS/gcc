@@ -11,7 +11,7 @@ foo ()
   char * s = (char *) __builtin_alloca (a + 1);
 
   copy (s, a);
-  if (strncmp (s, "good", a) != 0)
+  if (__builtin_strncmp (s, "good", a) != 0)
     {
 #ifdef DEBUG
       s[a] = '\0';

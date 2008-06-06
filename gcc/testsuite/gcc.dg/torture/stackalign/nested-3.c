@@ -1,6 +1,5 @@
 /* { dg-do run } */
 
-#include <string.h>
 #include "check.h"
 
 #ifndef ALIGNMENT
@@ -14,7 +13,7 @@ int global;
 void
 copy (char *p, int size)
 {
-  strncpy (p, "good", size);
+  __builtin_strncpy (p, "good", size);
 }
 
 void

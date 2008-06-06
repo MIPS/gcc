@@ -2,8 +2,10 @@
 
 #include <setjmp.h>
 #include <signal.h>
-#include <stdlib.h>
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
 static jmp_buf segv_jmpbuf;
 
 static void segv_handler(int seg)

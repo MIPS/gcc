@@ -1,4 +1,3 @@
-#include <string.h>
 #include "check.h"
 
 #ifdef  __cplusplus
@@ -40,7 +39,7 @@ main ()
 void __attribute__ ((noinline))
 copy (char *p, int size)
 {
-  strncpy (p, "good", size);
+  __builtin_strncpy (p, "good", size);
 }
 
 int g_edi=INIT_EDI, g_esi=INIT_ESI, g_ebx=INIT_EBX; 

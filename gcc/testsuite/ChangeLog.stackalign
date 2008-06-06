@@ -1,3 +1,35 @@
+2008-06-06  Joey Ye  <joey.ye@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/torture/stackalign/alloca-1.c: Don't include <string.h>.
+	* gcc.dg/torture/stackalign/inline-2.c: Likewise.
+	* gcc.dg/torture/stackalign/nested-3.c: Likewise.
+	* gcc.dg/torture/stackalign/setjmp-2.c: Likewise.
+	* gcc.dg/torture/stackalign/vararg-1.c: Likewise.
+	* gcc.dg/torture/stackalign/vararg-2.c: Likewise.
+
+	* g++.dg/torture/stackalign/eh-alloca-1.C: Likewise.
+	* g++.dg/torture/stackalign/eh-inline-2.C: Likewise.
+	* g++.dg/torture/stackalign/eh-vararg-1.C: Likewise.
+	* g++.dg/torture/stackalign/eh-vararg-2.C: Likewise.
+	* g++.dg/torture/stackalign/test-unwind.h: Likewise.
+	* g++.dg/torture/stackalign/unwind-2.C: Likewise.
+	* g++.dg/torture/stackalign/unwind-3.C: Likewise.
+	* g++.dg/torture/stackalign/unwind-5.C: Likewise.
+	* g++.dg/torture/stackalign/unwind-6.C: Likewise.
+
+	* gcc.target/i386/pr32000-2.c: Combine two dejagnu options. 
+	* gcc.target/i386/stackalign/local-1.c: Likewise.
+	* gcc.target/i386/stackalign/return-3.c: Likewise.
+
+	* gcc.target/i386/stackalign/asm-1.c: Add comments.
+	* gcc.target/i386/stackalign/return-1.c: Likewise.
+	* gcc.target/i386/stackalign/return-2.c: Likewise.
+	* gcc.target/i386/stackalign/return-4.c: Likewise.
+	* gcc.target/i386/stackalign/return-5.c: Likewise.
+	* gcc.target/i386/stackalign/return-6.c: Likewise.
+	* g++.dg/torture/stackalign/stdcall-1.C: Likewise.
+
 2008-04-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR testsuite/36053

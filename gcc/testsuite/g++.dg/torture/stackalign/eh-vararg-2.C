@@ -1,6 +1,5 @@
 /* { dg-do run } */
 
-#include <string.h>
 #include <stdarg.h>
 #include "check.h"
 
@@ -15,7 +14,7 @@ int global;
 void
 bar (char *p, int size)
 {
-  strncpy (p, "good", size);
+  __builtin_strncpy (p, "good", size);
 }
 
 class Base {};
@@ -46,7 +45,7 @@ test (va_list arg) throw (B,A)
     abort ();
 
   bar (p, size);
-  if (strncmp (p, "good", size) != 0)
+  if (__builtin_strncmp (p, "good", size) != 0)
     {
 #ifdef DEBUG
       p[size] = '\0';
