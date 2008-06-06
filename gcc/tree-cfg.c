@@ -2037,7 +2037,6 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
           }
           break;
 
-
         default:
           data->last_was_goto = false;
           gsi_next (gsi);

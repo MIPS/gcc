@@ -210,10 +210,11 @@ check_omp_for_incr_expr (tree exp, tree decl)
 }
 
 /* Validate and emit code for the OpenMP directive #pragma omp for.
-   INIT, COND, INCR, BODY and PRE_BODY are the five basic elements
-   of the loop (initialization expression, controlling predicate, increment
-   expression, body of the loop and statements to go before the loop).
-   DECL is the iteration variable.  */
+   DECLV is a vector of iteration variables, for each collapsed loop.
+   INITV, CONDV and INCRV are vectors containing initialization
+   expressions, controlling predicates and increment expressions.
+   BODY is the body of the loop and PRE_BODY statements that go before
+   the loop.  */
 
 tree
 c_finish_omp_for (location_t locus, tree declv, tree initv, tree condv,

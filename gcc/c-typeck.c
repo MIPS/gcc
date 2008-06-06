@@ -8681,6 +8681,8 @@ c_begin_omp_parallel (void)
   return block;
 }
 
+/* Generate OMP_PARALLEL, with CLAUSES and BLOCK as its compound statement.  */
+
 tree
 c_finish_omp_parallel (tree clauses, tree block)
 {
@@ -8696,6 +8698,8 @@ c_finish_omp_parallel (tree clauses, tree block)
   return add_stmt (stmt);
 }
 
+/* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
+
 tree
 c_begin_omp_task (void)
 {
@@ -8706,6 +8710,8 @@ c_begin_omp_task (void)
 
   return block;
 }
+
+/* Generate OMP_TASK, with CLAUSES and BLOCK as its compound statement.  */
 
 tree
 c_finish_omp_task (tree clauses, tree block)
