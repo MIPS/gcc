@@ -1,7 +1,7 @@
 ## Input file for automake to generate the Makefile.in used by configure
 
 # lib first, to compile .class files before native code, last examples
-SUBDIRS = lib doc external include native resource scripts tools $(EXAMPLESDIR)
+SUBDIRS = lib doc external include native resource scripts $(TOOLSDIR) $(EXAMPLESDIR)
 DIST_SUBDIRS = lib doc external include native resource scripts tools examples
 
 # Allow users to pass site-specific flags to autoreconf via an env var. 
@@ -14,7 +14,8 @@ EXTRA_DIST = HACKING BUGS THANKYOU mauve-classpath LICENSE \
              ChangeLog.gnujaxp.1 ChangeLog.gnujaxp.2 ChangeLog.libxmlj \
 	     autogen.sh
 
-#DISTCHECK_CONFIGURE_FLAGS = --enable-gjdoc
+DISTCHECK_CONFIGURE_FLAGS = --with-gjdoc --enable-gstreamer-peer \
+	--enable-xmlj --enable-qt-peer
 
 dist-hook:
 	-$(mkinstalldirs) $(distdir)/include

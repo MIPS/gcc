@@ -5,34 +5,10 @@ JAVA_DEPEND = java.dep
 ## this file and restart the make process again
 sinclude $(JAVA_DEPEND)
 
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(USER_CLASSLIB):$(PATH_TO_ESCHER)
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:$(top_srcdir)/external/jsr166:.:$(PATH_TO_GLIBJ_ZIP):$(PATH_TO_ESCHER)
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
-if FOUND_ECJ
-JCOMPILER = $(ECJ) -1.5 -warn:-deprecation,serial,typeHiding,unchecked,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
-else
-if FOUND_JAVAC
-JCOMPILER = $(JAVAC) $(JAVAC_OPTS) -bootclasspath '' -classpath $(compile_classpath) -d . @classes
-#else
-#if FOUND_GCJ
-## This should never be used when gcj is the compiler.
-## See the compile-classes target.
-#JCOMPILER = exit 1
-#else
-#if FOUND_JIKES
-#JCOMPILER = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
-#else
-#if FOUND_KJC
-### FIXME: from what I can tell, kjc does not support a -encoding option.
-#JCOMPILER = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
-else
-JCOMPILER = echo "No compiler found" 1>&2; exit 1 
-#endif
-#endif # FOUND_KJC
-#endif # FOUND_GCJ
-#endif # FOUND_JIKES
-endif # FOUND_JAVAC
-endif # FOUND_ECJ
+JCOMPILER = $(JAVAC) $(JAVACFLAGS) $(JAVAC_MEM_OPT) -source 1.5 -target 1.5 -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 
 if CREATE_COLLECTIONS
 COLLECTIONS = collections.jar
@@ -64,7 +40,7 @@ endif # BUILD_CLASS_FILES
 if INSTALL_CLASS_FILES
 
 install-data-local: genclasses compile-classes
-	-$(top_srcdir)/mkinstalldirs $(DESTDIR)$(pkgdatadir)
+	$(mkinstalldirs) $(DESTDIR)$(pkgdatadir)
 	cp -R gnu $(DESTDIR)$(pkgdatadir)
 	cp -R java $(DESTDIR)$(pkgdatadir)
 	cp -R javax $(DESTDIR)$(pkgdatadir)
@@ -160,7 +136,7 @@ compile-classes: classes $(JAVA_SRCS) Makefile
 	touch compile-classes
 #endif
 
-EXTRA_DIST = standard.omit.in mkcollections.pl.in Makefile.gcj split-for-gcj.sh
+EXTRA_DIST = standard.omit.in mkcollections.pl.in Makefile.gcj split-for-gcj.sh glibj.zip
 CLEANFILES = compile-classes resources classes \
 	glibj.zip classes.1 classes.2 Makefile.deps \
 	$(top_builddir)/gnu/java/locale/LocaleData.java \
@@ -187,3 +163,4 @@ dist-hook:
 	rm -f $(distdir)/../gnu/classpath/Configuration.java
 	rm -f $(distdir)/../gnu/java/security/Configuration.java
 	rm -f $(distdir)/../gnu/java/locale/LocaleData.java
+	rm -f $(distdir)/glibj.zip
