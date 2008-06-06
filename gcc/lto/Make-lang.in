@@ -37,7 +37,7 @@ LTO_H = lto/lto.h lto-header.h lto-section-in.h $(HASHTAB_H) $(TREE_H)
 # These hooks are used by the main GCC Makefile.  Consult that
 # Makefile for documentation.
 
-lto.all.cross: 
+lto.all.cross: $(LTO_EXE)
 lto.start.encap: $(LTO_EXE)
 lto.rest.encap:
 lto.tags:
