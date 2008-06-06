@@ -1994,10 +1994,13 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
   /* Map: regno -> allocnos which will finally represent the regno for
      IR with one region.  */
   allocno_t *regno_top_level_allocno_map;
+  char *allocno_propagated_p;
 
   regno_top_level_allocno_map
     = ira_allocate (max_reg_num () * sizeof (allocno_t));
   memset (regno_top_level_allocno_map, 0, max_reg_num () * sizeof (allocno_t));
+  allocno_propagated_p = ira_allocate (allocnos_num * sizeof (char));
+  memset (allocno_propagated_p, 0, allocnos_num * sizeof (char));
   expand_calls ();
   new_allocnos_p = renamed_p = merged_p = FALSE;
   /* Fix final allocno attributes.  */
@@ -2038,15 +2041,20 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  ira_assert (ALLOCNO_CAP_MEMBER (father_a) == NULL);
 	  if (propagate_p)
 	    {
-	      COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
-				 ALLOCNO_CONFLICT_HARD_REGS (father_a));
+	      if (!allocno_propagated_p [ALLOCNO_NUM (father_a)])
+		COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
+				   ALLOCNO_CONFLICT_HARD_REGS (father_a));
 	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
 				ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
 #ifdef STACK_REGS
+	      if (!allocno_propagated_p [ALLOCNO_NUM (father_a)])
+		ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
+		  = ALLOCNO_NO_STACK_REG_P (father_a);
 	      ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
-		= (ALLOCNO_NO_STACK_REG_P (father_a)
+		= (ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
 		   || ALLOCNO_TOTAL_NO_STACK_REG_P (a));
 #endif
+	      allocno_propagated_p [ALLOCNO_NUM (father_a)] = TRUE;
 	    }
 	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (father_a)))
 	    {
@@ -2148,6 +2156,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
 	}
     }
+  ira_free (allocno_propagated_p);
   ira_assert (new_allocnos_p || renamed_p
 	      || max_point_before_emit == max_point);
   if (new_allocnos_p)

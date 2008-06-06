@@ -1,3 +1,9 @@
+2008-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-build.c (ira_flattening): Check first info propagation.
+
+	* config/alpha/alpha.h (IRA_COVER_CLASSES): New.
+
 2008-06-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* caller-saves.c (mark_referenced_regs): Add new parameter.
