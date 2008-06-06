@@ -1,3 +1,9 @@
+2008-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_parallel, c_begin_omp_task,
+	c_finish_omp_task): Add comments.
+	* c-omp.c (c_finish_omp_for): Update comment.
+
 2008-06-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Allow POINTER_PLUS_EXPR
