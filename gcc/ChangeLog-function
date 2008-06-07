@@ -1,3 +1,57 @@
+2008-06-06  Michael Meissner  <michael.meissner@amd.com>
+
+	* opth-gen.awk: Do not generate function declarations for the
+	save, restore functions if inside the gcc driver.
+
+	* optc-gen.awk: Do not generate the save, restore functions inside
+	the gcc driver.
+
+	* config/i386/i386.h (TARGET_ABM): Change to use ix86_isa_flags
+	mask instead of a separate variable.
+	(TARGET_POPCNT): Ditto.
+	(TARGET_CMPXCHG16B): Ditto.
+	(TARGET_SAHF): Ditto.
+	(TARGET_AES): Ditto.
+	(TARGET_PCLMUL): Ditto.
+	(TARGET_RECIP): Delete, now generated in options.h.
+	(TARGET_FUSED_MADD): Ditto.
+	(ix86_isa_flags): Add the declaration back in.
+
+	* config/i386/i386.opt (-mrecip): Move into target_flags.
+	(-mfused-madd): Ditto.
+	(-mabm): Change to use ix86_isa2_flags mask instead of a separate
+	variable.  Allow -mno-<switch> for symmetry.
+	(-mcx16): Ditto.
+	(-mpopcnt): Ditto.
+	(-msahf): Ditto.
+	(-maes): Ditto.
+	(-mpclmul): Ditto.
+
+	* config/i386/i386.c (OPTION_MASK_ISA_AES_SET): Make abm, popcnt,
+	cmpxchg16b, sahf, aes, pclmul options isa options and define set
+	and unset macros.
+	(OPTION_MASK_ISA_PCLMUL_SET): Ditto.
+	(OPTION_MASK_ISA_ABM_SET): Ditto.
+	(OPTION_MASK_ISA_POPCNT_SET): Ditto.
+	(OPTION_MASK_ISA_CX16): Ditto.
+	(OPTION_MASK_ISA_SAHF): Ditto.
+	(OPTION_MASK_ISA_AES_UNSET): Ditto.
+	(OPTION_MASK_ISA_PCLMUL_UNSET): Ditto.
+	(OPTION_MASK_ISA_ABM_UNSET): Ditto.
+	(OPTION_MASK_ISA_POPCNT_UNSET): Ditto.
+	(OPTION_MASK_ISA_UNCX16): Ditto.
+	(OPTION_MASK_ISA_UNSAHF): Ditto.
+	(ix86_handle_option): Ditto.
+	(override_options): Ditto.
+	(ix86_valid_option_attribute_inner_p): Change calling sequence to
+	process just one argument.
+	(ix86_option_count_args): Delete.
+	(ix86_option_build_args): Ditto.
+	(ix86_valid_option_attribute_p): Move the processing before and
+	after the argument here from ix86_valid_option_attribute_inner_p.
+	(ix86_can_inline_p): Allow callee to be a subset of the caller's
+	ISA options, for example, SSE5 can inline SSE2 functions.
+
 2008-06-05  Michael Meissner  <michael.meissner@amd.com>
 
 	* targhooks.c (default_can_inline_p): Move default hook here from

@@ -219,6 +219,7 @@ print "};"
 
 if (have_save) {
 	print "";
+	print "#ifndef GCC_DRIVER"
 	print "/* Save selected option variables into a structure.  */"
 	print "void";
 	print "cl_options_save (struct cl_option_save *ptr)";
@@ -265,6 +266,7 @@ if (have_save) {
 	}
 
 	print "}";
+	print "#endif";
 }
 
 }

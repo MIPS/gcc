@@ -1768,10 +1768,7 @@ static void ix86_debug_options (void) ATTRIBUTE_UNUSED;
 static void ix86_function_specific_save (struct function_specific_data *);
 static void ix86_function_specific_restore (struct function_specific_data *);
 static bool ix86_valid_option_attribute_p (tree, tree, tree, int);
-static bool ix86_valid_option_attribute_inner_p (int, const char **, tree);
-static int ix86_option_count_args (tree);
-static void ix86_option_build_args (tree, int *, int, const char **);
-
+static bool ix86_valid_option_attribute_inner_p (tree);
 static bool ix86_can_inline_p (tree, tree);
 static void ix86_set_current_function (tree);
 
@@ -1788,6 +1785,13 @@ static GTY(()) struct function_specific_data *ix86_initial_options;
 /* Whether -mtune= or -march= were specified */
 static int ix86_tune_defaulted;
 static int ix86_arch_specified;
+
+/* Bit flags that specify the ISA we are compiling for.  */
+int ix86_isa_flags = TARGET_64BIT_DEFAULT | TARGET_SUBTARGET_ISA_DEFAULT;
+
+/* A mask of ix86_isa_flags that includes bit X if X
+   was set or cleared on the command line.  */
+int ix86_isa_flags_explicit;
 
 /* Define a set of ISAs which are available when a given ISA is
    enabled.  MMX and SSE ISAs are handled separately.  */
@@ -1813,10 +1817,21 @@ static int ix86_arch_specified;
 #define OPTION_MASK_ISA_SSE4_SET OPTION_MASK_ISA_SSE4_2_SET
 
 #define OPTION_MASK_ISA_SSE4A_SET \
-  (OPTION_MASK_ISA_SSE4A | OPTION_MASK_ISA_SSE3_SET | \
-   OPTION_MASK_ISA_POPCNT | OPTION_MASK_ISA_ABM)
+  (OPTION_MASK_ISA_SSE4A | OPTION_MASK_ISA_SSE3_SET)
 #define OPTION_MASK_ISA_SSE5_SET \
   (OPTION_MASK_ISA_SSE5 | OPTION_MASK_ISA_SSE4A_SET)
+
+/* AES and PCLMUL need SSE2 because they use xmm registers */
+#define OPTION_MASK_ISA_AES_SET \
+  (OPTION_MASK_ISA_AES | OPTION_MASK_ISA_SSE2_SET)
+#define OPTION_MASK_ISA_PCLMUL_SET \
+  (OPTION_MASK_ISA_PCLMUL | OPTION_MASK_ISA_SSE2_SET)
+
+#define OPTION_MASK_ISA_ABM_SET \
+  (OPTION_MASK_ISA_ABM | OPTION_MASK_ISA_POPCNT)
+#define OPTION_MASK_ISA_POPCNT_SET OPTION_MASK_ISA_POPCNT
+#define OPTION_MASK_ISA_CX16_SET OPTION_MASK_ISA_CX16
+#define OPTION_MASK_ISA_SAHF_SET OPTION_MASK_ISA_SAHF
 
 /* Define a set of ISAs which aren't available when a given ISA is
    disabled.  MMX and SSE ISAs are handled separately.  */
@@ -1847,8 +1862,13 @@ static int ix86_arch_specified;
 
 #define OPTION_MASK_ISA_SSE4A_UNSET \
   (OPTION_MASK_ISA_SSE4A | OPTION_MASK_ISA_SSE5_UNSET)
-
 #define OPTION_MASK_ISA_SSE5_UNSET OPTION_MASK_ISA_SSE5
+#define OPTION_MASK_ISA_AES_UNSET OPTION_MASK_ISA_AES
+#define OPTION_MASK_ISA_PCLMUL_UNSET OPTION_MASK_ISA_PCLMUL
+#define OPTION_MASK_ISA_ABM_UNSET OPTION_MASK_ISA_ABM
+#define OPTION_MASK_ISA_POPCNT_UNSET OPTION_MASK_ISA_POPCNT
+#define OPTION_MASK_ISA_CX16_UNSET OPTION_MASK_ISA_CX16
+#define OPTION_MASK_ISA_SAHF_UNSET OPTION_MASK_ISA_SAHF
 
 /* Vectorization library interface and handlers.  */
 tree (*ix86_veclib_handler)(enum built_in_function, tree, tree) = NULL;
@@ -2059,6 +2079,84 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
 	}
       return true;
 
+    case OPT_mabm:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_ABM_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_ABM_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_ABM_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_ABM_UNSET;
+	}
+      return true;
+
+    case OPT_mpopcnt:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_POPCNT_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_POPCNT_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_POPCNT_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_POPCNT_UNSET;
+	}
+      return true;
+
+    case OPT_msahf:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_SAHF_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_SAHF_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_SAHF_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_SAHF_UNSET;
+	}
+      return true;
+
+    case OPT_mcx16:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_CX16_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_CX16_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_CX16_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_CX16_UNSET;
+	}
+      return true;
+
+    case OPT_maes:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_AES_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_AES_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_AES_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_AES_UNSET;
+	}
+      return true;
+
+    case OPT_mpclmul:
+      if (value)
+	{
+	  ix86_isa_flags |= OPTION_MASK_ISA_PCLMUL_SET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_PCLMUL_SET;
+	}
+      else
+	{
+	  ix86_isa_flags &= ~OPTION_MASK_ISA_PCLMUL_UNSET;
+	  ix86_isa_flags_explicit |= OPTION_MASK_ISA_PCLMUL_UNSET;
+	}
+      return true;
+
     default:
       return true;
     }
@@ -2189,7 +2287,7 @@ ix86_target_string (void)
 
 /* Function that is callable from the debugger to print the current
    options.  */
-static void
+void
 ix86_debug_options (void)
 {
   char *opts = ix86_target_string ();
@@ -2587,15 +2685,20 @@ override_options (bool main_args_p)
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_CX16))
 	  ix86_isa_flags |= OPTION_MASK_ISA_CX16;
 	if (processor_alias_table[i].flags & (PTA_POPCNT | PTA_ABM)
-	    && !(ix86_isa_flags_explicit
-		 & (OPTION_MASK_ISA_POPCNT | OPTION_MASK_ISA_ABM)))
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_POPCNT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_POPCNT;
-
+	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF))
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_SAHF))
+	  ix86_isa_flags |= OPTION_MASK_ISA_SAHF;
+	if (processor_alias_table[i].flags & PTA_AES
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AES))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AES;
+	if (processor_alias_table[i].flags & PTA_PCLMUL
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_PCLMUL))
+	  ix86_isa_flags |= OPTION_MASK_ISA_PCLMUL;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
-	if (!(TARGET_64BIT && (processor_alias_table[i].flags & PTA_NO_SAHF)))
-	  ix86_extra_flags |= OPTION_MASK_EXTRA_SAHF;
-
+									\
 	break;
       }
 
@@ -3033,17 +3136,19 @@ ix86_function_specific_restore (struct function_specific_data *ptr)
 }
 
 
-/* Hook to validate the function specific options */
+/* Inner function to process the attribute((option(...))), take an argument and
+   set the current options from the argument. If we have a list, recursively go
+   over the list.  */
 
 static bool
-ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
+ix86_valid_option_attribute_inner_p (tree args)
 {
-  int i;
-  unsigned j;
-  bool ret = true;
-  const char *orig_arch_string = ix86_arch_string;
-  const char *orig_tune_string = ix86_tune_string;
-  const char *orig_fpmath_string = ix86_fpmath_string;
+  const char *p = NULL;
+  enum opt_code opt;
+  bool opt_set_p;
+  size_t len;
+  char ch;
+  unsigned i;
 
   static const struct
   {
@@ -3052,7 +3157,9 @@ ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
     enum opt_code opt;
   } attrs[] = {
     { "abm",		sizeof ("abm")-1,		OPT_mabm },
+    { "aes",		sizeof ("aes")-1,		OPT_maes },
     { "fused-muladd",	sizeof ("fused-muladd")-1,	OPT_mfused_madd },
+    { "pclmul",		sizeof ("pclmul")-1,		OPT_mpclmul },
     { "popcnt",		sizeof ("popcnt")-1,		OPT_mpopcnt },
     { "mmx",		sizeof ("mmx")-1,		OPT_mmmx },
     { "sse",		sizeof ("sse")-1,		OPT_msse },
@@ -3066,75 +3173,97 @@ ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
     { "ssse3",		sizeof ("ssse3")-1,		OPT_mssse3 },
   };
 
-  /* If we've already figured out the options, quit now */
-  if (DECL_FUNCTION_SPECIFIC (fndecl))
-    return ret;
-
-  /* Make sure we start with clean options */
-  ix86_function_specific_restore (ix86_initial_options);
-
-  for (i = 0; i < argc; i++)
+  /* If this is a list, recurse to get the options.  */
+  if (TREE_CODE (args) == TREE_LIST)
     {
-      const char *p = argv[i];
-      enum opt_code opt;
-      bool opt_set_p = true;
-      size_t len;
-      char ch;
+      bool ret = true;
 
-      /* hack */
-      if (*p == '-')
-	p++;
-      if (*p == 'm')
-	p++;
+      for (; args; args = TREE_CHAIN (args))
+	if (TREE_VALUE (args)
+	    && !ix86_valid_option_attribute_inner_p (TREE_VALUE (args)))
+	  ret = false;
 
-      if (p[0] == 'n' && p[1] == 'o' && p[2] == '-')
+      return ret;
+    }
+
+  else if (TREE_CODE (args) != STRING_CST)
+    gcc_unreachable ();
+
+  /* Recognize no-xxx.  */
+  p = TREE_STRING_POINTER (args);
+  if (p[0] == 'n' && p[1] == 'o' && p[2] == '-')
+    {
+      opt_set_p = false;
+      p += 3;
+    }
+  else
+    opt_set_p = true;
+
+  /* See if the option is a simple option.  */
+  len = strlen (p);
+  ch = *p;
+  opt = N_OPTS;
+  for (i = 0; i < sizeof (attrs) / sizeof (attrs[0]); i++)
+    {
+      if (ch == attrs[i].string[0]
+	  && len == attrs[i].len
+	  && memcmp (p, attrs[i].string, len) == 0)
 	{
-	  opt_set_p = false;
-	  p += 3;
+	  opt = attrs[i].opt;
+	  break;
 	}
+    }
 
-      /* See if the option is a simple option */
-      len = strlen (p);
-      ch = *p;
-      opt = N_OPTS;
-      for (j = 0; j < sizeof (attrs) / sizeof (attrs[0]); j++)
+  if (opt != N_OPTS)
+    ix86_handle_option (opt, p, opt_set_p);
+
+  /* If it wasn't a simple option, maybe it is arch=, tune=, or
+     fpmath=.  */
+  else
+    {
+      if (opt == N_OPTS && len > sizeof ("arch=") && opt_set_p)
 	{
-	  if (ch == attrs[j].string[0] && len == attrs[j].len
-	      && memcmp (p, attrs[j].string, len) == 0)
+	  if (strncmp (p, "arch=", sizeof ("arch=") - 1) == 0)
+	    ix86_arch_string = p + sizeof ("arch=") - 1;
+	  else if (strncmp (p, "tune=", sizeof ("tune=") - 1) == 0)
+	    ix86_tune_string = p + sizeof ("tune=") - 1;
+	  else if (strncmp (p, "fpmath=", sizeof ("fpmath=") - 1) == 0)
+	    ix86_fpmath_string = p + sizeof ("fpmath=") - 1;
+	  else if (opt == N_OPTS)
 	    {
-	      opt = attrs[j].opt;
-	      break;
-	    }
-	}
-
-      if (opt != N_OPTS)
-	ix86_handle_option (opt, argv[i], opt_set_p);
-
-      /* If it wasn't a simple option, maybe it is arch=, tune=, or fpmath= */
-      else
-	{
-	  if (opt == N_OPTS && len > sizeof ("arch=") && opt_set_p)
-	    {
-	      if (strncmp (p, "arch=", sizeof ("arch=") - 1) == 0)
-		ix86_arch_string = p + sizeof ("arch=") - 1;
-	      else if (strncmp (p, "tune=", sizeof ("tune=") - 1) == 0)
-		ix86_tune_string = p + sizeof ("tune=") - 1;
-	      else if (strncmp (p, "fpmath=", sizeof ("fpmath=") - 1) == 0)
-		ix86_fpmath_string = p + sizeof ("fpmath=") - 1;
-	      else if (opt == N_OPTS)
-		{
-		  error ("attribute(option(\"%s\")) is unknown", argv[i]);
-		  ret = false;
-		}
+	      error ("attribute(option(\"%s\")) is unknown", p);
+	      return false;
 	    }
 	}
     }
+
+  return true;
+}
+
+/* Hook to validate attribute((option("string"))).  */
+
+static bool
+ix86_valid_option_attribute_p (tree fndecl,
+			       tree ARG_UNUSED (name),
+			       tree args,
+			       int ARG_UNUSED (flags))
+{
+  bool ret;
+  const char *orig_arch_string = ix86_arch_string;
+  const char *orig_tune_string = ix86_tune_string;
+  const char *orig_fpmath_string = ix86_fpmath_string;
+
+  /* Make sure we start with clean options.  */
+  ix86_function_specific_restore (ix86_initial_options);
+
+  /* Process each of the options on the chain.  */
+  ret = ix86_valid_option_attribute_inner_p (args);
 
   /* If the changed options are different from the default, rerun override_options,
      and then save the options away.  The string options are are attribute options,
      and will be undone when we copy the save structure.  */
   if (ix86_isa_flags != ix86_initial_options->options.ix86_isa_flags
-      || ix86_extra_flags != ix86_initial_options->options.ix86_extra_flags
+      || target_flags != ix86_initial_options->options.target_flags
       || ix86_arch_string != orig_arch_string
       || ix86_tune_string != orig_tune_string
       || ix86_fpmath_string != orig_fpmath_string)
@@ -3149,19 +3278,19 @@ ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
       if (ix86_arch_string == orig_arch_string && !ix86_arch_specified)
 	ix86_arch_string = NULL;
 
-      /* If fpmath= is not set, and we now have sse2 on 32-bit, use it */
+      /* If fpmath= is not set, and we now have sse2 on 32-bit, use it.  */
       if (!ix86_fpmath_string && !TARGET_64BIT && TARGET_SSE)
 	ix86_fpmath_string = "sse,387";
 
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
       override_options (false);
 
-      /* Save the current options */
+      /* Save the current options.  */
       p = ggc_alloc (sizeof (struct function_specific_data));
       DECL_FUNCTION_SPECIFIC (fndecl) = p;
       ix86_function_specific_save (p);
 
-      /* Restore options */
+      /* Restore options.  */
       ix86_function_specific_restore (ix86_initial_options);
       ix86_arch_string = orig_arch_string;
       ix86_tune_string = orig_tune_string;
@@ -3171,83 +3300,8 @@ ix86_valid_option_attribute_inner_p (int argc, const char **argv, tree fndecl)
   return ret;
 }
 
-/* Count how many function specific options there are in ARGS.
-
-   The ARGS argument is a TREE_LIST that points to STRING_CST nodes.  */
-
-static int
-ix86_option_count_args (tree args)
-{
-  int ret = 0;
-
-  if (TREE_CODE (args) == TREE_LIST)
-    {
-      for (; args; args = TREE_CHAIN (args))
-	if (TREE_VALUE (args))
-	  ret += ix86_option_count_args (TREE_VALUE (args));
-    }
-
-  else if (TREE_CODE (args) == STRING_CST)
-    ret++;
-
-  else
-    gcc_unreachable ();
-
-  return ret;
-}
-
-/* Build the argument vector from the attribute list of ARGS, updating the
-   current argument count in the int pointed to by P_ARGC, with a maximum count
-   of MAX_ARGC, and the vector in ARGV.  */
-
-static void
-ix86_option_build_args (tree args, int *p_argc, int max_argc,
-			const char *argv[])
-{
-  if (TREE_CODE (args) == TREE_LIST)
-    {
-      for (; args; args = TREE_CHAIN (args))
-	if (TREE_VALUE (args))
-	  ix86_option_build_args (TREE_VALUE (args), p_argc, max_argc, argv);
-    }
-
-  else if (TREE_CODE (args) == STRING_CST)
-    {
-      gcc_assert (*p_argc < max_argc);
-      argv[*p_argc] = TREE_STRING_POINTER (args);
-      (*p_argc)++;
-    }
-
-  else
-    gcc_unreachable ();
-}
-
-/* Validate attribute((option("string"))).  */
-
-static bool
-ix86_valid_option_attribute_p (tree fndecl,
-			       tree ARG_UNUSED (name),
-			       tree args,
-			       int ARG_UNUSED (flags))
-{
-  int max_argc = ix86_option_count_args (args);
-  bool ret = true;
-
-  if (max_argc > 0)
-    {
-      int argc = 0;
-      const char **argv = alloca ((max_argc + 1) * sizeof (char *));
-
-      ix86_option_build_args (args, &argc, max_argc, argv);
-      argv[max_argc] = NULL;
-      ret = ix86_valid_option_attribute_inner_p (argc, argv, fndecl);
-    }
-
-  return ret;
-}
-
 
-/* Hook to determine if one function can safely inline another */
+/* Hook to determine if one function can safely inline another.  */
 
 static bool
 ix86_can_inline_p (tree caller, tree callee)
@@ -3256,22 +3310,26 @@ ix86_can_inline_p (tree caller, tree callee)
   struct function_specific_data *caller_opts = DECL_FUNCTION_SPECIFIC (caller);
   struct function_specific_data *callee_opts = DECL_FUNCTION_SPECIFIC (callee);
 
-  /* If callee has no option attributes, then it is ok to inline */
+  /* If callee has no option attributes, then it is ok to inline.  */
   if (!callee_opts)
     ret = true;
 
   /* If caller has no option attributes, but callee does then it is not ok to
-     inline */
+     inline.  */
   else if (!caller_opts)
     ret = false;
 
-  /* See if we have the same options */
-  else if (caller_opts->options.ix86_isa_flags
+  /* Callee's isa options should a subset of the caller's, i.e. a SSE5 function
+     can inline a SSE2 function but a SSE2 function can't inline a SSE5
+     function.  */
+  else if ((caller_opts->options.ix86_isa_flags
+	    & callee_opts->options.ix86_isa_flags)
 	   != callee_opts->options.ix86_isa_flags)
     ret = false;
 
-  else if (caller_opts->options.ix86_extra_flags
-	   != callee_opts->options.ix86_extra_flags)
+  /* See if we have the same non-isa options.  */
+  else if (caller_opts->options.target_flags
+	   != callee_opts->options.target_flags)
     ret = false;
 
   else if (caller_opts->machine.arch != callee_opts->machine.arch)

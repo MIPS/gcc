@@ -89,6 +89,8 @@ for (i = 0; i < n_opts; i++) {
 print ""
 
 if (have_save) {
+	# Define this even if we are in the gcc driver in case the tm.h
+	# file includes this structure in another one.
 	print "/* Structure to save/restore selected options.  */";
 	print "struct cl_option_save GTY(())";
 	print "{";
@@ -102,7 +104,7 @@ if (have_save) {
 			if(name in var_save_seen)
 				continue;
 
-			var_save_seen[name] ++	
+			var_save_seen[name]++;
 			print "  " var_type(flags[i]) name ";";
 			if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
 				print "  " var_type(flags[i]) name "_explicit;";
@@ -111,11 +113,13 @@ if (have_save) {
 
 	print "};";
 	print "";
+	print "#ifndef GCC_DRIVER"
 	print "/* Save selected option variables into a structure.  */"
 	print "extern void cl_options_save (struct cl_option_save *);";
 	print "";
 	print "/* Restore selected current options from a structure.  */";
 	print "extern void cl_options_restore (struct cl_option_save *);";
+	print "#endif";
 	print "";
 }
 
