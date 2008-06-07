@@ -672,6 +672,7 @@ walk_omp_for (walk_tree_fn callback, struct nesting_info *info, tree for_stmt)
 {
   struct walk_stmt_info wi;
   tree t, list = NULL, empty;
+  int i;
 
   walk_body (callback, info, &OMP_FOR_PRE_BODY (for_stmt));
 
@@ -682,36 +683,39 @@ walk_omp_for (walk_tree_fn callback, struct nesting_info *info, tree for_stmt)
   wi.info = info;
   wi.tsi = tsi_last (list);
 
-  t = OMP_FOR_INIT (for_stmt);
-  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 1), callback, &wi, NULL);
+  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
+    {
+      t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
+      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 1), callback, &wi, NULL);
 
-  t = OMP_FOR_COND (for_stmt);
-  gcc_assert (COMPARISON_CLASS_P (t));
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+      t = TREE_VEC_ELT (OMP_FOR_COND (for_stmt), i);
+      gcc_assert (COMPARISON_CLASS_P (t));
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
 
-  t = OMP_FOR_INCR (for_stmt);
-  gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-  SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
-  wi.val_only = false;
-  walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
-  t = GIMPLE_STMT_OPERAND (t, 1);
-  gcc_assert (BINARY_CLASS_P (t));
-  wi.val_only = false;
-  walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
-  wi.val_only = true;
-  wi.is_lhs = false;
-  walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+      t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
+      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
+      SET_EXPR_LOCUS (empty, EXPR_LOCUS (t));
+      wi.val_only = false;
+      walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback, &wi, NULL);
+      t = GIMPLE_STMT_OPERAND (t, 1);
+      gcc_assert (BINARY_CLASS_P (t));
+      wi.val_only = false;
+      walk_tree (&TREE_OPERAND (t, 0), callback, &wi, NULL);
+      wi.val_only = true;
+      wi.is_lhs = false;
+      walk_tree (&TREE_OPERAND (t, 1), callback, &wi, NULL);
+    }
 
   /* Remove empty statement added above from the end of statement list.  */
   tsi_delink (&wi.tsi);
@@ -1095,24 +1099,25 @@ convert_nonlocal_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_suppress = info->suppress_expansion;
-      if (convert_nonlocal_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+      if (convert_nonlocal_omp_clauses (&OMP_TASKREG_CLAUSES (t), wi))
 	{
 	  tree c, decl;
 	  decl = get_chain_decl (info);
 	  c = build_omp_clause (OMP_CLAUSE_FIRSTPRIVATE);
 	  OMP_CLAUSE_DECL (c) = decl;
-	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	  OMP_PARALLEL_CLAUSES (t) = c;
+	  OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	  OMP_TASKREG_CLAUSES (t) = c;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
       info->new_local_var_chain = NULL;
 
-      walk_body (convert_nonlocal_reference, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_nonlocal_reference, info, &OMP_TASKREG_BODY (t));
 
       if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t), false);
+	declare_vars (info->new_local_var_chain, OMP_TASKREG_BODY (t), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
       break;
@@ -1156,7 +1161,7 @@ static bool
 convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *info = wi->info;
-  bool need_chain = false;
+  bool need_chain = false, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;
@@ -1168,13 +1173,25 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     {
       switch (OMP_CLAUSE_CODE (clause))
 	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
+	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+	    break;
 	  if (decl_function_context (decl) != info->context)
 	    {
 	      bitmap_set_bit (new_suppress, DECL_UID (decl));
@@ -1199,6 +1216,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:
@@ -1207,6 +1226,35 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     }
 
   info->suppress_expansion = new_suppress;
+
+  if (need_stmts)
+    for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+      switch (OMP_CLAUSE_CODE (clause))
+	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    {
+	      tree old_context
+		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= info->context;
+	      walk_body (convert_nonlocal_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
+	      walk_body (convert_nonlocal_reference, info,
+			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= old_context;
+	    }
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  walk_body (convert_nonlocal_reference, info,
+		     &OMP_CLAUSE_LASTPRIVATE_STMT (clause));
+	  break;
+
+	default:
+	  break;
+	}
 
   return need_chain;
 }
@@ -1387,24 +1435,25 @@ convert_local_reference (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_suppress = info->suppress_expansion;
-      if (convert_local_omp_clauses (&OMP_PARALLEL_CLAUSES (t), wi))
+      if (convert_local_omp_clauses (&OMP_TASKREG_CLAUSES (t), wi))
 	{
 	  tree c;
 	  (void) get_frame_type (info);
 	  c = build_omp_clause (OMP_CLAUSE_SHARED);
 	  OMP_CLAUSE_DECL (c) = info->frame_decl;
-	  OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	  OMP_PARALLEL_CLAUSES (t) = c;
+	  OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	  OMP_TASKREG_CLAUSES (t) = c;
 	}
 
       save_local_var_chain = info->new_local_var_chain;
       info->new_local_var_chain = NULL;
 
-      walk_body (convert_local_reference, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_local_reference, info, &OMP_TASKREG_BODY (t));
 
       if (info->new_local_var_chain)
-	declare_vars (info->new_local_var_chain, OMP_PARALLEL_BODY (t), false);
+	declare_vars (info->new_local_var_chain, OMP_TASKREG_BODY (t), false);
       info->new_local_var_chain = save_local_var_chain;
       info->suppress_expansion = save_suppress;
       break;
@@ -1448,7 +1497,7 @@ static bool
 convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 {
   struct nesting_info *info = wi->info;
-  bool need_frame = false;
+  bool need_frame = false, need_stmts = false;
   tree clause, decl;
   int dummy;
   bitmap new_suppress;
@@ -1460,13 +1509,25 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     {
       switch (OMP_CLAUSE_CODE (clause))
 	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (OMP_CLAUSE_LASTPRIVATE_STMT (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
+	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
+	  if (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+	    break;
 	  if (decl_function_context (decl) == info->context
 	      && !use_pointer_in_frame (decl))
 	    {
@@ -1496,6 +1557,8 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_UNTIED:
 	  break;
 
 	default:
@@ -1504,6 +1567,35 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
     }
 
   info->suppress_expansion = new_suppress;
+
+  if (need_stmts)
+    for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
+      switch (OMP_CLAUSE_CODE (clause))
+	{
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+	    {
+	      tree old_context
+		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= info->context;
+	      walk_body (convert_local_reference, info,
+			 &OMP_CLAUSE_REDUCTION_INIT (clause));
+	      walk_body (convert_local_reference, info,
+			 &OMP_CLAUSE_REDUCTION_MERGE (clause));
+	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
+		= old_context;
+	    }
+	  break;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  walk_body (convert_local_reference, info,
+		     &OMP_CLAUSE_LASTPRIVATE_STMT (clause));
+	  break;
+
+	default:
+	  break;
+	}
 
   return need_frame;
 }
@@ -1722,9 +1814,10 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
       break;
 
     case OMP_PARALLEL:
+    case OMP_TASK:
       save_static_chain_added = info->static_chain_added;
       info->static_chain_added = 0;
-      walk_body (convert_call_expr, info, &OMP_PARALLEL_BODY (t));
+      walk_body (convert_call_expr, info, &OMP_TASKREG_BODY (t));
       for (i = 0; i < 2; i++)
 	{
 	  tree c, decl;
@@ -1732,7 +1825,7 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	    continue;
 	  decl = i ? get_chain_decl (info) : info->frame_decl;
 	  /* Don't add CHAIN.* or FRAME.* twice.  */
-	  for (c = OMP_PARALLEL_CLAUSES (t); c; c = OMP_CLAUSE_CHAIN (c))
+	  for (c = OMP_TASKREG_CLAUSES (t); c; c = OMP_CLAUSE_CHAIN (c))
 	    if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
 		 || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
 		&& OMP_CLAUSE_DECL (c) == decl)
@@ -1742,8 +1835,8 @@ convert_call_expr (tree *tp, int *walk_subtrees, void *data)
 	      c = build_omp_clause (i ? OMP_CLAUSE_FIRSTPRIVATE
 				      : OMP_CLAUSE_SHARED);
 	      OMP_CLAUSE_DECL (c) = decl;
-	      OMP_CLAUSE_CHAIN (c) = OMP_PARALLEL_CLAUSES (t);
-	      OMP_PARALLEL_CLAUSES (t) = c;
+	      OMP_CLAUSE_CHAIN (c) = OMP_TASKREG_CLAUSES (t);
+	      OMP_TASKREG_CLAUSES (t) = c;
 	    }
 	}
       info->static_chain_added |= save_static_chain_added;
