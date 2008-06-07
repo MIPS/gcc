@@ -158,6 +158,9 @@ get_decl_align_unit (tree decl)
   align = DECL_ALIGN (decl);
   align = LOCAL_ALIGNMENT (TREE_TYPE (decl), align);
 
+  if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
+    align = MAX_SUPPORTED_STACK_ALIGNMENT;
+
   if (SUPPORTS_STACK_ALIGNMENT)
     {
       if (crtl->stack_alignment_estimated < align)
@@ -165,11 +168,6 @@ get_decl_align_unit (tree decl)
 	  gcc_assert(!crtl->stack_realign_processed);
           crtl->stack_alignment_estimated = align;
 	}
-    }
-  else
-    {
-      if (align > PREFERRED_STACK_BOUNDARY)
-	align = PREFERRED_STACK_BOUNDARY;
     }
 
   /* stack_alignment_needed > PREFERRED_STACK_BOUNDARY is permitted.

@@ -950,12 +950,17 @@ along with GCC; see the file COPYING3.  If not see
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 0
 #endif
 
-/* FIXME: The default should be PREFERRED_STACK_BOUNDARY.  But the fix
-   for PR 32893 indicates that we can only guarantee maximum stack
-   alignment on stack up to STACK_BOUNDARY, not PREFERRED_STACK_BOUNDARY,
-   if stack alignment isn't supported.  */
-#ifndef MAX_STACK_ALIGNMENT
+/* MAX_STACK_ALIGNMENT is the maximum stack alignment guaranteed by
+   the backend.  MAX_SUPPORTED_STACK_ALIGNMENT is the maximum best
+   effort stack alignment supported by the backend.  If the backend
+   supports stack alignment, MAX_SUPPORTED_STACK_ALIGNMENT and
+   MAX_STACK_ALIGNMENT are the same.  Otherwise, the incoming stack
+   boundary will limit the maximum guaranteed stack alignment.  */
+#ifdef MAX_STACK_ALIGNMENT
+#define MAX_SUPPORTED_STACK_ALIGNMENT MAX_STACK_ALIGNMENT
+#else
 #define MAX_STACK_ALIGNMENT STACK_BOUNDARY
+#define MAX_SUPPORTED_STACK_ALIGNMENT PREFERRED_STACK_BOUNDARY
 #endif
 
 #define SUPPORTS_STACK_ALIGNMENT (MAX_STACK_ALIGNMENT > STACK_BOUNDARY)

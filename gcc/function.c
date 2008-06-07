@@ -384,17 +384,19 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
   if (FRAME_GROWS_DOWNWARD)
     frame_offset -= size;
 
+  /* Ignore alignment if it exceeds MAX_SUPPORTED_STACK_ALIGNMENT.  */
+  if (alignment_in_bits >= MAX_SUPPORTED_STACK_ALIGNMENT)
+    {
+      alignment_in_bits = MAX_SUPPORTED_STACK_ALIGNMENT;
+      alignment = alignment_in_bits / BITS_PER_UNIT;
+    }
+
   if (SUPPORTS_STACK_ALIGNMENT)
     {
       if (crtl->stack_alignment_estimated < alignment_in_bits)
 	{
           if (!crtl->stack_realign_processed)
-	    {
-	      /* Can't exceed MAX_STACK_ALIGNMENT.  */
-	      if (alignment_in_bits >= MAX_STACK_ALIGNMENT)
-		alignment_in_bits = MAX_STACK_ALIGNMENT;
-	      crtl->stack_alignment_estimated = alignment_in_bits;
-	    }
+	    crtl->stack_alignment_estimated = alignment_in_bits;
           else
 	    {
 	      gcc_assert (!crtl->stack_realign_finalized);
@@ -413,16 +415,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
 	    }
 	}
     }
-  else
-    {
-      /* Ignore alignment we can't do with expected alignment of the
-	 boundary.  */
-      if (alignment * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
-	{
-	  alignment_in_bits = PREFERRED_STACK_BOUNDARY;
-	  alignment = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-	}
-    }
+
   if (crtl->stack_alignment_needed < alignment_in_bits)
     crtl->stack_alignment_needed = alignment_in_bits;
   if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)
@@ -3378,6 +3371,12 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   locate->where_pad = where_pad;
   locate->boundary = boundary;
 
+  /* We can't exceed MAX_SUPPORTED_STACK_ALIGNMENT when we remember
+     if the outgoing parameter requires extra alignment on the calling
+     function side.  */
+  if (boundary >= MAX_SUPPORTED_STACK_ALIGNMENT)
+    boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
+
   if (SUPPORTS_STACK_ALIGNMENT)
     {
       /* stack_alignment_estimated can't change after stack has been
@@ -3385,24 +3384,13 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
       if (crtl->stack_alignment_estimated < boundary)
         {
           if (!crtl->stack_realign_processed)
-	    {
-	      /* Can't exceed MAX_STACK_ALIGNMENT.  */
-	      if (boundary >= MAX_STACK_ALIGNMENT)
-		boundary = MAX_STACK_ALIGNMENT;
-	      crtl->stack_alignment_estimated = boundary;
-	    }
+	    crtl->stack_alignment_estimated = boundary;
 	  else
 	    gcc_assert (!crtl->stack_realign_finalized
 			&& crtl->stack_realign_needed);
 	}
     }
-  else
-    {
-      /* Remember if the outgoing parameter requires extra alignment on
-         the calling function side.  */
-      if (boundary > PREFERRED_STACK_BOUNDARY)
-        boundary = PREFERRED_STACK_BOUNDARY;
-    }
+
   if (crtl->stack_alignment_needed < boundary)
     crtl->stack_alignment_needed = boundary;
   if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)

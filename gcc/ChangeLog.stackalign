@@ -1,3 +1,15 @@
+2008-06-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* defaults.h (MAX_STACK_ALIGNMENT): Update comments.
+	(MAX_SUPPORTED_STACK_ALIGNMENT): New.
+
+	* cfgexpand.c (get_decl_align_unit): Ignore alignment if it
+	exceeds MAX_SUPPORTED_STACK_ALIGNMENT.
+	* function.c (assign_stack_local_1): Likewise.
+	(locate_and_pad_parm): Likewise.
+
+	* doc/tm.texi (MAX_STACK_ALIGNMENT): Updated.
+
 2008-06-05  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_get_drap_rtx): Update comments.
