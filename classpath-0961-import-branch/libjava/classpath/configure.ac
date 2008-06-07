@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.96.1],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.97.2],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 dnl GCJ LOCAL
@@ -338,13 +338,17 @@ dnl -----------------------------------------------------------
 dnl Regenerate headers at build time (disabled by default)
 dnl -----------------------------------------------------------
 AC_ARG_ENABLE([regen-headers],
-              [AS_HELP_STRING(--enable-regen-headers,automatically regenerate JNI headers [default=no])],
+              [AS_HELP_STRING(--enable-regen-headers,automatically regenerate JNI headers [default=yes if headers don't exist])],
               [case "${enableval}" in
                 yes) REGENERATE_JNI_HEADERS=yes ;;
                 no) REGENERATE_JNI_HEADERS=no ;;
-                *) REGENERATE_JNI_HEADERS=no ;;
+                *) REGENERATE_JNI_HEADERS=yes ;;
               esac],
-              [REGENERATE_JNI_HEADERS=no])
+              [if test -e include/java_lang_VMSystem.h; then
+			REGENERATE_JNI_HEADERS=no ;
+		   else
+			REGENERATE_JNI_HEADERS=yes ;
+	       fi])
 AM_CONDITIONAL(CREATE_JNI_HEADERS, test "x${REGENERATE_JNI_HEADERS}" = xyes)
 
 dnl -----------------------------------------------------------
@@ -375,7 +379,7 @@ dnl -----------------------------------------------------------
 dnl Initialize libtool
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
-dnl AC_PROG_AWK
+AC_PROG_AWK
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CPP
@@ -416,6 +420,8 @@ if test "x${COMPILE_JNI}" = xyes; then
   dnl On that system, sys/ioctl.h will not include sys/filio.h unless
   dnl BSD_COMP is defined; just including sys/filio.h is simpler.
   dnl Check for crt_externs.h on Darwin.
+  dnl Check for netinet/in_systm.h, netinet/ip.h and net/if.h for Windows CE.
+  dnl Check for sys/loadavg.h for getloadavg() on Solaris 9.
   AC_CHECK_HEADERS([unistd.h sys/types.h sys/config.h sys/ioctl.h \
 		    asm/ioctls.h \
 		    inttypes.h stdint.h utime.h sys/utime.h sys/filio.h \
@@ -426,7 +432,9 @@ if test "x${COMPILE_JNI}" = xyes; then
 		    sys/mman.h \
 		    magic.h \
                     sys/event.h sys/epoll.h \
-		    ifaddrs.h])
+		    ifaddrs.h \
+		    netinet/in_systm.h netinet/ip.h net/if.h \
+		    sys/loadavg.h])
 
   AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
   AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
@@ -442,11 +450,12 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  gethostbyname_r localtime_r \
 		  strerror_r \
                   fcntl \
+		  statvfs \  
 		  mmap munmap mincore msync madvise getpagesize sysconf \
 		  lstat readlink \
  		  inet_aton inet_addr inet_pton \
 		  getifaddrs kqueue kevent epoll_create \
-                  readdir_r getloadavg])
+                  getloadavg])
 
   LIBMAGIC=
   AC_CHECK_LIB(magic, magic_open, LIBMAGIC=-lmagic)
@@ -582,7 +591,7 @@ if test "x${COMPILE_JNI}" = xyes; then
     dnl compiled in
     USE_GCONF_PREFS_PEER=$enable_default_preferences_peer
     if test "$USE_GCONF_PREFS_PEER" = ""; then
-   	DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory
+      DEFAULT_PREFS_PEER=gnu.java.util.prefs.GConfBasedFactory
     fi
   fi
 
@@ -610,6 +619,10 @@ if test "x${COMPILE_JNI}" = xyes; then
 
 	GST_PLUGIN_LDFLAGS='-module -avoid-version -Wno-unused-parameter -no-undefined'
 	AC_SUBST(GST_PLUGIN_LDFLAGS)
+
+    PKG_CHECK_MODULES(GDK, gdk-2.0 >= 2.8)
+    AC_SUBST(GDK_CFLAGS)
+    AC_SUBST(GDK_LIBS)
 	
 	dnl set the gstreamer based file reader, writer and mixer
 	GSTREAMER_FILE_READER=gnu.javax.sound.sampled.gstreamer.io.GstAudioFileReader
@@ -768,8 +781,6 @@ if test "x${COMPILE_JNI}" = xyes; then
   done
   AC_CONFIG_LINKS([$ac_config_links_1])
 fi
-
-CLASSPATH_FIND_JAVAC
 
 CLASSPATH_WITH_CLASSLIB
 
@@ -931,6 +942,16 @@ esac;
 AM_CONDITIONAL(USE_PREBUILT_GLIBJ_ZIP, test x$use_glibj_zip = xtrue)
 AC_SUBST(PATH_TO_GLIBJ_ZIP)
 
+# Check for javac if we need to build either the class library,
+# the examples or the tools
+if test "x${use_glibj_zip}" = xfalse || \
+   test "x${EXAMPLESDIR}" != x || \
+   test "x${TOOLSDIR}" != x && \
+   test "x${build_class_files}" != xno; then 	
+	AC_PROG_JAVAC
+  	CLASSPATH_JAVAC_MEM_CHECK
+fi
+
 dnl -----------------------------------------------------------
 dnl Build with Escher based X peers.
 dnl -----------------------------------------------------------
@@ -1026,6 +1047,7 @@ scripts/classpath.spec
 lib/Makefile
 lib/gen-classlist.sh
 lib/copy-vmresources.sh
+scripts/check_jni_methods.sh
 tools/Makefile
 examples/Makefile
 examples/Makefile.jawt

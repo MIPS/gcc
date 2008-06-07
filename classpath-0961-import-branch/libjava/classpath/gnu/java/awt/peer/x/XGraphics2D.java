@@ -57,6 +57,7 @@ import java.awt.peer.FontPeer;
 import java.util.HashMap;
 import java.util.WeakHashMap;
 
+import gnu.java.awt.image.AsyncImage;
 import gnu.java.awt.java2d.AbstractGraphics2D;
 import gnu.java.awt.java2d.ScanlineCoverage;
 import gnu.x11.Colormap;
@@ -67,6 +68,14 @@ import gnu.x11.image.ZPixmap;
 public class XGraphics2D
   extends AbstractGraphics2D
 {
+
+  /**
+   * When this property is set to true, then images are always rendered as
+   * opaque images, ignoring their translucence. This is intended for
+   * debugging and demonstration purposes.
+   */
+  private static final boolean RENDER_OPAQUE =
+    Boolean.getBoolean("escherpeer.renderopaque");
 
   /**
    * The X Drawable to draw on.
@@ -331,6 +340,7 @@ public class XGraphics2D
 
   protected boolean rawDrawImage(Image image, int x, int y, ImageObserver obs)
   {
+    image = unwrap(image);
     boolean ret;
     if (image instanceof XImage)
       {
@@ -367,7 +377,7 @@ public class XGraphics2D
                 ZPixmap zpixmap = imageCache.get(image);
                 xdrawable.put_image(xgc, zpixmap, x, y);
               }
-            else if (transparency == Transparency.OPAQUE)
+            else if (transparency == Transparency.OPAQUE || RENDER_OPAQUE)
               {
                 XGraphicsDevice gd = XToolkit.getDefaultDevice();
                 ZPixmap zpixmap = new ZPixmap(gd.getDisplay(), w, h);
@@ -413,6 +423,7 @@ public class XGraphics2D
                             blue = blue * alpha
                                     + (255 - alpha) * zpixmap.get_blue(xx, yy);
                             blue = blue / 255;
+                            rgb = red << 16 | green << 8 | blue;
                           }
                         // else keep rgb value from source image.
 
@@ -420,7 +431,8 @@ public class XGraphics2D
                       }
                   }
                 xdrawable.put_image(xgc, zpixmap, x, y);
-                imageCache.put(image, zpixmap);
+                // We can't cache prerendered translucent images, because
+                // we never know how the background changes.
               }
             ret = true;
           }
@@ -457,5 +469,25 @@ public class XGraphics2D
         super.drawString(s, x, y);
       }
   }
+
+  /**
+   * Extracts an image instance out of an AsyncImage. If the image isn't
+   * an AsyncImage, then the original instance is returned.
+   *
+   * @param im the image
+   *
+   * @return the image to render
+   */
+  private Image unwrap(Image im)
+  {
+    Image image = im;
+    if (image instanceof AsyncImage)
+      {
+        AsyncImage aIm = (AsyncImage) image;
+        image = aIm.getRealImage();
+      }
+    return image;
+  }
+
 }
 

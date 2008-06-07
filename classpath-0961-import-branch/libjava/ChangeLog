@@ -1,3 +1,10 @@
+2008-06-07  Matthias Klose  <doko@ubuntu.com>
+
+        Import GNU Classpath (classpath-0_97_2-release).
+
+        * Regenerate class and header files.
+        * Regenerate auto* files.
+
 2008-01-27  Matthias Klose  <doko@ubuntu.com>
 
 	* gcj/javaprims.h: Define jobjectRefType.

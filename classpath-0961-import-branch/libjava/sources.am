@@ -475,6 +475,18 @@ gnu/classpath/jdwp/value.list: $(gnu_classpath_jdwp_value_source_files)
 -include gnu/classpath/jdwp/value.deps
 
 
+gnu_classpath_toolkit_source_files = \
+classpath/gnu/classpath/toolkit/DefaultDaemonThreadFactory.java
+
+gnu_classpath_toolkit_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_classpath_toolkit_source_files)))
+
+gnu/classpath/toolkit.list: $(gnu_classpath_toolkit_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/gnu/classpath/toolkit/*.class > gnu/classpath/toolkit.list
+
+-include gnu/classpath/toolkit.deps
+
+
 gnu_gcj_source_files = \
 gnu/gcj/Core.java \
 gnu/gcj/RawData.java \
@@ -782,6 +794,8 @@ gnu/java/awt/font/opentype/truetype.list: $(gnu_java_awt_font_opentype_truetype_
 
 
 gnu_java_awt_image_source_files = \
+classpath/gnu/java/awt/image/AsyncImage.java \
+classpath/gnu/java/awt/image/ImageConverter.java \
 classpath/gnu/java/awt/image/ImageDecoder.java \
 classpath/gnu/java/awt/image/XBMDecoder.java
 
@@ -989,7 +1003,6 @@ gnu-java-awt-peer-swing.lo: $(gnu_java_awt_peer_swing_source_files)
 
 gnu_java_awt_peer_x_source_files = \
 classpath/gnu/java/awt/peer/x/GLGraphics.java \
-classpath/gnu/java/awt/peer/x/ImageConverter.java \
 classpath/gnu/java/awt/peer/x/KeyboardMapping.java \
 classpath/gnu/java/awt/peer/x/PixmapVolatileImage.java \
 classpath/gnu/java/awt/peer/x/XDialogPeer.java \
@@ -1589,6 +1602,8 @@ gnu/java/nio/channels.list: $(gnu_java_nio_channels_source_files)
 
 gnu_java_nio_charset_source_files = \
 classpath/gnu/java/nio/charset/ByteCharset.java \
+classpath/gnu/java/nio/charset/ByteDecodeLoopHelper.java \
+classpath/gnu/java/nio/charset/ByteEncodeLoopHelper.java \
 classpath/gnu/java/nio/charset/Cp424.java \
 classpath/gnu/java/nio/charset/Cp437.java \
 classpath/gnu/java/nio/charset/Cp737.java \
@@ -6213,6 +6228,32 @@ javax/management/openmbean.list: $(javax_management_openmbean_source_files)
 -include javax/management/openmbean.deps
 
 
+javax_management_remote_source_files = \
+classpath/javax/management/remote/NotificationResult.java \
+classpath/javax/management/remote/TargetedNotification.java
+
+javax_management_remote_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_management_remote_source_files)))
+
+javax/management/remote.list: $(javax_management_remote_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/javax/management/remote/*.class > javax/management/remote.list
+
+-include javax/management/remote.deps
+
+
+javax_management_remote_rmi_source_files = \
+classpath/javax/management/remote/rmi/RMIConnection.java \
+classpath/javax/management/remote/rmi/RMIServer.java
+
+javax_management_remote_rmi_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_management_remote_rmi_source_files)))
+
+javax/management/remote/rmi.list: $(javax_management_remote_rmi_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/javax/management/remote/rmi/*.class > javax/management/remote/rmi.list
+
+-include javax/management/remote/rmi.deps
+
+
 javax_naming_source_files = \
 classpath/javax/naming/AuthenticationException.java \
 classpath/javax/naming/AuthenticationNotSupportedException.java \
@@ -7578,6 +7619,20 @@ javax/swing/undo.list: $(javax_swing_undo_source_files)
 -include javax/swing/undo.deps
 
 
+javax_tools_source_files = \
+classpath/javax/tools/Diagnostic.java \
+classpath/javax/tools/DiagnosticListener.java \
+classpath/javax/tools/FileObject.java
+
+javax_tools_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(javax_tools_source_files)))
+
+javax/tools.list: $(javax_tools_source_files)
+	@$(mkinstalldirs) $(dir $@)
+	echo $(srcdir)/classpath/lib/javax/tools/*.class > javax/tools.list
+
+-include javax/tools.deps
+
+
 javax_transaction_source_files = \
 classpath/javax/transaction/HeuristicCommitException.java \
 classpath/javax/transaction/HeuristicMixedException.java \
@@ -8608,6 +8663,7 @@ all_packages_source_files = \
   gnu/awt/j2d.list \
   gnu/classpath.list \
   gnu/classpath/debug.list \
+  gnu/classpath/toolkit.list \
   gnu/gcj.list \
   gnu/gcj/convert.list \
   gnu/gcj/io.list \
@@ -8798,6 +8854,8 @@ all_packages_source_files = \
   javax/management.list \
   javax/management/loading.list \
   javax/management/openmbean.list \
+  javax/management/remote.list \
+  javax/management/remote/rmi.list \
   javax/naming.list \
   javax/naming/directory.list \
   javax/naming/event.list \
@@ -8839,6 +8897,7 @@ all_packages_source_files = \
   javax/swing/text/rtf.list \
   javax/swing/tree.list \
   javax/swing/undo.list \
+  javax/tools.list \
   javax/transaction.list \
   javax/transaction/xa.list \
   org/ietf/jgss.list \
@@ -8854,6 +8913,7 @@ ordinary_header_files = \
   $(gnu_awt_j2d_header_files) \
   $(gnu_classpath_header_files) \
   $(gnu_classpath_debug_header_files) \
+  $(gnu_classpath_toolkit_header_files) \
   $(gnu_gcj_header_files) \
   $(gnu_gcj_convert_header_files) \
   $(gnu_gcj_io_header_files) \
@@ -9041,6 +9101,8 @@ ordinary_header_files = \
   $(javax_management_header_files) \
   $(javax_management_loading_header_files) \
   $(javax_management_openmbean_header_files) \
+  $(javax_management_remote_header_files) \
+  $(javax_management_remote_rmi_header_files) \
   $(javax_naming_header_files) \
   $(javax_naming_directory_header_files) \
   $(javax_naming_event_header_files) \
@@ -9082,6 +9144,7 @@ ordinary_header_files = \
   $(javax_swing_text_rtf_header_files) \
   $(javax_swing_tree_header_files) \
   $(javax_swing_undo_header_files) \
+  $(javax_tools_header_files) \
   $(javax_transaction_header_files) \
   $(javax_transaction_xa_header_files) \
   $(org_ietf_jgss_header_files) \
@@ -9122,21 +9185,6 @@ bc_objects = \
   org-xml.lo
 
 property_files = \
-  classpath/resource/gnu/classpath/tools/appletviewer/messages.properties \
-  classpath/resource/gnu/classpath/tools/common/Messages.properties \
-  classpath/resource/gnu/classpath/tools/getopt/Messages.properties \
-  classpath/resource/gnu/classpath/tools/jar/messages.properties \
-  classpath/resource/gnu/classpath/tools/jarsigner/MessageBundle.properties \
-  classpath/resource/gnu/classpath/tools/jarsigner/messages.properties \
-  classpath/resource/gnu/classpath/tools/keytool/MessageBundle.properties \
-  classpath/resource/gnu/classpath/tools/keytool/messages.properties \
-  classpath/resource/gnu/classpath/tools/native2ascii/messages.properties \
-  classpath/resource/gnu/classpath/tools/orbd/messages.properties \
-  classpath/resource/gnu/classpath/tools/rmic/messages.properties \
-  classpath/resource/gnu/classpath/tools/rmid/messages.properties \
-  classpath/resource/gnu/classpath/tools/rmiregistry/messages.properties \
-  classpath/resource/gnu/classpath/tools/serialver/messages.properties \
-  classpath/resource/gnu/classpath/tools/tnameserv/messages.properties \
   classpath/resource/gnu/java/awt/font/fonts.properties \
   classpath/resource/gnu/java/awt/peer/gtk/font.properties \
   classpath/resource/gnu/java/awt/peer/x/fonts.properties \
@@ -9151,8 +9199,6 @@ property_files = \
   classpath/resource/javax/imageio/plugins/jpeg/MessagesBundle.properties \
   classpath/resource/javax/swing/text/html/default.css \
   classpath/resource/org/ietf/jgss/MessagesBundle.properties \
-  classpath/resource/sun/rmi/rmic/messages.properties \
-  classpath/resource/com/sun/tools/javac/messages.properties \
   classpath/resource/META-INF/services/java.util.prefs.PreferencesFactory \
   classpath/resource/META-INF/services/java.util.prefs.PreferencesFactory.in \
   classpath/resource/META-INF/services/javax.sound.midi.spi.MidiDeviceProvider \
