@@ -1,3 +1,64 @@
+2008-06-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	PR target/35921
+	* optimize.c (maybe_clone_body): Copy DECL_DLLIMPORT_P flag
+	to clone.
+
+2008-06-06  Release Manager
+
+	* GCC 4.3.1 released.
+
+2008-05-27  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c++/35909
+	* call.c (convert_like_real): Convert bitfield to desired type
+	before creating temporary.
+
+2008-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36237
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): Call
+	fold_build_cleanup_point_expr on build_call_a results.
+
+	PR c++/36308
+	* semantics.c (omp_clause_info_fndecl): New function.
+	(finish_omp_clauses): Use it.
+
+2008-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36023
+	* cp-tree.h (check_array_initializer): New prototype.
+	* decl.c (check_array_initializer): New function.
+	(check_initializer): Call it.
+	* semantics.c (finish_compound_literal): Call it for ARRAY_TYPEs.
+
+2008-05-11  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* parser.c (cp_parser_omp_clause_reduction): Add missing "expected"
+	in error message.
+	(cp_parser_omp_clause_schedule): Remove superfluous "expected"
+	in error message.
+
+	PR c++/35578
+	* parser.c (cp_parser_decl_specifier_seq): Add location to error
+	message.
+
+2008-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35986
+	* pt.c (more_specialized_fn): Stop the loop even if there are no
+	arguments before ellipsis.
+
+2008-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/35650
+	* parser.c (cp_parser_lookup_name): Look through single function
+	OVERLOAD.
+
+	PR c++/35987
+	* typeck.c (build_modify_expr) <case PREINCREMENT_EXPR>: Don't build
+	COMPOUND_EXPR if the second argument would be error_mark_node.
+
 2008-04-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/35758

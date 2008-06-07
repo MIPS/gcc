@@ -8093,7 +8093,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_FRIEND:
 	  if (!at_class_scope_p ())
 	    {
-	      error ("%<friend%> used outside of class");
+	      error ("%H%<friend%> used outside of class", &token->location);
 	      cp_lexer_purge_token (parser->lexer);
 	    }
 	  else
@@ -16262,6 +16262,13 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	  decl = lookup_qualified_name (parser->scope, name,
 					tag_type != none_type,
 					/*complain=*/true);
+
+	  /* If we have a single function from a using decl, pull it out.  */
+	  if (decl
+	      && TREE_CODE (decl) == OVERLOAD
+	      && !really_overloaded_fn (decl))
+	    decl = OVL_FUNCTION (decl);
+
 	  if (pushed_scope)
 	    pop_scope (pushed_scope);
 	}
@@ -19625,7 +19632,8 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
       code = TRUTH_ORIF_EXPR;
       break;
     default:
-      cp_parser_error (parser, "`+', `*', `-', `&', `^', `|', `&&', or `||'");
+      cp_parser_error (parser, "expected `+', `*', `-', `&', `^', `|', "
+			       "`&&', or `||'");
     resync_fail:
       cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					     /*or_comma=*/false,
@@ -19656,7 +19664,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
 {
   tree c, t;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
   c = build_omp_clause (OMP_CLAUSE_SCHEDULE);

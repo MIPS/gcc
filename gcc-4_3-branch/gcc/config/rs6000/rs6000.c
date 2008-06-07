@@ -6807,7 +6807,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* _Decimal32 varargs are located in the second word of the 64-bit
 	 FP register for 32-bit binaries.  */
-      if (!TARGET_POWERPC64 && TYPE_MODE (type) == SDmode)
+      if (!TARGET_POWERPC64
+	  && TARGET_HARD_FLOAT && TARGET_FPRS
+	  && TYPE_MODE (type) == SDmode)
 	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
 
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
@@ -12290,6 +12292,10 @@ print_operand_address (FILE *file, rtx x)
 	      XSTR (symref, 0) = newname;
 	    }
 	  output_addr_const (file, XEXP (x, 1));
+	  if (GET_CODE (XEXP (minus, 1)) == CONST
+	      && (GET_CODE (XEXP (XEXP (minus, 1), 0)) == PLUS))
+	    fprintf (file, "+"HOST_WIDE_INT_PRINT_DEC,
+		     -INTVAL (XEXP (XEXP (XEXP (minus, 1), 0), 1)));
 	  if (TARGET_ELF)
 	    XSTR (symref, 0) = name;
 	  XEXP (contains_minus, 0) = minus;
