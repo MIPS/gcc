@@ -1,6 +1,6 @@
 /* Header for array handling functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software
-   Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -139,4 +139,4 @@ unsigned HOST_WIDE_INT gfc_constant_array_constructor_p (gfc_constructor *);
 tree gfc_build_constant_array_constructor (gfc_expr *, tree);
 
 /* Copy a string from src to dest.  */
-void gfc_trans_string_copy (stmtblock_t *, tree, tree, tree, tree);
+void gfc_trans_string_copy (stmtblock_t *, tree, tree, int, tree, tree, int);

@@ -135,7 +135,7 @@ suitable_for_tail_opt_p (void)
   referenced_var_iterator rvi;
   tree var;
 
-  if (current_function_stdarg)
+  if (cfun->stdarg)
     return false;
 
   /* No local variable nor structure field should be call-clobbered.  We
@@ -144,7 +144,7 @@ suitable_for_tail_opt_p (void)
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
       if (!is_global_var (var)
-	  && (!MTAG_P (var) || TREE_CODE (var) == STRUCT_FIELD_TAG)
+	  && !MTAG_P (var)
 	  && (gimple_aliases_computed_p (cfun) ? is_call_clobbered (var)
 	      : TREE_ADDRESSABLE (var)))
 	return false;
@@ -164,7 +164,7 @@ suitable_for_tail_call_opt_p (void)
 
   /* alloca (until we have stack slot life analysis) inhibits
      sibling call optimizations, but not tail recursion.  */
-  if (current_function_calls_alloca)
+  if (cfun->calls_alloca)
     return false;
 
   /* If we are using sjlj exceptions, we may need to add a call to
@@ -176,7 +176,7 @@ suitable_for_tail_call_opt_p (void)
   /* Any function that calls setjmp might have longjmp called from
      any called function.  ??? We really should represent this
      properly in the CFG so that this needn't be special cased.  */
-  if (current_function_calls_setjmp)
+  if (cfun->calls_setjmp)
     return false;
 
   /* ??? It is OK if the argument of a function is taken in some cases,
@@ -428,6 +428,20 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       return;
     }
+
+  /* If the LHS of our call is not just a simple register, we can't 
+     transform this into a tail or sibling call.  This situation happens,
+     in (e.g.) "*p = foo()" where foo returns a struct.  In this case
+     we won't have a temporary here, but we need to carry out the side
+     effect anyway, so tailcall is impossible.
+
+     ??? In some situations (when the struct is returned in memory via
+     invisible argument) we could deal with this, e.g. by passing 'p'
+     itself as that argument to foo, but it's too early to do this here,
+     and expand_call() will not handle it anyway.  If it ever can, then
+     we need to revisit this here, to allow that situation.  */
+  if (ass_var && !is_gimple_reg (ass_var))
+    return;
 
   /* We found the call, check whether it is suitable.  */
   tail_recursion = false;
@@ -1017,8 +1031,10 @@ execute_tail_calls (void)
   return tree_optimize_tail_calls_1 (true);
 }
 
-struct tree_opt_pass pass_tail_recursion = 
+struct gimple_opt_pass pass_tail_recursion = 
 {
+ {
+  GIMPLE_PASS,
   "tailr",				/* name */
   gate_tail_calls,			/* gate */
   execute_tail_recursion,		/* execute */
@@ -1030,12 +1046,14 @@ struct tree_opt_pass pass_tail_recursion =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_tail_calls = 
+struct gimple_opt_pass pass_tail_calls = 
 {
+ {
+  GIMPLE_PASS,
   "tailc",				/* name */
   gate_tail_calls,			/* gate */
   execute_tail_calls,			/* execute */
@@ -1047,6 +1065,6 @@ struct tree_opt_pass pass_tail_calls =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };

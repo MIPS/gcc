@@ -59,6 +59,8 @@ am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../config/lead-dot.m4 \
 	$(top_srcdir)/../../config/multi.m4 \
 	$(top_srcdir)/../../config/no-executables.m4 \
+	$(top_srcdir)/../../config/override.m4 \
+	$(top_srcdir)/../../config/proginstall.m4 \
 	$(top_srcdir)/../../libtool.m4 \
 	$(top_srcdir)/../../ltoptions.m4 \
 	$(top_srcdir)/../../ltsugar.m4 \
@@ -1153,6 +1155,13 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 @JAVA_MAINTAINER_MODE_TRUE@	  echo "  cp $(srcdir)resource/$$p classes/$$p"; \
 @JAVA_MAINTAINER_MODE_TRUE@	  cp $(srcdir)/resource/$$p classes/$$p; \
 @JAVA_MAINTAINER_MODE_TRUE@	done
+	@list=`cd $(srcdir) && find gnu/classpath/tools -name \*.jav -print`; \
+	for p in $$list; do \
+	  dirname=classes/`dirname $$p`; \
+	  if ! test -d "$$dirname"; then mkdir -p "$$dirname"; fi; \
+	  echo "  cp $(srcdir)/$$p classes/$$p"; \
+	  cp $(srcdir)/$$p classes/$$p; \
+	done
 	cp -pR $(srcdir)/asm .
 	cp -pR $(srcdir)/classes .
 	(cd classes; \

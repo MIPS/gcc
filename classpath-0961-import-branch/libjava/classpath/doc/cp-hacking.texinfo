@@ -559,7 +559,7 @@ library headers:
 
 @table @b
 @item GConf
-@uref{http://www.gnome.org/projects/gconf/,GConf} version 2.6.0
+@uref{http://www.gnome.org/projects/gconf/,GConf} version 2.11.2
 (or higher). GConf is used for storing desktop and application
 configuration settings in GNOME.
 

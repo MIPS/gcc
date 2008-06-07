@@ -201,8 +201,9 @@ typedef struct gfc_ss
 
   /* This is used by assignments requiring temporaries. The bits specify which
      loops the terms appear in.  This will be 1 for the RHS expressions,
-     2 for the LHS expressions, and 3(=1|2) for the temporary.  */
-  unsigned useflags:2;
+     2 for the LHS expressions, and 3(=1|2) for the temporary.  The bit
+     'where' suppresses precalculation of scalars in WHERE assignments.  */
+  unsigned useflags:2, where:1;
 }
 gfc_ss;
 #define gfc_get_ss() gfc_getmem(sizeof(gfc_ss))
@@ -277,7 +278,7 @@ void gfc_make_safe_expr (gfc_se * se);
 void gfc_conv_string_parameter (gfc_se * se);
 
 /* Compare two strings.  */
-tree gfc_build_compare_string (tree, tree, tree, tree);
+tree gfc_build_compare_string (tree, tree, tree, tree, int);
 
 /* Add an item to the end of TREE_LIST.  */
 tree gfc_chainon_list (tree, tree);
@@ -405,6 +406,9 @@ tree gfc_get_symbol_decl (gfc_symbol *);
 /* Build a static initializer.  */
 tree gfc_conv_initializer (gfc_expr *, gfc_typespec *, tree, bool, bool);
 
+/* Assign a default initializer to a derived type.  */
+tree gfc_init_default_dt (gfc_symbol *, tree);
+
 /* Substitute a temporary variable in place of the real one.  */
 void gfc_shadow_sym (gfc_symbol *, tree, gfc_saved_var *);
 
@@ -489,9 +493,13 @@ bool gfc_get_array_descr_info (const_tree, struct array_descr_info *);
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (const_tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
-tree gfc_omp_clause_default_ctor (tree, tree);
+tree gfc_omp_clause_default_ctor (tree, tree, tree);
+tree gfc_omp_clause_copy_ctor (tree, tree, tree);
+tree gfc_omp_clause_assign_op (tree, tree, tree);
+tree gfc_omp_clause_dtor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
+bool gfc_omp_private_outer_ref (tree);
 struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
@@ -500,7 +508,6 @@ extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
 extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
-extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
 extern GTY(()) tree gfor_fndecl_runtime_error_at;
 extern GTY(()) tree gfor_fndecl_os_error;
@@ -526,17 +533,9 @@ typedef struct gfc_powdecl_list GTY(())
 gfc_powdecl_list;
 
 extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[4][3];
-extern GTY(()) tree gfor_fndecl_math_cpowf;
-extern GTY(()) tree gfor_fndecl_math_cpow;
-extern GTY(()) tree gfor_fndecl_math_cpowl10;
-extern GTY(()) tree gfor_fndecl_math_cpowl16;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
 extern GTY(()) tree gfor_fndecl_math_ishftc16;
-extern GTY(()) tree gfor_fndecl_math_exponent4;
-extern GTY(()) tree gfor_fndecl_math_exponent8;
-extern GTY(()) tree gfor_fndecl_math_exponent10;
-extern GTY(()) tree gfor_fndecl_math_exponent16;
 
 /* BLAS functions.  */
 extern GTY(()) tree gfor_fndecl_sgemm;
@@ -555,13 +554,30 @@ extern GTY(()) tree gfor_fndecl_string_trim;
 extern GTY(()) tree gfor_fndecl_string_minmax;
 extern GTY(()) tree gfor_fndecl_adjustl;
 extern GTY(()) tree gfor_fndecl_adjustr;
+extern GTY(()) tree gfor_fndecl_select_string;
+extern GTY(()) tree gfor_fndecl_compare_string_char4;
+extern GTY(()) tree gfor_fndecl_concat_string_char4;
+extern GTY(()) tree gfor_fndecl_string_len_trim_char4;
+extern GTY(()) tree gfor_fndecl_string_index_char4;
+extern GTY(()) tree gfor_fndecl_string_scan_char4;
+extern GTY(()) tree gfor_fndecl_string_verify_char4;
+extern GTY(()) tree gfor_fndecl_string_trim_char4;
+extern GTY(()) tree gfor_fndecl_string_minmax_char4;
+extern GTY(()) tree gfor_fndecl_adjustl_char4;
+extern GTY(()) tree gfor_fndecl_adjustr_char4;
+extern GTY(()) tree gfor_fndecl_select_string_char4;
+
+/* Conversion between character kinds.  */
+extern GTY(()) tree gfor_fndecl_convert_char1_to_char4;
+extern GTY(()) tree gfor_fndecl_convert_char4_to_char1;
 
 /* Other misc. runtime library functions.  */
 extern GTY(()) tree gfor_fndecl_size0;
 extern GTY(()) tree gfor_fndecl_size1;
 extern GTY(()) tree gfor_fndecl_iargc;
 
-/* Implemented in FORTRAN.  */
+/* Implemented in Fortran.  */
+extern GTY(()) tree gfor_fndecl_sc_kind;
 extern GTY(()) tree gfor_fndecl_si_kind;
 extern GTY(()) tree gfor_fndecl_sr_kind;
 
@@ -645,11 +661,11 @@ struct lang_decl		GTY(())
   (TYPE_LANG_SPECIFIC(node)->dataptr_type)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build1(code, void_type_node, arg)
-#define build2_v(code, arg1, arg2) build2(code, void_type_node, \
-                                          arg1, arg2)
-#define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
-                                                arg1, arg2, arg3)
+#define build1_v(code, arg) fold_build1(code, void_type_node, arg)
+#define build2_v(code, arg1, arg2) fold_build2(code, void_type_node, \
+                                               arg1, arg2)
+#define build3_v(code, arg1, arg2, arg3) fold_build3(code, void_type_node, \
+                                                     arg1, arg2, arg3)
 #define build4_v(code, arg1, arg2, arg3, arg4) build4(code, void_type_node, \
 						      arg1, arg2, arg3, arg4)
 

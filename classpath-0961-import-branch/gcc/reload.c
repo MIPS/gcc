@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -263,7 +263,7 @@ static rtx find_dummy_reload (rtx, rtx, rtx *, rtx *, enum machine_mode,
 static int hard_reg_set_here_p (unsigned int, unsigned int, rtx);
 static struct decomposition decompose (rtx);
 static int immune_p (rtx, rtx, struct decomposition);
-static int alternative_allows_memconst (const char *, int);
+static bool alternative_allows_const_pool_ref (rtx, const char *, int);
 static rtx find_reloads_toplev (rtx, int, enum reload_type, int, int, rtx,
 				int *);
 static rtx make_memloc (rtx, int);
@@ -454,6 +454,8 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
 	if (MERGE_TO_OTHER (secondary_type, rld[s_reload].when_needed,
 			    opnum, rld[s_reload].opnum))
 	  rld[s_reload].when_needed = RELOAD_OTHER;
+
+	break;
       }
 
   if (s_reload == n_reloads)
@@ -986,7 +988,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
      we can't handle it here because CONST_INT does not indicate a mode.
 
      Similarly, we must reload the inside expression if we have a
-     STRICT_LOW_PART (presumably, in == out in the cas).
+     STRICT_LOW_PART (presumably, in == out in this case).
 
      Also reload the inner expression if it does not require a secondary
      reload but the SUBREG does.
@@ -2521,7 +2523,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
   int noperands;
   /* These start out as the constraints for the insn
      and they are chewed up as we consider alternatives.  */
-  char *constraints[MAX_RECOG_OPERANDS];
+  const char *constraints[MAX_RECOG_OPERANDS];
   /* These are the preferred classes for an operand, or NO_REGS if it isn't
      a register.  */
   enum reg_class preferred_class[MAX_RECOG_OPERANDS];
@@ -2628,7 +2630,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
   memcpy (operand_mode, recog_data.operand_mode,
 	  noperands * sizeof (enum machine_mode));
-  memcpy (constraints, recog_data.constraints, noperands * sizeof (char *));
+  memcpy (constraints, recog_data.constraints,
+	  noperands * sizeof (const char *));
 
   commutative = -1;
 
@@ -2639,8 +2642,9 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
   for (i = 0; i < noperands; i++)
     {
-      char *p;
+      const char *p;
       int c;
+      char *end;
 
       substed_operand[i] = recog_data.operand[i];
       p = constraints[i];
@@ -2684,7 +2688,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	    case '0': case '1': case '2': case '3': case '4':
 	    case '5': case '6': case '7': case '8': case '9':
 	      {
-		c = strtoul (p - 1, &p, 10);
+		c = strtoul (p - 1, &end, 10);
+		p = end;
 
 		operands_match[c][i]
 		  = operands_match_p (recog_data.operand[c],
@@ -2912,11 +2917,21 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	 a bad register class to only count 1/3 as much.  */
       int reject = 0;
 
+      if (!recog_data.alternative_enabled_p[this_alternative_number])
+	{
+	  int i;
+
+	  for (i = 0; i < recog_data.n_operands; i++)
+	    constraints[i] = skip_alternative (constraints[i]);
+
+	  continue;
+	}
+
       this_earlyclobber = 0;
 
       for (i = 0; i < noperands; i++)
 	{
-	  char *p = constraints[i];
+	  const char *p = constraints[i];
 	  char *end;
 	  int len;
 	  int win = 0;
@@ -3180,7 +3195,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		badop = 0;
 		break;
 
-	      case 'm':
+	      case TARGET_MEM_CONSTRAINT:
 		if (force_reload)
 		  break;
 		if (MEM_P (operand)
@@ -3715,7 +3730,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  address_reloaded[commutative + 1] = t;
 
 	  memcpy (constraints, recog_data.constraints,
-		  noperands * sizeof (char *));
+		  noperands * sizeof (const char *));
 	  goto try_swapped;
 	}
       else
@@ -3836,13 +3851,19 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	    || no_input_reloads)
 	&& operand_mode[i] != VOIDmode)
       {
+	int this_address_reloaded;
+
+	this_address_reloaded = 0;
 	substed_operand[i] = recog_data.operand[i]
 	  = find_reloads_toplev (force_const_mem (operand_mode[i],
 						  recog_data.operand[i]),
 				 i, address_type[i], ind_levels, 0, insn,
-				 NULL);
-	if (alternative_allows_memconst (recog_data.constraints[i],
-					 goal_alternative_number))
+				 &this_address_reloaded);
+	if (alternative_allows_const_pool_ref (this_address_reloaded == 0
+					       ? substed_operand[i]
+					       : NULL,
+					       recog_data.constraints[i],
+					       goal_alternative_number))
 	  goal_alternative_win[i] = 1;
       }
 
@@ -4062,7 +4083,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  PUT_MODE (emit_insn_before (gen_rtx_USE (VOIDmode, operand),
 					      insn), QImode);
 		if (modified[i] != RELOAD_READ)
-		  emit_insn_after (gen_rtx_CLOBBER (VOIDmode, operand), insn);
+		  emit_insn_after (gen_clobber (operand), insn);
 	      }
 	  }
       }
@@ -4498,26 +4519,42 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
   return retval;
 }
 
-/* Return 1 if alternative number ALTNUM in constraint-string CONSTRAINT
-   accepts a memory operand with constant address.  */
+/* Return true if alternative number ALTNUM in constraint-string
+   CONSTRAINT is guaranteed to accept a reloaded constant-pool reference.
+   MEM gives the reference if it didn't need any reloads, otherwise it
+   is null.  */
 
-static int
-alternative_allows_memconst (const char *constraint, int altnum)
+static bool
+alternative_allows_const_pool_ref (rtx mem, const char *constraint, int altnum)
 {
   int c;
+
   /* Skip alternatives before the one requested.  */
   while (altnum > 0)
     {
       while (*constraint++ != ',');
       altnum--;
     }
-  /* Scan the requested alternative for 'm' or 'o'.
-     If one of them is present, this alternative accepts memory constants.  */
+  /* Scan the requested alternative for TARGET_MEM_CONSTRAINT or 'o'.
+     If one of them is present, this alternative accepts the result of
+     passing a constant-pool reference through find_reloads_toplev.
+
+     The same is true of extra memory constraints if the address
+     was reloaded into a register.  However, the target may elect
+     to disallow the original constant address, forcing it to be
+     reloaded into a register instead.  */
   for (; (c = *constraint) && c != ',' && c != '#';
        constraint += CONSTRAINT_LEN (c, constraint))
-    if (c == 'm' || c == 'o' || EXTRA_MEMORY_CONSTRAINT (c, constraint))
-      return 1;
-  return 0;
+    {
+      if (c == TARGET_MEM_CONSTRAINT || c == 'o')
+	return true;
+#ifdef EXTRA_CONSTRAINT_STR
+      if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
+	  && (mem == NULL || EXTRA_CONSTRAINT_STR (mem, c, constraint)))
+	return true;
+#endif
+    }
+  return false;
 }
 
 /* Scan X for memory references and scan the addresses for reloading.

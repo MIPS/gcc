@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -285,12 +285,21 @@ static struct obstack obstack;
 
 static struct obstack collect_obstack;
 
+/* This is a list of a wrapper program and its arguments.
+   e.g. wrapper_string of "strace,-c"
+   will cause all programs to run as
+       strace -c program arguments
+   instead of just
+       program arguments */
+static const char  *wrapper_string;
+
 /* Forward declaration for prototypes.  */
 struct path_prefix;
 struct prefix_list;
 
 static void init_spec (void);
 static void store_arg (const char *, int, int);
+static void insert_wrapper (const char *);
 static char *load_specs (const char *);
 static void read_specs (const char *, int);
 static void set_spec (const char *, const char *);
@@ -966,11 +975,14 @@ static const struct compiler default_compilers[] =
   {".c++", "#C++", 0, 0, 0}, {".C", "#C++", 0, 0, 0},
   {".CPP", "#C++", 0, 0, 0}, {".ii", "#C++", 0, 0, 0},
   {".ads", "#Ada", 0, 0, 0}, {".adb", "#Ada", 0, 0, 0},
-  {".f", "#Fortran", 0, 0, 0}, {".for", "#Fortran", 0, 0, 0},
-  {".fpp", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
-  {".FOR", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
-  {".f90", "#Fortran", 0, 0, 0}, {".f95", "#Fortran", 0, 0, 0},
-  {".F90", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
+  {".f", "#Fortran", 0, 0, 0}, {".F", "#Fortran", 0, 0, 0},
+  {".for", "#Fortran", 0, 0, 0}, {".FOR", "#Fortran", 0, 0, 0},
+  {".ftn", "#Fortran", 0, 0, 0}, {".FTN", "#Fortran", 0, 0, 0},
+  {".fpp", "#Fortran", 0, 0, 0}, {".FPP", "#Fortran", 0, 0, 0},
+  {".f90", "#Fortran", 0, 0, 0}, {".F90", "#Fortran", 0, 0, 0},
+  {".f95", "#Fortran", 0, 0, 0}, {".F95", "#Fortran", 0, 0, 0},
+  {".f03", "#Fortran", 0, 0, 0}, {".F03", "#Fortran", 0, 0, 0},
+  {".f08", "#Fortran", 0, 0, 0}, {".F08", "#Fortran", 0, 0, 0},
   {".r", "#Ratfor", 0, 0, 0},
   {".p", "#Pascal", 0, 0, 0}, {".pas", "#Pascal", 0, 0, 0},
   {".java", "#Java", 0, 0, 0}, {".class", "#Java", 0, 0, 0},
@@ -1191,7 +1203,7 @@ static const struct {
 
 /* Translate the options described by *ARGCP and *ARGVP.
    Make a new vector and store it back in *ARGVP,
-   and store its length in *ARGVC.  */
+   and store its length in *ARGCP.  */
 
 static void
 translate_options (int *argcp, const char *const **argvp)
@@ -2842,6 +2854,13 @@ execute (void)
 
   gcc_assert (!processing_spec_function);
 
+  if (wrapper_string)
+    {
+      string = find_a_file (&exec_prefixes, argbuf[0], X_OK, false);
+      argbuf[0] = (string) ? string : argbuf[0];
+      insert_wrapper (wrapper_string);
+    }
+
   /* Count # of piped commands.  */
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -2856,10 +2875,12 @@ execute (void)
 
   commands[0].prog = argbuf[0]; /* first command.  */
   commands[0].argv = &argbuf[0];
-  string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, false);
-
-  if (string)
-    commands[0].argv[0] = string;
+ 
+  if (!wrapper_string)
+    {
+      string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, false);
+      commands[0].argv[0] = (string) ? string : commands[0].argv[0];
+    }
 
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -3605,7 +3626,7 @@ process_command (int argc, const char **argv)
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s %s%s\n"), programname, pkgversion_string,
 		  version_string);
-	  printf ("Copyright %s 2007 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2008 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -3795,6 +3816,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_pipes = 1;
 	  n_switches++;
 	}
+      else if (strcmp (argv[i], "-wrapper") == 0)
+        {
+	  if (++i >= argc)
+	    fatal ("argument to '-wrapper' is missing");
+
+          wrapper_string = argv[i];
+	  n_switches++;
+	  n_switches++;
+        }
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -4160,6 +4190,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[i];
 	}
+      else if (strcmp (argv[i], "-wrapper") == 0)
+        i++;
       else if (strcmp (argv[i], "-specs") == 0)
 	i++;
       else if (strncmp (argv[i], "-specs=", 7) == 0)
@@ -4409,6 +4441,52 @@ end_going_arg (void)
 	outfiles[input_file_number] = string;
       arg_going = 0;
     }
+}
+
+
+/* Parse the WRAPPER string which is a comma separated list of the command line
+   and insert them into the beginning of argbuf.  */
+
+static void
+insert_wrapper (const char *wrapper)
+{
+  int n = 0;
+  int i;
+  char *buf = xstrdup (wrapper);
+  char *p = buf;
+
+  do
+    {
+      n++;
+      while (*p == ',')
+        p++;
+    }
+  while ((p = strchr (p, ',')) != NULL);
+
+  if (argbuf_index + n >= argbuf_length)
+    {
+      argbuf_length = argbuf_length * 2;
+      while (argbuf_length < argbuf_index + n)
+	argbuf_length *= 2;
+      argbuf = xrealloc (argbuf, argbuf_length * sizeof (const char *));
+    }
+  for (i = argbuf_index - 1; i >= 0; i--)
+    argbuf[i + n] = argbuf[i];
+
+  i = 0;
+  p = buf;
+  do
+    {
+      while (*p == ',')
+        {
+          *p = 0;
+          p++;
+        }
+      argbuf[i++] = p;
+    }
+  while ((p = strchr (p, ',')) != NULL);
+  gcc_assert (i == n);
+  argbuf_index += n;
 }
 
 /* Process the spec SPEC and run the commands specified therein.
@@ -7745,8 +7823,8 @@ getenv_spec_function (int argc, const char **argv)
     fatal ("environment variable \"%s\" not defined", argv[0]);
 
   /* We have to escape every character of the environment variable so
-     they are not interpretted as active spec characters.  A
-     particulaly painful case is when we are reading a variable
+     they are not interpreted as active spec characters.  A
+     particularly painful case is when we are reading a variable
      holding a windows path complete with \ separators.  */
   len = strlen (value) * 2 + strlen (argv[1]) + 1;
   result = xmalloc (len);

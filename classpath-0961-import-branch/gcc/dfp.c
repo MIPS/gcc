@@ -1,5 +1,5 @@
 /* Decimal floating point support.
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,8 +46,6 @@ decimal_from_decnumber (REAL_VALUE_TYPE *r, decNumber *dn, decContext *context)
   memset (r, 0, sizeof (REAL_VALUE_TYPE));
 
   r->cl = rvc_normal;
-  if (decNumberIsZero (dn))
-    r->cl = rvc_zero;
   if (decNumberIsNaN (dn))
     r->cl = rvc_nan;
   if (decNumberIsInfinite (dn))
@@ -530,7 +528,7 @@ decimal_real_to_integer2 (HOST_WIDE_INT *plow, HOST_WIDE_INT *phigh,
   decNumberZero (&dn3);
   decNumberRescale (&dn, &dn2, &dn3, &set);
 
-  /* Conver to REAL_VALUE_TYPE and call appropriate conversion
+  /* Convert to REAL_VALUE_TYPE and call appropriate conversion
      function.  */
   decNumberToString (&dn, string);
   real_from_string (&to, string);

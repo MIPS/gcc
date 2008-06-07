@@ -137,6 +137,12 @@ extern void set_Wstrict_aliasing (int onoff);
 extern bool warn_larger_than;
 extern HOST_WIDE_INT larger_than_size;
 
+/* Nonzero means warn about any function whose frame size is larger
+   than N bytes. */
+
+extern bool warn_frame_larger_than;
+extern HOST_WIDE_INT frame_larger_than_size;
+
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
 
@@ -191,6 +197,10 @@ extern int flag_dump_unnumbered;
 
 extern int flag_pedantic_errors;
 
+/* Nonzero means make permerror produce warnings instead of errors.  */
+
+extern int flag_permissive;
+
 /* Nonzero if we are compiling code for a shared library, zero for
    executable.  */
 
@@ -212,12 +222,6 @@ extern int flag_next_runtime;
 extern int flag_dump_rtl_in_asm;
 
 /* Other basic status info about current function.  */
-
-/* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
-
-extern int frame_pointer_needed;
 
 /* Nonzero if subexpressions must be evaluated from left-to-right.  */
 extern int flag_evaluation_order;
@@ -321,6 +325,9 @@ extern bool flag_instrument_functions_exclude_p (tree fndecl);
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+
+/* True if pointer types have undefined overflow.  */
+#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
 /* Names for the different levels of -Wstrict-overflow=N.  The numeric
    values here correspond to N.  */

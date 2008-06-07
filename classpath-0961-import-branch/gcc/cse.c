@@ -3489,6 +3489,11 @@ fold_rtx (rtx x, rtx insn)
 			  && exact_log2 (- INTVAL (const_arg1)) >= 0)))
 		break;
 
+	      /* ??? Vector mode shifts by scalar
+		 shift operand are not supported yet.  */
+	      if (is_shift && VECTOR_MODE_P (mode))
+                break;
+
 	      if (is_shift
 		  && (INTVAL (inner_const) >= GET_MODE_BITSIZE (mode)
 		      || INTVAL (inner_const) < 0))
@@ -4753,6 +4758,23 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      src_elt_cost = MAX_COST;
 	    }
 
+	  /* Avoid creation of overlapping memory moves.  */
+	  if (MEM_P (trial) && MEM_P (SET_DEST (sets[i].rtl)))
+	    {
+	      rtx src, dest;
+
+	      /* BLKmode moves are not handled by cse anyway.  */
+	      if (GET_MODE (trial) == BLKmode)
+		break;
+
+	      src = canon_rtx (trial);
+	      dest = canon_rtx (SET_DEST (sets[i].rtl));
+
+	      if (!MEM_P (src) || !MEM_P (dest)
+		  || !nonoverlapping_memrefs_p (src, dest))
+		break;
+	    }
+
 	  /* We don't normally have an insn matching (set (pc) (pc)), so
 	     check for this separately here.  We will delete such an
 	     insn below.
@@ -5232,7 +5254,7 @@ cse_insn (rtx insn, rtx libcall_insn)
 
   if (CALL_P (insn))
     {
-      if (! CONST_OR_PURE_CALL_P (insn))
+      if (!(RTL_CONST_OR_PURE_CALL_P (insn)))
 	invalidate_memory ();
       invalidate_for_call ();
     }
@@ -5975,6 +5997,21 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
       int no_conflict = 0;
 
       bb = ebb_data->path[path_entry].bb;
+
+      /* Invalidate recorded information for eh regs if there is an EH
+	 edge pointing to that bb.  */
+      if (bb_has_eh_pred (bb))
+	{
+	  struct df_ref **def_rec;
+
+	  for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
+	    {
+	      struct df_ref *def = *def_rec;
+	      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+		invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
+	    }
+	}
+
       FOR_BB_INSNS (bb, insn)
 	{
 	  /* If we have processed 1,000 insns, flush the hash table to
@@ -6027,8 +6064,6 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		      else
 			no_conflict = -1;
 		    }
-		  else if (find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
-		    no_conflict = 1;
 		}
 
 	      cse_insn (insn, libcall_insn);
@@ -6829,7 +6864,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 				    newreg);
 	}
 
-      delete_insn (insns[i]);
+      delete_insn_and_edges (insns[i]);
     }
 
   return mode;
@@ -6979,8 +7014,10 @@ rest_of_handle_cse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cse =
+struct rtl_opt_pass pass_cse =
 {
+ {
+  RTL_PASS,
   "cse1",                               /* name */
   gate_handle_cse,                      /* gate */   
   rest_of_handle_cse,			/* execute */       
@@ -6996,7 +7033,7 @@ struct tree_opt_pass pass_cse =
   TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
-  's'                                   /* letter */
+ }
 };
 
 
@@ -7040,8 +7077,10 @@ rest_of_handle_cse2 (void)
 }
 
 
-struct tree_opt_pass pass_cse2 =
+struct rtl_opt_pass pass_cse2 =
 {
+ {
+  RTL_PASS,
   "cse2",                               /* name */
   gate_handle_cse2,                     /* gate */   
   rest_of_handle_cse2,			/* execute */       
@@ -7056,7 +7095,7 @@ struct tree_opt_pass pass_cse2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
-  't'                                   /* letter */
+  TODO_verify_flow                      /* todo_flags_finish */
+ }
 };
 

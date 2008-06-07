@@ -1,5 +1,6 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -463,6 +464,11 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   tree new_var = NULL;
   tree new_var1;
 
+  /* FIXME: Gimplification of complex type is too hard for now.  */
+  if (TREE_CODE (TREE_TYPE (arg0)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (arg1)) == COMPLEX_TYPE)
+    return false;
+
   /* The PHI arguments have the constants 0 and 1, then convert
      it to the conditional.  */
   if ((integer_zerop (arg0) && integer_onep (arg1))
@@ -587,8 +593,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 	  /* Only "real" casts are OK here, not everything that is
 	     acceptable to is_gimple_cast.  Make sure we don't do
 	     anything stupid here.  */
-	  gcc_assert (TREE_CODE (cond) == NOP_EXPR
-		      || TREE_CODE (cond) == CONVERT_EXPR);
+	  gcc_assert (CONVERT_EXPR_P (cond));
 
 	  op0 = TREE_OPERAND (cond, 0);
 	  tmp = create_tmp_var (TREE_TYPE (op0), NULL);
@@ -1125,7 +1130,7 @@ name_to_bb_eq (const void *p1, const void *p2)
   return n1->ssa_name == n2->ssa_name && n1->store == n2->store;
 }
 
-/* We see a the expression EXP in basic block BB.  If it's an interesting
+/* We see the expression EXP in basic block BB.  If it's an interesting
    expression (an INDIRECT_REF through an SSA_NAME) possibly insert the
    expression into the set NONTRAP or the hash table of seen expressions.
    STORE is true if this expression is on the LHS, otherwise it's on
@@ -1352,8 +1357,10 @@ gate_phiopt (void)
   return 1;
 }
 
-struct tree_opt_pass pass_phiopt =
+struct gimple_opt_pass pass_phiopt =
 {
+ {
+  GIMPLE_PASS,
   "phiopt",				/* name */
   gate_phiopt,				/* gate */
   tree_ssa_phiopt,			/* execute */
@@ -1369,8 +1376,8 @@ struct tree_opt_pass pass_phiopt =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow
-    | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_stmts	 		/* todo_flags_finish */
+ }
 };
 
 static bool
@@ -1379,8 +1386,10 @@ gate_cselim (void)
   return flag_tree_cselim;
 }
 
-struct tree_opt_pass pass_cselim =
+struct gimple_opt_pass pass_cselim =
 {
+ {
+  GIMPLE_PASS,
   "cselim",				/* name */
   gate_cselim,				/* gate */
   tree_ssa_cs_elim,			/* execute */
@@ -1396,6 +1405,6 @@ struct tree_opt_pass pass_cselim =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow
-    | TODO_verify_stmts,		/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_stmts	 		/* todo_flags_finish */
+ }
 };

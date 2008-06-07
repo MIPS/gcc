@@ -1,5 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -100,7 +100,7 @@ decode_specification_statement (void)
 {
   gfc_statement st;
   locus old_locus;
-  int c;
+  char c;
 
   if (gfc_match_eos () == MATCH_YES)
     return ST_NONE;
@@ -110,7 +110,7 @@ decode_specification_statement (void)
   match ("import", gfc_match_import, ST_IMPORT);
   match ("use", gfc_match_use, ST_USE);
 
-  if (gfc_numeric_ts (&gfc_current_block ()->ts))
+  if (gfc_current_block ()->ts.type != BT_DERIVED)
     goto end_of_block;
 
   match (NULL, gfc_match_st_function, ST_STATEMENT_FUNCTION);
@@ -121,7 +121,7 @@ decode_specification_statement (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -229,7 +229,7 @@ decode_statement (void)
   gfc_statement st;
   locus old_locus;
   match m;
-  int c;
+  char c;
 
 #ifdef GFC_DEBUG
   gfc_symbol_state ();
@@ -315,7 +315,7 @@ decode_statement (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -366,6 +366,7 @@ decode_statement (void)
       break;
 
     case 'f':
+      match ("final", gfc_match_final_decl, ST_FINAL);
       match ("flush", gfc_match_flush, ST_FLUSH);
       match ("format", gfc_match_format, ST_FORMAT);
       break;
@@ -440,6 +441,7 @@ decode_statement (void)
       break;
 
     case 'w':
+      match ("wait", gfc_match_wait, ST_WAIT);
       match ("write", gfc_match_write, ST_WRITE);
       break;
     }
@@ -461,7 +463,7 @@ static gfc_statement
 decode_omp_directive (void)
 {
   locus old_locus;
-  int c;
+  char c;
 
 #ifdef GFC_DEBUG
   gfc_symbol_state ();
@@ -484,7 +486,7 @@ decode_omp_directive (void)
      statement, we eliminate most possibilities by peeking at the
      first character.  */
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   switch (c)
     {
@@ -513,6 +515,7 @@ decode_omp_directive (void)
       match ("end parallel", gfc_match_omp_eos, ST_OMP_END_PARALLEL);
       match ("end sections", gfc_match_omp_end_nowait, ST_OMP_END_SECTIONS);
       match ("end single", gfc_match_omp_end_single, ST_OMP_END_SINGLE);
+      match ("end task", gfc_match_omp_eos, ST_OMP_END_TASK);
       match ("end workshare", gfc_match_omp_end_nowait,
 	     ST_OMP_END_WORKSHARE);
       break;
@@ -539,6 +542,8 @@ decode_omp_directive (void)
       match ("single", gfc_match_omp_single, ST_OMP_SINGLE);
       break;
     case 't':
+      match ("task", gfc_match_omp_task, ST_OMP_TASK);
+      match ("taskwait", gfc_match_omp_taskwait, ST_OMP_TASKWAIT);
       match ("threadprivate", gfc_match_omp_threadprivate,
 	     ST_OMP_THREADPRIVATE);
     case 'w':
@@ -568,31 +573,34 @@ static gfc_statement
 next_free (void)
 {
   match m;
-  int c, d, cnt, at_bol;
+  int i, cnt, at_bol;
+  char c;
 
   at_bol = gfc_at_bol ();
   gfc_gobble_whitespace ();
 
-  c = gfc_peek_char ();
+  c = gfc_peek_ascii_char ();
 
   if (ISDIGIT (c))
     {
+      char d;
+
       /* Found a statement label?  */
       m = gfc_match_st_label (&gfc_statement_label);
 
-      d = gfc_peek_char ();
+      d = gfc_peek_ascii_char ();
       if (m != MATCH_YES || !gfc_is_whitespace (d))
 	{
-	  gfc_match_small_literal_int (&c, &cnt);
+	  gfc_match_small_literal_int (&i, &cnt);
 
 	  if (cnt > 5)
 	    gfc_error_now ("Too many digits in statement label at %C");
 
-	  if (c == 0)
+	  if (i == 0)
 	    gfc_error_now ("Zero is not a valid statement label at %C");
 
 	  do
-	    c = gfc_next_char ();
+	    c = gfc_next_ascii_char ();
 	  while (ISDIGIT(c));
 
 	  if (!gfc_is_whitespace (c))
@@ -606,11 +614,11 @@ next_free (void)
 
 	  gfc_gobble_whitespace ();
 
-	  if (at_bol && gfc_peek_char () == ';')
+	  if (at_bol && gfc_peek_ascii_char () == ';')
 	    {
 	      gfc_error_now ("Semicolon at %C needs to be preceded by "
 			     "statement");
-	      gfc_next_char (); /* Eat up the semicolon.  */
+	      gfc_next_ascii_char (); /* Eat up the semicolon.  */
 	      return ST_NONE;
 	    }
 
@@ -632,11 +640,11 @@ next_free (void)
 	{
 	  int i;
 
-	  c = gfc_next_char ();
-	  for (i = 0; i < 5; i++, c = gfc_next_char ())
+	  c = gfc_next_ascii_char ();
+	  for (i = 0; i < 5; i++, c = gfc_next_ascii_char ())
 	    gcc_assert (c == "!$omp"[i]);
 
-	  gcc_assert (c == ' ');
+	  gcc_assert (c == ' ' || c == '\t');
 	  gfc_gobble_whitespace ();
 	  return decode_omp_directive ();
 	}
@@ -645,7 +653,7 @@ next_free (void)
   if (at_bol && c == ';')
     {
       gfc_error_now ("Semicolon at %C needs to be preceded by statement");
-      gfc_next_char (); /* Eat up the semicolon.  */
+      gfc_next_ascii_char (); /* Eat up the semicolon.  */
       return ST_NONE;
     }
 
@@ -660,7 +668,7 @@ next_fixed (void)
 {
   int label, digit_flag, i;
   locus loc;
-  char c;
+  gfc_char_t c;
 
   if (!gfc_at_bol ())
     return decode_statement ();
@@ -693,7 +701,7 @@ next_fixed (void)
 	case '7':
 	case '8':
 	case '9':
-	  label = label * 10 + c - '0';
+	  label = label * 10 + ((unsigned char) c - '0');
 	  label_locus = gfc_current_locus;
 	  digit_flag = 1;
 	  break;
@@ -704,7 +712,7 @@ next_fixed (void)
 	  if (gfc_option.flag_openmp)
 	    {
 	      for (i = 0; i < 5; i++, c = gfc_next_char_literal (0))
-		gcc_assert (TOLOWER (c) == "*$omp"[i]);
+		gcc_assert ((char) gfc_wide_tolower (c) == "*$omp"[i]);
 
 	      if (c != ' ' && c != '0')
 		{
@@ -861,11 +869,11 @@ next_statement (void)
   case ST_CLOSE: case ST_CONTINUE: case ST_DEALLOCATE: case ST_END_FILE: \
   case ST_GOTO: case ST_INQUIRE: case ST_NULLIFY: case ST_OPEN: \
   case ST_READ: case ST_RETURN: case ST_REWIND: case ST_SIMPLE_IF: \
-  case ST_PAUSE: case ST_STOP: case ST_WRITE: case ST_ASSIGNMENT: \
+  case ST_PAUSE: case ST_STOP: case ST_WAIT: case ST_WRITE: \
   case ST_POINTER_ASSIGNMENT: case ST_EXIT: case ST_CYCLE: \
-  case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
+  case ST_ASSIGNMENT: case ST_ARITHMETIC_IF: case ST_WHERE: case ST_FORALL: \
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
-  case ST_OMP_BARRIER
+  case ST_OMP_BARRIER: case ST_OMP_TASKWAIT
 
 /* Statements that mark other executable statements.  */
 
@@ -874,7 +882,8 @@ next_statement (void)
   case ST_OMP_PARALLEL_SECTIONS: case ST_OMP_SECTIONS: case ST_OMP_ORDERED: \
   case ST_OMP_CRITICAL: case ST_OMP_MASTER: case ST_OMP_SINGLE: \
   case ST_OMP_DO: case ST_OMP_PARALLEL_DO: case ST_OMP_ATOMIC: \
-  case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE
+  case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE: \
+  case ST_OMP_TASK
 
 /* Declaration statements */
 
@@ -1268,6 +1277,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_WHERE:
       p = "WHERE";
       break;
+    case ST_WAIT:
+      p = "WAIT";
+      break;
     case ST_WRITE:
       p = "WRITE";
       break;
@@ -1343,6 +1355,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_OMP_END_SINGLE:
       p = "!$OMP END SINGLE";
       break;
+    case ST_OMP_END_TASK:
+      p = "!$OMP END TASK";
+      break;
     case ST_OMP_END_WORKSHARE:
       p = "!$OMP END WORKSHARE";
       break;
@@ -1375,6 +1390,12 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_OMP_SINGLE:
       p = "!$OMP SINGLE";
+      break;
+    case ST_OMP_TASK:
+      p = "!$OMP TASK";
+      break;
+    case ST_OMP_TASKWAIT:
+      p = "!$OMP TASKWAIT";
       break;
     case ST_OMP_THREADPRIVATE:
       p = "!$OMP THREADPRIVATE";
@@ -1675,6 +1696,7 @@ static void
 parse_derived (void)
 {
   int compiling_type, seen_private, seen_sequence, seen_component, error_flag;
+  int seen_contains, seen_contains_comp;
   gfc_statement st;
   gfc_state_data s;
   gfc_symbol *derived_sym = NULL;
@@ -1690,6 +1712,8 @@ parse_derived (void)
   seen_private = 0;
   seen_sequence = 0;
   seen_component = 0;
+  seen_contains = 0;
+  seen_contains_comp = 0;
 
   compiling_type = 1;
 
@@ -1703,8 +1727,30 @@ parse_derived (void)
 
 	case ST_DATA_DECL:
 	case ST_PROCEDURE:
+	  if (seen_contains)
+	    {
+	      gfc_error ("Components in TYPE at %C must precede CONTAINS");
+	      error_flag = 1;
+	    }
+
 	  accept_statement (st);
 	  seen_component = 1;
+	  break;
+
+	case ST_FINAL:
+	  if (!seen_contains)
+	    {
+	      gfc_error ("FINAL declaration at %C must be inside CONTAINS");
+	      error_flag = 1;
+	    }
+
+	  if (gfc_notify_std (GFC_STD_F2003,
+			      "Fortran 2003:  FINAL procedure declaration"
+			      " at %C") == FAILURE)
+	    error_flag = 1;
+
+	  accept_statement (ST_FINAL);
+	  seen_contains_comp = 1;
 	  break;
 
 	case ST_END_TYPE:
@@ -1712,14 +1758,26 @@ parse_derived (void)
 
 	  if (!seen_component
 	      && (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Derived type "
-			         "definition at %C without components")
+				 "definition at %C without components")
 		  == FAILURE))
+	    error_flag = 1;
+
+	  if (seen_contains && !seen_contains_comp
+	      && (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: Derived type "
+				 "definition at %C with empty CONTAINS "
+				 "section") == FAILURE))
 	    error_flag = 1;
 
 	  accept_statement (ST_END_TYPE);
 	  break;
 
 	case ST_PRIVATE:
+	  if (seen_contains)
+	    {
+	      gfc_error ("PRIVATE statement at %C must precede CONTAINS");
+	      error_flag = 1;
+	    }
+
 	  if (gfc_find_state (COMP_MODULE) == FAILURE)
 	    {
 	      gfc_error ("PRIVATE statement in TYPE at %C must be inside "
@@ -1748,6 +1806,12 @@ parse_derived (void)
 	  break;
 
 	case ST_SEQUENCE:
+	  if (seen_contains)
+	    {
+	      gfc_error ("SEQUENCE statement at %C must precede CONTAINS");
+	      error_flag = 1;
+	    }
+
 	  if (seen_component)
 	    {
 	      gfc_error ("SEQUENCE statement at %C must precede "
@@ -1769,6 +1833,22 @@ parse_derived (void)
 	  seen_sequence = 1;
 	  gfc_add_sequence (&gfc_current_block ()->attr, 
 			    gfc_current_block ()->name, NULL);
+	  break;
+
+	case ST_CONTAINS:
+	  if (gfc_notify_std (GFC_STD_F2003,
+			      "Fortran 2003:  CONTAINS block in derived type"
+			      " definition at %C") == FAILURE)
+	    error_flag = 1;
+
+	  if (seen_contains)
+	    {
+	      gfc_error ("Already inside a CONTAINS block at %C");
+	      error_flag = 1;
+	    }
+
+	  seen_contains = 1;
+	  accept_statement (ST_CONTAINS);
 	  break;
 
 	default:
@@ -1907,15 +1987,26 @@ loop:
       unexpected_eof ();
 
     case ST_SUBROUTINE:
-      new_state = COMP_SUBROUTINE;
-      gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
-				  gfc_new_block->formal, NULL);
-      break;
-
     case ST_FUNCTION:
-      new_state = COMP_FUNCTION;
-      gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
-				  gfc_new_block->formal, NULL);
+      if (st == ST_SUBROUTINE)
+	new_state = COMP_SUBROUTINE;
+      else if (st == ST_FUNCTION)
+	new_state = COMP_FUNCTION;
+      if (gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
+				  gfc_new_block->formal, NULL) == FAILURE)
+	{
+	  reject_statement ();
+	  gfc_free_namespace (gfc_current_ns);
+	  goto loop;
+	}
+      if (current_interface.type != INTERFACE_ABSTRACT &&
+	 !gfc_new_block->attr.dummy &&
+	 gfc_add_external (&gfc_new_block->attr, &gfc_current_locus) == FAILURE)
+	{
+	  reject_statement ();
+	  gfc_free_namespace (gfc_current_ns);
+	  goto loop;
+	}
       break;
 
     case ST_PROCEDURE:
@@ -2779,6 +2870,9 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
     case ST_OMP_SINGLE:
       omp_end_st = ST_OMP_END_SINGLE;
       break;
+    case ST_OMP_TASK:
+      omp_end_st = ST_OMP_END_TASK;
+      break;
     case ST_OMP_WORKSHARE:
       omp_end_st = ST_OMP_END_WORKSHARE;
       break;
@@ -2989,6 +3083,7 @@ parse_executable (gfc_statement st)
 	case ST_OMP_CRITICAL:
 	case ST_OMP_MASTER:
 	case ST_OMP_SINGLE:
+	case ST_OMP_TASK:
 	  parse_omp_structured_block (st, false);
 	  break;
 
@@ -3197,8 +3292,7 @@ parse_contained (int module)
 
   pop_state ();
   if (!contains_statements)
-    /* This is valid in Fortran 2008.  */
-    gfc_notify_std (GFC_STD_GNU, "Extension: CONTAINS statement without "
+    gfc_notify_std (GFC_STD_F2008, "Fortran 2008: CONTAINS statement without "
 		    "FUNCTION or SUBROUTINE statement at %C");
 }
 
@@ -3563,8 +3657,8 @@ loop:
   gfc_resolve (gfc_current_ns);
 
   /* Dump the parse tree if requested.  */
-  if (gfc_option.verbose)
-    gfc_show_namespace (gfc_current_ns);
+  if (gfc_option.dump_parse_tree)
+    gfc_dump_parse_tree (gfc_current_ns, stdout);
 
   gfc_get_errors (NULL, &errors);
   if (s.state == COMP_MODULE)

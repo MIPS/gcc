@@ -119,9 +119,9 @@ along with GCC; see the file COPYING3.  If not see
 	Functions are output early using call of
 	cgraph_assemble_pending_function from cgraph_finalize_function.  The
 	decision on whether function is needed is made more conservative so
-	uninlininable static functions are needed too.  During the call-graph
+	uninlinable static functions are needed too.  During the call-graph
 	construction the edge destinations are not marked as reachable and it
-	is completely relied upn assemble_variable to mark them.  */
+	is completely relied upon assemble_variable to mark them.  */
 
 
 #include "config.h"
@@ -326,7 +326,7 @@ cgraph_build_cdtor_fns (void)
 
 /* Determine if function DECL is needed.  That is, visible to something
    either outside this translation unit, something magic in the system
-   configury, or (if not doing unit-at-a-time) to something we havn't
+   configury, or (if not doing unit-at-a-time) to something we haven't
    seen yet.  */
 
 static bool
@@ -460,22 +460,13 @@ cgraph_process_new_functions (void)
 	    cgraph_analyze_function (node);
 	  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	  current_function_decl = fndecl;
-	  node->local.inlinable = tree_inlinable_function_p (fndecl);
-	  node->local.self_insns = estimate_num_insns (fndecl,
-						       &eni_inlining_weights);
-	  node->local.disregard_inline_limits
-	    |= DECL_DISREGARD_INLINE_LIMITS (fndecl);
-	  /* Inlining characteristics are maintained by the
-	     cgraph_mark_inline.  */
-	  node->global.insns = node->local.self_insns;
-	  if (flag_really_no_inline && !node->local.disregard_inline_limits)
-	     node->local.inlinable = 0;
+	  compute_inline_parameters (node);
 	  if ((cgraph_state == CGRAPH_STATE_IPA_SSA
 	      && !gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
 	      /* When not optimizing, be sure we run early local passes anyway
 		 to expand OMP.  */
 	      || !optimize)
-	    execute_pass_list (pass_early_local_passes.sub);
+	    execute_pass_list (pass_early_local_passes.pass.sub);
 	  free_dominance_info (CDI_POST_DOMINATORS);
 	  free_dominance_info (CDI_DOMINATORS);
 	  pop_cfun ();
@@ -658,6 +649,7 @@ verify_cgraph_node (struct cgraph_node *node)
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
   struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
+  struct function *saved_cfun = cfun;
   basic_block this_block;
   block_stmt_iterator bsi;
   bool error_found = false;
@@ -666,6 +658,8 @@ verify_cgraph_node (struct cgraph_node *node)
     return;
 
   timevar_push (TV_CGRAPH_VERIFY);
+  /* debug_generic_stmt needs correct cfun */
+  set_cfun (this_cfun);
   for (e = node->callees; e; e = e->next_callee)
     if (e->aux)
       {
@@ -808,6 +802,7 @@ verify_cgraph_node (struct cgraph_node *node)
       dump_cgraph_node (stderr, node);
       internal_error ("verify_cgraph_node failed");
     }
+  set_cfun (saved_cfun);
   timevar_pop (TV_CGRAPH_VERIFY);
 }
 
@@ -854,7 +849,7 @@ cgraph_analyze_function (struct cgraph_node *node)
     {
       bitmap_obstack_initialize (NULL);
       tree_register_cfg_hooks ();
-      execute_pass_list (pass_early_local_passes.sub);
+      execute_pass_list (pass_early_local_passes.pass.sub);
       free_dominance_info (CDI_POST_DOMINATORS);
       free_dominance_info (CDI_DOMINATORS);
       bitmap_obstack_release (NULL);
@@ -1460,7 +1455,7 @@ cgraph_optimize (void)
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
    is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority fot this constructor or destructor.  */
+   initialization priority for this constructor or destructor.  */
 
 void
 cgraph_build_static_cdtor (char which, tree body, int priority)

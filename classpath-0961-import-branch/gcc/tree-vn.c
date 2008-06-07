@@ -1,5 +1,6 @@
 /* Value Numbering routines for tree expressions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
+   Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>, Steven Bosscher
    <stevenb@suse.de> and Diego Novillo <dnovillo@redhat.com>
 
@@ -83,8 +84,6 @@ expressions_equal_p (tree e1, tree e2)
 
     }
   else if (TREE_CODE (e1) == TREE_CODE (e2)
-	   && (te1 == te2
-	       || types_compatible_p (te1, te2))
 	   && operand_equal_p (e1, e2, OEP_PURE_SAME))
     return true;
 
@@ -173,10 +172,10 @@ vn_add (tree expr, tree val)
     {
     case tcc_comparison:
     case tcc_binary:
-      vn_binary_op_insert (expr, val);
+      vn_nary_op_insert (expr, val);
       break;
     case tcc_unary:
-      vn_unary_op_insert (expr, val);
+      vn_nary_op_insert (expr, val);
       break;
       /* In the case of array-refs of constants, for example, we can
 	 end up with no vuses.  */
@@ -201,7 +200,7 @@ vn_add (tree expr, tree val)
 	}
       else if (TREE_CODE (expr) == ADDR_EXPR)
 	{
-	  vn_unary_op_insert (expr, val);
+	  vn_nary_op_insert (expr, val);
 	  break;
 	}
       /* FALLTHROUGH */
@@ -213,7 +212,7 @@ vn_add (tree expr, tree val)
     add_to_value (val, expr);
 }
 
-/* Insert EXPR into the value numbering tables.  with value VAL, and
+/* Insert EXPR into the value numbering tables with value VAL, and
    add expression EXPR to the value set for value VAL.  VUSES
    represents the virtual use operands associated with EXPR.  It is
    used when computing a hash value for EXPR.  */
@@ -248,14 +247,14 @@ vn_lookup (tree expr)
     {
     case tcc_comparison:
     case tcc_binary:
-      return vn_binary_op_lookup (expr);
+      return vn_nary_op_lookup (expr);
     case tcc_unary:
-      return vn_unary_op_lookup (expr);
+      return vn_nary_op_lookup (expr);
       break;
       /* In the case of array-refs of constants, for example, we can
 	 end up with no vuses.  */
     case tcc_reference:
-      return vn_reference_lookup (expr, NULL);
+      return vn_reference_lookup (expr, NULL, false);
       break;
       /* It is possible to have CALL_EXPR with no vuses for things
 	 like "cos", and these will fall into vn_lookup.   */
@@ -264,11 +263,11 @@ vn_lookup (tree expr)
     case tcc_expression:
     case tcc_declaration:
       if (TREE_CODE (expr) == CALL_EXPR || DECL_P (expr))
-	return vn_reference_lookup (expr, NULL);
+	return vn_reference_lookup (expr, NULL, false);
       else if (TREE_CODE (expr) == SSA_NAME)
 	return SSA_NAME_VALUE (expr);
       else if (TREE_CODE (expr) == ADDR_EXPR)
-	return vn_unary_op_lookup (expr);
+	return vn_nary_op_lookup (expr);
       /* FALLTHROUGH */
     default:
       gcc_unreachable ();
@@ -308,7 +307,9 @@ vn_lookup_with_vuses (tree expr, VEC (tree, gc) *vuses)
   if (is_gimple_min_invariant (expr) || TREE_CODE (expr) == FIELD_DECL)
     return expr;
 
-  return vn_reference_lookup (expr, vuses);
+  /* We may not walk the use-def chains here as the alias oracle cannot
+     properly deal with VALUE_HANDLE tree nodes we feed it here.  */
+  return vn_reference_lookup (expr, vuses, false);
 }
 
 static tree

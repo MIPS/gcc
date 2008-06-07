@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1089,19 +1089,20 @@ build_sym (const char *name, gfc_charlen *cl,
 void
 gfc_set_constant_character_len (int len, gfc_expr *expr, bool array)
 {
-  char *s;
+  gfc_char_t *s;
   int slen;
 
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
-  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+  gcc_assert (expr->ts.type == BT_CHARACTER);
 
   slen = expr->value.character.length;
   if (len != slen)
     {
-      s = gfc_getmem (len + 1);
-      memcpy (s, expr->value.character.string, MIN (len, slen));
+      s = gfc_get_wide_string (len + 1);
+      memcpy (s, expr->value.character.string,
+	      MIN (len, slen) * sizeof (gfc_char_t));
       if (len > slen)
-	memset (&s[slen], ' ', len - slen);
+	gfc_wide_memset (&s[slen], ' ', len - slen);
 
       if (gfc_option.warn_character_truncation && slen > len)
 	gfc_warning_now ("CHARACTER expression at %L is being truncated "
@@ -1940,7 +1941,8 @@ kind_expr:
     }
 
   gfc_gobble_whitespace ();
-  if ((c = gfc_next_char ()) != ')' && (ts->type != BT_CHARACTER || c != ','))
+  if ((c = gfc_next_ascii_char ()) != ')'
+      && (ts->type != BT_CHARACTER || c != ','))
     {
       if (ts->type == BT_CHARACTER)
 	gfc_error ("Missing right parenthesis or comma at %C");
@@ -2151,13 +2153,10 @@ syntax:
   return m;
 
 done:
-  /* Except in the case of the length being a function, where symbol
-     association looks after itself, deal with character functions
-     after the specification statements.  */
-  if (gfc_matching_function
-	&& !(len && len->expr_type != EXPR_VARIABLE
-		 && len->expr_type != EXPR_OP))
+  /* Deal with character functions after USE and IMPORT statements.  */
+  if (gfc_matching_function)
     {
+      gfc_free_expr (len);
       gfc_undo_symbols ();
       return MATCH_YES;
     }
@@ -2216,14 +2215,14 @@ gfc_match_type_spec (gfc_typespec *ts, int implicit_flag)
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_symbol *sym;
   match m;
-  int c;
+  char c;
   bool seen_deferred_kind;
 
   /* A belt and braces check that the typespec is correctly being treated
      as a deferred characteristic association.  */
   seen_deferred_kind = (gfc_current_state () == COMP_FUNCTION)
-					&& (gfc_current_block ()->result->ts.kind == -1)
-					&& (ts->kind == -1);
+			  && (gfc_current_block ()->result->ts.kind == -1)
+			  && (ts->kind == -1);
   gfc_clear_ts (ts);
   if (seen_deferred_kind)
     ts->kind = -1;
@@ -2363,7 +2362,7 @@ get_kind:
 
   if (gfc_current_form == FORM_FREE)
     {
-      c = gfc_peek_char();
+      c = gfc_peek_ascii_char();
       if (!gfc_is_whitespace(c) && c != '*' && c != '('
 	  && c != ':' && c != ',')
        return MATCH_NO;
@@ -2403,13 +2402,14 @@ gfc_match_implicit_none (void)
 static match
 match_implicit_range (void)
 {
-  int c, c1, c2, inner;
+  char c, c1, c2;
+  int inner;
   locus cur_loc;
 
   cur_loc = gfc_current_locus;
 
   gfc_gobble_whitespace ();
-  c = gfc_next_char ();
+  c = gfc_next_ascii_char ();
   if (c != '(')
     {
       gfc_error ("Missing character range in IMPLICIT at %C");
@@ -2420,12 +2420,12 @@ match_implicit_range (void)
   while (inner)
     {
       gfc_gobble_whitespace ();
-      c1 = gfc_next_char ();
+      c1 = gfc_next_ascii_char ();
       if (!ISALPHA (c1))
 	goto bad;
 
       gfc_gobble_whitespace ();
-      c = gfc_next_char ();
+      c = gfc_next_ascii_char ();
 
       switch (c)
 	{
@@ -2438,12 +2438,12 @@ match_implicit_range (void)
 
 	case '-':
 	  gfc_gobble_whitespace ();
-	  c2 = gfc_next_char ();
+	  c2 = gfc_next_ascii_char ();
 	  if (!ISALPHA (c2))
 	    goto bad;
 
 	  gfc_gobble_whitespace ();
-	  c = gfc_next_char ();
+	  c = gfc_next_ascii_char ();
 
 	  if ((c != ',') && (c != ')'))
 	    goto bad;
@@ -2506,8 +2506,10 @@ gfc_match_implicit (void)
 {
   gfc_typespec ts;
   locus cur_loc;
-  int c;
+  char c;
   match m;
+
+  gfc_clear_ts (&ts);
 
   /* We don't allow empty implicit statements.  */
   if (gfc_match_eos () == MATCH_YES)
@@ -2535,7 +2537,7 @@ gfc_match_implicit (void)
 	{
 	  /* We may have <TYPE> (<RANGE>).  */
 	  gfc_gobble_whitespace ();
-	  c = gfc_next_char ();
+	  c = gfc_next_ascii_char ();
 	  if ((c == '\n') || (c == ','))
 	    {
 	      /* Check for CHARACTER with no length parameter.  */
@@ -2585,7 +2587,7 @@ gfc_match_implicit (void)
 	goto syntax;
 
       gfc_gobble_whitespace ();
-      c = gfc_next_char ();
+      c = gfc_next_ascii_char ();
       if ((c != '\n') && (c != ','))
 	goto syntax;
 
@@ -2714,7 +2716,7 @@ match_string_p (const char *target)
   const char *p;
 
   for (p = target; *p; p++)
-    if (gfc_next_char () != *p)
+    if ((char) gfc_next_ascii_char () != *p)
       return false;
   return true;
 }
@@ -2766,22 +2768,22 @@ match_attr_spec (void)
 
   for (;;)
     {
-      int ch;
+      char ch;
 
       d = DECL_NONE;
       gfc_gobble_whitespace ();
 
-      ch = gfc_next_char ();
+      ch = gfc_next_ascii_char ();
       if (ch == ':')
 	{
 	  /* This is the successful exit condition for the loop.  */
-	  if (gfc_next_char () == ':')
+	  if (gfc_next_ascii_char () == ':')
 	    break;
 	}
       else if (ch == ',')
 	{
 	  gfc_gobble_whitespace ();
-	  switch (gfc_peek_char ())
+	  switch (gfc_peek_ascii_char ())
 	    {
 	    case 'a':
 	      if (match_string_p ("allocatable"))
@@ -2810,7 +2812,7 @@ match_attr_spec (void)
 	    case 'i':
 	      if (match_string_p ("int"))
 		{
-		  ch = gfc_next_char ();
+		  ch = gfc_next_ascii_char ();
 		  if (ch == 'e')
 		    {
 		      if (match_string_p ("nt"))
@@ -2842,8 +2844,8 @@ match_attr_spec (void)
 	      break;
 
 	    case 'p':
-	      gfc_next_char ();
-	      switch (gfc_next_char ())
+	      gfc_next_ascii_char ();
+	      switch (gfc_next_ascii_char ())
 		{
 		case 'a':
 		  if (match_string_p ("rameter"))
@@ -2862,7 +2864,7 @@ match_attr_spec (void)
 		  break;
 
 		case 'r':
-		  ch = gfc_next_char ();
+		  ch = gfc_next_ascii_char ();
 		  if (ch == 'i')
 		    {
 		      if (match_string_p ("vate"))
@@ -2902,8 +2904,8 @@ match_attr_spec (void)
 	      break;
 
 	    case 'v':
-	      gfc_next_char ();
-	      ch = gfc_next_char ();
+	      gfc_next_ascii_char ();
+	      ch = gfc_next_ascii_char ();
 	      if (ch == 'a')
 		{
 		  if (match_string_p ("lue"))
@@ -2929,6 +2931,13 @@ match_attr_spec (void)
       if (d == DECL_NONE)
 	{
 	  m = MATCH_NO;
+	  goto cleanup;
+	}
+
+      /* Check to make sure any parens are paired up correctly.  */
+      if (gfc_match_parens () == MATCH_ERROR)
+	{
+	  m = MATCH_ERROR;
 	  goto cleanup;
 	}
 
@@ -3939,7 +3948,7 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
   match is_bind_c;   /* Found bind(c).  */
   match is_result;   /* Found result clause.  */
   match found_match; /* Status of whether we've found a good match.  */
-  int peek_char;     /* Character we're going to peek at.  */
+  char peek_char;    /* Character we're going to peek at.  */
   bool allow_binding_name;
 
   /* Initialize to having found nothing.  */
@@ -3949,7 +3958,7 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
 
   /* Get the next char to narrow between result and bind(c).  */
   gfc_gobble_whitespace ();
-  peek_char = gfc_peek_char ();
+  peek_char = gfc_peek_ascii_char ();
 
   /* C binding names are not allowed for internal procedures.  */
   if (gfc_current_state () == COMP_CONTAINS
@@ -4000,9 +4009,9 @@ gfc_match_suffix (gfc_symbol *sym, gfc_symbol **result)
       /* Fortran 2008 draft allows BIND(C) for internal procedures.  */
       if (gfc_current_state () == COMP_CONTAINS
 	  && sym->ns->proc_name->attr.flavor != FL_MODULE
-	  && gfc_notify_std (GFC_STD_GNU, "Extension: BIND(C) attribute at %L "
-			     "may not be specified for an internal procedure",
-			     &gfc_current_locus)
+	  && gfc_notify_std (GFC_STD_F2008, "Fortran 2008: BIND(C) attribute "
+			     "at %L may not be specified for an internal "
+			     "procedure", &gfc_current_locus)
 	     == FAILURE)
 	return MATCH_ERROR;
 
@@ -4038,7 +4047,7 @@ match_procedure_decl (void)
   /* Get the type spec. for the procedure interface.  */
   old_loc = gfc_current_locus;
   m = gfc_match_type_spec (&current_ts, 0);
-  if (m == MATCH_YES || (m == MATCH_NO && gfc_peek_char () == ')'))
+  if (m == MATCH_YES || (m == MATCH_NO && gfc_peek_ascii_char () == ')'))
     goto got_ts;
 
   if (m == MATCH_ERROR)
@@ -4061,8 +4070,8 @@ match_procedure_decl (void)
       /* Resolve interface if possible. That way, attr.procedure is only set
 	 if it is declared by a later procedure-declaration-stmt, which is
 	 invalid per C1212.  */
-      while (proc_if->interface)
-	proc_if = proc_if->interface;
+      while (proc_if->ts.interface)
+	proc_if = proc_if->ts.interface;
 
       if (proc_if->generic)
 	{
@@ -4148,16 +4157,16 @@ got_ts:
       /* Set interface.  */
       if (proc_if != NULL)
 	{
-	  sym->interface = proc_if;
+	  sym->ts.interface = proc_if;
 	  sym->attr.untyped = 1;
 	}
       else if (current_ts.type != BT_UNKNOWN)
 	{
-	  sym->interface = gfc_new_symbol ("", gfc_current_ns);
-	  sym->interface->ts = current_ts;
-	  sym->interface->attr.function = 1;
-	  sym->ts = sym->interface->ts;
-	  sym->attr.function = sym->interface->attr.function;
+	  sym->ts = current_ts;
+	  sym->ts.interface = gfc_new_symbol ("", gfc_current_ns);
+	  sym->ts.interface->ts = current_ts;
+	  sym->ts.interface->attr.function = 1;
+	  sym->attr.function = sym->ts.interface->attr.function;
 	}
 
       if (gfc_match_eos () == MATCH_YES)
@@ -4358,21 +4367,13 @@ gfc_match_function_decl (void)
 	  goto cleanup;
 	}
 
-      /* Except in the case of a function valued character length,
-	 delay matching the function characteristics until after the
+      /* Delay matching the function characteristics until after the
 	 specification block by signalling kind=-1.  */
-      if (!(current_ts.type == BT_CHARACTER
-	      && current_ts.cl
-	      && current_ts.cl->length
-	      && current_ts.cl->length->expr_type != EXPR_OP
-	      && current_ts.cl->length->expr_type != EXPR_VARIABLE))
-	{
-	  sym->declared_at = old_loc;
-	  if (current_ts.type != BT_UNKNOWN)
-	    current_ts.kind = -1;
-	  else
-	    current_ts.kind = 0;
-	}
+      sym->declared_at = old_loc;
+      if (current_ts.type != BT_UNKNOWN)
+	current_ts.kind = -1;
+      else
+	current_ts.kind = 0;
 
       if (result == NULL)
 	{
@@ -4539,7 +4540,7 @@ gfc_match_entry (void)
   /* Check what next non-whitespace character is so we can tell if there
      is the required parens if we have a BIND(C).  */
   gfc_gobble_whitespace ();
-  peek_char = gfc_peek_char ();
+  peek_char = gfc_peek_ascii_char ();
 
   if (state == COMP_SUBROUTINE)
     {
@@ -4695,7 +4696,7 @@ gfc_match_subroutine (void)
   /* Check what next non-whitespace character is so we can tell if there
      is the required parens if we have a BIND(C).  */
   gfc_gobble_whitespace ();
-  peek_char = gfc_peek_char ();
+  peek_char = gfc_peek_ascii_char ();
   
   if (gfc_add_subroutine (&sym->attr, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;
@@ -4742,9 +4743,9 @@ gfc_match_subroutine (void)
       /* The following is allowed in the Fortran 2008 draft.  */
       if (gfc_current_state () == COMP_CONTAINS
 	  && sym->ns->proc_name->attr.flavor != FL_MODULE
-	  && gfc_notify_std (GFC_STD_GNU, "Extension: BIND(C) attribute at "
-			     "%L may not be specified for an internal procedure",
-			     &gfc_current_locus)
+	  && gfc_notify_std (GFC_STD_F2008, "Fortran 2008: BIND(C) attribute "
+			     "at %L may not be specified for an internal "
+			     "procedure", &gfc_current_locus)
 	     == FAILURE)
 	return MATCH_ERROR;
 
@@ -5215,7 +5216,7 @@ attr_decl1 (void)
   /* Update symbol table.  DIMENSION attribute is set
      in gfc_set_array_spec().  */
   if (current_attr.dimension == 0
-      && gfc_copy_attr (&sym->attr, &current_attr, NULL) == FAILURE)
+      && gfc_copy_attr (&sym->attr, &current_attr, &var_locus) == FAILURE)
     {
       m = MATCH_ERROR;
       goto cleanup;
@@ -5495,7 +5496,7 @@ match
 gfc_match_pointer (void)
 {
   gfc_gobble_whitespace ();
-  if (gfc_peek_char () == '(')
+  if (gfc_peek_ascii_char () == '(')
     {
       if (!gfc_option.flag_cray_pointer)
 	{
@@ -6269,6 +6270,10 @@ gfc_match_derived_decl (void)
   if (attr.is_bind_c != 0)
     sym->attr.is_bind_c = attr.is_bind_c;
 
+  /* Construct the f2k_derived namespace if it is not yet there.  */
+  if (!sym->f2k_derived)
+    sym->f2k_derived = gfc_get_namespace (NULL, 0);
+
   gfc_new_block = sym;
 
   return MATCH_YES;
@@ -6479,3 +6484,105 @@ cleanup:
 
 }
 
+/* Match a FINAL declaration inside a derived type.  */
+
+match
+gfc_match_final_decl (void)
+{
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol* sym;
+  match m;
+  gfc_namespace* module_ns;
+  bool first, last;
+
+  if (gfc_state_stack->state != COMP_DERIVED)
+    {
+      gfc_error ("FINAL declaration at %C must be inside a derived type "
+		 "definition!");
+      return MATCH_ERROR;
+    }
+
+  gcc_assert (gfc_current_block ());
+
+  if (!gfc_state_stack->previous
+      || gfc_state_stack->previous->state != COMP_MODULE)
+    {
+      gfc_error ("Derived type declaration with FINAL at %C must be in the"
+		 " specification part of a MODULE");
+      return MATCH_ERROR;
+    }
+
+  module_ns = gfc_current_ns;
+  gcc_assert (module_ns);
+  gcc_assert (module_ns->proc_name->attr.flavor == FL_MODULE);
+
+  /* Match optional ::, don't care about MATCH_YES or MATCH_NO.  */
+  if (gfc_match (" ::") == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  /* Match the sequence of procedure names.  */
+  first = true;
+  last = false;
+  do
+    {
+      gfc_finalizer* f;
+
+      if (first && gfc_match_eos () == MATCH_YES)
+	{
+	  gfc_error ("Empty FINAL at %C");
+	  return MATCH_ERROR;
+	}
+
+      m = gfc_match_name (name);
+      if (m == MATCH_NO)
+	{
+	  gfc_error ("Expected module procedure name at %C");
+	  return MATCH_ERROR;
+	}
+      else if (m != MATCH_YES)
+	return MATCH_ERROR;
+
+      if (gfc_match_eos () == MATCH_YES)
+	last = true;
+      if (!last && gfc_match_char (',') != MATCH_YES)
+	{
+	  gfc_error ("Expected ',' at %C");
+	  return MATCH_ERROR;
+	}
+
+      if (gfc_get_symbol (name, module_ns, &sym))
+	{
+	  gfc_error ("Unknown procedure name \"%s\" at %C", name);
+	  return MATCH_ERROR;
+	}
+
+      /* Mark the symbol as module procedure.  */
+      if (sym->attr.proc != PROC_MODULE
+	  && gfc_add_procedure (&sym->attr, PROC_MODULE,
+				sym->name, NULL) == FAILURE)
+	return MATCH_ERROR;
+
+      /* Check if we already have this symbol in the list, this is an error.  */
+      for (f = gfc_current_block ()->f2k_derived->finalizers; f; f = f->next)
+	if (f->procedure == sym)
+	  {
+	    gfc_error ("'%s' at %C is already defined as FINAL procedure!",
+		       name);
+	    return MATCH_ERROR;
+	  }
+
+      /* Add this symbol to the list of finalizers.  */
+      gcc_assert (gfc_current_block ()->f2k_derived);
+      ++sym->refs;
+      f = gfc_getmem (sizeof (gfc_finalizer));     
+      f->procedure = sym;
+      f->where = gfc_current_locus;
+      f->next = gfc_current_block ()->f2k_derived->finalizers;
+      gfc_current_block ()->f2k_derived->finalizers = f;
+
+      first = false;
+    }
+  while (!last);
+
+  return MATCH_YES;
+}

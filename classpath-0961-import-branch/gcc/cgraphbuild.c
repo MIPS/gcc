@@ -97,7 +97,7 @@ initialize_inline_failed (struct cgraph_node *node)
 			   "considered for inlining");
       else if (!node->local.inlinable)
 	e->inline_failed = N_("function not inlinable");
-      else if (CALL_CANNOT_INLINE_P (e->call_stmt))
+      else if (CALL_STMT_CANNOT_INLINE_P (e->call_stmt))
 	e->inline_failed = N_("mismatched arguments");
       else
 	e->inline_failed = N_("function not considered for inlining");
@@ -152,7 +152,7 @@ build_cgraph_edges (void)
       }
 
   /* Look for initializers of constant variables and private statics.  */
-  for (step = cfun->unexpanded_var_list;
+  for (step = cfun->local_decls;
        step;
        step = TREE_CHAIN (step))
     {
@@ -170,8 +170,10 @@ build_cgraph_edges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_build_cgraph_edges =
+struct gimple_opt_pass pass_build_cgraph_edges =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   build_cgraph_edges,			/* execute */
@@ -183,8 +185,8 @@ struct tree_opt_pass pass_build_cgraph_edges =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,					/* todo_flags_finish */
-  0					/* letter */
+  0					/* todo_flags_finish */
+ }
 };
 
 /* Record references to functions and other variables present in the
@@ -238,8 +240,10 @@ rebuild_cgraph_edges (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rebuild_cgraph_edges =
+struct gimple_opt_pass pass_rebuild_cgraph_edges =
 {
+ {
+  GIMPLE_PASS,
   NULL,					/* name */
   NULL,					/* gate */
   rebuild_cgraph_edges,			/* execute */
@@ -252,5 +256,5 @@ struct tree_opt_pass pass_rebuild_cgraph_edges =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0,					/* todo_flags_finish */
-  0					/* letter */
+ }
 };

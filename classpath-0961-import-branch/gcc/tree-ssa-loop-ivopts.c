@@ -1,5 +1,6 @@
 /* Induction variable optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
+   Foundation, Inc.
    
 This file is part of GCC.
    
@@ -772,8 +773,7 @@ determine_base_object (tree expr)
   /* If this is a pointer casted to any type, we need to determine
      the base object for the pointer; so handle conversions before
      throwing away non-pointer expressions.  */
-  if (TREE_CODE (expr) == NOP_EXPR
-      || TREE_CODE (expr) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (expr))
     return determine_base_object (TREE_OPERAND (expr, 0));
 
   if (!POINTER_TYPE_P (TREE_TYPE (expr)))
@@ -914,7 +914,12 @@ find_bivs (struct ivopts_data *data)
       type = TREE_TYPE (PHI_RESULT (phi));
       base = fold_convert (type, base);
       if (step)
-	step = fold_convert (type, step);
+	{
+	  if (POINTER_TYPE_P (type))
+	    step = fold_convert (sizetype, step);
+	  else
+	    step = fold_convert (type, step);
+	}
 
       set_iv (data, PHI_RESULT (phi), base, step);
       found = true;
@@ -1254,13 +1259,16 @@ find_interesting_uses_cond (struct ivopts_data *data, tree stmt, tree *cond_p)
 }
 
 /* Returns true if expression EXPR is obviously invariant in LOOP,
-   i.e. if all its operands are defined outside of the LOOP.  */
+   i.e. if all its operands are defined outside of the LOOP.  LOOP
+   should not be the function body.  */
 
 bool
 expr_invariant_in_loop_p (struct loop *loop, tree expr)
 {
   basic_block def_bb;
   unsigned i, len;
+
+  gcc_assert (loop_depth (loop) > 0);
 
   if (is_gimple_min_invariant (expr))
     return true;
@@ -1391,10 +1399,75 @@ idx_record_use (tree base, tree *idx,
   return true;
 }
 
-/* Returns true if memory reference REF may be unaligned.  */
+/* If we can prove that TOP = cst * BOT for some constant cst,
+   store cst to MUL and return true.  Otherwise return false.
+   The returned value is always sign-extended, regardless of the
+   signedness of TOP and BOT.  */
 
 static bool
-may_be_unaligned_p (tree ref)
+constant_multiple_of (tree top, tree bot, double_int *mul)
+{
+  tree mby;
+  enum tree_code code;
+  double_int res, p0, p1;
+  unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
+
+  STRIP_NOPS (top);
+  STRIP_NOPS (bot);
+
+  if (operand_equal_p (top, bot, 0))
+    {
+      *mul = double_int_one;
+      return true;
+    }
+
+  code = TREE_CODE (top);
+  switch (code)
+    {
+    case MULT_EXPR:
+      mby = TREE_OPERAND (top, 1);
+      if (TREE_CODE (mby) != INTEGER_CST)
+	return false;
+
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
+	return false;
+
+      *mul = double_int_sext (double_int_mul (res, tree_to_double_int (mby)),
+			      precision);
+      return true;
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &p0)
+	  || !constant_multiple_of (TREE_OPERAND (top, 1), bot, &p1))
+	return false;
+
+      if (code == MINUS_EXPR)
+	p1 = double_int_neg (p1);
+      *mul = double_int_sext (double_int_add (p0, p1), precision);
+      return true;
+
+    case INTEGER_CST:
+      if (TREE_CODE (bot) != INTEGER_CST)
+	return false;
+
+      p0 = double_int_sext (tree_to_double_int (top), precision);
+      p1 = double_int_sext (tree_to_double_int (bot), precision);
+      if (double_int_zero_p (p1))
+	return false;
+      *mul = double_int_sext (double_int_sdivmod (p0, p1, FLOOR_DIV_EXPR, &res),
+			      precision);
+      return double_int_zero_p (res);
+
+    default:
+      return false;
+    }
+}
+
+/* Returns true if memory reference REF with step STEP may be unaligned.  */
+
+static bool
+may_be_unaligned_p (tree ref, tree step)
 {
   tree base;
   tree base_type;
@@ -1418,11 +1491,20 @@ may_be_unaligned_p (tree ref)
   base_type = TREE_TYPE (base);
   base_align = TYPE_ALIGN (base_type);
 
-  if (mode != BLKmode
-      && (base_align < GET_MODE_ALIGNMENT (mode)
+  if (mode != BLKmode)
+    {
+      double_int mul;
+      tree al = build_int_cst (TREE_TYPE (step),
+			       GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT);
+
+      if (base_align < GET_MODE_ALIGNMENT (mode)
 	  || bitpos % GET_MODE_ALIGNMENT (mode) != 0
-	  || bitpos % BITS_PER_UNIT != 0))
-    return true;
+	  || bitpos % BITS_PER_UNIT != 0)
+	return true;
+    
+      if (!constant_multiple_of (step, al, &mul))
+	return true;
+    }
 
   return false;
 }
@@ -1434,21 +1516,32 @@ may_be_nonaddressable_p (tree expr)
 {
   switch (TREE_CODE (expr))
     {
+    case TARGET_MEM_REF:
+      /* TARGET_MEM_REFs are translated directly to valid MEMs on the
+	 target, thus they are always addressable.  */
+      return false;
+
     case COMPONENT_REF:
       return DECL_NONADDRESSABLE_P (TREE_OPERAND (expr, 1))
 	     || may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
-
-    case ARRAY_REF:
-    case ARRAY_RANGE_REF:
-      return may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
 
     case VIEW_CONVERT_EXPR:
       /* This kind of view-conversions may wrap non-addressable objects
 	 and make them look addressable.  After some processing the
 	 non-addressability may be uncovered again, causing ADDR_EXPRs
 	 of inappropriate objects to be built.  */
-      return AGGREGATE_TYPE_P (TREE_TYPE (expr))
-	     && !AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+      if (is_gimple_reg (TREE_OPERAND (expr, 0))
+	  || is_gimple_min_invariant (TREE_OPERAND (expr, 0)))
+	return true;
+
+      /* ... fall through ... */
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      return may_be_nonaddressable_p (TREE_OPERAND (expr, 0));
+
+    CASE_CONVERT:
+      return true;
 
     default:
       break;
@@ -1474,13 +1567,6 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
   if (TREE_CODE (base) == BIT_FIELD_REF)
-    goto fail;
-
-  if (may_be_nonaddressable_p (base))
-    goto fail;
-
-  if (STRICT_ALIGNMENT
-      && may_be_unaligned_p (base))
     goto fail;
 
   base = unshare_expr (base);
@@ -1535,6 +1621,16 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
       gcc_assert (TREE_CODE (base) != ALIGN_INDIRECT_REF);
       gcc_assert (TREE_CODE (base) != MISALIGNED_INDIRECT_REF);
+
+      /* Check that the base expression is addressable.  This needs
+	 to be done after substituting bases of IVs into it.  */
+      if (may_be_nonaddressable_p (base))
+	goto fail;
+
+      /* Moreover, on strict alignment platforms, check that it is
+	 sufficiently aligned.  */
+      if (STRICT_ALIGNMENT && may_be_unaligned_p (base, step))
+	goto fail;
 
       base = build_fold_addr_expr (base);
 
@@ -1947,7 +2043,9 @@ add_candidate_1 (struct ivopts_data *data,
     {
       orig_type = TREE_TYPE (base);
       type = generic_type_for (orig_type);
-      if (type != orig_type)
+      /* Don't convert the base to the generic type for pointers as the generic
+	 type is an integer type with the same size as the pointer type.  */
+      if (type != orig_type && !POINTER_TYPE_P (orig_type))
 	{
 	  base = fold_convert (type, base);
 	  step = fold_convert (type, step);
@@ -2144,13 +2242,17 @@ add_iv_value_candidates (struct ivopts_data *data,
 {
   unsigned HOST_WIDE_INT offset;
   tree base;
+  tree basetype;
 
   add_candidate (data, iv->base, iv->step, false, use);
 
   /* The same, but with initial value zero.  Make such variable important,
      since it is generic enough so that possibly many uses may be based
      on it.  */
-  add_candidate (data, build_int_cst (TREE_TYPE (iv->base), 0),
+  basetype = TREE_TYPE (iv->base);
+  if (POINTER_TYPE_P (basetype))
+    basetype = sizetype;
+  add_candidate (data, build_int_cst (basetype, 0),
 		 iv->step, true, use);
 
   /* Third, try removing the constant offset.  */
@@ -2569,71 +2671,6 @@ tree_int_cst_sign_bit (const_tree t)
   return (w >> bitno) & 1;
 }
 
-/* If we can prove that TOP = cst * BOT for some constant cst,
-   store cst to MUL and return true.  Otherwise return false.
-   The returned value is always sign-extended, regardless of the
-   signedness of TOP and BOT.  */
-
-static bool
-constant_multiple_of (tree top, tree bot, double_int *mul)
-{
-  tree mby;
-  enum tree_code code;
-  double_int res, p0, p1;
-  unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
-
-  STRIP_NOPS (top);
-  STRIP_NOPS (bot);
-
-  if (operand_equal_p (top, bot, 0))
-    {
-      *mul = double_int_one;
-      return true;
-    }
-
-  code = TREE_CODE (top);
-  switch (code)
-    {
-    case MULT_EXPR:
-      mby = TREE_OPERAND (top, 1);
-      if (TREE_CODE (mby) != INTEGER_CST)
-	return false;
-
-      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
-	return false;
-
-      *mul = double_int_sext (double_int_mul (res, tree_to_double_int (mby)),
-			      precision);
-      return true;
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-      if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &p0)
-	  || !constant_multiple_of (TREE_OPERAND (top, 1), bot, &p1))
-	return false;
-
-      if (code == MINUS_EXPR)
-	p1 = double_int_neg (p1);
-      *mul = double_int_sext (double_int_add (p0, p1), precision);
-      return true;
-
-    case INTEGER_CST:
-      if (TREE_CODE (bot) != INTEGER_CST)
-	return false;
-
-      p0 = double_int_sext (tree_to_double_int (top), precision);
-      p1 = double_int_sext (tree_to_double_int (bot), precision);
-      if (double_int_zero_p (p1))
-	return false;
-      *mul = double_int_sext (double_int_sdivmod (p0, p1, FLOOR_DIV_EXPR, &res),
-			      precision);
-      return double_int_zero_p (res);
-
-    default:
-      return false;
-    }
-}
-
 /* If A is (TYPE) BA and B is (TYPE) BB, and the types of BA and BB have the
    same precision that is at least as wide as the precision of TYPE, stores
    BA to A and BB to B, and returns the type of BA.  Otherwise, returns the
@@ -2646,8 +2683,7 @@ determine_common_wider_type (tree *a, tree *b)
   tree suba, subb;
   tree atype = TREE_TYPE (*a);
 
-  if ((TREE_CODE (*a) == NOP_EXPR
-       || TREE_CODE (*a) == CONVERT_EXPR))
+  if (CONVERT_EXPR_P (*a))
     {
       suba = TREE_OPERAND (*a, 0);
       wider_type = TREE_TYPE (suba);
@@ -2657,8 +2693,7 @@ determine_common_wider_type (tree *a, tree *b)
   else
     return atype;
 
-  if ((TREE_CODE (*b) == NOP_EXPR
-       || TREE_CODE (*b) == CONVERT_EXPR))
+  if (CONVERT_EXPR_P (*b))
     {
       subb = TREE_OPERAND (*b, 0);
       if (TYPE_PRECISION (wider_type) != TYPE_PRECISION (TREE_TYPE (subb)))
@@ -3013,7 +3048,7 @@ get_address_cost (bool symbol_present, bool var_present,
 	    {
 	      base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (""));
 	      /* ??? We can run into trouble with some backends by presenting
-		 it with symbols which havn't been properly passed through
+		 it with symbols which haven't been properly passed through
 		 targetm.encode_section_info.  By setting the local bit, we
 		 enhance the probability of things working.  */
 	      SYMBOL_REF_FLAGS (base) = SYMBOL_FLAG_LOCAL;
@@ -3183,7 +3218,7 @@ force_expr_to_var_cost (tree expr)
   if (SSA_VAR_P (expr))
     return zero_cost;
 
-  if (TREE_INVARIANT (expr))
+  if (is_gimple_min_invariant (expr))
     {
       if (TREE_CODE (expr) == INTEGER_CST)
 	return new_cost (integer_cost, 0);
@@ -3643,10 +3678,13 @@ cand_value_at (struct loop *loop, struct iv_cand *cand, tree at, tree niter,
   aff_tree step, delta, nit;
   struct iv *iv = cand->iv;
   tree type = TREE_TYPE (iv->base);
+  tree steptype = type;
+  if (POINTER_TYPE_P (type))
+    steptype = sizetype;
 
-  tree_to_aff_combination (iv->step, type, &step);
+  tree_to_aff_combination (iv->step, steptype, &step);
   tree_to_aff_combination (niter, TREE_TYPE (niter), &nit);
-  aff_combination_convert (&nit, type);
+  aff_combination_convert (&nit, steptype);
   aff_combination_mult (&nit, &step, &delta);
   if (stmt_after_increment (loop, cand, at))
     aff_combination_add (&delta, &step);
@@ -3941,7 +3979,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
   cost = cost_step + cost_base.cost / AVG_LOOP_NITER (current_loop);
 
   /* Prefer the original ivs unless we may gain something by replacing it.
-     The reason is to makee debugging simpler; so this is not relevant for
+     The reason is to make debugging simpler; so this is not relevant for
      artificial ivs created by other optimization passes.  */
   if (cand->pos != IP_ORIGINAL
       || DECL_ARTIFICIAL (SSA_NAME_VAR (cand->var_before)))
@@ -5113,9 +5151,6 @@ get_ref_tag (tree ref, tree orig)
       if (ref)
 	break;
     }
-
-  if (aref && SSA_VAR_P (aref) && get_subvars_for_var (aref))
-    return aref;
 
   if (!var)
     return NULL_TREE;

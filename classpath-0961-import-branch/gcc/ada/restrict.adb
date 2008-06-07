@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +26,7 @@
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Errout;   use Errout;
+with Debug;    use Debug;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
 with Lib;      use Lib;
@@ -171,9 +172,9 @@ package body Restrict is
                   end if;
                end loop;
 
-               --  If not predefied unit, then one special check still remains.
-               --  GNAT.Current_Exception is not allowed if we have restriction
-               --  No_Exception_Propagation active.
+               --  If not predefined unit, then one special check still
+               --  remains. GNAT.Current_Exception is not allowed if we have
+               --  restriction No_Exception_Propagation active.
 
             else
                if Name_Buffer (1 .. 8) = "g-curexc" then
@@ -320,7 +321,16 @@ package body Restrict is
             if Restriction_Warnings (R) then
                Restriction_Msg ("|violation of restriction %#?", Rimage, N);
             else
-               Restriction_Msg ("|violation of restriction %#", Rimage, N);
+               --  Normally a restriction violation is a non-serious error,
+               --  but we treat violation of No_Finalization as a serious
+               --  error, since we want to turn off expansion in this case,
+               --  expansion just causes too many cascaded errors.
+
+               if R = No_Finalization then
+                  Restriction_Msg ("violation of restriction %#", Rimage, N);
+               else
+                  Restriction_Msg ("|violation of restriction %#", Rimage, N);
+               end if;
             end if;
 
          --  Otherwise we have the case of an implicit restriction
@@ -429,6 +439,18 @@ package body Restrict is
                     or else
                   Restrictions.Set (No_Exception_Propagation));
    end No_Exception_Handlers_Set;
+
+   -------------------------------------
+   -- No_Exception_Propagation_Active --
+   -------------------------------------
+
+   function No_Exception_Propagation_Active return Boolean is
+   begin
+      return (No_Run_Time_Mode
+               or else Configurable_Run_Time_Mode
+               or else Debug_Flag_Dot_G)
+        and then Restriction_Active (No_Exception_Propagation);
+   end No_Exception_Propagation_Active;
 
    ----------------------------------
    -- Process_Restriction_Synonyms --

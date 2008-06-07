@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -607,7 +607,7 @@ package body Bindgen is
               """__gnat_handler_installed"");");
 
          --  Initialize stack limit variable of the environment task if the
-         --  stack check method is stack limit and if stack check is enabled.
+         --  stack check method is stack limit and stack check is enabled.
 
          if Stack_Check_Limits_On_Target
            and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
@@ -618,15 +618,26 @@ package body Bindgen is
                  """__gnat_initialize_stack_limit"");");
          end if;
 
+         --  Special processing when main program is CIL function/procedure
+
          if VM_Target = CLI_Target
+           and then Bind_Main_Program
            and then not No_Main_Subprogram
          then
             WBI ("");
 
+            --  Function case, use Set_Exit_Status to report the returned
+            --  status code, since that is the only mechanism available.
+
             if ALIs.Table (ALIs.First).Main_Program = Func then
                WBI ("      Result : Integer;");
+               WBI ("      procedure Set_Exit_Status (Code : Integer);");
+               WBI ("      pragma Import (C, Set_Exit_Status, " &
+                    """__gnat_set_exit_status"");");
                WBI ("");
                WBI ("      function Ada_Main_Program return Integer;");
+
+            --  Procedure case
 
             else
                WBI ("      procedure Ada_Main_Program;");
@@ -782,7 +793,7 @@ package body Bindgen is
       end if;
 
       --  Initialize stack limit variable of the environment task if the
-      --  stack check method is stack limit and if stack check is enabled.
+      --  stack check method is stack limit and stack check is enabled.
 
       if Stack_Check_Limits_On_Target
         and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
@@ -796,11 +807,20 @@ package body Bindgen is
       WBI ("");
       Gen_Elab_Calls_Ada;
 
+      --  Case of main program is CIL function or procedure
+
       if VM_Target = CLI_Target
+        and then Bind_Main_Program
         and then not No_Main_Subprogram
       then
+         --  For function case, use Set_Exit_Status to set result
+
          if ALIs.Table (ALIs.First).Main_Program = Func then
             WBI ("      Result := Ada_Main_Program;");
+            WBI ("      Set_Exit_Status (Result);");
+
+         --  Procedure case
+
          else
             WBI ("      Ada_Main_Program;");
          end if;
@@ -1033,7 +1053,7 @@ package body Bindgen is
       end if;
 
       --  Initialize stack limit for the environment task if the stack
-      --  check method is stack limit and if stack check is enabled.
+      --  check method is stack limit and stack check is enabled.
 
       if Stack_Check_Limits_On_Target
         and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
@@ -2268,7 +2288,7 @@ package body Bindgen is
 
          if VM_Target = No_VM then
             Set_Main_Program_Name;
-            Set_String (""" & Ascii.NUL;");
+            Set_String (""" & ASCII.NUL;");
          else
             Set_String (Name_Buffer (1 .. Name_Len - 2) & """;");
          end if;
@@ -2566,7 +2586,7 @@ package body Bindgen is
       end if;
 
       --  Initialize stack limit for the environment task if the stack
-      --  check method is stack limit and if stack check is enabled.
+      --  check method is stack limit and stack check is enabled.
 
       if Stack_Check_Limits_On_Target
         and then (Stack_Check_Default_On_Target or Stack_Check_Switch_Set)
@@ -3240,13 +3260,16 @@ package body Bindgen is
       for E in Elab_Order.First .. Elab_Order.Last loop
          Get_Name_String (Units.Table (Elab_Order.Table (E)).Uname);
 
-         --  The procedure of looking for specific packages and setting
-         --  flags is somewhat dubious, but there isn't a good alternative
-         --  at the current time ???
+         --  This is not a perfect approach, but is the current protocol
+         --  between the run-time and the binder to indicate that tasking
+         --  is used: system.os_interface should always be used by any
+         --  tasking application.
 
          if Name_Buffer (1 .. 19) = "system.os_interface" then
             With_GNARL := True;
          end if;
+
+         --  Ditto for declib and the "dec" package
 
          if OpenVMS_On_Target and then Name_Buffer (1 .. 5) = "dec%s" then
             With_DECGNAT := True;
