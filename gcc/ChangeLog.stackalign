@@ -1,5 +1,10 @@
 2008-06-08  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* caller-save.c (setup_save_areas): Upate comments for
+	spill space allocation.
+
+2008-06-08  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* function.c (locate_and_pad_parm): Update comments for stack
 	alignment.
 
