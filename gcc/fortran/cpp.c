@@ -9,6 +9,7 @@
 
 #include "options.h"
 #include "gfortran.h"
+#include "tm_p.h"		/* Target prototypes.  */
 #include "target.h"
 #include "toplev.h"
 #include "diagnostic.h"
@@ -218,9 +219,18 @@ cpp_define_builtins (cpp_reader *pfile)
 # define builtin_define_std(TXT)
 # define builtin_assert(TXT) cpp_assert (pfile, TXT)
 
+  /* FIXME: Pandora's Box
+    Using the macros below results in multiple breakages:
+     - mingw will fail to compile this file as dependent macros
+       assume to be used in c-cppbuiltin.c only. Further, they use
+       flags only valid/defined in C (same as noted above).
+       [config/i386/mingw32.h, config/i386/cygming.h]
+     - other platforms (not as popular) break similarly
+       [grep for 'builtin_define_with_int_value' in gcc/config/]
+
   TARGET_CPU_CPP_BUILTINS ();
   TARGET_OS_CPP_BUILTINS ();
-  TARGET_OBJFMT_CPP_BUILTINS ();
+  TARGET_OBJFMT_CPP_BUILTINS (); */
 
 #undef builtin_define
 #undef builtin_define_std
@@ -514,6 +524,9 @@ gfc_cpp_init (void)
 {
   int i;
 
+  if (gfc_option.flag_preprocessed)
+    return;
+
   cpp_change_file (cpp_in, LC_RENAME, _("<built-in>"));
   if (!gfc_cpp_option.no_predefined)
     cpp_define_builtins (cpp_in);
@@ -563,6 +576,8 @@ gfc_cpp_preprocess (const char *source_file)
       putc ('\n', print.outf);
       cpp_forall_identifiers (cpp_in, dump_macro, NULL);
     }
+
+  putc ('\n', print.outf);
 
   if (!gfc_cpp_preprocess_only ()
       || (gfc_cpp_preprocess_only () && gfc_cpp_option.output_filename))

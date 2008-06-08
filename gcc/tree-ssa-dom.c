@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -673,7 +673,7 @@ tree_ssa_dominator_optimize (void)
   loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
 
   /* We need accurate information regarding back edges in the CFG
-     for jump threading; this may include back edes that are not part of
+     for jump threading; this may include back edges that are not part of
      a single loop.  */
   mark_dfs_back_edges ();
       
@@ -969,7 +969,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
   gimple last;
 
   /* If we have an outgoing edge to a block with multiple incoming and
-     outgoing edges, then we may be able to thread the edge.  ie, we
+     outgoing edges, then we may be able to thread the edge, i.e., we
      may be able to statically determine which of the outgoing edges
      will be traversed when the incoming edge from BB is traversed.  */
   if (single_succ_p (bb)
@@ -1755,7 +1755,6 @@ record_edge_info (basic_block bb)
                                     : boolean_true_node);
                 }
             }
-
           else if (is_gimple_min_invariant (op0)
                    && (TREE_CODE (op1) == SSA_NAME
                        || is_gimple_min_invariant (op1)))

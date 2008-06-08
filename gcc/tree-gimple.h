@@ -106,6 +106,9 @@ extern bool is_gimple_non_addressable (tree t);
 extern bool is_gimple_call_addr (tree);
 /* If T makes a function call, returns the CALL_EXPR operand.  */
 extern tree get_call_expr_in (tree t);
+/* Returns true iff T contains a CALL_EXPR not suitable for inlining.  */
+#define CALL_STMT_CANNOT_INLINE_P(T) \
+  CALL_CANNOT_INLINE_P (get_call_expr_in (T))
 
 extern void recalculate_side_effects (tree);
 extern enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);

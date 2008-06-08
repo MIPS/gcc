@@ -3489,8 +3489,7 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, gimple expr)
   unsigned int i = 0;
   unsigned int j = 0;
   VEC (ce_s, heap) *temp = NULL;
-  unsigned int rhsoffset = 0;
-  bool unknown_addend = false;
+  unsigned HOST_WIDE_INT rhsunitoffset, rhsoffset;
 
   if (gimple_assign_rhs_code (expr) != POINTER_PLUS_EXPR)
     return false;
@@ -3499,13 +3498,18 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, gimple expr)
   op1 = gimple_assign_rhs2 (expr);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (op0)));
 
-  get_constraint_for (op0, &temp);
+  /* If the offset is not a non-negative integer constant that fits
+     in a HOST_WIDE_INT, we cannot handle it here.  */
+  if (!host_integerp (op1, 1))
+    return false;
 
-  /* Handle non-constants by making constraints from integer.  */
-  if (TREE_CODE (op1) == INTEGER_CST)
-    rhsoffset = TREE_INT_CST_LOW (op1) * BITS_PER_UNIT;
-  else
-    unknown_addend = true;
+  /* Make sure the bit-offset also fits.  */
+  rhsunitoffset = TREE_INT_CST_LOW (op1);
+  rhsoffset = rhsunitoffset * BITS_PER_UNIT;
+  if (rhsunitoffset != rhsoffset / BITS_PER_UNIT)
+    return false;
+
+  get_constraint_for (op0, &temp);
 
   for (i = 0; VEC_iterate (ce_s, lhsc, i, c); i++)
     for (j = 0; VEC_iterate (ce_s, temp, j, c2); j++)
@@ -3521,30 +3525,6 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, gimple expr)
 	      continue;
 	    c2->var = temp->id;
 	    c2->offset = 0;
-	  }
-	else if (unknown_addend)
-	  {
-	    /* Can't handle *a + integer where integer is unknown.  */
-	    if (c2->type != SCALAR)
-	      {
-		struct constraint_expr intc;
-		intc.var = integer_id;
-		intc.offset = 0;
-		intc.type = SCALAR;
-		process_constraint (new_constraint (*c, intc));
-	      }
-	    else
-	      {
-		/* We known it lives somewhere within c2->var.  */
-		varinfo_t tmp = get_varinfo (c2->var);
-		for (; tmp; tmp = tmp->next)
-		  {
-		    struct constraint_expr tmpc = *c2;
-		    c2->var = tmp->id;
-		    c2->offset = 0;
-		    process_constraint (new_constraint (*c, tmpc));
-		  }
-	      }
 	  }
 	else
 	  c2->offset = rhsoffset;
@@ -4639,17 +4619,19 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	  || TREE_CODE (vi->decl) == RESULT_DECL)
 	{
 	  /* Just add VI->DECL to the alias set.
-	     Don't type prune artificial vars.  */
-	  if (vi->is_artificial_var)
+	     Don't type prune artificial vars or points-to sets
+	     for pointers that have not been dereferenced or with
+	     type-based pruning disabled.  */
+	  if (vi->is_artificial_var
+	      || !is_derefed
+	      || no_tbaa_pruning)
 	    bitmap_set_bit (into, DECL_UID (vi->decl));
 	  else
 	    {
 	      alias_set_type var_alias_set, ptr_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
 	      ptr_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
-	      if (no_tbaa_pruning
-		  || (!is_derefed && !vi->directly_dereferenced)
-		  || alias_sets_conflict_p (ptr_alias_set, var_alias_set))
+	      if (alias_sets_conflict_p (ptr_alias_set, var_alias_set))
 	        bitmap_set_bit (into, DECL_UID (vi->decl));
 	    }
 	}
@@ -4711,32 +4693,6 @@ set_used_smts (void)
       smt = va->symbol_mem_tag;
       if (smt && bitmap_bit_p (withsolution->solution, anything_id))
 	bitmap_set_bit (used_smts, DECL_UID (smt));
-    }
-}
-
-/* Merge the necessary SMT's into the bitmap INTO, which is
-   P's varinfo.  This involves merging all SMT's that are a subset of
-   the SMT necessary for P. */
-
-static void
-merge_smts_into (tree p, bitmap solution)
-{
-  tree smt;
-  bitmap aliases;
-  tree var = p;
-
-  if (TREE_CODE (p) == SSA_NAME)
-    var = SSA_NAME_VAR (p);
-
-  smt = var_ann (var)->symbol_mem_tag;
-  if (smt)
-    {
-      /* The smt itself isn't included in its aliases.  */
-      bitmap_set_bit (solution, DECL_UID (smt));
-
-      aliases = MTAG_ALIASES (smt);
-      if (aliases)
-	bitmap_ior_into (solution, aliases);
     }
 }
 
@@ -4821,18 +4777,17 @@ find_what_p_points_to (tree p)
 		}
 	    }
 
+	  /* Instead of doing extra work, simply do not create
+	     points-to information for pt_anything pointers.  This
+	     will cause the operand scanner to fall back to the
+	     type-based SMT and its aliases.  Which is the best
+	     we could do here for the points-to set as well.  */
+	  if (was_pt_anything)
+	    return false;
+
 	  /* Share the final set of variables when possible.  */
 	  finished_solution = BITMAP_GGC_ALLOC ();
 	  stats.points_to_sets_created++;
-
-	  /* Instead of using pt_anything, we merge in the SMT aliases
-	     for the underlying SMT.  In addition, if they could have
-	     pointed to anything, they could point to global memory.  */
-	  if (was_pt_anything)
-	    {
-	      merge_smts_into (p, finished_solution);
-	      pi->pt_global_mem = 1;
-	    }
 
 	  set_uids_in_ptset (p, finished_solution, vi->solution,
 			     vi->directly_dereferenced,
@@ -4860,7 +4815,71 @@ find_what_p_points_to (tree p)
   return false;
 }
 
+/* Mark everything that p points to as call clobbered.  Returns true
+   if everything is done and false if all addressable variables need to
+   be clobbered because p points to anything.  */
 
+bool
+clobber_what_p_points_to (tree p)
+{
+  tree lookup_p = p;
+  varinfo_t vi;
+  struct ptr_info_def *pi;
+  unsigned int i;
+  bitmap_iterator bi;
+
+  if (!have_alias_info)
+    return false;
+
+  /* For parameters, get at the points-to set for the actual parm
+     decl.  */
+  if (TREE_CODE (p) == SSA_NAME
+      && TREE_CODE (SSA_NAME_VAR (p)) == PARM_DECL
+      && SSA_NAME_IS_DEFAULT_DEF (p))
+    lookup_p = SSA_NAME_VAR (p);
+
+  vi = lookup_vi_for_tree (lookup_p);
+  if (!vi)
+    return false;
+
+  /* We are asking for the points-to solution of pointers.  */
+  gcc_assert (!vi->is_artificial_var
+	      && vi->size == vi->fullsize);
+
+  pi = get_ptr_info (p);
+
+  /* This variable may have been collapsed, let's get the real
+     variable.  */
+  vi = get_varinfo (find (vi->id));
+
+  /* Mark variables in the solution call-clobbered.  */
+  EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
+    {
+      varinfo_t vi = get_varinfo (i);
+
+      if (vi->is_artificial_var)
+	{
+	  /* nothing_id and readonly_id do not cause any
+	     call clobber ops.  For anything_id and integer_id
+	     we need to clobber all addressable vars.  */
+	  if (vi->id == anything_id
+	      || vi->id == integer_id)
+	    return false;
+	}
+
+      /* Only artificial heap-vars are further interesting.  */
+      if (vi->is_artificial_var && !vi->is_heap_var)
+	continue;
+
+      if ((TREE_CODE (vi->decl) == VAR_DECL
+	   || TREE_CODE (vi->decl) == PARM_DECL
+	   || TREE_CODE (vi->decl) == RESULT_DECL)
+	  && !unmodifiable_var_p (vi->decl))
+	mark_call_clobbered (vi->decl, pi->escape_mask);
+    }
+
+  return true;
+}
 
 /* Dump points-to information to OUTFILE.  */
 

@@ -222,7 +222,7 @@ tree c_global_trees[CTI_MAX];
 
 /* Switches common to the C front ends.  */
 
-/* Nonzero if prepreprocessing only.  */
+/* Nonzero if preprocessing only.  */
 
 int flag_preprocess_only;
 
@@ -361,7 +361,7 @@ int flag_gen_declaration;
 
 int print_struct_values;
 
-/* Tells the compiler what is the constant string class for Objc.  */
+/* Tells the compiler what is the constant string class for ObjC.  */
 
 const char *constant_string_class_name;
 
@@ -4497,7 +4497,7 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 	}
 
       /* Even though there wasn't an exact match, there might be a
-	 case range which includes the enumator's value.  */
+	 case range which includes the enumerator's value.  */
       node = splay_tree_predecessor (cases, (splay_tree_key) value);
       if (node && CASE_HIGH ((tree) node->value))
 	{

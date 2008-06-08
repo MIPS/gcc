@@ -710,7 +710,7 @@ cgraph_node_name (struct cgraph_node *node)
 
 /* Names used to print out the availability enum.  */
 const char * const cgraph_availability_names[] =
-  {"unset", "not_available", "overwrittable", "available", "local"};
+  {"unset", "not_available", "overwritable", "available", "local"};
 
 
 /* Dump call graph node NODE to file F.  */
@@ -1047,7 +1047,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
   switch (cgraph_state)
     {
       case CGRAPH_STATE_CONSTRUCTION:
-	/* Just enqueue function to be processed at nearest occurence.  */
+	/* Just enqueue function to be processed at nearest occurrence.  */
 	node = cgraph_node (fndecl);
 	node->next_needed = cgraph_new_nodes;
 	if (lowered)

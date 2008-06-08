@@ -174,7 +174,7 @@ extern const enum tree_code_class tree_code_type[];
 #define IS_EXPR_CODE_CLASS(CLASS)\
 	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
 
-/* Returns nonzer iff CLASS is a GIMPLE statement.  */
+/* Returns nonzero iff CLASS is a GIMPLE statement.  */
 
 #define IS_GIMPLE_STMT_CODE_CLASS(CLASS) ((CLASS) == tcc_gimple_stmt)
 
@@ -1216,7 +1216,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (CASE_LABEL_EXPR_CHECK (NODE)->base.static_flag)
 
 /* Used to mark a CALL_EXPR as not suitable for inlining.  */
-#define CALL_CANNOT_INLINE_P(NODE) ((NODE)->base.static_flag)
+#define CALL_CANNOT_INLINE_P(NODE) (CALL_EXPR_CHECK (NODE)->base.static_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
@@ -3112,7 +3112,7 @@ extern void decl_debug_expr_insert (tree, tree);
 #define SET_DECL_DEBUG_EXPR(NODE, VAL) \
   (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), VAL))
 
-/* An initializationp priority.  */
+/* An initialization priority.  */
 typedef unsigned short priority_type;
 
 extern priority_type decl_init_priority_lookup (tree);

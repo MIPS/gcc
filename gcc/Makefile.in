@@ -972,6 +972,9 @@ C_TARGET_OBJS=@c_target_objs@
 # Target specific, C++ specific object file
 CXX_TARGET_OBJS=@cxx_target_objs@
 
+# Target specific, Fortran specific object file
+FORTRAN_TARGET_OBJS=@fortran_target_objs@
+
 # Object files for gcc driver.
 GCC_OBJS = gcc.o opts-common.o gcc-options.o
 
@@ -1145,6 +1148,7 @@ OBJS-common = \
 	toplev.o \
 	tracer.o \
 	tree-affine.o \
+	tree-call-cdce.o \
 	tree-cfg.o \
 	tree-cfgcleanup.o \
 	tree-chrec.o \
@@ -2618,6 +2622,10 @@ tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(BASIC_BLOCK_H) \
     $(GGC_H) hard-reg-set.h $(OBSTACK_H) $(TREE_GIMPLE_H) $(CFGLOOP_H) \
     $(SCEV_H)
+tree-call-cdce.o : tree-call-cdce.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) \
+    coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(BASIC_BLOCK_H) \
+    $(GGC_H) hard-reg-set.h $(OBSTACK_H) $(TREE_GIMPLE_H)
 tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \

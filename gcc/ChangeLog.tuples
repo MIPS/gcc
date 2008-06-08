@@ -1,3 +1,14 @@
+2008-06-08  Diego Novillo  <dnovillo@google.com>
+
+	Merge with mainline @136432.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-06-08  Diego Novillo  <dnovillo@google.com>
+
+	* tree-call-cdce.c: Tuplify.
+
 2008-06-06  Diego Novillo  <dnovillo@google.com>
 
 	http://gcc.gnu.org/ml/gcc-patches/2008-06/msg00353.html

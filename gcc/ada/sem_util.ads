@@ -327,18 +327,6 @@ package Sem_Util is
    --  not an address representation clause, or if it is not possible to
    --  determine that the address is of this form, then Empty is returned.
 
-   function Find_Overridden_Synchronized_Primitive
-     (Def_Id      : Entity_Id;
-      First_Hom   : Entity_Id;
-      Ifaces_List : Elist_Id;
-      In_Scope    : Boolean) return Entity_Id;
-   --  Determine whether entry or subprogram Def_Id overrides a primitive
-   --  operation that belongs to one of the interfaces in Ifaces_List. A
-   --  specific homonym chain can be specified by setting First_Hom. Flag
-   --  In_Scope is used to designate whether the entry or subprogram was
-   --  declared inside the scope of the synchronized type or after. Return
-   --  the overridden entity or Empty.
-
    function Find_Parameter_Type (Param : Node_Id) return Entity_Id;
    --  Return the type of formal parameter Param as determined by its
    --  specification.
@@ -954,8 +942,8 @@ package Sem_Util is
    --  Returns True if the names of both entities correspond with matching
    --  primitives. This routine includes support for the case in which one
    --  or both entities correspond with entities built by Derive_Subprogram
-   --  with a special name to avoid being overriden (ie. return true in case
-   --  of entities with names "nameP" and "name" or viceversa).
+   --  with a special name to avoid being overridden (i.e. return true in case
+   --  of entities with names "nameP" and "name" or vice versa).
 
    function Private_Component (Type_Id : Entity_Id) return Entity_Id;
    --  Returns some private component (if any) of the given Type_Id.

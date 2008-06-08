@@ -118,6 +118,7 @@ void gimple_remove_histogram_value (struct function *, gimple, histogram_value);
 void gimple_remove_stmt_histograms (struct function *, gimple);
 void gimple_duplicate_stmt_histograms (struct function *, gimple,
 				       struct function *, gimple);
+void gimple_move_stmt_histograms (struct function *, gimple, gimple);
 void verify_histograms (void);
 void free_histograms (void);
 void stringop_block_profile (gimple, unsigned int *, HOST_WIDE_INT *);

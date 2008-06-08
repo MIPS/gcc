@@ -5146,6 +5146,15 @@ package body Sem_Res is
          Check_Intrinsic_Call (N);
       end if;
 
+      --  Check for violation of restriction No_Specific_Termination_Handlers
+
+      if Is_RTE (Nam, RE_Set_Specific_Handler)
+           or else
+         Is_RTE (Nam, RE_Specific_Handler)
+      then
+         Check_Restriction (No_Specific_Termination_Handlers, N);
+      end if;
+
       --  All done, evaluate call and deal with elaboration issues
 
       Eval_Call (N);
@@ -6561,7 +6570,7 @@ package body Sem_Res is
    procedure Resolve_Null (N : Node_Id; Typ : Entity_Id) is
    begin
       --  Handle restriction against anonymous null access values This
-      --  restriction can be turned off using -gnatdh.
+      --  restriction can be turned off using -gnatdj.
 
       --  Ada 2005 (AI-231): Remove restriction
 
@@ -6571,7 +6580,7 @@ package body Sem_Res is
         and then Comes_From_Source (N)
       then
          --  In the common case of a call which uses an explicitly null
-         --  value for an access parameter, give specialized error msg
+         --  value for an access parameter, give specialized error message.
 
          if Nkind_In (Parent (N), N_Procedure_Call_Statement,
                                   N_Function_Call)
@@ -9425,15 +9434,18 @@ package body Sem_Res is
             end if;
          end;
 
-      --  Subprogram access types
+      --  Access to subprogram types. If the operand is an access parameter,
+      --  the type has a deeper accessibility that any master, and cannot
+      --  be assigned.
 
       elsif (Ekind (Target_Type) = E_Access_Subprogram_Type
                or else
              Ekind (Target_Type) = E_Anonymous_Access_Subprogram_Type)
         and then No (Corresponding_Remote_Type (Opnd_Type))
       then
-         if
-           Ekind (Base_Type (Opnd_Type)) = E_Anonymous_Access_Subprogram_Type
+         if Ekind (Base_Type (Opnd_Type)) = E_Anonymous_Access_Subprogram_Type
+           and then Is_Entity_Name (Operand)
+           and then Ekind (Entity (Operand)) = E_In_Parameter
          then
             Error_Msg_N
               ("illegal attempt to store anonymous access to subprogram",
@@ -9443,13 +9455,9 @@ package body Sem_Res is
                "(RM 3.10.2 (13))",
                Operand);
 
-            if Is_Entity_Name (Operand)
-              and then Ekind (Entity (Operand)) = E_In_Parameter
-            then
-               Error_Msg_NE
-                 ("\use named access type for& instead of access parameter",
-                  Operand, Entity (Operand));
-            end if;
+            Error_Msg_NE
+             ("\use named access type for& instead of access parameter",
+               Operand, Entity (Operand));
          end if;
 
          --  Check that the designated types are subtype conformant

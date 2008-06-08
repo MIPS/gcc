@@ -1370,7 +1370,7 @@ package body Sem_Ch6 is
          Plist : List_Id;
 
          function Is_Inline_Pragma (N : Node_Id) return Boolean;
-         --  True when N is a pragma Inline or Inline_Awlays that applies
+         --  True when N is a pragma Inline or Inline_Always that applies
          --  to this subprogram.
 
          -----------------------
@@ -1602,6 +1602,7 @@ package body Sem_Ch6 is
             elsif Nkind (Parent (N)) = N_Compilation_Unit then
                Freeze_Before (N, Spec_Id);
             end if;
+
          else
             Spec_Id := Corresponding_Spec (N);
          end if;
@@ -2459,18 +2460,17 @@ package body Sem_Ch6 is
          Push_Scope (Designator);
          Process_Formals (Formals, N);
 
-         --  Ada 2005 (AI-345): Allow the overriding of interface primitives
-         --  by subprograms which belong to a concurrent type implementing an
-         --  interface. Set the parameter type of each controlling formal to
-         --  the corresponding record type.
+         --  Ada 2005 (AI-345): If this is an overriding operation of an
+         --  inherited interface operation, and the controlling type is
+         --  a synchronized type, replace the type with its corresponding
+         --  record, to match the proper signature of an overriding operation.
 
          if Ada_Version >= Ada_05 then
             Formal := First_Formal (Designator);
             while Present (Formal) loop
                Formal_Typ := Etype (Formal);
 
-               if (Ekind (Formal_Typ) = E_Protected_Type
-                     or else Ekind (Formal_Typ) = E_Task_Type)
+               if Is_Concurrent_Type (Formal_Typ)
                  and then Present (Corresponding_Record_Type (Formal_Typ))
                  and then Present (Interfaces
                                     (Corresponding_Record_Type (Formal_Typ)))
@@ -2496,21 +2496,19 @@ package body Sem_Ch6 is
 
          May_Need_Actuals (Designator);
 
-         --  Ada 2005 (AI-251): In case of primitives associated with abstract
-         --  interface types the following error message will be reported later
-         --  (see Analyze_Subprogram_Declaration).
+         --  Ada 2005 (AI-251): If the return type is abstract, verify that
+         --  the subprogram is abstract also. This does not apply to renaming
+         --  declarations, where abstractness is inherited.
+         --  In case of primitives associated with abstract interface types
+         --  the check is applied later (see Analyze_Subprogram_Declaration).
 
          if Is_Abstract_Type (Etype (Designator))
            and then not Is_Interface (Etype (Designator))
+           and then Nkind (Parent (N)) /= N_Subprogram_Renaming_Declaration
            and then Nkind (Parent (N)) /=
                       N_Abstract_Subprogram_Declaration
            and then
              (Nkind (Parent (N))) /= N_Formal_Abstract_Subprogram_Declaration
-                and then
-                  (Nkind (Parent (N)) /= N_Subprogram_Renaming_Declaration
-                     or else not Is_Entity_Name (Name (Parent (N)))
-                     or else not Is_Abstract_Subprogram
-                                    (Entity (Name (Parent (N)))))
          then
             Error_Msg_N
               ("function that returns abstract type must be abstract", N);
@@ -3142,7 +3140,18 @@ package body Sem_Ch6 is
       if Old_Type /= Standard_Void_Type
         and then New_Type /= Standard_Void_Type
       then
-         if not Conforming_Types (Old_Type, New_Type, Ctype, Get_Inst) then
+
+         --  If we are checking interface conformance we omit controlling
+         --  arguments and result, because we are only checking the conformance
+         --  of the remaining parameters.
+
+         if Has_Controlling_Result (Old_Id)
+           and then Has_Controlling_Result (New_Id)
+           and then Skip_Controlling_Formals
+         then
+            null;
+
+         elsif not Conforming_Types (Old_Type, New_Type, Ctype, Get_Inst) then
             Conformance_Error ("\return type does not match!", New_Id);
             return;
          end if;
@@ -3546,7 +3555,7 @@ package body Sem_Ch6 is
                      if not Is_Overriding_Operation (Op) then
                         Error_Msg_N ("\\primitive % defined #", Typ);
                      else
-                        Error_Msg_N ("\\overridding operation % with " &
+                        Error_Msg_N ("\\overriding operation % with " &
                                      "convention % defined #", Typ);
                      end if;
 
@@ -4990,7 +4999,7 @@ package body Sem_Ch6 is
             --  can be called in a dispatching context and such calls must be
             --  handled like calls to a class-wide function.
 
-            if not Is_Constrained (Result_Subt)
+            if not Is_Constrained (Underlying_Type (Result_Subt))
               or else Is_Tagged_Type (Underlying_Type (Result_Subt))
             then
                Discard :=
@@ -5774,13 +5783,16 @@ package body Sem_Ch6 is
       Iface_Prim  : Entity_Id;
       Prim        : Entity_Id) return Boolean
    is
+      Iface : constant Entity_Id := Find_Dispatching_Type (Iface_Prim);
+      Typ   : constant Entity_Id := Find_Dispatching_Type (Prim);
+
    begin
       pragma Assert (Is_Subprogram (Iface_Prim)
         and then Is_Subprogram (Prim)
         and then Is_Dispatching_Operation (Iface_Prim)
         and then Is_Dispatching_Operation (Prim));
 
-      pragma Assert (Is_Interface (Find_Dispatching_Type (Iface_Prim))
+      pragma Assert (Is_Interface (Iface)
         or else (Present (Alias (Iface_Prim))
                    and then
                      Is_Interface
@@ -5791,48 +5803,40 @@ package body Sem_Ch6 is
         or else Ekind (Prim) /= Ekind (Iface_Prim)
         or else not Is_Dispatching_Operation (Prim)
         or else Scope (Prim) /= Scope (Tagged_Type)
-        or else No (Find_Dispatching_Type (Prim))
-        or else Base_Type (Find_Dispatching_Type (Prim)) /= Tagged_Type
+        or else No (Typ)
+        or else Base_Type (Typ) /= Tagged_Type
         or else not Primitive_Names_Match (Iface_Prim, Prim)
       then
          return False;
 
-      --  Case of a procedure, or a function not returning an interface
+      --  Case of a procedure, or a function that does not have a controlling
+      --  result (I or access I).
 
       elsif Ekind (Iface_Prim) = E_Procedure
         or else Etype (Prim) = Etype (Iface_Prim)
-        or else not Is_Interface (Etype (Iface_Prim))
+        or else not Has_Controlling_Result (Prim)
       then
          return Type_Conformant (Prim, Iface_Prim,
                   Skip_Controlling_Formals => True);
 
-      --  Case of a function returning an interface
+      --  Case of a function returning an interface, or an access to one.
+      --  Check that the return types correspond.
 
-      elsif Implements_Interface (Etype (Prim), Etype (Iface_Prim)) then
-         declare
-            Ret_Typ       : constant Entity_Id := Etype (Prim);
-            Is_Conformant : Boolean;
-
-         begin
-            --  Temporarly set both entities returning exactly the same type to
-            --  be able to call Type_Conformant (because that routine has no
-            --  machinery to handle interfaces).
-
-            Set_Etype (Prim, Etype (Iface_Prim));
-
-            Is_Conformant :=
+      elsif Implements_Interface (Typ, Iface) then
+         if (Ekind (Etype (Prim)) = E_Anonymous_Access_Type)
+              /=
+            (Ekind (Etype (Iface_Prim)) = E_Anonymous_Access_Type)
+         then
+            return False;
+         else
+            return
               Type_Conformant (Prim, Iface_Prim,
                 Skip_Controlling_Formals => True);
+         end if;
 
-            --  Restore proper decoration of returned type
-
-            Set_Etype (Prim, Ret_Typ);
-
-            return Is_Conformant;
-         end;
+      else
+         return False;
       end if;
-
-      return False;
    end Is_Interface_Conformant;
 
    ---------------------------------
@@ -6197,7 +6201,6 @@ package body Sem_Ch6 is
 
       procedure Check_Synchronized_Overriding
         (Def_Id          : Entity_Id;
-         First_Hom       : Entity_Id;
          Overridden_Subp : out Entity_Id);
       --  First determine if Def_Id is an entry or a subprogram either defined
       --  in the scope of a task or protected type, or is a primitive of such
@@ -6392,22 +6395,198 @@ package body Sem_Ch6 is
 
       procedure Check_Synchronized_Overriding
         (Def_Id          : Entity_Id;
-         First_Hom       : Entity_Id;
          Overridden_Subp : out Entity_Id)
       is
-         Formal_Typ  : Entity_Id;
          Ifaces_List : Elist_Id;
          In_Scope    : Boolean;
          Typ         : Entity_Id;
 
+         function Has_Correct_Formal_Mode
+           (Tag_Typ : Entity_Id;
+            Subp    : Entity_Id) return Boolean;
+         --  For an overridden subprogram Subp, check whether the mode of its
+         --  first parameter is correct depending on the kind of Tag_Typ.
+
+         function Matches_Prefixed_View_Profile
+           (Prim_Params  : List_Id;
+            Iface_Params : List_Id) return Boolean;
+         --  Determine whether a subprogram's parameter profile Prim_Params
+         --  matches that of a potentially overridden interface subprogram
+         --  Iface_Params. Also determine if the type of first parameter of
+         --  Iface_Params is an implemented interface.
+
+         -----------------------------
+         -- Has_Correct_Formal_Mode --
+         -----------------------------
+
+         function Has_Correct_Formal_Mode
+           (Tag_Typ : Entity_Id;
+            Subp    : Entity_Id) return Boolean
+         is
+            Formal : constant Node_Id := First_Formal (Subp);
+
+         begin
+            --  In order for an entry or a protected procedure to override, the
+            --  first parameter of the overridden routine must be of mode
+            --  "out", "in out" or access-to-variable.
+
+            if (Ekind (Subp) = E_Entry
+                  or else Ekind (Subp) = E_Procedure)
+              and then Is_Protected_Type (Tag_Typ)
+              and then Ekind (Formal) /= E_In_Out_Parameter
+              and then Ekind (Formal) /= E_Out_Parameter
+              and then Nkind (Parameter_Type (Parent (Formal))) /=
+                         N_Access_Definition
+            then
+               return False;
+            end if;
+
+            --  All other cases are OK since a task entry or routine does not
+            --  have a restriction on the mode of the first parameter of the
+            --  overridden interface routine.
+
+            return True;
+         end Has_Correct_Formal_Mode;
+
+         -----------------------------------
+         -- Matches_Prefixed_View_Profile --
+         -----------------------------------
+
+         function Matches_Prefixed_View_Profile
+           (Prim_Params  : List_Id;
+            Iface_Params : List_Id) return Boolean
+         is
+            Iface_Id     : Entity_Id;
+            Iface_Param  : Node_Id;
+            Iface_Typ    : Entity_Id;
+            Prim_Id      : Entity_Id;
+            Prim_Param   : Node_Id;
+            Prim_Typ     : Entity_Id;
+
+            function Is_Implemented
+              (Ifaces_List : Elist_Id;
+               Iface       : Entity_Id) return Boolean;
+            --  Determine if Iface is implemented by the current task or
+            --  protected type.
+
+            --------------------
+            -- Is_Implemented --
+            --------------------
+
+            function Is_Implemented
+              (Ifaces_List : Elist_Id;
+               Iface       : Entity_Id) return Boolean
+            is
+               Iface_Elmt : Elmt_Id;
+
+            begin
+               Iface_Elmt := First_Elmt (Ifaces_List);
+               while Present (Iface_Elmt) loop
+                  if Node (Iface_Elmt) = Iface then
+                     return True;
+                  end if;
+
+                  Next_Elmt (Iface_Elmt);
+               end loop;
+
+               return False;
+            end Is_Implemented;
+
+         --  Start of processing for Matches_Prefixed_View_Profile
+
+         begin
+            Iface_Param := First (Iface_Params);
+            Iface_Typ   := Etype (Defining_Identifier (Iface_Param));
+
+            if Is_Access_Type (Iface_Typ) then
+               Iface_Typ := Designated_Type (Iface_Typ);
+            end if;
+
+            Prim_Param := First (Prim_Params);
+
+            --  The first parameter of the potentially overridden subprogram
+            --  must be an interface implemented by Prim.
+
+            if not Is_Interface (Iface_Typ)
+              or else not Is_Implemented (Ifaces_List, Iface_Typ)
+            then
+               return False;
+            end if;
+
+            --  The checks on the object parameters are done, move onto the
+            --  rest of the parameters.
+
+            if not In_Scope then
+               Prim_Param := Next (Prim_Param);
+            end if;
+
+            Iface_Param := Next (Iface_Param);
+            while Present (Iface_Param) and then Present (Prim_Param) loop
+               Iface_Id  := Defining_Identifier (Iface_Param);
+               Iface_Typ := Find_Parameter_Type (Iface_Param);
+
+               if Is_Access_Type (Iface_Typ) then
+                  Iface_Typ := Directly_Designated_Type (Iface_Typ);
+               end if;
+
+               Prim_Id  := Defining_Identifier (Prim_Param);
+               Prim_Typ := Find_Parameter_Type (Prim_Param);
+
+               if Is_Access_Type (Prim_Typ) then
+                  Prim_Typ := Directly_Designated_Type (Prim_Typ);
+               end if;
+
+               --  Case of multiple interface types inside a parameter profile
+
+               --     (Obj_Param : in out Iface; ...; Param : Iface)
+
+               --  If the interface type is implemented, then the matching type
+               --  in the primitive should be the implementing record type.
+
+               if Ekind (Iface_Typ) = E_Record_Type
+                 and then Is_Interface (Iface_Typ)
+                 and then Is_Implemented (Ifaces_List, Iface_Typ)
+               then
+                  if Prim_Typ /= Typ then
+                     return False;
+                  end if;
+
+               --  The two parameters must be both mode and subtype conformant
+
+               elsif Ekind (Iface_Id) /= Ekind (Prim_Id)
+                 or else not
+                   Conforming_Types (Iface_Typ, Prim_Typ, Subtype_Conformant)
+               then
+                  return False;
+               end if;
+
+               Next (Iface_Param);
+               Next (Prim_Param);
+            end loop;
+
+            --  One of the two lists contains more parameters than the other
+
+            if Present (Iface_Param) or else Present (Prim_Param) then
+               return False;
+            end if;
+
+            return True;
+         end Matches_Prefixed_View_Profile;
+
+      --  Start of processing for Check_Synchronized_Overriding
+
       begin
          Overridden_Subp := Empty;
 
-         --  Def_Id must be an entry or a subprogram
+         --  Def_Id must be an entry or a subprogram. We should skip predefined
+         --  primitives internally generated by the frontend; however at this
+         --  stage predefined primitives are still not fully decorated. As a
+         --  minor optimization we skip here internally generated subprograms.
 
-         if Ekind (Def_Id) /= E_Entry
-           and then Ekind (Def_Id) /= E_Function
-           and then Ekind (Def_Id) /= E_Procedure
+         if (Ekind (Def_Id) /= E_Entry
+              and then Ekind (Def_Id) /= E_Function
+              and then Ekind (Def_Id) /= E_Procedure)
+           or else not Comes_From_Source (Def_Id)
          then
             return;
          end if;
@@ -6423,15 +6602,25 @@ package body Sem_Ch6 is
             Typ := Scope (Def_Id);
             In_Scope := True;
 
-         --  The subprogram may be a primitive of a concurrent type
+         --  The enclosing scope is not a synchronized type and the subprogram
+         --  has no formals
 
-         elsif Present (First_Formal (Def_Id)) then
-            Formal_Typ := Etype (First_Formal (Def_Id));
+         elsif No (First_Formal (Def_Id)) then
+            return;
 
-            if Is_Concurrent_Type (Formal_Typ)
-              and then not Is_Generic_Actual_Type (Formal_Typ)
+         --  The subprogram has formals and hence it may be a primitive of a
+         --  concurrent type
+
+         else
+            Typ := Etype (First_Formal (Def_Id));
+
+            if Is_Access_Type (Typ) then
+               Typ := Directly_Designated_Type (Typ);
+            end if;
+
+            if Is_Concurrent_Type (Typ)
+              and then not Is_Generic_Actual_Type (Typ)
             then
-               Typ := Formal_Typ;
                In_Scope := False;
 
             --  This case occurs when the concurrent type is declared within
@@ -6439,37 +6628,152 @@ package body Sem_Ch6 is
             --  built and used as the type of the first formal, we just have
             --  to retrieve the corresponding concurrent type.
 
-            elsif Is_Concurrent_Record_Type (Formal_Typ)
-              and then Present (Corresponding_Concurrent_Type (Formal_Typ))
+            elsif Is_Concurrent_Record_Type (Typ)
+              and then Present (Corresponding_Concurrent_Type (Typ))
             then
-               Typ := Corresponding_Concurrent_Type (Formal_Typ);
+               Typ := Corresponding_Concurrent_Type (Typ);
                In_Scope := False;
 
             else
                return;
             end if;
-         else
+         end if;
+
+         --  There is no overriding to check if is an inherited operation in a
+         --  type derivation on for a generic actual.
+
+         Collect_Interfaces (Typ, Ifaces_List);
+
+         if Is_Empty_Elmt_List (Ifaces_List) then
             return;
          end if;
 
-         --  Gather all limited, protected and task interfaces that Typ
-         --  implements. There is no overriding to check if is an inherited
-         --  operation in a type derivation on for a generic actual.
+         --  Determine whether entry or subprogram Def_Id overrides a primitive
+         --  operation that belongs to one of the interfaces in Ifaces_List.
 
-         if Nkind (Parent (Typ)) /= N_Full_Type_Declaration
-           and then
-             not Nkind_In (Parent (Def_Id), N_Subtype_Declaration,
-                                            N_Task_Type_Declaration,
-                                            N_Protected_Type_Declaration)
-         then
-            Collect_Interfaces (Typ, Ifaces_List);
+         declare
+            Candidate : Entity_Id := Empty;
+            Hom       : Entity_Id := Empty;
+            Iface_Typ : Entity_Id;
+            Subp      : Entity_Id := Empty;
 
-            if not Is_Empty_Elmt_List (Ifaces_List) then
-               Overridden_Subp :=
-                 Find_Overridden_Synchronized_Primitive
-                   (Def_Id, First_Hom, Ifaces_List, In_Scope);
+         begin
+            --  Traverse the homonym chain, looking at a potentially
+            --  overridden subprogram that belongs to an implemented
+            --  interface.
+
+            Hom := Current_Entity_In_Scope (Def_Id);
+            while Present (Hom) loop
+               Subp := Hom;
+
+               --  Entries can override abstract or null interface
+               --  procedures
+
+               if Ekind (Def_Id) = E_Entry
+                 and then Ekind (Subp) = E_Procedure
+                 and then Nkind (Parent (Subp)) = N_Procedure_Specification
+                 and then (Is_Abstract_Subprogram (Subp)
+                             or else Null_Present (Parent (Subp)))
+               then
+                  while Present (Alias (Subp)) loop
+                     Subp := Alias (Subp);
+                  end loop;
+
+                  if Matches_Prefixed_View_Profile
+                       (Parameter_Specifications (Parent (Def_Id)),
+                        Parameter_Specifications (Parent (Subp)))
+                  then
+                     Candidate := Subp;
+
+                     --  Absolute match
+
+                     if Has_Correct_Formal_Mode (Typ, Candidate) then
+                        Overridden_Subp := Candidate;
+                        return;
+                     end if;
+                  end if;
+
+               --  Procedures can override abstract or null interface
+               --  procedures
+
+               elsif Ekind (Def_Id) = E_Procedure
+                 and then Ekind (Subp) = E_Procedure
+                 and then Nkind (Parent (Subp)) = N_Procedure_Specification
+                 and then (Is_Abstract_Subprogram (Subp)
+                             or else Null_Present (Parent (Subp)))
+                 and then Matches_Prefixed_View_Profile
+                            (Parameter_Specifications (Parent (Def_Id)),
+                             Parameter_Specifications (Parent (Subp)))
+               then
+                  Candidate := Subp;
+
+                  --  Absolute match
+
+                  if Has_Correct_Formal_Mode (Typ, Candidate) then
+                     Overridden_Subp := Candidate;
+                     return;
+                  end if;
+
+               --  Functions can override abstract interface functions
+
+               elsif Ekind (Def_Id) = E_Function
+                 and then Ekind (Subp) = E_Function
+                 and then Nkind (Parent (Subp)) = N_Function_Specification
+                 and then Is_Abstract_Subprogram (Subp)
+                 and then Matches_Prefixed_View_Profile
+                            (Parameter_Specifications (Parent (Def_Id)),
+                             Parameter_Specifications (Parent (Subp)))
+                 and then Etype (Result_Definition (Parent (Def_Id))) =
+                          Etype (Result_Definition (Parent (Subp)))
+               then
+                  Overridden_Subp := Subp;
+                  return;
+               end if;
+
+               Hom := Homonym (Hom);
+            end loop;
+
+            --  After examining all candidates for overriding, we are
+            --  left with the best match which is a mode incompatible
+            --  interface routine. Do not emit an error if the Expander
+            --  is active since this error will be detected later on
+            --  after all concurrent types are expanded and all wrappers
+            --  are built. This check is meant for spec-only
+            --  compilations.
+
+            if Present (Candidate)
+              and then not Expander_Active
+            then
+               Iface_Typ :=
+                 Find_Parameter_Type (Parent (First_Formal (Candidate)));
+
+               --  Def_Id is primitive of a protected type, declared
+               --  inside the type, and the candidate is primitive of a
+               --  limited or synchronized interface.
+
+               if In_Scope
+                 and then Is_Protected_Type (Typ)
+                 and then
+                   (Is_Limited_Interface (Iface_Typ)
+                      or else Is_Protected_Interface (Iface_Typ)
+                      or else Is_Synchronized_Interface (Iface_Typ)
+                      or else Is_Task_Interface (Iface_Typ))
+               then
+                  --  Must reword this message, comma before to in -gnatj
+                  --  mode ???
+
+                  Error_Msg_NE
+                    ("first formal of & must be of mode `OUT`, `IN OUT`"
+                      & " or access-to-variable", Typ, Candidate);
+                  Error_Msg_N
+                    ("\to be overridden by protected procedure or entry "
+                      & "(RM 9.4(11.9/2))", Typ);
+               end if;
             end if;
-         end if;
+
+            Overridden_Subp := Candidate;
+            return;
+         end;
       end Check_Synchronized_Overriding;
 
       ----------------------------
@@ -6522,7 +6826,7 @@ package body Sem_Ch6 is
          --  has an overriding indicator.
 
          if Comes_From_Source (S) then
-            Check_Synchronized_Overriding (S, Homonym (S), Overridden_Subp);
+            Check_Synchronized_Overriding (S, Overridden_Subp);
             Check_Overriding_Indicator
               (S, Overridden_Subp, Is_Primitive => Is_Primitive_Subp);
          end if;
@@ -6599,7 +6903,7 @@ package body Sem_Ch6 is
             goto Add_New_Entity;
          end if;
 
-         Check_Synchronized_Overriding (S, E, Overridden_Subp);
+         Check_Synchronized_Overriding (S, Overridden_Subp);
 
          --  Loop through E and its homonyms to determine if any of them is
          --  the candidate for overriding by S.

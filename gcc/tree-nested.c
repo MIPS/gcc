@@ -156,7 +156,7 @@ build_addr (tree exp, tree context)
 
   /* Building the ADDR_EXPR will compute a set of properties for
      that ADDR_EXPR.  Those properties are unfortunately context
-     specific.  ie, they are dependent on CURRENT_FUNCTION_DECL.
+     specific, i.e., they are dependent on CURRENT_FUNCTION_DECL.
 
      Temporarily set CURRENT_FUNCTION_DECL to the desired context,
      build the ADDR_EXPR, then restore CURRENT_FUNCTION_DECL.  That
@@ -663,7 +663,7 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
     {
       for (arg = DECL_ARGUMENTS (cgn->decl); arg; arg = TREE_CHAIN (arg))
-	if (variably_modified_type_p (TREE_TYPE (arg), 0), orig_fndecl)
+	if (variably_modified_type_p (TREE_TYPE (arg), orig_fndecl))
 	  return true;
 
       if (check_for_nested_with_variably_modified (cgn->decl, orig_fndecl))

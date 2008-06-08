@@ -3839,7 +3839,7 @@ package body Exp_Ch6 is
               Make_Defining_Identifier (Loc, New_Internal_Name ('C'));
             Set_Is_Internal (Temp);
 
-            --  For the unconstrained case. the generated temporary has the
+            --  For the unconstrained case, the generated temporary has the
             --  same constrained declaration as the result variable.
             --  It may eventually be possible to remove that temporary and
             --  use the result variable directly.
@@ -3965,17 +3965,17 @@ package body Exp_Ch6 is
    begin
       Expand_Call (N);
 
-      --  Handle VAX Float return values from foreign compiled functions
-
-      --  More commments required here, what are the tests below for ???
+      --  If the return value of a foreign compiled function is
+      --  VAX Float then expand the return (adjusts the location
+      --  of the return value on Alpha/VMS, noop everywhere else).
+      --  Comes_From_Source intercepts recursive expansion.
 
       if Vax_Float (Etype (N))
         and then Nkind (N) = N_Function_Call
-        and then not (Nkind (Parent (N)) = N_Type_Conversion
-                       and then not Comes_From_Source (Parent (N)))
         and then Present (Name (N))
         and then Present (Entity (Name (N)))
         and then Has_Foreign_Convention (Entity (Name (N)))
+        and then Comes_From_Source (Parent (N))
       then
          Expand_Vax_Foreign_Return (N);
       end if;
@@ -5182,9 +5182,9 @@ package body Exp_Ch6 is
       end if;
    end Make_Build_In_Place_Call_In_Anonymous_Context;
 
-   ---------------------------------------------------
+   --------------------------------------------
    -- Make_Build_In_Place_Call_In_Assignment --
-   ---------------------------------------------------
+   --------------------------------------------
 
    procedure Make_Build_In_Place_Call_In_Assignment
      (Assign        : Node_Id;

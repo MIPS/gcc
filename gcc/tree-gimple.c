@@ -101,7 +101,7 @@ get_gimple_rhs_class (enum tree_code code)
 }
 
 /* Return the code of the expression computed on the rhs of assignment
-   statement GS.  In case that the rhs is a single object, returns the
+   statement GS.  In case that the RHS is a single object, returns the
    tree code of the object.  */
 
 enum tree_code
@@ -176,13 +176,8 @@ bool
 is_gimple_mem_rhs (tree t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
-     a renamed variable.  Also force a temporary if the type doesn't need
-     to be stored in memory, since it's cheap and prevents erroneous
-     tailcalls (PR 17526).  */
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
-	  && (TREE_CODE (t) != CALL_EXPR
-              || ! aggregate_value_p (t, t))))
+     a renamed variable.  */
+  if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_rhs (t);

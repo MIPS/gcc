@@ -1,5 +1,6 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
+   Foundation, Inc.
 
 This file is part of GCC.
 
@@ -338,6 +339,25 @@ gimple_duplicate_stmt_histograms (struct function *fun, gimple stmt,
       new->hvalue.counters = xmalloc (sizeof (*new->hvalue.counters) * new->n_counters);
       memcpy (new->hvalue.counters, val->hvalue.counters, sizeof (*new->hvalue.counters) * new->n_counters);
       gimple_add_histogram_value (fun, stmt, new);
+    }
+}
+
+
+/* Move all histograms associated with OSTMT to STMT.  */
+
+void
+gimple_move_stmt_histograms (struct function *fun, gimple stmt, gimple ostmt)
+{
+  histogram_value val = gimple_histogram_value (fun, ostmt);
+  if (val)
+    {
+      /* The following three statements can't be reordered,
+         because histogram hashtab relies on stmt field value
+	 for finding the exact slot. */
+      set_histogram_value (fun, ostmt, NULL);
+      for (; val != NULL; val = val->hvalue.next)
+	val->hvalue.stmt = stmt;
+      set_histogram_value (fun, stmt, val);
     }
 }
 
@@ -1050,7 +1070,7 @@ find_func_by_pid (int	pid)
 
 /* Do transformation
 
-  if (actual_callee_addres == addres_of_most_common_function/method)
+  if (actual_callee_address == address_of_most_common_function/method)
     do direct call
   else
     old call
@@ -1200,6 +1220,8 @@ gimple_ic_transform (gimple stmt)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, " to ");
       print_gimple_stmt (dump_file, modify, 0, TDF_SLIM);
+      fprintf (dump_file, "hist->count "HOST_WIDEST_INT_PRINT_DEC
+	       " hist->all "HOST_WIDEST_INT_PRINT_DEC"\n", count, all);
     }
 
   return true;

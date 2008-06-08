@@ -5282,7 +5282,7 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
      
 #if 0
   /* Try to avoid confusing the user by producing and error message
-     with correct "exit" or "enter" verbage.  We prefer "exit"
+     with correct "exit" or "enter" verbiage.  We prefer "exit"
      unless we can show that LABEL_CTX is nested within BRANCH_CTX.  */
   if (branch_ctx == NULL)
     exit_p = false;

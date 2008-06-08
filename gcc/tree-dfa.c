@@ -1,5 +1,6 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
+   Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -141,33 +142,14 @@ var_ann_t
 create_var_ann (tree t)
 {
   var_ann_t ann;
-  struct static_var_ann_d *sann = NULL;
 
   gcc_assert (t);
   gcc_assert (DECL_P (t));
   gcc_assert (!t->base.ann || t->base.ann->common.type == VAR_ANN);
 
-  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
-    {
-      sann = GGC_CNEW (struct static_var_ann_d);
-      ann = &sann->ann;
-    }
-  else
-    ann = GGC_CNEW (struct var_ann_d);
-
+  ann = GGC_CNEW (struct var_ann_d);
   ann->common.type = VAR_ANN;
-
-  if (!MTAG_P (t) && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
-    {
-       void **slot;
-       sann->uid = DECL_UID (t);
-       slot = htab_find_slot_with_hash (gimple_var_anns (cfun),
-				        t, DECL_UID (t), INSERT);
-       gcc_assert (!*slot);
-       *slot = sann;
-    }
-  else
-    t->base.ann = (tree_ann_t) ann;
+  t->base.ann = (tree_ann_t) ann;
 
   return ann;
 }
@@ -677,7 +659,7 @@ add_referenced_var (tree var)
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
 	 variables.  
-	 Even non-constant intializers need to be walked, because
+	 Even non-constant initializers need to be walked, because
 	 IPA passes might prove that their are invariant later on.  */
       if (DECL_INITIAL (var)
 	  /* Initializers of external variables are not useful to the
@@ -699,8 +681,20 @@ remove_referenced_var (tree var)
 
   clear_call_clobbered (var);
   if ((v_ann = var_ann (var)))
-    ggc_free (v_ann);
-  var->base.ann = NULL;
+    {
+      /* Preserve var_anns of globals, but clear their alias info.  */
+      if (MTAG_P (var)
+	  || (!TREE_STATIC (var) && !DECL_EXTERNAL (var)))
+	{
+	  ggc_free (v_ann);
+	  var->base.ann = NULL;
+	}
+      else
+	{
+	  v_ann->mpt = NULL_TREE;
+	  v_ann->symbol_mem_tag = NULL_TREE;
+	}
+    }
   gcc_assert (DECL_P (var));
   in.uid = uid;
   loc = htab_find_slot_with_hash (gimple_referenced_vars (cfun), &in, uid,
@@ -856,7 +850,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      {
 		tree csize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 		/* We need to adjust maxsize to the whole structure bitsize.
-		   But we can subtract any constant offset seen sofar,
+		   But we can subtract any constant offset seen so far,
 		   because that would get us out of the structure otherwise.  */
 		if (maxsize != -1 && csize && host_integerp (csize, 1))
 		  maxsize = TREE_INT_CST_LOW (csize) - bit_offset;
@@ -894,7 +888,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      {
 		tree asize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
 		/* We need to adjust maxsize to the whole array bitsize.
-		   But we can subtract any constant offset seen sofar,
+		   But we can subtract any constant offset seen so far,
 		   because that would get us outside of the array otherwise.  */
 		if (maxsize != -1 && asize && host_integerp (asize, 1))
 		  maxsize = TREE_INT_CST_LOW (asize) - bit_offset;
@@ -1005,7 +999,7 @@ refs_may_alias_p (tree ref1, tree ref2)
 
   /* If both references are based on different variables, they cannot alias.
      If both references are based on the same variable, they cannot alias if
-     if the accesses do not overlap.  */
+     the accesses do not overlap.  */
   if (SSA_VAR_P (base1)
       && SSA_VAR_P (base2))
     {

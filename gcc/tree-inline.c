@@ -191,11 +191,10 @@ remap_ssa_name (tree name, copy_body_data *id)
       TREE_TYPE (new) = TREE_TYPE (SSA_NAME_VAR (new));
       if (gimple_nop_p (SSA_NAME_DEF_STMT (name)))
 	{
-	  /* By inlining function having uninitialized variable, we
-	     might extend the lifetime (variable might get reused).
-	     This cause ICE in the case we end up extending lifetime
-	     of SSA name across abnormal edge, but also increase
-	     register presure.
+	  /* By inlining function having uninitialized variable, we might
+	     extend the lifetime (variable might get reused).  This cause
+	     ICE in the case we end up extending lifetime of SSA name across
+	     abnormal edge, but also increase register pressure.
 
 	     We simply initialize all uninitialized vars by 0 except
 	     for case we are inlining to very first BB.  We can avoid
@@ -2012,7 +2011,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	}
 
       /* If VAR represents a zero-sized variable, it's possible that the
-	 assignment statment may result in no gimple statements.  */
+	 assignment statement may result in no gimple statements.  */
       if (init_stmt)
         gsi_insert_after (&si, init_stmt, GSI_NEW_STMT);
 
