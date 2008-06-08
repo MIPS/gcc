@@ -399,6 +399,11 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
 	    crtl->stack_alignment_estimated = alignment_in_bits;
           else
 	    {
+	      /* If stack is realigned and stack alignment value
+		 hasn't been finalized, it is OK not to increase
+		 stack_alignment_estimated.  The bigger alignment
+		 requirement is recorded in stack_alignment_needed
+		 below.  */
 	      gcc_assert (!crtl->stack_realign_finalized);
 	      if (!crtl->stack_realign_needed)
 		{
