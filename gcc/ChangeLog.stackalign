@@ -1,3 +1,8 @@
+2008-06-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.c (locate_and_pad_parm): Update comments for stack
+	alignment.
+
 2008-06-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* defaults.h (MAX_STACK_ALIGNMENT): Update comments.

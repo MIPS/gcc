@@ -3386,8 +3386,15 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
           if (!crtl->stack_realign_processed)
 	    crtl->stack_alignment_estimated = boundary;
 	  else
-	    gcc_assert (!crtl->stack_realign_finalized
-			&& crtl->stack_realign_needed);
+	    {
+	      /* If stack is realigned and stack alignment value
+		 hasn't been finalized, it is OK not to increase
+		 stack_alignment_estimated.  The bigger alignment
+		 requirement is recorded in stack_alignment_needed
+		 below.  */
+	      gcc_assert (!crtl->stack_realign_finalized
+			  && crtl->stack_realign_needed);
+	    }
 	}
     }
 
