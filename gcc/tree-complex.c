@@ -652,15 +652,13 @@ update_complex_components_on_edge (edge e, tree lhs, tree r, tree i)
 static void
 update_complex_assignment (gimple_stmt_iterator *gsi, tree r, tree i)
 {
-  gimple stmt;
-
-  stmt = gsi_stmt (*gsi);
+  gimple_stmt_iterator orig_si = *gsi;
 
   if (gimple_in_ssa_p (cfun))
-    update_complex_components (gsi, stmt, r, i);
-  
-  gimple_assign_set_rhs_with_ops (stmt, COMPLEX_EXPR, r, i);
-  update_stmt (stmt);
+    update_complex_components (gsi, gsi_stmt (*gsi), r, i);
+
+  gimple_assign_set_rhs_with_ops (&orig_si, COMPLEX_EXPR, r, i);
+  update_stmt (gsi_stmt (orig_si));
 }
 
 
@@ -1383,7 +1381,8 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
 
     case GIMPLE_ASSIGN:
       type = TREE_TYPE (gimple_assign_lhs (stmt));
-      gimple_assign_set_rhs_from_tree (stmt, fold_convert (type, cc));
+      gimple_assign_set_rhs_from_tree (gsi, fold_convert (type, cc));
+      stmt = gsi_stmt (*gsi);
       break;
 
     case GIMPLE_COND:
@@ -1465,7 +1464,8 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 	    rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
 		                     gimple_subcode (stmt) == IMAGPART_EXPR,
 				     false);
-	    gimple_assign_set_rhs_from_tree (stmt, rhs);
+	    gimple_assign_set_rhs_from_tree (gsi, rhs);
+	    stmt = gsi_stmt (*gsi);
 	    update_stmt (stmt);
 	  }
       }

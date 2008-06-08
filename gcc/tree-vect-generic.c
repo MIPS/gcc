@@ -515,7 +515,7 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
      gimple_assign_set_rhs_from_tree. One way to do it is change
      expand_vector_operation and its callees to return a tree_code,
      RHS1 and RHS2 instead of a tree. */
-  gimple_assign_set_rhs_from_tree (stmt, new_rhs);
+  gimple_assign_set_rhs_from_tree (gsi, new_rhs);
 
   gimple_set_modified (gsi_stmt (*gsi), true);
 }

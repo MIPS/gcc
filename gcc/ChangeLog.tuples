@@ -1,3 +1,87 @@
+2008-06-06  Diego Novillo  <dnovillo@google.com>
+
+	http://gcc.gnu.org/ml/gcc-patches/2008-06/msg00353.html
+
+	* gimple.def: Add a third argument to all GIMPLE codes.
+	Update all users.
+	* calls.c (gimple_alloca_call_p): Fix comment.
+	* system.h (CONST_CAST_GIMPLE): Define.
+	* gimple.c (gimple_ops_offset_): Declare.  Fill in from
+	third argument in gimple.def.
+	(gimple_set_stored_syms, gimple_set_loaded_syms): Move
+	from tree-ssa-operands.c
+	(gimple_alloc): Add argument NUM_OPS.  Update all users.
+	Compute size by adding enough space for NUM_OPS operands.
+	(gimple_alloc_ops): Remove.  Update all users.
+	(gimple_assign_set_rhs_from_tree): Change first argument
+	to gimple_stmt_iterator *.  Update all users.
+	Allocate a new statement, if there are more operands that
+	can fit in the old one.
+	(gimple_assign_set_rhs_with_ops): Likewise.
+	(gimple_copy): Fix clearing of stores/loads sets in the
+	copied statement.
+	* gimple.h (struct gimple_statement_base): Remove fields
+	UNUSED_1, UNUSED_2, UNUSED_3.
+	Add fields MODIFIED, HAS_VOLATILE_OPS, REFERENCES_MEMORY_P,
+	UID and NUM_OPS.
+	Re-organize existing fields to eliminate holes on 64 bit
+	hosts.
+	Update all users.
+	(struct gimple_statement_with_ops_base): Define.
+	Factor out struct gimple_statement_with_ops.  Include fields GSBASE,
+	ADDRESSES_TAKEN, DEF_OPS and USE_OPS.
+	(struct gimple_statement_with_ops): Include struct
+	gimple_statement_with_ops_base.
+	Remove field NUM_OPS.
+	(struct gimple_statement_with_memory_ops_base): Define.
+	Factor out of struct gimple_statement_with_memory_ops.
+	Include fields OPBASE, VDEF_OPS, VUSE_OPS, STORES and
+	LOADS.
+	Remove fields HAS_VOLATILE_OPS and REFERENCES_MEMORY_P.
+	(struct gimple_statement_with_memory_ops): Include
+	struct gimple_statement_with_memory_ops_base.
+	(struct gimple_statement_phi): Change size_t fields to
+	unsigned.  Update all users.
+	(struct gimple_statement_asm): Include struct
+	gimple_statement_with_memory_ops_base.
+	Change fields NI and NO to unsigned char.
+	Change field NC to short.
+	Update all users.
+	Add field OP.
+	(struct gimple_statement_change_dynamic_type): Remove.
+	Update all users.
+	(union gimple_statement_d): Rename field WITH_OPS to GSOPS.
+	Rename field WITH_MEM_OPS to GSMEM.
+	Update all users.
+	(gimple_addresses_taken): New.
+	(gimple_addresses_taken_ptr): New.
+	(gimple_set_addresses_taken): New.
+	(gimple_num_ops): Move earlier.
+	(gimple_ops): Use gimple_ops_offset_ to compute address
+	of the operand vector.
+	(gimple_op): Call gimple_ops.
+	(gimple_op_ptr): Likewise.
+	(gimple_set_op): Likewise.
+	(gimple_switch_num_labels): Call gimple_num_ops.
+	(gimple_switch_set_num_labels): Call gimple_set_num_ops.
+	(gimple_switch_set_label): Call gimple_num_ops.
+	(gimple_return_retval_ptr): Likewise.
+	(gimple_return_retval): Likewise.
+	(gimple_set_retval): Likewise.
+	(gimple_cdt_new_type): Use operand 1.
+	(gimple_cdt_new_type_ptr): Likewise.
+	(gimple_cdt_set_new_type): Likewise.
+	* tree-cfg.c (gimple_block_ends_with_call_p): Use
+	CONST_CAST_BB.
+	* tree-ssa-operands.c (gimple_set_stored_syms,
+	gimple_set_loaded_syms): Declare.
+	* value-prof.c (gimple_divmod_fixed_value_transform,
+	gimple_mod_pow2_value_transform,
+	gimple_mod_subtract_transform): Change argument to
+	gimple_stmt_iterator *.  Update all users.
+	* tree-ssa-ccp.c (fold_gimple_assign): Change parameter
+	to gimple_stmt_iterator *.  Update all users
+
 2008-06-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_modify_expr_to_memcpy): Use gimplify_arg

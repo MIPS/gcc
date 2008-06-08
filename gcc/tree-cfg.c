@@ -6138,7 +6138,7 @@ gimple_block_ends_with_call_p (basic_block bb)
 static bool
 gimple_block_ends_with_condjump_p (const_basic_block bb)
 {
-  gimple stmt = last_stmt ((basic_block) bb);
+  gimple stmt = last_stmt (CONST_CAST_BB (bb));
   return (stmt && gimple_code (stmt) == GIMPLE_COND);
 }
 

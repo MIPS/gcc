@@ -5086,7 +5086,10 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       remove_statement (use->stmt, false);
     }
   else
-    gimple_assign_set_rhs_from_tree (use->stmt, op);
+    {
+      gimple_assign_set_rhs_from_tree (&bsi, op);
+      use->stmt = gsi_stmt (bsi);
+    }
 }
 
 /* Replaces ssa name in index IDX by its basic variable.  Callback for

@@ -74,6 +74,11 @@ along with GCC; see the file COPYING3.  If not see
    operand vector for VUSE, then the new vector will also be modified
    such that it contains 'a_5' rather than 'a'.  */
 
+/* Helper functions from gimple.c.  These are GIMPLE manipulation
+   routines that only the operand scanner should need.  */
+void gimple_set_stored_syms (gimple, bitmap, bitmap_obstack *);
+void gimple_set_loaded_syms (gimple, bitmap, bitmap_obstack *);
+
 /* Structure storing statistics on how many call clobbers we have, and
    how many where avoided.  */
 
@@ -769,48 +774,6 @@ finalize_ssa_uses (gimple stmt)
 }
 
 
-/* Make SYMS be the set of symbols stored by STMT.  If SYMS is NULL or
-   empty, the storage used is freed up.  */
-
-static void
-gimple_set_stored_syms (gimple stmt, bitmap syms)
-{
-  gcc_assert (gimple_has_mem_ops (stmt));
-
-  if (syms == NULL)
-    BITMAP_FREE (stmt->with_mem_ops.stores);
-  else
-    {
-      if (stmt->with_mem_ops.stores == NULL)
-	stmt->with_mem_ops.stores = BITMAP_ALLOC (&operands_bitmap_obstack);
-
-      bitmap_copy (stmt->with_mem_ops.stores, syms);
-    }
-}
-
-
-/* Deep copy SYMS into the set of symbols loaded by STMT.  If SYMS is
-   NULL or empty, the storage used is freed up.  */
-
-static void
-gimple_set_loaded_syms (gimple stmt, bitmap syms)
-{
-  gcc_assert (gimple_has_mem_ops (stmt));
-
-  if (syms == NULL)
-    BITMAP_FREE (stmt->with_mem_ops.loads);
-  else
-    {
-      if (stmt->with_mem_ops.loads == NULL)
-	stmt->with_mem_ops.loads = BITMAP_ALLOC (&operands_bitmap_obstack);
-
-      bitmap_copy (stmt->with_mem_ops.loads, syms);
-    }
-}
-
-
-
-
 /* Takes elements from BUILD_VDEFS and turns them into vdef operands of
    STMT.  */
 
@@ -822,7 +785,7 @@ finalize_ssa_vdefs (gimple stmt)
   voptype_p old_ops, ptr, last;
 
   /* Set the symbols referenced by STMT.  */
-  gimple_set_stored_syms (stmt, build_stores);
+  gimple_set_stored_syms (stmt, build_stores, &operands_bitmap_obstack);
 
   /* If aliases have not been computed, do not instantiate a virtual
      operator on STMT.  Initially, we only compute the SSA form on
@@ -917,7 +880,7 @@ finalize_ssa_vuse_ops (gimple stmt)
   VEC(tree,heap) *new_ops;
 
   /* Set the symbols referenced by STMT.  */
-  gimple_set_loaded_syms (stmt, build_loads);
+  gimple_set_loaded_syms (stmt, build_loads, &operands_bitmap_obstack);
 
   /* If aliases have not been computed, do not instantiate a virtual
      operator on STMT.  Initially, we only compute the SSA form on
@@ -2295,12 +2258,12 @@ free_stmt_operands (gimple stmt)
     }
 
   if (gimple_has_ops (stmt))
-    BITMAP_FREE (stmt->with_ops.addresses_taken);
+    gimple_set_addresses_taken (stmt, NULL);
 
   if (gimple_has_mem_ops (stmt))
     {
-      gimple_set_stored_syms (stmt, NULL);
-      gimple_set_loaded_syms (stmt, NULL);
+      gimple_set_stored_syms (stmt, NULL, &operands_bitmap_obstack);
+      gimple_set_loaded_syms (stmt, NULL, &operands_bitmap_obstack);
     }
 }
 
@@ -2342,8 +2305,10 @@ copy_virtual_operands (gimple dest, gimple src)
   gimple_set_vdef_ops (dest, NULL);
   gimple_set_vuse_ops (dest, NULL);
 
-  gimple_set_stored_syms (dest, gimple_stored_syms (src));
-  gimple_set_loaded_syms (dest, gimple_loaded_syms (src));
+  gimple_set_stored_syms (dest, gimple_stored_syms (src),
+			  &operands_bitmap_obstack);
+  gimple_set_loaded_syms (dest, gimple_loaded_syms (src),
+			  &operands_bitmap_obstack);
 
   /* Copy all the VUSE operators and corresponding operands.  */
   dest_vuses = &vuse;
@@ -2512,7 +2477,7 @@ void
 gimple_add_to_addresses_taken (gimple stmt, tree ref)
 {
   gcc_assert (gimple_has_ops (stmt));
-  add_to_addressable_set (ref, &stmt->with_ops.addresses_taken);
+  add_to_addressable_set (ref, gimple_addresses_taken_ptr (stmt));
 }
 
 

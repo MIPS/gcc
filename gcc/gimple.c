@@ -36,8 +36,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "value-prof.h"
 #include "flags.h"
 
-#define DEFGSCODE(SYM, NAME)	NAME,
+#define DEFGSCODE(SYM, NAME, STRUCT)	NAME,
 const char *const gimple_code_name[] = {
+#include "gimple.def"
+};
+#undef DEFGSCODE
+
+/* All the tuples have their operand vector at the very bottom
+   of the structure.  Therefore, the offset required to find the
+   operands vector the size of the structure minus the size of the 1
+   element tree array at the end (see gimple_ops).  */
+#define DEFGSCODE(SYM, NAME, STRUCT)	(sizeof (STRUCT) - sizeof (tree)),
+const size_t gimple_ops_offset_[] = {
 #include "gimple.def"
 };
 #undef DEFGSCODE
@@ -62,6 +72,11 @@ static const char * const gimple_alloc_kind_names[] = {
 /* A cache of gimple_seq objects.  Sequences are created and destroyed
    fairly often during gimplification.  */
 static GTY ((deletable)) struct gimple_seq_d *gimple_seq_cache;
+
+/* Private API manipulation functions shared only with some
+   other files.  */
+extern void gimple_set_stored_syms (gimple, bitmap, bitmap_obstack *);
+extern void gimple_set_loaded_syms (gimple, bitmap, bitmap_obstack *);
 
 /* Gimple tuple constructors.
    Note: Any constructor taking a ``gimple_seq'' as a parameter, can
@@ -174,7 +189,7 @@ gimple_size (enum gimple_code code)
     case GIMPLE_WITH_CLEANUP_EXPR:
       return sizeof (struct gimple_statement_wce);
     case GIMPLE_CHANGE_DYNAMIC_TYPE:
-      return sizeof (struct gimple_statement_change_dynamic_type);
+      return sizeof (struct gimple_statement_with_ops);
     default:
       break;
     }
@@ -183,43 +198,36 @@ gimple_size (enum gimple_code code)
 }
 
 
-/* Allocate memory for a GIMPLE statement with code CODE.  */
+/* Allocate memory for a GIMPLE statement with code CODE and NUM_OPS
+   operands.  */
 
 static gimple
-gimple_alloc (enum gimple_code code)
+gimple_alloc (enum gimple_code code, unsigned num_ops)
 {
-  size_t size = gimple_size (code);
+  size_t size;
   gimple stmt;
 
-#ifdef GATHER_STATISTICS
-  enum gimple_alloc_kind kind = gimple_alloc_kind (code);
+  size = gimple_size (code);
+  if (num_ops > 0)
+    size += sizeof (tree) * (num_ops - 1);
 
-  gimple_alloc_counts[(int) kind]++;
-  /* Statements with operands take more space.  Add that later.  */
-  gimple_alloc_sizes[(int) kind] += size;
+#ifdef GATHER_STATISTICS
+  {
+    enum gimple_alloc_kind kind = gimple_alloc_kind (code);
+    gimple_alloc_counts[(int) kind]++;
+    gimple_alloc_sizes[(int) kind] += size;
+  }
 #endif
 
   stmt = ggc_alloc_cleared (size);
   gimple_set_code (stmt, code);
+  gimple_set_num_ops (stmt, num_ops);
+
+  /* Do not call gimple_set_modified here as it has other side
+     effects and this tuple is still not completely built.  */
+  stmt->gsbase.modified = 1;
+
   return stmt;
-}
-
-
-/* Allocate memory for NUM operands for statement STMT.  The allocated
-   memory is not returned.  After calling this function, the new
-   operand vector will be available via gimple_op.  */
-
-static void
-gimple_alloc_ops (gimple stmt, size_t num_ops)
-{
-  unsigned int size = sizeof (tree) * num_ops;
-
-  stmt->with_ops.op = ggc_alloc_cleared (size);
-  stmt->with_ops.num_ops = num_ops;
-  stmt->with_ops.modified = 1;
-#ifdef GATHER_STATISTICS
-  gimple_alloc_sizes[(int) gimple_alloc_kind (gimple_code (stmt))] += size;
-#endif
 }
 
 
@@ -229,12 +237,10 @@ gimple_alloc_ops (gimple stmt, size_t num_ops)
 
 static gimple
 gimple_build_with_ops (enum gimple_code code, enum tree_code subcode,
-		       size_t num_ops)
+		       unsigned num_ops)
 {
-  gimple s = gimple_alloc (code);
+  gimple s = gimple_alloc (code, num_ops);
   gimple_set_subcode (s, subcode);
-  if (num_ops > 0)
-    gimple_alloc_ops (s, num_ops);
 
   return s;
 }
@@ -256,10 +262,10 @@ gimple_build_return (tree retval)
    GIMPLE_CALL statement to function FN with NARGS arguments.  */
 
 static inline gimple
-gimple_build_call_1 (tree fn, size_t nargs)
+gimple_build_call_1 (tree fn, unsigned nargs)
 {
   gimple s = gimple_build_with_ops (GIMPLE_CALL, 0, nargs + 3);
-  s->with_ops.op[1] = fn;
+  gimple_set_op (s, 1, fn);
   return s;
 }
 
@@ -270,8 +276,8 @@ gimple_build_call_1 (tree fn, size_t nargs)
 gimple
 gimple_build_call_vec (tree fn, VEC(tree, heap) *args)
 {
-  size_t i;
-  size_t nargs = VEC_length (tree, args);
+  unsigned i;
+  unsigned nargs = VEC_length (tree, args);
   gimple call = gimple_build_call_1 (fn, nargs);
 
   for (i = 0; i < nargs; i++)
@@ -285,11 +291,11 @@ gimple_build_call_vec (tree fn, VEC(tree, heap) *args)
    arguments.  The ... are the arguments.  */
 
 gimple
-gimple_build_call (tree fn, size_t nargs, ...)
+gimple_build_call (tree fn, unsigned nargs, ...)
 {
   va_list ap;
   gimple call;
-  size_t i;
+  unsigned i;
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL || is_gimple_call_addr (fn));
 
@@ -311,7 +317,7 @@ gimple_build_call (tree fn, size_t nargs, ...)
 gimple
 gimple_build_call_from_tree (tree t)
 {
-  size_t i, nargs;
+  unsigned i, nargs;
   gimple call;
   tree fndecl = get_callee_fndecl (t);
 
@@ -396,7 +402,7 @@ gimple
 gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
                               tree op2)
 {
-  size_t num_ops;
+  unsigned num_ops;
   gimple p;
 
   /* Need 1 operand for LHS and 1 or 2 for the RHS (depending on the
@@ -514,7 +520,7 @@ gimple_build_goto (tree dest)
 gimple 
 gimple_build_nop (void)
 {
-  return gimple_alloc (GIMPLE_NOP);
+  return gimple_alloc (GIMPLE_NOP, 0);
 }
 
 
@@ -525,7 +531,7 @@ gimple_build_nop (void)
 gimple
 gimple_build_bind (tree vars, gimple_seq body, tree block)
 {
-  gimple p = gimple_alloc (GIMPLE_BIND);
+  gimple p = gimple_alloc (GIMPLE_BIND, 0);
   gimple_bind_set_vars (p, vars);
   if (body)
     gimple_bind_set_body (p, body);
@@ -542,8 +548,8 @@ gimple_build_bind (tree vars, gimple_seq body, tree block)
    */
 
 static inline gimple
-gimple_build_asm_1 (const char *string, size_t ninputs, size_t noutputs, 
-                    size_t nclobbers)
+gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs, 
+                    unsigned nclobbers)
 {
   gimple p;
   int size = strlen (string);
@@ -554,6 +560,7 @@ gimple_build_asm_1 (const char *string, size_t ninputs, size_t noutputs,
   p->gimple_asm.no = noutputs;
   p->gimple_asm.nc = nclobbers;
   p->gimple_asm.string = ggc_alloc_string (string, size);
+
 #ifdef GATHER_STATISTICS
   gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
 #endif
@@ -576,7 +583,8 @@ gimple_build_asm_vec (const char *string, VEC(tree,gc)* inputs,
                       VEC(tree,gc)* outputs, VEC(tree,gc)* clobbers)
 {
   gimple p;
-  size_t i;
+  unsigned i;
+
   p = gimple_build_asm_1 (string,
                           VEC_length (tree, inputs),
                           VEC_length (tree, outputs), 
@@ -603,11 +611,11 @@ gimple_build_asm_vec (const char *string, VEC(tree,gc)* inputs,
    ... are trees for each input, output and clobbered register.  */
 
 gimple
-gimple_build_asm (const char *string, size_t ninputs, size_t noutputs, 
-		  size_t nclobbers, ...)
+gimple_build_asm (const char *string, unsigned ninputs, unsigned noutputs, 
+		  unsigned nclobbers, ...)
 {
   gimple p;
-  size_t i;
+  unsigned i;
   va_list ap;
   
   p = gimple_build_asm_1 (string, ninputs, noutputs, nclobbers);
@@ -636,7 +644,7 @@ gimple_build_asm (const char *string, size_t ninputs, size_t noutputs,
 gimple
 gimple_build_catch (tree types, gimple_seq handler)
 {
-  gimple p = gimple_alloc (GIMPLE_CATCH);
+  gimple p = gimple_alloc (GIMPLE_CATCH, 0);
   gimple_catch_set_types (p, types);
   if (handler)
     gimple_catch_set_handler (p, handler);
@@ -652,7 +660,7 @@ gimple_build_catch (tree types, gimple_seq handler)
 gimple
 gimple_build_eh_filter (tree types, gimple_seq failure)
 {
-  gimple p = gimple_alloc (GIMPLE_EH_FILTER);
+  gimple p = gimple_alloc (GIMPLE_EH_FILTER, 0);
   gimple_eh_filter_set_types (p, types);
   if (failure)
     gimple_eh_filter_set_failure (p, failure);
@@ -674,7 +682,7 @@ gimple_build_try (gimple_seq eval, gimple_seq cleanup,
   gimple p;
 
   gcc_assert (kind == GIMPLE_TRY_CATCH || kind == GIMPLE_TRY_FINALLY);
-  p = gimple_alloc (GIMPLE_TRY);
+  p = gimple_alloc (GIMPLE_TRY, 0);
   gimple_set_subcode (p, kind);
   if (eval)
     gimple_try_set_eval (p, eval);
@@ -691,7 +699,7 @@ gimple_build_try (gimple_seq eval, gimple_seq cleanup,
 gimple
 gimple_build_wce (gimple_seq cleanup)
 {
-  gimple p = gimple_alloc (GIMPLE_WITH_CLEANUP_EXPR);
+  gimple p = gimple_alloc (GIMPLE_WITH_CLEANUP_EXPR, 0);
   if (cleanup)
     gimple_wce_set_cleanup (p, cleanup);
 
@@ -707,7 +715,7 @@ gimple_build_wce (gimple_seq cleanup)
 gimple
 gimple_build_resx (int region)
 {
-  gimple p = gimple_alloc (GIMPLE_RESX);
+  gimple p = gimple_alloc (GIMPLE_RESX, 0);
   gimple_resx_set_region (p, region);
   return p;
 }
@@ -719,7 +727,7 @@ gimple_build_resx (int region)
    DEFAULT_LABEL is the default label for the switch statement.  */
 
 static inline gimple 
-gimple_build_switch_1 (size_t nlabels, tree index, tree default_label)
+gimple_build_switch_1 (unsigned nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
   gimple p = gimple_build_with_ops (GIMPLE_SWITCH, 0, nlabels + 1 + 1);
@@ -736,10 +744,10 @@ gimple_build_switch_1 (size_t nlabels, tree index, tree default_label)
    ... are the labels excluding the default.  */
 
 gimple 
-gimple_build_switch (size_t nlabels, tree index, tree default_label, ...)
+gimple_build_switch (unsigned nlabels, tree index, tree default_label, ...)
 {
   va_list al;
-  size_t i;
+  unsigned i;
   gimple p;
   
   p = gimple_build_switch_1 (nlabels, index, default_label);
@@ -763,8 +771,8 @@ gimple_build_switch (size_t nlabels, tree index, tree default_label, ...)
 gimple
 gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 {
-  size_t i;
-  size_t nlabels = VEC_length (tree, args);
+  unsigned i;
+  unsigned nlabels = VEC_length (tree, args);
   gimple p = gimple_build_switch_1 (nlabels, index, default_label);
 
   /*  Put labels in labels[1 - (nlabels + 1)].
@@ -784,7 +792,7 @@ gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
 gimple 
 gimple_build_omp_critical (gimple_seq body, tree name)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_CRITICAL);
+  gimple p = gimple_alloc (GIMPLE_OMP_CRITICAL, 0);
   gimple_omp_critical_set_name (p, name);
   if (body)
     gimple_omp_set_body (p, body);
@@ -809,7 +817,7 @@ gimple_build_omp_for (gimple_seq body, tree clauses, tree index,
                       tree initial, tree final, tree incr, 
                       gimple_seq pre_body, enum tree_code omp_for_cond)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_FOR);
+  gimple p = gimple_alloc (GIMPLE_OMP_FOR, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
@@ -836,7 +844,7 @@ gimple
 gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn, 
                        tree data_arg)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL);
+  gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_parallel_set_clauses (p, clauses);
@@ -854,7 +862,7 @@ gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
 gimple
 gimple_build_omp_section (gimple_seq body)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_SECTION);
+  gimple p = gimple_alloc (GIMPLE_OMP_SECTION, 0);
   if (body)
     gimple_omp_set_body (p, body);
 
@@ -869,7 +877,7 @@ gimple_build_omp_section (gimple_seq body)
 gimple 
 gimple_build_omp_master (gimple_seq body)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_MASTER);
+  gimple p = gimple_alloc (GIMPLE_OMP_MASTER, 0);
   if (body)
     gimple_omp_set_body (p, body);
 
@@ -885,7 +893,7 @@ gimple_build_omp_master (gimple_seq body)
 gimple 
 gimple_build_omp_continue (tree control_def, tree control_use)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_CONTINUE);
+  gimple p = gimple_alloc (GIMPLE_OMP_CONTINUE, 0);
   gimple_omp_continue_set_control_def (p, control_def);
   gimple_omp_continue_set_control_use (p, control_use);
   return p;
@@ -899,7 +907,7 @@ gimple_build_omp_continue (tree control_def, tree control_use)
 gimple 
 gimple_build_omp_ordered (gimple_seq body)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ORDERED);
+  gimple p = gimple_alloc (GIMPLE_OMP_ORDERED, 0);
   if (body)
     gimple_omp_set_body (p, body);
 
@@ -913,7 +921,7 @@ gimple_build_omp_ordered (gimple_seq body)
 gimple 
 gimple_build_omp_return (bool wait_p)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_RETURN);
+  gimple p = gimple_alloc (GIMPLE_OMP_RETURN, 0);
   if (wait_p)
     gimple_omp_return_set_nowait (p);
 
@@ -930,7 +938,7 @@ gimple_build_omp_return (bool wait_p)
 gimple 
 gimple_build_omp_sections (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_SECTIONS);
+  gimple p = gimple_alloc (GIMPLE_OMP_SECTIONS, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_sections_set_clauses (p, clauses);
@@ -944,7 +952,7 @@ gimple_build_omp_sections (gimple_seq body, tree clauses)
 gimple
 gimple_build_omp_sections_switch (void)
 {
-  return gimple_alloc (GIMPLE_OMP_SECTIONS_SWITCH);
+  return gimple_alloc (GIMPLE_OMP_SECTIONS_SWITCH, 0);
 }
 
 
@@ -957,7 +965,7 @@ gimple_build_omp_sections_switch (void)
 gimple 
 gimple_build_omp_single (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_SINGLE);
+  gimple p = gimple_alloc (GIMPLE_OMP_SINGLE, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_single_set_clauses (p, clauses);
@@ -972,7 +980,7 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
 gimple
 gimple_build_cdt (tree type, tree ptr)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_CHANGE_DYNAMIC_TYPE, 0, 1);
+  gimple p = gimple_build_with_ops (GIMPLE_CHANGE_DYNAMIC_TYPE, 0, 2);
   gimple_cdt_set_new_type (p, type);
   gimple_cdt_set_location (p, ptr);
 
@@ -985,7 +993,7 @@ gimple_build_cdt (tree type, tree ptr)
 gimple
 gimple_build_omp_atomic_load (tree lhs, tree rhs)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD);
+  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0);
   gimple_omp_atomic_load_set_lhs (p, lhs);
   gimple_omp_atomic_load_set_rhs (p, rhs);
   return p;
@@ -998,7 +1006,7 @@ gimple_build_omp_atomic_load (tree lhs, tree rhs)
 gimple
 gimple_build_omp_atomic_store (tree val)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_STORE);
+  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0);
   gimple_omp_atomic_store_set_val (p, val);
   return p;
 }
@@ -1040,7 +1048,7 @@ gimple_range_check_failed (const_gimple gs, const char *file, int line,
 		           enum gimple_code c2)
 {
   char *buffer;
-  size_t length = 0;
+  unsigned length = 0;
   enum gimple_code c;
 
   for (c = c1; c <= c2; ++c)
@@ -1245,9 +1253,9 @@ walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
 		 struct walk_stmt_info *wi)
 {
   tree ret;
-  size_t noutputs;
+  unsigned noutputs;
   const char **oconstraints;
-  size_t i;
+  unsigned i;
   const char *constraint;
   bool allows_mem, allows_reg, is_inout;
 
@@ -1318,7 +1326,7 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 		struct walk_stmt_info *wi)
 {
   struct pointer_set_t *pset = (wi) ? wi->pset : NULL;
-  size_t i;
+  unsigned i;
   tree ret = NULL_TREE;
 
   switch (gimple_code (stmt))
@@ -1790,11 +1798,11 @@ gimple_set_bb (gimple stmt, basic_block bb)
       uid = LABEL_DECL_UID (t);
       if (uid == -1)
 	{
-	  size_t old_len = VEC_length (basic_block, label_to_block_map);
+	  unsigned old_len = VEC_length (basic_block, label_to_block_map);
 	  LABEL_DECL_UID (t) = uid = cfun->cfg->last_label_uid++;
-	  if (old_len <= (size_t) uid)
+	  if (old_len <= (unsigned) uid)
 	    {
-	      size_t new_len = 3 * uid / 2;
+	      unsigned new_len = 3 * uid / 2;
 
 	      VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
 				     new_len);
@@ -1853,8 +1861,11 @@ gimple_fold (const_gimple stmt)
 }
 
 
-/* Modify the RHS of assignment STMT using the operands in the
-   expression tree EXPR.
+/* Modify the RHS of the assignment pointed-to by GSI using the
+   operands in the expression tree EXPR.
+
+   NOTE: The statement pointed-to by GSI may be reallocated if it
+   did not have enough operand slots.
 
    This function is useful to convert an existing tree expression into
    the flat representation used for the RHS of a GIMPLE assignment.
@@ -1868,36 +1879,47 @@ gimple_fold (const_gimple stmt)
    expression tree to be built.  */
 
 void
-gimple_assign_set_rhs_from_tree (gimple stmt, tree expr)
+gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *gsi, tree expr)
 {
   enum tree_code subcode;
   tree op1, op2;
 
   extract_ops_from_tree (expr, &subcode, &op1, &op2);
-  gimple_assign_set_rhs_with_ops (stmt, subcode, op1, op2);
+  gimple_assign_set_rhs_with_ops (gsi, subcode, op1, op2);
 }
 
 
-/* Set the RHS of assignment statement STMT to CODE with operands OP1 and
-   OP2.  */
+/* Set the RHS of assignment statement pointed-to by GSI to CODE with
+   operands OP1 and OP2.
+
+   NOTE: The statement pointed-to by GSI may be reallocated if it
+   did not have enough operand slots.  */
 
 void
-gimple_assign_set_rhs_with_ops (gimple stmt, enum tree_code code, tree op1,
-			        tree op2)
+gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
+				tree op1, tree op2)
 {
-  size_t num_ops = get_gimple_rhs_num_ops (code);
+  unsigned new_rhs_ops = get_gimple_rhs_num_ops (code);
+  gimple stmt = gsi_stmt (*gsi);
 
-  /* Reallocate the memory operands vector, if necessary.  */
-  if (get_gimple_rhs_num_ops (gimple_assign_rhs_code (stmt)) != num_ops)
+  /* If the new CODE needs more operands, allocate a new statement.  */
+  if (gimple_num_ops (stmt) < new_rhs_ops + 1)
     {
       tree lhs = gimple_assign_lhs (stmt);
-      gimple_alloc_ops (stmt, num_ops + 1);
+      gimple new_stmt = gimple_alloc (gimple_code (stmt), new_rhs_ops + 1);
+      memcpy (new_stmt, stmt, gimple_size (gimple_code (stmt)));
+      gsi_replace (gsi, new_stmt, true);
+      stmt = new_stmt;
+
+      /* The LHS needs to be reset as this also changes the SSA name
+	 on the LHS.  */
       gimple_assign_set_lhs (stmt, lhs);
     }
 
+  gimple_set_num_ops (stmt, new_rhs_ops + 1);
   gimple_set_subcode (stmt, code);
   gimple_assign_set_rhs1 (stmt, op1);
-  if (num_ops > 1)
+  if (new_rhs_ops > 1)
     gimple_assign_set_rhs2 (stmt, op2);
 }
 
@@ -1946,8 +1968,8 @@ gimple
 gimple_copy (gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
-  size_t num_ops = gimple_num_ops (stmt);
-  gimple copy = gimple_alloc (code);
+  unsigned num_ops = gimple_num_ops (stmt);
+  gimple copy = gimple_alloc (code, num_ops);
   unsigned i;
 
   /* Shallow copy all the fields from STMT.  */
@@ -2045,25 +2067,30 @@ gimple_copy (gimple stmt)
   /* Make copy of operands.  */
   if (num_ops > 0)
     {
-      gimple_alloc_ops (copy, num_ops);
       for (i = 0; i < num_ops; i++)
 	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
-    }
 
-  /* Clear out SSA operand vectors on COPY.  */
-  if (gimple_has_ops (stmt))
-    {
-      gimple_set_def_ops (copy, NULL);
-      gimple_set_use_ops (copy, NULL);
-      copy->with_ops.addresses_taken = NULL;
-    }
+      /* Clear out SSA operand vectors on COPY.  Note that we cannot
+	 call the API functions for setting addresses_taken, stores
+	 and loads.  These functions free the previous values, and we
+	 cannot do that on COPY as it will affect the original
+	 statement.  */
+      if (gimple_has_ops (stmt))
+	{
+	  gimple_set_def_ops (copy, NULL);
+	  gimple_set_use_ops (copy, NULL);
+	  copy->gsops.opbase.addresses_taken = NULL;
+	}
 
-  if (gimple_has_mem_ops (stmt))
-    {
-      gimple_set_vdef_ops (copy, NULL);
-      gimple_set_vuse_ops (copy, NULL);
-      stmt->with_mem_ops.stores = NULL;
-      stmt->with_mem_ops.loads = NULL;
+      if (gimple_has_mem_ops (stmt))
+	{
+	  gimple_set_vdef_ops (copy, NULL);
+	  gimple_set_vuse_ops (copy, NULL);
+	  copy->gsmem.membase.stores = NULL;
+	  copy->gsmem.membase.loads = NULL;
+	}
+
+      update_stmt (copy);
     }
 
   return copy;
@@ -2090,8 +2117,9 @@ gimple_copy_no_def_use (gimple stmt)
   if (code == GIMPLE_PHI)
     {
       unsigned i;
-      size_t size = (sizeof (struct gimple_statement_phi)
-                     + (sizeof (struct phi_arg_d) * (stmt->gimple_phi.capacity - 1)));
+      unsigned size = (sizeof (struct gimple_statement_phi)
+                     + (sizeof (struct phi_arg_d)
+		        * (stmt->gimple_phi.capacity - 1)));
       gimple copy = ggc_alloc_cleared (size);
 
       memcpy (copy, stmt, size);
@@ -2100,26 +2128,19 @@ gimple_copy_no_def_use (gimple stmt)
       {
         struct phi_arg_d * arg_ptr = gimple_phi_arg (copy, i);
         arg_ptr->def = unshare_expr (gimple_phi_arg_def (stmt, i));
-        /*
-        arg_ptr->imm_use.prev = &arg_ptr->imm_use;
-        arg_ptr->imm_use.next = &arg_ptr->imm_use;
-        arg_ptr->imm_use.loc.ssa_name = NULL;
-        arg_ptr->imm_use.use = NULL;
-        */
       }
 
       return copy;
     }
   else
     {
-      size_t num_ops = gimple_num_ops (stmt);
-      gimple copy = gimple_alloc (code);
+      unsigned num_ops = gimple_num_ops (stmt);
+      gimple copy = gimple_alloc (code, num_ops);
       unsigned i;
 
       memcpy (copy, stmt, gimple_size (code));
       if (num_ops > 0)
       {
-        gimple_alloc_ops (copy, num_ops);
         for (i = 0; i < num_ops; i++)
           gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
 
@@ -2140,7 +2161,7 @@ gimple_set_modified (gimple s, bool modifiedp)
 {
   if (gimple_has_ops (s))
     {
-      s->with_ops.modified = (unsigned) modifiedp;
+      s->gsbase.modified = (unsigned) modifiedp;
 
       if (modifiedp
 	  && cfun->gimple_df
@@ -2160,18 +2181,17 @@ gimple_set_modified (gimple s, bool modifiedp)
 bool
 gimple_has_side_effects (const_gimple s)
 {
-  size_t i;
+  unsigned i;
 
   /* We don't have to scan the arguments to check for
      volatile arguments, though, at present, we still
      do a scan to check for TREE_SIDE_EFFECTS.  */
-
   if (gimple_has_volatile_ops (s))
     return true;
 
   if (is_gimple_call (s))
     {
-      size_t nargs = gimple_call_num_args (s);
+      unsigned nargs = gimple_call_num_args (s);
 
       if (!(gimple_call_flags (s) & (ECF_CONST | ECF_PURE)))
         return true;
@@ -2217,11 +2237,11 @@ gimple_has_side_effects (const_gimple s)
 bool
 gimple_rhs_has_side_effects (const_gimple s)
 {
-  size_t i;
+  unsigned i;
 
   if (is_gimple_call (s))
     {
-      size_t nargs = gimple_call_num_args (s);
+      unsigned nargs = gimple_call_num_args (s);
 
       if (!(gimple_call_flags (s) & (ECF_CONST | ECF_PURE)))
         return true;
@@ -2274,7 +2294,7 @@ gimple_rhs_has_side_effects (const_gimple s)
 bool
 gimple_could_trap_p (gimple s)
 {
-  size_t i;
+  unsigned i;
   tree t, div = NULL_TREE;
   enum tree_code op;
 
@@ -2322,7 +2342,7 @@ gimple_could_trap_p (gimple s)
 void
 gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 {
-  size_t i, num_ops = gimple_num_ops (stmt);
+  unsigned i, num_ops = gimple_num_ops (stmt);
 
   for (i = 0; i < num_ops; i++)
     {
@@ -2370,6 +2390,46 @@ dump_gimple_statistics (void)
 #else
   fprintf (stderr, "No gimple statistics\n");
 #endif
+}
+
+
+/* Deep copy SYMS into the set of symbols stored by STMT.  If SYMS is
+   NULL or empty, the storage used is freed up.  */
+
+void
+gimple_set_stored_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
+{
+  gcc_assert (gimple_has_mem_ops (stmt));
+
+  if (syms == NULL || bitmap_empty_p (syms))
+    BITMAP_FREE (stmt->gsmem.membase.stores);
+  else
+    {
+      if (stmt->gsmem.membase.stores == NULL)
+	stmt->gsmem.membase.stores = BITMAP_ALLOC (obs);
+
+      bitmap_copy (stmt->gsmem.membase.stores, syms);
+    }
+}
+
+
+/* Deep copy SYMS into the set of symbols loaded by STMT.  If SYMS is
+   NULL or empty, the storage used is freed up.  */
+
+void
+gimple_set_loaded_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
+{
+  gcc_assert (gimple_has_mem_ops (stmt));
+
+  if (syms == NULL || bitmap_empty_p (syms))
+    BITMAP_FREE (stmt->gsmem.membase.loads);
+  else
+    {
+      if (stmt->gsmem.membase.loads == NULL)
+	stmt->gsmem.membase.loads = BITMAP_ALLOC (obs);
+
+      bitmap_copy (stmt->gsmem.membase.loads, syms);
+    }
 }
 
 #include "gt-gimple.h"

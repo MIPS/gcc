@@ -81,9 +81,9 @@ static tree gimple_divmod_fixed_value (gimple, tree, int, gcov_type, gcov_type);
 static tree gimple_mod_pow2 (gimple, int, gcov_type, gcov_type);
 static tree gimple_mod_subtract (gimple, int, int, int, gcov_type, gcov_type,
 				 gcov_type);
-static bool gimple_divmod_fixed_value_transform (gimple);
-static bool gimple_mod_pow2_value_transform (gimple);
-static bool gimple_mod_subtract_transform (gimple);
+static bool gimple_divmod_fixed_value_transform (gimple_stmt_iterator *);
+static bool gimple_mod_pow2_value_transform (gimple_stmt_iterator *);
+static bool gimple_mod_subtract_transform (gimple_stmt_iterator *);
 static bool gimple_stringops_transform (gimple_stmt_iterator *);
 static bool gimple_ic_transform (gimple);
 
@@ -484,9 +484,9 @@ gimple_value_profile_transformations (void)
 	     current statement remain valid (although possibly
 	     modified) upon return.  */
 	  if (flag_value_profile_transformations
-	      && (gimple_mod_subtract_transform (stmt)
-		  || gimple_divmod_fixed_value_transform (stmt)
-		  || gimple_mod_pow2_value_transform (stmt)
+	      && (gimple_mod_subtract_transform (&gsi)
+		  || gimple_divmod_fixed_value_transform (&gsi)
+		  || gimple_mod_pow2_value_transform (&gsi)
 		  || gimple_stringops_transform (&gsi)
 		  || gimple_ic_transform (stmt)))
 	    {
@@ -602,14 +602,16 @@ gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
 /* Do transform 1) on INSN if applicable.  */
 
 static bool
-gimple_divmod_fixed_value_transform (gimple stmt)
+gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
 {
   histogram_value histogram;
   enum tree_code code;
   gcov_type val, count, all;
   tree result, value, tree_val;
   int prob;
+  gimple stmt;
 
+  stmt = gsi_stmt (*si);
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
@@ -661,7 +663,7 @@ gimple_divmod_fixed_value_transform (gimple stmt)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
 
-  gimple_assign_set_rhs_from_tree (stmt, result);
+  gimple_assign_set_rhs_from_tree (si, result);
 
   return true;
 }
@@ -756,14 +758,16 @@ gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
 
 /* Do transform 2) on INSN if applicable.  */
 static bool
-gimple_mod_pow2_value_transform (gimple stmt)
+gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
 {
   histogram_value histogram;
   enum tree_code code;
   gcov_type count, wrong_values, all;
   tree lhs_type, result, value;
   int prob;
+  gimple stmt;
 
+  stmt = gsi_stmt (*si);
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
@@ -808,7 +812,7 @@ gimple_mod_pow2_value_transform (gimple stmt)
 
   result = gimple_mod_pow2 (stmt, prob, count, all);
 
-  gimple_assign_set_rhs_from_tree (stmt, result);
+  gimple_assign_set_rhs_from_tree (si, result);
 
   return true;
 }
@@ -928,10 +932,10 @@ gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
 }
 
 
-/* Do transforms 3) and 4) on STMT if applicable.  */
+/* Do transforms 3) and 4) on the statement pointed-to by SI if applicable.  */
 
 static bool
-gimple_mod_subtract_transform (gimple stmt)
+gimple_mod_subtract_transform (gimple_stmt_iterator *si)
 {
   histogram_value histogram;
   enum tree_code code;
@@ -940,7 +944,9 @@ gimple_mod_subtract_transform (gimple stmt)
   int prob1, prob2;
   unsigned int i, steps;
   gcov_type count1, count2;
+  gimple stmt;
 
+  stmt = gsi_stmt (*si);
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
@@ -1005,7 +1011,7 @@ gimple_mod_subtract_transform (gimple stmt)
      and will need to be changed if "steps" can change.  */
   result = gimple_mod_subtract (stmt, prob1, prob2, i, count1, count2, all);
 
-  gimple_assign_set_rhs_from_tree (stmt, result);
+  gimple_assign_set_rhs_from_tree (si, result);
 
   return true;
 }

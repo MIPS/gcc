@@ -796,6 +796,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #define CONST_CAST_TREE(X) CONST_CAST(union tree_node *, (X))
 #define CONST_CAST_RTX(X) CONST_CAST(struct rtx_def *, (X))
 #define CONST_CAST_BB(X) CONST_CAST(struct basic_block_def *, (X))
+#define CONST_CAST_GIMPLE(X) CONST_CAST(union gimple_statement_d *, (X))
 
 /* Activate -Wcast-qual as a warning (not an error/-Werror).  */
 #if GCC_VERSION >= 4003

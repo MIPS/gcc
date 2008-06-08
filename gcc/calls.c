@@ -548,7 +548,9 @@ setjmp_call_p (const_tree fndecl)
   return special_function_p (fndecl, 0) & ECF_RETURNS_TWICE;
 }
 
-/* Return true when an expression stmt contains alloca call.  */
+
+/* Return true if STMT is an alloca call.  */
+
 bool
 gimple_alloca_call_p (const_gimple stmt)
 {

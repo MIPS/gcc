@@ -2628,13 +2628,15 @@ ccp_fold_builtin (gimple stmt)
   return result;
 }
 
-/* Attempt to fold an assignment statement.  Return true if any changes were
-   made.  The statement is modified in place, but its RHS class may change.
-   It is assumed that the operands have been previously folded.  */
+/* Attempt to fold an assignment statement pointed-to by SI.  Return true if
+   any changes were made.  The statement is modified in place, but its RHS
+   class may change. It is assumed that the operands have been previously
+   folded.  */
 
 static bool
-fold_gimple_assign (gimple stmt)
+fold_gimple_assign (gimple_stmt_iterator *si)
 {
+  gimple stmt = gsi_stmt (*si);
   enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
   tree result = NULL;
@@ -2666,14 +2668,14 @@ fold_gimple_assign (gimple stmt)
 
         if (result != rhs && valid_gimple_rhs_p (result))
           {
-            gimple_assign_set_rhs_from_tree (stmt, result);
+            gimple_assign_set_rhs_from_tree (si, result);
             return true;
           }
         else
           /* It is possible that fold_stmt_r simplified the RHS.
              Make sure that the subcode of this statement still
              reflects the principal operator of the rhs operand. */
-          gimple_assign_set_rhs_from_tree (stmt, rhs);
+          gimple_assign_set_rhs_from_tree (si, rhs);
       }
       break;
 
@@ -2687,7 +2689,7 @@ fold_gimple_assign (gimple stmt)
           STRIP_USELESS_TYPE_CONVERSION (result);
           if (valid_gimple_rhs_p (result))
             {
-              gimple_assign_set_rhs_from_tree (stmt, result);
+              gimple_assign_set_rhs_from_tree (si, result);
               return true;
             }
         }
@@ -2712,7 +2714,7 @@ fold_gimple_assign (gimple stmt)
           STRIP_USELESS_TYPE_CONVERSION (result);
           if (valid_gimple_rhs_p (result))
             {
-              gimple_assign_set_rhs_from_tree (stmt, result);
+              gimple_assign_set_rhs_from_tree (si, result);
               return true;
             }
         }
@@ -2841,7 +2843,8 @@ fold_stmt (gimple_stmt_iterator *gsi)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      changed |= fold_gimple_assign (stmt);
+      changed |= fold_gimple_assign (gsi);
+      stmt = gsi_stmt (*gsi);
       break;
     case GIMPLE_COND:
       changed |= fold_gimple_cond (stmt);
@@ -2884,6 +2887,7 @@ fold_stmt_inplace (gimple stmt)
   tree res;
   struct fold_stmt_r_data fold_stmt_r_data;
   struct walk_stmt_info wi;
+  gimple_stmt_iterator si;
 
   bool changed = false;
   bool inside_addr_expr = false;
@@ -2910,7 +2914,9 @@ fold_stmt_inplace (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      changed |= fold_gimple_assign (stmt);
+      si = gsi_for_stmt (stmt);
+      changed |= fold_gimple_assign (&si);
+      gcc_assert (gsi_stmt (si) == stmt);
       break;
     case GIMPLE_COND:
       changed |= fold_gimple_cond (stmt);

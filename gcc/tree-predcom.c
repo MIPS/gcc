@@ -1254,16 +1254,18 @@ replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
      appear as lhs or rhs of modify statement.  */
   gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
 
+  bsi = gsi_for_stmt (stmt);
+
   /* If we do not need to initialize NEW, just replace the use of OLD.  */
   if (!set)
     {
       gcc_assert (!in_lhs);
-      gimple_assign_set_rhs_from_tree (stmt, new);
+      gimple_assign_set_rhs_from_tree (&bsi, new);
+      stmt = gsi_stmt (bsi);
       update_stmt (stmt);
       return;
     }
 
-  bsi = gsi_for_stmt (stmt);
   if (in_lhs)
     {
       /* We have statement
@@ -2179,6 +2181,7 @@ static void
 remove_name_from_operation (gimple stmt, tree op)
 {
   tree other_op;
+  gimple_stmt_iterator si;
 
   gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
 
@@ -2187,7 +2190,12 @@ remove_name_from_operation (gimple stmt, tree op)
   else
     other_op = gimple_assign_rhs1 (stmt);
 
-  gimple_assign_set_rhs_from_tree (stmt, other_op);
+  si = gsi_for_stmt (stmt);
+  gimple_assign_set_rhs_from_tree (&si, other_op);
+
+  /* We should not have reallocated STMT.  */
+  gcc_assert (gsi_stmt (si) == stmt);
+
   update_stmt (stmt);
 }
 
@@ -2266,10 +2274,11 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
 					   gimple_assign_rhs1 (s1),
 					   gimple_assign_rhs2 (s1));
 
-  gimple_assign_set_rhs_with_ops (s1, code, new_name, tmp_name);
+  bsi = gsi_for_stmt (s1);
+  gimple_assign_set_rhs_with_ops (&bsi, code, new_name, tmp_name);
+  s1 = gsi_stmt (bsi);
   update_stmt (s1);
 
-  bsi = gsi_for_stmt (s1);
   gsi_insert_before (&bsi, new_stmt, GSI_SAME_STMT);
   gsi_insert_before (&bsi, tmp_stmt, GSI_SAME_STMT);
 

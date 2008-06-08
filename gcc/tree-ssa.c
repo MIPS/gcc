@@ -1006,17 +1006,17 @@ delete_tree_ssa (void)
 
 	  if (gimple_has_ops (stmt))
 	    {
-	      stmt->with_ops.def_ops = NULL;
-	      stmt->with_ops.use_ops = NULL;
-	      BITMAP_FREE (stmt->with_ops.addresses_taken);
+	      gimple_set_def_ops (stmt, NULL);
+	      gimple_set_use_ops (stmt, NULL);
+	      gimple_set_addresses_taken (stmt, NULL);
 	    }
 
 	  if (gimple_has_mem_ops (stmt))
 	    {
-	      stmt->with_mem_ops.vdef_ops = NULL;
-	      stmt->with_mem_ops.vuse_ops = NULL;
-	      BITMAP_FREE (stmt->with_mem_ops.stores);
-	      BITMAP_FREE (stmt->with_mem_ops.loads);
+	      gimple_set_vdef_ops (stmt, NULL);
+	      gimple_set_vuse_ops (stmt, NULL);
+	      BITMAP_FREE (stmt->gsmem.membase.stores);
+	      BITMAP_FREE (stmt->gsmem.membase.loads);
 	    }
 
 	  gimple_set_modified (stmt, true);
