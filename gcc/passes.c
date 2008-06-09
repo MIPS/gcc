@@ -621,9 +621,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_fre);
       NEXT_PASS (pass_dce);
-#if 0
       NEXT_PASS (pass_forwprop);
-#endif
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);

@@ -1028,11 +1028,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define GENERIC_NEXT(NODE)					\
   (GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
 
-/* Tests if expression is conversion expr (NOP_EXPRs or CONVERT_EXPRs).  */
+/* Tests if CODE is a conversion expr (NOP_EXPR or CONVERT_EXPR).  */
+#define IS_CONVERT_EXPR_CODE_P(CODE)				\
+  ((CODE) == NOP_EXPR || (CODE) == CONVERT_EXPR)
 
-#define CONVERT_EXPR_P(EXP)					\
-  (TREE_CODE (EXP) == NOP_EXPR					\
-   || TREE_CODE (EXP) == CONVERT_EXPR)
+/* Similarly, but accept an expressions instead of a tree code.  */
+#define CONVERT_EXPR_P(EXP)	IS_CONVERT_EXPR_CODE_P (TREE_CODE (EXP))
 
 /* Generate case for NOP_EXPR, CONVERT_EXPR.  */
 

@@ -1,3 +1,26 @@
+2008-06-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree.h (IS_CONVERT_EXPR_P): New.
+	(CONVERT_EXPR_P): Use IS_CONVERT_EXPR_P.
+	* tree-ssa-forwprop.c (get_prop_dest_stmt): Convert to tuples.
+	(get_prop_source_stmt): Same.
+	(can_propagate_from): Same.
+	(remove_prop_source_from_use): Same.
+	(combine_cond_expr_cond): Same.
+	(forward_propagate_into_cond): Same.
+	(tidy_after_forward_propagate_addr): Same.
+	(forward_propagate_addr_into_variable_array_index): Same.
+	(forward_propagate_addr_expr_1): Same.
+	(forward_propagate_addr_expr): Same.
+	(forward_propagate_comparison): Same.
+	(simplify_not_neg_expr): Same.
+	(tree_ssa_forward_propagate_single_use_vars): Same.
+	(simplify_gimple_switch): Rename from -simplify_switch_expr.
+	(rhs_to_tree): New.
+	(forward_propagate_into_gimple_cond): New.
+	* Makefile.in (tree-ssa-forwprop.o): Depend on GIMPLE_H.
+	* passes.c (init_optimization_passes): Enable pass_forwprop.
+
 2008-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.def (OMP_SECTIONS_SWITCH, OMP_ATOMIC_LOAD, OMP_ATOMIC_STORE):
