@@ -1,5 +1,16 @@
 2008-06-09  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree.def (OMP_SECTIONS_SWITCH, OMP_ATOMIC_LOAD, OMP_ATOMIC_STORE):
+	Removed.
+	* tree-gimple.c (is_gimple_stmt): Don't handle them.
+	* gimplify.c (gimplify_expr): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+	* omp-low.c (expand_omp_atomic_pipeline): Adjust comment.
+
+2008-06-09  Jakub Jelinek  <jakub@redhat.com>
+
 	Merge with mainline @136433.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.

@@ -1860,11 +1860,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_omp_clauses (buffer, OMP_SECTIONS_CLAUSES (node), spc, flags);
       goto dump_omp_body;
 
-    case OMP_SECTIONS_SWITCH:
-      pp_string (buffer, "OMP_SECTIONS_SWITCH");
-      is_expr = false;
-      break;
- 
     case OMP_SECTION:
       pp_string (buffer, "#pragma omp section");
       goto dump_omp_body;
@@ -1897,23 +1892,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_character (buffer, '=');
       pp_space (buffer);
       dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      break;
-
-    case OMP_ATOMIC_LOAD:
-      pp_string (buffer, "#pragma omp atomic_load");
-      newline_and_indent (buffer, spc + 2);
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_space (buffer);
-      pp_character (buffer, '=');
-      pp_space (buffer);
-      pp_character (buffer, '*');
-      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags, false);
-      break;
-
-    case OMP_ATOMIC_STORE:
-      pp_string (buffer, "#pragma omp atomic_store (");
-      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
-      pp_character (buffer, ')');
       break;
 
     case OMP_SINGLE:

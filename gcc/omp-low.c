@@ -4854,7 +4854,7 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   if (sync_compare_and_swap[TYPE_MODE (itype)] == CODE_FOR_nothing)
     return false;
 
-  /* Load the initial value, replacing the OMP_ATOMIC_LOAD.  */
+  /* Load the initial value, replacing the GIMPLE_OMP_ATOMIC_LOAD.  */
   si = gsi_last_bb (load_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ATOMIC_LOAD);
 

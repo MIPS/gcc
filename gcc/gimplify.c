@@ -6641,11 +6641,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_omp_atomic (expr_p, pre_p);
 	  break;
 
-	case OMP_ATOMIC_STORE:
-	case OMP_SECTIONS_SWITCH:
-	case OMP_ATOMIC_LOAD:
-	  gcc_unreachable ();
-
 	case POINTER_PLUS_EXPR:
           /* Convert ((type *)A)+offset into &A->field_of_type_and_offset.
 	     The second is gimple immediate saving a need for extra statement.

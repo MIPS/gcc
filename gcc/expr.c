@@ -9342,17 +9342,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case VEC_PACK_TRUNC_EXPR:
     case VEC_PACK_SAT_EXPR:
     case VEC_PACK_FIX_TRUNC_EXPR:
-      {
-	mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-	goto binop;
-      }
-
-    case OMP_ATOMIC_LOAD:
-    case OMP_ATOMIC_STORE:
-      /* OMP expansion is not run when there were errors, so these codes
-		  can get here.  */
-      gcc_assert (errorcount != 0);
-      return NULL_RTX;
+      mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+      goto binop;
 
     default:
       return lang_hooks.expand_expr (exp, original_target, tmode,

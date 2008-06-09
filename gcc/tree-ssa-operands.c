@@ -2099,35 +2099,6 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
 #endif
       }
 
-    case OMP_ATOMIC_LOAD:
-      {
-	/* FIXME tuples.  */
-#if 0
-	tree *addr = &TREE_OPERAND (expr, 1);
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_def);
-
-	if (TREE_CODE (*addr) == ADDR_EXPR)
-	  get_expr_operands (stmt, &TREE_OPERAND (*addr, 0), opf_def);
-	else
-	  get_addr_dereference_operands (stmt, addr, opf_def,
-					 NULL_TREE, 0, -1, true);
-	return;
-#else
-	gimple_unreachable ();
-#endif
-      }
-
-    case OMP_ATOMIC_STORE:
-      {
-	/* FIXME tuples.  */
-#if 0
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
-	return;
-#else
-	gimple_unreachable ();
-#endif
-      }
-
     case FUNCTION_DECL:
     case LABEL_DECL:
     case CONST_DECL:
