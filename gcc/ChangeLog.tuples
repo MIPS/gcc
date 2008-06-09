@@ -9,6 +9,20 @@
 
 2008-06-09  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): First argument is
+	a GSI.
+	(forward_propagate_addr_into_variable_array_index): Accept a GSI
+	instead of a gimple statement.  Update accordingly.
+	(forward_propagate_addr_expr_1): Same.
+	(forward_propagate_addr_expr): Pass a GSI to
+	forward_propagate_addr_expr_1.
+	(simplify_not_neg_expr): Argument is a GSI.
+	Adjust accordingly.
+	(tree_ssa_forward_propagate_single_use_va): Pass GSI to
+	simplify_not_neg_expr and forward_propagate_into_cond.
+
+2008-06-09  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree.h (IS_CONVERT_EXPR_P): New.
 	(CONVERT_EXPR_P): Use IS_CONVERT_EXPR_P.
 	* tree-ssa-forwprop.c (get_prop_dest_stmt): Convert to tuples.

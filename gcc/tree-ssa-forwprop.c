@@ -484,8 +484,9 @@ forward_propagate_into_gimple_cond (gimple stmt)
    changes and two if cfg_cleanup needs to run.  */
 
 static int
-forward_propagate_into_cond (gimple stmt)
+forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
 {
+  gimple stmt = gsi_stmt (*gsi_p);
   int did_something = 0;
 
   do {
@@ -557,7 +558,8 @@ forward_propagate_into_cond (gimple stmt)
 	    fprintf (dump_file, "'\n");
 	  }
 
-	gimple_assign_set_rhs_from_tree (stmt, unshare_expr (tmp));
+	gimple_assign_set_rhs_from_tree (gsi_p, unshare_expr (tmp));
+	stmt = gsi_stmt (*gsi_p);
 	update_stmt (stmt);
 
 	/* Remove defining statements.  */
@@ -613,10 +615,10 @@ tidy_after_forward_propagate_addr (gimple stmt)
 static bool
 forward_propagate_addr_into_variable_array_index (tree offset,
 						  tree def_rhs,
-						  gimple use_stmt)
+						  gimple_stmt_iterator *use_stmt_gsi)
 {
   tree index;
-  gimple offset_def;
+  gimple offset_def, use_stmt = gsi_stmt (*use_stmt_gsi);
 
   /* Try to find an expression for a proper index.  This is either
      a multiplication expression by the element size or just the
@@ -649,7 +651,8 @@ forward_propagate_addr_into_variable_array_index (tree offset,
     }
 
   /* Replace the pointer addition with array indexing.  */
-  gimple_assign_set_rhs_from_tree (use_stmt, unshare_expr (def_rhs));
+  gimple_assign_set_rhs_from_tree (use_stmt_gsi, unshare_expr (def_rhs));
+  use_stmt = gsi_stmt (*use_stmt_gsi);
   TREE_OPERAND (TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0), 1)
     = index;
 
@@ -671,11 +674,13 @@ forward_propagate_addr_into_variable_array_index (tree offset,
    be not totally successful, yet things may have been changed).  */
 
 static bool
-forward_propagate_addr_expr_1 (tree name, tree def_rhs, gimple use_stmt,
+forward_propagate_addr_expr_1 (tree name, tree def_rhs,
+			       gimple_stmt_iterator *use_stmt_gsi,
 			       bool single_use_p)
 {
   tree lhs, rhs, rhs2, array_ref;
   tree *rhsp, *lhsp;
+  gimple use_stmt = gsi_stmt (*use_stmt_gsi);
 
   gcc_assert (TREE_CODE (def_rhs) == ADDR_EXPR);
 
@@ -812,7 +817,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, gimple use_stmt,
       tree orig = rhs_to_tree (TREE_TYPE (gimple_assign_lhs (use_stmt)),
                                use_stmt);
       orig = unshare_expr (orig);
-      gimple_assign_set_rhs_from_tree (use_stmt, unshare_expr (def_rhs));
+      gimple_assign_set_rhs_from_tree (use_stmt_gsi, unshare_expr (def_rhs));
+      use_stmt = gsi_stmt (*use_stmt_gsi);
 
       /* If folding succeeds, then we have just exposed new variables
 	 in USE_STMT which will need to be renamed.  If folding fails,
@@ -824,7 +830,8 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, gimple use_stmt,
 	}
       else
 	{
-	  gimple_assign_set_rhs_from_tree (use_stmt, orig);
+	  gimple_assign_set_rhs_from_tree (use_stmt_gsi, orig);
+	  use_stmt = gsi_stmt (*use_stmt_gsi);
 	  update_stmt (use_stmt);
 	  return false;
 	}
@@ -839,7 +846,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs, gimple use_stmt,
 	 different type than their operands.  */
       && useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (name)))
     return forward_propagate_addr_into_variable_array_index (rhs2, def_rhs,
-							     use_stmt);
+							     use_stmt_gsi);
   return false;
 }
 
@@ -883,8 +890,12 @@ forward_propagate_addr_expr (tree name, tree rhs)
 
       push_stmt_changes (&use_stmt);
 
-      result = forward_propagate_addr_expr_1 (name, rhs, use_stmt,
-					      single_use_p);
+      {
+	gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
+	result = forward_propagate_addr_expr_1 (name, rhs, &gsi,
+						single_use_p);
+	use_stmt = gsi_stmt (gsi);
+      }
       all &= result;
 
       pop_stmt_changes (&use_stmt);
@@ -986,8 +997,12 @@ forward_propagate_comparison (gimple stmt)
       else
 	return false;
 
-      gimple_assign_set_rhs_from_tree (use_stmt, unshare_expr (tmp));
-      update_stmt (use_stmt);
+      {
+	gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
+	gimple_assign_set_rhs_from_tree (&gsi, unshare_expr (tmp));
+	use_stmt = gsi_stmt (gsi);
+	update_stmt (use_stmt);
+      }
 
       /* Remove defining statements.  */
       remove_prop_source_from_use (name, stmt);
@@ -1024,8 +1039,9 @@ forward_propagate_comparison (gimple stmt)
    than one forward link.  */
 
 static void
-simplify_not_neg_expr (gimple stmt)
+simplify_not_neg_expr (gimple_stmt_iterator *gsi_p)
 {
+  gimple stmt = gsi_stmt (*gsi_p);
   tree rhs = gimple_assign_rhs1 (stmt);
   gimple rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
 
@@ -1039,7 +1055,8 @@ simplify_not_neg_expr (gimple stmt)
       if (TREE_CODE (rhs_def_operand) == SSA_NAME
 	  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand))
 	{
-	  gimple_assign_set_rhs_from_tree (stmt, rhs_def_operand);
+	  gimple_assign_set_rhs_from_tree (gsi_p, rhs_def_operand);
+	  stmt = gsi_stmt (*gsi_p);
 	  update_stmt (stmt);
 	}
     }
@@ -1156,7 +1173,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 		        || gimple_assign_rhs_code (stmt) == NEGATE_EXPR)
 		       && TREE_CODE (rhs) == SSA_NAME)
 		{
-		  simplify_not_neg_expr (stmt);
+		  simplify_not_neg_expr (&gsi);
 		  gsi_next (&gsi);
 		}
 	      else if (gimple_assign_rhs_code (stmt) == COND_EXPR)
@@ -1164,7 +1181,8 @@ tree_ssa_forward_propagate_single_use_vars (void)
                   /* In this case the entire COND_EXPR is in rhs1. */
 		  int did_something;
 		  fold_defer_overflow_warnings ();
-                  did_something = forward_propagate_into_cond (stmt);
+                  did_something = forward_propagate_into_cond (&gsi);
+		  stmt = gsi_stmt (gsi);
 		  if (did_something == 2)
 		    cfg_changed = true;
 		  fold_undefer_overflow_warnings (!TREE_NO_WARNING (rhs)
