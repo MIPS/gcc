@@ -29,9 +29,6 @@
 ;; 32 byte integral vector modes handled by AVX
 (define_mode_iterator AVX256MODEI [V32QI V16HI V8SI V4DI])
 
-;; All integral vector modes handled by AVX
-(define_mode_iterator AVXMODEI [V16QI V8HI V4SI V2DI V32QI V16HI V8SI V4DI])
-
 ;; All 32-byte vector modes handled by AVX
 (define_mode_iterator AVX256MODE [V32QI V16HI V8SI V4DI V8SF V4DF])
 
@@ -5727,10 +5724,10 @@
 })
 
 (define_insn "*avx_nand<mode>3"
-  [(set (match_operand:AVXMODEI 0 "register_operand" "=x")
-	(and:AVXMODEI
-	  (not:AVXMODEI (match_operand:SSEMODEI 1 "register_operand" "x"))
-          (match_operand:AVXMODEI 2 "nonimmediate_operand" "xm")))]
+  [(set (match_operand:AVX256MODEI 0 "register_operand" "=x")
+	(and:AVX256MODEI
+	  (not:AVX256MODEI (match_operand:AVX256MODEI 1 "register_operand" "x"))
+          (match_operand:AVX256MODEI 2 "nonimmediate_operand" "xm")))]
   "TARGET_AVX"
   "vandnps\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "sselog")
@@ -5789,10 +5786,10 @@
   "ix86_fixup_binary_operands_no_copy (<CODE>, <MODE>mode, operands);")
 
 (define_insn "*avx_<code><mode>3"
-  [(set (match_operand:AVXMODEI 0 "register_operand" "=x")
-        (plogic:AVXMODEI
-          (match_operand:AVXMODEI 1 "nonimmediate_operand" "%x")
-          (match_operand:AVXMODEI 2 "nonimmediate_operand" "xm")))]
+  [(set (match_operand:AVX256MODEI 0 "register_operand" "=x")
+        (plogic:AVX256MODEI
+          (match_operand:AVX256MODEI 1 "nonimmediate_operand" "%x")
+          (match_operand:AVX256MODEI 2 "nonimmediate_operand" "xm")))]
   "TARGET_AVX
    && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
   "v<plogicprefix>ps\t{%2, %1, %0|%0, %1, %2}"
@@ -5810,6 +5807,18 @@
   "<plogicprefix>ps\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "V4SF")])
+
+(define_insn "*avx_<code><mode>3"
+  [(set (match_operand:SSEMODEI 0 "register_operand" "=x")
+        (plogic:SSEMODEI
+          (match_operand:SSEMODEI 1 "nonimmediate_operand" "%x")
+          (match_operand:SSEMODEI 2 "nonimmediate_operand" "xm")))]
+  "TARGET_AVX
+   && ix86_binary_operator_ok (<CODE>, <MODE>mode, operands)"
+  "vp<plogicprefix>\t{%2, %1, %0|%0, %1, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "prefix" "vex")
+   (set_attr "mode" "TI")])
 
 (define_insn "*sse2_<code><mode>3"
   [(set (match_operand:SSEMODEI 0 "register_operand" "=x")
