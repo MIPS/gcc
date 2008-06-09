@@ -585,6 +585,8 @@ produce_asm_for_decls (void)
   section *decl_section = lto_get_section (LTO_section_decls, NULL);
   struct output_block *ob = create_output_block (LTO_section_decls);
 
+  free_lang_specifics ();
+
   ob->global = true;
   ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
 				     lto_eq_global_slot_node, free);
