@@ -1,6 +1,6 @@
 /* Gimple IR support functions.
 
-   Copyright 2007 Free Software Foundation, Inc.
+   Copyright 2007, 2008 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -123,6 +123,7 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_OMP_SECTIONS_SWITCH:    return GSS_BASE;
     case GIMPLE_OMP_CONTINUE:		return GSS_OMP_CONTINUE;
     case GIMPLE_OMP_PARALLEL:		return GSS_OMP_PARALLEL;
+    case GIMPLE_OMP_TASK:		return GSS_OMP_TASK;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
     case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
     case GIMPLE_CHANGE_DYNAMIC_TYPE:	return GSS_CHANGE_DYNAMIC_TYPE;
@@ -168,6 +169,8 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_omp_for);
     case GIMPLE_OMP_PARALLEL:
       return sizeof (struct gimple_statement_omp_parallel);
+    case GIMPLE_OMP_TASK:
+      return sizeof (struct gimple_statement_omp_task);
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
@@ -805,29 +808,22 @@ gimple_build_omp_critical (gimple_seq body, tree name)
    BODY is sequence of statements inside the for loop.
    CLAUSES, are any of the OMP loop construct's clauses: private, firstprivate, 
    lastprivate, reductions, ordered, schedule, and nowait.
-   PRE_BODY is the sequence of statements that are loop invariant.
-   INDEX is the index variable.
-   INITIAL is the initial value of INDEX.
-   FINAL is final value of INDEX.
-   OMP_FOR_COND  the predicate used to compare INDEX and FINAL.
-   INCR is the increment expression.  */
+   COLLAPSE is the collapse count.
+   PRE_BODY is the sequence of statements that are loop invariant.  */
 
 gimple
-gimple_build_omp_for (gimple_seq body, tree clauses, tree index, 
-                      tree initial, tree final, tree incr, 
-                      gimple_seq pre_body, enum tree_code omp_for_cond)
+gimple_build_omp_for (gimple_seq body, tree clauses, size_t collapse,
+		      gimple_seq pre_body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_FOR, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
-  gimple_omp_for_set_index (p, index);
-  gimple_omp_for_set_initial (p, initial);
-  gimple_omp_for_set_final (p, final);
-  gimple_omp_for_set_incr (p, incr);
+  p->gimple_omp_for.collapse = collapse;
+  p->gimple_omp_for.iter
+    = ggc_alloc_cleared (collapse * sizeof (*p->gimple_omp_for.iter));
   if (pre_body)
     gimple_omp_for_set_pre_body (p, pre_body);
-  gimple_omp_for_set_cond (p, omp_for_cond);
 
   return p;
 }
@@ -842,7 +838,7 @@ gimple_build_omp_for (gimple_seq body, tree clauses, tree index,
 
 gimple 
 gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn, 
-                       tree data_arg)
+			   tree data_arg)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL, 0);
   if (body)
@@ -850,6 +846,34 @@ gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
   gimple_omp_parallel_set_clauses (p, clauses);
   gimple_omp_parallel_set_child_fn (p, child_fn);
   gimple_omp_parallel_set_data_arg (p, data_arg);
+
+  return p;
+}
+
+
+/* Build a GIMPLE_OMP_TASK statement.
+
+   BODY is sequence of statements which are executed by the explicit task.
+   CLAUSES, are the OMP parallel construct's clauses.
+   CHILD_FN is the function created for the parallel threads to execute.
+   DATA_ARG are the shared data argument(s).
+   COPY_FN is the optional function for firstprivate initialization.
+   ARG_SIZE and ARG_ALIGN are size and alignment of the data block.  */
+
+gimple 
+gimple_build_omp_task (gimple_seq body, tree clauses, tree child_fn,
+		       tree data_arg, tree copy_fn, tree arg_size,
+		       tree arg_align)
+{
+  gimple p = gimple_alloc (GIMPLE_OMP_TASK, 0);
+  if (body)
+    gimple_omp_set_body (p, body);
+  gimple_omp_task_set_clauses (p, clauses);
+  gimple_omp_task_set_child_fn (p, child_fn);
+  gimple_omp_task_set_data_arg (p, data_arg);
+  gimple_omp_task_set_copy_fn (p, copy_fn);
+  gimple_omp_task_set_arg_size (p, arg_size);
+  gimple_omp_task_set_arg_align (p, arg_align);
 
   return p;
 }
@@ -1452,20 +1476,23 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 		       pset);
       if (ret)
 	return ret;
-      ret = walk_tree (gimple_omp_for_index_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_for_initial_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_for_final_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_for_incr_ptr (stmt), callback_op, wi,
-		       pset);
+      for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
+	{
+	  ret = walk_tree (gimple_omp_for_index_ptr (stmt, i), callback_op,
+			   wi, pset);
+	  if (ret)
+	    return ret;
+	  ret = walk_tree (gimple_omp_for_initial_ptr (stmt, i), callback_op,
+			   wi, pset);
+	  if (ret)
+	    return ret;
+	  ret = walk_tree (gimple_omp_for_final_ptr (stmt, i), callback_op,
+			   wi, pset);
+	  if (ret)
+	    return ret;
+	  ret = walk_tree (gimple_omp_for_incr_ptr (stmt, i), callback_op,
+			   wi, pset);
+	}
       if (ret)
 	return ret;
       break;
@@ -1480,6 +1507,33 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       if (ret)
 	return ret;
       ret = walk_tree (gimple_omp_parallel_data_arg_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      break;
+
+    case GIMPLE_OMP_TASK:
+      ret = walk_tree (gimple_omp_task_clauses_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_omp_task_child_fn_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_omp_task_data_arg_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_omp_task_copy_fn_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_omp_task_arg_size_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_omp_task_arg_align_ptr (stmt), callback_op,
 		       wi, pset);
       if (ret)
 	return ret;
@@ -1653,6 +1707,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
       ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt, callback_op,
@@ -2016,12 +2071,22 @@ gimple_copy (gimple stmt)
 	  gimple_omp_for_set_pre_body (copy, new_seq);
 	  t = unshare_expr (gimple_omp_for_clauses (stmt));
 	  gimple_omp_for_set_clauses (copy, t);
-	  t = unshare_expr (gimple_omp_for_initial (stmt));
-	  gimple_omp_for_set_initial (copy, t);
-	  t = unshare_expr (gimple_omp_for_final (stmt));
-	  gimple_omp_for_set_final (copy, t);
-	  t = unshare_expr (gimple_omp_for_incr (stmt));
-	  gimple_omp_for_set_incr (copy, t);
+	  copy->gimple_omp_for.iter
+	    = ggc_alloc (gimple_omp_for_collapse (stmt)
+			 * sizeof (*copy->gimple_omp_for.iter));
+	  for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
+	    {
+	      gimple_omp_for_set_cond (copy, i,
+				       gimple_omp_for_cond (stmt, i));
+	      gimple_omp_for_set_index (copy, i,
+					gimple_omp_for_index (stmt, i));
+	      t = unshare_expr (gimple_omp_for_initial (stmt, i));
+	      gimple_omp_for_set_initial (copy, i, t);
+	      t = unshare_expr (gimple_omp_for_final (stmt, i));
+	      gimple_omp_for_set_final (copy, i, t);
+	      t = unshare_expr (gimple_omp_for_incr (stmt, i));
+	      gimple_omp_for_set_incr (copy, i, t);
+	    }
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_PARALLEL:
@@ -2031,6 +2096,21 @@ gimple_copy (gimple stmt)
 	  gimple_omp_parallel_set_child_fn (copy, t);
 	  t = unshare_expr (gimple_omp_parallel_data_arg (stmt));
 	  gimple_omp_parallel_set_data_arg (copy, t);
+	  goto copy_omp_body;
+
+	case GIMPLE_OMP_TASK:
+	  t = unshare_expr (gimple_omp_task_clauses (stmt));
+	  gimple_omp_task_set_clauses (copy, t);
+	  t = unshare_expr (gimple_omp_task_child_fn (stmt));
+	  gimple_omp_task_set_child_fn (copy, t);
+	  t = unshare_expr (gimple_omp_task_data_arg (stmt));
+	  gimple_omp_task_set_data_arg (copy, t);
+	  t = unshare_expr (gimple_omp_task_copy_fn (stmt));
+	  gimple_omp_task_set_copy_fn (copy, t);
+	  t = unshare_expr (gimple_omp_task_arg_size (stmt));
+	  gimple_omp_task_set_arg_size (copy, t);
+	  t = unshare_expr (gimple_omp_task_arg_align (stmt));
+	  gimple_omp_task_set_arg_align (copy, t);
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_CRITICAL:

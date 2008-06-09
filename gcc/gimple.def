@@ -1,6 +1,6 @@
 /* This file contains the definitions of the GIMPLE IR tuples used in GCC.
 
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -233,7 +233,7 @@ DEFGSCODE(GIMPLE_OMP_CRITICAL, "gimple_omp_critical", NULL)
 
    CLAUSES is the list of clauses.
 
-   INDEX must be a signed integer variable, which is implicitly thread
+   INDEX must be an integer or pointer variable, which is implicitly thread
    private.  It must be accepted by is_gimple_operand.
 
    INITIAL is the initial value given to INDEX. It must be
@@ -283,6 +283,32 @@ DEFGSCODE(GIMPLE_OMP_ORDERED, "gimple_omp_ordered", NULL)
    to be shared with CHILD_FN.  This is used to implement all the data
    sharing clauses.  */
 DEFGSCODE(GIMPLE_OMP_PARALLEL, "gimple_omp_parallel", NULL)
+
+/* GIMPLE_OMP_TASK <BODY, CLAUSES, CHILD_FN, DATA_ARG, COPY_FN,
+		    ARG_SIZE, ARG_ALIGN> represents
+
+   #pragma omp task [CLAUSES]
+   BODY
+
+   BODY is a the sequence of statements to be executed by all threads.
+
+   CLAUSES is a TREE_LIST node with all the clauses.
+
+   CHILD_FN is set when outlining the body of the explicit task region.
+   All the statements in BODY are moved into this newly created
+   function when converting OMP constructs into low-GIMPLE.
+
+   DATA_ARG is a local variable in the parent function containing data
+   to be shared with CHILD_FN.  This is used to implement all the data
+   sharing clauses.
+
+   COPY_FN is set when outlining the firstprivate var initialization.
+   All the needed statements are emitted into the newly created
+   function, or when only memcpy is needed, it is NULL.
+
+   ARG_SIZE and ARG_ALIGN are the size and alignment of the incoming
+   data area allocated by GOMP_task and passed to CHILD_FN.  */
+DEFGSCODE(GIMPLE_OMP_TASK, "gimple_omp_task", NULL)
 
 /* OMP_RETURN marks the end of an OpenMP directive.  */
 DEFGSCODE(GIMPLE_OMP_RETURN, "gimple_omp_return", NULL)

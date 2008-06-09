@@ -1098,18 +1098,39 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 		    gimple_omp_parallel_data_arg (stmt));
 	  break;
 
+	case GIMPLE_OMP_TASK:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_task
+	           (s1,
+		    gimple_omp_task_clauses (stmt),
+		    gimple_omp_task_child_fn (stmt),
+		    gimple_omp_task_data_arg (stmt),
+		    gimple_omp_task_copy_fn (stmt),
+		    gimple_omp_task_arg_size (stmt),
+		    gimple_omp_task_arg_align (stmt));
+	  break;
+
 	case GIMPLE_OMP_FOR:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
-	  copy = gimple_build_omp_for
-	           (s1,
-		    gimple_omp_for_clauses (stmt),
-		    gimple_omp_for_index (stmt),
-		    gimple_omp_for_initial (stmt),
-		    gimple_omp_for_final (stmt),
-		    gimple_omp_for_incr (stmt),
-		    s2,
-		    gimple_omp_for_cond (stmt));
+	  copy = gimple_build_omp_for (s1, gimple_omp_for_clauses (stmt),
+				       gimple_omp_for_collapse (stmt), s2);
+	  {
+	    size_t i;
+	    for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
+	      {
+		gimple_omp_for_set_index (copy, i,
+					  gimple_omp_for_index (stmt, i));
+		gimple_omp_for_set_initial (copy, i,
+					    gimple_omp_for_initial (stmt, i));
+		gimple_omp_for_set_final (copy, i,
+					  gimple_omp_for_final (stmt, i));
+		gimple_omp_for_set_incr (copy, i,
+					 gimple_omp_for_incr (stmt, i));
+		gimple_omp_for_set_cond (copy, i,
+					 gimple_omp_for_cond (stmt, i));
+	      }
+	  }
 	  break;
 
 	case GIMPLE_OMP_MASTER:
@@ -2918,6 +2939,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
               + estimate_num_insns_seq (gimple_omp_for_pre_body (stmt), weights));
 
     case GIMPLE_OMP_PARALLEL:
+    case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
