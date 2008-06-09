@@ -110,6 +110,9 @@ static GTY(()) int next_decl_uid;
 /* Unique id for next type created.  */
 static GTY(()) int next_type_uid = 1;
 
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t uid2type_map;
+
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
@@ -209,6 +212,41 @@ const char * const omp_clause_code_name[] =
 
 /* Init tree.c.  */
 
+/* Add tree NODE into the UID2TYPE_MAP hash table. */
+
+static void
+insert_type_to_uid_type_map (tree node)
+{
+  void **slot;
+  struct tree_type key;
+
+  key.uid = TYPE_UID (node);
+  slot = htab_find_slot_with_hash (uid2type_map,
+				   &key, TYPE_UID (node), INSERT);
+
+  gcc_assert (!*slot);
+
+  *(tree *)slot = node;
+}
+
+/* Compares tree VA and tree VB.  */
+
+static int
+uid_type_map_eq (const void *va, const void *vb)
+{
+  const_tree a = (const_tree) va;
+  const_tree b = (const_tree) vb;
+  return (a->type.uid == b->type.uid);
+}
+
+/* Hash the tree ITEM. */
+
+static unsigned int
+uid_type_map_hash (const void *item)
+{
+  return ((const_tree)item)->type.uid;
+}
+
 void
 init_ttree (void)
 {
@@ -230,6 +268,9 @@ init_ttree (void)
 					int_cst_hash_eq, NULL);
   
   int_cst_node = make_node (INTEGER_CST);
+
+  uid2type_map = htab_create_ggc (4093, uid_type_map_hash,
+				  uid_type_map_eq, NULL);
 
   tree_contains_struct[FUNCTION_DECL][TS_DECL_NON_COMMON] = 1;
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_NON_COMMON] = 1;
@@ -612,6 +653,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 
       /* We have not yet computed the alias set for this type.  */
       TYPE_ALIAS_SET (t) = -1;
+      insert_type_to_uid_type_map (t);
       break;
 
     case tcc_constant:
@@ -716,6 +758,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  TYPE_CACHED_VALUES_P (t) = 0;
 	  TYPE_CACHED_VALUES (t) = NULL_TREE;
 	}
+      insert_type_to_uid_type_map (t);
     }
 
   return t;
@@ -3731,6 +3774,24 @@ build_type_attribute_variant (tree ttype, tree attribute)
 {
   return build_type_attribute_qual_variant (ttype, attribute,
 					    TYPE_QUALS (ttype));
+}
+
+/* Helper function of free_lang_specifics. */
+
+static int
+reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
+{
+  tree decl = *(tree*)slot;
+  lang_hooks.reset_lang_specifics (decl);
+  return 1;
+}
+
+/* Free resources that are used by FE but are not needed once they are done. */
+
+void
+free_lang_specifics (void)
+{
+  htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,

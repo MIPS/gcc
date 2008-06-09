@@ -1,3 +1,21 @@
+2008-06-09 Rafael Espindola  <espindola@google.com>
+       based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+
+       * langhooks-def.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
+       (LANG_HOOKS_INITIALIZER): add LANG_HOOKS_RESET_LANG_SPECIFICS.
+       * langhooks.h (reset_lang_specifics): New.
+       * lto-section-out.c (produce_asm_for_decls): Call free_lang_specifics.
+       * tree.c (uid2type_map): New.
+       (insert_type_to_uid_type_map): New.
+       (uid_type_map_eq): New.
+       (uid_type_map_hash): New.
+       (init_ttree): Initialize uid2type_map.
+       (make_node_stat): Call insert_type_to_uid_type_map.
+       (copy_node_stat): Call insert_type_to_uid_type_map.
+       (reset_type_lang_specific): New.
+       (free_lang_specifics): New.
+       * tree.h (free_lang_specifics) New.
+
 2008-06-09  Rafael Espindola  <espindola@google.com>
 
         * Make-lang.in (lto.all.cross): depend on $(LTO_EXE).

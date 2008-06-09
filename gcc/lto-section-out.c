@@ -654,6 +654,8 @@ produce_asm_for_decls (void)
   section *section = lto_get_section (LTO_section_decls, NULL);
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
 
+  free_lang_specifics ();
+
   memset (&header, 0, sizeof (struct lto_decl_header)); 
 
   /* The entire header is stream computed here.  */

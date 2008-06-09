@@ -1,3 +1,10 @@
+2008-06-09 Rafael Espindola  <espindola@google.com>
+       based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+
+       * cp-objcp-common.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
+       * cp-tree.h (cp_reset_lang_specifics): New.
+       * tree.c (cp_reset_lang_specifics): New.
+
 2008-04-04  Ollie Wild  <aaw@google.com>
 
 	* class.c (layout_class_type): Rename c_build_bitfield_integer_type to
