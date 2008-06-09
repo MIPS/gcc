@@ -772,6 +772,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 			     flags, false);
 	  pp_string (buffer, "; ");
 
+	  dump_generic_node (buffer, gimple_omp_for_index (gs, i), spc,
+			     flags, false);
+	  pp_string (buffer, " = ");
 	  dump_generic_node (buffer, gimple_omp_for_incr (gs, i), spc,
 			     flags, false);
 	  pp_character (buffer, ')');

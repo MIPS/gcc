@@ -1,3 +1,12 @@
+2008-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Call gimple_omp_for_set_incr
+	with the RHS of the GIMPLE_MODIFY_STMT instead of the
+	GIMPLE_MODIFY_STMT itself.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Adjust for it.
+	* tree-nested.c (walk_gimple_omp_for): Likewise.
+	* omp-low.c (extract_omp_for_data, lower_omp_for): Likewise.
+
 2008-06-09  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.h (IS_CONVERT_EXPR_P): New.

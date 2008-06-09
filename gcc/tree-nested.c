@@ -594,22 +594,14 @@ walk_gimple_omp_for (gimple for_stmt,
       wi.is_lhs = false;
       walk_tree (gimple_omp_for_final_ptr (for_stmt, i), callback_op,
 		 &wi, NULL);
-      annotate_all_with_location (seq, gimple_location (for_stmt));
 
       t = gimple_omp_for_incr (for_stmt, i);
-      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-      wi.val_only = false;
-      walk_tree (&GIMPLE_STMT_OPERAND (t, 0), callback_op, &wi, NULL);
-      t = GIMPLE_STMT_OPERAND (t, 1);
       gcc_assert (BINARY_CLASS_P (t));
       wi.val_only = false;
       walk_tree (&TREE_OPERAND (t, 0), callback_op, &wi, NULL);
       wi.val_only = true;
       wi.is_lhs = false;
       walk_tree (&TREE_OPERAND (t, 1), callback_op, &wi, NULL);
-      annotate_all_with_location (seq,
-				  *EXPR_LOCUS (gimple_omp_for_incr (for_stmt,
-								    i)));
     }
 
   if (gimple_seq_empty_p (seq))
@@ -617,6 +609,7 @@ walk_gimple_omp_for (gimple for_stmt,
   else
     {
       gimple_seq pre_body = gimple_omp_for_pre_body (for_stmt);
+      annotate_all_with_location (seq, gimple_location (for_stmt));
       gimple_seq_add_seq (&pre_body, seq);
       gimple_omp_for_set_pre_body (for_stmt, pre_body);
     }

@@ -5865,7 +5865,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gimple_omp_for_set_cond (gfor, i, TREE_CODE (t));
       gimple_omp_for_set_final (gfor, i, GENERIC_TREE_OPERAND (t, 1));
       t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
-      gimple_omp_for_set_incr (gfor, i, t);
+      gimple_omp_for_set_incr (gfor, i, GIMPLE_STMT_OPERAND (t, 1));
     }
 
   gimplify_seq_add_stmt (pre_p, gfor);

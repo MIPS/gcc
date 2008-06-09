@@ -329,9 +329,6 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
 	}
 
       t = gimple_omp_for_incr (for_stmt, i);
-      gcc_assert (TREE_CODE (t) == GIMPLE_MODIFY_STMT);
-      gcc_assert (GIMPLE_STMT_OPERAND (t, 0) == var);
-      t = GIMPLE_STMT_OPERAND (t, 1);
       gcc_assert (TREE_OPERAND (t, 0) == var);
       switch (TREE_CODE (t))
 	{
@@ -5844,9 +5841,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       if (!is_gimple_min_invariant (*rhs_p))
 	*rhs_p = get_formal_tmp_var (*rhs_p, &body);
 
-      rhs_p
-	= &TREE_OPERAND (GIMPLE_STMT_OPERAND (gimple_omp_for_incr (stmt, i),
-					      1), 1);
+      rhs_p = &TREE_OPERAND (gimple_omp_for_incr (stmt, i), 1);
       if (!is_gimple_min_invariant (*rhs_p))
 	*rhs_p = get_formal_tmp_var (*rhs_p, &body);
     }
