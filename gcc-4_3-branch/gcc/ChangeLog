@@ -1,3 +1,34 @@
+2008-06-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/34976
+	* tree-loop-linear.c (try_interchange_loops): Look at size of
+	caches: don't transform if the smallest stride is larger than
+	the L2 cache, or if the largest stride multiplied by the number of
+	iterations is smaller than the L1 cache.
+
+2008-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36111
+	* recog.c (validate_replace_rtx_1): Unshare new RTL expression
+	that was created for swappable operands.
+
+2008-06-07  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/27386
+	* config/avr/avr.h: (PUSH_ROUNDING): Remove.
+	
+	PR target/30243
+	* builtins.c (expand_builtin_signbit): Don't take lowpart when
+	register is already smaller or equal to required mode. 	
+
+	PR target/34932
+	* config/avr/avr.md (*addhi3_zero_extend2): Remove.
+	
+	* config/avr/avr.h (MAX_OFILE_ALIGNMENT): Define.
+
 2008-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP value to
