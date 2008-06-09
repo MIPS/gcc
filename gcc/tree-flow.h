@@ -1113,6 +1113,7 @@ extern void tree_check_data_deps (void);
 
 /* In tree-ssa-loop-ivopts.c  */
 bool expr_invariant_in_loop_p (struct loop *, tree);
+bool stmt_invariant_in_loop_p (struct loop *, gimple);
 bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 

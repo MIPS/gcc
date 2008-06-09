@@ -169,10 +169,6 @@ compact_blocks (void)
 {
   int i;
 
-  /* FIXME tuples.  We should assert that the CFG exists.  */
-  if (cfun->cfg == NULL)
-    return;
-
   SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
   SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   

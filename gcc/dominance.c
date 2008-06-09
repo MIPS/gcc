@@ -679,10 +679,6 @@ free_dominance_info (enum cdi_direction dir)
   basic_block bb;
   unsigned int dir_index = dom_convert_dir_to_idx (dir);
 
-  /* FIXME tuples.  We should assert that the CFG exists.  */
-  if (cfun->cfg == NULL)
-    return;
-
   if (!dom_info_available_p (dir))
     return;
 

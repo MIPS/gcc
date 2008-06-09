@@ -767,7 +767,6 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
   emit_insn (gen_blockage ());
 }
 
-/* FIXME tuples.  */
 /* __builtin_longjmp is passed a pointer to an array of five words (not
    all will be used on all machines).  It operates similarly to the C
    library function of the same name, but is more efficient.  Much of
@@ -5182,14 +5181,9 @@ expand_builtin_expect (tree exp, rtx target)
   c = CALL_EXPR_ARG (exp, 1);
 
   target = expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
-  /* FIXME tuples.  */
-#if 0
   /* When guessing was done, the hints should be already stripped away.  */
   gcc_assert (!flag_guess_branch_prob
 	      || optimize == 0 || errorcount || sorrycount);
-#else
-  gimple_unreachable ();
-#endif
   return target;
 }
 
@@ -13172,12 +13166,13 @@ do_mpfr_lgamma_r (tree arg, tree arg_sg, tree type)
 #endif
 
 /* FIXME tuples.
-   The functions below provide an alternate interface for folding builtin function
-   calls presented as GIMPLE_CALL statements rather than as CALL_EXPRs.  The folded
-   result is still expressed as a tree.  There is too much code duplication in
-   the handling of varargs functions, and a more intrusive re-factoring would permit
-   better sharing of code between the tree and statement-based versions of these
-   functions.  */
+   The functions below provide an alternate interface for folding
+   builtin function calls presented as GIMPLE_CALL statements rather
+   than as CALL_EXPRs.  The folded result is still expressed as a
+   tree.  There is too much code duplication in the handling of
+   varargs functions, and a more intrusive re-factoring would permit
+   better sharing of code between the tree and statement-based
+   versions of these functions.  */
 
 /* Construct a new CALL_EXPR using the tail of the argument list of STMT
    along with N new arguments specified as the "..." parameters.  SKIP
@@ -13422,10 +13417,7 @@ fold_call_stmt (gimple stmt, bool ignore)
   if (fndecl
       && TREE_CODE (fndecl) == FUNCTION_DECL
       && DECL_BUILT_IN (fndecl)
-      /* FIXME tuples.  Do we need this?
-         Are we guaranteed that the arguments have been finalized
-         by the time we are in GIMPLE?  */
-      && true /* !CALL_EXPR_VA_ARG_PACK (exp) */ )
+      && !gimple_call_va_arg_pack_p (stmt))
     {
       int nargs = gimple_call_num_args (stmt);
 

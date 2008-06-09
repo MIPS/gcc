@@ -393,9 +393,11 @@ struct gimple_statement_bind GTY(())
   tree vars;
 
   /* [ WORD 6 ]
-     This is different than the ``block'' in gimple_statement_base, which
-     is analogous to TREE_BLOCK.  This block is the equivalent of
-     BIND_EXPR_BLOCK in tree land.  See gimple-low.c.  */
+     This is different than the BLOCK field in gimple_statement_base,
+     which is analogous to TREE_BLOCK (i.e., the lexical block holding
+     this statement).  This field is the equivalent of BIND_EXPR_BLOCK
+     in tree land (i.e., the lexical scope defined by this bind).  See
+     gimple-low.c.  */
   tree block;
 
   /* [ WORD 7 ]  */
@@ -804,7 +806,6 @@ void gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *, enum tree_code,
 tree gimple_get_lhs (gimple);
 void gimple_set_lhs (gimple, tree);
 gimple gimple_copy (gimple);
-gimple gimple_copy_no_def_use (gimple);
 bool is_gimple_operand (const_tree);
 void gimple_set_modified (gimple, bool);
 void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
@@ -2130,6 +2131,16 @@ gimple_cond_single_var_p (gimple gs)
     return true;
 
   return false;
+}
+
+/* Set the code, LHS and RHS of GIMPLE_COND STMT from CODE, LHS and RHS.  */
+
+static inline void
+gimple_cond_set_condition (gimple stmt, enum tree_code code, tree lhs, tree rhs)
+{
+  gimple_cond_set_code (stmt, code);
+  gimple_cond_set_lhs (stmt, lhs);
+  gimple_cond_set_rhs (stmt, rhs);
 }
 
 /* Return the LABEL_DECL node used by GIMPLE_LABEL statement GS.  */

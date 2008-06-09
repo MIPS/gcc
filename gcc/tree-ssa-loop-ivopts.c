@@ -1295,6 +1295,29 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   return true;
 }
 
+/* Returns true if statement STMT is obviously invariant in LOOP,
+   i.e. if all its operands on the RHS are defined outside of the LOOP.
+   LOOP should not be the function body.  */
+
+bool
+stmt_invariant_in_loop_p (struct loop *loop, gimple stmt)
+{
+  unsigned i;
+  tree lhs;
+
+  gcc_assert (loop_depth (loop) > 0);
+
+  lhs = gimple_get_lhs (stmt);
+  for (i = 0; i < gimple_num_ops (stmt); i++)
+    {
+      tree op = gimple_op (stmt, i);
+      if (op != lhs && !expr_invariant_in_loop_p (loop, op))
+	return false;
+    }
+
+  return true;
+}
+
 /* Cumulates the steps of indices into DATA and replaces their values with the
    initial ones.  Returns false when the value of the index cannot be determined.
    Callback for for_each_index.  */

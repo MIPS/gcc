@@ -1537,7 +1537,7 @@ update_call_expr (struct cgraph_node *new_version)
 
   /* Update the call expr on the edges to call the new version.  */
   for (e = new_version->callers; e; e = e->next_caller)
-    TREE_OPERAND (gimple_call_fn (e->call_stmt), 0) = new_version->decl;
+    gimple_call_set_fn (e->call_stmt, new_version->decl);
 }
 
 

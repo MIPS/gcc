@@ -262,9 +262,11 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_BIND:
       lower_gimple_bind (gsi, data);
       return;
+
     case GIMPLE_COND:
-      /* The high gimplifier has already lowered this into gotos.  */
+      /* The gimplifier has already lowered this into gotos.  */
       break;
+
     case GIMPLE_RETURN:
       lower_gimple_return (gsi, data);
       return;
@@ -612,12 +614,6 @@ gimple_stmt_may_fallthru (gimple stmt)
       /* Functions that do not return do not fall through.  */
       return (gimple_call_flags (stmt) & ECF_NORETURN) == 0;
     
-    /* FIXME tuples.  No CLEANUP_POINT_EXPR in GIMPLE.  Needed?  */
-#if 0
-    case CLEANUP_POINT_EXPR:
-      return block_may_fallthru (TREE_OPERAND (stmt, 0));
-#endif
-
     default:
       return true;
     }

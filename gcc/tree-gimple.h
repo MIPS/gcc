@@ -150,6 +150,7 @@ extern void gimplify_and_add (tree, gimple_seq *);
 /* Miscellaneous helpers.  */
 extern void gimple_add_tmp_var (tree);
 extern gimple gimple_current_bind_expr (void);
+extern VEC(gimple, heap) *gimple_bind_expr_stack (void);
 extern tree voidify_wrapper_expr (tree, tree);
 extern tree build_and_jump (tree *);
 extern tree alloc_stmt_list (void);

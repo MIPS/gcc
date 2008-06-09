@@ -1,3 +1,7 @@
+2008-06-09  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite/gcc.dg/tree-ssa/pr21658.c: Update search pattern.
+
 2008-05-30  Diego Novillo  <dnovillo@google.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 

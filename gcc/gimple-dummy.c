@@ -48,7 +48,6 @@ DUMMY_FN (tree_unroll_loops_completely)
 DUMMY_FN (vec_set_verbosity_level)
 DUMMY_FN (vect_set_verbosity_level)
 DUMMY_FN (vectorize_loops)
-DUMMY_FN (remove_iv)
 
 
 /* Note that we should mark gimple_unreachable_1 with

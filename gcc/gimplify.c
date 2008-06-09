@@ -273,6 +273,14 @@ gimple_current_bind_expr (void)
   return VEC_last (gimple, gimplify_ctxp->bind_expr_stack);
 }
 
+/* Return the stack GIMPLE_BINDs created during gimplification.  */
+
+VEC(gimple, heap) *
+gimple_bind_expr_stack (void)
+{
+  return gimplify_ctxp->bind_expr_stack;
+}
+
 /* Returns true iff there is a COND_EXPR between us and the innermost
    CLEANUP_POINT_EXPR.  This info is used by gimple_push_cleanup.  */
 

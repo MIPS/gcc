@@ -2909,9 +2909,9 @@ ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REAL_H) $(OPTABS_H) $(CFGLOOP_H) hard-reg-set.h $(TIMEVAR_H) tree-pass.h \
    $(DF_H) $(DBGCNT_H)
 lambda-mat.o : lambda-mat.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
-   $(TM_H) coretypes.h $(TREE_H)
+   $(TM_H) coretypes.h $(TREE_H) $(TREE_FLOW_H)
 lambda-trans.o: lambda-trans.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
-   $(TM_H) coretypes.h $(TARGET_H) $(TREE_H)
+   $(TM_H) coretypes.h $(TARGET_H) $(TREE_H) $(TREE_FLOW_H)
 lambda-code.o: lambda-code.c $(LAMBDA_H) $(GGC_H) $(SYSTEM_H) $(CONFIG_H) \
    $(TM_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) \
    $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) $(CFGLOOP_H) \

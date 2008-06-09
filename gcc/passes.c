@@ -579,10 +579,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_simple_dse);
 	  NEXT_PASS (pass_tail_recursion);
           NEXT_PASS (pass_profile);
-/* FIXME tuples.  */
-#if 0
 	  NEXT_PASS (pass_release_ssa_names);
-#endif
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
@@ -595,12 +592,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
   NEXT_PASS (pass_ipa_pure_const); 
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_type_escape);
   NEXT_PASS (pass_ipa_pta);
   NEXT_PASS (pass_ipa_struct_reorg);  
-#endif
   *p = NULL;
 
   /* These passes are run after IPA passes on every function that is being
@@ -675,9 +669,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_empty_loop);
-#if 0
 	  NEXT_PASS (pass_record_bounds);
-#endif
 	  NEXT_PASS (pass_check_data_deps);
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_linear_transform);
@@ -708,7 +700,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_phi_only_cprop);
       NEXT_PASS (pass_cd_dce);
       NEXT_PASS (pass_tracer);
-#if 0
 
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
@@ -720,14 +711,13 @@ init_optimization_passes (void)
 	 variable.  Using a representation like Gated Single Assignment
 	 may help.  */
       NEXT_PASS (pass_late_warn_uninitialized);
-#endif
       NEXT_PASS (pass_dse);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_calls);
+      NEXT_PASS (pass_rename_ssa_copies);
 /* FIXME tuples.  */
 #if 0
-      NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
 #endif
       NEXT_PASS (pass_del_ssa);

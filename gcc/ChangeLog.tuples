@@ -1,3 +1,44 @@
+2008-06-09  Diego Novillo  <dnovillo@google.com>
+
+	* ipa-cp.c (cgraph_gate_cp): Fix 'FIXME tuples' note.
+	* cfg.c (compact_blocks): Likewise.
+	* dominance.c (free_dominance_info): Likewise.
+	* gimple-low.c (gimple_stmt_may_fallthru): Likewise
+	* c-gimplify.c (add_block_to_enclosing): Likewise.
+	* lambda-mat.c: Include tree-flow.h.
+	* lambda-trans.c: Likewise.
+	* Makefile.in (lambda-mat.o, lambda-trans.o): Add dependency
+	on $(TREE_FLOW_H).
+	* builtins.c (expand_builtin_setjmp_receiver): Remove #if 0 markers.
+	(fold_call_stmt): Call gimple_call_va_arg_pack_p.
+	* tree-gimple.h (gimple_bind_expr_stack): Declare.
+	* cgraphunit.c (update_call_expr): Do not try to access operand 0
+	of a FUNCTION_DECL.
+	* tree-ssa-loop-ivopts.c (stmt_invariant_in_loop_p): New.
+	* tree-flow.h (stmt_invariant_in_loop_p): Declare.
+	* gimple-dummy.c (remove_iv): Remove.
+	(gimple_stmt_may_fallthru):
+	* ipa-type-escape.c (check_tree): Call DECL_P before testing
+	DECL_INITIAL.
+	(check_assign): Do not access TREE_OPERAND 0 on the RHS
+	operand.
+	* gimplify.c (gimple_bind_expr_stack): New.
+	* gimple.h (struct gimple_statement_bind): Add more comments
+	for field BLOCK.
+	(gimple_cond_set_condition): New.
+	* gimple.c (gimple_cond_set_condition_from_tree): Call it.
+	(gimple_copy_no_def_use): Remove.  Update all users.
+	(gimple_has_side_effects):
+	(gimple_rhs_has_side_effects):
+	* passes.c (init_optimization_passes): Enable
+	pass_release_ssa_names, pass_ipa_type_escape, pass_ipa_pta,
+	pass_ipa_struct_reorg, pass_record_bounds,
+	pass_late_warn_uninitialized and pass_rename_ssa_copies.
+
+	* lambda-code.c: Tuplify.
+	* ipa-struct-reorg.c: Tuplify.
+	* ipa-struct-reorg.h: Tuplify.
+
 2008-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Call gimple_omp_for_set_incr

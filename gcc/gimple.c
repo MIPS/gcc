@@ -492,9 +492,7 @@ gimple_cond_set_condition_from_tree (gimple stmt, tree cond)
   tree lhs, rhs;
 
   gimple_cond_get_ops_from_tree (cond, &code, &lhs, &rhs);
-  gimple_cond_set_code (stmt, code);
-  gimple_cond_set_lhs (stmt, lhs);
-  gimple_cond_set_rhs (stmt, rhs);
+  gimple_cond_set_condition (stmt, code, lhs, rhs);
 }
 
 /* Build a GIMPLE_LABEL statement for LABEL.  */
@@ -1761,8 +1759,7 @@ gimple_body (tree fndecl)
 
 
 /* Detect flags from a GIMPLE_CALL.  This is just like
-   call_expr_flags, but for gimple tuples.  FIXME tuples, remove code
-   duplication with call_expr_flags. duplicate code.  */
+   call_expr_flags, but for gimple tuples.  */
 
 int
 gimple_call_flags (const_gimple stmt)
@@ -2177,62 +2174,6 @@ gimple_copy (gimple stmt)
 }
 
 
-/* Return a copy of statement STMT.  The copy should not retain any use
-   information for the variables that appear within it.  */
-/* FIXME tuples.  The charter of this function is unclear.  It was
-   introduced to replace occurrences of unshare_expr in cases where
-   a statement is copied temporarily in order to present a "before
-   and after" diagnostic, e.g., showing folding in substitute_and_fold.
-   In that case, uses occuring in the saved statement were linked from
-   definitions elsewhere, confusing code that expected no such uses to
-   exist.  It might be preferable to rewrite such diagnostics to simply
-   dump the "before" diagnostic to a string, rather than retaining a
-   statement for later processing.  */
-
-gimple
-gimple_copy_no_def_use (gimple stmt)
-{
-  enum gimple_code code = gimple_code (stmt);
-
-  if (code == GIMPLE_PHI)
-    {
-      unsigned i;
-      unsigned size = (sizeof (struct gimple_statement_phi)
-                     + (sizeof (struct phi_arg_d)
-		        * (stmt->gimple_phi.capacity - 1)));
-      gimple copy = ggc_alloc_cleared (size);
-
-      memcpy (copy, stmt, size);
-      gimple_phi_set_result (copy, unshare_expr (gimple_phi_result (stmt)));
-      for (i = 0; i < gimple_phi_num_args(stmt); i++)
-      {
-        struct phi_arg_d * arg_ptr = gimple_phi_arg (copy, i);
-        arg_ptr->def = unshare_expr (gimple_phi_arg_def (stmt, i));
-      }
-
-      return copy;
-    }
-  else
-    {
-      unsigned num_ops = gimple_num_ops (stmt);
-      gimple copy = gimple_alloc (code, num_ops);
-      unsigned i;
-
-      memcpy (copy, stmt, gimple_size (code));
-      if (num_ops > 0)
-      {
-        for (i = 0; i < num_ops; i++)
-          gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
-
-        gimple_set_def_ops (copy, NULL);
-        gimple_set_use_ops (copy, NULL);
-      }
-
-      return copy;
-    }
-}
-
-
 /* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
    a MODIFIED field.  */
 
@@ -2281,7 +2222,6 @@ gimple_has_side_effects (const_gimple s)
 
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */
-
       if (gimple_call_lhs (s)
           && TREE_SIDE_EFFECTS (gimple_call_lhs (s)))
         return true;
@@ -2299,7 +2239,6 @@ gimple_has_side_effects (const_gimple s)
     {
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */
-
       for (i = 0; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i)))
 	  return true;
@@ -2330,7 +2269,6 @@ gimple_rhs_has_side_effects (const_gimple s)
          because we must ignore a volatile LHS.  */
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */
-
       if (TREE_SIDE_EFFECTS (gimple_call_fn (s))
           || TREE_THIS_VOLATILE (gimple_call_fn (s)))
         return true;
@@ -2347,7 +2285,6 @@ gimple_rhs_has_side_effects (const_gimple s)
       /* Skip the first operand, the LHS. */
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */
-
       for (i = 1; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
             || TREE_THIS_VOLATILE (gimple_op (s, i)))
@@ -2358,7 +2295,6 @@ gimple_rhs_has_side_effects (const_gimple s)
       /* For statements without an LHS, examine all arguments.  */
       /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
          flag is still meaningful on operands.  */
-
       for (i = 0; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
             || TREE_THIS_VOLATILE (gimple_op (s, i)))

@@ -1147,7 +1147,7 @@ check_tree (tree t)
   if (SSA_VAR_P (t) || (TREE_CODE (t) == FUNCTION_DECL))
     {
       check_operand (t);
-      if (DECL_INITIAL (t))
+      if (DECL_P (t) && DECL_INITIAL (t))
 	check_tree (DECL_INITIAL (t));
     }
 }
@@ -1530,8 +1530,7 @@ check_assign (gimple t)
 
     case tcc_unary:
       {
-	tree rhs = gimple_assign_rhs1 (t);
-	tree op0 = TREE_OPERAND (rhs, 0);
+	tree op0 = gimple_assign_rhs1 (t);
 	tree type0 = get_canon_type (TREE_TYPE (op0), false, false);
 
 	/* For unary operations, if the operation is NEGATE or ABS on
@@ -1545,7 +1544,6 @@ check_assign (gimple t)
 
 	check_rhs_var (op0);
 	look_for_casts (op0);
-	look_for_casts (rhs);
       }
       break;
 

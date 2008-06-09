@@ -1260,10 +1260,12 @@ replace_phi_args_in (gimple phi, prop_value_t *prop_value)
 {
   size_t i;
   bool replaced = false;
-  gimple prev_phi = NULL;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    prev_phi = gimple_copy_no_def_use (phi);
+    {
+      fprintf (dump_file, "Folding PHI node: ");
+      print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
+    }
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
@@ -1293,13 +1295,16 @@ replace_phi_args_in (gimple phi, prop_value_t *prop_value)
 	}
     }
   
-  if (replaced && dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Folded PHI node: ");
-      print_gimple_stmt (dump_file, prev_phi, 0, TDF_SLIM);
-      fprintf (dump_file, "           into: ");
-      print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
-      fprintf (dump_file, "\n");
+      if (!replaced)
+	fprintf (dump_file, "No folding possible\n");
+      else
+	{
+	  fprintf (dump_file, "Folded into: ");
+	  print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
     }
 }
 
@@ -1409,7 +1414,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
       for (i = gsi_last_bb (bb); !gsi_end_p (i);)
 	{
           bool did_replace;
-	  gimple prev_stmt = NULL;
 	  gimple stmt = gsi_stmt (i);
 	  enum gimple_code code = gimple_code (stmt);
 
@@ -1455,7 +1459,10 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	     folded.  */
 	  did_replace = false;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
- 	    prev_stmt = gimple_copy_no_def_use (stmt);
+	    {
+	      fprintf (dump_file, "Folding statement: ");
+	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+	    }
 
 	  /* If we have range information, see if we can fold
 	     predicate expressions.  */
@@ -1499,15 +1506,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
                   recompute_tree_invariant_for_addr_expr (rhs);
               }
 
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "Folded statement: ");
-		  print_gimple_stmt (dump_file, prev_stmt, 0, TDF_SLIM);
-		  fprintf (dump_file, "            into: ");
-		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-		  fprintf (dump_file, "\n");
-		}
-
 	      /* Determine what needs to be done to update the SSA form.  */
 	      pop_stmt_changes (gsi_stmt_ptr (&i));
 	      something_changed = true;
@@ -1516,6 +1514,18 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	    {
 	      /* The statement was not modified, discard the change buffer.  */
 	      discard_stmt_changes (gsi_stmt_ptr (&i));
+	    }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      if (did_replace)
+		{
+		  fprintf (dump_file, "Folded into: ");
+		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+		  fprintf (dump_file, "\n");
+		}
+	      else
+		fprintf (dump_file, "Not folded\n");
 	    }
 
 	  /* Some statements may be simplified using ranges.  For

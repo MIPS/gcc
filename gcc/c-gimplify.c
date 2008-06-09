@@ -115,22 +115,19 @@ c_genericize (tree fndecl)
 }
 
 static void
-add_block_to_enclosing (tree block ATTRIBUTE_UNUSED)
+add_block_to_enclosing (tree block)
 {
-  /* FIXME tuples.  */
-#if 0
+  unsigned i;
   tree enclosing;
+  gimple bind;
+  VEC(gimple, heap) *stack = gimple_bind_expr_stack ();
 
-  for (enclosing = gimple_current_bind_expr ();
-       enclosing; enclosing = TREE_CHAIN (enclosing))
-    if (BIND_EXPR_BLOCK (enclosing))
+  for (i = 0; VEC_iterate (gimple, stack, i, bind); i++)
+    if (gimple_bind_block (bind))
       break;
 
-  enclosing = BIND_EXPR_BLOCK (enclosing);
+  enclosing = gimple_bind_block (bind);
   BLOCK_SUBBLOCKS (enclosing) = chainon (BLOCK_SUBBLOCKS (enclosing), block);
-#else
-  gimple_unreachable ();
-#endif
 }
 
 /* Genericize a scope by creating a new BIND_EXPR.
