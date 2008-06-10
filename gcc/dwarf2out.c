@@ -9152,9 +9152,12 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 	      offset += INTVAL (XEXP (elim, 1));
 	      elim = XEXP (elim, 0);
 	    }
-	  gcc_assert (SUPPORTS_STACK_ALIGNMENT
-	              || elim == (frame_pointer_needed ? hard_frame_pointer_rtx
-		                                       : stack_pointer_rtx));
+	  gcc_assert ((SUPPORTS_STACK_ALIGNMENT
+		       && (elim == hard_frame_pointer_rtx
+			   || elim == stack_pointer_rtx))
+	              || elim == (frame_pointer_needed
+				  ? hard_frame_pointer_rtx
+				  : stack_pointer_rtx));
 	  offset += frame_pointer_fb_offset;
 
 	  return new_loc_descr (DW_OP_fbreg, offset, 0);

@@ -1,3 +1,9 @@
+2008-06-10  Joey Ye  <joey.ye@intel.com>
+
+	* dwarf2out.c (based_loc_descr): Assert eliminate arg or frame
+	pointer with hard frame or stack pointer if stack alignment is
+	supported.
+
 2008-06-08  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* caller-save.c (setup_save_areas): Upate comments for spill
