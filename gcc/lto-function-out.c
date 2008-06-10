@@ -635,7 +635,7 @@ static void
 output_type_ref (struct output_block *ob, tree node)
 {
   LTO_DEBUG_TOKEN ("type_ref");
-  lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
+  output_type_ref_1 (ob, node);
 }
 
 
@@ -1087,8 +1087,17 @@ output_expr_operand (struct output_block *ob, tree expr)
     case VAR_DECL:
       if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
 	{
+	  /* Static or extern VAR_DECLs.  */
+	  unsigned int index;
+	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
-	  lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
+
+	  new = lto_output_decl_index (ob->main_stream, 
+				       ob->decl_state->var_decl_hash_table,
+				       &ob->decl_state->next_var_decl_index, 
+				       expr, &index);
+	  if (new)
+	    VEC_safe_push (tree, heap, ob->decl_state->var_decls, expr);
 	}
       else
 	{
@@ -1121,8 +1130,18 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case NAMESPACE_DECL:
-      output_record_start (ob, NULL, NULL, tag);
-      lto_output_namespace_decl_index (ob->decl_state, ob->main_stream, expr);
+      {
+	unsigned int index;
+	bool new;
+	output_record_start (ob, NULL, NULL, tag);
+
+	new = lto_output_decl_index (ob->main_stream,
+				     ob->decl_state->namespace_decl_hash_table,
+				     &ob->decl_state->next_namespace_decl_index,
+				     expr, &index);
+	if (new)
+	  VEC_safe_push (tree, heap, ob->decl_state->namespace_decls, expr);
+      }
       break;
 
     case PARM_DECL:
@@ -2139,7 +2158,6 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, RESX_EXPR);
   RESET_BIT (lto_types_needed_for, SSA_NAME);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
-  RESET_BIT (lto_types_needed_for, RESULT_DECL);
   RESET_BIT (lto_types_needed_for, TREE_LIST);
   RESET_BIT (lto_types_needed_for, TREE_VEC);
   RESET_BIT (lto_types_needed_for, TYPE_DECL);
@@ -2262,7 +2280,7 @@ output_function (struct cgraph_node* node)
   else if (TYPE_P (context))
     {
       output_record_start (ob, NULL, NULL, LTO_type);
-      lto_output_type_ref_index (ob->decl_state, ob->main_stream, context);
+      output_type_ref_1 (ob, context);
       LTO_DEBUG_UNDENT ();
     }
   else
