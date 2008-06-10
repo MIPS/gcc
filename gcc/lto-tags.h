@@ -325,7 +325,8 @@ enum LTO_tags {
   LTO_eq_expr,
   LTO_exact_div_expr,
   LTO_exc_ptr_expr,
-  LTO_field_decl,
+  LTO_field_decl0,
+  LTO_field_decl1,
   LTO_filter_expr,
   LTO_fixed_convert_expr,
   LTO_fixed_cst,
@@ -406,7 +407,8 @@ enum LTO_tags {
   LTO_truth_not_expr,
   LTO_truth_or_expr,
   LTO_truth_xor_expr,
-  LTO_type_decl,
+  LTO_type_decl0,
+  LTO_type_decl1,
   LTO_namespace_decl,
   LTO_translation_unit_decl,
   LTO_uneq_expr,
@@ -491,6 +493,9 @@ enum LTO_tags {
 
 /* Special for global streamer. Reference to previously-streamed node.  */
   LTO_tree_pickle_reference,
+
+  LTO_local_type_ref,
+  LTO_global_type_ref,
 
 /* There are 16 variants of the following decl bodies depending on the
    subtrees that may or may not be there in the decl_common part of

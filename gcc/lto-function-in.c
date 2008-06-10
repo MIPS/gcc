@@ -96,10 +96,33 @@ eq_string_slot_node (const void *p1, const void *p2)
 static htab_t file_name_hash_table;
 
 static tree
-input_expr_operand (struct lto_input_block *, struct data_in *, struct function *, 
-                    enum LTO_tags);
+input_expr_operand (struct lto_input_block *, struct data_in *,
+                    struct function *, enum LTO_tags);
+
 static tree
-input_local_var (struct lto_input_block *, struct data_in *, struct function *, unsigned int i);
+input_local_tree (struct lto_input_block *, struct data_in *,
+                  struct function *);
+
+static tree
+input_local_var_decl (struct lto_input_block *, struct data_in *,
+                      struct function *, unsigned int, enum LTO_tags);
+
+static tree
+input_local_field_decl (struct lto_input_block *, struct data_in *,
+                        struct function *, unsigned int);
+
+static tree
+input_local_type_decl (struct lto_input_block *, struct data_in *,
+                       struct function *, unsigned int);
+
+static tree
+input_local_type (struct lto_input_block *, struct data_in *,
+                  struct function *, unsigned int, enum tree_code code);
+
+
+static tree
+input_local_decl (struct lto_input_block *, struct data_in *,
+                  struct function *, unsigned int);
 
 
 /* Return the next character of input from IB.  Abort if you
@@ -199,8 +222,60 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
 {
   int index;
 
-  index = lto_input_uleb128 (ib);
-  return data_in->file_data->types[index];
+  tree result;
+  enum LTO_tags tag = input_record_start (ib);
+
+  if (tag == LTO_global_type_ref)
+    {
+      index = lto_input_uleb128 (ib);
+      result = data_in->file_data->types[index];
+    }
+  else if (tag == LTO_local_type_ref)
+    {
+      int lv_index = lto_input_uleb128 (ib);
+      result = data_in->local_decls [lv_index];
+      if (result == NULL)
+      {
+        /* Create a context to read the local variable so that
+           it does not disturb the position of the code that is
+           calling for the local variable.  This allows locals
+           to refer to other locals.  */
+        struct lto_input_block lib;
+
+#ifdef LTO_STREAM_DEBUGGING
+        struct lto_input_block *current = lto_debug_context.current_data;
+        struct lto_input_block debug;
+        int current_indent = lto_debug_context.indent;
+
+        debug.data = current->data;
+        debug.len = current->len;
+        debug.p = data_in->local_decls_index_d[lv_index];
+
+        lto_debug_context.indent = 0;
+        lto_debug_context.current_data = &debug;
+        lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+        lib.data = ib->data;
+        lib.len = ib->len;
+        lib.p = data_in->local_decls_index[lv_index];
+
+        /* The TYPE_DECL case doesn't care about the FN argument.  */
+        result = input_local_decl (&lib, data_in, NULL, lv_index);
+        gcc_assert (TYPE_P (result));
+        data_in->local_decls [lv_index] = result;
+
+#ifdef LTO_STREAM_DEBUGGING
+        lto_debug_context.indent = current_indent;
+        lto_debug_context.current_data = current;
+        lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+      }
+    }
+  else
+    gcc_unreachable();
+
+  LTO_DEBUG_UNDENT();
+  return result;
 }
 
 
@@ -210,7 +285,7 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
 static tree
 input_type_ref (struct data_in *data_in, struct lto_input_block *ib)
 {
-  LTO_DEBUG_TOKEN ("type");
+  LTO_DEBUG_TOKEN ("type_ref");
   return input_type_ref_1 (data_in, ib);
 }
 
@@ -565,7 +640,53 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case FIELD_DECL:
-      result = data_in->file_data->field_decls [lto_input_uleb128 (ib)];
+      if (tag == LTO_field_decl1)
+        {
+          result = data_in->file_data->field_decls [lto_input_uleb128 (ib)];
+          gcc_assert (result);
+        }
+      else if (tag == LTO_field_decl0)
+        {
+          int lv_index = lto_input_uleb128 (ib);
+          result = data_in->local_decls [lv_index];
+          if (result == NULL)
+            {
+              /* Create a context to read the local variable so that
+                 it does not disturb the position of the code that is
+                 calling for the local variable.  This allows locals
+                 to refer to other locals.  */
+              struct lto_input_block lib;
+
+#ifdef LTO_STREAM_DEBUGGING
+              struct lto_input_block *current = lto_debug_context.current_data;
+              struct lto_input_block debug;
+              int current_indent = lto_debug_context.indent;
+
+              debug.data = current->data;
+              debug.len = current->len;
+              debug.p = data_in->local_decls_index_d[lv_index];
+
+              lto_debug_context.indent = 0;
+              lto_debug_context.current_data = &debug;
+              lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+              lib.data = ib->data;
+              lib.len = ib->len;
+              lib.p = data_in->local_decls_index[lv_index];
+
+              result = input_local_decl (&lib, data_in, fn, lv_index);
+              gcc_assert (TREE_CODE (result) == FIELD_DECL);
+              data_in->local_decls [lv_index] = result;
+
+#ifdef LTO_STREAM_DEBUGGING
+              lto_debug_context.indent = current_indent;
+              lto_debug_context.current_data = current;
+              lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+            }
+        }
+      else
+        gcc_unreachable ();
       break;
 
     case FUNCTION_DECL:
@@ -574,8 +695,53 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case TYPE_DECL:
-      result = data_in->file_data->type_decls [lto_input_uleb128 (ib)];
-      gcc_assert (result);
+      if (tag == LTO_type_decl1)
+        {
+          result = data_in->file_data->type_decls [lto_input_uleb128 (ib)];
+          gcc_assert (result);
+        }
+      else if (tag == LTO_type_decl0)
+        {
+          int lv_index = lto_input_uleb128 (ib);
+          result = data_in->local_decls [lv_index];
+          if (result == NULL)
+            {
+              /* Create a context to read the local variable so that
+                 it does not disturb the position of the code that is
+                 calling for the local variable.  This allows locals
+                 to refer to other locals.  */
+              struct lto_input_block lib;
+
+#ifdef LTO_STREAM_DEBUGGING
+              struct lto_input_block *current = lto_debug_context.current_data;
+              struct lto_input_block debug;
+              int current_indent = lto_debug_context.indent;
+
+              debug.data = current->data;
+              debug.len = current->len;
+              debug.p = data_in->local_decls_index_d[lv_index];
+
+              lto_debug_context.indent = 0;
+              lto_debug_context.current_data = &debug;
+              lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+              lib.data = ib->data;
+              lib.len = ib->len;
+              lib.p = data_in->local_decls_index[lv_index];
+
+              result = input_local_decl (&lib, data_in, fn, lv_index);
+              gcc_assert (TREE_CODE (result) == TYPE_DECL);
+              data_in->local_decls [lv_index] = result;
+
+#ifdef LTO_STREAM_DEBUGGING
+              lto_debug_context.indent = current_indent;
+              lto_debug_context.current_data = current;
+              lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+            }
+        }
+      else
+        gcc_unreachable ();
       break;
 
     case NAMESPACE_DECL:
@@ -621,7 +787,9 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 	      lib.len = ib->len;
 	      lib.p = data_in->local_decls_index[lv_index];
 
-	      result = input_local_var (&lib, data_in, fn, lv_index); 
+	      result = input_local_decl (&lib, data_in, fn, lv_index); 
+              gcc_assert (TREE_CODE (result) == VAR_DECL
+                          || TREE_CODE (result) == PARM_DECL);
 	      data_in->local_decls [lv_index] = result;
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -1037,7 +1205,7 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
 
 
 /* Input the local var index table.  */
-
+/* FIXME: We are really reading index for all local decls, not just vars.  */
 
 static void
 input_local_vars_index (struct lto_input_block *ib, struct data_in *data_in, 
@@ -1059,13 +1227,81 @@ input_local_vars_index (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
+static tree
+input_local_tree (struct lto_input_block *ib, struct data_in *data_in,
+                  struct function *fn)
+{
+  int index;
+  tree result;
+  enum LTO_tags tag;
+
+  tag = input_record_start (ib);
+
+  if (tag == 0)
+    return NULL_TREE;
+  else if (tag == LTO_global_type_ref)
+    {
+      index = lto_input_uleb128 (ib);
+      result = data_in->file_data->types[index];
+    }
+  else if (tag == LTO_local_type_ref)
+    {
+      /* FIXME: Refactor to avoid all the cut/paste of
+         code cribbed from the VAR_DECL handler, here
+         and elsewhere.  */
+      int lv_index = lto_input_uleb128 (ib);
+      result = data_in->local_decls [lv_index];
+      if (result == NULL)
+      {
+        /* Create a context to read the local variable so that
+           it does not disturb the position of the code that is
+           calling for the local variable.  This allows locals
+           to refer to other locals.  */
+        struct lto_input_block lib;
+
+#ifdef LTO_STREAM_DEBUGGING
+        struct lto_input_block *current = lto_debug_context.current_data;
+        struct lto_input_block debug;
+        int current_indent = lto_debug_context.indent;
+
+        debug.data = current->data;
+        debug.len = current->len;
+        debug.p = data_in->local_decls_index_d[lv_index];
+
+        lto_debug_context.indent = 0;
+        lto_debug_context.current_data = &debug;
+        lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+        lib.data = ib->data;
+        lib.len = ib->len;
+        lib.p = data_in->local_decls_index[lv_index];
+
+        /* The TYPE_DECL case doesn't care about the FN argument.  */
+        result = input_local_decl (&lib, data_in, NULL, lv_index);
+        gcc_assert (TYPE_P (result));
+        data_in->local_decls [lv_index] = result;
+
+#ifdef LTO_STREAM_DEBUGGING
+        lto_debug_context.indent = current_indent;
+        lto_debug_context.current_data = current;
+        lto_debug_context.tag_names = LTO_tree_tag_names;
+#endif
+      }
+    }
+  else
+    /* Not a type_ref.  */
+    return input_expr_operand (ib, data_in, fn, tag);
+
+  LTO_DEBUG_UNDENT();
+  return result;
+}
+
 /* Input local var I for FN from IB.  */
 
 static tree
-input_local_var (struct lto_input_block *ib, struct data_in *data_in, 
-		 struct function *fn, unsigned int i)
+input_local_var_decl (struct lto_input_block *ib, struct data_in *data_in, 
+                      struct function *fn, unsigned int i, enum LTO_tags tag)
 {
-  enum LTO_tags tag;
   unsigned int variant;
   bool is_var;
   unsigned int name_index;
@@ -1075,11 +1311,13 @@ input_local_var (struct lto_input_block *ib, struct data_in *data_in,
   tree result;
   tree context;
 
+#if 0
   /* The line number info needs to be reset for each local var since
      they are read in random order.  */
   clear_line_info (data_in);
 
   tag = input_record_start (ib);
+#endif
   variant = tag & 0xF;
   is_var = ((tag & 0xFFF0) == LTO_local_var_decl_body0);
   
@@ -1129,7 +1367,6 @@ input_local_var (struct lto_input_block *ib, struct data_in *data_in,
     }
 
   flags = input_tree_flags (ib, 0, true);
-  /* ### */
   /* Bug fix for handling debug info previously omitted.
      See comment in output_tree_flags, which failed to emit
      the flags debug info in some cases.  */
@@ -1173,8 +1410,230 @@ input_local_var (struct lto_input_block *ib, struct data_in *data_in,
 }
 
 
+static tree
+input_local_field_decl (struct lto_input_block *ib, struct data_in *data_in, 
+                        struct function *fn, unsigned int i)
+{
+  lto_flags_type flags;
+  tree decl;
+
+  decl = make_node (FIELD_DECL);
+
+  flags = input_tree_flags (ib, FIELD_DECL, true);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, decl);
+  process_tree_flags (decl, flags);
+
+  data_in->local_decls[i] = decl;
+
+  /* omit locus, uid */
+  decl->decl_minimal.name = input_local_tree (ib, data_in, fn);
+  decl->decl_minimal.context = input_local_tree (ib, data_in, fn);
+
+  decl->common.type = input_local_tree (ib, data_in, fn);
+
+  decl->decl_common.attributes = input_local_tree (ib, data_in, fn);
+  decl->decl_common.abstract_origin = input_local_tree (ib, data_in, fn);
+
+  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.align = lto_input_uleb128 (ib);
+  decl->decl_common.off_align = lto_input_uleb128 (ib);
+
+  decl->decl_common.size = input_local_tree (ib, data_in, fn);
+  decl->decl_common.size_unit = input_local_tree (ib, data_in, fn);
+
+  decl->field_decl.offset = input_local_tree (ib, data_in, fn);
+  decl->field_decl.bit_field_type = input_local_tree (ib, data_in, fn);
+  decl->field_decl.qualifier = input_local_tree (ib, data_in, fn);
+  decl->field_decl.bit_offset = input_local_tree (ib, data_in, fn);
+  decl->field_decl.fcontext = input_local_tree (ib, data_in, fn);
+
+  decl->decl_common.initial = input_local_tree (ib, data_in, fn);
+
+  /* lang_specific */
+
+  decl->common.chain = input_local_tree (ib, data_in, fn);
+
+  return decl;
+}
+
+
+static tree
+input_local_type_decl (struct lto_input_block *ib, struct data_in *data_in, 
+                       struct function *fn, unsigned int i)
+{
+  lto_flags_type flags;
+  tree decl;
+
+  decl = make_node (TYPE_DECL);
+
+  flags = input_tree_flags (ib, TYPE_DECL, true);
+  if (input_line_info (ib, data_in, flags))
+    set_line_info (data_in, decl);
+  process_tree_flags (decl, flags);
+
+  data_in->local_decls[i] = decl;
+
+  /* omit locus, uid */
+  /* Must output name before type.  */
+  decl->decl_minimal.name = input_local_tree (ib, data_in, fn);
+  decl->decl_minimal.context = input_local_tree (ib, data_in, fn);
+
+  decl->decl_with_vis.assembler_name = input_local_tree (ib, data_in, fn);
+  decl->decl_with_vis.section_name = input_local_tree (ib, data_in, fn);
+
+  decl->common.type = input_local_tree (ib, data_in, fn);
+
+  decl->decl_common.attributes = input_local_tree (ib, data_in, fn);
+  decl->decl_common.abstract_origin = input_local_tree (ib, data_in, fn);
+
+  decl->decl_common.mode = lto_input_uleb128 (ib);
+  decl->decl_common.align = lto_input_uleb128 (ib);
+
+  decl->decl_common.size = input_local_tree (ib, data_in, fn);
+  decl->decl_common.size_unit = input_local_tree (ib, data_in, fn);
+
+  /* lang_specific */
+  /* omit rtl */
+
+  decl->decl_common.initial = input_local_tree (ib, data_in, fn);
+
+  decl->decl_non_common.saved_tree = input_local_tree (ib, data_in, fn);
+  decl->decl_non_common.arguments = input_local_tree (ib, data_in, fn);
+  decl->decl_non_common.result = input_local_tree (ib, data_in, fn);
+  decl->decl_non_common.vindex = input_local_tree (ib, data_in, fn);
+
+  LTO_DEBUG_UNDENT();
+
+  return decl;
+}
+
+
+static tree
+input_local_type (struct lto_input_block *ib, struct data_in *data_in, 
+                  struct function *fn, unsigned int i, enum tree_code code)
+{
+  tree type;
+
+  type = make_node (code);
+  gcc_assert (TYPE_P (type));
+
+  process_tree_flags (type, input_tree_flags (ib, code, true));
+  /* Clear this flag, since we didn't stream the values cache. */
+  TYPE_CACHED_VALUES_P (type) = 0;
+
+  data_in->local_decls[i] = type;
+
+  LTO_DEBUG_TOKEN ("type");
+  type->common.type = input_local_tree (ib, data_in, fn);
+
+  LTO_DEBUG_TOKEN ("size");
+  type->type.size = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("size_unit");
+  type->type.size_unit = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("attributes");
+  type->type.attributes = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("uid");
+  type->type.uid = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("precision");
+  type->type.precision = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("mode");
+  type->type.mode = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("align");
+  type->type.align = lto_input_uleb128 (ib);
+  LTO_DEBUG_TOKEN ("pointer_to");
+  /* FIXME: I think this is a cache that should not be streamed.  */
+  type->type.pointer_to = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("reference_to");
+  type->type.reference_to = input_local_tree (ib, data_in, fn);
+  /* FXIME: Read symtab here, if required.  */
+  LTO_DEBUG_TOKEN ("name");
+  type->type.name = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("minval");
+  type->type.minval = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("maxval");
+  type->type.maxval = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("next_variant");
+  type->type.next_variant = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("main_variant");
+  type->type.main_variant = input_local_tree (ib, data_in, fn);
+  /* FIXME:  Handle BINFO.  */
+  /*
+    LTO_DEBUG_TOKEN ("binfo");
+    type->type.binfo = input_local_tree (ib, data_in, fn);
+  */
+  LTO_DEBUG_TOKEN ("context");
+  type->type.context = input_local_tree (ib, data_in, fn);
+  LTO_DEBUG_TOKEN ("canonical");
+  type->type.canonical = input_local_tree (ib, data_in, fn);
+
+  /* Do components last */
+  LTO_DEBUG_TOKEN ("values");
+  {
+    tree values = input_local_tree (ib, data_in, fn);
+    /* If using values cache, creation of integer
+       literals above may have allocated a new cache.
+       In this case, don't clobber it.  */
+    if (!type->type.values)
+      type->type.values = values;
+  }
+
+  LTO_DEBUG_TOKEN ("chain");
+  type->common.chain = input_local_tree (ib, data_in, fn);  /* TYPE_STUB_DECL */
+
+  LTO_DEBUG_UNDENT();
+
+  return type;
+}
+
+
+static tree
+input_local_decl (struct lto_input_block *ib, struct data_in *data_in, 
+                  struct function *fn, unsigned int i)
+{
+  enum LTO_tags tag;
+  tree result;
+
+  /* The line number info needs to be reset for each local decl since
+     they are read in random order.  */
+  clear_line_info (data_in);
+
+  tag = input_record_start (ib);
+
+  /* FIXME: Use LTO_*_body nomenclature for fields and types?
+     Since we are reading from a separate local_decls stream,
+     re-use of the tags for a different purpose doesn't break
+     anything, but is perhaps ugly.  */
+  if ((tag & 0xFFF0) == LTO_parm_decl_body0
+      || (tag & 0xFFF0) == LTO_local_var_decl_body0)
+    result = input_local_var_decl (ib, data_in, fn, i, tag);
+  else if (tag == LTO_type_decl0)
+    result = input_local_type_decl (ib, data_in, fn, i);
+  else if (tag == LTO_field_decl0)
+    result = input_local_field_decl (ib, data_in, fn, i);
+  else
+    {
+      enum tree_code code = tag_to_expr[tag];
+
+      gcc_assert (code);
+      gcc_assert (TREE_CODE_CLASS (code) == tcc_type);
+      
+      result = input_local_type (ib, data_in, fn, i, code);
+    }
+
+  /* DEBUG */
+  /*
+    fprintf (stderr, "LOCAL: ");
+    print_generic_expr (stderr, result, 0);
+    fprintf (stderr, "\n");
+  */
+
+  return result;
+}
+
 /* Load COUNT local var_decls and parm_decls from a DATA segment SIZE
    bytes long using DATA_IN.  */
+/* FIXME: We are really reading all local decls, not just vars.  */
 
 static void 
 input_local_vars (struct lto_input_block *ib, struct data_in *data_in, 
@@ -1225,7 +1684,7 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
 	  = data_in->local_decls_index_d[i]; 
 #endif
 	ib->p = data_in->local_decls_index[i];
-	input_local_var (ib, data_in, fn, i);
+	input_local_decl (ib, data_in, fn, i);
       }
 
   /* Add the regular locals in the proper order.  */
@@ -1416,7 +1875,6 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in, struct fun
       ssa_name = make_ssa_name_fn (fn, name, build_empty_stmt ());
 
       flags = input_tree_flags (ib, 0, true);
-      /* ### */
       /* Bug fix for handling debug info previously omitted.
          See comment in output_tree_flags, which failed to emit
          the flags debug info in some cases.  */
@@ -1588,7 +2046,7 @@ static bool initialized_local = false;
 
 
 /* Static initialization for the lto reader.  */
-/* ### Declared in lto-section-in.h.  Should probably be moved elsewhere.  */
+/* FIXME: Declared in lto-section-in.h.  Should probably be moved elsewhere.  */
 
 void
 lto_static_init_local (void)
@@ -1844,7 +2302,12 @@ lto_read_body (struct lto_file_decl_data* file_data,
 	for (i = 0; i < file_data->num_var_decls; i++)
 	  add_referenced_var (file_data->var_decls[i]);
 	for (j = 0; j < header->num_local_decls; j++)
-	  add_referenced_var (data_in.local_decls[j]);
+          {
+            tree decl = data_in.local_decls[j];
+            if (TREE_CODE (decl) == VAR_DECL
+                || TREE_CODE (decl) == PARM_DECL)
+              add_referenced_var (decl);
+          }
       }
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -1899,7 +2362,7 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
   lto_read_body (file_data, NULL, data, LTO_section_static_initializer);
 }
 
-/* ### Read types and globals.  */
+/* Read types and globals.  */
 
 tree input_tree (struct lto_input_block *, struct data_in *);
 tree input_type_tree (struct data_in *, struct lto_input_block *);
@@ -1917,7 +2380,7 @@ global_vector_enter (struct data_in *data_in, tree node)
 {
   unsigned index = VEC_length (tree, data_in->globals_index);
 
-  /* ### DEBUG */
+  /* DEBUG */
   /* fprintf (stderr, "ENTER %06u -> %p\n", index, node); */
 
   VEC_safe_push (tree, heap, data_in->globals_index, node);
@@ -1928,7 +2391,7 @@ global_vector_enter (struct data_in *data_in, tree node)
 static void
 global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
 {
-  /* ### DEBUG */
+  /* DEBUG */
   /* fprintf (stderr, "FIXUP %06u -> %p\n", index, node); */
 
   VEC_replace (tree, data_in->globals_index, index, node);
@@ -2020,7 +2483,7 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* struct function is filled in when body is read */
 
-  /* ### Adapted from DWARF reader.  */
+  /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
   if (!TREE_PUBLIC (decl))
     /* Need to ensure static entities between different files
        don't clash unexpectedly.  */
@@ -2093,7 +2556,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
       SET_DECL_DEBUG_EXPR (decl, debug_expr);
   }
 
-  /* ### Adapted from DWARF reader.  */
+  /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
   if (!(decl->decl_minimal.context
         && TREE_CODE (decl->decl_minimal.context) == FUNCTION_DECL))
     {
@@ -2222,7 +2685,7 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
   global_vector_enter (data_in, decl);
 
   /* omit locus, uid */
-  /* ### Must go before type */
+  /* Must output name before type.  */
   decl->decl_minimal.name = input_tree (ib, data_in);
   decl->decl_minimal.context = input_tree (ib, data_in);
 
@@ -2433,11 +2896,11 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   LTO_DEBUG_TOKEN ("align");
   type->type.align = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("pointer_to");
-  /* ### I think this is a cache that should not be streamed. */
+  /* FIXME: I think this is a cache that should not be streamed. */
   type->type.pointer_to = input_tree (ib, data_in);
   LTO_DEBUG_TOKEN ("reference_to");
   type->type.reference_to = input_tree (ib, data_in);
-  /* ### Read symtab here, if required.  */
+  /* FIXME: Read symtab here, if required.  */
   LTO_DEBUG_TOKEN ("name");
   type->type.name = input_tree (ib, data_in);
   LTO_DEBUG_TOKEN ("minval");
@@ -2521,7 +2984,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
     flags = 0;
 
 
-  /* ### Handlers for declarations currently handle line info themselves.  */
+  /* Handlers for declarations currently handle line info themselves.  */
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
       || IS_GIMPLE_STMT_CODE_CLASS(TREE_CODE_CLASS (code)))
     needs_line_set = input_line_info (ib, data_in, flags);
@@ -2605,7 +3068,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case CASE_LABEL_EXPR:
-      /* ### We shouldn't see these here.  */
+      /* FIXME: We shouldn't see these here.  Replace with assert?  */
       {
 	int variant = tag - LTO_case_label_expr0;
 	tree op0 = NULL_TREE;
@@ -2655,7 +3118,6 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case SSA_NAME:
-      /* ### */
       /* I'm not sure these are meaningful at file scope.
          In any case, we cannot handle them in the same
          manner as within a function body.  */
@@ -2722,8 +3184,9 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 				    input_record_start (ib));
         gcc_assert (label && TREE_CODE (label) == LABEL_DECL);
         result = build1 (code, void_type_node, label);
-        /* ###
-        if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
+        /* FIXME: We may need this. */
+        /*
+          if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
           DECL_CONTEXT (LABEL_EXPR_LABEL (result)) = fn->decl;
         */
         gcc_assert (DECL_CONTEXT (LABEL_EXPR_LABEL (result)));
@@ -2863,7 +3326,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case RETURN_EXPR:
-      /* ### We shouldn't see these here.  */
+      /* We shouldn't see these here.  */
       gcc_unreachable ();
 
     case RANGE_EXPR:
@@ -2888,7 +3351,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case SWITCH_EXPR:
-      /* ### We shouldn't see these here.  */
+      /* FIXME: We shouldn't see these here.  Replace with assert?  */
       {
 	unsigned int len = lto_input_uleb128 (ib);
 	unsigned int i;
@@ -3111,7 +3574,7 @@ input_tree (struct lto_input_block *ib, struct data_in *data_in)
     return NULL_TREE;
 }
 
-/* ### Note reversed argument order.  */
+/* FIXME: Note reversed argument order.  */
 tree
 input_type_tree ( struct data_in *data_in, struct lto_input_block *ib)
 {

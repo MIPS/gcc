@@ -1,4 +1,54 @@
-2008-06-09 Rafael Espindola  <espindola@google.com>
+2008-06-09  Bill Maddox  <maddox@google.com>
+
+	* lto-tags.h: Add new tags LTO_local_type_ref
+	and LTO_global_type_ref.  Split LTO_type_decl
+	and LTO_field_decl into LTO_type_decl0, LTO_type_decl1,
+	LTO_field_decl0, and LTO_field_decl1.
+	* lto-tree-tags.h: Set names and tree code mappings for
+	the new tags.
+	* lto-function-out.c: Tidy comments and formatting.
+	(output_record_start): Add forward declaration.
+	(type_function_context): New function.
+	(field_decl_is_local, type_decl_is_local): New functions.
+	(output_type_ref_1): Write "local" (e.g., variably-modified)
+	types to local_decls stream.
+	(output_type_ref): Use "type_ref" as debug token to avoid
+	confusing clash with use of "type" elsewhere.
+	(output_local_decl_ref):  Update comment.
+	(output_expr_operand): Cases for FIELD_DECL and TYPE_DECL
+	now write "local" declarations to local_decls stream.
+	(output_local_var):  Rename to output_local_var_decl.
+	(output_local_var_decl): Remove code to set slot in
+	local_decls_index, now handled by output_local_decl.
+	(output_local_tree): New function.
+	(output_local_field_decl, output_local_type_decl,
+	output_local_type): New functions.
+	(output_local_decl): New function.
+	(output_field_decl): Use new tag LTO_field_decl1, to
+	distinguish from "local" fields.
+	(output_type_decl): Use new tag LTO_type_decl1, to
+	distinguish from "local" fields.
+	* lto-function-in.c: Tidy comments and formatting.
+	(input_local_tree, input_local_var_decl, input_local_field_decl,
+	input_local_type_decl, input_local_type):  Add forward declarations.
+	(input_type_ref_1): Distinguish references to global or local
+	declaration streams.
+	(input_type_ref):  Use "type_ref" as debug token to avoid
+	confusing clash with use of "type" elsewhere.
+	(input_expr_operand):  Cases for FIELD_DECL and TYPE_DECL
+	now read "local" declarations from local_decls stream.
+	(input_local_tree): New function.
+	(input_local_var): Rename to input_local_var_decl.
+	(input_local_var_decl): Input record tag is now an argument.
+	(input_local_field_decl, input_local_type_decl,
+	input_local_type): New functions.
+	(input_local_decl): New function.
+	(input_local_vars): Call input_local_decl instead of input_local_var.
+	(lto_static_init_local): Don't call add_referenced_var on non-vars.
+	* lto-section-out.c (lto_hash_decl_slot_node, lto_eq_decl_slot_node):
+	Use object pointer, not UID, as hash key.
+
+2008-06-09 Rafael Espindola  <espindola@google.com>http://www.google.com/
        based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
 
        * langhooks-def.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
