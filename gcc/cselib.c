@@ -55,7 +55,7 @@ static int discard_useless_locs (void **, void *);
 static int discard_useless_values (void **, void *);
 static void remove_useless_values (void);
 static unsigned int cselib_hash_rtx (rtx, int);
-static cselib_val *new_cselib_val (unsigned int, enum machine_mode);
+static cselib_val *new_cselib_val (unsigned int, enum machine_mode, rtx);
 static void add_mem_for_addr (cselib_val *, cselib_val *, rtx);
 static cselib_val *cselib_lookup_mem (rtx, int);
 static void cselib_invalidate_regno (unsigned int, enum machine_mode);
@@ -848,7 +848,7 @@ cselib_hash_rtx (rtx x, int create)
    value is MODE.  */
 
 static inline cselib_val *
-new_cselib_val (unsigned int value, enum machine_mode mode)
+new_cselib_val (unsigned int value, enum machine_mode mode, rtx x)
 {
   cselib_val *e = pool_alloc (cselib_val_pool);
 
@@ -868,6 +868,14 @@ new_cselib_val (unsigned int value, enum machine_mode mode)
   e->addr_list = 0;
   e->locs = 0;
   e->next_containing_mem = 0;
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "cselib value %u %p ", value, (void*)e);
+      print_rtl_single (dump_file, x);
+      fputc ('\n', dump_file);
+    }
+
   return e;
 }
 
@@ -927,7 +935,7 @@ cselib_lookup_mem (rtx x, int create)
   if (! create)
     return 0;
 
-  mem_elt = new_cselib_val (++next_unknown_value, mode);
+  mem_elt = new_cselib_val (++next_unknown_value, mode, x);
   add_mem_for_addr (addr, mem_elt, x);
   slot = htab_find_slot_with_hash (cselib_hash_table, wrap_constant (mode, x),
 				   mem_elt->value, INSERT);
@@ -1143,7 +1151,11 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
       {
 	rtx result;
 	if (dump_file)
-	  fprintf (dump_file, "expanding value %s into: ", GET_MODE_NAME (GET_MODE (orig)));
+	  {
+	    fputs ("\nexpanding ", dump_file);
+	    print_rtl_single (dump_file, orig);
+	    fputs (" into...", dump_file);
+	  }
 	
 	if (!evd->callback)
 	  result = NULL;
@@ -1159,7 +1171,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 
 	if (!result)
 	  result = expand_loc (CSELIB_VAL_PTR (orig)->locs, evd, max_depth);
-	if (result 
+	if (result
 	    && GET_CODE (result) == CONST_INT
 	    && GET_MODE (orig) != VOIDmode)
 	  {
@@ -1272,7 +1284,7 @@ cselib_subst_to_values (rtx x)
 	{
 	  /* This happens for autoincrements.  Assign a value that doesn't
 	     match any other.  */
-	  e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+	  e = new_cselib_val (++next_unknown_value, GET_MODE (x), x);
 	}
       return e->val_rtx;
 
@@ -1288,7 +1300,7 @@ cselib_subst_to_values (rtx x)
     case PRE_DEC:
     case POST_MODIFY:
     case PRE_MODIFY:
-      e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+      e = new_cselib_val (++next_unknown_value, GET_MODE (x), x);
       return e->val_rtx;
 
     default:
@@ -1332,6 +1344,21 @@ cselib_subst_to_values (rtx x)
   return copy;
 }
 
+/* Log a lookup of X to the cselib table along with the result RET.  */
+
+static cselib_val *
+cselib_log_lookup (rtx x, cselib_val *ret)
+{
+  if (dump_file)
+    {
+      fputs ("cselib lookup ", dump_file);
+      print_inline_rtx (dump_file, x, 2);
+      fprintf (dump_file, " => %u\n", ret ? ret->value : 0);
+    }
+
+  return ret;
+}
+
 /* Look up the rtl expression X in our tables and return the value it has.
    If CREATE is zero, we return NULL if we don't know the value.  Otherwise,
    we create a new one if possible, using mode MODE if X doesn't have a mode
@@ -1360,10 +1387,10 @@ cselib_lookup (rtx x, enum machine_mode mode, int create)
 	l = l->next;
       for (; l; l = l->next)
 	if (mode == GET_MODE (l->elt->val_rtx))
-	  return l->elt;
+	  return cselib_log_lookup (x, l->elt);
 
       if (! create)
-	return 0;
+	return cselib_log_lookup (x, 0);
 
       if (i < FIRST_PSEUDO_REGISTER)
 	{
@@ -1373,7 +1400,7 @@ cselib_lookup (rtx x, enum machine_mode mode, int create)
 	    max_value_regs = n;
 	}
 
-      e = new_cselib_val (++next_unknown_value, GET_MODE (x));
+      e = new_cselib_val (++next_unknown_value, GET_MODE (x), x);
       e->locs = new_elt_loc_list (e->locs, x);
       if (REG_VALUES (i) == 0)
 	{
@@ -1386,34 +1413,34 @@ cselib_lookup (rtx x, enum machine_mode mode, int create)
       REG_VALUES (i)->next = new_elt_list (REG_VALUES (i)->next, e);
       slot = htab_find_slot_with_hash (cselib_hash_table, x, e->value, INSERT);
       *slot = e;
-      return e;
+      return cselib_log_lookup (x, e);
     }
 
   if (MEM_P (x))
-    return cselib_lookup_mem (x, create);
+    return cselib_log_lookup (x, cselib_lookup_mem (x, create));
 
   hashval = cselib_hash_rtx (x, create);
   /* Can't even create if hashing is not possible.  */
   if (! hashval)
-    return 0;
+    return cselib_log_lookup (x, 0);
 
   slot = htab_find_slot_with_hash (cselib_hash_table, wrap_constant (mode, x),
 				   hashval, create ? INSERT : NO_INSERT);
   if (slot == 0)
-    return 0;
+    return cselib_log_lookup (x, 0);
 
   e = (cselib_val *) *slot;
   if (e)
-    return e;
+    return cselib_log_lookup (x, e);
 
-  e = new_cselib_val (hashval, mode);
+  e = new_cselib_val (hashval, mode, x);
 
   /* We have to fill the slot before calling cselib_subst_to_values:
      the hash table is inconsistent until we do so, and
      cselib_subst_to_values will need to do lookups.  */
   *slot = (void *) e;
   e->locs = new_elt_loc_list (e->locs, cselib_subst_to_values (x));
-  return e;
+  return cselib_log_lookup (x, e);
 }
 
 /* Invalidate any entries in reg_values that overlap REGNO.  This is called
@@ -1811,7 +1838,7 @@ cselib_process_insn (rtx insn)
     {
       if (find_reg_note (insn, REG_RETVAL, NULL))
         cselib_current_insn_in_libcall = false;
-      cselib_clear_table ();
+      cselib_reset_table_with_next_value (next_unknown_value);
       return;
     }
 
@@ -1927,6 +1954,95 @@ cselib_finish (void)
   cselib_hash_table = 0;
   n_useless_values = 0;
   next_unknown_value = 0;
+}
+
+/* Dump the cselib_val *X to FILE *info.  */
+
+static int
+dump_cselib_val (void **x, void *info)
+{
+  cselib_val *v = (cselib_val *)*x;
+  FILE *out = (FILE *)info;
+  bool need_lf = true;
+
+  print_inline_rtx (out, v->val_rtx, 0);
+
+  if (v->locs)
+    {
+      struct elt_loc_list *l = v->locs;
+      if (need_lf)
+	{
+	  fputc ('\n', out);
+	  need_lf = false;
+	}
+      fputs (" locs:", out);
+      do
+	{
+	  fprintf (out, "\n  from insn %i%s ",
+		   INSN_UID (l->setting_insn),
+		   l->in_libcall ? " (libcall)" : "");
+	  print_inline_rtx (out, l->loc, 4);
+	}
+      while ((l = l->next));
+      fputc ('\n', out);
+    }
+  else
+    {
+      fputs (" no locs", out);
+      need_lf = true;
+    }
+
+  if (v->addr_list)
+    {
+      struct elt_list *e = v->addr_list;
+      if (need_lf)
+	{
+	  fputc ('\n', out);
+	  need_lf = false;
+	}
+      fputs (" addr list:", out);
+      do
+	{
+	  fputs ("\n  ", out);
+	  print_inline_rtx (out, e->elt->val_rtx, 2);
+	}
+      while ((e = e->next));
+      fputc ('\n', out);
+    }
+  else
+    {
+      fputs (" no addrs", out);
+      need_lf = true;
+    }
+
+  if (v->next_containing_mem == &dummy_val)
+    fputs (" last mem\n", out);
+  else if (v->next_containing_mem)
+    {
+      fputs (" next mem ", out);
+      print_inline_rtx (out, v->next_containing_mem->val_rtx, 2);
+      fputc ('\n', out);
+    }
+  else if (need_lf)
+    fputc ('\n', out);
+
+  return 1;
+}
+
+/* Dump to OUT everything in the CSELIB table.  */
+
+void
+dump_cselib_table (FILE *out)
+{
+  fprintf (out, "cselib hash table:\n");
+  htab_traverse (cselib_hash_table, dump_cselib_val, out);
+  if (first_containing_mem != &dummy_val)
+    {
+      fputs ("first mem ", out);
+      print_inline_rtx (out, first_containing_mem->val_rtx, 2);
+      fputc ('\n', out);
+    }
+  fprintf (out, "last unknown value %i\n", next_unknown_value);
 }
 
 #include "gt-cselib.h"

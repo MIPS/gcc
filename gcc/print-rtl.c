@@ -1,6 +1,6 @@
 /* Print RTL for GCC.
    Copyright (C) 1987, 1988, 1992, 1997, 1998, 1999, 2000, 2002, 2003,
-   2004, 2005, 2007
+   2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "cselib.h"
 #endif
 
 static FILE *outfile;
@@ -355,6 +356,16 @@ print_rtx (const_rtx in_rtx)
 	else if (i == 9 && JUMP_P (in_rtx) && XEXP (in_rtx, i) != NULL)
 	  /* Output the JUMP_LABEL reference.  */
 	  fprintf (outfile, "\n -> %d", INSN_UID (XEXP (in_rtx, i)));
+	else if (i == 0 && GET_CODE (in_rtx) == VALUE)
+	  {
+#ifndef GENERATOR_FILE
+	    cselib_val *val = CSELIB_VAL_PTR (in_rtx);
+
+	    fprintf (outfile, " %i", val->value);
+	    dump_addr (outfile, " @", in_rtx);
+	    dump_addr (outfile, "/", (void*)val);
+#endif
+	  }
 	break;
 
       case 'e':

@@ -1,3 +1,66 @@
+2008-06-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* print-rtl.c: Include cselib.h
+	(print_rtx): Handle VALUEs.
+	* Makefile.in (print-rtl.o): Depend on cselib.h.
+	* rtl.c (rtx_equal_p): Handle VALUEs.
+	* cselib.c (new_cselib_val): Add x argument.  Dump it.  Adjust
+	callers.
+	(cselib_expand_value_rtx_1): Use print-rtl support.
+	(cselib_log_lookup): New.
+	(cselib_lookup): Call cselib_log_lookup at every return point.
+	(cselib_process_insn): Call cselib_reset_table_with_next_value
+	rather than cselib_clear_table.
+	(dump_cselib_vals, dump_cselib_table): New.
+	* cselib.h (dump_cselib_table): Declare.
+	* var-tracking.c (micro_operation_type_name): New.
+	(attrs_list_mpdv_union): New.
+	(val_init): Renamed to...
+	(val_store): ... this.  Verbosify.  Handle REGs and MEMs.
+	(val_resolve): Add INSN argument.  Verbosify.  Reset the node,
+	detaching any equivalences before changing it.  Merge incoming
+	registers.  Note plans for handling MEMs and other rtx types, with
+	stopgap handlers in place.
+	(variable_union): Remove comment about handling intersection.
+	(VALUE_RECURSED_INTO): New.
+	(find_loc_in_1pdv): New.
+	(dfset_merge): New struct.
+	(insert_into_intersection): New.
+	(intersect_loc_chains): New.
+	(merge_with_missing_1pdv_as_union): New.
+	(variable_merge): New.
+	(variable_merge2): New.
+	(tie_break_pointers): New.
+	(find_canonical_value): New.
+	(variable_merge3): New.
+	(dataflow_set_merge): New.
+	(dfset_post_merge): New struct.
+	(variable_post_merge): New.
+	(dataflow_post_merge_adjust): New.
+	(dataflow_set_different_1): Verbosify.
+	(dataflow-set_different_2): Likewise.
+	(replace_expr_with_values): New.
+	(use_type): Only return MO_VAL_SET for REGs and recorded values.
+	(log_op_type): New.
+	(count_uses): Log.  Count operation to resolve MEM address.
+	(add_uses): Log.  Likewise.  Record VALUEized expressions too.
+	(add_with_sets): Log.
+	(compute_bb_dataflow): Fix incorrect uses of val_init for
+	resolution.  Use val_store.  Handle VALUEized operands.
+	(emit_notes_in_bb): Likewise.
+	(vt_find_locations): Introduce second pass.  Verbosify.  Log
+	total size of hash tables.
+	(dump_variable_slot): New wrapper for...
+	(dump_variable): ... this.  Take var.  Use print-rtl support.
+	(dump_vars): Use new wrapper.
+	(set_slot_part): Take slot rather than looking up hash table.
+	Renamed with prototype change from...
+	(set_variable_part): ... this.  New wrapper.
+	(vt_expand_loc_callback): Avoid infinite recursion.
+	(vt_add_function_parameters): Set up VALUEs for incoming
+	arguments.
+	(vt_initialize): Verbosify.
+
 2008-05-13  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c (remove_unavailable_values): Actually remove

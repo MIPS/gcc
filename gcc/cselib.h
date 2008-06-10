@@ -91,3 +91,5 @@ extern unsigned int cselib_get_next_unknown_value (void);
 extern void cselib_preserve_value (cselib_val *);
 extern bool cselib_preserved_value_p (cselib_val *);
 extern void cselib_preserve_only_values (bool);
+
+extern void dump_cselib_table (FILE *);
