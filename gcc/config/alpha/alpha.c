@@ -5856,11 +5856,17 @@ va_list_skip_additions (tree lhs)
    current statement.  */
 
 static bool
-alpha_stdarg_optimize_hook (struct stdarg_info *si, const_tree lhs, const_tree rhs)
+alpha_stdarg_optimize_hook (struct stdarg_info *si, const_gimple stmt)
 {
   tree base, offset, arg1, arg2;
   int offset_arg = 1;
 
+#if 1
+  /* FIXME tuples.  */
+  (void) si;
+  (void) stmt;
+  return false;
+#else
   while (handled_component_p (rhs))
     rhs = TREE_OPERAND (rhs, 0);
   if (TREE_CODE (rhs) != INDIRECT_REF
@@ -5953,6 +5959,7 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, const_tree lhs, const_tree r
 escapes:
   si->va_list_escapes = true;
   return false;
+#endif
 }
 #endif
 
