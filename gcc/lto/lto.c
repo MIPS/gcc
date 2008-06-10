@@ -19,6 +19,7 @@ along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
+#include <sys/mman.h>
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -36,6 +37,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-in.h"
 #include "lto-tree-in.h"
 #include "lto-tags.h"  		/* For LTO_tree_tag_names.  */
+#include "tree-pass.h"
 
 
 /* Read the constructors and inits.  */
@@ -43,9 +45,11 @@ Boston, MA 02110-1301, USA.  */
 static void
 lto_materialize_constructors_and_inits (struct lto_file_decl_data * file_data)
 {
-  const char *data = lto_get_section_data (file_data, LTO_section_static_initializer, NULL);
+  size_t len;
+  const char *data = lto_get_section_data (file_data,
+					   LTO_section_static_initializer, NULL, &len);
   lto_input_constructors_and_inits (file_data, data);
-  free ((char *)data);
+  lto_free_section_data (file_data, LTO_section_static_initializer, NULL, data, len);
 }
 
 /* Read the function body for the function associated with NODE if possible.  */
@@ -56,10 +60,12 @@ lto_materialize_function (struct cgraph_node *node)
   tree decl = node->decl;
   struct lto_file_decl_data *file_data = node->local.lto_file_data;
   const char *data;
+  size_t len;
   tree step;
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
-			       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+			       name, &len);
   if (data)
     {
       struct function *fn;
@@ -71,7 +77,7 @@ lto_materialize_function (struct cgraph_node *node)
       allocate_struct_function (decl, false);
       lto_input_function_body (file_data, decl, data);
       fn = DECL_STRUCT_FUNCTION (decl);
-      free ((char *)data);
+      lto_free_section_data (file_data, LTO_section_function_body, name, data, len);
 
       /* Look for initializers of constant variables and private
 	 statics.  */
@@ -96,16 +102,6 @@ lto_materialize_function (struct cgraph_node *node)
                             /*at_end=*/0);
   if (cgraph_node (decl)->needed)
     cgraph_mark_reachable_node (cgraph_node (decl));
-}
-
-/* Read the cgraph for this file.  */
-
-static void
-lto_materialize_cgraph (struct lto_file_decl_data * file_data)
-{
-  const char *data = lto_get_section_data (file_data, LTO_section_cgraph, NULL);
-  lto_input_cgraph (file_data, data);
-  free ((char *)data);
 }
 
 /* ### */
@@ -263,38 +259,145 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
 
 /* Generate a TREE representation for all types and external decls
    entities in FILE.  If an entity in FILE has already been read (from
-   another object file), merge the two entities.  Returns TRUE iff
-   FILE was successfully processed.
+   another object file), merge the two entities.  Returns the
+   file_data from the last context.
+
+   FIXME, this is a bug that will go away with Maddox's streaming
+   merge since there will no longer be contexts.
 
    Read all of the globals out of the file.  Then read the cgraph
    and process the .o index into the cgraph nodes so that it can open
    the .o file to load the functions and ipa information.   */
 
-static bool
+static struct lto_file_decl_data*
 lto_file_read (lto_file *file)
 {
   struct lto_file_decl_data* file_data;
   char *data;
+  size_t len;
+  htab_t section_hash_table;
 
   file_data = xmalloc (sizeof (struct lto_file_decl_data));
 
   file_data->file_name = file->filename;
-  file_data->section_hash_table = lto_elf_build_section_table (file);
+  file_data->fd = -1;
+
+  section_hash_table = lto_elf_build_section_table (file);
+  file_data->section_hash_table = section_hash_table;
   
-  data = lto_get_section_data (file_data, LTO_section_decls, NULL);
-
+  data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
   lto_read_decls (file_data, data);
-
-  free ((char *)data);
-
-  lto_materialize_constructors_and_inits (file_data);
-
-  lto_materialize_cgraph (file_data);
+  lto_free_section_data (file_data, LTO_section_decls, NULL, data, len);
 
   /* ### We never free file_data.  */
 
-  return true;
+  return file_data;
 }
+
+/****************************************************************************
+  Input routines for reading sections from .o files.
+
+  FIXME: These routines may need to be generalized.  They assume that
+  the .o file can be read into memory and the secions just mapped.
+  This may not be true if the .o file is in some form of archive.
+****************************************************************************/
+
+/* Page size of machine is used for mmap and munmap calls.  */
+static size_t page_mask;
+
+/* Get the section data of length LEN from FILENAME starting at
+   OFFSET.  The data segment must be freed by the caller when the
+   caller is finished.  Returns NULL if all was not well.  */
+
+static char *
+lto_read_section_data (struct lto_file_decl_data *file_data,
+		       intptr_t offset, size_t len)
+{
+  char *result;
+  intptr_t computed_len;
+  intptr_t computed_offset;
+  intptr_t diff;
+
+  if (!page_mask)
+    {
+      size_t page_size = sysconf (_SC_PAGE_SIZE);
+      page_mask = ~(page_size - 1);
+    }
+
+  if (file_data->fd == -1)
+    file_data->fd = open (file_data->file_name, O_RDONLY);
+
+  if (file_data->fd == -1)
+    return NULL;
+
+  computed_offset = offset & page_mask;
+  diff = offset - computed_offset;
+  computed_len = len + diff;
+
+  result = mmap (NULL, computed_len, PROT_READ, MAP_PRIVATE,
+		 file_data->fd, computed_offset);
+  if (result == MAP_FAILED)
+    {
+      close (file_data->fd);
+      return NULL;
+    }
+
+  return result + diff;
+}    
+
+
+/* Get the section data from FILE_DATA of SECTION_TYPE with NAME.
+   NAME will be null unless the section type is for a function
+   body.  */
+
+static const char *
+get_section_data (struct lto_file_decl_data *file_data,
+		      enum lto_section_type section_type,
+		      const char *name,
+		      size_t *len)
+{
+  htab_t section_hash_table = file_data->section_hash_table;
+  struct lto_section_slot *f_slot;
+  struct lto_section_slot s_slot;
+  const char *section_name = lto_get_section_name (section_type, name);
+  char * data = NULL;
+
+  s_slot.name = section_name;
+  f_slot = (struct lto_section_slot *)htab_find (section_hash_table, &s_slot);
+  if (f_slot)
+    {
+      data = lto_read_section_data (file_data, f_slot->start, f_slot->len);
+      *len = f_slot->len;
+    }
+
+  free ((char *)section_name);
+  return data;
+}
+
+
+/* Free the section data from FILE_DATA of SECTION_TYPE with NAME that
+   starts at OFFSET and has LEN bytes.  */
+
+static void
+free_section_data (struct lto_file_decl_data *file_data,
+		       enum lto_section_type section_type ATTRIBUTE_UNUSED,
+		       const char *name ATTRIBUTE_UNUSED,
+		       const char *offset, size_t len)
+{
+  intptr_t computed_len;
+  intptr_t computed_offset;
+  intptr_t diff;
+
+  if (file_data->fd == -1)
+    return;
+
+  computed_offset = ((intptr_t)offset) & page_mask;
+  diff = (intptr_t)offset - computed_offset;
+  computed_len = len + diff;
+
+  munmap ((void *)computed_offset, computed_len);
+}
+
 
 /* Needed so the garbage collector knows to root around in functions we
    have not yet materialized and the huge DIE -> tree table we keep
@@ -304,9 +407,17 @@ static GTY(()) lto_file *current_lto_file;
 void
 lto_main (int debug_p ATTRIBUTE_UNUSED)
 {
-  unsigned i;
+  unsigned int i;
+  unsigned int j = 0;
   tree decl;
   struct cgraph_node *node; 
+  struct lto_file_decl_data** all_file_decl_data 
+    = XNEWVEC (struct lto_file_decl_data*, num_in_fnames + 1);
+  struct lto_file_decl_data* file_data = NULL;
+
+  /* Set the hooks so that all of the ipa passes can read in their data.  */
+  lto_set_in_hooks (all_file_decl_data, get_section_data,
+		    free_section_data);
 
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
@@ -314,11 +425,28 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
       current_lto_file = lto_elf_file_open (in_fnames[i]);
       if (!current_lto_file)
 	break;
-      if (!lto_file_read (current_lto_file))
+      file_data = lto_file_read (current_lto_file);
+      if (!file_data)
 	break;
+
+      all_file_decl_data [j++] = file_data;
+
       lto_elf_file_close (current_lto_file);
       current_lto_file = NULL;
     }
+
+  all_file_decl_data [j] = NULL;
+
+  /* FIXME!!! This loop needs to be changed to use the pass manager to
+     call the ipa passes directly.  */
+  for (i = 0; i < j; i++)
+    {
+      struct lto_file_decl_data* file_data = all_file_decl_data [i];
+
+      lto_materialize_constructors_and_inits (file_data);
+    }
+
+  ipa_read_summaries ();
 
   /* Now that we have input the cgraph, we need to clear all of the aux
      nodes and read the functions.  
@@ -336,7 +464,6 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
      issues.  */
   for (node = cgraph_nodes; node; node = node->next)
     {
-      node->aux = NULL;
       /* FIXME!!!  There really needs to be some check to see if the
 	 function is really not external here.  Currently the only
 	 check is to see if the section was defined in the file_data

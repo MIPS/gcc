@@ -272,7 +272,7 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
       }
     }
   else
-    gcc_unreachable();
+    gcc_unreachable ();
 
   LTO_DEBUG_UNDENT();
   return result;

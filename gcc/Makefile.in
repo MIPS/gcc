@@ -836,6 +836,7 @@ DBGCNT_H = dbgcnt.h dbgcnt.def
 EBIMAP_H = ebitmap.h sbitmap.h
 LTO_TAGS_H = lto-tags.h tree.h sbitmap.h lto-header.h
 LTO_SECTION_H = lto-section.h lto-header.h
+LTO_SECTION_IN_H = lto-section-in.h lto-header.h
 TREE_VECTORIZER_H = tree-vectorizer.h $(TREE_DATA_REF_H)
 
 #
@@ -1088,8 +1089,7 @@ OBJS-common = \
 	loop-unroll.o \
 	loop-unswitch.o \
 	lower-subreg.o \
-	lto-cgraph-in.o \
-	lto-cgraph-out.o \
+	lto-cgraph.o \
 	lto-function-in.o \
 	lto-function-out.o \
 	lto-section-in.o \
@@ -1985,24 +1985,18 @@ double-int.o: double-int.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H)
 lto-stream-debug.o : lto-stream-debug.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    toplev.h $(FLAGS_H) $(PARAMS_H) input.h debug.h  $(TREE_H) \
    lto-header.h 
-lto-cgraph-in.o: lto-cgraph-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
+lto-cgraph.o: lto-cgraph.c $(CONFIG_H) $(SYSTEM_H) coretypes.h   \
    $(TM_H) toplev.h $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
    tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-cgraph.h lto-section-in.h \
-   output.h dwarf2asm.h dwarf2out.h
-lto-cgraph-out.o : lto-cgraph-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-   $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
-   $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
-   tree-pass.h tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) \
-   except.h debug.h $(TIMEVAR_H) \
-   lto-cgraph.h lto-header.h lto-section-out.h output.h dwarf2asm.h dwarf2out.h 
+   except.h debug.h $(TIMEVAR_H) $(LTO_TAGS_H) $(LTO_SECTION_IN_H) \
+   lto-section-out.h output.h dwarf2asm.h dwarf2out.h
 lto-function-in.o: lto-function-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
    tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) except.h \
-   debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-section-in.h lto-tree-flags.def \
-   lto-tree-tags.def lto-section-in.h output.h dwarf2asm.h dwarf2out.h
+   debug.h $(TIMEVAR_H) $(LTO_TAGS_H) lto-tree-flags.def \
+   lto-tree-tags.def $(LTO_SECTION_IN_H)  output.h dwarf2asm.h dwarf2out.h
 lto-function-out.o : lto-function-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \
@@ -2013,7 +2007,7 @@ lto-section-in.o: lto-section-in.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    toplev.h $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h $(VARRAY_H) \
    $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h tree-pass.h \
    tree-flow.h $(CGRAPH_H) $(FUNCTION_H) $(GGC_H) $(DIAGNOSTIC_H) except.h \
-   debug.h $(TIMEVAR_H) lto-section-in.h output.h dwarf2asm.h dwarf2out.h
+   debug.h $(TIMEVAR_H) $(LTO_SECTION_IN_H) output.h dwarf2asm.h dwarf2out.h
 lto-section-out.o : lto-section-out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) toplev.h $(TREE_H) $(EXPR_H) $(FLAGS_H) $(PARAMS_H) input.h \
    $(VARRAY_H) $(HASHTAB_H) langhooks.h $(BASIC_BLOCK_H) tree-iterator.h \

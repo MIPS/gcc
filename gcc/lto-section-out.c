@@ -53,6 +53,28 @@ along with GCC; see the file COPYING3.  If not see
 #include <strings.h>
 
 
+/* Add FLAG onto the end of BASE.  */
+ 
+void
+lto_set_flag (unsigned HOST_WIDEST_INT *base, unsigned int flag)
+{
+  *base = *base << 1;
+  if (flag)
+    *base |= 1;
+}
+
+/* Add FLAGS of WIDTH onto the end of BASE.  */
+ 
+void
+lto_set_flags (unsigned HOST_WIDEST_INT *base, unsigned int flag, unsigned int width)
+{
+  unsigned HOST_WIDEST_INT mask = 1 < (((unsigned HOST_WIDEST_INT)width) - 1);
+
+  *base = *base << width;
+  *base |= (flag & mask);
+}
+
+
 /* Returns a hash code for P.  */
 
 hashval_t
@@ -158,6 +180,9 @@ lto_get_section_name (enum lto_section_type section_type, const char *name)
     case LTO_section_cgraph:
       return concat (LTO_SECTION_NAME_PREFIX, ".cgraph", NULL);
 
+    case LTO_section_ipa_pure_const:
+      return concat (LTO_SECTION_NAME_PREFIX, ".pureconst", NULL);
+
     default:
       gcc_unreachable ();
     }
@@ -178,9 +203,9 @@ lto_get_section (enum lto_section_type section_type, const char *name)
 }
 
 
-/*****************************************************************************/
-/* Output routines shared by all of the serialization passes.                */
-/*****************************************************************************/
+/*****************************************************************************
+   Output routines shared by all of the serialization passes.
+*****************************************************************************/
 
 
 /* Write all of the chars in OBS to the assembler.  Recycle the blocks
@@ -420,6 +445,179 @@ lto_output_decl_index (struct lto_output_stream *obs, htab_t table,
     }
 }
 
+
+/* Output a field DECL to OBS.  */
+
+void
+lto_output_field_decl_index (struct lto_out_decl_state *decl_state,
+			     struct lto_output_stream * obs, tree decl)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs, 
+				    decl_state->field_decl_hash_table,
+				    &decl_state->next_field_decl_index, 
+				    decl, &index);
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->field_decls, decl);
+}
+
+
+/* Output a function DECL to OBS.  */
+
+void
+lto_output_fn_decl_index (struct lto_out_decl_state *decl_state, 
+			  struct lto_output_stream * obs, tree decl)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs, 
+				    decl_state->fn_decl_hash_table,
+				    &decl_state->next_fn_decl_index, 
+				    decl, &index);
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->fn_decls, decl);
+}
+
+
+/* Output a namespace DECL to OBS.  */
+
+void
+lto_output_namespace_decl_index (struct lto_out_decl_state *decl_state,
+				 struct lto_output_stream * obs, tree decl)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs,
+				    decl_state->namespace_decl_hash_table,
+				    &decl_state->next_namespace_decl_index,
+				    decl, &index);
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->namespace_decls, decl);
+}
+
+
+/* Output a static or extern var DECL to OBS.  */
+
+void
+lto_output_var_decl_index (struct lto_out_decl_state *decl_state,
+			   struct lto_output_stream * obs, tree decl)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs, 
+				    decl_state->var_decl_hash_table,
+				    &decl_state->next_var_decl_index, 
+				    decl, &index);
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->var_decls, decl);
+}
+
+
+/* Output a type DECL to OBS.  */
+
+void
+lto_output_type_decl_index (struct lto_out_decl_state *decl_state,
+			    struct lto_output_stream * obs, tree decl)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs, 
+				    decl_state->type_decl_hash_table,
+				    &decl_state->next_type_decl_index, 
+				    decl, &index);
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->type_decls, decl);
+}
+
+
+/* Output a type REF to OBS.  */
+
+void
+lto_output_type_ref_index (struct lto_out_decl_state *decl_state,
+			   struct lto_output_stream *obs, tree ref)
+{
+  unsigned int index;
+  bool new = lto_output_decl_index (obs, 
+				    decl_state->type_hash_table,
+				    &decl_state->next_type_index, 
+				    ref, &index);
+  
+  if (new)
+    VEC_safe_push (tree, heap, decl_state->types, ref);
+}
+
+
+/*****************************************************************************
+  Convenience routines used by the ipa passes to serialize their information.
+*****************************************************************************/
+
+/* Create the output block and return it.  */
+
+struct lto_simple_output_block *
+lto_create_simple_output_block (enum lto_section_type section_type)
+{
+  struct lto_simple_output_block *ob 
+    = xcalloc (1, sizeof (struct lto_simple_output_block));
+
+  ob->section_type = section_type;
+  ob->decl_state = lto_get_out_decl_state ();
+  ob->main_stream = xcalloc (1, sizeof (struct lto_output_stream));
+
+#ifdef LTO_STREAM_DEBUGGING
+  lto_debug_context.out = lto_debug_out_fun;
+  lto_debug_context.indent = 0;
+#endif
+
+  LTO_SET_DEBUGGING_STREAM (debug_main_stream, main_data);
+
+  return ob;
+}
+
+
+/* Produce the section that holds the cgraph.  */
+
+void
+lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
+{
+  struct lto_simple_header header;
+  section *saved_section = in_section;
+  section *section = lto_get_section (ob->section_type, NULL);
+
+  memset (&header, 0, sizeof (struct lto_simple_header)); 
+
+  /* The entire header is stream computed here.  */
+  switch_to_section (section);
+  
+  /* Write the header which says how to decode the pieces of the
+     t.  */
+  header.lto_header.major_version = LTO_major_version;
+  header.lto_header.minor_version = LTO_minor_version;
+  header.lto_header.section_type = LTO_section_cgraph;
+  
+  header.compressed_size = 0;
+  
+  header.main_size = ob->main_stream->total_size;
+#ifdef LTO_STREAM_DEBUGGING
+  header.debug_main_size = ob->debug_main_stream->total_size;
+#else
+  header.debug_main_size = -1;
+#endif
+
+  assemble_string ((const char *)&header, 
+		   sizeof (struct lto_simple_header));
+
+  lto_write_stream (ob->main_stream);
+#ifdef LTO_STREAM_DEBUGGING
+  lto_write_stream (ob->debug_main_stream);
+#endif
+
+  /* Put back the assembly section that was there before we started
+     writing lto info.  */
+  if (saved_section)
+    switch_to_section (saved_section);
+
+  free (ob->main_stream);
+  LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
+  free (ob);
+}
+
+
 /* This part is used to store all of the global decls and types that
    are serialized out in this file so that a table for this file can
    be built that allows the decls and types to be reconnected to the
@@ -586,7 +784,7 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
    this file to be written in to a section that can then be read in to
    recover these on other side.  */
 
-static unsigned int
+static void
 produce_asm_for_decls (void)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
@@ -674,10 +872,6 @@ produce_asm_for_decls (void)
   VEC_free (tree, heap, out_state->type_decls);
   VEC_free (tree, heap, out_state->namespace_decls);
   VEC_free (tree, heap, out_state->types);
-
-  free (out_state);
-
-  return 0;
 }
 
 
@@ -692,13 +886,13 @@ gate_lto_out (void)
 }
 
 
-struct simple_ipa_opt_pass pass_ipa_lto_finish_out =
+struct ipa_opt_pass pass_ipa_lto_finish_out =
 {
  {
-  SIMPLE_IPA_PASS,
+  IPA_PASS,
   "lto_decls_out",	                /* name */
   gate_lto_out,			        /* gate */
-  produce_asm_for_decls,        	/* execute */
+  NULL,        	                        /* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -708,7 +902,14 @@ struct simple_ipa_opt_pass pass_ipa_lto_finish_out =
   0,					/* properties_destroyed */
   0,            			/* todo_flags_start */
   0                                     /* todo_flags_finish */
- }
+ },
+ NULL,		                        /* generate_summary */
+ produce_asm_for_decls,			/* write_summary */
+ NULL,		         		/* read_summary */
+ NULL,					/* function_read_summary */
+ 0,					/* TODOs */
+ NULL,			                /* function_transform */
+ NULL					/* variable_transform */
 };
 
 #ifdef LTO_STREAM_DEBUGGING

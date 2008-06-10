@@ -1,3 +1,19 @@
+2008-06-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (sys/mman.h, tree-pass.h): New includes.
+	(lto_materialize_constructors_and_inits,
+	lto_materialize_function): Keeps length of section.
+	(lto_materialize_cgraph): Removed.
+	(lto_read_decls): Initialize fd field.
+	(lto_file_read): Different return type and removed much code to
+	lto_main.
+	(page_mask): New variable.
+	(lto_read_section_data, get_section_data, free_section_data): New
+	functions.
+	(lto_main): Now calls pass manager, sets the hooks so that the ipa
+	passes can get the section data.
+
 2008-06-04  Ollie Wild  <aaw@google.com>
 
 	* lto.c: Remove inclusion of dwarf2.h and dwarf2out.h.

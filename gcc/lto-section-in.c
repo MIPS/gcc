@@ -51,6 +51,32 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 #include "cpplib.h"
 
+
+/* Return 0 or 1 based on the last bit of FLAGS and right shift FLAGS
+   by 1.  */
+
+unsigned int
+lto_get_flag (unsigned HOST_WIDEST_INT *flags)
+{
+  unsigned int result = *flags & 1;
+  *flags = *flags >> 1;
+  return result;
+}
+
+
+/* Return an integer based on the last WIDTH bits of FLAGS and right
+   shift FLAGS by WIDTH.  */
+
+unsigned int
+lto_get_flags (unsigned HOST_WIDEST_INT *flags, unsigned int width)
+{
+  unsigned HOST_WIDEST_INT mask = 1 << (((unsigned HOST_WIDEST_INT)width) - 1);
+  unsigned int result = *flags & mask;
+  *flags = *flags >> width;
+  return result;
+}
+
+
 unsigned char 
 lto_input_1_unsigned (struct lto_input_block *ib)
 {
@@ -183,70 +209,127 @@ lto_input_integer (struct lto_input_block *ib, tree type)
     }
 }
 
-/*****************************************************************************/
-/* Input routines for reading sections from .o files.                        */
-/*****************************************************************************/
 
-/* Get the section data of length LEN from FILENAME starting at
-   OFFSET.  The data segment must be freed by the caller when the
-   caller is finished.  Returns NULL if all was not well.  */
+/* Hooks so that the ipa passes can call into the lto front end to get
+   sections.  */
 
-static char *
-lto_read_section_data (const char *file_name, size_t offset, size_t len)
+static struct lto_file_decl_data ** file_decl_data; 
+static lto_get_section_data_f* get_section_f;
+static lto_free_section_data_f* free_section_f;
+
+
+/* This is called from the lto front end to set up the hooks that are
+   used by the ipa passes to get the data that they will
+   deserialize.  */
+
+void 
+lto_set_in_hooks (struct lto_file_decl_data ** data, 
+		  lto_get_section_data_f* get_f,
+		  lto_free_section_data_f* free_f)
 {
-  FILE * ofile = fopen (file_name, "r");
-  char * data;
-  int result;
-
-  if (!ofile)
-    return NULL;
-  data = xmalloc (len);
-  
-  result = fseek (ofile, offset, SEEK_SET);
-  if (result)
-    {
-      free (data);
-      fclose (ofile);
-      return NULL;
-    }
-  result = fread (data, len, 1, ofile);
-  if (result == 0)
-    {
-      free (data);
-      fclose (ofile);
-      return NULL;
-    }
-    
-  fclose (ofile);
-  return data;
-}    
-
-
-/* Get the section data from FILE_DATA of SECTION_TYPE with NAME.
-   NAME will be null unless the section type is for a function
-   body.  */
-
-char *
-lto_get_section_data (struct lto_file_decl_data *file_data, 
-		      enum lto_section_type section_type,
-		      const char *name)
-{
-  htab_t section_hash_table = file_data->section_hash_table; 
-  struct lto_section_slot *f_slot;
-  struct lto_section_slot s_slot;
-  char *section_name = lto_get_section_name (section_type, name);
-  char * data = NULL;
-
-  s_slot.name = section_name;
-  f_slot = (struct lto_section_slot *)htab_find (section_hash_table, &s_slot);
-  if (f_slot)
-    data = lto_read_section_data (file_data->file_name, f_slot->start,
-				  f_slot->len);
-
-  free (section_name);
-  return data;
+  file_decl_data = data;
+  get_section_f = get_f;
+  free_section_f = free_f;
 }
 
+
+/* Return an array of file decl datas for all of the files passed to
+   this compilation.  */
+
+struct lto_file_decl_data **
+lto_get_file_decl_data (void)
+{
+  gcc_assert (file_decl_data);
+  return file_decl_data;
+}
+
+/* Return a char pointer to the start of a data stream for an lto pass
+   or function.  FILE_DATA indicates where to obtain the data.
+   SECTION_TYPE is the type of information to be obtained.  NAME is
+   the name of the function and is only used when finding a function
+   body; otherwise it is NULL.  LEN is the size of the data
+   returned.  */
+
+const char* 
+lto_get_section_data (struct lto_file_decl_data *file_data, 
+		      enum lto_section_type section_type,
+		      const char *name, 
+		      size_t *len)
+{
+  gcc_assert (get_section_f);
+  return (get_section_f) (file_data, section_type, name, len);
+}
+
+
+/* Return the data found from the above call.  The first three
+   parameters are the same as above.  DATA is the data to be freed and
+   LEN is the length of that data. */
+
+void 
+lto_free_section_data (struct lto_file_decl_data *file_data, 
+		       enum lto_section_type section_type,
+		       const char *name,
+		       const char *data,
+		       size_t len)
+{
+  gcc_assert (free_section_f);
+  (free_section_f) (file_data, section_type, name, data, len);
+}
+
+
+/* Load a section of type SECTION_TYPE from FILE_DATA, parse the
+   header and then return an input block pointing to the section.  The
+   raw pointer to the section is returned in DATAR and LEN.  These are
+   used to free the section.  */
+
+struct lto_input_block *
+lto_create_simple_input_block (struct lto_file_decl_data *file_data, 
+			       enum lto_section_type section_type,
+			       const char **datar, size_t *len)
+{
+  const char *data = lto_get_section_data (file_data, section_type, NULL, len);
+  const struct lto_simple_header * header 
+    = (const struct lto_simple_header *) data;
+  struct lto_input_block* ib_main = XNEW (struct lto_input_block);
+  int32_t main_offset = sizeof (struct lto_simple_header); 
+#ifdef LTO_STREAM_DEBUGGING
+  int32_t debug_main_offset = main_offset + header->main_size;
+  struct lto_input_block *debug_main = XNEW (struct lto_input_block);
+#endif
+
+  *datar = data;
+  LTO_INIT_INPUT_BLOCK_PTR (ib_main, data + main_offset,
+			    0, header->main_size);
+#ifdef LTO_STREAM_DEBUGGING
+  lto_debug_context.out = lto_debug_in_fun;
+  LTO_INIT_INPUT_BLOCK_PTR (debug_main, data + debug_main_offset,
+			    0, header->debug_main_size);
+  lto_debug_context.current_data = debug_main;
+  lto_debug_context.indent = 0;
+#endif
+  
+  return ib_main;
+}
+
+
+/* Close the section returned from a call to
+   LTO_CREATE_SIMPLE_INPUT_BLOCK.  IB is the input block returned from
+   that call.  The FILE_DATA and SECTION_TYPE are the same as what was
+   passed to that call and the DATA and LEN are what was returned from
+   that call.  */
+
+void
+lto_destroy_simple_input_block (struct lto_file_decl_data *file_data, 
+				enum lto_section_type section_type,
+				struct lto_input_block *ib,
+				const char *data, size_t len)
+{
+  free (ib);
+#ifdef LTO_STREAM_DEBUGGING
+  free (lto_debug_context.current_data);
+#endif
+  lto_free_section_data (file_data, section_type, NULL, data, len);
+}
 
 /*****************************************************************************/
 /* Stream debugging support code.                                            */

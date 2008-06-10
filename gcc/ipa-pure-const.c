@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -52,6 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "target.h"
+#include "lto-section-in.h"
+#include "lto-section-out.h"
 
 static struct pointer_set_t *visited_nodes;
 
@@ -65,25 +67,74 @@ enum pure_const_state_e
   IPA_NEITHER
 };
 
-/* Holder inserted into the ipa_dfs_info aux field to hold the
-   const_state.  */
+/* Holder for the const_state.  There is one of these per function
+   decl.  */
 struct funct_state_d 
 {
+  /* See above.  */
   enum pure_const_state_e pure_const_state;
+
+  /* True if the function could possibly infinite loop.  There are a
+     lot of ways that this could be determined.  We are pretty
+     conservative here.  While it is possible to cse pure and const
+     calls, it is not legal to have dce get rid of the call if there
+     is a possibility that the call could infinite loop since this is
+     a behavioral change.  */
   bool looping;
-  bool state_set_in_source;
+
+  /* If the state of the function was set in the source, then assume
+     that it was done properly even if the analysis we do would be
+     more pessimestic.  */
+  bool state_set_in_source; 
 };
 
 typedef struct funct_state_d * funct_state;
 
-/* Return the function state from NODE.  */ 
+
+/* The storage of the funct_state is abstracted because there is the
+   possibility that it may be desirable to move this to the cgraph
+   local info.  */ 
+
+/* Array, indexed by cgraph node uid, of function states.  */
+
+static funct_state *funct_state_vec;
+
+
+/* Init the function state.  */
+
+static void 
+init_state (void)
+{
+  funct_state_vec = XCNEWVEC (funct_state, cgraph_max_uid);
+}
+
+
+/* Init the function state.  */
+
+static void
+finish_state (void)
+{
+  free (funct_state_vec);
+}
+
+
+/* Return the function state from NODE.  */
 
 static inline funct_state
 get_function_state (struct cgraph_node *node)
 {
-  struct ipa_dfs_info * info = (struct ipa_dfs_info *) node->aux;
-  return (funct_state) info->aux;
+  return funct_state_vec[node->uid];
 }
+
+
+/* Set the function state S for NODE.  */
+
+static inline void
+set_function_state (struct cgraph_node *node, funct_state s)
+{
+  funct_state_vec[node->uid] = s;
+}
+
 
 /* Check to see if the use (or definition when CHECHING_WRITE is true) 
    variable T is legal in a function that is either pure or const.  */
@@ -286,6 +337,9 @@ get_asm_expr_operands (funct_state local, tree stmt)
   const char *constraint;
   bool allows_mem, allows_reg, is_inout;
   
+  if (!memory_identifier_string)
+    memory_identifier_string = build_string(7, "memory");
+
   for (i=0, link = ASM_OUTPUTS (stmt); link; ++i, link = TREE_CHAIN (link))
     {
       oconstraints[i] = constraint
@@ -405,9 +459,7 @@ check_call (funct_state local, tree call_expr)
    should be converted to use the operand scanner.  */
 
 static tree
-scan_function (tree *tp, 
-		      int *walk_subtrees, 
-		      void *data)
+scan_stmt (tree *tp, int *walk_subtrees, void *data)
 {
   struct cgraph_node *fn = (struct cgraph_node *) data;
   tree t = *tp;
@@ -417,7 +469,7 @@ scan_function (tree *tp,
     {
     case VAR_DECL:
       if (DECL_INITIAL (t))
-	walk_tree (&DECL_INITIAL (t), scan_function, fn, visited_nodes);
+	walk_tree (&DECL_INITIAL (t), scan_stmt, fn, visited_nodes);
       *walk_subtrees = 0;
       break;
 
@@ -513,17 +565,17 @@ scan_function (tree *tp,
   return NULL;
 }
 
+
 /* This is the main routine for finding the reference patterns for
    global variables within a function FN.  */
 
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  funct_state l = XCNEW (struct funct_state_d);
   tree decl = fn->decl;
-  struct ipa_dfs_info * w_info = (struct ipa_dfs_info *) fn->aux;
+  funct_state l = XCNEW (struct funct_state_d);
 
-  w_info->aux = l;
+  set_function_state (fn, l);
 
   l->pure_const_state = IPA_CONST;
   l->state_set_in_source = false;
@@ -570,7 +622,7 @@ analyze_function (struct cgraph_node *fn)
 	  block_stmt_iterator bsi;
 	  for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
 	    {
-	      walk_tree (bsi_stmt_ptr (bsi), scan_function, 
+	      walk_tree (bsi_stmt_ptr (bsi), scan_stmt, 
 			 fn, visited_nodes);
 	      if (l->pure_const_state == IPA_NEITHER) 
 		goto end;
@@ -611,24 +663,15 @@ end:
 }
 
 
-/* Produce the global information by preforming a transitive closure
-   on the local information that was produced by ipa_analyze_function
-   and ipa_analyze_variable.  */
+/* Analyze each function in the cgraph to see if it is locally PURE or
+   CONST.  */
 
-static unsigned int
-static_execute (void)
+static void 
+generate_summary (void)
 {
   struct cgraph_node *node;
-  struct cgraph_node *w;
-  struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  int order_pos = ipa_utils_reduced_inorder (order, true, false);
-  int i;
-  struct ipa_dfs_info * w_info;
 
-  if (!memory_identifier_string)
-    memory_identifier_string = build_string(7, "memory");
-
+  init_state ();
   /* There are some shared nodes, in particular the initializers on
      static declarations.  We do not need to scan them more than once
      since all we would be interested in are the addressof
@@ -641,14 +684,109 @@ static_execute (void)
      is a master clone.  However, we do NOT process any
      AVAIL_OVERWRITABLE functions (these are never clones) we cannot
      guarantee that what we learn about the one we see will be true
-     for the one that overriders it.
-  */
+     for the one that overriders it.  */
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed && cgraph_is_master_clone (node, true))
       analyze_function (node);
 
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
+}
+
+
+/* Serialize the info.  */
+
+static void
+write_summary (void)
+{
+  struct cgraph_node *node;
+  struct lto_simple_output_block *ob
+    = lto_create_simple_output_block (LTO_section_ipa_pure_const);
+  unsigned int count = 0;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->analyzed && cgraph_is_master_clone (node, true))
+      count++;
+  
+  lto_output_uleb128_stream (ob->main_stream, count);
+  
+  /* Process all of the functions.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    if (node->analyzed && cgraph_is_master_clone (node, true))
+      {
+	unsigned HOST_WIDEST_INT flags = 0;
+	funct_state fs = get_function_state (node);
+	
+	lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
+	
+	lto_set_flags (&flags, fs->pure_const_state, 2);
+	lto_set_flag (&flags, fs->looping);
+	lto_set_flag (&flags, fs->state_set_in_source);
+	lto_output_uleb128_stream (ob->main_stream, flags);
+      }
+  lto_destroy_simple_output_block (ob);
+}
+
+
+/* Deserialize the info.  */
+
+static void 
+read_summary (void)
+{
+  struct lto_file_decl_data ** file_data_vec 
+    = lto_get_file_decl_data ();
+  struct lto_file_decl_data * file_data;
+  unsigned int j = 0;
+
+  while ((file_data = file_data_vec[j++]))
+    {
+      unsigned int count;
+      unsigned int i;
+      const char *data;
+      size_t len;
+      struct lto_input_block *ib
+	= lto_create_simple_input_block (file_data, 
+					 LTO_section_ipa_pure_const, 
+					 &data, &len);
+      
+      init_state ();
+      
+      count = lto_input_uleb128 (ib);
+      for (i = 0; i < count; i++)
+	{
+	  tree fn_decl = file_data->fn_decls [lto_input_uleb128 (ib)];
+	  unsigned HOST_WIDEST_INT flags = lto_input_uleb128 (ib);
+	  funct_state fs = XCNEW (struct funct_state_d);
+	  
+	  set_function_state (cgraph_node (fn_decl), fs);
+	  fs->state_set_in_source = lto_get_flag (&flags);
+	  fs->looping = lto_get_flag (&flags);
+	  fs->pure_const_state = lto_get_flags (&flags, 2);
+	}
+      
+      lto_destroy_simple_input_block (file_data, 
+				      LTO_section_ipa_pure_const, 
+				      ib, data, len);
+    }
+}
+
+/* Produce the global information by preforming a transitive closure
+   on the local information that was produced by generate_summary.
+   Note that there is no function_transform pass since this only
+   updates the function_decl.  */
+
+static unsigned int
+propagate (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_node *w;
+  struct cgraph_node **order =
+    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  int order_pos;
+  int i;
+  struct ipa_dfs_info * w_info;
+
+  order_pos = ipa_utils_reduced_inorder (order, true, false);
   if (dump_file)
     {
       dump_cgraph (dump_file);
@@ -723,6 +861,8 @@ static_execute (void)
 	  if (!w_l->state_set_in_source)
 	    {
 	      w_l->pure_const_state = pure_const_state;
+	      w_l->looping = looping;
+
 	      switch (pure_const_state)
 		{
 		case IPA_CONST:
@@ -754,17 +894,20 @@ static_execute (void)
 
   /* Cleanup. */
   for (node = cgraph_nodes; node; node = node->next)
-    /* Get rid of the aux information.  */
-    if (node->aux)
-      {
-	w_info = (struct ipa_dfs_info *) node->aux;
-	if (w_info->aux)
-	  free (w_info->aux);
-	free (node->aux);
-	node->aux = NULL;
-      }
-
+    {
+      /* Get rid of the aux information.  */
+      if (node->aux)
+	{
+	  w_info = (struct ipa_dfs_info *) node->aux;
+	  free (node->aux);
+	  node->aux = NULL;
+	}
+      if (node->analyzed && cgraph_is_master_clone (node, true))
+	free (get_function_state (node));
+    }
+  
   free (order);
+  finish_state ();
   return 0;
 }
 
@@ -776,13 +919,13 @@ gate_pure_const (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct simple_ipa_opt_pass pass_ipa_pure_const =
+struct ipa_opt_pass pass_ipa_pure_const =
 {
  {
-  SIMPLE_IPA_PASS,
+  IPA_PASS,
   "pure-const",		                /* name */
   gate_pure_const,			/* gate */
-  static_execute,			/* execute */
+  propagate,			        /* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -792,7 +935,12 @@ struct simple_ipa_opt_pass pass_ipa_pure_const =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0                                     /* todo_flags_finish */
- }
+ },
+ generate_summary,		        /* generate_summary */
+ write_summary,				/* write_summary */
+ read_summary,				/* read_summary */
+ NULL,					/* function_read_summary */
+ 0,					/* TODOs */
+ NULL,			                /* function_transform */
+ NULL					/* variable_transform */
 };
-
-

@@ -90,7 +90,6 @@ struct output_block
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
   htab_t string_hash_table;
-  unsigned int next_string_index;
 
   /* The current cgraph_node that we are currently serializing.  Null
      if we are serializing something else.  */
