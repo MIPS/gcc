@@ -113,8 +113,8 @@ build_conflict_bit_table (void)
     fprintf
       (ira_dump_file,
        "+++Allocating %ld bytes for conflict table (uncompressed size %ld)\n",
-       allocated_words_num * sizeof (INT_TYPE),
-       allocno_set_words * allocnos_num * sizeof (INT_TYPE));
+       (long) allocated_words_num * sizeof (INT_TYPE),
+       (long) allocno_set_words * allocnos_num * sizeof (INT_TYPE));
   for (i = 0; i < max_point; i++)
     {
       for (r = start_point_ranges[i]; r != NULL; r = r->start_next)

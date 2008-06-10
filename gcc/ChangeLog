@@ -1,5 +1,12 @@
 2008-06-10  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira-int.h (allocno_copy):  Change comments.
+	
+	* ira-conflicts.c (build_conflict_bit_table): Use cast in printf
+	for %ld.
+
+2008-06-10  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* common.opt (fira-move-spills): Remove.
 
 	* caller-save.c: Add more comments.
