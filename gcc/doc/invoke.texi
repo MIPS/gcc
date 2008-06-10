@@ -333,7 +333,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions -fipa-cp -fipa-marix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
--fira-coalesce -fira-ipra -fno-ira-move-spills @gol
+-fira-coalesce -fira-ipra @gol
 -fira-propagate-cost -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
@@ -5695,12 +5695,6 @@ the integrated register allocator (@acronym{IRA}) is used.
 @opindex -fira-propagate-cost
 This is an experimental option used to propagate hard reg costs down
 to nested regions for regional or mixed ira allocation algorithm.
-
-@item -fno-ira-move-spills
-@opindex fno-ira-move-spills
-Switch off increasing gap between the corresponding save and restore
-insns.  All saves and the corresponding restores of call used hard
-registers living through a call will be in the same basic block.
 
 @item -fno-ira-share-save-slots
 @opindex fno-ira-share-save-slots

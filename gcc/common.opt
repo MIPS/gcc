@@ -657,10 +657,6 @@ fira-ipra
 Common Report Var(flag_ira_ipra) Init(0)
 Inter-procedural register allocation for IRA.
 
-fira-move-spills
-Common Report Var(flag_ira_move_spills) Init(1)
-Increase gap between the corresponding save and restore insns.
-
 fira-propagate-cost
 Common Report Var(flag_ira_propagate_cost) Init(0)
 Propagate hard reg costs down for regional or mixed ira allocation algorithm.

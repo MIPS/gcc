@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -775,7 +775,55 @@ setup_save_areas (void)
 
 
 /* This page contains code for global analysis for better placement
-   save/restore insn when IRA is used.  */
+   save/restore insn when IRA is used.
+
+   First, we calculate local BB info in function calculate_local_save_info:
+     o hard registers set/mentioned in basic blocks (they prevents
+       moving corresponding saves/restores further up/down in CFG) --
+       see comments for save_kill/restore_kill.
+     o hard registers needed to be saved/restored around calls and
+       which are not set/mentioned before/after the call in the basic
+       block -- see comments for save_gen/restore_gen.
+     o free hard registers at the basic block start -- see comments
+       for free_gen.  This set can be different from save_gen.  For
+       example, in the following situation
+
+       BB:
+          ...
+          insn using R
+          ...
+          call through which R live through and should be saved/restored.
+          ...
+
+       save_gen contains R because we can put save at the BB start but
+       free_gen does not contain R because we can not use R for other
+       purposes from the BB start till the insn using R.
+       
+   Second, we calculate the global info for placement saves/restores
+   in functions -- see comments for save_in, save_out, restore_in,
+   restore_out, free_in, free_out.
+
+   The equations for the global info calculation are not trivial
+   because we can not put saves/restores on CFG edges as the reload
+   can not work when new BBs added.  For example, it means that all
+   save_out set of BB should be a subset of intersections of save_in
+   of all successors of the BB.  Preventing putting the code on edges
+   makes data flow problem bidirectional.  The data flow functions are
+   also complicated by necessity to propagate saving modes (e.g. x86
+   fp register can be saved in XFmode or DFmode).
+
+   The equations do not permit to propagate info into the loops
+   because we can not put saves/restores in more frequently executed
+   points.  But if the loop does not contains references for a hard
+   register, we permit to propagate info for the register into the
+   loop because the info will be propagated through all the loop and
+   as consequence corresponding saves/restores will be moved through
+   the loop.
+
+   Third, using this info we place saves/restores and set up member
+   `saved' in function save_call_clobbered_regs.
+
+  */
 
 /* The following structure contains basic block data flow information
    used to optimize save/restore placement.  Data flow equations are
@@ -857,7 +905,11 @@ calculate_local_save_info (void)
   HARD_REG_SET this_insn_sets, save_gen, restore_gen, free_gen, temp_set;
   unsigned regno;
   reg_set_iterator rsi;
+  /* A map: hard register being saved to the mode used for its
+     saving.  */
   enum machine_mode save_mode[FIRST_PSEUDO_REGISTER];
+  /* A map: hard register being saved to the pseudo-register assigned
+     to the hard register at given point.  */
   int save_pseudo[FIRST_PSEUDO_REGISTER];
 
   CLEAR_HARD_REG_SET (save_gen);
@@ -1090,8 +1142,14 @@ calculate_local_save_info (void)
     }
 }
 
-/* The function used by the DF equation solver to propagate restore
-   info through block with BB_INDEX.  */
+/* The transfer function used by the DF equation solver to propagate restore
+   info through block with BB_INDEX according to the following
+   equation:
+
+   bb.restore_out = (bb.restore_in - bb.restore_kill) U bb.restore_gen.
+
+   The function also propagates saving modes of the hard
+   registers.  */
 static bool
 restore_trans_fun (int bb_index)
 {
@@ -1122,7 +1180,7 @@ restore_trans_fun (int bb_index)
   return false;
 }
 
-/* The function used by the DF equation solver to set up restore info
+/* The confluence function used by the DF equation solver to set up restore info
    for a block BB without predecessor.  */
 static void
 restore_con_fun_0 (basic_block bb)
@@ -1130,8 +1188,17 @@ restore_con_fun_0 (basic_block bb)
   CLEAR_HARD_REG_SET (BB_INFO (bb)->restore_in);
 }
 
-/* The function used by the DF equation solver to propagate restore info
-   from predecessor to successor on edge E.  */
+/* The confluence function used by the DF equation solver to propagate
+   restore info from predecessor to successor on edge E (pred->bb)
+   according to the following equation:
+
+     bb.restore_in  = empty for entry block or one with empty_restore_in_p
+                    | ^(pred.restore_out - pred.restore_here) ^ bb.live_at_start
+		    
+   If the edge is a loop enter we do not propagate the info because we
+   don't want to put restores in more frequently executed places.
+
+ */
 static void
 restore_con_fun_n (edge e)
 {
@@ -1232,8 +1299,15 @@ calculate_restore_here (void)
   return changed_p;
 }
 
-/* The function used by the DF equation solver to propagate save
-   info through block with BB_INDEX.  */
+/* The transfer function used by the DF equation solver to propagate save info
+   through block with BB_INDEX according to the following
+   equation:
+
+   bb.save_in = ((bb.save_out - bb.save_kill) U bb.save_gen) - bb.restore_in.
+
+   The function also propagates saving modes of the hard
+   registers.  */
+
 static bool
 save_trans_fun (int bb_index)
 {
@@ -1265,16 +1339,24 @@ save_trans_fun (int bb_index)
   return false;
 }
 
-/* The function used by the DF equation solver to set up save info
-   for a block BB without successor.  */
+/* The confluence function used by the DF equation solver to set up
+   save info for a block BB without successor.  */
 static void
 save_con_fun_0 (basic_block bb)
 {
   CLEAR_HARD_REG_SET (BB_INFO (bb)->save_out);
 }
 
-/* The function used by the DF equation solver to propagate save info
-   from successor to predecessor on edge E.  */
+/* The confluence function used by the DF equation solver to propagate
+   save info from successor to predecessor on edge E (bb->succ)
+   according to the following equation:
+
+     bb.save_out  = empty for exit block or one with empty_save_out_p
+                    | ^(succ.save_in - succ.save_here) ^ bb.live_at_end
+
+   If the edge is a loop exit we do not propagate the info because we
+   don't want to put saves in more frequently executed places.
+*/
 static void
 save_con_fun_n (edge e)
 {
@@ -1319,7 +1401,7 @@ save_con_fun_n (edge e)
       }
 }
 
-/* The function calculates global save information according
+/* The transfer function calculates global save information according
    to the following equations:
 
      bb.save_out  = empty for exit block or one with empty_save_out_p
@@ -1370,8 +1452,14 @@ calculate_save_here (void)
   return changed_p;
 }
 
-/* The function used by the DF equation solver to propagate free
-   info through block with BB_INDEX.  */
+/* The transfer function used by the DF equation solver to propagate
+   free info through block with BB_INDEX according to the following
+   equation:
+
+     bb.free_in = ((bb.free_out - bb.save_kill - bb.restore_kill) U bb.free_gen)
+                   - bb.save_here)
+
+*/
 static bool
 free_trans_fun (int bb_index)
 {
@@ -1391,16 +1479,20 @@ free_trans_fun (int bb_index)
   return false;
 }
 
-/* The function used by the DF equation solver to set up free info
-   for a block BB without successor.  */
+/* The confluence function used by the DF equation solver to set up
+   free info for a block BB without successor.  */
 static void
 free_con_fun_0 (basic_block bb)
 {
   CLEAR_HARD_REG_SET (BB_INFO (bb)->free_out);
 }
 
-/* The function used by the DF equation solver to propagate free info
-   from successor to predecessor on edge E.  */
+/* The confluence function used by the DF equation solver to propagate
+   free info from successor to predecessor on edge E (bb->succ)
+   according to the following equation:
+
+     bb.free_out = ^succ.free_in
+*/
 static void
 free_con_fun_n (edge e)
 {
@@ -1637,7 +1729,7 @@ save_call_clobbered_regs (void)
   int save_pseudo[FIRST_PSEUDO_REGISTER];
   int free_pseudo[FIRST_PSEUDO_REGISTER];
 
-  if (flag_ira && optimize && flag_ira_move_spills)
+  if (flag_ira && optimize)
     {
       /* Do global analysis for better placement of spill code. */
       alloc_aux_for_blocks (sizeof (struct bb_info));
@@ -1652,7 +1744,7 @@ save_call_clobbered_regs (void)
   CLEAR_HARD_REG_SET (hard_regs_saved);
   n_regs_saved = 0;
 
-  if (flag_ira && flag_ira_move_spills && reload_insn_chain != NULL)
+  if (flag_ira && reload_insn_chain != NULL)
     {
       bb_info = BB_INFO_BY_INDEX (reload_insn_chain->block);
       set_hard_reg_saved (bb_info->restore_in,
@@ -1673,7 +1765,7 @@ save_call_clobbered_regs (void)
 	{
 	  if (n_regs_saved)
 	    {
-	      if ((!flag_ira || !flag_ira_move_spills) && code == JUMP_INSN)
+	      if (!flag_ira && code == JUMP_INSN)
 		/* Restore all registers if this is a JUMP_INSN.  */
 		COPY_HARD_REG_SET (referenced_regs, hard_regs_saved);
 	      else
@@ -1695,7 +1787,7 @@ save_call_clobbered_regs (void)
 		    
 		    regno += insert_restore (chain, 1, regno, MOVE_MAX_WORDS,
 					     save_mode, save_pseudo);
-		    if (flag_ira && optimize && flag_ira_move_spills)
+		    if (flag_ira && optimize)
 		      {
 			gcc_assert (before == regno);
 			save_mode[before] = VOIDmode;
@@ -1767,7 +1859,7 @@ save_call_clobbered_regs (void)
 	      get_call_invalidated_used_regs (insn, &used_regs, false);
 	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 
-	      if (flag_ira & flag_ira_move_spills)
+	      if (flag_ira)
 		IOR_HARD_REG_SET (hard_regs_saved, hard_regs_to_save);
 	      else
 		{
@@ -1798,7 +1890,7 @@ save_call_clobbered_regs (void)
 	     remain saved.  If the last insn in the block is a JUMP_INSN, put
 	     the restore before the insn, otherwise, put it after the insn.  */
 
-	  if (flag_ira && optimize && flag_ira_move_spills)
+	  if (flag_ira && optimize)
 	    set_hard_reg_saved
 	      (BB_INFO_BY_INDEX (chain->block)->restore_here,
 	       BB_INFO_BY_INDEX (chain->block)->restore_out_mode, save_mode,
@@ -1814,7 +1906,7 @@ save_call_clobbered_regs (void)
 		  regno += insert_restore (chain, JUMP_P (insn),
 					   regno, MOVE_MAX_WORDS, save_mode,
 					   save_pseudo);
-		  if (flag_ira && optimize && flag_ira_move_spills)
+		  if (flag_ira && optimize)
 		    {
 		      gcc_assert (before == regno);
 		      save_mode[before] = VOIDmode;
@@ -1822,8 +1914,7 @@ save_call_clobbered_regs (void)
 		    }
 		}
 
-	  if (flag_ira && optimize
-	      && flag_ira_move_spills && next_bb_info != NULL)
+	  if (flag_ira && optimize && next_bb_info != NULL)
 	    set_hard_reg_saved (next_bb_info->restore_in,
 				next_bb_info->restore_in_mode, save_mode,
 				next_bb_info->restore_in_pseudo, save_pseudo);
@@ -1831,7 +1922,7 @@ save_call_clobbered_regs (void)
 	}
     }
 
-  if (!flag_ira || !flag_ira_move_spills)
+  if (!flag_ira)
     return;
 
   CLEAR_HARD_REG_SET (hard_regs_to_save);
@@ -2086,7 +2177,7 @@ save_call_clobbered_regs (void)
     {
       free (loop->aux);
     }
-  if (flag_ira && optimize && flag_ira_move_spills)
+  if (flag_ira && optimize)
     free_aux_for_blocks ();
 }
 
