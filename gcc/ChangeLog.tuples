@@ -1,3 +1,10 @@
+2008-06-10  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* passes.c (init_optimization_passes): Re-enable pass_uncprop.
+	* tree-ssa-uncprop (associate_equivalences_with_edges): Convert
+	to tuples.
+	(uncprop_into_successor_phis): Likewise.
+
 2008-06-09  Diego Novillo  <dnovillo@google.com>
 
 	* ipa-cp.c (cgraph_gate_cp): Fix 'FIXME tuples' note.
