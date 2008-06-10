@@ -1,4 +1,9 @@
 2008-06-10  Vladimir Makarov  <vmakarov@redhat.com>
+	PR target/36450
+	* caller-save.c (insert_restore, insert_save):  Don't require
+	alignment more than PREFERRED_STACK_BOUNDARY in asserts.
+
+2008-06-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (allocno_copy):  Change comments.
 	

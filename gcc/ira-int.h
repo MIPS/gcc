@@ -481,7 +481,9 @@ extern allocno_t *conflict_id_allocno_map;
 
 /* The following structure represents a copy of two allocnos.  The
    copies represent move insns or potential move insns usually because
-   of two operand insn constraints. */
+   of two operand insn constraints.  To remove register shuffle, we
+   also create copies between allocno which is output of an insn and
+   allocno becoming dead in the insn.  */
 struct allocno_copy
 {
   /* The unique order number of the copy node starting with 0.  */
@@ -491,13 +493,11 @@ struct allocno_copy
   allocno_t first, second;
   /* Execution frequency of the copy.  */
   int freq;
-  /* It is an insn which is an origin of the copy.  It may be a move
-     insn or insn whose operand should be the same as the result
-     (2-operand insns).  To remove register shuffle, we create copies
-     between allocno which is output of an insn and allocno becoming
-     dead in the insn.  The member value for the copy created to
-     remove register shuffle is NULL and the frequency is smaller than
-     the corresponding insn execution frequency.  */
+  /* It is a move insn which is an origin of the copy.  The member
+     value for the copy representing two operand insn constraints or
+     for the copy created to remove register shuffle is NULL.  In last
+     case the copy frequency is smaller than the corresponding insn
+     execution frequency.  */
   rtx insn;
   /* All copies with the same allocno as FIRST are linked by the two
      following members.  */
