@@ -1,3 +1,7 @@
+2008-06-11  Diego Novillo  <dnovillo@google.com>
+
+	Merge with lto r136640.
+
 2008-06-10  Diego Novillo  <dnovillo@google.com>
 
 	* lto-function-out.c (output_type_ref, output_expr_operand,

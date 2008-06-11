@@ -77,6 +77,8 @@ struct lto_file_decl_data
   htab_t section_hash_table;
 };
 
+struct lto_file_decl_data;
+
 /* Return a char pointer to the start of a data stream for an lto pass
    or function.  The first parameter is the file data that contains
    the information.  The second parameter is the type of information

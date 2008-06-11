@@ -610,18 +610,8 @@ output_type_ref_1 (struct output_block *ob, tree node)
   else
 #endif
     {
-      bool new;
-      unsigned int index;
-
       output_record_start (ob, NULL, NULL, LTO_global_type_ref);
-
-      new = lto_output_decl_index (ob->main_stream, 
-                                   ob->decl_state->type_hash_table,
-                                   &ob->decl_state->next_type_index, 
-                                   node, &index);
-
-      if (new)
-        VEC_safe_push (tree, heap, ob->decl_state->types, node);
+      lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
     }
 
   LTO_DEBUG_UNDENT();
@@ -1048,16 +1038,8 @@ output_expr_operand (struct output_block *ob, tree expr)
     case FIELD_DECL:
       if (!field_decl_is_local (expr))
         {
-          unsigned int index;
-          bool new;
           output_record_start (ob, NULL, NULL, LTO_field_decl1);
-
-          new = lto_output_decl_index (ob->main_stream, 
-                                       ob->decl_state->field_decl_hash_table,
-                                       &ob->decl_state->next_field_decl_index, 
-                                       expr, &index);
-          if (new)
-            VEC_safe_push (tree, heap, ob->decl_state->field_decls, expr);
+          lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
         }
       else
         {
@@ -1070,34 +1052,15 @@ output_expr_operand (struct output_block *ob, tree expr)
     case FUNCTION_DECL:
       /* FIXME: Local FUNCTION_DECLS are possible, i.e.,
          nested functions.  */
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-	
-	new = lto_output_decl_index (ob->main_stream, 
-				     ob->decl_state->fn_decl_hash_table,
-				     &ob->decl_state->next_fn_decl_index, 
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->fn_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_fn_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case VAR_DECL:
       if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
 	{
-	  /* Static or extern VAR_DECLs.  */
-	  unsigned int index;
-	  bool new;
 	  output_record_start (ob, NULL, NULL, LTO_var_decl1);
-
-	  new = lto_output_decl_index (ob->main_stream, 
-				       ob->decl_state->var_decl_hash_table,
-				       &ob->decl_state->next_var_decl_index, 
-				       expr, &index);
-	  if (new)
-	    VEC_safe_push (tree, heap, ob->decl_state->var_decls, expr);
+	  lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
 	}
       else
 	{
@@ -1110,16 +1073,8 @@ output_expr_operand (struct output_block *ob, tree expr)
     case TYPE_DECL:
       if (!type_decl_is_local (expr))
         {
-          unsigned int index;
-          bool new;
           output_record_start (ob, NULL, NULL, LTO_type_decl1);
-	
-          new = lto_output_decl_index (ob->main_stream, 
-                                       ob->decl_state->type_decl_hash_table,
-                                       &ob->decl_state->next_type_decl_index, 
-                                       expr, &index);
-          if (new)
-            VEC_safe_push (tree, heap, ob->decl_state->type_decls, expr);
+          lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
         }
       else
         {
@@ -1130,18 +1085,8 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case NAMESPACE_DECL:
-      {
-	unsigned int index;
-	bool new;
-	output_record_start (ob, NULL, NULL, tag);
-
-	new = lto_output_decl_index (ob->main_stream,
-				     ob->decl_state->namespace_decl_hash_table,
-				     &ob->decl_state->next_namespace_decl_index,
-				     expr, &index);
-	if (new)
-	  VEC_safe_push (tree, heap, ob->decl_state->namespace_decls, expr);
-      }
+      output_record_start (ob, NULL, NULL, tag);
+      lto_output_namespace_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
 
     case PARM_DECL:
@@ -2280,7 +2225,7 @@ output_function (struct cgraph_node* node)
   else if (TYPE_P (context))
     {
       output_record_start (ob, NULL, NULL, LTO_type);
-      output_type_ref_1 (ob, context);
+      lto_output_type_ref_index (ob->decl_state, ob->main_stream, context);
       LTO_DEBUG_UNDENT ();
     }
   else

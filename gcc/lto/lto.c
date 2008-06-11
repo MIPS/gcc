@@ -46,7 +46,7 @@ static void
 lto_materialize_constructors_and_inits (struct lto_file_decl_data * file_data)
 {
   size_t len;
-  const char *data = lto_get_section_data (file_data,
+  const char *data = lto_get_section_data (file_data, 
 					   LTO_section_static_initializer, NULL, &len);
   lto_input_constructors_and_inits (file_data, data);
   lto_free_section_data (file_data, LTO_section_static_initializer, NULL, data, len);
@@ -62,7 +62,7 @@ lto_materialize_function (struct cgraph_node *node)
   const char *data;
   size_t len;
   tree step;
-  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)); 
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);
@@ -422,12 +422,16 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
     {
+      htab_t section_hash_table;
       current_lto_file = lto_elf_file_open (in_fnames[i]);
       if (!current_lto_file)
 	break;
       file_data = lto_file_read (current_lto_file);
       if (!file_data)
 	break;
+
+      section_hash_table = lto_elf_build_section_table (current_lto_file);
+      file_data->section_hash_table = section_hash_table;
 
       all_file_decl_data [j++] = file_data;
 
@@ -436,6 +440,10 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
     }
 
   all_file_decl_data [j] = NULL;
+
+  /* Set the hooks so that all of the ipa passes can read in their data.  */
+  lto_set_in_hooks (all_file_decl_data, get_section_data,
+		    free_section_data);
 
   /* FIXME!!! This loop needs to be changed to use the pass manager to
      call the ipa passes directly.  */

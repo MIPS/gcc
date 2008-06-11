@@ -140,7 +140,6 @@ input_string_internal (struct data_in *data_in, unsigned int loc,
   
   LTO_INIT_INPUT_BLOCK (str_tab, data_in->strings,
 			loc, data_in->strings_len);
-
   len = lto_input_uleb128 (&str_tab);
   *rlen = len;
   gcc_assert (str_tab.p + len <= data_in->strings_len);

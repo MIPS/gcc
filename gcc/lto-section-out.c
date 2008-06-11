@@ -618,11 +618,12 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 }
 
 
-/* This part is used to store all of the global decls and types that
-   are serialized out in this file so that a table for this file can
-   be built that allows the decls and types to be reconnected to the
-   code or the ipa summary information.  */
-
+/*****************************************************************************
+  This part is used to store all of the global decls and types that
+  are serialized out in this file so that a table for this file can be
+  built that allows the decls and types to be reconnected to the code
+  or the ipa summary information.
+*****************************************************************************/
 struct lto_out_decl_state *
 lto_get_out_decl_state (void)
 {
@@ -802,7 +803,7 @@ produce_asm_for_decls (void)
   /* Assign reference indices for predefined trees.  These need not be
      serialized.  */
   preload_common_nodes (ob);
-  
+
   memset (&header, 0, sizeof (struct lto_decl_header)); 
 
   switch_to_section (decl_section);
