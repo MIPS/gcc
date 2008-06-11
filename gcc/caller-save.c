@@ -1211,13 +1211,11 @@ restore_con_fun_n (edge e)
   if (bb_info->empty_restore_in_p)
     return;
 
-  if (bb->loop_depth > pred->loop_depth)
-    {
-      CLEAR_HARD_REG_SET (bb_info->restore_in);
-      return;
-    }
   COPY_HARD_REG_SET (temp_set, BB_INFO (pred)->restore_out);
   AND_COMPL_HARD_REG_SET (temp_set, BB_INFO (pred)->restore_here);
+  if (bb->loop_depth > pred->loop_depth)
+    AND_COMPL_HARD_REG_SET (temp_set,
+			    LOOP_INFO (bb->loop_father)->mentioned_regs);
   AND_HARD_REG_SET (temp_set, bb_info->live_at_start);
   if (EDGE_PRED (bb, 0) == e)
     COPY_HARD_REG_SET (bb_info->restore_in, temp_set);
@@ -1369,13 +1367,11 @@ save_con_fun_n (edge e)
   if (bb_info->empty_save_out_p)
     return;
 
-  if (bb->loop_depth > succ->loop_depth)
-    {
-      CLEAR_HARD_REG_SET (bb_info->save_out);
-      return;
-    }
   COPY_HARD_REG_SET (temp_set, BB_INFO (succ)->save_in);
   AND_COMPL_HARD_REG_SET (temp_set, BB_INFO (succ)->save_here);
+  if (bb->loop_depth > succ->loop_depth)
+    AND_COMPL_HARD_REG_SET (temp_set,
+			    LOOP_INFO (bb->loop_father)->mentioned_regs);
   AND_HARD_REG_SET (temp_set, bb_info->live_at_end);
   if (EDGE_SUCC (bb, 0) == e)
     COPY_HARD_REG_SET (bb_info->save_out, temp_set);

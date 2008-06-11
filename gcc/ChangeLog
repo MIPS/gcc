@@ -1,5 +1,10 @@
 2008-06-11  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* caller-save.c (restore_con_fun_n, save_con_fun_n): Use loop
+	mentioned_regs instead of clearing all result.
+
+2008-06-11  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* doc/tm.texi (IRA_HARD_REGNO_ADD_COST_MULTIPLIER,
 	IRA_COVER_CLASSES): Fix macro descriptions.
 	
