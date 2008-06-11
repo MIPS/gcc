@@ -1,3 +1,57 @@
+2008-06-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_neon_builtins): Move initialization
+	with function calls after declarations.  Lay out
+	neon_float_type_node before further use.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (may_point_to_global_var): Declare.
+	* tree-ssa-alias.c (may_point_to_global_var): New function.
+	* tree-ssa-sink.c (is_hidden_global_store): Use it.
+
+2008-06-10  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.ac: Teach that fido supports .debug_line.
+	* configure: Regenerate.
+
+2008-06-10  Tom Tromey  <tromey@redhat.com>
+
+	* c-lex.c (fe_file_change): Pass SOURCE_LINE to start_source_file
+	debug hook.
+
+2008-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* dfp.c (WORDS_BIGENDIAN): Define to 0 if not defined.
+	(encode_decimal64, decode_decimal64, encode_decimal128,
+	decode_decimal128): Reverse order of 32-bit parts of value if host
+	and target endianness differ.
+
+2008-06-10  Vinodha Ramasamy  <vinodha@google.com>
+        * value_prob.c (tree_divmod_fixed_value_transform): Use gcov_type.
+	Avoid division by 0.
+	(tree_mod_pow2_value_transform): Likewise.
+	(tree_ic_transform): Likewise.
+	(tree_stringops_transform): Likewise.
+	(tree_mod_subtract_transform): Likewise.
+	* tree-inline-c (copy_bb): Corrected int type to gcov_type.
+	(copy_edges_for_bb): Likewise.
+	(initialize_cfun): Likewise.
+
+2008-06-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*btdi_rex64): Change operand 1 predicate to
+	nonmemory_operand. Add "N" operand constraint.
+	(*btsi): Ditto.
+	(*jcc_btdi_mask_rex64): New instruction and split pattern.
+	(*jcc_btsi_mask): Ditto.
+	(*jcc_btsi_mask_1): Ditto.
+
+2008-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (build_opaque_vector_type): Set
+	TYPE_CANONICAL for copied element type.
+
 2008-06-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/36473
