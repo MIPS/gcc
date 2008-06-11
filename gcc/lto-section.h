@@ -35,6 +35,11 @@ struct lto_decl_header
   int32_t num_type_decls;         /* Number of TYPE_DECLs.  */
   int32_t num_namespace_decls;    /* Number of NAMESPACE_DECLs.  */
   int32_t num_types;              /* Number of types.  */
+
+  int32_t num_nodes;              /* Number of nodes in globals stream.  */
+  int32_t main_size;		  /* Size of region for expressions, decls, types, etc. */
+  int32_t string_size;		  /* Size of the string table.  */
+  int32_t debug_main_size;	  /* Size of region for main stream debugging information.  */
 };
 
 #endif /* GCC_LTO_SECTION_H */

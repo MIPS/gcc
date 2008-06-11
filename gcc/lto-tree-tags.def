@@ -57,7 +57,9 @@
   MAP_EXPR_TAGS(CASE_LABEL_EXPR, LTO_case_label_expr0, 4)
   MAP_EXPR_TAGS(COND_EXPR, LTO_cond_expr0, 2)
   MAP_EXPR_TAGS(COMPLEX_CST, LTO_complex_cst0, 2)
+  MAP_EXPR_TAGS(FIELD_DECL, LTO_field_decl0, 2)
   MAP_EXPR_TAGS(RETURN_EXPR, LTO_return_expr0, 3)
+  MAP_EXPR_TAGS(TYPE_DECL, LTO_type_decl0, 2)
   MAP_EXPR_TAGS(VAR_DECL, LTO_var_decl0, 2)
   MAP_EXPR_TAGS(VECTOR_CST, LTO_vector_cst0, 2)
 #endif
@@ -69,7 +71,6 @@
   MAP_EXPR_TAG(COMPONENT_REF, LTO_component_ref)
   MAP_EXPR_TAG(CONST_DECL, LTO_const_decl)
   MAP_EXPR_TAG(CONSTRUCTOR, LTO_constructor)
-  MAP_EXPR_TAG(FIELD_DECL, LTO_field_decl)
   MAP_EXPR_TAG(FIXED_CST, LTO_fixed_cst)
   MAP_EXPR_TAG(FUNCTION_DECL, LTO_function_decl)
   MAP_EXPR_TAG(GIMPLE_MODIFY_STMT, LTO_gimple_modify_stmt)
@@ -77,6 +78,7 @@
   MAP_EXPR_TAG(INTEGER_CST, LTO_integer_cst)
   MAP_EXPR_TAG(LABEL_DECL, LTO_label_decl)
   MAP_EXPR_TAG(LABEL_EXPR, LTO_label_expr)
+  MAP_EXPR_TAG(NAMESPACE_DECL, LTO_namespace_decl)
   MAP_EXPR_TAG(PARM_DECL, LTO_parm_decl)
   MAP_EXPR_TAG(PHI_NODE, LTO_phi_node)
   MAP_EXPR_TAG(RANGE_EXPR, LTO_range_expr)
@@ -86,9 +88,28 @@
   MAP_EXPR_TAG(SSA_NAME, LTO_ssa_name)
   MAP_EXPR_TAG(STRING_CST, LTO_string_cst)
   MAP_EXPR_TAG(SWITCH_EXPR, LTO_switch_expr)
+  MAP_EXPR_TAG(TRANSLATION_UNIT_DECL, LTO_translation_unit_decl)
+  MAP_EXPR_TAG(TREE_BINFO, LTO_tree_binfo)
   MAP_EXPR_TAG(TREE_LIST, LTO_tree_list)
-  MAP_EXPR_TAG(TYPE_DECL, LTO_type_decl)
-  MAP_EXPR_TAG(NAMESPACE_DECL, LTO_namespace_decl)
+  MAP_EXPR_TAG(TREE_VEC, LTO_tree_vec)
+  /* ### types -- should move into alphabetical order */
+  MAP_EXPR_TAG(VOID_TYPE, LTO_void_type)
+  MAP_EXPR_TAG(INTEGER_TYPE, LTO_integer_type)
+  MAP_EXPR_TAG(REAL_TYPE, LTO_real_type)
+  MAP_EXPR_TAG(FIXED_POINT_TYPE, LTO_fixed_point_type)
+  MAP_EXPR_TAG(COMPLEX_TYPE, LTO_complex_type)
+  MAP_EXPR_TAG(BOOLEAN_TYPE, LTO_boolean_type)
+  MAP_EXPR_TAG(OFFSET_TYPE, LTO_offset_type)
+  MAP_EXPR_TAG(ENUMERAL_TYPE, LTO_enumeral_type)
+  MAP_EXPR_TAG(POINTER_TYPE, LTO_pointer_type)
+  MAP_EXPR_TAG(REFERENCE_TYPE, LTO_reference_type)
+  MAP_EXPR_TAG(VECTOR_TYPE, LTO_vector_type)
+  MAP_EXPR_TAG(ARRAY_TYPE, LTO_array_type)
+  MAP_EXPR_TAG(RECORD_TYPE, LTO_record_type)
+  MAP_EXPR_TAG(UNION_TYPE, LTO_union_type)
+  MAP_EXPR_TAG(QUAL_UNION_TYPE, LTO_qual_union_type)
+  MAP_EXPR_TAG(FUNCTION_TYPE, LTO_function_type)
+  MAP_EXPR_TAG(METHOD_TYPE, LTO_method_type)
 #endif /* TREE_SINGLE_MECHANICAL_FALSE */
 
 #ifdef TREE_SINGLE_MECHANICAL_TRUE
@@ -215,7 +236,8 @@
   SET_NAME (LTO_eq_expr, "eq_expr")
   SET_NAME (LTO_exact_div_expr, "exact_div_expr")
   SET_NAME (LTO_exc_ptr_expr, "exc_ptr_expr")
-  SET_NAME (LTO_field_decl, "field_decl")
+  SET_NAME (LTO_field_decl0, "field_decl0")
+  SET_NAME (LTO_field_decl1, "field_decl1")
   SET_NAME (LTO_filter_expr, "filter_expr")
   SET_NAME (LTO_fix_trunc_expr, "fix_trunc_expr")
   SET_NAME (LTO_fixed_cst, "fixed_cst")
@@ -277,14 +299,18 @@
   SET_NAME (LTO_ssa_name, "ssa_name")
   SET_NAME (LTO_string_cst, "string_cst")
   SET_NAME (LTO_switch_expr, "switch_expr")
+  SET_NAME (LTO_translation_unit_decl, "translation_unit_decl")
+  SET_NAME (LTO_tree_binfo, "tree_binfo")
   SET_NAME (LTO_tree_list, "tree_list")
+  SET_NAME (LTO_tree_vec, "tree_vec")
   SET_NAME (LTO_trunc_div_expr, "trunc_div_expr")
   SET_NAME (LTO_trunc_mod_expr, "trunc_mod_expr")
   SET_NAME (LTO_truth_and_expr, "truth_and_expr")
   SET_NAME (LTO_truth_not_expr, "truth_not_expr")
   SET_NAME (LTO_truth_or_expr, "truth_or_expr")
   SET_NAME (LTO_truth_xor_expr, "truth_xor_expr")
-  SET_NAME (LTO_type_decl, "type_decl")
+  SET_NAME (LTO_type_decl0, "type_decl0")
+  SET_NAME (LTO_type_decl1, "type_decl1")
   SET_NAME (LTO_namespace_decl, "namespace_decl")
   SET_NAME (LTO_uneq_expr, "uneq_expr")
   SET_NAME (LTO_unge_expr, "unge_expr")
@@ -303,11 +329,33 @@
   SET_NAME (LTO_widen_mult_expr, "widen_mult_expr")
   SET_NAME (LTO_widen_sum_expr, "widen_sum_expr")
   SET_NAME (LTO_with_size_expr, "with_size_expr")
-  SET_NAME (LTO_asm_inputs, "asm_inputs")
-  SET_NAME (LTO_asm_outputs, "asm_outputs")
-  SET_NAME (LTO_asm_clobbers, "asm_clobbers")
+
+  /* ### Should put these in alphabetical order as above. */
+  SET_NAME (LTO_asm_inputs, "asm_inputs")		/* ### used? */
+  SET_NAME (LTO_asm_outputs, "asm_outputs")		/* ### used? */
+  SET_NAME (LTO_asm_clobbers, "asm_clobbers")		/* ### used? */
   SET_NAME (LTO_function, "function")
   SET_NAME (LTO_type, "type")
+
+  /* ### Should put these in alphabetical order as above. */
+  SET_NAME (LTO_void_type, "void_type")
+  SET_NAME (LTO_integer_type, "integer_type")
+  SET_NAME (LTO_real_type, "real_type")
+  SET_NAME (LTO_fixed_point_type, "fixed_point_type")
+  SET_NAME (LTO_complex_type, "complex_type")
+  SET_NAME (LTO_boolean_type, "boolean_type")
+  SET_NAME (LTO_offset_type, "offset_type")
+  SET_NAME (LTO_enumeral_type, "enumeral_type")
+  SET_NAME (LTO_pointer_type, "pointer_type")
+  SET_NAME (LTO_reference_type, "reference_type")
+  SET_NAME (LTO_vector_type, "vector_type")
+  SET_NAME (LTO_array_type, "array_type")
+  SET_NAME (LTO_record_type, "record_type")
+  SET_NAME (LTO_union_type, "union_type")
+  SET_NAME (LTO_qual_union_type, "qual_union_type")
+  SET_NAME (LTO_function_type, "function_type")
+  SET_NAME (LTO_method_type, "method_type")
+
   SET_NAME (LTO_eh_table, "eh_table")
   SET_NAME (LTO_eh_table_cleanup0, "eh_table_cleanup0")
   SET_NAME (LTO_eh_table_cleanup1, "eh_table_cleanup1")
@@ -329,6 +377,23 @@
   SET_NAME (LTO_eh_table_must_not_throw1, "eh_table_must_not_throw1")
   SET_NAME (LTO_eh_table_must_not_throw2, "eh_table_must_not_throw2")
   SET_NAME (LTO_eh_table_must_not_throw3, "eh_table_must_not_throw3")
+
+  /* Special for the global streamer.  */
+  SET_NAME (LTO_tree_pickle_reference, "tree_pickle_reference")
+  /* ### */
+  SET_NAME (LTO_local_type_ref, "global_type_ref")
+  SET_NAME (LTO_global_type_ref, "global_type_ref")
+
+  /* The globals and types streamer uses the same tags used by
+     the local streamer to represent references to represent the
+     actual declarations instead.  This was consistent with reusing
+     existing code that maps tags to tree codes before further
+     case analysis.  We may want to introduce new tags, however,
+     so that we can use the same system of tag variants used
+     in the function body streamer in order to compress the
+     stream data somewhat.  At present, however, the tags below
+     are used only by the function body streamer.  */
+
   SET_NAME (LTO_local_var_decl_body0+0x0, "local_var_decl_body0")
   SET_NAME (LTO_local_var_decl_body0+0x1, "local_var_decl_body1")
   SET_NAME (LTO_local_var_decl_body0+0x2, "local_var_decl_body2")

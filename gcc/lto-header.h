@@ -63,7 +63,7 @@ struct lto_simple_header
 };
 
 /* In lto-section-out.c.  */
-const char *lto_get_section_name (enum lto_section_type, const char *);
+char *lto_get_section_name (enum lto_section_type, const char *);
 section *lto_get_section (enum lto_section_type, const char *);
 
 /* Define this symbol if you want to debug an lto stream.  This causes
@@ -102,15 +102,15 @@ struct lto_debug_context
 {
   lto_debug_out out;
   int indent;
-  void * current_data;
-  void * decl_index_data;
-  void * decl_data;
-  void * label_data;
-  void * ssa_names_data;
-  void * cfg_data;
-  void * main_data;
-  const char * stream_name;
-  const char ** tag_names;
+  void *current_data;
+  void *decl_index_data;
+  void *decl_data;
+  void *label_data;
+  void *ssa_names_data;
+  void *cfg_data;
+  void *main_data;
+  const char *stream_name;
+  const char **tag_names;
 };
 
 extern struct lto_debug_context lto_debug_context;

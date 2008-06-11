@@ -1,24 +1,292 @@
-2008-06-09 Rafael Espindola  <espindola@google.com>
-       based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+2008-06-11  Diego Novillo  <dnovillo@google.com>
 
-       * langhooks-def.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
-       (LANG_HOOKS_INITIALIZER): add LANG_HOOKS_RESET_LANG_SPECIFICS.
-       * langhooks.h (reset_lang_specifics): New.
-       * lto-section-out.c (produce_asm_for_decls): Call free_lang_specifics.
-       * tree.c (uid2type_map): New.
-       (insert_type_to_uid_type_map): New.
-       (uid_type_map_eq): New.
-       (uid_type_map_hash): New.
-       (init_ttree): Initialize uid2type_map.
-       (make_node_stat): Call insert_type_to_uid_type_map.
-       (copy_node_stat): Call insert_type_to_uid_type_map.
-       (reset_type_lang_specific): New.
-       (free_lang_specifics): New.
-       * tree.h (free_lang_specifics) New.
+	Merge from lto-streamer sub-branch:
+
+	2008-06-09  Bill Maddox  <maddox@google.com>
+
+		* lto-tags.h: Add new tags LTO_local_type_ref
+		and LTO_global_type_ref.  Split LTO_type_decl
+		and LTO_field_decl into LTO_type_decl0, LTO_type_decl1,
+		LTO_field_decl0, and LTO_field_decl1.
+		* lto-tree-tags.h: Set names and tree code mappings for
+		the new tags.
+		* lto-function-out.c: Tidy comments and formatting.
+		(output_record_start): Add forward declaration.
+		(type_function_context): New function.
+		(field_decl_is_local, type_decl_is_local): New functions.
+		(output_type_ref_1): Write "local" (e.g., variably-modified)
+		types to local_decls stream.
+		(output_type_ref): Use "type_ref" as debug token to avoid
+		confusing clash with use of "type" elsewhere.
+		(output_local_decl_ref):  Update comment.
+		(output_expr_operand): Cases for FIELD_DECL and TYPE_DECL
+		now write "local" declarations to local_decls stream.
+		(output_local_var):  Rename to output_local_var_decl.
+		(output_local_var_decl): Remove code to set slot in
+		local_decls_index, now handled by output_local_decl.
+		(output_local_tree): New function.
+		(output_local_field_decl, output_local_type_decl,
+		output_local_type): New functions.
+		(output_local_decl): New function.
+		(output_field_decl): Use new tag LTO_field_decl1, to
+		distinguish from "local" fields.
+		(output_type_decl): Use new tag LTO_type_decl1, to
+		distinguish from "local" fields.
+		* lto-function-in.c: Tidy comments and formatting.
+		(input_local_tree, input_local_var_decl, input_local_field_decl,
+		input_local_type_decl, input_local_type):  Add
+		forward declarations.
+		(input_type_ref_1): Distinguish references to global or local
+		declaration streams.
+		(input_type_ref):  Use "type_ref" as debug token to avoid
+		confusing clash with use of "type" elsewhere.
+		(input_expr_operand):  Cases for FIELD_DECL and TYPE_DECL
+		now read "local" declarations from local_decls stream.
+		(input_local_tree): New function.
+		(input_local_var): Rename to input_local_var_decl.
+		(input_local_var_decl): Input record tag is now an argument.
+		(input_local_field_decl, input_local_type_decl,
+		input_local_type): New functions.
+		(input_local_decl): New function.
+		(input_local_vars): Call input_local_decl instead
+		of input_local_var.
+		(lto_static_init_local): Don't call
+		add_referenced_var on non-vars.
+		* lto-section-out.c (lto_hash_decl_slot_node,
+		lto_eq_decl_slot_node): Use object pointer, not
+		UID, as hash key.
+
+	2008-06-04  Rafael Espindola  <espindola@google.com>
+
+		* lto-function-out.c (output_tree): call error
+		with the TREE_CODE name.
+
+	2008-06-04  Ollie Wild  <aaw@google.com>
+
+		* dwarf2out.c (dwarf2_called_from_lto_p): Remove.
+		(current_fde): New function.
+		(add_fde_cfi): Call current_fde.
+		(lookup_cfa): Call curent_fde.
+		(dwarf2out_end_epilogue): Call current_fde.
+		(dwarf2out_switch_text_section: Call current_fde.
+		(lto_void_type_die): Remove.
+		(dwarf_attr_name): Declare static.  Remove
+		flag_generate_lto check.
+
+		(assign_symbol_name): Remove.
+		(assign_symbol_names): Expand call to assign_symbol_name.
+		(base_type_die): Replace
+		DW_ATE_GNU_complex_unsigned and
+		DW_ATE_GNU_complex_signed encodings with
+		DW_ATE_lo_user.  Remove byte_size computation.
+		Remove extra precision information.
+		(may_reference_to_unused): Rename reference_to_unused.
+		(rtl_for_decl_init): Rename calls to may_reference_to_unused.
+		(convert_cfa_to_fb_loc_list): Call current_fde.
+		(gen_subprogram_die): Remove flag_generate_lto and
+		dwarf2_called_from_lto_p checks.
+		(gen_variable_die): Remove context_die == comp_unit_die checks.
+		(add_high_low_attributes): Remove
+		dwarf2_called_from_lto_p check.
+		(force_die_for_context): Remove.
+		(containing_decl_for_block): Remove.
+		(force_block_die): Remove.
+		(force_decl_die): Expand call to force_die_for_context.  Remove
+		context_die == comp_unit_die check.  Remove the removal of of
+		DW_AT_DECLARATION.
+		(force_type_die): Expand the force_die_for_context call.
+		(force_field_die): Remove.
+		(gen_decl_die): Remove the cgraph_global_info_ready check.
+		(dwarf2out_init): Remove lto_void_type_die initialization.
+		(dwarf2out_finish): Remove context assignment.
+		(mark_die_used): Remove.
+		(lto_init_ref): Remove.
+		(lto_type_ref): Remove.
+		(lto_var_ref): Remove.
+		(lto_fn_ref): Remove.
+		(lto_field_ref): Remove.
+		(lto_typedecl_ref): Remove.
+		(lto_namespacedecl_ref): Remove.
+		* dwarf2out.h (dwarf2_called_from_lto_p): Remove.
+		(dwarf_attr_name): Remove.
+		(lto_out_ref): Remove.
+		(lto_type_ref): Remove.
+		(lto_var_ref): Remove.
+		(lto_fn_ref): Remove.
+		(lto_field_ref): Remove.
+		(lto_typedecl_ref): Remove.
+		(lto_namespacedecl_ref): Remove.
+		* dwarf2.h (enum dwarf_type): Remove
+		DW_ATE_GNU_complex_signed and
+		DW_ATE_GNU_complex_unsigned.
+		* lto-cgraph-in.c: Remove inclusion of
+		dwarf2asm.h and dwarf2out.h.
+		* lto-cgraph-out.c: Remove inclusion of
+		dwarf2asm.h and dwarf2out.h.
+		(lto_output_cgraph): Remove assignments to
+		dwarf2_called_from_lto_p.
+		* lto-function-in.c: Remove inclusion of
+		dwarf2asm.h and dwarf2out.h.
+		* lto-function-out.c: Remove inclusion of
+		dwarf2asm.h and dwarf2out.h.
+		(generate_early_dwarf_information): Remove.
+		(output_function): Remove generate_early_dwarf_information call.
+		(lto_output): Remove assignments to dwarf2_called_from_lto_p.
+		* lto-section-in.c: Remove inclusion of
+		dwarf2asm.h and dwarf2out.h.
+		* lto-section-out.c: Remove inclusion of dwarf2out.h.
+
+	2008-06-03  Bill Maddox  <maddox@google.com>
+		
+		* lto-tree-flags.def: Add flags for LABEL_DECL.
+		* lto-function-out.c (output_label_decl): New function.
+		(output_tree): Make sure that we do not stream out
+		well-known nodes, even for node types for which we
+		would not necessarily force sharing.  Reinstate handlers
+		for SWITCH_EXPR	and CASE_LABEL. Add case for LABEL_DECL.
+		* lto-function-in.c (input_label_decl): New function.
+		(input_tree_operand): Reinstate handlers for 
+		SWITCH_EXPR and CASE_LABEL. Add case for LABEL_DECL.
+		* lto-section-out.c (preload_common_nodes): Verify
+		that main_identifier_name is as expected by the reader.
+		* lto.c (preload_common_nodes): Initialize
+		main_identifier_node.
+
+	2008-06-03  Diego Novillo  <dnovillo@google.com>
+
+		* lto-header.h: Tidy formatting.
+		* lto-section-in.c (lto_get_section_data): Fix type for
+		SECTION_NAME.
+		(lto_debug_in_fun): Tidy formatting.
+		* lto-tags.h (enum): Tidy formatting.
+		* lto-cgraph-out.c (output_fn_decl): Add comment.
+		* lto-section-out.c (lto_output_decl_index):  Tidy formatting.
+
+	2008-06-03  Diego Novillo  <dnovillo@google.com>
+
+		* lto-function-out.c (output_tree_flags): Tidy
+		formatting.
+		(output_type_decl): Emit TYPE_MODE.
+		(output_tree): Add comment.
+		Ignore language codes.  Add pointer to proper fix.
+		* lto-function-in.c (input_type_decl): Read TYPE_MODE.
+
+	2008-06-02  Diego Novillo  <dnovillo@google.com>
+
+		* lto-function-out.c: Do not include ctype.h.
+		Tidy whitespace.
+		(output_function_decl): Add comment.
+		(output_type_tree): Reformat comment.
+		* lto-header.h (lto_get_section_name): Fix return type.
+		Tidy whitespace.
+		* lto-tree-out.h: Tidy whitespace and comments.
+		* lto-section-out.c (lto_get_section_name): Fix return
+		type.
+		(lto_get_section): Fix type of section_name.
+		(lto_get_out_decl_state): Reformat comment.
+		(out_state): Declare as local static to
+		lto_get_out_decl_state.
+		Fix wraparound problems.
+		(preload_common_node): Reformat comment.
+		Tidy whitespace.
+		(produce_asm_for_decls): Remove extern declarations.
+		Fix wraparound problems.
+		(lto_debug_out_fun): Fix comment.
+		* lto-section-out.h: Tidy whitesace and formatting.
+
+	2008-05-30  Diego Novillo  <dnovillo@google.com>
+
+		* lto-function-out.c (output_namespace_decl): Fix
+		assertions for NAMESPACE_DECL.
+
+	2008-05-30  Diego Novillo  <dnovillo@google.com>
+
+		Backport from trunk:
+
+		2008-05-27  Richard Guenther  <rguenther@suse.de>
+
+			PR tree-optimization/36245
+			* tree-ssa-address.c (add_to_parts): Deal
+			with non-pointer bases.
+
+	2008-05-29  Bill Maddox  <maddox@google.com>
+
+		* lto-tree-in.h, lto-tree-out.h: New files,
+		accidently omitted from previous commit.
+
+	2008-05-28  Bill Maddox  <maddox@google.com>
+		
+		Replace the DWARF reader in the LTO front-end.
+
+		* lto-tree-flags.def: Add flags for *_DECL
+		and *_TYPE for use by g lobal streamer.
+		* lto-function-out.c: Include lto-tree-out.h.
+		(struct output_block): Moved to lto-tree-out.h.
+		(create_output_block, destroy_output_block):
+		Make non-static, now exported.
+		(output_tree_flags, debug_tree_flags): Add ADD_CLASS_TYPE,
+		ADD_TYPE_FLAG, ADD_FUN_FLAG macros.  Fix bug where stream
+		debugging info was sometimes omitted.
+		(lto_static_init): Adjust lto_flags_needed_for and
+		lto_types_needed_for for node types now newly handled by
+		the global streamer.
+		(output_tree, output_type_tree, output_global_record_start,
+		output_field_decl, output_function_decl, output_var_decl,
+		output_parm_decl, output_result_decl, output_type_decl,
+		output_namespace_decl, output_translation_unit_decl,
+		output_binfo, output_type, output_global_constructor)
+		New functions.
+		* lto_function-in.c: Include lto-tree-in.h.
+		(struct data_in): Moved to lto-tree-in.h.
+		(input_string_internal): Initialize input_block before
+		reading string table size from the stream.
+		(process_tree_flags): Add ADD_CLASS_TYPE_FLAG, ADD_TYPE_FLAG,
+		ADD_FUN_FLAG.
+		(input_local_var): Handle stream debugging information
+		that was previously omitted due to a bug in the writer.
+		(lto_static_init_local): Make non-static, now exported.
+		Add ADD_CLASS_TYPE_FLAG, ADD_TYPE_FLAG, ADD_FUN_FLAG.
+		(input_tree, input_type_tree, input_tree_operand,
+		global_vector_enter, global_vector_fixup, input_field_decl,
+		input_function_decl, input_var_decl, input_parm_decl,
+		input_result_decl, input_type_decl, input_namespace_decl,
+		input_translation_unit_decl, input_binfo, input_type):
+		New functions.
+		* lto-section.h (struct lto_decl_header): Add fields for
+		sizes of globals stream and its associated debug and string
+		table streams.
+		* lto-tree-tags.def: MAP_EXPR_TAG and SET_NAME macro calls
+		for newly-handled tree codes for global decls and types.
+		* lto-section-in.c (dump_debug_stream): Fix typo
+		in error message.
+		* lto-section-in.h (lto_input_function_body,
+		lto_input_constructors_and_inits): Moved to lto-tree-in.h.
+		* lto-tags.h (enum LTO_tags): Added literals LTO_tree_vec,
+		LTO_translation_unit_decl, LTO_*_type, LTO_tree_binfo,
+		LTO_pickle_reference.
+	
+2008-06-09 Rafael Espindola  <espindola@google.com>
+
+	based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+
+	* langhooks-def.h (LANG_HOOKS_RESET_LANG_SPECIFICS): New.
+	(LANG_HOOKS_INITIALIZER): add LANG_HOOKS_RESET_LANG_SPECIFICS.
+	* langhooks.h (reset_lang_specifics): New.
+	* lto-section-out.c (produce_asm_for_decls): Call free_lang_specifics.
+	* tree.c (uid2type_map): New.
+	(insert_type_to_uid_type_map): New.
+	(uid_type_map_eq): New.
+	(uid_type_map_hash): New.
+	(init_ttree): Initialize uid2type_map.
+	(make_node_stat): Call insert_type_to_uid_type_map.
+	(copy_node_stat): Call insert_type_to_uid_type_map.
+	(reset_type_lang_specific): New.
+	(free_lang_specifics): New.
+	* tree.h (free_lang_specifics) New.
 
 2008-06-09  Rafael Espindola  <espindola@google.com>
 
-        * Make-lang.in (lto.all.cross): depend on $(LTO_EXE).
+	* Make-lang.in (lto.all.cross): depend on $(LTO_EXE).
 
 2008-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 	    Jan Hubicka  <jh@suse.cz>
@@ -121,7 +389,6 @@
 	(lto_get_out_decl_state): Removed function
 	(lto_output_decl_index): Added parms.
 	
-	
 2008-05-29  Rafael Espindola  <espindola@google.com>
 
 	Mainline merge @136135
@@ -171,7 +438,7 @@
 
 2008-05-20  Rafael Espindola  <espindola@google.com>
 
-       * ../configure: Regenerate with the correct autoconf version: 2.59.
+	* ../configure: Regenerate with the correct autoconf version: 2.59.
 
 2008-05-16  Diego Novillo  <dnovillo@google.com>
 
@@ -399,7 +666,7 @@
 	(output_integer): Guts moved to lto_output_integer_stream.
 	(output_expr_operand, output_local_var, output_cfg, output_phi,
 	output_bb, output_function): 
-        Added stmt_num parameter.
+	Added stmt_num parameter.
 	* lto-tags.h (lto_debug_context): Added.
 	* lto-section-out.c: New file that contains functions moved and
 	renamed from lto-function-out.
@@ -438,18 +705,18 @@
 
 2007-12-19  Doug Kwan  <dougkwan@google.com>
 
-        * dwarf2out.c (base_type_de): Use DW_ATE_GNU_complex_unsigned
-        and DW_ATE_GNU_complex_signed as appropriate instead of using
-        DW_ATE_lo_user.
-
-        * dwarf2.h (DW_ATE_GNU_complex_signed, DW_ATE_GNU_complex_unsigned):
-        New encoding formats.
+	* dwarf2out.c (base_type_de): Use DW_ATE_GNU_complex_unsigned
+	and DW_ATE_GNU_complex_signed as appropriate instead of using
+	DW_ATE_lo_user.
+	
+	* dwarf2.h (DW_ATE_GNU_complex_signed, DW_ATE_GNU_complex_unsigned):
+	New encoding formats.
 
 2007-12-18  Doug Kwan  <dougkwan@google.com>
 
-        * real.c (real_to_decimal, real_to_hexadecimal): Distinguish
-        QNaN & SNaN.
-        (real_from_string): Handle NaNs and Inf as approriate.
+	* real.c (real_to_decimal, real_to_hexadecimal): Distinguish
+	QNaN & SNaN.
+	(real_from_string): Handle NaNs and Inf as approriate.
 
 2007-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 

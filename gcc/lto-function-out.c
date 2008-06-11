@@ -47,13 +47,10 @@ Boston, MA 02110-1301, USA.  */
 #include "vec.h"
 #include "tree-vectorizer.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
-#include "dwarf2out.h"
 #include "output.h"
 #include "lto-tags.h"
 #include "lto-section-out.h"
-#include <ctype.h>
-
+#include "lto-tree-out.h"
 
 sbitmap lto_flags_needed_for;
 sbitmap lto_types_needed_for;
@@ -66,7 +63,6 @@ const char *LTO_tree_tag_names[LTO_tree_last_tag];
 /* The index of the last eh_region seen for an instruction.  The
    eh_region for an instruction is only emitted if it different from
    the last instruction.  */
-
 static int last_eh_region_seen;
 static unsigned int expr_to_tag[NUM_TREE_CODES];
 
@@ -143,84 +139,6 @@ string_slot_free (void *p)
 }
 
 
-/* The fields written to a function or extern variable header.  */
-
-struct output_block
-{
-  enum lto_section_type section_type;
-  struct lto_out_decl_state *decl_state;
-
-  /* The stream that the main tree codes are written to.  */
-  struct lto_output_stream *main_stream;
-  /* The stream that contains the indexes for the local name table.  */
-  struct lto_output_stream *local_decl_index_stream;
-  /* The stream that contains the local name table.  */
-  struct lto_output_stream *local_decl_stream;
-  /* The stream that contains the names for the named_labels.  */
-  struct lto_output_stream *named_label_stream;
-  /* The stream that contains the string table.  */
-  struct lto_output_stream *string_stream;
-  /* The stream that contains the ssa_names table.  */
-  struct lto_output_stream *ssa_names_stream;
-  /* The stream that contains the cfg.  */
-  struct lto_output_stream *cfg_stream;
-
-#ifdef LTO_STREAM_DEBUGGING
-  /* The stream that contains the local decls index debugging information.  */
-  struct lto_output_stream *debug_decl_index_stream;
-  /* The stream that contains the local decls debugging information.  */
-  struct lto_output_stream *debug_decl_stream;
-  /* The stream that contains the labels debugging information.  */
-  struct lto_output_stream *debug_label_stream;
-  /* The stream that contains the ssa_names debugging information.  */
-  struct lto_output_stream *debug_ssa_names_stream;
-  /* The stream that contains the cfg debugging information.  */
-  struct lto_output_stream *debug_cfg_stream;
-  /* The stream that contains the gimple debugging information.  */
-  struct lto_output_stream *debug_main_stream;
-#endif
-
-  /* The hash table that contains the set of labels we have seen so
-     far and the indexes assigned to them.  */
-  htab_t label_hash_table;
-  int next_named_label_index;
-  int next_unnamed_label_index;
-  VEC(tree,heap) *named_labels;
-
-  /* The hash table that contains the set of local parm and var decls
-     we have seen so far and the indexes assigned to them.  */
-  htab_t local_decl_hash_table;
-  unsigned int next_local_decl_index;
-  /* The local_decls_index and the local_decls_index_d are the indexes
-     in the local var stream and the local var debugging stream where
-     a particular local var is located.  This allows the local vars to
-     be read in random order.  */ 
-  VEC(int,heap) *local_decls_index;
-  /* Index in local_decls so that list can be reconstructed
-     properly.  */
-  VEC(int,heap) *unexpanded_local_decls_index;
-#ifdef LTO_STREAM_DEBUGGING
-  VEC(int,heap) *local_decls_index_d;
-#endif
-  VEC(tree,heap) *local_decls;
-
-  /* The hash table that contains the set of strings we have seen so
-     far and the indexes assigned to them.  */
-  htab_t string_hash_table;
-
-  /* The current cgraph_node that we are currently serializing.  Null
-     if we are serializing something else.  */
-  struct cgraph_node *cgraph_node;
-
-  /* These are the last file and line that were seen in the stream.
-     If the current node differs from these, it needs to insert
-     something into the stream and fix these up.  */
-  const char *current_file;
-  int current_line;
-  int current_col;
-};
-
-
 /* The output stream that contains the abbrev table for all of the
    functions in this compilation unit.  */
 static void output_expr_operand (struct output_block *, tree);
@@ -237,9 +155,10 @@ clear_line_info (struct output_block *ob)
 
 
 /* Create the output block and return it.  SECTION_TYPE is LTO_section_function_body or
-lto_static_initializer.  */
+   lto_static_initializer.  */
+/* FIXME: Now declared in lto-section-out.h.  Move definition to lto-section-out.c ? */
 
-static struct output_block *
+struct output_block *
 create_output_block (enum lto_section_type section_type)
 {
   struct output_block *ob = xcalloc (1, sizeof (struct output_block));
@@ -283,8 +202,9 @@ create_output_block (enum lto_section_type section_type)
 
 
 /* Destroy the output block OB.  */
+/* FIXME: Now declared in lto-section-out.h.  Move definition to lto-section-out.c ? */
 
-static void
+void
 destroy_output_block (struct output_block * ob)
 {
   enum lto_section_type section_type = ob->section_type;
@@ -454,9 +374,7 @@ output_integer (struct output_block *ob, tree t)
 
 
 static void
-output_tree_flags (struct output_block *ob, 
-		   enum tree_code code, 
-		   tree expr, 
+output_tree_flags (struct output_block *ob, enum tree_code code, tree expr, 
 		   bool force_loc)
 {
   lto_flags_type flags = 0;
@@ -479,6 +397,8 @@ output_tree_flags (struct output_block *ob,
       { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
 #define ADD_CLASS_EXPR_FLAG(flag_name)    \
       { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
+#define ADD_CLASS_TYPE_FLAG(flag_name)    \
+      { flags <<= 1; if (expr->type. flag_name ) flags |= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
@@ -492,12 +412,16 @@ output_tree_flags (struct output_block *ob,
 #define START_EXPR_CASE(code)    case code:
 #define ADD_EXPR_FLAG(flag_name) \
       { flags <<= 1; if (expr->base. flag_name ) flags |= 1; }
+#define ADD_TYPE_FLAG(flag_name) \
+      { flags <<= 1; if (expr->type. flag_name ) flags |= 1; }
 #define ADD_DECL_FLAG(flag_name) \
       { flags <<= 1; if (expr->decl_common. flag_name ) flags |= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
       { flags <<= 1; if (expr->decl_with_vis. flag_name ) flags |= 1; }
-#define ADD_VIS_FLAG_SIZE(flag_name,size)					\
+#define ADD_VIS_FLAG_SIZE(flag_name,size)	\
       { flags <<= size; if (expr->decl_with_vis. flag_name ) flags |= expr->decl_with_vis. flag_name; }
+#define ADD_FUN_FLAG(flag_name)  \
+      { flags <<= 1; if (expr->function_decl. flag_name ) flags |= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -511,14 +435,17 @@ output_tree_flags (struct output_block *ob,
 #undef START_CLASS_CASE
 #undef ADD_CLASS_DECL_FLAG
 #undef ADD_CLASS_EXPR_FLAG
+#undef ADD_CLASS_TYPE_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH
 #undef START_EXPR_CASE
 #undef ADD_EXPR_FLAG
+#undef ADD_TYPE_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
 #undef ADD_VIS_FLAG_SIZE
+#undef ADD_FUN_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 
@@ -585,7 +512,15 @@ output_tree_flags (struct output_block *ob,
 
       LTO_DEBUG_TOKEN ("flags");
       output_widest_uint_uleb128 (ob, flags);
-      LTO_DEBUG_TREE_FLAGS (code, flags);
+      /* Note that when we force flags with code == 0,
+         we cause the debugging info to be omitted.
+         I tried to fix this like so:
+           LTO_DEBUG_TREE_FLAGS (TREE_CODE (expr), flags);
+         This breaks input_local_var, however, which
+         expects the debug info to be missing.
+         Do the fix anyway, and fix input_local_var.  */
+      /* LTO_DEBUG_TREE_FLAGS (code, flags); */
+      LTO_DEBUG_TREE_FLAGS (TREE_CODE (expr), flags);
 
       if (file_to_write)
 	{
@@ -606,6 +541,82 @@ output_tree_flags (struct output_block *ob,
     }
 }
 
+static void output_record_start (struct output_block *, tree, tree, unsigned int);
+static unsigned int output_local_decl_ref (struct output_block *, tree, bool);
+
+/* Return innermost enclosing FUNCTION_DECL for a type,
+   or NULL_TREE if there is none.  */
+/* FIXME: Move this to tree.c alongside DECL_FUNCTION_CONTEXT.  */
+/* FIXME: Can type be ERROR_MARK?  See DECL_FUNCTION_CONTEXT.  */
+
+static tree
+type_function_context (const_tree type)
+{
+  tree context = TYPE_CONTEXT (type);
+
+  while (context && TREE_CODE (context) != FUNCTION_DECL)
+    {
+      if (TREE_CODE (context) == BLOCK)
+        context = BLOCK_SUPERCONTEXT (context);
+      else
+        context = get_containing_scope (context);
+    }
+  
+  return context;
+}
+
+/* Return true if a FIELD_DECL depends on a function context,
+   i.e., makes reference to a function body and should be serialized
+   with the function body, not the file scope.  */
+
+static bool
+field_decl_is_local (tree decl ATTRIBUTE_UNUSED)
+{
+#ifdef STREAM_LOCAL_TYPES
+  return (decl_function_context (decl)
+          || variably_modified_type_p (TREE_TYPE(decl), NULL)
+          || type_function_context (TREE_TYPE (decl)));
+#else
+  return false;
+#endif
+}
+
+/* Return true if a TYPE__DECL depends on a function context,
+   i.e., makes reference to a function body and should be serialized
+   with the function body, not the file scope.  */
+
+static bool
+type_decl_is_local (tree decl ATTRIBUTE_UNUSED)
+{
+#ifdef STREAM_LOCAL_TYPES
+  return (decl_function_context (decl)
+          || variably_modified_type_p (TREE_TYPE(decl), NULL));
+#else
+  return false;
+#endif
+}
+
+/* Like output_type_ref, but no debug information is written.  */
+
+static void
+output_type_ref_1 (struct output_block *ob, tree node)
+{
+#ifdef STREAM_LOCAL_TYPES
+  if (variably_modified_type_p (node, NULL) || type_function_context (node))
+    {
+      output_record_start (ob, NULL, NULL, LTO_local_type_ref);
+      output_local_decl_ref (ob, node, true);
+    }
+  else
+#endif
+    {
+      output_record_start (ob, NULL, NULL, LTO_global_type_ref);
+      lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
+    }
+
+  LTO_DEBUG_UNDENT();
+}
+
 
 /* Look up NODE in the type table and write the uleb128 index for it to OB.
    This is a hack and will be replaced with a real reference to the type.  */
@@ -613,8 +624,8 @@ output_tree_flags (struct output_block *ob,
 static void
 output_type_ref (struct output_block *ob, tree node)
 {
-  LTO_DEBUG_TOKEN ("type");
-  lto_output_type_ref_index (ob->decl_state, ob->main_stream, node);
+  LTO_DEBUG_TOKEN ("type_ref");
+  output_type_ref_1 (ob, node);
 }
 
 
@@ -624,13 +635,14 @@ output_type_ref (struct output_block *ob, tree node)
 static unsigned int
 output_local_decl_ref (struct output_block *ob, tree name, bool write)
 {
+  bool new;
   unsigned int index;
-  bool new = lto_output_decl_index (write ? ob->main_stream : NULL, 
-				    ob->local_decl_hash_table,
-				    &ob->next_local_decl_index, 
-				    name, &index);
-  /* Push the new local var or param onto a vector for later
-     processing.  */
+
+  new = lto_output_decl_index (write ? ob->main_stream : NULL, 
+                               ob->local_decl_hash_table,
+                               &ob->next_local_decl_index, 
+                               name, &index);
+  /* Push the new local decl onto a vector for later processing.  */
   if (new)
     {
       VEC_safe_push (tree, heap, ob->local_decls, name);
@@ -1024,11 +1036,22 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case FIELD_DECL:
-      output_record_start (ob, NULL, NULL, tag);
-      lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
+      if (!field_decl_is_local (expr))
+        {
+          output_record_start (ob, NULL, NULL, LTO_field_decl1);
+          lto_output_field_decl_index (ob->decl_state, ob->main_stream, expr);
+        }
+      else
+        {
+	  /* Local FIELD_DECLs.  */
+	  output_record_start (ob, NULL, NULL, LTO_field_decl0);
+	  output_local_decl_ref (ob, expr, true);
+        }
       break;
 
     case FUNCTION_DECL:
+      /* FIXME: Local FUNCTION_DECLS are possible, i.e.,
+         nested functions.  */
       output_record_start (ob, NULL, NULL, tag);
       lto_output_fn_decl_index (ob->decl_state, ob->main_stream, expr);
       break;
@@ -1048,8 +1071,17 @@ output_expr_operand (struct output_block *ob, tree expr)
       break;
 
     case TYPE_DECL:
-      output_record_start (ob, NULL, NULL, tag);
-      lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
+      if (!type_decl_is_local (expr))
+        {
+          output_record_start (ob, NULL, NULL, LTO_type_decl1);
+          lto_output_type_decl_index (ob->decl_state, ob->main_stream, expr);
+        }
+      else
+        {
+	  /* Local TYPE_DECLs.  */
+	  output_record_start (ob, NULL, NULL, LTO_type_decl0);
+	  output_local_decl_ref (ob, expr, true);
+        }
       break;
 
     case NAMESPACE_DECL:
@@ -1327,10 +1359,11 @@ output_expr_operand (struct output_block *ob, tree expr)
   LTO_DEBUG_UNDENT ();
 }
 
-/* Output the local var INDEX to OB.  */
+
+/* Output the local var at INDEX to OB.  */
 
 static void
-output_local_var (struct output_block *ob, int index)
+output_local_var_decl (struct output_block *ob, int index)
 {
   tree decl = VEC_index (tree, ob->local_decls, index);
   unsigned int variant = 0;
@@ -1351,13 +1384,9 @@ output_local_var (struct output_block *ob, int index)
 	 ? LTO_local_var_decl_body0
 	 : LTO_parm_decl_body0)
     + variant;
-  
-  VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
-#ifdef LTO_STREAM_DEBUGGING
-  VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
-#endif
+
   output_record_start (ob, NULL, NULL, tag);
-  
+
   /* Put out the name if there is one.  */
   if (DECL_NAME (decl))
     {
@@ -1424,7 +1453,229 @@ output_local_var (struct output_block *ob, int index)
 }
 
 
-/* Output the local var_decls and parm_decls to OB.  */
+/* Emit tree node EXPR to output block OB.  */
+
+static void
+output_local_tree (struct output_block *ob, tree expr)
+{
+  if (expr == NULL_TREE)
+    output_zero (ob);
+  else if (TYPE_P (expr))
+    output_type_ref_1 (ob, expr);
+  else
+    output_expr_operand (ob, expr);
+}
+
+
+/* Output the local field declaration DECL to OB.
+   A "local" field declaration is one that that has a
+   dependency on a function context, and should always
+   have been declared within a function.  */
+
+static void
+output_local_field_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_record_start (ob, NULL, NULL, LTO_field_decl0);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_local_tree (ob, decl->decl_minimal.name);
+  output_local_tree (ob, decl->decl_minimal.context);
+
+  output_local_tree (ob, decl->common.type);
+
+  output_local_tree (ob, decl->decl_common.attributes);
+  output_local_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  output_uleb128 (ob, decl->decl_common.off_align);
+
+  output_local_tree (ob, decl->decl_common.size);
+  output_local_tree (ob, decl->decl_common.size_unit);
+
+  output_local_tree (ob, decl->field_decl.offset);
+  output_local_tree (ob, decl->field_decl.bit_field_type);
+  output_local_tree (ob, decl->field_decl.qualifier);
+  output_local_tree (ob, decl->field_decl.bit_offset);
+  output_local_tree (ob, decl->field_decl.fcontext);
+
+  /* lang_specific */
+  output_local_tree (ob, decl->decl_common.initial);
+
+  /* Write out current field before its siblings,
+     so follow the chain last.  */
+  output_local_tree (ob, decl->common.chain);
+
+  LTO_DEBUG_UNDENT();
+}
+
+
+/* Output the local type declaration DECL to OB.
+   A "local" type declaration  is one that that has a
+   dependency on a function context, and should always
+   have been declared within a function.  */
+
+static void
+output_local_type_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_record_start (ob, NULL, NULL, LTO_type_decl0);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  /* Must output name before type.  */
+  output_local_tree (ob, decl->decl_minimal.name);
+  output_local_tree (ob, decl->decl_minimal.context);
+
+  output_local_tree (ob, decl->decl_with_vis.assembler_name);
+  output_local_tree (ob, decl->decl_with_vis.section_name);
+
+  output_local_tree (ob, decl->common.type);
+
+  output_local_tree (ob, decl->decl_common.attributes);
+  output_local_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+
+  output_local_tree (ob, decl->decl_common.size);		/* ??? */
+  output_local_tree (ob, decl->decl_common.size_unit);		/* ??? */
+
+  /* lang_specific */
+
+  gcc_assert (decl->decl_with_rtl.rtl == NULL);
+
+  output_local_tree (ob, decl->decl_common.initial);		/* ??? */
+
+  output_local_tree (ob, decl->decl_non_common.saved_tree);	/* ??? */
+  output_local_tree (ob, decl->decl_non_common.arguments);	/* ??? */
+  output_local_tree (ob, decl->decl_non_common.result);
+  output_local_tree (ob, decl->decl_non_common.vindex);		/* ??? */
+
+  LTO_DEBUG_UNDENT();
+}
+
+
+/* Output the local type TYPE to OB.
+   A "local" type is one that that has a dependency on a
+   function context, as the type of local var decl or
+   type decl, or a type that is variably-modified with a
+   dependency on a local variable or parameter.  */
+
+static void
+output_local_type (struct output_block *ob, tree type, enum LTO_tags tag)
+{
+  /* tag and flags */
+  output_record_start (ob, NULL, NULL, tag);
+  output_tree_flags (ob, 0, type, false);
+
+  LTO_DEBUG_TOKEN ("type");
+  output_local_tree (ob, type->common.type);
+  LTO_DEBUG_TOKEN ("size");
+  output_local_tree (ob, type->type.size);
+  LTO_DEBUG_TOKEN ("size_unit");
+  output_local_tree (ob, type->type.size_unit);
+  LTO_DEBUG_TOKEN ("attributes");
+  output_local_tree (ob, type->type.attributes);
+  LTO_DEBUG_TOKEN ("uid");
+  output_uleb128 (ob, type->type.uid);
+  LTO_DEBUG_TOKEN ("precision");
+  output_uleb128 (ob, type->type.precision);
+  LTO_DEBUG_TOKEN ("mode");
+  output_uleb128 (ob, type->type.mode);
+  LTO_DEBUG_TOKEN ("align");
+  output_uleb128 (ob, type->type.align);
+  LTO_DEBUG_TOKEN ("pointer_to");
+  output_local_tree (ob, type->type.pointer_to);
+  LTO_DEBUG_TOKEN ("reference_to");
+  output_local_tree (ob, type->type.reference_to);
+  /* FIXME: Output symtab here.  Do we need it?  */
+  LTO_DEBUG_TOKEN ("name");
+  output_local_tree (ob, type->type.name);	/* may be a TYPE_DECL */
+  LTO_DEBUG_TOKEN ("minval");
+  output_local_tree (ob, type->type.minval);
+  LTO_DEBUG_TOKEN ("maxval");
+  output_local_tree (ob, type->type.maxval);
+  LTO_DEBUG_TOKEN ("next_variant");
+  output_local_tree (ob, type->type.next_variant);
+  LTO_DEBUG_TOKEN ("main_variant");
+  output_local_tree (ob, type->type.main_variant);
+  /* FIXME: Handle BINFO.  */
+  /*
+    LTO_DEBUG_TOKEN ("binfo");
+    output_local_tree (ob, type->type.binfo);
+  */
+  LTO_DEBUG_TOKEN ("context");
+  /* FIXME: We don't emit BLOCKs, so context must be a
+     function or toplevel.  We probably break debugging.  */
+  /*output_tree (ob, type->type.context);*/
+  output_local_tree (ob, type_function_context (type));
+  LTO_DEBUG_TOKEN ("canonical");
+  output_local_tree (ob, type->type.canonical);
+
+  /* Slot 'values' may be the structures fields, so do them last,
+     after other slots of the structure type have been filled in.  */
+  LTO_DEBUG_TOKEN ("values");
+  if (TYPE_CACHED_VALUES_P (type))
+    {
+      gcc_assert (tag != RECORD_TYPE
+                  && tag != UNION_TYPE
+                  && tag != ARRAY_TYPE);
+      /* Don't stream the values cache.  We must clear flag
+         TYPE_CACHED_VALUES_P on input.  We don't do it here
+         because we don't want to clobber the tree as we write
+         it, and there is no infrastructure for modifying
+         flags as we serialize them.  */
+      output_zero (ob);
+    }
+  else
+    output_local_tree (ob, type->type.values);	/* should be a TREE_VEC */
+
+  LTO_DEBUG_TOKEN ("chain");
+  output_local_tree (ob, type->common.chain);	/* overloaded as TYPE_STUB_DECL */
+
+  LTO_DEBUG_UNDENT();
+}
+
+
+/* Output the local declaration or type at INDEX to OB.  */
+
+static void
+output_local_decl (struct output_block *ob, int index)
+{
+  tree decl = VEC_index (tree, ob->local_decls, index);
+
+  /* DEBUG */
+  /*
+    fprintf (stderr, "LOCAL: ");
+    print_generic_expr (stderr, decl, 0);
+    fprintf (stderr, "\n");
+  */
+
+  VEC_replace (int, ob->local_decls_index, index, ob->main_stream->total_size);
+#ifdef LTO_STREAM_DEBUGGING
+  VEC_replace (int, ob->local_decls_index_d, index, ob->debug_decl_stream->total_size);
+#endif
+
+  if (TREE_CODE (decl) == FIELD_DECL)
+    output_local_field_decl (ob, decl);
+  else if (TREE_CODE (decl) == VAR_DECL
+           || TREE_CODE (decl) == PARM_DECL)
+    output_local_var_decl (ob, index);
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    output_local_type_decl (ob, decl);
+  else
+    {
+      gcc_assert (TYPE_P (decl));
+
+      output_local_type (ob, decl, expr_to_tag [TREE_CODE (decl)]);
+    }
+}
+
+
+/* Output the local declarations and types to OB.  */
 
 static void
 output_local_vars (struct output_block *ob, struct function *fn)
@@ -1490,7 +1741,7 @@ output_local_vars (struct output_block *ob, struct function *fn)
      them.  */
   LTO_DEBUG_TOKEN ("local vars");
   while (index < VEC_length (tree, ob->local_decls))
-    output_local_var (ob, index++);
+    output_local_decl (ob, index++);
 
   ob->main_stream = tmp_stream;
 }
@@ -1825,11 +2076,16 @@ lto_static_init (void)
   RESET_BIT (lto_flags_needed_for, SSA_NAME);
   RESET_BIT (lto_flags_needed_for, VAR_DECL);
   RESET_BIT (lto_flags_needed_for, TREE_LIST);
+  RESET_BIT (lto_flags_needed_for, TREE_VEC);
   RESET_BIT (lto_flags_needed_for, TYPE_DECL);
+  RESET_BIT (lto_flags_needed_for, TRANSLATION_UNIT_DECL);
   RESET_BIT (lto_flags_needed_for, NAMESPACE_DECL);
 
   lto_types_needed_for = sbitmap_alloc (NUM_TREE_CODES);
 
+  /* Global declarations and types will handle the
+     type field by other means, so lto_types_needed_for
+     should not be set for them.  */
 #if REDUNDANT_TYPE_SYSTEM
   /* These forms never need types.  */
   sbitmap_ones (lto_types_needed_for);
@@ -1848,8 +2104,28 @@ lto_static_init (void)
   RESET_BIT (lto_types_needed_for, SSA_NAME);
   RESET_BIT (lto_types_needed_for, VAR_DECL);
   RESET_BIT (lto_types_needed_for, TREE_LIST);
+  RESET_BIT (lto_types_needed_for, TREE_VEC);
   RESET_BIT (lto_types_needed_for, TYPE_DECL);
   RESET_BIT (lto_types_needed_for, NAMESPACE_DECL);
+  RESET_BIT (lto_types_needed_for, TRANSLATION_UNIT_DECL);
+  /* These forms *are* the types.  */
+  RESET_BIT (lto_types_needed_for, VOID_TYPE);
+  RESET_BIT (lto_types_needed_for, INTEGER_TYPE);
+  RESET_BIT (lto_types_needed_for, REAL_TYPE);
+  RESET_BIT (lto_types_needed_for, FIXED_POINT_TYPE);
+  RESET_BIT (lto_types_needed_for, COMPLEX_TYPE);
+  RESET_BIT (lto_types_needed_for, BOOLEAN_TYPE);
+  RESET_BIT (lto_types_needed_for, OFFSET_TYPE);
+  RESET_BIT (lto_types_needed_for, ENUMERAL_TYPE);
+  RESET_BIT (lto_types_needed_for, POINTER_TYPE);
+  RESET_BIT (lto_types_needed_for, REFERENCE_TYPE);
+  RESET_BIT (lto_types_needed_for, VECTOR_TYPE);
+  RESET_BIT (lto_types_needed_for, ARRAY_TYPE);
+  RESET_BIT (lto_types_needed_for, RECORD_TYPE);
+  RESET_BIT (lto_types_needed_for, UNION_TYPE);
+  RESET_BIT (lto_types_needed_for, QUAL_UNION_TYPE);
+  RESET_BIT (lto_types_needed_for, FUNCTION_TYPE);
+  RESET_BIT (lto_types_needed_for, METHOD_TYPE);
 #else
   /* These forms will need types, even when the type system is fixed.  */
   SET_BIT (lto_types_needed_for, COMPLEX_CST);
@@ -1904,16 +2180,6 @@ lto_static_init_local (void)
 static int function_num;
 #endif
 
-/* Generate complete DWARF information for the function now so that we
-   don't run into missing or incomplete information later.  */
-
-static void
-generate_early_dwarf_information (tree function)
-{
-  /* Don't bother with frame information, since we have no RTL.  */
-  dwarf2out_decl (function);
-}
-
 /* Output FN.  */
 
 static void
@@ -1931,12 +2197,9 @@ output_function (struct cgraph_node* node)
 
   gcc_assert (!current_function_decl && !cfun);
 
-  /* Set current_function_decl to what the dwarf2 machinery expects.  */
+  /* Set current_function_decl and cfun.  */
   current_function_decl = function;
   push_cfun (fn);
-
-  /* Generate debugging info as early as we can.  */
-  generate_early_dwarf_information (function);
 
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
@@ -2070,9 +2333,6 @@ lto_output (void)
 
   lto_static_init_local ();
 
-  /* Turn off some DWARF2 bits.  */
-  dwarf2_called_from_lto_p = true;
-
   /* Process only the fuctions with bodies and only process the master
      ones of them.  */
   for (node = cgraph_nodes; node; node = node->next)
@@ -2085,8 +2345,6 @@ lto_output (void)
      writing lto info.  */
   if (saved_section)
     switch_to_section (saved_section);
-
-  dwarf2_called_from_lto_p = false;
 }
 
 struct ipa_opt_pass pass_ipa_lto_gimple_out =
@@ -2137,6 +2395,8 @@ lto_debug_tree_flags (struct lto_debug_context *context,
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_CLASS_EXPR_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_CLASS_TYPE_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define END_CLASS_CASE(class)      break;
 #define END_CLASS_SWITCH()                \
     default:                              \
@@ -2150,12 +2410,16 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 #define START_EXPR_CASE(code)    case code:
 #define ADD_EXPR_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
+#define ADD_TYPE_FLAG(flag_name) \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_DECL_FLAG(flag_name) \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG(flag_name)  \
   { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define ADD_VIS_FLAG_SIZE(flag_name,size)					\
   { if (flags >> (BITS_PER_LTO_FLAGS_TYPE - size)) lto_debug_token (context, " " # flag_name ); flags <<= size; }
+#define ADD_FUN_FLAG(flag_name)  \
+  { if (flags >> CLEAROUT) lto_debug_token (context, " " # flag_name ); flags <<= 1; }
 #define END_EXPR_CASE(class)      break;
 #define END_EXPR_SWITCH()                 \
     default:                              \
@@ -2169,14 +2433,1069 @@ lto_debug_tree_flags (struct lto_debug_context *context,
 #undef START_CLASS_CASE
 #undef ADD_CLASS_DECL_FLAG
 #undef ADD_CLASS_EXPR_FLAG
+#undef ADD_CLASS_TYPE_FLAG
 #undef END_CLASS_CASE
 #undef END_CLASS_SWITCH
 #undef START_EXPR_SWITCH
 #undef START_EXPR_CASE
 #undef ADD_EXPR_FLAG
+#undef ADD_TYPE_FLAG
 #undef ADD_DECL_FLAG
 #undef ADD_VIS_FLAG
+#undef ADD_FUN_FLAG
 #undef END_EXPR_CASE
 #undef END_EXPR_SWITCH
 }
 #endif
+
+
+/* Serialization of global types and declarations.  */
+
+void output_tree (struct output_block *, tree);
+void output_type_tree (struct output_block *, tree);
+
+/* Output the start of a record with TAG and possibly flags for EXPR,
+   and the TYPE for VALUE to OB.   Unlike output_record_start, use
+   output_type_tree instead of output_type_ref.  */
+
+static void
+output_global_record_start (struct output_block *ob, tree expr,
+                            tree value, unsigned int tag)
+{
+  lto_output_1_stream (ob->main_stream, tag);
+  LTO_DEBUG_INDENT (tag);
+  if (expr)
+    {
+      enum tree_code code = TREE_CODE (expr);
+      if (value
+	  && TEST_BIT (lto_types_needed_for, code)
+	  && TREE_TYPE (value))
+	output_type_tree (ob, TREE_TYPE (value));
+      output_tree_flags (ob, code, expr, false);
+    }
+}
+
+static void
+output_field_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_field_decl1);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  output_uleb128 (ob, decl->decl_common.off_align);
+
+  output_tree (ob, decl->decl_common.size);
+  output_tree (ob, decl->decl_common.size_unit);
+
+  output_tree (ob, decl->field_decl.offset);
+  output_tree (ob, decl->field_decl.bit_field_type);
+  output_tree (ob, decl->field_decl.qualifier);
+  output_tree (ob, decl->field_decl.bit_offset);
+  output_tree (ob, decl->field_decl.fcontext);
+
+  /* lang_specific */
+  output_tree (ob, decl->decl_common.initial);
+
+  /* Write out current field before its siblings,
+     so follow the chain last.  */
+  output_tree (ob, decl->common.chain);
+}
+
+
+/* Write FUNCTION_DECL DECL to the output block OB.  */
+
+static void
+output_function_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_function_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  output_tree (ob, decl->decl_with_vis.assembler_name);
+  output_tree (ob, decl->decl_with_vis.section_name);
+
+  /* omit chain, which would result in writing all functions  */
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  output_tree (ob, decl->decl_common.size);
+  output_tree (ob, decl->decl_common.size_unit);
+
+  /* lang_specific */
+
+  /* omit rtl */
+
+  /* saved_tree -- this is a function body, so omit it here */
+  output_tree (ob, decl->decl_non_common.arguments);
+  output_tree (ob, decl->decl_non_common.result);
+  output_tree (ob, decl->decl_non_common.vindex);
+
+  /* omit initial -- should be written with body */
+}
+
+static void
+output_var_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  /* Assume static or external variable.  */
+  output_global_record_start (ob, NULL, NULL, LTO_var_decl1);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  LTO_DEBUG_TOKEN ("var_decl_assembler_name");
+  output_tree (ob, decl->decl_with_vis.assembler_name);
+  output_tree (ob, decl->decl_with_vis.section_name);
+
+  /* omit chain */
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  LTO_DEBUG_TOKEN ("var_decl_size");
+  output_tree (ob, decl->decl_common.size);
+  output_tree (ob, decl->decl_common.size_unit);
+
+  /* lang_specific */
+
+  /* omit rtl */
+
+  /* DECL_DEBUG_EXPR is stored in a table on the side,
+     not in the VAR_DECL node itself.  */
+  LTO_DEBUG_TOKEN ("var_decl_debug_expr");
+  output_tree (ob, DECL_DEBUG_EXPR (decl));
+  
+  /* Write initial expression last.  */
+  output_tree (ob, decl->decl_common.initial);
+
+  LTO_DEBUG_TOKEN ("var_decl_END");
+}
+
+static void
+output_parm_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_parm_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+        
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  output_tree (ob, decl->decl_common.size);
+  output_tree (ob, decl->decl_common.size_unit);
+
+  output_tree (ob, decl->decl_common.initial);
+
+  /* lang_specific */
+  /* omit rtl, incoming_rtl */
+
+  output_tree (ob, decl->common.chain);
+}
+
+static void
+output_result_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_result_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+        
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  output_tree (ob, decl->decl_common.size);
+  output_tree (ob, decl->decl_common.size_unit);
+
+  /* lang_specific */
+  /* omit rtl */
+
+  /* FIXME: Does this make sense for result?  */
+  output_tree (ob, decl->decl_common.initial);
+
+  gcc_assert (!decl->common.chain);
+}
+
+static void
+output_type_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_type_decl1);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  /* Must output name before type.  */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  output_tree (ob, decl->decl_with_vis.assembler_name);
+  output_tree (ob, decl->decl_with_vis.section_name);
+
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  output_uleb128 (ob, decl->decl_common.mode);
+  output_uleb128 (ob, decl->decl_common.align);
+
+  output_tree (ob, decl->decl_common.size);			/* ??? */
+  output_tree (ob, decl->decl_common.size_unit);		/* ??? */
+
+  /* lang_specific */
+
+  gcc_assert (decl->decl_with_rtl.rtl == NULL);
+
+  output_tree (ob, decl->decl_common.initial);			/* ??? */
+
+  output_tree (ob, decl->decl_non_common.saved_tree);		/* ??? */
+  output_tree (ob, decl->decl_non_common.arguments);		/* ??? */
+  output_tree (ob, decl->decl_non_common.result);
+  output_tree (ob, decl->decl_non_common.vindex);		/* ??? */
+}
+
+static void
+output_label_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_label_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+        
+  output_tree (ob, decl->common.type);
+
+  output_tree (ob, decl->decl_common.attributes);		/* ??? */
+  output_tree (ob, decl->decl_common.abstract_origin);		/* ??? */
+
+  output_uleb128 (ob, decl->decl_common.mode);			/* ??? */
+  output_uleb128 (ob, decl->decl_common.align);			/* ??? */
+  gcc_assert (decl->decl_common.off_align == 0);
+
+  gcc_assert (decl->decl_common.size == NULL_TREE);
+  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
+
+  output_tree (ob, decl->decl_common.initial);
+
+  /* lang_specific */
+  /* omit rtl, incoming_rtl */
+  /* omit chain */
+}
+
+static void
+output_namespace_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_namespace_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  output_tree (ob, decl->decl_with_vis.assembler_name);
+  output_tree (ob, decl->decl_with_vis.section_name);
+
+  gcc_assert (decl->common.type == void_type_node
+	      || decl->common.type == NULL_TREE);
+
+  output_tree (ob, decl->decl_common.attributes);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  gcc_assert (decl->decl_common.mode == 0);
+  gcc_assert (decl->decl_common.align == 1);
+
+  gcc_assert (decl->decl_common.size == NULL_TREE);
+  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
+
+  /* lang_specific */
+
+  gcc_assert (decl->decl_with_rtl.rtl == NULL);
+
+  output_tree (ob, decl->decl_non_common.saved_tree);  		/* ??? */
+  gcc_assert (decl->decl_non_common.arguments == NULL_TREE); 	/* ??? */
+  gcc_assert (decl->decl_non_common.result == NULL_TREE); 	/* ??? */
+  output_tree (ob, decl->decl_non_common.vindex);
+
+  /* omit chain */
+}
+
+static void
+output_translation_unit_decl (struct output_block *ob, tree decl)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, LTO_translation_unit_decl);
+  output_tree_flags (ob, 0, decl, true);
+
+  /* uid and locus are handled specially */
+  output_tree (ob, decl->decl_minimal.name);
+  output_tree (ob, decl->decl_minimal.context);
+
+  output_tree (ob, decl->decl_with_vis.assembler_name);
+  output_tree (ob, decl->decl_with_vis.section_name);
+
+  output_tree (ob, decl->common.type);
+
+  gcc_assert (decl->decl_common.attributes == NULL_TREE);
+  output_tree (ob, decl->decl_common.abstract_origin);
+
+  gcc_assert (decl->decl_common.mode == 0);
+  output_uleb128 (ob, decl->decl_common.align);
+
+  gcc_assert (decl->decl_common.size == NULL_TREE);
+  gcc_assert (decl->decl_common.size_unit == NULL_TREE);
+  /* FIXME: Verify this.  */
+  /* Omit initial value.  I believe this is covered when
+     we read constructors and inits.  */
+
+  gcc_assert (decl->decl_with_rtl.rtl == NULL);
+
+  /* omit chain */
+}
+
+static void
+output_binfo (struct output_block *ob, tree binfo)
+{
+  size_t i;
+  size_t num_base_accesses = VEC_length (tree, binfo->binfo.base_accesses);
+  size_t num_base_binfos = VEC_length (tree, &binfo->binfo.base_binfos);
+
+  output_global_record_start (ob, NULL, NULL, LTO_tree_binfo);
+  output_tree_flags (ob, 0, binfo, false);
+
+  output_uleb128 (ob, num_base_accesses);
+  output_uleb128 (ob, num_base_binfos);
+
+  /* need flags */
+  output_tree (ob, binfo->common.type);
+
+  output_tree (ob, binfo->binfo.offset);
+  output_tree (ob, binfo->binfo.vtable);
+  output_tree (ob, binfo->binfo.virtuals);
+  output_tree (ob, binfo->binfo.vptr_field);
+  output_tree (ob, binfo->binfo.inheritance);
+  output_tree (ob, binfo->binfo.vtt_subvtt);
+  output_tree (ob, binfo->binfo.vtt_vptr);
+
+  LTO_DEBUG_TOKEN ("base_accesses");
+  for (i = 0; i < num_base_accesses; ++i)
+    output_tree (ob, VEC_index (tree, binfo->binfo.base_accesses, i));
+
+  LTO_DEBUG_TOKEN ("base_binfos");
+  for (i = 0; i < num_base_binfos; ++i)
+    output_tree (ob, VEC_index (tree, &binfo->binfo.base_binfos, i));
+
+  output_tree (ob, binfo->common.chain);
+}
+
+static void
+output_type (struct output_block *ob, tree type, enum LTO_tags tag)
+{
+  /* tag and flags */
+  output_global_record_start (ob, NULL, NULL, tag);
+  output_tree_flags (ob, 0, type, false);
+
+  LTO_DEBUG_TOKEN ("type");
+  output_tree (ob, type->common.type);
+  LTO_DEBUG_TOKEN ("size");
+  output_tree (ob, type->type.size);
+  LTO_DEBUG_TOKEN ("size_unit");
+  output_tree (ob, type->type.size_unit);
+  LTO_DEBUG_TOKEN ("attributes");
+  output_tree (ob, type->type.attributes);
+  LTO_DEBUG_TOKEN ("uid");
+  output_uleb128 (ob, type->type.uid);
+  LTO_DEBUG_TOKEN ("precision");
+  output_uleb128 (ob, type->type.precision);
+  LTO_DEBUG_TOKEN ("mode");
+  output_uleb128 (ob, type->type.mode);
+  LTO_DEBUG_TOKEN ("align");
+  output_uleb128 (ob, type->type.align);
+  LTO_DEBUG_TOKEN ("pointer_to");
+  output_tree (ob, type->type.pointer_to);
+  LTO_DEBUG_TOKEN ("reference_to");
+  output_tree (ob, type->type.reference_to);
+  /* FIXME: Output symtab here.  Do we need it?  */
+  LTO_DEBUG_TOKEN ("name");
+  output_tree (ob, type->type.name);	/* may be a TYPE_DECL */
+  LTO_DEBUG_TOKEN ("minval");
+  output_tree (ob, type->type.minval);
+  LTO_DEBUG_TOKEN ("maxval");
+  output_tree (ob, type->type.maxval);
+  LTO_DEBUG_TOKEN ("next_variant");
+  output_tree (ob, type->type.next_variant);
+  LTO_DEBUG_TOKEN ("main_variant");
+  output_tree (ob, type->type.main_variant);
+  LTO_DEBUG_TOKEN ("binfo");
+  output_tree (ob, type->type.binfo);
+  LTO_DEBUG_TOKEN ("context");
+  output_tree (ob, type->type.context);
+  LTO_DEBUG_TOKEN ("canonical");
+  output_tree (ob, type->type.canonical);
+
+  /* Slot 'values' may be the structures fields, so do them last,
+     after other slots of the structure type have been filled in.  */
+  LTO_DEBUG_TOKEN ("values");
+  if (TYPE_CACHED_VALUES_P (type))
+    {
+      gcc_assert (tag != RECORD_TYPE
+                  && tag != UNION_TYPE
+                  && tag != ARRAY_TYPE);
+      /* Don't stream the values cache.  We must clear flag
+         TYPE_CACHED_VALUES_P on input.  We don't do it here
+         because we don't want to clobber the tree as we write
+         it, and there is no infrastructure for modifying
+         flags as we serialize them.  */
+      output_zero (ob);
+    }
+  else
+    output_tree (ob, type->type.values);   /* should be a TREE_VEC */
+
+  LTO_DEBUG_TOKEN ("chain");
+  output_tree (ob, type->common.chain);	   /* overloaded as TYPE_STUB_DECL */
+}
+
+
+/* Output constructor CTOR to OB.  */
+
+static void
+output_global_constructor (struct output_block *ob, tree ctor)
+{
+  tree value;
+  tree purpose;
+  unsigned HOST_WIDE_INT idx;
+
+  output_global_record_start (ob, ctor, ctor, LTO_constructor);
+  output_uleb128 (ob, VEC_length (constructor_elt, CONSTRUCTOR_ELTS (ctor)));
+
+  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), idx, purpose, value)
+    {
+      if (purpose)
+	output_tree (ob, purpose);
+      else 
+	output_zero (ob);
+
+      if (TREE_CODE (value) == CONSTRUCTOR)
+	{
+	  output_global_constructor (ob, value);
+	  LTO_DEBUG_UNDENT ();
+	}
+      else 
+	output_tree (ob, value);
+    }
+}
+
+
+/* Emit tree node EXPR to output block OB.  */
+
+void
+output_tree (struct output_block *ob, tree expr)
+{
+  enum tree_code code;
+  enum tree_code_class class;
+  unsigned int tag;
+  void **slot;
+  struct lto_decl_slot d_slot;
+
+  if (expr == NULL_TREE)
+  {
+    output_zero (ob);
+    return;
+  }
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "%p : ", expr);
+  print_generic_expr (stderr, expr, 0);
+  fprintf (stderr, "\n");
+#endif
+
+  if (TYPE_P (expr) || DECL_P (expr) || TREE_CODE (expr) == TREE_BINFO)
+    {
+      unsigned int global_index;
+      struct lto_decl_slot *new_slot;
+
+      /* If we've already pickled this node, emit a reference.
+         Otherwise, assign an index for the node we are about to emit.  */
+
+      d_slot.t = expr;
+      slot = htab_find_slot (ob->main_hash_table, &d_slot, INSERT);
+      if (*slot != NULL)
+        {
+          struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
+#ifdef GLOBAL_STREAMER_TRACE
+          fprintf (stderr, "%p -> OLD %d\n", expr, old_slot->slot_num);
+#endif
+          output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
+          output_uleb128 (ob, old_slot->slot_num);
+          LTO_DEBUG_UNDENT ();
+          return;
+        }
+
+    global_index = ob->next_main_index++;
+    new_slot = xmalloc (sizeof (struct lto_decl_slot));
+    new_slot->t = expr;
+    new_slot->slot_num = global_index;
+    *slot = new_slot;
+
+#ifdef GLOBAL_STREAMER_TRACE
+    fprintf (stderr, "%p -> NEW %d\n", expr, new_slot->slot_num);
+#endif
+    }
+  else
+    {
+      /* We don't share new instances of other classes of tree nodes,
+         but we always want to share the preloaded "well-known" nodes.  */
+
+      d_slot.t = expr;
+      slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
+      if (slot != NULL)
+        {
+          struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
+#ifdef GLOBAL_STREAMER_TRACE
+          fprintf (stderr, "%p -> OLD %d\n", expr, old_slot->slot_num);
+#endif
+          output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
+          output_uleb128 (ob, old_slot->slot_num);
+          LTO_DEBUG_UNDENT ();
+          return;
+        }
+    }
+
+  code = TREE_CODE (expr);
+  class = TREE_CODE_CLASS (code);
+  tag = expr_to_tag [code];
+
+  switch (code)
+    {
+    case COMPLEX_CST:
+      if (TREE_CODE (TREE_REALPART (expr)) == REAL_CST)
+	{
+	  output_global_record_start (ob, expr, expr, LTO_complex_cst1);
+	  output_type_tree (ob, TREE_TYPE (TREE_REALPART (expr)));
+	  output_real (ob, TREE_REALPART (expr));
+	  output_real (ob, TREE_IMAGPART (expr));
+	}
+      else
+	{
+	  output_global_record_start (ob, expr, expr, LTO_complex_cst0);
+	  output_type_tree (ob, TREE_TYPE (TREE_REALPART (expr)));
+	  output_integer (ob, TREE_REALPART (expr));
+	  output_integer (ob, TREE_IMAGPART (expr));
+	}
+      break;
+
+    case INTEGER_CST:
+      output_global_record_start (ob, expr, expr, tag);
+      output_integer (ob, expr);
+      break;
+
+    case REAL_CST:
+      output_global_record_start (ob, expr, expr, tag);
+      output_real (ob, expr);
+      break;
+
+    case STRING_CST:
+      {
+	/* Most STRING_CSTs have a type when they get here.  The ones
+	   in the string operands of asms do not.  Put something there
+	   so that all STRING_CSTs can be handled uniformly.  */
+	if (!TREE_TYPE (expr))
+	  TREE_TYPE (expr) = void_type_node;
+
+	output_global_record_start (ob, expr, expr, LTO_string_cst);
+	output_string (ob, ob->main_stream, 
+		       TREE_STRING_POINTER (expr),
+		       TREE_STRING_LENGTH (expr));
+      }
+      break;
+
+    case IDENTIFIER_NODE:
+      {
+	output_global_record_start (ob, expr, expr, LTO_identifier_node);
+	output_string (ob, ob->main_stream, 
+		       IDENTIFIER_POINTER (expr),
+		       IDENTIFIER_LENGTH (expr));
+      }
+      break;
+      
+
+    case VECTOR_CST:
+      {
+	tree t = TREE_VECTOR_CST_ELTS (expr);
+	int len = 1;
+
+	while ((t = TREE_CHAIN (t)) != NULL)
+	  len++;
+	t = TREE_VECTOR_CST_ELTS (expr);
+	if (TREE_CODE (TREE_VALUE(t)) == REAL_CST)
+	  {
+	    output_global_record_start (ob, expr, expr, LTO_vector_cst1);
+	    output_uleb128 (ob, len);
+	    output_type_tree (ob, TREE_TYPE (TREE_VALUE (t)));
+	    output_real (ob, TREE_VALUE (t));
+	    while ((t = TREE_CHAIN (t)) != NULL)
+	      output_real (ob, TREE_VALUE (t));
+	  }
+	else
+	  {
+	    output_global_record_start (ob, expr, expr, LTO_vector_cst0);
+	    output_uleb128 (ob, len);
+	    output_type_tree (ob, TREE_TYPE (TREE_VALUE (t)));
+	    output_integer (ob, TREE_VALUE (t));
+	    while ((t = TREE_CHAIN (t)) != NULL)
+	      output_integer (ob, TREE_VALUE (t));
+	  }
+      }
+      break;
+
+    case CASE_LABEL_EXPR:
+      /* FIXME: We should see case labels here.  Assert?  */
+      {
+	int variant = 0;
+	if (CASE_LOW (expr) != NULL_TREE)
+	  variant |= 0x1;
+	if (CASE_HIGH (expr) != NULL_TREE)
+	  variant |= 0x2;
+	output_global_record_start (ob, expr, NULL,
+                                    LTO_case_label_expr0 + variant);
+
+	if (CASE_LOW (expr) != NULL_TREE)
+	  output_tree (ob, CASE_LOW (expr));
+	if (CASE_HIGH (expr) != NULL_TREE)
+	  output_tree (ob, CASE_HIGH (expr));
+	output_tree (ob, CASE_LABEL (expr));
+      }
+      break;
+
+    case CONSTRUCTOR:
+      output_global_constructor (ob, expr);
+      break;
+
+    case SSA_NAME:
+      /* FIXME: I don't think SSA_NAME nodes make sense here.  */
+      gcc_unreachable ();
+      /*
+      output_global_record_start (ob, expr, expr, LTO_ssa_name);
+      output_uleb128 (ob, SSA_NAME_VERSION (expr));
+      */
+      break;
+
+    case CONST_DECL:
+      /* Just ignore these, Mark will make them disappear.  */
+      break;
+
+    case FIELD_DECL:
+      output_field_decl (ob, expr);
+      break;
+
+    case FUNCTION_DECL:
+      output_function_decl (ob, expr);
+      break;
+
+    case VAR_DECL:
+      if (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
+        output_var_decl (ob, expr);
+      else
+        /* We should not be seeing local variables here.  */
+        gcc_unreachable ();
+      break;
+
+    case PARM_DECL:
+      output_parm_decl (ob, expr);
+      break;
+
+    case RESULT_DECL:
+      output_result_decl (ob, expr);
+      break;
+
+    case TYPE_DECL:
+      output_type_decl (ob, expr);
+      break;
+
+    case NAMESPACE_DECL:
+      output_namespace_decl (ob, expr);
+      break;
+
+    case TRANSLATION_UNIT_DECL:
+      output_translation_unit_decl (ob, expr);
+      break;
+
+
+    case LABEL_DECL:
+      output_label_decl (ob, expr);
+      break;
+
+    case LABEL_EXPR:
+      output_global_record_start (ob, expr, NULL, tag);
+      output_tree (ob, TREE_OPERAND (expr, 0));
+      break;
+
+    case COND_EXPR:
+      if (TREE_OPERAND (expr, 1))
+	{
+	  output_global_record_start (ob, expr, expr, LTO_cond_expr0);
+	  output_tree (ob, TREE_OPERAND (expr, 0));
+	  output_tree (ob, TREE_OPERAND (expr, 1));
+	  output_tree (ob, TREE_OPERAND (expr, 2));
+	}
+      else 
+	{
+	  output_global_record_start (ob, expr, expr, LTO_cond_expr1);
+	  output_tree (ob, TREE_OPERAND (expr, 0));
+	}
+      break;
+
+    case COMPONENT_REF:
+      output_global_record_start (ob, expr, expr, tag);
+      output_tree (ob, TREE_OPERAND (expr, 0));
+      output_tree (ob, TREE_OPERAND (expr, 1));
+      /* Ignore 3 because it can be recomputed.  */
+      break;
+
+    case CALL_EXPR:
+      {
+	unsigned int count = TREE_INT_CST_LOW (TREE_OPERAND (expr, 0));
+	unsigned int i;
+
+	/* Operand 2 is the call chain.  */
+	if (TREE_OPERAND (expr, 2))
+	  {
+	    output_global_record_start (ob, expr, expr, LTO_call_expr1);
+	    output_uleb128 (ob, count);
+	    output_tree (ob, TREE_OPERAND (expr, 2));
+	  }
+	else
+	  {
+	    output_global_record_start (ob, expr, expr, LTO_call_expr0);
+	    output_uleb128 (ob, count);
+	  }
+	output_tree (ob, TREE_OPERAND (expr, 1));
+	for (i = 3; i < count; i++)
+	  output_tree (ob, TREE_OPERAND (expr, i));
+      }
+      break;
+
+    case BIT_FIELD_REF:
+      {
+	tree op1 = TREE_OPERAND (expr, 1);
+	tree op2 = TREE_OPERAND (expr, 2);
+	if ((TREE_CODE (op1) == INTEGER_CST)
+	    && (TREE_CODE (op2) == INTEGER_CST))
+	  {
+	    output_global_record_start (ob, expr, expr,
+				 LTO_bit_field_ref1);
+	    output_uleb128 (ob, TREE_INT_CST_LOW (op1));
+	    output_uleb128 (ob, TREE_INT_CST_LOW (op2));
+	    output_tree (ob, TREE_OPERAND (expr, 0));
+	  }
+	else
+	  {
+	    output_global_record_start (ob, expr, expr,
+				 LTO_bit_field_ref0);
+	    output_tree (ob, TREE_OPERAND (expr, 0));
+	    output_tree (ob, op1);
+	    output_tree (ob, op2);
+	  }
+      }
+      break;
+
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+      /* Ignore operands 2 and 3 for ARRAY_REF and ARRAY_RANGE REF
+	 because they can be recomputed.  */
+      output_global_record_start (ob, expr, expr, tag);
+      output_tree (ob, TREE_OPERAND (expr, 0));
+      output_tree (ob, TREE_OPERAND (expr, 1));
+      break;
+
+
+    case ASM_EXPR:
+      {
+	tree string_cst = ASM_STRING (expr);
+	output_global_record_start (ob, expr, NULL, LTO_asm_expr);
+	output_string (ob, ob->main_stream, 
+		       TREE_STRING_POINTER (string_cst),
+		       TREE_STRING_LENGTH (string_cst));
+	if (ASM_INPUTS (expr))
+	  output_tree (ob, ASM_INPUTS (expr));
+	else 
+	  output_zero (ob);
+
+	if (ASM_OUTPUTS (expr))
+	  output_tree (ob, ASM_OUTPUTS (expr));
+	else 
+	  output_zero (ob);
+
+	if (ASM_CLOBBERS (expr))
+	  output_tree (ob, ASM_CLOBBERS (expr));
+	else 
+	  output_zero (ob);
+      }
+      break;
+
+    case RANGE_EXPR:
+      {
+	output_global_record_start (ob, NULL, NULL, LTO_range_expr);
+	/* Need the types here to reconstruct the ranges.  */
+	output_type_tree (ob, TREE_OPERAND (expr, 0));
+	output_integer (ob, TREE_OPERAND (expr, 0));
+	output_type_tree (ob, TREE_OPERAND (expr, 1));
+	output_integer (ob, TREE_OPERAND (expr, 1));
+      }
+      break; 
+
+    case RESX_EXPR:
+      output_global_record_start (ob, expr, NULL, tag);
+      output_uleb128 (ob, TREE_INT_CST_LOW (TREE_OPERAND (expr, 0)));
+      break;
+
+    case RETURN_EXPR:
+      {
+	tree t = TREE_OPERAND (expr, 0);
+	if (t == NULL)
+	  {
+	    /* Form return.  */
+	    output_global_record_start (ob, expr, expr,
+				 LTO_return_expr0);
+	  }
+	else if (TREE_CODE (t) == MODIFY_EXPR)
+	  {
+	    /* Form return a = b;  */
+	    output_global_record_start (ob, expr, expr,
+				 LTO_return_expr2);
+	    output_tree (ob, TREE_OPERAND (t, 0));
+	    output_tree (ob, TREE_OPERAND (t, 1));
+	  }
+	else
+	  {
+	    /* Form return a; */
+	    output_global_record_start (ob, expr, expr,
+				 LTO_return_expr1);
+            /* If the type of the argument is a type that gets returned
+               in memory, then the gimplifier would have changed the
+               argument of the RETURN_EXPR to point at DECL_RESULT of
+               the current function.  Communicate this fact to the
+               reader so we avoid reading in superfluous trees.  */
+            if (t == DECL_RESULT (current_function_decl))
+              output_zero (ob);
+            else
+              output_tree (ob, t);
+	  }
+      }
+      break;
+
+    case GIMPLE_MODIFY_STMT:
+      output_global_record_start (ob, expr, NULL, tag);
+      output_tree (ob, GIMPLE_STMT_OPERAND (expr, 0));
+      output_tree (ob, GIMPLE_STMT_OPERAND (expr, 1));
+      break;
+
+    case SWITCH_EXPR:
+      /* FIXME: We should see these  here.  Assert?  */
+      {
+	tree label_vec = TREE_OPERAND (expr, 2);
+	size_t len = TREE_VEC_LENGTH (label_vec);
+	size_t i;
+	output_global_record_start (ob, expr, expr, tag);
+	output_uleb128 (ob, len);
+	output_tree (ob, TREE_OPERAND (expr, 0));
+	gcc_assert (TREE_OPERAND (expr, 1) == NULL);
+
+	for (i = 0; i < len; ++i)
+	  output_tree (ob, TREE_VEC_ELT (label_vec, i));
+      }
+      break;
+
+    case TREE_LIST:
+      {
+	tree tl;
+	int count = 0;
+
+	output_global_record_start (ob, expr, NULL, tag);
+	for (tl = expr; tl; tl = TREE_CHAIN (tl))
+	  count++;
+
+	gcc_assert (count);
+	output_uleb128 (ob, count);
+	for (tl = expr; tl; tl = TREE_CHAIN (tl))
+	  {
+	    if (TREE_VALUE (tl) != NULL_TREE)
+	      output_tree (ob, TREE_VALUE (tl));
+	    else
+	      output_zero (ob);
+	    
+	    if (TREE_PURPOSE (tl))
+	      output_tree (ob, TREE_PURPOSE (tl));
+	    else
+	      output_zero (ob);
+	  }
+      }
+      break;
+
+    case TREE_VEC:
+      {
+	size_t i;
+	size_t len = TREE_VEC_LENGTH (expr);
+
+	output_global_record_start (ob, NULL, NULL, tag);
+	output_uleb128 (ob, len);
+	for (i = 0; i < len; ++i)
+	  output_tree (ob, TREE_VEC_ELT (expr, i));
+      }
+      break;
+
+    case ERROR_MARK:
+      /* The canonical error node is preloaded,
+         so we should never see another one here.  */
+      gcc_unreachable ();
+
+    case VOID_TYPE:
+    case INTEGER_TYPE:
+    case REAL_TYPE:
+    case FIXED_POINT_TYPE:
+    case COMPLEX_TYPE:
+    case BOOLEAN_TYPE:
+    case OFFSET_TYPE:
+    case ENUMERAL_TYPE:
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case VECTOR_TYPE:
+    case ARRAY_TYPE:
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+    case FUNCTION_TYPE:
+    case METHOD_TYPE:
+      output_type (ob, expr, tag);
+      break;
+
+    case LANG_TYPE:
+      /* FIXME */
+      gcc_unreachable ();
+
+    case TREE_BINFO:
+      output_binfo (ob, expr);
+      break;
+
+      /* This is the default case. All of the cases that can be done
+	 completely mechanically are done here.  */
+      {
+	int i;
+#define SET_NAME(a,b)
+#define MAP_EXPR_TAG(expr, tag) case expr:
+#define TREE_SINGLE_MECHANICAL_TRUE
+
+#include "lto-tree-tags.def"
+#undef MAP_EXPR_TAG
+#undef TREE_SINGLE_MECHANICAL_TRUE
+#undef SET_NAME
+	output_global_record_start (ob, expr, expr, tag);
+	for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
+	  output_tree (ob, TREE_OPERAND (expr, i));
+	break;
+      }
+
+      /* This is the error case, these are type codes that will either
+	 never happen or that we have not gotten around to dealing
+	 with are here.  */
+    case BIND_EXPR:
+    case BLOCK:
+    case CATCH_EXPR:
+    case EH_FILTER_EXPR:
+    case NAME_MEMORY_TAG:
+    case OMP_CONTINUE:
+    case OMP_CRITICAL:
+    case OMP_FOR:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_PARALLEL:
+    case OMP_RETURN:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case SYMBOL_MEMORY_TAG:
+    case TARGET_MEM_REF:
+    case TRY_CATCH_EXPR:
+    case TRY_FINALLY_EXPR:
+    default:
+      if (TREE_CODE (expr) >= NUM_TREE_CODES)
+	{
+	  /* When this happens, it means that EXPR is a
+	     language-specific tree node.  Since these codes have no
+	     meaning outside of the front-end, and in fact they cannot
+	     be handled, we just ignore them.  FIXME, we should really
+	     abort here.  These codes should not have escaped from
+	     the front end.  Something along the lines of
+	     http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+	     should be implemented.  */
+	  break;
+	}
+      else
+	{
+	  /* We cannot have forms that are not explicity handled.  So when
+	     this is triggered, there is some form that is not being
+	     output.  */
+	  error ("Unimplemented code: %s", tree_code_name[code]);
+	  gcc_unreachable ();
+	}
+    }
+
+  LTO_DEBUG_UNDENT ();
+}
+
+/* Replacement for output_type_ref when serializing globals.  */
+
+void
+output_type_tree (struct output_block *ob, tree type)
+{
+  LTO_DEBUG_TOKEN ("type");
+  gcc_assert (type && TYPE_P (type));
+  output_tree (ob, type);
+}

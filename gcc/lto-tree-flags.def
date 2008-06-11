@@ -114,13 +114,21 @@
 
     START_CLASS_CASE (tcc_type)
       ADD_CLASS_EXPR_FLAG (addressable_flag)
-      ADD_CLASS_EXPR_FLAG (public_flag)
+     /* We do not emit public_flag, which is
+	overloaded here as TYPE_CACHED_VALUES_P.
+	We do not stream the values cache, but
+	instead reconstruct it as constants
+	are internalized.  */
       ADD_CLASS_EXPR_FLAG (volatile_flag)
       ADD_CLASS_EXPR_FLAG (readonly_flag)
       ADD_CLASS_EXPR_FLAG (constant_flag)
       ADD_CLASS_EXPR_FLAG (unsigned_flag)
       ADD_CLASS_EXPR_FLAG (nothrow_flag)
       ADD_CLASS_EXPR_FLAG (saturating_flag)
+      ADD_CLASS_TYPE_FLAG (needs_constructing_flag)
+      ADD_CLASS_TYPE_FLAG (packed_flag)
+      ADD_CLASS_TYPE_FLAG (restrict_flag)
+      ADD_CLASS_TYPE_FLAG (user_align)
     END_CLASS_CASE (tcc_type)
 
     START_CLASS_CASE (tcc_unary)
@@ -164,6 +172,7 @@
     END_EXPR_CASE (ARRAY_REF)
       
     START_EXPR_CASE (ARRAY_TYPE)
+      ADD_TYPE_FLAG (string_flag)
     END_EXPR_CASE (ARRAY_TYPE)
       
     START_EXPR_CASE (ASM_EXPR)
@@ -292,6 +301,18 @@
       
     START_EXPR_CASE (FIELD_DECL)
       ADD_EXPR_FLAG (addressable_flag)
+      ADD_DECL_FLAG (nonlocal_flag)		/* ??? */
+      ADD_DECL_FLAG (virtual_flag)
+      ADD_DECL_FLAG (ignored_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (user_align)
+      ADD_DECL_FLAG (preserve_flag)		/* ??? */
+      ADD_DECL_FLAG (debug_expr_is_from)	/* ??? */
+      ADD_DECL_FLAG (decl_flag_1)
+      ADD_DECL_FLAG (decl_flag_2) 
+      ADD_DECL_FLAG (decl_flag_3)
+      ADD_DECL_FLAG (no_tbaa_flag)		/* ??? */
     END_EXPR_CASE (FIELD_DECL)
       
     START_EXPR_CASE (FILTER_EXPR)
@@ -321,6 +342,47 @@
     END_EXPR_CASE (FLOOR_MOD_EXPR)
       
     START_EXPR_CASE (FUNCTION_DECL)
+      ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_EXPR_FLAG (asm_written_flag)
+      ADD_EXPR_FLAG (nothrow_flag)
+      ADD_DECL_FLAG (nonlocal_flag)
+      ADD_DECL_FLAG (virtual_flag)
+      ADD_DECL_FLAG (ignored_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (user_align)
+      ADD_DECL_FLAG (preserve_flag)
+      ADD_DECL_FLAG (debug_expr_is_from)  	/* ??? */
+      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (no_tbaa_flag)		/* ??? */
+      ADD_VIS_FLAG (in_system_header_flag)
+      ADD_VIS_FLAG (weak_flag)
+      ADD_VIS_FLAG (comdat_flag)
+      ADD_VIS_FLAG_SIZE (visibility, 2);
+      ADD_VIS_FLAG (visibility_specified)
+      ADD_VIS_FLAG (one_only)
+      /* #### FIXME
+	The init priority itself appears to be
+	stored external to the tree.  We appear
+	to be dropping it on the floor.  */
+      ADD_VIS_FLAG (init_priority_p)
+      ADD_FUN_FLAG (static_ctor_flag)
+      ADD_FUN_FLAG (static_dtor_flag)
+      ADD_FUN_FLAG (uninlinable)
+      ADD_FUN_FLAG (possibly_inlined)
+      ADD_FUN_FLAG (novops_flag)
+      ADD_FUN_FLAG (returns_twice_flag)
+      ADD_FUN_FLAG (malloc_flag)
+      ADD_FUN_FLAG (operator_new_flag)
+      ADD_FUN_FLAG (pure_flag)
+      ADD_FUN_FLAG (declared_inline_flag)
+      ADD_FUN_FLAG (regdecl_flag)
+      ADD_FUN_FLAG (inline_flag)
+      ADD_FUN_FLAG (no_instrument_function_entry_exit)
+      ADD_FUN_FLAG (no_limit_stack)
+      ADD_FUN_FLAG(disregard_inline_limits)
     END_EXPR_CASE (FUNCTION_DECL)
       
     START_EXPR_CASE (FUNCTION_TYPE)
@@ -361,11 +423,15 @@
     END_EXPR_CASE (INTEGER_CST)
       
     START_EXPR_CASE (INTEGER_TYPE)
+      ADD_TYPE_FLAG (string_flag)
+      ADD_TYPE_FLAG (no_force_blk_flag)
     END_EXPR_CASE (INTEGER_TYPE)
       
     START_EXPR_CASE (LABEL_DECL)
-      ADD_EXPR_FLAG (addressable_flag)
-      ADD_EXPR_FLAG (side_effects_flag)
+      ADD_EXPR_FLAG (addressable_flag)		/* TREE_ADDRESSABLE */
+      ADD_EXPR_FLAG (side_effects_flag)		/* FORCED_LABEL */
+      ADD_DECL_FLAG (nonlocal_flag)		/* DECL_NONLOCAL */
+      ADD_DECL_FLAG (decl_flag_0)		/* DECL_ERROR_ISSUED */
     END_EXPR_CASE (LABEL_DECL)
       
     START_EXPR_CASE (LABEL_EXPR)
@@ -421,6 +487,17 @@
     END_EXPR_CASE (NAME_MEMORY_TAG)
       
     START_EXPR_CASE (NAMESPACE_DECL)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_DECL_FLAG (nonlocal_flag)
+      ADD_DECL_FLAG (ignored_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (preserve_flag)
+      ADD_VIS_FLAG (in_system_header_flag)
+      ADD_VIS_FLAG (weak_flag)				/* ??? */
+      ADD_VIS_FLAG (comdat_flag)			/* ??? */
+      ADD_VIS_FLAG_SIZE (visibility, 2);		/* ??? */
+      ADD_VIS_FLAG (visibility_specified)		/* ??? */
     END_EXPR_CASE (NAMESPACE_DECL)
       
     START_EXPR_CASE (NE_EXPR)
@@ -546,6 +623,7 @@
       
     START_EXPR_CASE (QUAL_UNION_TYPE)
       ADD_EXPR_FLAG (asm_written_flag)
+      ADD_TYPE_FLAG (no_force_blk_flag)
     END_EXPR_CASE (QUAL_UNION_TYPE)
       
     START_EXPR_CASE (RANGE_EXPR)
@@ -570,6 +648,7 @@
       
     START_EXPR_CASE (RECORD_TYPE)
       ADD_EXPR_FLAG (asm_written_flag)
+      ADD_TYPE_FLAG (no_force_blk_flag)
     END_EXPR_CASE (RECORD_TYPE)
       
     START_EXPR_CASE (REDUC_MAX_EXPR)
@@ -586,7 +665,9 @@
     END_EXPR_CASE (REFERENCE_TYPE)
       
     START_EXPR_CASE (RESULT_DECL)
+      /* ### Missing flags when used as declaration, not expression. */
       ADD_DECL_FLAG (gimple_reg_flag)
+
     END_EXPR_CASE (RESULT_DECL)
       
     START_EXPR_CASE (RESX_EXPR)
@@ -643,7 +724,19 @@
     START_EXPR_CASE (TARGET_MEM_REF)
     END_EXPR_CASE (TARGET_MEM_REF)
       
+    /* ### The necessity of most of these flags is questionable.  */
     START_EXPR_CASE (TRANSLATION_UNIT_DECL)
+      ADD_EXPR_FLAG (public_flag)
+      ADD_DECL_FLAG (nonlocal_flag)
+      ADD_DECL_FLAG (ignored_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      ADD_DECL_FLAG (preserve_flag)
+      ADD_VIS_FLAG (in_system_header_flag)
+      ADD_VIS_FLAG (weak_flag)
+      ADD_VIS_FLAG (comdat_flag)
+      ADD_VIS_FLAG_SIZE (visibility, 2);
+      ADD_VIS_FLAG (visibility_specified)
     END_EXPR_CASE (TRANSLATION_UNIT_DECL)
       
     START_EXPR_CASE (TREE_BINFO)
@@ -687,6 +780,15 @@
     END_EXPR_CASE (TRY_FINALLY_EXPR)
       
     START_EXPR_CASE (TYPE_DECL)
+      ADD_DECL_FLAG (nonlocal_flag)   			/* ??? */
+      ADD_DECL_FLAG (ignored_flag)
+      ADD_DECL_FLAG (abstract_flag)
+      ADD_DECL_FLAG (artificial_flag)
+      /* ### Do we need  user_align, preserve_flag, debug_expr_is_from ??? */
+      ADD_DECL_FLAG (decl_flag_2)
+      ADD_DECL_FLAG (no_tbaa_flag)   /* ??? */
+      ADD_VIS_FLAG (in_system_header_flag)
+      /* ### Do we need weak_flag, visibility_specified, visibility ??? */
     END_EXPR_CASE (TYPE_DECL)
       
     START_EXPR_CASE (UNEQ_EXPR)
@@ -700,6 +802,8 @@
       
     START_EXPR_CASE (UNION_TYPE)
       ADD_EXPR_FLAG (asm_written_flag)
+      ADD_TYPE_FLAG (no_force_blk_flag)
+      ADD_TYPE_FLAG (transparent_union_flag)
     END_EXPR_CASE (UNION_TYPE)
       
     START_EXPR_CASE (UNLE_EXPR)
@@ -730,6 +834,7 @@
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (decl_flag_3)
       ADD_DECL_FLAG (gimple_reg_flag)
+      /* ### no_tbaa_flag ??? */
       ADD_VIS_FLAG (defer_output)
       ADD_VIS_FLAG (hard_register)
       ADD_VIS_FLAG (thread_local)
@@ -741,7 +846,9 @@
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (seen_in_bind_expr)
       ADD_VIS_FLAG (comdat_flag)
+      /* ### Do we need visibility_specified ??? */
       ADD_VIS_FLAG_SIZE (visibility, 2)
+      /* ### We need to serialize the init priority itself.  */
       ADD_VIS_FLAG (init_priority_p)
       ADD_VIS_FLAG_SIZE (tls_model, 3)
     END_EXPR_CASE (VAR_DECL)

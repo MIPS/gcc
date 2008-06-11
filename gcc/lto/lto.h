@@ -32,117 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-in.h"
 
 /* Forward Declarations */
-
 struct lto_file_struct;
-typedef struct lto_context lto_context;
-
-/* Types */
-
-/* A DWARF2 attribute.  */ 
-typedef struct DWARF2_attr_struct GTY(())
-{
-  /* The name of the attribute, e.g., DW_AT_name.  */
-  uint64_t name;
-  /* The form of the attribute, e.g., DW_FORM_data2.  */
-  uint64_t form;
-}
-DWARF2_attr;
-
-/* A DWARF2 abbreviation-table entry.  */
-typedef struct DWARF2_abbrev_struct GTY(())
-{
-  /* The tag for a DIE using this abbreviation, e.g.,
-     DW_TAG_pointer_type.  */
-  uint64_t tag;
-  /* True if the next DIE is a child of this one; false, if the next
-     DIE is a sibling of this one.  */
-  bool has_children;
-  /* The number of attributes in the ATTRIBUTES array.  */
-  size_t num_attrs;
-  /* A dynamically-sized array of attributes.  */
-  DWARF2_attr GTY((length ("%h.num_attrs"))) attrs[1];
-}
-DWARF2_abbrev;
-
-/* A DWARF2 compilation unit.  */
-typedef struct DWARF2_CompUnit_struct GTY(())
-{
-  /* Offset from start of .debug_info for this CU.  */
-  uint64_t cu_start_offset;  
-  /* Length of the CU header.  */
-  uint64_t cu_header_length;
-  /* Length of CU *including* the length field.  */
-  uint64_t cu_length;
-  /* DWARF version number of this CU.  */
-  unsigned short cu_version;
-  /* Offset of abbrevs for this CU from the start of debug_abbrev.  */
-  uint64_t cu_abbrev_offset;
-  /* Pointer size of this CU.  */
-  unsigned char cu_pointer_size;
-}
-DWARF2_CompUnit;
-
-/* A pointer to a DWARF2 DIE, as mapped into memory.  
-
-   The "lto_die" type is intentionally never defined.  This typedef
-   exists purely for type safety.  */
-typedef struct lto_die *lto_die_ptr;
-
-/* A cache entry for mapping DIEs to trees.  */
-typedef struct lto_die_cache_entry GTY(())
-{
-  /* The DIE address.  */
-  lto_die_ptr GTY((skip)) die;
-  /* The tree corresponding to this DIE.  */
-  tree val;
-  /* The address of the next sibling after the DIE.  */
-  const char *sibling;
-} lto_die_cache_entry;
-
-/* A file descriptor for reading from a particular DWARF section.  */
-typedef struct lto_fd_struct GTY(())
-{
-  /* The name of this section.  */
-  const char *name;
-  /* The first byte of the section.  */ 
-  const char *start;
-  /* The byte just past the end of the section.  */
-  const char *end;
-  /* The next available byte.  */
-  const char *cur;
-  /* The lto_file with which this section is associated.  */
-  struct lto_file_struct * GTY((skip)) file;
-  /* True if using 64-bit DWARF.  */
-  bool dwarf64;
-}
-lto_fd;
-
-/* A file descriptor for reading from a DWARF information section. */
-typedef struct lto_info_fd_struct GTY(())
-{
-  /* The base object.  */
-  lto_fd base;
-  /* The number of compilation units in this section.  */
-  size_t num_units;
-  /* The compilation units themselves.  */
-  DWARF2_CompUnit ** GTY((length ("%h.num_units"), skip)) units;
-  /* A map from DIEs to trees.  The keys are offsets into the DWARF
-     information section; the values are trees.  */
-  htab_t GTY((param_is (lto_die_cache_entry))) die_cache;
-}
-lto_info_fd;
-
-/* A file descriptor for reading from a DWARF abbreviation section.  */
-typedef struct lto_abbrev_fd_struct GTY(())
-{
-  /* The base object.  */
-  lto_fd base;
-  /* The number of abbreviations in this section.  */
-  size_t num_abbrevs;
-  /* The abbreviations themselves.  */
-  DWARF2_abbrev ** GTY((length ("%h.num_abbrevs"), skip)) abbrevs;
-}
-lto_abbrev_fd;
 
 /* The virtual function table for an lto_file.  */
 typedef struct lto_file_vtable_struct GTY(())
@@ -166,21 +56,14 @@ typedef struct lto_file_struct GTY(())
   const lto_file_vtable * GTY((skip)) vtable;
   /* The name of the file.  */
   const char *filename;
-  /* The contents of the .debug_info section.  */
-  lto_info_fd debug_info;
-  /* The contents of the .debug_abbrev section.  */
-  lto_abbrev_fd debug_abbrev;
+
+  /* ### */
+  /* The debug_info and debug_abbrev fields are no longer used.
+     As a result, the lto_file vs. lto_elf_file distinction is
+     no longer useful, and should be eliminated.  */
 }
 lto_file;
 
-/* A reference to a global entity (type, variable, or function).  */
-typedef struct lto_ref
-{
-  /* The DWARF compilation unit containing the entity.  */
-  uint64_t section;
-  /* The offset of the DIE corresponding to the entity.  */
-  uint64_t offset;
-} lto_ref;
 
 /* lto.c */
  
@@ -189,48 +72,6 @@ typedef struct lto_ref
    to the middle end.  */
 extern void lto_main (int debug_p);
 
-/* Initialize the newly allocated FILE, which corresponds to
-   FILENAME.  VTABLE is the virtual table for FILE.  */
-extern void lto_file_init (lto_file *file, 
-			   const lto_file_vtable *vtable,
-			   const char *filename);
-
-/* Free resources associated with FILE.  FILE itself will be
-   deallocated by this function.  */
-extern void lto_file_close (lto_file *file);
-
-/* Return the TYPE referred to by REF.  */
-extern tree lto_resolve_type_ref (lto_info_fd *info_fd,
-				  lto_context *context,
-				  const lto_ref *ref);
-
-/* Return the VAR_DECL referred to by REF.  */
-extern tree lto_resolve_var_ref (lto_info_fd *info_fd,
-				 lto_context *context,
-				 const lto_ref *ref);
-
-/* Return the FUNCTION_DECL referred to by REF.  */
-extern tree lto_resolve_fn_ref (lto_info_fd *info_fd,
-				lto_context *context,
-				const lto_ref *ref);
-
-/* Return the FIELD_DECL referred to by REF.  */
-extern tree lto_resolve_field_ref (lto_info_fd *info_fd,
-				lto_context *context,
-				const lto_ref *ref);
-
-/* Return the TYPE_DECL referred to by REF.  */
-extern tree lto_resolve_typedecl_ref (lto_info_fd *info_fd,
-                                      lto_context *context,
-                                      const lto_ref *ref);
-
-/* Return the NAMESPACE_DECL referred to by REF.  */
-extern tree lto_resolve_namespacedecl_ref (lto_info_fd *info_fd,
-					   lto_context *context,
-					   const lto_ref *ref);
-
-/* Get the file name associated with INFO_FD.  */
-extern const char *lto_get_file_name (lto_info_fd *info_fd);
 
 /* lto-elf.c */
 
