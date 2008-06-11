@@ -54,7 +54,7 @@ struct move
   /* The next move in the move sequence.  */
   struct move *next;
   /* Used for finding dependencies.  */
-  int visited_p;
+  bool visited_p;
   /* The size of the following array. */
   int deps_num;
   /* Moves on which given move depends on.  Dependency can be cyclic.
@@ -76,31 +76,6 @@ static struct move **at_bb_start, **at_bb_end;
    different outside the loop.  */
 static int max_regno_before_changing;
 
-static struct move *create_move (allocno_t, allocno_t);
-static void free_move (struct move *);
-static void free_move_list (struct move *);
-static int eq_move_lists_p (struct move *, struct move *);
-static int change_regs (rtx *);
-static void add_to_edge_list (edge, struct move *, int);
-static rtx create_new_reg (rtx);
-static int subloop_tree_node_p (loop_tree_node_t, loop_tree_node_t);
-static void set_allocno_reg (allocno_t, rtx);
-static int not_modified_p (allocno_t, allocno_t);
-static void generate_edge_moves (edge);
-static void change_loop (loop_tree_node_t);
-static void set_allocno_somewhere_renamed_p (void);
-static int eq_edge_move_lists_p (VEC(edge,gc) *);
-static void unify_moves (basic_block, int);
-static void traverse_moves (struct move *);
-static struct move *modify_move_list (struct move *);
-static rtx emit_move_list (struct move *, int);
-static void emit_moves (void);
-static void update_costs (allocno_t, int, int);
-static void add_range_and_copies_from_move_list (struct move *,
-						 loop_tree_node_t,
-						 bitmap, int);
-static void add_ranges_and_copies (void);
-
 /* The function returns new move of allocnos TO and FROM.  */
 static struct move *
 create_move (allocno_t to, allocno_t from)
@@ -114,7 +89,7 @@ create_move (allocno_t to, allocno_t from)
   move->from = from;
   move->next = NULL;
   move->insn = NULL_RTX;
-  move->visited_p = FALSE;
+  move->visited_p = false;
   return move;
 }
 
@@ -141,43 +116,43 @@ free_move_list (struct move *head)
     }
 }
 
-/* The function returns nonzero if the the move list LIST1 and LIST2
+/* The function returns TRUE if the the move list LIST1 and LIST2
    are equal (two moves are equal if they involve the same
    allocnos).  */
-static int
+static bool
 eq_move_lists_p (struct move *list1, struct move *list2)
 {
   for (; list1 != NULL && list2 != NULL;
        list1 = list1->next, list2 = list2->next)
     if (list1->from != list2->from || list1->to != list2->to)
-      return FALSE;
+      return false;
   return list1 == list2;
 }
 
 /* This recursive function changes pseudo-registers in *LOC if it is
    necessary.  The function returns TRUE if a change was done.  */
-static int
+static bool
 change_regs (rtx *loc)
 {
-  int i, regno, result = FALSE;
+  int i, regno, result = false;
   const char *fmt;
   enum rtx_code code;
 
   if (*loc == NULL_RTX)
-    return FALSE;
+    return false;
   code = GET_CODE (*loc);
   if (code == REG)
     {
       regno = REGNO (*loc);
       if (regno < FIRST_PSEUDO_REGISTER)
-	return FALSE;
+	return false;
       if (regno >= max_regno_before_changing)
 	/* It is a shared register which was changed already.  */
-	return FALSE;
+	return false;
       if (ira_curr_regno_allocno_map[regno] == NULL)
-	return FALSE;
+	return false;
       *loc = ALLOCNO_REG (ira_curr_regno_allocno_map[regno]);
-      return TRUE;
+      return true;
     }
 
   fmt = GET_RTX_FORMAT (code);
@@ -197,9 +172,9 @@ change_regs (rtx *loc)
 }
 
 /* The function attaches MOVE to the edge E.  The move is attached to
-   the head of the list if HEAD_P is nonzero.  */
+   the head of the list if HEAD_P is TRUE.  */
 static void
-add_to_edge_list (edge e, struct move *move, int head_p)
+add_to_edge_list (edge e, struct move *move, bool head_p)
 {
   struct move *last;
 
@@ -237,13 +212,13 @@ create_new_reg (rtx original_reg)
 
 /* The function returns TRUE if loop given by SUBNODE inside the
    loop given by NODE.  */
-static int
+static bool
 subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
 {
-  for (; subnode != NULL; subnode = subnode->father)
+  for (; subnode != NULL; subnode = subnode->parent)
     if (subnode == node)
-      return TRUE;
-  return FALSE;
+      return true;
+  return false;
 }
 
 /* The function sets up member `reg' to REG for allocnos which has the
@@ -269,7 +244,7 @@ set_allocno_reg (allocno_t allocno, rtx reg)
     {
       if (a == NULL || (a = ALLOCNO_CAP (a)) == NULL)
 	{
-	  node = node->father;
+	  node = node->parent;
 	  if (node == NULL)
 	    break;
 	  a = node->regno_allocno_map[regno];
@@ -278,7 +253,7 @@ set_allocno_reg (allocno_t allocno, rtx reg)
 	continue;
       if (ALLOCNO_CHILD_RENAMED_P (a))
 	break;
-      ALLOCNO_CHILD_RENAMED_P (a) = TRUE;
+      ALLOCNO_CHILD_RENAMED_P (a) = true;
     }
 }
 
@@ -286,7 +261,7 @@ set_allocno_reg (allocno_t allocno, rtx reg)
    DEST_ALLOCNO does not change value of the destination.  One possible
    reason for this is the situation when SRC_ALLOCNO is not modified
    in the corresponding loop.  */
-static int
+static bool
 not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
 {
   int regno, orig_regno;
@@ -297,13 +272,13 @@ not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
   regno = REGNO (ALLOCNO_REG (dest_allocno));
   for (node = ALLOCNO_LOOP_TREE_NODE (src_allocno);
        node != NULL;
-       node = node->father)
+       node = node->parent)
     if ((a = node->regno_allocno_map[orig_regno]) == NULL)
       break;
     else if (REGNO (ALLOCNO_REG (a)) == (unsigned) regno)
-      return TRUE;
+      return true;
     else if (bitmap_bit_p (node->modified_regnos, orig_regno))
-      return FALSE;
+      return false;
   return node != NULL;
 }
 
@@ -319,8 +294,8 @@ generate_edge_moves (edge e)
   allocno_t src_allocno, dest_allocno, *src_map, *dest_map;
   struct move *move;
 
-  src_loop_node = IRA_BB_NODE (e->src)->father;
-  dest_loop_node = IRA_BB_NODE (e->dest)->father;
+  src_loop_node = IRA_BB_NODE (e->src)->parent;
+  dest_loop_node = IRA_BB_NODE (e->dest)->parent;
   e->aux = NULL;
   if (src_loop_node == dest_loop_node)
     return;
@@ -343,7 +318,7 @@ generate_edge_moves (edge e)
 	    && not_modified_p (src_allocno, dest_allocno))
 	  {
 	    ALLOCNO_MEM_OPTIMIZED_DEST (src_allocno) = dest_allocno;
-	    ALLOCNO_MEM_OPTIMIZED_DEST_P (dest_allocno) = TRUE;
+	    ALLOCNO_MEM_OPTIMIZED_DEST_P (dest_allocno) = true;
 	    if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	      fprintf (ira_dump_file, "      Remove r%d:a%d->a%d(mem)\n",
 		       regno, ALLOCNO_NUM (src_allocno),
@@ -351,7 +326,7 @@ generate_edge_moves (edge e)
 	    continue;
 	  }
 	move = create_move (dest_allocno, src_allocno);
-	add_to_edge_list (e, move, TRUE);
+	add_to_edge_list (e, move, true);
     }
 }
 
@@ -375,11 +350,12 @@ change_loop (loop_tree_node_t node)
 {
   bitmap_iterator bi;
   unsigned int i;
-  int regno, used_p;
-  allocno_t allocno, father_allocno, *map;
+  int regno;
+  bool used_p;
+  allocno_t allocno, parent_allocno, *map;
   rtx insn, original_reg;
   enum reg_class cover_class;
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   if (node != ira_loop_tree_root)
     {
@@ -400,15 +376,15 @@ change_loop (loop_tree_node_t node)
 		 "      Changing RTL for loop %d (header bb%d)\n",
 		 node->loop->num, node->loop->header->index);
       
-      father = ira_curr_loop_tree_node->father;
-      map = father->regno_allocno_map;
+      parent = ira_curr_loop_tree_node->parent;
+      map = parent->regno_allocno_map;
       EXECUTE_IF_SET_IN_REG_SET (ira_curr_loop_tree_node->border_allocnos,
 				 0, i, bi)
 	{
 	  allocno = allocnos[i];
 	  regno = ALLOCNO_REGNO (allocno);
 	  cover_class = ALLOCNO_COVER_CLASS (allocno);
-	  father_allocno = map[regno];
+	  parent_allocno = map[regno];
 	  ira_assert (regno < reg_equiv_len);
 	  /* We generate the same hard register move because the
 	     reload pass can put an allocno into memory in this case
@@ -416,11 +392,11 @@ change_loop (loop_tree_node_t node)
 	     such the same hard register moves will be removed.  The
 	     worst case when the both allocnos are put into memory by
 	     the reload is very rare.  */
-	  if (father_allocno != NULL
+	  if (parent_allocno != NULL
 	      && (ALLOCNO_HARD_REGNO (allocno)
-		  == ALLOCNO_HARD_REGNO (father_allocno))
+		  == ALLOCNO_HARD_REGNO (parent_allocno))
 	      && (ALLOCNO_HARD_REGNO (allocno) < 0
-		  || (father->reg_pressure[cover_class] + 1
+		  || (parent->reg_pressure[cover_class] + 1
 		      <= available_class_regs[cover_class])
 		  || TEST_HARD_REG_BIT (prohibited_mode_move_regs
 					[ALLOCNO_MODE (allocno)],
@@ -432,13 +408,13 @@ change_loop (loop_tree_node_t node)
 		  || reg_equiv_const[regno] != NULL_RTX))
 	    continue;
 	  original_reg = ALLOCNO_REG (allocno);
-	  if (father_allocno == NULL
-	      || REGNO (ALLOCNO_REG (father_allocno)) == REGNO (original_reg))
+	  if (parent_allocno == NULL
+	      || REGNO (ALLOCNO_REG (parent_allocno)) == REGNO (original_reg))
 	    {
 	      if (internal_flag_ira_verbose > 3 && ira_dump_file)
-		fprintf (ira_dump_file, "  %i vs father %i:",
+		fprintf (ira_dump_file, "  %i vs parent %i:",
 			 ALLOCNO_HARD_REGNO (allocno),
-			 ALLOCNO_HARD_REGNO (father_allocno));
+			 ALLOCNO_HARD_REGNO (parent_allocno));
 	      set_allocno_reg (allocno, create_new_reg (original_reg));
 	    }
 	}
@@ -457,7 +433,7 @@ change_loop (loop_tree_node_t node)
 	continue;
       used_p = bitmap_bit_p (used_regno_bitmap, regno);
       bitmap_set_bit (used_regno_bitmap, regno);
-      ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = TRUE;
+      ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = true;
       if (! used_p)
 	continue;
       bitmap_set_bit (renamed_regno_bitmap, regno);
@@ -478,13 +454,13 @@ set_allocno_somewhere_renamed_p (void)
       regno = ALLOCNO_REGNO (allocno);
       if (bitmap_bit_p (renamed_regno_bitmap, regno)
 	  && REGNO (ALLOCNO_REG (allocno)) == regno)
-	ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = TRUE;
+	ALLOCNO_SOMEWHERE_RENAMED_P (allocno) = true;
     }
 }
 
-/* The function returns nonzero if move lists on all edges given in
+/* The function returns TRUE if move lists on all edges given in
    vector VEC are equal.  */
-static int
+static bool
 eq_edge_move_lists_p (VEC(edge,gc) *vec)
 {
   struct move *list;
@@ -493,8 +469,8 @@ eq_edge_move_lists_p (VEC(edge,gc) *vec)
   list = EDGE_I (vec, 0)->aux;
   for (i = EDGE_COUNT (vec) - 1; i > 0; i--)
     if (! eq_move_lists_p (list, EDGE_I (vec, i)->aux))
-      return FALSE;
-  return TRUE;
+      return false;
+  return true;
 }
 
 /* The function looks at all entry edges (if START_P) or exit edges of
@@ -502,7 +478,7 @@ eq_edge_move_lists_p (VEC(edge,gc) *vec)
    possible.  In other words, it decreases code duplication of
    allocno moves.  */
 static void
-unify_moves (basic_block bb, int start_p)
+unify_moves (basic_block bb, bool start_p)
 {
   int i;
   edge e;
@@ -569,7 +545,7 @@ traverse_moves (move_t move)
 
   if (move->visited_p)
     return;
-  move->visited_p = TRUE;
+  move->visited_p = true;
   for (i = move->deps_num - 1; i >= 0; i--)
     traverse_moves (move->deps[i]);
   VEC_safe_push (move_t, heap, move_vec, move);
@@ -658,12 +634,12 @@ modify_move_list (move_t list)
 		   subsequent IRA internal representation
 		   flattening.  */
 		new_allocno
-		  = create_allocno (ALLOCNO_REGNO (set_move->to), FALSE,
+		  = create_allocno (ALLOCNO_REGNO (set_move->to), false,
 				    ALLOCNO_LOOP_TREE_NODE (set_move->to));
 		ALLOCNO_MODE (new_allocno) = ALLOCNO_MODE (set_move->to);
 		set_allocno_cover_class (new_allocno,
 					 ALLOCNO_COVER_CLASS (set_move->to));
-		ALLOCNO_ASSIGNED_P (new_allocno) = TRUE;
+		ALLOCNO_ASSIGNED_P (new_allocno) = true;
 		ALLOCNO_HARD_REGNO (new_allocno) = -1;
 		ALLOCNO_REG (new_allocno)
 		  = create_new_reg (ALLOCNO_REG (set_move->to));
@@ -817,9 +793,9 @@ emit_moves (void)
    loop tree from reading (if READ_P) or writing A on an execution
    path with FREQ.  */
 static void
-update_costs (allocno_t a, int read_p, int freq)
+update_costs (allocno_t a, bool read_p, int freq)
 {
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   for (;;)
     {
@@ -828,8 +804,8 @@ update_costs (allocno_t a, int read_p, int freq)
       ALLOCNO_MEMORY_COST (a)
 	+= (memory_move_cost[ALLOCNO_MODE (a)][ALLOCNO_COVER_CLASS (a)]
 	    [read_p ? 1 : 0] * freq);
-      if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
-	  || (a = father->regno_allocno_map[ALLOCNO_REGNO (a)]) == NULL)
+      if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	  || (a = parent->regno_allocno_map[ALLOCNO_REGNO (a)]) == NULL)
 	break;
     }
 }
@@ -879,8 +855,8 @@ add_range_and_copies_from_move_list (move_t list, loop_tree_node_t node,
       IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (from),
 			hard_regs_live);
       IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (to), hard_regs_live);
-      update_costs (from, TRUE, freq);
-      update_costs (to, FALSE, freq);
+      update_costs (from, true, freq);
+      update_costs (to, false, freq);
       cp = add_allocno_copy (from, to, freq, move->insn, NULL);
       if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "    Adding cp%d:a%dr%d-a%dr%d\n",
@@ -953,7 +929,7 @@ add_ranges_and_copies (void)
       /* It does not matter what loop_tree_node (of source or
 	 destination block) to use for searching allocnos by their
 	 regnos because of subsequent IR flattening.  */
-      node = IRA_BB_NODE (bb)->father;
+      node = IRA_BB_NODE (bb)->parent;
       bitmap_copy (live_through, DF_LR_IN (bb));
       add_range_and_copies_from_move_list
 	(at_bb_start[bb->index], node, live_through, REG_FREQ_FROM_BB (bb));
@@ -975,7 +951,7 @@ add_ranges_and_copies (void)
    region borders for the regional (LOOPS_P is TRUE in this case)
    register allocation.  */
 void
-ira_emit (int loops_p)
+ira_emit (bool loops_p)
 {
   basic_block bb;
   edge_iterator ei;
@@ -995,7 +971,7 @@ ira_emit (int loops_p)
   used_regno_bitmap = ira_allocate_bitmap ();
   renamed_regno_bitmap = ira_allocate_bitmap ();
   max_regno_before_changing = max_reg_num ();
-  traverse_loop_tree (TRUE, ira_loop_tree_root, change_loop, NULL);
+  traverse_loop_tree (true, ira_loop_tree_root, change_loop, NULL);
   set_allocno_somewhere_renamed_p ();
   ira_free_bitmap (used_regno_bitmap);
   ira_free_bitmap (renamed_regno_bitmap);
@@ -1014,9 +990,9 @@ ira_emit (int loops_p)
   memset (hard_regno_last_set_check, 0, sizeof (hard_regno_last_set_check));
   curr_tick = 0;
   FOR_EACH_BB (bb)
-    unify_moves (bb, TRUE);
+    unify_moves (bb, true);
   FOR_EACH_BB (bb)
-    unify_moves (bb, FALSE);
+    unify_moves (bb, false);
   move_vec = VEC_alloc (move_t, heap, allocnos_num);
   emit_moves ();
   add_ranges_and_copies ();

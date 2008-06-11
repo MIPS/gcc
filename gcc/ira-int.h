@@ -80,14 +80,14 @@ struct loop_tree_node
   /* The node represents basic block if children == NULL.  */
   basic_block bb;    /* NULL for loop.  */
   struct loop *loop; /* NULL for BB.  */
-  /* The next (loop) node of with the same father.  SUBLOOP_NEXT is
+  /* The next (loop) node of with the same parent.  SUBLOOP_NEXT is
      always NULL for BBs. */
   loop_tree_node_t subloop_next, next;
   /* The first (loop) node immediately inside the node.  SUBLOOPS is
      always NULL for BBs.  */
   loop_tree_node_t subloops, children;
   /* The node immediately containing given node.  */
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   /* Loop level in range [0, ira_loop_tree_height).  */
   int level;
@@ -657,7 +657,7 @@ allocno_set_iter_init (allocno_set_iterator *i, INT_TYPE *vec, int min, int max)
 /* Return TRUE if we have more allocnos to visit, in which case *N is
    set to the allocno number to be visited.  Otherwise, return
    FALSE.  */
-static inline int
+static inline bool
 allocno_set_iter_cond (allocno_set_iterator *i, int *n)
 {
   /* Skip words that are zeros.  */
@@ -668,7 +668,7 @@ allocno_set_iter_cond (allocno_set_iterator *i, int *n)
       
       /* If we have reached the end, break.  */
       if (i->bit_num >= i->nel)
-	return FALSE;
+	return false;
     }
   
   /* Skip bits that are zero.  */
@@ -677,7 +677,7 @@ allocno_set_iter_cond (allocno_set_iterator *i, int *n)
   
   *n = (int) i->bit_num + i->start_val;
   
-  return TRUE;
+  return true;
 }
 
 /* Advance to the next allocno in the set.  */
@@ -824,7 +824,7 @@ extern int reg_equiv_len;
 
 /* The element value is TRUE if the corresponding regno value is
    invariant.  */
-extern int *reg_equiv_invariant_p;
+extern bool *reg_equiv_invariant_p;
 
 /* The element value is equiv constant of given pseudo-register or
    NULL_RTX.  */
@@ -844,12 +844,12 @@ extern int add_regno_call (int, rtx);
 
 extern void debug_allocno_copies (allocno_t);
 
-extern void traverse_loop_tree (int, loop_tree_node_t,
+extern void traverse_loop_tree (bool, loop_tree_node_t,
 				void (*) (loop_tree_node_t),
 				void (*) (loop_tree_node_t));
-extern allocno_t create_allocno (int, int, loop_tree_node_t);
+extern allocno_t create_allocno (int, bool, loop_tree_node_t);
 extern void set_allocno_cover_class (allocno_t, enum reg_class);
-extern int conflict_vector_profitable_p (allocno_t, int);
+extern bool conflict_vector_profitable_p (allocno_t, int);
 extern void allocate_allocno_conflict_vec (allocno_t, int);
 extern void allocate_allocno_conflicts (allocno_t, int);
 extern void add_allocno_conflict (allocno_t, allocno_t);
@@ -869,7 +869,7 @@ extern int *allocate_cost_vector (enum reg_class);
 extern void free_cost_vector (int *, enum reg_class);
 
 extern void ira_flattening (int, int);
-extern int ira_build (int);
+extern bool ira_build (bool);
 extern void ira_destroy (void);
 
 /* ira-costs.c */
@@ -890,13 +890,13 @@ extern void create_allocno_live_ranges (void);
 extern void finish_allocno_live_ranges (void);
 
 /* ira-conflicts.c */
-extern int allocno_live_ranges_intersect_p (allocno_t, allocno_t);
-extern int pseudo_live_ranges_intersect_p (int, int);
-extern void debug_conflicts (int);
+extern bool allocno_live_ranges_intersect_p (allocno_t, allocno_t);
+extern bool pseudo_live_ranges_intersect_p (int, int);
+extern void debug_conflicts (bool);
 extern void ira_build_conflicts (void);
 
 /* ira-color.c */
-extern int loop_edge_freq (loop_tree_node_t, int, int);
+extern int loop_edge_freq (loop_tree_node_t, int, bool);
 extern void reassign_conflict_allocnos (int);
 extern void initiate_ira_assign (void);
 extern void finish_ira_assign (void);
@@ -904,7 +904,7 @@ extern void ira_color (void);
 extern void ira_fast_allocation (void);
 
 /* ira-emit.c */
-extern void ira_emit (int);
+extern void ira_emit (bool);
 
 
 
@@ -923,7 +923,7 @@ allocno_iter_init (allocno_iterator *i)
 
 /* Return TRUE if we have more allocnos to visit, in which case *A is
    set to the allocno to be visited.  Otherwise, return FALSE.  */
-static inline int
+static inline bool
 allocno_iter_cond (allocno_iterator *i, allocno_t *a)
 {
   int n;
@@ -933,9 +933,9 @@ allocno_iter_cond (allocno_iterator *i, allocno_t *a)
       {
 	*a = allocnos[n];
 	i->n = n + 1;
-	return TRUE;
+	return true;
       }
-  return FALSE;
+  return false;
 }
 
 /* Loop over all allocnos.  In each iteration, A is set to the next
@@ -963,7 +963,7 @@ copy_iter_init (copy_iterator *i)
 
 /* Return TRUE if we have more copies to visit, in which case *CP is
    set to the copy to be visited.  Otherwise, return FALSE.  */
-static inline int
+static inline bool
 copy_iter_cond (copy_iterator *i, copy_t *cp)
 {
   int n;
@@ -973,9 +973,9 @@ copy_iter_cond (copy_iterator *i, copy_t *cp)
       {
 	*cp = copies[n];
 	i->n = n + 1;
-	return TRUE;
+	return true;
       }
-  return FALSE;
+  return false;
 }
 
 /* Loop over all copies.  In each iteration, C is set to the next
@@ -992,7 +992,7 @@ copy_iter_cond (copy_iterator *i, copy_t *cp)
 typedef struct {
 
   /* TRUE if the conflicts are represented by vector of allocnos.  */
-  int allocno_conflict_vec_p;
+  bool allocno_conflict_vec_p;
 
   /* The conflict vector or conflict bit vector.  */
   void *vec;
@@ -1044,7 +1044,7 @@ allocno_conflict_iter_init (allocno_conflict_iterator *i, allocno_t allocno)
 /* Return TRUE if we have more conflicting allocnos to visit, in which
    case *A is set to the allocno to be visited.  Otherwise, return
    FALSE.  */
-static inline int
+static inline bool
 allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
 {
   allocno_t conflict_allocno;
@@ -1053,9 +1053,9 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
     {
       conflict_allocno = ((allocno_t *) i->vec)[i->word_num];
       if (conflict_allocno == NULL)
-	return FALSE;
+	return false;
       *a = conflict_allocno;
-      return TRUE;
+      return true;
     }
   else
     {
@@ -1066,7 +1066,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
 	  
 	  /* If we have reached the end, break.  */
 	  if (i->word_num * sizeof (INT_TYPE) >= i->size)
-	    return FALSE;
+	    return false;
 	  
 	  i->bit_num = i->word_num * INT_BITS;
 	}
@@ -1077,7 +1077,7 @@ allocno_conflict_iter_cond (allocno_conflict_iterator *i, allocno_t *a)
       
       *a = conflict_id_allocno_map[i->bit_num + i->base_conflict_id];
       
-      return TRUE;
+      return true;
     }
 }
 
@@ -1108,7 +1108,7 @@ allocno_conflict_iter_next (allocno_conflict_iterator *i)
 /* The function returns TRUE if hard registers starting with
    HARD_REGNO and containing value of MODE are not in set
    HARD_REGSET.  */
-static inline int
+static inline bool
 hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
 		       HARD_REG_SET hard_regset)
 {
@@ -1117,8 +1117,8 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
   ira_assert (hard_regno >= 0);
   for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
-      return FALSE;
-  return TRUE;
+      return false;
+  return true;
 }
 
 

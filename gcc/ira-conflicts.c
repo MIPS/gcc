@@ -42,21 +42,6 @@ along with GCC; see the file COPYING3.  If not see
    allocno copy creation and allocno info accumulation on upper level
    regions.  */
 
-static void build_conflict_bit_table (void);
-static int commutative_constraint_p (const char *);
-static int get_dup_num (int, int);
-static rtx get_dup (int, int);
-static void add_insn_allocno_copies (rtx);
-static void add_copies (loop_tree_node_t);
-static void propagate_allocno_copy_info (allocno_t);
-static void propagate_copy_info (void);
-static void remove_conflict_allocno_copies (void);
-static void build_allocno_conflicts (void);
-static void propagate_modified_regnos (loop_tree_node_t);
-static void print_hard_reg_set (FILE *, const char *, HARD_REG_SET);
-static void print_conflicts (FILE *, int);
-
-
 /* allocnos_num array of arrays of bits, recording whether two
    allocno's conflict (can't go in the same hardware register).
 
@@ -150,53 +135,54 @@ build_conflict_bit_table (void)
 
 
 
-/* The function returns nonzero, if the operand constraint STR is
+/* The function returns TRUE, if the operand constraint STR is
    commutative.  */
-static int
+static bool
 commutative_constraint_p (const char *str)
 {
-  int ignore_p;
+  bool ignore_p;
   int c;
 
-  for (ignore_p = FALSE;;)
+  for (ignore_p = false;;)
     {
       c = *str;
       if (c == '\0')
 	break;
       str += CONSTRAINT_LEN (c, str);
       if (c == '#')
-	ignore_p = TRUE;
+	ignore_p = true;
       else if (c == ',')
-	ignore_p = FALSE;
+	ignore_p = false;
       else if (! ignore_p)
 	{
 	  /* Usually `%' is the first constraint character but the
 	     documentation does not require this.  */
 	  if (c == '%')
-	    return TRUE;
+	    return true;
 	}
     }
-  return FALSE;
+  return false;
 }
 
 /* The function returns number of the operand which should be the same
-   in any case as operand with number OP_NUM.  If USE_COMMUT_OP_P is
-   non-zero, the function makes temporarily commutative operand
-   exchange before this.  The function takes only really possible
-   alternatives into consideration.  */
+   in any case as operand with number OP_NUM (or negative value if
+   there is no such operand).  If USE_COMMUT_OP_P is TRUE, the
+   function makes temporarily commutative operand exchange before
+   this.  The function takes only really possible alternatives into
+   consideration.  */
 static int
-get_dup_num (int op_num, int use_commut_op_p)
+get_dup_num (int op_num, bool use_commut_op_p)
 {
   int curr_alt, c, original, dup;
-  int ignore_p, commut_op_used_p;
+  bool ignore_p, commut_op_used_p;
   const char *str;
-  rtx op, equiv_const = NULL_RTX;
+  rtx op;
 
   if (op_num < 0 || recog_data.n_alternatives == 0)
     return -1;
   op = recog_data.operand[op_num];
   ira_assert (REG_P (op));
-  commut_op_used_p = TRUE;
+  commut_op_used_p = true;
   if (use_commut_op_p)
     {
       if (commutative_constraint_p (recog_data.constraints[op_num]))
@@ -205,20 +191,20 @@ get_dup_num (int op_num, int use_commut_op_p)
 						       [op_num - 1]))
 	op_num--;
       else
-	commut_op_used_p = FALSE;
+	commut_op_used_p = false;
     }
   str = recog_data.constraints[op_num];
-  for (ignore_p = FALSE, original = -1, curr_alt = 0;;)
+  for (ignore_p = false, original = -1, curr_alt = 0;;)
     {
       c = *str;
       if (c == '\0')
 	break;
       if (c == '#')
-	ignore_p = TRUE;
+	ignore_p = true;
       else if (c == ',')
 	{
 	  curr_alt++;
-	  ignore_p = FALSE;
+	  ignore_p = false;
 	}
       else if (! ignore_p)
 	switch (c)
@@ -226,61 +212,6 @@ get_dup_num (int op_num, int use_commut_op_p)
 	  case 'X':
 	    return -1;
 	    
-	  case 'i':
-	    if (equiv_const != NULL_RTX && CONSTANT_P (equiv_const))
-	      return -1;
-	    break;
-
-	  case 'n':
-	    if (equiv_const != NULL_RTX
-		&& (GET_CODE (equiv_const) == CONST_INT
-		    || (GET_CODE (equiv_const) == CONST_DOUBLE
-			&& GET_MODE (equiv_const) == VOIDmode)))
-	      return -1;
-	    break;
-	    
-	  case 's':
-	    if (equiv_const != NULL_RTX
-		&& CONSTANT_P (equiv_const)
-		&& GET_CODE (equiv_const) != CONST_INT
-		&& (GET_CODE (equiv_const) != CONST_DOUBLE
-		    || GET_MODE (equiv_const) != VOIDmode))
-	      return -1;
-	    break;
-	    
-	  case 'I':
-	  case 'J':
-	  case 'K':
-	  case 'L':
-	  case 'M':
-	  case 'N':
-	  case 'O':
-	  case 'P':
-	    if ((equiv_const != NULL_RTX
-		 && GET_CODE (equiv_const) == CONST_INT
-		 && CONST_OK_FOR_CONSTRAINT_P (INTVAL (equiv_const),
-					       c, str)))
-	      return -1;
-	    break;
-	    
-	  case 'E':
-	  case 'F':
-	    if (equiv_const != NULL_RTX
-		&& (GET_CODE (equiv_const) == CONST_DOUBLE
-		    || (GET_CODE (equiv_const) == CONST_VECTOR
-			&& (GET_MODE_CLASS (GET_MODE (equiv_const))
-			    == MODE_VECTOR_FLOAT))))
-	      return -1;
-	    break;
-	    
-	  case 'G':
-	  case 'H':
-	    if (equiv_const != NULL_RTX
-		&& GET_CODE (equiv_const) == CONST_DOUBLE
-		&& CONST_DOUBLE_OK_FOR_CONSTRAINT_P (equiv_const, c, str))
-	      return -1;
-	    break;
-
 	  case 'm':
 	  case 'o':
 	    /* Accept a register which might be placed in memory.  */
@@ -350,11 +281,11 @@ get_dup_num (int op_num, int use_commut_op_p)
 }
 
 /* The function returns operand which should be in any case the same
-   as operand with number OP_NUM.  If USE_COMMUT_OP_P is non-zero, the
+   as operand with number OP_NUM.  If USE_COMMUT_OP_P is TRUE, the
    function makes temporarily commutative operand exchange before
    this.  */
 static rtx
-get_dup (int op_num, int use_commut_op_p)
+get_dup (int op_num, bool use_commut_op_p)
 {
   int n = get_dup_num (op_num, use_commut_op_p);
 
@@ -362,6 +293,92 @@ get_dup (int op_num, int use_commut_op_p)
     return NULL_RTX;
   else
     return recog_data.operand[n];
+}
+
+/* Process registers REG1 and REG2 in move INSN with execution
+   frequency FREQ.  The function also processes the registers in a
+   potential move insn (INSN == NULL in this case) with frequency
+   FREQ.  The function can modify hard register costs of the
+   corresponding allocnos or create a copy involving the corresponding
+   allocnos.  The function does nothing if the both registers are hard
+   registers.  When nothing is changed, the function returns
+   FALSE.  */
+static bool
+process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
+{
+  int hard_regno, cost, index;
+  allocno_t a;
+  enum reg_class class, cover_class;
+  enum machine_mode mode;
+  copy_t cp;
+
+  gcc_assert (REG_P (reg1) && REG_P (reg2));
+  if (HARD_REGISTER_P (reg1))
+    {
+      if (HARD_REGISTER_P (reg2))
+	return false;
+      hard_regno = REGNO (reg1);
+      a = ira_curr_regno_allocno_map[REGNO (reg2)];
+    }
+  else if (HARD_REGISTER_P (reg2))
+    {
+      hard_regno = REGNO (reg2);
+      a = ira_curr_regno_allocno_map[REGNO (reg1)];
+    }
+  else
+    {
+      cp = add_allocno_copy (ira_curr_regno_allocno_map[REGNO (reg1)],
+			     ira_curr_regno_allocno_map[REGNO (reg2)],
+			     freq, insn, ira_curr_loop_tree_node);
+      bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
+      return true;
+    }
+  class = REGNO_REG_CLASS (hard_regno);
+  mode = ALLOCNO_MODE (a);
+  cover_class = ALLOCNO_COVER_CLASS (a);
+  if (! class_subset_p[class][cover_class])
+    return false;
+  if (reg_class_size[class] <= (unsigned) CLASS_MAX_NREGS (class, mode))
+    /* It is already taken into account in ira-costs.c.  */
+    return false;
+  index = class_hard_reg_index[cover_class][hard_regno];
+  if (index < 0)
+    return false;
+  if (HARD_REGISTER_P (reg1))
+    cost = register_move_cost[mode][cover_class][class] * freq;
+  else
+    cost = register_move_cost[mode][class][cover_class] * freq;
+  allocate_and_set_costs
+    (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
+     ALLOCNO_COVER_CLASS_COST (a));
+  allocate_and_set_costs
+    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class, 0);
+  ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
+  ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
+  return true;
+}
+
+/* The function processes all output registers of the current insn and
+   input register REG (its operand number OP_NUM) which dies in the
+   insn as if there were a move insn between them with frequency
+   FREQ.  */
+static void
+process_reg_shuffles (rtx reg, int op_num, int freq)
+{
+  int i;
+  rtx another_reg;
+
+  gcc_assert (REG_P (reg));
+  for (i = 0; i < recog_data.n_operands; i++)
+    {
+      another_reg = recog_data.operand[i];
+      
+      if (!REG_P (another_reg) || op_num == i
+	  || recog_data.operand_type[i] != OP_OUT)
+	continue;
+      
+      process_regs_for_copy (reg, another_reg, NULL_RTX, freq);
+    }
 }
 
 /* The function processes INSN and create allocno copies if
@@ -372,13 +389,9 @@ add_insn_allocno_copies (rtx insn)
 {
   rtx set, operand, dup;
   const char *str;
-  int commut_p, bound_p;
-  int i, j, freq, hard_regno, cost, index;
-  copy_t cp;
-  allocno_t a;
-  enum reg_class class, cover_class;
-  enum machine_mode mode;
-
+  bool commut_p, bound_p;
+  int i, j, freq;
+  
   freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
   if (freq == 0)
     freq = 1;
@@ -387,54 +400,7 @@ add_insn_allocno_copies (rtx insn)
       && ! side_effects_p (set)
       && find_reg_note (insn, REG_DEAD, SET_SRC (set)) != NULL_RTX
       && find_reg_note (insn, REG_RETVAL, NULL_RTX) == NULL_RTX)
-    {
-      if (HARD_REGISTER_P (SET_SRC (set)) || HARD_REGISTER_P (SET_DEST (set)))
-	{
-	  if (HARD_REGISTER_P (SET_DEST (set)))
-	    {
-	      if (HARD_REGISTER_P (SET_SRC (set)))
-		return;
-	      hard_regno = REGNO (SET_DEST (set));
-	      a = ira_curr_regno_allocno_map[REGNO (SET_SRC (set))];
-	    }
-	  else
-	    {
-	      hard_regno = REGNO (SET_SRC (set));
-	      a = ira_curr_regno_allocno_map[REGNO (SET_DEST (set))];
-	    }
-	  class = REGNO_REG_CLASS (hard_regno);
-	  mode = ALLOCNO_MODE (a);
-	  cover_class = ALLOCNO_COVER_CLASS (a);
-	  if (! class_subset_p[class][cover_class])
-	    return;
-	  if (reg_class_size[class]
-	      <= (unsigned) CLASS_MAX_NREGS (class, mode))
-	    /* It is already taken into account in ira-costs.c.  */
-	    return;
-	  index = class_hard_reg_index[cover_class][hard_regno];
-	  if (index < 0)
-	    return;
-	  if (HARD_REGISTER_P (SET_DEST (set)))
-	    cost = register_move_cost[mode][cover_class][class] * freq;
-	  else
-	    cost = register_move_cost[mode][class][cover_class] * freq;
-	  allocate_and_set_costs
-	    (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
-	     ALLOCNO_COVER_CLASS_COST (a));
-	  allocate_and_set_costs
-	    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a), cover_class, 0);
-	  ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
-	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
-	}
-      else
-	{
-	  cp = add_allocno_copy
-	       (ira_curr_regno_allocno_map[REGNO (SET_DEST (set))],
-		ira_curr_regno_allocno_map[REGNO (SET_SRC (set))],
-		freq, insn, ira_curr_loop_tree_node);
-	  bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num); 
-	}
-    }
+    process_regs_for_copy (SET_DEST (set), SET_SRC (set), insn, freq);
   else
     {
       extract_insn (insn);
@@ -447,128 +413,20 @@ add_insn_allocno_copies (rtx insn)
 	      str = recog_data.constraints[i];
 	      while (*str == ' ' && *str == '\t')
 		str++;
-	      bound_p = FALSE;
-	      for (j = 0, commut_p = FALSE; j < 2; j++, commut_p = TRUE)
+	      bound_p = false;
+	      for (j = 0, commut_p = false; j < 2; j++, commut_p = true)
 		if ((dup = get_dup (i, commut_p)) != NULL_RTX
-		    && REG_P (dup) && GET_MODE (operand) == GET_MODE (dup))
-		  {
-		    if (HARD_REGISTER_NUM_P (REGNO (operand))
-			|| HARD_REGISTER_NUM_P (REGNO (dup)))
-		      {
-			if (HARD_REGISTER_P (operand))
-			  {
-			    if (HARD_REGISTER_P (dup))
-			      continue;
-			    hard_regno = REGNO (operand);
-			    a = ira_curr_regno_allocno_map[REGNO (dup)];
-			  }
-			else
-			  {
-			    hard_regno = REGNO (dup);
-			    a = ira_curr_regno_allocno_map[REGNO (operand)];
-			  }
-			class = REGNO_REG_CLASS (hard_regno);
-			mode = ALLOCNO_MODE (a);
-			cover_class = ALLOCNO_COVER_CLASS (a);
-			if (! class_subset_p[class][cover_class])
-			  continue;
-			index
-			  = class_hard_reg_index[cover_class][hard_regno];
-			if (index < 0)
-			  continue;
-			if (HARD_REGISTER_P (operand))
-			  cost
-			    = register_move_cost[mode][cover_class][class];
-			else
-			  cost
-			    = register_move_cost[mode][class][cover_class];
-			cost *= freq;
-			allocate_and_set_costs
-			  (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
-			   ALLOCNO_COVER_CLASS_COST (a));
-			allocate_and_set_costs
-			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-			   cover_class, 0);
-			ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
-			ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
-			bound_p = TRUE;
-		      }
-		    else
-		      {
-			bound_p = TRUE;
-			cp = add_allocno_copy
-			     (ira_curr_regno_allocno_map[REGNO (dup)],
-			      ira_curr_regno_allocno_map[REGNO (operand)],
-			      freq, NULL_RTX, ira_curr_loop_tree_node);
-			bitmap_set_bit
-			  (ira_curr_loop_tree_node->local_copies, cp->num);
-		      }
-		  }
+		    && REG_P (dup) && GET_MODE (operand) == GET_MODE (dup)
+		    && process_regs_for_copy (operand, dup, NULL_RTX, freq))
+		  bound_p = true;
 	      if (bound_p)
 		continue;
 	      /* If an operand dies, prefer its hard register for the
 		 output operands by decreasing the hard register cost
-		 or creating the corresponding allocno copies.  */
-	      for (j = 0; j < recog_data.n_operands; j++)
-		{
-		  dup = recog_data.operand[j];
-
-		  if (i == j || recog_data.operand_type[j] != OP_OUT
-		      || !REG_P (dup))
-		    continue;
-		  
-		  if (HARD_REGISTER_NUM_P (REGNO (operand))
-		      || HARD_REGISTER_NUM_P (REGNO (dup)))
-		    {
-			if (HARD_REGISTER_P (operand))
-			  {
-			    if (HARD_REGISTER_P (dup))
-			      continue;
-			    hard_regno = REGNO (operand);
-			    a = ira_curr_regno_allocno_map[REGNO (dup)];
-			  }
-			else
-			  {
-			    hard_regno = REGNO (dup);
-			    a = ira_curr_regno_allocno_map[REGNO (operand)];
-			  }
-			class = REGNO_REG_CLASS (hard_regno);
-			mode = ALLOCNO_MODE (a);
-			cover_class = ALLOCNO_COVER_CLASS (a);
-			if (! class_subset_p[class][cover_class])
-			  continue;
-			index = class_hard_reg_index[cover_class][hard_regno];
-			if (index < 0)
-			  continue;
-			if (HARD_REGISTER_P (operand))
-			  cost = register_move_cost[mode][cover_class][class];
-			else
-			  cost = register_move_cost[mode][class][cover_class];
-			cost *= (freq < 8 ? 1 : freq / 8);
-			allocate_and_set_costs
-			  (&ALLOCNO_HARD_REG_COSTS (a), cover_class,
-			   ALLOCNO_COVER_CLASS_COST (a));
-			allocate_and_set_costs
-			  (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-			   cover_class, 0);
-			ALLOCNO_HARD_REG_COSTS (a)[index] -= cost;
-			ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[index] -= cost;
-		      }
-		    else
-		      {
-			/* This copy is created to decrease register
-			   shuffling.  The copy will not correspond to
-			   a real move insn, so make the frequency
-			   smaller.  */
-			cp = add_allocno_copy
-			     (ira_curr_regno_allocno_map[REGNO (dup)],
-			      ira_curr_regno_allocno_map[REGNO (operand)],
-			      (freq < 8 ? 1 : freq / 8), NULL_RTX,
-			      ira_curr_loop_tree_node);
-			bitmap_set_bit
-			  (ira_curr_loop_tree_node->local_copies, cp->num);
-		      }
-		}
+		 or creating the corresponding allocno copies.  The
+		 cost will not correspond to a real move insn cost, so
+		 make the frequency smaller.  */
+	      process_reg_shuffles (operand, i, freq < 8 ? 1 : freq / 8);
 	    }
 	}
     }
@@ -598,13 +456,13 @@ static void
 propagate_allocno_copy_info (allocno_t a)
 {
   int regno;
-  allocno_t father_a, another_a, another_father_a;
-  loop_tree_node_t father;
+  allocno_t parent_a, another_a, another_parent_a;
+  loop_tree_node_t parent;
   copy_t cp, next_cp;
 
   regno = ALLOCNO_REGNO (a);
-  if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
-      && (father_a = father->regno_allocno_map[regno]) != NULL)
+  if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) != NULL
+      && (parent_a = parent->regno_allocno_map[regno]) != NULL)
     {
       for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
@@ -620,9 +478,9 @@ propagate_allocno_copy_info (allocno_t a)
 	    }
 	  else
 	    gcc_unreachable ();
-	  if ((another_father_a = (father->regno_allocno_map
+	  if ((another_parent_a = (parent->regno_allocno_map
 				   [ALLOCNO_REGNO (another_a)])) != NULL)
-	    add_allocno_copy (father_a, another_father_a, cp->freq,
+	    add_allocno_copy (parent_a, another_parent_a, cp->freq,
 			      cp->insn, cp->loop_tree_node);
 	}
     }
@@ -646,17 +504,17 @@ propagate_copy_info (void)
 /* The function returns TRUE if live ranges of allocnos A1 and A2
    intersect.  It is used to find a conflict for new allocnos or
    allocnos with the different cover classes.  */
-int
+bool
 allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
 {
   allocno_live_range_t r1, r2;
 
   if (a1 == a2)
-    return FALSE;
+    return false;
   if (ALLOCNO_REG (a1) != NULL && ALLOCNO_REG (a2) != NULL
       && (ORIGINAL_REGNO (ALLOCNO_REG (a1))
 	  == ORIGINAL_REGNO (ALLOCNO_REG (a2))))
-    return FALSE;
+    return false;
   /* Remember the ranges are always kept ordered.  */
   for (r1 = ALLOCNO_LIVE_RANGES (a1), r2 = ALLOCNO_LIVE_RANGES (a2);
        r1 != NULL && r2 != NULL;)
@@ -666,15 +524,15 @@ allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
       else if (r2->start > r1->finish)
 	r2 = r2->next;
       else
-	return TRUE;
+	return true;
     }
-  return FALSE;
+  return false;
 }
 
 /* The function returns TRUE if live ranges of pseudo-registers REGNO1
    and REGNO2 intersect.  It should be used when there is only one
    region.  Currently it is used during the reload work.  */
-int
+bool
 pseudo_live_ranges_intersect_p (int regno1, int regno2)
 {
   allocno_t a1, a2;
@@ -685,7 +543,7 @@ pseudo_live_ranges_intersect_p (int regno1, int regno2)
      from one calculated by regclass.  */
   if ((a1 = ira_loop_tree_root->regno_allocno_map[regno1]) == NULL
       || (a2 = ira_loop_tree_root->regno_allocno_map[regno2]) == NULL)
-    return FALSE;
+    return false;
   return allocno_live_ranges_intersect_p (a1, a2);
 }
 
@@ -725,10 +583,11 @@ remove_conflict_allocno_copies (void)
 static void
 build_allocno_conflicts (void)
 {
-  int i, j, px, father_num, free_p;
+  int i, j, px, parent_num;
+  bool free_p;
   int conflict_bit_vec_words_num;
-  loop_tree_node_t father;
-  allocno_t a, father_a, another_a, another_father_a, *conflict_allocnos, *vec;
+  loop_tree_node_t parent;
+  allocno_t a, parent_a, another_a, another_parent_a, *conflict_allocnos, *vec;
   INT_TYPE *allocno_conflicts;
   allocno_set_iterator asi;
 
@@ -750,7 +609,7 @@ build_allocno_conflicts (void)
 	  }
 	if (conflict_vector_profitable_p (a, px))
 	  {
-	    free_p = TRUE;
+	    free_p = true;
 	    allocate_allocno_conflict_vec (a, px);
 	    vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
 	    memcpy (vec, conflict_allocnos, sizeof (allocno_t) * px);
@@ -759,7 +618,7 @@ build_allocno_conflicts (void)
 	  }
 	else
 	  {
-	    free_p = FALSE;
+	    free_p = false;
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = conflicts[ALLOCNO_NUM (a)];
 	    if (ALLOCNO_MAX (a) < ALLOCNO_MIN (a))
 	      conflict_bit_vec_words_num = 0;
@@ -769,31 +628,31 @@ build_allocno_conflicts (void)
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a)
 	      = conflict_bit_vec_words_num * sizeof (INT_TYPE);
 	  }
-	if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
-	    || (father_a = father->regno_allocno_map[i]) == NULL)
+	if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	    || (parent_a = parent->regno_allocno_map[i]) == NULL)
 	  {
 	    if (free_p)
 	      ira_free (conflicts[ALLOCNO_NUM (a)]);
 	    continue;
 	  }
-	ira_assert (ALLOCNO_COVER_CLASS (a) == ALLOCNO_COVER_CLASS (father_a));
-	father_num = ALLOCNO_NUM (father_a);
+	ira_assert (ALLOCNO_COVER_CLASS (a) == ALLOCNO_COVER_CLASS (parent_a));
+	parent_num = ALLOCNO_NUM (parent_a);
 	FOR_EACH_ALLOCNO_IN_SET (allocno_conflicts,
 				 ALLOCNO_MIN (a), ALLOCNO_MAX (a), j, asi)
 	  {
 	    another_a = conflict_id_allocno_map[j];
 	    ira_assert (ALLOCNO_COVER_CLASS (a)
 			== ALLOCNO_COVER_CLASS (another_a));
-	    if ((another_father_a = (father->regno_allocno_map
+	    if ((another_parent_a = (parent->regno_allocno_map
 				     [ALLOCNO_REGNO (another_a)])) == NULL)
 	      continue;
-	    ira_assert (ALLOCNO_NUM (another_father_a) >= 0);
+	    ira_assert (ALLOCNO_NUM (another_parent_a) >= 0);
 	    ira_assert (ALLOCNO_COVER_CLASS (another_a)
-			== ALLOCNO_COVER_CLASS (another_father_a));
-	    SET_ALLOCNO_SET_BIT (conflicts[father_num],
-				 ALLOCNO_CONFLICT_ID (another_father_a),
-				 ALLOCNO_MIN (father_a),
-				 ALLOCNO_MAX (father_a));
+			== ALLOCNO_COVER_CLASS (another_parent_a));
+	    SET_ALLOCNO_SET_BIT (conflicts[parent_num],
+				 ALLOCNO_CONFLICT_ID (another_parent_a),
+				 ALLOCNO_MIN (parent_a),
+				 ALLOCNO_MAX (parent_a));
 	  }
 	if (free_p)
 	  ira_free (conflicts[ALLOCNO_NUM (a)]);
@@ -805,14 +664,14 @@ build_allocno_conflicts (void)
 
 
 /* The function propagates information about allocnos modified inside
-   the loop given by its LOOP_TREE_NODE to its father.  */
+   the loop given by its LOOP_TREE_NODE to its parent.  */
 static void
 propagate_modified_regnos (loop_tree_node_t loop_tree_node)
 {
   if (loop_tree_node == ira_loop_tree_root)
     return;
   ira_assert (loop_tree_node->bb == NULL);
-  bitmap_ior_into (loop_tree_node->father->modified_regnos,
+  bitmap_ior_into (loop_tree_node->parent->modified_regnos,
 		   loop_tree_node->modified_regnos);
 }
 
@@ -850,7 +709,7 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
 /* The function prints information about allocno or only regno (if
    REG_P) conflicts to FILE.  */
 static void
-print_conflicts (FILE *file, int reg_p)
+print_conflicts (FILE *file, bool reg_p)
 {
   allocno_t a;
   allocno_iterator ai;
@@ -911,7 +770,7 @@ print_conflicts (FILE *file, int reg_p)
 /* The function prints information about allocno or only regno (if
    REG_P) conflicts to stderr.  */
 void
-debug_conflicts (int reg_p)
+debug_conflicts (bool reg_p)
 {
   print_conflicts (stderr, reg_p);
 }
@@ -929,7 +788,7 @@ ira_build_conflicts (void)
   if (optimize)
     {
       build_conflict_bit_table ();
-      traverse_loop_tree (TRUE, ira_loop_tree_root, NULL, add_copies);
+      traverse_loop_tree (true, ira_loop_tree_root, NULL, add_copies);
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
 	propagate_copy_info ();
@@ -960,9 +819,9 @@ ira_build_conflicts (void)
     }
   if (optimize)
     {
-      traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
+      traverse_loop_tree (false, ira_loop_tree_root, NULL,
 			  propagate_modified_regnos);
       if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
-	print_conflicts (ira_dump_file, FALSE);
+	print_conflicts (ira_dump_file, false);
     }
 }

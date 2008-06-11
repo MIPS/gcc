@@ -1,3 +1,47 @@
+2008-06-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/tm.texi (IRA_HARD_REGNO_ADD_COST_MULTIPLIER,
+	IRA_COVER_CLASSES): Fix macro descriptions.
+	
+	* doc/invoke.texi (fira): Fix the description.
+	
+	* flags.h (ira_algorithm): Fix formatting.
+	
+	* ira-conflicts.c: Remove all forward prototypes of static
+	functions.  Use type bool and true and false for boolean values.
+	Change father to parent.
+	(get_dup_num): Remove equiv_const.  More comments.
+	(process_regs_for_copy, process_reg_shuffles): New functions.
+	(add_insn_allocno_copies): Use them.
+
+	* ira-int.h: Use type bool and true and false for boolean values.
+	Change father to parent.
+
+	* ira-color.c: Remove all forward prototypes of static
+	functions.  Use type bool and true and false for boolean values.
+	Change father to parent.
+
+	* ira-lives.c: Remove all forward prototypes of static
+	functions.  Use type bool and true and false for boolean values.
+	Change father to parent.
+
+	* ira-emit.c: Ditto.
+
+	* ira.c: Ditto.
+
+	* ira-costs.c: Remove all forward prototypes of static
+	functions.  Use type bool and true and false for boolean values.
+	Change father to parent.
+
+
+	* ira-build.c: Remove all forward prototypes of static functions
+	except for find_allocno_copy.  Use type bool and true and false
+	for boolean values.  Change father to parent.
+
+	* ira.h: Use type bool for boolean values.
+
+	* reload1.c (reload): Pass false instead of FALSE.
+	
 2008-06-10  Vladimir Makarov  <vmakarov@redhat.com>
 	PR target/36450
 	* caller-save.c (insert_restore, insert_save):  Don't require

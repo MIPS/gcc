@@ -322,46 +322,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "ira-int.h"
 
-static void setup_reg_mode_hard_regset (void);
-static void setup_class_hard_regs (void);
-static void setup_available_class_regs (void);
-static void setup_alloc_regs (int);
-static void setup_class_subset_and_memory_move_costs (void);
-static void setup_reg_subclasses (void);
-#ifdef IRA_COVER_CLASSES
-static void setup_cover_and_important_classes (void);
-static void setup_class_translate (void);
-static void setup_reg_class_intersect_union (void);
-#endif
-static void print_class_cover (FILE *);
-static void find_reg_class_closure (void);
-static void setup_reg_class_nregs (void);
-static void setup_prohibited_class_mode_regs (void);
-static void free_register_move_costs (void);
-static void setup_prohibited_mode_move_regs (void);
-static int insn_contains_asm_1 (rtx *, void *);
-static int insn_contains_asm (rtx);
-static void compute_regs_asm_clobbered (char *);
-static void setup_eliminable_regset (void);
-static void find_reg_equiv_invariant_const (void);
-static void setup_reg_renumber (void);
-static void setup_allocno_assignment_flags (void);
-static void calculate_allocation_cost (void);
-#ifdef ENABLE_IRA_CHECKING
-static void check_allocation (void);
-#endif
-static void fix_reg_equiv_init (void);
-#ifdef ENABLE_IRA_CHECKING
-static void print_redundant_copies (void);
-#endif
-static void setup_preferred_alternate_classes_for_new_pseudos (int);
-static void expand_reg_info (int);
-static int chain_freq_compare (const void *, const void *);
-static int chain_bb_compare (const void *, const void *);
-
-static void ira (FILE *);
-static bool gate_ira (void);
-static unsigned int rest_of_handle_ira (void);
 
 /* A modified value of flag `-fira-verbose' used internally.  */
 int internal_flag_ira_verbose;
@@ -518,10 +478,10 @@ setup_available_class_regs (void)
 
 /* The function setting up different global variables defining info
    about hard registers for the allocation.  It depends on
-   USE_HARD_FRAME_P whose nonzero value means that we can use hard
+   USE_HARD_FRAME_P whose TRUE value means that we can use hard
    frame pointer for the allocation.  */
 static void
-setup_alloc_regs (int use_hard_frame_p)
+setup_alloc_regs (bool use_hard_frame_p)
 {
   COPY_HARD_REG_SET (no_unit_alloc_regs, fixed_reg_set);
   if (! use_hard_frame_p)
@@ -1175,7 +1135,7 @@ finish_ira_once (void)
 HARD_REG_SET prohibited_mode_move_regs[NUM_MACHINE_MODES];
 
 /* Flag of that the above array has been initialized.  */
-static int prohibited_mode_move_regs_initialized_p = FALSE;
+static bool prohibited_mode_move_regs_initialized_p = false;
 
 /* The function setting up PROHIBITED_MODE_MOVE_REGS.  */
 static void
@@ -1186,7 +1146,7 @@ setup_prohibited_mode_move_regs (void)
 
   if (prohibited_mode_move_regs_initialized_p)
     return;
-  prohibited_mode_move_regs_initialized_p = TRUE;
+  prohibited_mode_move_regs_initialized_p = true;
   test_reg1 = gen_rtx_REG (VOIDmode, 0);
   test_reg2 = gen_rtx_REG (VOIDmode, 0);
   move_pat = gen_rtx_SET (VOIDmode, test_reg1, test_reg2);
@@ -1225,15 +1185,15 @@ static int
 insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 {
   if ( !*loc)
-    return 0;
+    return FALSE;
   if (GET_CODE (*loc) == ASM_OPERANDS)
     return TRUE;
   return FALSE;
 }
 
 
-/* Return true if INSN contains an ASM.  */
-static int
+/* Return TRUE if INSN contains an ASM.  */
+static bool
 insn_contains_asm (rtx insn)
 {
   return for_each_rtx (&insn, insn_contains_asm_1, NULL);
@@ -1355,7 +1315,7 @@ int reg_equiv_len;
 
 /* The element value is TRUE if the corresponding regno value is
    invariant.  */
-int *reg_equiv_invariant_p;
+bool *reg_equiv_invariant_p;
 
 /* The element value is equiv constant of given pseudo-register or
    NULL_RTX.  */
@@ -1365,13 +1325,14 @@ rtx *reg_equiv_const;
 static void
 find_reg_equiv_invariant_const (void)
 {
-  int i, invariant_p;
+  int i;
+  bool invariant_p;
   rtx list, insn, note, constant, x;
 
   for (i = FIRST_PSEUDO_REGISTER; i < reg_equiv_init_size; i++)
     {
       constant = NULL_RTX;
-      invariant_p = FALSE;
+      invariant_p = false;
       for (list = reg_equiv_init[i]; list != NULL_RTX; list = XEXP (list, 1))
 	{
 	  insn = XEXP (list, 0);
@@ -1400,7 +1361,7 @@ find_reg_equiv_invariant_const (void)
 		{
 		  if (GET_CODE (x) == PLUS
 		      || x == frame_pointer_rtx || x == arg_pointer_rtx)
-		    invariant_p = TRUE;
+		    invariant_p = true;
 		  else
 		    constant = x;
 		}
@@ -1430,7 +1391,7 @@ setup_reg_renumber (void)
       if (! ALLOCNO_ASSIGNED_P (a))
 	/* It can happen if A is not referenced but partially anticipated
 	   somewhere in a region.  */
-	ALLOCNO_ASSIGNED_P (a) = TRUE;
+	ALLOCNO_ASSIGNED_P (a) = true;
       free_allocno_updated_costs (a);
       hard_regno = ALLOCNO_HARD_REGNO (a);
       regno = (int) REGNO (ALLOCNO_REG (a));
@@ -1732,7 +1693,7 @@ chain_bb_compare (const void *v1p, const void *v2p)
 /* The function sorts insn chain according to insn frequencies if
    FREQ_P or according to insn original order otherwise.  */
 void
-sort_insn_chain (int freq_p)
+sort_insn_chain (bool freq_p)
 {
   struct insn_chain *chain, **chain_arr;
   basic_block bb;
@@ -1776,9 +1737,11 @@ struct loops ira_loops;
 static void
 ira (FILE *f)
 {
-  int overall_cost_before, loops_p, allocated_reg_info_size;
+  int overall_cost_before, allocated_reg_info_size;
+  bool loops_p;
   int max_regno_before_ira, max_point_before_emit;
-  int rebuild_p, saved_flag_ira_algorithm;
+  int rebuild_p;
+  int saved_flag_ira_algorithm;
   basic_block bb;
 
   timevar_push (TV_IRA);
@@ -1827,8 +1790,8 @@ ira (FILE *f)
     {      
       max_regno = max_reg_num ();
       reg_equiv_len = max_regno;
-      reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (int));
-      memset (reg_equiv_invariant_p, 0, max_regno * sizeof (int));
+      reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (bool));
+      memset (reg_equiv_invariant_p, 0, max_regno * sizeof (bool));
       reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
       memset (reg_equiv_const, 0, max_regno * sizeof (rtx));
       find_reg_equiv_invariant_const ();
@@ -1955,7 +1918,7 @@ ira (FILE *f)
   build_insn_chain ();
 
   if (optimize)
-    sort_insn_chain (TRUE);
+    sort_insn_chain (true);
 
   reload_completed = !reload (get_insns (), optimize > 0);
 

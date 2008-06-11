@@ -222,7 +222,8 @@ extern int flag_next_runtime;
 extern int flag_dump_rtl_in_asm;
 
 /* The algorithm used for the integrated register allocator (IRA).  */
-enum ira_algorithm {
+enum ira_algorithm
+{
   IRA_ALGORITHM_REGIONAL,
   IRA_ALGORITHM_CB,
   IRA_ALGORITHM_MIXED

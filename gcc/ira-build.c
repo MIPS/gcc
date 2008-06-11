@@ -40,62 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sparseset.h"
 #include "ira-int.h"
 
-static void create_loop_tree_nodes (int);
-static void finish_loop_tree_node (loop_tree_node_t);
-static void finish_loop_tree_nodes (void);
-static void add_loop_to_tree (struct loop *);
-static int setup_loop_tree_level (loop_tree_node_t, int);
-static void form_loop_tree (void);
-
-static void rebuild_regno_allocno_maps (void);
-
-static void initiate_calls (void);
-static void expand_calls (void);
-static void compress_calls (void);
-static void finish_calls (void);
-
-static void initiate_allocnos (void);
-static void allocate_allocno_conflict_bit_vec (allocno_t);
-static void add_to_allocno_conflicts (allocno_t, allocno_t);
-static void clear_allocno_conflicts (allocno_t a);
-static void compress_allocno_conflict_vec (allocno_t);
-static void compress_conflict_vecs (void);
-static allocno_t create_cap_allocno (allocno_t);
-static void propagate_info_to_cap (allocno_t);
-static allocno_live_range_t copy_allocno_live_range (allocno_live_range_t);
-static allocno_live_range_t
-  copy_allocno_live_range_list (allocno_live_range_t);
-static void finish_allocno (allocno_t);
-static void finish_allocnos (void);
-
-static void initiate_copies (void);
 static copy_t find_allocno_copy (allocno_t, allocno_t, rtx, loop_tree_node_t);
-static void print_allocno_copies (FILE *, allocno_t);
-static void finish_copy (copy_t);
-static void finish_copies (void);
-
-static void initiate_cost_vectors (void);
-static void finish_cost_vectors (void);
-
-static void create_insn_allocnos (rtx, int);
-static void create_bb_allocnos (loop_tree_node_t);
-static void create_loop_allocnos (edge);
-static void create_loop_tree_node_allocnos (loop_tree_node_t);
-static void create_allocnos (void);
-
-static void setup_min_max_allocno_live_range_point (void);
-static int allocno_range_compare_func (const void *, const void *);
-static void sort_conflict_id_allocno_map (void);
-static void setup_min_max_conflict_allocno_ids (void);
-
-static void create_loop_tree_node_caps (loop_tree_node_t);
-static void propagate_info_to_loop_tree_node_caps (loop_tree_node_t);
-static allocno_live_range_t merge_ranges (allocno_live_range_t,
-					  allocno_live_range_t);
-static loop_tree_node_t common_loop_tree_node_dominator (loop_tree_node_t,
-							 loop_tree_node_t);
-static void change_allocno_in_range_list (allocno_live_range_t, allocno_t);
-
 
 /* The root of the loop tree corresponding to the all function.  */
 loop_tree_node_t ira_loop_tree_root;
@@ -151,10 +96,11 @@ static int last_basic_block_before_change;
    which corresponds the all function) will be not allocated but nodes
    will still be allocated for basic blocks.  */
 static void
-create_loop_tree_nodes (int loops_p)
+create_loop_tree_nodes (bool loops_p)
 {
   unsigned int i, j;
-  int max_regno, skip_p;
+  int max_regno;
+  bool skip_p;
   edge_iterator ei;
   edge e;
   VEC (edge, heap) *edges;
@@ -183,12 +129,12 @@ create_loop_tree_nodes (int loops_p)
 	  ira_loop_nodes[i].regno_allocno_map = NULL;
 	  if (! loops_p)
 	    continue;
-	  skip_p = FALSE;
+	  skip_p = false;
 	  FOR_EACH_EDGE (e, ei, loop->header->preds)
 	    if (e->src != loop->latch
 		&& (e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
 	      {
-		skip_p = TRUE;
+		skip_p = true;
 		break;
 	      }
 	  if (skip_p)
@@ -197,7 +143,7 @@ create_loop_tree_nodes (int loops_p)
 	  for (j = 0; VEC_iterate (edge, edges, j, e); j++)
 	    if ((e->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (e))
 	      {
-		skip_p = TRUE;
+		skip_p = true;
 		break;
 	      }
 	  VEC_free (edge, heap, edges);
@@ -266,8 +212,8 @@ finish_loop_tree_nodes (void)
 static void
 add_loop_to_tree (struct loop *loop)
 {
-  struct loop *father;
-  loop_tree_node_t loop_node, father_node;
+  struct loop *parent;
+  loop_tree_node_t loop_node, parent_node;
 
   /* We can not use loop node access macros here because of potential
      checking and because the nodes are not initialized enough
@@ -281,25 +227,25 @@ add_loop_to_tree (struct loop *loop)
       loop_node = &ira_loop_nodes[loop->num];
       loop_node->loop = loop;
       loop_node->bb = NULL;
-      for (father = loop_outer (loop);
-	   father != NULL;
-	   father = loop_outer (father))
-	if (ira_loop_nodes[father->num].regno_allocno_map != NULL)
+      for (parent = loop_outer (loop);
+	   parent != NULL;
+	   parent = loop_outer (parent))
+	if (ira_loop_nodes[parent->num].regno_allocno_map != NULL)
 	  break;
-      if (father == NULL)
+      if (parent == NULL)
 	{
 	  loop_node->next = NULL;
 	  loop_node->subloop_next = NULL;
-	  loop_node->father = NULL;
+	  loop_node->parent = NULL;
 	}
       else
 	{
-	  father_node = &ira_loop_nodes[father->num];
-	  loop_node->next = father_node->children;
-	  father_node->children = loop_node;
-	  loop_node->subloop_next = father_node->subloops;
-	  father_node->subloops = loop_node;
-	  loop_node->father = father_node;
+	  parent_node = &ira_loop_nodes[parent->num];
+	  loop_node->next = parent_node->children;
+	  parent_node->children = loop_node;
+	  loop_node->subloop_next = parent_node->subloops;
+	  parent_node->subloops = loop_node;
+	  loop_node->parent = parent_node;
 	}
     }
 }
@@ -337,7 +283,7 @@ form_loop_tree (void)
 {
   unsigned int i;
   basic_block bb;
-  struct loop *father;
+  struct loop *parent;
   loop_tree_node_t bb_node, loop_node;
   loop_p loop;
 
@@ -359,15 +305,15 @@ form_loop_tree (void)
       bb_node->children = NULL;
       bb_node->subloop_next = NULL;
       bb_node->next = NULL;
-      for (father = bb->loop_father;
-	   father != NULL;
-	   father = loop_outer (father))
-	if (ira_loop_nodes[father->num].regno_allocno_map != NULL)
+      for (parent = bb->loop_father;
+	   parent != NULL;
+	   parent = loop_outer (parent))
+	if (ira_loop_nodes[parent->num].regno_allocno_map != NULL)
 	  break;
-      add_loop_to_tree (father);
-      loop_node = &ira_loop_nodes[father->num];
+      add_loop_to_tree (parent);
+      loop_node = &ira_loop_nodes[parent->num];
       bb_node->next = loop_node->children;
-      bb_node->father = loop_node;
+      bb_node->parent = loop_node;
       loop_node->children = bb_node;
     }
   ira_loop_tree_root = IRA_LOOP_NODE_BY_INDEX (ira_loops.tree_root->num);
@@ -535,7 +481,7 @@ initiate_allocnos (void)
    LOOP_TREE_NODE.  Add the allocno to the list of allocnos with the
    same regno if CAP_P is FALSE.  */
 allocno_t
-create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
+create_allocno (int regno, bool cap_p, loop_tree_node_t loop_tree_node)
 {
   allocno_t a;
 
@@ -566,19 +512,19 @@ create_allocno (int regno, int cap_p, loop_tree_node_t loop_tree_node)
   ALLOCNO_CALLS_CROSSED_NUM (a) = 0;
   ALLOCNO_CALLS_CROSSED_START (a) = -1;
 #ifdef STACK_REGS
-  ALLOCNO_NO_STACK_REG_P (a) = FALSE;
-  ALLOCNO_TOTAL_NO_STACK_REG_P (a) = FALSE;
+  ALLOCNO_NO_STACK_REG_P (a) = false;
+  ALLOCNO_TOTAL_NO_STACK_REG_P (a) = false;
 #endif
   ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
-  ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = FALSE;
-  ALLOCNO_SOMEWHERE_RENAMED_P (a) = FALSE;
-  ALLOCNO_CHILD_RENAMED_P (a) = FALSE;
-  ALLOCNO_DONT_REASSIGN_P (a) = FALSE;
-  ALLOCNO_IN_GRAPH_P (a) = FALSE;
-  ALLOCNO_ASSIGNED_P (a) = FALSE;
-  ALLOCNO_MAY_BE_SPILLED_P (a) = FALSE;
-  ALLOCNO_SPLAY_REMOVED_P (a) = FALSE;
-  ALLOCNO_CONFLICT_VEC_P (a) = FALSE;
+  ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = false;
+  ALLOCNO_SOMEWHERE_RENAMED_P (a) = false;
+  ALLOCNO_CHILD_RENAMED_P (a) = false;
+  ALLOCNO_DONT_REASSIGN_P (a) = false;
+  ALLOCNO_IN_GRAPH_P (a) = false;
+  ALLOCNO_ASSIGNED_P (a) = false;
+  ALLOCNO_MAY_BE_SPILLED_P (a) = false;
+  ALLOCNO_SPLAY_REMOVED_P (a) = false;
+  ALLOCNO_CONFLICT_VEC_P (a) = false;
   ALLOCNO_MODE (a) = (regno < 0 ? VOIDmode : PSEUDO_REGNO_MODE (regno));
   ALLOCNO_COPIES (a) = NULL;
   ALLOCNO_HARD_REG_COSTS (a) = NULL;
@@ -621,7 +567,7 @@ set_allocno_cover_class (allocno_t a, enum reg_class cover_class)
 
 /* The function returns TRUE if conflict vector with NUM elements is
    more profitable than conflict bit vector for A.  */
-int
+bool
 conflict_vector_profitable_p (allocno_t a, int num)
 {
   int nw;
@@ -629,7 +575,7 @@ conflict_vector_profitable_p (allocno_t a, int num)
   if (ALLOCNO_MAX (a) < ALLOCNO_MIN (a))
     /* We prefer bit vector in such case because it does not result in
        allocation.  */
-    return FALSE;
+    return false;
 
   nw = (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + INT_BITS) / INT_BITS;
   return 2 * sizeof (allocno_t) * (num + 1) < 3 * nw * sizeof (INT_TYPE);
@@ -650,7 +596,7 @@ allocate_allocno_conflict_vec (allocno_t a, int num)
   vec[0] = NULL;
   ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) = size;
-  ALLOCNO_CONFLICT_VEC_P (a) = TRUE;
+  ALLOCNO_CONFLICT_VEC_P (a) = true;
 }
 
 /* The function allocates and initializes conflict bit vector of A.  */
@@ -665,7 +611,7 @@ allocate_allocno_conflict_bit_vec (allocno_t a)
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = ira_allocate (size);
   memset (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a), 0, size);
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) = size;
-  ALLOCNO_CONFLICT_VEC_P (a) = FALSE;
+  ALLOCNO_CONFLICT_VEC_P (a) = false;
 }
 
 /* The function allocates and initializes conflict vector or conflict
@@ -863,22 +809,22 @@ print_expanded_allocno (allocno_t a)
 }
 
 /* The function creates and returns cap representing allocno A in the
-   father loop.  */
+   parent loop.  */
 static allocno_t
 create_cap_allocno (allocno_t a)
 {
   allocno_t cap;
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) == a
 	      && ALLOCNO_NEXT_COALESCED_ALLOCNO (a) == a);
-  father = ALLOCNO_LOOP_TREE_NODE (a)->father;
-  cap = create_allocno (ALLOCNO_REGNO (a), TRUE, father);
+  parent = ALLOCNO_LOOP_TREE_NODE (a)->parent;
+  cap = create_allocno (ALLOCNO_REGNO (a), true, parent);
   ALLOCNO_MODE (cap) = ALLOCNO_MODE (a);
   set_allocno_cover_class (cap, ALLOCNO_COVER_CLASS (a));
   ALLOCNO_AVAILABLE_REGS_NUM (cap) = ALLOCNO_AVAILABLE_REGS_NUM (a);
   ALLOCNO_CAP_MEMBER (cap) = a;
-  bitmap_set_bit (father->mentioned_allocnos, ALLOCNO_NUM (cap));
+  bitmap_set_bit (parent->mentioned_allocnos, ALLOCNO_NUM (cap));
   ALLOCNO_CAP (a) = cap;
   ALLOCNO_COVER_CLASS_COST (cap) = ALLOCNO_COVER_CLASS_COST (a);
   ALLOCNO_MEMORY_COST (cap) = ALLOCNO_MEMORY_COST (a);
@@ -899,9 +845,9 @@ propagate_info_to_cap (allocno_t cap)
 {
   int regno, conflicts_num;
   enum reg_class cover_class;
-  allocno_t a, conflict_allocno, conflict_father_allocno;
-  allocno_t another_a, father_a;
-  loop_tree_node_t father;
+  allocno_t a, conflict_allocno, conflict_parent_allocno;
+  allocno_t another_a, parent_a;
+  loop_tree_node_t parent;
   copy_t cp, next_cp;
   allocno_conflict_iterator aci;
 
@@ -910,7 +856,7 @@ propagate_info_to_cap (allocno_t cap)
 	      && ALLOCNO_CONFLICT_ALLOCNO_ARRAY (cap) == NULL
 	      && ALLOCNO_CALLS_CROSSED_NUM (cap) == 0);
   a = ALLOCNO_CAP_MEMBER (cap);
-  father = ALLOCNO_LOOP_TREE_NODE (cap);
+  parent = ALLOCNO_LOOP_TREE_NODE (cap);
   cover_class = ALLOCNO_COVER_CLASS (cap);
   allocate_and_copy_costs
     (&ALLOCNO_HARD_REG_COSTS (cap), cover_class, ALLOCNO_HARD_REG_COSTS (a));
@@ -945,16 +891,16 @@ propagate_info_to_cap (allocno_t cap)
 	}
       else
 	gcc_unreachable ();
-      father_a = father->regno_allocno_map[ALLOCNO_REGNO (another_a)];
-      if (father_a == NULL)
-	father_a = ALLOCNO_CAP (another_a);
-      if (father_a != NULL
-	  && find_allocno_copy (cap, father_a,
+      parent_a = parent->regno_allocno_map[ALLOCNO_REGNO (another_a)];
+      if (parent_a == NULL)
+	parent_a = ALLOCNO_CAP (another_a);
+      if (parent_a != NULL
+	  && find_allocno_copy (cap, parent_a,
 				cp->insn, cp->loop_tree_node) == NULL)
 	/* Upper level allocno might be not existing because it is not
 	   mentioned or lived on the region border.  It is just living
 	   on BB start of the loop.  */
-	add_allocno_copy (cap, father_a, cp->freq, cp->insn,
+	add_allocno_copy (cap, parent_a, cp->freq, cp->insn,
 			  cp->loop_tree_node);
     }
   if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) != NULL)
@@ -966,13 +912,13 @@ propagate_info_to_cap (allocno_t cap)
       FOR_EACH_ALLOCNO_CONFLICT (a, conflict_allocno, aci)
 	{
 	  regno = ALLOCNO_REGNO (conflict_allocno);
-	  conflict_father_allocno = father->regno_allocno_map[regno];
-	  if (conflict_father_allocno == NULL)
-	    conflict_father_allocno = ALLOCNO_CAP (conflict_allocno);
-	  if (conflict_father_allocno != NULL
-	      && (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (conflict_father_allocno)
+	  conflict_parent_allocno = parent->regno_allocno_map[regno];
+	  if (conflict_parent_allocno == NULL)
+	    conflict_parent_allocno = ALLOCNO_CAP (conflict_allocno);
+	  if (conflict_parent_allocno != NULL
+	      && (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (conflict_parent_allocno)
 		  != NULL))
-	    add_allocno_conflict (cap, conflict_father_allocno);
+	    add_allocno_conflict (cap, conflict_parent_allocno);
 	}
     }
   if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
@@ -1421,7 +1367,7 @@ allocno_t *ira_curr_regno_allocno_map;
    basic block nodes of LOOP_NODE is also processed (before its
    subloop nodes).  */
 void
-traverse_loop_tree (int bb_p, loop_tree_node_t loop_node,
+traverse_loop_tree (bool bb_p, loop_tree_node_t loop_node,
 		    void (*preorder_func) (loop_tree_node_t),
 		    void (*postorder_func) (loop_tree_node_t))
 {
@@ -1469,10 +1415,10 @@ traverse_loop_tree (int bb_p, loop_tree_node_t loop_node,
 static basic_block curr_bb;
 
 /* This recursive function creates allocnos corresponding to
-   pseudo-registers containing in X.  Nonzero OUTPUT_P means that X is
+   pseudo-registers containing in X.  True OUTPUT_P means that X is
    a lvalue.  */
 static void
-create_insn_allocnos (rtx x, int output_p)
+create_insn_allocnos (rtx x, bool output_p)
 {
   int i, j;
   const char *fmt;
@@ -1487,7 +1433,7 @@ create_insn_allocnos (rtx x, int output_p)
 	  allocno_t a;
 
 	  if ((a = ira_curr_regno_allocno_map[regno]) == NULL)
-	    a = create_allocno (regno, FALSE, ira_curr_loop_tree_node);
+	    a = create_allocno (regno, false, ira_curr_loop_tree_node);
 	  
 	  ALLOCNO_NREFS (a)++;
 	  ALLOCNO_FREQ (a) += REG_FREQ_FROM_BB (curr_bb);
@@ -1500,25 +1446,25 @@ create_insn_allocnos (rtx x, int output_p)
     }
   else if (code == SET)
     {
-      create_insn_allocnos (SET_DEST (x), TRUE);
-      create_insn_allocnos (SET_SRC (x), FALSE);
+      create_insn_allocnos (SET_DEST (x), true);
+      create_insn_allocnos (SET_SRC (x), false);
       return;
     }
   else if (code == CLOBBER)
     {
-      create_insn_allocnos (XEXP (x, 0), TRUE);
+      create_insn_allocnos (XEXP (x, 0), true);
       return;
     }
   else if (code == MEM)
     {
-      create_insn_allocnos (XEXP (x, 0), FALSE);
+      create_insn_allocnos (XEXP (x, 0), false);
       return;
     }
   else if (code == PRE_DEC || code == POST_DEC || code == PRE_INC || 
 	   code == POST_INC || code == POST_MODIFY || code == PRE_MODIFY)
     {
-      create_insn_allocnos (XEXP (x, 0), TRUE);
-      create_insn_allocnos (XEXP (x, 0), FALSE);
+      create_insn_allocnos (XEXP (x, 0), true);
+      create_insn_allocnos (XEXP (x, 0), false);
       return;
     }
 
@@ -1548,12 +1494,12 @@ create_bb_allocnos (loop_tree_node_t bb_node)
   ira_assert (bb != NULL);
   FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
-      create_insn_allocnos (PATTERN (insn), FALSE);
+      create_insn_allocnos (PATTERN (insn), false);
   /* It might be a allocno living through from one subloop to
      another.  */
   EXECUTE_IF_SET_IN_REG_SET (DF_LR_IN (bb), FIRST_PSEUDO_REGISTER, i, bi)
     if (ira_curr_regno_allocno_map[i] == NULL)
-      create_allocno (i, FALSE, ira_curr_loop_tree_node);
+      create_allocno (i, false, ira_curr_loop_tree_node);
 }
 
 /* The function creates allocnos corresponding to pseudo-registers
@@ -1573,7 +1519,7 @@ create_loop_allocnos (edge e)
     if (bitmap_bit_p (live_in_regs, i))
       {
 	if (ira_curr_regno_allocno_map[i] == NULL)
-	  create_allocno (i, FALSE, ira_curr_loop_tree_node);
+	  create_allocno (i, false, ira_curr_loop_tree_node);
 	bitmap_set_bit (border_allocnos,
 			ALLOCNO_NUM (ira_curr_regno_allocno_map[i]));
       }
@@ -1612,12 +1558,12 @@ static void
 create_allocnos (void)
 {
   int i;
-  allocno_t a, father_a;
-  loop_tree_node_t father;
+  allocno_t a, parent_a;
+  loop_tree_node_t parent;
 
   /* We need to process BB first to correctly link allocnos by member
      next_regno_allocno.  */
-  traverse_loop_tree (TRUE, ira_loop_tree_root,
+  traverse_loop_tree (true, ira_loop_tree_root,
 		      create_loop_tree_node_allocnos, NULL);
   if (flag_ira_algorithm != IRA_ALGORITHM_REGIONAL
       && flag_ira_algorithm != IRA_ALGORITHM_MIXED)
@@ -1628,11 +1574,11 @@ create_allocnos (void)
     for (a = regno_allocno_map[i];
 	 a != NULL;
 	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
-      if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) != NULL
-	  && (father_a = father->regno_allocno_map[i]) != NULL)
+      if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) != NULL
+	  && (parent_a = parent->regno_allocno_map[i]) != NULL)
 	{
-	  ALLOCNO_NREFS (father_a) += ALLOCNO_NREFS (a);
-	  ALLOCNO_FREQ (father_a) += ALLOCNO_FREQ (a);
+	  ALLOCNO_NREFS (parent_a) += ALLOCNO_NREFS (a);
+	  ALLOCNO_FREQ (parent_a) += ALLOCNO_FREQ (a);
 	}
 }
 
@@ -1644,10 +1590,10 @@ static void
 setup_min_max_allocno_live_range_point (void)
 {
   int i;
-  allocno_t a, father_a, cap;
+  allocno_t a, parent_a, cap;
   allocno_iterator ai;
   allocno_live_range_t r;
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -1668,8 +1614,8 @@ setup_min_max_allocno_live_range_point (void)
 	  continue;
 	ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
 	/* Accumulation of range info.  */
-	if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
-	    || (father_a = father->regno_allocno_map[i]) == NULL)
+	if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	    || (parent_a = parent->regno_allocno_map[i]) == NULL)
 	  {
 	    for (cap = ALLOCNO_CAP (a); cap != NULL; cap = ALLOCNO_CAP (cap))
 	      {
@@ -1680,10 +1626,10 @@ setup_min_max_allocno_live_range_point (void)
 	      }
 	    continue;
 	  }
-	if (ALLOCNO_MAX (father_a) < ALLOCNO_MAX (a))
-	  ALLOCNO_MAX (father_a) = ALLOCNO_MAX (a);
-	if (ALLOCNO_MIN (father_a) > ALLOCNO_MIN (a))
-	  ALLOCNO_MIN (father_a) = ALLOCNO_MIN (a);
+	if (ALLOCNO_MAX (parent_a) < ALLOCNO_MAX (a))
+	  ALLOCNO_MAX (parent_a) = ALLOCNO_MAX (a);
+	if (ALLOCNO_MIN (parent_a) > ALLOCNO_MIN (a))
+	  ALLOCNO_MIN (parent_a) = ALLOCNO_MIN (a);
       }
 #ifdef ENABLE_IRA_CHECKING
   FOR_EACH_ALLOCNO (a, ai)
@@ -1828,16 +1774,16 @@ create_loop_tree_node_caps (loop_tree_node_t loop_node)
 {
   unsigned int i;
   bitmap_iterator bi;
-  loop_tree_node_t father;
+  loop_tree_node_t parent;
 
   if (loop_node == ira_loop_tree_root)
     return;
   ira_assert (loop_node->bb == NULL);
   bitmap_and_compl (allocnos_bitmap, loop_node->mentioned_allocnos,
 		    loop_node->border_allocnos);
-  father = loop_node->father;
+  parent = loop_node->parent;
   EXECUTE_IF_SET_IN_BITMAP (allocnos_bitmap, 0, i, bi)
-    if (father->regno_allocno_map[ALLOCNO_REGNO (allocnos[i])] == NULL)
+    if (parent->regno_allocno_map[ALLOCNO_REGNO (allocnos[i])] == NULL)
       create_cap_allocno (allocnos[i]);
 }
 
@@ -1954,11 +1900,11 @@ common_loop_tree_node_dominator (loop_tree_node_t n1, loop_tree_node_t n2)
   if (n1 == n2)
     return n1;
   if (n1->level < n2->level)
-    return common_loop_tree_node_dominator (n1, n2->father);
+    return common_loop_tree_node_dominator (n1, n2->parent);
   else if (n1->level > n2->level)
-    return common_loop_tree_node_dominator (n1->father, n2);
+    return common_loop_tree_node_dominator (n1->parent, n2);
   else
-    return common_loop_tree_node_dominator (n1->father, n2->father);
+    return common_loop_tree_node_dominator (n1->parent, n2->parent);
 }
 
 /* The function changes allocno in range list given by R onto A.  */
@@ -1978,15 +1924,17 @@ change_allocno_in_range_list (allocno_live_range_t r, allocno_t a)
 void
 ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 {
-  int i, j, num, propagate_p, stop_p, keep_p;
-  int hard_regs_num, new_allocnos_p, renamed_p, merged_p;
+  int i, j, num;
+  bool propagate_p, stop_p, keep_p;
+  int hard_regs_num;
+  bool new_allocnos_p, renamed_p, merged_p;
   unsigned int n;
   enum reg_class cover_class;
   rtx call, *allocno_calls;
-  allocno_t a, father_a, first, second, node_first, node_second;
+  allocno_t a, parent_a, first, second, node_first, node_second;
   allocno_t dominator_a;
   copy_t cp;
-  loop_tree_node_t father, node, dominator;
+  loop_tree_node_t parent, node, dominator;
   allocno_live_range_t r;
   allocno_iterator ai;
   copy_iterator ci;
@@ -1994,19 +1942,19 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
   /* Map: regno -> allocnos which will finally represent the regno for
      IR with one region.  */
   allocno_t *regno_top_level_allocno_map;
-  char *allocno_propagated_p;
+  bool *allocno_propagated_p;
 
   regno_top_level_allocno_map
     = ira_allocate (max_reg_num () * sizeof (allocno_t));
   memset (regno_top_level_allocno_map, 0, max_reg_num () * sizeof (allocno_t));
-  allocno_propagated_p = ira_allocate (allocnos_num * sizeof (char));
-  memset (allocno_propagated_p, 0, allocnos_num * sizeof (char));
+  allocno_propagated_p = ira_allocate (allocnos_num * sizeof (bool));
+  memset (allocno_propagated_p, 0, allocnos_num * sizeof (bool));
   expand_calls ();
-  new_allocnos_p = renamed_p = merged_p = FALSE;
+  new_allocnos_p = renamed_p = merged_p = false;
   /* Fix final allocno attributes.  */
   for (i = max_regno_before_emit - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     {
-      propagate_p = FALSE;
+      propagate_p = false;
       for (a = regno_allocno_map[i];
 	   a != NULL;
 	   a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
@@ -2014,7 +1962,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 	  if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
 	  if (ALLOCNO_SOMEWHERE_RENAMED_P (a))
-	    renamed_p = TRUE;
+	    renamed_p = true;
 	  if ((unsigned int) ALLOCNO_REGNO (a) != REGNO (ALLOCNO_REG (a))
 	      && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	    {
@@ -2030,96 +1978,96 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 		  allocno_calls[j] = NULL_RTX;
 		}
 	    }
-	  if ((father = ALLOCNO_LOOP_TREE_NODE (a)->father) == NULL
-	      || ((father_a = father->regno_allocno_map[ALLOCNO_REGNO (a)])
+	  if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	      || ((parent_a = parent->regno_allocno_map[ALLOCNO_REGNO (a)])
 		  == NULL))
 	    {
 	      ALLOCNO_COPIES (a) = NULL;
 	      regno_top_level_allocno_map[REGNO (ALLOCNO_REG (a))] = a;
 	      continue;
 	    }
-	  ira_assert (ALLOCNO_CAP_MEMBER (father_a) == NULL);
+	  ira_assert (ALLOCNO_CAP_MEMBER (parent_a) == NULL);
 	  if (propagate_p)
 	    {
-	      if (!allocno_propagated_p [ALLOCNO_NUM (father_a)])
-		COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
-				   ALLOCNO_CONFLICT_HARD_REGS (father_a));
-	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (father_a),
+	      if (!allocno_propagated_p [ALLOCNO_NUM (parent_a)])
+		COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
+				   ALLOCNO_CONFLICT_HARD_REGS (parent_a));
+	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
 				ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
 #ifdef STACK_REGS
-	      if (!allocno_propagated_p [ALLOCNO_NUM (father_a)])
-		ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
-		  = ALLOCNO_NO_STACK_REG_P (father_a);
-	      ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
-		= (ALLOCNO_TOTAL_NO_STACK_REG_P (father_a)
+	      if (!allocno_propagated_p [ALLOCNO_NUM (parent_a)])
+		ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
+		  = ALLOCNO_NO_STACK_REG_P (parent_a);
+	      ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
+		= (ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
 		   || ALLOCNO_TOTAL_NO_STACK_REG_P (a));
 #endif
-	      allocno_propagated_p [ALLOCNO_NUM (father_a)] = TRUE;
+	      allocno_propagated_p [ALLOCNO_NUM (parent_a)] = true;
 	    }
-	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (father_a)))
+	  if (REGNO (ALLOCNO_REG (a)) == REGNO (ALLOCNO_REG (parent_a)))
 	    {
 	      if (internal_flag_ira_verbose > 4 && ira_dump_file != NULL)
 		{
 		  fprintf (ira_dump_file,
 			   "      Moving ranges of a%dr%d to a%dr%d: ",
 			   ALLOCNO_NUM (a), REGNO (ALLOCNO_REG (a)),
-			   ALLOCNO_NUM (father_a),
-			   REGNO (ALLOCNO_REG (father_a)));
+			   ALLOCNO_NUM (parent_a),
+			   REGNO (ALLOCNO_REG (parent_a)));
 		  print_live_range_list (ira_dump_file,
 					 ALLOCNO_LIVE_RANGES (a));
 		}
-	      change_allocno_in_range_list (ALLOCNO_LIVE_RANGES (a), father_a);
-	      ALLOCNO_LIVE_RANGES (father_a)
+	      change_allocno_in_range_list (ALLOCNO_LIVE_RANGES (a), parent_a);
+	      ALLOCNO_LIVE_RANGES (parent_a)
 		= merge_ranges (ALLOCNO_LIVE_RANGES (a),
-				ALLOCNO_LIVE_RANGES (father_a));
-	      merged_p = TRUE;
+				ALLOCNO_LIVE_RANGES (parent_a));
+	      merged_p = true;
 	      ALLOCNO_LIVE_RANGES (a) = NULL;
-	      ALLOCNO_MEM_OPTIMIZED_DEST_P (father_a)
-		= (ALLOCNO_MEM_OPTIMIZED_DEST_P (father_a)
+	      ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
+		= (ALLOCNO_MEM_OPTIMIZED_DEST_P (parent_a)
 		   || ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
 	      continue;
 	    }
-	  new_allocnos_p = TRUE;
-	  propagate_p = TRUE;
+	  new_allocnos_p = true;
+	  propagate_p = true;
 	  first = ALLOCNO_MEM_OPTIMIZED_DEST (a) == NULL ? NULL : a;
 	  for (;;)
 	    {
 	      if (first == NULL
-		  && ALLOCNO_MEM_OPTIMIZED_DEST (father_a) != NULL)
-		first = father_a;
-	      ALLOCNO_NREFS (father_a) -= ALLOCNO_NREFS (a);
-	      ALLOCNO_FREQ (father_a) -= ALLOCNO_FREQ (a);
-	      ALLOCNO_CALL_FREQ (father_a) -= ALLOCNO_CALL_FREQ (a);
-	      cover_class = ALLOCNO_COVER_CLASS (father_a);
+		  && ALLOCNO_MEM_OPTIMIZED_DEST (parent_a) != NULL)
+		first = parent_a;
+	      ALLOCNO_NREFS (parent_a) -= ALLOCNO_NREFS (a);
+	      ALLOCNO_FREQ (parent_a) -= ALLOCNO_FREQ (a);
+	      ALLOCNO_CALL_FREQ (parent_a) -= ALLOCNO_CALL_FREQ (a);
+	      cover_class = ALLOCNO_COVER_CLASS (parent_a);
 	      hard_regs_num = class_hard_regs_num[cover_class];
 	      if (ALLOCNO_HARD_REG_COSTS (a) != NULL
-		  && ALLOCNO_HARD_REG_COSTS (father_a) != NULL)
+		  && ALLOCNO_HARD_REG_COSTS (parent_a) != NULL)
 		for (j = 0; j < hard_regs_num; j++)
-		  ALLOCNO_HARD_REG_COSTS (father_a)[j]
+		  ALLOCNO_HARD_REG_COSTS (parent_a)[j]
 		    -= ALLOCNO_HARD_REG_COSTS (a)[j];
 	      if (ALLOCNO_CONFLICT_HARD_REG_COSTS (a) != NULL
-		  && ALLOCNO_CONFLICT_HARD_REG_COSTS (father_a) != NULL)
+		  && ALLOCNO_CONFLICT_HARD_REG_COSTS (parent_a) != NULL)
 		for (j = 0; j < hard_regs_num; j++)
-		  ALLOCNO_CONFLICT_HARD_REG_COSTS (father_a)[j]
+		  ALLOCNO_CONFLICT_HARD_REG_COSTS (parent_a)[j]
 		    -= ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[j];
-	      ALLOCNO_COVER_CLASS_COST (father_a)
+	      ALLOCNO_COVER_CLASS_COST (parent_a)
 		-= ALLOCNO_COVER_CLASS_COST (a);
-	      ALLOCNO_MEMORY_COST (father_a) -= ALLOCNO_MEMORY_COST (a);
-	      ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (father_a)
+	      ALLOCNO_MEMORY_COST (parent_a) -= ALLOCNO_MEMORY_COST (a);
+	      ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (parent_a)
 		-= ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
-	      if ((father = ALLOCNO_LOOP_TREE_NODE (father_a)->father) == NULL
-		  || (father_a = (father->regno_allocno_map
-				  [ALLOCNO_REGNO (father_a)])) == NULL)
+	      if ((parent = ALLOCNO_LOOP_TREE_NODE (parent_a)->parent) == NULL
+		  || (parent_a = (parent->regno_allocno_map
+				  [ALLOCNO_REGNO (parent_a)])) == NULL)
 		break;
 	    }
 	  if (first != NULL)
 	    {
-	      father_a = ALLOCNO_MEM_OPTIMIZED_DEST (first);
+	      parent_a = ALLOCNO_MEM_OPTIMIZED_DEST (first);
 	      dominator = common_loop_tree_node_dominator
-		          (ALLOCNO_LOOP_TREE_NODE (father_a),
+		          (ALLOCNO_LOOP_TREE_NODE (parent_a),
 			   ALLOCNO_LOOP_TREE_NODE (first));
 	      dominator_a = dominator->regno_allocno_map[ALLOCNO_REGNO (a)];
-	      ira_assert (father_a != NULL);
+	      ira_assert (parent_a != NULL);
 	      stop_p = first != a;
 	      /* Remember that exit can be to a grandparent (not only
 		 to a parent) or a child of the grandparent.  */
@@ -2131,22 +2079,22 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
 			(ira_dump_file,
 			 "      Coping ranges of a%dr%d to a%dr%d: ",
 			 ALLOCNO_NUM (first), REGNO (ALLOCNO_REG (first)),
-			 ALLOCNO_NUM (father_a),
-			 REGNO (ALLOCNO_REG (father_a)));
+			 ALLOCNO_NUM (parent_a),
+			 REGNO (ALLOCNO_REG (parent_a)));
 		      print_live_range_list (ira_dump_file,
 					     ALLOCNO_LIVE_RANGES (first));
 		    }
 		  r = copy_allocno_live_range_list (ALLOCNO_LIVE_RANGES
 						    (first));
-		  change_allocno_in_range_list (r, father_a);
-		  ALLOCNO_LIVE_RANGES (father_a)
-		    = merge_ranges (r, ALLOCNO_LIVE_RANGES (father_a));
-		  merged_p = TRUE;
+		  change_allocno_in_range_list (r, parent_a);
+		  ALLOCNO_LIVE_RANGES (parent_a)
+		    = merge_ranges (r, ALLOCNO_LIVE_RANGES (parent_a));
+		  merged_p = true;
 		  if (stop_p)
 		    break;
-		  father = ALLOCNO_LOOP_TREE_NODE (first)->father;
-		  ira_assert (father != NULL);
-		  first = father->regno_allocno_map[ALLOCNO_REGNO (a)];
+		  parent = ALLOCNO_LOOP_TREE_NODE (first)->parent;
+		  ira_assert (parent != NULL);
+		  first = parent->regno_allocno_map[ALLOCNO_REGNO (a)];
 		  ira_assert (first != NULL);
 		  if (first == dominator_a)
 		    break;
@@ -2242,7 +2190,7 @@ ira_flattening (int max_regno_before_emit, int max_point_before_emit)
       second = regno_top_level_allocno_map[REGNO (ALLOCNO_REG (cp->second))];
       node = cp->loop_tree_node;
       if (node == NULL)
-	keep_p = TRUE; /* It copy generated in ira-emit.c.  */
+	keep_p = true; /* It copy generated in ira-emit.c.  */
       else
 	{
 	  /* Check that the copy was not propagated from level on
@@ -2329,8 +2277,8 @@ calculate_high_pressure_loops (loop_tree_node_t loop_node,
     {
       class = reg_class_cover[i];
       if (loop_node->reg_pressure[class] > available_class_regs[class]
-	  || (loop_node->father != NULL
-	      && loop_node->father->reg_pressure[class] > available_class_regs[class]))
+	  || (loop_node->parent != NULL
+	      && loop_node->parent->reg_pressure[class] > available_class_regs[class]))
 	break;
     }
   if (i < reg_class_cover_size)
@@ -2355,8 +2303,8 @@ calculate_high_pressure_loops (loop_tree_node_t loop_node,
    (besides nodes representing all function and the basic blocks) for
    regional allocation.  It means that we really need to flatten IR
    before the reload.  */
-int
-ira_build (int loops_p)
+bool
+ira_build (bool loops_p)
 {
   unsigned int i;
   loop_p loop;
@@ -2379,7 +2327,7 @@ ira_build (int loops_p)
 		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED))
     {
       bitmap_clear (allocnos_bitmap);
-      traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
+      traverse_loop_tree (false, ira_loop_tree_root, NULL,
 			  create_loop_tree_node_caps);
     }
   setup_min_max_allocno_live_range_point ();
@@ -2411,7 +2359,7 @@ ira_build (int loops_p)
     {
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
 	  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
-	traverse_loop_tree (FALSE, ira_loop_tree_root, NULL,
+	traverse_loop_tree (false, ira_loop_tree_root, NULL,
 			    propagate_info_to_loop_tree_node_caps);
       tune_allocno_costs_and_cover_classes ();
       if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
@@ -2420,10 +2368,10 @@ ira_build (int loops_p)
 	  for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
 	    if (ira_loop_nodes[i].regno_allocno_map != NULL
 		&& ira_loop_tree_root != &ira_loop_nodes[i])
-	      return TRUE;
+	      return true;
 	}
     }
-  return FALSE;
+  return false;
 }
 
 /* The function releases data created by function ira_build.  */
