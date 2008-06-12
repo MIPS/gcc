@@ -36,6 +36,9 @@
 #include <limits.h>
 #include <errno.h>
 
+#ifndef HAVE_STRTOULL
+# define strtoull(ptr, eptr, base) strtoul (ptr, eptr, base)
+#endif
 
 struct gomp_task_icv gomp_global_icv = {
   .nthreads_var = 1,
