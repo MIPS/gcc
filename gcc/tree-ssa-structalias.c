@@ -227,11 +227,6 @@ struct variable_info
   /* A link to the variable for the next field in this structure.  */
   struct variable_info *next;
 
-  /* True if the variable is directly the target of a dereference.
-     This is used to track which variables are *actually* dereferenced
-     so we can prune their points to listed. */
-  unsigned int directly_dereferenced:1;
-
   /* True if this is a variable created by the constraint analysis, such as
      heap variables and constraints we had to break up.  */
   unsigned int is_artificial_var:1;
@@ -364,7 +359,6 @@ new_var_info (tree t, unsigned int id, const char *name)
   ret->id = id;
   ret->name = name;
   ret->decl = t;
-  ret->directly_dereferenced = false;
   ret->is_artificial_var = false;
   ret->is_heap_var = false;
   ret->is_special_var = false;
@@ -2520,14 +2514,6 @@ process_constraint_1 (constraint_t t, bool from_call)
   gcc_assert (rhs.var < VEC_length (varinfo_t, varmap));
   gcc_assert (lhs.var < VEC_length (varinfo_t, varmap));
 
-  if (!from_call)
-    {
-      if (lhs.type == DEREF)
-	get_varinfo (lhs.var)->directly_dereferenced = true;
-      if (rhs.type == DEREF)
-	get_varinfo (rhs.var)->directly_dereferenced = true;
-    }
-
   if (!use_field_sensitive)
     {
       t->rhs.offset = 0;
@@ -3369,6 +3355,12 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 is an escape point, whether OP escapes.  */
       count_uses_and_derefs (op, stmt, &num_uses, &num_loads, &num_stores);
 
+      /* For directly dereferenced pointers we can apply
+	 TBAA-pruning to their points-to set.  We may not count the
+	 implicit dereferences &PTR->FLD here.  */
+      if (num_loads + num_stores > 0)
+	pi->is_dereferenced = 1;
+
       /* Handle a corner case involving address expressions of the
 	 form '&PTR->FLD'.  The problem with these expressions is that
 	 they do not represent a dereference of PTR.  However, if some
@@ -3409,7 +3401,10 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	     dereferenced pointers that point to a set of
 	     variables will be assigned a name tag to alias
 	     all the variables OP points to.  */
-	  pi->is_dereferenced = 1;
+	  pi->memory_tag_needed = 1;
+
+	  /* ???  For always executed direct dereferences we can
+	     apply TBAA-pruning to their escape set.  */
 
 	  /* If this is a store operation, mark OP as being
 	     dereferenced to store, otherwise mark it as being
@@ -3443,7 +3438,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	      || stmt_escape_type == ESCAPE_STORED_IN_GLOBAL)
 	    {
 	      pointer_set_insert (ai->dereferenced_ptrs_store, var);
-	      pi->is_dereferenced = 1;
+	      pi->memory_tag_needed = 1;
 	    }
 	}
     }
@@ -3531,8 +3526,7 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   unsigned int i = 0;
   unsigned int j = 0;
   VEC (ce_s, heap) *temp = NULL;
-  unsigned int rhsoffset = 0;
-  bool unknown_addend = false;
+  unsigned HOST_WIDE_INT rhsunitoffset, rhsoffset;
 
   if (TREE_CODE (expr) != POINTER_PLUS_EXPR)
     return false;
@@ -3541,13 +3535,18 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   op1 = TREE_OPERAND (expr, 1);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (op0)));
 
-  get_constraint_for (op0, &temp);
+  /* If the offset is not a non-negative integer constant that fits
+     in a HOST_WIDE_INT, we cannot handle it here.  */
+  if (!host_integerp (op1, 1))
+    return false;
 
-  /* Handle non-constants by making constraints from integer.  */
-  if (TREE_CODE (op1) == INTEGER_CST)
-    rhsoffset = TREE_INT_CST_LOW (op1) * BITS_PER_UNIT;
-  else
-    unknown_addend = true;
+  /* Make sure the bit-offset also fits.  */
+  rhsunitoffset = TREE_INT_CST_LOW (op1);
+  rhsoffset = rhsunitoffset * BITS_PER_UNIT;
+  if (rhsunitoffset != rhsoffset / BITS_PER_UNIT)
+    return false;
+
+  get_constraint_for (op0, &temp);
 
   for (i = 0; VEC_iterate (ce_s, lhsc, i, c); i++)
     for (j = 0; VEC_iterate (ce_s, temp, j, c2); j++)
@@ -3563,30 +3562,6 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
 	      continue;
 	    c2->var = temp->id;
 	    c2->offset = 0;
-	  }
-	else if (unknown_addend)
-	  {
-	    /* Can't handle *a + integer where integer is unknown.  */
-	    if (c2->type != SCALAR)
-	      {
-		struct constraint_expr intc;
-		intc.var = integer_id;
-		intc.offset = 0;
-		intc.type = SCALAR;
-		process_constraint (new_constraint (*c, intc));
-	      }
-	    else
-	      {
-		/* We known it lives somewhere within c2->var.  */
-		varinfo_t tmp = get_varinfo (c2->var);
-		for (; tmp; tmp = tmp->next)
-		  {
-		    struct constraint_expr tmpc = *c2;
-		    c2->var = tmp->id;
-		    c2->offset = 0;
-		    process_constraint (new_constraint (*c, tmpc));
-		  }
-	      }
 	  }
 	else
 	  c2->offset = rhsoffset;
@@ -3726,7 +3701,7 @@ find_func_aliases (tree origt)
 	  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
 	    {
 	      handle_rhs_call (GIMPLE_STMT_OPERAND (t, 1));
-	      if (POINTER_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (t, 1))))
+	      if (could_have_pointers (GIMPLE_STMT_OPERAND (t, 1)))
 		handle_lhs_call (GIMPLE_STMT_OPERAND (t, 0));
 	    }
 	  else
@@ -4673,10 +4648,11 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	    bitmap_set_bit (into, DECL_UID (vi->decl));
 	  else
 	    {
-	      alias_set_type var_alias_set, ptr_alias_set;
+	      alias_set_type var_alias_set, mem_alias_set;
 	      var_alias_set = get_alias_set (vi->decl);
-	      ptr_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
-	      if (alias_sets_conflict_p (ptr_alias_set, var_alias_set))
+	      mem_alias_set = get_alias_set (TREE_TYPE (TREE_TYPE (ptr)));
+	      if (may_alias_p (SSA_NAME_VAR (ptr), mem_alias_set,
+			       vi->decl, var_alias_set, true))
 	        bitmap_set_bit (into, DECL_UID (vi->decl));
 	    }
 	}
@@ -4723,7 +4699,7 @@ set_used_smts (void)
       /* Skip the special variables and those that can't be aliased.  */
       if (vi->is_special_var
 	  || !SSA_VAR_P (var)
-	  || (pi && !pi->is_dereferenced)
+	  || (pi && !pi->memory_tag_needed)
 	  || (TREE_CODE (var) == VAR_DECL && !may_be_aliased (var))
 	  || !POINTER_TYPE_P (TREE_TYPE (var)))
 	continue;
@@ -4738,32 +4714,6 @@ set_used_smts (void)
       smt = va->symbol_mem_tag;
       if (smt && bitmap_bit_p (withsolution->solution, anything_id))
 	bitmap_set_bit (used_smts, DECL_UID (smt));
-    }
-}
-
-/* Merge the necessary SMT's into the bitmap INTO, which is
-   P's varinfo.  This involves merging all SMT's that are a subset of
-   the SMT necessary for P. */
-
-static void
-merge_smts_into (tree p, bitmap solution)
-{
-  tree smt;
-  bitmap aliases;
-  tree var = p;
-
-  if (TREE_CODE (p) == SSA_NAME)
-    var = SSA_NAME_VAR (p);
-
-  smt = var_ann (var)->symbol_mem_tag;
-  if (smt)
-    {
-      /* The smt itself isn't included in its aliases.  */
-      bitmap_set_bit (solution, DECL_UID (smt));
-
-      aliases = MTAG_ALIASES (smt);
-      if (aliases)
-	bitmap_ior_into (solution, aliases);
     }
 }
 
@@ -4817,7 +4767,7 @@ find_what_p_points_to (tree p)
 	  bitmap finished_solution;
 	  bitmap result;
 
-	  if (!pi->is_dereferenced)
+	  if (!pi->memory_tag_needed)
 	    return false;
 
 	  /* This variable may have been collapsed, let's get the real
@@ -4848,21 +4798,20 @@ find_what_p_points_to (tree p)
 		}
 	    }
 
+	  /* Instead of doing extra work, simply do not create
+	     points-to information for pt_anything pointers.  This
+	     will cause the operand scanner to fall back to the
+	     type-based SMT and its aliases.  Which is the best
+	     we could do here for the points-to set as well.  */
+	  if (was_pt_anything)
+	    return false;
+
 	  /* Share the final set of variables when possible.  */
 	  finished_solution = BITMAP_GGC_ALLOC ();
 	  stats.points_to_sets_created++;
 
-	  /* Instead of using pt_anything, we merge in the SMT aliases
-	     for the underlying SMT.  In addition, if they could have
-	     pointed to anything, they could point to global memory.  */
-	  if (was_pt_anything)
-	    {
-	      merge_smts_into (p, finished_solution);
-	      pi->pt_global_mem = 1;
-	    }
-
 	  set_uids_in_ptset (p, finished_solution, vi->solution,
-			     vi->directly_dereferenced,
+			     pi->is_dereferenced,
 			     vi->no_tbaa_pruning);
 	  result = shared_bitmap_lookup (finished_solution);
 

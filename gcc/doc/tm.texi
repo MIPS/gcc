@@ -912,17 +912,6 @@ Generally, any memory that they reference must be allocated by using
 @code{ggc_alloc}, including the structure itself.
 @end deftypevar
 
-@deftypevar {struct target_specific_data} DECL_TARGET_SPECIFIC
-If the target machine supports compiling a function with different
-options, via @code{__attribute__((__option__("string")))}, the
-@code{struct target_specific_data} structure should be defined to hold
-the appropriate information.  The 
-@code{TARGET_TARGET_SPECIFIC_VALIDATE} hook should be used to create
-the structure stored in the @code{DECL_TARGET_SPECIFIC} field, and the
-@code{TARGET_TARGET_SPECIFIC_CAN_INLINE_P} hook can use the information to
-determine if one function can inline another.
-@end deftypevar
-
 @node Storage Layout
 @section Storage Layout
 @cindex storage layout
@@ -4064,6 +4053,15 @@ variables to keep track of that.  For target machines on which all
 arguments are passed on the stack, there is no need to store anything in
 @code{CUMULATIVE_ARGS}; however, the data structure must exist and
 should not be empty, so use @code{int}.
+@end defmac
+
+@defmac OVERRIDE_ABI_FORMAT (@var{fndecl})
+If defined, this macro is called before generating any code for a
+function, but after the @var{cfun} descriptor for the function has been
+created.  The back end may use this macro to update @var{cfun} to
+reflect an ABI other than that which would normally be used by default.
+If the compiler is generating code for a compiler-generated function,
+@var{fndecl} may be @code{NULL}.
 @end defmac
 
 @defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
@@ -9232,6 +9230,22 @@ attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_VALID_OPTION_ATTRIBUTE_P (tree @var{fndecl}, tree @var{name}, tree @var{args}, int @var{flags})
+This hook is called to parse the @code{attribute(option("..."))}, and
+it allows the function to set compile time options for the current
+function that might be different than the options specified on the
+command line.  The hook should return @code{true} if the options are valid.
+
+The hook should set the @var{DECL_FUNCTION_SPECIFIC} field in the
+function declaration to hold a pointer to a target specific
+@var{struct function_specific_data} structure.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CAN_INLINE_P (tree @var{caller}, tree @var{callee})
+This target hook returns @code{false} if the @var{caller} function cannot
+inline @var{callee}, based on target specific information.
+@end deftypefn
+
 @node Emulated TLS
 @section Emulating TLS
 @cindex Emulated TLS
@@ -10310,25 +10324,6 @@ GCC sets @code{cfun} to a dummy function context during initialization of
 some parts of the back end.  The hook function is not invoked in this
 situation; you need not worry about the hook being invoked recursively,
 or when the back end is in a partially-initialized state.
-@end deftypefn
-
-@deftypefn {Target Hook} bool TARGET_TARGET_SPECIFIC_VALIDATE (int @var{argc}, const car **@var{argv}, tree @var{fndecl})
-The compiler invokes this hook in order to parse the options specified
-in @code{__attribute__((__option__("string"))} which allows the user
-to override the target options for a specific function.  The
-@code{TARGET_TARGET_SPECIFIC_VALIDATE} hook should create a
-@code{struct target_specific_data} structure and store the pointer in
-the @code{DECL_TARGET_SPECIFIC} node in the function declaration to
-hold the necessary information for compiling this function.
-@end deftypefn
-
-@deftypefn {Target Hook} bool TARGET_TARGET_SPECIFIC_CAN_INLINE_P (tree @var{caller}, tree @var{callee})
-The compiler invokes this hook to determine whether a specific
-function can inline another function.  For example on an x86_64 system
-if you have a function that was specified to be compiled with
-@samp{sse5} options, you would not want to expand it in a generic
-function that does not know about the @samp{sse5} extended instruction
-set.
 @end deftypefn
 
 @defmac TARGET_OBJECT_SUFFIX

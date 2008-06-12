@@ -97,8 +97,6 @@ for (i = 0; i < n_opts; i++) {
 	print "/* Set by -" opts[i] "."
 	print "   " help[i] "  */"
 	print var_type(flags[i]) name init ";"
-	if (flag_set_p("Explicit", flags[i]))
-		print var_type(flags[i]) name "_explicit;"
 	if (gcc_driver == 1)
 		print "#endif /* GCC_DRIVER */"
 	print ""
@@ -236,8 +234,6 @@ if (have_save) {
 
 			var_seen_save[name] = 1;
 			print "  ptr->" name " = " name ";";
-			if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
-				print "  ptr->" name "_explicit = " name "_explicit;";
 		}
 	}
 
@@ -260,8 +256,6 @@ if (have_save) {
 
 			var_seen_restore[name] = 1;
 			print "  " name " = ptr->" name ";";
-			if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
-				print "  " name "_explicit = ptr->" name "_explicit;";
 		}
 	}
 

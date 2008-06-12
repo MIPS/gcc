@@ -192,7 +192,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	  /* By inlining function having uninitialized variable, we might
 	     extend the lifetime (variable might get reused).  This cause
 	     ICE in the case we end up extending lifetime of SSA name across
-	     abnormal edge, but also increase register presure.
+	     abnormal edge, but also increase register pressure.
 
 	     We simply initialize all uninitialized vars by 0 except for case
 	     we are inlining to very first BB.  We can avoid this for all
@@ -715,6 +715,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		    {
 	              *tp = build1 (INDIRECT_REF, type, new);
 		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		      TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 		    }
 		}
 	      *walk_subtrees = 0;
@@ -795,7 +796,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
    later  */
 
 static basic_block
-copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scale)
+copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
+         gcov_type count_scale)
 {
   block_stmt_iterator bsi, copy_bsi;
   basic_block copy_basic_block;
@@ -1108,7 +1110,7 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
    accordingly.  Edges will be taken care of later.  Assume aux
    pointers to point to the copies of each BB.  */
 static void
-copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
+copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb)
 {
   basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
@@ -1257,7 +1259,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
   struct function *new_cfun
      = (struct function *) ggc_alloc_cleared (sizeof (struct function));
   struct function *src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
-  int count_scale, frequency_scale;
+  gcov_type count_scale, frequency_scale;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -1321,7 +1323,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   struct function *cfun_to_copy;
   basic_block bb;
   tree new_fndecl = NULL;
-  int count_scale, frequency_scale;
+  gcov_type count_scale, frequency_scale;
   int last;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
@@ -1603,7 +1605,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	}
 
       /* If VAR represents a zero-sized variable, it's possible that the
-	 assignment statment may result in no gimple statements.  */
+	 assignment statement may result in no gimple statements.  */
       if (init_stmt)
         bsi_insert_after (&bsi, init_stmt, BSI_NEW_STMT);
       if (gimple_in_ssa_p (cfun))
@@ -2478,6 +2480,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       }
 
     case OMP_PARALLEL:
+    case OMP_TASK:
     case OMP_FOR:
     case OMP_SECTIONS:
     case OMP_SINGLE:

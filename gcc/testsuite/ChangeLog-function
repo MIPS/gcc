@@ -1,0 +1,13 @@
+2008-06-11  Michael Meissner  <michael.meissner@amd.com>
+	    Karthik Kumar  <karthikkumar@gmail.com>
+
+	* gcc.target/i386/funcspec-1.c: New test to test function specific
+	options.
+	* gcc.target/i386/funcspec-2.c: New test.
+	* gcc.target/i386/funcspec-3.c: New test.
+	* gcc.target/i386/funcspec-4.c: New test.
+	* gcc.target/i386/funcspec-5.c: New test.
+	* gcc.target/i386/funcspec-6.c: New test.
+	* gcc.target/i386/funcspec-7.c: New test.
+	* gcc.target/i386/funcspec-8.c: New test.
+

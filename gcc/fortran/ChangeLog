@@ -1,3 +1,231 @@
+2008-06-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36462
+	* trans-intrinsic.c (gfc_conv_intrinsic_index_scan_verify):
+	Fix passing of the BACK= argument.
+
+2008-06-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* cpp.c: Add copyright notice.
+	* cpp.h: Add copyright notice.
+
+2008-06-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36459
+	* decl.c (match_procedure_decl): Correctly recognize if the interface
+	is an intrinsic procedure.
+
+2008-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35830
+	* resolve.c (resolve_symbol): Copy more attributes for
+	PROCEDUREs with interfaces.
+
+2008-06-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36420
+	PR fortran/36422
+	* io.c (check_format): Add new error message for zero width.
+	Use new	error message for FMT_A and with READ, FMT_G.  Allow
+	FMT_G with WRITE except when -std=F95 and -std=F2003.
+
+2008-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36437
+	* intrinsic.c (add_functions): Implement c_sizeof.
+	* trans-intrinsic.c (gfc_conv_intrinsic_sizeof): Do not
+	create unneeded variable in the scalar case.
+	* intrinsic.texi: Add C_SIZEOF documentation.
+
+2008-06-06  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (BESSEL_J1): Fix BES(S)EL_J1 typo.
+
+2008-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* scanner.c (skip_free_comments, skip_fixed_comments): Handle tabs.
+	* parse.c (next_free): Allow tab after !$omp.
+	(decode_omp_directive): Handle !$omp task, !$omp taskwait
+	and !$omp end task.
+	(case_executable): Add ST_OMP_TASKWAIT.
+	(case_exec_markers): Add ST_OMP_TASK.
+	(gfc_ascii_statement): Handle ST_OMP_TASK, ST_OMP_END_TASK and
+	ST_OMP_TASKWAIT.
+	(parse_omp_structured_block, parse_executable): Handle ST_OMP_TASK.
+	* gfortran.h (gfc_find_sym_in_expr): New prototype.
+	(gfc_statement): Add ST_OMP_TASK, ST_OMP_END_TASK and ST_OMP_TASKWAIT.
+	(gfc_omp_clauses): Add OMP_SCHED_AUTO to sched_kind,
+	OMP_DEFAULT_FIRSTPRIVATE to default_sharing.  Add collapse and
+	untied fields.
+	(gfc_exec_op): Add EXEC_OMP_TASK and EXEC_OMP_TASKWAIT.
+	* f95-lang.c (LANG_HOOKS_OMP_CLAUSE_COPY_CTOR,
+	LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, LANG_HOOKS_OMP_CLAUSE_DTOR,
+	LANG_HOOKS_OMP_PRIVATE_OUTER_REF): Define.
+	* trans.h (gfc_omp_clause_default_ctor): Add another argument.
+	(gfc_omp_clause_copy_ctor, gfc_omp_clause_assign_op,
+	gfc_omp_clause_dtor, gfc_omp_private_outer_ref): New prototypes.
+	* types.def (BT_ULONGLONG, BT_PTR_ULONGLONG,
+	BT_FN_BOOL_ULONGLONGPTR_ULONGLONGPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULLPTR_ULLPTR,
+	BT_FN_BOOL_BOOL_ULL_ULL_ULL_ULL_ULLPTR_ULLPTR,
+	BT_FN_VOID_PTR_PTR, BT_PTR_FN_VOID_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): New.
+	(BT_BOOL): Use integer type with BOOL_TYPE_SIZE rather
+	than boolean_type_node.
+	* dump-parse-tree.c (gfc_show_omp_node): Handle EXEC_OMP_TASK,
+	EXEC_OMP_TASKWAIT, OMP_SCHED_AUTO, OMP_DEFAULT_FIRSTPRIVATE,
+	untied and collapse clauses.
+	(gfc_show_code_node): Handle EXEC_OMP_TASK and EXEC_OMP_TASKWAIT.
+	* trans.c (gfc_trans_code): Handle EXEC_OMP_TASK and
+	EXEC_OMP_TASKWAIT.
+	* st.c (gfc_free_statement): Likewise.
+	* resolve.c (gfc_resolve_blocks, resolve_code): Likewise.
+	(find_sym_in_expr): Rename to...
+	(gfc_find_sym_in_expr): ... this.  No longer static.
+	(resolve_allocate_expr, resolve_ordinary_assign): Adjust caller.
+	* match.h (gfc_match_omp_task, gfc_match_omp_taskwait): New
+	prototypes.
+	* openmp.c (resolve_omp_clauses): Allow allocatable arrays in
+	firstprivate, lastprivate, reduction, copyprivate and copyin
+	clauses.
+	(omp_current_do_code): Made static.
+	(omp_current_do_collapse): New variable.
+	(gfc_resolve_omp_do_blocks): Compute omp_current_do_collapse,
+	clear omp_current_do_code and omp_current_do_collapse on return.
+	(gfc_resolve_do_iterator): Handle collapsed do loops.
+	(resolve_omp_do): Likewise, diagnose errorneous collapsed do loops.
+	(OMP_CLAUSE_COLLAPSE, OMP_CLAUSE_UNTIED): Define.
+	(gfc_match_omp_clauses): Handle default (firstprivate),
+	schedule (auto), untied and collapse (n) clauses.
+	(OMP_DO_CLAUSES): Add OMP_CLAUSE_COLLAPSE.
+	(OMP_TASK_CLAUSES): Define.
+	(gfc_match_omp_task, gfc_match_omp_taskwait): New functions.
+	* trans-openmp.c (gfc_omp_private_outer_ref): New function.
+	(gfc_omp_clause_default_ctor): Add outer argument.  For allocatable
+	arrays allocate them with the bounds of the outer var if outer
+	var is allocated.
+	(gfc_omp_clause_copy_ctor, gfc_omp_clause_assign_op,
+	gfc_omp_clause_dtor): New functions.
+	(gfc_trans_omp_array_reduction): If decl is allocatable array,
+	allocate it with outer var's bounds in OMP_CLAUSE_REDUCTION_INIT
+	and deallocate it in OMP_CLAUSE_REDUCTION_MERGE.
+	(gfc_omp_predetermined_sharing): Return OMP_CLAUSE_DEFAULT_SHARED
+	for assumed-size arrays.
+	(gfc_trans_omp_do): Add par_clauses argument.  If dovar is
+	present in lastprivate clause and do loop isn't simple,
+	set OMP_CLAUSE_LASTPRIVATE_STMT.  If dovar is present in
+	parallel's lastprivate clause, change it to shared and add
+	lastprivate clause to OMP_FOR_CLAUSES.  Handle collapsed do loops.
+	(gfc_trans_omp_directive): Adjust gfc_trans_omp_do callers.
+	(gfc_trans_omp_parallel_do): Likewise.  Move collapse clause to
+	OMP_FOR from OMP_PARALLEL.
+	(gfc_trans_omp_clauses): Handle OMP_SCHED_AUTO,
+	OMP_DEFAULT_FIRSTPRIVATE, untied and collapse clauses.
+	(gfc_trans_omp_task, gfc_trans_omp_taskwait): New functions.
+	(gfc_trans_omp_directive): Handle EXEC_OMP_TASK and
+	EXEC_OMP_TASKWAIT.
+
+2008-06-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36322
+	PR fortran/36275
+	* resolve.c (resolve_symbol): Correctly copy the interface for a
+	PROCEDURE declaration.
+
+2008-06-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36361
+	* symbol.c (gfc_add_allocatable,gfc_add_dimension,
+	gfc_add_explicit_interface): Added checks.
+	* decl.c (attr_decl1): Added missing "var_locus".
+	* parse.c (parse_interface): Checking for errors.
+
+2008-06-02  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.h:  New statement-type ST_FINAL for FINAL declarations.
+	(struct gfc_symbol):  New member f2k_derived.
+	(struct gfc_namespace):  New member finalizers, for use in the above
+	mentioned f2k_derived namespace.
+	(struct gfc_finalizer):  New type defined for finalizers linked list.
+	* match.h (gfc_match_final_decl):  New function header.
+	* decl.c (gfc_match_derived_decl):  Create f2k_derived namespace on
+	constructed symbol node.
+	(gfc_match_final_decl):  New function to match a FINAL declaration line.
+	* parse.c (decode_statement):  match-call for keyword FINAL.
+	(parse_derived):  Parse CONTAINS section and accept FINAL statements.
+	* resolve.c (gfc_resolve_finalizers):  New function to resolve (that is
+	in this case, check) a list of finalizer procedures.
+	(resolve_fl_derived):  Call gfc_resolve_finalizers here.
+	* symbol.c (gfc_get_namespace):  Initialize new finalizers to NULL.
+	(gfc_free_namespace):  Free finalizers list.
+	(gfc_new_symbol):  Initialize new f2k_derived to NULL.
+	(gfc_free_symbol):  Free f2k_derived namespace.
+	(gfc_free_finalizer):  New function to free a single gfc_finalizer node.
+	(gfc_free_finalizer_list):  New function to free a linked list of
+	gfc_finalizer nodes.
+
+2008-06-02  Daniel Franke  <franke.daniel@gmail.com>
+
+	PR fortran/36375
+	PR fortran/36377
+	* cpp.c (gfc_cpp_init): Do not initialize builtins if
+	processing already preprocessed input.
+	(gfc_cpp_preprocess): Finalize output with newline.
+
+2008-05-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* intrinsic.texi: Revert wrong commit.
+
+2008-05-31  Steven G. Kargl  <kargls@comcast.net>
+
+	* arith.c (gfc_arith_init_1): Remove now unused r and c variables.
+	Cleanup numerical inquiry function initialization.
+	(gfc_arith_done_1): Replace multiple mpfr_clear() invocations with
+	a single mpfr_clears().
+	(gfc_check_real_range): Re-arrange logic to eliminate multiple
+	unnecessary branching and assignments.
+	(gfc_arith_times): Use mpfr_clears() in preference to multiple
+	mpfr_clear().
+	(gfc_arith_divide): Ditto.
+	(complex_reciprocal): Eliminate now unused variables a, re, im.
+	Cleanup the mpfr abuse.  Use mpfr_clears() in preference to
+	multiple mpfr_clear().
+	(complex_pow): Fix comment whitespace.  Use mpfr_clears() in
+	preference to multiple mpfr_clear().
+	* simplify.c (gfc_simplify_and): Remove blank line.
+	(gfc_simplify_atan2): Move error checking earlier to eliminate
+	a now unnecessay gfc_free_expr().
+	(gfc_simplify_bessel_j0): Remove unnecessary gfc_set_model_kind().
+	(gfc_simplify_bessel_j1): Ditto.
+	(gfc_simplify_bessel_jn): Ditto.
+ 	(gfc_simplify_bessel_y0): Ditto.
+	(gfc_simplify_bessel_y1): Ditto.
+	(gfc_simplify_bessel_yn): Ditto. 
+	(only_convert_cmplx_boz): Eliminate unnecessary duplicate code, and
+	combine nested if statement rational expressions.
+	(gfc_simplify_cos): Use mpfr_clears() in preference to multiple
+	mpfr_clear().
+	(gfc_simplify_exp): Ditto.
+	(gfc_simplify_fraction): Move gfc_set_model_kind() to after the
+	special case of 0.  Use mpfr_clears() in preference to multiple
+	mpfr_clear().
+	(gfc_simplify_gamma): Eliminate unnecessary gfc_set_model_kind().
+ 	(gfc_simplify_lgamma): Ditto.
+	(gfc_simplify_log10): Ditto.
+	(gfc_simplify_log): Move gfc_set_model_kind () inside switch
+	statement. Use mpfr_clears() in preference to multiple mpfr_clear().
+	(gfc_simplify_mod):  Eliminate now unused variables quot, iquot,
+	and term.  Simplify the mpfr magic.
+	(gfc_simplify_modulo): Ditto.
+	(gfc_simplify_nearest): Eliminate unnecessary gfc_set_model_kind().
+	(gfc_simplify_scale): Use mpfr_clears() in preference to multiple
+	mpfr_clear().
+	(gfc_simplify_sin): Ditto
+	(gfc_simplify_sqrt): Ditto
+	(gfc_simplify_set_exponent):  Move gfc_set_model_kind() to after the
+	special case of 0.  Use mpfr_clears() in preference to multiple
+	mpfr_clear().
+
 2008-05-29  Daniel Franke  <franke.daniel@gmail.com>
 
 	PR target/36348

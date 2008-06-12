@@ -391,6 +391,9 @@ enum fpu_type m68k_fpu;
 /* The set of FL_* flags that apply to the target processor.  */
 unsigned int m68k_cpu_flags;
 
+/* The set of FL_* flags that apply to the processor to be tuned for.  */
+unsigned int m68k_tune_flags;
+
 /* Asm templates for calling or jumping to an arbitrary symbolic address,
    or NULL if such calls or jumps are not supported.  The address is held
    in operand 0.  */
@@ -571,13 +574,23 @@ override_options (void)
   /* Set the directly-usable versions of the -mcpu and -mtune settings.  */
   m68k_cpu = entry->device;
   if (m68k_tune_entry)
-    m68k_tune = m68k_tune_entry->microarch;
+    {
+      m68k_tune = m68k_tune_entry->microarch;
+      m68k_tune_flags = m68k_tune_entry->flags;
+    }
 #ifdef M68K_DEFAULT_TUNE
   else if (!m68k_cpu_entry && !m68k_arch_entry)
-    m68k_tune = M68K_DEFAULT_TUNE;
+    {
+      enum target_device dev;
+      dev = all_microarchs[M68K_DEFAULT_TUNE].device;
+      m68k_tune_flags = all_devices[dev]->flags;
+    }
 #endif
   else
-    m68k_tune = entry->microarch;
+    {
+      m68k_tune = entry->microarch;
+      m68k_tune_flags = entry->flags;
+    }
 
   /* Set the type of FPU.  */
   m68k_fpu = (!TARGET_HARD_FLOAT ? FPUTYPE_NONE
@@ -2059,9 +2072,30 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
     {
       gcc_assert (reg);
 
-      pic_ref = gen_rtx_MEM (Pmode,
-			     gen_rtx_PLUS (Pmode,
-					   pic_offset_table_rtx, orig));
+      if (TARGET_COLDFIRE && TARGET_XGOT)
+	/* When compiling with -mxgot switch the code for the above
+	   example will look like this:
+
+	   movel a5, a0
+	   addl _foo@GOT, a0
+	   movel a0@, a0
+	   movel #12345, a0@  */
+	{
+	  rtx pic_offset;
+
+	  /* Wrap ORIG in UNSPEC_GOTOFF to tip m68k_output_addr_const_extra
+	     to put @GOT after reference.  */
+	  pic_offset = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, orig),
+				       UNSPEC_GOTOFF);
+	  pic_offset = gen_rtx_CONST (Pmode, pic_offset);
+	  emit_move_insn (reg, pic_offset);
+	  emit_insn (gen_addsi3 (reg, reg, pic_offset_table_rtx));
+	  pic_ref = gen_rtx_MEM (Pmode, reg);
+	}
+      else
+	pic_ref = gen_rtx_MEM (Pmode,
+			       gen_rtx_PLUS (Pmode,
+					     pic_offset_table_rtx, orig));
       crtl->uses_pic_offset_table = 1;
       MEM_READONLY_P (pic_ref) = 1;
       emit_move_insn (reg, pic_ref);
@@ -2205,13 +2239,18 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 #define MULL_COST				\
   (TUNE_68060 ? 2				\
    : TUNE_68040 ? 5				\
-   : TUNE_CFV2 ? 10				\
+   : (TUNE_CFV2 && TUNE_EMAC) ? 3		\
+   : (TUNE_CFV2 && TUNE_MAC) ? 4		\
+   : TUNE_CFV2 ? 8				\
    : TARGET_COLDFIRE ? 3 : 13)
 
 #define MULW_COST				\
   (TUNE_68060 ? 2				\
    : TUNE_68040 ? 3				\
-   : TUNE_68000_10 || TUNE_CFV2 ? 5		\
+   : TUNE_68000_10 ? 5				\
+   : (TUNE_CFV2 && TUNE_EMAC) ? 3		\
+   : (TUNE_CFV2 && TUNE_MAC) ? 2		\
+   : TUNE_CFV2 ? 8				\
    : TARGET_COLDFIRE ? 2 : 8)
 
 #define DIVW_COST				\
@@ -3867,6 +3906,20 @@ print_operand (FILE *file, rtx op, int letter)
       else
 	output_addr_const (file, op);
     }
+}
+
+/* m68k implementation of OUTPUT_ADDR_CONST_EXTRA.  */
+
+bool
+m68k_output_addr_const_extra (FILE *file, rtx x)
+{
+  if (GET_CODE (x) != UNSPEC || XINT (x, 1) != UNSPEC_GOTOFF)
+    return false;
+
+  output_addr_const (file, XVECEXP (x, 0, 0));
+  /* ??? What is the non-MOTOROLA syntax?  */
+  fputs ("@GOT", file);
+  return true;
 }
 
 

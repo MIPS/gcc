@@ -269,6 +269,9 @@ along with GCC; see the file COPYING3.  If not see
 #define TUNE_CFV3       (m68k_tune == ucfv3)
 #define TUNE_CFV4       (m68k_tune == ucfv4 || m68k_tune == ucfv4e)
 
+#define TUNE_MAC	((m68k_tune_flags & FL_CF_MAC) != 0)
+#define TUNE_EMAC	((m68k_tune_flags & FL_CF_EMAC) != 0)
+
 #define OVERRIDE_OPTIONS   override_options()
 
 /* These are meant to be redefined in the host dependent files */
@@ -1079,6 +1082,12 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
+do {							\
+  if (! m68k_output_addr_const_extra (FILE, (X)))	\
+    goto FAIL;						\
+} while (0);
+
 /* Values used in the MICROARCH argument to M68K_DEVICE.  */
 enum uarch_type
 {
@@ -1131,6 +1140,7 @@ extern enum target_device m68k_cpu;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;
 extern unsigned int m68k_cpu_flags;
+extern unsigned int m68k_tune_flags;
 extern const char *m68k_symbolic_call;
 extern const char *m68k_symbolic_jump;
 

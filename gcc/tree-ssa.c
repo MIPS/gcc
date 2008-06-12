@@ -1,5 +1,6 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
+   Foundation, Inc.
 
 This file is part of GCC.
 
@@ -129,7 +130,7 @@ redirect_edge_var_map_dup (edge newe, edge olde)
 }
 
 
-/* Return the varable mappings for a given edge.  If there is none, return
+/* Return the variable mappings for a given edge.  If there is none, return
    NULL.  */
 
 edge_var_map_vector
@@ -558,7 +559,7 @@ verify_flow_sensitive_alias_info (void)
 	continue;
 
       ann = var_ann (var);
-      if (pi->is_dereferenced && !pi->name_mem_tag && !ann->symbol_mem_tag)
+      if (pi->memory_tag_needed && !pi->name_mem_tag && !ann->symbol_mem_tag)
 	{
 	  error ("dereferenced pointers should have a name or a symbol tag");
 	  goto err;

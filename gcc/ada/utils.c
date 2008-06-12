@@ -95,7 +95,7 @@ static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree fake_attribute_handler      (tree *, tree, tree, int, bool *);
 
 /* Table of machine-independent internal attributes for Ada.  We support
-   this minimal set ot attributes to accomodate the needs of builtins.  */
+   this minimal set of attributes to accommodate the needs of builtins.  */
 const struct attribute_spec gnat_internal_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
@@ -1059,6 +1059,8 @@ rest_of_record_type_compilation (tree record_type)
       TYPE_SIZE_UNIT (new_record_type)
 	= size_int (TYPE_ALIGN (record_type) / BITS_PER_UNIT);
 
+      add_parallel_type (TYPE_STUB_DECL (record_type), new_record_type);
+
       /* Now scan all the fields, replacing each field with a new
 	 field corresponding to the new encoding.  */
       for (old_field = TYPE_FIELDS (record_type); old_field;
@@ -1199,6 +1201,30 @@ rest_of_record_type_compilation (tree record_type)
     }
 
   rest_of_type_decl_compilation (TYPE_STUB_DECL (record_type));
+}
+
+/* Append PARALLEL_TYPE on the chain of parallel types for decl.  */
+
+void
+add_parallel_type (tree decl, tree parallel_type)
+{
+  tree d = decl;
+
+  while (DECL_PARALLEL_TYPE (d))
+    d = TYPE_STUB_DECL (DECL_PARALLEL_TYPE (d));
+
+  SET_DECL_PARALLEL_TYPE (d, parallel_type);
+}
+
+/* Return the parallel type associated to a type, if any.  */
+
+tree
+get_parallel_type (tree type)
+{
+  if (TYPE_STUB_DECL (type))
+    return DECL_PARALLEL_TYPE (TYPE_STUB_DECL (type));
+  else
+    return NULL_TREE;
 }
 
 /* Utility function of above to merge LAST_SIZE, the previous size of a record
@@ -1963,7 +1989,18 @@ create_subprog_decl (tree subprog_name, tree asm_name,
     DECL_DECLARED_INLINE_P (subprog_decl) = 1;
 
   if (asm_name)
-    SET_DECL_ASSEMBLER_NAME (subprog_decl, asm_name);
+    {
+      SET_DECL_ASSEMBLER_NAME (subprog_decl, asm_name);
+
+      /* The expand_main_function circuitry expects "main_identifier_node" to
+	 designate the DECL_NAME of the 'main' entry point, in turn expected
+	 to be declared as the "main" function literally by default.  Ada
+	 program entry points are typically declared with a different name
+	 within the binder generated file, exported as 'main' to satisfy the
+	 system expectations.  Redirect main_identifier_node in this case.  */
+      if (asm_name == main_identifier_node)
+	main_identifier_node = DECL_NAME (subprog_decl);
+    }
 
   process_attributes (subprog_decl, attr_list);
 

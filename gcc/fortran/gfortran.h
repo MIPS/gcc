@@ -210,7 +210,7 @@ typedef enum
   ST_CALL, ST_CASE, ST_CLOSE, ST_COMMON, ST_CONTINUE, ST_CONTAINS, ST_CYCLE,
   ST_DATA, ST_DATA_DECL, ST_DEALLOCATE, ST_DO, ST_ELSE, ST_ELSEIF,
   ST_ELSEWHERE, ST_END_BLOCK_DATA, ST_ENDDO, ST_IMPLIED_ENDDO,
-  ST_END_FILE, ST_FLUSH, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF,
+  ST_END_FILE, ST_FINAL, ST_FLUSH, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF,
   ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
   ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
   ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION, ST_GOTO,
@@ -228,7 +228,8 @@ typedef enum
   ST_OMP_END_WORKSHARE, ST_OMP_DO, ST_OMP_FLUSH, ST_OMP_MASTER, ST_OMP_ORDERED,
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
-  ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_PROCEDURE,
+  ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_OMP_TASK, ST_OMP_END_TASK,
+  ST_OMP_TASKWAIT, ST_PROCEDURE,
   ST_GET_FCN_CHARACTERISTICS, ST_NONE
 }
 gfc_statement;
@@ -927,7 +928,8 @@ typedef struct gfc_omp_clauses
       OMP_SCHED_STATIC,
       OMP_SCHED_DYNAMIC,
       OMP_SCHED_GUIDED,
-      OMP_SCHED_RUNTIME
+      OMP_SCHED_RUNTIME,
+      OMP_SCHED_AUTO
     } sched_kind;
   struct gfc_expr *chunk_size;
   enum
@@ -935,9 +937,11 @@ typedef struct gfc_omp_clauses
       OMP_DEFAULT_UNKNOWN,
       OMP_DEFAULT_NONE,
       OMP_DEFAULT_PRIVATE,
-      OMP_DEFAULT_SHARED
+      OMP_DEFAULT_SHARED,
+      OMP_DEFAULT_FIRSTPRIVATE
     } default_sharing;
-  bool nowait, ordered;
+  int collapse;
+  bool nowait, ordered, untied;
 }
 gfc_omp_clauses;
 
@@ -1013,6 +1017,10 @@ typedef struct gfc_symbol
 
   gfc_formal_arglist *formal;
   struct gfc_namespace *formal_ns;
+
+  /* The namespace containing type-associated procedure symbols.  */
+  /* TODO: Make this union with formal?  */
+  struct gfc_namespace *f2k_derived;
 
   struct gfc_expr *value;	/* Parameter/Initializer value */
   gfc_array_spec *as;
@@ -1151,6 +1159,8 @@ typedef struct gfc_namespace
   gfc_symtree *uop_root;
   /* Tree containing all the common blocks.  */
   gfc_symtree *common_root;
+  /* Linked list of finalizer procedures.  */
+  struct gfc_finalizer *finalizers;
 
   /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
@@ -1754,7 +1764,7 @@ typedef enum
   EXEC_OMP_PARALLEL_SECTIONS, EXEC_OMP_PARALLEL_WORKSHARE,
   EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
   EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
-  EXEC_OMP_END_SINGLE
+  EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT
 }
 gfc_exec_op;
 
@@ -1942,6 +1952,17 @@ typedef struct iterator_stack
 iterator_stack;
 extern iterator_stack *iter_stack;
 
+
+/* Node in the linked list used for storing finalizer procedures.  */
+
+typedef struct gfc_finalizer
+{
+  struct gfc_finalizer* next;
+  gfc_symbol* procedure;
+  locus where; /* Where the FINAL declaration occured.  */
+}
+gfc_finalizer;
+
 /************************ Function prototypes *************************/
 
 /* decl.c */
@@ -2023,6 +2044,7 @@ bool gfc_post_options (const char **);
 
 /* iresolve.c */
 const char * gfc_get_string (const char *, ...) ATTRIBUTE_PRINTF_1;
+bool gfc_find_sym_in_expr (gfc_symbol *, gfc_expr *);
 
 /* error.c */
 
@@ -2209,6 +2231,8 @@ gfc_gsymbol *gfc_get_gsymbol (const char *);
 gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, const char *);
 
 void copy_formal_args (gfc_symbol *dest, gfc_symbol *src);
+
+void gfc_free_finalizer (gfc_finalizer *el); /* Needed in resolve.c, too  */
 
 /* intrinsic.c */
 extern int gfc_init_expr;

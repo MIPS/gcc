@@ -1,3 +1,76 @@
+2008-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (gnat_to_gnu_entity) <E_Record_Subtype>: In the case of a
+	constrained subtype of a discriminated type, discard the fields that
+	are beyond its limits according to its size.
+
+2008-06-10  Olivier Hainque  <hainque@adacore.com>
+
+	* utils.c (create_subprog_decl): If this is for the 'main' entry
+	point according to the asm name, redirect main_identifier_node.
+
+2008-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (components_to_record): Adjust the packedness for the
+	qualified union as well.
+
+2008-06-09  Arnaud Charlet  <charlet@adacore.com>
+
+	* Make-lang.in: Use -gnatwns instead of -gnatws to make sytyle
+	checks non fatal.
+
+2008-06-07  Samuel Tardieu  <sam@rfc1149.net>
+
+	* sem_res.adb (Large_Storage_Type): A type is large if it
+	requires as many bits as Positive to store its values and its
+	bounds are known at compile time.
+	* sem_ch13.adb (Minimum_Size): Note that this function returns
+	0 if the size is not known at compile time.
+
+2008-06-06  Nicolas Setton  <setton@adacore.com>
+	    Olivier Hainque  <hainque@adacore.com>
+
+	* ada-tree.h (DECL_PARALLEL_TYPE): New language specific
+	attribute, parallel descriptive type attached to another
+	type for debug info generation purposes.
+	* utils.c (add_parallel_type): New function, register
+	parallel type to be attached to a type.
+	(get_parallel_type): New function, fetch a registered
+	parallel type, if any.
+	(rest_of_record_type_compilation): Register the parallel
+	type we	make for variable size records.
+	* gigi.h (add_parallel_type, get_parallel_type): Declare.
+	* decl.c (gnat_to_gnu_entity, maybe_pad_type): Register	the
+	parallel debug types we make.
+	* trans.c (extract_encoding, decode_name): New functions.
+	(gigi): If the DWARF attribute extensions are available, setup
+	to use them.
+	* lang.opt: Register language specific processing request
+	for -gdwarf+.
+	* misc.c (gnat_dwarf_extensions): New global variable. How much
+	do we want of our DWARF extensions. 0 by default.
+	(gnat_handle_option) <OPT_gdwarf_>: Increment gnat_dwarf_extensions.
+	(gnat_post_options): Map gnat_dwarf_extensions to the
+	commonuse_gnu_debug_info_extensions for later processing.
+	
+2008-06-04  Samuel Tardieu  <sam@rfc1149.net>
+
+	* einfo.ads, einfo.adb: Remove unused flag Function_Returns_With_DSP.
+
+2008-06-03  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in (common_tools): Fix typos in $(exeext) extension.
+	* gnat_ugn.texi (Style Checking)
+	(Adding the Results of Compiler Checks to gnatcheck Output)
+	(Example of Binder Output File): Fix typos.
+	* ali.ads, einfo.ads, exp_ch4.adb, exp_ch6.adb,
+	exp_dbug.ads, exp_dist.adb, exp_smem.adb, g-socket.ads,
+	s-osinte-rtems.ads, s-shasto.ads, s-stausa.adb,
+	s-stausa.ads, sem_cat.adb, sem_ch12.adb, sem_ch3.adb,
+	sem_ch4.adb, sem_ch6.adb, sem_ch8.adb, sem_util.ads,
+	sinfo.ads, utils.c: Fix typos in comments.
+	* sem_ch6.adb, vms_data.ads: Fix typos in strings.
+
 2008-05-29  Thomas Quinot  <quinot@adacore.com>
 
 	* sem_eval.adb: Minor reformatting

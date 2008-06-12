@@ -79,12 +79,6 @@ for (i = 0; i < n_opts; i++) {
 
 	var_seen[name] = 1;
 	print "extern " var_type(flags[i]) name ";"
-
-	if (flag_set_p("Explicit", flags[i]) && !(name in var_explicit)) {
-	    var_explicit[name] = 1;
-	    print "extern " var_type(flags[i]) name "_explicit;";
-	}
-
 }
 print ""
 
@@ -106,8 +100,6 @@ if (have_save) {
 
 			var_save_seen[name]++;
 			print "  " var_type(flags[i]) name ";";
-			if (name == "target_flags" || flag_set_p("Explicit", flags[i]))
-				print "  " var_type(flags[i]) name "_explicit;";
 		}
 	}
 

@@ -187,6 +187,8 @@ GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 build/gengtype-lex.o-warn = -Wno-error
 # SYSCALLS.c misses prototypes
 SYSCALLS.c.X-warn = -Wno-strict-prototypes -Wno-error
+# dfp.c contains alias violations
+dfp.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -662,7 +664,7 @@ CC_FOR_BUILD = @CC_FOR_BUILD@
 BUILD_CFLAGS= @BUILD_CFLAGS@ -DGENERATOR_FILE
 
 # Native linker and preprocessor flags.  For x-fragment overrides.
-BUILD_LDFLAGS=$(LDFLAGS)
+BUILD_LDFLAGS=@BUILD_LDFLAGS@
 BUILD_CPPFLAGS=$(ALL_CPPFLAGS)
 
 # Actual name to use when installing a native compiler.
@@ -1143,6 +1145,7 @@ OBJS-common = \
 	toplev.o \
 	tracer.o \
 	tree-affine.o \
+	tree-call-cdce.o \
 	tree-cfg.o \
 	tree-cfgcleanup.o \
 	tree-chrec.o \
@@ -2603,6 +2606,10 @@ tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
     coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(BASIC_BLOCK_H) \
     $(GGC_H) hard-reg-set.h $(OBSTACK_H) $(TREE_GIMPLE_H) $(CFGLOOP_H) \
     $(SCEV_H)
+tree-call-cdce.o : tree-call-cdce.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
+    $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) $(TM_H) \
+    coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(BASIC_BLOCK_H) \
+    $(GGC_H) hard-reg-set.h $(OBSTACK_H) $(TREE_GIMPLE_H)
 tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \

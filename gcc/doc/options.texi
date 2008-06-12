@@ -226,9 +226,4 @@ the @option{--help} output.
 Build the @code{cl_option_save} structure to hold a copy of the
 option, add the functions @code{cl_options_save} and
 @code{cl_options_restore} to save and restore the option.
-
-@item Explicit
-If the option is a @code{MASK} option, create an additional variable
-@var{var}_explicit which is available to hold whether the option was
-set explicitly or implicitly via another option.
 @end table
