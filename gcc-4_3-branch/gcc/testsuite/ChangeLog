@@ -1,3 +1,34 @@
+2008-06-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/compat/struct-layout-1.exp (orig_gcc_exec_prefix_saved):
+	Always initialize.
+	* g++.dg/compat/struct-layout-1.exp (orig_gcc_exec_prefix_saved):
+	Always initialize.
+
+2008-06-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-06-04  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/execute/20080604-1.c: New testcase.
+
+2008-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/36443
+	* gcc.dg/compat/struct-layout-1.exp: Temporarily unset
+	GCC_EXEC_PREFIX from environment when running $HOSTCC.
+	* g++.dg/compat/struct-layout-1.exp: Likewise.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36474
+	* gcc.dg/tree-ssa/alias-15.c: Adjust testcase.
+
+2008-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/pack3.ads: New test.
+	* gnat.dg/specs/pack3_pkg.ads: New helper.
+
 2008-06-07  Sebastian Pop  <sebastian.pop@amd.com>
 
 	* testsuite/gcc.dg/tree-ssa/ltrans-8.c: Fix outer loop strides
