@@ -273,7 +273,7 @@ static struct lto_file_decl_data*
 lto_file_read (lto_file *file)
 {
   struct lto_file_decl_data* file_data;
-  char *data;
+  const char *data;
   size_t len;
   htab_t section_hash_table;
 
