@@ -1,3 +1,15 @@
+2008-06-12  Ollie Wild  <aaw@google.com>
+
+	* lto.h (struct lto_file_vtable_struct): Remove.
+	(struct lto_file_struct): Remove vtable member.
+	* lto-elf.c (lto_file_init): Remove vtable argument.
+	(lto_elf_map_optional_lto_section): Remove.
+	(lto_elf_unmap_section): Remove.
+	(lto_elf_file_vtable): Remove.
+	(lto_elf_file_open): Remove lto_elf_file_vtable argument from
+	lto_file_init call.
+	(lto_elf_find_section_data): Remove.
+
 2008-06-11  Ollie Wild  <aaw@google.com>
 
 	* lto.c (lto_file_read): Add const qualifier to data variable.

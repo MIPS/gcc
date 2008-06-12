@@ -43,11 +43,8 @@ Boston, MA 02110-1301, USA.  */
 
 /* Initialize FILE, an LTO file object for FILENAME.  */
 static void
-lto_file_init (lto_file *file, 
-	       const lto_file_vtable *vtable,
-	       const char *filename)
+lto_file_init (lto_file *file, const char *filename)
 {
-  file->vtable = vtable;
   file->filename = filename;
   /* ### We no longer use the debug_info and debug_abbrev fields. */
 }
@@ -76,21 +73,6 @@ struct lto_elf_file
 };
 typedef struct lto_elf_file lto_elf_file;
 
-/* Forward Declarations */
-
-static const void *
-lto_elf_map_optional_lto_section (lto_file *file,
- 				  enum lto_section_type section_type, 
-				  const char *id);
-
-static void
-lto_elf_unmap_section (lto_file *file, const char *fn, const void *data);
-
-/* The vtable for ELF input files.  */
-static const lto_file_vtable lto_elf_file_vtable = {
-  lto_elf_map_optional_lto_section,
-  lto_elf_unmap_section,
-};
 
 /* Return the section header for SECTION.  The return value is never
    NULL.  Call lto_elf_free_shdr to release the memory allocated.  */
@@ -144,64 +126,6 @@ lto_elf_free_shdr (lto_elf_file *elf_file, Elf64_Shdr *shdr)
 {
   if (elf_file->bits != 64)
     free (shdr);
-}
-
-/* A helper function to find the section named SECTION_NAME in
-   ELF_FILE, and return its data.  If we can't find a section by that
-   name, return NULL, but don't report an error.  If anything else
-   goes wrong, report an error and return NULL.  */
-
-static Elf_Data *
-lto_elf_find_section_data (lto_elf_file *elf_file, const char *section_name)
-{
-  Elf_Scn *section, *result;
-  Elf_Data *data;
-
-  result = NULL;
-  for (section = elf_getscn (elf_file->elf, 0);
-       section;
-       section = elf_nextscn (elf_file->elf, section)) 
-    {
-      Elf64_Shdr *shdr;
-      size_t offset;
-      const char *name;
-
-      /* Get the name of this section.  */
-      shdr = lto_elf_get_shdr (elf_file, section);
-      offset = shdr->sh_name;
-      lto_elf_free_shdr (elf_file, shdr);
-      name = elf_strptr (elf_file->elf, 
-			 elf_file->sec_strtab,
-			 offset);
-      if (!name)
-	{
-	  error ("could not read section name: %s", elf_errmsg (0));
-	  return NULL;
-	}
-      
-      /* Check to see if this is the section of interest.  */
-      if (strcmp (name, section_name) == 0)
-	{
-	  /* There should not be two debugging sections with the same
-	     name.  */
-	  if (result)
-	    {
-	      error ("duplicate %qs section", section_name);
-	      return NULL;
-	    }
-	  result = section;
-	}
-    }
-  if (! result)
-    return NULL;
-
-  data = elf_getdata (result, NULL);
-  if (!data)
-    {
-      error ("could not read data: %s", elf_errmsg (0));
-      return NULL;
-    }
-  return data;
 }
 
 
@@ -311,7 +235,7 @@ lto_elf_file_open (const char *filename)
   /* Set up.  */
   elf_file = GGC_NEW (lto_elf_file);
   result = (lto_file *)elf_file;
-  lto_file_init (result, &lto_elf_file_vtable, filename);
+  lto_file_init (result, filename);
   elf_file->fd = -1;
   elf_file->elf = NULL;
 
@@ -417,30 +341,4 @@ lto_elf_file_close (lto_file *file)
   if (elf_file->fd != -1)
     close (elf_file->fd);
   lto_file_close (file);
-}
-
-static const void *
-lto_elf_map_optional_lto_section (lto_file *file,
-				  enum lto_section_type section_type, 
-                                  const char *id)
-{
-  /* Look in the ELF file to find the actual data, which should be
-     in the section named LTO_SECTION_NAME_PREFIX || "the function name".  */
-  const char *name = lto_get_section_name (section_type, id);
-  Elf_Data *data = lto_elf_find_section_data ((lto_elf_file *)file, name);
-
-  free ((void *)name);
-
-  if (! data)
-    return NULL;
-  else
-    return (const void *)(data->d_buf);
-}
-
-static void
-lto_elf_unmap_section (lto_file *file ATTRIBUTE_UNUSED, 
-		       const char *fn ATTRIBUTE_UNUSED, 
-		       const void *data ATTRIBUTE_UNUSED)
-{
-  return;
 }

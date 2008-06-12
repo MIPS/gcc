@@ -31,29 +31,9 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-header.h"
 #include "lto-section-in.h"
 
-/* Forward Declarations */
-struct lto_file_struct;
-
-/* The virtual function table for an lto_file.  */
-typedef struct lto_file_vtable_struct GTY(())
-{
-  /* Return the address of the data in an lto section.
-     LTO_SECTION_TYPE specifies the type of the section.  If this is a
-     function or static initializer use FN, Returns the pointer to the
-     data or NULL if the data is not available.  */
-  const void *(*map_section)(struct lto_file_struct *file, enum lto_section_type, const char *fn);
-  /* DATA is the non-NULL address returned by a previous call to
-     MAP_SECTION, with the same value of FN.  Release any resources
-     allocated by MAP_FN_BODY.  */
-  void (*unmap_section)(struct lto_file_struct *file, const char *fn, const void *data);
-}
-lto_file_vtable;
-
 /* An input file.  */
 typedef struct lto_file_struct GTY(())
 {
-  /* Virtual functions implemented by the derived file class.  */
-  const lto_file_vtable * GTY((skip)) vtable;
   /* The name of the file.  */
   const char *filename;
 
