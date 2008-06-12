@@ -1,3 +1,139 @@
+2008-05-19  Release Manager
+
+	* GCC 4.2.4 released.
+
+2008-05-11  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* parser.c (cp_parser_omp_clause_reduction): Add missing "expected"
+	in error message.
+	(cp_parser_omp_clause_schedule): Remove superfluous "expected"
+	in error message.
+
+	PR c++/35578
+	* parser.c (cp_parser_decl_specifier_seq): Add location to error
+	message.
+
+2008-04-17  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	* parser.c (cp_parser_asm_specification_opt): Print CPP_CLOSE_PAREN
+	as `)', not as `('.
+
+2008-02-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34950
+	* pt.c (resolve_overloaded_unification): Set processing_template_decl
+	while we look for possible bindings.
+
+2008-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34774
+	* pt.c (value_dependent_expression_p): Look into DECL_INITIAL
+	of enumerators, too.
+
+2008-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34094
+	* decl2.c (cp_write_global_declarations): Don't write out static 
+	data members with DECL_IN_AGGR_P set.
+
+	PR c++/33916
+	* Revert:
+	2006-10-17  Mark Mitchell  <mark@codesourcery.com>
+	PR c++/29039
+	* typeck2.c (build_functional_cast): Don't zero-initialize
+	non-PODs; instead, call their constructors.
+
+2008-02-05  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2008-01-16  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/33819
+	* typeck.c (is_bitfield_expr_with_lowered_type): Recurse
+	for conversions to type variants.
+
+2008-02-01  Release Manager
+
+	* GCC 4.2.3 released.
+
+2008-01-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35007
+	* class.c (build_base_path): Fix !want_pointer case.
+
+2008-01-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/27177
+	* class.c (build_base_path): Fix previous change.
+
+	PR c++/27177
+	* class.c (build_base_path): Don't mess with virtual access if
+	skip_evaluation.
+	* call.c (standard_conversion): Don't check whether source type
+	is complete.
+
+2008-01-23  Jason Merrill  <jason@redhat.com>
+
+	PR bootstrap/34944
+	* pt.c (tsubst_aggr_type): Correct previous change.
+
+2008-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/33959
+	* pt.c (tsubst_aggr_type): Make sure our context is complete.
+
+2008-01-02  Volker Reichelt  <reichelt@netcologne.de>
+
+	Backport:
+	2007-10-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33494
+	* cxx-pretty-print.c (pp_cxx_typeid_expression,
+	pp_cxx_delete_expression): Change to static linkage.
+	* cxx-pretty-print.h: Adjust declarations.
+	* error.c (dump_expr, case SCOPE_REF, TYPEID_EXPR, DELETE_EXPR,
+	VEC_DELETE_EXPR, MODOP_EXPR): Forward to pp_expression.
+
+	* cxx-pretty-print.c (pp_cxx_expression, case NON_DEPENDENT_EXPR):
+	Fix typo.
+
+	2007-11-02  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33495
+	* error.c (dump_expr): Deal specially with statements.
+
+	2007-09-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33493
+	* error.c (dump_expr): Deal with DELETE_EXPR and VEC_DELETE_EXPR.
+	* cxx-pretty-print.c (pp_cxx_delete_expression): Add missing
+	spaces in the formatting.
+	* cxx-pretty-print.h (pp_cxx_delete_expression): Declare.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/33462
+	* cxx-pretty-print.c (pp_cxx_va_arg_expression): Add.
+	(pp_cxx_primary_expression): Use it.
+	* cxx-pretty-print.h (pp_cxx_va_arg_expression): Declare.
+	* error.c (dump_expr): Use it.
+
+	2007-09-18  Paolo Carlini  <pcarlini@suse.de>
+ 
+	PR c++/33463
+	* cxx-pretty-print.c (pp_cxx_postfix_expression): Split
+	out case TYPEID_EXPR to...
+	(pp_cxx_typeid_expression): ... here; use pp_cxx_left_paren
+	and pp_cxx_right_paren.
+	* cxx-pretty-print.h (pp_cxx_typeid_expression): Declare.
+	* error.c (dump_expr): Use it.
+
+2007-12-10  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/34059
+	* typeck.c (build_class_member_access_expr): Compute MEMBER_SCOPE from
+	MEMBER's BASELINK_ACCESS_BINFO instead of its BASELINK_BINFO.
+
 2007-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/33744

@@ -133,7 +133,7 @@ Common
 Warn about code which might break strict aliasing rules
 
 Wstrict-aliasing=
-Common Joined UInteger
+Common Joined UInteger Var(warn_strict_aliasing) Init(-1)
 Warn about code which might break strict aliasing rules
 
 Wstrict-overflow
@@ -141,7 +141,7 @@ Common
 Warn about optimizations that assume that signed overflow is undefined
 
 Wstrict-overflow=
-Common Joined UInteger
+Common Joined UInteger Var(warn_strict_overflow) Init(-1)
 Warn about optimizations that assume that signed overflow is undefined
 
 Wswitch

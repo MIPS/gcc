@@ -1,6 +1,6 @@
 /* Compilation switch flag definitions for GCC.
    Copyright (C) 1987, 1988, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002,
-   2003, 2004, 2005, 2006, 2007
+   2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -107,16 +107,6 @@ extern void set_Wunused (int setting);
 
 extern bool warn_larger_than;
 extern HOST_WIDE_INT larger_than_size;
-
-/* Nonzero means warn about constructs which might not be strict
-   aliasing safe.  */
-
-extern int warn_strict_aliasing;
-
-/* Nonzero means warn about optimizations which rely on undefined
-   signed overflow.  */
-
-extern int warn_strict_overflow;
 
 /* Temporarily suppress certain warnings.
    This is set while reading code from a system header file.  */
@@ -312,6 +302,9 @@ extern const char *flag_random_seed;
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+
+/* True if pointer types have undefined overflow.  */
+#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
 /* Names for the different levels of -Wstrict-overflow=N.  The numeric
    values here correspond to N.  */
