@@ -75,7 +75,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
    *
    *  This function started off as a compiler kludge from SGI, but seems to
    *  be a useful wrapper around a repeated constant expression.  The '512' is
-   *  tuneable (and no other code needs to change), but no investigation has
+   *  tunable (and no other code needs to change), but no investigation has
    *  been done since inheriting the SGI code.
   */
   inline size_t
@@ -681,7 +681,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       using _Base::_M_get_Tp_allocator;
 
       /** 
-       *  A total of four data members accumulated down the heirarchy.
+       *  A total of four data members accumulated down the hierarchy.
        *  May be accessed via _M_impl.*
        */
       using _Base::_M_impl;
@@ -770,7 +770,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       /**
        *  The dtor only erases the elements, and note that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
       ~deque()
       { _M_destroy_data(begin(), end(), _M_get_Tp_allocator()); }
@@ -1117,7 +1117,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  data to it.  Due to the nature of a %deque this operation
        *  can be done in constant time.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_front(const value_type& __x)
       {
@@ -1129,20 +1128,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	else
 	  _M_push_front_aux(__x);
       }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_front(value_type&& __x)
+      { emplace_front(std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_front(_Args&&... __args)
-	{
-	  if (this->_M_impl._M_start._M_cur != this->_M_impl._M_start._M_first)
-	    {
-	      this->_M_impl.construct(this->_M_impl._M_start._M_cur - 1,
-				      std::forward<_Args>(__args)...);
-	      --this->_M_impl._M_start._M_cur;
-	    }
-	  else
-	    _M_push_front_aux(std::forward<_Args>(__args)...);
-	}
+        emplace_front(_Args&&... __args);
 #endif
 
       /**
@@ -1154,7 +1148,6 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  to it.  Due to the nature of a %deque this operation can be
        *  done in constant time.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_back(const value_type& __x)
       {
@@ -1167,21 +1160,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	else
 	  _M_push_back_aux(__x);
       }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_back(value_type&& __x)
+      { emplace_back(std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_back(_Args&&... __args)
-	{
-	  if (this->_M_impl._M_finish._M_cur
-	      != this->_M_impl._M_finish._M_last - 1)
-	    {
-	      this->_M_impl.construct(this->_M_impl._M_finish._M_cur,
-				      std::forward<_Args>(__args)...);
-	      ++this->_M_impl._M_finish._M_cur;
-	    }
-	  else
-	    _M_push_back_aux(std::forward<_Args>(__args)...);
-	}
+        emplace_back(_Args&&... __args);
 #endif
 
       /**
@@ -1312,7 +1299,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The user is cautioned that
        *  this function only erases the element, and that if the element is
        *  itself a pointer, the pointed-to memory is not touched in any way.
-       *  Managing the pointer is the user's responsibilty.
+       *  Managing the pointer is the user's responsibility.
        */
       iterator
       erase(iterator __position);
@@ -1331,7 +1318,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The user is cautioned that
        *  this function only erases the elements, and that if the elements
        *  themselves are pointers, the pointed-to memory is not touched in any
-       *  way.  Managing the pointer is the user's responsibilty.
+       *  way.  Managing the pointer is the user's responsibility.
        */
       iterator
       erase(iterator __first, iterator __last);
@@ -1367,7 +1354,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  Erases all the elements.  Note that this function only erases the
        *  elements, and that if the elements themselves are pointers, the
        *  pointed-to memory is not touched in any way.  Managing the pointer is
-       *  the user's responsibilty.
+       *  the user's responsibility.
        */
       void
       clear()

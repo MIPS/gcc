@@ -1,6 +1,8 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist output contributed by Paul Thomas
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -44,7 +46,9 @@ write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
   int wlen;
   char *p;
 
-  wlen = f->u.string.length < 0 ? len : f->u.string.length;
+  wlen = f->u.string.length < 0
+	 || (f->format == FMT_G && f->u.string.length == 0)
+	 ? len : f->u.string.length;
 
 #ifdef HAVE_CRLF
   /* If this is formatted STREAM IO convert any embedded line feed characters
@@ -233,15 +237,18 @@ void
 write_l (st_parameter_dt *dtp, const fnode *f, char *source, int len)
 {
   char *p;
+  int wlen;
   GFC_INTEGER_LARGEST n;
 
-  p = write_block (dtp, f->u.w);
+  wlen = (f->format == FMT_G && f->u.w == 0) ? 1 : f->u.w;
+  
+  p = write_block (dtp, wlen);
   if (p == NULL)
     return;
 
-  memset (p, ' ', f->u.w - 1);
+  memset (p, ' ', wlen - 1);
   n = extract_int (source, len);
-  p[f->u.w - 1] = (n) ? 'T' : 'F';
+  p[wlen - 1] = (n) ? 'T' : 'F';
 }
 
 
@@ -338,12 +345,11 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
   char itoa_buf[GFC_BTOA_BUF_SIZE];
 
   w = f->u.integer.w;
-  m = f->u.integer.m;
+  m = f->format == FMT_G ? -1 : f->u.integer.m;
 
   n = extract_int (source, len);
 
   /* Special case:  */
-
   if (m == 0 && n == 0)
     {
       if (w == 0)
@@ -361,7 +367,7 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
   if (n < 0)
     n = -n;
 
-  nsign = sign == SIGN_NONE ? 0 : 1;
+  nsign = sign == S_NONE ? 0 : 1;
   q = conv (n, itoa_buf, sizeof (itoa_buf));
 
   digits = strlen (q);
@@ -395,13 +401,13 @@ write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
 
   switch (sign)
     {
-    case SIGN_PLUS:
+    case S_PLUS:
       *p++ = '+';
       break;
-    case SIGN_MINUS:
+    case S_MINUS:
       *p++ = '-';
       break;
-    case SIGN_NONE:
+    case S_NONE:
       break;
     }
 
@@ -638,7 +644,7 @@ write_character (st_parameter_dt *dtp, const char *source, int length)
   int i, extra;
   char *p, d;
 
-  switch (dtp->u.p.current_unit->flags.delim)
+  switch (dtp->u.p.delim_status)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -688,7 +694,7 @@ write_character (st_parameter_dt *dtp, const char *source, int length)
    This is 1PG14.7E2 for REAL(4), 1PG23.15E3 for REAL(8),
    1PG28.19E4 for REAL(10) and 1PG43.34E4 for REAL(16).  */
 
-static void
+void
 write_real (st_parameter_dt *dtp, const char *source, int length)
 {
   fnode f ;
@@ -729,11 +735,13 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
 static void
 write_complex (st_parameter_dt *dtp, const char *source, int kind, size_t size)
 {
+  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
+
   if (write_char (dtp, '('))
     return;
   write_real (dtp, source, kind);
 
-  if (write_char (dtp, ','))
+  if (write_char (dtp, semi_comma))
     return;
   write_real (dtp, source + size / 2, kind);
 
@@ -775,7 +783,7 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   else
     {
       if (type != BT_CHARACTER || !dtp->u.p.char_flag ||
-	  dtp->u.p.current_unit->flags.delim != DELIM_NONE)
+	  dtp->u.p.delim_status != DELIM_NONE)
 	write_separator (dtp);
     }
 
@@ -869,6 +877,11 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   size_t base_var_name_len;
   size_t tot_len;
   unit_delim tmp_delim;
+  
+  /* Set the character to be used to separate values
+     to a comma or semi-colon.  */
+
+  char semi_comma = dtp->u.p.decimal_status == DECIMAL_POINT ? ',' : ';';
 
   /* Write namelist variable names in upper case. If a derived type,
      nothing is output.  If a component, base and base_name are set.  */
@@ -985,13 +998,13 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
               break;
 
 	    case GFC_DTYPE_CHARACTER:
-	      tmp_delim = dtp->u.p.current_unit->flags.delim;
+	      tmp_delim = dtp->u.p.delim_status;
 	      if (dtp->u.p.nml_delim == '"')
-		dtp->u.p.current_unit->flags.delim = DELIM_QUOTE;
+		dtp->u.p.delim_status = DELIM_QUOTE;
 	      if (dtp->u.p.nml_delim == '\'')
-		dtp->u.p.current_unit->flags.delim = DELIM_APOSTROPHE;
+		dtp->u.p.delim_status = DELIM_APOSTROPHE;
 	      write_character (dtp, p, obj->string_length);
-	      dtp->u.p.current_unit->flags.delim = tmp_delim;
+	      dtp->u.p.delim_status = tmp_delim;
               break;
 
 	    case GFC_DTYPE_REAL:
@@ -1075,12 +1088,12 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	      internal_error (&dtp->common, "Bad type for namelist write");
             }
 
-	  /* Reset the leading blank suppression, write a comma and, if 5
-	     values have been output, write a newline and advance to column
-	     2. Reset the repeat counter.  */
+	  /* Reset the leading blank suppression, write a comma (or semi-colon)
+	     and, if 5 values have been output, write a newline and advance
+	     to column 2. Reset the repeat counter.  */
 
 	  dtp->u.p.no_leading_blank = 0;
-	  write_character (dtp, ",", 1);
+	  write_character (dtp, &semi_comma, 1);
 	  if (num > 5)
 	    {
 	      num = 0;
@@ -1132,7 +1145,7 @@ namelist_write (st_parameter_dt *dtp)
 
   /* Set the delimiter for namelist output.  */
 
-  tmp_delim = dtp->u.p.current_unit->flags.delim;
+  tmp_delim = dtp->u.p.delim_status;
   switch (tmp_delim)
     {
     case (DELIM_QUOTE):
@@ -1149,7 +1162,7 @@ namelist_write (st_parameter_dt *dtp)
     }
 
   /* Temporarily disable namelist delimters.  */
-  dtp->u.p.current_unit->flags.delim = DELIM_NONE;
+  dtp->u.p.delim_status = DELIM_NONE;
 
   write_character (dtp, "&", 1);
 
@@ -1177,7 +1190,7 @@ namelist_write (st_parameter_dt *dtp)
 #endif
 
   /* Restore the original delimiter.  */
-  dtp->u.p.current_unit->flags.delim = tmp_delim;
+  dtp->u.p.delim_status = tmp_delim;
 }
 
 #undef NML_DIGITS

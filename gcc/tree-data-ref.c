@@ -88,7 +88,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
@@ -155,6 +154,14 @@ dump_data_references (FILE *file, VEC (data_reference_p, heap) *datarefs)
 
   for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
     dump_data_reference (file, dr);
+}
+
+/* Dump to STDERR all the dependence relations from DDRS.  */ 
+
+void 
+debug_data_dependence_relations (VEC (ddr_p, heap) *ddrs)
+{
+  dump_data_dependence_relations (stderr, ddrs);
 }
 
 /* Dump into FILE all the dependence relations from DDRS.  */ 
@@ -351,13 +358,20 @@ dump_data_dependence_relation (FILE *outf,
 {
   struct data_reference *dra, *drb;
 
+  fprintf (outf, "(Data Dep: \n");
+
+  if (!ddr || DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+    {
+      fprintf (outf, "    (don't know)\n)\n");
+      return;
+    }
+
   dra = DDR_A (ddr);
   drb = DDR_B (ddr);
-  fprintf (outf, "(Data Dep: \n");
-  if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
-    fprintf (outf, "    (don't know)\n");
-  
-  else if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
+  dump_data_reference (outf, dra);
+  dump_data_reference (outf, drb);
+
+  if (DDR_ARE_DEPENDENT (ddr) == chrec_known)
     fprintf (outf, "    (no dependence)\n");
   
   else if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -727,7 +741,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
 	{
 	  op = TREE_OPERAND (aref, 1);
 	  access_fn = analyze_scalar_evolution (loop, op);
-	  access_fn = resolve_mixers (nest, access_fn);
+	  access_fn = instantiate_scev (nest, loop, access_fn);
 	  VEC_safe_push (tree, heap, access_fns, access_fn);
 
 	  TREE_OPERAND (aref, 1) = build_int_cst (TREE_TYPE (op), 0);
@@ -740,7 +754,7 @@ dr_analyze_indices (struct data_reference *dr, struct loop *nest)
     {
       op = TREE_OPERAND (aref, 0);
       access_fn = analyze_scalar_evolution (loop, op);
-      access_fn = resolve_mixers (nest, access_fn);
+      access_fn = instantiate_scev (nest, loop, access_fn);
       base = initial_condition (access_fn);
       split_constant_offset (base, &base, &off);
       access_fn = chrec_replace_initial_condition (access_fn,
@@ -779,8 +793,6 @@ dr_analyze_alias (struct data_reference *dr)
     }
 
   DR_SYMBOL_TAG (dr) = smt;
-  if (smt && var_can_have_subvars (smt))
-    DR_SUBVARS (dr) = get_subvars_for_var (smt);
 
   vops = BITMAP_ALLOC (NULL);
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, it, SSA_OP_VIRTUAL_USES)
@@ -808,7 +820,7 @@ dr_address_invariant_p (struct data_reference *dr)
 
 /* Frees data reference DR.  */
 
-static void
+void
 free_data_ref (data_reference_p dr)
 {
   BITMAP_FREE (DR_VOPS (dr));
@@ -1253,6 +1265,8 @@ dr_may_alias_p (const struct data_reference *a, const struct data_reference *b)
   return true;
 }
 
+static void compute_self_dependence (struct data_dependence_relation *);
+
 /* Initialize a data dependence relation between data accesses A and
    B.  NB_LOOPS is the number of loops surrounding the references: the
    size of the classic distance/direction vectors.  */
@@ -1287,6 +1301,20 @@ initialize_data_dependence_relation (struct data_reference *a,
       return res;
     }
 
+  /* When the references are exactly the same, don't spend time doing
+     the data dependence tests, just initialize the ddr and return.  */
+  if (operand_equal_p (DR_REF (a), DR_REF (b), 0))
+    {
+      DDR_AFFINE_P (res) = true;
+      DDR_ARE_DEPENDENT (res) = NULL_TREE;
+      DDR_SUBSCRIPTS (res) = VEC_alloc (subscript_p, heap, DR_NUM_DIMENSIONS (a));
+      DDR_LOOP_NEST (res) = loop_nest;
+      DDR_INNER_LOOP (res) = 0;
+      DDR_SELF_REFERENCE (res) = true;
+      compute_self_dependence (res);
+      return res;
+    }
+
   /* If the references do not access the same object, we do not know
      whether they alias or not.  */
   if (!operand_equal_p (DR_BASE_OBJECT (a), DR_BASE_OBJECT (b), 0))
@@ -1312,6 +1340,7 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_SUBSCRIPTS (res) = VEC_alloc (subscript_p, heap, DR_NUM_DIMENSIONS (a));
   DDR_LOOP_NEST (res) = loop_nest;
   DDR_INNER_LOOP (res) = 0;
+  DDR_SELF_REFERENCE (res) = false;
 
   for (i = 0; i < DR_NUM_DIMENSIONS (a); i++)
     {
@@ -1820,16 +1849,42 @@ analyze_siv_subscript_cst_affine (tree chrec_a,
 /* Helper recursive function for initializing the matrix A.  Returns
    the initial value of CHREC.  */
 
-static HOST_WIDE_INT
+static tree
 initialize_matrix_A (lambda_matrix A, tree chrec, unsigned index, int mult)
 {
   gcc_assert (chrec);
 
-  if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
-    return int_cst_value (chrec);
+  switch (TREE_CODE (chrec))
+    {
+    case POLYNOMIAL_CHREC:
+      gcc_assert (TREE_CODE (CHREC_RIGHT (chrec)) == INTEGER_CST);
 
-  A[index][0] = mult * int_cst_value (CHREC_RIGHT (chrec));
-  return initialize_matrix_A (A, CHREC_LEFT (chrec), index + 1, mult);
+      A[index][0] = mult * int_cst_value (CHREC_RIGHT (chrec));
+      return initialize_matrix_A (A, CHREC_LEFT (chrec), index + 1, mult);
+
+    case PLUS_EXPR:
+    case MULT_EXPR:
+    case MINUS_EXPR:
+      {
+	tree op0 = initialize_matrix_A (A, TREE_OPERAND (chrec, 0), index, mult);
+	tree op1 = initialize_matrix_A (A, TREE_OPERAND (chrec, 1), index, mult);
+
+	return chrec_fold_op (TREE_CODE (chrec), chrec_type (chrec), op0, op1);
+      }
+
+    case NOP_EXPR:
+      {
+	tree op = initialize_matrix_A (A, TREE_OPERAND (chrec, 0), index, mult);
+	return chrec_convert (chrec_type (chrec), op, NULL_TREE);
+      }
+
+    case INTEGER_CST:
+      return chrec;
+
+    default:
+      gcc_unreachable ();
+      return NULL_TREE;
+    }
 }
 
 #define FLOOR_DIV(x,y) ((x) / (y))
@@ -2061,8 +2116,8 @@ analyze_subscript_affine_affine (tree chrec_a,
   A = lambda_matrix_new (dim, 1);
   S = lambda_matrix_new (dim, 1);
 
-  init_a = initialize_matrix_A (A, chrec_a, 0, 1);
-  init_b = initialize_matrix_A (A, chrec_b, nb_vars_a, -1);
+  init_a = int_cst_value (initialize_matrix_A (A, chrec_a, 0, 1));
+  init_b = int_cst_value (initialize_matrix_A (A, chrec_b, nb_vars_a, -1));
   gamma = init_b - init_a;
 
   /* Don't do all the hard work of solving the Diophantine equation
@@ -2340,7 +2395,8 @@ analyze_siv_subscript (tree chrec_a,
 		       tree chrec_b,
 		       conflict_function **overlaps_a, 
 		       conflict_function **overlaps_b, 
-		       tree *last_conflicts)
+		       tree *last_conflicts,
+		       int loop_nest_num)
 {
   dependence_stats.num_siv++;
   
@@ -2348,17 +2404,17 @@ analyze_siv_subscript (tree chrec_a,
     fprintf (dump_file, "(analyze_siv_subscript \n");
   
   if (evolution_function_is_constant_p (chrec_a)
-      && evolution_function_is_affine_p (chrec_b))
+      && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num))
     analyze_siv_subscript_cst_affine (chrec_a, chrec_b, 
 				      overlaps_a, overlaps_b, last_conflicts);
   
-  else if (evolution_function_is_affine_p (chrec_a)
+  else if (evolution_function_is_affine_in_loop (chrec_a, loop_nest_num)
 	   && evolution_function_is_constant_p (chrec_b))
     analyze_siv_subscript_cst_affine (chrec_b, chrec_a, 
 				      overlaps_b, overlaps_a, last_conflicts);
   
-  else if (evolution_function_is_affine_p (chrec_a)
-	   && evolution_function_is_affine_p (chrec_b))
+  else if (evolution_function_is_affine_in_loop (chrec_a, loop_nest_num)
+	   && evolution_function_is_affine_in_loop (chrec_b, loop_nest_num))
     {
       if (!chrec_contains_symbols (chrec_a)
 	  && !chrec_contains_symbols (chrec_b))
@@ -2620,7 +2676,7 @@ analyze_overlapping_iterations (tree chrec_a,
   else if (siv_subscript_p (chrec_a, chrec_b))
     analyze_siv_subscript (chrec_a, chrec_b, 
 			   overlap_iterations_a, overlap_iterations_b, 
-			   last_conflicts);
+			   last_conflicts, lnn);
   
   else
     analyze_miv_subscript (chrec_a, chrec_b, 
@@ -2783,22 +2839,6 @@ build_classic_dist_vector_1 (struct data_dependence_relation *ddr,
 	  return false;
 	}
     }
-
-  return true;
-}
-
-/* Return true when the DDR contains two data references that have the
-   same access functions.  */
-
-static bool
-same_access_functions (const struct data_dependence_relation *ddr)
-{
-  unsigned i;
-
-  for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
-    if (!eq_evolutions_p (DR_ACCESS_FN (DDR_A (ddr), i),
-			  DR_ACCESS_FN (DDR_B (ddr), i)))
-      return false;
 
   return true;
 }
@@ -3802,7 +3842,8 @@ compute_affine_dependence (struct data_dependence_relation *ddr,
     }
 
   /* Analyze only when the dependence relation is not yet known.  */
-  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+  if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE
+      && !DDR_SELF_REFERENCE (ddr))
     {
       dependence_stats.num_dependence_tests++;
 
@@ -3970,11 +4011,14 @@ get_references_in_stmt (tree stmt, VEC (data_ref_loc, heap) **references)
 
   if (TREE_CODE (stmt) ==  GIMPLE_MODIFY_STMT)
     {
+      tree base;
       op0 = &GIMPLE_STMT_OPERAND (stmt, 0);
       op1 = &GIMPLE_STMT_OPERAND (stmt, 1);
 		
       if (DECL_P (*op1)
-	  || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
+	  || (REFERENCE_CLASS_P (*op1)
+	      && (base = get_base_address (*op1))
+	      && TREE_CODE (base) != SSA_NAME))
 	{
 	  ref = VEC_safe_push (data_ref_loc, heap, *references, NULL);
 	  ref->pos = op1;
@@ -4136,18 +4180,20 @@ find_loop_nest (struct loop *loop, VEC (loop_p, heap) **loop_nest)
   return true;
 }
 
-/* Given a loop nest LOOP, the following vectors are returned:
+/* Returns true when the data dependences have been computed, false otherwise.
+   Given a loop nest LOOP, the following vectors are returned:
    DATAREFS is initialized to all the array elements contained in this loop, 
    DEPENDENCE_RELATIONS contains the relations between the data references.  
    Compute read-read and self relations if 
    COMPUTE_SELF_AND_READ_READ_DEPENDENCES is TRUE.  */
 
-void
+bool
 compute_data_dependences_for_loop (struct loop *loop, 
 				   bool compute_self_and_read_read_dependences,
 				   VEC (data_reference_p, heap) **datarefs,
 				   VEC (ddr_p, heap) **dependence_relations)
 {
+  bool res = true;
   VEC (loop_p, heap) *vloops = VEC_alloc (loop_p, heap, 3);
 
   memset (&dependence_stats, 0, sizeof (dependence_stats));
@@ -4165,6 +4211,7 @@ compute_data_dependences_for_loop (struct loop *loop,
 	 chrec_dont_know.  */
       ddr = initialize_data_dependence_relation (NULL, NULL, vloops);
       VEC_safe_push (ddr_p, heap, *dependence_relations, ddr);
+      res = false;
     }
   else
     compute_all_dependences (*datarefs, dependence_relations, vloops,
@@ -4216,7 +4263,9 @@ compute_data_dependences_for_loop (struct loop *loop,
 	       dependence_stats.num_miv_independent);
       fprintf (dump_file, "Number of miv tests unimplemented: %d\n",
 	       dependence_stats.num_miv_unimplemented);
-    }    
+    }
+
+  return res;
 }
 
 /* Entry point (for testing only).  Analyze all the data references
@@ -4371,47 +4420,218 @@ free_data_refs (VEC (data_reference_p, heap) *datarefs)
 
 
 
-/* Returns the index of STMT in RDG.  */
+/* Dump vertex I in RDG to FILE.  */
 
-static int
-find_vertex_for_stmt (const struct graph *rdg, const_tree stmt)
+void
+dump_rdg_vertex (FILE *file, struct graph *rdg, int i)
+{
+  struct vertex *v = &(rdg->vertices[i]);
+  struct graph_edge *e;
+
+  fprintf (file, "(vertex %d: (%s%s) (in:", i, 
+	   RDG_MEM_WRITE_STMT (rdg, i) ? "w" : "",
+	   RDG_MEM_READS_STMT (rdg, i) ? "r" : "");
+
+  if (v->pred)
+    for (e = v->pred; e; e = e->pred_next)
+      fprintf (file, " %d", e->src);
+
+  fprintf (file, ") (out:");
+
+  if (v->succ)
+    for (e = v->succ; e; e = e->succ_next)
+      fprintf (file, " %d", e->dest);
+
+  fprintf (file, ") \n");
+  print_generic_stmt (file, RDGV_STMT (v), TDF_VOPS|TDF_MEMSYMS);
+  fprintf (file, ")\n");
+}
+
+/* Call dump_rdg_vertex on stderr.  */
+
+void
+debug_rdg_vertex (struct graph *rdg, int i)
+{
+  dump_rdg_vertex (stderr, rdg, i);
+}
+
+/* Dump component C of RDG to FILE.  If DUMPED is non-null, set the
+   dumped vertices to that bitmap.  */
+
+void dump_rdg_component (FILE *file, struct graph *rdg, int c, bitmap dumped)
 {
   int i;
 
-  for (i = 0; i < rdg->n_vertices; i++)
-    if (RDGV_STMT (&(rdg->vertices[i])) == stmt)
-      return i;
+  fprintf (file, "(%d\n", c);
 
-  gcc_unreachable ();
-  return 0;
+  for (i = 0; i < rdg->n_vertices; i++)
+    if (rdg->vertices[i].component == c)
+      {
+	if (dumped)
+	  bitmap_set_bit (dumped, i);
+
+	dump_rdg_vertex (file, rdg, i);
+      }
+
+  fprintf (file, ")\n");
 }
 
-/* Creates an edge in RDG for each distance vector from DDR.  */
+/* Call dump_rdg_vertex on stderr.  */
+
+void
+debug_rdg_component (struct graph *rdg, int c)
+{
+  dump_rdg_component (stderr, rdg, c, NULL);
+}
+
+/* Dump the reduced dependence graph RDG to FILE.  */
+
+void
+dump_rdg (FILE *file, struct graph *rdg)
+{
+  int i;
+  bitmap dumped = BITMAP_ALLOC (NULL);
+
+  fprintf (file, "(rdg\n");
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    if (!bitmap_bit_p (dumped, i))
+      dump_rdg_component (file, rdg, rdg->vertices[i].component, dumped);
+
+  fprintf (file, ")\n");
+  BITMAP_FREE (dumped);
+}
+
+/* Call dump_rdg on stderr.  */
+
+void
+debug_rdg (struct graph *rdg)
+{
+  dump_rdg (stderr, rdg);
+}
+
+static void
+dot_rdg_1 (FILE *file, struct graph *rdg)
+{
+  int i;
+
+  fprintf (file, "digraph RDG {\n");
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    {
+      struct vertex *v = &(rdg->vertices[i]);
+      struct graph_edge *e;
+
+      /* Highlight reads from memory.  */
+      if (RDG_MEM_READS_STMT (rdg, i))
+	fprintf (file, "%d [style=filled, fillcolor=green]\n", i);
+
+      /* Highlight stores to memory.  */
+      if (RDG_MEM_WRITE_STMT (rdg, i))
+	fprintf (file, "%d [style=filled, fillcolor=red]\n", i);
+
+      if (v->succ)
+	for (e = v->succ; e; e = e->succ_next)
+	  switch (RDGE_TYPE (e))
+	    {
+	    case input_dd:
+	      fprintf (file, "%d -> %d [label=input] \n", i, e->dest);
+	      break;
+
+	    case output_dd:
+	      fprintf (file, "%d -> %d [label=output] \n", i, e->dest);
+	      break;
+
+	    case flow_dd:
+	      /* These are the most common dependences: don't print these. */
+	      fprintf (file, "%d -> %d \n", i, e->dest);
+	      break;
+
+	    case anti_dd:
+	      fprintf (file, "%d -> %d [label=anti] \n", i, e->dest);
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+    }
+
+  fprintf (file, "}\n\n");
+}
+
+/* Display SCOP using dotty.  */
+
+void
+dot_rdg (struct graph *rdg)
+{
+  FILE *file = fopen ("/tmp/rdg.dot", "w");
+  gcc_assert (file != NULL);
+
+  dot_rdg_1 (file, rdg);
+  fclose (file);
+
+  system ("dotty /tmp/rdg.dot");
+}
+
+
+/* This structure is used for recording the mapping statement index in
+   the RDG.  */
+
+struct rdg_vertex_info GTY(())
+{
+  tree stmt;
+  int index;
+};
+
+/* Returns the index of STMT in RDG.  */
+
+int
+rdg_vertex_for_stmt (struct graph *rdg, tree stmt)
+{
+  struct rdg_vertex_info rvi, *slot;
+
+  rvi.stmt = stmt;
+  slot = (struct rdg_vertex_info *) htab_find (rdg->indices, &rvi);
+
+  if (!slot)
+    return -1;
+
+  return slot->index;
+}
+
+/* Creates an edge in RDG for each distance vector from DDR.  The
+   order that we keep track of in the RDG is the order in which
+   statements have to be executed.  */
 
 static void
 create_rdg_edge_for_ddr (struct graph *rdg, ddr_p ddr)
 {
-  int va, vb;
-  data_reference_p dra;
-  data_reference_p drb;
   struct graph_edge *e;
+  int va, vb;
+  data_reference_p dra = DDR_A (ddr);
+  data_reference_p drb = DDR_B (ddr);
+  unsigned level = ddr_dependence_level (ddr);
 
-  if (DDR_REVERSED_P (ddr))
+  /* For non scalar dependences, when the dependence is REVERSED,
+     statement B has to be executed before statement A.  */
+  if (level > 0
+      && !DDR_REVERSED_P (ddr))
     {
-      dra = DDR_B (ddr);
-      drb = DDR_A (ddr);
-    }
-  else
-    {
-      dra = DDR_A (ddr);
-      drb = DDR_B (ddr);
+      data_reference_p tmp = dra;
+      dra = drb;
+      drb = tmp;
     }
 
-  va = find_vertex_for_stmt (rdg, DR_STMT (dra));
-  vb = find_vertex_for_stmt (rdg, DR_STMT (drb));
+  va = rdg_vertex_for_stmt (rdg, DR_STMT (dra));
+  vb = rdg_vertex_for_stmt (rdg, DR_STMT (drb));
+
+  if (va < 0 || vb < 0)
+    return;
 
   e = add_edge (rdg, va, vb);
   e->data = XNEW (struct rdg_edge);
+
+  RDGE_LEVEL (e) = level;
 
   /* Determines the type of the data dependence.  */
   if (DR_IS_READ (dra) && DR_IS_READ (drb))
@@ -4435,9 +4655,13 @@ create_rdg_edges_for_scalar (struct graph *rdg, tree def, int idef)
            
   FOR_EACH_IMM_USE_FAST (imm_use_p, iterator, def)
     {
-      int use = find_vertex_for_stmt (rdg, USE_STMT (imm_use_p));
-      struct graph_edge *e = add_edge (rdg, idef, use);
+      struct graph_edge *e;
+      int use = rdg_vertex_for_stmt (rdg, USE_STMT (imm_use_p));
 
+      if (use < 0)
+	continue;
+
+      e = add_edge (rdg, idef, use);
       e->data = XNEW (struct rdg_edge);
       RDGE_TYPE (e) = flow_dd;
     }
@@ -4458,8 +4682,8 @@ create_rdg_edges (struct graph *rdg, VEC (ddr_p, heap) *ddrs)
       create_rdg_edge_for_ddr (rdg, ddr);
 
   for (i = 0; i < rdg->n_vertices; i++)
-    FOR_EACH_PHI_OR_STMT_DEF (def_p, RDGV_STMT (&(rdg->vertices[i])),
-			      iter, SSA_OP_ALL_DEFS)
+    FOR_EACH_PHI_OR_STMT_DEF (def_p, RDG_STMT (rdg, i),
+			      iter, SSA_OP_DEF)
       create_rdg_edges_for_scalar (rdg, DEF_FROM_PTR (def_p), i);
 }
 
@@ -4468,19 +4692,50 @@ create_rdg_edges (struct graph *rdg, VEC (ddr_p, heap) *ddrs)
 static void
 create_rdg_vertices (struct graph *rdg, VEC (tree, heap) *stmts)
 {
-  int i;
-  tree s;
+  int i, j;
+  tree stmt;
 
-  for (i = 0; VEC_iterate (tree, stmts, i, s); i++)
+  for (i = 0; VEC_iterate (tree, stmts, i, stmt); i++)
     {
+      VEC (data_ref_loc, heap) *references;
+      data_ref_loc *ref;
       struct vertex *v = &(rdg->vertices[i]);
+      struct rdg_vertex_info *rvi = XNEW (struct rdg_vertex_info);
+      struct rdg_vertex_info **slot;
+
+      rvi->stmt = stmt;
+      rvi->index = i;
+      slot = (struct rdg_vertex_info **) htab_find_slot (rdg->indices, rvi, INSERT);
+
+      if (!*slot)
+	*slot = rvi;
+      else
+	free (rvi);
 
       v->data = XNEW (struct rdg_vertex);
-      RDGV_STMT (v) = s;
+      RDG_STMT (rdg, i) = stmt;
+
+      RDG_MEM_WRITE_STMT (rdg, i) = false;
+      RDG_MEM_READS_STMT (rdg, i) = false;
+      if (TREE_CODE (stmt) == PHI_NODE)
+	continue;
+
+      get_references_in_stmt (stmt, &references);
+      for (j = 0; VEC_iterate (data_ref_loc, references, j, ref); j++)
+	if (!ref->is_read)
+	  RDG_MEM_WRITE_STMT (rdg, i) = true;
+	else
+	  RDG_MEM_READS_STMT (rdg, i) = true;
+
+      VEC_free (data_ref_loc, heap, references);
     }
 }
 
-/* Initialize STMTS with all the statements and PHI nodes of LOOP.  */
+/* Initialize STMTS with all the statements of LOOP.  When
+   INCLUDE_PHIS is true, include also the PHI nodes.  The order in
+   which we discover statements is important as
+   generate_loops_for_partition is using the same traversal for
+   identifying statements. */
 
 static void
 stmts_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
@@ -4490,7 +4745,7 @@ stmts_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
 
   for (i = 0; i < loop->num_nodes; i++)
     {
-      tree phi;
+      tree phi, stmt;
       basic_block bb = bbs[i];
       block_stmt_iterator bsi;
 
@@ -4498,7 +4753,8 @@ stmts_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
 	VEC_safe_push (tree, heap, *stmts, phi);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	VEC_safe_push (tree, heap, *stmts, bsi_stmt (bsi));
+	if (TREE_CODE (stmt = bsi_stmt (bsi)) != LABEL_EXPR)
+	  VEC_safe_push (tree, heap, *stmts, stmt);
     }
 
   free (bbs);
@@ -4519,8 +4775,39 @@ known_dependences_p (VEC (ddr_p, heap) *dependence_relations)
   return true;
 }
 
-/* Build a Reduced Dependence Graph with one vertex per statement of the
-   loop nest and one edge per data dependence or scalar dependence.  */
+/* Computes a hash function for element ELT.  */
+
+static hashval_t
+hash_stmt_vertex_info (const void *elt)
+{
+  struct rdg_vertex_info *rvi = (struct rdg_vertex_info *) elt;
+  tree stmt = rvi->stmt;
+
+  return htab_hash_pointer (stmt);
+}
+
+/* Compares database elements E1 and E2.  */
+
+static int
+eq_stmt_vertex_info (const void *e1, const void *e2)
+{
+  const struct rdg_vertex_info *elt1 = (const struct rdg_vertex_info *) e1;
+  const struct rdg_vertex_info *elt2 = (const struct rdg_vertex_info *) e2;
+
+  return elt1->stmt == elt2->stmt;
+}
+
+/* Free the element E.  */
+
+static void
+hash_stmt_vertex_del (void *e)
+{
+  free (e);
+}
+
+/* Build the Reduced Dependence Graph (RDG) with one vertex per
+   statement of the loop nest, and one edge per data dependence or
+   scalar dependence.  */
 
 struct graph *
 build_rdg (struct loop *loop)
@@ -4529,7 +4816,7 @@ build_rdg (struct loop *loop)
   struct graph *rdg = NULL;
   VEC (ddr_p, heap) *dependence_relations;
   VEC (data_reference_p, heap) *datarefs;
-  VEC (tree, heap) *stmts = VEC_alloc (tree, heap, 10);
+  VEC (tree, heap) *stmts = VEC_alloc (tree, heap, nb_data_refs);
   
   dependence_relations = VEC_alloc (ddr_p, heap, nb_data_refs * nb_data_refs) ;
   datarefs = VEC_alloc (data_reference_p, heap, nb_data_refs);
@@ -4537,12 +4824,15 @@ build_rdg (struct loop *loop)
                                      false,
                                      &datarefs,
                                      &dependence_relations);
-  
+
   if (!known_dependences_p (dependence_relations))
     goto end_rdg;
 
   stmts_from_loop (loop, &stmts);
   rdg = new_graph (VEC_length (tree, stmts));
+
+  rdg->indices = htab_create (nb_data_refs, hash_stmt_vertex_info,
+			      eq_stmt_vertex_info, hash_stmt_vertex_del);
   create_rdg_vertices (rdg, stmts);
   create_rdg_edges (rdg, dependence_relations);
 
@@ -4552,4 +4842,215 @@ build_rdg (struct loop *loop)
   VEC_free (tree, heap, stmts);
 
   return rdg;
+}
+
+/* Free the reduced dependence graph RDG.  */
+
+void
+free_rdg (struct graph *rdg)
+{
+  int i;
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    free (rdg->vertices[i].data);
+
+  htab_delete (rdg->indices);
+  free_graph (rdg);
+}
+
+/* Initialize STMTS with all the statements of LOOP that contain a
+   store to memory.  */
+
+void
+stores_from_loop (struct loop *loop, VEC (tree, heap) **stmts)
+{
+  unsigned int i;
+  basic_block *bbs = get_loop_body_in_dom_order (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      basic_block bb = bbs[i];
+      block_stmt_iterator bsi;
+
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	if (!ZERO_SSA_OPERANDS (bsi_stmt (bsi), SSA_OP_VDEF))
+	  VEC_safe_push (tree, heap, *stmts, bsi_stmt (bsi));
+    }
+
+  free (bbs);
+}
+
+/* For a data reference REF, return the declaration of its base
+   address or NULL_TREE if the base is not determined.  */
+
+static inline tree
+ref_base_address (tree stmt, data_ref_loc *ref)
+{
+  tree base = NULL_TREE;
+  tree base_address;
+  struct data_reference *dr = XCNEW (struct data_reference);
+
+  DR_STMT (dr) = stmt;
+  DR_REF (dr) = *ref->pos;
+  dr_analyze_innermost (dr);
+  base_address = DR_BASE_ADDRESS (dr);
+
+  if (!base_address)
+    goto end;
+
+  switch (TREE_CODE (base_address))
+    {
+    case ADDR_EXPR:
+      base = TREE_OPERAND (base_address, 0);
+      break;
+
+    default:
+      base = base_address;
+      break;
+    }
+
+ end:
+  free_data_ref (dr);
+  return base;
+}
+
+/* Determines whether the statement from vertex V of the RDG has a
+   definition used outside the loop that contains this statement.  */
+
+bool
+rdg_defs_used_in_other_loops_p (struct graph *rdg, int v)
+{
+  tree stmt = RDG_STMT (rdg, v);
+  struct loop *loop = loop_containing_stmt (stmt);
+  use_operand_p imm_use_p;
+  imm_use_iterator iterator;
+  ssa_op_iter it;
+  def_operand_p def_p;
+
+  if (!loop)
+    return true;
+
+  FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, it, SSA_OP_DEF)
+    {
+      FOR_EACH_IMM_USE_FAST (imm_use_p, iterator, DEF_FROM_PTR (def_p))
+	{
+	  if (loop_containing_stmt (USE_STMT (imm_use_p)) != loop)
+	    return true;
+	}
+    }
+
+  return false;
+}
+
+/* Determines whether statements S1 and S2 access to similar memory
+   locations.  Two memory accesses are considered similar when they
+   have the same base address declaration, i.e. when their
+   ref_base_address is the same.  */
+
+bool
+have_similar_memory_accesses (tree s1, tree s2)
+{
+  bool res = false;
+  unsigned i, j;
+  VEC (data_ref_loc, heap) *refs1, *refs2;
+  data_ref_loc *ref1, *ref2;
+
+  get_references_in_stmt (s1, &refs1);
+  get_references_in_stmt (s2, &refs2);
+
+  for (i = 0; VEC_iterate (data_ref_loc, refs1, i, ref1); i++)
+    {
+      tree base1 = ref_base_address (s1, ref1);
+
+      if (base1)
+	for (j = 0; VEC_iterate (data_ref_loc, refs2, j, ref2); j++)
+	  if (base1 == ref_base_address (s2, ref2))
+	    {
+	      res = true;
+	      goto end;
+	    }
+    }
+
+ end:
+  VEC_free (data_ref_loc, heap, refs1);
+  VEC_free (data_ref_loc, heap, refs2);
+  return res;
+}
+
+/* Helper function for the hashtab.  */
+
+static int
+have_similar_memory_accesses_1 (const void *s1, const void *s2)
+{
+  return have_similar_memory_accesses ((tree) s1, (tree) s2);
+}
+
+/* Helper function for the hashtab.  */
+
+static hashval_t
+ref_base_address_1 (const void *s)
+{
+  tree stmt = (tree) s;
+  unsigned i;
+  VEC (data_ref_loc, heap) *refs;
+  data_ref_loc *ref;
+  hashval_t res = 0;
+
+  get_references_in_stmt (stmt, &refs);
+
+  for (i = 0; VEC_iterate (data_ref_loc, refs, i, ref); i++)
+    if (!ref->is_read)
+      {
+	res = htab_hash_pointer (ref_base_address (stmt, ref));
+	break;
+      }
+
+  VEC_free (data_ref_loc, heap, refs);
+  return res;
+}
+
+/* Try to remove duplicated write data references from STMTS.  */
+
+void
+remove_similar_memory_refs (VEC (tree, heap) **stmts)
+{
+  unsigned i;
+  tree stmt;
+  htab_t seen = htab_create (VEC_length (tree, *stmts), ref_base_address_1,
+			     have_similar_memory_accesses_1, NULL);
+
+  for (i = 0; VEC_iterate (tree, *stmts, i, stmt); )
+    {
+      void **slot;
+
+      slot = htab_find_slot (seen, stmt, INSERT);
+
+      if (*slot)
+	VEC_ordered_remove (tree, *stmts, i);
+      else
+	{
+	  *slot = (void *) stmt;
+	  i++;
+	}
+    }
+
+  htab_delete (seen);
+}
+
+/* Returns the index of PARAMETER in the parameters vector of the
+   ACCESS_MATRIX.  If PARAMETER does not exist return -1.  */
+
+int 
+access_matrix_get_index_for_parameter (tree parameter, 
+				       struct access_matrix *access_matrix)
+{
+  int i;
+  VEC (tree,heap) *lambda_parameters = AM_PARAMETERS (access_matrix);
+  tree lambda_parameter;
+
+  for (i = 0; VEC_iterate (tree, lambda_parameters, i, lambda_parameter); i++)
+    if (lambda_parameter == parameter)
+      return i + AM_NB_INDUCTION_VARS (access_matrix);
+
+  return -1;
 }

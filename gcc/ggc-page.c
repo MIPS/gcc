@@ -1,5 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -31,18 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "params.h"
 #include "tree-flow.h"
-#ifdef ENABLE_VALGRIND_CHECKING
-# ifdef HAVE_VALGRIND_MEMCHECK_H
-#  include <valgrind/memcheck.h>
-# elif defined HAVE_MEMCHECK_H
-#  include <memcheck.h>
-# else
-#  include <valgrind.h>
-# endif
-#else
-/* Avoid #ifdef:s when we can help it.  */
-#define VALGRIND_DISCARD(x)
-#endif
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -398,7 +386,7 @@ static struct globals
   /* Maximum number of elements that can be used before resizing.  */
   unsigned int depth_max;
 
-  /* Each element of this arry is an index in by_depth where the given
+  /* Each element of this array is an index in by_depth where the given
      depth starts.  This structure is indexed by that given depth we
      are interested in.  */
   unsigned int *depth;
@@ -689,7 +677,7 @@ alloc_anon (char *pref ATTRIBUTE_UNUSED, size_t size)
   /* Pretend we don't have access to the allocated pages.  We'll enable
      access to smaller pieces of the area in ggc_alloc.  Discard the
      handle to avoid handle leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (page, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (page, size));
 
   return page;
 }
@@ -933,7 +921,7 @@ free_page (page_entry *entry)
 
   /* Mark the page as inaccessible.  Discard the handle to avoid handle
      leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (entry->page, entry->bytes));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (entry->page, entry->bytes));
 
   set_page_table_entry (entry->page, NULL);
 
@@ -1208,7 +1196,7 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
      exact same semantics in presence of memory bugs, regardless of
      ENABLE_VALGRIND_CHECKING.  We override this request below.  Drop the
      handle to avoid handle leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, object_size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (result, object_size));
 
   /* `Poison' the entire allocated object, including any padding at
      the end.  */
@@ -1216,14 +1204,14 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 
   /* Make the bytes after the end of the object unaccessible.  Discard the
      handle to avoid handle leak.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS ((char *) result + size,
-					    object_size - size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS ((char *) result + size,
+						object_size - size));
 #endif
 
   /* Tell Valgrind that the memory is there, but its content isn't
      defined.  The bytes at the end of the object are still marked
      unaccessible.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (result, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (result, size));
 
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
@@ -1266,6 +1254,57 @@ ggc_alloc_stat (size_t size MEM_STAT_DECL)
 	     (void *) entry);
 
   return result;
+}
+
+/* Mark function for strings.  */
+
+void
+gt_ggc_m_S (const void *p)
+{
+  page_entry *entry;
+  unsigned bit, word;
+  unsigned long mask;
+  unsigned long offset;
+
+  if (!p || !ggc_allocated_p (p))
+    return;
+
+  /* Look up the page on which the object is alloced.  .  */
+  entry = lookup_page_table_entry (p);
+  gcc_assert (entry);
+
+  /* Calculate the index of the object on the page; this is its bit
+     position in the in_use_p bitmap.  Note that because a char* might
+     point to the middle of an object, we need special code here to
+     make sure P points to the start of an object.  */
+  offset = ((const char *) p - entry->page) % object_size_table[entry->order];
+  if (offset)
+    {
+      /* Here we've seen a char* which does not point to the beginning
+	 of an allocated object.  We assume it points to the middle of
+	 a STRING_CST.  */
+      gcc_assert (offset == offsetof (struct tree_string, str));
+      p = ((const char *) p) - offset;
+      gt_ggc_mx_lang_tree_node ((void *) p);
+      return;
+    }
+
+  bit = OFFSET_TO_BIT (((const char *) p) - entry->page, entry->order);
+  word = bit / HOST_BITS_PER_LONG;
+  mask = (unsigned long) 1 << (bit % HOST_BITS_PER_LONG);
+
+  /* If the bit was previously set, skip it.  */
+  if (entry->in_use_p[word] & mask)
+    return;
+
+  /* Otherwise set it, and decrement the free object count.  */
+  entry->in_use_p[word] |= mask;
+  entry->num_free_objects -= 1;
+
+  if (GGC_DEBUG_LEVEL >= 4)
+    fprintf (G.debug_file, "Marking %p\n", p);
+
+  return;
 }
 
 /* If P is not marked, marks it and return false.  Otherwise return true.
@@ -1358,11 +1397,11 @@ ggc_free (void *p)
 
 #ifdef ENABLE_GC_CHECKING
   /* Poison the data, to indicate the data is garbage.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (p, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (p, size));
   memset (p, 0xa5, size);
 #endif
   /* Let valgrind know the object is free.  */
-  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (p, size));
+  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (p, size));
 
 #ifdef ENABLE_GC_ALWAYS_COLLECT
   /* In the completely-anal-checking mode, we do *not* immediately free
@@ -1815,11 +1854,12 @@ poison_pages (void)
 		     so the exact same memory semantics is kept, in case
 		     there are memory errors.  We override this request
 		     below.  */
-		  VALGRIND_DISCARD (VALGRIND_MAKE_WRITABLE (object, size));
+		  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_UNDEFINED (object,
+								 size));
 		  memset (object, 0xa5, size);
 
 		  /* Drop the handle to avoid handle leak.  */
-		  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (object, size));
+		  VALGRIND_DISCARD (VALGRIND_MAKE_MEM_NOACCESS (object, size));
 		}
 	    }
 	}

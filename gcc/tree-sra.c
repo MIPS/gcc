@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
      Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -268,6 +268,7 @@ sra_type_can_be_decomposed_p (tree type)
 	    {
 	      /* Reject incorrectly represented bit fields.  */
 	      if (DECL_BIT_FIELD (t)
+		  && INTEGRAL_TYPE_P (TREE_TYPE (t))
 		  && (tree_low_cst (DECL_SIZE (t), 1)
 		      != TYPE_PRECISION (TREE_TYPE (t))))
 		goto fail;
@@ -356,7 +357,7 @@ decl_can_be_decomposed_p (tree var)
   /* HACK: if we decompose a va_list_type_node before inlining, then we'll
      confuse tree-stdarg.c, and we won't be able to figure out which and
      how many arguments are accessed.  This really should be improved in
-     tree-stdarg.c, as the decomposition is truely a win.  This could also
+     tree-stdarg.c, as the decomposition is truly a win.  This could also
      be fixed if the stdarg pass ran early, but this can't be done until
      we've aliasing information early too.  See PR 30791.  */
   if (early_sra
@@ -855,16 +856,26 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
 	    if (elt)
 	      elt->is_vector_lhs = true;
 	  }
+
 	/* A bit field reference (access to *multiple* fields simultaneously)
-	   is not currently scalarized.  Consider this an access to the
-	   complete outer element, to which walk_tree will bring us next.  */
-	  
+	   is not currently scalarized.  Consider this an access to the full
+	   outer element, to which walk_tree will bring us next.  */
+	goto use_all;
+
+      case NOP_EXPR:
+	/* Similarly, a nop explicitly wants to look at an object in a
+	   type other than the one we've scalarized.  */
 	goto use_all;
 
       case VIEW_CONVERT_EXPR:
-      case NOP_EXPR:
-	/* Similarly, a view/nop explicitly wants to look at an object in a
-	   type other than the one we've scalarized.  */
+	/* Likewise for a view conversion, but with an additional twist:
+	   it can be on the LHS and, in this case, an access to the full
+	   outer element would mean a killing def.  So we need to punt
+	   if we haven't already a full access to the current element,
+	   because we cannot pretend to have a killing def if we only
+	   have a partial access at some level.  */
+	if (is_output && !use_all_p && inner != expr)
+	  disable_scalarization = true;
 	goto use_all;
 
       case WITH_SIZE_EXPR:
@@ -1280,9 +1291,6 @@ instantiate_element (struct sra_elt *elt)
 					       TYPE_SIZE (elt->type),
 					       DECL_SIZE (var))
 				 : bitsize_int (0));
-      if (!INTEGRAL_TYPE_P (elt->type)
-	  || TYPE_UNSIGNED (elt->type))
-	BIT_FIELD_REF_UNSIGNED (elt->replacement) = 1;
     }
 
   /* For vectors, if used on the left hand side with BIT_FIELD_REF,
@@ -1465,6 +1473,10 @@ try_instantiate_multiple_fields (struct sra_elt *elt, tree f)
   tree type, var;
   struct sra_elt *block;
 
+  /* Point fields are typically best handled as standalone entities.  */
+  if (POINTER_TYPE_P (TREE_TYPE (f)))
+    return f;
+    
   if (!is_sra_scalar_type (TREE_TYPE (f))
       || !host_integerp (DECL_FIELD_OFFSET (f), 1)
       || !host_integerp (DECL_FIELD_BIT_OFFSET (f), 1)
@@ -1677,12 +1689,17 @@ try_instantiate_multiple_fields (struct sra_elt *elt, tree f)
 
   /* Create the field group as a single variable.  */
 
-  type = lang_hooks.types.type_for_mode (mode, 1);
+  /* We used to create a type for the mode above, but size turns
+     to be out not of mode-size.  As we need a matching type
+     to build a BIT_FIELD_REF, use a nonstandard integer type as
+     fallback.  */
+  type = lang_hooks.types.type_for_size (size, 1);
+  if (!type || TYPE_PRECISION (type) != size)
+    type = build_nonstandard_integer_type (size, 1);
   gcc_assert (type);
   var = build3 (BIT_FIELD_REF, type, NULL_TREE,
 		bitsize_int (size),
 		bitsize_int (bit));
-  BIT_FIELD_REF_UNSIGNED (var) = 1;
 
   block = instantiate_missing_elements_1 (elt, var, type);
   gcc_assert (block && block->is_scalar);
@@ -1696,7 +1713,6 @@ try_instantiate_multiple_fields (struct sra_elt *elt, tree f)
 				   TREE_TYPE (block->element), var,
 				   bitsize_int (size),
 				   bitsize_int (bit & ~alchk));
-      BIT_FIELD_REF_UNSIGNED (block->replacement) = 1;
     }
 
   block->in_bitfld_block = 2;
@@ -1719,7 +1735,6 @@ try_instantiate_multiple_fields (struct sra_elt *elt, tree f)
 				   + (TREE_INT_CST_LOW
 				      (DECL_FIELD_BIT_OFFSET (f))))
 				  & ~alchk));
-      BIT_FIELD_REF_UNSIGNED (fld->replacement) = TYPE_UNSIGNED (field_type);
       fld->in_bitfld_block = 1;
     }
 
@@ -2061,7 +2076,7 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
       {
 	tree field = elt->element;
 
-	/* We can't test elt->in_bitfld_blk here because, when this is
+	/* We can't test elt->in_bitfld_block here because, when this is
 	   called from instantiate_element, we haven't set this field
 	   yet.  */
 	if (TREE_CODE (field) == BIT_FIELD_REF)
@@ -2139,14 +2154,15 @@ sra_build_assignment (tree dst, tree src)
   if (scalar_bitfield_p (src))
     {
       tree var, shift, width;
-      tree utype, stype, stmp, utmp;
+      tree utype, stype, stmp, utmp, dtmp;
       tree list, stmt;
-      bool unsignedp = BIT_FIELD_REF_UNSIGNED (src);
+      bool unsignedp = (INTEGRAL_TYPE_P (TREE_TYPE (src))
+		        ? TYPE_UNSIGNED (TREE_TYPE (src)) : true);
 
       var = TREE_OPERAND (src, 0);
       width = TREE_OPERAND (src, 1);
       /* The offset needs to be adjusted to a right shift quantity
-	 depending on the endianess.  */
+	 depending on the endianness.  */
       if (BYTES_BIG_ENDIAN)
 	{
 	  tree tmp = size_binop (PLUS_EXPR, width, TREE_OPERAND (src, 2));
@@ -2256,6 +2272,16 @@ sra_build_assignment (tree dst, tree src)
 	    var = fold_convert (TREE_TYPE (dst), var);
 	  else
 	    var = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (dst), var);
+
+	  /* If the destination is not a register the conversion needs
+	     to be a separate statement.  */
+	  if (!is_gimple_reg (dst))
+	    {
+	      dtmp = make_rename_temp (TREE_TYPE (dst), "SR");
+	      stmt = build_gimple_modify_stmt (dtmp, var);
+	      append_to_statement_list (stmt, &list);
+	      var = dtmp;
+	    }
 	}
       stmt = build_gimple_modify_stmt (dst, var);
       append_to_statement_list (stmt, &list);
@@ -2270,7 +2296,13 @@ sra_build_assignment (tree dst, tree src)
      Since such accesses under different types require compatibility
      anyway, there's little point in making tests and/or adding
      conversions to ensure the types of src and dst are the same.
-     So we just assume type differences at this point are ok.  */
+     So we just assume type differences at this point are ok.
+     The only exception we make here are pointer types, which can be different
+     in e.g. structurally equal, but non-identical RECORD_TYPEs.  */
+  if (POINTER_TYPE_P (TREE_TYPE (dst))
+      && !useless_type_conversion_p (TREE_TYPE (dst), TREE_TYPE (src)))
+    src = fold_convert (TREE_TYPE (dst), src);
+
   return build_gimple_modify_stmt (dst, src);
 }
 
@@ -2475,6 +2507,7 @@ sra_build_elt_assignment (struct sra_elt *elt, tree src)
   if (elt->in_bitfld_block == 2
       && TREE_CODE (src) == BIT_FIELD_REF)
     {
+      tmp = src;
       cst = TYPE_SIZE (TREE_TYPE (var));
       cst2 = size_binop (MINUS_EXPR, TREE_OPERAND (src, 2),
 			 TREE_OPERAND (dst, 2));
@@ -2520,8 +2553,7 @@ sra_build_elt_assignment (struct sra_elt *elt, tree src)
 	}
       else
 	{
-	  src = fold_build3 (BIT_FIELD_REF, TREE_TYPE (var), src, cst, cst2);
-	  BIT_FIELD_REF_UNSIGNED (src) = 1;
+	  src = fold_convert (TREE_TYPE (var), tmp);
 	}
 
       return sra_build_assignment (var, src);
@@ -2600,7 +2632,33 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
 
 	  continue;
 	}
-      gcc_assert (sc);
+
+      /* If DST and SRC are structs with the same elements, but do not have
+	 the same TYPE_MAIN_VARIANT, then lookup of DST FIELD_DECL in SRC
+	 will fail.  Try harder by finding the corresponding FIELD_DECL
+	 in SRC.  */
+      if (!sc)
+	{
+	  tree f;
+
+	  gcc_assert (useless_type_conversion_p (dst->type, src->type));
+	  gcc_assert (TREE_CODE (dc->element) == FIELD_DECL);
+	  for (f = TYPE_FIELDS (src->type); f ; f = TREE_CHAIN (f))
+	    if (simple_cst_equal (DECL_FIELD_OFFSET (f),
+				  DECL_FIELD_OFFSET (dc->element)) > 0
+		&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (f),
+				     DECL_FIELD_BIT_OFFSET (dc->element)) > 0
+		&& simple_cst_equal (DECL_SIZE (f),
+				     DECL_SIZE (dc->element)) > 0
+		&& (useless_type_conversion_p (TREE_TYPE (dc->element),
+					       TREE_TYPE (f))
+		    || (POINTER_TYPE_P (TREE_TYPE (dc->element))
+			&& POINTER_TYPE_P (TREE_TYPE (f)))))
+	      break;
+	  gcc_assert (f != NULL_TREE);
+	  sc = lookup_element (src, f, NULL, NO_INSERT);
+	}
+
       generate_element_copy (dc, sc, list_p);
     }
 
@@ -2972,6 +3030,8 @@ sra_explode_bitfield_assignment (tree var, tree vpos, bool to_var,
 	  type = TREE_TYPE (infld);
 	  if (TYPE_PRECISION (type) != TREE_INT_CST_LOW (flen))
 	    type = lang_hooks.types.type_for_size (TREE_INT_CST_LOW (flen), 1);
+	  else
+	    type = unsigned_type_for (type);
 
 	  if (TREE_CODE (infld) == BIT_FIELD_REF)
 	    {
@@ -2989,7 +3049,6 @@ sra_explode_bitfield_assignment (tree var, tree vpos, bool to_var,
 	    }
 
 	  infld = fold_build3 (BIT_FIELD_REF, type, infld, flen, fpos);
-	  BIT_FIELD_REF_UNSIGNED (infld) = 1;
 
 	  invar = size_binop (MINUS_EXPR, flp.field_pos, bpos);
 	  if (flp.overlap_pos)
@@ -2997,7 +3056,6 @@ sra_explode_bitfield_assignment (tree var, tree vpos, bool to_var,
 	  invar = size_binop (PLUS_EXPR, invar, vpos);
 
 	  invar = fold_build3 (BIT_FIELD_REF, type, var, flen, invar);
-	  BIT_FIELD_REF_UNSIGNED (invar) = 1;
 
 	  if (to_var)
 	    st = sra_build_bf_assignment (invar, infld);
@@ -3637,8 +3695,10 @@ gate_sra (void)
   return flag_tree_sra != 0;
 }
 
-struct tree_opt_pass pass_sra_early =
+struct gimple_opt_pass pass_sra_early =
 {
+ {
+  GIMPLE_PASS,
   "esra",				/* name */
   gate_sra,				/* gate */
   tree_sra_early,			/* execute */
@@ -3653,12 +3713,14 @@ struct tree_opt_pass pass_sra_early =
   TODO_dump_func
   | TODO_update_ssa
   | TODO_ggc_collect
-  | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sra =
+struct gimple_opt_pass pass_sra =
 {
+ {
+  GIMPLE_PASS,
   "sra",				/* name */
   gate_sra,				/* gate */
   tree_sra,				/* execute */
@@ -3673,6 +3735,6 @@ struct tree_opt_pass pass_sra =
   TODO_dump_func
   | TODO_update_ssa
   | TODO_ggc_collect
-  | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };

@@ -1,6 +1,6 @@
 /* Definitions of various defaults for tm.h macros.
    Copyright (C) 1992, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2007
+   2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
@@ -655,7 +655,6 @@ along with GCC; see the file COPYING3.  If not see
 #define UNKNOWN_FLOAT_FORMAT 0
 #define IEEE_FLOAT_FORMAT 1
 #define VAX_FLOAT_FORMAT 2
-#define C4X_FLOAT_FORMAT 3
 
 /* Default to IEEE float if not specified.  Nearly all machines use it.  */
 #ifndef TARGET_FLOAT_FORMAT
@@ -740,7 +739,7 @@ along with GCC; see the file COPYING3.  If not see
 /* By default, only attempt to parallelize bitwise operations, and
    possibly adds/subtracts using bit-twiddling.  */
 #ifndef UNITS_PER_SIMD_WORD
-#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
+#define UNITS_PER_SIMD_WORD(MODE) UNITS_PER_WORD
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
@@ -903,6 +902,10 @@ along with GCC; see the file COPYING3.  If not see
 #define LEGITIMATE_PIC_OPERAND_P(X) 1
 #endif
 
+#ifndef TARGET_MEM_CONSTRAINT
+#define TARGET_MEM_CONSTRAINT 'm'
+#endif
+
 #ifndef REVERSIBLE_CC_MODE
 #define REVERSIBLE_CC_MODE(MODE) 0
 #endif
@@ -938,7 +941,16 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #ifndef OUTGOING_REG_PARM_STACK_SPACE
-#define OUTGOING_REG_PARM_STACK_SPACE 0
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 0
+#endif
+
+#ifndef LOCAL_ALIGNMENT
+#define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
+#endif
+
+#ifndef STACK_SLOT_ALIGNMENT
+#define STACK_SLOT_ALIGNMENT(TYPE,MODE,ALIGN) \
+  ((TYPE) ? LOCAL_ALIGNMENT ((TYPE), (ALIGN)) : (ALIGN))
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

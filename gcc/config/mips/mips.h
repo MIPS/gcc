@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS version.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by A. Lichnewsky (lich@inria.inria.fr).
    Changed by Michael Meissner	(meissner@osf.org).
@@ -47,6 +47,8 @@ enum processor_type {
   PROCESSOR_74KF2_1,
   PROCESSOR_74KF1_1,
   PROCESSOR_74KF3_2,
+  PROCESSOR_LOONGSON_2E,
+  PROCESSOR_LOONGSON_2F,
   PROCESSOR_M4K,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
@@ -67,6 +69,7 @@ enum processor_type {
   PROCESSOR_SB1,
   PROCESSOR_SB1A,
   PROCESSOR_SR71000,
+  PROCESSOR_XLR,
   PROCESSOR_MAX
 };
 
@@ -237,6 +240,9 @@ enum mips_code_readable_setting {
 #define TARGET_SB1                  (mips_arch == PROCESSOR_SB1		\
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
+#define TARGET_LOONGSON_2E          (mips_arch == PROCESSOR_LOONGSON_2E)
+#define TARGET_LOONGSON_2F          (mips_arch == PROCESSOR_LOONGSON_2F)
+#define TARGET_LOONGSON_2EF         (TARGET_LOONGSON_2E || TARGET_LOONGSON_2F)
 
 /* Scheduling target defines.  */
 #define TUNE_MIPS3000               (mips_tune == PROCESSOR_R3000)
@@ -646,7 +652,7 @@ enum mips_code_readable_setting {
   "%{" MIPS_ISA_LEVEL_OPTION_SPEC ":;: \
      %{march=mips1|march=r2000|march=r3000|march=r3900:-mips1} \
      %{march=mips2|march=r6000:-mips2} \
-     %{march=mips3|march=r4*|march=vr4*|march=orion:-mips3} \
+     %{march=mips3|march=r4*|march=vr4*|march=orion|march=loongson2*:-mips3} \
      %{march=mips4|march=r8000|march=vr5*|march=rm7000|march=rm9000:-mips4} \
      %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
@@ -1078,7 +1084,6 @@ enum mips_code_readable_setting {
 #endif
 
 #define DBX_DEBUGGING_INFO 1		/* generate stabs (OSF/rose) */
-#define MIPS_DEBUGGING_INFO 1		/* MIPS specific debugging info */
 #define DWARF2_DEBUGGING_INFO 1         /* dwarf2 debugging info */
 
 #ifndef PREFERRED_DEBUGGING_TYPE
@@ -1194,7 +1199,8 @@ enum mips_code_readable_setting {
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
-#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : UNITS_PER_WORD)
+#define UNITS_PER_SIMD_WORD(MODE) \
+  (TARGET_PAIRED_SINGLE_FLOAT ? 8 : UNITS_PER_WORD)
 
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
@@ -1372,7 +1378,7 @@ enum mips_code_readable_setting {
    - 3 fake registers:
 	- ARG_POINTER_REGNUM
 	- FRAME_POINTER_REGNUM
-	- FAKE_CALL_REGNO (see the comment above load_callsi for details)
+	- GOT_VERSION_REGNUM (see the comment above load_call<mode> for details)
    - 3 dummy entries that were used at various times in the past.
    - 6 DSP accumulator registers (3 hi-lo pairs) for MIPS DSP ASE
    - 6 DSP control registers  */
@@ -1452,7 +1458,7 @@ enum mips_code_readable_setting {
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   /* Others.  */                                                        \
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,			\
   /* COP0 registers */							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
@@ -1884,7 +1890,7 @@ enum reg_class
    See mips_compute_frame_info for details about the frame layout.  */
 
 #define STARTING_FRAME_OFFSET						\
-  (current_function_outgoing_args_size					\
+  (crtl->outgoing_args_size					\
    + (TARGET_CALL_CLOBBERED_GP ? MIPS_STACK_ALIGN (UNITS_PER_WORD) : 0))
 
 #define RETURN_ADDR_RTX mips_return_addr
@@ -1936,8 +1942,8 @@ enum reg_class
    allocate the area reserved for arguments passed in registers.
    If `ACCUMULATE_OUTGOING_ARGS' is also defined, the only effect
    of this macro is to determine whether the space is included in
-   `current_function_outgoing_args_size'.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+   `crtl->outgoing_args_size'.  */
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 #define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
 
@@ -2089,8 +2095,12 @@ typedef struct mips_args {
 
 /* Say that the epilogue uses the return address register.  Note that
    in the case of sibcalls, the values "used by the epilogue" are
-   considered live at the start of the called function.  */
-#define EPILOGUE_USES(REGNO) ((REGNO) == 31)
+   considered live at the start of the called function.
+
+   If using a GOT, say that the epilogue also uses GOT_VERSION_REGNUM.
+   See the comment above load_call<mode> for details.  */
+#define EPILOGUE_USES(REGNO) \
+  ((REGNO) == 31 || (TARGET_USE_GOT && (REGNO) == GOT_VERSION_REGNUM))
 
 /* Treat LOC as a byte offset from the stack pointer and round it up
    to the next fully-aligned offset.  */
@@ -2899,7 +2909,37 @@ while (0)
   "\tsc" SUFFIX "\t%@,%1\n"			\
   "\tbeq\t%@,%.,1b\n"				\
   "\tnop\n"					\
-  "2:\tsync%-%]%>%)"
+  "\tsync%-%]%>%)\n"				\
+  "2:\n"
+
+/* Return an asm string that atomically:
+
+     - Given that %2 contains a bit mask and %3 the inverted mask and
+       that %4 and %5 have already been ANDed with %2.
+
+     - Compares the bits in memory reference %1 selected by mask %2 to
+       register %4 and, if they are equal, changes the selected bits
+       in memory to %5.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+    OPS are the instructions needed to OR %5 with %@.  */
+#define MIPS_COMPARE_AND_SWAP_12(OPS)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%2\n"				\
+  "\tbne\t%@,%z4,2f\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  OPS						\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)\n"				\
+  "2:\n"
+
+#define MIPS_COMPARE_AND_SWAP_12_ZERO_OP ""
+#define MIPS_COMPARE_AND_SWAP_12_NONZERO_OP "\tor\t%@,%@,%5\n"
+
 
 /* Return an asm string that atomically:
 
@@ -2915,6 +2955,97 @@ while (0)
   "\tbeq\t%@,%.,1b\n"				\
   "\tnop\n"					\
   "\tsync%-%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Given that %1 contains a bit mask and %2 the inverted mask and
+       that %3 has already been ANDed with %1.
+
+     - Sets the selected bits of memory reference %0 to %0 INSN %3.
+
+     - Uses scratch register %4.
+
+    NOT_OP are the optional instructions to do a bit-wise not
+    operation in conjunction with an AND INSN to generate a sync_nand
+    operation.  */
+#define MIPS_SYNC_OP_12(INSN, NOT_OP)		\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%4,%0\n"				\
+  "\tand\t%@,%4,%2\n"				\
+  NOT_OP					\
+  "\t" INSN "\t%4,%4,%z3\n"			\
+  "\tand\t%4,%4,%1\n"				\
+  "\tor\t%@,%@,%4\n"				\
+  "\tsc\t%@,%0\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)"
+
+#define MIPS_SYNC_OP_12_NOT_NOP ""
+#define MIPS_SYNC_OP_12_NOT_NOT "\tnor\t%4,%4,%.\n"
+
+/* Return an asm string that atomically:
+
+     - Given that %2 contains a bit mask and %3 the inverted mask and
+       that %4 has already been ANDed with %2.
+
+     - Sets the selected bits of memory reference %1 to %1 INSN %4.
+
+     - Sets %0 to the original value of %1.
+
+     - Uses scratch register %5.
+
+    NOT_OP are the optional instructions to do a bit-wise not
+    operation in conjunction with an AND INSN to generate a sync_nand
+    operation.
+
+    REG is used in conjunction with NOT_OP and is used to select the
+    register operated on by the INSN.  */
+#define MIPS_SYNC_OLD_OP_12(INSN, NOT_OP, REG)	\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  NOT_OP					\
+  "\t" INSN "\t%5," REG ",%z4\n"		\
+  "\tand\t%5,%5,%2\n"				\
+  "\tor\t%@,%@,%5\n"				\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)"
+
+#define MIPS_SYNC_OLD_OP_12_NOT_NOP ""
+#define MIPS_SYNC_OLD_OP_12_NOT_NOP_REG "%0"
+#define MIPS_SYNC_OLD_OP_12_NOT_NOT "\tnor\t%5,%0,%.\n"
+#define MIPS_SYNC_OLD_OP_12_NOT_NOT_REG "%5"
+
+/* Return an asm string that atomically:
+
+     - Given that %2 contains a bit mask and %3 the inverted mask and
+       that %4 has already been ANDed with %2.
+
+     - Sets the selected bits of memory reference %1 to %1 INSN %4.
+
+     - Sets %0 to the new value of %1.
+
+    NOT_OP are the optional instructions to do a bit-wise not
+    operation in conjunction with an AND INSN to generate a sync_nand
+    operation.  */
+#define MIPS_SYNC_NEW_OP_12(INSN, NOT_OP)	\
+  "%(%<%[%|sync\n"				\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  NOT_OP					\
+  "\t" INSN "\t%0,%0,%z4\n"			\
+  "\tand\t%0,%0,%2\n"				\
+  "\tor\t%@,%@,%0\n"				\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)"
+
+#define MIPS_SYNC_NEW_OP_12_NOT_NOP ""
+#define MIPS_SYNC_NEW_OP_12_NOT_NOT "\tnor\t%0,%0,%.\n"
 
 /* Return an asm string that atomically:
 
@@ -3022,6 +3153,33 @@ while (0)
   "\tbeq\t%@,%.,1b\n"				\
   "\tnop\n"					\
   "\tsync%-%]%>%)"
+
+/* Return an asm string that atomically:
+
+     - Given that %2 contains an inclusive mask, %3 and exclusive mask
+       and %4 has already been ANDed with the inclusive mask.
+
+     - Sets bits selected by the inclusive mask of memory reference %1
+       to %4.
+
+     - Sets register %0 to the old value of memory reference %1.
+
+    OPS are the instructions needed to OR %4 with %@.
+
+    Operand %2 is unused, but needed as to give the test_and_set_12
+    insn the five operands expected by the expander.  */
+#define MIPS_SYNC_EXCHANGE_12(OPS)              \
+  "%(%<%[%|\n"					\
+  "1:\tll\t%0,%1\n"				\
+  "\tand\t%@,%0,%3\n"				\
+  OPS						\
+  "\tsc\t%@,%1\n"				\
+  "\tbeq\t%@,%.,1b\n"				\
+  "\tnop\n"					\
+  "\tsync%-%]%>%)"
+
+#define MIPS_SYNC_EXCHANGE_12_ZERO_OP ""
+#define MIPS_SYNC_EXCHANGE_12_NONZERO_OP "\tor\t%@,%@,%4\n"
 
 #ifndef USED_FOR_TARGET
 extern const enum reg_class mips_regno_to_class[];

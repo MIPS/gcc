@@ -40,6 +40,7 @@
 #include "langhooks.h"
 #include "varray.h"
 #include "vec.h"
+#include "value-prof.h"
 
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
@@ -117,13 +118,13 @@
 static ssa_prop_visit_stmt_fn ssa_prop_visit_stmt;
 static ssa_prop_visit_phi_fn ssa_prop_visit_phi;
 
-/* Use the TREE_DEPRECATED bitflag to mark statements that have been
+/* Use the deprecated flag to mark statements that have been
    added to one of the SSA edges worklists.  This flag is used to
    avoid visiting statements unnecessarily when draining an SSA edge
    worklist.  If while simulating a basic block, we find a statement with
    STMT_IN_SSA_EDGE_WORKLIST set, we clear it to prevent SSA edge
    processing from visiting it again.  */
-#define STMT_IN_SSA_EDGE_WORKLIST(T)	TREE_DEPRECATED (T)
+#define STMT_IN_SSA_EDGE_WORKLIST(T) ((T)->base.deprecated_flag)
 
 /* A bitmap to keep track of executable blocks in the CFG.  */
 static sbitmap executable_blocks;
@@ -680,9 +681,10 @@ bool
 set_rhs (tree *stmt_p, tree expr)
 {
   tree stmt = *stmt_p, op;
-  stmt_ann_t ann;
+  tree new_stmt;
   tree var;
   ssa_op_iter iter;
+  int eh_region;
 
   if (!valid_gimple_expression_p (expr))
     return false;
@@ -733,9 +735,22 @@ set_rhs (tree *stmt_p, tree expr)
     default:
       /* Replace the whole statement with EXPR.  If EXPR has no side
 	 effects, then replace *STMT_P with an empty statement.  */
-      ann = stmt_ann (stmt);
-      *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
-      (*stmt_p)->base.ann = (tree_ann_t) ann;
+      new_stmt = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
+      *stmt_p = new_stmt;
+
+      /* Preserve the annotation, the histograms and the EH region information
+         associated with the original statement. The EH information
+	 needs to be preserved only if the new statement still can throw.  */
+      new_stmt->base.ann = (tree_ann_t) stmt_ann (stmt);
+      gimple_move_stmt_histograms (cfun, new_stmt, stmt);
+      if (tree_could_throw_p (new_stmt))
+	{
+	  eh_region = lookup_stmt_eh_region (stmt);
+	  /* We couldn't possibly turn a nothrow into a throw statement.  */
+	  gcc_assert (eh_region >= 0);
+	  remove_stmt_from_eh_region (stmt);
+	  add_stmt_to_eh_region (new_stmt, eh_region);
+	}
 
       if (gimple_in_ssa_p (cfun)
 	  && TREE_SIDE_EFFECTS (expr))
@@ -890,6 +905,7 @@ struct prop_stats_d
   long num_const_prop;
   long num_copy_prop;
   long num_pred_folded;
+  long num_dce;
 };
 
 static struct prop_stats_d prop_stats;
@@ -1148,7 +1164,17 @@ fold_predicate_in (tree stmt)
   else
     return false;
 
-  val = vrp_evaluate_conditional (*pred_p, stmt);
+  if (TREE_CODE (*pred_p) == SSA_NAME)
+    val = vrp_evaluate_conditional (EQ_EXPR,
+				    *pred_p,
+				    boolean_true_node,
+				    stmt);
+  else
+    val = vrp_evaluate_conditional (TREE_CODE (*pred_p),
+				    TREE_OPERAND (*pred_p, 0),
+				    TREE_OPERAND (*pred_p, 1),
+				    stmt);
+
   if (val)
     {
       if (modify_stmt_p)
@@ -1211,10 +1237,12 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	  replace_phi_args_in (phi, prop_value);
 
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+      /* Propagate known values into stmts.  Do a backward walk to expose
+	 more trivially deletable stmts.  */
+      for (i = bsi_last (bb); !bsi_end_p (i);)
 	{
           bool replaced_address, did_replace;
-	  tree prev_stmt = NULL;
+	  tree call, prev_stmt = NULL;
 	  tree stmt = bsi_stmt (i);
 
 	  /* Ignore ASSERT_EXPRs.  They are used by VRP to generate
@@ -1222,7 +1250,35 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	     afterwards.  */
 	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
 	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == ASSERT_EXPR)
-	    continue;
+	    {
+	      bsi_prev (&i);
+	      continue;
+	    }
+
+	  /* No point propagating into a stmt whose result is not used,
+	     but instead we might be able to remove a trivially dead stmt.  */
+	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
+	      && TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == SSA_NAME
+	      && !stmt_ann (stmt)->has_volatile_ops
+	      && has_zero_uses (GIMPLE_STMT_OPERAND (stmt, 0))
+	      && !tree_could_throw_p (stmt)
+	      && (!(call = get_call_expr_in (stmt))
+		  || !TREE_SIDE_EFFECTS (call)))
+	    {
+	      block_stmt_iterator i2;
+	      if (dump_file && dump_flags & TDF_DETAILS)
+		{
+		  fprintf (dump_file, "Removing dead stmt ");
+		  print_generic_expr (dump_file, stmt, 0);
+		  fprintf (dump_file, "\n");
+		}
+	      prop_stats.num_dce++;
+	      bsi_prev (&i);
+	      i2 = bsi_for_stmt (stmt);
+	      bsi_remove (&i2, true);
+	      release_defs (stmt);
+	      continue;
+	    }
 
 	  /* Record the state of the statement before replacements.  */
 	  push_stmt_changes (bsi_stmt_ptr (i));
@@ -1298,18 +1354,19 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	     statement.  */
 	  if (use_ranges_p)
 	    simplify_stmt_using_ranges (stmt);
+
+	  bsi_prev (&i);
 	}
     }
 
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      fprintf (dump_file, "Constants propagated: %6ld\n",
-	       prop_stats.num_const_prop);
-      fprintf (dump_file, "Copies propagated:    %6ld\n",
-	       prop_stats.num_copy_prop);
-      fprintf (dump_file, "Predicates folded:    %6ld\n",
-	       prop_stats.num_pred_folded);
-    }
+  statistics_counter_event (cfun, "Constants propagated",
+			    prop_stats.num_const_prop);
+  statistics_counter_event (cfun, "Copies propagated",
+			    prop_stats.num_copy_prop);
+  statistics_counter_event (cfun, "Predicates folded",
+			    prop_stats.num_pred_folded);
+  statistics_counter_event (cfun, "Statements deleted",
+			    prop_stats.num_dce);
   return something_changed;
 }
 

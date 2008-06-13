@@ -1,6 +1,7 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -70,8 +71,8 @@ static const char posint_required[] = "Positive width required in format",
   unexpected_end[] = "Unexpected end of format string",
   bad_string[] = "Unterminated character constant in format",
   bad_hollerith[] = "Hollerith constant extends past the end of the format",
-  reversion_error[] = "Exhausted data descriptors in format";
-
+  reversion_error[] = "Exhausted data descriptors in format",
+  zero_width[] = "Zero width in format descriptor";
 
 /* next_char()-- Return the next character in the format string.
  * Returns -1 when the string is done.  If the literal flag is set,
@@ -395,7 +396,6 @@ format_lex (format_data *fmt)
 	  unget_char (fmt);
 	  break;
 	}
-
       break;
 
     case 'G':
@@ -415,7 +415,19 @@ format_lex (format_data *fmt)
       break;
 
     case 'D':
-      token = FMT_D;
+      switch (next_char (fmt, 0))
+	{
+	case 'P':
+	  token = FMT_DP;
+	  break;
+	case 'C':
+	  token = FMT_DC;
+	  break;
+	default:
+	  token = FMT_D;
+	  unget_char (fmt);
+	  break;
+	}
       break;
 
     case -1:
@@ -550,6 +562,11 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = 1;
       goto optional_comma;
 
+    case FMT_DC:
+    case FMT_DP:
+      notify_std (&dtp->common, GFC_STD_F2003, "Fortran 2003: DC or DP "
+		  "descriptor not allowed");
+    /* Fall through.  */
     case FMT_S:
     case FMT_SS:
     case FMT_SP:
@@ -575,6 +592,7 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = 1;
       notify_std (&dtp->common, GFC_STD_GNU, "Extension: $ descriptor");
       goto between_desc;
+
 
     case FMT_T:
     case FMT_TL:
@@ -680,6 +698,12 @@ parse_format_list (st_parameter_dt *dtp)
 
     case FMT_A:
       t = format_lex (fmt);
+      if (t == FMT_ZERO)
+	{
+	  fmt->error = zero_width;
+	  goto finished;
+	}
+
       if (t != FMT_POSINT)
 	{
 	  fmt->saved_token = t;
@@ -701,6 +725,17 @@ parse_format_list (st_parameter_dt *dtp)
       tail->repeat = repeat;
 
       u = format_lex (fmt);
+      if (t == FMT_G && u == FMT_ZERO)
+	{
+	  if (notification_std (GFC_STD_F2008) == ERROR
+	      || dtp->u.p.mode == READING)
+	    {
+	      fmt->error = zero_width;
+	      goto finished;
+	    }
+	  tail->u.real.w = 0;
+	  break;
+	}
       if (t == FMT_F || dtp->u.p.mode == WRITING)
 	{
 	  if (u != FMT_POSINT && u != FMT_ZERO)
@@ -1061,7 +1096,7 @@ next_format0 (fnode * f)
 
 /* next_format()-- Return the next format node.  If the format list
  * ends up being exhausted, we do reversion.  Reversion is only
- * allowed if the we've seen a data descriptor since the
+ * allowed if we've seen a data descriptor since the
  * initialization or the last reversion.  We return NULL if there
  * are no more data descriptors to return (which is an error
  * condition). */

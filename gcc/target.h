@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
@@ -351,7 +351,7 @@ struct gcc_target
        second argument is the cost of the dependence as estimated by
        the scheduler.  The last argument is the distance in cycles
        between the already scheduled insn (first parameter) and the
-       the second insn (second parameter).  */
+       second insn (second parameter).  */
     bool (* is_costly_dependence) (struct _dep *_dep, int, int);
 
     /* The following member value is a pointer to a function called
@@ -830,6 +830,11 @@ struct gcc_target
     /* Return an rtx for the argument pointer incoming to the
        current function.  */
     rtx (*internal_arg_pointer) (void);
+
+    /* Return true if all function parameters should be spilled to the
+       stack.  */
+    bool (*allocate_stack_slots_for_args) (void);
+    
   } calls;
 
   /* Return the diagnostic message string if conversion from FROMTYPE
@@ -848,6 +853,15 @@ struct gcc_target
   enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
 				      enum machine_mode,
 				      struct secondary_reload_info *);
+
+  /* This target hook allows the backend to perform additional
+     processing while initializing for variable expansion.  */
+  void (* expand_to_rtl_hook) (void);
+
+  /* This target hook allows the backend to perform additional
+     instantiations on rtx that are not actually in insns yet,
+     but will be later.  */
+  void (* instantiate_decls) (void);
 
   /* Functions specific to the C family of frontends.  */
   struct c {
@@ -907,6 +921,34 @@ struct gcc_target
        target modifications).  */
     void (*adjust_class_at_definition) (tree type);
   } cxx;
+
+  /* Functions and data for emulated TLS support.  */
+  struct emutls {
+    /* Name of the address and common functions.  */
+    const char *get_address;
+    const char *register_common;
+
+    /* Prefixes for proxy variable and template.  */
+    const char *var_section;
+    const char *tmpl_section;
+
+    /* Prefixes for proxy variable and template.  */
+    const char *var_prefix;
+    const char *tmpl_prefix;
+    
+    /* Function to generate field definitions of the proxy variable.  */
+    tree (*var_fields) (tree, tree *);
+
+    /* Function to initialize a proxy variable.  */
+    tree (*var_init) (tree, tree, tree);
+
+    /* Whether we are allowed to alter the usual alignment of the
+       proxy variable.  */
+    bool var_align_fixed;
+
+    /* Whether we can emit debug information for TLS vars.  */
+    bool debug_form_tls_address;
+  } emutls;  
 
   /* For targets that need to mark extra registers as live on entry to
      the function, they should define this target hook and set their

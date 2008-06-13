@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
    Foundation, Inc.
 
 This file is part of GCC.
@@ -841,7 +841,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
-   X contains a MEM; this routine does usememory aliasing.  */
+   X contains a MEM; this routine does use memory aliasing.  */
 
 int
 modified_between_p (const_rtx x, const_rtx start, const_rtx end)
@@ -1124,7 +1124,7 @@ noop_move_p (const_rtx insn)
     return 0;
 
   /* For now treat an insn with a REG_RETVAL note as a
-     a special insn which should not be considered a no-op.  */
+     special insn which should not be considered a no-op.  */
   if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
     return 0;
 
@@ -1846,29 +1846,6 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
   return 0;
 }
 
-/* Return true if INSN is a call to a pure function.  */
-
-int
-pure_call_p (const_rtx insn)
-{
-  const_rtx link;
-
-  if (!CALL_P (insn) || ! CONST_OR_PURE_CALL_P (insn))
-    return 0;
-
-  /* Look for the note that differentiates const and pure functions.  */
-  for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
-    {
-      rtx u, m;
-
-      if (GET_CODE (u = XEXP (link, 0)) == USE
-	  && MEM_P (m = XEXP (u, 0)) && GET_MODE (m) == BLKmode
-	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
-	return 1;
-    }
-
-  return 0;
-}
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
@@ -2989,16 +2966,15 @@ loc_mentioned_in_p (rtx *loc, const_rtx in)
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
-      if (loc == &in->u.fld[i].rt_rtx)
-	return 1;
       if (fmt[i] == 'e')
 	{
-	  if (loc_mentioned_in_p (loc, XEXP (in, i)))
+	  if (loc == &XEXP (in, i) || loc_mentioned_in_p (loc, XEXP (in, i)))
 	    return 1;
 	}
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (in, i) - 1; j >= 0; j--)
-	  if (loc_mentioned_in_p (loc, XVECEXP (in, i, j)))
+	  if (loc == &XVECEXP (in, i, j)
+	      || loc_mentioned_in_p (loc, XVECEXP (in, i, j)))
 	    return 1;
     }
   return 0;

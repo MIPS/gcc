@@ -28,9 +28,12 @@ along with GCC; see the file COPYING3.  If not see
    and scalar multiplication.  In this vector space, an element is a list of
    integers.  */
 typedef int *lambda_vector;
-
 DEF_VEC_P(lambda_vector);
 DEF_VEC_ALLOC_P(lambda_vector,heap);
+
+typedef VEC(lambda_vector, heap) *lambda_vector_vec_p;
+DEF_VEC_P (lambda_vector_vec_p);
+DEF_VEC_ALLOC_P (lambda_vector_vec_p, heap);
 
 /* An integer matrix.  A matrix consists of m vectors of length n (IE
    all vectors are the same length).  */
@@ -469,5 +472,21 @@ build_linear_expr (tree type, lambda_vector coefs, VEC (tree, heap) *ivs)
   return expr;
 }
 
-#endif /* LAMBDA_H  */
+/* Returns the dependence level for a vector DIST of size LENGTH.
+   LEVEL = 0 means a lexicographic dependence, i.e. a dependence due
+   to the sequence of statements, not carried by any loop.  */
 
+
+static inline unsigned
+dependence_level (lambda_vector dist_vect, int length)
+{
+  int i;
+
+  for (i = 0; i < length; i++)
+    if (dist_vect[i] != 0)
+      return i + 1;
+
+  return 0;
+}
+
+#endif /* LAMBDA_H  */

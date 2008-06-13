@@ -1,5 +1,6 @@
 /* Type based alias analysis.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
+   Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -1752,7 +1753,7 @@ analyze_function (struct cgraph_node *fn)
   if (DECL_STRUCT_FUNCTION (decl))
     {
       tree step;
-      for (step = DECL_STRUCT_FUNCTION (decl)->unexpanded_var_list;
+      for (step = DECL_STRUCT_FUNCTION (decl)->local_decls;
 	   step;
 	   step = TREE_CHAIN (step))
 	{
@@ -1781,7 +1782,7 @@ type_for_uid (int uid)
   else return NULL;
 }
 
-/* Return the a bitmap with the subtypes of the type for UID.  If it
+/* Return a bitmap with the subtypes of the type for UID.  If it
    does not exist, return either NULL or a new bitmap depending on the
    value of CREATE.  */ 
 
@@ -2054,7 +2055,7 @@ type_escape_execute (void)
   FOR_EACH_STATIC_VARIABLE (vnode)
     analyze_variable (vnode);
 
-  /* Process all of the functions. next
+  /* Process all of the functions next.
 
      We do not want to process any of the clones so we check that this
      is a master clone.  However, we do need to process any
@@ -2196,8 +2197,10 @@ gate_type_escape_vars (void)
 	  && !(errorcount || sorrycount));
 }
 
-struct tree_opt_pass pass_ipa_type_escape =
+struct simple_ipa_opt_pass pass_ipa_type_escape =
 {
+ {
+  SIMPLE_IPA_PASS,
   "type-escape-var",			/* name */
   gate_type_escape_vars,		/* gate */
   type_escape_execute,			/* execute */
@@ -2209,7 +2212,7 @@ struct tree_opt_pass pass_ipa_type_escape =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0					/* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 

@@ -22,6 +22,9 @@ main ()
     return 0;
 
   for (i = 0; i < N; i++)
+    p[i].b = i;
+
+  for (i = 0; i < N; i++)
     p[i].a = p[i].b + 1;
 
   for (i = 0; i < N; i++)
@@ -32,6 +35,5 @@ main ()
 }
 
 /*--------------------------------------------------------------------------*/
-/* Currently the condition `if (p == 0)` is incorrectly reported as unsafe.  */
-/* { dg-final { scan-ipa-dump "Number of structures to transform is 1" "ipa_struct_reorg" { xfail *-*-* } } } */
+/* { dg-final { scan-ipa-dump "Number of structures to transform is 1" "ipa_struct_reorg" } } */
 /* { dg-final { cleanup-ipa-dump "*" } } */

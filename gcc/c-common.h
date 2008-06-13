@@ -85,7 +85,7 @@ enum rid
   RID_NEW,      RID_OFFSETOF, RID_OPERATOR,
   RID_THIS,     RID_THROW,    RID_TRUE,
   RID_TRY,      RID_TYPENAME, RID_TYPEID,
-  RID_USING,
+  RID_USING,    RID_CHAR16,   RID_CHAR32,
 
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
@@ -144,6 +144,8 @@ extern GTY ((length ("(int) RID_MAX"))) tree *ridpointers;
 
 enum c_tree_index
 {
+    CTI_CHAR16_TYPE,
+    CTI_CHAR32_TYPE,
     CTI_WCHAR_TYPE,
     CTI_SIGNED_WCHAR_TYPE,
     CTI_UNSIGNED_WCHAR_TYPE,
@@ -156,6 +158,8 @@ enum c_tree_index
     CTI_WIDEST_UINT_LIT_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
+    CTI_CHAR16_ARRAY_TYPE,
+    CTI_CHAR32_ARRAY_TYPE,
     CTI_WCHAR_ARRAY_TYPE,
     CTI_INT_ARRAY_TYPE,
     CTI_STRING_TYPE,
@@ -191,6 +195,8 @@ struct c_common_identifier GTY(())
   struct cpp_hashnode node;
 };
 
+#define char16_type_node		c_global_trees[CTI_CHAR16_TYPE]
+#define char32_type_node		c_global_trees[CTI_CHAR32_TYPE]
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
@@ -207,6 +213,8 @@ struct c_common_identifier GTY(())
 #define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
 
 #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
+#define char16_array_type_node		c_global_trees[CTI_CHAR16_ARRAY_TYPE]
+#define char32_array_type_node		c_global_trees[CTI_CHAR32_ARRAY_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
 #define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
 #define string_type_node		c_global_trees[CTI_STRING_TYPE]
@@ -254,8 +262,6 @@ extern c_language_kind c_language;
 
 #define c_dialect_cxx()		(c_language & clk_cxx)
 #define c_dialect_objc()	(c_language & clk_objc)
-
-extern bool lang_fortran;
 
 /* Information about a statement tree.  */
 
@@ -359,8 +365,8 @@ extern char flag_no_line_commands;
 
 extern char flag_no_output;
 
-/* Nonzero means dump macros in some fashion; contains the 'D', 'M' or
-   'N' of the command line switch.  */
+/* Nonzero means dump macros in some fashion; contains the 'D', 'M',
+   'N' or 'U' of the command line switch.  */
 
 extern char flag_dump_macros;
 
@@ -585,11 +591,6 @@ extern int flag_use_cxa_atexit;
 
 extern int flag_use_cxa_get_exception_ptr;
 
-/* Nonzero means make the default pedwarns warnings instead of errors.
-   The value of this flag is ignored if -pedantic is specified.  */
-
-extern int flag_permissive;
-
 /* Nonzero means to implement standard semantics for exception
    specifications, calling unexpected if an exception is thrown that
    doesn't match the specification.  Zero means to treat them as
@@ -664,6 +665,7 @@ extern void check_function_arguments_recurse (void (*)
 					       unsigned HOST_WIDE_INT),
 					      void *, tree,
 					      unsigned HOST_WIDE_INT);
+extern bool check_builtin_function_arguments (tree, int, tree *);
 extern void check_function_format (tree, int, tree *);
 extern void set_Wformat (int);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
@@ -689,6 +691,7 @@ extern void binary_op_error (enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void constant_expression_error (tree);
 extern bool strict_aliasing_warning (tree, tree, tree);
 extern void empty_if_body_warning (tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
@@ -734,7 +737,6 @@ extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (const_tree);
 extern int self_promoting_args_p (const_tree);
-extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
 extern tree strip_pointer_or_array_types (tree);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
@@ -994,6 +996,7 @@ extern tree c_finish_omp_ordered (tree);
 extern void c_finish_omp_barrier (void);
 extern tree c_finish_omp_atomic (enum tree_code, tree, tree);
 extern void c_finish_omp_flush (void);
+extern void c_finish_omp_taskwait (void);
 extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
 extern void c_split_parallel_clauses (tree, tree *, tree *);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);

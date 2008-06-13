@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1264,6 +1264,14 @@ package body Sinfo is
       return Flag5 (N);
    end Forwards_OK;
 
+   function From_At_End
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Raise_Statement);
+      return Flag4 (N);
+   end From_At_End;
+
    function From_At_Mod
       (N : Node_Id) return Boolean is
    begin
@@ -1406,6 +1414,15 @@ package body Sinfo is
        or else NT (N).Nkind = N_Operator_Symbol);
       return Flag11 (N);
    end Has_Private_View;
+
+   function Has_Relative_Deadline_Pragma
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Subprogram_Body
+        or else NT (N).Nkind = N_Task_Definition);
+      return Flag9 (N);
+   end Has_Relative_Deadline_Pragma;
 
    function Has_Self_Reference
       (N : Node_Id) return Boolean is
@@ -1972,6 +1989,14 @@ package body Sinfo is
       return Node4 (N);
    end Next_Named_Actual;
 
+   function Next_Pragma
+      (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      return Node1 (N);
+   end Next_Pragma;
+
    function Next_Rep_Item
       (N : Node_Id) return Node_Id is
    begin
@@ -2175,6 +2200,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Renaming_Declaration);
       return Node4 (N);
    end Parent_Spec;
+
+   function PPC_Enabled
+     (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      return Flag5 (N);
+   end PPC_Enabled;
 
    function Position
       (N : Node_Id) return Node_Id is
@@ -3995,6 +4028,14 @@ package body Sinfo is
       Set_Flag5 (N, Val);
    end Set_Forwards_OK;
 
+   procedure Set_From_At_End
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Raise_Statement);
+      Set_Flag4 (N, Val);
+   end Set_From_At_End;
+
    procedure Set_From_At_Mod
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -4137,6 +4178,15 @@ package body Sinfo is
        or else NT (N).Nkind = N_Operator_Symbol);
       Set_Flag11 (N, Val);
    end Set_Has_Private_View;
+
+   procedure Set_Has_Relative_Deadline_Pragma
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Subprogram_Body
+        or else NT (N).Nkind = N_Task_Definition);
+      Set_Flag9 (N, Val);
+   end Set_Has_Relative_Deadline_Pragma;
 
    procedure Set_Has_Self_Reference
       (N : Node_Id; Val : Boolean := True) is
@@ -4703,6 +4753,14 @@ package body Sinfo is
       Set_Node4 (N, Val); -- semantic field, no parent set
    end Set_Next_Named_Actual;
 
+   procedure Set_Next_Pragma
+      (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      Set_Node1 (N, Val); -- semantic field, no parent set
+   end Set_Next_Pragma;
+
    procedure Set_Next_Rep_Item
       (N : Node_Id; Val : Node_Id) is
    begin
@@ -4906,6 +4964,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Renaming_Declaration);
       Set_Node4 (N, Val); -- semantic field, no parent set
    end Set_Parent_Spec;
+
+   procedure Set_PPC_Enabled
+     (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      Set_Flag5 (N, Val);
+   end Set_PPC_Enabled;
 
    procedure Set_Position
       (N : Node_Id; Val : Node_Id) is
@@ -5574,9 +5640,9 @@ package body Sinfo is
         UI_From_Int (Int (S) - Int (Sloc (N))));
    end Set_End_Location;
 
-   --------------------------------
-   -- Node_Kind Membership Tests --
-   --------------------------------
+   --------------
+   -- Nkind_In --
+   --------------
 
    function Nkind_In
      (T  : Node_Kind;
@@ -5689,5 +5755,14 @@ package body Sinfo is
              T = V7 or else
              T = V8;
    end Nkind_In;
+
+   -----------------
+   -- Pragma_Name --
+   -----------------
+
+   function Pragma_Name (N : Node_Id) return Name_Id is
+   begin
+      return Chars (Pragma_Identifier (N));
+   end Pragma_Name;
 
 end Sinfo;

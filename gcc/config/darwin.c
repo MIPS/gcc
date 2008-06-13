@@ -278,7 +278,7 @@ machopic_function_base_name (void)
   if (function_base == NULL)
     function_base = ggc_alloc_string ("<pic base>", sizeof ("<pic base>"));
 
-  current_function_uses_pic_offset_table = 1;
+  crtl->uses_pic_offset_table = 1;
 
   return function_base;
 }
@@ -555,7 +555,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 	  emit_insn (gen_rtx_SET (VOIDmode, reg,
 				  gen_rtx_LO_SUM (Pmode, reg,
 						  copy_rtx (offset))));
-	  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+	  emit_use (pic_offset_table_rtx);
 
 	  orig = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, reg);
 #endif
@@ -756,9 +756,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 
 	      pic_ref = reg;
 #else
-	      emit_insn (gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (Pmode,
-						   PIC_OFFSET_TABLE_REGNUM)));
+	      emit_use (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM));
 
 	      emit_insn (gen_rtx_SET (VOIDmode, reg,
 				      gen_rtx_HIGH (Pmode,
@@ -782,9 +780,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		  pic = reg;
 		}
 #if 0
-	      emit_insn (gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (Pmode,
-						   PIC_OFFSET_TABLE_REGNUM)));
+	      emit_use (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM));
 #endif
 
 	      if (reload_in_progress)
@@ -857,8 +853,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 		      pic = reg;
 		    }
 #if 0
-		  emit_insn (gen_rtx_USE (VOIDmode,
-					  pic_offset_table_rtx));
+		  emit_use (pic_offset_table_rtx);
 #endif
 		  if (reload_in_progress)
 		    df_set_regs_ever_live (REGNO (pic), true);
@@ -1734,5 +1729,48 @@ darwin_override_options (void)
       && debug_hooks->var_location != do_nothing_debug_hooks.var_location)
     flag_var_tracking_uninit = 1;
 }
+
+/* Add $LDBL128 suffix to long double builtins.  */
+
+static void
+darwin_patch_builtin (int fncode)
+{
+  tree fn = built_in_decls[fncode];
+  tree sym;
+  char *newname;
+
+  if (!fn)
+    return;
+
+  sym = DECL_ASSEMBLER_NAME (fn);
+  newname = ACONCAT (("_", IDENTIFIER_POINTER (sym), "$LDBL128", NULL));
+
+  set_user_assembler_name (fn, newname);
+
+  fn = implicit_built_in_decls[fncode];
+  if (fn)
+    set_user_assembler_name (fn, newname);
+}
+
+void
+darwin_patch_builtins (void)
+{
+  if (LONG_DOUBLE_TYPE_SIZE != 128)
+    return;
+
+#define PATCH_BUILTIN(fncode) darwin_patch_builtin (fncode);
+#define PATCH_BUILTIN_NO64(fncode)		\
+  if (!TARGET_64BIT)				\
+    darwin_patch_builtin (fncode);
+#define PATCH_BUILTIN_VARIADIC(fncode)				  \
+  if (!TARGET_64BIT						  \
+      && (strverscmp (darwin_macosx_version_min, "10.3.9") >= 0)) \
+    darwin_patch_builtin (fncode);
+#include "darwin-ppc-ldouble-patch.def"
+#undef PATCH_BUILTIN
+#undef PATCH_BUILTIN_NO64
+#undef PATCH_BUILTIN_VARIADIC
+}
+
 
 #include "gt-darwin.h"

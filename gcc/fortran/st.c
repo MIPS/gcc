@@ -1,5 +1,5 @@
 /* Build executable statement trees.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -146,6 +146,10 @@ gfc_free_statement (gfc_code *p)
       gfc_free_inquire (p->ext.inquire);
       break;
 
+    case EXEC_WAIT:
+      gfc_free_wait (p->ext.wait);
+      break;
+
     case EXEC_READ:
     case EXEC_WRITE:
       gfc_free_dt (p->ext.dt);
@@ -167,6 +171,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_PARALLEL_SECTIONS:
     case EXEC_OMP_SECTIONS:
     case EXEC_OMP_SINGLE:
+    case EXEC_OMP_TASK:
     case EXEC_OMP_WORKSHARE:
     case EXEC_OMP_PARALLEL_WORKSHARE:
       gfc_free_omp_clauses (p->ext.omp_clauses);
@@ -185,6 +190,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_MASTER:
     case EXEC_OMP_ORDERED:
     case EXEC_OMP_END_NOWAIT:
+    case EXEC_OMP_TASKWAIT:
       break;
 
     default:

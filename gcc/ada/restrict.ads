@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,7 +37,7 @@ package Restrict is
    --  This variable records restrictions found in any units in the main
    --  extended unit, and in the case of restrictions checked for partition
    --  consistency, restrictions found in any with'ed units, parent specs
-   --  etc, since we may as well check as much as we can at compile time.
+   --  etc., since we may as well check as much as we can at compile time.
    --  These variables should not be referenced directly by clients. Instead
    --  use Check_Restrictions to record a violation of a restriction, and
    --  Restriction_Active to test if a given restriction is active.
@@ -105,14 +105,18 @@ package Restrict is
 
    Implementation_Restriction : array (All_Restrictions) of Boolean :=
      (Simple_Barriers                    => True,
+      No_Asynchronous_Control            => True,
       No_Calendar                        => True,
       No_Dispatching_Calls               => True,
       No_Dynamic_Attachment              => True,
+      No_Elaboration_Code                => True,
       No_Enumeration_Maps                => True,
       No_Entry_Calls_In_Elaboration_Code => True,
       No_Entry_Queue                     => True,
       No_Exception_Handlers              => True,
       No_Exception_Registration          => True,
+      No_Implementation_Attributes       => True,
+      No_Implementation_Pragmas          => True,
       No_Implicit_Conditionals           => True,
       No_Implicit_Dynamic_Code           => True,
       No_Implicit_Loops                  => True,
@@ -126,12 +130,11 @@ package Restrict is
       No_Streams                         => True,
       No_Task_Attributes_Package         => True,
       No_Task_Termination                => True,
+      No_Unchecked_Conversion            => True,
+      No_Unchecked_Deallocation          => True,
       No_Wide_Characters                 => True,
       Static_Priorities                  => True,
       Static_Storage_Size                => True,
-      No_Implementation_Attributes       => True,
-      No_Implementation_Pragmas          => True,
-      No_Elaboration_Code                => True,
       others                             => False);
 
    --  The following table records entries made by Restrictions pragmas
@@ -249,6 +252,10 @@ package Restrict is
    --  set. In the latter case, the source may contain handlers but they either
    --  get converted using the local goto transformation or deleted.
 
+   function No_Exception_Propagation_Active return Boolean;
+   --  Test to see if current restrictions settings specify that no
+   --  exception propagation is activated.
+
    function Process_Restriction_Synonyms (N : Node_Id) return Name_Id;
    --  Id is a node whose Chars field contains the name of a restriction.
    --  If it is one of synonyms that we allow for historical purposes (for
@@ -266,18 +273,19 @@ package Restrict is
    function Restricted_Profile return Boolean;
    --  Tests if set of restrictions corresponding to Profile (Restricted) is
    --  currently in effect (set by pragma Profile, or by an appropriate set
-   --  of individual Restrictions pragms). Returns True only if all the
+   --  of individual Restrictions pragmas). Returns True only if all the
    --  required restrictions are set.
 
    procedure Set_Profile_Restrictions
      (P    : Profile_Name;
       N    : Node_Id;
       Warn : Boolean);
-   --  Sets the set of restrictions associated with the given profile
-   --  name. N is the node of the construct to which error messages
-   --  are to be attached as required. Warn is set True for the case
-   --  of Profile_Warnings where the restrictions are set as warnings
-   --  rather than legality requirements.
+   --  Sets the set of restrictions associated with the given profile name. N
+   --  is the node of the construct to which error messages are to be attached
+   --  as required. Warn is set True for the case of Profile_Warnings where the
+   --  restrictions are set as warnings rather than legality requirements, and
+   --  is also True for Profile if the Treat_Restrictions_As_Warnings flag is
+   --  set. It is false for Profile if this flag is not set.
 
    procedure Set_Restriction
      (R : All_Boolean_Restrictions;
@@ -297,7 +305,9 @@ package Restrict is
      (Unit : Node_Id;
       Warn : Boolean);
    --  Sets given No_Dependence restriction in table if not there already.
-   --  Warn is True if from Restriction_Warnings, False if from Restrictions.
+   --  Warn is True if from Restriction_Warnings, or for Restrictions if flag
+   --  Treat_Restrictions_As_Warnings is set. False if from Restrictions and
+   --  this flag is not set.
 
    function Tasking_Allowed return Boolean;
    pragma Inline (Tasking_Allowed);

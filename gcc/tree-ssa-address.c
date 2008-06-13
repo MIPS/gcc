@@ -345,7 +345,8 @@ fixed_address_object_p (tree obj)
 {
   return (TREE_CODE (obj) == VAR_DECL
 	  && (TREE_STATIC (obj)
-	      || DECL_EXTERNAL (obj)));
+	      || DECL_EXTERNAL (obj))
+	  && ! DECL_DLLIMPORT_P (obj));
 }
 
 /* If ADDR contains an address of object that is a link time constant,
@@ -422,9 +423,13 @@ add_to_parts (struct mem_address *parts, tree elt)
 
   /* Add ELT to base.  */
   type = TREE_TYPE (parts->base);
-  parts->base = fold_build2 (POINTER_PLUS_EXPR, type,
-			     parts->base,
-			     fold_convert (sizetype, elt));
+  if (POINTER_TYPE_P (type))
+    parts->base = fold_build2 (POINTER_PLUS_EXPR, type,
+			       parts->base,
+			       fold_convert (sizetype, elt));
+  else
+    parts->base = fold_build2 (PLUS_EXPR, type,
+			       parts->base, elt);
 }
 
 /* Finds the most expensive multiplication in ADDR that can be
@@ -639,9 +644,9 @@ create_mem_ref (block_stmt_iterator *bsi, tree type, aff_tree *addr)
 	{
 	  atype = TREE_TYPE (parts.base);
 	  parts.base = force_gimple_operand_bsi (bsi,
-			fold_build2 (PLUS_EXPR, atype,
+			fold_build2 (POINTER_PLUS_EXPR, atype,
 				     parts.base,
-			    	     fold_convert (atype, parts.index)),
+			    	     parts.index),
 			true, NULL_TREE, true, BSI_SAME_STMT);
 	}
       else

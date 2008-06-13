@@ -1,5 +1,6 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Free Software
+   Foundation, Inc.
 
 This file is part of GCC.
 
@@ -314,7 +315,7 @@ struct leh_tf_state
   size_t goto_queue_size;
   size_t goto_queue_active;
 
-  /* Pointer map to help in searching qoto_queue when it is large.  */
+  /* Pointer map to help in searching goto_queue when it is large.  */
   struct pointer_map_t *goto_queue_map;
 
   /* The set of unique labels seen as entries in the goto queue.  */
@@ -1725,8 +1726,10 @@ lower_eh_constructs (void)
   return 0;
 }
 
-struct tree_opt_pass pass_lower_eh =
+struct gimple_opt_pass pass_lower_eh =
 {
+ {
+  GIMPLE_PASS,
   "eh",					/* name */
   NULL,					/* gate */
   lower_eh_constructs,			/* execute */
@@ -1738,8 +1741,8 @@ struct tree_opt_pass pass_lower_eh =
   PROP_gimple_leh,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };
 
 
@@ -1894,7 +1897,10 @@ tree_could_trap_p (tree expr)
       || TREE_CODE_CLASS (code) == tcc_binary)
     {
       t = TREE_TYPE (expr);
-      fp_operation = FLOAT_TYPE_P (t);
+      if (COMPARISON_CLASS_P (expr))
+	fp_operation = FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)));
+      else
+	fp_operation = FLOAT_TYPE_P (t);
       if (fp_operation)
 	{
 	  honor_nans = flag_trapping_math && !flag_finite_math_only;
@@ -2244,8 +2250,10 @@ refactor_eh (void)
   return 0;
 }
 
-struct tree_opt_pass pass_refactor_eh =
+struct gimple_opt_pass pass_refactor_eh =
 {
+ {
+  GIMPLE_PASS,
   "ehopt",				/* name */
   NULL,					/* gate */
   refactor_eh,				/* execute */
@@ -2257,6 +2265,6 @@ struct tree_opt_pass pass_refactor_eh =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func			/* todo_flags_finish */
+ }
 };

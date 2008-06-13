@@ -1,6 +1,6 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+   2008 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -42,7 +42,7 @@ requirement is that there be a correct control flow graph.
 There are three variations of the live variable problem that are
 available whenever dataflow is available.  The LR problem finds the
 areas that can reach a use of a variable, the UR problems finds the
-areas tha can be reached from a definition of a variable.  The LIVE
+areas that can be reached from a definition of a variable.  The LIVE
 problem finds the intersection of these two areas.  
 
 There are several optional problems.  These can be enabled when they
@@ -57,7 +57,7 @@ making this happen and are described in the INCREMENTAL SCANNING
 section.
 
 In the middle layer, basic blocks are scanned to produce transfer
-functions which describe the effects of that block on the a global
+functions which describe the effects of that block on the global
 dataflow solution.  The transfer functions are only rebuilt if the
 some instruction within the block has changed.  
 
@@ -343,7 +343,6 @@ There are 4 ways to obtain access to refs:
    chains.
 
 4) An array of all of the uses (and an array of all of the defs) can
-
    be built.  These arrays are indexed by the value in the id
    structure.  These arrays are only lazily kept up to date, and that
    process can be expensive.  To have these arrays built, call
@@ -370,7 +369,7 @@ address in this second example.
 
 A set to a REG inside a ZERO_EXTRACT, or a set to a non-paradoxical SUBREG
 for which the number of word_mode units covered by the outer mode is
-smaller than that covered by the inner mode, invokes a read-modify-write.
+smaller than that covered by the inner mode, invokes a read-modify-write
 operation.  We generate both a use and a def and again mark them
 read/write.
 
@@ -753,8 +752,10 @@ gate_opt (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize_opt =
+struct rtl_opt_pass pass_df_initialize_opt =
 {
+ {
+  RTL_PASS,
   "dfinit",                             /* name */
   gate_opt,                             /* gate */
   rest_of_handle_df_initialize,         /* execute */
@@ -766,8 +767,8 @@ struct tree_opt_pass pass_df_initialize_opt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -778,8 +779,10 @@ gate_no_opt (void)
 }
 
 
-struct tree_opt_pass pass_df_initialize_no_opt =
+struct rtl_opt_pass pass_df_initialize_no_opt =
 {
+ {
+  RTL_PASS,
   "dfinit",                             /* name */
   gate_no_opt,                          /* gate */
   rest_of_handle_df_initialize,         /* execute */
@@ -791,8 +794,8 @@ struct tree_opt_pass pass_df_initialize_no_opt =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -825,8 +828,10 @@ rest_of_handle_df_finish (void)
 }
 
 
-struct tree_opt_pass pass_df_finish =
+struct rtl_opt_pass pass_df_finish =
 {
+ {
+  RTL_PASS,
   "dfinish",                            /* name */
   NULL,					/* gate */
   rest_of_handle_df_finish,             /* execute */
@@ -838,8 +843,8 @@ struct tree_opt_pass pass_df_finish =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'z'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -1863,6 +1868,69 @@ df_print_regset (FILE *file, bitmap r)
 	  fprintf (file, " %d", i);
 	  if (i < FIRST_PSEUDO_REGISTER)
 	    fprintf (file, " [%s]", reg_names[i]);
+	}
+    }
+  fprintf (file, "\n");
+}
+
+
+/* Write information about registers and basic blocks into FILE.  The
+   bitmap is in the form used by df_byte_lr.  This is part of making a
+   debugging dump.  */
+
+void
+df_print_byte_regset (FILE *file, bitmap r)
+{
+  unsigned int max_reg = max_reg_num ();
+  bitmap_iterator bi;
+
+  if (r == NULL)
+    fputs (" (nil)", file);
+  else
+    {
+      unsigned int i;
+      for (i = 0; i < max_reg; i++)
+	{
+	  unsigned int first = df_byte_lr_get_regno_start (i);
+	  unsigned int len = df_byte_lr_get_regno_len (i);
+
+	  if (len > 1)
+	    {
+	      bool found = false;
+	      unsigned int j;
+
+	      EXECUTE_IF_SET_IN_BITMAP (r, first, j, bi)
+		{
+		  found = j < first + len;
+		  break;
+		}
+	      if (found)
+		{
+		  const char * sep = "";
+		  fprintf (file, " %d", i);
+		  if (i < FIRST_PSEUDO_REGISTER)
+		    fprintf (file, " [%s]", reg_names[i]);
+		  fprintf (file, "(");
+		  EXECUTE_IF_SET_IN_BITMAP (r, first, j, bi)
+		    {
+		      if (j > first + len - 1)
+			break;
+		      fprintf (file, "%s%d", sep, j-first);
+		      sep = ", ";
+		    }
+		  fprintf (file, ")");
+		}
+	    }
+	  else
+	    {
+	      if (bitmap_bit_p (r, first))
+		{
+		  fprintf (file, " %d", i);
+		  if (i < FIRST_PSEUDO_REGISTER)
+		    fprintf (file, " [%s]", reg_names[i]);
+		}
+	    }
+
 	}
     }
   fprintf (file, "\n");

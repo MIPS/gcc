@@ -568,7 +568,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  things.  The _Base dtor only erases the elements, and note
        *  that if the elements themselves are pointers, the pointed-to
        *  memory is not touched in any way.  Managing the pointer is
-       *  the user's responsibilty.
+       *  the user's responsibility.
        */
 
       /**
@@ -833,15 +833,19 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  done in constant time, and does not invalidate iterators and
        *  references.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_front(const value_type& __x)
       { this->_M_insert(begin(), __x); }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_front(value_type&& __x)
+      { this->_M_insert(begin(), std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_front(_Args&&... __args)
-	{ this->_M_insert(begin(), std::forward<_Args>(__args)...); }
+        emplace_front(_Args&&... __args)
+        { this->_M_insert(begin(), std::forward<_Args>(__args)...); }
 #endif
 
       /**
@@ -870,15 +874,19 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  in constant time, and does not invalidate iterators and
        *  references.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
       void
       push_back(const value_type& __x)
       { this->_M_insert(end(), __x); }
-#else
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+      void
+      push_back(value_type&& __x)
+      { this->_M_insert(end(), std::move(__x)); }
+
       template<typename... _Args>
         void
-        push_back(_Args&&... __args)
-	{ this->_M_insert(end(), std::forward<_Args>(__args)...); }
+        emplace_back(_Args&&... __args)
+        { this->_M_insert(end(), std::forward<_Args>(__args)...); }
 #endif
 
       /**
@@ -999,7 +1007,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  the element being removed.  The user is also cautioned that
        *  this function only erases the element, and that if the element
        *  is itself a pointer, the pointed-to memory is not touched in
-       *  any way.  Managing the pointer is the user's responsibilty.
+       *  any way.  Managing the pointer is the user's responsibility.
        */
       iterator
       erase(iterator __position);
@@ -1020,7 +1028,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  The user is also cautioned that this function only erases the
        *  elements, and that if the elements themselves are pointers, the
        *  pointed-to memory is not touched in any way.  Managing the pointer
-       *  is the user's responsibilty.
+       *  is the user's responsibility.
        */
       iterator
       erase(iterator __first, iterator __last)
@@ -1058,7 +1066,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  Erases all the elements.  Note that this function only erases
        *  the elements, and that if the elements themselves are
        *  pointers, the pointed-to memory is not touched in any way.
-       *  Managing the pointer is the user's responsibilty.
+       *  Managing the pointer is the user's responsibility.
        */
       void
       clear()
@@ -1160,7 +1168,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  function only erases the elements, and that if the elements
        *  themselves are pointers, the pointed-to memory is not
        *  touched in any way.  Managing the pointer is the user's
-       *  responsibilty.
+       *  responsibility.
        */
       void
       remove(const _Tp& __value);
@@ -1174,7 +1182,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  that this function only erases the elements, and that if the
        *  elements themselves are pointers, the pointed-to memory is
        *  not touched in any way.  Managing the pointer is the user's
-       *  responsibilty.
+       *  responsibility.
        */
       template<typename _Predicate>
         void
@@ -1188,7 +1196,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  list order.  Note that this function only erases the
        *  elements, and that if the elements themselves are pointers,
        *  the pointed-to memory is not touched in any way.  Managing
-       *  the pointer is the user's responsibilty.
+       *  the pointer is the user's responsibility.
        */
       void
       unique();
@@ -1203,7 +1211,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
        *  elements stay in list order.  Note that this function only
        *  erases the elements, and that if the elements themselves are
        *  pointers, the pointed-to memory is not touched in any way.
-       *  Managing the pointer is the user's responsibilty.
+       *  Managing the pointer is the user's responsibility.
        */
       template<typename _BinaryPredicate>
         void
@@ -1228,7 +1236,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
       /**
        *  @brief  Merge sorted lists according to comparison function.
        *  @param  x  Sorted list to merge.
-       *  @param StrictWeakOrdering Comparison function definining
+       *  @param StrictWeakOrdering Comparison function defining
        *  sort order.
        *
        *  Assumes that both @a x and this list are sorted according to

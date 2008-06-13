@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
@@ -1566,7 +1566,7 @@ check_live_1 (int src, rtx x)
 		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
-		     such blocks are always outside current region.  */
+		     Such blocks are always outside current region.  */
 		  gcc_assert (!t || (CONTAINING_RGN (b->index)
 				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
 
@@ -1753,11 +1753,11 @@ find_conditional_protection (rtx insn, int load_insn_bb)
 
 /* Returns 1 if the same insn1 that participates in the computation
    of load_insn's address is feeding a conditional branch that is
-   guarding on load_insn. This is true if we find a the two DEF-USE
+   guarding on load_insn. This is true if we find two DEF-USE
    chains:
    insn1 -> ... -> conditional-branch
    insn1 -> ... -> load_insn,
-   and if a flow path exist:
+   and if a flow path exists:
    insn1 -> ... -> conditional-branch -> ... -> load_insn,
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
@@ -3192,8 +3192,10 @@ rest_of_handle_sched2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sched =
+struct rtl_opt_pass pass_sched =
 {
+ {
+  RTL_PASS,
   "sched1",                             /* name */
   gate_handle_sched,                    /* gate */
   rest_of_handle_sched,                 /* execute */
@@ -3208,12 +3210,14 @@ struct tree_opt_pass pass_sched =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'S'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sched2 =
+struct rtl_opt_pass pass_sched2 =
 {
+ {
+  RTL_PASS,
   "sched2",                             /* name */
   gate_handle_sched2,                   /* gate */
   rest_of_handle_sched2,                /* execute */
@@ -3228,7 +3232,7 @@ struct tree_opt_pass pass_sched2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'R'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

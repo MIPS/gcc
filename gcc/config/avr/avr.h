@@ -1,7 +1,7 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
-   Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 
+   2008 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
 This file is part of GCC.
@@ -56,8 +56,8 @@ extern const struct base_arch_s *avr_current_arch;
   do						\
     {						\
       builtin_define_std ("AVR");		\
-      if (avr_base_arch_macro)			\
-	builtin_define (avr_base_arch_macro);	\
+      if (avr_current_arch->macro)		\
+	builtin_define (avr_current_arch->macro);	\
       if (avr_extra_arch_macro)			\
 	builtin_define (avr_extra_arch_macro);	\
       if (avr_current_arch->have_elpm)		\
@@ -66,42 +66,52 @@ extern const struct base_arch_s *avr_current_arch;
 	builtin_define ("__AVR_HAVE_ELPM__");	\
       if (avr_current_arch->have_elpmx)		\
 	builtin_define ("__AVR_HAVE_ELPMX__");	\
-      if (avr_have_movw_lpmx_p)			\
-	builtin_define ("__AVR_HAVE_MOVW__");	\
-      if (avr_have_movw_lpmx_p)			\
-	builtin_define ("__AVR_HAVE_LPMX__");	\
-      if (avr_asm_only_p)			\
+      if (avr_current_arch->have_movw_lpmx)	\
+	{					\
+	  builtin_define ("__AVR_HAVE_MOVW__");	\
+	  builtin_define ("__AVR_HAVE_LPMX__");	\
+	}					\
+      if (avr_current_arch->asm_only)		\
 	builtin_define ("__AVR_ASM_ONLY__");	\
-      if (avr_have_mul_p)			\
-	builtin_define ("__AVR_ENHANCED__");	\
-      if (avr_have_mul_p)			\
-	builtin_define ("__AVR_HAVE_MUL__");	\
+      if (avr_current_arch->have_mul)		\
+	{					\
+	  builtin_define ("__AVR_ENHANCED__");	\
+	  builtin_define ("__AVR_HAVE_MUL__");	\
+ 	}					\
       if (avr_current_arch->have_jmp_call)	\
-	builtin_define ("__AVR_MEGA__");	\
-      if (avr_current_arch->have_jmp_call)	\
-	builtin_define ("__AVR_HAVE_JMP_CALL__"); \
+	{					\
+	  builtin_define ("__AVR_MEGA__");	\
+	  builtin_define ("__AVR_HAVE_JMP_CALL__");	\
+ 	}					\
+      if (avr_current_arch->have_eijmp_eicall)	\
+        {					\
+	  builtin_define ("__AVR_HAVE_EIJMP_EICALL__");	\
+	  builtin_define ("__AVR_3_BYTE_PC__");	\
+	}					\
+      else					\
+        {					\
+	  builtin_define ("__AVR_2_BYTE_PC__");	\
+	}					\
       if (TARGET_NO_INTERRUPTS)			\
 	builtin_define ("__NO_INTERRUPTS__");	\
     }						\
   while (0)
 
-extern const char *avr_base_arch_macro;
 extern const char *avr_extra_arch_macro;
-extern int avr_mega_p;
-extern int avr_have_mul_p;
-extern int avr_asm_only_p;
-extern int avr_have_movw_lpmx_p;
+
 #if !defined(IN_LIBGCC2) && !defined(IN_TARGET_LIBS)
 extern GTY(()) section *progmem_section;
 #endif
 
-#define AVR_MEGA (avr_mega_p && !TARGET_SHORT_CALLS)
-#define AVR_HAVE_MUL (avr_have_mul_p)
-#define AVR_HAVE_MOVW (avr_have_movw_lpmx_p)
-#define AVR_HAVE_LPMX (avr_have_movw_lpmx_p)
+#define AVR_HAVE_JMP_CALL (avr_current_arch->have_jmp_call && !TARGET_SHORT_CALLS)
+#define AVR_HAVE_MUL (avr_current_arch->have_mul)
+#define AVR_HAVE_MOVW (avr_current_arch->have_movw_lpmx)
+#define AVR_HAVE_LPMX (avr_current_arch->have_movw_lpmx)
+#define AVR_HAVE_RAMPZ (avr_current_arch->have_elpm)
+#define AVR_HAVE_EIJMP_EICALL (avr_current_arch->have_eijmp_eicall)
 
-#define AVR_2_BYTE_PC 1
-#define AVR_3_BYTE_PC 0
+#define AVR_2_BYTE_PC (!AVR_HAVE_EIJMP_EICALL)
+#define AVR_3_BYTE_PC (AVR_HAVE_EIJMP_EICALL)
 
 #define TARGET_VERSION fprintf (stderr, " (GNU assembler syntax)");
 
@@ -136,6 +146,8 @@ extern GTY(()) section *progmem_section;
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 8
+
+#define MAX_OFILE_ALIGNMENT (32768 * 8)
 
 #define TARGET_VTABLE_ENTRY_ALIGN 8
 
@@ -348,7 +360,9 @@ enum reg_class {
 #define RETURN_ADDR_RTX(count, x) \
   gen_rtx_MEM (Pmode, memory_address (Pmode, plus_constant (tem, 1)))
 
-#define PUSH_ROUNDING(NPUSHED) (NPUSHED)
+/* Don't use Push rounding. expr.c: emit_single_push_insn is broken 
+   for POST_DEC targets (PR27386).  */
+/*#define PUSH_ROUNDING(NPUSHED) (NPUSHED)*/
 
 #define RETURN_POPS_ARGS(FUNDECL, FUNTYPE, STACK_SIZE) 0
 
@@ -670,7 +684,7 @@ sprintf (STRING, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 
 #define PRINT_OPERAND(STREAM, X, CODE) print_operand (STREAM, X, CODE)
 
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE) ((CODE) == '~')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE) ((CODE) == '~' || (CODE) == '!')
 
 #define PRINT_OPERAND_ADDRESS(STREAM, X) print_operand_address(STREAM, X)
 
@@ -827,6 +841,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90usb64*|\
   mmcu=at90usb128*|\
   mmcu=at94k: -m avr5}\
+%{mmcu=atmega256*:-m avr6}\
 %{mmcu=atmega324*|\
   mmcu=atmega325*|\
   mmcu=atmega328p|\
@@ -855,7 +870,8 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90usb*: -Tdata 0x800100}\
 %{mmcu=atmega640|\
   mmcu=atmega1280|\
-  mmcu=atmega1281: -Tdata 0x800200} "
+  mmcu=atmega1281|\
+  mmcu=atmega256*: -Tdata 0x800200} "
 
 #define LIB_SPEC \
   "%{!mmcu=at90s1*:%{!mmcu=attiny11:%{!mmcu=attiny12:%{!mmcu=attiny15:%{!mmcu=attiny28: -lc }}}}}"
@@ -967,6 +983,8 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega1280:crtm1280.o%s} \
 %{mmcu=atmega1281:crtm1281.o%s} \
 %{mmcu=atmega1284p:crtm1284p.o%s} \
+%{mmcu=atmega2560:crtm2560.o%s} \
+%{mmcu=atmega2561:crtm2561.o%s} \
 %{mmcu=at90can128:crtcan128.o%s} \
 %{mmcu=at90usb1286:crtusb1286.o%s} \
 %{mmcu=at90usb1287:crtusb1287.o%s}"
@@ -1008,10 +1026,16 @@ mmcu=*:-mmcu=%*}"
 
 #define OBJECT_FORMAT_ELF
 
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  avr_hard_regno_rename_ok (OLD_REG, NEW_REG)
+
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 struct machine_function GTY(())
 {
+  /* 'true' - if the current function is a leaf function.  */
+  int is_leaf;
+
   /* 'true' - if current function is a naked function.  */
   int is_naked;
 
@@ -1023,7 +1047,11 @@ struct machine_function GTY(())
      as specified by the "signal" attribute.  */
   int is_signal;
   
-  /* 'true' - if current function is a signal function 
+  /* 'true' - if current function is a 'task' function 
      as specified by the "OS_task" attribute.  */
   int is_OS_task;
+
+  /* 'true' - if current function is a 'main' function 
+     as specified by the "OS_main" attribute.  */
+  int is_OS_main;
 };

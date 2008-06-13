@@ -1,5 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -142,6 +142,11 @@ may_propagate_copy (tree dest, tree orig)
 	return false;
       else if (get_alias_set (TREE_TYPE (type_d)) != 
 	       get_alias_set (TREE_TYPE (type_o)))
+	return false;
+      else if (!MTAG_P (SSA_NAME_VAR (dest))
+	       && !MTAG_P (SSA_NAME_VAR (orig))
+	       && (DECL_NO_TBAA_P (SSA_NAME_VAR (dest))
+		   != DECL_NO_TBAA_P (SSA_NAME_VAR (orig))))
 	return false;
 
       /* Also verify flow-sensitive information is compatible.  */
@@ -1057,8 +1062,10 @@ gate_copy_prop (void)
   return flag_tree_copy_prop != 0;
 }
 
-struct tree_opt_pass pass_copy_prop =
+struct gimple_opt_pass pass_copy_prop =
 {
+ {
+  GIMPLE_PASS,
   "copyprop",				/* name */
   gate_copy_prop,			/* gate */
   execute_copy_prop,			/* execute */
@@ -1074,7 +1081,7 @@ struct tree_opt_pass pass_copy_prop =
     | TODO_dump_func
     | TODO_ggc_collect
     | TODO_verify_ssa
-    | TODO_update_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
 };
 

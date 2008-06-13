@@ -1,6 +1,6 @@
 /* Compute register class preferences for pseudo-registers.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1059,8 +1059,10 @@ regclass_init (void)
   return 1;
 }
 
-struct tree_opt_pass pass_regclass_init =
+struct rtl_opt_pass pass_regclass_init =
 {
+ {
+  RTL_PASS,
   "regclass",                           /* name */
   NULL,                                 /* gate */
   regclass_init,                        /* execute */
@@ -1072,8 +1074,8 @@ struct tree_opt_pass pass_regclass_init =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  'k'                                   /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 
@@ -1141,8 +1143,9 @@ record_operand_costs (rtx insn, struct costs *op_costs,
 	record_address_regs (GET_MODE (recog_data.operand[i]),
 			     XEXP (recog_data.operand[i], 0),
 			     0, MEM, SCRATCH, frequency * 2);
-      else if (constraints[i][0] == 'p'
-	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i]))
+      else if (recog_data.alternative_enabled_p[0]
+	       && (constraints[i][0] == 'p'
+		   || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i])))
 	record_address_regs (VOIDmode, recog_data.operand[i], 0, ADDRESS,
 			     SCRATCH, frequency * 2);
     }
@@ -1699,7 +1702,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
-		case 'm':  case 'o':  case 'V':
+		case TARGET_MEM_CONSTRAINT:  case 'o':  case 'V':
 		  /* It doesn't seem worth distinguishing between offsettable
 		     and non-offsettable addresses here.  */
 		  allows_mem[i] = 1;
@@ -1930,6 +1933,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       if (alt_fail)
 	continue;
 
+      if (!recog_data.alternative_enabled_p[alt])
+	continue;
+
       /* Finally, update the costs with the information we've calculated
 	 about this alternative.  */
 
@@ -1955,7 +1961,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
      we may want to adjust the cost of that register class to -1.
 
      Avoid the adjustment if the source does not die to avoid stressing of
-     register allocator by preferrencing two colliding registers into single
+     register allocator by preferencing two colliding registers into single
      class.
 
      Also avoid the adjustment if a copy between registers of the class
@@ -2323,8 +2329,6 @@ reg_scan (rtx f, unsigned int nregs ATTRIBUTE_UNUSED)
    We should only record information for REGs with numbers
    greater than or equal to MIN_REGNO.  */
 
-extern struct tree_opt_pass *current_pass;
-
 static void
 reg_scan_mark_refs (rtx x, rtx insn)
 {
@@ -2672,8 +2676,10 @@ gate_subregs_of_mode_init (void)
 #endif
 }
 
-struct tree_opt_pass pass_subregs_of_mode_init =
+struct rtl_opt_pass pass_subregs_of_mode_init =
 {
+ {
+  RTL_PASS,
   "subregs_of_mode_init",               /* name */
   gate_subregs_of_mode_init,            /* gate */
   init_subregs_of_mode,                 /* execute */
@@ -2685,12 +2691,14 @@ struct tree_opt_pass pass_subregs_of_mode_init =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_subregs_of_mode_finish =
+struct rtl_opt_pass pass_subregs_of_mode_finish =
 {
+ {
+  RTL_PASS,
   "subregs_of_mode_finish",               /* name */
   gate_subregs_of_mode_init,            /* gate */
   finish_subregs_of_mode,               /* execute */
@@ -2702,8 +2710,8 @@ struct tree_opt_pass pass_subregs_of_mode_finish =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+  0                                     /* todo_flags_finish */
+ }
 };
 
 

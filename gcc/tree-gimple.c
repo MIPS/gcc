@@ -113,13 +113,8 @@ bool
 is_gimple_mem_rhs (tree t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
-     a renamed variable.  Also force a temporary if the type doesn't need
-     to be stored in memory, since it's cheap and prevents erroneous
-     tailcalls (PR 17526).  */
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      || (TYPE_MODE (TREE_TYPE (t)) != BLKmode
-	  && (TREE_CODE (t) != CALL_EXPR
-              || ! aggregate_value_p (t, t))))
+     a renamed variable.  */
+  if (is_gimple_reg_type (TREE_TYPE (t)))
     return is_gimple_val (t);
   else
     return is_gimple_formal_tmp_rhs (t);
@@ -155,7 +150,10 @@ is_gimple_lvalue (tree t)
 bool
 is_gimple_condexpr (tree t)
 {
-  return (is_gimple_val (t) || COMPARISON_CLASS_P (t));
+  return (is_gimple_val (t) || (COMPARISON_CLASS_P (t)
+				&& !tree_could_trap_p (t)
+				&& is_gimple_val (TREE_OPERAND (t, 0))
+				&& is_gimple_val (TREE_OPERAND (t, 1))));
 }
 
 /*  Return true if T is something whose address can be taken.  */
@@ -167,17 +165,13 @@ is_gimple_addressable (tree t)
 	  || INDIRECT_REF_P (t));
 }
 
-/* Return true if T is a GIMPLE minimal invariant.  It's a restricted
-   form of function invariant.  */
+/* Return true if T is a valid gimple constant.  */
 
 bool
-is_gimple_min_invariant (const_tree t)
+is_gimple_constant (const_tree t)
 {
   switch (TREE_CODE (t))
     {
-    case ADDR_EXPR:
-      return TREE_INVARIANT (t);
-
     case INTEGER_CST:
     case REAL_CST:
     case FIXED_CST:
@@ -196,6 +190,93 @@ is_gimple_min_invariant (const_tree t)
     default:
       return false;
     }
+}
+
+/* Return true if T is a gimple address.  */
+
+bool
+is_gimple_address (const_tree t)
+{
+  tree op;
+
+  if (TREE_CODE (t) != ADDR_EXPR)
+    return false;
+
+  op = TREE_OPERAND (t, 0);
+  while (handled_component_p (op))
+    {
+      if ((TREE_CODE (op) == ARRAY_REF
+	   || TREE_CODE (op) == ARRAY_RANGE_REF)
+	  && !is_gimple_val (TREE_OPERAND (op, 1)))
+	    return false;
+
+      op = TREE_OPERAND (op, 0);
+    }
+
+  if (CONSTANT_CLASS_P (op) || INDIRECT_REF_P (op))
+    return true;
+
+  switch (TREE_CODE (op))
+    {
+    case PARM_DECL:
+    case RESULT_DECL:
+    case LABEL_DECL:
+    case FUNCTION_DECL:
+    case VAR_DECL:
+    case CONST_DECL:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/* Return true if T is a gimple invariant address.  */
+
+bool
+is_gimple_invariant_address (const_tree t)
+{
+  tree op;
+
+  if (TREE_CODE (t) != ADDR_EXPR)
+    return false;
+
+  op = TREE_OPERAND (t, 0);
+  while (handled_component_p (op))
+    {
+      switch (TREE_CODE (op))
+	{
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  if (!is_gimple_constant (TREE_OPERAND (op, 1))
+	      || TREE_OPERAND (op, 2) != NULL_TREE
+	      || TREE_OPERAND (op, 3) != NULL_TREE)
+	    return false;
+	  break;
+
+	case COMPONENT_REF:
+	  if (TREE_OPERAND (op, 2) != NULL_TREE)
+	    return false;
+	  break;
+
+	default:;
+	}
+      op = TREE_OPERAND (op, 0);
+    }
+
+  return CONSTANT_CLASS_P (op) || decl_address_invariant_p (op);
+}
+
+/* Return true if T is a GIMPLE minimal invariant.  It's a restricted
+   form of function invariant.  */
+
+bool
+is_gimple_min_invariant (const_tree t)
+{
+  if (TREE_CODE (t) == ADDR_EXPR)
+    return is_gimple_invariant_address (t);
+
+  return is_gimple_constant (t);
 }
 
 /* Return true if T looks like a valid GIMPLE statement.  */
@@ -241,6 +322,7 @@ is_gimple_stmt (tree t)
     case OMP_CRITICAL:
     case OMP_RETURN:
     case OMP_CONTINUE:
+    case OMP_TASK:
     case OMP_ATOMIC_LOAD:
     case OMP_ATOMIC_STORE:
       /* These are always void.  */
@@ -248,6 +330,7 @@ is_gimple_stmt (tree t)
 
     case CALL_EXPR:
     case GIMPLE_MODIFY_STMT:
+    case PREDICT_EXPR:
       /* These are valid regardless of their type.  */
       return true;
 
@@ -428,8 +511,7 @@ is_gimple_min_lval (tree t)
 bool
 is_gimple_cast (tree t)
 {
-  return (TREE_CODE (t) == NOP_EXPR
-	  || TREE_CODE (t) == CONVERT_EXPR
+  return (CONVERT_EXPR_P (t)
           || TREE_CODE (t) == FIX_TRUNC_EXPR);
 }
 
@@ -564,12 +646,7 @@ canonicalize_cond_expr_cond (tree t)
 		  TREE_OPERAND (top0, 0), TREE_OPERAND (top0, 1));
     }
 
-  /* A valid conditional for a COND_EXPR is either a gimple value
-     or a comparison with two gimple value operands.  */
-  if (is_gimple_val (t)
-      || (COMPARISON_CLASS_P (t)
-	  && is_gimple_val (TREE_OPERAND (t, 0))
-	  && is_gimple_val (TREE_OPERAND (t, 1))))
+  if (is_gimple_condexpr (t))
     return t;
 
   return NULL_TREE;

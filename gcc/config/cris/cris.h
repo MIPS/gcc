@@ -600,6 +600,7 @@ enum reg_class
 #define REG_CLASS_FROM_LETTER(C)		\
   (						\
    (C) == 'a' ? ACR_REGS :			\
+   (C) == 'b' ? GENNONACR_REGS :		\
    (C) == 'h' ? MOF_REGS :			\
    (C) == 'x' ? SPECIAL_REGS :			\
    (C) == 'c' ? CC0_REGS :			\
@@ -921,14 +922,6 @@ struct cum_args {int regs;};
 
 
 /* Node: Aggregate Return */
-
-#if 0
-/* FIXME: Let's try this some time, so we return structures in registers.
-   We would cast the result of int_size_in_bytes to unsigned, so we will
-   get a huge number for "structures" of variable size (-1).  */
-#define RETURN_IN_MEMORY(TYPE) \
- ((unsigned) int_size_in_bytes (TYPE) > CRIS_MAX_ARGS_IN_REGS * UNITS_PER_WORD)
-#endif
 
 #define CRIS_STRUCT_VALUE_REGNUM ((CRIS_FIRST_ARG_REG) - 1)
 

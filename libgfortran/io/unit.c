@@ -1,5 +1,6 @@
-/* Copyright (C) 2002, 2003, 2005, 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Andy Vaught
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -204,6 +205,16 @@ insert_unit (int n)
 }
 
 
+/* destroy_unit_mutex()-- Destroy the mutex and free memory of unit.  */
+
+static void
+destroy_unit_mutex (gfc_unit * u)
+{
+  __gthread_mutex_destroy (&u->lock);
+  free_mem (u);
+}
+
+
 static gfc_unit *
 delete_root (gfc_unit * t)
 {
@@ -341,7 +352,7 @@ found:
 	  __gthread_mutex_lock (&unit_lock);
 	  __gthread_mutex_unlock (&p->lock);
 	  if (predec_waiting_locked (p) == 0)
-	    free_mem (p);
+	    destroy_unit_mutex (p);
 	  goto retry;
 	}
 
@@ -420,6 +431,7 @@ get_internal_unit (st_parameter_dt *dtp)
   iunit->maxrec=0;
   iunit->current_record=0;
   iunit->read_bad = 0;
+  iunit->endfile = NO_ENDFILE;
 
   /* Set flags for the internal unit.  */
 
@@ -428,7 +440,10 @@ get_internal_unit (st_parameter_dt *dtp)
   iunit->flags.form = FORM_FORMATTED;
   iunit->flags.pad = PAD_YES;
   iunit->flags.status = STATUS_UNSPECIFIED;
-  iunit->endfile = NO_ENDFILE;
+  iunit->flags.sign = SIGN_SUPPRESS;
+  iunit->flags.decimal = DECIMAL_POINT;
+  iunit->flags.encoding = ENCODING_DEFAULT;
+  iunit->flags.async = ASYNC_NO;
 
   /* Initialize the data transfer parameters.  */
 
@@ -455,14 +470,18 @@ free_internal_unit (st_parameter_dt *dtp)
   if (!is_internal_unit (dtp))
     return;
 
-  if (dtp->u.p.current_unit->ls != NULL)
-      free_mem (dtp->u.p.current_unit->ls);
-  
-  sclose (dtp->u.p.current_unit->s);
-
   if (dtp->u.p.current_unit != NULL)
-    free_mem (dtp->u.p.current_unit);
+    {
+      if (dtp->u.p.current_unit->ls != NULL)
+	free_mem (dtp->u.p.current_unit->ls);
+  
+      if (dtp->u.p.current_unit->s)
+	free_mem (dtp->u.p.current_unit->s);
+  
+      destroy_unit_mutex (dtp->u.p.current_unit);
+    }
 }
+      
 
 
 /* get_unit()-- Returns the unit structure associated with the integer
@@ -510,7 +529,11 @@ init_units (void)
       u->flags.blank = BLANK_NULL;
       u->flags.pad = PAD_YES;
       u->flags.position = POSITION_ASIS;
-
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
+     
       u->recl = options.default_recl;
       u->endfile = NO_ENDFILE;
 
@@ -533,6 +556,10 @@ init_units (void)
       u->flags.status = STATUS_OLD;
       u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
@@ -540,6 +567,8 @@ init_units (void)
       u->file_len = strlen (stdout_name);
       u->file = get_mem (u->file_len);
       memmove (u->file, stdout_name, u->file_len);
+      
+      fbuf_init (u, 0);
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -556,6 +585,10 @@ init_units (void)
       u->flags.status = STATUS_OLD;
       u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
+      u->flags.sign = SIGN_SUPPRESS;
+      u->flags.decimal = DECIMAL_POINT;
+      u->flags.encoding = ENCODING_DEFAULT;
+      u->flags.async = ASYNC_NO;
 
       u->recl = options.default_recl;
       u->endfile = AT_ENDFILE;
@@ -563,6 +596,9 @@ init_units (void)
       u->file_len = strlen (stderr_name);
       u->file = get_mem (u->file_len);
       memmove (u->file, stderr_name, u->file_len);
+      
+      fbuf_init (u, 256);  /* 256 bytes should be enough, probably not doing
+                              any kind of exotic formatting to stderr.  */
 
       __gthread_mutex_unlock (&u->lock);
     }
@@ -582,7 +618,7 @@ static int
 close_unit_1 (gfc_unit *u, int locked)
 {
   int i, rc;
-
+  
   /* If there are previously written bytes from a write with ADVANCE="no"
      Reposition the buffer before closing.  */
   if (u->previous_nonadvancing_write)
@@ -604,6 +640,8 @@ close_unit_1 (gfc_unit *u, int locked)
     free_mem (u->file);
   u->file = NULL;
   u->file_len = 0;
+  
+  fbuf_destroy (u);
 
   if (!locked)
     __gthread_mutex_unlock (&u->lock);
@@ -612,7 +650,7 @@ close_unit_1 (gfc_unit *u, int locked)
      avoid freeing the memory, the last such thread will free it
      instead.  */
   if (u->waiting == 0)
-    free_mem (u);
+    destroy_unit_mutex (u);
 
   if (!locked)
     __gthread_mutex_unlock (&unit_lock);
@@ -706,10 +744,11 @@ filename_from_unit (int n)
 void
 finish_last_advance_record (gfc_unit *u)
 {
-  char *p;
-
+  
   if (u->saved_pos > 0)
-    p = salloc_w (u->s, &u->saved_pos);
+    fbuf_seek (u, u->saved_pos);
+    
+  fbuf_flush (u, 1);
 
   if (!(u->unit_number == options.stdout_unit
 	|| u->unit_number == options.stderr_unit))

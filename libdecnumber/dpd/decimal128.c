@@ -42,17 +42,13 @@
 #include <string.h>	      /* [for memset/memcpy] */
 #include <stdio.h>	      /* [for printf] */
 
-#include "config.h"	      /* GCC definitions */
+#include "dconfig.h"	      /* GCC definitions */
 #define	 DECNUMDIGITS 34      /* make decNumbers with space for 34 */
 #include "decNumber.h"	      /* base number library */
 #include "decNumberLocal.h"   /* decNumber local types, etc. */
 #include "decimal128.h"	      /* our primary include */
 
 /* Utility routines and tables [in decimal64.c] */
-/* DPD2BIN and the reverse are renamed to prevent link-time conflict */
-/* if decQuad is also built in the same executable */
-#define DPD2BIN DPD2BINx
-#define BIN2DPD BIN2DPDx
 extern const uInt   COMBEXP[32], COMBMSD[32];
 extern const uShort DPD2BIN[1024];
 extern const uShort BIN2DPD[1000];	/* [not used] */

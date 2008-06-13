@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -283,7 +283,7 @@ tree_ssa_dominator_optimize (void)
   loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
 
   /* We need accurate information regarding back edges in the CFG
-     for jump threading; this may include back edes that are not part of
+     for jump threading; this may include back edges that are not part of
      a single loop.  */
   mark_dfs_back_edges ();
       
@@ -319,6 +319,23 @@ tree_ssa_dominator_optimize (void)
      such edges from the CFG as needed.  */
   if (!bitmap_empty_p (need_eh_cleanup))
     {
+      unsigned i;
+      bitmap_iterator bi;
+
+      /* Jump threading may have created forwarder blocks from blocks
+	 needing EH cleanup; the new successor of these blocks, which
+	 has inherited from the original block, needs the cleanup.  */
+      EXECUTE_IF_SET_IN_BITMAP (need_eh_cleanup, 0, i, bi)
+	{
+	  basic_block bb = BASIC_BLOCK (i);
+	  if (single_succ_p (bb) == 1
+	      && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
+	    {
+	      bitmap_clear_bit (need_eh_cleanup, i);
+	      bitmap_set_bit (need_eh_cleanup, single_succ (bb)->index);
+	    }
+	}
+
       tree_purge_all_dead_eh_edges (need_eh_cleanup);
       bitmap_zero (need_eh_cleanup);
     }
@@ -339,6 +356,13 @@ tree_ssa_dominator_optimize (void)
       if (value && !is_gimple_min_invariant (value))
 	SSA_NAME_VALUE (name) = NULL;
     }
+
+  statistics_counter_event (cfun, "Redundant expressions eliminated",
+			    opt_stats.num_re);
+  statistics_counter_event (cfun, "Constants propagated",
+			    opt_stats.num_const_prop);
+  statistics_counter_event (cfun, "Copies propagated",
+			    opt_stats.num_copy_prop);
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
@@ -367,8 +391,10 @@ gate_dominator (void)
   return flag_tree_dom != 0;
 }
 
-struct tree_opt_pass pass_dominator = 
+struct gimple_opt_pass pass_dominator = 
 {
+ {
+  GIMPLE_PASS,
   "dom",				/* name */
   gate_dominator,			/* gate */
   tree_ssa_dominator_optimize,		/* execute */
@@ -383,8 +409,8 @@ struct tree_opt_pass pass_dominator =
   TODO_dump_func
     | TODO_update_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_ssa,			/* todo_flags_finish */
-  0					/* letter */
+    | TODO_verify_ssa			/* todo_flags_finish */
+ }
 };
 
 
@@ -584,7 +610,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
 
   /* If we have an outgoing edge to a block with multiple incoming and
-     outgoing edges, then we may be able to thread the edge.  ie, we
+     outgoing edges, then we may be able to thread the edge, i.e., we
      may be able to statically determine which of the outgoing edges
      will be traversed when the incoming edge from BB is traversed.  */
   if (single_succ_p (bb)
@@ -849,24 +875,10 @@ record_equivalences_from_incoming_edge (basic_block bb)
 void
 dump_dominator_optimization_stats (FILE *file)
 {
-  long n_exprs;
-
   fprintf (file, "Total number of statements:                   %6ld\n\n",
 	   opt_stats.num_stmts);
   fprintf (file, "Exprs considered for dominator optimizations: %6ld\n",
            opt_stats.num_exprs_considered);
-
-  n_exprs = opt_stats.num_exprs_considered;
-  if (n_exprs == 0)
-    n_exprs = 1;
-
-  fprintf (file, "    Redundant expressions eliminated:         %6ld (%.0f%%)\n",
-	   opt_stats.num_re, PERCENT (opt_stats.num_re,
-				      n_exprs));
-  fprintf (file, "    Constants propagated:                     %6ld\n",
-	   opt_stats.num_const_prop);
-  fprintf (file, "    Copies propagated:                        %6ld\n",
-	   opt_stats.num_copy_prop);
 
   fprintf (file, "\nHash table statistics:\n");
 
@@ -1144,11 +1156,12 @@ record_equality (tree x, tree y)
      (by depth), then use that.
      Otherwise it doesn't matter which value we choose, just so
      long as we canonicalize on one value.  */
-  if (TREE_INVARIANT (y))
+  if (is_gimple_min_invariant (y))
     ;
-  else if (TREE_INVARIANT (x) || (loop_depth_of_name (x) <= loop_depth_of_name (y)))
+  else if (is_gimple_min_invariant (x)
+	   || (loop_depth_of_name (x) <= loop_depth_of_name (y)))
     prev_x = x, x = y, y = prev_x, prev_x = prev_y;
-  else if (prev_x && TREE_INVARIANT (prev_x))
+  else if (prev_x && is_gimple_min_invariant (prev_x))
     x = y, y = prev_x, prev_x = prev_y;
   else if (prev_y && TREE_CODE (prev_y) != VALUE_HANDLE)
     y = prev_y;
@@ -1347,7 +1360,7 @@ record_edge_info (basic_block bb)
 	      tree op1 = TREE_OPERAND (cond, 1);
 
 	      /* Special case comparing booleans against a constant as we
-		 know the value of OP0 on both arms of the branch.  i.e., we
+		 know the value of OP0 on both arms of the branch, i.e., we
 		 can record an equivalence for OP0 rather than COND.  */
 	      if ((TREE_CODE (cond) == EQ_EXPR || TREE_CODE (cond) == NE_EXPR)
 		  && TREE_CODE (op0) == SSA_NAME
@@ -1592,38 +1605,13 @@ record_equivalences_from_stmt (tree stmt, int may_optimize_p, stmt_ann_t ann)
       tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
       tree new_stmt;
 
-      /* FIXME: If the LHS of the assignment is a bitfield and the RHS
-         is a constant, we need to adjust the constant to fit into the
-         type of the LHS.  If the LHS is a bitfield and the RHS is not
-	 a constant, then we can not record any equivalences for this
-	 statement since we would need to represent the widening or
-	 narrowing of RHS.  This fixes gcc.c-torture/execute/921016-1.c
-	 and should not be necessary if GCC represented bitfields
-	 properly.  */
-      if (lhs_code == COMPONENT_REF
-	  && DECL_BIT_FIELD (TREE_OPERAND (lhs, 1)))
-	{
-	  if (TREE_CONSTANT (rhs))
-	    rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
-	  else
-	    rhs = NULL;
+      /* Build a new statement with the RHS and LHS exchanged.  */
+      new_stmt = build_gimple_modify_stmt (rhs, lhs);
+      create_ssa_artificial_load_stmt (new_stmt, stmt, true);
 
-	  /* If the value overflowed, then we can not use this equivalence.  */
-	  if (rhs && ! is_gimple_min_invariant (rhs))
-	    rhs = NULL;
-	}
-
-      if (rhs)
-	{
-	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new_stmt = build_gimple_modify_stmt (rhs, lhs);
-
-	  create_ssa_artificial_load_stmt (new_stmt, stmt, true);
-
-	  /* Finally enter the statement into the available expression
-	     table.  */
-	  lookup_avail_expr (new_stmt, true);
-	}
+      /* Finally enter the statement into the available expression
+	 table.  */
+      lookup_avail_expr (new_stmt, true);
     }
 }
 
@@ -2533,8 +2521,10 @@ eliminate_degenerate_phis (void)
   return 0;
 }
 
-struct tree_opt_pass pass_phi_only_cprop =
+struct gimple_opt_pass pass_phi_only_cprop =
 {
+ {
+  GIMPLE_PASS,
   "phicprop",                           /* name */
   gate_dominator,                       /* gate */
   eliminate_degenerate_phis,            /* execute */
@@ -2551,6 +2541,6 @@ struct tree_opt_pass pass_phi_only_cprop =
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_stmts
-    | TODO_update_ssa,			/* todo_flags_finish */
-  0                                     /* letter */
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
 };

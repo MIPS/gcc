@@ -1,7 +1,7 @@
 /* Global common subexpression elimination/Partial redundancy elimination
    and global constant/copy propagation for GNU compiler.
    Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007 Free Software Foundation, Inc.
+   2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -658,7 +658,7 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
   /* We do not construct an accurate cfg in functions which call
      setjmp, so just punt to be safe.  */
-  if (current_function_calls_setjmp)
+  if (cfun->calls_setjmp)
     return 0;
 
   /* Assume that we do not need to run jump optimizations after gcse.  */
@@ -718,9 +718,12 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
 
       /* Don't allow constant propagation to modify jumps
 	 during this pass.  */
-      timevar_push (TV_CPROP1);
-      changed = one_cprop_pass (pass + 1, false, false);
-      timevar_pop (TV_CPROP1);
+      if (dbg_cnt (cprop1))
+	{
+	  timevar_push (TV_CPROP1);
+	  changed = one_cprop_pass (pass + 1, false, false);
+	  timevar_pop (TV_CPROP1);
+	}
 
       if (optimize_size)
 	/* Do nothing.  */ ;
@@ -783,13 +786,17 @@ gcse_main (rtx f ATTRIBUTE_UNUSED)
   /* Do one last pass of copy propagation, including cprop into
      conditional jumps.  */
 
-  max_gcse_regno = max_reg_num ();
-  alloc_gcse_mem ();
-  /* This time, go ahead and allow cprop to alter jumps.  */
-  timevar_push (TV_CPROP2);
-  one_cprop_pass (pass + 1, true, true);
-  timevar_pop (TV_CPROP2);
-  free_gcse_mem ();
+  if (dbg_cnt (cprop2))
+    {
+      max_gcse_regno = max_reg_num ();
+      alloc_gcse_mem ();
+
+      /* This time, go ahead and allow cprop to alter jumps.  */
+      timevar_push (TV_CPROP2);
+      one_cprop_pass (pass + 1, true, true);
+      timevar_pop (TV_CPROP2);
+      free_gcse_mem ();
+    }
 
   if (dump_file)
     {
@@ -1685,12 +1692,25 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
       unsigned int regno = REGNO (dest);
       rtx tmp;
 
-      /* See if a REG_NOTE shows this equivalent to a simpler expression.
+      /* See if a REG_EQUAL note shows this equivalent to a simpler expression.
+
 	 This allows us to do a single GCSE pass and still eliminate
 	 redundant constants, addresses or other expressions that are
-	 constructed with multiple instructions.  */
+	 constructed with multiple instructions.
+
+	 However, keep the original SRC if INSN is a simple reg-reg move.  In
+	 In this case, there will almost always be a REG_EQUAL note on the
+	 insn that sets SRC.  By recording the REG_EQUAL value here as SRC
+	 for INSN, we miss copy propagation opportunities and we perform the
+	 same PRE GCSE operation repeatedly on the same REG_EQUAL value if we
+	 do more than one PRE GCSE pass.
+
+	 Note that this does not impede profitable constant propagations.  We
+	 "look through" reg-reg sets in lookup_avail_set.  */
       note = find_reg_equal_equiv_note (insn);
       if (note != 0
+	  && REG_NOTE_KIND (note) == REG_EQUAL
+	  && !REG_P (src)
 	  && (table->set_p
 	      ? gcse_constant_p (XEXP (note, 0))
 	      : want_to_gcse_p (XEXP (note, 0))))
@@ -2302,7 +2322,7 @@ oprs_not_set_p (const_rtx x, const_rtx insn)
 static void
 mark_call (rtx insn)
 {
-  if (! CONST_OR_PURE_CALL_P (insn))
+  if (! RTL_CONST_OR_PURE_CALL_P (insn))
     record_last_mem_set_info (insn);
 }
 
@@ -4456,8 +4476,7 @@ pre_delete (void)
 		   expressions into.  Get the mode for the new pseudo from
 		   the mode of the original destination pseudo.  */
 		if (expr->reaching_reg == NULL)
-		  expr->reaching_reg
-		    = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+		  expr->reaching_reg = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		delete_insn (insn);
@@ -4661,7 +4680,7 @@ compute_transpout (void)
 
   FOR_EACH_BB (bb)
     {
-      /* Note that flow inserted a nop a the end of basic blocks that
+      /* Note that flow inserted a nop at the end of basic blocks that
 	 end in call instructions for reasons other than abnormal
 	 control flow.  */
       if (! CALL_P (BB_END (bb)))
@@ -4981,7 +5000,7 @@ hoist_code (void)
 			 from the mode of the original destination pseudo.  */
 		      if (expr->reaching_reg == NULL)
 			expr->reaching_reg
-			  = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+			  = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		      gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		      delete_insn (insn);
@@ -5981,7 +6000,7 @@ store_killed_in_insn (const_rtx x, const_rtx x_regs, const_rtx insn, int after)
     {
       /* A normal or pure call might read from pattern,
 	 but a const call will not.  */
-      if (! CONST_OR_PURE_CALL_P (insn) || pure_call_p (insn))
+      if (!RTL_CONST_CALL_P (insn))
 	return true;
 
       /* But even a const call reads its parameters.  Check whether the
@@ -6114,7 +6133,7 @@ build_store_vectors (void)
 	     are any side effects.  */
 	  if (TEST_BIT (ae_gen[bb->index], ptr->index))
 	    {
-	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
+	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
 		fprintf (dump_file, "Removing redundant store:\n");
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
@@ -6437,7 +6456,7 @@ delete_store (struct ls_expr * expr, basic_block bb)
   rtx reg, i, del;
 
   if (expr->reaching_reg == NULL_RTX)
-    expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+    expr->reaching_reg = gen_reg_rtx_and_attrs (expr->pattern);
 
   reg = expr->reaching_reg;
 
@@ -6569,7 +6588,7 @@ bypass_jumps (void)
 
   /* We do not construct an accurate cfg in functions which call
      setjmp, so just punt to be safe.  */
-  if (current_function_calls_setjmp)
+  if (cfun->calls_setjmp)
     return 0;
 
   /* Identify the basic block information for this function, including
@@ -6666,7 +6685,8 @@ is_too_expensive (const char *pass)
 static bool
 gate_handle_jump_bypass (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (jump_bypass);
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
@@ -6683,8 +6703,10 @@ rest_of_handle_jump_bypass (void)
   return 0;
 }
 
-struct tree_opt_pass pass_jump_bypass =
+struct rtl_opt_pass pass_jump_bypass =
 {
+ {
+  RTL_PASS,
   "bypass",                             /* name */
   gate_handle_jump_bypass,              /* gate */   
   rest_of_handle_jump_bypass,           /* execute */       
@@ -6697,15 +6719,16 @@ struct tree_opt_pass pass_jump_bypass =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func |
-  TODO_ggc_collect | TODO_verify_flow,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_ggc_collect | TODO_verify_flow   /* todo_flags_finish */
+ }
 };
 
 
 static bool
 gate_handle_gcse (void)
 {
-  return optimize > 0 && flag_gcse;
+  return optimize > 0 && flag_gcse
+    && dbg_cnt (gcse);
 }
 
 
@@ -6751,8 +6774,10 @@ rest_of_handle_gcse (void)
   return 0;
 }
 
-struct tree_opt_pass pass_gcse =
+struct rtl_opt_pass pass_gcse =
 {
+ {
+  RTL_PASS,
   "gcse1",                              /* name */
   gate_handle_gcse,                     /* gate */   
   rest_of_handle_gcse,			/* execute */       
@@ -6766,8 +6791,8 @@ struct tree_opt_pass pass_gcse =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_verify_flow | TODO_ggc_collect,  /* todo_flags_finish */
-  'G'                                   /* letter */
+  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
+ }
 };
 
 

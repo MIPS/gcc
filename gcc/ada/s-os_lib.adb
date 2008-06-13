@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 1995-2007, AdaCore                     --
+--                     Copyright (C) 1995-2008, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -293,7 +293,7 @@ package body System.OS_Lib is
       --  Internal exception raised to signal error in copy
 
       function Build_Path (Dir : String; File : String) return String;
-      --  Returns pathname Dir catenated with File adding the directory
+      --  Returns pathname Dir concatenated with File adding the directory
       --  separator only if needed.
 
       procedure Copy (From, To : File_Descriptor);
@@ -452,16 +452,22 @@ package body System.OS_Lib is
 
       begin
          From := Open_Read (Name, Binary);
-         To   := Create_File (To_Name, Binary);
+
+         --  Do not clobber destination file if source file could not be opened
+
+         if From /= Invalid_FD then
+            To := Create_File (To_Name, Binary);
+         end if;
+
          Copy (From, To);
 
          --  Copy attributes
 
          C_From (1 .. Name'Length) := Name;
-         C_From (C_From'Last) := ASCII.Nul;
+         C_From (C_From'Last) := ASCII.NUL;
 
          C_To (1 .. To_Name'Length) := To_Name;
-         C_To (C_To'Last) := ASCII.Nul;
+         C_To (C_To'Last) := ASCII.NUL;
 
          case Preserve is
 
@@ -545,10 +551,14 @@ package body System.OS_Lib is
             if Is_Regular_File (Pathname) then
 
                --  Append mode and destination file exists, append data at the
-               --  end of Pathname.
+               --  end of Pathname. But if we fail to open source file, do not
+               --  touch destination file at all.
 
                From := Open_Read (Name, Binary);
-               To   := Open_Read_Write (Pathname, Binary);
+               if From /= Invalid_FD then
+                  To := Open_Read_Write (Pathname, Binary);
+               end if;
+
                Lseek (To, 0, Seek_End);
 
                Copy (From, To);
@@ -1622,10 +1632,10 @@ package body System.OS_Lib is
 
                --  If null terminated string, put the quote before
 
-               if Res (J) = ASCII.Nul then
+               if Res (J) = ASCII.NUL then
                   Res (J) := '"';
                   J := J + 1;
-                  Res (J) := ASCII.Nul;
+                  Res (J) := ASCII.NUL;
 
                --  If argument is terminated by '\', then double it. Otherwise
                --  the ending quote will be taken as-is. This is quite strange
@@ -1833,7 +1843,7 @@ package body System.OS_Lib is
 
       --  First, convert VMS file spec to Unix file spec.
       --  If Name is not in VMS syntax, then this is equivalent
-      --  to put Name at the begining of Path_Buffer.
+      --  to put Name at the beginning of Path_Buffer.
 
       VMS_Conversion : begin
          The_Name (1 .. Name'Length) := Name;
@@ -1896,7 +1906,7 @@ package body System.OS_Lib is
         and then Path_Buffer (2) /= Directory_Separator
       then
          declare
-            Cur_Dir : String := Get_Directory ("");
+            Cur_Dir : constant String := Get_Directory ("");
             --  Get the current directory to get the drive letter
 
          begin

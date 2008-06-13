@@ -547,9 +547,7 @@
      gcc.c-torture/execute/961213-1.c shows that CSE2 gets confused by the
      resulting subreg sets when using the construct from mcore (as of FSF
      CVS, version -r 1.5), and it believes that the high part (the last one
-     emitted) is the final value.  This construct from romp seems more
-     robust, especially considering the head comments from
-     emit_no_conflict_block.  */
+     emitted) is the final value.  */
   if ((CONST_INT_P (operands[1]) || GET_CODE (operands[1]) == CONST_DOUBLE)
       && ! reload_completed
       && ! reload_in_progress)
@@ -566,7 +564,7 @@
       insns = get_insns ();
       end_sequence ();
 
-      emit_no_conflict_block (insns, op0, op1, 0, op1);
+      emit_insn (insns);
       DONE;
     }
 })
@@ -995,7 +993,7 @@
 	    /* FIXME: add a REG_EQUAL (or is it REG_EQUIV) note to the
 	       destination register for the symbol.  It might not be
 	       worth it.  Measure.  */
-	    current_function_uses_pic_offset_table = 1;
+	    crtl->uses_pic_offset_table = 1;
 	    if (t == cris_rel_symbol)
 	      {
 		/* Change a "move.d sym(+offs),rN" into (allocate register rM)
@@ -1025,7 +1023,7 @@
 		  {
 		    /* We still uses GOT-relative addressing for
 		       pre-v32.	 */
-		    current_function_uses_pic_offset_table = 1;
+		    crtl->uses_pic_offset_table = 1;
 		    tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, sym),
 					  CRIS_UNSPEC_GOTREL);
 		    if (offs != 0)
@@ -2958,7 +2956,7 @@
 
 (define_insn "*andhi_lowpart_non_v32"
   [(set (strict_low_part
-	 (match_operand:HI 0 "register_operand"	       "=r,r, r,r,r,r"))
+	 (match_operand:HI 0 "register_operand"	       "+r,r, r,r,r,r"))
 	(and:HI (match_operand:HI 1 "register_operand" "%0,0, 0,0,0,r")
 		(match_operand:HI 2 "general_operand"   "r,Q>,L,O,g,!To")))]
   "!TARGET_V32"
@@ -2974,7 +2972,7 @@
 
 (define_insn "*andhi_lowpart_v32"
   [(set (strict_low_part
-	 (match_operand:HI 0 "register_operand" "=r,r,r,r,r"))
+	 (match_operand:HI 0 "register_operand" "+r,r,r,r,r"))
 	(and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0,0")
 		(match_operand:HI 2 "general_operand" "r,Q>,L,O,g")))]
   "TARGET_V32"
@@ -3025,7 +3023,7 @@
 
 (define_insn "*andqi_lowpart_non_v32"
   [(set (strict_low_part
-	 (match_operand:QI 0 "register_operand"	       "=r,r, r,r,r"))
+	 (match_operand:QI 0 "register_operand"	       "+r,r, r,r,r"))
 	(and:QI (match_operand:QI 1 "register_operand" "%0,0, 0,0,r")
 		(match_operand:QI 2 "general_operand"   "r,Q>,O,g,!To")))]
   "!TARGET_V32"
@@ -3040,7 +3038,7 @@
 
 (define_insn "*andqi_lowpart_v32"
   [(set (strict_low_part
-	 (match_operand:QI 0 "register_operand" "=r,r,r,r"))
+	 (match_operand:QI 0 "register_operand" "+r,r,r,r"))
 	(and:QI (match_operand:QI 1 "register_operand" "%0,0,0,0")
 		(match_operand:QI 2 "general_operand" "r,Q>,O,g")))]
   "TARGET_V32"
