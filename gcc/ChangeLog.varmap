@@ -1,3 +1,7 @@
+2008-06-13  Richard Guenther  <rguenther@suse.de>
+
+	* var-tracking.c (compute_bb_dataflow): Fix C99 var declaration.
+
 2008-05-29  Michael Matz  <matz@suse.de>
 
 	* var-tracking.c (enum micro_operation_type): Add MO_ASSOC type.

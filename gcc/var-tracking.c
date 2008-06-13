@@ -2043,11 +2043,12 @@ compute_bb_dataflow (basic_block bb)
   dataflow_set old_out;
   dataflow_set *in = &VTI (bb)->in;
   dataflow_set *out = &VTI (bb)->out;
+  variable_tracking_info vti;
 
   dataflow_set_init (&old_out, htab_elements (VTI (bb)->out.vars) + 3);
   dataflow_set_copy (&old_out, out);
   dataflow_set_copy (out, in);
-  variable_tracking_info vti = VTI(bb);
+  vti = VTI(bb);
 
   n = vti->n_mos;
   for (i = 0; i < n; i++)
