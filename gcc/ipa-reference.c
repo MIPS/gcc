@@ -480,7 +480,7 @@ check_call (ipa_reference_local_vars_info_t local, gimple stmt)
    should be converted to use the operand scanner.  */
 
 static tree
-scan_stmt_for_static_refs (gimple_stmt_iterator *gsip, bool *walk_subtrees,
+scan_stmt_for_static_refs (gimple_stmt_iterator *gsip, bool *handled_ops_p,
 			   struct walk_stmt_info *data)
 {
   struct cgraph_node *fn = (struct cgraph_node *) data->info;
@@ -531,7 +531,7 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip, bool *walk_subtrees,
 	  default:
 	    break;
 	  }
-	*walk_subtrees = false;
+	*handled_ops_p = true;
       }
       break;
 
@@ -546,12 +546,12 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip, bool *walk_subtrees,
 
     case GIMPLE_CALL:
       check_call (local, stmt);
-      *walk_subtrees = false;
+      *handled_ops_p = true;
       break;
       
     case GIMPLE_ASM:
       get_asm_stmt_operands (local, stmt);
-      *walk_subtrees = false;
+      *handled_ops_p = true;
       break;
       
     default:

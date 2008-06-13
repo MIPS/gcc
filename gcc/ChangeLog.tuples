@@ -1,3 +1,13 @@
+2008-06-13  Doug Kwan  <dougkwan@google.com>
+
+	* ipa-reference.c (scan_stmt_for_static_refs): Rename walk_subtrees
+	parameter to handled_ops_p and correct bug of using walk_tree callback
+	semantics.
+	* ipa-pure-const.c (scan_function_stmt): Likewise.
+	* tree-inline.c (mark_local_labes_stmt): Rename walk_subtrees
+	parameter to handle_ops_p.
+	(replace_locals_stmt): Likewise.
+
 2008-06-10  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* passes.c (init_optimization_passes): Re-enable pass_uncprop.

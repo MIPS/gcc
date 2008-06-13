@@ -443,7 +443,7 @@ scan_function_op (tree *tp, int *walk_subtrees, void *data)
 
 static tree
 scan_function_stmt (gimple_stmt_iterator *gsi_p,
-		    bool *walk_subtrees, 
+		    bool *handled_ops_p,
 		    struct walk_stmt_info *wi)
 {
   struct cgraph_node *fn = (struct cgraph_node *) wi->info;
@@ -498,7 +498,7 @@ scan_function_stmt (gimple_stmt_iterator *gsi_p,
 	  default:
 	    break;
 	  }
-	*walk_subtrees = false;
+	*handled_ops_p = true;
       }
       break;
 
@@ -513,12 +513,12 @@ scan_function_stmt (gimple_stmt_iterator *gsi_p,
 
     case GIMPLE_CALL:
       check_call (local, stmt);
-      *walk_subtrees = false;
+      *handled_ops_p = true;
       break;
       
     case GIMPLE_ASM:
       get_asm_expr_operands (local, stmt);
-      *walk_subtrees = false;
+      *handled_ops_p = true;
       break;
       
     default:

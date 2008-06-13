@@ -3765,7 +3765,7 @@ unsave_expr_now (tree expr)
 
 static tree
 mark_local_labels_stmt (gimple_stmt_iterator *gsip,
-		        bool *walk_subtrees ATTRIBUTE_UNUSED,
+		        bool *handled_ops_p ATTRIBUTE_UNUSED,
 		        struct walk_stmt_info *wi)
 {
   copy_body_data *id = (copy_body_data *) wi->info;
@@ -3839,7 +3839,7 @@ replace_locals_op (tree *tp, int *walk_subtrees, void *data)
 
 static tree
 replace_locals_stmt (gimple_stmt_iterator *gsip,
-		     bool *walk_subtrees ATTRIBUTE_UNUSED,
+		     bool *handled_ops_p ATTRIBUTE_UNUSED,
 		     struct walk_stmt_info *wi)
 {
   copy_body_data *id = (copy_body_data *) wi->info;
