@@ -253,8 +253,6 @@ typedef struct dw_fde_struct GTY(())
   /* Whether we saved the register used by Dynamic Realign Argument
      Pointer.  */
   unsigned drap_reg_saved : 1;
-  /* Whether called __builtin_eh_return.  */
-  unsigned calls_eh_return : 1;
 }
 dw_fde_node;
 
@@ -2782,7 +2780,6 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->nothrow = TREE_NOTHROW (current_function_decl);
   fde->uses_eh_lsda = crtl->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = crtl->all_throwers_are_sibcalls;
-  fde->calls_eh_return = crtl->calls_eh_return;
 
   args_size = old_args_size = 0;
 
@@ -15544,23 +15541,13 @@ reg_save_with_expression (dw_cfi_ref cfi)
       cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg;
       cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
 
-      /* We also need to properly restore the caller's stack pointer.
-	 But if callee calls __builtin_eh_return, the calculation of
-	 offset from exception handling function (typically is
-	 _Unwind_RaiseException) to target function during unwinding
-	 will conflict with this mechanism.  It will simply set offset
-	 to zero.  So here if functions call __builtin_eh_return,
-	 there will be no unwind information for restoring the stack
-	 pointer.  */ 
-      if (!fde->calls_eh_return)
-        {
-          head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
-          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
-          cfi2->dw_cfi_opc = DW_CFA_expression;
-          cfi2->dw_cfi_oprnd2.dw_cfi_reg_num = dwarf_sp;
-          cfi2->dw_cfi_oprnd1.dw_cfi_loc = head;
-          cfi->dw_cfi_next = cfi2;
-        }
+      /* We also need to properly restore caller's stack pointer.  */
+      head = tmp = new_loc_descr (DW_OP_const4s, offset, 0);
+      tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_minus, 0, 0);
+      cfi2->dw_cfi_opc = DW_CFA_expression;
+      cfi2->dw_cfi_oprnd2.dw_cfi_reg_num = dwarf_sp;
+      cfi2->dw_cfi_oprnd1.dw_cfi_loc = head;
+      cfi->dw_cfi_next = cfi2;
     }  
 }
 #else

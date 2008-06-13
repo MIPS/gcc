@@ -1,3 +1,18 @@
+2008-06-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* cfgexpand.c (expand_stack_alignment): Don't set need_drap
+	to true for calling eh_return.
+
+	* dwarf2out.c (dw_fde_struct): Remove calls_eh_return.
+	(dwarf2out_begin_prologue): Updated.
+	(reg_save_with_expression): Likewise.
+
+	* config/i386/i386.c (find_drap_reg): Don't check calls_eh_return.
+	(ix86_update_stack_boundary): Set incoming stack boundary
+	to preferred stack boundary if a function calls eh_return.
+	(ix86_expand_epilogue): Assert stack isn't realigned when
+	eh_return is called.
+
 2008-06-10  Joey Ye  <joey.ye@intel.com>
 
 	* dwarf2out.c (based_loc_descr): Assert eliminate arg or frame

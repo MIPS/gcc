@@ -1878,8 +1878,7 @@ expand_stack_alignment (void)
   
   if (cfun->calls_alloca
       || cfun->has_nonlocal_label
-      || crtl->has_nonlocal_goto
-      || crtl->calls_eh_return)
+      || crtl->has_nonlocal_goto)
     crtl->need_drap = true;
 
   gcc_assert (crtl->stack_alignment_needed

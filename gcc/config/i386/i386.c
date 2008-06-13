@@ -6540,13 +6540,12 @@ find_drap_reg (void)
   if (TARGET_64BIT)
     {
       /* Use R13 for nested function or function need static chain.
-         Since function with tail call or eh_return may use any
-	 caller-saved registers in epilogue, DRAP must not use
-	 caller-saved register in such case.  */
+	 Since function with tail call may use any caller-saved
+	 registers in epilogue, DRAP must not use caller-saved
+	 register in such case.  */
       if ((decl_function_context (decl)
 	   && !DECL_NO_STATIC_CHAIN (decl))
-	  || crtl->tail_call_emit
-	  || crtl->calls_eh_return)
+	  || crtl->tail_call_emit)
 	return R13_REG;
 
       return R10_REG;
@@ -6554,13 +6553,12 @@ find_drap_reg (void)
   else
     {
       /* Use DI for nested function or function need static chain.
-         Since function with tail call or eh_return may use any
-	 caller-saved registers in epilogue, DRAP must not use
-	 caller-saved register in such case.  */
+	 Since function with tail call may use any caller-saved
+	 registers in epilogue, DRAP must not use caller-saved
+	 register in such case.  */
       if ((decl_function_context (decl)
 	   && !DECL_NO_STATIC_CHAIN (decl))
-	  || crtl->tail_call_emit
-	  || crtl->calls_eh_return)
+	  || crtl->tail_call_emit)
 	return DI_REG;
     
       /* Reuse static chain register if it isn't used for parameter
@@ -6584,6 +6582,12 @@ ix86_update_stack_boundary (void)
     = (ix86_user_incoming_stack_boundary
        ? ix86_user_incoming_stack_boundary
        : ix86_default_incoming_stack_boundary);
+
+  /* The incoming stack of a function using eh_return should be
+     properly aligned.  We will do sanity check for stack realign
+     with eh_return in ix86_expand_epilogue.  */
+  if (crtl->calls_eh_return)
+    ix86_incoming_stack_boundary = PREFERRED_STACK_BOUNDARY;
 
   /* Incoming stack alignment can be changed on individual functions
      via force_align_arg_pointer attribute.  We use the smallest
@@ -7027,18 +7031,12 @@ ix86_expand_epilogue (int style)
       if (style == 2)
 	{
 	  rtx tmp, sa = EH_RETURN_STACKADJ_RTX;
+
+	  /* Stack align doesn't work with eh_return.  */
+	  gcc_assert (!crtl->stack_realign_needed);
+
 	  if (frame_pointer_needed)
 	    {
-              if (crtl->stack_realign_needed)
-                {
-                  gcc_assert (!stack_realign_fp);
-                  gcc_assert (crtl->calls_eh_return);
-                  tmp = plus_constant (crtl->drap_reg,
-				       2 * (-UNITS_PER_WORD));
-                  tmp = gen_rtx_MEM (Pmode, tmp);
-                  emit_move_insn (crtl->drap_reg, tmp);
-                }
-
 	      tmp = gen_rtx_PLUS (Pmode, hard_frame_pointer_rtx, sa);
 	      tmp = plus_constant (tmp, UNITS_PER_WORD);
 	      emit_insn (gen_rtx_SET (VOIDmode, sa, tmp));
@@ -7119,9 +7117,7 @@ ix86_expand_epilogue (int style)
 	}
     }
 
-  if (style != 2
-      && crtl->drap_reg
-      && crtl->stack_realign_needed)
+  if (crtl->drap_reg && crtl->stack_realign_needed)
     {
       int param_ptr_offset = (call_used_regs[REGNO (crtl->drap_reg)]
 			      ? 0 : STACK_BOUNDARY / BITS_PER_UNIT);
