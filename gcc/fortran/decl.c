@@ -4085,8 +4085,10 @@ match_procedure_decl (void)
 	  return MATCH_ERROR;
 	}
       /* Handle intrinsic procedures.  */
-      if (gfc_intrinsic_name (proc_if->name, 0)
-	  || gfc_intrinsic_name (proc_if->name, 1))
+      if (!(proc_if->attr.external || proc_if->attr.use_assoc
+	    || proc_if->attr.if_source == IFSRC_IFBODY)
+	  && (gfc_intrinsic_name (proc_if->name, 0)
+	      || gfc_intrinsic_name (proc_if->name, 1)))
 	proc_if->attr.intrinsic = 1;
       if (proc_if->attr.intrinsic
 	  && !gfc_intrinsic_actual_ok (proc_if->name, 0))
@@ -5818,10 +5820,27 @@ do_parm (void)
       && sym->ts.cl->length != NULL
       && sym->ts.cl->length->expr_type == EXPR_CONSTANT
       && init->expr_type == EXPR_CONSTANT
-      && init->ts.type == BT_CHARACTER
-      && init->ts.kind == 1)
+      && init->ts.type == BT_CHARACTER)
     gfc_set_constant_character_len (
       mpz_get_si (sym->ts.cl->length->value.integer), init, false);
+  else if (sym->ts.type == BT_CHARACTER && sym->ts.cl != NULL
+	   && sym->ts.cl->length == NULL)
+	{
+	  int clen;
+	  if (init->expr_type == EXPR_CONSTANT)
+	    {
+	      clen = init->value.character.length;
+	      sym->ts.cl->length = gfc_int_expr (clen);
+	    }
+	  else if (init->expr_type == EXPR_ARRAY)
+	    {
+	      gfc_expr *p = init->value.constructor->expr;
+	      clen = p->value.character.length;
+	      sym->ts.cl->length = gfc_int_expr (clen);
+	    }
+	  else if (init->ts.cl && init->ts.cl->length)
+	    sym->ts.cl->length = gfc_copy_expr (sym->value->ts.cl->length);
+	}
 
   sym->value = init;
   return MATCH_YES;

@@ -628,7 +628,7 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
   enum tree_code code;
   gcov_type val, count, all;
   tree result, value, tree_val;
-  int prob;
+  gcov_type prob;
   gimple stmt;
 
   stmt = gsi_stmt (*si);
@@ -666,7 +666,10 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
     return false;
 
   /* Compute probability of taking the optimal path.  */
-  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  if (all > 0)
+    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  else
+    prob = 0;
 
   tree_val = build_int_cst_wide (get_gcov_type (),
 				 (unsigned HOST_WIDE_INT) val,
@@ -784,7 +787,7 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   enum tree_code code;
   gcov_type count, wrong_values, all;
   tree lhs_type, result, value;
-  int prob;
+  gcov_type prob;
   gimple stmt;
 
   stmt = gsi_stmt (*si);
@@ -828,7 +831,10 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   if (check_counter (stmt, "pow2", all, gimple_bb (stmt)->count))
     return false;
 
-  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  if (all > 0)
+    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  else
+    prob = 0;
 
   result = gimple_mod_pow2 (stmt, prob, count, all);
 
@@ -961,7 +967,7 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   enum tree_code code;
   gcov_type count, wrong_values, all;
   tree lhs_type, result, value;
-  int prob1, prob2;
+  gcov_type prob1, prob2;
   unsigned int i, steps;
   gcov_type count1, count2;
   gimple stmt;
@@ -1024,8 +1030,15 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
     }
 
   /* Compute probability of taking the optimal path(s).  */
-  prob1 = (count1 * REG_BR_PROB_BASE + all / 2) / all;
-  prob2 = (count2 * REG_BR_PROB_BASE + all / 2) / all;
+  if (all > 0)
+    {
+      prob1 = (count1 * REG_BR_PROB_BASE + all / 2) / all;
+      prob2 = (count2 * REG_BR_PROB_BASE + all / 2) / all;
+    }
+  else
+    {
+      prob1 = prob2 = 0;
+    }
 
   /* In practice, "steps" is always 2.  This interface reflects this,
      and will need to be changed if "steps" can change.  */
@@ -1177,7 +1190,7 @@ gimple_ic_transform (gimple stmt)
 {
   histogram_value histogram;
   gcov_type val, count, all;
-  int prob;
+  gcov_type prob;
   tree callee;
   gimple modify;
   struct cgraph_node *direct_call;
@@ -1202,7 +1215,10 @@ gimple_ic_transform (gimple stmt)
   if (4 * count <= 3 * all)
     return false;
 
-  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  if (all > 0)
+    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  else
+    prob = 0;
   direct_call = find_func_by_pid ((int)val);
 
   if (direct_call == NULL)
@@ -1360,7 +1376,7 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
   tree value;
   tree dest, src;
   unsigned int dest_align, src_align;
-  int prob;
+  gcov_type prob;
   tree tree_val;
 
   if (gimple_code (stmt) != GIMPLE_CALL)
@@ -1394,7 +1410,10 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
     return false;
   if (check_counter (stmt, "value", all, gimple_bb (stmt)->count))
     return false;
-  prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  if (all > 0)
+    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+  else
+    prob = 0;
   dest = gimple_call_arg (stmt, 0);
   dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
   switch (fcode)
@@ -1711,3 +1730,4 @@ value_profile_transformations (void)
 {
   return (value_prof_hooks->value_profile_transformations) ();
 }
+

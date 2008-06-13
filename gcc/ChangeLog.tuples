@@ -1,3 +1,10 @@
+2008-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	Merge with mainline @136757.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-06-13  Doug Kwan  <dougkwan@google.com>
 
 	* ipa-reference.c (scan_stmt_for_static_refs): Rename walk_subtrees

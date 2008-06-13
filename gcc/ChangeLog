@@ -1,7 +1,498 @@
+2008-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/36520
+	* builtins.c (get_memory_rtx): Test for the presence of DECL_SIZE_UNIT
+	before evaluating it.
+
+2008-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/36507
+	* c-decl.c (merge_decls): Don't clear DECL_EXTERNAL for
+	nested inline functions.
+	(start_decl, start_function): Don't invert DECL_EXTERNAL
+	for nested inline functions.
+
+2008-06-13  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md: Remove TARGET_DEBUG_D_MODE conditions from
+	splits that must be made for correctness.
+
+2008-06-13  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (BUILTIN_AVAIL_NON_MIPS16): New macro.
+	(AVAIL_NON_MIPS16): Likewise.
+	(mips_builtin_description): Replace target_flags with a predicate.
+	(paired_single, sb1_paired_single, mips3d, dsp, dspr2, dsp_32)
+	(dspr2_32): New availability predicates.
+	(MIPS_BUILTIN): New macro.
+	(DIRECT_BUILTIN, CMP_SCALAR_BUILTINS, CMP_PS_BUILTINS)
+	(CMP_4S_BUILTINS, MOVTF_BUILTINS, CMP_BUILTINS)
+	(DIRECT_NO_TARGET_BUILTIN, BPOSGE_BUILTIN): Use it.
+	Replace the TARGET_FLAGS parameters with AVAIL parameters.
+	(mips_ps_bdesc, mips_sb1_bdesc, mips_dsp_bdesc)
+	(mips_dsp_32only_bdesc): Merge into...
+	(mips_builtins): ...this new array.
+	(mips_bdesc_map, mips_bdesc_arrays): Delete.
+	(mips_init_builtins): Update after above changes.
+	(mips_expand_builtin_1): Merge into...
+	(mips_expand_builtin): ...here and update after above changes.
+
+2008-06-12  Paul Brook  <paul@codesourcery.com>
+
+	* longlong.h (__arm__): Define count_leading_zeros.
+	* config/arm/lib1funcs.asm (xxh, xxl, yyh, yyl): Define.
+	(clzsi2, clzdi2): New functions.
+	* config/arm/bpabi-v6m.S (xxh, xxl, yyh, yyl): Remove.
+	* config/arm/bpabi.S (xxh, xxl, yyh, yyl): Remove.
+	* config/arm/t-strongarm-elf (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-vxworks (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-pe (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-arm-coff (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-linux (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-symbian (LIB1ASMFUNCS): Ditto.
+	* config/arm/t-wince-pe (LIB1ASMFUNCS): Ditto.
+
+2008-06-12  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_tune_flags): New.
+	(override_options): Compute m68k_tune_flags.
+	(MULL_COST, MULW_COST): Update for various variants of CFV2.
+	* config/m68k/m68k.h (TUNE_MAC, TUNE_EMAC): New.
+
+2008-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36506
+	* omp-low.c (expand_omp_sections): Initialize l2 to avoid bogus
+	warning.
+
+2008-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-inline.c (copy_body_r): Copy TREE_SIDE_EFFECTS along with
+	TREE_THIS_VOLATILE on INDIRECT_REF nodes.
+
+2008-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (store_field): Do a block copy from BLKmode to BLKmode-like.
+	(get_inner_reference): Use BLKmode for byte-aligned BLKmode bitfields.
+
+2008-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36506
+	* omp-low.c (expand_omp_sections): Handle #pragma omp sections with
+	reductions.
+
+2008-06-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36345
+	* tree-flow.h (struct ptr_info_def): Align escape_mask,
+	add memory_tag_needed flag.
+	(may_alias_p): Declare.
+	* tree-ssa-alias.c (may_alias_p): Export.
+	(set_initial_properties): Use memory_tag_needed flag.
+	(update_reference_counts): Likewise.
+	(reset_alias_info): Reset memory_tag_needed flag.
+	(create_name_tags): Check memory_tag_needed flag.
+	(dump_points_to_info_for): Dump it.
+	* tree-ssa-structalias.c (struct variable_info): Remove
+	directly_dereferenced flag.
+	(new_var_info): Do not initialize it.
+	(process_constraint_1): Do not set it.
+	(update_alias_info): Set is_dereferenced flag.
+	(set_uids_in_ptset): Use may_alias_p.
+	(set_used_smts): Check memory_tag_needed flag.
+	(find_what_p_points_to): Likewise.  Pass is_dereferenced flag.
+	* tree-ssa-alias.c (verify_flow_sensitive_alias_info): Check
+	memory_tag_needed flag.
+	* tree-ssa-alias-warnings.c (dsa_named_for): Try to recover
+	from broken design.
+
+2008-06-12  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386.c (ix86_compute_frame_layout): Disable red zone for
+	w64 abi.
+	(ix86_expand_prologue): Likewise.
+	(ix86_force_to_memory): Likewise.
+	(ix86_free_from_memory): Likewise.
+
+2008-06-11  Edmar Wienskoski  <edmar@freescale.com>
+
+	PR target/36425
+	* config/rs6000/rs6000.c (rs6000_override_options): Set
+	rs6000_isel conditionally to the absence of comand line
+	override.
+	* config/rs6000/linuxspe.h (SUBSUBTARGET_OVERRIDE_OPTIONS):
+	Remove duplicate rs6000_isel setting.
+	* config/rs6000/eabispe.h: Ditto.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	* alias.c (get_alias_set): Use the element alias-set for arrays.
+	(record_component_aliases): For arrays and vectors do nothing.
+	* c-common.c (strict_aliasing_warning): Handle the cases
+	of alias set zero explicitly.
+	* Makefile.in (dfp.o-warn): Add -Wno-error.
+
+2008-06-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config.gcc (all_defaults): Add arch_32 arch_64 cpu_32 cpu_64
+	tune_32 tune_64.
+	(i[34567]86-*-* | x86_64-*-*): Add arch_32 arch_64 cpu_32 cpu_64
+	tune_32 tune_64 to supported_defaults.  Allow values not
+	supporting 64-bit mode for arch_32, cpu_32 and tune_32 for
+	x86_64.  Do not override cpu_32 or cpu_64 values from target name.
+	(i[34567]86-*-linux*, i[34567]86-*-solaris2.1[0-9]*): Only default
+	with_cpu_64 to generic for 64-bit-supporting configurations, not
+	with_cpu.  Remove FIXMEs.
+	* doc/install.texi (--with-cpu-32, --with-cpu-64, --with-arch-32,
+	--with-arch-64, --with-tune-32, --with-tune-64): Document.
+	* config/i386/i386.h (OPT_ARCH32, OPT_ARCH64): Define.
+	(OPTION_DEFAULT_SPECS): Add tune_32, tune_64, cpu_32, cpu_64,
+	arch_32 and arch_64.
+
+2008-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+            Olivier Hainque  <hainque@adacore.com>
+
+	* builtins.c (get_memory_rtx): Accept byte-addressable bitfields.
+	Use DECL_SIZE_UNIT to retrieve the size of the field.
+
+2008-06-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_neon_builtins): Move initialization
+	with function calls after declarations.  Lay out
+	neon_float_type_node before further use.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (may_point_to_global_var): Declare.
+	* tree-ssa-alias.c (may_point_to_global_var): New function.
+	* tree-ssa-sink.c (is_hidden_global_store): Use it.
+
+2008-06-10  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.ac: Teach that fido supports .debug_line.
+	* configure: Regenerate.
+
+2008-06-10  Tom Tromey  <tromey@redhat.com>
+
+	* c-lex.c (fe_file_change): Pass SOURCE_LINE to start_source_file
+	debug hook.
+
+2008-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* dfp.c (WORDS_BIGENDIAN): Define to 0 if not defined.
+	(encode_decimal64, decode_decimal64, encode_decimal128,
+	decode_decimal128): Reverse order of 32-bit parts of value if host
+	and target endianness differ.
+
+2008-06-10  Vinodha Ramasamy  <vinodha@google.com>
+        * value_prob.c (tree_divmod_fixed_value_transform): Use gcov_type.
+	Avoid division by 0.
+	(tree_mod_pow2_value_transform): Likewise.
+	(tree_ic_transform): Likewise.
+	(tree_stringops_transform): Likewise.
+	(tree_mod_subtract_transform): Likewise.
+	* tree-inline-c (copy_bb): Corrected int type to gcov_type.
+	(copy_edges_for_bb): Likewise.
+	(initialize_cfun): Likewise.
+
+2008-06-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*btdi_rex64): Change operand 1 predicate to
+	nonmemory_operand. Add "N" operand constraint.
+	(*btsi): Ditto.
+	(*jcc_btdi_mask_rex64): New instruction and split pattern.
+	(*jcc_btsi_mask): Ditto.
+	(*jcc_btsi_mask_1): Ditto.
+
+2008-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (build_opaque_vector_type): Set
+	TYPE_CANONICAL for copied element type.
+
+2008-06-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36473
+	* config/i386/i386.c (ix86_tune_features) [TUNE_USE_BT]:
+	Add m_CORE2 and m_GENERIC.
+	* config/i386/predicates.md (bt_comparison_operator): New predicate.
+	* config/i386/i386.md (*btdi_rex64): New instruction pattern.
+	(*btsi): Ditto.
+	(*jcc_btdi_rex64): New instruction and split pattern.
+	(*jcc_btsi): Ditto.
+	(*jcc_btsi_1): Ditto.
+	(*btsq): Fix Intel asm dialect operand order.
+	(*btrq): Ditto.
+	(*btcq): Ditto.
+
+2008-06-09  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR middle-end/36447
+	* simplify-rtx.c (simplify_subreg): Add check for shift count 
+	greater than size.
+
+2008-06-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* doc/md.texi: Synchronize with later constraints.md change.
+	* longlong.h (umul_ppmm): Replace the MIPS asm implementation
+	with a C implementation.
+	* config/mips/mips.c (mips_legitimize_move): Remove MFHI and
+	MFLO handling.
+	(mips_subword): Assume TImode for CONST_INTs if TARGET_64BIT.
+	(mips_split_doubleword_move): Use special MTHI and MFHI instructions
+	when moving to and from MD_REGNUM.
+	(mips_output_move): Don't handle moves from GPRs to HI_REGNUM.
+	Handle moves from LO_REGNUM to GPRs using MFLO, MACC or DMACC.
+	Handle byte and halfword moves.
+	(mips_hard_regno_mode_ok_p): Handle MD_REGS and DSP_ACC_REGS
+	separately.
+	* config/mips/constraints.md (h): Turn into NO_REGS.
+	(l, x): Update documentation.
+	* config/mips/mips.md (UNSPEC_MFHILO): Delete.
+	(UNSPEC_MFHI, UNSPEC_MTHI, UNSPEC_SET_HILO): New.
+	(UNSPEC_TLS_LDM, UNSPEC_TLS_GET_TP): Renumber.
+	(HILO): New mode iterator.
+	(MOVE128): Add TI.
+	(any_div): New code iterator.
+	(u): Extend code attribute to div and udiv.
+	(*add<mode>3_mips16, *movdi_64bit_mips16, *movsi_mips16): Use
+	d_operand in the splitters.  Remove redundant CONST_INT checks.
+	(mulsi3_mult3, mul<mode>3_internal, mul<mode>3_r4000, *mul_acc_si)
+	(*macc, *msac, *msac_using_macc, *macc2, *msac2, *mul_sub_si)
+	(*muls): Remove "=h" clobbers.  Adjust peephole2s and define_splits
+	accordingly, using normal moves instead of unspecs to move LO into
+	a GPR.  Use d_operand and lo_operand instead of *_REG_P checks.
+	(<u>mulsidi3): Handle expansion in C code.
+	(<u>mulsidi3_32bit_internal): Rename to...
+	(<u>mulsidi3_32bit): ...this.
+	(<u>mulsidi3_32bit_r4000): Fix insn separator.
+	(*<u>mulsidi3_64bit): Rename to...
+	(<u>mulsidi3_64bit): ...this.  Combine DImode "=h" and "=l" clobbers
+	into a TImode "=x" clobber.  In the split, use an UNSPEC_SET_HILO
+	to set LO and HI to the multiplication result.  Use a normal move
+	for MFLO and an unspec for MFHI.
+	(*<u>mulsidi3_64bit_parts): Replace with...
+	(<u>mulsidi3_64bit_hilo): ...this new instruction.
+	(<su>mulsi3_highpart): Extend to TARGET_FIX_R4000.
+	(<su>mulsi3_highpart_internal): Turn into a define_insn_and_split
+	and extend it to TARGET_FIX_R4000.  Store the destination in a GPR
+	instead of HI.  Split the instruction into a separate multiplication
+	and MFHI if !TARGET_FIX_R4000.
+	(<su>muldi3_highpart): Likewise.
+	(<su>mulsi3_highpart_mulhi_internal): Remove the first alternative
+	and the "=h" clobber.
+	(*<su>mulsi3_highpart_neg_mulhi_internal): Likewise.
+	(<u>mulditi3): New expander.
+	(<u>mulditi3_internal, <u>mulditi3_r4000): New patterns.
+	(madsi): Remove "=h" clobber.
+	(divmod<mode>4, udivmod<mode>4): Turn into define_insn_and_splits.
+	Force the modulus result to be a GPR and split the instruction into
+	a division followed by an MFHI after reload.
+	(<u>divmod<GPR:mode>4_hilo_<HILO:mode>): New instruction.
+	(*lea_high64): Use d_operand in the define_peephole2.  Likewise
+	the MIPS16 HIGH define_split.
+	(*movdi_32bit, *movdi_gp32_fp64, *movdi_32bit_mips16): Change type
+	of acc<->gpr moves to "multi".
+	(*movdi_64bit): Replace the single "x" alternative with
+	alternatives for moving into and out of "a".
+	(*movhi_internal, *movqi_internal): Likewise.  Use mips_output_move.
+	(*movsi_internal): Extend the "d<-A" alternative to "d<-a".
+	(*movdi_64bit_mips16, *movsi_mips16): Add d<-a alternatives.
+	Use d_operand in the splitters.  Remove redundant CONST_INT checks.
+	(*movhi_mips16, *movqi_mips16): Likewise.  Use mips_output_move.
+	(movti): New expander.
+	(*movti, *movti_mips16): New insns.
+	(mfhilo_<mode>, *mfhilo_<mode>, *mfhilo_<mode>_macc): Delete.
+	(mfhi<GPR:mode>_<HILO:mode>): New pattern.
+	(mthi<GPR:mode>_<HILO:mode>): Likewise.
+	* config/mips/predicates.md (fpr_operand): Delete.
+	(d_operand): New predicate.
+
+2008-06-09  Michael Meissner  <michael.meissner@amd.com>
+
+	* config.gcc (i[34567]86-*-*): Put test in quotes to prevent
+	failure on some Bourne shells.
+	(x86_64-*-*): Ditto.
+
+2008-06-09  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/cygming.h (TARGET_SUBTARGET64_DEFAULT): New.
+
+2008-06-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (*-*-solaris2*): Remove obsolete contents.
+	(sparc-sun-solaris2*): Likewise.
+
+2008-06-09  Arnaud Charlet  <charlet@adacore.com
+
+	* doc/install.texi: Update requirements to build the Ada compiler.
+
+2008-06-08  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* df-scan.c (struct df_scan_problem_data): Remove the
+	mw_link_pool alloc pool.
+	(df_scan_free_internal): Don't free it.
+	(df_scan_alloc): Don't allocate it.
+	* df.h (struct df_link): Update comment.
+
+2008-06-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* except.h: Correct checks for when SJLJ exceptions must be used.
+
+2008-06-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* doc/invoke.texi (Wenum-compare): Mention that it is enabled by
+	default.
+	
+2008-06-08  Joseph Myers  <joseph@codesourcery.com>
+
+	PR tree-optimization/36218
+	* configure.ac: Use LDFLAGS="${LDFLAGS_FOR_BUILD}" when running
+	configure for the build system.
+	(BUILD_LDFLAGS): Define.
+	* configure: Regenerate.
+	* Makefile.in (BUILD_LDFLAGS): Define to @BUILD_LDFLAGS@.
+
+2008-07-08  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/36424
+	* config/avr/avr.h (HARD_REGNO_RENAME_OK): Define.
+	* config/avr/avr.c (avr_hard_regno_rename_ok): New function. 
+	* config/avr/avr-protos.h (avr_hard_regno_rename_ok): New prototype. 
+
+2008-06-07  Danny Smith  <dannysmith@users.sourceforge.net>
+
+	* config/i386/cygming.h (MAYBE_UWIN_CPP_BUILTINS): Remove.
+
+2008-06-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* config.gcc (Obsolete configurations): Remove list of
+	configurations.
+	(Unsupported targets list): Add *-*-linux*aout*, *-*-linux*libc1*,
+	*-*-solaris2.[0-6], *-*-solaris2.[0-6].*, *-*-sysv*.  Remove other
+	targets matched by those patterns.
+	(strongarm*-*-*, ep9312*-*-*, xscale-*-*, parisc*-*-*,
+	m680[012]0-*-*, *-*-linux*libc1*, *-*-linux*aout*,
+	alpha*-*-unicosmk*, strongarm*-*-freebsd*, ep9312-*-elf,
+	arm*-*-kaos*, cris-*-aout, parisc*64*-*-linux*, parisc*-*-linux*,
+	hppa1.1-*-pro*, hppa1.1-*-osf*, hppa1.1-*-bsd*,
+	i[34567]86-sequent-ptx4*, i[34567]86-sequent-sysv4*,
+	i[34567]86-*-beoself*, i[34567]86-*-beos*, i[34567]86-*-sco3.2v5*,
+	i[34567]86-*-sysv5*, i[34567]86-*-sysv4*, i[34567]86-*-uwin*,
+	i[34567]86-*-kaos*, m68020-*-elf*, m68010-*-netbsdelf*,
+	mips-wrs-windiss, mt-*-elf, powerpc-*-beos*, powerpc-*-chorusos*,
+	powerpc-wrs-windiss*, powerpcle-*-sysv*, powerpc-*-kaos*,
+	powerpcle-*-kaos*, sh*-*-kaos*, sparc-*-sysv4*, strongarm-*-elf*,
+	strongarm-*-pe, strongarm-*-kaos*, vax-*-bsd*, vax-*-sysv*,
+	vax-*-ultrix*, xscale-*-elf, xscale-*-coff,
+	i[34567]86-*-linux*aout*, i[34567]86-*-linux*libc1): Remove.
+	Make code for Solaris 7 and greater unconditional for Solaris.
+	(ep9312-*-*, parisc1*, m680[012]0-*-*, parisc*-*-*, mt-*-*):
+	Remove --with-* handling.
+	* config/rs6000/sysv4.h (-mwindiss): Remove from all specs.
+	(LIB_WINDISS_SPEC, CPP_OS_WINDISS_SPEC, STARTFILE_WINDISS_SPEC,
+	ENDFILE_WINDISS_SPEC, LINK_START_WINDISS_SPEC,
+	LINK_OS_WINDISS_SPEC): Remove.
+	* config/rs6000/sysv4.opt (mwindiss): Remove.
+	* configure.ac (strongarm*-*-*, xscale*-*-*): Remove.
+	* configure: Regenerate.
+	* doc/cpp.texi: Don't mention BeOS.
+	* doc/extend.texi (interrupt): Don't mention MS1.
+	* doc/install.texi: (i386-@var{any}-sysv, m68k-bull-sysv,
+	m68k-hp-hpux, m68000-hp-hpux, m68000-att-sysv,
+	alphaev5-cray-unicosmk*, xscale-*-*, i?86-*-linux*aout,
+	i?86-*-sco3.2v5*, i?86-*-udk, m68k-hp-hpux, powerpc-*-sysv4,
+	powerpc-*-sysv4, powerpcle-*-sysv4, *-*-sysv*, vax-dec-ultrix):
+	Remove.
+	* doc/invoke.texi (MT Options): Remove.
+	(-mwindiss): Remove.
+	(CRIS Options): Remove cris-axis-aout references.
+	(HPPA Options): Don't mention hppa1.1-*-pro.
+	* doc/md.texi: (MorphoTech family): Remove.
+	* libgcc2.c: Don't handle UWIN.
+	* config/alpha/t-unicosmk: Remove.
+	* config/alpha/unicosmk.h: Remove.
+	* config/arm/kaos-arm.h: Remove.
+	* config/arm/kaos-strongarm.h: Remove.
+	* config/arm/strongarm-coff.h: Remove.
+	* config/arm/strongarm-elf.h: Remove.
+	* config/arm/strongarm-pe.h: Remove.
+	* config/arm/t-strongarm-pe: Remove.
+	* config/arm/t-xscale-coff: Remove.
+	* config/arm/t-xscale-elf: Remove.
+	* config/arm/xscale-coff.h: Remove.
+	* config/arm/xscale-elf.h: Remove.
+	* config/chorus.h: Remove.
+	* config/cris/aout.h: Remove.
+	* config/cris/aout.opt: Remove.
+	* config/cris/t-aout: Remove.
+	* config/i386/beos-elf.h: Remove.
+	* config/i386/kaos-i386.h: Remove.
+	* config/i386/ptx4-i.h: Remove.
+	* config/i386/sco5.h: Remove.
+	* config/i386/sco5.opt: Remove.
+	* config/i386/sysv4-cpp.h: Remove.
+	* config/i386/sysv5.h: Remove.
+	* config/i386/t-beos: Remove.
+	* config/i386/t-sco5: Remove.
+	* config/i386/t-uwin: Remove.
+	* config/i386/uwin.asm: Remove.
+	* config/i386/uwin.h: Remove.
+	* config/kaos.h: Remove.
+	* config/mips/windiss.h: Remove.
+	* config/mt: Remove directory.
+	* config/pa/pa-osf.h: Remove.
+	* config/pa/pa-pro-end.h: Remove.
+	* config/pa/t-pro: Remove.
+	* config/ptx4.h: Remove.
+	* config/rs6000/beos.h: Remove.
+	* config/rs6000/kaos-ppc.h: Remove.
+	* config/rs6000/t-beos: Remove.
+	* config/rs6000/windiss.h: Remove.
+	* config/sh/kaos-sh.h: Remove.
+	* config/sol2-6.h: Remove.
+	* config/sparc/sol26-sld.h: Remove.
+	* config/sparc/sysv4-only.h: Remove.
+	* config/vax/bsd.h: Remove.
+	* config/vax/t-memfuncs: Remove.
+	* config/vax/ultrix.h: Remove.
+	* config/vax/vaxv.h: Remove.
+	* config/windiss.h: Remove.
+
+2008-06-06 Uros Bizjak <ubizjak@gmail.com>
+
+	PR rtl-optimization/36438
+	* cse.c (fold_rtx) [ASHIFT, LSHIFTRT, ASHIFTRT]: Break out early
+	for vector shifts with constant scalar shift operands.
+
+2008-06-06  Sandip Matte  <sandip@rmicorp.com>
+
+	* doc/invoke.texi: Document -march=xlr.
+	* config/mips/xlr.md: New file.
+	* config/mips/mips.md: Include it.
+	(cpu): Add "xlr".
+	* config/mips/mips.h (PROCESSOR_XLR): New processor_type.
+	* config/mips/mips.c (mips_cpu_info_table): Add an XLR entry.
+	(mips_rtx_cost_data): Likewise.
+
+2008-06-06  Nathan Froyd  <froydnj@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_mode_dependent_address): Remove
+	PRE_INC and PRE_DEC cases.
+
 2008-06-06  Jakub Jelinek  <jakub@redhat.com>
 
-	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP value to
-	200805.
+	PR rtl-optimization/36419
+	* except.c (expand_resx_expr): Call do_pending_stack_adjust () before
+	the emitting jump insn.
+
+	PR target/36362
+	* gimplify.c (gimplify_expr) <case TRUTH_NOT_EXPR>: If *expr_p type
+	is not bool, boolify the whole *expr_p and convert to the desired type.
+
+2008-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP value to 200805.
 	* langhooks.h (struct lang_hooks_for_decls): Add omp_finish_clause.
 	Add omp_private_outer_ref hook, add another argument to
 	omp_clause_default_ctor hook.
@@ -130,8 +621,7 @@
 	(gimplify_omp_parallel, gimplify_omp_for, gimplify_omp_workshare):
 	Adjust callers.
 	(gimplify_adjust_omp_clauses_1): Set OMP_CLAUSE_PRIVATE_OUTER_REF if
-	GOVD_PRIVATE_OUTER_REF is set.  Call omp_finish_clause
-	langhook.
+	GOVD_PRIVATE_OUTER_REF is set.  Call omp_finish_clause langhook.
 	(new_omp_context): Set default_kind to
 	OMP_CLAUSE_DEFAULT_UNSPECIFIED for OMP_TASK regions.
 	(omp_region_type): New enum.
@@ -231,8 +721,7 @@
 	omp_for_data changes.
 	(lower_omp_for): Add rec input clauses before OMP_FOR_PRE_BODY,
 	not after it.  Handle collapsed OMP_FOR loops, adjust for
-	OMP_FOR_{INIT,COND,INCR} changes, adjust extract_omp_for_data
-	caller.
+	OMP_FOR_{INIT,COND,INCR} changes, adjust extract_omp_for_data caller.
 	(get_ws_args_for): Adjust extract_omp_for_data caller.
 	(scan_omp_for): Handle collapsed OMP_FOR
 	loops, adjust for OMP_FOR_{INIT,COND,INCR} changes.
@@ -465,7 +954,7 @@
 2008-06-04  Andy Hutchinson  <hutchinsonandy@aim.com>
 
 	PR target/27386
-	* config/avr/avr.h: (PUSH_ROUNDING): Remove.
+	* config/avr/avr.h (PUSH_ROUNDING): Remove.
 
 2008-06-04  Andy Hutchinson  <hutchinsonandy@aim.com>
 
@@ -505,8 +994,7 @@
 
 2008-06-04  Richard Guenther  <rguenther@suse.de>
 
-	* tree-flow-inline.h (is_global_var): Do not check TREE_STATIC
-	on MTAGs.
+	* tree-flow-inline.h (is_global_var): Do not check TREE_STATIC on MTAGs.
 	(is_call_clobbered): Always check var_ann->call_clobbered.
 	(mark_call_clobbered): Always set var_ann->call_clobbered.
 	(clear_call_clobbered): Always clear var_ann->call_clobbered.
@@ -518,7 +1006,7 @@
 	(may_be_aliased): Do not check TREE_PUBLIC on MTAGs.
 
 2008-06-04  Joseph Myers  <joseph@codesourcery.com>
-            Maxim Kuvyrkov  <maxim@codesourcery.com>
+	    Maxim Kuvyrkov  <maxim@codesourcery.com>
 
 	* config/m68k/m68k.opt (mxgot): New option.
 	* config/m68k/m68k.c (legitimize_pic_address): Handle -mxgot.
@@ -535,7 +1023,7 @@
 
 2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
 
-	*  config/i386/i386.c (ix86_gen_leave): New.
+	* config/i386/i386.c (ix86_gen_leave): New.
 	(ix86_gen_pop1): Likewise.
 	(ix86_gen_add3): Likewise.
 	(ix86_gen_sub3): Likewise.
@@ -572,8 +1060,7 @@
 2008-06-03  Kai Tietz  <kai.tietz@onevision.com>
 
 	* config/i386/i386-protos.h (ix86_reg_parm_stack_space): New.
-	* config/i386/i386.h (ix86_reg_parm_stack_space): Removed
-	prototype.
+	* config/i386/i386.h (ix86_reg_parm_stack_space): Removed prototype.
 	* config/i386/i386.c (ix86_reg_parm_stack_space): Changed
 	return type to int.
 	(ix86_call_abi_override): Remove check for call_used_regs.
@@ -587,8 +1074,7 @@
 
 	* doc/tm.texi (OVERRIDE_ABI_FORMAT): New.
 	* doc/extend.texi (ms_abi,sysv_abi): New attribute description.
-	* function.c (allocate_struct_function): Use of
-	OVERRIDE_ABI_FORMAT.
+	* function.c (allocate_struct_function): Use of OVERRIDE_ABI_FORMAT.
 	* config/i386/cygming.h (TARGET_64BIT_MS_ABI): Make use
 	of cfun and DEFAULT_ABI to deceide abi mode.
 	(DEFAULT_ABI): New.
@@ -650,8 +1136,8 @@
 	(ix86_reg_parm_stack_space): New prototype.
 	(CUMULATIVE_ARGS): Add call_abi member.
 	(machine_function): Add call_abi member.
-	* config/i386/mingw32.h (EXTRA_OS_CPP_BUILTINS): Replace TARGET_64BIT_MS_ABI
-	by DEFAULT_ABI compare to MS_ABI.
+	* config/i386/mingw32.h (EXTRA_OS_CPP_BUILTINS): Replace
+	TARGET_64BIT_MS_ABI by DEFAULT_ABI compare to MS_ABI.
 
 2008-06-02  Andy Hutchinson  <hutchinsonandy@aim.com> 
 

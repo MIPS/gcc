@@ -940,6 +940,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 		    {
 	              *tp = build1 (INDIRECT_REF, type, new);
 		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		      TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 		    }
 		}
 	      *walk_subtrees = 0;
@@ -1228,7 +1229,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 static basic_block
 copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
-	 int count_scale)
+         gcov_type count_scale)
 {
   gimple_stmt_iterator gsi, copy_gsi;
   basic_block copy_basic_block;
@@ -1535,7 +1536,7 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
    pointers to point to the copies of each BB.  */
 
 static void
-copy_edges_for_bb (basic_block bb, int count_scale, basic_block ret_bb)
+copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb)
 {
   basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
@@ -1688,7 +1689,7 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count,
   struct function *new_cfun
      = (struct function *) ggc_alloc_cleared (sizeof (struct function));
   struct function *src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
-  int count_scale, frequency_scale;
+  gcov_type count_scale, frequency_scale;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -1752,7 +1753,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   struct function *cfun_to_copy;
   basic_block bb;
   tree new_fndecl = NULL;
-  int count_scale, frequency_scale;
+  gcov_type count_scale, frequency_scale;
   int last;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)

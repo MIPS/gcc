@@ -4498,6 +4498,8 @@ expand_omp_sections (struct omp_region *region)
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
   gimple_stmt_iterator si, switch_si;
   gimple sections_stmt, stmt, cont;
+  edge_iterator ei;
+  edge e;
   struct omp_region *inner;
   unsigned i, casei;
   bool exit_reachable = region->cont != NULL;
@@ -4509,10 +4511,33 @@ expand_omp_sections (struct omp_region *region)
   l2_bb = region->exit;
   if (exit_reachable)
     {
-      gcc_assert (single_pred (l2_bb) == l0_bb);
+      if (single_pred (l2_bb) == l0_bb)
+	l2 = gimple_block_label (l2_bb);
+      else
+	{
+	  /* This can happen if there are reductions.  */
+	  len = EDGE_COUNT (l0_bb->succs);
+	  gcc_assert (len > 0);
+	  e = EDGE_SUCC (l0_bb, len - 1);
+	  si = gsi_last_bb (e->dest);
+	  l2 = NULL_TREE;
+	  if (gsi_end_p (si)
+	      || gimple_code (gsi_stmt (si)) != GIMPLE_OMP_SECTION)
+	    l2 = gimple_block_label (e->dest);
+	  else
+	    FOR_EACH_EDGE (e, ei, l0_bb->succs)
+	      {
+		si = gsi_last_bb (e->dest);
+		if (gsi_end_p (si)
+		    || gimple_code (gsi_stmt (si)) != GIMPLE_OMP_SECTION)
+		  {
+		    l2 = gimple_block_label (e->dest);
+		    break;
+		  }
+	      }
+	}
       default_bb = create_empty_bb (l1_bb->prev_bb);
       l1 = gimple_block_label (l1_bb);
-      l2 = gimple_block_label (l2_bb);
     }
   else
     {
@@ -4587,6 +4612,14 @@ expand_omp_sections (struct omp_region *region)
        inner = inner->next, i++, casei++)
     {
       basic_block s_entry_bb, s_exit_bb;
+
+      /* Skip optional reduction region.  */
+      if (inner->type == GIMPLE_OMP_ATOMIC_LOAD)
+	{
+	  --i;
+	  --casei;
+	  continue;
+	}
 
       s_entry_bb = inner->entry;
       s_exit_bb = inner->exit;
