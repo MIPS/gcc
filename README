@@ -28,6 +28,13 @@ cd <...>/gcc-build/gcc
 make
 make install
 
+Now in <...>/image/bin you can find all the tools cil32-gcc, cil32-as, ...
+There are also 2 small wrappers to execute code compiled with the toolchain on Mono and DotGnu
+they are called cil32-mono and cil32-ilrun
+
+
+
+
 HOW TO Build and Install CIL Frontend
 -----------------------------------
 
