@@ -1,3 +1,18 @@
+2008-06-13  Doug Kwan  <dougkwan@google.com>
+
+	* tree-mudflap.c (File): Re-enable previously disabled code.
+	(mf_decl_cache_locals): Tuplify.
+	(mf_build_check_statement_for): Likewise.
+	(mf_xform_derefs_1): Re-enable.
+	(mf_xform_derefs): Tuplify.
+	(execute_mudflap_function_decls): Likewise.
+	(mx_register_decls): Tuplify.  Add a new formal parameter for
+	the location of newly generated statements.  Change function to
+	return modified gimple sequence instead of of modifying in-place.
+	(mx_xfn_xform_decls): Tuplify.
+	(mf_xform_decls): Tuplify.
+	* passes.c (init_optimization_passes): Re-enable mudflap passes.
+
 2008-06-13  Jakub Jelinek  <jakub@redhat.com>
 
 	Merge with mainline @136757.

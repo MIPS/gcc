@@ -510,10 +510,7 @@ init_optimization_passes (void)
     by these passes.  */
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_mudflap_1);
-#endif
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   /* FIXME tuples.  */
@@ -724,10 +721,7 @@ init_optimization_passes (void)
     }
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_mudflap_2);
-#endif
 
   NEXT_PASS (pass_free_cfg_annotations);
   NEXT_PASS (pass_expand);
