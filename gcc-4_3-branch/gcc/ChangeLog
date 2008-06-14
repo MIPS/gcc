@@ -1,3 +1,166 @@
+2008-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/36507
+	* c-decl.c (merge_decls): Don't clear DECL_EXTERNAL for
+	nested inline functions.
+	(start_decl, start_function): Don't invert DECL_EXTERNAL
+	for nested inline functions.
+
+2008-06-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36498
+	* tree-flow-inline.h (var_can_have_subvars): Unions cannot
+	have subvars.
+
+2008-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36506
+	* omp-low.c (expand_omp_sections): Initialize l2 to avoid bogus
+	warning.
+
+2008-06-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-06-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (handle_ptr_arith): Correctly handle
+	negative or non-representable offsets.
+
+2008-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36506
+	* omp-low.c (expand_omp_sections): Handle #pragma omp sections with
+	reductions.
+
+2008-06-11  Tom Tromey  <tromey@redhat.com>
+
+	* c-lex.c (fe_file_change): Pass SOURCE_LINE to start_source_file
+	debug hook.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35336
+	* fold-const.c (fold_truthop): Remove code generating
+	BIT_FIELD_REFs of structure bases.
+	(fold_binary): Likewise.
+	(make_bit_field_ref): Remove.
+	(optimize_bit_field_compare): Remove.
+	(all_ones_mask_p): Remove.
+
+2008-06-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_neon_builtins): Move initialization
+	with function calls after declarations.  Lay out
+	neon_float_type_node before further use.
+
+2008-06-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36474
+	* opts.c (decode_options): Set max-fields-for-field-sensitive
+	parameter to 100 for -O2, -Os and -O3.
+	* params.def (max-fields-for-field-sensitive): Set default to zero.
+	* doc/invoke.texi (max-fields-for-field-sensitive): Document
+	defaults.
+
+2008-06-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (build_opaque_vector_type): Set
+	TYPE_CANONICAL for copied element type.
+
+2008-06-09  Michael Meissner  <michael.meissner@amd.com>
+
+	* config.gcc (i[34567]86-*-*): Put test in quotes to prevent
+	failure on some Bourne shells.
+	(x86_64-*-*): Ditto.
+
+2008-06-07  Sebastian Pop  <sebastian.pop@amd.com>
+
+	PR tree-optimization/34976
+	* tree-loop-linear.c (try_interchange_loops): Look at size of
+	caches: don't transform if the smallest stride is larger than
+	the L2 cache, or if the largest stride multiplied by the number of
+	iterations is smaller than the L1 cache.
+
+2008-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2008-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/36111
+	* recog.c (validate_replace_rtx_1): Unshare new RTL expression
+	that was created for swappable operands.
+
+2008-06-07  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/27386
+	* config/avr/avr.h: (PUSH_ROUNDING): Remove.
+	
+	PR target/30243
+	* builtins.c (expand_builtin_signbit): Don't take lowpart when
+	register is already smaller or equal to required mode. 	
+
+	PR target/34932
+	* config/avr/avr.md (*addhi3_zero_extend2): Remove.
+	
+	* config/avr/avr.h (MAX_OFILE_ALIGNMENT): Define.
+
+	
+2008-06-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36291
+	* tree-flow. h (struct gimple_df): Remove var_anns member.
+	* tree-flow-inline.h (gimple_var_anns): Remove.
+	(var_ann): Simplify.
+	* tree-dfa.c (create_var_ann): Simplify.
+	(remove_referenced_var): Clear alias info from var_anns of globals.
+	* tree-ssa.c (init_tree_ssa): Do not allocate var_anns.
+	(delete_tree_ssa): Clear alias info from var_anns of globals.
+	Do not free var_anns.
+	(var_ann_eq): Remove.
+	(var_ann_hash): Likewise.
+
+2008-06-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/34244
+	* fold-const.c (tree_expr_nonnegative_warnv_p): Do not ask VRP.
+	(tree_expr_nonzero_warnv_p): Likewise.
+	* tree-vrp.c (vrp_expr_computes_nonnegative): Call
+	ssa_name_nonnegative_p.
+	(vrp_expr_computes_nonzero): Call ssa_name_nonzero_p.
+	(extract_range_from_unary_expr): Use vrp_expr_computes_nonzero,
+	not tree_expr_nonzero_warnv_p.
+
+	PR tree-optimization/36262
+	Revert
+	2007-11-29  Zdenek Dvorak  <ook@ucw.cz>
+
+        PR tree-optimization/34244
+        * tree-vrp.c (adjust_range_with_scev): Clear scev cache.
+        (record_numbers_of_iterations): New function.
+        (execute_vrp): Cache the numbers of iterations of loops.
+        * tree-scalar-evolution.c (scev_reset_except_niters):
+        New function.
+        (scev_reset): Use scev_reset_except_niters.
+        * tree-scalar-evolution.h (scev_reset_except_niters): Declare.
+
+2008-06-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Only handle
+	SDmode in registers specially if TARGET_HARD_FLOAT && TARGET_FPRS.
+
+2008-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36419
+	* except.c (expand_resx_expr): Call do_pending_stack_adjust () before
+	the emitting jump insn.
+
+	PR target/36362
+	* gimplify.c (gimplify_expr) <case TRUTH_NOT_EXPR>: If *expr_p type
+	is not bool, boolify the whole *expr_p and convert to the desired type.
+
+	* BASE-VER: Set to 4.3.2.
+	* DEV-PHASE: Set to prerelease.
+
 2008-06-06  Release Manager
 
 	* GCC 4.3.1 released.
