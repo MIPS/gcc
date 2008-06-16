@@ -150,12 +150,7 @@ tree_ssa_loop_unswitch (void)
 static bool
 gate_tree_ssa_loop_unswitch (void)
 {
-  /*FIXME tuples*/
-#if 0
   return flag_unswitch_loops != 0;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_tree_unswitch = 

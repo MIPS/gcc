@@ -1,3 +1,13 @@
+2008-06-16  Doug Kwan  <dougkwan@google.com>
+
+	* tree-ssa-loop-unswitch.c (File): Re-enable all previously disabled
+	code.
+	(tree_may_unswitch_on):  Tuplify.
+	(simplify_using_entry_checks):  Likewise.
+	(tree_unswitch_single_loop): Likewise.
+	* gimple-dummy.c (tree_ssa_unswitch_loops): Remove dummy.
+	* tree-ssa-loop.c (gate_tree_ssa_loop_unswitch):  Re-enable.
+
 2008-06-16  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* tree-ssa-reassoc.c: Convrt to tuples.
