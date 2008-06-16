@@ -1,3 +1,7 @@
+2008-06-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* tree-ssa-reassoc.c: Convrt to tuples.
+
 2008-06-15  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-live.c (mark_all_vars_used_1): Mark as used
