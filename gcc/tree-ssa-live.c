@@ -406,9 +406,15 @@ static tree
 mark_all_vars_used_1 (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
+  enum tree_code_class c = TREE_CODE_CLASS (TREE_CODE (t));
+  tree b;
 
   if (TREE_CODE (t) == SSA_NAME)
     t = SSA_NAME_VAR (t);
+
+  if (IS_EXPR_CODE_CLASS (c)
+      && (b = TREE_BLOCK (t)) != NULL)
+    TREE_USED (b) = true;
 
   /* Ignore TREE_ORIGINAL for TARGET_MEM_REFS, as well as other
      fields that do not contain vars.  */

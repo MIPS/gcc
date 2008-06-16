@@ -1,3 +1,8 @@
+2008-06-15  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-live.c (mark_all_vars_used_1): Mark as used
+	the TREE_BLOCK of any _EXPR node.
+
 2008-06-13  Doug Kwan  <dougkwan@google.com>
 
 	* tree-mudflap.c (File): Re-enable previously disabled code.

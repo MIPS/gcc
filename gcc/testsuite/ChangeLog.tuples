@@ -1,3 +1,7 @@
+2008-06-15  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/20080615-1.c: New test.
+
 2008-06-09  Diego Novillo  <dnovillo@google.com>
 
 	* testsuite/gcc.dg/tree-ssa/pr21658.c: Update search pattern.
