@@ -1,3 +1,8 @@
+2008-06-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* init.c (build_new_1): add nelts_for_type argument.
+	(build_new): create nelts_for_type without a SAVE_EXPR.
+
 2008-06-11  Diego Novillo  <dnovillo@google.com>
 
 	Merge from lto-streamer sub-branch:
