@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
+#include "tree-threadsafe-analyze.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -977,6 +978,11 @@ compile_file (void)
 
   if (errorcount || sorrycount)
     return;
+
+  /* Clean up the global data structures used by the thread safety
+     analysis.  */
+  if (warn_thread_safety)
+    clean_up_threadsafe_analysis ();
 
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();

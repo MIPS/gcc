@@ -1,0 +1,2757 @@
+/* Thread Safety Annotations and Analysis.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+   Contributed by Le-Chun Wu <lcwu@google.com>.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+
+GCC is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+
+/* This file contains an analysis pass that uses the thread safety attributes
+   to identify and warn about potential issues that could result in data
+   races and deadlocks. The thread safety attributes currently support only
+   lock-based synchronization. They help developers document the locks that
+   need to be used to safely read and write shared variables and also the
+   order in which they intend to acquire locks. Here is the list of the
+   attributes that this analysis pass uses:
+
+     __attribute__ ((lockable))
+     __attribute__ ((scoped_lockable))
+     __attribute__ ((guarded_by(x)))
+     __attribute__ ((guarded))
+     __attribute__ ((point_to_guarded_by(x)))
+     __attribute__ ((point_to_guarded))
+     __attribute__ ((acquired_after(__VA_ARGS__)))
+     __attribute__ ((acquired_before(__VA_ARGS__)))
+     __attribute__ ((exclusive_lock(__VA_ARGS__)))
+     __attribute__ ((shared_lock(__VA_ARGS__)))
+     __attribute__ ((exclusive_trylock(__VA_ARGS__)))
+     __attribute__ ((shared_trylock(__VA_ARGS__)))
+     __attribute__ ((unlock(__VA_ARGS__)))
+     __attribute__ ((exclusive_locks_required(__VA_ARGS__)))
+     __attribute__ ((shared_locks_required(__VA_ARGS__)))
+     __attribute__ ((locks_excluded(__VA_ARGS__)))
+     __attribute__ ((lock_returned(x)))
+     __attribute__ ((no_thread_safety_analysis))
+
+   If multi-threaded code is annotated with these attributes, this analysis
+   pass can detect the following potential thread safety issues:
+
+     * Accesses to shared variables and function calls are not guarded by
+       proper (read or write) locks
+     * Locks are not acquired in the specified order
+     * A cycle in the lock acquisition order
+     * Try to acquire a lock that is already held by the same thread
+       - Useful when locks are non-reentrant 
+     * Locks are not acquired and released in the same routine (or in the
+       control-equivalent blocks)
+       - Having critical sections starting and ending in the same routine
+         is a better practice
+   
+   The analysis pass uses a single-pass (or single iteration) data-flow
+   analysis to maintain live lock sets at each program point, using the
+   attributes to decide when to add locks to the live sets and when to
+   remove them from the sets. With the live lock sets and the attributes
+   attached to shared variables and functions, we are able to check whether
+   the variables and functions are well protected. Note that the reason why
+   we don't need iterative data flow analysis is because critical sections
+   across back edges are considered a bad practice.  */
+
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "tree.h"
+#include "c-common.h"
+#include "toplev.h"
+#include "input.h"
+#include "diagnostic.h"
+#include "intl.h"
+#include "basic-block.h"
+#include "tree-flow.h"
+#include "tree-pass.h"
+#include "tree-dump.h"
+#include "cp/cp-tree.h"
+#include "pointer-set.h"
+#include "pretty-print.h"
+#include "tree-threadsafe-analyze.h"
+#include "tree-ssa-propagate.h"
+
+
+/* A per-BB data structure used for topological traversal and data flow
+   analysis.  */
+struct bb_threadsafe_info
+{
+  /* Indicating whether the BB has been visited in the analysis.  */
+  bool visited;
+
+  /* Number of predecessors visited. Used for topological traversal of BBs.  */
+  unsigned int n_preds_visited;
+
+  /* Live out exclusive/shared lock sets.  */
+  struct pointer_set_t *liveout_exclusive_locks;
+  struct pointer_set_t *liveout_shared_locks;
+
+  /* The outgoing edge that a successful trylock call takes.  */
+  edge trylock_live_edge;
+
+  /* Sets of live-out locks acquired by a successful trylock.  */
+  struct pointer_set_t *edge_exclusive_locks;
+  struct pointer_set_t *edge_shared_locks;
+};
+
+
+/* This data structure is created when we see a function call that is a
+   trylock. A map entry that maps the trylock call to its associated
+   trylock_info structure is inserted to trylock_info_map (see below).
+   The map (and the trylock_info structure) will later be used when we
+   analysis a blocking-ending if-statement whose condition expression is
+   fed by a trylock.  */
+struct trylock_info
+{
+  /* The set of locks the trylock call tries to acquire.  */
+  struct pointer_set_t *locks;
+
+  /* Indicating whether the locks acquired by trylock is exclusive
+     (i.e. writer lock) or not.  */
+  bool is_exclusive;
+
+  /* Specify the trylock return value on a successful lock acquisition.  */
+  int succ_retval;
+};
+
+/* Access mode used for indicating whether an access to a shared variable
+   is a read or a write.  */
+enum access_mode
+{
+  TSA_READ,
+  TSA_WRITE
+};
+
+/* A map of which each entry maps a lock, say A, to a set of locks that
+   lock A should be acquired after. This map is first populated when we
+   parse the lock declarations that are annotated with "acquired_after"
+   or "acquired_before" attributes. Later at the beginning of the thread
+   safety analysis (see build_transitive_acquired_after_sets()), we
+   calculate the transitive closures of the acquired_after sets for the
+   locks and modify the map. For example, if we have global variables
+   declarations like the following:
+
+     Mutex mu1;
+     Mutex mu2 __attribute__ ((acquired_after(mu1)));
+     Mutex mu3 __attribute__ ((acquired_after(mu2)));
+
+   After parsing, the contents of the map is shown below:
+
+     lock    acquired_after set
+     --------------------------
+     mu2  ->  { mu1 }
+     mu3  ->  { mu2 }
+
+   After we call build_transitive_acquired_after_sets(), the map would be
+   modified as shown below:
+
+     lock    acquired_after set
+     --------------------------
+     mu2  ->  { mu1 }
+     mu3  ->  { mu2, mu1 }  */
+struct pointer_map_t *lock_acquired_after_map = NULL;
+
+/* This flag is used for indicating whether transitive acquired_after sets
+   for the locks have been built so that we only build them once per
+   compilation unit.  */
+static bool transitive_acq_after_sets_built = false;
+
+/* These two variables are used during the process of building acquired_after
+   transitive closures. A lock is considered finalized (and then added to the
+   finalized_locks set) when every member of its current acquired_after set
+     (1) is finalized, or
+     (2) doesn't have an acquired_after set (i.e. a root in the partial order
+         of the acquired_after relations)
+
+   Once a lock is finalized, we never have to calculate its acquired_after set
+   again during the transitive closure building process. This helps make the
+   calculation converge faster.
+
+   The reason why we needed to use global variables (instead of passing them
+   in as parameters) is because we use pointer_set_traverse routine to visit
+   set members, and the routine only take one additional parameter (besides
+   the set and the applied function).  */
+static struct pointer_set_t *finalized_locks;
+static bool finalized = true;
+
+/* This map contains the locks specified in attributes that couldn't be bound
+   to any decl tree in scope when they were parsed. We would try to bind them
+   during the analysis.  */
+struct pointer_map_t *unbound_lock_map = NULL;
+
+/* A map of which each entry maps a scoped lock to the lock it acquires
+   at construction. An entry is created and added to the map when we see
+   the constructor of a scoped lock. It is later used when we see the
+   destructor of the scoped lock because the destructor doesn't take an
+   argument that specifies the lock.  */
+static struct pointer_map_t *scopedlock_to_lock_map;
+
+/* Each entry maps a lock to the source location at which it was last
+   acquired.  */
+static struct pointer_map_t *lock_locus_map;
+
+/* Each entry maps a lock to its canonicalized expression (see
+   get_canonical_expr()).  */
+static htab_t lock_expr_tab;
+
+/* Each entry maps a trylock call expr to its trylock_info.  */
+static struct pointer_map_t *trylock_info_map;
+
+/* Source location of the currently processed expression. In our analysis,
+   we actually tried to pass the source location around through function
+   parameters. However, in the cases where we need to use pointer_set_traverse
+   or pointer_map_traverse, this global variable is used.  */
+static const location_t *current_loc;
+
+/* Buffer for pretty print the lock expression in the warning messages.  */
+static pretty_printer pp_buf;
+
+/* Forward declaration */
+static void analyze_expr (tree, tree, struct pointer_set_t *,
+                          struct pointer_set_t *, const location_t *,
+                          enum access_mode);
+
+
+/* This function hashes an expr tree to a hash value by doing the following:
+   - for a decl, returns the pointer hash of the tree,
+   - for an integer constant, returns the sum of low and high parts,
+   - for other expressions, sums up the hash values of all operands and
+     multiplies it by the opcode,
+   - for all other trees, returns 0.  */
+
+static hashval_t
+lock_expr_hash (const void *exp)
+{
+  const_tree expr = (const_tree) exp;
+
+  STRIP_NOPS (expr);
+
+  if (DECL_P (expr))
+    return htab_hash_pointer (expr);
+  else if (TREE_CODE (expr) == INTEGER_CST)
+    return (hashval_t) (TREE_INT_CST_LOW (expr) + TREE_INT_CST_HIGH (expr));
+  else if (EXPR_P (expr))
+    {
+      int nops = TREE_OPERAND_LENGTH (expr);
+      int i;
+      hashval_t sum = 0;
+      for (i = 0; i < nops; i++)
+        {
+          tree op = TREE_OPERAND (expr, i);
+          if (op != 0)
+            sum += lock_expr_hash (op);
+        }
+      sum *= (hashval_t) TREE_CODE (expr);
+      return sum;
+    }
+  else
+    return 0;
+}
+
+/* Given two lock expressions/trees, determine whether they are equal.
+   This is basically a wrapper around operand_equal_p so please see its
+   comments for how two expression trees are considered equal.  */
+
+static int
+lock_expr_eq (const void *exp1, const void* exp2)
+{
+  const_tree expr1 = (const_tree) exp1;
+  const_tree expr2 = (const_tree) exp2;
+
+  return operand_equal_p (expr1, expr2, OEP_PURE_SAME);
+}
+
+/* This is a helper function passed in (as a parameter) to the
+   pointer_set_traverse routine when we traverse the acquired_after set
+   of a lock, say lock A, to populate the transitive closure. It should
+   not be called by other functions. Parameter LOCK is a member of lock A's
+   acquired_after set and TRANSITIVE_LOCKS is the set of locks that will
+   eventually be added to lock A's acquired_after set.  */ 
+
+static bool
+add_transitive_locks (const void *lock, void *transitive_locks)
+{
+  void **entry = pointer_map_contains (lock_acquired_after_map, lock);
+
+  if (!entry)
+    return true;
+
+  /* Add LOCK's acquired_after set to lock A's transitive closure.  */
+  pointer_set_union_inplace ((struct pointer_set_t *) transitive_locks,
+                             (struct pointer_set_t *) *entry);
+
+  /* If LOCK, which is a member of lock A's acquired_after set, is not
+     finalized, lock A is not finalized.  */
+  if (!pointer_set_contains (finalized_locks, lock))
+    finalized = false;
+
+  return true;
+}
+
+/* This is a helper function passed in (as a parameter) to the
+   pointer_map_traverse routine when we traverse lock_acquired_after_map
+   to update the acquired_after set for each lock. It should not be
+   called by other functions.
+
+   This function iterates over members of LOCK's acquired_after set
+   (i.e. ACQ_AFTER_SET) and adds their acquired_after sets to
+   "transitive_lock", which is then union-ed with ACQ_AFTER_SET.
+   If there is any new member added to the ACQ_AFTER_SET, we need to
+   set *UPDATED to true so that the main loop that calculates the transitive
+   closures will iterate again (see build_transitive_acquired_after_sets()).
+   Also if every member of ACQ_AFTER_SET is finalized, LOCK is also finalized
+   and added to the finalized_locks set.  */
+
+static bool
+update_acquired_after (const void *lock, void **acq_after_set,
+                       void *updated)
+{
+  struct pointer_set_t *transitive_locks;
+  size_t old_num_elements;
+  size_t new_num_elements;
+
+  /* Skip locks whose acquired_after set is already finalized.  */
+  if (pointer_set_contains (finalized_locks, lock))
+    return true;
+
+  transitive_locks = pointer_set_create();
+
+  /* Before we traverse the acq_after_set, set finalized to true. If any
+     of acq_after_set's members is not finalized, the flag will be set to
+     false.  */
+  finalized = true;
+
+  pointer_set_traverse ((struct pointer_set_t *) *acq_after_set,
+                        add_transitive_locks, transitive_locks);
+
+  /* Before we union transitive_locks with acq_after_set, get the original
+     member number of acq_after_set.  */
+  old_num_elements =
+      pointer_set_cardinality ((struct pointer_set_t *) *acq_after_set);
+
+  pointer_set_union_inplace ((struct pointer_set_t *) *acq_after_set,
+                             transitive_locks);
+
+  new_num_elements =
+      pointer_set_cardinality ((struct pointer_set_t *) *acq_after_set);
+
+  gcc_assert (new_num_elements >= old_num_elements);
+
+  /* If new member number is greater than the original, which means some new
+     members (locks) were added to acq_after_set, set *update to true.  */
+  if (new_num_elements > old_num_elements)
+    {
+      *((bool *)updated) = true;
+      if (finalized)
+        pointer_set_insert (finalized_locks, lock);
+    }
+  else
+    /* If no new locks were added to ACQ_AFTER_SET, LOCK is also finalized.  */
+    pointer_set_insert (finalized_locks, lock);
+
+  pointer_set_destroy (transitive_locks);
+
+  return true;
+}
+
+/* This function builds transitive acquired_after sets (i.e. transitive
+   closures) for locks and updates the lock_acquired_after_map. It iteratively
+   traverses the lock_acquired_after_map, updating the acquired_after sets
+   until the transitive closures converge. This function is called at most
+   once per compilation unit.  */
+
+static void
+build_transitive_acquired_after_sets (void)
+{
+  bool updated = false;
+
+  finalized_locks = pointer_set_create();
+
+  while (1)
+    {
+      pointer_map_traverse (lock_acquired_after_map, update_acquired_after,
+                            &updated);
+      if (!updated)
+        return;
+
+      updated = false;
+    }
+
+  pointer_set_destroy (finalized_locks);
+}
+
+/* A helper function used by pointer_map_traverse to destroy ACQ_AFTER_SET
+   when deleting the lock_acquired_after_map.  */
+
+static bool
+destroy_acquired_after_set (const void * ARG_UNUSED (lock),
+                            void **acq_after_set, void * ARG_UNUSED (data))
+{
+  pointer_set_destroy ((struct pointer_set_t *) *acq_after_set);
+  return true;
+}
+
+/* Function to delete the lock_acquired_after_map and unbound_lock_map.
+   This is called at the end of a compilation unit. (See toplev.c)  */
+
+void
+clean_up_threadsafe_analysis (void)
+{
+  /* Free the lock acquired_after map and the sets */
+  if (lock_acquired_after_map)
+    {
+      pointer_map_traverse (lock_acquired_after_map,
+                            destroy_acquired_after_set, NULL);
+      pointer_map_destroy (lock_acquired_after_map);
+      lock_acquired_after_map = NULL;
+    }
+
+  transitive_acq_after_sets_built = false;
+
+  /* Free the unbound lock map */
+  if (unbound_lock_map)
+    {
+      pointer_map_destroy (unbound_lock_map);
+      unbound_lock_map = NULL;
+    }
+}
+
+/* Given a BASE object of a field access (i.e. base->a or base->foo()),
+   this function tells whether BASE is a this pointer (i.e. this->a or
+   this->foo()).  */
+
+static bool
+is_base_object_this_pointer (tree base)
+{
+  tree this_ptr;
+
+  if (TREE_CODE (base) != INDIRECT_REF)
+    return false;
+
+  this_ptr = TREE_OPERAND (base, 0);
+
+  if (TREE_CODE (this_ptr) == SSA_NAME)
+    this_ptr = SSA_NAME_VAR (this_ptr);
+
+  if (TREE_CODE (this_ptr) == PARM_DECL
+      && DECL_NAME (this_ptr) == maybe_get_identifier ("this"))
+    return true;
+  else
+    return false;
+}
+
+/* Given a lock expression (LOCKABLE), this function returns the
+   var/field/parm decl part of the lockable. For example, if the lockable 
+   is a[2].foo->mu, it returns the decl tree of mu.  */
+
+static tree
+get_lockable_decl (tree lockable)
+{
+  switch (TREE_CODE (lockable))
+    {
+      case VAR_DECL:
+      case FIELD_DECL:
+      case PARM_DECL:
+        {
+          /* If the lockable is a compiler-generated temp variable that
+             has a debug expr specifying the original var decl (see
+             lookup_tmp_var() in gimplify.c), return the original var decl.  */
+          if (DECL_ARTIFICIAL (lockable)
+              && (DECL_DEBUG_EXPR_IS_FROM (lockable)
+                  && DECL_DEBUG_EXPR (lockable)))
+            {
+              lockable = DECL_DEBUG_EXPR (lockable);
+              gcc_assert (DECL_P (lockable));
+            }
+          return lockable;
+        }
+      case ADDR_EXPR:
+        /* Handle the case of mu.Lock(), i.e. Lock(&mu).  */
+        return get_lockable_decl (TREE_OPERAND (lockable, 0));
+      case SSA_NAME:
+        {
+          /* If the lockable is an SSA_NAME of a temp variable (with or
+             without a name), we get to get the original variable decl
+             by back-tracing its SSA def (as shown in the following example).
+               D.2_1 = &this->mu;
+               Lock (D.2_1);
+             Note that for some named temps, the original var decl is already
+             there in the debug expr (see create_tmp_from_val() in gimplify.c),
+             so in that case we don't have to look at the SSA def. Also note
+             that the SSA name doesn't always have a def statement (e.g. "this"
+             pointer).  */
+          tree vdecl = SSA_NAME_VAR (lockable);
+          if (!DECL_NAME (vdecl))
+            return get_lockable_decl (get_rhs (SSA_NAME_DEF_STMT (lockable)));
+          else if (DECL_ARTIFICIAL (vdecl)
+                   && (!DECL_DEBUG_EXPR_IS_FROM (vdecl)
+                       || !DECL_DEBUG_EXPR (vdecl))
+                   && TREE_CODE (SSA_NAME_DEF_STMT (lockable)) != NOP_EXPR)
+            return get_lockable_decl (get_rhs (SSA_NAME_DEF_STMT (lockable)));
+          else
+            return get_lockable_decl (vdecl);
+        }
+      case COMPONENT_REF:
+        /* Handle the case of Foo.mu.Lock() or Foo->mu.Lock() */
+        return get_lockable_decl (TREE_OPERAND (lockable, 1));
+      case ARRAY_REF:
+        return get_lockable_decl (TREE_OPERAND (lockable, 0));
+      case CALL_EXPR:
+        {
+          /* If the function is annotated with "lock_returned" attribute,
+             grab the actual lock from the attribute.  */
+          tree fdecl = get_callee_fndecl (lockable);
+          tree attr = (fdecl
+                       ? lookup_attribute ("lock_returned",
+                                           DECL_ATTRIBUTES (fdecl))
+                       : NULL_TREE);
+          if (attr)
+            {
+              gcc_assert (TREE_VALUE (attr) && TREE_VALUE (TREE_VALUE (attr)));
+              return TREE_VALUE (TREE_VALUE (attr));
+            }
+          else
+            return NULL_TREE;
+        }
+      default:
+        return NULL_TREE;
+    }
+}
+
+/* Given a lock expression, this function returns a canonicalized
+   expression (for matching locks in the analysis). Basically this
+   function does the following to canonicalize the expression:
+
+   - Fold temp variables. e.g.
+
+           D.1 = &q->mu;  ==>   foo (&q->mu);
+           foo (D.1);
+
+   - Fold SSA names. e.g.
+
+           q.0_1 = q;     ==>   q->mu;
+           q.0_1->mu;
+
+   - Replace function calls that return a lock with the actual lock returned
+     (if it is annotated with "lock_returned" attribute).
+
+   - Subexpressions of the lock are canonicalized recursively.
+
+   When matching two expressions, we currently only do it symbolically.
+   That is, if two different pointers, say p and q, point to the same
+   location, they will not map to the same canonical expr.  */
+
+static tree
+get_canonical_expr (tree lock, bool is_temp_expr)
+{
+  hashval_t hash;
+  tree canon_lock;
+  void **slot;
+
+  switch (TREE_CODE (lock))
+    {
+      case VAR_DECL:
+      case FIELD_DECL:
+      case PARM_DECL:
+        {
+          /* If the lock is a compiler-generated temp variable that
+             has a debug expr specifying the original var decl (see
+             lookup_tmp_var() in gimplify.c), return the original var decl.  */
+          if (DECL_ARTIFICIAL (lock)
+              && (DECL_DEBUG_EXPR_IS_FROM (lock)
+                  && DECL_DEBUG_EXPR (lock)))
+            {
+              lock = DECL_DEBUG_EXPR (lock);
+              gcc_assert (DECL_P (lock));
+            }
+          return lock;
+        }
+      case SSA_NAME:
+        {
+          /* If the lock is an SSA_NAME of a temp variable (with or
+             without a name), we can possibly get the original variable decl
+             by back-tracing its SSA def (as shown in the following example).
+
+               D.2_1 = &this->mu;
+               Lock (D.2_1);
+
+             For some named temps, the original var decl is already there
+             in the debug expr (see lookup_tmp_var() in gimplify.c), so in that
+             case we don't have to look at the SSA def. Also note that
+             the SSA name doesn't always have a def statement (e.g. "this"
+             pointer).  */
+          tree vdecl = SSA_NAME_VAR (lock);
+          if (!DECL_NAME (vdecl))
+            return get_canonical_expr (get_rhs (SSA_NAME_DEF_STMT (lock)),
+                                       is_temp_expr);
+          else if (DECL_ARTIFICIAL (vdecl)
+                   && (!DECL_DEBUG_EXPR_IS_FROM (vdecl)
+                       || !DECL_DEBUG_EXPR (vdecl))
+                   && TREE_CODE (SSA_NAME_DEF_STMT (lock)) != NOP_EXPR)
+            return get_canonical_expr (get_rhs (SSA_NAME_DEF_STMT (lock)),
+                                       is_temp_expr);
+          else
+            return get_canonical_expr (vdecl, is_temp_expr);
+        }
+      case ADDR_EXPR:
+        {
+          tree base = TREE_OPERAND (lock, 0);
+          tree canon_base;
+          /* When the expr is a pointer to a lockable type (i.e. mu.Lock()
+             or Lock(&mu) internally), we don't need the address-taken
+             operator (&).  */
+          if (lookup_attribute("lockable", TYPE_ATTRIBUTES (TREE_TYPE (base))))
+            return get_canonical_expr (base, false /* is_temp_expr */);
+          canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+          if (base != canon_base)
+            lock = build1 (ADDR_EXPR, TREE_TYPE (lock), canon_base);
+          break;
+        }
+      case COMPONENT_REF:
+        {
+          /* Handle the case of Foo.mu.Lock() or Foo->mu.Lock().
+             If the base is "this" pointer, get the component only.  */
+          tree base = TREE_OPERAND (lock, 0);
+          tree component = TREE_OPERAND (lock, 1);
+          tree canon_base;
+          if (is_base_object_this_pointer (base))
+            return get_canonical_expr (component, is_temp_expr);
+
+          canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+          if (base != canon_base)
+            lock = build3 (COMPONENT_REF, TREE_TYPE (component),
+                                 canon_base, component, NULL_TREE);
+          break;
+        }
+      case ARRAY_REF:
+        {
+          tree array = TREE_OPERAND (lock, 0);
+          tree canon_array = get_canonical_expr (array,
+                                                 true /* is_temp_expr */);
+          if (array != canon_array)
+            lock = build4(ARRAY_REF, TREE_TYPE (lock), canon_array,
+                          TREE_OPERAND (lock, 1), TREE_OPERAND (lock, 2),
+                          TREE_OPERAND (lock, 3));
+          break;
+        }
+      case INDIRECT_REF:
+        {
+          tree base = TREE_OPERAND (lock, 0);
+          tree canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+          if (base != canon_base)
+            lock = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (canon_base)),
+                           canon_base);
+          break;
+        }
+      case CALL_EXPR:
+        {
+          tree fdecl = get_callee_fndecl (lock);
+          tree real_lock = NULL_TREE;
+          tree attr = (fdecl
+                       ? lookup_attribute ("lock_returned",
+                                           DECL_ATTRIBUTES (fdecl))
+                       : NULL_TREE);
+          if (attr)
+            {
+              gcc_assert (TREE_VALUE (attr));
+              real_lock = TREE_VALUE (TREE_VALUE (attr));
+              gcc_assert (real_lock);
+            }
+
+          if (fdecl && TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
+            {
+              call_expr_arg_iterator iter;
+              tree base = first_call_expr_arg (lock, &iter);
+              tree canon_base = get_canonical_expr (base,
+                                                    true /* is_temp_expr */);
+              if (attr)
+                {
+                  /* When the base is a pointer, i.e. base->foo() (or
+                     foo(base) internally), we will need to create a new base
+                     that is INDIRECT_REF so that we could form a correct full
+                     lock expression with the real_lock. If the base is an
+                     address_taken operation, we need to get rid of the
+                     ADDR_EXPR operator before we form the full lock
+                     expression.  */
+                  if (TREE_CODE (canon_base) != ADDR_EXPR)
+                    {
+                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (canon_base)));
+                      canon_base = build1 (INDIRECT_REF,
+                                           TREE_TYPE (TREE_TYPE (canon_base)),
+                                           canon_base);
+                    }
+                  else
+                    canon_base = TREE_OPERAND (canon_base, 0);
+                  lock = build3 (COMPONENT_REF, TREE_TYPE (real_lock),
+                                 canon_base, real_lock, NULL_TREE);
+                }
+              else
+                {
+                  if (base != canon_base)
+                    {
+                      tree arglist = build_tree_list (NULL_TREE, canon_base);
+                      tree arg = next_call_expr_arg (&iter);
+                      tree new_arg = arglist;
+                      for ( ; arg; arg = next_call_expr_arg (&iter))
+                        {
+                          TREE_CHAIN (new_arg) = build_tree_list (NULL_TREE,
+                                                                  arg);
+                          new_arg = TREE_CHAIN (new_arg);
+                        }
+                      lock = build_function_call_expr (fdecl, arglist);
+                    }
+                }
+            }
+          else if (attr)
+            lock = real_lock;
+
+          break;
+        }
+      default:
+        break;
+    }
+
+  hash = lock_expr_hash (lock);
+
+  /* Return the original lock expr if the lock expr is not something we can
+     handle now.  */
+  if (hash == 0)
+    return lock;
+
+  /* Now that we have built a canonical lock expr, check whether it's already
+     in the lock_expr_tab. If so, grab and return it. Otherwise, insert the
+     new lock expr to the map.  */
+  canon_lock = (tree) htab_find_with_hash (lock_expr_tab, lock, hash);
+  if (canon_lock)
+    return canon_lock;
+
+  /* If the lock is created temporarily (e.g. to form a full-path
+     lock name), don't insert it in the lock_expr_tab as the lock
+     tree will be manually freed later.  */
+  if (!is_temp_expr)
+    {
+      slot = htab_find_slot_with_hash (lock_expr_tab, lock, hash, INSERT);
+      *slot = lock;
+    }
+
+  return lock;
+}
+
+/* Dump the LOCK name/expr in char string to OUT_BUF. If LOCK is a
+   simple decl, we just use the identifier node of the lock. Otherwise,
+   we use the tree pretty print mechanism to do that.  */
+
+const char*
+dump_expr_tree (const tree lock, char *out_buf)
+{
+  if (DECL_P (lock) && DECL_NAME (lock))
+    snprintf(out_buf, LOCK_NAME_LEN, "'%s'",
+             IDENTIFIER_POINTER (DECL_NAME (lock)));
+  else
+    {
+      pp_clear_output_area (&pp_buf);
+      dump_generic_node (&pp_buf, lock, 0, TDF_DIAGNOSTIC, false);
+      snprintf(out_buf, LOCK_NAME_LEN, "'%s'",
+               pp_base_formatted_text (&pp_buf));
+    }
+  return out_buf;
+}
+
+/* Check whether the given lock, LOCK, is a member of LOCK_SET.
+   This is more complicated than just calling pointer_set_contains with LOCK
+   and LOCKSET because we need to get the canonical form of the lock.
+   If true, returns the lock contained in the set.  */
+
+static tree
+lock_set_contains (const struct pointer_set_t *lock_set, tree lock,
+                   tree base_obj)
+{
+  /* Maybe the lock is already in canonical form. Try it first.  */
+  if (pointer_set_contains (lock_set, lock))
+    return lock;
+
+  if ((TREE_CODE (lock) == FIELD_DECL) && (base_obj != NULL_TREE))
+    {
+      tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock), base_obj, lock,
+                               NULL_TREE);
+      /* Get the canonical lock tree */
+      tree canonical_lock = get_canonical_expr (full_lock,
+                                                true /* is_temp_expr */);
+      tree result = (pointer_set_contains (lock_set, canonical_lock)
+                     ? canonical_lock : NULL_TREE);
+      /* Since we know full_lock is not going to be used any more, we might
+         as well free it even though it's not necessary.  */
+      ggc_free (full_lock);
+      return result;
+    }
+  else if (TREE_CODE (lock) == IDENTIFIER_NODE)
+    {
+      void **entry;
+      /* If there is any unbound lock in the attribute, the unbound lock map
+         must not be null.  */
+      gcc_assert (unbound_lock_map);
+      entry = pointer_map_contains (unbound_lock_map, lock);
+      gcc_assert (entry);
+      if (*entry)
+        {
+          tree lock_decl = (tree) *entry;
+          gcc_assert (TREE_CODE (lock_decl) == VAR_DECL
+                      || TREE_CODE (lock_decl) == PARM_DECL
+                      || TREE_CODE (lock_decl) == FIELD_DECL);
+          if (pointer_set_contains (lock_set, lock_decl))
+            return lock_decl;
+          else
+            return NULL_TREE;
+        }
+      else
+        return NULL_TREE;
+    }
+  else
+    return NULL_TREE;
+}
+
+/* This function checks whether LOCK is in the current live lock sets
+   (EXCL_LOCKS and SHARED_LOCKS) and emits warning message if it's not.
+   This function is called when analyzing the expression that either accesses
+   a shared variable or calls a function whose DECL is annotated with
+   guarded_by, point_to_guarded_by, or {exclusive|shared}_locks_required
+   attributes.
+
+   IS_INDIRECT_REF indicates whether the (variable) access is indirect or not.
+
+   LOCUS specifies the source location of the expression that accesses the
+   shared variable or calls the guarded function.
+
+   MODE indicates whether the access is a read or a write.  */
+
+static void
+check_lock_required (tree lock, tree decl, tree base_obj, bool is_indirect_ref,
+                     const struct pointer_set_t *excl_locks,
+                     const struct pointer_set_t *shared_locks,
+                     const location_t *locus, enum access_mode mode)
+{
+  const char *msg;
+  char dname[LOCK_NAME_LEN], lname[LOCK_NAME_LEN];
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      gcc_assert (!is_indirect_ref);
+      msg = G_("Calling function");
+      /* When the base obj tree is not an ADDR_EXPR, which means it is a
+         pointer (i.e. base->foo(), or foo(base) internally), we will need
+         to create a new base that is INDIRECT_REF so that we would be able
+         to form a correct full expression for a lock later. On the other hand,
+         if the base obj is an ADDR_EXPR (i.e. base.foo(), or foo(&base)
+         internally), we need to remove the address-taken operation. Note
+         that this is an issue only for class member functions. If DECL
+         is a class field, the base_obj is good.  */
+      if (base_obj)
+        {
+          tree canon_base = get_canonical_expr (base_obj,
+                                                true /* is_temp_expr */);
+          if (TREE_CODE (canon_base) != ADDR_EXPR)
+            {
+              gcc_assert (POINTER_TYPE_P (TREE_TYPE (canon_base)));
+              base_obj = build1 (INDIRECT_REF,
+                                 TREE_TYPE (TREE_TYPE (canon_base)),
+                                 canon_base);
+            }
+          else
+            base_obj = TREE_OPERAND (canon_base, 0);
+        }
+    }
+  else
+    {
+      if (mode == TSA_READ)
+        msg = G_("Reading variable");
+      else
+        msg = G_("Writing to variable");
+    }
+
+  if (!DECL_P (lock))
+    lock = get_canonical_expr (lock, false /* is_temp_expr */);
+
+  if (!lock_set_contains(excl_locks, lock, base_obj))
+    {
+      if (!lock_set_contains(shared_locks, lock, base_obj))
+        {
+          /* We want to use fully-qualified expressions (i.e. including
+             base_obj if any) for DECL and LOCK when emitting warning
+             messages.  */
+          if (base_obj)
+            {
+              if (TREE_CODE (decl) != FUNCTION_DECL)
+                {
+                  tree full_decl = build3 (COMPONENT_REF, TREE_TYPE (decl),
+                                           base_obj, decl, NULL_TREE);
+                  decl = get_canonical_expr (full_decl,
+                                             true /* is_temp_expr */);
+                }
+              if (TREE_CODE (lock) == FIELD_DECL)
+                {
+                  tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock),
+                                           base_obj, lock, NULL_TREE);
+                  /* Get the canonical lock tree */
+                  lock = get_canonical_expr (full_lock,
+                                             true /* is_temp_expr */);
+                }
+            }
+          if (is_indirect_ref)
+            warning (OPT_Wthread_safety,
+                     G_("%HAccess to memory location pointed to by"
+                        " variable %s requires lock %s"),
+                     locus, dump_expr_tree (decl, dname),
+                     dump_expr_tree (lock, lname));
+          else
+            warning (OPT_Wthread_safety, G_("%H%s %s requires lock %s"),
+                     locus, msg, dump_expr_tree (decl, dname),
+                     dump_expr_tree (lock, lname));
+        }
+      else
+        {
+          if (mode == TSA_WRITE)
+            {
+              if (base_obj)
+                {
+                  /* We want to use fully-qualified expressions (i.e.
+                     including base_obj if any) for DECL and LOCK when
+                     emitting warning messages.  */
+                  if (TREE_CODE (decl) != FUNCTION_DECL)
+                    {
+                      tree full_decl = build3 (COMPONENT_REF, TREE_TYPE (decl),
+                                               base_obj, decl, NULL_TREE);
+                      decl = get_canonical_expr (full_decl,
+                                                 true /* is_temp_expr */);
+                    }
+                  if (TREE_CODE (lock) == FIELD_DECL)
+                    {
+                      tree full_lock = build3 (COMPONENT_REF, TREE_TYPE (lock),
+                                               base_obj, lock, NULL_TREE);
+                      /* Get the canonical lock tree */
+                      lock = get_canonical_expr (full_lock,
+                                                 true /* is_temp_expr */);
+                    }
+                }
+              if (is_indirect_ref)
+                warning (OPT_Wthread_safety,
+                         G_("%HWriting to memory location pointed to by"
+                            " variable %s requires exclusive lock %s"),
+                         locus, dump_expr_tree (decl, dname),
+                         dump_expr_tree (lock, lname));
+              else
+                warning (OPT_Wthread_safety,
+                         G_("%H%s %s requires exclusive lock %s"),
+                         locus, msg, dump_expr_tree (decl, dname),
+                         dump_expr_tree (lock, lname));
+            }
+        }
+    }
+}
+
+/* This data structure is created to overcome the limitation of the
+   pointer_set_traverse routine which only takes one data pointer argument.
+   Unfortunately when we are trying to decide whether a lock (with an optional
+   base object) is in a set or not, we will need 2 input parameters and 1
+   output parameter. Therefore we use the following data structure.  */
+
+struct lock_match_info
+{
+  /* The lock which we want to check if it is in the acquired_after set.  */ 
+  tree lock;
+
+  /* The base object of the lock if lock is a class member.  */
+  tree base;
+
+  /* Whether we find a match or not.  */
+  bool match;
+};
+
+/* This is a helper function passed in (as a parameter) to the
+   pointer_set_traverse routine we invoke to traverse the acquired_after
+   set to find a match for the lock recorded in the match info
+   (parameter INFO). This function should not be called by other functions.
+   Parameter LOCK is a member of the acquired_after set.
+   If LOCK is a class field, we would reconstruct the LOCK name by
+   combining it with the base object (recorded in INFO) and do a match.
+   If we find a match, record the result in INFO->match and return false
+   so that pointer_set_traverse would stop iterating through the rest of
+   the set. Also see the comments for function acquired_after_set_contains()
+   below.  */
+
+static bool
+match_locks (const void *lock, void *info)
+{
+  struct lock_match_info *match_info = (struct lock_match_info *)info;
+  tree acq_after_lock = (tree) lock;
+  bool result = true;
+
+  if (TREE_CODE (acq_after_lock) == FIELD_DECL)
+    {
+      tree tmp_lock;
+      gcc_assert (match_info->base);
+      tmp_lock = build3 (COMPONENT_REF, TREE_TYPE (acq_after_lock),
+                         match_info->base, acq_after_lock, NULL_TREE);
+      if (lock_expr_eq (tmp_lock, match_info->lock))
+        {
+          match_info->match = true;
+          result = false;
+        }
+      /* Since we know tmp_lock is not going to be used any more, we might
+         as well free it even though it's not necessary.  */
+      ggc_free (tmp_lock);
+    }
+
+  return result;
+}
+
+/* Check if the LOCK is in the ACQ_AFTER_SET. This check is more complicated
+   than simply calling pointer_set_contains to see whether ACQ_AFTER_SET
+   contains LOCK because the ACQ_AFTER_SET could only contains the "bare"
+   name of the LOCK. For example, suppose we have the following code:
+
+     class Foo {
+       public:
+         Mutex mu1;
+         Mutex mu2 attribute__ ((acquired_after(mu1)));
+         ...
+     };
+
+     main()
+     {
+       Foo *foo = new Foo();
+       ...
+       foo->mu1.Lock();
+       ...
+       foo->mu2.Lock();
+       ...
+     }
+
+   The lock_acquired_after_map would be
+
+     lock    acquired_after set
+     --------------------------
+     mu2  ->  { mu1 }
+
+   In our analysis, when we look at foo->mu2.Lock() and want to know whether
+   foo->mu1 (which was acquired earlier) is in mu2's acquired_after set
+   (in this case, ACQ_AFTER_SET = { mu1 }, LOCK = foo->mu1, BASE = foo),
+   a call to pointer_set_contains(mu2_acquired_after_set, foo->mu1) would
+   return false as it is "mu1", not "foo->mu1", in mu2's acquired_after set.
+   Therefore we will need to iterate through each member of mu2's
+   acquired_after set, reconstructing the lock name with the BASE (which is
+   foo in this example), and check again.  */
+
+static bool
+acquired_after_set_contains (const struct pointer_set_t *acq_after_set,
+                             tree lock, tree base)
+{
+  struct lock_match_info *info;
+  bool result;
+
+  if (pointer_set_contains (acq_after_set, lock))
+    return true;
+  else if (base == NULL_TREE)
+    return false;
+
+  /* Now that a simple call to pointer_set_contains returns false and
+     the LOCK appears to be a class member (as BASE is not null),
+     we need to look at each element of ACQ_AFTER_SET, reconstructing
+     their names, and check again.  */
+  info = XNEW (struct lock_match_info);
+  info->lock = lock;
+  info->base = base;
+  info->match = false;
+
+  pointer_set_traverse (acq_after_set, match_locks, info);
+
+  result = info->match;
+
+  XDELETE (info);
+
+  return result;
+}
+
+/* Returns the base object if EXPR is a component ref tree,
+   NULL_TREE otherwise.
+
+   Note that this routine is different from get_base_address or
+   get_base_var in that, for example, if we have an expression x[5].a,
+   this routine will return x[5], while the other two routines will
+   return x. Also if the expr is b[3], this routine will return NULL_TREE
+   while the other two will return b.  */
+
+static tree
+get_component_ref_base (tree expr)
+{
+  if (TREE_CODE (expr) == COMPONENT_REF)
+    return TREE_OPERAND (expr, 0);
+  else if (TREE_CODE (expr) == ARRAY_REF)
+    return get_component_ref_base (TREE_OPERAND (expr, 0));
+  else
+    return NULL_TREE;
+}
+
+/* This is helper function passed in (as a parameter) to pointer_set_traverse
+   when we traverse live lock sets to check for acquired_after requirement.
+   This function should not be called by other functions. The parameter
+   LIVE_LOCK is a member of the live lock set we are traversing, and parameter
+   LOCK is the lock we are about to add to the live lock set.
+   In this function, we first check if LIVE_LOCK is in the acquired_after
+   set of LOCK. If so, that's great (but we will also check whether LOCK is
+   in LIVE_LOCK's acquired_after set to see if there is a cycle in the
+   after_after relationship). Otherwise, we will emit a warning.  */
+
+static bool
+check_acquired_after (const void *live_lock, void *lock)
+{
+  char lname1[LOCK_NAME_LEN], lname2[LOCK_NAME_LEN];
+  tree lock_decl;
+  tree base;
+  void **entry;
+  tree live_lock_tree = (tree) live_lock;
+  tree live_lock_decl;
+  bool live_lock_in_locks_acq_after_set;
+  bool lock_in_live_locks_acq_after_set;
+
+  /* If lock_acquired_after_map is never created, which means the user code
+     doesn't contain any acquired_after attributes, then simply return.
+     This should be changed later if we decide to warn about unspecified
+     locking order for two locks held simultaneously by a thread.  */
+  if (!lock_acquired_after_map)
+    return true;
+
+  /* Since the lock_acquired_after_map is keyed by the decl tree of
+     the lock variable (see handle_acquired_after_attribute() in c-common.c),
+     we cannot use the full expression of the lock to look up the
+     lock_acquired_after_map. Instead, we need to get the lock decl
+     component of the expression. e.g. If the lock is a[2].foo->mu,
+     we cannot use the whole expression tree. We have to use the decl tree
+     of mu.  */
+  lock_decl = get_lockable_decl ((tree) lock);
+  base = (lock_decl ? get_component_ref_base ((tree) lock) : NULL_TREE);
+  entry = (lock_decl
+           ? pointer_map_contains (lock_acquired_after_map, lock_decl)
+           : NULL);
+  /* Check if LIVE_LOCK is in LOCK's acquired_after set.  */
+  live_lock_in_locks_acq_after_set = (entry
+                                      && acquired_after_set_contains (
+                                          (struct pointer_set_t *) *entry,
+                                          live_lock_tree, base));
+
+  live_lock_decl = get_lockable_decl (live_lock_tree);
+  base = (live_lock_decl ? get_component_ref_base (live_lock_tree)
+          : NULL_TREE);
+  entry = (live_lock_decl
+           ? pointer_map_contains (lock_acquired_after_map, live_lock)
+           : NULL);
+  /* Check if LOCK is in LIVE_LOCK's acquired_after set.  */
+  lock_in_live_locks_acq_after_set = (entry
+                                      && acquired_after_set_contains (
+                                          (struct pointer_set_t *) *entry,
+                                          (tree) lock, base));
+
+  if (!live_lock_in_locks_acq_after_set)
+    {
+      /* When LIVE_LOCK is not in LOCK's acquired_after set, we will emit
+         warning messages only when LIVE_LOCK is annotated as being acquired
+         after LOCK. Basically what we are saying here is that if the two
+         locks don't have an acquired_after relationship based on the
+         annotations (attributes), we will not check for (and warn about)
+         their locking order. This is an escape hatch for locks that could
+         be held simultaneously but their acquisition order is not expressible
+         using the current attribute/annotation scheme.  */
+      if (lock_in_live_locks_acq_after_set)
+        {
+          void **loc_entry = pointer_map_contains (lock_locus_map, live_lock);
+          if (loc_entry)
+            warning (OPT_Wthread_safety,
+                     G_("%HLock %s is acquired after lock %s (acquired at"
+                        " line %d) but is annotated otherwise"),
+                     current_loc, dump_expr_tree ((const tree) lock, lname1),
+                     dump_expr_tree (live_lock_tree, lname2),
+                     LOCATION_LINE (*((location_t *) *loc_entry)));
+          else
+            warning (OPT_Wthread_safety,
+                     G_("%HLock %s is acquired after lock %s (held at function"
+                        " entry) but is annotated otherwise"),
+                     current_loc, dump_expr_tree ((const tree) lock, lname1),
+                     dump_expr_tree (live_lock_tree, lname2));
+        }
+      return true;
+    }
+
+  if (lock_in_live_locks_acq_after_set)
+    warning (OPT_Wthread_safety,
+             G_("%HThere is a cycle in the acquisition order between locks"
+                " %s and %s"),
+             current_loc, dump_expr_tree (live_lock_tree, lname1),
+             dump_expr_tree ((tree) lock, lname2));
+
+  return true;
+}
+
+/* Main driver to check the lock acquisition order. LOCK is the lock we are
+   about to add to the live lock set. LIVE_EXCL_LOCKS and LIVE_SHARED_LOCKS
+   are the current live lock sets. LOCUS is the source location at which LOCK
+   is acquired.  */
+
+static void
+check_locking_order (const tree lock,
+                     const struct pointer_set_t *live_excl_locks,
+                     const struct pointer_set_t *live_shared_locks,
+                     const location_t *locus)
+{
+  if (!warn_thread_mismatched_lock_order)
+    return;
+
+  current_loc = locus;
+  pointer_set_traverse (live_excl_locks, check_acquired_after, lock);
+  pointer_set_traverse (live_shared_locks, check_acquired_after, lock);
+}
+
+/* Given a CALL expr and an integer constant tree POS_ARG that specifies the
+   argument position, returns the corresponding argument by iterating
+   through the call's actual parameter list.  */
+
+static tree
+get_actual_argument_from_position (tree call, tree pos_arg)
+{
+  int i;
+  int lock_pos;
+  tree arg;
+  call_expr_arg_iterator iter;
+
+  gcc_assert (TREE_CODE (pos_arg) == INTEGER_CST);
+
+  lock_pos = TREE_INT_CST_LOW (pos_arg);
+
+  for (arg = first_call_expr_arg (call, &iter), i = 1; arg;
+       arg = next_call_expr_arg (&iter), ++i)
+    if (i == lock_pos) break;
+
+  gcc_assert (arg);
+
+  return arg;
+}
+
+/* This function handles function calls that acquire or try to acquire
+   locks (i.e. the functions annotated with exclusive_lock, shared_lock,
+   exclusive_trylock, or shared_trylock attribute). Besides adding to the
+   live lock sets the lock(s) it acquires (except for trylock calls), this
+   function also does the following:
+
+   - Checks the lock acquisition order between the lock it acquires and
+     existing live locks.
+
+   - Checks if any existing live lock is being acquired again
+     (i.e. re-entered).
+
+   - If the function call is a constructor of a scoped lock, adds an entry
+     with the acquired lock to scopedlock_to_lock_map.
+
+   - If the function call is a trylock, creates a trylock_info structure and
+     inserts it to trylock_info_map.
+
+   - Records the source location of this function call in lock_locus_map
+     (as this is where the lock is acquired).
+
+   This function handles one lock at a time, so if a locking primitive
+   acquires multiple locks, this function is called multiple times (see
+   process_function_attrs() below).
+
+   The lock to be acquired is either the base object (i.e. BASE_OBJ)
+   when the primitive is a member function of a lockable class (e.g. "mu" in
+   mu->Lock()), or specified by an attribute parameter and passed in as ARG.
+   If ARG is an integer constant, it specifies the position of the primitive's
+   argument that corresponds to the lock to be acquired.  */
+
+static void
+handle_lock_primitive_attrs (tree call, tree arg, tree base_obj,
+                             bool is_exclusive_lock, bool is_trylock,
+                             struct pointer_set_t *live_excl_locks,
+                             struct pointer_set_t *live_shared_locks,
+                             const location_t *locus)
+{
+  tree fdecl = get_callee_fndecl (call);
+  char lname[LOCK_NAME_LEN];
+  void **entry;
+  tree lockable;
+  tree lockable_type;
+
+  /* If ARG is not NULL, it specifies the lock to acquire. Otherwise,
+     BASE_OBJ is the lock.  */
+  if (!arg)
+    arg = base_obj;
+  /* When ARG is an integer that specifies the position of the
+     call's argument corresponding to the lock, we need to iterate
+     through the call's actual parameter list to grab the lock.  */
+  else if (TREE_CODE (arg) == INTEGER_CST)
+    arg = get_actual_argument_from_position (call, arg);
+
+  gcc_assert (arg);
+
+  lockable = get_canonical_expr (arg, false /* is_temp_expr */);
+
+  /* If there are unbound locks when the thread safety attributes were parsed,
+     we should try to bind them now if we see any lock declaration that
+     matches the name of the unbound lock.  */
+  if (unbound_lock_map
+      && (TREE_CODE (lockable) == VAR_DECL
+          || TREE_CODE (lockable) == PARM_DECL
+          || TREE_CODE (lockable) == FIELD_DECL))
+    {
+      tree lock_id = DECL_NAME (lockable);
+      void **entry = pointer_map_contains (unbound_lock_map, lock_id);
+      if (entry)
+        *entry = lockable;
+    }
+
+  gcc_assert (fdecl);
+  lockable_type = DECL_CONTEXT (fdecl);
+
+  /* Check if the lock primitive is actually a constructor of a scoped lock.
+     If so, insert to scopedlock_to_lock_map the scoped lock object along
+     with the lock it acquires.  */
+  if (!is_trylock
+      && lockable_type
+      && lookup_attribute("scoped_lockable", TYPE_ATTRIBUTES (lockable_type)))
+    {
+      if (TREE_CODE (base_obj) == ADDR_EXPR)
+        {
+          tree scoped_lock = TREE_OPERAND (base_obj, 0);
+          void **entry;
+          if (TREE_CODE (scoped_lock) == SSA_NAME)
+            scoped_lock = SSA_NAME_VAR (scoped_lock);
+          gcc_assert(TREE_CODE (scoped_lock) == VAR_DECL);
+          entry = pointer_map_insert (scopedlock_to_lock_map, scoped_lock);
+          *entry = lockable;
+        }
+    }
+
+  /* Check if the lock is already held.  */
+  if (pointer_set_contains(live_excl_locks, lockable)
+      || pointer_set_contains(live_shared_locks, lockable))
+    {
+      if (warn_thread_reentrant_lock)
+        {
+          void **entry = pointer_map_contains (lock_locus_map, lockable);
+          if (entry)
+            warning (OPT_Wthread_safety,
+                     G_("%HTry to acquire lock %s that is already held"
+                        " (previously acquired at line %d)"),
+                     locus, dump_expr_tree (lockable, lname),
+                     LOCATION_LINE (*((location_t *) *entry)));
+          else
+            warning (OPT_Wthread_safety,
+                     G_("%HTry to acquire lock %s that is already held"
+                        " (at function entry)"),
+                     locus, dump_expr_tree (lockable, lname));
+        }
+      /* Normally when we have detected a lock re-entrant issue here, we can
+         simply return. However, if this primitive is a trylock, we still
+         need to create an entry in the trylock_info_map (which will happen
+         later) regardless. Otherwise, the assertion that every trylock call
+         always has an entry in the map will fail later.  */
+      if (!is_trylock)
+        return;
+    }
+
+  /* Check the lock acquisition order.  */
+  check_locking_order (lockable, live_excl_locks, live_shared_locks, locus);
+
+  /* Record the source location where the lock is acquired.  */
+  entry = pointer_map_insert (lock_locus_map, lockable);
+  if (!(*entry))
+    *entry = XNEW (location_t);
+  *((location_t *) *entry) = *locus;
+
+  if (!is_trylock)
+    {
+      /* Insert the lock to either exclusive or shared live lock set.  */
+      if (is_exclusive_lock)
+        pointer_set_insert(live_excl_locks, lockable);
+      else
+        pointer_set_insert(live_shared_locks, lockable);
+    }
+  else
+    {
+      /* If the primitive is a trylock, create a trylock_info structure and
+         insert it to trylock_info_map, which will be used later when we
+         analyze the if-statement whose condition is fed by the trylock.  */
+      struct trylock_info *tryinfo;
+      entry = pointer_map_insert (trylock_info_map, call);
+      if (!(*entry))
+        {
+          tryinfo = XNEW (struct trylock_info);
+          tryinfo->is_exclusive = is_exclusive_lock;
+          tryinfo->locks = pointer_set_create();
+          *entry = tryinfo;
+        }
+      else
+        {
+          tryinfo = (struct trylock_info *)*entry;
+          gcc_assert (tryinfo->locks
+                      && tryinfo->is_exclusive == is_exclusive_lock);
+        }
+      pointer_set_insert (tryinfo->locks, lockable);
+    }
+}
+
+/* This function handles function calls that release locks (i.e. the
+   functions annotated with the "unlock" attribute). Besides taking the
+   lock out of the live lock set, it also checks whether the user code
+   is trying to release a lock that's not currently held. For the
+   explanations on parameters ARG and BASE_OBJ, please see the comments for
+   handle_lock_primitive_attrs above.  */
+
+static void
+handle_unlock_primitive_attr (tree call, tree arg, tree base_obj,
+                              struct pointer_set_t *live_excl_locks,
+                              struct pointer_set_t *live_shared_locks,
+                              const location_t *locus)
+{
+  char lname[LOCK_NAME_LEN];
+  tree lockable = NULL_TREE;
+
+  /* Check if the unlock attribute specifies a lock or the position of the
+     primitive's argument corresponding to the lock.  */
+  if (arg)
+    {
+      if (TREE_CODE (arg) == INTEGER_CST)
+        lockable = get_actual_argument_from_position (call, arg);
+      else
+        lockable = arg;
+      gcc_assert (lockable);
+      lockable = get_canonical_expr (lockable, false /* is_temp_expr */);
+    }
+  else
+    {
+      gcc_assert (base_obj);
+
+      /* Check if the primitive is a destructor of a scoped_lock. If so,
+         get the lock to be released from scopedlock_to_lock_map.  */
+      if (TREE_CODE (base_obj) == ADDR_EXPR)
+        {
+          tree scoped_lock = TREE_OPERAND (base_obj, 0);
+          if (TREE_CODE (scoped_lock) == SSA_NAME)
+            scoped_lock = SSA_NAME_VAR (scoped_lock);
+          /* A scoped lock should be a local variable.  */
+          if (TREE_CODE (scoped_lock) == VAR_DECL)
+            {
+              void **entry = pointer_map_contains (scopedlock_to_lock_map,
+                                                   scoped_lock);
+              if (entry)
+                lockable = *entry;
+            }
+        }
+      /* If the function is not a destructor of a scoped_lock, base_obj
+         is the lock.  */
+      if (!lockable)
+        lockable = get_canonical_expr (base_obj, false /* is_temp_expr */);
+    }
+
+  /* Remove the lock from the live lock set and, if it is not currently held,
+     warn about the issue.  */
+  if (pointer_set_contains(live_excl_locks, lockable))
+    pointer_set_delete(live_excl_locks, lockable);
+  else if (pointer_set_contains(live_shared_locks, lockable))
+    pointer_set_delete(live_shared_locks, lockable);
+  else if (warn_thread_mismatched_lock_acq_rel)
+    warning (OPT_Wthread_safety,
+             G_("%HTry to unlock %s that was not acquired"),
+             locus, dump_expr_tree (lockable, lname));
+}
+
+/* The main routine that handles the thread safety attributes for
+   functions. CALL is the call expression being analyzed. FDECL is its
+   corresponding function decl tree. LIVE_EXCL_LOCKS and LIVE_SHARED_LOCKS
+   are the live lock sets when the control flow reaches this call expression.
+   LOCUS is the source location of the call expression.  */
+
+static void
+process_function_attrs (tree call, tree fdecl,
+                        struct pointer_set_t *live_excl_locks,
+                        struct pointer_set_t *live_shared_locks,
+                        const location_t *locus)
+{
+  tree attr = NULL_TREE;
+  char lname[LOCK_NAME_LEN];
+  tree base_obj = NULL_TREE;
+  call_expr_arg_iterator iter;
+  bool is_exclusive_lock;
+  bool is_trylock;
+
+  gcc_assert (TREE_CODE (call) == CALL_EXPR);
+
+  /* If the function is a class member, the first argument of the function
+     (i.e. "this" pointer) would be the base object.  */
+  if (TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
+    base_obj = first_call_expr_arg (call, &iter);
+
+  /* Check whether this is a locking primitive of any kind.  */
+  if ((attr = lookup_attribute("exclusive_lock",
+                               DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+    {
+      is_exclusive_lock = true;
+      is_trylock = false;
+    }
+  else if ((attr = lookup_attribute("exclusive_trylock",
+                                    DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+    {
+      is_exclusive_lock = true;
+      is_trylock = true;
+    }
+  else if ((attr = lookup_attribute("shared_lock",
+                                    DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+    {
+      is_exclusive_lock = false;
+      is_trylock = false;
+    }
+  else if ((attr = lookup_attribute("shared_trylock",
+                                    DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+    {
+      is_exclusive_lock = false;
+      is_trylock = true;
+    }
+
+  /* Handle locking primitives */
+  if (attr)
+    {
+      if (TREE_VALUE (attr))
+        {
+          int succ_retval;
+          tree arg = TREE_VALUE (attr);
+          /* If the locking primitive is a trylock, the first argument of
+             the attribute specifies the return value of a successful lock
+             acquisition.  */
+          if (is_trylock)
+            {
+              gcc_assert (TREE_CODE (TREE_VALUE (arg)) == INTEGER_CST);
+              succ_retval = TREE_INT_CST_LOW (TREE_VALUE (arg));
+              arg = TREE_CHAIN (arg);
+            }
+
+          /* If the primitive is a trylock, after we consume the first
+             argument of the attribute, there might not be any argument
+             left. So we need to check if arg is NULL again here.  */
+          if (arg)
+            {
+              /* If the locking primitive attribute specifies multiple locks
+                 in its arguments, we iterate through the argument list and
+                 handle each of the locks individually.  */
+              for (; arg; arg = TREE_CHAIN (arg))
+                handle_lock_primitive_attrs (call, TREE_VALUE (arg), base_obj,
+                                             is_exclusive_lock, is_trylock,
+                                             live_excl_locks,
+                                             live_shared_locks, locus);
+            }
+          else
+            {
+              /* If the attribute does not have any argument left, the lock to
+                 be acquired is the base obj (e.g. "mu" in mu->TryLock()).  */
+              handle_lock_primitive_attrs (call, NULL_TREE, base_obj,
+                                           is_exclusive_lock, is_trylock,
+                                           live_excl_locks, live_shared_locks,
+                                           locus);
+            }
+          /* If the primitive is a trylock, fill in the return value on
+             successful lock acquisition in the trylock_info that was
+             created in handle_lock_primitive_attrs.  */
+          if (is_trylock)
+            {
+              struct trylock_info *tryinfo;
+              void **entry = pointer_map_contains (trylock_info_map, call);
+              gcc_assert (entry);
+              tryinfo = (struct trylock_info *)*entry;
+              tryinfo->succ_retval = succ_retval;
+            }
+        }
+      else
+        {
+          /* If the attribute does not have any argument, the lock to be
+             acquired is the base obj (e.g. "mu" in mu->Lock()).  */
+          gcc_assert (!is_trylock);
+          handle_lock_primitive_attrs (call, NULL_TREE, base_obj,
+                                       is_exclusive_lock, is_trylock,
+                                       live_excl_locks, live_shared_locks,
+                                       locus);
+        }
+    }
+  /* Handle unlocking primitive */
+  else if ((attr = lookup_attribute ("unlock", DECL_ATTRIBUTES (fdecl)))
+           != NULL_TREE)
+    {
+      if (TREE_VALUE (attr))
+        {
+          /* If the unlocking primitive attribute specifies multiple locks
+             in its arguments, we iterate through the argument list and
+             handle each of the locks individually.  */
+          tree arg;
+          for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
+            handle_unlock_primitive_attr (call, TREE_VALUE (arg), base_obj,
+                                          live_excl_locks, live_shared_locks,
+                                          locus);
+        }
+      else
+        /* If the attribute does not have any argument, the lock to be
+           released is the base obj (e.g. "mu" in mu->Unlock()).  */
+        handle_unlock_primitive_attr (call, NULL_TREE, base_obj,
+                                      live_excl_locks, live_shared_locks,
+                                      locus);
+    }
+
+  if (warn_thread_unguarded_func)
+    {
+      tree arg;
+      tree lock;
+
+      /* Handle the attributes specifying the lock requirements of
+         functions.  */
+      if ((attr = lookup_attribute("exclusive_locks_required",
+                                   DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+        {
+          for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
+            {
+              lock = TREE_VALUE (arg);
+              gcc_assert (lock);
+              if (TREE_CODE (lock) == INTEGER_CST)
+                lock = get_actual_argument_from_position (call, lock);
+              check_lock_required (lock, fdecl, base_obj,
+                                   false /* is_indirect_ref */,
+                                   live_excl_locks, live_shared_locks,
+                                   locus, TSA_WRITE);
+            }
+        }
+
+      if ((attr = lookup_attribute("shared_locks_required",
+                                   DECL_ATTRIBUTES (fdecl))) != NULL_TREE)
+        {
+          for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
+            {
+              lock = TREE_VALUE (arg);
+              gcc_assert (lock);
+              if (TREE_CODE (lock) == INTEGER_CST)
+                lock = get_actual_argument_from_position (call, lock);
+              check_lock_required (lock, fdecl, base_obj,
+                                   false /* is_indirect_ref */,
+                                   live_excl_locks, live_shared_locks,
+                                   locus, TSA_READ);
+            }
+        }
+
+      if ((attr = lookup_attribute("locks_excluded", DECL_ATTRIBUTES (fdecl)))
+          != NULL_TREE)
+        {
+          /* When the base obj tree is not an ADDR_EXPR, which means it is a
+             pointer (i.e. base->foo() or foo(base)), we will need to create
+             a new base that is INDIRECT_REF so that we would be able to form
+             a correct full expression for a lock later. On the other hand,
+             if the base obj is an ADDR_EXPR (i.e. base.foo() or foo(&base)),
+             we need to remove the address-taken operation.  */
+          if (base_obj)
+            {
+              tree canon_base = get_canonical_expr (base_obj,
+                                                    true /* is_temp_expr */);
+              if (TREE_CODE (canon_base) != ADDR_EXPR)
+                {
+                  gcc_assert (POINTER_TYPE_P (TREE_TYPE (canon_base)));
+                  base_obj = build1 (INDIRECT_REF,
+                                     TREE_TYPE (TREE_TYPE (canon_base)),
+                                     canon_base);
+                }
+              else
+                base_obj = TREE_OPERAND (canon_base, 0);
+            }
+
+          for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
+            {
+              tree lock_contained;
+              lock = TREE_VALUE (arg);
+              gcc_assert (lock);
+              if (TREE_CODE (lock) == INTEGER_CST)
+                lock = get_actual_argument_from_position (call, lock);
+              lock = get_canonical_expr (lock, false /* is_temp_expr */);
+              gcc_assert (lock);
+              /* Check if the excluded lock is in the live lock sets when the
+                 function is called. If so, issue a warning.  */
+              if ((lock_contained = lock_set_contains(live_excl_locks,
+                                                      lock, base_obj))
+                  || (lock_contained = lock_set_contains(live_shared_locks,
+                                                         lock, base_obj)))
+                {
+                  void **entry = pointer_map_contains (lock_locus_map,
+                                                       lock_contained);
+                  if (entry)
+                    warning (OPT_Wthread_safety,
+                             G_("%HCannot call function %qE with lock %s held"
+                                " (previously acquired at line %d)"),
+                             locus, DECL_NAME (fdecl),
+                             dump_expr_tree (lock_contained, lname),
+                             LOCATION_LINE (*((location_t *) *entry)));
+                  else
+                    warning (OPT_Wthread_safety,
+                             G_("%HCannot call function %qE with lock %s held"
+                                " (at function entry)"),
+                             locus, DECL_NAME (fdecl),
+                             dump_expr_tree (lock_contained, lname));
+                }
+            }
+        }
+    }
+}
+
+/* The main routine that handles the attributes specifying variables' lock
+   requirements.  */
+
+static void
+process_guarded_by_attrs (tree vdecl, tree base_obj, bool is_indirect_ref,
+                          const struct pointer_set_t *excl_locks,
+                          const struct pointer_set_t *shared_locks,
+                          const location_t *locus, enum access_mode mode)
+{
+  tree attr;
+  /* A flag indicating whether the attribute is {point_to_}guarded_by with
+     a lock specified or simply {point_to_}guarded.  */
+  bool lock_specified = true;
+
+  if (!warn_thread_unguarded_var)
+    return;
+
+  if (is_indirect_ref)
+    {
+      attr = lookup_attribute ("point_to_guarded_by", DECL_ATTRIBUTES (vdecl));
+      if (!attr)
+        {
+          attr = lookup_attribute ("point_to_guarded",
+                                   DECL_ATTRIBUTES (vdecl));
+          lock_specified = false;
+        }
+    }
+  else
+    {
+      attr = lookup_attribute ("guarded_by", DECL_ATTRIBUTES (vdecl));
+      if (!attr)
+        {
+          attr = lookup_attribute ("guarded", DECL_ATTRIBUTES (vdecl));
+          lock_specified = false;
+        }
+    }
+
+  /* If the variable does not have an attribute specifying that it should
+     be protected by a lock, simply return.  */
+  if (!attr)
+    return;
+
+  /* If the variable is a compiler-created temporary pointer, grab the
+     original variable's decl from the debug expr (as we don't want to
+     print out the temp name in the warnings. For reasons why we only
+     need to do this for pointers, see lookup_tmp_var() in gimplify.c.  */
+  if (is_indirect_ref && DECL_ARTIFICIAL (vdecl))
+    {
+      gcc_assert (DECL_DEBUG_EXPR_IS_FROM (vdecl) && DECL_DEBUG_EXPR (vdecl));
+      vdecl = DECL_DEBUG_EXPR (vdecl);
+      gcc_assert (DECL_P (vdecl));
+    }
+
+  if (lock_specified)
+    {
+      tree lockable;
+      gcc_assert (TREE_VALUE (attr));
+      lockable = TREE_VALUE (TREE_VALUE (attr));
+      gcc_assert (lockable);
+      check_lock_required (lockable, vdecl, base_obj, is_indirect_ref,
+                           excl_locks, shared_locks, locus, mode);
+    }
+  else
+    {
+      /* If this is a "guarded" attribute that doesn't specify a particular
+         lock, just check whether there is any live lock at this point.  */
+      if (pointer_set_cardinality (excl_locks) == 0)
+        {
+          if (pointer_set_cardinality (shared_locks) == 0)
+            {
+              if (is_indirect_ref)
+                warning (OPT_Wthread_safety,
+                         G_("%HAccess to memory location pointed to by"
+                            " variable %qE requires a lock"),
+                         locus, DECL_NAME (vdecl));
+              else
+                warning (OPT_Wthread_safety,
+                         G_("%HAccess to variable %qE requires a lock"),
+                         locus, DECL_NAME (vdecl));
+            }
+          else
+            {
+              if (mode == TSA_WRITE)
+                {
+                  if (is_indirect_ref)
+                    warning (OPT_Wthread_safety,
+                             G_("%HWriting to memory location pointed to by"
+                                " variable %qE requires an exclusive lock"),
+                             locus, DECL_NAME (vdecl));
+                  else
+                    warning (OPT_Wthread_safety,
+                             G_("%HWriting to variable %qE requires an"
+                                " exclusive lock"),
+                             locus, DECL_NAME (vdecl));
+                }
+            }
+        }
+    }
+}
+
+/* This routine is called when we see an indirect reference in our
+   analysis of expressions. In an indirect reference, the pointer itself
+   is accessed as a read. The parameter MODE indicates how the memory
+   location pointed to by the PTR is being accessed (either read or write).  */
+
+static void
+handle_indirect_ref (tree ptr, struct pointer_set_t *excl_locks,
+                     struct pointer_set_t *shared_locks,
+                     const location_t *locus, enum access_mode mode)
+{
+  tree vdecl;
+
+  /* The pointer itself is accessed as a read */
+  analyze_expr (ptr, NULL_TREE, excl_locks, shared_locks, locus, TSA_READ);
+
+  if (TREE_CODE (ptr) == SSA_NAME)
+    {
+      vdecl = SSA_NAME_VAR (ptr);
+      if (!DECL_NAME (vdecl))
+        vdecl = get_rhs (SSA_NAME_DEF_STMT (ptr));
+    }
+  else
+    vdecl = ptr;
+
+  if (DECL_P (vdecl))
+    process_guarded_by_attrs (vdecl, NULL_TREE, true /* is_indirect_ref */,
+                              excl_locks, shared_locks, locus, mode);
+  return;
+}
+
+/* The main routine that handles call expressions.  */
+
+static void
+handle_call_expr (tree call, struct pointer_set_t *excl_locks,
+                  struct pointer_set_t *shared_locks,
+                  const location_t *locus)
+{
+  tree fdecl = get_callee_fndecl (call);
+  call_expr_arg_iterator iter;
+  tree arg = first_call_expr_arg (call, &iter);
+
+  /* The callee fndecl could be NULL, e.g., when the function is passed in
+     as an argument.  */
+  if (fdecl && TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)
+    {
+      /* If an object, x, is guarded by a lock, whether or not calling
+         x.foo() requires an exclusive lock depends on if foo() is const.
+         TODO: Note that to determine if a class member function is const, we
+         would've liked to use DECL_CONST_MEMFUNC_P instead of the following
+         long sequence of macro calls. However, we got an undefined reference
+         to `cp_type_quals' at link time when using DECL_CONST_MEMFUNC_P.  */
+      bool is_const_memfun = TYPE_READONLY
+          (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fdecl)))));
+      enum access_mode rw_mode = is_const_memfun ? TSA_READ : TSA_WRITE;
+
+      /* A method should have at least one argument, i.e."this" pointer */
+      gcc_assert (arg);
+
+      /* Analyze the base object ("this").  */
+      if (TREE_CODE (arg) == ADDR_EXPR)
+        {
+          /* Handle the case of x.foo() or foo(&x) */
+          analyze_expr (TREE_OPERAND (arg, 0), NULL_TREE, excl_locks,
+                        shared_locks, locus, rw_mode);
+        }
+      else
+        {
+          /* Handle the case of x->foo() or foo(x) */
+          gcc_assert (POINTER_TYPE_P (TREE_TYPE (arg)));
+          handle_indirect_ref(arg, excl_locks, shared_locks, locus, rw_mode);
+        }
+
+      /* Advance to the next argument */
+      arg = next_call_expr_arg (&iter);
+    }
+
+  /* Analyze the call's arguments */
+  for ( ; arg; arg = next_call_expr_arg (&iter))
+    if (!CONSTANT_CLASS_P (arg))
+      analyze_expr (arg, NULL_TREE, excl_locks, shared_locks, locus, TSA_READ);
+
+  /* Process the attributes associated with the callee func decl.
+     Note that we want to process the arguments first so that the callee
+     func decl attributes have no effects on the arguments.  */
+  if (fdecl)
+    process_function_attrs (call, fdecl, excl_locks, shared_locks, locus);
+
+  return;
+}
+
+/* The main routine that handles decls and expressions. It in turn calls
+   other helper routines to analyze different kinds of trees.
+
+   EXPR is the expression/decl being analyzed.
+   BASE_OBJ is the base component of EXPR if EXPR is a component reference
+   (e.g. b.a).
+   EXCL_LOCKS and SHARED_LOCKS are the live lock sets when the control flow
+   reaches EXPR.
+   LOCUS is the source location of EXPR.
+   MODE indicates whether the access is a read or a write.  */
+
+static void
+analyze_expr (tree expr, tree base_obj, struct pointer_set_t *excl_locks,
+              struct pointer_set_t *shared_locks,
+              const location_t *locus, enum access_mode mode)
+{
+  tree vdecl;
+
+  if (EXPR_P (expr))
+    {
+      int nops;
+      int i;
+      /* For an address-taken expression (i.e. &x), the memory location of
+         the operand is not actually accessed. So no thread safe check
+         necessary here.  */
+      if (TREE_CODE (expr) == ADDR_EXPR)
+        return;
+
+      if (TREE_CODE (expr) == INDIRECT_REF)
+        {
+          /* The pointer itself is being read */
+          tree ptr = TREE_OPERAND (expr, 0);
+          handle_indirect_ref (ptr, excl_locks, shared_locks, locus, mode);
+          return;
+        }
+
+      if (TREE_CODE (expr) == CALL_EXPR)
+        {
+          handle_call_expr (expr, excl_locks, shared_locks, locus);
+          return;
+        }
+
+      /* For a component reference, we need to look at both base and
+         component trees.  */
+      if (TREE_CODE (expr) == COMPONENT_REF)
+        {
+          tree base = TREE_OPERAND (expr, 0);
+          tree component = TREE_OPERAND (expr, 1);
+          analyze_expr (base, NULL_TREE, excl_locks, shared_locks, locus,
+                        mode);
+          analyze_expr (component, base, excl_locks, shared_locks, locus,
+                        mode);
+          return;
+        }
+
+      /* For all other expressions, just iterate through their operands
+         and call analyze_expr on them recursively */
+      nops = TREE_OPERAND_LENGTH (expr);
+      for (i = 0; i < nops; i++)
+        {
+          tree op = TREE_OPERAND (expr, i);
+          if (op != 0 && !CONSTANT_CLASS_P (op))
+            analyze_expr (op, base_obj, excl_locks, shared_locks, locus, mode);
+        }
+
+      return;
+    }
+
+  /* If EXPR is a ssa name, grab its original variable decl.  */
+  if (TREE_CODE (expr) == SSA_NAME)
+    {
+      vdecl = SSA_NAME_VAR (expr);
+      if (!DECL_NAME (vdecl))
+        vdecl = get_rhs (SSA_NAME_DEF_STMT (expr));
+    }
+  else
+    vdecl = expr;
+
+  if (DECL_P (vdecl))
+    process_guarded_by_attrs (vdecl, base_obj, false /* is_indirect_ref */,
+                              excl_locks, shared_locks, locus, mode);
+}
+
+/* This is a helper function called by is_condition_fed_by_trylock() to
+   check if EXPR is a trylock call (or a simple expression fed by a trylock
+   call that involves only logic "not" operations). And if so, grab and
+   return the corresponding trylock_info structure. Otherwise, return NULL.
+   In the process, *LOCK_ON_TRUE_PATH is set to indicate whether the true
+   (control flow) path should be taken when the lock is successfully
+   acquired.  */
+
+static struct trylock_info *
+get_trylock_info(tree expr, bool *lock_on_true_path)
+{
+  while (1)
+    {
+      switch (TREE_CODE (expr))
+        {
+          case SSA_NAME:
+            expr = get_rhs (SSA_NAME_DEF_STMT (expr));
+            continue;
+          case TRUTH_NOT_EXPR:
+            /* If the expr is a logic "not" operation, negate the value
+               pointed to by lock_on_true_apth and continue trace back
+               the expr's operand.  */
+            *lock_on_true_path = !*lock_on_true_path;
+            expr = TREE_OPERAND (expr, 0);
+            continue;
+          case CALL_EXPR:
+            {
+              tree fdecl = get_callee_fndecl (expr);
+              /* The function decl could be null in some cases, e.g.
+                 a function pointer passed in as a parameter.  */
+              if (fdecl
+                  && (lookup_attribute ("exclusive_trylock",
+                                        DECL_ATTRIBUTES (fdecl))
+                      || lookup_attribute ("shared_trylock",
+                                           DECL_ATTRIBUTES (fdecl))))
+                {
+                  void **entry = pointer_map_contains (trylock_info_map, expr);
+                  gcc_assert (entry);
+                  return (struct trylock_info *)*entry;
+                }
+              else
+                return NULL;
+            }
+          default:
+            return NULL;
+        }
+    }
+
+  gcc_unreachable ();
+
+  return NULL;
+}
+
+/* This routine determines whether a given if-condition expression (COND) is
+   fed by a trylock call through expressions involving only "not", "equal"
+   "not-equal" operations. For example, this routine returns true for all
+   the following code examples:
+
+     (1) if (mu.Trylock()) {
+           ...
+         }
+
+     (2) bool a = mu.Trylock();
+         bool b = !a;
+         if (b) {
+           ...
+         }
+
+     (3) int a = pthread_mutex_trylock(mu);
+         bool b = (a == 1);
+         if (!b) {
+           ...
+         }
+
+     (4) int a = pthread_mutex_trylock(mu);
+         bool b = (a != 0);
+         bool c = b;
+         if (c == true) {
+           ...
+         }
+
+   If the condition is determined to be fed by a trylock call, this routine
+   populates the data structure pointed to by THREADSAFE_INFO, and
+   sets *LOCK_ON_TRUE_PATH to indicate whether the true (control flow) path
+   should be taken when the lock is successfully acquired.  */
+
+static bool
+is_condition_fed_by_trylock(tree cond,
+                            struct bb_threadsafe_info *threadsafe_info,
+                            bool *lock_on_true_path)
+{
+  while (1)
+    {
+      switch (TREE_CODE (cond))
+        {
+          case SSA_NAME:
+            /* If the cond is an ssa name, look at the rhs of its ssa def.  */
+            cond = get_rhs (SSA_NAME_DEF_STMT (cond));
+            continue;
+          case TRUTH_NOT_EXPR:
+            /* If the cond is a logic "not" operation, negate the value
+               pointed to by lock_on_true_apth and continue trace back the
+               cond's operand.  */
+            *lock_on_true_path = !*lock_on_true_path;
+            cond = TREE_OPERAND (cond, 0);
+            continue;
+          case EQ_EXPR:
+          case NE_EXPR:
+            {
+              /* For either "equal" or "not-equal" operations, we currently
+                 only support the case where one of the operands is an
+                 integer constant. The other operand should be a trylock call
+                 or a simple expression fed by a trylock call.  */
+              tree op0 = TREE_OPERAND (cond, 0);
+              tree op1 = TREE_OPERAND (cond, 1);
+              struct trylock_info *tryinfo;
+              int const_op;
+              if (TREE_CODE (op0) == INTEGER_CST)
+                {
+                  const_op = TREE_INT_CST_LOW (op0);
+                  tryinfo = get_trylock_info (op1, lock_on_true_path);
+                }
+              else if (TREE_CODE (op1) == INTEGER_CST)
+                {
+                  const_op = TREE_INT_CST_LOW (op1);
+                  tryinfo = get_trylock_info (op0, lock_on_true_path);
+                }
+              else
+                return false;
+
+              if (tryinfo)
+                {
+                  struct pointer_set_t *edge_locks;
+                  /* Depending on the operation (eq or neq) and whether the
+                     succ_retval of the trylock is the same as the constant
+                     integer operand, we might need to toggle the value
+                     pointed to bylock_on_true_path. For example, if the
+                     succ_retval of TryLock() is 0 and the cond expression is
+                     (mu.TryLock() != 0), we need to negate the
+                     lock_on_true_path value.  */ 
+                  if ((tryinfo->succ_retval == const_op
+                       && TREE_CODE (cond) == NE_EXPR)
+                      || (tryinfo->succ_retval != const_op
+                          && TREE_CODE (cond) == EQ_EXPR))
+                    *lock_on_true_path = !*lock_on_true_path;
+
+                  edge_locks = pointer_set_copy (tryinfo->locks);
+                  if (tryinfo->is_exclusive)
+                    threadsafe_info->edge_exclusive_locks = edge_locks;
+                  else
+                    threadsafe_info->edge_shared_locks = edge_locks;
+                  return true;
+                }
+              else
+                return false;
+            }
+          case CALL_EXPR:
+            {
+              struct trylock_info *tryinfo;
+              tryinfo = get_trylock_info (cond, lock_on_true_path);
+              if (tryinfo)
+                {
+                  struct pointer_set_t *edge_locks;
+                  /* If the succ_retval of the trylock is 0 (or boolean
+                     "false"), we need to negate the value pointed to by
+                     lock_on_true_path.  */
+                  if (tryinfo->succ_retval == 0)
+                    *lock_on_true_path = !*lock_on_true_path;
+                  edge_locks = pointer_set_copy (tryinfo->locks);
+                  if (tryinfo->is_exclusive)
+                    threadsafe_info->edge_exclusive_locks = edge_locks;
+                  else
+                    threadsafe_info->edge_shared_locks = edge_locks;
+                  return true;
+                }
+              else
+                return false;
+            }
+          default:
+            return false;
+        }
+    }
+
+  gcc_unreachable ();
+
+  return false;
+}
+
+/* This is a helper function to populate the LOCK_SET with the locks
+   specified in ATTR's arguments.  */
+
+static void
+populate_lock_set_with_attr (struct pointer_set_t *lock_set, tree attr)
+{
+  tree arg;
+
+  for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
+    {
+      tree lock = TREE_VALUE (arg);
+      gcc_assert (lock);
+      /* If the lock is an integer specifying the argument position, grab
+         the corresponding formal parameter.  */
+      if (TREE_CODE (lock) == INTEGER_CST)
+        {
+          int lock_pos = TREE_INT_CST_LOW (lock);
+          int i;
+          tree parm;
+          for (parm = DECL_ARGUMENTS (current_function_decl), i = 1;
+               parm;
+               parm = TREE_CHAIN (parm), ++i)
+            if (i == lock_pos)
+              break;
+          gcc_assert (parm);
+          lock = parm;
+        }
+
+      /* Add the lock to the lock set.  */
+      pointer_set_insert (lock_set, lock);
+
+      /* If there are unbound locks when the thread safety attributes were
+         parsed, we should try to bind them now if we see any lock declaration
+         that matches the name of the unbound lock.  */
+      if (unbound_lock_map
+          && (TREE_CODE (lock) == VAR_DECL
+              || TREE_CODE (lock) == PARM_DECL
+              || TREE_CODE (lock) == FIELD_DECL))
+        {
+          tree lock_id = DECL_NAME (lock);
+          void **entry = pointer_map_contains (unbound_lock_map, lock_id);
+          if (entry)
+            *entry = lock;
+        }
+    }
+}
+
+/* This is a helper function passed in (as a parameter) to pointer_set_traverse
+   when we traverse the set containing locks that are not properly released 
+   and emit a warning message for each of them. By improper release, we meant
+   the places these locks are released are not control equivalent to where
+   they are acquired. The improperly-released lock set was calculated when we
+   reach a joint point during the data flow analysis. Any lock that is not
+   in all of the preceding basic blocks' live-out sets is considered not
+   released locally. REPORTED set contains the locks for which we have
+   already printed out a warning message. We use this set to avoid emitting
+   duplicate warnings for a lock. Here is an example why duplicate warnings
+   could be emitted if we don't keep a REPORTED set.
+
+          B1:
+            mu.Lock()
+
+            /     \   \
+           /       \   \
+      B2:           B3: B4:
+        mu.Unlock()
+           \        /   /
+            \      /   /
+
+              B5:
+
+   When we reach B5, "mu" would be in the live out sets of B3 and B4, but
+   not that of B2. If we do a live out set intersection between B2 and B3
+   first, and then intersect the resulting set with B4's live out set, we
+   could've emitted the warning message for "mu" twice if we had not kept
+   a reported set.  */
+
+static bool
+warn_locally_unreleased_locks (const void *lock, void *reported)
+{
+  char lname[LOCK_NAME_LEN];
+  void **entry;
+  tree lock_tree = (tree) lock;
+  location_t *loc;
+  struct pointer_set_t *reported_unreleased_locks;
+
+  reported_unreleased_locks = (struct pointer_set_t *) reported;
+
+  /* If this unreleased lock has be reported, don't emit a warning message
+     for it again.  */
+  if (!pointer_set_contains (reported_unreleased_locks, lock))
+    {
+      entry = pointer_map_contains (lock_locus_map, lock);
+      if (entry)
+        {
+          loc = (location_t *) *entry;
+          warning (OPT_Wthread_safety,
+                   G_("%HLock %s (acquired at line %d) is not released at"
+                      " the end of its scope in function %qE"),
+                   loc, dump_expr_tree (lock_tree, lname),
+                   LOCATION_LINE (*loc),
+                   DECL_NAME (current_function_decl));
+        }
+      else
+        warning (OPT_Wthread_safety,
+                 G_("%HLock %s (held at entry) is released on some but not all"
+                    " control flow paths in function %qE"),
+                 &DECL_SOURCE_LOCATION (current_function_decl),
+                 dump_expr_tree (lock_tree, lname),
+                 DECL_NAME (current_function_decl));
+
+      pointer_set_insert (reported_unreleased_locks, lock);
+    }
+
+  return true;
+}
+
+/* This is a helper function passed in (as a parameter) to traverse_pointer_set
+   when we iterate through the set of locks that are not released at the end
+   of a function. A warning message is emitted for each of them unless they
+   were not acquired in the current function (i.e. acquired before calling
+   the current function).  */
+
+static bool
+warn_unreleased_locks (const void *lock, void *locks_at_entry)
+{
+  /* If the unreleased lock was actually acquired before calling the current
+     function, we don't emit a warning for it as the lock is not expected to
+     be released in the current function anyway.  */
+  if (!pointer_set_contains ((struct pointer_set_t *) locks_at_entry, lock))
+    {
+      char lname[LOCK_NAME_LEN];
+      void **entry = pointer_map_contains (lock_locus_map, lock);
+      tree lock_tree = (tree) lock;
+      location_t *loc;
+      gcc_assert (entry);
+      loc = (location_t *) *entry;
+      warning (OPT_Wthread_safety,
+               G_("%HLock %s (acquired at line %d) is not released at the end"
+                  " of function %qE"),
+               loc, dump_expr_tree (lock_tree, lname),
+               LOCATION_LINE (*loc),
+               DECL_NAME (current_function_decl));
+    }
+
+  return true;
+}
+
+/* This is a helper function passed in (as a parameter) to
+   pointer_map_traverse when we delete lock_locus_map.  */
+
+static bool
+delete_lock_locations (const void * ARG_UNUSED (lock),
+                       void **entry, void * ARG_UNUSED (data))
+{
+  XDELETE (*entry);
+  return true;
+}
+
+/* This is a helper function passed in (as a parameter) to
+   pointer_map_traverse when we delete trylock_info_map.  */
+
+static bool
+delete_trylock_info (const void * ARG_UNUSED (call),
+                     void **entry, void * ARG_UNUSED (data))
+{
+  struct trylock_info *tryinfo = (struct trylock_info *)*entry;
+  gcc_assert (tryinfo);
+  pointer_set_destroy (tryinfo->locks);
+  XDELETE (tryinfo);
+  return true;
+}
+
+/* Perform thread safety analysis using the attributes mentioned above
+   (see comments at the beginning of the file).  The analysis pass uses
+   a single-pass (or single iteration) data-flow analysis to calculate
+   live lock sets at each program point, using the attributes to decide
+   when to add locks to the live sets and when to remove them from the
+   sets. With the live lock sets and the attributes attached to shared
+   variables and functions, we are able to check whether the variables
+   and functions are well protected. Note that the reason why we don't
+   need iterative data flow analysis is because critical sections across
+   back edges are considered a bad practice.
+
+   The single-iteration data flow analysis is performed by visiting
+   each basic block only once in a topological order. The topological
+   traversal is achieved by maintaining a work list (or ready list) which
+   is seeded with the successors of the function's entry block. A basic
+   block is added to the work list when all of its predecessors have been
+   visited. During the traversal, back edges are ignored.  */
+
+static unsigned int
+execute_threadsafe_analyze (void)
+{
+  size_t append_ptr = 0, visit_ptr = 0;
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+  tree fdecl_attrs;
+  struct bb_threadsafe_info *threadsafe_info;
+  struct pointer_set_t *live_excl_locks_at_entry;
+  struct pointer_set_t *live_shared_locks_at_entry;
+  tree attr;
+  basic_block *worklist;
+  int i;
+
+  /* Skip the compiler-generated functions.  */
+  if (DECL_ARTIFICIAL (current_function_decl))
+    return 0;
+
+  /* Constructors and destructors should only be accessed by a single
+     thread and therefore are ignored here.  */
+  if (DECL_LANGUAGE (current_function_decl) == lang_cplusplus)
+    if (DECL_CONSTRUCTOR_P (current_function_decl)
+        || DECL_DESTRUCTOR_P (current_function_decl))
+      return 0;
+
+  /* If the current function is annotated as a locking or unlocking primitive,
+     or if it is marked to be skipped (with no_thread_safety_analysis
+     attribute), ignore it.  */
+  fdecl_attrs = DECL_ATTRIBUTES (current_function_decl);
+  if (lookup_attribute("exclusive_lock", fdecl_attrs)
+      || lookup_attribute("shared_lock", fdecl_attrs)
+      || lookup_attribute("exclusive_trylock", fdecl_attrs)
+      || lookup_attribute("shared_trylock", fdecl_attrs)
+      || lookup_attribute("unlock", fdecl_attrs)
+      || lookup_attribute("no_thread_safety_analysis", fdecl_attrs))
+    return 0;
+
+  /* If this is the first function of the current compilation unit, we need
+     to build the transitive acquired_after sets for the locks.  */
+  if (lock_acquired_after_map && !transitive_acq_after_sets_built)
+    {
+      build_transitive_acquired_after_sets();
+      transitive_acq_after_sets_built = true;
+    }
+
+  /* Mark the back edges in the cfg so that we can skip them later
+     in our (single-iteration) data-flow analysis.  */
+  mark_dfs_back_edges ();
+
+  /* Allocate lock-related global maps.  */
+  scopedlock_to_lock_map = pointer_map_create ();
+  lock_locus_map = pointer_map_create ();
+  trylock_info_map = pointer_map_create ();
+  lock_expr_tab = htab_create (10, lock_expr_hash, lock_expr_eq, NULL);
+
+  /* Initialize the pretty printer buffer for warning emitting.  */
+  pp_construct (&pp_buf, /* prefix */ NULL, /* line-width */ 0);
+
+  /* Allocate the threadsafe info array.
+     Use XCNEWVEC to clear out the info.  */
+  threadsafe_info = XCNEWVEC(struct bb_threadsafe_info, last_basic_block);
+
+  /* Since the back/complex edges are not traversed in the analysis,
+     mark them as visited.  */
+  FOR_EACH_BB (bb)
+    {
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+            ++threadsafe_info[bb->index].n_preds_visited;
+        }
+    }
+
+  /* Populate ENTRY_BLOCK's live out sets with "exclusive_locks_required"
+     and "shared_locks_required" attributes.  */
+  live_excl_locks_at_entry = pointer_set_create();
+  live_shared_locks_at_entry = pointer_set_create();
+
+  attr = lookup_attribute("exclusive_locks_required",
+                          DECL_ATTRIBUTES (current_function_decl));
+  if (attr)
+    populate_lock_set_with_attr(live_excl_locks_at_entry, attr);
+
+  attr = lookup_attribute("shared_locks_required",
+                          DECL_ATTRIBUTES (current_function_decl));
+  if (attr)
+    populate_lock_set_with_attr(live_shared_locks_at_entry, attr);
+
+  threadsafe_info[ENTRY_BLOCK_PTR->index].liveout_exclusive_locks =
+      live_excl_locks_at_entry;
+  threadsafe_info[ENTRY_BLOCK_PTR->index].liveout_shared_locks =
+      live_shared_locks_at_entry;
+
+  /* Allocate the worklist of BBs for topological traversal, which is
+     basically an array of pointers to basic blocks.  */
+  worklist = XNEWVEC (basic_block, n_basic_blocks);
+
+  /* Seed the worklist by adding the successors of the entry block
+     to the worklist.  */
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+    {
+      worklist[append_ptr++] = e->dest;
+    }
+
+  /* The basic blocks in the current function are traversed in a topological
+     order. Both "visit_ptr" and "append_ptr" are indices to the worklist
+     array and initialized to zero. "append_ptr" is incremented whenever a BB
+     is added to the work list, while "visit_ptr" is incremented when we
+     visit a BB. When "visit_ptr" catches up with "append_ptr", the traversal
+     is done.  */
+  while (visit_ptr != append_ptr)
+    {
+      struct pointer_set_t *live_excl_locks = NULL;
+      struct pointer_set_t *live_shared_locks = NULL;
+      struct pointer_set_t *reported_unreleased_locks = pointer_set_create();
+      block_stmt_iterator bsi;
+
+      bb = worklist[visit_ptr++];
+      threadsafe_info[bb->index].visited = true;
+
+      /* First create the live-in lock sets for bb by intersecting all of its
+         predecessors' live-out sets */
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          basic_block pred_bb = e->src;
+          struct pointer_set_t *unreleased_locks;
+          struct pointer_set_t *pred_liveout_excl_locks;
+          struct pointer_set_t *pred_liveout_shared_locks;
+
+          /* Skip the back/complex edge.  */
+          if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+            continue;
+
+          /* If this is the first predecessor of bb's, simply copy the
+             predecessor's live-out sets to bb's live (working) sets.  */
+          if (live_excl_locks == NULL)
+            {
+              live_excl_locks = pointer_set_copy (
+                  threadsafe_info[pred_bb->index].liveout_exclusive_locks);
+              live_shared_locks = pointer_set_copy (
+                  threadsafe_info[pred_bb->index].liveout_shared_locks);
+              /* If the pred bb has a trylock call and its edge to the current
+                 bb is the one for successful lock acquisition, add the
+                 trylock live sets to the bb's live working sets.  */
+              if (threadsafe_info[pred_bb->index].trylock_live_edge == e)
+                {
+                  gcc_assert (
+                      threadsafe_info[pred_bb->index].edge_exclusive_locks
+                      || threadsafe_info[pred_bb->index].edge_shared_locks);
+                  if (threadsafe_info[pred_bb->index].edge_exclusive_locks)
+                    pointer_set_union_inplace (live_excl_locks,
+                         threadsafe_info[pred_bb->index].edge_exclusive_locks);
+                  if (threadsafe_info[pred_bb->index].edge_shared_locks)
+                    pointer_set_union_inplace (live_shared_locks,
+                            threadsafe_info[pred_bb->index].edge_shared_locks);
+                }
+              continue;
+            }
+
+          unreleased_locks = pointer_set_create();
+          pred_liveout_excl_locks =
+              threadsafe_info[pred_bb->index].liveout_exclusive_locks;
+          pred_liveout_shared_locks =
+              threadsafe_info[pred_bb->index].liveout_shared_locks;
+          
+          /* If the pred bb has a trylock call and its edge to the current
+             bb is the one for successful lock acquisition, add the
+             trylock live sets to the pred bb's live-out sets.  */
+          if (threadsafe_info[pred_bb->index].trylock_live_edge == e)
+            {
+              gcc_assert(threadsafe_info[pred_bb->index].edge_exclusive_locks
+                         || threadsafe_info[pred_bb->index].edge_shared_locks);
+              /* The following code will clobber the original contents of
+                 edge_exclusive_locks set and/or edge_shared_locks set of
+                 the pred bb, but that is fine because they will not be
+                 used in the future (as this edge is visited only once in
+                 our single-iteration data-flow analysis).  */
+              if (threadsafe_info[pred_bb->index].edge_exclusive_locks)
+                {
+                  pred_liveout_excl_locks =
+                      threadsafe_info[pred_bb->index].edge_exclusive_locks;
+                  pointer_set_union_inplace (pred_liveout_excl_locks,
+                      threadsafe_info[pred_bb->index].liveout_exclusive_locks);
+                }
+                
+              if (threadsafe_info[pred_bb->index].edge_shared_locks)
+                {
+                  pred_liveout_shared_locks =
+                      threadsafe_info[pred_bb->index].edge_shared_locks;
+                  pointer_set_union_inplace (pred_liveout_shared_locks,
+                         threadsafe_info[pred_bb->index].liveout_shared_locks);
+                }
+            }
+
+          /* Intersect the current (working) live set with the predecessor's
+             live-out set. Locks that are not in the intersection (i.e.
+             complement set) should be reported as improperly released.  */
+          pointer_set_intersection_complement (live_excl_locks,
+                                               pred_liveout_excl_locks,
+                                               unreleased_locks);
+          pointer_set_intersection_complement (live_shared_locks,
+                                               pred_liveout_shared_locks,
+                                               unreleased_locks);
+
+          /* Emit warnings for the locks that are not properly released.
+             That is, the places they are released are not control
+             equivalent to where they are acquired.  */
+          if (warn_thread_mismatched_lock_acq_rel)
+            pointer_set_traverse (unreleased_locks,
+                                  warn_locally_unreleased_locks,
+                                  reported_unreleased_locks);
+
+          pointer_set_destroy (unreleased_locks);
+        }
+
+      pointer_set_destroy (reported_unreleased_locks);
+      gcc_assert (live_excl_locks != NULL);
+
+      /* Now iterate through each statement of the bb and analyze its
+         expressions/operands. Note that when analyzing a statement,
+         instead of using the SSA tree operand iterators, we manually
+         analyze the expressions/operands on both rhs and lhs of the
+         statement. The reason for that is because the SSA operand iterators
+         do not visit non-SSA operands while we would like to take
+         advantage of the fact that a non-pointer variable would be
+         accessed the same way when it is in the SSA form. For example,
+         if we have an original statement like this:
+
+             S1: gx = gy + 1; // read gy, write gx
+
+         After SSA transformation, we have the following code sequence:
+
+             S1': gy.0 = gy;   // read gy
+             S2': gx.1 = gy.0 + 1;
+             S3': gx = gx.1;   // write gx
+
+         Using the SSA operand iterators, variable gy in S1' and gx in S3'
+         will not be visited. Even if we can get gy from gy.0, for example,
+         gy.0 is not accessed exactly the same way as gy (as gy.0 is written
+         in S1' while gy is never written in original statement S1). So it
+         seems using SSA operand iterators will only make our lives harder.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+        {
+          tree stmt = bsi_stmt (bsi);
+          tree rhs;
+          location_t locus;
+
+          /* Ignore labels.  */
+          if (TREE_CODE (stmt) == LABEL_EXPR)
+            continue;
+
+          rhs = get_rhs(stmt);
+
+          /* If the main expression of the stmt is NULL, nothing in this
+             stmt is interesting so simply continue to the next one.  */
+          if (!rhs)
+            continue;
+
+          if (!EXPR_HAS_LOCATION (stmt))
+            locus = input_location;
+          else
+            locus = EXPR_LOCATION (stmt);
+
+          if (!CONSTANT_CLASS_P (rhs))
+            analyze_expr(rhs, NULL_TREE, live_excl_locks, live_shared_locks,
+                         &locus, TSA_READ);
+
+          if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
+            {
+              tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
+
+              analyze_expr(lhs, NULL_TREE, live_excl_locks, live_shared_locks,
+                           &locus, TSA_WRITE);
+            }
+          else if (TREE_CODE (stmt) == COND_EXPR)
+            {
+              tree cond = COND_EXPR_COND (stmt);
+              bool lock_on_true_path = true;
+              gcc_assert (stmt == last_stmt (bb));
+              /* Check if the condition expression is fed by a trylock call.
+                 If so, record the edge that indicates successful lock
+                 acquisition.  */
+              if (is_condition_fed_by_trylock(cond,
+                                              &threadsafe_info[bb->index],
+                                              &lock_on_true_path))
+                {
+                  edge true_edge, false_edge;
+                  gcc_assert (threadsafe_info[bb->index].edge_exclusive_locks
+                              || threadsafe_info[bb->index].edge_shared_locks);
+                  extract_true_false_edges_from_block (bb, &true_edge,
+                                                       &false_edge);
+                  if (lock_on_true_path)
+                    threadsafe_info[bb->index].trylock_live_edge = true_edge;
+                  else
+                    threadsafe_info[bb->index].trylock_live_edge = false_edge;
+                }
+            }
+        }
+
+      /* Now that we have visited the current bb, check if any of its
+         successors can be added to the work list.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        {
+          basic_block succ_bb;
+          if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+            continue;
+          succ_bb = e->dest;
+          /* Since we skip the back edges, we shouldn't see a visited basic
+             block again here.  */
+          gcc_assert (!threadsafe_info[succ_bb->index].visited);
+          if ((++threadsafe_info[succ_bb->index].n_preds_visited) ==
+              EDGE_COUNT(succ_bb->preds))
+            worklist[append_ptr++] = succ_bb;
+        }
+
+      threadsafe_info[bb->index].liveout_exclusive_locks = live_excl_locks;
+      threadsafe_info[bb->index].liveout_shared_locks = live_shared_locks;
+    }
+
+  /* If there are still live locks at the end of the function that are held
+     at the entry of the function (i.e. not in the function's locks_required
+     sets), emit warning messages for them.  */
+  if (warn_thread_mismatched_lock_acq_rel)
+    {
+      pointer_set_traverse(
+          threadsafe_info[EXIT_BLOCK_PTR->index].liveout_exclusive_locks,
+          warn_unreleased_locks, live_excl_locks_at_entry);
+      pointer_set_traverse(
+          threadsafe_info[EXIT_BLOCK_PTR->index].liveout_shared_locks,
+          warn_unreleased_locks, live_shared_locks_at_entry);
+    }
+
+  /* Free the allocated data structures.  */
+  for (i = 0; i < last_basic_block; ++i)
+    {
+      if (threadsafe_info[i].liveout_exclusive_locks != NULL)
+        {
+          pointer_set_destroy(threadsafe_info[i].liveout_exclusive_locks);
+          pointer_set_destroy(threadsafe_info[i].liveout_shared_locks);
+        }
+      if (threadsafe_info[i].edge_exclusive_locks != NULL)
+        pointer_set_destroy (threadsafe_info[i].edge_exclusive_locks);
+      if (threadsafe_info[i].edge_shared_locks != NULL)
+        pointer_set_destroy (threadsafe_info[i].edge_shared_locks);
+    }
+
+  XDELETEVEC (threadsafe_info);
+  XDELETEVEC (worklist);
+
+  pp_clear_output_area (&pp_buf);
+  pointer_map_destroy (scopedlock_to_lock_map);
+  pointer_map_traverse (lock_locus_map, delete_lock_locations, NULL);
+  pointer_map_destroy (lock_locus_map);
+  pointer_map_traverse (trylock_info_map, delete_trylock_info, NULL);
+  pointer_map_destroy (trylock_info_map);
+  htab_delete (lock_expr_tab);
+
+  return 0;
+}
+
+static bool
+gate_threadsafe_analyze (void)
+{
+  return warn_thread_safety != 0;
+}
+
+struct gimple_opt_pass pass_threadsafe_analyze =
+{
+  {
+    GIMPLE_PASS,
+    "threadsafe_analyze",                 /* name */
+    gate_threadsafe_analyze,              /* gate */
+    execute_threadsafe_analyze,           /* execute */
+    NULL,                                 /* sub */
+    NULL,                                 /* next */
+    0,                                    /* static_pass_number */
+    0,                                    /* tv_id */
+    PROP_cfg | PROP_ssa,                  /* properties_required */
+    0,                                    /* properties_provided */
+    0,                                    /* properties_destroyed */
+    0,                                    /* todo_flags_start */
+    TODO_dump_func                        /* todo_flags_finish */
+  }
+};

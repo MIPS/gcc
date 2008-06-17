@@ -1014,6 +1014,7 @@ static struct c_expr c_parser_postfix_expression_after_primary (c_parser *,
 static struct c_expr c_parser_expression (c_parser *);
 static struct c_expr c_parser_expression_conv (c_parser *);
 static tree c_parser_expr_list (c_parser *, bool);
+static tree c_parser_attr_arg_list (c_parser *);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
@@ -2931,34 +2932,11 @@ c_parser_attributes (c_parser *parser)
 	      continue;
 	    }
 	  c_parser_consume_token (parser);
-	  /* Parse the attribute contents.  If they start with an
-	     identifier which is followed by a comma or close
-	     parenthesis, then the arguments start with that
-	     identifier; otherwise they are an expression list.  */
-	  if (c_parser_next_token_is (parser, CPP_NAME)
-	      && c_parser_peek_token (parser)->id_kind == C_ID_ID
-	      && ((c_parser_peek_2nd_token (parser)->type == CPP_COMMA)
-		  || (c_parser_peek_2nd_token (parser)->type
-		      == CPP_CLOSE_PAREN)))
-	    {
-	      tree arg1 = c_parser_peek_token (parser)->value;
-	      c_parser_consume_token (parser);
-	      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-		attr_args = build_tree_list (NULL_TREE, arg1);
-	      else
-		{
-		  c_parser_consume_token (parser);
-		  attr_args = tree_cons (NULL_TREE, arg1,
-					 c_parser_expr_list (parser, false));
-		}
-	    }
-	  else
-	    {
-	      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-		attr_args = NULL_TREE;
-	      else
-		attr_args = c_parser_expr_list (parser, false);
-	    }
+	  /* Parse the attribute contents. */
+          if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
+            attr_args = NULL_TREE;
+          else
+            attr_args = c_parser_attr_arg_list (parser);
 	  attr = build_tree_list (attr_name, attr_args);
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    c_parser_consume_token (parser);
@@ -5746,6 +5724,63 @@ c_parser_expr_list (c_parser *parser, bool convert_p)
       if (convert_p)
 	expr = default_function_array_conversion (expr);
       cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, expr.value);
+    }
+  return ret;
+}
+
+/* Parse the attribute contents (argument list). This routine is similar
+   to c_parser_expr_list except that when an argument is an identifier,
+   instead of calling c_parser_expr_no_commas to get its corresponding
+   DECL tree, we leave the identifier node as-is in the argument list.
+   This allows an attribute to take as an argument an identifier not
+   currently in scope when the attribute is being parsed. If the DECL tree
+   of an identifier argument is needed later in the compilation, it is the
+   attribute handlers' responsibility (see c-common.c) to replace the
+   IDENTIFIER node with the DECL node. See also cp/parser.c
+   (cp_parser_parenthesized_expression_list) for an example.  */
+
+static tree
+c_parser_attr_arg_list (c_parser *parser)
+{
+  struct c_expr expr;
+  tree ret, cur, identifier;
+
+  /* Process the first argument and initialize ret and cur.  */
+  if (c_parser_next_token_is (parser, CPP_NAME)
+      && c_parser_peek_token (parser)->id_kind == C_ID_ID
+      && ((c_parser_peek_2nd_token (parser)->type == CPP_COMMA)
+          || (c_parser_peek_2nd_token (parser)->type == CPP_CLOSE_PAREN)))
+    {
+      /* If the token is an identifier which is followed by a comma or close
+         parenthesis, then the argument is an identifier.  */
+      identifier = c_parser_peek_token (parser)->value;
+      c_parser_consume_token (parser);
+      ret = cur = build_tree_list (NULL_TREE, identifier);
+    }
+  else
+    {
+      expr = c_parser_expr_no_commas (parser, NULL);
+      ret = cur = build_tree_list (NULL_TREE, expr.value);
+    }
+
+  /* Process the remaining arguments of the list if there is any.  */
+  while (c_parser_next_token_is (parser, CPP_COMMA))
+    {
+      c_parser_consume_token (parser);
+      if (c_parser_next_token_is (parser, CPP_NAME)
+          && c_parser_peek_token (parser)->id_kind == C_ID_ID
+          && ((c_parser_peek_2nd_token (parser)->type == CPP_COMMA)
+              || (c_parser_peek_2nd_token (parser)->type == CPP_CLOSE_PAREN)))
+        {
+          identifier = c_parser_peek_token (parser)->value;
+          c_parser_consume_token (parser);
+          cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, identifier);
+        }
+      else
+        {
+          expr = c_parser_expr_no_commas (parser, NULL);
+          cur = TREE_CHAIN (cur) = build_tree_list (NULL_TREE, expr.value);
+        }
     }
   return ret;
 }

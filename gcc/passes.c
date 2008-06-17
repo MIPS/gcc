@@ -550,6 +550,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_build_ssa);
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
+          NEXT_PASS (pass_threadsafe_analyze);
 	  NEXT_PASS (pass_early_inline);
 	  NEXT_PASS (pass_cleanup_cfg);
 	  NEXT_PASS (pass_rename_ssa_copies);

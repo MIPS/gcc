@@ -1213,6 +1213,7 @@ OBJS-common = \
 	tree-ssanames.o \
 	tree-stdarg.o \
 	tree-tailcall.o \
+        tree-threadsafe-analyze.o \
 	tree-vect-analyze.o \
 	tree-vect-generic.o \
 	tree-vect-patterns.o \

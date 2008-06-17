@@ -612,6 +612,11 @@ c_cpp_builtins (cpp_reader *pfile)
   if (c_dialect_cxx () && TYPE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
 
+  /* Define a macro indicating whether the thread safety attributes/analysis
+     is supported.  */
+  if (warn_thread_safety)
+    cpp_define (pfile, "__SUPPORT_TS_ANNOTATION__");
+
   /* Tell source code if the compiler makes sync_compare_and_swap
      builtins available.  */
 #ifdef HAVE_sync_compare_and_swapqi

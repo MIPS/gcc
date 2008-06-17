@@ -5067,6 +5067,32 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	    token = cp_lexer_consume_token (parser->lexer);
 	    /* Save the identifier.  */
 	    identifier = token->u.value;
+            /* When processing an attribute argument list, we used to set
+               is_attribute_list to false after finishing processing the
+               first argument so that the rest of the list was treated as
+               a normal expression list (which implies any identifier in the
+               rest of the list would be replaced with its corresponding DECL
+               node). However, that practice limits the ability for an
+               attribute to take as the second (or higher) argument an
+               identifier not currently in scope when the attribute is being
+               parsed. For example, assuming a function attribute
+               "exclusive_lock" takes a list of identifiers as parameters
+               (indicating what locks it acquires), the following usage would
+               get an error with the old implementation as mu2 is not yet in
+               scope when the attribute is parsed and therefore we couldn't
+               find its DECL node:
+
+                 int my_mutex_lock(Mutex *mu1, Mutex *mu2)
+                                __attribute__ ((exclusive_lock(mu1, mu2)));
+
+               In order to lift this limitation, the code is changed so that
+               we no longer set is_attribute_list to false after processing
+               the first argument, and any remaining identifier node of the
+               list is not replaced with its DECL tree node. Instead, the
+               attribute handler routines (see c-common.c) will need to
+               take care of that. */
+            expression_list = tree_cons (NULL_TREE, identifier,
+                                         expression_list);
 	  }
 	else
 	  {
@@ -5108,10 +5134,6 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	      goto skip_comma;
 	  }
 
-	/* After the first item, attribute lists look the same as
-	   expression lists.  */
-	is_attribute_list = false;
-
       get_comma:;
 	/* If the next token isn't a `,', then we are done.  */
 	if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
@@ -5147,8 +5169,6 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 
   /* We built up the list in reverse order so we must reverse it now.  */
   expression_list = nreverse (expression_list);
-  if (identifier)
-    expression_list = tree_cons (NULL_TREE, identifier, expression_list);
 
   return expression_list;
 }
@@ -14437,6 +14457,10 @@ cp_parser_class_specifier (cp_parser* parser)
   /* Look for trailing attributes to apply to this class.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
     attributes = cp_parser_attributes_opt (parser);
+  /* Process the thread safety attributes that were not processed when they
+     were parsed if thread safety analysis is enabled.  */
+  if (warn_thread_safety)
+    process_unbound_attribute_args();
   if (type != error_mark_node)
     type = finish_struct (type, attributes);
   if (nested_name_specifier_p)

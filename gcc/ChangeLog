@@ -1,3 +1,60 @@
+2008-06-17  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Pass 'flags' to the
+	print_call_name call.
+	(print_call_name): Add a new parameter 'flags' and pass it to the
+	dump_generic_node calls.
+	* tree-pass.h: Add a new pass declaration.
+	* pointer-set.c (pointer_set_copy): New function.
+	(pointer_set_delete): Likewise.
+	(pointer_set_intersection_complement): Likewise.
+	(pointer_set_union_inplace): Likewise.
+	(pointer_set_cardinality): Likewise.
+	* pointer-set.h: Add declarations of new functions.
+	* toplev.c: Include tree-threadsafe-analyze.h.
+	(compile_file): Clean up the global data structures used by the thread
+	safety analysis.
+	* c-cppbuiltin.c (c_cpp_builtins): Define a new macro
+	'__SUPPORT_TS_ANNOTATION__'.
+	* gimplify.c (lookup_tmp_var): Copy thread safety attributes to tmp
+	variable and save the original variable name.
+	* common.opt: Add new warning flags -Wthread-safety,
+	-Wthread-unguarded-var, -Wthread-unguarded-func,
+	-Wthread-mismatched-lock-order, -Wthread-mismatched-lock-acq-rel,
+	-Wthread-reentrant-lock.
+	* c-common.c: Include tree-threadsafe-analyze.h and define new thread
+	safety attributes.
+	(unbound_attribute_args): New variable for delaying process of thread
+        safety attributes in class definition.
+	(unprocessed_acq_after_args): Likewise.
+	(unprocessed_acq_before_args): Likewise.
+	(handle_lockable_attribute): New attribute handler.
+	(handle_guarded_by_attribute): Likewise.
+	(handle_point_to_guarded_by_attribute): Likewise.
+	(handle_guarded_attribute): Likewise.
+	(handle_point_to_guarded_attribute): Likewise.
+	(handle_acquired_order_attribute): Likewise.
+	(handle_lock_attribute): Likewise.
+	(handle_unlock_attribute): Likewise.
+	(handle_locks_required_excluded_attribute): Likewise.
+	(handle_lock_returned_attribute): Likewise.
+	(handle_no_thread_safety_analysis_attribute): Likewise.
+	(get_lock_decl): New helper function.
+	(populate_acquired_after_map): Likewise.
+	(is_lock_formal_parameter): Likewise.
+	(check_lock_unlock_attr_args): Likewise.
+	(process_unbound_attribute_args): New function to process thread safety
+	attributes inside a class definition.
+	* c-common.h: Add declaration for process_unbound_attribute_args.
+	* Makefile.in (OBJS-common): Add tree-threadsafe-analyze.o.
+	* passes.c (init_optimization_passes): Add a new pass.
+	* tree-threadsafe-analyze.c: New file.
+	* tree-threadsafe-analyze.h: New file.
+	* c-parser.c (c_parser_attributes): Replace the original code that
+	handles the argument list with a call to c_parser_attr_arg_list.
+	(c_parser_attr_arg_list): New function to parse the attribute argument
+	list.
+
 2008-06-16  Eric B. Weddington  <eric.weddington@atmel.com>
 
 	* config/avr/avr.c (avr_mcu_t): Add atmega32c1.

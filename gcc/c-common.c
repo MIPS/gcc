@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "target-def.h"
 #include "fixed-value.h"
+#include "tree-threadsafe-analyze.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -519,6 +520,32 @@ const struct fname_var_t fname_vars[] =
   {NULL, 0, 0},
 };
 
+/* When parsing thread safety attributes inside a class definition, instead
+   of trying to bind an identifier argument to its decl tree right away,
+   we delay the binding (by adding the attribute arguments to the following
+   three lists) until after the definition of the class is finished
+   parsing. The reason for this delayed binding is because the declaration
+   of the identifier could appear later lexically in the class definition.
+   For example, in the following code, if we try to bind identifier "mu"
+   when we parse the attribute, we will not be able to find its DECL tree.
+   We have to wait until the whole class specification is parsed.
+
+     class Foo {
+       private:
+         int a  __attribute__ ((guarded_by(mu)));
+         Mutex mu;
+     };
+
+   "unprocessed_acq_after_args" and "unprocessed_acq_before_args" are used
+   for the arguments in "acquired_after" and "acquired_before" attributes,
+   respectively, while "unbound_attribute_args" is used for the identifier
+   arguments in other attributes. We distinguish arguments in "acquired_after"
+   and "acquired_before" from others because they need to be processed
+   specially (i.e. to populate the acquired_after map).  */
+tree unbound_attribute_args = NULL_TREE;
+tree unprocessed_acq_after_args = NULL_TREE;
+tree unprocessed_acq_before_args = NULL_TREE;
+
 static tree check_case_value (tree);
 static bool check_case_bounds (tree, tree, tree *, tree *);
 
@@ -574,6 +601,21 @@ static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_lockable_attribute (tree *, tree, tree, int, bool *);
+static tree handle_guarded_by_attribute (tree *, tree, tree, int, bool *);
+static tree handle_point_to_guarded_by_attribute (tree *, tree, tree, int,
+                                                  bool *);
+static tree handle_guarded_attribute (tree *, tree, tree, int, bool *);
+static tree handle_point_to_guarded_attribute (tree *, tree, tree, int,
+                                               bool *);
+static tree handle_acquired_order_attribute (tree *, tree, tree, int, bool *);
+static tree handle_lock_attribute (tree *, tree, tree, int, bool *);
+static tree handle_unlock_attribute (tree *, tree, tree, int, bool *);
+static tree handle_locks_required_excluded_attribute (tree *, tree, tree, int,
+                                                      bool *);
+static tree handle_lock_returned_attribute (tree *, tree, tree, int, bool *);
+static tree handle_no_thread_safety_analysis_attribute (tree *, tree, tree,
+                                                        int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -684,6 +726,42 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_error_attribute },
   { "error",		      1, 1, true,  false, false,
 			      handle_error_attribute },
+  { "lockable",               0, 0, false,  false, false,
+			      handle_lockable_attribute },
+  { "scoped_lockable",        0, 0, false,  false, false,
+			      handle_lockable_attribute },
+  { "guarded_by",             1, 1, true,  false, false,
+			      handle_guarded_by_attribute },
+  { "point_to_guarded_by",    1, 1, true,  false, false,
+			      handle_point_to_guarded_by_attribute },
+  { "guarded",                0, 0, true,  false, false,
+			      handle_guarded_attribute },
+  { "point_to_guarded",       0, 0, true,  false, false,
+			      handle_point_to_guarded_attribute },
+  { "acquired_after",         1, -1, true,  false, false,
+			      handle_acquired_order_attribute },
+  { "acquired_before",        1, -1, true,  false, false,
+			      handle_acquired_order_attribute },
+  { "exclusive_lock",         0, -1, true,  false, false,
+			      handle_lock_attribute },
+  { "shared_lock",            0, -1, true,  false, false,
+			      handle_lock_attribute },
+  { "exclusive_trylock",      0, -1, true,  false, false,
+			      handle_lock_attribute },
+  { "shared_trylock",         0, -1, true,  false, false,
+			      handle_lock_attribute },
+  { "unlock",                 0, -1, true,  false, false,
+			      handle_unlock_attribute },
+  { "exclusive_locks_required", 1, -1, true,  false, false,
+                              handle_locks_required_excluded_attribute },
+  { "shared_locks_required",  1, -1, true,  false, false,
+                              handle_locks_required_excluded_attribute },
+  { "locks_excluded",         1, -1, true,  false, false,
+                              handle_locks_required_excluded_attribute },
+  { "lock_returned",          1, 1, true,  false, false,
+                              handle_lock_returned_attribute },
+  { "no_thread_safety_analysis", 0, 0, true,  false, false,
+                              handle_no_thread_safety_analysis_attribute },
   { NULL,                     0, 0, false, false, false, NULL }
 };
 
@@ -6532,6 +6610,722 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
+
+/* Handle a "lockable" or a "scoped_lockable" attribute.  */
+
+static tree
+handle_lockable_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+                           int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree type = *node;
+
+  if (TREE_CODE (type) != RECORD_TYPE && TREE_CODE (type) != UNION_TYPE)
+    {
+      if (TREE_CODE (type) == TYPE_DECL)
+        warning (OPT_Wattributes,
+                 "%qE attribute should be applied to a type, not a"
+                 " type declaration (i.e. typedef)",
+                 name);
+      else
+        warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* A helper function that returns a lock decl tree if LOCK is an
+   identifier and can be bound to a decl tree. Otherwise, returns LOCK
+   itself. If LOCK is an identifier which cannot be bound at this time,
+   ADD_UNBOUND_LOCK_TO_MAP controls whether to insert the LOCK to the
+   unbound_lock_map.  */
+
+static tree
+get_lock_decl (tree lock, bool add_unbound_lock_to_map)
+{
+  tree lockable_decl = lock;
+
+  if (TREE_CODE (lock) == IDENTIFIER_NODE) 
+    {
+      lockable_decl = lookup_name (lock);
+      if (lockable_decl == NULL)
+        {
+          if (add_unbound_lock_to_map)
+            {
+              /* If the identifier is not in the current scope, add it to the
+                 unbound lock map so that we will try to bind it later in our
+                 analysis.  */
+              void **entry;
+              if (unbound_lock_map == NULL)
+                unbound_lock_map = pointer_map_create();
+              entry = pointer_map_contains (unbound_lock_map, lock);
+              if (!entry)
+                {
+                  entry = pointer_map_insert (unbound_lock_map, lock);
+                  *entry = NULL;
+                }
+            }
+          lockable_decl = lock;
+        }
+    }
+
+  return lockable_decl;
+}
+
+/* Handle a "guarded_by" attribute.  */
+
+static tree
+handle_guarded_by_attribute (tree *node, tree name, tree args,
+                             int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != VAR_DECL
+      && TREE_CODE (decl) != PARM_DECL
+      && TREE_CODE (decl) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* If thread safety analysis is enabled, convert the attr arg from an
+     identifier to a decl tree.  */
+  if (warn_thread_safety)
+    {
+      /* If the decl node is a class member, delay the binding until
+         after the class specification is parsed as its attribute
+         arguments could reference another class member declared later.  */
+      if (TREE_CODE (decl) == FIELD_DECL)
+        {
+          tree new_list_node = build_tree_list (NULL_TREE, args);
+          TREE_CHAIN (new_list_node) = unbound_attribute_args;
+          unbound_attribute_args = new_list_node;
+        }
+      else
+        TREE_VALUE (args) = get_lock_decl (TREE_VALUE (args), true);
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "point_to_guarded_by" attribute.  */
+
+static tree
+handle_point_to_guarded_by_attribute (tree *node, tree name, tree args,
+                                      int flags, bool *no_add_attrs)
+{
+  /* point_to_guarded_by attribute can only annotate a pointer.  */
+  if (!POINTER_TYPE_P (TREE_TYPE (*node)))
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-pointer", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* The rest of the handler is identical to the handler for
+     the guarded_by attr.  */
+  return handle_guarded_by_attribute (node, name, args, flags, no_add_attrs);
+}
+
+/* Handle a "guarded" attribute.  */
+
+static tree
+handle_guarded_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+                          int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != VAR_DECL
+      && TREE_CODE (decl) != PARM_DECL
+      && TREE_CODE (decl) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "point_to_guarded" attribute.  */
+
+static tree
+handle_point_to_guarded_attribute (tree *node, tree name, tree args,
+                                   int flags, bool *no_add_attrs)
+{
+  /* point_to_guarded attribute can only annotate a pointer.  */
+  if (!POINTER_TYPE_P (TREE_TYPE (*node)))
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-pointer", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* The rest of the handler is identical to the handler for guarded attr.  */
+  return handle_guarded_attribute (node, name, args, flags, no_add_attrs);
+}
+
+/* Add entries to the acquired_after_map with the declared lock DECL and
+   the locks specified in either the "acquired_after" or "acquired_before"
+   attributes arguments ARGS. The entries are mapping from the declared
+   lock to the set of locks that should be acquired earlier if they could
+   be held simultaneously by a thread.  */
+
+static void
+populate_acquired_after_map (tree decl, tree args, bool is_acquired_after_attr)
+{
+  void **entry;
+  struct pointer_set_t *acquired_after_set;
+
+  if (lock_acquired_after_map == NULL)
+    lock_acquired_after_map = pointer_map_create();
+
+  /* Now populate the acquired_after_map based on whether the attribute is
+     "acquired_after" or "acquired_before". For example, assuming the
+     acquired_after_map is empty, with the following declaration,
+
+         Mutex mu1  __attribute__ ((acquired_after(mu2, mu3)));
+
+     we will add an entry, mu1 -> {mu2, mu3}, to the map.
+
+     On the other hand, with the following declaration
+
+         Mutex mu4  __attribute__ ((acquired_before(mu5, mu6)));
+
+     we will add the following two entries to the map:
+
+         mu5 -> { mu4 }
+         mu6 -> { mu4 }
+  */
+  if (is_acquired_after_attr)
+    {
+      entry = pointer_map_contains (lock_acquired_after_map, decl);
+      if (!entry)
+        {
+          entry = pointer_map_insert (lock_acquired_after_map, decl);
+          *entry = pointer_set_create();
+        }
+      acquired_after_set = (struct pointer_set_t *)*entry;
+
+      /* We don't have to check the case where args is NULL because we have
+         specified in the c_common_attribute_table that acquired_after attr
+         needs at least one argument.  */
+      do
+        {
+          /* Grab the decl tree of the argument if it is an identifier.  */
+          tree lock_decl = get_lock_decl (TREE_VALUE (args), false);
+
+          /* If the lock argument is not declared, skip it.  */
+          if (TREE_CODE (lock_decl) == IDENTIFIER_NODE)
+            {
+              args = TREE_CHAIN (args);
+              continue;
+            }
+
+          pointer_set_insert (acquired_after_set, lock_decl);
+
+          args = TREE_CHAIN (args);
+        }
+      while (args != NULL_TREE);
+    }
+  else
+    {
+      /* If the control reaches here, the attribute is "acquired_before".
+         Again, we don't have to check the case where args is NULL because
+         we have specified in the c_common_attribute_table that
+         "acquired_before" attr needs at least one argument.  */
+      do
+        {
+          /* Grab the decl tree of the argument if it is an identifier.  */
+          tree lock_decl = get_lock_decl (TREE_VALUE (args), false);
+
+          /* If the lock argument is not declared, skip it.  */
+          if (TREE_CODE (lock_decl) == IDENTIFIER_NODE)
+            {
+              args = TREE_CHAIN (args);
+              continue;
+            }
+
+          entry = pointer_map_contains (lock_acquired_after_map, lock_decl);
+          if (!entry)
+            {
+              entry = pointer_map_insert (lock_acquired_after_map, lock_decl);
+              *entry = pointer_set_create();
+            }
+          acquired_after_set = (struct pointer_set_t *)*entry;
+
+          pointer_set_insert (acquired_after_set, decl);
+
+          args = TREE_CHAIN (args);
+        }
+      while (args != NULL_TREE);
+    }
+}
+
+/* Handle either an "acquired_after" or an "acquired_before" attribute.  */
+
+static tree
+handle_acquired_order_attribute (tree *node, tree name, tree args,
+                                 int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+  tree lockable_type;
+  tree old_decl;
+  bool is_acquired_after_attr;
+
+  if (TREE_CODE (decl) != VAR_DECL
+      && TREE_CODE (decl) != PARM_DECL
+      && TREE_CODE (decl) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  if (POINTER_TYPE_P (TREE_TYPE (decl))
+      || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+    lockable_type = TREE_TYPE (TREE_TYPE (decl));
+  else
+    lockable_type = TREE_TYPE (decl);
+
+  /* Make sure this attribute is used only on a lock variable.  */
+  if (!lookup_attribute ("lockable", TYPE_ATTRIBUTES(lockable_type)))
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-lockable", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* If thread safety warning is not enabled, don't bother to populate
+     the acquired_after map.  */
+  if (!warn_thread_safety)
+    return NULL_TREE;
+
+  if (name == maybe_get_identifier ("acquired_after"))
+    is_acquired_after_attr = true;
+  else
+    {
+      gcc_assert (name == maybe_get_identifier ("acquired_before"));
+      is_acquired_after_attr = false;
+    }
+
+  /* If the decl node is a class member, delay the binding until
+     after the class specification is parsed as the attribute
+     arguments could reference another class member declared later.  */
+  if (TREE_CODE (decl) == FIELD_DECL)
+    {
+      tree new_list_node = build_tree_list (decl, args);
+      if (is_acquired_after_attr)
+        {
+          TREE_CHAIN (new_list_node) = unprocessed_acq_after_args;
+          unprocessed_acq_after_args = new_list_node;
+        }
+      else
+        {
+          TREE_CHAIN (new_list_node) = unprocessed_acq_before_args;
+          unprocessed_acq_before_args = new_list_node;
+        }
+      return NULL_TREE;
+    }
+
+  /* The decl could be a duplicate. If so, we need to call lookup_name to
+     find the final one and use it in the lock_acquired_after_map.  */
+  gcc_assert (DECL_NAME (decl));
+  old_decl = lookup_name (DECL_NAME (decl));
+  if (old_decl)
+    decl = old_decl;
+
+  /* Add entries to the acquired_after_map using the attribute.  */
+  populate_acquired_after_map (decl, args, is_acquired_after_attr);
+
+  return NULL_TREE;
+}
+
+/* This is a helper function that checks if LOCK_ID is a formal parameter
+   of FDECL, and if so, sets *POS with the position (1-based) of the
+   parameter corresponding to LOCK_ID.  */
+
+static bool
+is_lock_formal_parameter (tree fdecl, tree lock_id, int *pos)
+{
+  tree parm;
+  int parm_pos;
+
+  if (TREE_CODE (lock_id) != IDENTIFIER_NODE)
+    return false;
+
+  for (parm = DECL_ARGUMENTS (fdecl), parm_pos = 1;
+       parm;
+       parm = TREE_CHAIN (parm), ++parm_pos)
+    {
+      if (DECL_NAME (parm) == lock_id)
+        {
+          *pos = parm_pos;
+          return true;
+        }
+    }
+  return false;
+}
+
+/* This helper routine is called to check the validity of the arguments of
+   a lock or an unlock attribute when we expect the attribute should take
+   at least one argument.  */
+
+static tree
+check_lock_unlock_attr_args (tree *node, tree name, tree args,
+                             bool *no_add_attrs, bool is_scoped_lock,
+                             bool is_trylock)
+{
+  int lock_pos;
+  int num_parms = 0;
+
+  if (args == NULL_TREE)
+    {
+      error ("%qE attribute needs at least a lock argument", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  if (is_scoped_lock)
+    {
+      if (TREE_CHAIN (args) != NULL_TREE)
+        {
+          error ("%qE attribute takes a single argument for a scoped"
+                 " lockable type", name);
+          *no_add_attrs = true;
+          return NULL_TREE;
+        }
+    }
+  else if (is_trylock)
+    {
+      if (TREE_CODE (TREE_VALUE (args)) != INTEGER_CST)
+        {
+          error ("The first argument of the %qE attribute must be either a"
+                 " boolean or an integer value", name);
+          *no_add_attrs = true;
+          return NULL_TREE;
+        }
+      args = TREE_CHAIN(args);
+      if (args == NULL_TREE)
+        return NULL_TREE;
+    }
+
+  /* Iterate through the attribute's argument list.  */
+  do
+    {
+      if (TREE_CODE (TREE_VALUE (args)) == INTEGER_CST)
+        {
+          /* Check whether the lock argument position is out of bound.  */
+          lock_pos = TREE_INT_CST_LOW (TREE_VALUE (args));
+
+          /* We lazily compute the number of fdecl arguments when we see
+             an integer argument of the attribute for the first time.  */
+          if (num_parms == 0)
+            {
+              tree parm;
+              for (parm = DECL_ARGUMENTS (*node); parm;
+                   parm = TREE_CHAIN (parm))
+                ++num_parms;
+            }
+          if (lock_pos > num_parms || lock_pos < 1)
+            {
+              error ("Parameter position (%i) specified in %qE attribute is"
+                     " not valid", lock_pos, name);
+              *no_add_attrs = true;
+              return NULL_TREE;
+            }
+        }
+      else if (is_lock_formal_parameter(*node, TREE_VALUE (args), &lock_pos))
+        {
+          /* While the public documentation for lock/unlock attributes allow
+             users to use formal parameters to specify locks, internally we
+             convert the identifier nodes (for the formal parameters) to
+             integers that represent the parameter positions.  */
+          if (warn_thread_safety)
+            TREE_VALUE (args) = build_int_cst(NULL_TREE, lock_pos);
+        }
+      else
+        {
+          /* If we reach here, the attribute argument could be a global
+             variable, a class member, or even an expression, but not a
+             parameter of the annotated function. This is an error for
+             a scoped lock's constructor (which is usually annotated as
+             a locking primitive) as the lock should be a parameter of the
+             constructor.  */
+          if (is_scoped_lock)
+            {
+              error ("%qE attribute needs to specified a function parameter"
+                     " for a scoped lockable type", name);
+              *no_add_attrs = true;
+              return NULL_TREE;
+            }
+          /* If thread safety analysis is enabled, convert the attr arg
+             from an identifier to a decl tree.  */
+          if (warn_thread_safety)
+            {
+              /* If the decl node is a class member, delay the binding until
+                 after the class specification is parsed as the attribute
+                 arguments could reference another class member declared
+                 later.  */
+              if (TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+                {
+                  tree new_list_node = build_tree_list (NULL_TREE, args);
+                  TREE_CHAIN (new_list_node) = unbound_attribute_args;
+                  unbound_attribute_args = new_list_node;
+                }
+              else
+                TREE_VALUE (args) = get_lock_decl(TREE_VALUE (args), true);
+            }
+        }
+      args = TREE_CHAIN(args);
+    }
+  while (args != NULL_TREE);
+
+  return NULL_TREE;
+}
+
+/* Handle any of the following attribute used for annotating locking
+   primitives: "exclusive_lock", "shared_lock", "exclusive_trylock", and
+   "shared_trylock".  */
+
+static tree
+handle_lock_attribute (tree *node, tree name, tree args,
+                       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree lockable_type;
+  bool is_trylock;
+
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-function declaration", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  lockable_type = DECL_CONTEXT (*node);
+
+  if (name == maybe_get_identifier ("exclusive_trylock")
+      || name == maybe_get_identifier ("shared_trylock"))
+    is_trylock = true;
+  else
+    is_trylock = false;
+                     
+  if (!is_trylock
+      && lockable_type
+      && lookup_attribute ("lockable", TYPE_ATTRIBUTES (lockable_type)))
+    {
+      /* If the annotated locking primitive is a member function of
+         a lockable type, the attribute should not take any argument
+         (to specify the lock to be acquired), unless the primitive is
+         a trylock which requires at least an argument to specify the
+         return value on successful lock acquisition.  */
+      if (args != NULL_TREE)
+        {
+          warning (OPT_Wattributes, "Argument of %qE attribute ignored for"
+                   " a locking primitive of a lockable type", name);
+          *no_add_attrs = true;
+        }
+      return NULL_TREE;
+    }
+  else
+    {
+      /* If the attribute does require arguments, check their validity.  */
+      bool is_scoped_lock = (lockable_type
+                             && lookup_attribute ("scoped_lockable",
+                                                  TYPE_ATTRIBUTES (
+                                                      lockable_type)));
+      return check_lock_unlock_attr_args (node, name, args, no_add_attrs,
+                                          is_scoped_lock, is_trylock);
+    }
+}
+
+/* Handle an "unlock" attribute.  */
+
+static tree
+handle_unlock_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+                         int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree lockable_type;
+
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-function declaration", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  lockable_type = DECL_CONTEXT (*node);
+
+  if (lockable_type
+      && (lookup_attribute ("lockable", TYPE_ATTRIBUTES (lockable_type))
+          || lookup_attribute ("scoped_lockable",
+                               TYPE_ATTRIBUTES (lockable_type))))
+    {
+      /* If the annotated unlocking primitive is a member function of
+         a lockable type or a destructor of a scoped lock, the attribute
+         should not take any argument (to specify the lock to be released).  */
+      if (args != NULL_TREE)
+        {
+          warning (OPT_Wattributes, "Argument of %qE attribute ignored for"
+                   " an unlock method of a lockable type", name);
+          *no_add_attrs = true;
+        }
+      return NULL_TREE;
+    }
+  else
+    /* If the attribute does require arguments, check their validity.  */
+    return check_lock_unlock_attr_args (node, name, args, no_add_attrs,
+                                        false /* is_scoped_lock */,
+                                        false /* is_trylock */);
+}
+
+/* Handle the following function attributes that specify function's lock
+   requirements: "exclusive_locks_required", "shared_locks_required", and
+   "locks_excluded".  */
+
+static tree
+handle_locks_required_excluded_attribute (tree *node, tree name, tree args,
+                                          int ARG_UNUSED (flags),
+                                          bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-function declaration", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* If thread safety warning is not enabled, don't bother to convert
+     lock identifiers to decls.  */
+  if (!warn_thread_safety)
+    return NULL_TREE;
+
+  /* The rest of the handler is the same as that of the lock/unlock primitive
+     attributes.  */
+  return check_lock_unlock_attr_args (node, name, args, no_add_attrs,
+                                      false /* is_scoped_lock */,
+                                      false /* is_trylock */);
+}
+
+/* Handle a "lock_returned" attribute.  */
+
+static tree
+handle_lock_returned_attribute (tree *node, tree name, tree args,
+                                int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-function declaration", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  /* If thread safety analysis is enabled, convert the attr arg from an
+     identifier to a decl tree.  */
+  if (warn_thread_safety)
+    {
+      /* If the decl node is a class member, delay the binding until
+         after the class specification is parsed as the attribute
+         arguments could reference another class member declared later.  */
+      if (TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+        {
+          tree new_list_node = build_tree_list (NULL_TREE, args);
+          TREE_CHAIN (new_list_node) = unbound_attribute_args;
+          unbound_attribute_args = new_list_node;
+        }
+      else
+        TREE_VALUE (args) = get_lock_decl(TREE_VALUE (args), true);
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "no_thread_safety_analysis" attribute.  */
+
+static tree
+handle_no_thread_safety_analysis_attribute (tree *node, tree name,
+                                            tree ARG_UNUSED (args),
+                                            int ARG_UNUSED (flags),
+                                            bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes,
+               "%qE attribute ignored for a non-function declaration", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* This function is invoked after a class definition is finished parsing
+   to try to bind to their decl trees the identifier arguments recorded in
+   the unbound_attribute_args, unprocessed_acq_after_args, and
+   unprocessed_acq_before_args lists, and also populate the acquired_after
+   map.
+
+   When parsing thread safety attributes inside a class definition, instead
+   of trying to bind an identifier argument to its decl tree right away,
+   we add the arguments to the lists and delay the binding until the whole
+   class is parsed so that the identifiers that reference other class members
+   declared later can be bound to their decl trees correctly.  */
+
+void
+process_unbound_attribute_args (void)
+{
+  tree list_node;
+
+  /* If thread safety analysis is not enabled, don't bother process these
+     attributes arguments.  */
+  if (!warn_thread_safety)
+    return;
+
+  for (list_node = unbound_attribute_args; list_node;
+       list_node = TREE_CHAIN (list_node))
+    {
+      tree args = TREE_VALUE (list_node);
+      gcc_assert (args);
+      do
+        {
+          /* Convert the attr arg to a decl tree if it is an identifier.  */
+          TREE_VALUE (args) = get_lock_decl (TREE_VALUE (args), true);
+          args = TREE_CHAIN(args);
+        }
+      while (args != NULL_TREE);
+    }
+
+  for (list_node = unprocessed_acq_after_args; list_node;
+       list_node = TREE_CHAIN (list_node))
+    {
+      tree decl = TREE_PURPOSE (list_node);
+      tree args = TREE_VALUE (list_node);
+      gcc_assert (decl && args);
+      populate_acquired_after_map (decl, args, true);
+    }
+
+  for (list_node = unprocessed_acq_before_args; list_node;
+       list_node = TREE_CHAIN (list_node))
+    {
+      tree decl = TREE_PURPOSE (list_node);
+      tree args = TREE_VALUE (list_node);
+      gcc_assert (decl && args);
+      populate_acquired_after_map (decl, args, false);
+    }
+
+  /* The tree list nodes should be garbage collected.  */
+  unbound_attribute_args = NULL_TREE;
+  unprocessed_acq_after_args = NULL_TREE;
+  unprocessed_acq_before_args = NULL_TREE;
+}
+
 /* Check for valid arguments being passed to a function.
    ATTRS is a list of attributes.  There are NARGS arguments in the array
    ARGARRAY.  TYPELIST is the list of argument types for the function.

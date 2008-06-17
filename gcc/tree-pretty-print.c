@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 static int op_prio (const_tree);
 static const char *op_symbol (const_tree);
 static void pretty_print_string (pretty_printer *, const char*);
-static void print_call_name (pretty_printer *, const_tree);
+static void print_call_name (pretty_printer *, const_tree, int);
 static void newline_and_indent (pretty_printer *, int);
 static void maybe_init_pretty_print (FILE *);
 static void print_declaration (pretty_printer *, tree, int, int);
@@ -1227,7 +1227,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case CALL_EXPR:
-      print_call_name (buffer, node);
+      print_call_name (buffer, node, flags);
 
       /* Print parameters.  */
       pp_space (buffer);
@@ -2730,7 +2730,7 @@ op_symbol (const_tree op)
 /* Prints the name of a CALL_EXPR.  */
 
 static void
-print_call_name (pretty_printer *buffer, const_tree node)
+print_call_name (pretty_printer *buffer, const_tree node, int flags)
 {
   tree op0;
 
@@ -2751,16 +2751,16 @@ print_call_name (pretty_printer *buffer, const_tree node)
     case ADDR_EXPR:
     case INDIRECT_REF:
     case NOP_EXPR:
-      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0, false);
+      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, flags, false);
       break;
 
     case COND_EXPR:
       pp_string (buffer, "(");
-      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0, false);
+      dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, flags, false);
       pp_string (buffer, ") ? ");
-      dump_generic_node (buffer, TREE_OPERAND (op0, 1), 0, 0, false);
+      dump_generic_node (buffer, TREE_OPERAND (op0, 1), 0, flags, false);
       pp_string (buffer, " : ");
-      dump_generic_node (buffer, TREE_OPERAND (op0, 2), 0, 0, false);
+      dump_generic_node (buffer, TREE_OPERAND (op0, 2), 0, flags, false);
       break;
 
     case COMPONENT_REF:
@@ -2769,7 +2769,7 @@ print_call_name (pretty_printer *buffer, const_tree node)
 	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	dump_function_name (buffer, TREE_OPERAND (op0, 1));
       else
-	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0, false);
+	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, flags, false);
       /* else
 	 We can have several levels of structures and a function
 	 pointer inside.  This is not implemented yet...  */
@@ -2780,12 +2780,12 @@ print_call_name (pretty_printer *buffer, const_tree node)
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
 	dump_function_name (buffer, TREE_OPERAND (op0, 0));
       else
-	dump_generic_node (buffer, op0, 0, 0, false);
+	dump_generic_node (buffer, op0, 0, flags, false);
       break;
 
     case SSA_NAME:
     case OBJ_TYPE_REF:
-      dump_generic_node (buffer, op0, 0, 0, false);
+      dump_generic_node (buffer, op0, 0, flags, false);
       break;
 
     default:
