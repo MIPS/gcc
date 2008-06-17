@@ -1835,10 +1835,16 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	      = C_DECL_BUILTIN_PROTOTYPE (olddecl);
 	}
 
-      /* Preserve target specific options */
-      if (DECL_FUNCTION_SPECIFIC (olddecl)
-	  && !DECL_FUNCTION_SPECIFIC (newdecl))
-	DECL_FUNCTION_SPECIFIC (newdecl) = DECL_FUNCTION_SPECIFIC (olddecl);
+      /* Preserve function specific target and optimization options */
+      if (DECL_FUNCTION_SPECIFIC_TARGET (olddecl)
+	  && !DECL_FUNCTION_SPECIFIC_TARGET (newdecl))
+	DECL_FUNCTION_SPECIFIC_TARGET (newdecl)
+	  = DECL_FUNCTION_SPECIFIC_TARGET (olddecl);
+
+      if (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl)
+	  && !DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl))
+	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (newdecl)
+	  = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (olddecl);
 
       /* Also preserve various other info from the definition.  */
       if (!new_is_definition)

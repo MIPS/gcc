@@ -1,3 +1,152 @@
+2008-06-17  Michael Meissner  <michael.meissner@amd.com>
+
+	* doc/options.texi (TargetSave): Document new TargetSave flag to
+	create declarations in the cl_target_option structure.
+	(Save): Change structure name to cl_target_option from
+	cl_option_save.
+
+	* doc/extend.texi (#pragma GCC option): Document #pragma GCC
+	option.
+
+	* flags.h (optimize_for_space): Add declaration.
+
+	* tree.c (tree_code_size): Support OPTIMIZATION_NODE and
+	TARGET_OPTION_NODE tree structures.
+	(tree_node_structure): Ditto.
+
+	* tree.h (DECL_FUNCTION_SPECIFIC_TARGET): Rename from
+	DECL_FUNCTION_SPECIFIC.
+	(DECL_FUNCTION_SPECIFIC_OPTIMIZATION): New accessor macro.
+	(struct tree_function_decl): Change function_specific_data to
+	function_specific_target.  Add function_specific_optimization to
+	point to the machine independent optimization fields.
+	(struct tree_optimization_option): New tree structure to hold the
+	machine independent optimization options.
+	(TREE_OPTIMIZATION): New accessor macro.
+	(struct tree_target_otpion): New tree structure to hold the target
+	specific optins that can be changed on a per-function basis.
+	(TREE_TARGET_OPTION): New acessor macro.
+	(union tree_node): Add tree_optimization_option and
+	tree_target_option fields.
+	(enum tree_index): Add TI_OPTIMIZATION_DEFAULT,
+	TI_OPTIMIZATION_CURRENT, TI_OPTIMIZATION_COLD,
+	TI_TARGET_OPTION_DEFAULT, and TI_CURRENT_OPTION_PRAGMA.
+	(optimization_default_node): Define as an element in
+	global_trees.
+	(optimization_current_node): Ditto.
+	(optimization_cold_node): Ditto.
+	(target_option_default_node): Ditto.
+	(current_option_pragma): Ditto.
+
+	* target.h (struct gcc_target): Add new hook functions,
+	target_option_save, target_option_restore, target_option_print.
+
+	* opts.c (optimize_for_space): New function, unset optimizations
+	that tend to cause code bloat for turning -Os on in cold
+	functions.
+	(decode_options): Call optimze_for_space if -Os.  On the first
+	call, save the current optimization options.
+
+	* optc-gen.awk (flags.h): Include in options.c.
+	(target.h): Ditto.
+	(cl_optimization_save): Create new functions for saving,
+	restoring, and printing optimization options.  Sort by the field
+	size.  On the save, add gcc_asserts to make sure the value is not
+	truncated.
+	(cl_optimization_restore): Ditto.
+	(cl_optimization_print): Ditto.
+	(cl_target_option_save): Rename from cl_options_save and
+	cl_options_restore.  If no 'Save' flag is used, just save and
+	restore target_flags.  Sort by the field size.  On the save, add
+	gcc_asserts to make sure the value is not truncated.  Call target
+	hooks to save/restore other values.
+
+	* opth-gen.awk (struct cl_optimization): New structure that is
+	created to remember all optimization options.  Compress fields to
+	unsigned char to save space if it is safe.  Sort fields by size.
+	(struct cl_target_option): Rename from cl_option_save.  Compress
+	fields to unsigned char to save space if is safe.  Sort fields by
+	size.  Add support for TargetSafe to store additional fields.
+
+	* opt-functions.awk (var_type_struct): New function to return
+	appropriate type for the cl_target_option and cl_optimization
+	structures.
+
+	* treestruct.def (TS_OPTIMIZATION): New tree structure for saving
+	optimization options.
+	(TS_TARGET_OPTION): New tree structure for saving target specific
+	options.
+
+	* function.c (invoke_set_current_function_hook): If the function
+	has different optimization options, switch to use the options.
+
+	* coretypes.h (struct cl_option_save): Delete.
+	(struct function_specific_data): Ditto.
+	(struct cl_target_option): Add forward declaration.
+	(struct cl_optimization): Ditto.
+
+	* c-pragma.c (option_stack): New vector of trees to implement
+	#pragma GCC option [push|pop].
+	(handle_pragma_option): Add support for #pragma GCC option.
+	(init_pragma): Ditto.
+
+	* tree.def (OPTIMIZATION_NODE): New tree node.
+	(TARGET_OPTION_NODE): Ditto.
+
+	* print-tree.c (print_node): Add support for OPTIMIZATION_NODE and
+	TARGET_OPTION_NODE.
+
+	* target-def.h (TARGET_OPTION_SAVE): New hook function.
+	(TARGET_OPTION_RESTORE): Ditto.
+	(TARGET_OPTION_PRINT): Ditto.
+	(TARGET_INITIALIZER): Add new hooks.
+
+	* c-common.c (handle_cold_attribute): If cold function, and
+	-O2/-O3, turn on -Os for this one function.
+
+	* Makefile (TREE_H): Add options.h.
+	(options.o): Add $(TARGET_H) and $(FLAGS_H) dependencies.
+
+	* config/i386/i386.h (TARGET_VALID_OPTION_ATTRIBUTE_P): Move to
+	i386.c since it doesn't need to be global.
+	(TARGET_SET_CURRENT_FUNCTION): Ditto.
+	(struct function_specific_data): Delete, contents moved into
+	cl_target_option structure.
+
+	* config/i386/i386.opt (arch): New field to be saved in the
+	cl_target_option structure.
+	(tune): Ditto.
+	(fpmath): Ditto.
+	(branch_cost): Ditto.
+	(ix86_isa_flags_explicit): Ditto.
+	(tune_defaulted): Ditto.
+	(arch_specified): Ditto.
+
+	* config/i386/i386.c (ix86_function_specific_save): Make a hook
+	function called from cl_target_option_save.
+	(ix86_function_specific_restore): Make a hook function called from
+	cl_target_option_restore.
+	(ix86_function_specific_print): New hook function to be called
+	from cl_target_option_print.
+	(ix86_insert_attributes): New function to insert #pragma GCC
+	option attributes.  If SUBTARGET_INSERT_ATTRIBUTES is defined,
+	call it.
+	(ix86_initial_options): Delete, use new global tree
+	function_specific_default_node.
+	(override_options): Save the default target options in
+	target_option_default_node.
+	(ix86_valid_option_attribute_p): Switch to having target options
+	in trees.  Allow fndecl to be NULL when parsing #pragma.
+	(ix86_can_inline_p): Switch to having target options in trees.
+	(ix86_set_current_function): Ditto.
+	(TARGET_INSERT_ATTRIBUTES): Call ix86_insert_attributes.
+	(TARGET_VALID_OPTION_ATTRIBUTE_P): Move here from i386.h.
+	(TARGET_SET_CURRENT_FUNCTION): Ditto.
+	(TARGET_CAN_INLINE_P): Ditto.
+	(TARGET_OPTION_SAVE): Call ix86_function_specific_save.
+	(TARGET_OPTION_RESTORE): Call ix86_function_specific_restore.
+	(TARGET_OPTION_PRINT): Call ix86_function_specific_print.
+
 Merge up to 136713.  Merge up to patches submitted to gcc-patches.  The
 following log entry is from the patch submission.
 

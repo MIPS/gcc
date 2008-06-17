@@ -426,6 +426,8 @@ tree_code_size (enum tree_code code)
 	case BLOCK:		return sizeof (struct tree_block);
 	case VALUE_HANDLE:	return sizeof (struct tree_value_handle);
 	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
+	case OPTIMIZATION_NODE: return sizeof (struct tree_optimization_option);
+	case TARGET_OPTION_NODE: return sizeof (struct tree_target_option);
 
 	default:
 	  return lang_hooks.tree_size (code);
@@ -2333,6 +2335,8 @@ tree_node_structure (const_tree t)
     case TREE_BINFO:		return TS_BINFO;
     case VALUE_HANDLE:		return TS_VALUE_HANDLE;
     case OMP_CLAUSE:		return TS_OMP_CLAUSE;
+    case OPTIMIZATION_NODE:	return TS_OPTIMIZATION;
+    case TARGET_OPTION_NODE:	return TS_TARGET_OPTION;
 
     default:
       gcc_unreachable ();

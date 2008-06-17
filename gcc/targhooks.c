@@ -704,8 +704,8 @@ bool
 default_can_inline_p (tree caller, tree callee)
 {
   bool ret = false;
-  struct function_specific_data *callee_opts = DECL_FUNCTION_SPECIFIC (callee);
-  struct function_specific_data *caller_opts = DECL_FUNCTION_SPECIFIC (caller);
+  tree callee_opts = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+  tree caller_opts = DECL_FUNCTION_SPECIFIC_TARGET (caller);
 
   /* If callee has no option attributes, then it is ok to inline */
   if (!callee_opts)

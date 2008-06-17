@@ -865,6 +865,97 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
   GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
 }
 
+/* Stack of the #pragma GCC option created with #pragma GCC option push.  */
+static GTY(()) VEC(tree,gc) *option_stack;
+
+static void
+handle_pragma_option(cpp_reader *ARG_UNUSED(dummy))
+{
+  enum cpp_ttype token;
+  const char *name;
+  tree x;
+
+  if (cfun)
+    {
+      error ("#pragma GCC option is not allowed inside functions");
+      return;
+    }
+
+  if (!targetm.valid_option_attribute_p)
+    {
+      error ("#pragma GCC option is not supported for this system");
+      return;
+    }
+
+  token = pragma_lex (&x);
+  if (token == CPP_NAME)
+    {
+      name = IDENTIFIER_POINTER (x);
+      if (strcmp (name, "reset") == 0)
+	current_option_pragma = NULL_TREE;
+
+      else if (strcmp (name, "push") == 0)
+	VEC_safe_push (tree, gc, option_stack,
+		       copy_list (current_option_pragma));
+
+      else if (strcmp (name, "pop") == 0)
+	{
+	  int len = VEC_length (tree, option_stack);
+	  if (len == 0)
+	    {
+	      GCC_BAD ("%<#pragma GCC option pop%> without a %<#pragma GCC option push%>");
+	      return;
+	    }
+	  else
+	    {
+	      VEC_truncate (tree, option_stack, len-1);
+	      current_option_pragma = ((len > 1)
+				       ? VEC_last (tree, option_stack)
+				       : NULL_TREE);
+	    }
+	}
+
+      else
+	{
+	  GCC_BAD ("%<#pragma GCC option%> is not a string or push/pop/reset");
+	  return;
+	}
+
+      token = pragma_lex (&x);
+      if (token != CPP_EOF)
+	{
+	  GCC_BAD ("%<#pragma GCC option [push|pop|reset]%> is badly formed");
+	  return;
+	}
+    }
+
+  else if (token != CPP_STRING)
+    {
+      GCC_BAD ("%<#pragma GCC option%> is not a string or push/pop/reset");
+      return;
+    }
+
+  /* Strings are user options.  */
+  else
+    {
+      do
+	{
+	  /* Parse the target option now.  Only build up the list if the string
+	     is valid.  */
+	  if (targetm.valid_option_attribute_p (NULL_TREE, NULL_TREE, x, 0))
+	    current_option_pragma = tree_cons (NULL_TREE, x,
+					       current_option_pragma);
+	}
+      while ((token = pragma_lex (&x)) == CPP_STRING);
+
+      if (token != CPP_EOF)
+	{
+	  error ("#pragma GCC option string... is badly formed");
+	  return;
+	}
+    }
+}
+
 /* A vector of registered pragma callbacks.  */
 
 DEF_VEC_O (pragma_handler);
@@ -1027,6 +1118,7 @@ init_pragma (void)
 #endif
 
   c_register_pragma ("GCC", "diagnostic", handle_pragma_diagnostic);
+  c_register_pragma ("GCC", "option", handle_pragma_option);
 
   c_register_pragma_with_expansion (0, "redefine_extname", handle_pragma_redefine_extname);
   c_register_pragma (0, "extern_prefix", handle_pragma_extern_prefix);

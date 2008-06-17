@@ -28,6 +28,7 @@
 BEGIN {
 	n_opts = 0
 	n_langs = 0
+	n_target_save = 0
         quote = "\042"
 	comma = ","
 	FS=SUBSEP
@@ -40,6 +41,11 @@ BEGIN {
 		if ($1 == "Language") {
 			langs[n_langs] = $2
 			n_langs++;
+		}
+		else if ($1 == "TargetSave") {
+			# Make sure the declarations are put in source order
+			target_save_decl[n_target_save] = $2
+			n_target_save++
 		}
 		else {
 			name = opt_args("Mask", $1)
@@ -64,6 +70,9 @@ print "#include " quote "intl.h" quote
 print ""
 print "#ifdef GCC_DRIVER"
 print "int target_flags;"
+print "#else"
+print "#include " quote "flags.h" quote
+print "#include " quote "target.h" quote
 print "#endif /* GCC_DRIVER */"
 print ""
 
@@ -215,52 +224,299 @@ for (i = 0; i < n_opts; i++) {
 
 print "};"
 
-if (have_save) {
-	print "";
-	print "#ifndef GCC_DRIVER"
-	print "/* Save selected option variables into a structure.  */"
-	print "void";
-	print "cl_options_save (struct cl_option_save *ptr)";
-	print "{";
+print "";
+print "#if !defined(GCC_DRIVER) && !defined(IN_LIBGCC2)"
+print "";
+print "/* Save optimization variables into a structure.  */"
+print "void";
+print "cl_optimization_save (struct cl_optimization *ptr)";
+print "{";
 
-	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Save", flags[i])) {
-			name = var_name(flags[i]);
-			if (name == "")
-				name = "target_flags";
+n_opt_char = 2;
+n_opt_short = 0;
+n_opt_int = 0;
+n_opt_other = 0;
+var_opt_char[0] = "optimize";
+var_opt_char[1] = "optimize_size";
+var_opt_range["optimize"] = "0, 255";
+var_opt_range["optimize_size"] = "0, 255";
 
-			if (name in var_seen_save)
-				continue;
+# Sort by size to mimic how the structure is laid out to be friendlier to the
+# cache.
 
-			var_seen_save[name] = 1;
-			print "  ptr->" name " = " name ";";
+for (i = 0; i < n_opts; i++) {
+	if (flag_set_p("Optimization", flags[i])) {
+		name = var_name(flags[i])
+		if(name == "")
+			continue;
+
+		if(name in var_opt_seen)
+			continue;
+
+		var_opt_seen[name]++;
+		otype = var_type_struct(flags[i]);
+		if (otype ~ "^((un)?signed +)?int *$")
+			var_opt_int[n_opt_int++] = name;
+
+		else if (otype ~ "^((un)?signed +)?short *$")
+			var_opt_int[n_opt_int++] = name;
+
+		else if (otype ~ "^((un)?signed +)?char *$") {
+			var_opt_char[n_opt_char++] = name;
+			if (otype ~ "^unsigned +char *$")
+				var_opt_range[name] = "0, 255"
+			else if (otype ~ "^signed +char *$")
+				var_opt_range[name] = "-128, 127"
 		}
+		else
+			var_opt_other[n_opt_other++] = name;
 	}
-
-	print "}";
-
-	print "";
-	print "/* Restore selected current options from a structure.  */";
-	print "void";
-	print "cl_options_restore (struct cl_option_save *ptr)";
-	print "{";
-
-	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Save", flags[i])) {
-			name = var_name(flags[i]);
-			if (name == "")
-				name = "target_flags";
-
-			if (name in var_seen_restore)
-				continue;
-
-			var_seen_restore[name] = 1;
-			print "  " name " = ptr->" name ";";
-		}
-	}
-
-	print "}";
-	print "#endif";
 }
+
+for (i = 0; i < n_opt_char; i++) {
+	name = var_opt_char[i];
+	if (var_opt_range[name] != "")
+		print "  gcc_assert (IN_RANGE (" name ", " var_opt_range[name] "));";
+}
+
+for (i = 0; i < n_opt_other; i++) {
+	print "  ptr->" var_opt_other[i] " = " var_opt_other[i] ";";
+}
+
+for (i = 0; i < n_opt_int; i++) {
+	print "  ptr->" var_opt_int[i] " = " var_opt_int[i] ";";
+}
+
+for (i = 0; i < n_opt_short; i++) {
+	print "  ptr->" var_opt_short[i] " = " var_opt_short[i] ";";
+}
+
+for (i = 0; i < n_opt_char; i++) {
+	print "  ptr->" var_opt_char[i] " = " var_opt_char[i] ";";
+}
+
+print "}";
+
+print "";
+print "/* Restore optimization options from a structure.  */";
+print "void";
+print "cl_optimization_restore (struct cl_optimization *ptr)";
+print "{";
+
+for (i = 0; i < n_opt_other; i++) {
+	print "  " var_opt_other[i] " = ptr->" var_opt_other[i] ";";
+}
+
+for (i = 0; i < n_opt_int; i++) {
+	print "  " var_opt_int[i] " = ptr->" var_opt_int[i] ";";
+}
+
+for (i = 0; i < n_opt_short; i++) {
+	print "  " var_opt_short[i] " = ptr->" var_opt_short[i] ";";
+}
+
+for (i = 0; i < n_opt_char; i++) {
+	print "  " var_opt_char[i] " = ptr->" var_opt_char[i] ";";
+}
+
+print "}";
+
+print "";
+print "/* Print optimization options from a structure.  */";
+print "void";
+print "cl_optimization_print (FILE *file,";
+print "                       int indent_to,";
+print "                       struct cl_optimization *ptr)";
+print "{";
+
+for (i = 0; i < n_opt_other; i++) {
+	print "  if (ptr->" var_opt_other[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%lx)\\n\",";
+	print "             indent_to, \"\",";
+	print "             \"" var_opt_other[i] "\",";
+	print "             (unsigned long)ptr->" var_opt_other[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_opt_int; i++) {
+	print "  if (ptr->" var_opt_int[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent_to, \"\",";
+	print "             \"" var_opt_int[i] "\",";
+	print "             ptr->" var_opt_int[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_opt_short; i++) {
+	print "  if (ptr->" var_opt_short[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent_to, \"\",";
+	print "             \"" var_opt_short[i] "\",";
+	print "             ptr->" var_opt_short[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_opt_char; i++) {
+	print "  if (ptr->" var_opt_char[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent_to, \"\",";
+	print "             \"" var_opt_char[i] "\",";
+	print "             ptr->" var_opt_char[i] ");";
+	print "";
+}
+
+print "}";
+
+print "";
+print "/* Save selected option variables into a structure.  */"
+print "void";
+print "cl_target_option_save (struct cl_target_option *ptr)";
+print "{";
+
+n_target_char = 0;
+n_target_short = 0;
+n_target_int = 0;
+n_target_other = 0;
+
+if (have_save) {
+	for (i = 0; i < n_opts; i++) {
+		if (flag_set_p("Save", flags[i])) {
+			name = var_name(flags[i])
+			if(name == "")
+				name = "target_flags";
+
+			if(name in var_save_seen)
+				continue;
+
+			var_save_seen[name]++;
+			otype = var_type_struct(flags[i])
+			if (otype ~ "^((un)?signed +)?int *$")
+				var_target_int[n_target_int++] = name;
+
+			else if (otype ~ "^((un)?signed +)?short *$")
+				var_target_short[n_target_short++] = name;
+
+			else if (otype ~ "^((un)?signed +)?char *$") {
+				var_target_char[n_target_char++] = name;
+				if (otype ~ "^unsigned +char *$")
+					var_target_range[name] = "0, 255"
+				else if (otype ~ "^signed +char *$")
+					var_target_range[name] = "-128, 127"
+			}
+			else
+				var_target_other[n_target_other++] = name;
+		}
+	}
+} else {
+	var_target_int[n_target_int++] = "target_flags";
+}
+
+for (i = 0; i < n_target_char; i++) {
+	name = var_target_char[i];
+	if (var_target_range[name] != "")
+		print "  gcc_assert (IN_RANGE (" name ", " var_target_range[name] "));";
+}
+
+print "";
+print "  if (targetm.target_option_save)";
+print "    targetm.target_option_save (ptr);";
+print "";
+
+for (i = 0; i < n_target_other; i++) {
+	print "  ptr->" var_target_other[i] " = " var_target_other[i] ";";
+}
+
+for (i = 0; i < n_target_int; i++) {
+	print "  ptr->" var_target_int[i] " = " var_target_int[i] ";";
+}
+
+for (i = 0; i < n_target_short; i++) {
+	print "  ptr->" var_target_short[i] " = " var_target_short[i] ";";
+}
+
+for (i = 0; i < n_target_char; i++) {
+	print "  ptr->" var_target_char[i] " = " var_target_char[i] ";";
+}
+
+print "}";
+
+print "";
+print "/* Restore selected current options from a structure.  */";
+print "void";
+print "cl_target_option_restore (struct cl_target_option *ptr)";
+print "{";
+
+for (i = 0; i < n_target_other; i++) {
+	print "  " var_target_other[i] " = ptr->" var_target_other[i] ";";
+}
+
+for (i = 0; i < n_target_int; i++) {
+	print "  " var_target_int[i] " = ptr->" var_target_int[i] ";";
+}
+
+for (i = 0; i < n_target_short; i++) {
+	print "  " var_target_short[i] " = ptr->" var_target_short[i] ";";
+}
+
+for (i = 0; i < n_target_char; i++) {
+	print "  " var_target_char[i] " = ptr->" var_target_char[i] ";";
+}
+
+print "";
+print "  if (targetm.target_option_restore)";
+print "    targetm.target_option_restore (ptr);";
+
+print "}";
+
+print "";
+print "/* Print optimization options from a structure.  */";
+print "void";
+print "cl_target_option_print (FILE *file,";
+print "                        int indent,";
+print "                        struct cl_target_option *ptr)";
+print "{";
+
+for (i = 0; i < n_target_other; i++) {
+	print "  if (ptr->" var_target_other[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%lx)\\n\",";
+	print "             indent, \"\",";
+	print "             \"" var_target_other[i] "\",";
+	print "             (unsigned long)ptr->" var_target_other[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_target_int; i++) {
+	print "  if (ptr->" var_target_int[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent, \"\",";
+	print "             \"" var_target_int[i] "\",";
+	print "             ptr->" var_target_int[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_target_short; i++) {
+	print "  if (ptr->" var_target_short[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent, \"\",";
+	print "             \"" var_target_short[i] "\",";
+	print "             ptr->" var_target_short[i] ");";
+	print "";
+}
+
+for (i = 0; i < n_target_char; i++) {
+	print "  if (ptr->" var_target_char[i] ")";
+	print "    fprintf (file, \"%*s%s (0x%x)\\n\",";
+	print "             indent, \"\",";
+	print "             \"" var_target_char[i] "\",";
+	print "             ptr->" var_target_char[i] ");";
+	print "";
+}
+
+print "";
+print "  if (targetm.target_option_print)";
+print "    targetm.target_option_print (file, indent, ptr);";
+
+print "}";
+print "#endif";
 
 }

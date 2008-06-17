@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "double-int.h"
 #include "alias.h"
+#include "options.h"
 
 /* Codes of tree nodes */
 
@@ -3407,10 +3408,15 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
-/* In FUNCTION_DECL, the function specific options to use when compiling this
-   function.  */
-#define DECL_FUNCTION_SPECIFIC(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific)
+/* In FUNCTION_DECL, the function specific target options to use when compiling
+   this function.  */
+#define DECL_FUNCTION_SPECIFIC_TARGET(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_target)
+
+/* In FUNCTION_DECL, the function specific optimization options to use when
+   compiling this function.  */
+#define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
 
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
@@ -3424,7 +3430,8 @@ struct tree_function_decl GTY(())
   struct function *f;
 
   /* Function specific options that are used by this function.  */
-  struct function_specific_data * GTY((maybe_undef)) function_specific;
+  tree function_specific_target;	/* target options */
+  tree function_specific_optimization;	/* optimization options */
 
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
      DECL_FUNCTION_CODE.  Otherwise unused.
@@ -3518,6 +3525,33 @@ struct tree_value_handle GTY(())
      bitmaps of value handles.  */
   unsigned int id;
 };
+
+/* Optimization options used by a function.  */
+
+struct tree_optimization_option GTY(())
+{
+  struct tree_common common;
+
+  /* The optimization options used by the user.  */
+  struct cl_optimization opts;
+};
+
+#define TREE_OPTIMIZATION(NODE) \
+  (&OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
+
+/* Target options used by a function.  */
+
+struct tree_target_option GTY(())
+{
+  struct tree_common common;
+
+  /* The optimization options used by the user.  */
+  struct cl_target_option opts;
+};
+
+#define TREE_TARGET_OPTION(NODE) \
+  (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
+
 
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
@@ -3563,6 +3597,8 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_memory_partition_tag GTY ((tag ("TS_MEMORY_PARTITION_TAG"))) mpt;
+  struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
+  struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -3709,6 +3745,12 @@ enum tree_index
   TI_SAT_USA_TYPE,
   TI_SAT_UDA_TYPE,
   TI_SAT_UTA_TYPE,
+
+  TI_OPTIMIZATION_DEFAULT,
+  TI_OPTIMIZATION_CURRENT,
+  TI_OPTIMIZATION_COLD,
+  TI_TARGET_OPTION_DEFAULT,
+  TI_CURRENT_OPTION_PRAGMA,
 
   TI_MAX
 };
@@ -3876,6 +3918,17 @@ extern GTY(()) tree global_trees[TI_MAX];
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
+
+/* Optimization options to use for default, cold, and hot functions.  */
+#define optimization_default_node	global_trees[TI_OPTIMIZATION_DEFAULT]
+#define optimization_current_node	global_trees[TI_OPTIMIZATION_CURRENT]
+#define optimization_cold_node		global_trees[TI_OPTIMIZATION_COLD]
+
+/* Default target options.  */
+#define target_option_default_node	global_trees[TI_TARGET_OPTION_DEFAULT]
+
+/* Default option() pragma.  */
+#define current_option_pragma		global_trees[TI_CURRENT_OPTION_PRAGMA]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so

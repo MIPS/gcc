@@ -1783,14 +1783,15 @@ enum ix86_function_specific_strings
 static char *ix86_target_string (int, int, const char *, const char *,
 				 const char *, bool);
 static void ix86_debug_options (void) ATTRIBUTE_UNUSED;
-static void ix86_function_specific_save (struct function_specific_data *);
-static void ix86_function_specific_restore (struct function_specific_data *);
+static void ix86_function_specific_save (struct cl_target_option *);
+static void ix86_function_specific_restore (struct cl_target_option *);
+static void ix86_function_specific_print (FILE *, int,
+					  struct cl_target_option *);
 static bool ix86_valid_option_attribute_p (tree, tree, tree, int);
 static bool ix86_valid_option_attribute_inner_p (tree, char *[]);
+static void ix86_insert_attributes (tree, tree *);
 static bool ix86_can_inline_p (tree, tree);
 static void ix86_set_current_function (tree);
-
-static GTY(()) struct function_specific_data *ix86_initial_options;
 
 
 /* The svr4 ABI for the i386 says that records and unions are returned
@@ -3181,52 +3182,82 @@ override_options (bool main_args_p)
   /* Save the initial options in case the user does function specific options */
   if (main_args_p)
     {
-      ix86_initial_options
-	= ggc_alloc (sizeof (struct function_specific_data));
-      ix86_function_specific_save (ix86_initial_options);
+      tree t = make_node (TARGET_OPTION_NODE);
+      target_option_default_node = t;
+      cl_target_option_save (TREE_TARGET_OPTION (t));
     }
 }
 
 /* Save the current options */
 
 static void
-ix86_function_specific_save (struct function_specific_data *ptr)
+ix86_function_specific_save (struct cl_target_option *ptr)
 {
-  memset (ptr, '\0', sizeof (struct function_specific_data));
-  cl_options_save (&ptr->options);
-  ptr->machine.arch = ix86_arch;
-  ptr->machine.tune = ix86_tune;
-  ptr->machine.fpmath = ix86_fpmath;
-  ptr->machine.branch_cost = ix86_branch_cost;
-  ptr->machine.tune_defaulted = ix86_tune_defaulted;
-  ptr->machine.arch_specified = ix86_arch_specified;
-  ptr->machine.ix86_isa_flags_explicit = ix86_isa_flags_explicit;
+  gcc_assert (IN_RANGE (ix86_arch, 0, 255));
+  gcc_assert (IN_RANGE (ix86_tune, 0, 255));
+  gcc_assert (IN_RANGE (ix86_fpmath, 0, 255));
+  gcc_assert (IN_RANGE (ix86_branch_cost, 0, 255));
+
+  ptr->arch = ix86_arch;
+  ptr->tune = ix86_tune;
+  ptr->fpmath = ix86_fpmath;
+  ptr->branch_cost = ix86_branch_cost;
+  ptr->tune_defaulted = ix86_tune_defaulted;
+  ptr->arch_specified = ix86_arch_specified;
+  ptr->ix86_isa_flags_explicit = ix86_isa_flags_explicit;
+  ptr->target_flags_explicit = target_flags_explicit;
 }
 
 /* Restore the current options */
 
 static void
-ix86_function_specific_restore (struct function_specific_data *ptr)
+ix86_function_specific_restore (struct cl_target_option *ptr)
 {
   unsigned int ix86_arch_mask, ix86_tune_mask;
   int i;
 
-  cl_options_restore (&ptr->options);
-  ix86_arch = ptr->machine.arch;
-  ix86_tune = ptr->machine.tune;
-  ix86_fpmath = ptr->machine.fpmath;
-  ix86_branch_cost = ptr->machine.branch_cost;
-  ix86_tune_defaulted = ptr->machine.tune_defaulted;
-  ix86_arch_specified = ptr->machine.arch_specified;
-  ix86_isa_flags_explicit = ptr->machine.ix86_isa_flags_explicit;
+  ix86_arch = ptr->arch;
+  ix86_tune = ptr->tune;
+  ix86_fpmath = ptr->fpmath;
+  ix86_branch_cost = ptr->branch_cost;
+  ix86_tune_defaulted = ptr->tune_defaulted;
+  ix86_arch_specified = ptr->arch_specified;
+  ix86_isa_flags_explicit = ptr->ix86_isa_flags_explicit;
+  target_flags_explicit = ptr->target_flags_explicit;
 
+  /* Recreate the arch feature tests */
   ix86_arch_mask = 1u << ix86_arch;
   for (i = 0; i < X86_ARCH_LAST; ++i)
     ix86_arch_features[i] = !!(initial_ix86_arch_features[i] & ix86_arch_mask);
 
+  /* Recreate the tune optimization tests */
   ix86_tune_mask = 1u << ix86_tune;
   for (i = 0; i < X86_TUNE_LAST; ++i)
     ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+}
+
+/* Print the current options */
+
+static void
+ix86_function_specific_print (FILE *file, int indent,
+			      struct cl_target_option *ptr)
+{
+  fprintf (file, "%*sarch = %d (%s)\n",
+	   indent, "",
+	   ptr->arch,
+	   ((ptr->arch < TARGET_CPU_DEFAULT_max)
+	    ? cpu_names[ptr->arch]
+	    : "<unknown>"));
+
+  fprintf (file, "%*stune = %d (%s)\n",
+	   indent, "",
+	   ptr->tune,
+	   ((ptr->tune < TARGET_CPU_DEFAULT_max)
+	    ? cpu_names[ptr->tune]
+	    : "<unknown>"));
+
+  fprintf (file, "%*sfpmath = %d\n", indent, "", ptr->fpmath);
+  fprintf (file, "%*sbranch_cost = %d\n", indent, "", ptr->branch_cost);
 }
 
 
@@ -3448,9 +3479,11 @@ ix86_valid_option_attribute_p (tree fndecl,
   int orig_arch_specified = ix86_arch_specified;
   char *option_strings[IX86_FUNCTION_SPECIFIC_MAX] = { NULL, NULL, NULL };
   int i;
+  struct cl_target_option *def
+    = TREE_TARGET_OPTION (target_option_default_node);
 
   /* Make sure we start with clean options.  */
-  ix86_function_specific_restore (ix86_initial_options);
+  cl_target_option_restore (def);
 
   /* Process each of the options on the chain.  */
   ret = ix86_valid_option_attribute_inner_p (args, option_strings);
@@ -3458,14 +3491,12 @@ ix86_valid_option_attribute_p (tree fndecl,
   /* If the changed options are different from the default, rerun override_options,
      and then save the options away.  The string options are are attribute options,
      and will be undone when we copy the save structure.  */
-  if (ix86_isa_flags != ix86_initial_options->options.ix86_isa_flags
-      || target_flags != ix86_initial_options->options.target_flags
+  if (ix86_isa_flags != def->ix86_isa_flags
+      || target_flags != def->target_flags
       || option_strings[IX86_FUNCTION_SPECIFIC_ARCH]
       || option_strings[IX86_FUNCTION_SPECIFIC_TUNE]
       || option_strings[IX86_FUNCTION_SPECIFIC_FPMATH])
     {
-      struct function_specific_data *p;
-
       /* If we are using the default tune= or arch=, undo the string assigned,
 	 and use the default.  */
       if (option_strings[IX86_FUNCTION_SPECIFIC_ARCH])
@@ -3487,13 +3518,17 @@ ix86_valid_option_attribute_p (tree fndecl,
       /* Do any overrides, such as arch=xxx, or tune=xxx support.  */
       override_options (false);
 
-      /* Save the current options.  */
-      p = ggc_alloc (sizeof (struct function_specific_data));
-      DECL_FUNCTION_SPECIFIC (fndecl) = p;
-      ix86_function_specific_save (p);
+      /* Save the current options unless we are validating options for
+	 #pragma.  */
+      if (fndecl)
+	{
+	  tree t = make_node (TARGET_OPTION_NODE);
+	  DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = t;
+	  cl_target_option_save (TREE_TARGET_OPTION (t));
+	}
 
       /* Restore options.  */
-      ix86_function_specific_restore (ix86_initial_options);
+      cl_target_option_restore (def);
 
       ix86_arch_string = orig_arch_string;
       ix86_tune_string = orig_tune_string;
@@ -3515,48 +3550,81 @@ static bool
 ix86_can_inline_p (tree caller, tree callee)
 {
   bool ret = false;
-  struct function_specific_data *caller_opts = DECL_FUNCTION_SPECIFIC (caller);
-  struct function_specific_data *callee_opts = DECL_FUNCTION_SPECIFIC (callee);
+  tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
 
   /* If callee has no option attributes, then it is ok to inline.  */
-  if (!callee_opts)
+  if (!callee_tree)
     ret = true;
 
   /* If caller has no option attributes, but callee does then it is not ok to
      inline.  */
-  else if (!caller_opts)
-    ret = false;
-
-  /* Callee's isa options should a subset of the caller's, i.e. a SSE5 function
-     can inline a SSE2 function but a SSE2 function can't inline a SSE5
-     function.  */
-  else if ((caller_opts->options.ix86_isa_flags
-	    & callee_opts->options.ix86_isa_flags)
-	   != callee_opts->options.ix86_isa_flags)
-    ret = false;
-
-  /* See if we have the same non-isa options.  */
-  else if (caller_opts->options.target_flags
-	   != callee_opts->options.target_flags)
-    ret = false;
-
-  else if (caller_opts->machine.arch != callee_opts->machine.arch)
-    ret = false;
-
-  else if (caller_opts->machine.tune != callee_opts->machine.tune)
-    ret = false;
-
-  else if (caller_opts->machine.fpmath != callee_opts->machine.fpmath)
-    ret = false;
-
-  else if (caller_opts->machine.branch_cost
-	   != callee_opts->machine.branch_cost)
+  else if (!caller_tree)
     ret = false;
 
   else
-    ret = true;
+    {
+      struct cl_target_option *caller_opts = TREE_TARGET_OPTION (caller_tree);
+      struct cl_target_option *callee_opts = TREE_TARGET_OPTION (callee_tree);
+
+      /* Callee's isa options should a subset of the caller's, i.e. a SSE5 function
+	 can inline a SSE2 function but a SSE2 function can't inline a SSE5
+	 function.  */
+      if ((caller_opts->ix86_isa_flags & callee_opts->ix86_isa_flags)
+	  != callee_opts->ix86_isa_flags)
+	ret = false;
+
+      /* See if we have the same non-isa options.  */
+      else if (caller_opts->target_flags != callee_opts->target_flags)
+	ret = false;
+
+      /* See if arch, tune, etc. are the same.  */
+      else if (caller_opts->arch != callee_opts->arch)
+	ret = false;
+
+      else if (caller_opts->tune != callee_opts->tune)
+	ret = false;
+
+      else if (caller_opts->fpmath != callee_opts->fpmath)
+	ret = false;
+
+      else if (caller_opts->branch_cost != callee_opts->branch_cost)
+	ret = false;
+
+      else
+	ret = true;
+    }
 
   return ret;
+}
+
+
+/* Insert any target specific attributes to a declaration.  */
+
+static void
+ix86_insert_attributes (tree node, tree *attr_ptr ATTRIBUTE_UNUSED)
+{
+  /* If this is a function, do we have an option pragma?  If so, add it and
+     re-validate it, which will create the appropriate target option node in
+     the node.  */
+
+  if (TREE_CODE (node) == FUNCTION_DECL
+      && current_option_pragma
+      && ix86_valid_option_attribute_p (node, NULL_TREE,
+					current_option_pragma, 0))
+    {
+      tree cur_attr = lookup_attribute ("option", *attr_ptr);
+      tree opts = copy_list (current_option_pragma);
+
+      if (! cur_attr)
+	*attr_ptr = tree_cons (get_identifier ("option"), opts, *attr_ptr);
+      else
+	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
+    }
+
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
+  SUBTARGET_INSERT_ATTRIBUTES (tree, attr_ptr);
+#endif
 }
 
 
@@ -3573,25 +3641,30 @@ ix86_set_current_function (tree fndecl)
      slow things down too much or call target_reinit when it isn't safe.  */
   if (fndecl && fndecl != previous_fndecl)
     {
-      struct function_specific_data *old_p
-	= (previous_fndecl ? DECL_FUNCTION_SPECIFIC (previous_fndecl) : NULL);
+      tree old_tree = (previous_fndecl
+		       ? DECL_FUNCTION_SPECIFIC_TARGET (previous_fndecl)
+		       : NULL_TREE);
 
-      struct function_specific_data *cur_p
-	= (fndecl ? DECL_FUNCTION_SPECIFIC (fndecl) : NULL);
+      tree new_tree = (fndecl
+		       ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
+		       : NULL_TREE);
 
       previous_fndecl = fndecl;
-      if (cur_p == old_p)
+      if (old_tree == new_tree)
 	;
 
-      else if (cur_p)
+      else if (new_tree)
 	{
-	  ix86_function_specific_restore (cur_p);
+	  cl_target_option_restore (TREE_TARGET_OPTION (new_tree));
 	  target_reinit ();
 	}
 
-      else if (old_p)
+      else if (old_tree)
 	{
-	  ix86_function_specific_restore (ix86_initial_options);
+	  struct cl_target_option *def
+	    = TREE_TARGET_OPTION (target_option_default_node);
+
+	  cl_target_option_restore (def);
 	  target_reinit ();
 	}
     }
@@ -26864,10 +26937,8 @@ x86_builtin_vectorization_cost (bool runtime_test)
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL i386_output_dwarf_dtprel
 #endif
 
-#ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
-#endif
+#define TARGET_INSERT_ATTRIBUTES ix86_insert_attributes
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE ix86_mangle_type
@@ -26883,6 +26954,24 @@ x86_builtin_vectorization_cost (bool runtime_test)
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST x86_builtin_vectorization_cost
+
+#undef TARGET_VALID_OPTION_ATTRIBUTE_P
+#define TARGET_VALID_OPTION_ATTRIBUTE_P ix86_valid_option_attribute_p
+
+#undef TARGET_SET_CURRENT_FUNCTION
+#define TARGET_SET_CURRENT_FUNCTION ix86_set_current_function
+
+#undef TARGET_OPTION_SAVE
+#define TARGET_OPTION_SAVE ix86_function_specific_save
+
+#undef TARGET_OPTION_RESTORE
+#define TARGET_OPTION_RESTORE ix86_function_specific_restore
+
+#undef TARGET_OPTION_PRINT
+#define TARGET_OPTION_PRINT ix86_function_specific_print
+
+#undef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P ix86_can_inline_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

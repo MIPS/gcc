@@ -4837,8 +4837,34 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		   name, "hot");
 	  *no_add_attrs = true;
 	}
-      /* Do nothing else, just set the attribute.  We'll get at
-	 it later with lookup_attribute.  */
+      else
+	{
+	  tree old_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node);
+
+	  /* If we are optimizing, but not optimizating for space, turn on
+	     -Os optimizations just for this one function.  */
+	  if (optimize >= 2
+	      && !optimize_size
+	      && (!old_opts || old_opts == optimization_default_node))
+	    {
+	      /* Create the cold optimization node if needed.  */
+	      if (!optimization_cold_node)
+		{
+		  struct cl_optimization *cold;
+		  struct cl_optimization current_options;
+
+		  cl_optimization_save (&current_options);
+		  optimize_for_space ();
+		  optimization_cold_node = make_node (OPTIMIZATION_NODE);
+		  cold = TREE_OPTIMIZATION (optimization_cold_node);
+		  cl_optimization_save (cold);
+		  cl_optimization_restore (&current_options);
+		}
+
+	      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
+		= optimization_cold_node;
+	    }
+	}
     }
   else
     {

@@ -955,6 +955,18 @@ struct gcc_target
      filled in in the function decl node.  */
   bool (*valid_option_attribute_p) (tree, tree, tree, int);
 
+  /* Function to save any extra target state in the the target options
+     structure.  */
+  void (*target_option_save) (struct cl_target_option *);
+
+  /* Function to restore any extra target state from the target options
+     structure.  */
+  void (*target_option_restore) (struct cl_target_option *);
+
+  /* Function to print any extra target state from the target options
+     structure.  */
+  void (*target_option_print) (FILE *, int, struct cl_target_option *);
+
   /* Function to determine if one function can inline another function.  */
   bool (*can_inline_p) (tree, tree);
 

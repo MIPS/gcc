@@ -18,6 +18,40 @@
 ; along with GCC; see the file COPYING3.  If not see
 ; <http://www.gnu.org/licenses/>.
 
+;; Definitions to add to the cl_target_option structure
+;; -march= processor
+TargetSave
+unsigned char arch
+
+;; -mtune= processor
+TargetSave
+unsigned char tune
+
+;; -mfpath=
+TargetSave
+unsigned char fpmath
+
+;; branch cost
+TargetSave
+unsigned char branch_cost
+
+;; which flags were passed by the user
+TargetSave
+int ix86_isa_flags_explicit
+
+;; which flags were passed by the user
+TargetSave
+int target_flags_explicit
+
+;; whether -mtune was not specified
+TargetSave
+unsigned char tune_defaulted
+
+;; whether -march was specified
+TargetSave
+unsigned char arch_specified
+
+;; x86 options
 m128bit-long-double
 Target RejectNegative Report Mask(128BIT_LONG_DOUBLE) Save
 sizeof(long double) is 16

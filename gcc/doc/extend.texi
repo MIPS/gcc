@@ -11136,6 +11136,7 @@ for further explanation.
 * Diagnostic Pragmas::
 * Visibility Pragmas::
 * Push/Pop Macro Pragmas::
+* Target Option Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -11485,6 +11486,39 @@ int x [X];
 
 In this example, the definition of X as 1 is saved by @code{#pragma
 push_macro} and restored by @code{#pragma pop_macro}.
+
+@node Target Option Pragmas
+@subsection Target Option Pragmas
+
+@table @code
+@item #pragma GCC option @var{"string"}...
+@cindex pragma GCC option
+
+This pragma allows you to set target specific options for functions
+defined later in the source file.  One or more strings can be
+specified.  Each function that is defined after this point will be as
+if @code{attribute((option("STRING")))} was specified for that function.
+@end table
+
+@table @code
+@item #pragma GCC option push
+@itemx #pragma GCC option pop
+@cindex pragma GCC option
+
+These pragmas maintain a stack of the current options.  It is
+intendent for include files where you temporarily want to switch to
+using a different @code{#pragma GCC option} and then to pop back to
+the previous options.
+@end table
+
+@table @code
+@item #pragma GCC option reset
+@cindex pragma, target option
+@cindex pragma GCC option
+
+This pragma clears the current @code{#pragma GCC options} to use the
+default swtiches as specified on the command line.
+@end table
 
 @node Unnamed Fields
 @section Unnamed struct/union fields within structs/unions
