@@ -1,5 +1,20 @@
 2008-06-16  Doug Kwan  <dougkwan@google.com>
 
+	* tree-ssa-ifcombine.c (File): Re-enable all previously diabled code.
+	(bb_no_side_effects_p): Tuplify.
+	(same_phi_args_p): Likewise.
+	(get_name_for_bit_test): Likewise.
+	(operand_precision): New.
+	(integral_operand_p): New.
+	(recognize_single_bit_test): Tuplify.
+	(regcognize_bits_test): Tuplify.
+	(ifcombine_ifandif): Likewise.
+	(ifcombine_iforif): Likewise.
+	(tree_ssa_ifcombine): Likewise.
+	* passes.c: Re-enable pass_tree_ifcombine.
+
+2008-06-16  Doug Kwan  <dougkwan@google.com>
+
 	* tree-ssa-loop-unswitch.c (File): Re-enable all previously disabled
 	code.
 	(tree_may_unswitch_on):  Tuplify.

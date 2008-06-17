@@ -625,9 +625,7 @@ init_optimization_passes (void)
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
-#if 0
       NEXT_PASS (pass_tree_ifcombine);
-#endif
       NEXT_PASS (pass_phiopt);
       NEXT_PASS (pass_tail_recursion);
       NEXT_PASS (pass_ch);
