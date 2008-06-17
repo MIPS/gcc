@@ -2039,9 +2039,7 @@ static tree
 get_val_for (tree x, tree base)
 {
   gimple stmt;
-  tree nx, val;
-  use_operand_p op;
-  ssa_op_iter iter;
+  tree nx, val, retval, rhs1, rhs2;
 
   gcc_assert (is_gimple_min_invariant (base));
 
@@ -2052,24 +2050,40 @@ get_val_for (tree x, tree base)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return base;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
-  FOR_EACH_SSA_USE_OPERAND (op, stmt, iter, SSA_OP_USE)
+  /* STMT must be either an assignment of a single SSA name or an
+     expression involving an SSA name and a constant.  Try to fold that
+     expression using the value for the SSA name.  */
+  rhs1 = gimple_assign_rhs1 (stmt);
+  rhs2 = gimple_assign_rhs2 (stmt);
+  if (TREE_CODE (rhs1) == SSA_NAME)
+    nx = rhs1;
+  else if (rhs2 && TREE_CODE (rhs2) == SSA_NAME)
+    nx = rhs2;
+  else
+    gcc_unreachable ();
+
+  /* NX is now the SSA name for which we want to discover the base value.  */
+  val = get_val_for (nx, base);
+  if (rhs2)
     {
-      /* FIXME -- rewriting the statement this way in order to fold its rhs
-	 is an ugly hack.  */
-      nx = USE_FROM_PTR (op);
-      val = get_val_for (nx, base);
-      SET_USE (op, val);
-      val = gimple_fold (stmt);
-      SET_USE (op, nx);
-      /* only iterate loop once.  */
-      return val;
+      /* If this is a binary expression, fold it.  If folding is
+	 not possible, return a tree expression with the RHS of STMT.  */
+      rhs1 = (nx == rhs1) ? val : rhs1;
+      rhs2 = (nx == rhs2) ? val : rhs2;
+      retval = fold_binary (gimple_assign_rhs_code (stmt),
+			    gimple_expr_type (stmt), rhs1, rhs2);
+      if (retval == NULL_TREE)
+	retval= build2 (gimple_assign_rhs_code (stmt),
+		        gimple_expr_type (stmt), rhs1, rhs2);
     }
-
-  /* Should never reach here.  */
-  gcc_unreachable ();
+  else
+    retval = val;
+      
+  return retval;
 }
+
 
 /* Tries to count the number of iterations of LOOP till it exits by EXIT
    by brute force -- i.e. by determining the value of the operands of the

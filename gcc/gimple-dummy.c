@@ -15,7 +15,6 @@
   void X (void) { gcc_unreachable (); }
 
 
-DUMMY_FN (canonicalize_induction_variables)
 DUMMY_FN (get_type)
 DUMMY_FN (ipa_add_method)
 DUMMY_FN (ipa_callsite_callee)
@@ -42,8 +41,6 @@ DUMMY_FN (ipa_node_create)
 DUMMY_FN (ipa_nodes_create)
 DUMMY_FN (ipa_nodes_free)
 DUMMY_FN (ipa_remove_method)
-DUMMY_FN (remove_empty_loops)
-DUMMY_FN (tree_unroll_loops_completely)
 DUMMY_FN (vec_set_verbosity_level)
 DUMMY_FN (vect_set_verbosity_level)
 DUMMY_FN (vectorize_loops)

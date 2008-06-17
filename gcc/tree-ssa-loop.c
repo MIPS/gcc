@@ -348,12 +348,7 @@ tree_ssa_loop_ivcanon (void)
 static bool
 gate_tree_ssa_loop_ivcanon (void)
 {
-  /* FIXME tuples */
-#if 0
   return flag_tree_loop_ivcanon != 0;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_iv_canon =
@@ -409,9 +404,6 @@ struct gimple_opt_pass pass_scev_cprop =
 static unsigned int
 tree_ssa_empty_loop (void)
 {
-  /* FIXME tuples*/
-  return 0;
-
   if (number_of_loops () <= 1)
     return 0;
 
@@ -486,12 +478,7 @@ tree_complete_unroll (void)
 static bool
 gate_tree_complete_unroll (void)
 {
-  /* FIXME tuples */
-#if 0
   return true;
-#else
-  return false;
-#endif
 }
 
 struct gimple_opt_pass pass_complete_unroll =
@@ -538,12 +525,7 @@ tree_complete_unroll_inner (void)
 static bool
 gate_tree_complete_unroll_inner (void)
 {
-  /* FIXME tuples */
-#if 0
   return optimize >= 2;
-#else
-  return false;
-#endif
 }
 
 struct gimple_opt_pass pass_complete_unrolli =

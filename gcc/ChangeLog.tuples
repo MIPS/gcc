@@ -1,3 +1,22 @@
+2008-06-17  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-loop-niter.c (get_val_for): Fix FIXME note.
+
+2008-06-17  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* gimple-dummy.c (canonicalize_induction_variables): Remove dummy.
+	(remove_empty_loops): Likewise.
+	(tree_unroll_loops_completely): Likewise.
+	* tree-ssa-ivcanon.c (tree_num_loop_insns): Replace bsi with gsi.
+	(create_canonical_iv): Convert to tuples.
+	(try_unroll_loop_completely): Likewise.
+	(empty_loop_p): Likewise.
+	(remove_empty_loop): Likewise.
+	* tree-ssa-loop.c (tree_ssa_loop_ivcanon): Re-enable.
+	(tree_ssa_empty_loop): Likewise.
+	(tree_complete_unroll): Likewise.
+	(tree_complete_unroll_inner): Likewise.
+
 2008-06-16  Doug Kwan  <dougkwan@google.com>
 
 	* tree-ssa-ifcombine.c (File): Re-enable all previously diabled code.
