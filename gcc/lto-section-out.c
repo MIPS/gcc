@@ -68,7 +68,7 @@ lto_set_flag (unsigned HOST_WIDEST_INT *base, unsigned int flag)
 void
 lto_set_flags (unsigned HOST_WIDEST_INT *base, unsigned int flag, unsigned int width)
 {
-  unsigned HOST_WIDEST_INT mask = 1 < (((unsigned HOST_WIDEST_INT)width) - 1);
+  unsigned HOST_WIDEST_INT mask = (((unsigned HOST_WIDEST_INT) 1) << width) - 1;
 
   *base = *base << width;
   *base |= (flag & mask);

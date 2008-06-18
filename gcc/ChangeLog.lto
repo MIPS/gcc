@@ -1,3 +1,8 @@
+2008-06-17  Doug Kwan <dougkwan@google.com>
+
+	* lto-section-in.c (lto_get_flags): Fix bug in mask computation.
+	* lto-section-out.c (lto_set_flags): Same.
+
 2008-06-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	* init.c (build_new_1): add nelts_for_type argument.

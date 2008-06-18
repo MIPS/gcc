@@ -70,7 +70,7 @@ lto_get_flag (unsigned HOST_WIDEST_INT *flags)
 unsigned int
 lto_get_flags (unsigned HOST_WIDEST_INT *flags, unsigned int width)
 {
-  unsigned HOST_WIDEST_INT mask = 1 << (((unsigned HOST_WIDEST_INT)width) - 1);
+  unsigned HOST_WIDEST_INT mask = (((unsigned HOST_WIDEST_INT) 1) << width) - 1;
   unsigned int result = *flags & mask;
   *flags = *flags >> width;
   return result;
