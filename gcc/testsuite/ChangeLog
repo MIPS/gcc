@@ -1,3 +1,26 @@
+2008-06-17  Le-Chun Wu  <lcwu@google.com>
+
+	* g++.dg/thread-ann: New test sub-directory.
+	* g++.dg/thread-ann/thread_annot_common.h: New test header file.
+	* g++.dg/thread-ann/thread_annot_lock-1.C: New test.
+	* g++.dg/thread-ann/thread_annot_lock-2.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-3.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-4.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-5.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-6.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-7.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-8.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-9.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-10.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-11.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-12.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-13.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-14.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-15.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-16.C: Ditto.
+	* g++.dg/thread-ann/thread_annot_lock-17.C: Ditto.
+	* g++.dg/README: Add an entry for the new thread-ann sub-directory.
+
 2008-06-16  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/36493
