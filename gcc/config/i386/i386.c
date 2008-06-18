@@ -5661,7 +5661,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t,
 	      size_int (rsize * UNITS_PER_WORD));
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), unshare_expr (ovf), t);
   gimplify_and_add (t, pre_p);
 
   if (container)

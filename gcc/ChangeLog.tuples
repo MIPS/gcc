@@ -1,5 +1,9 @@
 2008-06-17  Jan Hubicka  <jh@suse.cz>
 
+	* config/i386.c (ix86_gimplify_va_arg): Fix sharing issue.
+
+2008-06-17  Jan Hubicka  <jh@suse.cz>
+
 	* gimplify.c (gimplify_modify_expr): Unshare only returned value when
 	want_value is set instead of copying operands all the time.
 
