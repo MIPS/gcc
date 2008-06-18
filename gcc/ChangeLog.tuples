@@ -1,3 +1,8 @@
+2008-06-17  Jan Hubicka  <jh@suse.cz>
+
+	* gimplify.c (gimplify_modify_expr): Unshare only returned value when
+	want_value is set instead of copying operands all the time.
+
 2008-06-17  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-loop-niter.c (get_val_for): Fix FIXME note.

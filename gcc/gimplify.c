@@ -4236,17 +4236,15 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
    }
 
-  /* FIXME tuples.  Are the calls to unshare_expr really necessary
-     here? */
   if (TREE_CODE (*from_p) == CALL_EXPR)
     {
       /* Since the RHS is a CALL_EXPR, we need to create a GIMPLE_CALL
 	 instead of a GIMPLE_ASSIGN.  */
       assign = gimple_build_call_from_tree (*from_p);
-      gimple_call_set_lhs (assign, unshare_expr (*to_p));
+      gimple_call_set_lhs (assign, *to_p);
     }
   else
-    assign = gimple_build_assign (unshare_expr (*to_p), unshare_expr (*from_p));
+    assign = gimple_build_assign (*to_p, *from_p);
 
   gimplify_seq_add_stmt (pre_p, assign);
 
@@ -4261,7 +4259,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
   if (want_value)
     {
-      *expr_p = *to_p;
+      *expr_p = unshare_expr (*to_p);
       return GS_OK;
     }
   else
