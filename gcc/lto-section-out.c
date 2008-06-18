@@ -45,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "timevar.h"
 #include "dwarf2asm.h"
-#include "output.h"
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
@@ -189,20 +188,6 @@ lto_get_section_name (enum lto_section_type section_type, const char *name)
 }
 
 
-/* Get a section for particular type or name.  The NAME field is only
-   used if SECTION_TYPE is LTO_section_function_body or
-   lto_static_initializer.  */
-
-section *
-lto_get_section (enum lto_section_type section_type, const char *name)
-{
-  char *section_name = lto_get_section_name (section_type, name);
-  section *section = get_section (section_name, SECTION_DEBUG, NULL);
-  free (section_name);
-  return section;
-}
-
-
 /*****************************************************************************
    Output routines shared by all of the serialization passes.
 *****************************************************************************/
@@ -233,7 +218,7 @@ lto_write_stream (struct lto_output_stream *obs)
       if (!block)
 	num_chars = num_chars - obs->left_in_block;
 
-      assemble_string (base, num_chars);
+      lang_hooks.lto.write_section_data (base, num_chars);
       free (old_block);
       block_size *= 2;
     }
@@ -575,17 +560,16 @@ lto_create_simple_output_block (enum lto_section_type section_type)
 void
 lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 {
+  char *section_name;
   struct lto_simple_header header;
-  section *saved_section = in_section;
-  section *section = lto_get_section (ob->section_type, NULL);
 
-  memset (&header, 0, sizeof (struct lto_simple_header)); 
+  section_name = lto_get_section_name (ob->section_type, NULL);
+  lang_hooks.lto.begin_section (section_name);
+  free (section_name);
 
-  /* The entire header is stream computed here.  */
-  switch_to_section (section);
-  
   /* Write the header which says how to decode the pieces of the
      t.  */
+  memset (&header, 0, sizeof (struct lto_simple_header));
   header.lto_header.major_version = LTO_major_version;
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = LTO_section_cgraph;
@@ -599,8 +583,8 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   header.debug_main_size = -1;
 #endif
 
-  assemble_string ((const char *)&header, 
-		   sizeof (struct lto_simple_header));
+  lang_hooks.lto.write_section_data (&header,
+				     sizeof (struct lto_simple_header));
 
   lto_write_stream (ob->main_stream);
 #ifdef LTO_STREAM_DEBUGGING
@@ -609,8 +593,7 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */
-  if (saved_section)
-    switch_to_section (saved_section);
+  lang_hooks.lto.end_section ();
 
   free (ob->main_stream);
   LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
@@ -790,7 +773,7 @@ produce_asm_for_decls (void)
 {
   struct lto_out_decl_state *out_state = lto_get_out_decl_state ();
   struct lto_decl_header header;
-  section *decl_section = lto_get_section (LTO_section_decls, NULL);
+  char *section_name;
   struct output_block *ob = create_output_block (LTO_section_decls);
 
   free_lang_specifics ();
@@ -806,7 +789,9 @@ produce_asm_for_decls (void)
 
   memset (&header, 0, sizeof (struct lto_decl_header)); 
 
-  switch_to_section (decl_section);
+  section_name = lto_get_section_name (LTO_section_decls, NULL);
+  lang_hooks.lto.begin_section (section_name);
+  free (section_name);
 
   /* Make string 0 be a NULL string.  */
   lto_output_1_stream (ob->string_stream, 0);
@@ -839,7 +824,8 @@ produce_asm_for_decls (void)
   header.string_size = ob->string_stream->total_size;
   header.debug_main_size = ob->debug_main_stream->total_size;
 
-  assemble_string ((const char *)&header, sizeof (struct lto_decl_header));
+  lang_hooks.lto.write_section_data (&header,
+				     sizeof (struct lto_decl_header));
 
   /* We must write the types first.  */
   write_global_references (ob, out_state->types);
@@ -873,6 +859,8 @@ produce_asm_for_decls (void)
   VEC_free (tree, heap, out_state->type_decls);
   VEC_free (tree, heap, out_state->namespace_decls);
   VEC_free (tree, heap, out_state->types);
+
+  lang_hooks.lto.end_section ();
 }
 
 

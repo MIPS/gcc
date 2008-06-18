@@ -1,5 +1,34 @@
-2008-06-17  Doug Kwan <dougkwan@google.com>
+2008-06-18  Ollie Wild  <aaw@google.com>
 
+	* langhooks-def.h (lhd_begin_section): New function declaration.
+	(lhd_write_section): New function declaration.
+	(lhd_end_section): New function declaration.
+	(LANG_HOOKS_BEGIN_SECTION): New macro.
+	(LANG_HOOKS_WRITE_SECTION_DATA): New macro.
+	(LANG_HOOKS_END_SECTION): New macro.
+	(LANG_HOOKS_LTO): New macro.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_LTO.
+	* langhooks.c (output.h): Add include.
+	(saved_section): New static variable.
+	(lhd_begin_section): New function.
+	(lhd_write_section_data): New function.
+	(lhd_end_section): New function.
+	* langhooks.h (struct lang_hooks_for_lto): New structure.
+	(struct lang_hooks): Add member lto.
+	* lto-function-out.c (output.h): Remove include.
+	(produce_asm): Call the lto.begin_section, lto.write_section_data, and
+	lto.end_section language hooks.
+	(lto_output): Remove saved_section and call to switch_to_section.
+	* lto-section-out.c (output.h): Remove include.
+	(lto_get_section): Remove function.
+	(lto_write_stream): Call the lto.write_section_data language hook.
+	(lto_destroy_simple_output_block): Call the lto.begin_section,
+	lto.write_section_data, and lto.end_section language hooks.
+	(produce_asm_for_decls): Call the lto.begin_section,
+	lto.write_section_data, and lto.end_section language hooks.
+	* lto-header.h (lto_get_section): Remove function declaration.
+
+2008-06-17  Doug Kwan <dougkwan@google.com>
 	* lto-section-in.c (lto_get_flags): Fix bug in mask computation.
 	* lto-section-out.c (lto_set_flags): Same.
 

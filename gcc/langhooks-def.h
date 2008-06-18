@@ -223,6 +223,21 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_OMP_CLAUSE_DTOR \
 }
 
+/* LTO hooks.  */
+extern void lhd_begin_section (const char *);
+extern void lhd_write_section_data (const void *, size_t);
+extern void lhd_end_section (void);
+
+#define LANG_HOOKS_BEGIN_SECTION lhd_begin_section
+#define LANG_HOOKS_WRITE_SECTION_DATA lhd_write_section_data
+#define LANG_HOOKS_END_SECTION lhd_end_section
+
+#define LANG_HOOKS_LTO { \
+  LANG_HOOKS_BEGIN_SECTION, \
+  LANG_HOOKS_WRITE_SECTION_DATA, \
+  LANG_HOOKS_END_SECTION \
+}
+
 /* The whole thing.  The structure is defined in langhooks.h.  */
 #define LANG_HOOKS_INITIALIZER { \
   LANG_HOOKS_NAME, \
@@ -267,6 +282,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
+  LANG_HOOKS_LTO, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
   LANG_HOOKS_BUILTIN_FUNCTION, \

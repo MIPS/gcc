@@ -212,6 +212,21 @@ struct lang_hooks_for_decls
   tree (*omp_clause_dtor) (tree clause, tree decl);
 };
 
+/* Language hooks related to LTO serialization.  */
+
+struct lang_hooks_for_lto
+{
+  /* Begin a new LTO section named NAME.  */
+  void (*begin_section) (const char *name);
+
+  /* Write the data at DATA of length LEN to the currently open LTO
+     section.  */
+  void (*write_section_data) (const void *data, size_t len);
+
+  /* End the previously begun LTO section.  */
+  void (*end_section) (void);
+};
+
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
 
 struct lang_hooks
@@ -393,6 +408,8 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  struct lang_hooks_for_lto lto;
 
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */

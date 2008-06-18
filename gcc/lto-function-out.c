@@ -47,7 +47,6 @@ Boston, MA 02110-1301, USA.  */
 #include "vec.h"
 #include "tree-vectorizer.h"
 #include "timevar.h"
-#include "output.h"
 #include "lto-tags.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
@@ -1966,20 +1965,21 @@ produce_asm (struct output_block *ob, tree fn)
 {
   enum lto_section_type section_type = ob->section_type;
   struct lto_function_header header;
-  section *section;
+  char *section_name;
 
   if (section_type == LTO_section_function_body)
     {
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fn));
-      section = lto_get_section (section_type, name);
+      section_name = lto_get_section_name (section_type, name);
     }
   else
-    section = lto_get_section (section_type, NULL);
-  
-  memset (&header, 0, sizeof (struct lto_function_header)); 
+    section_name = lto_get_section_name (section_type, NULL);
+
+  lang_hooks.lto.begin_section (section_name);
+  free (section_name);
 
   /* The entire header is stream computed here.  */
-  switch_to_section (section);
+  memset (&header, 0, sizeof (struct lto_function_header));
   
   /* Write the header.  */
   header.lto_header.major_version = LTO_major_version;
@@ -2023,8 +2023,8 @@ produce_asm (struct output_block *ob, tree fn)
   header.debug_main_size = -1;
 #endif
 
-  assemble_string ((const char *)&header, 
-		   sizeof (struct lto_function_header));
+  lang_hooks.lto.write_section_data (&header,
+				     sizeof (struct lto_function_header));
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
@@ -2049,6 +2049,8 @@ produce_asm (struct output_block *ob, tree fn)
     }
   lto_write_stream (ob->debug_main_stream);
 #endif
+
+  lang_hooks.lto.end_section ();
 }
 
 
@@ -2329,7 +2331,6 @@ static void
 lto_output (void)
 {
   struct cgraph_node *node;
-  section *saved_section = in_section;
 
   lto_static_init_local ();
 
@@ -2340,11 +2341,6 @@ lto_output (void)
       output_function (node);
 
   output_constructors_and_inits ();
-
-  /* Put back the assembly section that was there before we started
-     writing lto info.  */
-  if (saved_section)
-    switch_to_section (saved_section);
 }
 
 struct ipa_opt_pass pass_ipa_lto_gimple_out =

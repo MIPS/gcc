@@ -64,7 +64,6 @@ struct lto_simple_header
 
 /* In lto-section-out.c.  */
 char *lto_get_section_name (enum lto_section_type, const char *);
-section *lto_get_section (enum lto_section_type, const char *);
 
 /* Define this symbol if you want to debug an lto stream.  This causes
    a set of redundant streams to be written into the .o files that can
