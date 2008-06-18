@@ -1,3 +1,5 @@
+Merge up to 136900.
+
 2008-06-17  Michael Meissner  <michael.meissner@amd.com>
 
 	* doc/options.texi (TargetSave): Document new TargetSave flag to

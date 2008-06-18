@@ -496,7 +496,7 @@ cgraph_assemble_pending_functions (void)
 {
   bool output = false;
 
-  if (flag_unit_at_a_time)
+  if (flag_unit_at_a_time || errorcount || sorrycount)
     return false;
 
   cgraph_output_pending_asms ();
@@ -640,6 +640,18 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Possibly warn about unused parameters.  */
   if (warn_unused_parameter)
     do_warn_unused_parameter (decl);
+}
+
+/* C99 extern inline keywords allow changing of declaration after function
+   has been finalized.  We need to re-decide if we want to mark the function as
+   needed then.   */
+
+void
+cgraph_mark_if_needed (tree decl)
+{
+  struct cgraph_node *node = cgraph_node (decl);
+  if (node->local.finalized && decide_is_function_needed (node, decl))
+    cgraph_mark_needed_node (node);
 }
 
 /* Verify cgraph nodes of given cgraph node.  */
@@ -845,7 +857,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   cgraph_lower_function (node);
   node->analyzed = true;
 
-  if (!flag_unit_at_a_time)
+  if (!flag_unit_at_a_time && !sorrycount && !errorcount)
     {
       bitmap_obstack_initialize (NULL);
       tree_register_cfg_hooks ();

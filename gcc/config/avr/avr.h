@@ -437,6 +437,11 @@ extern int avr_reg_order[];
 }
 
 #define XEXP_(X,Y) (X)
+
+/* LEGITIMIZE_RELOAD_ADDRESS will allow register R26/27 to be used, where it
+   is no worse than normal base pointers R28/29 and R30/31. For example:
+   If base offset is greater than 63 bytes or for R++ or --R addressing.  */
+   
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)    \
 do {									    \
   if (1&&(GET_CODE (X) == POST_INC || GET_CODE (X) == PRE_DEC))	    \
@@ -448,6 +453,7 @@ do {									    \
     }									    \
   if (GET_CODE (X) == PLUS						    \
       && REG_P (XEXP (X, 0))						    \
+      && reg_equiv_constant[REGNO (XEXP (X, 0))] == 0			    \
       && GET_CODE (XEXP (X, 1)) == CONST_INT				    \
       && INTVAL (XEXP (X, 1)) >= 1)					    \
     {									    \
@@ -822,7 +828,8 @@ mmcu=*:-mmcu=%*}"
   mmcu=at43*|\
   mmcu=at76*|\
   mmcu=at90usb82|\
-  mmcu=at90usb162: -m avr3}\
+  mmcu=at90usb162|\
+  mmcu=attiny167: -m avr3}\
 %{mmcu=atmega8*|\
   mmcu=atmega48*|\
   mmcu=at90pwm1|\
@@ -862,11 +869,14 @@ mmcu=*:-mmcu=%*}"
   mmcu=atmega169*|\
   mmcu=atmega8hva|\
   mmcu=atmega16hva|\
-  mmcu=atmega32hvb|\
   mmcu=attiny48|\
   mmcu=attiny88|\
+  mmcu=attiny167|\
   mmcu=at90can*|\
   mmcu=at90pwm*|\
+  mmcu=atmega32c1|\
+  mmcu=atmega32m1|\
+  mmcu=atmega32u4|\
   mmcu=at90usb*: -Tdata 0x800100}\
 %{mmcu=atmega640|\
   mmcu=atmega1280|\
@@ -919,6 +929,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=attiny43u:crttn43u.o%s} \
 %{mmcu=attiny48:crttn48.o%s} \
 %{mmcu=attiny88:crttn88.o%s} \
+%{mmcu=attiny167:crttn167.o%s} \
 %{mmcu=at43usb320|mmcu=avr3:crt43320.o%s} \
 %{mmcu=at43usb355:crt43355.o%s} \
 %{mmcu=at76c711:crt76711.o%s} \
@@ -960,7 +971,6 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=atmega329p:crtm329p.o%s} \
 %{mmcu=atmega3290:crtm3290.o%s} \
 %{mmcu=atmega3290p:crtm3290p.o%s} \
-%{mmcu=atmega32hvb:crtm32hvb.o%s} \
 %{mmcu=atmega406:crtm406.o%s} \
 %{mmcu=atmega64:crtm64.o%s} \
 %{mmcu=atmega640:crtm640.o%s} \
@@ -976,6 +986,9 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at90can64:crtcan64.o%s} \
 %{mmcu=at90pwm216:crt90pwm216.o%s} \
 %{mmcu=at90pwm316:crt90pwm316.o%s} \
+%{mmcu=atmega32c1:crtm32c1.o%s} \
+%{mmcu=atmega32m1:crtm32m1.o%s} \
+%{mmcu=atmega32u4:crtm32u4.o%s} \
 %{mmcu=at90usb646:crtusb646.o%s} \
 %{mmcu=at90usb647:crtusb647.o%s} \
 %{mmcu=at94k:crtat94k.o%s} \
