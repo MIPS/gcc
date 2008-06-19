@@ -1302,8 +1302,8 @@ fi
 AC_SUBST(gmplibs)
 AC_SUBST(gmpinc)
 
-# By default, C is the only stage 1 language.
-stage1_languages=,c,
+# By default, C and C++ are the only stage 1 languages.
+stage1_languages=,c,c++,
 
 # Figure out what language subdirectories are present.
 # Look if the user specified --enable-languages="..."; if not, use
@@ -1365,9 +1365,9 @@ if test -d ${srcdir}/gcc; then
     esac
   done
 
-  new_enable_languages=,c,
+  new_enable_languages=,c,c++,
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
-  potential_languages=,c,
+  potential_languages=,c,c++,
 
   for lang_frag in ${srcdir}/gcc/*/config-lang.in .. ; do
     case ${lang_frag} in
