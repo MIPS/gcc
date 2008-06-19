@@ -204,8 +204,9 @@ gimple_size (enum gimple_code code)
 /* Allocate memory for a GIMPLE statement with code CODE and NUM_OPS
    operands.  */
 
+#define gimple_alloc(c, n) gimple_alloc_stat (c, n MEM_STAT_INFO)
 static gimple
-gimple_alloc (enum gimple_code code, unsigned num_ops)
+gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
 {
   size_t size;
   gimple stmt;
@@ -222,7 +223,7 @@ gimple_alloc (enum gimple_code code, unsigned num_ops)
   }
 #endif
 
-  stmt = ggc_alloc_cleared (size);
+  stmt = ggc_alloc_cleared_stat (size PASS_MEM_STAT);
   gimple_set_code (stmt, code);
   gimple_set_num_ops (stmt, num_ops);
 
@@ -238,11 +239,13 @@ gimple_alloc (enum gimple_code code, unsigned num_ops)
    must be one of the GIMPLE_WITH_OPS tuples).  SUBCODE is the sub-code
    for the new tuple.  NUM_OPS is the number of operands to allocate.  */ 
 
+#define gimple_build_with_ops(c, s, n) \
+  gimple_build_with_ops_stat (c, s, n MEM_STAT_INFO)
 static gimple
-gimple_build_with_ops (enum gimple_code code, enum tree_code subcode,
-		       unsigned num_ops)
+gimple_build_with_ops_stat (enum gimple_code code, enum tree_code subcode,
+		            unsigned num_ops MEM_STAT_DECL)
 {
-  gimple s = gimple_alloc (code, num_ops);
+  gimple s = gimple_alloc_stat (code, num_ops PASS_MEM_STAT);
   gimple_set_subcode (s, subcode);
 
   return s;
@@ -387,13 +390,14 @@ extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
    RHS of the assignment which can be unary or binary.  */
 
 gimple
-gimple_build_assign (tree lhs, tree rhs)
+gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
 {
   enum tree_code subcode;
   tree op1, op2;
 
   extract_ops_from_tree (rhs, &subcode, &op1, &op2);
-  return gimple_build_assign_with_ops (subcode, lhs, op1, op2);
+  return gimple_build_assign_with_ops_stat (subcode, lhs, op1, op2
+  					    PASS_MEM_STAT);
 }
 
 
@@ -402,8 +406,8 @@ gimple_build_assign (tree lhs, tree rhs)
    GIMPLE_UNARY_RHS or GIMPLE_SINGLE_RHS.  */
 
 gimple
-gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
-                              tree op2)
+gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
+                                   tree op2 MEM_STAT_DECL)
 {
   unsigned num_ops;
   gimple p;
@@ -412,7 +416,8 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
      code).  */
   num_ops = get_gimple_rhs_num_ops (subcode) + 1;
   
-  p = gimple_build_with_ops (GIMPLE_ASSIGN, subcode, num_ops);
+  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, subcode, num_ops
+  			          PASS_MEM_STAT);
   gimple_assign_set_lhs (p, lhs);
   gimple_assign_set_rhs1 (p, op1);
   if (op2)

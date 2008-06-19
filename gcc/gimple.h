@@ -749,9 +749,12 @@ union gimple_statement_d GTY ((desc ("gimple_statement_structure (&%h)")))
 
 /* In gimple.c.  */
 gimple gimple_build_return (tree);
-gimple gimple_build_assign (tree, tree);
+gimple gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
+#define gimple_build_assign(l,r) gimple_build_assign_stat (l, r MEM_STAT_INFO)
 void extract_ops_from_tree (tree, enum tree_code *, tree *, tree *);
-gimple gimple_build_assign_with_ops (enum tree_code, tree, tree, tree);
+gimple gimple_build_assign_with_ops_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+#define gimple_build_assign_with_ops(c,o1,o2,o3) \
+  gimple_build_assign_with_ops_stat (c, o1, o2, o3 MEM_STAT_INFO)
 gimple gimple_build_call_vec (tree, VEC(tree, heap) *);
 gimple gimple_build_call (tree, unsigned, ...);
 gimple gimple_build_call_from_tree (tree);

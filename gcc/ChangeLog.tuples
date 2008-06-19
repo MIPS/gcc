@@ -1,3 +1,12 @@
+2008-06-19  Jan Hubicka  <jh@suse.cz>
+
+	* gimple.c (gimple_alloc): Annotate with MEM_STAT_INFO
+	(gimple_build_with_ops): Likewise.
+	(gimple_build_assign): Likewise.
+	(gimple_build_assign_with_ops): Likewise.
+	* gimple.h (gimple_build_assign, gimple_build_assign_with_ops):
+	Annotate with MEM_STAT_INFO.
+
 2008-06-17  Jan Hubicka  <jh@suse.cz>
 
 	* config/i386.c (ix86_gimplify_va_arg): Fix sharing issue.
