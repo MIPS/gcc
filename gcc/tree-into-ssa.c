@@ -985,66 +985,6 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
   free (defs);
 }
 
-/* Given a set of blocks with variable definitions (DEF_BLOCKS),
-   return a bitmap with all the blocks in the iterated dominance
-   frontier of the blocks in DEF_BLOCKS.  DFS contains dominance
-   frontier information as returned by compute_dominance_frontiers.
-
-   The resulting set of blocks are the potential sites where PHI nodes
-   are needed.  The caller is responsible for freeing the memory
-   allocated for the return value.  */
-
-static bitmap
-compute_idf (bitmap def_blocks, bitmap *dfs)
-{
-  bitmap_iterator bi;
-  unsigned bb_index, i;
-  VEC(int,heap) *work_stack;
-  bitmap phi_insertion_points;
-
-  work_stack = VEC_alloc (int, heap, n_basic_blocks);
-  phi_insertion_points = BITMAP_ALLOC (NULL);
-
-  /* Seed the work list with all the blocks in DEF_BLOCKS.  We use
-     VEC_quick_push here for speed.  This is safe because we know that
-     the number of definition blocks is no greater than the number of
-     basic blocks, which is the initial capacity of WORK_STACK.  */
-  EXECUTE_IF_SET_IN_BITMAP (def_blocks, 0, bb_index, bi)
-    VEC_quick_push (int, work_stack, bb_index);
-
-  /* Pop a block off the worklist, add every block that appears in
-     the original block's DF that we have not already processed to
-     the worklist.  Iterate until the worklist is empty.   Blocks
-     which are added to the worklist are potential sites for
-     PHI nodes.  */
-  while (VEC_length (int, work_stack) > 0)
-    {
-      bb_index = VEC_pop (int, work_stack);
-
-      /* Since the registration of NEW -> OLD name mappings is done
-	 separately from the call to update_ssa, when updating the SSA
-	 form, the basic blocks where new and/or old names are defined
-	 may have disappeared by CFG cleanup calls.  In this case,
-	 we may pull a non-existing block from the work stack.  */
-      gcc_assert (bb_index < (unsigned) last_basic_block);
-
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (dfs[bb_index], phi_insertion_points,
-	                              0, i, bi)
-	{
-	  /* Use a safe push because if there is a definition of VAR
-	     in every basic block, then WORK_STACK may eventually have
-	     more than N_BASIC_BLOCK entries.  */
-	  VEC_safe_push (int, heap, work_stack, i);
-	  bitmap_set_bit (phi_insertion_points, i);
-	}
-    }
-
-  VEC_free (int, heap, work_stack);
-
-  return phi_insertion_points;
-}
-
-
 /* Return the set of blocks where variable VAR is defined and the blocks
    where VAR is live on entry (livein).  Return NULL, if no entry is
    found in DEF_BLOCKS.  */
@@ -1205,7 +1145,8 @@ insert_phi_nodes (bitmap *dfs)
 
       if (get_phi_state (var) != NEED_PHI_STATE_NO)
 	{
-	  idf = compute_idf (def_map->def_blocks, dfs);
+	  idf = compute_iterated_dominance_frontiers (def_map->def_blocks,
+						      dfs);
 	  insert_phi_nodes_for (var, idf, false);
 	  BITMAP_FREE (idf);
 	}
@@ -2929,7 +2870,7 @@ insert_updated_phi_nodes_for (tree var, bitmap *dfs, bitmap blocks,
     return;
 
   /* Compute the initial iterated dominance frontier.  */
-  idf = compute_idf (db->def_blocks, dfs);
+  idf = compute_iterated_dominance_frontiers (db->def_blocks, dfs);
   pruned_idf = BITMAP_ALLOC (NULL);
 
   if (TREE_CODE (var) == SSA_NAME)

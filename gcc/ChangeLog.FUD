@@ -1,3 +1,13 @@
+2008-06-19  Steven Bosscher  <steven@gcc.gnu.org>
+
+
+	* cfganal.c: Include vec.h and vecprim.h.
+	(compute_iterated_dominance_frontiers): Import from...
+	* tree-into-ssa (compute_idf): ...here.
+	(insert_phi_nodes, insert_updated_phi_nodes_for): Call
+	compute_iterated_dominance_frontiers instead of compute_idf.
+	* basic-block.h (compute_iterated_dominance_frontiers): Export.
+
 2008-06-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_ref_remove, df_insn_create, df_insn_delete,
