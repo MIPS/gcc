@@ -114,7 +114,7 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
 
   if (insn_info)
     {
-      rtx insn = insn_info->insn;
+      rtx insn = DF_INSN_INFO_INSN (insn_info);
       use_link = DF_INSN_INFO_USES (insn_info);
       eq_use_link = DF_INSN_INFO_EQ_USES (insn_info);
       def_link = DF_INSN_INFO_DEFS (insn_info);

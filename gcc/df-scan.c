@@ -884,7 +884,7 @@ df_ref_remove (struct df_ref *ref)
 	{
 	  unsigned int uid = DF_REF_INSN_UID (ref);
 	  struct df_insn_info *insn_rec = DF_INSN_UID_GET (uid);
-	  df_ref_compress_rec (&insn_rec->defs, ref);
+	  df_ref_compress_rec (&DF_INSN_INFO_DEFS (insn_rec), ref);
 	}
     }
   else
@@ -903,7 +903,7 @@ df_ref_remove (struct df_ref *ref)
 	  if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
 	    df_ref_compress_rec (&insn_rec->eq_uses, ref);
 	  else
-	    df_ref_compress_rec (&insn_rec->uses, ref);
+	    df_ref_compress_rec (&DF_INSN_INFO_USES (insn_rec), ref);
 	}
     }
 
@@ -933,7 +933,7 @@ df_insn_create_insn_record (rtx insn)
       DF_INSN_INFO_SET (insn, insn_rec);
     }
   memset (insn_rec, 0, sizeof (struct df_insn_info));
-  insn_rec->insn = insn;
+  DF_INSN_INFO_INSN (insn_rec) = insn;
   return insn_rec;
 }
 
@@ -1046,20 +1046,20 @@ df_insn_delete (basic_block bb, unsigned int uid)
 	 to notes.  How clever.  So we cannot just check if it is a
 	 valid insn before short circuiting this code, we need to see
 	 if we actually initialized it.  */
-      if (insn_info->defs)
+      if (DF_INSN_INFO_DEFS (insn_info))
 	{
 	  df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
 	  
 	  if (df_chain)
 	    {
-	      df_ref_chain_delete_du_chain (insn_info->defs);
-	      df_ref_chain_delete_du_chain (insn_info->uses);  
-	      df_ref_chain_delete_du_chain (insn_info->eq_uses);
+	      df_ref_chain_delete_du_chain (DF_INSN_INFO_DEFS (insn_info));
+	      df_ref_chain_delete_du_chain (DF_INSN_INFO_USES (insn_info));  
+	      df_ref_chain_delete_du_chain (DF_INSN_INFO_EQ_USES (insn_info));
 	    }
 	  
-	  df_ref_chain_delete (insn_info->defs);
-	  df_ref_chain_delete (insn_info->uses);
-	  df_ref_chain_delete (insn_info->eq_uses);
+	  df_ref_chain_delete (DF_INSN_INFO_DEFS (insn_info));
+	  df_ref_chain_delete (DF_INSN_INFO_USES (insn_info));
+	  df_ref_chain_delete (DF_INSN_INFO_EQ_USES (insn_info));
 	}
       pool_free (problem_data->insn_pool, insn_info);
       DF_INSN_UID_SET (uid, NULL);
@@ -1131,10 +1131,10 @@ df_insn_rescan (rtx insn)
       if (!insn_info)
 	{
 	  insn_info = df_insn_create_insn_record (insn);
-	  insn_info->defs = df_null_ref_rec;
-	  insn_info->uses = df_null_ref_rec;
-	  insn_info->eq_uses = df_null_ref_rec;
-	  insn_info->mw_hardregs = df_null_mw_rec;
+	  DF_INSN_INFO_DEFS (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_USES (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_EQ_USES (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_MWS (insn_info) = df_null_mw_rec;
 	}
       if (dump_file)
 	fprintf (dump_file, "deferring rescan insn with uid = %d.\n", uid);
@@ -1274,7 +1274,7 @@ df_process_deferred_rescans (void)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
-	df_insn_rescan (insn_info->insn);
+	df_insn_rescan (DF_INSN_INFO_INSN (insn_info));
     }
 
   bitmap_copy (tmp, df->insns_to_notes_rescan);
@@ -1282,7 +1282,7 @@ df_process_deferred_rescans (void)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
-	df_notes_rescan (insn_info->insn);
+	df_notes_rescan (DF_INSN_INFO_INSN (insn_info));
     }
 
   if (dump_file)
@@ -1827,9 +1827,9 @@ df_insn_change_bb (rtx insn, basic_block new_bb)
   if (!INSN_P (insn))
     return;
 
-  df_ref_chain_change_bb (insn_info->defs, old_bb, new_bb);
-  df_ref_chain_change_bb (insn_info->uses, old_bb, new_bb);
-  df_ref_chain_change_bb (insn_info->eq_uses, old_bb, new_bb);
+  df_ref_chain_change_bb (DF_INSN_INFO_DEFS (insn_info), old_bb, new_bb);
+  df_ref_chain_change_bb (DF_INSN_INFO_USES (insn_info), old_bb, new_bb);
+  df_ref_chain_change_bb (DF_INSN_INFO_EQ_USES (insn_info), old_bb, new_bb);
 
   df_set_bb_dirty (new_bb);
   if (old_bb)
@@ -1899,7 +1899,7 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old, struct df_reg_info *new,
 	      if (DF_REF_FLAGS (the_ref) & DF_REF_IN_NOTE)
 		ref_vec = insn_info->eq_uses;
 	      else
-		ref_vec = insn_info->uses;
+		ref_vec = DF_INSN_INFO_USES (insn_info);
 	      if (dump_file)
 		fprintf (dump_file, "changing reg in insn %d\n", 
 			 INSN_UID (DF_REF_INSN (the_ref))); 
@@ -2023,10 +2023,10 @@ df_notes_rescan (rtx insn)
       if (!insn_info)
 	{
 	  insn_info = df_insn_create_insn_record (insn);
-	  insn_info->defs = df_null_ref_rec;
-	  insn_info->uses = df_null_ref_rec;
-	  insn_info->eq_uses = df_null_ref_rec;
-	  insn_info->mw_hardregs = df_null_mw_rec;
+	  DF_INSN_INFO_DEFS (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_USES (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_EQ_USES (insn_info) = df_null_ref_rec;
+	  DF_INSN_INFO_MWS (insn_info) = df_null_mw_rec;
 	}
       
       bitmap_clear_bit (df->insns_to_delete, uid);
@@ -2523,9 +2523,9 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	 chain specially.  */
       if (collection_rec->def_vec)
 	{
-	  if (insn_rec->defs && *insn_rec->defs)
-	    free (insn_rec->defs);
-	  insn_rec->defs 
+	  if (DF_INSN_INFO_DEFS (insn_rec) && *DF_INSN_INFO_DEFS (insn_rec))
+	    free (DF_INSN_INFO_DEFS (insn_rec));
+	  DF_INSN_INFO_DEFS (insn_rec) 
 	    = df_install_refs (bb, collection_rec->def_vec, 
 			       collection_rec->next_def,
 			       df->def_regs,
@@ -2533,9 +2533,9 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->use_vec)
 	{
-	  if (insn_rec->uses && *insn_rec->uses)
-	    free (insn_rec->uses);
-	  insn_rec->uses 
+	  if (DF_INSN_INFO_USES (insn_rec) && *DF_INSN_INFO_USES (insn_rec))
+	    free (DF_INSN_INFO_USES (insn_rec));
+	  DF_INSN_INFO_USES (insn_rec) 
 	    = df_install_refs (bb, collection_rec->use_vec, 
 			       collection_rec->next_use,
 			       df->use_regs,
@@ -2543,9 +2543,9 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->eq_use_vec)
 	{
-	  if (insn_rec->eq_uses && *insn_rec->eq_uses)
-	    free (insn_rec->eq_uses);
-	  insn_rec->eq_uses 
+	  if (DF_INSN_INFO_EQ_USES (insn_rec) && *DF_INSN_INFO_EQ_USES (insn_rec))
+	    free (DF_INSN_INFO_EQ_USES (insn_rec));
+	  DF_INSN_INFO_EQ_USES (insn_rec) 
 	    = df_install_refs (bb, collection_rec->eq_use_vec, 
 			       collection_rec->next_eq_use,
 			       df->eq_use_regs,
@@ -2553,9 +2553,9 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->mw_vec)
 	{
-	  if (insn_rec->mw_hardregs && *insn_rec->mw_hardregs)
-	    free (insn_rec->mw_hardregs);
-	  insn_rec->mw_hardregs 
+	  if (DF_INSN_INFO_MWS (insn_rec) && *DF_INSN_INFO_MWS (insn_rec))
+	    free (DF_INSN_INFO_MWS (insn_rec));
+	  DF_INSN_INFO_MWS (insn_rec) 
 	    = df_install_mws (collection_rec->mw_vec, 
 			      collection_rec->next_mw);
 	}
@@ -3220,7 +3220,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 
   /* Record the registers used to pass arguments, and explicitly
      noted as clobbered.  */
-  for (note = CALL_INSN_FUNCTION_USAGE (insn_info->insn); note;
+  for (note = CALL_INSN_FUNCTION_USAGE (DF_INSN_INFO_INSN (insn_info)); note;
        note = XEXP (note, 1))
     {
       if (GET_CODE (XEXP (note, 0)) == USE)
@@ -3258,7 +3258,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 		       NULL, bb, insn_info, DF_REF_REG_DEF, flags, -1, -1, 0);
       }
 
-  is_sibling_call = SIBLING_CALL_P (insn_info->insn);
+  is_sibling_call = SIBLING_CALL_P (DF_INSN_INFO_INSN (insn_info));
   EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
     {
       if (!global_regs[ui]
@@ -3287,7 +3287,8 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
 		      basic_block bb, struct df_insn_info *insn_info) 
 {
   rtx note;
-  bool is_cond_exec = (GET_CODE (PATTERN (insn_info->insn)) == COND_EXEC);
+  bool is_cond_exec 
+    = (GET_CODE (PATTERN (DF_INSN_INFO_INSN (insn_info))) == COND_EXEC);
 
   /* Clear out the collection record.  */
   collection_rec->next_def = 0;
@@ -3296,10 +3297,11 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
   collection_rec->next_mw = 0;
 
   /* Record register defs.  */
-  df_defs_record (collection_rec, PATTERN (insn_info->insn), bb, insn_info, 0);
+  df_defs_record (collection_rec, PATTERN (DF_INSN_INFO_INSN (insn_info)), 
+		  bb, insn_info, 0);
 
   /* Process REG_EQUIV/REG_EQUAL notes.  */
-  for (note = REG_NOTES (insn_info->insn); note;
+  for (note = REG_NOTES (DF_INSN_INFO_INSN (insn_info)); note;
        note = XEXP (note, 1))
     {
       switch (REG_NOTE_KIND (note))
@@ -3328,13 +3330,14 @@ df_insn_refs_collect (struct df_collection_rec* collection_rec,
         }
     }
 
-  if (CALL_P (insn_info->insn))
+  if (CALL_P (DF_INSN_INFO_INSN (insn_info)))
     df_get_call_refs (collection_rec, bb, insn_info, 
 		      (is_cond_exec) ? DF_REF_CONDITIONAL : 0);
 
   /* Record the register uses.  */
   df_uses_record (collection_rec,
-		  &PATTERN (insn_info->insn), DF_REF_REG_USE, bb, insn_info, 0, 
+		  &PATTERN (DF_INSN_INFO_INSN (insn_info)), 
+		  DF_REF_REG_USE, bb, insn_info, 0, 
 		  -1, -1, 0);
 
   /* DF_REF_CONDITIONAL needs corresponding USES. */
