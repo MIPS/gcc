@@ -1,3 +1,7 @@
+2008-06-19  Andrew Pinski  <pinskia@gmail.com>
+
+	* lib/objc.exp: Revert back to the mainline.
+
 2008-06-15  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/20080615-1.c: New test.
