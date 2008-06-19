@@ -1,3 +1,8 @@
+2008-06-19  Ian Lance Taylor  <iant@google.com>
+
+	* toplev.h (progname): Declare as extern "C" when compiling with
+	C++.
+
 2008-06-18  Ian Lance Taylor  <iant@google.com>
 
 	* configure.ac: Split c_loose_warn out from loose_warn, and
@@ -11,3 +16,7 @@
 	(.c.o): Compile with $(CXX) rather than $(CC).
 	* configure: Rebuild.
 
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.cxx"
+End:

@@ -107,7 +107,17 @@ extern void target_reinit (void);
 /* A unique local time stamp, might be zero if none is available.  */
 extern unsigned local_tick;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* This is used by cpplib and libiberty.  */
 extern const char *progname;
+
+#ifdef __cplusplus
+}
+#endif
+
 extern const char *dump_base_name;
 extern const char *aux_base_name;
 extern const char *aux_info_file_name;
