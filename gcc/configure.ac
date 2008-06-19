@@ -322,11 +322,12 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # * overlong strings
 # So, we only use -pedantic if we can disable those warnings.
 
-ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wstrict-prototypes -Wmissing-prototypes], \
+			 [c_loose_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wc++-compat], [cxx_compat_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition \
-                          -Wmissing-format-attribute], [strict_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wmissing-format-attribute], [strict_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition], [c_strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
 				     -Wno-overlength-strings], [strict_warn])
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
@@ -335,10 +336,13 @@ ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
 # Makefile has more goo to add other flags, so this variabl is used to
 # enables warnings only for GCC.
 warn_cflags=
+warn_cxxflags=
 if test "x$GCC" = "xyes"; then
   warn_cflags='$(GCC_WARN_CFLAGS)'
+  warn_cxxflags='$(GCC_WARN_CXXFLAGS)'
 fi
 AC_SUBST(warn_cflags)
+AC_SUBST(warn_cxxflags)
 
 # Enable expensive internal checks
 is_release=

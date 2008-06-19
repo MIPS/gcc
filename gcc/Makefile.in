@@ -157,12 +157,16 @@ coverageexts = .{gcda,gcno}
 # LOOSE_WARN are the warning flags to use when compiling something
 # which is only compiled with gcc, such as libgcc and the frontends
 # other than C.
+# C_LOOSE_WARN is similar, but with C-only warnings.
 # STRICT_WARN are the additional warning flags to
 # apply to the back end and the C front end, which may be compiled
 # with other compilers.
+# C_STRICT_WARN is similar, with C-only warnings.
 # CXX_COMPAT_WARN are C++ source compatibility warnings.
 LOOSE_WARN = @loose_warn@
+C_LOOSE_WARN = @c_loose_warn@
 STRICT_WARN = @strict_warn@
+C_STRICT_WARN = @c_strict_warn@
 CXX_COMPAT_WARN = @cxx_compat_warn@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
@@ -179,7 +183,8 @@ VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
 # This is how we control whether or not the additional warnings are applied.
 .-warn = $(STRICT_WARN)
 build-warn = $(STRICT_WARN)
-GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
+GCC_WARN_CFLAGS = $(LOOSE_WARN) $(C_LOOSE_WARN) $($(@D)-warn) $(if $(filter-out $(STRICT_WARN),$($(@D)-warn)),,$(C_STRICT_WARN)) $(NOCOMMON_FLAG) $($@-warn)
+GCC_WARN_CXXFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 
 # These files are to have specific diagnostics suppressed, or are not to
 # be subject to -Werror:
@@ -192,8 +197,10 @@ dfp.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
-# $(GCC_WARN_CFLAGS), or nothing.
+# $(GCC_WARN_CFLAGS), or nothing.  Similarly, WARN_CXXFLAGS will be
+# either $(GCC_WARN_CXXFLAGS), or nothing.
 WARN_CFLAGS = @warn_cflags@
+WARN_CXXFLAGS = @warn_cxxflags@
 
 CPPFLAGS = @CPPFLAGS@
 
@@ -312,7 +319,7 @@ GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) ./xgcc -B./ -B$(build_tooldir)/bin/ -isyste
 # This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
 # It specifies -B./.
 # It also specifies -isystem ./include to find, e.g., stddef.h.
-GCC_CFLAGS=$(CFLAGS_FOR_TARGET) $(INTERNAL_CFLAGS) $(T_CFLAGS) $(LOOSE_WARN) -Wold-style-definition $($@-warn) -isystem ./include $(TCFLAGS)
+GCC_CFLAGS=$(CFLAGS_FOR_TARGET) $(INTERNAL_CFLAGS) $(T_CFLAGS) $(LOOSE_WARN) $(C_LOOSE_WARN) -Wold-style-definition $($@-warn) -isystem ./include $(TCFLAGS)
 
 # ---------------------------------------------------
 # Programs which produce files for the target machine
@@ -851,6 +858,11 @@ INTERNAL_CFLAGS = -DIN_GCC @CROSS@
 ALL_CFLAGS = $(T_CFLAGS) \
   $(CFLAGS) $(INTERNAL_CFLAGS) $(COVERAGE_FLAGS) $(WARN_CFLAGS) @DEFS@
 
+# The C++ version.
+ALL_CXXFLAGS = $(T_CFLAGS) \
+  $(CFLAGS) $(CXXFLAGS) $(INTERNAL_CFLAGS) $(COVERAGE_FLAGS) \
+  $(WARN_CXXFLAGS) @DEFS@
+
 # Likewise.  Put INCLUDES at the beginning: this way, if some autoconf macro
 # puts -I options in CPPFLAGS, our include files in the srcdir will always
 # win against random include files in /usr/include.
@@ -900,8 +912,9 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC)
 
+# [gcc-in-cxx] Keep the .c extension, but compile with C++.
 .c.o:
-	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+	$(CXX) -x c++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
 
 #
 # Support for additional languages (other than C).
