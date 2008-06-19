@@ -348,7 +348,7 @@ struct df_mw_hardreg
 
 /* The common fields for regular and phi insns.  */
 
-struct df_phi_insn_info
+struct df_base_insn_info
 {
   /* For regular insns, the insn field points to the rtx insn.  For
      phi's this is NULL.  */
@@ -360,7 +360,7 @@ struct df_phi_insn_info
 /* One of these structures is allocated for every insn.  */
 struct df_insn_info
 {
-  struct df_phi_insn_info base;
+  struct df_base_insn_info base;
 
   /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
   struct df_ref **eq_uses;       
