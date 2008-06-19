@@ -1,3 +1,19 @@
+2008-06-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
+2008-06-17  Chris Fairles  <chris.fairles@gmail.com>
+
+	* include/bits/stl_iterator_base_funcs.h (next, prev): Add in
+	C++0x mode.
+	* testsuite/24_iterators/operations/next.cc: New.
+	* testsuite/24_iterators/operations/prev.cc: Likewise.
+
+2008-06-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* src/string_conversions.cc (__to_xstring<>): New.
+	(to_string, to_wstring): Use it.
+
 2008-06-16  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/basic_string.h (stod, stof, stoi, stol, stold, stoll,

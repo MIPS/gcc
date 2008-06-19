@@ -1,3 +1,42 @@
+2008-06-18  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/36517, fortran/36492
+	* array.c (gfc_resolve_character_array_constructor):  Call
+	gfc_set_constant_character_len with changed length-chec argument.
+	* decl.c (gfc_set_constant_character_len):  Changed array argument to
+	be a generic length-checking argument that can be used for correct
+	checking with typespec and in special cases where the should-be length
+	is different from the target length.
+	(build_struct):  Call gfc_set_constant_character_len with changed length
+	checking argument and introduced additional checks for exceptional
+	conditions on invalid code.
+	(add_init_expr_to_sym), (do_parm):  Call gfc_set_constant_character_len
+	with changed argument.
+	* match.h (gfc_set_constant_character_len):  Changed third argument to
+	int for the should-be length rather than bool.
+
+2008-06-17  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/36112
+	* array.c (gfc_resolve_character_array_constructor):  Check that all
+	elements with constant character length have the same one rather than
+	fixing it if no typespec is given, emit an error if they don't.  Changed
+	return type to "try" and return FAILURE for the case above.
+	(gfc_resolve_array_constructor):  Removed unneeded call to
+	gfc_resolve_character_array_constructor in this function.
+	* gfortran.h (gfc_resolve_character_array_constructor):  Returns try.
+	* trans-array.c (get_array_ctor_strlen):  Return length of first element
+	rather than last element.
+	* resolve.c (gfc_resolve_expr):  Handle FAILURE return from
+	gfc_resolve_character_array_constructor.
+
+2008-06-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34396
+	* resolve.c (add_dt_to_dt_list):  New function.
+	(resolve_fl_derived): Call new function for pointer components
+	and when derived type resolved.
+
 2008-06-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/36515
