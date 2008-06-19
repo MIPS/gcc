@@ -89,9 +89,10 @@ cxx_finish (void)
 }
 
 /* A mapping from tree codes to operator name information.  */
-operator_name_info_t operator_name_info[(int) LAST_CPLUS_TREE_CODE];
+operator_name_info_t operator_name_info[(int) LAST_AND_UNUSED_TREE_CODE];
 /* Similar, but for assignment operators.  */
-operator_name_info_t assignment_operator_name_info[(int) LAST_CPLUS_TREE_CODE];
+operator_name_info_t
+assignment_operator_name_info[(int) LAST_AND_UNUSED_TREE_CODE];
 
 /* Initialize data structures that keep track of operator names.  */
 

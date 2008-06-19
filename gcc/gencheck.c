@@ -26,11 +26,11 @@ along with GCC; see the file COPYING3.  If not see
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) #SYM,
 
 static const char *const tree_codes[] = {
-#include "tree.def"
-#include "c-common.def"
-#include "gencheck.h"
+#include "all-tree.def"
 (char*) 0
 };
+
+#undef DEFTREECODE
 
 static void usage (void);
 

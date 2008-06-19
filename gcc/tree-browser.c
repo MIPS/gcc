@@ -73,7 +73,7 @@ struct tb_tree_code {
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS) { SYM, STRING, sizeof (STRING) - 1 },
 static const struct tb_tree_code tb_tree_codes[] =
 {
-#include "tree.def"
+#include "all-tree.def"
 };
 #undef DEFTREECODE
 

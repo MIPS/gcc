@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
 
 enum tree_code {
-#include "tree.def"
+#include "all-tree.def"
 
   LAST_AND_UNUSED_TREE_CODE	/* A convenient way to get a value for
 				   NUM_TREE_CODES.  */

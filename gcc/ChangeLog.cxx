@@ -1,5 +1,51 @@
 2008-06-19  Ian Lance Taylor  <iant@google.com>
 
+	* tree.h (enum tree_code): Include all-tree.def, not tree.def.
+	* tree.c (tree_code_type): New global array.
+	(tree_code_length, tree_code_name): Likewise.
+	* Makefile.in (TREE_H): Add all-tree.def, c-common.def, and
+	$(lang_tree_files).
+	(all-tree.def, s-alltree): New targets.
+	(gencheck.h, s-gencheck): Remove.
+	(tree.o): Depend upon all-tree.def.
+	(build/gencheck.o): Remove gencheck.h dependency.
+	(mostlyclean): Don't remove gencheck.h.
+	* c-common.h (enum c_tree_code): Remove.
+	* c-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* gencheck.c (tree_codes): Include all-tree.def, rather than
+	tree.def, c-common.def, and gencheck.h.  Undefined DEFTREECODE
+	after it is used.
+	* tree-browser.c (tb_tree_codes): Include all-tree.def, rather
+	than tree.def.
+	* cp/cp-tree.h (enum cplus_tree_code): Remove.
+	(operator_name_info): Size to LAST_AND_UNUSED_TREE_CODE.
+	(assignment_operator_name_info): Likewise.
+	* cp/cp-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* cp/lex.c (operator_name_info): Size to
+	LAST_AND_UNUSED_TREE_CODE.
+	(assignment_operator_name_info): Likewise.
+	* cp/decl.c (grok_op_properties): Change LAST_CPLUS_TREE_CODE to
+	LAST_AND_UNUSED_TREE_CODE.
+	* cp/mangle.c (write_expression): Likewise.
+	* cp/Make-lang.in (CXX_TREE_H): Remove cp/cp-tree.def.
+	* fortran/f95-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* java/java-tree.h (enum java_tree_code): Remove.
+	* java/lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* java/Make-lang.in (JAVA_TREE_H): Remove java/java-tree.def.
+	* objc/objc-act.h (enum objc_tree_code): Remove.
+	* objc/objc-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* objcp/objcp-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* ada/ada-tre.h (enum gnat_tree_code): Remove.
+	* ada/Make-lang.in (ADA_TREE_H): Remove ada/ada-tre.def.
+	* ada/misc.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+
 	* c-lex.c (narrowest_unsigned_type): Change itk to int.
 	(narrowest_signed_type): Likewise.
 	* c-typeck.c (c_common_type): Change local variable mclass to enum
