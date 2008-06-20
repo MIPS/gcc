@@ -1,3 +1,37 @@
+2008-06-20  Doug Kwan  <dougkwan@google.com>
+
+	* tree-loop-linear.c (File): Re-enable all previously disabled code.
+	(gather_interchange_stats): Tuplify.
+	(linear_transform_loops): Likewise.
+	* gimple-dummy.c (get_type): Remove unused dummy.
+	(ipa_add_method): Same.
+	(ipa_callsite_callee): Same.
+	(ipa_callsite_compute_count): Same.
+	(ipa_callsite_compute_param): Same.
+	(ipa_callsite_param): Same.
+	(ipa_callsite_param_count): Same.
+	(ipa_callsite_param_count_set): Same.
+	(ipa_edges_create): Same.
+	(ipa_edges_free): Same.
+	(ipa_free): Same.
+	(ipa_jf_get_info_type): Same.
+	(ipa_method_compute_modify): Same.
+	(ipa_method_compute_tree_map): Same.
+	(ipa_method_formal_compute_count): Same.
+	(ipa_method_formal_count): Same.
+	(ipa_method_formal_count_set): Same.
+	(ipa_method_get_tree): Same.
+	(ipa_method_modify_print): Same.
+	(ipa_method_tree_print): Same.
+	(ipa_methodlist_init): Same.
+	(ipa_methodlist_not_empty): Same.
+	(ipa_node_create): Same.
+	(ipa_nodes_create): Same.
+	(ipa_nodes_free): Same.
+	(ipa_remove_method): Same.
+	(vec_set_verbosity_level): Same.
+	* tree-ssa-loop.c (tree_linear_transform): Re-enable.
+
 2008-06-19  Jan Hubicka  <jh@suse.cz>
 
 	* gimple.c (gimple_alloc): Annotate with MEM_STAT_INFO

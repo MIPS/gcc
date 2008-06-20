@@ -43,8 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "lambda.h"
 
-/* FIXME tuples.  */
-#if 0
 /* Linear loop transforms include any composition of interchange,
    scaling, skewing, and reversal.  They are used to change the
    iteration order of loop nests in order to optimize data locality of
@@ -99,8 +97,6 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations ATTRIBUTE_UNUS
 			  unsigned int *nb_deps_not_carried_by_loop ATTRIBUTE_UNUSED, 
 			  double_int *access_strides ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
   unsigned int i, j;
   struct data_dependence_relation *ddr;
   struct data_reference *dr;
@@ -139,7 +135,7 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations ATTRIBUTE_UNUS
     {
       unsigned int it;
       tree ref = DR_REF (dr);
-      tree stmt = DR_STMT (dr);
+      gimple stmt = DR_STMT (dr);
       struct loop *stmt_loop = loop_containing_stmt (stmt);
       struct loop *inner_loop = first_loop->inner;
 
@@ -164,9 +160,6 @@ gather_interchange_stats (VEC (ddr_p, heap) *dependence_relations ATTRIBUTE_UNUS
 	  (*access_strides) = double_int_add (*access_strides, dstride);
 	}
     }
-#else
-  gimple_unreachable ();
-#endif
 }
 
 /* Attempt to apply interchange transformations to TRANS to maximize the
@@ -326,9 +319,9 @@ linear_transform_loops (void)
   VEC(tree,heap) *oldivs = NULL;
   VEC(tree,heap) *invariants = NULL;
   VEC(tree,heap) *lambda_parameters = NULL;
-  VEC(tree,heap) *remove_ivs = VEC_alloc (tree, heap, 3);
+  VEC(gimple,heap) *remove_ivs = VEC_alloc (gimple, heap, 3);
   struct loop *loop_nest;
-  tree oldiv_stmt;
+  gimple oldiv_stmt;
   unsigned i;
 
   FOR_EACH_LOOP (li, loop_nest, 0)
@@ -419,15 +412,14 @@ linear_transform_loops (void)
       free_data_refs (datarefs);
     }
 
-  for (i = 0; VEC_iterate (tree, remove_ivs, i, oldiv_stmt); i++)
+  for (i = 0; VEC_iterate (gimple, remove_ivs, i, oldiv_stmt); i++)
     remove_iv (oldiv_stmt);
 
   VEC_free (tree, heap, oldivs);
   VEC_free (tree, heap, invariants);
-  VEC_free (tree, heap, remove_ivs);
+  VEC_free (gimple, heap, remove_ivs);
   scev_reset ();
 
   if (modified)
     rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa_full_phi);
 }
-#endif
