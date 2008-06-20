@@ -105,7 +105,7 @@ union_defs (struct df_ref *use, struct web_entry *def_entry,
  	    struct web_entry *use_entry,
  	    bool (*fun) (struct web_entry *, struct web_entry *))
 {
-  struct df_insn_info *insn_info = DF_REF_INSN_INFO (use);
+  df_insn_info insn_info = DF_REF_INSN_INFO (use);
   struct df_link *link = DF_REF_CHAIN (use);
   struct df_ref **use_link;
   struct df_ref **eq_use_link;

@@ -2156,7 +2156,7 @@ df_insn_debug (rtx insn, bool follow_chain, FILE *file)
 void
 df_insn_debug_regno (rtx insn, FILE *file)
 {
-  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 
   fprintf (file, "insn %d bb %d luid %d defs ",
 	   INSN_UID (insn), BLOCK_FOR_INSN (insn)->index,

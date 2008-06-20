@@ -94,28 +94,28 @@ static struct df_mw_hardreg * df_null_mw_rec[1];
 
 static void df_ref_record (struct df_collection_rec *,
 			   rtx, rtx *, 
-			   basic_block, struct df_insn_info *,
+			   basic_block, df_insn_info,
 			   enum df_ref_type, enum df_ref_flags,
 			   int, int, enum machine_mode);
 static void df_def_record_1 (struct df_collection_rec *, rtx,
-			     basic_block, struct df_insn_info *,
+			     basic_block, df_insn_info,
 			     enum df_ref_flags);
 static void df_defs_record (struct df_collection_rec *, rtx,
-			    basic_block, struct df_insn_info *,
+			    basic_block, df_insn_info,
 			    enum df_ref_flags);
 static void df_uses_record (struct df_collection_rec *,
 			    rtx *, enum df_ref_type,
-			    basic_block, struct df_insn_info *,
+			    basic_block, df_insn_info,
 			    enum df_ref_flags, 
 			    int, int, enum machine_mode);
 
 static struct df_ref *df_ref_create_structure (struct df_collection_rec *, rtx, rtx *, 
-					       basic_block, struct df_insn_info *,
+					       basic_block, df_insn_info,
 					       enum df_ref_type, enum df_ref_flags,
 					       int, int, enum machine_mode);
 
 static void df_insn_refs_collect (struct df_collection_rec*, 
-				  basic_block, struct df_insn_info *); 
+				  basic_block, df_insn_info); 
 static void df_canonize_collection_rec (struct df_collection_rec *);
 
 static void df_get_regular_block_artificial_uses (bitmap);
@@ -305,7 +305,7 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 			 sizeof (struct df_ref_extract), block_size);
   problem_data->insn_pool 
     = create_alloc_pool ("df_scan_insn pool", 
-			 sizeof (struct df_insn_info), block_size);
+			 sizeof (struct df_real_insn_info), block_size);
   problem_data->reg_pool 
     = create_alloc_pool ("df_scan_reg pool", 
 			 sizeof (struct df_reg_info), block_size);
@@ -563,9 +563,9 @@ df_grow_insn_info (void)
     {
       new_size += new_size / 4;
       df->insns = xrealloc (df->insns, 
-			    new_size *sizeof (struct df_insn_info *));
+			    new_size *sizeof (struct df_real_insn_info *));
       memset (df->insns + df->insns_size, 0,
-	      (new_size - DF_INSN_SIZE ()) *sizeof (struct df_insn_info *));
+	      (new_size - DF_INSN_SIZE ()) *sizeof (struct df_real_insn_info *));
       DF_INSN_SIZE () = new_size;
     }
 }
@@ -883,7 +883,7 @@ df_ref_remove (struct df_ref *ref)
       else
 	{
 	  unsigned int uid = DF_REF_INSN_UID (ref);
-	  struct df_insn_info *insn_rec = DF_INSN_UID_GET (uid);
+	  df_insn_info insn_rec = DF_INSN_UID_GET (uid);
 	  df_ref_compress_rec (&DF_INSN_INFO_DEFS (insn_rec), ref);
 	}
     }
@@ -898,10 +898,10 @@ df_ref_remove (struct df_ref *ref)
       else 
 	{
 	  unsigned int uid = DF_REF_INSN_UID (ref);
-	  struct df_insn_info *insn_rec = DF_INSN_UID_GET (uid);
+	  df_insn_info insn_rec = DF_INSN_UID_GET (uid);
 
 	  if (DF_REF_FLAGS (ref) & DF_REF_IN_NOTE)
-	    df_ref_compress_rec (&insn_rec->eq_uses, ref);
+	    df_ref_compress_rec (&DF_INSN_INFO_EQ_USES (insn_rec), ref);
 	  else
 	    df_ref_compress_rec (&DF_INSN_INFO_USES (insn_rec), ref);
 	}
@@ -915,15 +915,15 @@ df_ref_remove (struct df_ref *ref)
 }
 
 
-/* Create the insn record for INSN.  If there was one there, zero it
-   out.  */
+/* Create the insn record for INSN which is a real insn.
+   If there was one there, zero it out.  */
 
-struct df_insn_info *
+df_insn_info
 df_insn_create_insn_record (rtx insn)
 {
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) df_scan->problem_data;
-  struct df_insn_info *insn_rec;
+  df_insn_info insn_rec;
 
   df_grow_insn_info ();
   insn_rec = DF_INSN_INFO_GET (insn);
@@ -932,7 +932,7 @@ df_insn_create_insn_record (rtx insn)
       insn_rec = pool_alloc (problem_data->insn_pool);
       DF_INSN_INFO_SET (insn, insn_rec);
     }
-  memset (insn_rec, 0, sizeof (struct df_insn_info));
+  memset (insn_rec, 0, sizeof (struct df_real_insn_info));
   DF_INSN_INFO_INSN (insn_rec) = insn;
   return insn_rec;
 }
@@ -1001,7 +1001,7 @@ df_mw_hardreg_chain_delete (struct df_mw_hardreg **hardregs)
 void 
 df_insn_delete (basic_block bb, unsigned int uid)
 {
-  struct df_insn_info *insn_info = NULL;
+  df_insn_info insn_info = NULL;
   if (!df)
     return;
 
@@ -1048,7 +1048,7 @@ df_insn_delete (basic_block bb, unsigned int uid)
 	 if we actually initialized it.  */
       if (DF_INSN_INFO_DEFS (insn_info))
 	{
-	  df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
+	  df_mw_hardreg_chain_delete (DF_INSN_INFO_MWS (insn_info));
 	  
 	  if (df_chain)
 	    {
@@ -1098,7 +1098,7 @@ bool
 df_insn_rescan (rtx insn)
 {
   unsigned int uid = INSN_UID (insn);
-  struct df_insn_info *insn_info = NULL;
+  df_insn_info insn_info = NULL;
   basic_block bb = BLOCK_FOR_INSN (insn);
   struct df_collection_rec collection_rec;
   collection_rec.def_vec = alloca (sizeof (struct df_ref*) * 1000);
@@ -1168,7 +1168,7 @@ df_insn_rescan (rtx insn)
     }
   else
     {
-      struct df_insn_info *insn_info = df_insn_create_insn_record (insn);
+      df_insn_info insn_info = df_insn_create_insn_record (insn);
       df_insn_refs_collect (&collection_rec, bb, insn_info);
       if (dump_file)
 	fprintf (dump_file, "scanning new insn with uid = %d.\n", uid);
@@ -1209,7 +1209,7 @@ df_insn_rescan_all (void)
   bitmap_copy (tmp, df->insns_to_delete);
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
     {
-      struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
+      df_insn_info insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	df_insn_delete (NULL, uid);
     }
@@ -1264,7 +1264,7 @@ df_process_deferred_rescans (void)
   bitmap_copy (tmp, df->insns_to_delete);
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
     {
-      struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
+      df_insn_info insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	df_insn_delete (NULL, uid);
     }
@@ -1272,7 +1272,7 @@ df_process_deferred_rescans (void)
   bitmap_copy (tmp, df->insns_to_rescan);
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
     {
-      struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
+      df_insn_info insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	df_insn_rescan (DF_INSN_INFO_INSN (insn_info));
     }
@@ -1280,7 +1280,7 @@ df_process_deferred_rescans (void)
   bitmap_copy (tmp, df->insns_to_notes_rescan);
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, uid, bi)
     {
-      struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
+      df_insn_info insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	df_notes_rescan (DF_INSN_INFO_INSN (insn_info));
     }
@@ -1801,7 +1801,7 @@ void
 df_insn_change_bb (rtx insn, basic_block new_bb)
 {
   basic_block old_bb = BLOCK_FOR_INSN (insn);
-  struct df_insn_info *insn_info;
+  df_insn_info insn_info;
   unsigned int uid = INSN_UID (insn);
 
   if (old_bb == new_bb)
@@ -1895,9 +1895,9 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old, struct df_reg_info *new,
 	    }
 	  else
 	    {
-	      struct df_insn_info *insn_info = DF_REF_INSN_INFO (the_ref);
+	      df_insn_info insn_info = DF_REF_INSN_INFO (the_ref);
 	      if (DF_REF_FLAGS (the_ref) & DF_REF_IN_NOTE)
-		ref_vec = insn_info->eq_uses;
+		ref_vec = DF_INSN_INFO_EQ_USES (insn_info);
 	      else
 		ref_vec = DF_INSN_INFO_USES (insn_info);
 	      if (dump_file)
@@ -1946,9 +1946,9 @@ df_ref_change_reg_with_loc (int old_regno, int new_regno, rtx loc)
 /* Delete the mw_hardregs that point into the eq_notes.  */
 
 static unsigned int
-df_mw_hardreg_chain_delete_eq_uses (struct df_insn_info *insn_info)
+df_mw_hardreg_chain_delete_eq_uses (df_insn_info insn_info)
 {
-  struct df_mw_hardreg **mw_vec = insn_info->mw_hardregs;
+  struct df_mw_hardreg **mw_vec = DF_INSN_INFO_MWS (insn_info);
   unsigned int deleted = 0;
   unsigned int count = 0;
   struct df_scan_problem_data *problem_data 
@@ -1985,8 +1985,8 @@ df_mw_hardreg_chain_delete_eq_uses (struct df_insn_info *insn_info)
 
   if (count == 0)
     {
-      free (insn_info->mw_hardregs);
-      insn_info->mw_hardregs = df_null_mw_rec;
+      free (DF_INSN_INFO_MWS (insn_info));
+      DF_INSN_INFO_MWS (insn_info) = df_null_mw_rec;
       return 0;
     }
   return deleted;
@@ -1998,7 +1998,7 @@ df_mw_hardreg_chain_delete_eq_uses (struct df_insn_info *insn_info)
 void
 df_notes_rescan (rtx insn)
 {
-  struct df_insn_info *insn_info;
+  df_insn_info insn_info;
   unsigned int uid = INSN_UID (insn);
 
   if (!df)
@@ -2052,8 +2052,8 @@ df_notes_rescan (rtx insn)
       collection_rec.mw_vec = alloca (sizeof (struct df_mw_hardreg*) * 1000);
 
       num_deleted = df_mw_hardreg_chain_delete_eq_uses (insn_info);
-      df_ref_chain_delete (insn_info->eq_uses);
-      insn_info->eq_uses = NULL;
+      df_ref_chain_delete (DF_INSN_INFO_EQ_USES (insn_info));
+      DF_INSN_INFO_EQ_USES (insn_info) = NULL;
 
       /* Process REG_EQUIV/REG_EQUAL notes */
       for (note = REG_NOTES (insn); note;
@@ -2076,7 +2076,7 @@ df_notes_rescan (rtx insn)
       if (collection_rec.next_mw)
 	{
 	  unsigned int count = 0;
-	  struct df_mw_hardreg **mw_rec = insn_info->mw_hardregs;
+	  struct df_mw_hardreg **mw_rec = DF_INSN_INFO_MWS (insn_info);
 	  while (*mw_rec)
 	    {
 	      count++;
@@ -2089,23 +2089,23 @@ df_notes_rescan (rtx insn)
 		 expanding it if necessary.  */
 	      if (collection_rec.next_mw > num_deleted)
 		{
-		  insn_info->mw_hardregs = 
-		    xrealloc (insn_info->mw_hardregs, 
+		  DF_INSN_INFO_MWS (insn_info) = 
+		    xrealloc (DF_INSN_INFO_MWS (insn_info), 
 			      (count + 1 + collection_rec.next_mw) 
 			      * sizeof (struct df_ref*));
 		}
-	      memcpy (&insn_info->mw_hardregs[count], collection_rec.mw_vec, 
+	      memcpy (&DF_INSN_INFO_MWS (insn_info)[count], collection_rec.mw_vec, 
 		      (collection_rec.next_mw + 1) * sizeof (struct df_mw_hardreg *));
-	      qsort (insn_info->mw_hardregs, count + collection_rec.next_mw, 
+	      qsort (DF_INSN_INFO_MWS (insn_info), count + collection_rec.next_mw, 
 		     sizeof (struct df_mw_hardreg *), df_mw_compare);
 	    }
 	  else
 	    {
 	      /* No vector there. */  
-	      insn_info->mw_hardregs 
+	      DF_INSN_INFO_MWS (insn_info)
 		= XNEWVEC (struct df_mw_hardreg*, 
 			   count + 1 + collection_rec.next_mw);
-	      memcpy (insn_info->mw_hardregs, collection_rec.mw_vec, 
+	      memcpy (DF_INSN_INFO_MWS (insn_info), collection_rec.mw_vec, 
 		      (collection_rec.next_mw + 1) * sizeof (struct df_mw_hardreg *));
 	    }
 	}
@@ -2517,7 +2517,7 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 {
   if (insn)
     {
-      struct df_insn_info *insn_rec = DF_INSN_INFO_GET (insn);
+      df_insn_info insn_rec = DF_INSN_INFO_GET (insn);
       /* If there is a vector in the collection rec, add it to the
 	 insn.  A null rec is a signal that the caller will handle the
 	 chain specially.  */
@@ -2592,7 +2592,7 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 static struct df_ref *
 df_ref_create_structure (struct df_collection_rec *collection_rec,
 			 rtx reg, rtx *loc, 
-			 basic_block bb, struct df_insn_info *info,
+			 basic_block bb, df_insn_info insn_info,
 			 enum df_ref_type ref_type, 
 			 enum df_ref_flags ref_flags,
 			 int width, int offset, enum machine_mode mode)
@@ -2615,7 +2615,7 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
   DF_REF_REG (this_ref) = reg;
   DF_REF_REGNO (this_ref) =  regno;
   DF_REF_LOC (this_ref) = loc;
-  DF_REF_INSN_INFO (this_ref) = info;
+  DF_REF_INSN_INFO (this_ref) = insn_info;
   DF_REF_CHAIN (this_ref) = NULL;
   DF_REF_TYPE (this_ref) = ref_type;
   DF_REF_FLAGS (this_ref) = ref_flags;
@@ -2670,7 +2670,7 @@ df_ref_create_structure (struct df_collection_rec *collection_rec,
 static void
 df_ref_record (struct df_collection_rec *collection_rec,
                rtx reg, rtx *loc, 
-	       basic_block bb, struct df_insn_info *insn_info,
+	       basic_block bb, df_insn_info insn_info,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags,
 	       int width, int offset, enum machine_mode mode) 
@@ -2761,7 +2761,7 @@ df_read_modify_subreg_p (rtx x)
 
 static void
 df_def_record_1 (struct df_collection_rec *collection_rec,
-                 rtx x, basic_block bb, struct df_insn_info *insn_info,
+                 rtx x, basic_block bb, df_insn_info insn_info,
 		 enum df_ref_flags flags)
 {
   rtx *loc;
@@ -2852,7 +2852,7 @@ df_def_record_1 (struct df_collection_rec *collection_rec,
 
 static void
 df_defs_record (struct df_collection_rec *collection_rec, 
-                rtx x, basic_block bb, struct df_insn_info *insn_info,
+                rtx x, basic_block bb, df_insn_info insn_info,
 		enum df_ref_flags flags)
 {
   RTX_CODE code = GET_CODE (x);
@@ -2890,7 +2890,7 @@ df_defs_record (struct df_collection_rec *collection_rec,
 static void
 df_uses_record (struct df_collection_rec *collection_rec,
                 rtx *loc, enum df_ref_type ref_type,
-		basic_block bb, struct df_insn_info *insn_info,
+		basic_block bb, df_insn_info insn_info,
 		enum df_ref_flags flags,
 		int width, int offset, enum machine_mode mode)
 {
@@ -3198,8 +3198,7 @@ df_get_conditional_uses (struct df_collection_rec *collection_rec)
 
 static void
 df_get_call_refs (struct df_collection_rec * collection_rec,
-                  basic_block bb, 
-                  struct df_insn_info *insn_info,
+                  basic_block bb, df_insn_info insn_info,
                   enum df_ref_flags flags)
 {
   rtx note;
@@ -3284,7 +3283,7 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 
 static void
 df_insn_refs_collect (struct df_collection_rec* collection_rec, 
-		      basic_block bb, struct df_insn_info *insn_info) 
+		      basic_block bb, df_insn_info insn_info) 
 {
   rtx note;
   bool is_cond_exec 
@@ -3360,7 +3359,7 @@ df_recompute_luids (basic_block bb)
   /* Scan the block an insn at a time from beginning to end.  */
   FOR_BB_INSNS (bb, insn)
     {
-      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+      df_insn_info insn_info = DF_INSN_INFO_GET (insn);
       /* Inserting labels does not always trigger the incremental
 	 rescanning.  */
       if (!insn_info)
@@ -3508,7 +3507,7 @@ df_bb_refs_record (int bb_index, bool scan_insns)
     /* Scan the block an insn at a time from beginning to end.  */
     FOR_BB_INSNS (bb, insn)
       {
-	struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+	df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 	gcc_assert (!insn_info);
 
 	insn_info = df_insn_create_insn_record (insn);
@@ -4281,7 +4280,7 @@ df_insn_refs_verify (struct df_collection_rec *collection_rec,
 {
   bool ret1, ret2, ret3, ret4;
   unsigned int uid = INSN_UID (insn);
-  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 
   df_insn_refs_collect (collection_rec, bb, insn_info);
 

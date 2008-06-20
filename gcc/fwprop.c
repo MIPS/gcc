@@ -570,7 +570,7 @@ static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
   struct df_ref **use_rec;
-  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+  df_insn_info insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -768,7 +768,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       df_ref_remove (use);
       if (!CONSTANT_P (new))
 	{
-	  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	  df_insn_info insn_info = DF_INSN_INFO_GET (def_insn);
 	  update_df (insn, loc, DF_INSN_INFO_USES (insn_info), type, flags);
 	  update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info), type, flags);
 	}
@@ -790,7 +790,7 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 	     set_unique_reg_note?  */
           if (!CONSTANT_P (new))
 	    {
-	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	      df_insn_info insn_info = DF_INSN_INFO_GET (def_insn);
 	      update_df (insn, loc, DF_INSN_INFO_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
 	      update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info),

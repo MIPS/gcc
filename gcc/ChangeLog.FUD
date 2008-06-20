@@ -1,5 +1,28 @@
-2008-06-19  Steven Bosscher  <steven@gcc.gnu.org>
+2008-06-20  Steven Bosscher  <steven@gcc.gnu.org>
 
+	* df.h (struct df_real_insn_info): Rename from df_insn_info.
+	(struct df_phi_insn_info): New stucture.
+	(union df_insn_info_d): New union of the former two structures.
+	(df_insn_info): Make it a typedef to pointer of df_insn_info_d.
+	(struct df_ref, struct df, DF_INSN_INFO_LUID, DF_INSN_INFO_EQ_USES,
+	DF_INSN_INFO_MWS, DF_INSN_INFO_LUID, DF_INSN_UID_LUID,
+	DF_INSN_UID_DEFS, DF_INSN_UID_USES, DF_INSN_UID_EQ_USES,
+	DF_INSN_UID_EQ_USES, DF_INSN_UID_MWS): Update for new data structure.
+	(df_insn_create_insn_record): Update prototype.
+	* df-scan.c: Update df_insn_info users everywhere.
+	(df_ref_record, df_def_record_1, df_defs_record,
+	df_uses_record, df_ref_create_structure, df_insn_refs_collect):
+	Update prototypes.  Also update all callers.
+	(df_scan_alloc): Allocate a df_insn_info_d of type df_real_insn_info.
+	(df_grow_insn_info): Likewise.
+	* df-core.c (df_insn_debug_regno): Update for df_insn_info changes.
+	* df-problems.c (df_live_bb_local_compute): Likewise.
+	(df_chain_top_dump, df_chain_bottom_dump, df_byte_lr_alloc): Likewise.
+	* fwprop.c (all_uses_available_at, try_fwprop_subst): Likewise.
+	* loop-invariant.c (check_dependencies, record_uses): Likewise.
+	* web.c (union_defs): Likewise.
+
+2008-06-19  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* cfganal.c: Include vec.h and vecprim.h.
 	(compute_iterated_dominance_frontiers): Import from...
@@ -24,4 +47,4 @@
 	DF_INSN_UID_DEFS, DF_INSN_UID_USES): Modified to support
 	df_base_insn_info.
 	(DF_INSN_INFO_MWS, DF_INSN_INFO_INSN): New macros.
-	
+

@@ -358,19 +358,39 @@ struct df_base_insn_info
 };
 
 /* One of these structures is allocated for every insn.  */
-struct df_insn_info
+struct df_real_insn_info
 {
   struct df_base_insn_info base;
 
-  /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
-  struct df_ref **eq_uses;       
-  struct df_mw_hardreg **mw_hardregs;
   /* The logical uid of the insn in the basic block.  This is valid
      after any call to df_analyze but may rot after insns are added,
      deleted or moved. */
   int luid; 
+
+  /* Head of insn-use chain for uses in REG_EQUAL/EQUIV notes.  */
+  struct df_ref **eq_uses;       
+  struct df_mw_hardreg **mw_hardregs;
 };
 
+/* One of these structures is allocated for every PHI node, when the
+   factored def-use chains problem is active.  */
+struct df_phi_insn_info
+{
+  struct df_base_insn_info base;
+
+  /* The uid of the phi node.  These are globally unique, and not
+     per basic block (unlike e.g. an insn luid.  */
+  int puid;
+};
+
+/* Union of the different kinds of defs/uses placeholders.  */
+union df_insn_info_d
+{
+  struct df_base_insn_info base;
+  struct df_real_insn_info real_insn;
+  struct df_phi_insn_info phi_insn;
+};
+typedef union df_insn_info_d *df_insn_info;
 
 /* Define a register reference structure.  One of these is allocated
    for every register reference (use or def).  Note some register
@@ -382,7 +402,7 @@ struct df_ref
 
   /* Insn info for the insn containing ref. This will be null if this is
      an artificial reference.  */
-  struct df_insn_info *insn_info;
+  df_insn_info insn_info;
 
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
@@ -542,7 +562,7 @@ struct df
   unsigned int regs_inited;     /* Number of regs with reg_infos allocated.  */
 
 
-  struct df_insn_info **insns;   /* Insn table, indexed by insn UID.  */
+  df_insn_info *insns;           /* Insn table, indexed by insn UID.  */
   unsigned int insns_size;       /* Size of insn table.  */
   bitmap hardware_regs_used;     /* The set of hardware registers used.  */
   /* The set of hard regs that are in the artificial uses at the end
@@ -701,32 +721,40 @@ struct df
 (DF_REG_USE_GET(REGNUM) ? DF_REG_USE_GET(REGNUM) : 0)
 
 /* Macros to access the elements within the insn_info structure table.  */
-
 #define DF_INSN_SIZE() ((df)->insns_size)
 #define DF_INSN_INFO_GET(INSN) (df->insns[(INSN_UID(INSN))])
 #define DF_INSN_INFO_SET(INSN,VAL) (df->insns[(INSN_UID (INSN))]=(VAL))
-#define DF_INSN_INFO_LUID(II) ((II)->luid)
+
+/* Accessors for the df_insn_info union.  */
 #define DF_INSN_INFO_INSN(II) ((II)->base.insn)
 #define DF_INSN_INFO_DEFS(II) ((II)->base.defs)
 #define DF_INSN_INFO_USES(II) ((II)->base.uses)
-#define DF_INSN_INFO_EQ_USES(II) ((II)->eq_uses)
-#define DF_INSN_INFO_MWS(II) ((II)->mw_hardregs)
 
+/* Accessors for df_insn_info.real_insn.  */
+#define DF_INSN_INFO_LUID(II) ((II)->real_insn.luid)
+#define DF_INSN_INFO_EQ_USES(II) ((II)->real_insn.eq_uses)
+#define DF_INSN_INFO_MWS(II) ((II)->real_insn.mw_hardregs)
+
+/* Accessors for df_insn_info.real_insn based on the rtx for the insn.  */
 #define DF_INSN_LUID(INSN) (DF_INSN_INFO_LUID (DF_INSN_INFO_GET(INSN)))
 #define DF_INSN_DEFS(INSN) (DF_INSN_INFO_DEFS (DF_INSN_INFO_GET(INSN)))
 #define DF_INSN_USES(INSN) (DF_INSN_INFO_USES (DF_INSN_INFO_GET(INSN)))
 #define DF_INSN_EQ_USES(INSN) (DF_INSN_INFO_EQ_USES (DF_INSN_INFO_GET(INSN)))
 
+/* Accessors for df_insn_info.real_insn based on the uid of the insn.  */
 #define DF_INSN_UID_GET(UID) (df->insns[(UID)])
 #define DF_INSN_UID_SET(UID,VAL) (df->insns[(UID)]=(VAL))
 #define DF_INSN_UID_SAFE_GET(UID) (((unsigned)(UID) < DF_INSN_SIZE())	\
                                      ? DF_INSN_UID_GET (UID) \
                                      : NULL)
-#define DF_INSN_UID_LUID(INSN) (DF_INSN_UID_GET(INSN)->luid)
-#define DF_INSN_UID_DEFS(INSN) (DF_INSN_UID_GET(INSN)->base.defs)
-#define DF_INSN_UID_USES(INSN) (DF_INSN_UID_GET(INSN)->base.uses)
-#define DF_INSN_UID_EQ_USES(INSN) (DF_INSN_UID_GET(INSN)->eq_uses)
-#define DF_INSN_UID_MWS(INSN) (DF_INSN_UID_GET(INSN)->mw_hardregs)
+#define DF_INSN_UID_LUID(INSN) (DF_INSN_INFO_LUID (DF_INSN_UID_GET(INSN)))
+#define DF_INSN_UID_DEFS(INSN) (DF_INSN_INFO_DEFS (DF_INSN_UID_GET(INSN)))
+#define DF_INSN_UID_USES(INSN) (DF_INSN_INFO_USES (DF_INSN_UID_GET(INSN)))
+#define DF_INSN_UID_EQ_USES(INSN) (DF_INSN_INFO_EQ_USES (DF_INSN_UID_GET(INSN)))
+#define DF_INSN_UID_MWS(INSN) (DF_INSN_INFO_MWS (DF_INSN_UID_GET(INSN)))
+
+/* Accessors for df_insn_info.phi_insn.   */
+#define DF_PHI_UID(II) ((II)->phi_insn.puid)
 
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
@@ -946,7 +974,7 @@ extern struct df_ref *df_ref_create (rtx, rtx *, rtx,basic_block,
 				     enum df_ref_type, enum df_ref_flags,
 				     int, int, enum machine_mode);
 extern void df_ref_remove (struct df_ref *);
-extern struct df_insn_info * df_insn_create_insn_record (rtx);
+extern df_insn_info df_insn_create_insn_record (rtx);
 extern void df_insn_delete (basic_block, unsigned int);
 extern void df_bb_refs_record (int, bool);
 extern bool df_insn_rescan (rtx);

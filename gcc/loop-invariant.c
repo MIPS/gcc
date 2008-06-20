@@ -768,7 +768,7 @@ check_dependency (basic_block bb, struct df_ref *use, bitmap depends_on)
 static bool
 check_dependencies (rtx insn, bitmap depends_on)
 {
-  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_insn_info insn_info = DF_INSN_INFO_GET (insn);
   struct df_ref **use_rec;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
@@ -851,7 +851,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
 static void
 record_uses (rtx insn)
 {
-  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_insn_info insn_info = DF_INSN_INFO_GET (insn);
   struct df_ref **use_rec;
   struct invariant *inv;
 

@@ -1422,7 +1422,7 @@ df_live_bb_local_compute (unsigned int bb_index)
   FOR_BB_INSNS (bb, insn)
     {
       unsigned int uid = INSN_UID (insn);
-      struct df_insn_info *insn_info = DF_INSN_UID_GET (uid);
+      df_insn_info insn_info = DF_INSN_UID_GET (uid);
 
       /* Inserting labels does not always trigger the incremental
 	 rescanning.  */
@@ -2203,7 +2203,7 @@ df_chain_top_dump (basic_block bb, FILE *file)
 	{
 	  if (INSN_P (insn))
 	    {
-	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+	      df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 	      def_rec = DF_INSN_INFO_DEFS (insn_info);
 	      if (*def_rec)
 		{
@@ -2252,7 +2252,7 @@ df_chain_bottom_dump (basic_block bb, FILE *file)
 	{
 	  if (INSN_P (insn))
 	    {
-	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+	      df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 	      struct df_ref **eq_use_rec = DF_INSN_INFO_EQ_USES (insn_info);
 	      use_rec = DF_INSN_INFO_USES (insn_info);
 	      if (*use_rec || *eq_use_rec)
@@ -2515,7 +2515,7 @@ df_byte_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 	{
 	  if (INSN_P (insn))
 	    {
-	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+	      df_insn_info insn_info = DF_INSN_INFO_GET (insn);
 	      df_byte_lr_check_regs (DF_INSN_INFO_DEFS (insn_info));
 	      df_byte_lr_check_regs (DF_INSN_INFO_USES (insn_info));
 	    }
