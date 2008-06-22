@@ -1,3 +1,8 @@
+2008-06-22  Andrew Pinski  <pinskia@gmail.com>
+
+	* gimple-pretty-print.c (dump_binary_rhs): Print out MIN_EXPR and
+	MAX_EXPR specially.
+
 2008-06-20  Doug Kwan  <dougkwan@google.com>
 
 	* tree-loop-linear.c (File): Re-enable all previously disabled code.

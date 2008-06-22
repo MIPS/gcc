@@ -307,6 +307,22 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
       pp_string (buffer, ">");
       break;
+      
+    case MIN_EXPR:
+      pp_string (buffer, "MIN_EXPR <");
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
+      
+    case MAX_EXPR:
+      pp_string (buffer, "MAX_EXPR <");
+      dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_assign_rhs2 (gs), spc, flags, false);
+      pp_string (buffer, ">");
+      break;
 
     default:
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
