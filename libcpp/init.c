@@ -1,6 +1,6 @@
 /* CPP Library.
    Copyright (C) 1986, 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -296,7 +296,7 @@ cpp_destroy (cpp_reader *pfile)
    "builtin" macros: these are handled by builtin_macro() in
    macro.c.  Builtin is somewhat of a misnomer -- the property of
    interest is that these macros require special code to compute their
-   expansions.  The value is a "builtin_type" enumerator.
+   expansions.  The value is a "cpp_builtin_type" enumerator.
 
    operator_array holds the C++ named operators.  These are keywords
    which act as aliases for punctuators.  In C++, they cannot be
@@ -377,7 +377,7 @@ cpp_init_special_builtins (cpp_reader *pfile)
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
       hp->flags |= NODE_BUILTIN | NODE_WARN;
-      hp->value.builtin = (enum builtin_type) b->value;
+      hp->value.builtin = (enum cpp_builtin_type) b->value;
     }
 }
 
