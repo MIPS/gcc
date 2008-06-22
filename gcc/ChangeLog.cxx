@@ -1,3 +1,7 @@
+2008-06-21  Tom Tromey  <tromey@redhat.com>
+
+	* system.h (CONST_CAST2): Define for C++.
+
 2008-06-19  Ian Lance Taylor  <iant@google.com>
 
 	* tree.h (enum tree_code): Include all-tree.def, not tree.def.
