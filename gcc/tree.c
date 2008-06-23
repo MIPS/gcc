@@ -3783,6 +3783,26 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
   tree decl = *(tree*)slot;
   lang_hooks.reset_lang_specifics (decl);
+
+  if (TREE_CODE (decl) == ARRAY_TYPE)
+    {
+      tree unit_size = TYPE_SIZE_UNIT (decl);
+      tree size = TYPE_SIZE (decl);
+
+      if (unit_size && TREE_CODE (unit_size) != INTEGER_CST)
+	TYPE_SIZE_UNIT (decl) = NULL_TREE;
+
+      if (size && TREE_CODE (size) != INTEGER_CST)
+	TYPE_SIZE (decl) = NULL_TREE;
+    }
+
+  if (TREE_CODE (decl) == INTEGER_TYPE)
+    {
+      tree max = TYPE_MAX_VALUE (decl);
+      if (max && TREE_CODE (max) != INTEGER_CST)
+	TYPE_MAX_VALUE (decl) = NULL_TREE;
+    }
+
   return 1;
 }
 

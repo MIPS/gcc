@@ -1,3 +1,10 @@
+2008-06-23  Rafael Espindola  <espindola@google.com>
+
+	* calls.c (must_pass_in_stack_var_size): handle a NULL TYPE_SIZE.
+	* expr.c (store_field): handle a NULL TYPE_SIZE.
+	* tree.c (reset_type_lang_specific): set TYPE_SIZE_UNIT,
+	TYPE_SIZE and TYPE_MAX_VALUE to NULL_TREE if they are not INTEGER_CST.
+
 2008-06-18  Ollie Wild  <aaw@google.com>
 
 	* langhooks-def.h (lhd_begin_section): New function declaration.
