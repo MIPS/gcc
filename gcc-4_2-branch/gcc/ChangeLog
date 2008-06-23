@@ -1,3 +1,36 @@
+2008-06-05  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_emit_loadgp): Return early if
+	there is nothing do to, otherwise emit a blockage if
+	!TARGET_EXPLICIT_RELOCS || current_function_profile.
+	* config/mips/mips.md (loadgp_blockage): Use SI rather than DI.
+
+2008-05-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-nested.c (check_for_nested_with_variably_modified): Fix typo.
+
+2008-05-23  Marius Strobl <marius@FreeBSD.org>
+
+	* gthr-posix.h (__gthread_active_p): Use the Solaris implementation
+	for FreeBSD as well.
+	* gthr-posix95.h: Likewise.
+
+2008-05-20  Adam Nemet  <anemet@caviumnetworks.com>
+
+	PR middle-end/36194
+	* combine.c (check_conversion): Rename to check_promoted_subreg.
+	Don't call record_truncated_value from here.
+	(record_truncated_value): Turn it into a for_each_rtx callback.
+	(record_truncated_values): New function.
+	(combine_instructions): Call note_uses with
+	record_truncated_values.  Change name of check_conversion to
+	check_promoted_subreg.
+
+2008-05-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/install.texi2html: Generate gcc-vers.texi in $DESTDIR not
+	$SOURCEDIR/include.
+
 2008-05-19  Release Manager
 
 	* GCC 4.2.4 released.
