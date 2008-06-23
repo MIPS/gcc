@@ -123,7 +123,7 @@ for (i = 0; i < n_opts; i++) {
 			var_opt_int[n_opt_int++] = otype name;
 
 		else if (otype ~ "^((un)?signed +)?short *$")
-			var_opt_int[n_opt_int++] = otype name;
+			var_opt_short[n_opt_short++] = otype name;
 
 		else if (otype ~ "^((un)?signed +)?char *$")
 			var_opt_char[n_opt_char++] = otype name;

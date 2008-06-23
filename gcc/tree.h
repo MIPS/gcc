@@ -3539,6 +3539,9 @@ struct tree_optimization_option GTY(())
 #define TREE_OPTIMIZATION(NODE) \
   (&OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
 
+/* Return a tree node that encapsulates the current optimization options.  */
+extern tree build_optimization_node (void);
+
 /* Target options used by a function.  */
 
 struct tree_target_option GTY(())
@@ -3551,6 +3554,9 @@ struct tree_target_option GTY(())
 
 #define TREE_TARGET_OPTION(NODE) \
   (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
+
+/* Return a tree node that encapsulates the current target options.  */
+extern tree build_target_option_node (void);
 
 
 /* Define the overall contents of a tree node.
@@ -3749,8 +3755,11 @@ enum tree_index
   TI_OPTIMIZATION_DEFAULT,
   TI_OPTIMIZATION_CURRENT,
   TI_OPTIMIZATION_COLD,
+  TI_OPTIMIZATION_HOT,
   TI_TARGET_OPTION_DEFAULT,
+  TI_TARGET_OPTION_CURRENT,
   TI_CURRENT_OPTION_PRAGMA,
+  TI_CURRENT_OPTIMIZE_PRAGMA,
 
   TI_MAX
 };
@@ -3919,16 +3928,21 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
 
-/* Optimization options to use for default, cold, and hot functions.  */
+/* Optimization options (OPTIMIZATION_NODE) to use for default, current, cold,
+   and hot functions.  */
 #define optimization_default_node	global_trees[TI_OPTIMIZATION_DEFAULT]
 #define optimization_current_node	global_trees[TI_OPTIMIZATION_CURRENT]
 #define optimization_cold_node		global_trees[TI_OPTIMIZATION_COLD]
+#define optimization_hot_node		global_trees[TI_OPTIMIZATION_HOT]
 
-/* Default target options.  */
+/* Default/current target options (TARGET_OPTION_NODE).  */
 #define target_option_default_node	global_trees[TI_TARGET_OPTION_DEFAULT]
+#define target_option_current_node	global_trees[TI_TARGET_OPTION_CURRENT]
 
-/* Default option() pragma.  */
+/* Default tree list option(), optimize() pragmas to be linked into the
+   attribute list.  */
 #define current_option_pragma		global_trees[TI_CURRENT_OPTION_PRAGMA]
+#define current_optimize_pragma		global_trees[TI_CURRENT_OPTIMIZE_PRAGMA]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so

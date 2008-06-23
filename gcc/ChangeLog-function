@@ -1,3 +1,189 @@
+2008-06-22  Michael Meissner  <michael.meissner@amd.com>
+
+	* attribs.c (toplevel): Add c-common.h include file.
+	(decl_attributes): Convert #pragma GCC optimize into
+	attribute((optimize(...))), and #pragma GCC option into
+	attribute((option(...))).
+
+	* doc/extend.texi: Update option attribute documentation.
+	Document optimize attribute.  Document that the hot attribute
+	turns on -O3 optimization for the function.  Document that the
+	cold attribute turns on -Os optimization for the function.
+	Document #pragma GCC option.  Document #pragma GCC optimize.
+
+	* doc/options.texi (UInteger): Document UInteger must be used on
+	options that that a flag word with a joined option like
+	-falign-loops.
+
+	* doc/tm.texi (TARGET_VALID_OPTION_ATTRIBUTE_P): Update
+	documentation.
+	(TARGET_OPTION_SAVE): Document new hook.
+	(TARGET_OPTION_RESTORE): Ditto.
+	(TARGET_OPTION_PRINT): Ditto.
+	(TARGET_OPTION_PRAGMA_PARSE): Ditto.
+
+	* tree.c (cl_optimization_node): New static node to build
+	OPTIMIZATION_NODE's.
+	(cl_target_option_node): New static node to build
+	TARGET_OPTION_NODE's.
+	(cl_option_hash_table): New static hash table to hold
+	OPTIMIZATION_NODE and TARGET_OPTION_NODE's.
+	(cl_option_hash_eq): New function for hashing OPTIMIZATION_NODE
+	and TARGET_OPTION_NODE's.
+	(cl_option_hash_hash): Ditto.
+	(init_tree): Make the cl_optimization_node and
+	cl_target_option_node.
+	(build_optimization_node): New function to return a tree that
+	includes all of the optimization options.
+	(build_target_option_ndoe): New function to return a tree that
+	includes the target options that can be specified for target
+	specific optimization.
+
+	* tree.h (build_optimization_node): Add declaration.
+	(build_target_option_node): Ditto.
+	(enum tree_index): Add TI_OPTIMIZATION_HOT,
+	TI_TARGET_OPTION_CURRENT, TI_CURRENT_OPTIMIZE_PRAGMA.
+	(optimization_hot_node): New global_trees variable.
+	(target_option_current_node): Ditto.
+	(current_optimize_pragma): Ditto.
+
+	* target.h (struct gcc_target): Add target_option_pragma_parse to
+	implement #pragma GCC option.
+
+	* toplev.h (parse_optimize_options): Add declaration.
+	(fast_math_flags_struct_set_p): Ditto.
+
+	* c-cppbuiltin.c (c_cpp_builtins_optimize_pragma): New function
+	to adjust #defines after a #pragma GCC optimize.
+
+	* opts.c (decode_options): Allow function to be called more than
+	once to support attribute((optimize(...))).  Build initial
+	optimization nodes.
+	(fast_math_flags_struct_set_p): New function, analog of
+	fast_math_flags_set_p, except take cl_optimization structure
+	pointer instead of looking at global variables.
+
+	* optc-gen.awk: Fix thinko in handling short fields.  Add some
+	extra blank lines.
+
+	* function.c (invoke_set_current_function_block): Update a
+	comment.
+
+	* c-pragma.c (handle_pragma_option): Allow optional ().  Change to
+	use the target_option_pragma_parse hook.  Break some long lines.
+	(optimize_stack): New VEC to track #pragma GCC optimize.
+	(handle_pragma_optimize): Add #pragma GCC optimize support.
+	(init_pragma): Register handle_pragma_optimize.
+
+	* opth-gen.awk: Fix thinko in handling short fields.
+
+	* common.opt (-O): Add Optimization specifier.
+	(-Os): Ditto.
+	(-falign-functions): Add UInteger option so field is stored as a
+	full size int in the cl_optimization structure.  Add
+	Optimization.
+	(-falign-jumps): Ditto.
+	(-falign-labels): Ditto.
+	(-falign-loops): Ditto.
+	(-fsched-stalled-insns): Ditto.
+	(-fsched-stalled-insns-dep): Ditto.
+	(-fmath-errno): Add Optimization option so that we can adjust
+	__FINITE_MATH__ define in #pragma GCC optimize.
+
+	* target-def.h (TARGET_OPTION_PRAGMA_PARSE): Add new hook.
+	(TARGET_INITIALIZER): Add TARGET_OPTION_PRAGMA_PARSE.
+
+	* tree-inline.c (tree_can_inline_p): Don't allow a function to
+	inline a function with a higher optimization level than itself, or
+	a different space/time tradeoff.
+
+	* opt-functions.awk (var_type_struct): Move UInteger handling
+	above Joined so the right type is returned.
+
+	* c-common.c (handle_optimize_attribute): New attribute to
+	handling setting optimization options.
+	(c_common_attribute): Add "optimize" attribute.
+	(handle_hot_attribute): Set optimization level to -O3.
+	(handle_cold_attribute): Update setting optimization level to
+	-Os.
+	(optimize_args): New static vector for the command line arguments
+	to attribute((optimize(...))).
+	(parse_optimize_options): New function that is common code between
+	attribute((optimize(...))) and #pragma GCC optimize to parse and
+	set the optimization options.
+
+	* c-common.h (c_cpp_builtins_optimize_pragma): Add declaration.
+	(builtin_define_std): Ditto.
+
+	* config.gcc (x86_64-*-darwin*): Make sure tmake_file includes
+	previoius tmake_file's.  Make sure c_target_objs includes previous
+	c_target_objs.
+	(i[34567]86-*-elf*): Ditto.
+	(x86_64-*-elf*): Ditto.
+	(i[34567]86-*-netbsd*): Ditto.
+	(i[34567]86-*-openbsd2.*): Ditto.
+	(i[34567]86-*openbsd3.[0123]): Ditto.
+	(i[34567]86-pc-msdosdjgpp*): Ditto.
+	(i[34567]86-*-lynxos*): Ditto.
+	(i[3456x]86-*-netware*): Ditto.
+	(i[34567]86-*-nto-qnx*): Ditto.
+	(i[34567]86-*-rtems*): Ditto.
+	(i[34567]86-*-solaris2*): Ditto.
+	(i[34567]86-*-pe): Ditto.
+	(i[34567]86-*-cygwin*): Ditto.
+	(i[34567]86-*-mingw*): Ditto.
+	(x86_64-*-mingw*): Ditto.
+	(i[34567]86-*-interix3*): Ditto.
+	(i[34567]86-*-linux*): Add i386/t-i386 as a new Makefile fragment.
+	(x86_64-*-linux*): Ditto.
+	(i[34567]86-*-*): Ditto.
+	(x86_64-*-*): Ditto.
+
+	* config/i386/i386.h (TARGET_CPU_CPP_BUILTINS): Move to
+	ix86_target_macros.
+
+	* config/i386/i386-c.c: New file for macro/preprocessor support.
+	(ix86_target_macros_internal): New function to #define or #undef
+	target specific macros.
+	(ix86_target_macros): New function, set up all of the target
+	macros like __SSE__.
+	(ix86_function_specific_target_macros): New function to update the
+	target macros based on the #pragma GCC option's used.
+
+	* config/i386/t-i386: New file, add more dependencies for i386.o.
+	Add new file i386-c.o.
+
+	* config/i386/i386-protos.h (ix86_target_macros): Add declaration.
+	(ix86_valid_option_attribute_tree): Ditto.
+
+	* config/i386/i386.c (ix86_valid_option_attribute_tree): New
+	function, split from ix86_valid_option_attribute_p, to be common
+	code between attribute and pragma parsing.
+	(ix86_valid_option_attribute_p): Move most of the code to
+	ix86_valid_option_attribute_tree.
+	(ix86_pragma_option_parse): New hook for #pragma GCC option
+	support.
+	(override_options): Use build_target_option_node to build the
+	initial target option node.
+	(ix86_function_specific_restore): Save some time if the arch or
+	tune variables were not changed.
+	(ix86_function_specific_print): Decode the target options.
+	(ix86_insert_attributes): Delete, move #pragma GCC option handling
+	into decl_attributes.
+	(ix86_current_target): New static to remember the current target
+	options.
+	(ix86_previous_fndecl): New static to track last declaration
+	passed to ix86_set_current_function.
+	(ix86_set_current_function): Rewrite how the target options are
+	set up and when to call target_reinit.  Use the current target
+	options intead of the default options, so that #pragma GCC option
+	works correctly.
+	(ix86_init_builtins): Merge ix86_init_mmx_sse_builtins with this
+	code, remove test for -mmmx.
+	(ix86_init_mmx_sse_builtins): Merge into ix86_init_builtins.
+	(TARGET_INSERT_ATTRIBUTES): Go back to the original code for
+	machine dependent inserting attributes.
+
 Merge up to 136900.
 
 2008-06-17  Michael Meissner  <michael.meissner@amd.com>

@@ -133,14 +133,14 @@ function var_type(flags)
 # type instead of int to save space.
 function var_type_struct(flags)
 {
-	if (!flag_set_p("Joined.*", flags)) {
+	if (flag_set_p("UInteger", flags))
+		return "int "
+	else if (!flag_set_p("Joined.*", flags)) {
 		if (flag_set_p(".*Mask.*", flags))
 			return "int "
 		else
 			return "unsigned char "
 	}
-	else if (flag_set_p("UInteger", flags))
-		return "int "
 	else
 		return "const char *"
 }

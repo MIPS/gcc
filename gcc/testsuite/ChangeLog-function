@@ -1,3 +1,20 @@
+2008-06-22  Michael Meissner  <michael.meissner@amd.com>
+
+	* gcc.target/i386/opt-1.c: New file.
+
+	* gcc.target/i386/cold-1.c: Allow jmp and call strcpy.
+
+	* gcc.target/i386/funcspec-1.c: Add a test to make sure 387 code
+	is generated if attribute((option("sse2"))) is not in effect.
+
+	* gcc.target/i386/hot-1.c: New file.
+
+	* gcc.target/i386/funcspec-9.c: New file.
+
+	* gcc.target/i386/sse-22.c: New file.
+
+	* gcc.target/i386/sse-23.c: New file.
+
 2008-06-17  Michael Meissner  <michael.meissner@amd.com>
 
 	* gcc.target/i386/cold-1.c: New file to test that the cold

@@ -259,7 +259,7 @@ for (i = 0; i < n_opts; i++) {
 			var_opt_int[n_opt_int++] = name;
 
 		else if (otype ~ "^((un)?signed +)?short *$")
-			var_opt_int[n_opt_int++] = name;
+			var_opt_short[n_opt_short++] = name;
 
 		else if (otype ~ "^((un)?signed +)?char *$") {
 			var_opt_char[n_opt_char++] = name;
@@ -279,6 +279,7 @@ for (i = 0; i < n_opt_char; i++) {
 		print "  gcc_assert (IN_RANGE (" name ", " var_opt_range[name] "));";
 }
 
+print "";
 for (i = 0; i < n_opt_other; i++) {
 	print "  ptr->" var_opt_other[i] " = " var_opt_other[i] ";";
 }
@@ -329,6 +330,7 @@ print "                       int indent_to,";
 print "                       struct cl_optimization *ptr)";
 print "{";
 
+print "  fputs (\"\\n\", file);";
 for (i = 0; i < n_opt_other; i++) {
 	print "  if (ptr->" var_opt_other[i] ")";
 	print "    fprintf (file, \"%*s%s (0x%lx)\\n\",";
@@ -411,13 +413,18 @@ if (have_save) {
 	var_target_int[n_target_int++] = "target_flags";
 }
 
+have_assert = 0;
 for (i = 0; i < n_target_char; i++) {
 	name = var_target_char[i];
-	if (var_target_range[name] != "")
+	if (var_target_range[name] != "") {
+		have_assert = 1;
 		print "  gcc_assert (IN_RANGE (" name ", " var_target_range[name] "));";
+	}
 }
 
-print "";
+if (have_assert)
+	print "";
+
 print "  if (targetm.target_option_save)";
 print "    targetm.target_option_save (ptr);";
 print "";
@@ -462,6 +469,8 @@ for (i = 0; i < n_target_char; i++) {
 	print "  " var_target_char[i] " = ptr->" var_target_char[i] ";";
 }
 
+# This must occur after the normal variables in case the code depends on those
+# variables.
 print "";
 print "  if (targetm.target_option_restore)";
 print "    targetm.target_option_restore (ptr);";
@@ -476,6 +485,7 @@ print "                        int indent,";
 print "                        struct cl_target_option *ptr)";
 print "{";
 
+print "  fputs (\"\\n\", file);";
 for (i = 0; i < n_target_other; i++) {
 	print "  if (ptr->" var_target_other[i] ")";
 	print "    fprintf (file, \"%*s%s (0x%lx)\\n\",";

@@ -36,7 +36,7 @@ has been declared in this way, it can be used as an option property.
 
 @item
 A target specific save record to save additional information. These
-records have ttwo fields: the string @samp{TargetSave}, and a
+records have two fields: the string @samp{TargetSave}, and a
 declaration type to go in the @code{cl_target_option} structure.
 
 @item
@@ -127,7 +127,10 @@ This property cannot be used alongside @code{Joined} or @code{Separate}.
 @item UInteger
 The option's argument is a non-negative integer.  The option parser
 will check and convert the argument before passing it to the relevant
-option handler.
+option handler.  @code{UInteger} should also be used on options like
+@code{-falign-loops} where both @code{-falign-loops} and
+@code{-falign-loops}=@var{n} are supported to make sure the saved
+options are given a full integer.
 
 @item Var(@var{var})
 The state of this option should be stored in variable @var{var}.

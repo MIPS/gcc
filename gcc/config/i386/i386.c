@@ -1789,7 +1789,6 @@ static void ix86_function_specific_print (FILE *, int,
 					  struct cl_target_option *);
 static bool ix86_valid_option_attribute_p (tree, tree, tree, int);
 static bool ix86_valid_option_attribute_inner_p (tree, char *[]);
-static void ix86_insert_attributes (tree, tree *);
 static bool ix86_can_inline_p (tree, tree);
 static void ix86_set_current_function (tree);
 
@@ -1946,7 +1945,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "k8",
   "amdfam10"
 };
-
+
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
@@ -2179,7 +2178,7 @@ ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
       return true;
     }
 }
-
+
 /* Return a string the documents the current -m options.  The caller is
    responsible for freeing the string.  */
 
@@ -2384,7 +2383,7 @@ ix86_debug_options (void)
 
   return;
 }
-
+
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -3181,11 +3180,8 @@ override_options (bool main_args_p)
 
   /* Save the initial options in case the user does function specific options */
   if (main_args_p)
-    {
-      tree t = make_node (TARGET_OPTION_NODE);
-      target_option_default_node = t;
-      cl_target_option_save (TREE_TARGET_OPTION (t));
-    }
+    target_option_default_node = target_option_current_node
+      = build_target_option_node ();
 }
 
 /* Save the current options */
@@ -3213,6 +3209,8 @@ ix86_function_specific_save (struct cl_target_option *ptr)
 static void
 ix86_function_specific_restore (struct cl_target_option *ptr)
 {
+  enum processor_type old_tune = ix86_tune;
+  enum processor_type old_arch = ix86_arch;
   unsigned int ix86_arch_mask, ix86_tune_mask;
   int i;
 
@@ -3225,15 +3223,23 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
   ix86_isa_flags_explicit = ptr->ix86_isa_flags_explicit;
   target_flags_explicit = ptr->target_flags_explicit;
 
-  /* Recreate the arch feature tests */
-  ix86_arch_mask = 1u << ix86_arch;
-  for (i = 0; i < X86_ARCH_LAST; ++i)
-    ix86_arch_features[i] = !!(initial_ix86_arch_features[i] & ix86_arch_mask);
+  /* Recreate the arch feature tests if the arch changed */
+  if (old_arch != ix86_arch)
+    {
+      ix86_arch_mask = 1u << ix86_arch;
+      for (i = 0; i < X86_ARCH_LAST; ++i)
+	ix86_arch_features[i]
+	  = !!(initial_ix86_arch_features[i] & ix86_arch_mask);
+    }
 
   /* Recreate the tune optimization tests */
-  ix86_tune_mask = 1u << ix86_tune;
-  for (i = 0; i < X86_TUNE_LAST; ++i)
-    ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+  if (old_tune != ix86_tune)
+    {
+      ix86_tune_mask = 1u << ix86_tune;
+      for (i = 0; i < X86_TUNE_LAST; ++i)
+	ix86_tune_features[i]
+	  = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+    }
 }
 
 /* Print the current options */
@@ -3242,6 +3248,10 @@ static void
 ix86_function_specific_print (FILE *file, int indent,
 			      struct cl_target_option *ptr)
 {
+  char *target_string
+    = ix86_target_string (ptr->ix86_isa_flags, ptr->target_flags,
+			  NULL, NULL, NULL, false);
+
   fprintf (file, "%*sarch = %d (%s)\n",
 	   indent, "",
 	   ptr->arch,
@@ -3256,8 +3266,16 @@ ix86_function_specific_print (FILE *file, int indent,
 	    ? cpu_names[ptr->tune]
 	    : "<unknown>"));
 
-  fprintf (file, "%*sfpmath = %d\n", indent, "", ptr->fpmath);
+  fprintf (file, "%*sfpmath = %d%s%s\n", indent, "", ptr->fpmath,
+	   (ptr->fpmath & FPMATH_387) ? ", 387" : "",
+	   (ptr->fpmath & FPMATH_SSE) ? ", sse" : "");
   fprintf (file, "%*sbranch_cost = %d\n", indent, "", ptr->branch_cost);
+
+  if (target_string)
+    {
+      fprintf (file, "%*s%s\n", indent, "", target_string);
+      free (target_string);
+    }
 }
 
 
@@ -3294,6 +3312,7 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
     int mask;
   } attrs[] = {
     /* isa options */
+    IX86_ATTR_ISA ("3dnow",	OPT_m3dnow),
     IX86_ATTR_ISA ("abm",	OPT_mabm),
     IX86_ATTR_ISA ("aes",	OPT_maes),
     IX86_ATTR_ISA ("mmx",	OPT_mmmx),
@@ -3463,30 +3482,25 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
   return ret;
 }
 
-/* Hook to validate attribute((option("string"))).  */
+/* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
 
-static bool
-ix86_valid_option_attribute_p (tree fndecl,
-			       tree ARG_UNUSED (name),
-			       tree args,
-			       int ARG_UNUSED (flags))
+tree
+ix86_valid_option_attribute_tree (tree args)
 {
-  bool ret;
   const char *orig_arch_string = ix86_arch_string;
   const char *orig_tune_string = ix86_tune_string;
   const char *orig_fpmath_string = ix86_fpmath_string;
   int orig_tune_defaulted = ix86_tune_defaulted;
   int orig_arch_specified = ix86_arch_specified;
   char *option_strings[IX86_FUNCTION_SPECIFIC_MAX] = { NULL, NULL, NULL };
+  tree t = NULL_TREE;
   int i;
   struct cl_target_option *def
     = TREE_TARGET_OPTION (target_option_default_node);
 
-  /* Make sure we start with clean options.  */
-  cl_target_option_restore (def);
-
   /* Process each of the options on the chain.  */
-  ret = ix86_valid_option_attribute_inner_p (args, option_strings);
+  if (! ix86_valid_option_attribute_inner_p (args, option_strings))
+    return NULL_TREE;
 
   /* If the changed options are different from the default, rerun override_options,
      and then save the options away.  The string options are are attribute options,
@@ -3520,15 +3534,7 @@ ix86_valid_option_attribute_p (tree fndecl,
 
       /* Save the current options unless we are validating options for
 	 #pragma.  */
-      if (fndecl)
-	{
-	  tree t = make_node (TARGET_OPTION_NODE);
-	  DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = t;
-	  cl_target_option_save (TREE_TARGET_OPTION (t));
-	}
-
-      /* Restore options.  */
-      cl_target_option_restore (def);
+      t = build_target_option_node ();
 
       ix86_arch_string = orig_arch_string;
       ix86_tune_string = orig_tune_string;
@@ -3540,6 +3546,30 @@ ix86_valid_option_attribute_p (tree fndecl,
 	  free (option_strings[i]);
     }
 
+  return t;
+}
+
+/* Hook to validate attribute((option("string"))).  */
+
+static bool
+ix86_valid_option_attribute_p (tree fndecl,
+			       tree ARG_UNUSED (name),
+			       tree args,
+			       int ARG_UNUSED (flags))
+{
+  struct cl_target_option cur_opts;
+  bool ret = true;
+  tree new_opts;
+
+  cl_target_option_save (&cur_opts);
+  new_opts = ix86_valid_option_attribute_tree (args);
+  if (!new_opts)
+    ret = false;
+
+  else if (fndecl)
+    DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_opts;
+
+  cl_target_option_restore (&cur_opts);
   return ret;
 }
 
@@ -3599,57 +3629,29 @@ ix86_can_inline_p (tree caller, tree callee)
 }
 
 
-/* Insert any target specific attributes to a declaration.  */
+/* Remember the last target of ix86_set_current_function.  */
+static GTY(()) tree ix86_previous_fndecl;
 
-static void
-ix86_insert_attributes (tree node, tree *attr_ptr ATTRIBUTE_UNUSED)
-{
-  /* If this is a function, do we have an option pragma?  If so, add it and
-     re-validate it, which will create the appropriate target option node in
-     the node.  */
-
-  if (TREE_CODE (node) == FUNCTION_DECL
-      && current_option_pragma
-      && ix86_valid_option_attribute_p (node, NULL_TREE,
-					current_option_pragma, 0))
-    {
-      tree cur_attr = lookup_attribute ("option", *attr_ptr);
-      tree opts = copy_list (current_option_pragma);
-
-      if (! cur_attr)
-	*attr_ptr = tree_cons (get_identifier ("option"), opts, *attr_ptr);
-      else
-	TREE_VALUE (cur_attr) = chainon (opts, TREE_VALUE (cur_attr));
-    }
-
-#ifdef SUBTARGET_INSERT_ATTRIBUTES
-  SUBTARGET_INSERT_ATTRIBUTES (tree, attr_ptr);
-#endif
-}
-
-
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
 static void
 ix86_set_current_function (tree fndecl)
 {
-  static tree previous_fndecl = NULL_TREE;
-
   /* Only change the context if the function changes.  This hook is called
      several times in the course of compiling a function, and we don't want to
      slow things down too much or call target_reinit when it isn't safe.  */
-  if (fndecl && fndecl != previous_fndecl)
+  if (fndecl && fndecl != ix86_previous_fndecl)
     {
-      tree old_tree = (previous_fndecl
-		       ? DECL_FUNCTION_SPECIFIC_TARGET (previous_fndecl)
+      tree old_tree = (ix86_previous_fndecl
+		       ? DECL_FUNCTION_SPECIFIC_TARGET (ix86_previous_fndecl)
 		       : NULL_TREE);
 
       tree new_tree = (fndecl
 		       ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
 		       : NULL_TREE);
 
-      previous_fndecl = fndecl;
+      ix86_previous_fndecl = fndecl;
       if (old_tree == new_tree)
 	;
 
@@ -3662,7 +3664,7 @@ ix86_set_current_function (tree fndecl)
       else if (old_tree)
 	{
 	  struct cl_target_option *def
-	    = TREE_TARGET_OPTION (target_option_default_node);
+	    = TREE_TARGET_OPTION (target_option_current_node);
 
 	  cl_target_option_restore (def);
 	  target_reinit ();
@@ -19960,7 +19962,7 @@ static const struct builtin_description bdesc_multi_arg[] =
    is zero.  Otherwise, if TARGET_SSE is not set, only expand the MMX
    builtins.  */
 static void
-ix86_init_mmx_sse_builtins (void)
+ix86_init_builtins (void)
 {
   const struct builtin_description * d;
   size_t i;
@@ -21095,13 +21097,6 @@ ix86_init_mmx_sse_builtins (void)
       if (mtype)
 	def_builtin_const (d->mask, d->name, mtype, d->code);
     }
-}
-
-static void
-ix86_init_builtins (void)
-{
-  if (TARGET_MMX)
-    ix86_init_mmx_sse_builtins ();
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -26937,8 +26932,10 @@ x86_builtin_vectorization_cost (bool runtime_test)
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL i386_output_dwarf_dtprel
 #endif
 
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
-#define TARGET_INSERT_ATTRIBUTES ix86_insert_attributes
+#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#endif
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE ix86_mangle_type

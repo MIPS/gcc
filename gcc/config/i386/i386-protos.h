@@ -199,6 +199,7 @@ extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 extern int x86_field_alignment (tree, int);
+extern tree ix86_valid_option_attribute_tree (tree);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
@@ -211,6 +212,9 @@ extern void ix86_expand_reduc_v4sf (rtx (*)(rtx, rtx, rtx), rtx, rtx);
 
 extern bool ix86_sse5_valid_op_p (rtx [], rtx, int, bool, int);
 extern void ix86_expand_sse5_multiple_memory (rtx [], int, enum machine_mode);
+
+/* In i386-c.c  */
+extern void ix86_target_macros (void);
 
 /* In winnt.c  */
 extern void i386_pe_unique_section (tree, int);

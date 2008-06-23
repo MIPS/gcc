@@ -3753,8 +3753,8 @@ debug_find_var_in_block_tree (tree var, tree block)
 
 static bool in_dummy_function;
 
-/* Invoke the target hook when setting cfun.  If the function has the cold
-   attribute set, make sure we switch to optimizing for space.  */
+/* Invoke the target hook when setting cfun.  Update the optimization options
+   if the function uses different options than the default.  */
 
 static void
 invoke_set_current_function_hook (tree fndecl)

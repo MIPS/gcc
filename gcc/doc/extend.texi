@@ -1793,6 +1793,7 @@ the enclosing block.
 @cindex functions that pop the argument stack on the 386
 @cindex functions that do not pop the argument stack on the 386
 @cindex functions that have different compilation options on the 386
+@cindex functions that have different optimization options
 
 In GNU C, you declare certain things about functions called in your program
 which help the compiler optimize function calls and check your code more
@@ -2667,19 +2668,29 @@ implemented in GCC versions earlier than 3.3.
 @item option
 @cindex @code{option} function attribute
 The @code{option} attribute is used to specify that a function is to
-be compiled with different options than specified on the command line.
-This can be used for instance to have functions compiled with a
-different ISA (instruction set architecture) than the default.  For
-instance on a 386, you could compile one function with
+be compiled with different target options than specified on the
+command line.  This can be used for instance to have functions
+compiled with a different ISA (instruction set architecture) than the
+default.  You can also use the @samp{#pragma GCC option} pragma to set
+more than one function to be compiled with specific target options.
+@xref{Function Specific Option Pragmas}, for details about the
+@samp{#pragma GCC option} pragma.
+
+For instance on a 386, you could compile one function with
 @code{option("sse4.1,arch=core2")} and another with
 @code{option("sse4a,arch=amdfam10")} that would be equivalent to
-compiling the first function with @code{-msse4.1} and
-@code{-march=core2} options, and the second function with
-@code{-msse4a} and @code{-march=amdfam10} options.  It is up to the
+compiling the first function with @option{-msse4.1} and
+@option{-march=core2} options, and the second function with
+@option{-msse4a} and @option{-march=amdfam10} options.  It is up to the
 user to make sure that a function is only invoked on a machine that
 supports the particular ISA it was compiled for (for example by using
 @code{cpuid} on 386 to determine what feature bits and architecture
 family are used).
+
+@smallexample
+int core2_func (void) __attribute__ ((__option__ ("arch=core2")));
+int sse3_func (void) __attribute__ ((__option__ ("sse3")));
+@end smallexample
 
 On the 386, the following options are allowed:
 
@@ -2827,6 +2838,34 @@ target options of the caller.  For example a function declared with
 The @code{option} attribute is not implemented in GCC versions earlier
 than 4.4, and at present only the 386 uses it.
 
+@item optimize
+@cindex @code{optimize} function attribute
+The @code{optimize} attribute is used to specify that a function is to
+be compiled with different optimization options than specified on the
+command line.  Arguments can either be numbers or strings.  Numbers
+are assumed to be an optimization level.  Strings that begin with
+@code{O} are assumed to be an optimization option, while other options
+are assumed to be used with a @code{-f} prefix.  You can also use the
+@samp{#pragma GCC optimize} pragma to set the optimization options
+that affect more than one function.
+@xref{Function Specific Option Pragmas}, for details about the
+@samp{#pragma GCC option} pragma.
+
+This can be used for instance to have frequently executed functions
+compiled with more aggressive optimization options that produce faster
+and larger code, while other functions can be called with less
+agressive options.  The @code{hot} attribute implies
+@code{optimize("O3")}, and @code{cold} attribute implies
+@code{optimize("Os")}.
+
+@smallexample
+int fast_func (void) __attribute__ ((__optimize__ ("O3,unroll-loops")));
+int slow_func (void) __attribute__ ((__optimize__ ("Os")));
+@end smallexample
+
+The inliner will not inline functions with a higher optimization level
+than the caller or different space/time trade offs.
+
 @item pure
 @cindex @code{pure} function attribute
 Many functions have no effects except the return value and their
@@ -2862,7 +2901,11 @@ all hot functions appears close together improving locality.
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
 
-The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
+The @code{hot} attribute is not implemented in GCC versions earlier
+than 4.3.
+
+Starting with GCC 4.4, the @code{hot} attribute sets
+@code{optimize("O3")} to turn on more aggressive optimization.
 
 @item cold
 @cindex @code{cold} function attribute
@@ -2879,7 +2922,10 @@ occasions.
 When profile feedback is available, via @option{-fprofile-use}, hot functions
 are automatically detected and this attribute is ignored.
 
-The @code{hot} attribute is not implemented in GCC versions earlier than 4.3.
+The @code{cold} attribute is not implemented in GCC versions earlier than 4.3.
+
+Starting with GCC 4.4, the @code{cold} attribute sets
+@code{optimize("Os")} to save space.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
@@ -11263,7 +11309,7 @@ for further explanation.
 * Diagnostic Pragmas::
 * Visibility Pragmas::
 * Push/Pop Macro Pragmas::
-* Target Option Pragmas::
+* Function Specific Option Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -11614,37 +11660,78 @@ int x [X];
 In this example, the definition of X as 1 is saved by @code{#pragma
 push_macro} and restored by @code{#pragma pop_macro}.
 
-@node Target Option Pragmas
-@subsection Target Option Pragmas
+@node Function Specific Option Pragmas
+@subsection Function Specific Option Pragmas
 
 @table @code
-@item #pragma GCC option @var{"string"}...
+@item #pragma GCC option (@var{"string"}...)
 @cindex pragma GCC option
 
 This pragma allows you to set target specific options for functions
 defined later in the source file.  One or more strings can be
 specified.  Each function that is defined after this point will be as
-if @code{attribute((option("STRING")))} was specified for that function.
+if @code{attribute((option("STRING")))} was specified for that
+function.  The parenthesis around the options is optional.
+@xref{Function Attributes}, for more information about the
+@code{option} attribute and the attribute syntax.
+
+The @samp{#pragma GCC option} pragma is not implemented in GCC
+versions earlier than 4.4, and is currently only implemented for the
+386 and x86_64 backend.
 @end table
 
 @table @code
-@item #pragma GCC option push
-@itemx #pragma GCC option pop
+@item #pragma GCC option (push)
+@itemx #pragma GCC option (pop)
 @cindex pragma GCC option
 
 These pragmas maintain a stack of the current options.  It is
-intendent for include files where you temporarily want to switch to
-using a different @code{#pragma GCC option} and then to pop back to
+intended for include files where you temporarily want to switch to
+using a different @samp{#pragma GCC option} and then to pop back to
 the previous options.
 @end table
 
 @table @code
-@item #pragma GCC option reset
+@item #pragma GCC option (reset)
 @cindex pragma, target option
 @cindex pragma GCC option
 
 This pragma clears the current @code{#pragma GCC options} to use the
-default swtiches as specified on the command line.
+default switches as specified on the command line.
+@end table
+@table @code
+@item #pragma GCC optimize (@var{"string"}...)
+@cindex pragma GCC optimize
+
+This pragma allows you to set global optimization options for functions
+defined later in the source file.  One or more strings can be
+specified.  Each function that is defined after this point will be as
+if @code{attribute((optimize("STRING")))} was specified for that
+function.  The parenthesis around the options is optional.
+@xref{Function Attributes}, for more information about the
+@code{optimize} attribute and the attribute syntax.
+
+The @samp{#pragma GCC optimize} pragma is not implemented in GCC
+versions earlier than 4.4.
+@end table
+
+@table @code
+@item #pragma GCC optimize (push)
+@itemx #pragma GCC optimize (pop)
+@cindex pragma GCC optimize
+
+These pragmas maintain a stack of the current optimization options.
+It is intended for include files where you temporarily want to switch
+to using a different @code{#pragma GCC optimize} and then to pop back
+to the previous optimizations.
+@end table
+
+@table @code
+@item #pragma GCC optimize reset
+@cindex pragma GCC optimize
+
+This pragma clears the current @code{#pragma GCC optimize} to use the
+default switches as specified on the command line.
 @end table
 
 @node Unnamed Fields
