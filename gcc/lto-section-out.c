@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "tree-vectorizer.h"
 #include "timevar.h"
-#include "dwarf2asm.h"
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
@@ -739,6 +738,8 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
 {
   tree t;
   int index;
+  size_t size = VEC_length (tree, v) * sizeof (int32_t);
+  int32_t *refs = xmalloc (size);
 
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
@@ -755,10 +756,11 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
       print_generic_expr (stderr, t, 0);
       fprintf (stderr, "\n");
 #endif
-      /* We should use uleb128 for the global vector index.
-         This will require writing the reference vectors as streams.  */
-      dw2_asm_output_data (4, old_slot->slot_num, " ");
+      refs[index] = old_slot->slot_num;
     }
+
+  lang_hooks.lto.write_section_data (refs, size);
+  free (refs);
 }
 
 

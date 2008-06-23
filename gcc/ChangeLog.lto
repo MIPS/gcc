@@ -1,3 +1,9 @@
+2008-06-23  Ollie Wild  <aaw@google.com>
+
+	* lto-section-out.c (dwarf2asm.h): Remove include.
+	(write_global_references): Replace dw2_asm_output_data calls with a
+	single call to lang_hooks.lto.write_section_data.
+
 2008-06-23  Bill Maddox  <maddox@google.com>
 
 	* gcc.c: (lto_single): New variable.  Flag to indicate
