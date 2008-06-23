@@ -1,3 +1,21 @@
+2008-06-23  Bill Maddox  <maddox@google.com>
+
+	* gcc.c: (lto_single): New variable.  Flag to indicate
+	lto-single mode.
+	(LINK_COMMAND_SPEC,cc1_options): Add support for
+	lto-single mode.
+	(invoke_lto_single): New constant.
+	Specs string to run hidden lto1 pass.
+	(default_compilers): Add support for lto-single
+	mode in specs for C compilations.
+	(static_specs): Add entry for invoke_lto_single.
+	(process_command): Recognize -flto-single option.
+	(handle_spec_predicate): Parse and invoke spec predicate,
+	similar to spec funtion.
+	(handle_braces): Implement conditional on spec predicates.
+	(lto_single_spec_predicate): New function. Spec predicate
+	to test for lto-single mode.
+
 2008-06-23  Rafael Espindola  <espindola@google.com>
 
 	* calls.c (must_pass_in_stack_var_size): handle a NULL TYPE_SIZE.
