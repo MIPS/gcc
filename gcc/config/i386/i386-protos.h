@@ -215,6 +215,7 @@ extern void ix86_expand_sse5_multiple_memory (rtx [], int, enum machine_mode);
 
 /* In i386-c.c  */
 extern void ix86_target_macros (void);
+extern void ix86_register_pragmas (void);
 
 /* In winnt.c  */
 extern void i386_pe_unique_section (tree, int);

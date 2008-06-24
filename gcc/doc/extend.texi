@@ -2854,7 +2854,7 @@ that affect more than one function.
 This can be used for instance to have frequently executed functions
 compiled with more aggressive optimization options that produce faster
 and larger code, while other functions can be called with less
-agressive options.  The @code{hot} attribute implies
+aggressive options.  The @code{hot} attribute implies
 @code{optimize("O3")}, and @code{cold} attribute implies
 @code{optimize("Os")}.
 

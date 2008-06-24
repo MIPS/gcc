@@ -35,7 +35,7 @@
 	cl_target_option_node.
 	(build_optimization_node): New function to return a tree that
 	includes all of the optimization options.
-	(build_target_option_ndoe): New function to return a tree that
+	(build_target_option_node): New function to return a tree that
 	includes the target options that can be specified for target
 	specific optimization.
 
@@ -116,7 +116,7 @@
 	(builtin_define_std): Ditto.
 
 	* config.gcc (x86_64-*-darwin*): Make sure tmake_file includes
-	previoius tmake_file's.  Make sure c_target_objs includes previous
+	previous tmake_file's.  Make sure c_target_objs includes previous
 	c_target_objs.
 	(i[34567]86-*-elf*): Ditto.
 	(x86_64-*-elf*): Ditto.
@@ -176,7 +176,7 @@
 	passed to ix86_set_current_function.
 	(ix86_set_current_function): Rewrite how the target options are
 	set up and when to call target_reinit.  Use the current target
-	options intead of the default options, so that #pragma GCC option
+	options instead of the default options, so that #pragma GCC option
 	works correctly.
 	(ix86_init_builtins): Merge ix86_init_mmx_sse_builtins with this
 	code, remove test for -mmmx.

@@ -6700,7 +6700,7 @@ parse_optimize_options (tree args, bool attr_p)
 		  *r++ = '-';
 
 		  /* Assume that Ox is -Ox, a numeric value is -Ox, a s by
-		     itself is -Os, and any other swtich begins with a -f.  */
+		     itself is -Os, and any other switch begins with a -f.  */
 		  if ((*p >= '0' && *p <= '9')
 		      || (p[0] == 's' && p[1] == '\0'))
 		    *r++ = 'O';

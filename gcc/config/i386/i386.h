@@ -534,6 +534,9 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS() ix86_target_macros ()
 
+/* Target Pragmas.  */
+#define REGISTER_TARGET_PRAGMAS() ix86_register_pragmas ()
+
 enum target_cpu_default
 {
   TARGET_CPU_DEFAULT_generic = 0,
@@ -2321,19 +2324,6 @@ struct machine_function GTY(())
   /* This value is used for amd64 targets and specifies the current abi
      to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
   int call_abi;
-};
-
-/* target options that we save away if the user used function specific
-   options.  */
-struct machine_option_attr GTY(())
-{
-  enum processor_type arch;		/* -march= processor */
-  enum processor_type tune;		/* -mtune= processor */
-  enum fpmath_unit fpmath;		/* which fp unit to use */
-  int branch_cost;			/* branch cost */
-  int ix86_isa_flags_explicit;		/* isa flags set explicitly */
-  unsigned char tune_defaulted;		/* whether -mtune was not specified */
-  unsigned char arch_specified;		/* whether -march was specified */
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)

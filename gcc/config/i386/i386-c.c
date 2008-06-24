@@ -301,9 +301,6 @@ ix86_pragma_option_parse (tree args)
 void
 ix86_target_macros (void)
 {
-  /* Update pragma hook to allow parsing #pragma GCC option.  */
-  targetm.target_option_pragma_parse = ix86_pragma_option_parse;
-
   /* 32/64-bit won't change with target specific options, so do the assert and
      builtin_define_std calls here.  */
   if (TARGET_64BIT)
@@ -327,4 +324,20 @@ ix86_target_macros (void)
 			       ix86_tune,
 			       ix86_fpmath,
 			       cpp_define);
+}
+
+
+/* Register target pragmas.  We need to update the hook for
+   ix86_pragma_option_parse here, since this i386-c.o is not linked in targets
+   like fortran that don't have the preprocessor.  */
+
+void
+ix86_register_pragmas (void)
+{
+  /* Update pragma hook to allow parsing #pragma GCC option.  */
+  targetm.target_option_pragma_parse = ix86_pragma_option_parse;
+
+#ifdef REGISTER_SUBTARGET_PRAGMAS
+  REGISTER_SUBTARGET_PRAGMAS ();
+#endif
 }
