@@ -89,9 +89,9 @@ typedef struct _slp_tree {
   struct _slp_tree *left;
   struct _slp_tree *right;
   /* A group of scalar stmts to be vectorized together.  */
-  VEC (tree, heap) *stmts;
+  VEC (gimple, heap) *stmts;
   /* Vectorized stmt/s.  */
-  VEC (tree, heap) *vec_stmts;
+  VEC (gimple, heap) *vec_stmts;
   /* Number of vector stmts that are created to replace the group of scalar 
      stmts. It is calculated during the transformation phase as the number of 
      scalar elements in one scalar iteration (GROUP_SIZE) multiplied by VF 
@@ -200,14 +200,14 @@ typedef struct _loop_vec_info {
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
-  VEC(tree,heap) *may_misalign_stmts;
+  VEC(gimple,heap) *may_misalign_stmts;
 
   /* The loop location in the source.  */
   LOC loop_line_number;
 
   /* All interleaving chains of stores in the loop, represented by the first
      stmt in the chain.  */
-  VEC(tree, heap) *strided_stores;
+  VEC(gimple, heap) *strided_stores;
 
   /* All SLP instances in the loop. This is a subset of the set of STRIDED_STORES
      of the loop.  */
@@ -255,16 +255,10 @@ loop_vec_info_for_loop (struct loop *loop)
 }
 
 static inline bool
-nested_in_vect_loop_p (struct loop *loop ATTRIBUTE_UNUSED, tree stmt ATTRIBUTE_UNUSED)
+nested_in_vect_loop_p (struct loop *loop, gimple stmt)
 {
-  /* FIXME tuples.  */
-#if 0
   return (loop->inner 
           && (loop->inner == (gimple_bb (stmt))->loop_father));
-#else
-  gimple_unreachable ();
-#endif
-  return false;
 }
 
 /*-----------------------------------------------------------------*/
@@ -335,7 +329,7 @@ typedef struct _stmt_vec_info {
   enum stmt_vec_info_type type;
 
   /* The stmt to which this info struct refers to.  */
-  tree stmt;
+  gimple stmt;
 
   /* The loop_vec_info with respect to which STMT is vectorized.  */
   loop_vec_info loop_vinfo;
@@ -353,7 +347,7 @@ typedef struct _stmt_vec_info {
   tree vectype;
 
   /* The vectorized version of the stmt.  */
-  tree vectorized_stmt;
+  gimple vectorized_stmt;
 
 
   /** The following is relevant only for stmts that contain a non-scalar
@@ -384,7 +378,7 @@ typedef struct _stmt_vec_info {
         related_stmt of the "pattern stmt" points back to this stmt (which is 
         the last stmt in the original sequence of stmts that constitutes the 
         pattern).  */
-  tree related_stmt;
+  gimple related_stmt;
 
   /* List of datarefs that are known to have the same alignment as the dataref
      of this stmt.  */
@@ -408,7 +402,7 @@ typedef struct _stmt_vec_info {
   unsigned int gap;
   /* In case that two or more stmts share data-ref, this is the pointer to the
      previously detected stmt with the same dr.  */
-  tree same_dr_stmt;
+  gimple same_dr_stmt;
   /* For loads only, if there is a store with the same location, this field is
      TRUE.  */
   bool read_write_dep;
@@ -528,29 +522,32 @@ typedef struct _stmt_vec_info {
 #define TARG_VEC_STORE_COST          1
 #endif
 
-/* FIXME tuples.  */
-#if 0
-static inline void set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info);
-static inline stmt_vec_info vinfo_for_stmt (tree stmt);
+extern htab_t stmt_vec_info_htab;
 
-static inline void
-set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info)
-{
-  if (ann)
-    ann->common.aux = (char *) stmt_info;
-}
+void init_stmt_vec_info_htab (void);
+void free_stmt_vec_info_htab (void);
 
 static inline stmt_vec_info
-vinfo_for_stmt (tree stmt)
+vinfo_for_stmt (gimple stmt)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (stmt_vec_info) ann->common.aux : NULL;
+  void **slot;
+  slot = htab_find_slot (stmt_vec_info_htab, stmt, NO_INSERT);
+  return slot ? (stmt_vec_info) *slot : NULL;
+}
+
+static inline void
+set_vinfo_for_stmt (gimple stmt, stmt_vec_info info)
+{
+  void **slot;
+  slot = htab_find_slot (stmt_vec_info_htab, stmt, INSERT);
+  gcc_assert (!(*slot && info));
+  *slot = info;
 }
 
 static inline bool
 is_pattern_stmt_p (stmt_vec_info stmt_info)
 {
-  tree related_stmt;
+  gimple related_stmt;
   stmt_vec_info related_stmt_info;
 
   related_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
@@ -561,7 +558,6 @@ is_pattern_stmt_p (stmt_vec_info stmt_info)
 
   return false;
 }
-#endif
 
 static inline bool
 is_loop_header_bb_p (basic_block bb)
@@ -652,24 +648,24 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
  *************************************************************************/
 /** In tree-vectorizer.c **/
 extern tree get_vectype_for_scalar_type (tree);
-extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
+extern bool vect_is_simple_use (tree, loop_vec_info, gimple *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);
-extern tree vect_is_simple_reduction (loop_vec_info, tree);
+extern gimple vect_is_simple_reduction (loop_vec_info, gimple);
 extern bool vect_can_force_dr_alignment_p (const_tree, unsigned int);
 extern enum dr_alignment_support vect_supportable_dr_alignment
   (struct data_reference *);
 extern bool reduction_code_for_scalar_code (enum tree_code, enum tree_code *);
-extern bool supportable_widening_operation (enum tree_code, tree, tree,
+extern bool supportable_widening_operation (enum tree_code, gimple, tree,
   tree *, tree *, enum tree_code *, enum tree_code *);
-extern bool supportable_narrowing_operation (enum tree_code, const_tree,
+extern bool supportable_narrowing_operation (enum tree_code, const_gimple,
 					     const_tree, enum tree_code *);
 
 /* Creation and deletion of loop and stmt info structs.  */
 extern loop_vec_info new_loop_vec_info (struct loop *loop);
 extern void destroy_loop_vec_info (loop_vec_info, bool);
-extern stmt_vec_info new_stmt_vec_info (tree stmt, loop_vec_info);
-extern void free_stmt_vec_info (tree stmt);
+extern stmt_vec_info new_stmt_vec_info (gimple stmt, loop_vec_info);
+extern void free_stmt_vec_info (gimple stmt);
 
 
 /** In tree-vect-analyze.c  **/

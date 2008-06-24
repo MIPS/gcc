@@ -1,3 +1,55 @@
+2008-06-24  Doug Kwan  <dougkwan@google.com>
+
+	* gimple-dummy.c (vect_set_verbosity_level): Remove.
+	(vectorize_loops): Same.
+	(vect_free_slp_tree): New dummy.
+	(vect_analyze_loop): Same.
+	(vect_transform_loop): Same.
+	* tree-vectorize.c (hashtab.h): New include.
+	(File): Re-enable all previously commented out code.	
+	(stmt_vec_info_htab): New var.
+	(rename_variables_in_bb): Tuplify.
+	(slpeel_update_phis_for_duplicate_loop): Same.
+	(slpeel_update_phi_nodes_for_guard1): Same.
+	(slpeel_update_phi_nodes_for_guard2): Same.
+ 	(slpeel_make_loop_iterate_ntimes): Same.
+	(slpeel_tree_duplicate_loop_to_edge_cfg): Same.
+ 	(slpeel_add_loop_guard): Same.
+	(slpeel_can_duplicate_loop_p): Same.
+	(set_prologue_iterations): Same.
+ 	(find_loop_location): Same.
+	(new_stmt_vec_info): Same.
+	(hash_gimple_stmt): New function.
+	(init_stmt_vec_info_htab): New function.
+	(free_stmt_vec_info_htab): New function.
+	(free_stmt_vec_info): Replace statement info with hash table entry.
+	(new_loop_vec_info): Tuplify.
+	(destroy_loop_vec_info): Same.
+	(vect_supportable_dr_alignment): Same
+	(vect_is_simple_use): Same.
+	(supportable_widening_operation): Same.
+	(supportable_narrowing_operation): Same.
+	(report_vec_op): New function. Code factored out from ...
+	(vect_is_simple_reduction): Call it. Tuplify.
+	(vectorize_loops): Set up and tear down stmt_vec_info hash table.
+	* tree-vectorizer.h (struct _slp_tree): Change statement fields
+	(struct _loop_vec_info): Same.
+	(struct _stmt_vec_info):
+	(nested_in_vect_loop): Re-enable.
+	(init_stmt_vec_info_htab): New prototype.
+	(free_stmt_vec_info_htab): New prototype.
+	(vinfo_for_stmt): Use hash table instead of statement info.
+	(set_stmt_info): Remove.
+	(set_vinfo_for_stmt): New inline.
+	(is_pattern_stmt_p): Tuplify.
+	(vect_is_simple_use): Tuplify prototype.
+	(vect_is_simple_reduction): Same.
+	(supportable_widening_operation): Same.
+	(supportable_narrowing_operation): Same.
+	(new_stmt_vec_info): Same.
+	(free_stmt_vec_info): Same.
+	Makefile.in (tree-vectorize.o): Add HASTAB_H dependency.
+
 2008-06-22  Andrew Pinski  <pinskia@gmail.com>
 
 	* gimple-pretty-print.c (dump_binary_rhs): Print out MIN_EXPR and

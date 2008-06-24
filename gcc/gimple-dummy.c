@@ -15,8 +15,9 @@
   void X (void) { gcc_unreachable (); }
 
 
-DUMMY_FN (vect_set_verbosity_level)
-DUMMY_FN (vectorize_loops)
+DUMMY_FN (vect_free_slp_tree)
+DUMMY_FN (vect_analyze_loop)
+DUMMY_FN (vect_transform_loop)
 
 
 /* Note that we should mark gimple_unreachable_1 with
