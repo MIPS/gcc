@@ -3789,18 +3789,29 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
       tree unit_size = TYPE_SIZE_UNIT (decl);
       tree size = TYPE_SIZE (decl);
 
-      if (unit_size && TREE_CODE (unit_size) != INTEGER_CST)
-	TYPE_SIZE_UNIT (decl) = NULL_TREE;
-
-      if (size && TREE_CODE (size) != INTEGER_CST)
-	TYPE_SIZE (decl) = NULL_TREE;
+      if ((unit_size && TREE_CODE (unit_size) != INTEGER_CST)
+	  || (size && TREE_CODE (size) != INTEGER_CST))
+	{
+	  TYPE_SIZE_UNIT (decl) = NULL_TREE;
+	  TYPE_SIZE (decl) = NULL_TREE;
+	}
     }
 
   if (TREE_CODE (decl) == INTEGER_TYPE)
     {
-      tree max = TYPE_MAX_VALUE (decl);
-      if (max && TREE_CODE (max) != INTEGER_CST)
-	TYPE_MAX_VALUE (decl) = NULL_TREE;
+      tree old_max = TYPE_MAX_VALUE (decl);
+      tree old_min = TYPE_MIN_VALUE (decl);
+
+      if ((old_max && TREE_CODE (old_max) != INTEGER_CST)
+	  || (old_min && TREE_CODE (old_min) != INTEGER_CST))
+	  set_min_and_max_values_for_integral_type (decl,
+						    TYPE_PRECISION (decl),
+				 		    TYPE_UNSIGNED (decl));
+
+      if (old_max && TREE_CODE (old_max) == INTEGER_CST)
+	TYPE_MAX_VALUE (decl) = old_max;
+      if (old_min && TREE_CODE (old_min) == INTEGER_CST)
+	TYPE_MIN_VALUE (decl) = old_min;
     }
 
   return 1;

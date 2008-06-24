@@ -5752,7 +5752,6 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	 RHS isn't the same size as the bitfield, we must use bitfield
 	 operations.  */
       || (bitsize >= 0
-	  && TYPE_SIZE (TREE_TYPE (exp))
 	  && TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) == INTEGER_CST
 	  && compare_tree_int (TYPE_SIZE (TREE_TYPE (exp)), bitsize) != 0))
     {

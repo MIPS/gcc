@@ -4301,13 +4301,11 @@ must_pass_in_stack_var_size (enum machine_mode mode ATTRIBUTE_UNUSED,
 bool
 must_pass_in_stack_var_size_or_pad (enum machine_mode mode, const_tree type)
 {
-  tree size;
   if (!type)
     return false;
 
-  size = TYPE_SIZE (type);
   /* If the type has variable size...  */
-  if (!size || TREE_CODE (size) != INTEGER_CST)
+  if (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
     return true;
 
   /* If the type is marked as addressable (it is required
