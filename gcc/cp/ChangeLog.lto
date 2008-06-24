@@ -1,3 +1,7 @@
+2008-06-24  Rafael Espindola  <espindola@google.com>
+
+       * lang-specs.h: add invoke_lto_single before invoke_as.
+
 2008-06-09 Rafael Espindola  <espindola@google.com>
        based on http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
 

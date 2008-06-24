@@ -858,7 +858,7 @@ static const char *cc1_options =
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}\
- %{flto:-O2} %{?lto-single(): -O2}";
+ %{flto:-O2} %{?lto-single():-O2} %{?lto-single():-flto}";
 
 /* Do we need to preserve any assembler options here?
    Note that we are going to ignore the object code, as
@@ -1033,15 +1033,15 @@ static const struct compiler default_compilers[] =
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i} \n\
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
-			%{?lto-single():-flto} %(cc1_options)}\
+			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		cc1 %(cpp_unique_options) %{?lto-single():-flto} %(cc1_options)}}}\
+		cc1 %(cpp_unique_options) %(cc1_options)}}}\
           %{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}} \
       %{combine:\
 	  %{save-temps|traditional-cpp|no-integrated-cpp:%(trad_capable_cpp) \
 		%(cpp_options) -o %{save-temps:%b.i} %{!save-temps:%g.i}}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		cc1 %(cpp_unique_options) %{?lto-single():-flto} %(cc1_options)}}\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
                 %{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
    "%{!E:%e-E or -x required when input is from standard input}\
@@ -1064,7 +1064,7 @@ static const struct compiler default_compilers[] =
                     %W{o*:--output-pch=%*}%V}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 1, 0},
   {"@cpp-output",
-   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %{?lto-single():-flto} %(cc1_options) \
+   "%{!M:%{!MM:%{!E:cc1 -fpreprocessed %i %(cc1_options) \
 %{!fsyntax-only:%(invoke_lto_single) %(invoke_as)}}}}", 0, 1, 0},
   {".s", "@assembler", 0, 1, 0},
   {"@assembler",
