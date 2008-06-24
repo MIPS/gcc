@@ -1,3 +1,105 @@
+2008-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36504
+	* tree-ssa-loop-prefetch.c (gather_memory_references_ref): Skip
+	references without base address.
+
+2008-06-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (fmodxf3): Change sequence of move instructions.
+	(fmod<mode>3): Ditto.
+	(remainderxf3): Ditto.
+	(remainder<mode>3): Ditto.
+
+2008-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/36584
+	* calls.c (expand_call): Increase alignment for recursive functions.
+
+2008-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36533
+	* emit-rtl.c (set_reg_attrs_from_value): Do nothing if
+	REG is a hard register.
+
+	PR tree-optimization/36508
+	* tree-ssa-pre.c (compute_antic): Allow num_iterations up to
+	499, don't check it at all in release compilers.
+
+2008-06-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36519
+	* tree-ssa-alias.c (mem_sym_score): Count call-clobbered
+	unpartitionable SFTs in the usual way.
+	(compute_memory_partitions): Do partition call-clobbered
+	unpartitionable SFTs, but make sure to partition all other
+	SFTs of its parent var into the same partition.
+
+2008-06-19  Uros Bizjak  <ubizjak@gmail.com>
+	    Ian Lance Taylor  <iant@google.com>
+
+	PR rtl-optimization/35604
+	* jump.c (redirect_exp_1): Skip the condition of an IF_THEN_ELSE. We
+	only want to change jump destinations, not eventual label comparisons.
+
+2008-06-19  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/30739
+	* doc/install.texi (Prerequisites): Document dependency on awk.
+
+2008-06-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (reg_align): Remove.
+	(regno_aligned_for_load): Also accept ARG_POINTER_REGNUM.
+	(spu_split_load): Use regno_aligned_for_load instead of reg_align.
+	(spu_split_store): Likewise.
+
+2008-06-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* dfp.c (WORDS_BIGENDIAN): Define to 0 if not defined.
+	(encode_decimal64, decode_decimal64, encode_decimal128,
+	decode_decimal128): Reverse order of 32-bit parts of value if host
+	and target endianness differ.
+
+2008-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36493
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Remove TYPE from
+	the arguments list. Use VECTYPE to create vector pointer.
+	(vectorizable_store): Fail if accesses through a pointer to vectype
+	do not alias the original memory reference operands.
+	Call vect_create_data_ref_ptr without the removed argument.
+	(vectorizable_load): Likewise.
+	(vect_setup_realignment): Call vect_create_data_ref_ptr without the
+	removed argument.
+
+2008-06-15  Anatoly Sokolov  <aesok@post.ru>
+
+	PR target/36424
+	* config/avr/avr.h (HARD_REGNO_RENAME_OK): Define.
+	* config/avr/avr.c (avr_hard_regno_rename_ok): New function. 
+	* config/avr/avr-protos.h (avr_hard_regno_rename_ok): New prototype. 
+
+2008-06-15  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	PR target/36336
+	* config/avr/avr.h (LEGITIMIZE_RELOAD_ADDRESS): Add check for 
+	reg_equiv_constant.
+
+2008-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/36507
+	* c-decl.c (merge_decls): Don't clear DECL_EXTERNAL for
+	nested inline functions.
+	(start_decl, start_function): Don't invert DECL_EXTERNAL
+	for nested inline functions.
+
+2008-06-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36498
+	* tree-flow-inline.h (var_can_have_subvars): Unions cannot
+	have subvars.
+
 2008-06-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/36506
@@ -400,14 +502,14 @@
 	Revert
 	2007-11-29  Zdenek Dvorak  <ook@ucw.cz>
 
-        PR tree-optimization/34244
-        * tree-vrp.c (adjust_range_with_scev): Clear scev cache.
-        (record_numbers_of_iterations): New function.
-        (execute_vrp): Cache the numbers of iterations of loops.
-        * tree-scalar-evolution.c (scev_reset_except_niters):
-        New function.
-        (scev_reset): Use scev_reset_except_niters.
-        * tree-scalar-evolution.h (scev_reset_except_niters): Declare.
+	PR tree-optimization/34244
+	* tree-vrp.c (adjust_range_with_scev): Clear scev cache.
+	(record_numbers_of_iterations): New function.
+	(execute_vrp): Cache the numbers of iterations of loops.
+	* tree-scalar-evolution.c (scev_reset_except_niters):
+	New function.
+	(scev_reset): Use scev_reset_except_niters.
+	* tree-scalar-evolution.h (scev_reset_except_niters): Declare.
 
 2008-06-06  Joseph Myers  <joseph@codesourcery.com>
 

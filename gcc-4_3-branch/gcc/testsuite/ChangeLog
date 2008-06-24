@@ -1,3 +1,51 @@
+2008-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36504
+	* gcc.dg/pr36504.c: New test.
+
+2008-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/36584
+	* testsuite/gcc.dg/pr36584.c: New test.
+	* testsuite/gcc.target/i386/local2.c: Remove invalid test.
+
+2008-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36533
+	* gcc.target/i386/pr36533.c: New test.
+
+	PR tree-optimization/36508
+	* gcc.dg/pr36508.c: New test.
+
+2008-06-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_powerpc_hard_double): New.
+	* gcc.dg/tree-ssa/loop-19.c: Use powerpc_hard_double instead of
+	powerpc*-*-*.
+
+2008-06-16  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36493
+	* gcc.dg/vect/pr36493.c: New testcase.
+
+2008-06-15  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/35320
+	* g++.dg/parse/bitfield3.C: New test.
+
+2008-06-15  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/35317
+	* g++.dg/other/dtor2.C: New test.
+
+2008-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/36507
+	* gcc.dg/inline-28.c: New test.
+	* gcc.dg/inline-29.c: New test.
+	* gcc.dg/inline-30.c: New test.
+
 2008-06-12  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/compat/struct-layout-1.exp (orig_gcc_exec_prefix_saved):
