@@ -1,6 +1,6 @@
 /* Same as sse-14, except converted to use #pragma GCC option.  */
 /* { dg-do compile } */
-/* { dg-options "-O0 -Werror-implicit-function-declaration -msse" } */
+/* { dg-options "-O0 -Werror-implicit-function-declaration -fno-unit-at-a-time" } */
 
 #include <mm_malloc.h>
 

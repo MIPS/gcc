@@ -1,3 +1,8 @@
+2008-06-24  Michael Meissner  <michael.meissner@amd.com>
+
+	* gcc.target/i386/sse-22.c: Use -fno-unit-at-a-time, instead of
+	-msse.
+
 2008-06-22  Michael Meissner  <michael.meissner@amd.com>
 
 	* gcc.target/i386/opt-1.c: New file.
