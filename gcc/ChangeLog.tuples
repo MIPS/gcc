@@ -1,3 +1,10 @@
+2008-06-25  Diego Novillo  <dnovillo@google.com>
+
+	* tree-vectorizer.c (hash_gimple_stmt): Remove.
+	(eq_gimple_stmt): Remove.
+	(init_stmt_vec_info_htab): Use htab_hash_pointer and
+	htab_eq_pointer for STMT_VEC_INFO_HTAB.
+
 2008-06-24  Doug Kwan  <dougkwan@google.com>
 
 	* gimple-dummy.c (vect_set_verbosity_level): Remove.

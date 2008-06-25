@@ -1566,31 +1566,14 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   return res;
 }
 
-/* Hash function for stmt_vec_info table. P is the addres of a GIMPLE. */
 
-static hashval_t
-hash_gimple_stmt (const void *p)
-{
-  return (hashval_t) p;
-}
-
-/* Equality function for stmt_vec_info table key. P1 and P2 are address of
-   two GIMPLE statements.  They are equal if and only if they point the
-   same statement. */
-
-static int
-eq_gimple_stmt (const void *p1, const void *p2)
-{
-  return p1 == p2;
-}
-
-/* Createw hash table for stmt_vec_info. */
+/* Create a hash table for stmt_vec_info. */
 
 void
 init_stmt_vec_info_htab (void)
 {
   gcc_assert (!stmt_vec_info_htab);
-  stmt_vec_info_htab = htab_create (10, hash_gimple_stmt, eq_gimple_stmt,
+  stmt_vec_info_htab = htab_create (10, htab_hash_pointer, htab_eq_pointer,
 				    NULL);
 }
 
