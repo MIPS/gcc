@@ -1,3 +1,13 @@
+2008-06-25  Michael Meissner  <michael.meissner@amd.com>
+
+	* c-common.c (parse_optimize_options): Cast alloca returns to the
+	appropriate pointer type.
+
+	* config/i386/i386.c (ix86_target_string): Cast xmalloc return to
+	the appropriate pointer type.
+	(ix86_valid_option_attribute_inner_p): Cast alloca return to the
+	appropriate pointer type.
+
 2008-06-22  Michael Meissner  <michael.meissner@amd.com>
 
 	* attribs.c (toplevel): Add c-common.h include file.

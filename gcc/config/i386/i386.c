@@ -2326,7 +2326,7 @@ ix86_target_string (int isa, int flags, const char *arch, const char *tune,
     }
 
   /* Build the string.  */
-  ret = ptr = xmalloc (len);
+  ret = ptr = (char *) xmalloc (len);
   line_len = 0;
 
   for (i = 0; i < num; i++)
@@ -3385,7 +3385,7 @@ ix86_valid_option_attribute_inner_p (tree args, char *p_strings[])
     gcc_unreachable ();
 
   /* Handle multiple arguments separated by commas.  */
-  next_optstr = alloca (TREE_STRING_LENGTH (args) + 1);
+  next_optstr = (char *) alloca (TREE_STRING_LENGTH (args) + 1);
   memcpy (next_optstr, TREE_STRING_POINTER (args), TREE_STRING_LENGTH (args));
   next_optstr[ TREE_STRING_LENGTH (args) ] = '\0';
 

@@ -6652,7 +6652,7 @@ parse_optimize_options (tree args, bool attr_p)
       else if (TREE_CODE (value) == STRING_CST)
 	{
 	  size_t len = TREE_STRING_LENGTH (value);
-	  char *p = alloca (len + 1);
+	  char *p = (char *) alloca (len + 1);
 	  char *end = p + len;
 	  char *comma;
 	  char *next_p = p;
@@ -6679,7 +6679,7 @@ parse_optimize_options (tree args, bool attr_p)
 		  next_p = NULL;
 		}
 
-	      r = q = alloca (len2 + 3);
+	      r = q = (char *) alloca (len2 + 3);
 
 	      /* If the user supplied -Oxxx or -fxxx, only allow -Oxxx or -fxxx
 		 options.  */
@@ -6717,7 +6717,7 @@ parse_optimize_options (tree args, bool attr_p)
     }
 
   opt_argc = VEC_length (const_char_p, optimize_args);
-  opt_argv = alloca (sizeof (char *) * (opt_argc + 1));
+  opt_argv = (const char **) alloca (sizeof (char *) * (opt_argc + 1));
 
   for (i = 1; i < opt_argc; i++)
     opt_argv[i] = VEC_index (const_char_p, optimize_args, i);
