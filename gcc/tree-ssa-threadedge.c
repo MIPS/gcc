@@ -196,10 +196,8 @@ record_temporary_equivalences_from_phis (edge e, VEC(tree, heap) **stack)
 static tree
 fold_assignment_stmt (gimple stmt)
 {
-  enum tree_code subcode = gimple_subcode (stmt);
+  enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
-      
   switch (get_gimple_rhs_class (subcode))
     {
     case GIMPLE_SINGLE_RHS:

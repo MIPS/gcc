@@ -234,6 +234,18 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
   return stmt;
 }
 
+/* Set SUBCODE to be the code of the expression computed by statement G.  */
+
+static inline void
+gimple_set_subcode (gimple g, unsigned subcode)
+{
+  /* We only have 16 bits for the RHS code.  Assert that we are not
+     overflowing it.  */
+  gcc_assert (subcode < (1 << 16));
+  g->gsbase.subcode = subcode;
+}
+
+
 
 /* Build a tuple with operands.  CODE is the statement to build (which
    must be one of the GIMPLE_WITH_OPS tuples).  SUBCODE is the sub-code
@@ -241,6 +253,7 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
 
 #define gimple_build_with_ops(c, s, n) \
   gimple_build_with_ops_stat (c, s, n MEM_STAT_INFO)
+
 static gimple
 gimple_build_with_ops_stat (enum gimple_code code, enum tree_code subcode,
 		            unsigned num_ops MEM_STAT_DECL)
@@ -1059,8 +1072,8 @@ gimple_check_failed (const_gimple gs, const char *file, int line,
       		  gimple_code_name[code],
 		  tree_code_name[subcode],
 		  gimple_code_name[gimple_code (gs)],
-		  gimple_subcode (gs) > 0
-		    ? tree_code_name[gimple_subcode (gs)]
+		  gs->gsbase.subcode > 0
+		    ? tree_code_name[gs->gsbase.subcode]
 		    : "",
 		  function, trim_filename (file), line);
 }
@@ -1794,7 +1807,8 @@ bool
 gimple_assign_copy_p (gimple gs)
 {
   return gimple_code (gs) == GIMPLE_ASSIGN
-         && get_gimple_rhs_class (gimple_subcode (gs)) == GIMPLE_SINGLE_RHS
+         && get_gimple_rhs_class (gimple_assign_rhs_code (gs))
+	    == GIMPLE_SINGLE_RHS
 	 && is_gimple_val (gimple_op (gs, 1));
 }
 
@@ -1808,7 +1822,8 @@ bool
 gimple_assign_single_p (gimple gs)
 {
   return (gimple_code (gs) == GIMPLE_ASSIGN
-          && get_gimple_rhs_class (gimple_subcode (gs)) == GIMPLE_SINGLE_RHS);
+          && get_gimple_rhs_class (gimple_assign_rhs_code (gs))
+	     == GIMPLE_SINGLE_RHS);
 }
 
 /* Return true if GS is an assignment with a unary RHS, but the
@@ -1829,9 +1844,9 @@ bool
 gimple_assign_unary_nop_p (gimple gs)
 {
   return (gimple_code (gs) == GIMPLE_ASSIGN
-          && (gimple_subcode (gs) == NOP_EXPR
-              || gimple_subcode (gs) == CONVERT_EXPR
-              || gimple_subcode (gs) == NON_LVALUE_EXPR)
+          && (gimple_assign_rhs_code (gs) == NOP_EXPR
+              || gimple_assign_rhs_code (gs) == CONVERT_EXPR
+              || gimple_assign_rhs_code (gs) == NON_LVALUE_EXPR)
           && gimple_assign_rhs1 (gs) != error_mark_node
           && (TYPE_MODE (TREE_TYPE (gimple_assign_lhs (gs)))
               == TYPE_MODE (GENERIC_TREE_TYPE (gimple_assign_rhs1 (gs)))));
@@ -1987,7 +2002,7 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
    statement other than an assignment or a call.  */
 
 tree
-gimple_get_lhs (gimple stmt)
+gimple_get_lhs (const_gimple stmt)
 {
   enum tree_code code = gimple_code (stmt);
 
@@ -2337,7 +2352,7 @@ gimple_could_trap_p (gimple s)
 
     case GIMPLE_ASSIGN:
       t = gimple_expr_type (s);
-      op = gimple_subcode (s);
+      op = gimple_assign_rhs_code (s);
       if (get_gimple_rhs_class (op) == GIMPLE_BINARY_RHS)
 	div = gimple_assign_rhs2 (s);
       if (operation_could_trap_p (op,
@@ -2451,6 +2466,76 @@ gimple_set_loaded_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
 
       bitmap_copy (stmt->gsmem.membase.loads, syms);
     }
+}
+
+/* Determine if expression T is one of the valid expressions that can
+   be used on the RHS of GIMPLE assignments.  */
+
+enum gimple_rhs_class
+get_gimple_rhs_class (enum tree_code code)
+{
+  switch (TREE_CODE_CLASS (code))
+    {
+    case tcc_unary:
+      return GIMPLE_UNARY_RHS;
+
+    case tcc_binary:
+    case tcc_comparison:
+      return GIMPLE_BINARY_RHS;
+
+    case tcc_constant:
+    case tcc_declaration:
+    case tcc_reference:
+      return GIMPLE_SINGLE_RHS;
+
+    default:
+      break;
+    }
+
+  switch (code)
+    {
+    case TRUTH_AND_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+      return GIMPLE_BINARY_RHS;
+
+    case TRUTH_NOT_EXPR:
+      return GIMPLE_UNARY_RHS;
+
+    case COND_EXPR:
+    case CONSTRUCTOR:
+    case OBJ_TYPE_REF:
+    case ASSERT_EXPR:
+    case ADDR_EXPR:
+    case WITH_SIZE_EXPR:
+    case EXC_PTR_EXPR:
+    case SSA_NAME:
+    case FILTER_EXPR:
+    case POLYNOMIAL_CHREC:
+      return GIMPLE_SINGLE_RHS;
+
+    default:
+      break;
+    }
+
+  return GIMPLE_INVALID_RHS;
+}
+
+
+/* Return the number of operands needed on the RHS of a GIMPLE
+   assignment for an expression with tree code CODE.  */
+
+unsigned
+get_gimple_rhs_num_ops (enum tree_code code)
+{
+  enum gimple_rhs_class rhs_class = get_gimple_rhs_class (code);
+
+  if (rhs_class == GIMPLE_UNARY_RHS || rhs_class == GIMPLE_SINGLE_RHS)
+    return 1;
+  else if (rhs_class == GIMPLE_BINARY_RHS)
+    return 2;
+  else
+    gcc_unreachable ();
 }
 
 #include "gt-gimple.h"

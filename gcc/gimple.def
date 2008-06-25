@@ -90,9 +90,11 @@ DEFGSCODE(GIMPLE_SWITCH, "gimple_switch", struct gimple_statement_with_ops)
 DEFGSCODE(GIMPLE_CHANGE_DYNAMIC_TYPE, "gimple_change_dynamic_type",
 	  struct gimple_statement_with_ops)
 
-/* IMPORTANT.  Do not rearrange the codes between GIMPLE_ASSIGN and
-   GIMPLE_RETURN.  It's exposed by GIMPLE_RANGE_CHECK calls. These are
-   all the GIMPLE statements with memory and register operands.  */
+/* IMPORTANT.
+   
+   Do not rearrange the codes between GIMPLE_ASSIGN and GIMPLE_RETURN.
+   It's exposed by GIMPLE_RANGE_CHECK calls. These are all the GIMPLE
+   statements with memory and register operands.  */
 
 /* GIMPLE_ASSIGN <SUBCODE, LHS, RHS1[, RHS2]> represents the assignment
    statement
@@ -196,6 +198,13 @@ DEFGSCODE(GIMPLE_TRY, "gimple_try", NULL)
 /* GIMPLE_NOP represents the "do nothing" statement.  */
 DEFGSCODE(GIMPLE_NOP, "gimple_nop", NULL)
 
+
+/* IMPORTANT.
+   
+   Do not rearrange any of the GIMPLE_OMP_* codes.  This ordering is
+   exposed by the range check in gimple_omp_subcode().  */
+
+
 /* Tuples used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
    expression is very simple (just in form mem op= expr), various implicit
    conversions may cause the expression to become more complex, so that it does
@@ -219,7 +228,6 @@ DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue", NULL)
    NAME is the name given to the critical section.
    BODY is the sequence of statements that are inside the critical section.  */
 DEFGSCODE(GIMPLE_OMP_CRITICAL, "gimple_omp_critical", NULL)
-
 
 /* GIMPLE_OMP_FOR <BODY, CLAUSES, INDEX, INITIAL, FINAL, COND, INCR, PRE_BODY>
    represents
@@ -316,7 +324,6 @@ DEFGSCODE(GIMPLE_OMP_RETURN, "gimple_omp_return", NULL)
 /* OMP_SECTION <BODY> represents #pragma omp section.
    BODY is the sequence of statements in the section body.  */
 DEFGSCODE(GIMPLE_OMP_SECTION, "gimple_omp_section", NULL)
-
 
 /* OMP_SECTIONS <BODY, CLAUSES, CONTROL> represents #pragma omp sections.
 

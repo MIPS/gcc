@@ -229,7 +229,7 @@ initialize_hash_element (gimple stmt, tree lhs,
 
   if (code == GIMPLE_ASSIGN)
     {
-      enum tree_code subcode = gimple_subcode (stmt);
+      enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
       expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
       
@@ -1578,8 +1578,8 @@ simple_iv_increment_p (gimple stmt)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (gimple_subcode (stmt) != PLUS_EXPR
-      && gimple_subcode (stmt) != MINUS_EXPR)
+  if (gimple_assign_rhs_code (stmt) != PLUS_EXPR
+      && gimple_assign_rhs_code (stmt) != MINUS_EXPR)
     return false;
 
   preinc = gimple_assign_rhs1 (stmt);
@@ -1938,10 +1938,10 @@ static bool
 gimple_assign_unary_useless_conversion_p (gimple gs)
 {
   if (gimple_code (gs) == GIMPLE_ASSIGN
-      && (gimple_subcode (gs) == NOP_EXPR
-          || gimple_subcode (gs) == CONVERT_EXPR
-          || gimple_subcode (gs) == VIEW_CONVERT_EXPR
-          || gimple_subcode (gs) == NON_LVALUE_EXPR))
+      && (gimple_assign_rhs_code (gs) == NOP_EXPR
+          || gimple_assign_rhs_code (gs) == CONVERT_EXPR
+          || gimple_assign_rhs_code (gs) == VIEW_CONVERT_EXPR
+          || gimple_assign_rhs_code (gs) == NON_LVALUE_EXPR))
     {
       tree lhs_type = TREE_TYPE (gimple_assign_lhs (gs));
       tree rhs_type = TREE_TYPE (gimple_assign_rhs1 (gs));

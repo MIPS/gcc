@@ -989,13 +989,13 @@ is_array_access_through_pointer_and_index (enum tree_code code, tree op0,
   /* before_cast_def_stmt should be of the form:
      D.1605_6 = i.1_5 * 16; */
   
-  if (gimple_code (before_cast_def_stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (before_cast_def_stmt))
     {
       /* We expect temporary here.  */
       if (!is_gimple_reg (gimple_assign_lhs (before_cast_def_stmt)))
 	return false;
 
-      if (gimple_subcode (before_cast_def_stmt) == MULT_EXPR)
+      if (gimple_assign_rhs_code (before_cast_def_stmt) == MULT_EXPR)
 	{
 	  tree arg0 = gimple_assign_rhs1 (before_cast_def_stmt);
 	  tree arg1 = gimple_assign_rhs2 (before_cast_def_stmt);
@@ -1494,7 +1494,7 @@ check_assign (gimple t)
   /* For the purposes of figuring out what the cast affects */
 
   /* Next check the operands on the rhs to see if they are ok. */
-  switch (TREE_CODE_CLASS (gimple_subcode (t)))
+  switch (TREE_CODE_CLASS (gimple_assign_rhs_code (t)))
     {
     case tcc_binary:	    
       {
@@ -1514,11 +1514,11 @@ check_assign (gimple t)
 	    place could be safe, but it is hard to see how this
 	    is worth the effort.  */
 	if (type0 && POINTER_TYPE_P (type0)
-	    && !okay_pointer_operation (gimple_subcode (t), op0, op1))
+	    && !okay_pointer_operation (gimple_assign_rhs_code (t), op0, op1))
 	  mark_interesting_type (type0, FULL_ESCAPE);
 
 	if (type1 && POINTER_TYPE_P (type1)
-	    && !okay_pointer_operation (gimple_subcode (t), op1, op0))
+	    && !okay_pointer_operation (gimple_assign_rhs_code (t), op1, op0))
 	  mark_interesting_type (type1, FULL_ESCAPE);
 
 	look_for_casts (op0);
@@ -1557,7 +1557,7 @@ check_assign (gimple t)
       break;
 
     case tcc_expression:
-      if (gimple_subcode (t) == ADDR_EXPR)
+      if (gimple_assign_rhs_code (t) == ADDR_EXPR)
 	{
 	  tree rhs = gimple_assign_rhs1 (t);
 	  look_for_casts (TREE_OPERAND (rhs, 0));

@@ -237,7 +237,7 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
 	/* We can look through pointer conversions in the search
 	   for a useful stmt for the comparison folding.  */
 	rhs = gimple_assign_rhs1 (def_stmt);
-	if (IS_CONVERT_EXPR_CODE_P (gimple_subcode (def_stmt))
+	if (IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
 	    && TREE_CODE (rhs) == SSA_NAME
 	    && POINTER_TYPE_P (gimple_assign_lhs (def_stmt))
 	    && POINTER_TYPE_P (TREE_TYPE (rhs)))
@@ -268,7 +268,7 @@ can_propagate_from (gimple def_stmt)
     return false;
 
   /* If the rhs is a load we cannot propagate from it.  */
-  if (TREE_CODE_CLASS (gimple_subcode (def_stmt)) == tcc_reference)
+  if (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_reference)
     return false;
 
   /* Constants can be always propagated.  */
@@ -286,7 +286,7 @@ can_propagate_from (gimple def_stmt)
      function pointers to be canonicalized and in this case this
      optimization could eliminate a necessary canonicalization.  */
   if (gimple_code (def_stmt) == GIMPLE_ASSIGN
-      && (IS_CONVERT_EXPR_CODE_P (gimple_subcode (def_stmt))))
+      && (IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))))
     {
       tree rhs = gimple_assign_rhs1 (def_stmt);
       if (POINTER_TYPE_P (TREE_TYPE (rhs))
@@ -336,7 +336,7 @@ remove_prop_source_from_use (tree name, gimple up_to_stmt)
 static tree
 rhs_to_tree (tree type, gimple stmt)
 {
-  enum tree_code code = gimple_subcode (stmt);
+  enum tree_code code = gimple_assign_rhs_code (stmt);
   if (get_gimple_rhs_class (code) == GIMPLE_BINARY_RHS)
     return fold_convert (type, build2 (code, type, gimple_assign_rhs1 (stmt),
                          gimple_assign_rhs2 (stmt)));
@@ -640,7 +640,7 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 	 This implicitly verifies that the size of the array elements
 	 is constant.  */
      offset = gimple_assign_rhs1 (offset_def);
-     if (gimple_subcode (offset_def) != MULT_EXPR
+     if (gimple_assign_rhs_code (offset_def) != MULT_EXPR
 	 || TREE_CODE (gimple_assign_rhs2 (offset_def)) != INTEGER_CST
 	 || !simple_cst_equal (gimple_assign_rhs2 (offset_def),
 			       TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))

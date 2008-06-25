@@ -5664,7 +5664,7 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq *pre_p)
 				 OMP_PARALLEL_CLAUSES (expr),
 				 NULL_TREE, NULL_TREE);
   if (OMP_PARALLEL_COMBINED (expr))
-    gimple_set_subcode (g, GF_OMP_PARALLEL_COMBINED);
+    gimple_omp_set_subcode (g, GF_OMP_PARALLEL_COMBINED);
   gimplify_seq_add_stmt (pre_p, g);
   *expr_p = NULL_TREE;
 }

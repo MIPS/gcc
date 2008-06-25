@@ -552,8 +552,8 @@ gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
   gimple_stmt_iterator gsi;
 
   gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && (gimple_subcode (stmt) == TRUNC_DIV_EXPR
-		  || gimple_subcode (stmt) == TRUNC_MOD_EXPR));
+	      && (gimple_assign_rhs_code (stmt) == TRUNC_DIV_EXPR
+		  || gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR));
 
   optype = TREE_TYPE (gimple_assign_lhs (stmt));
   op1 = gimple_assign_rhs1 (stmt);
@@ -574,13 +574,15 @@ gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
 
   tmp2 = create_tmp_var (optype, "PROF");
   label1 = gimple_build_label (label_decl1);
-  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), tmp2, op1, tmpv);
+  stmt1 = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt), tmp2,
+					op1, tmpv);
   gsi_insert_before (&gsi, label1, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb2end = stmt1;
 
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), tmp2, op1, op2);
+  stmt1 = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt), tmp2,
+					op1, op2);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -711,7 +713,7 @@ gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
   tree result;
 
   gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && gimple_subcode (stmt) == TRUNC_MOD_EXPR);
+	      && gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR);
 
   optype = TREE_TYPE (gimple_assign_lhs (stmt));
   op1 = gimple_assign_rhs1 (stmt);
@@ -733,7 +735,7 @@ gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
   gsi_insert_before (&gsi, stmt4, GSI_SAME_STMT);
   bb1end = stmt4;
 
-  /* tmp2 == op2-1 inherited from previous block */
+  /* tmp2 == op2-1 inherited from previous block.  */
   label1 = gimple_build_label (label_decl1);
   stmt1 = gimple_build_assign_with_ops (BIT_AND_EXPR, result, op1, tmp2);
   gsi_insert_before (&gsi, label1, GSI_SAME_STMT);
@@ -741,7 +743,8 @@ gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
   bb2end = stmt1;
 
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), result, op1, op2);
+  stmt1 = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt), result,
+					op1, op2);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -870,7 +873,7 @@ gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
   tree result;
 
   gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && gimple_subcode (stmt) == TRUNC_MOD_EXPR);
+	      && gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR);
 
   optype = TREE_TYPE (gimple_assign_lhs (stmt));
   op1 = gimple_assign_rhs1 (stmt);
@@ -902,8 +905,8 @@ gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
 
   /* Fallback case. */
   label2 = gimple_build_label (label_decl2);
-  stmt1 = gimple_build_assign_with_ops (gimple_subcode (stmt), result, result,
-					tmp1);
+  stmt1 = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt), result,
+					result, tmp1);
   gsi_insert_before (&gsi, label2, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   bb3end = stmt1;
@@ -1528,7 +1531,7 @@ gimple_divmod_values_to_profile (gimple stmt, histogram_values *values)
   if (!INTEGRAL_TYPE_P (type))
     return;
 
-  switch (gimple_subcode (stmt))
+  switch (gimple_assign_rhs_code (stmt))
     {
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
@@ -1541,12 +1544,13 @@ gimple_divmod_values_to_profile (gimple stmt, histogram_values *values)
 	/* Check for the case where the divisor is the same value most
 	   of the time.  */
 	VEC_quick_push (histogram_value, *values,
-			gimple_alloc_histogram_value (cfun, HIST_TYPE_SINGLE_VALUE,
+			gimple_alloc_histogram_value (cfun,
+						      HIST_TYPE_SINGLE_VALUE,
 						      stmt, divisor));
 
       /* For mod, check whether it is not often a noop (or replaceable by
 	 a few subtractions).  */
-      if (gimple_subcode (stmt) == TRUNC_MOD_EXPR
+      if (gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR
 	  && TYPE_UNSIGNED (type))
 	{
           tree val;

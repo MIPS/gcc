@@ -3338,7 +3338,7 @@ update_alias_info (gimple stmt, struct alias_info *ai)
 	 of an assignment and their base address is always an
 	 INDIRECT_REF expression.  */
       if (gimple_code (stmt) == GIMPLE_ASSIGN
-	  && gimple_subcode (stmt) == ADDR_EXPR
+	  && gimple_assign_rhs_code (stmt) == ADDR_EXPR
 	  && !is_gimple_val (gimple_assign_rhs1 (stmt)))
 	{
 	  /* If the RHS if of the form &PTR->FLD and PTR == OP, then
@@ -3793,7 +3793,7 @@ find_func_aliases (gimple origt)
 	  if (could_have_pointers (lhsop))
 	    {
 	      get_constraint_for (lhsop, &lhsc);
-	      switch (TREE_CODE_CLASS (gimple_subcode (t)))
+	      switch (TREE_CODE_CLASS (gimple_assign_rhs_code (t)))
 		{
 		  /* RHS that consist of unary operations, exceptional
 		     types, or bare decls/constants, get handled

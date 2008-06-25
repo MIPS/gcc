@@ -274,7 +274,7 @@ static inline bool
 is_division_by (gimple use_stmt, tree def)
 {
   return gimple_code (use_stmt) == GIMPLE_ASSIGN
-	 && gimple_subcode (use_stmt) == RDIV_EXPR
+	 && gimple_assign_rhs_code (use_stmt) == RDIV_EXPR
 	 && gimple_assign_rhs2 (use_stmt) == def
 	 /* Do not recognize x / x as valid division, as we are getting
 	    confused later by replacing all immediate uses x in such
@@ -355,7 +355,7 @@ replace_reciprocal (use_operand_p use_p)
 
   if (occ->recip_def && use_stmt != occ->recip_def_stmt)
     {
-      gimple_set_subcode (use_stmt, MULT_EXPR);
+      gimple_assign_set_rhs_code (use_stmt, MULT_EXPR);
       SET_USE (use_p, occ->recip_def);
       fold_stmt_inplace (use_stmt);
       update_stmt (use_stmt);
@@ -507,7 +507,7 @@ execute_cse_reciprocals (void)
 	  tree fndecl;
 
 	  if (gimple_code (stmt) == GIMPLE_ASSIGN
-	      && gimple_subcode (stmt) == RDIV_EXPR)
+	      && gimple_assign_rhs_code (stmt) == RDIV_EXPR)
 	    {
 	      tree arg1 = gimple_assign_rhs2 (stmt);
 	      gimple stmt1;
@@ -536,7 +536,7 @@ execute_cse_reciprocals (void)
 		  gimple_call_set_fn (stmt1, fndecl);
 		  update_stmt (stmt1);
 
-		  gimple_set_subcode (stmt, MULT_EXPR);
+		  gimple_assign_set_rhs_code (stmt, MULT_EXPR);
 		  fold_stmt_inplace (stmt);
 		  update_stmt (stmt);
 		}
@@ -827,7 +827,7 @@ execute_convert_to_rsqrt (void)
 	      stmt1 = SSA_NAME_DEF_STMT (arg1);
 
 	      if (gimple_code (stmt1) == GIMPLE_ASSIGN
-		  && gimple_subcode (stmt1) == RDIV_EXPR)
+		  && gimple_assign_rhs_code (stmt1) == RDIV_EXPR)
 		{
 		  tree arg10, arg11;
 

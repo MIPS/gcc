@@ -2858,9 +2858,7 @@ is_escape_site (gimple stmt)
       if (lhs == NULL_TREE)
 	return ESCAPE_UNKNOWN;
 
-      if (gimple_subcode (stmt) == NOP_EXPR
-	  || gimple_subcode (stmt) == CONVERT_EXPR
-	  || gimple_subcode (stmt) == VIEW_CONVERT_EXPR)
+      if (gimple_assign_cast_p (stmt))
 	{
 	  tree from = TREE_TYPE (gimple_assign_rhs1 (stmt));
 	  tree to = TREE_TYPE (lhs);

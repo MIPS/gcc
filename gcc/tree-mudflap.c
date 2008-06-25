@@ -917,7 +917,7 @@ mf_xform_derefs (void)
 		  		 gimple_location (s), integer_one_node);
 	      mf_xform_derefs_1 (&i, gimple_assign_rhs1_ptr (s),
 		  		 gimple_location (s), integer_zero_node);
-	      class = get_gimple_rhs_class (gimple_subcode (s));
+	      class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
 	      if (class == GIMPLE_BINARY_RHS)
 		mf_xform_derefs_1 (&i, gimple_assign_rhs2_ptr (s),
 				   gimple_location (s), integer_zero_node);

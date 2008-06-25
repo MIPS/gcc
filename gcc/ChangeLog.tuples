@@ -1,3 +1,113 @@
+2008-06-25  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.h (enum gimple_rhs_class): Move from tree-gimple.h
+	(struct gimple_statement_base): Change CODE field to 8
+	bits.
+	Change SUBCODE field to 16 bits.
+	(gimple_set_subcode): Move to gimple.c.
+	(gimple_subcode): Remove.
+	(gimple_expr_type): Handle GIMPLE_ASSIGN, GIMPLE_CALL and
+	GIMPLE_COND explicitly.
+	Move earlier in the file.
+	(gimple_expr_code): New.
+	(gimple_omp_subcode): New.
+	(gimple_omp_set_subcode): New.
+	(gimple_omp_return_nowait_p): Call gimple_omp_subcode.
+	(gimple_omp_section_last_p): Likewise.
+	(gimple_omp_parallel_combined_p): Likewise.
+	(gimple_assign_rhs_code): New.
+	(gimple_assign_set_rhs_code): New.
+	(gimple_assign_cast_p): Call gimple_assign_rhs_code.
+	Handle VIEW_CONVERT_EXPR.
+	(gimple_call_tail_p): Access subcode field directly.
+	(gimple_call_cannot_inline_p): Likewise.
+	(gimple_call_return_slot_opt_p): Likewise.
+	(gimple_call_from_thunk_p): Likewise.
+	(gimple_call_va_arg_pack_p): Likewise.
+	(gimple_call_copy_flags): Likewise.
+	(gimple_cond_code): Likewise.
+	(gimple_cond_set_code): Likewise.
+	(gimple_cond_make_false): Likewise.
+	(gimple_cond_make_true): Likewise.
+	(gimple_asm_volatile_p): Likewise.
+	(gimple_asm_input_p): Likewise.
+	(gimple_eh_filter_must_not_throw): Likewise.
+	(gimple_eh_filter_set_must_not_throw): Likewise.
+	(gimple_try_kind): Likewise.
+	(gimple_try_catch_is_cleanup): Likewise.
+	(gimple_wce_cleanup_eh_only): Likewise.
+
+	* tree-vrp.c (simplify_div_or_mod_using_ranges): Call
+	gimple_assign_set_rhs_code instead of gimple_set_subcode.
+	(simplify_abs_using_ranges): Likewise.
+	* tree-complex.c (init_dont_simulate_again): Call
+	gimple_expr_code instead of gimple_subcode.
+	(complex_visit_stmt): Likewise.
+	(expand_complex_move): Call gimple_assign_rhs_code
+	instead of gimple_subcode.
+	(expand_complex_operations_1): Likewise.
+	* value-prof.c (gimple_divmod_fixed_value): Likewise.
+	(gimple_mod_pow2): Likewise.
+	(gimple_mod_subtract): Likewise.
+	(gimple_divmod_values_to_profile): Likewise.
+	* tree-ssa-alias-warnings.c (find_alias_site_helper):
+	Call gimple_assign_cast_p.
+	(already_warned_in_frontend_p): Likewise.
+	* gimple.def: Add comments warning about code orderings.
+	* omp-low.c (expand_omp_taskreg): Call gimple_omp_set_subcode.
+	(expand_omp_atomic_fetch_op): Call gimple_assign_rhs_code.
+	* tree-gimple.c (get_gimple_rhs_class): Move to gimple.c
+	(get_gimple_rhs_num_ops): Likewise.
+	(gimple_assign_rhs_code): Move to gimple.h.
+	* tree-gimple.h (enum gimple_rhs_class): Move to gimple.h.
+	* tree-ssa-ccp.c (fold_gimple_assign): Call
+	gimple_assign_rhs_code instead of gimple_subcode.
+	* tree-stdarg.c (va_list_counter_bump): Likewise.
+	(check_all_va_list_escapes): Likewise.
+	(execute_optimize_stdarg): Likewise.
+	* tree-ssa-math-opts.c (is_division_by): Likewise.
+	(replace_reciprocal): Likewise.
+	(execute_cse_reciprocals): Likewise.
+	(execute_convert_to_rsqrt): Likewise.
+	* tree-ssa-dom.c (initialize_hash_element): Likewise.
+	(simple_iv_increment_p): Likewise.
+	(gimple_assign_unary_useless_conversion_p): Likewise.
+	* tree-ssa-alias.c (is_escape_site): Call gimple_assign_cast_p.
+	* predict.c (expr_expected_value_1): Call gimple_assign_rhs_code
+	instead of gimple_subcode.
+	* tree-eh.c (tree_could_trap_p): Call gimple_expr_code
+	instead of gimple_subcode.
+	* ipa-type-escape.c (is_array_access_through_pointer_and_index):
+	Call gimple_assign_rhs_code instead of gimple_subcode.
+	(check_assign): Likewise.
+	* gimplify.c (gimplify_omp_parallel): Call gimple_omp_set_subcode
+	instead of gimple_set_subcode.
+	* tree-mudflap.c (mf_xform_derefs): Call gimple_assign_rhs_code
+	instead of gimple_subcode.
+	* tree-ssa-forwprop.c (get_prop_source_stmt): Likewise.
+	(can_propagate_from): Likewise.
+	(remove_prop_source_from_use): Likewise.
+	(forward_propagate_addr_into_variable_array): Likewise.
+	* tree-object-size.c (plus_stmt_object_size): Likewise.
+	(collect_object_sizes_for): Likewise.
+	(check_for_plus_in_loops_1): Likewise.
+	(check_for_plus_in_loops): Likewise.
+	* gimple.c (gimple_set_subcode): Move from gimple.h
+	(gimple_check_failed): Access subcode field directly.
+	(gimple_assign_single_p): Call gimple_assign_rhs_code
+	instead of gimple_subcode.
+	(gimple_assign_unary_nop_p): Likewise.
+	(gimple_get_lhs): Change argument type to const_gimple.
+	(gimple_could_trap_p): Call gimple_assign_rhs_code
+	instead of gimple_subcode.
+	(get_gimple_rhs_class): Move from tree-gimple.c.
+	(get_gimple_rhs_num_ops): Likewise.
+	* tree-ssa-structalias.c (update_alias_info): Call
+	gimple_assign_rhs_code instead of gimple_subcode.
+	(find_func_aliases): Likewise.
+	* tree-ssa-threadedge.c (record_temporary_equivalences_from_phis):
+	Likewise.
+
 2008-06-25  Doug Kwan  <dougkwan@google.com>
 
 	* gimple-dummy.c: (vect_free_slp_tree) Remove dummy.

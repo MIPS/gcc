@@ -131,6 +131,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
   orig_lhs = lhs = rhs;
   while (lhs)
     {
+      enum tree_code rhs_code;
+
       if (si->offsets[SSA_NAME_VERSION (lhs)] != -1)
 	{
 	  if (counter_val >= max_size)
@@ -148,7 +150,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       if (!is_gimple_assign (stmt) || gimple_assign_lhs (stmt) != lhs)
 	return (unsigned HOST_WIDE_INT) -1;
 
-      if ((get_gimple_rhs_class (gimple_subcode (stmt)) == GIMPLE_SINGLE_RHS
+      rhs_code = gimple_assign_rhs_code (stmt);
+      if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
 	   || gimple_assign_cast_p (stmt))
 	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
 	{
@@ -156,8 +159,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  continue;
 	}
 
-      if ((gimple_subcode (stmt) == POINTER_PLUS_EXPR
-	   || gimple_subcode (stmt) == PLUS_EXPR)
+      if ((rhs_code == POINTER_PLUS_EXPR
+	   || rhs_code == PLUS_EXPR)
 	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
 	  && host_integerp (gimple_assign_rhs2 (stmt), 1))
 	{
@@ -166,7 +169,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  continue;
 	}
 
-      if (get_gimple_rhs_class (gimple_subcode (stmt)) != GIMPLE_SINGLE_RHS)
+      if (get_gimple_rhs_class (rhs_code) != GIMPLE_SINGLE_RHS)
 	return (unsigned HOST_WIDE_INT) -1;
 
       rhs = gimple_assign_rhs1 (stmt);
@@ -190,6 +193,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
   val = ret + counter_val;
   while (lhs)
     {
+      enum tree_code rhs_code;
+
       if (si->offsets[SSA_NAME_VERSION (lhs)] != -1)
 	break;
 
@@ -200,7 +205,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 
       stmt = SSA_NAME_DEF_STMT (lhs);
 
-      if ((get_gimple_rhs_class (gimple_subcode (stmt)) == GIMPLE_SINGLE_RHS
+      rhs_code = gimple_assign_rhs_code (stmt);
+      if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
 	   || gimple_assign_cast_p (stmt))
 	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
 	{
@@ -208,8 +214,8 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	  continue;
 	}
 
-      if ((gimple_subcode (stmt) == POINTER_PLUS_EXPR
-	   || gimple_subcode (stmt) == PLUS_EXPR)
+      if ((rhs_code == POINTER_PLUS_EXPR
+	   || rhs_code == PLUS_EXPR)
 	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
 	  && host_integerp (gimple_assign_rhs2 (stmt), 1))
 	{
@@ -499,6 +505,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	      if (is_gimple_assign (stmt))
 		{
 		  tree rhs = gimple_assign_rhs1 (stmt);
+		  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
 		  /* x = *ap_temp;  */
 		  if (gimple_assign_rhs_code (stmt) == INDIRECT_REF
@@ -526,11 +533,11 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		     ap = ap_temp;
 		     statements.  */
 		  if (rhs == use
-		      && ((gimple_subcode (stmt) == POINTER_PLUS_EXPR
+		      && ((rhs_code == POINTER_PLUS_EXPR
 			   && (TREE_CODE (gimple_assign_rhs2 (stmt))
 			       == INTEGER_CST))
 			  || gimple_assign_cast_p (stmt)
-			  || (get_gimple_rhs_class (gimple_subcode (stmt))
+			  || (get_gimple_rhs_class (rhs_code)
 			      == GIMPLE_SINGLE_RHS)))
 		    {
 		      tree lhs = gimple_assign_lhs (stmt);
@@ -784,7 +791,7 @@ execute_optimize_stdarg (void)
 
 	      if (va_list_simple_ptr)
 		{
-		  if (get_gimple_rhs_class (gimple_subcode (stmt))
+		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
 		      /* Check for tem = ap.  */
@@ -800,16 +807,16 @@ execute_optimize_stdarg (void)
 			continue;
 		    }
 
-		  if ((gimple_subcode (stmt) == POINTER_PLUS_EXPR
+		  if ((gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR
 		       && TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST)
-		      || IS_CONVERT_EXPR_CODE_P (gimple_subcode (stmt))
-		      || (get_gimple_rhs_class (gimple_subcode (stmt))
+		      || IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt))
+		      || (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 			  == GIMPLE_SINGLE_RHS))
 		    check_va_list_escapes (&si, lhs, rhs);
 		}
 	      else
 		{
-		  if (get_gimple_rhs_class (gimple_subcode (stmt))
+		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
 		      /* Check for ap[0].field = temp.  */

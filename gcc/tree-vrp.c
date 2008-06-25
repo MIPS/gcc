@@ -6235,7 +6235,7 @@ simplify_div_or_mod_using_ranges (gimple stmt)
       if (rhs_code == TRUNC_DIV_EXPR)
 	{
 	  t = build_int_cst (NULL_TREE, tree_log2 (op1));
-	  gimple_set_subcode (stmt, RSHIFT_EXPR);
+	  gimple_assign_set_rhs_code (stmt, RSHIFT_EXPR);
 	  gimple_assign_set_rhs1 (stmt, op0);
 	  gimple_assign_set_rhs2 (stmt, t);
 	}
@@ -6245,7 +6245,7 @@ simplify_div_or_mod_using_ranges (gimple stmt)
 	  t = int_const_binop (MINUS_EXPR, op1, t, 0);
 	  t = fold_convert (TREE_TYPE (op0), t);
 
-	  gimple_set_subcode (stmt, BIT_AND_EXPR);
+	  gimple_assign_set_rhs_code (stmt, BIT_AND_EXPR);
 	  gimple_assign_set_rhs1 (stmt, op0);
 	  gimple_assign_set_rhs2 (stmt, t);
 	}
@@ -6309,9 +6309,9 @@ simplify_abs_using_ranges (gimple stmt)
 
 	  gimple_assign_set_rhs1 (stmt, op);
 	  if (integer_onep (val))
-	    gimple_set_subcode (stmt, NEGATE_EXPR);
+	    gimple_assign_set_rhs_code (stmt, NEGATE_EXPR);
 	  else
-	    gimple_set_subcode (stmt, SSA_NAME);
+	    gimple_assign_set_rhs_code (stmt, SSA_NAME);
 	  update_stmt (stmt);
 	}
     }

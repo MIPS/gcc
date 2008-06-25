@@ -68,6 +68,17 @@ extern void gimple_range_check_failed (const_gimple, const char *, int,    \
 #define GIMPLE_CHECK(GS, CODE)			(void)0
 #endif
 
+/* Class of GIMPLE expressions suitable for the RHS of assignments.  See
+   get_gimple_rhs_class.  */
+enum gimple_rhs_class
+{
+  GIMPLE_INVALID_RHS,	/* The expression cannot be used on the RHS.  */
+  GIMPLE_BINARY_RHS,	/* The expression is a binary operation.  */
+  GIMPLE_UNARY_RHS,	/* The expression is a unary operation.  */
+  GIMPLE_SINGLE_RHS	/* The expression is a single object (an SSA
+			   name, a _DECL, a _REF, etc.  */
+};
+
 /* Specific flags for individual GIMPLE statements.  These flags are
    always stored in gimple_statement_base.subcode and they may only be
    defined for statement codes that do not use sub-codes.
@@ -248,8 +259,8 @@ struct gimple_statement_base GTY(())
      used for tuple-specific flags for tuples that do not require
      subcodes.  Note that SUBCODE should be at least as wide as tree
      codes, as several tuples store tree codes in there.  */
-  ENUM_BITFIELD(gimple_code) code : 16;
-  unsigned int subcode : 8;
+  ENUM_BITFIELD(gimple_code) code : 8;
+  unsigned int subcode : 16;
 
   /* Nonzero if a warning should not be emitted on this tuple.  */
   unsigned int no_warning	: 1;
@@ -806,7 +817,7 @@ tree gimple_fold (const_gimple);
 void gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *, tree);
 void gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *, enum tree_code,
 				     tree, tree);
-tree gimple_get_lhs (gimple);
+tree gimple_get_lhs (const_gimple);
 void gimple_set_lhs (gimple, tree);
 gimple gimple_copy (gimple);
 bool is_gimple_operand (const_tree);
@@ -819,6 +830,8 @@ bool gimple_rhs_has_side_effects (const_gimple);
 bool gimple_could_trap_p (gimple);
 void gimple_regimplify_operands (gimple, gimple_stmt_iterator *);
 bool empty_body_p (gimple_seq);
+enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);
+unsigned get_gimple_rhs_num_ops (enum tree_code);
 
 /* FIXME tuples.
    Break a circular include dependency with tree-gimple.h.
@@ -839,27 +852,6 @@ static inline enum gimple_code
 gimple_code (const_gimple g)
 {
   return g->gsbase.code;
-}
-
-
-/* Set SUBCODE to be the code of the expression computed by statement G.  */
-
-static inline void
-gimple_set_subcode (gimple g, enum tree_code subcode)
-{
-  /* We only have 8 bits for the RHS code.  Assert that we are not
-     overflowing it.  */
-  gcc_assert (subcode < (1 << 8));
-  g->gsbase.subcode = subcode;
-}
-
-
-/* Return the code of the expression computed by statement G.  */
-
-static inline unsigned
-gimple_subcode (const_gimple g)
-{
-  return g->gsbase.subcode;
 }
 
 
@@ -1224,6 +1216,41 @@ gimple_modified_p (const_gimple g)
   return (gimple_has_ops (g)) ? (bool) g->gsbase.modified : false;
 }
 
+/* Return the type of the main expression computed by STMT.  Return
+   void_type_node if the statement computes nothing.  */
+
+static inline tree
+gimple_expr_type (const_gimple stmt)
+{
+  enum gimple_code code = gimple_code (stmt);
+
+  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+    return TREE_TYPE (gimple_get_lhs (stmt));
+  else if (code == GIMPLE_COND)
+    return boolean_type_node;
+  else
+    return void_type_node;
+}
+
+
+/* Return the tree code for the expression computed by STMT.  This is
+   only valid for GIMPLE_COND, GIMPLE_CALL and GIMPLE_ASSIGN.  For
+   GIMPLE_CALL, return CALL_EXPR as the expression code for
+   consistency.  This is useful when the caller needs to deal with the
+   three kinds of computation that GIMPLE supports.  */
+
+static inline enum tree_code
+gimple_expr_code (const_gimple stmt)
+{
+  enum gimple_code code = gimple_code (stmt);
+  if (code == GIMPLE_ASSIGN || code == GIMPLE_COND)
+    return (enum tree_code) stmt->gsbase.subcode;
+  else if (code == GIMPLE_CALL)
+    return CALL_EXPR;
+  else
+    gcc_unreachable ();
+}
+
 
 /* Mark statement S as modified, and update it.  */
 
@@ -1286,6 +1313,26 @@ gimple_set_references_memory (gimple stmt, bool mem_p)
     stmt->gsbase.references_memory_p = (unsigned) mem_p;
 }
 
+/* Return the subcode for OMP statement S.  */
+
+static inline unsigned
+gimple_omp_subcode (const_gimple s)
+{
+  gcc_assert (gimple_code (s) >= GIMPLE_OMP_ATOMIC_LOAD
+	      && gimple_code (s) <= GIMPLE_OMP_SINGLE);
+  return s->gsbase.subcode;
+}
+
+/* Set the subcode for OMP statement S to SUBCODE.  */
+
+static inline void
+gimple_omp_set_subcode (gimple s, unsigned int subcode)
+{
+  /* We only have 16 bits for the subcode.  Assert that we are not
+     overflowing it.  */
+  gcc_assert (subcode < (1 << 16));
+  s->gsbase.subcode = subcode;
+}
 
 /* Set the nowait flag on OMP_RETURN statement S.  */
 
@@ -1304,7 +1351,7 @@ static inline bool
 gimple_omp_return_nowait_p (const_gimple g)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
-  return (gimple_subcode (g) & GF_OMP_RETURN_NOWAIT) != 0;
+  return (gimple_omp_subcode (g) & GF_OMP_RETURN_NOWAIT) != 0;
 }
 
 
@@ -1315,7 +1362,7 @@ static inline bool
 gimple_omp_section_last_p (const_gimple g)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_SECTION);
-  return (gimple_subcode (g) & GF_OMP_SECTION_LAST) != 0;
+  return (gimple_omp_subcode (g) & GF_OMP_SECTION_LAST) != 0;
 }
 
 
@@ -1336,7 +1383,7 @@ static inline bool
 gimple_omp_parallel_combined_p (const_gimple g)
 {
   GIMPLE_CHECK (g, GIMPLE_OMP_PARALLEL);
-  return (gimple_subcode (g) & GF_OMP_PARALLEL_COMBINED) != 0;
+  return (gimple_omp_subcode (g) & GF_OMP_PARALLEL_COMBINED) != 0;
 }
 
 
@@ -1569,15 +1616,51 @@ gimple_assign_set_nontemporal_move (gimple gs, bool nontemporal)
   gs->gsbase.nontemporal_move = nontemporal;
 }
 
-/* Return true if S is an type-cast assignment.  */
+
+/* Return the code of the expression computed on the rhs of assignment
+   statement GS.  In case that the RHS is a single object, returns the
+   tree code of the object.  */
+
+static inline enum tree_code
+gimple_assign_rhs_code (const_gimple gs)
+{
+  enum tree_code code;
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+
+  code = gimple_expr_code (gs);
+  if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
+    code = TREE_CODE (gimple_assign_rhs1 (gs));
+
+  return code;
+}
+
+
+/* Set CODE to be the code for the expression computed on the RHS of
+   assignment S.  */
+
+static inline void
+gimple_assign_set_rhs_code (gimple s, enum tree_code code)
+{
+  GIMPLE_CHECK (s, GIMPLE_ASSIGN);
+  s->gsbase.subcode = code;
+}
+
+
+/* Return true if S is a type-cast assignment.  */
 
 static inline bool
 gimple_assign_cast_p (gimple s)
 {
-  return gimple_code (s) == GIMPLE_ASSIGN
-         && (gimple_subcode (s) == NOP_EXPR
-             || gimple_subcode (s) == CONVERT_EXPR
-             || gimple_subcode (s) == FIX_TRUNC_EXPR);
+  if (is_gimple_assign (s))
+    {
+      enum tree_code sc = gimple_assign_rhs_code (s);
+      return sc == NOP_EXPR
+	     || sc == CONVERT_EXPR
+	     || sc == VIEW_CONVERT_EXPR
+	     || sc == FIX_TRUNC_EXPR;
+    }
+
+  return false;
 }
 
 
@@ -1786,7 +1869,7 @@ static inline bool
 gimple_call_tail_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
-  return (gimple_subcode (s) & GF_CALL_TAILCALL) != 0;
+  return (s->gsbase.subcode & GF_CALL_TAILCALL) != 0;
 }
 
 
@@ -1809,7 +1892,7 @@ static inline bool
 gimple_call_cannot_inline_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
-  return (gimple_subcode (s) & GF_CALL_CANNOT_INLINE) != 0;
+  return (s->gsbase.subcode & GF_CALL_CANNOT_INLINE) != 0;
 }
 
 
@@ -1834,7 +1917,7 @@ static inline bool
 gimple_call_return_slot_opt_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
-  return (gimple_subcode (s) & GF_CALL_RETURN_SLOT_OPT) != 0;
+  return (s->gsbase.subcode & GF_CALL_RETURN_SLOT_OPT) != 0;
 }
 
 
@@ -1858,7 +1941,7 @@ static inline bool
 gimple_call_from_thunk_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
-  return (gimple_subcode (s) & GF_CALL_FROM_THUNK) != 0;
+  return (s->gsbase.subcode & GF_CALL_FROM_THUNK) != 0;
 }
 
 
@@ -1883,7 +1966,7 @@ static inline bool
 gimple_call_va_arg_pack_p (gimple s)
 {
   GIMPLE_CHECK (s, GIMPLE_CALL);
-  return (gimple_subcode (s) & GF_CALL_VA_ARG_PACK) != 0;
+  return (s->gsbase.subcode & GF_CALL_VA_ARG_PACK) != 0;
 }
 
 
@@ -1914,7 +1997,7 @@ gimple_call_copy_flags (gimple dest_call, gimple orig_call)
 {
   GIMPLE_CHECK (dest_call, GIMPLE_CALL);
   GIMPLE_CHECK (orig_call, GIMPLE_CALL);
-  gimple_set_subcode (dest_call, gimple_subcode (orig_call));
+  dest_call->gsbase.subcode = orig_call->gsbase.subcode;
 }
 
 
@@ -1924,7 +2007,7 @@ static inline enum tree_code
 gimple_cond_code (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
-  return gimple_subcode (gs);
+  return gs->gsbase.subcode;
 }
 
 
@@ -1935,7 +2018,7 @@ gimple_cond_set_code (gimple gs, enum tree_code code)
 {
   GIMPLE_CHECK (gs, GIMPLE_COND);
   gcc_assert (TREE_CODE_CLASS (code) == tcc_comparison);
-  gimple_set_subcode (gs, code);
+  gs->gsbase.subcode = code;
 }
 
 
@@ -2053,9 +2136,9 @@ gimple_cond_false_label (const_gimple gs)
 static inline void
 gimple_cond_make_false (gimple gs)
 {
-  gimple_set_subcode (gs, EQ_EXPR);
   gimple_cond_set_lhs (gs, boolean_true_node);
   gimple_cond_set_rhs (gs, boolean_false_node);
+  gs->gsbase.subcode = EQ_EXPR;
 }
 
 
@@ -2064,9 +2147,9 @@ gimple_cond_make_false (gimple gs)
 static inline void
 gimple_cond_make_true (gimple gs)
 {
-  gimple_set_subcode (gs, EQ_EXPR);
   gimple_cond_set_lhs (gs, boolean_true_node);
   gimple_cond_set_rhs (gs, boolean_true_node);
+  gs->gsbase.subcode = EQ_EXPR;
 }
 
 /* Check if conditional statemente GS is of the form 'if (1 == 1)',
@@ -2421,7 +2504,7 @@ static inline bool
 gimple_asm_volatile_p (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASM);
-  return (gimple_subcode (gs) & GF_ASM_VOLATILE) != 0;
+  return (gs->gsbase.subcode & GF_ASM_VOLATILE) != 0;
 }
 
 
@@ -2457,7 +2540,7 @@ static inline bool
 gimple_asm_input_p (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ASM);
-  return (gimple_subcode (gs) & GF_ASM_INPUT) != 0;
+  return (gs->gsbase.subcode & GF_ASM_INPUT) != 0;
 }
 
 
@@ -2576,11 +2659,13 @@ gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 }
 
 /* Return the EH_FILTER_MUST_NOT_THROW flag.  */
+
 static inline bool
+
 gimple_eh_filter_must_not_throw (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  return (bool) gimple_subcode (gs);
+  return gs->gsbase.subcode != 0;
 }
 
 /* Set the EH_FILTER_MUST_NOT_THROW flag to the value MNTP.  */
@@ -2589,7 +2674,7 @@ static inline void
 gimple_eh_filter_set_must_not_throw (gimple gs, bool mntp)
 {
   GIMPLE_CHECK (gs, GIMPLE_EH_FILTER);
-  gimple_set_subcode (gs, (unsigned int) mntp);
+  gs->gsbase.subcode = (unsigned int) mntp;
 }
 
 
@@ -2602,7 +2687,7 @@ static inline enum gimple_try_flags
 gimple_try_kind (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_TRY);
-  return (enum gimple_try_flags) (gimple_subcode (gs) & GIMPLE_TRY_KIND);
+  return (enum gimple_try_flags) (gs->gsbase.subcode & GIMPLE_TRY_KIND);
 }
 
 
@@ -2612,7 +2697,7 @@ static inline bool
 gimple_try_catch_is_cleanup (const_gimple gs)
 {
   gcc_assert (gimple_try_kind (gs) == GIMPLE_TRY_CATCH);
-  return (gimple_subcode (gs) & GIMPLE_TRY_CATCH_IS_CLEANUP) != 0;
+  return (gs->gsbase.subcode & GIMPLE_TRY_CATCH_IS_CLEANUP) != 0;
 }
 
 
@@ -2698,7 +2783,7 @@ static inline bool
 gimple_wce_cleanup_eh_only (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
-  return (bool) gimple_subcode (gs);
+  return gs->gsbase.subcode != 0;
 }
 
 
@@ -2708,7 +2793,7 @@ static inline void
 gimple_wce_set_cleanup_eh_only (gimple gs, bool eh_only_p)
 {
   GIMPLE_CHECK (gs, GIMPLE_WITH_CLEANUP_EXPR);
-  gimple_set_subcode (gs, (unsigned int) eh_only_p);
+  gs->gsbase.subcode = (unsigned int) eh_only_p;
 }
 
 
@@ -3842,18 +3927,6 @@ gimple_nop_p (const_gimple g)
   return gimple_code (g) == GIMPLE_NOP;
 }
 
-
-/* Return the type of the main expression computed by STMT.  Return
-   void_type_node if the statement computes nothing.  */
-
-static inline tree
-gimple_expr_type (const_gimple stmt)
-{
-  if (gimple_num_ops (stmt) > 0)
-    return TREE_TYPE (gimple_op (stmt, 0));
-  else
-    return void_type_node;
-}
 
 /* Return the new type set by GIMPLE_CHANGE_DYNAMIC_TYPE statement GS.  */
 

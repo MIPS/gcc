@@ -2697,7 +2697,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 
     case GIMPLE_BINARY_RHS:
       /* Try to fold pointer addition.  */
-      if (gimple_subcode (stmt) == POINTER_PLUS_EXPR)
+      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
         result = maybe_fold_stmt_addition (
                    TREE_TYPE (gimple_assign_lhs (stmt)),
                    gimple_assign_rhs1 (stmt),

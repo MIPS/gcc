@@ -24,18 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "gimple.h"
 
-
-/* Class of GIMPLE expressions suitable for the RHS of assignments.  See
-   get_gimple_rhs_class.  */
-enum gimple_rhs_class
-{
-  GIMPLE_INVALID_RHS,	/* The expression cannot be used on the RHS.  */
-  GIMPLE_BINARY_RHS,	/* The expression is a binary operation.  */
-  GIMPLE_UNARY_RHS,	/* The expression is a unary operation.  */
-  GIMPLE_SINGLE_RHS	/* The expression is a single object (an SSA
-			   name, a _DECL, a _REF, etc.  */
-};
-
 /* In gimplify.c  */
 extern tree create_tmp_var_raw (tree, const char *);
 extern tree create_tmp_var_name (const char *);
@@ -111,9 +99,6 @@ extern tree get_call_expr_in (tree t);
   CALL_CANNOT_INLINE_P (get_call_expr_in (T))
 
 extern void recalculate_side_effects (tree);
-extern enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);
-extern size_t get_gimple_rhs_num_ops (enum tree_code);
-extern enum tree_code gimple_assign_rhs_code (const_gimple);
 
 /* FIXME we should deduce this from the predicate.  */
 typedef enum fallback_t {

@@ -258,9 +258,7 @@ find_alias_site_helper (tree var ATTRIBUTE_UNUSED, gimple stmt, void *data)
   tree rhs_pointer = NULL_TREE;
   tree to_match = NULL_TREE;
 
-  if (gimple_subcode (stmt) == NOP_EXPR
-      || gimple_subcode (stmt) == CONVERT_EXPR
-      || gimple_subcode (stmt) == VIEW_CONVERT_EXPR)
+  if (gimple_assign_cast_p (stmt))
     rhs_pointer = gimple_assign_rhs1 (stmt);
 
   if (!rhs_pointer)
@@ -721,9 +719,7 @@ already_warned_in_frontend_p (gimple stmt)
   if (stmt == NULL)
     return false;
 
-  if ((gimple_subcode (stmt) == NOP_EXPR
-       || gimple_subcode (stmt) == CONVERT_EXPR
-       || gimple_subcode (stmt) == VIEW_CONVERT_EXPR)
+  if (gimple_assign_cast_p (stmt)
       && TREE_NO_WARNING (gimple_assign_rhs1 (stmt)))
     return true;
   else

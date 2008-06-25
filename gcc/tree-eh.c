@@ -2257,7 +2257,7 @@ tree_could_trap_p (tree expr)
 static bool
 stmt_could_throw_1_p (gimple stmt)
 {
-  enum tree_code code = gimple_subcode (stmt);
+  enum tree_code code = gimple_expr_code (stmt);
   bool honor_nans = false;
   bool honor_snans = false;
   bool fp_operation = false;

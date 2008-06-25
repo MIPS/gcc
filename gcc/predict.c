@@ -1012,7 +1012,7 @@ expr_expected_value_1 (tree type, tree op0, enum tree_code code, tree op1, bitma
 
 	  return expr_expected_value_1 (TREE_TYPE (gimple_assign_lhs (def)),
 					gimple_assign_rhs1 (def),
-					gimple_subcode (def),
+					gimple_assign_rhs_code (def),
 					gimple_assign_rhs2 (def),
 					visited);
 	}

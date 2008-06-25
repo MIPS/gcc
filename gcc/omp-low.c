@@ -3324,7 +3324,7 @@ expand_omp_taskreg (struct omp_region *region)
 	      else
 		{
 	          /* ?? Is setting the subcode really necessary ??  */
-		  gimple_set_subcode (parcopy_stmt, TREE_CODE (arg));
+		  gimple_omp_set_subcode (parcopy_stmt, TREE_CODE (arg));
 		  gimple_assign_set_rhs1 (parcopy_stmt, arg);
 		}
 	    }
@@ -3337,7 +3337,7 @@ expand_omp_taskreg (struct omp_region *region)
 	      narg = make_ssa_name (arg, gimple_build_nop ());
 	      set_default_def (arg, narg);
 	      /* ?? Is setting the subcode really necessary ??  */
-	      gimple_set_subcode (parcopy_stmt, TREE_CODE (narg));
+	      gimple_omp_set_subcode (parcopy_stmt, TREE_CODE (narg));
 	      gimple_assign_set_rhs1 (parcopy_stmt, narg);
 	      update_stmt (parcopy_stmt);
 	    }
@@ -4784,7 +4784,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
 
   gsi = gsi_after_labels (store_bb);
   stmt = gsi_stmt (gsi);
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  if (!is_gimple_assign (stmt))
     return false;
   gsi_next (&gsi);
   if (gimple_code (gsi_stmt (gsi)) != GIMPLE_OMP_ATOMIC_STORE)
@@ -4794,7 +4794,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
     return false;
 
   /* Check for one of the supported fetch-op operations.  */
-  switch (gimple_subcode (stmt))
+  switch (gimple_assign_rhs_code (stmt))
     {
     case PLUS_EXPR:
     case POINTER_PLUS_EXPR:
@@ -4823,7 +4823,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   /* Make sure the expression is of the proper form.  */
   if (operand_equal_p (gimple_assign_rhs1 (stmt), loaded_val, 0))
     rhs = gimple_assign_rhs2 (stmt);
-  else if (commutative_tree_code (gimple_subcode (stmt))
+  else if (commutative_tree_code (gimple_assign_rhs_code (stmt))
 	   && operand_equal_p (gimple_assign_rhs2 (stmt), loaded_val, 0))
     rhs = gimple_assign_rhs1 (stmt);
   else

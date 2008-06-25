@@ -235,7 +235,7 @@ init_dont_simulate_again (void)
 	    }
 
 	  if (op0 || op1)
-	    switch (gimple_subcode (stmt))
+	    switch (gimple_expr_code (stmt))
 	      {
 	      case EQ_EXPR:
 	      case NE_EXPR:
@@ -305,7 +305,7 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   ver = SSA_NAME_VERSION (lhs);
   old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
 
-  switch (gimple_subcode (stmt))
+  switch (gimple_expr_code (stmt))
     {
     case SSA_NAME:
     case COMPLEX_CST:
@@ -804,7 +804,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	}
       else if (gimple_code (stmt) == GIMPLE_CALL
 	       || gimple_has_side_effects (stmt)
-	       || gimple_subcode (stmt) == PAREN_EXPR)
+	       || gimple_assign_rhs_code (stmt) == PAREN_EXPR)
 	{
 	  r = build1 (REALPART_EXPR, inner_type, lhs);
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
@@ -813,7 +813,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
       else
 	{
 	  update_all_vops (stmt);
-	  if (gimple_subcode (stmt) != COMPLEX_EXPR)
+	  if (gimple_assign_rhs_code (stmt) != COMPLEX_EXPR)
 	    {
 	      r = extract_component (gsi, rhs, 0, true);
 	      i = extract_component (gsi, rhs, 1, true);
@@ -1415,7 +1415,7 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
     return;
 
   type = TREE_TYPE (gimple_op (stmt, 0));
-  code = gimple_subcode (stmt);
+  code = gimple_expr_code (stmt);
 
   /* Initial filter for operations we handle.  */
   switch (code)
@@ -1455,14 +1455,15 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 
 	if (TREE_CODE (type) == COMPLEX_TYPE)
 	  expand_complex_move (gsi, type);
-        /* Only GIMPLE_ASSIGN will have gimple_subcode set.  */
-	else if ((gimple_subcode (stmt) == REALPART_EXPR
-		  || gimple_subcode (stmt) == IMAGPART_EXPR)
+	else if (is_gimple_assign (stmt)
+		 && (gimple_assign_rhs_code (stmt) == REALPART_EXPR
+		     || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
 		 && TREE_CODE (lhs) == SSA_NAME)
 	  {
 	    rhs = gimple_assign_rhs1 (stmt);
 	    rhs = extract_component (gsi, TREE_OPERAND (rhs, 0),
-		                     gimple_subcode (stmt) == IMAGPART_EXPR,
+		                     gimple_assign_rhs_code (stmt)
+				       == IMAGPART_EXPR,
 				     false);
 	    gimple_assign_set_rhs_from_tree (gsi, rhs);
 	    stmt = gsi_stmt (*gsi);
