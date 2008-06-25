@@ -3564,7 +3564,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   va_start (list, n);
   for (i = 0; i < n; ++i)
     {
-      builtin_type a = va_arg (list, builtin_type);
+      builtin_type a = (builtin_type) va_arg (list, int);
       t = builtin_types[a];
       if (t == error_mark_node)
 	goto egress;
@@ -4594,9 +4594,10 @@ finish_label_address_expr (tree label)
 
 rtx
 c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
-	       int modifier /* Actually enum_modifier.  */,
+	       int modifiera /* Actually enum expand_modifier.  */,
 	       rtx *alt_rtl)
 {
+  enum expand_modifier modifier = (enum expand_modifier) modifiera;
   switch (TREE_CODE (exp))
     {
     case COMPOUND_LITERAL_EXPR:
@@ -5347,6 +5348,8 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	mode = targetm.libgcc_cmp_return_mode ();
       else if (!strcmp (p, "libgcc_shift_count"))
 	mode = targetm.libgcc_shift_count_mode ();
+      else if (!strcmp (p, "unwind_word"))
+	mode = targetm.unwind_word_mode ();
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
@@ -6651,14 +6654,12 @@ parse_optimize_options (tree args, bool attr_p)
 
       else if (TREE_CODE (value) == STRING_CST)
 	{
+	  /* Split string into multiple substrings.  */
 	  size_t len = TREE_STRING_LENGTH (value);
-	  char *p = (char *) alloca (len + 1);
+	  char *p = ASTRDUP (TREE_STRING_POINTER (value));
 	  char *end = p + len;
 	  char *comma;
 	  char *next_p = p;
-
-	  /* Split string into multiple substrings.  */
-	  memcpy (p, TREE_STRING_POINTER (value), len+1);
 
 	  while (next_p != NULL)
 	    {
@@ -6679,7 +6680,7 @@ parse_optimize_options (tree args, bool attr_p)
 		  next_p = NULL;
 		}
 
-	      r = q = (char *) alloca (len2 + 3);
+	      r = q = (char *) ggc_alloc (len2 + 3);
 
 	      /* If the user supplied -Oxxx or -fxxx, only allow -Oxxx or -fxxx
 		 options.  */
@@ -6710,7 +6711,7 @@ parse_optimize_options (tree args, bool attr_p)
 
 	      memcpy (r, p, len2);
 	      r[len2] = '\0';
-	      VEC_safe_push (const_char_p, gc, optimize_args, ggc_strdup (q));
+	      VEC_safe_push (const_char_p, gc, optimize_args, q);
 	    }
 
 	}

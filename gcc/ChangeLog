@@ -1,3 +1,474 @@
+2008-06-25  Olivier Hainque  <hainque@adacore.com>
+
+	* Makefile.in (GTFILES_H): Use | instead of ; as separator in
+	sed substitutions.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (fieldoff_compare): Make sure to
+	not overflow the result type.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vn.c (vn_add): Handle TRUTH_*_EXPR.
+	(vn_lookup): Likewise.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/35518
+	* fold-const.c (fold_ternary): Strip trivial BIT_FIELD_REFs.
+	* tree-sra.c (instantiate_element): Use fold_build3 to build
+	BIT_FIELD_REFs.
+	(try_instantiate_multiple_fields): Likewise.
+
+2008-06-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000.md: Change all string instruction's clobber to
+	be early clobbers.
+
+2008-06-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Set
+	use_backchain_to_restore_sp to true
+	if the offset of the link register save area would go over the 32k - 1
+	offset limit of the load
+	instructions.
+
+2008-06-25  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/invoke.texi (Optimize Options) <fstrict-aliasing>: Add
+	anchor for the type-punning blurb.  Cross-reference "Structures
+	unions enumerations and bit-fields implementation".  Provide a
+	cast-through-pointer example.  Make final sentence self-contained.
+	* doc/implement-c.texi (Structures unions enumerations and
+	bit-fields implementation): Cross-reference the type-punning blurb
+	in the -fstrict-aliasing documentation.
+
+2008-06-24  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/36594
+	* builtins.c (expand_builtin_nonlocal_goto): Stabilize the address of
+	the memory instead of the memory itself for the save area.
+
+2008-06-24  Olivier Hainque  <hainque@adacore.com>
+            Nicolas Roche  <roche@adacore.com>
+
+	* gengtype.c (srcdir_len): size_t instead of int.
+	(get_file_realbasename): New function.  For F a filename, the real
+	basename of F, with all the path components stripped.
+	(get_file_srcdir_relative_path): New function.  For F a filename, the
+	relative path to F from $(srcdir).
+	(get_file_basename): Rewrite using get_file_srcdir_relative_path and
+	get_file_realbasename.  Adjust the head comment.
+	(get_prefix_langdir_index): New function. For F a filename, return the
+	lang_dir_names[] relative index of the language directory that is
+	a prefix in F.
+	(get_file_langdir): For F a filename, return the name of the language
+	directory where F is located.
+	(get_file_gtfilename): New function. The gt- output file name for an
+	input filename F.
+	(get_output_file_with_visibility): Replace in-line computations with
+	uses of get_file_gtfilename and get_prefix_langdir_index.
+	* Makefile.in (GTFILES_H): Adjust to match what gengtype generates.
+
+2008-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36504
+	* tree-ssa-loop-prefetch.c (gather_memory_references_ref): Skip
+	references without base address.
+
+2008-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/PR36584
+	* calls.c (expand_call): Increase alignment for recursive functions.
+
+2008-06-23  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_function_value): Add new 'outgoing' argument.
+	(TARGET_FUNCTION_VALUE): New define.
+	* config/avr/avr-protos.h (avr_function_value): Remove declaration.
+	* config/avr/avr.h (FUNCTION_VALUE): Remove.
+
+2008-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (fmodxf3): Change sequence of move instructions.
+	(fmod<mode>3): Ditto.
+	(remainderxf3): Ditto.
+	(remainder<mode>3): Ditto.
+
+2008-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36533
+	* emit-rtl.c (set_reg_attrs_from_value): Do nothing if
+	REG is a hard register.
+
+	PR tree-optimization/36508
+	* tree-ssa-pre.c (compute_antic): Allow num_iterations up to
+	499, don't check it at all in release compilers.
+
+2008-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*fop_<mode>_1_i387): Use SSE_FLOAT_MODE_P
+	together with SSE_TARGET_MATH to disable insn pattern.
+	(*fop_<MODEF:mode>_2_i387): Ditto.
+	(*fop_<MODEF:mode>_3_i387): Ditto.
+
+2008-06-22  Andy Hutchinson  <hutchinsonandy@aim.com>
+
+	* config/avr/avr.h (SUPPORTS_INIT_PRIORITY): Define.
+	
+2008-06-22  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
+
+	PR middle-end/34906
+	* gimplify.c (gimplify_asm_expr): Check the return code of
+	parse_output_constraint call, set function return and is_inout
+	value if it failed.
+
+2008-06-22  Ian Lance Taylor  <iant@google.com>
+
+	* c-lex.c (narrowest_unsigned_type): Change itk to int.
+	(narrowest_signed_type): Likewise.
+	* c-typeck.c (c_common_type): Change local variable mclass to enum
+	mode_class, twice.
+	(parser_build_binary_op): Compare the TREE_CODE_CLASS with
+	tcc_comparison, not the tree code itself.
+	* c-common.c (def_fn_type): Pass int, not an enum, to va_arg.
+	(c_expand_expr): Cast modifier to enum expand_modifier.
+	* c-common.h (C_RID_CODE): Add casts.
+	(C_SET_RID_CODE): Define.
+	* c-parser.c (c_parse_init): Use C_SET_RID_CODE.
+	(c_lex_one_token): Add cast to avoid warning.
+	(c_parser_objc_type_name): Rename local typename to type_name.
+	(check_no_duplicate_clause): Change code parameter to enum
+	omp_clause_code.
+	(c_parser_omp_var_list_parens): Change kind parameter to enum
+	omp_clause_code.
+	(c_parser_omp_flush): Pass OMP_CLAUSE_ERROR, not 0, to
+	c_parser_omp_list_var_parens.
+	(c_parser_omp_threadprivate): Likewise.
+	* cp/lex.c (init_reswords): Use C_SET_RID_CODE.
+	* cp/parser.c (cp_lexer_get_preprocessor_token): Likewise.
+	* c-format.c (NO_FMT): Define.
+	(printf_length_specs): Use NO_FMT.
+	(asm_fprintf_length_specs): Likewise.
+	(gcc_diag_length_specs): Likewise.
+	(scanf_length_specs): Likewise.
+	(strfmon_length_specs): Likewise.
+	(gcc_gfc_length_specs): Likewise.
+	(printf_flag_specs): Change 0 to STD_C89.
+	(asm_fprintf_flag_specs): Likewise.
+	(gcc_diag_flag_specs): Likewise.
+	(gcc_cxxdiag_flag_specs): Likewise.
+	(scanf_flag_specs): Likewise.
+	(strftime_flag_specs): Likewise.
+	(strfmon_flag_specs): Likewise.
+	(print_char_table): Likewise.
+	(asm_fprintf_char_table): Likewise.
+	(gcc_diag_char_table): Likewise.
+	(gcc_tdiag_char_table): Likewise.
+	(gcc_cdiag_char_table): Likewise.
+	(gcc_cxxdiag_char_table): Likewise.
+	(gcc_gfc_char_table): Likewise.
+	(scan_char_table): Likewise.
+	(time_char_table): Likewis.
+	(monetary_char_table): Likewise.
+	* c-format.h (BADLEN): Likewise.
+
+2008-06-21  Ian Lance Taylor  <iant@google.com>
+
+	* tree.h (enum tree_code): Include all-tree.def, not tree.def.
+	Define END_OF_BASE_TREE_CODES around inclusion.
+	* tree.c (tree_code_type): New global array.
+	(tree_code_length, tree_code_name): Likewise.
+	* Makefile.in (TREE_H): Add all-tree.def, c-common.def, and
+	$(lang_tree_files).
+	(all-tree.def, s-alltree): New targets.
+	(gencheck.h, s-gencheck): Remove.
+	(tree.o): Depend upon all-tree.def.
+	(build/gencheck.o): Remove gencheck.h dependency.
+	(mostlyclean): Don't remove gencheck.h.
+	* c-common.h (enum c_tree_code): Remove.
+	* c-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* gencheck.c (tree_codes): Include all-tree.def, rather than
+	tree.def, c-common.def, and gencheck.h.  Undefined DEFTREECODE
+	after it is used.
+	* tree-browser.c (tb_tree_codes): Include all-tree.def, rather
+	than tree.def.
+	* cp/cp-tree.h (enum cplus_tree_code): Remove.
+	(operator_name_info): Size to MAX_TREE_CODES.
+	(assignment_operator_name_info): Likewise.
+	* cp/cp-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* cp/lex.c (operator_name_info): Size to MAX_TREE_CODES.
+	(assignment_operator_name_info): Likewise.
+	* cp/decl.c (grok_op_properties): Change LAST_CPLUS_TREE_CODE to
+	MAX_TREE_CODES.
+	* cp/mangle.c (write_expression): Likewise.
+	* cp/Make-lang.in (CXX_TREE_H): Remove cp/cp-tree.def.
+	* fortran/f95-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* java/java-tree.h (enum java_tree_code): Remove.
+	* java/lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* java/Make-lang.in (JAVA_TREE_H): Remove java/java-tree.def.
+	* objc/objc-act.h (enum objc_tree_code): Remove.
+	* objc/objc-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* objcp/objcp-lang.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+	* ada/ada-tree.h (enum gnat_tree_code): Remove.
+	* ada/Make-lang.in (ADA_TREE_H): Remove ada/ada-tre.def.
+	* ada/misc.c (tree_code_type): Remove.
+	(tree_code_length, tree_code_name): Remove.
+
+2008-06-21  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* tree-ssa-pre.c (fini_antic): Bitmap_sets have to be freed before
+	the grand_bitmap_obstack.
+
+2008-06-20  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ggc.h (GGC_RESIZEVAR): New, reorder macros.
+	* tracer.c (tail_duplicate): Fix for -Wc++-compat.
+	* tree-affine.c (aff_combination_expand, free_name_expansion): Likewise.
+	* tree-cfg.c (replace_by_duplicate_decl, replace_ssa_name,
+	move_stmt_r, new_label_mapper): Likewise.
+	* tree-complex.c (cvc_lookup): Likewise.
+	* tree-dfa.c (create_function_ann): Likewise.
+	* tree-dump.c (dump_register): Likewise.
+	* tree-if-conv.c (tree_if_conversion, add_to_predicate_list,
+	find_phi_replacement_condition): Likewise.
+	* tree-inline.c (copy_phis_for_bb, estimate_num_insns_1,
+	tree_function_versioning): Likewise.
+	* tree-into-ssa.c (cmp_dfsnum): Likewise.
+	* tree-iterator.c (tsi_link_before, tsi_link_after): Likewise.
+	* tree-nested.c (lookup_field_for_decl, lookup_tramp_for_decl,
+	get_nonlocal_debug_decl, convert_nonlocal_reference,
+	convert_nonlocal_omp_clauses, get_local_debug_decl,
+	convert_local_reference, convert_local_omp_clauses,
+	convert_nl_goto_reference, convert_nl_goto_receiver,
+	convert_tramp_reference, convert_call_expr): Likewise.
+	* tree-outof-ssa.c (contains_tree_r): Likewise.
+	* tree-parloops.c (reduction_phi, initialize_reductions,
+	eliminate_local_variables_1, add_field_for_reduction,
+	add_field_for_name, create_phi_for_local_result,
+	create_call_for_reduction_1, create_loads_for_reductions,
+	create_stores_for_reduction, create_loads_and_stores_for_name):
+	Likewise.
+	* tree-phinodes.c (allocate_phi_node): Likewise.
+	* tree-predcom.c (order_drefs, execute_pred_commoning_cbck): Likewise.
+	* tree-sra.c (sra_elt_hash, sra_elt_eq, lookup_element): Likewise.
+	* tree-ssa-alias.c (get_mem_sym_stats_for): Likewise.
+	* tree-ssa-coalesce.c (compare_pairs): Likewise.
+	* tree-ssa-loop-im.c (mem_ref_in_stmt, memref_hash, memref_eq,
+	memref_free, gather_mem_refs_stmt, vtoe_hash, vtoe_eq, vtoe_free,
+	record_vop_access, get_vop_accesses, get_vop_stores): Likewise.
+	* tree-ssa-loop-prefetch.c (determine_loop_nest_reuse): Likewise. 
+	* tree-ssa-sccvn.c (VN_INFO_GET, free_phi, free_reference,
+	vn_nary_op_insert): Likewise.
+	* tree-ssa.c (redirect_edge_var_map_add,
+	redirect_edge_var_map_clear, redirect_edge_var_map_dup): Likewise.
+	* tree-vectorizer.c (vectorize_loops): Likewise.
+	* tree.c (make_node_stat, copy_node_stat, build_int_cst_wide,
+	build_fixed, build_real, make_tree_binfo_stat, make_tree_vec_stat,
+	tree_cons_stat, build1_stat, build_variant_type_copy,
+	decl_init_priority_lookup, decl_fini_priority_lookup,
+	decl_priority_info, decl_restrict_base_lookup,
+	decl_restrict_base_insert, decl_debug_expr_lookup,
+	decl_debug_expr_insert, decl_value_expr_lookup,
+	decl_value_expr_insert, type_hash_eq, type_hash_lookup,
+	type_hash_add, get_file_function_name, tree_check_failed,
+	tree_not_check_failed, tree_range_check_failed,
+	omp_clause_range_check_failed, build_omp_clause,
+	build_vl_exp_stat): Likewise.
+	* value-prof.c (gimple_histogram_value,
+	gimple_duplicate_stmt_histograms): Likewise.
+	* var-tracking.c (attrs_list_insert, attrs_list_copy,
+	unshare_variable, variable_union_info_cmp_pos, variable_union,
+	dataflow_set_different_1, dataflow_set_different_2,
+	vt_find_locations, variable_was_changed, set_variable_part,
+	emit_notes_for_differences_1, emit_notes_for_differences_2): Likewise.
+	* varasm.c (prefix_name, emutls_decl, section_entry_eq,
+	section_entry_hash, object_block_entry_eq,
+	object_block_entry_hash, create_block_symbol,
+	initialize_cold_section_name, default_function_rodata_section,
+	strip_reg_name, set_user_assembler_name, const_desc_eq,
+	build_constant_desc, output_constant_def, lookup_constant_def,
+	const_desc_rtx_hash, const_desc_rtx_eq, const_rtx_hash_1,
+	create_constant_pool, force_const_mem, compute_reloc_for_rtx_1,
+	default_internal_label): Likewise.
+	* varray.c (varray_init, varray_grow): Likewise.
+	* vec.c (vec_gc_o_reserve_1, vec_heap_o_reserve_1): Likewise.
+
+2008-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*jcc_fused_1): Handle all valid compare
+	operators for "test" insn.  Macroize insn using SWI mode macro.
+	(*jcc_fused_2): Ditto.
+	(*jcc_fused_3): Macroize insn using SWI mode macro.
+	(*jcc_fused_4): Ditto.
+
+2008-06-20  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* tree-ssa-pre.c: Fix typo in comment.
+	(init_antic, fini_antic): Add explicit funtions for
+	initializing and deinitializing ANTIC and AVAIL sets.
+	(create_expression_by_pieces): Fix typo in comment.
+	Remove redundant set of new_stuff and use NULL_TREE instead of NULL.
+	(execute_pre): Eventually dump details about ANTIC_IN.
+
+2008-06-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* collect2.c (main, add_to_list): Fix for -Wc++-compat.
+	* gcc.c (translate_options, init_spec, store_arg, read_specs,
+	add_to_obstack, file_at_path, find_a_file, execute,
+	add_preprocessor_option, add_assembler_option, add_linker_option,
+	process_command, insert_wrapper, do_option_spec, do_self_spec,
+	spec_path, do_spec_1, is_directory, main, used_arg,
+	getenv_spec_function): Likewise.
+	* tlink.c (symbol_hash_lookup, file_hash_lookup,
+	demangled_hash_lookup, symbol_push, file_push, frob_extension):
+	Likewise.
+
+2008-06-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* doc/rtl.texi: Updated subreg section.
+
+2008-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36523
+	* cgraphunit.c (cgraph_process_new_functions): Don't clear
+	node->needed and node->reachable.
+	* cgraphbuild.c (record_reference): Handle OMP_PARALLEL and OMP_TASK.
+	* omp-low.c (delete_omp_context): Call finalize_task_copyfn.
+	(expand_task_call): Don't call expand_task_copyfn.
+	(expand_task_copyfn): Renamed to...
+	(finalize_task_copyfn): ... this.
+
+2008-06-19  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (expand_builtin_nonlocal_goto): Stabilize r_sp before
+	clobbering framepointer.
+
+2008-06-19  Jan Hubicka  <jh@suse.cz>
+
+	* tree-optimize.c (execute_early_local_optimizations): Set
+	cgraph_state only at first invocation.
+
+2008-06-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* system.h (-Wc++-compat): Activate as a warning, no an error.
+
+2008-06-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*jcc_fused_1): Use ASM_COMMENT_START
+	instead of "#" in insn asm template.
+	(*jcc_fused_2): Ditto.
+
+2008-06-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (ix86_tune_indices)
+	[X86_TUNE_FUSE_CMP_AND_BRANCH]: New.
+	(TARGET_FUSE_CMP_AND_BRANCH): New define.
+	* config/i386/i386.md (*jcc_fused_1): New insn pattern
+	(*jcc_fused_2): Ditto.
+	* config/i386/i386.c (ix86_tune_features): Add m_CORE2 to
+	X86_TUNE_FUSE_CMP_AND_BRANCH targets.
+	(print operand): Handle 'E' and 'e' code.
+
+2008-06-19  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_t): Add attiny13a.
+	* config/avr/avr.h (LINK_SPEC, CRT_BINUTILS_SPECS): (Ditto.).
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
+
+2008-06-19  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* cgraphunit.c (cgraph_finalize_function): Remove redundant setting of
+	node->decl.
+	(cgraph_expand_function): Use local copy of decl.
+	(cgraph_expand_all_functions): Remove redundant initialization of
+	order_pos.
+	(cgraph_optimize): Reword internal_error message.
+
+2008-06-19  Chung-Lin Tang  <ctang@marvell.com>
+
+	* arm-protos.h (arm_return_in_memory): Remove public
+	arm_return_in_memory() prototype.
+	* arm.c (arm_return_in_memory): Add static prototype, add target
+	hook macro, change definition and comments.
+	* arm.h (TARGET_RETURN_IN_MEMORY): Remove.
+
+2008-06-19  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.h, dfp.c, config/dfp-bit.h, config/dfp-bit.c, real.h,
+	real.c: Remove references to IEEE 754R.
+	* doc/install.texi (Configuration): IEEE 754R -> IEEE 754-2008.
+	* doc/libgcc.texi (Decimal float library routines): Likewise.
+
+2008-06-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* targhooks.h (struct gcc_target): New member unwind_word_mode.
+	(default_unwind_word_mode): Add prototype.
+	* targhooks.c (default_unwind_word_mode): New function.
+	(default_eh_return_filter_mode): Return targetm.unwind_word_mode ()
+	instead of word_mode.
+	* target-def.h (TARGET_UNWIND_WORD_MODE): New macro.
+	(TARGET_INITIALIZER): Use it.
+
+	* c-common.c (handle_mode_attribute): Support "unwind_word"
+	mode attribute.
+	* unwind-generic.h (_Unwind_Word, _Unwind_Sword): Use it.
+
+	* except.c (init_eh): Use targetm.unwind_word_mode () instead of
+	word_mode to access SjLj_Function_Context member "data".
+	(sjlj_emit_dispatch_table): Likewise.  Also, perform type
+	conversion from targetm.eh_return_filter_mode () to
+	targetm.unwind_word_mode () if they differ.
+
+	* builtin-types.def (BT_UNWINDWORD): New primitive type.
+	(BT_FN_UNWINDWORD_PTR): New function type.
+	(BT_FN_WORD_PTR): Remove.
+	* builtins.def (BUILT_IN_EXTEND_POINTER): Use BT_FN_UNWINDWORD_PTR.
+	* except.c (expand_builtin_extend_pointer): Convert pointer to
+	targetm.unwind_word_mode () instead of word_mode.
+
+	* config/spu/spu-protos.h (spu_eh_return_filter_mode): Remove.
+	* config/spu/spu.c (spu_eh_return_filter_mode): Remove.
+	(spu_unwind_word_mode): New function.
+	(TARGET_EH_RETURN_FILTER_MODE): Do not define.
+	(TARGET_UNWIND_WORD_MODE): Define.
+	* config/spu/t-spu-elf (TARGET_LIBGCC2_CFLAGS): Remove -D__word__=SI.
+
+2008-06-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (reg_align): Remove.
+	(regno_aligned_for_load): Also accept ARG_POINTER_REGNUM.
+	(spu_split_load): Use regno_aligned_for_load instead of reg_align.
+	(spu_split_store): Likewise.
+
+2008-06-18  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* gcc/tree-vn.c: Fix typo in comment.
+
+2008-06-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_optimize): Output debug info when doing
+	toplevel reorder too.
+
+2008-06-18  Jan Hubicka  <jh@suse.cz>
+
+	* c-opts.c (c_common_post_options): PCH is not compatible with
+	no-unit-at-a-time.
+	* opts.c (handle_options): Enable unit-at-a-time at O0 along with
+	-fno-toplevel-reorder by default now.
+
+2008-06-18  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/30739
+	* doc/install.texi (Prerequisites): Document dependency on awk.
+
 2008-06-18  Uros Bizjak  <ubizjak@gmail.com>
 	    Ian Lance Taylor  <iant@google.com>
 

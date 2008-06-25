@@ -443,7 +443,6 @@ cgraph_process_new_functions (void)
 	     it into reachable functions list.  */
 
 	  node->next_needed = NULL;
-	  node->needed = node->reachable = false;
 	  cgraph_finalize_function (fndecl, false);
 	  cgraph_mark_reachable_node (node);
 	  output = true;
@@ -603,7 +602,6 @@ cgraph_finalize_function (tree decl, bool nested)
 
   node->pid = cgraph_max_pid ++;
   notice_global_symbol (decl);
-  node->decl = decl;
   node->local.finalized = true;
   node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
   record_cdtor_fn (node->decl);
@@ -1161,10 +1159,10 @@ cgraph_expand_function (struct cgraph_node *node)
 
   /* Make sure that BE didn't give up on compiling.  */
   /* ??? Can happen with nested function of extern inline.  */
-  gcc_assert (TREE_ASM_WRITTEN (node->decl));
+  gcc_assert (TREE_ASM_WRITTEN (decl));
 
   current_function_decl = NULL;
-  if (!cgraph_preserve_function_body_p (node->decl))
+  if (!cgraph_preserve_function_body_p (decl))
     {
       cgraph_release_function_body (node);
       /* Eliminate all call edges.  This is important so the call_expr no longer
@@ -1201,7 +1199,7 @@ cgraph_expand_all_functions (void)
 {
   struct cgraph_node *node;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  int order_pos = 0, new_order_pos = 0;
+  int order_pos, new_order_pos = 0;
   int i;
 
   order_pos = cgraph_postorder (order);
@@ -1389,7 +1387,7 @@ cgraph_optimize (void)
   if (!quiet_flag)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   cgraph_state = CGRAPH_STATE_IPA;
-    
+
   /* Don't run the IPA passes if there was any error or sorry messages.  */
   if (errorcount == 0 && sorrycount == 0)
     ipa_passes ();
@@ -1431,8 +1429,8 @@ cgraph_optimize (void)
       varpool_remove_unreferenced_decls ();
 
       varpool_assemble_pending_decls ();
-      varpool_output_debug_info ();
     }
+  varpool_output_debug_info ();
   cgraph_process_new_functions ();
   cgraph_state = CGRAPH_STATE_FINISHED;
 
@@ -1460,7 +1458,7 @@ cgraph_optimize (void)
 	    dump_cgraph_node (stderr, node);
 	  }
       if (error_found)
-	internal_error ("nodes with no released memory found");
+	internal_error ("nodes with unreleased memory found");
     }
 #endif
 }

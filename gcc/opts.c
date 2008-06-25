@@ -907,6 +907,13 @@ decode_options (unsigned int argc, const char **argv)
   opt0 = (optimize == 0);
   flag_merge_constants = !opt0;
 
+  if (!no_unit_at_a_time_default)
+    {
+      flag_unit_at_a_time = 1;
+      if (!optimize)
+        flag_toplevel_reorder = 0;
+    }
+
   /* -O1 optimizations.  */
   opt1 = (optimize >= 1);
   flag_defer_pop = opt1;
@@ -934,8 +941,6 @@ decode_options (unsigned int argc, const char **argv)
   flag_tree_copy_prop = opt1;
   flag_tree_sink = opt1;
   flag_tree_ch = opt1;
-  if (!no_unit_at_a_time_default)
-    flag_unit_at_a_time = opt1;
 
   /* -O2 optimizations.  */
   opt2 = (optimize >= 2);

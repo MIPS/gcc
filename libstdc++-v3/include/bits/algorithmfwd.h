@@ -1,6 +1,6 @@
 // <algorithm> declarations  -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -168,6 +168,24 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   // for_each
   // generate
   // generate_n
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename _IIter, typename _Predicate>
+    bool
+    all_of(_IIter, _IIter, _Predicate);
+
+  template<typename _IIter, typename _Predicate>
+    bool
+    any_of(_IIter, _IIter, _Predicate);
+
+  template<typename _IIter, typename _Predicate>
+    bool
+    none_of(_IIter, _IIter, _Predicate);
+
+  template<typename _IIter, typename _Predicate>
+    _IIter
+    find_if_not(_IIter, _IIter, _Predicate);
+#endif
 
   template<typename _IIter1, typename _IIter2>
     bool 
@@ -392,6 +410,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     void 
     swap(_Tp&, _Tp&);
 
+  template<typename _Tp, size_t _Nm>
+    void
+    swap(_Tp (&)[_Nm], _Tp (&)[_Nm]);
+
   template<typename _FIter1, typename _FIter2>
     _FIter2 
     swap_ranges(_FIter1, _FIter1, _FIter2);
@@ -457,7 +479,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_P)
     find_first_of(_FIter1, _FIter1, _FIter2, _FIter2, _BinaryPredicate);
 
   template<typename _IIter, typename _Predicate>
-    _IIter 
+    _IIter
     find_if(_IIter, _IIter, _Predicate);
 
   template<typename _IIter, typename _Funct>

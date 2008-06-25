@@ -1,12 +1,16 @@
 2008-06-25  Michael Meissner  <michael.meissner@amd.com>
 
 	* c-common.c (parse_optimize_options): Cast alloca returns to the
-	appropriate pointer type.
+	appropriate pointer type.  Use ASTRDUP when possible.  Avoid
+	alloca's a string and then doing ggc_strdup, just use ggc_alloc
+	directly.
 
 	* config/i386/i386.c (ix86_target_string): Cast xmalloc return to
 	the appropriate pointer type.
 	(ix86_valid_option_attribute_inner_p): Cast alloca return to the
-	appropriate pointer type.
+	appropriate pointer type.  Use ASTRDUP when possible.
+
+Merge up to 137119.
 
 2008-06-22  Michael Meissner  <michael.meissner@amd.com>
 

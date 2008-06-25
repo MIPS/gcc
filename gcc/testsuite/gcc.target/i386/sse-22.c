@@ -1,6 +1,6 @@
 /* Same as sse-14, except converted to use #pragma GCC option.  */
 /* { dg-do compile } */
-/* { dg-options "-O0 -Werror-implicit-function-declaration -fno-unit-at-a-time" } */
+/* { dg-options "-O0 -Werror-implicit-function-declaration" } */
 
 #include <mm_malloc.h>
 
@@ -36,19 +36,29 @@
   { return func (A, B, C, D, imm); }
 
 
+#ifndef DIFFERENT_PRAGMAS
+#pragma GCC option ("mmx,3dnow,sse,sse2,sse3,ssse3,sse4.1,sse4.2,sse5,aes,pclmul")
+#endif
+
 /* Following intrinsics require immediate arguments.  They
    are defined as macros for non-optimized compilations. */
 
 /* mmintrin.h (MMX).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("mmx")
+#endif
 #include <mmintrin.h>
 
 /* mm3dnow.h (3DNOW).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("3dnow")
+#endif
 #include <mm3dnow.h>
 
 /* xmmintrin.h (SSE).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse")
+#endif
 #include <xmmintrin.h>
 test_2 (_mm_shuffle_ps, __m128, __m128, __m128, 1)
 test_1 (_mm_extract_pi16, int, __m64, 1)
@@ -60,7 +70,9 @@ test_1 (_m_pshufw, __m64, __m64, 1)
 test_1 (_mm_prefetch, void, void *, _MM_HINT_NTA)
 
 /* emmintrin.h (SSE2).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse2")
+#endif
 #include <emmintrin.h>
 test_2 (_mm_shuffle_pd, __m128d, __m128d, __m128d, 1)
 test_1 (_mm_srli_si128, __m128i, __m128i, 1)
@@ -72,17 +84,23 @@ test_1 (_mm_shufflelo_epi16, __m128i, __m128i, 1)
 test_1 (_mm_shuffle_epi32, __m128i, __m128i, 1)
 
 /* pmmintrin.h (SSE3).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse3")
+#endif
 #include <pmmintrin.h>
 
 /* tmmintrin.h (SSSE3).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("ssse3")
+#endif
 #include <tmmintrin.h>
 test_2 (_mm_alignr_epi8, __m128i, __m128i, __m128i, 1)
 test_2 (_mm_alignr_pi8, __m64, __m64, __m64, 1)
 
 /* ammintrin.h (SSE4A).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse4a")
+#endif
 #include <ammintrin.h>
 test_1x (_mm_extracti_si64, __m128i, __m128i, 1, 1)
 test_2x (_mm_inserti_si64, __m128i, __m128i, __m128i, 1, 1)
@@ -91,7 +109,9 @@ test_2x (_mm_inserti_si64, __m128i, __m128i, __m128i, 1, 1)
 /* nmmintrin.h (SSE4.2).  */
 /* Note, nmmintrin.h includes smmintrin.h, and smmintrin.h checks for the
    #ifdef.  So just set the option to SSE4.2.  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse4.2")
+#endif
 #include <nmmintrin.h>
 test_2 (_mm_blend_epi16, __m128i, __m128i, __m128i, 1)
 test_2 (_mm_blend_ps, __m128, __m128, __m128, 1)
@@ -127,7 +147,9 @@ test_4 (_mm_cmpestrs, int, __m128i, int, __m128i, int, 1)
 test_4 (_mm_cmpestrz, int, __m128i, int, __m128i, int, 1)
 
 /* bmmintrin.h (SSE5).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("sse5")
+#endif
 #include <bmmintrin.h>
 test_1 (_mm_roti_epi8, __m128i, __m128i, 1)
 test_1 (_mm_roti_epi16, __m128i, __m128i, 1)
@@ -135,7 +157,9 @@ test_1 (_mm_roti_epi32, __m128i, __m128i, 1)
 test_1 (_mm_roti_epi64, __m128i, __m128i, 1)
 
 /* wmmintrin.h (AES/PCLMUL).  */
+#ifdef DIFFERENT_PRAGMAS
 #pragma GCC option ("aes,pclmul")
+#endif
 #include <wmmintrin.h>
 test_1 (_mm_aeskeygenassist_si128, __m128i, __m128i, 1)
 test_2 (_mm_clmulepi64_si128, __m128i, __m128i, __m128i, 1)

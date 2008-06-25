@@ -1,3 +1,21 @@
+2008-06-25  Samuel Tardieu  <sam@rfc1149.net>
+
+	* Makefile.in: Use mlib-tgt-specific-linux.adb for sh4 as well.
+
+2008-06-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* utils2.c (known_alignment): Derive the alignment from pointed-to
+	types only if it is otherwise unknown.
+	<INTEGER_CST>: Tidy.
+	<MULT_EXPR>: Likewise.
+	<POINTER_PLUS_EXPR>: If the alignment of the offset is unknown, use
+	that of the base.
+
+2008-06-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/36573
+	* s-osinte-hpux-dce.ads (SA_ONSTACK): Define.
+
 2008-06-15  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* gnat_rm.texi (Implementation Defined Characteristics)

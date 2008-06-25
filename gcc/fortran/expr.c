@@ -33,7 +33,7 @@ gfc_get_expr (void)
 {
   gfc_expr *e;
 
-  e = gfc_getmem (sizeof (gfc_expr));
+  e = XCNEW (gfc_expr);
   gfc_clear_ts (&e->ts);
   e->shape = NULL;
   e->ref = NULL;
@@ -414,7 +414,7 @@ gfc_copy_expr (gfc_expr *p)
       /* Copy target representation, if it exists.  */
       if (p->representation.string)
 	{
-	  c = gfc_getmem (p->representation.length + 1);
+	  c = XCNEWVEC (char, p->representation.length + 1);
 	  q->representation.string = c;
 	  memcpy (c, p->representation.string, (p->representation.length + 1));
 	}
@@ -2829,6 +2829,7 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
   if (gfc_compare_types (&lvalue->ts, &rvalue->ts))
     return SUCCESS;
 
+  /* Only DATA Statements come here.  */
   if (!conform)
     {
       /* Numeric can be converted to any other numeric. And Hollerith can be
@@ -2840,9 +2841,9 @@ gfc_check_assign (gfc_expr *lvalue, gfc_expr *rvalue, int conform)
       if (lvalue->ts.type == BT_LOGICAL && rvalue->ts.type == BT_LOGICAL)
 	return SUCCESS;
 
-      gfc_error ("Incompatible types in assignment at %L; attempted assignment "
-		 "of %s to %s", &rvalue->where, gfc_typename (&rvalue->ts),
-		 gfc_typename (&lvalue->ts));
+      gfc_error ("Incompatible types in DATA statement at %L; attempted "
+		 "conversion of %s to %s", &lvalue->where,
+		 gfc_typename (&rvalue->ts), gfc_typename (&lvalue->ts));
 
       return FAILURE;
     }
