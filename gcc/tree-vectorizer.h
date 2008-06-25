@@ -389,9 +389,9 @@ typedef struct _stmt_vec_info {
 
   /* Interleaving info.  */
   /* First data-ref in the interleaving group.  */
-  tree first_dr;
+  gimple first_dr;
   /* Pointer to the next data-ref in the group.  */
-  tree next_dr;
+  gimple next_dr;
   /* The size of the interleaving group.  */
   unsigned int size;
   /* For stores, number of stores from this group seen. We vectorize the last
@@ -684,22 +684,27 @@ void vect_pattern_recog (loop_vec_info);
 
 
 /** In tree-vect-transform.c  **/
-extern bool vectorizable_load (tree, gimple_stmt_iterator *, tree *, slp_tree);
-extern bool vectorizable_store (tree, gimple_stmt_iterator *, tree *, slp_tree);
-extern bool vectorizable_operation (tree, gimple_stmt_iterator *, tree *, 
+extern bool vectorizable_load (gimple, gimple_stmt_iterator *, tree *,
+			       slp_tree);
+extern bool vectorizable_store (gimple, gimple_stmt_iterator *, tree *,
+				slp_tree);
+extern bool vectorizable_operation (gimple, gimple_stmt_iterator *, tree *, 
 				    slp_tree);
-extern bool vectorizable_type_promotion (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_type_demotion (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_conversion (tree, gimple_stmt_iterator *, 
+extern bool vectorizable_type_promotion (gimple, gimple_stmt_iterator *,
+					 tree *);
+extern bool vectorizable_type_demotion (gimple, gimple_stmt_iterator *,
+					tree *);
+extern bool vectorizable_conversion (gimple, gimple_stmt_iterator *, 
 				     tree *, slp_tree);
-extern bool vectorizable_assignment (tree, gimple_stmt_iterator *, tree *, 
+extern bool vectorizable_assignment (gimple, gimple_stmt_iterator *, tree *, 
 				     slp_tree);
-extern tree vectorizable_function (tree, tree, tree);
-extern bool vectorizable_call (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_condition (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_live_operation (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_reduction (tree, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_induction (tree, gimple_stmt_iterator *, tree *);
+extern tree vectorizable_function (gimple, tree, tree);
+extern bool vectorizable_call (gimple, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_condition (gimple, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_live_operation (gimple, gimple_stmt_iterator *,
+					 tree *);
+extern bool vectorizable_reduction (gimple, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_induction (gimple, gimple_stmt_iterator *, tree *);
 extern int  vect_estimate_min_profitable_iters (loop_vec_info);
 extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *, 
 				    slp_tree);

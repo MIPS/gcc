@@ -1,3 +1,68 @@
+2008-06-25  Doug Kwan  <dougkwan@google.com>
+
+	* gimple-dummy.c: (vect_free_slp_tree) Remove dummy.
+	(vect_analyze_loop): Same.
+	(vectorizable_induction): New dummy.
+	(vectorizable_type_promotion): Same.
+	(vectorizable_type_demotion): Same.
+	(vectorizable_conversion): Same.
+	(vectorizable_operation): Same.
+	(vectorizable_assignment): Same.
+	(vectorizable_load): Same.
+	(vectorizable_call): Same.
+	(vectorizable_store): Same.
+	(vectorizable_condition): Same.
+	(vectorizable_reduction): Same.
+	(vectorizable_live_operation): Same.
+	(vect_estimate_min_profitable_iters): Same.
+	(vect_model_simple_cost): Same.
+	(vect_model_store_cost): Same.
+	(vect_model_load_cost): Same.
+	(vect_pattern_recog): Same.
+	* tree-vectorizer.h (struct _stmt_vec_info): Change fields FIRST_DR
+	and NEXT_DR from tree to gimple type.
+	(vectorizable_load): Change type of parameter STMT to gimple.
+	(vectorizable_store): Same.
+	(vectorizable_operation): Same.
+	(vectorizable_type_promotion): Same.
+	(vectorizable_type_demotion): Same.
+	(vectorizable_conversion): Same.
+	(vectorizable_assignment): Same.
+	(vectorizable_function): Same.
+	(vectorizable_call): Same.
+	(vectorizable_condition): Same.
+	(vectorizable_live_operation): Same.
+	(vectorizable_reduction): Same.
+	(vectorizable_induction): Same.
+	* tree-vect-analyze.c (File): Re-enable all previously disabled code.
+	(vect_determine_vectorization_factor): Tuplify.
+	(vect_analyze_operations): Same.
+	(exist_non_indexing_operands_for_use_p): Same.
+ 	(vect_analyze_scalar_cycles_1): Same.
+	(vect_insert_into_interleaving_chain): Same.
+ 	(vect_same_range_drs): Same.
+ 	(vect_compute_data_ref_alignment): Same.
+	(vect_verify_datarefs_alignment): Same.
+ 	(vector_alignment_reachable_p): Same.
+	(vect_enhance_data_refs_alignment): Same.
+	(vect_analyze_group_access): Same.
+	(vect_analyze_data_ref_access): Same.
+	(vect_free_slp_tree): Same.
+ 	(vect_get_and_check_slp_defs): Same.
+	(vect_build_slp_tree): Same.
+ 	(vect_print_slp_tree): Same.
+ 	(vect_mark_slp_stmts): Same.
+	(vect_analyze_slp_instance): Same.
+ 	(vect_analyze_slp): Same.
+ 	(vect_detect_hybrid_slp_stmts): Same.
+	(vect_analyze_data_refs): Same.
+	(vect_mark_relevant): Same.
+	(process_use): Same.
+ 	(vect_mark_stmts_to_be_vectorized): Same.
+	(vect_can_advance_ivs_p): Same.
+ 	(vect_get_loop_niters): Same.
+ 	(vect_analyze_loop_form): Same.
+
 2008-06-25  Diego Novillo  <dnovillo@google.com>
 
 	* tree-vectorizer.c (hash_gimple_stmt): Remove.
