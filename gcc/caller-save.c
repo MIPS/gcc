@@ -1548,7 +1548,7 @@ make_global_save_analysis (void)
   int iter, changed_p;
 
   all_blocks = BITMAP_ALLOC (NULL);
-  FOR_EACH_BB (bb)
+  FOR_ALL_BB (bb)
     {
       bitmap_set_bit (all_blocks, bb->index);
     }
@@ -1734,6 +1734,8 @@ save_call_clobbered_regs (void)
 	  loop->aux = xmalloc (sizeof (struct loop_info));
 	  CLEAR_HARD_REG_SET (LOOP_INFO (loop)->mentioned_regs);
 	}
+      memset (BB_INFO (ENTRY_BLOCK_PTR), 0, sizeof (struct bb_info));
+      memset (BB_INFO (EXIT_BLOCK_PTR), 0, sizeof (struct bb_info));
       make_global_save_analysis ();
     }
 

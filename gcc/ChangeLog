@@ -1,3 +1,10 @@
+2008-06-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* caller-save.c (make_global_save_analysis): Add entry and exit
+	blocks to all_blocks.
+	(save_call_clobbered_regs): Initialize bb_info for entry/exit
+	blocks.
+	
 2008-06-26  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* ira-conflicts.c ira-color.c ira-lives.c ira-emit.c ira-build.c
