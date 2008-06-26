@@ -1,3 +1,11 @@
+2008-06-26  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cfganal.c (compute_iterated_dominance_frontiers): Rename back
+	to compute_idf.
+	* basic-block.h (compute_iterated_dominance_frontiers): Likewise.
+	* tree-into-ssa.c (insert_phi_nodes): Update caller.
+	(insert_updated_phi_nodes_for): Likewise.
+
 2008-06-20  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* df.h (struct df_real_insn_info): Rename from df_insn_info.

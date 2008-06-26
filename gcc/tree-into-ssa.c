@@ -1145,8 +1145,7 @@ insert_phi_nodes (bitmap *dfs)
 
       if (get_phi_state (var) != NEED_PHI_STATE_NO)
 	{
-	  idf = compute_iterated_dominance_frontiers (def_map->def_blocks,
-						      dfs);
+	  idf = compute_idf (def_map->def_blocks, dfs);
 	  insert_phi_nodes_for (var, idf, false);
 	  BITMAP_FREE (idf);
 	}
@@ -2870,7 +2869,7 @@ insert_updated_phi_nodes_for (tree var, bitmap *dfs, bitmap blocks,
     return;
 
   /* Compute the initial iterated dominance frontier.  */
-  idf = compute_iterated_dominance_frontiers (db->def_blocks, dfs);
+  idf = compute_idf (db->def_blocks, dfs);
   pruned_idf = BITMAP_ALLOC (NULL);
 
   if (TREE_CODE (var) == SSA_NAME)

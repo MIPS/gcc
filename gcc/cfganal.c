@@ -1305,7 +1305,7 @@ compute_dominance_frontiers (bitmap *frontiers)
    allocated for the return value.  */
 
 bitmap
-compute_iterated_dominance_frontiers (bitmap def_blocks, bitmap *dfs)
+compute_idf (bitmap def_blocks, bitmap *dfs)
 {
   bitmap_iterator bi;
   unsigned bb_index, i;
