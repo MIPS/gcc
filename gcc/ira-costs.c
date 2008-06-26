@@ -172,7 +172,7 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class class, bool to_p,
    This procedure works alternative by alternative.  For each
    alternative we assume that we will be able to allocate all allocnos
    to their ideal register class and calculate the cost of using that
-   alternative.  Then we compute for each operand that is a
+   alternative.  Then we compute, for each operand that is a
    pseudo-register, the cost of having the allocno allocated to each
    register class and using it in that alternative.  To this cost is
    added the cost of the alternative.
@@ -1060,8 +1060,8 @@ print_costs (FILE *f)
     }
 }
 
-/* The function traverses BB represented by LOOP_TREE_NODE to update
-   the allocno costs.  */
+/* Traverse the BB represented by LOOP_TREE_NODE to update the allocno
+   costs.  */
 static void
 process_bb_node_for_costs (loop_tree_node_t loop_tree_node)
 {
@@ -1466,7 +1466,7 @@ init_ira_costs_once (void)
   cost_classes = NULL;
 }
 
-/* The function frees allocated temporary cost vectors.  */
+/* Free allocated temporary cost vectors.  */
 static void
 free_ira_costs (void)
 {
@@ -1491,7 +1491,7 @@ free_ira_costs (void)
   cost_classes = NULL;
 }
 
-/* The function called every time when register related information is
+/* This is called each time register related information is
    changed.  */
 void
 init_ira_costs (void)
@@ -1548,9 +1548,9 @@ ira_costs (void)
 
 
 
-/* This function changes hard register costs for allocnos which lives
-   through function calls.  The function is called only when we found
-   all intersected calls during building allocno live ranges.  */
+/* Change hard register costs for allocnos which lives through
+   function calls.  This is called only when we found all intersected
+   calls during building allocno live ranges.  */
 void
 tune_allocno_costs_and_cover_classes (void)
 {

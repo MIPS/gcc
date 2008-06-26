@@ -52,17 +52,17 @@ along with GCC; see the file COPYING3.  If not see
        conflicting hard-registers, there are a few allocno attributes
        which are important for understanding the allocation algorithm:
 
-       - *Live ranges*.  This is a list of ranges of *program points*
-         where the allocno lives.  Program points represent places
-         where a pseudo can be born or become dead (there are
+       - *Live ranges*.  This is a list of ranges of *program
+         points* where the allocno lives.  Program points represent
+         places where a pseudo can be born or become dead (there are
          approximately two times more program points than the insns)
          and they are represented by integers starting with 0.  The
          live ranges are used to find conflicts between allocnos of
          different cover classes.  They also play very important role
-         for transformation of IRA internal representation for several
-         regions into one region representation.  The later is used
-         during the reload pass work because each allocno represents
-         all corresponding pseudo-register.
+         for the transformation of the IRA internal representation of
+         several regions into a one region representation.  The later is
+         used during the reload pass work because each allocno
+         represents all of the corresponding pseudo-registers.
 
        - *Hard-register costs*.  This is a vector of size equal to the
          number of available hard-registers of the allocno's cover
@@ -109,7 +109,7 @@ along with GCC; see the file COPYING3.  If not see
        register coalescing).  But IRA also creates copies for operands
        of an insn which should be assigned to the same hard-register
        due to constraints in the machine description (it usually
-       results in removing a move generated in the reload to satisfy
+       results in removing a move generated in reload to satisfy
        the constraints) and copies referring to the allocno which is
        the output operand of an instruction and the allocno which is
        an input operand dying in the instruction (creation of such
@@ -171,24 +171,24 @@ along with GCC; see the file COPYING3.  If not see
 
        * Putting allocnos onto the coloring stack.  IRA uses Briggs
          optimistic coloring which is a major improvement over
-         Chaitin's coloring.  Therefore IRa does not spill allocnos at
-         this point.  There is some freedom in order of putting
+         Chaitin's coloring.  Therefore IRA does not spill allocnos at
+         this point.  There is some freedom in the order of putting
          allocnos on the stack which can affect the final result of
          the allocation.  IRA uses some heuristics to improve the order.
 
        * Popping the allocnos from the stack and assigning them hard
          registers.  If IRA can not assign a hard register to an
-         allocno and allocno is coalesced, IRA undoes coalescing and
-         put the uncoalesced allocnos onto the satck in hope that some
-         such allocnos will get a hard register separately.  If IRA
-         fails to assign hard register or memory is more profitable
-         for it, IRA spills the allocno.  IRA assigns allocno the
-         hard-register with minimal full allocation cost which
-         reflects the cost of usage of the hard-register for the
-         allocno and cost of usage of the hard-register for allocnos
-         conflicting with given allocno.
+         allocno and the allocno is coalesced, IRA undoes the
+         coalescing and puts the uncoalesced allocnos onto the stack in
+         the hope that some such allocnos will get a hard register
+         separately.  If IRA fails to assign hard register or memory
+         is more profitable for it, IRA spills the allocno.  IRA
+         assigns the allocno the hard-register with minimal full
+         allocation cost which reflects the cost of usage of the
+         hard-register for the allocno and cost of usage of the
+         hard-register for allocnos conflicting with given allocno.
 
-       * After allono assigning in the region, IRA modifies hard
+       * After allono assigning in the region, IRA modifies the hard
          register and memory costs for the corresponding allocnos in
          the subregions to reflect the cost of possible loads, stores,
          or moves on the border of the region and its subregions.
@@ -198,11 +198,11 @@ along with GCC; see the file COPYING3.  If not see
          corresponding cover class is less than number of available
          hard registers for given cover class.
 
-     o Spill/restore code moving.  When IRA performs allocation
-       traversing regions in top-down order, it does not know what
+     o Spill/restore code moving.  When IRA performs an allocation
+       by traversing regions in top-down order, it does not know what
        happens below in the region tree.  Therefore, sometimes IRA
        misses opportunities to perform a better allocation.  A simple
-       ooptimization tries to improve allocation in a region having
+       optimization tries to improve allocation in a region having
        subregions and containing in another region.  If the
        corresponding allocnos in the subregion are spilled, it spills
        the region allocno if it is profitable.  The optimization
@@ -215,18 +215,18 @@ along with GCC; see the file COPYING3.  If not see
        pseudo-register outside and inside a region respectively may be
        assigned to different locations (hard-registers or memory).  In
        this case IRA creates and uses a new pseudo-register inside the
-       region and add code to move allocno values on the region's
+       region and adds code to move allocno values on the region's
        borders.  This is done during top-down traversal of the regions
        (file ira-emit.c).  In some complicated cases IRA can create a
        new allocno to move allocno values (e.g. when a swap of values
        stored in two hard-registers is needed).  At this stage, the
-       new allocno marked as spilled.  IRA still creates the
+       new allocno is marked as spilled.  IRA still creates the
        pseudo-register and the moves on the region borders even when
        both allocnos were assigned to the same hard-register.  If the
        reload pass spills a pseudo-register for some reason, the
        effect will be smaller because another allocno will still be in
        the hard-register.  In most cases, this is better then spilling
-       both allocnos.  If the reload does not change the allocation
+       both allocnos.  If reload does not change the allocation
        for the two pseudo-registers, the trivial move will be removed
        by post-reload optimizations.  IRA does not generate moves for
        allocnos assigned to the same hard register when the default
@@ -243,7 +243,7 @@ along with GCC; see the file COPYING3.  If not see
        rebuilding would be, but is much faster.
 
      o After IR flattening, IRA tries to assign hard registers to all
-       spilled allocnos.  It is impelemented by a simple and fast
+       spilled allocnos.  This is impelemented by a simple and fast
        priority coloring algorithm (see function
        reassign_conflict_allocnos::ira-color.c).  Here new allocnos
        created during the code change pass can be assigned to hard
@@ -352,21 +352,21 @@ int move_loops_num, additional_jumps_num;
    of given mode starting with given hard register.  */
 HARD_REG_SET reg_mode_hard_regset[FIRST_PSEUDO_REGISTER][NUM_MACHINE_MODES];
 
-/* The following two variables are array analog of macros
+/* The following two variables are array analogs of the macros
    MEMORY_MOVE_COST and REGISTER_MOVE_COST.  */
 short int memory_move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][2];
 move_table *register_move_cost[MAX_MACHINE_MODE];
 
 /* Similar to may_move_in_cost but it is calculated in IRA instead of
-   regclass.  Another difference we take only available hard registers
-   into account to figure out that one register class is a subset of
-   the another one.  */
+   regclass.  Another difference is that we take only available hard
+   registers into account to figure out that one register class is a
+   subset of the another one.  */
 move_table *register_may_move_in_cost[MAX_MACHINE_MODE];
 
 /* Similar to may_move_out_cost but it is calculated in IRA instead of
-   regclass.  Another difference we take only available hard registers
-   into account to figure out that one register class is a subset of
-   the another one.  */
+   regclass.  Another difference is that we take only available hard
+   registers into account to figure out that one register class is a
+   subset of the another one.  */
 move_table *register_may_move_out_cost[MAX_MACHINE_MODE];
 
 /* Register class subset relation: TRUE if the first class is a subset
@@ -374,12 +374,12 @@ move_table *register_may_move_out_cost[MAX_MACHINE_MODE];
    allocation.  */
 int class_subset_p[N_REG_CLASSES][N_REG_CLASSES];
 
-/* Temporary hard reg set used for different calculation.  */
+/* Temporary hard reg set used for a different calculation.  */
 static HARD_REG_SET temp_hard_regset;
 
 
 
-/* The function sets up map REG_MODE_HARD_REGSET.  */
+/* The function sets up the map REG_MODE_HARD_REGSET.  */
 static void
 setup_reg_mode_hard_regset (void)
 {
@@ -402,8 +402,8 @@ setup_reg_mode_hard_regset (void)
    all functions of the current compilation unit.  */
 static HARD_REG_SET no_unit_alloc_regs;
 
-/* Array of number of hard registers of given class which are
-   available for the allocation.  The order is defined by the
+/* Array of the number of hard registers of given class which are
+   available for allocation.  The order is defined by the
    allocation order.  */
 short class_hard_regs[N_REG_CLASSES][FIRST_PSEUDO_REGISTER];
 
@@ -459,7 +459,7 @@ setup_class_hard_regs (void)
    allocation for given classes.  */
 int available_class_regs[N_REG_CLASSES];
 
-/* Function setting up AVAILABLE_CLASS_REGS.  */
+/* Set up AVAILABLE_CLASS_REGS.  */
 static void
 setup_available_class_regs (void)
 {
@@ -476,10 +476,9 @@ setup_available_class_regs (void)
     }
 }
 
-/* The function setting up different global variables defining info
-   about hard registers for the allocation.  It depends on
-   USE_HARD_FRAME_P whose TRUE value means that we can use hard
-   frame pointer for the allocation.  */
+/* Set up global variables defining info about hard registers for the
+   allocation.  These depend on USE_HARD_FRAME_P whose TRUE value means
+   that we can use the hard frame pointer for the allocation.  */
 static void
 setup_alloc_regs (bool use_hard_frame_p)
 {
@@ -492,7 +491,7 @@ setup_alloc_regs (bool use_hard_frame_p)
 
 
 
-/* The function sets up MEMORY_MOVE_COST, REGISTER_MOVE_COST.  */
+/* Set up MEMORY_MOVE_COST, REGISTER_MOVE_COST.  */
 static void
 setup_class_subset_and_memory_move_costs (void)
 {
@@ -549,7 +548,7 @@ static struct obstack ira_obstack;
 /* Obstack used for storing all bitmaps of the IRA.  */
 static struct bitmap_obstack ira_bitmap_obstack;
 
-/* The function allocates memory of size LEN for IRA data.  */
+/* Allocate memory of size LEN for IRA data.  */
 void *
 ira_allocate (size_t len)
 {
@@ -563,7 +562,7 @@ ira_allocate (size_t len)
   return res;
 }
 
-/* The function reallocates memory PTR of size LEN for IRA data.  */
+/* Reallocate memory PTR of size LEN for IRA data.  */
 void *
 ira_reallocate (void *ptr, size_t len)
 {
@@ -577,7 +576,7 @@ ira_reallocate (void *ptr, size_t len)
   return res;
 }
 
-/* The function free memory ADDR allocated for IRA data.  */
+/* Free memory ADDR allocated for IRA data.  */
 void
 ira_free (void *addr ATTRIBUTE_UNUSED)
 {
@@ -589,14 +588,14 @@ ira_free (void *addr ATTRIBUTE_UNUSED)
 }
 
 
-/* The function allocates and returns bitmap for IRA.  */
+/* Allocate and returns bitmap for IRA.  */
 bitmap
 ira_allocate_bitmap (void)
 {
   return BITMAP_ALLOC (&ira_bitmap_obstack);
 }
 
-/* The function frees bitmap B allocated for IRA.  */
+/* Free bitmap B allocated for IRA.  */
 void
 ira_free_bitmap (bitmap b ATTRIBUTE_UNUSED)
 {
@@ -605,7 +604,7 @@ ira_free_bitmap (bitmap b ATTRIBUTE_UNUSED)
 
 
 
-/* The function outputs information about allocation of all allocnos
+/* Output information about allocation of all allocnos
    into file F.  */
 void
 print_disposition (FILE *f)
@@ -637,8 +636,8 @@ print_disposition (FILE *f)
   fprintf (f, "\n");
 }
 
-/* The function outputs information about allocation of all allocnos
-   into stderr.  */
+/* Outputs information about allocation of all allocnos into
+   stderr.  */
 void
 debug_disposition (void)
 {
@@ -652,8 +651,7 @@ debug_disposition (void)
    excluded from the consideration).  */
 static enum reg_class alloc_reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
-/* The function initializes the table of subclasses of each reg
-   class.  */
+/* Initialize the table of subclasses of each reg class.  */
 static void
 setup_reg_subclasses (void)
 {
@@ -702,7 +700,7 @@ int reg_class_cover_size;
    used for this.  */
 enum reg_class reg_class_cover[N_REG_CLASSES];
 
-/* The value is number of elements in the subsequent array.  */
+/* The number of elements in the subsequent array.  */
 int important_classes_num;
 
 /* The array containing non-empty classes (including non-empty cover
@@ -717,8 +715,8 @@ int important_class_nums[N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
-/* The function checks IRA_COVER_CLASSES and sets the four global
-   variables defined above.  */
+/* Check IRA_COVER_CLASSES and sets the four global variables defined
+   above.  */
 static void
 setup_cover_and_important_classes (void)
 {
@@ -771,7 +769,7 @@ enum reg_class class_translate[N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
-/* The function sets up array CLASS_TRANSLATE.  */
+/* Set up array CLASS_TRANSLATE.  */
 static void
 setup_class_translate (void)
 {
@@ -841,25 +839,26 @@ setup_class_translate (void)
 }
 #endif
 
-/* The biggest important class inside of intersection of the two
-   classes (that is calculated taking only hard registers available
-   for allocation into account).  If the both classes contain no hard
-   registers available for allocation, the value is calculated with
-   taking all hard-registers including fixed ones into account.  */
+/* The biggest important reg_class inside of intersection of the two
+   reg_classes (that is calculated taking only hard registers
+   available for allocation into account).  If the both reg_classes
+   contain no hard registers available for allocation, the value is
+   calculated by taking all hard-registers including fixed ones into
+   account.  */
 enum reg_class reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
-/* The biggest important class inside of union of the two classes
-   (that is calculated taking only hard registers available for
-   allocation into account).  If the both classes contain no hard
-   registers available for allocation, the value is calculated with
-   taking all hard-registers including fixed ones into account.  In
-   other words, the value is the corresponding reg_class_subunion
-   value.  */
+/* The biggest important reg_class inside of union of the two
+   reg_classes (that is calculated taking only hard registers
+   available for allocation into account).  If the both reg_classes
+   contain no hard registers available for allocation, the value is
+   calculated by taking all hard-registers including fixed ones into
+   account.  In other words, the value is the corresponding
+   reg_class_subunion value.  */
 enum reg_class reg_class_union[N_REG_CLASSES][N_REG_CLASSES];
 
 #ifdef IRA_COVER_CLASSES
 
-/* The function sets up REG_CLASS_INTERSECT and REG_CLASS_UNION.  */
+/* Set up REG_CLASS_INTERSECT and REG_CLASS_UNION.  */
 static void
 setup_reg_class_intersect_union (void)
 {
@@ -926,8 +925,7 @@ setup_reg_class_intersect_union (void)
 
 #endif
 
-/* The function outputs all cover classes and the translation map into
-   file F.  */
+/* Output all cover classes and the translation map into file F.  */
 static void
 print_class_cover (FILE *f)
 {
@@ -943,7 +941,7 @@ print_class_cover (FILE *f)
 	     reg_class_names[class_translate[i]]);
 }
 
-/* The function outputs all cover classes and the translation map into
+/* Output all cover classes and the translation map into
    stderr.  */
 void
 debug_class_cover (void)
@@ -951,8 +949,8 @@ debug_class_cover (void)
   print_class_cover (stderr);
 }
 
-/* Function setting up different arrays concerning class subsets,
-   cover and important classes.  */
+/* Set up different arrays concerning class subsets, cover and
+   important classes.  */
 static void
 find_reg_class_closure (void)
 {
@@ -974,7 +972,7 @@ int reg_class_nregs[N_REG_CLASSES][MAX_MACHINE_MODE];
 /* Maximal value of the previous array elements.  */
 int max_nregs;
 
-/* Function forming REG_CLASS_NREGS map.  */
+/* Form REG_CLASS_NREGS map.  */
 static void
 setup_reg_class_nregs (void)
 {
@@ -998,7 +996,7 @@ setup_reg_class_nregs (void)
    values for given mode are zero.  */
 HARD_REG_SET prohibited_class_mode_regs[N_REG_CLASSES][NUM_MACHINE_MODES];
 
-/* The function setting up PROHIBITED_CLASS_MODE_REGS.  */
+/* Set up PROHIBITED_CLASS_MODE_REGS.  */
 static void
 setup_prohibited_class_mode_regs (void)
 {
@@ -1024,7 +1022,7 @@ setup_prohibited_class_mode_regs (void)
 
 
 
-/* The function allocates and initializes REGISTER_MOVE_COST,
+/* Allocate and initialize REGISTER_MOVE_COST,
    REGISTER_MAY_MOVE_IN_COST, and REGISTER_MAY_MOVE_OUT_COST for MODE
    if it is not done yet.  */
 void
@@ -1066,7 +1064,7 @@ init_register_move_cost (enum machine_mode mode)
 HARD_REG_SET zero_hard_reg_set;
 HARD_REG_SET one_hard_reg_set;
 
-/* The function called once during compiler work.  It sets up
+/* This is called once during compiler work.  It sets up
    different arrays whose values don't depend on the compiled
    function.  */
 void
@@ -1085,8 +1083,8 @@ init_ira_once (void)
   init_ira_costs_once ();
 }
 
-/* The function frees register_move_cost, register_may_move_in_cost,
-   and register_may_move_out_cost for each mode.  */
+/* Free register_move_cost, register_may_move_in_cost, and
+   register_may_move_out_cost for each mode.  */
 static void
 free_register_move_costs (void)
 {
@@ -1104,7 +1102,7 @@ free_register_move_costs (void)
     }
 }
 
-/* The function called every time when register related information is
+/* This is called every time when register related information is
    changed.  */
 void
 init_ira (void)
@@ -1137,7 +1135,7 @@ HARD_REG_SET prohibited_mode_move_regs[NUM_MACHINE_MODES];
 /* Flag of that the above array has been initialized.  */
 static bool prohibited_mode_move_regs_initialized_p = false;
 
-/* The function setting up PROHIBITED_MODE_MOVE_REGS.  */
+/* Set up PROHIBITED_MODE_MOVE_REGS.  */
 static void
 setup_prohibited_mode_move_regs (void)
 {
@@ -1235,8 +1233,7 @@ compute_regs_asm_clobbered (char *regs_asm_clobbered)
 }
 
 
-/* The function sets up ELIMINABLE_REGSET, NO_ALLOC_REGS, and
-   REGS_EVER_LIVE.  */
+/* Set up ELIMINABLE_REGSET, NO_ALLOC_REGS, and REGS_EVER_LIVE.  */
 static void
 setup_eliminable_regset (void)
 {
@@ -1321,7 +1318,7 @@ bool *reg_equiv_invariant_p;
    NULL_RTX.  */
 rtx *reg_equiv_const;
 
-/* The function sets up the two array declared above.  */
+/* Set up the two arrays declared above.  */
 static void
 find_reg_equiv_invariant_const (void)
 {
@@ -1374,8 +1371,8 @@ find_reg_equiv_invariant_const (void)
 
 
 
-/* The function sets up REG_RENUMBER and CALLER_SAVE_NEEDED (used by
-   the reload) from the allocation found by IRA.  */
+/* Set up REG_RENUMBER and CALLER_SAVE_NEEDED (used by reload) from
+   the allocation found by IRA.  */
 static void
 setup_reg_renumber (void)
 {
@@ -1408,8 +1405,8 @@ setup_reg_renumber (void)
     }
 }
 
-/* The function sets up allocno assignment flags for further
-   allocation improvements.  */
+/* Set up allocno assignment flags for further allocation
+   improvements.  */
 static void
 setup_allocno_assignment_flags (void)
 {
@@ -1439,8 +1436,8 @@ setup_allocno_assignment_flags (void)
     }
 }
 
-/* The function evaluates overall allocation cost and costs for using
-   hard registers and memory for allocnos.  */
+/* Evaluate overall allocation cost and the costs for using hard
+   registers and memory for allocnos.  */
 static void
 calculate_allocation_cost (void)
 {
@@ -1488,8 +1485,8 @@ calculate_allocation_cost (void)
 }
 
 #ifdef ENABLE_IRA_CHECKING
-/* The function checks correctness of the allocation.  We do need this
-   because of complicated code to transform more one region internal
+/* Check the correctness of the allocation.  We do need this because
+   of complicated code to transform more one region internal
    representation into one region representation.  */
 static void
 check_allocation (void)
@@ -1525,8 +1522,8 @@ check_allocation (void)
 }
 #endif
 
-/* The function fixes values of array REG_EQUIV_INIT after live range
-   splitting done by IRA.  */
+/* Fix values of array REG_EQUIV_INIT after live range splitting done
+   by IRA.  */
 static void
 fix_reg_equiv_init (void)
 {
@@ -1573,7 +1570,7 @@ fix_reg_equiv_init (void)
 }
 
 #ifdef ENABLE_IRA_CHECKING
-/* The function prints redundant memory-memory copies.  */
+/* Print redundant memory-memory copies.  */
 static void
 print_redundant_copies (void)
 {
@@ -1631,7 +1628,7 @@ setup_preferred_alternate_classes_for_new_pseudos (int start)
 
 
 
-/* Regional allocation can create new pseudo-registers.  The function
+/* Regional allocation can create new pseudo-registers.  This function
    expands some arrays for pseudo-registers.  */
 static void
 expand_reg_info (int old_size)
@@ -1649,11 +1646,11 @@ expand_reg_info (int old_size)
 
 
 
-/* This page contains code for sorting the insn chain used by the
-   reload.  In old register allocator, the insn chain order
-   corresponds to the order of insns in RTL.  By putting insns with
-   higher execution frequency first, the reload has a better chance to
-   generate less expensive operand reloads for such insns.  */
+/* This page contains code for sorting the insn chain used by reload.
+   In the old register allocator, the insn chain order corresponds to
+   the order of insns in RTL.  By putting insns with higher execution
+   frequency first, reload has a better chance to generate less
+   expensive operand reloads for such insns.  */
 
 /* Map bb index -> order number in the BB chain in RTL code.  */
 static int *basic_block_order_nums;
@@ -1674,8 +1671,7 @@ chain_freq_compare (const void *v1p, const void *v2p)
   return (const char *) v1p - (const char *) v2p;
 }
 
-/* The function is used to sort insn chain according insn original
-   order.  */
+/* Sort the insn chain according insn original order.  */
 static int
 chain_bb_compare (const void *v1p, const void *v2p)
 {
@@ -1690,7 +1686,7 @@ chain_bb_compare (const void *v1p, const void *v2p)
   return (const char *) v1p - (const char *) v2p;
 }
 
-/* The function sorts insn chain according to insn frequencies if
+/* Sort the insn chain according to insn frequencies if
    FREQ_P or according to insn original order otherwise.  */
 void
 sort_insn_chain (bool freq_p)

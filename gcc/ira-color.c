@@ -183,8 +183,8 @@ update_copy_costs_1 (allocno_t allocno, int hard_regno,
     }
 }
 
-/* Entry function to update costs of allocnos to increase chances to
-   remove some copies as the result of subsequent assignment.  */
+/* Update the cost of allocnos to increase chances to remove some
+   copies as the result of subsequent assignment.  */
 static void
 update_copy_costs (allocno_t allocno, bool decr_p)
 {
@@ -192,8 +192,8 @@ update_copy_costs (allocno_t allocno, bool decr_p)
   update_copy_costs_1 (allocno, ALLOCNO_HARD_REGNO (allocno), decr_p, 1);
 }
 
-/* The function is used to sort allocnos according to the profit of
-   usage of a hard register instead of memory for them. */
+/* Sort allocnos according to the profit of usage of a hard register
+   instead of memory for them. */
 static int
 allocno_cost_compare_func (const void *v1p, const void *v2p)
 {
@@ -226,13 +226,13 @@ print_coalesced_allocno (allocno_t allocno)
     }
 }
 
-/* Function choosing a hard register for ALLOCNO (or for all coalesced
-   allocnos represented by ALLOCNO).  If RETRY_P is TRUE, it means
-   that the function called from function `reassign_conflict_allocnos'
-   and `allocno_reload_assign'.  The function implements the
-   optimistic coalescing too: if we failed to assign a hard register
-   to set of the coalesced allocnos, we put them onto the coloring
-   stack for subsequent separate assigning.  */
+/* Choose a hard register for ALLOCNO (or for all coalesced allocnos
+   represented by ALLOCNO).  If RETRY_P is TRUE, it means that the
+   function called from function `reassign_conflict_allocnos' and
+   `allocno_reload_assign'.  This function implements the optimistic
+   coalescing too: if we failed to assign a hard register to set of
+   the coalesced allocnos, we put them onto the coloring stack for
+   subsequent separate assigning.  */
 static bool
 assign_hard_reg (allocno_t allocno, bool retry_p)
 {
@@ -465,7 +465,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 
 
 
-/* This page contains allocator based on Chaitin-Briggs algorithm.  */
+/* This page contains the allocator based on the Chaitin-Briggs algorithm.  */
 
 /* Bucket of allocnos that can colored currently without spilling.  */
 static allocno_t colorable_allocno_bucket;
@@ -519,14 +519,13 @@ get_coalesced_allocnos_attributes (allocno_t allocno, int *freq, int *num)
     }
 }
 
-/* The function compares two allocnos to define what allocno should be
-   pushed first into the coloring stack.  If the function returns a
-   negative number, the allocno given by the first parameter will be
-   pushed first.  In this case such allocno has less priority than the
-   second one and the hard register will be assigned to it after
-   assignment to the second one.  As the result of such assignment
-   order, the second allocno has a better chance to get the best hard
-   register.  */
+/* Compare two allocnos to define which allocno should be pushed first
+   into the coloring stack.  If the return is a negative number, the
+   allocno given by the first parameter will be pushed first.  In this
+   case such allocno has less priority than the second one and the
+   hard register will be assigned to it after assignment to the second
+   one.  As the result of such assignment order, the second allocno
+   has a better chance to get the best hard register.  */
 static int
 bucket_allocno_compare_func (const void *v1p, const void *v2p)
 {
@@ -544,7 +543,7 @@ bucket_allocno_compare_func (const void *v1p, const void *v2p)
   return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
 }
 
-/* Function sorts bucket *BUCKET_PTR and returns the result through
+/* Sort bucket *BUCKET_PTR and return the result through
    BUCKET_PTR.  */
 static void
 sort_bucket (allocno_t *bucket_ptr)
@@ -642,10 +641,10 @@ static splay_tree uncolorable_allocnos_splay_tree[N_REG_CLASSES];
    into account.  */
 #define USE_SPLAY_P(CLASS) (uncolorable_allocnos_num[CLASS] > 4000)
 
-/* The function puts ALLOCNO onto the coloring stack without removing
-   it from its bucket.  Pushing allocno to the coloring stack can
-   result in moving conflicting allocnos from the uncolorable bucket
-   to the colorable one.  */
+/* Put ALLOCNO onto the coloring stack without removing it from its
+   bucket.  Pushing allocno to the coloring stack can result in moving
+   conflicting allocnos from the uncolorable bucket to the colorable
+   one.  */
 static void
 push_allocno_to_stack (allocno_t allocno)
 {
@@ -726,9 +725,8 @@ push_allocno_to_stack (allocno_t allocno)
     }
 }
 
-/* The function puts ALLOCNO onto the coloring stack and removes it
-   from its bucket.  The allocno is in the colorable bucket if
-   COLORABLE_P is TRUE.  */
+/* Put ALLOCNO onto the coloring stack and remove it from its bucket.
+   The allocno is in the colorable bucket if COLORABLE_P is TRUE.  */
 static void
 remove_allocno_from_bucket_and_push (allocno_t allocno, bool colorable_p)
 {
@@ -758,8 +756,7 @@ remove_allocno_from_bucket_and_push (allocno_t allocno, bool colorable_p)
   push_allocno_to_stack (allocno);
 }
 
-/* The function puts all allocnos from colorable bucket onto the
-   coloring stack.  */
+/* Put all allocnos from colorable bucket onto the coloring stack.  */
 static void
 push_only_colorable (void)
 {
@@ -768,8 +765,8 @@ push_only_colorable (void)
     remove_allocno_from_bucket_and_push (colorable_allocno_bucket, true);
 }
 
-/* The function puts ALLOCNO chosen for potential spilling onto the
-   coloring stack.  */
+/* Puts ALLOCNO chosen for potential spilling onto the coloring
+   stack.  */
 static void
 push_allocno_to_spill (allocno_t allocno)
 {
@@ -781,8 +778,8 @@ push_allocno_to_spill (allocno_t allocno)
   push_allocno_to_stack (allocno);
 }
 
-/* The function returns frequency of exit edges (if EXIT_P) or entry
-   from/to the loop given by its LOOP_NODE.  */ 
+/* Return the frequency of exit edges (if EXIT_P) or entry from/to the
+   loop given by its LOOP_NODE.  */ 
 int
 loop_edge_freq (loop_tree_node_t loop_node, int regno, bool exit_p)
 {
@@ -817,8 +814,7 @@ loop_edge_freq (loop_tree_node_t loop_node, int regno, bool exit_p)
   return REG_FREQ_FROM_EDGE_FREQ (freq);
 }
 
-/* The function calculates and returns cost of putting allocno A into
-   memory.  */
+/* Calculate and return the cost of putting allocno A into memory.  */
 static int
 calculate_allocno_spill_cost (allocno_t a)
 {
@@ -855,9 +851,8 @@ calculate_allocno_spill_cost (allocno_t a)
   return cost;
 }
 
-/* The function is used to compare keys in the splay tree used to
-   choose best allocno for spilling.  The best allocno has the minimal
-   key.  */
+/* Compare keys in the splay tree used to choose best allocno for
+   spilling.  The best allocno has the minimal key.  */
 static int
 allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
 {
@@ -879,9 +874,9 @@ allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
   return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
 }
 
-/* The function is used to allocate data of SIZE for the splay trees.
-   We allocate only spay tree roots or splay tree nodes.  If you
-   change this, please rewrite the function.  */
+/* Allocate data of SIZE for the splay trees.  We allocate only spay
+   tree roots or splay tree nodes.  If you change this, please rewrite
+   the function.  */
 static void *
 splay_tree_allocate (int size, void *data ATTRIBUTE_UNUSED)
 {
@@ -890,9 +885,9 @@ splay_tree_allocate (int size, void *data ATTRIBUTE_UNUSED)
   return pool_alloc (splay_tree_node_pool);
 }
 
-/* The function is used to free data NODE for the splay trees.  We
-   allocate and free only spay tree roots or splay tree nodes.  If you
-   change this, please rewrite the function.  */
+/* Free data NODE for the splay trees.  We allocate and free only spay
+   tree roots or splay tree nodes.  If you change this, please rewrite
+   the function.  */
 static void
 splay_tree_free (void *node, void *data ATTRIBUTE_UNUSED)
 {
@@ -1257,8 +1252,8 @@ setup_allocno_left_conflicts_num (allocno_t allocno)
   ALLOCNO_LEFT_CONFLICTS_NUM (allocno) = conflict_allocnos_size;
 }
 
-/* The function put ALLOCNO in a bucket corresponding to its number and
-   size of its conflicting allocnos and hard registers.  */
+/* Put ALLOCNO in a bucket corresponding to its number and size of its
+   conflicting allocnos and hard registers.  */
 static void
 put_allocno_into_bucket (allocno_t allocno)
 {
@@ -1298,9 +1293,9 @@ copy_freq_compare_func (const void *v1p, const void *v2p)
   return cp1->num - cp2->num;
 }
 
-/* The function merges two sets of coalesced allocnos given
-   correspondingly by allocnos A1 and A2 (more accurately merging A2
-   set into A1 set).  */
+/* Merge two sets of coalesced allocnos given correspondingly by
+   allocnos A1 and A2 (more accurately merging A2 set into A1
+   set).  */
 static void
 merge_allocnos (allocno_t a1, allocno_t a2)
 {
@@ -1322,12 +1317,12 @@ merge_allocnos (allocno_t a1, allocno_t a2)
   ALLOCNO_NEXT_COALESCED_ALLOCNO (last) = next;
 }
 
-/* The function returns TRUE if there are conflicting allocnos from
-   two sets of coalesced allocnos given correspondingly by allocnos
-   A1 and A2.  If RELOAD_P is TRUE, we use live ranges to find
-   conflicts because conflicts are represented only for allocnos of
-   the same cover class and during the reload pass we coalesce
-   allocnos for sharing stack memory slots.  */
+/* Return TRUE if there are conflicting allocnos from two sets of
+   coalesced allocnos given correspondingly by allocnos A1 and A2.  If
+   RELOAD_P is TRUE, we use live ranges to find conflicts because
+   conflicts are represented only for allocnos of the same cover class
+   and during the reload pass we coalesce allocnos for sharing stack
+   memory slots.  */
 static bool
 coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2, bool reload_p)
 {
@@ -1466,9 +1461,8 @@ coalesce_allocnos (bool reload_p)
   ira_free (sorted_copies);
 }
 
-/* Function implements Chaitin-Briggs coloring for allocnos in
-   COLORING_ALLOCNO_BITMAP taking into account allocnos in
-   CONSIDERATION_ALLOCNO_BITMAP.  */
+/* Chaitin-Briggs coloring for allocnos in COLORING_ALLOCNO_BITMAP
+   taking into account allocnos in CONSIDERATION_ALLOCNO_BITMAP.  */
 static void
 color_allocnos (void)
 {
@@ -1518,8 +1512,7 @@ color_allocnos (void)
 
 
 
-/* The function outputs information about the loop given by its
-   LOOP_TREE_NODE. */
+/* Output information about the loop given by its LOOP_TREE_NODE. */
 static void
 print_loop_title (loop_tree_node_t loop_tree_node)
 {
@@ -1556,10 +1549,10 @@ print_loop_title (loop_tree_node_t loop_tree_node)
   fprintf (ira_dump_file, "\n");
 }
 
-/* The function does coloring for allocnos inside loop (in extreme
-   case it can be all function) given by the corresponding
-   LOOP_TREE_NODE.  The function is called for each loop during
-   top-down traverse of the loop tree.  */
+/* Color the allocnos inside loop (in the extreme case it can be all
+   of the function) given the corresponding LOOP_TREE_NODE.  The
+   function is called for each loop during top-down traverse of the
+   loop tree.  */
 static void
 color_pass (loop_tree_node_t loop_tree_node)
 {
@@ -1726,8 +1719,8 @@ color_pass (loop_tree_node_t loop_tree_node)
     }
 }
 
-/* The function initialized common data for coloring and calls
-   functions to do Chaitin-Briggs and regional coloring.  */
+/* Initialize the common data for coloring and calls functions to do
+   Chaitin-Briggs and regional coloring.  */
 static void
 do_coloring (void)
 {
@@ -1751,11 +1744,11 @@ do_coloring (void)
 
 
 
-/* The functions moves spill/restore code, which are to be generated
-   in ira-emit.c, to less frequent points (if it is profitable) by
-   reassigning some allocnos (in loop with subloops containing in
-   another loop) to memory which results in longer live-range where
-   the corresponding pseudo-registers will be in memory.  */
+/* Move spill/restore code, which are to be generated in ira-emit.c,
+   to less frequent points (if it is profitable) by reassigning some
+   allocnos (in loop with subloops containing in another loop) to
+   memory which results in longer live-range where the corresponding
+   pseudo-registers will be in memory.  */
 static void
 move_spill_restore (void)
 {
@@ -1945,8 +1938,8 @@ start_allocno_priorities (allocno_t *consideration_allocnos, int n)
     }
 }
 
-/* The function is used to sort allocnos according to their priorities
-   which are calculated analogous to ones in file `global.c'.  */
+/* Sort allocnos according to their priorities which are calculated
+   analogous to ones in file `global.c'.  */
 static int
 allocno_priority_compare_func (const void *v1p, const void *v2p)
 {
@@ -2053,9 +2046,9 @@ reassign_conflict_allocnos (int start_regno)
 static int *regno_coalesced_allocno_cost;
 static int *regno_coalesced_allocno_num;
 
-/* The function is used to sort pseudos according frequencies of
-   coalesced allocno sets they belong to (putting most frequently ones
-   first), and according to coalesced allocno set order numbers.  */
+/* Sort pseudos according frequencies of coalesced allocno sets they
+   belong to (putting most frequently ones first), and according to
+   coalesced allocno set order numbers.  */
 static int
 coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
 {
@@ -2076,9 +2069,9 @@ coalesced_pseudo_reg_freq_compare (const void *v1p, const void *v2p)
    It is used for sorting pseudo registers.  */
 static unsigned int *regno_max_ref_width;
 
-/* The function is used to sort pseudos according their slot numbers
-  (putting ones with smaller numbers first, or last when the frame
-  pointer is not needed).  */
+/* Sort pseudos according their slot numbers (putting ones with
+  smaller numbers first, or last when the frame pointer is not
+  needed).  */
 static int
 coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 {
@@ -2148,12 +2141,11 @@ setup_coalesced_allocno_costs_and_nums (int *pseudo_regnos, int n)
     }
 }
 
-/* The function collects spilled allocnos representing coalesced
-   allocno sets (the first coalesced allocno).  The collected allocnos
-   are returned through array SPILLED_COALESCED_ALLOCNOS.  The
-   function returns the number of the collected allocnos.  The
-   allocnos are given by their regnos in array PSEUDO_REGNOS of length
-   N.  */
+/* Collect spilled allocnos representing coalesced allocno sets (the
+   first coalesced allocno).  The collected allocnos are returned
+   through array SPILLED_COALESCED_ALLOCNOS.  The function returns the
+   number of the collected allocnos.  The allocnos are given by their
+   regnos in array PSEUDO_REGNOS of length N.  */
 static int
 collect_spilled_coalesced_allocnos (int *pseudo_regnos, int n,
 				    allocno_t *spilled_coalesced_allocnos)
@@ -2173,11 +2165,11 @@ collect_spilled_coalesced_allocnos (int *pseudo_regnos, int n,
   return num;
 }
 
-/* We have coalesced allocnos involving in copies.  This function
-   coalesces allocnos further in order to share the same memory stack
-   slot.  Allocnos representing sets of allocnos coalesced before the
-   call are given in array SPILLED_COALESCED_ALLOCNOS of length NUM.
-   Return TRUE if some allocnos were coalesced in the function.  */
+/* We have coalesced allocnos involving in copies.  Coalesce allocnos
+   further in order to share the same memory stack slot.  Allocnos
+   representing sets of allocnos coalesced before the call are given
+   in array SPILLED_COALESCED_ALLOCNOS of length NUM.  Return TRUE if
+   some allocnos were coalesced in the function.  */
 static bool
 coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
 {
@@ -2218,11 +2210,11 @@ coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
   return merged_p;
 }
 
-/* The function sorts pseudo-register numbers in array PSEUDO_REGNOS
-   of length N for subsequent assigning stack slots to them in the
-   reload pass.  To do this we coalesce spilled allocnos first to
-   decrease the number of memory-memory move insns.  This function is
-   called by the reload.  */
+/* Sort pseudo-register numbers in array PSEUDO_REGNOS of length N for
+   subsequent assigning stack slots to them in the reload pass.  To do
+   this we coalesce spilled allocnos first to decrease the number of
+   memory-memory move insns.  This function is called by the
+   reload.  */
 void
 sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
 			   unsigned int *reg_max_ref_width)
@@ -2325,7 +2317,7 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
 /* This page contains code used by the reload pass to improve the
    final code.  */
 
-/* The function is called from the reload pass to mark changes in the
+/* The function is called from reload to mark changes in the
    allocation of REGNO made by the reload.  Remember that reg_renumber
    reflects the change result.  */
 void
@@ -2371,8 +2363,8 @@ mark_allocation_change (int regno)
   overall_cost += cost;
 }
 
-/* This function is called when the reload deletes memory-memory move.
-   In this case we marks that the allocation of the corresponding
+/* This function is called when reload deletes memory-memory move.  In
+   this case we marks that the allocation of the corresponding
    allocnos should be not changed in future.  Otherwise we risk to get
    a wrong code.  */
 void
@@ -2388,9 +2380,9 @@ mark_memory_move_deletion (int dst_regno, int src_regno)
   ALLOCNO_DONT_REASSIGN_P (src) = true;
 }
 
-/* The function tries to assign a hard register (except for
-   FORBIDDEN_REGS) to allocno A and return TRUE in the case of
-   success.  That is an analog of retry_global_alloc for IRA.  */
+/* Try to assign a hard register (except for FORBIDDEN_REGS) to
+   allocno A and return TRUE in the case of success.  That is an
+   analog of retry_global_alloc for IRA.  */
 static bool
 allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
 {
@@ -2444,8 +2436,8 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
   return reg_renumber[regno] >= 0;
 }
 
-/* The function is used to sort pseudos according their usage
-   frequencies (putting most frequently ones first).  */
+/* Sort pseudos according their usage frequencies (putting most
+   frequently ones first).  */
 static int
 pseudo_reg_compare (const void *v1p, const void *v2p)
 {
@@ -2458,14 +2450,14 @@ pseudo_reg_compare (const void *v1p, const void *v2p)
   return regno1 - regno2;
 }
 
-/* The function tries to allocate hard registers to
-   SPILLED_PSEUDO_REGS (there are NUM of them) or spilled pseudos
-   conflicting with pseudos in SPILLED_PSEUDO_REGS.  It returns TRUE
-   and update SPILLED, if the allocation has been changed.  The
-   function doesn't use BAD_SPILL_REGS and hard registers in
-   PSEUDO_FORBIDDEN_REGS and PSEUDO_PREVIOUS_REGS for the
-   corresponding pseudos.  The function is called by the reload pass
-   at the end of each reload iteration.  */
+/* Try to allocate hard registers to SPILLED_PSEUDO_REGS (there are
+   NUM of them) or spilled pseudos conflicting with pseudos in
+   SPILLED_PSEUDO_REGS.  Return TRUE and update SPILLED, if the
+   allocation has been changed.  The function doesn't use
+   BAD_SPILL_REGS and hard registers in PSEUDO_FORBIDDEN_REGS and
+   PSEUDO_PREVIOUS_REGS for the corresponding pseudos.  The function
+   is called by the reload pass at the end of each reload
+   iteration.  */
 bool
 reassign_pseudos (int *spilled_pseudo_regs, int num,
 		  HARD_REG_SET bad_spill_regs,
@@ -2561,9 +2553,9 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
   return changed_p;
 }
 
-/* The function is called by the reload pass and returns already
-   allocated stack slot (if any) for REGNO with given INHERENT_SIZE
-   and TOTAL_SIZE.  In the case of failure to find a slot which can be
+/* The function is called by reload and returns already allocated
+   stack slot (if any) for REGNO with given INHERENT_SIZE and
+   TOTAL_SIZE.  In the case of failure to find a slot which can be
    used for REGNO, the function returns NULL.  */
 rtx
 reuse_stack_slot (int regno, unsigned int inherent_size,
@@ -2674,9 +2666,9 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
   return x;
 }
 
-/* The function is called by the reload pass every time when a new
-   stack slot X with TOTAL_SIZE was allocated for REGNO.  We store
-   this info for subsequent reuse_stack_slot calls.  */
+/* This is called by reload every time a new stack slot X with
+   TOTAL_SIZE was allocated for REGNO.  We store this info for
+   subsequent reuse_stack_slot calls.  */
 void
 mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
 {
@@ -2805,10 +2797,10 @@ better_spill_reload_regno_p (int *regnos, int *other_regnos,
 
 
 
-/* The function returns (through CALL_CLOBBERED_REGS) hard registers
-   changed by all function calls inside REGNO live range.  The
-   function is used to improve code for saving/restore callee-clobbered
-   hard registers around calls (see caller-saves.c).  */
+/* Return (through CALL_CLOBBERED_REGS) hard registers changed by all
+   function calls inside REGNO live range.  This is used to improve
+   code for saving/restore callee-clobbered hard registers around
+   calls (see caller-saves.c).  */
 void
 collect_pseudo_call_clobbered_regs (int regno,
 				    HARD_REG_SET (*call_clobbered_regs))
@@ -2874,8 +2866,8 @@ ira_color (void)
 /* This page contains a simple register allocator without usage of
    allocno conflicts.  This is used for fast allocation for -O0.  */
 
-/* The function does register allocation not using allocno conflicts.
-   It uses only allocno live ranges.  The algorithm is close to Chow's
+/* Do register allocation by not using allocno conflicts.  It uses
+   only allocno live ranges.  The algorithm is close to Chow's
    priority coloring.  */
 void
 ira_fast_allocation (void)

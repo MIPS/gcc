@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
    pseudo-register conflicts.  */
 
 /* Program points are enumerated by number from range 0..MAX_POINT-1.
-   There are approximately tow times more program points than insns.
+   There are approximately two times more program points than insns.
    One program points correspond points between subsequent insns and
    other ones correspond to points after usage of input operands but
    before setting the output operands in insns.  */
@@ -122,9 +122,9 @@ update_allocno_pressure_excess_length (allocno_t a)
   ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a) += curr_point - start + 1;
 }
 
-/* The function processing death of register REGNO.  It updates live
-   hard regs or finish the current live range for the allocno
-   corresponding to REGNO.  */
+/* Process the death of register REGNO.  This updates hard_regs_live
+   or finishes the current live range for the allocno corresponding to
+   REGNO.  */
 static void
 make_regno_dead (int regno)
 {
@@ -145,8 +145,8 @@ make_regno_dead (int regno)
   update_allocno_pressure_excess_length (a);
 }
 
-/* The function processing birth and, right after then, death of
-   register REGNO.  */
+/* Process the birth and, right after then, death of register
+   REGNO.  */
 static void
 make_regno_born_and_dead (int regno)
 {
@@ -158,10 +158,10 @@ make_regno_born_and_dead (int regno)
    basic block.  */
 static int curr_reg_pressure[N_REG_CLASSES];
 
-/* The function marks allocno A as currently living and updates
-   current register pressure, maximal register pressure for the
-   current BB, start point of the register pressure excess, and
-   conflicting hard registers of A.  */
+/* Mark allocno A as currently living and update current register
+   pressure, maximal register pressure for the current BB, start point
+   of the register pressure excess, and conflicting hard registers of
+   A.  */
 static void
 set_allocno_live (allocno_t a)
 {
@@ -184,10 +184,9 @@ set_allocno_live (allocno_t a)
     curr_bb_node->reg_pressure[cover_class] = curr_reg_pressure[cover_class];
 }
 
-/* The function marks allocno A as currently not living and updates
-   current register pressure, start point of the register pressure
-   excess, and register pressure excess length for living
-   allocnos.  */
+/* Mark allocno A as currently not living and update current register
+   pressure, start point of the register pressure excess, and register
+   pressure excess length for living allocnos.  */
 static void
 clear_allocno_live (allocno_t a)
 {
@@ -385,9 +384,9 @@ mark_reg_death (rtx reg)
     }
 }
 
-/* The function checks that CONSTRAINTS permits to use only one hard
-   register.  If it is so, the function returns the class of the hard
-   register.  Otherwise it returns NO_REGS.  */
+/* Checks that CONSTRAINTS permits to use only one hard register.  If
+   it is so, the function returns the class of the hard register.
+   Otherwise it returns NO_REGS.  */
 static enum reg_class
 single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 {
@@ -529,10 +528,10 @@ single_reg_operand_class (int op_num)
 			   recog_data.operand[op_num], NULL_RTX);
 }
 
-/* The function processes input operands, if IN_P, or output operands
-   otherwise of the current insn with FREQ to find allocno which can
-   use only one hard register and makes other currently living
-   allocnos conflicting with the hard register.  */
+/* Processes input operands, if IN_P, or output operands otherwise of
+   the current insn with FREQ to find allocno which can use only one
+   hard register and makes other currently living allocnos conflicting
+   with the hard register.  */
 static void
 process_single_reg_class_operands (bool in_p, int freq)
 {
@@ -604,11 +603,10 @@ process_single_reg_class_operands (bool in_p, int freq)
     }
 }
 
-/* The function processes insns of the basic block given by its
-   LOOP_TREE_NODE to update allocno live ranges, allocno hard register
-   conflicts, intersected calls, and register pressure info for
-   allocnos for the basic block for and regions containing the basic
-   block.  */
+/* Process insns of the basic block given by its LOOP_TREE_NODE to
+   update allocno live ranges, allocno hard register conflicts,
+   intersected calls, and register pressure info for allocnos for the
+   basic block for and regions containing the basic block.  */
 static void
 process_bb_node_lives (loop_tree_node_t loop_tree_node)
 {
@@ -847,8 +845,7 @@ process_bb_node_lives (loop_tree_node_t loop_tree_node)
       }
 }
 
-/* The function creates and sets up START_POINT_RANGES and
-   FINISH_POINT_RANGES.  */
+/* Create and set up START_POINT_RANGES and FINISH_POINT_RANGES.  */
 static void
 create_start_finish_chains (void)
 {
@@ -874,9 +871,9 @@ create_start_finish_chains (void)
     }
 }
 
-/* The function is used to rebuild START_POINT_RANGES and
-   FINISH_POINT_RANGES after new live ranges and program points were
-   added as a result if new insn generation.  */
+/* Rebuild START_POINT_RANGES and FINISH_POINT_RANGES after new live
+   ranges and program points were added as a result if new insn
+   generation.  */
 void
 rebuild_start_finish_chains (void)
 {
@@ -885,7 +882,7 @@ rebuild_start_finish_chains (void)
   create_start_finish_chains ();
 }
 
-/* The function prints live ranges R to file F.  */
+/* Print live ranges R to file F.  */
 void
 print_live_range_list (FILE *f, allocno_live_range_t r)
 {
@@ -894,14 +891,14 @@ print_live_range_list (FILE *f, allocno_live_range_t r)
   fprintf (f, "\n");
 }
 
-/* The function prints live ranges R to stderr.  */
+/* Print live ranges R to stderr.  */
 void
 debug_live_range_list (allocno_live_range_t r)
 {
   print_live_range_list (stderr, r);
 }
 
-/* The function prints live ranges of allocno A to file F.  */
+/* Print live ranges of allocno A to file F.  */
 static void
 print_allocno_live_ranges (FILE *f, allocno_t a)
 {
@@ -909,14 +906,14 @@ print_allocno_live_ranges (FILE *f, allocno_t a)
   print_live_range_list (f, ALLOCNO_LIVE_RANGES (a));
 }
 
-/* The function prints live ranges of allocno A to stderr.  */
+/* Print live ranges of allocno A to stderr.  */
 void
 debug_allocno_live_ranges (allocno_t a)
 {
   print_allocno_live_ranges (stderr, a);
 }
 
-/* The function prints live ranges of all allocnos to file F.  */
+/* Print live ranges of all allocnos to file F.  */
 static void
 print_live_ranges (FILE *f)
 {
@@ -927,19 +924,19 @@ print_live_ranges (FILE *f)
     print_allocno_live_ranges (f, a);
 }
 
-/* The function prints live ranges of all allocnos to stderr.  */
+/* Print live ranges of all allocnos to stderr.  */
 void
 debug_live_ranges (void)
 {
   print_live_ranges (stderr);
 }
 
-/* The function propagates new info about allocno A (see comments
-   about accumulated info in allocno definition) to the corresponding
-   allocno on upper loop tree level.  So allocnos on upper levels
-   accumulate information about the corresponding allocnos in nested
-   regions.  The new info means allocno info finally calculated in
-   this file.  */
+/* Propagate new info about allocno A (see comments about accumulated
+   info in allocno definition) to the corresponding allocno on upper
+   loop tree level.  So allocnos on upper levels accumulate
+   information about the corresponding allocnos in nested regions.
+   The new info means allocno info finally calculated in this
+   file.  */
 static void
 propagate_new_allocno_info (allocno_t a)
 {
@@ -970,8 +967,8 @@ propagate_new_allocno_info (allocno_t a)
     }
 }
 
-/* The function propagates new info about allocnos to the
-   corresponding allocnos on upper loop tree level.  */
+/* Propagate new info about allocnos to the corresponding allocnos on
+   upper loop tree level.  */
 static void
 propagate_new_info (void)
 {
@@ -1006,8 +1003,7 @@ create_allocno_live_ranges (void)
   sparseset_free (allocnos_live);
 }
 
-/* The function frees arrays START_POINT_RANGES and
-   FINISH_POINT_RANGES.  */
+/* Free arrays START_POINT_RANGES and FINISH_POINT_RANGES.  */
 void
 finish_allocno_live_ranges (void)
 {

@@ -60,8 +60,7 @@ static INT_TYPE **conflicts;
 
 
 
-/* The function builds allocno conflict table by processing allocno
-   live ranges.  */
+/* Build allocno conflict table by processing allocno live ranges.  */
 static void
 build_conflict_bit_table (void)
 {
@@ -135,8 +134,7 @@ build_conflict_bit_table (void)
 
 
 
-/* The function returns TRUE, if the operand constraint STR is
-   commutative.  */
+/* Return TRUE if the operand constraint STR is commutative.  */
 static bool
 commutative_constraint_p (const char *str)
 {
@@ -164,12 +162,11 @@ commutative_constraint_p (const char *str)
   return false;
 }
 
-/* The function returns number of the operand which should be the same
-   in any case as operand with number OP_NUM (or negative value if
-   there is no such operand).  If USE_COMMUT_OP_P is TRUE, the
-   function makes temporarily commutative operand exchange before
-   this.  The function takes only really possible alternatives into
-   consideration.  */
+/* Return the number of the operand which should be the same in any
+   case as operand with number OP_NUM (or negative value if there is
+   no such operand).  If USE_COMMUT_OP_P is TRUE, the function makes
+   temporarily commutative operand exchange before this.  The function
+   takes only really possible alternatives into consideration.  */
 static int
 get_dup_num (int op_num, bool use_commut_op_p)
 {
@@ -280,8 +277,8 @@ get_dup_num (int op_num, bool use_commut_op_p)
   return dup;
 }
 
-/* The function returns operand which should be in any case the same
-   as operand with number OP_NUM.  If USE_COMMUT_OP_P is TRUE, the
+/* Return the operand which should be, in any case, the same as
+   operand with number OP_NUM.  If USE_COMMUT_OP_P is TRUE, the
    function makes temporarily commutative operand exchange before
    this.  */
 static rtx
@@ -358,8 +355,8 @@ process_regs_for_copy (rtx reg1, rtx reg2, rtx insn, int freq)
   return true;
 }
 
-/* The function processes all output registers of the current insn and
-   input register REG (its operand number OP_NUM) which dies in the
+/* Process all of the output registers of the current insn and
+   the input register REG (its operand number OP_NUM) which dies in the
    insn as if there were a move insn between them with frequency
    FREQ.  */
 static void
@@ -381,9 +378,9 @@ process_reg_shuffles (rtx reg, int op_num, int freq)
     }
 }
 
-/* The function processes INSN and create allocno copies if
-   necessary.  For example, it might be because INSN is a
-   pseudo-register move or INSN is two operand insn.  */
+/* Process INSN and create allocno copies if necessary.  For example,
+   it might be because INSN is a pseudo-register move or INSN is two
+   operand insn.  */
 static void
 add_insn_allocno_copies (rtx insn)
 {
@@ -432,8 +429,7 @@ add_insn_allocno_copies (rtx insn)
     }
 }
 
-/* The function adds copies originated from BB given by
-   LOOP_TREE_NODE.  */
+/* Add copies originated from BB given by LOOP_TREE_NODE.  */
 static void
 add_copies (loop_tree_node_t loop_tree_node)
 {
@@ -448,10 +444,9 @@ add_copies (loop_tree_node_t loop_tree_node)
       add_insn_allocno_copies (insn);
 }
 
-/* The function propagates copy info for allocno A to the
-   corresponding allocno on upper loop tree level.  So allocnos on
-   upper levels accumulate information about the corresponding
-   allocnos in nested regions.  */
+/* Propagate copy info for allocno A to the corresponding allocno on
+   upper loop tree level.  So allocnos on upper levels accumulate
+   information about the corresponding allocnos in nested regions.  */
 static void
 propagate_allocno_copy_info (allocno_t a)
 {
@@ -486,8 +481,8 @@ propagate_allocno_copy_info (allocno_t a)
     }
 }
 
-/* The function propagates copy info to the corresponding allocnos on
-   upper loop tree level.  */
+/* Propagate copy info to the corresponding allocnos on upper loop
+   tree level.  */
 static void
 propagate_copy_info (void)
 {
@@ -501,9 +496,9 @@ propagate_copy_info (void)
       propagate_allocno_copy_info (a);
 }
 
-/* The function returns TRUE if live ranges of allocnos A1 and A2
-   intersect.  It is used to find a conflict for new allocnos or
-   allocnos with the different cover classes.  */
+/* Return TRUE if live ranges of allocnos A1 and A2 intersect.  It is
+   used to find a conflict for new allocnos or allocnos with the
+   different cover classes.  */
 bool
 allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
 {
@@ -529,9 +524,9 @@ allocno_live_ranges_intersect_p (allocno_t a1, allocno_t a2)
   return false;
 }
 
-/* The function returns TRUE if live ranges of pseudo-registers REGNO1
-   and REGNO2 intersect.  It should be used when there is only one
-   region.  Currently it is used during the reload work.  */
+/* Return TRUE if live ranges of pseudo-registers REGNO1 and REGNO2
+   intersect.  This should be used when there is only one region.
+   Currently this is used during reload.  */
 bool
 pseudo_live_ranges_intersect_p (int regno1, int regno2)
 {
@@ -577,9 +572,8 @@ remove_conflict_allocno_copies (void)
   VEC_free (copy_t, heap, conflict_allocno_copy_vec);
 }
 
-/* The function builds conflict vectors or bit conflict vectors
-   (whatever is more profitable) of all allocnos from the conflict
-   table.  */
+/* Build conflict vectors or bit conflict vectors (whatever is more
+   profitable) of all allocnos from the conflict table.  */
 static void
 build_allocno_conflicts (void)
 {
@@ -663,8 +657,8 @@ build_allocno_conflicts (void)
 
 
 
-/* The function propagates information about allocnos modified inside
-   the loop given by its LOOP_TREE_NODE to its parent.  */
+/* Propagate information about allocnos modified inside the loop given
+   by its LOOP_TREE_NODE to its parent.  */
 static void
 propagate_modified_regnos (loop_tree_node_t loop_tree_node)
 {
@@ -677,7 +671,7 @@ propagate_modified_regnos (loop_tree_node_t loop_tree_node)
 
 
 
-/* The function prints hard reg set SET with TITLE to FILE.  */
+/* Print hard reg set SET with TITLE to FILE.  */
 static void
 print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
 {
@@ -706,8 +700,8 @@ print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
   fprintf (file, "\n");
 }
 
-/* The function prints information about allocno or only regno (if
-   REG_P) conflicts to FILE.  */
+/* Print information about allocno or only regno (if REG_P) conflicts
+   to FILE.  */
 static void
 print_conflicts (FILE *file, bool reg_p)
 {
@@ -767,8 +761,8 @@ print_conflicts (FILE *file, bool reg_p)
   fprintf (file, "\n");
 }
 
-/* The function prints information about allocno or only regno (if
-   REG_P) conflicts to stderr.  */
+/* Print information about allocno or only regno (if REG_P) conflicts
+   to stderr.  */
 void
 debug_conflicts (bool reg_p)
 {

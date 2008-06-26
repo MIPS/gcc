@@ -76,7 +76,7 @@ static struct move **at_bb_start, **at_bb_end;
    different outside the loop.  */
 static int max_regno_before_changing;
 
-/* The function returns new move of allocnos TO and FROM.  */
+/* Return new move of allocnos TO and FROM.  */
 static struct move *
 create_move (allocno_t to, allocno_t from)
 {
@@ -93,7 +93,7 @@ create_move (allocno_t to, allocno_t from)
   return move;
 }
 
-/* The function frees memory for MOVE and its dependencies.  */
+/* Free memory for MOVE and its dependencies.  */
 static void
 free_move (struct move *move)
 {
@@ -102,8 +102,7 @@ free_move (struct move *move)
   ira_free (move);
 }
 
-/* The function frees memory for list of the moves given by its
-   HEAD.  */
+/* Free memory for list of the moves given by its HEAD.  */
 static void
 free_move_list (struct move *head)
 {
@@ -116,9 +115,8 @@ free_move_list (struct move *head)
     }
 }
 
-/* The function returns TRUE if the the move list LIST1 and LIST2
-   are equal (two moves are equal if they involve the same
-   allocnos).  */
+/* Return TRUE if the the move list LIST1 and LIST2 are equal (two
+   moves are equal if they involve the same allocnos).  */
 static bool
 eq_move_lists_p (struct move *list1, struct move *list2)
 {
@@ -171,8 +169,8 @@ change_regs (rtx *loc)
   return result;
 }
 
-/* The function attaches MOVE to the edge E.  The move is attached to
-   the head of the list if HEAD_P is TRUE.  */
+/* Attach MOVE to the edge E.  The move is attached to the head of the
+   list if HEAD_P is TRUE.  */
 static void
 add_to_edge_list (edge e, struct move *move, bool head_p)
 {
@@ -192,8 +190,8 @@ add_to_edge_list (edge e, struct move *move, bool head_p)
     }
 }
 
-/* The function creates and returns new pseudo-register with the same
-   attributes as ORIGINAL_REG.  */
+/* Create and return new pseudo-register with the same attributes as
+   ORIGINAL_REG.  */
 static rtx
 create_new_reg (rtx original_reg)
 {
@@ -210,8 +208,8 @@ create_new_reg (rtx original_reg)
   return new_reg;
 }
 
-/* The function returns TRUE if loop given by SUBNODE inside the
-   loop given by NODE.  */
+/* Eeturn TRUE if loop given by SUBNODE inside the loop given by
+   NODE.  */
 static bool
 subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
 {
@@ -221,9 +219,8 @@ subloop_tree_node_p (loop_tree_node_t subnode, loop_tree_node_t node)
   return false;
 }
 
-/* The function sets up member `reg' to REG for allocnos which has the
-   same regno as ALLOCNO and which are inside the loop corresponding to
-   ALLOCNO. */
+/* Set up member `reg' to REG for allocnos which has the same regno as
+   ALLOCNO and which are inside the loop corresponding to ALLOCNO. */
 static void
 set_allocno_reg (allocno_t allocno, rtx reg)
 {
@@ -257,10 +254,10 @@ set_allocno_reg (allocno_t allocno, rtx reg)
     }
 }
 
-/* The following function returns TRUE if move of SRC_ALLOCNO to
-   DEST_ALLOCNO does not change value of the destination.  One possible
-   reason for this is the situation when SRC_ALLOCNO is not modified
-   in the corresponding loop.  */
+/* Return TRUE if move of SRC_ALLOCNO to DEST_ALLOCNO does not change
+   value of the destination.  One possible reason for this is the
+   situation when SRC_ALLOCNO is not modified in the corresponding
+   loop.  */
 static bool
 not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
 {
@@ -282,9 +279,9 @@ not_modified_p (allocno_t src_allocno, allocno_t dest_allocno)
   return node != NULL;
 }
 
-/* The function generates and attaches moves to the edge E.  It looks
-   at the final regnos of allocnos living on the edge with the same
-   original regno to figure out when moves should be generated.  */
+/* Generate and attach moves to the edge E.  This looks at the final
+   regnos of allocnos living on the edge with the same original regno
+   to figure out when moves should be generated.  */
 static void
 generate_edge_moves (edge e)
 {
@@ -343,8 +340,8 @@ static bitmap used_regno_bitmap;
    with a common parent.  */
 static bitmap renamed_regno_bitmap;
 
-/* The following function changes (if necessary) pseudo-registers
-   inside loop given by loop tree node NODE.  */
+/* Change (if necessary) pseudo-registers inside loop given by loop
+   tree node NODE.  */
 static void
 change_loop (loop_tree_node_t node)
 {
@@ -441,7 +438,7 @@ change_loop (loop_tree_node_t node)
     }
 }
 
-/* The function processes to set up flag somewhere_renamed_p.  */
+/* Process to set up flag somewhere_renamed_p.  */
 static void
 set_allocno_somewhere_renamed_p (void)
 {
@@ -458,8 +455,8 @@ set_allocno_somewhere_renamed_p (void)
     }
 }
 
-/* The function returns TRUE if move lists on all edges given in
-   vector VEC are equal.  */
+/* Return TRUE if move lists on all edges given in vector VEC are
+   equal.  */
 static bool
 eq_edge_move_lists_p (VEC(edge,gc) *vec)
 {
@@ -473,10 +470,9 @@ eq_edge_move_lists_p (VEC(edge,gc) *vec)
   return true;
 }
 
-/* The function looks at all entry edges (if START_P) or exit edges of
-   basic block BB and puts move lists at the BB start or end if it is
-   possible.  In other words, it decreases code duplication of
-   allocno moves.  */
+/* Look at all entry edges (if START_P) or exit edges of basic block
+   BB and put move lists at the BB start or end if it is possible.  In
+   other words, this decreases code duplication of allocno moves.  */
 static void
 unify_moves (basic_block bb, bool start_p)
 {
@@ -551,10 +547,10 @@ traverse_moves (move_t move)
   VEC_safe_push (move_t, heap, move_vec, move);
 }
 
-/* The function removes unnecessary moves in the LIST, makes
-   topological sorting, and removes cycles on hard reg dependencies by
-   introducing new allocnos assigned to memory and additional moves.
-   It returns the result move list.  */
+/* Remove unnecessary moves in the LIST, makes topological sorting,
+   and removes cycles on hard reg dependencies by introducing new
+   allocnos assigned to memory and additional moves.  It returns the
+   result move list.  */
 static move_t
 modify_move_list (move_t list)
 {
@@ -679,8 +675,8 @@ modify_move_list (move_t list)
   return first;
 }
 
-/* The function generates RTX move insns from the move list LIST.  It
-   updates allocation cost using move execution frequency FREQ.  */
+/* Generate RTX move insns from the move list LIST.  This updates
+   allocation cost using move execution frequency FREQ.  */
 static rtx
 emit_move_list (move_t list, int freq)
 {
@@ -734,8 +730,8 @@ emit_move_list (move_t list, int freq)
   return result;
 }
 
-/* The function generates RTX move insns from move lists attached to
-   basic blocks and edges.  */
+/* Generate RTX move insns from move lists attached to basic blocks
+   and edges.  */
 static void
 emit_moves (void)
 {
@@ -810,10 +806,10 @@ update_costs (allocno_t a, bool read_p, int freq)
     }
 }
 
-/* The function processes moves from LIST with execution FREQ to add
-   ranges, copies, and modify costs for allocnos involved in the
-   moves.  All regnos living through the list is in LIVE_THROUGH, and
-   the loop tree node used to find corresponding allocnos is NODE.  */
+/* Process moves from LIST with execution FREQ to add ranges, copies,
+   and modify costs for allocnos involved in the moves.  All regnos
+   living through the list is in LIVE_THROUGH, and the loop tree node
+   used to find corresponding allocnos is NODE.  */
 static void
 add_range_and_copies_from_move_list (move_t list, loop_tree_node_t node,
 				     bitmap live_through, int freq)
@@ -912,8 +908,8 @@ add_range_and_copies_from_move_list (move_t list, loop_tree_node_t node,
     }
 }
 
-/* The function processes all move list to add ranges, conflicts,
-   copies, and modify costs for allocnos involved in the moves.  */
+/* Process all move list to add ranges, conflicts, copies, and modify
+   costs for allocnos involved in the moves.  */
 static void
 add_ranges_and_copies (void)
 {
