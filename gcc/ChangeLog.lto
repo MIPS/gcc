@@ -1,3 +1,9 @@
+2008-06-26  Rafael Espindola  <espindola@google.com>
+
+	* tree-ssa-forwprop.c
+	(forward_propagate_addr_into_variable_array_index): Check if
+	the size of an array is NULL.
+
 2008-06-25  Rafael Espindola  <espindola@google.com>
 
 	* calls.c (must_pass_in_stack_var_size_or_pad): Don't check if

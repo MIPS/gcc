@@ -512,11 +512,14 @@ forward_propagate_addr_into_variable_array_index (tree offset,
 						  tree def_rhs, tree use_stmt)
 {
   tree index;
+  tree pointer_type = TREE_TYPE (def_rhs);
+  tree array_type = TREE_TYPE (pointer_type);
+  tree unit_size = TYPE_SIZE_UNIT (array_type);
 
   /* Try to find an expression for a proper index.  This is either
      a multiplication expression by the element size or just the
      ssa name we came along in case the element size is one.  */
-  if (integer_onep (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
+  if (unit_size && integer_onep (unit_size))
     index = offset;
   else
     {
@@ -536,7 +539,7 @@ forward_propagate_addr_into_variable_array_index (tree offset,
       if (TREE_CODE (offset) != MULT_EXPR
 	  || TREE_CODE (TREE_OPERAND (offset, 1)) != INTEGER_CST
 	  || !simple_cst_equal (TREE_OPERAND (offset, 1),
-				TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (def_rhs)))))
+				unit_size))
 	return false;
 
       /* The first operand to the MULT_EXPR is the desired index.  */
