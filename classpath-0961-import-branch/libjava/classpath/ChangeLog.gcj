@@ -1,3 +1,9 @@
+2008-06-27  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/m4/ac_prog_javac.m4: Disable check for JAVAC, when
+	not configured with --enable-java-maintainer-mode.
+	* aclocal.m4, configure: Regenerate.
+
 2008-06-07  Matthias Klose  <doko@ubuntu.com>
 
 	* native/jni/gstreamer-peer/Makefile.am: Do not link with

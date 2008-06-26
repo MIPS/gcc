@@ -42,6 +42,10 @@ else
         test "x$JAVAC" = x && AC_CHECK_PROGS(JAVAC, ["ecj$EXEEXT -warn:-deprecation,serial,unusedImport"] ["ecj-3.3$EXEEXT -warn:-deprecation,serial,unusedImport"] ["ecj-3.2$EXEEXT -warn:-deprecation,serial,unusedImport"] ["javac$EXEEXT -Xlint:unchecked"] "gcj$EXEEXT -C", $JAVAPREFIX)
 fi
 test "x$JAVAC" = x && AC_MSG_ERROR([no acceptable Java compiler found in \$PATH])
+dnl GCJ LOCAL
+if test "$enable_java_maintainer_mode" = yes; then
 AC_PROG_JAVAC_WORKS
+fi
+dnl END GCJ LOCAL
 AC_PROVIDE([$0])dnl
 ])
