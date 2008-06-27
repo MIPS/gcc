@@ -1,3 +1,16 @@
+2008-06-27  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* dwarf2out.c (dw_fde_node): Remove drap_regnum, uses_drap
+	and drap_reg_saved.  Add cfa_uses_expression.
+	(reg_save_with_expression): Removed.
+	(add_cfi): Updated.  Don't redefine CFA when CFA was defined
+	with DW_CFA_def_cfa_expression.
+	(reg_save): Moved before build_cfa_loc.  Handle stack
+	alignment.
+	(dwarf2out_frame_debug_expr): Update Rule 18 and 19.
+	(int_loc_descriptor): Moved before output_cfa_loc.
+	(compute_frame_pointer_to_fb_displacement): Update assert.
+
 2008-06-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (expand_stack_alignment): Don't set need_drap
