@@ -6588,12 +6588,6 @@ ix86_update_stack_boundary (void)
        ? ix86_user_incoming_stack_boundary
        : ix86_default_incoming_stack_boundary);
 
-  /* The incoming stack of a function using eh_return should be
-     properly aligned.  We will do sanity check for stack realign
-     with eh_return in ix86_expand_epilogue.  */
-  if (crtl->calls_eh_return)
-    ix86_incoming_stack_boundary = PREFERRED_STACK_BOUNDARY;
-
   /* Incoming stack alignment can be changed on individual functions
      via force_align_arg_pointer attribute.  We use the smallest
      incoming stack boundary.  */

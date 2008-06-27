@@ -1,3 +1,8 @@
+2008-06-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_update_stack_boundary): Don't check
+	eh_return.
+
 2008-06-27  Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* dwarf2out.c (dw_fde_node): Remove drap_regnum, uses_drap
