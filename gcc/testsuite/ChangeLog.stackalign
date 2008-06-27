@@ -1,3 +1,8 @@
+2008-06-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36584
+	* gcc.target/i386/stackalign/local-1.c: Remove invalid test.
+
 2008-06-06  Joey Ye  <joey.ye@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
