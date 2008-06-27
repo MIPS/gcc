@@ -1,3 +1,18 @@
+2008-06-27  Rafael Espindola  <espindola@google.com>
+
+	Based on http://gcc.gnu.org/ml/gcc-patches/2007-11/msg00523.html
+	and http://gcc.gnu.org/ml/gcc-patches/2008-03/msg00349.html
+
+	* tree.h (remove_decl_from_map): New.
+	* tree.c (decl_for_uid_map): New.
+	(init_ttree): Initialize decl_for_uid_map.
+	(make_node_stat): call insert_decl_to_uid_decl_map.
+	(insert_decl_to_uid_decl_map): New.
+	(remove_decl_from_map): New.
+	(reset_type_lang_specific): Handle RECORD_TYPE.
+	(reset_lang_specific): New.
+	(free_lang_specifics): Call reset_lang_specific.
+
 2008-06-26  Rafael Espindola  <espindola@google.com>
 
 	* tree-ssa-forwprop.c

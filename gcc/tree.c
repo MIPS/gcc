@@ -113,6 +113,12 @@ static GTY(()) int next_type_uid = 1;
 static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
      htab_t uid2type_map;
 
+/* Mapping from unique DECL_UID to the decl tree node.  */
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t decl_for_uid_map;
+
+static void insert_decl_to_uid_decl_map (tree);
+
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
@@ -268,6 +274,9 @@ init_ttree (void)
 					int_cst_hash_eq, NULL);
   
   int_cst_node = make_node (INTEGER_CST);
+
+  decl_for_uid_map = htab_create_ggc (4093, uid_decl_map_hash,
+				      uid_decl_map_eq, NULL);
 
   uid2type_map = htab_create_ggc (4093, uid_type_map_hash,
 				  uid_type_map_eq, NULL);
@@ -637,6 +646,7 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
+      insert_decl_to_uid_decl_map (t);
 
       break;
 
@@ -740,6 +750,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  SET_DECL_RESTRICT_BASE (t, DECL_GET_RESTRICT_BASE (node));
 	  DECL_BASED_ON_RESTRICT_P (t) = 1;
 	}
+      insert_decl_to_uid_decl_map (t);
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     {
@@ -3437,6 +3448,46 @@ build_nt_call_list (tree fn, tree arglist)
     CALL_EXPR_ARG (t, i) = TREE_VALUE (arglist);
   return t;
 }
+
+/* Insert the declaration NODE into the map mapping its unique uid
+   back to the tree.  */
+
+static void
+insert_decl_to_uid_decl_map (tree node)
+{
+  void **slot;
+  struct tree_decl_minimal key;
+
+  key.uid = DECL_UID (node);
+  slot = htab_find_slot_with_hash (decl_for_uid_map,
+				   &key, DECL_UID (node), INSERT);
+
+  /* We should never try to re-insert a decl with the same uid.
+     ???  The C++ frontend breaks this invariant.  Hopefully in a
+     non-fatal way, so just overwrite the slot in this case.  */
+#if 0
+  gcc_assert (!*slot);
+#endif
+
+  *(tree *)slot = node;
+}
+
+/* Remove the declaration tree DECL from the global UID to decl map.
+   This needs to be called if you ggc_free a decl tree, otherwise
+   garbage collection will take care of it.  */
+
+void
+remove_decl_from_map (tree decl)
+{
+    struct tree_decl_minimal key;
+
+    key.uid = DECL_UID (decl);
+#if ENABLE_CHECKING
+    gcc_assert (decl == htab_find_with_hash (decl_for_uid_map, &key, key.uid));
+#endif
+    htab_remove_elt_with_hash (decl_for_uid_map, &key, key.uid);
+}
+
 
 /* Create a DECL_... node of code CODE, name NAME and data type TYPE.
    We do NOT enter this node in any sort of symbol table.
@@ -3784,7 +3835,8 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   tree decl = *(tree*)slot;
   lang_hooks.reset_lang_specifics (decl);
 
-  if (TREE_CODE (decl) == ARRAY_TYPE)
+  if (TREE_CODE (decl) == ARRAY_TYPE
+      || TREE_CODE (decl) == RECORD_TYPE)
     {
       tree unit_size = TYPE_SIZE_UNIT (decl);
       tree size = TYPE_SIZE (decl);
@@ -3817,12 +3869,33 @@ reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Helper function of free_lang_specifics. */
+static int
+reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
+{
+  tree decl = *(tree*)slot;
+  if (TREE_CODE (decl) == PARM_DECL
+      || TREE_CODE (decl) == FIELD_DECL)
+    {
+      tree unit_size = DECL_SIZE_UNIT (decl);
+      tree size = DECL_SIZE (decl);
+      if ((unit_size && TREE_CODE (unit_size) != INTEGER_CST)
+	  || (size && TREE_CODE (size) != INTEGER_CST))
+	{
+	  DECL_SIZE_UNIT (decl) = NULL_TREE;
+	  DECL_SIZE (decl) = NULL_TREE;
+	}
+  }
+  return 1;
+}
+
 /* Free resources that are used by FE but are not needed once they are done. */
 
 void
 free_lang_specifics (void)
 {
   htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
+  htab_traverse (decl_for_uid_map, reset_lang_specific, NULL);
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,

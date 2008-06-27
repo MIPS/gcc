@@ -5249,6 +5249,10 @@ struct tree_int_map GTY(())
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
 
+/* Map from a DECL_UID to the decl tree.  */
+
+extern void remove_decl_from_map (tree);
+
 /* Map from a tree to initialization/finalization priorities.  */
 
 struct tree_priority_map GTY(())
