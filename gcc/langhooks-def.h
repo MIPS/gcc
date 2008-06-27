@@ -225,16 +225,16 @@ extern tree lhd_make_node (enum tree_code);
 
 /* LTO hooks.  */
 extern void lhd_begin_section (const char *);
-extern void lhd_write_section_data (const void *, size_t);
+extern void lhd_append_data (const void *, size_t, void *);
 extern void lhd_end_section (void);
 
 #define LANG_HOOKS_BEGIN_SECTION lhd_begin_section
-#define LANG_HOOKS_WRITE_SECTION_DATA lhd_write_section_data
+#define LANG_HOOKS_APPEND_DATA lhd_append_data
 #define LANG_HOOKS_END_SECTION lhd_end_section
 
 #define LANG_HOOKS_LTO { \
   LANG_HOOKS_BEGIN_SECTION, \
-  LANG_HOOKS_WRITE_SECTION_DATA, \
+  LANG_HOOKS_APPEND_DATA, \
   LANG_HOOKS_END_SECTION \
 }
 

@@ -33,7 +33,6 @@ Boston, MA 02110-1301, USA.  */
 #include "input.h"
 #include "varray.h"
 #include "hashtab.h"
-#include "langhooks.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
@@ -1966,6 +1965,7 @@ produce_asm (struct output_block *ob, tree fn)
   enum lto_section_type section_type = ob->section_type;
   struct lto_function_header header;
   char *section_name;
+  struct lto_output_stream *header_stream;
 
   if (section_type == LTO_section_function_body)
     {
@@ -1975,7 +1975,7 @@ produce_asm (struct output_block *ob, tree fn)
   else
     section_name = lto_get_section_name (section_type, NULL);
 
-  lang_hooks.lto.begin_section (section_name);
+  lto_begin_section (section_name);
   free (section_name);
 
   /* The entire header is stream computed here.  */
@@ -2023,8 +2023,10 @@ produce_asm (struct output_block *ob, tree fn)
   header.debug_main_size = -1;
 #endif
 
-  lang_hooks.lto.write_section_data (&header,
-				     sizeof (struct lto_function_header));
+  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  lto_output_data_stream (header_stream, &header, sizeof header);
+  lto_write_stream (header_stream);
+  free (header_stream);
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
@@ -2050,7 +2052,7 @@ produce_asm (struct output_block *ob, tree fn)
   lto_write_stream (ob->debug_main_stream);
 #endif
 
-  lang_hooks.lto.end_section ();
+  lto_end_section ();
 }
 
 

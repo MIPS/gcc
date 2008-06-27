@@ -219,9 +219,11 @@ struct lang_hooks_for_lto
   /* Begin a new LTO section named NAME.  */
   void (*begin_section) (const char *name);
 
-  /* Write the data at DATA of length LEN to the currently open LTO
-     section.  */
-  void (*write_section_data) (const void *data, size_t len);
+  /* Write DATA of length LEN to the currently open LTO section.  BLOCK is a
+     pointer to the dynamically allocated memory containing DATA.  The
+     append_data function is responsible for freeing it when it is no longer
+     needed.  */
+  void (*append_data) (const void *data, size_t len, void *block);
 
   /* End the previously begun LTO section.  */
   void (*end_section) (void);

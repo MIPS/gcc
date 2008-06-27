@@ -1,3 +1,50 @@
+2008-06-27  Ollie Wild  <aaw@google.com>
+
+	* lto-elf.c (lto-section-out.h): New include.
+	(struct lto_elf_file): Remove bits member.  Add scn, shstrtab_stream,
+	and data members.
+	(cached_file_attrs): New static variable.
+	(lto_elf_get_shdr, lto_elf_free_shdr): Remove elf_file parameter.
+	Use cached_file_attrs for checking bits.
+	(lto_elf_build_section_table): Remove elf_file argument from
+	lto_elf_get_shdr and lto_elf_free_shdr calls.
+	(DEFINE_INIT_SHDR): New macro.
+	(init_shdr32, init_shdr64): New functions defined via the
+	DEFINE_INIT_SHDR macro.
+	(lto_elf_begin_section_with_type): New function.
+	(lto_elf_begin_section): New function.
+	(lto_elf_append_data): New function.
+	(lto_elf_end_section): New function.
+	(DEFINE_VALIDATE_EHDR): New macro.
+	(validate_ehdr32, validate_ehdr64): New functions defined via the
+	DEFINE_VALIDATE_EHDR macro.
+	(validate_file): New function.
+	(DEFINE_INIT_EHDR): New macro.
+	(init_ehdr32, init_ehdr64): New functions defined via the
+	DEFINE_INIT_EHDR macro.
+	(init_ehdr): New function.
+	(lto_elf_file_open): Add support for writable files.  Move some
+	validation logic to validate_file.
+	(lto_elf_file_close): Add support for writable files.  Write file data
+	and free data blocks.
+	(current_out_file): New static variable.
+	(lto_set_current_out_file): New function.
+	(lto_get_current_out_file): New function.
+	* lto.c (lto_main): Add writable argument to lto_elf_file_open calls.
+	Add temporary initialization for testing ELF serialization.
+	* lto.h (lto-section-out.h): New include.
+	(struct lto_file_struct): Slight modification to comment.
+	(lto_elf_file_open): Add writable parameter.
+	(lto_elf_begin_section): New function declaration.
+	(lto_elf_append_data): New function declaration.
+	(lto_elf_end_section): New function declaration.
+	(lto_set_current_out_file, lto_get_current_out_file): New function
+	declarations.
+	* lto-lang.c (LANG_HOOKS_BEGIN_SECTION): Set as lto_elf_begin_section.
+	(LANG_HOOKS_APPEND_DATA): Set as lto_elf_append_data.
+	(LANG_HOOKS_END_SECTION): Set as lto_elf_end_section.
+	* Make-lang.in (LTO_H): Add lto-section-out.h.
+
 2008-06-12  Ollie Wild  <aaw@google.com>
 
 	* lto.h (struct lto_file_vtable_struct): Remove.

@@ -423,7 +423,7 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   for (i = 0; i < num_in_fnames; ++i)
     {
       htab_t section_hash_table;
-      current_lto_file = lto_elf_file_open (in_fnames[i]);
+      current_lto_file = lto_elf_file_open (in_fnames[i], /*writable=*/false);
       if (!current_lto_file)
 	break;
       file_data = lto_file_read (current_lto_file);
@@ -488,10 +488,33 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
                               /*top_level=*/1,
                               /*at_end=*/0);
 
+  /* This is some bogus wrapper code for development testing.  It will be
+     replaced once some basic WPA partitioning logic is implemented.  To use
+     this pass "-flto -fsyntax-only" to the lto1 invocation.  */
+  if (flag_generate_lto)
+    {
+      lto_file *file;
+
+      file = lto_elf_file_open ("bogus.lto.o", /*writable=*/true);
+      if (!file)
+	fatal_error ("lto_elf_file_open() failed");
+      lto_set_current_out_file (file);
+    }
+
   /* Let the middle end know that we have read and merged all of the
      input files.  */ 
   /*cgraph_finalize_compilation_unit ();*/
   cgraph_optimize ();
+
+  /* This is the continuation of the previous bogus wrapper code.  It will be
+     replaced once some basic WPA partitioning logic is implemented.  */
+  if (flag_generate_lto)
+    {
+      lto_file *file;
+
+      file = lto_set_current_out_file (NULL);
+      lto_elf_file_close (file);
+    }
 }
 
 #include "gt-lto-lto.h"

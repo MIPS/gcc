@@ -1,3 +1,38 @@
+2008-06-27  Ollie Wild  <aaw@google.com>
+
+	* lto-section-out.h (lto_begin_section): New function declaration.
+	(lto_end_section): New function declaration.
+	(lto_output_data_stream): New function declaration.
+	* lto-section-out.c (lto_begin_section): New function.
+	(lto_end_section): New function.
+	(lto_write_stream): Modify lang_hooks call.  Remove free.
+	(append_block): New function.
+	(lto_output_1_stream): Replace block allocation with call to
+	append_block.
+	(lto_output_data_stream): New function.
+	(lto_destroy_simple_output_block): Add header_stream.  Replace
+	lang_hook calls with lto-section functions.
+	(write_global_references): Add ref_stream.  Replace lang_hooks call
+	with lto-section calls.
+	(produce_asm_for_decls): Add header_stream.  Replace lang_hook calls
+	with lto-section calls.
+	* lto-function-out.c (langhooks.h): Remove include.
+	(produce_asm): Add header_stream.  Replace lang_hook calls with
+	lto-section calls.
+	* langhooks.h (struct lang_hooks_for_lto): Rename write_section_data
+	to append_data.  Add a block parameter.
+	* langhooks-def.h (lhd_append_data): Rename from
+	lhd_write_section_data.  Add a new parameter.
+	(lhd_write_section_data): Rename to lhd_append_data.
+	(LANG_HOOKS_APPEND_DATA): Rename from LANG_HOOKS_WRITE_SECTION_DATA.
+	Change lhd_write_section_data to lhd_append_data.
+	(LANG_HOOKS_WRITE_SECTION_DATA): Rename to LANG_HOOKS_APPEND_DATA.
+	(LANG_HOOKS_LTO): Change LANG_HOOKS_WRITE_SECTION-DATA to
+	LANG_HOOKS_APPEND_DATA.
+	* langhooks.c (lhd_append_data): Rename from lhd_write_section_data.
+	Add a block parameter.
+	(lhd_write_section_data): Rename to lhd_append_data.
+
 2008-06-27  Rafael Espindola  <espindola@google.com>
 
 	Based on http://gcc.gnu.org/ml/gcc-patches/2007-11/msg00523.html

@@ -28,7 +28,8 @@ LTO_EXE = lto1$(exeext)
 # The LTO-specific object files inclued in $(LTO_EXE).
 LTO_OBJS = lto/lto-lang.o lto/lto.o lto/lto-elf.o \
 	lto/lto-symtab.o attribs.o
-LTO_H = lto/lto.h lto-header.h lto-section-in.h $(HASHTAB_H) $(TREE_H)
+LTO_H = lto/lto.h lto-header.h lto-section-in.h lto-section-out.h \
+	$(HASHTAB_H) $(TREE_H)
 
 ########################################################################
 # Rules

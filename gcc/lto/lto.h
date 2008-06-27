@@ -30,8 +30,9 @@ Boston, MA 02110-1301, USA.  */
 #include <inttypes.h>
 #include "lto-header.h"
 #include "lto-section-in.h"
+#include "lto-section-out.h"
 
-/* An input file.  */
+/* A file.  */
 typedef struct lto_file_struct GTY(())
 {
   /* The name of the file.  */
@@ -55,14 +56,23 @@ extern void lto_main (int debug_p);
 
 /* lto-elf.c */
 
-/* Open the ELF input file indicated by FILENAME.  Return */
-extern lto_file *lto_elf_file_open (const char *filename);
+/* Open the ELF file indicated by FILENAME.  */
+extern lto_file *lto_elf_file_open (const char *filename, bool writable);
 
 /* Close an ELF input file.  */
 extern void lto_elf_file_close (lto_file *file);
 
 /* Build and index of all lto sections in an elf file.  */
 extern htab_t lto_elf_build_section_table (lto_file *file);
+
+/* Hooks for writing LTO sections.  */
+extern void lto_elf_begin_section (const char *name);
+extern void lto_elf_append_data (const void *data, size_t len, void *block);
+extern void lto_elf_end_section (void);
+
+/* Routines for setting/getting the current output file.  */
+extern lto_file *lto_set_current_out_file (lto_file *file);
+extern lto_file *lto_get_current_out_file (void);
 
 /* lto-symtab.c */
 

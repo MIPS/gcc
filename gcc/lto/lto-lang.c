@@ -672,6 +672,14 @@ static void lto_init_ts (void)
 #define LANG_HOOKS_REDUCE_BIT_FIELD_OPERATIONS true
 #undef LANG_HOOKS_TYPES_COMPATIBLE_P
 #define LANG_HOOKS_TYPES_COMPATIBLE_P lto_types_compatible_p
+
+#undef LANG_HOOKS_BEGIN_SECTION
+#define LANG_HOOKS_BEGIN_SECTION lto_elf_begin_section
+#undef LANG_HOOKS_APPEND_DATA
+#define LANG_HOOKS_APPEND_DATA lto_elf_append_data
+#undef LANG_HOOKS_END_SECTION
+#define LANG_HOOKS_END_SECTION lto_elf_end_section
+
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS lto_init_ts
 

@@ -192,6 +192,24 @@ lto_get_section_name (enum lto_section_type section_type, const char *name)
 *****************************************************************************/
 
 
+/* Begin a new output section named NAME.  */
+
+void
+lto_begin_section (const char *name)
+{
+  lang_hooks.lto.begin_section (name);
+}
+
+
+/* End the current output section.  */
+
+void
+lto_end_section (void)
+{
+  lang_hooks.lto.end_section ();
+}
+
+
 /* Write all of the chars in OBS to the assembler.  Recycle the blocks
    in obs as this is being done.  */
 
@@ -217,10 +235,51 @@ lto_write_stream (struct lto_output_stream *obs)
       if (!block)
 	num_chars = num_chars - obs->left_in_block;
 
-      lang_hooks.lto.write_section_data (base, num_chars);
-      free (old_block);
+      lang_hooks.lto.append_data (base, num_chars, old_block);
       block_size *= 2;
     }
+}
+
+
+/* Adds a new block to output stream OBS.  */
+
+static void
+append_block (struct lto_output_stream *obs)
+{
+  struct lto_char_ptr_base *new_block;
+
+  gcc_assert (obs->left_in_block == 0);
+
+  if (obs->first_block == NULL)
+    {
+      /* This is the first time the stream has been written
+	 into.  */
+      obs->block_size = 1024;
+      new_block = (struct lto_char_ptr_base*) xmalloc (obs->block_size);
+      obs->first_block = new_block;
+    }
+  else
+    {
+      struct lto_char_ptr_base *tptr;
+      /* Get a new block that is twice as big as the last block
+	 and link it into the list.  */
+      obs->block_size *= 2;
+      new_block = (struct lto_char_ptr_base*) xmalloc (obs->block_size);
+      /* The first bytes of the block are reserved as a pointer to
+	 the next block.  Set the chain of the full block to the
+	 pointer to the new block.  */
+      tptr = obs->current_block;
+      tptr->ptr = (char *) new_block;
+    }
+
+  /* Set the place for the next char at the first position after the
+     chain to the next block.  */
+  obs->current_pointer
+    = ((char *) new_block) + sizeof (struct lto_char_ptr_base);
+  obs->current_block = new_block;
+  /* Null out the newly allocated block's pointer to the next block.  */
+  new_block->ptr = NULL;
+  obs->left_in_block = obs->block_size - sizeof (struct lto_char_ptr_base);
 }
 
 
@@ -231,46 +290,44 @@ lto_output_1_stream (struct lto_output_stream *obs, char c)
 {
   /* No space left.  */
   if (obs->left_in_block == 0)
-    {
-      struct lto_char_ptr_base *new_block;
-
-      if (obs->first_block == NULL)
-	{
-	  /* This is the first time the stream has been written
-	     into.  */
-	  obs->block_size = 1024;
-	  new_block = (struct lto_char_ptr_base*) xmalloc (obs->block_size);
-	  obs->first_block = new_block;
-	}
-      else
-	{
-	  struct lto_char_ptr_base *tptr;
-	  /* Get a new block that is twice as big as the last block
-	     and link it into the list.  */
-	  obs->block_size *= 2;
-	  new_block = (struct lto_char_ptr_base*) xmalloc (obs->block_size);
-	  /* The first bytes of the block are reserved as a pointer to
-	     the next block.  Set the chain of the full block to the
-	     pointer to the new block.  */
-	  tptr = obs->current_block;
-	  tptr->ptr = (char *)new_block;
-	}
-
-      /* Set the place for the next char at the first position after the
-	 chain to the next block.  */
-      obs->current_pointer
-	= ((char *)new_block) + sizeof (struct lto_char_ptr_base);
-      obs->current_block = new_block;
-      /* Null out the newly allocated block's pointer to the next block.  */
-      new_block->ptr = NULL;
-      obs->left_in_block = obs->block_size - sizeof (struct lto_char_ptr_base);
-    }
+    append_block (obs);
 
   /* Write the actual character.  */
   *obs->current_pointer = c;
   obs->current_pointer++;
   obs->total_size++;
   obs->left_in_block--;
+}
+
+
+/* Write raw DATA of length LEN to the output block OB.  */
+
+void
+lto_output_data_stream (struct lto_output_stream *obs, const void *data,
+			size_t len)
+{
+  while (len)
+    {
+      size_t copy;
+
+      /* No space left.  */
+      if (obs->left_in_block == 0)
+	append_block (obs);
+
+      /* Determine how many bytes to copy in this loop.  */
+      if (len <= obs->left_in_block)
+	copy = len;
+      else
+	copy = obs->left_in_block;
+
+      /* Copy the data and do bookkeeping.  */
+      memcpy (obs->current_pointer, data, copy);
+      obs->current_pointer += copy;
+      obs->total_size += copy;
+      obs->left_in_block -= copy;
+      data = (char *)data + copy;
+      len -= copy;
+    }
 }
 
 
@@ -561,9 +618,10 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 {
   char *section_name;
   struct lto_simple_header header;
+  struct lto_output_stream *header_stream;
 
   section_name = lto_get_section_name (ob->section_type, NULL);
-  lang_hooks.lto.begin_section (section_name);
+  lto_begin_section (section_name);
   free (section_name);
 
   /* Write the header which says how to decode the pieces of the
@@ -582,8 +640,10 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   header.debug_main_size = -1;
 #endif
 
-  lang_hooks.lto.write_section_data (&header,
-				     sizeof (struct lto_simple_header));
+  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  lto_output_data_stream (header_stream, &header, sizeof header);
+  lto_write_stream (header_stream);
+  free (header_stream);
 
   lto_write_stream (ob->main_stream);
 #ifdef LTO_STREAM_DEBUGGING
@@ -592,7 +652,7 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
 
   /* Put back the assembly section that was there before we started
      writing lto info.  */
-  lang_hooks.lto.end_section ();
+  lto_end_section ();
 
   free (ob->main_stream);
   LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
@@ -738,14 +798,15 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
 {
   tree t;
   int index;
-  size_t size = VEC_length (tree, v) * sizeof (int32_t);
-  int32_t *refs = xmalloc (size);
+  struct lto_output_stream *ref_stream;
 
+  ref_stream = xcalloc (1, sizeof (struct lto_output_stream));
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
       void **slot;
       struct lto_decl_slot d_slot;
       struct lto_decl_slot *old_slot;
+      int32_t slot_num;
 
       d_slot.t = t;
       slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
@@ -756,11 +817,12 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
       print_generic_expr (stderr, t, 0);
       fprintf (stderr, "\n");
 #endif
-      refs[index] = old_slot->slot_num;
+      slot_num = old_slot->slot_num;
+      lto_output_data_stream (ref_stream, &slot_num, sizeof slot_num);
     }
 
-  lang_hooks.lto.write_section_data (refs, size);
-  free (refs);
+  lto_write_stream (ref_stream);
+  free (ref_stream);
 }
 
 
@@ -777,6 +839,7 @@ produce_asm_for_decls (void)
   struct lto_decl_header header;
   char *section_name;
   struct output_block *ob = create_output_block (LTO_section_decls);
+  struct lto_output_stream *header_stream;
 
   free_lang_specifics ();
 
@@ -792,7 +855,7 @@ produce_asm_for_decls (void)
   memset (&header, 0, sizeof (struct lto_decl_header)); 
 
   section_name = lto_get_section_name (LTO_section_decls, NULL);
-  lang_hooks.lto.begin_section (section_name);
+  lto_begin_section (section_name);
   free (section_name);
 
   /* Make string 0 be a NULL string.  */
@@ -826,8 +889,10 @@ produce_asm_for_decls (void)
   header.string_size = ob->string_stream->total_size;
   header.debug_main_size = ob->debug_main_stream->total_size;
 
-  lang_hooks.lto.write_section_data (&header,
-				     sizeof (struct lto_decl_header));
+  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  lto_output_data_stream (header_stream, &header, sizeof header);
+  lto_write_stream (header_stream);
+  free (header_stream);
 
   /* We must write the types first.  */
   write_global_references (ob, out_state->types);
@@ -862,7 +927,7 @@ produce_asm_for_decls (void)
   VEC_free (tree, heap, out_state->namespace_decls);
   VEC_free (tree, heap, out_state->types);
 
-  lang_hooks.lto.end_section ();
+  lto_end_section ();
 }
 
 
