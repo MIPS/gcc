@@ -54,15 +54,18 @@ typedef struct vn_ssa_aux
 /* Return the value numbering info for an SSA_NAME.  */
 extern vn_ssa_aux_t VN_INFO (tree);
 extern vn_ssa_aux_t VN_INFO_GET (tree);
+tree vn_get_expr_for (tree);
 bool run_scc_vn (bool);
 void free_scc_vn (void);
 void switch_to_PRE_table (void);
 tree vn_nary_op_lookup (tree);
+tree vn_nary_op_lookup_stmt (gimple);
 void vn_nary_op_insert (tree, tree);
+void vn_nary_op_insert_stmt (gimple, tree);
 tree vn_reference_lookup (tree, VEC (tree, gc) *, bool);
 void vn_reference_insert (tree, tree, VEC (tree, gc) *);
-VEC (tree, gc) *shared_vuses_from_stmt (tree);
-VEC (tree, gc) *copy_vuses_from_stmt (tree);
+VEC (tree, gc) *shared_vuses_from_stmt (gimple);
+VEC (tree, gc) *copy_vuses_from_stmt (gimple);
 
 
 #endif /* TREE_SSA_SCCVN_H  */

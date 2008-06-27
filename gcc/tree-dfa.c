@@ -1092,8 +1092,6 @@ refs_may_alias_p (tree ref1, tree ref2)
   return true;
 }
 
-/* FIXME tuples */
-#if 0
 /* Given a stmt STMT that references memory, return the single stmt
    that is reached by following the VUSE -> VDEF link.  Returns
    NULL_TREE, if there is no single stmt that defines all VUSEs of
@@ -1102,25 +1100,25 @@ refs_may_alias_p (tree ref1, tree ref2)
    a PHI node as well.  Note that if all VUSEs are default definitions
    this function will return an empty statement.  */
 
-tree
-get_single_def_stmt (tree stmt)
+gimple
+get_single_def_stmt (gimple stmt)
 {
-  tree def_stmt = NULL_TREE;
+  gimple def_stmt = NULL;
   tree use;
   ssa_op_iter iter;
 
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_VIRTUAL_USES)
     {
-      tree tmp = SSA_NAME_DEF_STMT (use);
+      gimple tmp = SSA_NAME_DEF_STMT (use);
 
       /* ???  This is too simplistic for multiple virtual operands
 	 reaching different PHI nodes of the same basic blocks or for
 	 reaching all default definitions.  */
       if (def_stmt
 	  && def_stmt != tmp
-	  && !(IS_EMPTY_STMT (def_stmt)
-	       && IS_EMPTY_STMT (tmp)))
-	return NULL_TREE;
+	  && !(gimple_nop_p (def_stmt)
+	       && gimple_nop_p (tmp)))
+	return NULL;
 
       def_stmt = tmp;
     }
@@ -1134,25 +1132,25 @@ get_single_def_stmt (tree stmt)
    from a non-backedge.  Returns NULL_TREE if such statement within
    the above conditions cannot be found.  */
 
-tree
-get_single_def_stmt_from_phi (tree ref, tree phi)
+gimple
+get_single_def_stmt_from_phi (tree ref, gimple phi)
 {
   tree def_arg = NULL_TREE;
-  int i;
+  unsigned i;
 
   /* Find the single PHI argument that is not flowing in from a
      back edge and verify that the loop-carried definitions do
      not alias the reference we look for.  */
-  for (i = 0; i < PHI_NUM_ARGS (phi); ++i)
+  for (i = 0; i < gimple_phi_num_args (phi); ++i)
     {
       tree arg = PHI_ARG_DEF (phi, i);
-      tree def_stmt;
+      gimple def_stmt;
 
-      if (!(PHI_ARG_EDGE (phi, i)->flags & EDGE_DFS_BACK))
+      if (!(gimple_phi_arg_edge (phi, i)->flags & EDGE_DFS_BACK))
 	{
 	  /* Multiple non-back edges?  Do not try to handle this.  */
 	  if (def_arg)
-	    return NULL_TREE;
+	    return NULL;
 	  def_arg = arg;
 	  continue;
 	}
@@ -1162,14 +1160,14 @@ get_single_def_stmt_from_phi (tree ref, tree phi)
       def_stmt = SSA_NAME_DEF_STMT (arg);
       do
 	{
-	  if (TREE_CODE (def_stmt) != GIMPLE_MODIFY_STMT
-	      || refs_may_alias_p (ref, GIMPLE_STMT_OPERAND (def_stmt, 0)))
-	    return NULL_TREE;
+	  if (!is_gimple_assign (def_stmt)
+	      || refs_may_alias_p (ref, gimple_assign_lhs (def_stmt)))
+	    return NULL;
 	  /* ???  This will only work, reaching the PHI node again if
 	     there is a single virtual operand on def_stmt.  */
 	  def_stmt = get_single_def_stmt (def_stmt);
 	  if (!def_stmt)
-	    return NULL_TREE;
+	    return NULL;
 	}
       while (def_stmt != phi);
     }
@@ -1182,8 +1180,8 @@ get_single_def_stmt_from_phi (tree ref, tree phi)
    Take into account only definitions that alias REF if following
    back-edges when looking through a loop PHI node.  */
 
-tree
-get_single_def_stmt_with_phi (tree ref, tree stmt)
+gimple
+get_single_def_stmt_with_phi (tree ref, gimple stmt)
 {
   switch (NUM_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_USES))
     {
@@ -1192,11 +1190,11 @@ get_single_def_stmt_with_phi (tree ref, tree stmt)
 
     case 1:
       {
-	tree def_stmt = SSA_NAME_DEF_STMT (SINGLE_SSA_TREE_OPERAND
+	gimple def_stmt = SSA_NAME_DEF_STMT (SINGLE_SSA_TREE_OPERAND
 					     (stmt, SSA_OP_VIRTUAL_USES));
 	/* We can handle lookups over PHI nodes only for a single
 	   virtual operand.  */
-	if (TREE_CODE (def_stmt) == PHI_NODE)
+	if (gimple_code (def_stmt) == GIMPLE_PHI)
 	  return get_single_def_stmt_from_phi (ref, def_stmt);
 	return def_stmt;
       }
@@ -1205,4 +1203,3 @@ get_single_def_stmt_with_phi (tree ref, tree stmt)
       return get_single_def_stmt (stmt);
     }
 }
-#endif

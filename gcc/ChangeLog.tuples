@@ -1,3 +1,59 @@
+2008-06-27  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_get_expr_for): New function.
+	(vuses_to_vec): Tuplify.
+	(copy_vuses_from_stmt): Likewise.
+	(vdefs_to_vec): Likewise.
+	(copy_vdefs_from_stmt): Likewise.
+	(shared_vuses_from_stmt): Likewise.
+	(copy_reference_ops_from_call): New function split out from
+	copy_reference_ops_from_ref.
+	(create_reference_ops_from_call): New function.
+	(shared_reference_ops_from_call): Likewise.
+	(get_def_ref_stmt_vuses): Tuplify.
+	(vn_reference_lookup): Likewise.
+	(vn_nary_op_lookup_stmt): New function.
+	(vn_nary_op_insert_stmt): Likewise.
+	(vn_phi_lookup): Tuplify.
+	(vn_phi_insert): Likewise.
+	(defs_to_varying): Likewise.
+	(visit_unary_op): Likewise.
+	(visit_binary_op): Likewise.
+	(visit_reference_op_call): New function.
+	(visit_reference_op_load): Tuplify.
+	(visit_reference_op_store): Likewise.
+	(visit_phi): Likewise.
+	(stmt_has_constants): New function.
+	(simplify_binary_expression): Tuplify.
+	(simplify_unary_expression): Likewise.
+	(try_to_simplify): Likewise.
+	(visit_use): Likewise.
+	(compare_ops): Likewise.
+	(DFS): Likewise.
+	(run_scc_vn): Likewise.
+	* tree-ssa-sccvn.h (shared_vuses_from_stmt): Adjust prototype.
+	(copy_vuses_from_stmt): Likewise.
+	(vn_get_expr_for): Declare.
+	(vn_nary_op_lookup_stmt): Likewise.
+	(vn_nary_op_insert_stmt): Likewise.
+	* tree-dfa.c (get_single_def_stmt): Tuplify.
+	(get_single_def_stmt_from_phi): Likewise.
+	(get_single_def_stmt_with_phi): Likewise.
+	* tree-ssa-pre.c (do_SCCVN_insertion): Use vn_get_expr_for.
+	(eliminate): Likewise.
+	(execute_pre): Enable SCCVN.
+	(gate_fre): Enable.
+	* tree-flow.h (get_single_def_stmt): Adjust prototype.
+	(get_single_def_stmt_from_phi): Likewise.
+	(get_single_def_stmt_with_phi): Likewise.
+	(vn_lookup_or_add_with_stmt): Likewise.
+	(vn_lookup_with_stmt): Likewise.
+	* gimple.c (gimple_fold): Fix.
+	* tree-vn.c (vn_add): Disable call to add_to_value.
+	(vn_add_with_vuses): Likewise.
+	(vn_lookup_with_stmt): Tuplify.
+	(vn_lookup_or_add_with_stmt): Likewise.
+
 2008-06-27  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gimple.c (gimple_cond_get_ops_from_tree): Handle TRUTH_NOT_EXPR.

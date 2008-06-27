@@ -1901,8 +1901,6 @@ gimple_set_bb (gimple stmt, basic_block bb)
 tree
 gimple_fold (const_gimple stmt)
 {
-  tree t;
-
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
@@ -1910,28 +1908,30 @@ gimple_fold (const_gimple stmt)
 			  boolean_type_node,
 			  gimple_cond_lhs (stmt),
 			  gimple_cond_rhs (stmt));
-      break;
 
     case GIMPLE_ASSIGN:
-      if (gimple_num_ops (stmt) > 2)
-	return fold_binary (gimple_assign_rhs_code (stmt),
-			    TREE_TYPE (gimple_assign_lhs (stmt)),
-			    gimple_assign_rhs1 (stmt),
-			    gimple_assign_rhs2 (stmt));
-      else
-	return fold_unary (gimple_assign_rhs_code (stmt),
-			   TREE_TYPE (gimple_assign_lhs (stmt)),
-			   gimple_assign_rhs1 (stmt));
+      switch (get_gimple_rhs_class (gimple_assign_rhs_code (stmt)))
+	{
+	case GIMPLE_UNARY_RHS:
+	  return fold_unary (gimple_assign_rhs_code (stmt),
+			     TREE_TYPE (gimple_assign_lhs (stmt)),
+			     gimple_assign_rhs1 (stmt));
+	case GIMPLE_BINARY_RHS:
+	  return fold_binary (gimple_assign_rhs_code (stmt),
+			      TREE_TYPE (gimple_assign_lhs (stmt)),
+			      gimple_assign_rhs1 (stmt),
+			      gimple_assign_rhs2 (stmt));
+	case GIMPLE_SINGLE_RHS:
+	  return fold (gimple_assign_rhs1 (stmt));
+	default:;
+	}
       break;
 
     case GIMPLE_SWITCH:
       return gimple_switch_index (stmt);
-      break;
 
     case GIMPLE_CALL:
-      t = gimple_call_fn (stmt);
-      return fold_unary (TREE_CODE (t), TREE_TYPE (t), t);
-      break;
+      return NULL_TREE;
 
     default:
       break;

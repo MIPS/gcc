@@ -208,8 +208,11 @@ vn_add (tree expr, tree val)
       gcc_unreachable ();
     }
   set_value_handle (expr, val);
+  /* FIXME: tuples.  */
+#if 0
   if (TREE_CODE (val) == VALUE_HANDLE)
     add_to_value (val, expr);
+#endif
 }
 
 /* Insert EXPR into the value numbering tables with value VAL, and
@@ -228,8 +231,11 @@ vn_add_with_vuses (tree expr, tree val, VEC (tree, gc) *vuses)
   vn_reference_insert (expr, val, vuses);
 
   set_value_handle (expr, val);
+  /* FIXME: tuples.  */
+#if 0
   if (TREE_CODE (val) == VALUE_HANDLE)
     add_to_value (val, expr);
+#endif
 }
 
 
@@ -281,7 +287,7 @@ vn_lookup (tree expr)
    hash value for EXPR for reference operations.  */
 
 tree
-vn_lookup_with_stmt (tree expr, tree stmt)
+vn_lookup_with_stmt (tree expr, gimple stmt)
 {
   if (stmt == NULL)
     return vn_lookup (expr);
@@ -347,7 +353,7 @@ vn_lookup_or_add (tree expr)
    STMT to get the set of vuses.  */
 
 tree
-vn_lookup_or_add_with_stmt (tree expr, tree stmt)
+vn_lookup_or_add_with_stmt (tree expr, gimple stmt)
 {
   tree v;
   if (!stmt)

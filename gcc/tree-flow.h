@@ -775,9 +775,9 @@ extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
 extern bool stmt_references_abnormal_ssa_name (gimple);
 extern bool refs_may_alias_p (tree, tree);
-extern tree get_single_def_stmt (tree);
-extern tree get_single_def_stmt_from_phi (tree, tree);
-extern tree get_single_def_stmt_with_phi (tree, tree);
+extern gimple get_single_def_stmt (gimple);
+extern gimple get_single_def_stmt_from_phi (tree, gimple);
+extern gimple get_single_def_stmt_with_phi (tree, gimple);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -1093,11 +1093,11 @@ static inline tree get_value_handle (tree);
 void sort_vuses (VEC (tree, gc) *);
 void sort_vuses_heap (VEC (tree, heap) *);
 tree vn_lookup_or_add (tree);
-tree vn_lookup_or_add_with_stmt (tree, tree);
+tree vn_lookup_or_add_with_stmt (tree, gimple);
 tree vn_lookup_or_add_with_vuses (tree, VEC (tree, gc) *);
 void vn_add (tree, tree);
 void vn_add_with_vuses (tree, tree, VEC (tree, gc) *);
-tree vn_lookup_with_stmt (tree, tree);
+tree vn_lookup_with_stmt (tree, gimple);
 tree vn_lookup (tree);
 tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
 

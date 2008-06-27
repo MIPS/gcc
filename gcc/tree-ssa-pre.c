@@ -3583,7 +3583,7 @@ do_SCCVN_insertion (tree stmt, tree ssa_vn)
 
   /* First create a value expression from the expression we want
      to insert and associate it with the value handle for SSA_VN.  */
-  expr = create_value_expr_from (VN_INFO (ssa_vn)->expr, bb, NULL, true);
+  expr = create_value_expr_from (vn_get_expr_for (ssa_vn), bb, NULL, true);
   if (expr == NULL_TREE)
     return NULL_TREE;
   set_value_handle (expr, get_value_handle (ssa_vn));
@@ -3641,7 +3641,7 @@ eliminate (void)
 		  tree val = VN_INFO (lhs)->valnum;
 		  if (val != VN_TOP
 		      && VN_INFO (val)->needs_insertion
-		      && can_PRE_operation (VN_INFO (val)->expr))
+		      && can_PRE_operation (vn_get_expr_for (val)))
 		    sprime = do_SCCVN_insertion (stmt, val);
 		}
 
@@ -3972,6 +3972,10 @@ static unsigned int
 execute_pre (bool do_fre ATTRIBUTE_UNUSED)
 {
   /* FIXME tuples.  */
+  if (run_scc_vn (do_fre))
+    free_scc_vn ();
+
+  /* FIXME tuples.  */
 #if 0
   unsigned int todo = 0;
 
@@ -4038,8 +4042,6 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
   fini_pre ();
 
   return todo;
-#else
-  gimple_unreachable ();
 #endif
   return 0;
 }
@@ -4091,12 +4093,7 @@ execute_fre (void)
 static bool
 gate_fre (void)
 {
-  /* FIXME tuples */
-#if 0
   return flag_tree_fre != 0;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_fre =
