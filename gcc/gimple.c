@@ -472,13 +472,21 @@ gimple_cond_get_ops_from_tree (tree cond, enum tree_code *code_p,
                                tree *lhs_p, tree *rhs_p)
 {
   gcc_assert (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison
+	      || TREE_CODE (cond) == TRUTH_NOT_EXPR
 	      || is_gimple_min_invariant (cond)
 	      || SSA_VAR_P (cond));
 
   extract_ops_from_tree (cond, code_p, lhs_p, rhs_p);
 
+  /* Canonicalize conditionals of the form 'if (!VAL)'.  */
+  if (*code_p == TRUTH_NOT_EXPR)
+    {
+      *code_p = EQ_EXPR;
+      gcc_assert (*lhs_p && *rhs_p == NULL_TREE);
+      *rhs_p = fold_convert (TREE_TYPE (*lhs_p), integer_zero_node);
+    }
   /* Canonicalize conditionals of the form 'if (VAL)'  */
-  if (TREE_CODE_CLASS (*code_p) != tcc_comparison)
+  else if (TREE_CODE_CLASS (*code_p) != tcc_comparison)
     {
       *code_p = NE_EXPR;
       gcc_assert (*lhs_p && *rhs_p == NULL_TREE);
