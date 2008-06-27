@@ -1,3 +1,105 @@
+2008-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_numeric.h (iota): Add in C++0x mode.
+	* testsuite/util/testsuite_character.h (pod_int): Add operator++
+	in C++0x mode.
+	* testsuite/util/testsuite_api.h (NonDefaultConstructible): Likewise.
+	* testsuite/26_numerics/iota/1.cc: New.
+	* testsuite/26_numerics/iota/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/26_numerics/iota/requirements/explicit_instantiation/
+	pod.cc: Likewise.
+
+	* include/ext/algorithm: Do not fiddle with the legacy headers.
+
+	* testsuite/26_numerics/partial_sum/1.cc: Minor changes, comments,
+	style.
+	* testsuite/26_numerics/accumulate/1.cc: Likewise.
+	* testsuite/26_numerics/adjacent_difference/1.cc: Likewise.
+	* testsuite/26_numerics/inner_product/1.cc: Likewise.
+
+2008-06-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_algo.h (partition_copy): Add in C++0x mode.
+	* include/bits/algorithmfwd.h: Add.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Update.
+	* testsuite/25_algorithms/partition_copy/1.cc: New.
+	* testsuite/25_algorithms/partition_copy/check_type.cc: Likewise.
+	* testsuite/25_algorithms/partition_copy/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/partition_copy/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+
+2008-06-26  Chris Fairles  <chris.fairles@gmail.com>
+
+        * testsuite/20_util/unique_ptr/cons/pointer_array.cc: New.
+        * testsuite/20_util/unique_ptr/cons/pointer.cc: Likewise.
+        * testsuite/20_util/unique_ptr/cons/pointer_array_convertible.cc:
+        Likewise.
+        * testsuite/20_util/unique_ptr/assign/move_array.cc: Likewise.
+        * testsuite/20_util/unique_ptr/assign/move.cc: Likewise.
+        * testsuite/20_util/unique_ptr/specialized_algorithms/
+        comparisons_array.cc: Likewise.
+        * testsuite/20_util/unique_ptr/specialized_algorithms/comparisons.cc:
+        Likewise
+        * testsuite/20_util/unique_ptr/specialized_algorithms/swap.cc:
+        Likewise.
+
+2008-06-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/parallel/base.h (plus, multiplies): Use __typeof__,
+	not typeof.
+
+2008-06-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/29_atomics/atomic_flag/cons/default.cc: Avoid -Wall
+	warnings.
+	* testsuite/29_atomics/atomic_flag/cons/aggregate.cc: Likewise.
+	* testsuite/29_atomics/headers/cstdatomic/types_std_c++0x.cc:
+	Likewise.
+	* testsuite/29_atomics/headers/stdatomic.h/types.c: Likewise.
+	* testsuite/util/testsuite_common_types.h (struct assignable,
+	struct default_constructible, struct copy_constructible,
+	struct explicit_value_constructible): Use a tad of simulated
+	concept checking techniques to avoid spurious warnings.
+	* testsuite/29_atomics/atomic/cons/assign_neg.cc: Adjust dg-error
+	markers.
+	* testsuite/29_atomics/atomic/cons/copy_neg.cc: Likewise.
+
+2008-06-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_algo.h (__find_if_not, find_if_not, all_of,
+	any_of, none_of): Add in C++0x, per N2666.
+	* include/bits/algorithmfwd.h: Update.
+	* testsuite/25_algorithms/headers/algorithm/synopsis.cc: Likewise.
+	* testsuite/25_algorithms/all_of/check_type.cc: New.
+	* testsuite/25_algorithms/all_of/1.cc: Likewise.
+	* testsuite/25_algorithms/all_of/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/25_algorithms/all_of/requirements/explicit_instantiation/
+	pod.cc: Likewise.
+	* testsuite/25_algorithms/any_of/check_type.cc: Likewise.
+	* testsuite/25_algorithms/any_of/1.cc: Likewise.
+	* testsuite/25_algorithms/any_of/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/25_algorithms/any_of/requirements/explicit_instantiation/
+	pod.cc: Likewise.
+	* testsuite/25_algorithms/none_of/check_type.cc: Likewise.
+	* testsuite/25_algorithms/none_of/1.cc: Likewise.
+	* testsuite/25_algorithms/none_of/requirements/explicit_instantiation/
+	2.cc: Likewise.
+	* testsuite/25_algorithms/none_of/requirements/explicit_instantiation/
+	pod.cc: Likewise.
+	* testsuite/25_algorithms/find_if_not/check_type.cc: Likewise.
+	* testsuite/25_algorithms/find_if_not/1.cc: Likewise.
+	* testsuite/25_algorithms/find_if_not/requirements/
+	explicit_instantiation/2.cc: Likewise.
+	* testsuite/25_algorithms/find_if_not/requirements/
+	explicit_instantiation/pod.cc: Likewise.
+	* testsuite/25_algorithms/copy_if/check_type.cc: Likewise.
+	* testsuite/25_algorithms/remove_copy_if/check_type.cc: Likewise.
+	* testsuite/25_algorithms/find_if/1.cc: Minor tweaks.
+
 2008-06-24  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* doc/xml/manual/parallel_mode.xml: Clarify use of explicit
