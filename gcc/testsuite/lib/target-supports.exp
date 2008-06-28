@@ -398,6 +398,20 @@ proc check_effective_target_trampolines { } {
     return 1
 }
 
+# Return 1 if according to target_info struct and explicit target list
+# target is supposed to keep null pointer checks. This could be due to 
+# use of option fno-delete-null-pointer-checks or hardwired in target.
+ 
+proc check_effective_target_keeps_null_pointer_checks { } {
+    if [target_info exists keeps_null_pointer_checks] {
+      return 1
+    }
+    if { [istarget avr-*-*] } {
+	return 1;   
+    }
+    return 0
+}
+
 # Return true if profiling is supported on the target.
 
 proc check_profiling_available { test_what } {
@@ -1116,7 +1130,8 @@ proc check_effective_target_vect_cmdline_needed { } {
 		 && [check_effective_target_lp64])
 	     || ([istarget powerpc*-*-*]
 		 && ([check_effective_target_powerpc_spe]
-		     || [check_effective_target_powerpc_altivec]))} {
+		     || [check_effective_target_powerpc_altivec]))
+             || [istarget spu-*-*] } {
 	   set et_vect_cmdline_needed_saved 0
 	}
     }
@@ -1268,6 +1283,24 @@ proc check_effective_target_powerpc_fprs { } {
 	return [check_no_compiler_messages powerpc_fprs object {
 	    #ifdef __NO_FPRS__
 	    #error no FPRs
+	    #else
+	    int dummy;
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target with hardware double-precision
+# floating point.
+
+proc check_effective_target_powerpc_hard_double { } {
+    if { [istarget powerpc*-*-*]
+	 || [istarget rs6000-*-*] } {
+	return [check_no_compiler_messages powerpc_hard_double object {
+	    #ifdef _SOFT_DOUBLE
+	    #error soft double
 	    #else
 	    int dummy;
 	    #endif
