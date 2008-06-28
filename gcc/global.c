@@ -208,7 +208,7 @@ static void build_insn_chain (void);
    variable eliminable_regset, and NO_GLOBAL_SET as the file static
    variable NO_GLOBAL_ALLOC_REGS.
 
-   It also initializes global flag frame_pointer_needed.  */
+   It also initializes frame_pointer_needed.  */
 
 static void
 compute_regsets (HARD_REG_SET *elim_set, 
