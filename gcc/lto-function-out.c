@@ -2550,6 +2550,9 @@ output_function_decl (struct output_block *ob, tree decl)
   output_tree (ob, decl->decl_non_common.vindex);
 
   /* omit initial -- should be written with body */
+
+  output_uleb128 (ob, decl->function_decl.function_code);
+  output_uleb128 (ob, decl->function_decl.built_in_class);
 }
 
 static void

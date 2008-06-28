@@ -2480,6 +2480,9 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* lang_specific */
   /* omit initial -- should be read with body */
 
+  decl->function_decl.function_code = lto_input_uleb128 (ib);
+  decl->function_decl.built_in_class = lto_input_uleb128 (ib);
+
   /* struct function is filled in when body is read */
 
   /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */

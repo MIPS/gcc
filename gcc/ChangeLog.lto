@@ -1,3 +1,10 @@
+2008-06-27  Bill Maddox  <maddox@google.com>
+
+	* lto-function-out.c (output_function_decl):
+	Write function_code and built_in_class fields.
+	* lto-function-in.c (input_function_decl):
+	Read function_code and built_in_class fields.
+
 2008-06-27  Ollie Wild  <aaw@google.com>
 
 	* lto-section-out.h (lto_begin_section): New function declaration.
