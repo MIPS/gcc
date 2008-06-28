@@ -34,6 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "toplev.h"
 
+/* Private function shared with cfgexpand.c.  */
+tree gimple_assign_rhs_to_tree (gimple);
+
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
    edges represented as pairs of nodes.
@@ -550,7 +553,7 @@ assign_vars (var_map map)
    If the stmt is changed, return true.  */ 
 
 static inline bool
-replace_use_variable (var_map map, use_operand_p p, tree *expr)
+replace_use_variable (var_map map, use_operand_p p, gimple *expr)
 {
   tree new_var;
   tree var = USE_FROM_PTR (p);
@@ -561,11 +564,7 @@ replace_use_variable (var_map map, use_operand_p p, tree *expr)
       int version = SSA_NAME_VERSION (var);
       if (expr[version])
         {
-	  tree new_expr = GIMPLE_STMT_OPERAND (expr[version], 1);
-	  SET_USE (p, new_expr);
-
-	  /* Clear the stmt's RHS, or GC might bite us.  */
-	  GIMPLE_STMT_OPERAND (expr[version], 1) = NULL_TREE;
+	  SET_USE (p, gimple_assign_rhs_to_tree (expr[version]));
 	  return true;
 	}
     }
@@ -656,7 +655,7 @@ eliminate_virtual_phis (void)
    variable.  */
 
 static void
-rewrite_trees (var_map map, tree *values)
+rewrite_trees (var_map map, gimple *values)
 {
   elim_graph g;
   basic_block bb;
@@ -1294,7 +1293,7 @@ static void
 remove_ssa_form (bool perform_ter)
 {
   basic_block bb;
-  tree *values = NULL;
+  gimple *values = NULL;
   var_map map;
   gimple_stmt_iterator gsi;
 
@@ -1312,15 +1311,9 @@ remove_ssa_form (bool perform_ter)
 
   if (perform_ter)
     {
-
-      /* FIXME tuples */
-#if 0
       values = find_replaceable_exprs (map);
       if (values && dump_file && (dump_flags & TDF_DETAILS))
 	dump_replaceable_exprs (dump_file, values);
-#else
-      values = NULL;
-#endif
     }
 
   /* Assign real variables to the partitions now.  */

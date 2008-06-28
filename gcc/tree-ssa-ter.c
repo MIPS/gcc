@@ -32,8 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 
 
-/* FIXME tuples.  */
-#if 0
 /* Temporary Expression Replacement (TER)
 
    Replace SSA version variables during out-of-ssa with their defining
@@ -160,7 +158,7 @@ typedef struct temp_expr_table_d
 {
   var_map map;
   bitmap *partition_dependencies;	/* Partitions expr is dependent on.  */
-  tree *replaceable_expressions;	/* Replacement expression table.  */
+  gimple *replaceable_expressions;	/* Replacement expression table.  */
   bitmap *expr_decl_uids;		/* Base uids of exprs.  */
   bitmap *kill_list;			/* Expr's killed by a partition.  */
   int virtual_partition;		/* Pseudo partition for virtual ops.  */
@@ -217,10 +215,10 @@ new_temp_expr_table (var_map map)
 /* Free TER table T.  If there are valid replacements, return the expression 
    vector.  */
 
-static tree *
+static gimple *
 free_temp_expr_table (temp_expr_table_p t)
 {
-  tree *ret = NULL;
+  gimple *ret = NULL;
   unsigned i;
 
 #ifdef ENABLE_CHECKING
@@ -256,7 +254,7 @@ version_to_be_replaced_p (temp_expr_table_p tab, int version)
 {
   if (!tab->replaceable_expressions)
     return false;
-  return tab->replaceable_expressions[version] != NULL_TREE;
+  return tab->replaceable_expressions[version] != NULL;
 }
 
 
@@ -361,18 +359,18 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
 /* Return TRUE if expression STMT is suitable for replacement.  */
 
 static inline bool
-is_replaceable_p (tree stmt)
+is_replaceable_p (gimple stmt)
 {
-  tree call_expr;
   use_operand_p use_p;
-  tree def, use_stmt;
+  tree def;
+  gimple use_stmt;
 
   /* Only consider modify stmts.  */
-  if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
+  if (!is_gimple_assign (stmt))
     return false;
 
   /* If the statement may throw an exception, it cannot be replaced.  */
-  if (tree_could_throw_p (stmt))
+  if (stmt_could_throw_p (stmt))
     return false;
 
   /* Punt if there is more than 1 def.  */
@@ -389,7 +387,7 @@ is_replaceable_p (tree stmt)
     return false;
 
   /* Used in this block, but at the TOP of the block, not the end.  */
-  if (TREE_CODE (use_stmt) == PHI_NODE)
+  if (gimple_code (use_stmt) == GIMPLE_PHI)
     return false;
 
   /* There must be no VDEFs.  */
@@ -398,21 +396,21 @@ is_replaceable_p (tree stmt)
 
   /* Float expressions must go through memory if float-store is on.  */
   if (flag_float_store 
-      && FLOAT_TYPE_P (TREE_TYPE (GENERIC_TREE_OPERAND (stmt, 1))))
+      && FLOAT_TYPE_P (gimple_expr_type (stmt)))
     return false;
 
   /* An assignment with a register variable on the RHS is not
      replaceable.  */
-  if (TREE_CODE (GENERIC_TREE_OPERAND (stmt, 1)) == VAR_DECL
-      && DECL_HARD_REGISTER (GENERIC_TREE_OPERAND (stmt, 1)))
+  if (gimple_assign_rhs_code (stmt) == VAR_DECL
+      && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt)))
     return false;
 
   /* No function calls can be replaced.  */
-  if ((call_expr = get_call_expr_in (stmt)) != NULL_TREE)
+  if (gimple_code (stmt) == GIMPLE_CALL)
     return false;
 
   /* Leave any stmt with volatile operands alone as well.  */
-  if (stmt_ann (stmt)->has_volatile_ops)
+  if (gimple_has_volatile_ops (stmt))
     return false;
   
 
@@ -446,7 +444,7 @@ finished_with_expr (temp_expr_table_p tab, int version, bool free_expr)
 /* Create an expression entry for a replaceable expression.  */
 
 static void 
-process_replaceable (temp_expr_table_p tab, tree stmt)
+process_replaceable (temp_expr_table_p tab, gimple stmt)
 {
   tree var, def, basevar;
   int version;
@@ -540,7 +538,7 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
 
   /* Set the replaceable expression.  */
   if (!tab->replaceable_expressions)
-    tab->replaceable_expressions = XCNEWVEC (tree, num_ssa_names + 1);
+    tab->replaceable_expressions = XCNEWVEC (gimple, num_ssa_names + 1);
   tab->replaceable_expressions[version] = SSA_NAME_DEF_STMT (var);
 }
 
@@ -551,20 +549,20 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
 static void
 find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 {
-  block_stmt_iterator bsi;
-  tree stmt, def, use;
-  stmt_ann_t ann;
+  gimple_stmt_iterator bsi;
+  gimple stmt;
+  tree def, use;
   int partition;
   var_map map = tab->map;
   ssa_op_iter iter;
   bool stmt_replaceable;
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
     {
-      stmt = bsi_stmt (bsi);
-      ann = stmt_ann (stmt);
+      stmt = gsi_stmt (bsi);
 
       stmt_replaceable = is_replaceable_p (stmt);
+
       /* Determine if this stmt finishes an existing expression.  */
       FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
 	{
@@ -593,7 +591,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	      /* Mark expression as replaceable unless stmt is volatile or the 
 		 def variable has the same root variable as something in the 
 		 substitution list.  */
-	      if (ann->has_volatile_ops || same_root_var)
+	      if (gimple_has_volatile_ops (stmt) || same_root_var)
 		finished_with_expr (tab, ver, true);
 	      else
 		mark_replaceable (tab, use, stmt_replaceable);
@@ -631,12 +629,12 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
    NULL is returned by the function, otherwise an expression vector indexed
    by SSA_NAME version numbers.  */
 
-extern tree *
+extern gimple *
 find_replaceable_exprs (var_map map)
 {
   basic_block bb;
   temp_expr_table_p table;
-  tree *ret;
+  gimple *ret;
 
   table = new_temp_expr_table (map);
   FOR_EACH_BB (bb)
@@ -666,23 +664,20 @@ find_replaceable_exprs (var_map map)
 
 /* Dump TER expression table EXPR to file F.  */
 
-extern void
-dump_replaceable_exprs (FILE *f, tree *expr)
+void
+dump_replaceable_exprs (FILE *f, gimple *expr)
 {
-  tree stmt, var;
-  int x;
+  tree var;
+  unsigned x;
 
   fprintf (f, "\nReplacing Expressions\n");
-  for (x = 0; x < (int)num_ssa_names; x++)
+  for (x = 0; x < num_ssa_names; x++)
     if (expr[x])
       {
-        stmt = expr[x];
-	var = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
-	gcc_assert (var != NULL_TREE);
+	var = ssa_name (x);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
-	print_generic_expr (f, GENERIC_TREE_OPERAND (stmt, 1),
-			    TDF_SLIM);
+	print_gimple_stmt (f, expr[x], 0, TDF_SLIM);
 	fprintf (f, "\n");
       }
   fprintf (f, "\n");
@@ -694,7 +689,7 @@ dump_replaceable_exprs (FILE *f, tree *expr)
    exclusively to debug TER.  F is the place to send debug info and T is the
    table being debugged.  */
 
-extern void
+void
 debug_ter (FILE *f, temp_expr_table_p t)
 {
   unsigned x, y;
@@ -736,5 +731,4 @@ debug_ter (FILE *f, temp_expr_table_p t)
 
   fprintf (f, "\n----------\n");
 }
-#endif
 #endif

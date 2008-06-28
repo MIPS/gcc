@@ -55,6 +55,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ipa-type-escape.h"
 #include "tree-dump.h"
 #include "c-common.h"
+#include "gimple.h"
 
 /* This optimization implements structure peeling.
 

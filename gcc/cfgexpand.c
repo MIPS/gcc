@@ -42,6 +42,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "target.h"
 
+/* Private function shared with tree-outof-ssa.c  */
+tree gimple_assign_rhs_to_tree (gimple);
+
+
+/* Return an expression tree corresponding to the RHS of GIMPLE
+   statement STMT.  */
+
+tree
+gimple_assign_rhs_to_tree (gimple stmt)
+{
+  tree t;
+  enum gimple_rhs_class class;
+    
+  class = get_gimple_rhs_class (gimple_expr_code (stmt));
+
+  if (class == GIMPLE_BINARY_RHS)
+    t = build2 (gimple_assign_rhs_code (stmt),
+		TREE_TYPE (gimple_assign_lhs (stmt)),
+		gimple_assign_rhs1 (stmt),
+		gimple_assign_rhs2 (stmt));
+  else if (class == GIMPLE_UNARY_RHS)
+    t = build1 (gimple_assign_rhs_code (stmt),
+		TREE_TYPE (gimple_assign_lhs (stmt)),
+		gimple_assign_rhs1 (stmt));
+  else if (class == GIMPLE_SINGLE_RHS)
+    t = gimple_assign_rhs1 (stmt);
+  else
+    gcc_unreachable ();
+
+  return t;
+}
+
+
 /* Helper for gimple_to_tree.  Set EXPR_LOCATION for every expression
    inside *TP.  DATA is the location to set.  */
 
@@ -56,17 +89,13 @@ set_expr_location_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
 }
 
 
-/* FIXME tuples.  THIS IS A HACK.  DO NOT USE.
+/* FIXME tuples.  THIS IS A HACK.
 
    RTL expansion has traditionally been done on trees, so the
    transition to doing it on GIMPLE tuples is very invasive to the RTL
    expander.  To facilitate the transition, this function takes a
    GIMPLE tuple STMT and returns the same statement in the form of a
-   tree.
-
-   This mechanism is ONLY used during the transition and will not be
-   merged into mainline.  If you think you need this function for
-   other uses, you are most likely wrong.  */
+   tree.  */
 
 static tree
 gimple_to_tree (gimple stmt)
@@ -79,27 +108,9 @@ gimple_to_tree (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      {
-	enum gimple_rhs_class class;
-	
-	class = get_gimple_rhs_class (gimple_assign_rhs_code (stmt));
-	if (class == GIMPLE_BINARY_RHS)
-	  t = build2 (gimple_assign_rhs_code (stmt),
-		      TREE_TYPE (gimple_assign_lhs (stmt)),
-		      gimple_assign_rhs1 (stmt),
-		      gimple_assign_rhs2 (stmt));
-	else if (class == GIMPLE_UNARY_RHS)
-	  t = build1 (gimple_assign_rhs_code (stmt),
-		      TREE_TYPE (gimple_assign_lhs (stmt)),
-		      gimple_assign_rhs1 (stmt));
-	else if (class == GIMPLE_SINGLE_RHS)
-	  t = gimple_assign_rhs1 (stmt);
-	else
-	  gcc_unreachable ();
-	
-	t =  build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
-      }
-    break;
+      t = gimple_assign_rhs_to_tree (stmt);
+      t = build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
+      break;
 	                                 
     case GIMPLE_COND:
       t = build2 (gimple_cond_code (stmt), boolean_type_node,

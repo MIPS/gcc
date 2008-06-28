@@ -1,3 +1,18 @@
+2008-06-27  Diego Novillo  <dnovillo@google.com>
+
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Factor out of ...
+	(gimple_to_tree): ... here.
+	Update comments referring to mainline merge.
+	* tree-ssa-ter.c: Tuplify.
+	* tree-outof-ssa.c (gimple_assign_rhs_to_tree): Declare.
+	(replace_use_variable): Call it.
+	(rewrite_trees): Tuplify.
+	(remove_ssa_form): Call it.
+	* gimple.h: Tidy some formatting.
+	* ipa-struct-reorg.c: Include gimple.h
+	* Makefile.in (ipa-struct-reorg.o): Add dependency on
+	GIMPLE_H.
+
 2008-06-27  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-sccvn.c (vn_get_expr_for): New function.

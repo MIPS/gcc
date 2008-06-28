@@ -2570,10 +2570,11 @@ ipa-type-escape.o : ipa-type-escape.c $(CONFIG_H) $(SYSTEM_H) \
    pointer-set.h $(GGC_H) $(IPA_TYPE_ESCAPE_H) $(IPA_UTILS_H) $(C_COMMON_H) \
    $(TREE_GIMPLE_H) $(CGRAPH_H) output.h $(FLAGS_H) tree-pass.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H)
-ipa-struct-reorg.o: ipa-struct-reorg.c ipa-struct-reorg.h $(CONFIG_H) $(SYSTEM_H) \
-   coretypes.h $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) \
-   $(EXPR_H) $(FUNCTION_H) toplev.h $(GGC_H) $(TARGET_H) langhooks.h $(COVERAGE_H) \
-   libfuncs.h gt-coverage.h $(HASHTAB_H) $(IPA_TYPE_ESCAPE_H)
+ipa-struct-reorg.o: ipa-struct-reorg.c ipa-struct-reorg.h $(CONFIG_H) \
+   $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h \
+   $(REGS_H) $(EXPR_H) $(FUNCTION_H) toplev.h $(GGC_H) $(TARGET_H) \
+   langhooks.h $(COVERAGE_H) libfuncs.h gt-coverage.h $(HASHTAB_H) \
+   $(IPA_TYPE_ESCAPE_H) $(GIMPLE_H)
 
 coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
