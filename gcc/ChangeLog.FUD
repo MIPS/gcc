@@ -1,3 +1,18 @@
+2008-06-28  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Merged from trunk up to 137207.
+
+	* df-problems.c (struct df_chain_problem_data): New struct with
+	an alloc pool for df_link objects.
+	(df_chain_create): Allocate links in the new pool.
+	(df_chain_unlink_1): Free links from the new pool.
+	(df_chain_unlink): Likewise.
+	(df_chain_remove_problem): Free df_chain->problem_data and
+	everything in it.
+	(df_chain_free): Likewise.
+	(df_chain_alloc): Allocate df_chain->problem data and the alloc
+	pool for df_link objects.
+
 2008-06-26  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* cfganal.c (compute_iterated_dominance_frontiers): Rename back

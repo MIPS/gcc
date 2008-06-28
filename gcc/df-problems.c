@@ -1855,15 +1855,26 @@ df_live_verify_transfer_functions (void)
 
 #define df_chain_problem_p(FLAG) (((enum df_chain_flags)df_chain->local_flags)&(FLAG))
 
+/* Private data used for the CHAIN problem.  */
+struct df_chain_problem_data
+{
+  /* An alloc pool for df_link objects.  */
+  alloc_pool df_link_pool;
+};
+
 /* Create a du or ud chain from SRC to DST and link it into SRC.   */
 
 struct df_link *
 df_chain_create (struct df_ref *src, struct df_ref *dst)
 {
+  struct df_chain_problem_data *problem_data;
   struct df_link *head = DF_REF_CHAIN (src);
-  struct df_link *link = (struct df_link *) pool_alloc (df_chain->block_pool);
-  
+  struct df_link *link;
+
+  problem_data = (struct df_chain_problem_data *) df_chain->problem_data;
+  link = (struct df_link *) pool_alloc (problem_data->df_link_pool);
   DF_REF_CHAIN (src) = link;
+
   link->next = head;
   link->ref = dst;
   return link;
@@ -1875,9 +1886,11 @@ df_chain_create (struct df_ref *src, struct df_ref *dst)
 static void
 df_chain_unlink_1 (struct df_ref *ref, struct df_ref *target)
 {
+  struct df_chain_problem_data *problem_data;
   struct df_link *chain = DF_REF_CHAIN (ref);
   struct df_link *prev = NULL;
 
+  problem_data = (struct df_chain_problem_data *) df_chain->problem_data;
   while (chain)
     {
       if (chain->ref == target)
@@ -1886,7 +1899,7 @@ df_chain_unlink_1 (struct df_ref *ref, struct df_ref *target)
 	    prev->next = chain->next;
 	  else
 	    DF_REF_CHAIN (ref) = chain->next;
-	  pool_free (df_chain->block_pool, chain);
+	  pool_free (problem_data->df_link_pool, chain);
 	  return;
 	}
       prev = chain;
@@ -1900,13 +1913,16 @@ df_chain_unlink_1 (struct df_ref *ref, struct df_ref *target)
 void
 df_chain_unlink (struct df_ref *ref)
 {
+  struct df_chain_problem_data *problem_data;
   struct df_link *chain = DF_REF_CHAIN (ref);
+
+  problem_data = (struct df_chain_problem_data *) df_chain->problem_data;
   while (chain)
     {
       struct df_link *next = chain->next;
       /* Delete the other side if it exists.  */
       df_chain_unlink_1 (chain->ref, ref);
-      pool_free (df_chain->block_pool, chain);
+      pool_free (problem_data->df_link_pool, chain);
       chain = next;
     }
   DF_REF_CHAIN (ref) = NULL;
@@ -1933,12 +1949,20 @@ df_chain_copy (struct df_ref *to_ref,
 static void
 df_chain_remove_problem (void)
 {
+  struct df_chain_problem_data *problem_data;
   bitmap_iterator bi;
   unsigned int bb_index;
 
+  problem_data = (struct df_chain_problem_data *) df_chain->problem_data;
+
   /* Wholesale destruction of the old chains.  */ 
-  if (df_chain->block_pool)
-    free_alloc_pool (df_chain->block_pool);
+  if (problem_data)
+    {
+      free_alloc_pool (problem_data->df_link_pool);
+      problem_data->df_link_pool = NULL;
+      free (df_chain->problem_data);
+    }
+  df_chain->problem_data = NULL;
 
   EXECUTE_IF_SET_IN_BITMAP (df_chain->out_of_date_transfer_functions, 0, bb_index, bi)
     {
@@ -1995,9 +2019,16 @@ df_chain_fully_remove_problem (void)
 static void  
 df_chain_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
+  struct df_chain_problem_data *problem_data;
+
   df_chain_remove_problem ();
-  df_chain->block_pool = create_alloc_pool ("df_chain_block pool", 
-					 sizeof (struct df_link), 50);
+
+  df_chain->block_pool = NULL;
+  problem_data = XNEW (struct df_chain_problem_data);
+  df_chain->problem_data = problem_data;
+  problem_data->df_link_pool = create_alloc_pool ("df_chain link pool", 
+						  sizeof (struct df_link), 50);
+
   df_chain->optional_p = true;
 }
 
@@ -2169,7 +2200,15 @@ df_chain_finalize (bitmap all_blocks)
 static void
 df_chain_free (void)
 {
-  free_alloc_pool (df_chain->block_pool);
+  struct df_chain_problem_data *problem_data;
+
+  problem_data = (struct df_chain_problem_data *) df_chain->problem_data;
+  if (problem_data)
+    {
+      free_alloc_pool (problem_data->df_link_pool);
+      problem_data->df_link_pool = NULL;
+      free (df_chain->problem_data);
+    }
   BITMAP_FREE (df_chain->out_of_date_transfer_functions);
   free (df_chain);
 }
