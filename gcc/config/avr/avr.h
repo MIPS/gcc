@@ -385,8 +385,6 @@ extern int avr_reg_order[];
 
 #define RET_REGISTER avr_ret_register ()
 
-#define FUNCTION_VALUE(VALTYPE, FUNC) avr_function_value (VALTYPE, FUNC)
-
 #define LIBCALL_VALUE(MODE)  avr_libcall_value (MODE)
 
 #define FUNCTION_VALUE_REGNO_P(N) ((int) (N) == RET_REGISTER)
@@ -525,6 +523,8 @@ do {									    \
 #define TARGET_ASM_CONSTRUCTOR avr_asm_out_ctor
 
 #define TARGET_ASM_DESTRUCTOR avr_asm_out_dtor
+
+#define SUPPORTS_INIT_PRIORITY 0
 
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 
@@ -817,7 +817,7 @@ mmcu=*:-mmcu=%*}"
   mmcu=at90s8*|\
   mmcu=at90c8*|\
   mmcu=at86rf401|\
-  mmcu=attiny13|\
+  mmcu=attiny13*|\
   mmcu=attiny2313|\
   mmcu=attiny24|\
   mmcu=attiny25|\
@@ -916,6 +916,7 @@ mmcu=*:-mmcu=%*}"
 %{mmcu=at90s8535:crts8535.o%s} \
 %{mmcu=at86rf401:crt86401.o%s} \
 %{mmcu=attiny13:crttn13.o%s} \
+%{mmcu=attiny13a:crttn13a.o%s} \
 %{mmcu=attiny2313|mmcu=avr25:crttn2313.o%s} \
 %{mmcu=attiny24:crttn24.o%s} \
 %{mmcu=attiny44:crttn44.o%s} \

@@ -322,10 +322,9 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # * overlong strings
 # So, we only use -pedantic if we can disable those warnings.
 
-ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings], [loose_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wstrict-prototypes -Wmissing-prototypes], \
-			 [c_loose_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wc++-compat], [cxx_compat_warn])
+ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wcast-qual], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wstrict-prototypes -Wmissing-prototypes \
+	  -Wc++-compat], [c_loose_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wmissing-format-attribute], [strict_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition], [c_strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \

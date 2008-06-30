@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #define DEFTREECODE(SYM, NAME, TYPE, LEN) #SYM,
+#define END_OF_BASE_TREE_CODES
 
 static const char *const tree_codes[] = {
 #include "all-tree.def"
@@ -31,6 +32,7 @@ static const char *const tree_codes[] = {
 };
 
 #undef DEFTREECODE
+#undef END_OF_BASE_TREE_CODES
 
 static void usage (void);
 

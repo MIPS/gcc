@@ -760,8 +760,7 @@ union lang_tree_node
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
     {								\
-      DECL_LANG_SPECIFIC ((T))					\
-	= ggc_alloc_cleared (sizeof (struct lang_decl));	\
+      DECL_LANG_SPECIFIC ((T)) = GGC_CNEW (struct lang_decl);	\
       DECL_LANG_SPECIFIC (T)->desc = LANG_DECL_VAR;		\
     }
 
@@ -891,7 +890,7 @@ struct lang_decl GTY(())
 #define MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC(T) \
   if (TYPE_LANG_SPECIFIC ((T)) == NULL)		\
      TYPE_LANG_SPECIFIC ((T))			\
-     = ggc_alloc_cleared (sizeof (struct lang_type));
+     = GGC_CNEW (struct lang_type);
 
 #define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
 

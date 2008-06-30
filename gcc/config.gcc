@@ -929,7 +929,6 @@ hppa[12]*-*-hpux10*)
 	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	use_collect2=yes
-	use_fixproto=yes
 	gas=yes
 	;;
 hppa*64*-*-hpux11*)
@@ -1523,6 +1522,12 @@ mips64*-*-linux*)
 	tm_file="dbxelf.h elfos.h svr4.h linux.h ${tm_file} mips/linux.h mips/linux64.h"
 	tmake_file="${tmake_file} mips/t-linux64"
 	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+	case ${target} in
+		mips64el-st-linux-gnu)
+			tm_file="${tm_file} mips/st.h"
+			tmake_file="${tmake_file} mips/t-st"
+			;;
+	esac
 	gnu_ld=yes
 	gas=yes
 	test x$with_llsc != x || with_llsc=yes
@@ -2814,8 +2819,9 @@ case "${target}" in
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 464 | 464fp \
 			| 505 | 601 | 602 | 603 | 603e | ec603e | 604 \
-			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 | e300c[23] \
-			| 854[08] | 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5 | cell)
+			| 604e | 620 | 630 | 740 | 750 | 7400 | 7450 \
+			| e300c[23] | 854[08] | e500mc \
+			| 801 | 821 | 823 | 860 | 970 | G3 | G4 | G5 | cell)
 				# OK
 				;;
 			*)

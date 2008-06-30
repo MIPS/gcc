@@ -3856,10 +3856,10 @@ typedef struct operator_name_info_t GTY(())
 
 /* A mapping from tree codes to operator name information.  */
 extern GTY(()) operator_name_info_t operator_name_info
-  [(int) LAST_AND_UNUSED_TREE_CODE];
+  [(int) MAX_TREE_CODES];
 /* Similar, but for assignment operators.  */
 extern GTY(()) operator_name_info_t assignment_operator_name_info
-  [(int) LAST_AND_UNUSED_TREE_CODE];
+  [(int) MAX_TREE_CODES];
 
 /* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
    constants.  */

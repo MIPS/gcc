@@ -262,8 +262,9 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   int n = 0;
 
   if (node->call_site_hash)
-    return htab_find_with_hash (node->call_site_hash, call_stmt,
-      				htab_hash_pointer (call_stmt));
+    return (struct cgraph_edge *)
+      htab_find_with_hash (node->call_site_hash, call_stmt,
+			   htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -1052,6 +1053,21 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	node->local.local = false;
 	node->local.finalized = true;
 	node->reachable = node->needed = true;
+	if (!lowered && cgraph_state == CGRAPH_STATE_EXPANSION)
+	  {
+	    push_cfun (DECL_STRUCT_FUNCTION (fndecl));
+	    current_function_decl = fndecl;
+	    tree_register_cfg_hooks ();
+            tree_lowering_passes (fndecl);
+	    bitmap_obstack_initialize (NULL);
+	    if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
+	      execute_pass_list (pass_early_local_passes.pass.sub);
+	    bitmap_obstack_release (NULL);
+	    pop_cfun ();
+	    current_function_decl = NULL;
+
+	    lowered = true;
+	  }
 	if (lowered)
 	  node->lowered = true;
 	node->next_needed = cgraph_new_nodes;
