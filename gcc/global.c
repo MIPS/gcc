@@ -232,9 +232,9 @@ compute_regsets (HARD_REG_SET *elim_set,
   int need_fp
     = (! flag_omit_frame_pointer
        || (cfun->calls_alloca && EXIT_IGNORE_STACK)
-       || FRAME_POINTER_REQUIRED
        || crtl->accesses_prior_frames
-       || crtl->stack_realign_needed);
+       || crtl->stack_realign_needed
+       || FRAME_POINTER_REQUIRED);
 
   frame_pointer_needed = need_fp;
 
