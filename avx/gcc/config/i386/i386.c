@@ -4847,7 +4847,9 @@ static bool
 contains_aligned_value_p (tree type)
 {
   enum machine_mode mode = TYPE_MODE (type);
-  if (((TARGET_SSE && SSE_REG_MODE_P (mode)) || mode == TDmode)
+  if (((TARGET_SSE && SSE_REG_MODE_P (mode))
+       || mode == TDmode
+       || mode == TFmode)
       && (!TYPE_USER_ALIGN (type) || TYPE_ALIGN (type) > 128))
     return true;
   if (TYPE_ALIGN (type) < 128)
@@ -4906,8 +4908,9 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
     align = GET_MODE_ALIGNMENT (mode);
   if (align < PARM_BOUNDARY)
     align = PARM_BOUNDARY;
-  /* In 32bit, only _Decimal128 is aligned to its natural boundary.  */
-  if (!TARGET_64BIT && mode != TDmode)
+  /* In 32bit, only _Decimal128 and __float128 are aligned to their
+     natural boundaries.  */
+  if (!TARGET_64BIT && mode != TDmode && mode != TFmode)
     {
       /* i386 ABI defines all arguments to be 4 byte aligned.  We have to
 	 make an exception for SSE modes since these require 128bit
@@ -4918,7 +4921,7 @@ ix86_function_arg_boundary (enum machine_mode mode, tree type)
 	 to 8 byte boundaries.  */
       if (!type)
 	{
-	  if (!(TARGET_SSE && SSE_REG_MODE_P (mode)) && mode != TDmode)
+	  if (!(TARGET_SSE && SSE_REG_MODE_P (mode)))
 	    align = PARM_BOUNDARY;
 	}
       else
@@ -5143,9 +5146,6 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
 
   if (mode == XFmode)
     return 0;
-
-  if (mode == TDmode)
-    return 1;
 
   if (size > 12)
     return 1;
@@ -9393,7 +9393,7 @@ print_operand (FILE *file, rtx x, int code)
 	  if (CONST_INT_P (x) || ! SHIFT_DOUBLE_OMITS_COUNT)
 	    {
 	      PRINT_OPERAND (file, x, 0);
-	      putc (',', file);
+	      fputs (", ", file);
 	    }
 	  return;
 
@@ -14424,7 +14424,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
     size = (GET_MODE_SIZE (mode) + 4) / 8;
 
   gcc_assert (!REG_P (operand) || !MMX_REGNO_P (REGNO (operand)));
-  gcc_assert (size >= 2 && size <= 3);
+  gcc_assert (size >= 2 && size <= 4);
 
   /* Optimize constant pool reference to immediates.  This is used by fp
      moves, that force all constants to memory to allow combining.  */
@@ -14444,7 +14444,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 
       operand = copy_rtx (operand);
       PUT_MODE (operand, Pmode);
-      parts[0] = parts[1] = parts[2] = operand;
+      parts[0] = parts[1] = parts[2] = parts[3] = operand;
       return size;
     }
 
@@ -14465,21 +14465,20 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 	split_di (&operand, 1, &parts[0], &parts[1]);
       else
 	{
+	  int i;
+
 	  if (REG_P (operand))
 	    {
 	      gcc_assert (reload_completed);
-	      parts[0] = gen_rtx_REG (SImode, REGNO (operand) + 0);
-	      parts[1] = gen_rtx_REG (SImode, REGNO (operand) + 1);
-	      if (size == 3)
-		parts[2] = gen_rtx_REG (SImode, REGNO (operand) + 2);
+	      for (i = 0; i < size; i++)
+		parts[i] = gen_rtx_REG (SImode, REGNO (operand) + i);
 	    }
 	  else if (offsettable_memref_p (operand))
 	    {
 	      operand = adjust_address (operand, SImode, 0);
 	      parts[0] = operand;
-	      parts[1] = adjust_address (operand, SImode, 4);
-	      if (size == 3)
-		parts[2] = adjust_address (operand, SImode, 8);
+	      for (i = 1; i < size; i++)
+		parts[i] = adjust_address (operand, SImode, 4 * i);
 	    }
 	  else if (GET_CODE (operand) == CONST_DOUBLE)
 	    {
@@ -14489,6 +14488,11 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 	      REAL_VALUE_FROM_CONST_DOUBLE (r, operand);
 	      switch (mode)
 		{
+		case TFmode:
+		  real_to_target (l, &r, mode);
+		  parts[3] = gen_int_mode (l[3], SImode);
+		  parts[2] = gen_int_mode (l[2], SImode);
+		  break;
 		case XFmode:
 		  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
 		  parts[2] = gen_int_mode (l[2], SImode);
@@ -14562,7 +14566,7 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
   return size;
 }
 
-/* Emit insns to perform a move or push of DI, DF, and XF values.
+/* Emit insns to perform a move or push of DI, DF, XF, and TF values.
    Return false when normal moves are needed; true when all required
    insns have been emitted.  Operands 2-4 contain the input values
    int the correct order; operands 5-7 contain the output values.  */
@@ -14570,11 +14574,12 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 void
 ix86_split_long_move (rtx operands[])
 {
-  rtx part[2][3];
-  int nparts;
+  rtx part[2][4];
+  int nparts, i, j;
   int push = 0;
   int collisions = 0;
   enum machine_mode mode = GET_MODE (operands[0]);
+  bool collisionparts[4];
 
   /* The DFmode expanders may ask us to move double.
      For 64bit target this is single move.  By hiding the fact
@@ -14613,33 +14618,45 @@ ix86_split_long_move (rtx operands[])
   /* When emitting push, take care for source operands on the stack.  */
   if (push && MEM_P (operands[1])
       && reg_overlap_mentioned_p (stack_pointer_rtx, operands[1]))
-    {
-      if (nparts == 3)
-	part[1][1] = change_address (part[1][1], GET_MODE (part[1][1]),
-				     XEXP (part[1][2], 0));
-      part[1][0] = change_address (part[1][0], GET_MODE (part[1][0]),
-				   XEXP (part[1][1], 0));
-    }
+    for (i = 0; i < nparts - 1; i++)
+      part[1][i] = change_address (part[1][i],
+				   GET_MODE (part[1][i]),
+				   XEXP (part[1][i + 1], 0));
 
   /* We need to do copy in the right order in case an address register
      of the source overlaps the destination.  */
   if (REG_P (part[0][0]) && MEM_P (part[1][0]))
     {
-      if (reg_overlap_mentioned_p (part[0][0], XEXP (part[1][0], 0)))
-	collisions++;
-      if (reg_overlap_mentioned_p (part[0][1], XEXP (part[1][0], 0)))
-	collisions++;
-      if (nparts == 3
-	  && reg_overlap_mentioned_p (part[0][2], XEXP (part[1][0], 0)))
-	collisions++;
+      rtx tmp;
+
+      for (i = 0; i < nparts; i++)
+	{
+	  collisionparts[i]
+	    = reg_overlap_mentioned_p (part[0][i], XEXP (part[1][0], 0));
+	  if (collisionparts[i])
+	    collisions++;
+	}
 
       /* Collision in the middle part can be handled by reordering.  */
-      if (collisions == 1 && nparts == 3
-	  && reg_overlap_mentioned_p (part[0][1], XEXP (part[1][0], 0)))
+      if (collisions == 1 && nparts == 3 && collisionparts [1])
 	{
-	  rtx tmp;
 	  tmp = part[0][1]; part[0][1] = part[0][2]; part[0][2] = tmp;
 	  tmp = part[1][1]; part[1][1] = part[1][2]; part[1][2] = tmp;
+	}
+      else if (collisions == 1
+	       && nparts == 4
+	       && (collisionparts [1] || collisionparts [2]))
+	{
+	  if (collisionparts [1])
+	    {
+	      tmp = part[0][1]; part[0][1] = part[0][2]; part[0][2] = tmp;
+	      tmp = part[1][1]; part[1][1] = part[1][2]; part[1][2] = tmp;
+	    }
+	  else
+	    {
+	      tmp = part[0][2]; part[0][2] = part[0][3]; part[0][3] = tmp;
+	      tmp = part[1][2]; part[1][2] = part[1][3]; part[1][3] = tmp;
+	    }
 	}
 
       /* If there are more collisions, we can't handle it by reordering.
@@ -14659,11 +14676,11 @@ ix86_split_long_move (rtx operands[])
 
 	  emit_insn (gen_rtx_SET (VOIDmode, base, XEXP (part[1][0], 0)));
 	  part[1][0] = replace_equiv_address (part[1][0], base);
-	  part[1][1] = replace_equiv_address (part[1][1],
-				      plus_constant (base, UNITS_PER_WORD));
-	  if (nparts == 3)
-	    part[1][2] = replace_equiv_address (part[1][2],
-				      plus_constant (base, 8));
+	  for (i = 1; i < nparts; i++)
+	    {
+	      tmp = plus_constant (base, UNITS_PER_WORD * i);
+	      part[1][i] = replace_equiv_address (part[1][i], tmp);
+	    }
 	}
     }
 
@@ -14675,6 +14692,11 @@ ix86_split_long_move (rtx operands[])
 	    {
 	      if (TARGET_128BIT_LONG_DOUBLE && mode == XFmode)
                 emit_insn (gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, GEN_INT (-4)));
+	      emit_move_insn (part[0][2], part[1][2]);
+	    }
+	  else if (nparts == 4)
+	    {
+	      emit_move_insn (part[0][3], part[1][3]);
 	      emit_move_insn (part[0][2], part[1][2]);
 	    }
 	}
@@ -14714,77 +14736,42 @@ ix86_split_long_move (rtx operands[])
        && REG_P (part[1][1])
        && (REGNO (part[0][0]) == REGNO (part[1][1])
 	   || (nparts == 3
-	       && REGNO (part[0][0]) == REGNO (part[1][2]))))
+	       && REGNO (part[0][0]) == REGNO (part[1][2]))
+	   || (nparts == 4
+	       && REGNO (part[0][0]) == REGNO (part[1][3]))))
       || (collisions > 0
 	  && reg_overlap_mentioned_p (part[0][0], XEXP (part[1][0], 0))))
     {
-      if (nparts == 3)
+      for (i = 0, j = nparts - 1; i < nparts; i++, j--)
 	{
-	  operands[2] = part[0][2];
-	  operands[3] = part[0][1];
-	  operands[4] = part[0][0];
-	  operands[5] = part[1][2];
-	  operands[6] = part[1][1];
-	  operands[7] = part[1][0];
-	}
-      else
-	{
-	  operands[2] = part[0][1];
-	  operands[3] = part[0][0];
-	  operands[5] = part[1][1];
-	  operands[6] = part[1][0];
+	  operands[2 + i] = part[0][j];
+	  operands[6 + i] = part[1][j];
 	}
     }
   else
     {
-      if (nparts == 3)
+      for (i = 0; i < nparts; i++)
 	{
-	  operands[2] = part[0][0];
-	  operands[3] = part[0][1];
-	  operands[4] = part[0][2];
-	  operands[5] = part[1][0];
-	  operands[6] = part[1][1];
-	  operands[7] = part[1][2];
-	}
-      else
-	{
-	  operands[2] = part[0][0];
-	  operands[3] = part[0][1];
-	  operands[5] = part[1][0];
-	  operands[6] = part[1][1];
+	  operands[2 + i] = part[0][i];
+	  operands[6 + i] = part[1][i];
 	}
     }
 
   /* If optimizing for size, attempt to locally unCSE nonzero constants.  */
   if (optimize_size)
     {
-      if (CONST_INT_P (operands[5])
-	  && operands[5] != const0_rtx
-	  && REG_P (operands[2]))
-	{
-	  if (CONST_INT_P (operands[6])
-	      && INTVAL (operands[6]) == INTVAL (operands[5]))
-	    operands[6] = operands[2];
-
-	  if (nparts == 3
-	      && CONST_INT_P (operands[7])
-	      && INTVAL (operands[7]) == INTVAL (operands[5]))
-	    operands[7] = operands[2];
-	}
-
-      if (nparts == 3
-	  && CONST_INT_P (operands[6])
-	  && operands[6] != const0_rtx
-	  && REG_P (operands[3])
-	  && CONST_INT_P (operands[7])
-	  && INTVAL (operands[7]) == INTVAL (operands[6]))
-	operands[7] = operands[3];
+      for (j = 0; j < nparts - 1; j++)
+	if (CONST_INT_P (operands[6 + j])
+	    && operands[6 + j] != const0_rtx
+	    && REG_P (operands[2 + j]))
+	  for (i = j; i < nparts - 1; i++)
+	    if (CONST_INT_P (operands[7 + i])
+		&& INTVAL (operands[7 + i]) == INTVAL (operands[6 + j]))
+	      operands[7 + i] = operands[2 + j];
     }
 
-  emit_move_insn (operands[2], operands[5]);
-  emit_move_insn (operands[3], operands[6]);
-  if (nparts == 3)
-    emit_move_insn (operands[4], operands[7]);
+  for (i = 0; i < nparts; i++)
+    emit_move_insn (operands[2 + i], operands[6 + i]);
 
   return;
 }
@@ -14844,7 +14831,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
 	  if (!rtx_equal_p (operands[0], operands[1]))
 	    emit_move_insn (operands[0], operands[1]);
 	  emit_insn ((mode == DImode
-		     ? gen_x86_shld_1
+		     ? gen_x86_shld
 		     : gen_x86_64_shld) (high[0], low[0], GEN_INT (count)));
 	  ix86_expand_ashl_const (low[0], count, mode);
 	}
@@ -14929,7 +14916,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
 
       (mode == DImode ? split_di : split_ti) (operands, 1, low, high);
       emit_insn ((mode == DImode
-		  ? gen_x86_shld_1
+		  ? gen_x86_shld
 		  : gen_x86_64_shld) (high[0], low[0], operands[2]));
     }
 
@@ -14987,7 +14974,7 @@ ix86_split_ashr (rtx *operands, rtx scratch, enum machine_mode mode)
 	  if (!rtx_equal_p (operands[0], operands[1]))
 	    emit_move_insn (operands[0], operands[1]);
 	  emit_insn ((mode == DImode
-		      ? gen_x86_shrd_1
+		      ? gen_x86_shrd
 		      : gen_x86_64_shrd) (low[0], high[0], GEN_INT (count)));
 	  emit_insn ((mode == DImode
 		      ? gen_ashrsi3
@@ -15002,7 +14989,7 @@ ix86_split_ashr (rtx *operands, rtx scratch, enum machine_mode mode)
       (mode == DImode ? split_di : split_ti) (operands, 1, low, high);
 
       emit_insn ((mode == DImode
-		  ? gen_x86_shrd_1
+		  ? gen_x86_shrd
 		  : gen_x86_64_shrd) (low[0], high[0], operands[2]));
       emit_insn ((mode == DImode
 		  ? gen_ashrsi3
@@ -15053,7 +15040,7 @@ ix86_split_lshr (rtx *operands, rtx scratch, enum machine_mode mode)
 	  if (!rtx_equal_p (operands[0], operands[1]))
 	    emit_move_insn (operands[0], operands[1]);
 	  emit_insn ((mode == DImode
-		      ? gen_x86_shrd_1
+		      ? gen_x86_shrd
 		      : gen_x86_64_shrd) (low[0], high[0], GEN_INT (count)));
 	  emit_insn ((mode == DImode
 		      ? gen_lshrsi3
@@ -15068,7 +15055,7 @@ ix86_split_lshr (rtx *operands, rtx scratch, enum machine_mode mode)
       (mode == DImode ? split_di : split_ti) (operands, 1, low, high);
 
       emit_insn ((mode == DImode
-		  ? gen_x86_shrd_1
+		  ? gen_x86_shrd
 		  : gen_x86_64_shrd) (low[0], high[0], operands[2]));
       emit_insn ((mode == DImode
 		  ? gen_lshrsi3
@@ -19236,6 +19223,9 @@ static const struct builtin_description bdesc_args[] =
 
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_vmsqrtv2df2, "__builtin_ia32_sqrtsd", IX86_BUILTIN_SQRTSD, UNKNOWN, (int) V2DF_FTYPE_V2DF_VEC_MERGE },
 
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_abstf2, 0, IX86_BUILTIN_FABSQ, UNKNOWN, (int) FLOAT128_FTYPE_FLOAT128 },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_copysigntf3, 0, IX86_BUILTIN_COPYSIGNQ, UNKNOWN, (int) FLOAT128_FTYPE_FLOAT128_FLOAT128 },
+
   /* SSE2 MMX */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_mmx_addv1di3, "__builtin_ia32_paddq", IX86_BUILTIN_PADDQ, UNKNOWN, (int) V1DI_FTYPE_V1DI_V1DI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_mmx_subv1di3, "__builtin_ia32_psubq", IX86_BUILTIN_PSUBQ, UNKNOWN, (int) V1DI_FTYPE_V1DI_V1DI },
@@ -19361,10 +19351,6 @@ static const struct builtin_description bdesc_args[] =
 
   /* PCLMUL */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_pclmulqdq, 0, IX86_BUILTIN_PCLMULQDQ128, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI_INT },
-
-   /* 64bit */
-  { OPTION_MASK_ISA_64BIT, CODE_FOR_abstf2, 0, IX86_BUILTIN_FABSQ, UNKNOWN, (int) FLOAT128_FTYPE_FLOAT128 },
-  { OPTION_MASK_ISA_64BIT, CODE_FOR_copysigntf3, 0, IX86_BUILTIN_COPYSIGNQ, UNKNOWN, (int) FLOAT128_FTYPE_FLOAT128_FLOAT128 },
 
   /* AVX */
   { OPTION_MASK_ISA_AVX, CODE_FOR_addv4df3, "__builtin_ia32_addpd256", IX86_BUILTIN_ADDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
@@ -20536,47 +20522,6 @@ ix86_init_mmx_sse_builtins (void)
 
   tree ftype;
 
-  /* The __float80 type.  */
-  if (TYPE_MODE (long_double_type_node) == XFmode)
-    (*lang_hooks.types.register_builtin_type) (long_double_type_node,
-					       "__float80");
-  else
-    {
-      /* The __float80 type.  */
-      tree float80_type_node = make_node (REAL_TYPE);
-
-      TYPE_PRECISION (float80_type_node) = 80;
-      layout_type (float80_type_node);
-      (*lang_hooks.types.register_builtin_type) (float80_type_node,
-						 "__float80");
-    }
-
-  if (TARGET_64BIT)
-    {
-      tree float128_type_node = make_node (REAL_TYPE);
-
-      TYPE_PRECISION (float128_type_node) = 128;
-      layout_type (float128_type_node);
-      (*lang_hooks.types.register_builtin_type) (float128_type_node,
-						 "__float128");
-
-      /* TFmode support builtins.  */
-      ftype = build_function_type (float128_type_node,
-				   void_list_node);
-      def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_infq", ftype, IX86_BUILTIN_INFQ);
-
-      ftype = build_function_type_list (float128_type_node,
-					float128_type_node,
-					NULL_TREE);
-      def_builtin_const (OPTION_MASK_ISA_64BIT, "__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ);
-
-      ftype = build_function_type_list (float128_type_node,
-					float128_type_node,
-					float128_type_node,
-					NULL_TREE);
-      def_builtin_const (OPTION_MASK_ISA_64BIT, "__builtin_copysignq", ftype, IX86_BUILTIN_COPYSIGNQ);
-    }
-
   /* Add all special builtins with variable number of operands.  */
   for (i = 0, d = bdesc_special_args;
        i < ARRAY_SIZE (bdesc_special_args);
@@ -21354,6 +21299,52 @@ ix86_init_mmx_sse_builtins (void)
 static void
 ix86_init_builtins (void)
 {
+  tree float128_type_node = make_node (REAL_TYPE);
+  tree ftype, decl;
+
+  /* The __float80 type.  */
+  if (TYPE_MODE (long_double_type_node) == XFmode)
+    (*lang_hooks.types.register_builtin_type) (long_double_type_node,
+					       "__float80");
+  else
+    {
+      /* The __float80 type.  */
+      tree float80_type_node = make_node (REAL_TYPE);
+
+      TYPE_PRECISION (float80_type_node) = 80;
+      layout_type (float80_type_node);
+      (*lang_hooks.types.register_builtin_type) (float80_type_node,
+						 "__float80");
+    }
+
+  /* The __float128 type.  */
+  TYPE_PRECISION (float128_type_node) = 128;
+  layout_type (float128_type_node);
+  (*lang_hooks.types.register_builtin_type) (float128_type_node,
+					     "__float128");
+
+  /* TFmode support builtins.  */
+  ftype = build_function_type (float128_type_node, void_list_node);
+  decl = add_builtin_function ("__builtin_infq", ftype,
+			       IX86_BUILTIN_INFQ, BUILT_IN_MD,
+			       NULL, NULL_TREE);
+  ix86_builtins[(int) IX86_BUILTIN_INFQ] = decl;
+
+  if (HOST_BITS_PER_WIDE_INT >= 64)
+    {
+      /* Those builtins need TImode to compile.  */
+      ftype = build_function_type_list (float128_type_node,
+					float128_type_node,
+					NULL_TREE);
+      def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ);
+
+      ftype = build_function_type_list (float128_type_node,
+					float128_type_node,
+					float128_type_node,
+					NULL_TREE);
+      def_builtin_const (OPTION_MASK_ISA_SSE2, "__builtin_copysignq", ftype, IX86_BUILTIN_COPYSIGNQ);
+    }
+
   if (TARGET_MMX)
     ix86_init_mmx_sse_builtins ();
 }
@@ -24173,11 +24164,11 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   symb = (*targetm.strip_name_encoding) (symb);
 
   length = strlen (stub);
-  binder_name = alloca (length + 32);
+  binder_name = XALLOCAVEC (char, length + 32);
   GEN_BINDER_NAME_FOR_STUB (binder_name, stub, length);
 
   length = strlen (symb);
-  symbol_name = alloca (length + 32);
+  symbol_name = XALLOCAVEC (char, length + 32);
   GEN_SYMBOL_NAME_FOR_SYMBOL (symbol_name, symb, length);
 
   sprintf (lazy_ptr_name, "L%d$lz", label);
@@ -26087,7 +26078,7 @@ ix86_scalar_mode_supported_p (enum machine_mode mode)
   if (DECIMAL_FLOAT_MODE_P (mode))
     return true;
   else if (mode == TFmode)
-    return TARGET_64BIT;
+    return true;
   else
     return default_scalar_mode_supported_p (mode);
 }
@@ -26113,9 +26104,9 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
 static enum machine_mode
 ix86_c_mode_for_suffix (char suffix)
 {
-  if (TARGET_64BIT && suffix == 'q')
+  if (suffix == 'q')
     return TFmode;
-  if (TARGET_MMX && suffix == 'w')
+  if (suffix == 'w')
     return XFmode;
 
   return VOIDmode;

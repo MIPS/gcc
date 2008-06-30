@@ -2121,6 +2121,21 @@ mips_const_insns (rtx x)
     }
 }
 
+/* X is a doubleword constant that can be handled by splitting it into
+   two words and loading each word separately.  Return the number of
+   instructions required to do this.  */
+
+int
+mips_split_const_insns (rtx x)
+{
+  unsigned int low, high;
+
+  low = mips_const_insns (mips_subword (x, false));
+  high = mips_const_insns (mips_subword (x, true));
+  gcc_assert (low > 0 && high > 0);
+  return low + high;
+}
+
 /* Return the number of instructions needed to implement INSN,
    given that it loads from or stores to MEM.  Count extended
    MIPS16 instructions as two instructions.  */
@@ -5833,7 +5848,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   delta = bits / BITS_PER_UNIT;
 
   /* Allocate a buffer for the temporary registers.  */
-  regs = alloca (sizeof (rtx) * length / delta);
+  regs = XALLOCAVEC (rtx, length / delta);
 
   /* Load as many BITS-sized chunks as possible.  Use a normal load if
      the source has enough alignment, otherwise use left/right pairs.  */
@@ -11428,7 +11443,8 @@ struct mips16_rewrite_pool_refs_info {
 static int
 mips16_rewrite_pool_refs (rtx *x, void *data)
 {
-  struct mips16_rewrite_pool_refs_info *info = data;
+  struct mips16_rewrite_pool_refs_info *info =
+    (struct mips16_rewrite_pool_refs_info *) data;
 
   if (force_to_mem_operand (*x, Pmode))
     {
@@ -11603,7 +11619,7 @@ static int
 mips_sim_wait_regs_2 (rtx *x, void *data)
 {
   if (REG_P (*x))
-    mips_sim_wait_reg (data, mips_sim_insn, *x);
+    mips_sim_wait_reg ((struct mips_sim *) data, mips_sim_insn, *x);
   return 0;
 }
 
@@ -11657,7 +11673,7 @@ mips_sim_record_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
   struct mips_sim *state;
 
-  state = data;
+  state = (struct mips_sim *) data;
   if (REG_P (x))
     {
       unsigned int regno, end_regno;
