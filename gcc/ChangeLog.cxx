@@ -1,3 +1,7 @@
+2008-06-30  Ian Lance Taylor  <iant@google.com>
+
+	* vec.h (DEF_VEC_FUNC_P) [iterate]: Add cast for constant 0.
+
 2008-06-21  Tom Tromey  <tromey@redhat.com>
 
 	* system.h (CONST_CAST2): Define for C++.
