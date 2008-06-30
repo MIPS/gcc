@@ -1,3 +1,11 @@
+2008-06-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-forwprop.c: Remove obsolete comment.
+	(get_prop_source_stmt): Wrap call to gimple_assign_lhs with a
+	TREE_TYPE.
+	(forward_propagate_comparison): Use build2 instead of
+	fold_binary.
+	
 2008-06-27  Diego Novillo  <dnovillo@google.com>
 
 	* cfgexpand.c (gimple_assign_rhs_to_tree): Factor out of ...

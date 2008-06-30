@@ -40,11 +40,6 @@ along with GCC; see the file COPYING3.  If not see
    form of tree combination.   It is hoped all of this can disappear
    when we have a generalized tree combiner.
 
-   Note carefully that after propagation the resulting statement
-   must still be a proper gimple statement.  Right now we simply
-   only perform propagations we know will result in valid gimple
-   code.  One day we'll want to generalize this code.
-
    One class of common cases we handle is forward propagating a single use
    variable into a COND_EXPR.  
 
@@ -239,7 +234,7 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
 	rhs = gimple_assign_rhs1 (def_stmt);
 	if (IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
 	    && TREE_CODE (rhs) == SSA_NAME
-	    && POINTER_TYPE_P (gimple_assign_lhs (def_stmt))
+	    && POINTER_TYPE_P (TREE_TYPE (gimple_assign_lhs (def_stmt)))
 	    && POINTER_TYPE_P (TREE_TYPE (rhs)))
 	  name = rhs;
 	else
@@ -970,13 +965,14 @@ forward_propagate_comparison (gimple stmt)
       {
         enum tree_code code = gimple_assign_rhs_code (use_stmt);
         tree cst = gimple_assign_rhs2 (use_stmt);
+	tree cond;
 
-        tmp = combine_cond_expr_cond (code, TREE_TYPE (lhs),
-                                      fold_binary (code,
-                                                   TREE_TYPE (cst),
-                                                   gimple_assign_rhs1 (stmt),
-                                                   gimple_assign_rhs2 (stmt)),
-                                      cst, false);
+	cond = build2 (gimple_assign_rhs_code (stmt),
+		       TREE_TYPE (cst),
+		       gimple_assign_rhs1 (stmt),
+		       gimple_assign_rhs2 (stmt));
+
+        tmp = combine_cond_expr_cond (code, TREE_TYPE (lhs), cond, cst, false);
         if (tmp == NULL_TREE)
           return false;
       }
