@@ -5881,23 +5881,26 @@ build_function_type (tree value_type, tree arg_types)
 }
 
 /* Build a function type.  The RETURN_TYPE is the type returned by the
-   function.  If additional arguments are provided, they are
-   additional argument types.  The list of argument types must always
-   be terminated by NULL_TREE.  */
+   function. If VAARGS is set, no void_type_node is appended to the
+   the list. ARGP muse be alway be terminated be a NULL_TREE.  */
 
-tree
-build_function_type_list (tree return_type, ...)
+static tree
+build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
 {
   tree t, args, last;
-  va_list p;
 
-  va_start (p, return_type);
-
-  t = va_arg (p, tree);
-  for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
+  t = va_arg (argp, tree);
+  for (args = NULL_TREE; t != NULL_TREE; t = va_arg (argp, tree))
     args = tree_cons (NULL_TREE, t, args);
 
-  if (args == NULL_TREE)
+  if (vaargs)
+    {
+	  last = args;
+	  if (args != NULL_TREE)
+	    args = nreverse (args);
+      gcc_assert (args != NULL_TREE && last != void_list_node);
+    }
+  else if (args == NULL_TREE)
     args = void_list_node;
   else
     {
@@ -5907,7 +5910,41 @@ build_function_type_list (tree return_type, ...)
     }
   args = build_function_type (return_type, args);
 
+  return args;
+}
+
+/* Build a function type.  The RETURN_TYPE is the type returned by the
+   function.  If additional arguments are provided, they are
+   additional argument types.  The list of argument types must always
+   be terminated by NULL_TREE.  */
+
+tree
+build_function_type_list (tree return_type, ...)
+{
+  tree args;
+  va_list p;
+
+  va_start (p, return_type);
+  args = build_function_type_list_1 (false, return_type, p);
   va_end (p);
+  return args;
+}
+
+/* Build a variable argument function type.  The RETURN_TYPE is the
+   type returned by the function.  If additional arguments are provided,
+   they are additional argument types.  The list of argument types must
+   always be terminated by NULL_TREE.  */
+
+tree
+build_varargs_function_type_list (tree return_type, ...)
+{
+  tree args;
+  va_list p;
+
+  va_start (p, return_type);
+  args = build_function_type_list_1 (true, return_type, p);
+  va_end (p);
+
   return args;
 }
 
@@ -8932,7 +8969,7 @@ build_optimization_node (void)
   cl_optimization_save (TREE_OPTIMIZATION (cl_optimization_node));
 
   slot = htab_find_slot (cl_option_hash_table, cl_optimization_node, INSERT);
-  t = *slot;
+  t = (tree) *slot;
   if (!t)
     {
       /* Insert this one into the hash table.  */
@@ -8959,7 +8996,7 @@ build_target_option_node (void)
   cl_target_option_save (TREE_TARGET_OPTION (cl_target_option_node));
 
   slot = htab_find_slot (cl_option_hash_table, cl_target_option_node, INSERT);
-  t = *slot;
+  t = (tree) *slot;
   if (!t)
     {
       /* Insert this one into the hash table.  */

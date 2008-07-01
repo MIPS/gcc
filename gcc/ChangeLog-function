@@ -1,3 +1,15 @@
+2008-06-30  Michael Meissner  <gnu@the-meissners.org>
+
+	* gcc/config/i386/i386.c (ix86_init_builtins): Restore code added
+	in the merge, but now always call ix86_init_mmx_sse_builtins.
+	(ix86_expand_builtin): Allow for ix86_builtins_isa being 0 which
+	means we don't have to check for a specific ISA.
+
+	* tree.c (build_target_optimization_node): Cast void * to tree.
+	(build_target_option_node): Ditto.
+
+Merge up to 137298.
+
 2008-06-25  Michael Meissner  <michael.meissner@amd.com>
 
 	* c-common.c (parse_optimize_options): Cast alloca returns to the
