@@ -5041,8 +5041,6 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
 			  basic_block *region ATTRIBUTE_UNUSED, unsigned n_region ATTRIBUTE_UNUSED,
 			  basic_block *region_copy ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
   unsigned i;
   bool free_region_copy = false;
   struct loop *loop = exit->dest->loop_father;
@@ -5052,8 +5050,8 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
   int total_freq = 0, exit_freq = 0;
   gcov_type total_count = 0, exit_count = 0;
   edge exits[2], nexits[2], e;
-  block_stmt_iterator bsi;
-  tree cond;
+  gimple_stmt_iterator gsi;
+  gimple cond_stmt;
   edge sorig, snew;
 
   gcc_assert (EDGE_COUNT (exit->src->succs) == 2);
@@ -5142,10 +5140,13 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
     switch_bb = split_edge (entry);
   set_immediate_dominator (CDI_DOMINATORS, nentry_bb, switch_bb);
 
-  bsi = bsi_last (switch_bb);
-  cond = last_stmt (exit->src);
-  gcc_assert (TREE_CODE (cond) == COND_EXPR);
-  bsi_insert_after (&bsi, unshare_expr (cond), BSI_NEW_STMT);
+  gsi = gsi_last_bb (switch_bb);
+  cond_stmt = last_stmt (exit->src);
+  gcc_assert (gimple_code (cond_stmt) == GIMPLE_COND);
+  cond_stmt = gimple_copy (cond_stmt);
+  gimple_cond_set_lhs (cond_stmt, unshare_expr (gimple_cond_lhs (cond_stmt)));
+  gimple_cond_set_rhs (cond_stmt, unshare_expr (gimple_cond_rhs (cond_stmt)));
+  gsi_insert_after (&gsi, cond_stmt, GSI_NEW_STMT);
 
   sorig = single_succ_edge (switch_bb);
   sorig->flags = exits[1]->flags;
@@ -5160,9 +5161,9 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
   /* Get rid of now superfluous conditions and associated edges (and phi node
      arguments).  */
   e = redirect_edge_and_branch (exits[0], exits[1]->dest);
-  PENDING_STMT (e) = NULL_TREE;
+  PENDING_STMT (e) = NULL;
   e = redirect_edge_and_branch (nexits[1], nexits[0]->dest);
-  PENDING_STMT (e) = NULL_TREE;
+  PENDING_STMT (e) = NULL;
 
   /* Anything that is outside of the region, but was dominated by something
      inside needs to update dominance info.  */
@@ -5177,10 +5178,6 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
 
   free_original_copy_tables ();
   return true;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 /* Add all the blocks dominated by ENTRY to the array BBS_P.  Stop
@@ -5501,7 +5498,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
                bb->index, bb);
 
   /* Remap the variables in phi nodes.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); )
     {
       gimple phi = gsi_stmt (si);
       use_operand_p use;
@@ -5524,6 +5521,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  if (TREE_CODE (op) == SSA_NAME)
 	    SET_USE (use, replace_ssa_name (op, d->vars_map, dest_cfun->decl));
 	}
+
+      gsi_next (&si);
     }
 
   for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))

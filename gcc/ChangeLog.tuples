@@ -1,3 +1,23 @@
+2008-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-parloops.c (struct reduction_info): Change reduc_stmt,
+	reduc_phi, keep_res and new_phi field types to gimple.
+	(struct elv_data): Add info field.
+	(reduction_phi, loop_parallel_p, take_address_of,
+	initialize_reductions, eliminate_local_variables_stmt,
+	eliminate_local_variables, expr_invariant_in_region_p,
+	separate_decls_in_region_name, separate_decls_in_region_stmt,
+	create_phi_for_local_result, create_call_for_reduction_1,
+	create_call_for_reduction, create_loads_for_reductions,
+	create_final_loads_for_reduction, create_stores_for_reduction,
+	create_loads_and_stores_for_name, separate_decls_in_region,
+	canonicalize_loop_ivs, transform_to_exit_first_loop,
+	create_parallel_loop, gen_parallel_loop,
+	loop_has_vector_phi_nodes, parallelize_loops): Tuplify.
+	* tree-cfg.c (gimple_duplicate_sese_tail): Tuplify.
+	(move_block_to_fn): Don't call gsi_next after calling
+	remove_phi_node.
+
 2008-07-02  Aldy Hernandez  <aldyh@redhat.com>
 	    Richard Guenther  <rguenther@suse.de>
 
