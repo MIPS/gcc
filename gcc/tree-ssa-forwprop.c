@@ -263,7 +263,8 @@ can_propagate_from (gimple def_stmt)
     return false;
 
   /* If the rhs is a load we cannot propagate from it.  */
-  if (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_reference)
+  if (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_reference
+      || TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_declaration)
     return false;
 
   /* Constants can be always propagated.  */
@@ -1230,12 +1231,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 static bool
 gate_forwprop (void)
 {
-  /*FIXME tuples*/
-#if 0
   return 1;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_forwprop = 

@@ -1,3 +1,10 @@
+2008-07-02  Aldy Hernandez  <aldyh@redhat.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-forwprop.c (can_propagate_from): Exclude loads
+        from decls explicitly.
+	(gate_forwprop): Enable.
+
 2008-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-vectorizer.h (vinfo_for_stmt): Use htab_find_slot_with_hash.
