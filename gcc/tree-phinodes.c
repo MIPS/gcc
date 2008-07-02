@@ -154,7 +154,7 @@ allocate_phi_node (size_t len)
     }
   else
     {
-      phi = ggc_alloc (size);
+      phi = (gimple) ggc_alloc (size);
 #ifdef GATHER_STATISTICS
       phi_nodes_created++;
 	{

@@ -1,5 +1,6 @@
 /* Callgraph construction.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -153,6 +154,23 @@ build_cgraph_edges (void)
 	    wi.info = node;
 	    wi.pset = visited_nodes;
 	    walk_gimple_op (stmt, record_reference, &wi);
+	    if (flag_unit_at_a_time
+		&& gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+		&& gimple_omp_parallel_child_fn (stmt))
+	      {
+		tree fn = gimple_omp_parallel_child_fn (stmt);
+		cgraph_mark_needed_node (cgraph_node (fn));
+	      }
+	    if (flag_unit_at_a_time
+		&& gimple_code (stmt) == GIMPLE_OMP_TASK)
+	      {
+		tree fn = gimple_omp_task_child_fn (stmt);
+		if (fn)
+		  cgraph_mark_needed_node (cgraph_node (fn));
+		fn = gimple_omp_task_copy_fn (stmt);
+		if (fn)
+		  cgraph_mark_needed_node (cgraph_node (fn));
+	      }
 	  }
       }
 

@@ -4956,7 +4956,7 @@ check_all_array_refs (void)
 	  else
 	    {
 	      memset (&wi, 0, sizeof (wi));
-	      wi.info = (void *) location;
+	      wi.info = CONST_CAST (void *, (const void *) location);
 
 	      walk_gimple_op (gsi_stmt (si),
 			      check_array_bounds,

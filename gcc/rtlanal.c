@@ -1123,11 +1123,6 @@ noop_move_p (const_rtx insn)
   if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
     return 0;
 
-  /* For now treat an insn with a REG_RETVAL note as a
-     special insn which should not be considered a no-op.  */
-  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
-    return 0;
-
   if (GET_CODE (pat) == SET && set_noop_p (pat))
     return 1;
 
@@ -3271,7 +3266,7 @@ struct parms_set_data
 static void
 parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  struct parms_set_data *d = data;
+  struct parms_set_data *const d = (struct parms_set_data *) data;
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
     {

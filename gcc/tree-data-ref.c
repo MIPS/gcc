@@ -4796,7 +4796,8 @@ known_dependences_p (VEC (ddr_p, heap) *dependence_relations)
 static hashval_t
 hash_stmt_vertex_info (const void *elt)
 {
-  struct rdg_vertex_info *rvi = (struct rdg_vertex_info *) elt;
+  const struct rdg_vertex_info *const rvi =
+    (const struct rdg_vertex_info *) elt;
   gimple stmt = rvi->stmt;
 
   return htab_hash_pointer (stmt);
@@ -4998,7 +4999,8 @@ have_similar_memory_accesses (gimple s1, gimple s2)
 static int
 have_similar_memory_accesses_1 (const void *s1, const void *s2)
 {
-  return have_similar_memory_accesses ((gimple) s1, (gimple) s2);
+  return have_similar_memory_accesses (CONST_CAST_GIMPLE ((const_gimple) s1),
+				       CONST_CAST_GIMPLE ((const_gimple) s2));
 }
 
 /* Helper function for the hashtab.  */
@@ -5006,7 +5008,7 @@ have_similar_memory_accesses_1 (const void *s1, const void *s2)
 static hashval_t
 ref_base_address_1 (const void *s)
 {
-  gimple stmt = (gimple) s;
+  gimple stmt = CONST_CAST_GIMPLE ((const_gimple) s);
   unsigned i;
   VEC (data_ref_loc, heap) *refs;
   data_ref_loc *ref;

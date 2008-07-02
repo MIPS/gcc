@@ -1,3 +1,38 @@
+2008-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	Merge with mainline @137346.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+	* builtins.c (gimple_rewrite_call_expr): Fix -Wc++-compat and/or
+	-Wcast-qual warnings.
+	* gimple.c (gimple_alloc_stat, gimple_build_omp_for,
+	gimple_range_check_failed, gimple_copy): Likewise.
+	* tree-mudflap.c (mx_xfn_xform_decls): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt): Likewise.
+	* gimple-iterator.c (gsi_insert_before_without_update,
+	gsi_insert_after_without_update): Likewise.
+	* tree-ssa-loop-im.c (init_lim_data, get_lim_data,
+	clear_lim_data): Likewise.
+	* tree-ssa-sccvn.c (vn_nary_op_insert_stmt): Likewise.
+	* tree-vrp.c (check_all_array_refs): Likewise.
+	* value-prof.c (histogram_eq): Likewise.
+	* cgraphbuild.c (record_reference): Don't handle OMP_PARALLEL
+	and OMP_TASK here.
+	(build_cgraph_edges): Handle GIMPLE_OMP_{PARALLEL,TASK}.
+	* cgraph.c (cgraph_add_new_function): Call gimple_register_cfg_hooks
+	instead of tree_register_cfg_hooks.
+	* omp-low.c (finalize_task_copyfn): Ensure the new function's
+	body is a gimple_seq with just GIMPLE_BIND in it.
+	(scan_omp_1_stmt): Fix -Wc++-compat and/or -Wcast-qual warnings.
+	* tree-cfg.c (move_stmt_op, have_similar_memory_accesses_1,
+	ref_base_address_1): Likewise.
+	(move_stmt_r): Handle gimple_block updating.
+	* tree-ssa-alias.c (update_alias_info_1): Tuplify.
+	(update_alias_info): Likewise.
+	* tree-switch-conversion.c: Stub out temporarily.
+
 2008-06-30  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-forwprop.c: Remove obsolete comment.
@@ -2592,15 +2627,15 @@
 2008-03-18  Diego Novillo  <dnovillo@google.com>
             Oleg Ryjkov  <olegr@google.com>
 
-        * gimplify.c (gimplify_body): Copy the block information from
-        the tree function body to gimple function body.
-        (gimplify_function_tree): Correctly wrap the function body
-        into the try/finally block if creating one.
-        * gimple.c (gimple_seq_has_side_effects): Removed.
-        * gimple.h (gimple_seq_has_side_effects): Removed declaration.
-        * tree-cfg.c (remove_useless_stmts_tf, remove_useless_stmts_tc):
-        Modified to use gimple_seq_empty_p instead of
-        gimple_seq_has_side_effects.
+	* gimplify.c (gimplify_body): Copy the block information from
+	the tree function body to gimple function body.
+	(gimplify_function_tree): Correctly wrap the function body
+	into the try/finally block if creating one.
+	* gimple.c (gimple_seq_has_side_effects): Removed.
+	* gimple.h (gimple_seq_has_side_effects): Removed declaration.
+	* tree-cfg.c (remove_useless_stmts_tf, remove_useless_stmts_tc):
+	Modified to use gimple_seq_empty_p instead of
+	gimple_seq_has_side_effects.
 
 2008-03-18  Aldy Hernandez  <aldyh@redhat.com>
 

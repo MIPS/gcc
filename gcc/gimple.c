@@ -223,7 +223,7 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
   }
 #endif
 
-  stmt = ggc_alloc_cleared_stat (size PASS_MEM_STAT);
+  stmt = (gimple) ggc_alloc_cleared_stat (size PASS_MEM_STAT);
   gimple_set_code (stmt, code);
   gimple_set_num_ops (stmt, num_ops);
 
@@ -844,8 +844,7 @@ gimple_build_omp_for (gimple_seq body, tree clauses, size_t collapse,
     gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
   p->gimple_omp_for.collapse = collapse;
-  p->gimple_omp_for.iter
-    = ggc_alloc_cleared (collapse * sizeof (*p->gimple_omp_for.iter));
+  p->gimple_omp_for.iter = GGC_CNEWVEC (struct gimple_omp_for_iter, collapse);
   if (pre_body)
     gimple_omp_for_set_pre_body (p, pre_body);
 
@@ -1103,7 +1102,7 @@ gimple_range_check_failed (const_gimple gs, const char *file, int line,
     length += 4 + strlen (gimple_code_name[c]);
 
   length += strlen ("expected ");
-  buffer = alloca (length);
+  buffer = XALLOCAVAR (char, length);
   length = 0;
 
   for (c = c1; c <= c2; ++c)
@@ -2097,8 +2096,8 @@ gimple_copy (gimple stmt)
 	  t = unshare_expr (gimple_omp_for_clauses (stmt));
 	  gimple_omp_for_set_clauses (copy, t);
 	  copy->gimple_omp_for.iter
-	    = ggc_alloc (gimple_omp_for_collapse (stmt)
-			 * sizeof (*copy->gimple_omp_for.iter));
+	    = GGC_NEWVEC (struct gimple_omp_for_iter,
+			  gimple_omp_for_collapse (stmt));
 	  for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
 	    {
 	      gimple_omp_for_set_cond (copy, i,

@@ -612,7 +612,7 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       if (!*cache)
 	*cache = pointer_map_create ();
       slot = pointer_map_insert (*cache, e);
-      exp = *slot;
+      exp = (struct name_expansion *) *slot;
 
       if (!exp)
 	{
@@ -696,7 +696,7 @@ static bool
 free_name_expansion (const void *key ATTRIBUTE_UNUSED, void **value,
 		     void *data ATTRIBUTE_UNUSED)
 {
-  struct name_expansion *exp = *value;
+  struct name_expansion *const exp = (struct name_expansion *) *value;
 
   free (exp);
   return true;

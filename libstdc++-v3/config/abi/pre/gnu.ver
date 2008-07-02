@@ -122,7 +122,8 @@ GLIBCXX_3.4 {
 #     std::string
       std::strstream*;
       std::strstreambuf*;
-      std::t[a-q]*;
+#     std::t[a-q]*;
+      std::t[a-n]*;
       std::tr1::h[^a]*;
       std::t[s-z]*;
       std::[A-Zu-z]*;

@@ -1077,7 +1077,7 @@ mx_xfn_xform_decls (gimple_stmt_iterator *gsi,
 		    bool *handled_operands_p ATTRIBUTE_UNUSED,
 		    struct walk_stmt_info *wi)
 {
-  struct mf_xform_decls_data* d = wi->info;
+  struct mf_xform_decls_data *d = (struct mf_xform_decls_data *) wi->info;
   gimple stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))

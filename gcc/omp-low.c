@@ -262,7 +262,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
   /* FIXME: for now map schedule(auto) to schedule(static).
      There should be analysis to determine whether all iterations
      are approximately the same amount of work (then schedule(static)
-     is best) or if it varries (then schedule(dynamic,N) is better).  */
+     is best) or if it varies (then schedule(dynamic,N) is better).  */
   if (fd->sched_kind == OMP_CLAUSE_SCHEDULE_AUTO)
     {
       fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
@@ -1119,7 +1119,7 @@ struct omp_region *
 new_omp_region (basic_block bb, enum gimple_code type,
 		struct omp_region *parent)
 {
-  struct omp_region *region = xcalloc (1, sizeof (*region));
+  struct omp_region *region = XCNEW (struct omp_region);
 
   region->outer = parent;
   region->entry = bb;
@@ -1210,6 +1210,48 @@ new_omp_context (gimple stmt, omp_context *outer_ctx)
   return ctx;
 }
 
+static gimple_seq maybe_catch_exception (gimple_seq);
+
+/* Finalize task copyfn.  */
+
+static void
+finalize_task_copyfn (gimple task_stmt)
+{
+  struct function *child_cfun;
+  tree child_fn, old_fn;
+  gimple_seq seq, new_seq;
+  gimple bind;
+
+  child_fn = gimple_omp_task_copy_fn (task_stmt);
+  if (child_fn == NULL_TREE)
+    return;
+
+  child_cfun = DECL_STRUCT_FUNCTION (child_fn);
+
+  /* Inform the callgraph about the new function.  */
+  DECL_STRUCT_FUNCTION (child_fn)->curr_properties
+    = cfun->curr_properties;
+
+  old_fn = current_function_decl;
+  push_cfun (child_cfun);
+  current_function_decl = child_fn;
+  bind = gimplify_body (&DECL_SAVED_TREE (child_fn), child_fn, false);
+  seq = gimple_seq_alloc ();
+  gimple_seq_add_stmt (&seq, bind);
+  new_seq = maybe_catch_exception (seq);
+  if (new_seq != seq)
+    {
+      bind = gimple_build_bind (NULL, new_seq, NULL);
+      seq = gimple_seq_alloc ();
+      gimple_seq_add_stmt (&seq, bind);
+    }
+  gimple_set_body (child_fn, seq);
+  pop_cfun ();
+  current_function_decl = old_fn;
+
+  cgraph_add_new_function (child_fn, false);
+}
+
 /* Destroy a omp_context data structures.  Called through the splay tree
    value delete callback.  */
 
@@ -1239,6 +1281,9 @@ delete_omp_context (splay_tree_value value)
       for (t = TYPE_FIELDS (ctx->srecord_type); t ; t = TREE_CHAIN (t))
 	DECL_ABSTRACT_ORIGIN (t) = NULL;
     }
+
+  if (is_task_ctx (ctx))
+    finalize_task_copyfn (ctx->stmt);
 
   XDELETE (ctx);
 }
@@ -1483,7 +1528,7 @@ create_omp_child_function_name (bool task_copy)
   const char *suffix;
 
   suffix = task_copy ? "_omp_cpyfn" : "_omp_fn";
-  prefix = alloca (len + strlen (suffix) + 1);
+  prefix = XALLOCAVEC (char, len + strlen (suffix) + 1);
   memcpy (prefix, IDENTIFIER_POINTER (name), len);
   strcpy (prefix + len, suffix);
 #ifndef NO_DOT_IN_LABEL
@@ -1846,8 +1891,8 @@ check_omp_nesting_restrictions (gimple  stmt, omp_context *ctx)
 static tree
 scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
 {
-  struct walk_stmt_info *wi = data;
-  omp_context *ctx = wi->info;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  omp_context *ctx = (omp_context *) wi->info;
   tree t = *tp;
 
   switch (TREE_CODE (t))
@@ -1882,7 +1927,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 		 struct walk_stmt_info *wi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  omp_context *ctx = wi->info;
+  omp_context *ctx = (omp_context *) wi->info;
 
   if (gimple_has_location (stmt))
     input_location = gimple_location (stmt);
@@ -2964,40 +3009,6 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 }
 
 
-static gimple_seq maybe_catch_exception (gimple_seq);
-
-
-/* Finalize task copyfn.  */
-
-static void
-expand_task_copyfn (gimple task_stmt)
-{
-  struct function *child_cfun;
-  tree child_fn, old_fn;
-  gimple_seq seq;
-  gimple bind;
-
-  child_fn = gimple_omp_task_copy_fn (task_stmt);
-  child_cfun = DECL_STRUCT_FUNCTION (child_fn);
-
-  /* Inform the callgraph about the new function.  */
-  DECL_STRUCT_FUNCTION (child_fn)->curr_properties
-    = cfun->curr_properties;
-
-  old_fn = current_function_decl;
-  push_cfun (child_cfun);
-  current_function_decl = child_fn;
-  bind = gimplify_body (&DECL_SAVED_TREE (child_fn), child_fn, false);
-  seq = gimple_seq_alloc ();
-  gimple_seq_add_stmt (&seq, bind);
-  seq = maybe_catch_exception (seq);
-  gimple_set_body (child_fn, seq);
-  pop_cfun ();
-  current_function_decl = old_fn;
-
-  cgraph_add_new_function (child_fn, false);
-}
-
 /* Build the function call to GOMP_task to actually
    generate the task operation.  BB is the block where to insert the code.  */
 
@@ -3008,9 +3019,6 @@ expand_task_call (basic_block bb, gimple entry_stmt)
   gimple_stmt_iterator gsi;
 
   clauses = gimple_omp_task_clauses (entry_stmt);
-
-  if (gimple_omp_task_copy_fn (entry_stmt))
-    expand_task_copyfn (entry_stmt);
 
   c = find_omp_clause (clauses, OMP_CLAUSE_IF);
   if (c)
@@ -3223,7 +3231,7 @@ expand_omp_taskreg (struct omp_region *region)
 {
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
-  tree child_fn, block, t, ws_args;
+  tree child_fn, block, t, ws_args, *tp;
   gimple_stmt_iterator gsi;
   gimple entry_stmt, stmt;
   edge e;
@@ -3348,6 +3356,7 @@ expand_omp_taskreg (struct omp_region *region)
       BLOCK_VARS (block) = list2chain (child_cfun->local_decls);
       DECL_SAVED_TREE (child_fn) = NULL;
       gimple_set_body (child_fn, bb_seq (single_succ (entry_bb)));
+      TREE_USED (block) = 1;
 
       /* Reset DECL_CONTEXT on function arguments.  */
       for (t = DECL_ARGUMENTS (child_fn); t; t = TREE_CHAIN (t))
@@ -3384,10 +3393,21 @@ expand_omp_taskreg (struct omp_region *region)
 	  init_ssa_operands ();
 	  cfun->gimple_df->in_ssa_p = true;
 	  pop_cfun ();
+	  block = NULL_TREE;
 	}
-      new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb);
+      else
+	block = gimple_block (entry_stmt);
+
+      new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb, block);
       if (exit_bb)
 	single_succ_edge (new_bb)->flags = EDGE_FALLTHRU;
+
+      /* Remove non-local VAR_DECLs from child_cfun->local_decls list.  */
+      for (tp = &child_cfun->local_decls; *tp; )
+	if (DECL_CONTEXT (TREE_VALUE (*tp)) != cfun->decl)
+	  tp = &TREE_CHAIN (*tp);
+	else
+	  *tp = TREE_CHAIN (*tp);
 
       /* Inform the callgraph about the new function.  */
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties
@@ -5139,6 +5159,8 @@ expand_omp (struct omp_region *region)
 {
   while (region)
     {
+      location_t saved_location;
+
       /* First, determine whether this is a combined parallel+workshare
        	 region.  */
       if (region->type == GIMPLE_OMP_PARALLEL)
@@ -5146,6 +5168,10 @@ expand_omp (struct omp_region *region)
 
       if (region->inner)
 	expand_omp (region->inner);
+
+      saved_location = input_location;
+      if (gimple_has_location (last_stmt (region->entry)))
+	input_location = gimple_location (last_stmt (region->entry));
 
       switch (region->type)
 	{
@@ -5181,11 +5207,11 @@ expand_omp (struct omp_region *region)
 	  expand_omp_atomic (region);
 	  break;
 
-
 	default:
 	  gcc_unreachable ();
 	}
 
+      input_location = saved_location;
       region = region->next;
     }
 }
@@ -5421,8 +5447,14 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   olist = NULL;
   lower_reduction_clauses (gimple_omp_sections_clauses (stmt), &olist, ctx);
 
-  pop_gimplify_context (NULL);
-  record_vars_into (ctx->block_vars, ctx->cb.dst_fn);
+  block = make_node (BLOCK);
+  new_stmt = gimple_build_bind (NULL, NULL, block);
+
+  pop_gimplify_context (new_stmt);
+  gimple_bind_append_vars (new_stmt, ctx->block_vars);
+  BLOCK_VARS (block) = gimple_bind_vars (bind);
+  if (BLOCK_VARS (block))
+    TREE_USED (block) = 1;
 
   new_body = NULL;
   gimple_seq_add_seq (&new_body, ilist);
@@ -5445,7 +5477,7 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			    OMP_CLAUSE_NOWAIT));
   gimple_seq_add_stmt (&new_body, t);
 
-  new_stmt = gimple_build_bind (NULL, new_body, NULL);
+  gimple_bind_set_body (new_stmt, new_body);
   gimple_omp_set_body (stmt, NULL);
 
   gsi_replace (gsi_p, new_stmt, true);
@@ -5607,6 +5639,8 @@ lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = ctx->block_vars;
   gsi_replace (gsi_p, bind, true);
+  if (BLOCK_VARS (block))
+    TREE_USED (block) = 1;
 }
 
 
@@ -5831,9 +5865,9 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
 static void
 lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  tree *rhs_p;
+  tree *rhs_p, block;
   struct omp_for_data fd;
-  gimple stmt = gsi_stmt (*gsi_p);
+  gimple stmt = gsi_stmt (*gsi_p), new_stmt;
   gimple_seq omp_for_body, body, dlist, ilist;
   size_t i;
 
@@ -5842,13 +5876,18 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   lower_omp (gimple_omp_for_pre_body (stmt), ctx);
   lower_omp (gimple_omp_body (stmt), ctx);
 
+  block = make_node (BLOCK);
+  new_stmt = gimple_build_bind (NULL, NULL, block);
+
   /* Move declaration of temporaries in the loop body before we make
      it go away.  */
   omp_for_body = gimple_omp_body (stmt);
   if (!gimple_seq_empty_p (omp_for_body)
       && gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
-    record_vars_into (gimple_bind_vars (gimple_seq_first_stmt (omp_for_body)),
-		      ctx->cb.dst_fn);
+    {
+      tree vars = gimple_bind_vars (gimple_seq_first_stmt (omp_for_body));
+      gimple_bind_append_vars (new_stmt, vars);
+    }
 
   /* The pre-body and input clauses go before the lowered GIMPLE_OMP_FOR.  */
   ilist = NULL;
@@ -5899,12 +5938,17 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Region exit marker goes at the end of the loop body.  */
   gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
 
-  pop_gimplify_context (NULL);
-  record_vars_into (ctx->block_vars, ctx->cb.dst_fn);
+  pop_gimplify_context (new_stmt);
 
+  gimple_bind_append_vars (new_stmt, ctx->block_vars);
+  BLOCK_VARS (block) = gimple_bind_vars (new_stmt);
+  if (BLOCK_VARS (block))
+    TREE_USED (block) = 1;
+
+  gimple_bind_set_body (new_stmt, body);
   gimple_omp_set_body (stmt, NULL);
   gimple_omp_for_set_pre_body (stmt, NULL);
-  gsi_replace (gsi_p, gimple_build_bind (NULL, body, NULL), true);
+  gsi_replace (gsi_p, new_stmt, true);
 }
 
 /* Callback for walk_stmts.  Check if the current statement only contains 
@@ -5915,7 +5959,7 @@ check_combined_parallel (gimple_stmt_iterator *gsi_p,
     			 bool *handled_ops_p,
     			 struct walk_stmt_info *wi)
 {
-  int *info = wi->info;
+  int *info = (int *) wi->info;
   gimple stmt = gsi_stmt (*gsi_p);
 
   *handled_ops_p = true;
@@ -6223,7 +6267,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree clauses;
   tree child_fn, t;
   gimple stmt = gsi_stmt (*gsi_p);
-  gimple par_bind;
+  gimple par_bind, bind;
   gimple_seq par_body, olist, ilist, par_olist, par_ilist, new_body;
 
   clauses = gimple_omp_taskreg_clauses (stmt);
@@ -6294,10 +6338,16 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
   gimple_omp_set_body (stmt, new_body);
 
-  gimple_seq_add_stmt (&ilist, stmt);
-  gimple_seq_add_seq (&ilist, olist);
+  bind = gimple_build_bind (NULL, NULL, gimple_bind_block (par_bind));
+  gimple_bind_add_stmt (bind, stmt);
+  if (ilist || olist)
+    {
+      gimple_seq_add_stmt (&ilist, bind);
+      gimple_seq_add_seq (&ilist, olist);
+      bind = gimple_build_bind (NULL, ilist, NULL);
+    }
 
-  gsi_replace (gsi_p, gimple_build_bind (NULL, ilist, NULL), true);
+  gsi_replace (gsi_p, bind, true);
 
   pop_gimplify_context (NULL);
 }
@@ -6523,9 +6573,11 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 lower_omp (gimple_seq body, omp_context *ctx)
 {
+  location_t saved_location = input_location;
   gimple_stmt_iterator gsi = gsi_start (body);
   for (gsi = gsi_start (body); !gsi_end_p (gsi); gsi_next (&gsi))
     lower_omp_1 (&gsi, ctx);
+  input_location = saved_location;
 }
 
 /* Main entry point.  */

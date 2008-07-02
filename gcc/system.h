@@ -798,9 +798,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #define CONST_CAST_BB(X) CONST_CAST(struct basic_block_def *, (X))
 #define CONST_CAST_GIMPLE(X) CONST_CAST(union gimple_statement_d *, (X))
 
-/* Activate -Wcast-qual as a warning (not an error/-Werror).  */
+/* Activate certain diagnostics as warnings (not errors via the
+   -Werror flag).  */
 #if GCC_VERSION >= 4003
-#pragma GCC diagnostic warning "-Wcast-qual"
 /* If asserts are disabled, activate -Wuninitialized as a warning (not
    an error/-Werror).  */
 #ifndef ENABLE_ASSERT_CHECKING

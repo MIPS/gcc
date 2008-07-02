@@ -1208,6 +1208,20 @@ check_main_parameter_types (tree decl)
    pedwarn ("%q+D takes only zero or two arguments", decl);
 }
 
+/* True if pointers to distinct types T1 and T2 can be converted to
+   each other without an explicit cast.  Only returns true for opaque
+   vector types.  */
+bool
+vector_targets_convertible_p (const_tree t1, const_tree t2)
+{
+  if (TREE_CODE (t1) == VECTOR_TYPE && TREE_CODE (t2) == VECTOR_TYPE
+      && (targetm.vector_opaque_p (t1) || targetm.vector_opaque_p (t2))
+      && tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2)))
+    return true;
+
+  return false;
+}
+
 /* True if vector types T1 and T2 can be converted to each other
    without an explicit cast.  If EMIT_LAX_NOTE is true, and T1 and T2
    can only be converted with -flax-vector-conversions yet that is not
@@ -3559,7 +3573,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   va_start (list, n);
   for (i = 0; i < n; ++i)
     {
-      builtin_type a = va_arg (list, builtin_type);
+      builtin_type a = (builtin_type) va_arg (list, int);
       t = builtin_types[a];
       if (t == error_mark_node)
 	goto egress;
@@ -4589,9 +4603,10 @@ finish_label_address_expr (tree label)
 
 rtx
 c_expand_expr (tree exp, rtx target, enum machine_mode tmode,
-	       int modifier /* Actually enum_modifier.  */,
+	       int modifiera /* Actually enum expand_modifier.  */,
 	       rtx *alt_rtl)
 {
+  enum expand_modifier modifier = (enum expand_modifier) modifiera;
   switch (TREE_CODE (exp))
     {
     case COMPOUND_LITERAL_EXPR:
@@ -5293,6 +5308,8 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	mode = targetm.libgcc_cmp_return_mode ();
       else if (!strcmp (p, "libgcc_shift_count"))
 	mode = targetm.libgcc_shift_count_mode ();
+      else if (!strcmp (p, "unwind_word"))
+	mode = targetm.unwind_word_mode ();
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))

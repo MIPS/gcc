@@ -171,6 +171,7 @@ extern bool mips_legitimate_address_p (enum machine_mode, rtx, bool);
 extern bool mips_stack_address_p (rtx, enum machine_mode);
 extern int mips_address_insns (rtx, enum machine_mode, bool);
 extern int mips_const_insns (rtx);
+extern int mips_split_const_insns (rtx);
 extern int mips_load_store_insns (rtx, rtx);
 extern int mips_idiv_insns (void);
 extern rtx mips_emit_move (rtx, rtx);
@@ -302,5 +303,7 @@ union mips_gen_fn_ptrs
 
 extern void mips_expand_atomic_qihi (union mips_gen_fn_ptrs,
 				     rtx, rtx, rtx, rtx);
+
+extern void mips_expand_vector_init (rtx, rtx);
 
 #endif /* ! GCC_MIPS_PROTOS_H */
