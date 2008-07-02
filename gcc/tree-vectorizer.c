@@ -1566,6 +1566,19 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   return res;
 }
 
+static int
+stmt_vec_info_eq (const void *p1, const void *p2)
+{
+  return (const_gimple) STMT_VINFO_STMT ((const struct _stmt_vec_info *) p1)
+	 == (const_gimple) p2;
+}
+
+static hashval_t
+stmt_vec_info_hash (const void *p)
+{
+  const struct _stmt_vec_info *i = (const struct _stmt_vec_info *) p;
+  return htab_hash_pointer (STMT_VINFO_STMT (i));
+}
 
 /* Create a hash table for stmt_vec_info. */
 
@@ -1573,7 +1586,7 @@ void
 init_stmt_vec_info_htab (void)
 {
   gcc_assert (!stmt_vec_info_htab);
-  stmt_vec_info_htab = htab_create (10, htab_hash_pointer, htab_eq_pointer,
+  stmt_vec_info_htab = htab_create (10, stmt_vec_info_hash, stmt_vec_info_eq,
 				    NULL);
 }
 
@@ -1598,8 +1611,8 @@ free_stmt_vec_info (gimple stmt)
     return;
 
   VEC_free (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmt_info));
-  free (stmt_info);
   set_vinfo_for_stmt (stmt, NULL);
+  free (stmt_info);
 }
 
 

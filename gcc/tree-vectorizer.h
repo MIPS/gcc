@@ -531,7 +531,8 @@ static inline stmt_vec_info
 vinfo_for_stmt (gimple stmt)
 {
   void **slot;
-  slot = htab_find_slot (stmt_vec_info_htab, stmt, NO_INSERT);
+  slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
+				   htab_hash_pointer (stmt), NO_INSERT);
   return slot ? (stmt_vec_info) *slot : NULL;
 }
 
@@ -539,9 +540,20 @@ static inline void
 set_vinfo_for_stmt (gimple stmt, stmt_vec_info info)
 {
   void **slot;
-  slot = htab_find_slot (stmt_vec_info_htab, stmt, INSERT);
-  gcc_assert (!(*slot && info));
-  *slot = info;
+  if (info)
+    {
+      slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
+				       htab_hash_pointer (stmt), INSERT);
+      gcc_assert (!*slot);
+      *slot = info;
+    }
+  else
+    {
+      slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
+				       htab_hash_pointer (stmt), NO_INSERT);
+      if (slot)
+	htab_clear_slot (stmt_vec_info_htab, slot);
+    }
 }
 
 static inline bool

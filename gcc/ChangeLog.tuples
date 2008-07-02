@@ -1,5 +1,15 @@
 2008-07-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-vectorizer.h (vinfo_for_stmt): Use htab_find_slot_with_hash.
+	(set_vinfo_for_stmt): Likewise.  If info is NULL, delete entry from
+	hash table.
+	* tree-vectorizer.c (stmt_vec_info_eq, stmt_vec_info_hash): New
+	functions.
+	(init_stmt_vec_info_htab): Use them instead of htab_hash_pointer
+	and htab_eq_pointer.
+	(free_stmt_vec_info): Free stmt_info only after set_vinfo_for_stmt
+	call.
+
 	Merge with mainline @137346.
 
 	* configure.ac (ACX_PKGVERSION): Update revision merge string.
