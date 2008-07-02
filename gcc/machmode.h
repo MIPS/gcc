@@ -202,7 +202,7 @@ extern const unsigned HOST_WIDE_INT mode_mask_array[NUM_MACHINE_MODES];
 /* Return the mode of the inner elements in a vector.  */
 
 extern const unsigned char mode_inner[NUM_MACHINE_MODES];
-#define GET_MODE_INNER(MODE) mode_inner[MODE]
+#define GET_MODE_INNER(MODE) ((enum machine_mode) mode_inner[MODE])
 
 /* Get the size in bytes of the basic parts of an object of mode MODE.  */
 
@@ -219,10 +219,10 @@ extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
 /* Get the next wider natural mode (eg, QI -> HI -> SI -> DI -> TI).  */
 
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
-#define GET_MODE_WIDER_MODE(MODE) mode_wider[MODE]
+#define GET_MODE_WIDER_MODE(MODE) ((enum machine_mode) mode_wider[MODE])
 
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
-#define GET_MODE_2XWIDER_MODE(MODE) mode_2xwider[MODE]
+#define GET_MODE_2XWIDER_MODE(MODE) ((enum machine_mode) mode_2xwider[MODE])
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

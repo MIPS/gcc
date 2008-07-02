@@ -1,5 +1,9 @@
 2008-07-01  Ian Lance Taylor  <iant@google.com>
 
+	* machmode.h (GET_MODE_INNER): Cast to enum machine_mode.
+	(GET_MODE_WIDER_MODE): Likewise.
+	(GET_MODE_2XWIDER_MODE): Likewise.
+
 	* builtins.c (expand_builtin_profile_func): Rename local variable
 	this to this_func.
 	(validate_arglist): Pass int rather than enum to va_arg.
