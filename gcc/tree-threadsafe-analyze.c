@@ -760,7 +760,7 @@ get_canonical_expr (tree lock, bool is_temp_expr)
    we use the tree pretty print mechanism to do that.  */
 
 const char*
-dump_expr_tree (const tree lock, char *out_buf)
+dump_expr_tree (tree lock, char *out_buf)
 {
   if (DECL_P (lock) && DECL_NAME (lock))
     snprintf(out_buf, LOCK_NAME_LEN, "'%s'",
@@ -1000,7 +1000,7 @@ static bool
 match_locks (const void *lock, void *info)
 {
   struct lock_match_info *match_info = (struct lock_match_info *)info;
-  tree acq_after_lock = (tree) lock;
+  tree acq_after_lock = CONST_CAST_TREE ((const_tree) lock);
   bool result = true;
 
   if (TREE_CODE (acq_after_lock) == FIELD_DECL)
@@ -1126,7 +1126,7 @@ check_acquired_after (const void *live_lock, void *lock)
   tree lock_decl;
   tree base;
   void **entry;
-  tree live_lock_tree = (tree) live_lock;
+  tree live_lock_tree = CONST_CAST_TREE ((const_tree) live_lock);
   tree live_lock_decl;
   bool live_lock_in_locks_acq_after_set;
   bool lock_in_live_locks_acq_after_set;
@@ -1185,14 +1185,14 @@ check_acquired_after (const void *live_lock, void *lock)
             warning (OPT_Wthread_safety,
                      G_("%HLock %s is acquired after lock %s (acquired at"
                         " line %d) but is annotated otherwise"),
-                     current_loc, dump_expr_tree ((const tree) lock, lname1),
+                     current_loc, dump_expr_tree ((tree) lock, lname1),
                      dump_expr_tree (live_lock_tree, lname2),
                      LOCATION_LINE (*((location_t *) *loc_entry)));
           else
             warning (OPT_Wthread_safety,
                      G_("%HLock %s is acquired after lock %s (held at function"
                         " entry) but is annotated otherwise"),
-                     current_loc, dump_expr_tree ((const tree) lock, lname1),
+                     current_loc, dump_expr_tree ((tree) lock, lname1),
                      dump_expr_tree (live_lock_tree, lname2));
         }
       return true;
@@ -1214,7 +1214,7 @@ check_acquired_after (const void *live_lock, void *lock)
    is acquired.  */
 
 static void
-check_locking_order (const tree lock,
+check_locking_order (tree lock,
                      const struct pointer_set_t *live_excl_locks,
                      const struct pointer_set_t *live_shared_locks,
                      const location_t *locus)
@@ -1459,7 +1459,7 @@ handle_unlock_primitive_attr (tree call, tree arg, tree base_obj,
               void **entry = pointer_map_contains (scopedlock_to_lock_map,
                                                    scoped_lock);
               if (entry)
-                lockable = *entry;
+                lockable = (tree) *entry;
             }
         }
       /* If the function is not a destructor of a scoped_lock, base_obj
@@ -2261,7 +2261,7 @@ warn_locally_unreleased_locks (const void *lock, void *reported)
 {
   char lname[LOCK_NAME_LEN];
   void **entry;
-  tree lock_tree = (tree) lock;
+  tree lock_tree = CONST_CAST_TREE ((const_tree) lock);
   location_t *loc;
   struct pointer_set_t *reported_unreleased_locks;
 
@@ -2312,7 +2312,7 @@ warn_unreleased_locks (const void *lock, void *locks_at_entry)
     {
       char lname[LOCK_NAME_LEN];
       void **entry = pointer_map_contains (lock_locus_map, lock);
-      tree lock_tree = (tree) lock;
+      tree lock_tree = CONST_CAST_TREE ((const_tree) lock);
       location_t *loc;
       gcc_assert (entry);
       loc = (location_t *) *entry;

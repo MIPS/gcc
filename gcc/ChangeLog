@@ -1,3 +1,16 @@
+2008-07-02  Le-Chun Wu  <lcwu@google.com>
+
+	* tree-threadsafe-analyze.c (dump_expr_tree): Fix -Wcast-qual and/or
+	-Wc++-compat warnings.
+	(match_locks): Ditto.
+	(check_acquired_after): Ditto.
+	(check_locking_order): Ditto.
+	(handle_unlock_primitive_attr): Ditto.
+	(warn_locally_unreleased_locks): Ditto.
+	(warn_unreleased_locks): Ditto.
+	* gcc/tree-threadsafe-analyze.h: Fix -Wcast-qual and/or -Wc++-compat
+	warnings.
+
 2008-07-01  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* function.c (assign_parm_remove_parallels): New.

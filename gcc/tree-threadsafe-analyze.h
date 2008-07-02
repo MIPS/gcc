@@ -29,6 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 extern void clean_up_threadsafe_analysis (void);
 extern struct pointer_map_t *lock_acquired_after_map;
 extern struct pointer_map_t *unbound_lock_map;
-extern const char* dump_expr_tree (const tree lock, char *out_buf);
+extern const char* dump_expr_tree (tree lock, char *out_buf);
 
 #endif /* TREE_THREADSAFE_ANALYZE_H */
