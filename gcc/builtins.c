@@ -5513,18 +5513,18 @@ expand_builtin_sprintf (tree exp, rtx target, enum machine_mode mode)
 static rtx
 expand_builtin_profile_func (bool exitp)
 {
-  rtx this, which;
+  rtx this_func, which;
 
-  this = DECL_RTL (current_function_decl);
-  gcc_assert (MEM_P (this));
-  this = XEXP (this, 0);
+  this_func = DECL_RTL (current_function_decl);
+  gcc_assert (MEM_P (this_func));
+  this_func = XEXP (this_func, 0);
 
   if (exitp)
     which = profile_function_exit_libfunc;
   else
     which = profile_function_entry_libfunc;
 
-  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
+  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this_func, Pmode,
 		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
 						 0),
 		     Pmode);
@@ -10810,7 +10810,7 @@ validate_arglist (const_tree callexpr, ...)
 
   do
     {
-      code = va_arg (ap, enum tree_code);
+      code = (enum tree_code) va_arg (ap, int);
       switch (code)
 	{
 	case 0:

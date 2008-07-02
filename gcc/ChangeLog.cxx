@@ -1,3 +1,9 @@
+2008-07-01  Ian Lance Taylor  <iant@google.com>
+
+	* builtins.c (expand_builtin_profile_func): Rename local variable
+	this to this_func.
+	(validate_arglist): Pass int rather than enum to va_arg.
+
 2008-06-30  Ian Lance Taylor  <iant@google.com>
 
 	* vec.h (DEF_VEC_FUNC_P) [iterate]: Add cast for constant 0.
