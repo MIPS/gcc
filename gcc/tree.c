@@ -3885,7 +3885,15 @@ reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	  DECL_SIZE_UNIT (decl) = NULL_TREE;
 	  DECL_SIZE (decl) = NULL_TREE;
 	}
-  }
+    }
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      tree expr = DECL_DEBUG_EXPR (decl);
+      if (expr
+	  && TREE_CODE (expr) == VAR_DECL
+	  && !TREE_STATIC (expr) && !DECL_EXTERNAL (expr))
+	SET_DECL_DEBUG_EXPR (decl, NULL_TREE);
+    }
   return 1;
 }
 
