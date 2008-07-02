@@ -3695,7 +3695,9 @@ elimination_target_reg_p (rtx x)
   return false;
 }
 
-/* Initialize the table of registers to eliminate.  */
+/* Initialize the table of registers to eliminate.
+   Pre-condition: global flag frame_pointer_needed has been set before
+   calling this function.  */
 
 static void
 init_elim_table (void)
@@ -3707,19 +3709,6 @@ init_elim_table (void)
 
   if (!reg_eliminate)
     reg_eliminate = XCNEWVEC (struct elim_table, NUM_ELIMINABLE_REGS);
-
-  /* Does this function require a frame pointer?  */
-
-  frame_pointer_needed = (! flag_omit_frame_pointer
-			  /* ?? If EXIT_IGNORE_STACK is set, we will not save
-			     and restore sp for alloca.  So we can't eliminate
-			     the frame pointer in that case.  At some point,
-			     we should improve this by emitting the
-			     sp-adjusting insns for this case.  */
-			  || (cfun->calls_alloca
-			      && EXIT_IGNORE_STACK)
-			  || crtl->accesses_prior_frames
-			  || FRAME_POINTER_REQUIRED);
 
   num_eliminable = 0;
 
@@ -4011,8 +4000,7 @@ fixup_eh_region_note (rtx insn, rtx prev, rtx next)
     if (INSN_P (i) && i != insn && may_trap_p (PATTERN (i)))
       {
 	trap_count++;
-	REG_NOTES (i)
-	  = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (note, 0), REG_NOTES (i));
+	add_reg_note (i, REG_EH_REGION, XEXP (note, 0));
       }
 }
 
@@ -4246,9 +4234,7 @@ reload_as_needed (int live_known)
 			}
 		      if (n == 1)
 			{
-			  REG_NOTES (p)
-			    = gen_rtx_EXPR_LIST (REG_INC, reload_reg,
-						 REG_NOTES (p));
+			  add_reg_note (p, REG_INC, reload_reg);
 			  /* Mark this as having an output reload so that the
 			     REG_INC processing code below won't invalidate
 			     the reload for inheritance.  */
@@ -8546,8 +8532,7 @@ add_auto_inc_notes (rtx insn, rtx x)
 
   if (code == MEM && auto_inc_p (XEXP (x, 0)))
     {
-      REG_NOTES (insn)
-	= gen_rtx_EXPR_LIST (REG_INC, XEXP (XEXP (x, 0), 0), REG_NOTES (insn));
+      add_reg_note (insn, REG_INC, XEXP (XEXP (x, 0), 0));
       return;
     }
 
@@ -8574,9 +8559,7 @@ copy_eh_notes (rtx insn, rtx x)
       for (; x != 0; x = NEXT_INSN (x))
 	{
 	  if (may_trap_p (PATTERN (x)))
-	    REG_NOTES (x)
-	      = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (eh_note, 0),
-				   REG_NOTES (x));
+	    add_reg_note (x, REG_EH_REGION, XEXP (eh_note, 0));
 	}
     }
 }
