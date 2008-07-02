@@ -5261,7 +5261,7 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
           edge e = EDGE_PRED (empty_bb, 0);
 
           if (e->flags & EDGE_FALLTHRU)
-            redirect_edge_succ (e, succ);
+            redirect_edge_succ_nodup (e, succ);
           else
             sel_redirect_edge_and_branch (EDGE_PRED (empty_bb, 0), succ);
         }

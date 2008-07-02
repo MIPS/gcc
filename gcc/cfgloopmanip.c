@@ -1118,6 +1118,9 @@ has_preds_from_loop (basic_block block, struct loop *loop)
 /* Creates a pre-header for a LOOP.  Returns newly created block.  Unless
    CP_SIMPLE_PREHEADERS is set in FLAGS, we only force LOOP to have single
    entry; otherwise we also force preheader block to have only one successor.
+   When CP_FALLTHRU_PREHEADERS is set in FLAGS, we force the preheader block
+   to be a fallthru predecessor to the loop header and to have only 
+   predecessors from outside of the loop.
    The function also updates dominators.  */
 
 basic_block
@@ -1144,16 +1147,27 @@ create_preheader (struct loop *loop, int flags)
   gcc_assert (nentry);
   if (nentry == 1)
     {
-      if (/* We do not allow entry block to be the loop preheader, since we
+      bool need_forwarder_block = false;
+      
+      /* We do not allow entry block to be the loop preheader, since we
 	     cannot emit code there.  */
-	  single_entry->src != ENTRY_BLOCK_PTR
-	  /* If we want simple preheaders, also force the preheader to have
-	     just a single successor.  */
-	  && !((flags & CP_SIMPLE_PREHEADERS)
-	       && !single_succ_p (single_entry->src))
-          && !((flags & CP_FALLTHRU_PREHEADERS
-                && (JUMP_P (BB_END (single_entry->src))
-                    || has_preds_from_loop (single_entry->src, loop)))))
+      if (single_entry->src == ENTRY_BLOCK_PTR)
+        need_forwarder_block = true;
+      else
+        {
+          /* If we want simple preheaders, also force the preheader to have
+             just a single successor.  */
+          if ((flags & CP_SIMPLE_PREHEADERS)
+              && !single_succ_p (single_entry->src))
+            need_forwarder_block = true;
+          /* If we want fallthru preheaders, also create forwarder block when
+             preheader ends with a jump or has predecessors from loop.  */
+          else if ((flags & CP_FALLTHRU_PREHEADERS)
+                   && (JUMP_P (BB_END (single_entry->src))
+                       || has_preds_from_loop (single_entry->src, loop)))
+            need_forwarder_block = true;
+        }
+      if (! need_forwarder_block)
 	return NULL;
     }
 

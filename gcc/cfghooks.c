@@ -755,6 +755,7 @@ make_forwarder_block (basic_block bb, bool (*redirect_edge_p) (edge),
           /* If we redirected the loop latch edge, the JUMP block now acts like
              the new latch of the loop.  */
           if (current_loops != NULL
+              && dummy->loop_father != NULL
               && dummy->loop_father->header == dummy
               && dummy->loop_father->latch == e_src)
             dummy->loop_father->latch = jump;

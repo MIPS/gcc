@@ -2296,6 +2296,9 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
+
+/* In final.c  */
+extern unsigned int compute_alignments (void);
 
 struct rtl_hooks
 {
@@ -2326,7 +2329,5 @@ extern void insn_locators_finalize (void);
 extern void set_curr_insn_source_location (location_t);
 extern void set_curr_insn_block (tree);
 extern int curr_insn_locator (void);
-
-#define insn_added (rtl_hooks.insn_added)
 
 #endif /* ! GCC_RTL_H */

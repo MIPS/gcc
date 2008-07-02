@@ -274,7 +274,7 @@ static struct sched_deps_info_def ebb_sched_deps_info =
     ebb_compute_jump_reg_dependencies,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     NULL,
-    0, 0, 0
+    1, 0, 0
   };
 
 static struct haifa_sched_info ebb_sched_info =

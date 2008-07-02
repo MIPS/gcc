@@ -912,11 +912,13 @@ bool insn_is_set_p (rtx insn)
   return GET_CODE (PATTERN (insn)) == SET;
 }
 
+#ifdef HARD_REGNO_RENAME_OK
 int
 hard_regno_rename_ok (int i ATTRIBUTE_UNUSED, int j ATTRIBUTE_UNUSED)
 {
   return HARD_REGNO_RENAME_OK (i, j);
 }
+#endif
 
 /* Dumps av_set AV to stderr. */
 void

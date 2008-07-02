@@ -1,3 +1,27 @@
+2008-07-02  Andrey Belevantsev  <abel@ispras.ru>
+
+	* cfghooks.c (make_forwarder_block): Also check that dummy->loop_father
+	is not NULL.
+	* cfgloopmanip.c (create_preheader): Fix comment before function.
+	Factor the conditional into three simpler ones.
+	* cse.c (hash_rtx_cb): Fix whitespace formatting and indentation.
+	* final.c (compute_alignments): Export.
+	* genautomata.c (output_default_latencies): Add comment before function.
+	(output_maximal_insn_latency_func): Fix typo in comment.
+	* hard-reg-set.h (hard_reg_set_iter_set): Remove label 'next_bit'. 
+	Use break instead of goto.
+	* passes.c (init_optimization_passes): Move pass_compute_alignments 
+	to its previous location.
+	* rtl.h (compute_alignments): Export.
+	(insn_added): Remove macro.  Adjust all uses to be rtl_hooks.insn_added.
+	* sched-ebb.c (ebb_sched_deps_info): Init use_cselib bit to 1.
+	* sel-sched.c (init_hard_regno_rename): Include this function only if 
+	HARD_REGNO_RENAME_OK is defined.
+	* sel-sched-dump.c (hard_regno_rename_ok): Ditto.
+	* sel-sched-ir.c (remove_empty_bb): Use redirect_edge_succ_nodup.
+	* config/ia64/ia64.c (ia64_reorg): Call compute_alignments after 
+	scheduling.
+	
 2008-06-02  Andrey Belevantsev  <abel@ispras.ru>
 
 	* timevar.def (TV_SEL_SCHED): Remove.

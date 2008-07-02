@@ -536,7 +536,6 @@ hard_reg_set_iter_set (hard_reg_set_iterator *iter, unsigned *regno)
 
       if (iter->bits)
         {
-        next_bit:
           /* Find the correct bit and return it.  */
           while (!(iter->bits & 1))
             {
@@ -555,7 +554,7 @@ hard_reg_set_iter_set (hard_reg_set_iterator *iter, unsigned *regno)
         {
           iter->bits = iter->pelt[iter->word_no];
           if (iter->bits)
-            goto next_bit;
+            break;
           *regno += HARD_REG_ELT_BITS;
         }
     }

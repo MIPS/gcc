@@ -5266,7 +5266,7 @@ ia64_override_options (void)
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
   
-  if (optimize >= 3 
+  if (optimize >= 3
       && ! sel_sched_switch_set)
     {
       flag_selective_scheduling2 = 1;
@@ -9192,6 +9192,9 @@ ia64_reorg (void)
 	  run_selective_scheduling ();
 	else
 	  schedule_ebbs ();
+
+      /* Redo alignment computation, as it might gone wrong.  */
+      compute_alignments ();
       
       /* We cannot reuse this one because it has been corrupted by the
 	 evil glat.  */

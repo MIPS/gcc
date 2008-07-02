@@ -1065,6 +1065,7 @@ get_reg_class (rtx insn)
   return NO_REGS;
 }
 
+#ifdef HARD_REGNO_RENAME_OK
 /* Calculate HARD_REGNO_RENAME_OK data for REGNO.  */
 static void
 init_hard_regno_rename (int regno)
@@ -1078,11 +1079,12 @@ init_hard_regno_rename (int regno)
       /* We are not interested in renaming in other regs.  */
       if (!TEST_HARD_REG_BIT (sel_hrd.regs_ever_used, cur_reg))
         continue;
-      
+
       if (HARD_REGNO_RENAME_OK (regno, cur_reg))
         SET_HARD_REG_BIT (sel_hrd.regs_for_rename[regno], cur_reg);
     }
 }
+#endif
 
 /* A wrapper around HARD_REGNO_RENAME_OK that will look into the hard regs 
    data first.  */

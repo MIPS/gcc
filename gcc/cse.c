@@ -2241,7 +2241,7 @@ hash_rtx_cb (const_rtx x, enum machine_mode mode,
       x = XEXP (x, 0);
       goto repeat;
 
-    case USE:	
+    case USE:
       /* A USE that mentions non-volatile memory needs special
 	 handling since the MEM may be BLKmode which normally
 	 prevents an entry from being made.  Pure calls are
@@ -2338,18 +2338,17 @@ hash_rtx_cb (const_rtx x, enum machine_mode mode,
 	      x = XEXP (x, i);
 	      goto repeat;
 	    }
-
+          
 	  hash += hash_rtx_cb (XEXP (x, i), 0, do_not_record_p,
-			                  hash_arg_in_memory_p,
-                                          have_reg_qty, cb);
+                               hash_arg_in_memory_p,
+                               have_reg_qty, cb);
 	  break;
 
 	case 'E':
 	  for (j = 0; j < XVECLEN (x, i); j++)
-	    hash += hash_rtx_cb (XVECEXP (x, i, j), 0,
-                                            do_not_record_p,
-                                            hash_arg_in_memory_p,
-                                            have_reg_qty, cb);
+	    hash += hash_rtx_cb (XVECEXP (x, i, j), 0, do_not_record_p,
+                                 hash_arg_in_memory_p,
+                                 have_reg_qty, cb);
 	  break;
 
 	case 's':

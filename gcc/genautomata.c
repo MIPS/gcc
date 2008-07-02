@@ -8067,6 +8067,8 @@ output_min_insn_conflict_delay_func (void)
   fprintf (output_file, "}\n\n");
 }
 
+/* Output the array holding default latency values.  These are used in 
+   insn_latency and maximal_insn_latency function implementations.  */
 static void
 output_default_latencies (void)
 {
@@ -8231,7 +8233,7 @@ output_insn_latency_func (void)
 	   INSN_PARAMETER_NAME, INSN2_PARAMETER_NAME);
 }
 
-/* The function outputs PHR interface function `insn_latency'.  */
+/* The function outputs PHR interface function `maximal_insn_latency'.  */
 static void
 output_maximal_insn_latency_func (void)
 {
