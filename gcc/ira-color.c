@@ -1958,11 +1958,10 @@ allocno_priority_compare_func (const void *v1p, const void *v2p)
 
 /* Try to assign hard registers to the unassigned allocnos and
    allocnos conflicting with them or conflicting with allocnos whose
-   regno >= START_REGNO.  The function is called after spill/restore
-   placement optimization and ira_flattening, so more allocnos
-   (including ones created in ira-emit.c) will have a chance to get a
-   hard register.  We use simple assignment algorithm based on
-   priorities.  */
+   regno >= START_REGNO.  The function is called after ira_flattening,
+   so more allocnos (including ones created in ira-emit.c) will have a
+   chance to get a hard register.  We use simple assignment algorithm
+   based on priorities.  */
 void
 reassign_conflict_allocnos (int start_regno)
 {
@@ -2780,6 +2779,10 @@ better_spill_reload_regno_p (int *regnos, int *other_regnos,
 				     &other_length, &other_nrefs,
 				     &other_call_used_count,
 				     &other_hard_regno);
+  if (nrefs == 0 && other_nrefs != 0)
+    return true;
+  if (nrefs != 0 && other_nrefs == 0)
+    return false;
   if (cost != other_cost)
     return cost < other_cost;
   if (length != other_length)

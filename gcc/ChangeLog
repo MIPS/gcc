@@ -1,3 +1,12 @@
+2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-color.c (reassign_conflict_allocnos): Check nrefs first.
+
+	* ira.c (ira.c): Exclude unprofitable allocno from reassigning.
+
+	* reload1.c (find_reg): Move dump file check from
+	EXECUTE_IF_SET_IN_REG_SET.
+
 2008-06-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* caller-save.c (make_global_save_analysis): Add entry and exit

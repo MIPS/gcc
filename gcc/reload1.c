@@ -1956,24 +1956,24 @@ find_reg (struct insn_chain *chain, int order)
   rl->nregs = hard_regno_nregs[best_reg][rl->mode];
   rl->regno = best_reg;
 
-  EXECUTE_IF_SET_IN_REG_SET
-    (&chain->saved, FIRST_PSEUDO_REGISTER, j, rsi)
-    {
-      int nregs;
-      int r = reg_renumber[j];
-      
-      if (r < 0)
-	continue;
-      nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (j)];
-      if (dump_file != NULL
-	  && ((best_reg <= r && r < best_reg + (int) rl->nregs)
-	      || (r <= best_reg && best_reg < r + nregs)))
+  if (dump_file != NULL)
+    EXECUTE_IF_SET_IN_REG_SET
+      (&chain->saved, FIRST_PSEUDO_REGISTER, j, rsi)
+      {
+	int nregs;
+	int r = reg_renumber[j];
+	
+	if (r < 0)
+	  continue;
+	nregs = hard_regno_nregs[r][PSEUDO_REGNO_MODE (j)];
+	if ((best_reg <= r && r < best_reg + (int) rl->nregs)
+	    || (r <= best_reg && best_reg < r + nregs))
 	{
 	  fprintf (dump_file, "using saved reg %d (of %u) for insn %u\n",
 		   r, j, INSN_UID (chain->insn));
 	  break;
 	}
-    }
+      }
 
   EXECUTE_IF_SET_IN_REG_SET
     (&chain->live_throughout, FIRST_PSEUDO_REGISTER, j, rsi)

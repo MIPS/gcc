@@ -1428,7 +1428,9 @@ setup_allocno_assignment_flags (void)
 	 allocnos because the cost info and info about intersected
 	 calls are incorrect for them.  */
       ALLOCNO_ASSIGNED_P (a) = (hard_regno >= 0
-				|| ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
+				|| ALLOCNO_MEM_OPTIMIZED_DEST_P (a)
+				|| (ALLOCNO_MEMORY_COST (a)
+				    - ALLOCNO_COVER_CLASS_COST (a)) < 0);
       ira_assert (hard_regno < 0
 		  || ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 					      reg_class_contents
