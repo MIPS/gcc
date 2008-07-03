@@ -502,13 +502,17 @@ build_arrays (gimple swtch)
   gimple_stmt_iterator gsi;
   int i;
 
+  gsi = gsi_for_stmt (swtch);
+
   arr_index_type = build_index_type (info.range_size);
   tidx = make_rename_temp (arr_index_type, "csti");
-  sub = build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
-		fold_convert (TREE_TYPE (info.index_expr), info.range_min));
+  sub = fold_build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
+		     fold_convert (TREE_TYPE (info.index_expr),
+				   info.range_min));
+  sub = force_gimple_operand_gsi (&gsi, fold_convert (arr_index_type, sub),
+				  false, NULL, true, GSI_SAME_STMT);
   stmt = gimple_build_assign (tidx, sub);
 
-  gsi = gsi_for_stmt (swtch);
   gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
   mark_symbols_for_renaming (stmt);
   info.arr_ref_first = stmt;
@@ -635,14 +639,16 @@ gen_inbound_check (gimple swtch)
   gsi = gsi_for_stmt (info.arr_ref_first);
   tmp_u = make_rename_temp (utype, "csui");
 
-  cast = build1 (NOP_EXPR, utype, info.index_expr);
+  cast = fold_convert (utype, info.index_expr);
   cast_assign = gimple_build_assign (tmp_u, cast);
   find_new_referenced_vars (cast_assign);
   gsi_insert_before (&gsi, cast_assign, GSI_SAME_STMT);
   mark_symbols_for_renaming (cast_assign);
 
   ulb = fold_convert (utype, info.range_min);
-  minus = build2 (MINUS_EXPR, utype, tmp_u, ulb);
+  minus = fold_build2 (MINUS_EXPR, utype, tmp_u, ulb);
+  minus = force_gimple_operand_gsi (&gsi, minus, false, NULL, true,
+				    GSI_SAME_STMT);
   minus_assign = gimple_build_assign (tmp_u, minus);
   find_new_referenced_vars (minus_assign);
   gsi_insert_before (&gsi, minus_assign, GSI_SAME_STMT);
