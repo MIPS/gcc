@@ -26,11 +26,11 @@ DUMMY_FN (vectorizable_store)
 DUMMY_FN (vectorizable_condition)
 DUMMY_FN (vectorizable_reduction)
 DUMMY_FN (vectorizable_live_operation)
+DUMMY_FN (vectorizable_function)
 DUMMY_FN (vect_estimate_min_profitable_iters)
 DUMMY_FN (vect_model_simple_cost)
 DUMMY_FN (vect_model_store_cost)
 DUMMY_FN (vect_model_load_cost)
-DUMMY_FN (vect_pattern_recog)
 DUMMY_FN (vect_transform_loop)
 
 

@@ -690,7 +690,7 @@ extern loop_vec_info vect_analyze_loop_form (struct loop *);
 /* Pattern recognition functions.
    Additional pattern recognition functions can (and will) be added
    in the future.  */
-typedef tree (* vect_recog_func_ptr) (tree, tree *, tree *);
+typedef gimple (* vect_recog_func_ptr) (gimple, tree *, tree *);
 #define NUM_PATTERNS 4
 void vect_pattern_recog (loop_vec_info);
 

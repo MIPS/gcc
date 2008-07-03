@@ -1,3 +1,20 @@
+2008-07-03  Doug Kwan  <dougkwan@google.com>
+
+	* gimple-dummy.c (vectorizable_function): New dummy.
+	(vect_pattern_recog): Remove dummy.
+	* tree-vectorizer.h (vect_recog_func_ptr): Adjust types for tuples.
+	* tree-vect-patterns.c (File): Re-enable all code.
+	(widened_name_p): Tuplify.
+	(vect_recog_temp_ssa_var): New.
+	(vect_recog_dot_prod_pattern): Tuplify.
+	(vect_recog_widen_mult_pattern): Same.
+	(vect_recog_pow_pattern): Same.
+	(vect_recog_widen_sum_pattern): Same.
+ 	(vect_pattern_recog_1): Tuplify. Factor out code to create SSA
+	temporaries to vect_recog_temp_ssa_var.  Remove code for building
+	assignment statement.
+	(vect_pattern_recog): Tuplify.
+
 2008-07-03  Janis Johnson  <janis187@us.ibm.com>
             David Edelsohn  <edelsohn@gnu.org>
 
