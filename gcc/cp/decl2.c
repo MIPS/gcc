@@ -279,6 +279,17 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags)
     maybe_retrofit_in_chrg (function);
 }
 
+/* Like cxx_mark_addressable but don't check register storage class.  */
+static void
+mark_addressable_vector (tree x)
+{
+  while (handled_component_p (x))
+    x = TREE_OPERAND (x, 0);
+  if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+    return ;
+  TREE_ADDRESSABLE (x) = 1;
+}
+
 /* Create an ARRAY_REF, checking for the user doing things backwards
    along the way.  */
 
@@ -315,6 +326,21 @@ grok_array_decl (tree array_expr, tree index_exp)
   else
     {
       tree p1, p2, i1, i2;
+      /* For vector[index], convert the vector to a pointer of the underlying
+	 type. */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	{
+	  tree type = TREE_TYPE (array_expr);
+	  tree type1;
+	  /* Mark the vector as addressable but ignore the
+	     register storage class.  */
+	  mark_addressable_vector (array_expr);
+	  type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
+	  type = build_pointer_type (type);
+	  type1 = build_pointer_type (TREE_TYPE (array_expr));
+	  array_expr = build1 (ADDR_EXPR, type1, array_expr);
+	  array_expr = convert (type, array_expr);
+      }
 
       /* Otherwise, create an ARRAY_REF for a pointer or array type.
 	 It is a little-known fact that, if `a' is an array and `i' is

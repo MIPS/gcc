@@ -2430,6 +2430,17 @@ build_indirect_ref (tree ptr, const char *errorstring)
   return error_mark_node;
 }
 
+/* Like cxx_mark_addressable but don't check register qualifier.  */
+static void
+mark_addressable_vector (tree x)
+{
+  while (handled_component_p (x))
+    x = TREE_OPERAND (x, 0);
+  if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
+    return ;
+  TREE_ADDRESSABLE (x) = 1;
+}
+
 /* This handles expressions of the form "a[i]", which denotes
    an array reference.
 
@@ -2475,6 +2486,22 @@ build_array_ref (tree array, tree idx)
 
     default:
       break;
+    }
+  
+  /* For vector[index], convert the vector to a pointer of the underlying
+     type. */
+  if (TREE_CODE (TREE_TYPE (array)) == VECTOR_TYPE)
+    {
+      tree type = TREE_TYPE (array);
+      tree type1;
+      /* Mark the vector as addressable but ignore the
+         register storage class.  */   
+      mark_addressable_vector (array);
+      type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
+      type = build_pointer_type (type);
+      type1 = build_pointer_type (TREE_TYPE (array));
+      array = build1 (ADDR_EXPR, type1, array);
+      array = convert (type, array);
     }
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
