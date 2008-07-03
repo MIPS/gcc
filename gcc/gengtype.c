@@ -3538,7 +3538,6 @@ main (int argc, char **argv)
   do_scalar_typedef ("jword", &pos); pos.line++;
   do_scalar_typedef ("JCF_u2", &pos); pos.line++;
   do_scalar_typedef ("void", &pos); pos.line++;
-  do_scalar_typedef ("HARD_REG_SET", &pos); pos.line++;
   do_typedef ("PTR", create_pointer (resolve_typedef ("void", &pos)), &pos);
 
   for (i = 0; i < num_gt_files; i++)

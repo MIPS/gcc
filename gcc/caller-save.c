@@ -469,19 +469,9 @@ setup_save_areas (void)
 	unsigned int regno = reg_renumber[i];
 	unsigned int endregno
 	  = end_hard_regno (GET_MODE (regno_reg_rtx[i]), regno);
-	if (flag_ira && optimize && flag_ira_ipra)
-	  {
-	    HARD_REG_SET clobbered_regs;
-	    
-	    ira_collect_pseudo_call_clobbered_regs (i, &clobbered_regs);
-	    for (r = regno; r < endregno; r++)
-	      if (TEST_HARD_REG_BIT (clobbered_regs, r))
-		SET_HARD_REG_BIT (hard_regs_used, r);
-	  }
-	else
-	  for (r = regno; r < endregno; r++)
-	    if (call_used_regs[r])
-	      SET_HARD_REG_BIT (hard_regs_used, r);
+	for (r = regno; r < endregno; r++)
+	  if (call_used_regs[r])
+	    SET_HARD_REG_BIT (hard_regs_used, r);
       }
 
   if (flag_ira && optimize && flag_ira_share_save_slots)
@@ -512,7 +502,7 @@ setup_save_areas (void)
 	  freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn));
 	  REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 				   &chain->live_throughout);
-	  get_call_invalidated_used_regs (insn, &used_regs, false);
+	  COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 
 	  /* Record all registers set in this call insn.  These don't
 	     need to be saved.  N.B. the call insn might set a subreg
@@ -571,7 +561,7 @@ setup_save_areas (void)
 	    continue;
 	  REG_SET_TO_HARD_REG_SET (hard_regs_to_save,
 				   &chain->live_throughout);
-	  get_call_invalidated_used_regs (insn, &used_regs, false);
+	  COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 
 	  /* Record all registers set in this call insn.  These don't
 	     need to be saved.  N.B. the call insn might set a subreg
@@ -1005,7 +995,7 @@ calculate_local_save_info (void)
 	      /* Compute which hard regs must be saved before this call.  */
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
-	      get_call_invalidated_used_regs (insn, &used_regs, false);
+	      COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 	      IOR_HARD_REG_SET (restore_gen, hard_regs_to_save);
 	      COPY_HARD_REG_SET (temp_set, hard_regs_to_save);
@@ -1854,7 +1844,7 @@ save_call_clobbered_regs (void)
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, hard_regs_saved);
-	      get_call_invalidated_used_regs (insn, &used_regs, false);
+	      COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 
 	      if (flag_ira)
@@ -2089,7 +2079,7 @@ save_call_clobbered_regs (void)
 	      /* Compute which hard regs must be saved before this call.  */
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, call_fixed_reg_set);
 	      AND_COMPL_HARD_REG_SET (hard_regs_to_save, this_insn_sets);
-	      get_call_invalidated_used_regs (insn, &used_regs, false);
+	      COPY_HARD_REG_SET (used_regs, call_used_reg_set);
 	      AND_HARD_REG_SET (hard_regs_to_save, used_regs);
 	      COPY_HARD_REG_SET (saved, hard_regs_to_save);
 	      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)

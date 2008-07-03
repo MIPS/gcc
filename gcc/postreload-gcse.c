@@ -742,11 +742,9 @@ record_opr_changes (rtx insn)
     {
       unsigned int regno;
       rtx link, x;
-      HARD_REG_SET clobbered_regs;
-      
-      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
+
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	if (TEST_HARD_REG_BIT (clobbered_regs, regno))
+	if (TEST_HARD_REG_BIT (regs_invalidated_by_call, regno))
 	  record_last_reg_set_info_regno (insn, regno);
 
       for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))

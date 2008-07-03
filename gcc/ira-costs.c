@@ -1560,13 +1560,11 @@ ira_costs (void)
 void
 ira_tune_allocno_costs_and_cover_classes (void)
 {
-  int j, k, n, regno, freq;
+  int j, n, regno;
   int cost, min_cost, *reg_costs;
   enum reg_class cover_class, class;
   enum machine_mode mode;
   ira_allocno_t a;
-  rtx call, *allocno_calls;
-  HARD_REG_SET clobbered_regs;
   ira_allocno_iterator ai;
 
   FOR_EACH_ALLOCNO (a, ai)
@@ -1588,38 +1586,11 @@ ira_tune_allocno_costs_and_cover_classes (void)
 	      regno = ira_class_hard_regs[cover_class][j];
 	      class = REGNO_REG_CLASS (regno);
 	      cost = 0;
-	      if (! flag_ira_ipra)
-		{
-		  /* ??? If only part is call clobbered.  */
-		  if (! ira_hard_reg_not_in_set_p (regno, mode, call_used_reg_set))
-		    {
-		      cost += (ALLOCNO_CALL_FREQ (a)
-			       * (ira_memory_move_cost[mode][class][0]
-				  + ira_memory_move_cost[mode][class][1]));
-		    }
-		}
-	      else
-		{
-		  allocno_calls
-		    = (VEC_address (rtx, ira_regno_calls[ALLOCNO_REGNO (a)])
-		       + ALLOCNO_CALLS_CROSSED_START (a));
-		  ira_assert (allocno_calls != NULL); 
-		  for (k = ALLOCNO_CALLS_CROSSED_NUM (a) - 1; k >= 0; k--)
-		    {
-		      call = allocno_calls[k];
-		      freq = REG_FREQ_FROM_BB (BLOCK_FOR_INSN (call));
-		      if (freq == 0)
-			freq = 1;
-		      get_call_invalidated_used_regs (call, &clobbered_regs,
-						      false);
-		      /* ??? If only part is call clobbered.  */
-		      if (! ira_hard_reg_not_in_set_p (regno, mode,
-						       clobbered_regs))
-			cost
-			  += freq * (ira_memory_move_cost[mode][class][0]
-				     + ira_memory_move_cost[mode][class][1]);
-		    }
-		}
+	      /* ??? If only part is call clobbered.  */
+	      if (! ira_hard_reg_not_in_set_p (regno, mode, call_used_reg_set))
+		cost += (ALLOCNO_CALL_FREQ (a)
+			 * (ira_memory_move_cost[mode][class][0]
+			    + ira_memory_move_cost[mode][class][1]));
 #ifdef IRA_HARD_REGNO_ADD_COST_MULTIPLIER
 	      cost += ((ira_memory_move_cost[mode][class][0]
 			+ ira_memory_move_cost[mode][class][1])

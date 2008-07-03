@@ -1,5 +1,76 @@
 2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* doc/invoke.texi (-fira-ipra): Remove.
+	
+	* regrename.c (copyprop_hardreg_forward_1): Remove
+	get_call_invalidated_used_regs.
+
+	* postreload-gcse.c (record_opr_changes): Ditto.
+
+	* postreload.c (reload_combine, reload_cse_move2add): Ditto.
+
+	* rtlanal.c (reg_set_between_p): Ditto.
+
+	* gcse.c (compute_hash_table_work, compute_store_table): Ditto.
+
+	* cselib.c (cselib_process_insn): Ditto.
+
+	* loop-iv.c (simplify_using_assignment): Ditto.
+	
+	* sched-deps.c (sched_analyze): Ditto.
+	
+	* combine.c (record_dead_and_set_regs): Ditto.
+
+	* resource.c (mark_set_resources, mark_target_live_regs): Ditto.
+
+	* var-tracking.c (compute_bb_dataflow, emit_notes_in_bb): Ditto.
+
+	* reload1.c (reload): Ditto.
+	
+	* caller-save.c (setup_save_areas, calculate_local_save_info,
+	save_call_clobbered_regs): Ditto.
+
+	* cse.c (invalidate_for_call): Remove parameter.  Remove
+	get_call_invalidated_used_regs.
+	(cse_insn): Don't pass insn to invalidate_for_call.
+
+	* ira-lives.c (process_bb_node_lives): Remove updating
+	call_used_regs.
+	
+	* function.c (cgraph.h): Remove #include.
+	(get_call, get_call_invalidated_used_regs): Remove.
+	
+	* final.c (update_regs_ever_live): Remove.
+	(rest_of_handle_final): Remove updating call_used_regs.
+
+	* toplev.h (flag_ira_ipra): Remove.
+	
+	* common.opt (fira-ipra): Remove.
+
+	* ira-costs.c (ira_tune_allocno_costs_and_cover_classes): Remove
+	coder for IPRA.
+	
+	* ira-color.c (ira_collect_pseudo_call_clobbered_regs): Remove.
+
+	* ira.h (ira_collect_pseudo_call_clobbered_regs): Ditto.
+	
+	* function.h (hard-reg-set.h): Remove.
+	(struct emit_status): Remove call_used_regs.
+	(get_call_invalidated_used_regs): Remove.
+	
+	* Makefile.in (FUNCTION_H): Remove hard-reg-set.h.
+
+	* gengtype.c (main): Remove HARD_REG_SET.
+
+	* cgraph.c (cgraph_create_node): Remove setting
+	function_used_regs.
+
+	* cgraph.h (struct cgraph_node): Remove function_used_regs.
+
+	* ira-build.c (ira_build): Remove resetting call_used_regs.
+	
+2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira.h, ira-int.h, ira-conflicts.c, ira-color.c, ira-lives.c,
 	ira-emit.c, ira-build.c, ira.c, ira-costs.c: Add prefix ira_ to
 	external variables, functions, common types, and macros.

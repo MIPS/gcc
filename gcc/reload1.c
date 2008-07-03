@@ -1260,14 +1260,8 @@ reload (rtx first, int global)
 	rtx *pnote;
 
 	if (CALL_P (insn))
-	  {
-	    HARD_REG_SET used_function_regs;
-
-	    get_call_invalidated_used_regs (insn, &used_function_regs, false);
-	    IOR_HARD_REG_SET (crtl->emit.call_used_regs, used_function_regs);
-	    replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
-				VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
-	  }
+	  replace_pseudos_in (& CALL_INSN_FUNCTION_USAGE (insn),
+			      VOIDmode, CALL_INSN_FUNCTION_USAGE (insn));
 
 	if ((GET_CODE (PATTERN (insn)) == USE
 	     /* We mark with QImode USEs introduced by reload itself.  */

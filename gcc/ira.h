@@ -34,5 +34,4 @@ extern bool ira_reassign_pseudos (int *, int, HARD_REG_SET, HARD_REG_SET *,
 extern rtx ira_reuse_stack_slot (int, unsigned int, unsigned int);
 extern void ira_mark_new_stack_slot (rtx, int, unsigned int);
 extern bool ira_better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx);
-extern void ira_collect_pseudo_call_clobbered_regs (int, HARD_REG_SET *);
 

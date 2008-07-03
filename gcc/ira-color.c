@@ -2818,33 +2818,6 @@ ira_better_spill_reload_regno_p (int *regnos, int *other_regnos,
 
 
 
-/* Return (through CALL_CLOBBERED_REGS) hard registers changed by all
-   function calls inside REGNO live range.  This is used to improve
-   code for saving/restore callee-clobbered hard registers around
-   calls (see caller-saves.c).  */
-void
-ira_collect_pseudo_call_clobbered_regs (int regno,
-					HARD_REG_SET (*call_clobbered_regs))
-{
-  int i;
-  ira_allocno_t a;
-  HARD_REG_SET clobbered_regs;
-  rtx call, *allocno_calls;
-
-  a = ira_regno_allocno_map[regno];
-  CLEAR_HARD_REG_SET (*call_clobbered_regs);
-  allocno_calls = (VEC_address (rtx, ira_regno_calls[regno])
-		   + ALLOCNO_CALLS_CROSSED_START (a));
-  for (i = ALLOCNO_CALLS_CROSSED_NUM (a) - 1; i >= 0; i--)
-    {
-      call = allocno_calls[i];
-      get_call_invalidated_used_regs (call, &clobbered_regs, false);
-      IOR_HARD_REG_SET (*call_clobbered_regs, clobbered_regs);
-    }
-}
-
-
-
 /* Allocate and initialize data necessary for assign_hard_reg.  */
 void
 ira_initiate_assign (void)

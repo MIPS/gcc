@@ -136,7 +136,6 @@ extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_ira;
 extern int flag_ira_coalesce;
-extern int flag_ira_ipra;
 extern int flag_ira_move_spills;
 extern int flag_ira_propagate_cost;
 extern int flag_ira_share_save_slots;

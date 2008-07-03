@@ -333,7 +333,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions -fipa-cp -fipa-marix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
--fira-coalesce -fira-ipra @gol
+-fira-coalesce @gol
 -fira-propagate-cost -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
@@ -5685,11 +5685,6 @@ results in most cases and for most architectures.
 @opindex fira-coalesce
 Do optimistic register coalescing.  This option might be profitable for
 architectures with big regular register files.
-
-@item -fira-ipra
-@opindex fira-ipra
-Switch on a simple form of inter-procedural register allocation when
-the integrated register allocator (@acronym{IRA}) is used.
 
 @item -fira-propagate-cost
 @opindex -fira-propagate-cost

@@ -749,10 +749,6 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 
 	  if (CALL_P (insn))
 	    {
-	      HARD_REG_SET clobbered_regs;
-	      
-	      get_call_invalidated_used_regs (insn, &clobbered_regs, false);
-	      IOR_HARD_REG_SET (crtl->emit.call_used_regs, clobbered_regs);
 	      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 	        {
 		  ira_allocno_t a = ira_allocnos[i];

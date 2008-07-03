@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "hashtab.h"
-#include "hard-reg-set.h"
 #include "varray.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
@@ -81,10 +80,6 @@ struct emit_status GTY(())
      for that pseudo (if REG_POINTER is set in x_regno_reg_rtx).
      Allocated in parallel with x_regno_reg_rtx.  */
   unsigned char * GTY((skip)) regno_pointer_align;
-
-  /* Call unsaved hard registers really used by given function
-     (including ones used by functions called by given function).  */
-  HARD_REG_SET call_used_regs;
 };
 
 
@@ -627,8 +622,6 @@ extern rtx get_arg_pointer_save_area (void);
 extern const char *current_function_name (void);
 /* Returns the assembler name (raw, mangled) of the current function.  */
 extern const char *current_function_assembler_name (void);
-
-extern void get_call_invalidated_used_regs (const_rtx, HARD_REG_SET *, bool);
 
 extern void do_warn_unused_parameter (tree);
 

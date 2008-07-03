@@ -653,10 +653,6 @@ fira-coalesce
 Common Report Var(flag_ira_coalesce) Init(0)
 Do optimistic coalescing.
 
-fira-ipra
-Common Report Var(flag_ira_ipra) Init(0)
-Inter-procedural register allocation for IRA.
-
 fira-propagate-cost
 Common Report Var(flag_ira_propagate_cost) Init(0)
 Propagate hard reg costs down for regional or mixed ira allocation algorithm.

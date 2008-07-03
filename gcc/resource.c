@@ -661,11 +661,10 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
       if (mark_type == MARK_SRC_DEST_CALL)
 	{
 	  rtx link;
-	  HARD_REG_SET used_regs;
 
-	  get_call_invalidated_used_regs (x, &used_regs, true);
-	  IOR_HARD_REG_SET (res->regs, used_regs);
 	  res->cc = res->memory = 1;
+
+	  IOR_HARD_REG_SET (res->regs, regs_invalidated_by_call);
 
 	  for (link = CALL_INSN_FUNCTION_USAGE (x);
 	       link; link = XEXP (link, 1))
@@ -1003,13 +1002,11 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
 	  if (CALL_P (real_insn))
 	    {
-	      HARD_REG_SET clobbered_regs;
-	    
-	      get_call_invalidated_used_regs (insn, &clobbered_regs, true);
 	      /* CALL clobbers all call-used regs that aren't fixed except
 		 sp, ap, and fp.  Do this before setting the result of the
 		 call live.  */
-	      AND_COMPL_HARD_REG_SET (current_live_regs, clobbered_regs);
+	      AND_COMPL_HARD_REG_SET (current_live_regs,
+				      regs_invalidated_by_call);
 
 	      /* A CALL_INSN sets any global register live, since it may
 		 have been modified by the call.  */
