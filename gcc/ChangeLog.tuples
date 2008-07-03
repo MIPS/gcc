@@ -1,3 +1,7 @@
+2008-07-03  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Unshare t.
+
 2008-07-03  Doug Kwan  <dougkwan@google.com>
 
 	* gimple-dummy.c (vectorizable_function): New dummy.

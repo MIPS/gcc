@@ -6930,7 +6930,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	  && TYPE_MODE (type) == SDmode)
 	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
 
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
+      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, unshare_expr (t));
       gimplify_and_add (t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
