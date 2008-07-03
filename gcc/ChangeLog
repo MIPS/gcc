@@ -1,5 +1,22 @@
 2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* ira.h, ira-int.h, ira-conflicts.c, ira-color.c, ira-lives.c,
+	ira-emit.c, ira-build.c, ira.c, ira-costs.c: Add prefix ira_ to
+	external variables, functions, common types, and macros.
+
+	* toplev.c (init_ira_once, init_ira, finish_ira_once): Rename to
+	ira_init_once, ira_init, ira_finish_once.
+
+	* caller-save.c: Add prefix ira_ to
+	collect_pseudo_call_clobbered_regs.
+
+	* reload1.c: Add prefix ira_ to sort_insn_chain,
+	mark_memory_move_deletion, better_spill_reload_regno_p,
+	reuse_stack_slot, mark_new_stack_slot, mark_allocation_change,
+	reassign_pseudos, mark_allocation_change.
+
+2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-color.c (reassign_conflict_allocnos): Check nrefs first.
 
 	* ira.c (ira.c): Exclude unprofitable allocno from reassigning.

@@ -63,13 +63,13 @@ static bool allocno_coalesced_p;
 static bitmap processed_coalesced_allocno_bitmap;
 
 /* All allocnos sorted according their priorities.  */
-static allocno_t *sorted_allocnos;
+static ira_allocno_t *sorted_allocnos;
 
 /* Vec representing the stack of allocnos used during coloring.  */
-static VEC(allocno_t,heap) *allocno_stack_vec;
+static VEC(ira_allocno_t,heap) *allocno_stack_vec;
 
 /* Array used to choose an allocno for spilling.  */
-static allocno_t *allocnos_for_spilling;
+static ira_allocno_t *allocnos_for_spilling;
 
 /* Pool for splay tree nodes.  */
 static alloc_pool splay_tree_node_pool;
@@ -80,7 +80,7 @@ static alloc_pool splay_tree_node_pool;
    could be removed from and inserted to the splay tree every time
    when its spilling priority is changed but such solution would be
    more costly although simpler.  */
-static VEC(allocno_t,heap) *removed_splay_allocno_vec;
+static VEC(ira_allocno_t,heap) *removed_splay_allocno_vec;
 
 
 
@@ -103,8 +103,8 @@ static int update_cost_check;
 static void
 initiate_cost_update (void)
 {
-  allocno_update_cost_check = ira_allocate (allocnos_num * sizeof (int));
-  memset (allocno_update_cost_check, 0, allocnos_num * sizeof (int));
+  allocno_update_cost_check = ira_allocate (ira_allocnos_num * sizeof (int));
+  memset (allocno_update_cost_check, 0, ira_allocnos_num * sizeof (int));
   update_cost_check = 0;
 }
 
@@ -120,14 +120,14 @@ finish_cost_update (void)
    increases chances to remove some copies.  Copy cost is proportional
    the copy frequency divided by DIVISOR.  */
 static void
-update_copy_costs_1 (allocno_t allocno, int hard_regno,
+update_copy_costs_1 (ira_allocno_t allocno, int hard_regno,
 		     bool decr_p, int divisor)
 {
   int i, cost, update_cost;
   enum machine_mode mode;
   enum reg_class class, cover_class;
-  allocno_t another_allocno;
-  copy_t cp, next_cp;
+  ira_allocno_t another_allocno;
+  ira_copy_t cp, next_cp;
 
   cover_class = ALLOCNO_COVER_CLASS (allocno);
   if (cover_class == NO_REGS)
@@ -136,7 +136,7 @@ update_copy_costs_1 (allocno_t allocno, int hard_regno,
     return;
   allocno_update_cost_check[ALLOCNO_NUM (allocno)] = update_cost_check;
   ira_assert (hard_regno >= 0);
-  i = class_hard_reg_index[cover_class][hard_regno];
+  i = ira_class_hard_reg_index[cover_class][hard_regno];
   ira_assert (i >= 0);
   class = REGNO_REG_CLASS (hard_regno);
   mode = ALLOCNO_MODE (allocno);
@@ -159,17 +159,17 @@ update_copy_costs_1 (allocno_t allocno, int hard_regno,
 	  || ALLOCNO_ASSIGNED_P (another_allocno))
 	continue;
       cost = (cp->second == allocno
-	      ? register_move_cost[mode][class]
+	      ? ira_register_move_cost[mode][class]
 	        [ALLOCNO_COVER_CLASS (another_allocno)]
-	      : register_move_cost[mode]
+	      : ira_register_move_cost[mode]
 	        [ALLOCNO_COVER_CLASS (another_allocno)][class]);
       if (decr_p)
 	cost = -cost;
-      allocate_and_set_or_copy_costs
+      ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_HARD_REG_COSTS (another_allocno), cover_class,
 	 ALLOCNO_COVER_CLASS_COST (another_allocno),
 	 ALLOCNO_HARD_REG_COSTS (another_allocno));
-      allocate_and_set_or_copy_costs
+      ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (another_allocno),
 	 cover_class, 0,
 	 ALLOCNO_CONFLICT_HARD_REG_COSTS (another_allocno));
@@ -186,7 +186,7 @@ update_copy_costs_1 (allocno_t allocno, int hard_regno,
 /* Update the cost of allocnos to increase chances to remove some
    copies as the result of subsequent assignment.  */
 static void
-update_copy_costs (allocno_t allocno, bool decr_p)
+update_copy_costs (ira_allocno_t allocno, bool decr_p)
 {
   update_cost_check++;  
   update_copy_costs_1 (allocno, ALLOCNO_HARD_REGNO (allocno), decr_p, 1);
@@ -197,7 +197,8 @@ update_copy_costs (allocno_t allocno, bool decr_p)
 static int
 allocno_cost_compare_func (const void *v1p, const void *v2p)
 {
-  allocno_t p1 = *(const allocno_t *) v1p, p2 = *(const allocno_t *) v2p;
+  ira_allocno_t p1 = *(const ira_allocno_t *) v1p;
+  ira_allocno_t p2 = *(const ira_allocno_t *) v2p;
   int c1, c2;
 
   c1 = ALLOCNO_UPDATED_MEMORY_COST (p1) - ALLOCNO_COVER_CLASS_COST (p1);
@@ -212,14 +213,14 @@ allocno_cost_compare_func (const void *v1p, const void *v2p)
 
 /* Print all allocnos coalesced with ALLOCNO.  */
 static void
-print_coalesced_allocno (allocno_t allocno)
+print_coalesced_allocno (ira_allocno_t allocno)
 {
-  allocno_t a;
+  ira_allocno_t a;
 
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      print_expanded_allocno (a);
+      ira_print_expanded_allocno (a);
       if (a == allocno)
 	break;
       fprintf (ira_dump_file, "+");
@@ -228,13 +229,13 @@ print_coalesced_allocno (allocno_t allocno)
 
 /* Choose a hard register for ALLOCNO (or for all coalesced allocnos
    represented by ALLOCNO).  If RETRY_P is TRUE, it means that the
-   function called from function `reassign_conflict_allocnos' and
+   function called from function `ira_reassign_conflict_allocnos' and
    `allocno_reload_assign'.  This function implements the optimistic
    coalescing too: if we failed to assign a hard register to set of
    the coalesced allocnos, we put them onto the coloring stack for
    subsequent separate assigning.  */
 static bool
-assign_hard_reg (allocno_t allocno, bool retry_p)
+assign_hard_reg (ira_allocno_t allocno, bool retry_p)
 {
   HARD_REG_SET conflicting_regs;
   int i, j, hard_regno, best_hard_regno, class_size;
@@ -243,10 +244,10 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
   int *conflict_costs;
   enum reg_class cover_class, class;
   enum machine_mode mode;
-  allocno_t a, conflict_allocno;
-  allocno_t another_allocno;
-  allocno_conflict_iterator aci;
-  copy_t cp, next_cp;
+  ira_allocno_t a, conflict_allocno;
+  ira_allocno_t another_allocno;
+  ira_allocno_conflict_iterator aci;
+  ira_copy_t cp, next_cp;
   static int costs[FIRST_PSEUDO_REGISTER], full_costs[FIRST_PSEUDO_REGISTER];
 #ifdef STACK_REGS
   bool no_stack_reg_p;
@@ -254,7 +255,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 
   ira_assert (! ALLOCNO_ASSIGNED_P (allocno));
   cover_class = ALLOCNO_COVER_CLASS (allocno);
-  class_size = class_hard_regs_num[cover_class];
+  class_size = ira_class_hard_regs_num[cover_class];
   mode = ALLOCNO_MODE (allocno);
   CLEAR_HARD_REG_SET (conflicting_regs);
   best_hard_regno = -1;
@@ -272,12 +273,12 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
     {
       mem_cost += ALLOCNO_UPDATED_MEMORY_COST (a);
       IOR_HARD_REG_SET (conflicting_regs,
-			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
-      allocate_and_copy_costs (&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
-			       cover_class, ALLOCNO_HARD_REG_COSTS (a));
+			IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      ira_allocate_and_copy_costs (&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
+				   cover_class, ALLOCNO_HARD_REG_COSTS (a));
       a_costs = ALLOCNO_UPDATED_HARD_REG_COSTS (a);
 #ifdef STACK_REGS
-      no_stack_reg_p = no_stack_reg_p || ALLOCNO_TOTAL_NO_STACK_REG_P (a);
+      no_stack_reg_p = no_stack_reg_p || IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a);
 #endif
       for (cost = ALLOCNO_COVER_CLASS_COST (a), i = 0; i < class_size; i++)
 	if (a_costs != NULL)
@@ -312,7 +313,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 		  {
 		    IOR_HARD_REG_SET
 		      (conflicting_regs,
-		       reg_mode_hard_regset
+		       ira_reg_mode_hard_regset
 		       [hard_regno][ALLOCNO_MODE (conflict_allocno)]);
 		    if (hard_reg_set_subset_p (reg_class_contents[cover_class],
 					       conflicting_regs))
@@ -322,7 +323,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 	      }
 	    else if (! ALLOCNO_MAY_BE_SPILLED_P (conflict_allocno))
 	      {
-		allocate_and_copy_costs
+		ira_allocate_and_copy_costs
 		  (&ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (conflict_allocno),
 		   cover_class,
 		   ALLOCNO_CONFLICT_HARD_REG_COSTS (conflict_allocno));
@@ -357,7 +358,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 	  if (cover_class != ALLOCNO_COVER_CLASS (another_allocno)
 	      || ALLOCNO_ASSIGNED_P (another_allocno))
 	    continue;
-	  allocate_and_copy_costs
+	  ira_allocate_and_copy_costs
 	    (&ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (another_allocno),
 	     cover_class, ALLOCNO_CONFLICT_HARD_REG_COSTS (another_allocno));
 	  conflict_costs
@@ -377,27 +378,27 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
      REG_ALLOC_ORDER).  */
   for (i = 0; i < class_size; i++)
     {
-      hard_regno = class_hard_regs[cover_class][i];
+      hard_regno = ira_class_hard_regs[cover_class][i];
 #ifdef STACK_REGS
       if (no_stack_reg_p
 	  && FIRST_STACK_REG <= hard_regno && hard_regno <= LAST_STACK_REG)
 	continue;
 #endif
-      if (! hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs)
+      if (! ira_hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs)
 	  || TEST_HARD_REG_BIT (prohibited_class_mode_regs[cover_class][mode],
 				hard_regno))
 	continue;
       cost = costs[i];
       full_cost = full_costs[i];
       if (! allocated_hardreg_p[hard_regno]
-	  && hard_reg_not_in_set_p (hard_regno, mode, call_used_reg_set))
+	  && ira_hard_reg_not_in_set_p (hard_regno, mode, call_used_reg_set))
 	/* We need to save/restore the hard register in
 	   epilogue/prologue.  Therefore we increase the cost.  */
 	{
 	  /* ??? If only part is call clobbered.  */
 	  class = REGNO_REG_CLASS (hard_regno);
-	  add_cost = (memory_move_cost[mode][class][0]
-		      + memory_move_cost[mode][class][1] - 1);
+	  add_cost = (ira_memory_move_cost[mode][class][0]
+		      + ira_memory_move_cost[mode][class][1] - 1);
 	  cost += add_cost;
 	  full_cost += add_cost;
 	}
@@ -428,14 +429,14 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 	  if (a == allocno)
 	    break;
 	}
-      qsort (sorted_allocnos, j, sizeof (allocno_t), 
+      qsort (sorted_allocnos, j, sizeof (ira_allocno_t), 
 	     allocno_cost_compare_func);
       for (i = 0; i < j; i++)
 	{
 	  a = sorted_allocnos[i];
 	  ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
 	  ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
-	  VEC_safe_push (allocno_t, heap, allocno_stack_vec, a);
+	  VEC_safe_push (ira_allocno_t, heap, allocno_stack_vec, a);
 	  if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	    {
 	      fprintf (ira_dump_file, "        Pushing");
@@ -456,7 +457,7 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 	update_copy_costs (a, true);
       ira_assert (ALLOCNO_COVER_CLASS (a) == cover_class);
       /* We don't need updated costs anymore: */
-      free_allocno_updated_costs (a);
+      ira_free_allocno_updated_costs (a);
       if (a == allocno)
 	break;
     }
@@ -468,11 +469,11 @@ assign_hard_reg (allocno_t allocno, bool retry_p)
 /* This page contains the allocator based on the Chaitin-Briggs algorithm.  */
 
 /* Bucket of allocnos that can colored currently without spilling.  */
-static allocno_t colorable_allocno_bucket;
+static ira_allocno_t colorable_allocno_bucket;
 
 /* Bucket of allocnos that might be not colored currently without
    spilling.  */
-static allocno_t uncolorable_allocno_bucket;
+static ira_allocno_t uncolorable_allocno_bucket;
 
 /* Each element of the array contains the current number of allocnos
    of given *cover* class in the uncolorable_bucket.  */
@@ -481,9 +482,9 @@ static int uncolorable_allocnos_num[N_REG_CLASSES];
 /* Add ALLOCNO to bucket *BUCKET_PTR.  ALLOCNO should be not in a bucket
    before the call.  */
 static void
-add_allocno_to_bucket (allocno_t allocno, allocno_t *bucket_ptr)
+add_ira_allocno_to_bucket (ira_allocno_t allocno, ira_allocno_t *bucket_ptr)
 {
-  allocno_t first_allocno;
+  ira_allocno_t first_allocno;
   enum reg_class cover_class;
 
   if (bucket_ptr == &uncolorable_allocno_bucket
@@ -503,9 +504,9 @@ add_allocno_to_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 /* The function returns frequency and number of available hard
    registers for allocnos coalesced with ALLOCNO.  */
 static void
-get_coalesced_allocnos_attributes (allocno_t allocno, int *freq, int *num)
+get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq, int *num)
 {
-  allocno_t a;
+  ira_allocno_t a;
 
   *freq = 0;
   *num = 0;
@@ -529,7 +530,8 @@ get_coalesced_allocnos_attributes (allocno_t allocno, int *freq, int *num)
 static int
 bucket_allocno_compare_func (const void *v1p, const void *v2p)
 {
-  allocno_t a1 = *(const allocno_t *) v1p, a2 = *(const allocno_t *) v2p;
+  ira_allocno_t a1 = *(const ira_allocno_t *) v1p;
+  ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
   int diff, a1_freq, a2_freq, a1_num, a2_num;
 
   if ((diff = (int) ALLOCNO_COVER_CLASS (a2) - ALLOCNO_COVER_CLASS (a1)) != 0)
@@ -546,16 +548,17 @@ bucket_allocno_compare_func (const void *v1p, const void *v2p)
 /* Sort bucket *BUCKET_PTR and return the result through
    BUCKET_PTR.  */
 static void
-sort_bucket (allocno_t *bucket_ptr)
+sort_bucket (ira_allocno_t *bucket_ptr)
 {
-  allocno_t a, head;
+  ira_allocno_t a, head;
   int n;
 
   for (n = 0, a = *bucket_ptr; a != NULL; a = ALLOCNO_NEXT_BUCKET_ALLOCNO (a))
     sorted_allocnos[n++] = a;
   if (n <= 1)
     return;
-  qsort (sorted_allocnos, n, sizeof (allocno_t), bucket_allocno_compare_func);
+  qsort (sorted_allocnos, n, sizeof (ira_allocno_t),
+	 bucket_allocno_compare_func);
   head = NULL;
   for (n--; n >= 0; n--)
     {
@@ -573,9 +576,10 @@ sort_bucket (allocno_t *bucket_ptr)
    their priority.  ALLOCNO should be not in a bucket before the
    call.  */
 static void
-add_allocno_to_ordered_bucket (allocno_t allocno, allocno_t *bucket_ptr)
+add_ira_allocno_to_ordered_bucket (ira_allocno_t allocno,
+				   ira_allocno_t *bucket_ptr)
 {
-  allocno_t before, after;
+  ira_allocno_t before, after;
   enum reg_class cover_class;
 
   if (bucket_ptr == &uncolorable_allocno_bucket
@@ -602,9 +606,9 @@ add_allocno_to_ordered_bucket (allocno_t allocno, allocno_t *bucket_ptr)
 /* Delete ALLOCNO from bucket *BUCKET_PTR.  It should be there before
    the call.  */
 static void
-delete_allocno_from_bucket (allocno_t allocno, allocno_t *bucket_ptr)
+delete_allocno_from_bucket (ira_allocno_t allocno, ira_allocno_t *bucket_ptr)
 {
-  allocno_t prev_allocno, next_allocno;
+  ira_allocno_t prev_allocno, next_allocno;
   enum reg_class cover_class;
 
   if (bucket_ptr == &uncolorable_allocno_bucket
@@ -646,19 +650,19 @@ static splay_tree uncolorable_allocnos_splay_tree[N_REG_CLASSES];
    conflicting allocnos from the uncolorable bucket to the colorable
    one.  */
 static void
-push_allocno_to_stack (allocno_t allocno)
+push_ira_allocno_to_stack (ira_allocno_t allocno)
 {
   int conflicts_num, conflict_size, size;
-  allocno_t a, conflict_allocno;
+  ira_allocno_t a, conflict_allocno;
   enum reg_class cover_class;
-  allocno_conflict_iterator aci;
+  ira_allocno_conflict_iterator aci;
   
   ALLOCNO_IN_GRAPH_P (allocno) = false;
-  VEC_safe_push (allocno_t, heap, allocno_stack_vec, allocno);
+  VEC_safe_push (ira_allocno_t, heap, allocno_stack_vec, allocno);
   cover_class = ALLOCNO_COVER_CLASS (allocno);
   if (cover_class == NO_REGS)
     return;
-  size = reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)];
+  size = ira_reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)];
   if (allocno_coalesced_p)
     bitmap_clear (processed_coalesced_allocno_bitmap);
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
@@ -682,7 +686,7 @@ push_allocno_to_stack (allocno_t allocno)
 	      {
 		conflicts_num = ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno);
 		conflict_size
-		  = (reg_class_nregs
+		  = (ira_reg_class_nregs
 		     [cover_class][ALLOCNO_MODE (conflict_allocno)]);
 		ira_assert
 		  (ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) >= size);
@@ -706,7 +710,7 @@ push_allocno_to_stack (allocno_t allocno)
 		      (uncolorable_allocnos_splay_tree[cover_class],
 		       (splay_tree_key) conflict_allocno);
 		    ALLOCNO_SPLAY_REMOVED_P (conflict_allocno) = true;
-		    VEC_safe_push (allocno_t, heap, removed_splay_allocno_vec,
+		    VEC_safe_push (ira_allocno_t, heap, removed_splay_allocno_vec,
 				   conflict_allocno);
 		  }
 		ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) = conflicts_num;
@@ -715,7 +719,7 @@ push_allocno_to_stack (allocno_t allocno)
 		  {
 		    delete_allocno_from_bucket (conflict_allocno,
 						&uncolorable_allocno_bucket);
-		    add_allocno_to_ordered_bucket (conflict_allocno,
+		    add_ira_allocno_to_ordered_bucket (conflict_allocno,
 						   &colorable_allocno_bucket);
 		  }
 	      }
@@ -728,7 +732,7 @@ push_allocno_to_stack (allocno_t allocno)
 /* Put ALLOCNO onto the coloring stack and remove it from its bucket.
    The allocno is in the colorable bucket if COLORABLE_P is TRUE.  */
 static void
-remove_allocno_from_bucket_and_push (allocno_t allocno, bool colorable_p)
+remove_allocno_from_bucket_and_push (ira_allocno_t allocno, bool colorable_p)
 {
   enum reg_class cover_class;
 
@@ -745,15 +749,16 @@ remove_allocno_from_bucket_and_push (allocno_t allocno, bool colorable_p)
   cover_class = ALLOCNO_COVER_CLASS (allocno);
   ira_assert ((colorable_p
 	       && (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-		   + reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
+		   + ira_reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
 		   <= ALLOCNO_AVAILABLE_REGS_NUM (allocno)))
 	      || (! colorable_p
 		  && (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-		      + reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
+		      + ira_reg_class_nregs[cover_class][ALLOCNO_MODE
+							 (allocno)]
 		      > ALLOCNO_AVAILABLE_REGS_NUM (allocno))));
   if (! colorable_p)
     ALLOCNO_MAY_BE_SPILLED_P (allocno) = true;
-  push_allocno_to_stack (allocno);
+  push_ira_allocno_to_stack (allocno);
 }
 
 /* Put all allocnos from colorable bucket onto the coloring stack.  */
@@ -768,20 +773,20 @@ push_only_colorable (void)
 /* Puts ALLOCNO chosen for potential spilling onto the coloring
    stack.  */
 static void
-push_allocno_to_spill (allocno_t allocno)
+push_ira_allocno_to_spill (ira_allocno_t allocno)
 {
   delete_allocno_from_bucket (allocno, &uncolorable_allocno_bucket);
   ALLOCNO_MAY_BE_SPILLED_P (allocno) = true;
   if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "      Pushing p%d(%d) (potential spill)\n",
 	     ALLOCNO_NUM (allocno), ALLOCNO_REGNO (allocno));
-  push_allocno_to_stack (allocno);
+  push_ira_allocno_to_stack (allocno);
 }
 
 /* Return the frequency of exit edges (if EXIT_P) or entry from/to the
    loop given by its LOOP_NODE.  */ 
 int
-loop_edge_freq (loop_tree_node_t loop_node, int regno, bool exit_p)
+ira_loop_edge_freq (ira_loop_tree_node_t loop_node, int regno, bool exit_p)
 {
   int freq, i;
   edge_iterator ei;
@@ -816,13 +821,13 @@ loop_edge_freq (loop_tree_node_t loop_node, int regno, bool exit_p)
 
 /* Calculate and return the cost of putting allocno A into memory.  */
 static int
-calculate_allocno_spill_cost (allocno_t a)
+calculate_allocno_spill_cost (ira_allocno_t a)
 {
   int regno, cost;
   enum machine_mode mode;
   enum reg_class class;
-  allocno_t parent_allocno;
-  loop_tree_node_t parent_node, loop_node;
+  ira_allocno_t parent_allocno;
+  ira_loop_tree_node_t parent_node, loop_node;
 
   regno = ALLOCNO_REGNO (a);
   cost = ALLOCNO_UPDATED_MEMORY_COST (a) - ALLOCNO_COVER_CLASS_COST (a);
@@ -836,18 +841,18 @@ calculate_allocno_spill_cost (allocno_t a)
   mode = ALLOCNO_MODE (a);
   class = ALLOCNO_COVER_CLASS (a);
   if (ALLOCNO_HARD_REGNO (parent_allocno) < 0)
-    cost -= (memory_move_cost[mode][class][0]
-	     * loop_edge_freq (loop_node, regno, true)
-	     + memory_move_cost[mode][class][1]
-	     * loop_edge_freq (loop_node, regno, false));
+    cost -= (ira_memory_move_cost[mode][class][0]
+	     * ira_loop_edge_freq (loop_node, regno, true)
+	     + ira_memory_move_cost[mode][class][1]
+	     * ira_loop_edge_freq (loop_node, regno, false));
   else
-    cost += ((memory_move_cost[mode][class][1]
-	      * loop_edge_freq (loop_node, regno, true)
-	      + memory_move_cost[mode][class][0]
-	      * loop_edge_freq (loop_node, regno, false))
-	     - (register_move_cost[mode][class][class]
-		* (loop_edge_freq (loop_node, regno, false)
-		   + loop_edge_freq (loop_node, regno, true))));
+    cost += ((ira_memory_move_cost[mode][class][1]
+	      * ira_loop_edge_freq (loop_node, regno, true)
+	      + ira_memory_move_cost[mode][class][0]
+	      * ira_loop_edge_freq (loop_node, regno, false))
+	     - (ira_register_move_cost[mode][class][class]
+		* (ira_loop_edge_freq (loop_node, regno, false)
+		   + ira_loop_edge_freq (loop_node, regno, true))));
   return cost;
 }
 
@@ -857,19 +862,19 @@ static int
 allocno_spill_priority_compare (splay_tree_key k1, splay_tree_key k2)
 {
   int pri1, pri2, diff;
-  allocno_t a1 = (allocno_t) k1, a2 = (allocno_t) k2;
+  ira_allocno_t a1 = (ira_allocno_t) k1, a2 = (ira_allocno_t) k2;
   
-  pri1 = (ALLOCNO_TEMP (a1)
+  pri1 = (IRA_ALLOCNO_TEMP (a1)
 	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a1)
-	     * reg_class_nregs[ALLOCNO_COVER_CLASS (a1)][ALLOCNO_MODE (a1)]
+	     * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a1)][ALLOCNO_MODE (a1)]
 	     + 1));
-  pri2 = (ALLOCNO_TEMP (a2)
+  pri2 = (IRA_ALLOCNO_TEMP (a2)
 	  / (ALLOCNO_LEFT_CONFLICTS_NUM (a2)
-	     * reg_class_nregs[ALLOCNO_COVER_CLASS (a2)][ALLOCNO_MODE (a2)]
+	     * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a2)][ALLOCNO_MODE (a2)]
 	     + 1));
   if ((diff = pri1 - pri2) != 0)
     return diff;
-  if ((diff = ALLOCNO_TEMP (a1) - ALLOCNO_TEMP (a2)) != 0)
+  if ((diff = IRA_ALLOCNO_TEMP (a1) - IRA_ALLOCNO_TEMP (a2)) != 0)
     return diff;
   return ALLOCNO_NUM (a1) - ALLOCNO_NUM (a2);
 }
@@ -894,9 +899,9 @@ splay_tree_free (void *node, void *data ATTRIBUTE_UNUSED)
   int i;
   enum reg_class cover_class;
 
-  for (i = 0; i < reg_class_cover_size; i++)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cover_class = reg_class_cover[i];
+      cover_class = ira_reg_class_cover[i];
       if (node == uncolorable_allocnos_splay_tree[cover_class])
 	{
 	  ira_free (node);
@@ -911,17 +916,17 @@ splay_tree_free (void *node, void *data ATTRIBUTE_UNUSED)
 static void
 push_allocnos_to_stack (void)
 {
-  allocno_t allocno, a, i_allocno, *allocno_vec;
+  ira_allocno_t allocno, a, i_allocno, *allocno_vec;
   enum reg_class cover_class, class;
   int allocno_pri, i_allocno_pri, allocno_cost, i_allocno_cost;
   int i, j, num, cover_class_allocnos_num[N_REG_CLASSES];
-  allocno_t *cover_class_allocnos[N_REG_CLASSES];
+  ira_allocno_t *cover_class_allocnos[N_REG_CLASSES];
   int cost;
 
   /* Initialize.  */
-  for (i = 0; i < reg_class_cover_size; i++)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cover_class = reg_class_cover[i];
+      cover_class = ira_reg_class_cover[i];
       cover_class_allocnos_num[cover_class] = 0;
       cover_class_allocnos[cover_class] = NULL;
       uncolorable_allocnos_splay_tree[cover_class] = NULL;
@@ -943,13 +948,13 @@ push_allocnos_to_stack (void)
 	  }
 	/* ??? Remove cost of copies between the coalesced
 	   allocnos.  */
-	ALLOCNO_TEMP (allocno) = cost;
+	IRA_ALLOCNO_TEMP (allocno) = cost;
       }
   /* Define place where to put uncolorable allocnos of the same cover
      class.  */
-  for (num = i = 0; i < reg_class_cover_size; i++)
+  for (num = i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cover_class = reg_class_cover[i];
+      cover_class = ira_reg_class_cover[i];
       ira_assert (cover_class_allocnos_num[cover_class]
 		  == uncolorable_allocnos_num[cover_class]);
       if (cover_class_allocnos_num[cover_class] != 0)
@@ -987,26 +992,27 @@ push_allocnos_to_stack (void)
       cover_class = ALLOCNO_COVER_CLASS (allocno);
       if (cover_class == NO_REGS)
 	{
-	  push_allocno_to_spill (allocno);
+	  push_ira_allocno_to_spill (allocno);
 	  continue;
 	}
       /* Potential spilling.  */
-      ira_assert (reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)] > 0);
+      ira_assert
+	(ira_reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)] > 0);
       if (USE_SPLAY_P (cover_class))
 	{
-	  for (;VEC_length (allocno_t, removed_splay_allocno_vec) != 0;)
+	  for (;VEC_length (ira_allocno_t, removed_splay_allocno_vec) != 0;)
 	    {
-	      allocno = VEC_pop (allocno_t, removed_splay_allocno_vec);
+	      allocno = VEC_pop (ira_allocno_t, removed_splay_allocno_vec);
 	      ALLOCNO_SPLAY_REMOVED_P (allocno) = false;
 	      class = ALLOCNO_COVER_CLASS (allocno);
 	      if (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-		  + reg_class_nregs [class][ALLOCNO_MODE (allocno)]
+		  + ira_reg_class_nregs [class][ALLOCNO_MODE (allocno)]
 		  > ALLOCNO_AVAILABLE_REGS_NUM (allocno))
 		splay_tree_insert
 		  (uncolorable_allocnos_splay_tree[class],
 		   (splay_tree_key) allocno, (splay_tree_value) allocno);
 	    }
-	  allocno = ((allocno_t)
+	  allocno = ((ira_allocno_t)
 		     splay_tree_min
 		     (uncolorable_allocnos_splay_tree[cover_class])->key);
 	  splay_tree_remove (uncolorable_allocnos_splay_tree[cover_class],
@@ -1034,9 +1040,9 @@ push_allocnos_to_stack (void)
 	      if (ALLOCNO_IN_GRAPH_P (i_allocno))
 		{
 		  i++;
-		  if (ALLOCNO_TEMP (i_allocno) == INT_MAX)
+		  if (IRA_ALLOCNO_TEMP (i_allocno) == INT_MAX)
 		    {
-		      allocno_t a;
+		      ira_allocno_t a;
 		      int cost = 0;
 		      
 		      for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (i_allocno);;
@@ -1048,13 +1054,14 @@ push_allocnos_to_stack (void)
 			}
 		      /* ??? Remove cost of copies between the coalesced
 			 allocnos.  */
-		      ALLOCNO_TEMP (i_allocno) = cost;
+		      IRA_ALLOCNO_TEMP (i_allocno) = cost;
 		    }
-		  i_allocno_cost = ALLOCNO_TEMP (i_allocno);
+		  i_allocno_cost = IRA_ALLOCNO_TEMP (i_allocno);
 		  i_allocno_pri
 		    = (i_allocno_cost
 		       / (ALLOCNO_LEFT_CONFLICTS_NUM (i_allocno)
-			  * reg_class_nregs[ALLOCNO_COVER_CLASS (i_allocno)]
+			  * ira_reg_class_nregs[ALLOCNO_COVER_CLASS
+						(i_allocno)]
 			  [ALLOCNO_MODE (i_allocno)] + 1));
 		  if (allocno == NULL || allocno_pri > i_allocno_pri
 		      || (allocno_pri == i_allocno_pri
@@ -1077,15 +1084,16 @@ push_allocnos_to_stack (void)
       ira_assert (ALLOCNO_IN_GRAPH_P (allocno)
 		  && ALLOCNO_COVER_CLASS (allocno) == cover_class
 		  && (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-		      + reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
+		      + ira_reg_class_nregs[cover_class][ALLOCNO_MODE
+							 (allocno)]
 		      > ALLOCNO_AVAILABLE_REGS_NUM (allocno)));
       remove_allocno_from_bucket_and_push (allocno, false);
     }
   ira_assert (colorable_allocno_bucket == NULL
 	      && uncolorable_allocno_bucket == NULL);
-  for (i = 0; i < reg_class_cover_size; i++)
+  for (i = 0; i < ira_reg_class_cover_size; i++)
     {
-      cover_class = reg_class_cover[i];
+      cover_class = ira_reg_class_cover[i];
       ira_assert (uncolorable_allocnos_num[cover_class] == 0);
       if (uncolorable_allocnos_splay_tree[cover_class] != NULL)
 	splay_tree_delete (uncolorable_allocnos_splay_tree[cover_class]);
@@ -1097,12 +1105,12 @@ push_allocnos_to_stack (void)
 static void
 pop_allocnos_from_stack (void)
 {
-  allocno_t allocno;
+  ira_allocno_t allocno;
   enum reg_class cover_class;
 
-  for (;VEC_length (allocno_t, allocno_stack_vec) != 0;)
+  for (;VEC_length (ira_allocno_t, allocno_stack_vec) != 0;)
     {
-      allocno = VEC_pop (allocno_t, allocno_stack_vec);
+      allocno = VEC_pop (ira_allocno_t, allocno_stack_vec);
       cover_class = ALLOCNO_COVER_CLASS (allocno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	{
@@ -1137,29 +1145,29 @@ pop_allocnos_from_stack (void)
 
 /* Set up number of available hard registers for ALLOCNO.  */
 static void
-setup_allocno_available_regs_num (allocno_t allocno)
+setup_allocno_available_regs_num (ira_allocno_t allocno)
 {
   int i, n, hard_regs_num;
   enum reg_class cover_class;
-  allocno_t a;
+  ira_allocno_t a;
   HARD_REG_SET temp_set;
 
   cover_class = ALLOCNO_COVER_CLASS (allocno);
-  ALLOCNO_AVAILABLE_REGS_NUM (allocno) = available_class_regs[cover_class];
+  ALLOCNO_AVAILABLE_REGS_NUM (allocno) = ira_available_class_regs[cover_class];
   if (cover_class == NO_REGS)
     return;
   CLEAR_HARD_REG_SET (temp_set);
   ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) == allocno);
-  hard_regs_num = class_hard_regs_num[cover_class];
+  hard_regs_num = ira_class_hard_regs_num[cover_class];
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      IOR_HARD_REG_SET (temp_set, ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      IOR_HARD_REG_SET (temp_set, IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       if (a == allocno)
 	break;
     }
   for (n = 0, i = hard_regs_num - 1; i >= 0; i--)
-    if (TEST_HARD_REG_BIT (temp_set, class_hard_regs[cover_class][i]))
+    if (TEST_HARD_REG_BIT (temp_set, ira_class_hard_regs[cover_class][i]))
       n++;
   if (internal_flag_ira_verbose > 2 && n > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "    Reg %d of %s has %d regs less\n",
@@ -1169,37 +1177,37 @@ setup_allocno_available_regs_num (allocno_t allocno)
 
 /* Set up ALLOCNO_LEFT_CONFLICTS_NUM for ALLOCNO.  */
 static void
-setup_allocno_left_conflicts_num (allocno_t allocno)
+setup_allocno_left_conflicts_num (ira_allocno_t allocno)
 {
   int i, hard_regs_num, hard_regno, conflict_allocnos_size;
-  allocno_t a, conflict_allocno;
+  ira_allocno_t a, conflict_allocno;
   enum reg_class cover_class;
   HARD_REG_SET temp_set;
-  allocno_conflict_iterator aci;
+  ira_allocno_conflict_iterator aci;
 
   cover_class = ALLOCNO_COVER_CLASS (allocno);
-  hard_regs_num = class_hard_regs_num[cover_class];
+  hard_regs_num = ira_class_hard_regs_num[cover_class];
   CLEAR_HARD_REG_SET (temp_set);
   ira_assert (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) == allocno);
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      IOR_HARD_REG_SET (temp_set, ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      IOR_HARD_REG_SET (temp_set, IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       if (a == allocno)
 	break;
     }
   AND_HARD_REG_SET (temp_set, reg_class_contents[cover_class]);
-  AND_COMPL_HARD_REG_SET (temp_set, no_alloc_regs);
+  AND_COMPL_HARD_REG_SET (temp_set, ira_no_alloc_regs);
   conflict_allocnos_size = 0;
-  if (! hard_reg_set_equal_p (temp_set, zero_hard_reg_set))
+  if (! hard_reg_set_equal_p (temp_set, ira_zero_hard_reg_set))
     for (i = 0; i < (int) hard_regs_num; i++)
       {
-	hard_regno = class_hard_regs[cover_class][i];
+	hard_regno = ira_class_hard_regs[cover_class][i];
 	if (TEST_HARD_REG_BIT (temp_set, hard_regno))
 	  {
 	    conflict_allocnos_size++;
 	    CLEAR_HARD_REG_BIT (temp_set, hard_regno);
-	    if (hard_reg_set_equal_p (temp_set, zero_hard_reg_set))
+	    if (hard_reg_set_equal_p (temp_set, ira_zero_hard_reg_set))
 	      break;
 	  }
       }
@@ -1226,7 +1234,7 @@ setup_allocno_left_conflicts_num (allocno_t allocno)
 		}
 	      if (! ALLOCNO_ASSIGNED_P (conflict_allocno))
 		conflict_allocnos_size
-		  += (reg_class_nregs
+		  += (ira_reg_class_nregs
 		      [cover_class][ALLOCNO_MODE (conflict_allocno)]);
 	      else if ((hard_regno = ALLOCNO_HARD_REGNO (conflict_allocno))
 		       >= 0)
@@ -1255,24 +1263,24 @@ setup_allocno_left_conflicts_num (allocno_t allocno)
 /* Put ALLOCNO in a bucket corresponding to its number and size of its
    conflicting allocnos and hard registers.  */
 static void
-put_allocno_into_bucket (allocno_t allocno)
+put_allocno_into_bucket (ira_allocno_t allocno)
 {
   int hard_regs_num;
   enum reg_class cover_class;
 
   cover_class = ALLOCNO_COVER_CLASS (allocno);
-  hard_regs_num = class_hard_regs_num[cover_class];
+  hard_regs_num = ira_class_hard_regs_num[cover_class];
   if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno)
     return;
   ALLOCNO_IN_GRAPH_P (allocno) = true;
   setup_allocno_left_conflicts_num (allocno);
   setup_allocno_available_regs_num (allocno);
   if (ALLOCNO_LEFT_CONFLICTS_NUM (allocno)
-      + reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
+      + ira_reg_class_nregs[cover_class][ALLOCNO_MODE (allocno)]
       <= ALLOCNO_AVAILABLE_REGS_NUM (allocno))
-    add_allocno_to_bucket (allocno, &colorable_allocno_bucket);
+    add_ira_allocno_to_bucket (allocno, &colorable_allocno_bucket);
   else
-    add_allocno_to_bucket (allocno, &uncolorable_allocno_bucket);
+    add_ira_allocno_to_bucket (allocno, &uncolorable_allocno_bucket);
 }
 
 /* The function is used to sort allocnos according to their execution
@@ -1280,7 +1288,7 @@ put_allocno_into_bucket (allocno_t allocno)
 static int
 copy_freq_compare_func (const void *v1p, const void *v2p)
 {
-  copy_t cp1 = *(const copy_t *) v1p, cp2 = *(const copy_t *) v2p;
+  ira_copy_t cp1 = *(const ira_copy_t *) v1p, cp2 = *(const ira_copy_t *) v2p;
   int pri1, pri2;
 
   pri1 = cp1->freq;
@@ -1297,9 +1305,9 @@ copy_freq_compare_func (const void *v1p, const void *v2p)
    allocnos A1 and A2 (more accurately merging A2 set into A1
    set).  */
 static void
-merge_allocnos (allocno_t a1, allocno_t a2)
+merge_allocnos (ira_allocno_t a1, ira_allocno_t a2)
 {
-  allocno_t a, first, last, next;
+  ira_allocno_t a, first, last, next;
 
   first = ALLOCNO_FIRST_COALESCED_ALLOCNO (a1);
   if (first == ALLOCNO_FIRST_COALESCED_ALLOCNO (a2))
@@ -1324,10 +1332,11 @@ merge_allocnos (allocno_t a1, allocno_t a2)
    and during the reload pass we coalesce allocnos for sharing stack
    memory slots.  */
 static bool
-coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2, bool reload_p)
+coalesced_allocno_conflict_p (ira_allocno_t a1, ira_allocno_t a2,
+			      bool reload_p)
 {
-  allocno_t a, conflict_allocno;
-  allocno_conflict_iterator aci;
+  ira_allocno_t a, conflict_allocno;
+  ira_allocno_conflict_iterator aci;
 
   if (allocno_coalesced_p)
     {
@@ -1349,7 +1358,7 @@ coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2, bool reload_p)
 	       conflict_allocno
 		 = ALLOCNO_NEXT_COALESCED_ALLOCNO (conflict_allocno))
 	    {
-	      if (allocno_live_ranges_intersect_p (a, conflict_allocno))
+	      if (ira_allocno_live_ranges_intersect_p (a, conflict_allocno))
 		return true;
 	      if (conflict_allocno == a1)
 		break;
@@ -1377,27 +1386,27 @@ coalesced_allocno_conflict_p (allocno_t a1, allocno_t a2, bool reload_p)
 static void
 coalesce_allocnos (bool reload_p)
 {
-  allocno_t a;
-  copy_t cp, next_cp, *sorted_copies;
+  ira_allocno_t a;
+  ira_copy_t cp, next_cp, *sorted_copies;
   enum reg_class cover_class;
   enum machine_mode mode;
   unsigned int j;
   int i, n, cp_num, regno;
   bitmap_iterator bi;
 
-  sorted_copies = ira_allocate (copies_num * sizeof (copy_t));
+  sorted_copies = ira_allocate (ira_copies_num * sizeof (ira_copy_t));
   cp_num = 0;
   /* Collect copies.  */
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, j, bi)
     {
-      a = allocnos[j];
+      a = ira_allocnos[j];
       regno = ALLOCNO_REGNO (a);
       if ((! reload_p && ALLOCNO_ASSIGNED_P (a))
 	  || (reload_p
 	      && (! ALLOCNO_ASSIGNED_P (a) || ALLOCNO_HARD_REGNO (a) >= 0
-		  || (regno < reg_equiv_len
-		      && (reg_equiv_const[regno] != NULL_RTX
-			  || reg_equiv_invariant_p[regno])))))
+		  || (regno < ira_reg_equiv_len
+		      && (ira_reg_equiv_const[regno] != NULL_RTX
+			  || ira_reg_equiv_invariant_p[regno])))))
 	continue;
       cover_class = ALLOCNO_COVER_CLASS (a);
       mode = ALLOCNO_MODE (a);
@@ -1415,9 +1424,9 @@ coalesce_allocnos (bool reload_p)
 		      || (reload_p
 			  && ALLOCNO_ASSIGNED_P (cp->second)
 			  && ALLOCNO_HARD_REGNO (cp->second) < 0
-			  && (regno >= reg_equiv_len
-			      || (! reg_equiv_invariant_p[regno]
-				  && reg_equiv_const[regno] == NULL_RTX)))))
+			  && (regno >= ira_reg_equiv_len
+			      || (! ira_reg_equiv_invariant_p[regno]
+				  && ira_reg_equiv_const[regno] == NULL_RTX)))))
 		sorted_copies[cp_num++] = cp;
 	    }
 	  else if (cp->second == a)
@@ -1426,7 +1435,7 @@ coalesce_allocnos (bool reload_p)
 	    gcc_unreachable ();
 	}
     }
-  qsort (sorted_copies, cp_num, sizeof (copy_t), copy_freq_compare_func);
+  qsort (sorted_copies, cp_num, sizeof (ira_copy_t), copy_freq_compare_func);
   /* Coalesced copies, most frequently executed first.  */
   for (; cp_num != 0;)
     {
@@ -1468,7 +1477,7 @@ color_allocnos (void)
 {
   unsigned int i;
   bitmap_iterator bi;
-  allocno_t a;
+  ira_allocno_t a;
 
   allocno_coalesced_p = false;
   processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
@@ -1479,7 +1488,7 @@ color_allocnos (void)
   uncolorable_allocno_bucket = NULL;
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
     {
-      a = allocnos[i];
+      a = ira_allocnos[i];
       if (ALLOCNO_COVER_CLASS (a) == NO_REGS)
 	{
 	  ALLOCNO_HARD_REGNO (a) = -1;
@@ -1499,10 +1508,10 @@ color_allocnos (void)
   push_allocnos_to_stack ();
   pop_allocnos_from_stack ();
   if (flag_ira_coalesce)
-    /* We don't need coalesced allocnos for reassign_pseudos.  */
+    /* We don't need coalesced allocnos for ira_reassign_pseudos.  */
     EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
       {
-	a = allocnos[i];
+	a = ira_allocnos[i];
 	ALLOCNO_FIRST_COALESCED_ALLOCNO (a) = a;
 	ALLOCNO_NEXT_COALESCED_ALLOCNO (a) = a;
       }
@@ -1514,7 +1523,7 @@ color_allocnos (void)
 
 /* Output information about the loop given by its LOOP_TREE_NODE. */
 static void
-print_loop_title (loop_tree_node_t loop_tree_node)
+print_loop_title (ira_loop_tree_node_t loop_tree_node)
 {
   unsigned int j;
   bitmap_iterator bi;
@@ -1528,19 +1537,19 @@ print_loop_title (loop_tree_node_t loop_tree_node)
 	   loop_tree_node->loop->header->index,
 	   loop_depth (loop_tree_node->loop));
   EXECUTE_IF_SET_IN_BITMAP (loop_tree_node->mentioned_allocnos, 0, j, bi)
-    fprintf (ira_dump_file, " %dr%d", j, ALLOCNO_REGNO (allocnos[j]));
+    fprintf (ira_dump_file, " %dr%d", j, ALLOCNO_REGNO (ira_allocnos[j]));
   fprintf (ira_dump_file, "\n    modified regnos:");
   EXECUTE_IF_SET_IN_BITMAP (loop_tree_node->modified_regnos, 0, j, bi)
     fprintf (ira_dump_file, " %d", j);
   fprintf (ira_dump_file, "\n    border:");
   EXECUTE_IF_SET_IN_BITMAP (loop_tree_node->border_allocnos, 0, j, bi)
-    fprintf (ira_dump_file, " %dr%d", j, ALLOCNO_REGNO (allocnos[j]));
+    fprintf (ira_dump_file, " %dr%d", j, ALLOCNO_REGNO (ira_allocnos[j]));
   fprintf (ira_dump_file, "\n    Pressure:");
-  for (j = 0; (int) j < reg_class_cover_size; j++)
+  for (j = 0; (int) j < ira_reg_class_cover_size; j++)
     {
       enum reg_class cover_class;
       
-      cover_class = reg_class_cover[j];
+      cover_class = ira_reg_class_cover[j];
       if (loop_tree_node->reg_pressure[cover_class] == 0)
 	continue;
       fprintf (ira_dump_file, " %s=%d", reg_class_names[cover_class],
@@ -1554,7 +1563,7 @@ print_loop_title (loop_tree_node_t loop_tree_node)
    function is called for each loop during top-down traverse of the
    loop tree.  */
 static void
-color_pass (loop_tree_node_t loop_tree_node)
+color_pass (ira_loop_tree_node_t loop_tree_node)
 {
   int regno, hard_regno, index = -1;
   int cost, exit_freq, enter_freq;
@@ -1562,8 +1571,8 @@ color_pass (loop_tree_node_t loop_tree_node)
   bitmap_iterator bi;
   enum machine_mode mode;
   enum reg_class class, cover_class;
-  allocno_t a, subloop_allocno;
-  loop_tree_node_t subloop_node;
+  ira_allocno_t a, subloop_allocno;
+  ira_loop_tree_node_t subloop_node;
 
   ira_assert (loop_tree_node->bb == NULL);
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
@@ -1574,7 +1583,7 @@ color_pass (loop_tree_node_t loop_tree_node)
   bitmap_copy (consideration_allocno_bitmap, coloring_allocno_bitmap);
   EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, j, bi)
     {
-      a = allocnos[j];
+      a = ira_allocnos[j];
       if (! ALLOCNO_ASSIGNED_P (a))
 	continue;
       bitmap_clear_bit (coloring_allocno_bitmap, ALLOCNO_NUM (a));
@@ -1589,13 +1598,13 @@ color_pass (loop_tree_node_t loop_tree_node)
       ira_assert (subloop_node->bb == NULL);
       EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, j, bi)
         {
-	  a = allocnos[j];
+	  a = ira_allocnos[j];
 	  mode = ALLOCNO_MODE (a);
 	  class = ALLOCNO_COVER_CLASS (a);
 	  hard_regno = ALLOCNO_HARD_REGNO (a);
 	  if (hard_regno >= 0)
 	    {
-	      index = class_hard_reg_index[class][hard_regno];
+	      index = ira_class_hard_reg_index[class][hard_regno];
 	      ira_assert (index >= 0);
 	    }
 	  regno = ALLOCNO_REGNO (a);
@@ -1607,7 +1616,7 @@ color_pass (loop_tree_node_t loop_tree_node)
 		continue;
 	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
 		   && (loop_tree_node->reg_pressure[class]
-		       <= available_class_regs[class]))
+		       <= ira_available_class_regs[class]))
 		  || (hard_regno < 0
 		      && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
 					 ALLOCNO_NUM (subloop_allocno))))
@@ -1619,15 +1628,15 @@ color_pass (loop_tree_node_t loop_tree_node)
 		      if (hard_regno >= 0)
 			update_copy_costs (subloop_allocno, true);
 		      /* We don't need updated costs anymore: */
-		      free_allocno_updated_costs (subloop_allocno);
+		      ira_free_allocno_updated_costs (subloop_allocno);
 		    }
 		  continue;
 		}
-	      exit_freq = loop_edge_freq (subloop_node, regno, true);
-	      enter_freq = loop_edge_freq (subloop_node, regno, false);
-	      ira_assert (regno < reg_equiv_len);
-	      if (reg_equiv_invariant_p[regno]
-		  || reg_equiv_const[regno] != NULL_RTX)
+	      exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
+	      enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
+	      ira_assert (regno < ira_reg_equiv_len);
+	      if (ira_reg_equiv_invariant_p[regno]
+		  || ira_reg_equiv_const[regno] != NULL_RTX)
 		{
 		  if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		    {
@@ -1636,32 +1645,32 @@ color_pass (loop_tree_node_t loop_tree_node)
 		      if (hard_regno >= 0)
 			update_copy_costs (subloop_allocno, true);
 		      /* We don't need updated costs anymore: */
-		      free_allocno_updated_costs (subloop_allocno);
+		      ira_free_allocno_updated_costs (subloop_allocno);
 		    }
 		}
 	      else if (hard_regno < 0)
 		{
 		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    -= ((memory_move_cost[mode][class][1] * enter_freq)
-			+ (memory_move_cost[mode][class][0] * exit_freq));
+		    -= ((ira_memory_move_cost[mode][class][1] * enter_freq)
+			+ (ira_memory_move_cost[mode][class][0] * exit_freq));
 		}
 	      else
 		{
 		  cover_class = ALLOCNO_COVER_CLASS (subloop_allocno);
-		  allocate_and_set_costs
+		  ira_allocate_and_set_costs
 		    (&ALLOCNO_HARD_REG_COSTS (subloop_allocno), cover_class,
 		     ALLOCNO_COVER_CLASS_COST (subloop_allocno));
-		  allocate_and_set_costs
+		  ira_allocate_and_set_costs
 		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
 		     cover_class, 0);
-		  cost = (register_move_cost[mode][class][class] 
+		  cost = (ira_register_move_cost[mode][class][class] 
 			  * (exit_freq + enter_freq));
 		  ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
 		  ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
 		    -= cost;
 		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    += (memory_move_cost[mode][class][0] * enter_freq
-			+ memory_move_cost[mode][class][1] * exit_freq);
+		    += (ira_memory_move_cost[mode][class][0] * enter_freq
+			+ ira_memory_move_cost[mode][class][1] * exit_freq);
 		  if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
 		      > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
 		    ALLOCNO_COVER_CLASS_COST (subloop_allocno)
@@ -1675,7 +1684,7 @@ color_pass (loop_tree_node_t loop_tree_node)
 		continue;
 	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
 		   && loop_tree_node->reg_pressure[class]
-		      <= available_class_regs[class])
+		      <= ira_available_class_regs[class])
 		  || (hard_regno < 0
 		      && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
 					 ALLOCNO_NUM (subloop_allocno))))
@@ -1687,28 +1696,28 @@ color_pass (loop_tree_node_t loop_tree_node)
 		      if (hard_regno >= 0)
 			update_copy_costs (subloop_allocno, true);
 		      /* We don't need updated costs anymore: */
-		      free_allocno_updated_costs (subloop_allocno);
+		      ira_free_allocno_updated_costs (subloop_allocno);
 		    }
 		}
 	      else if (flag_ira_propagate_cost && hard_regno >= 0)
 		{
-		  exit_freq = loop_edge_freq (subloop_node, -1, true);
-		  enter_freq = loop_edge_freq (subloop_node, -1, false);
-		  cost = (register_move_cost[mode][class][class] 
+		  exit_freq = ira_loop_edge_freq (subloop_node, -1, true);
+		  enter_freq = ira_loop_edge_freq (subloop_node, -1, false);
+		  cost = (ira_register_move_cost[mode][class][class] 
 			  * (exit_freq + enter_freq));
 		  cover_class = ALLOCNO_COVER_CLASS (subloop_allocno);
-		  allocate_and_set_costs
+		  ira_allocate_and_set_costs
 		    (&ALLOCNO_HARD_REG_COSTS (subloop_allocno), cover_class,
 		     ALLOCNO_COVER_CLASS_COST (subloop_allocno));
-		  allocate_and_set_costs
+		  ira_allocate_and_set_costs
 		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
 		     cover_class, 0);
 		  ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
 		  ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
 		    -= cost;
 		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    += (memory_move_cost[mode][class][0] * enter_freq
-			+ memory_move_cost[mode][class][1] * exit_freq);
+		    += (ira_memory_move_cost[mode][class][0] * enter_freq
+			+ ira_memory_move_cost[mode][class][1] * exit_freq);
 		  if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
 		      > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
 		    ALLOCNO_COVER_CLASS_COST (subloop_allocno)
@@ -1725,17 +1734,18 @@ static void
 do_coloring (void)
 {
   coloring_allocno_bitmap = ira_allocate_bitmap ();
-  allocnos_for_spilling = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  allocnos_for_spilling
+    = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
   splay_tree_node_pool = create_alloc_pool ("splay tree nodes",
 					    sizeof (struct splay_tree_node_s),
 					    100);
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "\n**** Allocnos coloring:\n\n");
   
-  traverse_loop_tree (false, ira_loop_tree_root, color_pass, NULL);
+  ira_traverse_loop_tree (false, ira_loop_tree_root, color_pass, NULL);
 
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
-    print_disposition (ira_dump_file);
+    ira_print_disposition (ira_dump_file);
 
   free_alloc_pool (splay_tree_node_pool);
   ira_free_bitmap (coloring_allocno_bitmap);
@@ -1757,9 +1767,9 @@ move_spill_restore (void)
   int enter_freq, exit_freq;
   enum machine_mode mode;
   enum reg_class class;
-  allocno_t a, parent_allocno, subloop_allocno;
-  loop_tree_node_t parent, loop_node, subloop_node;
-  allocno_iterator ai;
+  ira_allocno_t a, parent_allocno, subloop_allocno;
+  ira_loop_tree_node_t parent, loop_node, subloop_node;
+  ira_allocno_iterator ai;
 
   for (;;)
     {
@@ -1777,12 +1787,12 @@ move_spill_restore (void)
 		 copies and the reload pass can spill the allocno set
 		 by copy although the allocno will not get memory
 		 slot.  */
-	      || reg_equiv_invariant_p[regno]
-	      || reg_equiv_const[regno] != NULL_RTX)
+	      || ira_reg_equiv_invariant_p[regno]
+	      || ira_reg_equiv_const[regno] != NULL_RTX)
 	    continue;
 	  mode = ALLOCNO_MODE (a);
 	  class = ALLOCNO_COVER_CLASS (a);
-	  index = class_hard_reg_index[class][hard_regno];
+	  index = ira_class_hard_reg_index[class][hard_regno];
 	  ira_assert (index >= 0);
 	  cost = (ALLOCNO_MEMORY_COST (a)
 		  - (ALLOCNO_HARD_REG_COSTS (a) == NULL
@@ -1803,34 +1813,36 @@ move_spill_restore (void)
 		       - (ALLOCNO_HARD_REG_COSTS (subloop_allocno) == NULL
 			  ? ALLOCNO_COVER_CLASS_COST (subloop_allocno)
 			  : ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index]));
-	      exit_freq = loop_edge_freq (subloop_node, regno, true);
-	      enter_freq = loop_edge_freq (subloop_node, regno, false);
+	      exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
+	      enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
 	      if ((hard_regno2 = ALLOCNO_HARD_REGNO (subloop_allocno)) < 0)
-		cost -= (memory_move_cost[mode][class][0] * exit_freq
-			 + memory_move_cost[mode][class][1] * enter_freq);
+		cost -= (ira_memory_move_cost[mode][class][0] * exit_freq
+			 + ira_memory_move_cost[mode][class][1] * enter_freq);
 	      else
 		{
-		  cost += (memory_move_cost[mode][class][0] * exit_freq
-			   + memory_move_cost[mode][class][1] * enter_freq);
+		  cost
+		    += (ira_memory_move_cost[mode][class][0] * exit_freq
+			+ ira_memory_move_cost[mode][class][1] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (register_move_cost[mode][class][class]
+		    cost -= (ira_register_move_cost[mode][class][class]
 			     * (exit_freq + enter_freq));
 		}
 	    }
 	  if ((parent = loop_node->parent) != NULL
 	      && (parent_allocno = parent->regno_allocno_map[regno]) != NULL)
 	    {
-	      exit_freq	= loop_edge_freq (loop_node, regno, true);
-	      enter_freq = loop_edge_freq (loop_node, regno, false);
+	      exit_freq	= ira_loop_edge_freq (loop_node, regno, true);
+	      enter_freq = ira_loop_edge_freq (loop_node, regno, false);
 	      if ((hard_regno2 = ALLOCNO_HARD_REGNO (parent_allocno)) < 0)
-		cost -= (memory_move_cost[mode][class][0] * exit_freq
-			 + memory_move_cost[mode][class][1] * enter_freq);
+		cost -= (ira_memory_move_cost[mode][class][0] * exit_freq
+			 + ira_memory_move_cost[mode][class][1] * enter_freq);
 	      else
 		{
-		  cost += (memory_move_cost[mode][class][1] * exit_freq
-			   + memory_move_cost[mode][class][0] * enter_freq);
+		  cost
+		    += (ira_memory_move_cost[mode][class][1] * exit_freq
+			+ ira_memory_move_cost[mode][class][0] * enter_freq);
 		  if (hard_regno2 != hard_regno)
-		    cost -= (register_move_cost[mode][class][class]
+		    cost -= (ira_register_move_cost[mode][class][class]
 			     * (exit_freq + enter_freq));
 		}
 	    }
@@ -1859,13 +1871,13 @@ move_spill_restore (void)
    for allocno A.  It is done by processing its copies containing
    other allocnos already assigned.  */
 static void
-update_curr_costs (allocno_t a)
+update_curr_costs (ira_allocno_t a)
 {
   int i, hard_regno, cost;
   enum machine_mode mode;
   enum reg_class cover_class, class;
-  allocno_t another_a;
-  copy_t cp, next_cp;
+  ira_allocno_t another_a;
+  ira_copy_t cp, next_cp;
 
   ira_assert (! ALLOCNO_ASSIGNED_P (a));
   cover_class = ALLOCNO_COVER_CLASS (a);
@@ -1891,16 +1903,16 @@ update_curr_costs (allocno_t a)
 	  || (hard_regno = ALLOCNO_HARD_REGNO (another_a)) < 0)
 	continue;
       class = REGNO_REG_CLASS (hard_regno);
-      i = class_hard_reg_index[cover_class][hard_regno];
+      i = ira_class_hard_reg_index[cover_class][hard_regno];
       ira_assert (i >= 0);
       cost = (cp->first == a
-	      ? register_move_cost[mode][class][cover_class]
-	      : register_move_cost[mode][cover_class][class]);
-      allocate_and_set_or_copy_costs
+	      ? ira_register_move_cost[mode][class][cover_class]
+	      : ira_register_move_cost[mode][cover_class][class]);
+      ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
 	 cover_class, ALLOCNO_COVER_CLASS_COST (a),
 	 ALLOCNO_HARD_REG_COSTS (a));
-      allocate_and_set_or_copy_costs
+      ira_allocate_and_set_or_copy_costs
 	(&ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a),
 	 cover_class, 0, ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
       ALLOCNO_UPDATED_HARD_REG_COSTS (a)[i] -= cp->freq * cost;
@@ -1914,10 +1926,10 @@ static int *allocno_priorities;
 /* Allocate array ALLOCNO_PRIORITIES and set up priorities for N allocnos in
    array CONSIDERATION_ALLOCNOS.  */
 static void
-start_allocno_priorities (allocno_t *consideration_allocnos, int n)
+start_allocno_priorities (ira_allocno_t *consideration_allocnos, int n)
 {
   int i, length;
-  allocno_t a;
+  ira_allocno_t a;
   allocno_live_range_t r;
 
   for (i = 0; i < n; i++)
@@ -1943,7 +1955,8 @@ start_allocno_priorities (allocno_t *consideration_allocnos, int n)
 static int
 allocno_priority_compare_func (const void *v1p, const void *v2p)
 {
-  allocno_t a1 = *(const allocno_t *) v1p, a2 = *(const allocno_t *) v2p;
+  ira_allocno_t a1 = *(const ira_allocno_t *) v1p;
+  ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
   int pri1, pri2;
 
   pri1 = allocno_priorities[ALLOCNO_NUM (a1)];
@@ -1963,14 +1976,14 @@ allocno_priority_compare_func (const void *v1p, const void *v2p)
    chance to get a hard register.  We use simple assignment algorithm
    based on priorities.  */
 void
-reassign_conflict_allocnos (int start_regno)
+ira_reassign_conflict_allocnos (int start_regno)
 {
   int i, allocnos_to_color_num;
-  allocno_t a, conflict_a;
-  allocno_conflict_iterator aci;
+  ira_allocno_t a, conflict_a;
+  ira_allocno_conflict_iterator aci;
   enum reg_class cover_class;
   bitmap allocnos_to_color;
-  allocno_iterator ai;
+  ira_allocno_iterator ai;
 
   allocnos_to_color = ira_allocate_bitmap ();
   allocnos_to_color_num = 0;
@@ -2006,7 +2019,7 @@ reassign_conflict_allocnos (int start_regno)
   if (allocnos_to_color_num > 1)
     {
       start_allocno_priorities (sorted_allocnos, allocnos_to_color_num);
-      qsort (sorted_allocnos, allocnos_to_color_num, sizeof (allocno_t),
+      qsort (sorted_allocnos, allocnos_to_color_num, sizeof (ira_allocno_t),
 	     allocno_priority_compare_func);
     }
   for (i = 0; i < allocnos_to_color_num; i++)
@@ -2076,8 +2089,8 @@ coalesced_pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 {
   const int regno1 = *(const int *) v1p;
   const int regno2 = *(const int *) v2p;
-  allocno_t a1 = regno_allocno_map[regno1];
-  allocno_t a2 = regno_allocno_map[regno2];
+  ira_allocno_t a1 = ira_regno_allocno_map[regno1];
+  ira_allocno_t a2 = ira_regno_allocno_map[regno2];
   int diff, slot_num1, slot_num2;
   int total_size1, total_size2;
 
@@ -2107,12 +2120,12 @@ static void
 setup_coalesced_allocno_costs_and_nums (int *pseudo_regnos, int n)
 {
   int i, num, regno, cost;
-  allocno_t allocno, a;
+  ira_allocno_t allocno, a;
 
   for (num = i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
-      allocno = regno_allocno_map[regno];
+      allocno = ira_regno_allocno_map[regno];
       if (allocno == NULL)
 	{
 	  regno_coalesced_allocno_cost[regno] = 0;
@@ -2147,15 +2160,15 @@ setup_coalesced_allocno_costs_and_nums (int *pseudo_regnos, int n)
    regnos in array PSEUDO_REGNOS of length N.  */
 static int
 collect_spilled_coalesced_allocnos (int *pseudo_regnos, int n,
-				    allocno_t *spilled_coalesced_allocnos)
+				    ira_allocno_t *spilled_coalesced_allocnos)
 {
   int i, num, regno;
-  allocno_t allocno;
+  ira_allocno_t allocno;
 
   for (num = i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
-      allocno = regno_allocno_map[regno];
+      allocno = ira_regno_allocno_map[regno];
       if (allocno == NULL || ALLOCNO_HARD_REGNO (allocno) >= 0
 	  || ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno)
 	continue;
@@ -2170,10 +2183,10 @@ collect_spilled_coalesced_allocnos (int *pseudo_regnos, int n,
    in array SPILLED_COALESCED_ALLOCNOS of length NUM.  Return TRUE if
    some allocnos were coalesced in the function.  */
 static bool
-coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
+coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 {
   int i, j;
-  allocno_t allocno, a;
+  ira_allocno_t allocno, a;
   bool merged_p = false;
 
   /* Coalesce non-conflicting spilled allocnos preferring most
@@ -2182,17 +2195,17 @@ coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
     {
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno
-	  || (ALLOCNO_REGNO (allocno) < reg_equiv_len
-	      && (reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)]
-		  || reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX)))
+	  || (ALLOCNO_REGNO (allocno) < ira_reg_equiv_len
+	      && (ira_reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)]
+		  || ira_reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX)))
 	continue;
       for (j = 0; j < i; j++)
 	{
 	  a = spilled_coalesced_allocnos[j];
 	  if (ALLOCNO_FIRST_COALESCED_ALLOCNO (a) != a
-	      || (ALLOCNO_REGNO (a) < reg_equiv_len
-		  && (reg_equiv_invariant_p[ALLOCNO_REGNO (a)]
-		      || reg_equiv_const[ALLOCNO_REGNO (a)] != NULL_RTX))
+	      || (ALLOCNO_REGNO (a) < ira_reg_equiv_len
+		  && (ira_reg_equiv_invariant_p[ALLOCNO_REGNO (a)]
+		      || ira_reg_equiv_const[ALLOCNO_REGNO (a)] != NULL_RTX))
 	      || coalesced_allocno_conflict_p (allocno, a, true))
 	    continue;
 	  allocno_coalesced_p = true;
@@ -2215,14 +2228,14 @@ coalesce_spill_slots (allocno_t *spilled_coalesced_allocnos, int num)
    memory-memory move insns.  This function is called by the
    reload.  */
 void
-sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
-			   unsigned int *reg_max_ref_width)
+ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
+			       unsigned int *reg_max_ref_width)
 {
   int max_regno = max_reg_num ();
   int i, regno, num, slot_num;
-  allocno_t allocno, a;
-  allocno_iterator ai;
-  allocno_t *spilled_coalesced_allocnos;
+  ira_allocno_t allocno, a;
+  ira_allocno_iterator ai;
+  ira_allocno_t *spilled_coalesced_allocnos;
 
   processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
   /* Set up allocnos can be coalesced.  */
@@ -2230,7 +2243,7 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
   for (i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
-      allocno = regno_allocno_map[regno];
+      allocno = ira_regno_allocno_map[regno];
       if (allocno != NULL)
 	bitmap_set_bit (coloring_allocno_bitmap,
 			ALLOCNO_NUM (allocno));
@@ -2246,7 +2259,7 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
      allocno sets.  */
   qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_freq_compare);
   spilled_coalesced_allocnos
-    = ira_allocate (allocnos_num * sizeof (allocno_t));
+    = ira_allocate (ira_allocnos_num * sizeof (ira_allocno_t));
   /* Collect allocnos representing the spilled coalesced allocno
      sets.  */
   num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
@@ -2255,7 +2268,8 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       && coalesce_spill_slots (spilled_coalesced_allocnos, num))
     {
       setup_coalesced_allocno_costs_and_nums (pseudo_regnos, n);
-      qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_freq_compare);
+      qsort (pseudo_regnos, n, sizeof (int),
+	     coalesced_pseudo_reg_freq_compare);
       num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
 						spilled_coalesced_allocnos);
     }
@@ -2271,9 +2285,9 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_FIRST_COALESCED_ALLOCNO (allocno) != allocno
 	  || ALLOCNO_HARD_REGNO (allocno) >= 0
-	  || (ALLOCNO_REGNO (allocno) < reg_equiv_len
-	      && (reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)]
-		  || reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX)))
+	  || (ALLOCNO_REGNO (allocno) < ira_reg_equiv_len
+	      && (ira_reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)]
+		  || ira_reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX)))
 	continue;
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "      Slot %d (freq,size):", slot_num);
@@ -2295,7 +2309,7 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "\n");
     }
-  spilled_reg_stack_slots_num = slot_num - 1;
+  ira_spilled_reg_stack_slots_num = slot_num - 1;
   ira_free (spilled_coalesced_allocnos);
   /* Sort regnos according the slot numbers.  */
   regno_max_ref_width = reg_max_ref_width;
@@ -2320,9 +2334,9 @@ sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
    allocation of REGNO made by the reload.  Remember that reg_renumber
    reflects the change result.  */
 void
-mark_allocation_change (int regno)
+ira_mark_allocation_change (int regno)
 {
-  allocno_t a = regno_allocno_map[regno];
+  ira_allocno_t a = ira_regno_allocno_map[regno];
   int old_hard_regno, hard_regno, cost;
   enum reg_class cover_class = ALLOCNO_COVER_CLASS (a);
 
@@ -2334,32 +2348,32 @@ mark_allocation_change (int regno)
     cost = -ALLOCNO_MEMORY_COST (a);
   else
     {
-      ira_assert (class_hard_reg_index[cover_class][old_hard_regno] >= 0);
+      ira_assert (ira_class_hard_reg_index[cover_class][old_hard_regno] >= 0);
       cost = -(ALLOCNO_HARD_REG_COSTS (a) == NULL
 	       ? ALLOCNO_COVER_CLASS_COST (a)
 	       : ALLOCNO_HARD_REG_COSTS (a)
-	         [class_hard_reg_index[cover_class][old_hard_regno]]);
+	         [ira_class_hard_reg_index[cover_class][old_hard_regno]]);
       update_copy_costs (a, false);
     }
-  overall_cost -= cost;
+  ira_overall_cost -= cost;
   ALLOCNO_HARD_REGNO (a) = hard_regno;
   if (hard_regno < 0)
     {
       ALLOCNO_HARD_REGNO (a) = -1;
       cost += ALLOCNO_MEMORY_COST (a);
     }
-  else if (class_hard_reg_index[cover_class][hard_regno] >= 0)
+  else if (ira_class_hard_reg_index[cover_class][hard_regno] >= 0)
     {
       cost += (ALLOCNO_HARD_REG_COSTS (a) == NULL
 	       ? ALLOCNO_COVER_CLASS_COST (a)
 	       : ALLOCNO_HARD_REG_COSTS (a)
-	         [class_hard_reg_index[cover_class][hard_regno]]);
+	         [ira_class_hard_reg_index[cover_class][hard_regno]]);
       update_copy_costs (a, true);
     }
   else
     /* Reload changed class of the allocno.  */
     cost = 0;
-  overall_cost += cost;
+  ira_overall_cost += cost;
 }
 
 /* This function is called when reload deletes memory-memory move.  In
@@ -2367,10 +2381,10 @@ mark_allocation_change (int regno)
    allocnos should be not changed in future.  Otherwise we risk to get
    a wrong code.  */
 void
-mark_memory_move_deletion (int dst_regno, int src_regno)
+ira_mark_memory_move_deletion (int dst_regno, int src_regno)
 {
-  allocno_t dst = regno_allocno_map[dst_regno];
-  allocno_t src = regno_allocno_map[src_regno];
+  ira_allocno_t dst = ira_regno_allocno_map[dst_regno];
+  ira_allocno_t src = ira_regno_allocno_map[src_regno];
 
   ira_assert (dst != NULL && src != NULL
 	      && ALLOCNO_HARD_REGNO (dst) < 0
@@ -2383,15 +2397,16 @@ mark_memory_move_deletion (int dst_regno, int src_regno)
    allocno A and return TRUE in the case of success.  That is an
    analog of retry_global_alloc for IRA.  */
 static bool
-allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
+allocno_reload_assign (ira_allocno_t a, HARD_REG_SET forbidden_regs)
 {
   int hard_regno;
   enum reg_class cover_class;
   int regno = ALLOCNO_REGNO (a);
 
-  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), forbidden_regs);
+  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), forbidden_regs);
   if (! flag_caller_saves && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
-    IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), call_used_reg_set);
+    IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+		      call_used_reg_set);
   ALLOCNO_ASSIGNED_P (a) = false;
   ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
   ira_assert (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) == NULL);
@@ -2404,15 +2419,16 @@ allocno_reload_assign (allocno_t a, HARD_REG_SET forbidden_regs)
     ALLOCNO_HARD_REGNO (a) = -1;
   else
     {
-      ira_assert (class_hard_reg_index[cover_class][hard_regno] >= 0);
-      overall_cost -= (ALLOCNO_MEMORY_COST (a)
-		       - (ALLOCNO_HARD_REG_COSTS (a) == NULL
-			  ? ALLOCNO_COVER_CLASS_COST (a)
-			  : ALLOCNO_HARD_REG_COSTS (a)
-			    [class_hard_reg_index[cover_class][hard_regno]]));
+      ira_assert (ira_class_hard_reg_index[cover_class][hard_regno] >= 0);
+      ira_overall_cost -= (ALLOCNO_MEMORY_COST (a)
+			   - (ALLOCNO_HARD_REG_COSTS (a) == NULL
+			      ? ALLOCNO_COVER_CLASS_COST (a)
+			      : ALLOCNO_HARD_REG_COSTS (a)
+			        [ira_class_hard_reg_index
+				 [cover_class][hard_regno]]));
       if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0
-	  && ! hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
-				      call_used_reg_set))
+	  && ! ira_hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
+					  call_used_reg_set))
 	{
 	  ira_assert (flag_caller_saves);
 	  caller_save_needed = 1;
@@ -2458,16 +2474,16 @@ pseudo_reg_compare (const void *v1p, const void *v2p)
    is called by the reload pass at the end of each reload
    iteration.  */
 bool
-reassign_pseudos (int *spilled_pseudo_regs, int num,
-		  HARD_REG_SET bad_spill_regs,
-		  HARD_REG_SET *pseudo_forbidden_regs,
-		  HARD_REG_SET *pseudo_previous_regs,  bitmap spilled)
+ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
+		      HARD_REG_SET bad_spill_regs,
+		      HARD_REG_SET *pseudo_forbidden_regs,
+		      HARD_REG_SET *pseudo_previous_regs,  bitmap spilled)
 {
   int i, m, n, regno;
   bool changed_p;
-  allocno_t a, conflict_a;
+  ira_allocno_t a, conflict_a;
   HARD_REG_SET forbidden_regs;
-  allocno_conflict_iterator aci;
+  ira_allocno_conflict_iterator aci;
 
   if (num > 1)
     qsort (spilled_pseudo_regs, num, sizeof (int), pseudo_reg_compare);
@@ -2481,8 +2497,8 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
       IOR_HARD_REG_SET (forbidden_regs, pseudo_forbidden_regs[regno]);
       IOR_HARD_REG_SET (forbidden_regs, pseudo_previous_regs[regno]);
       gcc_assert (reg_renumber[regno] < 0);
-      a = regno_allocno_map[regno];
-      mark_allocation_change (regno);
+      a = ira_regno_allocno_map[regno];
+      ira_mark_allocation_change (regno);
       ira_assert (reg_renumber[regno] < 0);
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file,
@@ -2512,7 +2528,7 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
   for (i = n = 0; i < m; i++)
     {
       regno = spilled_pseudo_regs[i];
-      a = regno_allocno_map[regno];
+      a = ira_regno_allocno_map[regno];
       FOR_EACH_ALLOCNO_CONFLICT (a, conflict_a, aci)
 	if (ALLOCNO_HARD_REGNO (conflict_a) < 0
 	    && ! ALLOCNO_DONT_REASSIGN_P (conflict_a)
@@ -2527,7 +2543,7 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
   if (n != 0)
     {
       start_allocno_priorities (sorted_allocnos, n);
-      qsort (sorted_allocnos, n, sizeof (allocno_t),
+      qsort (sorted_allocnos, n, sizeof (ira_allocno_t),
 	     allocno_priority_compare_func);
       for (i = 0; i < n; i++)
 	{
@@ -2557,17 +2573,17 @@ reassign_pseudos (int *spilled_pseudo_regs, int num,
    TOTAL_SIZE.  In the case of failure to find a slot which can be
    used for REGNO, the function returns NULL.  */
 rtx
-reuse_stack_slot (int regno, unsigned int inherent_size,
-		  unsigned int total_size)
+ira_reuse_stack_slot (int regno, unsigned int inherent_size,
+		      unsigned int total_size)
 {
   unsigned int i;
   int slot_num, best_slot_num;
   int cost, best_cost;
-  copy_t cp, next_cp;
-  allocno_t another_allocno, allocno = regno_allocno_map[regno];
+  ira_copy_t cp, next_cp;
+  ira_allocno_t another_allocno, allocno = ira_regno_allocno_map[regno];
   rtx x;
   bitmap_iterator bi;
-  struct spilled_reg_stack_slot *slot = NULL;
+  struct ira_spilled_reg_stack_slot *slot = NULL;
 
   ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
 	      && inherent_size <= total_size
@@ -2577,7 +2593,7 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
   slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
   if (slot_num != -1)
     {
-      slot = &spilled_reg_stack_slots[slot_num];
+      slot = &ira_spilled_reg_stack_slots[slot_num];
       x = slot->mem;
     }
   else
@@ -2586,9 +2602,11 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
       x = NULL_RTX;
       /* It means that the pseudo was spilled in the reload pass, try
 	 to reuse a slot.  */
-      for (slot_num = 0; slot_num < spilled_reg_stack_slots_num; slot_num++)
+      for (slot_num = 0;
+	   slot_num < ira_spilled_reg_stack_slots_num;
+	   slot_num++)
 	{
-	  slot = &spilled_reg_stack_slots[slot_num];
+	  slot = &ira_spilled_reg_stack_slots[slot_num];
 	  if (slot->mem == NULL_RTX)
 	    continue;
 	  if (slot->width < total_size
@@ -2598,8 +2616,8 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 	  EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
-	      another_allocno = regno_allocno_map[i];
-	      if (allocno_live_ranges_intersect_p (allocno, another_allocno))
+	      another_allocno = ira_regno_allocno_map[i];
+	      if (ira_allocno_live_ranges_intersect_p (allocno, another_allocno))
 		goto cont;
 	    }
 	  for (cost = 0, cp = ALLOCNO_COPIES (allocno);
@@ -2634,7 +2652,7 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 	}
       if (best_cost >= 0)
 	{
-	  slot = &spilled_reg_stack_slots[best_slot_num];
+	  slot = &ira_spilled_reg_stack_slots[best_slot_num];
 	  SET_REGNO_REG_SET (&slot->spilled_regs, regno);
 	  x = slot->mem;
 	  ALLOCNO_HARD_REGNO (allocno) = -best_slot_num - 2;
@@ -2646,7 +2664,7 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
       EXECUTE_IF_SET_IN_BITMAP (&slot->spilled_regs,
 				FIRST_PSEUDO_REGISTER, i, bi)
 	{
-	  ira_assert (! pseudo_live_ranges_intersect_p (regno, i));
+	  ira_assert (! ira_pseudo_live_ranges_intersect_p (regno, i));
 	}
       SET_REGNO_REG_SET (&slot->spilled_regs, regno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file)
@@ -2667,23 +2685,23 @@ reuse_stack_slot (int regno, unsigned int inherent_size,
 
 /* This is called by reload every time a new stack slot X with
    TOTAL_SIZE was allocated for REGNO.  We store this info for
-   subsequent reuse_stack_slot calls.  */
+   subsequent ira_reuse_stack_slot calls.  */
 void
-mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
+ira_mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
 {
-  struct spilled_reg_stack_slot *slot;
+  struct ira_spilled_reg_stack_slot *slot;
   int slot_num;
-  allocno_t allocno;
+  ira_allocno_t allocno;
 
   ira_assert (flag_ira && PSEUDO_REGNO_BYTES (regno) <= total_size);
-  allocno = regno_allocno_map[regno];
+  allocno = ira_regno_allocno_map[regno];
   slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
   if (slot_num == -1)
     {
-      slot_num = spilled_reg_stack_slots_num++;
+      slot_num = ira_spilled_reg_stack_slots_num++;
       ALLOCNO_HARD_REGNO (allocno) = -slot_num - 2;
     }
-  slot = &spilled_reg_stack_slots[slot_num];
+  slot = &ira_spilled_reg_stack_slots[slot_num];
   INIT_REG_SET (&slot->spilled_regs);
   SET_REGNO_REG_SET (&slot->spilled_regs, regno);
   slot->mem = x;
@@ -2711,7 +2729,7 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
   int i, cost, regno, hard_regno, j, count, saved_cost, nregs;
   bool in_p, out_p;
   int length;
-  allocno_t a;
+  ira_allocno_t a;
 
   *nrefs = 0;
   for (length = count = cost = i = 0;; i++)
@@ -2722,7 +2740,7 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
       *nrefs += REG_N_REFS (regno);
       hard_regno = reg_renumber[regno];
       ira_assert (hard_regno >= 0);
-      a = regno_allocno_map[regno];
+      a = ira_regno_allocno_map[regno];
       length += ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
       cost += ALLOCNO_MEMORY_COST (a) - ALLOCNO_COVER_CLASS_COST (a);
       nregs = hard_regno_nregs[hard_regno][ALLOCNO_MODE (a)];
@@ -2738,11 +2756,11 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
 	{
 	  saved_cost = 0;
 	  if (in_p)
-	    saved_cost += memory_move_cost
+	    saved_cost += ira_memory_move_cost
 	                  [ALLOCNO_MODE (a)][ALLOCNO_COVER_CLASS (a)][1];
 	  if (out_p)
 	    saved_cost
-	      += memory_move_cost
+	      += ira_memory_move_cost
 	         [ALLOCNO_MODE (a)][ALLOCNO_COVER_CLASS (a)][0];
 	  cost -= REG_FREQ_FROM_BB (BLOCK_FOR_INSN (insn)) * saved_cost;
 	}
@@ -2764,8 +2782,8 @@ calculate_spill_cost (int *regnos, rtx in, rtx out, rtx insn,
    function used by the reload pass to make better register spilling
    decisions.  */
 bool
-better_spill_reload_regno_p (int *regnos, int *other_regnos,
-			     rtx in, rtx out, rtx insn)
+ira_better_spill_reload_regno_p (int *regnos, int *other_regnos,
+				 rtx in, rtx out, rtx insn)
 {
   int cost, other_cost;
   int length, other_length;
@@ -2805,17 +2823,17 @@ better_spill_reload_regno_p (int *regnos, int *other_regnos,
    code for saving/restore callee-clobbered hard registers around
    calls (see caller-saves.c).  */
 void
-collect_pseudo_call_clobbered_regs (int regno,
-				    HARD_REG_SET (*call_clobbered_regs))
+ira_collect_pseudo_call_clobbered_regs (int regno,
+					HARD_REG_SET (*call_clobbered_regs))
 {
   int i;
-  allocno_t a;
+  ira_allocno_t a;
   HARD_REG_SET clobbered_regs;
   rtx call, *allocno_calls;
 
-  a = regno_allocno_map[regno];
+  a = ira_regno_allocno_map[regno];
   CLEAR_HARD_REG_SET (*call_clobbered_regs);
-  allocno_calls = (VEC_address (rtx, regno_calls[regno])
+  allocno_calls = (VEC_address (rtx, ira_regno_calls[regno])
 		   + ALLOCNO_CALLS_CROSSED_START (a));
   for (i = ALLOCNO_CALLS_CROSSED_NUM (a) - 1; i >= 0; i--)
     {
@@ -2829,17 +2847,17 @@ collect_pseudo_call_clobbered_regs (int regno,
 
 /* Allocate and initialize data necessary for assign_hard_reg.  */
 void
-initiate_ira_assign (void)
+ira_initiate_assign (void)
 {
-  sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  sorted_allocnos = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
   consideration_allocno_bitmap = ira_allocate_bitmap ();
   initiate_cost_update ();
-  allocno_priorities = ira_allocate (sizeof (int) * allocnos_num);
+  allocno_priorities = ira_allocate (sizeof (int) * ira_allocnos_num);
 }
 
 /* Deallocate data used by assign_hard_reg.  */
 void
-finish_ira_assign (void)
+ira_finish_assign (void)
 {
   ira_free (sorted_allocnos);
   ira_free_bitmap (consideration_allocno_bitmap);
@@ -2853,14 +2871,15 @@ finish_ira_assign (void)
 void
 ira_color (void)
 {
-  allocno_stack_vec = VEC_alloc (allocno_t, heap, allocnos_num);
-  removed_splay_allocno_vec = VEC_alloc (allocno_t, heap, allocnos_num);
+  allocno_stack_vec = VEC_alloc (ira_allocno_t, heap, ira_allocnos_num);
+  removed_splay_allocno_vec
+    = VEC_alloc (ira_allocno_t, heap, ira_allocnos_num);
   memset (allocated_hardreg_p, 0, sizeof (allocated_hardreg_p));
-  initiate_ira_assign ();
+  ira_initiate_assign ();
   do_coloring ();
-  finish_ira_assign ();
-  VEC_free (allocno_t, heap, removed_splay_allocno_vec);
-  VEC_free (allocno_t, heap, allocno_stack_vec);
+  ira_finish_assign ();
+  VEC_free (ira_allocno_t, heap, removed_splay_allocno_vec);
+  VEC_free (ira_allocno_t, heap, allocno_stack_vec);
   move_spill_restore ();
 }
 
@@ -2881,12 +2900,12 @@ ira_fast_allocation (void)
 #endif
   enum reg_class cover_class;
   enum machine_mode mode;
-  allocno_t a;
-  allocno_iterator ai;
+  ira_allocno_t a;
+  ira_allocno_iterator ai;
   allocno_live_range_t r;
   HARD_REG_SET conflict_hard_regs, *used_hard_regs;
 
-  allocno_priorities = ira_allocate (sizeof (int) * allocnos_num);
+  allocno_priorities = ira_allocate (sizeof (int) * ira_allocnos_num);
   FOR_EACH_ALLOCNO (a, ai)
     {
       l = ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
@@ -2897,16 +2916,16 @@ ira_fast_allocation (void)
 		      * (ALLOCNO_MEMORY_COST (a)
 			 - ALLOCNO_COVER_CLASS_COST (a))) / l)
 	   * (10000 / REG_FREQ_MAX)
-	   * reg_class_nregs [ALLOCNO_COVER_CLASS (a)][ALLOCNO_MODE (a)]);
+	   * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a)][ALLOCNO_MODE (a)]);
     }
-  used_hard_regs = ira_allocate (sizeof (HARD_REG_SET) * max_point);
-  for (i = 0; i < max_point; i++)
+  used_hard_regs = ira_allocate (sizeof (HARD_REG_SET) * ira_max_point);
+  for (i = 0; i < ira_max_point; i++)
     CLEAR_HARD_REG_SET (used_hard_regs[i]);
-  sorted_allocnos = ira_allocate (sizeof (allocno_t) * allocnos_num);
+  sorted_allocnos = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
   num = 0;
   FOR_EACH_ALLOCNO (a, ai)
     sorted_allocnos[num++] = a;
-  qsort (sorted_allocnos, allocnos_num, sizeof (allocno_t), 
+  qsort (sorted_allocnos, ira_allocnos_num, sizeof (ira_allocno_t), 
 	 allocno_priority_compare_func);
   for (i = 0; i < num; i++)
     {
@@ -2925,16 +2944,16 @@ ira_fast_allocation (void)
 #ifdef STACK_REGS
       no_stack_reg_p = ALLOCNO_NO_STACK_REG_P (a);
 #endif
-      class_size = class_hard_regs_num[cover_class];
+      class_size = ira_class_hard_regs_num[cover_class];
       for (j = 0; j < class_size; j++)
 	{
-	  hard_regno = class_hard_regs[cover_class][j];
+	  hard_regno = ira_class_hard_regs[cover_class][j];
 #ifdef STACK_REGS
 	  if (no_stack_reg_p && FIRST_STACK_REG <= hard_regno
 	      && hard_regno <= LAST_STACK_REG)
 	    continue;
 #endif
-	  if (!hard_reg_not_in_set_p (hard_regno, mode, conflict_hard_regs)
+	  if (!ira_hard_reg_not_in_set_p (hard_regno, mode, conflict_hard_regs)
 	      || (TEST_HARD_REG_BIT
 		  (prohibited_class_mode_regs[cover_class][mode], hard_regno)))
 	    continue;
@@ -2942,7 +2961,7 @@ ira_fast_allocation (void)
 	  for (r = ALLOCNO_LIVE_RANGES (a); r != NULL; r = r->next)
 	    for (k = r->start; k <= r->finish; k++)
 	      IOR_HARD_REG_SET (used_hard_regs[k],
-				reg_mode_hard_regset[hard_regno][mode]);
+				ira_reg_mode_hard_regset[hard_regno][mode]);
 	  break;
 	}
     }
@@ -2950,5 +2969,5 @@ ira_fast_allocation (void)
   ira_free (used_hard_regs);
   ira_free (allocno_priorities);
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
-    print_disposition (ira_dump_file);
+    ira_print_disposition (ira_dump_file);
 }

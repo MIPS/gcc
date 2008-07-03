@@ -905,7 +905,7 @@ reload (rtx first, int global)
   if (flag_ira && optimize)
     /* Ask IRA to order pseudo-registers for better stack slot
        sharing.  */
-    sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n, reg_max_ref_width);
+    ira_sort_regnos_for_alter_reg (temp_pseudo_reg_arr, n, reg_max_ref_width);
 
   for (i = 0; i < n; i++)
     alter_reg (temp_pseudo_reg_arr[i], -1, false);
@@ -1122,7 +1122,7 @@ reload (rtx first, int global)
   if (flag_ira && optimize)
     /* Restore the original insn chain order for correct reload
        work.  */
-    sort_insn_chain (false);
+    ira_sort_insn_chain (false);
 
   /* If global-alloc was run, notify it of any register eliminations we have
      done.  */
@@ -1632,8 +1632,8 @@ calculate_needs_all_insns (int global)
 		{
 		  if (flag_ira && optimize)
 		    /* Inform IRA about the insn deletion.  */
-		    mark_memory_move_deletion (REGNO (SET_DEST (set)),
-					       REGNO (SET_SRC (set)));
+		    ira_mark_memory_move_deletion (REGNO (SET_DEST (set)),
+						   REGNO (SET_SRC (set)));
 		  delete_insn (insn);
 		  /* Delete it from the reload chain.  */
 		  if (chain->prev)
@@ -1909,10 +1909,10 @@ find_reg (struct insn_chain *chain, int order)
 		}
 	      regno_pseudo_regs[n++] = -1;
 	      if (best_reg < 0
-		  || better_spill_reload_regno_p (regno_pseudo_regs,
-						  best_regno_pseudo_regs,
-						  rl->in, rl->out,
-						  chain->insn))
+		  || ira_better_spill_reload_regno_p (regno_pseudo_regs,
+						      best_regno_pseudo_regs,
+						      rl->in, rl->out,
+						      chain->insn))
 		{
 		  best_reg = regno;
 		  for (j = 0;; j++)
@@ -2251,7 +2251,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 	/* Mark the spill for IRA.  */
 	SET_REGNO_REG_SET (&spilled_pseudos, i);
       x = (dont_share_p || ! flag_ira || ! optimize
-	   ? NULL_RTX : reuse_stack_slot (i, inherent_size, total_size));
+	   ? NULL_RTX : ira_reuse_stack_slot (i, inherent_size, total_size));
       if (x)
 	shared_p = true;
       /* Each pseudo reg has an inherent size which comes from its own mode,
@@ -2283,7 +2283,7 @@ alter_reg (int i, int from_reg, bool dont_share_p)
 
 	  if (! dont_share_p && flag_ira && optimize)
 	    /* Inform IRA about allocation a new stack slot.  */
-	    mark_new_stack_slot (x, i, total_size);
+	    ira_mark_new_stack_slot (x, i, total_size);
 	}
 
       /* Reuse a stack slot if possible.  */
@@ -4038,7 +4038,7 @@ finish_spills (int global)
 	reg_renumber[i] = -1;
 	if (flag_ira && optimize)
 	  /* Inform IRA about the change.  */
-	  mark_allocation_change (i);
+	  ira_mark_allocation_change (i);
 	/* We will need to scan everything again.  */
 	something_changed = 1;
       }
@@ -4092,7 +4092,7 @@ finish_spills (int global)
 	  /* Retry allocating the pseudos spilled in IRA and the
 	     reload.  For each reg, merge the various reg sets that
 	     indicate which hard regs can't be used, and call
-	     reassign_pseudos.  */
+	     ira_reassign_pseudos.  */
 	  unsigned int n;
 
 	  for (n = 0, i = FIRST_PSEUDO_REGISTER; i < (unsigned) max_regno; i++)
@@ -4103,9 +4103,10 @@ finish_spills (int global)
 		else
 		  CLEAR_REGNO_REG_SET (&spilled_pseudos, i);
 	      }
-	  if (reassign_pseudos (temp_pseudo_reg_arr, n, bad_spill_regs_global,
-				pseudo_forbidden_regs, pseudo_previous_regs,
-				&spilled_pseudos))
+	  if (ira_reassign_pseudos (temp_pseudo_reg_arr, n,
+				    bad_spill_regs_global,
+				    pseudo_forbidden_regs, pseudo_previous_regs,
+				    &spilled_pseudos))
 	    something_changed = 1;
 	  
 	}
@@ -7094,7 +7095,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 		  reg_renumber[REGNO (old)] = REGNO (reloadreg);
 		  if (flag_ira && optimize)
 		    /* Inform IRA about the change.  */
-		    mark_allocation_change (REGNO (old));
+		    ira_mark_allocation_change (REGNO (old));
 		  alter_reg (REGNO (old), -1, false);
 		}
 	      special = 1;
@@ -8633,7 +8634,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
       reg_renumber[REGNO (reg)] = REGNO (new_reload_reg);
       if (flag_ira && optimize)
 	/* Inform IRA about the change.  */
-	mark_allocation_change (REGNO (reg));
+	ira_mark_allocation_change (REGNO (reg));
       alter_reg (REGNO (reg), -1, false);
     }
   else

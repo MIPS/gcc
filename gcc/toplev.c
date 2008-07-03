@@ -2014,7 +2014,7 @@ backend_init (void)
   save_register_info ();
 
   /* Initialize the target-specific back end pieces.  */
-  init_ira_once ();
+  ira_init_once ();
   backend_init_target ();
 }
 
@@ -2038,7 +2038,7 @@ lang_dependent_init_target (void)
   /* Although the actions of these functions are language-independent,
      they use optabs, so we cannot call them from backend_init.  */
   init_set_costs ();
-  init_ira ();
+  ira_init ();
 
   expand_dummy_function_end ();
 }
@@ -2138,7 +2138,7 @@ finalize (void)
   statistics_fini ();
   finish_optimization_passes ();
 
-  finish_ira_once ();
+  ira_finish_once ();
 
   if (mem_report)
     dump_memory_report (true);

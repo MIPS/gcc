@@ -473,7 +473,7 @@ setup_save_areas (void)
 	  {
 	    HARD_REG_SET clobbered_regs;
 	    
-	    collect_pseudo_call_clobbered_regs (i, &clobbered_regs);
+	    ira_collect_pseudo_call_clobbered_regs (i, &clobbered_regs);
 	    for (r = regno; r < endregno; r++)
 	      if (TEST_HARD_REG_BIT (clobbered_regs, r))
 		SET_HARD_REG_BIT (hard_regs_used, r);
