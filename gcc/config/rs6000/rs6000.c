@@ -6712,9 +6712,12 @@ rs6000_va_start (tree valist, rtx nextarg)
 
   valist = build_va_arg_indirect_ref (valist);
   gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), unshare_expr (valist),
+		f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), unshare_expr (valist),
+		f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), unshare_expr (valist),
+		f_sav, NULL_TREE);
 
   /* Count number of gp and fp argument registers used.  */
   words = crtl->args.info.words;
@@ -6830,9 +6833,12 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   valist = build_va_arg_indirect_ref (valist);
   gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
-  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
-  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+  fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), unshare_expr (valist),
+		f_fpr, NULL_TREE);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), unshare_expr (valist),
+		f_ovf, NULL_TREE);
+  sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), unshare_expr (valist),
+		f_sav, NULL_TREE);
 
   size = int_size_in_bytes (type);
   rsize = (size + 3) / 4;
@@ -6886,18 +6892,19 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       if (n_reg == 2 && reg == gpr)
 	{
 	  regalign = 1;
-	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), reg,
+	  u = build2 (BIT_AND_EXPR, TREE_TYPE (reg), unshare_expr (reg),
 		     build_int_cst (TREE_TYPE (reg), n_reg - 1));
-	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg), reg, u);
+	  u = build2 (POSTINCREMENT_EXPR, TREE_TYPE (reg),
+		      unshare_expr (reg), u);
 	}
       /* _Decimal128 is passed in even/odd fpr pairs; the stored
 	 reg number is 0 for f1, so we want to make it odd.  */
       else if (reg == fpr && TYPE_MODE (type) == TDmode)
 	{
 	  regalign = 1;
-	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), reg,
+	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), unshare_expr (reg),
 		      build_int_cst (TREE_TYPE (reg), 1));
-	  u = build2 (MODIFY_EXPR, void_type_node, reg, t);
+	  u = build2 (MODIFY_EXPR, void_type_node, unshare_expr (reg), t);
 	}
 
       t = fold_convert (TREE_TYPE (reg), size_int (8 - n_reg + 1));
@@ -6956,11 +6963,11 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
 
-  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
+  u = build2 (GIMPLE_MODIFY_STMT, void_type_node, unshare_expr (addr), t);
   gimplify_and_add (u, pre_p);
 
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), ovf, t);
+  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), unshare_expr (ovf), t);
   gimplify_and_add (t, pre_p);
 
   if (lab_over)
