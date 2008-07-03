@@ -887,7 +887,9 @@ produce_asm_for_decls (void)
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
+#ifdef LTO_STREAM_DEBUGGING
   header.debug_main_size = ob->debug_main_stream->total_size;
+#endif
 
   header_stream = xcalloc (1, sizeof (struct lto_output_stream));
   lto_output_data_stream (header_stream, &header, sizeof header);

@@ -1,3 +1,9 @@
+2008-07-03  Simon Baldwin  <simonb@google.com>
+
+	* lto-function-in.c (lto_read_body): Wrapped debug-only data items
+	within #ifdef LTO_STREAM_DEBUGGING.
+	* lto-section-out.c (produce_asm_for_decls): Ditto.
+
 2008-05-28  Seongbae Park  <seongbae.park@gmail.com>
 	
 	* value-prof.c (tree_ic_transform): Use HOST_WIDEST_INT_PRINT_DEC

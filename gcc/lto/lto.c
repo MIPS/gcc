@@ -182,7 +182,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   int i;
 
   LTO_INIT_INPUT_BLOCK (ib_main, data + main_offset, 0, header->main_size);
+#ifdef LTO_STREAM_DEBUGGING
   LTO_INIT_INPUT_BLOCK (debug_main, data + debug_main_offset, 0, header->debug_main_size);
+#endif
 
   decl_data->field_decls = xcalloc (header->num_field_decls, sizeof (tree));
   decl_data->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree));

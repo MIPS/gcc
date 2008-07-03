@@ -2335,7 +2335,9 @@ lto_read_body (struct lto_file_decl_data* file_data,
     {
       free (data_in.labels);
       free (data_in.local_decls_index);
+#ifdef LTO_STREAM_DEBUGGING
       free (data_in.local_decls_index_d);
+#endif
     }
 }
 
