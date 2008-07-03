@@ -513,10 +513,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_refactor_eh);
-#endif
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_lower_complex_O0);

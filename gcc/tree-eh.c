@@ -2484,38 +2484,42 @@ maybe_clean_or_replace_eh_stmt (gimple old_stmt, gimple new_stmt)
   return false;
 }
 
-/* Returns TRUE if oneh and twoh are exception handlers (op 1 of
-   TRY_CATCH_EXPR or TRY_FINALLY_EXPR that are similar enough to be
-   considered the same.  Currently this only handles handlers consisting of
-   a single call, as that's the important case for C++: a destructor call
-   for a particular object showing up in multiple handlers.  */
+/* Returns TRUE if oneh and twoh are exception handlers (gimple_try_cleanup of
+   GIMPLE_TRY) that are similar enough to be considered the same.  Currently
+   this only handles handlers consisting of a single call, as that's the
+   important case for C++: a destructor call for a particular object showing
+   up in multiple handlers.  */
 
 static bool
-same_handler_p (tree oneh, tree twoh)
+same_handler_p (gimple_seq oneh, gimple_seq twoh)
 {
-  tree_stmt_iterator i;
-  tree ones, twos;
-  int ai;
+  gimple_stmt_iterator gsi;
+  gimple ones, twos;
+  unsigned int ai;
 
-  i = tsi_start (oneh);
-  if (!tsi_one_before_end_p (i))
+  gsi = gsi_start (oneh);
+  if (!gsi_one_before_end_p (gsi))
     return false;
-  ones = tsi_stmt (i);
+  ones = gsi_stmt (gsi);
 
-  i = tsi_start (twoh);
-  if (!tsi_one_before_end_p (i))
+  gsi = gsi_start (twoh);
+  if (!gsi_one_before_end_p (gsi))
     return false;
-  twos = tsi_stmt (i);
+  twos = gsi_stmt (gsi);
 
-  if (TREE_CODE (ones) != CALL_EXPR
-      || TREE_CODE (twos) != CALL_EXPR
-      || !operand_equal_p (CALL_EXPR_FN (ones), CALL_EXPR_FN (twos), 0)
-      || call_expr_nargs (ones) != call_expr_nargs (twos))
+  if (!is_gimple_call (ones)
+      || !is_gimple_call (twos)
+      || gimple_call_lhs (ones)
+      || gimple_call_lhs (twos)
+      || gimple_call_chain (ones)
+      || gimple_call_chain (twos)
+      || !operand_equal_p (gimple_call_fn (ones), gimple_call_fn (twos), 0)
+      || gimple_call_num_args (ones) != gimple_call_num_args (twos))
     return false;
 
-  for (ai = 0; ai < call_expr_nargs (ones); ++ai)
-    if (!operand_equal_p (CALL_EXPR_ARG (ones, ai),
-			  CALL_EXPR_ARG (twos, ai), 0))
+  for (ai = 0; ai < gimple_call_num_args (ones); ++ai)
+    if (!operand_equal_p (gimple_call_arg (ones, ai),
+			  gimple_call_arg (twos, ai), 0))
       return false;
 
   return true;
@@ -2532,30 +2536,29 @@ same_handler_p (tree oneh, tree twoh)
    temporary used in the initializer for A.  */
 
 static void
-optimize_double_finally (tree one, tree two)
+optimize_double_finally (gimple one, gimple two)
 {
-  tree oneh;
-  tree_stmt_iterator i;
+  gimple oneh;
+  gimple_stmt_iterator gsi;
 
-  i = tsi_start (TREE_OPERAND (one, 1));
-  if (!tsi_one_before_end_p (i))
+  gsi = gsi_start (gimple_try_cleanup (one));
+  if (!gsi_one_before_end_p (gsi))
     return;
 
-  oneh = tsi_stmt (i);
-  if (TREE_CODE (oneh) != TRY_CATCH_EXPR)
+  oneh = gsi_stmt (gsi);
+  if (gimple_code (oneh) != GIMPLE_TRY
+      || gimple_try_kind (oneh) != GIMPLE_TRY_CATCH)
     return;
 
-  if (same_handler_p (TREE_OPERAND (oneh, 1), TREE_OPERAND (two, 1)))
+  if (same_handler_p (gimple_try_cleanup (oneh), gimple_try_cleanup (two)))
     {
-      tree b = TREE_OPERAND (oneh, 0);
-      TREE_OPERAND (one, 1) = b;
-      TREE_SET_CODE (one, TRY_CATCH_EXPR);
+      gimple_seq seq = gimple_try_eval (oneh);
 
-      i = tsi_start (TREE_OPERAND (two, 0));
-      /* FIXME tuples: Change this to use copy_gimple_seq_and_replace_locals
-	 instead of unsave_expr_now.  Then we can remove unsave_expr_node and
-	 callees only used by it in tree-inline.h.  */
-      tsi_link_before (&i, unsave_expr_now (b), TSI_SAME_STMT);
+      gimple_try_set_cleanup (one, seq);
+      gimple_try_set_kind (one, GIMPLE_TRY_CATCH);
+      seq = copy_gimple_seq_and_replace_locals (seq);
+      gimple_seq_add_seq (&seq, gimple_try_eval (two));
+      gimple_try_set_eval (two, seq);
     }
 }
 
@@ -2563,61 +2566,55 @@ optimize_double_finally (tree one, tree two)
    flow has been lowered but EH structures haven't.  */
 
 static void
-refactor_eh_r (tree t)
+refactor_eh_r (gimple_seq seq)
 {
- tailrecurse:
-  switch (TREE_CODE (t))
+  gimple_stmt_iterator gsi;
+  gimple one, two;
+
+  one = NULL;
+  two = NULL;
+  gsi = gsi_start (seq);
+  while (1)
     {
-    case TRY_FINALLY_EXPR:
-    case TRY_CATCH_EXPR:
-      refactor_eh_r (TREE_OPERAND (t, 0));
-      t = TREE_OPERAND (t, 1);
-      goto tailrecurse;
-
-    case CATCH_EXPR:
-      t = CATCH_BODY (t);
-      goto tailrecurse;
-
-    case EH_FILTER_EXPR:
-      t = EH_FILTER_FAILURE (t);
-      goto tailrecurse;
-
-    case STATEMENT_LIST:
-      {
-	tree_stmt_iterator i;
-	tree one = NULL_TREE, two = NULL_TREE;
-	/* Try to refactor double try/finally.  */
-	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+      one = two;
+      if (gsi_end_p (gsi))
+	two = NULL;
+      else
+	two = gsi_stmt (gsi);
+      if (one
+	  && two
+	  && gimple_code (one) == GIMPLE_TRY
+	  && gimple_code (two) == GIMPLE_TRY
+	  && gimple_try_kind (one) == GIMPLE_TRY_FINALLY
+	  && gimple_try_kind (two) == GIMPLE_TRY_FINALLY)
+	optimize_double_finally (one, two);
+      if (one)
+	switch (gimple_code (one))
 	  {
-	    one = two;
-	    two = tsi_stmt (i);
-	    if (one && two
-		&& TREE_CODE (one) == TRY_FINALLY_EXPR
-		&& TREE_CODE (two) == TRY_FINALLY_EXPR)
-	      optimize_double_finally (one, two);
-	    if (one)
-	      refactor_eh_r (one);
+	  case GIMPLE_TRY:
+	    refactor_eh_r (gimple_try_eval (one));
+	    refactor_eh_r (gimple_try_cleanup (one));
+	    break;
+	  case GIMPLE_CATCH:
+	    refactor_eh_r (gimple_catch_handler (one));
+	    break;
+	  case GIMPLE_EH_FILTER:
+	    refactor_eh_r (gimple_eh_filter_failure (one));
+	    break;
+	  default:
+	    break;
 	  }
-	if (two)
-	  {
-	    t = two;
-	    goto tailrecurse;
-	  }
-      }
-      break;
-
-    default:
-      /* A type, a decl, or some kind of statement that we're not
-	 interested in.  Don't walk them.  */
-      break;
+      if (two)
+	gsi_next (&gsi);
+      else
+	break;
     }
 }
 
 static unsigned
 refactor_eh (void)
 {
-  /* FIXME tuples.  DECL_SAVED_TREE needs to be changed to gimple_body.  */
-  refactor_eh_r (DECL_SAVED_TREE (current_function_decl));
+  refactor_eh_r (gimple_body (current_function_decl));
   return 0;
 }
 

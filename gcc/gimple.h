@@ -2696,6 +2696,18 @@ gimple_try_kind (const_gimple gs)
 }
 
 
+/* Set the kind of try block represented by GIMPLE_TRY GS.  */
+
+static inline void
+gimple_try_set_kind (gimple gs, enum gimple_try_flags kind)
+{
+  GIMPLE_CHECK (gs, GIMPLE_TRY);
+  gcc_assert (kind == GIMPLE_TRY_CATCH || kind == GIMPLE_TRY_FINALLY);
+  if (gimple_try_kind (gs) != kind)
+    gs->gsbase.subcode = (unsigned int) kind;
+}
+
+
 /* Return the GIMPLE_TRY_CATCH_IS_CLEANUP flag.  */
 
 static inline bool

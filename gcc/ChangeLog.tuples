@@ -1,3 +1,10 @@
+2008-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (gimple_try_set_kind): New inline function.
+	* tree-eh.c (same_handler_p, optimize_double_finally,
+	refactor_eh_r, refactor_eh): Tuplify.
+	* passes.c (init_optimization_passes): Reenable pass_refactor_eh.
+
 2008-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-parloops.c (struct reduction_info): Change reduc_stmt,
