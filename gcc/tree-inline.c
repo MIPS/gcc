@@ -738,6 +738,23 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  && id->remapping_type_depth == 0)
 	add_referenced_var (*tp);
 
+      /* If EXPR has block defined, map it to newly constructed block.
+	 When inlining we want EXPRs without block appear in the block
+	 of function call.  */
+      if (EXPR_P (*tp))
+	{
+	  tree new_block = id->block;
+	  if (TREE_BLOCK (*tp))
+	    {
+	      tree *n;
+	      n = (tree *) pointer_map_contains (id->decl_map,
+						 TREE_BLOCK (*tp));
+	      gcc_assert (n);
+	      new_block = *n;
+	    }
+	  TREE_BLOCK (*tp) = new_block;
+	}
+
       if (TREE_CODE (*tp) != OMP_CLAUSE)
 	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 

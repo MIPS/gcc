@@ -1,5 +1,8 @@
 2008-07-03  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-inline.c (remap_gimple_op_r): Remap TREE_BLOCK of
+	expressions.
+
 	* tree-switch-conversion.c (gen_inbound_check): Force RHS to be
         gimple operand.  Use fold_build* instead of build*.
 	(build_arrays): Likewise.  Convert RHS to LHS's type.
