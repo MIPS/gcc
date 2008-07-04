@@ -857,11 +857,13 @@ create_start_finish_chains (void)
   allocno_live_range_t r;
 
   ira_start_point_ranges
-    = ira_allocate (ira_max_point * sizeof (allocno_live_range_t));
+    = (allocno_live_range_t *) ira_allocate (ira_max_point
+					     * sizeof (allocno_live_range_t));
   memset (ira_start_point_ranges, 0,
 	  ira_max_point * sizeof (allocno_live_range_t));
   ira_finish_point_ranges
-    = ira_allocate (ira_max_point * sizeof (allocno_live_range_t));
+    = (allocno_live_range_t *) ira_allocate (ira_max_point
+					     * sizeof (allocno_live_range_t));
   memset (ira_finish_point_ranges, 0,
 	  ira_max_point * sizeof (allocno_live_range_t));
   FOR_EACH_ALLOCNO (a, ai)

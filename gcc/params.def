@@ -715,6 +715,15 @@ DEFPARAM (PARAM_IRA_MAX_LOOPS_NUM,
 	  "max loops number for regional RA",
 	  50, 0, 0)
 
+/* Switch initialization conversion will refuse to create arrays that are
+   bigger than this parameter times the number of switch branches.  */
+
+DEFPARAM (PARAM_SWITCH_CONVERSION_BRANCH_RATIO,
+	  "switch-conversion-max-branch-ratio",
+	  "The maximum ratio between array size and switch branches for "
+	  "a switch conversion to take place",
+	  8, 1, 0)
+
 /*
 Local variables:
 mode:c

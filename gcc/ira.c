@@ -1244,14 +1244,22 @@ setup_eliminable_regset (void)
      asm.  Unlike regs_ever_live, elements of this array corresponding
      to eliminable regs (like the frame pointer) are set if an asm
      sets them.  */
-  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
+  char *regs_asm_clobbered
+    = (char *) alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
 #endif
+  /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
+     sp for alloca.  So we can't eliminate the frame pointer in that
+     case.  At some point, we should improve this by emitting the
+     sp-adjusting insns for this case.  */
   int need_fp
     = (! flag_omit_frame_pointer
        || (cfun->calls_alloca && EXIT_IGNORE_STACK)
+       || crtl->accesses_prior_frames
        || FRAME_POINTER_REQUIRED);
+
+  frame_pointer_needed = need_fp;
 
   COPY_HARD_REG_SET (ira_no_alloc_regs, no_unit_alloc_regs);
   CLEAR_HARD_REG_SET (eliminable_regset);
@@ -1538,7 +1546,8 @@ fix_reg_equiv_init (void)
   
   if (reg_equiv_init_size < max_regno)
     {
-      reg_equiv_init = ggc_realloc (reg_equiv_init, max_regno * sizeof (rtx));
+      reg_equiv_init
+	= (rtx *) ggc_realloc (reg_equiv_init, max_regno * sizeof (rtx));
       while (reg_equiv_init_size < max_regno)
 	reg_equiv_init[reg_equiv_init_size++] = NULL_RTX;
       for (i = FIRST_PSEUDO_REGISTER; i < reg_equiv_init_size; i++)
@@ -1704,8 +1713,10 @@ ira_sort_insn_chain (bool freq_p)
     n++;
   if (n <= 1)
     return;
-  chain_arr = ira_allocate (n * sizeof (struct insn_chain *));
-  basic_block_order_nums = ira_allocate (sizeof (int) * last_basic_block);
+  chain_arr
+    = (struct insn_chain **) ira_allocate (n * sizeof (struct insn_chain *));
+  basic_block_order_nums
+    = (int *) ira_allocate (sizeof (int) * last_basic_block);
   n = 0;
   FOR_EACH_BB (bb)
     {
@@ -1791,9 +1802,10 @@ ira (FILE *f)
     {      
       max_regno = max_reg_num ();
       ira_reg_equiv_len = max_regno;
-      ira_reg_equiv_invariant_p = ira_allocate (max_regno * sizeof (bool));
+      ira_reg_equiv_invariant_p
+	= (bool *) ira_allocate (max_regno * sizeof (bool));
       memset (ira_reg_equiv_invariant_p, 0, max_regno * sizeof (bool));
-      ira_reg_equiv_const = ira_allocate (max_regno * sizeof (rtx));
+      ira_reg_equiv_const = (rtx *) ira_allocate (max_regno * sizeof (rtx));
       memset (ira_reg_equiv_const, 0, max_regno * sizeof (rtx));
       find_reg_equiv_invariant_const ();
       if (rebuild_p)
@@ -1907,7 +1919,9 @@ ira (FILE *f)
 
       ira_spilled_reg_stack_slots_num = 0;
       ira_spilled_reg_stack_slots
-	= ira_allocate (max_regno * sizeof (struct ira_spilled_reg_stack_slot));
+	= ((struct ira_spilled_reg_stack_slot *)
+	   ira_allocate (max_regno
+			 * sizeof (struct ira_spilled_reg_stack_slot)));
       memset (ira_spilled_reg_stack_slots, 0,
 	      max_regno * sizeof (struct ira_spilled_reg_stack_slot));
     }

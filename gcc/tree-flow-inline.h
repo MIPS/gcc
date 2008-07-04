@@ -1,5 +1,6 @@
 /* Inline functions for tree-flow.h
-   Copyright (C) 2001, 2003, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2005, 2006, 2007, 2008 Free Software
+   Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -63,6 +64,15 @@ gimple_call_clobbered_vars (const struct function *fun)
 {
   gcc_assert (fun && fun->gimple_df);
   return fun->gimple_df->call_clobbered_vars;
+}
+
+/* Call-used variables in the function.  If bit I is set, then
+   REFERENCED_VARS (I) is call-used at pure function call-sites.  */
+static inline bitmap
+gimple_call_used_vars (const struct function *fun)
+{
+  gcc_assert (fun && fun->gimple_df);
+  return fun->gimple_df->call_used_vars;
 }
 
 /* Array of all variables referenced in the function.  */
@@ -698,7 +708,7 @@ static inline bool
 is_global_var (const_tree t)
 {
   if (MTAG_P (t))
-    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+    return MTAG_GLOBAL (t);
   else
     return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
@@ -875,10 +885,7 @@ factoring_name_p (const_tree name)
 static inline bool
 is_call_clobbered (const_tree var)
 {
-  if (!MTAG_P (var))
-    return var_ann (var)->call_clobbered;
-  else
-    return bitmap_bit_p (gimple_call_clobbered_vars (cfun), DECL_UID (var)); 
+  return var_ann (var)->call_clobbered;
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
@@ -886,8 +893,7 @@ static inline void
 mark_call_clobbered (tree var, unsigned int escape_type)
 {
   var_ann (var)->escape_mask |= escape_type;
-  if (!MTAG_P (var))
-    var_ann (var)->call_clobbered = true;
+  var_ann (var)->call_clobbered = true;
   bitmap_set_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -899,8 +905,7 @@ clear_call_clobbered (tree var)
   ann->escape_mask = 0;
   if (MTAG_P (var))
     MTAG_GLOBAL (var) = 0;
-  if (!MTAG_P (var))
-    var_ann (var)->call_clobbered = false;
+  var_ann (var)->call_clobbered = false;
   bitmap_clear_bit (gimple_call_clobbered_vars (cfun), DECL_UID (var));
 }
 
@@ -1468,7 +1473,7 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
 	if (USE_FROM_PTR (use_p) == use)
 	  last_p = move_use_after_head (use_p, head, last_p);
     }
-  /* LInk iter node in after last_p.  */
+  /* Link iter node in after last_p.  */
   if (imm->iter_node.prev != NULL)
     delink_imm_use (&imm->iter_node);
   link_imm_use_to_list (&(imm->iter_node), last_p);

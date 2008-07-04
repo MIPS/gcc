@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -708,11 +708,11 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 {
   /* Clobber the FP when we get here, so we have to make sure it's
      marked as used by this function.  */
-  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+  emit_use (hard_frame_pointer_rtx);
 
   /* Mark the static chain as clobbered here so life information
      doesn't get messed up for it.  */
-  emit_insn (gen_rtx_CLOBBER (VOIDmode, static_chain_rtx));
+  emit_clobber (static_chain_rtx);
 
   /* Now put in the code to restore the frame pointer, and argument
      pointer, if needed.  */
@@ -723,7 +723,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
       emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
       /* This might change the hard frame pointer in ways that aren't
 	 apparent to early optimization passes, so force a clobber.  */
-      emit_insn (gen_rtx_CLOBBER (VOIDmode, hard_frame_pointer_rtx));
+      emit_clobber (hard_frame_pointer_rtx);
     }
 
 #if ARG_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
@@ -822,18 +822,14 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 	{
 	  lab = copy_to_reg (lab);
 
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				      gen_rtx_MEM (BLKmode,
-						   gen_rtx_SCRATCH (VOIDmode))));
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				      gen_rtx_MEM (BLKmode,
-						   hard_frame_pointer_rtx)));
+	  emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+	  emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
 
 	  emit_move_insn (hard_frame_pointer_rtx, fp);
 	  emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
 
-	  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-	  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+	  emit_use (hard_frame_pointer_rtx);
+	  emit_use (stack_pointer_rtx);
 	  emit_indirect_jump (lab);
 	}
     }
@@ -849,8 +845,7 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 
       if (JUMP_P (insn))
 	{
-	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO, const0_rtx,
-					      REG_NOTES (insn));
+	  add_reg_note (insn, REG_NON_LOCAL_GOTO, const0_rtx);
 	  break;
 	}
       else if (CALL_P (insn))
@@ -877,6 +872,9 @@ expand_builtin_nonlocal_goto (tree exp)
   r_label = convert_memory_address (Pmode, r_label);
   r_save_area = expand_normal (t_save_area);
   r_save_area = convert_memory_address (Pmode, r_save_area);
+  /* Copy the address of the save location to a register just in case it was based
+    on the frame pointer.   */
+  r_save_area = copy_to_reg (r_save_area);
   r_fp = gen_rtx_MEM (Pmode, r_save_area);
   r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
 		      plus_constant (r_save_area, GET_MODE_SIZE (Pmode)));
@@ -892,13 +890,8 @@ expand_builtin_nonlocal_goto (tree exp)
     {
       r_label = copy_to_reg (r_label);
 
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				  gen_rtx_MEM (BLKmode,
-					       gen_rtx_SCRATCH (VOIDmode))));
-
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-				  gen_rtx_MEM (BLKmode,
-					       hard_frame_pointer_rtx)));
+      emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+      emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
 
       /* Restore frame pointer for containing function.
 	 This sets the actual hard register used for the frame pointer
@@ -910,8 +903,8 @@ expand_builtin_nonlocal_goto (tree exp)
 
       /* USE of hard_frame_pointer_rtx added for consistency;
 	 not clear if really needed.  */
-      emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-      emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+      emit_use (hard_frame_pointer_rtx);
+      emit_use (stack_pointer_rtx);
 
       /* If the architecture is using a GP register, we must
 	 conservatively assume that the target function makes use of it.
@@ -924,7 +917,7 @@ expand_builtin_nonlocal_goto (tree exp)
 	 a no-op if the GP register is a global invariant.)  */
       if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+	emit_use (pic_offset_table_rtx);
 
       emit_indirect_jump (r_label);
     }
@@ -935,8 +928,7 @@ expand_builtin_nonlocal_goto (tree exp)
     {
       if (JUMP_P (insn))
 	{
-	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO,
-					      const0_rtx, REG_NOTES (insn));
+	  add_reg_note (insn, REG_NON_LOCAL_GOTO, const0_rtx);
 	  break;
 	}
       else if (CALL_P (insn))
@@ -1123,19 +1115,27 @@ get_memory_rtx (tree exp, tree len)
 	  while (TREE_CODE (inner) == COMPONENT_REF)
 	    {
 	      tree field = TREE_OPERAND (inner, 1);
-	      gcc_assert (! DECL_BIT_FIELD (field));
 	      gcc_assert (TREE_CODE (mem_expr) == COMPONENT_REF);
 	      gcc_assert (field == TREE_OPERAND (mem_expr, 1));
 
+	      /* Bitfields are generally not byte-addressable.  */
+	      gcc_assert (!DECL_BIT_FIELD (field)
+			  || ((tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			       % BITS_PER_UNIT) == 0
+			      && host_integerp (DECL_SIZE (field), 0)
+			      && (TREE_INT_CST_LOW (DECL_SIZE (field))
+				  % BITS_PER_UNIT) == 0));
+
+	      /* If we can prove that the memory starting at XEXP (mem, 0) and
+		 ending at XEXP (mem, 0) + LENGTH will fit into this field, we
+		 can keep the COMPONENT_REF in MEM_EXPR.  But be careful with
+		 fields without DECL_SIZE_UNIT like flexible array members.  */
 	      if (length >= 0
-		  && TYPE_SIZE_UNIT (TREE_TYPE (inner))
-		  && host_integerp (TYPE_SIZE_UNIT (TREE_TYPE (inner)), 0))
+		  && DECL_SIZE_UNIT (field)
+		  && host_integerp (DECL_SIZE_UNIT (field), 0))
 		{
 		  HOST_WIDE_INT size
-		    = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (inner)), 0);
-		  /* If we can prove the memory starting at XEXP (mem, 0)
-		     and ending at XEXP (mem, 0) + LENGTH will fit into
-		     this field, we can keep that COMPONENT_REF in MEM_EXPR.  */
+		    = TREE_INT_CST_LOW (DECL_SIZE_UNIT (field));
 		  if (offset <= size
 		      && length <= size
 		      && offset + length <= size)
@@ -1144,7 +1144,7 @@ get_memory_rtx (tree exp, tree len)
 
 	      if (offset >= 0
 		  && host_integerp (DECL_FIELD_OFFSET (field), 0))
-		offset += tree_low_cst (DECL_FIELD_OFFSET (field), 0)
+		offset += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field))
 			  + tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
 			    / BITS_PER_UNIT;
 	      else
@@ -1290,7 +1290,7 @@ result_vector (int savep, rtx result)
   int regno, size, align, nelts;
   enum machine_mode mode;
   rtx reg, mem;
-  rtx *savevec = alloca (FIRST_PSEUDO_REGISTER * sizeof (rtx));
+  rtx *savevec = XALLOCAVEC (rtx, FIRST_PSEUDO_REGISTER);
 
   size = nelts = 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1602,7 +1602,7 @@ expand_builtin_return (rtx result)
 	emit_move_insn (reg, adjust_address (result, mode, size));
 
 	push_to_sequence (call_fusage);
-	emit_insn (gen_rtx_USE (VOIDmode, reg));
+	emit_use (reg);
 	call_fusage = get_insns ();
 	end_sequence ();
 	size += GET_MODE_SIZE (mode);
@@ -1946,48 +1946,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 
   before_call = get_last_insn ();
 
-  target = expand_call (exp, target, target == const0_rtx);
-
-  /* If this is a sqrt operation and we don't care about errno, try to
-     attach a REG_EQUAL note with a SQRT rtx to the emitted libcall.
-     This allows the semantics of the libcall to be visible to the RTL
-     optimizers.  */
-  if (builtin_optab == sqrt_optab && !errno_set)
-    {
-      /* Search backwards through the insns emitted by expand_call looking
-	 for the instruction with the REG_RETVAL note.  */
-      rtx last = get_last_insn ();
-      while (last != before_call)
-	{
-	  if (find_reg_note (last, REG_RETVAL, NULL))
-	    {
-	      rtx note = find_reg_note (last, REG_EQUAL, NULL);
-	      /* Check that the REQ_EQUAL note is an EXPR_LIST with
-		 two elements, i.e. symbol_ref(sqrt) and the operand.  */
-	      if (note
-		  && GET_CODE (note) == EXPR_LIST
-		  && GET_CODE (XEXP (note, 0)) == EXPR_LIST
-		  && XEXP (XEXP (note, 0), 1) != NULL_RTX
-		  && XEXP (XEXP (XEXP (note, 0), 1), 1) == NULL_RTX)
-		{
-		  rtx operand = XEXP (XEXP (XEXP (note, 0), 1), 0);
-		  /* Check operand is a register with expected mode.  */
-		  if (operand
-		      && REG_P (operand)
-		      && GET_MODE (operand) == mode)
-		    {
-		      /* Replace the REG_EQUAL note with a SQRT rtx.  */
-		      rtx equiv = gen_rtx_SQRT (mode, operand);
-		      set_unique_reg_note (last, REG_EQUAL, equiv);
-		    }
-		}
-	      break;
-	    }
-	  last = PREV_INSN (last);
-	}
-    }
-
-  return target;
+  return expand_call (exp, target, target == const0_rtx);
 }
 
 /* Expand a call to the builtin binary math functions (pow and atan2).
@@ -3366,11 +3325,13 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 	  && GET_CODE (len_rtx) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
-				  (void *) src_str, dest_align, false))
+				  CONST_CAST (char *, src_str),
+				  dest_align, false))
 	{
 	  dest_mem = store_by_pieces (dest_mem, INTVAL (len_rtx),
 				      builtin_memcpy_read_str,
-				      (void *) src_str, dest_align, false, 0);
+				      CONST_CAST (char *, src_str),
+				      dest_align, false, 0);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3479,14 +3440,15 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len, tree type,
 	  && GET_CODE (len_rtx) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) INTVAL (len_rtx) <= strlen (src_str) + 1
 	  && can_store_by_pieces (INTVAL (len_rtx), builtin_memcpy_read_str,
-				  (void *) src_str, dest_align, false))
+				  CONST_CAST (char *, src_str),
+				  dest_align, false))
 	{
 	  dest_mem = get_memory_rtx (dest, len);
 	  set_mem_align (dest_mem, dest_align);
 	  dest_mem = store_by_pieces (dest_mem, INTVAL (len_rtx),
 				      builtin_memcpy_read_str,
-				      (void *) src_str, dest_align,
-				      false, endp);
+				      CONST_CAST (char *, src_str),
+				      dest_align, false, endp);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3828,13 +3790,14 @@ expand_builtin_strncpy (tree exp, rtx target, enum machine_mode mode)
 	  if (!p || dest_align == 0 || !host_integerp (len, 1)
 	      || !can_store_by_pieces (tree_low_cst (len, 1),
 				       builtin_strncpy_read_str,
-				       (void *) p, dest_align, false))
+				       CONST_CAST (char *, p),
+				       dest_align, false))
 	    return NULL_RTX;
 
 	  dest_mem = get_memory_rtx (dest, len);
 	  store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			   builtin_strncpy_read_str,
-			   (void *) p, dest_align, false, 0);
+			   CONST_CAST (char *, p), dest_align, false, 0);
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
 	  return dest_mem;
@@ -3852,7 +3815,7 @@ builtin_memset_read_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
 			 enum machine_mode mode)
 {
   const char *c = (const char *) data;
-  char *p = alloca (GET_MODE_SIZE (mode));
+  char *p = XALLOCAVEC (char, GET_MODE_SIZE (mode));
 
   memset (p, *c, GET_MODE_SIZE (mode));
 
@@ -3876,7 +3839,7 @@ builtin_memset_gen_str (void *data, HOST_WIDE_INT offset ATTRIBUTE_UNUSED,
   if (size == 1)
     return (rtx) data;
 
-  p = alloca (size);
+  p = XALLOCAVEC (char, size);
   memset (p, 1, size);
   coeff = c_readstr (p, mode);
 
@@ -4792,7 +4755,7 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
   /* If the actual alignment is less than the alignment of the type,
      adjust the type accordingly so that we don't assume strict alignment
-     when deferencing the pointer.  */
+     when dereferencing the pointer.  */
   boundary *= BITS_PER_UNIT;
   if (boundary < TYPE_ALIGN (type))
     {
@@ -5249,18 +5212,17 @@ build_string_literal (int len, const char *str)
 
   t = build_string (len, str);
   elem = build_type_variant (char_type_node, 1, 0);
-  index = build_index_type (build_int_cst (NULL_TREE, len - 1));
+  index = build_index_type (size_int (len - 1));
   type = build_array_type (elem, index);
   TREE_TYPE (t) = type;
   TREE_CONSTANT (t) = 1;
   TREE_READONLY (t) = 1;
   TREE_STATIC (t) = 1;
 
-  type = build_pointer_type (type);
-  t = build1 (ADDR_EXPR, type, t);
-
   type = build_pointer_type (elem);
-  t = build1 (NOP_EXPR, type, t);
+  t = build1 (ADDR_EXPR, type,
+	      build4 (ARRAY_REF, elem,
+		      t, integer_zero_node, NULL_TREE, NULL_TREE));
   return t;
 }
 
@@ -5351,7 +5313,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
-	      char *newstr = alloca (len);
+	      char *newstr = XALLOCAVEC (char, len);
 	      memcpy (newstr, fmt_str, len - 1);
 	      newstr[len - 1] = 0;
 	      arg = build_string_literal (len, newstr);
@@ -5796,7 +5758,7 @@ expand_builtin_signbit (tree exp, rtx target)
 	  lo = 0;
 	}
 
-      if (imode != rmode)
+      if (GET_MODE_SIZE (imode) > GET_MODE_SIZE (rmode))
 	temp = gen_lowpart (rmode, temp);
       temp = expand_binop (rmode, and_optab, temp,
 			   immed_double_const (lo, hi, rmode),
@@ -6034,6 +5996,12 @@ expand_builtin_synchronize (void)
       return;
     }
 #endif
+
+  if (synchronize_libfunc != NULL_RTX)
+    {
+      emit_library_call (synchronize_libfunc, LCT_NORMAL, VOIDmode, 0);
+      return;
+    }
 
   /* If no explicit memory barrier instruction is available, create an
      empty asm stmt with a memory clobber.  */
@@ -8778,9 +8746,9 @@ fold_builtin_memory_op (tree dest, tree src, tree len, tree type, bool ignore, i
       if (!tree_int_cst_equal (lang_hooks.expr_size (srcvar), len))
 	return NULL_TREE;
       /* With memcpy, it is possible to bypass aliasing rules, so without
-         this check i. e. execute/20060930-2.c would be misoptimized, because
+         this check i.e. execute/20060930-2.c would be misoptimized, because
 	 it use conflicting alias set to hold argument for the memcpy call.
-	 This check is probably unnecesary with -fno-strict-aliasing. 
+	 This check is probably unnecessary with -fno-strict-aliasing.
 	 Similarly for destvar.  See also PR29286.  */
       if (!var_decl_component_p (srcvar)
 	  /* Accept: memcpy (*char_var, "test", 1); that simplify
@@ -8942,7 +8910,7 @@ fold_builtin_memchr (tree arg1, tree arg2, tree len, tree type)
 	  if (target_char_cast (arg2, &c))
 	    return NULL_TREE;
 
-	  r = memchr (p1, c, tree_low_cst (len, 1));
+	  r = (char *) memchr (p1, c, tree_low_cst (len, 1));
 
 	  if (r == NULL)
 	    return build_int_cst (TREE_TYPE (arg1), 0);
@@ -10792,7 +10760,7 @@ rewrite_call_expr (tree exp, int skip, tree fndecl, int n, ...)
       int i, j;
       va_list ap;
 
-      buffer = alloca (nargs * sizeof (tree));
+      buffer = XALLOCAVEC (tree, nargs);
       va_start (ap, n);
       for (i = 0; i < n; i++)
 	buffer[i] = va_arg (ap, tree);
@@ -12509,7 +12477,7 @@ fold_builtin_printf (tree fndecl, tree fmt, tree arg, bool ignore,
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
-	      char *newstr = alloca (len);
+	      char *newstr = XALLOCAVEC (char, len);
 	      memcpy (newstr, str, len - 1);
 	      newstr[len - 1] = 0;
 

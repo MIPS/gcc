@@ -2257,9 +2257,10 @@ add_functions (void)
 
   add_sym_1 ("sizeof", GFC_ISYM_SIZEOF, NO_CLASS, ACTUAL_NO, BT_INTEGER, ii,
 	     GFC_STD_GNU, gfc_check_sizeof, NULL, NULL,
-	     i, BT_UNKNOWN, 0, REQUIRED);
+	     x, BT_UNKNOWN, 0, REQUIRED);
 
   make_generic ("sizeof", GFC_ISYM_SIZEOF, GFC_STD_GNU);
+  make_alias ("c_sizeof", GFC_STD_F2008);
 
   add_sym_1 ("spacing", GFC_ISYM_SPACING, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_F95,
 	     gfc_check_x, gfc_simplify_spacing, gfc_resolve_spacing,
@@ -2852,7 +2853,7 @@ add_char_conversions (void)
 	ncharconv++;
 
   /* Allocate memory.  */
-  char_conversions = gfc_getmem (sizeof (gfc_intrinsic_sym) * ncharconv);
+  char_conversions = XCNEWVEC (gfc_intrinsic_sym, ncharconv);
 
   /* Add the conversions themselves.  */
   n = 0;
@@ -2904,13 +2905,14 @@ gfc_intrinsic_init_1 (void)
   sizing = SZ_CONVS;
   add_conversions ();
 
-  functions = gfc_getmem (sizeof (gfc_intrinsic_sym) * (nfunc + nsub)
-			  + sizeof (gfc_intrinsic_arg) * nargs);
+  functions = XCNEWVAR (struct gfc_intrinsic_sym,
+			sizeof (gfc_intrinsic_sym) * (nfunc + nsub)
+			+ sizeof (gfc_intrinsic_arg) * nargs);
 
   next_sym = functions;
   subroutines = functions + nfunc;
 
-  conversion = gfc_getmem (sizeof (gfc_intrinsic_sym) * nconv);
+  conversion = XCNEWVEC (gfc_intrinsic_sym, nconv);
 
   next_arg = ((gfc_intrinsic_arg *) (subroutines + nsub)) - 1;
 

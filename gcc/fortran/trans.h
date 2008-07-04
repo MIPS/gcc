@@ -206,7 +206,7 @@ typedef struct gfc_ss
   unsigned useflags:2, where:1;
 }
 gfc_ss;
-#define gfc_get_ss() gfc_getmem(sizeof(gfc_ss))
+#define gfc_get_ss() XCNEW (gfc_ss)
 
 /* The contents of this aren't actually used.  A NULL SS chain indicates a
    scalar expression, so this pointer is used to terminate SS chains.  */
@@ -493,9 +493,13 @@ bool gfc_get_array_descr_info (const_tree, struct array_descr_info *);
 /* In trans-openmp.c */
 bool gfc_omp_privatize_by_reference (const_tree);
 enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
-tree gfc_omp_clause_default_ctor (tree, tree);
+tree gfc_omp_clause_default_ctor (tree, tree, tree);
+tree gfc_omp_clause_copy_ctor (tree, tree, tree);
+tree gfc_omp_clause_assign_op (tree, tree, tree);
+tree gfc_omp_clause_dtor (tree, tree);
 bool gfc_omp_disregard_value_expr (tree, bool);
 bool gfc_omp_private_debug_clause (tree, bool);
+bool gfc_omp_private_outer_ref (tree);
 struct gimplify_omp_ctx;
 void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 

@@ -241,7 +241,7 @@ gfc_conv_intrinsic_conversion (gfc_se * se, gfc_expr * expr)
   int nargs;
 
   nargs = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * nargs);
+  args = (tree *) alloca (sizeof (tree) * nargs);
 
   /* Evaluate all the arguments passed. Whilst we're only interested in the 
      first one here, there are other parts of the front-end that assume this 
@@ -514,7 +514,7 @@ gfc_conv_intrinsic_int (gfc_se * se, gfc_expr * expr, enum rounding_mode op)
   int nargs;
 
   nargs = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * nargs);
+  args = (tree *) alloca (sizeof (tree) * nargs);
 
   /* Evaluate the argument, we process all arguments even though we only 
      use the first one for code generation purposes.  */
@@ -736,7 +736,7 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
 
   /* Get the decl and generate the call.  */
   num_args = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   gfc_conv_intrinsic_function_args (se, expr, args, num_args);
   fndecl = gfc_get_intrinsic_lib_fndecl (m, expr);
@@ -1037,7 +1037,7 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   type = gfc_typenode_for_spec (&expr->ts);
   gfc_conv_intrinsic_function_args (se, expr, args, num_args);
@@ -1333,7 +1333,7 @@ gfc_conv_intrinsic_ctime (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr) + 2;
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   var = gfc_create_var (pchar_type_node, "pstr");
   len = gfc_create_var (gfc_get_int_type (8), "len");
@@ -1371,7 +1371,7 @@ gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr) + 2;
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   var = gfc_create_var (pchar_type_node, "pstr");
   len = gfc_create_var (gfc_get_int_type (4), "len");
@@ -1411,7 +1411,7 @@ gfc_conv_intrinsic_ttynam (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr) + 2;
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   var = gfc_create_var (pchar_type_node, "pstr");
   len = gfc_create_var (gfc_get_int_type (4), "len");
@@ -1465,7 +1465,7 @@ gfc_conv_intrinsic_minmax (gfc_se * se, gfc_expr * expr, int op)
   unsigned int i, nargs;
 
   nargs = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * nargs);
+  args = (tree *) alloca (sizeof (tree) * nargs);
 
   gfc_conv_intrinsic_function_args (se, expr, args, nargs);
   type = gfc_typenode_for_spec (&expr->ts);
@@ -1536,7 +1536,7 @@ gfc_conv_intrinsic_minmax_char (gfc_se * se, gfc_expr * expr, int op)
   unsigned int nargs;
 
   nargs = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * (nargs + 4));
+  args = (tree *) alloca (sizeof (tree) * (nargs + 4));
   gfc_conv_intrinsic_function_args (se, expr, &args[4], nargs);
 
   /* Create the result variables.  */
@@ -2586,7 +2586,7 @@ gfc_conv_intrinsic_ishftc (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   gfc_conv_intrinsic_function_args (se, expr, args, num_args);
 
@@ -2751,11 +2751,17 @@ gfc_conv_intrinsic_index_scan_verify (gfc_se * se, gfc_expr * expr,
   tree *args;
   unsigned int num_args;
 
-  num_args = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * 5);
+  args = (tree *) alloca (sizeof (tree) * 5);
 
-  gfc_conv_intrinsic_function_args (se, expr, args,
-				    num_args >= 5 ? 5 : num_args);
+  /* Get number of arguments; characters count double due to the
+     string length argument. Kind= is not passed to the libary
+     and thus ignored.  */
+  if (expr->value.function.actual->next->next->expr == NULL)
+    num_args = 4;
+  else
+    num_args = 5;
+
+  gfc_conv_intrinsic_function_args (se, expr, args, num_args);
   type = gfc_typenode_for_spec (&expr->ts);
 
   if (num_args == 4)
@@ -2830,7 +2836,7 @@ gfc_conv_intrinsic_merge (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr);
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   gfc_conv_intrinsic_function_args (se, expr, args, num_args);
   if (expr->ts.type != BT_CHARACTER)
@@ -3265,8 +3271,6 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
   gfc_init_se (&argse, NULL);
   ss = gfc_walk_expr (arg);
 
-  source_bytes = gfc_create_var (gfc_array_index_type, "bytes");
-
   if (ss == gfc_ss_terminator)
     {
       gfc_conv_expr_reference (&argse, arg);
@@ -3276,14 +3280,14 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 
       /* Obtain the source word length.  */
       if (arg->ts.type == BT_CHARACTER)
-	source_bytes = size_of_string_in_bytes (arg->ts.kind,
-						argse.string_length);
+	se->expr = size_of_string_in_bytes (arg->ts.kind,
+					    argse.string_length);
       else
-	source_bytes = fold_convert (gfc_array_index_type,
-				     size_in_bytes (type)); 
+	se->expr = fold_convert (gfc_array_index_type, size_in_bytes (type)); 
     }
   else
     {
+      source_bytes = gfc_create_var (gfc_array_index_type, "bytes");
       argse.want_pointer = 0;
       gfc_conv_expr_descriptor (&argse, arg, ss);
       source = gfc_conv_descriptor_data_get (argse.expr);
@@ -3312,10 +3316,10 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
 			     tmp, source_bytes);
 	  gfc_add_modify_expr (&argse.pre, source_bytes, tmp);
 	}
+      se->expr = source_bytes;
     }
 
   gfc_add_block_to_block (&se->pre, &argse.pre);
-  se->expr = source_bytes;
 }
 
 
@@ -3890,7 +3894,7 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
   unsigned int num_args;
 
   num_args = gfc_intrinsic_argument_list_length (expr) + 2;
-  args = alloca (sizeof (tree) * num_args);
+  args = (tree *) alloca (sizeof (tree) * num_args);
 
   var = gfc_create_var (gfc_get_pchar_type (expr->ts.kind), "pstr");
   addr = gfc_build_addr_expr (ppvoid_type_node, var);

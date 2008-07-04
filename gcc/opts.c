@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
@@ -651,7 +651,7 @@ static void
 add_input_filename (const char *filename)
 {
   num_in_fnames++;
-  in_fnames = xrealloc (in_fnames, num_in_fnames * sizeof (in_fnames[0]));
+  in_fnames = XRESIZEVEC (const char *, in_fnames, num_in_fnames);
   in_fnames[num_in_fnames - 1] = filename;
 }
 
@@ -822,6 +822,13 @@ decode_options (unsigned int argc, const char **argv)
       flag_merge_constants = 0;
     }
 
+  if (!no_unit_at_a_time_default)
+    {
+      flag_unit_at_a_time = 1;
+      if (!optimize)
+        flag_toplevel_reorder = 0;
+    }
+
   if (optimize >= 1)
     {
       flag_defer_pop = 1;
@@ -848,8 +855,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_fre = 1;
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
-      if (!no_unit_at_a_time_default)
-        flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -886,9 +891,12 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_functions = 1;
       flag_tree_store_ccp = 1;
       flag_tree_vrp = 1;
+      flag_tree_switch_conversion = 1;
 
       if (!optimize_size)
 	{
+          /* Conditional DCE generates bigger code.  */
+          flag_tree_builtin_call_dce = 1;
           /* PRE tends to generate bigger code.  */
           flag_tree_pre = 1;
 	}
@@ -948,7 +956,7 @@ decode_options (unsigned int argc, const char **argv)
      modify it.  */
   target_flags = targetm.default_target_flags;
 
-  /* Some tagets have ABI-specified unwind tables.  */
+  /* Some targets have ABI-specified unwind tables.  */
   flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
@@ -1135,7 +1143,7 @@ print_filtered_help (unsigned int include_flags,
     }
 
   if (!printed)
-    printed = xcalloc (1, cl_options_count);
+    printed = XCNEWVAR (char, cl_options_count);
 
   for (i = 0; i < cl_options_count; i++)
     {
@@ -1411,7 +1419,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 	unsigned int include_flags = 0;
 	/* Note - by default we include undocumented options when listing
 	   specific classes.  If you only want to see documented options
-	   then add ",^undocumented" to the --help= option.  e.g.:
+	   then add ",^undocumented" to the --help= option.  E.g.:
 
 	   --help=target,^undocumented  */
 	unsigned int exclude_flags = 0;
@@ -1471,7 +1479,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 	    /* Check to see if the string matches a language name.
 	       Note - we rely upon the alpha-sorted nature of the entries in
 	       the lang_names array, specifically that shorter names appear
-	       before their longer variants.  (ie C before C++).  That way
+	       before their longer variants.  (i.e. C before C++).  That way
 	       when we are attempting to match --help=c for example we will
 	       match with C first and not C++.  */
 	    for (i = 0, lang_flag = 0; i < cl_lang_count; i++)
@@ -2159,7 +2167,7 @@ get_option_state (int option, struct cl_option_state *state)
       state->data = *(const char **) cl_options[option].flag_var;
       if (state->data == 0)
 	state->data = "";
-      state->size = strlen (state->data) + 1;
+      state->size = strlen ((const char *) state->data) + 1;
       break;
     }
   return true;

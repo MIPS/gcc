@@ -1104,6 +1104,44 @@ gfc_restore_sym (gfc_symbol * sym, gfc_saved_var * save)
 }
 
 
+/* Declare a procedure pointer.  */
+
+static tree
+get_proc_pointer_decl (gfc_symbol *sym)
+{
+  tree decl;
+
+  decl = sym->backend_decl;
+  if (decl)
+    return decl;
+
+  decl = build_decl (VAR_DECL, get_identifier (sym->name),
+		     build_pointer_type (gfc_get_function_type (sym)));
+
+  if (sym->ns->proc_name->backend_decl == current_function_decl
+      || sym->attr.contained)
+    gfc_add_decl_to_function (decl);
+  else
+    gfc_add_decl_to_parent_function (decl);
+
+  sym->backend_decl = decl;
+
+  if (!sym->attr.use_assoc
+	&& (sym->attr.save != SAVE_NONE || sym->attr.data
+	      || (sym->value && sym->ns->proc_name->attr.is_main_program)))
+    TREE_STATIC (decl) = 1;
+
+  if (TREE_STATIC (decl) && sym->value)
+    {
+      /* Add static initializer.  */
+      DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
+	  TREE_TYPE (decl), sym->attr.dimension, sym->attr.proc_pointer);
+    }
+
+  return decl;
+}
+
+
 /* Get a basic decl for an external function.  */
 
 tree
@@ -1125,6 +1163,9 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
      The procedure may be an alternate entry point, but we don't want/need
      to know that.  */
   gcc_assert (!(sym->attr.entry || sym->attr.entry_master));
+
+  if (sym->attr.proc_pointer)
+    return get_proc_pointer_decl (sym);
 
   if (sym->attr.intrinsic)
     {
@@ -1539,6 +1580,9 @@ create_function_arglist (gfc_symbol * sym)
 	  else
 	    type = gfc_sym_type (f->sym);
 	}
+
+      if (f->sym->attr.proc_pointer)
+        type = build_pointer_type (type);
 
       /* Build a the argument declaration.  */
       parm = build_decl (PARM_DECL, gfc_sym_identifier (f->sym), type);
@@ -3292,9 +3336,13 @@ gfc_generate_function_code (gfc_namespace * ns)
 			 build_int_cst (integer_type_node,
 					flag_bounds_check), array);
 
+      array = tree_cons (NULL_TREE,
+			 build_int_cst (integer_type_node,
+					gfc_option.flag_range_check), array);
+
       array_type = build_array_type (integer_type_node,
 				     build_index_type (build_int_cst (NULL_TREE,
-								      6)));
+								      7)));
       array = build_constructor_from_list (array_type, nreverse (array));
       TREE_CONSTANT (array) = 1;
       TREE_STATIC (array) = 1;
@@ -3308,7 +3356,7 @@ gfc_generate_function_code (gfc_namespace * ns)
       var = gfc_build_addr_expr (pvoid_type_node, var);
 
       tmp = build_call_expr (gfor_fndecl_set_options, 2,
-			     build_int_cst (integer_type_node, 7), var);
+			     build_int_cst (integer_type_node, 8), var);
       gfc_add_expr_to_block (&body, tmp);
     }
 

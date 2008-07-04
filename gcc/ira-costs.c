@@ -1507,17 +1507,18 @@ ira_init_costs (void)
   max_struct_costs_size
     = sizeof (struct costs) + sizeof (int) * (ira_important_classes_num - 1);
   /* Don't use ira_allocate because vectors live through several IRA calls.  */
-  init_cost = xmalloc (max_struct_costs_size);
+  init_cost = (struct costs *) xmalloc (max_struct_costs_size);
   init_cost->mem_cost = 1000000;
   for (i = 0; i < ira_important_classes_num; i++)
     init_cost->cost[i] = 1000000;
   for (i = 0; i < MAX_RECOG_OPERANDS; i++)
     {
-      op_costs[i] = xmalloc (max_struct_costs_size);
-      this_op_costs[i] = xmalloc (max_struct_costs_size);
+      op_costs[i] = (struct costs *) xmalloc (max_struct_costs_size);
+      this_op_costs[i] = (struct costs *) xmalloc (max_struct_costs_size);
     }
-  temp_costs = xmalloc (max_struct_costs_size);
-  cost_classes = xmalloc (sizeof (enum reg_class) * ira_important_classes_num);
+  temp_costs = (struct costs *) xmalloc (max_struct_costs_size);
+  cost_classes = (enum reg_class *) xmalloc (sizeof (enum reg_class)
+					     * ira_important_classes_num);
 }
 
 /* Function called once at the end of compiler work.  */
@@ -1537,9 +1538,11 @@ ira_costs (void)
   ira_allocno_t a;
   ira_allocno_iterator ai;
 
-  total_costs = ira_allocate (max_struct_costs_size * ira_allocnos_num);
+  total_costs = (struct costs *) ira_allocate (max_struct_costs_size
+					       * ira_allocnos_num);
   allocno_pref_buffer
-    = ira_allocate (sizeof (enum reg_class) * ira_allocnos_num);
+    = (enum reg_class *) ira_allocate (sizeof (enum reg_class)
+				       * ira_allocnos_num);
   find_allocno_class_costs ();
   setup_allocno_cover_class_and_costs ();
   /* Because we could process operands only as subregs, check mode of

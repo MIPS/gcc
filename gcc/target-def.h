@@ -388,6 +388,9 @@
 #define TARGET_LIBGCC_CMP_RETURN_MODE  default_libgcc_cmp_return_mode
 #define TARGET_LIBGCC_SHIFT_COUNT_MODE default_libgcc_shift_count_mode
 
+/* In unwind-generic.h.  */
+#define TARGET_UNWIND_WORD_MODE default_unwind_word_mode
+
 /* In tree.c.  */
 #define TARGET_MERGE_DECL_ATTRIBUTES merge_decl_attributes
 #define TARGET_MERGE_TYPE_ATTRIBUTES merge_type_attributes
@@ -545,9 +548,7 @@
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_false
 
 #define TARGET_STRUCT_VALUE_RTX hook_rtx_tree_int_null
-#ifndef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY default_return_in_memory
-#endif
 #define TARGET_RETURN_IN_MSB hook_bool_const_tree_false
 
 #define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
@@ -763,6 +764,7 @@
   TARGET_EH_RETURN_FILTER_MODE,			\
   TARGET_LIBGCC_CMP_RETURN_MODE,                \
   TARGET_LIBGCC_SHIFT_COUNT_MODE,               \
+  TARGET_UNWIND_WORD_MODE,			\
   TARGET_MERGE_DECL_ATTRIBUTES,			\
   TARGET_MERGE_TYPE_ATTRIBUTES,			\
   TARGET_ATTRIBUTE_TABLE,			\

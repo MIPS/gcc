@@ -1,3 +1,124 @@
+2008-07-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36676
+	* io/list_read.c (find_nml_name): Use eat_separator instead of eat_line.
+	
+2008-06-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36657
+	* io/list_read.c (read_character): Check for '!' along with separators.
+	(find_nml_name): Likewise and eat the comment if found.
+
+2008-06-17  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* configure: Regenerate.
+
+2008-06-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36546
+	* io/list_read.c (eat_separator): Add tab character to condition
+	for looping past whitespace.
+
+2008-06-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36515
+	* libgfortran.h (compile_options_t): Add int range_check to structure.
+	* runtime/compile_options.c (set_options): Add range_check option.
+	(init_compile_options): Likewise.
+	*io/read.c (read_decimal): Change overflow checks to include
+	range_check.
+	
+2008-06-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36538
+	* io/list_read.c (namelist_read): Add eat_separator to eliminate leading
+	tabs.
+
+2008-06-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35863
+	* libgfortran.h: Change l8_to_l4_offset to big_endian and add endian_off.
+	* runtime/main.c: Fix error in comment. Change l8_to_l4_offset to
+	big_endian. (determine_endianness): Add endian_off and set its value
+	according to big_endian.
+	* gfortran.map: Add symbol for new _gfortran_transfer_character_wide.
+	* io/io.h: Add prototype declarations for new functions.
+	* io/list_read.c (list_formatted_read_scalar): Modify to handle kind=4.
+	(list_formatted_read): Calculate stride based on kind for character type
+	and use it when calling list_formatted_read_scalar.
+	* io/inquire.c (inquire_via_unit): Change l8_to_l4_offset to big_endian.
+	* io/open.c (st_open): Change l8_to_l4_offset to big_endian.
+	* io/read.c (read_a_char4): New function to handle formatted read.
+	* io/write.c: Define GFC_CHAR4(x) to improve readability of code.
+	(write_a_char4): New function to handle formatted write.
+	(write_character): Modify to accept the kind parameter and adjust for
+	endianess of the machine. (list_formatted_write): Calculate the stride
+	resulting from the kind and adjust the list_formatted_write_scalar call
+	accordingly. (nml_write_obj): Adjust calls to write_character.
+	(namelist_write): Likewise.
+	* io/transfer.c (formatted_transfer_scaler): Rename 'len' argument to
+	'kind' argument to better describe what it is. Add calls to new
+	functions for kind == 4. (formatted_transfer): Modify to handle the case
+	of type character and kind equals 4 to pass in the kind to the transfer
+	routines. (transfer_character_wide): Add this new function.
+	(transfer_array): Don't set kind to the character string length. Adjust
+	strides bases on character kind.
+	(unformatted_read): Adjust size based on kind for character types.
+	(unformatted_write): Likewise. (data_transfer_init): Change
+	l8_to_l4_offset to big_endian.
+	io/fbuf.c (fbuf_seek): Add cast to eliminate warning.
+
+2008-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	* configure.ac (AM_CFLAGS): Remove -Werror again.
+	* configure: Regenerate.
+
+2008-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR libgfortran/36518
+	* configure.ac (AM_CFLAGS): Add -Werror.
+	* configure: Regenerate.
+	* m4/ifunction_logical.m4: Cast "n" to "(int)".
+	* generated/any_l16.c: Regenerate.
+	* generated/any_l2.c: Regenerate.
+	* generated/all_l1.c: Regenerate.
+	* generated/all_l2.c: Regenerate.
+	* generated/all_l16.c: Regenerate.
+	* generated/any_l4.c: Regenerate.
+	* generated/count_4_l.c: Regenerate.
+	* generated/count_8_l.c: Regenerate.
+	* generated/all_l4.c: Regenerate.
+	* generated/count_1_l.c: Regenerate.
+	* generated/count_16_l.c: Regenerate.
+	* generated/any_l8.c: Regenerate.
+	* generated/count_2_l.c: Regenerate.
+	* generated/any_l1.c: Regenerate.
+	* generated/all_l8.c: Regenerate.
+
+2008-06-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36495
+	* configure.ac (AM_FCFLAGS): Add "-Werror -fimplicit-none".
+	* configure: (generated) ditto.
+	* intrinsics/dprod_r8.f90: Add "implicit none".
+
+2008-06-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/36420
+	PR libfortran/36421
+	PR libfortran/36422
+	* io/io.h: Add prototype for write_real.
+	* io/transfer.c (formatted_transfer_scalar): For FMT_G and width zero,
+	use write_real.
+	* io/format.c: Add zero width error message. (parse_format_list): Use
+	error message for FMT_A if followed by FMT_ZERO. Use zero width error
+	message	for FMT_G if mode is READ or if -std=f95 or f2003. (fmormat0):
+	Fix typo in comment.
+	* io/write.c(write_a): Set wlen to len if FMT_G	and length is zero.
+	(write_l): Add wlen variable and use it if FMT_G and width is zero.
+	(write_decimal): If FMT_G, set m to -1 to flag processor dependent
+	formatting. (write_real): Remove static declaration.
+
 2008-05-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/36319

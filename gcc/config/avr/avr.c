@@ -71,6 +71,7 @@ static void avr_file_start (void);
 static void avr_file_end (void);
 static void avr_asm_function_end_prologue (FILE *);
 static void avr_asm_function_begin_epilogue (FILE *);
+static rtx avr_function_value (const_tree, const_tree, bool);
 static void avr_insert_attributes (tree, tree *);
 static void avr_asm_init_sections (void);
 static unsigned int avr_section_type_flags (tree, const char *, int);
@@ -83,6 +84,8 @@ static bool avr_rtx_costs (rtx, int, int, int *);
 static int avr_address_cost (rtx);
 static bool avr_return_in_memory (const_tree, const_tree);
 static struct machine_function * avr_init_machine_status (void);
+static rtx avr_builtin_setjmp_frame_value (void);
+
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
 
@@ -171,6 +174,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
     /* Classic + MOVW, <= 8K.  */
   { "avr25",        ARCH_AVR25, NULL },
   { "attiny13",     ARCH_AVR25, "__AVR_ATtiny13__" },
+  { "attiny13a",    ARCH_AVR25, "__AVR_ATtiny13A__" },
   { "attiny2313",   ARCH_AVR25, "__AVR_ATtiny2313__" },
   { "attiny24",     ARCH_AVR25, "__AVR_ATtiny24__" },
   { "attiny44",     ARCH_AVR25, "__AVR_ATtiny44__" },
@@ -197,6 +201,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "avr35",        ARCH_AVR35, NULL },
   { "at90usb82",    ARCH_AVR35, "__AVR_AT90USB82__" },
   { "at90usb162",   ARCH_AVR35, "__AVR_AT90USB162__" },
+  { "attiny167",    ARCH_AVR35, "__AVR_ATtiny167__" },
     /* Enhanced, <= 8K.  */
   { "avr4",         ARCH_AVR4, NULL },
   { "atmega8",      ARCH_AVR4, "__AVR_ATmega8__" },
@@ -237,7 +242,6 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega329p",   ARCH_AVR5, "__AVR_ATmega329P__" },
   { "atmega3290",   ARCH_AVR5, "__AVR_ATmega3290__" },
   { "atmega3290p",  ARCH_AVR5, "__AVR_ATmega3290P__" },
-  { "atmega32hvb",  ARCH_AVR5, "__AVR_ATmega32HVB__" },
   { "atmega406",    ARCH_AVR5, "__AVR_ATmega406__" },
   { "atmega64",     ARCH_AVR5, "__AVR_ATmega64__" },
   { "atmega640",    ARCH_AVR5, "__AVR_ATmega640__" },
@@ -252,6 +256,9 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can64",    ARCH_AVR5, "__AVR_AT90CAN64__" },
   { "at90pwm216",   ARCH_AVR5, "__AVR_AT90PWM216__" },
   { "at90pwm316",   ARCH_AVR5, "__AVR_AT90PWM316__" },
+  { "atmega32m1",   ARCH_AVR5, "__AVR_ATmega32M1__" },
+  { "atmega32c1",   ARCH_AVR5, "__AVR_ATmega32C1__" },
+  { "atmega32u4",   ARCH_AVR5, "__AVR_ATmega32U4__" },
   { "at90usb646",   ARCH_AVR5, "__AVR_AT90USB646__" },
   { "at90usb647",   ARCH_AVR5, "__AVR_AT90USB647__" },
   { "at94k",        ARCH_AVR5, "__AVR_AT94K__" },
@@ -302,6 +309,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ASM_FUNCTION_END_PROLOGUE avr_asm_function_end_prologue
 #undef TARGET_ASM_FUNCTION_BEGIN_EPILOGUE
 #define TARGET_ASM_FUNCTION_BEGIN_EPILOGUE avr_asm_function_begin_epilogue
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE avr_function_value
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
 #undef TARGET_ASM_FUNCTION_RODATA_SECTION
@@ -322,6 +331,9 @@ int avr_case_values_threshold = 30000;
 
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
+
+#undef TARGET_BUILTIN_SETJMP_FRAME_VALUE
+#define TARGET_BUILTIN_SETJMP_FRAME_VALUE avr_builtin_setjmp_frame_value
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -523,6 +535,17 @@ initial_elimination_offset (int from, int to)
     }
 }
 
+/* Actual start of frame is virtual_stack_vars_rtx this is offset from 
+   frame pointer by +STARTING_FRAME_OFFSET.
+   Using saved frame = virtual_stack_vars_rtx - STARTING_FRAME_OFFSET
+   avoids creating add/sub of offset in nonlocal goto and setjmp.  */
+
+rtx avr_builtin_setjmp_frame_value (void)
+{
+  return gen_rtx_MINUS (Pmode, virtual_stack_vars_rtx, 
+			 gen_int_mode (STARTING_FRAME_OFFSET, Pmode));
+}
+
 /* Return 1 if the function epilogue is just a single "ret".  */
 
 int
@@ -680,7 +703,7 @@ expand_prologue (void)
       RTX_FRAME_RELATED_P (insn) = 1;
 
       /* Prevent any attempt to delete the setting of ZERO_REG!  */
-      emit_insn (gen_rtx_USE (VOIDmode, zero_reg_rtx));
+      emit_use (zero_reg_rtx);
     }
   if (minimize && (frame_pointer_needed 
 		   || (AVR_2_BYTE_PC && live_seq > 6)
@@ -763,8 +786,32 @@ expand_prologue (void)
 							    GET_MODE(myfp))));
               RTX_FRAME_RELATED_P (insn) = 1;
 
-              insn = emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
-              RTX_FRAME_RELATED_P (insn) = 1;
+	      /* Copy to stack pointer.  */
+	      if (TARGET_TINY_STACK)
+		{
+		  insn = emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+		  RTX_FRAME_RELATED_P (insn) = 1;
+		}
+	      else if (TARGET_NO_INTERRUPTS 
+		       || cfun->machine->is_signal
+		       || cfun->machine->is_OS_main)
+		{
+		  insn = 
+		    emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
+						       frame_pointer_rtx));
+		  RTX_FRAME_RELATED_P (insn) = 1;		
+		}
+	      else if (cfun->machine->is_interrupt)
+		{
+		  insn = emit_insn (gen_movhi_sp_r_irq_on (stack_pointer_rtx, 
+							   frame_pointer_rtx));
+		  RTX_FRAME_RELATED_P (insn) = 1;
+		}
+	      else
+		{
+		  insn = emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+		  RTX_FRAME_RELATED_P (insn) = 1;
+		}
 
 	      fp_plus_insns = get_insns ();
 	      end_sequence ();
@@ -915,7 +962,25 @@ expand_epilogue (void)
 							  GET_MODE(myfp))));
 
 	      /* Copy to stack pointer.  */
-	      emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+	      if (TARGET_TINY_STACK)
+		{
+		  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+		}
+	      else if (TARGET_NO_INTERRUPTS 
+		       || cfun->machine->is_signal)
+		{
+		  emit_insn (gen_movhi_sp_r_irq_off (stack_pointer_rtx, 
+						     frame_pointer_rtx));
+		}
+	      else if (cfun->machine->is_interrupt)
+		{
+		  emit_insn (gen_movhi_sp_r_irq_on (stack_pointer_rtx, 
+						    frame_pointer_rtx));
+		}
+	      else
+		{
+		  emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
+		}
 
 	      fp_plus_insns = get_insns ();
 	      end_sequence ();	      
@@ -1708,32 +1773,12 @@ output_movhi (rtx insn, rtx operands[], int *l)
 	  if (test_hard_reg_class (STACK_REG, dest))
 	    {
 	      if (TARGET_TINY_STACK)
-		{
-		  *l = 1;
-		  return AS2 (out,__SP_L__,%A1);
-		}
-              /*  Use simple load of stack pointer if no interrupts are used
-              or inside main or signal function prologue where they disabled.  */
-	      else if (TARGET_NO_INTERRUPTS 
-                        || (reload_completed 
-                            && cfun->machine->is_signal 
-                            && prologue_epilogue_contains (insn)))
-                {
-                  *l = 2;
-                  return (AS2 (out,__SP_H__,%B1) CR_TAB
-                          AS2 (out,__SP_L__,%A1));
-                }
-              /*  In interrupt prolog we know interrupts are enabled.  */
-              else if (reload_completed 
-                        && cfun->machine->is_interrupt
-                        && prologue_epilogue_contains (insn))
-                {
-                  *l = 4;
-	           return ("cli"                   CR_TAB
-                           AS2 (out,__SP_H__,%B1) CR_TAB
-                           "sei"                   CR_TAB
-                           AS2 (out,__SP_L__,%A1));
-                }
+		return *l = 1, AS2 (out,__SP_L__,%A1);
+              /* Use simple load of stack pointer if no interrupts are 
+		 used.  */
+	      else if (TARGET_NO_INTERRUPTS)
+		return *l = 2, (AS2 (out,__SP_H__,%B1) CR_TAB
+				AS2 (out,__SP_L__,%A1));
 	      *l = 5;
 	      return (AS2 (in,__tmp_reg__,__SREG__)  CR_TAB
 		      "cli"                          CR_TAB
@@ -5661,7 +5706,9 @@ avr_libcall_value (enum machine_mode mode)
    function returns a value of data type VALTYPE.  */
 
 rtx
-avr_function_value (const_tree type, const_tree func ATTRIBUTE_UNUSED)
+avr_function_value (const_tree type, 
+		    const_tree func ATTRIBUTE_UNUSED, 
+		    bool outgoing ATTRIBUTE_UNUSED)
 {
   unsigned int offs;
   
@@ -5875,6 +5922,23 @@ avr_peep2_scratch_safe (rtx scratch)
 	    return 0;
 	}
     }
+  return 1;
+}
+
+/* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
+
+int
+avr_hard_regno_rename_ok (unsigned int old_reg ATTRIBUTE_UNUSED,
+			  unsigned int new_reg)
+{
+  /* Interrupt functions can only use registers that have already been
+     saved by the prologue, even if they would normally be
+     call-clobbered.  */
+
+  if ((cfun->machine->is_interrupt || cfun->machine->is_signal)
+      && !df_regs_ever_live_p (new_reg))
+    return 0;
+
   return 1;
 }
 

@@ -389,7 +389,8 @@ new_saved_hard_reg (int regno, int call_freq)
 {
   struct saved_hard_reg *saved_reg;
 
-  saved_reg = xmalloc (sizeof (struct saved_hard_reg));
+  saved_reg
+    = (struct saved_hard_reg *) xmalloc (sizeof (struct saved_hard_reg));
   hard_reg_map[regno] = all_saved_regs[saved_regs_num] = saved_reg;
   saved_reg->num = saved_regs_num++;
   saved_reg->hard_regno = regno;
@@ -414,8 +415,8 @@ finish_saved_hard_regs (void)
 static int
 saved_hard_reg_compare_func (const void *v1p, const void *v2p)
 {
-  struct saved_hard_reg *p1 = *(struct saved_hard_reg **) v1p;
-  struct saved_hard_reg *p2 = *(struct saved_hard_reg **) v2p;
+  const struct saved_hard_reg *p1 = *(struct saved_hard_reg * const *) v1p;
+  const struct saved_hard_reg *p2 = *(struct saved_hard_reg * const *) v2p;
   
   if (flag_omit_frame_pointer)
     {
@@ -549,7 +550,7 @@ setup_save_areas (void)
 	    }
 	}
       /* Find saved hard register conflicts.  */
-      saved_reg_conflicts = xmalloc (saved_regs_num * saved_regs_num);
+      saved_reg_conflicts = (char *) xmalloc (saved_regs_num * saved_regs_num);
       memset (saved_reg_conflicts, 0, saved_regs_num * saved_regs_num);
       for (chain = reload_insn_chain; chain != 0; chain = next)
 	{
@@ -2176,7 +2177,7 @@ static void
 mark_set_regs (rtx reg, const_rtx setter ATTRIBUTE_UNUSED, void *data)
 {
   int regno, endregno, i;
-  HARD_REG_SET *this_insn_sets = data;
+  HARD_REG_SET *this_insn_sets = (HARD_REG_SET *) data;
 
   if (GET_CODE (reg) == SUBREG)
     {

@@ -33,17 +33,16 @@ along with GCC; see the file COPYING3.  If not see
 /* Codes of tree nodes */
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
+#define END_OF_BASE_TREE_CODES LAST_AND_UNUSED_TREE_CODE,
 
 enum tree_code {
-#include "tree.def"
-
-  LAST_AND_UNUSED_TREE_CODE	/* A convenient way to get a value for
-				   NUM_TREE_CODES.  */
+#include "all-tree.def"
+MAX_TREE_CODES
 };
 
 #undef DEFTREECODE
+#undef END_OF_BASE_TREE_CODES
 
-#define MAX_TREE_CODES 512
 extern unsigned char tree_contains_struct[MAX_TREE_CODES][64];
 #define CODE_CONTAINS_STRUCT(CODE, STRUCT) (tree_contains_struct[(CODE)][(STRUCT)])
 
@@ -174,7 +173,7 @@ extern const enum tree_code_class tree_code_type[];
 #define IS_EXPR_CODE_CLASS(CLASS)\
 	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
 
-/* Returns nonzer iff CLASS is a GIMPLE statement.  */
+/* Returns nonzero iff CLASS is a GIMPLE statement.  */
 
 #define IS_GIMPLE_STMT_CODE_CLASS(CLASS) ((CLASS) == tcc_gimple_stmt)
 
@@ -186,6 +185,7 @@ extern const enum tree_code_class tree_code_type[];
 
 #define OMP_DIRECTIVE_P(NODE)				\
     (TREE_CODE (NODE) == OMP_PARALLEL			\
+     || TREE_CODE (NODE) == OMP_TASK			\
      || TREE_CODE (NODE) == OMP_FOR			\
      || TREE_CODE (NODE) == OMP_SECTIONS		\
      || TREE_CODE (NODE) == OMP_SECTIONS_SWITCH		\
@@ -315,7 +315,7 @@ enum omp_clause_code
      Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
                 into the shared one.
      Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
-                placeholder used in OMP_CLAUSE_REDUCTION_MERGE.  */
+                placeholder used in OMP_CLAUSE_REDUCTION_{INIT,MERGE}.  */
   OMP_CLAUSE_REDUCTION,
 
   /* OpenMP clause: copyin (variable_list).  */
@@ -340,7 +340,13 @@ enum omp_clause_code
   OMP_CLAUSE_ORDERED,
 
   /* OpenMP clause: default.  */
-  OMP_CLAUSE_DEFAULT
+  OMP_CLAUSE_DEFAULT,
+
+  /* OpenMP clause: collapse (constant-integer-expression).  */
+  OMP_CLAUSE_COLLAPSE,
+
+  /* OpenMP clause: untied.  */
+  OMP_CLAUSE_UNTIED
 };
 
 /* The definition of tree nodes fills the next several pages.  */
@@ -525,6 +531,8 @@ struct gimple_stmt GTY(())
 
        OMP_PARALLEL_COMBINED in
            OMP_PARALLEL
+       OMP_CLAUSE_PRIVATE_OUTER_REF in
+	   OMP_CLAUSE_PRIVATE
 
    protected_flag:
 
@@ -1579,6 +1587,9 @@ struct tree_vec GTY(())
 
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
+#define CONSTRUCTOR_ELT(NODE,IDX) \
+  (VEC_index (constructor_elt, CONSTRUCTOR_ELTS (NODE), IDX))
+#define CONSTRUCTOR_NELTS(NODE) (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
@@ -1797,6 +1808,20 @@ struct tree_constructor GTY(())
 #define OMP_PARALLEL_FN(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 2)
 #define OMP_PARALLEL_DATA_ARG(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 3)
 
+#define OMP_TASK_BODY(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 0)
+#define OMP_TASK_CLAUSES(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 1)
+#define OMP_TASK_FN(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 2)
+#define OMP_TASK_DATA_ARG(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 3)
+#define OMP_TASK_COPYFN(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 4)
+#define OMP_TASK_ARG_SIZE(NODE)	   TREE_OPERAND (OMP_TASK_CHECK (NODE), 5)
+#define OMP_TASK_ARG_ALIGN(NODE)   TREE_OPERAND (OMP_TASK_CHECK (NODE), 6)
+
+#define OMP_TASKREG_CHECK(NODE)	  TREE_RANGE_CHECK (NODE, OMP_PARALLEL, OMP_TASK)
+#define OMP_TASKREG_BODY(NODE)    TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 0)
+#define OMP_TASKREG_CLAUSES(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 1)
+#define OMP_TASKREG_FN(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 2)
+#define OMP_TASKREG_DATA_ARG(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 3)
+
 #define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
 #define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 1)
 #define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 2)
@@ -1849,10 +1874,19 @@ struct tree_constructor GTY(())
 #define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE)->base.public_flag)
 
+/* True on a PRIVATE clause if ctor needs access to outer region's
+   variable.  */
+#define OMP_CLAUSE_PRIVATE_OUTER_REF(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
+
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */
 #define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE)->base.public_flag)
+#define OMP_CLAUSE_LASTPRIVATE_STMT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE,			\
+						OMP_CLAUSE_LASTPRIVATE),\
+		      1)
 
 #define OMP_CLAUSE_IF_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF), 0)
@@ -1860,6 +1894,13 @@ struct tree_constructor GTY(())
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_THREADS),0)
 #define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE), 0)
+
+#define OMP_CLAUSE_COLLAPSE_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 0)
+#define OMP_CLAUSE_COLLAPSE_ITERVAR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 1)
+#define OMP_CLAUSE_COLLAPSE_COUNT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 2)
 
 #define OMP_CLAUSE_REDUCTION_CODE(NODE)	\
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->omp_clause.subcode.reduction_code)
@@ -1875,6 +1916,7 @@ enum omp_clause_schedule_kind
   OMP_CLAUSE_SCHEDULE_STATIC,
   OMP_CLAUSE_SCHEDULE_DYNAMIC,
   OMP_CLAUSE_SCHEDULE_GUIDED,
+  OMP_CLAUSE_SCHEDULE_AUTO,
   OMP_CLAUSE_SCHEDULE_RUNTIME
 };
 
@@ -1886,7 +1928,8 @@ enum omp_clause_default_kind
   OMP_CLAUSE_DEFAULT_UNSPECIFIED,
   OMP_CLAUSE_DEFAULT_SHARED,
   OMP_CLAUSE_DEFAULT_NONE,
-  OMP_CLAUSE_DEFAULT_PRIVATE
+  OMP_CLAUSE_DEFAULT_PRIVATE,
+  OMP_CLAUSE_DEFAULT_FIRSTPRIVATE
 };
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
@@ -3176,7 +3219,7 @@ extern void decl_debug_expr_insert (tree, tree);
 #define SET_DECL_DEBUG_EXPR(NODE, VAL) \
   (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), VAL))
 
-/* An initializationp priority.  */
+/* An initialization priority.  */
 typedef unsigned short priority_type;
 
 extern priority_type decl_init_priority_lookup (tree);
@@ -4045,6 +4088,7 @@ extern tree build_index_2_type (tree, tree);
 extern tree build_array_type (tree, tree);
 extern tree build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
+extern tree build_varargs_function_type_list (tree, ...);
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
@@ -4434,6 +4478,10 @@ extern int fields_length (const_tree);
    aggregate of zeros.  Otherwise return FALSE.  */
 
 extern bool initializer_zerop (const_tree);
+
+/* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
+
+extern tree ctor_to_list (tree);
 
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,

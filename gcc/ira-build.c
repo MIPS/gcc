@@ -108,7 +108,8 @@ create_loop_tree_nodes (bool loops_p)
   loop_p loop;
 
   ira_bb_nodes
-    = ira_allocate (sizeof (struct ira_loop_tree_node) * last_basic_block);
+    = ((struct ira_loop_tree_node *)
+       ira_allocate (sizeof (struct ira_loop_tree_node) * last_basic_block));
   last_basic_block_before_change = last_basic_block;
   for (i = 0; i < (unsigned int) last_basic_block; i++)
     {
@@ -120,8 +121,9 @@ create_loop_tree_nodes (bool loops_p)
       ira_bb_nodes[i].border_allocnos = NULL;
       ira_bb_nodes[i].local_copies = NULL;
     }
-  ira_loop_nodes = ira_allocate (sizeof (struct ira_loop_tree_node)
-				 * VEC_length (loop_p, ira_loops.larray));
+  ira_loop_nodes = ((struct ira_loop_tree_node *)
+		    ira_allocate (sizeof (struct ira_loop_tree_node)
+				  * VEC_length (loop_p, ira_loops.larray)));
   max_regno = max_reg_num ();
   for (i = 0; VEC_iterate (loop_p, ira_loops.larray, i, loop); i++)
     {
@@ -152,7 +154,7 @@ create_loop_tree_nodes (bool loops_p)
 	    continue;
 	}
       ira_loop_nodes[i].regno_allocno_map
-	= ira_allocate (sizeof (ira_allocno_t) * max_regno);
+	= (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t) * max_regno);
       memset (ira_loop_nodes[i].regno_allocno_map, 0,
 	      sizeof (ira_allocno_t) * max_regno);
       memset (ira_loop_nodes[i].reg_pressure, 0,
@@ -341,12 +343,14 @@ rebuild_regno_allocno_maps (void)
       {
 	ira_free (ira_loop_nodes[l].regno_allocno_map);
 	ira_loop_nodes[l].regno_allocno_map
-	  = ira_allocate (sizeof (ira_allocno_t) * max_regno);
+	  = (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t)
+					    * max_regno);
 	memset (ira_loop_nodes[l].regno_allocno_map, 0,
 		sizeof (ira_allocno_t) * max_regno);
       }
   ira_free (ira_regno_allocno_map);
-  ira_regno_allocno_map = ira_allocate (max_regno * sizeof (ira_allocno_t));
+  ira_regno_allocno_map
+    = (ira_allocno_t *) ira_allocate (max_regno * sizeof (ira_allocno_t));
   memset (ira_regno_allocno_map, 0, max_regno * sizeof (ira_allocno_t));
   FOR_EACH_ALLOCNO (a, ai)
     {
@@ -379,7 +383,9 @@ static void
 initiate_calls (void)
 {
   regno_calls_num = max_reg_num () * 3 / 2;
-  ira_regno_calls = ira_allocate (regno_calls_num * sizeof (VEC(rtx, heap) *));
+  ira_regno_calls
+    = (VEC(rtx, heap) **) ira_allocate (regno_calls_num
+					* sizeof (VEC(rtx, heap) *));
   memset (ira_regno_calls, 0, regno_calls_num * sizeof (VEC(rtx, heap) *));
 }
 
@@ -392,8 +398,10 @@ expand_calls (void)
 
   if (max_regno > regno_calls_num)
     {
-      ira_regno_calls = ira_reallocate (ira_regno_calls,
-				    max_regno * sizeof (VEC(rtx, heap) *));
+      ira_regno_calls
+	= (VEC(rtx, heap) **) ira_reallocate (ira_regno_calls,
+					      max_regno
+					      * sizeof (VEC(rtx, heap) *));
       memset (ira_regno_calls + regno_calls_num, 0,
 	      (max_regno - regno_calls_num) * sizeof (VEC(rtx, heap) *));
       regno_calls_num = max_regno;
@@ -475,7 +483,7 @@ initiate_allocnos (void)
     = VEC_alloc (ira_allocno_t, heap, max_reg_num () * 2);
   ira_conflict_id_allocno_map = NULL;
   ira_regno_allocno_map
-    = ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
+    = (ira_allocno_t *) ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
   memset (ira_regno_allocno_map, 0, max_reg_num () * sizeof (ira_allocno_t));
 }
 
@@ -487,7 +495,7 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
 {
   ira_allocno_t a;
 
-  a = pool_alloc (allocno_pool);
+  a = (ira_allocno_t) pool_alloc (allocno_pool);
   ALLOCNO_REGNO (a) = regno;
   ALLOCNO_LOOP_TREE_NODE (a) = loop_tree_node;
   if (! cap_p)
@@ -596,7 +604,8 @@ ira_allocate_allocno_conflict_vec (ira_allocno_t a, int num)
   ira_assert (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) == NULL);
   num++; /* for NULL end marker  */
   size = sizeof (ira_allocno_t) * num;
-  vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = ira_allocate (size);
+  ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = ira_allocate (size);
+  vec = (ira_allocno_t *) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
   vec[0] = NULL;
   ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a) = size;
@@ -643,11 +652,11 @@ add_to_allocno_conflicts (ira_allocno_t a1, ira_allocno_t a2)
       num = ALLOCNO_CONFLICT_ALLOCNOS_NUM (a1) + 2;
       if (ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1)
 	  >=  num * sizeof (ira_allocno_t))
-	vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
+	vec = (ira_allocno_t *) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
       else
 	{
 	  size = (3 * num / 2 + 1) * sizeof (ira_allocno_t);
-	  vec = ira_allocate (size);
+	  vec = (ira_allocno_t *) ira_allocate (size);
 	  memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1),
 		  sizeof (ira_allocno_t) * ALLOCNO_CONFLICT_ALLOCNOS_NUM (a1));
 	  ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1));
@@ -664,7 +673,7 @@ add_to_allocno_conflicts (ira_allocno_t a1, ira_allocno_t a2)
       IRA_INT_TYPE *vec;
 
       id = ALLOCNO_CONFLICT_ID (a2);
-      vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
+      vec = (IRA_INT_TYPE *) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1);
       if (ALLOCNO_MIN (a1) > id)
 	{
 	  /* Expand head of the bit vector.  */
@@ -679,13 +688,15 @@ add_to_allocno_conflicts (ira_allocno_t a1, ira_allocno_t a2)
 	    }
 	  else
 	    {
-	      size = (3 * (nw + added_head_nw) / 2 + 1) * sizeof (IRA_INT_TYPE);
-	      vec = ira_allocate (size);
-	      memcpy
-		((char *) vec + added_head_nw * sizeof (IRA_INT_TYPE),
-		 ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1), nw * sizeof (IRA_INT_TYPE));
+	      size
+		= (3 * (nw + added_head_nw) / 2 + 1) * sizeof (IRA_INT_TYPE);
+	      vec = (IRA_INT_TYPE *) ira_allocate (size);
+	      memcpy ((char *) vec + added_head_nw * sizeof (IRA_INT_TYPE),
+		      ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1),
+		      nw * sizeof (IRA_INT_TYPE));
 	      memset (vec, 0, added_head_nw * sizeof (IRA_INT_TYPE));
-	      memset ((char *) vec + (nw + added_head_nw) * sizeof (IRA_INT_TYPE),
+	      memset ((char *) vec
+		      + (nw + added_head_nw) * sizeof (IRA_INT_TYPE),
 		      0, size - (nw + added_head_nw) * sizeof (IRA_INT_TYPE));
 	      ira_free (ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1));
 	      ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1) = vec;
@@ -701,7 +712,7 @@ add_to_allocno_conflicts (ira_allocno_t a1, ira_allocno_t a2)
 	    {
 	      /* Expand tail of the bit vector.  */
 	      size = (3 * nw / 2 + 1) * sizeof (IRA_INT_TYPE);
-	      vec = ira_allocate (size);
+	      vec = (IRA_INT_TYPE *) ira_allocate (size);
 	      memcpy (vec, ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a1),
 		      ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1));
 	      memset ((char *) vec + ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a1),
@@ -759,7 +770,7 @@ compress_allocno_conflict_vec (ira_allocno_t a)
   int i, j;
 
   ira_assert (ALLOCNO_CONFLICT_VEC_P (a));
-  vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+  vec = (ira_allocno_t *) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
   curr_allocno_conflict_check_tick++;
   for (i = j = 0; (conflict_a = vec[i]) != NULL; i++)
     {
@@ -782,7 +793,8 @@ compress_conflict_vecs (void)
   ira_allocno_t a;
   ira_allocno_iterator ai;
 
-  allocno_conflict_check = ira_allocate (sizeof (int) * ira_allocnos_num);
+  allocno_conflict_check
+    = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
   memset (allocno_conflict_check, 0, sizeof (int) * ira_allocnos_num);
   curr_allocno_conflict_check_tick = 0;
   FOR_EACH_ALLOCNO (a, ai)
@@ -955,7 +967,7 @@ ira_create_allocno_live_range (ira_allocno_t a, int start, int finish,
 {
   allocno_live_range_t p;
 
-  p = pool_alloc (allocno_live_range_pool);
+  p = (allocno_live_range_t) pool_alloc (allocno_live_range_pool);
   p->allocno = a;
   p->start = start;
   p->finish = finish;
@@ -969,7 +981,7 @@ copy_allocno_live_range (allocno_live_range_t r)
 {
   allocno_live_range_t p;
 
-  p = pool_alloc (allocno_live_range_pool);
+  p = (allocno_live_range_t) pool_alloc (allocno_live_range_pool);
   *p = *r;
   return p;
 }
@@ -1120,7 +1132,7 @@ ira_create_copy (ira_allocno_t first, ira_allocno_t second, int freq, rtx insn,
 {
   ira_copy_t cp;
 
-  cp = pool_alloc (copy_pool);
+  cp = (ira_copy_t) pool_alloc (copy_pool);
   cp->num = ira_copies_num;
   cp->first = first;
   cp->second = second;
@@ -1333,7 +1345,7 @@ initiate_cost_vectors (void)
 int *
 ira_allocate_cost_vector (enum reg_class cover_class)
 {
-  return pool_alloc (cost_vector_pool[cover_class]);
+  return (int *) pool_alloc (cost_vector_pool[cover_class]);
 }
 
 /* Free a cost vector VEC for COVER_CLASS.  */
@@ -1696,7 +1708,7 @@ setup_min_max_conflict_allocno_ids (void)
   int *live_range_min, *last_lived;
   ira_allocno_t a;
 
-  live_range_min = ira_allocate (sizeof (int) * ira_allocnos_num);
+  live_range_min = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
   cover_class = -1;
   first_not_finished = -1;
   for (i = 0; i < ira_allocnos_num; i++)
@@ -1730,7 +1742,7 @@ setup_min_max_conflict_allocno_ids (void)
       live_range_min[i] = ALLOCNO_MIN (a);
       ALLOCNO_MIN (a) = min;
     }
-  last_lived = ira_allocate (sizeof (int) * ira_max_point);
+  last_lived = (int *) ira_allocate (sizeof (int) * ira_max_point);
   cover_class = -1;
   filled_area_start = -1;
   for (i = ira_allocnos_num - 1; i >= 0; i--)
@@ -1949,10 +1961,11 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
   bool *allocno_propagated_p;
 
   regno_top_level_allocno_map
-    = ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
+    = (ira_allocno_t *) ira_allocate (max_reg_num () * sizeof (ira_allocno_t));
   memset (regno_top_level_allocno_map, 0,
 	  max_reg_num () * sizeof (ira_allocno_t));
-  allocno_propagated_p = ira_allocate (ira_allocnos_num * sizeof (bool));
+  allocno_propagated_p
+    = (bool *) ira_allocate (ira_allocnos_num * sizeof (bool));
   memset (allocno_propagated_p, 0, ira_allocnos_num * sizeof (bool));
   expand_calls ();
   new_allocnos_p = renamed_p = merged_p = false;

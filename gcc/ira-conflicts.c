@@ -75,7 +75,8 @@ build_conflict_bit_table (void)
 
   allocno_set_words = (ira_allocnos_num + IRA_INT_BITS - 1) / IRA_INT_BITS;
   allocnos_live = sparseset_alloc (ira_allocnos_num);
-  conflicts = ira_allocate (sizeof (IRA_INT_TYPE *) * ira_allocnos_num);
+  conflicts = (IRA_INT_TYPE **) ira_allocate (sizeof (IRA_INT_TYPE *)
+					      * ira_allocnos_num);
   allocated_words_num = 0;
   FOR_EACH_ALLOCNO (allocno, ai)
     {
@@ -90,7 +91,8 @@ build_conflict_bit_table (void)
 	   / IRA_INT_BITS);
       allocated_words_num += conflict_bit_vec_words_num;
       conflicts[num]
-	= ira_allocate (sizeof (IRA_INT_TYPE) * conflict_bit_vec_words_num);
+	= (IRA_INT_TYPE *) ira_allocate (sizeof (IRA_INT_TYPE)
+					 * conflict_bit_vec_words_num);
       memset (conflicts[num], 0,
 	      sizeof (IRA_INT_TYPE) * conflict_bit_vec_words_num);
     }
@@ -396,8 +398,7 @@ add_insn_allocno_copies (rtx insn)
   if ((set = single_set (insn)) != NULL_RTX
       && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set))
       && ! side_effects_p (set)
-      && find_reg_note (insn, REG_DEAD, SET_SRC (set)) != NULL_RTX
-      && find_reg_note (insn, REG_RETVAL, NULL_RTX) == NULL_RTX)
+      && find_reg_note (insn, REG_DEAD, SET_SRC (set)) != NULL_RTX)
     process_regs_for_copy (SET_DEST (set), SET_SRC (set), insn, freq);
   else
     {
@@ -587,7 +588,8 @@ build_allocno_conflicts (void)
   IRA_INT_TYPE *allocno_conflicts;
   ira_allocno_set_iterator asi;
 
-  conflict_allocnos = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
+  conflict_allocnos = (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t)
+						      * ira_allocnos_num);
   for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     for (a = ira_regno_allocno_map[i];
 	 a != NULL;
@@ -607,7 +609,7 @@ build_allocno_conflicts (void)
 	  {
 	    free_p = true;
 	    ira_allocate_allocno_conflict_vec (a, px);
-	    vec = ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
+	    vec = (ira_allocno_t*) ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a);
 	    memcpy (vec, conflict_allocnos, sizeof (ira_allocno_t) * px);
 	    vec[px] = NULL;
 	    ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = px;

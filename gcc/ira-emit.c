@@ -45,6 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ira-int.h"
 
 
+typedef struct move *move_t;
+
 /* The structure represents an allocno move.  Both allocnos have the
    same origional regno but different allocation.  */
 struct move
@@ -52,7 +54,7 @@ struct move
   /* The allocnos involved in the move.  */
   ira_allocno_t from, to;
   /* The next move in the move sequence.  */
-  struct move *next;
+  move_t next;
   /* Used for finding dependencies.  */
   bool visited_p;
   /* The size of the following array. */
@@ -62,14 +64,14 @@ struct move
      A1->A2, B1->B2 where A1 and B2 are assigned to reg R1 and A2 and
      B1 are assigned to reg R2 is an example of the cyclic
      dependencies.  */
-  struct move **deps;
+  move_t *deps;
   /* First insn generated for the move.  */
   rtx insn;
 };
 
 /* Array of moves (indexed by BB index) which should be put at the
    start/end of the corresponding basic blocks.  */
-static struct move **at_bb_start, **at_bb_end;
+static move_t *at_bb_start, *at_bb_end;
 
 /* Max regno before renaming some pseudo-registers.  For example, the
    same pseudo-register can be renamed in a loop if its allocation is
@@ -77,12 +79,12 @@ static struct move **at_bb_start, **at_bb_end;
 static int max_regno_before_changing;
 
 /* Return new move of allocnos TO and FROM.  */
-static struct move *
+static move_t
 create_move (ira_allocno_t to, ira_allocno_t from)
 {
-  struct move *move;
+  move_t move;
 
-  move = ira_allocate (sizeof (struct move));
+  move = (move_t) ira_allocate (sizeof (struct move));
   move->deps = NULL;
   move->deps_num = 0;
   move->to = to;
@@ -95,7 +97,7 @@ create_move (ira_allocno_t to, ira_allocno_t from)
 
 /* Free memory for MOVE and its dependencies.  */
 static void
-free_move (struct move *move)
+free_move (move_t move)
 {
   if (move->deps != NULL)
     ira_free (move->deps);
@@ -104,9 +106,9 @@ free_move (struct move *move)
 
 /* Free memory for list of the moves given by its HEAD.  */
 static void
-free_move_list (struct move *head)
+free_move_list (move_t head)
 {
-  struct move *next;
+  move_t next;
   
   for (; head != NULL; head = next)
     {
@@ -118,7 +120,7 @@ free_move_list (struct move *head)
 /* Return TRUE if the the move list LIST1 and LIST2 are equal (two
    moves are equal if they involve the same allocnos).  */
 static bool
-eq_move_lists_p (struct move *list1, struct move *list2)
+eq_move_lists_p (move_t list1, move_t list2)
 {
   for (; list1 != NULL && list2 != NULL;
        list1 = list1->next, list2 = list2->next)
@@ -172,18 +174,18 @@ change_regs (rtx *loc)
 /* Attach MOVE to the edge E.  The move is attached to the head of the
    list if HEAD_P is TRUE.  */
 static void
-add_to_edge_list (edge e, struct move *move, bool head_p)
+add_to_edge_list (edge e, move_t move, bool head_p)
 {
-  struct move *last;
+  move_t last;
 
   if (head_p || e->aux == NULL)
     {
-      move->next = e->aux;
+      move->next = (move_t) e->aux;
       e->aux = move;
     }
   else
     {
-      for (last = e->aux; last->next != NULL; last = last->next)
+      for (last = (move_t) e->aux; last->next != NULL; last = last->next)
 	;
       last->next = move;
       move->next = NULL;
@@ -289,7 +291,7 @@ generate_edge_moves (edge e)
   unsigned int regno;
   bitmap_iterator bi;
   ira_allocno_t src_allocno, dest_allocno, *src_map, *dest_map;
-  struct move *move;
+  move_t move;
 
   src_loop_node = IRA_BB_NODE (e->src)->parent;
   dest_loop_node = IRA_BB_NODE (e->dest)->parent;
@@ -460,12 +462,12 @@ set_allocno_somewhere_renamed_p (void)
 static bool
 eq_edge_move_lists_p (VEC(edge,gc) *vec)
 {
-  struct move *list;
+  move_t list;
   int i;
 
-  list = EDGE_I (vec, 0)->aux;
+  list = (move_t) EDGE_I (vec, 0)->aux;
   for (i = EDGE_COUNT (vec) - 1; i > 0; i--)
-    if (! eq_move_lists_p (list, EDGE_I (vec, i)->aux))
+    if (! eq_move_lists_p (list, (move_t) EDGE_I (vec, i)->aux))
       return false;
   return true;
 }
@@ -478,21 +480,21 @@ unify_moves (basic_block bb, bool start_p)
 {
   int i;
   edge e;
-  struct move *list;
+  move_t list;
   VEC(edge,gc) *vec;
 
   vec = (start_p ? bb->preds : bb->succs);
   if (EDGE_COUNT (vec) == 0 || ! eq_edge_move_lists_p (vec))
     return;
   e = EDGE_I (vec, 0);
-  list = e->aux;
+  list = (move_t) e->aux;
   if (! start_p && control_flow_insn_p (BB_END (bb)))
     return;
   e->aux = NULL;
   for (i = EDGE_COUNT (vec) - 1; i > 0; i--)
     {
       e = EDGE_I (vec, i);
-      free_move_list (e->aux);
+      free_move_list ((move_t) e->aux);
       e->aux = NULL;
     }
   if (start_p)
@@ -503,7 +505,7 @@ unify_moves (basic_block bb, bool start_p)
 
 /* Last move (in move sequence being processed) setting up the
    corresponding hard register.  */
-static struct move *hard_regno_last_set[FIRST_PSEUDO_REGISTER];
+static move_t hard_regno_last_set[FIRST_PSEUDO_REGISTER];
 
 /* If the element value is equal to CURR_TICK then the corresponding
    element in `hard_regno_last_set' is defined and correct.  */
@@ -511,13 +513,11 @@ static int hard_regno_last_set_check[FIRST_PSEUDO_REGISTER];
 
 /* Last move (in move sequence being processed) setting up the
    corresponding allocno.  */
-static struct move **allocno_last_set;
+static move_t *allocno_last_set;
 
 /* If the element value is equal to CURR_TICK then the corresponding
    element in . `allocno_last_set' is defined and correct.  */
 static int *allocno_last_set_check;
-
-typedef struct move *move_t;
 
 /* Definition of vector of moves.  */
 DEF_VEC_P(move_t);
@@ -586,7 +586,7 @@ modify_move_list (move_t list)
 		&& (ALLOCNO_REGNO (hard_regno_last_set[hard_regno + i]->to)
 		    != ALLOCNO_REGNO (from)))
 	      n++;
-	  move->deps = ira_allocate (n * sizeof (move_t));
+	  move->deps = (move_t *) ira_allocate (n * sizeof (move_t));
 	  for (n = i = 0; i < nregs; i++)
 	    if (hard_regno_last_set_check[hard_regno + i] == curr_tick
 		&& (ALLOCNO_REGNO (hard_regno_last_set[hard_regno + i]->to)
@@ -774,9 +774,9 @@ emit_moves (void)
 	    continue;
 	  ira_assert ((e->flags & EDGE_ABNORMAL) == 0
 		      || ! EDGE_CRITICAL_P (e));
-	  e->aux = modify_move_list (e->aux);
+	  e->aux = modify_move_list ((move_t) e->aux);
 	  insert_insn_on_edge
-	    (emit_move_list (e->aux,
+	    (emit_move_list ((move_t) e->aux,
 			     REG_FREQ_FROM_EDGE_FREQ (EDGE_FREQUENCY (e))),
 	     e);
 	  if (e->src->next_bb != e->dest)
@@ -938,7 +938,7 @@ add_ranges_and_copies (void)
 	{
 	  bitmap_and (live_through, DF_LR_IN (e->dest), DF_LR_OUT (bb));
 	  add_range_and_copies_from_move_list
-	    (e->aux, node, live_through,
+	    ((move_t) e->aux, node, live_through,
 	     REG_FREQ_FROM_EDGE_FREQ (EDGE_FREQUENCY (e)));
 	}
     }
@@ -961,9 +961,9 @@ ira_emit (bool loops_p)
     ALLOCNO_REG (a) = regno_reg_rtx[ALLOCNO_REGNO (a)];
   if (! loops_p)
     return;
-  at_bb_start = ira_allocate (sizeof (move_t) * last_basic_block);
+  at_bb_start = (move_t *) ira_allocate (sizeof (move_t) * last_basic_block);
   memset (at_bb_start, 0, sizeof (move_t) * last_basic_block);
-  at_bb_end = ira_allocate (sizeof (move_t) * last_basic_block);
+  at_bb_end = (move_t *) ira_allocate (sizeof (move_t) * last_basic_block);
   memset (at_bb_end, 0, sizeof (move_t) * last_basic_block);
   local_allocno_bitmap = ira_allocate_bitmap ();
   used_regno_bitmap = ira_allocate_bitmap ();
@@ -982,8 +982,10 @@ ira_emit (bool loops_p)
 	if (e->dest != EXIT_BLOCK_PTR)
 	  generate_edge_moves (e);
     }
-  allocno_last_set = ira_allocate (sizeof (move_t) * max_reg_num ());
-  allocno_last_set_check = ira_allocate (sizeof (int) * max_reg_num ());
+  allocno_last_set
+    = (move_t *) ira_allocate (sizeof (move_t) * max_reg_num ());
+  allocno_last_set_check
+    = (int *) ira_allocate (sizeof (int) * max_reg_num ());
   memset (allocno_last_set_check, 0, sizeof (int) * max_reg_num ());
   memset (hard_regno_last_set_check, 0, sizeof (hard_regno_last_set_check));
   curr_tick = 0;
@@ -1001,7 +1003,7 @@ ira_emit (bool loops_p)
       free_move_list (at_bb_end[bb->index]);
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  free_move_list (e->aux);
+	  free_move_list ((move_t) e->aux);
 	  e->aux = NULL;
 	}
     }

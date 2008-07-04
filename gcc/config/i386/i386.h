@@ -281,6 +281,7 @@ enum ix86_tune_indices {
   X86_TUNE_NOT_UNPAIRABLE,
   X86_TUNE_NOT_VECTORMODE,
   X86_TUNE_USE_VECTOR_CONVERTS,
+  X86_TUNE_FUSE_CMP_AND_BRANCH,
 
   X86_TUNE_LAST
 };
@@ -363,7 +364,10 @@ extern unsigned int ix86_tune_features[X86_TUNE_LAST];
 #define	TARGET_MOVE_M1_VIA_OR	ix86_tune_features[X86_TUNE_MOVE_M1_VIA_OR]
 #define TARGET_NOT_UNPAIRABLE	ix86_tune_features[X86_TUNE_NOT_UNPAIRABLE]
 #define TARGET_NOT_VECTORMODE	ix86_tune_features[X86_TUNE_NOT_VECTORMODE]
-#define TARGET_USE_VECTOR_CONVERTS ix86_tune_features[X86_TUNE_USE_VECTOR_CONVERTS]
+#define TARGET_USE_VECTOR_CONVERTS \
+	ix86_tune_features[X86_TUNE_USE_VECTOR_CONVERTS]
+#define TARGET_FUSE_CMP_AND_BRANCH \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -446,7 +450,17 @@ extern tree x86_mfence;
 #define TARGET_MACHO 0
 
 /* Likewise, for the Windows 64-bit ABI.  */
-#define TARGET_64BIT_MS_ABI 0
+#define TARGET_64BIT_MS_ABI (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
+
+/* Available call abi.  */
+enum
+{
+  SYSV_ABI = 0,
+  MS_ABI = 1
+};
+
+/* The default abi form used by target.  */
+#define DEFAULT_ABI SYSV_ABI
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -478,13 +492,27 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define HAVE_LOCAL_CPU_DETECT
 #endif
 
+#if TARGET_64BIT_DEFAULT
+#define OPT_ARCH64 "!m32"
+#define OPT_ARCH32 "m32"
+#else
+#define OPT_ARCH64 "m64"
+#define OPT_ARCH32 "!m64"
+#endif
+
 /* Support for configure-time defaults of some command line options.
    The order here is important so that -march doesn't squash the
    tune or cpu values.  */
 #define OPTION_DEFAULT_SPECS					   \
   {"tune", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" }, \
+  {"tune_32", "%{" OPT_ARCH32 ":%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}}" }, \
+  {"tune_64", "%{" OPT_ARCH64 ":%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}}" }, \
   {"cpu", "%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}" },  \
-  {"arch", "%{!march=*:-march=%(VALUE)}"}
+  {"cpu_32", "%{" OPT_ARCH32 ":%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}}" }, \
+  {"cpu_64", "%{" OPT_ARCH64 ":%{!mtune=*:%{!mcpu=*:%{!march=*:-mtune=%(VALUE)}}}}" }, \
+  {"arch", "%{!march=*:-march=%(VALUE)}"},			   \
+  {"arch_32", "%{" OPT_ARCH32 ":%{!march=*:-march=%(VALUE)}}"},	   \
+  {"arch_64", "%{" OPT_ARCH64 ":%{!march=*:-march=%(VALUE)}}"},
 
 /* Specs for the compiler proper */
 
@@ -804,7 +832,8 @@ enum target_cpu_default
 #define PARM_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY BITS_PER_WORD
+#define STACK_BOUNDARY	(TARGET_64BIT && DEFAULT_ABI == MS_ABI ? 128 \
+							       : BITS_PER_WORD)
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -1044,6 +1073,8 @@ enum target_cpu_default
 #define ORDER_REGS_FOR_LOCAL_ALLOC x86_order_regs_for_local_alloc ()
 
 
+#define OVERRIDE_ABI_FORMAT(FNDECL) ix86_call_abi_override (FNDECL)
+
 /* Macro to conditionally modify fixed_regs/call_used_regs.  */
 #define CONDITIONAL_REGISTER_USAGE					\
 do {									\
@@ -1094,7 +1125,7 @@ do {									\
 	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
 	  reg_names[i] = "";						\
       }									\
-    if (TARGET_64BIT_MS_ABI)						\
+    if (TARGET_64BIT && DEFAULT_ABI == MS_ABI)				\
       {									\
         call_used_regs[4 /*RSI*/] = 0;                                  \
         call_used_regs[5 /*RDI*/] = 0;                                  \
@@ -1637,7 +1668,9 @@ enum reg_class
    This space can be allocated by the caller, or be a part of the
    machine-dependent stack frame: `OUTGOING_REG_PARM_STACK_SPACE' says
    which.  */
-#define REG_PARM_STACK_SPACE(FNDECL) 0
+#define REG_PARM_STACK_SPACE(FNDECL) ix86_reg_parm_stack_space (FNDECL)
+
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) (ix86_function_type_abi (FNTYPE) == MS_ABI ? 1 : 0)
 
 /* Value is the number of bytes of arguments automatically
    popped when returning from a subroutine call.
@@ -1699,6 +1732,8 @@ typedef struct ix86_args {
   int maybe_vaarg;		/* true for calls to possibly vardic fncts.  */
   int float_in_sse;		/* 1 if in 32-bit mode SFmode (2 for DFmode) should
 				   be passed in SSE registers.  Otherwise 0.  */
+  int call_abi;			/* Set to SYSV_ABI for sysv abi. Otherwise
+ 				   MS_ABI for ms abi.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -1966,9 +2001,22 @@ do {									\
    is also used as the pic register in ELF.  So for now, don't allow more than
    3 registers to be passed in registers.  */
 
-#define REGPARM_MAX (TARGET_64BIT ? 6 : 3)
+/* Abi specific values for REGPARM_MAX and SSE_REGPARM_MAX */
+#define X86_64_REGPARM_MAX 6
+#define X64_REGPARM_MAX 4
+#define X86_32_REGPARM_MAX 3
 
-#define SSE_REGPARM_MAX (TARGET_64BIT ? 8 : (TARGET_SSE ? 3 : 0))
+#define X86_64_SSE_REGPARM_MAX 8
+#define X64_SSE_REGPARM_MAX 4
+#define X86_32_SSE_REGPARM_MAX (TARGET_SSE ? 3 : 0)
+
+#define REGPARM_MAX (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_REGPARM_MAX \
+							 : X86_64_REGPARM_MAX) \
+				  : X86_32_REGPARM_MAX)
+
+#define SSE_REGPARM_MAX (TARGET_64BIT ? (TARGET_64BIT_MS_ABI ? X64_SSE_REGPARM_MAX \
+							     : X86_64_SSE_REGPARM_MAX) \
+				      : X86_32_SSE_REGPARM_MAX)
 
 #define MMX_REGPARM_MAX (TARGET_64BIT ? 0 : (TARGET_MMX ? 3 : 0))
 
@@ -2477,6 +2525,9 @@ struct machine_function GTY(())
      ix86_current_function_calls_tls_descriptor macro for a better
      approximation.  */
   int tls_descriptor_call_expanded_p;
+  /* This value is used for amd64 targets and specifies the current abi
+     to be used. MS_ABI means ms abi. Otherwise SYSV_ABI means sysv abi.  */
+  int call_abi;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)

@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -162,6 +162,10 @@ struct gimple_df GTY(())
      REFERENCED_VARS (I) is call-clobbered.  */
   bitmap call_clobbered_vars;
 
+  /* Call-used variables in the function.  If bit I is set, then
+     REFERENCED_VARS (I) is call-used at pure function call-sites.  */
+  bitmap call_used_vars;
+
   /* Addressable variables in the function.  If bit I is set, then
      REFERENCED_VARS (I) has had its address taken.  Note that
      CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
@@ -227,6 +231,9 @@ typedef struct
 /* Aliasing information for SSA_NAMEs representing pointer variables.  */
 struct ptr_info_def GTY(())
 {
+  /* Mask of reasons this pointer's value escapes the function.  */
+  ENUM_BITFIELD (escape_type) escape_mask : 9;
+
   /* Nonzero if points-to analysis couldn't determine where this pointer
      is pointing to.  */
   unsigned int pt_anything : 1;
@@ -234,7 +241,11 @@ struct ptr_info_def GTY(())
   /* Nonzero if the value of this pointer escapes the current function.  */
   unsigned int value_escapes_p : 1;
 
-  /* Nonzero if this pointer is dereferenced.  */
+  /* Nonzero if a memory tag is needed for this pointer.  This is
+     true if this pointer is eventually dereferenced.  */
+  unsigned int memory_tag_needed : 1;
+
+  /* Nonzero if this pointer is really dereferenced.  */
   unsigned int is_dereferenced : 1;
 
   /* Nonzero if this pointer points to a global variable.  */
@@ -242,9 +253,6 @@ struct ptr_info_def GTY(())
 
   /* Nonzero if this pointer points to NULL.  */
   unsigned int pt_null : 1;
-
-  /* Mask of reasons this pointer's value escapes the function  */
-  ENUM_BITFIELD (escape_type) escape_mask : 9;
 
   /* Set of variables that this pointer may point to.  */
   bitmap pt_vars;
@@ -784,7 +792,7 @@ extern void replace_uses_by (tree, tree);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
 extern basic_block move_sese_region_to_fn (struct function *, basic_block,
-				           basic_block);
+				           basic_block, tree);
 void remove_edge_and_dominated_blocks (edge);
 void mark_virtual_ops_in_bb (basic_block);
 
@@ -852,7 +860,9 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern bool may_alias_p (tree, alias_set_type, tree, alias_set_type, bool);
 extern struct ptr_info_def *get_ptr_info (tree);
+extern bool may_point_to_global_var (tree);
 extern void new_type_alias (tree, tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *,
 				   unsigned *);
@@ -1029,6 +1039,7 @@ void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
 bool parallelize_loops (void);
 
+bool loop_only_exit_p (const struct loop *, const_edge);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
@@ -1167,7 +1178,8 @@ tree gimple_fold_indirect_ref (tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
-bool clobber_what_p_points_to (tree);
+bool clobber_what_escaped (void);
+void compute_call_used_vars (void);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);

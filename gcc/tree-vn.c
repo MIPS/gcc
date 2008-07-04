@@ -1,5 +1,6 @@
 /* Value Numbering routines for tree expressions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
+   Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>, Steven Bosscher
    <stevenb@suse.de> and Diego Novillo <dnovillo@redhat.com>
 
@@ -35,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Most of this is PRE specific.  The real grunt work is done in
    tree-ssa-sccvn.c.  This is where the lookup and insertion
-   functions, etc, can be found */
+   functions, etc, can be found.  */
 
 /* Create and return a new value handle node of type TYPE.  */
 
@@ -49,8 +50,6 @@ make_value_handle (tree type)
   VALUE_HANDLE_ID (vh) = id++;
   return vh;
 }
-
-
 
 /* Compare two expressions E1 and E2 and return true if they are
    equal.  */
@@ -135,7 +134,6 @@ print_creation_to_file (tree v, tree expr, VEC (tree, gc) *vuses)
   fprintf (dump_file, "\n");
 }
 
-
 /* Sort the VUSE array so that we can do equality comparisons
    quicker on two vuse vecs.  */
 
@@ -161,6 +159,7 @@ sort_vuses_heap (VEC (tree,heap) *vuses)
 	   sizeof (tree),
 	   operand_build_cmp);
 }
+
 /* Insert EXPR into VALUE_TABLE with value VAL, and add expression
    EXPR to the value set for value VAL.  */
 
@@ -197,12 +196,19 @@ vn_add (tree expr, tree val)
 	  SSA_NAME_VALUE (expr) = val;
 	  break;
 	}
-      else if (TREE_CODE (expr) == ADDR_EXPR)
+      switch (TREE_CODE (expr))
 	{
+	case ADDR_EXPR:
+	case TRUTH_AND_EXPR:
+	case TRUTH_OR_EXPR:
+	case TRUTH_XOR_EXPR:
+	case TRUTH_NOT_EXPR:
 	  vn_nary_op_insert (expr, val);
-	  break;
+	    break;
+	default:
+	  gcc_unreachable ();
 	}
-      /* FALLTHROUGH */
+      break;
     default:
       gcc_unreachable ();
     }
@@ -211,7 +217,7 @@ vn_add (tree expr, tree val)
     add_to_value (val, expr);
 }
 
-/* Insert EXPR into the value numbering tables.  with value VAL, and
+/* Insert EXPR into the value numbering tables with value VAL, and
    add expression EXPR to the value set for value VAL.  VUSES
    represents the virtual use operands associated with EXPR.  It is
    used when computing a hash value for EXPR.  */
@@ -230,7 +236,6 @@ vn_add_with_vuses (tree expr, tree val, VEC (tree, gc) *vuses)
   if (TREE_CODE (val) == VALUE_HANDLE)
     add_to_value (val, expr);
 }
-
 
 /* Lookup EXPR in the value numbering tables and return the result, if
    we have one.  */
@@ -265,9 +270,18 @@ vn_lookup (tree expr)
 	return vn_reference_lookup (expr, NULL, false);
       else if (TREE_CODE (expr) == SSA_NAME)
 	return SSA_NAME_VALUE (expr);
-      else if (TREE_CODE (expr) == ADDR_EXPR)
-	return vn_nary_op_lookup (expr);
-      /* FALLTHROUGH */
+      switch (TREE_CODE (expr))
+	{
+	case ADDR_EXPR:
+	case TRUTH_AND_EXPR:
+	case TRUTH_OR_EXPR:
+	case TRUTH_XOR_EXPR:
+	case TRUTH_NOT_EXPR:
+	  return vn_nary_op_lookup (expr);
+	default:
+	  gcc_unreachable ();
+	}
+      break;
     default:
       gcc_unreachable ();
     }

@@ -103,7 +103,8 @@ static int update_cost_check;
 static void
 initiate_cost_update (void)
 {
-  allocno_update_cost_check = ira_allocate (ira_allocnos_num * sizeof (int));
+  allocno_update_cost_check
+    = (int *) ira_allocate (ira_allocnos_num * sizeof (int));
   memset (allocno_update_cost_check, 0, ira_allocnos_num * sizeof (int));
   update_cost_check = 0;
 }
@@ -969,7 +970,7 @@ push_allocnos_to_stack (void)
 					   NULL, NULL, splay_tree_allocate,
 					   splay_tree_free, NULL);
     }
-  ira_assert (num <= allocnos_num);
+  ira_assert (num <= ira_allocnos_num);
   /* Collect uncolorable allocnos of each cover class.  */
   for (allocno = uncolorable_allocno_bucket;
        allocno != NULL;
@@ -1394,7 +1395,8 @@ coalesce_allocnos (bool reload_p)
   int i, n, cp_num, regno;
   bitmap_iterator bi;
 
-  sorted_copies = ira_allocate (ira_copies_num * sizeof (ira_copy_t));
+  sorted_copies = (ira_copy_t *) ira_allocate (ira_copies_num
+					       * sizeof (ira_copy_t));
   cp_num = 0;
   /* Collect copies.  */
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, j, bi)
@@ -1735,7 +1737,8 @@ do_coloring (void)
 {
   coloring_allocno_bitmap = ira_allocate_bitmap ();
   allocnos_for_spilling
-    = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
+    = (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t)
+				      * ira_allocnos_num);
   splay_tree_node_pool = create_alloc_pool ("splay tree nodes",
 					    sizeof (struct splay_tree_node_s),
 					    100);
@@ -2251,15 +2254,18 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
   allocno_coalesced_p = false;
   coalesce_allocnos (true);
   ira_free_bitmap (coloring_allocno_bitmap);
-  regno_coalesced_allocno_cost = ira_allocate (max_regno * sizeof (int));
-  regno_coalesced_allocno_num = ira_allocate (max_regno * sizeof (int));
+  regno_coalesced_allocno_cost
+    = (int *) ira_allocate (max_regno * sizeof (int));
+  regno_coalesced_allocno_num
+    = (int *) ira_allocate (max_regno * sizeof (int));
   memset (regno_coalesced_allocno_num, 0, max_regno * sizeof (int));
   setup_coalesced_allocno_costs_and_nums (pseudo_regnos, n);
   /* Sort regnos according frequencies of the corresponding coalesced
      allocno sets.  */
   qsort (pseudo_regnos, n, sizeof (int), coalesced_pseudo_reg_freq_compare);
   spilled_coalesced_allocnos
-    = ira_allocate (ira_allocnos_num * sizeof (ira_allocno_t));
+    = (ira_allocno_t *) ira_allocate (ira_allocnos_num
+				      * sizeof (ira_allocno_t));
   /* Collect allocnos representing the spilled coalesced allocno
      sets.  */
   num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
@@ -2822,10 +2828,12 @@ ira_better_spill_reload_regno_p (int *regnos, int *other_regnos,
 void
 ira_initiate_assign (void)
 {
-  sorted_allocnos = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
+  sorted_allocnos
+    = (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t)
+				      * ira_allocnos_num);
   consideration_allocno_bitmap = ira_allocate_bitmap ();
   initiate_cost_update ();
-  allocno_priorities = ira_allocate (sizeof (int) * ira_allocnos_num);
+  allocno_priorities = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
 }
 
 /* Deallocate data used by assign_hard_reg.  */
@@ -2878,7 +2886,7 @@ ira_fast_allocation (void)
   allocno_live_range_t r;
   HARD_REG_SET conflict_hard_regs, *used_hard_regs;
 
-  allocno_priorities = ira_allocate (sizeof (int) * ira_allocnos_num);
+  allocno_priorities = (int *) ira_allocate (sizeof (int) * ira_allocnos_num);
   FOR_EACH_ALLOCNO (a, ai)
     {
       l = ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
@@ -2891,10 +2899,12 @@ ira_fast_allocation (void)
 	   * (10000 / REG_FREQ_MAX)
 	   * ira_reg_class_nregs[ALLOCNO_COVER_CLASS (a)][ALLOCNO_MODE (a)]);
     }
-  used_hard_regs = ira_allocate (sizeof (HARD_REG_SET) * ira_max_point);
+  used_hard_regs = (HARD_REG_SET *) ira_allocate (sizeof (HARD_REG_SET)
+						  * ira_max_point);
   for (i = 0; i < ira_max_point; i++)
     CLEAR_HARD_REG_SET (used_hard_regs[i]);
-  sorted_allocnos = ira_allocate (sizeof (ira_allocno_t) * ira_allocnos_num);
+  sorted_allocnos = (ira_allocno_t *) ira_allocate (sizeof (ira_allocno_t)
+						    * ira_allocnos_num);
   num = 0;
   FOR_EACH_ALLOCNO (a, ai)
     sorted_allocnos[num++] = a;

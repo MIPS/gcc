@@ -1,6 +1,6 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -988,7 +988,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
      we can't handle it here because CONST_INT does not indicate a mode.
 
      Similarly, we must reload the inside expression if we have a
-     STRICT_LOW_PART (presumably, in == out in the cas).
+     STRICT_LOW_PART (presumably, in == out in this case).
 
      Also reload the inner expression if it does not require a secondary
      reload but the SUBREG does.
@@ -4087,7 +4087,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		  PUT_MODE (emit_insn_before (gen_rtx_USE (VOIDmode, operand),
 					      insn), QImode);
 		if (modified[i] != RELOAD_READ)
-		  emit_insn_after (gen_rtx_CLOBBER (VOIDmode, operand), insn);
+		  emit_insn_after (gen_clobber (operand), insn);
 	      }
 	  }
       }
@@ -4149,9 +4149,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      && (!JUMP_P (insn)
 		  || !label_is_jump_target_p (XEXP (substitution, 0),
 					      insn)))
-	    REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL_OPERAND,
-						  XEXP (substitution, 0),
-						  REG_NOTES (insn));
+	    add_reg_note (insn, REG_LABEL_OPERAND, XEXP (substitution, 0));
 	}
       else
 	retval |= (substed_operand[i] != *recog_data.operand_loc[i]);
