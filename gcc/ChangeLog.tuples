@@ -1,3 +1,10 @@
+2008-07-04  David Edelsohn  <edelsohn@gnu.org>
+
+	Revert:
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Unshare t.
+
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Unshare reg.
+
 2008-07-03  David Edelsohn  <edelsohn@gnu.org>
 
 	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Unshare t.
