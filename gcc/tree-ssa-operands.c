@@ -1,5 +1,6 @@
 /* SSA operands management for trees.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2036,81 +2037,12 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
     case CHANGE_DYNAMIC_TYPE_EXPR:
       gcc_unreachable ();
 
-    case OMP_FOR:
-      {
-	/* FIXME tuples.  */
-#if 0
-	tree c, clauses = gimple_omp_for_clauses (stmt);
-	int i;
-
-	for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (expr)); i++)
-	  {
-	    tree init = TREE_VEC_ELT (OMP_FOR_INIT (expr), i);
-	    tree cond = TREE_VEC_ELT (OMP_FOR_COND (expr), i);
-	    tree incr = TREE_VEC_ELT (OMP_FOR_INCR (expr), i);
-
-	    get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 0), opf_def);
-	    get_expr_operands (stmt, &GIMPLE_STMT_OPERAND (init, 1), opf_use);
-	    get_expr_operands (stmt, &TREE_OPERAND (cond, 1), opf_use);
-	    get_expr_operands (stmt,
-			       &TREE_OPERAND (GIMPLE_STMT_OPERAND (incr, 1),
-					      1), opf_use);
-	  }
-
-	c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-	if (c)
-	  get_expr_operands (stmt, &OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c),
-			     opf_use);
-#else
-	gimple_unreachable ();
-#endif
-	return;
-      }
-
-    case OMP_PARALLEL:
-    case OMP_TASK:
-      {
-	/* FIXME tuples.  */
-#if 0
-	tree c, clauses = gimple_omp_parallel_clauses (stmt);
-
-	if (gimple_omp_parallel_data_arg (stmt))
-	  {
-	    get_expr_operands (stmt, gimple_omp_parallel_data_arg_ptr (stmt),
-			       opf_use);
-	    gimple_add_to_addresses_taken (stmt, gimple_omp_parallel_data_arg (stmt));
-	  }
-
-	c = find_omp_clause (clauses, OMP_CLAUSE_IF);
-	if (c)
-	  get_expr_operands (stmt, &OMP_CLAUSE_IF_EXPR (c), opf_use);
-	c = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
-	if (c)
-	  get_expr_operands (stmt, &OMP_CLAUSE_NUM_THREADS_EXPR (c), opf_use);
-#else
-	gimple_unreachable ();
-#endif
-	return;
-      }
-
-    case OMP_SECTIONS:
-      {
-	/* FIXME tuples.  */
-#if 0
-	get_expr_operands (stmt, &OMP_SECTIONS_CONTROL (expr), opf_def);
-	return;
-#else
-	gimple_unreachable ();
-#endif
-      }
-
     case FUNCTION_DECL:
     case LABEL_DECL:
     case CONST_DECL:
     case CASE_LABEL_EXPR:
     case FILTER_EXPR:
     case EXC_PTR_EXPR:
-    case PREDICT_EXPR:
       /* Expressions that make no memory references.  */
       return;
 
