@@ -1,5 +1,9 @@
 2008-07-03  Tom Tromey  <tromey@redhat.com>
 
+	* stringpool.c (alloc_node): Update.
+
+2008-07-03  Tom Tromey  <tromey@redhat.com>
+
 	* tree-eh.c (struct leh_state): Update.
 	(struct leh_tf_state): Likewise.
 	(lower_catch): Likewise.

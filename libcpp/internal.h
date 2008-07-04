@@ -534,7 +534,7 @@ extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
 				     const cpp_token *, unsigned int);
 
 /* In identifiers.c */
-extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
+extern void _cpp_init_hashtable (cpp_reader *, cpp_hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In files.c */

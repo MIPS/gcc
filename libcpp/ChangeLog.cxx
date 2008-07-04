@@ -1,3 +1,8 @@
+2008-07-03  Tom Tromey  <tromey@redhat.com>
+
+	* include/symtab.h (cpp_hash_table): Rename from hash_table.
+	* symtab.c, init.c, identifiers.c, internal.h: Update all users.
+
 2008-06-21  Tom Tromey  <tromey@redhat.com>
 
 	* include/cpplib.h (enum cpp_builtin_type): Rename from
