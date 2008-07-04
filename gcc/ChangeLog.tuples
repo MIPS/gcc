@@ -1,5 +1,13 @@
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple.h (GF_ASM_INPUT, GF_ASM_VOLATILE, GF_CALL_CANNOT_INLINE,
+	GF_CALL_FROM_TRUNK, GF_CALL_RETURN_SLOT_OPT, GF_CALL_TAILCALL,
+	GF_CALL_VA_ARG_PACK, GF_OMP_PARALLEL_COMBINED, GF_OMP_RETURN_NOWAIT,
+	GF_OMP_SECTION_LAST, GF_PREDICT_TAKEN): Change from static const ints
+	into enum values.
+	(struct gimple_statement_base): Move subcode after flags to make it
+	16-bit aligned.
+
 	* tree-ssa-structalias.c (find_func_aliases): Handle ADDR_EXPR
 	as GIMPLE_SINGLE_RHS instead of GIMPLE_UNARY_RHS.
 

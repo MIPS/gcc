@@ -90,24 +90,25 @@ enum gimple_rhs_class
    statement code can hold up to 16 bitflags).
 
    Keep this list sorted.  */
-static const unsigned int GF_ASM_INPUT			= 1 << 0;
-static const unsigned int GF_ASM_VOLATILE		= 1 << 1;
-static const unsigned int GF_CALL_CANNOT_INLINE		= 1 << 0;
-static const unsigned int GF_CALL_FROM_THUNK		= 1 << 1;
-static const unsigned int GF_CALL_RETURN_SLOT_OPT	= 1 << 2;
-static const unsigned int GF_CALL_TAILCALL		= 1 << 3;
-static const unsigned int GF_CALL_VA_ARG_PACK		= 1 << 4;
-static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 0;
+enum gf_mask {
+    GF_ASM_INPUT		= 1 << 0,
+    GF_ASM_VOLATILE		= 1 << 1,
+    GF_CALL_CANNOT_INLINE	= 1 << 0,
+    GF_CALL_FROM_THUNK		= 1 << 1,
+    GF_CALL_RETURN_SLOT_OPT	= 1 << 2,
+    GF_CALL_TAILCALL		= 1 << 3,
+    GF_CALL_VA_ARG_PACK		= 1 << 4,
+    GF_OMP_PARALLEL_COMBINED	= 1 << 0,
 
-/* True on an GIMPLE_OMP_RETURN statement if the return does not require a
-   thread synchronization via some sort of barrier.  The exact barrier that
-   would otherwise be emitted is dependent on the OMP statement with which this
-   return is associated.  */
-static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 0;
+    /* True on an GIMPLE_OMP_RETURN statement if the return does not require
+       a thread synchronization via some sort of barrier.  The exact barrier
+       that would otherwise be emitted is dependent on the OMP statement with
+       which this return is associated.  */
+    GF_OMP_RETURN_NOWAIT	= 1 << 0,
 
-static const unsigned int GF_OMP_SECTION_LAST		= 1 << 0;
-
-static const unsigned int GF_PREDICT_TAKEN		= 1 << 15;
+    GF_OMP_SECTION_LAST		= 1 << 0,
+    GF_PREDICT_TAKEN		= 1 << 15
+};
 
 /* Masks for selecting a pass local flag (PLF) to work on.  These
    masks are used by gimple_set_plf and gimple_plf.  */
@@ -257,12 +258,8 @@ typedef struct
 struct gimple_statement_base GTY(())
 {
   /* [ WORD 1 ]
-     Main identifying codes for a tuple.  The SUBCODE field can be
-     used for tuple-specific flags for tuples that do not require
-     subcodes.  Note that SUBCODE should be at least as wide as tree
-     codes, as several tuples store tree codes in there.  */
+     Main identifying code for a tuple.  */
   ENUM_BITFIELD(gimple_code) code : 8;
-  unsigned int subcode : 16;
 
   /* Nonzero if a warning should not be emitted on this tuple.  */
   unsigned int no_warning	: 1;
@@ -290,6 +287,12 @@ struct gimple_statement_base GTY(())
 
   /* Nonzero if this statement contains memory refernces.  */
   unsigned references_memory_p 	: 1;
+
+  /* The SUBCODE field can be used for tuple-specific flags for tuples
+     that do not require subcodes.  Note that SUBCODE should be at
+     least as wide as tree codes, as several tuples store tree codes
+     in there.  */
+  unsigned int subcode		: 16;
 
   /* UID of this statement.  */
   unsigned uid;
