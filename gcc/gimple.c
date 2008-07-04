@@ -565,7 +565,8 @@ gimple_build_bind (tree vars, gimple_seq body, tree block)
   gimple_bind_set_vars (p, vars);
   if (body)
     gimple_bind_set_body (p, body);
-  gimple_set_block (p, block);
+  if (block)
+    gimple_bind_set_block (p, block);
   return p;
 }
 
@@ -2084,7 +2085,7 @@ gimple_copy (gimple stmt)
 	  new_seq = gimple_seq_copy (gimple_bind_body (stmt));
 	  gimple_bind_set_body (copy, new_seq);
 	  gimple_bind_set_vars (copy, unshare_expr (gimple_bind_vars (stmt)));
-	  gimple_bind_set_block (copy, unshare_expr (gimple_bind_block (stmt)));
+	  gimple_bind_set_block (copy, gimple_bind_block (stmt));
 	  break;
 
 	case GIMPLE_CATCH:

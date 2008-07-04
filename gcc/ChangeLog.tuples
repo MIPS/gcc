@@ -1,5 +1,9 @@
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple.c (gimple_build_bind): Set gimple_bind_block rather
+	than gimple_block.
+	(gimple_copy) <case GIMPLE_BIND>: Don't unshare gimple_bind_block.
+
 	* gimple.h (GF_ASM_INPUT, GF_ASM_VOLATILE, GF_CALL_CANNOT_INLINE,
 	GF_CALL_FROM_TRUNK, GF_CALL_RETURN_SLOT_OPT, GF_CALL_TAILCALL,
 	GF_CALL_VA_ARG_PACK, GF_OMP_PARALLEL_COMBINED, GF_OMP_RETURN_NOWAIT,
