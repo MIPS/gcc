@@ -1913,7 +1913,7 @@ expand_stack_alignment (void)
     {
       crtl->args.internal_arg_pointer = drap_rtx;
 
-      /* Call fixup_tail_casss to clean up REG_EQUIV note if DRAP is
+      /* Call fixup_tail_calls to clean up REG_EQUIV note if DRAP is
          needed. */
       fixup_tail_calls ();
     }
