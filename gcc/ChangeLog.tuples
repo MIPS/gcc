@@ -1,5 +1,8 @@
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-ssa-structalias.c (find_func_aliases): Handle ADDR_EXPR
+	as GIMPLE_SINGLE_RHS instead of GIMPLE_UNARY_RHS.
+
 	* tree-ssa-operands.c (get_expr_operands): Don't handle
 	OMP_FOR, OMP_PARALLEL, OMP_TASK, OMP_SECTIONS and PREDICT_EXPR
 	here.

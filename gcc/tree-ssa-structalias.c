@@ -3783,12 +3783,12 @@ find_func_aliases (gimple origt)
       gcc_assert (is_gimple_assign (t));
       if (gimple_assign_rhs_code (t) == ADDR_EXPR)
 	{
-	  tree base = get_base_address (gimple_assign_rhs1 (t));
+	  tree rhs = gimple_assign_rhs1 (t);
+	  tree base = get_base_address (TREE_OPERAND (rhs, 0));
 	  if (base
 	      && (!DECL_P (base)
 		  || !is_global_var (base)))
-	    make_escape_constraint
-		(build_fold_addr_expr (gimple_assign_rhs1 (t)));
+	    make_escape_constraint (rhs);
 	}
       else if (get_gimple_rhs_class (gimple_assign_rhs_code (t))
 	       == GIMPLE_SINGLE_RHS)
