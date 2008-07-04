@@ -129,6 +129,7 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_CHANGE_DYNAMIC_TYPE:	return GSS_CHANGE_DYNAMIC_TYPE;
     case GIMPLE_OMP_ATOMIC_LOAD:	return GSS_OMP_ATOMIC_LOAD;
     case GIMPLE_OMP_ATOMIC_STORE:	return GSS_OMP_ATOMIC_STORE;
+    case GIMPLE_PREDICT:		return GSS_BASE;
     default:				gcc_unreachable ();
     }
 }
@@ -193,6 +194,8 @@ gimple_size (enum gimple_code code)
       return sizeof (struct gimple_statement_wce);
     case GIMPLE_CHANGE_DYNAMIC_TYPE:
       return sizeof (struct gimple_statement_with_ops);
+    case GIMPLE_PREDICT:
+      return sizeof (struct gimple_statement_base);
     default:
       break;
     }
@@ -1058,6 +1061,20 @@ gimple_build_omp_atomic_store (tree val)
   return p;
 }
 
+/* Build a GIMPLE_PREDICT statement.  PREDICT is one of the predictors from
+   predict.def, OUTCOME is NOT_TAKEN or TAKEN.  */
+
+gimple
+gimple_build_predict (enum br_predictor predictor, enum prediction outcome)
+{
+  gimple p = gimple_alloc (GIMPLE_PREDICT, 0);
+  /* Ensure all the predictors fit into the lower bits of the subcode.  */
+  gcc_assert (END_PREDICTORS <= GF_PREDICT_TAKEN);
+  gimple_predict_set_predictor (p, predictor);
+  gimple_predict_set_outcome (p, outcome);
+  return p;
+}
+
 /* Return which gimple structure is used by T.  The enums here are defined
    in gsstruct.def.  */
 
@@ -1605,6 +1622,7 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
     case GIMPLE_NOP:
     case GIMPLE_RESX:
     case GIMPLE_OMP_RETURN:
+    case GIMPLE_PREDICT:
       break;
 
     default:

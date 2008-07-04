@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
@@ -273,8 +273,8 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
      can then remove the block and labels.  */
   switch (gimple_code (stmt))
     {
-    /* FIXME tuples: case PREDICT_EXPR:*/
     /* FIXME tuples: remove GIMPLE_BIND*/
+    case GIMPLE_PREDICT:
     case GIMPLE_BIND:
     case GIMPLE_LABEL:
       mark_stmt_necessary (stmt, false);

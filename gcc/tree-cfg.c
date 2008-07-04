@@ -3730,6 +3730,7 @@ verify_types_in_gimple_stmt (gimple stmt)
       return verify_types_in_gimple_op (gimple_goto_dest (stmt));
 
     case GIMPLE_NOP:
+    case GIMPLE_PREDICT:
       return false;
 
     case GIMPLE_SWITCH:
@@ -3739,7 +3740,6 @@ verify_types_in_gimple_stmt (gimple stmt)
       return verify_types_in_gimple_return (stmt);
 
     case GIMPLE_ASM:
-    case PREDICT_EXPR:
       return false;
 
     case GIMPLE_CHANGE_DYNAMIC_TYPE:
@@ -3803,6 +3803,7 @@ verify_types_in_gimple_seq_2 (gimple_seq stmts)
           case GIMPLE_NOP:
           case GIMPLE_RESX:
           case GIMPLE_OMP_RETURN:
+	  case GIMPLE_PREDICT:
             break;
 
 	default:

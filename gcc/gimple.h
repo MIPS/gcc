@@ -86,8 +86,8 @@ enum gimple_rhs_class
    Values for the masks can overlap as long as the overlapping values
    are never used in the same statement class.
 
-   The maximum mask value that can be defined is 1 << 7 (i.e., each
-   statement code can hold up to 8 bitflags).
+   The maximum mask value that can be defined is 1 << 15 (i.e., each
+   statement code can hold up to 16 bitflags).
 
    Keep this list sorted.  */
 static const unsigned int GF_ASM_INPUT			= 1 << 0;
@@ -106,6 +106,8 @@ static const unsigned int GF_OMP_PARALLEL_COMBINED	= 1 << 0;
 static const unsigned int GF_OMP_RETURN_NOWAIT		= 1 << 0;
 
 static const unsigned int GF_OMP_SECTION_LAST		= 1 << 0;
+
+static const unsigned int GF_PREDICT_TAKEN		= 1 << 15;
 
 /* Masks for selecting a pass local flag (PLF) to work on.  These
    masks are used by gimple_set_plf and gimple_plf.  */
@@ -804,6 +806,7 @@ gimple gimple_build_omp_single (gimple_seq, tree);
 gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
+gimple gimple_build_predict (enum br_predictor, enum prediction);
 enum gimple_statement_structure_enum gimple_statement_structure (gimple);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
 void sort_case_labels (VEC(tree,heap) *);
@@ -4005,6 +4008,50 @@ gimple_cdt_set_location (gimple gs, tree ptr)
 {
   GIMPLE_CHECK (gs, GIMPLE_CHANGE_DYNAMIC_TYPE);
   gimple_set_op (gs, 0, ptr);
+}
+
+
+/* Return the predictor of GIMPLE_PREDICT statement GS.  */
+
+static inline enum br_predictor
+gimple_predict_predictor (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
+  return (enum br_predictor) (gs->gsbase.subcode & ~GF_PREDICT_TAKEN);
+}
+
+
+/* Set the predictor of GIMPLE_PREDICT statement GS to PREDICT.  */
+
+static inline void
+gimple_predict_set_predictor (gimple gs, enum br_predictor predictor)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
+  gs->gsbase.subcode = (gs->gsbase.subcode & GF_PREDICT_TAKEN)
+		       | (unsigned) predictor;
+}
+
+
+/* Return the outcome of GIMPLE_PREDICT statement GS.  */
+
+static inline enum prediction
+gimple_predict_outcome (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
+  return (gs->gsbase.subcode & GF_PREDICT_TAKEN) ? TAKEN : NOT_TAKEN;
+}
+
+
+/* Set the outcome of GIMPLE_PREDICT statement GS to OUTCOME.  */
+
+static inline void
+gimple_predict_set_outcome (gimple gs, enum prediction outcome)
+{
+  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
+  if (outcome == TAKEN)
+    gs->gsbase.subcode |= GF_PREDICT_TAKEN;
+  else
+    gs->gsbase.subcode &= ~GF_PREDICT_TAKEN;
 }
 
 

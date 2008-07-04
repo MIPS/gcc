@@ -2921,6 +2921,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_PHI:
     case GIMPLE_RETURN:
     case GIMPLE_CHANGE_DYNAMIC_TYPE:
+    case GIMPLE_PREDICT:
       return 0;
 
     case GIMPLE_ASM:

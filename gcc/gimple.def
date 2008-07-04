@@ -343,6 +343,13 @@ DEFGSCODE(GIMPLE_OMP_SECTIONS_SWITCH, "gimple_omp_sections_switch", NULL)
    CLAUSES is a TREE_LIST node holding the associated clauses.  */
 DEFGSCODE(GIMPLE_OMP_SINGLE, "gimple_omp_single", NULL)
 
+/* GIMPLE_PREDICT <PREDICT, OUTCOME> specifies a hint for branch prediction.
+
+   PREDICT is one of the predictors from predict.def.
+
+   OUTCOME is NOT_TAKEN or TAKEN.  */
+DEFGSCODE(GIMPLE_PREDICT, "gimple_predict", NULL)
+
 /*  This node represents a cleanup expression.  It is ONLY USED INTERNALLY
     by the gimplifier as a placeholder for cleanups, and its uses will be
     cleaned up by the time gimplification is done.

@@ -1,3 +1,27 @@
+2008-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.def (GIMPLE_PREDICT): New.
+	* gimple.h: Update comment above GF_* flags.
+	(GF_PREDICT_TAKEN): New.
+	(gimple_build_predict): New prototype.
+	(gimple_predict_predictor, gimple_predict_outcome,
+	gimple_predict_set_predictor, gimple_predict_set_outcome): New
+	inlines.
+	* gimple.c (gss_for_code): Handle GIMPLE_PREDICT.
+	(gimple_size, walk_gimple_op): Likewise.
+	(gimple_build_predict): New function.
+	* gimple-pretty-print.c (dump_gimple_stmt): Handle GIMPLE_PREDICT.
+	* predict.c (tree_bb_level_predictions): Likewise.
+	* cfgexpand.c (gimple_to_tree): Likewise.
+	* tree-inline.c (estimate_num_insns): Likewise.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Likewise.
+	* gimple-low.c (lower_stmt): Likewise.
+	* tree-cfg.c (verify_types_in_gimple_seq_2): Likewise.
+	(verify_types_in_gimple_stmt): Likewise.  Don't handle PREDICT_EXPR.
+	* gimplify.c (gimplify_expr): Gimplify PREDICT_EXPR into
+	GIMPLE_PREDICT.
+	* expr.c (expand_expr_real): Don't handle PREDICT_EXPR.
+
 2008-07-04  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-forwprop.c (rhs_to_tree): Remove fixme.

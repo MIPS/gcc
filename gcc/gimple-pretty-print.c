@@ -1548,6 +1548,16 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_resx (buffer, gs, spc, flags);
       break;
 
+    case GIMPLE_PREDICT:
+      pp_string (buffer, "// predicted ");
+      if (gimple_predict_outcome (gs))
+	pp_string (buffer, "likely by ");
+      else
+	pp_string (buffer, "unlikely by ");
+      pp_string (buffer, predictor_name (gimple_predict_predictor (gs)));
+      pp_string (buffer, " predictor.");
+      break;
+
     default:
       GIMPLE_NIY;
     }

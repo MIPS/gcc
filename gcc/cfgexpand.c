@@ -275,6 +275,7 @@ gimple_to_tree (gimple stmt)
     break;
 
     case GIMPLE_NOP:
+    case GIMPLE_PREDICT:
       t = build1 (NOP_EXPR, void_type_node, size_zero_node);
       break;
 

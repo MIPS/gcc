@@ -6417,9 +6417,12 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			  gimple_build_goto (GOTO_DESTINATION (*expr_p)));
 	  break;
 
-	  /* Predictions are always gimplified.  */
 	case PREDICT_EXPR:
-	  goto out;
+	  gimplify_seq_add_stmt (pre_p,
+			gimple_build_predict (PREDICT_EXPR_PREDICTOR (*expr_p),
+					      PREDICT_EXPR_OUTCOME (*expr_p)));
+	  ret = GS_ALL_DONE;
+	  break;
 
 	case LABEL_EXPR:
 	  ret = GS_ALL_DONE;

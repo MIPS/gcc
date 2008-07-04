@@ -1346,13 +1346,12 @@ tree_bb_level_predictions (void)
 
   FOR_EACH_BB (bb)
     {
-      gimple_stmt_iterator bsi;
+      gimple_stmt_iterator gsi;
 
-      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi);)
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple stmt = gsi_stmt (gsi);
 	  tree decl;
-	  bool next = false;
 
 	  if (gimple_code (stmt) == GIMPLE_CALL)
 	    {
@@ -1366,19 +1365,15 @@ tree_bb_level_predictions (void)
 		predict_paths_leading_to (bb, PRED_COLD_FUNCTION,
 					  NOT_TAKEN);
 	    }
+	  else if (gimple_code (stmt) == GIMPLE_PREDICT)
+	    {
+	      predict_paths_leading_to (bb, gimple_predict_predictor (stmt),
+					gimple_predict_outcome (stmt));
+	      gsi_remove (&gsi, true);
+	      continue;
+	    }
 
-/* FIXME tuples */
-#if 0
-	case PREDICT_EXPR:
-	  predict_paths_leading_to (bb, PREDICT_EXPR_PREDICTOR (stmt),
-				    PREDICT_EXPR_OUTCOME (stmt));
-	  bsi_remove (&bsi, true);
-	  next = true;
-	  break;
-#endif
-
-	  if (!next)
-	    gsi_next (&bsi);
+	  gsi_next (&gsi);
 	}
     }
 }
