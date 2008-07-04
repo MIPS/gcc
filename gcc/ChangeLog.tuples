@@ -1,5 +1,8 @@
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* cfgexpand.c (gimple_to_tree) <case GIMPLE_CALL>: Copy
+	CALL_EXPR_VA_ARG_PACK.
+
 	* gimple.c (gimple_build_bind): Set gimple_bind_block rather
 	than gimple_block.
 	(gimple_copy) <case GIMPLE_BIND>: Don't unshare gimple_bind_block.

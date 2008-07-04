@@ -231,6 +231,7 @@ gimple_to_tree (gimple stmt)
         CALL_EXPR_RETURN_SLOT_OPT (t) = gimple_call_return_slot_opt_p (stmt);
         CALL_FROM_THUNK_P (t) = gimple_call_from_thunk_p (stmt);
         CALL_CANNOT_INLINE_P (t) = gimple_call_cannot_inline_p (stmt);
+        CALL_EXPR_VA_ARG_PACK (t) = gimple_call_va_arg_pack_p (stmt);
 
         /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
         if (gimple_call_lhs (stmt))
