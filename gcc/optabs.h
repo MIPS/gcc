@@ -44,29 +44,29 @@ struct optab_handlers
   enum insn_code insn_code;
 };
 
-struct optab
+struct optab_d
 {
   enum rtx_code code;
   const char *libcall_basename;
   char libcall_suffix;
-  void (*libcall_gen)(struct optab *, const char *name, char suffix, enum machine_mode);
+  void (*libcall_gen)(struct optab_d *, const char *name, char suffix, enum machine_mode);
   struct optab_handlers handlers[NUM_MACHINE_MODES];
 };
-typedef struct optab * optab;
+typedef struct optab_d * optab;
 
 /* A convert_optab is for some sort of conversion operation between
    modes.  The first array index is the destination mode, the second
    is the source mode.  */
-struct convert_optab
+struct convert_optab_d
 {
   enum rtx_code code;
   const char *libcall_basename;
-  void (*libcall_gen)(struct convert_optab *, const char *name,
+  void (*libcall_gen)(struct convert_optab_d *, const char *name,
 		      enum machine_mode,
 		      enum machine_mode);
   struct optab_handlers handlers[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
 };
-typedef struct convert_optab *convert_optab;
+typedef struct convert_optab_d *convert_optab;
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */
@@ -372,7 +372,7 @@ enum optab_index
   OTI_MAX
 };
 
-extern struct optab optab_table[OTI_MAX];
+extern struct optab_d optab_table[OTI_MAX];
 
 #define ssadd_optab (&optab_table[OTI_ssadd])
 #define usadd_optab (&optab_table[OTI_usadd])
@@ -573,7 +573,7 @@ enum convert_optab_index
   COI_MAX
 };
 
-extern struct convert_optab convert_optab_table[COI_MAX];
+extern struct convert_optab_d convert_optab_table[COI_MAX];
 
 #define sext_optab (&convert_optab_table[COI_sext])
 #define zext_optab (&convert_optab_table[COI_zext])

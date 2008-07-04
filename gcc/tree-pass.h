@@ -91,17 +91,20 @@ extern const char *dump_file_name;
 /* Return the dump_file_info for the given phase.  */
 extern struct dump_file_info *get_dump_file_info (enum tree_dump_index);
 
+/* The possible types of optimization pass.  */
+enum opt_pass_type {
+  GIMPLE_PASS,
+  RTL_PASS,
+  SIMPLE_IPA_PASS,
+  IPA_PASS
+};
+
 /* Describe one pass; this is the common part shared across different pass
    types.  */
 struct opt_pass
 {
   /* Optimization pass type.  */
-  enum opt_pass_type {
-    GIMPLE_PASS,
-    RTL_PASS,
-    SIMPLE_IPA_PASS,
-    IPA_PASS
-  } type;
+  enum opt_pass_type type;
   /* Terse name of the pass used as a fragment of the dump file name.  */
   const char *name;
 
@@ -154,7 +157,7 @@ struct cgraph_node;
 
 /* Description of IPA pass with generate summary, write, execute, read and
    transform stages.  */
-struct ipa_opt_pass
+struct ipa_opt_pass_d
 {
   struct opt_pass pass;
 
@@ -386,7 +389,7 @@ extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
-extern struct ipa_opt_pass pass_ipa_inline;
+extern struct ipa_opt_pass_d pass_ipa_inline;
 extern struct simple_ipa_opt_pass pass_ipa_reference;
 
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;

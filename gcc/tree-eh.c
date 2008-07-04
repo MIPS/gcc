@@ -84,7 +84,7 @@ struct_ptr_hash (const void *a)
    of space by only allocating memory for those that can throw.  */
 
 static void
-record_stmt_eh_region (struct eh_region *region, tree t)
+record_stmt_eh_region (struct eh_region_d *region, tree t)
 {
   if (!region)
     return;
@@ -280,8 +280,8 @@ struct leh_state
   /* What's "current" while constructing the eh region tree.  These
      correspond to variables of the same name in cfun->eh, which we
      don't have easy access to.  */
-  struct eh_region *cur_region;
-  struct eh_region *prev_try;
+  struct eh_region_d *cur_region;
+  struct eh_region_d *prev_try;
 
   /* Processing of TRY_FINALLY requires a bit more state.  This is
      split out into a separate structure so that we don't have to
@@ -302,7 +302,7 @@ struct leh_tf_state
   struct leh_state *outer;
 
   /* The exception region created for it.  */
-  struct eh_region *region;
+  struct eh_region_d *region;
 
   /* The GOTO_QUEUE is is an array of GOTO_EXPR and RETURN_EXPR statements
      that are seen to escape this TRY_FINALLY_EXPR node.  */
@@ -1465,7 +1465,7 @@ lower_try_finally (struct leh_state *state, tree *tp)
 static void
 lower_catch (struct leh_state *state, tree *tp)
 {
-  struct eh_region *try_region;
+  struct eh_region_d *try_region;
   struct leh_state this_state;
   tree_stmt_iterator i;
   tree out_label;
@@ -1486,7 +1486,7 @@ lower_catch (struct leh_state *state, tree *tp)
   out_label = NULL;
   for (i = tsi_start (TREE_OPERAND (*tp, 1)); !tsi_end_p (i); )
     {
-      struct eh_region *catch_region;
+      struct eh_region_d *catch_region;
       tree catch, x, eh_label;
 
       catch = tsi_stmt (i);
@@ -1526,7 +1526,7 @@ static void
 lower_eh_filter (struct leh_state *state, tree *tp)
 {
   struct leh_state this_state;
-  struct eh_region *this_region;
+  struct eh_region_d *this_region;
   tree inner = expr_first (TREE_OPERAND (*tp, 1));
   tree eh_label;
 
@@ -1566,7 +1566,7 @@ static void
 lower_cleanup (struct leh_state *state, tree *tp)
 {
   struct leh_state this_state;
-  struct eh_region *this_region;
+  struct eh_region_d *this_region;
   struct leh_tf_state fake_tf;
 
   /* If not using eh, then exception-only cleanups are no-ops.  */
@@ -1749,7 +1749,7 @@ struct gimple_opt_pass pass_lower_eh =
 /* Construct EH edges for STMT.  */
 
 static void
-make_eh_edge (struct eh_region *region, void *data)
+make_eh_edge (struct eh_region_d *region, void *data)
 {
   tree stmt, lab;
   basic_block src, dst;
@@ -1790,7 +1790,7 @@ static bool mark_eh_edge_found_error;
 /* Mark edge make_eh_edge would create for given region by setting it aux
    field, output error if something goes wrong.  */
 static void
-mark_eh_edge (struct eh_region *region, void *data)
+mark_eh_edge (struct eh_region_d *region, void *data)
 {
   tree stmt, lab;
   basic_block src, dst;

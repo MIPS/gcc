@@ -1,3 +1,49 @@
+2008-07-03  Tom Tromey  <tromey@redhat.com>
+
+	* tree-eh.c (struct leh_state): Update.
+	(struct leh_tf_state): Likewise.
+	(lower_catch): Likewise.
+	(lower_eh_filter): Likewise.
+	(lower_cleanup): Likewise.
+	(make_eh_edge): Likewise.
+	(mark_eh_edge): Likewise.
+	* function.h (call_site_record): Update.
+	(ipa_opt_pass): Likewise.
+	* alias.c (struct alias_set_entry_d): Rename from
+	alias_set_entry.
+	(record_alias_subset): Update.
+	* except.c (struct eh_region_d): Rename from eh_region.
+	(struct call_site_record_d): Rename from call_site_record.
+	Update all users.
+	* except.h (struct eh_region_d): Rename from eh_region.
+	Update all users.
+	* tree-predcom.c (struct dref_d): Rename from dref.
+	Update all users.
+	* tree-cfg.c (update_eh_label): Update.
+	* passes.c (add_ipa_transform_pass): Update.
+	(execute_ipa_summary_passes): Update.
+	(execute_one_ipa_transform_pass): Update.
+	(execute_ipa_summary_passes): Update.
+	(execute_ipa_pass_list): Update.
+	* optabs.c (optab_table): Update.
+	(convert_optab_table): Likewise.
+	(sign_expand_binop): Likewise.
+	* optabs.h (struct optab_d): Rename from optab.
+	(optab): Update.
+	(struct convert_optab_d): Rename from convert_optab.
+	(convert_optab): Update.
+	(optab_table, convert_optab_table): Likewise.
+	* tree-pass.h (enum opt_pass_type): Declare at top-level.
+	(struct ipa_ops_pass_d): Rename from struct ipa_ops_pass.
+	(pass_ipa_inline): Update.
+	* omega.c (verify_omega_pb): Update.
+	(omega_eliminate_redundant, omega_eliminate_red,
+	parallel_splinter, omega_alloc_problem): Likewise.
+	* omega.h (struct eqn_d): Rename from eqn.
+	(struct omega_pb_d): Rename from omega_pb.
+	(omega_alloc_eqns): Update.
+	* ipa-inline.c (pass_ipa_inline): Update.
+
 2008-07-01  Ian Lance Taylor  <iant@google.com>
 
 	* machmode.h (GET_MODE_INNER): Cast to enum machine_mode.
