@@ -1,3 +1,135 @@
+2008-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-switch-conversion.c (build_one_array, gen_def_assigns): Use
+	build_gimple_modify_stmt.
+	(build_arrays, gen_inbound_check): Likewise.  Force RHS to be
+	gimple operand.  Use fold_build* instead of build*.
+
+2008-07-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (lookup_vi_for_tree): Declare.
+	(do_sd_constraint): Handle a dereference of ESCAPED and CALLUSED
+	properly to compute the reachability set if we do field-sensitive PTA.
+	* invoke.texi (max-fields-for-field-sensitive): Document default.
+	* opts.c (decode_options): Set max-fields-for-field-sensitive to
+	100 for optimize >= 2.
+
+2008-07-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ggc-zone.c (lookup_page_table_if_allocated,
+	set_page_table_entry, zone_find_object_size, alloc_small_page,
+	alloc_large_page, ggc_free, gt_ggc_m_S, ggc_marked_p, init_ggc,
+	new_ggc_zone, init_ggc_pch, ggc_pch_this_base, ggc_pch_read): Fix
+	-Wc++-compat and/or -Wcast-qual warnings.
+
+2008-07-04  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/36634
+	* config/rs6000/rs6000.md (call, call_value): Don't arrange for
+	pic_offset_table_rtx to be marked as used here.
+	(call_nonlocal_sysv, call_value_nonlocal_sysv): Add split for
+	TARGET_SECURE_PLT to "use" pic_offset_table_rtx.
+	(call_nonlocal_sysv_secure, call_value_nonlocal_sysv_secure): New insn.
+	(sibcall_nonlocal_sysv, sibcall_value_nonlocal_sysv): Assert
+	!TARGET_SECURE_PLT.
+
+2008-07-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* alloc-pool.c (hash_descriptor, eq_descriptor,
+	alloc_pool_descriptor): Fix -Wc++-compat warnings.
+	* bitmap.c (hash_descriptor, eq_descriptor, bitmap_descriptor):
+	Likewise.
+	* ggc-common.c (hash_descriptor, eq_descriptor, hash_ptr, eq_ptr,
+	loc_descriptor, ggc_prune_ptr, ggc_free_overhead,
+	final_cmp_statistic, cmp_statistic, dump_ggc_loc_statistics):
+	Likewise.
+	* varray.c (hash_descriptor, eq_descriptor, varray_descriptor):
+	Likewise.
+
+2008-07-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-flow.h (loop_only_exit_p): Declare.
+	* tree-ssa-loop-niter.c (loop_only_exit_p): Make public.
+	* tree-ssa-loop-ivopts.c (may_eliminate_iv): Reinstate direct check on
+	the number of iterations if it is constant.  Otherwise, if this is the
+	only possible exit of the loop, use the conservative estimate on the
+	number of iterations of the entire loop if available.
+
+2008-07-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* Makefile.in (libgcc.mvars): Add LIBGCC_SYNC and LIBGCC_SYNC_CFLAGS.
+	* libgcc-std.ver (GCC_4.4.0): New version, inherited from GCC_4.3.0.
+	Add synchronization functions.
+	* config/sync.c: New file.
+	* config/mips/t-libgcc-mips16 (LIBGCC_SYNC): Define.
+	(LIBGCC_SYNC_CFLAGS): Likewise.
+
+2008-07-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/36710
+	* config/i386/i386.md (mode): Add TF to "mode" attribute.
+	(*pushtf_sse): New insn pattern.
+	(pushtf splitters): New splitters.
+
+2008-07-03  Michael Meissner  <gnu@the-meissners.org>
+
+	PR middle-end/35736
+	* predict.c (build_predict_expr): Use void_type_node for the tree
+	type, instead of NULL_TREE.
+
+2008-07-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (contains_aligned_value_p): Return true
+	for TCmode.
+	(ix86_data_alignment): Align TCmode to 128bits.
+	(ix86_local_alignment): Likewise.
+
+2008-07-03  Andrew Haley  <aph@redhat.com>
+
+	PR bootstrap/33304
+	* vec.h (VEC_TA): New.
+	(DEF_VEC_I, DEF_VEC_P, DEF_VEC_ALLOC_I, DEF_VEC_ALLOC_P,
+	DEF_VEC_O, DEF_VEC_ALLOC_O: Use VEC_TA.
+	* c-common.c (C_COMMON_FIXED_TYPES_SAT): New macro.
+	(C_COMMON_FIXED_MODE_TYPES_SAT): New macro.
+	(C_COMMON_FIXED_TYPES): Remove first arg.
+	(C_COMMON_FIXED_MODE_TYPES): Likewise.
+	* tree.c (MAKE_FIXED_TYPE_NODE): Break into two macros,
+	MAKE_FIXED_TYPE_NODE and MAKE_FIXED_TYPE_NODE_WIDTH in order
+	not to use empty macro arguments.
+
+2008-07-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/alpha/vms_tramp.asm, config/arm/crti.asm,
+	config/arm/crtn.asm, config/bfin/crti.s, config/bfin/crtlibid.s,
+	config/bfin/crtn.s, config/fr30/crti.asm, config/fr30/crtn.asm,
+	config/frv/lib1funcs.asm, config/i386/sol2-c1.asm,
+	config/i386/sol2-ci.asm, config/i386/sol2-cn.asm,
+	config/i386/sol2-gc1.asm, config/ia64/crti.asm,
+	config/ia64/crtn.asm, config/m68hc11/larith.asm,
+	config/m68hc11/m68hc11-crt0.S, config/m68k/crti.s,
+	config/m68k/crtn.s, config/mcore/crti.asm, config/mcore/crtn.asm,
+	config/rs6000/crtresfpr.asm, config/rs6000/crtresgpr.asm,
+	config/rs6000/crtresxfpr.asm, config/rs6000/crtresxgpr.asm,
+	config/rs6000/crtsavfpr.asm, config/rs6000/crtsavgpr.asm,
+	config/rs6000/crtsavres.asm, config/rs6000/e500crtres32gpr.asm,
+	config/rs6000/e500crtres64gpr.asm,
+	config/rs6000/e500crtres64gprctr.asm,
+	config/rs6000/e500crtrest32gpr.asm,
+	config/rs6000/e500crtrest64gpr.asm,
+	config/rs6000/e500crtresx32gpr.asm,
+	config/rs6000/e500crtresx64gpr.asm,
+	config/rs6000/e500crtsav32gpr.asm,
+	config/rs6000/e500crtsav64gpr.asm,
+	config/rs6000/e500crtsav64gprctr.asm,
+	config/rs6000/e500crtsavg32gpr.asm,
+	config/rs6000/e500crtsavg64gpr.asm,
+	config/rs6000/e500crtsavg64gprctr.asm, config/rs6000/eabi-ci.asm,
+	config/rs6000/eabi-cn.asm, config/rs6000/eabi.asm,
+	config/rs6000/sol-ci.asm, config/rs6000/sol-cn.asm,
+	config/rs6000/tramp.asm, config/sparc/sol2-ci.asm,
+	config/sparc/sol2-cn.asm: Remove .file directives.
+
 2008-07-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* resource.c (mark_referenced_resources): Look inside
@@ -96,6 +228,8 @@
 	and softfp_wrap_end.
 
 2008-07-02  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (ctor_to_list): Use FOR_EACH_CONSTRUCTOR_ELT.
 
 	* tree.c (ctor_to_list): New fn.
 	* tree.h: Declare it.
@@ -231,19 +365,19 @@
 
 2008-07-01  Martin Jambor  <mjambor@suse.cz>
 
-        * Makefile.in (tree-switch-conversion.o): Add.
-        (OBJS-common): Add tree-swtch-conversion.o.
-        * passes.c (init_optimization_passes): Add pass_convert_switch.
-        * tree-pass.h: (pass_convert_switch): Add.
-        * tree-switch-conversion.c: New file.
-        * gcc.dg/tree-ssa/cswtch.c: New testcase.
-        * common.opt (ftree-cswtch): New option.
-        * params.h (PARAM_SWITCH_CONVERSION_BRANCH_RATIO): New parameter.
-        * params.def (PARAM_SWITCH_CONVERSION_BRANCH_RATIO): New parameter.
-        * opts.c (decode_options): Set flag_tree_switch_conversion when
-        optimization level is >= 2.
-        * doc/invoke.texi (Optimize Options): Added description of
-        -ftree-swtch-conversion and switch-conversion-max-branch-ratio.
+	* Makefile.in (tree-switch-conversion.o): Add.
+	(OBJS-common): Add tree-swtch-conversion.o.
+	* passes.c (init_optimization_passes): Add pass_convert_switch.
+	* tree-pass.h: (pass_convert_switch): Add.
+	* tree-switch-conversion.c: New file.
+	* gcc.dg/tree-ssa/cswtch.c: New testcase.
+	* common.opt (ftree-cswtch): New option.
+	* params.h (PARAM_SWITCH_CONVERSION_BRANCH_RATIO): New parameter.
+	* params.def (PARAM_SWITCH_CONVERSION_BRANCH_RATIO): New parameter.
+	* opts.c (decode_options): Set flag_tree_switch_conversion when
+	optimization level is >= 2.
+	* doc/invoke.texi (Optimize Options): Added description of
+	-ftree-swtch-conversion and switch-conversion-max-branch-ratio.
 
 2008-06-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -263,7 +397,7 @@
 
 	PR rtl-optimization/34744
 	* df-scan.c (df_scan_free_ref_vec, df_scan_free_mws_vec): New macros.
-       	(df_scan_free_internal): Free data structures not
+	(df_scan_free_internal): Free data structures not
 	allocated in storage pools.
 	(df_mw_hardreg_chain_delete_eq_uses): Use df_scan_free_mws_vec.
 	(df_refs_add_to_chains): Use df_scan_free_ref_vec and
