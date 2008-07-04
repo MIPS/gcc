@@ -507,7 +507,7 @@ handle_constant (JCF *jcf, int index, enum cpool_tag purpose)
   if (! CPOOL_INDEX_IN_RANGE (&jcf->cpool, index))
     error ("<constant pool index %d not in range>", index);
   
-  kind = JPOOL_TAG (jcf, index);
+  kind = (cpool_tag) JPOOL_TAG (jcf, index);
 
   if ((kind & ~CONSTANT_ResolvedFlag) != purpose)
     {
