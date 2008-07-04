@@ -1,3 +1,10 @@
+2008-07-04  Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	PR debug/36728
+	* dwarf2out.c (based_loc_descr): For local variables, use
+	sp+offset when stack is aligned without drap and fp+offset
+	when stack is aligned with drap.
+
 2008-06-30  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* global.c (compute_regsets): Reorder.

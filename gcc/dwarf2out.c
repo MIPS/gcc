@@ -9169,6 +9169,9 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 {
   unsigned int regno;
   dw_loc_descr_ref result;
+  dw_fde_ref fde = current_fde ();
+  unsigned int dwarf_fp = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
+  unsigned int dwarf_sp = DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
 
   /* We only use "frame base" when we're sure we're talking about the
      post-prologue local stack frame.  We do this by *not* running
@@ -9191,8 +9194,24 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 	              || elim == (frame_pointer_needed
 				  ? hard_frame_pointer_rtx
 				  : stack_pointer_rtx));
-	  offset += frame_pointer_fb_offset;
 
+	  /* If stack is aligned while drap register used, use frame
+	     pointer + offset to access stack variables. If stack
+	     is aligned without drap, use stack pointer + offset to
+	     access stack variables.  */
+	  if (fde
+	      && fde->stack_realign
+	      && cfa.reg == HARD_FRAME_POINTER_REGNUM
+	      && reg == frame_pointer_rtx)
+	    {
+	      int base_reg = cfa.indirect ? dwarf_fp : dwarf_sp;
+	      if (base_reg <= 31)
+		return new_loc_descr (DW_OP_breg0 + base_reg, offset, 0);
+	      else
+		return new_loc_descr (DW_OP_bregx, base_reg, offset);
+	    }
+
+	  offset += frame_pointer_fb_offset;
 	  return new_loc_descr (DW_OP_fbreg, offset, 0);
 	}
     }
