@@ -324,10 +324,10 @@ remove_prop_source_from_use (tree name, gimple up_to_stmt)
 
 /* Return the rhs of a gimple_assign STMT in a form of a single tree,
    converted to type TYPE.
-   FIXME tuples: This should disappear, but is needed so we can combine
-   expressions and use the fold() interfaces. Long term, we need to
-   develop folding and combine routines that deal with gimple
-   exclusively . */
+   
+   This should disappear, but is needed so we can combine expressions and use
+   the fold() interfaces. Long term, we need to develop folding and combine
+   routines that deal with gimple exclusively . */
 
 static tree
 rhs_to_tree (tree type, gimple stmt)
@@ -378,7 +378,9 @@ combine_cond_expr_cond (enum tree_code code, tree type,
 /* Propagate from the ssa name definition statements of COND_EXPR
    in GIMPLE_COND statement STMT into the conditional if that simplifies it.
    Returns zero if no statement was changed, one if there were
-   changes and two if cfg_cleanup needs to run.  */
+   changes and two if cfg_cleanup needs to run.
+   
+   This must be kept in sync with forward_propagate_into_cond.  */
 
 static int
 forward_propagate_into_gimple_cond (gimple stmt)
@@ -467,17 +469,12 @@ forward_propagate_into_gimple_cond (gimple stmt)
 }
 
 
-/* FIXME tuples: Is it worth having two copies of this function-- one for
-   COND_EXPRs and one for GIMPLE_CONDs?  We gotta come up with a smarter
-   way of doing this.  
-   
-   Heck, even a tree2gimple convertor for COND_EXPR's has got to be better
-   than this.  We should check how common this propagation is, and what's
-   the penalty for tree<->gimple conversion.  */
 /* Propagate from the ssa name definition statements of COND_EXPR
    in the rhs of statement STMT into the conditional if that simplifies it.
    Returns zero if no statement was changed, one if there were
-   changes and two if cfg_cleanup needs to run.  */
+   changes and two if cfg_cleanup needs to run.
+
+   This must be kept in sync with forward_propagate_into_gimple_cond.  */
 
 static int
 forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
@@ -747,8 +744,6 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
       && useless_type_conversion_p (TREE_TYPE (rhs),
 				    TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
     {
-      return false;
-      /* FIXME tuples: The code below causes a bootstrap failure.  */
       *rhsp = unshare_expr (TREE_OPERAND (def_rhs, 0));
       fold_stmt_inplace (use_stmt);
       tidy_after_forward_propagate_addr (use_stmt);
