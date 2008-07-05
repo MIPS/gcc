@@ -1,3 +1,15 @@
+2008-07-04  Tom Tromey  <tromey@redhat.com>
+
+	* mangle.c (emit_compression_string): Insert newline.
+	* builtins.c (java_builtins): Cast initializers.
+	* Make-lang.in (jvspec.o): Use ALL_CXXFLAGS.
+	($(GCJ)$(exeext)): Likewise.
+	(jc1$(exeext)): Likewise.
+	(jcf-dump$(exeext)): Likewise.
+	(jvgenmain$(exeext)): Likewise.
+	(java/jcf-io.o): Likewise.
+	(java/jcf-path.o): Likewise.
+
 2008-07-03  Tom Tromey  <tromey@redhat.com>
 
 	* verify.h: Don't use 'extern "C"'.
