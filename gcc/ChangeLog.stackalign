@@ -1,3 +1,21 @@
+2008-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	PR debug/36728
+	* dwarf2out.c (dw_fde_node): Add drap_reg and vdrap_reg.  Remove
+	cfa_uses_expression.
+	(add_cfi): Check drap_reg instead of cfa_uses_expression.
+	(dwarf2out_frame_debug_expr): Add rule 20 to handle virtual
+	drap.  Update rule 19 to set drap_reg instead of
+	cfa_uses_expression.
+	(dwarf2out_begin_prologue): Initialize drap_reg and vdrap_reg
+	to INVALID_REGNUM.
+	(based_loc_descr): Use cfa+offset to represent the location of
+	arguments passed on stack when drap is used to align stack.
+
+	* config/i386/i386.c (ix86_get_drap_rtx): Set RTX_FRAME_RELATED_P
+	bit on virtual drap insn.
+
 2008-07-04  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* cfgexpand.c (expand_stack_alignment): Fix a typo in comments.

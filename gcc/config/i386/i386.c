@@ -6628,7 +6628,7 @@ ix86_get_drap_rtx (void)
       unsigned int regno = find_drap_reg ();
       rtx drap_vreg;
       rtx arg_ptr;
-      rtx seq;
+      rtx seq, insn;
 
       arg_ptr = gen_rtx_REG (Pmode, regno);
       crtl->drap_reg = arg_ptr;
@@ -6638,7 +6638,8 @@ ix86_get_drap_rtx (void)
       seq = get_insns ();
       end_sequence ();
       
-      emit_insn_before (seq, NEXT_INSN (entry_of_function ()));
+      insn = emit_insn_before (seq, NEXT_INSN (entry_of_function ()));
+      RTX_FRAME_RELATED_P (insn) = 1;
       return drap_vreg;
     }
   else

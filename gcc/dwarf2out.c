@@ -240,13 +240,15 @@ typedef struct dw_fde_struct GTY(())
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
   HOST_WIDE_INT stack_realignment;
+  /* Dynamic realign argument pointer register.  */
+  unsigned int drap_reg;
+  /* Virtual dynamic realign argument pointer register.  */
+  unsigned int vdrap_reg;
   unsigned all_throwers_are_sibcalls : 1;
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
   /* Whether we did stack realign in this call frame.  */
   unsigned stack_realign : 1;
-  /* Whether cfa is defined by expression.  */
-  unsigned cfa_uses_expression : 1;
 }
 dw_fde_node;
 
@@ -628,10 +630,9 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
   dw_cfi_ref *p;
   dw_fde_ref fde = current_fde ();
 
-  /* When the CFA is defined with an expression, redefine it may lead
-     to a different CFA value.  FIXME: Will the value of CFA expression
-     ever change?   */
-  if (fde && fde->cfa_uses_expression)
+  /* When DRAP is used, CFA is defined with an expression.  Redefine
+     CFA may lead to a different CFA value.   */
+  if (fde && fde->drap_reg != INVALID_REGNUM)
     switch (cfi->dw_cfi_opc)
       {
         case DW_CFA_def_cfa_register:
@@ -1418,7 +1419,7 @@ static dw_cfa_location cfa_temp;
 	       difference of the original location and cfa_store's
 	       location (or cfa_temp's location if cfa_temp is used).
 
-  Rules 16-19: If AND operation happens on sp in prologue, we assume
+  Rules 16-20: If AND operation happens on sp in prologue, we assume
 	       stack is realigned.  We will use a group of DW_OP_XXX
 	       expressions to represent the location of the stored
 	       register instead of CFA+offset.
@@ -1540,7 +1541,22 @@ static dw_cfa_location cfa_temp;
                && cfa.offset == 0
                && cfa.indirect == 0
                && cfa.reg != HARD_FRAME_POINTER_REGNUM
-  effects: Use DW_CFA_def_cfa_expression to define cfa.  */
+  effects: Use DW_CFA_def_cfa_expression to define cfa.
+
+  Rule 20:
+  Special case for set (vdrap drap)
+  (set reg cfa.reg})
+  constraints: fde->stack_realign == 1
+               && cfa.offset == 0
+               && cfa.indirect == 0
+               && cfa.reg != HARD_FRAME_POINTER_REGNUM
+  effects: fde->vdrap_reg = reg
+  (set reg drap_reg)
+  constraints: fde->stack_realign == 1
+  effects: fde->vdrap_reg = reg.
+  (set mem drap_reg)
+  constraints: fde->stack_realign == 1
+  effects: none.  */
 
 static void
 dwarf2out_frame_debug_expr (rtx expr, const char *label)
@@ -1599,6 +1615,29 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
     }
 
   fde = current_fde ();
+
+  if (GET_CODE (src) == REG
+      && fde
+      && fde->stack_realign
+      && ((fde->drap_reg != INVALID_REGNUM
+	   && fde->drap_reg == REGNO (src))
+	  || (GET_CODE (dest) == REG
+	      && cfa.offset == 0
+	      && cfa.indirect == 0
+	      && cfa.reg != HARD_FRAME_POINTER_REGNUM
+	      && cfa.reg == (unsigned) REGNO (src))))
+    {
+      /* Rule 20 */
+      /* If we are saving dynamic realign argument pointer to a
+	 register, the destination is virtual dynamic realign
+	 argument pointer.  It may be used to access argument.  */
+      if (GET_CODE (dest) == REG)
+	{
+	  gcc_assert (fde->vdrap_reg == INVALID_REGNUM);
+	  fde->vdrap_reg = REGNO (dest);
+	}
+      return;
+    }
 
   switch (GET_CODE (dest))
     {
@@ -1907,18 +1946,18 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
                   && cfa.indirect == 0
                   && cfa.reg != HARD_FRAME_POINTER_REGNUM)
                 {
-                  dw_cfa_location cfa_uses_expression;
+		  dw_cfa_location cfa_exp;
 
-                  cfa_uses_expression.indirect = 1;
-                  cfa_uses_expression.reg = HARD_FRAME_POINTER_REGNUM;
-                  cfa_uses_expression.base_offset = offset;
-                  cfa_uses_expression.offset = 0;
+		  cfa_exp.indirect = 1;
+		  cfa_exp.reg = HARD_FRAME_POINTER_REGNUM;
+		  cfa_exp.base_offset = offset;
+		  cfa_exp.offset = 0;
 
-                  def_cfa_1 (label, &cfa_uses_expression);
+		  fde->drap_reg = cfa.reg;
 
-                  fde->cfa_uses_expression = 1;
+		  def_cfa_1 (label, &cfa_exp);
 
-                  queue_reg_save (label, stack_pointer_rtx, NULL_RTX, 
+		  queue_reg_save (label, stack_pointer_rtx, NULL_RTX,
 				  offset);
                   break;
                 }
@@ -2729,6 +2768,8 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
   fde->nothrow = TREE_NOTHROW (current_function_decl);
   fde->uses_eh_lsda = crtl->uses_eh_lsda;
   fde->all_throwers_are_sibcalls = crtl->all_throwers_are_sibcalls;
+  fde->drap_reg = INVALID_REGNUM;
+  fde->vdrap_reg = INVALID_REGNUM;
 
   args_size = old_args_size = 0;
 
@@ -3699,7 +3740,7 @@ reg_save (const char *label, unsigned int reg, unsigned int sreg,
 
       /* When CFA is defined as FP+OFFSET, emulate stack alignment.  */
       if (cfa.reg == HARD_FRAME_POINTER_REGNUM
-          && cfa.indirect == 0)
+	  && cfa.indirect == 0)
 	{
 	  if (dwarf_fp <= 31)
 	    head = tmp = new_loc_descr (DW_OP_breg0 + dwarf_fp, 0, 0);
@@ -9170,8 +9211,6 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
   unsigned int regno;
   dw_loc_descr_ref result;
   dw_fde_ref fde = current_fde ();
-  unsigned int dwarf_fp = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
-  unsigned int dwarf_sp = DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
 
   /* We only use "frame base" when we're sure we're talking about the
      post-prologue local stack frame.  We do this by *not* running
@@ -9195,8 +9234,8 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 				  ? hard_frame_pointer_rtx
 				  : stack_pointer_rtx));
 
-	  /* If stack is aligned while drap register used, use frame
-	     pointer + offset to access stack variables. If stack
+	  /* If drap register is used to align stack, use frame
+	     pointer + offset to access stack variables.  If stack
 	     is aligned without drap, use stack pointer + offset to
 	     access stack variables.  */
 	  if (fde
@@ -9204,7 +9243,10 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 	      && cfa.reg == HARD_FRAME_POINTER_REGNUM
 	      && reg == frame_pointer_rtx)
 	    {
-	      int base_reg = cfa.indirect ? dwarf_fp : dwarf_sp;
+	      int base_reg
+		= DWARF_FRAME_REGNUM (cfa.indirect
+				      ? HARD_FRAME_POINTER_REGNUM
+				      : STACK_POINTER_REGNUM);
 	      if (base_reg <= 31)
 		return new_loc_descr (DW_OP_breg0 + base_reg, offset, 0);
 	      else
@@ -9214,6 +9256,15 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset,
 	  offset += frame_pointer_fb_offset;
 	  return new_loc_descr (DW_OP_fbreg, offset, 0);
 	}
+    }
+  else if (fde
+	   && fde->drap_reg != INVALID_REGNUM
+	   && (fde->drap_reg == REGNO (reg)
+	       || fde->vdrap_reg == REGNO (reg)))
+    {
+      /* Use cfa+offset to represent the location of arguments passed
+	 on stack when drap is used to align stack.  */
+      return new_loc_descr (DW_OP_fbreg, offset, 0);
     }
 
   regno = dbx_reg_number (reg);
