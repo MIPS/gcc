@@ -1,3 +1,10 @@
+2008-07-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (dw_fde_node): Add fp_has_aligned_sp.
+	(dwarf2out_frame_debug_expr): Set fp_has_aligned_sp.  Assert
+	cfa.reg != FP for rule 18.  Assert fp_has_aligned_sp == 1 and
+	simplify rule 19.
+
 2008-07-05  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* dwarf2out.c (build_cfa_aligned_loc): New.

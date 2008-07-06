@@ -249,6 +249,8 @@ typedef struct dw_fde_struct GTY(())
   unsigned uses_eh_lsda : 1;
   /* Whether we did stack realign in this call frame.  */
   unsigned stack_realign : 1;
+  /* Whether FP has aligned SP in this call frame.  */
+  unsigned fp_has_aligned_sp : 1;
 }
 dw_fde_node;
 
@@ -1595,8 +1597,8 @@ static dw_cfa_location cfa_temp;
   Rule 18:
   (set (mem ({pre_inc, pre_dec} sp)) fp)
   constraints: fde->stack_realign == 1
-               && cfa.reg != fp  (means use drap)
   effects: cfa_store.offset = 0
+	   cfa.reg != HARD_FRAME_POINTER_REGNUM
 
   Rule 19:
   (set (mem ({pre_inc, pre_dec} sp)) cfa.reg)
@@ -1604,7 +1606,9 @@ static dw_cfa_location cfa_temp;
                && cfa.offset == 0
                && cfa.indirect == 0
                && cfa.reg != HARD_FRAME_POINTER_REGNUM
-  effects: Use DW_CFA_def_cfa_expression to define cfa.
+  effects: Use DW_CFA_def_cfa_expression to define cfa
+	   fde->drap_reg = cfa.reg 
+	   fde->fp_has_aligned_sp == 1
 
   Rule 20:
   Special case for set (vdrap drap)
@@ -1730,6 +1734,13 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 			  /* For the SPARC and its register window.  */
 			  || (DWARF_FRAME_REGNUM (REGNO (src))
 			      == DWARF_FRAME_RETURN_COLUMN));
+	      if (fde
+		  && fde->stack_realign
+		  && cfa.reg != REGNO (dest)
+		  && cfa.reg != REGNO (src)
+		  && REGNO (dest) == HARD_FRAME_POINTER_REGNUM
+		  && REGNO (src) == STACK_POINTER_REGNUM)
+		fde->fp_has_aligned_sp = 1;
 	      queue_reg_save (label, src, dest, 0);
 	    }
 	  break;
@@ -1926,9 +1937,11 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	     regiser.  */
           if (fde
               && fde->stack_realign
-              && cfa.reg != HARD_FRAME_POINTER_REGNUM
               && src == hard_frame_pointer_rtx)
-            cfa_store.offset = 0;
+	    {
+	      gcc_assert (cfa.reg != HARD_FRAME_POINTER_REGNUM);
+	      cfa_store.offset = 0;
+	    }
 
 	  if (cfa.reg == STACK_POINTER_REGNUM)
 	    cfa.offset = cfa_store.offset;
@@ -1995,6 +2008,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	  && (unsigned) REGNO (src) == cfa.reg)
 	{
 	  /* We're storing the current CFA reg into the stack.  */
+	  dw_cfa_location *cfa_p;
 
 	  if (cfa.offset == 0)
 	    {
@@ -2011,24 +2025,22 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
                 {
 		  dw_cfa_location cfa_exp;
 
+		  gcc_assert (fde->fp_has_aligned_sp);
+		  cfa_p = &cfa_exp;
 		  cfa_exp.indirect = 1;
 		  cfa_exp.reg = HARD_FRAME_POINTER_REGNUM;
 		  cfa_exp.base_offset = offset;
 		  cfa_exp.offset = 0;
 
 		  fde->drap_reg = cfa.reg;
-
-		  def_cfa_1 (label, &cfa_exp);
-
-		  queue_reg_save (label, stack_pointer_rtx, NULL_RTX,
-				  offset);
-                  break;
                 }
+	      else
+		cfa_p = &cfa;
 
 	      /* If the source register is exactly the CFA, assume
 		 we're saving SP like any other register; this happens
 		 on the ARM.  */
-	      def_cfa_1 (label, &cfa);
+	      def_cfa_1 (label, cfa_p);
 	      queue_reg_save (label, stack_pointer_rtx, NULL_RTX, offset);
 	      break;
 	    }
