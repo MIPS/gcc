@@ -1,4 +1,11 @@
 2008-07-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (build_cfa_aligned_loc): New.
+	(reg_save): Moved back.  Use build_cfa_aligned_loc.
+	(int_loc_descriptor): Move prototype forward.  Move definition
+	back. Also define if DWARF2_UNWIND_INFO is true.
+
+2008-07-05  H.J. Lu  <hongjiu.lu@intel.com>
 	    Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	PR debug/36728

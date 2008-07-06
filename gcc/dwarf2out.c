@@ -395,6 +395,8 @@ static void get_cfa_from_loc_descr (dw_cfa_location *,
 				    struct dw_loc_descr_struct *);
 static struct dw_loc_descr_struct *build_cfa_loc
   (dw_cfa_location *, HOST_WIDE_INT);
+static struct dw_loc_descr_struct *build_cfa_aligned_loc
+  (HOST_WIDE_INT, HOST_WIDE_INT);
 static void def_cfa_1 (const char *, dw_cfa_location *);
 
 /* How to start an assembler comment.  */
@@ -889,6 +891,67 @@ def_cfa_1 (const char *label, dw_cfa_location *loc_p)
       cfi->dw_cfi_opc = DW_CFA_def_cfa_expression;
       loc_list = build_cfa_loc (&loc, 0);
       cfi->dw_cfi_oprnd1.dw_cfi_loc = loc_list;
+    }
+
+  add_fde_cfi (label, cfi);
+}
+
+/* Add the CFI for saving a register.  REG is the CFA column number.
+   LABEL is passed to add_fde_cfi.
+   If SREG is -1, the register is saved at OFFSET from the CFA;
+   otherwise it is saved in SREG.  */
+
+static void
+reg_save (const char *label, unsigned int reg, unsigned int sreg, HOST_WIDE_INT offset)
+{
+  dw_cfi_ref cfi = new_cfi ();
+  dw_fde_ref fde = current_fde ();
+
+  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
+
+  /* When stack is aligned, store REG using DW_CFA_expression with
+     FP.  */
+  if (fde
+      && fde->stack_realign
+      && sreg == INVALID_REGNUM)
+    {
+      cfi->dw_cfi_opc = DW_CFA_expression;
+      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg;
+      cfi->dw_cfi_oprnd1.dw_cfi_loc
+	= build_cfa_aligned_loc (fde->stack_realignment, offset);
+    }
+  else if (sreg == INVALID_REGNUM)
+    {
+      if (reg & ~0x3f)
+	/* The register number won't fit in 6 bits, so we have to use
+	   the long form.  */
+	cfi->dw_cfi_opc = DW_CFA_offset_extended;
+      else
+	cfi->dw_cfi_opc = DW_CFA_offset;
+
+#ifdef ENABLE_CHECKING
+      {
+	/* If we get an offset that is not a multiple of
+	   DWARF_CIE_DATA_ALIGNMENT, there is either a bug in the
+	   definition of DWARF_CIE_DATA_ALIGNMENT, or a bug in the machine
+	   description.  */
+	HOST_WIDE_INT check_offset = offset / DWARF_CIE_DATA_ALIGNMENT;
+
+	gcc_assert (check_offset * DWARF_CIE_DATA_ALIGNMENT == offset);
+      }
+#endif
+      offset /= DWARF_CIE_DATA_ALIGNMENT;
+      if (offset < 0)
+	cfi->dw_cfi_opc = DW_CFA_offset_extended_sf;
+
+      cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
+    }
+  else if (sreg == reg)
+    cfi->dw_cfi_opc = DW_CFA_same_value;
+  else
+    {
+      cfi->dw_cfi_opc = DW_CFA_register;
+      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = sreg;
     }
 
   add_fde_cfi (label, cfi);
@@ -3001,6 +3064,7 @@ typedef struct dw_loc_list_struct GTY(())
 static const char *dwarf_stack_op_name (unsigned);
 static dw_loc_descr_ref new_loc_descr (enum dwarf_location_atom,
 				       unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
+static dw_loc_descr_ref int_loc_descriptor (HOST_WIDE_INT);
 static void add_loc_descr (dw_loc_descr_ref *, dw_loc_descr_ref);
 static unsigned long size_of_loc_descr (dw_loc_descr_ref);
 static unsigned long size_of_locs (dw_loc_descr_ref);
@@ -3651,45 +3715,6 @@ output_loc_sequence (dw_loc_descr_ref loc)
     }
 }
 
-/* Return a location descriptor that designates a constant.  */
-
-static dw_loc_descr_ref
-int_loc_descriptor (HOST_WIDE_INT i)
-{
-  enum dwarf_location_atom op;
-
-  /* Pick the smallest representation of a constant, rather than just
-     defaulting to the LEB encoding.  */
-  if (i >= 0)
-    {
-      if (i <= 31)
-	op = DW_OP_lit0 + i;
-      else if (i <= 0xff)
-	op = DW_OP_const1u;
-      else if (i <= 0xffff)
-	op = DW_OP_const2u;
-      else if (HOST_BITS_PER_WIDE_INT == 32
-	       || i <= 0xffffffff)
-	op = DW_OP_const4u;
-      else
-	op = DW_OP_constu;
-    }
-  else
-    {
-      if (i >= -0x80)
-	op = DW_OP_const1s;
-      else if (i >= -0x8000)
-	op = DW_OP_const2s;
-      else if (HOST_BITS_PER_WIDE_INT == 32
-	       || i >= -0x80000000)
-	op = DW_OP_const4s;
-      else
-	op = DW_OP_consts;
-    }
-
-  return new_loc_descr (op, i, 0);
-}
-
 /* This routine will generate the correct assembly data for a location
    description based on a cfi entry with a complex address.  */
 
@@ -3709,93 +3734,6 @@ output_cfa_loc (dw_cfi_ref cfi)
 
   /* Now output the operations themselves.  */
   output_loc_sequence (loc);
-}
-
-/* Add the CFI for saving a register.  REG is the CFA column number.
-   LABEL is passed to add_fde_cfi.
-   If SREG is -1, the register is saved at OFFSET from the CFA;
-   otherwise it is saved in SREG.  */
-
-static void
-reg_save (const char *label, unsigned int reg, unsigned int sreg,
-	  HOST_WIDE_INT offset)
-{
-  dw_cfi_ref cfi = new_cfi ();
-  dw_fde_ref fde = current_fde ();
-
-  cfi->dw_cfi_oprnd1.dw_cfi_reg_num = reg;
-
-  /* When stack is aligned, store REG using DW_CFA_expression with
-     FP.  */
-  if (fde
-      && fde->stack_realign
-      && sreg == INVALID_REGNUM)
-    {
-      struct dw_loc_descr_struct *head, *tmp;
-      unsigned int dwarf_fp
-	= DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
-
-      cfi->dw_cfi_opc = DW_CFA_expression;
-      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = reg;
-
-      /* When CFA is defined as FP+OFFSET, emulate stack alignment.  */
-      if (cfa.reg == HARD_FRAME_POINTER_REGNUM
-	  && cfa.indirect == 0)
-	{
-	  if (dwarf_fp <= 31)
-	    head = tmp = new_loc_descr (DW_OP_breg0 + dwarf_fp, 0, 0);
-	  else
-	    head = tmp = new_loc_descr (DW_OP_bregx, dwarf_fp, 0);
-
-          tmp = tmp->dw_loc_next
-	    = int_loc_descriptor (fde->stack_realignment);
-          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_and, 0, 0);
-
-          tmp = tmp->dw_loc_next = int_loc_descriptor (offset);
-          tmp = tmp->dw_loc_next = new_loc_descr (DW_OP_plus, 0, 0);
-        }
-      else if (dwarf_fp <= 31)
-	head = tmp = new_loc_descr (DW_OP_breg0 + dwarf_fp, offset, 0);
-      else
-        head = tmp = new_loc_descr (DW_OP_bregx, dwarf_fp, offset);
-
-      cfi->dw_cfi_oprnd1.dw_cfi_loc = head;
-    }
-  else if (sreg == INVALID_REGNUM)
-    {
-      if (reg & ~0x3f)
-	/* The register number won't fit in 6 bits, so we have to use
-	   the long form.  */
-	cfi->dw_cfi_opc = DW_CFA_offset_extended;
-      else
-	cfi->dw_cfi_opc = DW_CFA_offset;
-
-#ifdef ENABLE_CHECKING
-      {
-	/* If we get an offset that is not a multiple of
-	   DWARF_CIE_DATA_ALIGNMENT, there is either a bug in the
-	   definition of DWARF_CIE_DATA_ALIGNMENT, or a bug in the machine
-	   description.  */
-	HOST_WIDE_INT check_offset = offset / DWARF_CIE_DATA_ALIGNMENT;
-
-	gcc_assert (check_offset * DWARF_CIE_DATA_ALIGNMENT == offset);
-      }
-#endif
-      offset /= DWARF_CIE_DATA_ALIGNMENT;
-      if (offset < 0)
-	cfi->dw_cfi_opc = DW_CFA_offset_extended_sf;
-
-      cfi->dw_cfi_oprnd2.dw_cfi_offset = offset;
-    }
-  else if (sreg == reg)
-    cfi->dw_cfi_opc = DW_CFA_same_value;
-  else
-    {
-      cfi->dw_cfi_opc = DW_CFA_register;
-      cfi->dw_cfi_oprnd2.dw_cfi_reg_num = sreg;
-    }
-
-  add_fde_cfi (label, cfi);
 }
 
 /* This function builds a dwarf location descriptor sequence from a
@@ -3845,6 +3783,38 @@ build_cfa_loc (dw_cfa_location *cfa, HOST_WIDE_INT offset)
 	head = new_loc_descr (DW_OP_bregx, cfa->reg, offset);
     }
 
+  return head;
+}
+
+/* This function builds a dwarf location descriptor sequence for
+   the address at OFFSET from the CFA when stack is aligned to
+   ALIGNMENT byte.  */
+
+static struct dw_loc_descr_struct *
+build_cfa_aligned_loc (HOST_WIDE_INT alignment, HOST_WIDE_INT offset)
+{
+  struct dw_loc_descr_struct *head;
+  unsigned int dwarf_fp
+    = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
+
+ /* When CFA is defined as FP+OFFSET, emulate stack alignment.  */
+  if (cfa.reg == HARD_FRAME_POINTER_REGNUM && cfa.indirect == 0)
+    {
+      if (dwarf_fp <= 31)
+	head = new_loc_descr (DW_OP_breg0 + dwarf_fp, 0, 0);
+      else
+	head = new_loc_descr (DW_OP_bregx, dwarf_fp, 0);
+
+      add_loc_descr (&head, int_loc_descriptor (alignment));
+      add_loc_descr (&head, new_loc_descr (DW_OP_and, 0, 0));
+
+      add_loc_descr (&head, int_loc_descriptor (offset));
+      add_loc_descr (&head, new_loc_descr (DW_OP_plus, 0, 0));
+    }
+  else if (dwarf_fp <= 31)
+    head = new_loc_descr (DW_OP_breg0 + dwarf_fp, offset, 0);
+  else
+    head = new_loc_descr (DW_OP_bregx, dwarf_fp, offset);
   return head;
 }
 
@@ -9201,6 +9171,52 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs,
     add_loc_descr (&loc_result, new_loc_descr (DW_OP_GNU_uninit, 0, 0));
   return loc_result;
 }
+
+#endif /* DWARF2_DEBUGGING_INFO */
+
+#if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
+
+/* Return a location descriptor that designates a constant.  */
+
+static dw_loc_descr_ref
+int_loc_descriptor (HOST_WIDE_INT i)
+{
+  enum dwarf_location_atom op;
+
+  /* Pick the smallest representation of a constant, rather than just
+     defaulting to the LEB encoding.  */
+  if (i >= 0)
+    {
+      if (i <= 31)
+	op = DW_OP_lit0 + i;
+      else if (i <= 0xff)
+	op = DW_OP_const1u;
+      else if (i <= 0xffff)
+	op = DW_OP_const2u;
+      else if (HOST_BITS_PER_WIDE_INT == 32
+	       || i <= 0xffffffff)
+	op = DW_OP_const4u;
+      else
+	op = DW_OP_constu;
+    }
+  else
+    {
+      if (i >= -0x80)
+	op = DW_OP_const1s;
+      else if (i >= -0x8000)
+	op = DW_OP_const2s;
+      else if (HOST_BITS_PER_WIDE_INT == 32
+	       || i >= -0x80000000)
+	op = DW_OP_const4s;
+      else
+	op = DW_OP_consts;
+    }
+
+  return new_loc_descr (op, i, 0);
+}
+#endif
+
+#ifdef DWARF2_DEBUGGING_INFO
 
 /* Return a location descriptor that designates a base+offset location.  */
 
