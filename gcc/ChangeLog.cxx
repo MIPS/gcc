@@ -1,3 +1,10 @@
+2008-07-05  Tom Tromey  <tromey@redhat.com>
+
+	* optabs.c (optab_table, convert_optab_table): Check
+	HAVE_DESIGNATED_INITIALIZERS.
+	(init_optabs): Likewise.
+	* system.h (HAVE_DESIGNATED_INITIALIZERS): Define to 0 for C++.
+
 2008-07-03  Tom Tromey  <tromey@redhat.com>
 
 	* stringpool.c (alloc_node): Update.

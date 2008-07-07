@@ -450,9 +450,14 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
 /* 1 if we have C99 designated initializers.  */
+#ifdef __cplusplus
+#undef HAVE_DESIGNATED_INITIALIZERS
+#define HAVE_DESIGNATED_INITIALIZERS 0
+#else
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
   ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
+#endif
 #endif
 
 #if HAVE_SYS_STAT_H
