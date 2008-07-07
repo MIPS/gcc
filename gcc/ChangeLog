@@ -1,5 +1,11 @@
 2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
-	PR preprocessor/36672
+	PR target/36673
+
+	* caller-saves.c (restore_con_fun_n, save_con_fun_n): Clear the
+	result if mode or pseudo is different.
+
+2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+	PR target/36672
 	
 	* ira.c (chain_insn_order): New variable.
 	(chain_freq_compare, chain_bb_compare): Use it.

@@ -1215,14 +1215,14 @@ restore_con_fun_n (edge e)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (temp_set, i))
       {
-	gcc_assert
-	  (bb_info->restore_in_mode[i] == VOIDmode
-	   || BB_INFO (pred)->restore_out_mode[i] == VOIDmode
-	   || ((bb_info->restore_in_mode[i]
-		== BB_INFO (pred)->restore_out_mode[i])
-	       && (bb_info->restore_in_pseudo[i]
-		   == BB_INFO (pred)->restore_out_pseudo[i])));
-	if (BB_INFO (pred)->restore_out_mode[i] != VOIDmode)
+	if (bb_info->restore_in_mode[i] != VOIDmode
+	    && BB_INFO (pred)->restore_out_mode[i] != VOIDmode
+	    && (bb_info->restore_in_mode[i]
+		!= BB_INFO (pred)->restore_out_mode[i]
+		|| bb_info->restore_in_pseudo[i]
+		!= BB_INFO (pred)->restore_out_pseudo[i]))
+	  CLEAR_HARD_REG_BIT (bb_info->restore_in, i);
+	else if (BB_INFO (pred)->restore_out_mode[i] != VOIDmode)
 	  {
 	    bb_info->restore_in_mode[i]
 	      = BB_INFO (pred)->restore_out_mode[i];
@@ -1371,14 +1371,14 @@ save_con_fun_n (edge e)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (temp_set, i))
       {
-	gcc_assert
-	  (bb_info->save_out_mode[i] == VOIDmode
-	   || BB_INFO (succ)->save_in_mode[i] == VOIDmode
-	   || ((bb_info->save_out_mode[i]
-		== BB_INFO (succ)->save_in_mode[i])
-	       && (bb_info->save_out_pseudo[i]
-		   == BB_INFO (succ)->save_in_pseudo[i])));
-	if (BB_INFO (succ)->save_in_mode[i] != VOIDmode)
+	if (bb_info->save_out_mode[i] != VOIDmode
+	    && BB_INFO (succ)->save_in_mode[i] != VOIDmode
+	    && ((bb_info->save_out_mode[i]
+		 != BB_INFO (succ)->save_in_mode[i])
+		|| (bb_info->save_out_pseudo[i]
+		    != BB_INFO (succ)->save_in_pseudo[i])))
+	  CLEAR_HARD_REG_BIT (bb_info->save_out, i);
+	else if (BB_INFO (succ)->save_in_mode[i] != VOIDmode)
 	  {
 	    bb_info->save_out_mode[i]
 	      = BB_INFO (succ)->save_in_mode[i];
@@ -1443,8 +1443,8 @@ calculate_save_here (void)
    free info through block with BB_INDEX according to the following
    equation:
 
-     bb.free_in = ((bb.free_out - bb.save_kill - bb.restore_kill) U bb.free_gen)
-                   - bb.save_here)
+   bb.free_in = ((bb.free_out - bb.save_kill - bb.restore_kill) U bb.free_gen)
+                 - bb.save_here)
 
 */
 static bool
@@ -1478,7 +1478,7 @@ free_con_fun_0 (basic_block bb)
    free info from successor to predecessor on edge E (bb->succ)
    according to the following equation:
 
-     bb.free_out = ^succ.free_in
+     bb.free_out = ^(succ.free_in ^ bb.live_at_end)
 */
 static void
 free_con_fun_n (edge e)
@@ -1498,9 +1498,9 @@ free_con_fun_n (edge e)
 /* The function calculates global free information according
    to the following equations:
 
-     bb.free_out = ^succ.free_in
-     bb.free_in = ((bb.free_out - bb.save_kill - bb.restore_kill) U bb.free_gen)
-                   - bb.save_here)
+   bb.free_out = ^(succ.free_in ^ bb.live_at_end)
+   bb.free_in = ((bb.free_out - bb.save_kill - bb.restore_kill) U bb.free_gen)
+                 - bb.save_here)
 
    The function also calculates free_in_mode and free_out_mode.
 */
