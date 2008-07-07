@@ -1,3 +1,12 @@
+2008-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* dwarf2out.c (dw_fde_struct): Remove fp_has_aligned_sp.
+	(dwarf2out_frame_debug_expr): Don't generate dwarf2 information for
+	"mov sp bp" for drap cases. Only redefine cfa with expression in
+	Rule 19.
+	(build_cfa_aligned_loc): Reformated.
+
 2008-07-07  Joey Ye  <joey.ye@intel.com>
 
 	*  config/i386/i386.c (ix86_expand_prologue): Add comments for
