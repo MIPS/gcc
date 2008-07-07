@@ -1,3 +1,19 @@
+2008-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_return): Don't print space
+	after return if return has no argument.
+	(dump_gimple_seq): Don't print newline after last statement in
+	the sequence.
+	(dump_gimple_fmt, dump_gimple_try, dump_gimple_omp_for,
+	dump_gimple_omp_single, dump_gimple_omp_sections,
+	dump_gimple_omp_block, dump_gimple_omp_critical,
+	dump_gimple_omp_parallel, dump_gimple_omp_task): Use
+	newline_and_indent after dump_gimple_seq instead of INDENT.
+	(dump_gimple_bind): Likewise.  If there are no bind vars, don't
+	print two newlines before the sequence, just one.
+	* tree-cfg.c (dump_function_to_file): Fix dumping lowered gimple
+	before CFG is built.
+
 2008-07-07  Diego Novillo  <dnovillo@google.com>
 
 	* tree-vrp.c (ssa_name_nonnegative_p): Tuplify.

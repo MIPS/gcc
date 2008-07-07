@@ -5944,7 +5944,23 @@ dump_function_to_file (tree fn, FILE *file, int flags)
       /* The function is now in GIMPLE form but the CFG has not been
 	 built yet.  Emit the single sequence of GIMPLE statements
 	 that make up its body.  */
-      print_gimple_seq (file, gimple_body (fn), 0, flags);
+      gimple_seq body = gimple_body (fn);
+
+      if (gimple_seq_first_stmt (body)
+	  && gimple_seq_first_stmt (body) == gimple_seq_last_stmt (body)
+	  && gimple_code (gimple_seq_first_stmt (body)) == GIMPLE_BIND)
+	print_gimple_seq (file, body, 0, flags);
+      else
+	{
+	  if (!ignore_topmost_bind)
+	    fprintf (file, "{\n");
+
+	  if (any_var)
+	    fprintf (file, "\n");
+
+	  print_gimple_seq (file, body, 2, flags);
+	  fprintf (file, "}\n");
+	}
     }
   else
     {
