@@ -1732,15 +1732,19 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 			  || (DWARF_FRAME_REGNUM (REGNO (src))
 			      == DWARF_FRAME_RETURN_COLUMN));
 
-              /* If drap register is used to align stack, we have to
-		 restore stack pointer with the CFA value and we don't
-		 generate this DWARF information.  */
-	      if (!(fde
-		    && fde->stack_realign
-		    && cfa.reg != REGNO (dest)
-		    && cfa.reg != REGNO (src)
-		    && REGNO (dest) == HARD_FRAME_POINTER_REGNUM
-		    && REGNO (src) == STACK_POINTER_REGNUM))
+              /* After stack is aligned, we can only save SP in FP
+		 if drap register is used.  In this case, we have
+		 to restore stack pointer with the CFA value and we
+		 don't generate this DWARF information.  */
+	      if (fde
+		  && fde->stack_realign
+		  && REGNO (src) == STACK_POINTER_REGNUM)
+		gcc_assert (REGNO (dest) == HARD_FRAME_POINTER_REGNUM
+			    && (fde->drap_reg != INVALID_REGNUM
+				|| (cfa.indirect == 0
+				    && cfa.reg != REGNO (dest)))
+			    && cfa.reg != REGNO (src));
+	      else
 		queue_reg_save (label, src, dest, 0);
 	    }
 	  break;
