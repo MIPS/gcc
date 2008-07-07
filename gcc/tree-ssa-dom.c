@@ -46,11 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This file implements optimizations on the dominator tree.  */
 
-/* Enable more detailed reporting of the operation of this pass for debugging
-   purposes.  It's probably too much to enable by default, but may be useful in
-   the near term for analyzing issues due to pass dependencies, etc.  */
-/* #define EXTRA_DETAILS */
-
 /* Representation of a "naked" right-hand-side expression, to be used
    in recording available expressions in the expression hash table.  */
 
@@ -417,12 +412,6 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
                                expr1->ops.call.fn, 0))
           return false;
 
-        /* FIXME tuples.  We should simply assume that calls are
-           pure, and not enter impure calls into the table at all.
-           It is convenient, however, to more closely mimic the
-           pre-tuples behavior, so that comparisons of detailed
-           diagnostic dumps can be easily made for debugging
-           purposes with those of mainline.  */
         if (! expr0->ops.call.pure)
           return false;
 
@@ -505,7 +494,6 @@ iterative_hash_hashable_expr (const struct hashable_expr *expr, hashval_t val)
 
 /* Print a diagnostic dump of an expression hash table entry.  */
 
-#if defined EXTRA_DETAILS
 static void
 print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
 {
@@ -562,7 +550,6 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
       print_gimple_stmt (stream, element->stmt, 0, 0);
     }
 }
-#endif
 
 /* Delete an expr_hash_elt and reclaim its storage.  */
 
@@ -884,7 +871,7 @@ remove_local_expressions_from_table (void)
 	break;
 
       element = *victim;
-#if defined EXTRA_DETAILS
+
       /* This must precede the actual removal from the hash table,
          as ELEMENT and the table entry may share a call argument
          vector which will be freed during removal.  */
@@ -893,7 +880,7 @@ remove_local_expressions_from_table (void)
           fprintf (dump_file, "<<<< ");
           print_expr_hash_elt (dump_file, &element);
         }
-#endif
+
       htab_remove_elt_with_hash (avail_exprs, &element, element.hash);
     }
 }
@@ -914,16 +901,15 @@ restore_vars_to_original_value (void)
       if (dest == NULL)
 	break;
 
-#if defined EXTRA_DETAILS
       if (dump_file && (dump_flags & TDF_DETAILS))
-      {
-        fprintf (dump_file, "<<<< COPY ");
-        print_generic_expr (dump_file, dest, 0);
-        fprintf (dump_file, " = ");
-        print_generic_expr (dump_file, SSA_NAME_VALUE (dest), 0);
-        fprintf (dump_file, "\n");
-      }
-#endif
+	{
+	  fprintf (dump_file, "<<<< COPY ");
+	  print_generic_expr (dump_file, dest, 0);
+	  fprintf (dump_file, " = ");
+	  print_generic_expr (dump_file, SSA_NAME_VALUE (dest), 0);
+	  fprintf (dump_file, "\n");
+	}
+
       prev_value = VEC_pop (tree, const_and_copies_stack);
       SSA_NAME_VALUE (dest) =  prev_value;
     }
@@ -932,7 +918,8 @@ restore_vars_to_original_value (void)
 /* A trivial wrapper so that we can present the generic jump
    threading code with a simple API for simplifying statements.  */
 static tree
-simplify_stmt_for_jump_threading (gimple stmt, tree within_stmt ATTRIBUTE_UNUSED)
+simplify_stmt_for_jump_threading (gimple stmt,
+				  gimple within_stmt ATTRIBUTE_UNUSED)
 {
   return lookup_avail_expr (stmt, false);
 }
@@ -1265,13 +1252,13 @@ record_cond (struct cond_equivalence *p)
   if (*slot == NULL)
     {
       *slot = (void *) element;
-#if defined EXTRA_DETAILS
+
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
           fprintf (dump_file, "1>>> ");
           print_expr_hash_elt (dump_file, element);
         }
-#endif
+
       VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, element);
     }
   else
@@ -1451,7 +1438,6 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
 {
   SSA_NAME_VALUE (x) = y;
 
-#if defined EXTRA_DETAILS
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "0>>> COPY ");
@@ -1460,7 +1446,6 @@ record_const_or_copy_1 (tree x, tree y, tree prev_x)
       print_generic_expr (dump_file, y, 0);
       fprintf (dump_file, "\n");
     }
-#endif
 
   VEC_reserve (tree, heap, const_and_copies_stack, 2);
   VEC_quick_push (tree, const_and_copies_stack, prev_x);
@@ -1986,16 +1971,15 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
 	  && (TREE_CODE (rhs) == SSA_NAME
 	      || is_gimple_min_invariant (rhs)))
       {
-#if defined EXTRA_DETAILS
-        if (dump_file && (dump_flags & TDF_DETAILS))
-        {
-          fprintf (dump_file, "==== ASGN ");
-          print_generic_expr (dump_file, lhs, 0);
-          fprintf (dump_file, " = ");
-          print_generic_expr (dump_file, rhs, 0);
-          fprintf (dump_file, "\n");
-        }
-#endif
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  {
+	    fprintf (dump_file, "==== ASGN ");
+	    print_generic_expr (dump_file, lhs, 0);
+	    fprintf (dump_file, " = ");
+	    print_generic_expr (dump_file, rhs, 0);
+	    fprintf (dump_file, "\n");
+	  }
+
 	SSA_NAME_VALUE (lhs) = rhs;
       }
     }
@@ -2358,13 +2342,11 @@ lookup_avail_expr (gimple stmt, bool insert)
 
   initialize_hash_element (stmt, lhs, element);
 
-#if defined EXTRA_DETAILS
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "LKUP ");
       print_expr_hash_elt (dump_file, element);
     }
-#endif
 
   /* Don't bother remembering constant assignments and copy operations.
      Constants and copy operations are handled by the constant/copy propagator
@@ -2389,13 +2371,13 @@ lookup_avail_expr (gimple stmt, bool insert)
   if (*slot == NULL)
     {
       *slot = (void *) element;
-#if defined EXTRA_DETAILS
+
       if (dump_file && (dump_flags & TDF_DETAILS))
         {
           fprintf (dump_file, "2>>> ");
           print_expr_hash_elt (dump_file, element);
         }
-#endif
+
       VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, element);
       return NULL_TREE;
     }
@@ -2415,14 +2397,12 @@ lookup_avail_expr (gimple stmt, bool insert)
 
   free (element);
 
-#if defined EXTRA_DETAILS
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "FIND: ");
       print_generic_expr (dump_file, lhs, 0);
       fprintf (dump_file, "\n");
     }
-#endif
 
   return lhs;
 }

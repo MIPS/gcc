@@ -89,9 +89,7 @@ set_expr_location_r (tree *tp, int *ws ATTRIBUTE_UNUSED, void *data)
 }
 
 
-/* FIXME tuples.  THIS IS A HACK.
-
-   RTL expansion has traditionally been done on trees, so the
+/* RTL expansion has traditionally been done on trees, so the
    transition to doing it on GIMPLE tuples is very invasive to the RTL
    expander.  To facilitate the transition, this function takes a
    GIMPLE tuple STMT and returns the same statement in the form of a

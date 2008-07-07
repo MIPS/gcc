@@ -1308,10 +1308,8 @@ range_includes_zero_p (value_range_t *vr)
    false otherwise or if no value range information is available.  */
 
 bool
-ssa_name_nonnegative_p (const_tree t ATTRIBUTE_UNUSED)
+ssa_name_nonnegative_p (const_tree t)
 {
-  /* FIXME tuples.  */
-#if 0
   value_range_t *vr = get_value_range (t);
 
   if (!vr)
@@ -1326,20 +1324,14 @@ ssa_name_nonnegative_p (const_tree t ATTRIBUTE_UNUSED)
       return (result == 0 || result == 1);
     }
   return false;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 /* Return true if T, an SSA_NAME, is known to be nonzero.  Return
    false otherwise or if no value range information is available.  */
 
 bool
-ssa_name_nonzero_p (const_tree t ATTRIBUTE_UNUSED)
+ssa_name_nonzero_p (const_tree t)
 {
-  /* FIXME tuples.  */
-#if 0
   value_range_t *vr = get_value_range (t);
 
   if (!vr)
@@ -1354,10 +1346,6 @@ ssa_name_nonzero_p (const_tree t ATTRIBUTE_UNUSED)
     return range_includes_zero_p (vr);
 
   return false;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 
@@ -2856,10 +2844,9 @@ extract_range_from_comparison (value_range_t *vr, enum tree_code code,
 			       tree type, tree op0, tree op1)
 {
   bool sop = false;
-  tree val = vrp_evaluate_conditional_warnv_with_ops (code,
-						      op0,
-						      op1,
-						      false, &sop);
+  tree val;
+  
+  val = vrp_evaluate_conditional_warnv_with_ops (code, op0, op1, false, &sop);
 
   /* A disadvantage of using a special infinity as an overflow
      representation is that we lose the ability to record overflow
@@ -5409,15 +5396,12 @@ vrp_evaluate_conditional_warnv_with_ops (enum tree_code code, tree op0,
   if (use_equiv_p)
     {
       if (TREE_CODE (op0) == SSA_NAME && TREE_CODE (op1) == SSA_NAME)
-	return compare_names (code, op0, op1,
-			      strict_overflow_p);
+	return compare_names (code, op0, op1, strict_overflow_p);
       else if (TREE_CODE (op0) == SSA_NAME)
-	return compare_name_with_value (code, op0, op1,
-					strict_overflow_p);
+	return compare_name_with_value (code, op0, op1, strict_overflow_p);
       else if (TREE_CODE (op1) == SSA_NAME)
 	return (compare_name_with_value
-		(swap_tree_comparison (code), op1, op0,
-		 strict_overflow_p));
+		(swap_tree_comparison (code), op1, op0, strict_overflow_p));
     }
   else
     {
@@ -5427,15 +5411,12 @@ vrp_evaluate_conditional_warnv_with_ops (enum tree_code code, tree op0,
       vr1 = (TREE_CODE (op1) == SSA_NAME) ? get_value_range (op1) : NULL;
 
       if (vr0 && vr1)
-	return compare_ranges (code, vr0, vr1,
-			       strict_overflow_p);
+	return compare_ranges (code, vr0, vr1, strict_overflow_p);
       else if (vr0 && vr1 == NULL)
-	return compare_range_with_value (code, vr0, op1,
-					 strict_overflow_p);
+	return compare_range_with_value (code, vr0, op1, strict_overflow_p);
       else if (vr0 == NULL && vr1)
 	return (compare_range_with_value
-		(swap_tree_comparison (code), vr1, op0,
-		 strict_overflow_p));
+		(swap_tree_comparison (code), vr1, op0, strict_overflow_p));
     }
   return NULL_TREE;
 }
@@ -5448,17 +5429,13 @@ vrp_evaluate_conditional_warnv_with_ops (enum tree_code code, tree op0,
    appropriate.  */
 
 tree
-vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, tree stmt)
+vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, gimple stmt)
 {
   bool sop;
   tree ret;
 
   sop = false;
-  ret = vrp_evaluate_conditional_warnv_with_ops (code,
-						 op0,
-						 op1,
-						 true,
-						 &sop);
+  ret = vrp_evaluate_conditional_warnv_with_ops (code, op0, op1, true, &sop);
 
   if (ret && sop)
     {
@@ -5482,10 +5459,10 @@ vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, tree stmt)
 	{
 	  location_t location;
 
-	  if (!EXPR_HAS_LOCATION (stmt))
+	  if (!gimple_has_location (stmt))
 	    location = input_location;
 	  else
-	    location = EXPR_LOCATION (stmt);
+	    location = gimple_location (stmt);
 	  warning (OPT_Wstrict_overflow, "%H%s", &location, warnmsg);
 	}
     }
@@ -5522,10 +5499,10 @@ vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, tree stmt)
 	{
 	  location_t location;
 
-	  if (!EXPR_HAS_LOCATION (stmt))
+	  if (!gimple_has_location (stmt))
 	    location = input_location;
 	  else
-	    location = EXPR_LOCATION (stmt);
+	    location = gimple_location (stmt);
 
 	  warning (OPT_Wtype_limits, "%H%s", &location, warnmsg);
 	}
@@ -6585,7 +6562,7 @@ static VEC(tree,heap) *stack;
    for any overflow warnings.  */
 
 static tree
-simplify_stmt_for_jump_threading (gimple stmt, tree within_stmt)
+simplify_stmt_for_jump_threading (gimple stmt, gimple within_stmt)
 {
   /* We only use VRP information to simplify conditionals.  This is
      overly conservative, but it's unclear if doing more would be
@@ -6697,8 +6674,7 @@ identify_jump_threads (void)
 	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 		continue;
 
-	      thread_across_edge (dummy, e, true,
-				  &stack,
+	      thread_across_edge (dummy, e, true, &stack,
 				  simplify_stmt_for_jump_threading);
 	    }
 	}

@@ -41,6 +41,7 @@
 #include "varray.h"
 #include "vec.h"
 #include "value-prof.h"
+#include "gimple.h"
 
 /* This file implements a generic value propagation engine based on
    the same propagation used by the SSA-CCP algorithm [1].
@@ -542,49 +543,6 @@ ssa_prop_fini (void)
 }
 
 
-/* Get the main expression from statement STMT.  */
-
-tree
-get_rhs (gimple stmt ATTRIBUTE_UNUSED)
-{
-  fprintf (stderr, "get_rhs() is no longer valid.\n");
-
-  /* FIXME tuples.  */
-#if 0
-  switch (code)
-    {
-    case RETURN_EXPR:
-      stmt = TREE_OPERAND (stmt, 0);
-      if (!stmt || TREE_CODE (stmt) != GIMPLE_MODIFY_STMT)
-	return stmt;
-      /* FALLTHRU */
-
-    case GIMPLE_MODIFY_STMT:
-      stmt = GENERIC_TREE_OPERAND (stmt, 1);
-      if (TREE_CODE (stmt) == WITH_SIZE_EXPR)
-	return TREE_OPERAND (stmt, 0);
-      else
-	return stmt;
-
-    case COND_EXPR:
-      return COND_EXPR_COND (stmt);
-    case SWITCH_EXPR:
-      return SWITCH_COND (stmt);
-    case GOTO_EXPR:
-      return GOTO_DESTINATION (stmt);
-    case LABEL_EXPR:
-      return LABEL_EXPR_LABEL (stmt);
-
-    default:
-      return stmt;
-    }
-#else
-  gimple_unreachable ();
-  return NULL;
-#endif
-}
-
-
 /* FIXME tuples.  Remove this.  */
 /* Return true if EXPR is a valid GIMPLE expression.  */
 
@@ -593,112 +551,6 @@ valid_gimple_expression_p (tree expr ATTRIBUTE_UNUSED)
 {
   gimple_unreachable ();
   return false;
-}
-
-
-/* Set the main expression of *STMT_P to EXPR.  If EXPR is not a valid
-   GIMPLE expression no changes are done and the function returns
-   false.  */
-
-bool
-set_rhs (gimple *stmt_p ATTRIBUTE_UNUSED, tree expr ATTRIBUTE_UNUSED)
-{
-  fprintf (stderr, "set_rhs() is no longer valid.\n");
-
-  /* FIXME tuples.  */
-#if 0
-  tree stmt = *stmt_p, op;
-  tree new_stmt;
-  tree var;
-  ssa_op_iter iter;
-  int eh_region;
-
-  if (!valid_gimple_expression_p (expr))
-    return false;
-
-  if (EXPR_HAS_LOCATION (stmt)
-      && (EXPR_P (expr)
-	  || GIMPLE_STMT_P (expr))
-      && ! EXPR_HAS_LOCATION (expr)
-      && TREE_SIDE_EFFECTS (expr)
-      && TREE_CODE (expr) != LABEL_EXPR)
-    SET_EXPR_LOCATION (expr, EXPR_LOCATION (stmt));
-
-  switch (TREE_CODE (stmt))
-    {
-    case RETURN_EXPR:
-      op = TREE_OPERAND (stmt, 0);
-      if (TREE_CODE (op) != GIMPLE_MODIFY_STMT)
-	{
-	  GIMPLE_STMT_OPERAND (stmt, 0) = expr;
-	  break;
-	}
-      stmt = op;
-      /* FALLTHRU */
-
-    case GIMPLE_MODIFY_STMT:
-      op = GIMPLE_STMT_OPERAND (stmt, 1);
-      if (TREE_CODE (op) == WITH_SIZE_EXPR)
-	TREE_OPERAND (op, 0) = expr;
-      else
-	GIMPLE_STMT_OPERAND (stmt, 1) = expr;
-      break;
-
-    case COND_EXPR:
-      if (!is_gimple_condexpr (expr))
-        return false;
-      COND_EXPR_COND (stmt) = expr;
-      break;
-    case SWITCH_EXPR:
-      SWITCH_COND (stmt) = expr;
-      break;
-    case GOTO_EXPR:
-      GOTO_DESTINATION (stmt) = expr;
-      break;
-    case LABEL_EXPR:
-      LABEL_EXPR_LABEL (stmt) = expr;
-      break;
-
-    default:
-      /* Replace the whole statement with EXPR.  If EXPR has no side
-	 effects, then replace *STMT_P with an empty statement.  */
-      new_stmt = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
-      *stmt_p = new_stmt;
-
-      /* Preserve the annotation, the histograms and the EH region information
-         associated with the original statement. The EH information
-	 needs to be preserved only if the new statement still can throw.  */
-      new_stmt->base.ann = (tree_ann_t) stmt_ann (stmt);
-      gimple_move_stmt_histograms (cfun, new_stmt, stmt);
-      if (tree_could_throw_p (new_stmt))
-	{
-	  eh_region = lookup_stmt_eh_region (stmt);
-	  /* We couldn't possibly turn a nothrow into a throw statement.  */
-	  gcc_assert (eh_region >= 0);
-	  remove_stmt_from_eh_region (stmt);
-	  add_stmt_to_eh_region (new_stmt, eh_region);
-	}
-
-      if (gimple_in_ssa_p (cfun)
-	  && TREE_SIDE_EFFECTS (expr))
-	{
-	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
-	     replacement.  */
-	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_DEFS)
-	    {
-	      if (TREE_CODE (var) == SSA_NAME)
-		SSA_NAME_DEF_STMT (var) = *stmt_p;
-	    }
-	}
-      stmt->base.ann = NULL;
-      break;
-    }
-
-  return true;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 
@@ -1309,65 +1161,68 @@ replace_phi_args_in (gimple phi, prop_value_t *prop_value)
 }
 
 
-/* If STMT has a predicate whose value can be computed using the value
-   range information computed by VRP, compute its value and return true.
-   Otherwise, return false.  */
+/* If the statement pointed by SI has a predicate whose value can be
+   computed using the value range information computed by VRP, compute
+   its value and return true.  Otherwise, return false.  */
 
 static bool
-fold_predicate_in (gimple stmt ATTRIBUTE_UNUSED)
+fold_predicate_in (gimple_stmt_iterator *si)
 {
-  /* FIXME tuples.  */
-#if 0
-  tree *pred_p = NULL;
-  bool modify_stmt_p = false;
+  bool assignment_p = false;
   tree val;
+  gimple stmt = gsi_stmt (*si);
 
-  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-      && COMPARISON_CLASS_P (GIMPLE_STMT_OPERAND (stmt, 1)))
+  if (is_gimple_assign (stmt)
+      && TREE_CODE_CLASS (gimple_assign_rhs_code (stmt)) == tcc_comparison)
     {
-      modify_stmt_p = true;
-      pred_p = &GIMPLE_STMT_OPERAND (stmt, 1);
+      assignment_p = true;
+      val = vrp_evaluate_conditional (gimple_assign_rhs_code (stmt),
+				      gimple_assign_rhs1 (stmt),
+				      gimple_assign_rhs2 (stmt),
+				      stmt);
     }
-  else if (TREE_CODE (stmt) == COND_EXPR)
-    pred_p = &COND_EXPR_COND (stmt);
+  else if (gimple_code (stmt) == GIMPLE_COND)
+    val = vrp_evaluate_conditional (gimple_cond_code (stmt),
+				    gimple_cond_lhs (stmt),
+				    gimple_cond_rhs (stmt),
+				    stmt);
   else
     return false;
 
-  if (TREE_CODE (*pred_p) == SSA_NAME)
-    val = vrp_evaluate_conditional (EQ_EXPR,
-				    *pred_p,
-				    boolean_true_node,
-				    stmt);
-  else
-    val = vrp_evaluate_conditional (TREE_CODE (*pred_p),
-				    TREE_OPERAND (*pred_p, 0),
-				    TREE_OPERAND (*pred_p, 1),
-				    stmt);
 
   if (val)
     {
-      if (modify_stmt_p)
-        val = fold_convert (TREE_TYPE (*pred_p), val);
+      if (assignment_p)
+        val = fold_convert (gimple_expr_type (stmt), val);
       
       if (dump_file)
 	{
-	  fprintf (dump_file, "Folding predicate ");
-	  print_generic_expr (dump_file, *pred_p, 0);
+	  fprintf (dump_file, "Folding predicate in ");
+	  print_gimple_stmt (dump_file, stmt, 0, 0);
 	  fprintf (dump_file, " to ");
 	  print_generic_expr (dump_file, val, 0);
 	  fprintf (dump_file, "\n");
 	}
 
       prop_stats.num_pred_folded++;
-      *pred_p = val;
+
+      if (is_gimple_assign (stmt))
+	gimple_assign_set_rhs_from_tree (si, val);
+      else
+	{
+	  gcc_assert (gimple_code (stmt) == GIMPLE_COND);
+	  if (integer_zerop (val))
+	    gimple_cond_make_false (stmt);
+	  else if (integer_onep (val))
+	    gimple_cond_make_true (stmt);
+	  else
+	    gcc_unreachable ();
+	}
+
       return true;
     }
 
   return false;
-#else
-  gimple_unreachable ();
-  return false;
-#endif
 }
 
 
@@ -1467,7 +1322,11 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	  /* If we have range information, see if we can fold
 	     predicate expressions.  */
 	  if (use_ranges_p)
-	    did_replace = fold_predicate_in (stmt);
+	    {
+	      did_replace = fold_predicate_in (&i);
+	      /* fold_predicate_in should not have reallocated STMT.  */
+	      gcc_assert (gsi_stmt (i) == stmt);
+	    }
 
 	  if (prop_value)
 	    {

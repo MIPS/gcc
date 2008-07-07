@@ -304,9 +304,6 @@ execute_fixup_cfg (void)
 	                ? gimple_call_fndecl (stmt)
 			: NULL;
 
-	    /* FIXME tuples.  This may not be necessary, however a
-	       previous optimization may have converted a call into a
-	       const/pure call.  Leave in for now.  */
 	    if (decl
 		&& gimple_call_flags (stmt) & (ECF_CONST
 					       | ECF_PURE 

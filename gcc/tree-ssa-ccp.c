@@ -2277,9 +2277,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
                                     TREE_OPERAND (expr, 1));
       break;
 
-      /* FIXME tuples. This case is likely redundant.
-         See a similar folding attempt in fold_gimple_assign.  */
     case COND_EXPR:
+      gcc_unreachable ();
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);
@@ -2858,20 +2857,6 @@ fold_stmt (gimple_stmt_iterator *gsi)
       return changed;
       break;
     }
-
-  /* FIXME tuples.  This seems to be a reasonable optimization, but it breaks
-     some callers.  Since we weren't doing this pre-tuples, it is best not to
-     pursue it now.  */
-#if 0
-  stmt = gsi_stmt (*gsi);
-  if (!gimple_has_side_effects (stmt))
-    {
-      gimple new_stmt = gimple_build_nop ();
-      gimple_set_location (new_stmt, gimple_location (stmt));
-      gsi_replace (gsi, new_stmt, false);
-      return true;
-    }
-#endif
 
   return changed;
 }

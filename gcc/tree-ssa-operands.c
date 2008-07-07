@@ -1651,14 +1651,9 @@ add_call_clobber_ops (gimple stmt, tree callee ATTRIBUTE_UNUSED)
   /* Get info for local and module level statics.  There is a bit
      set for each static if the call being processed does not read
      or write that variable.  */
-  /* FIXME tuples.  */
-#if 0
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL;
-#else
-  not_read_b = NULL;
-  not_written_b = NULL;
-#endif
+
   /* Add a VDEF operand for every call clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (gimple_call_clobbered_vars (cfun), 0, u, bi)
     {

@@ -204,10 +204,7 @@ lookup_stmt_eh_region (gimple t)
 /* Determine if expression T is inside an EH region in the current
    function (cfun).  Return the EH region number if found, return -2
    if IFUN does not have an EH table and -1 if T could not be found in
-   IFUN's EH region table.
-
-   FIXME tuples.  This is horrid.  It's used by gimple_to_tree to
-   record an EH region number on the generated expression statement.  */
+   IFUN's EH region table.  */
 
 int
 lookup_expr_eh_region (tree t)

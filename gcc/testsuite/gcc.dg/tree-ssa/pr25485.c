@@ -13,5 +13,5 @@ foo (int a, int b)
   return 31;
 }
 
-/* { dg-final { scan-tree-dump-times "if" 1 "vrp1"} } */
+/* { dg-final { scan-tree-dump-times "Folding predicate in if " 1 "vrp1"} } */
 /* { dg-final { cleanup-tree-dump "vrp1" } } */

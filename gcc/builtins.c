@@ -3313,8 +3313,6 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
       if (src_align == 0)
 	return NULL_RTX;
  
-      /* FIXME tuples:  CALL_EXPRs materialized during RTL expansion do
-         not have annotations.  */
       ann = tree_common_ann (exp);
       if (ann)
         stringop_block_profile (ann->stmt, &expected_align, &expected_size);
@@ -3901,8 +3899,6 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   if (dest_align == 0)
     return NULL_RTX;
 
-  /* FIXME tuples:  CALL_EXPRs materialized during RTL expansion do
-     not have annotations.  */
   ann = tree_common_ann (orig_exp);
   if (ann)
     stringop_block_profile (ann->stmt, &expected_align, &expected_size);

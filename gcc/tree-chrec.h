@@ -123,7 +123,7 @@ build_polynomial_chrec (unsigned loop_num,
 			tree left, 
 			tree right)
 {
-  bool val = false;  /* FIXME tuples.  Silence warning.  */
+  bool val;
 
   if (left == chrec_dont_know
       || right == chrec_dont_know)

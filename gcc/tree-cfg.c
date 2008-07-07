@@ -1117,9 +1117,11 @@ group_case_labels (void)
 		  continue;
 		}
 
-	      base_high = CASE_HIGH (base_case) ?
-		CASE_HIGH (base_case) : CASE_LOW (base_case);
+	      base_high = CASE_HIGH (base_case)
+			  ? CASE_HIGH (base_case)
+			  : CASE_LOW (base_case);
 	      i++;
+
 	      /* Try to merge case labels.  Break out when we reach the end
 		 of the label vector or when we cannot merge the next case
 		 label with the current one.  */
@@ -1156,9 +1158,8 @@ group_case_labels (void)
 	      gimple_switch_set_label (stmt, i,
 				       gimple_switch_label (stmt, j++));
 	    }
-	  /* FIXME tuples: Should we reallocate a new switch, or just
-	     set the number of labels and put up with the few words
-	     lost, until we GC the entire GIMPLE_SWITCH out?  */
+
+	  gcc_assert (new_size <= old_size);
 	  gimple_switch_set_num_labels (stmt, new_size);
 	}
     }
@@ -1522,25 +1523,6 @@ remove_useless_stmts_warn_notreached (gimple_seq stmts)
         case GIMPLE_BIND:
           return remove_useless_stmts_warn_notreached (gimple_bind_body (stmt));
 
-        /* FIXME tuples.  The original code pre-tuplification did not
-           descend into the OMP constructs.  */
-#if 0
-        case GIMPLE_OMP_FOR:
-          if (remove_useless_stmts_warn_notreached (gimple_omp_for_pre_body (stmt)))
-            return true;
-          /* FALLTHROUGH */
-        case GIMPLE_OMP_CRITICAL:
-        case GIMPLE_OMP_CONTINUE:
-        case GIMPLE_OMP_MASTER:
-        case GIMPLE_OMP_ORDERED:
-        case GIMPLE_OMP_SECTION:
-        case GIMPLE_OMP_PARALLEL:
-	case GIMPLE_OMP_TASK:
-        case GIMPLE_OMP_SECTIONS:
-        case GIMPLE_OMP_SINGLE:
-          return remove_useless_stmts_warn_notreached (gimple_omp_body (stmt));
-#endif
-
         default:
           break;
         }
@@ -1571,11 +1553,6 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
                       boolean_type_node,
                       gimple_cond_lhs (stmt),
                       gimple_cond_rhs (stmt));
-
-  /* FIXME tuples.  The optimization being applied to GIMPLE_GOTO
-     destinations could be performed for the true and false labels
-     of a GIMPLE_COND as well.  This would require tracking a bit
-     more information.  */
 
   /* Replace trivial conditionals with gotos. */
   if (cond && integer_nonzerop (cond))
@@ -1913,12 +1890,6 @@ remove_useless_stmts_1 (gimple_stmt_iterator *gsi, struct rus_data *data)
   while (!gsi_end_p (*gsi))
     {
       gimple stmt = gsi_stmt (*gsi);
-
-      /* FIXME tuples.  We follow the pre-tuples code below and use
-         fold_stmt for simplification.  Note that this may change the
-         statement type, which is an invitation to trouble.  Perhaps
-         fold_stmt_inplace should be used, or folding should be done
-         prior to the switch statement.  */
 
       switch (gimple_code (stmt))
         {
@@ -3418,10 +3389,8 @@ verify_types_in_gimple_assign (gimple stmt)
 
     case CONSTRUCTOR:
       {
-	/* Note that pre-tuples, this code disallowed CONSTRUCTOR expressions 
-	   for types other than vector types, but in this context we know
-	   that we are on the RHS of an assignment, so CONSTRUCTOR operands
-	   are OK.  */
+	/* In this context we know that we are on the RHS of an
+	   assignment, so CONSTRUCTOR operands are OK.  */
 	/* FIXME: verify constructor arguments.  */
 	return false;
       }

@@ -1,3 +1,7 @@
+2008-07-07  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/tree-ssa/pr25485.c: Update grep pattern.
+
 2008-06-19  Andrew Pinski  <pinskia@gmail.com>
 
 	* lib/objc.exp: Revert back to the mainline.

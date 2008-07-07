@@ -261,7 +261,7 @@ static gimple
 record_temporary_equivalences_from_stmts_at_dest (edge e,
 						  VEC(tree, heap) **stack,
 						  tree (*simplify) (gimple,
-								    tree))
+								    gimple))
 {
   gimple stmt = NULL;
   gimple_stmt_iterator gsi;
@@ -414,7 +414,7 @@ static tree
 simplify_control_stmt_condition (edge e,
 				 gimple stmt,
 				 gimple dummy_cond,
-				 tree (*simplify) (gimple, tree),
+				 tree (*simplify) (gimple, gimple),
 				 bool handle_dominating_asserts)
 {
   tree cond, cached_lhs;
@@ -571,7 +571,7 @@ thread_across_edge (gimple dummy_cond,
 		    edge e,
 		    bool handle_dominating_asserts,
 		    VEC(tree, heap) **stack,
-		    tree (*simplify) (gimple, tree))
+		    tree (*simplify) (gimple, gimple))
 {
   gimple stmt;
 

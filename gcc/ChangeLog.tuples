@@ -1,10 +1,80 @@
+2008-07-07  Diego Novillo  <dnovillo@google.com>
+
+	* tree-vrp.c (ssa_name_nonnegative_p): Tuplify.
+	(ssa_name_nonzero_p): Tuplify.
+	(extract_range_from_comparison): Tidy.
+	(vrp_evaluate_conditional_warnv_with_ops): Tidy.
+	(vrp_evaluate_conditional): Change STMT argument to gimple.
+	Update all users.
+	(simplify_stmt_for_jump_threading): Change WITHIN_STMT argument
+	to gimple.
+	Update all users.
+	(identify_jump_threads): Tidy.
+	* tree-tailcall.c (find_tail_calls): Remove stale FIXME note.
+	* tree.c (tree_node_structure): Likewise.
+	* tree.h (struct tree_base): Likewise.
+	(struct gimple_stmt): Likewise.
+	* builtins.c (expand_builtin_memcpy): Likewise.
+	(expand_builtin_memset_args): Likewise.
+	* tree-chrec.h (build_polynomial_chrec): Do not initialize VAL.
+	* tree-ssa-ccp.c (fold_stmt_r): Do not handle COND_EXPR.
+	(fold_stmt): Remove #if 0 code.
+	* tree-ssa-dom.c (EXTRA_DETAILS): Remove.
+	Update all users.
+	(hashable_expr_equal_p): Remove stale FIXME note.
+	(simplify_stmt_for_jump_threading): Convert WITHIN_STMT
+	argument to gimple.  Update all users.
+	* tree-ssa-propagate.c: Include gimple.h
+	(get_rhs): Remove.
+	(set_rhs): Remove.
+	(fold_predicate_in): Tuplify.
+	* Makefile.in (tree-ssa-propagate.o): Add dependency on
+	GIMPLE_H.
+	* tree-ssa-propagate.h (get_rhs, set_rhs): Remove.
+	* tree-parloops.c (create_parallel_loop): Remove FIXME
+	tuples note.
+	* tree-eh.c (lookup_stmt_eh_region): Remove FIXME tuples
+	editorial note.
+	* cfgexpand.c (gimple_to_tree): Likewise.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Tidy.
+	Do not handle GIMPLE_BIND.
+	* tree-inline.c (remap_gimple_op_r): Remove stale FIXME notes.
+	* tree-optimize.c (execute_fixup_cfg): Likewise.
+	* tree-flow.h (struct tree_ann_common_d): Remove stale
+	FIXME tuples notes.
+	(tree_vrp_evaluate_conditional): Change last argument type to
+	gimple.  Update all users.
+	(thread_across_edge): Likewise.
+	* gimple.c (gimple_has_side_effects): If any argument has
+	TREE_SIDE_EFFECTS set, assert that S has volatile operands.
+	(gimple_rhs_has_side_effects): Likewise.
+	* gimple.h (gimple_phi_capacity): Remove stale FIXME tuples note.
+	* tree-cfg.c (group_case_labels): Remove FIXME tuples note.
+	Assert that the new size is smaller than the old size.
+	(remove_useless_stmts_warn_notreached): Remove #if 0 code.
+	(remove_useless_stmts_cond): Remove stale FIXME tuples note.
+	(remove_useless_stmts_1): Likewise.
+	(verify_types_in_gimple_assign): Likewise.
+	* passes.c (init_optimization_passes): Re-enable
+	pass_ipa_increase_alignment.
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest):
+	Change SIMPLIFY to accept two arguments of type gimple.
+	Update all users.
+	(simplify_control_stmt_condition): Likewise.
+	(thread_accross_edge): Likewise.
+	* tree-ssa-operands.c (add_call_clobber_ops): Re-enable
+	calls to ipa_reference_get_not_read_globals and
+	ipa_reference_get_not_written_global.
+
 2008-07-07  Aldy Hernandez  <aldyh@redhat.com>
 
-	* tree-ssa-dom.c: Remove fixme tuples.
+	* tree-ssa-dom.c: Remove FIXME tuples.
 
 2008-07-07  Aldy Hernandez  <aldyh@redhat.com>
 
-	* tree-cfg.c (verify_types_in_gimple_assign): Remove fixme.
+	* tree-cfg.c (verify_types_in_gimple_assign): Remove
+	FIXME tuples.
 
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 

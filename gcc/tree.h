@@ -388,8 +388,6 @@ struct tree_base GTY(())
 
   unsigned spare : 23;
 
-  /* FIXME tuples: Eventually, we need to move this somewhere external to
-     the trees.  */
   union tree_ann_d *ann;
 };
 
@@ -406,7 +404,6 @@ struct gimple_stmt GTY(())
   struct tree_base base;
   location_t locus;
   tree block;
-  /* FIXME tuples: Eventually this should be of type ``struct gimple_expr''.  */
   tree GTY ((length ("TREE_CODE_LENGTH (TREE_CODE (&%h))"))) operands[1];
 };
 

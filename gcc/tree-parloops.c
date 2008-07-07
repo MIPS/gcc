@@ -1602,10 +1602,6 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
     {
       phi = gsi_stmt (gsi);
       res = PHI_RESULT (phi);
-      /* FIXME tuples
-	 The original code was doing gcc_assert (!is_gimple_reg (phi));
-	 which doesn't make sense at all.
-	 gcc_assert (!is_gimple_reg (res));  */
       stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit));
       add_phi_arg (phi,
 		   PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop)),

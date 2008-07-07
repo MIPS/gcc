@@ -643,12 +643,8 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
-    /* FIXME tuples: Should be removed.
-       Was copy_statement_list (tp); */
     gcc_unreachable ();
   else if (TREE_CODE (*tp) == SAVE_EXPR)
-    /* FIXME tuples: Should be removed?
-       Was remap_save_expr (tp, id->decl_map, walk_subtrees);  */
     gcc_unreachable ();
   else if (TREE_CODE (*tp) == LABEL_DECL
 	   && (!DECL_CONTEXT (*tp)

@@ -2832,7 +2832,7 @@ gimple_phi_capacity (const_gimple gs)
 
 /* Return the number of arguments in GIMPLE_PHI GS.  This must always
    be exactly the number of incoming edges for the basic block holding
-   GS.  FIXME tuples, this field is useless then.  */
+   GS.  */
 
 static inline unsigned
 gimple_phi_num_args (const_gimple gs)

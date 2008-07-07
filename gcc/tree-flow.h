@@ -282,11 +282,12 @@ struct tree_ann_common_d GTY(())
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
 
-  /* FIXME tuples.  Hack to record EH region number into a statement
-     tree created during RTL expansion (see gimple_to_tree).  */
+  /* Record EH region number into a statement tree created during RTL
+     expansion (see gimple_to_tree).  */
   int rn;
 
-  /* FIXME tuples: Pointer to original GIMPLE statement.  */
+  /* Pointer to original GIMPLE statement.  Used during RTL expansion
+     (see gimple_to_tree).  */
   gimple stmt;
 };
 
@@ -912,7 +913,7 @@ tree get_symbol_constant_value (tree);
 tree fold_const_aggregate_ref (tree);
 
 /* In tree-vrp.c  */
-tree vrp_evaluate_conditional (enum tree_code, tree, tree, tree);
+tree vrp_evaluate_conditional (enum tree_code, tree, tree, gimple);
 void simplify_stmt_using_ranges (gimple);
 
 /* In tree-ssa-dom.c  */
@@ -1044,7 +1045,7 @@ void mark_virtual_ops_for_renaming (gimple);
 /* In tree-ssa-threadedge.c */
 extern bool potentially_threadable_block (basic_block);
 extern void thread_across_edge (gimple, edge, bool,
-				VEC(tree, heap) **, tree (*) (gimple, tree));
+				VEC(tree, heap) **, tree (*) (gimple, gimple));
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

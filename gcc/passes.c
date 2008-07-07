@@ -578,10 +578,7 @@ init_optimization_passes (void)
 	}
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
-  /* FIXME tuples.  */
-#if 0
   NEXT_PASS (pass_ipa_increase_alignment);
-#endif
   NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);

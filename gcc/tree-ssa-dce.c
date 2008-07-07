@@ -266,16 +266,15 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
       return;
     }
 
-  /* Statements that are implicitly live.  Most function calls, asm and return
-     statements are required.  Labels and BIND_EXPR nodes are kept because
-     they are control flow, and we have no way of knowing whether they can be
-     removed.  DCE can eliminate all the other statements in a block, and CFG
-     can then remove the block and labels.  */
+  /* Statements that are implicitly live.  Most function calls, asm
+     and return statements are required.  Labels and GIMPLE_BIND nodes
+     are kept because they are control flow, and we have no way of
+     knowing whether they can be removed.  DCE can eliminate all the
+     other statements in a block, and CFG can then remove the block
+     and labels.  */
   switch (gimple_code (stmt))
     {
-    /* FIXME tuples: remove GIMPLE_BIND*/
     case GIMPLE_PREDICT:
-    case GIMPLE_BIND:
     case GIMPLE_LABEL:
       mark_stmt_necessary (stmt, false);
       return;

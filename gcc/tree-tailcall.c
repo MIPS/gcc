@@ -403,9 +403,6 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	  break;
 	}
 
-      /* FIXME tuples:  Some checks below may overlap and could be
- 	 eliminated or simplified.  */
-
       /* If the statement has virtual or volatile operands, fail.  */
       if (!ZERO_SSA_OPERANDS (stmt, (SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS))
 	  || gimple_has_volatile_ops (stmt)

@@ -2266,28 +2266,33 @@ gimple_has_side_effects (const_gimple s)
 	/* An infinite loop is considered a side effect.  */
 	return true;
 
-      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
-         flag is still meaningful on operands.  */
       if (gimple_call_lhs (s)
           && TREE_SIDE_EFFECTS (gimple_call_lhs (s)))
-        return true;
+	{
+	  gcc_assert (gimple_has_volatile_ops (s));
+	  return true;
+	}
 
       if (TREE_SIDE_EFFECTS (gimple_call_fn (s)))
         return true;
 
       for (i = 0; i < nargs; i++)
         if (TREE_SIDE_EFFECTS (gimple_call_arg (s, i)))
-          return true;
+	  {
+	    gcc_assert (gimple_has_volatile_ops (s));
+	    return true;
+	  }
 
       return false;
     }
   else
     {
-      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
-         flag is still meaningful on operands.  */
       for (i = 0; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i)))
-	  return true;
+	  {
+	    gcc_assert (gimple_has_volatile_ops (s));
+	    return true;
+	  }
     }
 
   return false;
@@ -2313,11 +2318,12 @@ gimple_rhs_has_side_effects (const_gimple s)
 
       /* We cannot use gimple_has_volatile_ops here,
          because we must ignore a volatile LHS.  */
-      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
-         flag is still meaningful on operands.  */
       if (TREE_SIDE_EFFECTS (gimple_call_fn (s))
           || TREE_THIS_VOLATILE (gimple_call_fn (s)))
-        return true;
+	{
+	  gcc_assert (gimple_has_volatile_ops (s));
+	  return true;
+	}
 
       for (i = 0; i < nargs; i++)
         if (TREE_SIDE_EFFECTS (gimple_call_arg (s, i))
@@ -2329,22 +2335,24 @@ gimple_rhs_has_side_effects (const_gimple s)
   else if (is_gimple_assign (s))
     {
       /* Skip the first operand, the LHS. */
-      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
-         flag is still meaningful on operands.  */
       for (i = 1; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
             || TREE_THIS_VOLATILE (gimple_op (s, i)))
-	  return true;
+	  {
+	    gcc_assert (gimple_has_volatile_ops (s));
+	    return true;
+	  }
     }
   else
     {
       /* For statements without an LHS, examine all arguments.  */
-      /* FIXME tuples.  Verify that the TREE_SIDE_EFFECTS
-         flag is still meaningful on operands.  */
       for (i = 0; i < gimple_num_ops (s); i++)
 	if (TREE_SIDE_EFFECTS (gimple_op (s, i))
             || TREE_THIS_VOLATILE (gimple_op (s, i)))
-	  return true;
+	  {
+	    gcc_assert (gimple_has_volatile_ops (s));
+	    return true;
+	  }
     }
 
   return false;
