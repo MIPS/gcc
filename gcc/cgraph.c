@@ -132,9 +132,6 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
-static hashval_t hash_node (const void *);
-static int eq_node (const void *, const void *);
-
 /* Returns a hash code for P.  */
 
 static hashval_t
@@ -265,8 +262,9 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   int n = 0;
 
   if (node->call_site_hash)
-    return htab_find_with_hash (node->call_site_hash, call_stmt,
-      				htab_hash_pointer (call_stmt));
+    return (struct cgraph_edge *)
+      htab_find_with_hash (node->call_site_hash, call_stmt,
+			   htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -296,7 +294,7 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   return e;
 }
 
-/* Change call_smtt of edge E to NEW_STMT.  */
+/* Change call_stmt of edge E to NEW_STMT.  */
 
 void
 cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
@@ -701,7 +699,7 @@ cgraph_node_name (struct cgraph_node *node)
 
 /* Names used to print out the availability enum.  */
 const char * const cgraph_availability_names[] =
-  {"unset", "not_available", "overwrittable", "available", "local"};
+  {"unset", "not_available", "overwritable", "available", "local"};
 
 
 /* Dump call graph node NODE to file F.  */
@@ -723,13 +721,14 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
-  if (node->local.self_insns)
-    fprintf (f, " %i insns", node->local.self_insns);
-  if (node->global.insns && node->global.insns != node->local.self_insns)
+  if (node->local.inline_summary.self_insns)
+    fprintf (f, " %i insns", node->local.inline_summary.self_insns);
+  if (node->global.insns && node->global.insns
+      != node->local.inline_summary.self_insns)
     fprintf (f, " (%i after inlining)", node->global.insns);
-  if (node->local.estimated_self_stack_size)
-    fprintf (f, " %i bytes stack usage", (int)node->local.estimated_self_stack_size);
-  if (node->global.estimated_stack_size != node->local.estimated_self_stack_size)
+  if (node->local.inline_summary.estimated_self_stack_size)
+    fprintf (f, " %i bytes stack usage", (int)node->local.inline_summary.estimated_self_stack_size);
+  if (node->global.estimated_stack_size != node->local.inline_summary.estimated_self_stack_size)
     fprintf (f, " %i bytes after inlining", (int)node->global.estimated_stack_size);
   if (node->origin)
     fprintf (f, " nested in: %s", cgraph_node_name (node->origin));
@@ -1037,7 +1036,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
   switch (cgraph_state)
     {
       case CGRAPH_STATE_CONSTRUCTION:
-	/* Just enqueue function to be processed at nearest occurence.  */
+	/* Just enqueue function to be processed at nearest occurrence.  */
 	node = cgraph_node (fndecl);
 	node->next_needed = cgraph_new_nodes;
 	if (lowered)
@@ -1054,6 +1053,21 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	node->local.local = false;
 	node->local.finalized = true;
 	node->reachable = node->needed = true;
+	if (!lowered && cgraph_state == CGRAPH_STATE_EXPANSION)
+	  {
+	    push_cfun (DECL_STRUCT_FUNCTION (fndecl));
+	    current_function_decl = fndecl;
+	    tree_register_cfg_hooks ();
+            tree_lowering_passes (fndecl);
+	    bitmap_obstack_initialize (NULL);
+	    if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
+	      execute_pass_list (pass_early_local_passes.pass.sub);
+	    bitmap_obstack_release (NULL);
+	    pop_cfun ();
+	    current_function_decl = NULL;
+
+	    lowered = true;
+	  }
 	if (lowered)
 	  node->lowered = true;
 	node->next_needed = cgraph_new_nodes;

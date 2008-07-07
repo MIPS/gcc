@@ -36,6 +36,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* read.c -- Deal with formatted reads */
 
+
 /* set_integer()-- All of the integer assignments come here to
  * actually place the value into memory.  */
 
@@ -192,11 +193,13 @@ void
 read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   char *p;
-  int w;
+  size_t w;
 
   w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+
+  p = gfc_alloca (w);
+
+  if (read_block_form (dtp, p, &w) == FAILURE)
     return;
 
   while (*p == ' ')
@@ -238,30 +241,72 @@ read_l (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 void
 read_a (st_parameter_dt *dtp, const fnode *f, char *p, int length)
 {
-  char *source;
-  int w, m, n;
+  char *s;
+  int m, n, wi, status;
+  size_t w;
 
-  w = f->u.w;
-  if (w == -1) /* '(A)' edit descriptor  */
-    w = length;
+  wi = f->u.w;
+  if (wi == -1) /* '(A)' edit descriptor  */
+    wi = length;
+
+  w = wi;
+
+  s = gfc_alloca (w);
 
   dtp->u.p.sf_read_comma = 0;
-  source = read_block (dtp, &w);
+  status = read_block_form (dtp, s, &w);
   dtp->u.p.sf_read_comma =
     dtp->u.p.decimal_status == DECIMAL_COMMA ? 0 : 1;
-  if (source == NULL)
+  if (status == FAILURE)
     return;
-  if (w > length)
-     source += (w - length);
+  if (w > (size_t) length)
+     s += (w - length);
 
-  m = (w > length) ? length : w;
-  memcpy (p, source, m);
+  m = ((int) w > length) ? length : (int) w;
+  memcpy (p, s, m);
 
   n = length - w;
   if (n > 0)
     memset (p + m, ' ', n);
 }
 
+void
+read_a_char4 (st_parameter_dt *dtp, const fnode *f, char *p, int length)
+{
+  char *s;
+  gfc_char4_t *dest;
+  int m, n, wi, status;
+  size_t w;
+
+  wi = f->u.w;
+  if (wi == -1) /* '(A)' edit descriptor  */
+    wi = length;
+
+  w = wi;
+
+  s = gfc_alloca (w);
+
+  /* Read in w bytes, treating comma as not a separator.  */
+  dtp->u.p.sf_read_comma = 0;
+  status = read_block_form (dtp, s, &w);
+  dtp->u.p.sf_read_comma =
+    dtp->u.p.decimal_status == DECIMAL_COMMA ? 0 : 1;
+  
+  if (status == FAILURE)
+    return;
+  if (w > (size_t) length)
+     s += (w - length);
+
+  m = ((int) w > length) ? length : (int) w;
+  
+  dest = (gfc_char4_t *) p;
+  
+  for (n = 0; n < m; n++, dest++, s++)
+    *dest = (unsigned char ) *s;
+
+  for (n = 0; n < length - (int) w; n++, dest++)
+    *dest = (unsigned char) ' ';
+}
 
 /* eat_leading_spaces()-- Given a character pointer and a width,
  * ignore the leading spaces.  */
@@ -323,13 +368,18 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
   GFC_UINTEGER_LARGEST value, maxv, maxv_10;
   GFC_INTEGER_LARGEST v;
-  int w, negative;
+  int w, negative; 
+  size_t wu;
   char c, *p;
 
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -378,13 +428,13 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
       if (c < '0' || c > '9')
 	goto bad;
 
-      if (value > maxv_10)
+      if (value > maxv_10 && compile_options.range_check == 1)
 	goto overflow;
 
       c -= '0';
       value = 10 * value;
 
-      if (value > maxv - c)
+      if (value > maxv - c && compile_options.range_check == 1)
 	goto overflow;
       value += c;
     }
@@ -406,7 +456,7 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   generate_error (&dtp->common, LIBERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   next_record (dtp, 1);
-  return;
+
 }
 
 
@@ -423,11 +473,16 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
   GFC_INTEGER_LARGEST v;
   int w, negative;
   char c, *p;
+  size_t wu;
 
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -552,7 +607,7 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
   generate_error (&dtp->common, LIBERROR_READ_OVERFLOW,
 		  "Value overflowed during integer read");
   next_record (dtp, 1);
-  return;
+
 }
 
 
@@ -565,6 +620,7 @@ read_radix (st_parameter_dt *dtp, const fnode *f, char *dest, int length,
 void
 read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 {
+  size_t wu;
   int w, seen_dp, exponent;
   int exponent_sign, val_sign;
   int ndigits;
@@ -576,10 +632,14 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 
   val_sign = 1;
   seen_dp = 0;
-  w = f->u.w;
-  p = read_block (dtp, &w);
-  if (p == NULL)
+  wu = f->u.w;
+
+  p = gfc_alloca (wu);
+
+  if (read_block_form (dtp, p, &wu) == FAILURE)
     return;
+
+  w = wu;
 
   p = eat_leading_spaces (&w, p);
   if (w == 0)
@@ -842,7 +902,6 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
   if (buffer != scratch)
      free_mem (buffer);
 
-  return;
 }
 
 
@@ -850,19 +909,16 @@ read_f (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
  * and never look at it. */
 
 void
-read_x (st_parameter_dt *dtp, int n)
+read_x (st_parameter_dt * dtp, int n)
 {
-  if (!is_stream_io (dtp))
-    {
-      if ((dtp->u.p.pad_status == PAD_NO || is_internal_unit (dtp))
-	  && dtp->u.p.current_unit->bytes_left < n)
-	n = dtp->u.p.current_unit->bytes_left;
+  if ((dtp->u.p.pad_status == PAD_NO || is_internal_unit (dtp))
+      && dtp->u.p.current_unit->bytes_left < n)
+    n = dtp->u.p.current_unit->bytes_left;
 
-      dtp->u.p.sf_read_comma = 0;
-      if (n > 0)
-	read_sf (dtp, &n, 1);
-      dtp->u.p.sf_read_comma = 1;
-    }
-  else
-    dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
+  dtp->u.p.sf_read_comma = 0;
+  if (n > 0)
+    read_sf (dtp, &n, 1);
+  dtp->u.p.sf_read_comma = 1;
+  dtp->u.p.current_unit->strm_pos += (gfc_offset) n;
 }
+

@@ -832,8 +832,8 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 	  high = ~high + !low;
 	  low = -low;
 	}
-      sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+      sprintf (pp_buffer (pp)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX, 
+	       (unsigned HOST_WIDE_INT) high, (unsigned HOST_WIDE_INT) low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -1019,7 +1019,7 @@ pp_c_constant (c_pretty_printer *pp, tree e)
     case COMPLEX_CST:
       /* Sometimes, we are confused and we think a complex literal
          is a constant.  Such thing is a compound literal which
-         grammatically belongs to postifx-expr production.  */
+         grammatically belongs to postfix-expr production.  */
       pp_c_compound_literal (pp, e);
       break;
 
@@ -1096,7 +1096,7 @@ pp_c_primary_expression (c_pretty_printer *pp, tree e)
       break;
 
     default:
-      /* FIXME:  Make sure we won't get into an infinie loop.  */
+      /* FIXME:  Make sure we won't get into an infinite loop.  */
       pp_c_left_paren (pp);
       pp_expression (pp, e);
       pp_c_right_paren (pp);
@@ -1555,8 +1555,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     {
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1947,8 +1946,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       pp_c_cast_expression (pp, e);
       break;
 

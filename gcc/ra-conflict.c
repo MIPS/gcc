@@ -1,5 +1,5 @@
 /* Allocate registers for pseudo-registers that span basic blocks.
-   Copyright (C) 2007 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -405,7 +405,7 @@ set_conflicts_for_earlyclobber (rtx insn)
 
 
 /* Init LIVE_SUBREGS[ALLOCNUM] and LIVE_SUBREGS_USED[ALLOCNUM] using
-   REG to the the number of nregs, and INIT_VALUE to get the
+   REG to the number of nregs, and INIT_VALUE to get the
    initialization.  ALLOCNUM need not be the regno of REG.  */
 
 void
@@ -1220,7 +1220,7 @@ global_conflicts (void)
 	  /* No need to record conflicts for call clobbered regs if we have
 	     nonlocal labels around, as we don't ever try to allocate such
 	     regs in this case.  */
-	  if (! current_function_has_nonlocal_label)
+	  if (! cfun->has_nonlocal_label)
 	    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	      if (call_used_regs [i])
 		record_one_conflict (allocnos_live, &hard_regs_live, i);

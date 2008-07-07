@@ -546,13 +546,13 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
       x = df_bb_regno_last_def_find (def_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) >= DF_INSN_LUID (def_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) >= DF_INSN_LUID (def_insn))
 	return true;
 
       /* See if USE is killed between TARGET_INSN and the first insn in the
 	 basic block containing TARGET_INSN.  */
       x = df_bb_regno_first_def_find (target_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) < DF_INSN_LUID (target_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) < DF_INSN_LUID (target_insn))
 	return true;
 
       return false;
@@ -570,6 +570,7 @@ static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
   struct df_ref **use_rec;
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -583,13 +584,13 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (rtx_equal_p (use->reg, def_reg))
@@ -600,13 +601,13 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
@@ -679,6 +680,7 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
       struct df_ref *orig_use = use, *new_use;
       int width = -1;
       int offset = -1;
+      enum machine_mode mode = 0;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
       use_rec++;
 
@@ -687,15 +689,17 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
 
       if (DF_REF_FLAGS_IS_SET (orig_use, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
 	{
-	  width = DF_REF_WIDTH (orig_use);
-	  offset = DF_REF_OFFSET (orig_use);
+	  width = DF_REF_EXTRACT_WIDTH (orig_use);
+	  offset = DF_REF_EXTRACT_OFFSET (orig_use);
+	  mode = DF_REF_EXTRACT_MODE (orig_use);
 	}
 
       /* Add a new insn use.  Use the original type, because it says if the
          use was within a MEM.  */
       new_use = df_ref_create (DF_REF_REG (orig_use), new_loc,
 			       insn, BLOCK_FOR_INSN (insn),
-			       type, DF_REF_FLAGS (orig_use) | new_flags, width, offset);
+			       type, DF_REF_FLAGS (orig_use) | new_flags, 
+			       width, offset, mode);
 
       /* Set up the use-def chain.  */
       df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
@@ -764,8 +768,9 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       df_ref_remove (use);
       if (!CONSTANT_P (new))
 	{
-	  update_df (insn, loc, DF_INSN_USES (def_insn), type, flags);
-	  update_df (insn, loc, DF_INSN_EQ_USES (def_insn), type, flags);
+	  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	  update_df (insn, loc, DF_INSN_INFO_USES (insn_info), type, flags);
+	  update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info), type, flags);
 	}
     }
   else
@@ -773,11 +778,8 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       cancel_changes (0);
 
       /* Can also record a simplified value in a REG_EQUAL note,
-	 making a new one if one does not already exist.
-	 Don't do this if the insn has a REG_RETVAL note, because the
-	 combined presence means that the REG_EQUAL note refers to the
-	 (full) contents of the libcall value.  */
-      if (set_reg_equal && !find_reg_note (insn, REG_RETVAL, NULL_RTX))
+	 making a new one if one does not already exist.  */
+      if (set_reg_equal)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
@@ -788,9 +790,10 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
 	     set_unique_reg_note?  */
           if (!CONSTANT_P (new))
 	    {
-	      update_df (insn, loc, DF_INSN_USES (def_insn),
+	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	      update_df (insn, loc, DF_INSN_INFO_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
-	      update_df (insn, loc, DF_INSN_EQ_USES (def_insn),
+	      update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
 	    }
 	}

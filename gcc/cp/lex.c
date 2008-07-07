@@ -89,9 +89,9 @@ cxx_finish (void)
 }
 
 /* A mapping from tree codes to operator name information.  */
-operator_name_info_t operator_name_info[(int) LAST_CPLUS_TREE_CODE];
+operator_name_info_t operator_name_info[(int) MAX_TREE_CODES];
 /* Similar, but for assignment operators.  */
-operator_name_info_t assignment_operator_name_info[(int) LAST_CPLUS_TREE_CODE];
+operator_name_info_t assignment_operator_name_info[(int) MAX_TREE_CODES];
 
 /* Initialize data structures that keep track of operator names.  */
 
@@ -241,6 +241,8 @@ static const struct resword reswords[] =
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	0 },
   { "char",		RID_CHAR,	0 },
+  { "char16_t",		RID_CHAR16,	D_CXX0X },
+  { "char32_t",		RID_CHAR32,	D_CXX0X },
   { "class",		RID_CLASS,	0 },
   { "const",		RID_CONST,	0 },
   { "const_cast",	RID_CONSTCAST,	0 },
@@ -342,7 +344,7 @@ init_reswords (void)
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
-      C_RID_CODE (id) = reswords[i].rid;
+      C_SET_RID_CODE (id, reswords[i].rid);
       ridpointers [(int) reswords[i].rid] = id;
       if (! (reswords[i].disable & mask))
 	C_IS_RESERVED_WORD (id) = 1;

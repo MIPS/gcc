@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gfortran.h"
 #include "target.h"
+#include "cpp.h"
 
 gfc_option_t gfc_option;
 
@@ -50,8 +51,7 @@ set_default_std_flags (void)
 /* Get ready for options handling.  */
 
 unsigned int
-gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
-		  const char **argv ATTRIBUTE_UNUSED)
+gfc_init_options (unsigned int argc, const char **argv)
 {
   gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
@@ -127,6 +127,9 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   /* -fshort-enums can be default on some targets.  */
   gfc_option.fshort_enums = targetm.default_short_enums ();
+
+  /* Initialize cpp-related options.  */
+  gfc_cpp_init_options(argc, argv);
 
   return CL_Fortran;
 }
@@ -251,7 +254,7 @@ gfc_post_options (const char **pfilename)
 
   if (i != 0)
     {
-      source_path = alloca (i + 1);
+      source_path = (char *) alloca (i + 1);
       memcpy (source_path, canon_source_file, i);
       source_path[i] = 0;
       gfc_add_include_path (source_path, true);
@@ -354,6 +357,15 @@ gfc_post_options (const char **pfilename)
   if (gfc_option.flag_all_intrinsics)
     gfc_option.warn_nonstd_intrinsics = 0;
 
+  gfc_cpp_post_options ();
+
+/* FIXME: return gfc_cpp_preprocess_only ();
+
+   The return value of this function indicates whether the
+   backend needs to be initialized. On -E, we don't need
+   the backend. However, if we return 'true' here, an
+   ICE occurs. Initializing the backend doesn't hurt much,
+   hence, for now we can live with it as is.  */
   return false;
 }
 
@@ -391,10 +403,7 @@ gfc_handle_module_path_options (const char *arg)
 {
 
   if (gfc_option.module_dir != NULL)
-    gfc_fatal_error ("gfortran: Only one -M option allowed");
-
-  if (arg == NULL)
-    gfc_fatal_error ("gfortran: Directory required after -M");
+    gfc_fatal_error ("gfortran: Only one -J option allowed");
 
   gfc_option.module_dir = (char *) gfc_getmem (strlen (arg) + 2);
   strcpy (gfc_option.module_dir, arg);
@@ -453,6 +462,9 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
   /* Ignore file names.  */
   if (code == N_OPTS)
+    return 1;
+
+  if (gfc_cpp_handle_option (scode, arg, value) == 1)
     return 1;
 
   switch (code)
@@ -695,7 +707,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       else
 	gfc_fatal_error ("Unrecognized option to -finit-real: %s",
 			 arg);
-      break;      
+      break;
 
     case OPT_finit_integer_:
       gfc_option.flag_init_integer = GFC_INIT_INTEGER_ON;
@@ -718,14 +730,13 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_J:
-    case OPT_M:
       gfc_handle_module_path_options (arg);
       break;
-    
+
     case OPT_fsign_zero:
       gfc_option.flag_sign_zero = value;
       break;
-    
+
     case OPT_ffpe_trap_:
       gfc_handle_fpe_trap_option (arg);
       break;

@@ -611,7 +611,7 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
     {
       u->maxrec = max_offset;
       u->recl = 1;
-      u->strm_pos = 1;
+      u->strm_pos = file_position (u->s) + 1;
     }
 
   memmove (u->file, opp->file, opp->file_len);
@@ -626,6 +626,19 @@ new_unit (st_parameter_open *opp, gfc_unit *u, unit_flags * flags)
 
   if (flags->status == STATUS_SCRATCH && opp->file != NULL)
     free_mem (opp->file);
+    
+  if (flags->form == FORM_FORMATTED && (flags->action != ACTION_READ))
+    {
+      if ((opp->common.flags & IOPARM_OPEN_HAS_RECL_IN))
+        fbuf_init (u, u->recl);
+      else
+        fbuf_init (u, 0);
+    }
+  else
+    u->fbuf = NULL;
+
+    
+    
   return u;
 
  cleanup:
@@ -782,7 +795,7 @@ st_open (st_parameter_open *opp)
 	conv = compile_options.convert;
     }
   
-  /* We use l8_to_l4_offset, which is 0 on little-endian machines
+  /* We use big_endian, which is 0 on little-endian machines
      and 1 on big-endian machines.  */
   switch (conv)
     {
@@ -791,11 +804,11 @@ st_open (st_parameter_open *opp)
       break;
       
     case GFC_CONVERT_BIG:
-      conv = l8_to_l4_offset ? GFC_CONVERT_NATIVE : GFC_CONVERT_SWAP;
+      conv = big_endian ? GFC_CONVERT_NATIVE : GFC_CONVERT_SWAP;
       break;
       
     case GFC_CONVERT_LITTLE:
-      conv = l8_to_l4_offset ? GFC_CONVERT_SWAP : GFC_CONVERT_NATIVE;
+      conv = big_endian ? GFC_CONVERT_SWAP : GFC_CONVERT_NATIVE;
       break;
       
     default:

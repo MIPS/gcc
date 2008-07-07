@@ -156,12 +156,6 @@
 /* Define to 1 if you have the `frexpl' function. */
 #undef HAVE_FREXPL
 
-/* Define to 1 if you have the <gconf.h> header file. */
-#undef HAVE_GCONF_H
-
-/* Define to 1 if you have the <gconv.h> header file. */
-#undef HAVE_GCONV_H
-
 /* Define if _Unwind_GetIPInfo is available. */
 #undef HAVE_GETIPINFO
 
@@ -378,9 +372,6 @@
 
 /* Define to 1 if you have the <sys/machine.h> header file. */
 #undef HAVE_SYS_MACHINE_H
-
-/* Define if sys_nerr exists. */
-#undef HAVE_SYS_NERR
 
 /* Define to 1 if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H
@@ -719,14 +710,32 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* The size of a `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* The size of a `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of a `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of a `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
+/* The size of a `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
+
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
 /* Version number of package */
 #undef VERSION
 
-/* Define if builtin atomic operations are supported on this host. */
-#undef _GLIBCXX_ATOMIC_BUILTINS
+/* Define if builtin atomic operations for bool are supported on this host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS_1
+
+/* Define if builtin atomic operations for int are supported on this host. */
+#undef _GLIBCXX_ATOMIC_BUILTINS_4
 
 /* Define to use concept checking code from the boost libraries. */
 #undef _GLIBCXX_CONCEPT_CHECKS

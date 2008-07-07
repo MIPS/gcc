@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "hashtab.h"
+#include "varray.h"
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -136,6 +137,34 @@ struct expr_status GTY(())
   rtx x_forced_labels;
 };
 
+typedef struct call_site_record *call_site_record;
+DEF_VEC_P(call_site_record);
+DEF_VEC_ALLOC_P(call_site_record, gc);
+
+/* RTL representation of exception handling.  */
+struct rtl_eh GTY(())
+{
+  rtx filter;
+  rtx exc_ptr;
+
+  int built_landing_pads;
+
+  rtx ehr_stackadj;
+  rtx ehr_handler;
+  rtx ehr_label;
+
+  rtx sjlj_fc;
+  rtx sjlj_exit_after;
+
+  htab_t GTY ((param_is (struct ehl_map_entry))) exception_handler_label_map;
+
+  VEC(tree,gc) *ttype_data;
+  varray_type ehspec_data;
+  varray_type action_record_data;
+
+  VEC(call_site_record,gc) *call_site_record;
+};
+
 #define pending_stack_adjust (crtl->expr.x_pending_stack_adjust)
 #define inhibit_defer_pop (crtl->expr.x_inhibit_defer_pop)
 #define saveregs_value (crtl->expr.x_saveregs_value)
@@ -146,9 +175,15 @@ struct expr_status GTY(())
 struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
+struct call_site_record;
 
 DEF_VEC_P(temp_slot_p);
 DEF_VEC_ALLOC_P(temp_slot_p,gc);
+struct ipa_opt_pass;
+typedef struct ipa_opt_pass *ipa_opt_pass;
+
+DEF_VEC_P(ipa_opt_pass);
+DEF_VEC_ALLOC_P(ipa_opt_pass,heap);
 
 enum function_frequency {
   /* This function most likely won't be executed at all.
@@ -227,6 +262,7 @@ struct rtl_data GTY(())
   struct varasm_status varasm;
   struct incoming_args args;
   struct function_subsections subsections;
+  struct rtl_eh eh;
 
   /* For function.c  */
 
@@ -244,6 +280,10 @@ struct rtl_data GTY(())
      has_hard_reg_initial_val (see integrate.[hc]).  */
   struct initial_value_struct *hard_reg_initial_vals;
 
+  /* A variable living at the top of the frame that holds a known value.
+     Used for detecting stack clobbers.  */
+  tree stack_protect_guard;
+
   /* List (chain of EXPR_LIST) of labels heading the current handlers for
      nonlocal gotos.  */
   rtx x_nonlocal_goto_handler_labels;
@@ -259,7 +299,7 @@ struct rtl_data GTY(())
   rtx x_naked_return_label;
 
   /* List (chain of EXPR_LISTs) of all stack slots in this function.
-     Made for the sake of unshare_all_crtl->  */
+     Made for the sake of unshare_all_rtl.  */
   rtx x_stack_slot_list;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
@@ -288,6 +328,75 @@ struct rtl_data GTY(())
   /* Current nesting level for temporaries.  */
   int x_temp_slot_level;
 
+  /* The largest alignment of slot allocated on the stack.  */
+  unsigned int stack_alignment_needed;
+
+  /* Preferred alignment of the end of stack frame.  */
+  unsigned int preferred_stack_boundary;
+
+  /* For reorg.  */
+
+  /* If some insns can be deferred to the delay slots of the epilogue, the
+     delay list for them is recorded here.  */
+  rtx epilogue_delay_list;
+
+  /* Nonzero if function being compiled called builtin_return_addr or
+     builtin_frame_address with nonzero count.  */
+  bool accesses_prior_frames;
+
+  /* Nonzero if the function calls __builtin_eh_return.  */
+  bool calls_eh_return;
+
+  /* Nonzero if function saves all registers, e.g. if it has a nonlocal
+     label that can reach the exit block via non-exceptional paths. */
+  bool saves_all_registers;
+
+  /* Nonzero if function being compiled has nonlocal gotos to parent
+     function.  */
+  bool has_nonlocal_goto;
+  
+  /* Nonzero if function being compiled has an asm statement.  */
+  bool has_asm_statement;
+
+  /* Nonzero if the current function is a thunk, i.e., a lightweight
+     function implemented by the output_mi_thunk hook) that just
+     adjusts one of its arguments and forwards to another
+     function.  */
+  bool is_thunk;
+
+  /* This bit is used by the exception handling logic.  It is set if all
+     calls (if any) are sibling calls.  Such functions do not have to
+     have EH tables generated, as they cannot throw.  A call to such a
+     function, however, should be treated as throwing if any of its callees
+     can throw.  */
+  bool all_throwers_are_sibcalls;
+
+  /* Nonzero if stack limit checking should be enabled in the current
+     function.  */
+  bool limit_stack;
+
+  /* Nonzero if profiling code should be generated.  */
+  bool profile;
+
+  /* Nonzero if the current function uses the constant pool.  */
+  bool uses_const_pool;
+
+  /* Nonzero if the current function uses pic_offset_table_rtx.  */
+  bool uses_pic_offset_table;
+
+  /* Nonzero if the current function needs an lsda for exception handling.  */
+  bool uses_eh_lsda;
+
+  /* Set when the tail call has been produced.  */
+  bool tail_call_emit;
+
+  /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
+  bool arg_pointer_save_area_init;
+
+  /* Nonzero means current function must be given a frame pointer.
+     Set in stmt.c if anything is allocated on the stack there.
+     Set in reload1.c if anything is allocated on the stack there.  */
+  bool frame_pointer_needed;
 };
 
 #define return_label (crtl->x_return_label)
@@ -301,12 +410,13 @@ struct rtl_data GTY(())
 #define avail_temp_slots (crtl->x_avail_temp_slots)
 #define temp_slot_level (crtl->x_temp_slot_level)
 #define nonlocal_goto_handler_labels (crtl->x_nonlocal_goto_handler_labels)
+#define frame_pointer_needed (crtl->frame_pointer_needed)
 
 extern GTY(()) struct rtl_data x_rtl;
 
-/* Accestor to RTL datastructures.  We keep them statically allocated now since
+/* Accessor to RTL datastructures.  We keep them statically allocated now since
    we never keep multiple functions.  For threaded compiler we might however
-   want to do differntly.  */
+   want to do differently.  */
 #define crtl (&x_rtl)
 
 /* This structure can save all the important global and static variables
@@ -347,16 +457,13 @@ struct function GTY(())
   /* Function sequence number for profiling, debugging, etc.  */
   int funcdef_no;
 
+  /* List of function local variables, functions, types and constants.  */
+  tree local_decls;
+
   /* For md files.  */
 
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function * GTY ((maybe_undef)) machine;
-
-  /* The largest alignment of slot allocated on the stack.  */
-  unsigned int stack_alignment_needed;
-
-  /* Preferred alignment of the end of stack frame.  */
-  unsigned int preferred_stack_boundary;
 
   /* Language-specific code can use this to store whatever it likes.  */
   struct language_function * language;
@@ -364,32 +471,19 @@ struct function GTY(())
   /* Used types hash table.  */
   htab_t GTY ((param_is (union tree_node))) used_types_hash;
 
-  /* For reorg.  */
-
-  /* If some insns can be deferred to the delay slots of the epilogue, the
-     delay list for them is recorded here.  */
-  rtx epilogue_delay_list;
-
-  /* Maximal number of entities in the single jumptable.  Used to estimate
-     final flowgraph size.  */
-  int max_jumptable_ents;
-
-  /* UIDs for LABEL_DECLs.  */
-  int last_label_uid;
+  /* Last statement uid.  */
+  int last_stmt_uid;
 
   /* Line number of the end of the function.  */
   location_t function_end_locus;
 
-  /* The variables unexpanded so far.  */
-  tree unexpanded_var_list;
-
-  /* A variable living at the top of the frame that holds a known value.
-     Used for detecting stack clobbers.  */
-  tree stack_protect_guard;
-
   /* Properties used by the pass manager.  */
   unsigned int curr_properties;
   unsigned int last_verified;
+  /* Interprocedural passes scheduled to have their transform functions
+     applied next time we execute local pass on them.  We maintain it
+     per-function in order to allow IPA passes to introduce new functions.  */
+  VEC(ipa_opt_pass,heap) * GTY((skip)) ipa_transforms_to_apply;
 
   /* Collected bit flags.  */
 
@@ -414,49 +508,9 @@ struct function GTY(())
      either as a subroutine or builtin.  */
   unsigned int calls_alloca : 1;
 
-  /* Nonzero if function being compiled called builtin_return_addr or
-     builtin_frame_address with nonzero count.  */
-  unsigned int accesses_prior_frames : 1;
-
-  /* Nonzero if the function calls __builtin_eh_return.  */
-  unsigned int calls_eh_return : 1;
-
-
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
-
-  /* Nonzero if function saves all registers, e.g. if it has a nonlocal
-     label that can reach the exit block via non-exceptional paths. */
-  unsigned int saves_all_registers : 1;
-
-  /* Nonzero if function being compiled has nonlocal gotos to parent
-     function.  */
-  unsigned int has_nonlocal_goto : 1;
-  
-  /* Nonzero if function being compiled has an asm statement.  */
-  unsigned int has_asm_statement : 1;
-
-  /* Nonzero if the current function is a thunk, i.e., a lightweight
-     function implemented by the output_mi_thunk hook) that just
-     adjusts one of its arguments and forwards to another
-     function.  */
-  unsigned int is_thunk : 1;
-
-  /* This bit is used by the exception handling logic.  It is set if all
-     calls (if any) are sibling calls.  Such functions do not have to
-     have EH tables generated, as they cannot throw.  A call to such a
-     function, however, should be treated as throwing if any of its callees
-     can throw.  */
-  unsigned int all_throwers_are_sibcalls : 1;
-
-  /* Nonzero if profiling code should be generated.  */
-  unsigned int profile : 1;
-
-  /* Nonzero if stack limit checking should be enabled in the current
-     function.  */
-  unsigned int limit_stack : 1;
-
 
   /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
@@ -468,33 +522,9 @@ struct function GTY(())
      variable-sized type, then the size of the parameter is computed
      when the function body is entered.  However, some front-ends do
      not desire this behavior.  */
-  unsigned int x_dont_save_pending_sizes_p : 1;
-
-  /* Nonzero if the current function uses the constant pool.  */
-  unsigned int uses_const_pool : 1;
-
-  /* Nonzero if the current function uses pic_offset_table_rtx.  */
-  unsigned int uses_pic_offset_table : 1;
-
-  /* Nonzero if the current function needs an lsda for exception handling.  */
-  unsigned int uses_eh_lsda : 1;
-
-  /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
-  unsigned int arg_pointer_save_area_init : 1;
+  unsigned int dont_save_pending_sizes_p : 1;
 
   unsigned int after_inlining : 1;
-
-  /* Set when the call to function itself has been emit.  */
-  unsigned int recursive_call_emit : 1;
-
-
-  /* Set when the tail call has been produced.  */
-  unsigned int tail_call_emit : 1;
-
-  /* FIXME tuples: This bit is temporarily here to mark when a
-     function has been gimplified, so we can make sure we're not
-     creating non GIMPLE tuples after gimplification.  */
-  unsigned int gimplified : 1;
 
   /* Fields below this point are not set for abstract functions; see
      allocate_struct_function.  */
@@ -540,24 +570,7 @@ extern void pop_cfun (void);
 extern void instantiate_decl_rtl (rtx x);
 
 /* For backward compatibility... eventually these should all go away.  */
-#define current_function_returns_struct (cfun->returns_struct)
-#define current_function_returns_pcc_struct (cfun->returns_pcc_struct)
-#define current_function_calls_setjmp (cfun->calls_setjmp)
-#define current_function_calls_alloca (cfun->calls_alloca)
-#define current_function_accesses_prior_frames (cfun->accesses_prior_frames)
-#define current_function_calls_eh_return (cfun->calls_eh_return)
-#define current_function_is_thunk (cfun->is_thunk)
-#define current_function_stdarg (cfun->stdarg)
-#define current_function_profile (cfun->profile)
 #define current_function_funcdef_no (cfun->funcdef_no)
-#define current_function_limit_stack (cfun->limit_stack)
-#define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
-#define current_function_uses_const_pool (cfun->uses_const_pool)
-#define current_function_epilogue_delay_list (cfun->epilogue_delay_list)
-#define current_function_has_nonlocal_label (cfun->has_nonlocal_label)
-#define current_function_saves_all_registers (cfun->saves_all_registers)
-#define current_function_has_nonlocal_goto (cfun->has_nonlocal_goto)
-#define current_function_has_asm_statement (cfun->has_asm_statement)
 
 #define current_loops (cfun->x_current_loops)
 #define dom_computed (cfun->cfg->x_dom_computed)

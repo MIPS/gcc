@@ -1122,7 +1122,10 @@ note_constraint (rtx exp, int lineno)
   unsigned int namelen = strlen (name);
   struct constraint_data **iter, **slot, *new;
 
-  if (strchr (indep_constraints, name[0]))
+  /* The 'm' constraint is special here since that constraint letter
+     can be overridden by the back end by defining the
+     TARGET_MEM_CONSTRAINT macro.  */
+  if (strchr (indep_constraints, name[0]) && name[0] != 'm')
     {
       if (name[1] == '\0')
 	message_with_line (lineno, "constraint letter '%s' cannot be "
@@ -1170,7 +1173,7 @@ note_constraint (rtx exp, int lineno)
 	  return;
 	}
     }
-  new = xmalloc (sizeof (struct constraint_data) + namelen);
+  new = XNEWVAR (struct constraint_data, sizeof (struct constraint_data) + namelen);
   strcpy ((char *)new + offsetof(struct constraint_data, name), name);
   new->namelen = namelen;
   new->lineno = lineno;

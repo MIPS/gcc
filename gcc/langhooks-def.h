@@ -64,7 +64,7 @@ extern const char *lhd_comdat_group (tree);
 extern tree lhd_expr_size (const_tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
-extern tree lhd_expr_to_decl (tree, bool *, bool *, bool *);
+extern tree lhd_expr_to_decl (tree, bool *, bool *);
 extern tree lhd_builtin_function (tree decl);
 
 /* Declarations of default tree inlining hooks.  */
@@ -167,6 +167,7 @@ extern tree lhd_make_node (enum tree_code);
   lhd_omp_firstprivatize_type_sizes
 #define LANG_HOOKS_TYPE_HASH_EQ		NULL
 #define LANG_HOOKS_GET_ARRAY_DESCR_INFO	NULL
+#define LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE reconstruct_complex_type
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
@@ -182,6 +183,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES, \
   LANG_HOOKS_TYPE_HASH_EQ, \
   LANG_HOOKS_GET_ARRAY_DESCR_INFO, \
+  LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE, \
   LANG_HOOKS_HASH_TYPES \
 }
 
@@ -197,10 +199,12 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_OMP_PREDETERMINED_SHARING lhd_omp_predetermined_sharing
 #define LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR hook_bool_tree_bool_false
 #define LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE hook_bool_tree_bool_false
-#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR hook_tree_tree_tree_null
+#define LANG_HOOKS_OMP_PRIVATE_OUTER_REF hook_bool_tree_false
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR hook_tree_tree_tree_tree_null
 #define LANG_HOOKS_OMP_CLAUSE_COPY_CTOR lhd_omp_assignment
 #define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP lhd_omp_assignment
 #define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_tree_null
+#define LANG_HOOKS_OMP_FINISH_CLAUSE hook_void_tree
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -214,10 +218,12 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_OMP_PREDETERMINED_SHARING, \
   LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR, \
   LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE, \
+  LANG_HOOKS_OMP_PRIVATE_OUTER_REF, \
   LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR, \
   LANG_HOOKS_OMP_CLAUSE_COPY_CTOR, \
   LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
-  LANG_HOOKS_OMP_CLAUSE_DTOR \
+  LANG_HOOKS_OMP_CLAUSE_DTOR, \
+  LANG_HOOKS_OMP_FINISH_CLAUSE \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */

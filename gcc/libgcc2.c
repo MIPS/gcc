@@ -2046,7 +2046,7 @@ __enable_execute_stack (void *addr __attribute__((__unused__)))
 
 /* Jump to a trampoline, loading the static chain address.  */
 
-#if defined(WINNT) && ! defined(__CYGWIN__) && ! defined (_UWIN)
+#if defined(WINNT) && ! defined(__CYGWIN__)
 
 int
 getpagesize (void)
@@ -2057,10 +2057,6 @@ getpagesize (void)
   return 4096;
 #endif
 }
-
-#ifdef __i386__
-extern int VirtualProtect (char *, int, int, int *) __attribute__((stdcall));
-#endif
 
 int
 mprotect (char *addr, int len, int prot)
@@ -2086,7 +2082,7 @@ mprotect (char *addr, int len, int prot)
     return -1;
 }
 
-#endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
+#endif /* WINNT && ! __CYGWIN__ */
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
 TRANSFER_FROM_TRAMPOLINE

@@ -49,7 +49,9 @@ am__aclocal_m4_deps = $(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
+	$(top_srcdir)/../config/override.m4 \
 	$(top_srcdir)/../config/proginstall.m4 \
+	$(top_srcdir)/../config/stdint.m4 \
 	$(top_srcdir)/../config/unwind_ipinfo.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/../ltoptions.m4 \
 	$(top_srcdir)/../ltsugar.m4 $(top_srcdir)/../ltversion.m4 \
@@ -637,14 +639,7 @@ doc-pdf-prince: $(xml_sources) ${glibcxx_builddir}/doc/pdf
 	@echo "Generating pdf prince files..."
 	$(PRINCE) $(PRINCE_FLAGS) ${top_srcdir}/doc/xml/spine.xml
 
-# No install-pdf, install-html support in automake yet
-install-pdf:
-install-html:
-
-# Installation of distribution html documentation not yet supported
-# TODO: Write custom install-html rule.
-.PHONY: install-html install-pdf \
-	doc-doxygen-html doc-doxygen-man doc-performance
+.PHONY: doc-doxygen-html doc-doxygen-man doc-performance
 
 # To remove directories.
 clean-local:

@@ -1016,11 +1016,8 @@ emit_stack_restore (enum save_level save_level, rtx sa, rtx after)
       /* These clobbers prevent the scheduler from moving
 	 references to variable arrays below the code
 	 that deletes (pops) the arrays.  */
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-		    gen_rtx_MEM (BLKmode,
-			gen_rtx_SCRATCH (VOIDmode))));
-      emit_insn (gen_rtx_CLOBBER (VOIDmode,
-		    gen_rtx_MEM (BLKmode, stack_pointer_rtx)));
+      emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+      emit_clobber (gen_rtx_MEM (BLKmode, stack_pointer_rtx));
     }
 
   discard_pending_stack_adjust ();
@@ -1081,7 +1078,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
     return virtual_stack_dynamic_rtx;
 
   /* Otherwise, show we're calling alloca or equivalent.  */
-  current_function_calls_alloca = 1;
+  cfun->calls_alloca = 1;
 
   /* Ensure the size is in the proper mode.  */
   if (GET_MODE (size) != VOIDmode && GET_MODE (size) != Pmode)
@@ -1090,7 +1087,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
   /* We can't attempt to minimize alignment necessary, because we don't
      know the final value of preferred_stack_boundary yet while executing
      this code.  */
-  cfun->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+  crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
 
   /* We will need to ensure that the address we return is aligned to
      BIGGEST_ALIGNMENT.  If STACK_DYNAMIC_OFFSET is defined, we don't
@@ -1129,7 +1126,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
      would use reg notes to store the "optimized" size and fix things
      up later.  These days we know this information before we ever
      start building RTL so the reg notes are unnecessary.  */
-  if (!current_function_calls_setjmp)
+  if (!cfun->calls_setjmp)
     {
       int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
 
@@ -1236,7 +1233,7 @@ allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
 #endif
 
       /* Check stack bounds if necessary.  */
-      if (current_function_limit_stack)
+      if (crtl->limit_stack)
 	{
 	  rtx available;
 	  rtx space_available = gen_label_rtx ();

@@ -814,6 +814,8 @@ ia64_legitimate_constant_p (rtx x)
 static bool
 ia64_cannot_force_const_mem (rtx x)
 {
+  if (GET_MODE (x) == RFmode)
+    return true;
   return tls_symbolic_operand_type (x) != 0;
 }
 
@@ -2412,7 +2414,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      Likewise for -a profiling for the bb_init_func argument.  For -ax
      profiling, we need two output registers for the two bb_init_trace_func
      arguments.  */
-  if (current_function_profile)
+  if (crtl->profile)
     i = MAX (i, 1);
 #endif
   current_frame_info.n_output_regs = i;
@@ -2493,7 +2495,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       /* Similarly for gp.  Note that if we're calling setjmp, the stacked
 	 registers are clobbered, so we fall back to the stack.  */
       current_frame_info.r[reg_save_gp]
-	= (current_function_calls_setjmp ? 0 : find_gr_spill (reg_save_gp, 1));
+	= (cfun->calls_setjmp ? 0 : find_gr_spill (reg_save_gp, 1));
       if (current_frame_info.r[reg_save_gp] == 0)
 	{
 	  SET_HARD_REG_BIT (mask, GR_REG (1));
@@ -5091,7 +5093,7 @@ ia64_secondary_reload_class (enum reg_class class,
       /* ??? This happens if we cse/gcse a BImode value across a call,
 	 and the function has a nonlocal goto.  This is because global
 	 does not allocate call crossing pseudos to hard registers when
-	 current_function_has_nonlocal_goto is true.  This is relatively
+	 crtl->has_nonlocal_goto is true.  This is relatively
 	 common for C++ programs that use exceptions.  To reproduce,
 	 return NO_REGS and compile libstdc++.  */
       if (GET_CODE (x) == MEM)
@@ -5266,7 +5268,7 @@ ia64_override_options (void)
   ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
   flag_schedule_insns_after_reload = 0;
   
-  if (optimize >= 3
+  if (optimize >= 2
       && ! sel_sched_switch_set)
     {
       flag_selective_scheduling2 = 1;
@@ -5299,7 +5301,7 @@ void ia64_init_expanders (void)
 static struct machine_function *
 ia64_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 static enum attr_itanium_class ia64_safe_itanium_class (rtx);
@@ -6954,14 +6956,14 @@ ia64_h_i_d_extended (void)
     {
       int new_clocks_length = get_max_uid () * 3 / 2;
       
-      stops_p = xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
+      stops_p = (char *) xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
       
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
-	  clocks = xrecalloc (clocks, new_clocks_length, clocks_length,
-			      sizeof (int));
-	  add_cycles = xrecalloc (add_cycles, new_clocks_length, clocks_length,
-				  sizeof (int));
+	  clocks = (int *) xrecalloc (clocks, new_clocks_length, clocks_length,
+				      sizeof (int));
+	  add_cycles = (int *) xrecalloc (add_cycles, new_clocks_length,
+					  clocks_length, sizeof (int));
 	}
       
       clocks_length = new_clocks_length;
@@ -7823,7 +7825,7 @@ get_free_bundle_state (void)
     }
   else
     {
-      result = xmalloc (sizeof (struct bundle_state));
+      result = XNEW (struct bundle_state);
       result->dfa_state = xmalloc (dfa_state_size);
       result->allocated_states_chain = allocated_bundle_states_chain;
       allocated_bundle_states_chain = result;
@@ -8349,8 +8351,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   bundling_p = 1;
   dfa_clean_insn_cache ();
   initiate_bundle_state_table ();
-  index_to_bundle_states = xmalloc ((insn_num + 2)
-				    * sizeof (struct bundle_state *));
+  index_to_bundle_states = XNEWVEC (struct bundle_state *, insn_num + 2);
   /* First (forward) pass -- generation of bundle states.  */
   curr_state = get_free_bundle_state ();
   curr_state->insn = NULL;
@@ -9122,11 +9123,11 @@ ia64_reorg (void)
       PREV_INSN (ia64_nop) = NEXT_INSN (ia64_nop) = NULL_RTX;
       recog_memoized (ia64_nop);
       clocks_length = get_max_uid () + 1;
-      stops_p = xcalloc (1, clocks_length);
+      stops_p = XCNEWVEC (char, clocks_length);
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
-	  clocks = xcalloc (clocks_length, sizeof (int));
-	  add_cycles = xcalloc (clocks_length, sizeof (int));
+	  clocks = XCNEWVEC (int, clocks_length);
+	  add_cycles = XCNEWVEC (int, clocks_length);
 	}
       if (ia64_tune == PROCESSOR_ITANIUM2)
 	{

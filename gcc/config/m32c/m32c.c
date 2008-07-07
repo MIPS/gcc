@@ -1099,7 +1099,8 @@ m32c_return_addr_rtx (int count)
 
   if (TARGET_A24)
     {
-      mode = SImode;
+      /* It's four bytes */
+      mode = PSImode;
       offset = 4;
     }
   else
@@ -1251,7 +1252,7 @@ need_to_save (int regno)
 {
   if (fixed_regs[regno])
     return 0;
-  if (cfun->calls_eh_return)
+  if (crtl->calls_eh_return)
     return 1;
   if (regno == FP_REGNO)
     return 0;
@@ -1283,7 +1284,7 @@ m32c_pushm_popm (Push_Pop_Type ppt)
 
   if (crtl->return_rtx
       && GET_CODE (crtl->return_rtx) == PARALLEL
-      && !(cfun->calls_eh_return || cfun->machine->is_interrupt))
+      && !(crtl->calls_eh_return || cfun->machine->is_interrupt))
     {
       rtx exp = XVECEXP (crtl->return_rtx, 0, 0);
       rtx rv = XEXP (exp, 0);
@@ -2199,16 +2200,36 @@ m32c_rtx_costs (rtx x, int code, int outer_code, int *total)
 static int
 m32c_address_cost (rtx addr)
 {
+  int i;
   /*  fprintf(stderr, "\naddress_cost\n");
       debug_rtx(addr);*/
   switch (GET_CODE (addr))
     {
     case CONST_INT:
-      return COSTS_N_INSNS(1);
+      i = INTVAL (addr);
+      if (i == 0)
+	return COSTS_N_INSNS(1);
+      if (0 < i && i <= 255)
+	return COSTS_N_INSNS(2);
+      if (0 < i && i <= 65535)
+	return COSTS_N_INSNS(3);
+      return COSTS_N_INSNS(4);
     case SYMBOL_REF:
-      return COSTS_N_INSNS(3);
+      return COSTS_N_INSNS(4);
     case REG:
-      return COSTS_N_INSNS(2);
+      return COSTS_N_INSNS(1);
+    case PLUS:
+      if (GET_CODE (XEXP (addr, 1)) == CONST_INT)
+	{
+	  i = INTVAL (XEXP (addr, 1));
+	  if (i == 0)
+	    return COSTS_N_INSNS(1);
+	  if (0 < i && i <= 255)
+	    return COSTS_N_INSNS(2);
+	  if (0 < i && i <= 65535)
+	    return COSTS_N_INSNS(3);
+	}
+      return COSTS_N_INSNS(4);
     default:
       return 0;
     }
@@ -4058,7 +4079,7 @@ m32c_emit_eh_epilogue (rtx ret_addr)
      (fudged), and return (fudged).  This is actually easier to do in
      assembler, so punt to libgcc.  */
   emit_jump_insn (gen_eh_epilogue (ret_addr, cfun->machine->eh_stack_adjust));
-  /*  emit_insn (gen_rtx_CLOBBER (HImode, gen_rtx_REG (HImode, R0L_REGNO))); */
+  /*  emit_clobber (gen_rtx_REG (HImode, R0L_REGNO)); */
   emit_barrier ();
 }
 

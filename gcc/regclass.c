@@ -1143,8 +1143,9 @@ record_operand_costs (rtx insn, struct costs *op_costs,
 	record_address_regs (GET_MODE (recog_data.operand[i]),
 			     XEXP (recog_data.operand[i], 0),
 			     0, MEM, SCRATCH, frequency * 2);
-      else if (constraints[i][0] == 'p'
-	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i]))
+      else if (recog_data.alternative_enabled_p[0]
+	       && (constraints[i][0] == 'p'
+		   || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i])))
 	record_address_regs (VOIDmode, recog_data.operand[i], 0, ADDRESS,
 			     SCRATCH, frequency * 2);
     }
@@ -1309,7 +1310,7 @@ regclass (rtx f, int nregs)
 
   init_recog ();
 
-  reg_renumber = xmalloc (max_regno * sizeof (short));
+  reg_renumber = XNEWVEC (short, max_regno);
   reg_pref = XCNEWVEC (struct reg_pref, max_regno);
   memset (reg_renumber, -1, max_regno * sizeof (short));
 
@@ -1701,7 +1702,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
-		case 'm':  case 'o':  case 'V':
+		case TARGET_MEM_CONSTRAINT:  case 'o':  case 'V':
 		  /* It doesn't seem worth distinguishing between offsettable
 		     and non-offsettable addresses here.  */
 		  allows_mem[i] = 1;
@@ -1932,6 +1933,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
       if (alt_fail)
 	continue;
 
+      if (!recog_data.alternative_enabled_p[alt])
+	continue;
+
       /* Finally, update the costs with the information we've calculated
 	 about this alternative.  */
 
@@ -1957,7 +1961,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
      we may want to adjust the cost of that register class to -1.
 
      Avoid the adjustment if the source does not die to avoid stressing of
-     register allocator by preferrencing two colliding registers into single
+     register allocator by preferencing two colliding registers into single
      class.
 
      Also avoid the adjustment if a copy between registers of the class
@@ -2496,15 +2500,18 @@ static htab_t subregs_of_mode;
 static hashval_t
 som_hash (const void *x)
 {
-  const struct subregs_of_mode_node *a = x;
+  const struct subregs_of_mode_node *const a =
+    (const struct subregs_of_mode_node *) x;
   return a->block;
 }
 
 static int
 som_eq (const void *x, const void *y)
 {
-  const struct subregs_of_mode_node *a = x;
-  const struct subregs_of_mode_node *b = y;
+  const struct subregs_of_mode_node *const a =
+    (const struct subregs_of_mode_node *) x;
+  const struct subregs_of_mode_node *const b =
+    (const struct subregs_of_mode_node *) y;
   return a->block == b->block;
 }
 
@@ -2529,7 +2536,7 @@ record_subregs_of_mode (rtx subreg)
   dummy.block = regno & -8;
   slot = htab_find_slot_with_hash (subregs_of_mode, &dummy,
 				   dummy.block, INSERT);
-  node = *slot;
+  node = (struct subregs_of_mode_node *) *slot;
   if (node == NULL)
     {
       node = XCNEW (struct subregs_of_mode_node);
@@ -2601,7 +2608,8 @@ cannot_change_mode_set_regs (HARD_REG_SET *used, enum machine_mode from,
 
   gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
-  node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
+  node = (struct subregs_of_mode_node *)
+    htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
     return;
 
@@ -2628,7 +2636,8 @@ invalid_mode_change_p (unsigned int regno,
 
   gcc_assert (subregs_of_mode);
   dummy.block = regno & -8;
-  node = htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
+  node = (struct subregs_of_mode_node *)
+    htab_find_with_hash (subregs_of_mode, &dummy, dummy.block);
   if (node == NULL)
     return false;
 

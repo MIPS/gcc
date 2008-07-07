@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006, 2007
+   Copyright (C) 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
@@ -261,7 +261,7 @@ VN_INFO_GET (tree name)
 {
   vn_ssa_aux_t newinfo;
 
-  newinfo = obstack_alloc (&vn_ssa_aux_obstack, sizeof (struct vn_ssa_aux));
+  newinfo = XOBNEW (&vn_ssa_aux_obstack, struct vn_ssa_aux);
   memset (newinfo, 0, sizeof (struct vn_ssa_aux));
   if (SSA_NAME_VERSION (name) >= VEC_length (vn_ssa_aux_t, vn_ssa_aux_table))
     VEC_safe_grow (vn_ssa_aux_t, heap, vn_ssa_aux_table,
@@ -277,7 +277,7 @@ VN_INFO_GET (tree name)
 static void
 free_phi (void *vp)
 {
-  vn_phi_t phi = vp;
+  vn_phi_t phi = (vn_phi_t) vp;
   VEC_free (tree, heap, phi->phiargs);
 }
 
@@ -286,11 +286,11 @@ free_phi (void *vp)
 static void
 free_reference (void *vp)
 {
-  vn_reference_t vr = vp;
+  vn_reference_t vr = (vn_reference_t) vp;
   VEC_free (vn_reference_op_s, heap, vr->operands);
 }
 
-/* Compare two reference operands P1 and P2 for equality.  return true if
+/* Compare two reference operands P1 and P2 for equality.  Return true if
    they are equal, and false otherwise.  */
 
 static int
@@ -304,7 +304,7 @@ vn_reference_op_eq (const void *p1, const void *p2)
     && expressions_equal_p (vro1->op1, vro2->op1);
 }
 
-/* Compute the hash for a reference operand VRO1  */
+/* Compute the hash for a reference operand VRO1.  */
 
 static hashval_t
 vn_reference_op_compute_hash (const vn_reference_op_t vro1)
@@ -386,7 +386,7 @@ vn_reference_eq (const void *p1, const void *p2)
   return true;
 }
 
-/* Place the vuses from STMT into *result */
+/* Place the vuses from STMT into *result.  */
 
 static inline void
 vuses_to_vec (tree stmt, VEC (tree, gc) **result)
@@ -418,7 +418,7 @@ copy_vuses_from_stmt (tree stmt)
   return vuses;
 }
 
-/* Place the vdefs from STMT into *result */
+/* Place the vdefs from STMT into *result.  */
 
 static inline void
 vdefs_to_vec (tree stmt, VEC (tree, gc) **result)
@@ -504,6 +504,27 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       return;
     }
 
+  if (TREE_CODE (ref) == TARGET_MEM_REF)
+    {
+      vn_reference_op_s temp;
+
+      memset (&temp, 0, sizeof (temp));
+      /* We do not care for spurious type qualifications.  */
+      temp.type = TYPE_MAIN_VARIANT (TREE_TYPE (ref));
+      temp.opcode = TREE_CODE (ref);
+      temp.op0 = TMR_SYMBOL (ref) ? TMR_SYMBOL (ref) : TMR_BASE (ref);
+      temp.op1 = TMR_INDEX (ref);
+      VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
+
+      memset (&temp, 0, sizeof (temp));
+      temp.type = NULL_TREE;
+      temp.opcode = TREE_CODE (ref);
+      temp.op0 = TMR_STEP (ref);
+      temp.op1 = TMR_OFFSET (ref);
+      VEC_safe_push (vn_reference_op_s, heap, *result, &temp);
+      return;
+    }
+
   /* For non-calls, store the information that makes up the address.  */
 
   while (ref)
@@ -511,7 +532,8 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
       vn_reference_op_s temp;
 
       memset (&temp, 0, sizeof (temp));
-      temp.type = TREE_TYPE (ref);
+      /* We do not care for spurious type qualifications.  */
+      temp.type = TYPE_MAIN_VARIANT (TREE_TYPE (ref));
       temp.opcode = TREE_CODE (ref);
 
       switch (temp.opcode)
@@ -528,6 +550,10 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	  temp.op1 = TREE_OPERAND (ref, 2);
 	  break;
 	case COMPONENT_REF:
+	  /* The field decl is enough to unambiguously specify the field,
+	     a matching type is not necessary and a mismatching type
+	     is always a spurious difference.  */
+	  temp.type = NULL_TREE;
 	  /* If this is a reference to a union member, record the union
 	     member size as operand.  Do so only if we are doing
 	     expression insertion (during FRE), as PRE currently gets
@@ -536,10 +562,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 	      && TREE_CODE (DECL_CONTEXT (TREE_OPERAND (ref, 1))) == UNION_TYPE
 	      && integer_zerop (DECL_FIELD_OFFSET (TREE_OPERAND (ref, 1)))
 	      && integer_zerop (DECL_FIELD_BIT_OFFSET (TREE_OPERAND (ref, 1))))
-	    {
-	      temp.type = NULL_TREE;
-	      temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
-	    }
+	    temp.op0 = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (ref, 1)));
 	  else
 	    /* Record field as operand.  */
 	    temp.op0 = TREE_OPERAND (ref, 1);
@@ -898,7 +921,7 @@ vn_nary_op_insert (tree op, tree result)
   vn_nary_op_t vno1;
   unsigned i;
 
-  vno1 = obstack_alloc (&current_info->nary_obstack,
+  vno1 = (vn_nary_op_t) obstack_alloc (&current_info->nary_obstack,
 			(sizeof (struct vn_nary_op_s)
 			 - sizeof (tree) * (4 - length)));
   vno1->opcode = TREE_CODE (op);
@@ -1116,8 +1139,8 @@ defs_to_varying (tree stmt)
   return changed;
 }
 
-static tree
-try_to_simplify (tree stmt, tree rhs);
+static bool expr_has_constants (tree expr);
+static tree try_to_simplify (tree stmt, tree rhs);
 
 /* Visit a copy between LHS and RHS, return true if the value number
    changed.  */
@@ -1222,6 +1245,7 @@ visit_reference_op_load (tree lhs, tree op, tree stmt)
 	  /* Initialize value-number information properly.  */
 	  VN_INFO_GET (result)->valnum = result;
 	  VN_INFO (result)->expr = val;
+	  VN_INFO (result)->has_constants = expr_has_constants (val);
 	  VN_INFO (result)->needs_insertion = true;
 	  /* As all "inserted" statements are singleton SCCs, insert
 	     to the valid table.  This is strictly needed to
@@ -1567,8 +1591,7 @@ simplify_unary_expression (tree rhs)
 
   if (VN_INFO (op0)->has_constants)
     op0 = valueize_expr (VN_INFO (op0)->expr);
-  else if (TREE_CODE (rhs) == NOP_EXPR
-	   || TREE_CODE (rhs) == CONVERT_EXPR
+  else if (CONVERT_EXPR_P (rhs)
 	   || TREE_CODE (rhs) == REALPART_EXPR
 	   || TREE_CODE (rhs) == IMAGPART_EXPR
 	   || TREE_CODE (rhs) == VIEW_CONVERT_EXPR)
@@ -1868,7 +1891,7 @@ compare_ops (const void *pa, const void *pb)
 	return -1;
       else if (TREE_CODE (opstmtb) == PHI_NODE)
 	return 1;
-      return stmt_ann (opstmta)->uid - stmt_ann (opstmtb)->uid;
+      return gimple_stmt_uid (opstmta) - gimple_stmt_uid (opstmtb);
     }
   return rpo_numbers[bba->index] - rpo_numbers[bbb->index];
 }
@@ -1925,9 +1948,7 @@ process_scc (VEC (tree, heap) *scc)
 	    changed |= visit_use (var);
 	}
 
-      if (dump_file && (dump_flags & TDF_STATS))
-	fprintf (dump_file, "Processing SCC required %d iterations\n",
-		 iterations);
+      statistics_histogram_event (cfun, "SCC iterations", iterations);
 
       /* Finally, visit the SCC once using the valid table.  */
       current_info = valid_info;
@@ -1936,20 +1957,70 @@ process_scc (VEC (tree, heap) *scc)
     }
 }
 
+DEF_VEC_O(ssa_op_iter);
+DEF_VEC_ALLOC_O(ssa_op_iter,heap);
+
+/* Pop the components of the found SCC for NAME off the SCC stack
+   and process them.  Returns true if all went well, false if
+   we run into resource limits.  */
+
+static bool
+extract_and_process_scc_for_name (tree name)
+{
+  VEC (tree, heap) *scc = NULL;
+  tree x;
+
+  /* Found an SCC, pop the components off the SCC stack and
+     process them.  */
+  do
+    {
+      x = VEC_pop (tree, sccstack);
+
+      VN_INFO (x)->on_sccstack = false;
+      VEC_safe_push (tree, heap, scc, x);
+    } while (x != name);
+
+  /* Bail out of SCCVN in case a SCC turns out to be incredibly large.  */
+  if (VEC_length (tree, scc)
+      > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
+    {
+      if (dump_file)
+	fprintf (dump_file, "WARNING: Giving up with SCCVN due to "
+		 "SCC size %u exceeding %u\n", VEC_length (tree, scc),
+		 (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
+      return false;
+    }
+
+  if (VEC_length (tree, scc) > 1)
+    sort_scc (scc);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    print_scc (dump_file, scc);
+
+  process_scc (scc);
+
+  VEC_free (tree, heap, scc);
+
+  return true;
+}
+
 /* Depth first search on NAME to discover and process SCC's in the SSA
    graph.
    Execution of this algorithm relies on the fact that the SCC's are
    popped off the stack in topological order.
    Returns true if successful, false if we stopped processing SCC's due
-   to ressource constraints.  */
+   to resource constraints.  */
 
 static bool
 DFS (tree name)
 {
+  VEC(ssa_op_iter, heap) *itervec = NULL;
+  VEC(tree, heap) *namevec = NULL;
+  use_operand_p usep = NULL;
+  tree defstmt, use;
   ssa_op_iter iter;
-  use_operand_p usep;
-  tree defstmt;
 
+start_over:
   /* SCC info */
   VN_INFO (name)->dfsnum = next_dfs_num++;
   VN_INFO (name)->visited = true;
@@ -1962,20 +2033,63 @@ DFS (tree name)
   /* Recursively DFS on our operands, looking for SCC's.  */
   if (!IS_EMPTY_STMT (defstmt))
     {
-      FOR_EACH_PHI_OR_STMT_USE (usep, SSA_NAME_DEF_STMT (name), iter,
-				SSA_OP_ALL_USES)
+      /* Push a new iterator.  */
+      if (TREE_CODE (defstmt) == PHI_NODE)
+	usep = op_iter_init_phiuse (&iter, defstmt, SSA_OP_ALL_USES);
+      else
+	usep = op_iter_init_use (&iter, defstmt, SSA_OP_ALL_USES);
+    }
+  else
+    iter.done = true;
+
+  while (1)
+    {
+      /* If we are done processing uses of a name, go up the stack
+	 of iterators and process SCCs as we found them.  */
+      if (op_iter_done (&iter))
 	{
-	  tree use = USE_FROM_PTR (usep);
+	  /* See if we found an SCC.  */
+	  if (VN_INFO (name)->low == VN_INFO (name)->dfsnum)
+	    if (!extract_and_process_scc_for_name (name))
+	      {
+		VEC_free (tree, heap, namevec);
+		VEC_free (ssa_op_iter, heap, itervec);
+		return false;
+	      }
 
-	  /* Since we handle phi nodes, we will sometimes get
-	     invariants in the use expression.  */
-	  if (TREE_CODE (use) != SSA_NAME)
-	    continue;
+	  /* Check if we are done.  */
+	  if (VEC_empty (tree, namevec))
+	    {
+	      VEC_free (tree, heap, namevec);
+	      VEC_free (ssa_op_iter, heap, itervec);
+	      return true;
+	    }
 
+	  /* Restore the last use walker and continue walking there.  */
+	  use = name;
+	  name = VEC_pop (tree, namevec);
+	  memcpy (&iter, VEC_last (ssa_op_iter, itervec),
+		  sizeof (ssa_op_iter));
+	  VEC_pop (ssa_op_iter, itervec);
+	  goto continue_walking;
+	}
+
+      use = USE_FROM_PTR (usep);
+
+      /* Since we handle phi nodes, we will sometimes get
+	 invariants in the use expression.  */
+      if (TREE_CODE (use) == SSA_NAME)
+	{
 	  if (! (VN_INFO (use)->visited))
 	    {
-	      if (!DFS (use))
-		return false;
+	      /* Recurse by pushing the current use walking state on
+		 the stack and starting over.  */
+	      VEC_safe_push(ssa_op_iter, heap, itervec, &iter);
+	      VEC_safe_push(tree, heap, namevec, name);
+	      name = use;
+	      goto start_over;
+
+continue_walking:
 	      VN_INFO (name)->low = MIN (VN_INFO (name)->low,
 					 VN_INFO (use)->low);
 	    }
@@ -1986,47 +2100,9 @@ DFS (tree name)
 					 VN_INFO (name)->low);
 	    }
 	}
+
+      usep = op_iter_next_use (&iter);
     }
-
-  /* See if we found an SCC.  */
-  if (VN_INFO (name)->low == VN_INFO (name)->dfsnum)
-    {
-      VEC (tree, heap) *scc = NULL;
-      tree x;
-
-      /* Found an SCC, pop the components off the SCC stack and
-	 process them.  */
-      do
-	{
-	  x = VEC_pop (tree, sccstack);
-
-	  VN_INFO (x)->on_sccstack = false;
-	  VEC_safe_push (tree, heap, scc, x);
-	} while (x != name);
-
-      /* Bail out of SCCVN in case a SCC turns out to be incredibly large.  */
-      if (VEC_length (tree, scc)
-	    > (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE))
-	{
-	  if (dump_file)
-	    fprintf (dump_file, "WARNING: Giving up with SCCVN due to "
-		     "SCC size %u exceeding %u\n", VEC_length (tree, scc),
-		     (unsigned)PARAM_VALUE (PARAM_SCCVN_MAX_SCC_SIZE));
-	  return false;
-	}
-
-      if (VEC_length (tree, scc) > 1)
-	sort_scc (scc);
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	print_scc (dump_file, scc);
-
-      process_scc (scc);
-
-      VEC_free (tree, heap, scc);
-    }
-
-  return true;
 }
 
 /* Allocate a value number table.  */
@@ -2067,8 +2143,6 @@ init_scc_vn (void)
   size_t i;
   int j;
   int *rpo_numbers_temp;
-  basic_block bb;
-  size_t id = 0;
 
   calculate_dominance_info (CDI_DOMINATORS);
   sccstack = NULL;
@@ -2109,15 +2183,7 @@ init_scc_vn (void)
 	}
     }
 
-  FOR_ALL_BB (bb)
-    {
-      block_stmt_iterator bsi;
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	  stmt_ann (stmt)->uid = id++;
-	}
-    }
+  renumber_gimple_stmt_uids ();
 
   /* Create the valid and optimistic value numbering tables.  */
   valid_info = XCNEW (struct vn_tables_s);
@@ -2172,7 +2238,7 @@ free_scc_vn (void)
 }
 
 /* Do SCCVN.  Returns true if it finished, false if we bailed out
-   due to ressource constraints.  */
+   due to resource constraints.  */
 
 bool
 run_scc_vn (bool may_insert_arg)

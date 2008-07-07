@@ -136,29 +136,11 @@ known_alignment (tree exp)
 {
   unsigned int this_alignment;
   unsigned int lhs, rhs;
-  unsigned int type_alignment;
-
-  /* For pointer expressions, we know that the designated object is always at
-     least as strictly aligned as the designated subtype, so we account for
-     both type and expression information in this case.
-
-     Beware that we can still get a dummy designated subtype here (e.g. Taft
-     Amendment types), in which the alignment information is meaningless and
-     should be ignored.
-
-     We always compute a type_alignment value and return the MAX of it
-     compared with what we get from the expression tree. Just set the
-     type_alignment value to 0 when the type information is to be ignored.  */
-  type_alignment
-    = ((POINTER_TYPE_P (TREE_TYPE (exp))
-	&& !TYPE_IS_DUMMY_P (TREE_TYPE (TREE_TYPE (exp))))
-       ? TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp))) : 0);
 
   switch (TREE_CODE (exp))
     {
-    case CONVERT_EXPR:
+    CASE_CONVERT:
     case VIEW_CONVERT_EXPR:
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
       /* Conversions between pointers and integers don't change the alignment
 	 of the underlying object.  */
@@ -171,13 +153,23 @@ known_alignment (tree exp)
       break;
 
     case PLUS_EXPR:
-    case POINTER_PLUS_EXPR:
     case MINUS_EXPR:
       /* If two address are added, the alignment of the result is the
 	 minimum of the two alignments.  */
       lhs = known_alignment (TREE_OPERAND (exp, 0));
       rhs = known_alignment (TREE_OPERAND (exp, 1));
       this_alignment = MIN (lhs, rhs);
+      break;
+
+    case POINTER_PLUS_EXPR:
+      lhs = known_alignment (TREE_OPERAND (exp, 0));
+      rhs = known_alignment (TREE_OPERAND (exp, 1));
+      /* If we don't know the alignment of the offset, we assume that
+	 of the base.  */
+      if (rhs == 0)
+	this_alignment = lhs;
+      else
+	this_alignment = MIN (lhs, rhs);
       break;
 
     case COND_EXPR:
@@ -188,12 +180,12 @@ known_alignment (tree exp)
       break;
 
     case INTEGER_CST:
-      /* The first part of this represents the lowest bit in the constant,
-	 but is it in bytes, not bits.  */
-      this_alignment
-	= MIN (BITS_PER_UNIT
-		  * (TREE_INT_CST_LOW (exp) & - TREE_INT_CST_LOW (exp)),
-		  BIGGEST_ALIGNMENT);
+      {
+	unsigned HOST_WIDE_INT c = TREE_INT_CST_LOW (exp);
+	/* The first part of this represents the lowest bit in the constant,
+	   but it is originally in bytes, not bits.  */
+	this_alignment = MIN (BITS_PER_UNIT * (c & -c), BIGGEST_ALIGNMENT);
+      }
       break;
 
     case MULT_EXPR:
@@ -202,10 +194,12 @@ known_alignment (tree exp)
       lhs = known_alignment (TREE_OPERAND (exp, 0));
       rhs = known_alignment (TREE_OPERAND (exp, 1));
 
-      if (lhs == 0 || rhs == 0)
-	this_alignment = MIN (BIGGEST_ALIGNMENT, MAX (lhs, rhs));
+      if (lhs == 0)
+	this_alignment = rhs;
+      else if (rhs == 0)
+	this_alignment = lhs;
       else
-	this_alignment = MIN (BIGGEST_ALIGNMENT, lhs * rhs);
+	this_alignment = MIN (lhs * rhs, BIGGEST_ALIGNMENT);
       break;
 
     case BIT_AND_EXPR:
@@ -221,11 +215,19 @@ known_alignment (tree exp)
       break;
 
     default:
-      this_alignment = 0;
+      /* For other pointer expressions, we assume that the pointed-to object
+	 is at least as aligned as the pointed-to type.  Beware that we can
+	 have a dummy type here (e.g. a Taft Amendment type), for which the
+	 alignment is meaningless and should be ignored.  */
+      if (POINTER_TYPE_P (TREE_TYPE (exp))
+	  && !TYPE_IS_DUMMY_P (TREE_TYPE (TREE_TYPE (exp))))
+	this_alignment = TYPE_ALIGN (TREE_TYPE (TREE_TYPE (exp)));
+      else
+	this_alignment = 0;
       break;
     }
 
-  return MAX (type_alignment, this_alignment);
+  return this_alignment;
 }
 
 /* We have a comparison or assignment operation on two types, T1 and T2, which
@@ -293,7 +295,7 @@ contains_save_expr_p (tree exp)
 
     case ADDR_EXPR:  case INDIRECT_REF:
     case COMPONENT_REF:
-    case NOP_EXPR:  case CONVERT_EXPR: case VIEW_CONVERT_EXPR:
+    CASE_CONVERT: case VIEW_CONVERT_EXPR:
       return contains_save_expr_p (TREE_OPERAND (exp, 0));
 
     case CONSTRUCTOR:
@@ -659,8 +661,7 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	 conversions between array and record types, except for justified
 	 modular types.  But don't do this if the right operand is not
 	 BLKmode (for packed arrays) unless we are not changing the mode.  */
-      while ((TREE_CODE (left_operand) == CONVERT_EXPR
-	      || TREE_CODE (left_operand) == NOP_EXPR
+      while ((CONVERT_EXPR_P (left_operand)
 	      || TREE_CODE (left_operand) == VIEW_CONVERT_EXPR)
 	     && (((INTEGRAL_TYPE_P (left_type)
 		   || POINTER_TYPE_P (left_type))
@@ -693,18 +694,24 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	  && TYPE_ALIGN_OK (right_type))
 	operation_type = right_type;
 
-      /* If we are copying between padded objects of the same underlying
-	 type with a non-zero size, use the padded view of the type, this
-	 is very likely more efficient.  */
+      /* If we are copying between padded objects with compatible types, use
+	 the padded view of the objects, this is very likely more efficient.
+	 Likewise for a padded that is assigned a constructor, in order to
+	 avoid putting a VIEW_CONVERT_EXPR on the LHS.  But don't do this if
+	 we wouldn't have actually copied anything.  */
       else if (TREE_CODE (left_type) == RECORD_TYPE
 	       && TYPE_IS_PADDING_P (left_type)
-	       && TREE_TYPE (TYPE_FIELDS (left_type)) == right_type
-	       && !integer_zerop (TYPE_SIZE (right_type))
-	       && TREE_CODE (right_operand) == COMPONENT_REF
-	       && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		  == RECORD_TYPE
-	       && TYPE_IS_PADDING_P
-		  (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+	       && TREE_CONSTANT (TYPE_SIZE (left_type))
+	       && ((TREE_CODE (right_operand) == COMPONENT_REF
+		    && TREE_CODE (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		       == RECORD_TYPE
+		    && TYPE_IS_PADDING_P
+		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
+		    && gnat_types_compatible_p
+			(left_type,
+			 TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+		   || TREE_CODE (right_operand) == CONSTRUCTOR)
+	       && !integer_zerop (TYPE_SIZE (right_type)))
 	operation_type = left_type;
 
       /* Find the best type to use for copying between aggregate types.  */
@@ -736,8 +743,7 @@ build_binary_op (enum tree_code op_code, tree result_type,
 	      result = TREE_OPERAND (result, 0);
 	  else if (TREE_CODE (result) == REALPART_EXPR
 		   || TREE_CODE (result) == IMAGPART_EXPR
-		   || ((TREE_CODE (result) == NOP_EXPR
-			|| TREE_CODE (result) == CONVERT_EXPR)
+		   || (CONVERT_EXPR_P (result)
 		       && (((TREE_CODE (restype)
 			     == TREE_CODE (TREE_TYPE
 					   (TREE_OPERAND (result, 0))))
@@ -1668,8 +1674,7 @@ gnat_build_constructor (tree type, tree list)
     }
 
   result = build_constructor_from_list (type, list);
-  TREE_CONSTANT (result) = TREE_INVARIANT (result)
-    = TREE_STATIC (result) = allconstant;
+  TREE_CONSTANT (result) = TREE_STATIC (result) = allconstant;
   TREE_SIDE_EFFECTS (result) = side_effects;
   TREE_READONLY (result) = TYPE_READONLY (type) || allconstant;
   return result;
@@ -2185,9 +2190,8 @@ gnat_mark_addressable (tree expr_node)
       case REALPART_EXPR:
       case IMAGPART_EXPR:
       case VIEW_CONVERT_EXPR:
-      case CONVERT_EXPR:
       case NON_LVALUE_EXPR:
-      case NOP_EXPR:
+      CASE_CONVERT:
 	expr_node = TREE_OPERAND (expr_node, 0);
 	break;
 

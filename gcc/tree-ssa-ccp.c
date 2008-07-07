@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -204,6 +204,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "value-prof.h"
 #include "langhooks.h"
 #include "target.h"
 #include "toplev.h"
@@ -285,7 +286,7 @@ get_symbol_constant_value (tree sym)
 	    return val;
 	}
       /* Variables declared 'const' without an initializer
-	 have zero as the intializer if they may not be
+	 have zero as the initializer if they may not be
 	 overridden at link or run time.  */
       if (!val
 	  && targetm.binds_local_p (sym)
@@ -975,6 +976,38 @@ ccp_fold (tree stmt)
   else if (kind == tcc_reference)
     return fold_const_aggregate_ref (rhs);
 
+  /* Handle propagating invariant addresses into address operations.
+     The folding we do here matches that in tree-ssa-forwprop.c.  */
+  else if (code == ADDR_EXPR)
+    {
+      tree *base;
+      base = &TREE_OPERAND (rhs, 0);
+      while (handled_component_p (*base))
+	base = &TREE_OPERAND (*base, 0);
+      if (TREE_CODE (*base) == INDIRECT_REF
+	  && TREE_CODE (TREE_OPERAND (*base, 0)) == SSA_NAME)
+	{
+	  prop_value_t *val = get_value (TREE_OPERAND (*base, 0));
+	  if (val->lattice_val == CONSTANT
+	      && TREE_CODE (val->value) == ADDR_EXPR
+	      && useless_type_conversion_p (TREE_TYPE (TREE_OPERAND (*base, 0)),
+					    TREE_TYPE (val->value))
+	      && useless_type_conversion_p (TREE_TYPE (*base),
+					    TREE_TYPE (TREE_OPERAND (val->value, 0))))
+	    {
+	      /* We need to return a new tree, not modify the IL or share
+		 parts of it.  So play some tricks to avoid manually
+		 building it.  */
+	      tree ret, save = *base;
+	      *base = TREE_OPERAND (val->value, 0);
+	      ret = unshare_expr (rhs);
+	      recompute_tree_invariant_for_addr_expr (ret);
+	      *base = save;
+	      return ret;
+	    }
+	}
+    }
+
   /* We may be able to fold away calls to builtin functions if their
      arguments are constants.  */
   else if (code == CALL_EXPR
@@ -1210,6 +1243,25 @@ evaluate_stmt (tree stmt)
 
   fold_undefer_overflow_warnings (is_constant, stmt, 0);
 
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "which is likely ");
+      switch (likelyvalue)
+	{
+	case CONSTANT:
+	  fprintf (dump_file, "CONSTANT");
+	  break;
+	case UNDEFINED:
+	  fprintf (dump_file, "UNDEFINED");
+	  break;
+	case VARYING:
+	  fprintf (dump_file, "VARYING");
+	  break;
+	default:;
+	}
+      fprintf (dump_file, "\n");
+    }
+
   if (is_constant)
     {
       /* The statement produced a constant value.  */
@@ -1378,7 +1430,6 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
     {
       fprintf (dump_file, "\nVisiting statement:\n");
       print_generic_stmt (dump_file, stmt, dump_flags);
-      fprintf (dump_file, "\n");
     }
 
   if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT)
@@ -2097,8 +2148,8 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	return t;
       *walk_subtrees = 0;
 
-      /* Set TREE_INVARIANT properly so that the value is properly
-	 considered constant, and so gets propagated as expected.  */
+      /* Make sure the value is properly considered constant, and so gets
+	 propagated as expected.  */
       if (*changed_p)
         recompute_tree_invariant_for_addr_expr (expr);
       return NULL_TREE;
@@ -2835,6 +2886,10 @@ execute_fold_all_builtins (void)
 	  fcode = DECL_FUNCTION_CODE (callee);
 
 	  result = ccp_fold_builtin (*stmtp, call);
+
+	  if (result)
+	    gimple_remove_stmt_histograms (cfun, *stmtp);
+
 	  if (!result)
 	    switch (DECL_FUNCTION_CODE (callee))
 	      {

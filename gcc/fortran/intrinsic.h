@@ -91,6 +91,7 @@ try gfc_check_kind (gfc_expr *);
 try gfc_check_lbound (gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_len_lentrim (gfc_expr *, gfc_expr *);
 try gfc_check_link (gfc_expr *, gfc_expr *);
+try gfc_check_lge_lgt_lle_llt (gfc_expr *, gfc_expr *);
 try gfc_check_loc (gfc_expr *);
 try gfc_check_logical (gfc_expr *, gfc_expr *);
 try gfc_check_min_max (gfc_actual_arglist *);
@@ -120,6 +121,7 @@ try gfc_check_scale (gfc_expr *, gfc_expr *);
 try gfc_check_scan (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 try gfc_check_second_sub (gfc_expr *);
 try gfc_check_secnds (gfc_expr *);
+try gfc_check_selected_char_kind (gfc_expr *);
 try gfc_check_selected_int_kind (gfc_expr *);
 try gfc_check_selected_real_kind (gfc_expr *, gfc_expr *);
 try gfc_check_set_exponent (gfc_expr *, gfc_expr *);
@@ -207,6 +209,12 @@ gfc_expr *gfc_simplify_asinh (gfc_expr *);
 gfc_expr *gfc_simplify_atan (gfc_expr *);
 gfc_expr *gfc_simplify_atanh (gfc_expr *);
 gfc_expr *gfc_simplify_atan2 (gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_bessel_j0 (gfc_expr *);
+gfc_expr *gfc_simplify_bessel_j1 (gfc_expr *);
+gfc_expr *gfc_simplify_bessel_jn (gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_bessel_y0 (gfc_expr *);
+gfc_expr *gfc_simplify_bessel_y1 (gfc_expr *);
+gfc_expr *gfc_simplify_bessel_yn (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_bit_size (gfc_expr *);
 gfc_expr *gfc_simplify_btest (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_ceiling (gfc_expr *, gfc_expr *);
@@ -287,6 +295,7 @@ gfc_expr *gfc_simplify_reshape (gfc_expr *, gfc_expr *, gfc_expr *,
 gfc_expr *gfc_simplify_rrspacing (gfc_expr *);
 gfc_expr *gfc_simplify_scale (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_scan (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_selected_char_kind (gfc_expr *);
 gfc_expr *gfc_simplify_selected_int_kind (gfc_expr *);
 gfc_expr *gfc_simplify_selected_real_kind (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_set_exponent (gfc_expr *, gfc_expr *);
@@ -309,11 +318,14 @@ gfc_expr *gfc_simplify_xor (gfc_expr *, gfc_expr *);
 
 /* Constant conversion simplification.  */
 gfc_expr *gfc_convert_constant (gfc_expr *, bt, int);
+gfc_expr *gfc_convert_char_constant (gfc_expr *, bt, int);
 
 
 /* Resolution functions.  */
 void gfc_resolve_abs (gfc_expr *, gfc_expr *);
 void gfc_resolve_access (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_adjustl (gfc_expr *, gfc_expr *);
+void gfc_resolve_adjustr (gfc_expr *, gfc_expr *);
 void gfc_resolve_achar (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_acos (gfc_expr *, gfc_expr *);
 void gfc_resolve_acosh (gfc_expr *, gfc_expr *);

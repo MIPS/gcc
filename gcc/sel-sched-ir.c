@@ -420,7 +420,7 @@ copy_deps_context (deps_t to, deps_t from)
 static deps_t
 alloc_deps_context (void)
 {
-  return xmalloc (sizeof (struct deps));
+  return XNEW (struct deps);
 }
 
 /* Allocate and initialize dep context.  */
@@ -591,7 +591,7 @@ init_fences (insn_t old_fence)
 		 create_target_context (true) /* tc */,
 		 NULL_RTX /* last_scheduled_insn */, 
                  NULL, /* executing_insns */
-                 xcalloc (ready_ticks_size, sizeof (int)), /* ready_ticks */
+                 XCNEWVEC (int, ready_ticks_size), /* ready_ticks */
                  ready_ticks_size,
                  NULL_RTX /* sched_next */,
 		 1 /* cycle */, 0 /* cycle_issued_insns */, 
@@ -832,8 +832,8 @@ add_clean_fence_to_fences (flist_tail_t new_fences, insn_t succ, fence_t fence)
   add_to_fences (new_fences,
                  succ, state_create (), create_deps_context (),
                  create_target_context (true),
-                 NULL_RTX, NULL, xcalloc (ready_ticks_size, sizeof (int)),
-                 ready_ticks_size,
+                 NULL_RTX, NULL, 
+                 XCNEWVEC (int, ready_ticks_size), ready_ticks_size,
                  NULL_RTX, FENCE_CYCLE (fence) + 1,
                  0, 1, FENCE_AFTER_STALL_P (fence));
 }
@@ -844,7 +844,7 @@ void
 add_dirty_fence_to_fences (flist_tail_t new_fences, insn_t succ, fence_t fence)
 {
   int * new_ready_ticks 
-    = xmalloc (FENCE_READY_TICKS_SIZE (fence) * sizeof (int));
+    = XNEWVEC (int, FENCE_READY_TICKS_SIZE (fence));
   
   memcpy (new_ready_ticks, FENCE_READY_TICKS (fence),
           FENCE_READY_TICKS_SIZE (fence) * sizeof (int));
@@ -879,10 +879,8 @@ get_regset_from_pool (void)
       rs = ALLOC_REG_SET (&reg_obstack);
 
       if (regset_pool.nn == regset_pool.ss)
-	regset_pool.vv = xrealloc (regset_pool.vv,
-				   ((regset_pool.ss = 2 * regset_pool.ss + 1)
-				    * sizeof (*regset_pool.vv)));
-
+	regset_pool.vv = XRESIZEVEC (regset, regset_pool.vv,
+                                     (regset_pool.ss = 2 * regset_pool.ss + 1));
       regset_pool.vv[regset_pool.nn++] = rs;
     }
 
@@ -906,10 +904,8 @@ return_regset_to_pool (regset rs)
   regset_pool.diff--;
 
   if (regset_pool.n == regset_pool.s)
-    regset_pool.v = xrealloc (regset_pool.v,
-			      ((regset_pool.s = 2 * regset_pool.s + 1)
-			       * sizeof (*regset_pool.v)));
-
+    regset_pool.v = XRESIZEVEC (regset, regset_pool.v,
+                                (regset_pool.s = 2 * regset_pool.s + 1));
   regset_pool.v[regset_pool.n++] = rs;
 }
 
@@ -1017,9 +1013,8 @@ return_nop_to_pool (insn_t nop)
   sel_remove_insn (nop, false, true);
 
   if (nop_pool.n == nop_pool.s)
-    nop_pool.v = xrealloc (nop_pool.v, ((nop_pool.s = 2 * nop_pool.s + 1)
-					* sizeof (*nop_pool.v)));
-
+    nop_pool.v = XRESIZEVEC (rtx, nop_pool.v, 
+                             (nop_pool.s = 2 * nop_pool.s + 1));
   nop_pool.v[nop_pool.n++] = nop;
 }
 
@@ -1047,7 +1042,7 @@ skip_unspecs_callback (const_rtx *xx, const_rtx *yy, rtx *nx, rtx* ny)
           || targetm.sched.skip_rtx_p (x)))
     {
       *nx = XVECEXP (x, 0, 0);
-      *ny = (rtx) y;
+      *ny = CONST_CAST_RTX (y);
       return 1;
     }
   
@@ -1055,7 +1050,7 @@ skip_unspecs_callback (const_rtx *xx, const_rtx *yy, rtx *nx, rtx* ny)
       && (targetm.sched.skip_rtx_p == NULL
           || targetm.sched.skip_rtx_p (y)))
     {
-      *nx = (rtx) x;
+      *nx = CONST_CAST_RTX (x);
       *ny = XVECEXP (y, 0, 0);
       return 1;
     }
@@ -1178,7 +1173,7 @@ vinsn_attach (vinsn_t vi)
 static vinsn_t
 vinsn_create (insn_t insn, bool force_unique_p)
 {
-  vinsn_t vi = xcalloc (1, sizeof (*vi));
+  vinsn_t vi = XCNEW (struct vinsn_def);
 
   vinsn_init (vi, insn, force_unique_p);
   return vi;
@@ -4569,9 +4564,8 @@ cfg_preds_1 (basic_block bb, insn_t **preds, int *n, int *size)
       else
 	{
 	  if (*n == *size)
-	    *preds = xrealloc (*preds, ((*size = 2 * *size + 1)
-					* sizeof (**preds)));
-
+	    *preds = XRESIZEVEC (insn_t, *preds, 
+                                 (*size = 2 * *size + 1));
 	  (*preds)[(*n)++] = bb_end;
 	}
     }
@@ -4831,7 +4825,7 @@ alloc_sched_pools (void)
   int succs_size;
 
   succs_size = MAX_WS + 1;
-  succs_info_pool.stack = xcalloc (succs_size, sizeof (struct succs_info)); 
+  succs_info_pool.stack = XCNEWVEC (struct succs_info, succs_size); 
   succs_info_pool.size = succs_size;
   succs_info_pool.top = -1;
   succs_info_pool.max_top = -1;
@@ -5298,7 +5292,7 @@ sel_create_basic_block (void *headp, void *endp, basic_block after)
     new_bb = orig_cfg_hooks.create_basic_block (headp, endp, after);
   else
     {
-      new_bb = create_basic_block_structure (headp, endp,
+      new_bb = create_basic_block_structure ((rtx) headp, (rtx) endp,
 					     new_bb_note, after);
       new_bb->aux = NULL;
     }

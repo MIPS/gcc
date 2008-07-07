@@ -397,6 +397,13 @@ struct control_flow_graph GTY(())
 
   /* Number of basic blocks in the dominance tree.  */
   unsigned x_n_bbs_in_dom_tree[2];
+
+  /* Maximal number of entities in the single jumptable.  Used to estimate
+     final flowgraph size.  */
+  int max_jumptable_ents;
+
+  /* UIDs for LABEL_DECLs.  */
+  int last_label_uid;
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
@@ -407,9 +414,12 @@ struct control_flow_graph GTY(())
 #define n_edges_for_function(FN)	     ((FN)->cfg->x_n_edges)
 #define last_basic_block_for_function(FN)    ((FN)->cfg->x_last_basic_block)
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
+#define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
   (VEC_index (basic_block, basic_block_info_for_function(FN), (N)))
+#define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
+  (VEC_replace (basic_block, basic_block_info_for_function(FN), (N), (BB)))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -519,6 +529,7 @@ extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
 			       basic_block *, int, const void *);
 extern void compute_dominance_frontiers (bitmap *);
+extern bitmap compute_idf (bitmap, bitmap *);
 extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
@@ -817,6 +828,7 @@ extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
 extern bool maybe_hot_bb_p (const_basic_block);
+extern bool maybe_hot_edge_p (edge);
 extern bool probably_cold_bb_p (const_basic_block);
 extern bool probably_never_executed_bb_p (const_basic_block);
 extern bool tree_predicted_by_p (const_basic_block, enum br_predictor);
@@ -832,7 +844,7 @@ extern bool br_prob_note_reliable_p (const_rtx);
 /* In cfg.c  */
 extern void dump_regset (regset, FILE *);
 extern void debug_regset (regset);
-extern void init_flow (void);
+extern void init_flow (struct function *);
 extern void debug_bb (basic_block);
 extern basic_block debug_bb_n (int);
 extern void dump_regset (regset, FILE *);

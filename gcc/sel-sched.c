@@ -2304,9 +2304,10 @@ try_transformation_cache (expr_t expr, insn_t insn,
                           enum MOVEUP_EXPR_CODE *res)
 {
   struct transformed_insns *pti 
-    = htab_find_with_hash (INSN_TRANSFORMED_INSNS (insn),
-                           &EXPR_VINSN (expr), 
-                           VINSN_HASH_RTX (EXPR_VINSN (expr)));
+    = (struct transformed_insns *)
+    htab_find_with_hash (INSN_TRANSFORMED_INSNS (insn),
+                         &EXPR_VINSN (expr), 
+                         VINSN_HASH_RTX (EXPR_VINSN (expr)));
   if (pti)
     {
       /* This EXPR was already moved through this insn and was 
@@ -2926,7 +2927,7 @@ propagate_lv_set (regset lv, insn_t insn)
   if (INSN_NOP_P (insn))
     return;
 
-  df_simulate_one_insn_backwards (BLOCK_FOR_INSN (insn), insn, lv);
+  df_simulate_one_insn (BLOCK_FOR_INSN (insn), insn, lv);
 }
 
 static regset
@@ -3707,9 +3708,9 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
               int new_size = INSN_UID (insn) * 3 / 2;
               
               FENCE_READY_TICKS (fence) 
-                = xrecalloc (FENCE_READY_TICKS (fence),
-                             new_size, FENCE_READY_TICKS_SIZE (fence),
-                             sizeof (int));
+                = (int *) xrecalloc (FENCE_READY_TICKS (fence),
+                                     new_size, FENCE_READY_TICKS_SIZE (fence),
+                                     sizeof (int));
             }
           FENCE_READY_TICKS (fence)[INSN_UID (insn)] 
             = FENCE_CYCLE (fence) + need_cycles; 
@@ -5048,7 +5049,7 @@ static insn_t
 schedule_expr_on_boundary (bnd_t bnd, expr_t expr_vliw, int seqno)
 {
   av_set_t expr_seq;
-  expr_t c_expr = alloca (sizeof (expr_def));
+  expr_t c_expr = XALLOCA (expr_def);
   insn_t place_to_insert;
   insn_t insn;
   bool cant_move;
@@ -5349,7 +5350,7 @@ move_op_merge_succs (insn_t insn ATTRIBUTE_UNUSED,
 		     int moveop_drv_call_res, 
 		     cmpd_local_params_p lparams, void *static_params)
 {
-  moveop_static_params_p sparams = static_params;
+  moveop_static_params_p sparams = (moveop_static_params_p) static_params;
 
   /* Nothing to do, if original expr wasn't found below.  */
   if (moveop_drv_call_res != 1)
@@ -5404,7 +5405,7 @@ fur_merge_succs (insn_t insn ATTRIBUTE_UNUSED, insn_t succ,
 		 void *static_params)
 {
   regset succ_live;
-  fur_static_params_p sparams = static_params;
+  fur_static_params_p sparams = (fur_static_params_p) static_params;
 
   /* Here we compute live regsets only for branches that do not lie
      on the code motion paths.  These branches correspond to value 
@@ -5427,7 +5428,7 @@ fur_merge_succs (insn_t insn ATTRIBUTE_UNUSED, insn_t succ,
 static void
 move_op_after_merge_succs (cmpd_local_params_p lp, void *sparams)
 {  
-  moveop_static_params_p sp = sparams;
+  moveop_static_params_p sp = (moveop_static_params_p) sparams;
   sp->c_expr = lp->c_expr_merged;
 }
 
@@ -5577,7 +5578,7 @@ move_op_orig_expr_found (insn_t insn, expr_t expr,
                          void *static_params)
 {
   bool only_disconnect, insn_emitted;
-  moveop_static_params_p params = static_params;
+  moveop_static_params_p params = (moveop_static_params_p) static_params;
   
   copy_expr_onside (params->c_expr, INSN_EXPR (insn));
   track_scheduled_insns_and_blocks (insn);
@@ -5595,7 +5596,7 @@ fur_orig_expr_found (insn_t insn, expr_t expr ATTRIBUTE_UNUSED,
                      cmpd_local_params_p lparams ATTRIBUTE_UNUSED,
                      void *static_params)
 {
-  fur_static_params_p params = static_params;
+  fur_static_params_p params = (fur_static_params_p) static_params;
   regset tmp;
 
   if (CALL_P (insn))
@@ -5638,7 +5639,7 @@ static void
 move_op_at_first_insn (insn_t insn, cmpd_local_params_p lparams, 
                        void *static_params)
 {
-  moveop_static_params_p sparams = static_params;
+  moveop_static_params_p sparams = (moveop_static_params_p) static_params;
   basic_block book_block = NULL;
 
   /* When we have removed the boundary insn for scheduling, which also 
@@ -5732,7 +5733,7 @@ static void
 move_op_ascend (insn_t insn, void *static_params)
 {
   enum MOVEUP_EXPR_CODE res;
-  moveop_static_params_p sparams = static_params;
+  moveop_static_params_p sparams = (moveop_static_params_p) static_params;
 
   if (! INSN_NOP_P (insn))
     {
@@ -5751,7 +5752,7 @@ static int
 fur_on_enter (insn_t insn ATTRIBUTE_UNUSED, cmpd_local_params_p local_params, 
 	      void *static_params, bool visited_p)
 {
-  fur_static_params_p sparams = static_params;
+  fur_static_params_p sparams = (fur_static_params_p) static_params;
 
   if (visited_p)
     {
@@ -5791,7 +5792,7 @@ static bool
 move_op_orig_expr_not_found (insn_t insn, av_set_t orig_ops ATTRIBUTE_UNUSED,
 			    void *static_params)
 {
-  moveop_static_params_p sparams = static_params;
+  moveop_static_params_p sparams = (moveop_static_params_p) static_params;
 
   /* If we're scheduling separate expr, in order to generate correct code
      we need to stop the search at bookkeeping code generated with the 
@@ -5811,7 +5812,7 @@ fur_orig_expr_not_found (insn_t insn, av_set_t orig_ops, void *static_params)
   bool mutexed;
   expr_t r;
   av_set_iterator avi;
-  fur_static_params_p sparams = static_params;
+  fur_static_params_p sparams = (fur_static_params_p) static_params;
 
   if (CALL_P (insn))
     sparams->crosses_call = true;
@@ -7346,7 +7347,7 @@ run_selective_scheduling (void)
       char *buf;
       int buf_len = 1 + snprintf (NULL, 0, "before-region-%d", rgn);
 
-      buf = xmalloc (buf_len * sizeof (*buf));
+      buf = XNEWVEC (char, buf_len);
       snprintf (buf, buf_len, "before-region-%d", rgn);
       sel_dump_cfg_1 (buf, SEL_DUMP_CFG_LV_SET | SEL_DUMP_CFG_BB_INSNS);
 

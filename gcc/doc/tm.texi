@@ -35,7 +35,7 @@ through the macros defined in the @file{.h} file.
 * Register Classes::    Defining the classes of hardware registers.
 * Old Constraints::     The old way to define machine-specific constraints.
 * Stack and Calling::   Defining which way the stack grows and by how much.
-* Varargs::		Defining the varargs macros.
+* Varargs::             Defining the varargs macros.
 * Trampolines::         Code set up at run time to enter a nested function.
 * Library Calls::       Controlling how library routines are implicitly called.
 * Addressing Modes::    Defining addressing modes valid for memory operands.
@@ -44,12 +44,13 @@ through the macros defined in the @file{.h} file.
 * Costs::               Defining relative costs of different operations.
 * Scheduling::          Adjusting the behavior of the instruction scheduler.
 * Sections::            Dividing storage into text, data, and other sections.
-* PIC::			Macros for position independent code.
+* PIC::                 Macros for position independent code.
 * Assembler Format::    Defining how to write insns and pseudo-ops to output.
 * Debugging Info::      Defining the format of debugging output.
 * Floating Point::      Handling floating point for cross-compilers.
 * Mode Switching::      Insertion of mode-switching instructions.
 * Target Attributes::   Defining target-specific uses of @code{__attribute__}.
+* Emulated TLS::        Emulated TLS support.
 * MIPS Coprocessors::   MIPS coprocessor support and how to customize it.
 * PCH Target::          Validity checking for precompiled headers.
 * C++ ABI::             Controlling C++ ABI changes.
@@ -989,11 +990,11 @@ Minimum number of units in a word.  If this is undefined, the default is
 smallest value that @code{UNITS_PER_WORD} can have at run-time.
 @end defmac
 
-@defmac UNITS_PER_SIMD_WORD
-Number of units in the vectors that the vectorizer can produce.
-The default is equal to @code{UNITS_PER_WORD}, because the vectorizer
-can do some transformations even in absence of specialized @acronym{SIMD}
-hardware.
+@defmac UNITS_PER_SIMD_WORD (@var{mode})
+Number of units in the vectors that the vectorizer can produce for
+scalar mode @var{mode}.  The default is equal to @code{UNITS_PER_WORD},
+because the vectorizer can do some transformations even in absence of
+specialized @acronym{SIMD} hardware.
 @end defmac
 
 @defmac POINTER_SIZE
@@ -1169,6 +1170,21 @@ If this macro is not defined, then @var{basic-align} is used.
 
 One use of this macro is to increase alignment of medium-size data to
 make it all fit in fewer cache lines.
+@end defmac
+
+@defmac STACK_SLOT_ALIGNMENT (@var{type}, @var{mode}, @var{basic-align})
+If defined, a C expression to compute the alignment for stack slot.
+@var{type} is the data type, @var{mode} is the widest mode available,
+and @var{basic-align} is the alignment that the slot would ordinarily
+have.  The value of this macro is used instead of that alignment to
+align the slot.
+
+If this macro is not defined, then @var{basic-align} is used when
+@var{type} is @code{NULL}.  Otherwise, @code{LOCAL_ALIGNMENT} will
+be used.
+
+This macro is to set alignment of stack slot to the maximum alignment
+of all possible modes which the slot may have.
 @end defmac
 
 @defmac EMPTY_FIELD_BOUNDARY
@@ -1895,11 +1911,11 @@ For passing values in registers, see @ref{Register Arguments}.
 For returning values in registers, see @ref{Scalar Return}.
 
 @menu
-* Register Basics::		Number and kinds of registers.
-* Allocation Order::		Order in which registers are allocated.
-* Values in Registers::		What kinds of values each reg can hold.
-* Leaf Functions::		Renumbering registers for leaf functions.
-* Stack Registers::		Handling a register stack such as 80387.
+* Register Basics::             Number and kinds of registers.
+* Allocation Order::            Order in which registers are allocated.
+* Values in Registers::         What kinds of values each reg can hold.
+* Leaf Functions::              Renumbering registers for leaf functions.
+* Stack Registers::             Handling a register stack such as 80387.
 @end menu
 
 @node Register Basics
@@ -2969,7 +2985,7 @@ be treated like memory constraints by the reload pass.
 
 It should return 1 if the operand type represented by the constraint
 at the start of @var{str}, the first letter of which is the letter @var{c},
- comprises a subset of all memory references including
+comprises a subset of all memory references including
 all those whose address is simply a base register.  This allows the reload
 pass to reload an operand, if it does not directly correspond to the operand
 type of @var{c}, by copying its address into a base register.
@@ -3170,7 +3186,7 @@ frame, or the frame pointer of the @var{count} @minus{} 1 frame if
 @code{RETURN_ADDR_IN_PREVIOUS_FRAME} is defined.
 
 The value of the expression must always be the correct address when
-@var{count} is zero, but may be @code{NULL_RTX} if there is not way to
+@var{count} is zero, but may be @code{NULL_RTX} if there is no way to
 determine the return address of other frames.
 @end defmac
 
@@ -3818,9 +3834,11 @@ which.
 @c above is overfull.  not sure what to do.  --mew 5feb93  did
 @c something, not sure if it looks good.  --mew 10feb93
 
-@defmac OUTGOING_REG_PARM_STACK_SPACE
-Define this to a nonzero value if it is the responsibility of the caller
-to allocate the area reserved for arguments passed in registers.
+@defmac OUTGOING_REG_PARM_STACK_SPACE (@var{fntype})
+Define this to a nonzero value if it is the responsibility of the
+caller to allocate the area reserved for arguments passed in registers
+when calling a function of @var{fntype}.  @var{fntype} may be NULL
+if the function called is a library function.
 
 If @code{ACCUMULATE_OUTGOING_ARGS} is defined, this macro controls
 whether the space for these arguments counts in the value of
@@ -4035,6 +4053,15 @@ variables to keep track of that.  For target machines on which all
 arguments are passed on the stack, there is no need to store anything in
 @code{CUMULATIVE_ARGS}; however, the data structure must exist and
 should not be empty, so use @code{int}.
+@end defmac
+
+@defmac OVERRIDE_ABI_FORMAT (@var{fndecl})
+If defined, this macro is called before generating any code for a
+function, but after the @var{cfun} descriptor for the function has been
+created.  The back end may use this macro to update @var{cfun} to
+reflect an ABI other than that which would normally be used by default.
+If the compiler is generating code for a compiler-generated function,
+@var{fndecl} may be @code{NULL}.
 @end defmac
 
 @defmac INIT_CUMULATIVE_ARGS (@var{cum}, @var{fntype}, @var{libname}, @var{fndecl}, @var{n_named_args})
@@ -5295,6 +5322,17 @@ into the @code{symbol_ref}, and then check for it here.  When you see a
 @code{const}, you will have to look inside it to find the
 @code{symbol_ref} in order to determine the section.  @xref{Assembler
 Format}.
+@end defmac
+
+@defmac TARGET_MEM_CONSTRAINT
+A single character to be used instead of the default @code{'m'}
+character for general memory addresses.  This defines the constraint
+letter which matches the memory addresses accepted by
+@code{GO_IF_LEGITIMATE_ADDRESS_P}.  Define this macro if you want to
+support new address formats in your back end without changing the
+semantics of the @code{'m'} constraint.  This is necessary in order to
+preserve functionality of inline assembly constructs using the
+@code{'m'} constraint.
 @end defmac
 
 @defmac FIND_BASE_TERM (@var{x})
@@ -6764,10 +6802,10 @@ instructions do.
 * Uninitialized Data::   Output of uninitialized variables.
 * Label Output::         Output and generation of labels.
 * Initialization::       General principles of initialization
-			   and termination routines.
+                         and termination routines.
 * Macros for Initialization::
-			 Specific macros that control the handling of
-			   initialization and termination routines.
+                         Specific macros that control the handling of
+                         initialization and termination routines.
 * Instruction Output::   Output of actual instructions.
 * Dispatch Tables::      Output of jump tables.
 * Exception Region Output:: Output of exception region code.
@@ -6896,7 +6934,7 @@ This is true on most ELF targets.
 Choose a set of section attributes for use by @code{TARGET_ASM_NAMED_SECTION}
 based on a variable or function decl, a section name, and whether or not the
 declaration's initializer may contain runtime relocations.  @var{decl} may be
- null, in which case read-write data should be assumed.
+null, in which case read-write data should be assumed.
 
 The default version of this function handles choosing code vs data,
 read-only vs read-write data, and @code{flag_pic}.  You should only
@@ -7100,7 +7138,7 @@ assembler for grouping arithmetic expressions.  If not overridden, they
 default to normal parentheses, which is correct for most assemblers.
 @end deftypevr
 
-  These macros are provided by @file{real.h} for writing the definitions
+These macros are provided by @file{real.h} for writing the definitions
 of @code{ASM_OUTPUT_DOUBLE} and the like:
 
 @defmac REAL_VALUE_TO_TARGET_SINGLE (@var{x}, @var{l})
@@ -9215,6 +9253,84 @@ attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
 @end deftypefn
 
+@node Emulated TLS
+@section Emulating TLS
+@cindex Emulated TLS
+
+For targets whose psABI does not provide Thread Local Storage via
+specific relocations and instruction sequences, an emulation layer is
+used.  A set of target hooks allows this emulation layer to be
+configured for the requirements of a particular target.  For instance
+the psABI may infact specify TLS support in terms of an emulation
+layer.
+
+The emulation layer works by creating a control object for every TLS
+object.  To access the TLS object, a lookup function is provided
+which, when given the address of the control object, will return the
+address of the current thread's instance of the TLS object.
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_GET_ADDRESS
+Contains the name of the helper function that uses a TLS control
+object to locate a TLS instance.  The default causes libgcc's
+emulated TLS helper function to be used.
+@end deftypevr
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_REGISTER_COMMON
+Contains the name of the helper function that should be used at
+program startup to register TLS objects that are implicitly
+initialized to zero.  If this is @code{NULL}, all TLS objects will
+have explicit initializers.  The default causes libgcc's emulated TLS
+registration function to be used.
+@end deftypevr
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_VAR_SECTION
+Contains the name of the section in which TLS control variables should
+be placed.  The default of @code{NULL} allows these to be placed in
+any section.
+@end deftypevr
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_TMPL_SECTION
+Contains the name of the section in which TLS initializers should be
+placed.  The default of @code{NULL} allows these to be placed in any
+section.
+@end deftypevr
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_VAR_PREFIX
+Contains the prefix to be prepended to TLS control variable names.
+The default of @code{NULL} uses a target-specific prefix.
+@end deftypevr
+
+@deftypevr {Target Hook} {const char *} TARGET_EMUTLS_TMPL_PREFIX
+Contains the prefix to be prepended to TLS initializer objects.  The
+default of @code{NULL} uses a target-specific prefix.
+@end deftypevr
+
+@deftypefn {Target Hook} tree TARGET_EMUTLS_VAR_FIELDS (tree @var{type}, tree *@var{name})
+Specifies a function that generates the FIELD_DECLs for a TLS control
+object type.  @var{type} is the RECORD_TYPE the fields are for and
+@var{name} should be filled with the structure tag, if the default of
+@code{__emutls_object} is unsuitable.  The default creates a type suitable
+for libgcc's emulated TLS function.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_EMUTLS_VAR_INIT (tree @var{var}, tree @var{decl}, tree @var{tmpl_addr})
+Specifies a function that generates the CONSTRUCTOR to initialize a
+TLS control object.  @var{var} is the TLS control object, @var{decl}
+is the TLS object and @var{tmpl_addr} is the address of the
+initializer.  The default initializes libgcc's emulated TLS control object.
+@end deftypefn
+
+@deftypevr {Target Hook} {bool} TARGET_EMUTLS_VAR_ALIGN_FIXED
+Specifies whether the alignment of TLS control variable objects is
+fixed and should not be increased as some backends may do to optimize
+single objects.  The default is false.
+@end deftypevr
+
+@deftypevr {Target Hook} {bool} TARGET_EMUTLS_DEBUG_FORM_TLS_ADDRESS
+Specifies whether a DWARF @code{DW_OP_form_tls_address} location descriptor
+may be used to describe emulated TLS control objects.
+@end deftypevr
+
 @node MIPS Coprocessors
 @section Defining coprocessor specifics for MIPS targets.
 @cindex MIPS coprocessor-definition macros
@@ -10407,3 +10523,14 @@ to the functions in @file{libgcc} that provide low-level support for
 call stack unwinding.  It is used in declarations in @file{unwind-generic.h}
 and the associated definitions of those functions.
 @end defmac
+
+@deftypefn {Target Hook} {bool} TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS (void)
+When optimization is disabled, this hook indicates whether or not
+arguments should be allocated to stack slots.  Normally, GCC allocates
+stacks slots for arguments when not optimizing in order to make
+debugging easier.  However, when a function is declared with
+@code{__attribute__((naked))}, there is no stack frame, and the compiler
+cannot safely move arguments from the registers in which they are passed
+to the stack.  Therefore, this hook should return true in general, but
+false for naked functions.  The default implementation always returns true.
+@end deftypefn

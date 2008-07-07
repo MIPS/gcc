@@ -819,7 +819,7 @@ sel_dump_cfg_1 (const char *tag, int flags)
 
   i = 1 + snprintf (NULL, 0, "%s/%s%05d-%s.dot", sel_debug_cfg_root,
 		    sel_debug_cfg_root_postfix, sel_dump_cfg_fileno, tag);
-  buf = xmalloc (i * sizeof (*buf));
+  buf = XNEWVEC (char, i);
   snprintf (buf, i, "%s/%s%05d-%s.dot", sel_debug_cfg_root,
 	    sel_debug_cfg_root_postfix, sel_dump_cfg_fileno, tag);
 
@@ -1011,10 +1011,10 @@ mem_test (int n)
 {
   int **p, i;
 
-  p = xmalloc (n * sizeof (*p));
+  p = XNEWVEC (int *, n);
 
   for (i = 0; i < n; i++)
-    *p++ = xmalloc ((n * i) * sizeof (**p));
+    *p++ = XNEWVEC (int, n * i);
 
   for (i = 0; i < n; i++)
     free (*--p);

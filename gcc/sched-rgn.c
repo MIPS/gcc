@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
@@ -787,7 +787,7 @@ haifa_find_rgns (void)
       extend_regions_p = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS) > 0;
       if (extend_regions_p)
         {
-          degree1 = xmalloc (last_basic_block * sizeof (int));
+          degree1 = XNEWVEC (int, last_basic_block);
           extended_rgn_header = sbitmap_alloc (last_basic_block);
           sbitmap_zero (extended_rgn_header);
 	}
@@ -1089,7 +1089,7 @@ gather_region_statistics (int **rsp)
 
       if (nr_blocks > a_sz)
 	{	 
-	  a = xrealloc (a, nr_blocks * sizeof (*a));
+	  a = XRESIZEVEC (int, a, nr_blocks);
 	  do
 	    a[a_sz++] = 0;
 	  while (a_sz != nr_blocks);
@@ -1146,9 +1146,9 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 
   max_iter = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS);
 
-  max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
+  max_hdr = XNEWVEC (int, last_basic_block);
 
-  order = xmalloc (last_basic_block * sizeof (*order));
+  order = XNEWVEC (int, last_basic_block);
   post_order_compute (order, false, false);
 
   for (i = nblocks - 1; i >= 0; i--)
@@ -1688,7 +1688,7 @@ check_live_1 (int src, rtx x)
 		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
-		     such blocks are always outside current region.  */
+		     Such blocks are always outside current region.  */
 		  gcc_assert (!t || (CONTAINING_RGN (b->index)
 				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
 
@@ -1875,11 +1875,11 @@ find_conditional_protection (rtx insn, int load_insn_bb)
 
 /* Returns 1 if the same insn1 that participates in the computation
    of load_insn's address is feeding a conditional branch that is
-   guarding on load_insn. This is true if we find a the two DEF-USE
+   guarding on load_insn. This is true if we find two DEF-USE
    chains:
    insn1 -> ... -> conditional-branch
    insn1 -> ... -> load_insn,
-   and if a flow path exist:
+   and if a flow path exists:
    insn1 -> ... -> conditional-branch -> ... -> load_insn,
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
@@ -3041,7 +3041,7 @@ rgn_setup_region (int rgn)
   /* EBB_HEAD is a region-scope structure.  But we realloc it for
      each region to save time/memory/something else.
      See comments in add_block1, for what reasons we allocate +1 element.  */
-  ebb_head = xrealloc (ebb_head, (current_nr_blocks + 1) * sizeof (*ebb_head));
+  ebb_head = XRESIZEVEC (int, ebb_head, current_nr_blocks + 1);
   for (bb = 0; bb <= current_nr_blocks; bb++)
     ebb_head[bb] = current_blocks + bb;
 }
@@ -3065,7 +3065,7 @@ sched_rgn_compute_dependencies (int rgn)
 	init_deps (bb_deps + bb);
 
       /* Initialize array used in add_branch_dependencies ().  */
-      ref_counts = xcalloc (get_max_uid () + 1, sizeof (*ref_counts));
+      ref_counts = XCNEWVEC (int, get_max_uid () + 1);
       
       /* Compute backward dependencies.  */
       for (bb = 0; bb < current_nr_blocks; bb++)

@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation
 
    This file is part of libgcj.
@@ -1332,6 +1332,9 @@ _Jv_JNI_NewStringUTF (JNIEnv *env, const char *bytes)
 {
   try
     {
+      // For compatibility with the JDK.
+      if (!bytes)
+	return NULL;
       jstring result = JvNewStringUTF (bytes);
       return (jstring) wrap_value (env, result);
     }
@@ -1800,6 +1803,13 @@ _Jv_JNI_GetDirectBufferCapacity (JNIEnv *, jobject buffer)
   if (tmp->address == NULL)
     return -1;
   return tmp->capacity();
+}
+
+static jobjectRefType JNICALL
+_Jv_JNI_GetObjectRefType (JNIEnv *, jobject object)
+{
+  JvFail("GetObjectRefType not implemented");
+  return JNIInvalidRefType;
 }
 
 
@@ -2875,7 +2885,9 @@ struct JNINativeInterface_ _Jv_JNIFunctions =
 
   _Jv_JNI_NewDirectByteBuffer,		    // NewDirectByteBuffer
   _Jv_JNI_GetDirectBufferAddress,	    // GetDirectBufferAddress
-  _Jv_JNI_GetDirectBufferCapacity	    // GetDirectBufferCapacity
+  _Jv_JNI_GetDirectBufferCapacity,	    // GetDirectBufferCapacity
+
+  _Jv_JNI_GetObjectRefType		    // GetObjectRefType
 };
 
 struct JNIInvokeInterface_ _Jv_JNI_InvokeFunctions =

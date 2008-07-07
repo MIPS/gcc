@@ -276,6 +276,8 @@ rm -f a.out a.exe b.out
 # Find the native compiler
 AC_PROG_CC
 AM_PROG_CC_C_O
+ACX_PROG_GNAT([-I"$srcdir"/ada])
+
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -321,8 +323,7 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # So, we only use -pedantic if we can disable those warnings.
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes], [loose_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wc++-compat], [cxx_compat_warn])
+	  -Wmissing-prototypes -Wcast-qual -Wc++-compat], [loose_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition \
                           -Wmissing-format-attribute], [strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
@@ -1076,7 +1077,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/resource.h>
 #endif
 ]], [[rlim_t l = 0;]])],[],[AC_DEFINE([rlim_t],[long],
-[Define to \`long' if <sys/resource.h> doesn't define.])])
+[Define to `long' if <sys/resource.h> doesn't define.])])
 
 # On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
 # FREAD and FWRITE macros.  Fortunately, for GCC's single usage of ldgetname
@@ -1366,8 +1367,12 @@ fi
 # Make gthr-default.h if we have a thread file.
 gthread_flags=
 if test $thread_file != single; then
-  rm -f gthr-default.h
-  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h-t
+  if diff gthr-default.h-t gthr-default.h 2>/dev/null; then
+    rm -f gthr-default.h-t
+  else
+    mv -f gthr-default.h-t gthr-default.h
+  fi
   gthread_flags=-DHAVE_GTHR_DEFAULT
 fi
 AC_SUBST(gthread_flags)
@@ -1458,6 +1463,7 @@ else
 	esac
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
+	LDFLAGS="${LDFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
@@ -1525,6 +1531,10 @@ esac
 AC_ARG_ENABLE(secureplt,
 [  --enable-secureplt      enable -msecure-plt by default for PowerPC],
 [], [])
+
+AC_ARG_ENABLE(cld,
+[  --enable-cld            enable -mcld by default for 32bit x86], [],
+[enable_cld=no])
 
 # Windows32 Registry support for specifying GCC installation paths.
 AC_ARG_ENABLE(win32-registry,
@@ -1750,6 +1760,7 @@ AC_SUBST(inhibit_libc)
 # These are the normal (build=host) settings:
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
+BUILD_LDFLAGS='$(LDFLAGS)'	AC_SUBST(BUILD_LDFLAGS)
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
 # Possibly disable fixproto, on a per-target basis.
@@ -1767,6 +1778,7 @@ AC_SUBST(STMP_FIXPROTO)
 if test x$build != x$host || test "x$coverage_flags" != x
 then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
+    BUILD_LDFLAGS='$(LDFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
 	if test "x$STMP_FIXPROTO" != x; then
@@ -3050,8 +3062,9 @@ esac
 # version to the per-target configury.
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
-  | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* | spu-*-*)
+  | x86_64*-*-* | hppa*-*-* | arm*-*-* \
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* \
+  | spu-*-* | fido*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3579,11 +3592,32 @@ changequote(,)dnl
         fi
         subdir="`echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
         subdirs="$subdirs $subdir"
+
+	# $gcc_subdir is where the gcc integration files are to be found
+	# for a language, both for internal compiler purposes (compiler
+	# sources implementing front-end to GCC tree converters), and for
+	# build infrastructure purposes (Make-lang.in, etc.)
+	#
+	# This will be <subdir> (relative to $srcdir) if a line like 
+	# gcc_subdir="<subdir>" or gcc_subdir=<subdir>
+	# is found in <langdir>/config-lang.in, and will remain <langdir>
+	# otherwise.
+	#
+	# Except for the language alias (fetched above), the regular
+	# "config-lang.in" contents are always retrieved from $gcc_subdir,
+	# so a <langdir>/config-lang.in setting gcc_subdir typically sets
+	# only this and the language alias.
+
+        gcc_subdir=`sed -n -e 's,^gcc_subdir=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^gcc_subdir=\([^   ]*\).*$,\1,p' $lang`
+        if [ "$gcc_subdir" = "" ]; then
+           gcc_subdir="$subdir"
+        fi
+
         case ",$enable_languages," in
         *,$lang_alias,*)
             all_selected_languages="$all_selected_languages $lang_alias"
-	    if test -f $srcdir/$subdir/lang-specs.h; then
-	        lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
+            if test -f $srcdir/$gcc_subdir/lang-specs.h; then
+                lang_specs_files="$lang_specs_files $srcdir/$gcc_subdir/lang-specs.h"
 	    fi
 	    ;;
         esac
@@ -3595,10 +3629,10 @@ changequote([,])dnl
 	outputs=
 	gtfiles=
 	subdir_requires=
-	. ${srcdir}/$subdir/config-lang.in
+	. ${srcdir}/$gcc_subdir/config-lang.in
 	if test "x$language" = x
 	then
-		echo "${srcdir}/$subdir/config-lang.in doesn't set \$language." 1>&2
+		echo "${srcdir}/$gcc_subdir/config-lang.in doesn't set \$language." 1>&2
 		exit 1
 	fi
 
@@ -3615,15 +3649,15 @@ changequote([,])dnl
 	esac
 	$ok || continue
 
-	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$subdir/Make-lang.in"
-	if test -f $srcdir/$subdir/lang.opt; then
-	    lang_opt_files="$lang_opt_files $srcdir/$subdir/lang.opt"
+	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
+	if test -f $srcdir/$gcc_subdir/lang.opt; then
+	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
 	fi
-	if test -f $srcdir/$subdir/$subdir-tree.def; then
-	    lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
+	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
+	    lang_tree_files="$lang_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
 	fi
-	if test -f ${srcdir}/$subdir/Makefile.in
-		then all_lang_makefiles="$subdir/Makefile"
+	if test -f ${srcdir}/$gcc_subdir/Makefile.in
+		then all_lang_makefiles="$gcc_subdir/Makefile"
 	fi
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
@@ -3776,6 +3810,7 @@ AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
+AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)

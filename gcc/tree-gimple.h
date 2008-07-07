@@ -62,6 +62,8 @@ extern bool is_gimple_addressable (tree);
 /* Returns true iff T is any valid GIMPLE lvalue.  */
 extern bool is_gimple_lvalue (tree);
 
+/* Returns true iff T is a GIMPLE address.  */
+bool is_gimple_address (const_tree);
 /* Returns true iff T is a GIMPLE invariant address.  */
 bool is_gimple_invariant_address (const_tree);
 /* Returns true iff T is a valid GIMPLE constant.  */
@@ -94,6 +96,9 @@ extern bool is_gimple_non_addressable (tree t);
 extern bool is_gimple_call_addr (tree);
 /* If T makes a function call, returns the CALL_EXPR operand.  */
 extern tree get_call_expr_in (tree t);
+/* Returns true iff T contains a CALL_EXPR not suitable for inlining.  */
+#define CALL_STMT_CANNOT_INLINE_P(T) \
+  CALL_CANNOT_INLINE_P (get_call_expr_in (T))
 
 extern void recalculate_side_effects (tree);
 

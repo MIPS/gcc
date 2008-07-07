@@ -398,6 +398,20 @@ proc check_effective_target_trampolines { } {
     return 1
 }
 
+# Return 1 if according to target_info struct and explicit target list
+# target is supposed to keep null pointer checks. This could be due to 
+# use of option fno-delete-null-pointer-checks or hardwired in target.
+ 
+proc check_effective_target_keeps_null_pointer_checks { } {
+    if [target_info exists keeps_null_pointer_checks] {
+      return 1
+    }
+    if { [istarget avr-*-*] } {
+	return 1;   
+    }
+    return 0
+}
+
 # Return true if profiling is supported on the target.
 
 proc check_profiling_available { test_what } {
@@ -453,8 +467,6 @@ proc check_profiling_available { test_what } {
 	     || [istarget avr-*-*]
 	     || [istarget bfin-*-*]
 	     || [istarget powerpc-*-eabi*]
-	     || [istarget strongarm*-*-elf]
-	     || [istarget xscale*-*-elf]
 	     || [istarget cris-*-*]
 	     || [istarget crisv32-*-*]
 	     || [istarget fido-*-elf]
@@ -465,8 +477,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget mips*-*-elf*]
 	     || [istarget xstormy16-*]
 	     || [istarget xtensa-*-elf]
-	     || [istarget *-*-vxworks*]
-	     || [istarget *-*-windiss] } {
+	     || [istarget *-*-vxworks*] } {
 	    set profiling_available_saved 0
 	} else {
 	    set profiling_available_saved 1
@@ -518,6 +529,13 @@ proc check_effective_target_tls {} {
 # This won't change for different subtargets so cache the result.
 
 proc check_effective_target_tls_native {} {
+    # VxWorks uses emulated TLS machinery, but with non-standard helper
+    # functions, so we fail to automatically detect it.
+    global target_triplet
+    if { [regexp ".*-.*-vxworks.*" $target_triplet] } {
+	return 0
+    }
+    
     return [check_no_messages_and_pattern tls_native "!emutls" assembly {
 	__thread int i;
 	int f (void) { return i; }
@@ -643,7 +661,7 @@ proc check_effective_target_nomips16 { } {
 # we don't support MIPS16 PIC.
 
 proc add_options_for_mips16_attribute { flags } {
-    return "$flags -mno-abicalls -fno-pic"
+    return "$flags -mno-abicalls -fno-pic -DMIPS16=__attribute__((mips16))"
 }
 
 # Return true if we can force a mode that allows MIPS16 code generation.
@@ -741,6 +759,18 @@ proc check_effective_target_fortran_large_int { } {
 	integer,parameter :: k = selected_int_kind (range (0_8) + 1)
 	integer(kind=k) :: i
 	end
+    }]
+}
+
+# Return 1 if the target supports Fortran integer(16), 0 otherwise.
+#
+# When the target name changes, replace the cached result.
+
+proc check_effective_target_fortran_integer_16 { } {
+    return [check_no_compiler_messages fortran_integer_16 executable {
+        ! Fortran
+        integer(16) :: i
+        end
     }]
 }
 
@@ -1100,7 +1130,9 @@ proc check_effective_target_vect_cmdline_needed { } {
 		 && [check_effective_target_lp64])
 	     || ([istarget powerpc*-*-*]
 		 && ([check_effective_target_powerpc_spe]
-		     || [check_effective_target_powerpc_altivec]))} {
+		     || [check_effective_target_powerpc_altivec]))
+             || [istarget spu-*-*]
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon]) } {
 	   set et_vect_cmdline_needed_saved 0
 	}
     }
@@ -1127,7 +1159,8 @@ proc check_effective_target_vect_int { } {
 	      || [istarget x86_64-*-*]
 	      || [istarget sparc*-*-*]
 	      || [istarget alpha*-*-*]
-	      || [istarget ia64-*-*] } {
+	      || [istarget ia64-*-*] 
+	      || [check_effective_target_arm32] } {
 	   set et_vect_int_saved 1
 	}
     }
@@ -1233,6 +1266,33 @@ proc check_effective_target_arm_neon_hw { } {
     } "-mfpu=neon -mfloat-abi=softfp"]
 }
 
+# Return 1 if this is a ARM target with NEON enabled.
+
+proc check_effective_target_arm_neon { } {
+    if { [check_effective_target_arm32] } {
+	return [check_no_compiler_messages arm_neon object {
+	    #ifndef __ARM_NEON__
+	    #error not NEON
+	    #else
+	    int dummy;
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this a Loongson-2E or -2F target using an ABI that supports
+# the Loongson vector modes.
+
+proc check_effective_target_mips_loongson { } {
+    return [check_no_compiler_messages loongson assembly {
+	#if !defined(__mips_loongson_vector_rev)
+	#error FOO
+	#endif
+    }]
+}
+
 # Return 1 if this is a PowerPC target with floating-point registers.
 
 proc check_effective_target_powerpc_fprs { } {
@@ -1241,6 +1301,24 @@ proc check_effective_target_powerpc_fprs { } {
 	return [check_no_compiler_messages powerpc_fprs object {
 	    #ifdef __NO_FPRS__
 	    #error no FPRs
+	    #else
+	    int dummy;
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target with hardware double-precision
+# floating point.
+
+proc check_effective_target_powerpc_hard_double { } {
+    if { [istarget powerpc*-*-*]
+	 || [istarget rs6000-*-*] } {
+	return [check_no_compiler_messages powerpc_hard_double object {
+	    #ifdef _SOFT_DOUBLE
+	    #error soft double
 	    #else
 	    int dummy;
 	    #endif
@@ -1273,7 +1351,11 @@ proc check_effective_target_powerpc_altivec_ok { } {
 # Return 1 if this is a PowerPC target that supports SPU.
 
 proc check_effective_target_powerpc_spu { } {
-    return [istarget powerpc*-*-linux*]
+    if [istarget powerpc*-*-linux*] {
+	return [check_effective_target_powerpc_altivec_ok]
+    } else {
+	return 0
+    }
 }
 
 # Return 1 if this is a PowerPC target with SPE enabled.
@@ -1331,7 +1413,8 @@ proc check_effective_target_vect_shift { } {
              && ![istarget powerpc-*-linux*paired*])
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*]
+	     || [check_effective_target_arm32] } {
 	   set et_vect_shift_saved 1
 	}
     }
@@ -1350,6 +1433,7 @@ proc check_effective_target_vect_long { } {
               && ![istarget powerpc-*-linux*paired*]) 
               && [check_effective_target_ilp32])
 	 || [istarget x86_64-*-*]
+	 || [check_effective_target_arm32]
 	 || ([istarget sparc*-*-*] && [check_effective_target_ilp32]) } {
 	set answer 1
     } else {
@@ -1376,7 +1460,8 @@ proc check_effective_target_vect_float { } {
 	      || [istarget spu-*-*]
 	      || [istarget mipsisa64*-*-*]
 	      || [istarget x86_64-*-*]
-	      || [istarget ia64-*-*] } {
+	      || [istarget ia64-*-*]
+	      || [check_effective_target_arm32] } {
 	   set et_vect_float_saved 1
 	}
     }
@@ -1755,7 +1840,8 @@ proc check_effective_target_vect_no_align { } {
 	set et_vect_no_align_saved 0
 	if { [istarget mipsisa64*-*-*]
 	     || [istarget sparc*-*-*]
-	     || [istarget ia64-*-*] } { 
+	     || [istarget ia64-*-*]
+	     || [check_effective_target_arm32] } { 
 	    set et_vect_no_align_saved 1
 	}
     }
@@ -1944,7 +2030,8 @@ proc check_effective_target_vect_int_mult { } {
 	if { ([istarget powerpc*-*-*] && ![istarget powerpc-*-linux*paired*])
 	     || [istarget spu-*-*]
 	     || [istarget i?86-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*]
+	     || [check_effective_target_arm32] } {
 	   set et_vect_int_mult_saved 1
 	}
     }
@@ -2045,7 +2132,8 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget s390*-*-*] 
 	     || [istarget powerpc*-*-*]
 	     || [istarget sparc64-*-*]
-	     || [istarget sparcv9-*-*] } {
+	     || [istarget sparcv9-*-*]
+	     || [istarget mips*-*-*] } {
            set et_sync_int_long_saved 1
         }
     }
@@ -2072,7 +2160,8 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget s390*-*-*] 
 	     || [istarget powerpc*-*-*]
 	     || [istarget sparc64-*-*]
-	     || [istarget sparcv9-*-*] } {
+	     || [istarget sparcv9-*-*]
+	     || [istarget mips*-*-*] } {
            set et_sync_char_short_saved 1
         }
     }
@@ -2343,5 +2432,13 @@ proc check_effective_target_c99_runtime { } {
 	}
 	check_no_compiler_messages_nocache c99_runtime assembly \
 	    $contents [add_options_for_c99_runtime ""]
+    }]
+}
+
+# Return 1 if  target wchar_t is at least 4 bytes.
+
+proc check_effective_target_4byte_wchar_t { } {
+    return [check_no_compiler_messages 4byte_wchar_t object {
+	int dummy[sizeof (__WCHAR_TYPE__) >= 4 ? 1 : -1];
     }]
 }

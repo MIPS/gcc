@@ -1729,10 +1729,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
 	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	  TREE_THIS_VOLATILE (newdecl) |= TREE_THIS_VOLATILE (olddecl);
-	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
 	  DECL_IS_MALLOC (newdecl) |= DECL_IS_MALLOC (olddecl);
 	  DECL_IS_OPERATOR_NEW (newdecl) |= DECL_IS_OPERATOR_NEW (olddecl);
-	  DECL_IS_PURE (newdecl) |= DECL_IS_PURE (olddecl);
+	  TREE_READONLY (newdecl) |= TREE_READONLY (olddecl);
+	  DECL_PURE_P (newdecl) |= DECL_PURE_P (olddecl);
 	  DECL_IS_NOVOPS (newdecl) |= DECL_IS_NOVOPS (olddecl);
 	}
 
@@ -1763,7 +1763,8 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  || !DECL_DECLARED_INLINE_P (olddecl)
 	  || !DECL_EXTERNAL (olddecl))
       && DECL_EXTERNAL (newdecl)
-      && !lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (newdecl)))
+      && !lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (newdecl))
+      && !current_function_decl)
     DECL_EXTERNAL (newdecl) = 0;
 
   if (DECL_EXTERNAL (newdecl))
@@ -1911,9 +1912,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* If we changed a function from DECL_EXTERNAL to !DECL_EXTERNAL,
      and the definition is coming from the old version, cgraph needs
      to be called again.  */
-  if (extern_changed && !new_is_definition 
+  if (extern_changed && !new_is_definition
       && TREE_CODE (olddecl) == FUNCTION_DECL && DECL_INITIAL (olddecl))
-    cgraph_finalize_function (olddecl, false);
+    cgraph_mark_if_needed (olddecl);
 }
 
 /* Handle when a new declaration NEWDECL has the same name as an old
@@ -3264,7 +3265,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   if (declspecs->inline_p
       && !flag_gnu89_inline
       && TREE_CODE (decl) == FUNCTION_DECL
-      && lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl)))
+      && (lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl))
+	  || current_function_decl))
     {
       if (declspecs->storage_class == csc_auto && current_scope != file_scope)
 	;
@@ -4068,7 +4070,7 @@ grokdeclarator (const struct c_declarator *declarator,
      declaration contains the `const'.  A third possibility is that
      there is a type qualifier on the element type of a typedefed
      array type, in which case we should extract that qualifier so
-     that c_apply_type_quals_to_decls receives the full list of
+     that c_apply_type_quals_to_decl receives the full list of
      qualifiers to work with (C90 is not entirely clear about whether
      duplicate qualifiers should be diagnosed in this case, but it
      seems most appropriate to do so).  */
@@ -6094,7 +6096,8 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   if (declspecs->inline_p
       && !flag_gnu89_inline
       && TREE_CODE (decl1) == FUNCTION_DECL
-      && lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl1)))
+      && (lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (decl1))
+	  || current_function_decl))
     {
       if (declspecs->storage_class != csc_static)
 	DECL_EXTERNAL (decl1) = !DECL_EXTERNAL (decl1);
@@ -6637,7 +6640,7 @@ store_parm_decls (void)
      call expand_expr to calculate the size of a variable-sized array.
      We haven't necessarily assigned RTL to all variables yet, so it's
      not safe to try to expand expressions involving them.  */
-  cfun->x_dont_save_pending_sizes_p = 1;
+  cfun->dont_save_pending_sizes_p = 1;
 }
 
 /* Emit diagnostics that require gimple input for detection.  Operate on

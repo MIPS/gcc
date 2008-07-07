@@ -722,7 +722,7 @@ c_common_type (tree t1, tree t2)
 	     signed type.  */
 	  if (code1 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t1))
 	    {
-	      unsigned char mclass = 0;
+	      enum mode_class mclass = (enum mode_class) 0;
 	      if (GET_MODE_CLASS (m1) == MODE_UFRACT)
 		mclass = MODE_FRACT;
 	      else if (GET_MODE_CLASS (m1) == MODE_UACCUM)
@@ -733,7 +733,7 @@ c_common_type (tree t1, tree t2)
 	    }
 	  if (code2 == FIXED_POINT_TYPE && TYPE_UNSIGNED (t2))
 	    {
-	      unsigned char mclass = 0;
+	      enum mode_class mclass = (enum mode_class) 0;
 	      if (GET_MODE_CLASS (m2) == MODE_UFRACT)
 		mclass = MODE_FRACT;
 	      else if (GET_MODE_CLASS (m2) == MODE_UACCUM)
@@ -1657,8 +1657,7 @@ default_function_array_conversion (struct c_expr exp)
 	bool lvalue_array_p;
 
 	while ((TREE_CODE (exp.value) == NON_LVALUE_EXPR
-		|| TREE_CODE (exp.value) == NOP_EXPR
-		|| TREE_CODE (exp.value) == CONVERT_EXPR)
+		|| CONVERT_EXPR_P (exp.value))
 	       && TREE_TYPE (TREE_OPERAND (exp.value, 0)) == type)
 	  {
 	    if (TREE_CODE (exp.value) == NON_LVALUE_EXPR)
@@ -1978,8 +1977,7 @@ build_indirect_ref (tree ptr, const char *errorstring)
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
-      if (TREE_CODE (pointer) == CONVERT_EXPR
-          || TREE_CODE (pointer) == NOP_EXPR
+      if (CONVERT_EXPR_P (pointer)
           || TREE_CODE (pointer) == VIEW_CONVERT_EXPR)
 	{
 	  /* If a warning is issued, mark it to avoid duplicates from
@@ -2213,7 +2211,6 @@ build_external_ref (tree id, int fun, location_t loc)
       used_types_insert (TREE_TYPE (ref));
       ref = DECL_INITIAL (ref);
       TREE_CONSTANT (ref) = 1;
-      TREE_INVARIANT (ref) = 1;
     }
   else if (current_function_decl != 0
 	   && !DECL_FILE_SCOPE_P (current_function_decl)
@@ -2399,8 +2396,7 @@ build_function_call (tree function, tree params)
      expression if necessary.  This has the nice side-effect to prevent
      the tree-inliner from generating invalid assignment trees which may
      blow up in the RTL expander later.  */
-  if ((TREE_CODE (function) == NOP_EXPR
-       || TREE_CODE (function) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (function)
       && TREE_CODE (tem = TREE_OPERAND (function, 0)) == ADDR_EXPR
       && TREE_CODE (tem = TREE_OPERAND (tem, 0)) == FUNCTION_DECL
       && !comptypes (fntype, TREE_TYPE (tem)))
@@ -2444,8 +2440,14 @@ build_function_call (tree function, tree params)
   if (nargs < 0)
     return error_mark_node;
 
-  /* Check that the arguments to the function are valid.  */
+  /* Check that arguments to builtin functions match the expectations.  */
+  if (fundecl
+      && DECL_BUILT_IN (fundecl)
+      && DECL_BUILT_IN_CLASS (fundecl) == BUILT_IN_NORMAL
+      && !check_builtin_function_arguments (fundecl, nargs, argarray))
+    return error_mark_node;
 
+  /* Check that the arguments to the function are valid.  */
   check_function_arguments (TYPE_ATTRIBUTES (fntype), nargs, argarray,
 			    TYPE_ARG_TYPES (fntype));
 
@@ -2765,7 +2767,7 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
   if (warn_parentheses)
     warn_about_parentheses (code, code1, code2);
 
-  if (code1 != tcc_comparison)
+  if (TREE_CODE_CLASS (code1) != tcc_comparison)
     warn_logical_operator (code, arg1.value, arg2.value);
 
   /* Warn about comparisons against string literals, with the exception
@@ -2816,13 +2818,13 @@ pointer_diff (tree op0, tree op1)
      different mode in place.)
      So first try to find a common term here 'by hand'; we want to cover
      at least the cases that occur in legal static initializers.  */
-  if ((TREE_CODE (op0) == NOP_EXPR || TREE_CODE (op0) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (op0)
       && (TYPE_PRECISION (TREE_TYPE (op0))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
     con0 = TREE_OPERAND (op0, 0);
   else
     con0 = op0;
-  if ((TREE_CODE (op1) == NOP_EXPR || TREE_CODE (op1) == CONVERT_EXPR)
+  if (CONVERT_EXPR_P (op1)
       && (TYPE_PRECISION (TREE_TYPE (op1))
 	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0)))))
     con1 = TREE_OPERAND (op1, 0);
@@ -3550,13 +3552,11 @@ build_compound_expr (tree expr1, tree expr2)
       if (warn_unused_value)
 	{
 	  if (VOID_TYPE_P (TREE_TYPE (expr1))
-	      && (TREE_CODE (expr1) == NOP_EXPR
-		  || TREE_CODE (expr1) == CONVERT_EXPR))
+	      && CONVERT_EXPR_P (expr1))
 	    ; /* (void) a, b */
 	  else if (VOID_TYPE_P (TREE_TYPE (expr1))
 		   && TREE_CODE (expr1) == COMPOUND_EXPR
-		   && (TREE_CODE (TREE_OPERAND (expr1, 1)) == CONVERT_EXPR
-		       || TREE_CODE (TREE_OPERAND (expr1, 1)) == NOP_EXPR))
+		   && CONVERT_EXPR_P (TREE_OPERAND (expr1, 1)))
 	    ; /* (void) a, (void) b, c */
 	  else
 	    warning (OPT_Wunused_value, 
@@ -3643,7 +3643,6 @@ build_c_cast (tree type, tree expr)
 			   build_constructor_single (type, field, value),
 			   true, 0);
 	  TREE_CONSTANT (t) = TREE_CONSTANT (value);
-	  TREE_INVARIANT (t) = TREE_INVARIANT (value);
 	  return t;
 	}
       error ("cast to union type from type not present in union");
@@ -4197,10 +4196,7 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
       if (TREE_CODE (mvr) != ARRAY_TYPE)
 	mvr = TYPE_MAIN_VARIANT (mvr);
       /* Opaque pointers are treated like void pointers.  */
-      is_opaque_pointer = (targetm.vector_opaque_p (type)
-			   || targetm.vector_opaque_p (rhstype))
-	&& TREE_CODE (ttl) == VECTOR_TYPE
-	&& TREE_CODE (ttr) == VECTOR_TYPE;
+      is_opaque_pointer = vector_targets_convertible_p (ttl, ttr);
 
       /* C++ does not allow the implicit conversion void* -> T*.  However,
 	 for the purpose of reducing the number of false positives, we
@@ -5608,7 +5604,7 @@ pop_init_level (int implicit)
 	  ret.value = build_constructor (constructor_type,
 					 constructor_elements);
 	  if (constructor_constant)
-	    TREE_CONSTANT (ret.value) = TREE_INVARIANT (ret.value) = 1;
+	    TREE_CONSTANT (ret.value) = 1;
 	  if (constructor_constant && constructor_simple)
 	    TREE_STATIC (ret.value) = 1;
 	}
@@ -7121,7 +7117,7 @@ c_finish_return (tree retval)
 	{
 	  switch (TREE_CODE (inner))
 	    {
-	    case NOP_EXPR:   case NON_LVALUE_EXPR:  case CONVERT_EXPR:
+	    CASE_CONVERT:   case NON_LVALUE_EXPR:
 	    case PLUS_EXPR:
 	      inner = TREE_OPERAND (inner, 0);
 	      continue;
@@ -7134,9 +7130,8 @@ c_finish_return (tree retval)
 		tree op1 = TREE_OPERAND (inner, 1);
 
 		while (!POINTER_TYPE_P (TREE_TYPE (op1))
-		       && (TREE_CODE (op1) == NOP_EXPR
-			   || TREE_CODE (op1) == NON_LVALUE_EXPR
-			   || TREE_CODE (op1) == CONVERT_EXPR))
+		       && (CONVERT_EXPR_P (op1)
+			   || TREE_CODE (op1) == NON_LVALUE_EXPR))
 		  op1 = TREE_OPERAND (op1, 0);
 
 		if (POINTER_TYPE_P (TREE_TYPE (op1)))
@@ -8655,8 +8650,7 @@ c_objc_common_truthvalue_conversion (tree expr)
    required.  */
 
 tree
-c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
-		bool *ti ATTRIBUTE_UNUSED, bool *se)
+c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED, bool *se)
 {
   if (TREE_CODE (expr) == COMPOUND_LITERAL_EXPR)
     {
@@ -8684,6 +8678,8 @@ c_begin_omp_parallel (void)
   return block;
 }
 
+/* Generate OMP_PARALLEL, with CLAUSES and BLOCK as its compound statement.  */
+
 tree
 c_finish_omp_parallel (tree clauses, tree block)
 {
@@ -8695,6 +8691,36 @@ c_finish_omp_parallel (tree clauses, tree block)
   TREE_TYPE (stmt) = void_type_node;
   OMP_PARALLEL_CLAUSES (stmt) = clauses;
   OMP_PARALLEL_BODY (stmt) = block;
+
+  return add_stmt (stmt);
+}
+
+/* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
+
+tree
+c_begin_omp_task (void)
+{
+  tree block;
+
+  keep_next_level ();
+  block = c_begin_compound_stmt (true);
+
+  return block;
+}
+
+/* Generate OMP_TASK, with CLAUSES and BLOCK as its compound statement.  */
+
+tree
+c_finish_omp_task (tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (block, true);
+
+  stmt = make_node (OMP_TASK);
+  TREE_TYPE (stmt) = void_type_node;
+  OMP_TASK_CLAUSES (stmt) = clauses;
+  OMP_TASK_BODY (stmt) = block;
 
   return add_stmt (stmt);
 }
@@ -8859,6 +8885,8 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
+	case OMP_CLAUSE_UNTIED:
+	case OMP_CLAUSE_COLLAPSE:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 

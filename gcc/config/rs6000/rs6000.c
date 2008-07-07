@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -174,8 +174,14 @@ int rs6000_ieeequad;
 /* Nonzero to use AltiVec ABI.  */
 int rs6000_altivec_abi;
 
+/* Nonzero if we want SPE SIMD instructions.  */
+int rs6000_spe;
+
 /* Nonzero if we want SPE ABI extensions.  */
 int rs6000_spe_abi;
+
+/* Nonzero to use isel instructions.  */
+int rs6000_isel;
 
 /* Nonzero if floating point operations are done in the GPRs.  */
 int rs6000_float_gprs = 0;
@@ -688,6 +694,25 @@ struct processor_costs ppce300c2c3_cost = {
   1,			/* prefetch streams /*/
 };
 
+/* Instruction costs on PPCE500MC processors.  */
+static const
+struct processor_costs ppce500mc_cost = {
+  COSTS_N_INSNS (4),    /* mulsi */
+  COSTS_N_INSNS (4),    /* mulsi_const */
+  COSTS_N_INSNS (4),    /* mulsi_const9 */
+  COSTS_N_INSNS (4),    /* muldi */
+  COSTS_N_INSNS (14),   /* divsi */
+  COSTS_N_INSNS (14),   /* divdi */
+  COSTS_N_INSNS (8),    /* fp */
+  COSTS_N_INSNS (10),   /* dmul */
+  COSTS_N_INSNS (36),   /* sdiv */
+  COSTS_N_INSNS (66),   /* ddiv */
+  64,			/* cache line size */
+  32,			/* l1 cache */
+  128,			/* l2 cache */
+  1,			/* prefetch streams /*/
+};
+
 /* Instruction costs on POWER4 and POWER5 processors.  */
 static const
 struct processor_costs power4_cost = {
@@ -736,7 +761,7 @@ static bool spe_func_has_64bit_regs_p (void);
 static void emit_frame_save (rtx, rtx, enum machine_mode, unsigned int,
 			     int, HOST_WIDE_INT);
 static rtx gen_frame_mem_offset (enum machine_mode, rtx, int);
-static void rs6000_emit_allocate_stack (HOST_WIDE_INT, int);
+static void rs6000_emit_allocate_stack (HOST_WIDE_INT, int, int);
 static unsigned rs6000_hash_constant (rtx);
 static unsigned toc_hash_function (const void *);
 static int toc_hash_eq (const void *, const void *);
@@ -746,7 +771,7 @@ static bool legitimate_small_data_p (enum machine_mode, rtx);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
 static bool rs6000_assemble_integer (rtx, unsigned int, int);
-static bool no_global_regs_above (int);
+static bool no_global_regs_above (int, bool);
 #ifdef HAVE_GAS_HIDDEN
 static void rs6000_assemble_visibility (tree, int);
 #endif
@@ -759,7 +784,13 @@ static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_type (const_tree);
 extern const struct attribute_spec rs6000_attribute_table[];
 static void rs6000_set_default_type_attributes (tree);
+static rtx rs6000_savres_routine_sym (rs6000_stack_t *, bool, bool, bool);
+static void rs6000_emit_stack_reset (rs6000_stack_t *, rtx, rtx, int, bool);
+static rtx rs6000_make_savres_rtx (rs6000_stack_t *, rtx, int,
+				   enum machine_mode, bool, bool, bool);
 static bool rs6000_reg_live_or_pic_offset_p (int);
+static int rs6000_savres_strategy (rs6000_stack_t *, bool, int, int);
+static void rs6000_restore_saved_cr (rtx, int);
 static void rs6000_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void rs6000_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void rs6000_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT,
@@ -1429,6 +1460,10 @@ rs6000_override_options (const char *default_cpu)
 	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
 	 {"440fp", PROCESSOR_PPC440,
 	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
+	 {"464", PROCESSOR_PPC440,
+	  POWERPC_BASE_MASK | MASK_SOFT_FLOAT | MASK_MULHW | MASK_DLMZB},
+	 {"464fp", PROCESSOR_PPC440,
+	  POWERPC_BASE_MASK | MASK_MULHW | MASK_DLMZB},
 	 {"505", PROCESSOR_MPCCORE, POWERPC_BASE_MASK},
 	 {"601", PROCESSOR_PPC601,
 	  MASK_POWER | POWERPC_BASE_MASK | MASK_MULTIPLE | MASK_STRING},
@@ -1453,6 +1488,7 @@ rs6000_override_options (const char *default_cpu)
 	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_STRICT_ALIGN},
 	 {"e300c2", PROCESSOR_PPCE300C2, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"e300c3", PROCESSOR_PPCE300C3, POWERPC_BASE_MASK},
+	 {"e500mc", PROCESSOR_PPCE500MC, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -1556,10 +1592,12 @@ rs6000_override_options (const char *default_cpu)
 	}
     }
 
-  if (TARGET_E500)
+  if ((TARGET_E500 || rs6000_cpu == PROCESSOR_PPCE500MC)
+      && !rs6000_explicit_options.isel)
     rs6000_isel = 1;
 
-  if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3)
+  if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3
+      || rs6000_cpu == PROCESSOR_PPCE500MC)
     {
       if (TARGET_ALTIVEC)
 	error ("AltiVec not supported in this target");
@@ -1676,9 +1714,9 @@ rs6000_override_options (const char *default_cpu)
   SUB3TARGET_OVERRIDE_OPTIONS;
 #endif
 
-  if (TARGET_E500)
+  if (TARGET_E500 || rs6000_cpu == PROCESSOR_PPCE500MC)
     {
-      /* The e500 does not have string instructions, and we set
+      /* The e500 and e500mc do not have string instructions, and we set
 	 MASK_STRING above when optimizing for size.  */
       if ((target_flags & MASK_STRING) != 0)
 	target_flags = target_flags & ~MASK_STRING;
@@ -1889,6 +1927,10 @@ rs6000_override_options (const char *default_cpu)
       case PROCESSOR_PPCE300C2:
       case PROCESSOR_PPCE300C3:
 	rs6000_cost = &ppce300c2c3_cost;
+	break;
+
+      case PROCESSOR_PPCE500MC:
+	rs6000_cost = &ppce500mc_cost;
 	break;
 
       case PROCESSOR_POWER4:
@@ -2190,9 +2232,19 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
       break;
 
+    case OPT_misel:
+      rs6000_explicit_options.isel = true;
+      rs6000_isel = value;
+      break;
+
     case OPT_misel_:
       rs6000_explicit_options.isel = true;
       rs6000_parse_yes_no_option ("isel", arg, &(rs6000_isel));
+      break;
+
+    case OPT_mspe:
+      rs6000_explicit_options.spe = true;
+      rs6000_spe = value;
       break;
 
     case OPT_mspe_:
@@ -3192,24 +3244,26 @@ invalid_e500_subreg (rtx op, enum machine_mode mode)
   if (TARGET_E500_DOUBLE)
     {
       /* Reject (subreg:SI (reg:DF)); likewise with subreg:DI or
-	 subreg:TI and reg:TF.  */
+	 subreg:TI and reg:TF.  Decimal float modes are like integer
+	 modes (only low part of each register used) for this
+	 purpose.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == SImode || mode == DImode || mode == TImode)
+	  && (mode == SImode || mode == DImode || mode == TImode
+	      || mode == DDmode || mode == TDmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DFmode
-	      || GET_MODE (SUBREG_REG (op)) == TFmode
-	      || GET_MODE (SUBREG_REG (op)) == DDmode
-	      || GET_MODE (SUBREG_REG (op)) == TDmode))
+	      || GET_MODE (SUBREG_REG (op)) == TFmode))
 	return true;
 
       /* Reject (subreg:DF (reg:DI)); likewise with subreg:TF and
 	 reg:TI.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == DFmode || mode == TFmode
-	      || mode == DDmode || mode == TDmode)
+	  && (mode == DFmode || mode == TFmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DImode
-	      || GET_MODE (SUBREG_REG (op)) == TImode))
+	      || GET_MODE (SUBREG_REG (op)) == TImode
+	      || GET_MODE (SUBREG_REG (op)) == DDmode
+	      || GET_MODE (SUBREG_REG (op)) == TDmode))
 	return true;
     }
 
@@ -3460,10 +3514,10 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
-    case DDmode:
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
+    case DDmode:
     case DImode:
       /* On e500v2, we may have:
 
@@ -3480,11 +3534,11 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       break;
 
     case TFmode:
-    case TDmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
 
+    case TDmode:
     case TImode:
       if (mode == TFmode || mode == TDmode || !TARGET_POWERPC64)
 	extra = 12;
@@ -3631,7 +3685,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !(SPE_VECTOR_MODE (mode)
 	   || ALTIVEC_VECTOR_MODE (mode)
 	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-				      || mode == DImode))))
+				      || mode == DImode || mode == DDmode
+				      || mode == TDmode))))
     {
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
@@ -3648,7 +3703,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
 	       || ((mode != DImode && mode != DFmode && mode != DDmode)
-		   || TARGET_E500_DOUBLE))
+		   || (TARGET_E500_DOUBLE && mode != DDmode)))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode
 	   && mode != TFmode
@@ -3697,7 +3752,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
             reg + offset] is not a legitimate addressing mode.  */
          y = gen_rtx_PLUS (Pmode, op1, op2);
 
-         if (GET_MODE_SIZE (mode) > 8 && REG_P (op2))
+         if ((GET_MODE_SIZE (mode) > 8 || mode == DDmode) && REG_P (op2))
            return force_reg (Pmode, y);
          else
            return y;
@@ -3739,6 +3794,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       return gen_rtx_LO_SUM (Pmode, reg, x);
     }
   else if (TARGET_TOC
+	   && GET_CODE (x) == SYMBOL_REF
 	   && constant_pool_expr_p (x)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), Pmode))
     {
@@ -3882,7 +3938,6 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
 		  last = emit_move_insn (got, tmp3);
 		  set_unique_reg_note (last, REG_EQUAL, gsym);
-		  maybe_encapsulate_block (first, last, gsym);
 		}
 	    }
 	}
@@ -3890,16 +3945,20 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
       if (model == TLS_MODEL_GLOBAL_DYNAMIC)
 	{
 	  r3 = gen_rtx_REG (Pmode, 3);
-	  if (TARGET_64BIT)
-	    insn = gen_tls_gd_64 (r3, got, addr);
+	  tga = rs6000_tls_get_addr ();
+
+	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+	    insn = gen_tls_gd_aix64 (r3, got, addr, tga, const0_rtx);
+	  else if (DEFAULT_ABI == ABI_AIX && !TARGET_64BIT)
+	    insn = gen_tls_gd_aix32 (r3, got, addr, tga, const0_rtx);
+	  else if (DEFAULT_ABI == ABI_V4)
+	    insn = gen_tls_gd_sysvsi (r3, got, addr, tga, const0_rtx);
 	  else
-	    insn = gen_tls_gd_32 (r3, got, addr);
+	    gcc_unreachable ();
+
 	  start_sequence ();
-	  emit_insn (insn);
-	  tga = gen_rtx_MEM (Pmode, rs6000_tls_get_addr ());
-	  insn = gen_call_value (r3, tga, const0_rtx, const0_rtx);
 	  insn = emit_call_insn (insn);
-	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  RTL_CONST_CALL_P (insn) = 1;
 	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
 	  insn = get_insns ();
 	  end_sequence ();
@@ -3908,16 +3967,20 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
       else if (model == TLS_MODEL_LOCAL_DYNAMIC)
 	{
 	  r3 = gen_rtx_REG (Pmode, 3);
-	  if (TARGET_64BIT)
-	    insn = gen_tls_ld_64 (r3, got);
+	  tga = rs6000_tls_get_addr ();
+
+	  if (DEFAULT_ABI == ABI_AIX && TARGET_64BIT)
+	    insn = gen_tls_ld_aix64 (r3, got, tga, const0_rtx);
+	  else if (DEFAULT_ABI == ABI_AIX && !TARGET_64BIT)
+	    insn = gen_tls_ld_aix32 (r3, got, tga, const0_rtx);
+	  else if (DEFAULT_ABI == ABI_V4)
+	    insn = gen_tls_ld_sysvsi (r3, got, tga, const0_rtx);
 	  else
-	    insn = gen_tls_ld_32 (r3, got);
+	    gcc_unreachable ();
+
 	  start_sequence ();
-	  emit_insn (insn);
-	  tga = gen_rtx_MEM (Pmode, rs6000_tls_get_addr ());
-	  insn = gen_call_value (r3, tga, const0_rtx, const0_rtx);
 	  insn = emit_call_insn (insn);
-	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  RTL_CONST_CALL_P (insn) = 1;
 	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
 	  insn = get_insns ();
 	  end_sequence ();
@@ -4176,6 +4239,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
     }
 
   if (TARGET_TOC
+      && GET_CODE (x) == SYMBOL_REF
       && constant_pool_expr_p (x)
       && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
@@ -4249,7 +4313,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && mode != TDmode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || ((mode != DFmode && mode != DDmode) || TARGET_E500_DOUBLE))
+	  || (mode != DFmode && mode != DDmode)
+	  || (TARGET_E500_DOUBLE && mode != DDmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
@@ -4304,8 +4369,7 @@ rs6000_mode_dependent_address (rtx addr)
     case LO_SUM:
       return true;
 
-    case PRE_INC:
-    case PRE_DEC:
+    /* Auto-increment cases are now treated generically in recog.c.  */
     case PRE_MODIFY:
       return TARGET_UPDATE;
 
@@ -4373,7 +4437,8 @@ rs6000_hard_regno_nregs (int regno, enum machine_mode mode)
      would require function_arg and rs6000_spe_function_arg to handle
      SCmode so as to pass the value correctly in a pair of
      registers.  */
-  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode)
+  if (TARGET_E500_DOUBLE && FLOAT_MODE_P (mode) && mode != SCmode
+      && !DECIMAL_FLOAT_MODE_P (mode))
     return (GET_MODE_SIZE (mode) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD;
 
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -4984,7 +5049,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	     This should not be done for operands that contain LABEL_REFs.
 	     For now, we just handle the obvious case.  */
 	  if (GET_CODE (operands[1]) != LABEL_REF)
-	    emit_insn (gen_rtx_USE (VOIDmode, operands[1]));
+	    emit_use (operands[1]);
 
 #if TARGET_MACHO
 	  /* Darwin uses a special PIC legitimizer.  */
@@ -5026,6 +5091,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  operands[1] = force_const_mem (mode, operands[1]);
 
 	  if (TARGET_TOC
+	      && GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
 	      && constant_pool_expr_p (XEXP (operands[1], 0))
 	      && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (
 			get_pool_constant (XEXP (operands[1], 0)),
@@ -5647,14 +5713,12 @@ spe_build_register_parallel (enum machine_mode mode, int gregno)
   switch (mode)
     {
     case DFmode:
-    case DDmode:
       r1 = gen_rtx_REG (DImode, gregno);
       r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
       return gen_rtx_PARALLEL (mode, gen_rtvec (1, r1));
 
     case DCmode:
     case TFmode:
-    case TDmode:
       r1 = gen_rtx_REG (DImode, gregno);
       r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
       r3 = gen_rtx_REG (DImode, gregno + 2);
@@ -5687,13 +5751,12 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   /* On E500 v2, double arithmetic is done on the full 64-bit GPR, but
      are passed and returned in a pair of GPRs for ABI compatibility.  */
   if (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-			     || mode == DDmode || mode == TDmode
 			     || mode == DCmode || mode == TCmode))
     {
       int n_words = rs6000_arg_size (mode, type);
 
       /* Doubles go in an odd/even register pair (r5/r6, etc).  */
-      if (mode == DFmode || mode == DDmode)
+      if (mode == DFmode)
 	gregno += (1 - gregno) & 1;
 
       /* Multi-reg args are not split between registers and stack.  */
@@ -6106,10 +6169,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   else if (TARGET_SPE_ABI && TARGET_SPE
 	   && (SPE_VECTOR_MODE (mode)
 	       || (TARGET_E500_DOUBLE && (mode == DFmode
-					  || mode == DDmode
 					  || mode == DCmode
 					  || mode == TFmode
-					  || mode == TDmode
 					  || mode == TCmode))))
     return rs6000_spe_function_arg (cum, mode, type);
 
@@ -6868,7 +6929,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* _Decimal32 varargs are located in the second word of the 64-bit
 	 FP register for 32-bit binaries.  */
-      if (!TARGET_POWERPC64 && TYPE_MODE (type) == SDmode)
+      if (!TARGET_POWERPC64
+	  && TARGET_HARD_FLOAT && TARGET_FPRS
+	  && TYPE_MODE (type) == SDmode)
 	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
 
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
@@ -7106,20 +7169,20 @@ static struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vrlb, "__builtin_altivec_vrlb", ALTIVEC_BUILTIN_VRLB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vrlh, "__builtin_altivec_vrlh", ALTIVEC_BUILTIN_VRLH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vrlw, "__builtin_altivec_vrlw", ALTIVEC_BUILTIN_VRLW },
-  { MASK_ALTIVEC, CODE_FOR_ashlv16qi3, "__builtin_altivec_vslb", ALTIVEC_BUILTIN_VSLB },
-  { MASK_ALTIVEC, CODE_FOR_ashlv8hi3, "__builtin_altivec_vslh", ALTIVEC_BUILTIN_VSLH },
-  { MASK_ALTIVEC, CODE_FOR_ashlv4si3, "__builtin_altivec_vslw", ALTIVEC_BUILTIN_VSLW },
+  { MASK_ALTIVEC, CODE_FOR_vashlv16qi3, "__builtin_altivec_vslb", ALTIVEC_BUILTIN_VSLB },
+  { MASK_ALTIVEC, CODE_FOR_vashlv8hi3, "__builtin_altivec_vslh", ALTIVEC_BUILTIN_VSLH },
+  { MASK_ALTIVEC, CODE_FOR_vashlv4si3, "__builtin_altivec_vslw", ALTIVEC_BUILTIN_VSLW },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsl, "__builtin_altivec_vsl", ALTIVEC_BUILTIN_VSL },
   { MASK_ALTIVEC, CODE_FOR_altivec_vslo, "__builtin_altivec_vslo", ALTIVEC_BUILTIN_VSLO },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltb, "__builtin_altivec_vspltb", ALTIVEC_BUILTIN_VSPLTB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsplth, "__builtin_altivec_vsplth", ALTIVEC_BUILTIN_VSPLTH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vspltw, "__builtin_altivec_vspltw", ALTIVEC_BUILTIN_VSPLTW },
-  { MASK_ALTIVEC, CODE_FOR_lshrv16qi3, "__builtin_altivec_vsrb", ALTIVEC_BUILTIN_VSRB },
-  { MASK_ALTIVEC, CODE_FOR_lshrv8hi3, "__builtin_altivec_vsrh", ALTIVEC_BUILTIN_VSRH },
-  { MASK_ALTIVEC, CODE_FOR_lshrv4si3, "__builtin_altivec_vsrw", ALTIVEC_BUILTIN_VSRW },
-  { MASK_ALTIVEC, CODE_FOR_ashrv16qi3, "__builtin_altivec_vsrab", ALTIVEC_BUILTIN_VSRAB },
-  { MASK_ALTIVEC, CODE_FOR_ashrv8hi3, "__builtin_altivec_vsrah", ALTIVEC_BUILTIN_VSRAH },
-  { MASK_ALTIVEC, CODE_FOR_ashrv4si3, "__builtin_altivec_vsraw", ALTIVEC_BUILTIN_VSRAW },
+  { MASK_ALTIVEC, CODE_FOR_vlshrv16qi3, "__builtin_altivec_vsrb", ALTIVEC_BUILTIN_VSRB },
+  { MASK_ALTIVEC, CODE_FOR_vlshrv8hi3, "__builtin_altivec_vsrh", ALTIVEC_BUILTIN_VSRH },
+  { MASK_ALTIVEC, CODE_FOR_vlshrv4si3, "__builtin_altivec_vsrw", ALTIVEC_BUILTIN_VSRW },
+  { MASK_ALTIVEC, CODE_FOR_vashrv16qi3, "__builtin_altivec_vsrab", ALTIVEC_BUILTIN_VSRAB },
+  { MASK_ALTIVEC, CODE_FOR_vashrv8hi3, "__builtin_altivec_vsrah", ALTIVEC_BUILTIN_VSRAH },
+  { MASK_ALTIVEC, CODE_FOR_vashrv4si3, "__builtin_altivec_vsraw", ALTIVEC_BUILTIN_VSRAW },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsr, "__builtin_altivec_vsr", ALTIVEC_BUILTIN_VSR },
   { MASK_ALTIVEC, CODE_FOR_altivec_vsro, "__builtin_altivec_vsro", ALTIVEC_BUILTIN_VSRO },
   { MASK_ALTIVEC, CODE_FOR_subv16qi3, "__builtin_altivec_vsububm", ALTIVEC_BUILTIN_VSUBUBM },
@@ -9101,6 +9164,7 @@ build_opaque_vector_type (tree node, int nunits)
 {
   node = copy_node (node);
   TYPE_MAIN_VARIANT (node) = node;
+  TYPE_CANONICAL (node) = node;
   return build_vector_type (node, nunits);
 }
 
@@ -11462,7 +11526,7 @@ rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
       && !df_regs_ever_live_p (RS6000_PIC_OFFSET_TABLE_REGNUM))
     df_set_regs_ever_live (RS6000_PIC_OFFSET_TABLE_REGNUM, true);
 
-  current_function_uses_pic_offset_table = 1;
+  crtl->uses_pic_offset_table = 1;
 
   return pic_offset_table_rtx;
 }
@@ -11474,7 +11538,7 @@ rs6000_got_register (rtx value ATTRIBUTE_UNUSED)
 static struct machine_function *
 rs6000_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (machine_function));
+  return GGC_CNEW (machine_function);
 }
 
 /* These macros test for integers and extract the low-order bits.  */
@@ -12344,13 +12408,14 @@ print_operand_address (FILE *file, rtx x)
 
 	  minus = XEXP (contains_minus, 0);
 	  symref = XEXP (minus, 0);
+	  gcc_assert (GET_CODE (XEXP (minus, 1)) == SYMBOL_REF);
 	  XEXP (contains_minus, 0) = symref;
 	  if (TARGET_ELF)
 	    {
 	      char *newname;
 
 	      name = XSTR (symref, 0);
-	      newname = alloca (strlen (name) + sizeof ("@toc"));
+	      newname = XALLOCAVEC (char, strlen (name) + sizeof ("@toc"));
 	      strcpy (newname, name);
 	      strcat (newname, "@toc");
 	      XSTR (symref, 0) = newname;
@@ -13997,8 +14062,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
     reg_mode = DECIMAL_FLOAT_MODE_P (mode) ? DDmode : DFmode;
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
-  else if (TARGET_E500_DOUBLE && (mode == TFmode || mode == TDmode))
-    reg_mode = DECIMAL_FLOAT_MODE_P (mode) ? DDmode : DFmode;
+  else if (TARGET_E500_DOUBLE && mode == TFmode)
+    reg_mode = DFmode;
   else
     reg_mode = word_mode;
   reg_mode_size = GET_MODE_SIZE (reg_mode);
@@ -14141,7 +14206,7 @@ first_reg_to_save (void)
 
 #if TARGET_MACHO
   if (flag_pic
-      && current_function_uses_pic_offset_table
+      && crtl->uses_pic_offset_table
       && first_reg > RS6000_PIC_OFFSET_TABLE_REGNUM)
     return RS6000_PIC_OFFSET_TABLE_REGNUM;
 #endif
@@ -14178,7 +14243,7 @@ first_altivec_reg_to_save (void)
   /* On Darwin, the unwind routines are compiled without
      TARGET_ALTIVEC, and use save_world to save/restore the
      altivec registers when necessary.  */
-  if (DEFAULT_ABI == ABI_DARWIN && current_function_calls_eh_return
+  if (DEFAULT_ABI == ABI_DARWIN && crtl->calls_eh_return
       && ! TARGET_ALTIVEC)
     return FIRST_ALTIVEC_REGNO + 20;
 
@@ -14202,7 +14267,7 @@ compute_vrsave_mask (void)
   /* On Darwin, the unwind routines are compiled without
      TARGET_ALTIVEC, and use save_world to save/restore the
      call-saved altivec registers when necessary.  */
-  if (DEFAULT_ABI == ABI_DARWIN && current_function_calls_eh_return
+  if (DEFAULT_ABI == ABI_DARWIN && crtl->calls_eh_return
       && ! TARGET_ALTIVEC)
     mask |= 0xFFF;
 
@@ -14244,7 +14309,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
   info_ptr->world_save_p
     = (WORLD_SAVE_P (info_ptr)
        && DEFAULT_ABI == ABI_DARWIN
-       && ! (current_function_calls_setjmp && flag_exceptions)
+       && ! (cfun->calls_setjmp && flag_exceptions)
        && info_ptr->first_fp_reg_save == FIRST_SAVED_FP_REGNO
        && info_ptr->first_gp_reg_save == FIRST_SAVED_GP_REGNO
        && info_ptr->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
@@ -14429,7 +14494,7 @@ rs6000_stack_info (void)
   if (((TARGET_TOC && TARGET_MINIMAL_TOC)
        || (flag_pic == 1 && DEFAULT_ABI == ABI_V4)
        || (flag_pic && DEFAULT_ABI == ABI_DARWIN))
-      && current_function_uses_const_pool
+      && crtl->uses_const_pool
       && info_ptr->first_gp_reg_save > RS6000_PIC_OFFSET_TABLE_REGNUM)
     first_gp = RS6000_PIC_OFFSET_TABLE_REGNUM;
   else
@@ -14465,14 +14530,14 @@ rs6000_stack_info (void)
 
   /* Determine if we need to save the link register.  */
   if ((DEFAULT_ABI == ABI_AIX
-       && current_function_profile
+       && crtl->profile
        && !TARGET_PROFILE_KERNEL)
 #ifdef TARGET_RELOCATABLE
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
 #endif
       || (info_ptr->first_fp_reg_save != 64
 	  && !FP_SAVE_INLINE (info_ptr->first_fp_reg_save))
-      || (DEFAULT_ABI == ABI_V4 && current_function_calls_alloca)
+      || (DEFAULT_ABI == ABI_V4 && cfun->calls_alloca)
       || info_ptr->calls_p
       || rs6000_ra_ever_killed ())
     {
@@ -14493,7 +14558,7 @@ rs6000_stack_info (void)
   /* If the current function calls __builtin_eh_return, then we need
      to allocate stack space for registers that will hold data for
      the exception handler.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     {
       unsigned int i;
       for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM; ++i)
@@ -14588,7 +14653,7 @@ rs6000_stack_info (void)
 	{
 	  /* Align stack so SPE GPR save area is aligned on a
 	     double-word boundary.  */
-	  if (info_ptr->spe_gp_size != 0)
+	  if (info_ptr->spe_gp_size != 0 && info_ptr->cr_save_offset != 0)
 	    info_ptr->spe_padding_size
 	      = 8 - (-info_ptr->cr_save_offset % 8);
 	  else
@@ -14712,9 +14777,9 @@ spe_func_has_64bit_regs_p (void)
 
   /* Functions that save and restore all the call-saved registers will
      need to save/restore the registers in 64-bits.  */
-  if (current_function_calls_eh_return
-      || current_function_calls_setjmp
-      || current_function_has_nonlocal_goto)
+  if (crtl->calls_eh_return
+      || cfun->calls_setjmp
+      || crtl->has_nonlocal_goto)
     return true;
 
   insns = get_insns ();
@@ -14739,8 +14804,7 @@ spe_func_has_64bit_regs_p (void)
 
 	      if (SPE_VECTOR_MODE (mode))
 		return true;
-	      if (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-					 || mode == DDmode || mode == TDmode))
+	      if (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode))
 		return true;
 	    }
 	}
@@ -14966,7 +15030,7 @@ rs6000_ra_ever_killed (void)
   rtx reg;
   rtx insn;
 
-  if (current_function_is_thunk)
+  if (crtl->is_thunk)
     return 0;
 
   /* regs_ever_live has LR marked as used if any sibcalls are present,
@@ -15122,7 +15186,7 @@ rs6000_emit_eh_reg_restore (rtx source, rtx scratch)
       rtx tmp;
 
       if (frame_pointer_needed
-	  || current_function_calls_alloca
+	  || cfun->calls_alloca
 	  || info->total_size > 32767)
 	{
 	  tmp = gen_frame_mem (Pmode, frame_rtx);
@@ -15244,10 +15308,12 @@ rs6000_emit_stack_tie (void)
 
 /* Emit the correct code for allocating stack space, as insns.
    If COPY_R12, make sure a copy of the old frame is left in r12.
+   If COPY_R11, make sure a copy of the old frame is left in r11,
+   in preference to r12 if COPY_R12.
    The generated code may use hard register 0 as a temporary.  */
 
 static void
-rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
+rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12, int copy_r11)
 {
   rtx insn;
   rtx stack_reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
@@ -15261,7 +15327,7 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
       return;
     }
 
-  if (current_function_limit_stack)
+  if (crtl->limit_stack)
     {
       if (REG_P (stack_limit_rtx)
 	  && REGNO (stack_limit_rtx) > 1
@@ -15296,8 +15362,11 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
 	warning (0, "stack limit expression is not supported");
     }
 
-  if (copy_r12 || ! TARGET_UPDATE)
-    emit_move_insn (gen_rtx_REG (Pmode, 12), stack_reg);
+  if (copy_r12 || copy_r11 || ! TARGET_UPDATE)
+    emit_move_insn (copy_r11
+                    ? gen_rtx_REG (Pmode, 11)
+                    : gen_rtx_REG (Pmode, 12),
+                    stack_reg);
 
   if (TARGET_UPDATE)
     {
@@ -15323,7 +15392,9 @@ rs6000_emit_allocate_stack (HOST_WIDE_INT size, int copy_r12)
 			? gen_addsi3 (stack_reg, stack_reg, todec)
 			: gen_adddi3 (stack_reg, stack_reg, todec));
       emit_move_insn (gen_rtx_MEM (Pmode, stack_reg),
-		      gen_rtx_REG (Pmode, 12));
+		      copy_r11
+                      ? gen_rtx_REG (Pmode, 11)
+                      : gen_rtx_REG (Pmode, 12));
     }
 
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -15491,7 +15562,7 @@ emit_frame_save (rtx frame_reg, rtx frame_ptr, enum machine_mode mode,
 
   /* Some cases that need register indexed addressing.  */
   if ((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
-      || (TARGET_E500_DOUBLE && (mode == DFmode || mode == DDmode))
+      || (TARGET_E500_DOUBLE && mode == DFmode)
       || (TARGET_SPE_ABI
 	  && SPE_VECTOR_MODE (mode)
 	  && !SPE_CONST_OFFSET_OK (offset)))
@@ -15531,7 +15602,7 @@ gen_frame_mem_offset (enum machine_mode mode, rtx reg, int offset)
   int_rtx = GEN_INT (offset);
 
   if ((TARGET_SPE_ABI && SPE_VECTOR_MODE (mode))
-      || (TARGET_E500_DOUBLE && (mode == DFmode || mode == DDmode)))
+      || (TARGET_E500_DOUBLE && mode == DFmode))
     {
       offset_rtx = gen_rtx_REG (Pmode, FIXED_SCRATCH);
       emit_move_insn (offset_rtx, int_rtx);
@@ -15546,11 +15617,11 @@ gen_frame_mem_offset (enum machine_mode mode, rtx reg, int offset)
    and cannot use stmw/lmw if there are any in its range.  */
 
 static bool
-no_global_regs_above (int first_greg)
+no_global_regs_above (int first, bool gpr)
 {
   int i;
-  for (i = 0; i < 32 - first_greg; i++)
-    if (global_regs[first_greg + i])
+  for (i = first; i < gpr ? 32 : 64 ; i++)
+    if (global_regs[i])
       return false;
   return true;
 }
@@ -15558,6 +15629,163 @@ no_global_regs_above (int first_greg)
 #ifndef TARGET_FIX_AND_CONTINUE
 #define TARGET_FIX_AND_CONTINUE 0
 #endif
+
+/* It's really GPR 13 and FPR 14, but we need the smaller of the two.  */
+#define FIRST_SAVRES_REGISTER FIRST_SAVED_GP_REGNO
+#define LAST_SAVRES_REGISTER 31
+#define N_SAVRES_REGISTERS (LAST_SAVRES_REGISTER - FIRST_SAVRES_REGISTER + 1)
+
+static GTY(()) rtx savres_routine_syms[N_SAVRES_REGISTERS][8];
+
+/* Return the symbol for an out-of-line register save/restore routine.
+   We are saving/restoring GPRs if GPR is true.  */
+
+static rtx
+rs6000_savres_routine_sym (rs6000_stack_t *info, bool savep, bool gpr, bool exitp)
+{
+  int regno = gpr ? info->first_gp_reg_save : (info->first_fp_reg_save - 32);
+  rtx sym;
+  int select = ((savep ? 1 : 0) << 2
+		| (gpr
+		   /* On the SPE, we never have any FPRs, but we do have
+		      32/64-bit versions of the routines.  */
+		   ? (TARGET_SPE_ABI && info->spe_64bit_regs_used ? 1 : 0)
+		   : 0) << 1
+		| (exitp ? 1: 0));
+
+  /* Don't generate bogus routine names.  */
+  gcc_assert (FIRST_SAVRES_REGISTER <= regno && regno <= LAST_SAVRES_REGISTER);
+
+  sym = savres_routine_syms[regno-FIRST_SAVRES_REGISTER][select];
+
+  if (sym == NULL)
+    {
+      char name[30];
+      const char *action;
+      const char *regkind;
+      const char *exit_suffix;
+
+      action = savep ? "save" : "rest";
+
+      /* SPE has slightly different names for its routines depending on
+	 whether we are saving 32-bit or 64-bit registers.  */
+      if (TARGET_SPE_ABI)
+	{
+	  /* No floating point saves on the SPE.  */
+	  gcc_assert (gpr);
+
+	  regkind = info->spe_64bit_regs_used ? "64gpr" : "32gpr";
+	}
+      else
+	regkind = gpr ? "gpr" : "fpr";
+
+      exit_suffix = exitp ? "_x" : "";
+
+      sprintf (name, "_%s%s_%d%s", action, regkind, regno, exit_suffix);
+
+      sym = savres_routine_syms[regno-FIRST_SAVRES_REGISTER][select]
+	= gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
+    }
+
+  return sym;
+}
+
+/* Emit a sequence of insns, including a stack tie if needed, for
+   resetting the stack pointer.  If SAVRES is true, then don't reset the
+   stack pointer, but move the base of the frame into r11 for use by
+   out-of-line register restore routines.  */
+
+static void
+rs6000_emit_stack_reset (rs6000_stack_t *info,
+			 rtx sp_reg_rtx, rtx frame_reg_rtx,
+			 int sp_offset, bool savres)
+{
+  /* This blockage is needed so that sched doesn't decide to move
+     the sp change before the register restores.  */
+  if (frame_reg_rtx != sp_reg_rtx
+      || (TARGET_SPE_ABI
+	  && info->spe_64bit_regs_used != 0
+	  && info->first_gp_reg_save != 32))
+    rs6000_emit_stack_tie ();
+  
+  if (frame_reg_rtx != sp_reg_rtx)
+    {
+      rs6000_emit_stack_tie ();
+      if (sp_offset != 0)
+	emit_insn (gen_addsi3 (sp_reg_rtx, frame_reg_rtx,
+			       GEN_INT (sp_offset)));
+      else if (!savres)
+	emit_move_insn (sp_reg_rtx, frame_reg_rtx);
+    }
+  else if (sp_offset != 0)
+    {
+      /* If we are restoring registers out-of-line, we will be using the
+	 "exit" variants of the restore routines, which will reset the
+	 stack for us.	But we do need to point r11 into the right place
+	 for those routines.  */
+      rtx dest_reg = (savres
+		      ? gen_rtx_REG (Pmode, 11)
+		      : sp_reg_rtx);
+
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (dest_reg, sp_reg_rtx,
+			       GEN_INT (sp_offset))
+		 : gen_adddi3 (dest_reg, sp_reg_rtx,
+			       GEN_INT (sp_offset)));
+    }
+}
+
+/* Construct a parallel rtx describing the effect of a call to an
+   out-of-line register save/restore routine.  */
+
+static rtx
+rs6000_make_savres_rtx (rs6000_stack_t *info,
+			rtx frame_reg_rtx, int save_area_offset,
+			enum machine_mode reg_mode,
+			bool savep, bool gpr, bool exitp)
+{
+  int i;
+  int offset, start_reg, end_reg, n_regs;
+  int reg_size = GET_MODE_SIZE (reg_mode);
+  rtx sym;
+  rtvec p;
+
+  offset = 0;
+  start_reg = (gpr
+	       ? info->first_gp_reg_save
+	       : info->first_fp_reg_save);
+  end_reg = gpr ? 32 : 64;
+  n_regs = end_reg - start_reg;
+  p = rtvec_alloc ((exitp ? 4 : 3) + n_regs);
+
+  /* If we're saving registers, then we should never say we're exiting.	 */
+  gcc_assert ((savep && !exitp) || !savep);
+
+  if (exitp)
+    RTVEC_ELT (p, offset++) = gen_rtx_RETURN (VOIDmode);
+
+  RTVEC_ELT (p, offset++)
+    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 65));
+
+  sym = rs6000_savres_routine_sym (info, savep, gpr, exitp);
+  RTVEC_ELT (p, offset++) = gen_rtx_USE (VOIDmode, sym);
+  RTVEC_ELT (p, offset++) = gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 11));
+
+  for (i = 0; i < end_reg - start_reg; i++)
+    {
+      rtx addr, reg, mem;
+      reg = gen_rtx_REG (reg_mode, start_reg + i);
+      addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			   GEN_INT (save_area_offset + reg_size*i));
+      mem = gen_frame_mem (reg_mode, addr);
+
+      RTVEC_ELT (p, i + offset) = gen_rtx_SET (VOIDmode,
+					       savep ? mem : reg,
+					       savep ? reg : mem);
+    }
+
+  return gen_rtx_PARALLEL (VOIDmode, p);
+}
 
 /* Determine whether the gp REG is really used.  */
 
@@ -15573,6 +15801,85 @@ rs6000_reg_live_or_pic_offset_p (int reg)
                   || (DEFAULT_ABI == ABI_DARWIN && flag_pic))));
 }
 
+enum {
+  SAVRES_MULTIPLE = 0x1,
+  SAVRES_INLINE_FPRS = 0x2,
+  SAVRES_INLINE_GPRS = 0x4
+};
+
+/* Determine the strategy for savings/restoring registers.  */
+
+static int
+rs6000_savres_strategy (rs6000_stack_t *info, bool savep,
+			int using_static_chain_p, int sibcall)
+{
+  bool using_multiple_p;
+  bool common;
+  bool savres_fprs_inline;
+  bool savres_gprs_inline;
+  bool noclobber_global_gprs
+    = no_global_regs_above (info->first_gp_reg_save, /*gpr=*/true);
+
+  using_multiple_p = (TARGET_MULTIPLE && ! TARGET_POWERPC64
+		      && (!TARGET_SPE_ABI
+			  || info->spe_64bit_regs_used == 0)
+		      && info->first_gp_reg_save < 31
+		      && noclobber_global_gprs);
+  /* Don't bother to try to save things out-of-line if r11 is occupied
+     by the static chain.  It would require too much fiddling and the
+     static chain is rarely used anyway.  */
+  common = (using_static_chain_p
+	    || sibcall
+	    || crtl->calls_eh_return
+	    || !info->lr_save_p
+	    || cfun->machine->ra_need_lr
+	    || info->total_size > 32767);
+  savres_fprs_inline = (common
+			|| info->first_fp_reg_save == 64
+			|| !no_global_regs_above (info->first_fp_reg_save,
+						  /*gpr=*/false)
+			|| FP_SAVE_INLINE (info->first_fp_reg_save));
+  savres_gprs_inline = (common
+			/* Saving CR interferes with the exit routines
+			   used on the SPE, so just punt here.  */
+			|| (!savep
+			    && TARGET_SPE_ABI
+			    && info->spe_64bit_regs_used != 0
+			    && info->cr_save_p != 0)
+			|| info->first_gp_reg_save == 32
+			|| !noclobber_global_gprs
+			|| GP_SAVE_INLINE (info->first_gp_reg_save));
+
+  if (savep)
+    /* If we are going to use store multiple, then don't even bother
+     with the out-of-line routines, since the store-multiple instruction
+     will always be smaller.  */
+    savres_gprs_inline = savres_gprs_inline || using_multiple_p;
+  else
+    {
+      /* The situation is more complicated with load multiple.  We'd
+         prefer to use the out-of-line routines for restores, since the
+         "exit" out-of-line routines can handle the restore of LR and
+         the frame teardown.  But we can only use the out-of-line
+         routines if we know that we've used store multiple or
+         out-of-line routines in the prologue, i.e. if we've saved all
+         the registers from first_gp_reg_save.  Otherwise, we risk
+         loading garbage from the stack.  Furthermore, we can only use
+         the "exit" out-of-line gpr restore if we haven't saved any
+         fprs.  */
+      bool saved_all = !savres_gprs_inline || using_multiple_p;
+
+      if (saved_all && info->first_fp_reg_save != 64)
+	/* We can't use the exit routine; use load multiple if it's
+	   available.  */
+	savres_gprs_inline = savres_gprs_inline || using_multiple_p;
+    }
+
+  return (using_multiple_p
+	  | (savres_fprs_inline << 1)
+	  | (savres_gprs_inline << 2));
+}
+
 /* Emit function prologue as insns.  */
 
 void
@@ -15586,8 +15893,13 @@ rs6000_emit_prologue (void)
   rtx frame_reg_rtx = sp_reg_rtx;
   rtx cr_save_rtx = NULL_RTX;
   rtx insn;
+  int strategy;
   int saving_FPRs_inline;
+  int saving_GPRs_inline;
   int using_store_multiple;
+  int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
+                              && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
+                              && !call_used_regs[STATIC_CHAIN_REGNUM]);
   HOST_WIDE_INT sp_offset = 0;
 
   if (TARGET_FIX_AND_CONTINUE)
@@ -15610,33 +15922,37 @@ rs6000_emit_prologue (void)
       reg_size = 8;
     }
 
-  using_store_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
-			  && (!TARGET_SPE_ABI
-			      || info->spe_64bit_regs_used == 0)
-			  && info->first_gp_reg_save < 31
-			  && no_global_regs_above (info->first_gp_reg_save));
-  saving_FPRs_inline = (info->first_fp_reg_save == 64
-			|| FP_SAVE_INLINE (info->first_fp_reg_save)
-			|| current_function_calls_eh_return
-			|| cfun->machine->ra_need_lr);
+  strategy = rs6000_savres_strategy (info, /*savep=*/true,
+				     /*static_chain_p=*/using_static_chain_p,
+				     /*sibcall=*/0);
+  using_store_multiple = strategy & SAVRES_MULTIPLE;
+  saving_FPRs_inline = strategy & SAVRES_INLINE_FPRS;
+  saving_GPRs_inline = strategy & SAVRES_INLINE_GPRS;
 
   /* For V.4, update stack before we do any saving and set back pointer.  */
   if (! WORLD_SAVE_P (info)
       && info->push_p
       && (DEFAULT_ABI == ABI_V4
-	  || current_function_calls_eh_return))
+	  || crtl->calls_eh_return))
     {
+      bool need_r11 = (TARGET_SPE
+		       ? (!saving_GPRs_inline
+			  && info->spe_64bit_regs_used == 0)
+		       : (!saving_FPRs_inline || !saving_GPRs_inline));
       if (info->total_size < 32767)
 	sp_offset = info->total_size;
       else
-	frame_reg_rtx = frame_ptr_rtx;
+	frame_reg_rtx = (need_r11
+			 ? gen_rtx_REG (Pmode, 11)
+			 : frame_ptr_rtx);
       rs6000_emit_allocate_stack (info->total_size,
 				  (frame_reg_rtx != sp_reg_rtx
 				   && (info->cr_save_p
 				       || info->lr_save_p
 				       || info->first_fp_reg_save < 64
 				       || info->first_gp_reg_save < 32
-				       )));
+				       )),
+				  need_r11);
       if (frame_reg_rtx != sp_reg_rtx)
 	rs6000_emit_stack_tie ();
     }
@@ -15667,7 +15983,7 @@ rs6000_emit_prologue (void)
 		  && info->cr_save_offset == 4
 		  && info->push_p
 		  && info->lr_save_p
-		  && (!current_function_calls_eh_return
+		  && (!crtl->calls_eh_return
 		       || info->ehrd_offset == -432)
 		  && info->vrsave_save_offset == -224
 		  && info->altivec_save_offset == -416);
@@ -15813,40 +16129,147 @@ rs6000_emit_prologue (void)
     }
   else if (!WORLD_SAVE_P (info) && info->first_fp_reg_save != 64)
     {
-      int i;
-      char rname[30];
-      const char *alloc_rname;
-      rtvec p;
-      p = rtvec_alloc (2 + 64 - info->first_fp_reg_save);
+      rtx par;
 
-      RTVEC_ELT (p, 0) = gen_rtx_CLOBBER (VOIDmode,
-					  gen_rtx_REG (Pmode,
-						       LR_REGNO));
-      sprintf (rname, "%s%d%s", SAVE_FP_PREFIX,
-	       info->first_fp_reg_save - 32, SAVE_FP_SUFFIX);
-      alloc_rname = ggc_strdup (rname);
-      RTVEC_ELT (p, 1) = gen_rtx_USE (VOIDmode,
-				      gen_rtx_SYMBOL_REF (Pmode,
-							  alloc_rname));
-      for (i = 0; i < 64 - info->first_fp_reg_save; i++)
-	{
-	  rtx addr, reg, mem;
-	  reg = gen_rtx_REG (DFmode, info->first_fp_reg_save + i);
-	  addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
-			       GEN_INT (info->fp_save_offset
-					+ sp_offset + 8*i));
-	  mem = gen_frame_mem (DFmode, addr);
-
-	  RTVEC_ELT (p, i + 2) = gen_rtx_SET (VOIDmode, mem, reg);
-	}
-      insn = emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      par = rs6000_make_savres_rtx (info, frame_reg_rtx,
+				    info->fp_save_offset + sp_offset,
+				    DFmode,
+				    /*savep=*/true, /*gpr=*/false,
+				    /*exitp=*/false);
+      insn = emit_insn (par);
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
 			    NULL_RTX, NULL_RTX);
     }
 
   /* Save GPRs.  This is done as a PARALLEL if we are using
      the store-multiple instructions.  */
-  if (!WORLD_SAVE_P (info) && using_store_multiple)
+  if (!WORLD_SAVE_P (info)
+      && TARGET_SPE_ABI
+      && info->spe_64bit_regs_used != 0
+      && info->first_gp_reg_save != 32)
+    {
+      int i;
+      rtx spe_save_area_ptr;
+ 
+      /* Determine whether we can address all of the registers that need
+	 to be saved with an offset from the stack pointer that fits in
+	 the small const field for SPE memory instructions.  */
+      int spe_regs_addressable_via_sp
+	= (SPE_CONST_OFFSET_OK(info->spe_gp_save_offset + sp_offset
+			       + (32 - info->first_gp_reg_save - 1) * reg_size)
+	   && saving_GPRs_inline);
+      int spe_offset;
+ 
+      if (spe_regs_addressable_via_sp)
+	{
+	  spe_save_area_ptr = frame_reg_rtx;
+	  spe_offset = info->spe_gp_save_offset + sp_offset;
+	}
+      else
+	{
+	  /* Make r11 point to the start of the SPE save area.  We need
+	     to be careful here if r11 is holding the static chain.  If
+	     it is, then temporarily save it in r0.  We would use r0 as
+	     our base register here, but using r0 as a base register in
+	     loads and stores means something different from what we
+	     would like.  */
+	  int ool_adjust = (saving_GPRs_inline
+			    ? 0
+			    : (info->first_gp_reg_save
+			       - (FIRST_SAVRES_REGISTER+1))*8);
+	  HOST_WIDE_INT offset = (info->spe_gp_save_offset
+				  + sp_offset - ool_adjust);
+
+	  if (using_static_chain_p)
+	    {
+	      rtx r0 = gen_rtx_REG (Pmode, 0);
+	      gcc_assert (info->first_gp_reg_save > 11);
+ 
+	      emit_move_insn (r0, gen_rtx_REG (Pmode, 11));
+	    }
+ 
+	  spe_save_area_ptr = gen_rtx_REG (Pmode, 11);
+	  insn = emit_insn (gen_addsi3 (spe_save_area_ptr,
+					frame_reg_rtx,
+					GEN_INT (offset)));
+	  /* We need to make sure the move to r11 gets noted for
+	     properly outputting unwind information.  */
+	  if (!saving_GPRs_inline)
+	    rs6000_frame_related (insn, frame_reg_rtx, offset,
+				  NULL_RTX, NULL_RTX);
+	  spe_offset = 0;
+	}
+ 
+      if (saving_GPRs_inline)
+	{
+	  for (i = 0; i < 32 - info->first_gp_reg_save; i++)
+	    if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
+	      {
+		rtx reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
+		rtx offset, addr, mem;
+
+		/* We're doing all this to ensure that the offset fits into
+		   the immediate offset of 'evstdd'.  */
+		gcc_assert (SPE_CONST_OFFSET_OK (reg_size * i + spe_offset));
+ 
+		offset = GEN_INT (reg_size * i + spe_offset);
+		addr = gen_rtx_PLUS (Pmode, spe_save_area_ptr, offset);
+		mem = gen_rtx_MEM (V2SImode, addr);
+  
+		insn = emit_move_insn (mem, reg);
+	   
+		rs6000_frame_related (insn, spe_save_area_ptr,
+				      info->spe_gp_save_offset
+				      + sp_offset + reg_size * i,
+				      offset, const0_rtx);
+	      }
+	}
+      else
+	{
+	  rtx par;
+
+	  par = rs6000_make_savres_rtx (info, gen_rtx_REG (Pmode, 11),
+					0, reg_mode,
+					/*savep=*/true, /*gpr=*/true,
+					/*exitp=*/false);
+	  insn = emit_insn (par);
+	  rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
+				NULL_RTX, NULL_RTX);
+	}
+					
+ 
+      /* Move the static chain pointer back.  */
+      if (using_static_chain_p && !spe_regs_addressable_via_sp)
+	emit_move_insn (gen_rtx_REG (Pmode, 11), gen_rtx_REG (Pmode, 0));
+    }
+  else if (!WORLD_SAVE_P (info) && !saving_GPRs_inline)
+    {
+      rtx par;
+
+      /* Need to adjust r11 if we saved any FPRs.  */
+      if (info->first_fp_reg_save != 64)
+        {
+          rtx r11 = gen_rtx_REG (reg_mode, 11);
+          rtx offset = GEN_INT (info->total_size
+                                + (-8 * (64-info->first_fp_reg_save)));
+          rtx ptr_reg = (sp_reg_rtx == frame_reg_rtx
+                         ? sp_reg_rtx : r11);
+
+          emit_insn (TARGET_32BIT
+                     ? gen_addsi3 (r11, ptr_reg, offset)
+                     : gen_adddi3 (r11, ptr_reg, offset));
+        }
+
+      par = rs6000_make_savres_rtx (info, frame_reg_rtx,
+				    info->gp_save_offset + sp_offset,
+				    reg_mode,
+				    /*savep=*/true, /*gpr=*/true,
+				    /*exitp=*/false);
+      insn = emit_insn (par);
+      rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
+			    NULL_RTX, NULL_RTX);
+    }
+  else if (!WORLD_SAVE_P (info) && using_store_multiple)
     {
       rtvec p;
       int i;
@@ -15867,80 +16290,6 @@ rs6000_emit_prologue (void)
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size,
 			    NULL_RTX, NULL_RTX);
     }
-   else if (!WORLD_SAVE_P (info)
-            && TARGET_SPE_ABI
-            && info->spe_64bit_regs_used != 0
-            && info->first_gp_reg_save != 32)
-     {
-       int i;
-       rtx spe_save_area_ptr;
-       int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
-                                   && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
-                                   && !call_used_regs[STATIC_CHAIN_REGNUM]);
- 
-       /* Determine whether we can address all of the registers that need
-          to be saved with an offset from the stack pointer that fits in
-          the small const field for SPE memory instructions.  */
-       int spe_regs_addressable_via_sp
-         = SPE_CONST_OFFSET_OK(info->spe_gp_save_offset + sp_offset
-                               + (32 - info->first_gp_reg_save - 1) * reg_size);
-       int spe_offset;
- 
-       if (spe_regs_addressable_via_sp)
-         {
-           spe_save_area_ptr = frame_reg_rtx;
-           spe_offset = info->spe_gp_save_offset + sp_offset;
-         }
-       else
-         {
-           /* Make r11 point to the start of the SPE save area.  We need
-              to be careful here if r11 is holding the static chain.  If
-              it is, then temporarily save it in r0.  We would use r0 as
-              our base register here, but using r0 as a base register in
-              loads and stores means something different from what we
-              would like.  */
-           if (using_static_chain_p)
-             {
-               rtx r0 = gen_rtx_REG (Pmode, 0);
- 
-               gcc_assert (info->first_gp_reg_save > 11);
- 
-               emit_move_insn (r0, gen_rtx_REG (Pmode, 11));
-             }
- 
-           spe_save_area_ptr = gen_rtx_REG (Pmode, 11);
-           emit_insn (gen_addsi3 (spe_save_area_ptr, frame_reg_rtx,
-                                  GEN_INT (info->spe_gp_save_offset + sp_offset)));
- 
-           spe_offset = 0;
-         }
- 
-       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-         if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
-           {
-             rtx reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
-             rtx offset, addr, mem;
- 
-             /* We're doing all this to ensure that the offset fits into
-                the immediate offset of 'evstdd'.  */
-             gcc_assert (SPE_CONST_OFFSET_OK (reg_size * i + spe_offset));
- 
-             offset = GEN_INT (reg_size * i + spe_offset);
-             addr = gen_rtx_PLUS (Pmode, spe_save_area_ptr, offset);
-             mem = gen_rtx_MEM (V2SImode, addr);
- 
-             insn = emit_move_insn (mem, reg);
-           
-             rs6000_frame_related (insn, spe_save_area_ptr,
-                                   info->spe_gp_save_offset
-                                   + sp_offset + reg_size * i,
-                                   offset, const0_rtx);
-           }
- 
-       /* Move the static chain pointer back.  */
-       if (using_static_chain_p && !spe_regs_addressable_via_sp)
-         emit_move_insn (gen_rtx_REG (Pmode, 11), gen_rtx_REG (Pmode, 0));
-     }
   else if (!WORLD_SAVE_P (info))
     {
       int i;
@@ -15964,7 +16313,7 @@ rs6000_emit_prologue (void)
 
   /* ??? There's no need to emit actual instructions here, but it's the
      easiest way to get the frame unwind information emitted.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     {
       unsigned int i, regno;
 
@@ -16030,7 +16379,7 @@ rs6000_emit_prologue (void)
   /* Update stack and set back pointer unless this is V.4,
      for which it was done previously.  */
   if (!WORLD_SAVE_P (info) && info->push_p
-      && !(DEFAULT_ABI == ABI_V4 || current_function_calls_eh_return))
+      && !(DEFAULT_ABI == ABI_V4 || crtl->calls_eh_return))
     {
       if (info->total_size < 32767)
       sp_offset = info->total_size;
@@ -16040,7 +16389,8 @@ rs6000_emit_prologue (void)
 				  (frame_reg_rtx != sp_reg_rtx
 				   && ((info->altivec_size != 0)
 				       || (info->vrsave_mask != 0)
-				       )));
+				       )),
+				  FALSE);
       if (frame_reg_rtx != sp_reg_rtx)
 	rs6000_emit_stack_tie ();
     }
@@ -16158,7 +16508,7 @@ rs6000_emit_prologue (void)
 
 #if TARGET_MACHO
   if (DEFAULT_ABI == ABI_DARWIN
-      && flag_pic && current_function_uses_pic_offset_table)
+      && flag_pic && crtl->uses_pic_offset_table)
     {
       rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
       rtx src = machopic_function_base_sym ();
@@ -16196,8 +16546,7 @@ rs6000_output_function_prologue (FILE *file,
       && !FP_SAVE_INLINE (info->first_fp_reg_save))
     fprintf (file, "\t.extern %s%d%s\n\t.extern %s%d%s\n",
 	     SAVE_FP_PREFIX, info->first_fp_reg_save - 32, SAVE_FP_SUFFIX,
-	     RESTORE_FP_PREFIX, info->first_fp_reg_save - 32,
-	     RESTORE_FP_SUFFIX);
+	     RESTORE_FP_PREFIX, info->first_fp_reg_save - 32, RESTORE_FP_SUFFIX);
 
   /* Write .extern for AIX common mode routines, if needed.  */
   if (! TARGET_POWER && ! TARGET_POWERPC && ! common_mode_defined)
@@ -16241,6 +16590,58 @@ rs6000_output_function_prologue (FILE *file,
   rs6000_pic_labelno++;
 }
 
+/* Non-zero if vmx regs are restored before the frame pop, zero if
+   we restore after the pop when possible.  */
+#define ALWAYS_RESTORE_ALTIVEC_BEFORE_POP 0
+
+/* Reload CR from REG.  */
+
+static void
+rs6000_restore_saved_cr (rtx reg, int using_mfcr_multiple)
+{
+  int count = 0;
+  int i;
+
+  if (using_mfcr_multiple)
+    {
+      for (i = 0; i < 8; i++)
+	if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
+	  count++;
+      gcc_assert (count);
+    }
+
+  if (using_mfcr_multiple && count > 1)
+    {
+      rtvec p;
+      int ndx;
+
+      p = rtvec_alloc (count);
+
+      ndx = 0;
+      for (i = 0; i < 8; i++)
+	if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
+	  {
+	    rtvec r = rtvec_alloc (2);
+	    RTVEC_ELT (r, 0) = reg;
+	    RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
+	    RTVEC_ELT (p, ndx) =
+	      gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO+i),
+			   gen_rtx_UNSPEC (CCmode, r, UNSPEC_MOVESI_TO_CR));
+	    ndx++;
+	  }
+      emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
+      gcc_assert (ndx == count);
+    }
+  else
+    for (i = 0; i < 8; i++)
+      if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
+	{
+	  emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode,
+						       CR0_REGNO+i),
+					  reg));
+	}
+}
+
 /* Emit function epilogue as insns.
 
    At present, dwarf2out_frame_debug_expr doesn't understand
@@ -16252,10 +16653,13 @@ void
 rs6000_emit_epilogue (int sibcall)
 {
   rs6000_stack_t *info;
+  int restoring_GPRs_inline;
   int restoring_FPRs_inline;
   int using_load_multiple;
   int using_mtcr_multiple;
   int use_backchain_to_restore_sp;
+  int restore_lr;
+  int strategy;
   int sp_offset = 0;
   rtx sp_reg_rtx = gen_rtx_REG (Pmode, 1);
   rtx frame_reg_rtx = sp_reg_rtx;
@@ -16271,22 +16675,29 @@ rs6000_emit_epilogue (int sibcall)
       reg_size = 8;
     }
 
-  using_load_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
-			 && (!TARGET_SPE_ABI
-			     || info->spe_64bit_regs_used == 0)
-			 && info->first_gp_reg_save < 31
-			 && no_global_regs_above (info->first_gp_reg_save));
-  restoring_FPRs_inline = (sibcall
-			   || current_function_calls_eh_return
-			   || info->first_fp_reg_save == 64
-			   || FP_SAVE_INLINE (info->first_fp_reg_save));
-  use_backchain_to_restore_sp = (frame_pointer_needed
-				 || current_function_calls_alloca
-				 || info->total_size > 32767);
+  strategy = rs6000_savres_strategy (info, /*savep=*/false,
+				     /*static_chain_p=*/0, sibcall);
+  using_load_multiple = strategy & SAVRES_MULTIPLE;
+  restoring_FPRs_inline = strategy & SAVRES_INLINE_FPRS;
+  restoring_GPRs_inline = strategy & SAVRES_INLINE_GPRS;
   using_mtcr_multiple = (rs6000_cpu == PROCESSOR_PPC601
 			 || rs6000_cpu == PROCESSOR_PPC603
 			 || rs6000_cpu == PROCESSOR_PPC750
 			 || optimize_size);
+  /* Restore via the backchain when we have a large frame, since this
+     is more efficient than an addis, addi pair.  The second condition
+     here will not trigger at the moment;  We don't actually need a
+     frame pointer for alloca, but the generic parts of the compiler
+     give us one anyway.  */
+  use_backchain_to_restore_sp = (info->total_size > 32767
+				 || info->total_size
+				     + (info->lr_save_p ? info->lr_save_offset : 0)
+				       > 32767
+				 || (cfun->calls_alloca
+				     && !frame_pointer_needed));
+  restore_lr = (info->lr_save_p
+		&& restoring_GPRs_inline
+		&& restoring_FPRs_inline);
 
   if (WORLD_SAVE_P (info))
     {
@@ -16308,7 +16719,7 @@ rs6000_emit_epilogue (int sibcall)
 		       + LAST_ALTIVEC_REGNO + 1 - info->first_altivec_reg_save
 		       + 63 + 1 - info->first_fp_reg_save);
 
-      strcpy (rname, ((current_function_calls_eh_return) ?
+      strcpy (rname, ((crtl->calls_eh_return) ?
 		      "*eh_rest_world_r10" : "*rest_world"));
       alloc_rname = ggc_strdup (rname);
 
@@ -16383,8 +16794,135 @@ rs6000_emit_epilogue (int sibcall)
   if (info->push_p)
     sp_offset = info->total_size;
 
-  /* Restore AltiVec registers if needed.  */
-  if (TARGET_ALTIVEC_ABI && info->altivec_size != 0)
+  /* Restore AltiVec registers if we must do so before adjusting the
+     stack.  */
+  if (TARGET_ALTIVEC_ABI
+      && info->altivec_size != 0
+      && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
+	  || (DEFAULT_ABI != ABI_V4
+	      && info->altivec_save_offset < (TARGET_32BIT ? -220 : -288))))
+    {
+      int i;
+
+      if (use_backchain_to_restore_sp)
+	{
+	  frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+	  emit_move_insn (frame_reg_rtx,
+			  gen_rtx_MEM (Pmode, sp_reg_rtx));
+	  sp_offset = 0;
+	}
+      else if (frame_pointer_needed)
+	frame_reg_rtx = hard_frame_pointer_rtx;
+
+      for (i = info->first_altivec_reg_save; i <= LAST_ALTIVEC_REGNO; ++i)
+	if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
+	  {
+	    rtx addr, areg, mem;
+
+	    areg = gen_rtx_REG (Pmode, 0);
+	    emit_move_insn
+	      (areg, GEN_INT (info->altivec_save_offset
+			      + sp_offset
+			      + 16 * (i - info->first_altivec_reg_save)));
+
+	    /* AltiVec addressing mode is [reg+reg].  */
+	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
+	    mem = gen_frame_mem (V4SImode, addr);
+
+	    emit_move_insn (gen_rtx_REG (V4SImode, i), mem);
+	  }
+    }
+
+  /* Restore VRSAVE if we must do so before adjusting the stack.  */
+  if (TARGET_ALTIVEC
+      && TARGET_ALTIVEC_VRSAVE
+      && info->vrsave_mask != 0
+      && (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
+	  || (DEFAULT_ABI != ABI_V4
+	      && info->vrsave_save_offset < (TARGET_32BIT ? -220 : -288))))
+    {
+      rtx addr, mem, reg;
+
+      if (frame_reg_rtx == sp_reg_rtx)
+	{
+	  if (use_backchain_to_restore_sp)
+	    {
+	      frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+	      emit_move_insn (frame_reg_rtx,
+			      gen_rtx_MEM (Pmode, sp_reg_rtx));
+	      sp_offset = 0;
+	    }
+	  else if (frame_pointer_needed)
+	    frame_reg_rtx = hard_frame_pointer_rtx;
+	}
+
+      addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			   GEN_INT (info->vrsave_save_offset + sp_offset));
+      mem = gen_frame_mem (SImode, addr);
+      reg = gen_rtx_REG (SImode, 12);
+      emit_move_insn (reg, mem);
+
+      emit_insn (generate_set_vrsave (reg, info, 1));
+    }
+
+  /* If we have a large stack frame, restore the old stack pointer
+     using the backchain.  */
+  if (use_backchain_to_restore_sp)
+    {
+      if (frame_reg_rtx == sp_reg_rtx)
+	{
+	  /* Under V.4, don't reset the stack pointer until after we're done
+	     loading the saved registers.  */
+	  if (DEFAULT_ABI == ABI_V4)
+	    frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+
+	  emit_move_insn (frame_reg_rtx,
+			  gen_rtx_MEM (Pmode, sp_reg_rtx));
+	  sp_offset = 0;
+	}
+      else if (ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
+	       && DEFAULT_ABI == ABI_V4)
+	/* frame_reg_rtx has been set up by the altivec restore.  */
+	;
+      else
+	{
+	  emit_move_insn (sp_reg_rtx, frame_reg_rtx);
+	  frame_reg_rtx = sp_reg_rtx;
+	}
+    }
+  /* If we have a frame pointer, we can restore the old stack pointer
+     from it.  */
+  else if (frame_pointer_needed)
+    {
+      frame_reg_rtx = sp_reg_rtx;
+      if (DEFAULT_ABI == ABI_V4)
+	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (frame_reg_rtx, hard_frame_pointer_rtx,
+			       GEN_INT (info->total_size))
+		 : gen_adddi3 (frame_reg_rtx, hard_frame_pointer_rtx,
+			       GEN_INT (info->total_size)));
+      sp_offset = 0;
+    }
+  else if (info->push_p
+	   && DEFAULT_ABI != ABI_V4
+	   && !crtl->calls_eh_return)
+    {
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+			       GEN_INT (info->total_size))
+		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+			       GEN_INT (info->total_size)));
+      sp_offset = 0;
+    }
+
+  /* Restore AltiVec registers if we have not done so already.  */
+  if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
+      && TARGET_ALTIVEC_ABI
+      && info->altivec_size != 0
+      && (DEFAULT_ABI == ABI_V4
+	  || info->altivec_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
       int i;
 
@@ -16407,35 +16945,13 @@ rs6000_emit_epilogue (int sibcall)
 	  }
     }
 
-  /* If we have a frame pointer, a call to alloca,  or a large stack
-     frame, restore the old stack pointer using the backchain.  Otherwise,
-     we know what size to update it with.  */
-  if (use_backchain_to_restore_sp)
-    {
-      /* Under V.4, don't reset the stack pointer until after we're done
-	 loading the saved registers.  */
-      if (DEFAULT_ABI == ABI_V4)
-	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
-
-      emit_move_insn (frame_reg_rtx,
-		      gen_rtx_MEM (Pmode, sp_reg_rtx));
-      sp_offset = 0;
-    }
-  else if (info->push_p
-	   && DEFAULT_ABI != ABI_V4
-	   && !current_function_calls_eh_return)
-    {
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-			       GEN_INT (info->total_size))
-		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-			       GEN_INT (info->total_size)));
-      sp_offset = 0;
-    }
-
-  /* Restore VRSAVE if needed.  */
-  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0)
+  /* Restore VRSAVE if we have not done so already.  */
+  if (!ALWAYS_RESTORE_ALTIVEC_BEFORE_POP
+      && TARGET_ALTIVEC
+      && TARGET_ALTIVEC_VRSAVE
+      && info->vrsave_mask != 0
+      && (DEFAULT_ABI == ABI_V4
+	  || info->vrsave_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
       rtx addr, mem, reg;
 
@@ -16448,8 +16964,9 @@ rs6000_emit_epilogue (int sibcall)
       emit_insn (generate_set_vrsave (reg, info, 1));
     }
 
-  /* Get the old lr if we saved it.  */
-  if (info->lr_save_p)
+  /* Get the old lr if we saved it.  If we are restoring registers
+     out-of-line, then the out-of-line routines can do this for us.  */
+  if (restore_lr)
     {
       rtx mem = gen_frame_mem_offset (Pmode, frame_reg_rtx,
 				      info->lr_save_offset + sp_offset);
@@ -16468,12 +16985,12 @@ rs6000_emit_epilogue (int sibcall)
     }
 
   /* Set LR here to try to overlap restores below.  */
-  if (info->lr_save_p)
+  if (restore_lr)
     emit_move_insn (gen_rtx_REG (Pmode, LR_REGNO),
 		    gen_rtx_REG (Pmode, 0));
 
   /* Load exception handler data registers, if needed.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     {
       unsigned int i, regno;
 
@@ -16504,7 +17021,116 @@ rs6000_emit_epilogue (int sibcall)
 
   /* Restore GPRs.  This is done as a PARALLEL if we are using
      the load-multiple instructions.  */
-  if (using_load_multiple)
+  if (TARGET_SPE_ABI
+      && info->spe_64bit_regs_used != 0
+      && info->first_gp_reg_save != 32)
+    {
+      /* Determine whether we can address all of the registers that need
+         to be saved with an offset from the stack pointer that fits in
+         the small const field for SPE memory instructions.  */
+      int spe_regs_addressable_via_sp
+	= (SPE_CONST_OFFSET_OK(info->spe_gp_save_offset + sp_offset
+			       + (32 - info->first_gp_reg_save - 1) * reg_size)
+	   && restoring_GPRs_inline);
+      int spe_offset;
+
+      if (spe_regs_addressable_via_sp)
+	spe_offset = info->spe_gp_save_offset + sp_offset;
+      else
+        {
+	  rtx old_frame_reg_rtx = frame_reg_rtx;
+          /* Make r11 point to the start of the SPE save area.  We worried about
+             not clobbering it when we were saving registers in the prologue.
+             There's no need to worry here because the static chain is passed
+             anew to every function.  */
+	  int ool_adjust = (restoring_GPRs_inline
+			    ? 0
+			    : (info->first_gp_reg_save
+			       - (FIRST_SAVRES_REGISTER+1))*8);
+
+	  if (frame_reg_rtx == sp_reg_rtx)
+	    frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+          emit_insn (gen_addsi3 (frame_reg_rtx, old_frame_reg_rtx,
+				 GEN_INT (info->spe_gp_save_offset
+					  + sp_offset
+					  - ool_adjust)));
+	  /* Keep the invariant that frame_reg_rtx + sp_offset points
+	     at the top of the stack frame.  */
+	  sp_offset = -info->spe_gp_save_offset;
+
+          spe_offset = 0;
+        }
+
+      if (restoring_GPRs_inline)
+	{
+	  for (i = 0; i < 32 - info->first_gp_reg_save; i++)
+	    if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
+	      {
+		rtx offset, addr, mem;
+
+		/* We're doing all this to ensure that the immediate offset
+		   fits into the immediate field of 'evldd'.  */
+		gcc_assert (SPE_CONST_OFFSET_OK (spe_offset + reg_size * i));
+
+		offset = GEN_INT (spe_offset + reg_size * i);
+		addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, offset);
+		mem = gen_rtx_MEM (V2SImode, addr);
+
+		emit_move_insn (gen_rtx_REG (reg_mode, info->first_gp_reg_save + i),
+				mem);
+	      }
+	}
+      else
+	{
+	  rtx par;
+
+	  par = rs6000_make_savres_rtx (info, gen_rtx_REG (Pmode, 11),
+					0, reg_mode,
+					/*savep=*/false, /*gpr=*/true,
+					/*exitp=*/true);
+	  emit_jump_insn (par);
+
+	  /* We don't want anybody else emitting things after we jumped
+	     back.  */
+	  return;
+	}
+    }
+  else if (!restoring_GPRs_inline)
+    {
+      /* We are jumping to an out-of-line function.  */
+      bool can_use_exit = info->first_fp_reg_save == 64;
+      rtx par;
+
+      /* Emit stack reset code if we need it.  */
+      if (can_use_exit)
+	rs6000_emit_stack_reset (info, sp_reg_rtx, frame_reg_rtx,
+				 sp_offset, can_use_exit);
+      else
+	emit_insn (gen_addsi3 (gen_rtx_REG (Pmode, 11),
+			       sp_reg_rtx,
+			       GEN_INT (sp_offset - info->fp_size)));
+
+      par = rs6000_make_savres_rtx (info, frame_reg_rtx,
+				    info->gp_save_offset, reg_mode,
+				    /*savep=*/false, /*gpr=*/true,
+				    /*exitp=*/can_use_exit);
+
+      if (can_use_exit)
+	{
+	  if (info->cr_save_p)
+	    rs6000_restore_saved_cr (gen_rtx_REG (SImode, 12),
+				     using_mtcr_multiple);
+
+	  emit_jump_insn (par);
+
+	  /* We don't want anybody else emitting things after we jumped
+	     back.  */
+	  return;
+	}
+      else
+	emit_insn (par);
+    }
+  else if (using_load_multiple)
     {
       rtvec p;
       p = rtvec_alloc (32 - info->first_gp_reg_save);
@@ -16523,68 +17149,21 @@ rs6000_emit_epilogue (int sibcall)
 	}
       emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
     }
-  else if (TARGET_SPE_ABI
-           && info->spe_64bit_regs_used != 0
-           && info->first_gp_reg_save != 32)
+  else
     {
-      /* Determine whether we can address all of the registers that need
-         to be saved with an offset from the stack pointer that fits in
-         the small const field for SPE memory instructions.  */
-      int spe_regs_addressable_via_sp
-        = SPE_CONST_OFFSET_OK(info->spe_gp_save_offset + sp_offset
-                              + (32 - info->first_gp_reg_save - 1) * reg_size);
-      int spe_offset;
-
-      if (spe_regs_addressable_via_sp)
-	spe_offset = info->spe_gp_save_offset + sp_offset;
-      else
-        {
-	  rtx old_frame_reg_rtx = frame_reg_rtx;
-          /* Make r11 point to the start of the SPE save area.  We worried about
-             not clobbering it when we were saving registers in the prologue.
-             There's no need to worry here because the static chain is passed
-             anew to every function.  */
-	  if (frame_reg_rtx == sp_reg_rtx)
-	    frame_reg_rtx = gen_rtx_REG (Pmode, 11);
-          emit_insn (gen_addsi3 (frame_reg_rtx, old_frame_reg_rtx,
-                                 GEN_INT (info->spe_gp_save_offset + sp_offset)));
-	  /* Keep the invariant that frame_reg_rtx + sp_offset points
-	     at the top of the stack frame.  */
-	  sp_offset = -info->spe_gp_save_offset;
-
-          spe_offset = 0;
-        }
-
       for (i = 0; i < 32 - info->first_gp_reg_save; i++)
         if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
-          {
-            rtx offset, addr, mem;
+	  {
+            rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+                                     GEN_INT (info->gp_save_offset
+                                              + sp_offset
+                                              + reg_size * i));
+            rtx mem = gen_frame_mem (reg_mode, addr);
 
-            /* We're doing all this to ensure that the immediate offset
-               fits into the immediate field of 'evldd'.  */
-            gcc_assert (SPE_CONST_OFFSET_OK (spe_offset + reg_size * i));
-
-            offset = GEN_INT (spe_offset + reg_size * i);
-            addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, offset);
-            mem = gen_rtx_MEM (V2SImode, addr);
-
-            emit_move_insn (gen_rtx_REG (reg_mode, info->first_gp_reg_save + i),
-                            mem);
+            emit_move_insn (gen_rtx_REG (reg_mode,
+                                         info->first_gp_reg_save + i), mem);
           }
     }
-  else
-    for (i = 0; i < 32 - info->first_gp_reg_save; i++)
-      if (rs6000_reg_live_or_pic_offset_p (info->first_gp_reg_save + i))
-	{
-	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
-				   GEN_INT (info->gp_save_offset
-					    + sp_offset
-					    + reg_size * i));
-	  rtx mem = gen_frame_mem (reg_mode, addr);
-
-	  emit_move_insn (gen_rtx_REG (reg_mode,
-				       info->first_gp_reg_save + i), mem);
-	}
 
   /* Restore fpr's if we need to do it without calling a function.  */
   if (restoring_FPRs_inline)
@@ -16606,71 +17185,14 @@ rs6000_emit_epilogue (int sibcall)
 
   /* If we saved cr, restore it here.  Just those that were used.  */
   if (info->cr_save_p)
-    {
-      rtx r12_rtx = gen_rtx_REG (SImode, 12);
-      int count = 0;
-
-      if (using_mtcr_multiple)
-	{
-	  for (i = 0; i < 8; i++)
-	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
-	      count++;
-	  gcc_assert (count);
-	}
-
-      if (using_mtcr_multiple && count > 1)
-	{
-	  rtvec p;
-	  int ndx;
-
-	  p = rtvec_alloc (count);
-
-	  ndx = 0;
-	  for (i = 0; i < 8; i++)
-	    if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
-	      {
-		rtvec r = rtvec_alloc (2);
-		RTVEC_ELT (r, 0) = r12_rtx;
-		RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
-		RTVEC_ELT (p, ndx) =
-		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO+i),
-			       gen_rtx_UNSPEC (CCmode, r, UNSPEC_MOVESI_TO_CR));
-		ndx++;
-	      }
-	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
-	  gcc_assert (ndx == count);
-	}
-      else
-	for (i = 0; i < 8; i++)
-	  if (df_regs_ever_live_p (CR0_REGNO+i) && ! call_used_regs[CR0_REGNO+i])
-	    {
-	      emit_insn (gen_movsi_to_cr_one (gen_rtx_REG (CCmode,
-							   CR0_REGNO+i),
-					      r12_rtx));
-	    }
-    }
+    rs6000_restore_saved_cr (gen_rtx_REG (SImode, 12), using_mtcr_multiple);
 
   /* If this is V.4, unwind the stack pointer after all of the loads
      have been done.  */
-  if (frame_reg_rtx != sp_reg_rtx)
-    {
-      /* This blockage is needed so that sched doesn't decide to move
-	 the sp change before the register restores.  */
-      rs6000_emit_stack_tie ();
-      if (sp_offset != 0)
-        emit_insn (gen_addsi3 (sp_reg_rtx, frame_reg_rtx,
-			       GEN_INT (sp_offset)));
-      else
-        emit_move_insn (sp_reg_rtx, frame_reg_rtx);
-    }
-  else if (sp_offset != 0)
-    emit_insn (TARGET_32BIT
-	       ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-			     GEN_INT (sp_offset))
-	       : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-			     GEN_INT (sp_offset)));
+  rs6000_emit_stack_reset (info, sp_reg_rtx, frame_reg_rtx,
+			   sp_offset, !restoring_FPRs_inline);
 
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     {
       rtx sa = EH_RETURN_STACKADJ_RTX;
       emit_insn (TARGET_32BIT
@@ -16682,30 +17204,30 @@ rs6000_emit_epilogue (int sibcall)
     {
       rtvec p;
       if (! restoring_FPRs_inline)
-	p = rtvec_alloc (3 + 64 - info->first_fp_reg_save);
+	p = rtvec_alloc (4 + 64 - info->first_fp_reg_save);
       else
 	p = rtvec_alloc (2);
 
       RTVEC_ELT (p, 0) = gen_rtx_RETURN (VOIDmode);
-      RTVEC_ELT (p, 1) = gen_rtx_USE (VOIDmode,
-				      gen_rtx_REG (Pmode,
-						   LR_REGNO));
+      RTVEC_ELT (p, 1) = (restoring_FPRs_inline
+			  ? gen_rtx_USE (VOIDmode, gen_rtx_REG (Pmode, 65))
+			  : gen_rtx_CLOBBER (VOIDmode,
+					     gen_rtx_REG (Pmode, 65)));
 
       /* If we have to restore more than two FP registers, branch to the
 	 restore function.  It will return to our caller.  */
       if (! restoring_FPRs_inline)
 	{
 	  int i;
-	  char rname[30];
-	  const char *alloc_rname;
+	  rtx sym;
 
-	  sprintf (rname, "%s%d%s", RESTORE_FP_PREFIX,
-		   info->first_fp_reg_save - 32, RESTORE_FP_SUFFIX);
-	  alloc_rname = ggc_strdup (rname);
-	  RTVEC_ELT (p, 2) = gen_rtx_USE (VOIDmode,
-					  gen_rtx_SYMBOL_REF (Pmode,
-							      alloc_rname));
-
+	  sym = rs6000_savres_routine_sym (info,
+					   /*savep=*/false,
+					   /*gpr=*/false,
+					   /*exitp=*/true);
+	  RTVEC_ELT (p, 2) = gen_rtx_USE (VOIDmode, sym);
+	  RTVEC_ELT (p, 3) = gen_rtx_USE (VOIDmode,
+					  gen_rtx_REG (Pmode, 11));
 	  for (i = 0; i < 64 - info->first_fp_reg_save; i++)
 	    {
 	      rtx addr, mem;
@@ -16713,7 +17235,7 @@ rs6000_emit_epilogue (int sibcall)
 				   GEN_INT (info->fp_save_offset + 8*i));
 	      mem = gen_frame_mem (DFmode, addr);
 
-	      RTVEC_ELT (p, i+3) =
+	      RTVEC_ELT (p, i+4) =
 		gen_rtx_SET (VOIDmode,
 			     gen_rtx_REG (DFmode, info->first_fp_reg_save + i),
 			     mem);
@@ -16800,7 +17322,7 @@ rs6000_output_function_epilogue (FILE *file,
      System V.4 Powerpc's (and the embedded ABI derived from it) use a
      different traceback table.  */
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
-      && rs6000_traceback != traceback_none && !current_function_is_thunk)
+      && rs6000_traceback != traceback_none && !crtl->is_thunk)
     {
       const char *fname = NULL;
       const char *language_string = lang_hooks.name;
@@ -17337,7 +17859,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	toc_hash_table = htab_create_ggc (1021, toc_hash_function,
 					  toc_hash_eq, NULL);
 
-      h = ggc_alloc (sizeof (*h));
+      h = GGC_NEW (struct toc_hash_struct);
       h->key = x;
       h->key_mode = mode;
       h->labelno = labelno;
@@ -17784,13 +18306,13 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
       int caller_addr_regno = LR_REGNO;
 
       /* Be conservative and always set this, at least for now.  */
-      current_function_uses_pic_offset_table = 1;
+      crtl->uses_pic_offset_table = 1;
 
 #if TARGET_MACHO
       /* For PIC code, set up a stub and collect the caller's address
 	 from r0, which is where the prologue puts it.  */
       if (MACHOPIC_INDIRECT
-	  && current_function_uses_pic_offset_table)
+	  && crtl->uses_pic_offset_table)
 	caller_addr_regno = 0;
 #endif
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mcount_name),
@@ -18525,6 +19047,7 @@ rs6000_issue_rate (void)
   case CPU_CELL:
   case CPU_PPCE300C2:
   case CPU_PPCE300C3:
+  case CPU_PPCE500MC:
     return 2;
   case CPU_RIOS2:
   case CPU_PPC604:
@@ -19400,7 +19923,7 @@ redefine_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
 
   /* Initialize.  */
   issue_rate = rs6000_issue_rate ();
-  group_insns = alloca (issue_rate * sizeof (rtx));
+  group_insns = XALLOCAVEC (rtx, issue_rate);
   for (i = 0; i < issue_rate; i++)
     {
       group_insns[i] = 0;
@@ -19825,7 +20348,7 @@ rs6000_handle_altivec_attribute (tree *node,
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
   if (result)
-    *node = reconstruct_complex_type (*node, result);
+    *node = lang_hooks.types.reconstruct_complex_type (*node, result);
 
   return NULL_TREE;
 }
@@ -20058,7 +20581,7 @@ rs6000_elf_encode_section_info (tree decl, rtx rtl, int first)
     {
       rtx sym_ref = XEXP (rtl, 0);
       size_t len = strlen (XSTR (sym_ref, 0));
-      char *str = alloca (len + 2);
+      char *str = XALLOCAVEC (char, len + 2);
       str[0] = '.';
       memcpy (str + 1, XSTR (sym_ref, 0), len + 1);
       XSTR (sym_ref, 0) = ggc_alloc_string (str, len + 1);
@@ -20357,10 +20880,10 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
 
   length = strlen (symb);
-  symbol_name = alloca (length + 32);
+  symbol_name = XALLOCAVEC (char, length + 32);
   GEN_SYMBOL_NAME_FOR_SYMBOL (symbol_name, symb, length);
 
-  lazy_ptr_name = alloca (length + 32);
+  lazy_ptr_name = XALLOCAVEC (char, length + 32);
   GEN_LAZY_PTR_NAME_FOR_SYMBOL (lazy_ptr_name, symb, length);
 
   if (flag_pic == 2)
@@ -20376,7 +20899,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
       fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
 
       label++;
-      local_label_0 = alloca (sizeof ("\"L00000000000$spb\""));
+      local_label_0 = XALLOCAVEC (char, sizeof ("\"L00000000000$spb\""));
       sprintf (local_label_0, "\"L%011d$spb\"", label);
 
       fprintf (file, "\tmflr r0\n");
@@ -20633,7 +21156,7 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
 
   if (TARGET_RELOCATABLE
       && !TARGET_SECURE_PLT
-      && (get_pool_size () != 0 || current_function_profile)
+      && (get_pool_size () != 0 || crtl->profile)
       && uses_TOC ())
     {
       char buf[256];
@@ -21334,6 +21857,12 @@ rs6000_register_move_cost (enum machine_mode mode,
       else if (from == CR_REGS)
 	return 4;
 
+      /* Power6 has slower LR/CTR moves so make them more expensive than
+	 memory in order to bias spills to memory .*/
+      else if (rs6000_cpu == PROCESSOR_POWER6
+	       && reg_classes_intersect_p (from, LINK_OR_CTR_REGS))
+        return 6 * hard_regno_nregs[0][mode];
+
       else
 	/* A move will cost one instruction per GPR moved.  */
 	return 2 * hard_regno_nregs[0][mode];
@@ -21793,8 +22322,8 @@ rs6000_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED)
 	   && ALTIVEC_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
-	   && (mode == DFmode || mode == DDmode || mode == DCmode
-	       || mode == TFmode || mode == TDmode || mode == TCmode))
+	   && (mode == DFmode || mode == DCmode
+	       || mode == TFmode || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -21835,8 +22364,8 @@ rs6000_libcall_value (enum machine_mode mode)
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
-	   && (mode == DFmode || mode == DDmode || mode == DCmode
-	       || mode == TFmode || mode == TDmode || mode == TCmode))
+	   && (mode == DFmode || mode == DCmode
+	       || mode == TFmode || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -21883,7 +22412,6 @@ rs6000_is_opaque_type (const_tree type)
 {
   return (type == opaque_V2SI_type_node
 	      || type == opaque_V2SF_type_node
-	      || type == opaque_p_V2SI_type_node
 	      || type == opaque_V4SI_type_node);
 }
 

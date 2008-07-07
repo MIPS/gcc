@@ -112,14 +112,7 @@ Exit on the first error occurred
 
 Wframe-larger-than=
 Common RejectNegative Joined UInteger
--Wframe-larger-than=@var{len} Warn whenever a function's stack frame requires
-more than @var{len} bytes.  The computation done to determine
-the stack frame size is approximate and not conservative.
-The actual requirements may be somewhat greater than @var{len}
-even if you do not get a warning.  In addition, any space allocated
-via @code{alloca}, variable-length arrays, or related constructs
-is not included by the compiler when determining
-whether or not to issue a warning.
+-Wframe-larger-than=<number> Warn if a function's stack frame requires more than <number> bytes
 
 Winline
 Common Var(warn_inline) Warning
@@ -739,10 +732,6 @@ fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
 
-fopenmp-ssa
-Common Report Var(flag_openmp_ssa)
-Expand OpenMP operations on SSA form
-
 foptimize-register-move
 Common Report Var(flag_regmove) Optimization
 Do the full register move optimization pass
@@ -1149,6 +1138,10 @@ ftree-cselim
 Common Report Var(flag_tree_cselim) Init(2) Optimization
 Transform condition stores into unconditional ones
 
+ftree-switch-conversion
+Common Report Var(flag_tree_switch_conversion) Optimization
+Perform conversions of switch initializations.
+
 ftree-dce
 Common Report Var(flag_tree_dce) Optimization
 Enable SSA dead code elimination optimization on trees
@@ -1166,7 +1159,7 @@ Common Report Var(flag_tree_fre) Optimization
 Enable Full Redundancy Elimination (FRE) on trees
 
 ftree-loop-distribution
-Common Report Var(flag_tree_loop_distribution)
+Common Report Var(flag_tree_loop_distribution) Optimization
 Enable loop distribution on trees
 
 ftree-loop-im
@@ -1198,8 +1191,8 @@ Common Report Var(flag_tree_reassoc) Init(1) Optimization
 Enable reassociation on tree level
 
 ftree-salias
-Common Report Var(flag_tree_salias) Optimization
-Perform structural alias analysis
+Common
+Does nothing.  Preserved for backward compatibility.
 
 ftree-sink
 Common Report Var(flag_tree_sink) Optimization
@@ -1315,6 +1308,10 @@ Use expression value profiles in optimizations
 fweb
 Common Report Var(flag_web) Init(2) Optimization
 Construct webs and split unrelated uses of single variable
+
+ftree-builtin-call-dce
+Common Report Var(flag_tree_builtin_call_dce) Init(0) Optimization
+Enable conditional dead code elimination for builtin calls
 
 fwhole-program
 Common Report Var(flag_whole_program) Init(0) Optimization

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-pass.h"
 #include "diagnostic.h"
+#include "cgraph.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -437,7 +438,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       BLOCK_VARS (fn_block) = a;
       DECL_INITIAL (thunk_fndecl) = fn_block;
       init_function_start (thunk_fndecl);
-      current_function_is_thunk = 1;
+      crtl->is_thunk = 1;
       assemble_start_function (thunk_fndecl, fnname);
 
       targetm.asm_out.output_mi_thunk (asm_out_file, thunk_fndecl,
@@ -523,8 +524,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
       pop_deferring_access_checks ();
 
       thunk_fndecl = finish_function (0);
-      tree_lowering_passes (thunk_fndecl);
-      tree_rest_of_compilation (thunk_fndecl);
+      cgraph_add_new_function (thunk_fndecl, false);
     }
 
   pop_from_top_level ();

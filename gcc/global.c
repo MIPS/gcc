@@ -131,31 +131,6 @@ static int local_reg_live_length[FIRST_PSEUDO_REGISTER];
 
 #define SET_REGBIT(TABLE, I, J)  SET_HARD_REG_BIT (allocno[I].TABLE, J)
 
-/* This is turned off because it doesn't work right for DImode.
-   (And it is only used for DImode, so the other cases are worthless.)
-   The problem is that it isn't true that there is NO possibility of conflict;
-   only that there is no conflict if the two pseudos get the exact same regs.
-   If they were allocated with a partial overlap, there would be a conflict.
-   We can't safely turn off the conflict unless we have another way to
-   prevent the partial overlap.
-
-   Idea: change hard_reg_conflicts so that instead of recording which
-   hard regs the allocno may not overlap, it records where the allocno
-   may not start.  Change both where it is used and where it is updated.
-   Then there is a way to record that (reg:DI 108) may start at 10
-   but not at 9 or 11.  There is still the question of how to record
-   this semi-conflict between two pseudos.  */
-#if 0
-/* Reg pairs for which conflict after the current insn
-   is inhibited by a REG_NO_CONFLICT note.
-   If the table gets full, we ignore any other notes--that is conservative.  */
-#define NUM_NO_CONFLICT_PAIRS 4
-/* Number of pairs in use in this insn.  */
-int n_no_conflict_pairs;
-static struct { int allocno1, allocno2;}
-  no_conflict_pairs[NUM_NO_CONFLICT_PAIRS];
-#endif /* 0 */
-
 /* Return true if *LOC contains an asm.  */
 
 static int
@@ -231,7 +206,9 @@ static void build_insn_chain (void);
 
    This will normally be called with ELIM_SET as the file static
    variable eliminable_regset, and NO_GLOBAL_SET as the file static
-   variable NO_GLOBAL_ALLOC_REGS.  */
+   variable NO_GLOBAL_ALLOC_REGS.
+
+   It also initializes global flag frame_pointer_needed.  */
 
 static void
 compute_regsets (HARD_REG_SET *elim_set, 
@@ -241,16 +218,24 @@ compute_regsets (HARD_REG_SET *elim_set,
 /* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
    Unlike regs_ever_live, elements of this array corresponding to
    eliminable regs like the frame pointer are set if an asm sets them.  */
-  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
+  char *regs_asm_clobbered = XALLOCAVEC (char, FIRST_PSEUDO_REGISTER);
 
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
   size_t i;
 #endif
+
+  /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
+     sp for alloca.  So we can't eliminate the frame pointer in that
+     case.  At some point, we should improve this by emitting the
+     sp-adjusting insns for this case.  */
   int need_fp
     = (! flag_omit_frame_pointer
-       || (current_function_calls_alloca && EXIT_IGNORE_STACK)
+       || (cfun->calls_alloca && EXIT_IGNORE_STACK)
+       || crtl->accesses_prior_frames
        || FRAME_POINTER_REQUIRED);
+
+  frame_pointer_needed = need_fp;
 
   max_regno = max_reg_num ();
   compact_blocks ();
@@ -378,7 +363,7 @@ global_alloc (void)
     if (REG_N_REFS (i) != 0 && REG_LIVE_LENGTH (i) != -1
 	/* Don't allocate pseudos that cross calls,
 	   if this function receives a nonlocal goto.  */
-	&& (! current_function_has_nonlocal_label
+	&& (! cfun->has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
 	int blk = regno_basic_block (i);

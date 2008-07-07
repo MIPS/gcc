@@ -173,11 +173,11 @@ arc_init (void)
   char *tmp;
   
   /* Set the pseudo-ops for the various standard sections.  */
-  arc_text_section = tmp = xmalloc (strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_text_section = tmp = XNEWVEC (char, strlen (arc_text_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_text_string);
-  arc_data_section = tmp = xmalloc (strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_data_section = tmp = XNEWVEC (char, strlen (arc_data_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_data_string);
-  arc_rodata_section = tmp = xmalloc (strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
+  arc_rodata_section = tmp = XNEWVEC (char, strlen (arc_rodata_string) + sizeof (ARC_SECTION_FORMAT) + 1);
   sprintf (tmp, ARC_SECTION_FORMAT, arc_rodata_string);
 
   arc_init_reg_tables ();
@@ -1254,7 +1254,7 @@ arc_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 static void
 arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
 {
-  rtx epilogue_delay = current_function_epilogue_delay_list;
+  rtx epilogue_delay = crtl->epilogue_delay_list;
   int noepilogue = FALSE;
   enum arc_function_type fn_type = arc_compute_function_type (current_function_decl);
 
@@ -1283,7 +1283,7 @@ arc_output_function_epilogue (FILE *file, HOST_WIDE_INT size)
       unsigned int pretend_size = current_frame_info.pretend_size;
       unsigned int frame_size = size - pretend_size;
       int restored, fp_restored_p;
-      int can_trust_sp_p = !current_function_calls_alloca;
+      int can_trust_sp_p = !cfun->calls_alloca;
       const char *sp_str = reg_names[STACK_POINTER_REGNUM];
       const char *fp_str = reg_names[FRAME_POINTER_REGNUM];
 

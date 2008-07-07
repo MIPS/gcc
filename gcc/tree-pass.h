@@ -1,5 +1,6 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
+   Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -70,6 +71,8 @@ enum tree_dump_index
 
 #define TDF_DIAGNOSTIC	(1 << 15)	/* A dump to be put in a diagnostic
 					   message.  */
+#define TDF_VERBOSE     (1 << 16)       /* A dump that uses the full tree 
+					   dumper to print stmts. */
 
 extern char *get_dump_file_name (enum tree_dump_index);
 extern int dump_enabled_p (enum tree_dump_index);
@@ -96,7 +99,8 @@ struct opt_pass
   enum opt_pass_type {
     GIMPLE_PASS,
     RTL_PASS,
-    SIMPLE_IPA_PASS
+    SIMPLE_IPA_PASS,
+    IPA_PASS
   } type;
   /* Terse name of the pass used as a fragment of the dump file name.  */
   const char *name;
@@ -133,19 +137,48 @@ struct opt_pass
   unsigned int todo_flags_finish;
 };
 
-/* Description or GIMPLE pass.  */
+/* Description of GIMPLE pass.  */
 struct gimple_opt_pass
 {
   struct opt_pass pass;
 };
 
-/* Decription of RTL pass.  */
+/* Description of RTL pass.  */
 struct rtl_opt_pass
 {
   struct opt_pass pass;
 };
 
-/* Description if simple IPA pass.  Simple IPA passes have just one execute
+struct varpool_node;
+struct cgraph_node;
+
+/* Description of IPA pass with generate summary, write, execute, read and
+   transform stages.  */
+struct ipa_opt_pass
+{
+  struct opt_pass pass;
+
+  /* IPA passes can analyze function body and variable initializers
+      using this hook and produce summary.  */
+  void (*generate_summary) (void);
+
+  /* This hook is used to serialize IPA summaries on disk.  */
+  void (*write_summary) (void);
+
+  /* For most ipa passes, the information can only be deserialized in
+     one chunk.  However, function bodies are read function at a time
+     as needed so both calls are necessary.  */
+  void (*read_summary) (void);
+  void (*function_read_summary) (struct cgraph_node *);
+  
+  /* Results of interprocedural propagation of an IPA pass is applied to
+     function body via this hook.  */
+  unsigned int function_transform_todo_flags_start;
+  unsigned int (*function_transform) (struct cgraph_node *);
+  void (*variable_transform) (struct varpool_node *);
+};
+
+/* Description of simple IPA pass.  Simple IPA passes have just one execute
    hook.  */
 struct simple_ipa_opt_pass
 {
@@ -229,8 +262,8 @@ struct dump_file_info
 #define TODO_update_ssa_only_virtuals	(1 << 14)
 
 /* Some passes leave unused local variables that can be removed from
-   cfun->unexpanded_var_list.  This reduces the size of dump files and
-   the memory footprint for VAR_DECLs.  */
+   cfun->local_decls.  This reduces the size of dump files
+   and the memory footprint for VAR_DECLs.  */
 #define TODO_remove_unused_locals	(1 << 15)
 
 /* Internally used for the first in a sequence of passes.  It is set
@@ -290,6 +323,7 @@ extern struct gimple_opt_pass pass_if_conversion;
 extern struct gimple_opt_pass pass_loop_distribution;
 extern struct gimple_opt_pass pass_vectorize;
 extern struct gimple_opt_pass pass_complete_unroll;
+extern struct gimple_opt_pass pass_complete_unrolli;
 extern struct gimple_opt_pass pass_parallelize_loops;
 extern struct gimple_opt_pass pass_loop_prefetch;
 extern struct gimple_opt_pass pass_iv_optimize;
@@ -304,6 +338,7 @@ extern struct gimple_opt_pass pass_dominator;
 extern struct gimple_opt_pass pass_dce;
 extern struct gimple_opt_pass pass_dce_loop;
 extern struct gimple_opt_pass pass_cd_dce;
+extern struct gimple_opt_pass pass_call_cdce;
 extern struct gimple_opt_pass pass_merge_phi;
 extern struct gimple_opt_pass pass_split_crit_edges;
 extern struct gimple_opt_pass pass_pre;
@@ -335,7 +370,6 @@ extern struct gimple_opt_pass pass_simple_dse;
 extern struct gimple_opt_pass pass_nrv;
 extern struct gimple_opt_pass pass_mark_used_blocks;
 extern struct gimple_opt_pass pass_rename_ssa_copies;
-extern struct gimple_opt_pass pass_expand;
 extern struct gimple_opt_pass pass_rest_of_compilation;
 extern struct gimple_opt_pass pass_sink_code;
 extern struct gimple_opt_pass pass_fre;
@@ -344,7 +378,6 @@ extern struct gimple_opt_pass pass_check_data_deps;
 extern struct gimple_opt_pass pass_copy_prop;
 extern struct gimple_opt_pass pass_store_ccp;
 extern struct gimple_opt_pass pass_vrp;
-extern struct gimple_opt_pass pass_create_structure_vars;
 extern struct gimple_opt_pass pass_uncprop;
 extern struct gimple_opt_pass pass_return_slot;
 extern struct gimple_opt_pass pass_reassoc;
@@ -353,11 +386,12 @@ extern struct gimple_opt_pass pass_build_cgraph_edges;
 extern struct gimple_opt_pass pass_reset_cc_flags;
 
 /* IPA Passes */
+extern struct ipa_opt_pass pass_ipa_inline;
+extern struct simple_ipa_opt_pass pass_ipa_reference;
+
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
 extern struct simple_ipa_opt_pass pass_ipa_cp;
-extern struct simple_ipa_opt_pass pass_ipa_inline;
 extern struct simple_ipa_opt_pass pass_ipa_early_inline;
-extern struct simple_ipa_opt_pass pass_ipa_reference;
 extern struct simple_ipa_opt_pass pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
 extern struct simple_ipa_opt_pass pass_ipa_pta;
@@ -373,6 +407,7 @@ extern struct gimple_opt_pass pass_free_datastructures;
 extern struct gimple_opt_pass pass_init_datastructures;
 extern struct gimple_opt_pass pass_fixup_cfg;
 
+extern struct rtl_opt_pass pass_expand;
 extern struct rtl_opt_pass pass_init_function;
 extern struct rtl_opt_pass pass_jump;
 extern struct rtl_opt_pass pass_rtl_eh;
@@ -423,6 +458,7 @@ extern struct rtl_opt_pass pass_partition_blocks;
 extern struct rtl_opt_pass pass_match_asm_constraints;
 extern struct rtl_opt_pass pass_regmove;
 extern struct rtl_opt_pass pass_split_all_insns;
+extern struct rtl_opt_pass pass_fast_rtl_byte_dce;
 extern struct rtl_opt_pass pass_lower_subreg2;
 extern struct rtl_opt_pass pass_mode_switching;
 extern struct rtl_opt_pass pass_see;
@@ -468,14 +504,19 @@ extern struct rtl_opt_pass pass_final;
 extern struct rtl_opt_pass pass_rtl_seqabstr;
 extern struct gimple_opt_pass pass_release_ssa_names;
 extern struct gimple_opt_pass pass_early_inline;
+extern struct gimple_opt_pass pass_O0_always_inline;
 extern struct gimple_opt_pass pass_inline_parameters;
-extern struct gimple_opt_pass pass_apply_inline;
 extern struct gimple_opt_pass pass_all_early_optimizations;
 extern struct gimple_opt_pass pass_update_address_taken;
+extern struct gimple_opt_pass pass_convert_switch;
 
 /* The root of the compilation pass tree, once constructed.  */
 extern struct opt_pass *all_passes, *all_ipa_passes, *all_lowering_passes;
 
+/* Current optimization pass.  */
+extern struct opt_pass *current_pass;
+
+extern struct opt_pass * get_pass_for_id (int);
 extern void execute_pass_list (struct opt_pass *);
 extern void execute_ipa_pass_list (struct opt_pass *);
 extern void print_current_pass (FILE *);

@@ -1,5 +1,5 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -49,6 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* When set, ggc_collect will do collection.  */
 bool ggc_force_collect;
+
+/* When true, protect the contents of the identifier hash table.  */
+bool ggc_protect_identifiers = true;
 
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
@@ -103,7 +106,8 @@ ggc_mark_roots (void)
       for (i = 0; i < rti->nelt; i++)
 	(*rti->cb)(*(void **)((char *)rti->base + rti->stride * i));
 
-  ggc_mark_stringpool ();
+  if (ggc_protect_identifiers)
+    ggc_mark_stringpool ();
 
   /* Now scan all hash tables that have objects which are to be deleted if
      they are not already marked.  */
@@ -112,9 +116,13 @@ ggc_mark_roots (void)
       if (*cti->base)
 	{
 	  ggc_set_mark (*cti->base);
-	  htab_traverse_noresize (*cti->base, ggc_htab_delete, (void *) cti);
+	  htab_traverse_noresize (*cti->base, ggc_htab_delete,
+				  CONST_CAST (void *, (const void *)cti));
 	  ggc_set_mark ((*cti->base)->entries);
 	}
+
+  if (! ggc_protect_identifiers)
+    ggc_purge_stringpool ();
 }
 
 /* Allocate a block of memory, then clear it.  */
@@ -257,12 +265,12 @@ gt_pch_note_object (void *obj, void *note_ptr_cookie,
       return 0;
     }
 
-  *slot = xcalloc (sizeof (struct ptr_data), 1);
+  *slot = XCNEW (struct ptr_data);
   (*slot)->obj = obj;
   (*slot)->note_ptr_fn = note_ptr_fn;
   (*slot)->note_ptr_cookie = note_ptr_cookie;
   if (note_ptr_fn == gt_pch_p_S)
-    (*slot)->size = strlen (obj) + 1;
+    (*slot)->size = strlen ((const char *)obj) + 1;
   else
     (*slot)->size = ggc_get_size (obj);
   (*slot)->type = type;
@@ -280,7 +288,8 @@ gt_pch_note_reorder (void *obj, void *note_ptr_cookie,
   if (obj == NULL || obj == (void *) 1)
     return;
 
-  data = htab_find_with_hash (saving_htab, obj, POINTER_HASH (obj));
+  data = (struct ptr_data *)
+    htab_find_with_hash (saving_htab, obj, POINTER_HASH (obj));
   gcc_assert (data && data->note_ptr_cookie == note_ptr_cookie);
 
   data->reorder_fn = reorder_fn;
@@ -363,7 +372,8 @@ relocate_ptrs (void *ptr_p, void *state_p)
   if (*ptr == NULL || *ptr == (void *)1)
     return;
 
-  result = htab_find_with_hash (saving_htab, *ptr, POINTER_HASH (*ptr));
+  result = (struct ptr_data *)
+    htab_find_with_hash (saving_htab, *ptr, POINTER_HASH (*ptr));
   gcc_assert (result);
   *ptr = result->new_addr;
 }
@@ -391,8 +401,8 @@ write_pch_globals (const struct ggc_root_tab * const *tab,
 	    }
 	  else
 	    {
-	      new_ptr = htab_find_with_hash (saving_htab, ptr,
-					     POINTER_HASH (ptr));
+	      new_ptr = (struct ptr_data *)
+		htab_find_with_hash (saving_htab, ptr, POINTER_HASH (ptr));
 	      if (fwrite (&new_ptr->new_addr, sizeof (void *), 1, state->f)
 		  != 1)
 		fatal_error ("can't write PCH file: %m");
@@ -495,7 +505,7 @@ gt_pch_save (FILE *f)
       if (this_object_size < state.ptrs[i]->size)
 	{
 	  this_object_size = state.ptrs[i]->size;
-	  this_object = xrealloc (this_object, this_object_size);
+	  this_object = XRESIZEVAR (char, this_object, this_object_size);
 	}
       memcpy (this_object, state.ptrs[i]->obj, state.ptrs[i]->size);
       if (state.ptrs[i]->reorder_fn != NULL)

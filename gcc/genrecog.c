@@ -366,9 +366,8 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
 static void
 process_define_predicate (rtx desc)
 {
-  struct pred_data *pred = xcalloc (sizeof (struct pred_data), 1);
+  struct pred_data *pred = XCNEW (struct pred_data);
   char codes[NUM_RTX_CODE];
-  bool seen_one = false;
   int i;
 
   pred->name = XSTR (desc, 0);
@@ -379,26 +378,8 @@ process_define_predicate (rtx desc)
 
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (codes[i] != N)
-      {
-	pred->codes[i] = true;
-	if (GET_RTX_CLASS (i) != RTX_CONST_OBJ)
-	  pred->allows_non_const = true;
-	if (i != REG
-	    && i != SUBREG
-	    && i != MEM
-	    && i != CONCAT
-	    && i != PARALLEL
-	    && i != STRICT_LOW_PART)
-	  pred->allows_non_lvalue = true;
+      add_predicate_code (pred, i);
 
-	if (seen_one)
-	  pred->singleton = UNKNOWN;
-	else
-	  {
-	    pred->singleton = i;
-	    seen_one = true;
-	  }
-      }
   add_predicate (pred);
 }
 #undef I
@@ -493,7 +474,7 @@ extern void debug_decision_list
 static struct decision *
 new_decision (const char *position, struct decision_head *last)
 {
-  struct decision *new = xcalloc (1, sizeof (struct decision));
+  struct decision *new = XCNEW (struct decision);
 
   new->success = *last;
   new->position = xstrdup (position);
@@ -909,7 +890,7 @@ add_to_sequence (rtx pattern, struct decision_head *last, const char *position,
   if (depth > max_depth)
     max_depth = depth;
 
-  subpos = xmalloc (depth + 2);
+  subpos = XNEWVAR (char, depth + 2);
   strcpy (subpos, position);
   subpos[depth + 1] = 0;
 

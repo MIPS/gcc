@@ -178,12 +178,6 @@ CC_STATUS cc_status;
 CC_STATUS cc_prev_status;
 #endif
 
-/* Nonzero means current function must be given a frame pointer.
-   Initialized in function.c to 0.  Set only in reload1.c as per
-   the needs of the function.  */
-
-int frame_pointer_needed;
-
 /* Number of unmatched NOTE_INSN_BLOCK_BEG notes we have seen.  */
 
 static int block_depth;
@@ -864,8 +858,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       n_labels = max_labelno - min_labelno + 1;
       n_old_labels = old - min_labelno + 1;
 
-      label_align = xrealloc (label_align,
-			      n_labels * sizeof (struct label_alignment));
+      label_align = XRESIZEVEC (struct label_alignment, label_align, n_labels);
 
       /* Range of labels grows monotonically in the function.  Failing here
          means that the initialization of array got lost.  */
@@ -1392,6 +1385,9 @@ asm_insn_count (rtx body)
   else
     template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
 
+  if (!*template)
+    return 0;
+
   for (; *template; template++)
     if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template, template)
 	|| *template == '\n')
@@ -1505,7 +1501,7 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
   /* The Sun386i and perhaps other machines don't work right
      if the profiling code comes after the prologue.  */
 #ifdef PROFILE_BEFORE_PROLOGUE
-  if (current_function_profile)
+  if (crtl->profile)
     profile_function (file);
 #endif /* PROFILE_BEFORE_PROLOGUE */
 
@@ -1550,7 +1546,7 @@ static void
 profile_after_prologue (FILE *file ATTRIBUTE_UNUSED)
 {
 #ifndef PROFILE_BEFORE_PROLOGUE
-  if (current_function_profile)
+  if (crtl->profile)
     profile_function (file);
 #endif /* not PROFILE_BEFORE_PROLOGUE */
 }
@@ -1562,7 +1558,7 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
 # define NO_PROFILE_COUNTERS	0
 #endif
 #if defined(ASM_OUTPUT_REG_PUSH)
-  int sval = current_function_returns_struct;
+  int sval = cfun->returns_struct;
   rtx svrtx = targetm.calls.struct_value_rtx (TREE_TYPE (current_function_decl), 1);
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) || defined(STATIC_CHAIN_REGNUM)
   int cxt = cfun->static_chain_decl != NULL;
@@ -2187,7 +2183,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	if (asm_noperands (body) >= 0)
 	  {
 	    unsigned int noperands = asm_noperands (body);
-	    rtx *ops = alloca (noperands * sizeof (rtx));
+	    rtx *ops = XALLOCAVEC (rtx, noperands);
 	    const char *string;
 	    location_t loc;
 	    expanded_location expanded;
@@ -3416,9 +3412,11 @@ output_addr_const (FILE *file, rtx x)
 	  /* We can use %d if the number is one word and positive.  */
 	  if (CONST_DOUBLE_HIGH (x))
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     CONST_DOUBLE_HIGH (x), CONST_DOUBLE_LOW (x));
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_HIGH (x),
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x));
 	  else if (CONST_DOUBLE_LOW (x) < 0)
-	    fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_DOUBLE_LOW (x));
+	    fprintf (file, HOST_WIDE_INT_PRINT_HEX,
+		     (unsigned HOST_WIDE_INT) CONST_DOUBLE_LOW (x));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DEC, CONST_DOUBLE_LOW (x));
 	}
@@ -3429,7 +3427,8 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case CONST_FIXED:
-      fprintf (file, HOST_WIDE_INT_PRINT_HEX, CONST_FIXED_VALUE_LOW (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_HEX,
+	       (unsigned HOST_WIDE_INT) CONST_FIXED_VALUE_LOW (x));
       break;
 
     case PLUS:
@@ -3810,7 +3809,7 @@ leaf_function_p (void)
   rtx insn;
   rtx link;
 
-  if (current_function_profile || profile_arc_flag)
+  if (crtl->profile || profile_arc_flag)
     return 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -3824,7 +3823,7 @@ leaf_function_p (void)
 	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
 	return 0;
     }
-  for (link = current_function_epilogue_delay_list;
+  for (link = crtl->epilogue_delay_list;
        link;
        link = XEXP (link, 1))
     {
@@ -3885,7 +3884,7 @@ only_leaf_regs_used (void)
 	&& ! permitted_reg_in_leaf_functions[i])
       return 0;
 
-  if (current_function_uses_pic_offset_table
+  if (crtl->uses_pic_offset_table
       && pic_offset_table_rtx != 0
       && REG_P (pic_offset_table_rtx)
       && ! permitted_reg_in_leaf_functions[REGNO (pic_offset_table_rtx)])
@@ -3908,7 +3907,7 @@ leaf_renumber_regs (rtx first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       leaf_renumber_regs_insn (PATTERN (insn));
-  for (insn = current_function_epilogue_delay_list;
+  for (insn = crtl->epilogue_delay_list;
        insn;
        insn = XEXP (insn, 1))
     if (INSN_P (XEXP (insn, 0)))
@@ -4059,8 +4058,7 @@ debug_queue_symbol (tree decl)
   if (symbol_queue_index >= symbol_queue_size)
     {
       symbol_queue_size += 10;
-      symbol_queue = xrealloc (symbol_queue,
-			       symbol_queue_size * sizeof (tree));
+      symbol_queue = XRESIZEVEC (tree, symbol_queue, symbol_queue_size);
     }
 
   symbol_queue[symbol_queue_index++] = decl;
@@ -4236,9 +4234,9 @@ rest_of_clean_state (void)
 
   if (targetm.binds_local_p (current_function_decl))
     {
-      int pref = cfun->preferred_stack_boundary;
-      if (cfun->stack_alignment_needed > cfun->preferred_stack_boundary)
-        pref = cfun->stack_alignment_needed;
+      unsigned int pref = crtl->preferred_stack_boundary;
+      if (crtl->stack_alignment_needed > crtl->preferred_stack_boundary)
+        pref = crtl->stack_alignment_needed;
       cgraph_rtl_info (current_function_decl)->preferred_incoming_stack_boundary
         = pref;
     }

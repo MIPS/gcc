@@ -138,7 +138,7 @@ variable_size (tree size)
      places.  */
   save = skip_simple_arithmetic (size);
 
-  if (cfun && cfun->x_dont_save_pending_sizes_p)
+  if (cfun && cfun->dont_save_pending_sizes_p)
     /* The front-end doesn't want us to keep a list of the expressions
        that determine sizes for variable size objects.  Trust it.  */
     return size;
@@ -506,7 +506,7 @@ relayout_decl (tree decl)
 record_layout_info
 start_record_layout (tree t)
 {
-  record_layout_info rli = xmalloc (sizeof (struct record_layout_info_s));
+  record_layout_info rli = XNEW (struct record_layout_info_s);
 
   rli->t = t;
 

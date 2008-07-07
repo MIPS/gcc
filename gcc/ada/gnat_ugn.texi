@@ -2855,9 +2855,8 @@ This applies to an intrinsic operation, as defined in the Ada
 Reference Manual. If a pragma Import (Intrinsic) applies to a subprogram,
 this means that the body of the subprogram is provided by the compiler itself,
 usually by means of an efficient code sequence, and that the user does not
-supply an explicit body for it. In an application program, the pragma can
-only be applied to the following two sets of names, which the GNAT compiler
-recognizes.
+supply an explicit body for it. In an application program, the pragma may
+be applied to the following sets of names:
 
 @itemize @bullet
 @item
@@ -2868,7 +2867,9 @@ first one must be a signed integer type or a modular type with a binary
 modulus, and the second parameter must be of type Natural.
 The return type must be the same as the type of the first argument. The size
 of this type can only be 8, 16, 32, or 64.
-@item binary arithmetic operators: ``+'', ``-'', ``*'', ``/''
+
+@item
+Binary arithmetic operators: ``+'', ``-'', ``*'', ``/''
 The corresponding operator declaration must have parameters and result type
 that have the same root numeric type (for example, all three are long_float
 types). This simplifies the definition of operations that use type checking
@@ -2888,7 +2889,24 @@ This common idiom is often programmed with a generic definition and an
 explicit body. The pragma makes it simpler to introduce such declarations.
 It incurs no overhead in compilation time or code size, because it is
 implemented as a single machine instruction.
+
+@item
+General subprogram entities, to bind an Ada subprogram declaration to
+a compiler builtin by name with back-ends where such interfaces are
+available. A typical example is the set of ``__builtin'' functions
+exposed by the GCC back-end, as in the following example:
+
+@smallexample @c ada
+   function builtin_sqrt (F : Float) return Float;
+   pragma Import (Intrinsic, builtin_sqrt, "__builtin_sqrtf");
+@end smallexample
+
+Most of the GCC builtins are accessible this way, and as for other
+import conventions (e.g. C), it is the user's responsibility to ensure
+that the Ada subprogram profile matches the underlying builtin
+expectations.
 @end itemize
+
 @noindent
 
 @ifset unw
@@ -4020,6 +4038,10 @@ Don't quit; try semantics, even if parse errors.
 @item -gnatQ
 @cindex @option{-gnatQ} (@command{gcc})
 Don't quit; generate @file{ALI} and tree files even if illegalities.
+
+@item -gnatr
+@cindex @option{-gnatr} (@command{gcc})
+Treat pragma Restrictions as Restriction_Warnings.
 
 @item ^-gnatR[0/1/2/3[s]]^/REPRESENTATION_INFO^
 @cindex @option{-gnatR} (@command{gcc})
@@ -5723,7 +5745,7 @@ turns on all validity checking options except for
 checking of @code{@b{in out}} procedure arguments.
 
 The specification of additional validity checking generates extra code (and
-in the case of @option{-gnatVa} the code expansion can be substantial.
+in the case of @option{-gnatVa} the code expansion can be substantial).
 However, these additional checks can be very useful in detecting
 uninitialized variables, incorrect use of unchecked conversion, and other
 errors leading to invalid values. The use of pragma @code{Initialize_Scalars}
@@ -6023,7 +6045,7 @@ with declarations.
 @item ^S^STATEMENTS_AFTER_THEN_ELSE^
 @emph{Check no statements after THEN/ELSE.}
 No statements are allowed
-on the same line as a THEN OR ELSE keyword following the
+on the same line as a THEN or ELSE keyword following the
 keyword in an IF statement. OR ELSE and AND THEN are not affected,
 and a special exception allows a pragma to appear after ELSE.
 
@@ -6099,19 +6121,25 @@ around conditions in @code{if} statements, @code{while} statements and
 @item ^y^ALL_BUILTIN^
 @emph{Set all standard style check options}
 This is equivalent to @code{gnaty3aAbcefhiklmnprst}, that is all checking
-options enabled with the exception of @option{-gnatyo},
+options enabled with the exception of @option{-gnatyo}, @option{-gnatyI},
+@option{-gnatyS}, @option{-gnatyLnnn},
 @option{-gnatyd}, @option{-gnatyu}, and @option{-gnatyx}.
 
 @ifclear vms
 @item -
 @emph{Remove style check options}
 This causes any subsequent options in the string to act as canceling the
-corresponding style check option.
+corresponding style check option. To cancel maximum nesting level control,
+use @option{L} parameter witout any integer value after that, because any
+digit following @option{-} in the parameter string of the @option{-gnaty}
+option will be threated as canceling indentation check. The same is true
+for @option{M} parameter. @option{y} and @option{N} parameters are not
+allowed after @option{-}.
 
 @item +
 This causes any subsequent options in the string to enable the corresponding
-style check option. It only has an effect if a previous ^-^REMOVE^ has been
-encountered.
+style check option. That is, it cancels the effect of a previous ^-^REMOVE^,
+if any.
 @end ifclear
 
 @ifset vms
@@ -6153,8 +6181,8 @@ built-in standard style check options are enabled.
 the exception of ORDERED_SUBPROGRAMS, UNNECESSARY_BLANK_LINES,
 XTRA_PARENS, and DOS_LINE_ENDINGS. In addition
 @end ifset
-an indentation level of 3 is set. This is similar to the standard
-checking option that is used for the GNAT sources.
+
+
 
 The switch
 @ifclear vms
@@ -6821,6 +6849,16 @@ If the switch @option{-gnatL} is used in conjunction with
 @cindex @option{-gnatL} (@command{gcc})
 @option{-gnatDG}, then the original source lines are interspersed
 in the expanded source (as comment lines with the original line number).
+
+@item -gnatr
+@cindex @option{-gnatr} (@command{gcc})
+@cindex pragma Restrictions
+This switch causes pragma Restrictions to be treated as Restriction_Warnings
+so that violation of restrictions causes warnings rather than illegalities.
+This is useful during the development process when new restrictions are added
+or investigated. The switch also causes pragma Profile to be treated as
+Profile_Warnings, and pragma Restricted_Run_Time and pragma Ravenscar set
+restriction warnings rather than restrictions.
 
 @ifclear vms
 @item -gnatR[0|1|2|3[s]]
@@ -8577,7 +8615,11 @@ use @code{foo -x -y} as your compiler. Note that switch @option{-c} is always
 inserted after your command name. Thus in the above example the compiler
 command that will be used by @command{gnatlink} will be @code{foo -c -x -y}.
 A limitation of this syntax is that the name and path name of the executable
-itself must not include any embedded spaces. If several
+itself must not include any embedded spaces. If the compiler executable is
+different from the default one (gcc or <prefix>-gcc), then the back-end
+switches in the ALI file are not used to compile the binder generated source.
+For example, this is the case with @option{--GCC="foo -x -y"}. But the back end
+switches will be used for @option{--GCC="gcc -gnatv"}. If several
 @option{--GCC=compiler_name} are used, only the last @var{compiler_name}
 is taken into account. However, all the additional switches are also taken
 into account. Thus,
@@ -8820,7 +8862,7 @@ Project File is specified, with the ALI file extension.
 Compile only. Do not perform binding, except when @option{^-b^/ACTIONS=BIND^}
 is also specified. Do not perform linking, except if both
 @option{^-b^/ACTIONS=BIND^} and
- @option{^-l^/ACTIONS=LINK^} are also specified.
+@option{^-l^/ACTIONS=LINK^} are also specified.
 If the root unit specified by @var{file_name} is not a main unit, this is the
 default. Otherwise @command{gnatmake} will attempt binding and linking
 unless all objects are up to date and the executable is more recent than
@@ -8847,6 +8889,17 @@ ineffective. The specified mapping file will be communicated to the compiler.
 This switch is not compatible with a project file
 (^-P^/PROJECT_FILE=^@var{file}) or with multiple compiling processes
 (^-j^/PROCESSES=^nnn, when nnn is greater than 1).
+
+@item ^-d^/DISPLAY_PROGRESS^
+@cindex @option{^-d^/DISPLAY_PROGRESS^} (@command{gnatmake})
+Display progress for each source, up to date or not, as a single line
+
+@smallexample
+completed x out of y (zz%)
+@end smallexample
+
+If the file needs to be compiled this is displayed after the invocation of
+the compiler. These lines are displayed even in quiet output mode.
 
 @item ^-D ^/DIRECTORY_OBJECTS=^@var{dir}
 @cindex @option{^-D^/DIRECTORY_OBJECTS^} (@command{gnatmake})
@@ -9368,8 +9421,8 @@ and @file{^main3^MAIN3.EXE^}.
 
 @ifset vms
 @item gnatmake Main_Unit /QUIET
-   /COMPILER_QUALIFIERS /OPTIMIZE=ALL
-   /BINDER_QUALIFIERS /ORDER_OF_ELABORATION
+/COMPILER_QUALIFIERS /OPTIMIZE=ALL
+/BINDER_QUALIFIERS /ORDER_OF_ELABORATION
 @end ifset
 Compile all files necessary to bind and link the main program unit
 @code{Main_Unit} (from file @file{main_unit.adb}). All compilations will
@@ -11036,7 +11089,8 @@ set of files.
 The usual form of the @code{gnatname} command is
 
 @smallexample
-$ gnatname [@var{switches}] @var{naming_pattern} [@var{naming_patterns}]
+$ gnatname [@var{switches}] @var{naming_pattern} [@var{naming_patterns}] \
+      [--and @var{switches}] @var{naming_pattern} [@var{naming_patterns}]]
 @end smallexample
 
 @noindent
@@ -11057,6 +11111,14 @@ A Naming Pattern is a regular expression similar to the wildcard patterns
 used in file names by the Unix shells or the DOS prompt.
 
 @noindent
+@code{gnatname} may be called with several sections of directories/patterns.
+Sections are separated by switch @code{--and}. In each section, there must be
+at least one pattern. If no directory is specified in a section, the current
+directory (or the project directory is @code{-P} is used) is implied.
+The options other that the directory switches and the patterns apply globally
+even if they are in different sections.
+
+@noindent
 Examples of Naming Patterns are
 
 @smallexample
@@ -11071,9 +11133,10 @@ see the second kind of regular expressions described in @file{g-regexp.ads}
 (the ``Glob'' regular expressions).
 
 @noindent
-When invoked with no switches, @code{gnatname} will create a configuration
-pragmas file @file{gnat.adc} in the current working directory, with pragmas
-@code{Source_File_Name} for each file that contains a valid Ada unit.
+When invoked with no switch @code{-P}, @code{gnatname} will create a
+configuration pragmas file @file{gnat.adc} in the current working directory,
+with pragmas @code{Source_File_Name} for each file that contains a valid Ada
+unit.
 
 @node Switches for gnatname
 @section Switches for @code{gnatname}
@@ -11095,6 +11158,9 @@ Display Copyright and version, then exit disregarding all other options.
 @cindex @option{--help} @command{gnatname}
 If @option{--version} was not used, display usage, then exit disregarding
 all other options.
+
+@item --and
+Start another section of directories/patterns.
 
 @item ^-c^/CONFIG_FILE=^@file{file}
 @cindex @option{^-c^/CONFIG_FILE^} (@code{gnatname})
@@ -12008,7 +12074,9 @@ the inherited body is not part of the sources of the project, otherwise there
 will be a compilation error when compiling the spec.
 
 For that purpose, the attribute @code{Excluded_Source_Files} is used.
-Its value is a string list: a list of file names.
+Its value is a string list: a list of file names. It is also possible to use
+attribute @code{Excluded_Source_List_File}. Its value is a single string:
+the file name of a text file containing a list of file names, one per line.
 
 @smallexample @c @projectfile
 project B extends "a" is
@@ -12033,6 +12101,7 @@ project P.
 
 @menu
 * Basic Syntax::
+* Qualified Projects::
 * Packages::
 * Expressions::
 * String Types::
@@ -12090,11 +12159,15 @@ word @code{end} at the end of the project file, followed by a semi-colon.
 Any name in a project file, such as the project name or a variable name,
 has the same syntax as an Ada identifier.
 
-The reserved words of project files are the Ada reserved words plus
+The reserved words of project files are the Ada 95 reserved words plus
 @code{extends}, @code{external}, and @code{project}.  Note that the only Ada
 reserved words currently used in project file syntax are:
 
 @itemize @bullet
+@item
+@code{all}
+@item
+@code{at}
 @item
 @code{case}
 @item
@@ -12103,6 +12176,10 @@ reserved words currently used in project file syntax are:
 @code{for}
 @item
 @code{is}
+@item
+@code{limited}
+@item
+@code{null}
 @item
 @code{others}
 @item
@@ -12122,6 +12199,39 @@ reserved words currently used in project file syntax are:
 @noindent
 Comments in project files have the same syntax as in Ada, two consecutive
 hyphens through the end of the line.
+
+@node Qualified Projects
+@subsection Qualified Projects
+
+@noindent
+Before the reserved @code{project}, there may be one or two "qualifiers", that
+is identifiers or other reserved words, to qualify the project.
+
+The current list of qualifiers is:
+
+@itemize @bullet
+@item
+@code{abstract}: qualify a project with no sources. An abstract project must
+have a declaration specifying that there are no sources in the project, and,
+if it extends another project, the project it extends must also be a qualified
+abstract project.
+
+@item
+@code{standard}: a standard project is a non library project with sources.
+
+@item
+@code{aggregate}: for future extension
+
+@item
+@code{aggregate library}: for future extension
+
+@item
+@code{library}: a library project must declare both attributes
+@code{Library_Name} and @code{Library_Dir}.
+
+@item
+@code{configuration}: a configuration project cannot be in a project tree.
+@end itemize
 
 @node Packages
 @subsection Packages
@@ -12389,6 +12499,8 @@ The following attributes are defined on projects (all are simple attributes):
 @tab string list
 @item @code{Excluded_Source_Files}
 @tab string list
+@item @code{Excluded_Source_List_File}
+@tab string
 @item @code{Languages}
 @tab string list
 @item @code{Main}
@@ -12530,7 +12642,7 @@ The prefix of an attribute may be:
 @item The name of an imported project
 @item The name of a parent project that is extended by the current project
 @item An expanded name whose prefix is imported/parent project name,
-      and whose selector is a package name
+and whose selector is a package name
 @end itemize
 
 @noindent
@@ -13015,8 +13127,8 @@ The original body of @code{Util_IO} will not be considered in program builds.
 However, the package spec will still be found in the project
 @code{Utilities}.
 
-A child project can have only one parent but it may import any number of other
-projects.
+A child project can have only one parent, except when it is qualified as
+abstract. But it may import any number of other projects.
 
 A project is not allowed to import directly or indirectly at the same time a
 child project and any of its ancestors.
@@ -15177,8 +15289,8 @@ specifies the command used to compile a single file in the application.
 @ifclear vms
 @item make_cmd=COMMAND
 [default: @code{"gnatmake $@{main@} -aI$@{src_dir@}
- -aO$@{obj_dir@} -g -gnatq -cargs $@{comp_opt@}
- -bargs $@{bind_opt@} -largs $@{link_opt@}"}]
+-aO$@{obj_dir@} -g -gnatq -cargs $@{comp_opt@}
+-bargs $@{bind_opt@} -largs $@{link_opt@}"}]
 @end ifclear
 specifies the command used to recompile the whole application.
 
@@ -17727,6 +17839,21 @@ In this example, @i{expression} is defined by the following grammar:
 @i{expression} ::=  ( @i{expression} )
 @end smallexample
 
+The following restriction exists: it is not allowed to have "and" or "or"
+following "not" in the same expression without parentheses. For example, this
+is not allowed:
+
+@smallexample
+   not X or Y
+@end smallexample
+
+This should be one of the following:
+
+@smallexample
+   (not X) or Y
+   not (X or Y)
+@end smallexample
+
 @noindent
 For the first test (@i{expression} ::= <symbol>) the symbol must have
 either the value true or false, that is to say the right-hand of the
@@ -17836,25 +17963,23 @@ $ GNAT LIBRARY /[CREATE | SET | DELETE]=directory [/CONFIG=file]
 @c !sort!
 @item /CREATE=directory
 @cindex @code{/CREATE} (@code{gnatlbr})
-     Create the new run-time library in the specified directory.
+Create the new run-time library in the specified directory.
 
 @item /SET=directory
 @cindex @code{/SET} (@code{gnatlbr})
-     Make the library in the specified directory the current run-time
-     library.
+Make the library in the specified directory the current run-time library.
 
 @item /DELETE=directory
 @cindex @code{/DELETE} (@code{gnatlbr})
-     Delete the run-time library in the specified directory.
+Delete the run-time library in the specified directory.
 
 @item /CONFIG=file
 @cindex @code{/CONFIG} (@code{gnatlbr})
-     With /CREATE:
-     Use the configuration pragmas in the specified file when building
-     the library.
+With /CREATE: Use the configuration pragmas in the specified file when
+building the library.
 
-     With /SET:
-     Use the configuration pragmas in the specified file when compiling.
+With /SET: Use the configuration pragmas in the specified file when
+compiling.
 
 @end table
 
@@ -20259,9 +20384,10 @@ use the rule named
 @code{Restrictions} or @code{Restriction_Warnings}.
 
 @item Style_Checks
-To record compiler style checks, use the rule named
+To record compiler style checks(@pxref{Style Checking}), use the rule named
 @code{Style_Checks}. A parameter of this rule can be either @code{All_Checks},
-which enables all the style checks, or a string that has exactly the same
+which enables all the standard style checks that corresponds to @option{-gnatyy}
+GNAT style check option, or a string that has exactly the same
 structure and semantics as the @code{string_LITERAL} parameter of GNAT pragma
 @code{Style_Checks} (for further information about this pragma,
 @pxref{Pragma Style_Checks,,, gnat_rm, GNAT Reference Manual}).
@@ -20271,9 +20397,18 @@ To record compiler warnings (@pxref{Warning Message Control}), use the rule
 named @code{Warnings} with a parameter that is a valid
 @i{static_string_expression} argument of GNAT pragma @code{Warnings}
 (for further information about this pragma, @pxref{Pragma Warnings,,,
-gnat_rm, GNAT Reference Manual}).
+gnat_rm, GNAT Reference Manual}). Note, that in case of gnatcheck
+'s' parameter, that corresponds to the GNAT @option{-gnatws} option, disables
+all the specific warnings, but not suppresses the warning mode,
+and 'e' parameter, corresponding to @option{-gnatwe} that means
+"treat warnings as errors", does not have any effect.
 
 @end table
+
+To disable a specific restriction check, use @code{-RStyle_Checks} gnatcheck
+option with the corresponding restriction name as a parameter. @code{-R} is
+not available for @code{Style_Checks} and @code{Warnings} options, to disable
+warnings and style checks, use the corresponding warning and style options.
 
 @node Project-Wide Checks
 @section Project-Wide Checks
@@ -20397,6 +20532,7 @@ used as a parameter of the @option{+R} or @option{-R} options.
 * Predefined_Numeric_Types::
 * Raising_External_Exceptions::
 * Raising_Predefined_Exceptions::
+* Separate_Numeric_Error_Handlers::
 @ignore
 * Recursion::
 * Side_Effect_Functions::
@@ -20966,14 +21102,14 @@ The following declarations are checked:
 
 @itemize @bullet
 @item
- type declarations
+type declarations
 
 @item
- constant declarations (but not number declarations)
+constant declarations (but not number declarations)
 
 @item
- package renaming declarations (but not generic package renaming
-    declarations)
+package renaming declarations (but not generic package renaming
+declarations)
 @end itemize
 
 @noindent
@@ -20982,12 +21118,12 @@ the following checks:
 
 @itemize @bullet
 @item
-   type-defining names end with @code{_T}, unless the type is an access type,
-    in which case the suffix must be @code{_A}
+type-defining names end with @code{_T}, unless the type is an access type,
+in which case the suffix must be @code{_A}
 @item
-   constant names end with @code{_C}
+constant names end with @code{_C}
 @item
-   names defining package renamings end with @code{_R}
+names defining package renamings end with @code{_R}
 @end itemize
 
 @noindent
@@ -20996,19 +21132,19 @@ made for the defining name suffix:
 
 @itemize @bullet
 @item
- For an incomplete type declaration: if the corresponding full type
-  declaration is available, the defining identifier from the full type
-  declaration is checked, but the defining identifier from the incomplete type
-  declaration is not; otherwise the defining identifier from the incomplete
-  type declaration is checked against the suffix specified for type
-  declarations.
+For an incomplete type declaration: if the corresponding full type
+declaration is available, the defining identifier from the full type
+declaration is checked, but the defining identifier from the incomplete type
+declaration is not; otherwise the defining identifier from the incomplete
+type declaration is checked against the suffix specified for type
+declarations.
 
 @item
- For a private type declaration (including private extensions),  the defining
-  identifier from the private type declaration is checked against the type
-  suffix (even if the corresponding full declaration is an access type
-  declaration), and the defining identifier from the corresponding full type
-  declaration is not checked.
+For a private type declaration (including private extensions),  the defining
+identifier from the private type declaration is checked against the type
+suffix (even if the corresponding full declaration is an access type
+declaration), and the defining identifier from the corresponding full type
+declaration is not checked.
 @end itemize
 
 @noindent
@@ -21591,6 +21727,18 @@ Flag each @code{raise} statement that raises a predefined exception
 
 This rule has no parameters.
 
+@node Separate_Numeric_Error_Handlers
+@subsection @code{Separate_Numeric_Error_Handlers}
+@cindex @code{Separate_Numeric_Error_Handlers} rule (for @command{gnatcheck})
+
+@noindent
+Flags each exception handler that contains a choice for
+the predefined @code{Constraint_Error} exception, but does not contain
+the choice for the predefined @code{Numeric_Error} exception, or
+that contains the choice for @code{Numeric_Error}, but does not contain the
+choice for @code{Constraint_Error}.
+
+This rule has no parameters.
 
 @ignore
 @node Recursion
@@ -24069,7 +24217,7 @@ functions:
 @item @code{TO_UNSIGNED_LONGWORD(ADDRESS)}
 
 @item Function @code{IMPORT_VALUE return UNSIGNED_LONGWORD} and the
-              functions @code{IMPORT_ADDRESS} and @code{IMPORT_LARGEST_VALUE}
+functions @code{IMPORT_ADDRESS} and @code{IMPORT_LARGEST_VALUE}
 @end itemize
 
 @noindent
@@ -24262,16 +24410,15 @@ GNAT supplies the following task-related pragmas:
 @itemize @bullet
 @item  @code{TASK_INFO}
 
-              This pragma appears within a task definition and
-              applies to the task in which it appears. The argument
-              must be of type @code{SYSTEM.TASK_INFO.TASK_INFO_TYPE}.
+This pragma appears within a task definition and
+applies to the task in which it appears. The argument
+must be of type @code{SYSTEM.TASK_INFO.TASK_INFO_TYPE}.
 
 @item  @code{TASK_STORAGE}
 
-              GNAT implements pragma @code{TASK_STORAGE} in the same way as
-              HP Ada.
-              Both HP Ada and GNAT supply the pragmas @code{PASSIVE},
-              @code{SUPPRESS}, and @code{VOLATILE}.
+GNAT implements pragma @code{TASK_STORAGE} in the same way as HP Ada.
+Both HP Ada and GNAT supply the pragmas @code{PASSIVE},
+@code{SUPPRESS}, and @code{VOLATILE}.
 @end itemize
 @node Scheduling and Task Priority
 @subsection Scheduling and Task Priority
@@ -24727,17 +24874,16 @@ On HP Ada, main programs are defined to meet the
 following conditions:
 @itemize @bullet
 @item  Procedure with no formal parameters (returns @code{0} upon
-       normal completion)
+normal completion)
 
 @item  Procedure with no formal parameters (returns @code{42} when
-       an unhandled exception is raised)
+an unhandled exception is raised)
 
 @item  Function with no formal parameters whose returned value
-       is of a discrete type
+is of a discrete type
 
 @item  Procedure with one @code{out} formal of a discrete type for
-       which a specification of pragma @code{EXPORT_VALUED_PROCEDURE}
-       is given.
+which a specification of pragma @code{EXPORT_VALUED_PROCEDURE} is given.
 
 @end itemize
 
@@ -25122,7 +25268,7 @@ and GNAT systems.
 @sp 1
 
 @item  In a subprogram or entry  declaration, maximum number of
-       formal parameters that are of an unconstrained record type
+formal parameters that are of an unconstrained record type
 @tab   32
 @tab   No set limit
 @sp 1
@@ -25148,7 +25294,7 @@ and GNAT systems.
 @sp 1
 
 @item  Maximum number of formal parameters in an entry or
-       subprogram declaration
+subprogram declaration
 @tab   246
 @tab    No set limit
 @sp 1
@@ -25169,13 +25315,13 @@ and GNAT systems.
 @sp 1
 
 @item  Maximum number of objects declared with the pragma @code{COMMON_OBJECT}
-       or @code{PSECT_OBJECT}
+or @code{PSECT_OBJECT}
 @tab   32757
 @tab   No set limit
 @sp 1
 
 @item  Maximum number of enumeration literals in an enumeration type
-       definition
+definition
 @tab   65535
 @tab   No set limit
 @sp 1
@@ -25274,35 +25420,35 @@ of the DECset package.
 @c @multitable @columnfractions .3 .4 .4
 @multitable {Source Code Analyzer /}{Tool with HP Ada}{Tool with GNAT Pro}
 @item @i{Tool}
- @tab @i{Tool with HP Ada}
- @tab @i{Tool with @value{EDITION}}
+@tab @i{Tool with HP Ada}
+@tab @i{Tool with @value{EDITION}}
 @item Code Management@*System
- @tab HP CMS
- @tab HP CMS
+@tab HP CMS
+@tab HP CMS
 @item Language-Sensitive@*Editor
- @tab HP LSE
- @tab emacs or HP LSE (Alpha)
+@tab HP LSE
+@tab emacs or HP LSE (Alpha)
 @item
- @tab
- @tab HP LSE (I64)
+@tab
+@tab HP LSE (I64)
 @item Debugger
- @tab OpenVMS Debug
- @tab gdb (Alpha),
+@tab OpenVMS Debug
+@tab gdb (Alpha),
 @item
- @tab
- @tab OpenVMS Debug (I64)
+@tab
+@tab OpenVMS Debug (I64)
 @item Source Code Analyzer /@*Cross Referencer
- @tab HP SCA
- @tab GNAT XREF
+@tab HP SCA
+@tab GNAT XREF
 @item Test Manager
- @tab HP Digital Test@*Manager (DTM)
- @tab HP DTM
+@tab HP Digital Test@*Manager (DTM)
+@tab HP DTM
 @item Performance and@*Coverage Analyzer
- @tab HP PCA
- @tab HP PCA
+@tab HP PCA
+@tab HP PCA
 @item Module Management@*System
- @tab HP MMS
- @tab Not applicable
+@tab HP MMS
+@tab Not applicable
 @end multitable
 @end flushleft
 @end ifnottex
@@ -25639,16 +25785,16 @@ to one of the following:
 @table @code
 @item -2
 Use the default configuration (run the program on all
-         available processors) - this is the same as having
-         @code{GNAT_PROCESSOR} unset
+available processors) - this is the same as having @code{GNAT_PROCESSOR}
+unset
 
 @item -1
 Let the run-time implementation choose one processor and run the program on
-         that processor
+that processor
 
 @item 0 .. Last_Proc
 Run the program on the specified processor.
-  @code{Last_Proc} is equal to @code{_SC_NPROCESSORS_CONF - 1}
+@code{Last_Proc} is equal to @code{_SC_NPROCESSORS_CONF - 1}
 (where @code{_SC_NPROCESSORS_CONF} is a system variable).
 @end table
 
@@ -26076,7 +26222,7 @@ package body ada_main is
       --  a-except.ads/adb for full details of how zero cost
       --  exception handling works. This procedure, the call to
       --  it, and the two following tables are all omitted if the
-      --  build is in longjmp/setjump exception mode.
+      --  build is in longjmp/setjmp exception mode.
 
 @findex SDP_Table_Build
 @findex Zero Cost Exceptions
@@ -26151,7 +26297,7 @@ package body ada_main is
 
       --  Call SDP_Table_Build to build the top level procedure
       --  table for zero cost exception handling (omitted in
-      --  longjmp/setjump mode).
+      --  longjmp/setjmp mode).
 
       SDP_Table_Build (ST'Address, 23, EA'Address, 23);
 

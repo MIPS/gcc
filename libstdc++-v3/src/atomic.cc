@@ -28,7 +28,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#include <stdint.h>
+#include "gstdint.h"
 #include <cstdatomic>
 
 #define LOGSIZE 4
@@ -52,9 +52,10 @@ namespace std
 
   bool 
   atomic_flag_test_and_set_explicit(volatile atomic_flag* __a, 
-				    memory_order __x)
+				    memory_order __x
+				    __attribute__ ((__unused__)))
   {
-#ifdef _GLIBCXX_ATOMIC_BUILTINS
+#ifdef _GLIBCXX_ATOMIC_BUILTINS_1
     if (__x >= memory_order_acq_rel)
       __sync_synchronize();
     return __sync_lock_test_and_set(&(__a->_M_base._M_b), 1);
@@ -70,9 +71,10 @@ namespace std
   { return atomic_flag_test_and_set_explicit(__a, memory_order_seq_cst); }
   
   void 
-  atomic_flag_clear_explicit(volatile atomic_flag* __a, memory_order __x)
+  atomic_flag_clear_explicit(volatile atomic_flag* __a,
+			     memory_order __x __attribute__ ((__unused__)))
   {
-#ifdef _GLIBCXX_ATOMIC_BUILTINS
+#ifdef _GLIBCXX_ATOMIC_BUILTINS_1
     __sync_lock_release(&(__a->_M_base._M_b));
     if (__x >= memory_order_acq_rel)
       __sync_synchronize();
@@ -88,7 +90,7 @@ namespace std
   void 
   atomic_flag_fence(const volatile atomic_flag*, memory_order)
   {
-#ifdef _GLIBCXX_ATOMIC_BUILTINS
+#ifdef _GLIBCXX_ATOMIC_BUILTINS_1
     __sync_synchronize(); 
 #endif
   } 

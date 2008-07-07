@@ -1,5 +1,5 @@
 /* Language independent return value optimizations
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -113,6 +113,11 @@ tree_nrv (void)
   /* If this function does not return an aggregate type in memory, then
      there is nothing to do.  */
   if (!aggregate_value_p (result, current_function_decl))
+    return 0;
+
+  /* If a GIMPLE type is returned in memory, finalize_nrv_r might create
+     non-GIMPLE.  */
+  if (is_gimple_reg_type (result_type))
     return 0;
 
   /* Look through each block for assignments to the RESULT_DECL.  */
@@ -244,17 +249,13 @@ struct gimple_opt_pass pass_nrv =
    optimization, where DEST is expected to be the LHS of a modify
    expression where the RHS is a function returning an aggregate.
 
-   We search for a base VAR_DECL and look to see if it, or any of its
-   subvars are clobbered.  Note that we could do better, for example, by
+   We search for a base VAR_DECL and look to see if it is call clobbered.
+   Note that we could do better, for example, by
    attempting to doing points-to analysis on INDIRECT_REFs.  */
 
 static bool
 dest_safe_for_nrv_p (tree dest)
 {
-  subvar_t sv;
-  unsigned int i;
-  tree subvar;
-
   while (handled_component_p (dest))
     dest = TREE_OPERAND (dest, 0);
 
@@ -266,11 +267,6 @@ dest_safe_for_nrv_p (tree dest)
 
   if (is_call_clobbered (dest))
     return false;
-
-  sv = get_subvars_for_var (dest);
-  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
-    if (is_call_clobbered (subvar))
-      return false;
 
   return true;
 }

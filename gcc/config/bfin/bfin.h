@@ -33,10 +33,6 @@
 
 extern int target_flags;
 
-#ifndef DEFAULT_CPU_TYPE
-#define DEFAULT_CPU_TYPE BFIN_CPU_BF532
-#endif
-
 /* Predefinition in the preprocessor for this target machine */
 #ifndef TARGET_CPU_CPP_BUILTINS
 #define TARGET_CPU_CPP_BUILTINS()		\
@@ -125,7 +121,7 @@ extern int target_flags;
       if (bfin_si_revision != -1)		\
 	{					\
 	  /* space of 0xnnnn and a NUL */	\
-	  char *buf = alloca (7);		\
+	  char *buf = XALLOCAVEC (char, 7);	\
 						\
 	  sprintf (buf, "0x%04x", bfin_si_revision);			\
 	  builtin_define_with_value ("__SILICON_REVISION__", buf, 0);	\
@@ -137,6 +133,8 @@ extern int target_flags;
 	builtin_define ("__WORKAROUND_SPECULATIVE_LOADS");		\
       if (ENABLE_WA_SPECULATIVE_SYNCS)					\
 	builtin_define ("__WORKAROUND_SPECULATIVE_SYNCS");		\
+      if (ENABLE_WA_RETS)						\
+	builtin_define ("__WORKAROUND_RETS");		\
 						\
       if (TARGET_FDPIC)				\
 	{					\
@@ -148,12 +146,19 @@ extern int target_flags;
 	builtin_define ("__ID_SHARED_LIB__");	\
       if (flag_no_builtin)			\
 	builtin_define ("__NO_BUILTIN");	\
+      if (TARGET_MULTICORE)			\
+	builtin_define ("__BFIN_MULTICORE");	\
+      if (TARGET_COREA)				\
+	builtin_define ("__BFIN_COREA");	\
+      if (TARGET_COREB)				\
+	builtin_define ("__BFIN_COREB");	\
+      if (TARGET_SDRAM)				\
+	builtin_define ("__BFIN_SDRAM");	\
     }						\
   while (0)
 #endif
 
 #define DRIVER_SELF_SPECS SUBTARGET_DRIVER_SELF_SPECS	"\
- %{!mcpu=*:-mcpu=bf532} \
  %{mleaf-id-shared-library:%{!mid-shared-library:-mid-shared-library}} \
  %{mfdpic:%{!fpic:%{!fpie:%{!fPIC:%{!fPIE:\
    	    %{!fno-pic:%{!fno-pie:%{!fno-PIC:%{!fno-PIE:-fpie}}}}}}}}} \
@@ -283,7 +288,7 @@ extern const char *bfin_library_id_string;
 
 /* Define this if the above stack space is to be considered part of the
  * space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 	  
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
@@ -841,7 +846,6 @@ typedef struct {
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == REG_R0)
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
-#define RETURN_IN_MEMORY(TYPE) bfin_return_in_memory(TYPE)
 
 /* Before the prologue, the return address is in the RETS register.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, REG_RETS)

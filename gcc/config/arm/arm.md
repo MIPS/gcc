@@ -8785,8 +8785,7 @@
 
     /* Emit USE insns before the return.  */
     for (i = 0; i < XVECLEN (operands[1], 0); i++)
-      emit_insn (gen_rtx_USE (VOIDmode,
-			      SET_DEST (XVECEXP (operands[1], 0, i))));
+      emit_use (SET_DEST (XVECEXP (operands[1], 0, i)));
 
     /* Construct the return.  */
     expand_naked_return ();
@@ -10397,7 +10396,7 @@
   [(clobber (const_int 0))]
   "TARGET_EITHER"
   "
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_prologue_use (gen_rtx_REG (Pmode, 2)));
   if (TARGET_THUMB1)
     thumb1_expand_epilogue ();

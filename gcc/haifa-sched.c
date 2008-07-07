@@ -1147,7 +1147,7 @@ ready_sort (struct ready_list *ready)
 
 /* PREV is an insn that is ready to execute.  Adjust its priority if that
    will help shorten or lengthen register lifetimes as appropriate.  Also
-   provide a hook for the target to tweek itself.  */
+   provide a hook for the target to tweak itself.  */
 
 HAIFA_INLINE static void
 adjust_priority (rtx prev)
@@ -2374,7 +2374,7 @@ schedule_block (basic_block *target_bb)
   q_ptr = 0;
   q_size = 0;
 
-  insn_queue = alloca ((max_insn_queue_index + 1) * sizeof (rtx));
+  insn_queue = XALLOCAVEC (rtx, max_insn_queue_index + 1);
   memset (insn_queue, 0, (max_insn_queue_index + 1) * sizeof (rtx));
 
   /* Start just before the beginning of time.  */
@@ -2568,7 +2568,7 @@ schedule_block (basic_block *target_bb)
 	      asm_p = (GET_CODE (PATTERN (insn)) == ASM_INPUT
 		       || asm_noperands (PATTERN (insn)) >= 0);
 	      if (!first_cycle_insn_p && asm_p)
-		/* This is asm insn which is tryed to be issued on the
+		/* This is asm insn which is tried to be issued on the
 		   cycle not first.  Issue it on the next cycle.  */
 		cost = 1;
 	      else
@@ -2746,7 +2746,7 @@ schedule_block (basic_block *target_bb)
   if (targetm.sched.md_finish)
     {
       targetm.sched.md_finish (sched_dump, sched_verbose);
-      /* Target might have added some instructions to the scheduled block.
+      /* Target might have added some instructions to the scheduled block
 	 in its md_finish () hook.  These new insns don't have any data
 	 initialized and to identify them we extend h_i_d so that they'll
 	 get zero luids.  */
@@ -3383,8 +3383,8 @@ sched_extend_ready_list (int new_sched_ready_n_insns)
 
   gcc_assert (new_sched_ready_n_insns >= sched_ready_n_insns);
 
-  ready_try = xrecalloc (ready_try, new_sched_ready_n_insns,
-			 sched_ready_n_insns, sizeof (*ready_try));
+  ready_try = (char *) xrecalloc (ready_try, new_sched_ready_n_insns,
+                                  sched_ready_n_insns, sizeof (*ready_try));
 
   /* We allocate +1 element to save initial state in the choice_stack[0]
      entry.  */
@@ -4273,7 +4273,7 @@ sched_insn_is_legitimate_for_speculation_p (const_rtx insn, ds_t ds)
   if (SCHED_GROUP_P (insn))
     return false;
 
-  if (IS_SPECULATION_CHECK_P ((rtx) insn))
+  if (IS_SPECULATION_CHECK_P (CONST_CAST_RTX (insn)))
     return false;
 
   if (side_effects_p (PATTERN (insn)))
@@ -4356,7 +4356,7 @@ unlink_bb_notes (basic_block first, basic_block last)
   if (first == last)
     return;
 
-  bb_header = xmalloc (last_basic_block * sizeof (*bb_header));
+  bb_header = XNEWVEC (rtx, last_basic_block);
 
   /* Make a sentinel.  */
   if (last->next_bb != EXIT_BLOCK_PTR)

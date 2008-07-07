@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -3026,10 +3026,18 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
   if (TREE_CODE (arg0) == ERROR_MARK || TREE_CODE (arg1) == ERROR_MARK)
     return 0;
 
+  /* Check equality of integer constants before bailing out due to
+     precision differences.  */
+  if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
+    return tree_int_cst_equal (arg0, arg1);
+
   /* If both types don't have the same signedness, then we can't consider
      them equal.  We must check this before the STRIP_NOPS calls
-     because they may change the signedness of the arguments.  */
-  if (TYPE_UNSIGNED (TREE_TYPE (arg0)) != TYPE_UNSIGNED (TREE_TYPE (arg1)))
+     because they may change the signedness of the arguments.  As pointers
+     strictly don't have a signedness, require either two pointers or
+     two non-pointers as well.  */
+  if (TYPE_UNSIGNED (TREE_TYPE (arg0)) != TYPE_UNSIGNED (TREE_TYPE (arg1))
+      || POINTER_TYPE_P (TREE_TYPE (arg0)) != POINTER_TYPE_P (TREE_TYPE (arg1)))
     return 0;
 
   /* If both types don't have the same precision, then it is not safe
@@ -3160,8 +3168,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       /* Two conversions are equal only if signedness and modes match.  */
       switch (TREE_CODE (arg0))
         {
-        case NOP_EXPR:
-        case CONVERT_EXPR:
+	CASE_CONVERT:
         case FIX_TRUNC_EXPR:
 	  if (TYPE_UNSIGNED (TREE_TYPE (arg0))
 	      != TYPE_UNSIGNED (TREE_TYPE (arg1)))
@@ -3251,6 +3258,9 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
 				      TREE_OPERAND (arg1, 0), flags));
 
+	case COND_EXPR:
+	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2);
+	  
 	default:
 	  return 0;
 	}
@@ -3896,8 +3906,7 @@ decode_field_reference (tree exp, HOST_WIDE_INT *pbitsize,
   /* We are interested in the bare arrangement of bits, so strip everything
      that doesn't affect the machine mode.  However, record the type of the
      outermost expression if it may matter below.  */
-  if (TREE_CODE (exp) == NOP_EXPR
-      || TREE_CODE (exp) == CONVERT_EXPR
+  if (CONVERT_EXPR_P (exp)
       || TREE_CODE (exp) == NON_LVALUE_EXPR)
     outer_type = TREE_TYPE (exp);
   STRIP_NOPS (exp);
@@ -4308,7 +4317,7 @@ make_range (tree exp, int *pin_p, tree *plow, tree *phigh,
 	  exp = arg0;
 	  continue;
 
-	case NOP_EXPR:  case NON_LVALUE_EXPR:  case CONVERT_EXPR:
+	CASE_CONVERT: case NON_LVALUE_EXPR:
 	  if (TYPE_PRECISION (arg0_type) > TYPE_PRECISION (exp_type))
 	    break;
 
@@ -5720,24 +5729,24 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 			    fold_convert (ctype, c), 0);
       break;
 
-    case CONVERT_EXPR:  case NON_LVALUE_EXPR:  case NOP_EXPR:
+    CASE_CONVERT: case NON_LVALUE_EXPR:
       /* If op0 is an expression ...  */
       if ((COMPARISON_CLASS_P (op0)
 	   || UNARY_CLASS_P (op0)
 	   || BINARY_CLASS_P (op0)
 	   || VL_EXP_CLASS_P (op0)
 	   || EXPRESSION_CLASS_P (op0))
-	  /* ... and is unsigned, and its type is smaller than ctype,
-	     then we cannot pass through as widening.  */
-	  && ((TYPE_UNSIGNED (TREE_TYPE (op0))
+	  /* ... and has wrapping overflow, and its type is smaller
+	     than ctype, then we cannot pass through as widening.  */
+	  && ((TYPE_OVERFLOW_WRAPS (TREE_TYPE (op0))
 	       && ! (TREE_CODE (TREE_TYPE (op0)) == INTEGER_TYPE
 		     && TYPE_IS_SIZETYPE (TREE_TYPE (op0)))
-	       && (GET_MODE_SIZE (TYPE_MODE (ctype))
-	           > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))))
+	       && (TYPE_PRECISION (ctype)
+	           > TYPE_PRECISION (TREE_TYPE (op0))))
 	      /* ... or this is a truncation (t is narrower than op0),
 		 then we cannot pass through this narrowing.  */
-	      || (GET_MODE_SIZE (TYPE_MODE (type))
-		  < GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0))))
+	      || (TYPE_PRECISION (type)
+		  < TYPE_PRECISION (TREE_TYPE (op0)))
 	      /* ... or signedness changes for division or modulus,
 		 then we cannot pass through this conversion.  */
 	      || (code != MULT_EXPR
@@ -5948,8 +5957,13 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
       /* If these are the same operation types, we can associate them
 	 assuming no overflow.  */
       if (tcode == code
-	  && 0 != (t1 = const_binop (MULT_EXPR, fold_convert (ctype, op1),
-				     fold_convert (ctype, c), 0))
+	  && 0 != (t1 = int_const_binop (MULT_EXPR, fold_convert (ctype, op1),
+					 fold_convert (ctype, c), 1))
+	  && 0 != (t1 = force_fit_type_double (ctype, TREE_INT_CST_LOW (t1),
+					       TREE_INT_CST_HIGH (t1),
+					       (TYPE_UNSIGNED (ctype)
+					        && tcode != MULT_EXPR) ? -1 : 1,
+					       TREE_OVERFLOW (t1)))
 	  && !TREE_OVERFLOW (t1))
 	return fold_build2 (tcode, ctype, fold_convert (ctype, op0), t1);
 
@@ -6791,8 +6805,7 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
   tree arg0_inner;
   tree inner_type, outer_type;
 
-  if (TREE_CODE (arg0) != NOP_EXPR
-      && TREE_CODE (arg0) != CONVERT_EXPR)
+  if (!CONVERT_EXPR_P (arg0))
     return NULL_TREE;
 
   outer_type = TREE_TYPE (arg0);
@@ -6817,12 +6830,12 @@ fold_sign_changed_comparison (enum tree_code code, tree type,
     return NULL_TREE;
 
   if (TREE_CODE (arg1) != INTEGER_CST
-      && !((TREE_CODE (arg1) == NOP_EXPR
-	    || TREE_CODE (arg1) == CONVERT_EXPR)
+      && !(CONVERT_EXPR_P (arg1)
 	   && TREE_TYPE (TREE_OPERAND (arg1, 0)) == inner_type))
     return NULL_TREE;
 
-  if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+  if ((TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+       || POINTER_TYPE_P (inner_type) != POINTER_TYPE_P (outer_type))
       && code != NE_EXPR
       && code != EQ_EXPR)
     return NULL_TREE;
@@ -6914,7 +6927,7 @@ try_move_mult_to_index (tree addr, tree op1)
 	  else
 	    {
 	      /* Try if delta is a multiple of step.  */
-	      tree tmp = div_if_zero_remainder (EXACT_DIV_EXPR, delta, step);
+	      tree tmp = div_if_zero_remainder (EXACT_DIV_EXPR, op1, step);
 	      if (! tmp)
 		continue;
 	      delta = tmp;
@@ -7713,9 +7726,8 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	return fold_convert (type, op0);
       return NULL_TREE;
 
-    case NOP_EXPR:
+    CASE_CONVERT:
     case FLOAT_EXPR:
-    case CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
       if (TREE_TYPE (op0) == type)
 	return op0;
@@ -7727,8 +7739,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 			    TREE_OPERAND (op0, 1));
 
       /* Handle cases of two conversions in a row.  */
-      if (TREE_CODE (op0) == NOP_EXPR
-	  || TREE_CODE (op0) == CONVERT_EXPR)
+      if (CONVERT_EXPR_P (op0))
 	{
 	  tree inside_type = TREE_TYPE (TREE_OPERAND (op0, 0));
 	  tree inter_type = TREE_TYPE (op0);
@@ -7855,9 +7866,11 @@ fold_unary (enum tree_code code, tree type, tree op0)
 
       /* Convert (T)(x & c) into (T)x & (T)c, if c is an integer
 	 constants (if x has signed type, the sign bit cannot be set
-	 in c).  This folds extension into the BIT_AND_EXPR.  */
-      if (INTEGRAL_TYPE_P (type)
-	  && TREE_CODE (type) != BOOLEAN_TYPE
+	 in c).  This folds extension into the BIT_AND_EXPR.
+	 ??? We don't do it for BOOLEAN_TYPE or ENUMERAL_TYPE because they
+	 very likely don't have maximal range for their precision and this
+	 transformation effectively doesn't preserve non-maximal ranges.  */
+      if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (op0) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{
@@ -7923,8 +7936,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
       if (INTEGRAL_TYPE_P (type)
 	  && TREE_CODE (op0) == BIT_NOT_EXPR
 	  && INTEGRAL_TYPE_P (TREE_TYPE (op0))
-	  && (TREE_CODE (TREE_OPERAND (op0, 0)) == NOP_EXPR
-	      || TREE_CODE (TREE_OPERAND (op0, 0)) == CONVERT_EXPR)
+	  && CONVERT_EXPR_P (TREE_OPERAND (op0, 0))
 	  && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (op0)))
 	{
 	  tem = TREE_OPERAND (TREE_OPERAND (op0, 0), 0);
@@ -7980,8 +7992,7 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	return fold_convert (type, op0);
 
       /* Strip inner integral conversions that do not change the precision.  */
-      if ((TREE_CODE (op0) == NOP_EXPR
-	   || TREE_CODE (op0) == CONVERT_EXPR)
+      if (CONVERT_EXPR_P (op0)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (op0))
 	      || POINTER_TYPE_P (TREE_TYPE (op0)))
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (op0, 0)))
@@ -8389,6 +8400,62 @@ maybe_canonicalize_comparison (enum tree_code code, tree type,
   return t;
 }
 
+/* Return whether BASE + OFFSET + BITPOS may wrap around the address
+   space.  This is used to avoid issuing overflow warnings for
+   expressions like &p->x which can not wrap.  */
+
+static bool
+pointer_may_wrap_p (tree base, tree offset, HOST_WIDE_INT bitpos)
+{
+  unsigned HOST_WIDE_INT offset_low, total_low;
+  HOST_WIDE_INT size, offset_high, total_high;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (base)))
+    return true;
+
+  if (bitpos < 0)
+    return true;
+
+  if (offset == NULL_TREE)
+    {
+      offset_low = 0;
+      offset_high = 0;
+    }
+  else if (TREE_CODE (offset) != INTEGER_CST || TREE_OVERFLOW (offset))
+    return true;
+  else
+    {
+      offset_low = TREE_INT_CST_LOW (offset);
+      offset_high = TREE_INT_CST_HIGH (offset);
+    }
+
+  if (add_double_with_sign (offset_low, offset_high,
+			    bitpos / BITS_PER_UNIT, 0,
+			    &total_low, &total_high,
+			    true))
+    return true;
+
+  if (total_high != 0)
+    return true;
+
+  size = int_size_in_bytes (TREE_TYPE (TREE_TYPE (base)));
+  if (size <= 0)
+    return true;
+
+  /* We can do slightly better for SIZE if we have an ADDR_EXPR of an
+     array.  */
+  if (TREE_CODE (base) == ADDR_EXPR)
+    {
+      HOST_WIDE_INT base_size;
+
+      base_size = int_size_in_bytes (TREE_TYPE (TREE_OPERAND (base, 0)));
+      if (base_size > 0 && size < base_size)
+	size = base_size;
+    }
+
+  return total_low > (unsigned HOST_WIDE_INT) size;
+}
+
 /* Subroutine of fold_binary.  This routine performs all of the
    transformations that are common to the equality/inequality
    operators (EQ_EXPR and NE_EXPR) and the ordering operators
@@ -8539,10 +8606,24 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  /* We can fold this expression to a constant if the non-constant
 	     offset parts are equal.  */
-	  if (offset0 == offset1
-	      || (offset0 && offset1
-		  && operand_equal_p (offset0, offset1, 0)))
+	  if ((offset0 == offset1
+	       || (offset0 && offset1
+		   && operand_equal_p (offset0, offset1, 0)))
+	      && (code == EQ_EXPR
+		  || code == NE_EXPR
+		  || POINTER_TYPE_OVERFLOW_UNDEFINED))
+		
 	    {
+	      if (code != EQ_EXPR
+		  && code != NE_EXPR
+		  && bitpos0 != bitpos1
+		  && (pointer_may_wrap_p (base0, offset0, bitpos0)
+		      || pointer_may_wrap_p (base1, offset1, bitpos1)))
+		fold_overflow_warning (("assuming pointer wraparound does not "
+					"occur when comparing P +- C1 with "
+					"P +- C2"),
+				       WARN_STRICT_OVERFLOW_CONDITIONAL);
+
 	      switch (code)
 		{
 		case EQ_EXPR:
@@ -8588,7 +8669,10 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	      else
 		offset1 = fold_convert (signed_size_type_node, offset1);
 
-	      if (code != EQ_EXPR && code != NE_EXPR)
+	      if (code != EQ_EXPR
+		  && code != NE_EXPR
+		  && (pointer_may_wrap_p (base0, offset0, bitpos0)
+		      || pointer_may_wrap_p (base1, offset1, bitpos1)))
 		fold_overflow_warning (("assuming pointer wraparound does not "
 					"occur when comparing P +- C1 with "
 					"P +- C2"),
@@ -8825,8 +8909,7 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
     }
 
   if (TREE_CODE (TREE_TYPE (arg0)) == INTEGER_TYPE
-      && (TREE_CODE (arg0) == NOP_EXPR
-	  || TREE_CODE (arg0) == CONVERT_EXPR))
+      && CONVERT_EXPR_P (arg0))
     {
       /* If we are widening one operand of an integer comparison,
 	 see if the other operand is similarly being widened.  Perhaps we
@@ -9178,7 +9261,8 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
      safe for every expression, except for a comparison expression
      because its signedness is derived from its operands.  So, in
      the latter case, only strip conversions that don't change the
-     signedness.
+     signedness.  MIN_EXPR/MAX_EXPR also need signedness of arguments
+     preserved.
 
      Note that this is done as an internal manipulation within the
      constant folder, in order to find the simplest representation
@@ -9186,7 +9270,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
      cases, the appropriate type conversions should be put back in
      the tree that will get out of the constant folder.  */
 
-  if (kind == tcc_comparison)
+  if (kind == tcc_comparison || code == MIN_EXPR || code == MAX_EXPR)
     {
       STRIP_SIGN_NOPS (arg0);
       STRIP_SIGN_NOPS (arg1);
@@ -10070,6 +10154,17 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	      && integer_onep (TREE_OPERAND (arg0, 0)))
 	    return fold_build2 (LSHIFT_EXPR, type, op1,
 				TREE_OPERAND (arg0, 1));
+
+	  /* (A + A) * C -> A * 2 * C  */
+	  if (TREE_CODE (arg0) == PLUS_EXPR
+	      && TREE_CODE (arg1) == INTEGER_CST
+	      && operand_equal_p (TREE_OPERAND (arg0, 0),
+			          TREE_OPERAND (arg0, 1), 0))
+	    return fold_build2 (MULT_EXPR, type,
+				omit_one_operand (type, TREE_OPERAND (arg0, 0),
+						  TREE_OPERAND (arg0, 1)),
+				fold_build2 (MULT_EXPR, type,
+					     build_int_cst (type, 2) , arg1));
 
 	  strict_overflow_p = false;
 	  if (TREE_CODE (arg1) == INTEGER_CST
@@ -11294,7 +11389,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	{
 	  if (strict_overflow_p)
 	    fold_overflow_warning (("assuming signed overflow does not occur "
-				    "when simplifying modulos"),
+				    "when simplifying modulus"),
 				   WARN_STRICT_OVERFLOW_MISC);
 	  return fold_convert (type, tem);
 	}
@@ -12568,8 +12663,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       if ((code == LT_EXPR || code == GE_EXPR)
 	  && TYPE_UNSIGNED (TREE_TYPE (arg0))
-	  && (TREE_CODE (arg1) == NOP_EXPR
-	      || TREE_CODE (arg1) == CONVERT_EXPR)
+	  && CONVERT_EXPR_P (arg1)
 	  && TREE_CODE (TREE_OPERAND (arg1, 0)) == LSHIFT_EXPR
 	  && integer_onep (TREE_OPERAND (TREE_OPERAND (arg1, 0), 0)))
 	return
@@ -13023,6 +13117,13 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 		return fold_convert (type, integer_zero_node);
 	    }
 	}
+
+      /* A bit-field-ref that referenced the full argument can be stripped.  */
+      if (INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+	  && TYPE_PRECISION (TREE_TYPE (arg0)) == tree_low_cst (arg1, 1)
+	  && integer_zerop (op2))
+	return fold_convert (type, arg0);
+
       return NULL_TREE;
 
     default:
@@ -13980,11 +14081,6 @@ tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p)
 
   switch (TREE_CODE (t))
     {
-    case SSA_NAME:
-      /* Query VRP to see if it has recorded any information about
-	 the range of this object.  */
-      return ssa_name_nonnegative_p (t);
-
     case INTEGER_CST:
       return tree_int_cst_sgn (t) >= 0;
 
@@ -14469,11 +14565,6 @@ tree_single_nonzero_warnv_p (tree t, bool *strict_overflow_p)
   bool sub_strict_overflow_p;
   switch (TREE_CODE (t))
     {
-    case SSA_NAME:
-      /* Query VRP to see if it has recorded any information about
-	 the range of this object.  */
-      return ssa_name_nonzero_p (t);
-
     case INTEGER_CST:
       return !integer_zerop (t);
 
@@ -14674,7 +14765,7 @@ fold_read_from_constant_string (tree exp)
 	     with constant folding.  (E.g. suppose the lower bound is 1,
 	     and its mode is QI.  Without the conversion,l (ARRAY
 	     +(INDEX-(unsigned char)1)) becomes ((ARRAY+(-(unsigned char)1))
-	     +INDEX), which becomes (ARRAY+255+INDEX).  Opps!)  */
+	     +INDEX), which becomes (ARRAY+255+INDEX).  Oops!)  */
 	  if (! integer_zerop (low_bound))
 	    index = size_diffop (index, fold_convert (sizetype, low_bound));
 

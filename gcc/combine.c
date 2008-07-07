@@ -425,7 +425,7 @@ static rtx gen_lowpart_for_combine (enum machine_mode, rtx);
 static enum rtx_code simplify_comparison (enum rtx_code, rtx *, rtx *);
 static void update_table_tick (rtx);
 static void record_value_for_reg (rtx, rtx, rtx);
-static void check_conversions (rtx, rtx);
+static void check_promoted_subreg (rtx, rtx);
 static void record_dead_and_set_regs_1 (rtx, const_rtx, void *);
 static void record_dead_and_set_regs (rtx);
 static int get_last_value_validate (rtx *, rtx, int, int);
@@ -441,7 +441,8 @@ static void mark_used_regs_combine (rtx);
 static void record_promoted_value (rtx, rtx);
 static int unmentioned_reg_p_1 (rtx *, void *);
 static bool unmentioned_reg_p (rtx, rtx);
-static void record_truncated_value (rtx);
+static int record_truncated_value (rtx *, void *);
+static void record_truncated_values (rtx *, void *);
 static bool reg_truncated_to_mode (enum machine_mode, const_rtx);
 static rtx gen_lowpart_or_truncate (enum machine_mode, rtx);
 
@@ -881,23 +882,6 @@ delete_noop_moves (void)
 	  next = NEXT_INSN (insn);
 	  if (INSN_P (insn) && noop_move_p (insn))
 	    {
-	      rtx note;
-
-	      /* If we're about to remove the first insn of a libcall
-		 then move the libcall note to the next real insn and
-		 update the retval note.  */
-	      if ((note = find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-		       && XEXP (note, 0) != insn)
-		{
-		  rtx new_libcall_insn = next_real_insn (insn);
-		  rtx retval_note = find_reg_note (XEXP (note, 0),
-						   REG_RETVAL, NULL_RTX);
-		  REG_NOTES (new_libcall_insn)
-		    = gen_rtx_INSN_LIST (REG_LIBCALL, XEXP (note, 0),
-					 REG_NOTES (new_libcall_insn));
-		  XEXP (retval_note, 0) = new_libcall_insn;
-		}
-
 	      if (dump_file)
 		fprintf (dump_file, "deleting noop move %d\n", INSN_UID (insn));
 
@@ -1137,7 +1121,12 @@ combine_instructions (rtx f, unsigned int nregs)
 	    {
 	      /* See if we know about function return values before this
 		 insn based upon SUBREG flags.  */
-	      check_conversions (insn, PATTERN (insn));
+	      check_promoted_subreg (insn, PATTERN (insn));
+
+	      /* See if we can find hardregs and subreg of pseudos in
+		 narrower modes.  This could help turning TRUNCATEs
+		 into SUBREGs.  */
+	      note_uses (&PATTERN (insn), record_truncated_values, NULL);
 
 	      /* Try this insn with each insn it links back to.  */
 
@@ -1653,7 +1642,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
   /* Don't eliminate a store in the stack pointer.  */
   if (dest == stack_pointer_rtx
       /* Don't combine with an insn that sets a register to itself if it has
-	 a REG_EQUAL note.  This may be part of a REG_NO_CONFLICT sequence.  */
+	 a REG_EQUAL note.  This may be part of a LIBCALL sequence.  */
       || (rtx_equal_p (src, dest) && find_reg_note (insn, REG_EQUAL, NULL_RTX))
       /* Can't merge an ASM_OPERANDS.  */
       || GET_CODE (src) == ASM_OPERANDS
@@ -1670,14 +1659,6 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
       || (succ && FIND_REG_INC_NOTE (succ, dest))
       /* Don't substitute into a non-local goto, this confuses CFG.  */
       || (JUMP_P (i3) && find_reg_note (i3, REG_NON_LOCAL_GOTO, NULL_RTX))
-#if 0
-      /* Don't combine the end of a libcall into anything.  */
-      /* ??? This gives worse code, and appears to be unnecessary, since no
-	 pass after flow uses REG_LIBCALL/REG_RETVAL notes.  Local-alloc does
-	 use REG_RETVAL notes for noconflict blocks, but other code here
-	 makes sure that those insns don't disappear.  */
-      || find_reg_note (insn, REG_RETVAL, NULL_RTX)
-#endif
       /* Make sure that DEST is not used after SUCC but before I3.  */
       || (succ && ! all_adjacent
 	  && reg_used_between_p (dest, succ, i3))
@@ -1696,10 +1677,6 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	       && use_crosses_set_p (src, DF_INSN_LUID (insn)))
 	      || (GET_CODE (src) == ASM_OPERANDS && MEM_VOLATILE_P (src))
 	      || GET_CODE (src) == UNSPEC_VOLATILE))
-      /* If there is a REG_NO_CONFLICT note for DEST in I3 or SUCC, we get
-	 better register allocation by not doing the combine.  */
-      || find_reg_note (i3, REG_NO_CONFLICT, dest)
-      || (succ && find_reg_note (succ, REG_NO_CONFLICT, dest))
       /* Don't combine across a CALL_INSN, because that would possibly
 	 change whether the life span of some REGs crosses calls or not,
 	 and it is a pain to update that information.
@@ -2044,7 +2021,8 @@ struct likely_spilled_retval_info
 static void
 likely_spilled_retval_1 (rtx x, const_rtx set, void *data)
 {
-  struct likely_spilled_retval_info *info = data;
+  struct likely_spilled_retval_info *const info =
+    (struct likely_spilled_retval_info *) data;
   unsigned regno, nregs;
   unsigned new_mask;
 
@@ -2239,16 +2217,7 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   if (cant_combine_insn_p (i3)
       || cant_combine_insn_p (i2)
       || (i1 && cant_combine_insn_p (i1))
-      || likely_spilled_retval_p (i3)
-      /* We also can't do anything if I3 has a
-	 REG_LIBCALL note since we don't want to disrupt the contiguity of a
-	 libcall.  */
-#if 0
-      /* ??? This gives worse code, and appears to be unnecessary, since no
-	 pass after flow uses REG_LIBCALL/REG_RETVAL notes.  */
-      || find_reg_note (i3, REG_LIBCALL, NULL_RTX)
-#endif
-      )
+      || likely_spilled_retval_p (i3))
     return 0;
 
   combine_attempts++;
@@ -11614,13 +11583,15 @@ reg_truncated_to_mode (enum machine_mode mode, const_rtx x)
   return false;
 }
 
-/* X is a REG or a SUBREG.  If X is some sort of a truncation record
-   it.  For non-TRULY_NOOP_TRUNCATION targets we might be able to turn
-   a truncate into a subreg using this information.  */
+/* Callback for for_each_rtx.  If *P is a hard reg or a subreg record the mode
+   that the register is accessed in.  For non-TRULY_NOOP_TRUNCATION targets we
+   might be able to turn a truncate into a subreg using this information.
+   Return -1 if traversing *P is complete or 0 otherwise.  */
 
-static void
-record_truncated_value (rtx x)
+static int
+record_truncated_value (rtx *p, void *data ATTRIBUTE_UNUSED)
 {
+  rtx x = *p;
   enum machine_mode truncated_mode;
   reg_stat_type *rsp;
 
@@ -11630,11 +11601,11 @@ record_truncated_value (rtx x)
       truncated_mode = GET_MODE (x);
 
       if (GET_MODE_SIZE (original_mode) <= GET_MODE_SIZE (truncated_mode))
-	return;
+	return -1;
 
       if (TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (truncated_mode),
 				 GET_MODE_BITSIZE (original_mode)))
-	return;
+	return -1;
 
       x = SUBREG_REG (x);
     }
@@ -11643,7 +11614,7 @@ record_truncated_value (rtx x)
   else if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
     truncated_mode = GET_MODE (x);
   else
-    return;
+    return 0;
 
   rsp = VEC_index (reg_stat_type, reg_stat, REGNO (x));
   if (rsp->truncated_to_mode == 0
@@ -11654,23 +11625,30 @@ record_truncated_value (rtx x)
       rsp->truncated_to_mode = truncated_mode;
       rsp->truncation_label = label_tick;
     }
+
+  return -1;
 }
 
-/* Scan X for promoted SUBREGs and truncated REGs.  For each one
-   found, note what it implies to the registers used in it.  */
+/* Callback for note_uses.  Find hardregs and subregs of pseudos and
+   the modes they are used in.  This can help truning TRUNCATEs into
+   SUBREGs.  */
 
 static void
-check_conversions (rtx insn, rtx x)
+record_truncated_values (rtx *x, void *data ATTRIBUTE_UNUSED)
 {
-  if (GET_CODE (x) == SUBREG || REG_P (x))
-    {
-      if (GET_CODE (x) == SUBREG
-	  && SUBREG_PROMOTED_VAR_P (x)
-	  && REG_P (SUBREG_REG (x)))
-	record_promoted_value (insn, x);
+  for_each_rtx (x, record_truncated_value, NULL);
+}
 
-      record_truncated_value (x);
-    }
+/* Scan X for promoted SUBREGs.  For each one found,
+   note what it implies to the registers used in it.  */
+
+static void
+check_promoted_subreg (rtx insn, rtx x)
+{
+  if (GET_CODE (x) == SUBREG
+      && SUBREG_PROMOTED_VAR_P (x)
+      && REG_P (SUBREG_REG (x)))
+    record_promoted_value (insn, x);
   else
     {
       const char *format = GET_RTX_FORMAT (GET_CODE (x));
@@ -11680,13 +11658,13 @@ check_conversions (rtx insn, rtx x)
 	switch (format[i])
 	  {
 	  case 'e':
-	    check_conversions (insn, XEXP (x, i));
+	    check_promoted_subreg (insn, XEXP (x, i));
 	    break;
 	  case 'V':
 	  case 'E':
 	    if (XVEC (x, i) != 0)
 	      for (j = 0; j < XVECLEN (x, i); j++)
-		check_conversions (insn, XVECEXP (x, i, j));
+		check_promoted_subreg (insn, XVECEXP (x, i, j));
 	    break;
 	  }
     }
@@ -12460,7 +12438,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	  break;
 
 	case REG_INC:
-	case REG_NO_CONFLICT:
 	  /* These notes say something about how a register is used.  They must
 	     be present on any use of the register in I2 or I3.  */
 	  if (reg_mentioned_p (XEXP (note, 0), PATTERN (i3)))
@@ -12535,48 +12512,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	     to the execution of an insn.  It is too much trouble to see
 	     if the note is still correct in all situations.  It is better
 	     to simply delete it.  */
-	  break;
-
-	case REG_RETVAL:
-	  /* If the insn previously containing this note still exists,
-	     put it back where it was.  Otherwise move it to the previous
-	     insn.  Adjust the corresponding REG_LIBCALL note.  */
-	  if (!NOTE_P (from_insn))
-	    place = from_insn;
-	  else
-	    {
-	      tem = find_reg_note (XEXP (note, 0), REG_LIBCALL, NULL_RTX);
-	      place = prev_real_insn (from_insn);
-	      if (tem && place)
-		XEXP (tem, 0) = place;
-	      /* If we're deleting the last remaining instruction of a
-		 libcall sequence, don't add the notes.  */
-	      else if (XEXP (note, 0) == from_insn)
-		tem = place = 0;
-	      /* Don't add the dangling REG_RETVAL note.  */
-	      else if (! tem)
-		place = 0;
-	    }
-	  break;
-
-	case REG_LIBCALL:
-	  /* This is handled similarly to REG_RETVAL.  */
-	  if (!NOTE_P (from_insn))
-	    place = from_insn;
-	  else
-	    {
-	      tem = find_reg_note (XEXP (note, 0), REG_RETVAL, NULL_RTX);
-	      place = next_real_insn (from_insn);
-	      if (tem && place)
-		XEXP (tem, 0) = place;
-	      /* If we're deleting the last remaining instruction of a
-		 libcall sequence, don't add the notes.  */
-	      else if (XEXP (note, 0) == from_insn)
-		tem = place = 0;
-	      /* Don't add the dangling REG_LIBCALL note.  */
-	      else if (! tem)
-		place = 0;
-	    }
 	  break;
 
 	case REG_DEAD:

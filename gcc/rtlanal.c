@@ -841,7 +841,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
-   X contains a MEM; this routine does usememory aliasing.  */
+   X contains a MEM; this routine does use memory aliasing.  */
 
 int
 modified_between_p (const_rtx x, const_rtx start, const_rtx end)
@@ -1121,11 +1121,6 @@ noop_move_p (const_rtx insn)
 
   /* Insns carrying these notes are useful later on.  */
   if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
-    return 0;
-
-  /* For now treat an insn with a REG_RETVAL note as a
-     a special insn which should not be considered a no-op.  */
-  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
     return 0;
 
   if (GET_CODE (pat) == SET && set_noop_p (pat))
@@ -1846,29 +1841,6 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
   return 0;
 }
 
-/* Return true if INSN is a call to a pure function.  */
-
-int
-pure_call_p (const_rtx insn)
-{
-  const_rtx link;
-
-  if (!CALL_P (insn) || ! CONST_OR_PURE_CALL_P (insn))
-    return 0;
-
-  /* Look for the note that differentiates const and pure functions.  */
-  for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
-    {
-      rtx u, m;
-
-      if (GET_CODE (u = XEXP (link, 0)) == USE
-	  && MEM_P (m = XEXP (u, 0)) && GET_MODE (m) == BLKmode
-	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
-	return 1;
-    }
-
-  return 0;
-}
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
@@ -3294,7 +3266,7 @@ struct parms_set_data
 static void
 parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  struct parms_set_data *d = data;
+  struct parms_set_data *const d = (struct parms_set_data *) data;
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
     {

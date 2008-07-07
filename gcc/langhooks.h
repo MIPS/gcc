@@ -1,5 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -130,6 +130,12 @@ struct lang_hooks_for_types
      for the debugger about the array bounds, strides, etc.  */
   bool (*get_array_descr_info) (const_tree, struct array_descr_info *);
 
+  /* If we requested a pointer to a vector, build up the pointers that
+     we stripped off while looking for the inner type.  Similarly for
+     return values from functions.  The argument TYPE is the top of the
+     chain, and BOTTOM is the new type which we will point to.  */
+  tree (*reconstruct_complex_type) (tree, tree);
+
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
      user-specified type, such as Ada, this should be set to TRUE.  */
@@ -191,9 +197,14 @@ struct lang_hooks_for_decls
      be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
   bool (*omp_private_debug_clause) (tree, bool);
 
+  /* Return true if DECL in private clause needs
+     OMP_CLAUSE_PRIVATE_OUTER_REF on the private clause.  */
+  bool (*omp_private_outer_ref) (tree);
+
   /* Build and return code for a default constructor for DECL in
-     response to CLAUSE.  Return NULL if nothing to be done.  */
-  tree (*omp_clause_default_ctor) (tree clause, tree decl);
+     response to CLAUSE.  OUTER is corresponding outer region's
+     variable if needed.  Return NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree clause, tree decl, tree outer);
 
   /* Build and return code for a copy constructor from SRC to DST.  */
   tree (*omp_clause_copy_ctor) (tree clause, tree dst, tree src);
@@ -204,6 +215,9 @@ struct lang_hooks_for_decls
   /* Build and return code destructing DECL.  Return NULL if nothing
      to be done.  */
   tree (*omp_clause_dtor) (tree clause, tree decl);
+
+  /* Do language specific checking on an implicitly determined clause.  */
+  void (*omp_finish_clause) (tree clause);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -400,10 +414,9 @@ struct lang_hooks
   void (*init_ts) (void);
 
   /* Called by recompute_tree_invariant_for_addr_expr to go from EXPR
-     to a contained expression or DECL, possibly updating *TC, *TI or
-     *SE if in the process TREE_CONSTANT, TREE_INVARIANT or
-     TREE_SIDE_EFFECTS need updating.  */
-  tree (*expr_to_decl) (tree expr, bool *tc, bool *ti, bool *se);
+     to a contained expression or DECL, possibly updating *TC or *SE
+     if in the process TREE_CONSTANT or TREE_SIDE_EFFECTS need updating.  */
+  tree (*expr_to_decl) (tree expr, bool *tc, bool *se);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

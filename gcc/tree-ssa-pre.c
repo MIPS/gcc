@@ -132,7 +132,7 @@ along with GCC; see the file COPYING3.  If not see
 
    Expression nodes have value handles associated with them as a
    cache.  Otherwise, we'd have to look them up again in the hash
-   table This makes significant difference (factor of two or more) on
+   table.  This makes significant difference (factor of two or more) on
    some test cases.  They can be thrown away after the pass is
    finished.  */
 
@@ -1967,6 +1967,73 @@ compute_partial_antic_aux (basic_block block,
   return changed;
 }
 
+/* Initialize data structures used for ANTIC and AVAIL.  */
+
+static void
+init_antic (void)
+{
+  basic_block bb;
+
+  next_expression_id = 0;
+  expressions = NULL;
+  expression_vuses = NULL;
+
+  postorder = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  post_order_compute (postorder, false, false);
+
+  bitmap_obstack_initialize (&grand_bitmap_obstack);
+  obstack_init (&temp_call_expr_obstack);
+  seen_during_translate = BITMAP_ALLOC (&grand_bitmap_obstack);
+
+  bitmap_set_pool = create_alloc_pool ("Bitmap sets",
+					sizeof (struct bitmap_set), 30);
+  binary_node_pool = create_alloc_pool ("Binary tree nodes",
+					tree_code_size (PLUS_EXPR), 30);
+  unary_node_pool = create_alloc_pool ("Unary tree nodes",
+				       tree_code_size (NEGATE_EXPR), 30);
+  reference_node_pool = create_alloc_pool ("Reference tree nodes",
+					   tree_code_size (ARRAY_REF), 30);
+  comparison_node_pool = create_alloc_pool ("Comparison tree nodes",
+					    tree_code_size (EQ_EXPR), 30);
+
+  phi_translate_table = htab_create (5110, expr_pred_trans_hash,
+				     expr_pred_trans_eq, free);
+  maximal_set = in_fre ? NULL : bitmap_set_new ();
+
+  FOR_ALL_BB (bb)
+    {
+      bb->aux = xcalloc (1, sizeof (struct bb_bitmap_sets));
+      EXP_GEN (bb) = bitmap_set_new ();
+      PHI_GEN (bb) = bitmap_set_new ();
+      TMP_GEN (bb) = bitmap_set_new ();
+      AVAIL_OUT (bb) = bitmap_set_new ();
+    }
+}
+
+/* Deinitialize data structures used for ANTIC and AVAIL.  */
+
+static void
+fini_antic (void)
+{
+  basic_block bb;
+
+  if (maximal_set)
+    bitmap_set_free (maximal_set);
+  free (postorder);
+  bitmap_obstack_release (&grand_bitmap_obstack);
+  free_alloc_pool (bitmap_set_pool);
+  free_alloc_pool (binary_node_pool);
+  free_alloc_pool (reference_node_pool);
+  free_alloc_pool (unary_node_pool);
+  free_alloc_pool (comparison_node_pool);
+
+  FOR_ALL_BB (bb)
+    {
+      free (bb->aux);
+      bb->aux = NULL;
+    }
+}
+
 /* Compute ANTIC and partial ANTIC sets.  */
 
 static void
@@ -2027,13 +2094,14 @@ compute_antic (void)
 						      block->index));
 	    }
 	}
+#ifdef ENABLE_CHECKING
       /* Theoretically possible, but *highly* unlikely.  */
-      gcc_assert (num_iterations < 50);
+      gcc_assert (num_iterations < 500);
+#endif
     }
 
-  if (dump_file && (dump_flags & TDF_STATS))
-    fprintf (dump_file, "compute_antic required %d iterations\n",
-	     num_iterations);
+  statistics_histogram_event (cfun, "compute_antic iterations",
+			      num_iterations);
 
   if (do_partial_partial)
     {
@@ -2058,12 +2126,13 @@ compute_antic (void)
 							    block->index));
 		}
 	    }
+#ifdef ENABLE_CHECKING
 	  /* Theoretically possible, but *highly* unlikely.  */
-	  gcc_assert (num_iterations < 50);
+	  gcc_assert (num_iterations < 500);
+#endif
 	}
-      if (dump_file && (dump_flags & TDF_STATS))
-	fprintf (dump_file, "compute_partial_antic required %d iterations\n",
-		 num_iterations);
+      statistics_histogram_event (cfun, "compute_partial_antic iterations",
+				  num_iterations);
     }
   sbitmap_free (has_abnormal_preds);
   sbitmap_free (changed_blocks);
@@ -2077,7 +2146,7 @@ can_value_number_call (tree stmt)
 {
   tree call = get_call_expr_in (stmt);
 
-  if (call_expr_flags (call)  & (ECF_PURE | ECF_CONST))
+  if (call_expr_flags (call) & (ECF_PURE | ECF_CONST))
     return true;
   return false;
 }
@@ -2416,7 +2485,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts,
 				  false, NULL);
 
   /* If we have any intermediate expressions to the value sets, add them
-     to the value sets and chain them on in the instruction stream.  */
+     to the value sets and chain them in the instruction stream.  */
   if (forced_stmts)
     {
       tsi = tsi_start (forced_stmts);
@@ -2933,11 +3002,9 @@ insert (void)
   while (new_stuff)
     {
       num_iterations++;
-      new_stuff = false;
       new_stuff = insert_aux (ENTRY_BLOCK_PTR);
     }
-  if (num_iterations > 2 && dump_file && (dump_flags & TDF_STATS))
-    fprintf (dump_file, "insert required %d iterations\n", num_iterations);
+  statistics_histogram_event (cfun, "insert iterations", num_iterations);
 }
 
 
@@ -3174,7 +3241,6 @@ insert_fake_stores (void)
 	      new_tree = build_gimple_modify_stmt (NULL_TREE, lhs);
 	      new_lhs = make_ssa_name (storetemp, new_tree);
 	      GIMPLE_STMT_OPERAND (new_tree, 0) = new_lhs;
-
 	      create_ssa_artificial_load_stmt (new_tree, stmt, false);
 
 	      NECESSARY (new_tree) = 0;
@@ -3497,7 +3563,7 @@ compute_avail (void)
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
 
-	  ann->uid = stmt_uid++;
+	  set_gimple_stmt_uid (stmt, stmt_uid++);
 
 	  /* For regular value numbering, we are only interested in
 	     assignments of the form X_i = EXPR, where EXPR represents
@@ -3837,7 +3903,7 @@ remove_dead_inserted_code (void)
 
 	  if (TREE_CODE (t) == PHI_NODE)
 	    {
-	      remove_phi_node (t, NULL, true);
+	      remove_phi_node (t, NULL_TREE, true);
 	    }
 	  else
 	    {
@@ -3855,11 +3921,6 @@ remove_dead_inserted_code (void)
 static void
 init_pre (bool do_fre)
 {
-  basic_block bb;
-
-  next_expression_id = 0;
-  expressions = NULL;
-  expression_vuses = NULL;
   in_fre = do_fre;
 
   inserted_exprs = NULL;
@@ -3874,40 +3935,10 @@ init_pre (bool do_fre)
   connect_infinite_loops_to_exit ();
   memset (&pre_stats, 0, sizeof (pre_stats));
 
-
-  postorder = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
-  post_order_compute (postorder, false, false);
-
-  FOR_ALL_BB (bb)
-    bb->aux = xcalloc (1, sizeof (struct bb_bitmap_sets));
-
   calculate_dominance_info (CDI_POST_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
 
-  bitmap_obstack_initialize (&grand_bitmap_obstack);
-  phi_translate_table = htab_create (5110, expr_pred_trans_hash,
-				     expr_pred_trans_eq, free);
-  seen_during_translate = BITMAP_ALLOC (&grand_bitmap_obstack);
-  bitmap_set_pool = create_alloc_pool ("Bitmap sets",
-				       sizeof (struct bitmap_set), 30);
-  binary_node_pool = create_alloc_pool ("Binary tree nodes",
-					tree_code_size (PLUS_EXPR), 30);
-  unary_node_pool = create_alloc_pool ("Unary tree nodes",
-				       tree_code_size (NEGATE_EXPR), 30);
-  reference_node_pool = create_alloc_pool ("Reference tree nodes",
-					   tree_code_size (ARRAY_REF), 30);
-  comparison_node_pool = create_alloc_pool ("Comparison tree nodes",
-					    tree_code_size (EQ_EXPR), 30);
-  obstack_init (&temp_call_expr_obstack);
-
-  FOR_ALL_BB (bb)
-    {
-      EXP_GEN (bb) = bitmap_set_new ();
-      PHI_GEN (bb) = bitmap_set_new ();
-      TMP_GEN (bb) = bitmap_set_new ();
-      AVAIL_OUT (bb) = bitmap_set_new ();
-    }
-  maximal_set = in_fre ? NULL : bitmap_set_new ();
+  init_antic ();
 
   need_eh_cleanup = BITMAP_ALLOC (NULL);
 }
@@ -3918,26 +3949,14 @@ init_pre (bool do_fre)
 static void
 fini_pre (void)
 {
-  basic_block bb;
   unsigned int i;
 
-  free (postorder);
   VEC_free (tree, heap, inserted_exprs);
   VEC_free (tree, heap, need_creation);
-  bitmap_obstack_release (&grand_bitmap_obstack);
-  free_alloc_pool (bitmap_set_pool);
-  free_alloc_pool (binary_node_pool);
-  free_alloc_pool (reference_node_pool);
-  free_alloc_pool (unary_node_pool);
-  free_alloc_pool (comparison_node_pool);
   htab_delete (phi_translate_table);
   remove_fake_exit_edges ();
 
-  FOR_ALL_BB (bb)
-    {
-      free (bb->aux);
-      bb->aux = NULL;
-    }
+  fini_antic ();
 
   free_dominance_info (CDI_POST_DOMINATORS);
 
@@ -4013,20 +4032,27 @@ execute_pre (bool do_fre)
   if (!do_fre && n_basic_blocks < 4000)
     {
       compute_antic ();
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      basic_block bb;
+
+      FOR_ALL_BB (bb)
+	{
+	  print_bitmap_set (dump_file, ANTIC_IN (bb), "antic_in", bb->index);
+	}
+    }
+
       insert ();
     }
 
   /* Remove all the redundant expressions.  */
   todo |= eliminate ();
 
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      fprintf (dump_file, "Insertions: %d\n", pre_stats.insertions);
-      fprintf (dump_file, "PA inserted: %d\n", pre_stats.pa_insert);
-      fprintf (dump_file, "New PHIs: %d\n", pre_stats.phis);
-      fprintf (dump_file, "Eliminated: %d\n", pre_stats.eliminations);
-      fprintf (dump_file, "Constified: %d\n", pre_stats.constified);
-    }
+  statistics_counter_event (cfun, "Insertions", pre_stats.insertions);
+  statistics_counter_event (cfun, "PA inserted", pre_stats.pa_insert);
+  statistics_counter_event (cfun, "New PHIs", pre_stats.phis);
+  statistics_counter_event (cfun, "Eliminated", pre_stats.eliminations);
+  statistics_counter_event (cfun, "Constified", pre_stats.constified);
   bsi_commit_edge_inserts ();
 
   clear_expression_ids ();

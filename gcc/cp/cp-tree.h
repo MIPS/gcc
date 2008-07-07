@@ -926,15 +926,6 @@ struct language_function GTY(())
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
-/* C++ language-specific tree codes.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) SYM,
-enum cplus_tree_code {
-  CP_DUMMY_TREE_CODE = LAST_C_TREE_CODE,
-#include "cp-tree.def"
-  LAST_CPLUS_TREE_CODE
-};
-#undef DEFTREECODE
-
 /* TRUE if a tree code represents a statement.  */
 extern bool statement_code_p[MAX_TREE_CODES];
 
@@ -3865,10 +3856,10 @@ typedef struct operator_name_info_t GTY(())
 
 /* A mapping from tree codes to operator name information.  */
 extern GTY(()) operator_name_info_t operator_name_info
-  [(int) LAST_CPLUS_TREE_CODE];
+  [(int) MAX_TREE_CODES];
 /* Similar, but for assignment operators.  */
 extern GTY(()) operator_name_info_t assignment_operator_name_info
-  [(int) LAST_CPLUS_TREE_CODE];
+  [(int) MAX_TREE_CODES];
 
 /* A type-qualifier, or bitmask therefore, using the TYPE_QUAL
    constants.  */
@@ -4211,6 +4202,7 @@ extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
 extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, tree *);
 extern void start_decl_1			(tree, bool);
+extern bool check_array_initializer		(tree, tree, tree);
 extern void cp_finish_decl			(tree, tree, bool, tree, int);
 extern void finish_decl				(tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
@@ -4234,6 +4226,7 @@ extern void start_preparsed_function		(tree, tree, int);
 extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
+extern tree outer_curly_brace_block		(tree);
 extern tree finish_function			(int);
 extern tree start_method			(cp_decl_specifier_seq *, const cp_declarator *, tree);
 extern tree finish_method			(tree);
@@ -4281,7 +4274,8 @@ extern void check_member_template		(tree);
 extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
 		       tree, bool, tree, tree);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
-			  tree);
+			  tree, tree);
+extern tree cp_reconstruct_complex_type		(tree, tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
 extern void finish_anon_union			(tree);
 extern void cp_write_global_declarations	(void);
@@ -4466,6 +4460,7 @@ extern bool type_dependent_expression_p		(tree);
 extern bool any_type_dependent_arguments_p      (const_tree);
 extern bool value_dependent_expression_p	(tree);
 extern bool any_value_dependent_elements_p      (const_tree);
+extern bool dependent_omp_for_p			(tree, tree, tree, tree);
 extern tree resolve_typename_type		(tree, bool);
 extern tree template_for_substitution		(tree);
 extern tree build_non_dependent_expr		(tree);
@@ -4664,17 +4659,22 @@ extern tree begin_omp_structured_block		(void);
 extern tree finish_omp_structured_block		(tree);
 extern tree begin_omp_parallel			(void);
 extern tree finish_omp_parallel			(tree, tree);
+extern tree begin_omp_task			(void);
+extern tree finish_omp_task			(tree, tree);
 extern tree finish_omp_for			(location_t, tree, tree,
-						 tree, tree, tree, tree);
+						 tree, tree, tree, tree, tree);
 extern void finish_omp_atomic			(enum tree_code, tree, tree);
 extern void finish_omp_barrier			(void);
 extern void finish_omp_flush			(void);
+extern void finish_omp_taskwait			(void);
 extern enum omp_clause_default_kind cxx_omp_predetermined_sharing (tree);
-extern tree cxx_omp_clause_default_ctor		(tree, tree);
+extern tree cxx_omp_clause_default_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
+extern void cxx_omp_finish_clause		(tree);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
+extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool, bool);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);

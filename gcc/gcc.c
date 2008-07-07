@@ -285,12 +285,21 @@ static struct obstack obstack;
 
 static struct obstack collect_obstack;
 
+/* This is a list of a wrapper program and its arguments.
+   e.g. wrapper_string of "strace,-c"
+   will cause all programs to run as
+       strace -c program arguments
+   instead of just
+       program arguments */
+static const char  *wrapper_string;
+
 /* Forward declaration for prototypes.  */
 struct path_prefix;
 struct prefix_list;
 
 static void init_spec (void);
 static void store_arg (const char *, int, int);
+static void insert_wrapper (const char *);
 static char *load_specs (const char *);
 static void read_specs (const char *, int);
 static void set_spec (const char *, const char *);
@@ -1194,7 +1203,7 @@ static const struct {
 
 /* Translate the options described by *ARGCP and *ARGVP.
    Make a new vector and store it back in *ARGVP,
-   and store its length in *ARGVC.  */
+   and store its length in *ARGCP.  */
 
 static void
 translate_options (int *argcp, const char *const **argvp)
@@ -1203,7 +1212,7 @@ translate_options (int *argcp, const char *const **argvp)
   int argc = *argcp;
   const char *const *argv = *argvp;
   int newvsize = (argc + 2) * 2 * sizeof (const char *);
-  const char **newv = xmalloc (newvsize);
+  const char **newv = XNEWVAR (const char *, newvsize);
   int newindex = 0;
 
   i = 0;
@@ -1233,7 +1242,7 @@ translate_options (int *argcp, const char *const **argvp)
 		}
 
 	      newvsize += spaces * sizeof (const char *);
-	      newv =  xrealloc (newv, newvsize);
+	      newv =  XRESIZEVAR (const char *, newv, newvsize);
 
 	      sp = target_option_translations[tott_idx].replacements;
 	      np = xstrdup (sp);
@@ -1707,8 +1716,7 @@ init_spec (void)
     notice ("Using built-in specs.\n");
 
 #ifdef EXTRA_SPECS
-  extra_specs = xcalloc (sizeof (struct spec_list),
-			 ARRAY_SIZE (extra_specs_1));
+  extra_specs = XCNEWVEC (struct spec_list, ARRAY_SIZE (extra_specs_1));
 
   for (i = ARRAY_SIZE (extra_specs_1) - 1; i >= 0; i--)
     {
@@ -1971,7 +1979,7 @@ static void
 store_arg (const char *arg, int delete_always, int delete_failure)
 {
   if (argbuf_index + 1 == argbuf_length)
-    argbuf = xrealloc (argbuf, (argbuf_length *= 2) * sizeof (const char *));
+    argbuf = XRESIZEVEC (const char *, argbuf, (argbuf_length *= 2));
 
   argbuf[argbuf_index++] = arg;
   argbuf[argbuf_index] = 0;
@@ -2263,8 +2271,7 @@ read_specs (const char *filename, int main_p)
 	{
 	  /* Add this pair to the vector.  */
 	  compilers
-	    = xrealloc (compilers,
-			(n_compilers + 2) * sizeof (struct compiler));
+	    = XRESIZEVEC (struct compiler, compilers, n_compilers + 2);
 
 	  compilers[n_compilers].suffix = suffix;
 	  compilers[n_compilers].spec = spec;
@@ -2585,7 +2592,7 @@ struct add_to_obstack_info {
 static void *
 add_to_obstack (char *path, void *data)
 {
-  struct add_to_obstack_info *info = data;
+  struct add_to_obstack_info *info = (struct add_to_obstack_info *) data;
 
   if (info->check_dir && !is_directory (path, false))
     return NULL;
@@ -2679,7 +2686,7 @@ struct file_at_path_info {
 static void *
 file_at_path (char *path, void *data)
 {
-  struct file_at_path_info *info = data;
+  struct file_at_path_info *info = (struct file_at_path_info *) data;
   size_t len = strlen (path);
 
   memcpy (path + len, info->name, info->name_len);
@@ -2738,8 +2745,9 @@ find_a_file (const struct path_prefix *pprefix, const char *name, int mode,
   info.suffix_len = strlen (info.suffix);
   info.mode = mode;
 
-  return for_each_path (pprefix, do_multi, info.name_len + info.suffix_len,
-			file_at_path, &info);
+  return (char*) for_each_path (pprefix, do_multi,
+				info.name_len + info.suffix_len,
+				file_at_path, &info);
 }
 
 /* Ranking of prefixes in the sort list. -B prefixes are put before
@@ -2845,13 +2853,20 @@ execute (void)
 
   gcc_assert (!processing_spec_function);
 
+  if (wrapper_string)
+    {
+      string = find_a_file (&exec_prefixes, argbuf[0], X_OK, false);
+      argbuf[0] = (string) ? string : argbuf[0];
+      insert_wrapper (wrapper_string);
+    }
+
   /* Count # of piped commands.  */
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
       n_commands++;
 
   /* Get storage for each command.  */
-  commands = alloca (n_commands * sizeof (struct command));
+  commands = (struct command *) alloca (n_commands * sizeof (struct command));
 
   /* Split argbuf into its separate piped processes,
      and record info about each one.
@@ -2859,10 +2874,12 @@ execute (void)
 
   commands[0].prog = argbuf[0]; /* first command.  */
   commands[0].argv = &argbuf[0];
-  string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, false);
-
-  if (string)
-    commands[0].argv[0] = string;
+ 
+  if (!wrapper_string)
+    {
+      string = find_a_file (&exec_prefixes, commands[0].prog, X_OK, false);
+      commands[0].argv[0] = (string) ? string : commands[0].argv[0];
+    }
 
   for (n_commands = 1, i = 0; i < argbuf_index; i++)
     if (strcmp (argbuf[i], "|") == 0)
@@ -3011,13 +3028,13 @@ execute (void)
     struct pex_time *times = NULL;
     int ret_code = 0;
 
-    statuses = alloca (n_commands * sizeof (int));
+    statuses = (int *) alloca (n_commands * sizeof (int));
     if (!pex_get_status (pex, n_commands, statuses))
       pfatal_with_name (_("failed to get exit status"));
 
     if (report_times)
       {
-	times = alloca (n_commands * sizeof (struct pex_time));
+	times = (struct pex_time *) alloca (n_commands * sizeof (struct pex_time));
 	if (!pex_get_times (pex, n_commands, times))
 	  pfatal_with_name (_("failed to get process times"));
       }
@@ -3277,8 +3294,8 @@ add_preprocessor_option (const char *option, int len)
   if (! preprocessor_options)
     preprocessor_options = XNEWVEC (char *, n_preprocessor_options);
   else
-    preprocessor_options = xrealloc (preprocessor_options,
-				     n_preprocessor_options * sizeof (char *));
+    preprocessor_options = XRESIZEVEC (char *, preprocessor_options,
+				       n_preprocessor_options);
 
   preprocessor_options [n_preprocessor_options - 1] =
     save_string (option, len);
@@ -3292,8 +3309,8 @@ add_assembler_option (const char *option, int len)
   if (! assembler_options)
     assembler_options = XNEWVEC (char *, n_assembler_options);
   else
-    assembler_options = xrealloc (assembler_options,
-				  n_assembler_options * sizeof (char *));
+    assembler_options = XRESIZEVEC (char *, assembler_options,
+				    n_assembler_options);
 
   assembler_options [n_assembler_options - 1] = save_string (option, len);
 }
@@ -3306,8 +3323,7 @@ add_linker_option (const char *option, int len)
   if (! linker_options)
     linker_options = XNEWVEC (char *, n_linker_options);
   else
-    linker_options = xrealloc (linker_options,
-			       n_linker_options * sizeof (char *));
+    linker_options = XRESIZEVEC (char *, linker_options, n_linker_options);  
 
   linker_options [n_linker_options - 1] = save_string (option, len);
 }
@@ -3393,15 +3409,14 @@ process_command (int argc, const char **argv)
       for (baselen = strlen (progname); baselen > 0; baselen--)
 	if (IS_DIR_SEPARATOR (progname[baselen-1]))
 	  break;
-      new_argv0 = xmemdup (progname, baselen,
+      new_argv0 = XDUPVAR (char, progname, baselen,
 			   baselen + concat_length (new_version, new_machine,
 						    "-gcc-", NULL) + 1);
       strcpy (new_argv0 + baselen, new_machine);
       strcat (new_argv0, "-gcc-");
       strcat (new_argv0, new_version);
 
-      new_argv = xmemdup (argv, (argc + 1) * sizeof (argv[0]),
-			  (argc + 1) * sizeof (argv[0]));
+      new_argv = XDUPVEC (char *, argv, argc + 1);
       new_argv[0] = new_argv0;
 
       execvp (new_argv0, new_argv);
@@ -3476,7 +3491,7 @@ process_command (int argc, const char **argv)
   if (temp)
     {
       const char *startp, *endp;
-      char *nstore = alloca (strlen (temp) + 3);
+      char *nstore = (char *) alloca (strlen (temp) + 3);
 
       startp = endp = temp;
       while (1)
@@ -3510,7 +3525,7 @@ process_command (int argc, const char **argv)
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;
-      char *nstore = alloca (strlen (temp) + 3);
+      char *nstore = (char *) alloca (strlen (temp) + 3);
 
       startp = endp = temp;
       while (1)
@@ -3543,7 +3558,7 @@ process_command (int argc, const char **argv)
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;
-      char *nstore = alloca (strlen (temp) + 3);
+      char *nstore = (char *) alloca (strlen (temp) + 3);
 
       startp = endp = temp;
       while (1)
@@ -3798,6 +3813,15 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  use_pipes = 1;
 	  n_switches++;
 	}
+      else if (strcmp (argv[i], "-wrapper") == 0)
+        {
+	  if (++i >= argc)
+	    fatal ("argument to '-wrapper' is missing");
+
+          wrapper_string = argv[i];
+	  n_switches++;
+	  n_switches++;
+        }
       else if (strcmp (argv[i], "-###") == 0)
 	{
 	  /* This is similar to -v except that there is no execution
@@ -3931,7 +3955,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	      for (j = 0; j < ARRAY_SIZE (modify_target); j++)
 		if (! strcmp (argv[i], modify_target[j].sw))
 		  {
-		    char *new_name = xmalloc (strlen (modify_target[j].str)
+		    char *new_name = XNEWVEC (char, strlen (modify_target[j].str)
 					      + strlen (spec_machine));
 		    const char *p, *r;
 		    char *q;
@@ -4163,6 +4187,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[i];
 	}
+      else if (strcmp (argv[i], "-wrapper") == 0)
+        i++;
       else if (strcmp (argv[i], "-specs") == 0)
 	i++;
       else if (strncmp (argv[i], "-specs=", 7) == 0)
@@ -4414,6 +4440,52 @@ end_going_arg (void)
     }
 }
 
+
+/* Parse the WRAPPER string which is a comma separated list of the command line
+   and insert them into the beginning of argbuf.  */
+
+static void
+insert_wrapper (const char *wrapper)
+{
+  int n = 0;
+  int i;
+  char *buf = xstrdup (wrapper);
+  char *p = buf;
+
+  do
+    {
+      n++;
+      while (*p == ',')
+        p++;
+    }
+  while ((p = strchr (p, ',')) != NULL);
+
+  if (argbuf_index + n >= argbuf_length)
+    {
+      argbuf_length = argbuf_length * 2;
+      while (argbuf_length < argbuf_index + n)
+	argbuf_length *= 2;
+      argbuf = XRESIZEVEC (const char *, argbuf, argbuf_length);
+    }
+  for (i = argbuf_index - 1; i >= 0; i--)
+    argbuf[i + n] = argbuf[i];
+
+  i = 0;
+  p = buf;
+  do
+    {
+      while (*p == ',')
+        {
+          *p = 0;
+          p++;
+        }
+      argbuf[i++] = p;
+    }
+  while ((p = strchr (p, ',')) != NULL);
+  gcc_assert (i == n);
+  argbuf_index += n;
+}
+
 /* Process the spec SPEC and run the commands specified therein.
    Returns 0 if the spec is successfully processed; -1 if failed.  */
 
@@ -4493,7 +4565,7 @@ do_option_spec (const char *name, const char *spec)
     }
 
   /* Replace each %(VALUE) by the specified value.  */
-  tmp_spec = alloca (strlen (spec) + 1
+  tmp_spec = (char *) alloca (strlen (spec) + 1
 		     + value_count * (value_len - strlen ("%(VALUE)")));
   tmp_spec_p = tmp_spec;
   q = spec;
@@ -4525,8 +4597,7 @@ do_self_spec (const char *spec)
 
       first = n_switches;
       n_switches += argbuf_index;
-      switches = xrealloc (switches,
-			   sizeof (struct switchstr) * (n_switches + 1));
+      switches = XRESIZEVEC (struct switchstr, switches, n_switches + 1);
 
       switches[n_switches] = switches[first];
       for (i = 0; i < argbuf_index; i++)
@@ -4560,7 +4631,7 @@ struct spec_path_info {
 static void *
 spec_path (char *path, void *data)
 {
-  struct spec_path_info *info = data;
+  struct spec_path_info *info = (struct spec_path_info *) data;
   size_t len = 0;
   char save = 0;
 
@@ -4728,7 +4799,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      char *buf;
 	      while (*p != 0 && *p != '\n')
 		p++;
-	      buf = alloca (p - q + 1);
+	      buf = (char *) alloca (p - q + 1);
 	      strncpy (buf, q, p - q);
 	      buf[p - q] = 0;
 	      error ("%s", buf);
@@ -4742,7 +4813,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      char *buf;
 	      while (*p != 0 && *p != '\n')
 		p++;
-	      buf = alloca (p - q + 1);
+	      buf = (char *) alloca (p - q + 1);
 	      strncpy (buf, q, p - q);
 	      buf[p - q] = 0;
 	      notice ("%s\n", buf);
@@ -4846,7 +4917,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    char *tmp;
 		    
 		    temp_filename_length = basename_length + suffix_length;
-		    tmp = alloca (temp_filename_length + 1);
+		    tmp = (char *) alloca (temp_filename_length + 1);
 		    strncpy (tmp, input_basename, basename_length);
 		    strncpy (tmp + basename_length, suffix, suffix_length);
 		    tmp[temp_filename_length] = '\0';
@@ -4907,7 +4978,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		  {
 		    if (t == 0)
 		      {
-			t = xmalloc (sizeof (struct temp_name));
+			t = XNEW (struct temp_name);
 			t->next = temp_names;
 			temp_names = t;
 		      }
@@ -5033,7 +5104,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
                   for (n_files = 0, i = 0; i < max; i++)
                     n_files += outfiles[i] != NULL;
 
-                  argv = alloca (sizeof (char *) * (n_files + 1));
+                  argv = (char **) alloca (sizeof (char *) * (n_files + 1));
 
                   /* Copy the strings over.  */
                   for (i = 0, j = 0; i < max; i++)
@@ -5351,7 +5422,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    }
 		  else
 		    {
-		      char *x = alloca (strlen (name) * 2 + 1);
+		      char *x = (char *) alloca (strlen (name) * 2 + 1);
 		      char *buf = x;
 		      const char *y = name;
 		      int flag = 0;
@@ -6039,7 +6110,7 @@ is_directory (const char *path1, bool linker)
   /* Ensure the string ends with "/.".  The resulting path will be a
      directory even if the given path is a symbolic link.  */
   len1 = strlen (path1);
-  path = alloca (3 + len1);
+  path = (char *) alloca (3 + len1);
   memcpy (path, path1, len1);
   cp = path + len1;
   if (!IS_DIR_SEPARATOR (cp[-1]))
@@ -6248,7 +6319,7 @@ main (int argc, char **argv)
   /* Initialize the vector of specs to just the default.
      This means one element containing 0s, as a terminator.  */
 
-  compilers = xmalloc (sizeof default_compilers);
+  compilers = XNEWVAR (struct compiler, sizeof default_compilers);
   memcpy (compilers, default_compilers, sizeof default_compilers);
   n_compilers = n_default_compilers;
 
@@ -6267,7 +6338,7 @@ main (int argc, char **argv)
 
   /* We need to check standard_exec_prefix/just_machine_suffix/specs
      for any override of as, ld and libraries.  */
-  specs_file = alloca (strlen (standard_exec_prefix)
+  specs_file = (char *) alloca (strlen (standard_exec_prefix)
 		       + strlen (just_machine_suffix) + sizeof ("specs"));
 
   strcpy (specs_file, standard_exec_prefix);
@@ -7100,7 +7171,8 @@ used_arg (const char *p, int len)
 	if (*q == ';')
 	  cnt++;
 
-      matches = alloca ((sizeof (struct mswitchstr)) * cnt);
+      matches
+	= (struct mswitchstr *) alloca ((sizeof (struct mswitchstr)) * cnt);
       i = 0;
       q = multilib_matches;
       while (*q != '\0')
@@ -7748,11 +7820,11 @@ getenv_spec_function (int argc, const char **argv)
     fatal ("environment variable \"%s\" not defined", argv[0]);
 
   /* We have to escape every character of the environment variable so
-     they are not interpretted as active spec characters.  A
-     particulaly painful case is when we are reading a variable
+     they are not interpreted as active spec characters.  A
+     particularly painful case is when we are reading a variable
      holding a windows path complete with \ separators.  */
   len = strlen (value) * 2 + strlen (argv[1]) + 1;
-  result = xmalloc (len);
+  result = XNEWVAR (char, len);
   for (ptr = result; *value; ptr += 2)
     {
       ptr[0] = '\\';

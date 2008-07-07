@@ -333,7 +333,7 @@ build_call_a (tree function, int n, tree *argarray)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
-  if (decl && TREE_THIS_VOLATILE (decl) && cfun)
+  if (decl && TREE_THIS_VOLATILE (decl) && cfun && cp_function_chain)
     current_function_returns_abnormally = 1;
 
   if (decl && TREE_DEPRECATED (decl))
@@ -2634,7 +2634,22 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 				       flags);
 
       if (cand)
-	cand->second_conv = build_identity_conv (totype, NULL_TREE);
+	{
+	  cand->second_conv = build_identity_conv (totype, NULL_TREE);
+
+	  /* If totype isn't a reference, and LOOKUP_NO_TEMP_BIND isn't
+	     set, then this is copy-initialization.  In that case, "The
+	     result of the call is then used to direct-initialize the
+	     object that is the destination of the copy-initialization."
+	     [dcl.init]
+
+	     We represent this in the conversion sequence with an
+	     rvalue conversion, which means a constructor call.  */
+	  if (TREE_CODE (totype) != REFERENCE_TYPE
+	      && !(convflags & LOOKUP_NO_TEMP_BIND))
+	    cand->second_conv
+	      = build_conv (ck_rvalue, totype, cand->second_conv);
+	}
     }
 
   if (conv_fns)
@@ -2685,6 +2700,20 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 				       TREE_TYPE (TREE_TYPE (cand->fn)),
 				       0,
 				       /*c_cast_p=*/false, convflags);
+
+	      /* If LOOKUP_NO_TEMP_BIND isn't set, then this is
+		 copy-initialization.  In that case, "The result of the
+		 call is then used to direct-initialize the object that is
+		 the destination of the copy-initialization."  [dcl.init]
+
+		 We represent this in the conversion sequence with an
+		 rvalue conversion, which means a constructor call.  But
+		 don't add a second rvalue conversion if there's already
+		 one there.  Which there really shouldn't be, but it's
+		 harmless since we'd add it here anyway. */
+	      if (ics && MAYBE_CLASS_TYPE_P (totype) && ics->kind != ck_rvalue
+		  && !(convflags & LOOKUP_NO_TEMP_BIND))
+		ics = build_conv (ck_rvalue, totype, ics);
 
 	      cand->second_conv = ics;
 
@@ -3975,7 +4004,8 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 		      != TYPE_MAIN_VARIANT (TREE_TYPE (arg2)))
 		  && (complain & tf_warning))
 		{
-		  warning (0, "comparison between %q#T and %q#T",
+		  warning (OPT_Wenum_compare,
+			   "comparison between %q#T and %q#T",
 			   TREE_TYPE (arg1), TREE_TYPE (arg2));
 		}
 	      break;
@@ -4425,38 +4455,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	if (DECL_CONSTRUCTOR_P (convfn))
 	  expr = build_cplus_new (totype, expr);
 
-	/* The result of the call is then used to direct-initialize the object
-	   that is the destination of the copy-initialization.  [dcl.init]
-
-	   Note that this step is not reflected in the conversion sequence;
-	   it affects the semantics when we actually perform the
-	   conversion, but is not considered during overload resolution.
-
-	   If the target is a class, that means call a ctor.  */
-	if (MAYBE_CLASS_TYPE_P (totype)
-	    && (inner >= 0 || !lvalue_p (expr)))
-	  {
-	    expr = (build_temp
-		    (expr, totype,
-		     /* Core issue 84, now a DR, says that we don't
-			allow UDCs for these args (which deliberately
-			breaks copy-init of an auto_ptr<Base> from an
-			auto_ptr<Derived>).  */
-		     LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING|LOOKUP_NO_CONVERSION,
-		     &diagnostic_fn));
-
-	    if (diagnostic_fn && (complain & tf_error))
-	      {
-		if (fn)
-		  diagnostic_fn
-		    ("  initializing argument %P of %qD from result of %qD",
-		     argnum, fn, convfn);
-		else
-		 diagnostic_fn
-		   ("  initializing temporary from result of %qD",  convfn);
-	      }
-	    expr = build_cplus_new (totype, expr);
-	  }
 	return expr;
       }
     case ck_identity:
@@ -4518,7 +4516,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       flags = LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING;
       if (convs->user_conv_p)
 	/* This conversion is being done in the context of a user-defined
-	   conversion, so don't allow any more.  */
+	   conversion (i.e. the second step of copy-initialization), so
+	   don't allow any more.  */
 	flags |= LOOKUP_NO_CONVERSION;
       expr = build_temp (expr, totype, flags, &diagnostic_fn);
       if (diagnostic_fn && fn)
@@ -4582,7 +4581,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 		return error_mark_node;
 	      }
 	    if (lvalue & clk_bitfield)
-	      expr = convert_bitfield_to_declared_type (expr);
+	      {
+		expr = convert_bitfield_to_declared_type (expr);
+		expr = fold_convert (type, expr);
+	      }
 	    expr = build_target_expr_with_type (expr, type);
 	  }
 
@@ -5121,9 +5123,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
       /* Pull out the real argument, disregarding const-correctness.  */
       targ = arg;
-      while (TREE_CODE (targ) == NOP_EXPR
-	     || TREE_CODE (targ) == NON_LVALUE_EXPR
-	     || TREE_CODE (targ) == CONVERT_EXPR)
+      while (CONVERT_EXPR_P (targ)
+	     || TREE_CODE (targ) == NON_LVALUE_EXPR)
 	targ = TREE_OPERAND (targ, 0);
       if (TREE_CODE (targ) == ADDR_EXPR)
 	{
@@ -6562,10 +6563,10 @@ tweak:
 	{
 	  if (warn)
 	    {
-	      pedwarn ("\
-ISO C++ says that these are ambiguous, even \
-though the worst conversion for the first is better than \
-the worst conversion for the second:");
+	      warning (0,
+	      "ISO C++ says that these are ambiguous, even "
+	      "though the worst conversion for the first is better than "
+	      "the worst conversion for the second:");
 	      print_z_candidate (_("candidate 1:"), w);
 	      print_z_candidate (_("candidate 2:"), l);
 	    }

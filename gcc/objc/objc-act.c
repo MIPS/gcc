@@ -1500,7 +1500,7 @@ setup_string_decl (void)
   /* %s in format will provide room for terminating null */
   length = strlen (STRING_OBJECT_GLOBAL_FORMAT)
 	   + strlen (constant_string_class_name);
-  name = xmalloc (length);
+  name = XNEWVEC (char, length);
   sprintf (name, STRING_OBJECT_GLOBAL_FORMAT,
 	   constant_string_class_name);
   constant_string_global_id = get_identifier (name);
@@ -1929,12 +1929,12 @@ objc_build_string_object (tree string)
   /* Perhaps we already constructed a constant string just like this one? */
   key.literal = string;
   loc = htab_find_slot (string_htab, &key, INSERT);
-  desc = *loc;
+  desc = (struct string_descriptor *) *loc;
 
   if (!desc)
     {
       tree var;
-      *loc = desc = ggc_alloc (sizeof (*desc));
+      *loc = desc = GGC_NEW (struct string_descriptor);
       desc->literal = string;
 
       /* GNU:    (NXConstantString *) & ((__builtin_ObjCString) { NULL, string, length })  */
@@ -1953,7 +1953,6 @@ objc_build_string_object (tree string)
  			    initlist);
       constructor = objc_build_constructor (internal_const_str_type,
 					    nreverse (initlist));
-      TREE_INVARIANT (constructor) = true;
 
       if (!flag_next_runtime)
 	constructor
@@ -3165,8 +3164,7 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       outer = TREE_OPERAND (lhs, 0);
 
       while (!strong_cast_p
-	     && (TREE_CODE (outer) == CONVERT_EXPR
-		 || TREE_CODE (outer) == NOP_EXPR
+	     && (CONVERT_EXPR_P (outer)
 		 || TREE_CODE (outer) == NON_LVALUE_EXPR))
 	{
 	  tree lhstype = TREE_TYPE (outer);
@@ -3292,14 +3290,14 @@ static GTY ((param_is (struct interface_tuple))) htab_t interface_htab;
 static hashval_t
 hash_interface (const void *p)
 {
-  const struct interface_tuple *d = p;
+  const struct interface_tuple *d = (const struct interface_tuple *) p;
   return IDENTIFIER_HASH_VALUE (d->id);
 }
 
 static int
 eq_interface (const void *p1, const void *p2)
 {
-  const struct interface_tuple *d = p1;
+  const struct interface_tuple *d = (const struct interface_tuple *) p1;
   return d->id == p2;
 }
 
@@ -3753,7 +3751,7 @@ next_sjlj_build_try_catch_finally (void)
 void
 objc_begin_try_stmt (location_t try_locus, tree body)
 {
-  struct objc_try_context *c = xcalloc (1, sizeof (*c));
+  struct objc_try_context *c = XCNEW (struct objc_try_context);
   c->outer = cur_try_context;
   c->try_body = body;
   c->try_locus = try_locus;
@@ -4350,7 +4348,7 @@ encode_method_prototype (tree method_decl)
 
   finish_encoding:
   obstack_1grow (&util_obstack, '\0');
-  result = get_identifier (obstack_finish (&util_obstack));
+  result = get_identifier (XOBFINISH (&util_obstack, char *));
   obstack_free (&util_obstack, util_firstobj);
   return result;
 }
@@ -5162,7 +5160,7 @@ build_ivar_list_initializer (tree type, tree field_decl)
       ivar
 	= tree_cons
 	  (NULL_TREE,
-	   add_objc_string (get_identifier (obstack_finish (&util_obstack)),
+	   add_objc_string (get_identifier (XOBFINISH (&util_obstack, char *)),
 			    meth_var_types),
 	   ivar);
       obstack_free (&util_obstack, util_firstobj);
@@ -6268,8 +6266,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   rtype = receiver;
   while (TREE_CODE (rtype) == COMPOUND_EXPR
 	      || TREE_CODE (rtype) == MODIFY_EXPR
-	      || TREE_CODE (rtype) == NOP_EXPR
-	      || TREE_CODE (rtype) == CONVERT_EXPR
+	      || CONVERT_EXPR_P (rtype)
 	      || TREE_CODE (rtype) == COMPONENT_REF)
     rtype = TREE_OPERAND (rtype, 0);
   self = (rtype == self_decl);
@@ -6693,7 +6690,7 @@ objc_build_encode_expr (tree type)
   encode_type (type, obstack_object_size (&util_obstack),
 	       OBJC_ENCODE_INLINE_DEFS);
   obstack_1grow (&util_obstack, 0);    /* null terminate string */
-  string = obstack_finish (&util_obstack);
+  string = XOBFINISH (&util_obstack, const char *);
 
   /* Synthesize a string that represents the encoded struct/union.  */
   result = my_build_string (strlen (string) + 1, string);

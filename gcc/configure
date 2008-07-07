@@ -458,8 +458,9 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_libsubdir build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP loose_warn cxx_compat_warn strict_warn warn_cflags nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_decimal_float enable_fixed_point enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep PKGVERSION REPORT_BUGS_TO REPORT_BUGS_TEXI datarootdir docdir htmldir SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file extra_opt_files USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS DATADIRNAME INSTOBJEXT GENCAT CATOBJEXT host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS STMP_FIXINC STMP_FIXPROTO collect2 LIBTOOL SED FGREP GREP LD DUMPBIN ac_ct_DUMPBIN ac_ct_AR STRIP ac_ct_STRIP lt_ECHO objdir enable_fast_install gcc_cv_as ORIGINAL_AS_FOR_TARGET gcc_cv_ld ORIGINAL_LD_FOR_TARGET gcc_cv_nm ORIGINAL_NM_FOR_TARGET gcc_cv_objdump libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir subdirs srcdir all_compilers all_gtfiles all_lang_makefrags all_lang_makefiles all_languages all_selected_languages build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines build_file_translate check_languages cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical build_libsubdir build_subdir host_subdir target_subdir GENINSRC CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT GNATBIND ac_ct_GNATBIND GNATMAKE ac_ct_GNATMAKE NO_MINUS_C_MINUS_O OUTPUT_OPTION CPP EGREP loose_warn strict_warn warn_cflags nocommon_flag TREEBROWSER valgrind_path valgrind_path_defines valgrind_command coverage_flags enable_multilib enable_decimal_float enable_fixed_point enable_shared TARGET_SYSTEM_ROOT TARGET_SYSTEM_ROOT_DEFINE CROSS_SYSTEM_HEADER_DIR onestep PKGVERSION REPORT_BUGS_TO REPORT_BUGS_TEXI datarootdir docdir htmldir SET_MAKE AWK LN_S LN RANLIB ac_ct_RANLIB ranlib_flags INSTALL INSTALL_PROGRAM INSTALL_DATA make_compare_target have_mktemp_command MAKEINFO BUILD_INFO GENERATED_MANPAGES FLEX BISON NM AR COLLECT2_LIBS GNAT_LIBEXC LDEXP_LIB TARGET_GETGROUPS_T LIBICONV LTLIBICONV LIBICONV_DEP manext objext gthread_flags extra_modes_file extra_opt_files USE_NLS LIBINTL LIBINTL_DEP INCINTL XGETTEXT GMSGFMT POSUB CATALOGS DATADIRNAME INSTOBJEXT GENCAT CATOBJEXT host_cc_for_libada CROSS ALL SYSTEM_HEADER_DIR inhibit_libc CC_FOR_BUILD BUILD_CFLAGS BUILD_LDFLAGS STMP_FIXINC STMP_FIXPROTO collect2 LIBTOOL SED FGREP GREP LD DUMPBIN ac_ct_DUMPBIN ac_ct_AR STRIP ac_ct_STRIP lt_ECHO objdir enable_fast_install gcc_cv_as ORIGINAL_AS_FOR_TARGET gcc_cv_ld ORIGINAL_LD_FOR_TARGET gcc_cv_nm ORIGINAL_NM_FOR_TARGET gcc_cv_objdump libgcc_visibility GGC zlibdir zlibinc MAINT gcc_tooldir dollar slibdir subdirs srcdir all_compilers all_gtfiles all_lang_makefrags all_lang_makefiles all_languages all_selected_languages build_exeext build_install_headers_dir build_xm_file_list build_xm_include_list build_xm_defines build_file_translate check_languages cpp_install_dir xmake_file tmake_file extra_gcc_objs extra_headers_list extra_objs extra_parts extra_passes extra_programs float_h_file gcc_config_arguments gcc_gxx_include_dir host_exeext host_xm_file_list host_xm_include_list host_xm_defines out_host_hook_obj install lang_opt_files lang_specs_files lang_tree_files local_prefix md_file objc_boehm_gc out_file out_object_file thread_file tm_file_list tm_include_list tm_defines tm_p_file_list tm_p_include_list xm_file_list xm_include_list xm_defines c_target_objs cxx_target_objs fortran_target_objs target_cpu_default GMPLIBS GMPINC LIBOBJS LTLIBOBJS'
 ac_subst_files='language_hooks'
+ac_pwd=`pwd`
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -1046,6 +1047,7 @@ Optional Features:
   --enable-sjlj-exceptions
                           arrange to use setjmp/longjmp exception handling
   --enable-secureplt      enable -msecure-plt by default for PowerPC
+  --enable-cld            enable -mcld by default for 32bit x86
   --disable-win32-registry
                           disable lookup of installation paths in the
                           Registry on Windows hosts
@@ -1500,13 +1502,22 @@ echo "$as_me: error: \`$ac_var' was not set in the previous run" >&2;}
     ,);;
     *)
       if test "x$ac_old_val" != "x$ac_new_val"; then
-	{ echo "$as_me:$LINENO: error: \`$ac_var' has changed since the previous run:" >&5
+        # differences in whitespace do not lead to failure.
+        ac_old_val_w=`echo x $ac_old_val`
+        ac_new_val_w=`echo x $ac_new_val`
+        if test "$ac_old_val_w" != "$ac_new_val_w"; then
+          { echo "$as_me:$LINENO: error: \`$ac_var' has changed since the previous run:" >&5
 echo "$as_me: error: \`$ac_var' has changed since the previous run:" >&2;}
-	{ echo "$as_me:$LINENO:   former value:  $ac_old_val" >&5
-echo "$as_me:   former value:  $ac_old_val" >&2;}
-	{ echo "$as_me:$LINENO:   current value: $ac_new_val" >&5
-echo "$as_me:   current value: $ac_new_val" >&2;}
-	ac_cache_corrupted=:
+          ac_cache_corrupted=:
+        else
+          { echo "$as_me:$LINENO: warning: ignoring whitespace changes in \`$ac_var' since the previous run:" >&5
+echo "$as_me: warning: ignoring whitespace changes in \`$ac_var' since the previous run:" >&2;}
+          eval $ac_var=\$ac_old_val
+        fi
+        { echo "$as_me:$LINENO:   former value:  \`$ac_old_val'" >&5
+echo "$as_me:   former value:  \`$ac_old_val'" >&2;}
+        { echo "$as_me:$LINENO:   current value: \`$ac_new_val'" >&5
+echo "$as_me:   current value: \`$ac_new_val'" >&2;}
       fi;;
   esac
   # Pass precious variables to config.status.
@@ -1523,6 +1534,8 @@ echo "$as_me:   current value: $ac_new_val" >&2;}
   fi
 done
 if $ac_cache_corrupted; then
+  { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
   { echo "$as_me:$LINENO: error: changes in the environment can compromise the build" >&5
 echo "$as_me: error: changes in the environment can compromise the build" >&2;}
   { { echo "$as_me:$LINENO: error: run \`make distclean' and/or \`rm $cache_file' and start over" >&5
@@ -1535,6 +1548,9 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
 
 
 
@@ -2340,11 +2356,13 @@ fi
 fi
 
 
-test -z "$CC" && { { echo "$as_me:$LINENO: error: no acceptable C compiler found in \$PATH
+test -z "$CC" && { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: no acceptable C compiler found in \$PATH
 See \`config.log' for more details." >&5
 echo "$as_me: error: no acceptable C compiler found in \$PATH
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 
 # Provide some information about the compiler.
 echo "$as_me:$LINENO:" \
@@ -2430,11 +2448,13 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: C compiler cannot create executables
 See \`config.log' for more details." >&5
 echo "$as_me: error: C compiler cannot create executables
 See \`config.log' for more details." >&2;}
-   { (exit 77); exit 77; }; }
+   { (exit 77); exit 77; }; }; }
 fi
 
 ac_exeext=$ac_cv_exeext
@@ -2459,13 +2479,15 @@ if test "$cross_compiling" != yes; then
     if test "$cross_compiling" = maybe; then
 	cross_compiling=yes
     else
-	{ { echo "$as_me:$LINENO: error: cannot run C compiled programs.
+	{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run C compiled programs.
 If you meant to cross compile, use \`--host'.
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run C compiled programs.
 If you meant to cross compile, use \`--host'.
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
     fi
   fi
 fi
@@ -2503,11 +2525,13 @@ for ac_file in conftest.exe conftest conftest.*; do
   esac
 done
 else
-  { { echo "$as_me:$LINENO: error: cannot compute suffix of executables: cannot compile and link
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute suffix of executables: cannot compile and link
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute suffix of executables: cannot compile and link
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 
 rm -f conftest$ac_cv_exeext
@@ -2554,11 +2578,13 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute suffix of object files: cannot compile
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute suffix of object files: cannot compile
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 
 rm -f conftest.$ac_cv_objext conftest.$ac_ext
@@ -3067,6 +3093,202 @@ if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" != yes"; then
    CC="$am_aux_dir/compile $CC"
 fi
 
+
+
+
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}gnatbind", so it can be a program name with args.
+set dummy ${ac_tool_prefix}gnatbind; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_GNATBIND+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$GNATBIND"; then
+  ac_cv_prog_GNATBIND="$GNATBIND" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_GNATBIND="${ac_tool_prefix}gnatbind"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+fi
+fi
+GNATBIND=$ac_cv_prog_GNATBIND
+if test -n "$GNATBIND"; then
+  echo "$as_me:$LINENO: result: $GNATBIND" >&5
+echo "${ECHO_T}$GNATBIND" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+fi
+if test -z "$ac_cv_prog_GNATBIND"; then
+  ac_ct_GNATBIND=$GNATBIND
+  # Extract the first word of "gnatbind", so it can be a program name with args.
+set dummy gnatbind; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_ac_ct_GNATBIND+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$ac_ct_GNATBIND"; then
+  ac_cv_prog_ac_ct_GNATBIND="$ac_ct_GNATBIND" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_GNATBIND="gnatbind"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_ac_ct_GNATBIND" && ac_cv_prog_ac_ct_GNATBIND="no"
+fi
+fi
+ac_ct_GNATBIND=$ac_cv_prog_ac_ct_GNATBIND
+if test -n "$ac_ct_GNATBIND"; then
+  echo "$as_me:$LINENO: result: $ac_ct_GNATBIND" >&5
+echo "${ECHO_T}$ac_ct_GNATBIND" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+  GNATBIND=$ac_ct_GNATBIND
+else
+  GNATBIND="$ac_cv_prog_GNATBIND"
+fi
+
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}gnatmake", so it can be a program name with args.
+set dummy ${ac_tool_prefix}gnatmake; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_GNATMAKE+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$GNATMAKE"; then
+  ac_cv_prog_GNATMAKE="$GNATMAKE" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_GNATMAKE="${ac_tool_prefix}gnatmake"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+fi
+fi
+GNATMAKE=$ac_cv_prog_GNATMAKE
+if test -n "$GNATMAKE"; then
+  echo "$as_me:$LINENO: result: $GNATMAKE" >&5
+echo "${ECHO_T}$GNATMAKE" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+fi
+if test -z "$ac_cv_prog_GNATMAKE"; then
+  ac_ct_GNATMAKE=$GNATMAKE
+  # Extract the first word of "gnatmake", so it can be a program name with args.
+set dummy gnatmake; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_ac_ct_GNATMAKE+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$ac_ct_GNATMAKE"; then
+  ac_cv_prog_ac_ct_GNATMAKE="$ac_ct_GNATMAKE" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_GNATMAKE="gnatmake"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_ac_ct_GNATMAKE" && ac_cv_prog_ac_ct_GNATMAKE="no"
+fi
+fi
+ac_ct_GNATMAKE=$ac_cv_prog_ac_ct_GNATMAKE
+if test -n "$ac_ct_GNATMAKE"; then
+  echo "$as_me:$LINENO: result: $ac_ct_GNATMAKE" >&5
+echo "${ECHO_T}$ac_ct_GNATMAKE" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+  GNATMAKE=$ac_ct_GNATMAKE
+else
+  GNATMAKE="$ac_cv_prog_GNATMAKE"
+fi
+
+echo "$as_me:$LINENO: checking whether compiler driver understands Ada" >&5
+echo $ECHO_N "checking whether compiler driver understands Ada... $ECHO_C" >&6
+if test "${acx_cv_cc_gcc_supports_ada+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.adb <<EOF
+procedure conftest is begin null; end conftest;
+EOF
+acx_cv_cc_gcc_supports_ada=no
+# There is a bug in old released versions of GCC which causes the
+# driver to exit successfully when the appropriate language module
+# has not been installed.  This is fixed in 2.95.4, 3.0.2, and 3.1.
+# Therefore we must check for the error message as well as an
+# unsuccessful exit.
+# Other compilers, like HP Tru64 UNIX cc, exit successfully when
+# given a .adb file, but produce no object file.  So we must check
+# if an object file was really produced to guard against this.
+errors=`(${CC} -I"$srcdir"/ada -c conftest.adb) 2>&1 || echo failure`
+if test x"$errors" = x && test -f conftest.$ac_objext; then
+  acx_cv_cc_gcc_supports_ada=yes
+fi
+rm -f conftest.*
+fi
+echo "$as_me:$LINENO: result: $acx_cv_cc_gcc_supports_ada" >&5
+echo "${ECHO_T}$acx_cv_cc_gcc_supports_ada" >&6
+
+if test x$GNATBIND != xno && test x$GNATMAKE != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
+  have_gnat=yes
+else
+  have_gnat=no
+fi
+
+
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -3310,11 +3532,13 @@ rm -f conftest.err conftest.$ac_ext
 if $ac_preproc_ok; then
   :
 else
-  { { echo "$as_me:$LINENO: error: C preprocessor \"$CPP\" fails sanity check
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: C preprocessor \"$CPP\" fails sanity check
 See \`config.log' for more details." >&5
 echo "$as_me: error: C preprocessor \"$CPP\" fails sanity check
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 
 ac_ext=c
@@ -4040,11 +4264,13 @@ rm -f conftest.err conftest.$ac_ext
 if $ac_preproc_ok; then
   :
 else
-  { { echo "$as_me:$LINENO: error: C preprocessor \"$CPP\" fails sanity check
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: C preprocessor \"$CPP\" fails sanity check
 See \`config.log' for more details." >&5
 echo "$as_me: error: C preprocessor \"$CPP\" fails sanity check
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 
 ac_ext=c
@@ -4449,19 +4675,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof_void_p=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (void *), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (void *), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (void *), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -4519,11 +4749,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (void *), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (void *), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -4863,19 +5095,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof_short=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (short), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (short), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (short), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -4933,11 +5169,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (short), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (short), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -5277,19 +5515,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof_int=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (int), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (int), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (int), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -5347,11 +5589,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (int), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (int), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -5691,19 +5935,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof_long=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (long), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (long), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (long), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -5761,11 +6009,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (long), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (long), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -6167,19 +6417,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof_long_long=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (long long), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (long long), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (long long), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -6237,11 +6491,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (long long), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (long long), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -6645,19 +6901,23 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 done
 case $ac_lo in
 ?*) ac_cv_sizeof___int64=$ac_lo;;
-'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (__int64), 77
+'') { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (__int64), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (__int64), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }; } ;;
 esac
 else
   if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+  { { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
+{ { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot run test program while cross compiling
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -6715,11 +6975,13 @@ echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
+echo "$as_me: error: in \`$ac_pwd':" >&2;}
 { { echo "$as_me:$LINENO: error: cannot compute sizeof (__int64), 77
 See \`config.log' for more details." >&5
 echo "$as_me: error: cannot compute sizeof (__int64), 77
 See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+   { (exit 1); exit 1; }; }; }
 fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
@@ -6753,7 +7015,7 @@ fi
 loose_warn=
 save_CFLAGS="$CFLAGS"
 for option in -W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes; do
+	  -Wmissing-prototypes -Wcast-qual -Wc++-compat; do
   as_acx_Woption=`echo "acx_cv_prog_cc_warning_$option" | $as_tr_sh`
 
   echo "$as_me:$LINENO: checking whether $CC supports $option" >&5
@@ -6813,73 +7075,6 @@ echo "$as_me:$LINENO: result: `eval echo '${'$as_acx_Woption'}'`" >&5
 echo "${ECHO_T}`eval echo '${'$as_acx_Woption'}'`" >&6
   if test `eval echo '${'$as_acx_Woption'}'` = yes; then
   loose_warn="$loose_warn${loose_warn:+ }$option"
-fi
-
-  done
-CFLAGS="$save_CFLAGS"
-
-cxx_compat_warn=
-save_CFLAGS="$CFLAGS"
-for option in -Wc++-compat; do
-  as_acx_Woption=`echo "acx_cv_prog_cc_warning_$option" | $as_tr_sh`
-
-  echo "$as_me:$LINENO: checking whether $CC supports $option" >&5
-echo $ECHO_N "checking whether $CC supports $option... $ECHO_C" >&6
-if eval "test \"\${$as_acx_Woption+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  CFLAGS="$option"
-    cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-int
-main ()
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  eval "$as_acx_Woption=yes"
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-eval "$as_acx_Woption=no"
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-
-fi
-echo "$as_me:$LINENO: result: `eval echo '${'$as_acx_Woption'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_acx_Woption'}'`" >&6
-  if test `eval echo '${'$as_acx_Woption'}'` = yes; then
-  cxx_compat_warn="$cxx_compat_warn${cxx_compat_warn:+ }$option"
 fi
 
   done
@@ -13047,8 +13242,12 @@ fi
 # Make gthr-default.h if we have a thread file.
 gthread_flags=
 if test $thread_file != single; then
-  rm -f gthr-default.h
-  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h-t
+  if diff gthr-default.h-t gthr-default.h 2>/dev/null; then
+    rm -f gthr-default.h-t
+  else
+    mv -f gthr-default.h-t gthr-default.h
+  fi
   gthread_flags=-DHAVE_GTHR_DEFAULT
 fi
 
@@ -13365,6 +13564,7 @@ else
 	esac
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
+	LDFLAGS="${LDFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
@@ -13502,6 +13702,14 @@ esac
 if test "${enable_secureplt+set}" = set; then
   enableval="$enable_secureplt"
 
+fi;
+
+# Check whether --enable-cld or --disable-cld was given.
+if test "${enable_cld+set}" = set; then
+  enableval="$enable_cld"
+
+else
+  enable_cld=no
 fi;
 
 # Windows32 Registry support for specifying GCC installation paths.
@@ -13854,6 +14062,7 @@ fi
 # These are the normal (build=host) settings:
 CC_FOR_BUILD='$(CC)'
 BUILD_CFLAGS='$(ALL_CFLAGS)'
+BUILD_LDFLAGS='$(LDFLAGS)'
 STMP_FIXINC=stmp-fixinc
 
 # Possibly disable fixproto, on a per-target basis.
@@ -13871,6 +14080,7 @@ esac
 if test x$build != x$host || test "x$coverage_flags" != x
 then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
+    BUILD_LDFLAGS='$(LDFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
 	if test "x$STMP_FIXPROTO" != x; then
@@ -14449,13 +14659,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:14452: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:14662: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:14455: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:14665: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:14458: output\"" >&5)
+  (eval echo "\"\$as_me:14668: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -15510,7 +15720,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 15513 "configure"' > conftest.$ac_ext
+  echo '#line 15723 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -16130,11 +16340,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16133: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16343: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:16137: \$? = $ac_status" >&5
+   echo "$as_me:16347: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -16452,11 +16662,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16455: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16665: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:16459: \$? = $ac_status" >&5
+   echo "$as_me:16669: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -16557,11 +16767,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16560: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16770: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:16564: \$? = $ac_status" >&5
+   echo "$as_me:16774: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -16612,11 +16822,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:16615: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:16825: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:16619: \$? = $ac_status" >&5
+   echo "$as_me:16829: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -19409,7 +19619,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 19412 "configure"
+#line 19622 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -19509,7 +19719,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 19512 "configure"
+#line 19722 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -22482,8 +22692,9 @@ esac
 # version to the per-target configury.
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
-  | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* | spu-*-*)
+  | x86_64*-*-* | hppa*-*-* | arm*-*-* \
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* \
+  | spu-*-* | fido*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -23343,11 +23554,32 @@ do
         fi
         subdir="`echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
         subdirs="$subdirs $subdir"
+
+	# $gcc_subdir is where the gcc integration files are to be found
+	# for a language, both for internal compiler purposes (compiler
+	# sources implementing front-end to GCC tree converters), and for
+	# build infrastructure purposes (Make-lang.in, etc.)
+	#
+	# This will be <subdir> (relative to $srcdir) if a line like
+	# gcc_subdir="<subdir>" or gcc_subdir=<subdir>
+	# is found in <langdir>/config-lang.in, and will remain <langdir>
+	# otherwise.
+	#
+	# Except for the language alias (fetched above), the regular
+	# "config-lang.in" contents are always retrieved from $gcc_subdir,
+	# so a <langdir>/config-lang.in setting gcc_subdir typically sets
+	# only this and the language alias.
+
+        gcc_subdir=`sed -n -e 's,^gcc_subdir=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^gcc_subdir=\([^   ]*\).*$,\1,p' $lang`
+        if [ "$gcc_subdir" = "" ]; then
+           gcc_subdir="$subdir"
+        fi
+
         case ",$enable_languages," in
         *,$lang_alias,*)
             all_selected_languages="$all_selected_languages $lang_alias"
-	    if test -f $srcdir/$subdir/lang-specs.h; then
-	        lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
+            if test -f $srcdir/$gcc_subdir/lang-specs.h; then
+                lang_specs_files="$lang_specs_files $srcdir/$gcc_subdir/lang-specs.h"
 	    fi
 	    ;;
         esac
@@ -23358,10 +23590,10 @@ do
 	outputs=
 	gtfiles=
 	subdir_requires=
-	. ${srcdir}/$subdir/config-lang.in
+	. ${srcdir}/$gcc_subdir/config-lang.in
 	if test "x$language" = x
 	then
-		echo "${srcdir}/$subdir/config-lang.in doesn't set \$language." 1>&2
+		echo "${srcdir}/$gcc_subdir/config-lang.in doesn't set \$language." 1>&2
 		exit 1
 	fi
 
@@ -23378,15 +23610,15 @@ do
 	esac
 	$ok || continue
 
-	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$subdir/Make-lang.in"
-	if test -f $srcdir/$subdir/lang.opt; then
-	    lang_opt_files="$lang_opt_files $srcdir/$subdir/lang.opt"
+	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
+	if test -f $srcdir/$gcc_subdir/lang.opt; then
+	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
 	fi
-	if test -f $srcdir/$subdir/$subdir-tree.def; then
-	    lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
+	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
+	    lang_tree_files="$lang_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
 	fi
-	if test -f ${srcdir}/$subdir/Makefile.in
-		then all_lang_makefiles="$subdir/Makefile"
+	if test -f ${srcdir}/$gcc_subdir/Makefile.in
+		then all_lang_makefiles="$gcc_subdir/Makefile"
 	fi
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
@@ -23504,6 +23736,7 @@ fi;
 
 
 # Substitute configuration variables
+
 
 
 
@@ -24241,12 +24474,15 @@ s,@CPPFLAGS@,$CPPFLAGS,;t t
 s,@ac_ct_CC@,$ac_ct_CC,;t t
 s,@EXEEXT@,$EXEEXT,;t t
 s,@OBJEXT@,$OBJEXT,;t t
+s,@GNATBIND@,$GNATBIND,;t t
+s,@ac_ct_GNATBIND@,$ac_ct_GNATBIND,;t t
+s,@GNATMAKE@,$GNATMAKE,;t t
+s,@ac_ct_GNATMAKE@,$ac_ct_GNATMAKE,;t t
 s,@NO_MINUS_C_MINUS_O@,$NO_MINUS_C_MINUS_O,;t t
 s,@OUTPUT_OPTION@,$OUTPUT_OPTION,;t t
 s,@CPP@,$CPP,;t t
 s,@EGREP@,$EGREP,;t t
 s,@loose_warn@,$loose_warn,;t t
-s,@cxx_compat_warn@,$cxx_compat_warn,;t t
 s,@strict_warn@,$strict_warn,;t t
 s,@warn_cflags@,$warn_cflags,;t t
 s,@nocommon_flag@,$nocommon_flag,;t t
@@ -24319,6 +24555,7 @@ s,@SYSTEM_HEADER_DIR@,$SYSTEM_HEADER_DIR,;t t
 s,@inhibit_libc@,$inhibit_libc,;t t
 s,@CC_FOR_BUILD@,$CC_FOR_BUILD,;t t
 s,@BUILD_CFLAGS@,$BUILD_CFLAGS,;t t
+s,@BUILD_LDFLAGS@,$BUILD_LDFLAGS,;t t
 s,@STMP_FIXINC@,$STMP_FIXINC,;t t
 s,@STMP_FIXPROTO@,$STMP_FIXPROTO,;t t
 s,@collect2@,$collect2,;t t
@@ -24402,6 +24639,7 @@ s,@xm_include_list@,$xm_include_list,;t t
 s,@xm_defines@,$xm_defines,;t t
 s,@c_target_objs@,$c_target_objs,;t t
 s,@cxx_target_objs@,$cxx_target_objs,;t t
+s,@fortran_target_objs@,$fortran_target_objs,;t t
 s,@target_cpu_default@,$target_cpu_default,;t t
 s,@GMPLIBS@,$GMPLIBS,;t t
 s,@GMPINC@,$GMPINC,;t t

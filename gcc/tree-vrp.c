@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
 This file is part of GCC.
@@ -46,7 +46,6 @@ static sbitmap found_in_subgraph;
 static int compare_values (tree val1, tree val2);
 static int compare_values_warnv (tree val1, tree val2, bool *);
 static void vrp_meet (value_range_t *, value_range_t *);
-static tree vrp_evaluate_conditional_warnv (tree, bool, bool *);
 static tree vrp_evaluate_conditional_warnv_with_ops (enum tree_code,
 						     tree, tree, bool, bool *);
 
@@ -773,7 +772,9 @@ usable_range_p (value_range_t *vr, bool *strict_overflow_p)
 static bool
 vrp_expr_computes_nonnegative (tree expr, bool *strict_overflow_p)
 {
-  return tree_expr_nonnegative_warnv_p (expr, strict_overflow_p);
+  return (tree_expr_nonnegative_warnv_p (expr, strict_overflow_p)
+	  || (TREE_CODE (expr) == SSA_NAME
+	      && ssa_name_nonnegative_p (expr)));
 }
 
 /* Like tree_expr_nonzero_warnv_p, but this function uses value ranges
@@ -782,7 +783,9 @@ vrp_expr_computes_nonnegative (tree expr, bool *strict_overflow_p)
 static bool
 vrp_expr_computes_nonzero (tree expr, bool *strict_overflow_p)
 {
-  if (tree_expr_nonzero_warnv_p (expr, strict_overflow_p))
+  if (tree_expr_nonzero_warnv_p (expr, strict_overflow_p)
+      || (TREE_CODE (expr) == SSA_NAME
+	  && ssa_name_nonzero_p (expr)))
     return true;
 
   /* If we have an expression of the form &X->a, then the expression
@@ -1582,7 +1585,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 		3a. If the high limit of the VR_ANTI_RANGE resides
 		    within the VR_RANGE, then the result is a new
 		    VR_RANGE starting at the high limit of the
-		    the VR_ANTI_RANGE + 1 and extending to the
+		    VR_ANTI_RANGE + 1 and extending to the
 		    high limit of the original VR_RANGE.
 
 		3b. If the low limit of the VR_ANTI_RANGE resides
@@ -2292,7 +2295,6 @@ extract_range_from_unary_expr (value_range_t *vr, enum tree_code code,
   if (code == FIX_TRUNC_EXPR
       || code == FLOAT_EXPR
       || code == BIT_NOT_EXPR
-      || code == NON_LVALUE_EXPR
       || code == CONJ_EXPR)
     {
       set_value_range_to_varying (vr);
@@ -2800,13 +2802,6 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
      better opportunities than a regular range, but I'm not sure.  */
   if (vr->type == VR_ANTI_RANGE)
     return;
-
-  /* Ensure that there are not values in the scev cache based on assumptions
-     on ranges of ssa names that were changed
-     (in set_value_range/set_value_range_to_varying).  Preserve cached numbers
-     of iterations, that were computed before the start of VRP (we do not
-     recompute these each time to save the compile time).  */
-  scev_reset_except_niters ();
 
   chrec = instantiate_parameters (loop, analyze_scalar_evolution (loop, var));
 
@@ -3799,12 +3794,10 @@ register_edge_assert_for_2 (tree name, edge e, block_stmt_iterator bsi,
 
       /* Extract NAME2 from the (optional) sign-changing cast.  */
       if (TREE_CODE (def_stmt) == GIMPLE_MODIFY_STMT
-          && (TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == NOP_EXPR
-	      || TREE_CODE (GIMPLE_STMT_OPERAND (def_stmt, 1)) == CONVERT_EXPR))
+          && CONVERT_EXPR_P (GIMPLE_STMT_OPERAND (def_stmt, 1)))
 	{
 	  tree rhs = GIMPLE_STMT_OPERAND (def_stmt, 1);
-	  if ((TREE_CODE (rhs) == NOP_EXPR
-	       || TREE_CODE (rhs) == CONVERT_EXPR)
+	  if (CONVERT_EXPR_P (rhs)
 	      && ! TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (rhs, 0)))
 	      && (TYPE_PRECISION (TREE_TYPE (rhs))
 		  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (rhs, 0)))))
@@ -3956,9 +3949,7 @@ register_edge_assert_for_1 (tree op, enum tree_code code,
       /* Recurse through the copy.  */
       retval |= register_edge_assert_for_1 (rhs, code, e, bsi);
     }
-  else if (TREE_CODE (rhs) == NOP_EXPR
-	   || TREE_CODE (rhs) == CONVERT_EXPR
-	   || TREE_CODE (rhs) == NON_LVALUE_EXPR)
+  else if (CONVERT_EXPR_P (rhs))
     { 
       /* Recurse through the type conversion.  */
       retval |= register_edge_assert_for_1 (TREE_OPERAND (rhs, 0),
@@ -4546,9 +4537,8 @@ process_assert_insertions (void)
   if (update_edges_p)
     bsi_commit_edge_inserts ();
 
-  if (dump_file && (dump_flags & TDF_STATS))
-    fprintf (dump_file, "\nNumber of ASSERT_EXPR expressions inserted: %d\n\n",
-	     num_asserts);
+  statistics_counter_event (cfun, "Number of ASSERT_EXPR expressions inserted",
+			    num_asserts);
 }
 
 
@@ -5274,64 +5264,7 @@ vrp_evaluate_conditional_warnv_with_ops (enum tree_code code, tree op0,
   return NULL_TREE;
 }
 
-/* Given a conditional predicate COND, try to determine if COND yields
-   true or false based on the value ranges of its operands.  Return
-   BOOLEAN_TRUE_NODE if the conditional always evaluates to true,
-   BOOLEAN_FALSE_NODE if the conditional always evaluates to false, and,
-   NULL if the conditional cannot be evaluated at compile time.
-
-   If USE_EQUIV_P is true, the ranges of all the names equivalent with
-   the operands in COND are used when trying to compute its value.
-   This is only used during final substitution.  During propagation,
-   we only check the range of each variable and not its equivalents.
-
-   Set *STRICT_OVERFLOW_P to indicate whether we relied on an overflow
-   infinity to produce the result.  */
-
-static tree
-vrp_evaluate_conditional_warnv (tree cond, bool use_equiv_p,
-				bool *strict_overflow_p)
-{
-  gcc_assert (TREE_CODE (cond) == SSA_NAME
-              || TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison);
-
-  if (TREE_CODE (cond) == SSA_NAME)
-    {
-      value_range_t *vr;
-      tree retval;
-
-      if (use_equiv_p)
-	retval = compare_name_with_value (NE_EXPR, cond, boolean_false_node,
-					  strict_overflow_p);
-      else
-	{
-	  value_range_t *vr = get_value_range (cond);
-	  retval = compare_range_with_value (NE_EXPR, vr, boolean_false_node,
-					     strict_overflow_p);
-	}
-
-      /* If COND has a known boolean range, return it.  */
-      if (retval)
-	return retval;
-
-      /* Otherwise, if COND has a symbolic range of exactly one value,
-	 return it.  */
-      vr = get_value_range (cond);
-      if (vr->type == VR_RANGE && vr->min == vr->max)
-	return vr->min;
-    }
-  else
-    return vrp_evaluate_conditional_warnv_with_ops (TREE_CODE (cond),
-						    TREE_OPERAND (cond, 0),
-						    TREE_OPERAND (cond, 1),
-						    use_equiv_p,
-						    strict_overflow_p);
-
-  /* Anything else cannot be computed statically.  */
-  return NULL_TREE;
-}
-
-/* Given COND within STMT, try to simplify it based on value range
+/* Given (CODE OP0 OP1) within STMT, try to simplify it based on value range
    information.  Return NULL if the conditional can not be evaluated.
    The ranges of all the names equivalent with the operands in COND
    will be used when trying to compute the value.  If the result is
@@ -5339,13 +5272,17 @@ vrp_evaluate_conditional_warnv (tree cond, bool use_equiv_p,
    appropriate.  */
 
 tree
-vrp_evaluate_conditional (tree cond, tree stmt)
+vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, tree stmt)
 {
   bool sop;
   tree ret;
 
   sop = false;
-  ret = vrp_evaluate_conditional_warnv (cond, true, &sop);
+  ret = vrp_evaluate_conditional_warnv_with_ops (code,
+						 op0,
+						 op1,
+						 true,
+						 &sop);
 
   if (ret && sop)
     {
@@ -5379,8 +5316,8 @@ vrp_evaluate_conditional (tree cond, tree stmt)
 
   if (warn_type_limits
       && ret
-      && TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison
-      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME)
+      && TREE_CODE_CLASS (code) == tcc_comparison
+      && TREE_CODE (op0) == SSA_NAME)
     {
       /* If the comparison is being folded and the operand on the LHS
 	 is being compared against a constant value that is outside of
@@ -5388,8 +5325,6 @@ vrp_evaluate_conditional (tree cond, tree stmt)
 	 always fold regardless of the value of OP0.  If -Wtype-limits
 	 was specified, emit a warning.  */
       const char *warnmsg = NULL;
-      tree op0 = TREE_OPERAND (cond, 0);
-      tree op1 = TREE_OPERAND (cond, 1);
       tree type = TREE_TYPE (op0);
       value_range_t *vr0 = get_value_range (op0);
 
@@ -5501,7 +5436,19 @@ vrp_visit_cond_stmt (tree stmt, edge *taken_edge_p)
      MICO, TRAMP3D and SPEC2000) showed that doing this results in
      4 more predicates folded in SPEC.  */
   sop = false;
-  val = vrp_evaluate_conditional_warnv (cond, false, &sop);
+
+  if (TREE_CODE (cond) == SSA_NAME)
+    val = vrp_evaluate_conditional_warnv_with_ops (EQ_EXPR,
+						   cond,
+						   boolean_true_node,
+						   false,
+						   &sop);
+  else
+    val = vrp_evaluate_conditional_warnv_with_ops (TREE_CODE (cond),
+						   TREE_OPERAND (cond, 0),
+						   TREE_OPERAND (cond, 1),
+						   false,
+						   &sop);
   if (val)
     {
       if (!sop)
@@ -5528,48 +5475,52 @@ vrp_visit_cond_stmt (tree stmt, edge *taken_edge_p)
   return (*taken_edge_p) ? SSA_PROP_INTERESTING : SSA_PROP_VARYING;
 }
 
+/* Searches the case label vector VEC for the index *IDX of the CASE_LABEL
+   that includes the value VAL.  The search is restricted to the range
+   [START_IDX, n - 2] where n is the size of VEC (n - 1 is the default label).
 
-/* Searches the case label vector VEC for the index *IDX the CASE_LABEL
-   includes the value VAL.  The search starts at index START_IDX and
-   true is returned if *IDX corresponds to such an index.  False is
-   returned in case VAL hits the default case label and *IDX in this
-   case is the next higher or the next lower case label index.  */
+   If there is a CASE_LABEL for VAL, its index is placed in IDX and true is
+   returned.
+
+   If there is no CASE_LABEL for VAL and the is one that is larger than VAL,
+   it is placed in IDX and false is returned.
+
+   If VAL is larger than any CASE_LABEL, n - 1 is placed on IDX and false is
+   returned. */
 
 static bool
 find_case_label_index (tree vec, size_t start_idx, tree val, size_t *idx)
 {
   size_t n = TREE_VEC_LENGTH (vec);
-  size_t low, high, i = start_idx;
+  size_t low, high;
 
-  /* Find case label for minimum of the value range or the next one.  */
-  for (low = start_idx - 1, high = n - 1; high - low > 1; )
+  /* Find case label for minimum of the value range or the next one.
+     At each iteration we are searching in [low, high - 1]. */
+
+  for (low = start_idx, high = n - 1; high != low; )
     {
       tree t;
       int cmp;
-      i = (high + low) / 2;
+      /* Note that i != high, so we never ask for n - 1. */
+      size_t i = (high + low) / 2;
       t = TREE_VEC_ELT (vec, i);
 
       /* Cache the result of comparing CASE_LOW and val.  */
       cmp = tree_int_cst_compare (CASE_LOW (t), val);
 
-      if (cmp > 0)
+      if (cmp == 0)
+	{
+	  /* Ranges cannot be empty. */
+	  *idx = i;
+	  return true;
+	}
+      else if (cmp > 0)
         high = i;
       else
-        low = i;
-
-      if (CASE_HIGH (t) == NULL)
-        {
-          /* A singe-valued case label.  */
-          if (cmp == 0)
-	    {
-	      *idx = i;
-	      return true;
-	    }
-        }
-      else
-        {
-          /* A case range.  We can only handle integer ranges.  */
-          if (cmp <= 0 && tree_int_cst_compare (CASE_HIGH (t), val) >= 0)
+	{
+	  low = i + 1;
+	  if (CASE_HIGH (t) != NULL
+	      && tree_int_cst_compare (CASE_HIGH (t), val) >= 0)
 	    {
 	      *idx = i;
 	      return true;
@@ -5577,8 +5528,64 @@ find_case_label_index (tree vec, size_t start_idx, tree val, size_t *idx)
         }
     }
 
-  *idx = i;
+  *idx = high;
   return false;
+}
+
+/* Searches the case label vector VEC for the range of CASE_LABELs that is used
+   for values between MIN and MAX. The first index is placed in MIN_IDX. The
+   last index is placed in MAX_IDX. If the range of CASE_LABELs is empty
+   then MAX_IDX < MIN_IDX.
+   Returns true if the default label is not needed. */
+
+static bool
+find_case_label_range (tree vec, tree min, tree max, size_t *min_idx, size_t *max_idx)
+{
+  size_t i, j;
+  bool min_take_default = !find_case_label_index (vec, 0, min, &i);
+  bool max_take_default = !find_case_label_index (vec, i, max, &j);
+
+  if (i == j
+      && min_take_default
+      && max_take_default)
+    {
+      /* Only the default case label reached. 
+         Return an empty range. */
+      *min_idx = 1;
+      *max_idx = 0;
+      return false;
+    }
+  else
+    {
+      bool take_default = min_take_default || max_take_default;
+      tree low, high;
+      size_t k;
+
+      if (max_take_default)
+	j--;
+
+      /* If the case label range is continuous, we do not need
+	 the default case label.  Verify that.  */
+      high = CASE_LOW (TREE_VEC_ELT (vec, i));
+      if (CASE_HIGH (TREE_VEC_ELT (vec, i)))
+	high = CASE_HIGH (TREE_VEC_ELT (vec, i));
+      for (k = i + 1; k <= j; ++k)
+	{
+	  low = CASE_LOW (TREE_VEC_ELT (vec, k));
+	  if (!integer_onep (int_const_binop (MINUS_EXPR, low, high, 0)))
+	    {
+	      take_default = true;
+	      break;
+	    }
+	  high = low;
+	  if (CASE_HIGH (TREE_VEC_ELT (vec, k)))
+	    high = CASE_HIGH (TREE_VEC_ELT (vec, k));
+	}
+
+      *min_idx = i;
+      *max_idx = j;
+      return !take_default;
+    }
 }
 
 /* Visit switch statement STMT.  If we can determine which edge
@@ -5593,7 +5600,7 @@ vrp_visit_switch_stmt (tree stmt, edge *taken_edge_p)
   value_range_t *vr;
   size_t i = 0, j = 0, n;
   tree vec;
-  bool min_take_default, max_take_default;
+  bool take_default;
 
   *taken_edge_p = NULL;
   op = TREE_OPERAND (stmt, 0);
@@ -5618,27 +5625,23 @@ vrp_visit_switch_stmt (tree stmt, edge *taken_edge_p)
   vec = SWITCH_LABELS (stmt);
   n = TREE_VEC_LENGTH (vec);
 
-  /* Find case label for minimum of the value range or the next one.  */
-  min_take_default = !find_case_label_index (vec, 0, vr->min, &i);
+  take_default = !find_case_label_range (vec, vr->min, vr->max, &i, &j);
 
-  /* Find case label for maximum of the value range or the previous one.  */
-  max_take_default = !find_case_label_index (vec, i, vr->max, &j);
-
-  /* Check if we reach the default label only.  */
+  /* Check if the range spans no CASE_LABEL. If so, we only reach the default
+     label */
   if (j < i)
-    val = TREE_VEC_ELT (vec, n - 1);
-  /* Check if we reach exactly one label and not the default label.  */
-  else if (i == j
-	   && !min_take_default
-	   && !max_take_default)
-    val = TREE_VEC_ELT (vec, i);
+    {
+      gcc_assert (take_default);
+      val = TREE_VEC_ELT (vec, n - 1);
+    }
   else
     {
-      /* Check if labels with index i to j are all reaching the same label.
-         If we don't hit a single case label only, the default case also has
-         to branch to the same label.  */
+      /* Check if labels with index i to j and maybe the default label
+	 are all reaching the same label.  */
+
       val = TREE_VEC_ELT (vec, i);
-      if (CASE_LABEL (TREE_VEC_ELT (vec, n - 1)) != CASE_LABEL (val))
+      if (take_default
+	  && CASE_LABEL (TREE_VEC_ELT (vec, n - 1)) != CASE_LABEL (val))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  not a single destination for this "
@@ -6323,32 +6326,7 @@ simplify_switch_using_ranges (tree stmt)
   /* Find case label for min/max of the value range.  */
   vec = SWITCH_LABELS (stmt);
   n = TREE_VEC_LENGTH (vec);
-  take_default = !find_case_label_index (vec, 0, vr->min, &i);
-  take_default |= !find_case_label_index (vec, i, vr->max, &j);
-
-  /* If the case label range is continuous, we do not need to
-     preserve the default case label.  Verify that.  */
-  if (!take_default && j > i)
-    {
-      tree low, high;
-      size_t k;
-
-      high = CASE_LOW (TREE_VEC_ELT (vec, i));
-      if (CASE_HIGH (TREE_VEC_ELT (vec, i)))
-	high = CASE_HIGH (TREE_VEC_ELT (vec, i));
-      for (k = i + 1; k <= j; ++k)
-	{
-	  low = CASE_LOW (TREE_VEC_ELT (vec, k));
-	  if (!integer_onep (int_const_binop (MINUS_EXPR, low, high, 0)))
-	    {
-	      take_default = true;
-	      break;
-	    }
-	  high = low;
-	  if (CASE_HIGH (TREE_VEC_ELT (vec, k)))
-	    high = CASE_HIGH (TREE_VEC_ELT (vec, k));
-	}
-    }
+  take_default = !find_case_label_range (vec, vr->min, vr->max, &i, &j);
 
   /* Bail out if this is just all edges taken.  */
   if (i == 0
@@ -6441,17 +6419,28 @@ static VEC(tree,heap) *stack;
 static tree
 simplify_stmt_for_jump_threading (tree stmt, tree within_stmt)
 {
+  tree conditional;
   /* We only use VRP information to simplify conditionals.  This is
      overly conservative, but it's unclear if doing more would be
      worth the compile time cost.  */
   if (TREE_CODE (stmt) != COND_EXPR)
     return NULL;
 
-  return vrp_evaluate_conditional (COND_EXPR_COND (stmt), within_stmt);
+  conditional = COND_EXPR_COND (stmt);
+  if (TREE_CODE (conditional) == SSA_NAME)
+    return vrp_evaluate_conditional (EQ_EXPR,
+				     conditional,
+				     boolean_true_node,
+				     within_stmt);
+  else
+    return vrp_evaluate_conditional (TREE_CODE (conditional),
+				     TREE_OPERAND (conditional, 0),
+				     TREE_OPERAND (conditional, 1),
+				     within_stmt);
 }
 
 /* Blocks which have more than one predecessor and more than
-   one successor present jump threading opportunities.  ie,
+   one successor present jump threading opportunities, i.e.,
    when the block is reached from a specific predecessor, we
    may be able to determine which of the outgoing edges will
    be traversed.  When this optimization applies, we are able
@@ -6644,20 +6633,6 @@ vrp_finalize (void)
   vr_phi_edge_counts = NULL;
 }
 
-/* Calculates number of iterations for all loops, to ensure that they are
-   cached.  */
-
-static void
-record_numbers_of_iterations (void)
-{
-  loop_iterator li;
-  struct loop *loop;
-
-  FOR_EACH_LOOP (li, loop, 0)
-    {
-      number_of_latch_executions (loop);
-    }
-}
 
 /* Main entry point to VRP (Value Range Propagation).  This pass is
    loosely based on J. R. C. Patterson, ``Accurate Static Branch
@@ -6716,17 +6691,6 @@ execute_vrp (void)
 
   insert_range_assertions ();
 
-  /* Compute the # of iterations for each loop before we start the VRP
-     analysis.  The value ranges determined by VRP are used in expression
-     simplification, that is also used by the # of iterations analysis.
-     However, in the middle of the VRP analysis, the value ranges do not take
-     all the possible paths in CFG into account, so they do not have to be
-     correct, and the # of iterations analysis can obtain wrong results.
-     This is a problem, since the results of the # of iterations analysis
-     are cached, so these mistakes would not be corrected when the value
-     ranges are corrected.  */
-  record_numbers_of_iterations ();
-
   to_remove_edges = VEC_alloc (edge, heap, 10);
   to_update_switch_stmts = VEC_alloc (switch_update, heap, 5);
 
@@ -6757,10 +6721,7 @@ execute_vrp (void)
     SWITCH_LABELS (su->stmt) = su->vec;
 
   if (VEC_length (edge, to_remove_edges) > 0)
-    {
-      free_dominance_info (CDI_DOMINATORS);
-      cleanup_tree_cfg ();
-    }
+    free_dominance_info (CDI_DOMINATORS);
 
   VEC_free (edge, heap, to_remove_edges);
   VEC_free (switch_update, heap, to_update_switch_stmts);

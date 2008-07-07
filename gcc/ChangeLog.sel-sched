@@ -1,3 +1,35 @@
+2008-07-07  Andrey Belevantsev  <abel@ispras.ru>
+
+	Merge with trunk rev. 134323:137351.
+	* haifa-sched.c (sched_extend_ready_list): Cast xrecalloc call.
+	(sched_insn_is_legitimate_for_speculation): Use CONST_CAST_RTX.
+	* sched-deps.c (maybe_extend_reg_info_p): Cast xrecalloc call.
+	(sched_analyze_insn): Remove previous merge glitch.
+	* sel-sched-dump.c (sel_dump_cfg_1): Use XNEWVEC instead of xmalloc.
+	(mem_test): Likewise.
+	* sel-sched-dump.h (sel_print_to_dot): Use XALLOCAVEC.
+	* sel-sched-ir.c (copy_deps_context): Use XNEW.
+	(init_fences, add_clean_fence_to_fences, add_dirty_fence_to_fences):
+	Use XNEWVEC.
+	(get_regset_from_pool, return_regset_to_pool): Use XRESIZEVEC.
+	(return_nop_to_pool): Likewise.
+	(cfg_preds_1): Likewise.
+	(skip_unspecs_callback): Use CONST_CAST_RTX.
+	(vinsn_create): Use XCNEW.
+	(alloc_sched_pools): Use XCNEWVEC.
+	(sel_create_basic_block): Cast headp and endp to rtx.
+	* sel-sched.c (try_transformation_cache): Cast htab_find_with_hash
+	result to 'struct transformed_insns'.
+	(propagate_lv_set): Use df_simulate_one_insn.
+	(fill_vec_av_set): Cast result of xrecalloc call.
+	(schedule_expr_on_boundary): Use XALLOCA.
+	(move_op_merge_succs): Properly cast static_params.
+	(fur_merge_succs, move_op_after_merge_succs,
+	move_op_orig_expr_found. fur_orig_expr_found,
+	move_op_at_first_insn, move_op_ascend, fur_on_enter,
+	move_op_orig_expr_not_found): Likewise.
+	(run_selective_scheduling): Use XNEWVEC.
+
 2008-07-02  Andrey Belevantsev  <abel@ispras.ru>
 
 	* cfghooks.c (make_forwarder_block): Also check that dummy->loop_father

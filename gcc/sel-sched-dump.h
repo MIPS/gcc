@@ -146,7 +146,7 @@ extern bool sched_dump_to_dot_p;
 #define sel_print_to_dot(...)                           \
   do {                                                  \
     int __j = 1 + 2 * snprintf (NULL, 0, __VA_ARGS__);  \
-    char *__s = alloca (__j * sizeof (*__s));           \
+    char *__s = XALLOCAVEC (char, __j);                 \
     snprintf (__s, __j, __VA_ARGS__);                   \
     sel_prepare_string_for_dot_label (__s);             \
     fprintf (sched_dump, "%s", __s);                    \

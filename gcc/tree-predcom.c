@@ -885,8 +885,8 @@ filter_suitable_components (struct loop *loop, struct component *comps)
 static int
 order_drefs (const void *a, const void *b)
 {
-  const dref *da = a;
-  const dref *db = b;
+  const dref *const da = (const dref *) a;
+  const dref *const db = (const dref *) b;
   int offcmp = double_int_scmp ((*da)->offset, (*db)->offset);
 
   if (offcmp != 0)
@@ -1843,7 +1843,7 @@ struct epcc_data
 static void
 execute_pred_commoning_cbck (struct loop *loop, void *data)
 {
-  struct epcc_data *dta = data;
+  struct epcc_data *const dta = (struct epcc_data *) data;
 
   /* Restore phi nodes that were replaced by ssa names before
      tree_transform_and_unroll_loop (see detailed description in
@@ -2389,8 +2389,6 @@ set_alias_info (tree ref, struct data_reference *dr)
     new_type_alias (var, tag, ref);
   else
     var_ann (var)->symbol_mem_tag = tag;
-
-  var_ann (var)->subvars = DR_SUBVARS (dr);
 }
 
 /* Prepare initializers for CHAIN in LOOP.  Returns false if this is

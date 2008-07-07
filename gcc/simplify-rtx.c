@@ -3674,6 +3674,24 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
      one CONST_INT, and the sort will have ensured that it is last
      in the array and that any other constant will be next-to-last.  */
 
+  if (GET_CODE (ops[n_ops - 1].op) == CONST_INT)
+    i = n_ops - 2;
+  else
+    i = n_ops - 1;
+
+  if (i >= 1
+      && ops[i].neg
+      && !ops[i - 1].neg
+      && CONSTANT_P (ops[i].op)
+      && GET_CODE (ops[i].op) == GET_CODE (ops[i - 1].op))
+    {
+      ops[i - 1].op = gen_rtx_MINUS (mode, ops[i - 1].op, ops[i].op);
+      ops[i - 1].op = gen_rtx_CONST (mode, ops[i - 1].op);
+      if (i < n_ops - 1)
+	ops[i] = ops[i + 1];
+      n_ops--;
+    }
+
   if (n_ops > 1
       && GET_CODE (ops[n_ops - 1].op) == CONST_INT
       && CONSTANT_P (ops[n_ops - 2].op))
@@ -5247,6 +5265,7 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       && GET_MODE_BITSIZE (innermode) >= (2 * GET_MODE_BITSIZE (outermode))
       && GET_CODE (XEXP (op, 1)) == CONST_INT
       && (INTVAL (XEXP (op, 1)) & (GET_MODE_BITSIZE (outermode) - 1)) == 0
+      && INTVAL (XEXP (op, 1)) < GET_MODE_BITSIZE (innermode)      
       && byte == subreg_lowpart_offset (outermode, innermode))
     {
       int shifted_bytes = INTVAL (XEXP (op, 1)) / BITS_PER_UNIT;

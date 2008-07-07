@@ -1371,8 +1371,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 		  if (flag_schedule_insns)
 		    emit_insn (gen_blockage ());
 		  emit_insn (gen_GOTaddr2picreg ());
-		  emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode,
-								 PIC_REG)));
+		  emit_use (gen_rtx_REG (SImode, PIC_REG));
 		  if (flag_schedule_insns)
 		    emit_insn (gen_blockage ());
 		}
@@ -1684,6 +1683,14 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   if (msw_skip != CODE_FOR_nothing)
     {
       rtx taken_label = operands[3];
+
+      /* Operands were possibly modified, but msw_skip doesn't expect this.
+	 Always use the original ones.  */
+      if (msw_taken != CODE_FOR_nothing)
+	{
+	  operands[1] = op1h;
+	  operands[2] = op2h;
+	}
 
       operands[3] = skip_label = gen_label_rtx ();
       expand_cbranchsi4 (operands, msw_skip, msw_skip_prob);
@@ -5638,7 +5645,7 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 		    }
 		  for (i = 0; i < nreg; i++)
 		    CLEAR_HARD_REG_BIT (temps, FIRST_RET_REG + i);
-		  if (current_function_calls_eh_return)
+		  if (crtl->calls_eh_return)
 		    {
 		      CLEAR_HARD_REG_BIT (temps, EH_RETURN_STACKADJ_REGNO);
 		      for (i = 0; i <= 3; i++)
@@ -5715,8 +5722,8 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      mem = gen_tmp_stack_mem (Pmode, gen_rtx_POST_INC (Pmode, reg));
 	      emit_move_insn (tmp_reg, mem);
 	      /* Tell flow the insns that pop r4/r5 aren't dead.  */
-	      emit_insn (gen_rtx_USE (VOIDmode, tmp_reg));
-	      emit_insn (gen_rtx_USE (VOIDmode, adj_reg));
+	      emit_use (tmp_reg);
+	      emit_use (adj_reg);
 	      return;
 	    }
 	  const_reg = gen_rtx_REG (GET_MODE (reg), temp);
@@ -5972,7 +5979,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   if (TARGET_SHCOMPACT
       && ((crtl->args.info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_saves_all_registers))
+	  || crtl->saves_all_registers))
     pr_live = 1;
   has_call = TARGET_SHMEDIA ? ! leaf_function_p () : pr_live;
   for (count = 0, reg = FIRST_PSEUDO_REGISTER; reg-- != 0; )
@@ -6002,7 +6009,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	     || (df_regs_ever_live_p (reg)
 		 && (!call_really_used_regs[reg]
 		     || (trapa_handler && reg == FPSCR_REG && TARGET_FPU_ANY)))
-	     || (current_function_calls_eh_return
+	     || (crtl->calls_eh_return
 		 && (reg == EH_RETURN_DATA_REGNO (0)
 		     || reg == EH_RETURN_DATA_REGNO (1)
 		     || reg == EH_RETURN_DATA_REGNO (2)
@@ -6152,7 +6159,7 @@ sh5_schedule_saves (HARD_REG_SET *live_regs_mask, save_schedule *schedule,
 	  && ! FUNCTION_ARG_REGNO_P (i)
 	  && i != FIRST_RET_REG
 	  && ! (cfun->static_chain_decl != NULL && i == STATIC_CHAIN_REGNUM)
-	  && ! (current_function_calls_eh_return
+	  && ! (crtl->calls_eh_return
 		&& (i == EH_RETURN_STACKADJ_REGNO
 		    || ((unsigned) i >= EH_RETURN_DATA_REGNO (0)
 			&& (unsigned) i <= EH_RETURN_DATA_REGNO (3)))))
@@ -6297,7 +6304,7 @@ sh_expand_prologue (void)
     }
 
   /* Emit the code for SETUP_VARARGS.  */
-  if (current_function_stdarg)
+  if (cfun->stdarg)
     {
       if (TARGET_VARARGS_PRETEND_ARGS (current_function_decl))
 	{
@@ -6312,7 +6319,6 @@ sh_expand_prologue (void)
 			))
 		break;
 	      insn = push (rn);
-	      RTX_FRAME_RELATED_P (insn) = 0;
 	    }
 	}
     }
@@ -6842,7 +6848,7 @@ sh_expand_epilogue (bool sibcall_p)
 		       + crtl->args.info.stack_regs * 8,
 		       stack_pointer_rtx, e, NULL);
 
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
 			 EH_RETURN_STACKADJ_RTX));
 
@@ -6855,7 +6861,7 @@ sh_expand_epilogue (bool sibcall_p)
      USE PR_MEDIA_REG, since it will be explicitly copied to TR0_REG
      by the return pattern.  */
   if (TEST_HARD_REG_BIT (live_regs_mask, PR_REG))
-    emit_insn (gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, PR_REG)));
+    emit_use (gen_rtx_REG (SImode, PR_REG));
 }
 
 static int sh_need_epilogue_known = 0;
@@ -6909,7 +6915,7 @@ sh_set_return_address (rtx ra, rtx tmp)
 
       emit_insn (GEN_MOV (rr, ra));
       /* Tell flow the register for return isn't dead.  */
-      emit_insn (gen_rtx_USE (VOIDmode, rr));
+      emit_use (rr);
       return;
     }
 
@@ -7856,7 +7862,7 @@ sh_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
 			   int *pretend_arg_size,
 			   int second_time ATTRIBUTE_UNUSED)
 {
-  gcc_assert (current_function_stdarg);
+  gcc_assert (cfun->stdarg);
   if (TARGET_VARARGS_PRETEND_ARGS (current_function_decl))
     {
       int named_parm_regs, anon_parm_regs;
@@ -7965,6 +7971,68 @@ initial_elimination_offset (int from, int to)
     }
   else
     return total_auto_space;
+}
+
+/* Parse the -mfixed-range= option string.  */
+void
+sh_fix_range (const char *const_str)
+{
+  int i, first, last;
+  char *str, *dash, *comma;
+  
+  /* str must be of the form REG1'-'REG2{,REG1'-'REG} where REG1 and
+     REG2 are either register names or register numbers.  The effect
+     of this option is to mark the registers in the range from REG1 to
+     REG2 as ``fixed'' so they won't be used by the compiler.  */
+  
+  i = strlen (const_str);
+  str = (char *) alloca (i + 1);
+  memcpy (str, const_str, i + 1);
+  
+  while (1)
+    {
+      dash = strchr (str, '-');
+      if (!dash)
+	{
+	  warning (0, "value of -mfixed-range must have form REG1-REG2");
+	  return;
+	}
+      *dash = '\0';
+      comma = strchr (dash + 1, ',');
+      if (comma)
+	*comma = '\0';
+      
+      first = decode_reg_name (str);
+      if (first < 0)
+	{
+	  warning (0, "unknown register name: %s", str);
+	  return;
+	}
+      
+      last = decode_reg_name (dash + 1);
+      if (last < 0)
+	{
+	  warning (0, "unknown register name: %s", dash + 1);
+	  return;
+	}
+      
+      *dash = '-';
+      
+      if (first > last)
+	{
+	  warning (0, "%s-%s is an empty range", str, dash + 1);
+	  return;
+	}
+      
+      for (i = first; i <= last; ++i)
+	fixed_regs[i] = call_used_regs[i] = 1;
+
+      if (!comma)
+	break;
+
+      *comma = ',';
+      str = comma + 1;
+    }
 }
 
 /* Insert any deferred function attributes from earlier pragmas.  */
@@ -9208,7 +9276,7 @@ sh_allocate_initial_value (rtx hard_reg)
 	  && ! (TARGET_SHCOMPACT
 		&& ((crtl->args.info.call_cookie
 		     & ~ CALL_COOKIE_RET_TRAMP (1))
-		    || current_function_saves_all_registers)))
+		    || crtl->saves_all_registers)))
 	x = hard_reg;
       else
 	x = gen_frame_mem (Pmode, return_address_pointer_rtx);
@@ -10515,7 +10583,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   if (optimize > 0)
     {
       if (! cfun->cfg)
-	init_flow ();
+	init_flow (cfun);
       split_all_insns_noflow ();
     }
 #endif
@@ -10604,7 +10672,7 @@ sh_get_pr_initial_val (void)
   if (TARGET_SHCOMPACT
       && ((crtl->args.info.call_cookie
 	   & ~ CALL_COOKIE_RET_TRAMP (1))
-	  || current_function_saves_all_registers))
+	  || crtl->saves_all_registers))
     return gen_frame_mem (SImode, return_address_pointer_rtx);
 
   /* If we haven't finished rtl generation, there might be a nonlocal label
@@ -10645,7 +10713,7 @@ sh_expand_t_scc (enum rtx_code code, rtx target)
     emit_insn (gen_movrt (result));
   else if ((code == EQ && val == 0) || (code == NE && val == 1))
     {
-      emit_insn (gen_rtx_CLOBBER (VOIDmode, result));
+      emit_clobber (result);
       emit_insn (gen_subc (result, result, result));
       emit_insn (gen_addsi3 (result, result, const1_rtx));
     }
