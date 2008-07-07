@@ -1,3 +1,7 @@
+2008-07-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-cfg.c (verify_types_in_gimple_assign): Remove fixme.
+
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* cfgexpand.c (gimple_to_tree) <case GIMPLE_CALL>: Copy

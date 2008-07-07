@@ -3418,10 +3418,10 @@ verify_types_in_gimple_assign (gimple stmt)
 
     case CONSTRUCTOR:
       {
-	/* FIXME tuples.  Note that in mainline, this code disallows
-	   CONSTRUCTOR expressions for types other than vector types,
-	   but in this context we know that we are on the RHS of an
-	   assignment, so CONSTRUCTOR operands are OK.  */
+	/* Note that pre-tuples, this code disallowed CONSTRUCTOR expressions 
+	   for types other than vector types, but in this context we know
+	   that we are on the RHS of an assignment, so CONSTRUCTOR operands
+	   are OK.  */
 	/* FIXME: verify constructor arguments.  */
 	return false;
       }
