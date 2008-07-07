@@ -46,10 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This file implements optimizations on the dominator tree.  */
 
-/* FIXME tuples.  Enable more detailed reporting of the operation of
-   this pass for debugging purposes.  It's probably too much to enable
-   by default, but may be useful in the near term for analyzing issues
-   due to pass dependencies, etc.  */
+/* Enable more detailed reporting of the operation of this pass for debugging
+   purposes.  It's probably too much to enable by default, but may be useful in
+   the near term for analyzing issues due to pass dependencies, etc.  */
 /* #define EXTRA_DETAILS */
 
 /* Representation of a "naked" right-hand-side expression, to be used
