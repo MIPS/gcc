@@ -1,3 +1,59 @@
+2008-07-07  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_return_in_memory): Fix arguments types.
+	
+2008-07-07  Mark Shinwell  <shinwell@codesourcery.com>
+
+	* config/m68k/lb1sf68.asm: Add PIC macros for Linux targets.
+
+2008-07-07  Maxim Kuvyrkov  <maxim@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config.gcc (m68k-*-linux*): Add with_arch.  Add sysroot-suffix.h
+	to tm_file.  Add m68k/t-floatlib, m68k/t-linux & m68k/t-mlibs to
+	tmake_file.
+	* config/m68k/t-linux: New.
+	* doc/install.texi: Document m68k-*-linux is now multilibbed by
+	default.
+
+2008-07-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/m68k/t-cf (MULTILIB_EXTRA_OPTS): Add no-mac.
+	* config/m68k/m68k-devices.def: Remove multilibs that only differ
+	by MAC/EMAC.
+
+2008-07-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c (execute): Fix -Wc++-compat warning.
+
+2008-07-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36720
+	* config/ia64/ia64.c (ia64_split_tmode): Fix typo in TImode
+	constant for little endian.
+
+2008-07-06  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Check
+	mips_base_mips16 instead of TARGET_MIPS16.
+	(mips_base_mips16): Declare.
+	* config/mips/mips.c (mips_base_mips16): Make global.
+	(was_mips16_p): Remove GTY marker.
+	(was_mips16_pch_p): New variable.
+	(mips_set_mips16_mode): Check both was_mips16_p and was_mips16_pch_p.
+	(mips_override_options): Force to non-MIPS16 mode initially.
+	Do not complain about MIPS16 PIC incompatibilities here.
+	Only allow -mgpopt if -mexplicit-relocs is in force for
+	non-MIPS16 code.
+
+2008-07-06  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* configure.ac: Check for caddr_t, define to char * if not defined.
+	* configure: Regenerate.
+	* ggc-common.c (mmap_gt_pch_get_address): Fix -Wc++-compat warnings.
+	(mmap_gt_pch_use_address): Likewise.
+	* config/host-solaris.c (sol_gt_pch_use_address): Likewise.
+
 2008-07-06  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-structalias.c (struct variable_info): Remove has_union.
