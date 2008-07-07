@@ -95,6 +95,7 @@ eight) times the number of the actual switch branches. */
 #include "tree-pass.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
+#include "timevar.h"
 
 /* The main structure of the pass.  */
 struct switch_conv_info
@@ -107,7 +108,7 @@ struct switch_conv_info
      cases.  */
   tree range_min;
 
-  /* The difference of between the above two numbers, i.e. The size of the array
+  /* The difference between the above two numbers, i.e. The size of the array
      that would have to be created by the transformation.  */
   tree range_size;
 
@@ -121,7 +122,7 @@ struct switch_conv_info
   /* Number of phi nodes in the final bb (that we'll be replacing).  */
   int phi_count;
 
-  /* Array of default values, n the same order as phi nodes.  */
+  /* Array of default values, in the same order as phi nodes.  */
   tree *default_values;
 
   /* Constructors of new static arrays.  */
@@ -144,7 +145,8 @@ struct switch_conv_info
   /* Combined count of all other (non-default) edges in the replaced switch.  */
   gcov_type other_count;
 
-  /* The last load statement that loads a temporary from a new static array.  */
+  /* The first load statement that loads a temporary from a new static array.
+   */
   tree arr_ref_first;
 
   /* The last load statement that loads a temporary from a new static array.  */
@@ -299,7 +301,7 @@ check_final_bb (void)
 	      && !is_gimple_min_invariant (PHI_ARG_ELT (phi, i).def))
 	    {
 	      info.reason = "   Non-invariant value from a case\n";
-	      return false; 		/* non invariant argument */
+	      return false; /* non invariant argument */
 	    }
 	}
     }
@@ -409,13 +411,13 @@ build_constructors (tree swtch)
 
 	  pos = int_const_binop (PLUS_EXPR, pos, integer_one_node, 0);
 	}
-      gcc_assert (tree_int_cst_equal (pos, CASE_LOW(cs)));
+      gcc_assert (tree_int_cst_equal (pos, CASE_LOW (cs)));
 
       j = 0;
       if (CASE_HIGH (cs))
 	high = CASE_HIGH (cs);
       else
-	high = CASE_LOW(cs);
+	high = CASE_LOW (cs);
       for (phi = phi_nodes (info.final_bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  tree val = PHI_ARG_DEF_FROM_EDGE (phi, e);
@@ -480,7 +482,7 @@ build_one_array (tree swtch, int num, tree arr_index_type, tree phi, tree tidx)
 
   fetch = build4 (ARRAY_REF, value_type, decl, tidx, NULL_TREE,
 		  NULL_TREE);
-  load = build2 (GIMPLE_MODIFY_STMT, void_type_node, name, fetch);
+  load = build_gimple_modify_stmt (name, fetch);
   SSA_NAME_DEF_STMT (name) = load;
 
   bsi = bsi_for_stmt (swtch);
@@ -505,13 +507,17 @@ build_arrays (tree swtch)
   tree phi = phi_nodes (info.final_bb);
   int i;
 
+  bsi = bsi_for_stmt (swtch);
+
   arr_index_type = build_index_type (info.range_size);
   tidx = make_rename_temp (arr_index_type, "csti");
-  sub = build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
-		fold_convert (TREE_TYPE (info.index_expr), info.range_min));
-  sub = build2 (GIMPLE_MODIFY_STMT, void_type_node, tidx, sub);
+  sub = fold_build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
+		     fold_convert (TREE_TYPE (info.index_expr),
+				   info.range_min));
+  sub = force_gimple_operand_bsi (&bsi, fold_convert (arr_index_type, sub),
+				  false, NULL, true, BSI_SAME_STMT);
+  sub = build_gimple_modify_stmt (tidx, sub);
 
-  bsi = bsi_for_stmt (swtch);
   bsi_insert_before (&bsi, sub, BSI_SAME_STMT);
   mark_symbols_for_renaming (sub);
   info.arr_ref_first = sub;
@@ -537,8 +543,7 @@ gen_def_assigns (block_stmt_iterator *bsi)
 				 NULL_TREE);
 
       info.target_outbound_names[i] = name;
-      assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, name,
-		       info.default_values[i]);
+      assign = build_gimple_modify_stmt (name, info.default_values[i]);
       SSA_NAME_DEF_STMT (name) = assign;
       bsi_insert_before (bsi, assign, BSI_SAME_STMT);
       find_new_referenced_vars (&assign);
@@ -637,15 +642,17 @@ gen_inbound_check (tree swtch)
   bsi = bsi_for_stmt (info.arr_ref_first);
   tmp_u = make_rename_temp (utype, "csui");
 
-  cast = build1 (NOP_EXPR, utype, info.index_expr);
-  cast_assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, tmp_u, cast);
+  cast = fold_convert (utype, info.index_expr);
+  cast_assign = build_gimple_modify_stmt (tmp_u, cast);
   find_new_referenced_vars (&cast_assign);
   bsi_insert_before (&bsi, cast_assign, BSI_SAME_STMT);
   mark_symbols_for_renaming (cast_assign);
 
   ulb = fold_convert (utype, info.range_min);
-  minus = build2 (MINUS_EXPR, utype, tmp_u, ulb);
-  minus_assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, tmp_u, minus);
+  minus = fold_build2 (MINUS_EXPR, utype, tmp_u, ulb);
+  minus = force_gimple_operand_bsi (&bsi, minus, false, NULL, true,
+				    BSI_SAME_STMT);
+  minus_assign = build_gimple_modify_stmt (tmp_u, minus);
   find_new_referenced_vars (&minus_assign);
   bsi_insert_before (&bsi, minus_assign, BSI_SAME_STMT);
   mark_symbols_for_renaming (minus_assign);
@@ -793,7 +800,7 @@ process_switch (tree swtch)
   build_constructors (swtch);
 
   build_arrays (swtch); /* Build the static arrays and assignments.   */
-  gen_inbound_check (swtch); 	/* Build the bounds check.  */
+  gen_inbound_check (swtch);	/* Build the bounds check.  */
 
   /* Cleanup:  */
   free_temp_arrays ();
@@ -862,12 +869,12 @@ struct gimple_opt_pass pass_convert_switch =
  {
   GIMPLE_PASS,
   "switchconv",				/* name */
-  switchconv_gate,        		/* gate */
+  switchconv_gate,			/* gate */
   do_switchconv,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,			        	/* tv_id */
+  TV_TREE_SWITCH_CONVERSION,		/* tv_id */
   PROP_cfg | PROP_ssa,	                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
