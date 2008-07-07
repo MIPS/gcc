@@ -197,11 +197,13 @@ struct ira_allocno_live_range
   allocno_live_range_t start_next, finish_next;
 };
 
-/* Program points are enumerated by number from range
+/* Program points are enumerated by numbers from range
    0..IRA_MAX_POINT-1.  There are approximately two times more program
-   points than insns.  One program points correspond points between
-   subsequent insns and other ones correspond to points after usage of
-   input operands but before setting the output operands in insns.  */
+   points than insns.  Program points are places in the program where
+   liveness info can be changed.  In most general case (there are more
+   complicated cases too) some program points correspond places where
+   input operand dies and other ones correspond to places where output
+   operands are born.  */
 extern int ira_max_point;
 
 /* Arrays of size IRA_MAX_POINT mapping a program point to the allocno
@@ -420,7 +422,7 @@ struct ira_allocno
 #define ALLOCNO_CONFLICT_ALLOCNOS_NUM(A) \
   ((A)->conflict_allocnos_num)
 #define ALLOCNO_CONFLICT_HARD_REGS(A) ((A)->conflict_hard_regs)
-#define IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS(A) ((A)->total_conflict_hard_regs)
+#define ALLOCNO_TOTAL_CONFLICT_HARD_REGS(A) ((A)->total_conflict_hard_regs)
 #define ALLOCNO_NREFS(A) ((A)->nrefs)
 #define ALLOCNO_FREQ(A) ((A)->freq)
 #define ALLOCNO_HARD_REGNO(A) ((A)->hard_regno)
@@ -434,7 +436,7 @@ struct ira_allocno
 #define ALLOCNO_DONT_REASSIGN_P(A) ((A)->dont_reassign_p)
 #ifdef STACK_REGS
 #define ALLOCNO_NO_STACK_REG_P(A) ((A)->no_stack_reg_p)
-#define IRA_ALLOCNO_TOTAL_NO_STACK_REG_P(A) ((A)->total_no_stack_reg_p)
+#define ALLOCNO_TOTAL_NO_STACK_REG_P(A) ((A)->total_no_stack_reg_p)
 #endif
 #define ALLOCNO_IN_GRAPH_P(A) ((A)->in_graph_p)
 #define ALLOCNO_ASSIGNED_P(A) ((A)->assigned_p)
@@ -1106,7 +1108,7 @@ ira_allocno_conflict_iter_next (ira_allocno_conflict_iterator *i)
    instance of ira_allocno_conflict_iterator used to iterate the
    conflicts.  */
 #define FOR_EACH_ALLOCNO_CONFLICT(ALLOCNO, A, ITER)			\
-  for (ira_allocno_conflict_iter_init (&(ITER), (ALLOCNO));			\
+  for (ira_allocno_conflict_iter_init (&(ITER), (ALLOCNO));		\
        ira_allocno_conflict_iter_cond (&(ITER), &(A));			\
        ira_allocno_conflict_iter_next (&(ITER)))
 
