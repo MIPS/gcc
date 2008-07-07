@@ -1732,9 +1732,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 			  || (DWARF_FRAME_REGNUM (REGNO (src))
 			      == DWARF_FRAME_RETURN_COLUMN));
 
-              /* If stack is aligned while drap register used, we prefer
-                 restoring stack pointer by cfa value, so here we needn't
-                 generate this unnecessary dwarf2 information. */
+              /* If drap register is used to align stack, we have to
+		 restore stack pointer with the CFA value and we don't
+		 generate this DWARF information.  */
 	      if (!(fde
 		    && fde->stack_realign
 		    && cfa.reg != REGNO (dest)

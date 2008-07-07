@@ -1,11 +1,16 @@
 2008-07-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c: Update comments.
+
+2008-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 	    Xuepeng Guo  <xuepeng.guo@intel.com>
 
 	* dwarf2out.c (dw_fde_struct): Remove fp_has_aligned_sp.
 	(dwarf2out_frame_debug_expr): Don't generate dwarf2 information for
 	"mov sp bp" for drap cases. Only redefine cfa with expression in
 	Rule 19.
-	(build_cfa_aligned_loc): Reformated.
+	(build_cfa_aligned_loc): Swap parameter order.
+	(reg_save): Updated.
 
 2008-07-07  Joey Ye  <joey.ye@intel.com>
 
