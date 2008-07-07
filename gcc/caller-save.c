@@ -1493,6 +1493,7 @@ free_con_fun_n (edge e)
     COPY_HARD_REG_SET (bb_info->free_out, temp_set);
   else
     AND_HARD_REG_SET (bb_info->free_out, temp_set);
+  AND_HARD_REG_SET (bb_info->free_out, bb_info->live_at_end);
 }
 
 /* The function calculates global free information according

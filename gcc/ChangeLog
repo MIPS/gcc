@@ -1,4 +1,9 @@
 2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+	PR target/36663
+
+	* caller-saves.c (free_con_fun_n): Use liveness info.
+
+2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
 	PR target/36673
 
 	* caller-saves.c (restore_con_fun_n, save_con_fun_n): Clear the
