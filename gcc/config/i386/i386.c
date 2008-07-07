@@ -6805,6 +6805,10 @@ ix86_expand_prologue (void)
 					   GEN_INT (-align_bytes)));
       RTX_FRAME_RELATED_P (insn) = 1;
 
+      /* Replicate the return address on the stack so that return
+	 address can be reached via (argp - 1) slot.  This is needed
+	 to implement macro RETURN_ADDR_RTX and intrinsic function
+	 expand_builtin_return_addr etc.  */
       x = crtl->drap_reg;
       x = gen_frame_mem (Pmode,
                          plus_constant (x,
