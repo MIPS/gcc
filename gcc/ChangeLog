@@ -1,3 +1,10 @@
+2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+	PR preprocessor/36672
+	
+	* ira.c (chain_insn_order): New variable.
+	(chain_freq_compare, chain_bb_compare): Use it.
+	(ira_sort_insn_chain): Set it up.
+
 2008-07-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/invoke.texi (-fira-ipra): Remove.

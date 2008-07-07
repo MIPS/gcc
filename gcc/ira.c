@@ -1407,7 +1407,8 @@ setup_reg_renumber (void)
 	  && ! ira_hard_reg_not_in_set_p (hard_regno, ALLOCNO_MODE (a),
 					  call_used_reg_set))
 	{
-	  ira_assert (!optimize || flag_caller_saves || regno >= ira_reg_equiv_len
+	  ira_assert (!optimize || flag_caller_saves
+		      || regno >= ira_reg_equiv_len
 		      || ira_reg_equiv_const[regno]
 		      || ira_reg_equiv_invariant_p[regno]);
 	  caller_save_needed = 1;
@@ -1663,11 +1664,15 @@ expand_reg_info (int old_size)
 /* This page contains code for sorting the insn chain used by reload.
    In the old register allocator, the insn chain order corresponds to
    the order of insns in RTL.  By putting insns with higher execution
-   frequency first, reload has a better chance to generate less
+   frequency BBs first, reload has a better chance to generate less
    expensive operand reloads for such insns.  */
 
 /* Map bb index -> order number in the BB chain in RTL code.  */
 static int *basic_block_order_nums;
+
+/* Map chain insn uid -> order number in the insn chain before sorting
+   the insn chain.  */
+static int *chain_insn_order;
 
 /* The function is used to sort insn chain according insn execution
    frequencies.  */
@@ -1682,7 +1687,9 @@ chain_freq_compare (const void *v1p, const void *v2p)
 	  - BASIC_BLOCK (c1->block)->frequency);
   if (diff)
     return diff;
-  return (const char *) v1p - (const char *) v2p;
+  /* Keep the same order in BB scope.  */
+  return (chain_insn_order[INSN_UID(c1->insn)]
+	  - chain_insn_order[INSN_UID(c2->insn)]);
 }
 
 /* Sort the insn chain according insn original order.  */
@@ -1697,7 +1704,9 @@ chain_bb_compare (const void *v1p, const void *v2p)
 	  - basic_block_order_nums[c2->block]);
   if (diff)
     return diff;
-  return (const char *) v1p - (const char *) v2p;
+  /* Keep the same order in BB scope.  */
+  return (chain_insn_order[INSN_UID(c1->insn)]
+	  - chain_insn_order[INSN_UID(c2->insn)]);
 }
 
 /* Sort the insn chain according to insn frequencies if
@@ -1709,8 +1718,12 @@ ira_sort_insn_chain (bool freq_p)
   basic_block bb;
   int i, n;
   
+  chain_insn_order = (int *) ira_allocate (get_max_uid () * sizeof (int));
   for (n = 0, chain = reload_insn_chain; chain != 0; chain = chain->next)
-    n++;
+    {
+      chain_insn_order[INSN_UID (chain->insn)] = n;
+      n++;
+    }
   if (n <= 1)
     return;
   chain_arr
@@ -1726,6 +1739,7 @@ ira_sort_insn_chain (bool freq_p)
     chain_arr[n++] = chain;
   qsort (chain_arr, n, sizeof (struct insn_chain *),
 	 freq_p ? chain_freq_compare : chain_bb_compare);
+  ira_free (chain_insn_order);
   for (i = 1; i < n - 1; i++)
     {
       chain_arr[i]->next = chain_arr[i + 1];
