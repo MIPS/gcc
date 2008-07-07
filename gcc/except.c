@@ -114,6 +114,18 @@ static int sjlj_fc_personality_ofs;
 static int sjlj_fc_lsda_ofs;
 static int sjlj_fc_jbuf_ofs;
 
+/* Possible types of an exception region.  */
+enum eh_region_type
+  {
+    ERT_UNKNOWN = 0,
+    ERT_CLEANUP,
+    ERT_TRY,
+    ERT_CATCH,
+    ERT_ALLOWED_EXCEPTIONS,
+    ERT_MUST_NOT_THROW,
+    ERT_THROW
+  };
+
 /* Describes one exception region.  */
 struct eh_region_d GTY(())
 {
@@ -132,16 +144,7 @@ struct eh_region_d GTY(())
   bitmap aka;
 
   /* Each region does exactly one thing.  */
-  enum eh_region_type
-  {
-    ERT_UNKNOWN = 0,
-    ERT_CLEANUP,
-    ERT_TRY,
-    ERT_CATCH,
-    ERT_ALLOWED_EXCEPTIONS,
-    ERT_MUST_NOT_THROW,
-    ERT_THROW
-  } type;
+  enum eh_region_type type;
 
   /* Holds the action to perform based on the preceding type.  */
   union eh_region_u {

@@ -1,5 +1,22 @@
 2008-07-05  Tom Tromey  <tromey@redhat.com>
 
+	* basic-block.h (enum profile_status): Move to top level.
+	(struct control_flow_graph): Update.
+	* combine.c (enum undo_kinds): Move to top level.
+	(struct undo): Update.
+	* tree-inline.h (enum copy_body_cge_which): Move to top level.
+	(copy_body_data): Update.
+	* ggc-page.c (struct ggc_pch_ondisk): Move to top level.
+	(struct ggc_pch_data): Update.
+	* except.c (enum eh_region_type): Move to top level.
+	(struct eh_region_d): Update.
+	* regmove.c (enum match_use_kinds): Move to top level.
+	(struct match): Update.
+	* cgraphunit.c (enum cgraph_order_kinds): Move to top level.
+	(struct cgraph_order_sort): Update.
+
+2008-07-05  Tom Tromey  <tromey@redhat.com>
+
 	* optabs.c (optab_table, convert_optab_table): Check
 	HAVE_DESIGNATED_INITIALIZERS.
 	(init_optabs): Likewise.

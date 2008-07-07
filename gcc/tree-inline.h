@@ -1,5 +1,5 @@
 /* Tree inlining hooks and declarations.
-   Copyright 2001, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright 2001, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -24,6 +24,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "varray.h"
 #include "pointer-set.h"
 
+
+/* Possible desired behaviors wrt call graph edges.  */
+
+enum copy_body_cge_which {
+  CB_CGE_DUPLICATE,
+  CB_CGE_MOVE,
+  CB_CGE_MOVE_CLONES
+};
 
 /* Data required for function body duplication.  */
 
@@ -73,11 +81,7 @@ typedef struct copy_body_data
   /* Indicate the desired behavior wrt call graph edges.  We can either
      duplicate the edge (inlining, cloning), move the edge (versioning,
      parallelization), or move the edges of the clones (saving).  */
-  enum copy_body_cge_which {
-    CB_CGE_DUPLICATE,
-    CB_CGE_MOVE,
-    CB_CGE_MOVE_CLONES
-  } transform_call_graph_edges;
+  enum copy_body_cge_which transform_call_graph_edges;
 
   /* True if a new CFG should be created.  False for inlining, true for
      everything else.  */

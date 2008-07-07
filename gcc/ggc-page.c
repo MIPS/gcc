@@ -2067,12 +2067,14 @@ ggc_print_statistics (void)
 #endif
 }
 
+struct ggc_pch_ondisk
+{
+  unsigned totals[NUM_ORDERS];
+};
+
 struct ggc_pch_data
 {
-  struct ggc_pch_ondisk
-  {
-    unsigned totals[NUM_ORDERS];
-  } d;
+  struct ggc_pch_ondisk d;
   size_t base[NUM_ORDERS];
   size_t written[NUM_ORDERS];
 };
