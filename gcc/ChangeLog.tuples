@@ -1,5 +1,9 @@
 2008-07-07  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree-ssa-dom.c: Remove fixme tuples.
+
+2008-07-07  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree-cfg.c (verify_types_in_gimple_assign): Remove fixme.
 
 2008-07-04  Jakub Jelinek  <jakub@redhat.com>
