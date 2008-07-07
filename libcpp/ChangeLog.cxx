@@ -1,3 +1,7 @@
+2008-07-05  Tom Tromey  <tromey@redhat.com>
+
+	* include/mkdeps.h: Use 'extern "C"'.
+
 2008-07-03  Tom Tromey  <tromey@redhat.com>
 
 	* include/symtab.h (cpp_hash_table): Rename from hash_table.
