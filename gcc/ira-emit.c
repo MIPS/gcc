@@ -848,10 +848,9 @@ add_range_and_copies_from_move_list (move_t list, ira_loop_tree_node_t node,
       bitmap_clear_bit (live_through, ALLOCNO_REGNO (to));
       IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (from), hard_regs_live);
       IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (to), hard_regs_live);
-      IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (from),
+      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (from),
 			hard_regs_live);
-      IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (to),
-			hard_regs_live);
+      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (to), hard_regs_live);
       update_costs (from, true, freq);
       update_costs (to, false, freq);
       cp = ira_add_allocno_copy (from, to, freq, move->insn, NULL);

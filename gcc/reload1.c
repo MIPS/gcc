@@ -1120,8 +1120,8 @@ reload (rtx first, int global)
     }
 
   if (flag_ira && optimize)
-    /* Restore the original insn chain order for correct reload
-       work.  */
+    /* Restore the original insn chain order for correct reload work
+       (e.g. for correct inheritance).  */
     ira_sort_insn_chain (false);
 
   /* If global-alloc was run, notify it of any register eliminations we have

@@ -514,8 +514,7 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   ALLOCNO_CONFLICT_ALLOCNO_ARRAY (a) = NULL;
   ALLOCNO_CONFLICT_ALLOCNOS_NUM (a) = 0;
   COPY_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a), ira_no_alloc_regs);
-  COPY_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
-		     ira_no_alloc_regs);
+  COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), ira_no_alloc_regs);
   ALLOCNO_NREFS (a) = 0;
   ALLOCNO_FREQ (a) = 1;
   ALLOCNO_HARD_REGNO (a) = -1;
@@ -524,7 +523,7 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   ALLOCNO_CALLS_CROSSED_START (a) = -1;
 #ifdef STACK_REGS
   ALLOCNO_NO_STACK_REG_P (a) = false;
-  IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a) = false;
+  ALLOCNO_TOTAL_NO_STACK_REG_P (a) = false;
 #endif
   ALLOCNO_MEM_OPTIMIZED_DEST (a) = NULL;
   ALLOCNO_MEM_OPTIMIZED_DEST_P (a) = false;
@@ -572,7 +571,7 @@ ira_set_allocno_cover_class (ira_allocno_t a, enum reg_class cover_class)
   ALLOCNO_COVER_CLASS (a) = cover_class;
   IOR_COMPL_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 			  reg_class_contents[cover_class]);
-  IOR_COMPL_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+  IOR_COMPL_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			  reg_class_contents[cover_class]);
 }
 
@@ -883,14 +882,13 @@ propagate_info_to_cap (ira_allocno_t cap)
   ALLOCNO_CALL_FREQ (cap) = ALLOCNO_CALL_FREQ (a);
   IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (cap),
 		    ALLOCNO_CONFLICT_HARD_REGS (a));
-  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (cap),
-		    IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (cap),
+		    ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
   ALLOCNO_CALLS_CROSSED_NUM (cap) = ALLOCNO_CALLS_CROSSED_NUM (a);
   ALLOCNO_CALLS_CROSSED_START (cap) = ALLOCNO_CALLS_CROSSED_START (a);
 #ifdef STACK_REGS
   ALLOCNO_NO_STACK_REG_P (cap) = ALLOCNO_NO_STACK_REG_P (a);
-  IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (cap)
-    = IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a);
+  ALLOCNO_TOTAL_NO_STACK_REG_P (cap) = ALLOCNO_TOTAL_NO_STACK_REG_P (a);
 #endif
   /* Add copies to the cap.  */
   for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
@@ -2008,17 +2006,17 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  if (propagate_p)
 	    {
 	      if (!allocno_propagated_p [ALLOCNO_NUM (parent_a)])
-		COPY_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
+		COPY_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
 				   ALLOCNO_CONFLICT_HARD_REGS (parent_a));
-	      IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
-				IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
+				ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
 #ifdef STACK_REGS
 	      if (!allocno_propagated_p [ALLOCNO_NUM (parent_a)])
-		IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
+		ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
 		  = ALLOCNO_NO_STACK_REG_P (parent_a);
-	      IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
-		= (IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
-		   || IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a));
+	      ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
+		= (ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a)
+		   || ALLOCNO_TOTAL_NO_STACK_REG_P (a));
 #endif
 	      allocno_propagated_p [ALLOCNO_NUM (parent_a)] = true;
 	    }

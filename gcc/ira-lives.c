@@ -91,8 +91,9 @@ make_regno_born (int regno)
       SET_HARD_REG_BIT (hard_regs_live, regno);
       EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
         {
-	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (ira_allocnos[i]), regno);
-	  SET_HARD_REG_BIT (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (ira_allocnos[i]),
+	  SET_HARD_REG_BIT (ALLOCNO_CONFLICT_HARD_REGS (ira_allocnos[i]),
+			    regno);
+	  SET_HARD_REG_BIT (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (ira_allocnos[i]),
 			    regno);
 	}
       return;
@@ -175,7 +176,7 @@ set_allocno_live (ira_allocno_t a)
     return;
   sparseset_set_bit (allocnos_live, ALLOCNO_NUM (a));
   IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a), hard_regs_live);
-  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), hard_regs_live);
+  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), hard_regs_live);
   cover_class = ALLOCNO_COVER_CLASS (a);
   nregs = ira_reg_class_nregs[cover_class][ALLOCNO_MODE (a)];
   curr_reg_pressure[cover_class] += nregs;
@@ -375,7 +376,8 @@ mark_reg_death (rtx reg)
 		    {
 		      EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, i)
 			{
-			  update_allocno_pressure_excess_length (ira_allocnos[i]);
+			  update_allocno_pressure_excess_length
+			    (ira_allocnos[i]);
 			}
 		      high_pressure_start_point[cover_class] = -1;
 		    }
@@ -602,7 +604,7 @@ process_single_reg_class_operands (bool in_p, int freq)
 		 because it will be spilled in reload in anyway.  */
 	      IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
 				reg_class_contents[cl]);
-	      IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+	      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 				reg_class_contents[cl]);
 	    }
 	}
@@ -697,7 +699,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  EXECUTE_IF_SET_IN_SPARSESET (allocnos_live, px)
 	    {
 	      ALLOCNO_NO_STACK_REG_P (ira_allocnos[px]) = true;
-	      IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (ira_allocnos[px]) = true;
+	      ALLOCNO_TOTAL_NO_STACK_REG_P (ira_allocnos[px]) = true;
 	    }
 	  for (px = FIRST_STACK_REG; px <= LAST_STACK_REG; px++)
 	    make_regno_born_and_dead (px);
@@ -763,7 +765,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		  if (cfun->has_nonlocal_label)
 		    {
 		      SET_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a));
-		      SET_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+		      SET_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
 		    }
 		}
 	    }
@@ -957,11 +959,11 @@ propagate_new_allocno_info (ira_allocno_t a)
     {
       ALLOCNO_CALL_FREQ (parent_a) += ALLOCNO_CALL_FREQ (a);
 #ifdef STACK_REGS
-      if (IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a))
-	IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a) = true;
+      if (ALLOCNO_TOTAL_NO_STACK_REG_P (a))
+	ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a) = true;
 #endif
-      IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
-			IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
+			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       if (ALLOCNO_CALLS_CROSSED_START (parent_a) < 0
 	  || (ALLOCNO_CALLS_CROSSED_START (a) >= 0
 	      && (ALLOCNO_CALLS_CROSSED_START (parent_a)

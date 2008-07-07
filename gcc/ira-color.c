@@ -274,12 +274,12 @@ assign_hard_reg (ira_allocno_t allocno, bool retry_p)
     {
       mem_cost += ALLOCNO_UPDATED_MEMORY_COST (a);
       IOR_HARD_REG_SET (conflicting_regs,
-			IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       ira_allocate_and_copy_costs (&ALLOCNO_UPDATED_HARD_REG_COSTS (a),
 				   cover_class, ALLOCNO_HARD_REG_COSTS (a));
       a_costs = ALLOCNO_UPDATED_HARD_REG_COSTS (a);
 #ifdef STACK_REGS
-      no_stack_reg_p = no_stack_reg_p || IRA_ALLOCNO_TOTAL_NO_STACK_REG_P (a);
+      no_stack_reg_p = no_stack_reg_p || ALLOCNO_TOTAL_NO_STACK_REG_P (a);
 #endif
       for (cost = ALLOCNO_COVER_CLASS_COST (a), i = 0; i < class_size; i++)
 	if (a_costs != NULL)
@@ -711,7 +711,8 @@ push_ira_allocno_to_stack (ira_allocno_t allocno)
 		      (uncolorable_allocnos_splay_tree[cover_class],
 		       (splay_tree_key) conflict_allocno);
 		    ALLOCNO_SPLAY_REMOVED_P (conflict_allocno) = true;
-		    VEC_safe_push (ira_allocno_t, heap, removed_splay_allocno_vec,
+		    VEC_safe_push (ira_allocno_t, heap,
+				   removed_splay_allocno_vec,
 				   conflict_allocno);
 		  }
 		ALLOCNO_LEFT_CONFLICTS_NUM (conflict_allocno) = conflicts_num;
@@ -1163,7 +1164,7 @@ setup_allocno_available_regs_num (ira_allocno_t allocno)
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      IOR_HARD_REG_SET (temp_set, IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      IOR_HARD_REG_SET (temp_set, ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       if (a == allocno)
 	break;
     }
@@ -1193,7 +1194,7 @@ setup_allocno_left_conflicts_num (ira_allocno_t allocno)
   for (a = ALLOCNO_NEXT_COALESCED_ALLOCNO (allocno);;
        a = ALLOCNO_NEXT_COALESCED_ALLOCNO (a))
     {
-      IOR_HARD_REG_SET (temp_set, IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+      IOR_HARD_REG_SET (temp_set, ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       if (a == allocno)
 	break;
     }
@@ -2409,10 +2410,9 @@ allocno_reload_assign (ira_allocno_t a, HARD_REG_SET forbidden_regs)
   enum reg_class cover_class;
   int regno = ALLOCNO_REGNO (a);
 
-  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), forbidden_regs);
+  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), forbidden_regs);
   if (! flag_caller_saves && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
-    IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
-		      call_used_reg_set);
+    IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a), call_used_reg_set);
   ALLOCNO_ASSIGNED_P (a) = false;
   ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
   ira_assert (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) == NULL);
@@ -2623,7 +2623,8 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
 				    FIRST_PSEUDO_REGISTER, i, bi)
 	    {
 	      another_allocno = ira_regno_allocno_map[i];
-	      if (ira_allocno_live_ranges_intersect_p (allocno, another_allocno))
+	      if (ira_allocno_live_ranges_intersect_p (allocno,
+						       another_allocno))
 		goto cont;
 	    }
 	  for (cost = 0, cp = ALLOCNO_COPIES (allocno);

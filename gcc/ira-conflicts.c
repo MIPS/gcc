@@ -622,7 +622,8 @@ build_allocno_conflicts (void)
 	      conflict_bit_vec_words_num = 0;
 	    else
 	      conflict_bit_vec_words_num
-		= (ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + IRA_INT_BITS) / IRA_INT_BITS;
+		= ((ALLOCNO_MAX (a) - ALLOCNO_MIN (a) + IRA_INT_BITS)
+		   / IRA_INT_BITS);
 	    ALLOCNO_CONFLICT_ALLOCNO_ARRAY_SIZE (a)
 	      = conflict_bit_vec_words_num * sizeof (IRA_INT_TYPE);
 	  }
@@ -748,7 +749,7 @@ print_conflicts (FILE *file, bool reg_p)
 	      }
 	  }
       COPY_HARD_REG_SET (conflicting_hard_regs,
-			 IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
+			 ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
       AND_COMPL_HARD_REG_SET (conflicting_hard_regs, ira_no_alloc_regs);
       AND_HARD_REG_SET (conflicting_hard_regs,
 			reg_class_contents[ALLOCNO_COVER_CLASS (a)]);
@@ -800,7 +801,7 @@ ira_build_conflicts (void)
 	continue;
       if (! flag_caller_saves)
 	{
-	  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			    call_used_reg_set);
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
@@ -808,7 +809,7 @@ ira_build_conflicts (void)
 	}
       else
 	{
-	  IOR_HARD_REG_SET (IRA_ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
+	  IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a),
 			    no_caller_save_reg_set);
 	  if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	    IOR_HARD_REG_SET (ALLOCNO_CONFLICT_HARD_REGS (a),
