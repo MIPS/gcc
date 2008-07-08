@@ -994,6 +994,7 @@ void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
 bool parallelize_loops (void);
 
+bool loop_only_exit_p (const struct loop *, const_edge);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
@@ -1085,9 +1086,10 @@ extern bool verify_eh_edges (gimple);
 
 
 /* In tree-ssa-pre.c  */
-void add_to_value (tree, tree);
-void debug_value_expressions (tree);
-void print_value_expressions (FILE *, tree);
+struct pre_expr_d;
+void add_to_value (unsigned int, struct pre_expr_d *);
+void debug_value_expressions (unsigned int);
+void print_value_expressions (FILE *, unsigned int);
 
 
 /* In tree-vn.c  */

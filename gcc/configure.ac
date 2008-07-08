@@ -777,7 +777,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([gimple-tuples-branch merged with rev 137346])
+ACX_PKGVERSION([gimple-tuples-branch merged with rev 137633])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -994,7 +994,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal getrusage nl_langinfo scandir alphasort \
+	sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
 	gcc_UNLOCKED_FUNCS)
 
@@ -1017,6 +1017,7 @@ int main()
 fi
 
 AC_CHECK_TYPE(ssize_t, int)
+AC_CHECK_TYPE(caddr_t, char *)
 
 # Try to determine the array type of the second argument of getgroups
 # for the target system (int or gid_t).

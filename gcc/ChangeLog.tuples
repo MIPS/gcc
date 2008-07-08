@@ -1,5 +1,12 @@
 2008-07-08  Jakub Jelinek  <jakub@redhat.com>
 
+	Merge with mainline @137633.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-07-08  Jakub Jelinek  <jakub@redhat.com>
+
 	* tree-cfg.c (remove_useless_stmts_cond): Avoid calling
 	fold_binary.
 

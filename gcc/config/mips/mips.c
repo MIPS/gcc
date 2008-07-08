@@ -442,7 +442,7 @@ const struct mips_rtx_cost_data *mips_cost;
 static int mips_base_target_flags;
 
 /* True if MIPS16 is the default mode.  */
-static bool mips_base_mips16;
+bool mips_base_mips16;
 
 /* The ambient values of other global variables.  */
 static int mips_base_delayed_branch; /* flag_delayed_branch */
@@ -12334,8 +12334,14 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 }
 
 /* The last argument passed to mips_set_mips16_mode, or negative if the
-   function hasn't been called yet.  */
-static GTY(()) int was_mips16_p = -1;
+   function hasn't been called yet.
+
+   There are two copies of this information.  One is saved and restored
+   by the PCH process while the other is specific to this compiler
+   invocation.  The information calculated by mips_set_mips16_mode
+   is invalid unless the two variables are the same.  */
+static int was_mips16_p = -1;
+static GTY(()) int was_mips16_pch_p = -1;
 
 /* Set up the target-dependent global state so that it matches the
    current function's ISA mode.  */
@@ -12343,7 +12349,8 @@ static GTY(()) int was_mips16_p = -1;
 static void
 mips_set_mips16_mode (int mips16_p)
 {
-  if (mips16_p == was_mips16_p)
+  if (mips16_p == was_mips16_p
+      && mips16_p == was_mips16_pch_p)
     return;
 
   /* Restore base settings of various flags.  */
@@ -12418,11 +12425,12 @@ mips_set_mips16_mode (int mips16_p)
   /* (Re)initialize MIPS target internals for new ISA.  */
   mips_init_relocs ();
 
-  if (was_mips16_p >= 0)
+  if (was_mips16_p >= 0 || was_mips16_pch_p >= 0)
     /* Reinitialize target-dependent state.  */
     target_reinit ();
 
   was_mips16_p = mips16_p;
+  was_mips16_pch_p = mips16_p;
 }
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
@@ -12628,6 +12636,10 @@ mips_override_options (void)
 {
   int i, start, regno, mode;
 
+  /* Process flags as though we were generating non-MIPS16 code.  */
+  mips_base_mips16 = TARGET_MIPS16;
+  target_flags &= ~MASK_MIPS16;
+
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -12773,14 +12785,6 @@ mips_override_options (void)
       target_flags &= ~MASK_ABICALLS;
     }
 
-  /* MIPS16 cannot generate PIC yet.  */
-  if (TARGET_MIPS16 && (flag_pic || TARGET_ABICALLS))
-    {
-      sorry ("MIPS16 PIC");
-      target_flags &= ~MASK_ABICALLS;
-      flag_pic = flag_pie = flag_shlib = 0;
-    }
-
   if (TARGET_ABICALLS)
     /* We need to set flag_pic for executables as well as DSOs
        because we may reference symbols that are not defined in
@@ -12808,7 +12812,7 @@ mips_override_options (void)
     {
       if (!TARGET_GPOPT)
 	{
-	  if (!TARGET_MIPS16 && !TARGET_EXPLICIT_RELOCS)
+	  if (!TARGET_EXPLICIT_RELOCS)
 	    error ("%<-mno-gpopt%> needs %<-mexplicit-relocs%>");
 
 	  TARGET_LOCAL_SDATA = false;
@@ -12912,7 +12916,6 @@ mips_override_options (void)
     target_flags |= MASK_FIX_R4400;
 
   /* Save base state of options.  */
-  mips_base_mips16 = TARGET_MIPS16;
   mips_base_target_flags = target_flags;
   mips_base_delayed_branch = flag_delayed_branch;
   mips_base_schedule_insns = flag_schedule_insns;
@@ -12922,8 +12925,11 @@ mips_override_options (void)
   mips_base_align_jumps = align_jumps;
   mips_base_align_functions = align_functions;
 
-  /* Now select the ISA mode.  */
-  mips_set_mips16_mode (mips_base_mips16);
+  /* Now select the ISA mode.
+
+     Do all CPP-sensitive stuff in non-MIPS16 mode; we'll switch to
+     MIPS16 mode afterwards if need be.  */
+  mips_set_mips16_mode (false);
 
   /* We call dbr_schedule from within mips_reorg.  */
   flag_delayed_branch = 0;

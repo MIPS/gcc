@@ -1523,7 +1523,7 @@ record_equality (tree x, tree y)
     prev_x = x, x = y, y = prev_x, prev_x = prev_y;
   else if (prev_x && is_gimple_min_invariant (prev_x))
     x = y, y = prev_x, prev_x = prev_y;
-  else if (prev_y && TREE_CODE (prev_y) != VALUE_HANDLE)
+  else if (prev_y)
     y = prev_y;
 
   /* After the swapping, we must have one SSA_NAME.  */
@@ -2039,7 +2039,7 @@ cprop_operand (gimple stmt, use_operand_p op_p)
      copy of some other variable, use the value or copy stored in
      CONST_AND_COPIES.  */
   val = SSA_NAME_VALUE (op);
-  if (val && val != op && TREE_CODE (val) != VALUE_HANDLE)
+  if (val && val != op)
     {
       tree op_type, val_type;
 
@@ -2391,7 +2391,7 @@ lookup_avail_expr (gimple stmt, bool insert)
   if (TREE_CODE (lhs) == SSA_NAME)
     {
       temp = SSA_NAME_VALUE (lhs);
-      if (temp && TREE_CODE (temp) != VALUE_HANDLE)
+      if (temp)
 	lhs = temp;
     }
 

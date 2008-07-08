@@ -1607,6 +1607,45 @@ Use installed @samp{zlib} rather than that included with GCC@.
 @item --with-win32-nlsapi=ansi, unicows or unicode
 Indicates how MinGW @samp{libgcj} translates between UNICODE
 characters and the Win32 API@.
+
+@item --enable-java-home
+If enabled, this creates a JPackage compatible SDK environment during install.
+Note that if --enable-java-home is used, --with-arch-directory=ARCH must also
+be specified.
+
+@item --with-arch-directory=ARCH
+Specifies the name to use for the @file{jre/lib/ARCH} directory in the SDK 
+environment created when --enable-java-home is passed. Typical names for this 
+directory include i386, amd64, ia64, etc.
+
+@item --with-os-directory=DIR
+Specifies the OS directory for the SDK include directory. This is set to auto
+detect, and is typically 'linux'.
+
+@item --with-origin-name=NAME
+Specifies the JPackage origin name. This defaults to the 'gcj' in
+java-1.5.0-gcj.
+
+@item --with-arch-suffix=SUFFIX
+Specifies the suffix for the sdk directory. Defaults to the empty string. 
+Examples include '.x86_64' in 'java-1.5.0-gcj-1.5.0.0.x86_64'.
+
+@item --with-jvm-root-dir=DIR
+Specifies where to install the SDK. Default is $(prefix)/lib/jvm.
+
+@item --with-jvm-jar-dir=DIR
+Specifies where to install jars. Default is $(prefix)/lib/jvm-exports.
+
+@item --with-python-dir=DIR
+Specifies where to install the Python modules used for aot-compile. DIR should
+not include the prefix used in installation. For example, if the Python modules
+are to be installed in /usr/lib/python2.5/site-packages, then 
+--with-python-dir=/lib/python2.5/site-packages should be passed. If this is
+not specified, then the Python modules are installed in $(prefix)/share/python.
+
+@item --enable-aot-compile-rpm
+Adds aot-compile-rpm to the list of installed scripts.
+
 @table @code
 @item ansi
 Use the single-byte @code{char} and the Win32 A functions natively,
@@ -3388,15 +3427,17 @@ applications.  There are no standard Unix configurations.
 @end html
 @heading @anchor{m68k-x-x}m68k-*-*
 By default, @samp{m68k-*-aout}, @samp{m68k-*-coff*},
-@samp{m68k-*-elf*}, @samp{m68k-*-rtems} and @samp{m68k-*-uclinux}
+@samp{m68k-*-elf*}, @samp{m68k-*-rtems},  @samp{m68k-*-uclinux} and
+@samp{m68k-*-linux}
 build libraries for both M680x0 and ColdFire processors.  If you only
 need the M680x0 libraries, you can omit the ColdFire ones by passing
 @option{--with-arch=m68k} to @command{configure}.  Alternatively, you
 can omit the M680x0 libraries by passing @option{--with-arch=cf} to
-@command{configure}.  These targets default to 5206 code when
+@command{configure}.  These targets default to 5206 or 5475 code as
+appropriate for the target system when
 configured with @option{--with-arch=cf} and 68020 code otherwise.
 
-The @samp{m68k-*-linux-gnu}, @samp{m68k-*-netbsd} and
+The @samp{m68k-*-netbsd} and
 @samp{m68k-*-openbsd} targets also support the @option{--with-arch}
 option.  They will generate ColdFire CFV4e code when configured with
 @option{--with-arch=cf} and 68020 code otherwise.

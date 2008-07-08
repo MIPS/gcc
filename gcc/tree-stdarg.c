@@ -591,6 +591,7 @@ execute_optimize_stdarg (void)
   struct stdarg_info si;
   struct walk_stmt_info wi;
   const char *funcname = NULL;
+  tree cfun_va_list;
 
   cfun->va_list_gpr_size = 0;
   cfun->va_list_fpr_size = 0;
@@ -601,10 +602,11 @@ execute_optimize_stdarg (void)
   if (dump_file)
     funcname = lang_hooks.decl_printable_name (current_function_decl, 2);
 
-  va_list_simple_ptr = POINTER_TYPE_P (va_list_type_node)
-		       && (TREE_TYPE (va_list_type_node) == void_type_node
-			   || TREE_TYPE (va_list_type_node) == char_type_node);
-  gcc_assert (is_gimple_reg_type (va_list_type_node) == va_list_simple_ptr);
+  cfun_va_list = targetm.fn_abi_va_list (cfun->decl);
+  va_list_simple_ptr = POINTER_TYPE_P (cfun_va_list)
+		       && (TREE_TYPE (cfun_va_list) == void_type_node
+			   || TREE_TYPE (cfun_va_list) == char_type_node);
+  gcc_assert (is_gimple_reg_type (cfun_va_list) == va_list_simple_ptr);
 
   FOR_EACH_BB (bb)
     {
@@ -656,7 +658,7 @@ execute_optimize_stdarg (void)
 	      ap = TREE_OPERAND (ap, 0);
 	    }
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (ap))
-	      != TYPE_MAIN_VARIANT (va_list_type_node)
+	      != TYPE_MAIN_VARIANT (targetm.fn_abi_va_list (cfun->decl))
 	      || TREE_CODE (ap) != VAR_DECL)
 	    {
 	      va_list_escapes = true;
