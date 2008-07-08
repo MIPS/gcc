@@ -1,3 +1,180 @@
+2008-07-08  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_init_cloned_node): Call ipa_check_create_node_params
+	instead of ipa_create_node_params.
+	(ipcp_driver): Allocate infos with ipa_check_create_node_params and
+	ipa_check_create_edge_args, free them with
+	free_all_ipa_structures_after_ipa_cp, call ipa_register_cgraph_hooks.
+
+	* ipa-prop.c: Include flags.h and tree-inline.h.
+	(ipa_node_params_vector): New variable.
+	(ipa_edge_args_vector): New variable.
+	(edge_removal_hook_holder): New variable.
+	(node_removal_hook_holder): New variable.
+	(edge_duplication_hook_holder): New variable.
+	(node_duplication_hook_holder): New variable.
+	(ipa_detect_param_modifications): Check for presence of modified flags.
+	(ipa_compute_jump_functions): Check for presence of jump functions.
+	(ipa_free_edge_args_substructures): New function.
+	(ipa_create_node_params): Removed.
+	(ipa_free_all_edge_args): Changed to deallocate the on-the-side vector.
+	(ipa_free_node_params_substructures): New function.
+	(ipa_free_all_node_params): Changed to deallocate the on-the-side
+	vector.
+	(ipa_edge_removal_hook): New function.
+	(ipa_node_removal_hook): New function.
+	(duplicate_array): New function.
+	(ipa_edge_duplication_hook): New function.
+	(ipa_node_duplication_hook): New function.
+	(ipa_register_cgraph_hooks): New function.
+	(ipa_unregister_cgraph_hooks): New function.
+	(free_all_ipa_structures_after_ipa_cp): New function.
+	
+	* ipa-prop.h: Include vec.h.
+	(ipa_node_params_t): New typedef with vector types for it.
+	(ipa_edge_args_t):  New typedef with vector types for it.
+	(IPA_NODE_REF): Changed to access an on-the-side vector.
+	(IPA_EDGE_REF): Changed to access an on-the-side vector.
+	(ipa_check_create_node_params): New function.
+	(ipa_check_create_edge_args): New function.
+	
+	* Makefile.in (IPA_PROP_H): New variable for ipa-prop.h.  Converted
+	all users.
+	
+2008-07-07  Tom Tromey  <tromey@redhat.com>
+
+	* configure, config.in: Rebuilt.
+	* configure.ac: Don't check for scandir or alphasort.
+
+2008-07-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (arm_init_neon_builtins): Register built-in
+	types immediately after creating them.
+
+2008-07-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/aout.h (DOLLARS_IN_IDENTIFIERS): Remove.
+
+2008-07-07  Fernando Pereira <fernando@cs.ucla.edu>
+
+        * tree-ssa-structalias.c (compute_points_to_sets): Add call to
+        dump_constraint_graph.
+        (dump_constraint_edge): New function.
+        (dump_constraint_graph): New function.
+        (debug_constraint_graph): New function.
+        (dump_constraint): Removed useless comparison.
+        * tree-ssa-structalias.h (dump_constraint_edge): Declare.
+        (dump_constraint_graph): Declare.
+        (debug_constraint_graph): Declare.
+        * tree-dump.c (struct dump_option_value_info): Declare
+        TDF_GRAPH.
+
+2008-07-07  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/i386.c (is_va_list_char_pointer): New.
+	(ix86_va_start): Replace compare with ms_va_list_type_node
+	by is_va_list_char_pointer.
+	(ix86_gimplify_va_arg): Likewise.
+
+2008-07-07  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.c (cgraph_edge_max_uid): New variable.
+	(struct cgraph_edge_hook_list): New type.
+	(struct cgraph_node_hook_list): New type.
+	(struct cgraph_2edge_hook_list): New type.
+	(struct cgraph_2node_hook_list): New type.
+	(first_cgraph_edge_removal_hook): New variable.
+	(first_cgraph_node_removal_hook): New variable.
+	(first_cgraph_edge_duplicated_hook): New variable.
+	(first_cgraph_node_duplicated_hook): New variable.
+	(cgraph_add_edge_removal_hook): New function.
+	(cgraph_remove_edge_removal_hook): New function.
+	(cgraph_call_edge_removal_hooks):  New function.
+	(cgraph_add_node_removal_hook):  New function.
+	(cgraph_remove_node_removal_hook):  New function.
+	(cgraph_call_node_removal_hooks):  New function.
+	(cgraph_add_edge_duplication_hook):  New function.
+	(cgraph_remove_edge_duplication_hook):  New function.
+	(cgraph_call_edge_duplication_hooks):  New function.
+	(cgraph_add_node_duplication_hook):  New function.
+	(cgraph_remove_node_duplication_hook):  New function.
+	(cgraph_call_node_duplication_hooks):  New function.
+	(cgraph_create_edge): Assign to edge uid.
+	(cgraph_remove_edge): Call edge removal hooks.
+	(cgraph_node_remove_callees): Call edge removal hooks.
+	(cgraph_node_remove_callers): Call edge removal hooks.
+	(cgraph_remove_node): Call node removal hooks.
+	(cgraph_clone_edge): Call edge duplication hooks.
+	(cgraph_clone_node): Call node duplication hooks.
+
+	* cgraph.h (cgraph_edge): New field uid.
+	(cgraph_edge_hook): New type.
+	(cgraph_node_hook): New type.
+	(cgraph_2edge_hook): New type.
+	(cgraph_2node_hook): New type.
+
+2008-07-07  Andreas Tobler  <a.tobler@schweiz.org>
+
+	* config.in: Regenerate.
+
+2008-07-07  Vladimir Prus  <vladimir@codesourcery.com>
+
+	* gcc.c (print_sysroot): New.
+	(option_map, display_help, process_command): Handle the
+	-print-sysroot option.
+	(main): Print the sysroot if requested.
+	* doc/invoke.texi (Debugging Options): Document -print-sysroot.
+	
+2008-07-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR target/34780
+	* unwind-pe.h (size_of_encoded_value): add attribute unused.
+
+2008-07-07  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* function.c (assign_parm_remove_parallels): Check mode of
+	entry_parm.
+	(assign_parm_setup_block_p): Also check mode of entry_parm.
+
+2008-07-07  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.h (set_used_smts): Remove.
+	* tree-ssa-structalias.c (used_smts): Likewise.
+	(set_used_smts): Likewise.
+	* tree-ssa-alias.c (compute_flow_sensitive_aliasing): Remove
+	call to set_used_smts.
+
+2008-07-07  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (struct variable_info): Add is_full_var flag.
+	(new_var_info): Set it to false.
+	(solution_set_add): Correctly handle pointers outside a var and
+	inside a field.
+	(type_safe): Treat variables with is_full_var properly.
+	(do_sd_constraint): Likewise.
+	(do_ds_constraint): Likewise.
+	(process_constraint): Remove zeroing offset for !use_field_sensitive.
+	(get_constraint_for_ptr_offset): New function.
+	(get_constraint_for_component_ref): For addresses at least include
+	the last field of the variable.  Handle is_full_vars properly.
+	(get_constraint_for_1): Factor common code, handle POINTER_PLUS_EXPR.
+	(handle_ptr_arith): Remove.
+	(find_func_aliases): Simplify assignment handling.
+	(create_function_info_for): For parameter and result varinfos set
+	is_full_var flag.
+	(create_variable_info_for): Set is_full_var flag whenever we
+	just created a single varinfo for a decl.
+	(init_alias_vars): Initialize use_field_sensitive from
+	max-fields-for-field-sensitive parameter.
+
+2008-07-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36713
+	* tree-flow-inline.h (is_call_used): New function.
+	* tree-nrv.c (dest_safe_for_nrv_p): Use it.
+	* tree-tailcall.c (suitable_for_tail_opt_p): Likewise.
+	* tree-outof-ssa.c (create_temp): Set call-used flag if required.
+
 2008-07-07  Maxim Kuvyrkov  <maxim@codesourcery.com>
 
 	* config/m68k/m68k.c (m68k_return_in_memory): Fix arguments types.
