@@ -1536,7 +1536,6 @@ remove_useless_stmts_warn_notreached (gimple_seq stmts)
 static void
 remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
 {
-  tree cond;
   gimple stmt = gsi_stmt (*gsi);
 
   /* The folded result must still be a conditional statement.  */
@@ -1544,33 +1543,23 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
 
   data->may_branch = true;
 
-  /* Attempt to evaluate the condition at compile-time.
-     Because we are in GIMPLE here, only the most trivial
-     comparisons of a constant to a constant can be handled.
-     Calling fold_binary is thus a bit of overkill, as it
-     creates temporary tree nodes that are discarded immediately.  */
-  cond = fold_binary (gimple_cond_code (stmt),
-                      boolean_type_node,
-                      gimple_cond_lhs (stmt),
-                      gimple_cond_rhs (stmt));
-
   /* Replace trivial conditionals with gotos. */
-  if (cond && integer_nonzerop (cond))
+  if (gimple_cond_true_p (stmt))
     {
       /* Goto THEN label.  */
       tree then_label = gimple_cond_true_label (stmt);
 
-      gsi_replace(gsi, gimple_build_goto (then_label), false);
+      gsi_replace (gsi, gimple_build_goto (then_label), false);
       data->last_goto_gsi = *gsi;
       data->last_was_goto = true;
       data->repeat = true;
     }
-  else if (cond && integer_zerop (cond))
+  else if (gimple_cond_false_p (stmt))
     {
       /* Goto ELSE label.  */
       tree else_label = gimple_cond_false_label (stmt);
 
-      gsi_replace(gsi, gimple_build_goto (else_label), false);
+      gsi_replace (gsi, gimple_build_goto (else_label), false);
       data->last_goto_gsi = *gsi;
       data->last_was_goto = true;
       data->repeat = true;
@@ -1579,7 +1568,7 @@ remove_useless_stmts_cond (gimple_stmt_iterator *gsi, struct rus_data *data)
     {
       tree then_label = gimple_cond_true_label (stmt);
       tree else_label = gimple_cond_false_label (stmt);
-      
+
       if (then_label == else_label)
         {
           /* Goto common destination.  */
