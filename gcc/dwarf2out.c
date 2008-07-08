@@ -642,7 +642,8 @@ add_cfi (dw_cfi_ref *list_head, dw_cfi_ref cfi)
         case DW_CFA_def_cfa_offset_sf:
         case DW_CFA_def_cfa:
         case DW_CFA_def_cfa_sf:
-          return;
+	  gcc_unreachable ();
+
         default:
           break;
       }
