@@ -1,3 +1,9 @@
+2008-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36726
+	* f95-lang.c (poplevel): Don't ever add subblocks to
+	global_binding_level.
+
 2008-06-20  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
 	    Tobias Burnus  <burnus@net-b.de>
 
