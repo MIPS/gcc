@@ -1,3 +1,10 @@
+2008-07-08  H.J. Lu  <hongjiu.lu@intel.com>
+	    Xuepeng Guo  <xuepeng.guo@intel.com>
+
+	* dwarf2out.c (dw_fde_node): Add drap_reg_saved.
+	(dwarf2out_frame_debug_expr): Update rule 16 to set drap_reg,
+	update rules 19 and 20.
+
 2008-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* dwarf2out.c (add_cfi): Don't allow redefine CFA when CFA is

@@ -249,6 +249,8 @@ typedef struct dw_fde_struct GTY(())
   unsigned uses_eh_lsda : 1;
   /* Whether we did stack realign in this call frame.  */
   unsigned stack_realign : 1;
+  /* Whether dynamic realign argument pointer register has been saved.  */
+  unsigned drap_reg_saved: 1;
 }
 dw_fde_node;
 
@@ -1588,6 +1590,7 @@ static dw_cfa_location cfa_temp;
   constraints: cfa_store.reg == sp
   effects: current_fde.stack_realign = 1
            cfa_store.offset = 0
+	   fde->drap_reg = cfa.reg if cfa.reg != sp and cfa.reg != fp
 
   Rule 17:
   (set (mem ({pre_inc, pre_dec} sp)) (mem (plus (cfa.reg) (const_int))))
@@ -1606,21 +1609,14 @@ static dw_cfa_location cfa_temp;
                && cfa.indirect == 0
                && cfa.reg != HARD_FRAME_POINTER_REGNUM
   effects: Use DW_CFA_def_cfa_expression to define cfa
-	   fde->drap_reg = cfa.reg 
+  	   cfa.reg == fde->drap_reg
 
   Rule 20:
-  Special case for set (vdrap drap)
-  (set reg cfa.reg})
-  constraints: fde->stack_realign == 1
-               && cfa.offset == 0
-               && cfa.indirect == 0
-               && cfa.reg != HARD_FRAME_POINTER_REGNUM
-  effects: fde->vdrap_reg = reg
-  (set reg drap_reg)
-  constraints: fde->stack_realign == 1
+  (set reg fde->drap_reg)
+  constraints: fde->vdrap_reg == INVALID_REGNUM
   effects: fde->vdrap_reg = reg.
-  (set mem drap_reg)
-  constraints: fde->stack_realign == 1
+  (set mem fde->drap_reg)
+  constraints: fde->drap_reg_saved == 1
   effects: none.  */
 
 static void
@@ -1683,14 +1679,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 
   if (GET_CODE (src) == REG
       && fde
-      && fde->stack_realign
-      && ((fde->drap_reg != INVALID_REGNUM
-	   && fde->drap_reg == REGNO (src))
-	  || (GET_CODE (dest) == REG
-	      && cfa.offset == 0
-	      && cfa.indirect == 0
-	      && cfa.reg != HARD_FRAME_POINTER_REGNUM
-	      && cfa.reg == (unsigned) REGNO (src))))
+      && fde->drap_reg == REGNO (src)
+      && (fde->drap_reg_saved
+	  || GET_CODE (dest) == REG))
     {
       /* Rule 20 */
       /* If we are saving dynamic realign argument pointer to a
@@ -1741,9 +1732,7 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		  && fde->stack_realign
 		  && REGNO (src) == STACK_POINTER_REGNUM)
 		gcc_assert (REGNO (dest) == HARD_FRAME_POINTER_REGNUM
-			    && (fde->drap_reg != INVALID_REGNUM
-				|| (cfa.indirect == 0
-				    && cfa.reg != REGNO (dest)))
+			    && fde->drap_reg != INVALID_REGNUM
 			    && cfa.reg != REGNO (src));
 	      else
 		queue_reg_save (label, src, dest, 0);
@@ -1890,6 +1879,10 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
               fde->stack_realign = 1;
               fde->stack_realignment = INTVAL (XEXP (src, 1));
               cfa_store.offset = 0;
+
+	      if (cfa.reg != STACK_POINTER_REGNUM
+		  && cfa.reg != HARD_FRAME_POINTER_REGNUM)
+		fde->drap_reg = cfa.reg;
             }
           return;
 
@@ -2029,12 +2022,14 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
                 {
 		  dw_cfa_location cfa_exp;
 
+		  gcc_assert (fde->drap_reg == cfa.reg);
+
 		  cfa_exp.indirect = 1;
 		  cfa_exp.reg = HARD_FRAME_POINTER_REGNUM;
 		  cfa_exp.base_offset = offset;
 		  cfa_exp.offset = 0;
 
-		  fde->drap_reg = cfa.reg;
+		  fde->drap_reg_saved = 1;
 
 		  def_cfa_1 (label, &cfa_exp);
 		  break;
