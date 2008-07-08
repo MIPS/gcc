@@ -46,9 +46,9 @@ along with GCC; see the file COPYING3.  If not see
    0..IRA_MAX_POINT-1.  There are approximately two times more program
    points than insns.  Program points are places in the program where
    liveness info can be changed.  In most general case (there are more
-   complicated cases too) some program points correspond places where
-   input operand dies and other ones correspond to places where output
-   operands are born.  */
+   complicated cases too) some program points correspond to places
+   where input operand dies and other ones correspond to places where
+   output operands are born.  */
 int ira_max_point;
 
 /* Arrays of size IRA_MAX_POINT mapping a program point to the allocno

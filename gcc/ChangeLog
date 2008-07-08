@@ -1,3 +1,13 @@
+2008-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-build.c (ira_flattening): Rename
+	new_allocnos_p to new_pseudos_p.  Remove renamed_p.  Use
+	new_pseudos_p instead of renamed_p.
+
+	* ira-lives.c (max_point): Fix a typo in the comment.
+
+	* ira-int.h (max_point): Ditto.
+
 2008-07-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-color.c, ira-conflics.c, ira-lives.c, ira-emit.c,

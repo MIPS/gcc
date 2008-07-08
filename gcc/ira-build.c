@@ -1941,7 +1941,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
   int i, j, num;
   bool propagate_p, stop_p, keep_p;
   int hard_regs_num;
-  bool new_allocnos_p, renamed_p, merged_p;
+  bool new_pseudos_p, merged_p;
   unsigned int n;
   enum reg_class cover_class;
   rtx call, *allocno_calls;
@@ -1966,7 +1966,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
     = (bool *) ira_allocate (ira_allocnos_num * sizeof (bool));
   memset (allocno_propagated_p, 0, ira_allocnos_num * sizeof (bool));
   expand_calls ();
-  new_allocnos_p = renamed_p = merged_p = false;
+  new_pseudos_p = merged_p = false;
   /* Fix final allocno attributes.  */
   for (i = max_regno_before_emit - 1; i >= FIRST_PSEUDO_REGISTER; i--)
     {
@@ -1978,7 +1978,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  if (ALLOCNO_CAP_MEMBER (a) != NULL)
 	    continue;
 	  if (ALLOCNO_SOMEWHERE_RENAMED_P (a))
-	    renamed_p = true;
+	    new_pseudos_p = true;
 	  if ((unsigned int) ALLOCNO_REGNO (a) != REGNO (ALLOCNO_REG (a))
 	      && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	    {
@@ -2043,7 +2043,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 		   || ALLOCNO_MEM_OPTIMIZED_DEST_P (a));
 	      continue;
 	    }
-	  new_allocnos_p = true;
+	  new_pseudos_p = true;
 	  propagate_p = true;
 	  first = ALLOCNO_MEM_OPTIMIZED_DEST (a) == NULL ? NULL : a;
 	  for (;;)
@@ -2121,9 +2121,8 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	}
     }
   ira_free (allocno_propagated_p);
-  ira_assert (new_allocnos_p || renamed_p
-	      || ira_max_point_before_emit == ira_max_point);
-  if (new_allocnos_p)
+  ira_assert (new_pseudos_p || ira_max_point_before_emit == ira_max_point);
+  if (new_pseudos_p)
     {
       /* Fix final allocnos attributes concerning calls.  */
       compress_calls ();
@@ -2139,12 +2138,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
     }
   if (merged_p || ira_max_point_before_emit != ira_max_point)
     ira_rebuild_start_finish_chains ();
-  /* We should rebuild conflicts even if there are no new allocnos in
-     situation when a pseudo used locally in loops and locally in the
-     subloop because some allocnos are in conflict with the subloop
-     allocno and they finally should be in conflict with the loop
-     allocno.  */
-  if (new_allocnos_p || renamed_p)
+  if (new_pseudos_p)
     {
       /* Rebuild conflicts.  */
       FOR_EACH_ALLOCNO (a, ai)
