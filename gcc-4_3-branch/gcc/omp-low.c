@@ -3297,8 +3297,8 @@ expand_omp_taskreg (struct omp_region *region)
       if (exit_bb)
 	single_succ_edge (new_bb)->flags = EDGE_FALLTHRU;
 
-      /* Remove non-local VAR_DECLs from child_cfun->local_decls list.  */
-      for (tp = &child_cfun->local_decls; *tp; )
+      /* Remove non-local VAR_DECLs from child_cfun->unexpanded_var_list.  */
+      for (tp = &child_cfun->unexpanded_var_list; *tp; )
 	if (DECL_CONTEXT (TREE_VALUE (*tp)) != cfun->decl)
 	  tp = &TREE_CHAIN (*tp);
 	else

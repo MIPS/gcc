@@ -18,7 +18,8 @@
 	* tree-flow.h (move_sese_region_to_fn): Adjust prototype.
 	* omp-low.c (expand_omp_taskreg): Set TREE_USED on DECL_INITIAL
 	BLOCK of the new function.  Adjust move_sese_region_to_fn caller.
-	Prune vars with original DECL_CONTEXT from child_cfun->local_decls.
+	Prune vars with original DECL_CONTEXT from
+	child_cfun->unexpanded_var_list.
 	(expand_omp): Temporarily set input_location to the location of
 	region's controlling stmt.
 	(lower_omp_sections, lower_omp_for): Add a BLOCK into outermost
