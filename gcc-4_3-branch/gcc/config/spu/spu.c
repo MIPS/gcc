@@ -176,6 +176,8 @@ static int cpat_info(unsigned char *arr, int size, int *prun, int *pstart);
 static enum immediate_class classify_immediate (rtx op,
 						enum machine_mode mode);
 
+static enum machine_mode spu_unwind_word_mode (void);
+
 static enum machine_mode
 spu_libgcc_cmp_return_mode (void);
 
@@ -193,8 +195,8 @@ tree spu_builtin_types[SPU_BTI_MAX];
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN spu_expand_builtin
 
-#undef TARGET_EH_RETURN_FILTER_MODE
-#define TARGET_EH_RETURN_FILTER_MODE spu_eh_return_filter_mode
+#undef TARGET_UNWIND_WORD_MODE
+#define TARGET_UNWIND_WORD_MODE spu_unwind_word_mode
 
 /* The .8byte directive doesn't seem to work well for a 32 bit
    architecture. */
@@ -4305,12 +4307,10 @@ spu_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED, int *total)
   return true;
 }
 
-enum machine_mode
-spu_eh_return_filter_mode (void)
+static enum machine_mode
+spu_unwind_word_mode (void)
 {
-  /* We would like this to be SImode, but sjlj exceptions seems to work
-     only with word_mode. */
-  return TImode;
+  return SImode;
 }
 
 /* Decide whether we can make a sibling call to a function.  DECL is the
@@ -4567,15 +4567,6 @@ spu_builtin_splats (rtx ops[])
       unsigned char arr[16];
       constant_to_array (GET_MODE_INNER (mode), ops[1], arr);
       emit_move_insn (ops[0], array_to_constant (mode, arr));
-    }
-  else if (!flag_pic && GET_MODE (ops[0]) == V4SImode && CONSTANT_P (ops[1]))
-    {
-      rtvec v = rtvec_alloc (4);
-      RTVEC_ELT (v, 0) = ops[1];
-      RTVEC_ELT (v, 1) = ops[1];
-      RTVEC_ELT (v, 2) = ops[1];
-      RTVEC_ELT (v, 3) = ops[1];
-      emit_move_insn (ops[0], gen_rtx_CONST_VECTOR (mode, v));
     }
   else
     {
@@ -4895,7 +4886,9 @@ spu_expand_vector_init (rtx target, rtx vals)
   for (i = 0; i < n_elts; ++i)
     {
       x = XVECEXP (vals, 0, i);
-      if (!CONSTANT_P (x))
+      if (!(CONST_INT_P (x)
+	    || GET_CODE (x) == CONST_DOUBLE
+	    || GET_CODE (x) == CONST_FIXED))
 	++n_var;
       else
 	{
@@ -4932,8 +4925,13 @@ spu_expand_vector_init (rtx target, rtx vals)
 	  /* fill empty slots with the first constant, this increases
 	     our chance of using splats in the recursive call below. */
 	  for (i = 0; i < n_elts; ++i)
-	    if (!CONSTANT_P (XVECEXP (constant_parts_rtx, 0, i)))
-	      XVECEXP (constant_parts_rtx, 0, i) = first_constant;
+	    {
+	      x = XVECEXP (constant_parts_rtx, 0, i);
+	      if (!(CONST_INT_P (x)
+		    || GET_CODE (x) == CONST_DOUBLE
+		    || GET_CODE (x) == CONST_FIXED))
+		XVECEXP (constant_parts_rtx, 0, i) = first_constant;
+	    }
 
 	  spu_expand_vector_init (target, constant_parts_rtx);
 	}
@@ -4949,7 +4947,9 @@ spu_expand_vector_init (rtx target, rtx vals)
       for (i = 0; i < n_elts; ++i)
 	{
 	  x = XVECEXP (vals, 0, i);
-	  if (!CONSTANT_P (x))
+	  if (!(CONST_INT_P (x)
+		|| GET_CODE (x) == CONST_DOUBLE
+		|| GET_CODE (x) == CONST_FIXED))
 	    {
 	      if (!register_operand (x, GET_MODE (x)))
 		x = force_reg (GET_MODE (x), x);

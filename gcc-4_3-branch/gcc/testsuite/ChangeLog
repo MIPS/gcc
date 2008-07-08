@@ -1,3 +1,167 @@
+2008-07-07  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/34963
+	* g++.dg/parse/dtor13.C: New test.
+
+2008-07-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization3.adb: New test.
+	* gnat.dg/loop_optimization3_pkg.ad[sb]: New helper.
+
+2008-07-03  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.dg/pr28243.c: Skip on SPU.
+	* gcc.dg/torture/pr25947-1.c: Likewise.
+	* gcc.dg/20030702-1.c: Likewise.
+	* g++.old-deja/g++.other/comdat5.C: Likewise.
+	* g++.old-deja/g++.other/local-alloc1.C: Likewise.
+	* g++.dg/opt/vt1.C: Likewise.
+
+2008-07-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/arm/neon/polytypes.c: Use dg-message separately from
+	dg-error to match separate messages.
+
+2008-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/36698
+	* gcc.c-torture/compile/20001226-1.c: XFAIL -O0 case on SPU.
+
+	* gcc.dg/pr27095.c: Provide target-specific regexp for SPU.
+
+2008-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* lib/compat.exp (compat-execute): Add -ffunction-sections
+	and -Wl,--auto-overlay when building for spu-*-elf*.
+
+2008-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.dg/nrv3.c (S): Increase size of padding for SPU.
+	* g++.dg/opt/temp1.C (struct T): Likewise.
+
+2008-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20030222-1.x: New file.
+	* gcc.dg/tree-ssa/ssa-fre-3.c: Disable test on SPU.
+	* gcc.dg/lower-subreg-1.c: Likewise.
+
+2008-07-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	SPU single-precision FP does not support subnormals:
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: New file.
+
+	SPU single-precision FP does not support Inf or Nan:
+	* gcc.c-torture/execute/ieee/inf-1.c: Disable "float" Inf test on SPU.
+	* gcc.c-torture/execute/ieee/compare-fp-1.x: New file.
+	* gcc.c-torture/execute/ieee/compare-fp-4.x: Disable test on SPU.
+	* gcc.c-torture/execute/ieee/fp-cmp-2.x: Disable test on SPU.
+	* gcc.c-torture/execute/ieee/fp-cmp-4f.x: New file.
+	* gcc.c-torture/execute/ieee/fp-cmp-8f.x: New file.
+	* gcc.dg/pr15784-3.c: Disable test on SPU.
+	* gcc.dg/pr28796-2.c: Likewise.
+	* gcc.dg/float-range-1.c: Likewise.
+	* gcc.dg/float-range-3.c: Likewise.
+	* gcc.dg/float-range-4.c: Likewise.
+	* gcc.dg/float-range-5.c: Likewise.
+	* gcc.dg/fold-overflow-1.c: Likewise.
+	* gcc.dg/builtins-1.c: SPU does not support __builtin_inff.
+	* gcc.dg/builtin-inf-1.c: SPU does not support __builtin_inff.
+	Check for error instead of warning "does not support infinity".
+	* gcc.dg/builtins-43.c: Disable "float" Inf/Nan tests on SPU. 
+	* gcc.dg/builtins-44.c: Likewise.
+	* gcc.dg/builtins-45.c: Likewise.
+	* gcc.dg/torture/builtin-math-2.c: Likewise.
+	* gcc.dg/torture/builtin-logb-1.c: Likewise.
+	* gcc.dg/torture/builtin-modf-1.c: Likewise.
+	* gcc.dg/torture/builtin-ldexp-1.c: Likewise.
+	* gcc.dg/torture/builtin-frexp-1.c: Likewise.
+	* gcc.dg/torture/type-generic-1.c: Disable test on SPU.
+	* g++.dg/torture/type-generic-1.C: Likewise.
+
+	SPU single-precision FP always rounds towards zero:
+	* gcc.c-torture/execute/ieee/920518-1.x: New file.
+	* gcc.c-torture/execute/ieee/20010114-2.x: New file.
+	* gcc.c-torture/execute/ieee/20030331-1.x: New file.
+	* gcc.dg/torture/fp-int-convert-float.c: Disable test on SPU.
+	* gcc.dg/torture/fp-int-convert-timode.c: Disable "float" test on SPU.
+
+2008-07-02  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/costmodel/spu/costmodel-vect-iv-9.c: Add noinline
+	attribute to main1().
+	* gcc.dg/vect/costmodel/spu/costmodel-vect-33.c: Increase the loop
+	bound in order to make it worth to vectorize the loop.
+	* gcc.dg/vect/costmodel/spu/costmodel-vect-76b.c: Likewise.
+
+2008-07-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org
+
+	PR fortran/36676
+	PR fortran/36657
+	PR fortran/36546
+	PR fortran/36538
+	* gfortran.dg/namelist_50.f90
+	* gfortran.dg/namelist_51.f90
+	* gfortran.dg/namelist_48.f90
+	* gfortran.dg/namelist_49.f90
+
+2008-07-01  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36648
+	* g++.dg/vect/pr36648.cc: New testcase.
+
+2008-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36662
+	* g++.dg/ext/altivec-16.C: New test.
+
+2008-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/36620
+	* gcc.dg/pr36504.c: Add -w to dg-options.
+
+2008-06-29  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/pr36493.c: Require vect_long.
+
+2008-06-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/20080628-1.c: New test.
+
+2008-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36364
+	* g++.dg/template/repo9.C: New test.
+
+2008-06-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/inline-31.c, gcc.dg/inline-32.c, gcc.dg/inline-32a.c: New
+	tests.
+
+2008-06-26  Ira Rosen  <irar@il.ibm.com>
+
+	* testsuite/lib/target-supports.exp
+	(check_effective_target_vect_cmdline_needed): Add SPU to the list
+	of targets that do not need command line argument to enable SIMD.
+
+2008-06-26  Ira Rosen  <irar@il.ibm.com>
+
+	PR target/36510
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-31d.c: Change the loop
+	bound.
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-68d.c: Likewise.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.c-torture/compile/20080625-1.c: New testcase.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* g++.dg/torture/20080625-1.C: New testcase.
+
+2008-06-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/warn5.adb: New test.
+
 2008-06-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/36504

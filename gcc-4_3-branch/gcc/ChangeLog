@@ -1,3 +1,142 @@
+2008-07-07  Kaz Kojima  <kkojima@gcc.gnu.org>
+	
+	Backport from mainline:
+	PR target/36736
+	2008-02-29  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_secondary_reload): Handle loading a float
+	constant to fpul.
+
+2008-07-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR target/34780
+	* unwind-pe.h (size_of_encoded_value): add attribute unused.
+
+2008-07-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/36684
+	* config/sh/sh.h (OVERRIDE_OPTIONS): Disable -fschedule-insns
+	for PIC.
+
+2008-07-04  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/36634
+	* config/rs6000/rs6000.md (call, call_value): Don't arrange for
+	pic_offset_table_rtx to be marked as used here.
+	(call_nonlocal_sysv, call_value_nonlocal_sysv): Add split for
+	TARGET_SECURE_PLT to "use" pic_offset_table_rtx.
+	(call_nonlocal_sysv_secure, call_value_nonlocal_sysv_secure): New insn.
+	(sibcall_nonlocal_sysv, sibcall_value_nonlocal_sysv): Assert
+	!TARGET_SECURE_PLT.
+
+2008-07-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-flow.h (loop_only_exit_p): Declare.
+	* tree-ssa-loop-niter.c (loop_only_exit_p): Make public.
+	* tree-ssa-loop-ivopts.c (may_eliminate_iv): Reinstate direct check on
+	the number of iterations if it is constant.  Otherwise, if this is the
+	only possible exit of the loop, use the conservative estimate on the
+	number of iterations of the entire loop if available.
+
+2008-07-01  Steve Ellcey  <sje@cup.hp.com>
+
+	Backport from mainline:
+	* config/ia64/ia64.c (ia64_cannot_force_const_mem): Do not allow
+	RFmode constants.
+
+2008-07-01  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR rtl-optimization/34744
+	* df-scan.c (df_scan_free_ref_vec, df_scan_free_mws_vec): New
+	macros.
+       	(df_scan_free_internal): Free data structures not
+	allocated in storage pools.
+	(df_mw_hardreg_chain_delete_eq_uses): Use df_scan_free_mws_vec.
+	(df_refs_add_to_chains): Use df_scan_free_ref_vec and 
+	df_scan_free_mws_vec.
+	* dse.c (dse_step6): Free offset_map_p and offset_map_n
+	unconditionally.
+	* ifcvt.c (cond_move_process_if_block): Free vectors on false
+	return.
+
+2008-07-01  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/36648
+	* tree-vect-transform.c (vect_do_peeling_for_loop_bound): Divide
+	number of prolog iterations by step. Fix the comment.
+
+2008-06-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Reject TFmode
+	constants for E500 double.
+
+2008-06-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR target/34856
+	* config/spu/spu.c (spu_builtin_splats): Do not generate
+	invalid CONST_VECTOR expressions.
+	(spu_expand_vector_init): Likewise.
+
+2008-06-26  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* targhooks.h (struct gcc_target): New member unwind_word_mode.
+	(default_unwind_word_mode): Add prototype.
+	* targhooks.c (default_unwind_word_mode): New function.
+	(default_eh_return_filter_mode): Return targetm.unwind_word_mode ()
+	instead of word_mode.
+	* target-def.h (TARGET_UNWIND_WORD_MODE): New macro.
+	(TARGET_INITIALIZER): Use it.
+
+	* c-common.c (handle_mode_attribute): Support "unwind_word"
+	mode attribute.
+	* unwind-generic.h (_Unwind_Word, _Unwind_Sword): Use it.
+
+	* except.c (init_eh): Use targetm.unwind_word_mode () instead of
+	word_mode to access SjLj_Function_Context member "data".
+	(sjlj_emit_dispatch_table): Likewise.  Also, perform type
+	conversion from targetm.eh_return_filter_mode () to
+	targetm.unwind_word_mode () if they differ.
+
+	* builtin-types.def (BT_UNWINDWORD): New primitive type.
+	(BT_FN_UNWINDWORD_PTR): New function type.
+	(BT_FN_WORD_PTR): Remove.
+	* builtins.def (BUILT_IN_EXTEND_POINTER): Use BT_FN_UNWINDWORD_PTR.
+	* except.c (expand_builtin_extend_pointer): Convert pointer to
+	targetm.unwind_word_mode () instead of word_mode.
+
+	* config/spu/spu-protos.h (spu_eh_return_filter_mode): Remove.
+	* config/spu/spu.c (spu_eh_return_filter_mode): Remove.
+	(spu_unwind_word_mode): New function.
+	(TARGET_EH_RETURN_FILTER_MODE): Do not define.
+	(TARGET_UNWIND_WORD_MODE): Define.
+	* config/spu/t-spu-elf (TARGET_LIBGCC2_CFLAGS): Remove -D__word__=SI.
+
+2008-06-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (merge_decls): Use !current_function_decl to check for
+	extern declaration of C99 inline function being at file scope.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (fieldoff_compare): Make sure to
+	not overflow the result type.
+
+2008-06-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vn.c (vn_add): Handle TRUTH_*_EXPR.
+	(vn_lookup): Likewise.
+
+2008-06-25  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/invoke.texi (Optimize Options) <fstrict-aliasing>: Add
+	anchor for the type-punning blurb.  Cross-reference "Structures
+	unions enumerations and bit-fields implementation".  Provide a
+	cast-through-pointer example.  Make final sentence self-contained.
+	* doc/implement-c.texi (Structures unions enumerations and
+	bit-fields implementation): Cross-reference the type-punning blurb
+	in the -fstrict-aliasing documentation.
+
 2008-06-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/36504
