@@ -2525,59 +2525,6 @@ gimple_set_loaded_syms (gimple stmt, bitmap syms, bitmap_obstack *obs)
     }
 }
 
-/* Determine if expression T is one of the valid expressions that can
-   be used on the RHS of GIMPLE assignments.  */
-
-enum gimple_rhs_class
-get_gimple_rhs_class (enum tree_code code)
-{
-  switch (TREE_CODE_CLASS (code))
-    {
-    case tcc_unary:
-      return GIMPLE_UNARY_RHS;
-
-    case tcc_binary:
-    case tcc_comparison:
-      return GIMPLE_BINARY_RHS;
-
-    case tcc_constant:
-    case tcc_declaration:
-    case tcc_reference:
-      return GIMPLE_SINGLE_RHS;
-
-    default:
-      break;
-    }
-
-  switch (code)
-    {
-    case TRUTH_AND_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_XOR_EXPR:
-      return GIMPLE_BINARY_RHS;
-
-    case TRUTH_NOT_EXPR:
-      return GIMPLE_UNARY_RHS;
-
-    case COND_EXPR:
-    case CONSTRUCTOR:
-    case OBJ_TYPE_REF:
-    case ASSERT_EXPR:
-    case ADDR_EXPR:
-    case WITH_SIZE_EXPR:
-    case EXC_PTR_EXPR:
-    case SSA_NAME:
-    case FILTER_EXPR:
-    case POLYNOMIAL_CHREC:
-      return GIMPLE_SINGLE_RHS;
-
-    default:
-      break;
-    }
-
-  return GIMPLE_INVALID_RHS;
-}
-
 
 /* Return the number of operands needed on the RHS of a GIMPLE
    assignment for an expression with tree code CODE.  */
@@ -2594,5 +2541,37 @@ get_gimple_rhs_num_ops (enum tree_code code)
   else
     gcc_unreachable ();
 }
+
+#define DEFTREECODE(SYM, STRING, TYPE, NARGS)   			    \
+  (unsigned char)							    \
+  ((TYPE) == tcc_unary ? GIMPLE_UNARY_RHS				    \
+   : ((TYPE) == tcc_binary						    \
+      || (TYPE) == tcc_comparison) ? GIMPLE_BINARY_RHS   		    \
+   : ((TYPE) == tcc_constant						    \
+      || (TYPE) == tcc_declaration					    \
+      || (TYPE) == tcc_reference) ? GIMPLE_SINGLE_RHS			    \
+   : ((SYM) == TRUTH_AND_EXPR						    \
+      || (SYM) == TRUTH_OR_EXPR						    \
+      || (SYM) == TRUTH_XOR_EXPR) ? GIMPLE_BINARY_RHS			    \
+   : (SYM) == TRUTH_NOT_EXPR ? GIMPLE_UNARY_RHS				    \
+   : ((SYM) == COND_EXPR						    \
+      || (SYM) == CONSTRUCTOR						    \
+      || (SYM) == OBJ_TYPE_REF						    \
+      || (SYM) == ASSERT_EXPR						    \
+      || (SYM) == ADDR_EXPR						    \
+      || (SYM) == WITH_SIZE_EXPR					    \
+      || (SYM) == EXC_PTR_EXPR						    \
+      || (SYM) == SSA_NAME						    \
+      || (SYM) == FILTER_EXPR						    \
+      || (SYM) == POLYNOMIAL_CHREC) ? GIMPLE_SINGLE_RHS			    \
+   : GIMPLE_INVALID_RHS),
+#define END_OF_BASE_TREE_CODES (unsigned char) GIMPLE_INVALID_RHS,
+
+const unsigned char gimple_rhs_class_table[] = {
+#include "all-tree.def"
+};
+
+#undef DEFTREECODE
+#undef END_OF_BASE_TREE_CODES
 
 #include "gt-gimple.h"

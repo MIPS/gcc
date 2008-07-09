@@ -47,6 +47,7 @@ enum gimple_code {
 };
 
 extern const char *const gimple_code_name[];
+extern const unsigned char gimple_rhs_class_table[];
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
 #if defined ENABLE_GIMPLE_CHECKING
@@ -842,7 +843,6 @@ bool gimple_could_trap_p (gimple);
 bool gimple_assign_rhs_could_trap_p (gimple);
 void gimple_regimplify_operands (gimple, gimple_stmt_iterator *);
 bool empty_body_p (gimple_seq);
-enum gimple_rhs_class get_gimple_rhs_class (enum tree_code);
 unsigned get_gimple_rhs_num_ops (enum tree_code);
 
 /* FIXME tuples.
@@ -1497,6 +1497,15 @@ static inline bool
 is_gimple_assign (const_gimple gs)
 {
   return gimple_code (gs) == GIMPLE_ASSIGN;
+}
+
+/* Determine if expression CODE is one of the valid expressions that can
+   be used on the RHS of GIMPLE assignments.  */
+
+static inline enum gimple_rhs_class
+get_gimple_rhs_class (enum tree_code code)
+{
+  return (enum gimple_rhs_class) gimple_rhs_class_table[(int) code];
 }
 
 /* Return the LHS of assignment statement GS.  */
