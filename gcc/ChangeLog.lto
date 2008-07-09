@@ -1,3 +1,10 @@
+2008-07-09  Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_binfo): Don't read flags. Don't read line
+	info.
+	* lto_static_init (lto_static_init): Reset TREE_BINFO in
+	lto_types_needed_for.
+
 2008-07-02  Rafael Espindola  <espindola@google.com>
 
 	* tree.c (reset_lang_specific): Remove local VAR_DECLs from
