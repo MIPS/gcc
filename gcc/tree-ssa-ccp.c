@@ -2278,7 +2278,6 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
       break;
 
     case COND_EXPR:
-      gcc_unreachable ();
       if (COMPARISON_CLASS_P (TREE_OPERAND (expr, 0)))
         {
 	  tree op0 = TREE_OPERAND (expr, 0);

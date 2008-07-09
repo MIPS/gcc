@@ -2359,16 +2359,21 @@ gimple_rhs_has_side_effects (const_gimple s)
 }
 
 
-/* Return true if statement S can trap.  */
+/* Helper for gimple_could_trap_p and gimple_assign_rhs_could_trap_p.
+   Return true if S can trap.  If INCLUDE_LHS is true and S is a
+   GIMPLE_ASSIGN, the LHS of the assignment is also checked.
+   Otherwise, only the RHS of the assignment is checked.  */
 
-bool
-gimple_could_trap_p (gimple s)
+static bool
+gimple_could_trap_p_1 (gimple s, bool include_lhs)
 {
-  unsigned i;
+  unsigned i, start;
   tree t, div = NULL_TREE;
   enum tree_code op;
 
-  for (i = 0; i < gimple_num_ops (s); i++)
+  start = (is_gimple_assign (s) && !include_lhs) ? 1 : 0;
+
+  for (i = start; i < gimple_num_ops (s); i++)
     if (tree_could_trap_p (gimple_op (s, i)))
       return true;
 
@@ -2389,18 +2394,36 @@ gimple_could_trap_p (gimple s)
       op = gimple_assign_rhs_code (s);
       if (get_gimple_rhs_class (op) == GIMPLE_BINARY_RHS)
 	div = gimple_assign_rhs2 (s);
-      if (operation_could_trap_p (op,
-				  FLOAT_TYPE_P (t),
-				  (INTEGRAL_TYPE_P (t)
-				   && TYPE_OVERFLOW_TRAPS (t)),
-				  div))
-	return true;
-      return false;
+      return (operation_could_trap_p (op, FLOAT_TYPE_P (t),
+				      (INTEGRAL_TYPE_P (t)
+				       && TYPE_OVERFLOW_TRAPS (t)),
+				      div));
 
     default:
-      return false;
+      break;
     }
 
+  return false;
+
+}
+
+
+/* Return true if statement S can trap.  */
+
+bool
+gimple_could_trap_p (gimple s)
+{
+  return gimple_could_trap_p_1 (s, true);
+}
+
+
+/* Return true if RHS of a GIMPLE_ASSIGN S can trap.  */
+
+bool
+gimple_assign_rhs_could_trap_p (gimple s)
+{
+  gcc_assert (is_gimple_assign (s));
+  return gimple_could_trap_p_1 (s, false);
 }
 
 

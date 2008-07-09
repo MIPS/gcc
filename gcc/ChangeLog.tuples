@@ -1,3 +1,17 @@
+2008-07-09  Doug Kwan  <dougkwan@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-ccp.c (fold_stmt_r): Remove gcc_unreachable
+	call from COND_EXPR handler.
+	* tree-if-conv.c: Tuplify.
+	* gimple.c (gimple_could_trap_p_1): Factor out of ...
+	(gimple_could_trap_p): ... here.
+	Call it.
+	(gimple_assign_rhs_could_trap_p): New.
+	* gimple.h (gimple_assign_rhs_could_trap_p): Declare.
+	* tree-ssa-operands.c (get_expr_operands): Handle
+	COND_EXPR.
+
 2008-07-08  Jakub Jelinek  <jakub@redhat.com>
 
 	Merge with mainline @137633.

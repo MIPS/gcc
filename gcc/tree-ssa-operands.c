@@ -1985,6 +1985,12 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       return;
 
+    case COND_EXPR:
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);
+      return;
+
     case CONSTRUCTOR:
       {
 	/* General aggregate CONSTRUCTORs have been decomposed, but they
