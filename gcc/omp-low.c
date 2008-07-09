@@ -5398,10 +5398,11 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   unsigned i, len;
   gimple stmt, new_stmt, bind, t;
   gimple_seq ilist, dlist, olist, new_body, body;
+  struct gimplify_ctx gctx;
 
   stmt = gsi_stmt (*gsi_p);
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   dlist = NULL;
   ilist = NULL;
@@ -5605,8 +5606,9 @@ lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree block;
   gimple t, bind, single_stmt = gsi_stmt (*gsi_p);
   gimple_seq bind_body, dlist;
+  struct gimplify_ctx gctx;
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   bind_body = NULL;
   lower_rec_input_clauses (gimple_omp_single_clauses (single_stmt),
@@ -5652,8 +5654,9 @@ lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree block, lab = NULL, x;
   gimple stmt = gsi_stmt (*gsi_p), bind;
   gimple_seq tseq;
+  struct gimplify_ctx gctx;
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   block = make_node (BLOCK);
   bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt),
@@ -5690,8 +5693,9 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
   gimple stmt = gsi_stmt (*gsi_p), bind, x;
+  struct gimplify_ctx gctx;
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   block = make_node (BLOCK);
   bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt),
@@ -5733,6 +5737,7 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree name, lock, unlock;
   gimple stmt = gsi_stmt (*gsi_p), bind;
   gimple_seq tbody;
+  struct gimplify_ctx gctx;
 
   name = gimple_omp_critical_name (stmt);
   if (name)
@@ -5782,7 +5787,7 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       unlock = build_call_expr (unlock, 0);
     }
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   block = make_node (BLOCK);
   bind = gimple_build_bind (NULL, gimple_seq_alloc_with_stmt (stmt), block);
@@ -5870,8 +5875,9 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple stmt = gsi_stmt (*gsi_p), new_stmt;
   gimple_seq omp_for_body, body, dlist, ilist;
   size_t i;
+  struct gimplify_ctx gctx;
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   lower_omp (gimple_omp_for_pre_body (stmt), ctx);
   lower_omp (gimple_omp_body (stmt), ctx);
@@ -6038,6 +6044,7 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
   bool record_needs_remap = false, srecord_needs_remap = false;
   splay_tree_node n;
   struct omp_taskcopy_context tcctx;
+  struct gimplify_ctx gctx;
 
   child_fn = gimple_omp_task_copy_fn (task_stmt);
   child_cfun = DECL_STRUCT_FUNCTION (child_fn);
@@ -6050,7 +6057,7 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
     DECL_CONTEXT (t) = child_fn;
 
   /* Populate the function.  */
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
   current_function_decl = child_fn;
 
   bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
@@ -6269,6 +6276,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple stmt = gsi_stmt (*gsi_p);
   gimple par_bind, bind;
   gimple_seq par_body, olist, ilist, par_olist, par_ilist, new_body;
+  struct gimplify_ctx gctx;
 
   clauses = gimple_omp_taskreg_clauses (stmt);
   par_bind = gimple_seq_first_stmt (gimple_omp_body (stmt));
@@ -6290,7 +6298,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (ctx->srecord_type)
     create_task_copyfn (stmt, ctx);
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   par_olist = NULL;
   par_ilist = NULL;
@@ -6596,8 +6604,10 @@ execute_lower_omp (void)
 
   if (all_contexts->root)
     {
+      struct gimplify_ctx gctx;
+
       if (task_shared_vars)
-	push_gimplify_context ();
+	push_gimplify_context (&gctx);
       lower_omp (body, NULL);
       if (task_shared_vars)
 	pop_gimplify_context (NULL);

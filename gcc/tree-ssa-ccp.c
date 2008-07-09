@@ -3075,6 +3075,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   gimple stmt, new_stmt;
   gimple_stmt_iterator i;
   gimple_seq stmts = gimple_seq_alloc();
+  struct gimplify_ctx gctx;
 
   stmt = gsi_stmt (*si_p);
 
@@ -3082,7 +3083,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
   lhs = gimple_call_lhs (stmt);
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
 
   if (lhs == NULL_TREE)
     gimplify_and_add (expr, &stmts);

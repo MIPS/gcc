@@ -122,13 +122,33 @@ enum gimplify_status {
   GS_ALL_DONE	= 1	/* The expression is fully gimplified.  */
 };
 
+struct gimplify_ctx
+{
+  struct gimplify_ctx *prev_context;
+
+  VEC(gimple,heap) *bind_expr_stack;
+  tree temps;
+  gimple_seq conditional_cleanups;
+  tree exit_label;
+  tree return_temp;
+  
+  VEC(tree,heap) *case_labels;
+  /* The formal temporary table.  Should this be persistent?  */
+  htab_t temp_htab;
+
+  int conditions;
+  bool save_stack;
+  bool into_ssa;
+  bool allow_rhs_cond_expr;
+};
+
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);
 extern bool gimplify_stmt (tree *, gimple_seq *);
 extern gimple gimplify_body (tree *, tree, bool);
-extern void push_gimplify_context (void);
+extern void push_gimplify_context (struct gimplify_ctx *);
 extern void pop_gimplify_context (gimple);
 extern void gimplify_and_add (tree, gimple_seq *);
 
