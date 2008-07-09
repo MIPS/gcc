@@ -56,6 +56,7 @@ with Sem_Cat;  use Sem_Cat;
 with Sem_Ch4;  use Sem_Ch4;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch13; use Sem_Ch13;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elab; use Sem_Elab;
@@ -471,12 +472,15 @@ package body Sem_Res is
 
                function Large_Storage_Type (T : Entity_Id) return Boolean is
                begin
-                  return
-                    T = Standard_Integer
-                      or else
-                    T = Standard_Positive
-                      or else
-                    T = Standard_Natural;
+                  --  The type is considered large if its bounds are known at
+                  --  compile time and if it requires at least as many bits as
+                  --  a Positive to store the possible values.
+
+                  return Compile_Time_Known_Value (Type_Low_Bound (T))
+                    and then Compile_Time_Known_Value (Type_High_Bound (T))
+                    and then
+                      Minimum_Size (T, Biased => True) >=
+                        Esize (Standard_Integer) - 1;
                end Large_Storage_Type;
 
             begin
@@ -9434,7 +9438,7 @@ package body Sem_Res is
             end if;
          end;
 
-      --  access to subprogram types. If the operand is an access parameter,
+      --  Access to subprogram types. If the operand is an access parameter,
       --  the type has a deeper accessibility that any master, and cannot
       --  be assigned.
 
@@ -9443,10 +9447,9 @@ package body Sem_Res is
              Ekind (Target_Type) = E_Anonymous_Access_Subprogram_Type)
         and then No (Corresponding_Remote_Type (Opnd_Type))
       then
-         if
-           Ekind (Base_Type (Opnd_Type)) = E_Anonymous_Access_Subprogram_Type
-             and then Is_Entity_Name (Operand)
-             and then Ekind (Entity (Operand)) = E_In_Parameter
+         if Ekind (Base_Type (Opnd_Type)) = E_Anonymous_Access_Subprogram_Type
+           and then Is_Entity_Name (Operand)
+           and then Ekind (Entity (Operand)) = E_In_Parameter
          then
             Error_Msg_N
               ("illegal attempt to store anonymous access to subprogram",

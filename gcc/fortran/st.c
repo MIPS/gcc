@@ -48,7 +48,7 @@ gfc_get_code (void)
 {
   gfc_code *c;
 
-  c = gfc_getmem (sizeof (gfc_code));
+  c = XCNEW (gfc_code);
   c->loc = gfc_current_locus;
   return c;
 }
@@ -171,6 +171,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_PARALLEL_SECTIONS:
     case EXEC_OMP_SECTIONS:
     case EXEC_OMP_SINGLE:
+    case EXEC_OMP_TASK:
     case EXEC_OMP_WORKSHARE:
     case EXEC_OMP_PARALLEL_WORKSHARE:
       gfc_free_omp_clauses (p->ext.omp_clauses);
@@ -189,6 +190,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_MASTER:
     case EXEC_OMP_ORDERED:
     case EXEC_OMP_END_NOWAIT:
+    case EXEC_OMP_TASKWAIT:
       break;
 
     default:

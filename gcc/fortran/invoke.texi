@@ -15,7 +15,7 @@ Invariant Sections being ``GNU General Public License'' and ``Funding
 Free Software'', the Front-Cover texts being (a) (see below), and with
 the Back-Cover Texts being (b) (see below).  A copy of the license is
 included in the gfdl(7) man page.
- 
+
 (a) The FSF's Front-Cover Text is:
 
      A GNU Manual
@@ -36,7 +36,7 @@ gfortran [@option{-c}|@option{-S}|@option{-E}]
          [@option{-I}@var{dir}@dots{}] [@option{-L}@var{dir}@dots{}]
          [@option{-D}@var{macro}[=@var{defn}]@dots{}] [@option{-U}@var{macro}]
          [@option{-f}@var{option}@dots{}]
-	 [@option{-m}@var{machine-option}@dots{}]
+         [@option{-m}@var{machine-option}@dots{}]
          [@option{-o} @var{outfile}] @var{infile}@dots{}
 
 Only the most useful options are listed here; see below for the
@@ -156,8 +156,9 @@ and warnings}.
 
 @item Runtime Options
 @xref{Runtime Options,,Options for influencing runtime behavior}.
-@gccoptlist{-fconvert=@var{conversion}  -frecord-marker=@var{length} @gol
--fmax-subrecord-length=@var{length}  -fsign-zero}
+@gccoptlist{-fconvert=@var{conversion}  -fno-range-check
+-frecord-marker=@var{length} @gol  -fmax-subrecord-length=@var{length}
+-fsign-zero}
 
 @item Code Generation Options
 @xref{Code Gen Options,,Options for code generation conventions}.
@@ -937,6 +938,16 @@ representation for unformatted files.
 @emph{This option has an effect only when used in the main program.
 The @code{CONVERT} specifier and the GFORTRAN_CONVERT_UNIT environment
 variable override the default specified by @option{-fconvert}.}
+
+
+@item -fno-range-check
+@opindex @code{-fno-range-check}
+Disable range checking of input values during integer @code{READ} operations.
+For example, GNU Fortran will give an error if an input value is
+outside of the relevant range of [@code{-HUGE()}:@code{HUGE()}]. In other words,
+with @code{INTEGER (kind=4) :: i} , attempting to read @math{-2147483648} will
+give an error unless @option{-fno-range-check} is given. 
+
 
 @item -frecord-marker=@var{length}
 @opindex @code{frecord-marker=}@var{length}

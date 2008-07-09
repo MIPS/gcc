@@ -1451,7 +1451,7 @@ s390_narrow_logical_operator (enum rtx_code code, rtx *memop, rtx *immop)
 static struct machine_function *
 s390_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 /* Change optimizations to be performed, depending on the
@@ -7797,7 +7797,7 @@ s390_emit_prologue (void)
       if (TARGET_BACKCHAIN && flag_non_call_exceptions)
 	{
 	  addr = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode));
-	  emit_insn (gen_rtx_CLOBBER (VOIDmode, addr));
+	  emit_clobber (addr);
 	}
     }
 

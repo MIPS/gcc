@@ -1,6 +1,6 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
-/* Define as the number of bits in a byte, if \`limits.h' doesn't. */
+/* Define as the number of bits in a byte, if `limits.h' doesn't. */
 #ifndef USED_FOR_TARGET
 #undef CHAR_BIT
 #endif
@@ -177,12 +177,6 @@
 /* mcontext_t fields start with __ */
 #ifndef USED_FOR_TARGET
 #undef HAS_MCONTEXT_T_UNDERSCORES
-#endif
-
-
-/* Define to 1 if you have the `alphasort' function. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_ALPHASORT
 #endif
 
 
@@ -729,6 +723,12 @@
 #endif
 
 
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DLFCN_H
+#endif
+
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_FCNTL_H
@@ -1128,12 +1128,6 @@
 #endif
 
 
-/* Define to 1 if you have the `scandir' function. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_SCANDIR
-#endif
-
-
 /* Define to 1 if you have the `setlocale' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_SETLOCALE
@@ -1327,6 +1321,13 @@
 #endif
 
 
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#ifndef USED_FOR_TARGET
+#undef LT_OBJDIR
+#endif
+
+
 /* Define if host mkdir takes a single argument. */
 #ifndef USED_FOR_TARGET
 #undef MKDIR_TAKES_ONE_ARG
@@ -1517,6 +1518,12 @@
 #endif
 
 
+/* Define to `char *' if <sys/types.h> does not define. */
+#ifndef USED_FOR_TARGET
+#undef caddr_t
+#endif
+
+
 /* Define to `int' if <sys/types.h> doesn't define. */
 #ifndef USED_FOR_TARGET
 #undef gid_t
@@ -1535,7 +1542,7 @@
 #endif
 
 
-/* Define to \`long' if <sys/resource.h> doesn't define. */
+/* Define to `long' if <sys/resource.h> doesn't define. */
 #ifndef USED_FOR_TARGET
 #undef rlim_t
 #endif

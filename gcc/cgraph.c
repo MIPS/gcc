@@ -109,6 +109,9 @@ int cgraph_n_nodes;
 /* Maximal uid used in cgraph nodes.  */
 int cgraph_max_uid;
 
+/* Maximal uid used in cgraph edges.  */
+int cgraph_edge_max_uid;
+
 /* Maximal pid used for profiling */
 int cgraph_max_pid;
 
@@ -132,8 +135,205 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
 
-static hashval_t hash_node (const void *);
-static int eq_node (const void *, const void *);
+/* List of hooks trigerred on cgraph_edge events.  */
+struct cgraph_edge_hook_list {
+  cgraph_edge_hook hook;
+  void *data;
+  struct cgraph_edge_hook_list *next;
+};
+
+/* List of hooks trigerred on cgraph_node events.  */
+struct cgraph_node_hook_list {
+  cgraph_node_hook hook;
+  void *data;
+  struct cgraph_node_hook_list *next;
+};
+
+/* List of hooks trigerred on events involving two cgraph_edges.  */
+struct cgraph_2edge_hook_list {
+  cgraph_2edge_hook hook;
+  void *data;
+  struct cgraph_2edge_hook_list *next;
+};
+
+/* List of hooks trigerred on events involving two cgraph_nodes.  */
+struct cgraph_2node_hook_list {
+  cgraph_2node_hook hook;
+  void *data;
+  struct cgraph_2node_hook_list *next;
+};
+
+/* List of hooks triggered when an edge is removed.  */
+struct cgraph_edge_hook_list *first_cgraph_edge_removal_hook;
+/* List of hooks triggered when a node is removed.  */
+struct cgraph_node_hook_list *first_cgraph_node_removal_hook;
+/* List of hooks triggered when an edge is duplicated.  */
+struct cgraph_2edge_hook_list *first_cgraph_edge_duplicated_hook;
+/* List of hooks triggered when a node is duplicated.  */
+struct cgraph_2node_hook_list *first_cgraph_node_duplicated_hook;
+
+
+/* Register HOOK to be called with DATA on each removed edge.  */
+struct cgraph_edge_hook_list *
+cgraph_add_edge_removal_hook (cgraph_edge_hook hook, void *data)
+{
+  struct cgraph_edge_hook_list *entry;
+  struct cgraph_edge_hook_list **ptr = &first_cgraph_edge_removal_hook;
+
+  entry = (struct cgraph_edge_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on removing edges.  */
+void
+cgraph_remove_edge_removal_hook (struct cgraph_edge_hook_list *entry)
+{
+  struct cgraph_edge_hook_list **ptr = &first_cgraph_edge_removal_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all edge removal hooks.  */
+static void
+cgraph_call_edge_removal_hooks (struct cgraph_edge *e)
+{
+  struct cgraph_edge_hook_list *entry = first_cgraph_edge_removal_hook;
+  while (entry)
+  {
+    entry->hook (e, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each removed node.  */
+struct cgraph_node_hook_list *
+cgraph_add_node_removal_hook (cgraph_node_hook hook, void *data)
+{
+  struct cgraph_node_hook_list *entry;
+  struct cgraph_node_hook_list **ptr = &first_cgraph_node_removal_hook;
+
+  entry = (struct cgraph_node_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on removing nodes.  */
+void
+cgraph_remove_node_removal_hook (struct cgraph_node_hook_list *entry)
+{
+  struct cgraph_node_hook_list **ptr = &first_cgraph_node_removal_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all node removal hooks.  */
+static void
+cgraph_call_node_removal_hooks (struct cgraph_node *node)
+{
+  struct cgraph_node_hook_list *entry = first_cgraph_node_removal_hook;
+  while (entry)
+  {
+    entry->hook (node, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each duplicated edge.  */
+struct cgraph_2edge_hook_list *
+cgraph_add_edge_duplication_hook (cgraph_2edge_hook hook, void *data)
+{
+  struct cgraph_2edge_hook_list *entry;
+  struct cgraph_2edge_hook_list **ptr = &first_cgraph_edge_duplicated_hook;
+
+  entry = (struct cgraph_2edge_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on duplicating edges.  */
+void
+cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *entry)
+{
+  struct cgraph_2edge_hook_list **ptr = &first_cgraph_edge_duplicated_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all edge duplication hooks.  */
+static void
+cgraph_call_edge_duplication_hooks (struct cgraph_edge *cs1,
+				    struct cgraph_edge *cs2)
+{
+  struct cgraph_2edge_hook_list *entry = first_cgraph_edge_duplicated_hook;
+  while (entry)
+  {
+    entry->hook (cs1, cs2, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each duplicated node.  */
+struct cgraph_2node_hook_list *
+cgraph_add_node_duplication_hook (cgraph_2node_hook hook, void *data)
+{
+  struct cgraph_2node_hook_list *entry;
+  struct cgraph_2node_hook_list **ptr = &first_cgraph_node_duplicated_hook;
+
+  entry = (struct cgraph_2node_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on duplicating nodes.  */
+void
+cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *entry)
+{
+  struct cgraph_2node_hook_list **ptr = &first_cgraph_node_duplicated_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all node duplication hooks.  */
+static void
+cgraph_call_node_duplication_hooks (struct cgraph_node *node1,
+				    struct cgraph_node *node2)
+{
+  struct cgraph_2node_hook_list *entry = first_cgraph_node_duplicated_hook;
+  while (entry)
+  {
+    entry->hook (node1, node2, entry->data);
+    entry = entry->next;
+  }
+}
 
 /* Returns a hash code for P.  */
 
@@ -265,8 +465,9 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   int n = 0;
 
   if (node->call_site_hash)
-    return htab_find_with_hash (node->call_site_hash, call_stmt,
-      				htab_hash_pointer (call_stmt));
+    return (struct cgraph_edge *)
+      htab_find_with_hash (node->call_site_hash, call_stmt,
+			   htab_hash_pointer (call_stmt));
 
   /* This loop may turn out to be performance problem.  In such case adding
      hashtables into call nodes with very many edges is probably best
@@ -296,7 +497,7 @@ cgraph_edge (struct cgraph_node *node, tree call_stmt)
   return e;
 }
 
-/* Change call_smtt of edge E to NEW_STMT.  */
+/* Change call_stmt of edge E to NEW_STMT.  */
 
 void
 cgraph_set_call_stmt (struct cgraph_edge *e, tree new_stmt)
@@ -373,6 +574,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   gcc_assert (freq >= 0);
   gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
+  edge->uid = cgraph_edge_max_uid++;
   if (call_stmt && caller->call_site_hash)
     {
       void **slot;
@@ -422,6 +624,7 @@ cgraph_edge_remove_caller (struct cgraph_edge *e)
 void
 cgraph_remove_edge (struct cgraph_edge *e)
 {
+  cgraph_call_edge_removal_hooks (e);
   /* Remove from callers list of the callee.  */
   cgraph_edge_remove_callee (e);
 
@@ -503,7 +706,10 @@ cgraph_node_remove_callees (struct cgraph_node *node)
      the callees.  The callee list of the node can be zapped with one
      assignment.  */
   for (e = node->callees; e; e = e->next_callee)
-    cgraph_edge_remove_callee (e);
+    {
+      cgraph_call_edge_removal_hooks (e);
+      cgraph_edge_remove_callee (e);
+    }
   node->callees = NULL;
   if (node->call_site_hash)
     {
@@ -523,7 +729,10 @@ cgraph_node_remove_callers (struct cgraph_node *node)
      the callers.  The caller list of the node can be zapped with one
      assignment.  */
   for (e = node->callers; e; e = e->next_caller)
-    cgraph_edge_remove_caller (e);
+    {
+      cgraph_call_edge_removal_hooks (e);
+      cgraph_edge_remove_caller (e);
+    }
   node->callers = NULL;
 }
 
@@ -557,6 +766,7 @@ cgraph_remove_node (struct cgraph_node *node)
   void **slot;
   bool kill_body = false;
 
+  cgraph_call_node_removal_hooks (node);
   cgraph_node_remove_callers (node);
   cgraph_node_remove_callees (node);
   /* Incremental inlining access removed nodes stored in the postorder list.
@@ -707,7 +917,7 @@ cgraph_node_name (struct cgraph_node *node)
 
 /* Names used to print out the availability enum.  */
 const char * const cgraph_availability_names[] =
-  {"unset", "not_available", "overwrittable", "available", "local"};
+  {"unset", "not_available", "overwritable", "available", "local"};
 
 
 /* Dump call graph node NODE to file F.  */
@@ -899,6 +1109,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
       if (e->count < 0)
 	e->count = 0;
     }
+  cgraph_call_edge_duplication_hooks (e, new);
   return new;
 }
 
@@ -950,6 +1161,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq, int loop_ne
   if (new->next_clone)
     new->next_clone->prev_clone = new;
 
+  cgraph_call_node_duplication_hooks (n, new);
   return new;
 }
 
@@ -1049,7 +1261,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
   switch (cgraph_state)
     {
       case CGRAPH_STATE_CONSTRUCTION:
-	/* Just enqueue function to be processed at nearest occurence.  */
+	/* Just enqueue function to be processed at nearest occurrence.  */
 	node = cgraph_node (fndecl);
 	node->next_needed = cgraph_new_nodes;
 	if (lowered)
@@ -1066,6 +1278,21 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	node->local.local = false;
 	node->local.finalized = true;
 	node->reachable = node->needed = true;
+	if (!lowered && cgraph_state == CGRAPH_STATE_EXPANSION)
+	  {
+	    push_cfun (DECL_STRUCT_FUNCTION (fndecl));
+	    current_function_decl = fndecl;
+	    tree_register_cfg_hooks ();
+            tree_lowering_passes (fndecl);
+	    bitmap_obstack_initialize (NULL);
+	    if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
+	      execute_pass_list (pass_early_local_passes.pass.sub);
+	    bitmap_obstack_release (NULL);
+	    pop_cfun ();
+	    current_function_decl = NULL;
+
+	    lowered = true;
+	  }
 	if (lowered)
 	  node->lowered = true;
 	node->next_needed = cgraph_new_nodes;

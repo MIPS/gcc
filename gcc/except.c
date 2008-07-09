@@ -331,7 +331,8 @@ init_eh (void)
       DECL_FIELD_CONTEXT (f_cs) = sjlj_fc_type_node;
 
       tmp = build_index_type (build_int_cst (NULL_TREE, 4 - 1));
-      tmp = build_array_type (lang_hooks.types.type_for_mode (word_mode, 1),
+      tmp = build_array_type (lang_hooks.types.type_for_mode
+				(targetm.unwind_word_mode (), 1),
 			      tmp);
       f_data = build_decl (FIELD_DECL, get_identifier ("__data"), tmp);
       DECL_FIELD_CONTEXT (f_data) = sjlj_fc_type_node;
@@ -401,7 +402,7 @@ init_eh (void)
 void
 init_eh_for_function (void)
 {
-  cfun->eh = ggc_alloc_cleared (sizeof (struct eh_status));
+  cfun->eh = GGC_CNEW (struct eh_status);
 }
 
 /* Routines to generate the exception tree somewhat directly.
@@ -418,7 +419,7 @@ gen_eh_region (enum eh_region_type type, struct eh_region *outer)
 #endif
 
   /* Insert a new blank region as a leaf in the tree.  */
-  new = ggc_alloc_cleared (sizeof (*new));
+  new = GGC_CNEW (struct eh_region);
   new->type = type;
   new->outer = outer;
   if (outer)
@@ -533,6 +534,7 @@ expand_resx_expr (tree exp)
 				     cfun->eh->region_array, region_nr);
 
   gcc_assert (!reg->resume);
+  do_pending_stack_adjust ();
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -623,8 +625,8 @@ remove_unreachable_regions (rtx insns)
   struct eh_region *r;
   rtx insn;
 
-  uid_region_num = xcalloc (get_max_uid (), sizeof(int));
-  reachable = xcalloc (cfun->eh->last_region_number + 1, sizeof(bool));
+  uid_region_num = XCNEWVEC (int, get_max_uid ());
+  reachable = XCNEWVEC (bool, cfun->eh->last_region_number + 1);
 
   for (i = cfun->eh->last_region_number; i > 0; --i)
     {
@@ -720,7 +722,7 @@ add_ehl_entry (rtx label, struct eh_region *region)
 
   LABEL_PRESERVE_P (label) = 1;
 
-  entry = ggc_alloc (sizeof (*entry));
+  entry = GGC_NEW (struct ehl_map_entry);
   entry->label = label;
   entry->region = region;
 
@@ -830,7 +832,7 @@ duplicate_eh_regions_1 (eh_region old, eh_region outer, int eh_offset)
 {
   eh_region ret, n;
 
-  ret = n = ggc_alloc (sizeof (struct eh_region));
+  ret = n = GGC_NEW (struct eh_region);
 
   *n = *old;
   n->outer = outer;
@@ -1909,6 +1911,8 @@ sjlj_emit_function_exit (void)
 static void
 sjlj_emit_dispatch_table (rtx dispatch_label, struct sjlj_lp_info *lp_info)
 {
+  enum machine_mode unwind_word_mode = targetm.unwind_word_mode ();
+  enum machine_mode filter_mode = targetm.eh_return_filter_mode ();
   int i, first_reachable;
   rtx mem, dispatch, seq, fc;
   rtx before;
@@ -1931,8 +1935,8 @@ sjlj_emit_dispatch_table (rtx dispatch_label, struct sjlj_lp_info *lp_info)
 			sjlj_fc_call_site_ofs);
   dispatch = copy_to_reg (mem);
 
-  mem = adjust_address (fc, word_mode, sjlj_fc_data_ofs);
-  if (word_mode != ptr_mode)
+  mem = adjust_address (fc, unwind_word_mode, sjlj_fc_data_ofs);
+  if (unwind_word_mode != ptr_mode)
     {
 #ifdef POINTERS_EXTEND_UNSIGNED
       mem = convert_memory_address (ptr_mode, mem);
@@ -1942,7 +1946,10 @@ sjlj_emit_dispatch_table (rtx dispatch_label, struct sjlj_lp_info *lp_info)
     }
   emit_move_insn (crtl->eh.exc_ptr, mem);
 
-  mem = adjust_address (fc, word_mode, sjlj_fc_data_ofs + UNITS_PER_WORD);
+  mem = adjust_address (fc, unwind_word_mode,
+			sjlj_fc_data_ofs + GET_MODE_SIZE (unwind_word_mode));
+  if (unwind_word_mode != filter_mode)
+    mem = convert_to_mode (filter_mode, mem, 0);
   emit_move_insn (crtl->eh.filter, mem);
 
   /* Jump to one of the directly reachable regions.  */
@@ -2552,7 +2559,7 @@ foreach_reachable_handler (int region_number, bool is_resx,
 static void
 arh_to_landing_pad (struct eh_region *region, void *data)
 {
-  rtx *p_handlers = data;
+  rtx *p_handlers = (rtx *) data;
   if (! *p_handlers)
     *p_handlers = alloc_INSN_LIST (region->landing_pad, NULL_RTX);
 }
@@ -2560,7 +2567,7 @@ arh_to_landing_pad (struct eh_region *region, void *data)
 static void
 arh_to_label (struct eh_region *region, void *data)
 {
-  rtx *p_handlers = data;
+  rtx *p_handlers = (rtx *) data;
   *p_handlers = alloc_INSN_LIST (region->label, *p_handlers);
 }
 
@@ -2963,7 +2970,7 @@ expand_builtin_extend_pointer (tree addr_tree)
   extend = 1;
 #endif
 
-  return convert_modes (word_mode, ptr_mode, addr, extend);
+  return convert_modes (targetm.unwind_word_mode (), ptr_mode, addr, extend);
 }
 
 /* In the following functions, we represent entries in the action table
@@ -3010,7 +3017,7 @@ add_action_record (htab_t ar_hash, int filter, int next)
 
   if ((new = *slot) == NULL)
     {
-      new = xmalloc (sizeof (*new));
+      new = XNEW (struct action_record);
       new->offset = VARRAY_ACTIVE_SIZE (crtl->eh.action_record_data) + 1;
       new->filter = filter;
       new->next = next;
@@ -3144,7 +3151,7 @@ add_call_site (rtx landing_pad, int action)
 {
   call_site_record record;
   
-  record = ggc_alloc (sizeof (struct call_site_record));
+  record = GGC_NEW (struct call_site_record);
   record->landing_pad = landing_pad;
   record->action = action;
 
@@ -3475,7 +3482,7 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
 #ifdef HAVE_LD_EH_GC_SECTIONS
 	  if (flag_function_sections)
 	    {
-	      char *section_name = xmalloc (strlen (fnname) + 32);
+	      char *section_name = XNEWVEC (char, strlen (fnname) + 32);
 	      sprintf (section_name, ".gcc_except_table.%s", fnname);
 	      s = get_section (section_name, flags, NULL);
 	      free (section_name);

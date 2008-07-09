@@ -1,3 +1,8 @@
+2008-07-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+	Mainline merge @137631
+
+	* configure: Regenerate.
+
 2008-07-09  Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_binfo): Don't read flags. Don't read line

@@ -1,5 +1,6 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software
+   Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,7 +63,7 @@ redirect_edge_var_map_add (edge e, tree result, tree def)
     edge_var_maps = pointer_map_create ();
 
   slot = pointer_map_insert (edge_var_maps, e);
-  old_head = head = *slot;
+  old_head = head = (edge_var_map_vector) *slot;
   if (!head)
     {
       head = VEC_alloc (edge_var_map, heap, 5);
@@ -95,7 +96,7 @@ redirect_edge_var_map_clear (edge e)
 
   if (slot)
     {
-      head = *slot;
+      head = (edge_var_map_vector) *slot;
       VEC_free (edge_var_map, heap, head);
       *slot = NULL;
     }
@@ -120,7 +121,7 @@ redirect_edge_var_map_dup (edge newe, edge olde)
   old_slot = pointer_map_contains (edge_var_maps, olde);
   if (!old_slot)
     return;
-  head = *old_slot;
+  head = (edge_var_map_vector) *old_slot;
 
   if (head)
     *new_slot = VEC_copy (edge_var_map, heap, head);
@@ -129,7 +130,7 @@ redirect_edge_var_map_dup (edge newe, edge olde)
 }
 
 
-/* Return the varable mappings for a given edge.  If there is none, return
+/* Return the variable mappings for a given edge.  If there is none, return
    NULL.  */
 
 edge_var_map_vector
@@ -558,7 +559,7 @@ verify_flow_sensitive_alias_info (void)
 	continue;
 
       ann = var_ann (var);
-      if (pi->is_dereferenced && !pi->name_mem_tag && !ann->symbol_mem_tag)
+      if (pi->memory_tag_needed && !pi->name_mem_tag && !ann->symbol_mem_tag)
 	{
 	  error ("dereferenced pointers should have a name or a symbol tag");
 	  goto err;
@@ -571,7 +572,9 @@ verify_flow_sensitive_alias_info (void)
 	  goto err;
 	}
 
-      if (pi->value_escapes_p && pi->name_mem_tag)
+      if (pi->value_escapes_p
+	  && pi->escape_mask & ~ESCAPE_TO_RETURN
+	  && pi->name_mem_tag)
 	{
 	  tree t = memory_partition (pi->name_mem_tag);
 	  if (t == NULL_TREE)
@@ -934,6 +937,7 @@ init_tree_ssa (struct function *fn)
   fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
 				                 uid_ssaname_map_eq, NULL);
   fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  fn->gimple_df->call_used_vars = BITMAP_GGC_ALLOC ();
   fn->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames (fn, 0);
   init_phinodes ();
@@ -1006,6 +1010,7 @@ delete_tree_ssa (void)
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
+  cfun->gimple_df->call_used_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
   if (gimple_aliases_computed_p (cfun))

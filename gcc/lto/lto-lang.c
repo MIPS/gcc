@@ -34,28 +34,6 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-inline.h"
 #include "toplev.h"
 
-/* Tables of information about tree codes.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-const enum tree_code_class tree_code_type[] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-const unsigned char tree_code_length[] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-const char *const tree_code_name[] = {
-#include "tree.def"
-};
-#undef DEFTREECODE
-
-/* Handle C and C++ default attributes.  */
-
 enum built_in_attribute
 {
 #define DEF_ATTR_NULL_TREE(ENUM) ENUM,
