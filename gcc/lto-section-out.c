@@ -130,7 +130,6 @@ lto_eq_type_slot_node (const void *p1, const void *p2)
 }
 
 
-/* ### */
 /* Returns a hash code for P.  */
 
 hashval_t
@@ -141,7 +140,6 @@ lto_hash_global_slot_node (const void *p)
 }
 
 
-/* ### */
 /* Returns nonzero if P1 and P2 are equal.  */
 
 int
@@ -325,7 +323,7 @@ lto_output_data_stream (struct lto_output_stream *obs, const void *data,
       obs->current_pointer += copy;
       obs->total_size += copy;
       obs->left_in_block -= copy;
-      data = (char *)data + copy;
+      data = (const char *) data + copy;
       len -= copy;
     }
 }
@@ -465,7 +463,8 @@ lto_output_decl_index (struct lto_output_stream *obs, htab_t table,
   slot = htab_find_slot (table, &d_slot, INSERT);
   if (*slot == NULL)
     {
-      struct lto_decl_slot *new_slot = xmalloc (sizeof (struct lto_decl_slot));
+      struct lto_decl_slot *new_slot
+	= (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
       int index = (*next_index)++;
 
       new_slot->t = name;
@@ -593,12 +592,14 @@ lto_output_type_ref_index (struct lto_out_decl_state *decl_state,
 struct lto_simple_output_block *
 lto_create_simple_output_block (enum lto_section_type section_type)
 {
-  struct lto_simple_output_block *ob 
-    = xcalloc (1, sizeof (struct lto_simple_output_block));
+  struct lto_simple_output_block *ob
+    = ((struct lto_simple_output_block *)
+       xcalloc (1, sizeof (struct lto_simple_output_block)));
 
   ob->section_type = section_type;
   ob->decl_state = lto_get_out_decl_state ();
-  ob->main_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  ob->main_stream = ((struct lto_output_stream *)
+		     xcalloc (1, sizeof (struct lto_output_stream)));
 
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_out_fun;
@@ -640,7 +641,8 @@ lto_destroy_simple_output_block (struct lto_simple_output_block *ob)
   header.debug_main_size = -1;
 #endif
 
-  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  header_stream = ((struct lto_output_stream *)
+		   xcalloc (1, sizeof (struct lto_output_stream)));
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
@@ -673,7 +675,8 @@ lto_get_out_decl_state (void)
 
   if (!out_state)
     {
-      out_state = xcalloc (1, sizeof (struct lto_out_decl_state));
+      out_state = ((struct lto_out_decl_state *)
+		   xcalloc (1, sizeof (struct lto_out_decl_state)));
 
       out_state->field_decl_hash_table
 	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node,
@@ -714,7 +717,8 @@ preload_common_node (struct output_block *ob, tree t)
   /* If well-known trees are not unique, we don't create duplicate entries.  */
   if (*slot == NULL)
     {
-      struct lto_decl_slot *new_slot = xmalloc (sizeof (struct lto_decl_slot));
+      struct lto_decl_slot *new_slot
+	= (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
       unsigned index = ob->next_main_index++;
       new_slot->t = t;
       new_slot->slot_num = index;
@@ -800,7 +804,8 @@ write_global_references (struct output_block *ob, VEC(tree,heap) *v)
   int index;
   struct lto_output_stream *ref_stream;
 
-  ref_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  ref_stream = ((struct lto_output_stream *)
+		xcalloc (1, sizeof (struct lto_output_stream)));
   for (index = 0; VEC_iterate(tree, v, index, t); index++)
     {
       void **slot;
@@ -891,7 +896,8 @@ produce_asm_for_decls (void)
   header.debug_main_size = ob->debug_main_stream->total_size;
 #endif
 
-  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  header_stream = ((struct lto_output_stream *)
+		   xcalloc (1, sizeof (struct lto_output_stream)));
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);

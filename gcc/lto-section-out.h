@@ -54,7 +54,7 @@ struct lto_output_stream
 #ifdef LTO_STREAM_DEBUGGING
 #define LTO_SET_DEBUGGING_STREAM(STREAM,CONTEXT)	\
 do { \
-  ob-> STREAM = xcalloc (1, sizeof (struct lto_output_stream)); \
+  ob-> STREAM = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream)); \
   lto_debug_context. CONTEXT = ob-> STREAM; \
   lto_debug_context.current_data = ob-> STREAM; \
   lto_debug_context.stream_name = #CONTEXT; \

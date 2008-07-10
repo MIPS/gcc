@@ -242,7 +242,8 @@ input_type_ref_1 (struct data_in *data_in, struct lto_input_block *ib)
         struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-        struct lto_input_block *current = lto_debug_context.current_data;
+        struct lto_input_block *current
+	  = (struct lto_input_block *) lto_debug_context.current_data;
         struct lto_input_block debug;
         int current_indent = lto_debug_context.indent;
 
@@ -399,9 +400,9 @@ canon_file_name (const char *string)
   if (*slot == NULL)
     {
       size_t len = strlen (string);
-      char * saved_string = xmalloc (len + 1);
+      char * saved_string = (char *) xmalloc (len + 1);
       struct string_slot *new_slot
-	= xmalloc (sizeof (struct string_slot));
+	= (struct string_slot *) xmalloc (sizeof (struct string_slot));
 
       strcpy (saved_string, string);
       new_slot->s = saved_string;
@@ -657,7 +658,8 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
               struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-              struct lto_input_block *current = lto_debug_context.current_data;
+              struct lto_input_block *current
+		= (struct lto_input_block *) lto_debug_context.current_data;
               struct lto_input_block debug;
               int current_indent = lto_debug_context.indent;
 
@@ -712,7 +714,8 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
               struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-              struct lto_input_block *current = lto_debug_context.current_data;
+              struct lto_input_block *current
+		= (struct lto_input_block *) lto_debug_context.current_data;
               struct lto_input_block debug;
               int current_indent = lto_debug_context.indent;
 
@@ -770,7 +773,8 @@ input_expr_operand (struct lto_input_block *ib, struct data_in *data_in,
 	      struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-	      struct lto_input_block *current = lto_debug_context.current_data;
+	      struct lto_input_block *current
+		= (struct lto_input_block *) lto_debug_context.current_data;
 	      struct lto_input_block debug;
 	      int current_indent = lto_debug_context.indent;
 
@@ -1187,7 +1191,7 @@ input_labels (struct lto_input_block *ib, struct data_in *data_in,
      code, the unnamed labels have a negative index.  Their position
      in the array can be found by subtracting that index from the
      number of named labels.  */
-  data_in->labels = xcalloc (named_count + unnamed_count, sizeof (tree));
+  data_in->labels = (tree *) xcalloc (named_count + unnamed_count, sizeof (tree));
   for (i = 0; i < named_count; i++)
     {
       unsigned int name_index = lto_input_uleb128 (ib);
@@ -1211,9 +1215,9 @@ input_local_vars_index (struct lto_input_block *ib, struct data_in *data_in,
 			unsigned int count)
 {
   unsigned int i;
-  data_in->local_decls_index = xcalloc (count, sizeof (unsigned int));
+  data_in->local_decls_index = (int *) xcalloc (count, sizeof (unsigned int));
 #ifdef LTO_STREAM_DEBUGGING
-  data_in->local_decls_index_d = xcalloc (count, sizeof (unsigned int));
+  data_in->local_decls_index_d = (int *) xcalloc (count, sizeof (unsigned int));
 #endif
 
   for (i = 0; i < count; i++)
@@ -1259,7 +1263,8 @@ input_local_tree (struct lto_input_block *ib, struct data_in *data_in,
         struct lto_input_block lib;
 
 #ifdef LTO_STREAM_DEBUGGING
-        struct lto_input_block *current = lto_debug_context.current_data;
+        struct lto_input_block *current
+	  = (struct lto_input_block *) lto_debug_context.current_data;
         struct lto_input_block debug;
         int current_indent = lto_debug_context.indent;
 
@@ -1641,8 +1646,8 @@ input_local_vars (struct lto_input_block *ib, struct data_in *data_in,
   int i;
   unsigned int tag;
 
-  data_in->local_decl_indexes = xcalloc (count, sizeof (int));
-  data_in->local_decls = xcalloc (count, sizeof (tree*));
+  data_in->local_decl_indexes = (int *) xcalloc (count, sizeof (int));
+  data_in->local_decls = (tree *) xcalloc (count, sizeof (tree*));
 
   memset (data_in->local_decl_indexes, -1, count * sizeof (int));
 
@@ -1981,7 +1986,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 
   /* Fix up the call stmts that are mentioned in the cgraph_edges.  */
   renumber_gimple_stmt_uids ();
-  stmts = xcalloc (gimple_stmt_max_uid(fn), sizeof (tree));
+  stmts = (tree *) xcalloc (gimple_stmt_max_uid(fn), sizeof (tree));
   FOR_ALL_BB (bb)
     {
       block_stmt_iterator bsi;

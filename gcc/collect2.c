@@ -788,7 +788,8 @@ prefix_from_string (const char *p, struct path_prefix *pprefix)
 static void
 add_lto_object (struct lto_object_list *list, const char *name)
 {
-  struct lto_object * cell = xmalloc(sizeof(struct lto_object));
+  struct lto_object * cell
+    = (struct lto_object *) xmalloc(sizeof(struct lto_object));
 
   cell->name = name;
   cell->next = NULL;
@@ -884,7 +885,7 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
 	 arguments added below.  */
       num_lto_c_args += 8;
 
-      lto_c_argv = xcalloc (sizeof (char *), num_lto_c_args);
+      lto_c_argv = (char **) xcalloc (sizeof (char *), num_lto_c_args);
       lto_c_ptr = (const char **) lto_c_argv;
 
       *lto_c_ptr++ = c_file_name;

@@ -132,7 +132,7 @@ static void
 string_slot_free (void *p)
 {
   struct string_slot *slot = (struct string_slot *)p;
-  free ((void *)slot->s);
+  free (CONST_CAST (void *, (const void *) slot->s));
   free (slot);
 }
 
@@ -159,20 +159,21 @@ clear_line_info (struct output_block *ob)
 struct output_block *
 create_output_block (enum lto_section_type section_type)
 {
-  struct output_block *ob = xcalloc (1, sizeof (struct output_block));
+  struct output_block *ob
+    = (struct output_block *) xcalloc (1, sizeof (struct output_block));
 
   ob->section_type = section_type;
   ob->decl_state = lto_get_out_decl_state ();
-  ob->main_stream = xcalloc (1, sizeof (struct lto_output_stream));
-  ob->string_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  ob->main_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+  ob->string_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
 
   if (section_type == LTO_section_function_body)
     {
-      ob->local_decl_index_stream = xcalloc (1, sizeof (struct lto_output_stream));
-      ob->local_decl_stream = xcalloc (1, sizeof (struct lto_output_stream));
-      ob->named_label_stream = xcalloc (1, sizeof (struct lto_output_stream));
-      ob->ssa_names_stream = xcalloc (1, sizeof (struct lto_output_stream));
-      ob->cfg_stream = xcalloc (1, sizeof (struct lto_output_stream));
+      ob->local_decl_index_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+      ob->local_decl_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+      ob->named_label_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+      ob->ssa_names_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+      ob->cfg_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
     }
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_out_fun;
@@ -272,9 +273,9 @@ output_string (struct output_block *ob,
       struct lto_output_stream *string_stream = ob->string_stream;
       unsigned int start = string_stream->total_size;
       struct string_slot *new_slot
-	= xmalloc (sizeof (struct string_slot));
+	= (struct string_slot *) xmalloc (sizeof (struct string_slot));
       unsigned int i;
-      char *new_string = xmalloc (len);
+      char *new_string = (char *) xmalloc (len);
 
       memcpy (new_string, string, len);
       new_slot->s = new_string;
@@ -665,7 +666,8 @@ output_label_ref (struct output_block *ob, tree label)
   slot = htab_find_slot (ob->label_hash_table, &d_slot, INSERT);
   if (*slot == NULL)
     {
-      struct lto_decl_slot *new_slot = xmalloc (sizeof (struct lto_decl_slot));
+      struct lto_decl_slot *new_slot
+	= (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
 
       /* Named labels are given positive integers and unnamed labels are 
 	 given negative indexes.  */
@@ -2023,7 +2025,8 @@ produce_asm (struct output_block *ob, tree fn)
   header.debug_main_size = -1;
 #endif
 
-  header_stream = xcalloc (1, sizeof (struct lto_output_stream));
+  header_stream = ((struct lto_output_stream *)
+		   xcalloc (1, sizeof (struct lto_output_stream)));
   lto_output_data_stream (header_stream, &header, sizeof header);
   lto_write_stream (header_stream);
   free (header_stream);
@@ -2980,7 +2983,7 @@ output_tree (struct output_block *ob, tree expr)
         }
 
     global_index = ob->next_main_index++;
-    new_slot = xmalloc (sizeof (struct lto_decl_slot));
+    new_slot = (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
     new_slot->t = expr;
     new_slot->slot_num = global_index;
     *slot = new_slot;

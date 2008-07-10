@@ -1,5 +1,36 @@
 2008-07-10  Bill Maddox  <maddox@google.com>
 
+	* gcc/collect2.c (prefix_from_string): Fix c++ compatibility warnings.
+	(maybe_run_lto_and_relink): Fix c++ compatibility warnings.
+	* gcc/lto-function-in.c (input_type_ref_1): Fix c++ compatibility
+	warnings.
+	(canon_file_name): Fix c++ compatibility warnings.
+	(input_expr_operand): Fix c++ compatibility warnings.
+	(input_labels): Fix c++ compatibility warnings.
+	(input_local_vars_index): Fix c++ compatibility warnings.
+	(input_local_tree): Fix c++ compatibility warnings.
+	(input_local_vars): Fix c++ compatibility warnings.
+	(input_function): Fix c++ compatibility warnings.
+	* gcc/lto-function-out.c (string_slot_free): Fix c++ compatibility
+	warnings.
+	(create_output_block): Fix c++ compatibility warnings.
+	(output_label_ref): Fix c++ compatibility warnings.
+	(produce_asm): Fix c++ compatibility warnings.
+	(output_tree): Fix c++ compatibility warnings.
+	* gcc/lto-section-out.c (lto_output_data_stream): Fix c++ compatibility
+	warnings.
+	(lto_output_decl_index): Fix c++ compatibility warnings.
+	(lto_output_type_ref_index): Fix c++ compatibility warnings.
+	(lto_destroy_simple_output_block): Fix c++ compatibility warnings.
+	(lto_get_out_decl_state): Fix c++ compatibility warnings.
+	(preload_common_node): Fix c++ compatibility warnings.
+	(write_global_references): Fix c++ compatibility warnings.
+	(produce_asm_for_decls): Fix c++ compatibility warnings.
+	* gcc/lto-section-out.h (LTO_SET_DEBUGGING_STREAM): Fix c++
+	compatibility warnings.
+
+2008-07-10  Bill Maddox  <maddox@google.com>
+
 	* lto-function-out.c (lto_static_init):
 	Back out reset of lto_types_needed_for bit for
 	TREE_BINFO nodes.
