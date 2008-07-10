@@ -2093,7 +2093,6 @@ lto_static_init (void)
 #if REDUNDANT_TYPE_SYSTEM
   /* These forms never need types.  */
   sbitmap_ones (lto_types_needed_for);
-  RESET_BIT (lto_types_needed_for, TREE_BINFO);
   RESET_BIT (lto_types_needed_for, ASM_EXPR);
   RESET_BIT (lto_types_needed_for, CASE_LABEL_EXPR);
   RESET_BIT (lto_types_needed_for, FIELD_DECL);
@@ -2816,7 +2815,6 @@ output_binfo (struct output_block *ob, tree binfo)
   output_uleb128 (ob, num_base_accesses);
   output_uleb128 (ob, num_base_binfos);
 
-  /* need flags */
   output_tree (ob, binfo->common.type);
 
   output_tree (ob, binfo->binfo.offset);

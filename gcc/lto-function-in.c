@@ -2834,12 +2834,15 @@ input_binfo (struct lto_input_block *ib, struct data_in *data_in)
   size_t num_base_binfos;
   lto_flags_type flags;
 
+  flags = input_tree_flags (ib, TREE_BINFO, true);
+
   num_base_accesses = lto_input_uleb128 (ib);
   num_base_binfos = lto_input_uleb128 (ib);
 
   binfo = make_tree_binfo (num_base_binfos);
 
   /* no line info */
+  gcc_assert (!input_line_info (ib, data_in, flags));
   process_tree_flags (binfo, flags);
 
   global_vector_enter (data_in, binfo);
@@ -2972,7 +2975,9 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 
   gcc_assert (code);
 
-  if (TREE_CODE_CLASS (code) != tcc_type && TREE_CODE_CLASS (code) != tcc_declaration)
+  if (TREE_CODE_CLASS (code) != tcc_type
+      && TREE_CODE_CLASS (code) != tcc_declaration
+      && code != TREE_BINFO)
     {
       if (TEST_BIT (lto_types_needed_for, code))
         type = input_type_tree (data_in, ib);

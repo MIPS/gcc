@@ -1,3 +1,13 @@
+2008-07-10  Bill Maddox  <maddox@google.com>
+
+	* lto-function-out.c (lto_static_init):
+	Back out reset of lto_types_needed_for bit for
+	TREE_BINFO nodes.
+	* lto-function-in.c (input_binfo): Restore reading
+	of flags and check for presence of line info.
+	(input_tree_operand): Add test for tree code TREE_BINFO
+	where we check for special handling of type and decl nodes.
+
 2008-07-09  Kenneth Zadeck <zadeck@naturalbridge.com>
 	Mainline merge @137631
 
