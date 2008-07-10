@@ -3921,7 +3921,7 @@ find_func_aliases (gimple origt)
       else if (get_gimple_rhs_class (gimple_assign_rhs_code (t))
 	       == GIMPLE_SINGLE_RHS)
 	{
-	  if (POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (t))))
+	  if (could_have_pointers (gimple_assign_rhs1 (t)))
 	    make_escape_constraint (gimple_assign_rhs1 (t));
 	}
       /* FIXME tuples

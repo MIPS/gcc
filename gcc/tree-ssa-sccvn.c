@@ -2085,9 +2085,7 @@ visit_use (tree use)
     {
       if (gimple_code (stmt) == GIMPLE_PHI)
 	changed = visit_phi (stmt);
-      else if ((gimple_code (stmt) != GIMPLE_ASSIGN
-		&& (gimple_code (stmt) != GIMPLE_CALL
-		    || gimple_call_lhs (stmt) == NULL_TREE))
+      else if (!gimple_has_lhs (stmt)
 	       || gimple_has_volatile_ops (stmt)
 	       || stmt_could_throw_p (stmt))
 	changed = defs_to_varying (stmt);
@@ -2110,8 +2108,8 @@ visit_use (tree use)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "RHS of ");
-		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		  fprintf (dump_file, "RHS ");
+		  print_gimple_expr (dump_file, stmt, 0, 0);
 		  fprintf (dump_file, " simplified to ");
 		  print_generic_expr (dump_file, simplified, 0);
 		  if (TREE_CODE (lhs) == SSA_NAME)
@@ -2211,8 +2209,11 @@ visit_use (tree use)
 			  break;
 			case tcc_expression:
 			  if (gimple_assign_rhs_code (stmt) == ADDR_EXPR)
-			    changed = visit_unary_op (lhs, stmt);
-			  break;
+			    {
+			      changed = visit_unary_op (lhs, stmt);
+			      break;
+			    }
+			  /* Fallthrough.  */
 			default:
 			  changed = defs_to_varying (stmt);
 			}

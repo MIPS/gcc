@@ -1197,8 +1197,8 @@ fold_predicate_in (gimple_stmt_iterator *si)
       
       if (dump_file)
 	{
-	  fprintf (dump_file, "Folding predicate in ");
-	  print_gimple_stmt (dump_file, stmt, 0, 0);
+	  fprintf (dump_file, "Folding predicate ");
+	  print_gimple_expr (dump_file, stmt, 0, 0);
 	  fprintf (dump_file, " to ");
 	  print_generic_expr (dump_file, val, 0);
 	  fprintf (dump_file, "\n");

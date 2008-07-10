@@ -486,7 +486,6 @@ gsi_remove (gimple_stmt_iterator *i, bool remove_permanently)
 
   if (remove_permanently)
     {
-      free_stmt_operands (stmt);
       remove_stmt_from_eh_region (stmt);
       gimple_remove_stmt_histograms (cfun, stmt);
     }

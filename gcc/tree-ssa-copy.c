@@ -467,7 +467,6 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       new_stmt  = gimple_build_assign (gimple_call_lhs (stmt), expr);
       copy_virtual_operands (new_stmt, stmt);
       move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-      gimple_set_location (new_stmt, gimple_location (stmt));
       gsi_replace (gsi, new_stmt, false);
     }
   else if (gimple_code (stmt) == GIMPLE_SWITCH)

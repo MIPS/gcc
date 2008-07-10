@@ -1,3 +1,7 @@
+2008-07-10  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/pr25485.c: Revert to trunk version.
+
 2008-07-07  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/tree-ssa/pr25485.c: Update grep pattern.

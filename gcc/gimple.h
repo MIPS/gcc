@@ -822,6 +822,7 @@ void gimple_seq_add_seq (gimple_seq *, gimple_seq);
 gimple_seq gimple_seq_copy (gimple_seq);
 int gimple_call_flags (const_gimple);
 bool gimple_assign_copy_p (gimple);
+bool gimple_assign_ssa_name_copy_p (gimple);
 bool gimple_assign_single_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
 void gimple_set_bb (gimple, struct basic_block_def *);
@@ -2019,6 +2020,18 @@ gimple_call_copy_flags (gimple dest_call, gimple orig_call)
   GIMPLE_CHECK (dest_call, GIMPLE_CALL);
   GIMPLE_CHECK (orig_call, GIMPLE_CALL);
   dest_call->gsbase.subcode = orig_call->gsbase.subcode;
+}
+
+
+/* Returns true if this is a GIMPLE_ASSIGN or a GIMPLE_CALL with a
+   non-NULL lhs.  */
+
+static inline bool
+gimple_has_lhs (gimple stmt)
+{
+  return (is_gimple_assign (stmt)
+	  || (is_gimple_call (stmt)
+	      && gimple_call_lhs (stmt) != NULL_TREE));
 }
 
 

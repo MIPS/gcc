@@ -1,3 +1,23 @@
+2008-07-10  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.h (gimple_assign_ssa_name_copy_p): Declare.
+	(gimple_has_lhs): New function.
+	* gimple.c (gimple_assign_ssa_name_copy_p): New function.
+	* tree-ssa-copy.c (propagate_tree_value_into_stmt): Remove
+	redundant gimple_set_location call.
+	* gimple-iterator.c (gsi_remove): Do not free stmt operands.
+	* tree-ssa-structalias.c (find_func_aliases): Correctly let
+	all things with pointers escape.
+	* tree-pass.h (TDF_RHS_ONLY): New flag.
+	* diagnostic.h (print_gimple_expr): Declare.
+	* gimple-pretty-print.c (print_gimple_expr): New function.
+	(dump_gimple_assign): Dump the RHS as expression if TDF_RHS_ONLY.
+	(dump_gimple_call): Likewise.
+	(dump_gimple_cond): Likewise.
+	* tree-ssa-propagate.c (fold_predicate_in): Use print_gimple_expr.
+	* tree-ssa-sccvn.c (visit_use): Use gimple_has_lhs.
+	Use print_gimple_expr.  Handle tcc_expression correctly.
+
 2008-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (struct gimplify_ctx): Move to tree-gimple.h.

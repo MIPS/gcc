@@ -1838,6 +1838,20 @@ gimple_assign_copy_p (gimple gs)
 	 && is_gimple_val (gimple_op (gs, 1));
 }
 
+
+/* Return true if GS is a SSA_NAME copy assignment.  */
+
+bool
+gimple_assign_ssa_name_copy_p (gimple gs)
+{
+  return (gimple_code (gs) == GIMPLE_ASSIGN
+	  && (get_gimple_rhs_class (gimple_assign_rhs_code (gs))
+	      == GIMPLE_SINGLE_RHS)
+	  && TREE_CODE (gimple_assign_lhs (gs)) == SSA_NAME
+	  && TREE_CODE (gimple_assign_rhs1 (gs)) == SSA_NAME);
+}
+
+
 /* Return true if GS is an assignment with a singleton RHS, i.e.,
    there is no operator associated with the assignment itself.
    Unlike gimple_assign_copy_p, this predicate returns true for

@@ -101,6 +101,19 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
 }
 
 
+/* Dump GIMPLE statement G to FILE using SPC indentantion spaces and
+   FLAGS as in dump_gimple_stmt.  Print only the right-hand side
+   of the statement.  */
+
+void
+print_gimple_expr (FILE *file, gimple g, int spc, int flags)
+{
+  flags |= TDF_RHS_ONLY;
+  maybe_init_pretty_print (file);
+  dump_gimple_stmt (&buffer, g, spc, flags);
+}
+
+
 /* Print the GIMPLE sequence SEQ on BUFFER using SPC indentantion
    spaces and FLAGS as in dump_gimple_stmt.  */
 
@@ -357,17 +370,20 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
   else
     {
-      dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
-      pp_space (buffer);
-      pp_character (buffer, '=');
+      if (!(flags & TDF_RHS_ONLY))
+	{
+	  dump_generic_node (buffer, gimple_assign_lhs (gs), spc, flags, false);
+	  pp_space (buffer);
+	  pp_character (buffer, '=');
 
-      if (gimple_assign_nontemporal_move_p (gs))
-	pp_string (buffer, "{nt}");
+	  if (gimple_assign_nontemporal_move_p (gs))
+	    pp_string (buffer, "{nt}");
 
-      if (gimple_has_volatile_ops (gs))
-	pp_string (buffer, "{v}");
+	  if (gimple_has_volatile_ops (gs))
+	    pp_string (buffer, "{v}");
 
-      pp_space (buffer);
+	  pp_space (buffer);
+	}
 
       if (gimple_num_ops (gs) == 2)
         dump_unary_rhs (buffer, gs, spc, flags);
@@ -375,7 +391,8 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
         dump_binary_rhs (buffer, gs, spc, flags);
       else
         gcc_unreachable ();
-      pp_semicolon(buffer);
+      if (!(flags & TDF_RHS_ONLY))
+	pp_semicolon(buffer);
     }
 }
 
@@ -453,7 +470,7 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
   else
     {
-      if (lhs)
+      if (lhs && !(flags & TDF_RHS_ONLY))
         {
           dump_generic_node (buffer, lhs, spc, flags, false);
           pp_string (buffer, " =");
@@ -467,7 +484,8 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, " (");
       dump_gimple_call_args (buffer, gs, flags);
       pp_string (buffer, ")");
-      pp_semicolon (buffer);
+      if (!(flags & TDF_RHS_ONLY))
+	pp_semicolon (buffer);
     }
 
   if (gimple_call_chain (gs))
@@ -533,26 +551,30 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
                    gimple_cond_true_label (gs), gimple_cond_false_label (gs));
   else
     {
-      pp_string (buffer, "if (");
+      if (!(flags & TDF_RHS_ONLY))
+	pp_string (buffer, "if (");
       dump_generic_node (buffer, gimple_cond_lhs (gs), spc, flags, false);
       pp_space (buffer);
       pp_string (buffer, op_symbol_code (gimple_cond_code (gs)));
       pp_space (buffer);
       dump_generic_node (buffer, gimple_cond_rhs (gs), spc, flags, false);
-      pp_string (buffer, ")");
-      
-      if (gimple_cond_true_label (gs))
-        {
-          pp_string (buffer, " goto ");
-          dump_generic_node (buffer, gimple_cond_true_label (gs), spc, flags,
-                             false);
-        }
-      if (gimple_cond_false_label (gs))
-        {
-          pp_string (buffer, " else goto ");
-          dump_generic_node (buffer, gimple_cond_false_label (gs), spc, flags,
-                             false);
-        }
+      if (!(flags & TDF_RHS_ONLY))
+	{
+	  pp_string (buffer, ")");
+
+	  if (gimple_cond_true_label (gs))
+	    {
+	      pp_string (buffer, " goto ");
+	      dump_generic_node (buffer, gimple_cond_true_label (gs),
+				 spc, flags, false);
+	    }
+	  if (gimple_cond_false_label (gs))
+	    {
+	      pp_string (buffer, " else goto ");
+	      dump_generic_node (buffer, gimple_cond_false_label (gs),
+				 spc, flags, false);
+	    }
+	}
     }
 }
 
