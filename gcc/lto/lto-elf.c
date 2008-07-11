@@ -216,14 +216,13 @@ lto_elf_build_section_table (lto_file *lto_file)
 	  continue;
 	}
 
-      new_name = xmalloc (strlen (name) + 1);
+      new_name = (char *) xmalloc (strlen (name) + 1);
       strcpy (new_name, name);
       s_slot.name = new_name;
       slot = htab_find_slot (section_hash_table, &s_slot, INSERT);
       if (*slot == NULL)
 	{
-	  struct lto_section_slot *new_slot
-	    = xmalloc (sizeof (struct lto_section_slot));
+	  struct lto_section_slot *new_slot = XNEW (struct lto_section_slot);
 
 	  new_slot->name = new_name;
 	  /* The offset into the file for this section.  */
@@ -328,7 +327,7 @@ lto_elf_append_data (const void *data, size_t len, void *block)
 {
   lto_elf_file *file;
   Elf_Data *elf_data;
-  struct lto_char_ptr_base *base = block;
+  struct lto_char_ptr_base *base = (struct lto_char_ptr_base *) block;
 
   /* Grab the current output file and do some basic assertion checking.  */
   file = (lto_elf_file *) lto_get_current_out_file ();
@@ -340,7 +339,7 @@ lto_elf_append_data (const void *data, size_t len, void *block)
     fatal_error ("elf_newdata() failed: %s.", elf_errmsg(-1));
 
   elf_data->d_align = 1;
-  elf_data->d_buf = (void *)data;
+  elf_data->d_buf = CONST_CAST (void *, data);
   elf_data->d_off = 0LL;
   elf_data->d_size = len;
   elf_data->d_type = ELF_T_BYTE;
@@ -572,8 +571,7 @@ lto_elf_file_open (const char *filename, bool writable)
   if (writable)
     {
       init_ehdr (elf_file);
-      elf_file->shstrtab_stream = xcalloc (1,
-					   sizeof (struct lto_output_stream));
+      elf_file->shstrtab_stream = XCNEW (struct lto_output_stream);
       /* Output an empty string to the section header table.  This becomes the
 	 name of the initial NULL section.  */
       lto_output_1_stream (elf_file->shstrtab_stream, '\0');

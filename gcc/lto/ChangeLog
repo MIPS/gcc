@@ -1,3 +1,22 @@
+2008-07-11  Bill Maddox  <maddox@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* lto.c (lto_read_decls): Fix C++ compatibility warnings.
+	Make code const-correct.
+	(lto_file_read): Fix C++ compatibility warnings.
+	(lto_read_section_data):  Fix C++ compatibility warnings.
+	(lto_get_section_data): Use CONST_CAST to avoid warning when
+	const pointer passed to free.
+	* lto-elf.c (lto_elf_build_section_table): Fix C++
+	compatibility warnings.
+	(lto_elf_append_data):  Fix C++ compatibility warnings.  Use CONST_CAST
+	to avoid warning assigning const pointer to d_buf field of Elf_Data.
+	(lto_get_current_out_file):  Fix C++ compatibility warnings.
+
+2008-07-11  Diego Novillo  <dnovillo@google.com>
+
+	* Make-lang.in (lto-warn): Define.
+
 2008-07-03  Simon Baldwin  <simonb@google.com>
 
 	* lto.c (lto_read_decls): Wrapped debug-only data items within #ifdef

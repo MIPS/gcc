@@ -147,8 +147,8 @@ preload_common_nodes (struct data_in *data_in)
 static void
 lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
 {
-  struct lto_decl_header * header 
-      = (struct lto_decl_header *) data;
+  const struct lto_decl_header * header 
+      = (const struct lto_decl_header *) data;
 
   int32_t types_offset = sizeof (struct lto_decl_header); 
   int32_t fields_offset
@@ -162,18 +162,19 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   int32_t namespace_decls_offset
       = type_decls_offset + (header->num_type_decls * sizeof (uint32_t));
 
-  uint32_t *in_types       = (uint32_t*)(data + types_offset);
-  uint32_t *in_field_decls = (uint32_t*)(data + fields_offset);
-  uint32_t *in_fn_decls    = (uint32_t*)(data + fns_offset);
-  uint32_t *in_var_decls   = (uint32_t*)(data + vars_offset);
-  uint32_t *in_type_decls  = (uint32_t*)(data + type_decls_offset);
-  uint32_t *in_namespace_decls  = (uint32_t*)(data + namespace_decls_offset);
+  const uint32_t *in_types       = (const uint32_t *) data + types_offset;
+  const uint32_t *in_field_decls = (const uint32_t *) data + fields_offset;
+  const uint32_t *in_fn_decls    = (const uint32_t *) data + fns_offset;
+  const uint32_t *in_var_decls   = (const uint32_t *) data + vars_offset;
+  const uint32_t *in_type_decls  = (const uint32_t *) data + type_decls_offset;
+  const uint32_t *in_namespace_decls  = (const uint32_t *) data
+					+ namespace_decls_offset;
 
   int32_t main_offset
       = namespace_decls_offset + (header->num_namespace_decls * sizeof (uint32_t));
-  int32_t string_offset = main_offset + header->main_size;
+  const int32_t string_offset = main_offset + header->main_size;
 #ifdef LTO_STREAM_DEBUGGING
-  int32_t debug_main_offset = string_offset + header->string_size;
+  const int32_t debug_main_offset = string_offset + header->string_size;
 #endif
 
   struct lto_input_block ib_main;
@@ -181,21 +182,21 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   struct data_in data_in;
   int i;
 
-  LTO_INIT_INPUT_BLOCK (ib_main, data + main_offset, 0, header->main_size);
+  LTO_INIT_INPUT_BLOCK (ib_main, (const char*) data + main_offset, 0, header->main_size);
 #ifdef LTO_STREAM_DEBUGGING
-  LTO_INIT_INPUT_BLOCK (debug_main, data + debug_main_offset, 0, header->debug_main_size);
+  LTO_INIT_INPUT_BLOCK (debug_main, (const char*) data + debug_main_offset, 0, header->debug_main_size);
 #endif
 
-  decl_data->field_decls = xcalloc (header->num_field_decls, sizeof (tree));
-  decl_data->fn_decls    = xcalloc (header->num_fn_decls, sizeof (tree));
-  decl_data->var_decls   = xcalloc (header->num_var_decls, sizeof (tree));
-  decl_data->type_decls  = xcalloc (header->num_type_decls, sizeof (tree));
-  decl_data->namespace_decls = xcalloc (header->num_namespace_decls, sizeof (tree));
-  decl_data->types       = xcalloc (header->num_types, sizeof (tree));
+  decl_data->field_decls = (tree *) xcalloc (header->num_field_decls, sizeof (tree));
+  decl_data->fn_decls    = (tree *) xcalloc (header->num_fn_decls, sizeof (tree));
+  decl_data->var_decls   = (tree *) xcalloc (header->num_var_decls, sizeof (tree));
+  decl_data->type_decls  = (tree *) xcalloc (header->num_type_decls, sizeof (tree));
+  decl_data->namespace_decls = (tree *) xcalloc (header->num_namespace_decls, sizeof (tree));
+  decl_data->types       = (tree *) xcalloc (header->num_types, sizeof (tree));
 
   memset (&data_in, 0, sizeof (struct data_in));
   data_in.file_data          = decl_data;
-  data_in.strings            = data + string_offset;
+  data_in.strings            = (const char *) data + string_offset;
   data_in.strings_len        = header->string_size;
   data_in.globals_index	     = NULL;
   data_in.global	     = true;  /* ### unused */
@@ -279,7 +280,7 @@ lto_file_read (lto_file *file)
   size_t len;
   htab_t section_hash_table;
 
-  file_data = xmalloc (sizeof (struct lto_file_decl_data));
+  file_data = XNEW (struct lto_file_decl_data);
 
   file_data->file_name = file->filename;
   file_data->fd = -1;
@@ -336,8 +337,8 @@ lto_read_section_data (struct lto_file_decl_data *file_data,
   diff = offset - computed_offset;
   computed_len = len + diff;
 
-  result = mmap (NULL, computed_len, PROT_READ, MAP_PRIVATE,
-		 file_data->fd, computed_offset);
+  result = (char *) mmap (NULL, computed_len, PROT_READ, MAP_PRIVATE,
+			  file_data->fd, computed_offset);
   if (result == MAP_FAILED)
     {
       close (file_data->fd);
@@ -372,7 +373,7 @@ get_section_data (struct lto_file_decl_data *file_data,
       *len = f_slot->len;
     }
 
-  free ((char *)section_name);
+  free (CONST_CAST (char *, section_name));
   return data;
 }
 

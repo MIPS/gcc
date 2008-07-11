@@ -69,6 +69,9 @@ lto.stagefeedback:
 
 # LTO rules.
 
+# Use strict warnings for this front end.
+lto-warn = $(STRICT_WARN)
+
 $(LTO_EXE): $(LTO_OBJS) $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 		$(LTO_OBJS) $(BACKEND) $(LIBS) $(GMPLIBS) -lelf
