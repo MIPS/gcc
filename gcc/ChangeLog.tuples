@@ -1,5 +1,7 @@
 2008-07-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-dump.c (dump_options): Don't set TDF_RHS_ONLY for -all.
+
 	* omp-low.c (lower_omp_1): Only use rhs_predicate_for if
 	GIMPLE_SINGLE_RHS.
 
