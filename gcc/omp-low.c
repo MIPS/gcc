@@ -6556,7 +6556,11 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		continue;
 	      if (i == 1 && (is_gimple_call (stmt) || is_gimple_assign (stmt)))
 		gimplify_expr (&op, &pre, NULL, is_gimple_lvalue, fb_lvalue);
-	      else if (i == 2 && is_gimple_assign (stmt) && num_ops == 2)
+	      else if (i == 2
+		       && is_gimple_assign (stmt)
+		       && num_ops == 2
+		       && get_gimple_rhs_class (gimple_expr_code (stmt))
+			  == GIMPLE_SINGLE_RHS)
 		gimplify_expr (&op, &pre, NULL,
 			       rhs_predicate_for (gimple_op (stmt, 0)),
 			       fb_rvalue);

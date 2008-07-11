@@ -1,5 +1,8 @@
 2008-07-11  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (lower_omp_1): Only use rhs_predicate_for if
+	GIMPLE_SINGLE_RHS.
+
 	* tree-vect-analyze.c (vect_determine_vectorization_factor): Handle
 	GIMPLE_CALL with non-NULL lhs.
 	(vect_build_slp_tree): Likewise.  Fix reversed check for references.
