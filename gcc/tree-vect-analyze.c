@@ -165,7 +165,7 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      continue;
 	    }
 
-	  if (!is_gimple_assign (stmt))
+	  if (gimple_get_lhs (stmt) == NULL_TREE)
 	    {
 	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 		{
@@ -215,15 +215,16 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 		 cannot rely on invariant motion to always take invariants out
 		 of the loop, and so in the case of promotion we also have to 
 		 check the rhs.  */
-	      scalar_type = TREE_TYPE (gimple_assign_lhs (stmt));
+	      scalar_type = gimple_expr_type (stmt);
 
-	      if (gimple_assign_cast_p (stmt)
-		  || gimple_assign_rhs_code (stmt) == WIDEN_MULT_EXPR
-		  || gimple_assign_rhs_code (stmt) == FLOAT_EXPR)
+	      if (is_gimple_assign (stmt)
+		  && (gimple_assign_cast_p (stmt)
+		      || gimple_assign_rhs_code (stmt) == WIDEN_MULT_EXPR
+		      || gimple_assign_rhs_code (stmt) == FLOAT_EXPR))
 		{
 		  tree rhs_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-		  if (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (rhs_type)) < 
-		      TREE_INT_CST_LOW (TYPE_SIZE_UNIT (scalar_type)))
+		  if (TREE_INT_CST_LOW (TYPE_SIZE_UNIT (rhs_type))
+		      < TREE_INT_CST_LOW (TYPE_SIZE_UNIT (scalar_type)))
 		    scalar_type = rhs_type;
 		}
 
@@ -2662,18 +2663,20 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	  print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
 	}
 
-      if (!is_gimple_assign (stmt))
+      lhs = gimple_get_lhs (stmt);
+      if (lhs == NULL_TREE)
 	{
 	  if (vect_print_dump_info (REPORT_SLP)) 
 	    {
-	      fprintf (vect_dump, "Build SLP failed: not GIMPLE_ASSIGN ");
+	      fprintf (vect_dump,
+		       "Build SLP failed: not GIMPLE_ASSIGN nor GIMPLE_CALL");
 	      print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
 	    }
 	  
 	  return false;
 	}
 
-      scalar_type = TREE_TYPE (gimple_assign_lhs (stmt));
+      scalar_type = TREE_TYPE (lhs);
       vectype = get_vectype_for_scalar_type (scalar_type);
       if (!vectype)
         {
@@ -2698,8 +2701,10 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	  return false;
 	}
 
-      lhs = gimple_assign_lhs (stmt);
-      rhs_code = gimple_assign_rhs_code (stmt);
+      if (is_gimple_call (stmt))
+	rhs_code = CALL_EXPR;
+      else
+	rhs_code = gimple_assign_rhs_code (stmt);
 
       /* Check the operation.  */
       if (i == 0)
@@ -2862,7 +2867,7 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	} /* Strided access.  */
       else
 	{
-	  if (TREE_CODE_CLASS (rhs_code) != tcc_reference)
+	  if (TREE_CODE_CLASS (rhs_code) == tcc_reference)
 	    {
 	      /* Not strided load. */
 	      if (vect_print_dump_info (REPORT_SLP)) 

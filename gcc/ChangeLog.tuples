@@ -1,3 +1,91 @@
+2008-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Handle
+	GIMPLE_CALL with non-NULL lhs.
+	(vect_build_slp_tree): Likewise.  Fix reversed check for references.
+	* tree-vectorizer.c (stmt_vec_info_htab, stmt_vec_info_eq,
+	stmt_vec_info_hash, init_stmt_vec_info_htab,
+	free_stmt_vec_info_htab): Remove.
+	(stmt_vec_info_vec): New variable.
+	(init_stmt_vec_info_vec, free_stmt_vec_info_vec): New functions.
+	(new_loop_vec_info): Clear stmt uid before calling
+	set_vinfo_for_stmt.
+	(vect_is_simple_use): Handle GIMPLE_CALL with non-NULL lhs.
+	(vectorize_loops): Call {init,free}_stmt_vec_info_vec instead of
+	{init,free}_stmt_vec_info_htab.
+	* tree-parloops.c (parallelize_loops): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Handle VEC_COND_EXPR.
+	* tree-vectorizer.h (stmt_vec_info_htab): Removed.
+	(init_stmt_vec_info_htab, free_stmt_vec_info_htab): Remove
+	prototypes.
+	(stmt_vec_info_vec): New extern decl.
+	(init_stmt_vec_info_vec, free_stmt_vec_info_vec): New prototypes.
+	(vinfo_for_stmt, set_vinfo_for_stmt): Rewritten using stmt uid
+	and vector instead of a hash table.
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Request
+	a GIMPLE_CALL with non-NULL lhs instead of GIMPLE_ASSIGN.
+	(vect_pattern_recog_1): Use is_gimple_call instead of comparing
+	gimple_code with GIMPLE_CALL.
+	* gimple.c (gimple_rhs_class_table): Use GIMPLE_SINGLE_RHS for
+	DOT_PROD_EXPR and VEC_COND_EXPR.
+	* tree-vect-transform.c (vect_get_slp_vect_defs): Use gimple_get_lhs
+	instead of gimple_assign_lhs.
+	(get_initial_def_for_induction): Use build_int_cst even for
+	pointers.  Use POINTER_PLUS_EXPR for POINTER_TYPE_P (scalar_type).
+	(vect_get_vec_def_for_operand): Use is_gimple_call instead of
+	comparing gimple_code with GIMPLE_CALL.
+	(vectorizable_call): Likewise.  Use gimple_call_lhs instead of
+	gimple_assign_lhs.  Build a vector of arguments, use
+	gimple_build_call_vec.
+	(vect_get_vec_def_for_stmt_copy): Use gimple_get_lhs.
+	(vectorizable_live_operation): Handle GIMPLE_SINGLE_RHS operands.
+
+2008-07-11  Doug Kwan  <dougkwan@google.com>
+
+	* gimple-dummy.c (vectorizable_induction, vectorizable_type_promotion,
+	vectorizable_type_demotion, vectorizable_conversion,
+	vectorizable_operation, vectorizable_assignment,
+	vectorizable_load, vectorizable_call, vectorizable_store,
+	vectorizable_condition, vectorizable_reduction,
+	vectorizable_live_operation, vectorizable_function,
+	vect_estimate_min_profitable_iters, vect_model_simple_cost,
+	vect_model_store_cost, vect_model_load_cost, vect_transform_loop):
+	Remove DUMMY_FNs.
+	* tree-ssa-loop.c (gate_tree_vectorize): Reenable vectorizer.
+	* tree-vectorizer.c (vect_is_simple_use): Fix handling of
+	GIMPLE_NOP.
+	* tree-vectorizer.h (vectorizable_load, vectorizable_store,
+	vectorizable_operation, vectorizable_type_promotion,
+	vectorizable_type_demotion, vectorizable_conversion,
+	vectorizable_assignment, vectorizable_call, vectorizable_condition,
+	vectorizable_live_operation, vectorizable_reduction,
+	vectorizable_induction): Adjust prototypes.
+	* tree-vect-transform.c (vectorizable_load, vectorizable_store,
+	vectorizable_operation, vectorizable_type_promotion,
+	vectorizable_type_demotion, vectorizable_conversion,
+	vectorizable_assignment, vectorizable_call, vectorizable_condition,
+	vectorizable_live_operation, vectorizable_reduction,
+	vectorizable_induction, vect_transform_stmt,
+	vect_create_data_ref_ptr, vect_create_addr_base_for_vector_ref,
+	vect_get_vec_def_for_operand, vect_init_vector,
+	vect_finish_stmt_generation, vect_create_epilog_for_reduction,
+	get_initial_def_for_reduction, cost_for_stmt,
+	vect_estimate_min_profitable_iters, vect_model_reduction_cost,
+	vect_cost_strided_group_size, vect_model_load_cost, bump_vector_ptr,
+	vect_get_constant_vectors, vect_get_slp_vect_defs,
+	vect_get_slp_defs, get_initial_def_for_induction,
+	vect_get_vec_def_for_stmt_copy, vect_get_vec_defs,
+	vectorizable_function, vect_gen_widened_results_half,
+	vect_permute_store_chain, vect_setup_realignment,
+	vect_permute_load_chain, vect_transform_strided_load,
+	vect_is_simple_cond, vect_build_loop_niters,
+	vect_generate_tmps_on_preheader, vect_update_ivs_after_vectorizer,
+	vect_do_peeling_for_loop_bound, vect_gen_niters_for_prolog_loop,
+	vect_do_peeling_for_alignment, vect_create_cond_for_align_checks,
+	vect_create_cond_for_alias_checks, vect_loop_versioning,
+	vect_remove_stores, vect_schedule_slp_instance,
+	vect_transform_loop): Tuplify.
+
 2008-07-10  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.h (gimple_assign_ssa_name_copy_p): Declare.

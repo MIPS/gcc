@@ -522,38 +522,40 @@ typedef struct _stmt_vec_info {
 #define TARG_VEC_STORE_COST          1
 #endif
 
-extern htab_t stmt_vec_info_htab;
+/* Avoid GTY(()) on stmt_vec_info.  */
+typedef void *vec_void_p;
+DEF_VEC_P (vec_void_p);
+DEF_VEC_ALLOC_P (vec_void_p, heap);
 
-void init_stmt_vec_info_htab (void);
-void free_stmt_vec_info_htab (void);
+extern VEC(vec_void_p,heap) *stmt_vec_info_vec;
+
+void init_stmt_vec_info_vec (void);
+void free_stmt_vec_info_vec (void);
 
 static inline stmt_vec_info
 vinfo_for_stmt (gimple stmt)
 {
-  void **slot;
-  slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
-				   htab_hash_pointer (stmt), NO_INSERT);
-  return slot ? (stmt_vec_info) *slot : NULL;
+  unsigned int uid = gimple_uid (stmt);
+  if (uid == 0)
+    return NULL;
+
+  gcc_assert (uid <= VEC_length (vec_void_p, stmt_vec_info_vec));
+  return (stmt_vec_info) VEC_index (vec_void_p, stmt_vec_info_vec, uid - 1);
 }
 
 static inline void
 set_vinfo_for_stmt (gimple stmt, stmt_vec_info info)
 {
-  void **slot;
-  if (info)
+  unsigned int uid = gimple_uid (stmt);
+  if (uid == 0)
     {
-      slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
-				       htab_hash_pointer (stmt), INSERT);
-      gcc_assert (!*slot);
-      *slot = info;
+      gcc_assert (info);
+      uid = VEC_length (vec_void_p, stmt_vec_info_vec) + 1;
+      gimple_set_uid (stmt, uid);
+      VEC_safe_push (vec_void_p, heap, stmt_vec_info_vec, (vec_void_p) info);
     }
   else
-    {
-      slot = htab_find_slot_with_hash (stmt_vec_info_htab, stmt,
-				       htab_hash_pointer (stmt), NO_INSERT);
-      if (slot)
-	htab_clear_slot (stmt_vec_info_htab, slot);
-    }
+    VEC_replace (vec_void_p, stmt_vec_info_vec, uid - 1, (vec_void_p) info);
 }
 
 static inline bool
@@ -696,27 +698,27 @@ void vect_pattern_recog (loop_vec_info);
 
 
 /** In tree-vect-transform.c  **/
-extern bool vectorizable_load (gimple, gimple_stmt_iterator *, tree *,
+extern bool vectorizable_load (gimple, gimple_stmt_iterator *, gimple *,
 			       slp_tree);
-extern bool vectorizable_store (gimple, gimple_stmt_iterator *, tree *,
+extern bool vectorizable_store (gimple, gimple_stmt_iterator *, gimple *,
 				slp_tree);
-extern bool vectorizable_operation (gimple, gimple_stmt_iterator *, tree *, 
+extern bool vectorizable_operation (gimple, gimple_stmt_iterator *, gimple *,
 				    slp_tree);
 extern bool vectorizable_type_promotion (gimple, gimple_stmt_iterator *,
-					 tree *);
+					 gimple *);
 extern bool vectorizable_type_demotion (gimple, gimple_stmt_iterator *,
-					tree *);
-extern bool vectorizable_conversion (gimple, gimple_stmt_iterator *, 
-				     tree *, slp_tree);
-extern bool vectorizable_assignment (gimple, gimple_stmt_iterator *, tree *, 
+					gimple *);
+extern bool vectorizable_conversion (gimple, gimple_stmt_iterator *, gimple *,
+				     slp_tree);
+extern bool vectorizable_assignment (gimple, gimple_stmt_iterator *, gimple *,
 				     slp_tree);
 extern tree vectorizable_function (gimple, tree, tree);
-extern bool vectorizable_call (gimple, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_condition (gimple, gimple_stmt_iterator *, tree *);
+extern bool vectorizable_call (gimple, gimple_stmt_iterator *, gimple *);
+extern bool vectorizable_condition (gimple, gimple_stmt_iterator *, gimple *);
 extern bool vectorizable_live_operation (gimple, gimple_stmt_iterator *,
-					 tree *);
-extern bool vectorizable_reduction (gimple, gimple_stmt_iterator *, tree *);
-extern bool vectorizable_induction (gimple, gimple_stmt_iterator *, tree *);
+					 gimple *);
+extern bool vectorizable_reduction (gimple, gimple_stmt_iterator *, gimple *);
+extern bool vectorizable_induction (gimple, gimple_stmt_iterator *, gimple *);
 extern int  vect_estimate_min_profitable_iters (loop_vec_info);
 extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *, 
 				    slp_tree);

@@ -165,8 +165,8 @@ static LOC vect_loop_location;
 /* Bitmap of virtual variables to be renamed.  */
 bitmap vect_memsyms_to_rename;
 
-/* Hash table mapping GIMPLE stmt to stmt_vec_info. */
-htab_t stmt_vec_info_htab = NULL;
+/* Vector mapping GIMPLE stmt to stmt_vec_info. */
+VEC(vec_void_p,heap) *stmt_vec_info_vec;
 
 
 /*************************************************************************
@@ -1566,38 +1566,22 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo)
   return res;
 }
 
-static int
-stmt_vec_info_eq (const void *p1, const void *p2)
-{
-  return (const_gimple) STMT_VINFO_STMT ((const struct _stmt_vec_info *) p1)
-	 == (const_gimple) p2;
-}
-
-static hashval_t
-stmt_vec_info_hash (const void *p)
-{
-  const struct _stmt_vec_info *i = (const struct _stmt_vec_info *) p;
-  return htab_hash_pointer (STMT_VINFO_STMT (i));
-}
-
 /* Create a hash table for stmt_vec_info. */
 
 void
-init_stmt_vec_info_htab (void)
+init_stmt_vec_info_vec (void)
 {
-  gcc_assert (!stmt_vec_info_htab);
-  stmt_vec_info_htab = htab_create (10, stmt_vec_info_hash, stmt_vec_info_eq,
-				    NULL);
+  gcc_assert (!stmt_vec_info_vec);
+  stmt_vec_info_vec = VEC_alloc (vec_void_p, heap, 50);
 }
 
 /* Free hash table for stmt_vec_info. */
 
 void
-free_stmt_vec_info_htab (void)
+free_stmt_vec_info_vec (void)
 {
-  gcc_assert (stmt_vec_info_htab);
-  htab_delete (stmt_vec_info_htab);
-  stmt_vec_info_htab = NULL;
+  gcc_assert (stmt_vec_info_vec);
+  VEC_free (vec_void_p, heap, stmt_vec_info_vec);
 }
 
 /* Free stmt vectorization related info.  */
@@ -1689,12 +1673,14 @@ new_loop_vec_info (struct loop *loop)
 	  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	    {
 	      gimple phi = gsi_stmt (si);
+	      gimple_set_uid (phi, 0);
 	      set_vinfo_for_stmt (phi, new_stmt_vec_info (phi, res));
 	    }
 
 	  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	    {
 	      gimple stmt = gsi_stmt (si);
+	      gimple_set_uid (stmt, 0);
 	      set_vinfo_for_stmt (stmt, new_stmt_vec_info (stmt, res));
 	    }
 	}
@@ -2087,28 +2073,9 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, gimple *def_stmt,
      (Otherwise - we expect a phi_node or a GIMPLE_ASSIGN).  */
   if (gimple_nop_p (*def_stmt))
     {
-      tree arg = NULL;
-      switch (gimple_code (*def_stmt))
-	{
-	case GIMPLE_ASSIGN:
-	  arg = gimple_assign_lhs (*def_stmt);
-	  break;
-	case GIMPLE_PHI:
-	  arg = gimple_phi_result (*def_stmt);
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      if (is_gimple_min_invariant (arg))
-        {
-          *def = operand;
-          *dt = vect_invariant_def;
-          return true;
-        }
-
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "Unexpected empty stmt.");
-      return false;
+      *def = operand;
+      *dt = vect_invariant_def;
+      return true;
     }
 
   bb = gimple_bb (*def_stmt);
@@ -2140,6 +2107,11 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, gimple *def_stmt,
       *def = gimple_assign_lhs (*def_stmt);
       break;
 
+    case GIMPLE_CALL:
+      *def = gimple_call_lhs (*def_stmt);
+      if (*def != NULL)
+	break;
+      /* FALLTHRU */
     default:
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "unsupported defining stmt: ");
@@ -2717,7 +2689,7 @@ vectorize_loops (void)
      need to be renamed.  */
   vect_memsyms_to_rename = BITMAP_ALLOC (NULL);
 
-  init_stmt_vec_info_htab ();
+  init_stmt_vec_info_vec ();
 
   /*  ----------- Analyze loops. -----------  */
 
@@ -2763,7 +2735,7 @@ vectorize_loops (void)
       loop->aux = NULL;
     }
 
-  free_stmt_vec_info_htab ();
+  free_stmt_vec_info_vec ();
 
   return num_vectorized_loops > 0 ? TODO_cleanup_cfg : 0;
 }

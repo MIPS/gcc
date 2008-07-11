@@ -1,5 +1,5 @@
 /* Analysis Utilities for Loop Vectorization.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Dorit Nuzman <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -467,13 +467,10 @@ vect_recog_pow_pattern (gimple last_stmt, tree *type_in, tree *type_out)
   gimple stmt;
   tree var;
 
-  if (!is_gimple_assign (last_stmt))
+  if (!is_gimple_call (last_stmt) || gimple_call_lhs (last_stmt) == NULL)
     return NULL;
 
   type = gimple_expr_type (last_stmt);
-
-  if (gimple_code (last_stmt) != GIMPLE_CALL)
-    return NULL;
 
   fn = gimple_call_fndecl (last_stmt);
   switch (DECL_FUNCTION_CODE (fn))
@@ -489,7 +486,7 @@ vect_recog_pow_pattern (gimple last_stmt, tree *type_in, tree *type_out)
         return NULL;
       break;
 
-    default:;
+    default:
       return NULL;
     }
 
@@ -712,7 +709,7 @@ vect_pattern_recog_1 (
 	code = gimple_assign_rhs_code (pattern_stmt);
       else
         {
-	  gcc_assert (gimple_code (pattern_stmt) == GIMPLE_CALL);
+	  gcc_assert (is_gimple_call (pattern_stmt));
 	  code = CALL_EXPR;
 	}
 

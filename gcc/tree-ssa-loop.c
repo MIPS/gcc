@@ -225,12 +225,7 @@ tree_vectorize (void)
 static bool
 gate_tree_vectorize (void)
 {
-  /*FIXME tuples*/
-#if 0
   return flag_tree_vectorize;
-#else
-  return 0;
-#endif
 }
 
 struct gimple_opt_pass pass_vectorize =

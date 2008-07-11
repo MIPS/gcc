@@ -1986,6 +1986,7 @@ get_expr_operands (gimple stmt, tree *expr_p, int flags)
       return;
 
     case COND_EXPR:
+    case VEC_COND_EXPR:
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_use);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_use);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_use);

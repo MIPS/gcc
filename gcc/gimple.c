@@ -2577,7 +2577,9 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == EXC_PTR_EXPR						    \
       || (SYM) == SSA_NAME						    \
       || (SYM) == FILTER_EXPR						    \
-      || (SYM) == POLYNOMIAL_CHREC) ? GIMPLE_SINGLE_RHS			    \
+      || (SYM) == POLYNOMIAL_CHREC					    \
+      || (SYM) == DOT_PROD_EXPR						    \
+      || (SYM) == VEC_COND_EXPR) ? GIMPLE_SINGLE_RHS			    \
    : GIMPLE_INVALID_RHS),
 #define END_OF_BASE_TREE_CODES (unsigned char) GIMPLE_INVALID_RHS,
 

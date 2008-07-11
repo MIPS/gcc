@@ -1837,7 +1837,7 @@ parallelize_loops (void)
 
   reduction_list = htab_create (10, reduction_info_hash,
                                 reduction_info_eq, free);
-  init_stmt_vec_info_htab ();
+  init_stmt_vec_info_vec ();
 
   FOR_EACH_LOOP (li, loop, 0)
     {
@@ -1862,7 +1862,7 @@ parallelize_loops (void)
       verify_loop_closed_ssa ();
     }
 
-  free_stmt_vec_info_htab ();
+  free_stmt_vec_info_vec ();
   htab_delete (reduction_list);
   return changed;
 }
