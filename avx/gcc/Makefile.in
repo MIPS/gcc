@@ -155,10 +155,9 @@ coverageexts = .{gcda,gcno}
 # flags from configure.  The user is free to explicitly turn these flags
 # off if they wish.
 # LOOSE_WARN are the warning flags to use when compiling something
-# which is only compiled with gcc, such as libgcc and the frontends
-# other than C.
+# which is only compiled with gcc, such as libgcc.
 # STRICT_WARN are the additional warning flags to
-# apply to the back end and the C front end, which may be compiled
+# apply to the back end and some front ends, which may be compiled
 # with other compilers.
 LOOSE_WARN = @loose_warn@
 STRICT_WARN = @strict_warn@
@@ -1223,7 +1222,6 @@ OBJS-common = \
 	tree-vect-patterns.o \
 	tree-vect-transform.o \
 	tree-vectorizer.o \
-	tree-vn.o \
 	tree-vrp.o \
 	tree.o \
 	value-prof.o \
@@ -2109,16 +2107,14 @@ tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H) \
    alloc-pool.h $(BASIC_BLOCK_H) bitmap.h $(HASHTAB_H) $(TREE_GIMPLE_H) \
-   $(TREE_INLINE_H) tree-iterator.h tree-ssa-sccvn.h $(PARAMS_H)
+   $(TREE_INLINE_H) tree-iterator.h tree-ssa-sccvn.h $(PARAMS_H) \
+   $(DBGCNT_H)
 tree-ssa-sccvn.o : tree-ssa-sccvn.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(GGC_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) tree-pass.h $(FLAGS_H) $(CFGLOOP_H) \
    alloc-pool.h $(BASIC_BLOCK_H) bitmap.h $(HASHTAB_H) $(TREE_GIMPLE_H) \
    $(TREE_INLINE_H) tree-iterator.h tree-ssa-propagate.h tree-ssa-sccvn.h \
    $(PARAMS_H)
-tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
-   $(TREE_H) $(TREE_FLOW_H) $(HASHTAB_H) langhooks.h tree-pass.h \
-   $(TREE_DUMP_H) $(DIAGNOSTIC_H) tree-ssa-sccvn.h
 tree-vrp.o : tree-vrp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(TREE_FLOW_H) tree-pass.h $(TREE_DUMP_H) $(DIAGNOSTIC_H) $(GGC_H) \
    $(BASIC_BLOCK_H) tree-ssa-propagate.h $(FLAGS_H) $(TREE_DUMP_H) \
@@ -2871,7 +2867,7 @@ recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FUNCTION_H) $(BASIC_BLOCK_H) $(REGS_H) $(RECOG_H) $(EXPR_H) \
    $(FLAGS_H) insn-config.h $(INSN_ATTR_H) toplev.h output.h reload.h \
    addresses.h $(TM_P_H) $(TIMEVAR_H) tree-pass.h hard-reg-set.h $(REAL_H) \
-   $(DF_H) $(DBGCNT_H)
+   $(DF_H) $(DBGCNT_H) $(TARGET_H)
 reg-stack.o : reg-stack.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) $(RECOG_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) \
    insn-config.h toplev.h reload.h $(FUNCTION_H) $(TM_P_H) $(GGC_H) \
