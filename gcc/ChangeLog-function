@@ -1,3 +1,5 @@
+Merge up to 137737.
+
 2008-06-30  Michael Meissner  <gnu@the-meissners.org>
 
 	* gcc/config/i386/i386.c (ix86_init_builtins): Restore code added

@@ -94,6 +94,10 @@ Wdisabled-optimization
 Common Var(warn_disabled_optimization) Warning
 Warn when an optimization pass is disabled
 
+Wdisallowed-function-list=
+Common RejectNegative Joined Warning
+Warn on calls to these functions
+
 Werror
 Common Var(warnings_are_errors)
 Treat all warnings as errors
@@ -1087,6 +1091,10 @@ Does nothing.  Preserved for backward compatibility.
 ftree-cselim
 Common Report Var(flag_tree_cselim) Init(2) Optimization
 Transform condition stores into unconditional ones
+
+ftree-switch-conversion
+Common Report Var(flag_tree_switch_conversion) Optimization
+Perform conversions of switch initializations.
 
 ftree-dce
 Common Report Var(flag_tree_dce) Optimization

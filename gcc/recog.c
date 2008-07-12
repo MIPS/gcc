@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
@@ -2898,6 +2899,9 @@ peep2_find_free_register (int from, int to, const char *class_str,
       /* Don't allocate fixed registers.  */
       if (fixed_regs[regno])
 	continue;
+      /* Don't allocate global registers.  */
+      if (global_regs[regno])
+	continue;
       /* Make sure the register is of the right class.  */
       if (! TEST_HARD_REG_BIT (reg_class_contents[cl], regno))
 	continue;
@@ -2907,6 +2911,9 @@ peep2_find_free_register (int from, int to, const char *class_str,
       /* And that we don't create an extra save/restore.  */
       if (! call_used_regs[regno] && ! df_regs_ever_live_p (regno))
 	continue;
+      if (! targetm.hard_regno_scratch_ok (regno))
+	continue;
+
       /* And we don't clobber traceback for noreturn functions.  */
       if ((regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM)
 	  && (! reload_completed || frame_pointer_needed))
@@ -3045,10 +3052,9 @@ peephole2_optimize (void)
 			  {
 			  case REG_NORETURN:
 			  case REG_SETJMP:
-			    REG_NOTES (new_insn)
-			      = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
-						   XEXP (note, 0),
-						   REG_NOTES (new_insn));
+			    add_reg_note (new_insn, REG_NOTE_KIND (note),
+					  XEXP (note, 0));
+			    break;
 			  default:
 			    /* Discard all other reg notes.  */
 			    break;
@@ -3096,10 +3102,7 @@ peephole2_optimize (void)
 				&& !find_reg_note (x, REG_EH_REGION, NULL)))
 			  {
 			    if (note)
-			      REG_NOTES (x)
-			        = gen_rtx_EXPR_LIST (REG_EH_REGION,
-						     XEXP (note, 0),
-						     REG_NOTES (x));
+			      add_reg_note (x, REG_EH_REGION, XEXP (note, 0));
 
 			    if (x != BB_END (bb) && eh_edge)
 			      {

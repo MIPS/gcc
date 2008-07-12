@@ -74,6 +74,10 @@ enum rid
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
   RID_FRACT, RID_ACCUM,
 
+  /* This means to warn that this is a C++ keyword, and then treat it
+     as a normal identifier.  */
+  RID_CXX_COMPAT_WARN,
+
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
 
@@ -196,6 +200,36 @@ struct c_common_identifier GTY(())
   struct tree_common common;
   struct cpp_hashnode node;
 };
+
+/* An entry in the reserved keyword table.  */
+
+struct c_common_resword
+{
+  const char *const word;
+  ENUM_BITFIELD(rid) const rid : 16;
+  const unsigned int disable   : 16;
+};
+
+/* Disable mask.  Keywords are disabled if (reswords[i].disable &
+   mask) is _true_.  Thus for keywords which are present in all
+   languages the disable field is zero.  */
+
+#define D_CONLY		0x001	/* C only (not in C++).  */
+#define D_CXXONLY	0x002	/* C++ only (not in C).  */
+#define D_C99		0x004	/* In C, C99 only.  */
+#define D_CXX0X         0x008	/* In C++, C++0X only.  */
+#define D_EXT		0x010	/* GCC extension.  */
+#define D_EXT89		0x020	/* GCC extension incorporated in C99.  */
+#define D_ASM		0x040	/* Disabled by -fno-asm.  */
+#define D_OBJC		0x080	/* In Objective C and neither C nor C++.  */
+#define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
+#define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
+
+/* The reserved keyword table.  */
+extern const struct c_common_resword c_common_reswords[];
+
+/* The number of items in the reserved keyword table.  */
+extern const unsigned int num_c_common_reswords;
 
 #define char16_type_node		c_global_trees[CTI_CHAR16_TYPE]
 #define char32_type_node		c_global_trees[CTI_CHAR32_TYPE]
@@ -824,6 +858,7 @@ extern tree finish_label_address_expr (tree);
 extern tree lookup_label (tree);
 extern tree lookup_name (tree);
 
+extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);

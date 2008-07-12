@@ -697,6 +697,12 @@ struct gcc_target
   /* Create the __builtin_va_list type.  */
   tree (* build_builtin_va_list) (void);
 
+  /* Get the cfun/fndecl calling abi __builtin_va_list type.  */
+  tree (* fn_abi_va_list) (tree);
+
+  /* Get the __builtin_va_list type dependent on input type.  */
+  tree (* canonical_va_list_type) (tree);
+
   /* Expand the __builtin_va_start builtin.  */
   void (* expand_builtin_va_start) (tree valist, rtx nextarg);
 
@@ -865,6 +871,10 @@ struct gcc_target
      instantiations on rtx that are not actually in insns yet,
      but will be later.  */
   void (* instantiate_decls) (void);
+
+  /* Return true if is OK to use a hard register REGNO as scratch register
+     in peephole2.  */
+  bool (* hard_regno_scratch_ok) (unsigned int regno);
 
   /* Functions specific to the C family of frontends.  */
   struct c {

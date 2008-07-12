@@ -7330,7 +7330,8 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 	}
     }
 
-  if (sym->attr.function && sym->value && sym->attr.proc != PROC_ST_FUNCTION)
+  if (sym->attr.function && sym->value && sym->attr.proc != PROC_ST_FUNCTION
+      && !sym->attr.proc_pointer)
     {
       gfc_error ("Function '%s' at %L cannot have an initializer",
 		 sym->name, &sym->declared_at);
@@ -7338,8 +7339,8 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
     }
 
   /* An external symbol may not have an initializer because it is taken to be
-     a procedure.  */
-  if (sym->attr.external && sym->value)
+     a procedure. Exception: Procedure Pointers.  */
+  if (sym->attr.external && sym->value && !sym->attr.proc_pointer)
     {
       gfc_error ("External object '%s' at %L may not have an initializer",
 		 sym->name, &sym->declared_at);
@@ -7656,7 +7657,8 @@ resolve_fl_derived (gfc_symbol *sym)
 	}
 
       if (c->ts.type == BT_DERIVED && c->pointer
-	  && c->ts.derived->components == NULL)
+	  && c->ts.derived->components == NULL
+	  && !c->ts.derived->attr.zero_comp)
 	{
 	  gfc_error ("The pointer component '%s' of '%s' at %L is a type "
 		     "that has not been declared", c->name, sym->name,

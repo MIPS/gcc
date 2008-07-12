@@ -2099,21 +2099,17 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 }
 
 /* Finish a compound-literal expression.  TYPE is the type to which
-   the INITIALIZER_LIST is being cast.  */
+   the CONSTRUCTOR in COMPOUND_LITERAL is being cast.  */
 
 tree
-finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
+finish_compound_literal (tree type, tree compound_literal)
 {
-  tree compound_literal;
-
   if (!TYPE_OBJ_P (type))
     {
       error ("compound literal of non-object type %qT", type);
       return error_mark_node;
     }
 
-  /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
-  compound_literal = build_constructor (NULL_TREE, initializer_list);
   if (processing_template_decl)
     {
       TREE_TYPE (compound_literal) = type;
@@ -2123,6 +2119,18 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
     }
 
   type = complete_type (type);
+
+  if (TYPE_NON_AGGREGATE_CLASS (type))
+    {
+      /* Trying to deal with a CONSTRUCTOR instead of a TREE_LIST
+	 everywhere that deals with function arguments would be a pain, so
+	 just wrap it in a TREE_LIST.  The parser set a flag so we know
+	 that it came from T{} rather than T({}).  */
+      CONSTRUCTOR_IS_DIRECT_INIT (compound_literal) = 1;
+      compound_literal = build_tree_list (NULL_TREE, compound_literal);
+      return build_functional_cast (type, compound_literal, tf_error);
+    }
+
   if (TREE_CODE (type) == ARRAY_TYPE
       && check_array_initializer (NULL_TREE, type, compound_literal))
     return error_mark_node;
@@ -2130,7 +2138,19 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
   if (TREE_CODE (type) == ARRAY_TYPE)
     cp_complete_array_type (&type, compound_literal, false);
   compound_literal = digest_init (type, compound_literal);
-  return get_target_expr (compound_literal);
+  if ((!at_function_scope_p () || cp_type_readonly (type))
+      && initializer_constant_valid_p (compound_literal, type))
+    {
+      tree decl = create_temporary_var (type);
+      DECL_INITIAL (decl) = compound_literal;
+      TREE_STATIC (decl) = 1;
+      decl = pushdecl_top_level (decl);
+      DECL_NAME (decl) = make_anon_name ();
+      SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+      return decl;
+    }
+  else
+    return get_target_expr (compound_literal);
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -2482,29 +2502,33 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
 }
 
 /* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is
-   what we found when we tried to do the lookup.  */
+   what we found when we tried to do the lookup.
+   LOCATION is the location of the NAME identifier;
+   The location is used in the error message*/
 
 void
-qualified_name_lookup_error (tree scope, tree name, tree decl)
+qualified_name_lookup_error (tree scope, tree name,
+			     tree decl, location_t location)
 {
   if (scope == error_mark_node)
     ; /* We already complained.  */
   else if (TYPE_P (scope))
     {
       if (!COMPLETE_TYPE_P (scope))
-	error ("incomplete type %qT used in nested name specifier", scope);
+	error ("%Hincomplete type %qT used in nested name specifier",
+	       &location, scope);
       else if (TREE_CODE (decl) == TREE_LIST)
 	{
-	  error ("reference to %<%T::%D%> is ambiguous", scope, name);
+	  error ("%Hreference to %<%T::%D%> is ambiguous", &location, scope, name);
 	  print_candidates (decl);
 	}
       else
-	error ("%qD is not a member of %qT", name, scope);
+	error ("%H%qD is not a member of %qT", &location, name, scope);
     }
   else if (scope != global_namespace)
-    error ("%qD is not a member of %qD", name, scope);
+    error ("%H%qD is not a member of %qD", &location, name, scope);
   else
-    error ("%<::%D%> has not been declared", name);
+    error ("%H%<::%D%> has not been declared", &location, name);
 }
 
 /* If FNS is a member function, a set of member functions, or a
@@ -2569,7 +2593,6 @@ baselink_for_fns (tree fns)
    the use of "this" explicit.
 
    Upon return, *IDK will be filled in appropriately.  */
-
 tree
 finish_id_expression (tree id_expression,
 		      tree decl,
@@ -2582,7 +2605,8 @@ finish_id_expression (tree id_expression,
 		      bool done,
 		      bool address_p,
 		      bool template_arg_p,
-		      const char **error_msg)
+		      const char **error_msg,
+		      location_t location)
 {
   /* Initialize the output parameters.  */
   *idk = CP_ID_KIND_NONE;
@@ -2612,7 +2636,7 @@ finish_id_expression (tree id_expression,
 	      /* If the qualifying type is non-dependent (and the name
 		 does not name a conversion operator to a dependent
 		 type), issue an error.  */
-	      qualified_name_lookup_error (scope, id_expression, decl);
+	      qualified_name_lookup_error (scope, id_expression, decl, location);
 	      return error_mark_node;
 	    }
 	  else if (!scope)

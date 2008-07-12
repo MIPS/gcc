@@ -1360,7 +1360,8 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	    pat = GEN_FCN ((int) code) (x, y, op2, opalign);
 	  else
 	    pat = GEN_FCN ((int) code) (x, y, op2, opalign,
-					GEN_INT (expected_align),
+					GEN_INT (expected_align
+						 / BITS_PER_UNIT),
 					GEN_INT (expected_size));
 	  if (pat)
 	    {
@@ -2780,7 +2781,8 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	    pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign);
 	  else
 	    pat = GEN_FCN ((int) code) (object, opsize, opchar, opalign,
-					GEN_INT (expected_align),
+					GEN_INT (expected_align
+						 / BITS_PER_UNIT),
 					GEN_INT (expected_size));
 	  if (pat)
 	    {
@@ -7102,10 +7104,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 	      && GET_CODE (PATTERN (insn)) != CLOBBER
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && (CALL_P (insn) || may_trap_p (PATTERN (insn))))
-	    {
-	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
-						  REG_NOTES (insn));
-	    }
+	    add_reg_note (insn, REG_EH_REGION, GEN_INT (rn));
 	}
     }
 

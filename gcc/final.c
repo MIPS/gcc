@@ -410,7 +410,7 @@ get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
 	  length = asm_insn_count (body) * fallback_fn (insn);
 	else if (GET_CODE (body) == SEQUENCE)
 	  for (i = 0; i < XVECLEN (body, 0); i++)
-	    length += get_attr_length (XVECEXP (body, 0, i));
+	    length += get_attr_length_1 (XVECEXP (body, 0, i), fallback_fn);
 	else
 	  length = fallback_fn (insn);
 	break;
@@ -1384,6 +1384,9 @@ asm_insn_count (rtx body)
     template = XSTR (body, 0);
   else
     template = decode_asm_operands (body, NULL, NULL, NULL, NULL, NULL);
+
+  if (!*template)
+    return 0;
 
   for (; *template; template++)
     if (IS_ASM_LOGICAL_LINE_SEPARATOR (*template, template)

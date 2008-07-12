@@ -231,8 +231,9 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-deprecated  @gol
--Wno-deprecated-declarations -Wdisabled-optimization  -Wno-div-by-zero  @gol
--Wempty-body  -Wenum-compare -Wno-endif-labels @gol
+-Wno-deprecated-declarations -Wdisabled-optimization  @gol
+-Wdisallowed-function-list=@var{sym},@var{sym},@dots{} @gol
+-Wno-div-by-zero -Wempty-body  -Wenum-compare -Wno-endif-labels @gol
 -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
@@ -310,7 +311,7 @@ Objective-C and Objective-C++ Dialects}.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
--print-sysroot-headers-suffix @gol
+-print-sysroot -print-sysroot-headers-suffix @gol
 -save-temps  -time}
 
 @item Optimization Options
@@ -359,10 +360,10 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-distribution @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-reassoc @gol
--ftree-sink -ftree-sra -ftree-store-ccp -ftree-ter @gol
--ftree-vect-loop-version -ftree-vectorize -ftree-vrp -funit-at-a-time @gol
--funroll-all-loops -funroll-loops -funsafe-loop-optimizations @gol
--funsafe-math-optimizations -funswitch-loops @gol
+-ftree-sink -ftree-sra -ftree-store-ccp -ftree-switch-conversion @gol
+-ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp @gol
+-funit-at-a-time -funroll-all-loops -funroll-loops @gol
+-funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
 -fwhole-program @gol
 --param @var{name}=@var{value}
@@ -559,6 +560,7 @@ Objective-C and Objective-C++ Dialects}.
 -maes -mpclmul @gol
 -msse4a -m3dnow -mpopcnt -mabm -msse5 @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
+-minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
 -mveclibabi=@var{type} -mpc32 -mpc64 -mpc80 -mstackrealign @gol
@@ -4100,6 +4102,13 @@ minimum maximum, so we do not diagnose overlength strings in C++@.
 
 This option is implied by @option{-pedantic}, and can be disabled with
 @option{-Wno-overlength-strings}.
+
+@item -Wdisallowed-function-list=@var{sym},@var{sym},@dots{}
+@opindex Wdisallowed-function-list
+
+If any of @var{sym} is called, GCC will issue a warning. This can be useful
+in enforcing coding conventions that ban calls to certain functions, for
+example, @code{alloca}, @code{malloc}, etc.
 @end table
 
 @node Debugging Options
@@ -5059,6 +5068,14 @@ variable @env{GCC_EXEC_PREFIX} to the directory where you installed them.
 Don't forget the trailing @samp{/}.
 @xref{Environment Variables}.
 
+@item -print-sysroot
+@opindex print-sysroot
+Print the target sysroot directory that will be used during
+compilation.  This is the target sysroot specified either at configure
+time or or using the @option{--sysroot} option, possibly with an extra
+suffix that depends on compilation options.  If no target sysroot is
+specified, the option prints nothing.
+
 @item -print-sysroot-headers-suffix
 @opindex print-sysroot-headers-suffix
 Print the suffix added to the target sysroot when searching for
@@ -5194,6 +5211,7 @@ also turns on the following optimization flags:
 -fsched-interblock  -fsched-spec @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fstrict-aliasing -fstrict-overflow @gol
+-ftree-switch-conversion @gol
 -ftree-pre @gol
 -ftree-vrp}
 
@@ -5867,6 +5885,11 @@ Perform sparse conditional constant propagation (CCP) on trees.  This
 pass operates on both local scalar variables and memory stores and
 loads (global variables, structures, arrays, etc).  This flag is
 enabled by default at @option{-O2} and higher.
+
+@item -ftree-switch-conversion
+Perform conversion of simple initializations in a switch to
+initializations from a scalar array.  This flag is enabled by default
+at @option{-O2} and higher.
 
 @item -ftree-dce
 @opindex ftree-dce
@@ -7317,7 +7340,8 @@ duplicated when threading jumps.
 
 @item max-fields-for-field-sensitive
 Maximum number of fields in a structure we will treat in
-a field sensitive manner during pointer analysis.
+a field sensitive manner during pointer analysis.  The default is zero
+for -O0, and -O1 and 100 for -Os, -O2, and -O3.
 
 @item prefetch-latency
 Estimate on average number of instructions that are executed before
@@ -7343,6 +7367,11 @@ default, this should always be 1, which uses a more efficient internal
 mechanism for comparing types in C++ and Objective-C++.  However, if
 bugs in the canonical type system are causing compilation failures,
 set this value to 0 to disable canonical types.
+
+@item switch-conversion-max-branch-ratio
+Switch initialization conversion will refuse to create arrays that are
+bigger than @option{switch-conversion-max-branch-ratio} times the number of
+branches in the switch.
 
 @item max-partial-antic-length
 Maximum length of the partial antic set computed during the tree

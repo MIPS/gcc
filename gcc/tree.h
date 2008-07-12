@@ -1587,6 +1587,9 @@ struct tree_vec GTY(())
 
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
+#define CONSTRUCTOR_ELT(NODE,IDX) \
+  (VEC_index (constructor_elt, CONSTRUCTOR_ELTS (NODE), IDX))
+#define CONSTRUCTOR_NELTS(NODE) (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
@@ -3504,26 +3507,6 @@ struct tree_statement_list
   struct tree_statement_list_node *tail;
 };
 
-#define VALUE_HANDLE_ID(NODE)		\
-  (VALUE_HANDLE_CHECK (NODE)->value_handle.id)
-
-#define VALUE_HANDLE_EXPR_SET(NODE)	\
-  (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
-
-/* Defined and used in tree-ssa-pre.c.  */
-
-struct tree_value_handle GTY(())
-{
-  struct tree_common common;
-
-  /* The set of expressions represented by this handle.  */
-  struct bitmap_set * GTY ((skip)) expr_set;
-
-  /* Unique ID for this value handle.  IDs are handed out in a
-     conveniently dense form starting at 0, so that we can make
-     bitmaps of value handles.  */
-  unsigned int id;
-};
 
 /* Optimization options used by a function.  */
 
@@ -3597,7 +3580,6 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct gimple_stmt GTY ((tag ("TS_GIMPLE_STATEMENT"))) gstmt;
-  struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
@@ -4550,6 +4532,10 @@ extern int fields_length (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
+/* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
+
+extern tree ctor_to_list (tree);
+
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,
      and place it in *P_NZ_ELTS;
@@ -5032,6 +5018,7 @@ extern int tree_log2 (const_tree);
 extern int tree_floor_log2 (const_tree);
 extern int simple_cst_equal (const_tree, const_tree);
 extern hashval_t iterative_hash_expr (const_tree, hashval_t);
+extern hashval_t iterative_hash_hashval_t (hashval_t, hashval_t);
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (const_tree, const_tree);
 extern int chain_member (const_tree, const_tree);

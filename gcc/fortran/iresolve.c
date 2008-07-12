@@ -106,7 +106,7 @@ resolve_mask_arg (gfc_expr *mask)
       /* In the library, we access the mask with a GFC_LOGICAL_1
 	 argument.  No need to waste memory if we are about to create
 	 a temporary array.  */
-      if (mask->expr_type == EXPR_OP)
+      if (mask->expr_type == EXPR_OP && mask->ts.kind != 1)
 	{
 	  ts.type = BT_LOGICAL;
 	  ts.kind = 1;
@@ -1788,6 +1788,7 @@ gfc_resolve_product (gfc_expr *f, gfc_expr *array, gfc_expr *dim,
   if (dim != NULL)
     {
       f->rank = array->rank - 1;
+      f->shape = gfc_copy_shape_excluding (array->shape, array->rank, dim);
       gfc_resolve_dim_arg (dim);
     }
 
@@ -2271,6 +2272,7 @@ gfc_resolve_sum (gfc_expr *f, gfc_expr *array, gfc_expr *dim, gfc_expr *mask)
   if (dim != NULL)
     {
       f->rank = array->rank - 1;
+      f->shape = gfc_copy_shape_excluding (array->shape, array->rank, dim);
       gfc_resolve_dim_arg (dim);
     }
 

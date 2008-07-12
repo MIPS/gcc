@@ -308,6 +308,26 @@ sra_type_can_be_decomposed_p (tree type)
   return false;
 }
 
+/* Returns true if the TYPE is one of the available va_list types.
+   Otherwise it returns false.
+   Note, that for multiple calling conventions there can be more
+   than just one va_list type present.  */
+
+static bool
+is_va_list_type (tree type)
+{
+  tree h;
+
+  if (type == NULL_TREE)
+    return false;
+  h = targetm.canonical_va_list_type (type);
+  if (h == NULL_TREE)
+    return false;
+  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (h))
+	 return true;
+  return false;
+}
+
 /* Return true if DECL can be decomposed into a set of independent
    (though not necessarily scalar) variables.  */
 
@@ -360,9 +380,7 @@ decl_can_be_decomposed_p (tree var)
      tree-stdarg.c, as the decomposition is truly a win.  This could also
      be fixed if the stdarg pass ran early, but this can't be done until
      we've aliasing information early too.  See PR 30791.  */
-  if (early_sra
-      && TYPE_MAIN_VARIANT (TREE_TYPE (var))
-	 == TYPE_MAIN_VARIANT (va_list_type_node))
+  if (early_sra && is_va_list_type (TREE_TYPE (var)))
     return false;
 
   return true;
@@ -2264,6 +2282,9 @@ sra_build_assignment (tree dst, tree src)
 	  var = utmp;
 	}
 
+      /* fold_build3 (BIT_FIELD_REF, ...) sometimes returns a cast.  */
+      STRIP_NOPS (dst);
+
       /* Finally, move and convert to the destination.  */
       if (!useless_type_conversion_p (TREE_TYPE (dst), TREE_TYPE (var)))
 	{
@@ -2288,6 +2309,12 @@ sra_build_assignment (tree dst, tree src)
       return list;
     }
 
+  /* fold_build3 (BIT_FIELD_REF, ...) sometimes returns a cast.  */
+  if (CONVERT_EXPR_P (dst))
+    {
+      STRIP_NOPS (dst);
+      src = fold_convert (TREE_TYPE (dst), src);
+    }
   /* It was hoped that we could perform some type sanity checking
      here, but since front-ends can emit accesses of fields in types
      different from their nominal types and copy structures containing
@@ -2298,8 +2325,8 @@ sra_build_assignment (tree dst, tree src)
      So we just assume type differences at this point are ok.
      The only exception we make here are pointer types, which can be different
      in e.g. structurally equal, but non-identical RECORD_TYPEs.  */
-  if (POINTER_TYPE_P (TREE_TYPE (dst))
-      && !useless_type_conversion_p (TREE_TYPE (dst), TREE_TYPE (src)))
+  else if (POINTER_TYPE_P (TREE_TYPE (dst))
+	   && !useless_type_conversion_p (TREE_TYPE (dst), TREE_TYPE (src)))
     src = fold_convert (TREE_TYPE (dst), src);
 
   return build_gimple_modify_stmt (dst, src);
@@ -2805,8 +2832,9 @@ static bool
 generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
 {
   bool ret;
+  struct gimplify_ctx gctx;
 
-  push_gimplify_context ();
+  push_gimplify_context (&gctx);
   ret = generate_element_init_1 (elt, init, list_p);
   pop_gimplify_context (NULL);
 

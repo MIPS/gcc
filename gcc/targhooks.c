@@ -703,6 +703,12 @@ default_builtin_vector_alignment_reachable (const_tree type, bool is_packed)
   return true;
 }
 
+bool
+default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 /* Determine whether a function FN can be inlined.  Be conservative, and assume
    any function with different target specific options cannot be inlined.  */
 
@@ -722,10 +728,9 @@ default_can_inline_p (tree caller, tree callee)
   else if (!caller_opts)
     ret = false;
 
-  /* Both caller and callee have attributes.  Because we don't know anything
-     about target specific options, assume if we get here the port hashes the
-     target specific information to a common pointer, and if the pointers are
-     the same, then they are the same target.  */
+  /* If both caller and callee have attributes, assume that if the pointer is
+     different, the the two functions have different target options since
+     build_target_option_node uses a hash table for the options.  */
   else
     ret = (callee_opts == caller_opts);
 

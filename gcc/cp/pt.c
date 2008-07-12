@@ -8765,13 +8765,6 @@ tsubst_function_type (tree t,
   if (arg_types == error_mark_node)
     return error_mark_node;
 
-  if (TYPE_QUALS (return_type) != TYPE_UNQUALIFIED
-      && in_decl != NULL_TREE
-      && !TREE_NO_WARNING (in_decl)
-      && (SCALAR_TYPE_P (return_type) || VOID_TYPE_P (return_type)))
-    warning (OPT_Wignored_qualifiers,
-            "type qualifiers ignored on function return type");
-
   /* Construct a new type node and return it.  */
   if (TREE_CODE (t) == FUNCTION_TYPE)
     fntype = build_function_type (return_type, arg_types);
@@ -9750,7 +9743,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
       if (complain & tf_error)
 	qualified_name_lookup_error (scope,
 				     TREE_OPERAND (qualified_id, 1),
-				     expr);
+				     expr, input_location);
       return error_mark_node;
     }
 
@@ -9759,7 +9752,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
 
   if (expr == error_mark_node && complain & tf_error)
     qualified_name_lookup_error (scope, TREE_OPERAND (qualified_id, 1),
-				 expr);
+				 expr, input_location);
   else if (TYPE_P (scope))
     {
       expr = (adjust_result_of_qualified_name_lookup
@@ -10491,7 +10484,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 					  /*is_type_p=*/false,
 					  /*complain=*/false);
 	    if (decl == error_mark_node || TREE_CODE (decl) == TREE_LIST)
-	      qualified_name_lookup_error (scope, name, decl);
+	      qualified_name_lookup_error (scope, name, decl, input_location);
 	    else
 	      do_local_using_decl (decl, scope, name);
 	  }
@@ -10938,7 +10931,8 @@ tsubst_copy_and_build (tree t,
 				     /*done=*/true,
 				     /*address_p=*/false,
 				     /*template_arg_p=*/false,
-				     &error_msg);
+				     &error_msg,
+				     input_location);
 	if (error_msg)
 	  error (error_msg);
 	if (!function_p && TREE_CODE (decl) == IDENTIFIER_NODE)
@@ -11467,7 +11461,8 @@ tsubst_copy_and_build (tree t,
 	      }
 	    else
 	      {
-		qualified_name_lookup_error (object_type, tmpl, member);
+		qualified_name_lookup_error (object_type, tmpl, member,
+					     input_location);
 		return error_mark_node;
 	      }
 	  }
@@ -11507,6 +11502,7 @@ tsubst_copy_and_build (tree t,
 	bool process_index_p;
         int newlen;
         bool need_copy_p = false;
+	tree r;
 
 	if (type == error_mark_node)
 	  return error_mark_node;
@@ -11571,10 +11567,12 @@ tsubst_copy_and_build (tree t,
               }
           }
 
-	if (TREE_HAS_CONSTRUCTOR (t))
-	  return finish_compound_literal (type, n);
+	r = build_constructor (init_list_type_node, n);
 
-	return build_constructor (NULL_TREE, n);
+	if (TREE_HAS_CONSTRUCTOR (t))
+	  return finish_compound_literal (type, r);
+
+	return r;
       }
 
     case TYPEID_EXPR:
@@ -12271,6 +12269,8 @@ type_unification_real (tree tparms,
 	  arg_strict |= maybe_adjust_types_for_deduction (strict, &parm, &arg,
 							  arg_expr);
 
+	if (arg == init_list_type_node && arg_expr)
+	  arg = arg_expr;
 	if (unify (tparms, targs, parm, arg, arg_strict))
 	  return 1;
       }
@@ -13037,7 +13037,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 
   if (arg == error_mark_node)
     return 1;
-  if (arg == unknown_type_node)
+  if (arg == unknown_type_node
+      || arg == init_list_type_node)
     /* We can't deduce anything from this, but we might get all the
        template args from other function args.  */
     return 0;
@@ -13048,6 +13049,31 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
      figure out which of two things is more specialized.  */
   if (arg == parm && !uses_template_parms (parm))
     return 0;
+
+  /* Handle init lists early, so the rest of the function can assume
+     we're dealing with a type. */
+  if (BRACE_ENCLOSED_INITIALIZER_P (arg))
+    {
+      tree elt, elttype;
+      unsigned i;
+
+      if (!is_std_init_list (parm))
+	/* We can only deduce from an initializer list argument if the
+	   parameter is std::initializer_list; otherwise this is a
+	   non-deduced context. */
+	return 0;
+
+      elttype = TREE_VEC_ELT (CLASSTYPE_TI_ARGS (parm), 0);
+
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (arg), i, elt)
+	{
+	  if (!BRACE_ENCLOSED_INITIALIZER_P (elt))
+	    elt = TREE_TYPE (elt);
+	  if (unify (tparms, targs, elttype, elt, UNIFY_ALLOW_NONE))
+	    return 1;
+	}
+      return 0;
+    }
 
   /* Immediately reject some pairs that won't unify because of
      cv-qualification mismatches.  */
