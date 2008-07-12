@@ -79,16 +79,6 @@ proc check_effective_target_pclmul { } {
     } "-O2 -mpclmul" ]
 }
 
-# Return 1 if avx instructions can be compiled.
-proc check_effective_target_avx { } {
-    return [check_no_compiler_messages avx object {
-	void _mm256_zeroall (void)
-	{
-	   __builtin_ia32_vzeroall ();
-	}
-    } "-O2 -mavx" ]
-}
-
 # Return 1 if sse4a instructions can be compiled.
 proc check_effective_target_sse4a { } {
     return [check_no_compiler_messages sse4a object {

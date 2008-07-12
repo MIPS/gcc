@@ -1,3 +1,16 @@
+2008-07-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/compat/vector-1b_main.c: New.
+	* gcc.dg/compat/vector-1b_x.c: Likewise.
+	* gcc.dg/compat/vector-1b_y.c: Likewise.
+	* gcc.dg/compat/vector-2b_main.c: Likewise.
+	* gcc.dg/compat/vector-2b_x.c: Likewise.
+	* gcc.dg/compat/vector-2b_y.c: Likewise.
+
+	* gcc.target/i386/i386.exp (check_effective_target_avx): Moved
+	to ...
+	* lib/target-supports.exp (check_effective_target_avx): Here.
+
 2008-06-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.target/x86_64/abi/abi-x86_64.exp: Replace asm-support.s
