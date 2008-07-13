@@ -1353,8 +1353,6 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 		gimple_purge_dead_eh_edges (bb);
 
-              /* FIXME tuples.  Do we need to handle GIMPLE_GOTO
-                 destination here?  Function in GIMPLE_CALL?  */
               if (gimple_code (stmt) == GIMPLE_ASSIGN
                   && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
                       == GIMPLE_SINGLE_RHS))

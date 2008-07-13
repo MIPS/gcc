@@ -1,3 +1,9 @@
+2008-07-12  Diego Novillo  <dnovillo@google.com>
+
+	* tree-loop-distribution.c: Tuplify.
+	* tree-ssa-propagate.c (substitute_and_fold): Remove
+	stale FIXME tuples note.
+
 2008-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-dump.c (dump_options): Don't set TDF_RHS_ONLY for -all.
