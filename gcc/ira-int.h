@@ -321,9 +321,6 @@ struct ira_allocno
   /* Accumulated frequency of calls which given allocno
      intersects.  */
   int call_freq;
-  /* Start index of calls intersected by the allocno in array
-     ira_regno_calls[regno].  */
-  int calls_crossed_start;
   /* Length of the previous array (number of the intersected calls).  */
   int calls_crossed_num;
   /* Non NULL if we remove restoring value from given allocno to
@@ -427,7 +424,6 @@ struct ira_allocno
 #define ALLOCNO_FREQ(A) ((A)->freq)
 #define ALLOCNO_HARD_REGNO(A) ((A)->hard_regno)
 #define ALLOCNO_CALL_FREQ(A) ((A)->call_freq)
-#define ALLOCNO_CALLS_CROSSED_START(A) ((A)->calls_crossed_start)
 #define ALLOCNO_CALLS_CROSSED_NUM(A) ((A)->calls_crossed_num)
 #define ALLOCNO_MEM_OPTIMIZED_DEST(A) ((A)->mem_optimized_dest)
 #define ALLOCNO_MEM_OPTIMIZED_DEST_P(A) ((A)->mem_optimized_dest_p)
@@ -841,12 +837,6 @@ extern rtx *ira_reg_equiv_const;
 extern ira_loop_tree_node_t ira_curr_loop_tree_node;
 extern ira_allocno_t *ira_curr_regno_allocno_map;
 
-/* Array of vectors containing calls given pseudo-register lives
-   through.  */
-extern VEC(rtx, heap) **ira_regno_calls;
-
-extern int ira_add_regno_call (int, rtx);
-
 extern void ira_debug_allocno_copies (ira_allocno_t);
 
 extern void ira_traverse_loop_tree (bool, ira_loop_tree_node_t,
@@ -1164,6 +1154,26 @@ ira_allocate_and_copy_costs (int **vec, enum reg_class cover_class, int *src)
   *vec = ira_allocate_cost_vector (cover_class);
   len = ira_class_hard_regs_num[cover_class];
   memcpy (*vec, src, sizeof (int) * len);
+}
+
+/* Allocate cost vector *VEC for hard registers of COVER_CLASS and
+   add values of vector SRC into the vector if it is necessary */
+static inline void
+ira_allocate_and_accumulate_costs (int **vec, enum reg_class cover_class,
+				   int *src)
+{
+  int i, len;
+
+  if (src == NULL)
+    return;
+  len = ira_class_hard_regs_num[cover_class];
+  if (*vec == NULL)
+    {
+      *vec = ira_allocate_cost_vector (cover_class);
+      memset (*vec, 0, sizeof (int) * len);
+    }
+  for (i = 0; i < len; i++)
+    (*vec)[i] += src[i];
 }
 
 /* Allocate cost vector *VEC for hard registers of COVER_CLASS and

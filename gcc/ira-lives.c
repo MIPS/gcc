@@ -618,7 +618,7 @@ process_single_reg_class_operands (bool in_p, int freq)
 static void
 process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 {
-  int i, index;
+  int i;
   unsigned int j;
   basic_block bb;
   rtx insn;
@@ -756,9 +756,6 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		  ira_allocno_t a = ira_allocnos[i];
 		  
 		  ALLOCNO_CALL_FREQ (a) += freq;
-		  index = ira_add_regno_call (ALLOCNO_REGNO (a), insn);
-		  if (ALLOCNO_CALLS_CROSSED_START (a) < 0)
-		    ALLOCNO_CALLS_CROSSED_START (a) = index;
 		  ALLOCNO_CALLS_CROSSED_NUM (a)++;
 		  /* Don't allocate allocnos that cross calls, if this
 		     function receives a nonlocal goto.  */
@@ -964,12 +961,6 @@ propagate_new_allocno_info (ira_allocno_t a)
 #endif
       IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
 			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
-      if (ALLOCNO_CALLS_CROSSED_START (parent_a) < 0
-	  || (ALLOCNO_CALLS_CROSSED_START (a) >= 0
-	      && (ALLOCNO_CALLS_CROSSED_START (parent_a)
-		  > ALLOCNO_CALLS_CROSSED_START (a))))
-	ALLOCNO_CALLS_CROSSED_START (parent_a)
-	  = ALLOCNO_CALLS_CROSSED_START (a);
       ALLOCNO_CALLS_CROSSED_NUM (parent_a) += ALLOCNO_CALLS_CROSSED_NUM (a);
       ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (parent_a)
 	+= ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);

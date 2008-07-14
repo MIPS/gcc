@@ -662,20 +662,6 @@ build_allocno_conflicts (void)
 
 
 
-/* Propagate information about allocnos modified inside the loop given
-   by its LOOP_TREE_NODE to its parent.  */
-static void
-propagate_modified_regnos (ira_loop_tree_node_t loop_tree_node)
-{
-  if (loop_tree_node == ira_loop_tree_root)
-    return;
-  ira_assert (loop_tree_node->bb == NULL);
-  bitmap_ior_into (loop_tree_node->parent->modified_regnos,
-		   loop_tree_node->modified_regnos);
-}
-
-
-
 /* Print hard reg set SET with TITLE to FILE.  */
 static void
 print_hard_reg_set (FILE *file, const char *title, HARD_REG_SET set)
@@ -816,11 +802,6 @@ ira_build_conflicts (void)
 			      no_caller_save_reg_set);
 	}
     }
-  if (optimize)
-    {
-      ira_traverse_loop_tree (false, ira_loop_tree_root, NULL,
-			      propagate_modified_regnos);
-      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
-	print_conflicts (ira_dump_file, false);
-    }
+  if (optimize && internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
+    print_conflicts (ira_dump_file, false);
 }

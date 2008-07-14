@@ -1,3 +1,37 @@
+2008-07-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (propagate_modified_regnos): Move to
+	ira-build.c.
+	(ira_build_conflicts): Don't call propagate_modified_regnos.
+
+	* ira-int.h (ira_allocno): Remove calls_crossed_start.
+	(ALLOCNO_CALLS_CROSSED_START, ira_regno_calls,
+	ira_add_regno_call): Remove.
+	(ira_allocate_and_accumulate_costs): New function.
+
+	* ira-lives.c (process_bb_node_lives): Don't call
+	ira_add_regno_call.  Do't use ALLOCNO_CALLS_CROSSED_START.
+
+	* ira-build.c (more_one_region_p): New function.
+	(ira_regno_calls, regno_calls_num, initiate_calls, expand_calls,
+	compress_calls, ira_add_regno_call, finish_calls): Remove.
+	(ira_create_allocno, propagate_info_to_cap): Don't set up
+	ALLOCNO_CALLS_CROSSED_START.
+	(propagate_modified_regnos): Move from ira-conflicts.c.
+	(create_allocnos): Call propagate_modified_regnos.
+	(merge_ranges, change_allocno_in_range_list): Move before
+	low_pressure_loop_node_p.
+	(low_pressure_loop_node_p, loop_node_to_be_removed_p,
+	removed_loop_vec, children_vec,
+	remove_uneccesary_loop_nodes_from_loop_tree,
+	remove_unnecessary_allocnos, remove_unnecessary_regions): New.
+	(ira_flattening): Don't process allocno calls.
+	(ira_build): Don't call initiate_calls and finish_calls.  Call
+	remove_unnecessary_regions.  Use more_one_region_p.
+
+	* config/rs6000/rs6000.h (IRA_COVER_CLASSES): Split
+	SPEC_OR_GEN_REGS onto GENERAL_REGS and SPECIAL_REGS.
+	
 2008-07-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-build.c (ira_flattening): Rename

@@ -1127,7 +1127,7 @@ enum reg_class
 
 #define IRA_COVER_CLASSES						     \
 {									     \
-  SPEC_OR_GEN_REGS /* GENERAL_REGS */, FLOAT_REGS, ALTIVEC_REGS,	     \
+  GENERAL_REGS, SPECIAL_REGS, FLOAT_REGS, ALTIVEC_REGS,			     \
   /*VRSAVE_REGS,*/ VSCR_REGS, SPE_ACC_REGS, SPEFSCR_REGS,		     \
   /* MQ_REGS, LINK_REGS, CTR_REGS, */					     \
   CR_REGS, XER_REGS, LIM_REG_CLASSES					     \
