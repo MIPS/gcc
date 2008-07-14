@@ -915,6 +915,40 @@ ccp_fold (gimple stmt)
                      if any.  */
                   return get_value (rhs)->value;
                 }
+	      /* Handle propagating invariant addresses into address operations.
+		 The folding we do here matches that in tree-ssa-forwprop.c.  */
+	      else if (TREE_CODE (rhs) == ADDR_EXPR)
+		{
+		  tree *base;
+		  base = &TREE_OPERAND (rhs, 0);
+		  while (handled_component_p (*base))
+		    base = &TREE_OPERAND (*base, 0);
+		  if (TREE_CODE (*base) == INDIRECT_REF
+		      && TREE_CODE (TREE_OPERAND (*base, 0)) == SSA_NAME)
+		    {
+		      prop_value_t *val = get_value (TREE_OPERAND (*base, 0));
+		      if (val->lattice_val == CONSTANT
+			  && TREE_CODE (val->value) == ADDR_EXPR
+			  && useless_type_conversion_p
+			  (TREE_TYPE (TREE_OPERAND (*base, 0)),
+			   TREE_TYPE (val->value))
+			  && useless_type_conversion_p
+			  (TREE_TYPE (*base),
+			   TREE_TYPE (TREE_OPERAND (val->value, 0))))
+			{
+			  /* We need to return a new tree, not modify the IL
+			     or share parts of it.  So play some tricks to
+			     avoid manually building it.  */
+			  tree ret, save = *base;
+			  *base = TREE_OPERAND (val->value, 0);
+			  ret = unshare_expr (rhs);
+			  recompute_tree_invariant_for_addr_expr (ret);
+			  *base = save;
+			  return ret;
+			}
+		    }
+		}
+
               else if (do_store_ccp && stmt_makes_single_load (stmt))
                 {
                   /* If the RHS is a memory load, see if the VUSEs associated with
@@ -956,41 +990,6 @@ ccp_fold (gimple stmt)
                   if (val->lattice_val == CONSTANT)
                     op0 = get_value (op0)->value;
                 }
-
-	      /* Handle propagating invariant addresses into address operations.
-		 The folding we do here matches that in tree-ssa-forwprop.c.  */
-	      else if (subcode == ADDR_EXPR)
-		{
-		  tree rhs = op0;
-		  tree *base;
-		  base = &TREE_OPERAND (rhs, 0);
-		  while (handled_component_p (*base))
-		    base = &TREE_OPERAND (*base, 0);
-		  if (TREE_CODE (*base) == INDIRECT_REF
-		      && TREE_CODE (TREE_OPERAND (*base, 0)) == SSA_NAME)
-		    {
-		      prop_value_t *val = get_value (TREE_OPERAND (*base, 0));
-		      if (val->lattice_val == CONSTANT
-			  && TREE_CODE (val->value) == ADDR_EXPR
-			  && useless_type_conversion_p
-			  (TREE_TYPE (TREE_OPERAND (*base, 0)),
-			   TREE_TYPE (val->value))
-			  && useless_type_conversion_p
-			  (TREE_TYPE (*base),
-			   TREE_TYPE (TREE_OPERAND (val->value, 0))))
-			{
-			  /* We need to return a new tree, not modify the IL
-			     or share parts of it.  So play some tricks to
-			     avoid manually building it.  */
-			  tree ret, save = *base;
-			  *base = TREE_OPERAND (val->value, 0);
-			  ret = unshare_expr (rhs);
-			  recompute_tree_invariant_for_addr_expr (ret);
-			  *base = save;
-			  return ret;
-			}
-		    }
-		}
 
 	      /* Conversions are useless for CCP purposes if they are
 		 value-preserving.  Thus the restrictions that

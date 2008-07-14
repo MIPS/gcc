@@ -477,7 +477,7 @@ ifcombine_iforif (basic_block inner_cond_bb, basic_block outer_cond_bb)
   else if (TREE_CODE_CLASS (gimple_cond_code (inner_cond)) == tcc_comparison
 	   && TREE_CODE_CLASS (gimple_cond_code (outer_cond)) == tcc_comparison
 	   && operand_equal_p (gimple_cond_lhs (inner_cond),
-			       gimple_cond_rhs (outer_cond), 0)
+			       gimple_cond_lhs (outer_cond), 0)
 	   && operand_equal_p (gimple_cond_rhs (inner_cond),
 			       gimple_cond_rhs (outer_cond), 0))
     {
