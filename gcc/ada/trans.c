@@ -5419,14 +5419,14 @@ gnat_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p ATTRIBUTE_UNUSED)
 	       && TREE_CODE_CLASS (TREE_CODE (op)) != tcc_constant)
 	{
 	  tree new_var = create_tmp_var (TREE_TYPE (op), "A");
-	  tree mod = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (op), new_var, op);
+	  gimple mod;
 
 	  TREE_ADDRESSABLE (new_var) = 1;
 
+	  stmt = gimplify_assign (new_var, op, pre_p);
 	  if (EXPR_HAS_LOCATION (op))
-	    SET_EXPR_LOCUS (mod, EXPR_LOCUS (op));
+	    gimple_set_location (stmt, *EXPR_LOCUS (op));
 
-	  gimplify_and_add (mod, pre_p);
 	  TREE_OPERAND (expr, 0) = new_var;
 	  recompute_tree_invariant_for_addr_expr (expr);
 	  return GS_ALL_DONE;

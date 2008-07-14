@@ -20,6 +20,20 @@
 
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
+	* config/alpha/alpha.c (va_list_skip_additions): Rename
+	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
+	(alpha_va_start): Same.
+	(alpha_gimplify_va_arg_1): Use gimplify_assign.
+	(alpha_gimplify_va_arg): Same.
+	* config/frv/frv.c (frv_expand_builtin_va_start): Rename
+	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
+	* config/ia64/ia64.c (ia64_gimplify_va_arg): Use gimplify_assign.
+	* config/alpha/mips.c (mips_va_start): Rename GIMPLE_MODIFY_STMT to
+	MODIFY_EXPR or use gimplify_assign when appropriate.
+	(mips_gimplify_va_arg_expr): Same.
+
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
 	* config/rs6000/rs6000.c (rs6000_va_start): Change
 	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
 	(rs6000_gimplify_va_arg): Use gimplify_assign.

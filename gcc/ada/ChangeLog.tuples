@@ -1,0 +1,3 @@
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans.c (gnat_gimplify_expr): Use gimplify_assign.

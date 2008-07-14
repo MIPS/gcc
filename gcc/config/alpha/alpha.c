@@ -5817,8 +5817,8 @@ va_list_skip_additions (tree lhs)
       if (TREE_CODE (stmt) == PHI_NODE)
 	return stmt;
 
-      if (TREE_CODE (stmt) != GIMPLE_MODIFY_STMT
-	  || GIMPLE_STMT_OPERAND (stmt, 0) != lhs)
+      if (TREE_CODE (stmt) != MODIFY_EXPR
+	  || TREE_OPERAND (stmt, 0) != lhs)
 	return lhs;
 
       rhs = GIMPLE_STMT_OPERAND (stmt, 1);
@@ -6094,7 +6094,7 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
     {
       nextarg = plus_constant (nextarg, offset);
       nextarg = plus_constant (nextarg, NUM_ARGS * UNITS_PER_WORD);
-      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
 		  make_tree (ptr_type_node, nextarg));
       TREE_SIDE_EFFECTS (t) = 1;
 
@@ -6113,13 +6113,12 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
       t = build2 (POINTER_PLUS_EXPR, ptr_type_node, t,
 		  size_int (offset));
-      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (base_field), base_field, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       t = build_int_cst (NULL_TREE, NUM_ARGS * UNITS_PER_WORD);
-      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (offset_field),
-	  	  offset_field, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -6136,9 +6135,9 @@ alpha_gimplify_va_arg_1 (tree type, tree base, gimple_seq offset,
   if (targetm.calls.must_pass_in_stack (TYPE_MODE (type), type))
     {
       t = build_int_cst (TREE_TYPE (offset), 6*8);
-      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (offset), offset,
-		  build2 (MAX_EXPR, TREE_TYPE (offset), offset, t));
-      gimplify_and_add (t, pre_p);
+      gimplify_assign (offset,
+		       build2 (MAX_EXPR, TREE_TYPE (offset), offset, t),
+		       pre_p);
     }
 
   addend = offset;
@@ -6190,9 +6189,8 @@ alpha_gimplify_va_arg_1 (tree type, tree base, gimple_seq offset,
       t = size_binop (MULT_EXPR, t, size_int (8));
     }
   t = fold_convert (TREE_TYPE (offset), t);
-  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, offset,
-	      build2 (PLUS_EXPR, TREE_TYPE (offset), offset, t));
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (offset, build2 (PLUS_EXPR, TREE_TYPE (offset), offset, t),
+      		   pre_p);
 
   return build_va_arg_indirect_ref (addr);
 }
@@ -6231,9 +6229,8 @@ alpha_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   r = alpha_gimplify_va_arg_1 (type, base, offset, pre_p);
 
   /* Stuff the offset temporary back into its field.  */
-  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, offset_field,
-	      fold_convert (TREE_TYPE (offset_field), offset));
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (offset_field,
+		   fold_convert (TREE_TYPE (offset_field), offset), pre_p);
 
   if (indirect)
     r = build_va_arg_indirect_ref (r);
