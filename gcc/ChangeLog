@@ -1,5 +1,12 @@
 2008-07-14  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* reload.h (struct insn): Add comment for live_throughout.
+
+	* global.c (pseudo_for_reload_consideration_p): New function.
+	(build_insn_chain): Use it.
+
+2008-07-14  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* ira-conflicts.c (propagate_modified_regnos): Move to
 	ira-build.c.
 	(ira_build_conflicts): Don't call propagate_modified_regnos.

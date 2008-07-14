@@ -1394,6 +1394,16 @@ print_insn_chains (FILE *file)
     print_insn_chain (file, c);
 }
 
+/* Return true if pseudo REGNO should be added to set live_throughout
+   or dead_or_set of the insn chains for reload consideration.  */
+
+static bool
+pseudo_for_reload_consideration_p (int regno)
+{
+  /* Consider spilled pseudos too for IRA because they still have a
+     chance to get hard-registers in the reload when IRA is used.  */
+  return reg_renumber[regno] >= 0 || (flag_ira && optimize);
+}
 
 /* Walk the insns of the current function and build reload_insn_chain,
    and record register life information.  */
@@ -1438,10 +1448,7 @@ build_insn_chain (void)
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb), FIRST_PSEUDO_REGISTER, i, bi)
 	{
-	  /* Consider spilled pseudos too for IRA because they still
-	     have a chance to get hard-registers in the reload when
-	     IRA is used.  */
-	  if (reg_renumber[i] >= 0 || (flag_ira && optimize))
+	  if (pseudo_for_reload_consideration_p (i))
 	    bitmap_set_bit (live_relevant_regs, i);
 	}
 
@@ -1478,12 +1485,7 @@ build_insn_chain (void)
 			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
-			/* Consider spilled pseudos too for IRA
-			   because they still have a chance to get
-			   hard-registers in the reload when IRA is
-			   used.  */
-			else if (reg_renumber[regno] >= 0
-				 || (flag_ira && optimize))
+			else if (pseudo_for_reload_consideration_p (regno))
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
 
@@ -1585,22 +1587,12 @@ build_insn_chain (void)
 			    if (!fixed_regs[regno])
 			      bitmap_set_bit (&c->dead_or_set, regno);
 			  }
-			/* Consider spilled pseudos too for IRA
-			   because they still have a chance to get
-			   hard-registers in the reload when IRA is
-			   used.  */
-			else if (reg_renumber[regno] >= 0
-				 || (flag_ira && optimize))
+			else if (pseudo_for_reload_consideration_p (regno))
 			  bitmap_set_bit (&c->dead_or_set, regno);
 		      }
 		    
 		    if (regno < FIRST_PSEUDO_REGISTER
-			/* Consider spilled pseudos too for IRA
-			   because they still have a chance to get
-			   hard-registers in the reload when IRA is
-			   used.  */
-			|| reg_renumber[regno] >= 0
-			|| (flag_ira && optimize))
+			|| pseudo_for_reload_consideration_p (regno))
 		      {
 			if (GET_CODE (reg) == SUBREG
 			    && !DF_REF_FLAGS_IS_SET (use,

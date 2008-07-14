@@ -209,8 +209,9 @@ struct insn_chain
   int block;
   /* The rtx of the insn.  */
   rtx insn;
-  /* Register life information: record all live hard registers, and all
-     live pseudos that have a hard register.  */
+  /* Register life information: record all live hard registers, and
+     all live pseudos that have a hard register.  This set also
+     contains pseudos spilled by IRA.  */
   regset_head live_throughout;
   regset_head dead_or_set;
   /* Register life information: record all all live pseudos that was
