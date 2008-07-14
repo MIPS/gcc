@@ -1,3 +1,8 @@
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/alpha/alpha.c (va_list_skip_additions): Change
+	GIMPLE_STMT_OPERAND to TREE_OPERAND.
+
 2008-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-vect-transform.c (vect_create_data_ref_ptr): Update comment.

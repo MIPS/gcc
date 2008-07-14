@@ -5821,7 +5821,7 @@ va_list_skip_additions (tree lhs)
 	  || TREE_OPERAND (stmt, 0) != lhs)
 	return lhs;
 
-      rhs = GIMPLE_STMT_OPERAND (stmt, 1);
+      rhs = TREE_OPERAND (stmt, 1);
       if (TREE_CODE (rhs) == WITH_SIZE_EXPR)
 	rhs = TREE_OPERAND (rhs, 0);
 
