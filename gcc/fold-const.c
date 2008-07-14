@@ -1870,7 +1870,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2, int notrunc)
       else if (REAL_VALUE_ISNAN (d2))
 	return arg2;
 
-      inexact = real_arithmetic (&value, code, &d1, &d2);
+      inexact = real_arithmetic_fold (&value, code, &d1, &d2, mode);
       real_convert (&result, mode, &value);
 
       /* Don't constant fold this floating point operation if
@@ -2287,7 +2287,8 @@ fold_convert_const_real_from_real (tree type, const_tree arg1)
   REAL_VALUE_TYPE value;
   tree t;
 
-  real_convert (&value, TYPE_MODE (type), &TREE_REAL_CST (arg1));
+  real_convert_fold (&value, TYPE_MODE (type), &TREE_REAL_CST (arg1),
+		     TYPE_MODE (TREE_TYPE (arg1)));
   t = build_real (type, value);
 
   TREE_OVERFLOW (t) = TREE_OVERFLOW (arg1);
@@ -6444,6 +6445,10 @@ fold_real_zero_addition_p (const_tree type, const_tree addend, int negate)
   if (!real_zerop (addend))
     return false;
 
+  /* Don't allow the fold with non-standard denorms.  */
+  if (HONOR_NONIEEE_DENORMS (TYPE_MODE (type)))
+    return false;
+
   /* Don't allow the fold with -fsignaling-nans.  */
   if (HONOR_SNANS (TYPE_MODE (type)))
     return false;
@@ -10457,11 +10462,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	    return omit_one_operand (type, arg1, arg0);
 	  /* In IEEE floating point, x*1 is not equivalent to x for snans.  */
 	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	      && !HONOR_NONIEEE_DENORMS (TYPE_MODE (TREE_TYPE (arg0)))
 	      && real_onep (arg1))
 	    return non_lvalue (fold_convert (type, arg0));
 
 	  /* Transform x * -1.0 into -x.  */
 	  if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	      && !HONOR_NONIEEE_DENORMS (TYPE_MODE (TREE_TYPE (arg0)))
 	      && real_minus_onep (arg1))
 	    return fold_convert (type, negate_expr (arg0));
 
@@ -11226,6 +11233,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (arg0))
 	  && ! HONOR_NANS (TYPE_MODE (TREE_TYPE (arg0)))
 	  && ! HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (arg0)))
+	  && ! HONOR_NONIEEE_DENORMS (TYPE_MODE (TREE_TYPE (arg0)))
 	  && operand_equal_p (arg0, arg1, 0))
 	{
 	  tree r = build_real (TREE_TYPE (arg0), dconst1);
@@ -11259,11 +11267,13 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 
       /* In IEEE floating point, x/1 is not equivalent to x for snans.  */
       if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	  && !HONOR_NONIEEE_DENORMS (TYPE_MODE (TREE_TYPE (arg0)))
 	  && real_onep (arg1))
 	return non_lvalue (fold_convert (type, arg0));
 
       /* In IEEE floating point, x/-1 is not equivalent to -x for snans.  */
       if (!HONOR_SNANS (TYPE_MODE (TREE_TYPE (arg0)))
+	  && !HONOR_NONIEEE_DENORMS (TYPE_MODE (TREE_TYPE (arg0)))
 	  && real_minus_onep (arg1))
 	return non_lvalue (fold_convert (type, negate_expr (arg0)));
 
@@ -14886,6 +14896,7 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 
   if (TREE_CODE (op0) == REAL_CST && TREE_CODE (op1) == REAL_CST)
     {
+      bool result;
       const REAL_VALUE_TYPE *c0 = TREE_REAL_CST_PTR (op0);
       const REAL_VALUE_TYPE *c1 = TREE_REAL_CST_PTR (op1);
 
@@ -14926,7 +14937,8 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	  return constant_boolean_node (result, type);
 	}
 
-      return constant_boolean_node (real_compare (code, c0, c1), type);
+      result = real_compare_fold (code, c0, c1, TYPE_MODE (TREE_TYPE (op0)));
+      return constant_boolean_node (result, type);
     }
 
   if (TREE_CODE (op0) == FIXED_CST && TREE_CODE (op1) == FIXED_CST)

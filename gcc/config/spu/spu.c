@@ -351,6 +351,7 @@ spu_override_options (void)
       else
         error ("Unknown architecture '%s'", &spu_tune_string[0]);
     }
+  REAL_MODE_FORMAT (SFmode) = &spu_extended_format;
 }
 
 /* Handle an attribute requiring a FUNCTION_DECL; arguments as in

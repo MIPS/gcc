@@ -124,33 +124,17 @@ extern GTY(()) int spu_tune;
 
 #define STACK_SIZE_MODE SImode
 
-/* #define TARGET_FLOAT_FORMAT     	SPU_FLOAT_FORMAT */
+#define ROUND_TOWARDS_ZERO(MODE) ((MODE) == SFmode)
 
-#ifndef MODE_HAS_NANS
-#define MODE_HAS_NANS(MODE)                                     \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode						\
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_INFINITIES
-#define MODE_HAS_INFINITIES(MODE)                               \
-  (FLOAT_MODE_P (MODE) 						\
-   && MODE != SFmode                                            \
-   && !LARGEST_EXPONENT_IS_NORMAL (GET_MODE_BITSIZE (MODE)))
-#endif
-                                                                              
-#ifndef MODE_HAS_SIGN_DEPENDENT_ROUNDING
-#define MODE_HAS_SIGN_DEPENDENT_ROUNDING(MODE)                  \
-  (FLOAT_MODE_P (MODE)                                          \
-    && MODE != SFmode                                           \
-   && !ROUND_TOWARDS_ZERO)
-#endif
+#define LARGEST_EXPONENT_IS_NORMAL(SIZE) ((SIZE) == 32)
 
-#define ROUND_TOWARDS_ZERO 1
+#define DENORM_OPERANDS_ARE_ZERO(MODE) 1
 
-/* This is certainly true.  Should it be defined?  (It wasn't before.) */
-/* #define LARGEST_EXPONENT_IS_NORMAL(size) (size != 32) */
+#define DENORM_RESULTS_ARE_ZERO(MODE) ((MODE) == SFmode)
+
+#define ZERO_RESULTS_ARE_POSITIVE(MODE) ((MODE) == SFmode)
+
+#define REAL_CONVERT_AS_IEEE(TO_MODE,FROM_MODE) ((TO_MODE) != (FROM_MODE))
 
 
 /* Type Layout */

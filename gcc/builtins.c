@@ -9315,7 +9315,8 @@ fold_builtin_abs (tree arg, tree type)
 static tree
 fold_builtin_fmin_fmax (tree arg0, tree arg1, tree type, bool max)
 {
-  if (validate_arg (arg0, REAL_TYPE) && validate_arg (arg1, REAL_TYPE))
+  if (validate_arg (arg0, REAL_TYPE) && validate_arg (arg1, REAL_TYPE)
+      && !HONOR_NONIEEE_DENORMS (TYPE_MODE (type)))
     {
       /* Calculate the result when the argument is a constant.  */
       tree res = do_mpfr_arg2 (arg0, arg1, type, (max ? mpfr_max : mpfr_min));

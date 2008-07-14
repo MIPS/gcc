@@ -2961,7 +2961,8 @@ c_common_truthvalue_conversion (tree expr)
 				  : truthvalue_true_node;
 
     case REAL_CST:
-      return real_compare (NE_EXPR, &TREE_REAL_CST (expr), &dconst0)
+      return real_compare_fold (NE_EXPR, &TREE_REAL_CST (expr), &dconst0,
+				TYPE_MODE (TREE_TYPE (expr)))
 	     ? truthvalue_true_node
 	     : truthvalue_false_node;
 

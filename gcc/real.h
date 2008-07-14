@@ -154,6 +154,7 @@ struct real_format
   bool has_signed_zero;
   bool qnan_msb_set;
   bool canonical_nan_lsbs_set;
+  bool round_towards_zero;
 };
 
 
@@ -184,8 +185,16 @@ extern const struct real_format *
 extern bool real_arithmetic (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
 			     const REAL_VALUE_TYPE *);
 
+/* Binary or unary arithmetic on tree_code when folding.  */
+extern bool real_arithmetic_fold (REAL_VALUE_TYPE *, int, const REAL_VALUE_TYPE *,
+				  const REAL_VALUE_TYPE *, enum machine_mode);
+
 /* Compare reals by tree_code.  */
 extern bool real_compare (int, const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
+
+/* Compare reals by tree_code when folding  */
+extern bool real_compare_fold (int, const REAL_VALUE_TYPE *,
+			       const REAL_VALUE_TYPE *, enum machine_mode);
 
 /* Determine whether a floating-point value X is infinite.  */
 extern bool real_isinf (const REAL_VALUE_TYPE *);
@@ -208,6 +217,10 @@ extern bool real_identical (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 /* Extend or truncate to a new mode.  */
 extern void real_convert (REAL_VALUE_TYPE *, enum machine_mode,
 			  const REAL_VALUE_TYPE *);
+
+/* Extend or truncate to a new mode when folding.  */
+extern void real_convert_fold (REAL_VALUE_TYPE *, enum machine_mode,
+			       const REAL_VALUE_TYPE *, enum machine_mode);
 
 /* Return true if truncating to NEW is exact.  */
 extern bool exact_real_truncate (enum machine_mode, const REAL_VALUE_TYPE *);
@@ -273,6 +286,7 @@ extern const struct real_format mips_quad_format;
 extern const struct real_format vax_f_format;
 extern const struct real_format vax_d_format;
 extern const struct real_format vax_g_format;
+extern const struct real_format spu_extended_format;
 extern const struct real_format real_internal_format;
 extern const struct real_format decimal_single_format;
 extern const struct real_format decimal_double_format;

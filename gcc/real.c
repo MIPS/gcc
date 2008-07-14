@@ -109,6 +109,8 @@ static bool do_divide (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *,
 static int do_compare (const REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *, int);
 static void do_fix_trunc (REAL_VALUE_TYPE *, const REAL_VALUE_TYPE *);
 
+static bool real_isdenorm (enum machine_mode, const REAL_VALUE_TYPE *);
+
 static unsigned long rtd_divmod (REAL_VALUE_TYPE *, REAL_VALUE_TYPE *);
 
 static const REAL_VALUE_TYPE * ten_to_ptwo (int);
@@ -1046,6 +1048,32 @@ real_arithmetic (REAL_VALUE_TYPE *r, int icode, const REAL_VALUE_TYPE *op0,
   return false;
 }
 
+bool
+real_arithmetic_fold (REAL_VALUE_TYPE *r, int icode,
+		      const REAL_VALUE_TYPE *op0, const REAL_VALUE_TYPE *op1,
+		      enum machine_mode mode)
+{
+  bool inexact;
+
+  /* Some formats accept denorms but treat them as zero. */
+  if (DENORM_OPERANDS_ARE_ZERO (mode))
+    {
+      if (real_isdenorm (mode, op0))
+	op0 = &dconst0;
+      if (real_isdenorm (mode, op1))
+	op1 = &dconst0;
+    }
+
+  inexact = real_arithmetic (r, icode, op0, op1);
+
+  /* Some formats always generate +0.0 for denorms and -0.0. */
+  if ((DENORM_RESULTS_ARE_ZERO (mode) && real_isdenorm (mode, r))
+      || (ZERO_RESULTS_ARE_POSITIVE (mode) && real_isnegzero (r)))
+    *r = dconst0;
+
+  return inexact;
+}
+
 /* Legacy.  Similar, but return the result directly.  */
 
 REAL_VALUE_TYPE
@@ -1097,6 +1125,22 @@ real_compare (int icode, const REAL_VALUE_TYPE *op0,
     default:
       gcc_unreachable ();
     }
+}
+
+bool
+real_compare_fold (int icode, const REAL_VALUE_TYPE *op0,
+		   const REAL_VALUE_TYPE *op1, enum machine_mode mode)
+{
+  /* Some formats accept denorms but treat them as zero. */
+  if (DENORM_OPERANDS_ARE_ZERO (mode))
+    {
+      if (real_isdenorm (mode, op0))
+	op0 = &dconst0;
+      if (real_isdenorm (mode, op1))
+	op1 = &dconst0;
+    }
+
+  return real_compare (icode, op0, op1);
 }
 
 /* Return floor log2(R).  */
@@ -1184,6 +1228,15 @@ bool
 real_isnegzero (const REAL_VALUE_TYPE *r)
 {
   return r->sign && r->cl == rvc_zero;
+}
+
+/* Determine whether a floating-point value X is a denorm for MODE. */
+
+static bool
+real_isdenorm (enum machine_mode mode, const REAL_VALUE_TYPE * r)
+{
+  const struct real_format *fmt = REAL_MODE_FORMAT (mode);
+  return fmt->has_denorm && r->cl == rvc_normal && REAL_EXP (r) < fmt->emin;
 }
 
 /* Compare two floating-point objects for bitwise identity.  */
@@ -2402,41 +2455,47 @@ round_for_format (const struct real_format *fmt, REAL_VALUE_TYPE *r)
 	}
     }
 
-  /* There are P2 true significand bits, followed by one guard bit,
-     followed by one sticky bit, followed by stuff.  Fold nonzero
-     stuff into the sticky bit.  */
-
-  sticky = 0;
-  for (i = 0, w = (np2 - 1) / HOST_BITS_PER_LONG; i < w; ++i)
-    sticky |= r->sig[i];
-  sticky |=
-    r->sig[w] & (((unsigned long)1 << ((np2 - 1) % HOST_BITS_PER_LONG)) - 1);
-
-  guard = test_significand_bit (r, np2 - 1);
-  lsb = test_significand_bit (r, np2);
-
-  /* Round to even.  */
-  if (guard && (sticky || lsb))
+  if (!fmt->round_towards_zero)
     {
-      REAL_VALUE_TYPE u;
-      get_zero (&u, 0);
-      set_significand_bit (&u, np2);
 
-      if (add_significands (r, r, &u))
+      /* There are P2 true significand bits, followed by one guard bit,
+         followed by one sticky bit, followed by stuff.  Fold nonzero
+         stuff into the sticky bit.  */
+
+      sticky = 0;
+      for (i = 0, w = (np2 - 1) / HOST_BITS_PER_LONG; i < w; ++i)
+	sticky |= r->sig[i];
+      sticky |=
+	r->sig[w] & (((unsigned long) 1 << ((np2 - 1) % HOST_BITS_PER_LONG)) -
+		     1);
+
+      guard = test_significand_bit (r, np2 - 1);
+      lsb = test_significand_bit (r, np2);
+
+      /* Round to even.  */
+      if (guard && (sticky || lsb))
 	{
-	  /* Overflow.  Means the significand had been all ones, and
-	     is now all zeros.  Need to increase the exponent, and
-	     possibly re-normalize it.  */
-	  SET_REAL_EXP (r, REAL_EXP (r) + 1);
-	  if (REAL_EXP (r) > emax2)
-	    goto overflow;
-	  r->sig[SIGSZ-1] = SIG_MSB;
-	}
-    }
+	  REAL_VALUE_TYPE u;
+	  get_zero (&u, 0);
+	  set_significand_bit (&u, np2);
 
-  /* Catch underflow that we deferred until after rounding.  */
-  if (REAL_EXP (r) <= emin2m1)
-    goto underflow;
+	  if (add_significands (r, r, &u))
+	    {
+	      /* Overflow.  Means the significand had been all ones, and
+	         is now all zeros.  Need to increase the exponent, and
+	         possibly re-normalize it.  */
+	      SET_REAL_EXP (r, REAL_EXP (r) + 1);
+	      if (REAL_EXP (r) > emax2)
+		goto overflow;
+	      r->sig[SIGSZ - 1] = SIG_MSB;
+	    }
+	}
+
+      /* Catch underflow that we deferred until after rounding.  */
+      if (REAL_EXP (r) <= emin2m1)
+	goto underflow;
+
+    }
 
   /* Clear out trailing garbage.  */
   clear_significand_below (r, np2);
@@ -2463,6 +2522,67 @@ real_convert (REAL_VALUE_TYPE *r, enum machine_mode mode,
   /* round_for_format de-normalizes denormals.  Undo just that part.  */
   if (r->cl == rvc_normal)
     normalize (r);
+}
+
+/* Do a real conversion as if A and R were IEEE numbers.  The result is
+   returned as a native number.  For example, the bit representation of
+   an IEEE infinity might be a normal number in the native format.  In
+   that case the result is a REAL_VALUE_TYPE that corresponds to the
+   native value. */
+static void
+real_convert_ieee (REAL_VALUE_TYPE * r, enum machine_mode mode,
+		   const REAL_VALUE_TYPE * a, enum machine_mode fmode)
+{
+  long buf[6];
+  const struct real_format *fmt;
+  const struct real_format *from_fmt;
+  const struct real_format *ieee_fmt;
+
+  fmt = REAL_MODE_FORMAT (mode);
+  from_fmt = REAL_MODE_FORMAT (fmode);
+  gcc_assert (fmt && from_fmt);
+
+  *r = *a;
+
+  ieee_fmt = (fmode == SFmode) ? &ieee_single_format : &ieee_double_format;
+
+  /* Convert to an IEEE representation. */
+  if (from_fmt != ieee_fmt)
+    {
+      from_fmt->encode (from_fmt, buf, r);
+      ieee_fmt->decode (ieee_fmt, r, buf);
+    }
+
+  /* Do the conversion as IEEE. */
+  ieee_fmt = (mode == SFmode) ? &ieee_single_format : &ieee_double_format;
+  round_for_format (ieee_fmt, r);
+  if (r->cl == rvc_normal)
+    normalize (r);
+
+  /* Convert to native representation. */
+  if (fmt != ieee_fmt)
+    {
+      ieee_fmt->encode (ieee_fmt, buf, r);
+      fmt->decode (fmt, r, buf);
+    }
+}
+
+void
+real_convert_fold (REAL_VALUE_TYPE *r, enum machine_mode to_mode,
+		   const REAL_VALUE_TYPE *a, enum machine_mode from_mode)
+{
+  if (DENORM_OPERANDS_ARE_ZERO (from_mode) && real_isdenorm (from_mode, r))
+    a = &dconst0;
+
+  /* Even though the native format does not represent IEEE exactly,
+     treat the bit representation as if it were IEEE when converting. */
+  if (REAL_CONVERT_AS_IEEE (to_mode, from_mode))
+    real_convert_ieee (r, to_mode, a, from_mode);
+  else
+    real_convert (r, to_mode, a);
+
+  if (DENORM_RESULTS_ARE_ZERO (to_mode) && real_isdenorm (to_mode, r))
+    *r = dconst0;
 }
 
 /* Legacy.  Likewise, except return the struct directly.  */
@@ -2761,6 +2881,7 @@ const struct real_format ieee_single_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -2780,7 +2901,8 @@ const struct real_format mips_single_format =
     true,
     true,
     false,
-    true
+    true,
+    false
   };
 
 const struct real_format motorola_single_format =
@@ -2799,7 +2921,8 @@ const struct real_format motorola_single_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 /* IEEE double-precision format.  */
@@ -3006,6 +3129,7 @@ const struct real_format ieee_double_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3025,7 +3149,8 @@ const struct real_format mips_double_format =
     true,
     true,
     false,
-    true
+    true,
+    false
   };
 
 const struct real_format motorola_double_format =
@@ -3044,7 +3169,8 @@ const struct real_format motorola_double_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 /* IEEE extended real format.  This comes in three flavors: Intel's as
@@ -3381,7 +3507,8 @@ const struct real_format ieee_extended_motorola_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format ieee_extended_intel_96_format =
@@ -3400,6 +3527,7 @@ const struct real_format ieee_extended_intel_96_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3419,6 +3547,7 @@ const struct real_format ieee_extended_intel_128_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3440,6 +3569,7 @@ const struct real_format ieee_extended_intel_96_round_53_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3526,6 +3656,7 @@ const struct real_format ibm_extended_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3545,7 +3676,8 @@ const struct real_format mips_extended_format =
     true,
     true,
     false,
-    true
+    true,
+    false
   };
 
 
@@ -3806,6 +3938,7 @@ const struct real_format ieee_quad_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -3825,7 +3958,8 @@ const struct real_format mips_quad_format =
     true,
     true,
     false,
-    true
+    true,
+    false
   };
 
 /* Descriptions of VAX floating point formats can be found beginning at
@@ -4123,6 +4257,7 @@ const struct real_format vax_f_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -4142,6 +4277,7 @@ const struct real_format vax_d_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -4156,6 +4292,7 @@ const struct real_format vax_g_format =
     1023,
     15,
     15,
+    false,
     false,
     false,
     false,
@@ -4235,6 +4372,7 @@ const struct real_format decimal_single_format =
     true,
     true, 
     true,
+    false,
     false
   };
 
@@ -4255,6 +4393,7 @@ const struct real_format decimal_double_format =
     true,
     true,
     true,
+    false,
     false
   };
 
@@ -4275,9 +4414,51 @@ const struct real_format decimal_quad_format =
     true, 
     true, 
     true,
+    false,
     false
   };
 
+/*  SPU Single Precision (Extended-Range Mode) format is the same as IEEE
+    single precision with the following differences:
+      - infinities are not supported.  Instead MAX_FLOAT or MIN_FLOAT are
+	generated
+      - NaNs are not supported
+      - the range of non-zero numbers in binary is
+	 (001)[1.]000...000 to (255)[1.]111...111
+      - denormals can be represented, but are treated as +0.0 when
+	used as an operand and are never generated as a result
+      - -0.0 can be represented but a zero result is always +0.0
+      - the only supported rounding mode is trunction (towards zero)
+
+    SPU Double Precision format is the same as IEEE with the following
+    differences:
+      - denorms can be generated as a result, but are treated as zero
+	when used as an operand
+
+    When converting between float and double, Infinity and NaN patterns
+    are honored.  For example, 0x7f800000 will convert to
+    0x7ff0000000000000, not 0x47f0000000000000;  and 0x7ff0000000000000
+    converts to 0x7f800000, not 0x7fffffff.  */
+const struct real_format spu_extended_format = 
+  {
+    encode_ieee_single,
+    decode_ieee_single,
+    2,
+    24,
+    24,
+    -125,
+    129,
+    31,
+    31,
+    false,
+    false,
+    true,
+    true,
+    false,
+    false,
+    true,
+  };
+
 /* A synthetic "format" for internal arithmetic.  It's the size of the
    internal significand minus the two bits needed for proper rounding.
    The encode and decode routines exist only to satisfy our paranoia
@@ -4318,6 +4499,7 @@ const struct real_format real_internal_format =
     false,
     true,
     true,
+    false,
     false
   };
 
