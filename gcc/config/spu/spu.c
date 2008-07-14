@@ -3238,7 +3238,7 @@ spu_va_start (tree valist, rtx nextarg)
   if (crtl->args.pretend_args_size > 0)
     t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (args), t,
 		size_int (-STACK_POINTER_OFFSET));
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (args), args, t);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (args), args, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -3247,7 +3247,7 @@ spu_va_start (tree valist, rtx nextarg)
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (skip), t,
 	      size_int (crtl->args.pretend_args_size
 			 - STACK_POINTER_OFFSET));
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (skip), skip, t);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (skip), skip, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -3312,13 +3312,11 @@ spu_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
 		build2 (POINTER_PLUS_EXPR, ptr_type_node, skip,
 			size_int (32)), args);
 
-  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, addr, tmp);
-  gimplify_and_add (tmp, pre_p);
+  gimplify_assign (addr, tmp, pre_p);
 
   /* update VALIST.__args */
   tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, addr, paddedsize);
-  tmp = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (args), args, tmp);
-  gimplify_and_add (tmp, pre_p);
+  gimplify_assign (args, tmp, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
 

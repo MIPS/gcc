@@ -1,9 +1,30 @@
+2008-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Update comment.
+	* config/s390/s390.c (s390_va_start): Build MODIFY_EXPR instead of
+	GIMPLE_MODIFY_STMT.
+	(s390_gimplify_va_arg): Use gimplify_assign.
+	* config/sh/sh.c (sh_va_start): Build MODIFY_EXPR instead of
+	GIMPLE_MODIFY_STMT.
+	(sh_gimplify_va_arg_expr): Use gimplify_assign.
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Likewise.
+	* config/spu/spu.c (spu_va_start): Build MODIFY_EXPR instead of
+	GIMPLE_MODIFY_STMT.
+	(spu_gimplify_va_arg_expr): Use gimplify_assign.
+	* config/stormy16/stormy16.c (xstormy16_expand_builtin_va_start):
+	Build MODIFY_EXPR instead of GIMPLE_MODIFY_STMT.
+	(xstormy16_gimplify_va_arg_expr): Likewise.  Use gimplify_assign.
+	* config/xtensa/xtensa.c (xtensa_va_start): Build MODIFY_EXPR
+	instead of GIMPLE_MODIFY_STMT.
+	(xtensa_gimplify_va_arg_expr): Use gimplify_assign.
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_va_start): Change
 	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
 	(rs6000_gimplify_va_arg): Use gimplify_assign.
 	Build GIMPLE_GOTO directly.
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-dump.c (dequeue_and_dump): Remove GIMPLE_MODIFY_STMT case.

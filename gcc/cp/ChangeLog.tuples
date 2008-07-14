@@ -1,3 +1,7 @@
+2008-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-gimplify.c (cp_gimplify_expr): Update comment.
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* cp-tree.h (union lang_tree_node): Rename GENERIC_NEXT to

@@ -535,9 +535,9 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       ret = gimplify_must_not_throw_expr (expr_p, pre_p);
       break;
 
-      /* We used to do this for GIMPLE_MODIFY_STMT as well, but that's
-	 unsafe; the LHS of an assignment might also be involved in
-	 the RHS, as in bug 25979.  */
+      /* We used to do this for MODIFY_EXPR as well, but that's unsafe; the
+	 LHS of an assignment might also be involved in the RHS, as in bug
+	 25979.  */
     case INIT_EXPR:
       cp_gimplify_init_expr (expr_p, pre_p, post_p);
       ret = GS_OK;

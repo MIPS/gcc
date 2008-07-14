@@ -962,8 +962,8 @@ vect_create_addr_base_for_vector_ref (gimple stmt,
 
    Input:
    1. STMT: a stmt that references memory. Expected to be of the form
-         GIMPLE_MODIFY_STMT <name, data-ref> or
-	 GIMPLE_MODIFY_STMT <data-ref, name>.
+         GIMPLE_ASSIGN <name, data-ref> or
+	 GIMPLE_ASSIGN <data-ref, name>.
    2. AT_LOOP: the loop where the vector memref is to be created.
    3. OFFSET (optional): an offset to be added to the initial address accessed
         by the data-ref in STMT.
@@ -1038,7 +1038,7 @@ vect_create_data_ref_ptr (gimple stmt, struct loop *at_loop,
 
   /* Create an expression for the first address accessed by this load
      in LOOP.  */ 
-  base_name =  build_fold_indirect_ref (unshare_expr (DR_BASE_ADDRESS (dr)));
+  base_name = build_fold_indirect_ref (unshare_expr (DR_BASE_ADDRESS (dr)));
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {
