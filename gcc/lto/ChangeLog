@@ -1,3 +1,8 @@
+2008-07-13  Bill Maddox  <maddox@google.com>
+
+	* lto.c (lto_read_decls): Cast pointer to const char * to avoid
+	unwanted scaling during pointer addition.
+
 2008-07-11  Bill Maddox  <maddox@google.com>
 	    Diego Novillo  <dnovillo@google.com>
 

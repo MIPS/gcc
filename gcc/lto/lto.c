@@ -162,13 +162,18 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   int32_t namespace_decls_offset
       = type_decls_offset + (header->num_type_decls * sizeof (uint32_t));
 
-  const uint32_t *in_types       = (const uint32_t *) data + types_offset;
-  const uint32_t *in_field_decls = (const uint32_t *) data + fields_offset;
-  const uint32_t *in_fn_decls    = (const uint32_t *) data + fns_offset;
-  const uint32_t *in_var_decls   = (const uint32_t *) data + vars_offset;
-  const uint32_t *in_type_decls  = (const uint32_t *) data + type_decls_offset;
-  const uint32_t *in_namespace_decls  = (const uint32_t *) data
-					+ namespace_decls_offset;
+  const uint32_t *in_types
+    = (const uint32_t *) ((const char *) data + types_offset);
+  const uint32_t *in_field_decls
+    = (const uint32_t *) ((const char *) data + fields_offset);
+  const uint32_t *in_fn_decls
+    = (const uint32_t *) ((const char *) data + fns_offset);
+  const uint32_t *in_var_decls
+    = (const uint32_t *) ((const char *) data + vars_offset);
+  const uint32_t *in_type_decls
+    = (const uint32_t *) ((const char *) data + type_decls_offset);
+  const uint32_t *in_namespace_decls
+    = (const uint32_t *) ((const char *) data + namespace_decls_offset);
 
   int32_t main_offset
       = namespace_decls_offset + (header->num_namespace_decls * sizeof (uint32_t));
