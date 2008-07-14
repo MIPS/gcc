@@ -594,11 +594,11 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       if (TREE_CODE (name) != SSA_NAME)
 	continue;
       def = SSA_NAME_DEF_STMT (name);
-      if (TREE_CODE (def) != GIMPLE_MODIFY_STMT
-	  || GIMPLE_STMT_OPERAND (def, 0) != name)
+      if (TREE_CODE (def) != MODIFY_EXPR
+	  || TREE_OPERAND (def, 0) != name)
 	continue;
 
-      rhs = GIMPLE_STMT_OPERAND (def, 1);
+      rhs = TREE_OPERAND (def, 1);
       if (TREE_CODE (rhs) != SSA_NAME
 	  && !EXPR_P (rhs)
 	  && !is_gimple_min_invariant (rhs))

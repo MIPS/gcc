@@ -88,7 +88,7 @@ along with GCC; see the file COPYING3.  If not see
    TER implements this but stepping through the instructions in a block and
    tracking potential expressions for replacement, and the partitions they are
    dependent on.  Expressions are represented by the SSA_NAME_VERSION of the
-   DEF on the LHS of a GIMPLE_MODIFY_STMT and the expression is the RHS.
+   DEF on the LHS of a GIMPLE_ASSIGN and the expression is the RHS.
 
    When a stmt is determined to be a possible replacement expression, the
    following steps are taken:

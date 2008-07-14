@@ -780,6 +780,7 @@ gimple gimple_build_assign_with_ops_stat (enum tree_code, tree, tree,
 gimple gimple_build_call_vec (tree, VEC(tree, heap) *);
 gimple gimple_build_call (tree, unsigned, ...);
 gimple gimple_build_call_from_tree (tree);
+gimple gimplify_assign (tree, tree, gimple_seq *);
 gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
@@ -852,6 +853,8 @@ unsigned get_gimple_rhs_num_ops (enum tree_code);
    for validating arguments in inline functions defined here.
    We should merge gimple.[hc] and tree-gimple.[hc].  */
 extern bool is_gimple_val (tree);
+extern bool is_gimple_lvalue (tree);
+extern tree force_gimple_operand (tree, gimple_seq *, bool, tree);
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);

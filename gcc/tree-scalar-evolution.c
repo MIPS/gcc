@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
    Given a scalar variable to be analyzed, follow the SSA edge to
    its definition:
      
-   - When the definition is a GIMPLE_MODIFY_STMT: if the right hand side
+   - When the definition is a GIMPLE_ASSIGN: if the right hand side
    (RHS) of the definition cannot be statically analyzed, the answer
    of the analyzer is: "don't know".  
    Otherwise, for all the variables that are not yet analyzed in the
@@ -1433,7 +1433,7 @@ follow_ssa_edge (struct loop *loop, gimple def, gimple halting_phi,
       
     default:
       /* At this level of abstraction, the program is just a set
-	 of GIMPLE_MODIFY_STMTs and PHI_NODEs.  In principle there is no
+	 of GIMPLE_ASSIGNs and PHI_NODEs.  In principle there is no
 	 other node to be handled.  */
       return t_false;
     }
@@ -1631,7 +1631,7 @@ interpret_condition_phi (struct loop *loop, gimple condition_phi)
 
 /* Interpret the operation RHS1 OP RHS2.  If we didn't
    analyze this node before, follow the definitions until ending
-   either on an analyzed GIMPLE_MODIFY_STMT, or on a loop-phi-node.  On the
+   either on an analyzed GIMPLE_ASSIGN, or on a loop-phi-node.  On the
    return path, this function propagates evolutions (ala constant copy
    propagation).  OPND1 is not a GIMPLE expression because we could
    analyze the effect of an inner loop: see interpret_loop_phi.  */

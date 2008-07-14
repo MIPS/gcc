@@ -2800,10 +2800,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       break;
 
     case MODIFY_EXPR:
-      gcc_unreachable ();
-
-    case GIMPLE_MODIFY_STMT:
-      x = GIMPLE_STMT_OPERAND (t, 0);
+      x = TREE_OPERAND (t, 0);
       if (TREE_CODE (x) == BIT_FIELD_REF
 	  && is_gimple_reg (TREE_OPERAND (x, 0)))
 	{
@@ -3527,7 +3524,6 @@ verify_types_in_gimple_assign (gimple stmt)
     case TREE_LIST:
     case COMPOUND_EXPR:
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
     case GOTO_EXPR:
     case LABEL_EXPR:
@@ -5258,7 +5254,7 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
   struct move_stmt_d *p = (struct move_stmt_d *) wi->info;
   tree t = *tp;
 
-  if (EXPR_P (t) || GIMPLE_STMT_P (t))
+  if (EXPR_P (t))
     {
       tree block = TREE_BLOCK (t);
       if (p->orig_block == NULL_TREE

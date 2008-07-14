@@ -110,7 +110,7 @@ struct occurrence {
      inserted in BB.  */
   tree recip_def;
 
-  /* If non-NULL, the GIMPLE_MODIFY_STMT for a reciprocal computation that
+  /* If non-NULL, the GIMPLE_ASSIGN for a reciprocal computation that
      was inserted in BB.  */
   gimple recip_def_stmt;
 

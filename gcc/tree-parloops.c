@@ -636,7 +636,7 @@ eliminate_local_variables_1 (tree *tp, int *walk_subtrees, void *data)
       return NULL_TREE;
     }
 
-  if (!EXPR_P (t) && !GIMPLE_STMT_P (t))
+  if (!EXPR_P (t))
     *walk_subtrees = 0;
 
   return NULL_TREE;

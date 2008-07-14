@@ -2409,12 +2409,12 @@ tree_could_throw_p (tree t)
 {
   if (!flag_exceptions)
     return false;
-  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT)
+  if (TREE_CODE (t) == MODIFY_EXPR)
     {
       if (flag_non_call_exceptions
-	  && tree_could_trap_p (GIMPLE_STMT_OPERAND (t, 0)))
+	  && tree_could_trap_p (TREE_OPERAND (t, 0)))
 	return true;
-      t = GIMPLE_STMT_OPERAND (t, 1);
+      t = TREE_OPERAND (t, 1);
     }
 
   if (TREE_CODE (t) == WITH_SIZE_EXPR)

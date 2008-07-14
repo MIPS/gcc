@@ -62,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 
    Inlining: a function body is duplicated, but the PARM_DECLs are
    remapped into VAR_DECLs, and non-void RETURN_EXPRs become
-   GIMPLE_MODIFY_STMTs that store to a dedicated returned-value variable.
+   MODIFY_EXPRs that store to a dedicated returned-value variable.
    The duplicated eh_region info of the copy will later be appended
    to the info for the caller; the eh_region info in copied throwing
    statements and RESX_EXPRs is adjusted accordingly.
@@ -674,8 +674,6 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
     }
   else
     {
-      gcc_assert (!GIMPLE_TUPLE_P (*tp));
-
       /* Otherwise, just copy the node.  Note that copy_tree_r already
 	 knows not to copy VAR_DECLs, etc., so this is safe.  */
       if (TREE_CODE (*tp) == INDIRECT_REF)
@@ -807,7 +805,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
      duplicated and/or tweaked.  */
 
   /* When requested, RETURN_EXPRs should be transformed to just the
-     contained GIMPLE_MODIFY_STMT.  The branch semantics of the return will
+     contained MODIFY_EXPR.  The branch semantics of the return will
      be handled elsewhere by manipulating the CFG rather than a statement.  */
   if (TREE_CODE (*tp) == RETURN_EXPR && id->transform_return_to_modify)
     {
@@ -818,10 +816,10 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	 If the "assignment" is just the result decl, the result
 	 decl has already been set (e.g. a recent "foo (&result_decl,
 	 ...)"); just toss the entire RETURN_EXPR.  */
-      if (assignment && TREE_CODE (assignment) == GIMPLE_MODIFY_STMT)
+      if (assignment && TREE_CODE (assignment) == MODIFY_EXPR)
 	{
 	  /* Replace the RETURN_EXPR with (a copy of) the
-	     GIMPLE_MODIFY_STMT hanging underneath.  */
+	     MODIFY_EXPR hanging underneath.  */
 	  *tp = copy_node (assignment);
 	}
       else /* Else the RETURN_EXPR returns no value.  */
@@ -894,14 +892,14 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Here we handle trees that are not completely rewritten.
 	 First we detect some inlining-induced bogosities for
 	 discarding.  */
-      if (TREE_CODE (*tp) == GIMPLE_MODIFY_STMT
-	  && GIMPLE_STMT_OPERAND (*tp, 0) == GIMPLE_STMT_OPERAND (*tp, 1)
-	  && (auto_var_in_fn_p (GIMPLE_STMT_OPERAND (*tp, 0), fn)))
+      if (TREE_CODE (*tp) == MODIFY_EXPR
+	  && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
+	  && (auto_var_in_fn_p (TREE_OPERAND (*tp, 0), fn)))
 	{
 	  /* Some assignments VAR = VAR; don't generate any rtl code
 	     and thus don't count as variable modification.  Avoid
 	     keeping bogosities like 0 = 0.  */
-	  tree decl = GIMPLE_STMT_OPERAND (*tp, 0), value;
+	  tree decl = TREE_OPERAND (*tp, 0), value;
 	  tree *n;
 
 	  n = (tree *) pointer_map_contains (id->decl_map, decl);
@@ -975,7 +973,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
       /* If EXPR has block defined, map it to newly constructed block.
          When inlining we want EXPRs without block appear in the block
 	 of function call.  */
-      if (EXPR_P (*tp) || GIMPLE_STMT_P (*tp))
+      if (EXPR_P (*tp))
 	{
 	  new_block = id->block;
 	  if (TREE_BLOCK (*tp))
@@ -995,7 +993,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 			 id->eh_region_offset
 			 + TREE_INT_CST_LOW (TREE_OPERAND (*tp, 0)));
 
-      if (!GIMPLE_TUPLE_P (*tp) && TREE_CODE (*tp) != OMP_CLAUSE)
+      if (TREE_CODE (*tp) != OMP_CLAUSE)
 	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
       /* The copied TARGET_EXPR has never been expanded, even if the
@@ -1999,7 +1997,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 
       STRIP_USELESS_TYPE_CONVERSION (rhs);
 
-      /* We want to use GIMPLE_MODIFY_STMT, not INIT_EXPR here so that we
+      /* We want to use MODIFY_EXPR, not INIT_EXPR here so that we
 	 keep our trees in gimple form.  */
       if (def && gimple_in_ssa_p (cfun) && is_gimple_reg (p))
 	{
@@ -2105,7 +2103,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 
    RETURN_SLOT, if non-null is place where to store the result.  It
    is set only for CALL_EXPR_RETURN_SLOT_OPT.  MODIFY_DEST, if non-null,
-   was the LHS of the GIMPLE_MODIFY_STMT to which this call is the RHS.
+   was the LHS of the MODIFY_EXPR to which this call is the RHS.
 
    The return value is a (possibly null) value that is the result of the
    function as seen by the callee.  *USE_P is a (possibly null) value that
@@ -3377,7 +3375,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
 /* Expand call statements reachable from STMT_P.
    We can only have CALL_EXPRs as the "toplevel" tree code or nested
-   in a GIMPLE_MODIFY_STMT.  See tree-gimple.c:get_call_expr_in().  We can
+   in a MODIFY_EXPR.  See tree-gimple.c:get_call_expr_in().  We can
    unfortunately not use that function here because we need a pointer
    to the CALL_EXPR, not the tree itself.  */
 
@@ -3553,7 +3551,6 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   /* We make copies of most nodes.  */
   if (IS_EXPR_CODE_CLASS (cl)
-      || IS_GIMPLE_STMT_CODE_CLASS (cl)
       || code == TREE_LIST
       || code == TREE_VEC
       || code == TYPE_DECL
@@ -3563,8 +3560,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 here.  */
       tree chain = NULL_TREE, new;
 
-      if (!GIMPLE_TUPLE_P (*tp))
-	chain = TREE_CHAIN (*tp);
+      chain = TREE_CHAIN (*tp);
 
       /* Copy the node.  */
       new = copy_node (*tp);

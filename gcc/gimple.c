@@ -446,6 +446,24 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
 }
 
 
+/* Build a new GIMPLE_ASSIGN tuple and append it to the end of *SEQ_P.
+
+   DST/SRC are the destination and source respectively.  You can pass
+   ungimplified trees in DST or SRC, in which case they will be
+   converted to a gimple operand if necessary.
+
+   This function returns the newly created GIMPLE_ASSIGN tuple.  */
+
+inline gimple
+gimplify_assign (tree dst, tree src, gimple_seq *seq_p)
+{ 
+  tree t = build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
+  gimplify_and_add (t, seq_p);
+  ggc_free (t);
+  return gimple_seq_last_stmt (*seq_p);
+}
+
+
 /* Build a GIMPLE_COND statement.
 
    PRED is the condition used to compare LHS and the RHS.
@@ -1889,7 +1907,7 @@ gimple_assign_unary_nop_p (gimple gs)
               || gimple_assign_rhs_code (gs) == NON_LVALUE_EXPR)
           && gimple_assign_rhs1 (gs) != error_mark_node
           && (TYPE_MODE (TREE_TYPE (gimple_assign_lhs (gs)))
-              == TYPE_MODE (GENERIC_TREE_TYPE (gimple_assign_rhs1 (gs)))));
+              == TYPE_MODE (TREE_TYPE (gimple_assign_rhs1 (gs)))));
 }
 
 /* Set BB to be the basic block holding G.  */

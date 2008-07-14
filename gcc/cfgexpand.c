@@ -115,8 +115,14 @@ gimple_to_tree (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      t = gimple_assign_rhs_to_tree (stmt);
-      t = build_gimple_modify_stmt (gimple_assign_lhs (stmt), t);
+      {
+	tree lhs = gimple_assign_lhs (stmt);
+
+	t = gimple_assign_rhs_to_tree (stmt);
+	t = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, t);
+	if (gimple_assign_nontemporal_move_p (stmt))
+	  MOVE_NONTEMPORAL (t) = true;
+      }
       break;
 	                                 
     case GIMPLE_COND:
@@ -147,7 +153,8 @@ gimple_to_tree (gimple stmt)
 		/* I believe that a function's RESULT_DECL is unique.  */
 		gcc_assert (TREE_CODE (retval) != RESULT_DECL);
 
-		retval = build_gimple_modify_stmt (result, retval);
+		retval = build2 (MODIFY_EXPR, TREE_TYPE (result),
+				 result, retval);
 	      }
 	  }
 	t = build1 (RETURN_EXPR, void_type_node, retval);
@@ -240,8 +247,12 @@ gimple_to_tree (gimple stmt)
         CALL_EXPR_VA_ARG_PACK (t) = gimple_call_va_arg_pack_p (stmt);
 
         /* If the call has a LHS then create a MODIFY_EXPR to hold it.  */
-        if (gimple_call_lhs (stmt))
-          t = build_gimple_modify_stmt (gimple_call_lhs (stmt), t);
+	{
+	  tree lhs = gimple_call_lhs (stmt);
+
+	  if (lhs)
+	    t = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, t);
+	}
 
         /* Record the original call statement, as it may be used
            to retrieve profile information during expansion.  */
@@ -347,25 +358,25 @@ release_stmt_tree (gimple stmt, tree stmt_tree)
     {
     case GIMPLE_ASSIGN:
       if (get_gimple_rhs_class (gimple_expr_code (stmt)) != GIMPLE_SINGLE_RHS)
-	ggc_free (GENERIC_TREE_OPERAND (stmt_tree, 1));
+	ggc_free (TREE_OPERAND (stmt_tree, 1));
       break;
     case GIMPLE_COND:
       ggc_free (COND_EXPR_COND (stmt_tree));
       break;
     case GIMPLE_RETURN:
       if (TREE_OPERAND (stmt_tree, 0)
-	  && TREE_CODE (TREE_OPERAND (stmt_tree, 0)) == GIMPLE_MODIFY_STMT)
+	  && TREE_CODE (TREE_OPERAND (stmt_tree, 0)) == MODIFY_EXPR)
 	ggc_free (TREE_OPERAND (stmt_tree, 0));
       break;
     case GIMPLE_CALL:
       if (gimple_call_lhs (stmt))
 	{
 	  if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
-	    ggc_free (CALL_EXPR_FN (GENERIC_TREE_OPERAND (stmt_tree, 1)));
-	  ann = tree_common_ann (GENERIC_TREE_OPERAND (stmt_tree, 1));
+	    ggc_free (CALL_EXPR_FN (TREE_OPERAND (stmt_tree, 1)));
+	  ann = tree_common_ann (TREE_OPERAND (stmt_tree, 1));
 	  if (ann)
 	    ggc_free (ann);
-	  ggc_free (GENERIC_TREE_OPERAND (stmt_tree, 1));
+	  ggc_free (TREE_OPERAND (stmt_tree, 1));
 	}
       else if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
 	ggc_free (CALL_EXPR_FN (stmt_tree));

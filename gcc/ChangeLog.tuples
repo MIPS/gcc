@@ -1,3 +1,83 @@
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-dump.c (dequeue_and_dump): Remove GIMPLE_MODIFY_STMT case.
+	* tree-ssa-loop-niter.c (simplify_replace_tree): Remove GIMPLE_STMT_P
+	call.
+	* tree-pretty-print.c (dump_generic_node): Remove any references to
+	GIMPLE_MODIFY_STMT, GIMPLE_STMT_P, GIMPLE_TUPLE_P.
+	(op_prio): Same.
+	(op_symbol_code): Same.
+	* java/java-gimplify.c (java_gimplify_expr): Same.
+	(java_gimplify_modify_expr): Same.
+	* java/java-tree.h: Rename GENERIC_NEXT to TREE_CHAIN.
+	* tree-tailcall.c (find_tail_calls): Update comment.
+	* tree.c (tree_code_class_string): Remove "gimple_stmt".
+	(tree_node_kind): Remove "gimple statments".
+	(tree_code_size): Remove tcc_gimple_stmt.
+	(make_node_stat): Same.
+	(copy_node_stat): Remove any references to
+	GIMPLE_MODIFY_STMT, GIMPLE_STMT_P, GIMPLE_TUPLE_P, tcc_gimple_stmt,
+	TS_GIMPLE_STATEMENT, GENERIC_TREE_OPERAND, GENERIC_TREE_TYPE,
+	GIMPLE_TUPLE_HAS_LOCUS_P, GIMPLE_STMT_LOCUS, GIMPLE_STMT_BLOCK,
+	IS_GIMPLE_STMT_CODE_CLASS, GIMPLE_STMT_BLOCK.
+	(expr_align): Same.
+	(tree_node_structure): Same.
+	(build2_stat): Same.
+	(set_expr_locus): Same.
+	(walk_tree_1): Same.
+	(tree_block): Same.
+	(build_gimple_modify_stmt_stat): Remove.
+	(expr_location): Remove.
+	(set_expr_location): Remove.
+	(expr_hash_location): Remove.
+	(expr_locus): Remove.
+	(expr_filename): Remove.
+	(expr_lineno): Remove.
+	(generic_tree_operand): Remove.
+	(generic_tree_type): Remove.
+	* tree.h (tree_code_class): Remove tcc_gimple_stmt.
+	(IS_GIMPLE_STMT_CODE_CLASS): Remove.
+	(struct gimple_stmt): Remove.
+	(GIMPLE_STMT_CHECK): Remove.
+	(TREE_OPERAND_CHECK): Remove GIMPLE_TUPLE_P.
+	(TREE_CHAIN): Same.
+	(GIMPLE_STMT_OPERAND_CHECK): Remove.
+	(GIMPLE_STMT_OPERAND_CHECK): Remove.
+	(GIMPLE_STMT_P): Remove.
+	(GIMPLE_TUPLE_P): Remove.
+	(GIMPLE_TUPLE_HAS_LOCUS_P): Remove.
+	(GENERIC_TREE_OPERAND): Remove.
+	(GENERIC_TREE_TYPE): Remove.
+	(GENERIC_NEXT): Remove.
+	(IS_CONVERT_EXPR_CODE_P): Rename GENERIC_TREE_TYPE to TREE_TYPE.
+	(MOVE_NONTEMPORAL): Remove GIMPLE_MODIFY_STMT_CHECK.
+	Remove GIMPLE_STMT_OPERAND, GIMPLE_STMT_LOCUS, GIMPLE_STMT_BLOCK.
+	(EXPR_LOCATION, SET_EXPR_LOCATION, EXPR_HAS_LOCATION, EXPR_LOCUS,
+	EXPR_FILENAME, EXPR_LINENO): Do ont call functions.
+	(CAN_HAVE_LOCATION_P): Remove GIMPLE_STMT_P.
+	(union tree_node): Remove gstmt.
+	(build_gimple_modify_stmt*): Remove.
+	(expr_location, set_expr_location, expr_has_location,
+	expr_locus, expr_filename, expr_lineno, generic_tree_operand,
+	generic_tree_type): Remove.
+	* tree-scalar-evolution.c (follow_ssa_edge): Update comment.
+	(interpret_condition_phi): Same.
+	* gimple.h (gimplify_assign): New.
+	* builtins.c, fold-const.c, omp-low.c, tree-ssa-dse.c, tree-gimple.c,
+	tree-ssa-math-opts.c, tree-nrv.c, gimple-low.c, dwarf2out.c,
+	expr.c, tree-parloops.c, matrix-reorg.c, c-decl.c, tree-eh.c,
+	c-pretty-print.c, langhooks.c, function.c, tree-affine.c,
+	gimplify.c, tree.def, cfgexpand.c, tree-predcom.c, print-tree.c,
+	tree-ssa-ter.c, tree-ssa.c, tree-inline.c, gimple.c, gimple.h,
+	tree-cfg.c, config/i386/i386.c, stmt.c, tree-ssa-operands.c)
+	Remove any references to
+	GIMPLE_MODIFY_STMT, GIMPLE_STMT_P, GIMPLE_TUPLE_P, tcc_gimple_stmt,
+	TS_GIMPLE_STATEMENT, GENERIC_TREE_OPERAND, GENERIC_TREE_TYPE,
+	GIMPLE_TUPLE_HAS_LOCUS_P, GIMPLE_STMT_LOCUS, GIMPLE_STMT_BLOCK,
+	IS_GIMPLE_STMT_CODE_CLASS, GIMPLE_STMT_BLOCK.
+	Call gimplify_assign or generate a GIMPLE_ASSIGN directly when
+	appropriate.
+
 2008-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* cfgexpand.c (gimple_cond_pred_to_tree): New function.

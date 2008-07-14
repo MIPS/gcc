@@ -537,9 +537,9 @@ block_may_fallthru (const_tree block)
       return (block_may_fallthru (TREE_OPERAND (stmt, 0))
 	      && block_may_fallthru (TREE_OPERAND (stmt, 1)));
 
-    case GIMPLE_MODIFY_STMT:
-      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 1)) == CALL_EXPR)
-	stmt = GIMPLE_STMT_OPERAND (stmt, 1);
+    case MODIFY_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)
+	stmt = TREE_OPERAND (stmt, 1);
       else
 	return true;
       /* FALLTHRU */

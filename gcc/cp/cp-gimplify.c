@@ -870,13 +870,13 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
       end1 = build2 (POINTER_PLUS_EXPR, TREE_TYPE (start1), start1, end1);
 
       p1 = create_tmp_var (TREE_TYPE (start1), NULL);
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, start1);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (p1), p1, start1);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  p2 = create_tmp_var (TREE_TYPE (start2), NULL);
-	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, start2);
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (p2), p2, start2);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -899,14 +899,14 @@ cxx_omp_clause_apply_fn (tree fn, tree arg1, tree arg2)
 
       t = TYPE_SIZE_UNIT (inner_type);
       t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p1), p1, t);
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p1, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (p1), p1, t);
       append_to_statement_list (t, &ret);
 
       if (arg2)
 	{
 	  t = TYPE_SIZE_UNIT (inner_type);
 	  t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (p2), p2, t);
-	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, p2, t);
+	  t = build2 (MODIFY_EXPR, TREE_TYPE (p2), p2, t);
 	  append_to_statement_list (t, &ret);
 	}
 
@@ -960,7 +960,7 @@ cxx_omp_clause_copy_ctor (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 0), dst, src);
   if (ret == NULL)
-    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+    ret = build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 
   return ret;
 }
@@ -976,7 +976,7 @@ cxx_omp_clause_assign_op (tree clause, tree dst, tree src)
   if (info)
     ret = cxx_omp_clause_apply_fn (TREE_VEC_ELT (info, 2), dst, src);
   if (ret == NULL)
-    ret = build2 (GIMPLE_MODIFY_STMT, void_type_node, dst, src);
+    ret = build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 
   return ret;
 }

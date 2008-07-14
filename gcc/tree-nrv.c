@@ -280,7 +280,7 @@ dest_safe_for_nrv_p (tree dest)
   return true;
 }
 
-/* Walk through the function looking for GIMPLE_MODIFY_STMTs with calls that
+/* Walk through the function looking for GIMPLE_ASSIGNs with calls that
    return in memory on the RHS.  For each of these, determine whether it is
    safe to pass the address of the LHS as the return slot, and mark the
    call appropriately if so.

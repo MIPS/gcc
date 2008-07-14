@@ -524,7 +524,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build_gimple_modify_stmt (dst, src);
+  return build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP

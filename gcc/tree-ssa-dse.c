@@ -273,7 +273,7 @@ get_kill_of_stmt_lhs (gimple stmt,
 }
 
 /* A helper of dse_optimize_stmt.
-   Given a GIMPLE_MODIFY_STMT in STMT, check that each VDEF has one
+   Given a GIMPLE_ASSIGN in STMT, check that each VDEF has one
    use, and that one use is another VDEF clobbering the first one.
 
    Return TRUE if the above conditions are met, otherwise FALSE.  */
@@ -404,7 +404,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
   if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
     return;
 
-  /* We know we have virtual definitions.  If this is a GIMPLE_MODIFY_STMT
+  /* We know we have virtual definitions.  If this is a GIMPLE_ASSIGN
      that's not also a function call, then record it into our table.  */
   if (gimple_code (stmt) == GIMPLE_CALL && gimple_call_fndecl (stmt))
     return;

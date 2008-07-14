@@ -1244,7 +1244,7 @@ replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
       psi = gsi_for_stmt (stmt);
       remove_phi_node (&psi, false);
 
-      /* Turn the phi node into GIMPLE_MODIFY_STMT.  */
+      /* Turn the phi node into GIMPLE_ASSIGN.  */
       new_stmt = gimple_build_assign (val, new);
       gsi_insert_before (&bsi, new_stmt, GSI_NEW_STMT);
       return;

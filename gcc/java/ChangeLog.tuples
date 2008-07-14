@@ -1,3 +1,9 @@
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* java-gimplify.c (java_gimplify_expr): Same.
+	(java_gimplify_modify_expr): Same.
+	* java-tree.h: Rename GENERIC_NEXT to TREE_CHAIN.
+
 2008-05-02  Diego Novillo  <dnovillo@google.com>
 
 	* expr.c (build_java_throw_out_of_bounds_exception): Fix

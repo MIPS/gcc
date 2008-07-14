@@ -6537,9 +6537,6 @@ safe_from_p (const_rtx x, tree exp, int top_p)
     case tcc_type:
       /* Should never get a type here.  */
       gcc_unreachable ();
-
-    case tcc_gimple_stmt:
-      gcc_unreachable ();
     }
 
   /* If we have an rtl, find any enclosed object.  Then see if we conflict
@@ -7046,7 +7043,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 
   /* Handle ERROR_MARK before anybody tries to access its type.  */
   if (TREE_CODE (exp) == ERROR_MARK
-      || (!GIMPLE_TUPLE_P (exp) && TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK))
+      || (TREE_CODE (TREE_TYPE (exp)) == ERROR_MARK))
     {
       ret = CONST0_RTX (tmode);
       return ret ? ret : const0_rtx;
@@ -7129,18 +7126,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 								  type)	  \
 				 : (expr))
 
-  if (GIMPLE_STMT_P (exp))
-    {
-      type = void_type_node;
-      mode = VOIDmode;
-      unsignedp = 0;
-    }
-  else
-    {
-      type = TREE_TYPE (exp);
-      mode = TYPE_MODE (type);
-      unsignedp = TYPE_UNSIGNED (type);
-    }
+  type = TREE_TYPE (exp);
+  mode = TYPE_MODE (type);
+  unsignedp = TYPE_UNSIGNED (type);
 
   ignore = (target == const0_rtx
 	    || ((code == NOP_EXPR || code == CONVERT_EXPR 
@@ -9088,16 +9076,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree lhs = TREE_OPERAND (exp, 0);
 	tree rhs = TREE_OPERAND (exp, 1);
 	gcc_assert (ignore);
-	expand_assignment (lhs, rhs, false);
-	return const0_rtx;
-      }
-
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree lhs = GIMPLE_STMT_OPERAND (exp, 0);
-	tree rhs = GIMPLE_STMT_OPERAND (exp, 1);
-
-	gcc_assert (ignore);
 
 	/* Check for |= or &= of a bitfield of size one into another bitfield
 	   of size 1.  In this case, (unless we need the result of the
@@ -9127,7 +9105,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    return const0_rtx;
 	  }
 
-	expand_assignment (lhs, rhs, MOVE_NONTEMPORAL (exp));
+	expand_assignment (lhs, rhs, false);
 	return const0_rtx;
       }
 

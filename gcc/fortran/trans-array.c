@@ -161,12 +161,10 @@ gfc_conv_descriptor_data_get (tree desc)
    
    This function gets called through the following macros:
      gfc_conv_descriptor_data_set
-     gfc_conv_descriptor_data_set_tuples.  */
+     gfc_conv_descriptor_data_set.  */
 
 void
-gfc_conv_descriptor_data_set_internal (stmtblock_t *block,
-				       tree desc, tree value,
-				       bool tuples_p)
+gfc_conv_descriptor_data_set (stmtblock_t *block, tree desc, tree value)
 {
   tree field, type, t;
 
@@ -177,7 +175,7 @@ gfc_conv_descriptor_data_set_internal (stmtblock_t *block,
   gcc_assert (DATA_FIELD == 0);
 
   t = fold_build3 (COMPONENT_REF, TREE_TYPE (field), desc, field, NULL_TREE);
-  gfc_add_modify (block, t, fold_convert (TREE_TYPE (field), value), tuples_p);
+  gfc_add_modify (block, t, fold_convert (TREE_TYPE (field), value));
 }
 
 
@@ -547,7 +545,7 @@ gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
   /* The offset is zero because we create temporaries with a zero
      lower bound.  */
   tmp = gfc_conv_descriptor_offset (desc);
-  gfc_add_modify_expr (pre, tmp, gfc_index_zero_node);
+  gfc_add_modify (pre, tmp, gfc_index_zero_node);
 
   if (dealloc && !onstack)
     {
@@ -623,7 +621,7 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
 
   /* Fill in the array dtype.  */
   tmp = gfc_conv_descriptor_dtype (desc);
-  gfc_add_modify_expr (pre, tmp, gfc_get_dtype (TREE_TYPE (desc)));
+  gfc_add_modify (pre, tmp, gfc_get_dtype (TREE_TYPE (desc)));
 
   /*
      Fill in the bounds and stride.  This is a packed array, so:
@@ -657,13 +655,13 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post,
         
       /* Store the stride and bound components in the descriptor.  */
       tmp = gfc_conv_descriptor_stride (desc, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pre, tmp, size);
+      gfc_add_modify (pre, tmp, size);
 
       tmp = gfc_conv_descriptor_lbound (desc, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pre, tmp, gfc_index_zero_node);
+      gfc_add_modify (pre, tmp, gfc_index_zero_node);
 
       tmp = gfc_conv_descriptor_ubound (desc, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pre, tmp, loop->to[n]);
+      gfc_add_modify (pre, tmp, loop->to[n]);
 
       tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 			 loop->to[n], gfc_index_one_node);
@@ -748,7 +746,7 @@ gfc_conv_array_transpose (gfc_se * se, gfc_expr * expr)
   se->expr = dest;
 
   /* Copy across the dtype field.  */
-  gfc_add_modify_expr (&se->pre,
+  gfc_add_modify (&se->pre,
 		       gfc_conv_descriptor_dtype (dest),
 		       gfc_conv_descriptor_dtype (src));
 
@@ -765,15 +763,15 @@ gfc_conv_array_transpose (gfc_se * se, gfc_expr * expr)
       dest_index = gfc_rank_cst[n];
       src_index = gfc_rank_cst[1 - n];
 
-      gfc_add_modify_expr (&se->pre,
+      gfc_add_modify (&se->pre,
 			   gfc_conv_descriptor_stride (dest, dest_index),
 			   gfc_conv_descriptor_stride (src, src_index));
 
-      gfc_add_modify_expr (&se->pre,
+      gfc_add_modify (&se->pre,
 			   gfc_conv_descriptor_lbound (dest, dest_index),
 			   gfc_conv_descriptor_lbound (src, src_index));
 
-      gfc_add_modify_expr (&se->pre,
+      gfc_add_modify (&se->pre,
 			   gfc_conv_descriptor_ubound (dest, dest_index),
 			   gfc_conv_descriptor_ubound (src, src_index));
 
@@ -799,7 +797,7 @@ gfc_conv_array_transpose (gfc_se * se, gfc_expr * expr)
   else
     dest_info->offset = gfc_index_zero_node;
 
-  gfc_add_modify_expr (&se->pre,
+  gfc_add_modify (&se->pre,
 		       gfc_conv_descriptor_offset (dest),
 		       dest_info->offset);
 	  
@@ -843,7 +841,7 @@ gfc_grow_array (stmtblock_t * pblock, tree desc, tree extra)
 
   /* Add EXTRA to the upper bound.  */
   tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type, ubound, extra);
-  gfc_add_modify_expr (pblock, ubound, tmp);
+  gfc_add_modify (pblock, ubound, tmp);
 
   /* Get the value of the current data pointer.  */
   arg0 = gfc_conv_descriptor_data_get (desc);
@@ -953,7 +951,7 @@ gfc_put_offset_into_var (stmtblock_t * pblock, tree * poffset,
   /* We should have already created the offset variable.  We cannot
      create it here because we may be in an inner scope.  */
   gcc_assert (*offsetvar != NULL_TREE);
-  gfc_add_modify_expr (pblock, *offsetvar, *poffset);
+  gfc_add_modify (pblock, *offsetvar, *poffset);
   *poffset = *offsetvar;
   TREE_USED (*offsetvar) = 1;
 }
@@ -992,7 +990,7 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 	{
 	  /* The temporary is an array of pointers.  */
 	  se->expr = fold_convert (TREE_TYPE (tmp), se->expr);
-	  gfc_add_modify_expr (&se->pre, tmp, se->expr);
+	  gfc_add_modify (&se->pre, tmp, se->expr);
 	}
       else
 	{
@@ -1007,7 +1005,7 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
 	{
 	  if (first_len)
 	    {
-	      gfc_add_modify_expr (&se->pre, first_len_val,
+	      gfc_add_modify (&se->pre, first_len_val,
 				   se->string_length);
 	      first_len = false;
 	    }
@@ -1029,7 +1027,7 @@ gfc_trans_array_ctor_element (stmtblock_t * pblock, tree desc,
     {
       /* TODO: Should the frontend already have done this conversion?  */
       se->expr = fold_convert (TREE_TYPE (tmp), se->expr);
-      gfc_add_modify_expr (&se->pre, tmp, se->expr);
+      gfc_add_modify (&se->pre, tmp, se->expr);
     }
 
   gfc_add_block_to_block (pblock, &se->pre);
@@ -1100,7 +1098,7 @@ gfc_trans_array_constructor_subarray (stmtblock_t * pblock,
   /* Increment the offset.  */
   tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 		     *poffset, gfc_index_one_node);
-  gfc_add_modify_expr (&body, *poffset, tmp);
+  gfc_add_modify (&body, *poffset, tmp);
 
   /* Finish the loop.  */
   gfc_trans_scalarizing_loops (&loop, &body);
@@ -1239,7 +1237,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	    }
 	  if (!INTEGER_CST_P (*poffset))
             {
-              gfc_add_modify_expr (&body, *offsetvar, *poffset);
+              gfc_add_modify (&body, *offsetvar, *poffset);
               *poffset = *offsetvar;
             }
 	}
@@ -1285,13 +1283,13 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	  /* Make a temporary, store the current value in that
 	     and return it, once the loop is done.  */
 	  tmp_loopvar = gfc_create_var (TREE_TYPE (loopvar), "loopvar");
-	  gfc_add_modify_expr (pblock, tmp_loopvar, loopvar);
+	  gfc_add_modify (pblock, tmp_loopvar, loopvar);
 
 	  /* Initialize the loop.  */
 	  gfc_init_se (&se, NULL);
 	  gfc_conv_expr_val (&se, c->iterator->start);
 	  gfc_add_block_to_block (pblock, &se.pre);
-	  gfc_add_modify_expr (pblock, loopvar, se.expr);
+	  gfc_add_modify (pblock, loopvar, se.expr);
 
 	  gfc_init_se (&se, NULL);
 	  gfc_conv_expr_val (&se, c->iterator->end);
@@ -1344,7 +1342,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 
 	  /* Increase loop variable by step.  */
 	  tmp = fold_build2 (PLUS_EXPR, TREE_TYPE (loopvar), loopvar, step);
-	  gfc_add_modify_expr (&body, loopvar, tmp);
+	  gfc_add_modify (&body, loopvar, tmp);
 
 	  /* Finish the loop.  */
 	  tmp = gfc_finish_block (&body);
@@ -1356,7 +1354,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	  gfc_add_expr_to_block (pblock, tmp);
 
 	  /* Restore the original value of the loop counter.  */
-	  gfc_add_modify_expr (pblock, loopvar, tmp_loopvar);
+	  gfc_add_modify (pblock, loopvar, tmp_loopvar);
 	}
     }
   mpz_clear (size);
@@ -2634,7 +2632,7 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   loopbody = gfc_finish_block (pbody);
 
   /* Initialize the loopvar.  */
-  gfc_add_modify_expr (&loop->code[n], loop->loopvar[n], loop->from[n]);
+  gfc_add_modify (&loop->code[n], loop->loopvar[n], loop->from[n]);
 
   exit_label = gfc_build_label_decl (NULL_TREE);
 
@@ -2655,7 +2653,7 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   /* Increment the loopvar.  */
   tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
 		     loop->loopvar[n], gfc_index_one_node);
-  gfc_add_modify_expr (&block, loop->loopvar[n], tmp);
+  gfc_add_modify (&block, loop->loopvar[n], tmp);
 
   /* Build the loop.  */
   tmp = gfc_finish_block (&block);
@@ -3609,7 +3607,7 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
 
   /* Set the dtype.  */
   tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify_expr (pblock, tmp, gfc_get_dtype (TREE_TYPE (descriptor)));
+  gfc_add_modify (pblock, tmp, gfc_get_dtype (TREE_TYPE (descriptor)));
 
   or_expr = NULL_TREE;
 
@@ -3640,7 +3638,7 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
             }
 	}
       tmp = gfc_conv_descriptor_lbound (descriptor, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pblock, tmp, se.expr);
+      gfc_add_modify (pblock, tmp, se.expr);
 
       /* Work out the offset for this component.  */
       tmp = fold_build2 (MULT_EXPR, gfc_array_index_type, se.expr, stride);
@@ -3657,11 +3655,11 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
       gfc_add_block_to_block (pblock, &se.pre);
 
       tmp = gfc_conv_descriptor_ubound (descriptor, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pblock, tmp, se.expr);
+      gfc_add_modify (pblock, tmp, se.expr);
 
       /* Store the stride.  */
       tmp = gfc_conv_descriptor_stride (descriptor, gfc_rank_cst[n]);
-      gfc_add_modify_expr (pblock, tmp, stride);
+      gfc_add_modify (pblock, tmp, stride);
 
       /* Calculate the size of this dimension.  */
       size = fold_build2 (PLUS_EXPR, gfc_array_index_type, se.expr, size);
@@ -3701,11 +3699,11 @@ gfc_array_init_size (tree descriptor, int rank, tree * poffset,
 
   var = gfc_create_var (TREE_TYPE (size), "size");
   gfc_start_block (&thenblock);
-  gfc_add_modify_expr (&thenblock, var, gfc_index_zero_node);
+  gfc_add_modify (&thenblock, var, gfc_index_zero_node);
   thencase = gfc_finish_block (&thenblock);
 
   gfc_start_block (&elseblock);
-  gfc_add_modify_expr (&elseblock, var, size);
+  gfc_add_modify (&elseblock, var, size);
   elsecase = gfc_finish_block (&elseblock);
 
   tmp = gfc_evaluate_now (or_expr, pblock);
@@ -3791,7 +3789,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree pstat)
   gfc_add_expr_to_block (&se->pre, tmp);
 
   tmp = gfc_conv_descriptor_offset (se->expr);
-  gfc_add_modify_expr (&se->pre, tmp, offset);
+  gfc_add_modify (&se->pre, tmp, offset);
 
   if (expr->ts.type == BT_DERIVED
 	&& expr->ts.derived->attr.alloc_comp)
@@ -3989,7 +3987,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
           gfc_init_se (&se, NULL);
           gfc_conv_expr_type (&se, as->lower[dim], gfc_array_index_type);
           gfc_add_block_to_block (pblock, &se.pre);
-          gfc_add_modify_expr (pblock, lbound, se.expr);
+          gfc_add_modify (pblock, lbound, se.expr);
         }
       ubound = GFC_TYPE_ARRAY_UBOUND (type, dim);
       if (as->upper[dim] && !INTEGER_CST_P (ubound))
@@ -3997,7 +3995,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
           gfc_init_se (&se, NULL);
           gfc_conv_expr_type (&se, as->upper[dim], gfc_array_index_type);
           gfc_add_block_to_block (pblock, &se.pre);
-          gfc_add_modify_expr (pblock, ubound, se.expr);
+          gfc_add_modify (pblock, ubound, se.expr);
         }
       /* The offset of this dimension.  offset = offset - lbound * stride.  */
       tmp = fold_build2 (MULT_EXPR, gfc_array_index_type, lbound, size);
@@ -4017,7 +4015,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
           tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type, ubound, tmp);
           tmp = fold_build2 (MULT_EXPR, gfc_array_index_type, size, tmp);
           if (stride)
-            gfc_add_modify_expr (pblock, stride, tmp);
+            gfc_add_modify (pblock, stride, tmp);
           else
             stride = gfc_evaluate_now (tmp, pblock);
 
@@ -4027,7 +4025,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
 			     stride, gfc_index_zero_node);
 	  tmp = fold_build3 (COND_EXPR, gfc_array_index_type, tmp,
 			     stride, gfc_index_zero_node);
-	  gfc_add_modify_expr (pblock, stride, tmp);
+	  gfc_add_modify (pblock, stride, tmp);
         }
 
       size = stride;
@@ -4100,7 +4098,7 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
   if (sym->attr.cray_pointee)
     {
       if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
-	gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+	gfc_add_modify (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
       gfc_add_expr_to_block (&block, fnbody);
       return gfc_finish_block (&block);
     }
@@ -4113,11 +4111,11 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
 
   /* Allocate memory to hold the data.  */
   tmp = gfc_call_malloc (&block, TREE_TYPE (decl), size);
-  gfc_add_modify_expr (&block, decl, tmp);
+  gfc_add_modify (&block, decl, tmp);
 
   /* Set offset of the array.  */
   if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
-    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+    gfc_add_modify (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
 
 
   /* Automatic arrays should not have initializers.  */
@@ -4165,13 +4163,13 @@ gfc_trans_g77_array (gfc_symbol * sym, tree body)
 
   /* Set the offset.  */
   if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
-    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+    gfc_add_modify (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
 
   /* Set the pointer itself if we aren't using the parameter directly.  */
   if (TREE_CODE (parm) != PARM_DECL)
     {
       tmp = convert (TREE_TYPE (parm), GFC_DECL_SAVED_DESCRIPTOR (parm));
-      gfc_add_modify_expr (&block, parm, tmp);
+      gfc_add_modify (&block, parm, tmp);
     }
   stmt = gfc_finish_block (&block);
 
@@ -4266,7 +4264,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
       TREE_USED (partial) = 1;
       tmp = gfc_conv_descriptor_stride (dumdesc, gfc_rank_cst[0]);
       tmp = fold_build2 (EQ_EXPR, boolean_type_node, tmp, gfc_index_one_node);
-      gfc_add_modify_expr (&block, partial, tmp);
+      gfc_add_modify (&block, partial, tmp);
     }
   else
     {
@@ -4286,7 +4284,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
       tmp = fold_build3 (COND_EXPR, gfc_array_index_type, tmp,
 			 gfc_index_one_node, stride);
       stride = GFC_TYPE_ARRAY_STRIDE (type, 0);
-      gfc_add_modify_expr (&block, stride, tmp);
+      gfc_add_modify (&block, stride, tmp);
 
       /* Allow the user to disable array repacking.  */
       stmt_unpacked = NULL_TREE;
@@ -4317,7 +4315,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
     }
   else
     tmp = stmt_packed != NULL_TREE ? stmt_packed : stmt_unpacked;
-  gfc_add_modify_expr (&block, tmpdesc, fold_convert (type, tmp));
+  gfc_add_modify (&block, tmpdesc, fold_convert (type, tmp));
 
   offset = gfc_index_zero_node;
   size = gfc_index_one_node;
@@ -4344,7 +4342,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
           gfc_conv_expr_type (&se, sym->as->lower[n],
                               gfc_array_index_type);
           gfc_add_block_to_block (&block, &se.pre);
-          gfc_add_modify_expr (&block, lbound, se.expr);
+          gfc_add_modify (&block, lbound, se.expr);
         }
 
       ubound = GFC_TYPE_ARRAY_UBOUND (type, n);
@@ -4358,7 +4356,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 	      gfc_conv_expr_type (&se, sym->as->upper[n],
                                   gfc_array_index_type);
 	      gfc_add_block_to_block (&block, &se.pre);
-              gfc_add_modify_expr (&block, ubound, se.expr);
+              gfc_add_modify (&block, ubound, se.expr);
             }
 
 	  /* Check the sizes match.  */
@@ -4385,7 +4383,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
           tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
 			     dubound, dlbound);
           tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type, tmp, lbound);
-          gfc_add_modify_expr (&block, ubound, tmp);
+          gfc_add_modify (&block, ubound, tmp);
 	}
       /* The offset of this dimension.  offset = offset - lbound * stride.  */
       tmp = fold_build2 (MULT_EXPR, gfc_array_index_type, lbound, stride);
@@ -4425,7 +4423,7 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 				   stmt_unpacked, stmt_packed);
               else
                 tmp = (stmt_packed != NULL_TREE) ? stmt_packed : stmt_unpacked;
-              gfc_add_modify_expr (&block, stride, tmp);
+              gfc_add_modify (&block, stride, tmp);
             }
         }
       else
@@ -4441,14 +4439,14 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
 				 ubound, tmp);
 	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
 				 GFC_TYPE_ARRAY_STRIDE (type, n), tmp);
-	      gfc_add_modify_expr (&block, stride, tmp);
+	      gfc_add_modify (&block, stride, tmp);
 	    }
 	}
     }
 
   /* Set the offset.  */
   if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
-    gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+    gfc_add_modify (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
 
   gfc_trans_vla_type_sizes (sym, &block);
 
@@ -4743,7 +4741,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	  if (se->direct_byref)
 	    {
 	      /* Copy the descriptor for pointer assignments.  */
-	      gfc_add_modify_expr (&se->pre, se->expr, desc);
+	      gfc_add_modify (&se->pre, se->expr, desc);
 
 	      /* Add any offsets from subreferences.  */
 	      gfc_get_dataptr_offset (&se->pre, se->expr, desc, NULL_TREE,
@@ -4976,7 +4974,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
       /* Set the dtype.  */
       tmp = gfc_conv_descriptor_dtype (parm);
-      gfc_add_modify_expr (&loop.pre, tmp, gfc_get_dtype (parmtype));
+      gfc_add_modify (&loop.pre, tmp, gfc_get_dtype (parmtype));
 
       /* Set offset for assignments to pointer only to zero if it is not
          the full array.  */
@@ -5045,11 +5043,11 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	      from = gfc_index_one_node;
 	    }
 	  tmp = gfc_conv_descriptor_lbound (parm, gfc_rank_cst[dim]);
-	  gfc_add_modify_expr (&loop.pre, tmp, from);
+	  gfc_add_modify (&loop.pre, tmp, from);
 
 	  /* Set the new upper bound.  */
 	  tmp = gfc_conv_descriptor_ubound (parm, gfc_rank_cst[dim]);
-	  gfc_add_modify_expr (&loop.pre, tmp, to);
+	  gfc_add_modify (&loop.pre, tmp, to);
 
 	  /* Multiply the stride by the section stride to get the
 	     total stride.  */
@@ -5074,7 +5072,7 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 
 	  /* Store the new stride.  */
 	  tmp = gfc_conv_descriptor_stride (parm, gfc_rank_cst[dim]);
-	  gfc_add_modify_expr (&loop.pre, tmp, stride);
+	  gfc_add_modify (&loop.pre, tmp, stride);
 
 	  dim++;
 	}
@@ -5091,14 +5089,14 @@ gfc_conv_expr_descriptor (gfc_se * se, gfc_expr * expr, gfc_ss * ss)
 	{
 	  /* Set the offset.  */
 	  tmp = gfc_conv_descriptor_offset (parm);
-	  gfc_add_modify_expr (&loop.pre, tmp, base);
+	  gfc_add_modify (&loop.pre, tmp, base);
 	}
       else
 	{
 	  /* Only the callee knows what the correct offset it, so just set
 	     it to zero here.  */
 	  tmp = gfc_conv_descriptor_offset (parm);
-	  gfc_add_modify_expr (&loop.pre, tmp, gfc_index_zero_node);
+	  gfc_add_modify (&loop.pre, tmp, gfc_index_zero_node);
 	}
       desc = parm;
     }
@@ -5521,7 +5519,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	    {
 	      rank = c->as ? c->as->rank : 0;
 	      tmp = fold_convert (TREE_TYPE (dcmp), comp);
-	      gfc_add_modify_expr (&fnblock, dcmp, tmp);
+	      gfc_add_modify (&fnblock, dcmp, tmp);
 	      tmp = structure_alloc_comps (c->ts.derived, comp, dcmp,
 					   rank, purpose);
 	      gfc_add_expr_to_block (&fnblock, tmp);

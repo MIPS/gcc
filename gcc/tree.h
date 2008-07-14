@@ -68,8 +68,7 @@ enum tree_code_class {
 		      but usually no interesting value.  */
   tcc_vl_exp,      /* A function call or other expression with a
 		      variable-length operand vector.  */
-  tcc_expression,  /* Any other expression.  */
-  tcc_gimple_stmt  /* A GIMPLE statement.  */
+  tcc_expression   /* Any other expression.  */
 };
 
 /* Each tree code class has an associated string representation.
@@ -172,10 +171,6 @@ extern const enum tree_code_class tree_code_type[];
 
 #define IS_EXPR_CODE_CLASS(CLASS)\
 	((CLASS) >= tcc_reference && (CLASS) <= tcc_expression)
-
-/* Returns nonzero iff CLASS is a GIMPLE statement.  */
-
-#define IS_GIMPLE_STMT_CODE_CLASS(CLASS) ((CLASS) == tcc_gimple_stmt)
 
 /* Returns nonzero iff NODE is an expression of some kind.  */
 
@@ -398,15 +393,6 @@ struct tree_common GTY(())
   tree type;
 };
 
-/* GIMPLE_MODIFY_STMT */
-struct gimple_stmt GTY(())
-{
-  struct tree_base base;
-  location_t locus;
-  tree block;
-  tree GTY ((length ("TREE_CODE_LENGTH (TREE_CODE (&%h))"))) operands[1];
-};
-
 /* The following table lists the uses of each of the above flags and
    for which types of nodes they are defined.
 
@@ -455,7 +441,7 @@ struct gimple_stmt GTY(())
            POINTER_TYPE, REFERENCE_TYPE
 
        MOVE_NONTEMPORAL in
-           GIMPLE_MODIFY_STMT
+           MODIFY_EXPR
 
        CASE_HIGH_SEEN in
            CASE_LABEL_EXPR
@@ -790,14 +776,6 @@ enum tree_node_structure_enum {
 			       __FUNCTION__);				\
     __t; })
 
-#define GIMPLE_STMT_CHECK(T) __extension__				\
-({  __typeof (T) const __t = (T);					\
-    char const __c = TREE_CODE_CLASS (TREE_CODE (__t));			\
-    if (!IS_GIMPLE_STMT_CODE_CLASS (__c))				\
-      tree_class_check_failed (__t, tcc_gimple_stmt, __FILE__, __LINE__,\
-			       __FUNCTION__);				\
-    __t; })
-
 /* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  __typeof (T) const __t = (T);					\
@@ -832,8 +810,6 @@ enum tree_node_structure_enum {
 #define TREE_OPERAND_CHECK(T, I) __extension__				\
 (*({__typeof (T) const __t = EXPR_CHECK (T);				\
     const int __i = (I);						\
-    if (GIMPLE_TUPLE_P (__t))						\
-      gcc_unreachable ();						\
     if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))			\
       tree_operand_check_failed (__i, __t,				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
@@ -848,15 +824,6 @@ enum tree_node_structure_enum {
       tree_operand_check_failed (__i, __t,				\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->exp.operands[__i]; }))
-
-/* Special checks for GIMPLE_STMT_OPERANDs.  */
-#define GIMPLE_STMT_OPERAND_CHECK(T, I) __extension__			\
-(*({__typeof (T) const __t = GIMPLE_STMT_CHECK (T);			\
-    const int __i = (I);						\
-    if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))			\
-      tree_operand_check_failed (__i, __t,				\
-				 __FILE__, __LINE__, __FUNCTION__);	\
-    &__t->gstmt.operands[__i]; }))
 
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I) __extension__		\
 (*(rtx *)								\
@@ -880,8 +847,6 @@ enum tree_node_structure_enum {
 
 #define TREE_CHAIN(NODE) __extension__ \
 (*({__typeof (NODE) const __t = (NODE);				\
-    if (GIMPLE_TUPLE_P (__t))					\
-      gcc_unreachable ();					\
     &__t->common.chain; }))
 
 /* In all nodes that are expressions, this is the data type of the expression.
@@ -890,8 +855,6 @@ enum tree_node_structure_enum {
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 #define TREE_TYPE(NODE) __extension__ \
 (*({__typeof (NODE) const __t = (NODE);					\
-    if (GIMPLE_TUPLE_P (__t))					\
-      gcc_unreachable ();					\
     &__t->common.type; }))
 
 extern void tree_contains_struct_check_failed (const_tree,
@@ -949,12 +912,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_CLASS_CHECK(T, CODE)		(T)
 #define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
-#define GIMPLE_STMT_CHECK(T)			(T)
 #define NON_TYPE_CHECK(T)			(T)
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
-#define GIMPLE_STMT_OPERAND_CHECK(T, I)		((T)->gstmt.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 #define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
 #define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
@@ -991,27 +952,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE,	\
 	       FIXED_POINT_TYPE)
 
-/* Nonzero if NODE is a GIMPLE statement.  */
-#define GIMPLE_STMT_P(NODE) \
-  (TREE_CODE_CLASS (TREE_CODE ((NODE))) == tcc_gimple_stmt)
-
-/* Nonzero if NODE is a GIMPLE tuple.  */
-#define GIMPLE_TUPLE_P(NODE) GIMPLE_STMT_P (NODE)
-
-/* A GIMPLE tuple that has a ``locus'' field.  */
-#define GIMPLE_TUPLE_HAS_LOCUS_P(NODE) GIMPLE_STMT_P ((NODE))
-
-/* Like TREE_OPERAND but works with GIMPLE stmt tuples as well.
-
-   If you know the NODE is a GIMPLE statement, use GIMPLE_STMT_OPERAND.  If the
-   NODE code is unknown at compile time, use this macro.  */
-#define GENERIC_TREE_OPERAND(NODE, I) *(generic_tree_operand ((NODE), (I)))
-
-/* Like TREE_TYPE but returns void_type_node for gimple tuples that have
-   no type.  */
-
-#define GENERIC_TREE_TYPE(NODE) *(generic_tree_type ((NODE)))
-
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
 #define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
@@ -1019,10 +959,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
 #define TREE_HASH(NODE) ((size_t) (NODE) & 0777777)
-
-/* The TREE_CHAIN but it is able to handle tuples.  */
-#define GENERIC_NEXT(NODE)					\
-  (GIMPLE_STMT_P (NODE) ? NULL_TREE : TREE_CHAIN (NODE))
 
 /* Tests if CODE is a conversion expr (NOP_EXPR or CONVERT_EXPR).  */
 #define IS_CONVERT_EXPR_CODE_P(CODE)				\
@@ -1045,7 +981,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 	  || TREE_CODE (EXP) == NON_LVALUE_EXPR)		\
 	 && TREE_OPERAND (EXP, 0) != error_mark_node		\
 	 && (TYPE_MODE (TREE_TYPE (EXP))			\
-	     == TYPE_MODE (GENERIC_TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
+	     == TYPE_MODE (TREE_TYPE (TREE_OPERAND (EXP, 0))))) \
     (EXP) = TREE_OPERAND (EXP, 0)
 
 /* Like STRIP_NOPS, but don't let the signedness change either.  */
@@ -1242,7 +1178,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* In a MODIFY_EXPR, means that the store in the expression is nontemporal.  */
 #define MOVE_NONTEMPORAL(NODE) \
-  (GIMPLE_MODIFY_STMT_CHECK (NODE)->base.static_flag)
+  (EXPR_CHECK (NODE)->base.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
@@ -1621,28 +1557,25 @@ struct tree_constructor GTY(())
 #define VL_EXP_OPERAND_LENGTH(NODE) \
   ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
 
-/* In gimple statements.  */
-#define GIMPLE_STMT_OPERAND(NODE, I) GIMPLE_STMT_OPERAND_CHECK (NODE, I)
-#define GIMPLE_STMT_LOCUS(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.locus)
-#define GIMPLE_STMT_BLOCK(NODE) (GIMPLE_STMT_CHECK (NODE)->gstmt.block)
-
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
 /* The source location of this expression.  Non-tree_exp nodes such as
    decls and constants can be shared among multiple locations, so
    return nothing.  */
-#define EXPR_LOCATION(NODE) expr_location ((NODE))
-#define SET_EXPR_LOCATION(NODE, FROM) set_expr_location ((NODE), (FROM))
-#define EXPR_HAS_LOCATION(NODE) expr_has_location ((NODE))
-#define EXPR_LOCUS(NODE) expr_locus ((NODE))
+#define EXPR_LOCATION(NODE) (EXPR_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
+#define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
+#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
+#define EXPR_LOCUS(NODE) (EXPR_P (NODE) \
+			  ? CONST_CAST (source_location *, &(NODE)->exp.locus) \
+			  : (source_location *) NULL)
 #define SET_EXPR_LOCUS(NODE, FROM) set_expr_locus ((NODE), (FROM))
-#define EXPR_FILENAME(NODE) (expr_filename ((NODE)))
-#define EXPR_LINENO(NODE) (expr_lineno ((NODE)))
+#define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
+#define EXPR_LINENO(NODE) LOCATION_LINE (EXPR_CHECK (NODE)->exp.locus)
 
 /* True if a tree is an expression or statement that can have a
    location.  */
-#define CAN_HAVE_LOCATION_P(NODE) (EXPR_P (NODE) || GIMPLE_STMT_P (NODE))
+#define CAN_HAVE_LOCATION_P(NODE) (EXPR_P (NODE))
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND_CHECK_CODE (NODE, TARGET_EXPR, 0)
@@ -3456,7 +3389,6 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_block GTY ((tag ("TS_BLOCK"))) block;
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
-  struct gimple_stmt GTY ((tag ("TS_GIMPLE_STATEMENT"))) gstmt;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
@@ -3932,10 +3864,6 @@ extern tree build7_stat (enum tree_code, tree, tree, tree, tree, tree,
 			 tree, tree, tree MEM_STAT_DECL);
 #define build7(c,t1,t2,t3,t4,t5,t6,t7,t8) \
   build7_stat (c,t1,t2,t3,t4,t5,t6,t7,t8 MEM_STAT_INFO)
-
-extern tree build_gimple_modify_stmt_stat (tree, tree MEM_STAT_DECL);
-#define build_gimple_modify_stmt(t1,t2) \
-  build_gimple_modify_stmt_stat (t1,t2 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
@@ -4905,18 +4833,9 @@ extern tree build_addr (tree, tree);
 extern bool fields_compatible_p (const_tree, const_tree);
 extern tree find_compatible_field (tree, tree);
 
-extern location_t expr_location (const_tree);
-extern void set_expr_location (tree, location_t);
-extern bool expr_has_location (const_tree);
-
-extern location_t *expr_locus (const_tree);
 extern void set_expr_locus (tree, source_location *);
-extern const char *expr_filename (const_tree);
-extern int expr_lineno (const_tree);
 
 extern tree *tree_block (tree);
-extern tree *generic_tree_operand (tree, int);
-extern tree *generic_tree_type (tree);
 extern location_t *block_nonartificial_location (tree);
 
 /* In function.c */
@@ -5141,7 +5060,6 @@ typedef enum
   lang_decl,
   lang_type,
   omp_clause_kind,
-  gimple_stmt_kind,
   all_kinds
 } tree_node_kind;
 

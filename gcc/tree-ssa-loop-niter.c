@@ -1348,7 +1348,7 @@ simplify_replace_tree (tree expr, tree old, tree new_tree)
       || operand_equal_p (expr, old, 0))
     return unshare_expr (new_tree);
 
-  if (!EXPR_P (expr) && !GIMPLE_STMT_P (expr))
+  if (!EXPR_P (expr))
     return expr;
 
   n = TREE_OPERAND_LENGTH (expr);

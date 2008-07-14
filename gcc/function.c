@@ -1547,7 +1547,7 @@ static tree
 instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
-  if (! EXPR_P (t) && ! GIMPLE_STMT_P (t))
+  if (! EXPR_P (t))
     {
       *walk_subtrees = 0;
       if (DECL_P (t) && DECL_RTL_SET_P (t))
@@ -3170,12 +3170,11 @@ gimplify_parameters (void)
 		  t = built_in_decls[BUILT_IN_ALLOCA];
 		  t = build_call_expr (t, 1, DECL_SIZE_UNIT (parm));
 		  t = fold_convert (ptr_type, t);
-		  t = build_gimple_modify_stmt (addr, t);
+		  t = build2 (MODIFY_EXPR, TREE_TYPE (addr), addr, t);
 		  gimplify_and_add (t, &stmts);
 		}
 
-	      t = build_gimple_modify_stmt (local, parm);
-	      gimplify_and_add (t, &stmts);
+	      gimplify_assign (local, parm, &stmts);
 
 	      SET_DECL_VALUE_EXPR (parm, local);
 	      DECL_HAS_VALUE_EXPR_P (parm) = 1;

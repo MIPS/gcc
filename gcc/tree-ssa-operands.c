@@ -127,7 +127,7 @@ static struct
 #define opf_no_vops 	(1 << 1)
 
 /* Operand is an implicit reference.  This is used to distinguish
-   explicit assignments in the form of GIMPLE_MODIFY_STMT from
+   explicit assignments in the form of MODIFY_EXPR from
    clobbering sites like function calls or ASM_EXPRs.  */
 #define opf_implicit	(1 << 2)
 
@@ -1332,7 +1332,7 @@ add_virtual_operand (tree var, gimple stmt, int flags,
      check that this only happens on non-specific stores.
 
      Note that if this is a specific store, i.e. associated with a
-     GIMPLE_MODIFY_STMT, then we can't suppress the VDEF, lest we run
+     MODIFY_EXPR, then we can't suppress the VDEF, lest we run
      into validation problems.
 
      This can happen when programs cast away const, leaving us with a

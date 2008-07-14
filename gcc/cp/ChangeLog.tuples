@@ -1,3 +1,12 @@
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp-tree.h (union lang_tree_node): Rename GENERIC_NEXT to
+	TREE_CHAIN.
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): Rename
+	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
+	(cxx_omp_clause_copy_ctor): Same.
+	(cxx_omp_clause_assign_op): Same.
+
 2008-05-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-gimplify.c (cp_gimplify_omp_for): Add pre_p argument.  Tuplify.

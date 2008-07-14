@@ -462,7 +462,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 		 of copying the value.  This test implies is_gimple_reg_type
 		 from the previous condition, however this one could be
 		 relaxed by being more careful with copying the new value
-		 of the parameter (emitting appropriate GIMPLE_MODIFY_STMT and
+		 of the parameter (emitting appropriate GIMPLE_ASSIGN and
 		 updating the virtual operands).  */
 	      if (!is_gimple_reg (param))
 		break;

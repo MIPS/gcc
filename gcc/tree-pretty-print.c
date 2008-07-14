@@ -441,7 +441,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
   if (node == NULL_TREE)
     return spc;
 
-  is_expr = EXPR_P (node) || GIMPLE_STMT_P (node);
+  is_expr = EXPR_P (node);
 
   if (is_stmt && (flags & TDF_STMTADDR))
     pp_printf (buffer, "<&%p> ", (void *)node);
@@ -1054,17 +1054,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
-      dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 0), spc, flags,
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags,
 	  		 false);
       pp_space (buffer);
       pp_character (buffer, '=');
-      if (TREE_CODE (node) == GIMPLE_MODIFY_STMT
+      if (TREE_CODE (node) == MODIFY_EXPR
 	  && MOVE_NONTEMPORAL (node))
 	pp_string (buffer, "{nt}");
       pp_space (buffer);
-      dump_generic_node (buffer, GENERIC_TREE_OPERAND (node, 1), spc, flags,
+      dump_generic_node (buffer, TREE_OPERAND (node, 1), spc, flags,
 	  		 false);
       break;
 
@@ -1574,9 +1573,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       if (op0)
 	{
 	  pp_space (buffer);
-	  if (TREE_CODE (op0) == MODIFY_EXPR
-	      || TREE_CODE (op0) == GIMPLE_MODIFY_STMT)
-	    dump_generic_node (buffer, GENERIC_TREE_OPERAND (op0, 1),
+	  if (TREE_CODE (op0) == MODIFY_EXPR)
+	    dump_generic_node (buffer, TREE_OPERAND (op0, 1),
 			       spc, flags, false);
 	  else
 	    dump_generic_node (buffer, op0, spc, flags, false);
@@ -2263,7 +2261,6 @@ op_prio (const_tree op)
       return 1;
 
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       return 2;
 
@@ -2397,7 +2394,6 @@ op_symbol_code (enum tree_code code)
   switch (code)
     {
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
       return "=";
 
     case TRUTH_OR_EXPR:

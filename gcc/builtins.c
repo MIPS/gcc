@@ -7293,7 +7293,7 @@ integer_valued_real_p (tree t)
     case COMPOUND_EXPR:
     case MODIFY_EXPR:
     case BIND_EXPR:
-      return integer_valued_real_p (GENERIC_TREE_OPERAND (t, 1));
+      return integer_valued_real_p (TREE_OPERAND (t, 1));
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -10573,7 +10573,7 @@ fold_builtin_n (tree fndecl, tree *args, int nargs, bool ignore)
     }
   if (ret)
     {
-      ret = build1 (NOP_EXPR, GENERIC_TREE_TYPE (ret), ret);
+      ret = build1 (NOP_EXPR, TREE_TYPE (ret), ret);
       TREE_NO_WARNING (ret) = 1;
       return ret;
     }

@@ -5459,8 +5459,8 @@ ix86_va_start (tree valist, rtx nextarg)
   if (cfun->va_list_gpr_size)
     {
       type = TREE_TYPE (gpr);
-      t = build2 (GIMPLE_MODIFY_STMT, type, gpr,
-		  build_int_cst (type, n_gpr * 8));
+      t = build2 (MODIFY_EXPR, type,
+		  gpr, build_int_cst (type, n_gpr * 8));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -5468,7 +5468,7 @@ ix86_va_start (tree valist, rtx nextarg)
   if (cfun->va_list_fpr_size)
     {
       type = TREE_TYPE (fpr);
-      t = build2 (GIMPLE_MODIFY_STMT, type, fpr,
+      t = build2 (MODIFY_EXPR, type, fpr,
 		  build_int_cst (type, n_fpr * 16 + 8*X86_64_REGPARM_MAX));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5480,7 +5480,7 @@ ix86_va_start (tree valist, rtx nextarg)
   if (words != 0)
     t = build2 (POINTER_PLUS_EXPR, type, t,
 	        size_int (words * UNITS_PER_WORD));
-  t = build2 (GIMPLE_MODIFY_STMT, type, ovf, t);
+  t = build2 (MODIFY_EXPR, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -5490,7 +5490,7 @@ ix86_va_start (tree valist, rtx nextarg)
 	 Prologue of the function save it right above stack frame.  */
       type = TREE_TYPE (sav);
       t = make_tree (type, frame_pointer_rtx);
-      t = build2 (GIMPLE_MODIFY_STMT, type, sav, t);
+      t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -5629,16 +5629,14 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	  /* int_addr = gpr + sav; */
 	  t = fold_convert (sizetype, gpr);
 	  t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, t);
-	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, int_addr, t);
-	  gimplify_and_add (t, pre_p);
+	  gimplify_assign (int_addr, t, pre_p);
 	}
       if (needed_sseregs)
 	{
 	  /* sse_addr = fpr + sav; */
 	  t = fold_convert (sizetype, fpr);
 	  t = build2 (POINTER_PLUS_EXPR, ptr_type_node, sav, t);
-	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, sse_addr, t);
-	  gimplify_and_add (t, pre_p);
+	  gimplify_assign (sse_addr, t, pre_p);
 	}
       if (need_temp)
 	{
@@ -5647,8 +5645,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
 	  /* addr = &temp; */
 	  t = build1 (ADDR_EXPR, build_pointer_type (type), temp);
-	  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
-	  gimplify_and_add (t, pre_p);
+	  gimplify_assign (addr, t, pre_p);
 
 	  for (i = 0; i < XVECLEN (container, 0); i++)
 	    {
@@ -5681,8 +5678,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 				       size_int (INTVAL (XEXP (slot, 1))));
 	      dest = build_va_arg_indirect_ref (dest_addr);
 
-	      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, dest, src);
-	      gimplify_and_add (t, pre_p);
+	      gimplify_assign (dest, src, pre_p);
 	    }
 	}
 
@@ -5690,16 +5686,14 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (gpr), gpr,
 		      build_int_cst (TREE_TYPE (gpr), needed_intregs * 8));
-	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (gpr), gpr, t);
-	  gimplify_and_add (t, pre_p);
+	  gimplify_assign (gpr, t, pre_p);
 	}
 
       if (needed_sseregs)
 	{
 	  t = build2 (PLUS_EXPR, TREE_TYPE (fpr), fpr,
 		      build_int_cst (TREE_TYPE (fpr), needed_sseregs * 16));
-	  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (fpr), fpr, t);
-	  gimplify_and_add (t, pre_p);
+	  gimplify_assign (fpr, t, pre_p);
 	}
 
       gimple_seq_add_stmt (pre_p, gimple_build_goto (lab_over));
@@ -5724,14 +5718,11 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       t = fold_convert (TREE_TYPE (ovf), t);
     }
   gimplify_expr (&t, pre_p, NULL, is_gimple_val, fb_rvalue);
-
-  t2 = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
-  gimplify_and_add (t2, pre_p);
+  gimplify_assign (addr, t, pre_p);
 
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t,
 	      size_int (rsize * UNITS_PER_WORD));
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (ovf), unshare_expr (ovf), t);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (unshare_expr (ovf), t, pre_p);
 
   if (container)
     gimple_seq_add_stmt (pre_p, gimple_build_label (lab_over));
