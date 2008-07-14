@@ -1,3 +1,18 @@
+2008-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgexpand.c (gimple_cond_pred_to_tree): New function.
+	(gimple_to_tree) <case GIMPLE_COND>: Use it.
+	(release_stmt_tree): New function.
+	(expand_gimple_cond): Call just gimple_cond_pred_to_tree
+	instead of gimple_to_tree, ggc_free pred before returning.
+	(expand_gimple_tailcall): Call release_stmt_tree.
+	(expand_gimple_basic_block): Call release_stmt_tree instead
+	of ggc_free.
+
+	* gimplify.c (internal_get_tmp_var, gimplify_decl_expr,
+	gimplify_init_ctor_eval, gimplify_target_expr): Call ggc_free
+	on the INIT_EXPR.
+
 2008-07-14  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-ccp.c (ccp_fold): Move ADDR_EXPR handing to

@@ -74,6 +74,15 @@ gimple_assign_rhs_to_tree (gimple stmt)
   return t;
 }
 
+/* Return an expression tree corresponding to the PREDICATE of GIMPLE_COND
+   statement STMT.  */
+
+static tree
+gimple_cond_pred_to_tree (gimple stmt)
+{
+  return build2 (gimple_cond_code (stmt), boolean_type_node,
+		 gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+}
 
 /* Helper for gimple_to_tree.  Set EXPR_LOCATION for every expression
    inside *TP.  DATA is the location to set.  */
@@ -111,8 +120,7 @@ gimple_to_tree (gimple stmt)
       break;
 	                                 
     case GIMPLE_COND:
-      t = build2 (gimple_cond_code (stmt), boolean_type_node,
-	          gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+      t = gimple_cond_pred_to_tree (stmt);
       t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, NULL_TREE);
       break;
 
@@ -142,7 +150,7 @@ gimple_to_tree (gimple stmt)
 		retval = build_gimple_modify_stmt (result, retval);
 	      }
 	  }
-        t =  build1 (RETURN_EXPR, void_type_node, retval);
+	t = build1 (RETURN_EXPR, void_type_node, retval);
       }
       break;
 
@@ -325,6 +333,50 @@ gimple_to_tree (gimple stmt)
   TREE_BLOCK (t) = gimple_block (stmt);
 
   return t;
+}
+
+
+/* Release back to GC memory allocated by gimple_to_tree.  */
+
+static void
+release_stmt_tree (gimple stmt, tree stmt_tree)
+{
+  tree_ann_common_t ann;
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_ASSIGN:
+      if (get_gimple_rhs_class (gimple_expr_code (stmt)) != GIMPLE_SINGLE_RHS)
+	ggc_free (GENERIC_TREE_OPERAND (stmt_tree, 1));
+      break;
+    case GIMPLE_COND:
+      ggc_free (COND_EXPR_COND (stmt_tree));
+      break;
+    case GIMPLE_RETURN:
+      if (TREE_OPERAND (stmt_tree, 0)
+	  && TREE_CODE (TREE_OPERAND (stmt_tree, 0)) == GIMPLE_MODIFY_STMT)
+	ggc_free (TREE_OPERAND (stmt_tree, 0));
+      break;
+    case GIMPLE_CALL:
+      if (gimple_call_lhs (stmt))
+	{
+	  if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
+	    ggc_free (CALL_EXPR_FN (GENERIC_TREE_OPERAND (stmt_tree, 1)));
+	  ann = tree_common_ann (GENERIC_TREE_OPERAND (stmt_tree, 1));
+	  if (ann)
+	    ggc_free (ann);
+	  ggc_free (GENERIC_TREE_OPERAND (stmt_tree, 1));
+	}
+      else if (TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL)
+	ggc_free (CALL_EXPR_FN (stmt_tree));
+      break;
+    default:
+      break;
+    }
+  ann = tree_common_ann (stmt_tree);
+  if (ann)
+    ggc_free (ann);
+  ggc_free (stmt_tree);
 }
 
 
@@ -1562,12 +1614,9 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   edge new_edge;
   edge true_edge;
   edge false_edge;
-  tree stmt_tree = gimple_to_tree (stmt);
-  tree pred = COND_EXPR_COND (stmt_tree);
+  tree pred = gimple_cond_pred_to_tree (stmt);
   rtx last2, last;
 
-  gcc_assert (COND_EXPR_THEN (stmt_tree) == NULL_TREE);
-  gcc_assert (COND_EXPR_ELSE (stmt_tree) == NULL_TREE);
   last2 = last = get_last_insn ();
 
   extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
@@ -1591,6 +1640,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       if (true_edge->goto_locus)
   	set_curr_insn_source_location (true_edge->goto_locus);
       false_edge->flags |= EDGE_FALLTHRU;
+      ggc_free (pred);
       return NULL;
     }
   if (true_edge->dest == bb->next_bb)
@@ -1601,6 +1651,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
       if (false_edge->goto_locus)
   	set_curr_insn_source_location (false_edge->goto_locus);
       true_edge->flags |= EDGE_FALLTHRU;
+      ggc_free (pred);
       return NULL;
     }
 
@@ -1632,6 +1683,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   if (false_edge->goto_locus)
     set_curr_insn_source_location (false_edge->goto_locus);
 
+  ggc_free (pred);
   return new_bb;
 }
 
@@ -1658,6 +1710,8 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
   last2 = last = get_last_insn ();
 
   expand_expr_stmt (stmt_tree);
+
+  release_stmt_tree (stmt, stmt_tree);
 
   for (last = NEXT_INSN (last); last; last = NEXT_INSN (last))
     if (CALL_P (last) && SIBLING_CALL_P (last))
@@ -1806,7 +1860,7 @@ expand_gimple_basic_block (basic_block bb)
 	{
 	  tree stmt_tree = gimple_to_tree (stmt);
 	  expand_expr_stmt (stmt_tree);
-	  ggc_free (stmt_tree);
+	  release_stmt_tree (stmt, stmt_tree);
 	  gsi_next (&gsi);
 	}
 
@@ -1874,7 +1928,7 @@ expand_gimple_basic_block (basic_block bb)
 	      last = get_last_insn ();
 	      expand_expr_stmt (stmt_tree);
 	      maybe_dump_rtl_for_gimple_stmt (stmt, last);
-	      ggc_free (stmt_tree);
+	      release_stmt_tree (stmt, stmt_tree);
 	    }
 	}
     }

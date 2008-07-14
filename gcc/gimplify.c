@@ -701,6 +701,7 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
 
   /* gimplify_modify_expr might want to reduce this further.  */
   gimplify_and_add (mod, pre_p);
+  ggc_free (mod);
 
   /* If we're gimplifying into ssa, gimplify_modify_expr will have
      given our temporary an SSA name.  Find and return it.  */
@@ -1414,6 +1415,7 @@ gimplify_decl_expr (tree *stmt_p, gimple_seq *seq_p)
 	      DECL_INITIAL (decl) = NULL_TREE;
 	      init = build2 (INIT_EXPR, void_type_node, decl, init);
 	      gimplify_and_add (init, seq_p);
+	      ggc_free (init);
 	    }
 	  else
 	    /* We must still examine initializers for static variables
@@ -3389,6 +3391,7 @@ gimplify_init_ctor_eval (tree object, VEC(constructor_elt,gc) *elts,
 	{
 	  tree init = build2 (INIT_EXPR, TREE_TYPE (cref), cref, value);
 	  gimplify_and_add (init, pre_p);
+	  ggc_free (init);
 	}
     }
 }
@@ -4894,9 +4897,11 @@ gimplify_target_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
       else
 	{
-	  init = build2 (INIT_EXPR, void_type_node, temp, init);
+	  tree init_expr = build2 (INIT_EXPR, void_type_node, temp, init);
+	  init = init_expr;
 	  ret = gimplify_expr (&init, pre_p, post_p, is_gimple_stmt, fb_none);
 	  init = NULL;
+	  ggc_free (init_expr);
 	}
       if (ret == GS_ERROR)
 	{
