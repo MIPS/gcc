@@ -8495,8 +8495,12 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   valist = build_va_arg_indirect_ref (valist);
   gpr = build3 (COMPONENT_REF, TREE_TYPE (f_gpr), valist, f_gpr, NULL_TREE);
   fpr = build3 (COMPONENT_REF, TREE_TYPE (f_fpr), valist, f_fpr, NULL_TREE);
-  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), valist, f_sav, NULL_TREE);
+
+  /* The tree for args* cannot be shared between gpr/fpr and ovf since
+     both appear on a lhs.  */
+  valist = unshare_expr (valist);
+  ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
 
   size = int_size_in_bytes (type);
 
