@@ -1,5 +1,11 @@
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
+	* config/rs6000/rs6000.c (rs6000_va_start): Change
+	GIMPLE_MODIFY_STMT to MODIFY_EXPR.
+	(rs6000_gimplify_va_arg): Use gimplify_assign.
+	Build GIMPLE_GOTO directly.
+2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
 	* tree-dump.c (dequeue_and_dump): Remove GIMPLE_MODIFY_STMT case.
 	* tree-ssa-loop-niter.c (simplify_replace_tree): Remove GIMPLE_STMT_P
 	call.
