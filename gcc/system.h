@@ -786,8 +786,9 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    change after the fact).  Beyond these uses, most other cases of
    using this macro should be viewed with extreme caution.  */
 
-#if defined(__GNUC__) && GCC_VERSION != 4000
-/* GCC 4.0.x has a bug where it may ICE on this expression.  */
+#if defined(__GNUC__) && GCC_VERSION > 4000
+/* GCC 4.0.x has a bug where it may ICE on this expression,
+   so does GCC 3.4.x (PR17436).  */
 #define CONST_CAST2(TOTYPE,FROMTYPE,X) ((__extension__(union {FROMTYPE _q; TOTYPE _nq;})(X))._nq)
 #else
 #define CONST_CAST2(TOTYPE,FROMTYPE,X) ((TOTYPE)(FROMTYPE)(X))
