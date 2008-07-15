@@ -179,6 +179,9 @@ lto_get_section_name (enum lto_section_type section_type, const char *name)
     case LTO_section_ipa_pure_const:
       return concat (LTO_SECTION_NAME_PREFIX, ".pureconst", NULL);
 
+    case LTO_section_ipa_reference:
+      return concat (LTO_SECTION_NAME_PREFIX, ".reference", NULL);
+
     default:
       gcc_unreachable ();
     }
@@ -612,7 +615,7 @@ lto_create_simple_output_block (enum lto_section_type section_type)
 }
 
 
-/* Produce the section that holds the cgraph.  */
+/* Produce a simple section for one of the ipa passes.  */
 
 void
 lto_destroy_simple_output_block (struct lto_simple_output_block *ob)

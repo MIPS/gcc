@@ -694,7 +694,7 @@ generate_summary (void)
 }
 
 
-/* Serialize the info.  */
+/* Serialize the ipa info for lto.  */
 
 static void
 write_summary (void)
@@ -728,7 +728,7 @@ write_summary (void)
 }
 
 
-/* Deserialize the info.  */
+/* Deserialize the ipa info for lto.  */
 
 static void 
 read_summary (void)
@@ -737,6 +737,8 @@ read_summary (void)
     = lto_get_file_decl_data ();
   struct lto_file_decl_data * file_data;
   unsigned int j = 0;
+
+  init_state ();    
 
   while ((file_data = file_data_vec[j++]))
     {
@@ -748,8 +750,6 @@ read_summary (void)
 	= lto_create_simple_input_block (file_data, 
 					 LTO_section_ipa_pure_const, 
 					 &data, &len);
-      
-      init_state ();
       
       count = lto_input_uleb128 (ib);
       for (i = 0; i < count; i++)
@@ -769,6 +769,7 @@ read_summary (void)
 				      ib, data, len);
     }
 }
+
 
 /* Produce the global information by preforming a transitive closure
    on the local information that was produced by generate_summary.

@@ -1,3 +1,18 @@
+2008-07-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h (pass_ipa_reference): Make into ipa_opt_pass.
+	* ipa-reference.c (lto-section-in.h, lto-section-out.h): New includes.
+	(init_function_info, generate_summary, write_summary,
+	read_summary, propagate): New functions.
+	(analyze_function):  Call init_function_info.
+	(static_execute): Stripped into generate_summary and propagate.
+	(pass_ipa_reference): Made into ipa_opt_pass.
+	* lto-header.h (lto_section_type): Added LTO_section_ipa_reference.
+	* ipa-pure-const.c (read_summary): Move call to init_state out of loop.
+	* Makefile.in (ipa-reference.o): Add rules.
+	* passes.c (init_optimization_passes): Reorder pass_ipa_reference.
+	* lto-section-out.c (lto_get_section_name): Add .reference section.
+
 2008-07-10  Bill Maddox  <maddox@google.com>
 
 	* gcc/collect2.c (prefix_from_string): Fix c++ compatibility warnings.

@@ -42,7 +42,8 @@ enum lto_section_type
   LTO_section_function_body,
   LTO_section_static_initializer,
   LTO_section_cgraph,
-  LTO_section_ipa_pure_const
+  LTO_section_ipa_pure_const,
+  LTO_section_ipa_reference
 };
 
 struct lto_header

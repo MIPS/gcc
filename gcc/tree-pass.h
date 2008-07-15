@@ -397,7 +397,7 @@ extern struct simple_ipa_opt_pass pass_ipa_increase_alignment;
 extern struct simple_ipa_opt_pass pass_ipa_matrix_reorg;
 extern struct simple_ipa_opt_pass pass_ipa_cp;
 extern struct ipa_opt_pass pass_ipa_inline;
-extern struct simple_ipa_opt_pass pass_ipa_reference;
+extern struct ipa_opt_pass pass_ipa_reference;
 extern struct ipa_opt_pass pass_ipa_pure_const;
 extern struct simple_ipa_opt_pass pass_ipa_type_escape;
 extern struct simple_ipa_opt_pass pass_ipa_pta;
