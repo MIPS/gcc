@@ -1,5 +1,7 @@
 2008-07-15  Jakub Jelinek  <jakub@redhat.com>
 
+	* common.opt (-fgimple-conversion=): Remove.
+
 	* tree-affine.c (aff_combination_expand): Tuplify.
 	* cfgexpand.c (gimple_assign_rhs_to_tree): Remove prototype.
 	* tree-outof-ssa.c (gimple_assign_rhs_to_tree): Likewise.
