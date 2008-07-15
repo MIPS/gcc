@@ -6372,10 +6372,12 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
   tree t = *tp;
 
   /* Any variable with DECL_VALUE_EXPR needs to be regimplified.  */
-  if (TREE_CODE (t) == VAR_DECL
-      && ((data == NULL && DECL_HAS_VALUE_EXPR_P (t))
-	  || (task_shared_vars
-	      && bitmap_bit_p (task_shared_vars, DECL_UID (t)))))
+  if (TREE_CODE (t) == VAR_DECL && data == NULL && DECL_HAS_VALUE_EXPR_P (t))
+    return t;
+
+  if (task_shared_vars
+      && DECL_P (t)
+      && bitmap_bit_p (task_shared_vars, DECL_UID (t)))
     return t;
 
   /* If a global variable has been privatized, TREE_CONSTANT on

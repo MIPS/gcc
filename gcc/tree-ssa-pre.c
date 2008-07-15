@@ -1070,8 +1070,10 @@ fully_constant_expression (pre_expr e)
 	      tree result = NULL;
 	      if (const0 && const1)
 		{
-		  const0 = fold_convert (TREE_TYPE (naryop0), const0);
-		  const1 = fold_convert (TREE_TYPE (naryop1), const1);
+		  tree type1 = TREE_TYPE (nary->op[0]);
+		  tree type2 = TREE_TYPE (nary->op[1]);
+		  const0 = fold_convert (type1, const0);
+		  const1 = fold_convert (type2, const1);
 		  result = fold_binary (nary->opcode, nary->type, const0,
 					const1);
 		}
@@ -1090,9 +1092,11 @@ fully_constant_expression (pre_expr e)
 	      tree result = NULL;
 	      if (const0)
 		{
-		  const0 = fold_convert (TREE_TYPE (naryop0), const0);
+		  tree type1 = TREE_TYPE (nary->op[0]);
+		  const0 = fold_convert (type1, const0);
 		  result = fold_unary (nary->opcode, nary->type, const0);
 		}
+	      
 	      if (result && is_gimple_min_invariant (result))
 		return get_or_alloc_expr_for_constant (result);
 	      return e;
@@ -2707,13 +2711,15 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 							 stmts, domstmt);
 	      if (!genop1 || !genop2)
 		return NULL_TREE;
-	      genop1 = fold_convert (TREE_TYPE (nary->op[0]), genop1);
+	      genop1 = fold_convert (TREE_TYPE (nary->op[0]),
+				     genop1);
 	      /* Ensure op2 is a sizetype for POINTER_PLUS_EXPR.  It
 		 may be a constant with the wrong type.  */
 	      if (nary->opcode == POINTER_PLUS_EXPR)
 		genop2 = fold_convert (sizetype, genop2);
 	      else
 		genop2 = fold_convert (TREE_TYPE (nary->op[1]), genop2);
+	      
 	      folded = fold_build2 (nary->opcode, nary->type,
 				    genop1, genop2);
 	    }
@@ -2726,6 +2732,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	      if (!genop1)
 		return NULL_TREE;
 	      genop1 = fold_convert (TREE_TYPE (nary->op[0]), genop1);
+
 	      folded = fold_build1 (nary->opcode, nary->type,
 				    genop1);
 	    }
@@ -3161,7 +3168,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 	     already existing along every predecessor, and
 	     it's defined by some predecessor, it is
 	     partially redundant.  */
-	  if (!cant_insert && !all_same && by_some)
+	  if (!cant_insert && !all_same && by_some && dbg_cnt (treepre_insert))
 	    {
 	      if (insert_into_preds_of_block (block, get_expression_id (expr),
 					      avail))
@@ -3872,12 +3879,14 @@ eliminate (void)
 		  else
 		    gcc_unreachable ();
 		}
+
 	      /* If there is no existing leader but SCCVN knows this
 		 value is constant, use that constant.  */
 	      if (!sprime && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
 		{
 		  sprime = fold_convert (TREE_TYPE (lhs),
 					 VN_INFO (lhs)->valnum);
+
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
 		      fprintf (dump_file, "Replaced ");
@@ -4220,7 +4229,7 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
 	  remove_dead_inserted_code ();
 	  loop_optimizer_finalize ();
 	}
-
+      
       return 0;
     }
   init_pre (do_fre);

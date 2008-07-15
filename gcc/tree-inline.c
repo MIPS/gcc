@@ -2021,7 +2021,7 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
 	{
 	  gimple_stmt_iterator i;
 	  gimple_seq seq = gimple_seq_alloc ();
-	  struct gimplify_ctx gctx;
+          struct gimplify_ctx gctx;
 
 	  push_gimplify_context (&gctx);
 

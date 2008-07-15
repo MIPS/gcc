@@ -1,3 +1,10 @@
+2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	Merge with mainline @137837.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* common.opt (-fgimple-conversion=): Remove.
