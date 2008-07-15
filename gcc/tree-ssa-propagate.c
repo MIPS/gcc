@@ -549,7 +549,7 @@ ssa_prop_fini (void)
 bool
 valid_gimple_expression_p (tree expr ATTRIBUTE_UNUSED)
 {
-  gimple_unreachable ();
+  gcc_unreachable ();
   return false;
 }
 

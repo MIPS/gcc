@@ -1238,8 +1238,7 @@ OBJS-common = \
 	version.o \
 	vmsdbgout.o \
 	web.o \
-	xcoffout.o \
-	gimple-dummy.o	# FIXME tuples.  Do not merge.
+	xcoffout.o
 
 # Target object files.
 OBJS-md = $(out_object_file)
@@ -2346,8 +2345,6 @@ tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 gimple.o : gimple.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
    $(GGC_H) $(TREE_GIMPLE_H) $(GIMPLE_H) $(DIAGNOSTIC_H) gt-gimple.h \
    $(TREE_FLOW_H) value-prof.h $(FLAGS_H)
-# FIXME tuples.  Do not merge.
-gimple-dummy.o: gimple-dummy.c $(CONFIG_H) $(SYSTEM_H)
 gimple-pretty-print.o : gimple-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(REAL_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-pass.h $(GIMPLE_H) value-prof.h

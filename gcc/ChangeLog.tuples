@@ -1,3 +1,12 @@
+2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (gimple-dummy.o): Remove.
+	* gimple-dummy.c: Delete.
+	* tree-ssa-propagate.c (valid_gimple_expression_p): Change
+	gimple_unreachable to gcc_unreachable.
+	* tree-affine.c (aff_combination_expand): Same.
+	* tree-vect-transform.c (vectorizable_call): Same.
+
 2008-07-15  Richard Guenther  <rguenther@suse.de>
 
 	* gimplify.c (gimplify_expr): Gimplify an unused volatile load

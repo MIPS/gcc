@@ -3343,7 +3343,7 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
   type = TREE_TYPE (scalar_dest);
   /* FIXME tuples */
 #if 1
-  gimple_unreachable ();
+  gcc_unreachable ();
 #else
   GIMPLE_STMT_OPERAND (stmt, 1) = fold_convert (type, integer_zero_node);
 #endif

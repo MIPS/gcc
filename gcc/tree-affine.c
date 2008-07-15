@@ -667,7 +667,7 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
     }
   aff_combination_add (comb, &to_add);
 #else
-  gimple_unreachable ();
+  gcc_unreachable ();
 #endif
 }
 
