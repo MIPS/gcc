@@ -34,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "toplev.h"
 
-/* Private function shared with cfgexpand.c.  */
-tree gimple_assign_rhs_to_tree (gimple);
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and

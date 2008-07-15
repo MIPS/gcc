@@ -1,3 +1,10 @@
+2008-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-affine.c (aff_combination_expand): Tuplify.
+	* cfgexpand.c (gimple_assign_rhs_to_tree): Remove prototype.
+	* tree-outof-ssa.c (gimple_assign_rhs_to_tree): Likewise.
+	* tree-gimple.h (gimple_assign_rhs_to_tree): New prototype.
+
 2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree.h: Remove gimple_unreachable_1 prototype.

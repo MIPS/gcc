@@ -570,11 +570,10 @@ void
 aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
 			struct pointer_map_t **cache ATTRIBUTE_UNUSED)
 {
-  /* FIXME tuples.  */
-#if 0
   unsigned i;
   aff_tree to_add, current, curre;
-  tree e, def, rhs;
+  tree e, rhs;
+  gimple def;
   double_int scale;
   void **slot;
   struct name_expansion *exp;
@@ -583,6 +582,8 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
   for (i = 0; i < comb->n; i++)
     {
       tree type, name;
+      enum tree_code code;
+
       e = comb->elts[i].val;
       type = TREE_TYPE (e);
       name = e;
@@ -594,19 +595,19 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       if (TREE_CODE (name) != SSA_NAME)
 	continue;
       def = SSA_NAME_DEF_STMT (name);
-      if (TREE_CODE (def) != MODIFY_EXPR
-	  || TREE_OPERAND (def, 0) != name)
+      if (!is_gimple_assign (def) || gimple_assign_lhs (def) != name)
 	continue;
 
-      rhs = TREE_OPERAND (def, 1);
-      if (TREE_CODE (rhs) != SSA_NAME
-	  && !EXPR_P (rhs)
-	  && !is_gimple_min_invariant (rhs))
+      code = gimple_assign_rhs_code (def);
+      if (code != SSA_NAME
+	  && !IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
+	  && (get_gimple_rhs_class (code) != GIMPLE_SINGLE_RHS
+	      || !is_gimple_min_invariant (gimple_assign_rhs1 (def))))
 	continue;
 
       /* We do not know whether the reference retains its value at the
 	 place where the expansion is used.  */
-      if (REFERENCE_CLASS_P (rhs))
+      if (TREE_CODE_CLASS (code) == tcc_reference)
 	continue;
 
       if (!*cache)
@@ -619,29 +620,27 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
 	  exp = XNEW (struct name_expansion);
 	  exp->in_progress = 1;
 	  *slot = exp;
-	  if (e != name)
+	  /* In principle this is a generally valid folding, but
+	     it is not unconditionally an optimization, so do it
+	     here and not in fold_unary.  */
+	  /* Convert (T1)(X *+- CST) into (T1)X *+- (T1)CST if T1 is wider
+	     than the type of X and overflow for the type of X is
+	     undefined.  */
+	  if (e != name
+	      && INTEGRAL_TYPE_P (type)
+	      && INTEGRAL_TYPE_P (TREE_TYPE (name))
+	      && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (name))
+	      && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (name))
+	      && (code == PLUS_EXPR || code == MINUS_EXPR || code == MULT_EXPR)
+	      && TREE_CODE (gimple_assign_rhs2 (def)) == INTEGER_CST)
+	    rhs = fold_build2 (code, type,
+			       fold_convert (type, gimple_assign_rhs1 (def)),
+			       fold_convert (type, gimple_assign_rhs2 (def)));
+	  else
 	    {
-	      /* In principle this is a generally valid folding, but
-		 it is not unconditionally an optimization, so do it
-		 here and not in fold_unary.  */
-	      /* Convert (T1)(X *+- CST) into (T1)X *+- (T1)CST if T1 is wider
-		 than the type of X and overflow for the type of X is
-		 undefined.  */
-	      if (INTEGRAL_TYPE_P (type)
-	          && INTEGRAL_TYPE_P (TREE_TYPE (rhs))
-	          && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (rhs))
-	          && TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (rhs))
-	          && (TREE_CODE (rhs) == PLUS_EXPR
-	              || TREE_CODE (rhs) == MINUS_EXPR
-	              || TREE_CODE (rhs) == MULT_EXPR)
-	          && TREE_CODE (TREE_OPERAND (rhs, 1)) == INTEGER_CST)
-	        {
-	          rhs = fold_build2 (TREE_CODE (rhs), type,
-	                             fold_convert (type, TREE_OPERAND (rhs, 0)),
-	                             fold_convert (type, TREE_OPERAND (rhs, 1)));
-	        }
-	      else
-	        rhs = fold_convert (type, rhs);
+	      rhs = gimple_assign_rhs_to_tree (def);
+	      if (e != name)
+		rhs = fold_convert (type, rhs);
 	    }
 	  tree_to_aff_combination_expand (rhs, comb->type, &current, cache);
 	  exp->expansion = current;
@@ -666,9 +665,6 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
       aff_combination_add (&to_add, &curre);
     }
   aff_combination_add (comb, &to_add);
-#else
-  gcc_unreachable ();
-#endif
 }
 
 /* Similar to tree_to_aff_combination, but follows SSA name definitions

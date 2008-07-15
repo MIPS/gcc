@@ -42,9 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "target.h"
 
-/* Private function shared with tree-outof-ssa.c  */
-tree gimple_assign_rhs_to_tree (gimple);
-
 
 /* Return an expression tree corresponding to the RHS of GIMPLE
    statement STMT.  */

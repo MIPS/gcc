@@ -180,4 +180,7 @@ extern void insert_field_into_struct (tree, tree);
 /* In gimplify.c.  */
 extern void gimplify_function_tree (tree);
 
+/* In cfgexpand.c.  */
+extern tree gimple_assign_rhs_to_tree (gimple);
+
 #endif /* _TREE_GIMPLE_H  */
