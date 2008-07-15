@@ -223,7 +223,7 @@ vn_get_expr_for (tree name)
 {
   vn_ssa_aux_t vn = VN_INFO (name);
   gimple def_stmt;
-  tree expr;
+  tree expr = NULL_TREE;
 
   if (vn->valnum == VN_TOP)
     return name;
@@ -248,13 +248,44 @@ vn_get_expr_for (tree name)
   /* Otherwise use the defining statement to build the expression.  */
   def_stmt = SSA_NAME_DEF_STMT (vn->valnum);
 
-  /* If the value number is a default-definition use it directly.  */
-  if (gimple_nop_p (def_stmt))
+  /* If the value number is a default-definition or a PHI result
+     use it directly.  */
+  if (gimple_nop_p (def_stmt)
+      || gimple_code (def_stmt) == GIMPLE_PHI)
     return vn->valnum;
 
-  /* ???  This will return NULL_TREE if the stmt cannot be simplified.  */
-  expr = gimple_fold (def_stmt);
-  if (!expr)
+  if (!is_gimple_assign (def_stmt))
+    return vn->valnum;
+
+  /* FIXME tuples.  This is incomplete and likely will miss some
+     simplifications.  */
+  switch (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)))
+    {
+    case tcc_reference:
+      if (gimple_assign_rhs_code (def_stmt) == VIEW_CONVERT_EXPR
+	  && gimple_assign_rhs_code (def_stmt) == REALPART_EXPR
+	  && gimple_assign_rhs_code (def_stmt) == IMAGPART_EXPR)
+	expr = fold_build1 (gimple_assign_rhs_code (def_stmt),
+			    gimple_expr_type (def_stmt),
+			    TREE_OPERAND (gimple_assign_rhs1 (def_stmt), 0));
+      break;
+
+    case tcc_unary:
+      expr = fold_build1 (gimple_assign_rhs_code (def_stmt),
+			  gimple_expr_type (def_stmt),
+			  gimple_assign_rhs1 (def_stmt));
+      break;
+
+    case tcc_binary:
+      expr = fold_build2 (gimple_assign_rhs_code (def_stmt),
+			  gimple_expr_type (def_stmt),
+			  gimple_assign_rhs1 (def_stmt),
+			  gimple_assign_rhs2 (def_stmt));
+      break;
+
+    default:;
+    }
+  if (expr == NULL_TREE)
     return vn->valnum;
 
   /* Cache the expression.  */
@@ -627,7 +658,7 @@ copy_reference_ops_from_ref (tree ref, VEC(vn_reference_op_s, heap) **result)
 /* Copy the operations present in load/store/call REF into RESULT, a vector of
    vn_reference_op_s's.  */
 
-static void
+void
 copy_reference_ops_from_call (gimple call,
 			      VEC(vn_reference_op_s, heap) **result)
 {
@@ -1601,6 +1632,7 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
 	  result = make_ssa_name (SSA_NAME_VAR (lhs), NULL);
 	  /* Initialize value-number information properly.  */
 	  VN_INFO_GET (result)->valnum = result;
+	  VN_INFO (result)->value_id = get_next_value_id ();
 	  VN_INFO (result)->expr = val;
 	  VN_INFO (result)->has_constants = expr_has_constants (val);
 	  VN_INFO (result)->needs_insertion = true;
@@ -1949,14 +1981,14 @@ simplify_binary_expression (gimple stmt)
   result = fold_binary (gimple_assign_rhs_code (stmt),
 			TREE_TYPE (gimple_get_lhs (stmt)), op0, op1);
 
-  fold_undefer_overflow_warnings (result && valid_gimple_expression_p (result),
+  fold_undefer_overflow_warnings (result && valid_gimple_rhs_p (result),
 				  stmt, 0);
 
   /* Make sure result is not a complex expression consisting
      of operators of operators (IE (a + b) + (a + c))
      Otherwise, we will end up with unbounded expressions if
      fold does anything at all.  */
-  if (result && valid_gimple_expression_p (result))
+  if (result && valid_gimple_rhs_p (result))
     return result;
 
   return NULL_TREE;
@@ -1978,8 +2010,7 @@ simplify_unary_expression (gimple stmt)
     op0 = valueize_expr (vn_get_expr_for (op0));
   else if (gimple_assign_cast_p (stmt)
 	   || gimple_assign_rhs_code (stmt) == REALPART_EXPR
-	   || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR
-	   || gimple_assign_rhs_code (stmt) == VIEW_CONVERT_EXPR)
+	   || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
     {
       /* We want to do tree-combining on conversion-like expressions.
          Make sure we feed only SSA_NAMEs or constants to fold though.  */
@@ -1997,11 +2028,11 @@ simplify_unary_expression (gimple stmt)
     return NULL_TREE;
 
   result = fold_unary (gimple_assign_rhs_code (stmt),
-		       TREE_TYPE (gimple_get_lhs (stmt)), op0);
+		       gimple_expr_type (stmt), op0);
   if (result)
     {
       STRIP_USELESS_TYPE_CONVERSION (result);
-      if (valid_gimple_expression_p (result))
+      if (valid_gimple_rhs_p (result))
         return result;
     }
 
@@ -2349,6 +2380,9 @@ process_scc (VEC (tree, heap) *scc)
 	{
 	  changed = false;
 	  iterations++;
+	  /* As we are value-numbering optimistically we have to
+	     clear the expression tables and the simplified expressions
+	     in each iteration until we converge.  */
 	  htab_empty (optimistic_info->nary);
 	  htab_empty (optimistic_info->phis);
 	  htab_empty (optimistic_info->references);
@@ -2356,6 +2390,8 @@ process_scc (VEC (tree, heap) *scc)
 	  gcc_obstack_init (&optimistic_info->nary_obstack);
 	  empty_alloc_pool (optimistic_info->phis_pool);
 	  empty_alloc_pool (optimistic_info->references_pool);
+	  for (i = 0; VEC_iterate (tree, scc, i, var); i++)
+	    VN_INFO (var)->expr = NULL_TREE;
 	  for (i = 0; VEC_iterate (tree, scc, i, var); i++)
 	    changed |= visit_use (var);
 	}
@@ -2637,9 +2673,6 @@ free_scc_vn (void)
     {
       tree name = ssa_name (i);
       if (name
-	  && SSA_NAME_VALUE (name))
-	SSA_NAME_VALUE (name) = NULL;
-      if (name
 	  && VN_INFO (name)->needs_insertion)
 	release_ssa_name (name);
     }
@@ -2828,16 +2861,13 @@ run_scc_vn (bool may_insert_arg)
       for (i = 0; i < num_ssa_names; i++)
 	{
 	  tree name = ssa_name (i);
-	  if (name && VN_INFO (name)->visited
-	      && (SSA_VAL (name) != name
-		  || is_gimple_min_invariant (vn_get_expr_for (name))))
+	  if (name
+	      && VN_INFO (name)->visited
+	      && SSA_VAL (name) != name)
 	    {
 	      print_generic_expr (dump_file, name, 0);
 	      fprintf (dump_file, " = ");
-	      if (is_gimple_min_invariant (vn_get_expr_for (name)))
-		print_generic_expr (dump_file, vn_get_expr_for (name), 0);
-	      else
-		print_generic_expr (dump_file, SSA_VAL (name), 0);
+	      print_generic_expr (dump_file, SSA_VAL (name), 0);
 	      fprintf (dump_file, "\n");
 	    }
 	}

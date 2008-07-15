@@ -599,7 +599,10 @@ valid_gimple_rhs_p (tree expr)
         {
         case ADDR_EXPR:
           {
-            tree t = TREE_OPERAND (expr, 0);
+	    tree t;
+	    if (is_gimple_min_invariant (expr))
+	      return true;
+            t = TREE_OPERAND (expr, 0);
             while (handled_component_p (t))
               {
                 /* ??? More checks needed, see the GIMPLE verifier.  */
@@ -642,6 +645,7 @@ valid_gimple_rhs_p (tree expr)
     case tcc_exceptional:
       if (code != SSA_NAME)
         return false;
+      break;
 
     default:
       return false;

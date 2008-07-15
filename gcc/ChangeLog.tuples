@@ -1,3 +1,22 @@
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c: Tuplify.  Enable FRE and PRE.
+	(execute_pre): Disable SCCVN insertion even for FRE.
+	* tree-ssa-sccvn.h (copy_reference_ops_from_call): Declare.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_call): Export.
+	(vn_get_expr_for): Handle more expression kinds.
+	(visit_reference_op_load): Properly set a value id for
+	inserted names.
+	(simplify_binary_expression): Use valid_gimple_rhs_p instead of
+	valid_gimple_expression_p.
+	(simplify_unary_expression): Likewise.
+	(process_scc): Clear the cached/simplified expressions at the
+	start of the iteration.
+	(free_scc_vn): Do not clear SSA_NAME_VALUE.
+	(run_scc_vn): Remove broken special case in printing VNs.
+	* tree-ssa-propagate.c (valid_gimple_rhs_p): Allow
+	gimple-min-invariants and SSA names.
+
 2008-07-14  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-math-opts.c (execute_cse_reciprocals): Process
