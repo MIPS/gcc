@@ -1,5 +1,9 @@
 2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
 
+	* tree.h: Remove gimple_unreachable_1 prototype.
+
+2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
+
 	* Makefile.in (gimple-dummy.o): Remove.
 	* gimple-dummy.c: Delete.
 	* tree-ssa-propagate.c (valid_gimple_expression_p): Change
