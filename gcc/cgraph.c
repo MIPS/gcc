@@ -91,6 +91,8 @@ static inline void cgraph_edge_remove_callee (struct cgraph_edge *e);
 
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
+/* Hash table used to convert assembler names into nodes.  */
+static GTY((param_is (struct cgraph_node))) htab_t assembler_name_hash;
 
 /* The linked list of cgraph nodes.  */
 struct cgraph_node *cgraph_nodes;
@@ -108,6 +110,9 @@ int cgraph_n_nodes;
 
 /* Maximal uid used in cgraph nodes.  */
 int cgraph_max_uid;
+
+/* Maximal uid used in cgraph edges.  */
+int cgraph_edge_max_uid;
 
 /* Maximal pid used for profiling */
 int cgraph_max_pid;
@@ -131,6 +136,206 @@ static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
    used so that we can sort the cgraph nodes in order by when we saw
    them, to support -fno-toplevel-reorder.  */
 int cgraph_order;
+
+/* List of hooks trigerred on cgraph_edge events.  */
+struct cgraph_edge_hook_list {
+  cgraph_edge_hook hook;
+  void *data;
+  struct cgraph_edge_hook_list *next;
+};
+
+/* List of hooks trigerred on cgraph_node events.  */
+struct cgraph_node_hook_list {
+  cgraph_node_hook hook;
+  void *data;
+  struct cgraph_node_hook_list *next;
+};
+
+/* List of hooks trigerred on events involving two cgraph_edges.  */
+struct cgraph_2edge_hook_list {
+  cgraph_2edge_hook hook;
+  void *data;
+  struct cgraph_2edge_hook_list *next;
+};
+
+/* List of hooks trigerred on events involving two cgraph_nodes.  */
+struct cgraph_2node_hook_list {
+  cgraph_2node_hook hook;
+  void *data;
+  struct cgraph_2node_hook_list *next;
+};
+
+/* List of hooks triggered when an edge is removed.  */
+struct cgraph_edge_hook_list *first_cgraph_edge_removal_hook;
+/* List of hooks triggered when a node is removed.  */
+struct cgraph_node_hook_list *first_cgraph_node_removal_hook;
+/* List of hooks triggered when an edge is duplicated.  */
+struct cgraph_2edge_hook_list *first_cgraph_edge_duplicated_hook;
+/* List of hooks triggered when a node is duplicated.  */
+struct cgraph_2node_hook_list *first_cgraph_node_duplicated_hook;
+
+
+/* Register HOOK to be called with DATA on each removed edge.  */
+struct cgraph_edge_hook_list *
+cgraph_add_edge_removal_hook (cgraph_edge_hook hook, void *data)
+{
+  struct cgraph_edge_hook_list *entry;
+  struct cgraph_edge_hook_list **ptr = &first_cgraph_edge_removal_hook;
+
+  entry = (struct cgraph_edge_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on removing edges.  */
+void
+cgraph_remove_edge_removal_hook (struct cgraph_edge_hook_list *entry)
+{
+  struct cgraph_edge_hook_list **ptr = &first_cgraph_edge_removal_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all edge removal hooks.  */
+static void
+cgraph_call_edge_removal_hooks (struct cgraph_edge *e)
+{
+  struct cgraph_edge_hook_list *entry = first_cgraph_edge_removal_hook;
+  while (entry)
+  {
+    entry->hook (e, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each removed node.  */
+struct cgraph_node_hook_list *
+cgraph_add_node_removal_hook (cgraph_node_hook hook, void *data)
+{
+  struct cgraph_node_hook_list *entry;
+  struct cgraph_node_hook_list **ptr = &first_cgraph_node_removal_hook;
+
+  entry = (struct cgraph_node_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on removing nodes.  */
+void
+cgraph_remove_node_removal_hook (struct cgraph_node_hook_list *entry)
+{
+  struct cgraph_node_hook_list **ptr = &first_cgraph_node_removal_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all node removal hooks.  */
+static void
+cgraph_call_node_removal_hooks (struct cgraph_node *node)
+{
+  struct cgraph_node_hook_list *entry = first_cgraph_node_removal_hook;
+  while (entry)
+  {
+    entry->hook (node, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each duplicated edge.  */
+struct cgraph_2edge_hook_list *
+cgraph_add_edge_duplication_hook (cgraph_2edge_hook hook, void *data)
+{
+  struct cgraph_2edge_hook_list *entry;
+  struct cgraph_2edge_hook_list **ptr = &first_cgraph_edge_duplicated_hook;
+
+  entry = (struct cgraph_2edge_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on duplicating edges.  */
+void
+cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *entry)
+{
+  struct cgraph_2edge_hook_list **ptr = &first_cgraph_edge_duplicated_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all edge duplication hooks.  */
+static void
+cgraph_call_edge_duplication_hooks (struct cgraph_edge *cs1,
+				    struct cgraph_edge *cs2)
+{
+  struct cgraph_2edge_hook_list *entry = first_cgraph_edge_duplicated_hook;
+  while (entry)
+  {
+    entry->hook (cs1, cs2, entry->data);
+    entry = entry->next;
+  }
+}
+
+/* Register HOOK to be called with DATA on each duplicated node.  */
+struct cgraph_2node_hook_list *
+cgraph_add_node_duplication_hook (cgraph_2node_hook hook, void *data)
+{
+  struct cgraph_2node_hook_list *entry;
+  struct cgraph_2node_hook_list **ptr = &first_cgraph_node_duplicated_hook;
+
+  entry = (struct cgraph_2node_hook_list *) xmalloc (sizeof (*entry));
+  entry->hook = hook;
+  entry->data = data;
+  entry->next = NULL;
+  while (*ptr)
+    ptr = &(*ptr)->next;
+  *ptr = entry;
+  return entry;
+}
+
+/* Remove ENTRY from the list of hooks called on duplicating nodes.  */
+void
+cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *entry)
+{
+  struct cgraph_2node_hook_list **ptr = &first_cgraph_node_duplicated_hook;
+
+  while (*ptr != entry)
+    ptr = &(*ptr)->next;
+  *ptr = entry->next;
+}
+
+/* Call all node duplication hooks.  */
+static void
+cgraph_call_node_duplication_hooks (struct cgraph_node *node1,
+				    struct cgraph_node *node2)
+{
+  struct cgraph_2node_hook_list *entry = first_cgraph_node_duplicated_hook;
+  while (entry)
+  {
+    entry->hook (node1, node2, entry->data);
+    entry = entry->next;
+  }
+}
 
 /* Returns a hash code for P.  */
 
@@ -206,6 +411,18 @@ cgraph_node (tree decl)
       node->origin->nested = node;
       node->master_clone = node;
     }
+
+  /* This code can go away once flag_unit_at_a_mode is removed.  */
+  if (assembler_name_hash)
+    {
+      tree name = DECL_ASSEMBLER_NAME (node->decl);
+      slot = ((struct cgraph_node **)
+              htab_find_slot_with_hash (assembler_name_hash, name,
+				        decl_assembler_name_hash (name),
+				        INSERT));
+      if (!*slot)
+        *slot = node;
+    }
   return node;
 }
 
@@ -222,6 +439,24 @@ cgraph_insert_node_to_hashtable (struct cgraph_node *node)
   *slot = node;
 }
 
+/* Returns a hash code for P.  */
+
+static hashval_t
+hash_node_by_assembler_name (const void *p)
+{
+  const struct cgraph_node *n = (const struct cgraph_node *) p;
+  return (hashval_t) decl_assembler_name_hash (DECL_ASSEMBLER_NAME (n->decl));
+}
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+static int
+eq_assembler_name (const void *p1, const void *p2)
+{
+  const struct cgraph_node *n1 = (const struct cgraph_node *) p1;
+  const_tree name = (const_tree)p2;
+  return (decl_assembler_name_equal (n1->decl, name));
+}
 
 /* Return the cgraph node that has ASMNAME for its DECL_ASSEMBLER_NAME.
    Return NULL if there's no such node.  */
@@ -230,11 +465,36 @@ struct cgraph_node *
 cgraph_node_for_asm (tree asmname)
 {
   struct cgraph_node *node;
+  void **slot;
 
-  for (node = cgraph_nodes; node ; node = node->next)
-    if (decl_assembler_name_equal (node->decl, asmname))
-      return node;
+  if (!assembler_name_hash)
+    {
+      assembler_name_hash =
+	htab_create_ggc (10, hash_node_by_assembler_name, eq_assembler_name,
+			 NULL);
+      for (node = cgraph_nodes; node; node = node->next)
+        if (!node->global.inlined_to)
+	  {
+	    tree name = DECL_ASSEMBLER_NAME (node->decl);
+	    slot = htab_find_slot_with_hash (assembler_name_hash, name,
+					     decl_assembler_name_hash (name),
+					     INSERT);
+	    /* We can have multiple declarations with same assembler name. For C++
+	       it is __builtin_strlen and strlen, for instance.  Do we need to
+	       record them all?  Original implementation marked just first one
+	       so lets hope for the best.  */
+	    if (*slot)
+	      continue;
+	    *slot = node;
+	  }
+    }
 
+  slot = htab_find_slot_with_hash (assembler_name_hash, asmname,
+				   decl_assembler_name_hash (asmname),
+				   NO_INSERT);
+
+  if (slot)
+    return (struct cgraph_node *) *slot;
   return NULL;
 }
 
@@ -365,6 +625,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   gcc_assert (freq >= 0);
   gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
+  edge->uid = cgraph_edge_max_uid++;
   if (caller->call_site_hash)
     {
       void **slot;
@@ -414,6 +675,7 @@ cgraph_edge_remove_caller (struct cgraph_edge *e)
 void
 cgraph_remove_edge (struct cgraph_edge *e)
 {
+  cgraph_call_edge_removal_hooks (e);
   /* Remove from callers list of the callee.  */
   cgraph_edge_remove_callee (e);
 
@@ -495,7 +757,10 @@ cgraph_node_remove_callees (struct cgraph_node *node)
      the callees.  The callee list of the node can be zapped with one
      assignment.  */
   for (e = node->callees; e; e = e->next_callee)
-    cgraph_edge_remove_callee (e);
+    {
+      cgraph_call_edge_removal_hooks (e);
+      cgraph_edge_remove_callee (e);
+    }
   node->callees = NULL;
   if (node->call_site_hash)
     {
@@ -515,7 +780,10 @@ cgraph_node_remove_callers (struct cgraph_node *node)
      the callers.  The caller list of the node can be zapped with one
      assignment.  */
   for (e = node->callers; e; e = e->next_caller)
-    cgraph_edge_remove_caller (e);
+    {
+      cgraph_call_edge_removal_hooks (e);
+      cgraph_edge_remove_caller (e);
+    }
   node->callers = NULL;
 }
 
@@ -549,8 +817,10 @@ cgraph_remove_node (struct cgraph_node *node)
   void **slot;
   bool kill_body = false;
 
+  cgraph_call_node_removal_hooks (node);
   cgraph_node_remove_callers (node);
   cgraph_node_remove_callees (node);
+
   /* Incremental inlining access removed nodes stored in the postorder list.
      */
   node->needed = node->reachable = false;
@@ -611,6 +881,16 @@ cgraph_remove_node (struct cgraph_node *node)
 	  && (cgraph_global_info_ready
 	      && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl))))
 	kill_body = true;
+    }
+  if (assembler_name_hash)
+    {
+      tree name = DECL_ASSEMBLER_NAME (node->decl);
+      slot = htab_find_slot_with_hash (assembler_name_hash, name,
+				       decl_assembler_name_hash (name),
+				       NO_INSERT);
+      /* Inline clones are not hashed.  */
+      if (slot && *slot == node)
+        htab_clear_slot (assembler_name_hash, slot);
     }
 
   if (kill_body && flag_unit_at_a_time)
@@ -826,6 +1106,7 @@ debug_cgraph (void)
 void
 change_decl_assembler_name (tree decl, tree name)
 {
+  gcc_assert (!assembler_name_hash);
   if (!DECL_ASSEMBLER_NAME_SET_P (decl))
     {
       SET_DECL_ASSEMBLER_NAME (decl, name);
@@ -891,6 +1172,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
       if (e->count < 0)
 	e->count = 0;
     }
+  cgraph_call_edge_duplication_hooks (e, new);
   return new;
 }
 
@@ -942,6 +1224,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int freq, int loop_ne
   if (new->next_clone)
     new->next_clone->prev_clone = new;
 
+  cgraph_call_node_duplication_hooks (n, new);
   return new;
 }
 

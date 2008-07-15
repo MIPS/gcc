@@ -5408,6 +5408,21 @@ ix86_setup_incoming_varargs (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     setup_incoming_varargs_64 (&next_cum);
 }
 
+/* Checks if TYPE is of kind va_list char *.  */
+
+static bool
+is_va_list_char_pointer (tree type)
+{
+  tree canonic;
+
+  /* For 32-bit it is always true.  */
+  if (!TARGET_64BIT)
+    return true;
+  canonic = ix86_canonical_va_list_type (type);
+  return (canonic == ms_va_list_type_node
+          || (DEFAULT_ABI == MS_ABI && canonic == va_list_type_node));
+}
+
 /* Implement va_start.  */
 
 static void
@@ -5419,8 +5434,7 @@ ix86_va_start (tree valist, rtx nextarg)
   tree type;
 
   /* Only 64bit target needs something special.  */
-  if (!TARGET_64BIT ||
-      ix86_canonical_va_list_type (TREE_TYPE (valist)) == ms_va_list_type_node)
+  if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
     {
       std_expand_builtin_va_start (valist, nextarg);
       return;
@@ -5499,8 +5513,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   enum machine_mode nat_mode;
 
   /* Only 64bit target needs something special.  */
-  if (!TARGET_64BIT ||
-      ix86_canonical_va_list_type (TREE_TYPE (valist)) == ms_va_list_type_node)
+  if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
     return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (sysv_va_list_type_node));
@@ -25840,11 +25853,12 @@ ix86_expand_round (rtx operand0, rtx operand1)
    OPERANDS is the array of operands.
    NUM is the number of operands.
    USES_OC0 is true if the instruction uses OC0 and provides 4 variants.
-   NUM_MEMORY is the maximum number of memory operands to accept.  */
+   NUM_MEMORY is the maximum number of memory operands to accept.  
+   when COMMUTATIVE is set, operand 1 and 2 can be swapped.  */
 
 bool
 ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
-		      bool uses_oc0, int num_memory)
+		      bool uses_oc0, int num_memory, bool commutative)
 {
   int mem_mask;
   int mem_count;
@@ -25928,6 +25942,8 @@ ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
 
       /* format, example pmacsdd:
 	 xmm1, xmm2, xmm3/mem, xmm1 */
+      if (commutative)
+	return (mem_mask == (1 << 2) || mem_mask == (1 << 1));
       else
 	return (mem_mask == (1 << 2));
     }
@@ -25962,6 +25978,8 @@ ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
 
          For the integer multiply/add instructions be more restrictive and
          require operands[2] and operands[3] to be the memory operands.  */
+      if (commutative)
+	return (mem_mask == ((1 << 1) | (1 << 3)) || ((1 << 2) | (1 << 3)));
       else
 	return (mem_mask == ((1 << 2) | (1 << 3)));
     }
