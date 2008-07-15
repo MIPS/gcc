@@ -1,5 +1,10 @@
 2008-07-15  Richard Guenther  <rguenther@suse.de>
 
+	* gimplify.c (gimplify_expr): Gimplify an unused volatile load
+	properly.
+
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-pre.c: Tuplify.  Enable FRE and PRE.
 	(execute_pre): Disable SCCVN insertion even for FRE.
 	* tree-ssa-sccvn.h (copy_reference_ops_from_call): Declare.

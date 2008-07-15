@@ -6821,7 +6821,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	     given a TREE_ADDRESSABLE type.  */
 	  tree tmp = create_tmp_var_raw (type, "vol");
 	  gimple_add_tmp_var (tmp);
-	  *expr_p = build2 (MODIFY_EXPR, TREE_TYPE (tmp), tmp, *expr_p);
+	  gimplify_assign (tmp, *expr_p, pre_p);
+	  *expr_p = NULL;
 	}
       else
 	/* We can't do anything useful with a volatile reference to
