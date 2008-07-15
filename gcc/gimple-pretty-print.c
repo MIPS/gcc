@@ -285,7 +285,8 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  || TREE_CODE_CLASS (rhs_code) == tcc_constant
 	  || TREE_CODE_CLASS (rhs_code) == tcc_reference
 	  || rhs_code == SSA_NAME
-	  || rhs_code == ADDR_EXPR)
+	  || rhs_code == ADDR_EXPR
+	  || rhs_code == CONSTRUCTOR)
 	; /* do nothing.  */
       else if (rhs_code == BIT_NOT_EXPR)
 	pp_string (buffer, "~");

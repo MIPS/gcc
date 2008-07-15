@@ -1,3 +1,10 @@
+2008-07-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Process
+	SSA_NAME defs of calls.
+	* gimple-pretty-print.c (dump_unary_rhs): Do not prefix
+	CONSTRUCTOR with [constructor].
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/alpha/alpha.c (va_list_skip_additions): Change

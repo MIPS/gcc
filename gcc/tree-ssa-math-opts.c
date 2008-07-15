@@ -493,7 +493,7 @@ execute_cse_reciprocals (void)
         {
 	  gimple stmt = gsi_stmt (gsi);
 
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  if (gimple_has_lhs (stmt)
 	      && (def = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF)) != NULL
 	      && FLOAT_TYPE_P (TREE_TYPE (def))
 	      && TREE_CODE (def) == SSA_NAME)
