@@ -674,10 +674,12 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   tree lhs, rhs, rhs2, array_ref;
   tree *rhsp, *lhsp;
   gimple use_stmt = gsi_stmt (*use_stmt_gsi);
+  enum tree_code rhs_code;
 
   gcc_assert (TREE_CODE (def_rhs) == ADDR_EXPR);
 
   lhs = gimple_assign_lhs (use_stmt);
+  rhs_code = gimple_assign_rhs_code (use_stmt);
   rhs = gimple_assign_rhs1 (use_stmt);
 
   /* Trivial cases.  The use statement could be a trivial copy or a
@@ -686,15 +688,16 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      all useless conversions.  Treat the case of a single-use name and
      a conversion to def_rhs type separate, though.  */
   if (TREE_CODE (lhs) == SSA_NAME
-      && ((rhs == name && gimple_num_ops (use_stmt) == 1)
-	  || IS_CONVERT_EXPR_CODE_P (gimple_code (use_stmt)))
-      && useless_type_conversion_p (TREE_TYPE (rhs), TREE_TYPE (def_rhs)))
+      && ((rhs_code == SSA_NAME && rhs == name)
+	  || IS_CONVERT_EXPR_CODE_P (rhs_code))
+      && useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (def_rhs)))
     {
       /* Only recurse if we don't deal with a single use.  */
       if (!single_use_p)
 	return forward_propagate_addr_expr (lhs, def_rhs);
 
       gimple_assign_set_rhs1 (use_stmt, unshare_expr (def_rhs));
+      gimple_assign_set_rhs_code (use_stmt, TREE_CODE (def_rhs));
       return true;
     }
 

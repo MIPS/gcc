@@ -321,13 +321,12 @@ rename_ssa_copies (void)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  stmt = gsi_stmt (gsi);
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN && gimple_num_ops (stmt) == 1)
+	  if (gimple_assign_ssa_name_copy_p (stmt))
 	    {
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs = gimple_assign_rhs1 (stmt);
 
-              if (TREE_CODE (lhs) == SSA_NAME && TREE_CODE (rhs) == SSA_NAME)
-		updated |= copy_rename_partition_coalesce (map, lhs, rhs, debug);
+	      updated |= copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }
 	}
     }
