@@ -1,5 +1,9 @@
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-ssa-threadedge.c (record_temporary_equivalences_for_stmts,
+	simplify_control_stmt_condition): Pass stmt instead of NULL as second
+	argument to simplify callback.
+
 	* tree-vect-patterns.c (vect_recog_pow_pattern): Don't call
 	gimple_call_set_lhs with lhs of last_stmt.
 	* tree-vect-transform.c (vectorizable_call): Build a new dummy
