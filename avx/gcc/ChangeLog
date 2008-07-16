@@ -1,3 +1,278 @@
+2008-07-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/36827
+	* config/m32c/m32c.c (BIG_FB_ADJ): Move definition earlier.
+	(m32c_legitimate_address_p): Handle "++rii" addresses created by
+	m32c_legitimize_reload_address.
+
+2007-07-16  Rafael Avila de Espindola  <espindola@google.com>
+
+       * c-decl.c (merge_decls): Keep DECL_SOURCE_LOCATION and
+       DECL_IN_SYSTEM_HEADER in sync.
+
+2008-07-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-sccvn.c (expressions_equal_p): Check type equality.
+	* tree-ssa-pre.c (pre_expr_eq): Ditto
+	(get_constant_for_value_id): Take a type as an argument.
+	(fully_constant_expression): Pass in type.
+	(find_or_generate_expression): Short circuit constant case.
+	(create_expression_by_pieces): Remove special casing of
+	pointer_plus.
+	(do_regular_insertion): Short circuit constant case.
+	(do_partial_partial_insertion): Ditto.
+
+2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/36782
+	* config/sh/sh.md (symGOT_load): Don't add REG_EQUAL note.
+
+2008-07-15  Bob Wilson  <bob.wilson@acm.org>
+	
+	* config/xtensa/libgcc-xtensa.ver: New file.
+	* config/xtensa/t-linux (SHLIB_MAPFILES): Append libgcc-xtensa.ver.
+	
+2008-07-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* df-problems.c (df_set_note): Avoid C++ keywords.
+	* df-scan.c (df_ref_change_reg_with_loc_1): Likewise.
+	* dse.c (record_store, remove_useless_values): Likewise.
+	* emit-rtl.c (gen_reg_rtx, update_reg_offset, gen_rtx_REG_offset,
+	gen_reg_rtx_offset, operand_subword, change_address_1,
+	change_address, adjust_address_1, offset_address,
+	widen_memory_access, emit_copy_of_insn_after): Likewise.
+	* explow.c (round_push, allocate_dynamic_stack_space): Likewise.
+	* fwprop.c (should_replace_address, propagate_rtx_1,
+	propagate_rtx, try_fwprop_subst, forward_propagate_and_simplify):
+	Likewise.
+	* gcse.c (cprop_jump, find_implicit_sets, bypass_block,
+	gcse_emit_move_after, update_ld_motion_stores): Likewise.
+	* lcm.c (compute_insert_delete, pre_edge_lcm,
+	compute_rev_insert_delete, pre_edge_rev_lcm): Likewise.
+	* lower-subreg.c (resolve_reg_notes): Likewise.
+	* mode-switching.c (optimize_mode_switching): Likewise.
+
+2008-07-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* bt-load.c (add_btr_def, migrate_btr_def,
+	branch_target_load_optimize): Avoid C++ keywords.
+	* caller-save.c (insert_restore, insert_save, insert_one_insn):
+	Likewise.
+	* combine.c (subst, simplify_set, make_extraction,
+	make_compound_operation, known_cond, simplify_shift_const_1):
+	Likewise.
+	* cse.c (make_regs_eqv, merge_equiv_classes, validate_canon_reg,
+	fold_rtx, equiv_constant, cse_insn, cse_process_notes_1):
+	Likewise.
+
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36369
+	* c-common.c (strict_aliasing_warning): Do not warn for
+	TYPE_REF_CAN_ALIAS_ALL pointers.
+	(c_common_get_alias_set): may_alias types are not special.
+	* tree.c (build_pointer_type_for_mode): Look up the may_alias
+	attribute and set can_ref_all accordingly.
+	(build_reference_type_for_mode): Likewise.
+	* doc/extend.texi (may_alias): Clarify.
+
+2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/36780
+	* config/sh/sh.h (GO_IF_LEGITIMATE_ADDRESS): Allow
+	(plus (plus (reg) (const_int)) (const_int)) when reload_in_progress.
+
+2008-07-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/31568
+	* config/rs6000/rs6000.c (print_operand <case 'y'>): Don't use
+	gcc_assert, instead call output_operand_lossage.
+
+2008-07-15  Kai Tietz  <kai.tietz@onevision.com>
+
+	* builtins.c (std_canonical_va_list): Treat structure based
+	va_list types.
+
+2008-07-15  Ben Elliston  <bje@au.ibm.com>
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Improve comment.
+
+2007-07-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* c-decl.c (diagnose_mismatched_decls): Don't warn if TREE_NO_WARNING
+	is set.
+
+2008-07-14  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse5 cmov pattern): Update call of ix86_sse5_valid_op_p
+	* sse.md (sse5 patterns): Update call of ix86_sse5_valid_op_p;
+	fix predicates and constraints.
+	* i386.c (ix86_sse5_valid_op_p): Add commutative parameter.
+	* i386-protos.h (ix86_sse5_valid_op_p): Update declaration.
+
+2008-07-14  Doug Kwan  <dougkwan@google.com>
+
+	* config.gcc (arm*-*-eabi*): Include arm/eabi.h and use
+	additional option file arm/eabi.opt.
+	* config/arm/eabi.h (File): New configuration file for EABI targets.
+	* config/arm/elf.h (SUBTARGET_EXTRA_SPECS): Add
+	SUBSUBTARGET_EXTRA_SPECS.
+	(SUBSUBTARGET_EXTRA_SPECS): Provide empty default.
+	* config/arm/unknown-elf.h (UNKNOWN_ELF_STARTFILE_SPEC): Renamed
+	from STARTFILE_SPEC so that it can be referenced in an override.
+	(STARTFILE_SPEC): Use UNKNOWN_ELF_STARTFILE_SPEC.
+	(UNKNOWN_ELF_ENDFILE_SPEC): Renamed from ENDFILE_SPEC so that it
+	can be referenced in an override.
+	(ENDFILE_SPEC): Use UNKNOWN_ELF_ENDFILE_SPEC.
+	* config/arm/bpabi.h (BPABI_LINK_SPEC): Renamed from LINK_SPEC
+	so that it can be referenced in an override.
+	(LINK_SPEC): Use BPABI_LINK_SPEC.
+	* config/arm/eabi.opt (File): New.
+
+2008-07-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in (TARGET_DEF_H): Add targhooks.h.
+	(FIXED_VALUE_H): New variable.
+	(RTL_BASE_H): Use $(INPUT_H) and $(FIXED_VALUE_H) instead of
+	input.h, fixed-value.h.
+	(TREE_H): Use $(INPUT_H), add $(SYMTAB_H).
+	(BASIC_BLOCK_H): Use $(BITMAP_H).
+	(FUNCTION_H): Add varray.h.
+	(IPA_REFERENCE_H): Use $(BITMAP_H).
+	(CGRAPH_H): Add $(BASIC_BLOCK_H).
+	(DF_H): Use $(BITMAP_H).
+	(GGC_H): Add statistics.h.
+	(INSN_ADDR_H): New.
+	(INSN_ATTR_H): Use it.
+	(SYSTEM_H): Add safe-ctype.h, filenames.h.
+	(INPUT_H): New.
+	(SYMTAB_H): Add $(OBSTACK_H).
+	(CPP_INTERNAL_H): New.
+	(TREE_DUMP_H): Add tree-pass.h.
+	(TREE_FLOW_H): Use $(BITMAP_H)
+	(PRETTY_PRINT_H): Use $(INPUT_H).
+	(EBITMAP_H): Rename from typo-ed EBIMAP_H.
+	(GSTAB_H): New.
+	(BITMAP_H): New.
+	(many object files): Fix lots of header dependencies throughout.
+
+2008-07-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Makefile.in (write_entries_to_file, write_entries_to_file_split):
+	New macros.
+	(s-gtyp-input): Use them to write tmp-gi.list.
+	(echo_to_gi.list): Remove.
+
+2008-07-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (pre_info): Remove.
+	(switch_to_PRE_table): Likewise.
+	(free_scc_vn): Do not clear SSA_NAME_VALUE.
+	Do not free pre_info.
+	(set_hashtable_value_ids): Do not create value-ids for the
+	optimistic tables.
+	(run_scc_vn): Remove double test.  Remove bogus special-case
+	in value-number printing.
+	* tree-ssa-sccvn.h (switch_to_PRE_table): Remove.
+	* tree-ssa-ccp.c (get_symbol_constant_value): Do not look at
+	SSA_NAME_VALUE.
+	* tree-flow-inline.h (get_value_handle): Remove.
+	* tree-flow.h (get_value_handle): Remove.
+
+2008-07-14  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-switch-conversion.c (gen_inbound_check): Make sure the type
+	in which we generate arithmetics is not a subrange.
+
+2008-07-14  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in (IPA_PROP_H): Added ipa-prop.h to IPA_PROP_H variable.
+
+2008-07-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (insert_into_preds_of_block): Do not call
+	convert.
+
+2008-07-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/36745
+	* config/s390/s390.c: (s390_secondary_reload): Add a secondary
+	reload for symbol refs moved to r0 with -fPIC.
+	(legitimize_pic_address): Use the target register as temporary
+	reg if possible.
+	(emit_symbolic_move): Adjust comment.
+	* config/s390/s390.md (reloadsi_PIC_addr, reloaddi_PIC_addr):
+	New expanders.
+
+2008-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* c-common.h (C_CPP_HASHNODE): New macro.
+	* coretypes.h (struct cpp_token): Forward declare.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the context-sensitive keyword method.
+	* config/rs6000/rs6000-c.c (__vector_keyword, vector_keyword,
+	__pixel_keyword, pixel_keyword, __bool_keyword, bool_keyword,
+	expand_bool_pixel): New.
+	(altivec_categorize_keyword): New function.
+	(init_vector_keywords): New function.
+	(rs6000_macro_to_expand): Likewise.
+	(rs6000_cpu_cpp_builtins): Enable context-sensitive macros if not
+	compiling an ISO C dialect.
+
+2008-07-13  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (fully_constant_expression): Add fold_convert
+	calls.
+	(create_expression_by_pieces): Fix typo.
+	(do_regular_insertion): Use debug counter here too.
+
+2008-07-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/35492.
+	* config/cris/cris.h (CRIS_CONST_OK_FOR_LETTER_P): Renamed from
+	CONST_OK_FOR_LETTER_P.  All port-local users changed.
+	(CONST_OK_FOR_CONSTRAINT_P): Define; implement Kc as old K,
+	implement Kp matching power-of-two.
+	(CONSTRAINT_LEN): Define to match.
+	* config/cris/cris.md: Replace all use of constraint K with Kc.
+	("*btst*): Use Kp for operand 0 of last alternative.
+
+2008-07-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/36440
+	* tree-call-cdce.c (check_target_format): Accept MIPS single, double
+	and quad formats.
+
+2008-07-13  Jan Hubicka  <jh@suse.cz>
+
+	* tree.c (decl_assembler_name_equal): Expect assembler name of decl
+	to be mangled too.
+
+2008-07-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36811
+	* langhooks.c (lhd_print_error_function): Deal with recursive
+	BLOCK trees.
+
+2008-07-12  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (assembler_name_hash): New static var.
+	(hash_node_by_assembler_name, eq_assembler_name): New.
+	(cgraph_node_for_asm): Use hashtable.
+	(cgraph_remove_node): Maintain hashtable.
+	(change_decl_assembler_name): Sanity check that names are not changing
+	after aliasing was processed.
+	* cgraph.h (varpoon_node): Add next GGC marker.
+	* tree.c (decl_assembler_name_equal): Constify.
+	(decl_assembler_name_hash): New.
+	* tree.h (decl_assembler_name_equal): Constify.
+	(decl_assembler_name_hash): Update.
+
+2008-07-12  David Daney  <ddaney@avtrex.com>
+
+	* config/mips/driver-native.c (host_detect_local_cpu): Handle
+	sb1 and r5000 cpus.
+
 2008-07-12  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* doc/md.texi: Document the MIPS "v" constraint.
