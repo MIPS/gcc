@@ -1,7 +1,3 @@
-2008-07-14  Andreas Krebbel  <krebbel1@de.ibm.com>
-
-	* config/s390/s390.c: (s390_gimplify_va_arg) Unshare the args* tree.
-
 2008-07-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR target/31568

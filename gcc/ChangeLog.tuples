@@ -51,6 +51,10 @@
 	* tree-ssa-propagate.c (valid_gimple_rhs_p): Allow
 	gimple-min-invariants and SSA names.
 
+2008-07-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c: (s390_gimplify_va_arg) Unshare the args* tree.
+
 2008-07-14  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-math-opts.c (execute_cse_reciprocals): Process
