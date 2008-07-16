@@ -73,9 +73,7 @@ is_gimple_reg_rhs (tree t)
      arbitrarily expensive.  Instead we will generate a VDEF for
      the assignment.  */
 
-  if (is_gimple_reg_type (TREE_TYPE (t))
-      && ((TREE_CODE (t) == CALL_EXPR && TREE_SIDE_EFFECTS (t))
-	  || tree_could_throw_p (t)))
+  if (is_gimple_reg_type (TREE_TYPE (t)) && tree_could_throw_p (t))
     return false;
 
   return is_gimple_formal_tmp_rhs (t);

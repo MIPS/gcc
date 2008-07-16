@@ -374,9 +374,6 @@ extract_ops_from_tree (tree expr, enum tree_code *subcode_p, tree *op1_p,
 {
   enum gimple_rhs_class class;
 
-  /* Make sure the EXPR is a valid GIMPLE RHS.  */
-  gcc_assert (is_gimple_formal_tmp_rhs (expr));
-
   *subcode_p = TREE_CODE (expr);
   class = get_gimple_rhs_class (*subcode_p);
 

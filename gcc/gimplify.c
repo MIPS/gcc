@@ -623,6 +623,28 @@ is_gimple_formal_tmp_or_call_rhs (tree t)
   return TREE_CODE (t) == CALL_EXPR || is_gimple_formal_tmp_rhs (t);
 }
 
+/* Returns true iff T is a valid RHS for an assignment to a renamed
+   user -- or front-end generated artificial -- variable.  */
+
+static bool
+is_gimple_reg_or_call_rhs (tree t)
+{
+  /* If the RHS of the MODIFY_EXPR may throw or make a nonlocal goto
+     and the LHS is a user variable, then we need to introduce a formal
+     temporary.  This way the optimizers can determine that the user
+     variable is only modified if evaluation of the RHS does not throw.
+
+     Don't force a temp of a non-renamable type; the copy could be
+     arbitrarily expensive.  Instead we will generate a VDEF for
+     the assignment.  */
+
+  if (is_gimple_reg_type (TREE_TYPE (t))
+      && ((TREE_CODE (t) == CALL_EXPR && TREE_SIDE_EFFECTS (t))
+	  || tree_could_throw_p (t)))
+    return false;
+
+  return is_gimple_formal_tmp_or_call_rhs (t);
+}
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
    this predicate should only be used during gimplification.  See the
@@ -3402,7 +3424,7 @@ rhs_predicate_for (tree lhs)
   if (is_gimple_formal_tmp_var (lhs))
     return is_gimple_formal_tmp_or_call_rhs;
   else if (is_gimple_reg (lhs))
-    return is_gimple_reg_rhs;
+    return is_gimple_reg_or_call_rhs;
   else
     return is_gimple_mem_or_call_rhs;
 }
@@ -6127,6 +6149,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
            || gimple_test_f == is_gimple_mem_rhs
            || gimple_test_f == is_gimple_mem_or_call_rhs
            || gimple_test_f == is_gimple_reg_rhs
+           || gimple_test_f == is_gimple_reg_or_call_rhs
            || gimple_test_f == is_gimple_asm_val)
     gcc_assert (fallback & fb_rvalue);
   else if (gimple_test_f == is_gimple_min_lval

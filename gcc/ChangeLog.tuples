@@ -1,5 +1,12 @@
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-gimple.c (is_gimple_reg_rhs): Don't check for CALL_EXPRs
+	with side-effects.
+	* gimple.c (extract_ops_from_tree): Remove assert.
+	* gimplify.c (is_gimple_reg_or_call_rhs): New function.
+	(rhs_predicate_for): Return it instead of is_gimple_reg_rhs.
+	(gimplify_expr): Handle is_gimple_reg_or_call_rhs.
+
 	* tree-ssa-threadedge.c (record_temporary_equivalences_for_stmts,
 	simplify_control_stmt_condition): Pass stmt instead of NULL as second
 	argument to simplify callback.
