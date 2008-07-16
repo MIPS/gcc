@@ -518,7 +518,6 @@ vect_recog_pow_pattern (gimple last_stmt, tree *type_in, tree *type_out)
       if (*type_in)
 	{
 	  gimple stmt = gimple_build_call (newfn, 1, base);
-	  gimple_call_set_lhs (stmt, gimple_call_lhs (last_stmt));
 	  if (vectorizable_function (stmt, *type_in, *type_in)
 	      != NULL_TREE)
 	    {

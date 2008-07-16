@@ -1,5 +1,10 @@
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Don't call
+	gimple_call_set_lhs with lhs of last_stmt.
+	* tree-vect-transform.c (vectorizable_call): Build a new dummy
+	assignment, replace the call with it and move over stmt_info.
+
 	* tree-ssa-loop-niter.c (infer_loop_bounds_from_array): Use
 	is_gimple_assign instead of gimple_code () == GIMPLE_ASSIGN and
 	is_gimple_call instead of gimple_code () == GIMPLE_CALL.

@@ -3341,13 +3341,13 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
      rhs of the statement with something harmless.  */
 
   type = TREE_TYPE (scalar_dest);
-  /* FIXME tuples */
-#if 1
-  gcc_unreachable ();
-#else
-  GIMPLE_STMT_OPERAND (stmt, 1) = fold_convert (type, integer_zero_node);
-#endif
-  update_stmt (stmt);
+  new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
+				  fold_convert (type, integer_zero_node));
+  set_vinfo_for_stmt (new_stmt, stmt_info);
+  set_vinfo_for_stmt (stmt, NULL);
+  STMT_VINFO_STMT (stmt_info) = new_stmt;
+  gsi_replace (gsi, new_stmt, false);
+  SSA_NAME_DEF_STMT (gimple_assign_lhs (new_stmt)) = new_stmt;
 
   return true;
 }
