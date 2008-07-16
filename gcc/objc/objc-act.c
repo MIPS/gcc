@@ -1552,11 +1552,11 @@ synth_module_prologue (void)
   type = lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 						objc_object_name,
 						objc_object_type));
-  DECL_IN_SYSTEM_HEADER (type) = 1;
+  TREE_NO_WARNING (type) = 1;
   type = lang_hooks.decls.pushdecl (build_decl (TYPE_DECL,
 						objc_class_name,
 						objc_class_type));
-  DECL_IN_SYSTEM_HEADER (type) = 1;
+  TREE_NO_WARNING (type) = 1;
 
   /* Forward-declare '@interface Protocol'.  */
 
@@ -2028,8 +2028,7 @@ objc_build_constructor (tree type, tree elts)
   /* Adjust for impedance mismatch.  We should figure out how to build
      CONSTRUCTORs that consistently please both the C and C++ gods.  */
   if (!TREE_PURPOSE (elts))
-    TREE_TYPE (constructor) = NULL_TREE;
-  TREE_HAS_CONSTRUCTOR (constructor) = 1;
+    TREE_TYPE (constructor) = init_list_type_node;
 #endif
 
   return constructor;

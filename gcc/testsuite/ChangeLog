@@ -1,4 +1,48 @@
-2008-06-22  Daniel Kraft  <d@domob.eu>
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36369
+	* gcc.dg/Wstrict-aliasing-bogus-ref-all.c: New testcase.
+
+2008-07-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR target/31568
+	* gcc.target/powerpc/asm-y.c: New testcase.
+
+2008-07-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* case_optimization1.ad[sb]: New test.
+	* case_optimization_pkg1.ads: New helper.
+
+2008-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/36745
+	* g++.dg/torture/pr36745.C: Use __SIZE_TYPE__ in size_t typedef.
+
+2008-07-14  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR target/36745
+	* g++.dg/torture/pr36745.C: New testcase.
+
+2008-07-14  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.target/powerpc/altivec-macros.c: New test.
+	* gcc.target/powerpc/altviec-26.c: Likewise.
+	* gcc.dg/vmx/1b-06.c: Remove bool variable.
+	* gcc.dg/vmx/1b-07.c: Likewise.
+	* gcc.dg/vmx/1b-06-ansi.c: New test for the pre-define method.
+	* gcc.dg/vmx/1b-07-ansi.c: Likewise.
+
+2008-07-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/36725
+	gfortran.dg/fmt_go_4.f08: New test.
+
+2008-07-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/35492
+	* gcc.c-torture/compile/pr35492.c: New test.
+
+2008-07-12  Daniel Kraft  <d@domob.eu>
 
 	* gfortran.dg/used_types_21.f90:  New test.
 
