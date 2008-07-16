@@ -1,3 +1,7 @@
+2008-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* optimize.c (maybe_clone_body): Clear DECL_SAVED_TREE for the clone.
+
 2008-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-gimplify.c (cp_gimplify_expr): Update comment.
