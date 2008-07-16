@@ -686,7 +686,7 @@ eliminate_unnecessary_stmts (void)
 	      remove_dead_stmt (&gsi, bb);
 	      something_changed = true;
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_CALL)
+	  else if (is_gimple_call (stmt))
 	    {
 	      call = gimple_call_fndecl (stmt);
 	      if (call)

@@ -221,7 +221,7 @@ get_kill_of_stmt_lhs (gimple stmt,
 {
   tree lhs;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
   lhs = gimple_assign_lhs (stmt);
 
@@ -249,10 +249,10 @@ get_kill_of_stmt_lhs (gimple stmt,
       if (gimple_code (stmt) != GIMPLE_ASSIGN)
 	return false;
 
-      if (gimple_code (stmt) == GIMPLE_CALL)
+      if (is_gimple_call (stmt))
 	return false;
 
-      if (gimple_code (stmt) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (stmt))
         {
 	  use_rhs = gimple_assign_rhs1 (stmt);
 	  if (!is_gimple_min_invariant (use_rhs) 
@@ -334,7 +334,7 @@ dse_possible_dead_store_p (gimple stmt,
 
 	   So we must make sure we're talking about the same LHS.
       */
-      if (gimple_code (temp) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (temp))
 	{
 	  tree base1 = get_base_address (gimple_assign_lhs (stmt));
 	  tree base2 = get_base_address (gimple_assign_lhs (temp));
@@ -406,13 +406,13 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
   /* We know we have virtual definitions.  If this is a GIMPLE_ASSIGN
      that's not also a function call, then record it into our table.  */
-  if (gimple_code (stmt) == GIMPLE_CALL && gimple_call_fndecl (stmt))
+  if (is_gimple_call (stmt) && gimple_call_fndecl (stmt))
     return;
 
   if (gimple_has_volatile_ops (stmt))
     return;
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       use_operand_p first_use_p = NULL_USE_OPERAND_P;
       use_operand_p use_p = NULL;
@@ -672,8 +672,8 @@ execute_simple_dse (void)
 
 	if (gimple_stored_syms (stmt)
 	    && !bitmap_empty_p (gimple_stored_syms (stmt))
-            && (gimple_code (stmt) == GIMPLE_ASSIGN
-	        || (gimple_code (stmt) == GIMPLE_CALL
+            && (is_gimple_assign (stmt)
+	        || (is_gimple_call (stmt)
                     && gimple_call_lhs (stmt)))
 	    && !bitmap_intersect_p (gimple_stored_syms (stmt), variables_loaded))
 	  {
@@ -712,7 +712,7 @@ execute_simple_dse (void)
 	    /* Look for possible occurrence var = indirect_ref (...) where
 	       indirect_ref itself is volatile.  */
 
-	    if (dead && gimple_code (stmt) == GIMPLE_ASSIGN
+	    if (dead && is_gimple_assign (stmt)
 	        && TREE_THIS_VOLATILE (gimple_assign_rhs1 (stmt)))
 	      dead = false;
 
@@ -720,7 +720,7 @@ execute_simple_dse (void)
 	      {
 		/* When LHS of var = call (); is dead, simplify it into
 		   call (); saving one operand.  */
-                if (gimple_code (stmt) == GIMPLE_CALL
+                if (is_gimple_call (stmt)
                     && gimple_has_side_effects (stmt))
 		  {
 		    if (dump_file && (dump_flags & TDF_DETAILS))

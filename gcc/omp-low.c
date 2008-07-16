@@ -1811,7 +1811,7 @@ check_omp_nesting_restrictions (gimple  stmt, omp_context *ctx)
 	  case GIMPLE_OMP_ORDERED:
 	  case GIMPLE_OMP_MASTER:
 	  case GIMPLE_OMP_TASK:
-	    if (gimple_code (stmt) == GIMPLE_CALL)
+	    if (is_gimple_call (stmt))
 	      {
 		warning (0, "barrier region may not be closely nested inside "
 			    "of work-sharing, critical, ordered, master or "
@@ -1937,7 +1937,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     {
       if (is_gimple_omp (stmt))
 	check_omp_nesting_restrictions (stmt, ctx);
-      else if (gimple_code (stmt) == GIMPLE_CALL)
+      else if (is_gimple_call (stmt))
 	{
 	  tree fndecl = gimple_call_fndecl (stmt);
 	  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -3188,7 +3188,7 @@ optimize_omp_library_calls (gimple entry_stmt)
 	gimple call = gsi_stmt (gsi);
 	tree decl;
 
-	if (gimple_code (call) == GIMPLE_CALL
+	if (is_gimple_call (call)
 	    && (decl = gimple_call_fndecl (call))
 	    && DECL_EXTERNAL (decl)
 	    && TREE_PUBLIC (decl)

@@ -231,7 +231,7 @@ alloc_object_size (const_gimple call, int object_size_type)
   tree alloc_size;
   int arg1 = -1, arg2 = -1;
 
-  gcc_assert (gimple_code (call) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (call));
 
   callee = gimple_call_fndecl (call);
   if (!callee)
@@ -502,7 +502,7 @@ call_object_size (struct object_size_info *osi, tree ptr, gimple call)
   unsigned int varno = SSA_NAME_VERSION (ptr);
   unsigned HOST_WIDE_INT bytes;
 
-  gcc_assert (gimple_code (call) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (call));
 
   gcc_assert (object_sizes[object_size_type][varno]
 	      != unknown[object_size_type]);
@@ -971,7 +971,7 @@ check_for_plus_in_loops (struct object_size_info *osi, tree var)
      argument, if any.  In GIMPLE, however, such an expression
      is not a valid call operand.  */
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (stmt)
       && gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
     {
       tree basevar = gimple_assign_rhs1 (stmt);

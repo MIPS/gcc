@@ -1,5 +1,83 @@
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_array): Use
+	is_gimple_assign instead of gimple_code () == GIMPLE_ASSIGN and
+	is_gimple_call instead of gimple_code () == GIMPLE_CALL.
+	* tree-ssa-propagate.c (update_call_from_tree, substitute_and_fold):
+	Likewise.
+	* tree-ssa-sccvn.c (visit_use): Likewise.
+	* tree-eh.c (stmt_could_throw_p): Likewise.
+	* tree-optimize.c (execute_fixup_cfg): Likewise.
+	* omp-low.c (check_omp_nesting_restrictions, scan_omp_1_stmt,
+	optimize_omp_library_calls): Likewise.
+	* tree-ssa-loop-im.c (movement_possibility, stmt_cost,
+	determine_invariantness_stmt): Likewise.
+	* tree-ssa-phiprop.c (phivn_valid_p, phiprop_insert_phi,
+	propagate_with_phi): Likewise.
+	* tree-ssa-ccp.c (get_default_value, surely_varying_stmt_p,
+	ccp_fold_builtin, gimplify_and_update_call_from_tree): Likewise.
+	* ipa-struct-reorg.c (is_result_of_mult, create_general_new_stmt):
+	Likewise.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Likewise.
+	* tree-object-size.c (alloc_object_size, call_object_size,
+	check_for_plus_in_loops): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	* predict.c (expr_expected_value_1, tree_bb_level_predictions,
+	tree_estimate_probability): Likewise.
+	* tree-cfg.c (verify_stmt): Likewise.
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p,
+	copy_loop_headers): Likewise.
+	* tree-ssa-ter.c (is_replaceable_p): Likewise.
+	* ipa-prop.c (ipa_count_arguments, ipa_compute_jump_functions):
+	Likewise.
+	* tree-ssa-dom.c (gimple_assign_unary_useless_conversion_p,
+	record_equivalences_from_stmt, optimize_stmt,
+	get_lhs_or_phi_result): Likewise.
+	* tree-ssa-sink.c (is_hidden_global_store): Likewise.
+	* tree-nrv.c (tree_nrv, execute_return_slot_opt): Likewise.
+	* value-prof.c (gimple_divmod_fixed_value,
+	gimple_mod_pow2, gimple_mod_subtract): Likewise.
+	* tree-predcom.c (name_for_ref, find_looparound_phi,
+	replace_ref_with, remove_name_from_operation): Likewise.
+	* tree-ssa-math-opts.c (is_division_by, execute_cse_reciprocals,
+	execute_cse_sincos, execute_convert_to_rsqrt): Likewise.
+	* tree-complex.c (expand_complex_move, expand_complex_operations_1):
+	Likewise.
+	* tree-outof-ssa.c (identical_copies_p): Likewise.
+	* tree-ssa-pre.c (is_exception_related): Likewise.
+	* tree-sra.c (scalarize_use, scalarize_copy): Likewise.
+	* tree-ssa-alias.c (count_uses_and_derefs, update_alias_info_1,
+	is_escape_site): Likewise.
+	* lambda-code.c (can_put_in_inner_loop,
+	cannot_convert_bb_to_perfect_nest): Likewise.
+	* tree-tailcall.c (find_tail_calls, eliminate_tail_call): Likewise.
+	* ipa-type-escape.c (look_for_casts_stmt, is_cast_from_non_pointer):
+	Likewise.
+	* tree-vect-transform.c (vectorizable_reduction): Likewise.
+	* tree-ssa-threadedge.c (record_temporary_equivalences_from_stmts):
+	Likewise.
+	* tree-ssa-phiopt.c (nt_init_block): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases): Likewise. 
+	* tree-ssa-forwprop.c (can_propagate_from,
+	forward_propagate_comparison, simplify_not_neg_expr,
+	simplify_gimple_switch, tree_ssa_forward_propagate_single_use_vars):
+	Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa-dse.c (get_kill_of_stmt_lhs, dse_possible_dead_store_p,
+	dse_optimize_stmt, execute_simple_dse): Likewise.
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_op,
+	find_interesting_uses_stmt, rewrite_use_nonlinear_expr): Likewise.
+	* tree-vrp.c (stmt_overflow_infinity, vrp_stmt_computes_nonzero,
+	register_edge_assert_for_2, register_edge_assert_for,
+	find_assert_locations, check_all_array_refs,
+	remove_range_assertions, stmt_interesting_for_vrp, vrp_visit_stmt,
+	simplify_stmt_using_ranges): Likewise.
+	* tree-ssa-loop-prefetch.c (gather_memory_references): Likewise.
+	* tree-ssa-copy.c (may_propagate_copy_into_stmt,
+	propagate_tree_value_into_stmt): Likewise.
+	* tree-inline.c (copy_bb, expand_call_inline,
+	gimple_expand_calls_inline, fold_marked_statements): Likewise.
+
 	* tree-ssa-copyrename.c (rename_ssa_copies): Use
 	gimple_assign_ssa_name_copy_p.
 

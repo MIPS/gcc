@@ -1001,7 +1001,7 @@ expr_expected_value_1 (tree type, tree op0, enum tree_code code, tree op1, bitma
 	    }
 	  return val;
 	}
-      if (gimple_code (def) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (def))
 	{
 	  if (gimple_assign_lhs (def) != op0)
 	    return NULL;
@@ -1013,7 +1013,7 @@ expr_expected_value_1 (tree type, tree op0, enum tree_code code, tree op1, bitma
 					visited);
 	}
 
-      if (gimple_code (def) == GIMPLE_CALL)
+      if (is_gimple_call (def))
 	{
 	  tree decl = gimple_call_fndecl (def);
 	  if (!decl)
@@ -1349,7 +1349,7 @@ tree_bb_level_predictions (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl;
 
-	  if (gimple_code (stmt) == GIMPLE_CALL)
+	  if (is_gimple_call (stmt))
 	    {
 	      if (gimple_call_flags (stmt) & ECF_NORETURN)
 		predict_paths_leading_to (bb, PRED_NORETURN,
@@ -1475,7 +1475,7 @@ tree_estimate_probability (void)
 		   gsi_next (&bi))
 		{
 		  gimple stmt = gsi_stmt (bi);
-		  if (gimple_code (stmt) == GIMPLE_CALL
+		  if (is_gimple_call (stmt)
 		      /* Constant and pure calls are hardly used to signalize
 			 something exceptional.  */
 		      && gimple_has_side_effects (stmt))

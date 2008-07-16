@@ -1101,7 +1101,7 @@ nt_init_block (struct dom_walk_data *data ATTRIBUTE_UNUSED, basic_block bb)
     {
       gimple stmt = gsi_stmt (gsi);
 
-      if (gimple_code (stmt) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (stmt))
 	{
 	  add_or_mark_expr (bb, gimple_assign_lhs (stmt), nontrap_set, true);
 	  add_or_mark_expr (bb, gimple_assign_rhs1 (stmt), nontrap_set, false);

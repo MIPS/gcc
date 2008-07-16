@@ -1165,7 +1165,7 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
 
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (gimple_code (stmt) == GIMPLE_PHI
-	      || gimple_code (stmt) == GIMPLE_ASSIGN);
+	      || is_gimple_assign (stmt));
 
   use = record_use (data, NULL, civ, stmt, USE_NONLINEAR_EXPR);
   iv->use_id = use->id;
@@ -1713,7 +1713,7 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
       return;
     }
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       lhs = gimple_assign_lhs_ptr (stmt);
       rhs = gimple_assign_rhs1_ptr (stmt);
@@ -5041,7 +5041,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
       tree step, ctype, utype;
       enum tree_code incr_code = PLUS_EXPR, old_code;
 
-      gcc_assert (gimple_code (use->stmt) == GIMPLE_ASSIGN);
+      gcc_assert (is_gimple_assign (use->stmt));
       gcc_assert (gimple_assign_lhs (use->stmt) == cand->var_after);
 
       step = cand->iv->step;

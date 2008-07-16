@@ -215,11 +215,11 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
           ||  TREE_CODE (SSA_NAME_VAR (orig)) == MEMORY_PARTITION_TAG))
     return false;
 
-  if (gimple_code (dest) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (dest))
     type_d = TREE_TYPE (gimple_assign_lhs (dest));
   else if (gimple_code (dest) == GIMPLE_COND)
     type_d = boolean_type_node;
-  else if (gimple_code (dest) == GIMPLE_CALL
+  else if (is_gimple_call (dest)
            && gimple_call_lhs (dest) != NULL_TREE)
     type_d = TREE_TYPE (gimple_call_lhs (dest));
   else
@@ -439,7 +439,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
 {
   gimple stmt = gsi_stmt (*gsi);
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       tree expr = NULL_TREE;
       if (gimple_assign_single_p (stmt))
@@ -457,7 +457,7 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       gimple_cond_set_lhs (stmt, lhs);
       gimple_cond_set_rhs (stmt, rhs);
     }
-  else if (gimple_code (stmt) == GIMPLE_CALL
+  else if (is_gimple_call (stmt)
            && gimple_call_lhs (stmt) != NULL_TREE)
     {
       gimple new_stmt;

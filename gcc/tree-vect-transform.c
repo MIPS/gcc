@@ -2802,7 +2802,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
         inside the loop body. The last operand is the reduction variable,
         which is defined by the loop-header-phi.  */
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
   /* Flatten RHS */
   switch (get_gimple_rhs_class (gimple_assign_rhs_code (stmt)))

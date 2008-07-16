@@ -805,7 +805,7 @@ verify_ssa (bool check_modified_stmt)
 	      goto err;
 	    }
 
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  if (is_gimple_assign (stmt)
 	      && TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
 	    {
 	      tree lhs, base_address;

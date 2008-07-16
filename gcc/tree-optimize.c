@@ -300,7 +300,7 @@ execute_fixup_cfg (void)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
 	    gimple stmt = gsi_stmt (gsi);
-	    tree decl = gimple_code (stmt) == GIMPLE_CALL
+	    tree decl = is_gimple_call (stmt)
 	                ? gimple_call_fndecl (stmt)
 			: NULL;
 

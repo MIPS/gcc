@@ -995,7 +995,7 @@ name_for_ref (dref ref)
 {
   tree name;
 
-  if (gimple_code (ref->stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (ref->stmt))
     {
       if (!ref->ref || DR_IS_READ (ref->ref))
 	name = gimple_assign_lhs (ref->stmt);
@@ -1067,7 +1067,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
   struct data_reference init_dr;
   gimple_stmt_iterator psi;
 
-  if (gimple_code (ref->stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (ref->stmt))
     {
       if (DR_IS_READ (ref->ref))
 	name = gimple_assign_lhs (ref->stmt);
@@ -1252,7 +1252,7 @@ replace_ref_with (gimple stmt, tree new, bool set, bool in_lhs)
       
   /* Since the reference is of gimple_reg type, it should only
      appear as lhs or rhs of modify statement.  */
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
   bsi = gsi_for_stmt (stmt);
 
@@ -2183,7 +2183,7 @@ remove_name_from_operation (gimple stmt, tree op)
   tree other_op;
   gimple_stmt_iterator si;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
   if (gimple_assign_rhs1 (stmt) == op)
     other_op = gimple_assign_rhs2 (stmt);

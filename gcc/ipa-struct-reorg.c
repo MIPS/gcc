@@ -314,7 +314,7 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
      D.2229_10 = <alloc_func> (D.2228_9);
      then size_def_stmt can be D.2228_9 = num.3_8 * 8;  */
 
-  if (size_def_stmt && gimple_code (size_def_stmt) == GIMPLE_ASSIGN)
+  if (size_def_stmt && is_gimple_assign (size_def_stmt))
     {
       tree lhs = gimple_assign_lhs (size_def_stmt);
 
@@ -1259,7 +1259,7 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
       gcc_assert (new_var);
       finalize_var_creation (new_var);
 
-      if (gimple_code (new_stmt) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (new_stmt))
 	{
 	  lhs = gimple_assign_lhs (new_stmt);
 	  

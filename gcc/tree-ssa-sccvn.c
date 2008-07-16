@@ -2115,7 +2115,7 @@ visit_use (tree use)
 	       || gimple_has_volatile_ops (stmt)
 	       || stmt_could_throw_p (stmt))
 	changed = defs_to_varying (stmt);
-      else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+      else if (is_gimple_assign (stmt))
 	{
 	  tree lhs = gimple_assign_lhs (stmt);
 	  tree simplified;

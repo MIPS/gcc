@@ -3747,7 +3747,7 @@ find_func_aliases (gimple origt)
 
      In non-ipa mode, we need to generate constraints for each
      pointer passed by address.  */
-  else if (gimple_code (t) == GIMPLE_CALL)
+  else if (is_gimple_call (t))
     {
       if (!in_ipa_mode)
 	{
@@ -3859,7 +3859,7 @@ find_func_aliases (gimple origt)
   /* Otherwise, just a regular assignment statement.  Only care about
      operations with pointer result, others are dealt with as escape
      points if they have pointer operands.  */
-  else if (gimple_code (t) == GIMPLE_ASSIGN
+  else if (is_gimple_assign (t)
 	   && could_have_pointers (gimple_assign_lhs (t)))
     {
       /* Otherwise, just a regular assignment statement.  */

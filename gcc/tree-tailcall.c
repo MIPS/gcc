@@ -396,7 +396,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	continue;
 
       /* Check for a call.  */
-      if (gimple_code (stmt) == GIMPLE_CALL)
+      if (is_gimple_call (stmt))
 	{
 	  call = stmt;
 	  ass_var = gimple_call_lhs (stmt);
@@ -721,7 +721,7 @@ eliminate_tail_call (struct tailcall *t)
       fprintf (dump_file, "\n");
     }
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
 
   first = single_succ (ENTRY_BLOCK_PTR);
 

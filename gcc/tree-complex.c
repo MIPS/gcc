@@ -766,7 +766,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
   tree r, i, lhs, rhs;
   gimple stmt = gsi_stmt (*gsi);
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       lhs = gimple_assign_lhs (stmt);
       if (gimple_num_ops (stmt) == 2)
@@ -774,7 +774,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
       else
 	rhs = NULL_TREE;
     }
-  else if (gimple_code (stmt) == GIMPLE_CALL)
+  else if (is_gimple_call (stmt))
     {
       lhs = gimple_call_lhs (stmt);
       rhs = NULL_TREE;
@@ -802,7 +802,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 	  i = build1 (IMAGPART_EXPR, inner_type, lhs);
 	  update_complex_components_on_edge (e, lhs, r, i);
 	}
-      else if (gimple_code (stmt) == GIMPLE_CALL
+      else if (is_gimple_call (stmt)
 	       || gimple_has_side_effects (stmt)
 	       || gimple_assign_rhs_code (stmt) == PAREN_EXPR)
 	{
@@ -1475,7 +1475,7 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
 
   /* Extract the components of the two complex values.  Make sure and
      handle the common case of the same value used twice specially.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       ac = gimple_assign_rhs1 (stmt);
       bc = (gimple_num_ops (stmt) > 2) ? gimple_assign_rhs2 (stmt) : NULL;

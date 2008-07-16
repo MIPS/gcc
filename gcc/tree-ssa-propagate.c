@@ -717,7 +717,7 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
   gimple stmt = gsi_stmt (*si_p);
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
 
   lhs = gimple_call_lhs (stmt);
 
@@ -1357,7 +1357,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 	      if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 		gimple_purge_dead_eh_edges (bb);
 
-              if (gimple_code (stmt) == GIMPLE_ASSIGN
+              if (is_gimple_assign (stmt)
                   && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
                       == GIMPLE_SINGLE_RHS))
               {

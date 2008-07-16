@@ -353,10 +353,10 @@ get_default_value (tree var)
 	  else
 	    val.lattice_val = VARYING;
 	}
-      else if (gimple_code (stmt) == GIMPLE_ASSIGN
+      else if (is_gimple_assign (stmt)
                /* Value-returning GIMPLE_CALL statements assign to
                   a variable, and are treated similarly to GIMPLE_ASSIGN.  */
-               || (gimple_code (stmt) == GIMPLE_CALL
+               || (is_gimple_call (stmt)
                    && gimple_call_lhs (stmt) != NULL_TREE)
 	       || gimple_code (stmt) == GIMPLE_PHI)
         {
@@ -631,7 +631,7 @@ surely_varying_stmt_p (gimple stmt)
     }
 
   /* If it contains a call, it is varying.  */
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     return true;
 
   /* Anything other than assignments and conditional jumps are not
@@ -2441,7 +2441,7 @@ ccp_fold_builtin (gimple stmt)
   bool ignore;
   int nargs;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
 
   ignore = (gimple_call_lhs (stmt) == NULL);
 
@@ -3069,7 +3069,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 
   stmt = gsi_stmt (*si_p);
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
 
   lhs = gimple_call_lhs (stmt);
 

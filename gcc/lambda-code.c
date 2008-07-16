@@ -2141,7 +2141,7 @@ can_put_in_inner_loop (struct loop *inner, gimple stmt)
   imm_use_iterator imm_iter;
   use_operand_p use_p;
   
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
   if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)
       || !stmt_invariant_in_loop_p (inner, stmt))
     return false;
@@ -2279,7 +2279,7 @@ cannot_convert_bb_to_perfect_nest (basic_block bb, struct loop *loop)
 	  || stmt_is_bumper_for_loop (loop, stmt))
 	continue;
 
-      if (gimple_code (stmt) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (stmt))
 	{
 	  if (cannot_convert_modify_to_perfect_nest (stmt, loop))
 	    return true;

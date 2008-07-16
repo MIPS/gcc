@@ -282,7 +282,7 @@ is_overflow_infinity (const_tree val)
 static inline bool
 stmt_overflow_infinity (gimple stmt)
 {
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (stmt)
       && get_gimple_rhs_class (gimple_assign_rhs_code (stmt)) ==
       GIMPLE_SINGLE_RHS)
     return is_overflow_infinity (gimple_assign_rhs1 (stmt));
@@ -923,7 +923,7 @@ vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
 
   /* If we have an expression of the form &X->a, then the expression
      is nonnull if X is nonnull.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (stmt)
       && gimple_assign_rhs_code (stmt) == ADDR_EXPR)
     {
       tree expr = gimple_assign_rhs1 (stmt);
@@ -3929,7 +3929,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       tree cst2 = NULL_TREE, name2 = NULL_TREE, name3 = NULL_TREE;
 
       /* Extract CST2 from the (optional) addition.  */
-      if (gimple_code (def_stmt) == GIMPLE_ASSIGN
+      if (is_gimple_assign (def_stmt)
 	  && gimple_assign_rhs_code (def_stmt) == PLUS_EXPR)
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
@@ -4149,7 +4149,7 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (gimple_code (def_stmt) == GIMPLE_ASSIGN
+      if (is_gimple_assign (def_stmt)
 	  && (gimple_assign_rhs_code (def_stmt) == TRUTH_AND_EXPR
 	      || gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR))
 	{
@@ -4168,7 +4168,7 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (name);
 
-      if (gimple_code (def_stmt) == GIMPLE_ASSIGN
+      if (is_gimple_assign (def_stmt)
 	  && (gimple_assign_rhs_code (def_stmt) == TRUTH_OR_EXPR
 	      /* For BIT_IOR_EXPR only if NAME == 0 both operands have
 		 necessarily zero value.  */
@@ -4532,7 +4532,7 @@ find_assert_locations (basic_block bb)
 		  tree t = op;
 		  gimple def_stmt = SSA_NAME_DEF_STMT (t);
 	
-		  while (gimple_code (def_stmt) == GIMPLE_ASSIGN
+		  while (is_gimple_assign (def_stmt)
 			 && gimple_assign_rhs_code (def_stmt)  == NOP_EXPR
 			 && TREE_CODE
 			     (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
@@ -4930,7 +4930,7 @@ check_all_array_refs (void)
 	  if (!gimple_has_location (stmt))
 	    continue;
 
-	  if (gimple_code (stmt) == GIMPLE_CALL)
+	  if (is_gimple_call (stmt))
 	    {
 	      size_t i;
 	      size_t n = gimple_call_num_args (stmt);
@@ -4992,7 +4992,7 @@ remove_range_assertions (void)
 	gimple stmt = gsi_stmt (si);
 	gimple use_stmt;
 
-	if (gimple_code (stmt) == GIMPLE_ASSIGN
+	if (is_gimple_assign (stmt)
 	    && gimple_assign_rhs_code (stmt) == ASSERT_EXPR)
 	  {
 	    tree rhs = gimple_assign_rhs1 (stmt);
@@ -5035,8 +5035,7 @@ stmt_interesting_for_vrp (gimple stmt)
       && (INTEGRAL_TYPE_P (TREE_TYPE (gimple_phi_result (stmt)))
 	  || POINTER_TYPE_P (TREE_TYPE (gimple_phi_result (stmt)))))
     return true;
-  else if (gimple_code (stmt) == GIMPLE_ASSIGN
-	   || gimple_code (stmt) == GIMPLE_CALL)
+  else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
     {
       tree lhs = gimple_get_lhs (stmt);
 
@@ -5046,7 +5045,7 @@ stmt_interesting_for_vrp (gimple stmt)
       if (lhs && TREE_CODE (lhs) == SSA_NAME
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	      || POINTER_TYPE_P (TREE_TYPE (lhs)))
-	  && ((gimple_code (stmt) == GIMPLE_CALL
+	  && ((is_gimple_call (stmt)
 	       && TREE_CODE (gimple_call_fn (stmt)) == ADDR_EXPR
 	       && DECL_P (TREE_OPERAND (gimple_call_fn (stmt), 0))
 	       && DECL_IS_BUILTIN (TREE_OPERAND (gimple_call_fn (stmt), 0)))
@@ -5839,14 +5838,13 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
       fprintf (dump_file, "\n");
     }
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
-      || gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_assign (stmt) || is_gimple_call (stmt))
     {
       /* In general, assignments with virtual operands are not useful
 	 for deriving ranges, with the obvious exception of calls to
 	 builtin functions.  */
 
-      if ((gimple_code (stmt) == GIMPLE_CALL
+      if ((is_gimple_call (stmt)
 	   && TREE_CODE (gimple_call_fn (stmt)) == ADDR_EXPR
 	   && DECL_P (TREE_OPERAND (gimple_call_fn (stmt), 0))
 	   && DECL_IS_BUILTIN (TREE_OPERAND (gimple_call_fn (stmt), 0)))
@@ -6525,7 +6523,7 @@ simplify_switch_using_ranges (gimple stmt)
 void
 simplify_stmt_using_ranges (gimple stmt)
 {
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 

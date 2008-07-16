@@ -138,7 +138,7 @@ tree_nrv (void)
 	      if (ret_val)
 		gcc_assert (ret_val == result);
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  else if (is_gimple_assign (stmt)
 		   && gimple_assign_lhs (stmt) == result)
 	    {
               tree rhs;
@@ -173,7 +173,7 @@ tree_nrv (void)
 					        TREE_TYPE (found)))
 		return 0;
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+	  else if (is_gimple_assign (stmt))
 	    {
 	      tree addr = get_base_address (gimple_assign_lhs (stmt));
 	       /* If there's any MODIFY of component of RESULT, 
@@ -305,7 +305,7 @@ execute_return_slot_opt (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  bool slot_opt_p;
 
-	  if (gimple_code (stmt) == GIMPLE_CALL
+	  if (is_gimple_call (stmt)
 	      && gimple_call_lhs (stmt)
 	      && !gimple_call_return_slot_opt_p (stmt)
 	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),

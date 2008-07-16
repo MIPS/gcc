@@ -371,7 +371,7 @@ movement_possibility (gimple stmt)
       || stmt_could_throw_p (stmt))
     return MOVE_IMPOSSIBLE;
 
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     {
       /* While pure or const call is guaranteed to have no side effects, we
 	 cannot move it arbitrarily.  Consider code like
@@ -394,7 +394,7 @@ movement_possibility (gimple stmt)
       ret = MOVE_PRESERVE_EXECUTION;
       lhs = gimple_call_lhs (stmt);
     }
-  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  else if (is_gimple_assign (stmt))
     lhs = gimple_assign_lhs (stmt);
   else
     return MOVE_IMPOSSIBLE;
@@ -520,7 +520,7 @@ stmt_cost (gimple stmt)
   if (gimple_references_memory_p (stmt))
     cost += 20;
 
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     {
       /* We should be hoisting calls if possible.  */
 
@@ -917,7 +917,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  continue;
 	}
 
-      if (gimple_code (stmt) == GIMPLE_ASSIGN
+      if (is_gimple_assign (stmt)
 	  && (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 	      == GIMPLE_BINARY_RHS))
 	{

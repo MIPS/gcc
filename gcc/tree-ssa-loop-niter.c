@@ -2699,7 +2699,7 @@ infer_loop_bounds_from_ref (struct loop *loop, gimple stmt, tree ref,
 static void
 infer_loop_bounds_from_array (struct loop *loop, gimple stmt, bool reliable)
 {
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       tree op0 = gimple_assign_lhs (stmt);
       tree op1 = gimple_assign_rhs1 (stmt);
@@ -2712,7 +2712,7 @@ infer_loop_bounds_from_array (struct loop *loop, gimple stmt, bool reliable)
       if (REFERENCE_CLASS_P (op1))
 	infer_loop_bounds_from_ref (loop, stmt, op1, reliable);
     }
-  else if (gimple_code (stmt) == GIMPLE_CALL)
+  else if (is_gimple_call (stmt))
     {
       tree arg, lhs;
       unsigned i, n = gimple_call_num_args (stmt);

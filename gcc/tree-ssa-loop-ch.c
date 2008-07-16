@@ -83,7 +83,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (gimple_code (last) == GIMPLE_LABEL)
 	continue;
 
-      if (gimple_code (last) == GIMPLE_CALL)
+      if (is_gimple_call (last))
 	return false;
 
       *limit -= estimate_num_insns (last, &eni_size_weights);
@@ -224,7 +224,7 @@ copy_loop_headers (void)
 		  gimple stmt = gsi_stmt (bsi);
 		  if (gimple_code (stmt) == GIMPLE_COND)
 		    gimple_set_no_warning (stmt, true);
-		  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+		  else if (is_gimple_assign (stmt))
 		    {
 		      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 		      if (TREE_CODE_CLASS (rhs_code) == tcc_comparison)

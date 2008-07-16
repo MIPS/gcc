@@ -803,8 +803,8 @@ static inline bool
 identical_copies_p (const_gimple s1, const_gimple s2)
 {
 #ifdef ENABLE_CHECKING
-  gcc_assert (gimple_code (s1) == GIMPLE_ASSIGN);
-  gcc_assert (gimple_code (s2) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (s1));
+  gcc_assert (is_gimple_assign (s2));
   gcc_assert (DECL_P (gimple_assign_lhs (s1)));
   gcc_assert (DECL_P (gimple_assign_lhs (s2)));
 #endif

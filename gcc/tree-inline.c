@@ -1274,7 +1274,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
       /* With return slot optimization we can end up with
 	 non-gimple (foo *)&this->m, fix that here.  */
-      if ((gimple_code (stmt) == GIMPLE_ASSIGN
+      if ((is_gimple_assign (stmt)
 	    && gimple_assign_rhs_code (stmt) == NOP_EXPR
 	    && !is_gimple_val (gimple_assign_rhs1 (stmt)))
 	  || id->regimplify)
@@ -1295,7 +1295,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	 need to process all of them.  */
       while (!gsi_end_p (copy_gsi))
 	{
-	  if (gimple_code (stmt) == GIMPLE_CALL
+	  if (is_gimple_call (stmt)
 	      && gimple_call_va_arg_pack_p (stmt)
 	      && id->gimple_call)
 	    {
@@ -1342,7 +1342,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	      gsi_replace (&copy_gsi, new_call, false);
 	      stmt = new_call;
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_CALL
+	  else if (is_gimple_call (stmt)
 		   && id->gimple_call
 		   && (decl = gimple_call_fndecl (stmt))
 		   && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
@@ -3350,7 +3350,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   /* If the value of the new expression is ignored, that's OK.  We
      don't warn about this for CALL_EXPRs, so we shouldn't warn about
      the equivalent inlined version either.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       gcc_assert (gimple_assign_single_p (stmt));
       TREE_USED (gimple_assign_rhs1 (stmt)) = 1;
@@ -3388,7 +3388,7 @@ gimple_expand_calls_inline (basic_block bb, copy_body_data *id)
     {
       gimple stmt = gsi_stmt (gsi);
 
-      if (gimple_code (stmt) == GIMPLE_CALL
+      if (is_gimple_call (stmt)
 	  && expand_call_inline (bb, stmt, id))
 	return true;
     }
@@ -3422,7 +3422,7 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 		  gimple new_stmt = gsi_stmt (gsi);
 		  update_stmt (new_stmt);
 
-		  if (gimple_code (old_stmt) == GIMPLE_CALL)
+		  if (is_gimple_call (old_stmt))
 		    cgraph_update_edges_for_call_stmt (old_stmt, new_stmt);
 
 		  if (maybe_clean_or_replace_eh_stmt (old_stmt, new_stmt))

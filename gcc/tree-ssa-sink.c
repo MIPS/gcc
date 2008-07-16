@@ -143,8 +143,7 @@ is_hidden_global_store (gimple stmt)
     {
       tree lhs;
 
-      gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
-                  || gimple_code (stmt) == GIMPLE_CALL);
+      gcc_assert (is_gimple_assign (stmt) || is_gimple_call (stmt));
 
       /* Note that we must not check the individual virtual operands
 	 here.  In particular, if this is an aliased store, we could

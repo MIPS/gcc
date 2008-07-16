@@ -1848,14 +1848,14 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
   opt_stats.num_exprs_considered++;
 
   /* Get the type of the expression we are trying to optimize.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     {
       expr_type = TREE_TYPE (gimple_assign_lhs (stmt));
       assigns_var_p = true;
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
     expr_type = boolean_type_node;
-  else if (gimple_code (stmt) == GIMPLE_CALL)
+  else if (is_gimple_call (stmt))
     {
       gcc_assert (gimple_call_lhs (stmt));
       expr_type = TREE_TYPE (gimple_call_lhs (stmt));
@@ -1921,7 +1921,7 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
 static bool
 gimple_assign_unary_useless_conversion_p (gimple gs)
 {
-  if (gimple_code (gs) == GIMPLE_ASSIGN
+  if (is_gimple_assign (gs)
       && (gimple_assign_rhs_code (gs) == NOP_EXPR
           || gimple_assign_rhs_code (gs) == CONVERT_EXPR
           || gimple_assign_rhs_code (gs) == VIEW_CONVERT_EXPR
@@ -1947,7 +1947,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
   tree lhs;
   enum tree_code lhs_code;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (stmt));
 
   lhs = gimple_assign_lhs (stmt);
   lhs_code = TREE_CODE (lhs);
@@ -2238,9 +2238,9 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Check for redundant computations.  Do this optimization only
      for assignments that have no volatile ops and conditionals.  */
   may_optimize_p = (!gimple_has_volatile_ops (stmt)
-                    && ((gimple_code (stmt) == GIMPLE_ASSIGN
+                    && ((is_gimple_assign (stmt)
                          && !gimple_rhs_has_side_effects (stmt))
-                        || (gimple_code (stmt) == GIMPLE_CALL
+                        || (is_gimple_call (stmt)
                             && gimple_call_lhs (stmt) != NULL_TREE
                             && !gimple_rhs_has_side_effects (stmt))
                         || gimple_code (stmt) == GIMPLE_COND
@@ -2253,7 +2253,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 
   /* Record any additional equivalences created by this statement.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (stmt))
     record_equivalences_from_stmt (stmt, may_optimize_p);
 
   /* If STMT is a COND_EXPR and it was modified, then we may know
@@ -2552,7 +2552,7 @@ get_lhs_or_phi_result (gimple stmt)
 {
   if (gimple_code (stmt) == GIMPLE_PHI)
     return gimple_phi_result (stmt);
-  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  else if (is_gimple_assign (stmt))
     return gimple_assign_lhs (stmt);
   else
     gcc_unreachable ();

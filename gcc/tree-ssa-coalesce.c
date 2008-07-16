@@ -858,7 +858,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 	     
 	     This is handled by simply removing the SRC of the copy from the 
 	     live list, and processing the stmt normally.  */
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+	  if (is_gimple_assign (stmt))
 	    {
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs1 = gimple_assign_rhs1 (stmt);

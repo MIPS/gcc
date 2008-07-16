@@ -551,7 +551,7 @@ gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
   edge e12, e13, e23, e24, e34;
   gimple_stmt_iterator gsi;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+  gcc_assert (is_gimple_assign (stmt)
 	      && (gimple_assign_rhs_code (stmt) == TRUNC_DIV_EXPR
 		  || gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR));
 
@@ -712,7 +712,7 @@ gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
   gimple_stmt_iterator gsi;
   tree result;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+  gcc_assert (is_gimple_assign (stmt)
 	      && gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR);
 
   optype = TREE_TYPE (gimple_assign_lhs (stmt));
@@ -872,7 +872,7 @@ gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
   gimple_stmt_iterator gsi;
   tree result;
 
-  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN
+  gcc_assert (is_gimple_assign (stmt)
 	      && gimple_assign_rhs_code (stmt) == TRUNC_MOD_EXPR);
 
   optype = TREE_TYPE (gimple_assign_lhs (stmt));

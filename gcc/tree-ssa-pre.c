@@ -2341,7 +2341,7 @@ can_value_number_call (gimple stmt)
 static bool
 is_exception_related (gimple stmt)
 {
-  return (gimple_code (stmt) == GIMPLE_ASSIGN
+  return (is_gimple_assign (stmt)
 	  && (gimple_assign_rhs_code (stmt) == FILTER_EXPR
 	      || gimple_assign_rhs_code (stmt) == EXC_PTR_EXPR));
 }

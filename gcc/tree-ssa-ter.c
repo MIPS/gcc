@@ -406,7 +406,7 @@ is_replaceable_p (gimple stmt)
     return false;
 
   /* No function calls can be replaced.  */
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     return false;
 
   /* Leave any stmt with volatile operands alone as well.  */

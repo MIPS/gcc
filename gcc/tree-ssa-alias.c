@@ -1915,10 +1915,10 @@ count_uses_and_derefs (tree ptr, gimple stmt, unsigned *num_uses_p,
      find all the indirect and direct uses of x_1 inside.  The only
      shortcut we can take is the fact that GIMPLE only allows
      INDIRECT_REFs inside the expressions below.  */
-  if (gimple_code (stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (stmt)
       || gimple_code (stmt) == GIMPLE_RETURN
       || gimple_code (stmt) == GIMPLE_ASM
-      || gimple_code (stmt) == GIMPLE_CALL)
+      || is_gimple_call (stmt))
     {
       struct walk_stmt_info wi;
       struct count_ptr_d count;
@@ -2644,7 +2644,7 @@ update_alias_info_1 (gimple stmt, struct alias_info *ai)
 	  /* If the statement makes a function call, assume
 	     that pointer OP will be dereferenced in a store
 	     operation inside the called function.  */
-	  if (gimple_code (stmt) == GIMPLE_CALL
+	  if (is_gimple_call (stmt)
 	      || stmt_escape_type == ESCAPE_STORED_IN_GLOBAL)
 	    {
 	      pointer_set_insert (ai->dereferenced_ptrs_store, var);
@@ -3161,7 +3161,7 @@ set_pt_anything (tree ptr)
 enum escape_type
 is_escape_site (gimple stmt)
 {
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     {
       if (gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST))
 	return ESCAPE_TO_PURE_CONST;
@@ -3170,7 +3170,7 @@ is_escape_site (gimple stmt)
     }
   else if (gimple_code (stmt) == GIMPLE_ASM)
     return ESCAPE_TO_ASM;
-  else if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  else if (is_gimple_assign (stmt))
     {
       tree lhs = gimple_assign_lhs (stmt);
 

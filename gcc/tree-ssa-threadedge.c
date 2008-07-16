@@ -322,7 +322,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	 remaining bytes. If we use only one edge on the phi, the result will
 	 change to be the remaining bytes for the corresponding phi argument. */
 
-      if (gimple_code (stmt) == GIMPLE_CALL)
+      if (is_gimple_call (stmt))
 	{
 	  tree fndecl = gimple_call_fndecl (stmt);
 	  if (fndecl && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_OBJECT_SIZE)
@@ -371,7 +371,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 
 	  /* Try to fold/lookup the new expression.  Inserting the
 	     expression into the hash table is unlikely to help.  */
-          if (gimple_code (stmt) == GIMPLE_CALL)
+          if (is_gimple_call (stmt))
             cached_lhs = fold_call_stmt (stmt, false);
 	  else
             cached_lhs = fold_assignment_stmt (stmt);

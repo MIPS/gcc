@@ -3136,7 +3136,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
       if (is_output
 	  && TREE_CODE (elt->replacement) == BIT_FIELD_REF
 	  && is_gimple_reg (TREE_OPERAND (elt->replacement, 0))
-	  && gimple_code (stmt) == GIMPLE_ASSIGN
+	  && is_gimple_assign (stmt)
 	  && gimple_assign_lhs_ptr (stmt) == expr_p)
 	{
           gimple_seq newseq;
@@ -3148,7 +3148,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
 	}
       else if (!is_output
 	       && TREE_CODE (elt->replacement) == BIT_FIELD_REF
-	       && gimple_code (stmt) == GIMPLE_ASSIGN
+	       && is_gimple_assign (stmt)
 	       && gimple_assign_rhs1_ptr (stmt) == expr_p)
 	{
 	  tree tmp = make_rename_temp
@@ -3164,7 +3164,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
       update_stmt (stmt);
     }
   else if (use_all && is_output
-	   && gimple_code (stmt) == GIMPLE_ASSIGN
+	   && is_gimple_assign (stmt)
 	   && TREE_CODE (bfexpr
 			 = gimple_assign_lhs (stmt)) == BIT_FIELD_REF
 	   && &TREE_OPERAND (bfexpr, 0) == expr_p
@@ -3225,7 +3225,7 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, gimple_stmt_iterator *gsi,
 	update_stmt (stmt);
     }
   else if (use_all && !is_output
-	   && gimple_code (stmt) == GIMPLE_ASSIGN
+	   && is_gimple_assign (stmt)
 	   && TREE_CODE (bfexpr
 			 = gimple_assign_rhs1 (stmt)) == BIT_FIELD_REF
 	   && &TREE_OPERAND (gimple_assign_rhs1 (stmt), 0) == expr_p
@@ -3328,7 +3328,7 @@ scalarize_copy (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
 
       /* See the commentary in sra_walk_function concerning
 	 RETURN_EXPR, and why we should never see one here.  */
-      gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+      gcc_assert (is_gimple_assign (stmt));
       gcc_assert (gimple_assign_copy_p (stmt));
 
 

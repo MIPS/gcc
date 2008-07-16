@@ -238,7 +238,7 @@ ipa_count_arguments (struct cgraph_edge *cs)
   int arg_num;
 
   stmt = cs->call_stmt;
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
   arg_num = gimple_call_num_args (stmt);
   ipa_set_cs_argument_count (IPA_EDGE_REF (cs), arg_num);
 }
@@ -263,7 +263,7 @@ ipa_compute_jump_functions (struct cgraph_edge *cs)
 				   ipa_get_cs_argument_count (args));
 
   stmt = cs->call_stmt;
-  gcc_assert (gimple_code (stmt) == GIMPLE_CALL);
+  gcc_assert (is_gimple_call (stmt));
 
   for (arg_num = 0; arg_num < gimple_call_num_args (stmt); arg_num++)
     {

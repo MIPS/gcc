@@ -273,7 +273,7 @@ compute_merit (struct occurrence *occ)
 static inline bool
 is_division_by (gimple use_stmt, tree def)
 {
-  return gimple_code (use_stmt) == GIMPLE_ASSIGN
+  return is_gimple_assign (use_stmt)
 	 && gimple_assign_rhs_code (use_stmt) == RDIV_EXPR
 	 && gimple_assign_rhs2 (use_stmt) == def
 	 /* Do not recognize x / x as valid division, as we are getting
@@ -506,7 +506,7 @@ execute_cse_reciprocals (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree fndecl;
 
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  if (is_gimple_assign (stmt)
 	      && gimple_assign_rhs_code (stmt) == RDIV_EXPR)
 	    {
 	      tree arg1 = gimple_assign_rhs2 (stmt);
@@ -517,7 +517,7 @@ execute_cse_reciprocals (void)
 
 	      stmt1 = SSA_NAME_DEF_STMT (arg1);
 
-	      if (gimple_code (stmt1) == GIMPLE_CALL
+	      if (is_gimple_call (stmt1)
 		  && gimple_call_lhs (stmt1)
 		  && (fndecl = gimple_call_fndecl (stmt1))
 		  && (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -728,7 +728,7 @@ execute_cse_sincos (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree fndecl;
 
-	  if (gimple_code (stmt) == GIMPLE_CALL
+	  if (is_gimple_call (stmt)
 	      && gimple_call_lhs (stmt)
 	      && (fndecl = gimple_call_fndecl (stmt))
 	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
@@ -801,7 +801,7 @@ execute_convert_to_rsqrt (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree fndecl;
 
-	  if (gimple_code (stmt) == GIMPLE_CALL
+	  if (is_gimple_call (stmt)
 	      && gimple_call_lhs (stmt)
 	      && (fndecl = gimple_call_fndecl (stmt))
 	      && (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -826,7 +826,7 @@ execute_convert_to_rsqrt (void)
 
 	      stmt1 = SSA_NAME_DEF_STMT (arg1);
 
-	      if (gimple_code (stmt1) == GIMPLE_ASSIGN
+	      if (is_gimple_assign (stmt1)
 		  && gimple_assign_rhs_code (stmt1) == RDIV_EXPR)
 		{
 		  tree arg10, arg11;

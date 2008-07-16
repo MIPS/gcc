@@ -3808,7 +3808,7 @@ verify_stmt (gimple_stmt_iterator *gsi)
 
   /* FIXME.  The C frontend passes unpromoted arguments in case it
      didn't see a function declaration before the call.  */
-  if (gimple_code (stmt) == GIMPLE_CALL)
+  if (is_gimple_call (stmt))
     {
       tree decl = gimple_call_fn (stmt);
 

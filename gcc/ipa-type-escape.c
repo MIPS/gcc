@@ -768,7 +768,7 @@ look_for_casts_stmt (gimple s)
 {
   unsigned int cast = 0;
 
-  gcc_assert (gimple_code (s) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (s));
 
   if (gimple_assign_cast_p (s))
     {
@@ -810,7 +810,7 @@ is_cast_from_non_pointer (tree var, gimple def_stmt, void *data)
   if (SSA_NAME_IS_DEFAULT_DEF (var))
       return false;
 
-  if (gimple_code (def_stmt) == GIMPLE_ASSIGN)
+  if (is_gimple_assign (def_stmt))
     {
       use_operand_p use_p; 
       ssa_op_iter iter;

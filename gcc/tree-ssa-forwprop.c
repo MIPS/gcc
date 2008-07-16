@@ -257,7 +257,7 @@ can_propagate_from (gimple def_stmt)
   use_operand_p use_p;
   ssa_op_iter iter;
 
-  gcc_assert (gimple_code (def_stmt) == GIMPLE_ASSIGN);
+  gcc_assert (is_gimple_assign (def_stmt));
   /* If the rhs has side-effects we cannot propagate from it.  */
   if (gimple_has_volatile_ops (def_stmt))
     return false;
@@ -281,7 +281,7 @@ can_propagate_from (gimple def_stmt)
      then we can not apply optimizations as some targets require
      function pointers to be canonicalized and in this case this
      optimization could eliminate a necessary canonicalization.  */
-  if (gimple_code (def_stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (def_stmt)
       && (IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))))
     {
       tree rhs = gimple_assign_rhs1 (def_stmt);
@@ -938,7 +938,7 @@ forward_propagate_comparison (gimple stmt)
     return false;
 
   /* Conversion of the condition result to another integral type.  */
-  if (gimple_code (use_stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (use_stmt)
       && (IS_CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (use_stmt))
 	  || TREE_CODE_CLASS (gimple_assign_rhs_code (use_stmt))
 	     == tcc_comparison
@@ -1041,7 +1041,7 @@ simplify_not_neg_expr (gimple_stmt_iterator *gsi_p)
   gimple rhs_def_stmt = SSA_NAME_DEF_STMT (rhs);
 
   /* See if the RHS_DEF_STMT has the same form as our statement.  */
-  if (gimple_code (rhs_def_stmt) == GIMPLE_ASSIGN
+  if (is_gimple_assign (rhs_def_stmt)
       && gimple_assign_rhs_code (rhs_def_stmt) == gimple_assign_rhs_code (stmt))
     {
       tree rhs_def_operand = gimple_assign_rhs1 (rhs_def_stmt);
@@ -1073,7 +1073,7 @@ simplify_gimple_switch (gimple stmt)
   if (TREE_CODE (cond) == SSA_NAME)
     {
       def_stmt = SSA_NAME_DEF_STMT (cond);
-      if (gimple_code (def_stmt) == GIMPLE_ASSIGN)
+      if (is_gimple_assign (def_stmt))
 	{
 	  if (gimple_assign_rhs_code (def_stmt) == NOP_EXPR)
 	    {
@@ -1135,7 +1135,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
 	  /* If this statement sets an SSA_NAME to an address,
 	     try to propagate the address into the uses of the SSA_NAME.  */
-	  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+	  if (is_gimple_assign (stmt))
 	    {
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs = gimple_assign_rhs1 (stmt);

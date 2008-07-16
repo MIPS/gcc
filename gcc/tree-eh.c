@@ -2383,7 +2383,7 @@ stmt_could_throw_p (gimple stmt)
 
   if (code == GIMPLE_ASSIGN || code == GIMPLE_COND)
     return stmt_could_throw_1_p (stmt);
-  else if (gimple_code (stmt) == GIMPLE_CALL)
+  else if (is_gimple_call (stmt))
     {
       tree t = gimple_call_fndecl (stmt);
 

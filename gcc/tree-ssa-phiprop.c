@@ -119,7 +119,7 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
       FOR_EACH_IMM_USE_STMT (use_stmt, ui2, vuse)
 	{
 	  /* If BB does not dominate a VDEF, the value is invalid.  */
-	  if (((gimple_code (use_stmt) == GIMPLE_ASSIGN
+	  if (((is_gimple_assign (use_stmt)
 	        && !ZERO_SSA_OPERANDS (use_stmt, SSA_OP_VDEF))
 	       || gimple_code (use_stmt) == GIMPLE_PHI)
 	      && !dominated_by_p (CDI_DOMINATORS, gimple_bb (use_stmt), bb))
@@ -147,7 +147,7 @@ phiprop_insert_phi (basic_block bb, gimple phi, gimple use_stmt,
   edge_iterator ei;
   edge e;
 
-  gcc_assert (gimple_code (use_stmt) == GIMPLE_ASSIGN
+  gcc_assert (is_gimple_assign (use_stmt)
 	      && gimple_assign_rhs_code (use_stmt) == INDIRECT_REF);
 
   /* Build a new PHI node to replace the definition of
@@ -263,7 +263,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
   /* Find a dereferencing use.  First follow (single use) ssa
      copy chains for ptr.  */
   while (single_imm_use (ptr, &use, &use_stmt)
-	 && gimple_code (use_stmt) == GIMPLE_ASSIGN
+	 && is_gimple_assign (use_stmt)
 	 && gimple_assign_rhs1 (use_stmt) == ptr
 	 && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME)
     ptr = gimple_assign_lhs (use_stmt);
@@ -277,7 +277,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
       tree vuse;
 
       /* Check whether this is a load of *ptr.  */
-      if (!(gimple_code (use_stmt) == GIMPLE_ASSIGN
+      if (!(is_gimple_assign (use_stmt)
 	    && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME 
 	    && gimple_assign_rhs_code (use_stmt) == INDIRECT_REF
 	    && TREE_OPERAND (gimple_assign_rhs1 (use_stmt), 0) == ptr
