@@ -1010,7 +1010,7 @@ get_or_alloc_expr_for_constant (tree constant)
    a constant.  */
 
 static tree
-get_constant_for_value_id (unsigned int v)
+get_constant_for_value_id (unsigned int v, tree type)
 {
   if (value_id_constant_p (v))
     {
@@ -1021,7 +1021,8 @@ get_constant_for_value_id (unsigned int v)
       FOR_EACH_EXPR_ID_IN_SET (exprset, i, bi)
 	{
 	  pre_expr expr = expression_for_id (i);
-	  if (expr->kind == CONSTANT)
+	  if (expr->kind == CONSTANT
+	      && TREE_TYPE (PRE_EXPR_CONSTANT (expr)) == type)
 	    return PRE_EXPR_CONSTANT (expr);
 	}
     }
@@ -1065,8 +1066,10 @@ fully_constant_expression (pre_expr e)
 	      pre_expr rep1 = get_or_alloc_expr_for (naryop1);
 	      unsigned int vrep0 = get_expr_value_id (rep0);
 	      unsigned int vrep1 = get_expr_value_id (rep1);
-	      tree const0 = get_constant_for_value_id (vrep0);
-	      tree const1 = get_constant_for_value_id (vrep1);
+	      tree const0 = get_constant_for_value_id (vrep0,
+						       TREE_TYPE (nary->op[0]));
+	      tree const1 = get_constant_for_value_id (vrep1,
+						       TREE_TYPE (nary->op[1]));
 	      tree result = NULL;
 	      if (const0 && const1)
 		{
@@ -1088,7 +1091,8 @@ fully_constant_expression (pre_expr e)
 	      tree naryop0 = nary->op[0];
 	      pre_expr rep0 = get_or_alloc_expr_for (naryop0);
 	      unsigned int vrep0 = get_expr_value_id (rep0);
-	      tree const0 = get_constant_for_value_id (vrep0);
+	      tree const0 = get_constant_for_value_id (vrep0,
+						       TREE_TYPE (nary->op[0]));
 	      tree result = NULL;
 	      if (const0)
 		{

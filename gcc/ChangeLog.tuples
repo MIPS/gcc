@@ -1,3 +1,10 @@
+2008-07-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (get_constant_for_value_id): Only hand out
+	constants of the correct type.
+	(fully_constant_expression): Pass the required type to
+	get_constant_for_value_id.
+
 2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
 
 	Merge with mainline @137837.
