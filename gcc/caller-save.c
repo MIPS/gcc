@@ -1078,12 +1078,9 @@ calculate_local_save_info (void)
 	      IOR_HARD_REG_SET (loop_info->mentioned_regs, save_kill);
 	      IOR_HARD_REG_SET (loop_info->mentioned_regs, restore_kill);
 	    }
-	  SET_HARD_REG_SET (bb_info->save_in);
-	  AND_COMPL_HARD_REG_SET (bb_info->save_in, call_fixed_reg_set);
-	  SET_HARD_REG_SET (bb_info->restore_out);
-	  AND_COMPL_HARD_REG_SET (bb_info->restore_out, call_fixed_reg_set);
-	  SET_HARD_REG_SET (bb_info->free_in);
-	  AND_COMPL_HARD_REG_SET (bb_info->free_in, call_fixed_reg_set);
+	  CLEAR_HARD_REG_SET (bb_info->save_in);
+	  CLEAR_HARD_REG_SET (bb_info->restore_out);
+	  CLEAR_HARD_REG_SET (bb_info->free_in);
 	  /* We don't use LIVE for IRA.  */
 	  REG_SET_TO_HARD_REG_SET
 	    (bb_info->live_at_end,

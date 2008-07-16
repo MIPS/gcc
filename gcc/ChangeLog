@@ -1,3 +1,8 @@
+2008-07-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* caller-save.c (calculate_local_save_info): Clear save)in,
+	restore_out, free_in.
+
 2008-07-14  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* reload.h (struct insn): Add comment for live_throughout.
