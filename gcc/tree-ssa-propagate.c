@@ -543,17 +543,6 @@ ssa_prop_fini (void)
 }
 
 
-/* FIXME tuples.  Remove this.  */
-/* Return true if EXPR is a valid GIMPLE expression.  */
-
-bool
-valid_gimple_expression_p (tree expr ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-  return false;
-}
-
-
 /* Return true if EXPR is an acceptable right-hand-side for a
    GIMPLE assignment.  We validate the entire tree, not just
    the root node, thus catching expressions that embed complex

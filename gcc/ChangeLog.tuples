@@ -1,3 +1,13 @@
+2008-07-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-propagate.c (valid_gimple_expression_p): Remove.
+	* tree-ssa-propagate.h (valid_gimple_expression_p): Remove.
+	* tree-eh.c: Factor out common code in operation_could_trap_p and 
+	stmt_could_throw_1_p into...
+	(operation_could_trap_helper_p): New.
+	* gimplify.c (gimplify_expr): Rephrase fixme.
+	* tree-mudflap.c: Remove fixme.
+
 2008-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-eh.c (collect_finally_tree): Call collect_finally_tree_1

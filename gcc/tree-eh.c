@@ -2063,24 +2063,18 @@ verify_eh_edges (gimple stmt)
 }
 
 
-/* Return true if operation OP may trap.  FP_OPERATION is true if OP is applied
-   on floating-point values.  HONOR_TRAPV is true if OP is applied on integer
-   type operands that may trap.  If OP is a division operator, DIVISOR contains
-   the value of the divisor.  */
+/* Helper function for operation_could_trap_p and stmt_could_throw_p.  */
 
-bool
-operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
-			tree divisor)
+static bool
+operation_could_trap_helper_p (enum tree_code op,
+			       bool fp_operation,
+			       bool honor_trapv,
+			       bool honor_nans,
+			       bool honor_snans,
+			       tree divisor,
+			       bool *handled)
 {
-  bool honor_nans = (fp_operation && flag_trapping_math
-		     && !flag_finite_math_only);
-  bool honor_snans = fp_operation && flag_signaling_nans != 0;
-
-  if (TREE_CODE_CLASS (op) != tcc_comparison
-      && TREE_CODE_CLASS (op) != tcc_unary
-      && TREE_CODE_CLASS (op) != tcc_binary)
-    return false;
-
+  *handled = true;
   switch (op)
     {
     case TRUNC_DIV_EXPR:
@@ -2148,8 +2142,33 @@ operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
       if (fp_operation && flag_trapping_math)
 	return true;
 
+      *handled = false;
       return false;
     }
+}
+
+/* Return true if operation OP may trap.  FP_OPERATION is true if OP is applied
+   on floating-point values.  HONOR_TRAPV is true if OP is applied on integer
+   type operands that may trap.  If OP is a division operator, DIVISOR contains
+   the value of the divisor.  */
+
+bool
+operation_could_trap_p (enum tree_code op, bool fp_operation, bool honor_trapv,
+			tree divisor)
+{
+  bool honor_nans = (fp_operation && flag_trapping_math
+		     && !flag_finite_math_only);
+  bool honor_snans = fp_operation && flag_signaling_nans != 0;
+  bool handled;
+
+  if (TREE_CODE_CLASS (op) != tcc_comparison
+      && TREE_CODE_CLASS (op) != tcc_unary
+      && TREE_CODE_CLASS (op) != tcc_binary)
+    return false;
+
+  return operation_could_trap_helper_p (op, fp_operation, honor_trapv,
+					honor_nans, honor_snans, divisor,
+					&handled);
 }
 
 /* Return true if EXPR can trap, as in dereferencing an invalid pointer
@@ -2247,9 +2266,7 @@ tree_could_trap_p (tree expr)
 
 
 /* Helper for stmt_could_throw_p.  Return true if STMT (assumed to be a
-   an assignment or a conditional) may throw.  FIXME tuples, this is
-   very similar to tree_could_trap_p but only works with GIMPLE
-   operands.  Try to factor out common code.  */
+   an assignment or a conditional) may throw.  */
 
 static bool
 stmt_could_throw_1_p (gimple stmt)
@@ -2261,6 +2278,7 @@ stmt_could_throw_1_p (gimple stmt)
   bool honor_trapv = false;
   tree t;
   size_t i;
+  bool handled, ret;
 
   if (TREE_CODE_CLASS (code) == tcc_comparison
       || TREE_CODE_CLASS (code) == tcc_unary
@@ -2278,74 +2296,12 @@ stmt_could_throw_1_p (gimple stmt)
     }
 
   /* Check if the main expression may trap.  */
-  switch (code)
-    {
-    case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case EXACT_DIV_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case TRUNC_MOD_EXPR:
-    case RDIV_EXPR:
-      if (honor_snans || honor_trapv)
-	return true;
-      if (fp_operation)
-	return flag_trapping_math;
-      t = gimple_assign_rhs2 (stmt);
-      if (!TREE_CONSTANT (t) || integer_zerop (t))
-	return true;
-      return false;
-
-    case LT_EXPR:
-    case LE_EXPR:
-    case GT_EXPR:
-    case GE_EXPR:
-    case LTGT_EXPR:
-      /* Some floating point comparisons may trap.  */
-      return honor_nans;
-
-    case EQ_EXPR:
-    case NE_EXPR:
-    case UNORDERED_EXPR:
-    case ORDERED_EXPR:
-    case UNLT_EXPR:
-    case UNLE_EXPR:
-    case UNGT_EXPR:
-    case UNGE_EXPR:
-    case UNEQ_EXPR:
-      return honor_snans;
-
-    case CONVERT_EXPR:
-    case FIX_TRUNC_EXPR:
-      /* Conversion of floating point might trap.  */
-      return honor_nans;
-
-    case NEGATE_EXPR:
-    case ABS_EXPR:
-    case CONJ_EXPR:
-      /* These operations don't trap with floating point.  */
-      if (honor_trapv)
-	return true;
-      return false;
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-      /* Any floating arithmetic may trap.  */
-      if (fp_operation && flag_trapping_math)
-	return true;
-      if (honor_trapv)
-	return true;
-      return false;
-
-    default:
-      /* Any floating arithmetic may trap.  */
-      if (fp_operation && flag_trapping_math)
-	return true;
-    }
+  t = is_gimple_assign (stmt) ? gimple_assign_rhs2 (stmt) : NULL;
+  ret = operation_could_trap_helper_p (code, fp_operation, honor_trapv,
+				       honor_nans, honor_snans, t,
+				       &handled);
+  if (handled)
+    return ret;
 
   /* If the expression does not trap, see if any of the individual operands may
      trap.  */

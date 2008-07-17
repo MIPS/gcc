@@ -6042,7 +6042,7 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
    emitted in PRE_P and POST_P.
 
    Additionally, this process may overwrite parts of the input
-   expression during gimplification.  FIXME tuples, it should be
+   expression during gimplification.  Ideally, it should be
    possible to do non-destructive gimplification.
 
    EXPR_P points to the GENERIC expression to convert to GIMPLE.  If

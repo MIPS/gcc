@@ -47,11 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "gimple.h"
 
-/* FIXME-tuples: This file has been tuplified enough to work but there
-   is still a bit of tree-based code here.  We construct temporary
-   trees in few places and then call gimplify_expr to get equivalent
-   gimples.  These can be done directly with gimple builders.  */
-
 /* Internal function decls */
 
 
