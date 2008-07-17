@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -716,8 +716,8 @@ do {									\
 	 to the pressure on R0.  */					\
       /* Enable sched1 for SH4; ready queue will be reordered by	\
 	 the target hooks when pressure is high. We can not do this for \
-	 SH3 and lower as they give spill failures for R0.  */		\
-      if (!TARGET_HARD_SH4) 						\
+	 PIC, SH3 and lower as they give spill failures for R0.  */	\
+      if (!TARGET_HARD_SH4 || flag_pic)					\
         flag_schedule_insns = 0;		 			\
       /* ??? Current exception handling places basic block boundaries	\
 	 after call_insns.  It causes the high pressure on R0 and gives	\
@@ -2496,6 +2496,18 @@ struct sh_args {
 	    goto LABEL;							\
 	}								\
     }									\
+  /* When reload in progress, find_reloads_subreg_address tries to	\
+     make a new reload for some types of address.  Unfortunately it	\
+     generates wrong code on SH.  See PR36780.  The following is to	\
+     avoid this issue.  */						\
+  if (!TARGET_SHMEDIA && reload_in_progress				\
+      && GET_CODE (X) == PLUS						\
+      && (GET_MODE_SIZE (MODE) == 4 || GET_MODE_SIZE (MODE) == 8)	\
+      && GET_CODE (XEXP ((X), 0)) == PLUS				\
+      && GET_CODE (XEXP (XEXP ((X), 0), 1)) == CONST_INT		\
+      && BASE_REGISTER_RTX_P (XEXP (XEXP ((X), 0), 0))			\
+      && GET_CODE (XEXP ((X), 1)) == CONST_INT)				\
+    goto LABEL;								\
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address

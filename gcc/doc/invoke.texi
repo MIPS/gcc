@@ -549,7 +549,7 @@ Objective-C and Objective-C++ Dialects}.
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
--mpreferred-stack-boundary=@var{num} -mcx16 -msahf -mrecip @gol
+-mpreferred-stack-boundary=@var{num} -mcld -mcx16 -msahf -mrecip @gol
 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 @gol
 -msse4a -m3dnow -mpopcnt -mabm -msse5 @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
@@ -6129,7 +6129,7 @@ example, an @code{unsigned int} can alias an @code{int}, but not a
 @code{void*} or a @code{double}.  A character type may alias any other
 type.
 
-Pay special attention to code like this:
+@anchor{Type-punning}Pay special attention to code like this:
 @smallexample
 union a_union @{
   int i;
@@ -6146,7 +6146,8 @@ The practice of reading from a different union member than the one most
 recently written to (called ``type-punning'') is common.  Even with
 @option{-fstrict-aliasing}, type-punning is allowed, provided the memory
 is accessed through the union type.  So, the code above will work as
-expected.  However, this code might not:
+expected.  @xref{Structures unions enumerations and bit-fields
+implementation}.  However, this code might not:
 @smallexample
 int f() @{
   a_union t;
@@ -6157,7 +6158,18 @@ int f() @{
 @}
 @end smallexample
 
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+Similarly, access by taking the address, casting the resulting pointer
+and dereferencing the result has undefined behavior, even if the cast
+uses a union type, e.g.:
+@smallexample
+int f() @{
+  double d = 3.0;
+  return ((union a_union *) &d)->i;
+@}
+@end smallexample
+
+The @option{-fstrict-aliasing} option is enabled at levels
+@option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fstrict-overflow
 @opindex fstrict-overflow
@@ -7270,7 +7282,8 @@ duplicated when threading jumps.
 
 @item max-fields-for-field-sensitive
 Maximum number of fields in a structure we will treat in
-a field sensitive manner during pointer analysis.
+a field sensitive manner during pointer analysis.  The default is zero
+for -O0, and -O1 and 100 for -Os, -O2, and -O3.
 
 @item prefetch-latency
 Estimate on average number of instructions that are executed before
@@ -10750,6 +10763,20 @@ perform runtime CPU detection must compile separate files for each
 supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
+
+@item -mcld
+@opindex mcld
+This option instructs GCC to emit a @code{cld} instruction in the prologue
+of functions that use string instructions.  String instructions depend on
+the DF flag to select between autoincrement or autodecrement mode.  While the
+ABI specifies the DF flag to be cleared on function entry, some operating
+systems violate this specification by not clearing the DF flag in their
+exception dispatchers.  The exception handler can be invoked with the DF flag
+set which leads to wrong direction mode, when string instructions are used.
+This option can be enabled by default on 32-bit x86 targets by configuring
+GCC with the @option{--enable-cld} configure option.  Generation of @code{cld}
+instructions can be suppressed with the @option{-mno-cld} compiler option
+in this case.
 
 @item -mcx16
 @opindex mcx16
