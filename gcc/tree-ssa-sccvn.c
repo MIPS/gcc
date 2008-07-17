@@ -1996,16 +1996,25 @@ static tree
 simplify_unary_expression (gimple stmt)
 {
   tree result = NULL_TREE;
-  tree op0 = gimple_assign_rhs1 (stmt);
+  tree orig_op0, op0 = gimple_assign_rhs1 (stmt);
+
+  /* We handle some tcc_reference codes here that are all
+     GIMPLE_ASSIGN_SINGLE codes.  */
+  if (gimple_assign_rhs_code (stmt) == REALPART_EXPR
+      || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR
+      || gimple_assign_rhs_code (stmt) == VIEW_CONVERT_EXPR)
+    op0 = TREE_OPERAND (op0, 0);
 
   if (TREE_CODE (op0) != SSA_NAME)
     return NULL_TREE;
 
+  orig_op0 = op0;
   if (VN_INFO (op0)->has_constants)
     op0 = valueize_expr (vn_get_expr_for (op0));
   else if (gimple_assign_cast_p (stmt)
 	   || gimple_assign_rhs_code (stmt) == REALPART_EXPR
-	   || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
+	   || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR
+	   || gimple_assign_rhs_code (stmt) == VIEW_CONVERT_EXPR)
     {
       /* We want to do tree-combining on conversion-like expressions.
          Make sure we feed only SSA_NAMEs or constants to fold though.  */
@@ -2019,7 +2028,7 @@ simplify_unary_expression (gimple stmt)
     }
 
   /* Avoid folding if nothing changed, but remember the expression.  */
-  if (op0 == gimple_assign_rhs1 (stmt))
+  if (op0 == orig_op0)
     return NULL_TREE;
 
   result = fold_unary (gimple_assign_rhs_code (stmt),
@@ -2629,7 +2638,7 @@ init_scc_vn (void)
       if (name)
 	{
 	  VN_INFO_GET (name)->valnum = VN_TOP;
-	  VN_INFO (name)->expr = name;
+	  VN_INFO (name)->expr = NULL_TREE;
 	  VN_INFO (name)->value_id = 0;
 	}
     }

@@ -1,5 +1,17 @@
 2008-07-16  Richard Guenther  <rguenther@suse.de>
 
+	PR tree-optimization/36792
+	* tree-ssa-pre.c (get_or_alloc_expr_for): Handle unary
+	expressions inserted by SCCVN.
+	(do_SCCVN_insertion): Adjust comment.
+	(execute_pre): Allow insertion for FRE again.
+
+	* tree-ssa-sccvn.c (simplify_unary_expression): Deal with
+	the GIMPLE_SINGLE_RHS statemens we get.
+	(init_scc_vn): Init VN_INFO->expr to NULL.
+
+2008-07-16  Richard Guenther  <rguenther@suse.de>
+
 	Revert
 	2008-07-16  Richard Guenther  <rguenther@suse.de>
 	* tree-ssa-pre.c (get_constant_for_value_id): Only hand out

@@ -1037,6 +1037,30 @@ get_or_alloc_expr_for (tree t)
     return get_or_alloc_expr_for_name (t);
   else if (is_gimple_min_invariant (t))
     return get_or_alloc_expr_for_constant (t);
+  else
+    {
+      /* More complex expressions can result from SCCVN expression
+	 simplification that inserts values for them.  As they all
+	 do not have VOPs the get handled by the nary ops struct.  */
+      vn_nary_op_t result;
+      unsigned int result_id;
+      vn_nary_op_lookup (t, &result);
+      if (result != NULL)
+	{
+	  pre_expr e = (pre_expr) pool_alloc (pre_expr_pool);
+	  e->kind = NARY;
+	  PRE_EXPR_NARY (e) = result;
+	  result_id = lookup_expression_id (e);
+	  if (result_id != 0)
+	    {
+	      pool_free (pre_expr_pool, e);
+	      e = expression_for_id (result_id);
+	      return e;
+	    }
+	  alloc_expression_id (e);
+	  return e;
+	}
+    }
   return NULL;
 }
 
@@ -3832,8 +3856,6 @@ do_SCCVN_insertion (gimple stmt, tree ssa_vn)
 
   /* First create a value expression from the expression we want
      to insert and associate it with the value handle for SSA_VN.  */
-
-  /* TODO: Handle complex expressions.  */
   e = get_or_alloc_expr_for (vn_get_expr_for (ssa_vn));
   if (e == NULL)
     return NULL_TREE;
@@ -4240,7 +4262,7 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
     insert_fake_stores ();
 #endif
 
-  if (!run_scc_vn (false /* FIXME tuples: do_fre */))
+  if (!run_scc_vn (do_fre))
     {
       if (!do_fre)
 	{
