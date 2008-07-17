@@ -292,7 +292,7 @@ collect_finally_tree (gimple stmt, gimple region)
           temp.g = stmt;
           record_in_finally_tree (temp, region);
           collect_finally_tree_1 (gimple_try_eval (stmt), stmt);
-          collect_finally_tree_1 (gimple_try_cleanup (stmt), stmt);
+	  collect_finally_tree_1 (gimple_try_cleanup (stmt), region);
         }
       else if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
         {

@@ -1,3 +1,11 @@
+2008-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-eh.c (collect_finally_tree): Call collect_finally_tree_1
+	with region as second argument for GIMPLE_TRY_FINALLY's cleanup.
+
+	* gimplify.c (gimplify_expr): Call gimple_try_set_catch_is_cleanup
+	for TRY_CATCH_EXPR.
+
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-gimple.c (is_gimple_reg_rhs): Don't check for CALL_EXPRs
