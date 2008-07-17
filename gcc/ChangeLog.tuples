@@ -1,3 +1,17 @@
+2008-07-17  Richard Guenther  <rguenther@suse.de>
+
+	* tree-complex.c (init_dont_simulate_again): Handle
+	{REAL,IMAG}PART_EXPR correctly.
+	* gimple-pretty-print.c (dump_unary_rhs): Dump VIEW_CONVERT_EXPR
+	and ASSERT_EXPR the same way as on trunk.
+	* tree-ssa-dom.c (initialize_hash_element): Do not record
+	the type for single rhs assigns.
+	(hashable_expr_equal_p): Deal with NULL types.
+	(eliminate_redundant_computations): Use print_gimple_expr.
+	* tree-vrp.c (stmt_interesting_for_vrp): Fix builtin call check.
+	(vrp_visit_stmt): Likewise.
+	* tree-ssa-forwprop.c (simplify_gimple_switch): Fix typo.
+
 2008-07-16  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/36792

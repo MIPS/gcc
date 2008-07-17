@@ -250,12 +250,8 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
   switch (rhs_code)
     {
     case VIEW_CONVERT_EXPR:
-      pp_string (buffer, tree_code_name [rhs_code]);
-      pp_string (buffer, " <");
-      dump_generic_node (buffer, TREE_TYPE (lhs), spc, flags, false);
-      pp_string (buffer, ", ");
+    case ASSERT_EXPR:
       dump_generic_node (buffer, rhs, spc, flags, false);
-      pp_string (buffer, ">");
       break;
 
     case FIXED_CONVERT_EXPR:

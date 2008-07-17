@@ -1080,7 +1080,7 @@ simplify_gimple_switch (gimple stmt)
 	      int need_precision;
 	      bool fail;
 
-	      def = gimple_assign_lhs (def_stmt);
+	      def = gimple_assign_rhs1 (def_stmt);
 
 #ifdef ENABLE_CHECKING
 	      /* ??? Why was Jeff testing this?  We are gimple...  */

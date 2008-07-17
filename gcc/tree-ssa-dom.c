@@ -225,7 +225,7 @@ initialize_hash_element (gimple stmt, tree lhs,
     {
       enum tree_code subcode = gimple_assign_rhs_code (stmt);
 
-      expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
+      expr->type = NULL_TREE;
       
       switch (get_gimple_rhs_class (subcode))
         {
@@ -235,11 +235,13 @@ initialize_hash_element (gimple stmt, tree lhs,
           break;
         case GIMPLE_UNARY_RHS:
           expr->kind = EXPR_UNARY;
+	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
           expr->ops.unary.op = subcode;
           expr->ops.unary.opnd = gimple_assign_rhs1 (stmt);
           break;
         case GIMPLE_BINARY_RHS:
           expr->kind = EXPR_BINARY;
+	  expr->type = TREE_TYPE (gimple_assign_lhs (stmt));
           expr->ops.binary.op = subcode;
           expr->ops.binary.opnd0 = gimple_assign_rhs1 (stmt);
           expr->ops.binary.opnd1 = gimple_assign_rhs2 (stmt);
@@ -354,11 +356,12 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
 
   /* If both types don't have the same signedness, precision, and mode,
      then we can't consider  them equal.  */
-  if (TREE_CODE (type0) == ERROR_MARK
-      || TREE_CODE (type1) == ERROR_MARK
-      || TYPE_UNSIGNED (type0) != TYPE_UNSIGNED (type1)
-      || TYPE_PRECISION (type0) != TYPE_PRECISION (type1)
-      || TYPE_MODE (type0) != TYPE_MODE (type1))
+  if (type0 != type1
+      && (TREE_CODE (type0) == ERROR_MARK
+	  || TREE_CODE (type1) == ERROR_MARK
+	  || TYPE_UNSIGNED (type0) != TYPE_UNSIGNED (type1)
+	  || TYPE_PRECISION (type0) != TYPE_PRECISION (type1)
+	  || TYPE_MODE (type0) != TYPE_MODE (type1)))
     return false;
 
   if (expr0->kind != expr1->kind)
@@ -1886,9 +1889,9 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "  Replaced redundant expr in statement\n    ");
-	  print_gimple_stmt (dump_file, stmt, 0, dump_flags);
-	  fprintf (dump_file, "  with '");
+	  fprintf (dump_file, "  Replaced redundant expr '");
+	  print_gimple_expr (dump_file, stmt, 0, dump_flags);
+	  fprintf (dump_file, "' with '");
 	  print_generic_expr (dump_file, cached_lhs, dump_flags);
           fprintf (dump_file, "'\n");
 	}

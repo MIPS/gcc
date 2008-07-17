@@ -220,7 +220,11 @@ init_dont_simulate_again (void)
 
 	    case GIMPLE_ASSIGN:
 	      sim_again_p = is_complex_reg (gimple_assign_lhs (stmt));
-	      op0 = gimple_assign_rhs1 (stmt);
+	      if (gimple_assign_rhs_code (stmt) == REALPART_EXPR
+		  || gimple_assign_rhs_code (stmt) == IMAGPART_EXPR)
+		op0 = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+	      else
+		op0 = gimple_assign_rhs1 (stmt);
 	      if (gimple_num_ops (stmt) > 2)
 		op1 = gimple_assign_rhs2 (stmt);
 	      break;
