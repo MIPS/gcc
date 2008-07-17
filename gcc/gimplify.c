@@ -2837,6 +2837,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   bool have_then_clause_p, have_else_clause_p;
   gimple gimple_cond;
   enum tree_code pred_code;
+  gimple_seq seq = NULL;
 
   type = TREE_TYPE (expr);
 
@@ -2923,8 +2924,9 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	     wrapped in a TRY_FINALLY_EXPR.  To prevent that, we need to
 	     set up a conditional context.  */
 	  gimple_push_condition ();
-	  gimplify_stmt (expr_p, pre_p);
+	  gimplify_stmt (expr_p, &seq);
 	  gimple_pop_condition (pre_p);
+	  gimple_seq_add_seq (pre_p, seq);
 
 	  return GS_ALL_DONE;
 	}
@@ -2971,7 +2973,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   gimple_cond = gimple_build_cond (pred_code, arm1, arm2, label_true,
                                    label_false);
 
-  gimplify_seq_add_stmt (pre_p, gimple_cond);
+  gimplify_seq_add_stmt (&seq, gimple_cond);
   label_cont = NULL_TREE;
   if (!have_then_clause_p)
     {
@@ -2983,27 +2985,28 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	label_cont = label_true;
       else
 	{
-	  gimplify_seq_add_stmt (pre_p, gimple_build_label (label_true));
-	  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), pre_p);
+	  gimplify_seq_add_stmt (&seq, gimple_build_label (label_true));
+	  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), &seq);
 	  /* For if (...) { code; } else {} or
 	     if (...) { code; } else goto label;
 	     label_cont isn't needed.  */
 	  if (!have_else_clause_p && TREE_OPERAND (expr, 2) != NULL_TREE)
 	    {
 	      label_cont = create_artificial_label ();
-	      gimplify_seq_add_stmt (pre_p, gimple_build_goto (label_cont));
+	      gimplify_seq_add_stmt (&seq, gimple_build_goto (label_cont));
 	    }
 	}
     }
   if (!have_else_clause_p)
     {
-      gimplify_seq_add_stmt (pre_p, gimple_build_label (label_false));
-      have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), pre_p);
+      gimplify_seq_add_stmt (&seq, gimple_build_label (label_false));
+      have_else_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 2), &seq);
     }
   if (label_cont)
-    gimplify_seq_add_stmt (pre_p, gimple_build_label (label_cont));
+    gimplify_seq_add_stmt (&seq, gimple_build_label (label_cont));
 
   gimple_pop_condition (pre_p);
+  gimple_seq_add_seq (pre_p, seq);
 
   if (ret == GS_ERROR)
     ; /* Do nothing.  */
