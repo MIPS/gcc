@@ -1,5 +1,8 @@
 2008-07-17  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (expand_omp_atomic_pipeline): Call
+	force_gimple_operand_gsi on RHS for IADDR initialization.
+
 	* gimplify.c (gimplify_cond_expr): Push statements in between
 	gimple_push_condition and gimple_pop_condition into a new
 	gimple_seq, append it after gimple_pop_condition cleanups.

@@ -4915,9 +4915,14 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
      following code by always setting up the "i"ntegral variables.  */
   if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
     {
+      tree iaddr_val;
+
       iaddr = create_tmp_var (build_pointer_type (itype), NULL);
-      stmt = gimple_build_assign (iaddr,
-	                          fold_convert (TREE_TYPE (iaddr), addr));
+      iaddr_val
+	= force_gimple_operand_gsi (&si,
+				    fold_convert (TREE_TYPE (iaddr), addr),
+				    false, NULL_TREE, true, GSI_SAME_STMT);
+      stmt = gimple_build_assign (iaddr, iaddr_val);
       gsi_insert_before (&si, stmt, GSI_SAME_STMT);
       DECL_NO_TBAA_P (iaddr) = 1;
       DECL_POINTER_ALIAS_SET (iaddr) = 0;
