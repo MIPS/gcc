@@ -316,7 +316,7 @@ vn_constant_eq (const void *p1, const void *p2)
   const struct vn_constant_s *vc1 = (const struct vn_constant_s *) p1;
   const struct vn_constant_s *vc2 = (const struct vn_constant_s *) p2;
 
-  return expressions_equal_p (vc1->constant, vc2->constant);
+  return vn_constant_eq_with_type (vc1->constant, vc2->constant);
 }
 
 /* Hash table hash function for vn_constant_t.  */
@@ -337,7 +337,7 @@ get_or_alloc_constant_value_id (tree constant)
   void **slot;
   vn_constant_t vc = XNEW (struct vn_constant_s);
   
-  vc->hashcode = iterative_hash_expr (constant, 0);
+  vc->hashcode = vn_hash_constant_with_type (constant);
   vc->constant = constant;
   slot = htab_find_slot_with_hash (constant_to_value_id, vc,
 				   vc->hashcode, INSERT);  

@@ -193,8 +193,8 @@ pre_expr_eq (const void *p1, const void *p2)
   switch (e1->kind)
     {
     case CONSTANT:
-      return expressions_equal_p (PRE_EXPR_CONSTANT (e1),
-				  PRE_EXPR_CONSTANT (e2));
+      return vn_constant_eq_with_type (PRE_EXPR_CONSTANT (e1),
+				       PRE_EXPR_CONSTANT (e2));
     case NAME:
       return PRE_EXPR_NAME (e1) == PRE_EXPR_NAME (e2);
     case NARY:
@@ -214,7 +214,7 @@ pre_expr_hash (const void *p1)
   switch (e->kind)
     {
     case CONSTANT:
-      return iterative_hash_expr (PRE_EXPR_CONSTANT (e), 0);
+      return vn_hash_constant_with_type (PRE_EXPR_CONSTANT (e));
     case NAME:
       return iterative_hash_expr (PRE_EXPR_NAME (e), 0);
     case NARY:
@@ -1010,7 +1010,7 @@ get_or_alloc_expr_for_constant (tree constant)
    a constant.  */
 
 static tree
-get_constant_for_value_id (unsigned int v, tree type)
+get_constant_for_value_id (unsigned int v)
 {
   if (value_id_constant_p (v))
     {
@@ -1021,8 +1021,7 @@ get_constant_for_value_id (unsigned int v, tree type)
       FOR_EACH_EXPR_ID_IN_SET (exprset, i, bi)
 	{
 	  pre_expr expr = expression_for_id (i);
-	  if (expr->kind == CONSTANT
-	      && TREE_TYPE (PRE_EXPR_CONSTANT (expr)) == type)
+	  if (expr->kind == CONSTANT)
 	    return PRE_EXPR_CONSTANT (expr);
 	}
     }
@@ -1062,15 +1061,24 @@ fully_constant_expression (pre_expr e)
 		 constants.  */
 	      tree naryop0 = nary->op[0];
 	      tree naryop1 = nary->op[1];
-	      pre_expr rep0 = get_or_alloc_expr_for (naryop0);
-	      pre_expr rep1 = get_or_alloc_expr_for (naryop1);
-	      unsigned int vrep0 = get_expr_value_id (rep0);
-	      unsigned int vrep1 = get_expr_value_id (rep1);
-	      tree const0 = get_constant_for_value_id (vrep0,
-						       TREE_TYPE (nary->op[0]));
-	      tree const1 = get_constant_for_value_id (vrep1,
-						       TREE_TYPE (nary->op[1]));
-	      tree result = NULL;
+	      tree const0, const1, result;
+	      if (is_gimple_min_invariant (naryop0))
+		const0 = naryop0;
+	      else
+		{
+		  pre_expr rep0 = get_or_alloc_expr_for (naryop0);
+		  unsigned int vrep0 = get_expr_value_id (rep0);
+		  const0 = get_constant_for_value_id (vrep0);
+		}
+	      if (is_gimple_min_invariant (naryop1))
+		const1 = naryop1;
+	      else
+		{
+		  pre_expr rep1 = get_or_alloc_expr_for (naryop1);
+		  unsigned int vrep1 = get_expr_value_id (rep1);
+		  const1 = get_constant_for_value_id (vrep1);
+		}
+	      result = NULL;
 	      if (const0 && const1)
 		{
 		  tree type1 = TREE_TYPE (nary->op[0]);
@@ -1089,11 +1097,16 @@ fully_constant_expression (pre_expr e)
 	    /* We have to go from trees to pre exprs to value ids to
 	       constants.  */
 	      tree naryop0 = nary->op[0];
-	      pre_expr rep0 = get_or_alloc_expr_for (naryop0);
-	      unsigned int vrep0 = get_expr_value_id (rep0);
-	      tree const0 = get_constant_for_value_id (vrep0,
-						       TREE_TYPE (nary->op[0]));
-	      tree result = NULL;
+	      tree const0, result;
+	      if (is_gimple_min_invariant (naryop0))
+		const0 = naryop0;
+	      else
+		{
+		  pre_expr rep0 = get_or_alloc_expr_for (naryop0);
+		  unsigned int vrep0 = get_expr_value_id (rep0);
+		  const0 = get_constant_for_value_id (vrep0);
+		}
+	      result = NULL;
 	      if (const0)
 		{
 		  tree type1 = TREE_TYPE (nary->op[0]);
@@ -1229,6 +1242,7 @@ get_representative_for (const pre_expr e)
     case NAME:
       return PRE_EXPR_NAME (e);
     case CONSTANT:
+      return PRE_EXPR_CONSTANT (e);
     case NARY:
     case REFERENCE:
       {

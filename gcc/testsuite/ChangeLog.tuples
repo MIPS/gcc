@@ -1,3 +1,7 @@
+2008-07-16  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/torture/20080716-1.c: New testcase.
+
 2008-07-15  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/pr30375.c: Revert back to trunk version.

@@ -104,7 +104,33 @@ typedef struct vn_constant_s
   hashval_t hashcode;
   tree constant;
 } *vn_constant_t;
-  
+
+/* Hash the constant CONSTANT with distinguishing type incompatible
+   constants in the types_compatible_p sense.  */
+
+static inline hashval_t
+vn_hash_constant_with_type (tree constant)
+{
+  tree type = TREE_TYPE (constant);
+  return (iterative_hash_expr (constant, 0)
+	  + (INTEGRAL_TYPE_P (type)
+	     ? TYPE_PRECISION (type) + TYPE_UNSIGNED (type) : 0));
+}
+
+/* Compare the constants C1 and C2 with distinguishing type incompatible
+   constants in the types_compatible_p sense.  */
+
+static inline bool
+vn_constant_eq_with_type (tree c1, tree c2)
+{
+  tree type1 = TREE_TYPE (c1);
+  tree type2 = TREE_TYPE (c2);
+  return (expressions_equal_p (c1, c2)
+	  && (!INTEGRAL_TYPE_P (type1)
+	      || ((TYPE_PRECISION (type1) == TYPE_PRECISION (type2)
+		  && (TYPE_UNSIGNED (type1) == TYPE_UNSIGNED (type2))))));
+}
+
 typedef struct vn_ssa_aux
 {
   /* Value number. This may be an SSA name or a constant.  */
