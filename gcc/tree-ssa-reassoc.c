@@ -255,11 +255,27 @@ get_rank (tree e)
 	 rank, whichever is less.   */
       rank = 0;
       maxrank = bb_rank[gimple_bb(stmt)->index];
-      n = gimple_num_ops (stmt);
-      for (i = 1; i < n && rank != maxrank; i++)
+      if (gimple_assign_single_p (stmt))
 	{
-	  gcc_assert (gimple_op (stmt, i));
-	  rank = MAX(rank, get_rank (gimple_op (stmt, i)));
+	  tree rhs = gimple_assign_rhs1 (stmt);
+	  n = TREE_OPERAND_LENGTH (rhs);
+	  if (n == 0)
+	    rank = MAX (rank, get_rank (rhs));
+	  else
+	    {
+	      for (i = 0;
+		   i < n && TREE_OPERAND (rhs, i) && rank != maxrank; i++)
+		rank = MAX(rank, get_rank (TREE_OPERAND (rhs, i)));
+	    }
+	}
+      else
+	{
+	  n = gimple_num_ops (stmt);
+	  for (i = 1; i < n && rank != maxrank; i++)
+	    {
+	      gcc_assert (gimple_op (stmt, i));
+	      rank = MAX(rank, get_rank (gimple_op (stmt, i)));
+	    }
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))

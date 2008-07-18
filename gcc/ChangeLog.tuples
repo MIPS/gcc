@@ -1,5 +1,10 @@
 2008-07-18  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-reassoc.c (get_rank): For single rhs process its
+	operands.
+
+2008-07-18  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-loop-niter.c (expand_simple_operations): Expand
 	as much as trunk does.
 	* tree-ssa-sccvn.c (simplify_binary_expression): For comparisons
