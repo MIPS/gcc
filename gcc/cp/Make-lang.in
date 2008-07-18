@@ -283,7 +283,7 @@ cp/semantics.o: cp/semantics.c $(CXX_TREE_H) $(TM_H) except.h toplev.h \
   $(TREE_INLINE_H) $(CGRAPH_H) $(TARGET_H) $(C_COMMON_H) $(GIMPLE_H)
 cp/dump.o: cp/dump.c $(CXX_TREE_H) $(TM_H) $(TREE_DUMP_H)
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) $(TM_H) rtl.h $(INTEGRATE_H) \
-  insn-config.h input.h $(PARAMS_H) debug.h $(TREE_INLINE_H) $(TREE_GIMPLE_H) \
+  insn-config.h input.h $(PARAMS_H) debug.h $(TREE_INLINE_H) $(GIMPLE_H) \
   $(TARGET_H)
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) $(TM_H) toplev.h $(REAL_H) \
   gt-cp-mangle.h $(TARGET_H) $(TM_P_H)
