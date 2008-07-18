@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "pointer-set.h"
 #include "tree-affine.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "flags.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */

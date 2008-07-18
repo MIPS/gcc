@@ -1,3 +1,10 @@
+2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* optimize.c: Include gimple.h instead of tree-gimple.h.
+	* Make-lang.in (cp-gimplify.o): Depend on tree-iterator.h.
+	* cp-gimplify.c: Rename tree-gimple.h to gimple.h.  Include
+	tree-iterator.h.
+
 2008-07-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* optimize.c (maybe_clone_body): Clear DECL_SAVED_TREE for the clone.

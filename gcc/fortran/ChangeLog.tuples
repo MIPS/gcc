@@ -1,3 +1,16 @@
+2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans-expr.c: Include gimple.h instead of tree-gimple.h.
+	* trans-array.c: Same.
+	* trans-openmp.c: Same.
+	* trans-stmt.c: Same.
+	* f95-lang.c: Same.
+	* trans-io.c: Same.
+	* trans-decl.c: Same.
+	* trans-intrinsic.c: Same.
+	* trans.c: Same.  Include tree-iterator.h.
+	* Make-lang.in (trans.o): Depend on tree-iterator.h
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* trans-array.h (gfc_conv_descriptor_data_set_internal):

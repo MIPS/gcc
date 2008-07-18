@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "ipa-utils.h"
 #include "c-common.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"

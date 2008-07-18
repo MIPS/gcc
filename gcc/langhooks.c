@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "tree.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"

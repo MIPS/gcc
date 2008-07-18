@@ -148,7 +148,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "function.h"
 #include "ipa-prop.h"
-#include "tree-gimple.h"
+#include "gimple.h"
+#include "tree-iterator.h"
 #include "tree-pass.h"
 #include "output.h"
 

@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_OBJC_ACT_H
 
 /* For enum gimplify_status */
-#include "tree-gimple.h"
+#include "gimple.h"
 
 /*** Language hooks ***/
 

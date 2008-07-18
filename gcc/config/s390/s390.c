@@ -50,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "langhooks.h"
 #include "optabs.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "df.h"
 
 

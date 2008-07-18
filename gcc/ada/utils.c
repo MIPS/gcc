@@ -43,7 +43,7 @@
 #include "function.h"
 #include "cgraph.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-dump.h"
 #include "pointer-set.h"
 #include "langhooks.h"

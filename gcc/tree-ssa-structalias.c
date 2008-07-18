@@ -39,7 +39,7 @@
 #include "tree-inline.h"
 #include "varray.h"
 #include "c-tree.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "hashtab.h"
 #include "function.h"
 #include "cgraph.h"

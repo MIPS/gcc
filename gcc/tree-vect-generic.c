@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "langhooks.h"
 #include "tree-flow.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"

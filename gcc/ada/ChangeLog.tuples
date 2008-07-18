@@ -1,3 +1,8 @@
+2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans.c: Include gimple.h instead of tree-gimple.h.
+	* utils.c: Same.
+
 2008-07-14  Aldy Hernandez  <aldyh@redhat.com>
 
 	* trans.c (gnat_gimplify_expr): Use gimplify_assign.

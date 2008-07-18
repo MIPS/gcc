@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "ipa-type-escape.h"
 #include "c-common.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"

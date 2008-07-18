@@ -29,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "cgraph.h"
 #include "intl.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-pass.h"
 
 /* Walk tree and record all calls and references to functions/variables.

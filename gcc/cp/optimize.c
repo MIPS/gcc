@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 
 /* Prototypes.  */
 

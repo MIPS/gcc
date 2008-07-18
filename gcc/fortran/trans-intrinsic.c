@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "toplev.h"
 #include "real.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "arith.h"

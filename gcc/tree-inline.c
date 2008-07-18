@@ -56,7 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
-#include "tree-gimple.h"
+#include "gimple.h"
 
 /* Inlining, Cloning, Versioning, Parallelization
 

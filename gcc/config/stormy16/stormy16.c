@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "df.h"
 #include "ggc.h"
 

@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "hashtab.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-ssa-operands.h"
 #include "cgraph.h"
 #include "ipa-reference.h"

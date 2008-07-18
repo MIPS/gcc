@@ -1,3 +1,10 @@
+2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Make-lang.in (objc-lang.o): Depend on GIMPLE_H.
+	(objc-act.o): Rename TREE_GIMPLE_H to GIMPLE_H.
+	* objc-act.h: Include gimple.h instead of tree-gimple.h.
+	* ipa-reference.c: Same.
+
 2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
 
 	* objc-act.c (objc_gimplify_expr): Change pre and post to sequences.

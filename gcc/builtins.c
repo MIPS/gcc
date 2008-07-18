@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "real.h"
 #include "rtl.h"
 #include "tree.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"

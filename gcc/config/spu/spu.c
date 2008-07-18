@@ -50,7 +50,7 @@
 #include "assert.h"
 #include "c-common.h"
 #include "machmode.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tm-constrs.h"
 #include "spu-builtins.h"
 #include "ddg.h"

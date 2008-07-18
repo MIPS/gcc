@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "sched-int.h"
 #include "ggc.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"

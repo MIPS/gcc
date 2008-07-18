@@ -40,7 +40,7 @@
 #include "except.h"
 #include "debug.h"
 #include "output.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "ada.h"
 #include "types.h"
 #include "atree.h"

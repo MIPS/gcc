@@ -1,3 +1,66 @@
+2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in.  Remove TREE_GIMPLE_H definition.
+	Rename all TREE_GIMPLE_H uses to GIMPLE_H.
+	Depend on tree-iterator.h when necessary.
+	* tree-into-ssa.c: Include gimple.h instead of tree-gimple.h.
+	* tree-complex.c: Same.
+	* cgraphbuild.c: Same.
+	* cgraph.c: Same.
+	* builtins.c: Same.
+	* tree-ssa-sccvn.c: Same.
+	* tree-ssa-copyrename.c: Same.
+	* tree-nomudflap.c: Same.
+	* tree-call-cdce.c: Same.
+	* ipa-pure-const.c: Same.
+	* ipa-utils.c: Same.
+	* tree-ssa-alias.c: Same.
+	* tree-ssa-sink.c: Same.
+	* langhooks.c: Same.
+	* function.c: Same.
+	* ipa-type-escape.c: Same.
+	* tree-affine.c: Same.
+	* c-typeck.c: Same.
+	* tree-dfa.c: Same.
+	* tree-ssa-pre.c: Same.
+	* tree-sra.c: Same.
+	* c-omp.c: Same.
+	* tree-ssa-dce.c: Same.
+	* tree-nested.c: Same.
+	* tree-ssa.c: Same.
+	* tree-inline.c: Same.
+	* tree-iterator.c: Same.
+	* c-gimplify.c: Same.
+	* tree-vect-generic.c: Same.
+	* tree-flow.h: Same.
+	* tree-ssa-structalias.c: Same.
+	* ipa-struct-reorg.c: Same.
+	* tree-ssa-reassoc.c: Same.
+	* config/alpha/alpha.c: Same.
+	* config/s390/s390.c: Same.
+	* config/m32c/m32c.c: Same.
+	* config/spu/spu.c: Same.
+	* config/sparc/sparc.c: Same.
+	* config/i386/i386.c: Same.
+	* config/sh/sh.c: Same.
+	* config/xtensa/xtensa.c: Same.
+	* config/stormy16/stormy16.c: Same.
+	* config/ia64/ia64.c: Same.
+	* config/rs6000/rs6000: Same.
+	* config/mips/mips.c: Same.
+	* varpool.c: Same.
+	* cgraphunit.c: Same.  Include tree-iterator.h
+	* tree-mudflap.c: Same.
+	* gimplify.c: Same.
+	* c-decl.c: Same.
+	* omp-low.c: Same.
+	* c-semantics: Same.
+	* gimple-low.c: Same.
+	* tree-gimple.c: Merge contents into...
+	* gimple.c: ...here.
+	* tree-gimple.h: Merge contents into...
+	* gimple.h: ...here.
+
 2008-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_atomic_pipeline): Call

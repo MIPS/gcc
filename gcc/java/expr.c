@@ -42,7 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "except.h"
 #include "ggc.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "target.h"
 
 static void flush_quick_stack (void);

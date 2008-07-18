@@ -81,7 +81,7 @@ The callgraph:
 #include "varray.h"
 #include "output.h"
 #include "intl.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-dump.h"
 #include "tree-flow.h"
 

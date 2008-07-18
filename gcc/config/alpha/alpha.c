@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include <splay-tree.h>
 #include "cfglayout.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-flow.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"

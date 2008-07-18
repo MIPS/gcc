@@ -28,7 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tree.h"
 #include "rtl.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-flow-inline.h"

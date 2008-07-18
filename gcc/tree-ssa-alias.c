@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
