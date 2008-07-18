@@ -1,3 +1,12 @@
+2008-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.c (gimple_regimplify_operands): Moved to...
+	* gimplify.c (gimple_regimplify_operands): ... here.  Rework using
+	lower_omp_1 regimplification code, if regimplified LHS of
+	GIMPLE_ASSIGN or GIMPLE_CALL requires simpler RHS, create a temporary.
+	* omp-low.c (gimple_regimplify_operands): Use
+	gimple_regimplify_operands.
+
 2008-07-18  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-reassoc.c (get_rank): For single rhs process its

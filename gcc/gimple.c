@@ -2455,38 +2455,6 @@ gimple_assign_rhs_could_trap_p (gimple s)
 }
 
 
-/* Some transformations like inlining may invalidate the GIMPLE form
-   for operands.  This function traverses all the operands in STMT and
-   gimplifies anything that is not a valid gimple operand.  Any new
-   GIMPLE statements are inserted before *GSI_P.  */
-
-void
-gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
-{
-  unsigned i, num_ops = gimple_num_ops (stmt);
-
-  for (i = 0; i < num_ops; i++)
-    {
-      /* NOTE: We start gimplifying operands from last to first to
-	 make sure that side-effects on the RHS of calls, assignments
-	 and ASMs are executed before the LHS.  The ordering is not
-	 important for other statements.  */
-      tree op = gimple_op (stmt, num_ops - i - 1);
-
-      /* We probably don't want to touch inline asm operands.  */
-      if (gimple_code (stmt) == GIMPLE_ASM)
-	continue;
-
-      if (op && !is_gimple_operand (op))
-	{
-	  op = force_gimple_operand_gsi (gsi_p, op, true, NULL, true,
-					 GSI_SAME_STMT);
-	  gimple_set_op (stmt, num_ops - i - 1, op);
-	}
-    }
-}
-
-
 /* Print debugging information for gimple stmts generated.  */
 
 void

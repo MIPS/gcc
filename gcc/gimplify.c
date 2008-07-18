@@ -7295,6 +7295,203 @@ gimplify_function_tree (tree fndecl)
 }
 
 
+/* Some transformations like inlining may invalidate the GIMPLE form
+   for operands.  This function traverses all the operands in STMT and
+   gimplifies anything that is not a valid gimple operand.  Any new
+   GIMPLE statements are inserted before *GSI_P.  */
+
+void
+gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
+{
+  size_t i, num_ops;
+  tree orig_lhs = NULL_TREE, lhs, t;
+  gimple_seq pre = NULL;
+  gimple post_stmt = NULL;
+  struct gimplify_ctx gctx;
+
+  push_gimplify_context (&gctx);
+  gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
+
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_COND:
+      gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
+		     is_gimple_val, fb_rvalue);
+      gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
+		     is_gimple_val, fb_rvalue);
+      break;
+    case GIMPLE_OMP_ATOMIC_LOAD:
+      gimplify_expr (gimple_omp_atomic_load_rhs_ptr (stmt), &pre, NULL,
+		     is_gimple_val, fb_rvalue);
+      break;
+    case GIMPLE_ASM:
+      {
+	size_t i, noutputs = gimple_asm_noutputs (stmt);
+	const char *constraint, **oconstraints;
+	bool allows_mem, allows_reg, is_inout;
+
+	oconstraints
+	  = (const char **) alloca ((noutputs) * sizeof (const char *));
+	for (i = 0; i < noutputs; i++)
+	  {
+	    tree op = gimple_asm_output_op (stmt, i);
+	    constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
+	    oconstraints[i] = constraint;
+	    parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
+				     &allows_reg, &is_inout);
+	    gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			   is_inout ? is_gimple_min_lval : is_gimple_lvalue,
+			   fb_lvalue | fb_mayfail);
+	  }
+	for (i = 0; i < gimple_asm_ninputs (stmt); i++)
+	  {
+	    tree op = gimple_asm_input_op (stmt, i);
+	    constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
+	    parse_input_constraint (&constraint, 0, 0, noutputs, 0,
+				    oconstraints, &allows_mem, &allows_reg);
+	    if (TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (op))) && allows_mem)
+	      allows_reg = 0;
+	    if (!allows_reg && allows_mem)
+	      gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			     is_gimple_lvalue, fb_lvalue | fb_mayfail);
+	    else
+	      gimplify_expr (&TREE_VALUE (op), &pre, NULL,
+			     is_gimple_asm_val, fb_rvalue);
+	  }
+      }
+      break;
+    default:
+      /* NOTE: We start gimplifying operands from last to first to
+	 make sure that side-effects on the RHS of calls, assignments
+	 and ASMs are executed before the LHS.  The ordering is not
+	 important for other statements.  */
+      num_ops = gimple_num_ops (stmt);
+      orig_lhs = gimple_get_lhs (stmt);
+      for (i = num_ops; i > 0; i--)
+	{
+	  tree op = gimple_op (stmt, i - 1);
+	  if (op == NULL_TREE)
+	    continue;
+	  if (i == 1 && (is_gimple_call (stmt) || is_gimple_assign (stmt)))
+	    gimplify_expr (&op, &pre, NULL, is_gimple_lvalue, fb_lvalue);
+	  else if (i == 2
+		   && is_gimple_assign (stmt)
+		   && num_ops == 2
+		   && get_gimple_rhs_class (gimple_expr_code (stmt))
+		      == GIMPLE_SINGLE_RHS)
+	    gimplify_expr (&op, &pre, NULL,
+			   rhs_predicate_for (gimple_assign_lhs (stmt)),
+			   fb_rvalue);
+	  else if (i == 2 && is_gimple_call (stmt))
+	    {
+	      if (TREE_CODE (op) == FUNCTION_DECL)
+		continue;
+	      gimplify_expr (&op, &pre, NULL, is_gimple_call_addr, fb_rvalue);
+	    }
+	  else
+	    gimplify_expr (&op, &pre, NULL, is_gimple_val, fb_rvalue);
+	  gimple_set_op (stmt, i - 1, op);
+	}
+
+      lhs = gimple_get_lhs (stmt);
+      /* If regimplification of the LHS changed it in a way that requires
+	 a simple RHS, create temporary.  */
+      if (orig_lhs != lhs && !is_gimple_formal_tmp_var (lhs))
+	{
+	  bool need_temp = false;
+
+	  if (is_gimple_assign (stmt)
+	      && num_ops == 2
+	      && get_gimple_rhs_class (gimple_expr_code (stmt))
+		 == GIMPLE_SINGLE_RHS)
+	    gimplify_expr (gimple_assign_rhs1_ptr (stmt), &pre, NULL,
+			   rhs_predicate_for (gimple_assign_lhs (stmt)),
+			   fb_rvalue);
+	  else if (is_gimple_reg (lhs))
+	    {
+	      if (is_gimple_reg_type (TREE_TYPE (lhs)))
+		{
+		  if (is_gimple_call (stmt))
+		    {
+		      i = gimple_call_flags (stmt);
+		      if ((i & ECF_LOOPING_CONST_OR_PURE)
+			  || !(i & (ECF_CONST | ECF_PURE)))
+			need_temp = true;
+		    }
+		  if (stmt_can_throw_internal (stmt))
+		    need_temp = true;
+		}
+	    }
+	  else
+	    {
+	      if (is_gimple_reg_type (TREE_TYPE (lhs)))
+		need_temp = true;
+	      else if (TYPE_MODE (TREE_TYPE (lhs)) != BLKmode)
+		{
+		  if (is_gimple_call (stmt))
+		    {
+		      tree fndecl = gimple_call_fndecl (stmt);
+
+		      if (!aggregate_value_p (TREE_TYPE (lhs), fndecl)
+			  && !(fndecl && DECL_RESULT (fndecl)
+			       && DECL_BY_REFERENCE (DECL_RESULT (fndecl))))
+			need_temp = true;
+		    }
+		  else
+		    need_temp = true;
+		}
+	    }
+	  if (need_temp)
+	    {
+	      tree temp = create_tmp_var (TREE_TYPE (lhs), NULL);
+
+	      DECL_GIMPLE_FORMAL_TEMP_P (temp) = 1;
+	      if (TREE_CODE (TREE_TYPE (lhs)) == COMPLEX_TYPE
+		  || TREE_CODE (TREE_TYPE (lhs)) == VECTOR_TYPE)
+		DECL_GIMPLE_REG_P (temp) = 1;
+	      if (TREE_CODE (orig_lhs) == SSA_NAME)
+		orig_lhs = SSA_NAME_VAR (orig_lhs);
+	      if (TREE_CODE (orig_lhs) == VAR_DECL
+		  && DECL_BASED_ON_RESTRICT_P (orig_lhs))
+		{
+		  DECL_BASED_ON_RESTRICT_P (temp) = 1;
+		  SET_DECL_RESTRICT_BASE (temp,
+					  DECL_GET_RESTRICT_BASE (orig_lhs));
+		}
+
+	      if (gimple_in_ssa_p (cfun))
+		temp = make_ssa_name (temp, NULL);
+	      gimple_set_lhs (stmt, temp);
+	      post_stmt = gimple_build_assign (lhs, temp);
+	      if (TREE_CODE (lhs) == SSA_NAME)
+		SSA_NAME_DEF_STMT (lhs) = post_stmt;
+	    }
+	}
+      break;
+    }
+
+  if (!gimple_seq_empty_p (pre))
+    {
+      if (gimple_in_ssa_p (cfun))
+	{
+	  gimple_stmt_iterator i;
+
+	  for (i = gsi_start (pre); !gsi_end_p (i); gsi_next (&i))
+	    mark_symbols_for_renaming (gsi_stmt (i));
+	}
+      gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
+    }
+  if (post_stmt)
+    gsi_insert_after (gsi_p, post_stmt, GSI_NEW_STMT);
+
+  if (gimple_referenced_vars (cfun))
+    for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
+      add_referenced_var (t);
+
+  pop_gimplify_context (NULL);
+}
+
+
 /* Expands EXPR to list of gimple statements STMTS.  If SIMPLE is true,
    force the result to be either ssa_name or an invariant, otherwise
    just force it to be a rhs expression.  If VAR is not NULL, make the

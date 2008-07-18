@@ -6424,15 +6424,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      		 ctx ? NULL : &wi, NULL)
 	      || walk_tree (gimple_cond_rhs_ptr (stmt), lower_omp_regimplify_p,
 			    ctx ? NULL : &wi, NULL)))
-	{
-	  gimple_seq pre = NULL;
-	  gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
-			 is_gimple_val, fb_rvalue);
-	  gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
-			 is_gimple_val, fb_rvalue);
-	  if (!gimple_seq_empty_p (pre))
-	    gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
-	}
+	gimple_regimplify_operands (stmt, gsi_p);
       break;
     case GIMPLE_CATCH:
       lower_omp (gimple_catch_handler (stmt), ctx);
@@ -6483,110 +6475,16 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_omp_critical (gsi_p, ctx);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:
-      {
-	tree addr = gimple_omp_atomic_load_rhs (stmt);
-	if ((ctx || task_shared_vars)
-	    && walk_tree (&addr, lower_omp_regimplify_p,
-			  ctx ? NULL : &wi, NULL))
-	  {
-	    gimple_seq pre = NULL;
-	    gimplify_expr (&addr, &pre, NULL, is_gimple_val, fb_rvalue);
-	    if (!gimple_seq_empty_p (pre))
-	      gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
-	    gimple_omp_atomic_load_set_rhs (stmt, addr);
-	  }
-      }
-      break;
-    case GIMPLE_ASM:
       if ((ctx || task_shared_vars)
-	  && walk_gimple_op (stmt, lower_omp_regimplify_p,
-			     ctx ? NULL : &wi))
-	{
-	  gimple_seq pre = NULL;
-	  size_t i, noutputs = gimple_asm_noutputs (stmt);
-	  const char *constraint, **oconstraints;
-	  bool allows_mem, allows_reg, is_inout;
-
-	  oconstraints
-	    = (const char **) alloca ((noutputs) * sizeof (const char *));
-	  for (i = 0; i < noutputs; i++)
-	    {
-	      tree op = gimple_asm_output_op (stmt, i);
-	      constraint
-		= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
-	      oconstraints[i] = constraint;
-	      parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
-				       &allows_reg, &is_inout);
-	      gimplify_expr (&TREE_VALUE (op), &pre, NULL,
-			     is_inout ? is_gimple_min_lval : is_gimple_lvalue,
-			     fb_lvalue | fb_mayfail);
-	    }
-	  for (i = 0; i < gimple_asm_ninputs (stmt); i++)
-	    {
-	      tree op = gimple_asm_input_op (stmt, i);
-	      constraint
-		= TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
-	      parse_input_constraint (&constraint, 0, 0, noutputs, 0,
-				      oconstraints, &allows_mem, &allows_reg);
-	      if (TREE_ADDRESSABLE (TREE_TYPE (TREE_VALUE (op))) && allows_mem)
-		allows_reg = 0;
-	      if (!allows_reg && allows_mem)
-		gimplify_expr (&TREE_VALUE (op), &pre, NULL,
-			       is_gimple_lvalue, fb_lvalue | fb_mayfail);
-	      else
-		gimplify_expr (&TREE_VALUE (op), &pre, NULL,
-			       is_gimple_asm_val, fb_rvalue);
-	    }
-	  if (!gimple_seq_empty_p (pre))
-	    gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
-	}
+	  && walk_tree (gimple_omp_atomic_load_rhs_ptr (stmt),
+			lower_omp_regimplify_p, ctx ? NULL : &wi, NULL))
+	gimple_regimplify_operands (stmt, gsi_p);
       break;
-
     default:
       if ((ctx || task_shared_vars)
 	  && walk_gimple_op (stmt, lower_omp_regimplify_p,
 			     ctx ? NULL : &wi))
-	{
-	  size_t i, num_ops;
-
-	  /* This is similar to gimple_regimplify_operands, but uses
-	     forcefully uses gimplify_expr with the right predicates
-	     on the operands.  is_gimple_val etc. don't look at
-	     DECL_HAS_VALUE_EXPR_P and all the operands already
-	     satisfy their predicates.  gimplify_expr will replace
-	     VAR_DECLs with DECL_HAS_VALUE_EXPR_P set with their
-	     replacements and regimplify.  */
-	  num_ops = gimple_num_ops (stmt);
-	  for (i = num_ops; i > 0; i--)
-	    {
-	      gimple_seq pre = NULL;
-	      tree op = gimple_op (stmt, i - 1);
-	      if (op == NULL_TREE)
-		continue;
-	      if (i == 1 && (is_gimple_call (stmt) || is_gimple_assign (stmt)))
-		gimplify_expr (&op, &pre, NULL, is_gimple_lvalue, fb_lvalue);
-	      else if (i == 2
-		       && is_gimple_assign (stmt)
-		       && num_ops == 2
-		       && get_gimple_rhs_class (gimple_expr_code (stmt))
-			  == GIMPLE_SINGLE_RHS)
-		gimplify_expr (&op, &pre, NULL,
-			       rhs_predicate_for (gimple_op (stmt, 0)),
-			       fb_rvalue);
-	      else if (i == 2 && is_gimple_call (stmt))
-		{
-		  if (TREE_CODE (op) == FUNCTION_DECL)
-		    continue;
-		  gimplify_expr (&op, &pre, NULL, is_gimple_call_addr,
-				 fb_rvalue);
-		}
-	      else
-		gimplify_expr (&op, &pre, NULL, is_gimple_val, fb_rvalue);
-	      if (!gimple_seq_empty_p (pre))
-		gsi_insert_seq_before (gsi_p, pre, GSI_SAME_STMT);
-	      gimple_set_op (stmt, i - 1, op);
-	    }
-	}
+	gimple_regimplify_operands (stmt, gsi_p);
       break;
     }
 }
