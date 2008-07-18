@@ -1,3 +1,9 @@
+2008-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_cond_expr): If COND_EXPR has both non-trivial
+	THEN and ELSE statements and the THEN sequence can't fallthru, avoid
+	adding label_cont and jump to it.
+
 2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* Makefile.in.  Remove TREE_GIMPLE_H definition.

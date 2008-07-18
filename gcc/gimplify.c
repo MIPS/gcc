@@ -2989,9 +2989,12 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	  gimplify_seq_add_stmt (&seq, gimple_build_label (label_true));
 	  have_then_clause_p = gimplify_stmt (&TREE_OPERAND (expr, 1), &seq);
 	  /* For if (...) { code; } else {} or
-	     if (...) { code; } else goto label;
+	     if (...) { code; } else goto label; or
+	     if (...) { code; return; } else { ... }
 	     label_cont isn't needed.  */
-	  if (!have_else_clause_p && TREE_OPERAND (expr, 2) != NULL_TREE)
+	  if (!have_else_clause_p
+	      && TREE_OPERAND (expr, 2) != NULL_TREE
+	      && gimple_seq_may_fallthru (seq))
 	    {
 	      label_cont = create_artificial_label ();
 	      gimplify_seq_add_stmt (&seq, gimple_build_goto (label_cont));
