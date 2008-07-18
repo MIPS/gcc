@@ -1,3 +1,7 @@
+2008-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (finish_function): Call gimple_body after cp_genericize.
+
 2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* optimize.c: Include gimple.h instead of tree-gimple.h.
