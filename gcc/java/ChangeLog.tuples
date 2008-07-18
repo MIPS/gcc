@@ -1,3 +1,8 @@
+2008-07-18  Richard Guenther  <rguenther@suse.de>
+
+	* expr.c: Include tree-iterator.h.
+	* Make-lang.in (expr.o): Add tree-iterator.h dependency.
+
 2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* java-gimplify.c: Include gimple.h instead of tree-gimple.h.
