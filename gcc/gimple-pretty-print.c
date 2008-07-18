@@ -571,6 +571,9 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 	      dump_generic_node (buffer, gimple_cond_false_label (gs),
 				 spc, flags, false);
 	    }
+          if (gimple_cond_true_label (gs)
+	      || gimple_cond_false_label (gs))
+	    pp_semicolon (buffer);
 	}
     }
 }
@@ -604,7 +607,7 @@ dump_gimple_goto (pretty_printer *buffer, gimple gs, int spc, int flags)
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs, label);
   else
-    dump_gimple_fmt (buffer, spc, flags, "%G %T", gs, label);
+    dump_gimple_fmt (buffer, spc, flags, "goto %T;", label);
 }
 
 
@@ -1093,7 +1096,7 @@ dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_character (buffer, '>');
     }
   else
-    pp_character (buffer, ')');
+    pp_string (buffer, ");");
 }
 
 

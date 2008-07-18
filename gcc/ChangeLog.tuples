@@ -1,5 +1,11 @@
 2008-07-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple-pretty-print.c (dump_gimple_cond): Print a semicolon if
+	goto or else goto has been printed.
+	(dump_gimple_goto): Print as goto instead of gimple_goto, print
+	a semicolon at the end.
+	(dump_gimple_asm): Print a semicolon at the end.
+
 	* gimplify.c (gimplify_cond_expr): If COND_EXPR has both non-trivial
 	THEN and ELSE statements and the THEN sequence can't fallthru, avoid
 	adding label_cont and jump to it.
