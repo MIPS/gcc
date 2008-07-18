@@ -1952,7 +1952,8 @@ simplify_binary_expression (gimple stmt)
      expansion of expressions during simplification.  */
   if (TREE_CODE (op0) == SSA_NAME)
     {
-      if (VN_INFO (op0)->has_constants)
+      if (VN_INFO (op0)->has_constants
+	  || TREE_CODE_CLASS (gimple_assign_rhs_code (stmt)) == tcc_comparison)
 	op0 = valueize_expr (vn_get_expr_for (op0));
       else if (SSA_VAL (op0) != VN_TOP && SSA_VAL (op0) != op0)
 	op0 = SSA_VAL (op0);

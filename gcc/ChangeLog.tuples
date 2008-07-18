@@ -1,3 +1,10 @@
+2008-07-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-loop-niter.c (expand_simple_operations): Expand
+	as much as trunk does.
+	* tree-ssa-sccvn.c (simplify_binary_expression): For comparisons
+	always expand the first operand.
+
 2008-07-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple-pretty-print.c (dump_gimple_cond): Print a semicolon if

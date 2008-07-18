@@ -1455,22 +1455,17 @@ expand_simple_operations (tree expr)
     case CONVERT_EXPR:
       /* Casts are simple.  */
       ee = expand_simple_operations (e);
-      if (e == ee)
-	return expr;
       return fold_build1 (code, TREE_TYPE (expr), ee);
 
     case PLUS_EXPR:
     case MINUS_EXPR:
     case POINTER_PLUS_EXPR:
-      /* And increments and decrements of a constant are simple.  */
-
+      /* And increments and decrements by a constant are simple.  */
       e1 = gimple_assign_rhs2 (stmt);
       if (!is_gimple_min_invariant (e1))
 	return expr;
 
       ee = expand_simple_operations (e);
-      if (e == ee)
-	return expr;
       return fold_build2 (code, TREE_TYPE (expr), ee, e1);
 
     default:
