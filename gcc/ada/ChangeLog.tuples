@@ -1,3 +1,17 @@
+2008-07-19  Richard Guenther  <rguenther@suse.de>
+
+	* Make-lang.in (trans.o): Add tree-iterator.h dependency.
+	(utils.o): Likewise.
+	* trans.c: Include tree-iterator.h.
+	(gnat_gimplify_expr): Adjust prototype.  Fix typo.
+	(gnat_gimplify_stmt): Use SET_EXPR_LOCATION.
+	(set_expr_location_from_node): Likewise.
+	(gigi): Tuplify.
+	* ada-tree.h (union lang_tree_node): Use TREE_CHAIN instead
+	of GENERIC_NEXT.
+	* utils.c: Include tree-iterator.h.
+	* gigi.h (gnat_gimplify_expr): Adjust prototype.
+
 2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
 
 	* trans.c: Include gimple.h instead of tree-gimple.h.

@@ -233,8 +233,8 @@ extern tree gnat_to_gnu (Node_Id gnat_node);
 extern void gnat_expand_stmt (tree gnu_stmt);
 
 /* ??? missing documentation */
-extern int gnat_gimplify_expr (tree *expr_p, tree *pre_p,
-                               tree *post_p ATTRIBUTE_UNUSED);
+extern int gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
+                               gimple_seq *post_p ATTRIBUTE_UNUSED);
 
 /* Do the processing for the declaration of a GNAT_ENTITY, a type.  If
    a separate Freeze node exists, delay the bulk of the processing.  Otherwise
