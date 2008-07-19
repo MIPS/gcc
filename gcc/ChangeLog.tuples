@@ -1,3 +1,14 @@
+2008-07-19  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.h (get_constant_value_id): Declare.
+	(vn_constant_eq_with_type): Make sure an integral type is
+	never equal to a non-integral type.
+	(vn_hash_constant_with_type): Adjust.
+	* tree-ssa-sccvn.c (get_constant_value_id): New function.
+	* tree-ssa-pre.c (get_expr_value_id): For newly created
+	constant value-ids make sure to add the expression to its
+	expression-set.
+
 2008-07-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple.c (gimple_regimplify_operands): Moved to...

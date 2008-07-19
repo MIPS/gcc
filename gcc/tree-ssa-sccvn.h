@@ -113,6 +113,7 @@ vn_hash_constant_with_type (tree constant)
 {
   tree type = TREE_TYPE (constant);
   return (iterative_hash_expr (constant, 0)
+	  + INTEGRAL_TYPE_P (type)
 	  + (INTEGRAL_TYPE_P (type)
 	     ? TYPE_PRECISION (type) + TYPE_UNSIGNED (type) : 0));
 }
@@ -123,12 +124,8 @@ vn_hash_constant_with_type (tree constant)
 static inline bool
 vn_constant_eq_with_type (tree c1, tree c2)
 {
-  tree type1 = TREE_TYPE (c1);
-  tree type2 = TREE_TYPE (c2);
   return (expressions_equal_p (c1, c2)
-	  && (!INTEGRAL_TYPE_P (type1)
-	      || ((TYPE_PRECISION (type1) == TYPE_PRECISION (type2)
-		  && (TYPE_UNSIGNED (type1) == TYPE_UNSIGNED (type2))))));
+	  && types_compatible_p (TREE_TYPE (c1), TREE_TYPE (c2)));
 }
 
 typedef struct vn_ssa_aux
@@ -193,6 +190,7 @@ hashval_t vn_reference_compute_hash (const vn_reference_t);
 int vn_reference_eq (const void *, const void *);
 unsigned int get_max_value_id (void);
 unsigned int get_next_value_id (void);
+unsigned int get_constant_value_id (tree);
 unsigned int get_or_alloc_constant_value_id (tree);
 bool value_id_constant_p (unsigned int);
 VEC (tree, gc) *shared_vuses_from_stmt (gimple);
