@@ -3352,13 +3352,12 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
   locate->where_pad = where_pad;
-  locate->boundary = boundary;
 
-  /* We can't exceed MAX_SUPPORTED_STACK_ALIGNMENT when we remember
-     if the outgoing parameter requires extra alignment on the calling
-     function side.  */
+  /* Alignment can't exceed MAX_SUPPORTED_STACK_ALIGNMENT.  */
   if (boundary >= MAX_SUPPORTED_STACK_ALIGNMENT)
     boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
+
+  locate->boundary = boundary;
 
   if (SUPPORTS_STACK_ALIGNMENT)
     {
@@ -3381,6 +3380,8 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 	}
     }
 
+  /* Remember if the outgoing parameter requires extra alignment on the
+     calling function side.  */
   if (crtl->stack_alignment_needed < boundary)
     crtl->stack_alignment_needed = boundary;
   if (crtl->max_used_stack_slot_alignment < crtl->stack_alignment_needed)
