@@ -1,3 +1,9 @@
+2008-07-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* function.c (assign_stack_local_1): Use ">" instead of ">="
+	to check MAX_SUPPORTED_STACK_ALIGNMENT.
+	(locate_and_pad_parm): Likewise.
+
 2008-07-08  H.J. Lu  <hongjiu.lu@intel.com>
 	    Xuepeng Guo  <xuepeng.guo@intel.com>
 

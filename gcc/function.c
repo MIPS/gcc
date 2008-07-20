@@ -385,7 +385,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
     frame_offset -= size;
 
   /* Ignore alignment if it exceeds MAX_SUPPORTED_STACK_ALIGNMENT.  */
-  if (alignment_in_bits >= MAX_SUPPORTED_STACK_ALIGNMENT)
+  if (alignment_in_bits > MAX_SUPPORTED_STACK_ALIGNMENT)
     {
       alignment_in_bits = MAX_SUPPORTED_STACK_ALIGNMENT;
       alignment = alignment_in_bits / BITS_PER_UNIT;
@@ -3354,7 +3354,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
   locate->where_pad = where_pad;
 
   /* Alignment can't exceed MAX_SUPPORTED_STACK_ALIGNMENT.  */
-  if (boundary >= MAX_SUPPORTED_STACK_ALIGNMENT)
+  if (boundary > MAX_SUPPORTED_STACK_ALIGNMENT)
     boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
 
   locate->boundary = boundary;
