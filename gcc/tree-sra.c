@@ -2847,10 +2847,15 @@ insert_edge_copies_seq (gimple_seq seq, basic_block bb)
 {
   edge e;
   edge_iterator ei;
+  unsigned n_copies = -1;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (!(e->flags & EDGE_ABNORMAL)) 
-      gsi_insert_seq_on_edge (e, gimple_seq_copy (seq));
+      n_copies++;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (!(e->flags & EDGE_ABNORMAL)) 
+      gsi_insert_seq_on_edge (e, n_copies-- > 0 ? gimple_seq_copy (seq) : seq);
 }
 
 /* Helper function to insert LIST before GSI, and set up line number info.  */

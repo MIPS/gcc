@@ -1,5 +1,14 @@
 2008-07-20  Richard Guenther  <rguenther@suse.de>
 
+	* gimple.h (gimple_expr_type): The expression type is always
+	the base type of an integral sub-type result type.
+	* tree-eh.c (replace_goto_queue_cond_clause): Copy the sequence
+	before handing it off to gsi_insert_seq_after.
+	* tree-sra.c (insert_edge_copies_seq): Make sure to not keep an
+	uninserted but marked for update sequence.
+
+2008-07-20  Richard Guenther  <rguenther@suse.de>
+
 	* gimple.c (DEFTREECODE): Add REALIGN_LOAD_EXPR.
 
 2008-07-19  Richard Guenther  <rguenther@suse.de>

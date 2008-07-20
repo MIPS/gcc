@@ -1390,7 +1390,18 @@ gimple_expr_type (const_gimple stmt)
   enum gimple_code code = gimple_code (stmt);
 
   if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
-    return TREE_TYPE (gimple_get_lhs (stmt));
+    {
+      tree type = TREE_TYPE (gimple_get_lhs (stmt));
+      /* Integral sub-types are never the type of the expression,
+         but they still can be the type of the result as the base
+	 type (in which expressions are computed) is trivially
+	 convertible to one of its sub-types.  So always return
+	 the base type here.  */
+      if (INTEGRAL_TYPE_P (type)
+	  && TREE_TYPE (type))
+	type = TREE_TYPE (type);
+      return type;
+    }
   else if (code == GIMPLE_COND)
     return boolean_type_node;
   else

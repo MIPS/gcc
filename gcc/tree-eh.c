@@ -499,7 +499,7 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
   *tp = label;
 
   gsi_insert_after (gsi, gimple_build_label (label), GSI_CONTINUE_LINKING);
-  gsi_insert_seq_after (gsi, new, GSI_CONTINUE_LINKING);
+  gsi_insert_seq_after (gsi, gimple_seq_copy (new), GSI_CONTINUE_LINKING);
 }
 
 /* The real work of replace_goto_queue.  Returns with TSI updated to
