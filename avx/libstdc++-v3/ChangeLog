@@ -1,3 +1,35 @@
+2008-07-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/ext/pb_ds/detail/binomial_heap_base_/debug_fn_imps.hpp
+	(assert_node_consistent): Avoid ambiguous else warning.
+
+	* include/ext/pb_ds/detail/debug_map_base.hpp: Include <iostream>.
+
+	* include/bits/c++config: In debug-mode (and parallel-mode) set
+	_GLIBCXX_EXTERN_TEMPLATE to -1, not 0, thus disabling extern
+	templates only for basic_string (per libstdc++/21674).
+	* include/bits/basic_string.tcc: Use extern templates when
+	_GLIBCXX_EXTERN_TEMPLATE > 0.
+
+2008-07-18  Kris Van Hees  <kris.van.hees@oracle.com>
+	    Holger Hopp  <holger.hopp@sap.com>
+
+	* config/abi/pre/gnu.ver: Support char16_t and char32_t.
+	* testsuite/util/testsuite_abi.cc (check_version): Add
+	CXXABI_1.3.3 to known_versions.
+
+2008-07-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/debug/vector (insert(iterator, _Tp&&), push_back(_Tp&&)):
+	Enable only when _Tp != bool.
+
+	* testsuite/25_algorithms/heap/1.cc: Avoid unused variable warnings.
+
+2008-07-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_c_std): Avoid unused
+	variable warnings leading to spurious fails of the test.
+
 2008-07-16  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* testsuite/30_threads/recursive_mutex/cons/assign_neg.cc: Adjust

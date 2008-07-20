@@ -5625,6 +5625,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   int indirect_p = 0;
   tree ptrtype;
   enum machine_mode nat_mode;
+  int arg_boundary;
 
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
@@ -5823,13 +5824,21 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
   /* ... otherwise out of the overflow area.  */
 
+  /* When we align parameter on stack for caller, if the parameter
+     alignment is beyond PREFERRED_STACK_BOUNDARY, it will be
+     aligned at PREFERRED_STACK_BOUNDARY.  We will match callee
+     here with caller.  */
+  arg_boundary = FUNCTION_ARG_BOUNDARY (VOIDmode, type);
+  if ((unsigned int) arg_boundary > PREFERRED_STACK_BOUNDARY)
+     arg_boundary = PREFERRED_STACK_BOUNDARY;
+
   /* Care for on-stack alignment if needed.  */
-  if (FUNCTION_ARG_BOUNDARY (VOIDmode, type) <= 64
+  if (arg_boundary <= 64
       || integer_zerop (TYPE_SIZE (type)))
     t = ovf;
  else
     {
-      HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
+      HOST_WIDE_INT align = arg_boundary / 8;
       t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), ovf,
 		  size_int (align - 1));
       t = fold_convert (sizetype, t);
@@ -15016,10 +15025,13 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
       ix86_expand_clear (scratch);
       emit_insn ((mode == DImode
 		  ? gen_x86_shift_adj_1
-		  : gen_x86_64_shift_adj) (high[0], low[0], operands[2], scratch));
+		  : gen_x86_64_shift_adj_1) (high[0], low[0], operands[2],
+					     scratch));
     }
   else
-    emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
+    emit_insn ((mode == DImode
+		? gen_x86_shift_adj_2
+		: gen_x86_64_shift_adj_2) (high[0], low[0], operands[2]));
 }
 
 void
@@ -15093,11 +15105,13 @@ ix86_split_ashr (rtx *operands, rtx scratch, enum machine_mode mode)
 				      GEN_INT (single_width - 1)));
 	  emit_insn ((mode == DImode
 		      ? gen_x86_shift_adj_1
-		      : gen_x86_64_shift_adj) (low[0], high[0], operands[2],
-					 scratch));
+		      : gen_x86_64_shift_adj_1) (low[0], high[0], operands[2],
+						 scratch));
 	}
       else
-	emit_insn (gen_x86_shift_adj_3 (low[0], high[0], operands[2]));
+	emit_insn ((mode == DImode
+		    ? gen_x86_shift_adj_3
+		    : gen_x86_64_shift_adj_3) (low[0], high[0], operands[2]));
     }
 }
 
@@ -15156,11 +15170,13 @@ ix86_split_lshr (rtx *operands, rtx scratch, enum machine_mode mode)
 	  ix86_expand_clear (scratch);
 	  emit_insn ((mode == DImode
 		      ? gen_x86_shift_adj_1
-		      : gen_x86_64_shift_adj) (low[0], high[0], operands[2],
-					       scratch));
+		      : gen_x86_64_shift_adj_1) (low[0], high[0], operands[2],
+						 scratch));
 	}
       else
-	emit_insn (gen_x86_shift_adj_2 (low[0], high[0], operands[2]));
+	emit_insn ((mode == DImode
+		    ? gen_x86_shift_adj_2
+		    : gen_x86_64_shift_adj_2) (low[0], high[0], operands[2]));
     }
 }
 
