@@ -5728,7 +5728,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
      here with caller.  */
   arg_boundary = FUNCTION_ARG_BOUNDARY (VOIDmode, type);
   if ((unsigned int) arg_boundary > MAX_SUPPORTED_STACK_ALIGNMENT)
-     arg_boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
+    arg_boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
 
   /* Care for on-stack alignment if needed.  */
   if (arg_boundary <= 64
