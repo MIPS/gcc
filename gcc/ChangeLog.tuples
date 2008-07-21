@@ -1,5 +1,10 @@
 2008-07-21  Richard Guenther  <rguenther@suse.de>
 
+	* gimplify.c (gimplify_init_constructor): Clear TREE_SIDE_EFFECTS
+	on the remaining empty constructor.
+
+2008-07-21  Richard Guenther  <rguenther@suse.de>
+
 	* tree-ssa-ccp.c (fold_gimple_assign): Handle pointer conversions
 	like fold_stmt_r did.
 	* gimple-pretty-print.c (dump_gimple_cond): Place semicolons

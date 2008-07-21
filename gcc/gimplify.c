@@ -3639,6 +3639,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	       Note that we still have to gimplify, in order to handle the
 	       case of variable sized types.  Avoid shared tree structures.  */
 	    CONSTRUCTOR_ELTS (ctor) = NULL;
+	    TREE_SIDE_EFFECTS (ctor) = 0;
 	    object = unshare_expr (object);
 	    gimplify_stmt (expr_p, pre_p);
 	  }
