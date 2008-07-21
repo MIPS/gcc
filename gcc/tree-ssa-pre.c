@@ -3904,7 +3904,8 @@ eliminate (void)
 	      && !gimple_assign_ssa_name_copy_p (stmt)
 	      && (!gimple_assign_single_p (stmt)
 		  || !is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
-	      && !gimple_has_volatile_ops  (stmt))
+	      && !gimple_has_volatile_ops  (stmt)
+	      && !has_zero_uses (gimple_get_lhs (stmt)))
 	    {
 	      tree lhs = gimple_get_lhs (stmt);
 	      tree rhs = NULL_TREE;

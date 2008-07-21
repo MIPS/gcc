@@ -1,3 +1,9 @@
+2008-07-21  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/36826
+	* tree-ssa-pre.c (eliminate): Do not eliminate in unused
+	statements.
+
 2008-07-20  Richard Guenther  <rguenther@suse.de>
 
 	* gimple.h (gimple_expr_type): The expression type is always
