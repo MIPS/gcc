@@ -11,6 +11,26 @@
  	* gcc.dg/vmx/1b-06-ansi.c: New test for the pre-define method.
  	* gcc.dg/vmx/1b-07-ansi.c: Likewise.
 
+2008-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36877
+	* gcc.dg/gomp/atomic-11.c: New test.
+
+2008-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/36366
+	* gfortran.dg/used_types_20.f90: New test.
+
+2008-07-18  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/36407
+	* g++.dg/conversion/op5.C: New testcase.
+
+2008-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/35281
+	* gcc.target/i386/pr35281.c: New.
+
 2008-07-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline:
