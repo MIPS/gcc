@@ -2681,6 +2681,26 @@ fold_gimple_assign (gimple_stmt_iterator *si)
               return true;
             }
         }
+      else if ((gimple_assign_rhs_code (stmt) == NOP_EXPR
+		|| gimple_assign_rhs_code (stmt) == CONVERT_EXPR)
+	       && POINTER_TYPE_P (gimple_expr_type (stmt))
+	       && POINTER_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt))))
+	{
+	  tree type = gimple_expr_type (stmt);
+	  tree t = maybe_fold_offset_to_reference (gimple_assign_rhs1 (stmt),
+						   integer_zero_node,
+						   TREE_TYPE (type));
+	  if (t)
+	    {
+	      tree ptr_type = build_pointer_type (TREE_TYPE (t));
+	      if (useless_type_conversion_p (type, ptr_type))
+		{
+		  result = build_fold_addr_expr_with_type (t, ptr_type);
+		  gimple_assign_set_rhs_from_tree (si, result);
+		  return true;
+		}
+	    }
+	}
       break;
 
     case GIMPLE_BINARY_RHS:

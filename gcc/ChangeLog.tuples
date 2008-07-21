@@ -1,5 +1,13 @@
 2008-07-21  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-ccp.c (fold_gimple_assign): Handle pointer conversions
+	like fold_stmt_r did.
+	* gimple-pretty-print.c (dump_gimple_cond): Place semicolons
+	where trunk did.
+	* tree-inline.c (copy_bb): Do not insert GIMPLE_NOPs.
+
+2008-07-21  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/36826
 	* tree-ssa-pre.c (eliminate): Do not eliminate in unused
 	statements.

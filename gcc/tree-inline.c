@@ -1269,6 +1269,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
       id->regimplify = false;
       stmt = remap_gimple_stmt (stmt, id);
+      if (gimple_nop_p (stmt))
+	continue;
 
       gimple_duplicate_stmt_histograms (cfun, stmt, id->src_cfun, orig_stmt);
 

@@ -564,16 +564,15 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 	      pp_string (buffer, " goto ");
 	      dump_generic_node (buffer, gimple_cond_true_label (gs),
 				 spc, flags, false);
+	      pp_semicolon (buffer);
 	    }
 	  if (gimple_cond_false_label (gs))
 	    {
 	      pp_string (buffer, " else goto ");
 	      dump_generic_node (buffer, gimple_cond_false_label (gs),
 				 spc, flags, false);
+	      pp_semicolon (buffer);
 	    }
-          if (gimple_cond_true_label (gs)
-	      || gimple_cond_false_label (gs))
-	    pp_semicolon (buffer);
 	}
     }
 }
