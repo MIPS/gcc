@@ -263,9 +263,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
   /* Find a dereferencing use.  First follow (single use) ssa
      copy chains for ptr.  */
   while (single_imm_use (ptr, &use, &use_stmt)
-	 && is_gimple_assign (use_stmt)
-	 && gimple_assign_rhs1 (use_stmt) == ptr
-	 && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME)
+	 && gimple_assign_ssa_name_copy_p (use_stmt))
     ptr = gimple_assign_lhs (use_stmt);
 
   /* Replace the first dereference of *ptr if there is one and if we

@@ -1,5 +1,9 @@
 2008-07-21  Richard Guenther  <rguenther@suse.de>
 
+	* gcc.c-torture/compile/20080721-1.c: New testcase.
+
+2008-07-21  Richard Guenther  <rguenther@suse.de>
+
 	PR tree-optimization/36826
 	* g++.dg/torture/pr36826.C: New testcase.
 
