@@ -135,7 +135,6 @@ static void cfg_preds (basic_block, insn_t **, int *);
 static void prepare_insn_expr (insn_t, int);
 static void free_history_vect (VEC (expr_history_def, heap) **);
 
-static void sel_add_or_remove_bb (basic_block, int);
 static void move_bb_info (basic_block, basic_block);
 static void remove_empty_bb (basic_block, bool);
 static void sel_remove_loop_preheader (void);
@@ -3828,10 +3827,6 @@ VEC (sel_insn_data_def, heap) *s_i_d = NULL;
 
 static insn_vec_t new_insns = NULL;
 
-/* This variable is used to ensure that no insns will be emitted by
-   outer-world functions like redirect_edge_and_branch ().  */
-static bool can_add_insns_p = true;
-
 /* The same as the previous flag except that notes are allowed 
    to be emitted.  
    FIXME: avoid this dependency between files.  */
@@ -3896,8 +3891,7 @@ finish_insns (void)
 static void
 sel_rtl_insn_added (insn_t insn)
 {
-  gcc_assert (can_add_insns_p
-	      && (!INSN_P (insn) || can_add_real_insns_p));
+  gcc_assert (!INSN_P (insn) || can_add_real_insns_p);
 
   if (INSN_P (insn)
       && INSN_IN_STREAM_P (insn)
@@ -4282,7 +4276,7 @@ get_av_level (insn_t insn)
 /* Variables to work with control-flow graph.  */
 
 /* The basic block that already has been processed by the sched_data_update (),
-   but hasn't been in sel_add_or_remove_bb () yet.  */
+   but hasn't been in sel_add_bb () yet.  */
 static VEC (basic_block, heap) *last_added_blocks = NULL;
 
 /* A pool for allocating successor infos.  */
@@ -4857,19 +4851,65 @@ free_sched_pools (void)
 static int
 find_place_to_insert_bb (basic_block bb, int rgn)
 {
-  int i, bbi = bb->index, cur_bbi;
+  bool has_preds_outside_rgn = false;
+  edge e;
+  edge_iterator ei;
   
-  for (i = RGN_NR_BLOCKS (rgn) - 1; i >= 0; i--)
-    {
-      cur_bbi = BB_TO_BLOCK (i);
-      if (rev_top_order_index[bbi] 
-          < rev_top_order_index[cur_bbi])
+  /* Find whether we have preds outside the region.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (!in_current_region_p (e->src))
+      {
+        has_preds_outside_rgn = true;
         break;
-    }
+      }
+  
+  /* Recompute the top order -- needed when we have > 1 pred
+     and in case we don't have preds outside.  */
+  if (flag_sel_sched_pipelining_outer_loops
+      && (has_preds_outside_rgn || EDGE_COUNT (bb->preds) > 1))
+    {
+      int i, bbi = bb->index, cur_bbi;
+
+      recompute_rev_top_order ();
+      for (i = RGN_NR_BLOCKS (rgn) - 1; i >= 0; i--)
+        {
+          cur_bbi = BB_TO_BLOCK (i);
+          if (rev_top_order_index[bbi] 
+              < rev_top_order_index[cur_bbi])
+            break;
+        }
               
-  /* We skipped the right block, so we increase i.  We accomodate
-     it for increasing by step later, so we decrease i.  */
-  return (i + 1) - 1;
+      /* We skipped the right block, so we increase i.  We accomodate
+         it for increasing by step later, so we decrease i.  */
+      return (i + 1) - 1;
+    }
+  else if (has_preds_outside_rgn)
+    {
+      /* This is the case when we generate an extra empty block
+         to serve as region head during pipelining.  */
+      e = EDGE_SUCC (bb, 0);
+      gcc_assert (EDGE_COUNT (bb->succs) == 1
+                  && in_current_region_p (EDGE_SUCC (bb, 0)->dest)
+                  && (BLOCK_TO_BB (e->dest->index) == 0));
+      return -1;
+    }
+
+  /* We don't have preds outside the region.  We should have
+     the only pred, because the multiple preds case comes from
+     the pipelining of outer loops, and that is handled above.
+     Just take the bbi of this single pred.  */
+  if (EDGE_COUNT (bb->succs) > 0)
+    {
+      int pred_bbi;
+          
+      gcc_assert (EDGE_COUNT (bb->preds) == 1);
+          
+      pred_bbi = EDGE_PRED (bb, 0)->src->index;
+      return BLOCK_TO_BB (pred_bbi);
+    }
+  else
+    /* BB has no successors.  It is safe to put it in the end.  */
+    return current_nr_blocks - 1;
 }
 
 /* Deletes an empty basic block freeing its data.  */
@@ -4883,10 +4923,9 @@ delete_and_free_basic_block (basic_block bb)
 
   bitmap_clear_bit (blocks_to_reschedule, bb->index);
 
-      /* Can't assert av_set properties when (add == 0) because
-     we use sel_add_or_remove_bb (bb, 0) when removing loop
-     preheader from the region.  At the point of removing the
-     preheader we already have deallocated sel_region_bb_info.  */
+  /* Can't assert av_set properties because we use sel_aremove_bb 
+     when removing loop preheader from the region.  At the point of 
+     removing the preheader we already have deallocated sel_region_bb_info.  */
   gcc_assert (BB_LV_SET (bb) == NULL
               && !BB_LV_SET_VALID_P (bb)
               && BB_AV_LEVEL (bb) == 0
@@ -4895,162 +4934,89 @@ delete_and_free_basic_block (basic_block bb)
   delete_basic_block (bb);
 }
 
-/* Add (or remove depending on ADD) BB to (from) the current region 
-   and update sched-rgn.c data.  */
+/* Add BB to the current region and update the region data.  */
 static void
-sel_add_or_remove_bb_1 (basic_block bb, int add)
+add_block_to_current_region (basic_block bb)
 {
   int i, pos, bbi = -2, rgn;
-  int step = (add > 0) ? 1 : 0;
 
   rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  bbi = find_place_to_insert_bb (bb, rgn);
+  bbi += 1;
+  pos = RGN_BLOCKS (rgn) + bbi;
 
-  if (step)
-    {
-      bool has_preds_outside_rgn = false;
-      edge e;
-      edge_iterator ei;
-
-      /* Find whether we have preds outside the region.  */
-      FOR_EACH_EDGE (e, ei, bb->preds)
-        if (!in_current_region_p (e->src))
-          {
-            has_preds_outside_rgn = true;
-            break;
-          }
-
-      /* Recompute the top order -- needed when we have > 1 pred
-         and in case we don't have preds outside.  */
-      if (flag_sel_sched_pipelining_outer_loops
-          && (has_preds_outside_rgn || EDGE_COUNT (bb->preds) > 1))
-        {
-          recompute_rev_top_order ();
-          bbi = find_place_to_insert_bb (bb, rgn);
-        }
-      else if (has_preds_outside_rgn)
-        {
-          /* This is the case when we generate an extra empty block
-             to serve as region head during pipelining.  */
-          e = EDGE_SUCC (bb, 0);
-          gcc_assert (EDGE_COUNT (bb->succs) == 1
-                      && in_current_region_p (EDGE_SUCC (bb, 0)->dest)
-                      && (BLOCK_TO_BB (e->dest->index) == 0));
-                  
-          bbi = -1;
-        }
-      else
-        {
-          if (EDGE_COUNT (bb->succs) > 0)
-	    /* We don't have preds outside the region.  We should have
-	       the only pred, because the multiple preds case comes from
-	       the pipelining of outer loops, and that is handled above.
-	       Just take the bbi of this single pred.  */
-            {
-              int pred_bbi;
-
-              gcc_assert (EDGE_COUNT (bb->preds) == 1);
-
-              pred_bbi = EDGE_PRED (bb, 0)->src->index;
-              bbi = BLOCK_TO_BB (pred_bbi);
-            }
-          else
-            /* BB has no successors.  It is safe to put it in the end.  */
-            bbi = current_nr_blocks - 1;
-        }
-    }
-  else
-    bbi = BLOCK_TO_BB (bb->index);
+  gcc_assert (RGN_HAS_REAL_EBB (rgn) == 0
+              && ebb_head[bbi] == pos);
   
-  /* Assert that we've found a proper place.  */
-  gcc_assert (bbi != -2);
+  /* Make a place for the new block.  */
+  extend_regions ();
 
-  bbi += step;
+  for (i = RGN_BLOCKS (rgn + 1) - 1; i >= pos; i--)
+    BLOCK_TO_BB (rgn_bb_table[i])++;
+  
+  memmove (rgn_bb_table + pos + 1,
+           rgn_bb_table + pos,
+           (RGN_BLOCKS (nr_regions) - pos) * sizeof (*rgn_bb_table));
+
+  /* Initialize data for BB.  */
+  rgn_bb_table[pos] = bb->index;
+  BLOCK_TO_BB (bb->index) = bbi;
+  CONTAINING_RGN (bb->index) = rgn;
+
+  RGN_NR_BLOCKS (rgn)++;
+  
+  for (i = rgn + 1; i <= nr_regions; i++)
+    RGN_BLOCKS (i)++;
+}
+
+/* Remove BB from the current region and update the region data.  */
+static void
+remove_bb_from_region (basic_block bb)
+{
+  int i, pos, bbi = -2, rgn;
+
+  rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
+  bbi = BLOCK_TO_BB (bb->index);
   pos = RGN_BLOCKS (rgn) + bbi;
 
   gcc_assert (RGN_HAS_REAL_EBB (rgn) == 0
               && ebb_head[bbi] == pos);
 
-  /* First of all, we free outdated info:
-     Nothing to be done here.  */
+  for (i = RGN_BLOCKS (rgn + 1) - 1; i >= pos; i--)
+    BLOCK_TO_BB (rgn_bb_table[i])--;
 
-  if (step)
-    {
-      /* Second, we make a place for the new block.  */
-      extend_regions ();
-
-      for (i = RGN_BLOCKS (rgn + 1) - 1; i >= pos; i--)
-	/* We better not use EBB_HEAD here, as it has region-scope.  */
-	BLOCK_TO_BB (rgn_bb_table[i])++;
-    }
-  else
-    {
-      for (i = RGN_BLOCKS (rgn + 1) - 1; i >= pos; i--)
-	BLOCK_TO_BB (rgn_bb_table[i])--;
-    }
-
-  memmove (rgn_bb_table + pos + step,
-           rgn_bb_table + pos + 1 - step,
+  memmove (rgn_bb_table + pos,
+           rgn_bb_table + pos + 1,
            (RGN_BLOCKS (nr_regions) - pos) * sizeof (*rgn_bb_table));
 
-  if (step)
-    {
-      /* Third, we initialize data for BB.  */
-      rgn_bb_table[pos] = bb->index;
-      BLOCK_TO_BB (bb->index) = bbi;
-      CONTAINING_RGN (bb->index) = rgn;
-
-      RGN_NR_BLOCKS (rgn)++;
-
-      for (i = rgn + 1; i <= nr_regions; i++)
-	RGN_BLOCKS (i)++;
-    }
-  else
-    {
-      RGN_NR_BLOCKS (rgn)--;
-      for (i = rgn + 1; i <= nr_regions; i++)
-	RGN_BLOCKS (i)--;
-    }
+  RGN_NR_BLOCKS (rgn)--;
+  for (i = rgn + 1; i <= nr_regions; i++)
+    RGN_BLOCKS (i)--;
 }
 
-/* Add (remove depending on ADD) BB to (from) the current region 
-   and update all data.  If BB is NULL, add all blocks from 
-   last_added_blocks vector.  */
+/* Add BB to the current region  and update all data.  If BB is NULL, add all 
+   blocks from last_added_blocks vector.  */
 static void
-sel_add_or_remove_bb (basic_block bb, int add)
+sel_add_bb (basic_block bb)
 {
-  if (add > 0)
-    {
-      /* Extend luids so that new notes will receive zero luids.  */
-      sched_init_luids (NULL, NULL, NULL, NULL);
-      sched_init_bbs ();
-      sel_init_bbs (last_added_blocks, NULL);
+  /* Extend luids so that new notes will receive zero luids.  */
+  sched_init_luids (NULL, NULL, NULL, NULL);
+  sched_init_bbs ();
+  sel_init_bbs (last_added_blocks, NULL);
 
-      /* When bb is passed explicitly, the vector should contain 
-         the only element that equals to bb; otherwise, the vector
-         should not be NULL.  */
-      gcc_assert (last_added_blocks != NULL);
-
-      if (bb != NULL)
-        {
-          gcc_assert (VEC_length (basic_block, last_added_blocks) == 1
-                      && VEC_index (basic_block, 
-                                    last_added_blocks, 0) == bb);
-
-	  /* Free the vector.  */
-          VEC_free (basic_block, heap, last_added_blocks);
-        }
-    }
-  else
-    {
-      gcc_assert (bb != NULL && BB_NOTE_LIST (bb) == NULL_RTX);
-    }
-
+  /* When bb is passed explicitly, the vector should contain 
+     the only element that equals to bb; otherwise, the vector
+     should not be NULL.  */
+  gcc_assert (last_added_blocks != NULL);
+  
   if (bb != NULL)
     {
-      sel_add_or_remove_bb_1 (bb, add);
-
-      if (add > 0 && !sel_bb_empty_p (bb)
-	  && BB_LV_SET (bb) == NULL)
+      gcc_assert (VEC_length (basic_block, last_added_blocks) == 1
+                  && VEC_index (basic_block, 
+                                last_added_blocks, 0) == bb);
+      
+      add_block_to_current_region (bb);
+      if (!sel_bb_empty_p (bb) && BB_LV_SET (bb) == NULL)
 	/* ??? We associate creating/deleting data sets with the first insn
 	   appearing / disappearing in the bb.  This is not a clean way to
 	   implement infrastructure for handling data sets because we often
@@ -5061,15 +5027,8 @@ sel_add_or_remove_bb (basic_block bb, int add)
 	   move_insns_to_bb ().
 	   2. Or associate data sets with bb notes.  */
 	init_invalid_data_sets (bb);
-
-      if (add <= 0)
-	{
-	  return_bb_to_pool (bb);
-	  bitmap_clear_bit (blocks_to_reschedule, bb->index);
-
-	  if (add < 0)
-            delete_and_free_basic_block (bb);
-	}
+    
+      VEC_free (basic_block, heap, last_added_blocks);
     }
   else
     /* BB is NULL - process LAST_ADDED_BLOCKS instead.  */
@@ -5077,12 +5036,10 @@ sel_add_or_remove_bb (basic_block bb, int add)
       int i;
       basic_block temp_bb = NULL;
 
-      gcc_assert (add > 0);
-
       for (i = 0; 
            VEC_iterate (basic_block, last_added_blocks, i, bb); i++)
         {
-          sel_add_or_remove_bb_1 (bb, add);
+          add_block_to_current_region (bb);
           temp_bb = bb;
         }
 
@@ -5119,34 +5076,21 @@ sel_add_or_remove_bb (basic_block bb, int add)
 #endif
 }
 
-/* A wrapper for create_basic_block_before, which also extends per-bb 
-   data structures.  Returns the newly created bb.  */
-basic_block
-sel_create_basic_block_before (basic_block before)
+/* Remove BB from the current region and update all data.  
+   If REMOVE_FROM_CFG_PBB is true, also remove the block cfom cfg.  */
+static void
+sel_remove_bb (basic_block bb, bool remove_from_cfg_p)
 {
-  basic_block prev_bb;
-  basic_block bb;
-  edge e;
+  gcc_assert (bb != NULL && BB_NOTE_LIST (bb) == NULL_RTX);
+  
+  remove_bb_from_region (bb);
+  return_bb_to_pool (bb);
+  bitmap_clear_bit (blocks_to_reschedule, bb->index);
+  
+  if (remove_from_cfg_p)
+    delete_and_free_basic_block (bb);
 
-  gcc_assert (in_current_region_p (before));
-
-  prev_bb = before->prev_bb;
-
-  e = find_fallthru_edge (prev_bb);
-  gcc_assert (e != NULL);
-
-  /* This code is taken from cfghooks.c: split_block ().  */
-  bb = create_basic_block (BB_HEAD (before), NULL_RTX, prev_bb);
-  bb->count = prev_bb->count;
-  bb->frequency = prev_bb->frequency;
-  bb->loop_depth = prev_bb->loop_depth;
-  make_single_succ_edge (bb, before, EDGE_FALLTHRU);
-
-  redirect_edge_succ (e, bb);
-
-  sel_add_or_remove_bb (bb, 1);
-
-  return bb;
+  rgn_setup_region (CONTAINING_RGN (bb->index));
 }
 
 /* Concatenate info of EMPTY_BB to info of MERGE_BB.  */
@@ -5175,7 +5119,6 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p,
   if (merge_up_p)
     {
       merge_bb = empty_bb->prev_bb;
-
       gcc_assert (EDGE_COUNT (empty_bb->preds) == 1
 		  && EDGE_PRED (empty_bb, 0)->src == merge_bb);
     }
@@ -5202,7 +5145,6 @@ sel_remove_empty_bb (basic_block empty_bb, bool merge_up_p,
     }
 
   move_bb_info (merge_bb, empty_bb);
-
   remove_empty_bb (empty_bb, remove_from_cfg_p);
 }
 
@@ -5270,7 +5212,7 @@ remove_empty_bb (basic_block empty_bb, bool remove_from_cfg_p)
     }
 
   /* Finish removing.  */
-  sel_add_or_remove_bb (empty_bb, remove_from_cfg_p ? -1 : 0);
+  sel_remove_bb (empty_bb, remove_from_cfg_p);
 }
 
 static struct cfg_hooks orig_cfg_hooks;
@@ -5345,9 +5287,9 @@ sel_split_block (basic_block bb, rtx after)
   new_bb = sched_split_block_1 (bb, after);
   can_add_real_insns_p = true;
 
-  sel_add_or_remove_bb (new_bb, 1);
+  sel_add_bb (new_bb);
 
-  /* This should be called after sel_add_or_remove_bb, because this uses
+  /* This should be called after sel_add_bb, because this uses
      CONTAINING_RGN for the new block, which is not yet initialized.  
      FIXME: this function may be a no-op now.  */
   change_loops_latches (bb, new_bb);
@@ -5407,7 +5349,7 @@ sel_split_edge (edge e)
     }
 
   /* Add all last_added_blocks to the region.  */
-  sel_add_or_remove_bb (NULL, 1);
+  sel_add_bb (NULL);
 
   /* Now the CFG has been updated, and we can init data for the newly 
      created insns.  */
@@ -5475,7 +5417,7 @@ sel_create_recovery_block (insn_t orig_insn)
   if (current_loops != NULL)
     add_bb_to_loop (recovery_block, first_bb->loop_father);
 
-  sel_add_or_remove_bb (recovery_block, 1);
+  sel_add_bb (recovery_block);
 
   /* Now the CFG has been updated, and we can init data for the newly 
      created insns.  */
@@ -5512,7 +5454,7 @@ sel_redirect_edge_and_branch_force (edge e, basic_block to)
   jump_bb = redirect_edge_and_branch_force (e, to);
 
   if (jump_bb != NULL)
-    sel_add_or_remove_bb (jump_bb, 1);
+    sel_add_bb (jump_bb);
 
   /* This function could not be used to spoil the loop structure by now,
      thus we don't care to update anything.  But check it to be sure.  */
@@ -6141,19 +6083,13 @@ sel_add_loop_preheaders (void)
 {
   int i;
   basic_block bb;
-  int rgn = CONTAINING_RGN (BB_TO_BLOCK (0));
   VEC(basic_block, heap) *preheader_blocks 
     = LOOP_PREHEADER_BLOCKS (current_loop_nest);
 
   for (i = 0;
        VEC_iterate (basic_block, preheader_blocks, i, bb);
        i++)
-    {
-      sel_add_or_remove_bb_1 (bb, 1);
-
-      /* Set variables for the current region.  */
-      rgn_setup_region (rgn);
-    }
+      sel_add_bb (bb);
 
   VEC_free (basic_block, heap, preheader_blocks);
 }
@@ -6255,7 +6191,7 @@ sel_remove_loop_preheader (void)
        i--)
     {
       bb =  VEC_index (basic_block, preheader_blocks, i); 
-      sel_add_or_remove_bb (bb, 0);
+      sel_remove_bb (bb, false);
     }
 
   if (!considered_for_pipelining_p (loop_outer (current_loop_nest)))
