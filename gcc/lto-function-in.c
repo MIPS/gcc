@@ -2330,6 +2330,12 @@ lto_read_body (struct lto_file_decl_data* file_data,
   else 
     {
 #ifdef LTO_STREAM_DEBUGGING
+      lto_debug_context.current_data = &debug_label;
+#endif
+      input_labels (&ib_named_labels, &data_in, 
+		    header->num_named_labels, header->num_unnamed_labels);
+
+#ifdef LTO_STREAM_DEBUGGING
       lto_debug_context.current_data = &debug_main;
 #endif
       input_constructors_or_inits (&data_in, &ib_main);

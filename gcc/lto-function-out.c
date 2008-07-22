@@ -164,16 +164,16 @@ create_output_block (enum lto_section_type section_type)
 
   ob->section_type = section_type;
   ob->decl_state = lto_get_out_decl_state ();
-  ob->main_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
-  ob->string_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+  ob->main_stream = XCNEW (struct lto_output_stream);
+  ob->string_stream = XCNEW (struct lto_output_stream);
 
+  ob->named_label_stream = XCNEW (struct lto_output_stream);
   if (section_type == LTO_section_function_body)
     {
-      ob->local_decl_index_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
-      ob->local_decl_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
-      ob->named_label_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
-      ob->ssa_names_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
-      ob->cfg_stream = (struct lto_output_stream *) xcalloc (1, sizeof (struct lto_output_stream));
+      ob->local_decl_index_stream = XCNEW (struct lto_output_stream);
+      ob->local_decl_stream = XCNEW (struct lto_output_stream);
+      ob->ssa_names_stream =XCNEW (struct lto_output_stream);
+      ob->cfg_stream = XCNEW (struct lto_output_stream);
     }
 #ifdef LTO_STREAM_DEBUGGING
   lto_debug_context.out = lto_debug_out_fun;
@@ -183,13 +183,10 @@ create_output_block (enum lto_section_type section_type)
 
   clear_line_info (ob);
 
-  if (section_type == LTO_section_function_body)
-    {
-      ob->label_hash_table
-	= htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
-      ob->local_decl_hash_table
-	= htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
-    }
+  ob->label_hash_table
+    = htab_create (37, hash_label_slot_node, eq_label_slot_node, free);
+  ob->local_decl_hash_table
+    = htab_create (37, lto_hash_decl_slot_node, lto_eq_decl_slot_node, free);
 
   ob->string_hash_table
     = htab_create (37, hash_string_slot_node, eq_string_slot_node, string_slot_free);
@@ -208,34 +205,33 @@ destroy_output_block (struct output_block * ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
-  if (section_type == LTO_section_function_body)
-    {
-      htab_delete (ob->label_hash_table);
-      htab_delete (ob->local_decl_hash_table);
-    }
+  htab_delete (ob->label_hash_table);
+  htab_delete (ob->local_decl_hash_table);
+
   htab_delete (ob->string_hash_table);
 
   free (ob->main_stream);
   free (ob->string_stream);
+  free (ob->named_label_stream);
   if (section_type == LTO_section_function_body)
     {
       free (ob->local_decl_index_stream);
       free (ob->local_decl_stream);
-      free (ob->named_label_stream);
       free (ob->ssa_names_stream);
       free (ob->cfg_stream);
     }
 
   LTO_CLEAR_DEBUGGING_STREAM (debug_main_stream);
+  LTO_CLEAR_DEBUGGING_STREAM (debug_label_stream);
   if (section_type == LTO_section_function_body)
     {
-      LTO_CLEAR_DEBUGGING_STREAM (debug_label_stream);
       LTO_CLEAR_DEBUGGING_STREAM (debug_ssa_names_stream);
       LTO_CLEAR_DEBUGGING_STREAM (debug_cfg_stream);
       LTO_CLEAR_DEBUGGING_STREAM (debug_decl_stream);
       LTO_CLEAR_DEBUGGING_STREAM (debug_decl_index_stream);
     }
 
+  VEC_free (tree, heap, ob->named_labels);
   if (section_type == LTO_section_function_body)
     {
       VEC_free (int, heap, ob->local_decls_index);
@@ -243,7 +239,6 @@ destroy_output_block (struct output_block * ob)
 #ifdef LTO_STREAM_DEBUGGING
       VEC_free (int, heap, ob->local_decls_index_d);
 #endif
-      VEC_free (tree, heap, ob->named_labels);
     }
   VEC_free (tree, heap, ob->local_decls);
 
@@ -1988,17 +1983,14 @@ produce_asm (struct output_block *ob, tree fn)
   header.lto_header.minor_version = LTO_minor_version;
   header.lto_header.section_type = section_type;
   
-  if (section_type == LTO_section_function_body)
-    {
-      header.num_local_decls = VEC_length (tree, ob->local_decls);
-      header.num_named_labels = ob->next_named_label_index;
-      header.num_unnamed_labels = -ob->next_unnamed_label_index;
-    }
+  header.num_local_decls = VEC_length (tree, ob->local_decls);
+  header.num_named_labels = ob->next_named_label_index;
+  header.num_unnamed_labels = -ob->next_unnamed_label_index;
   header.compressed_size = 0;
   
+  header.named_label_size = ob->named_label_stream->total_size;
   if (section_type == LTO_section_function_body)
     {
-      header.named_label_size = ob->named_label_stream->total_size;
       header.ssa_names_size = ob->ssa_names_stream->total_size;
       header.cfg_size = ob->cfg_stream->total_size;
       header.local_decls_index_size = ob->local_decl_index_stream->total_size;
@@ -2007,11 +1999,11 @@ produce_asm (struct output_block *ob, tree fn)
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
 #ifdef LTO_STREAM_DEBUGGING
+  header.debug_label_size = ob->debug_label_stream->total_size;
   if (section_type == LTO_section_function_body)
     {
       header.debug_decl_index_size = ob->debug_decl_index_stream->total_size;
       header.debug_decl_size = ob->debug_decl_stream->total_size;
-      header.debug_label_size = ob->debug_label_stream->total_size;
       header.debug_ssa_names_size = ob->debug_ssa_names_stream->total_size;
       header.debug_cfg_size = ob->debug_cfg_stream->total_size;
     }
@@ -2033,9 +2025,9 @@ produce_asm (struct output_block *ob, tree fn)
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
+  lto_write_stream (ob->named_label_stream);
   if (section_type == LTO_section_function_body)
     {
-      lto_write_stream (ob->named_label_stream);
       lto_write_stream (ob->ssa_names_stream);
       lto_write_stream (ob->cfg_stream);
       lto_write_stream (ob->local_decl_index_stream);
@@ -2048,7 +2040,10 @@ produce_asm (struct output_block *ob, tree fn)
     {
       lto_write_stream (ob->debug_decl_index_stream);
       lto_write_stream (ob->debug_decl_stream);
-      lto_write_stream (ob->debug_label_stream);
+    }
+  lto_write_stream (ob->debug_label_stream);
+  if (section_type == LTO_section_function_body)
+    {
       lto_write_stream (ob->debug_ssa_names_stream);
       lto_write_stream (ob->debug_cfg_stream);
     }
@@ -2324,7 +2319,10 @@ output_constructors_and_inits (void)
     }
   /* The terminator for the constructor.  */
   output_zero (ob);
-      
+
+  LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
+  output_named_labels (ob);
+
   produce_asm (ob, NULL);
   destroy_output_block (ob);
 }

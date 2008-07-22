@@ -1,3 +1,20 @@
+2008-07-22  Rafael Espindola  <espindola@google.com>
+
+	* lto-function-in.c (lto_read_body): Read labels.
+	* lto-function-out.c (create_output_block): Always allocate named_label_stream.
+	Always create label_hash_table and local_decl_hash_table.
+	Use XCNEW.
+	(destroy_output_block): Always delete label_hash_table and
+	local_decl_hash_table.
+	Always free named_label_stream.
+	Always clean debug_label_stream.
+	Always free named_labels.
+	(produce_asm): Always set num_local_decls, num_named_labels,
+	num_unnamed_labels, named_label_size and
+	debug_label_size.
+	Always write named_label_stream and debug_label_stream.
+	(output_constructors_and_inits): Output labels.
+
 2008-07-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h (pass_ipa_reference): Make into ipa_opt_pass.
