@@ -1672,6 +1672,9 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 		  if (cfa.reg == STACK_POINTER_REGNUM)
 		    cfa.offset += offset;
 
+		  if (cfa_store.reg == STACK_POINTER_REGNUM)
+		    cfa_store.offset += offset;
+
 #ifndef STACK_GROWS_DOWNWARD
 		  offset = -offset;
 #endif

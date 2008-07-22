@@ -1,3 +1,10 @@
+2008-07-22  Xuepeng Guo  <xuepeng.guo@intel.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (dwarf2out_frame_debug_expr): When adjusting
+	DW_CFA_GNU_args_size if CSA pass merged some adjustments into
+	prologue sp adjustment, also update cfa_store.offset.
+
 2008-07-20  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_gimplify_va_arg): Re-indent.
