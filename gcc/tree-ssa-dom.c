@@ -354,6 +354,10 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
   tree type0 = expr0->type;
   tree type1 = expr1->type;
 
+  /* If either type is NULL, there is nothing to check.  */
+  if ((type0 == NULL_TREE) ^ (type1 == NULL_TREE))
+    return false;
+
   /* If both types don't have the same signedness, precision, and mode,
      then we can't consider  them equal.  */
   if (type0 != type1

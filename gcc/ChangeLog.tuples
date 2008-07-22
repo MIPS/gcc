@@ -1,3 +1,9 @@
+2008-07-22  Diego Novillo  <dnovillo@google.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-dom.c (hashable_expr_equal_p): Do nothing if
+	either TYPE0 or TYPE1 is NULL.
+
 2008-07-21  Diego Novillo  <dnovillo@google.com>
 
 	* tree-ssa-alias-warnings.c (struct gimple_tree_map): New.
