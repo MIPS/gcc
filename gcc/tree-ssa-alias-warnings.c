@@ -343,13 +343,38 @@ get_ssa_base (tree expr)
    objs: <ptr, 2>
    PTR shows up twice as an object, but is dereferenced only once.
 
-   The elements of the hash tables are tree_map objects.  */
+   The elements of the hash tables are gimple_map objects.  */
 struct reference_matches
 {
   htab_t ptrs;
   htab_t objs;
 };
 
+struct gimple_tree_map
+{
+  tree from;
+  gimple to;
+};
+
+/* Return true if the from tree in both gimple-tree maps are equal.
+   VA and VB are really instances of struct gimple_tree_map.  */
+
+static int
+gimple_tree_map_eq (const void *va, const void *vb)
+{
+  const struct gimple_tree_map *const a = (const struct gimple_tree_map *) va;
+  const struct gimple_tree_map *const b = (const struct gimple_tree_map *) vb;
+  return (a->from == b->from);
+}
+
+/* Hash a from tree in a gimple_tree_map.  ITEM is really an instance
+   of struct gimple_tree_map.  */
+
+static unsigned int
+gimple_tree_map_hash (const void *item)
+{
+  return htab_hash_pointer (((const struct gimple_tree_map *)item)->from);
+}
 
 /* Return the match, if any.  Otherwise, return NULL.  It will return
    NULL even when a match was found, if the value associated to KEY is
@@ -358,17 +383,16 @@ struct reference_matches
 static inline gimple
 match (htab_t ref_map, tree key)
 {
-  struct tree_map *found;
+  struct gimple_tree_map *found;
   void **slot = NULL;
   slot = htab_find_slot (ref_map, &key, NO_INSERT);
 
   if (!slot)
     return NULL;
 
-  found = (struct tree_map *) *slot;
+  found = (struct gimple_tree_map *) *slot;
 
-  /* FIXME tuples.  We should not use a tree_map here.  */
-  return (gimple) found->to;
+  return found->to;
 }
 
 
@@ -376,9 +400,11 @@ match (htab_t ref_map, tree key)
    already exists and its value is NULL_TREE.  Otherwise, do nothing.  */
 
 static inline void
-maybe_add_match (htab_t ref_map, struct tree_map *key)
+maybe_add_match (htab_t ref_map, struct gimple_tree_map *key)
 {
-  struct tree_map *found = (struct tree_map *) htab_find (ref_map, key);
+  struct gimple_tree_map *found;
+  
+  found = (struct gimple_tree_map *) htab_find (ref_map, key);
 
   if (found && !found->to)
     found->to = key->to;
@@ -391,10 +417,12 @@ static void
 add_key (htab_t ht, tree t, alloc_pool references_pool)
 {
   void **slot;
-  struct tree_map *tp = (struct tree_map *) pool_alloc (references_pool);
+  struct gimple_tree_map *tp;
+  
+  tp = (struct gimple_tree_map *) pool_alloc (references_pool);
 
-  tp->base.from = t;
-  tp->to = NULL_TREE;
+  tp->from = t;
+  tp->to = NULL;
   slot = htab_find_slot (ht, &t, INSERT);
   *slot = (void *) tp;
 }
@@ -413,8 +441,9 @@ reference_table_alloc_pool (bool build)
   if (ref_table_alloc_pool || !build)
     return ref_table_alloc_pool;
 
-  ref_table_alloc_pool =
-    create_alloc_pool ("ref_table_alloc_pool", sizeof (struct tree_map), 20);
+  ref_table_alloc_pool = create_alloc_pool ("ref_table_alloc_pool",
+					    sizeof (struct gimple_tree_map),
+					    20);
 
   return ref_table_alloc_pool;
 }
@@ -431,8 +460,10 @@ build_reference_table (void)
   alloc_pool references_pool = reference_table_alloc_pool (true);
 
   ref_table = XNEW (struct reference_matches);
-  ref_table->objs = htab_create (10, tree_map_base_hash, tree_map_eq, NULL);
-  ref_table->ptrs = htab_create (10, tree_map_base_hash, tree_map_eq, NULL);
+  ref_table->objs = htab_create (10, gimple_tree_map_hash, gimple_tree_map_eq,
+				 NULL);
+  ref_table->ptrs = htab_create (10, gimple_tree_map_hash, gimple_tree_map_eq,
+				 NULL);
 
   for (i = 1; i < num_ssa_names; i++)
     {
@@ -519,8 +550,9 @@ find_references_in_tree_helper (tree *tp,
 				int *walk_subtrees ATTRIBUTE_UNUSED,
 				void *data)
 {
-  struct tree_map match;
+  struct gimple_tree_map match;
   static int parent_tree_code = ERROR_MARK;
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
 
   /* Do not report references just for the purpose of taking an address.
      XXX: we rely on the fact that the tree walk is in preorder
@@ -529,16 +561,16 @@ find_references_in_tree_helper (tree *tp,
   if (parent_tree_code == ADDR_EXPR)
     goto finish;
 
-  match.to = (tree) data;
+  match.to = (gimple) wi->info;
 
   if (TREE_CODE (*tp) == INDIRECT_REF)
     {
-      match.base.from = TREE_OPERAND (*tp, 0);
+      match.from = TREE_OPERAND (*tp, 0);
       maybe_add_match (reference_table (true)->ptrs, &match);
     }
   else
     {
-      match.base.from = *tp;
+      match.from = *tp;
       maybe_add_match (reference_table (true)->objs, &match);
     }
 
@@ -969,7 +1001,7 @@ processed_func_p (tree func)
   void **slot = NULL;
 
   if (!seen)
-    seen = htab_create (10, tree_map_base_hash, tree_map_eq, NULL);
+    seen = htab_create (10, gimple_tree_map_hash, gimple_tree_map_eq, NULL);
 
   slot = htab_find_slot (seen, &func, INSERT);
   gcc_assert (slot);

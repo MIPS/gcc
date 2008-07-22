@@ -6143,8 +6143,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   if (is_statement)
     gcc_assert (pre_p);
 
-  /* Consistency checks.  FIXME tuples, FALLBACK should not be needed.
-     We can figure it out from GIMPLE_TEST_F.  */
+  /* Consistency checks.  */
   if (gimple_test_f == is_gimple_reg)
     gcc_assert (fallback & (fb_rvalue | fb_lvalue));
   else if (gimple_test_f == is_gimple_val

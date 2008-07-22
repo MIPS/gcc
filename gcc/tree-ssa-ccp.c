@@ -1279,9 +1279,6 @@ evaluate_stmt (gimple stmt)
           
           /* Other cases cannot satisfy is_gimple_min_invariant
              without folding.  */
-          /* FIXME tuples.  This penalizes conditionals on a boolean
-             variable, which did not require a comparison operator
-             to be folded in the pre-tuples code.  */
           if (get_gimple_rhs_class (subcode) == GIMPLE_SINGLE_RHS)
             simplified = gimple_assign_rhs1 (stmt);
         }

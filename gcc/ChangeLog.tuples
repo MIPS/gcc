@@ -1,3 +1,15 @@
+2008-07-21  Diego Novillo  <dnovillo@google.com>
+
+	* tree-ssa-alias-warnings.c (struct gimple_tree_map): New.
+	Change every use of struct tree_map to struct gimple_tree_map.
+	(gimple_tree_map_eq): New.
+	(gimple_tree_map_hash): New.
+	* tree-ssa-ccp.c (evaluate_stmt): Remove stale FIXME note.
+	* gimplify.c (gimplify_expr): Remove stale FIXME note.
+	* tree-ssa-pre.c: Remove stale references to GIMPLE_MODIFY_STMT.
+	* tree-vect-generic.c (expand_vector_operations_1): Change
+	FIXME tuples to NOTE.
+
 2008-07-21  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-phiprop.c (propagate_with_phi): Only look through

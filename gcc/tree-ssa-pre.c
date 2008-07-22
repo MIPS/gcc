@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 /* For ease of terminology, "expression node" in the below refers to
-   every expression node but GIMPLE_MODIFY_STMT, because GIMPLE_MODIFY_STMT's
+   every expression node but GIMPLE_ASSIGN, because GIMPLE_ASSIGNs
    represent the actual statement containing the expressions we care about,
    and we cache the value number by putting it in the expression.  */
 
