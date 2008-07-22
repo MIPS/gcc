@@ -21,6 +21,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.
 
 Authors:
+   Andrea Ornstein
+   Erven Rohou
    Gabriele Svelto
 
 Contact information at STMicroelectronics:
@@ -32,13 +34,12 @@ Erven Rohou             <erven.rohou@st.com>
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "timevar.h"
 #include "tree.h"
 #include "tree-gimple.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
-#include "timevar.h"
 #include "pointer-set.h"
-#include "tree-simp-cil.h"
 
 /******************************************************************************
  * Type definitions                                                           *
@@ -67,11 +68,9 @@ static void case_range_to_cond_expr (tree, tree, tree *);
 static void cases_to_switch (tree, unsigned int, unsigned int, tree *);
 static tree simp_cil_switch (tree);
 
-/* Bit-field conversion functions */
-static tree bf_vector_container_address (tree, unsigned HOST_WIDE_INT, tree,
-					 tree *);
-static tree simp_lhs_vector_bitfield_ref (tree);
-static tree simp_rhs_vector_bitfield_ref (tree);
+/* Misc functionality */
+static void set_statement_list_location (tree, location_t);
+static bool is_copy_required (tree);
 
 /* Top-level functionality */
 static tree simp_cil_stmt (tree);
@@ -96,7 +95,7 @@ static struct pointer_map_t *eqv_labels = NULL;
 /* Set the location of the statements in the statement list pointed by LIST to
    the location passed in LOCUS */
 
-void
+static void
 set_statement_list_location (tree list, location_t locus)
 {
   tree_stmt_iterator tsi = tsi_start (list);
@@ -105,6 +104,32 @@ set_statement_list_location (tree list, location_t locus)
     {
       SET_EXPR_LOCATION (tsi_stmt (tsi), locus);
       tsi_next (&tsi);
+    }
+}
+
+/* In the case of multiple uses of tree NODE, return whether
+   it is required to compute NODE only once or not.
+   If NODE has side effects, TRUE is obviously always returned.
+   If NODE has no side effects, TRUE is still returned if
+   it looks more profitable to compute NODE only once,
+   FALSE otherwise (this is a heuristic decision).   */
+
+static bool
+is_copy_required (tree node)
+{
+  if (TREE_SIDE_EFFECTS (node))
+    return TRUE;
+
+  switch (TREE_CODE (node))
+    {
+    case INTEGER_CST:
+    case REAL_CST:
+    case VAR_DECL:
+    case PARM_DECL:
+      return FALSE;
+
+    default:
+      return TRUE;
     }
 }
 
@@ -536,115 +561,6 @@ simp_cil_switch (tree switch_stmt)
 }
 
 /******************************************************************************
- * Bit-field access modes information                                         *
- ******************************************************************************/
-
-/* Get the address of the container suitable for replacing a BIT_FIELD_REF
-   expression used for accessing the element of a vector. The container type is
-   pointed by CONT_TYPE, BIT_OFFSET holds the offset of the element from the
-   base address of the vector pointed by OBJ. Put the calculated address in the
-   location pointed by DST_PTR. */
-
-static tree
-bf_vector_container_address (tree cont_type, unsigned HOST_WIDE_INT bit_offset,
-			     tree obj, tree *dst_ptr)
-{
-  tree stmt;
-  tree obj_ptr, cont_ptr;
-  tree obj_ptr_type, cont_ptr_type;
-  tree list = NULL_TREE;
-
-  cont_ptr_type = build_pointer_type (cont_type);
-  cont_ptr = create_tmp_var (cont_ptr_type, "cilsimp");
-  *dst_ptr = cont_ptr;
-  obj_ptr_type = build_pointer_type (TREE_TYPE (obj));
-  obj_ptr = create_tmp_var (obj_ptr_type, "cilsimp");
-
-  stmt = build_gimple_modify_stmt (obj_ptr,
-				   build_fold_addr_expr (obj));
-  append_to_statement_list (stmt, &list);
-
-  stmt = build_gimple_modify_stmt(cont_ptr,
-				  build1 (NOP_EXPR, cont_ptr_type, obj_ptr));
-  append_to_statement_list (stmt, &list);
-
-  if (bit_offset > 0)
-    {
-      tree offset_tree = build_int_cst (long_unsigned_type_node,
-					bit_offset / BITS_PER_UNIT);
-
-      stmt = build_gimple_modify_stmt (cont_ptr,
-				       build2 (POINTER_PLUS_EXPR, cont_ptr_type,
-					       cont_ptr,
-					       offset_tree));
-      append_to_statement_list (stmt, &list);
-    }
-
-  return list;
-}
-
-/* Simplify a GIMPLE_MODIFY_STMT pointed by BF_STMT with a BIT_FIELD_REF as its
-   right hand side operand used to extract a component from a vector. Return a
-   statement list holding the replacement code. */
-
-static tree
-simp_rhs_vector_bitfield_ref (tree bf_stmt)
-{
-  tree op_rhs = GIMPLE_STMT_OPERAND (bf_stmt, 1);
-  tree obj = TREE_OPERAND (op_rhs, 0);
-  unsigned HOST_WIDE_INT bit_offset;
-  tree list = NULL_TREE;
-  tree cont_type;
-  tree cont_ptr;
-  tree stmt;
-
-  /* Create the necessary types and temp variables */
-  cont_type = TREE_TYPE (TREE_TYPE (obj));
-
-  /* Compute the element address and store it in CONT_PTR */
-  bit_offset = tree_low_cst (TREE_OPERAND (op_rhs, 2), 1);
-  list = bf_vector_container_address (cont_type, bit_offset, obj, &cont_ptr);
-
-  /* Load the element from the vector and store it in the left hand side
-     variable */
-  stmt = build_gimple_modify_stmt (GIMPLE_STMT_OPERAND (bf_stmt, 0),
-				   build1 (INDIRECT_REF, cont_type, cont_ptr));
-  append_to_statement_list (stmt, &list);
-
-  return list;
-}
-
-/* Simplify a GIMPLE_MODIFY_STMT pointed by BF_STMT with a BIT_FIELD_REF as its
-   left hand side operand used to insert a component inside a vector. Return a
-   statement list holding the replacement code. */
-
-static tree
-simp_lhs_vector_bitfield_ref (tree bf_stmt)
-{
-  tree op_lhs = GIMPLE_STMT_OPERAND (bf_stmt, 0);
-  tree obj = TREE_OPERAND (op_lhs, 0);
-  unsigned HOST_WIDE_INT bit_offset;
-  tree list = NULL_TREE;
-  tree cont_type;
-  tree cont_ptr;
-  tree stmt;
-
-  /* Create the necessary types and temp variables */
-  cont_type = TREE_TYPE (TREE_TYPE (obj));
-
-  /* Compute the element address and store it in CONT_PTR */
-  bit_offset = tree_low_cst (TREE_OPERAND (op_lhs, 2), 1);
-  list = bf_vector_container_address (cont_type, bit_offset, obj, &cont_ptr);
-
-  /* Store the value inside the vector */
-  stmt = build_gimple_modify_stmt (build1 (INDIRECT_REF, cont_type, cont_ptr),
-				   GIMPLE_STMT_OPERAND (bf_stmt, 1));
-  append_to_statement_list (stmt, &list);
-
-  return list;
-}
-
-/******************************************************************************
  * Top-level functionality                                                    *
  ******************************************************************************/
 
@@ -660,25 +576,6 @@ simp_cil_stmt (tree stmt)
     case SWITCH_EXPR:
       list = simp_cil_switch (stmt);
       break;
-
-    case GIMPLE_MODIFY_STMT:
-      {
-	tree op_lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	tree op_rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-
-	if (TREE_CODE (op_lhs) == BIT_FIELD_REF)
-	  {
-	    if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op_lhs, 0))) == VECTOR_TYPE)
-	      list = simp_lhs_vector_bitfield_ref (stmt);
-	  }
-	else if (TREE_CODE (op_rhs) == BIT_FIELD_REF)
-	  {
-	    if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op_rhs, 0))) == VECTOR_TYPE)
-	      list = simp_rhs_vector_bitfield_ref (stmt);
-	  }
-
-	break;
-      }
 
     default:
       break;

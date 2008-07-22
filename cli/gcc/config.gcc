@@ -856,9 +856,9 @@ c4x-* | tic4x-*)
 cil32-*-*)
 	gas=no
 	use_collect2=no
-        extra_objs="tree-simp-cil.o tree-simp-cil-early.o bit-stream.o emit-hints.o gen-cil.o bb-layout.o rm-ldloc.o cil-refs.o cil-builtins.o"
+	extra_objs="bb-layout.o bit-stream.o cil-refs.o cil-stack.o cil-stmt.o emit-cil.o emit-hints.o gimple-to-cil.o missing-protos.o peephole.o remove-convs.o remove-temps.o simp-cond.o tree-simp-cil-early.o cil-builtins.o"
 	tm_file="${tm_file} cil32/cil-types.h"
-	target_gtfiles="\$(srcdir)/config/cil32/cil-refs.c"
+	target_gtfiles="\$(srcdir)/config/cil32/cil-builtins.c \$(srcdir)/config/cil32/cil-refs.c \$(srcdir)/config/cil32/cil-stmt.c"
 	;;
 cris-*-aout)
 	tm_file="dbxelf.h ${tm_file} cris/aout.h"

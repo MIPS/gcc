@@ -75,11 +75,6 @@ AC_ARG_WITH(mcs,
 	    MCS=$withval)
 AC_CHECK_PROG(MCS,mcs,mcs,mcs-not-found)
 
-AC_ARG_WITH(gcc4NET,
-	    AS_HELP_STRING([--with-gcc4NET=gcc4NET_binary_path], [use this cil32-gcc]),
-	    GCC4NET=$withval)
-AC_CHECK_PROG(GCC4NET,cil32-gcc,cil32-gcc,cil32-gcc-not-found)
-
 AC_CONFIG_FILES([Makefile include/Makefile src/Makefile src_opt/Makefile])
 
 AC_OUTPUT

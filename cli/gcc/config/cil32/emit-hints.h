@@ -1,6 +1,6 @@
 /* Hint emission definitions for GNU compiler.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -19,9 +19,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 Authors:
    Andrea Bona
+   Roberto Costa
    Andrea Ornstein
    Erven Rohou
-   Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -31,14 +32,10 @@ Erven Rohou             <erven.rohou@st.com>
 #ifndef EMIT_HINTS_H
 #define EMIT_HINTS_H
 
-#include "basic-block.h"
-#include "tree.h"
+#include "coretypes.h"
 
-void
-branch_probability_add (FILE *, tree);
-void
-branch_probability_emit_and_reset (FILE *);
-void
-basic_block_frequency_emit (FILE *);
+void branch_probability_add (FILE *, tree);
+void branch_probability_emit_and_reset (FILE *);
+void basic_block_frequency_emit (FILE *);
 
 #endif  /* EMIT_HINTS_H */

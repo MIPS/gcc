@@ -1,6 +1,6 @@
 /* Run-time support required by CIL binaries.
 
-   Copyright (C) 2006-2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
    Contributed by STMicroelectronics
 
 This program is free software; you can redistribute it and/or
@@ -20,9 +20,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 Authors:
    Andrea Bona
+   Roberto Costa
    Andrea Ornstein
    Erven Rohou
-   Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -127,6 +128,11 @@ namespace gcc4net {
         public static long   __absdi2(long a)              { return (a>=0) ? a : -a; }
         public static float  __abssf2(float a)             { return (a>=0) ? a : -a; }
         public static double __absdf2(double a)            { return (a>=0) ? a : -a; }
+
+        public static int    __selectsi4(int a, int b, int c)       { return (a != 0) ? b : c; }
+        public static long   __selectdi4(int a, long b, long c)     { return (a != 0) ? b : c; }
+        public static float  __selectsf4(int a, float b, float c)   { return (a != 0) ? b : c; }
+        public static double __selectdf4(int a, double b, double c) { return (a != 0) ? b : c; }
 
         // Returns the number of leading 0-bits in a, starting at the most
         // significant bit position. If a is 0, the result is undefined.
@@ -381,7 +387,7 @@ namespace gcc4net {
     // signed integers
 
     public struct complex_char {
-        private sbyte re, im;
+        public sbyte re, im;
 
         public static complex_char complex_char_ctor(sbyte the_re, sbyte the_im)
         {
@@ -390,16 +396,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static sbyte complex_char_Re(complex_char c) { return c.re; }
-        public static sbyte complex_char_Im(complex_char c) { return c.im; }
-        public void complex_char_set_Re(sbyte val) { re = val; }
-        public void complex_char_set_Im(sbyte val) { im = val; }
     }
 
 
     public struct complex_short {
-        private short re, im;
+        public short re, im;
 
         public static complex_short complex_short_ctor(short the_re, short the_im)
         {
@@ -408,16 +409,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static short complex_short_Re(complex_short c) { return c.re; }
-        public static short complex_short_Im(complex_short c) { return c.im; }
-        public void complex_short_set_Re(short val) { re = val; }
-        public void complex_short_set_Im(short val) { im = val; }
     }
 
 
     public struct complex_int {
-        private int re, im;
+        public int re, im;
 
         public static complex_int complex_int_ctor(int the_re, int the_im)
         {
@@ -426,16 +422,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static int complex_int_Re(complex_int c) { return c.re; }
-        public static int complex_int_Im(complex_int c) { return c.im; }
-        public void complex_int_set_Re(int val) { re = val; }
-        public void complex_int_set_Im(int val) { im = val; }
     }
 
 
     public struct complex_long {
-        private long re, im;
+        public long re, im;
 
         public static complex_long complex_long_ctor(long the_re, long the_im)
         {
@@ -444,18 +435,13 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static long complex_long_Re(complex_long c) { return c.re; }
-        public static long complex_long_Im(complex_long c) { return c.im; }
-        public void complex_long_set_Re(long val) { re = val; }
-        public void complex_long_set_Im(long val) { im = val; }
     }
 
 
     // unsigned signed integers
 
     public struct complex_uchar {
-        private byte re, im;
+        public byte re, im;
 
         public static complex_uchar complex_uchar_ctor(byte the_re, byte the_im)
         {
@@ -464,16 +450,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static byte complex_uchar_Re(complex_uchar c) { return c.re; }
-        public static byte complex_uchar_Im(complex_uchar c) { return c.im; }
-        public void complex_uchar_set_Re(byte val) { re = val; }
-        public void complex_uchar_set_Im(byte val) { im = val; }
     }
 
 
     public struct complex_ushort {
-        private ushort re, im;
+        public ushort re, im;
 
         public static complex_ushort complex_ushort_ctor(ushort the_re, ushort the_im)
         {
@@ -482,16 +463,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static ushort complex_ushort_Re(complex_ushort c) { return c.re; }
-        public static ushort complex_ushort_Im(complex_ushort c) { return c.im; }
-        public void complex_ushort_set_Re(ushort val) { re = val; }
-        public void complex_ushort_set_Im(ushort val) { im = val; }
     }
 
 
     public struct complex_uint {
-        private uint re, im;
+        public uint re, im;
 
         public static complex_uint complex_uint_ctor(uint the_re, uint the_im)
         {
@@ -500,16 +476,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static uint complex_uint_Re(complex_uint c) { return c.re; }
-        public static uint complex_uint_Im(complex_uint c) { return c.im; }
-        public void complex_uint_set_Re(uint val) { re = val; }
-        public void complex_uint_set_Im(uint val) { im = val; }
     }
 
 
     public struct complex_ulong {
-        private ulong re, im;
+        public ulong re, im;
 
         public static complex_ulong complex_ulong_ctor(ulong the_re, ulong the_im)
         {
@@ -518,18 +489,13 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static ulong complex_ulong_Re(complex_ulong c) { return c.re; }
-        public static ulong complex_ulong_Im(complex_ulong c) { return c.im; }
-        public void complex_ulong_set_Re(ulong val) { re = val; }
-        public void complex_ulong_set_Im(ulong val) { im = val; }
     }
 
 
     // floating point
 
     public struct complex_float {
-        private float re, im;
+        public float re, im;
 
         public static complex_float complex_float_ctor(float the_re,
                                                        float the_im)
@@ -539,16 +505,11 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static float complex_float_Re(complex_float c) { return c.re; }
-        public static float complex_float_Im(complex_float c) { return c.im; }
-        public void complex_float_set_Re(float val) { re = val; }
-        public void complex_float_set_Im(float val) { im = val; }
     }
 
 
     public struct complex_double {
-        private double re, im;
+        public double re, im;
 
         public static complex_double complex_double_ctor(double the_re,
                                                          double the_im)
@@ -558,11 +519,6 @@ namespace gcc4net {
             result.im = the_im;
             return result;
         }
-
-        public static double complex_double_Re(complex_double c) { return c.re; }
-        public static double complex_double_Im(complex_double c) { return c.im; }
-        public void complex_double_set_Re(double val) { re = val; }
-        public void complex_double_set_Im(double val) { im = val; }
     }
 
 
@@ -629,6 +585,7 @@ namespace gcc4net {
         {
             return (uint) ((v.f0 << 16) | v.f1);
         }
+
         public static int V2HI_to_si(V2HI v)
         {
             return (int)((v.f0 << 16) | v.f1);
@@ -763,6 +720,12 @@ namespace gcc4net {
             result.f2 = b2;
             result.f3 = b3;
             return result;
+        }
+
+        public unsafe static V4SF V4SI_to_V4SF(V4SI v)
+        {
+            return V4SF.V4SF_ctor1(*(float*)&v.f0, *(float*)&v.f1,
+				   *(float*)&v.f2, *(float*)&v.f3);
         }
     }
 

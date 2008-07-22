@@ -184,7 +184,6 @@ restartswitch:
 
 	size = tree_low_cst (TYPE_SIZE (type), 1);
 	snprintf (tmp_str + 1, 3, HOST_WIDE_INT_PRINT_UNSIGNED, size);
-
 	str = append_string (str, tmp_str, len, max_len);
       }
       break;
@@ -505,7 +504,7 @@ mark_referenced_type (tree t)
 
   t = TYPE_MAIN_VARIANT (t);
 
-  if (t == cil32_arg_iterator_type)
+  if (cil_builtin_type_p (t))
     return;
 
   /* If the type was already referenced, nothing else to do */
@@ -640,6 +639,108 @@ referenced_types_htab ( void )
   return ref_types;
 }
 
+/* Promote the type TYPE following the C conventions for variable argument
+   calls.  */
+
+tree
+promote_type_for_vararg (tree type)
+{
+  unsigned HOST_WIDE_INT size;
+
+  if (type == NULL_TREE || type == error_mark_node)
+    return type;
+
+  switch (TREE_CODE (type))
+    {
+    /* Incomplete and variable-length arrays are pointers and
+       they must be dealt with as such.   */
+    case ARRAY_TYPE:
+      if (! TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
+	goto pointer;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      return TYPE_MAIN_VARIANT (type);
+
+    case COMPLEX_TYPE:
+      return type;
+
+    case ENUMERAL_TYPE:
+    case INTEGER_TYPE:
+    case BOOLEAN_TYPE:
+      size = tree_low_cst (TYPE_SIZE (type), 1);
+      gcc_assert (size <= 64);
+      return (size <= 32) ? unsigned_intSI_type_node : unsigned_intDI_type_node;
+
+    case REAL_TYPE:
+      return double_type_node;
+
+pointer:
+    case POINTER_TYPE:
+      /* FIXME: cil32 is a 32bit machine, in case we support 64bit model
+         changes are needed.  */
+      return unsigned_intSI_type_node;
+
+    default:
+      internal_error ("%s: %s\n", __func__, tree_code_name[TREE_CODE (type)]);
+    }
+}
+
+/* Return the promoted type of the local variable represented by VAR.  In most
+   cases this will be simply the variable type, however some temporaries may
+   have been declared with integral types which do not exist in CIL
+   (e.g. 3-bit integers). The types of those variables are automatically
+   promoted to a larger stack type since those variables will end up
+   only on the stack.  */
+
+tree
+promote_local_var_type (tree var)
+{
+  unsigned int precision;
+  unsigned int unsignedp;
+  tree type = TREE_TYPE (var);
+
+  if (INTEGRAL_TYPE_P (type) && DECL_ARTIFICIAL (var))
+    {
+      gcc_assert (!DECL_FILE_SCOPE_P (var) && !TREE_STATIC (var));
+
+      precision = TYPE_PRECISION (type);
+      unsignedp = TYPE_UNSIGNED (type);
+
+      switch (precision)
+	{
+	case 8:  /* FALLTHROUGH */
+	case 16: /* FALLTHROUGH */
+	case 32: /* FALLTHROUGH */
+	case 64: return type;
+	default:
+	  if (precision < 32)
+	    return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
+	  else
+	    return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
+	}
+    }
+  else
+    return type;
+}
+
+/* Return true if we treat the type TYPE as a pointer, false otherwise.  */
+
+bool
+cil_pointer_type_p (tree type)
+{
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      if (! TYPE_DOMAIN (type) || ARRAY_TYPE_VARLENGTH (type))
+	return true;
+    }
+  else if (POINTER_TYPE_P (type))
+    return true;
+
+  return false;
+}
+
 /******************************************************************************
  * Strings                                                                    *
  ******************************************************************************/
@@ -760,7 +861,7 @@ pinvoke_eq (const void *ptr1, const void *ptr2)
    T must be a FUNCTION_DECL node.  */
 
 void
-cil_add_pinvoke (tree t)
+add_pinvoke (tree t)
 {
   void **slot;
 
@@ -816,8 +917,7 @@ record_addr_taken_label (tree label)
   label_addr addr = GGC_NEW (struct label_addr_d);
 
   addr->label = label;
-  addr->id = build_int_cst (intSI_type_node, machine->label_id);
-  machine->label_id++;
+  addr->id = build_int_cst (intSI_type_node, machine->label_id++);
 
   gcc_assert (htab_find (labels_map, addr) == NULL);
   slot = htab_find_slot (labels_map, addr, INSERT);
@@ -864,19 +964,23 @@ tree
 get_label_addrs ( void )
 {
   struct machine_function *machine = cfun->machine;
+  tree default_label;
 
   if (machine->label_addrs == NULL_TREE)
     {
-      tree label_addrs;
       /* TODO: CIL switches cannot be larger than 8192 entries. Handling larger
 	 ranges could make the code for replacing computed GOTOs significnaly
 	 more complex.  */
       gcc_assert (machine->label_id < 8192);
 
-      label_addrs = make_tree_vec (machine->label_id);
-      htab_traverse (labels_map, fill_label_addrs, label_addrs);
+      machine->label_addrs = make_tree_vec (machine->label_id + 1);
+      htab_traverse (labels_map, fill_label_addrs, machine->label_addrs);
 
-      machine->label_addrs = label_addrs;
+      /* Add a fake default label.  */
+      default_label = build3 (CASE_LABEL_EXPR, void_type_node,
+			      build_int_cst (NULL_TREE, machine->label_id),
+			      NULL_TREE, create_artificial_label ());
+      TREE_VEC_ELT (machine->label_addrs, machine->label_id) = default_label;
     }
 
   return machine->label_addrs;
@@ -1306,14 +1410,16 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 	    tree fun, stmt;
 	    tree args = NULL;
 	    tree value;
-	    tree ctor_fun = NULL;
 	    unsigned HOST_WIDE_INT idx;
 	    tree vector_type = TREE_TYPE (init);
 	    tree vector_elt_type = TREE_TYPE (vector_type);
-	    int vec_size = tree_low_cst (TYPE_SIZE (vector_type), 1);
-	    int elt_size = tree_low_cst (TYPE_SIZE (vector_elt_type), 1);
-	    int num_elt = vec_size / elt_size;
-	    int i, num_args = 0;
+	    unsigned HOST_WIDE_INT elt_size;
+	    unsigned HOST_WIDE_INT num_elt;
+	    unsigned HOST_WIDE_INT i, num_args = 0;
+	    enum cil32_builtin builtin;
+
+	    elt_size = tree_low_cst (TYPE_SIZE (vector_elt_type), 1);
+	    num_elt = TYPE_VECTOR_SUBPARTS (vector_type);
 
 	    /* Build the list of args. */
 	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (init), idx, value)
@@ -1321,6 +1427,7 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 		args = tree_cons (NULL, value, args);
 		++num_args;
 	      }
+
 	    /* The constructor might not initialize all args.  */
 	    for (i = num_args; i < num_elt; i++)
 	      args = tree_cons (NULL, integer_zero_node, args);
@@ -1331,48 +1438,72 @@ expand_init_to_stmt_list1 (tree decl, tree init,
 		switch (num_elt)
 		  {
 		  case 2:
-		    if (vec_size == 32)
-		      ctor_fun = cil32_builtins[CIL32_V2HI_CTOR];
-		    else if (vec_size == 64)
-		      ctor_fun = cil32_builtins[CIL32_V2SI_CTOR];
+		    switch (elt_size)
+		      {
+		      case 16: builtin = CIL32_V2HI_CTOR; break;
+		      case 32: builtin = CIL32_V2SI_CTOR; break;
+		      default:
+			internal_error ("V2QI/DI vectors are not supported");
+		      }
+
 		    break;
 
 		  case 4:
-		    if (vec_size == 32)
-		      ctor_fun = cil32_builtins[CIL32_V4QI_CTOR];
-		    else if (vec_size == 64)
-		      ctor_fun = cil32_builtins[CIL32_V4HI_CTOR];
-		    else if (vec_size == 128)
-		      ctor_fun = cil32_builtins[CIL32_V4SI_CTOR];
+		    switch (elt_size)
+		      {
+		      case 8:  builtin = CIL32_V4QI_CTOR; break;
+		      case 16: builtin = CIL32_V4HI_CTOR; break;
+		      case 32: builtin = CIL32_V4SI_CTOR; break;
+		      default:
+			internal_error ("V4DI vectors are not supported");
+		      }
+
 		    break;
 
 		  case 8:
-		    if (vec_size == 64)
-		      ctor_fun = cil32_builtins[CIL32_V8QI_CTOR];
-		    else if (vec_size == 128)
-		      ctor_fun = cil32_builtins[CIL32_V8HI_CTOR];
+		    switch (elt_size)
+		      {
+		      case 8:  builtin = CIL32_V8QI_CTOR; break;
+		      case 16: builtin = CIL32_V8HI_CTOR; break;
+		      default:
+			internal_error ("V8SI/DI vectors are not supported");
+		      }
+
 		    break;
 
 		  case 16:
-		    if (vec_size == 128)
-		      ctor_fun = cil32_builtins[CIL32_V16QI_CTOR];
+		    switch (elt_size)
+		      {
+		      case 8: builtin = CIL32_V16QI_CTOR; break;
+		      default:
+			internal_error ("V16HI/SI/DI vectors are not supported");
+		      }
+
 		    break;
 
 		  default:
-		    internal_error ("V%d int vectors not supported\n", num_elt);
+		    internal_error (HOST_WIDE_INT_PRINT_UNSIGNED" bit wide "
+				    "vectors are not supported",
+				    num_elt * elt_size);
 		  }
 	      }
 	    else if (TREE_CODE (vector_elt_type) == REAL_TYPE)
 	      {
-		if (num_elt != 2 && num_elt != 4)
-		  internal_error ("V%dSF vectors not supported\n", num_elt);
-
-		ctor_fun = cil32_builtins[CIL32_V2SF_CTOR];
+		switch (num_elt)
+		  {
+		  case 2: builtin = CIL32_V2SF_CTOR; break;
+		  case 4: builtin = CIL32_V4SF_CTOR; break;
+		  default:
+		    internal_error ("V"HOST_WIDE_INT_PRINT_UNSIGNED
+				    "SF vectors not supported\n", num_elt);
+		  }
 	      }
-	    gcc_assert (ctor_fun);
+	    else
+	      gcc_unreachable ();
 
 	    /* Note that the args list must be reversed. Can do better? */
-	    fun = build_function_call_expr (ctor_fun, nreverse (args));
+	    fun = build_function_call_expr (cil32_builtins[builtin],
+					    nreverse (args));
 	    stmt = build_gimple_modify_stmt(decl, fun);
 	    append_to_statement_list (stmt, stmt_list1);
 	    append_to_statement_list (stmt, stmt_list2);

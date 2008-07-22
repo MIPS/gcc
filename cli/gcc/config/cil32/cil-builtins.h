@@ -49,5 +49,9 @@ extern GTY(()) tree cil32_arg_iterator_type;
 
 extern void cil_init_builtins (void);
 extern tree cil_build_builtin_va_list (void);
+extern tree cil_get_builtin_complex_real_fld (tree);
+extern tree cil_get_builtin_complex_imag_fld (tree);
+extern void cil_record_builtin_type (tree);
+extern bool cil_builtin_type_p (tree);
 
 #endif /* !CIL_BUILTINS_H */

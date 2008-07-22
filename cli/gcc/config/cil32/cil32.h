@@ -39,7 +39,7 @@ Erven Rohou             <erven.rohou@st.com>
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL) do { } while(0)
 
 /*  make_decl_cil (stream, decl); */
-#define TARGET_DECLARE_VARIABLE(STREAM,DECL) make_decl_cil(STREAM,DECL)
+#define TARGET_DECLARE_VARIABLE(STREAM,DECL) emit_cil_decl(STREAM,DECL)
 
 /* Node: Driver */
 
@@ -75,7 +75,6 @@ extern int target_flags;
    the version (no need for major.minor versions, I believe).  */
 #define TARGET_VERSION \
  fprintf (stderr, " [cil32]")
-
 
 #define OVERRIDE_OPTIONS cil_override_options ()
 
@@ -525,11 +524,16 @@ struct cum_args {int regs;};
 
 #define NO_IMPLICIT_EXTERN_C
 
-extern struct tree_opt_pass pass_bb_layout;
 extern struct tree_opt_pass pass_simp_cil_early;
-extern struct tree_opt_pass pass_simp_cil_final;
-extern struct tree_opt_pass pass_gen_cil;
-extern struct tree_opt_pass pass_cil_vcg;
+extern struct tree_opt_pass pass_bb_layout;
+extern struct tree_opt_pass pass_gimple_to_cil;
+extern struct tree_opt_pass pass_missing_protos;
+extern struct tree_opt_pass pass_cil_peephole;
+extern struct tree_opt_pass pass_remove_convs;
+extern struct tree_opt_pass pass_remove_temps;
+extern struct tree_opt_pass pass_simp_cond;
+extern struct tree_opt_pass pass_emit_cil_vcg;
+extern struct tree_opt_pass pass_emit_cil;
 
 /*
  * Local variables:

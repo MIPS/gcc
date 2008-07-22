@@ -24,6 +24,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #define OPT_MSCORLIB_WRAPPER
 
-#include "include/__OPT_MSCorlibWrapper.h"
+#define __BEGIN_EXTERN_C
+#define __END_EXTERN_C
+
+#define LIBSTD_HPROTO(rettype, fname, ...) \
+       rettype __host__##fname(__VA_ARGS__)
+
+#define LIBSTD_HPROTO_IMPL(rettype, fname, ...) \
+       rettype __host__##fname(__VA_ARGS__)
+
 
 #include "src/__host.c"

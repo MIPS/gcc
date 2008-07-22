@@ -1,6 +1,6 @@
-/* CIL simplification definitions for GNU compiler.
+/* Prototypes for the CIL dump.
 
-   Copyright (C) 2006 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,10 +20,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.
 
 Authors:
-   Andrea Bona
    Andrea Ornstein
    Erven Rohou
-   Roberto Costa
    Gabriele Svelto
 
 Contact information at STMicroelectronics:
@@ -31,14 +29,21 @@ Andrea C. Ornstein      <andrea.ornstein@st.com>
 Erven Rohou             <erven.rohou@st.com>
 */
 
-#ifndef TREE_SIMP_CIL_H
-#define TREE_SIMP_CIL_H
+#ifndef EMIT_CIL_H
+#define EMIT_CIL_H
 
-#include "tree.h"
+#include "config.h"
+#include "coretypes.h"
 
-extern void expand_init_to_stmt_list (tree, tree, tree *);
-extern tree get_integer_type (int, bool);
-extern bool is_copy_required (tree);
-extern void set_statement_list_location (tree, location_t);
+/******************************************************************************
+ * Function prototypes                                                        *
+ ******************************************************************************/
 
-#endif  /* TREE_SIMP_CIL_H */
+void emit_cil_init (void);
+void emit_cil_fini (void);
+void emit_cil_decl (FILE *, tree);
+
+void emit_vcg_init (void);
+void emit_vcg_fini (void);
+
+#endif /* EMIT_CIL_H */

@@ -7,8 +7,8 @@ libnative_PROGRAMS = MSCorelibWrapper_support.so
 MSCorelibWrapper_support.so: MSCorelibWrapper_support.c
 	$(COMPILE) -std=c99 -fpic -shared -I$(top_srcdir) -o $@ $< 
 
-MSCorelibWrapper.dll: MSCorelibWrapper.c
-	$(GCC4NET) -nostdlib -l gcc4net.dll -I$(top_srcdir) $< -o $@
+MSCorelibWrapper.dll: MSCorelibWrapper.cs MSCorelibWrapper_support.so
+	$(MCS) $< -unsafe -target:library -out:$@
 
 install-libciloptPROGRAMS: $(libcilopt_PROGRAMS)
 	test -z "$(libciloptdir)" || $(mkdir_p) "$(DESTDIR)$(libciloptdir)"

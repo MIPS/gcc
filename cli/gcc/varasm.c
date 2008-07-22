@@ -2122,7 +2122,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     globalize_decl (decl);
 
 #if defined(TARGET_DECLARE_VARIABLE)
-  TARGET_DECLARE_VARIABLE(asm_out_file,decl);
+  TARGET_DECLARE_VARIABLE(asm_out_file, decl);
 #else /* !defined(TARGET_DECLARE_VARIABLE) */
 
   /* Output any data that we will need to use the address of.  */

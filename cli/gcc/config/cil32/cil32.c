@@ -61,9 +61,12 @@ Erven Rohou             <erven.rohou@st.com>
 #include "cil-builtins.h"
 #include "cil-types.h"
 #include "cil-refs.h"
-#include "gen-cil.h"
+#include "emit-cil.h"
 
 static struct machine_function *cil_init_machine_status (void);
+static hashval_t cil_basic_block_hash (const void *);
+static int cil_basic_block_eq (const void *, const void *);
+
 static tree cil32_handle_function_attribute (tree *, tree, tree, int, bool *);
 static void cil32_file_start (void);
 static void cil32_file_end (void);
@@ -112,10 +115,12 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static struct machine_function *
 cil_init_machine_status (void)
 {
-  struct machine_function *machine = GGC_NEW(struct machine_function);
+  struct machine_function *machine = GGC_NEW (struct machine_function);
 
   machine->label_id = 0;
   machine->label_addrs = NULL_TREE;
+  machine->bb_seqs = htab_create_ggc (32, cil_basic_block_hash,
+				      cil_basic_block_eq, NULL);
 
   return machine;
 }
@@ -124,6 +129,27 @@ void
 cil_override_options (void)
 {
   init_machine_status = cil_init_machine_status;
+}
+
+/* Hash value calculation function for CIL basic blocks.  */
+
+static hashval_t
+cil_basic_block_hash (const void *ptr)
+{
+  cil_basic_block cbb = (cil_basic_block) ptr;
+
+  return (hashval_t) ((long) cbb->bb >> 3);
+}
+
+/* Equality function for CIL basic blocks.  */
+
+static int
+cil_basic_block_eq (const void *ptr1, const void *ptr2)
+{
+  cil_basic_block cbb1 = (cil_basic_block) ptr1;
+  cil_basic_block cbb2 = (cil_basic_block) ptr2;
+
+  return cbb1->bb == cbb2->bb;
 }
 
 static tree
@@ -141,7 +167,7 @@ cil32_handle_function_attribute (tree *node, tree name,
     }
 
   if (strcmp (IDENTIFIER_POINTER (name), "pinvoke") == 0)
-    cil_add_pinvoke(*node);
+    add_pinvoke (*node);
 
   return NULL_TREE;
 }
@@ -161,15 +187,15 @@ static void
 cil32_file_start (void)
 {
   refs_init ();
-  gen_cil_init ();
-  cil_vcg_init ();
+  emit_vcg_init ();
+  emit_cil_init ();
 }
 
 static void
 cil32_file_end (void)
 {
-  cil_vcg_fini ();
-  gen_cil_fini ();
+  emit_cil_fini ();
+  emit_vcg_fini ();
   refs_fini ();
 }
 

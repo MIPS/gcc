@@ -49,7 +49,6 @@ includesys_HEADERS = \
 	sys/stat.h
 
 noinst_HEADERS = \
-        __OPT_MSCorlibWrapper.h \
 	__cdefs_build.h \
 	__ctype.h \
 	__host.h \

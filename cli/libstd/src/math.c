@@ -203,7 +203,7 @@ LIBSTD_LPROTO_IMPL(double, frexp, double num, int* exp)
     double res;
     double pos_num;
 
-    if (isnan(num)) {
+    if (LIBSTD_HNAME(fpclassify)(num) == FP_NAN) {
         return num;
     }
 
@@ -219,12 +219,12 @@ LIBSTD_LPROTO_IMPL(double, frexp, double num, int* exp)
     }
     /* compute e = 1+floor(log2(num)) */
     else if (pos_num >= 1.0) {
-        int e = (int)log2(pos_num) + 1;
+        int e = (int)LIBSTD_HNAME(log2)(pos_num) + 1;
         *exp = e;
         res = num / (double)(1 << e);
     }
     else {
-        int e = 1 + (int)floor(log2(pos_num));
+        int e = 1 + (int)LIBSTD_HNAME(floor)(LIBSTD_HNAME(log2)(pos_num));
         *exp = e;
         res = num * (double)(1 << -e);
     }
@@ -236,7 +236,7 @@ LIBSTD_LPROTO_IMPL(float, frexpf, float num, int* exp)
     float res;
     float pos_num;
 
-    if (isnan(num)) {
+    if (LIBSTD_HNAME(fpclassify)(num) == FP_NAN) {
         return num;
     }
 
@@ -252,12 +252,12 @@ LIBSTD_LPROTO_IMPL(float, frexpf, float num, int* exp)
     }
     /* compute e = 1+floor(log2f(num)) */
     else if (pos_num >= 1.0) {
-        int e = (int)log2f(pos_num) + 1;
+        int e = (int)LIBSTD_HNAME(log2f)(pos_num) + 1;
         *exp = e;
         res = num / (double)(1 << e);
     }
     else {
-        int e = 1 + (int)floor(log2f(pos_num));
+        int e = 1 + (int)LIBSTD_HNAME(floor)(LIBSTD_HNAME(log2f)(pos_num));
         *exp = e;
         res = num * (double)(1 << -e);
     }

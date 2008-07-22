@@ -1,6 +1,6 @@
 /* Layout of basic blocks.
 
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,7 @@ Authors:
    Andrea Ornstein
    Erven Rohou
    Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -34,15 +35,17 @@ Erven Rohou             <erven.rohou@st.com>
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "timevar.h"
 #include "tree.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
-#include "timevar.h"
+
+static int marker = 0;
 
 static inline void
 visit_block (basic_block bb)
 {
-  bb->aux = (void*)1;
+  bb->aux = (void *) &marker;
 }
 
 static inline bool
@@ -143,7 +146,7 @@ bblayout (void)
   basic_block* bb_order = NULL;
 
   mark_dfs_back_edges ();
-  bb_order = (basic_block*) alloca (n_basic_blocks * sizeof (basic_block));
+  bb_order = (basic_block *) alloca (n_basic_blocks * sizeof (basic_block));
   current_bb_at_pos = ENTRY_BLOCK_PTR;
   compute_layout (ENTRY_BLOCK_PTR, bb_order, &bb_num, &layout_changed);
   bb_order[bb_num++] = EXIT_BLOCK_PTR;

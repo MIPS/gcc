@@ -37,10 +37,6 @@ mopensystemc
 Target Undocumented Mask(OPENSYSTEMC)
 Use OpenSystem.C Attributes
 
-mno-stloc-ldloc-removal
-Target Mask(NO_STLOC_LDLOC_REMOVAL)
-Do not do stloc/ldloc couples removal
-
 mexpand-abs
 Target Mask(EXPAND_ABS)
 Expand abs (absolute value) instead of generating a call to Crt::abs
@@ -48,10 +44,6 @@ Expand abs (absolute value) instead of generating a call to Crt::abs
 mexpand-minmax
 Target Mask(EXPAND_MINMAX)
 Expand min and max instead of generating a call to Crt::{min,max}
-
-memit-gimple-comments
-Target Mask(EMIT_GIMPLE_COMMENTS)
-Emits the GIMPLE node as a CIL comment before the CIL sequence
 
 memit-vcg
 Target Mask(EMIT_VCG)

@@ -72,6 +72,9 @@ extern void refs_fini (void);
 
 extern void mark_referenced_type (tree);
 extern htab_t referenced_types_htab ( void );
+extern tree promote_type_for_vararg (tree);
+extern tree promote_local_var_type (tree);
+extern bool cil_pointer_type_p (tree);
 
 /******************************************************************************
  * Strings                                                                    *
@@ -85,7 +88,7 @@ extern htab_t referenced_strings_htab ( void );
  * Functions                                                                  *
  ******************************************************************************/
 
-extern void cil_add_pinvoke (tree);
+extern void add_pinvoke (tree);
 extern htab_t pinvokes_htab ( void );
 
 /******************************************************************************

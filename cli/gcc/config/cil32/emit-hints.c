@@ -1,6 +1,6 @@
 /* Emit hints about the CIL program.
 
-   Copyright (C) 2006-2007 Free Software Foundation, Inc.
+   Copyright (C) 2006-2008 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -19,9 +19,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 
 Authors:
    Andrea Bona
+   Roberto Costa
    Andrea Ornstein
    Erven Rohou
-   Roberto Costa
+   Gabriele Svelto
 
 Contact information at STMicroelectronics:
 Andrea C. Ornstein      <andrea.ornstein@st.com>
@@ -34,7 +35,6 @@ Erven Rohou             <erven.rohou@st.com>
 #include "tm.h"
 #include "tree.h"
 #include "tree-flow.h"
-#include "gen-cil.h"
 #include "bit-stream.h"
 #include "emit-hints.h"
 
@@ -116,7 +116,7 @@ static struct branch_prob_list_node *branch_prob_list_tail = NULL;
    Also dump a comment with such a probability to FILE.   */
 
 void
-branch_probability_add (FILE *file, tree node)
+branch_probability_add (FILE *file ATTRIBUTE_UNUSED, tree node)
 {
   edge e;
   struct branch_prob_list_node *n;
@@ -149,12 +149,6 @@ branch_probability_add (FILE *file, tree node)
       gcc_assert (!branch_prob_list_tail);
       branch_prob_list_head = n;
       branch_prob_list_tail = n;
-    }
-
-  if (TARGET_EMIT_GIMPLE_COMMENTS)
-    {
-      fprintf (file, "\t/* Probability: %d */",
-               e->probability * 100 / REG_BR_PROB_BASE);
     }
 }
 
@@ -278,7 +272,7 @@ basic_block_frequency_emit (FILE *file)
     }
 
   /* Allocate memory for basic block frequencies bit stream */
-  start_bb_freq_coded = (unsigned char*)xmalloc (emitted_bbs);
+  start_bb_freq_coded = (unsigned char *) xmalloc (emitted_bbs);
   bb_freq_coded = start_bb_freq_coded;
 
   /* Emit number of basic blocks */
@@ -347,7 +341,7 @@ basic_block_frequency_emit (FILE *file)
 
   fputs ("\n\t.custom instance void class "
          "[gcc4net]gcc4net.JitCompilationHints."
-         "JITMethodAttribute::.ctor(unsigned int8*, unsigned int8*) = (01 00 ",
+         "JITMethodAttribute::.ctor(unsigned int8*, unsigned int8 *) = (01 00 ",
          file);
   dump_compressed_int (file, emitted_bbs);
   for (tmp_ptr = start_bb_freq_coded; tmp_ptr < bb_freq_coded; ++tmp_ptr)
