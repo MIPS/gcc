@@ -357,7 +357,6 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
   for (info = elab_info_list; info; info = info->next)
     {
       tree gnu_body = DECL_SAVED_TREE (info->elab_proc);
-      gimple_seq gnu_stmts;
 
       /* Unshare SAVE_EXPRs between subprograms.  These are not unshared by
 	 the gimplifier for obvious reasons, but it turns out that we need to
@@ -369,25 +368,14 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name,
 	 an upstream bug for which we would not change the outcome.  */
       walk_tree_without_duplicates (&gnu_body, unshare_save_expr, NULL);
 
-      /* Set the current function to be the elaboration procedure and gimplify
-	 what we have.  */
-      current_function_decl = info->elab_proc;
-      gimplify_body (&gnu_body, info->elab_proc, true);
+      /* Process the function as others, but for indicating this is an
+	 elab proc, to be discarded if empty, then propagate the status
+	 up to the GNAT tree node.  */
+      begin_subprog_body (info->elab_proc);
+      end_subprog_body (gnu_body, true);
 
-      /* If there are no statements, there is no elaboration code.  */
-      gnu_stmts = gimple_body (info->elab_proc);
-      if (gimple_seq_empty_p (gnu_stmts))
-	{
-	  Set_Has_No_Elaboration_Code (info->gnat_node, 1);
-	  cgraph_remove_node (cgraph_node (info->elab_proc));
-	}
-      else
-	{
-	  /* Otherwise, compile the function.  Note that we'll be gimplifying
-	     it twice, but that's fine for the nodes we use.  */
-	  begin_subprog_body (info->elab_proc);
-	  end_subprog_body (gnu_body);
-	}
+      if (empty_body_p (gimple_body (info->elab_proc)))
+	Set_Has_No_Elaboration_Code (info->gnat_node, 1);
     }
 
   /* We cannot track the location of errors past this point.  */
@@ -1999,7 +1987,7 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
       : Sloc (gnat_node)),
      &DECL_STRUCT_FUNCTION (gnu_subprog_decl)->function_end_locus);
 
-  end_subprog_body (gnu_result);
+  end_subprog_body (gnu_result, false);
 
   /* Disconnect the trees for parameters that we made variables for from the
      GNAT entities since these are unusable after we end the function.  */

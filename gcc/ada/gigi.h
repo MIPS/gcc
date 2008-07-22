@@ -668,10 +668,10 @@ extern tree create_label_decl (tree label_name);
    appearing in the subprogram.  */
 extern void begin_subprog_body (tree subprog_decl);
 
-/* Finish the definition of the current subprogram and compile it all the way
-   to assembler language output.  BODY is the tree corresponding to
-   the subprogram.  */
-extern void end_subprog_body (tree body);
+/* Finish the definition of the current subprogram BODY and compile it all the
+   way to assembler language output.  ELAB_P tells if this is called for an
+   elaboration routine, to be entirely discarded if empty.  */
+extern void end_subprog_body (tree body, bool elab_p);
 
 /* Build a template of type TEMPLATE_TYPE from the array bounds of ARRAY_TYPE.
    EXPR is an expression that we can use to locate any PLACEHOLDER_EXPRs.

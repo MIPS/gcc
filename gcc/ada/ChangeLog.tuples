@@ -1,3 +1,13 @@
+2008-07-22  Olivier Hainque  <hainque@adacore.com>
+
+	* gigi.h (end_subprog_body): New ELAB_P argument, saying if
+	this is called for an elab proc to be discarded if empty.
+	* utils.c (end_subprog_body): Honor ELAB_P.
+	(build_function_stub): Adjust call to end_subprog_body.
+	* trans.c (Subprogram_Body_to_gnu): Likewise.
+	(gigi): Reorganize processing of elab procs to prevent
+	gimplifying twice, using the new end_subprog_body argument.
+
 2008-07-19  Richard Guenther  <rguenther@suse.de>
 
 	* Make-lang.in (trans.o): Add tree-iterator.h dependency.
