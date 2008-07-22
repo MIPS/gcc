@@ -1,3 +1,13 @@
+2008-07-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (ccp_fold): Use gimple_expr_type.
+	(fold_gimple_assign): Likewise.
+	* tree-inline.c (remap_gimple_op_r): Do not set TREE_BLOCK on
+	non-statements.  Recurse to copy_tree_body_r with NULL block.
+	(copy_phis_for_bb): Likewise.
+	* tree-cfg.c (move_stmt_op): Do not set TREE_BLOCK on
+	non-statements.
+
 2008-07-22  Diego Novillo  <dnovillo@google.com>
 	    Richard Guenther  <rguenther@suse.de>
 

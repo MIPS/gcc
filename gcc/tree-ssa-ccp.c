@@ -994,13 +994,12 @@ ccp_fold (gimple stmt)
 						    TREE_TYPE (op0))))
                 return op0;
 
-              return fold_unary (subcode, TREE_TYPE (lhs), op0);
+              return fold_unary (subcode, gimple_expr_type (stmt), op0);
             }  
 
           case GIMPLE_BINARY_RHS:
             {
               /* Handle binary operators that can appear in GIMPLE form.  */
-              tree lhs = gimple_assign_lhs (stmt);
               tree op0 = gimple_assign_rhs1 (stmt);
               tree op1 = gimple_assign_rhs2 (stmt);
 
@@ -1019,7 +1018,7 @@ ccp_fold (gimple stmt)
                     op1 = val->value;
                 }
 
-              return fold_binary (subcode, TREE_TYPE (lhs), op0, op1);
+              return fold_binary (subcode, gimple_expr_type (stmt), op0, op1);
             }
 
           default:
@@ -2666,7 +2665,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 
     case GIMPLE_UNARY_RHS:
       result = fold_unary (subcode,
-                           TREE_TYPE (gimple_assign_lhs (stmt)),
+                           gimple_expr_type (stmt),
                            gimple_assign_rhs1 (stmt));
 
       if (result)

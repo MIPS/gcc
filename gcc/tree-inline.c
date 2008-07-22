@@ -732,22 +732,9 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	  && id->remapping_type_depth == 0)
 	add_referenced_var (*tp);
 
-      /* If EXPR has block defined, map it to newly constructed block.
-	 When inlining we want EXPRs without block appear in the block
-	 of function call.  */
+      /* We should never have TREE_BLOCK set on non-statements.  */
       if (EXPR_P (*tp))
-	{
-	  tree new_block = id->block;
-	  if (TREE_BLOCK (*tp))
-	    {
-	      tree *n;
-	      n = (tree *) pointer_map_contains (id->decl_map,
-						 TREE_BLOCK (*tp));
-	      gcc_assert (n);
-	      new_block = *n;
-	    }
-	  TREE_BLOCK (*tp) = new_block;
-	}
+	gcc_assert (!TREE_BLOCK (*tp));
 
       if (TREE_CODE (*tp) != OMP_CLAUSE)
 	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
@@ -763,9 +750,13 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	{
 	  /* Variable substitution need not be simple.  In particular,
 	     the INDIRECT_REF substitution above.  Make sure that
-	     TREE_CONSTANT and friends are up-to-date.  */
+	     TREE_CONSTANT and friends are up-to-date.  But make sure
+	     to not improperly set TREE_BLOCK on some sub-expressions.  */
 	  int invariant = is_gimple_min_invariant (*tp);
+	  tree block = id->block;
+	  id->block = NULL_TREE;
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_tree_body_r, id, NULL);
+	  id->block = block;
 
 	  /* Handle the case where we substituted an INDIRECT_REF
 	     into the operand of the ADDR_EXPR.  */
@@ -1665,8 +1656,10 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 		= find_edge ((basic_block) new_edge->src->aux, bb);
 	      tree arg = PHI_ARG_DEF_FROM_EDGE (phi, old_edge);
 	      tree new_arg = arg;
-
+	      tree block = id->block;
+	      id->block = NULL_TREE;
 	      walk_tree (&new_arg, copy_tree_body_r, id, NULL);
+	      id->block = block;
 	      gcc_assert (new_arg);
 	      /* With return slot optimization we can end up with
 	         non-gimple (foo *)&this->m, fix that here.  */

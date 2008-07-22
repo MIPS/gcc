@@ -5255,21 +5255,8 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
   tree t = *tp;
 
   if (EXPR_P (t))
-    {
-      tree block = TREE_BLOCK (t);
-      if (p->orig_block == NULL_TREE
-	  || block == p->orig_block
-	  || block == NULL_TREE)
-	TREE_BLOCK (t) = p->new_block;
-#ifdef ENABLE_CHECKING
-      else if (block != p->new_block)
-	{
-	  while (block && block != p->orig_block)
-	    block = BLOCK_SUPERCONTEXT (block);
-	  gcc_assert (block);
-	}
-#endif
-    }
+    /* We should never have TREE_BLOCK set on non-statements.  */
+    gcc_assert (!TREE_BLOCK (t));
 
   else if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
     {
