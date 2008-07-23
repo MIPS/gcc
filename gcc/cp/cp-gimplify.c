@@ -161,6 +161,7 @@ static void
 gimplify_if_stmt (tree *stmt_p)
 {
   tree stmt, cond, then_, else_;
+  location_t locus = EXPR_LOCATION (*stmt_p);
 
   stmt = *stmt_p;
   cond = IF_COND (stmt);
@@ -178,6 +179,8 @@ gimplify_if_stmt (tree *stmt_p)
     stmt = else_;
   else
     stmt = build3 (COND_EXPR, void_type_node, cond, then_, else_);
+  if (CAN_HAVE_LOCATION_P (stmt) && !EXPR_HAS_LOCATION (stmt))
+    SET_EXPR_LOCATION (stmt, locus);
   *stmt_p = stmt;
 }
 

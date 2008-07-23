@@ -1,3 +1,14 @@
+2008-07-22  Aldy Hernandez  <aldyh@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimple_do_not_emit_location_p): New.
+	(gimple_set_do_not_emit_location): New.
+	(annotate_one_with_location): Do not annotate if
+	gimple_do_not_emit_location_p.
+	(gimplify_cond_expr): Do not optimize if the COND_EXPR and
+	GOTO_EXPR have different locations.
+	Do not emit location information for some GIMPLE_COND's.
+
 2008-07-22  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-ccp.c (ccp_fold): Use gimple_expr_type.

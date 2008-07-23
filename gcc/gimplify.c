@@ -894,13 +894,34 @@ tree_should_carry_location_p (const_tree stmt)
   return true;
 }
 
+/* Return true if a location should not be emitted for this statement
+   by annotate_one_with_location.  */
+
+static inline bool
+gimple_do_not_emit_location_p (gimple g)
+{
+  return gimple_plf (g, GF_PLF_1);
+}
+
+/* Mark statement G so a location will not be emitted by
+   annotate_one_with_location.  */
+
+static inline void
+gimple_set_do_not_emit_location (gimple g)
+{
+  /* The PLF flags are initialized to 0 when a new tuple is created,
+     so no need to initialize it anywhere.  */
+  gimple_set_plf (g, GF_PLF_1, true);
+}
+
 /* Set the location for gimple statement GS to LOCUS.  */
 
 static void
 annotate_one_with_location (gimple gs, location_t location)
 {
-  /* All gimple statements have location.  */
-  if (!gimple_has_location (gs) && should_carry_location_p (gs))
+  if (!gimple_has_location (gs) 
+      && !gimple_do_not_emit_location_p (gs)
+      && should_carry_location_p (gs))
     gimple_set_location (gs, location);
 }
 
@@ -2949,7 +2970,14 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
       && TREE_CODE (TREE_OPERAND (expr, 1)) == GOTO_EXPR
       && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 1))) == LABEL_DECL
       && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 1)))
-	  == current_function_decl))
+	  == current_function_decl)
+      /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
+	 have different locations, otherwise we end up with incorrect
+	 location information on the branches.  */
+      && (optimize
+	  || !EXPR_HAS_LOCATION (expr)
+	  || !EXPR_HAS_LOCATION (TREE_OPERAND (expr, 1))
+	  || EXPR_LOCATION (expr) == EXPR_LOCATION (TREE_OPERAND (expr, 1))))
     {
       label_true = GOTO_DESTINATION (TREE_OPERAND (expr, 1));
       have_then_clause_p = true;
@@ -2960,7 +2988,14 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
       && TREE_CODE (TREE_OPERAND (expr, 2)) == GOTO_EXPR
       && TREE_CODE (GOTO_DESTINATION (TREE_OPERAND (expr, 2))) == LABEL_DECL
       && (DECL_CONTEXT (GOTO_DESTINATION (TREE_OPERAND (expr, 2)))
-	  == current_function_decl))
+	  == current_function_decl)
+      /* For -O0 avoid this optimization if the COND_EXPR and GOTO_EXPR
+	 have different locations, otherwise we end up with incorrect
+	 location information on the branches.  */
+      && (optimize
+	  || !EXPR_HAS_LOCATION (expr)
+	  || !EXPR_HAS_LOCATION (TREE_OPERAND (expr, 2))
+	  || EXPR_LOCATION (expr) == EXPR_LOCATION (TREE_OPERAND (expr, 2))))
     {
       label_false = GOTO_DESTINATION (TREE_OPERAND (expr, 2));
       have_else_clause_p = true;
@@ -2996,8 +3031,20 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 	      && TREE_OPERAND (expr, 2) != NULL_TREE
 	      && gimple_seq_may_fallthru (seq))
 	    {
+	      gimple g;
 	      label_cont = create_artificial_label ();
-	      gimplify_seq_add_stmt (&seq, gimple_build_goto (label_cont));
+
+	      g = gimple_build_goto (label_cont);
+
+	      /* GIMPLE_COND's are very low level; they have embedded
+		 gotos.  This particular embedded goto should not be marked
+		 with the location of the original COND_EXPR, as it would
+		 correspond to the COND_EXPR's condition, not the ELSE or the
+		 THEN arms.  To avoid marking it with the wrong location, flag
+		 it as "no location".  */
+	      gimple_set_do_not_emit_location (g);
+
+	      gimplify_seq_add_stmt (&seq, g);
 	    }
 	}
     }
