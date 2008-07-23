@@ -1,3 +1,10 @@
+2008-07-23  Rafael Espindola  <espindola@google.com>
+
+	Mainline merge @138073
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-07-22  Rafael Espindola  <espindola@google.com>
 
 	* lto-function-in.c (lto_read_body): Read labels.

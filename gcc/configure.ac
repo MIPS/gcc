@@ -323,8 +323,8 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # So, we only use -pedantic if we can disable those warnings.
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-	  -Wmissing-prototypes -Wcast-qual -Wc++-compat], [loose_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition \
+	  -Wmissing-prototypes -Wcast-qual], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition -Wc++-compat \
                           -Wmissing-format-attribute], [strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
 				     -Wno-overlength-strings], [strict_warn])
@@ -770,7 +770,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([lto merged with rev 136135])
+ACX_PKGVERSION([lto merged with rev 138073])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel

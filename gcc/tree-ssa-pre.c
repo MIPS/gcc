@@ -193,8 +193,13 @@ pre_expr_eq (const void *p1, const void *p2)
   switch (e1->kind)
     {
     case CONSTANT:
-      return expressions_equal_p (PRE_EXPR_CONSTANT (e1),
-				  PRE_EXPR_CONSTANT (e2));
+      {
+	tree const0 = PRE_EXPR_CONSTANT (e1);
+	tree const1 = PRE_EXPR_CONSTANT (e2);
+	return TREE_TYPE (const1) == TREE_TYPE (const0)
+	  && expressions_equal_p (const0, const1);
+      }
+      break;
     case NAME:
       return PRE_EXPR_NAME (e1) == PRE_EXPR_NAME (e2);
     case NARY:
@@ -316,8 +321,9 @@ get_or_alloc_expr_for_name (tree name)
   result_id = lookup_expression_id (result);
   if (result_id != 0)
     {
-      pool_free (pre_expr_pool, result);
-      result = expression_for_id (result_id);
+      pre_expr newresult = expression_for_id (result_id);
+      pool_free (pre_expr_pool, result); 
+      result = newresult;
       return result;
     }
   get_or_alloc_expression_id (result);
@@ -593,7 +599,16 @@ get_expr_value_id (pre_expr expr)
   switch (expr->kind)
     {
     case CONSTANT:
-      return get_or_alloc_constant_value_id (PRE_EXPR_CONSTANT (expr));
+      {
+	unsigned int id;
+	id = get_constant_value_id (PRE_EXPR_CONSTANT (expr));
+	if (id == 0)
+	  {
+	    id = get_or_alloc_constant_value_id (PRE_EXPR_CONSTANT (expr));
+	    add_to_value (id, expr);
+	  }
+	return id;
+      }
     case NAME:
       return VN_INFO (PRE_EXPR_NAME (expr))->value_id;
     case NARY:
@@ -994,8 +1009,9 @@ get_or_alloc_expr_for_constant (tree constant)
   result_id = lookup_expression_id (newexpr);
   if (result_id != 0)
     {
-      pool_free (pre_expr_pool, newexpr);
-      newexpr = expression_for_id (result_id);
+      pre_expr newresult = expression_for_id (result_id);
+      pool_free (pre_expr_pool, newexpr); 
+      newexpr = newresult;
       return newexpr;
     }
   value_id = get_or_alloc_constant_value_id (constant);
@@ -1009,7 +1025,7 @@ get_or_alloc_expr_for_constant (tree constant)
    a constant.  */
 
 static tree
-get_constant_for_value_id (unsigned int v)
+get_constant_for_value_id (unsigned int v, tree type)
 {
   if (value_id_constant_p (v))
     {
@@ -1020,7 +1036,8 @@ get_constant_for_value_id (unsigned int v)
       FOR_EACH_EXPR_ID_IN_SET (exprset, i, bi)
 	{
 	  pre_expr expr = expression_for_id (i);
-	  if (expr->kind == CONSTANT)
+	  if (expr->kind == CONSTANT
+	      && TREE_TYPE (PRE_EXPR_CONSTANT (expr)) == type)
 	    return PRE_EXPR_CONSTANT (expr);
 	}
     }
@@ -1064,12 +1081,20 @@ fully_constant_expression (pre_expr e)
 	      pre_expr rep1 = get_or_alloc_expr_for (naryop1);
 	      unsigned int vrep0 = get_expr_value_id (rep0);
 	      unsigned int vrep1 = get_expr_value_id (rep1);
-	      tree const0 = get_constant_for_value_id (vrep0);
-	      tree const1 = get_constant_for_value_id (vrep1);
+	      tree const0 = get_constant_for_value_id (vrep0,
+						       TREE_TYPE (nary->op[0]));
+	      tree const1 = get_constant_for_value_id (vrep1,
+						       TREE_TYPE (nary->op[1]));
 	      tree result = NULL;
 	      if (const0 && const1)
-		result = fold_binary (nary->opcode, nary->type, const0,
-				      const1);
+		{
+		  tree type1 = TREE_TYPE (nary->op[0]);
+		  tree type2 = TREE_TYPE (nary->op[1]);
+		  const0 = fold_convert (type1, const0);
+		  const1 = fold_convert (type2, const1);
+		  result = fold_binary (nary->opcode, nary->type, const0,
+					const1);
+		}
 	      if (result && is_gimple_min_invariant (result))
 		return get_or_alloc_expr_for_constant (result);
 	      return e;
@@ -1081,10 +1106,16 @@ fully_constant_expression (pre_expr e)
 	      tree naryop0 = nary->op[0];
 	      pre_expr rep0 = get_or_alloc_expr_for (naryop0);
 	      unsigned int vrep0 = get_expr_value_id (rep0);
-	      tree const0 = get_constant_for_value_id (vrep0);
+	      tree const0 = get_constant_for_value_id (vrep0,
+						       TREE_TYPE (nary->op[0]));
 	      tree result = NULL;
 	      if (const0)
-		result = fold_unary (nary->opcode, nary->type, const0);
+		{
+		  tree type1 = TREE_TYPE (nary->op[0]);
+		  const0 = fold_convert (type1, const0);
+		  result = fold_unary (nary->opcode, nary->type, const0);
+		}
+	      
 	      if (result && is_gimple_min_invariant (result))
 		return get_or_alloc_expr_for_constant (result);
 	      return e;
@@ -1399,8 +1430,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		if (constant != expr)
 		  return constant;
 		get_or_alloc_expression_id (expr);
-		add_to_value (new_val_id, expr);
 	      }
+	    add_to_value (new_val_id, expr);
 	  }
 	phi_trans_add (oldexpr, expr, pred);
 	return expr;
@@ -1532,8 +1563,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 						     result, new_val_id);
 		PRE_EXPR_REFERENCE (expr) = newref;
 		get_or_alloc_expression_id (expr);
-		add_to_value (new_val_id, expr);
 	      }
+	    add_to_value (new_val_id, expr);
 	  }
 	phi_trans_add (oldexpr, expr, pred);
 	return expr;
@@ -2448,10 +2479,10 @@ create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
 	    if (!genop1)
 	      return NULL_TREE;
 	    genop1 = fold_convert (build_pointer_type (currop->type),
-		genop1);
+				   genop1);
 
 	    folded = fold_build1 (currop->opcode, currop->type,
-		genop1);
+				  genop1);
 	    return folded;
 	  }
       }
@@ -2588,9 +2619,14 @@ static tree
 find_or_generate_expression (basic_block block, pre_expr expr, tree stmts,
 			     tree domstmt)
 {
-  pre_expr leader = bitmap_find_leader (AVAIL_OUT (block),
-					get_expr_value_id (expr), domstmt);
+  pre_expr leader;
   tree genop = NULL;
+
+  if (expr->kind == CONSTANT)
+    return PRE_EXPR_CONSTANT (expr);
+  
+  leader = bitmap_find_leader (AVAIL_OUT (block),
+			       get_expr_value_id (expr), domstmt);
   if (leader)
     {
       if (leader->kind == NAME)
@@ -2694,10 +2730,11 @@ create_expression_by_pieces (basic_block block, pre_expr expr, tree stmts,
 							 stmts, domstmt);
 	      if (!genop1 || !genop2)
 		return NULL_TREE;
-	      /* Ensure op2 is a sizetype for POINTER_PLUS_EXPR.  It
-		 may be a constant with the wrong type.  */
-	      if (nary->opcode == POINTER_PLUS_EXPR)
-		genop2 = fold_convert (sizetype, genop2);
+
+	      genop1 = fold_convert (TREE_TYPE (nary->op[0]),
+				     genop1);
+	      genop2 = fold_convert (TREE_TYPE (nary->op[1]), genop2);
+	      
 	      folded = fold_build2 (nary->opcode, nary->type,
 				    genop1, genop2);
 	    }
@@ -2709,6 +2746,8 @@ create_expression_by_pieces (basic_block block, pre_expr expr, tree stmts,
 							 stmts, domstmt);
 	      if (!genop1)
 		return NULL_TREE;
+	      genop1 = fold_convert (TREE_TYPE (nary->op[0]), genop1);
+
 	      folded = fold_build1 (nary->opcode, nary->type,
 				    genop1);
 	    }
@@ -2931,18 +2970,11 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 	     our IL requires all operands of a phi node have the same
 	     type.  */
 	  tree name = PRE_EXPR_NAME (eprime);
-	  if (TREE_TYPE (name) != type)
+	  if (!useless_type_conversion_p (type, TREE_TYPE (name)))
 	    {
 	      tree builtexpr;
 	      tree forcedexpr;
-	      /* When eliminating casts through unions,
-		 we sometimes want to convert a real to an integer,
-		 which fold_convert will ICE on  */
-	      if (fold_convertible_p (type, name))
-		builtexpr = fold_convert (type, name);
-	      else
-		builtexpr = convert (type, name);
-
+	      builtexpr = fold_convert (type, name);
 	      forcedexpr = force_gimple_operand (builtexpr,
 						 &stmts, true,
 						 NULL);
@@ -3130,9 +3162,16 @@ do_regular_insertion (basic_block block, basic_block dom)
 		}
 
 	      eprime = fully_constant_expression (eprime);
-	      vprime = get_expr_value_id (eprime);
-	      edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
-						 vprime, NULL_TREE);
+	      if (eprime->kind == CONSTANT)
+		{
+		  edoubleprime = eprime;
+		}
+	      else
+		{
+		  vprime = get_expr_value_id (eprime);
+		  edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
+						     vprime, NULL_TREE);
+		}
 	      if (edoubleprime == NULL)
 		{
 		  avail[bprime->index] = eprime;
@@ -3152,7 +3191,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 	     already existing along every predecessor, and
 	     it's defined by some predecessor, it is
 	     partially redundant.  */
-	  if (!cant_insert && !all_same && by_some)
+	  if (!cant_insert && !all_same && by_some && dbg_cnt (treepre_insert))
 	    {
 	      if (insert_into_preds_of_block (block, get_expression_id (expr),
 					      avail))
@@ -3264,9 +3303,17 @@ do_partial_partial_insertion (basic_block block, basic_block dom)
 		}
 
 	      eprime = fully_constant_expression (eprime);
-	      vprime = get_expr_value_id (eprime);
-	      edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
-						 vprime, NULL_TREE);
+	      if (eprime->kind == CONSTANT)
+		{
+		  edoubleprime = eprime;
+		}
+	      else
+		{
+		  vprime = get_expr_value_id (eprime);
+		  edoubleprime = bitmap_find_leader (AVAIL_OUT (bprime),
+						     vprime, NULL_TREE);
+		}
+	      
 	      if (edoubleprime == NULL)
 		{
 		  by_all = false;
@@ -3818,11 +3865,13 @@ eliminate (void)
 		  else
 		    gcc_unreachable ();
 		}
+
 	      /* If there is no existing leader but SCCVN knows this
 		 value is constant, use that constant.  */
 	      if (!sprime && is_gimple_min_invariant (VN_INFO (lhs)->valnum))
 		{
-		  sprime = VN_INFO (lhs)->valnum;
+		  sprime = fold_convert (TREE_TYPE (lhs),
+					 VN_INFO (lhs)->valnum);
 
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
@@ -4171,7 +4220,11 @@ execute_pre (bool do_fre)
   if (!run_scc_vn (do_fre))
     {
       if (!do_fre)
-	remove_dead_inserted_code ();
+	{
+	  remove_dead_inserted_code ();
+	  loop_optimizer_finalize ();
+	}
+      
       return 0;
     }
   init_pre (do_fre);

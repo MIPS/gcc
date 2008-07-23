@@ -5511,6 +5511,7 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   int indirect_p = 0;
   tree ptrtype;
   enum machine_mode nat_mode;
+  int arg_boundary;
 
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
@@ -5709,13 +5710,21 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
   /* ... otherwise out of the overflow area.  */
 
+  /* When we align parameter on stack for caller, if the parameter
+     alignment is beyond PREFERRED_STACK_BOUNDARY, it will be
+     aligned at PREFERRED_STACK_BOUNDARY.  We will match callee
+     here with caller.  */
+  arg_boundary = FUNCTION_ARG_BOUNDARY (VOIDmode, type);
+  if ((unsigned int) arg_boundary > PREFERRED_STACK_BOUNDARY)
+     arg_boundary = PREFERRED_STACK_BOUNDARY;
+
   /* Care for on-stack alignment if needed.  */
-  if (FUNCTION_ARG_BOUNDARY (VOIDmode, type) <= 64
+  if (arg_boundary <= 64
       || integer_zerop (TYPE_SIZE (type)))
     t = ovf;
  else
     {
-      HOST_WIDE_INT align = FUNCTION_ARG_BOUNDARY (VOIDmode, type) / 8;
+      HOST_WIDE_INT align = arg_boundary / 8;
       t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (ovf), ovf,
 		  size_int (align - 1));
       t = fold_convert (sizetype, t);
@@ -14714,10 +14723,13 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
       ix86_expand_clear (scratch);
       emit_insn ((mode == DImode
 		  ? gen_x86_shift_adj_1
-		  : gen_x86_64_shift_adj) (high[0], low[0], operands[2], scratch));
+		  : gen_x86_64_shift_adj_1) (high[0], low[0], operands[2],
+					     scratch));
     }
   else
-    emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
+    emit_insn ((mode == DImode
+		? gen_x86_shift_adj_2
+		: gen_x86_64_shift_adj_2) (high[0], low[0], operands[2]));
 }
 
 void
@@ -14791,11 +14803,13 @@ ix86_split_ashr (rtx *operands, rtx scratch, enum machine_mode mode)
 				      GEN_INT (single_width - 1)));
 	  emit_insn ((mode == DImode
 		      ? gen_x86_shift_adj_1
-		      : gen_x86_64_shift_adj) (low[0], high[0], operands[2],
-					 scratch));
+		      : gen_x86_64_shift_adj_1) (low[0], high[0], operands[2],
+						 scratch));
 	}
       else
-	emit_insn (gen_x86_shift_adj_3 (low[0], high[0], operands[2]));
+	emit_insn ((mode == DImode
+		    ? gen_x86_shift_adj_3
+		    : gen_x86_64_shift_adj_3) (low[0], high[0], operands[2]));
     }
 }
 
@@ -14854,11 +14868,13 @@ ix86_split_lshr (rtx *operands, rtx scratch, enum machine_mode mode)
 	  ix86_expand_clear (scratch);
 	  emit_insn ((mode == DImode
 		      ? gen_x86_shift_adj_1
-		      : gen_x86_64_shift_adj) (low[0], high[0], operands[2],
-					       scratch));
+		      : gen_x86_64_shift_adj_1) (low[0], high[0], operands[2],
+						 scratch));
 	}
       else
-	emit_insn (gen_x86_shift_adj_2 (low[0], high[0], operands[2]));
+	emit_insn ((mode == DImode
+		    ? gen_x86_shift_adj_2
+		    : gen_x86_64_shift_adj_2) (low[0], high[0], operands[2]));
     }
 }
 
@@ -25853,11 +25869,12 @@ ix86_expand_round (rtx operand0, rtx operand1)
    OPERANDS is the array of operands.
    NUM is the number of operands.
    USES_OC0 is true if the instruction uses OC0 and provides 4 variants.
-   NUM_MEMORY is the maximum number of memory operands to accept.  */
+   NUM_MEMORY is the maximum number of memory operands to accept.  
+   when COMMUTATIVE is set, operand 1 and 2 can be swapped.  */
 
 bool
 ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
-		      bool uses_oc0, int num_memory)
+		      bool uses_oc0, int num_memory, bool commutative)
 {
   int mem_mask;
   int mem_count;
@@ -25941,6 +25958,8 @@ ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
 
       /* format, example pmacsdd:
 	 xmm1, xmm2, xmm3/mem, xmm1 */
+      if (commutative)
+	return (mem_mask == (1 << 2) || mem_mask == (1 << 1));
       else
 	return (mem_mask == (1 << 2));
     }
@@ -25975,6 +25994,8 @@ ix86_sse5_valid_op_p (rtx operands[], rtx insn ATTRIBUTE_UNUSED, int num,
 
          For the integer multiply/add instructions be more restrictive and
          require operands[2] and operands[3] to be the memory operands.  */
+      if (commutative)
+	return (mem_mask == ((1 << 1) | (1 << 3)) || ((1 << 2) | (1 << 3)));
       else
 	return (mem_mask == ((1 << 2) | (1 << 3)));
     }

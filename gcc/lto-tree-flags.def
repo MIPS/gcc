@@ -357,7 +357,6 @@
       ADD_DECL_FLAG (debug_expr_is_from)  	/* ??? */
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (no_tbaa_flag)		/* ??? */
-      ADD_VIS_FLAG (in_system_header_flag)
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (comdat_flag)
       ADD_VIS_FLAG_SIZE (visibility, 2);
@@ -493,7 +492,6 @@
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
       ADD_DECL_FLAG (preserve_flag)
-      ADD_VIS_FLAG (in_system_header_flag)
       ADD_VIS_FLAG (weak_flag)				/* ??? */
       ADD_VIS_FLAG (comdat_flag)			/* ??? */
       ADD_VIS_FLAG_SIZE (visibility, 2);		/* ??? */
@@ -735,7 +733,6 @@
       ADD_DECL_FLAG (abstract_flag)
       ADD_DECL_FLAG (artificial_flag)
       ADD_DECL_FLAG (preserve_flag)
-      ADD_VIS_FLAG (in_system_header_flag)
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (comdat_flag)
       ADD_VIS_FLAG_SIZE (visibility, 2);
@@ -790,7 +787,6 @@
       /* ### Do we need  user_align, preserve_flag, debug_expr_is_from ??? */
       ADD_DECL_FLAG (decl_flag_2)
       ADD_DECL_FLAG (no_tbaa_flag)   /* ??? */
-      ADD_VIS_FLAG (in_system_header_flag)
       /* ### Do we need weak_flag, visibility_specified, visibility ??? */
     END_EXPR_CASE (TYPE_DECL)
       
@@ -842,7 +838,6 @@
       ADD_VIS_FLAG (dllimport_flag)
       ADD_VIS_FLAG (based_on_restrict_p)
       ADD_VIS_FLAG (shadowed_for_var_p)
-      ADD_VIS_FLAG (in_system_header_flag)
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (seen_in_bind_expr)
       ADD_VIS_FLAG (comdat_flag)

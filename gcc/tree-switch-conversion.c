@@ -474,7 +474,8 @@ build_one_array (tree swtch, int num, tree arr_index_type, tree phi, tree tidx)
   DECL_ARTIFICIAL (decl) = 1;
   TREE_CONSTANT (decl) = 1;
   add_referenced_var (decl);
-  assemble_variable (decl, 0, 0, 0);
+  varpool_mark_needed_node (varpool_node (decl));
+  varpool_finalize_decl (decl);
   mark_sym_for_renaming (decl);
 
   name = make_ssa_name (SSA_NAME_VAR (PHI_RESULT (phi)), NULL_TREE);
@@ -622,7 +623,7 @@ gen_inbound_check (tree swtch)
   tree label_decl3 = create_artificial_label ();
   tree label1, label2, label3;
 
-  tree utype = unsigned_type_for (TREE_TYPE (info.index_expr));
+  tree utype;
   tree tmp_u;
   tree cast, cast_assign;
   tree ulb, minus, minus_assign;
@@ -637,6 +638,12 @@ gen_inbound_check (tree swtch)
 
   gcc_assert (info.default_values);
   bb0 = bb_for_stmt (swtch);
+
+  /* Make sure we do not generate arithmetics in a subrange.  */
+  if (TREE_TYPE (TREE_TYPE (info.index_expr)))
+    utype = unsigned_type_for (TREE_TYPE (TREE_TYPE (info.index_expr)));
+  else
+    utype = unsigned_type_for (TREE_TYPE (info.index_expr));
 
   /* (end of) block 0 */
   bsi = bsi_for_stmt (info.arr_ref_first);
