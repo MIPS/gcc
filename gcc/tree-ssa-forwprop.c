@@ -808,26 +808,15 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
      of the elements in X into &x[C/element size].  */
   if (TREE_CODE (rhs2) == INTEGER_CST)
     {
-      tree orig = rhs_to_tree (TREE_TYPE (gimple_assign_lhs (use_stmt)),
-                               use_stmt);
-      orig = unshare_expr (orig);
-      gimple_assign_set_rhs_from_tree (use_stmt_gsi, unshare_expr (def_rhs));
-      use_stmt = gsi_stmt (*use_stmt_gsi);
-
-      /* If folding succeeds, then we have just exposed new variables
-	 in USE_STMT which will need to be renamed.  If folding fails,
-	 then we need to put everything back the way it was.  */
-      if (fold_stmt_inplace (use_stmt))
+      tree new_rhs = maybe_fold_stmt_addition (gimple_expr_type (use_stmt),
+					       array_ref, rhs2);
+      if (new_rhs)
 	{
-	  tidy_after_forward_propagate_addr (use_stmt);
-	  return true;
-	}
-      else
-	{
-	  gimple_assign_set_rhs_from_tree (use_stmt_gsi, orig);
+	  gimple_assign_set_rhs_from_tree (use_stmt_gsi, new_rhs);
 	  use_stmt = gsi_stmt (*use_stmt_gsi);
 	  update_stmt (use_stmt);
-	  return false;
+	  tidy_after_forward_propagate_addr (use_stmt);
+	  return true;
 	}
     }
 

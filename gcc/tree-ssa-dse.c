@@ -232,7 +232,7 @@ get_kill_of_stmt_lhs (gimple stmt,
      the stmt.  */
   do
     {
-      tree use_lhs, use_rhs;
+      tree use_lhs;
       def_operand_p def_p;
 
       /* The stmt must have a single VDEF.  */
@@ -246,19 +246,10 @@ get_kill_of_stmt_lhs (gimple stmt,
       first_use_p = use_p;
 
       /* If there are possible hidden uses, give up.  */
-      if (gimple_code (stmt) != GIMPLE_ASSIGN)
+      if (!gimple_assign_single_p (stmt)
+	  || (TREE_CODE (gimple_assign_rhs1 (stmt)) != SSA_NAME
+	      && !is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
 	return false;
-
-      if (is_gimple_call (stmt))
-	return false;
-
-      if (is_gimple_assign (stmt))
-        {
-	  use_rhs = gimple_assign_rhs1 (stmt);
-	  if (!is_gimple_min_invariant (use_rhs) 
-	      && TREE_CODE (use_rhs) != SSA_NAME)
-	    return false;
-	}
 
       /* If the use stmts lhs matches the original lhs we have
 	 found the kill, otherwise continue walking.  */

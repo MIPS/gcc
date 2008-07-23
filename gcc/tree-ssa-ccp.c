@@ -2057,7 +2057,7 @@ maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 	&array[x]
    which may be able to propagate further.  */
 
-static tree
+tree
 maybe_fold_stmt_addition (tree res_type, tree op0, tree op1)
 {
   tree ptd_type;
@@ -2612,12 +2612,12 @@ ccp_fold_builtin (gimple stmt)
   return result;
 }
 
-/* Attempt to fold an assignment statement pointed-to by SI.  Return true if
-   any changes were made.  The statement is modified in place, but its RHS
-   class may change. It is assumed that the operands have been previously
+/* Attempt to fold an assignment statement pointed-to by SI.  Returns a
+   replacement rhs for the statement or NULL_TREE if no simplification
+   could be made.  It is assumed that the operands have been previously
    folded.  */
 
-static bool
+static tree
 fold_gimple_assign (gimple_stmt_iterator *si)
 {
   gimple stmt = gsi_stmt (*si);
@@ -2651,15 +2651,12 @@ fold_gimple_assign (gimple_stmt_iterator *si)
         STRIP_USELESS_TYPE_CONVERSION (result);
 
         if (result != rhs && valid_gimple_rhs_p (result))
-          {
-            gimple_assign_set_rhs_from_tree (si, result);
-            return true;
-          }
+	  return result;
         else
           /* It is possible that fold_stmt_r simplified the RHS.
              Make sure that the subcode of this statement still
              reflects the principal operator of the rhs operand. */
-          gimple_assign_set_rhs_from_tree (si, rhs);
+          return rhs;
       }
       break;
 
@@ -2672,10 +2669,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
         {
           STRIP_USELESS_TYPE_CONVERSION (result);
           if (valid_gimple_rhs_p (result))
-            {
-              gimple_assign_set_rhs_from_tree (si, result);
-              return true;
-            }
+	    return result;
         }
       else if ((gimple_assign_rhs_code (stmt) == NOP_EXPR
 		|| gimple_assign_rhs_code (stmt) == CONVERT_EXPR)
@@ -2690,11 +2684,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 	    {
 	      tree ptr_type = build_pointer_type (TREE_TYPE (t));
 	      if (useless_type_conversion_p (type, ptr_type))
-		{
-		  result = build_fold_addr_expr_with_type (t, ptr_type);
-		  gimple_assign_set_rhs_from_tree (si, result);
-		  return true;
-		}
+		return build_fold_addr_expr_with_type (t, ptr_type);
 	    }
 	}
       break;
@@ -2717,10 +2707,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
         {
           STRIP_USELESS_TYPE_CONVERSION (result);
           if (valid_gimple_rhs_p (result))
-            {
-              gimple_assign_set_rhs_from_tree (si, result);
-              return true;
-            }
+	    return result;
         }
       break;
 
@@ -2728,7 +2715,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       gcc_unreachable ();
     }
 
-  return false;
+  return NULL_TREE;
 }
 
 /* Attempt to fold a conditional statement. Return true if any changes were
@@ -2847,9 +2834,16 @@ fold_stmt (gimple_stmt_iterator *gsi)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      changed |= fold_gimple_assign (gsi);
-      stmt = gsi_stmt (*gsi);
-      break;
+      {
+	tree new_rhs = fold_gimple_assign (gsi);
+	if (new_rhs != NULL_TREE)
+	  {
+	    gimple_assign_set_rhs_from_tree (gsi, new_rhs);
+	    changed = true;
+	  }
+	stmt = gsi_stmt (*gsi);
+	break;
+      }
     case GIMPLE_COND:
       changed |= fold_gimple_cond (stmt);
       break;
@@ -2904,10 +2898,21 @@ fold_stmt_inplace (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      si = gsi_for_stmt (stmt);
-      changed |= fold_gimple_assign (&si);
-      gcc_assert (gsi_stmt (si) == stmt);
-      break;
+      {
+	unsigned old_num_ops;
+	tree new_rhs;
+	old_num_ops = gimple_num_ops (stmt);
+	si = gsi_for_stmt (stmt);
+	new_rhs = fold_gimple_assign (&si);
+	if (new_rhs != NULL_TREE
+	    && get_gimple_rhs_num_ops (TREE_CODE (new_rhs)) < old_num_ops)
+	  {
+	    gimple_assign_set_rhs_from_tree (&si, new_rhs);
+	    changed = true;
+	  }
+	gcc_assert (gsi_stmt (si) == stmt);
+	break;
+      }
     case GIMPLE_COND:
       changed |= fold_gimple_cond (stmt);
       break;

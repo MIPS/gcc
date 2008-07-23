@@ -1,5 +1,18 @@
 2008-07-23  Richard Guenther  <rguenther@suse.de>
 
+	* tree-ssa-dse.c (get_kill_of_stmt_lhs): Tuplify correct.
+	* gimple-pretty-print.c (dump_gimple_label): Dump non-local flag.
+	* tree.h (maybe_fold_stmt_addition): Declare.
+	* tree-ssa-ccp.c (maybe_fold_stmt_addition): Export.
+	(fold_gimple_assign): Return the new rhs instead of modifying the stmt.
+	(fold_stmt): Deal with that.
+	(fold_stmt_inplace): Only replace the rhs of a statement if
+	that has enough operand space to hold the new operands.
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Fix
+	POINTER_PLUS_EXPR handling.
+
+2008-07-23  Richard Guenther  <rguenther@suse.de>
+
 	* tree-eh.c (record_in_goto_queue): Fix bootstrap with
 	--disable-checking.
 

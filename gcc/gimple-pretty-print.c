@@ -593,6 +593,8 @@ dump_gimple_label (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_generic_node (buffer, label, spc, flags, false);
       pp_string (buffer, ":");
     }
+  if (DECL_NONLOCAL (label))
+    pp_string (buffer, " [non-local]");
 }
 
 /* Dump a GIMPLE_GOTO tuple on the pretty_printer BUFFER, SPC
