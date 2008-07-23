@@ -3712,5 +3712,5 @@ tree_can_inline_p (tree caller, tree callee)
     }
 
   /* Allow the backend to decide if inlining is ok.  */
-  return targetm.can_inline_p (caller, callee);
+  return targetm.target_option.can_inline_p (caller, callee);
 }

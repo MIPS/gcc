@@ -327,15 +327,16 @@ ix86_target_macros (void)
 }
 
 
-/* Register target pragmas.  We need to update the hook for
-   ix86_pragma_option_parse here, since this i386-c.o is not linked in targets
-   like fortran that don't have the preprocessor.  */
+/* Register target pragmas.  We need to add the hook for parsing #pragma GCC
+   option here rather than in i386.c since it will pull in various preprocessor
+   functions, and those are not present in languages like fortran without a
+   preprocessor.  */
 
 void
 ix86_register_pragmas (void)
 {
   /* Update pragma hook to allow parsing #pragma GCC option.  */
-  targetm.target_option_pragma_parse = ix86_pragma_option_parse;
+  targetm.target_option.pragma_parse = ix86_pragma_option_parse;
 
 #ifdef REGISTER_SUBTARGET_PRAGMAS
   REGISTER_SUBTARGET_PRAGMAS ();

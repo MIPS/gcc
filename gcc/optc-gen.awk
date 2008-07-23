@@ -425,8 +425,8 @@ for (i = 0; i < n_target_char; i++) {
 if (have_assert)
 	print "";
 
-print "  if (targetm.target_option_save)";
-print "    targetm.target_option_save (ptr);";
+print "  if (targetm.target_option.save)";
+print "    targetm.target_option.save (ptr);";
 print "";
 
 for (i = 0; i < n_target_other; i++) {
@@ -472,8 +472,8 @@ for (i = 0; i < n_target_char; i++) {
 # This must occur after the normal variables in case the code depends on those
 # variables.
 print "";
-print "  if (targetm.target_option_restore)";
-print "    targetm.target_option_restore (ptr);";
+print "  if (targetm.target_option.restore)";
+print "    targetm.target_option.restore (ptr);";
 
 print "}";
 
@@ -523,8 +523,8 @@ for (i = 0; i < n_target_char; i++) {
 }
 
 print "";
-print "  if (targetm.target_option_print)";
-print "    targetm.target_option_print (file, indent, ptr);";
+print "  if (targetm.target_option.print)";
+print "    targetm.target_option.print (file, indent, ptr);";
 
 print "}";
 print "#endif";

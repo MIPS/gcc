@@ -804,66 +804,6 @@ handle_options (unsigned int argc, const char **argv, unsigned int lang_mask)
     }
 }
 
-/* Unset all of the options that are normally off for -Os.  This is to allow
-   targets to have a function specific option that optimizes for space for a
-   particular function.  It is assumed that the current options have been saved
-   by a call to cl_optimization_save and will be restored by a call to
-   cl_optimization_restore at the end of the function.  */
-
-void
-optimize_for_space (void)
-{
-  /* Loop header copying usually increases size of the code.  This used not to
-     be true, since quite often it is possible to verify that the condition is
-     satisfied in the first iteration and therefore to eliminate it.  Jump
-     threading handles these cases now.  */
-  flag_tree_ch = 0;
-
-  /* Conditional DCE generates bigger code.  */
-  flag_tree_builtin_call_dce = 0;
-
-  /* PRE tends to generate bigger code.  */
-  flag_tree_pre = 0;
-
-  /* These options are set with -O3, so reset for -Os */
-  flag_predictive_commoning = 0;
-  flag_inline_functions = 0;
-  flag_unswitch_loops = 0;
-  flag_gcse_after_reload = 0;
-  flag_tree_vectorize = 0;
-
-  /* Don't reorder blocks when optimizing for size because extra jump insns may
-     be created; also barrier may create extra padding.
-
-     More correctly we should have a block reordering mode that tried to
-     minimize the combined size of all the jumps.  This would more or less
-     automatically remove extra jumps, but would also try to use more short
-     jumps instead of long jumps.  */
-  flag_reorder_blocks = 0;
-  flag_reorder_blocks_and_partition = 0;
-
-  /* Inlining of functions reducing size is a good idea regardless of them
-     being declared inline.  */
-  flag_inline_functions = 1;
-
-  /* Don't align code.  */
-  align_loops = 1;
-  align_jumps = 1;
-  align_labels = 1;
-  align_functions = 1;
-
-  /* Unroll/prefetch switches that may be set on the command line, and tend to
-     generate bigger code.  */
-  flag_unroll_loops = 0;
-  flag_unroll_all_loops = 0;
-  flag_prefetch_loop_arrays = 0;
-
-  /* Basic optimization options.  */
-  optimize_size = 1;
-  if (optimize > 2)
-    optimize = 2;
-}
-
 /* Parse command line options and set default flag values.  Do minimal
    options processing.  */
 void
@@ -877,7 +817,6 @@ decode_options (unsigned int argc, const char **argv)
   static unsigned int initial_lang_mask;
 
   unsigned int i, lang_mask;
-  int opt0;
   int opt1;
   int opt2;
   int opt3;
@@ -934,20 +873,35 @@ decode_options (unsigned int argc, const char **argv)
 	}
     }
 
+
+  if (!flag_unit_at_a_time)
+    {
+      flag_section_anchors = 0;
+      flag_toplevel_reorder = 0;
+      flag_unit_at_a_time = 1;
+    }
+  if (!flag_toplevel_reorder)
+    {
+      if (flag_section_anchors == 1)
+        error ("Section anchors must be disabled when toplevel reorder is disabled.");
+      flag_section_anchors = 0;
+    }
+
   /* Originally we just set the variables if a particular optimization level,
      but with the advent of being able to change the optimization level for a
      function, we need to reset optimizations.  */
-
-  /* -O0 optimizations.  */
-  opt0 = (optimize == 0);
-  flag_merge_constants = !opt0;
-
-  if (!no_unit_at_a_time_default)
+  if (!optimize)
     {
-      flag_unit_at_a_time = 1;
-      if (!optimize)
+      flag_merge_constants = 0;
+
+      /* We disable toplevel reordering at -O0 to disable transformations that
+         might be surprising to end users and to get -fno-toplevel-reorder
+	 tested, but we keep section anchors.  */
+      if (flag_toplevel_reorder == 2)
         flag_toplevel_reorder = 0;
     }
+  else
+    flag_merge_constants = 1;
 
   /* -O1 optimizations.  */
   opt1 = (optimize >= 1);
@@ -1039,7 +993,55 @@ decode_options (unsigned int argc, const char **argv)
 
   if (optimize_size)
     {
-      optimize_for_space ();
+      /* Loop header copying usually increases size of the code.  This used not to
+	 be true, since quite often it is possible to verify that the condition is
+	 satisfied in the first iteration and therefore to eliminate it.  Jump
+	 threading handles these cases now.  */
+      flag_tree_ch = 0;
+
+      /* Conditional DCE generates bigger code.  */
+      flag_tree_builtin_call_dce = 0;
+
+      /* PRE tends to generate bigger code.  */
+      flag_tree_pre = 0;
+
+      /* These options are set with -O3, so reset for -Os */
+      flag_predictive_commoning = 0;
+      flag_inline_functions = 0;
+      flag_unswitch_loops = 0;
+      flag_gcse_after_reload = 0;
+      flag_tree_vectorize = 0;
+
+      /* Don't reorder blocks when optimizing for size because extra jump insns may
+	 be created; also barrier may create extra padding.
+
+	 More correctly we should have a block reordering mode that tried to
+	 minimize the combined size of all the jumps.  This would more or less
+	 automatically remove extra jumps, but would also try to use more short
+	 jumps instead of long jumps.  */
+      flag_reorder_blocks = 0;
+      flag_reorder_blocks_and_partition = 0;
+
+      /* Inlining of functions reducing size is a good idea regardless of them
+	 being declared inline.  */
+      flag_inline_functions = 1;
+
+      /* Don't align code.  */
+      align_loops = 1;
+      align_jumps = 1;
+      align_labels = 1;
+      align_functions = 1;
+
+      /* Unroll/prefetch switches that may be set on the command line, and tend to
+	 generate bigger code.  */
+      flag_unroll_loops = 0;
+      flag_unroll_all_loops = 0;
+      flag_prefetch_loop_arrays = 0;
+
+      /* Basic optimization options.  */
+      optimize_size = 1;
+      if (optimize > 2)
+	optimize = 2;
 
       /* We want to crossjump as much as possible.  */
       set_param_value ("min-crossjump-insns", 1);

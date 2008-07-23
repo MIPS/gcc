@@ -1248,8 +1248,13 @@ warn_logical_operator (enum tree_code code, tree arg1, tree
 bool
 strict_aliasing_warning (tree otype, tree type, tree expr)
 {
-  if (!(flag_strict_aliasing && POINTER_TYPE_P (type) 
-        && POINTER_TYPE_P (otype) && !VOID_TYPE_P (TREE_TYPE (type))))
+  if (!(flag_strict_aliasing
+	&& POINTER_TYPE_P (type)
+	&& POINTER_TYPE_P (otype)
+	&& !VOID_TYPE_P (TREE_TYPE (type)))
+      /* If the type we are casting to is a ref-all pointer
+         dereferencing it is always valid.  */
+      || TYPE_REF_CAN_ALIAS_ALL (type))
     return false;
 
   if ((warn_strict_aliasing > 1) && TREE_CODE (expr) == ADDR_EXPR
@@ -3470,10 +3475,6 @@ c_common_get_alias_set (tree t)
       || t == unsigned_char_type_node)
     return 0;
 
-  /* If it has the may_alias attribute, it can alias anything.  */
-  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (t)))
-    return 0;
-
   /* The C standard specifically allows aliasing between signed and
      unsigned variants of the same type.  We treat the signed
      variant as canonical.  */
@@ -4900,6 +4901,8 @@ c_stddef_cpp_builtins(void)
   builtin_define_with_value ("__WINT_TYPE__", WINT_TYPE, 0);
   builtin_define_with_value ("__INTMAX_TYPE__", INTMAX_TYPE, 0);
   builtin_define_with_value ("__UINTMAX_TYPE__", UINTMAX_TYPE, 0);
+  builtin_define_with_value ("__CHAR16_TYPE__", CHAR16_TYPE, 0);
+  builtin_define_with_value ("__CHAR32_TYPE__", CHAR32_TYPE, 0);
 }
 
 static void
@@ -6828,14 +6831,16 @@ handle_option_attribute (tree *node, tree name, tree args, int flags,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
-  else if (! targetm.valid_option_attribute_p)
+  else if (targetm.target_option.valid_attribute_p
+	   == default_target_option_valid_attribute_p)
     {
       warning (OPT_Wattributes,
 	       "%qE attribute is not supported on this machine",
 	       name);
       *no_add_attrs = true;
     }
-  else if (! targetm.valid_option_attribute_p (*node, name, args, flags))
+  else if (! targetm.target_option.valid_attribute_p (*node, name, args,
+						      flags))
     *no_add_attrs = true;
 
   return NULL_TREE;

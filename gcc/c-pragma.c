@@ -884,7 +884,7 @@ handle_pragma_option(cpp_reader *ARG_UNUSED(dummy))
       return;
     }
 
-  if (!targetm.target_option_pragma_parse)
+  if (!targetm.target_option.pragma_parse)
     {
       error ("#pragma GCC option is not supported for this system");
       return;
@@ -960,7 +960,7 @@ handle_pragma_option(cpp_reader *ARG_UNUSED(dummy))
       /* See if we need to call the pragma_parse hook.  This must occur at the
 	 end after processing all of the tokens, or we may get spurious errors
 	 when we define or undef macros.  */
-      ok_p = targetm.target_option_pragma_parse (current_option_pragma);
+      ok_p = targetm.target_option.pragma_parse (current_option_pragma);
       gcc_assert (ok_p);
     }
 
@@ -1006,7 +1006,7 @@ handle_pragma_option(cpp_reader *ARG_UNUSED(dummy))
       /* put arguments in the order the user typed them.  */
       args = nreverse (args);
 
-      if (targetm.target_option_pragma_parse (args))
+      if (targetm.target_option.pragma_parse (args))
 	current_option_pragma = args;
     }
 }

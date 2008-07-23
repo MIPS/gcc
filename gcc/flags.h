@@ -143,11 +143,6 @@ extern HOST_WIDE_INT larger_than_size;
 extern bool warn_frame_larger_than;
 extern HOST_WIDE_INT frame_larger_than_size;
 
-/* Temporarily suppress certain warnings.
-   This is set while reading code from a system header file.  */
-
-extern int in_system_header;
-
 /* Nonzero for -dp: annotate the assembly with a comment describing the
    pattern and alternative used.  */
 
@@ -364,10 +359,4 @@ enum warn_strict_overflow_code
 /* Whether to emit an overflow warning whose code is C.  */
 #define issue_strict_overflow_warning(c) (warn_strict_overflow >= (int) (c))
 
-/* Unset all of the options that are normally off for -Os.  This is to allow
-   targets to have a function specific option that optimizes for space for a
-   particular function.  It is assumed that the current options have been saved
-   by a call to cl_optimization_save and will be restored by a call to
-   cl_optimization_restore at the end of the function.  */
-extern void optimize_for_space (void);
 #endif /* ! GCC_FLAGS_H */

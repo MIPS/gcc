@@ -140,7 +140,6 @@ extern vn_ssa_aux_t VN_INFO (tree);
 extern vn_ssa_aux_t VN_INFO_GET (tree);
 bool run_scc_vn (bool);
 void free_scc_vn (void);
-void switch_to_PRE_table (void);
 tree vn_nary_op_lookup (tree, vn_nary_op_t *);
 tree vn_nary_op_lookup_pieces (unsigned int, enum tree_code,
 			       tree, tree, tree, tree, tree,
@@ -164,6 +163,7 @@ hashval_t vn_reference_compute_hash (const vn_reference_t);
 int vn_reference_eq (const void *, const void *);
 unsigned int get_max_value_id (void);
 unsigned int get_next_value_id (void);
+unsigned int get_constant_value_id (tree);
 unsigned int get_or_alloc_constant_value_id (tree);
 bool value_id_constant_p (unsigned int);
 VEC (tree, gc) *shared_vuses_from_stmt (tree);
