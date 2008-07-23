@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* In some instances a tree and a gimple need to be stored in a same table,
    i.e. in hash tables. This is a structure to do this. */
-typedef union {tree t; gimple g;} treemple;
+typedef union {tree *tp; tree t; gimple g;} treemple;
 
 /* Nonzero if we are using EH to handle cleanups.  */
 static int using_eh_for_cleanups_p = 0;
@@ -442,7 +442,7 @@ find_goto_replacement (struct leh_tf_state *tf, treemple stmt)
   if (tf->goto_queue_active < LARGE_GOTO_QUEUE)
     {
       for (i = 0; i < tf->goto_queue_active; i++)
-	if ( tf->goto_queue[i].stmt.t == stmt.t)
+	if ( tf->goto_queue[i].stmt.g == stmt.g)
 	  return tf->goto_queue[i].repl_stmt;
       return NULL;
     }
@@ -456,13 +456,13 @@ find_goto_replacement (struct leh_tf_state *tf, treemple stmt)
       for (i = 0; i < tf->goto_queue_active; i++)
 	{
 	  slot = pointer_map_insert (tf->goto_queue_map,
-                                     tf->goto_queue[i].stmt.t);
+                                     tf->goto_queue[i].stmt.g);
           gcc_assert (*slot == NULL);
 	  *slot = &tf->goto_queue[i];
 	}
     }
 
-  slot = pointer_map_contains (tf->goto_queue_map, stmt.t);
+  slot = pointer_map_contains (tf->goto_queue_map, stmt.g);
   if (slot != NULL)
     return (((struct goto_queue_node *) *slot)->repl_stmt);
 
@@ -482,7 +482,7 @@ replace_goto_queue_cond_clause (tree *tp, struct leh_tf_state *tf,
   gimple_seq new;
   treemple temp;
 
-  temp.t = *tp;
+  temp.tp = tp;
   new = find_goto_replacement (tf, temp);
   if (!new)
     return;
@@ -518,11 +518,8 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
   switch (gimple_code (stmt))
     {
     case GIMPLE_GOTO:
-      /* For gotos we recorded the destination label.  */
-      temp.t = gimple_goto_dest (stmt);
     case GIMPLE_RETURN:
-      if (!temp.g)
-        temp.g = stmt;
+      temp.g = stmt;
       seq = find_goto_replacement (tf, temp);
       if (seq)
 	{
@@ -587,10 +584,15 @@ record_in_goto_queue (struct leh_tf_state *tf,
                       int index,
                       bool is_label)
 {
-  size_t active, size;
+  size_t active, size, i;
   struct goto_queue_node *q;
 
   gcc_assert (!tf->goto_queue_map);
+
+#ifdef ENABLE_CHECKING
+  for (i = 0; i < tf->goto_queue_active; ++i)
+    gcc_assert (tf->goto_queue[i].stmt.g != new_stmt.g);
+#endif
 
   active = tf->goto_queue_active;
   size = tf->goto_queue_size;
@@ -615,7 +617,7 @@ record_in_goto_queue (struct leh_tf_state *tf,
    TF is not null.  */
 
 static void
-record_in_goto_queue_label (struct leh_tf_state *tf, tree label)
+record_in_goto_queue_label (struct leh_tf_state *tf, treemple stmt, tree label)
 {
   int index;
   treemple temp, new_stmt;
@@ -653,7 +655,7 @@ record_in_goto_queue_label (struct leh_tf_state *tf, tree label)
   /* In the case of a GOTO we want to record the destination label,
      since with a GIMPLE_COND we have an easy access to the then/else
      labels. */
-  new_stmt.t = label;
+  new_stmt = stmt;
   record_in_goto_queue (tf, new_stmt, index, true);
 
 }
@@ -674,11 +676,14 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
-      record_in_goto_queue_label (tf, gimple_cond_true_label (stmt));
-      record_in_goto_queue_label (tf, gimple_cond_false_label (stmt));
+      new_stmt.tp = gimple_op_ptr (stmt, 2);
+      record_in_goto_queue_label (tf, new_stmt, gimple_cond_true_label (stmt));
+      new_stmt.tp = gimple_op_ptr (stmt, 3);
+      record_in_goto_queue_label (tf, new_stmt, gimple_cond_false_label (stmt));
       break;
     case GIMPLE_GOTO:
-      record_in_goto_queue_label (tf, gimple_goto_dest (stmt));
+      new_stmt.g = stmt;
+      record_in_goto_queue_label (tf, new_stmt, gimple_goto_dest (stmt));
       break;
 
     case GIMPLE_RETURN:
@@ -795,7 +800,8 @@ do_return_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
 /* Similar, but easier, for GIMPLE_GOTO.  */
 
 static void
-do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod)
+do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
+		     struct leh_tf_state *tf)
 {
   gimple x;
 
@@ -803,7 +809,7 @@ do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod)
   if (!q->repl_stmt)
     q->repl_stmt = gimple_seq_alloc ();
 
-  q->cont_stmt = gimple_build_goto (q->stmt.t);
+  q->cont_stmt = gimple_build_goto (VEC_index (tree, tf->dest_array,q->index));
 
   if (mod)
     gimple_seq_add_seq (&q->repl_stmt, mod);
@@ -1092,7 +1098,7 @@ lower_try_finally_nofallthru (struct leh_state *state,
     if (q->index < 0)
       do_return_redirection (q, lab, NULL, &return_val);
     else
-      do_goto_redirection (q, lab, NULL);
+      do_goto_redirection (q, lab, NULL, tf);
 
   replace_goto_queue (tf);
 
@@ -1163,7 +1169,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
     {
       /* Reachable by goto expressions only.  Redirect them.  */
       for (; q < qe; ++q)
-	do_goto_redirection (q, finally_label, NULL);
+	do_goto_redirection (q, finally_label, NULL, tf);
       replace_goto_queue (tf);
 
       if (VEC_index (tree, tf->dest_array, 0) == tf->fallthru_label)
@@ -1261,7 +1267,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	  if (index == return_index)
 	    do_return_redirection (q, lab, NULL, &return_val);
 	  else
-	    do_goto_redirection (q, lab, NULL);
+	    do_goto_redirection (q, lab, NULL, tf);
 
 	  x = gimple_build_label (lab);
           gimple_seq_add_stmt (&new_stmt, x);
@@ -1288,7 +1294,7 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
 	  if (index == return_index)
 	    do_return_redirection (q, lab, NULL, &return_val);
 	  else
-	    do_goto_redirection (q, lab, NULL);
+	    do_goto_redirection (q, lab, NULL, tf);
 	}
 	
       replace_goto_queue (tf);
@@ -1433,7 +1439,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 	  x = gimple_build_assign (finally_tmp,
 				   build_int_cst (integer_type_node, q->index));
 	  gimple_seq_add_stmt (&mod, x);
-	  do_goto_redirection (q, finally_label, mod);
+	  do_goto_redirection (q, finally_label, mod, tf);
 	  switch_id = q->index;
 	}
 

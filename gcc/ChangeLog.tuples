@@ -1,3 +1,20 @@
+2008-07-23  Richard Guenther  <rguenther@suse.de>
+
+	* tree-eh.c (union treemple): Add tree * member.
+	(find_goto_replacement): Adjust.
+	(replace_goto_queue_cond_clause): Use the address of the
+	individual labels as unique identifier.
+	(replace_goto_queue_1): Use the statement as unique identifier
+	for GIMPLE_GOTO.
+	(record_in_goto_queue): Add checking.
+	(record_in_goto_queue_label): Adjust.
+	(maybe_record_in_goto_queue): Likewise.
+	(do_goto_redirection): Get leh_tf_state.
+	(lower_try_finally_nofallthru): Pass it.
+	(lower_try_finally_onedest): Likewise.
+	(lower_try_finally_copy): Likewise.
+	(lower_try_finally_switch): Likewise.
+
 2008-07-22  Aldy Hernandez  <aldyh@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
