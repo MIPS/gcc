@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
+#include "flags.h"
 
 
 /* Temporary Expression Replacement (TER)
@@ -364,6 +365,8 @@ is_replaceable_p (gimple stmt)
   use_operand_p use_p;
   tree def;
   gimple use_stmt;
+  location_t locus1, locus2;
+  tree block1, block2;
 
   /* Only consider modify stmts.  */
   if (!is_gimple_assign (stmt))
@@ -386,12 +389,34 @@ is_replaceable_p (gimple stmt)
   if (gimple_bb (use_stmt) != gimple_bb (stmt))
     return false;
 
+  locus1 = gimple_location (stmt);
+  block1 = gimple_block (stmt);
+
+  if (gimple_code (use_stmt) == GIMPLE_PHI)
+    {
+      locus2 = 0;
+      block2 = NULL_TREE;
+    }
+  else
+    {
+      locus2 = gimple_location (use_stmt);
+      block2 = gimple_block (use_stmt);
+    }
+
+  if (!optimize
+      && ((locus1 && locus1 != locus2) || (block1 && block1 != block2)))
+    return false;
+
   /* Used in this block, but at the TOP of the block, not the end.  */
   if (gimple_code (use_stmt) == GIMPLE_PHI)
     return false;
 
   /* There must be no VDEFs.  */
   if (!(ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF)))
+    return false;
+
+  /* Without alias info we can't move around loads.  */
+  if (gimple_references_memory_p (stmt) && !optimize)
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
@@ -412,7 +437,6 @@ is_replaceable_p (gimple stmt)
   /* Leave any stmt with volatile operands alone as well.  */
   if (gimple_has_volatile_ops (stmt))
     return false;
-  
 
   return true;
 }

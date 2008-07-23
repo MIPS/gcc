@@ -144,6 +144,7 @@ static tree xtensa_build_builtin_va_list (void);
 static bool xtensa_return_in_memory (const_tree, const_tree);
 static tree xtensa_gimplify_va_arg_expr (tree, tree, gimple_seq *,
 					 gimple_seq *);
+static rtx xtensa_function_value (const_tree, const_tree, bool);
 static void xtensa_init_builtins (void);
 static tree xtensa_fold_builtin (tree, tree, bool);
 static rtx xtensa_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -193,6 +194,8 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE xtensa_function_value
 #undef TARGET_SPLIT_COMPLEX_ARG
 #define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_MUST_PASS_IN_STACK
@@ -3159,6 +3162,17 @@ xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 	  > 4 * UNITS_PER_WORD);
 }
 
+/* Worker function for TARGET_FUNCTION_VALUE.  */
+
+rtx
+xtensa_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED, 
+                      bool outgoing)
+{
+  return gen_rtx_REG ((INTEGRAL_TYPE_P (valtype)
+                      && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+                     ? SImode : TYPE_MODE (valtype),
+                     outgoing ? GP_OUTGOING_RETURN : GP_RETURN);
+}
 
 /* TRAMPOLINE_TEMPLATE: For Xtensa, the trampoline must perform an ENTRY
    instruction with a minimal stack frame in order to get some free

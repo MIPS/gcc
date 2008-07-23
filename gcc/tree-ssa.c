@@ -1408,7 +1408,7 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   location = (context != NULL && gimple_has_location (context))
 	     ? gimple_location (context)
 	     : DECL_SOURCE_LOCATION (var);
-  warning (OPT_Wuninitialized, gmsgid, &location, var);
+  warning_at (location, OPT_Wuninitialized, gmsgid, var);
   xloc = expand_location (location);
   floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
   if (xloc.file != floc.file
@@ -1440,10 +1440,10 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
       /* We only do data flow with SSA_NAMEs, so that's all we
 	 can warn about.  */
       if (data->always_executed)
-        warn_uninit (t, "%H%qD is used uninitialized in this function",
+        warn_uninit (t, "%qD is used uninitialized in this function",
 		     data->stmt);
       else
-        warn_uninit (t, "%H%qD may be used uninitialized in this function",
+        warn_uninit (t, "%qD may be used uninitialized in this function",
 		     data->stmt);
       *walk_subtrees = 0;
       break;
@@ -1482,7 +1482,7 @@ warn_uninitialized_phi (gimple phi)
     {
       tree op = gimple_phi_arg_def (phi, i);
       if (TREE_CODE (op) == SSA_NAME)
-	warn_uninit (op, "%H%qD may be used uninitialized in this function",
+	warn_uninit (op, "%qD may be used uninitialized in this function",
 		     NULL);
     }
 }

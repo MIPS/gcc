@@ -642,8 +642,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
-	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{
 	  if (code == FUNCTION_DECL)
@@ -3498,6 +3496,7 @@ expand_location (source_location loc)
       xloc.file = NULL;
       xloc.line = 0;
       xloc.column = 0;
+      xloc.sysp = 0;
     }
   else
     {
@@ -3505,6 +3504,7 @@ expand_location (source_location loc)
       xloc.file = map->to_file;
       xloc.line = SOURCE_LINE (map, loc);
       xloc.column = SOURCE_COLUMN (map, loc);
+      xloc.sysp = map->sysp != 0;
     };
   return xloc;
 }
@@ -5391,6 +5391,11 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
   if (to_type == error_mark_node)
     return error_mark_node;
 
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
+
   /* In some cases, languages will have things that aren't a POINTER_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_POINTER_TO.
      In that case, return that type without regard to the rest of our
@@ -5446,6 +5451,14 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 			       bool can_alias_all)
 {
   tree t;
+
+  if (to_type == error_mark_node)
+    return error_mark_node;
+
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
 
   /* In some cases, languages will have things that aren't a REFERENCE_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_REFERENCE_TO.
