@@ -584,15 +584,10 @@ record_in_goto_queue (struct leh_tf_state *tf,
                       int index,
                       bool is_label)
 {
-  size_t active, size, i;
+  size_t active, size;
   struct goto_queue_node *q;
 
   gcc_assert (!tf->goto_queue_map);
-
-#ifdef ENABLE_CHECKING
-  for (i = 0; i < tf->goto_queue_active; ++i)
-    gcc_assert (tf->goto_queue[i].stmt.g != new_stmt.g);
-#endif
 
   active = tf->goto_queue_active;
   size = tf->goto_queue_size;

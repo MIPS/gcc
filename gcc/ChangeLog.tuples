@@ -1,3 +1,8 @@
+2008-07-23  Richard Guenther  <rguenther@suse.de>
+
+	* tree-eh.c (record_in_goto_queue): Fix bootstrap with
+	--disable-checking.
+
 2008-07-23  Aldy Hernandez  <aldyh@redhat.com>
 
 	Merge with mainline @138071.
