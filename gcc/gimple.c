@@ -103,6 +103,7 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_LABEL:
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
     case GIMPLE_SWITCH:			return GSS_WITH_OPS;
     case GIMPLE_ASM:			return GSS_ASM;
     case GIMPLE_BIND:			return GSS_BIND;
@@ -125,7 +126,6 @@ gss_for_code (enum gimple_code code)
     case GIMPLE_OMP_TASK:		return GSS_OMP_TASK;
     case GIMPLE_OMP_SECTIONS:		return GSS_OMP_SECTIONS;
     case GIMPLE_OMP_SINGLE:		return GSS_OMP_SINGLE;
-    case GIMPLE_CHANGE_DYNAMIC_TYPE:	return GSS_CHANGE_DYNAMIC_TYPE;
     case GIMPLE_OMP_ATOMIC_LOAD:	return GSS_OMP_ATOMIC_LOAD;
     case GIMPLE_OMP_ATOMIC_STORE:	return GSS_OMP_ATOMIC_STORE;
     case GIMPLE_PREDICT:		return GSS_BASE;
