@@ -2040,7 +2040,8 @@ input_constructors_or_inits (struct data_in *data_in,
       var = input_expr_operand (ib, data_in, NULL, tag);
       LTO_DEBUG_TOKEN ("init");
       tag = input_record_start (ib);
-      DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
+      if (tag)
+	DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
       tag = input_record_start (ib);
     }
 }

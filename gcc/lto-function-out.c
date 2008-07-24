@@ -2305,7 +2305,7 @@ output_constructors_and_inits (void)
 
   /* Process the global static vars that have initializers or
      constructors.  */
-  FOR_EACH_STATIC_INITIALIZER (vnode)
+  FOR_EACH_STATIC_VARIABLE (vnode)
     {
       tree var = vnode->decl;
       tree context = DECL_CONTEXT (var);
@@ -2314,7 +2314,10 @@ output_constructors_and_inits (void)
 	  output_expr_operand (ob, var);
 	  
 	  LTO_DEBUG_TOKEN ("init");
-	  output_expr_operand (ob, DECL_INITIAL (var));
+	  if (DECL_INITIAL (var))
+	    output_expr_operand (ob, DECL_INITIAL (var));
+	  else
+	    output_zero (ob);
 	}
     }
   /* The terminator for the constructor.  */
