@@ -796,7 +796,7 @@ verify_cgraph_node (struct cgraph_node *node)
 
       for (e = node->callees; e; e = e->next_callee)
 	{
-	  if (!e->aux)
+	  if (!e->aux && !e->indirect_call)
 	    {
 	      error ("edge %s->%s has no corresponding call_stmt",
 		     cgraph_node_name (e->caller),
@@ -1290,6 +1290,16 @@ cgraph_output_in_order (void)
       nodes[i].kind = ORDER_ASM;
       nodes[i].u.a = pa;
     }
+
+  /* In toplevel reorder mode we output all statics; mark them as needed.  */
+  for (i = 0; i < max; ++i)
+    {
+      if (nodes[i].kind == ORDER_VAR)
+        {
+	  varpool_mark_needed_node (nodes[i].u.v);
+	}
+    }
+  varpool_empty_needed_queue ();
 
   for (i = 0; i < max; ++i)
     {

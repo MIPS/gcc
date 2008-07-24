@@ -55,6 +55,10 @@ namespace std
   template<typename _IIter, typename _Predicate>
     bool
     is_partitioned(_IIter, _IIter, _Predicate);
+
+  template<typename _FIter, typename _Predicate>
+    _FIter
+    partition_point(_FIter, _FIter, _Predicate);
 #endif
 
   template<typename _FIter1, typename _FIter2>
@@ -212,6 +216,10 @@ namespace std
   template<typename _IIter, typename _OIter, typename _Predicate>
     _OIter 
     copy_if(_IIter, _IIter, _OIter, _Predicate);
+
+  template<typename _IIter, typename _Size, typename _OIter>
+    _OIter
+    copy_n(_IIter, _Size, _OIter);
 
   template<typename _IIter, typename _OIter1,
 	   typename _OIter2, typename _Predicate>

@@ -1,6 +1,7 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1005,6 +1006,14 @@ is_late_template_attribute (tree attr, tree decl)
   for (arg = args; arg; arg = TREE_CHAIN (arg))
     {
       tree t = TREE_VALUE (arg);
+
+      /* If the first attribute argument is an identifier, only consider
+	 second and following arguments.  Attributes like mode, format,
+	 cleanup and several target specific attributes aren't late
+	 just because they have an IDENTIFIER_NODE as first argument.  */
+      if (arg == args && TREE_CODE (t) == IDENTIFIER_NODE)
+	continue;
+
       if (value_dependent_expression_p (t)
 	  || type_dependent_expression_p (t))
 	return true;
@@ -1954,6 +1963,14 @@ determine_visibility (tree decl)
 	  /* tinfo visibility is based on the type it's for.  */
 	  constrain_visibility
 	    (decl, type_visibility (TREE_TYPE (DECL_NAME (decl))));
+
+	  /* Give the target a chance to override the visibility associated
+	     with DECL.  */
+	  if (TREE_PUBLIC (decl)
+	      && !DECL_REALLY_EXTERN (decl)
+	      && CLASS_TYPE_P (TREE_TYPE (DECL_NAME (decl)))
+	      && !CLASSTYPE_VISIBILITY_SPECIFIED (TREE_TYPE (DECL_NAME (decl))))
+	    targetm.cxx.determine_class_data_visibility (decl);
 	}
       else if (use_template)
 	/* Template instantiations and specializations get visibility based

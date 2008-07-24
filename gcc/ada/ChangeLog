@@ -1,3 +1,37 @@
+2008-07-20  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnathtml.pl: New file.
+
+2008-07-19  Olivier Hainque  <hainque@adacore.com>
+	 
+	* targtyps.c (get_target_default_allocator_alignment): Use
+	MALLOC_ABI_ALIGNMENT.
+
+2008-07-17  Olivier Hainque  <hainque@adacore.com>
+
+	* adaint.c (__MINGW32__ section): Include ctype.h and define
+	a fallback ISALPHA if IN_RTS.
+	(__gnat_is_absolute_path): Use ISALPHA instead of isalpha. 
+
+2008-07-17  Olivier Hainque  <hainque@adacore.com>
+
+	* utils.c (create_var_decl_1): Relax expectations on the PUBLIC_FLAG
+	argument, to apply to references in addition to definitions.  Prevent
+	setting TREE_STATIC on externals.
+	(gnat_pushdecl): Always clear DECL_CONTEXT on public externals.
+
+2008-07-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR documentation/15479
+	* gnat_ugn.texi (@ovar): New macro, from autoconf.texi.
+	Replace backets around optional parameters with @ovar
+	where possible, use @r{[}, @r{]} otherwise.
+	Replace some @r, @i, and @emph with @var where appropriate.
+
+2008-07-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl.c (make_type_from_size) <INTEGER_TYPE>: Fix typo and tidy up.
+
 2008-06-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* ada-tree.h (SET_TYPE_LANG_SPECIFIC, SET_DECL_LANG_SPECIFIC): Fix

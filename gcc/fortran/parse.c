@@ -1533,7 +1533,7 @@ unexpected_statement (gfc_statement st)
    issue an error and return FAILURE.  Otherwise we return SUCCESS.
 
    Individual parsers need to verify that the statements seen are
-   valid before calling here, ie ENTRY statements are not allowed in
+   valid before calling here, i.e., ENTRY statements are not allowed in
    INTERFACE blocks.  The following diagram is taken from the standard:
 
 	    +---------------------------------------+
@@ -1992,6 +1992,11 @@ loop:
 	new_state = COMP_SUBROUTINE;
       else if (st == ST_FUNCTION)
 	new_state = COMP_FUNCTION;
+      if (gfc_new_block->attr.pointer)
+	{
+	  gfc_new_block->attr.pointer = 0;
+	  gfc_new_block->attr.proc_pointer = 1;
+	}
       if (gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
 				  gfc_new_block->formal, NULL) == FAILURE)
 	{
@@ -3408,7 +3413,7 @@ gfc_global_used (gfc_gsymbol *sym, locus *where)
       name = "MODULE";
       break;
     default:
-      gfc_internal_error ("gfc_gsymbol_type(): Bad type");
+      gfc_internal_error ("gfc_global_used(): Bad type");
       name = NULL;
     }
 
@@ -3683,7 +3688,7 @@ done:
 
 duplicate_main:
   /* If we see a duplicate main program, shut down.  If the second
-     instance is an implied main program, ie data decls or executable
+     instance is an implied main program, i.e. data decls or executable
      statements, we're in for lots of errors.  */
   gfc_error ("Two main PROGRAMs at %L and %C", &prog_locus);
   reject_statement ();

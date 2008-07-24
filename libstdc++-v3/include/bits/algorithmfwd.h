@@ -31,6 +31,7 @@
   copy
   copy_backward
   copy_if (C++0x)
+  copy_n (C++0x)
   count
   count_if
   equal
@@ -71,6 +72,7 @@
   partial_sort_copy
   partition
   partition_copy (C++0x)
+  partition_point (C++0x)
   pop_heap
   prev_permutation
   push_heap
@@ -148,6 +150,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _IIter, typename _OIter, typename _Predicate>
     _OIter
     copy_if(_IIter, _IIter, _OIter, _Predicate);
+
+  template<typename _IIter, typename _Size, typename _OIter>
+    _OIter
+    copy_n(_IIter, _Size, _OIter);
 #endif
 
   // count
@@ -346,6 +352,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	   typename _OIter2, typename _Predicate>
     pair<_OIter1, _OIter2>
     partition_copy(_IIter, _IIter, _OIter1, _OIter2, _Predicate);
+
+  template<typename _FIter, typename _Predicate>
+    _FIter
+    partition_point(_FIter, _FIter, _Predicate);
 #endif
 
   template<typename _RAIter>

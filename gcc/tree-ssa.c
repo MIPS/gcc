@@ -937,6 +937,7 @@ init_tree_ssa (struct function *fn)
   fn->gimple_df->default_defs = htab_create_ggc (20, uid_ssaname_map_hash, 
 				                 uid_ssaname_map_eq, NULL);
   fn->gimple_df->call_clobbered_vars = BITMAP_GGC_ALLOC ();
+  fn->gimple_df->call_used_vars = BITMAP_GGC_ALLOC ();
   fn->gimple_df->addressable_vars = BITMAP_GGC_ALLOC ();
   init_ssanames (fn, 0);
   init_phinodes ();
@@ -1009,6 +1010,7 @@ delete_tree_ssa (void)
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
   cfun->gimple_df->call_clobbered_vars = NULL;
+  cfun->gimple_df->call_used_vars = NULL;
   cfun->gimple_df->addressable_vars = NULL;
   cfun->gimple_df->modified_noreturn_calls = NULL;
   if (gimple_aliases_computed_p (cfun))
@@ -1383,7 +1385,7 @@ warn_uninit (tree t, const char *gmsgid, void *data)
   locus = (context != NULL && EXPR_HAS_LOCATION (context)
 	   ? EXPR_LOCUS (context)
 	   : &DECL_SOURCE_LOCATION (var));
-  warning (OPT_Wuninitialized, gmsgid, locus, var);
+  warning_at (*locus, OPT_Wuninitialized, gmsgid, var);
   xloc = expand_location (*locus);
   floc = expand_location (DECL_SOURCE_LOCATION (cfun->decl));
   if (xloc.file != floc.file
@@ -1414,10 +1416,10 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data_)
       /* We only do data flow with SSA_NAMEs, so that's all we
 	 can warn about.  */
       if (data->always_executed)
-        warn_uninit (t, "%H%qD is used uninitialized in this function",
+        warn_uninit (t, "%qD is used uninitialized in this function",
 		     data->stmt);
       else
-        warn_uninit (t, "%H%qD may be used uninitialized in this function",
+        warn_uninit (t, "%qD may be used uninitialized in this function",
 		     data->stmt);
       *walk_subtrees = 0;
       break;
@@ -1456,7 +1458,7 @@ warn_uninitialized_phi (tree phi)
     {
       tree op = PHI_ARG_DEF (phi, i);
       if (TREE_CODE (op) == SSA_NAME)
-	warn_uninit (op, "%H%qD may be used uninitialized in this function",
+	warn_uninit (op, "%qD may be used uninitialized in this function",
 		     NULL);
     }
 }

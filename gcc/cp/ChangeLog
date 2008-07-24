@@ -1,3 +1,306 @@
+2008-07-23  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 35058
+	* typeck.c: All calls to pedwarn changed.
+	* decl.c: All calls to pedwarn changed.
+	* call.c: All calls to pedwarn changed.
+	* error.c: All calls to pedwarn changed.
+	* typeck2.c: All calls to pedwarn changed.
+	* pt.c: All calls to pedwarn changed.
+	* name-lookup.c: All calls to pedwarn changed.
+	* parser.c: All calls to pedwarn changed.
+
+2008-07-21  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* call.c: Fix comment typos.
+	* class.c: Likewise.
+	* cp-tree.h: Likewise.
+	* cxx-pretty-print.c: Likewise.
+	* decl.c: Likewise.
+	* init.c: Likewise.
+	* name-lookup.c: Likewise.
+	* operators.def: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+
+2008-07-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36871
+	PR c++/36872
+	* semantics.c (classtype_has_nothrow_assign_or_copy_p): Only check
+	copy constructors and copy assignment operators proper.
+
+2008-07-21  Rafael Avila de Espindola  <espindola@google.com>
+
+	* parser.c (cp_token): Remove in_system_header.
+	(eof_token): Remove in_system_header.
+	(cp_lexer_get_preprocessor_token): Don't set in_system_header.
+	(cp_lexer_set_source_position_from_token): Don't set in_system_header.
+	(cp_parser_member_declaration):  Use in_system_header_at.
+	* pt.c (lookup_template_class): Don't set DECL_IN_SYSTEM_HEADER.
+	(pop_tinst_level): Don't set in_system_header.
+	(instantiate_class_template): Don't set in_system_header.
+	(instantiate_decl): Don't set in_system_header.
+	(instantiate_pending_templates): Don't set in_system_header.
+
+2008-07-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36870
+	* semantics.c (classtype_has_nothrow_assign_or_copy_p): Use
+	TYPE_NOTHROW_P, not TREE_NOTHROW.
+	(trait_expr_value): Likewise.
+
+2008-07-18  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/36407
+	* call.c (convert_like_real): Don't take the error code path
+	  when a rvalue or base conversion has the bad_p field set.
+
+2008-07-18  Kris Van Hees  <kris.van.hees@oracle.com>
+
+	* rtti.c (emit_support_tinfos): Add char16_type_node and
+	char32_type_node.
+	* typeck2.c (digest_init): Support char16_t and char32_t.
+
+2008-07-18  Kavih R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cvt.c (convert_to_void): Avoid C++ keywords.
+	* decl.c (walk_namespaces_r, wrapup_globals_for_namespace):
+	Likewise.
+	* friend.c (is_friend): Likewise.
+	* init.c (perform_member_init): Likewise.
+	* mangle.c (write_template_prefix, write_template_template_param):
+	Likewise.
+	* name-lookup.c (do_namespace_alias, do_using_directive,
+	parse_using_directive, ambiguous_decl, arg_assoc): Likewise.
+	* parser.c (cp_parser_template_id, cp_parser_namespace_definition,
+	cp_parser_objc_typename, cp_parser_objc_method_keyword_params):
+	Likewise.
+	* pt.c (is_specialization_of_friend, lookup_template_class,
+	push_tinst_level, instantiate_class_template,
+	tsubst_copy_and_build): Likewise.
+	* tree.c (add_stmt_to_compound): Likewise.
+	* typeck.c (finish_class_member_access_expr): Likewise.
+
+2008-07-17  Julian Brown  <julian@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (determine_visibility): Allow target to override
+	visibility of class data.
+
+2008-07-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36855
+	* semantics.c (trait_expr_value): Update __has_trivial_destructor
+	semantics to the current WP (N2691).
+
+2008-07-16  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/13699
+	* name-lookup.c (lookup_extern_c_fun_binding_in_all_ns): New function.
+	(pushdecl_maybe_friend): Check if a redeclaration of extern C function
+	complies with exception specification constraints.
+
+2008-07-14  Jason Merrill  <jason@redhat.com>
+
+	* lex.c (init_reswords): Always set D_OBJC.
+
+2008-07-11  Tom Tromey  <tromey@redhat.com>
+	    Ian Lance Taylor  <iant@google.com>
+
+	* lex.c (struct resword, reswords): Don't define.
+	(D_EXT, D_ASM, D_OBJC, D_CXX0X): Don't define.
+	(init_reswords): Clarify mask code.  Use c_common_reswords rather
+	than reswords.
+
+2008-07-11  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/13101
+	* decl.c (grokdeclarator): Warn about initializing variables
+	of storage class 'extern' only after the type of the declarator
+	has been properly computed.
+
+2008-07-11  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/31754
+	* cp-tree.h (struct cp_decl_specifier_seq): Add a location field. It
+	carries the location of the primary type.
+	* parser.c (cp_parser_check_type_definition): Update documentation.
+	(cp_parser_check_for_definition_in_return_type,
+	cp_parser_check_for_invalid_template_id,
+	cp_parser_set_decl_spec_type,
+	cp_parser_check_for_definition_in_return_type,
+	cp_parser_diagnose_invalid_type_name,
+	cp_parser_new_expression, cp_parser_explicit_instantiation,
+	cp_parser_type_specifier, cp_parser_simple_type_specifier,
+	cp_parser_omp_for_loop, cp_parser_pragma): Use location in error
+	messages.
+
+2008-07-11 Dodji Seketeli <dseketel@redhat.com>
+
+	PR c++/31754
+	* pt.c, semantic.c:
+	* semantic.c (qualified_name_lookup_error, finish_id_expression):
+	Add a location_t parameter so that
+	error message can have a more accurate location.
+	* cp-tree.h: Updated prototype
+	* pt.c (tsubst_qualified_id): Use location in error messages.
+	* parser.c (cp_parser_postfix_expression,
+	cp_parser_objc_statement, cp_parser_trait_expr,
+	cp_parser_token_is_class_key,
+	cp_parser_uncommitted_to_tentative_parse_p,
+	cp_parser_check_for_invalid_template_id, cp_parser_is_string_literal,
+	cp_parser_error, cp_parser_name_lookup_error,
+	cp_parser_simulate_error, cp_parser_check_decl_spec,
+	cp_parser_check_decl_spec, cp_parser_non_integral_constant_expression,
+	cp_parser_diagnose_invalid_type_name,
+	cp_parser_parse_and_diagnose_invalid_type_name,
+	cp_parser_require_pragma_eol, cp_parser_make_typename_type,
+	cp_parser_string_literal, cp_parser_primary_expression,
+	cp_parser_primary_expression, cp_parser_unqualified_id,
+	cp_parser_nested_name_specifier_opt, cp_parser_postfix_expression,
+	cp_parser_postfix_dot_deref_expression, cp_parser_new_expression,
+	cp_parser_direct_new_declarator, cp_parser_builtin_offsetof,
+	cp_parser_label_for_labeled_statement, cp_parser_statement_seq_opt,
+	cp_parser_jump_statement, cp_parser_block_declaration,
+	cp_parser_simple_declaration, cp_parser_decl_specifier_seq,
+	cp_parser_function_specifier_opt, cp_parser_decltype,
+	cp_parser_mem_initializer_list, cp_parser_mem_initializer,
+	cp_parser_mem_initializer_id, cp_parser_template_parameter,
+	cp_parser_type_parameter, cp_parser_template_id,
+	cp_parser_template_name, cp_parser_template_argument): Likewise.
+
+2008-07-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36760
+	* pt.c (tsubst_function_type): Remove warning for type qualifiers
+	on function return type.
+
+2008-07-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36760
+	* pt.c (tsubst_function_type): Don't warn for type qualifiers
+	on function return type in case of system header.
+
+2008-07-09  Raksit Ashok <raksit@google.com>
+
+	* parser.c (cp_parser_postfix_expression): New warning based on flag
+	warn_disallowed_functions.
+
+2008-07-08  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/34963
+	* decl.c (grokdeclarator): Reset storage_class and staticp for friend
+	functions declared with a storage class qualifier.
+
+2008-07-03  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/36128
+	* typeck.c (cp_build_function_call): Move code to verify
+	builtin function arguments ...
+	* call.c (build_cxx_call): ... here.
+
+2008-07-02  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (cp/typeck2.o): Add $(REAL_H) dependency.
+
+	Implement WG21 N2672, Initializer List proposed wording
+	* cp-tree.h (enum cp_tree_index): Add CPTI_INIT_LIST_TYPE.
+	(struct lang_type_class): Add has_list_ctor bitfield.
+	(TYPE_HAS_LIST_CTOR): New macro.
+	(BRACE_ENCLOSED_INITIALIZER_P): Expect init_list_type_node.
+	(CONSTRUCTOR_IS_DIRECT_INIT): New macro.
+	(LOOKUP_NO_NARROWING): New macro.
+	(LOOKUP_NO_COPY_CTOR_CONVERSION): New macro.
+	* parser.c (cp_parse_braced_list): Split out from...
+	(cp_parser_initializer_clause): ...here.
+	(cp_parser_postfix_expression): Build up CONSTRUCTOR for compound 
+	literal here.
+	(cp_lexer_next_token_is_not_keyword): New fn.
+	(cp_parser_parenthesized_expression_list): Handle { }.
+	(cp_parser_new_expression, cp_parser_new_initializer): Likewise.
+	(cp_parser_assignment_expression, cp_parser_condition): Likewise.
+	(cp_parser_jump_statement, cp_parser_simple_declaration): Likewise.
+	(cp_parser_mem_initializer, cp_parser_init_declarator): Likewise.
+	(cp_parser_initializer, cp_parser_functional_cast): Likewise.
+	(cp_parser_omp_for_loop, cp_parser_cache_group): Likewise.
+	(cp_parser_save_member_function_body): Likewise.
+	* call.c (conversion_kind): Add ck_list, ck_aggr.
+	(struct conversion): Add check_narrowing bitfield, conversion list.
+	(build_list_conv): New fn.
+	(build_aggr_conv): New fn.
+	(implicit_conversion): Call them.
+	(standard_conversion): Set check_narrowing if appropriate.
+	(add_function_candidate): Handle LOOKUP_NO_COPY_CTOR_CONVERSION.
+	(build_user_type_conversion_1): When converting from an init list,
+	we allow additional conversions except when calling a copy ctor.
+	(convert_like_real): Calling an explicit ctor for an init list is 
+	ill-formed.  Handle ck_list and ck_addr.  Check narrowing.
+	(build_new_method_call): If CONSTRUCTOR_IS_DIRECT_INIT is set and
+	class doesn't have a list ctor, break the {} into a TREE_LIST.
+	(compare_ics): ck_list is better than other UDCs.
+	(set_up_extended_ref_temp): Split out from initialize_reference.
+	(is_std_init_list): New fn.
+	(is_list_ctor): New fn.
+	* decl.c (cxx_init_decl_processing): Create init_list_type_node.
+	(reshape_init_array_1): Pass it to build_constructor.
+	(reshape_init_class): Ditto.
+	(initialize_artificial_var): Pass the appropriate type.
+	(build_aggr_init_full_exprs): Split out from...
+	(check_initializer): ...here.  Handle new semantics.
+	(build_init_list_var_init): New subroutine of check_initializer.
+	(grokdeclarator): Converting constructors can have more than one parm.
+	(grok_special_member_properties): Set TYPE_HAS_LIST_CTOR.
+	* init.c (expand_default_init): Only do digest_init for aggregates.
+	* rtti.c (tinfo_base_init): Pass init_list_type_node to 
+	build_constructor_from_list.
+	(generic_initializer, ptr_initializer): Ditto.
+	(ptm_initializer, class_initializer): Ditto.
+	(get_pseudo_ti_init): Ditto.
+	* error.c (dump_type): Handle init_list_type_node.
+	(maybe_warn_cpp0x): New fn.
+	(maybe_varn_variadic_templates): Call it.
+	* cvt.c (ocp_convert): Handle conversion from { }.
+	* tree.c (build_array_of_n_type): New fn.
+	* typeck2.c (store_init_value): Use init_list_type_node.
+	(digest_init): Likewise.
+	(check_narrowing): New fn.
+	* semantics.c: (finish_compound_literal): Take CONSTRUCTOR instead 
+	of vector of constructor elts.  Handle non-aggregate types.  Make
+	constant literals static.
+	* pt.c: (tsubst_copy_and_build): Adjust.
+	(unify): Handle { }.
+	* name-lookup.c (arg_assoc_type): Handle init_list_type_node.
+
+2008-07-01  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* typeck.c (comp_ptr_ttypes_real): Use vector_targets_convertible_p.
+	(comp_ptr_ttypes_const): Likewise.
+
+2008-07-01  Andrew Haley  <aph@redhat.com>
+
+	* decl.c (finish_constructor_body): Don't set the return value of
+	the constructor if the constructor is that of a Java type.
+
+2008-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36662
+	* decl2.c (is_late_template_attribute): If the first attribute
+	argument is IDENTIFIER_NODE, don't consider it when checking
+	if arguments are value or type dependent.
+
+2008-06-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36655
+	* pt.c (do_type_instantiation): In c++0x mode do not warn for
+	extern template.
+
+2008-06-29  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (cp-warn): Delete $(CXX_COMPAT_WARN).
+
 2008-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/36364

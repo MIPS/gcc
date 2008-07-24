@@ -60,6 +60,21 @@ along with GCC; see the file COPYING3.  If not see
 #define EPILOGUE_USES(REGNO)  0
 #endif
 
+/* The following two macros free the vecs that hold either the refs or
+   the mw refs.  They are a little tricky because the vec has 0
+   elements is special and is not to be freed.  */ 
+#define df_scan_free_ref_vec(V) \
+  do { \
+    if (V && *V) \
+      free (V);  \
+  } while (0)
+
+#define df_scan_free_mws_vec(V) \
+  do { \
+    if (V && *V) \
+      free (V);  \
+  } while (0)
+
 /* The bitmap_obstack is used to hold some static variables that
    should not be reset after each function is compiled.  */
 
@@ -174,11 +189,43 @@ struct df_scan_problem_data
 
 typedef struct df_scan_bb_info *df_scan_bb_info_t;
 
+
+/* Internal function to shut down the scanning problem.  */
 static void 
 df_scan_free_internal (void)
 {
   struct df_scan_problem_data *problem_data
     = (struct df_scan_problem_data *) df_scan->problem_data;
+  unsigned int i;
+  basic_block bb;
+
+  /* The vectors that hold the refs are not pool allocated because
+     they come in many sizes.  This makes them impossible to delete
+     all at once.  */
+  for (i = 0; i < DF_INSN_SIZE(); i++)
+    {
+      df_insn_info insn_info = DF_INSN_UID_GET(i);
+      /* Skip the insns that have no insn_info or have been
+	 deleted.  */
+      if (insn_info)
+	{
+	  df_scan_free_ref_vec (DF_INSN_INFO_DEFS(insn_info));
+	  df_scan_free_ref_vec (DF_INSN_INFO_USES(insn_info));
+	  df_scan_free_ref_vec (DF_INSN_INFO_EQ_USES(insn_info));
+	  df_scan_free_mws_vec (DF_INSN_INFO_MWS(insn_info));
+	}
+    }
+
+  FOR_ALL_BB (bb)
+    {
+      unsigned int bb_index = bb->index;
+      struct df_scan_bb_info *bb_info = df_scan_get_bb_info (bb_index);
+      if (bb_info)
+	{
+	  df_scan_free_ref_vec (bb_info->artificial_defs);
+	  df_scan_free_ref_vec (bb_info->artificial_uses);
+	}
+    }
 
   free (df->def_info.refs);
   free (df->def_info.begin);
@@ -1840,10 +1887,10 @@ df_insn_change_bb (rtx insn, basic_block new_bb)
 /* Helper function for df_ref_change_reg_with_loc.  */
 
 static void
-df_ref_change_reg_with_loc_1 (struct df_reg_info *old, struct df_reg_info *new,
+df_ref_change_reg_with_loc_1 (struct df_reg_info *old_df, struct df_reg_info *new_df,
 			      int new_regno, rtx loc)
 {
-  struct df_ref *the_ref = old->reg_chain;
+  struct df_ref *the_ref = old_df->reg_chain;
 
   while (the_ref)
     {
@@ -1861,18 +1908,18 @@ df_ref_change_reg_with_loc_1 (struct df_reg_info *old, struct df_reg_info *new,
 	  if (prev_ref)
 	    prev_ref->next_reg = next_ref;
 	  else
-	    old->reg_chain = next_ref;
+	    old_df->reg_chain = next_ref;
 	  if (next_ref)
 	    next_ref->prev_reg = prev_ref;
-	  old->n_refs--;
+	  old_df->n_refs--;
 
 	  /* Put the ref into the new regno chain.  */
 	  the_ref->prev_reg = NULL;
-	  the_ref->next_reg = new->reg_chain;
-	  if (new->reg_chain)
-	    new->reg_chain->prev_reg = the_ref;
-	  new->reg_chain = the_ref;
-	  new->n_refs++;
+	  the_ref->next_reg = new_df->reg_chain;
+	  if (new_df->reg_chain)
+	    new_df->reg_chain->prev_reg = the_ref;
+	  new_df->reg_chain = the_ref;
+	  new_df->n_refs++;
 	  df_set_bb_dirty (DF_REF_BB (the_ref));
 
 	  /* Need to resort the record that the ref was in because the
@@ -1977,7 +2024,7 @@ df_mw_hardreg_chain_delete_eq_uses (df_insn_info insn_info)
 
   if (count == 0)
     {
-      free (DF_INSN_INFO_MWS (insn_info));
+      df_scan_free_mws_vec (DF_INSN_INFO_MWS (insn_info));
       DF_INSN_INFO_MWS (insn_info) = df_null_mw_rec;
       return 0;
     }
@@ -2082,9 +2129,9 @@ df_notes_rescan (rtx insn)
 	      if (collection_rec.next_mw > num_deleted)
 		{
 		  DF_INSN_INFO_MWS (insn_info) = 
-		    xrealloc (DF_INSN_INFO_MWS (insn_info), 
-			      (count + 1 + collection_rec.next_mw) 
-			      * sizeof (struct df_ref*));
+		    XRESIZEVEC (struct df_mw_hardreg *,
+				DF_INSN_INFO_MWS (insn_info), 
+				count + 1 + collection_rec.next_mw);
 		}
 	      memcpy (&DF_INSN_INFO_MWS (insn_info)[count], collection_rec.mw_vec, 
 		      (collection_rec.next_mw + 1) * sizeof (struct df_mw_hardreg *));
@@ -2515,8 +2562,7 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	 chain specially.  */
       if (collection_rec->def_vec)
 	{
-	  if (DF_INSN_INFO_DEFS (insn_rec) && *DF_INSN_INFO_DEFS (insn_rec))
-	    free (DF_INSN_INFO_DEFS (insn_rec));
+	  df_scan_free_ref_vec (DF_INSN_INFO_DEFS (insn_rec));
 	  DF_INSN_INFO_DEFS (insn_rec) 
 	    = df_install_refs (bb, collection_rec->def_vec, 
 			       collection_rec->next_def,
@@ -2525,8 +2571,7 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->use_vec)
 	{
-	  if (DF_INSN_INFO_USES (insn_rec) && *DF_INSN_INFO_USES (insn_rec))
-	    free (DF_INSN_INFO_USES (insn_rec));
+	  df_scan_free_ref_vec (DF_INSN_INFO_USES (insn_rec));
 	  DF_INSN_INFO_USES (insn_rec) 
 	    = df_install_refs (bb, collection_rec->use_vec, 
 			       collection_rec->next_use,
@@ -2535,8 +2580,7 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->eq_use_vec)
 	{
-	  if (DF_INSN_INFO_EQ_USES (insn_rec) && *DF_INSN_INFO_EQ_USES (insn_rec))
-	    free (DF_INSN_INFO_EQ_USES (insn_rec));
+	  df_scan_free_ref_vec (DF_INSN_INFO_EQ_USES (insn_rec));
 	  DF_INSN_INFO_EQ_USES (insn_rec) 
 	    = df_install_refs (bb, collection_rec->eq_use_vec, 
 			       collection_rec->next_eq_use,
@@ -2545,9 +2589,8 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
 	}
       if (collection_rec->mw_vec)
 	{
-	  if (DF_INSN_INFO_MWS (insn_rec) && *DF_INSN_INFO_MWS (insn_rec))
-	    free (DF_INSN_INFO_MWS (insn_rec));
-	  DF_INSN_INFO_MWS (insn_rec) 
+	  df_scan_free_mws_vec (DF_INSN_INFO_MWS (insn_rec));
+	  DF_INSN_INFO_MWS (insn_rec)
 	    = df_install_mws (collection_rec->mw_vec, 
 			      collection_rec->next_mw);
 	}
@@ -2556,15 +2599,13 @@ df_refs_add_to_chains (struct df_collection_rec *collection_rec,
     {
       struct df_scan_bb_info *bb_info = df_scan_get_bb_info (bb->index);
 
-      if (bb_info->artificial_defs && *bb_info->artificial_defs)
-	free (bb_info->artificial_defs);
+      df_scan_free_ref_vec (bb_info->artificial_defs);
       bb_info->artificial_defs 
 	= df_install_refs (bb, collection_rec->def_vec, 
 			   collection_rec->next_def,
 			   df->def_regs,
 			   &df->def_info, false);
-      if (bb_info->artificial_uses && *bb_info->artificial_uses)
-	free (bb_info->artificial_uses);
+      df_scan_free_ref_vec (bb_info->artificial_uses);
       bb_info->artificial_uses 
 	= df_install_refs (bb, collection_rec->use_vec, 
 			   collection_rec->next_use,

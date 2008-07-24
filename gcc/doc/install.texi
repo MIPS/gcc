@@ -386,7 +386,7 @@ Necessary to build GCC during development because the generated output
 files are not included in the SVN repository.  They are included in
 releases.
 
-@item Texinfo version 4.4 (or later)
+@item Texinfo version 4.7 (or later)
 
 Necessary for running @command{makeinfo} when modifying @file{*.texi}
 files to test your changes.
@@ -1607,6 +1607,45 @@ Use installed @samp{zlib} rather than that included with GCC@.
 @item --with-win32-nlsapi=ansi, unicows or unicode
 Indicates how MinGW @samp{libgcj} translates between UNICODE
 characters and the Win32 API@.
+
+@item --enable-java-home
+If enabled, this creates a JPackage compatible SDK environment during install.
+Note that if --enable-java-home is used, --with-arch-directory=ARCH must also
+be specified.
+
+@item --with-arch-directory=ARCH
+Specifies the name to use for the @file{jre/lib/ARCH} directory in the SDK 
+environment created when --enable-java-home is passed. Typical names for this 
+directory include i386, amd64, ia64, etc.
+
+@item --with-os-directory=DIR
+Specifies the OS directory for the SDK include directory. This is set to auto
+detect, and is typically 'linux'.
+
+@item --with-origin-name=NAME
+Specifies the JPackage origin name. This defaults to the 'gcj' in
+java-1.5.0-gcj.
+
+@item --with-arch-suffix=SUFFIX
+Specifies the suffix for the sdk directory. Defaults to the empty string. 
+Examples include '.x86_64' in 'java-1.5.0-gcj-1.5.0.0.x86_64'.
+
+@item --with-jvm-root-dir=DIR
+Specifies where to install the SDK. Default is $(prefix)/lib/jvm.
+
+@item --with-jvm-jar-dir=DIR
+Specifies where to install jars. Default is $(prefix)/lib/jvm-exports.
+
+@item --with-python-dir=DIR
+Specifies where to install the Python modules used for aot-compile. DIR should
+not include the prefix used in installation. For example, if the Python modules
+are to be installed in /usr/lib/python2.5/site-packages, then 
+--with-python-dir=/lib/python2.5/site-packages should be passed. If this is
+not specified, then the Python modules are installed in $(prefix)/share/python.
+
+@item --enable-aot-compile-rpm
+Adds aot-compile-rpm to the list of installed scripts.
+
 @table @code
 @item ansi
 Use the single-byte @code{char} and the Win32 A functions natively,
@@ -1726,7 +1765,7 @@ build machinery, not of GCC itself) that is used even if you only
 build the C front end.
 
 When building from SVN or snapshots, or if you modify Texinfo
-documentation, you need version 4.4 or later of Texinfo installed if you
+documentation, you need version 4.7 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
@@ -2323,7 +2362,7 @@ If you find a bug, please report it following the
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
-dvi}.  You will need to have @command{texi2dvi} (version at least 4.4)
+dvi}.  You will need to have @command{texi2dvi} (version at least 4.7)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
 printing with programs such as @command{dvips}.  Alternately, by using
@@ -2590,6 +2629,12 @@ information are.
 @uref{#xtensa-x-linux,,xtensa-*-linux*}
 @item
 @uref{#windows,,Microsoft Windows}
+@item
+@uref{#x-x-cygwin,,*-*-cygwin}
+@item
+@uref{#x-x-interix,,*-*-interix}
+@item
+@uref{#x-x-mingw,,*-*-mingw}
 @item
 @uref{#os2,,OS/2}
 @item
@@ -3382,15 +3427,17 @@ applications.  There are no standard Unix configurations.
 @end html
 @heading @anchor{m68k-x-x}m68k-*-*
 By default, @samp{m68k-*-aout}, @samp{m68k-*-coff*},
-@samp{m68k-*-elf*}, @samp{m68k-*-rtems} and @samp{m68k-*-uclinux}
+@samp{m68k-*-elf*}, @samp{m68k-*-rtems},  @samp{m68k-*-uclinux} and
+@samp{m68k-*-linux}
 build libraries for both M680x0 and ColdFire processors.  If you only
 need the M680x0 libraries, you can omit the ColdFire ones by passing
 @option{--with-arch=m68k} to @command{configure}.  Alternatively, you
 can omit the M680x0 libraries by passing @option{--with-arch=cf} to
-@command{configure}.  These targets default to 5206 code when
+@command{configure}.  These targets default to 5206 or 5475 code as
+appropriate for the target system when
 configured with @option{--with-arch=cf} and 68020 code otherwise.
 
-The @samp{m68k-*-linux-gnu}, @samp{m68k-*-netbsd} and
+The @samp{m68k-*-netbsd} and
 @samp{m68k-*-openbsd} targets also support the @option{--with-arch}
 option.  They will generate ColdFire CFV4e code when configured with
 @option{--with-arch=cf} and 68020 code otherwise.
@@ -3629,7 +3676,7 @@ or newer for a working GCC@.
 @end html
 @heading @anchor{powerpc-x-netbsd}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
-documentation you will need Texinfo version 4.4 (NetBSD 1.5.1 included
+documentation you will need Texinfo version 4.7 (NetBSD 1.5.1 included
 Texinfo version 3.12).
 
 @html
@@ -4020,7 +4067,64 @@ respects, this target is the same as the
 @html
 <hr />
 @end html
-@heading @anchor{windows}Microsoft Windows (32-bit)
+@heading @anchor{windows}Microsoft Windows
+
+@subheading Intel 16-bit versions
+The 16-bit versions of Microsoft Windows, such as Windows 3.1, are not 
+supported.
+
+However, the 32-bit port has limited support for Microsoft 
+Windows 3.11 in the Win32s environment, as a target only.  See below.
+
+@subheading Intel 32-bit versions
+
+The 32-bit versions of Windows, including Windows 95, Windows NT, Windows 
+XP, and Windows Vista, are supported by several different target 
+platforms.  These targets differ in which Windows subsystem they target 
+and which C libraries are used.
+
+@itemize
+@item Cygwin @uref{#x-x-cygwin,,*-*-cygwin}: Cygwin provides a user-space 
+Linux API emulation layer in the Win32 subsystem.
+@item Interix @uref{#x-x-interix,,*-*-interix}: The Interix subsystem 
+provides native support for POSIX.
+@item MinGW @uref{#x-x-mingw,,*-*-mingw}: MinGW is a native GCC port for 
+the Win32 subsystem that provides a subset of POSIX.
+@item MKS i386-pc-mks: NuTCracker from MKS.  See 
+@uref{http://www.mkssoftware.com/} for more information.
+@end itemize
+
+@subheading Intel 64-bit versions
+
+GCC contains support for x86-64 using the mingw-w64
+runtime library, available from @uref{http://mingw-w64.sourceforge.net/}.
+This library should be used with the target triple x86_64-pc-mingw32.
+
+Presently Windows for Itanium is not supported.
+
+@subheading Windows CE
+
+Windows CE is supported as a target only on ARM (arm-wince-pe), Hitachi 
+SuperH (sh-wince-pe), and MIPS (mips-wince-pe).
+
+@subheading Other Windows Platforms
+
+GCC no longer supports Windows NT on the Alpha or PowerPC.
+
+GCC no longer supports the Windows POSIX subsystem.  However, it does 
+support the Interix subsystem.  See above.
+
+Old target names including *-*-winnt and *-*-windowsnt are no longer used.
+
+PW32 (i386-pc-pw32) support was never completed, and the project seems to 
+be inactive.  See @uref{http://pw32.sourceforge.net/} for more information.
+
+UWIN support has been removed due to a lack of maintenance.
+
+@html
+<hr />
+@end html
+@heading @anchor{x-x-cygwin}*-*-cygwin
 
 Ports of GCC are included with the
 @uref{http://www.cygwin.com/,,Cygwin environment}.
@@ -4028,7 +4132,26 @@ Ports of GCC are included with the
 GCC will build under Cygwin without modification; it does not build
 with Microsoft's C++ compiler and there are no plans to make it do so.
 
-For MinGW, GCC will build with and support only MinGW runtime 3.12 and later.
+Cygwin can be compiled with i?86-pc-cygwin.
+
+@html
+<hr />
+@end html
+@heading @anchor{x-x-interix}*-*-interix
+
+The Interix target is used by OpenNT, Interix, Services For UNIX (SFU), 
+and Subsystem for UNIX-based Applications (SUA).  Applications compiled 
+with this target run in the Interix subsystem, which is separate from 
+the Win32 subsystem.  This target was last known to work in GCC 3.3.
+
+For more information, see @uref{http://www.interix.com/}.
+
+@html
+<hr />
+@end html
+@heading @anchor{x-x-mingw32}*-*-mingw32
+
+GCC will build with and support only MinGW runtime 3.12 and later.
 Earlier versions of headers are incompatible with the new default semantics
 of @code{extern inline} in @code{-std=c99} and @code{-std=gnu99} modes.
 

@@ -143,11 +143,6 @@ extern HOST_WIDE_INT larger_than_size;
 extern bool warn_frame_larger_than;
 extern HOST_WIDE_INT frame_larger_than_size;
 
-/* Temporarily suppress certain warnings.
-   This is set while reading code from a system header file.  */
-
-extern int in_system_header;
-
 /* Nonzero for -dp: annotate the assembly with a comment describing the
    pattern and alternative used.  */
 
@@ -278,6 +273,13 @@ extern bool flag_speculative_prefetching_set;
 /* Return whether the function should be excluded from
    instrumentation.  */
 extern bool flag_instrument_functions_exclude_p (tree fndecl);
+
+/* Emit warning if the function call is disallowed under
+   -Wdisallowed-function-list=...  */
+extern void warn_if_disallowed_function_p (const_tree fncall);
+
+/* True, if the -Wdisallowed-function-list=... option has been specified.  */
+extern bool warn_disallowed_functions;
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding

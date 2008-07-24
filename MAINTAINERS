@@ -103,7 +103,7 @@ hpux			Dave Anglin		dave.anglin@nrc.ca
 hpux			Steve Ellcey		sje@cup.hp.com
 irix, osf		Rainer Orth		ro@TechFak.Uni-Bielefeld.DE
 netbsd			Jason Thorpe		thorpej@netbsd.org
-netbsd			Krister Walfridsson	cato@df.lth.se
+netbsd			Krister Walfridsson	krister.walfridsson@gmail.com
 sh-linux-gnu		Kaz Kojima		kkojima@gcc.gnu.org
 RTEMS Ports		Joel Sherrill		joel@oarcorp.com
 RTEMS Ports		Ralf Corsepius		ralf.corsepius@rtems.org
@@ -315,6 +315,7 @@ Doug Gregor					doug.gregor@gmail.com
 Jon Grimm					jgrimm2@us.ibm.com
 Tobias Grosser					grosser@fim.uni-passau.de
 Laurent Guerby					laurent@guerby.net
+Xuepeng Guo					xuepeng.guo@intel.com
 Mostafa Hagog					hagog@gcc.gnu.org
 Olivier Hainque					hainque@act-europe.fr
 Stuart Hastings					stuart@apple.com
@@ -334,6 +335,7 @@ Andreas Jaeger					aj@suse.de
 Harsha Jagasia					harsha.jagasia@amd.com
 Fariborz Jahanian				fjahanian@apple.com
 Martin Jambor					mjambor@suse.cz
+Andrew Jenner					andrew@codesourcery.com
 Kean Johnston					jkj@sco.com
 Phillip Jordan					phillip.m.jordan@gmail.com
 Tim Josling					tej@melbpc.org.au
@@ -416,6 +418,7 @@ Maciej W. Rozycki				macro@linux-mips.org
 Douglas Rupp					rupp@gnat.com
 Silvius Rus					rus@google.com
 Matthew Sachs					msachs@apple.com
+Dodji Seketeli					dseketel@redhat.com
 Svein Seldal                                    svein@dev.seldal.com
 Thiemo Seufer					ths@networkno.de
 Mark Shinwell					shinwell@codesourcery.com

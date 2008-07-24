@@ -610,7 +610,7 @@ set_page_table_entry (void *p, page_entry *entry)
       goto found;
 
   /* Not found -- allocate a new table.  */
-  table = xcalloc (1, sizeof(*table));
+  table = XCNEW (struct page_table_chain);
   table->next = G.lookup;
   table->high_bits = high_bits;
   G.lookup = table;
@@ -799,7 +799,7 @@ alloc_page (unsigned order)
 	alloc_size = GGC_QUIRE_SIZE * G.pagesize;
       else
 	alloc_size = entry_size + G.pagesize - 1;
-      allocation = xmalloc (alloc_size);
+      allocation = XNEWVEC (char, alloc_size);
 
       page = (char *) (((size_t) allocation + G.pagesize - 1) & -G.pagesize);
       head_slop = page - allocation;
@@ -842,7 +842,7 @@ alloc_page (unsigned order)
 	  struct page_entry *e, *f = G.free_pages;
 	  for (a = enda - G.pagesize; a != page; a -= G.pagesize)
 	    {
-	      e = xcalloc (1, page_entry_size);
+	      e = XCNEWVAR (struct page_entry, page_entry_size);
 	      e->order = order;
 	      e->bytes = G.pagesize;
 	      e->page = a;

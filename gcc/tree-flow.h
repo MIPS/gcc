@@ -162,6 +162,10 @@ struct gimple_df GTY(())
      REFERENCED_VARS (I) is call-clobbered.  */
   bitmap call_clobbered_vars;
 
+  /* Call-used variables in the function.  If bit I is set, then
+     REFERENCED_VARS (I) is call-used at pure function call-sites.  */
+  bitmap call_used_vars;
+
   /* Addressable variables in the function.  If bit I is set, then
      REFERENCED_VARS (I) has had its address taken.  Note that
      CALL_CLOBBERED_VARS and ADDRESSABLE_VARS are not related.  An
@@ -1035,6 +1039,7 @@ void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
 bool parallelize_loops (void);
 
+bool loop_only_exit_p (const struct loop *, const_edge);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
@@ -1119,16 +1124,16 @@ extern bool remove_stmt_from_eh_region (tree);
 extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
 
 /* In tree-ssa-pre.c  */
-void add_to_value (tree, tree);
-void debug_value_expressions (tree);
-void print_value_expressions (FILE *, tree);
+struct pre_expr_d;
+void add_to_value (unsigned int, struct pre_expr_d *);
+void debug_value_expressions (unsigned int);
+void print_value_expressions (FILE *, unsigned int);
 
 
 /* In tree-vn.c  */
 tree make_value_handle (tree);
 void set_value_handle (tree, tree);
 bool expressions_equal_p (tree, tree);
-static inline tree get_value_handle (tree);
 void sort_vuses (VEC (tree, gc) *);
 void sort_vuses_heap (VEC (tree, heap) *);
 tree vn_lookup_or_add (tree);
@@ -1174,6 +1179,7 @@ tree gimple_fold_indirect_ref (tree);
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
 bool clobber_what_escaped (void);
+void compute_call_used_vars (void);
 
 /* In tree-ssa-live.c */
 extern void remove_unused_locals (void);

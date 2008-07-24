@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "double-int.h"
 #include "alias.h"
+#include "options.h"
 
 /* Codes of tree nodes */
 
@@ -1586,6 +1587,9 @@ struct tree_vec GTY(())
 
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
+#define CONSTRUCTOR_ELT(NODE,IDX) \
+  (VEC_index (constructor_elt, CONSTRUCTOR_ELTS (NODE), IDX))
+#define CONSTRUCTOR_NELTS(NODE) (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
@@ -3048,7 +3052,7 @@ struct tree_parm_decl GTY(())
 /* Nonzero for a given ..._DECL node means that no warnings should be
    generated just because this node is unused.  */
 #define DECL_IN_SYSTEM_HEADER(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.in_system_header_flag)
+  (in_system_header_at (DECL_SOURCE_LOCATION (NODE)))
 
   /* Used to indicate that this DECL has weak linkage.  */
 #define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
@@ -3176,7 +3180,6 @@ struct tree_decl_with_vis GTY(())
  unsigned shadowed_for_var_p : 1;
 
  /* Don't belong to VAR_DECL exclusively.  */
- unsigned in_system_header_flag : 1;
  unsigned weak_flag:1;
  unsigned seen_in_bind_expr : 1;
  unsigned comdat_flag : 1;
@@ -3188,7 +3191,7 @@ struct tree_decl_with_vis GTY(())
 
  /* Belongs to VAR_DECL exclusively.  */
  ENUM_BITFIELD(tls_model) tls_model : 3;
- /* 11 unused bits. */
+ /* 12 unused bits. */
 };
 
 /* In a VAR_DECL that's static,
@@ -3406,6 +3409,16 @@ struct tree_decl_non_common GTY(())
 #define DECL_ARGUMENTS(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
 #define DECL_ARGUMENT_FLD(NODE) (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
 
+/* In FUNCTION_DECL, the function specific target options to use when compiling
+   this function.  */
+#define DECL_FUNCTION_SPECIFIC_TARGET(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_target)
+
+/* In FUNCTION_DECL, the function specific optimization options to use when
+   compiling this function.  */
+#define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3416,6 +3429,10 @@ struct tree_function_decl GTY(())
   struct tree_decl_non_common common;
 
   struct function *f;
+
+  /* Function specific options that are used by this function.  */
+  tree function_specific_target;	/* target options */
+  tree function_specific_optimization;	/* optimization options */
 
   /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
      DECL_FUNCTION_CODE.  Otherwise unused.
@@ -3489,26 +3506,39 @@ struct tree_statement_list
   struct tree_statement_list_node *tail;
 };
 
-#define VALUE_HANDLE_ID(NODE)		\
-  (VALUE_HANDLE_CHECK (NODE)->value_handle.id)
 
-#define VALUE_HANDLE_EXPR_SET(NODE)	\
-  (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
+/* Optimization options used by a function.  */
 
-/* Defined and used in tree-ssa-pre.c.  */
-
-struct tree_value_handle GTY(())
+struct tree_optimization_option GTY(())
 {
   struct tree_common common;
 
-  /* The set of expressions represented by this handle.  */
-  struct bitmap_set * GTY ((skip)) expr_set;
-
-  /* Unique ID for this value handle.  IDs are handed out in a
-     conveniently dense form starting at 0, so that we can make
-     bitmaps of value handles.  */
-  unsigned int id;
+  /* The optimization options used by the user.  */
+  struct cl_optimization opts;
 };
+
+#define TREE_OPTIMIZATION(NODE) \
+  (&OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
+
+/* Return a tree node that encapsulates the current optimization options.  */
+extern tree build_optimization_node (void);
+
+/* Target options used by a function.  */
+
+struct tree_target_option GTY(())
+{
+  struct tree_common common;
+
+  /* The optimization options used by the user.  */
+  struct cl_target_option opts;
+};
+
+#define TREE_TARGET_OPTION(NODE) \
+  (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
+
+/* Return a tree node that encapsulates the current target options.  */
+extern tree build_target_option_node (void);
+
 
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
@@ -3549,11 +3579,12 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct gimple_stmt GTY ((tag ("TS_GIMPLE_STATEMENT"))) gstmt;
-  struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_memory_partition_tag GTY ((tag ("TS_MEMORY_PARTITION_TAG"))) mpt;
+  struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
+  struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -3700,6 +3731,15 @@ enum tree_index
   TI_SAT_USA_TYPE,
   TI_SAT_UDA_TYPE,
   TI_SAT_UTA_TYPE,
+
+  TI_OPTIMIZATION_DEFAULT,
+  TI_OPTIMIZATION_CURRENT,
+  TI_OPTIMIZATION_COLD,
+  TI_OPTIMIZATION_HOT,
+  TI_TARGET_OPTION_DEFAULT,
+  TI_TARGET_OPTION_CURRENT,
+  TI_CURRENT_OPTION_PRAGMA,
+  TI_CURRENT_OPTIMIZE_PRAGMA,
 
   TI_MAX
 };
@@ -3868,6 +3908,22 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
 
+/* Optimization options (OPTIMIZATION_NODE) to use for default, current, cold,
+   and hot functions.  */
+#define optimization_default_node	global_trees[TI_OPTIMIZATION_DEFAULT]
+#define optimization_current_node	global_trees[TI_OPTIMIZATION_CURRENT]
+#define optimization_cold_node		global_trees[TI_OPTIMIZATION_COLD]
+#define optimization_hot_node		global_trees[TI_OPTIMIZATION_HOT]
+
+/* Default/current target options (TARGET_OPTION_NODE).  */
+#define target_option_default_node	global_trees[TI_TARGET_OPTION_DEFAULT]
+#define target_option_current_node	global_trees[TI_TARGET_OPTION_CURRENT]
+
+/* Default tree list option(), optimize() pragmas to be linked into the
+   attribute list.  */
+#define current_option_pragma		global_trees[TI_CURRENT_OPTION_PRAGMA]
+#define current_optimize_pragma		global_trees[TI_CURRENT_OPTIMIZE_PRAGMA]
+
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
    that signed types appear before unsigned ones, for the correct
@@ -3941,7 +3997,8 @@ enum ptrmemfunc_vbit_where_t
 #define NULL_TREE (tree) NULL
 
 extern tree decl_assembler_name (tree);
-extern bool decl_assembler_name_equal (tree decl, tree asmname);
+extern bool decl_assembler_name_equal (tree decl, const_tree asmname);
+extern hashval_t decl_assembler_name_hash (const_tree asmname);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -4084,6 +4141,7 @@ extern tree build_index_2_type (tree, tree);
 extern tree build_array_type (tree, tree);
 extern tree build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
+extern tree build_varargs_function_type_list (tree, ...);
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
@@ -4473,6 +4531,10 @@ extern int fields_length (const_tree);
    aggregate of zeros.  Otherwise return FALSE.  */
 
 extern bool initializer_zerop (const_tree);
+
+/* Given a CONSTRUCTOR CTOR, return the elements as a TREE_LIST.  */
+
+extern tree ctor_to_list (tree);
 
 /* Examine CTOR to discover:
    * how many scalar fields are set to nonzero values,
@@ -4956,6 +5018,7 @@ extern int tree_log2 (const_tree);
 extern int tree_floor_log2 (const_tree);
 extern int simple_cst_equal (const_tree, const_tree);
 extern hashval_t iterative_hash_expr (const_tree, hashval_t);
+extern hashval_t iterative_hash_hashval_t (hashval_t, hashval_t);
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (const_tree, const_tree);
 extern int chain_member (const_tree, const_tree);
