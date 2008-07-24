@@ -882,6 +882,7 @@ sra_walk_expr (tree *expr_p, gimple_stmt_iterator *gsi, bool is_output,
 	goto use_all;
 
       case NOP_EXPR:
+      case CONVERT_EXPR:
 	/* Similarly, a nop explicitly wants to look at an object in a
 	   type other than the one we've scalarized.  */
 	goto use_all;
@@ -955,19 +956,17 @@ sra_walk_gimple_assign (gimple stmt, gimple_stmt_iterator *gsi,
 			const struct sra_walk_fns *fns)
 {
   struct sra_elt *lhs_elt = NULL, *rhs_elt = NULL;
-  tree lhs, rhs, rhs2;
-
-  lhs = gimple_assign_lhs (stmt);
-  rhs = gimple_assign_rhs1 (stmt);
-  rhs2 = gimple_assign_rhs2 (stmt);
+  tree lhs, rhs;
 
   /* If there is more than 1 element on the RHS, only walk the lhs.  */
-  if (rhs2)
+  if (!gimple_assign_single_p (stmt))
     {
       sra_walk_expr (gimple_assign_lhs_ptr (stmt), gsi, true, fns);
       return;
     }
 
+  lhs = gimple_assign_lhs (stmt);
+  rhs = gimple_assign_rhs1 (stmt);
   lhs_elt = maybe_lookup_element_for_expr (lhs);
   rhs_elt = maybe_lookup_element_for_expr (rhs);
 
@@ -997,7 +996,7 @@ sra_walk_gimple_assign (gimple stmt, gimple_stmt_iterator *gsi,
 
   /* Likewise, handle the LHS being scalarizable.  We have cases similar
      to those above, but also want to handle RHS being constant.  */
-  if (lhs_elt && !rhs2)
+  if (lhs_elt)
     {
       /* If this is an assignment from a constant, or constructor, then
 	 we have access to all of the elements individually.  Invoke INIT.  */

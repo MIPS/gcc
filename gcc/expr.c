@@ -9107,7 +9107,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    return const0_rtx;
 	  }
 
-	expand_assignment (lhs, rhs, false);
+	expand_assignment (lhs, rhs, MOVE_NONTEMPORAL (exp));
 	return const0_rtx;
       }
 

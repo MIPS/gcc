@@ -1,3 +1,10 @@
+2008-07-24  Richard Guenther  <rguenther@suse.de>
+
+	* tree-sra.c (sra_walk_expr): Also handle CONVERT_EXPR.
+	(sra_walk_gimple_assign): Correctly detect assigns we can handle.
+	* expr.c (expand_expr_real_1): Pass MOVE_NONTEMPORAL to
+	expand_assignment.
+
 2008-07-23  Richard Guenther  <rguenther@suse.de>
 
 	* tree-ssa-dse.c (get_kill_of_stmt_lhs): Tuplify correct.
