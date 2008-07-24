@@ -1,3 +1,7 @@
+2008-07-24  Ben Elliston  <bje@au.ibm.com>
+
+	* config/spu/spu-c.c: Move GTY markers to match the precedent.
+
 2008-07-23  Ben Elliston  <bje@au.ibm.com>
 
 	Backport from mainline:

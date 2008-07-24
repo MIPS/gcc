@@ -36,8 +36,8 @@
 
 
 /* Keep the vector keywords handy for fast comparisons.  */
-static tree GTY(()) __vector_keyword;
-static tree GTY(()) vector_keyword;
+static GTY(()) tree __vector_keyword;
+static GTY(()) tree vector_keyword;
 
 static cpp_hashnode *
 spu_categorize_keyword (const cpp_token *tok)
