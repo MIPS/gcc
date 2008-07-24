@@ -841,8 +841,8 @@
       ADD_VIS_FLAG (weak_flag)
       ADD_VIS_FLAG (seen_in_bind_expr)
       ADD_VIS_FLAG (comdat_flag)
-      /* ### Do we need visibility_specified ??? */
       ADD_VIS_FLAG_SIZE (visibility, 2)
+      ADD_VIS_FLAG (visibility_specified)
       /* ### We need to serialize the init priority itself.  */
       ADD_VIS_FLAG (init_priority_p)
       ADD_VIS_FLAG_SIZE (tls_model, 3)
