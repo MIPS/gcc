@@ -2316,7 +2316,6 @@ compute_flow_sensitive_aliasing (struct alias_info *ai)
   tree ptr;
   
   timevar_push (TV_FLOW_SENSITIVE);
-  set_used_smts ();
   
   for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
@@ -2371,6 +2370,8 @@ have_common_aliases_p (bitmap tag1aliases, bitmap tag2aliases)
 static void
 compute_flow_insensitive_aliasing (struct alias_info *ai)
 {
+  referenced_var_iterator rvi;
+  tree var;
   size_t i;
 
   timevar_push (TV_FLOW_INSENSITIVE);
@@ -2461,6 +2462,24 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	  add_may_alias (tag1, tag2);
 	}
     }
+
+  /* We have to add all HEAP variables to all SMTs aliases bitmaps.
+     As we don't know which effective type the HEAP will have we cannot
+     do better here and we need the conflicts with obfuscated pointers
+     (a simple (*(int[n] *)ptr)[i] will do, with ptr from a VLA array
+     allocation).  */
+  for (i = 0; i < ai->num_pointers; i++)
+    {
+      struct alias_map_d *p_map = ai->pointers[i];
+      tree tag = symbol_mem_tag (p_map->var);
+
+      FOR_EACH_REFERENCED_VAR (var, rvi)
+	{
+	  if (var_ann (var)->is_heapvar)
+	    add_may_alias (tag, var);
+	}
+    }
+
   timevar_pop (TV_FLOW_INSENSITIVE);
 }
 
@@ -3695,17 +3714,7 @@ may_be_aliased (tree var)
   if (!TREE_STATIC (var))
     return false;
 
-  /* If we're in unit-at-a-time mode, then we must have seen all
-     occurrences of address-of operators, and so we can trust
-     TREE_ADDRESSABLE.  Otherwise we can only be sure the variable
-     isn't addressable if it's local to the current function.  */
-  if (flag_unit_at_a_time)
-    return false;
-
-  if (decl_function_context (var) == current_function_decl)
-    return false;
-
-  return true;
+  return false;
 }
 
 /* The following is based on code in add_stmt_operand to ensure that the

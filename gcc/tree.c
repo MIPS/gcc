@@ -175,6 +175,16 @@ static GTY (()) tree int_cst_node;
 static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
      htab_t int_cst_hash_table;
 
+/* Hash table for optimization flags and target option flags.  Use the same
+   hash table for both sets of options.  Nodes for building the current
+   optimization and target option nodes.  The assumption is most of the time
+   the options created will already be in the hash table, so we avoid
+   allocating and freeing up a node repeatably.  */
+static GTY (()) tree cl_optimization_node;
+static GTY (()) tree cl_target_option_node;
+static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
+     htab_t cl_option_hash_table;
+
 /* General tree->tree mapping  structure for use in hash tables.  */
 
 
@@ -196,6 +206,8 @@ static int type_hash_eq (const void *, const void *);
 static hashval_t type_hash_hash (const void *);
 static hashval_t int_cst_hash_hash (const void *);
 static int int_cst_hash_eq (const void *, const void *);
+static hashval_t cl_option_hash_hash (const void *);
+static int cl_option_hash_eq (const void *, const void *);
 static void print_type_hash_statistics (void);
 static void print_debug_expr_statistics (void);
 static void print_value_expr_statistics (void);
@@ -273,6 +285,12 @@ init_ttree (void)
   
   int_cst_node = make_node (INTEGER_CST);
 
+  cl_option_hash_table = htab_create_ggc (64, cl_option_hash_hash,
+					  cl_option_hash_eq, NULL);
+
+  cl_optimization_node = make_node (OPTIMIZATION_NODE);
+  cl_target_option_node = make_node (TARGET_OPTION_NODE);
+
   tree_contains_struct[FUNCTION_DECL][TS_DECL_NON_COMMON] = 1;
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_NON_COMMON] = 1;
   tree_contains_struct[TYPE_DECL][TS_DECL_NON_COMMON] = 1;
@@ -347,12 +365,19 @@ decl_assembler_name (tree decl)
 /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
 
 bool
-decl_assembler_name_equal (tree decl, tree asmname)
+decl_assembler_name_equal (tree decl, const_tree asmname)
 {
   tree decl_asmname = DECL_ASSEMBLER_NAME (decl);
+  const char *decl_str;
+  const char *asmname_str;
+  bool test = false;
 
   if (decl_asmname == asmname)
     return true;
+
+  decl_str = IDENTIFIER_POINTER (decl_asmname);
+  asmname_str = IDENTIFIER_POINTER (asmname);
+  
 
   /* If the target assembler name was set by the user, things are trickier.
      We have a leading '*' to begin with.  After that, it's arguable what
@@ -360,22 +385,57 @@ decl_assembler_name_equal (tree decl, tree asmname)
      historically been doing the wrong thing in assemble_alias by always
      printing the leading underscore.  Since we're not changing that, make
      sure user_label_prefix follows the '*' before matching.  */
-  if (IDENTIFIER_POINTER (decl_asmname)[0] == '*')
+  if (decl_str[0] == '*')
     {
-      const char *decl_str = IDENTIFIER_POINTER (decl_asmname) + 1;
+      size_t ulp_len = strlen (user_label_prefix);
+
+      decl_str ++;
+
+      if (ulp_len == 0)
+	test = true;
+      else if (strncmp (decl_str, user_label_prefix, ulp_len) == 0)
+	decl_str += ulp_len, test=true;
+      else
+	decl_str --;
+    }
+  if (asmname_str[0] == '*')
+    {
+      size_t ulp_len = strlen (user_label_prefix);
+
+      asmname_str ++;
+
+      if (ulp_len == 0)
+	test = true;
+      else if (strncmp (asmname_str, user_label_prefix, ulp_len) == 0)
+	asmname_str += ulp_len, test=true;
+      else
+	asmname_str --;
+    }
+
+  if (!test)
+    return false;
+  return strcmp (decl_str, asmname_str) == 0;
+}
+
+/* Hash asmnames ignoring the user specified marks.  */
+
+hashval_t
+decl_assembler_name_hash (const_tree asmname)
+{
+  if (IDENTIFIER_POINTER (asmname)[0] == '*')
+    {
+      const char *decl_str = IDENTIFIER_POINTER (asmname) + 1;
       size_t ulp_len = strlen (user_label_prefix);
 
       if (ulp_len == 0)
 	;
       else if (strncmp (decl_str, user_label_prefix, ulp_len) == 0)
 	decl_str += ulp_len;
-      else
-	return false;
 
-      return strcmp (decl_str, IDENTIFIER_POINTER (asmname)) == 0;
+      return htab_hash_string (decl_str);
     }
 
-  return false;
+  return htab_hash_string (IDENTIFIER_POINTER (asmname));
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.
@@ -462,8 +522,9 @@ tree_code_size (enum tree_code code)
 
 	case STATEMENT_LIST:	return sizeof (struct tree_statement_list);
 	case BLOCK:		return sizeof (struct tree_block);
-	case VALUE_HANDLE:	return sizeof (struct tree_value_handle);
 	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
+	case OPTIMIZATION_NODE: return sizeof (struct tree_optimization_option);
+	case TARGET_OPTION_NODE: return sizeof (struct tree_target_option);
 
 	default:
 	  return lang_hooks.tree_size (code);
@@ -622,8 +683,6 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
-	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{
 	  if (code == FUNCTION_DECL)
@@ -1835,13 +1894,11 @@ ctor_to_list (tree ctor)
   tree list = NULL_TREE;
   tree *p = &list;
   unsigned ix;
-  constructor_elt *ce;
+  tree purpose, val;
 
-  for (ix = 0;
-       VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (ctor), ix, ce);
-       ++ix)
+  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), ix, purpose, val)
     {
-      *p = build_tree_list (ce->index, ce->value);
+      *p = build_tree_list (purpose, val);
       p = &TREE_CHAIN (*p);
     }
 
@@ -2389,8 +2446,9 @@ tree_node_structure (const_tree t)
     case BLOCK:			return TS_BLOCK;
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;
-    case VALUE_HANDLE:		return TS_VALUE_HANDLE;
     case OMP_CLAUSE:		return TS_OMP_CLAUSE;
+    case OPTIMIZATION_NODE:	return TS_OPTIMIZATION;
+    case TARGET_OPTION_NODE:	return TS_TARGET_OPTION;
 
     default:
       gcc_unreachable ();
@@ -3526,6 +3584,7 @@ expand_location (source_location loc)
       xloc.file = NULL;
       xloc.line = 0;
       xloc.column = 0;
+      xloc.sysp = 0;
     }
   else
     {
@@ -3533,6 +3592,7 @@ expand_location (source_location loc)
       xloc.file = map->to_file;
       xloc.line = SOURCE_LINE (map, loc);
       xloc.column = SOURCE_COLUMN (map, loc);
+      xloc.sysp = map->sysp != 0;
     };
   return xloc;
 }
@@ -3641,7 +3701,7 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
 
 
 /* Produce good hash value combining VAL and VAL2.  */
-static inline hashval_t
+hashval_t
 iterative_hash_hashval_t (hashval_t val, hashval_t val2)
 {
   /* the golden ratio; an arbitrary value.  */
@@ -5360,7 +5420,6 @@ iterative_hash_expr (const_tree t, hashval_t val)
       return iterative_hash_expr (TREE_VECTOR_CST_ELTS (t), val);
 
     case SSA_NAME:
-    case VALUE_HANDLE:
       /* we can just compare by pointer.  */
       return iterative_hash_pointer (t, val);
 
@@ -5462,6 +5521,11 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
   if (to_type == error_mark_node)
     return error_mark_node;
 
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
+
   /* In some cases, languages will have things that aren't a POINTER_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_POINTER_TO.
      In that case, return that type without regard to the rest of our
@@ -5517,6 +5581,14 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 			       bool can_alias_all)
 {
   tree t;
+
+  if (to_type == error_mark_node)
+    return error_mark_node;
+
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
 
   /* In some cases, languages will have things that aren't a REFERENCE_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_REFERENCE_TO.
@@ -7397,7 +7469,16 @@ build_common_tree_nodes_2 (int short_double)
   complex_long_double_type_node = build_complex_type (long_double_type_node);
 
 /* Make fixed-point nodes based on sat/non-sat and signed/unsigned.  */
-#define MAKE_FIXED_TYPE_NODE(KIND,WIDTH,SIZE) \
+#define MAKE_FIXED_TYPE_NODE(KIND,SIZE) \
+  sat_ ## KIND ## _type_node = \
+    make_sat_signed_ ## KIND ## _type (SIZE); \
+  sat_unsigned_ ## KIND ## _type_node = \
+    make_sat_unsigned_ ## KIND ## _type (SIZE); \
+  KIND ## _type_node = make_signed_ ## KIND ## _type (SIZE); \
+  unsigned_ ## KIND ## _type_node = \
+    make_unsigned_ ## KIND ## _type (SIZE);
+
+#define MAKE_FIXED_TYPE_NODE_WIDTH(KIND,WIDTH,SIZE) \
   sat_ ## WIDTH ## KIND ## _type_node = \
     make_sat_signed_ ## KIND ## _type (SIZE); \
   sat_unsigned_ ## WIDTH ## KIND ## _type_node = \
@@ -7408,10 +7489,10 @@ build_common_tree_nodes_2 (int short_double)
 
 /* Make fixed-point type nodes based on four different widths.  */
 #define MAKE_FIXED_TYPE_NODE_FAMILY(N1,N2) \
-  MAKE_FIXED_TYPE_NODE (N1, short_, SHORT_ ## N2 ## _TYPE_SIZE) \
-  MAKE_FIXED_TYPE_NODE (N1, , N2 ## _TYPE_SIZE) \
-  MAKE_FIXED_TYPE_NODE (N1, long_, LONG_ ## N2 ## _TYPE_SIZE) \
-  MAKE_FIXED_TYPE_NODE (N1, long_long_, LONG_LONG_ ## N2 ## _TYPE_SIZE)
+  MAKE_FIXED_TYPE_NODE_WIDTH (N1, short_, SHORT_ ## N2 ## _TYPE_SIZE) \
+  MAKE_FIXED_TYPE_NODE (N1, N2 ## _TYPE_SIZE) \
+  MAKE_FIXED_TYPE_NODE_WIDTH (N1, long_, LONG_ ## N2 ## _TYPE_SIZE) \
+  MAKE_FIXED_TYPE_NODE_WIDTH (N1, long_long_, LONG_LONG_ ## N2 ## _TYPE_SIZE)
 
 /* Make fixed-point mode nodes based on sat/non-sat and signed/unsigned.  */
 #define MAKE_FIXED_MODE_NODE(KIND,NAME,MODE) \
@@ -8881,6 +8962,134 @@ block_nonartificial_location (tree block)
       block = BLOCK_SUPERCONTEXT (block);
     }
   return ret;
+}
+
+/* These are the hash table functions for the hash table of OPTIMIZATION_NODEq
+   nodes.  */
+
+/* Return the hash code code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
+
+static hashval_t
+cl_option_hash_hash (const void *x)
+{
+  const_tree const t = (const_tree) x;
+  const char *p;
+  size_t i;
+  size_t len = 0;
+  hashval_t hash = 0;
+
+  if (TREE_CODE (t) == OPTIMIZATION_NODE)
+    {
+      p = (const char *)TREE_OPTIMIZATION (t);
+      len = sizeof (struct cl_optimization);
+    }
+
+  else if (TREE_CODE (t) == TARGET_OPTION_NODE)
+    {
+      p = (const char *)TREE_TARGET_OPTION (t);
+      len = sizeof (struct cl_target_option);
+    }
+
+  else
+    gcc_unreachable ();
+
+  /* assume most opt flags are just 0/1, some are 2-3, and a few might be
+     something else.  */
+  for (i = 0; i < len; i++)
+    if (p[i])
+      hash = (hash << 4) ^ ((i << 2) | p[i]);
+
+  return hash;
+}
+
+/* Return nonzero if the value represented by *X (an OPTIMIZATION or
+   TARGET_OPTION tree node) is the same as that given by *Y, which is the
+   same.  */
+
+static int
+cl_option_hash_eq (const void *x, const void *y)
+{
+  const_tree const xt = (const_tree) x;
+  const_tree const yt = (const_tree) y;
+  const char *xp;
+  const char *yp;
+  size_t len;
+
+  if (TREE_CODE (xt) != TREE_CODE (yt))
+    return 0;
+
+  if (TREE_CODE (xt) == OPTIMIZATION_NODE)
+    {
+      xp = (const char *)TREE_OPTIMIZATION (xt);
+      yp = (const char *)TREE_OPTIMIZATION (yt);
+      len = sizeof (struct cl_optimization);
+    }
+
+  else if (TREE_CODE (xt) == TARGET_OPTION_NODE)
+    {
+      xp = (const char *)TREE_TARGET_OPTION (xt);
+      yp = (const char *)TREE_TARGET_OPTION (yt);
+      len = sizeof (struct cl_target_option);
+    }
+
+  else
+    gcc_unreachable ();
+
+  return (memcmp (xp, yp, len) == 0);
+}
+
+/* Build an OPTIMIZATION_NODE based on the current options.  */
+
+tree
+build_optimization_node (void)
+{
+  tree t;
+  void **slot;
+
+  /* Use the cache of optimization nodes.  */
+
+  cl_optimization_save (TREE_OPTIMIZATION (cl_optimization_node));
+
+  slot = htab_find_slot (cl_option_hash_table, cl_optimization_node, INSERT);
+  t = (tree) *slot;
+  if (!t)
+    {
+      /* Insert this one into the hash table.  */
+      t = cl_optimization_node;
+      *slot = t;
+
+      /* Make a new node for next time round.  */
+      cl_optimization_node = make_node (OPTIMIZATION_NODE);
+    }
+
+  return t;
+}
+
+/* Build a TARGET_OPTION_NODE based on the current options.  */
+
+tree
+build_target_option_node (void)
+{
+  tree t;
+  void **slot;
+
+  /* Use the cache of optimization nodes.  */
+
+  cl_target_option_save (TREE_TARGET_OPTION (cl_target_option_node));
+
+  slot = htab_find_slot (cl_option_hash_table, cl_target_option_node, INSERT);
+  t = (tree) *slot;
+  if (!t)
+    {
+      /* Insert this one into the hash table.  */
+      t = cl_target_option_node;
+      *slot = t;
+
+      /* Make a new node for next time round.  */
+      cl_target_option_node = make_node (TARGET_OPTION_NODE);
+    }
+
+  return t;
 }
 
 #include "gt-tree.h"

@@ -2364,8 +2364,7 @@ assign_parm_remove_parallels (struct assign_parm_data_one *data)
      This can be done with register operations rather than on the
      stack, even if we will store the reconstituted parameter on the
      stack later.  */
-  if (GET_CODE (entry_parm) == PARALLEL
-      && data->passed_mode != BLKmode)
+  if (GET_CODE (entry_parm) == PARALLEL && GET_MODE (entry_parm) != BLKmode)
     {
       rtx parmreg = gen_reg_rtx (GET_MODE (entry_parm));
       emit_group_store (parmreg, entry_parm, NULL_TREE,
@@ -2420,6 +2419,8 @@ static bool
 assign_parm_setup_block_p (struct assign_parm_data_one *data)
 {
   if (data->nominal_mode == BLKmode)
+    return true;
+  if (GET_MODE (data->entry_parm) == BLKmode)
     return true;
 
 #ifdef BLOCK_REG_PADDING
@@ -3257,13 +3258,13 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
+  if (boundary > PREFERRED_STACK_BOUNDARY)
+    boundary = PREFERRED_STACK_BOUNDARY;
   locate->where_pad = where_pad;
   locate->boundary = boundary;
 
   /* Remember if the outgoing parameter requires extra alignment on the
      calling function side.  */
-  if (boundary > PREFERRED_STACK_BOUNDARY)
-    boundary = PREFERRED_STACK_BOUNDARY;
   if (crtl->stack_alignment_needed < boundary)
     crtl->stack_alignment_needed = boundary;
 
@@ -3730,13 +3731,30 @@ debug_find_var_in_block_tree (tree var, tree block)
 
 static bool in_dummy_function;
 
-/* Invoke the target hook when setting cfun.  */
+/* Invoke the target hook when setting cfun.  Update the optimization options
+   if the function uses different options than the default.  */
 
 static void
 invoke_set_current_function_hook (tree fndecl)
 {
   if (!in_dummy_function)
-    targetm.set_current_function (fndecl);
+    {
+      tree opts = ((fndecl)
+		   ? DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl)
+		   : optimization_default_node);
+
+      if (!opts)
+	opts = optimization_default_node;
+
+      /* Change optimization options if needed.  */
+      if (optimization_current_node != opts)
+	{
+	  optimization_current_node = opts;
+	  cl_optimization_restore (TREE_OPTIMIZATION (opts));
+	}
+
+      targetm.set_current_function (fndecl);
+    }
 }
 
 /* cfun should never be set directly; use this function.  */
@@ -3762,22 +3780,12 @@ DEF_VEC_ALLOC_P(function_p,heap);
 
 static VEC(function_p,heap) *cfun_stack;
 
-/* We save the value of in_system_header here when pushing the first
-   function on the cfun stack, and we restore it from here when
-   popping the last function.  */
-
-static bool saved_in_system_header;
-
 /* Push the current cfun onto the stack, and set cfun to new_cfun.  */
 
 void
 push_cfun (struct function *new_cfun)
 {
-  if (cfun == NULL)
-    saved_in_system_header = in_system_header;
   VEC_safe_push (function_p, heap, cfun_stack, cfun);
-  if (new_cfun)
-    in_system_header = DECL_IN_SYSTEM_HEADER (new_cfun->decl);
   set_cfun (new_cfun);
 }
 
@@ -3787,8 +3795,6 @@ void
 pop_cfun (void)
 {
   struct function *new_cfun = VEC_pop (function_p, cfun_stack);
-  in_system_header = ((new_cfun == NULL) ? saved_in_system_header
-		      : DECL_IN_SYSTEM_HEADER (new_cfun->decl));
   set_cfun (new_cfun);
 }
 
@@ -3866,11 +3872,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 void
 push_struct_function (tree fndecl)
 {
-  if (cfun == NULL)
-    saved_in_system_header = in_system_header;
   VEC_safe_push (function_p, heap, cfun_stack, cfun);
-  if (fndecl)
-    in_system_header = DECL_IN_SYSTEM_HEADER (fndecl);
   allocate_struct_function (fndecl, false);
 }
 

@@ -1039,6 +1039,7 @@ void tree_ssa_iv_optimize (void);
 unsigned tree_predictive_commoning (void);
 bool parallelize_loops (void);
 
+bool loop_only_exit_p (const struct loop *, const_edge);
 bool number_of_iterations_exit (struct loop *, edge,
 				struct tree_niter_desc *niter, bool);
 tree find_loop_niter (struct loop *, edge *);
@@ -1123,16 +1124,16 @@ extern bool remove_stmt_from_eh_region (tree);
 extern bool maybe_clean_or_replace_eh_stmt (tree, tree);
 
 /* In tree-ssa-pre.c  */
-void add_to_value (tree, tree);
-void debug_value_expressions (tree);
-void print_value_expressions (FILE *, tree);
+struct pre_expr_d;
+void add_to_value (unsigned int, struct pre_expr_d *);
+void debug_value_expressions (unsigned int);
+void print_value_expressions (FILE *, unsigned int);
 
 
 /* In tree-vn.c  */
 tree make_value_handle (tree);
 void set_value_handle (tree, tree);
 bool expressions_equal_p (tree, tree);
-static inline tree get_value_handle (tree);
 void sort_vuses (VEC (tree, gc) *);
 void sort_vuses_heap (VEC (tree, heap) *);
 tree vn_lookup_or_add (tree);

@@ -326,7 +326,7 @@ ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wcast-qual], [loose_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wstrict-prototypes -Wmissing-prototypes \
 	  -Wc++-compat], [c_loose_warn])
 ACX_PROG_CC_WARNING_OPTS([-Wmissing-format-attribute], [strict_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition], [c_strict_warn])
+ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition -Wc++-compat], [c_strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
 				     -Wno-overlength-strings], [strict_warn])
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
@@ -846,7 +846,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
+  [4.[7-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
@@ -991,7 +991,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal getrusage nl_langinfo scandir alphasort \
+	sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
 	gcc_UNLOCKED_FUNCS)
 
@@ -1014,6 +1014,7 @@ int main()
 fi
 
 AC_CHECK_TYPE(ssize_t, int)
+AC_CHECK_TYPE(caddr_t, char *)
 
 # Try to determine the array type of the second argument of getgroups
 # for the target system (int or gid_t).

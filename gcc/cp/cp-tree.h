@@ -853,7 +853,7 @@ struct language_function GTY(())
 #define cp_function_chain (cfun->language)
 
 /* In a constructor destructor, the point at which all derived class
-   destroying/construction has been has been done. Ie. just before a
+   destroying/construction has been done.  I.e., just before a
    constructor returns, or before any base class destroying will be done
    in a destructor.  */
 
@@ -1609,7 +1609,7 @@ struct lang_decl_flags GTY(())
   unsigned repo_available_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned threadprivate_p : 1;
-  /* One unused bit.  */
+  unsigned defaulted_p : 1;
 
   union lang_decl_u {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -1917,7 +1917,7 @@ struct lang_decl GTY(())
 
 /* Nonzero if the DECL was initialized in the class definition itself,
    rather than outside the class.  This is used for both static member
-   VAR_DECLS, and FUNTION_DECLS that are defined in the class.  */
+   VAR_DECLS, and FUNCTION_DECLS that are defined in the class.  */
 #define DECL_INITIALIZED_IN_CLASS_P(DECL) \
  (DECL_LANG_SPECIFIC (DECL)->decl_flags.initialized_in_class)
 
@@ -2626,6 +2626,14 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define CP_DECL_THREADPRIVATE_P(DECL) \
   (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
 
+/* Nonzero if DECL was declared with '= delete'.  */
+#define DECL_DELETED_FN(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+
+/* Nonzero if DECL was declared with '= default'.  */
+#define DECL_DEFAULTED_FN(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.defaulted_p)
+
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
 
@@ -3199,7 +3207,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
       template <class T> struct S { friend void f(T) {}; };
    the declaration of `void f(int)' generated when S<int> is
    instantiated will not be a DECL_TEMPLATE_INSTANTIATION, but will be
-   a DECL_FRIEND_PSUEDO_TEMPLATE_INSTANTIATION.  */
+   a DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION.  */
 #define DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION(DECL) \
   (DECL_TEMPLATE_INFO (DECL) && !DECL_USE_TEMPLATE (DECL))
 
@@ -3927,6 +3935,9 @@ typedef struct cp_decl_specifier_seq {
      reflected here.  This field will be a TYPE, unless a typedef-name
      was used, in which case it will be a TYPE_DECL.  */
   tree type;
+  /* The location of the primary type. Mainly used for error
+     reporting.  */
+  location_t type_location;
   /* The attributes, if any, provided with the specifier sequence.  */
   tree attributes;
   /* If non-NULL, a built-in type that the user attempted to redefine
@@ -4168,6 +4179,9 @@ extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
 extern bool type_has_user_nondefault_constructor (tree);
+extern bool type_has_user_provided_constructor  (tree);
+extern bool type_has_user_provided_default_constructor (tree);
+extern bool defaultable_fn_p			(tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -4653,13 +4667,15 @@ extern void finish_template_decl		(tree);
 extern tree finish_template_type		(tree, tree, int);
 extern tree finish_base_specifier		(tree, tree, bool);
 extern void finish_member_declaration		(tree);
-extern void qualified_name_lookup_error		(tree, tree, tree);
+extern void qualified_name_lookup_error		(tree, tree, tree,
+						 location_t);
 extern void check_template_keyword		(tree);
 extern tree finish_id_expression		(tree, tree, tree,
 						 cp_id_kind *,
 						 bool, bool, bool *,
 						 bool, bool, bool, bool,
-						 const char **);
+						 const char **,
+                                                 location_t);
 extern tree finish_typeof			(tree);
 extern tree finish_offsetof			(tree);
 extern void finish_decl_cleanup			(tree, tree);

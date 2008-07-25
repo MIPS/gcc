@@ -3404,8 +3404,9 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3,
      calculated only once.  */
   if (!arg2)
     {
-      if (pedantic && (complain & tf_error))
-	pedwarn ("ISO C++ forbids omitting the middle term of a ?: expression");
+      if (complain & tf_error)
+	pedwarn (OPT_pedantic, 
+		 "ISO C++ forbids omitting the middle term of a ?: expression");
 
       /* Make sure that lvalues remain lvalues.  See g++.oliva/ext1.C.  */
       if (real_lvalue_p (arg1))
@@ -3416,7 +3417,7 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3,
 
   /* [expr.cond]
 
-     The first expr ession is implicitly converted to bool (clause
+     The first expression is implicitly converted to bool (clause
      _conv_).  */
   arg1 = perform_implicit_conversion (boolean_type_node, arg1, complain);
 
@@ -4510,7 +4511,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   if (convs->bad_p
       && convs->kind != ck_user
       && convs->kind != ck_ambig
-      && convs->kind != ck_ref_bind)
+      && convs->kind != ck_ref_bind
+      && convs->kind != ck_rvalue
+      && convs->kind != ck_base)
     {
       conversion *t = convs;
       for (; t; t = convs->u.next)
@@ -5087,6 +5090,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
   int is_method = 0;
   int nargs;
   tree *argarray;
+  bool already_used = false;
 
   /* In a template, there is no need to perform all of the work that
      is normally done.  We are only interested in the type of the call
@@ -5307,7 +5311,10 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       /* [class.copy]: the copy constructor is implicitly defined even if
 	 the implementation elided its use.  */
       if (TYPE_HAS_COMPLEX_INIT_REF (DECL_CONTEXT (fn)))
-	mark_used (fn);
+	{
+	  mark_used (fn);
+	  already_used = true;
+	}
 
       /* If we're creating a temp and we already have one, don't create a
 	 new one.  If we're not creating a temp but we get one, use
@@ -5367,7 +5374,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       return val;
     }
 
-  mark_used (fn);
+  if (!already_used)
+    mark_used (fn);
 
   if (DECL_VINDEX (fn) && (flags & LOOKUP_NONVIRTUAL) == 0)
     {
@@ -5417,6 +5425,13 @@ build_cxx_call (tree fn, int nargs, tree *argarray)
       && at_function_scope_p ()
       && cfun)
     cp_function_chain->can_throw = 1;
+
+  /* Check that arguments to builtin functions match the expectations.  */
+  if (fndecl
+      && DECL_BUILT_IN (fndecl)
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && !check_builtin_function_arguments (fndecl, nargs, argarray))
+    return error_mark_node;
 
   /* Some built-in function calls will be evaluated at compile-time in
      fold ().  */
@@ -6751,7 +6766,7 @@ tweak:
 	{
 	  if (warn)
 	    {
-	      warning (0,
+	      pedwarn (0,
 	      "ISO C++ says that these are ambiguous, even "
 	      "though the worst conversion for the first is better than "
 	      "the worst conversion for the second:");

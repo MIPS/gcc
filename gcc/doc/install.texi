@@ -386,7 +386,7 @@ Necessary to build GCC during development because the generated output
 files are not included in the SVN repository.  They are included in
 releases.
 
-@item Texinfo version 4.4 (or later)
+@item Texinfo version 4.7 (or later)
 
 Necessary for running @command{makeinfo} when modifying @file{*.texi}
 files to test your changes.
@@ -1765,7 +1765,7 @@ build machinery, not of GCC itself) that is used even if you only
 build the C front end.
 
 When building from SVN or snapshots, or if you modify Texinfo
-documentation, you need version 4.4 or later of Texinfo installed if you
+documentation, you need version 4.7 or later of Texinfo installed if you
 want Info documentation to be regenerated.  Releases contain Info
 documentation pre-built for the unmodified documentation in the release.
 
@@ -2362,7 +2362,7 @@ If you find a bug, please report it following the
 @uref{../bugs.html,,bug reporting guidelines}.
 
 If you want to print the GCC manuals, do @samp{cd @var{objdir}; make
-dvi}.  You will need to have @command{texi2dvi} (version at least 4.4)
+dvi}.  You will need to have @command{texi2dvi} (version at least 4.7)
 and @TeX{} installed.  This creates a number of @file{.dvi} files in
 subdirectories of @file{@var{objdir}}; these may be converted for
 printing with programs such as @command{dvips}.  Alternately, by using
@@ -3427,15 +3427,17 @@ applications.  There are no standard Unix configurations.
 @end html
 @heading @anchor{m68k-x-x}m68k-*-*
 By default, @samp{m68k-*-aout}, @samp{m68k-*-coff*},
-@samp{m68k-*-elf*}, @samp{m68k-*-rtems} and @samp{m68k-*-uclinux}
+@samp{m68k-*-elf*}, @samp{m68k-*-rtems},  @samp{m68k-*-uclinux} and
+@samp{m68k-*-linux}
 build libraries for both M680x0 and ColdFire processors.  If you only
 need the M680x0 libraries, you can omit the ColdFire ones by passing
 @option{--with-arch=m68k} to @command{configure}.  Alternatively, you
 can omit the M680x0 libraries by passing @option{--with-arch=cf} to
-@command{configure}.  These targets default to 5206 code when
+@command{configure}.  These targets default to 5206 or 5475 code as
+appropriate for the target system when
 configured with @option{--with-arch=cf} and 68020 code otherwise.
 
-The @samp{m68k-*-linux-gnu}, @samp{m68k-*-netbsd} and
+The @samp{m68k-*-netbsd} and
 @samp{m68k-*-openbsd} targets also support the @option{--with-arch}
 option.  They will generate ColdFire CFV4e code when configured with
 @option{--with-arch=cf} and 68020 code otherwise.
@@ -3674,7 +3676,7 @@ or newer for a working GCC@.
 @end html
 @heading @anchor{powerpc-x-netbsd}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
-documentation you will need Texinfo version 4.4 (NetBSD 1.5.1 included
+documentation you will need Texinfo version 4.7 (NetBSD 1.5.1 included
 Texinfo version 3.12).
 
 @html

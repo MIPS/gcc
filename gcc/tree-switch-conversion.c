@@ -474,7 +474,8 @@ build_one_array (tree swtch, int num, tree arr_index_type, tree phi, tree tidx)
   DECL_ARTIFICIAL (decl) = 1;
   TREE_CONSTANT (decl) = 1;
   add_referenced_var (decl);
-  assemble_variable (decl, 0, 0, 0);
+  varpool_mark_needed_node (varpool_node (decl));
+  varpool_finalize_decl (decl);
   mark_sym_for_renaming (decl);
 
   name = make_ssa_name (SSA_NAME_VAR (PHI_RESULT (phi)), NULL_TREE);
@@ -482,7 +483,7 @@ build_one_array (tree swtch, int num, tree arr_index_type, tree phi, tree tidx)
 
   fetch = build4 (ARRAY_REF, value_type, decl, tidx, NULL_TREE,
 		  NULL_TREE);
-  load = build2 (GIMPLE_MODIFY_STMT, void_type_node, name, fetch);
+  load = build_gimple_modify_stmt (name, fetch);
   SSA_NAME_DEF_STMT (name) = load;
 
   bsi = bsi_for_stmt (swtch);
@@ -507,13 +508,17 @@ build_arrays (tree swtch)
   tree phi = phi_nodes (info.final_bb);
   int i;
 
+  bsi = bsi_for_stmt (swtch);
+
   arr_index_type = build_index_type (info.range_size);
   tidx = make_rename_temp (arr_index_type, "csti");
-  sub = build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
-		fold_convert (TREE_TYPE (info.index_expr), info.range_min));
-  sub = build2 (GIMPLE_MODIFY_STMT, void_type_node, tidx, sub);
+  sub = fold_build2 (MINUS_EXPR, TREE_TYPE (info.index_expr), info.index_expr,
+		     fold_convert (TREE_TYPE (info.index_expr),
+				   info.range_min));
+  sub = force_gimple_operand_bsi (&bsi, fold_convert (arr_index_type, sub),
+				  false, NULL, true, BSI_SAME_STMT);
+  sub = build_gimple_modify_stmt (tidx, sub);
 
-  bsi = bsi_for_stmt (swtch);
   bsi_insert_before (&bsi, sub, BSI_SAME_STMT);
   mark_symbols_for_renaming (sub);
   info.arr_ref_first = sub;
@@ -539,8 +544,7 @@ gen_def_assigns (block_stmt_iterator *bsi)
 				 NULL_TREE);
 
       info.target_outbound_names[i] = name;
-      assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, name,
-		       info.default_values[i]);
+      assign = build_gimple_modify_stmt (name, info.default_values[i]);
       SSA_NAME_DEF_STMT (name) = assign;
       bsi_insert_before (bsi, assign, BSI_SAME_STMT);
       find_new_referenced_vars (&assign);
@@ -619,7 +623,7 @@ gen_inbound_check (tree swtch)
   tree label_decl3 = create_artificial_label ();
   tree label1, label2, label3;
 
-  tree utype = unsigned_type_for (TREE_TYPE (info.index_expr));
+  tree utype;
   tree tmp_u;
   tree cast, cast_assign;
   tree ulb, minus, minus_assign;
@@ -635,19 +639,27 @@ gen_inbound_check (tree swtch)
   gcc_assert (info.default_values);
   bb0 = bb_for_stmt (swtch);
 
+  /* Make sure we do not generate arithmetics in a subrange.  */
+  if (TREE_TYPE (TREE_TYPE (info.index_expr)))
+    utype = unsigned_type_for (TREE_TYPE (TREE_TYPE (info.index_expr)));
+  else
+    utype = unsigned_type_for (TREE_TYPE (info.index_expr));
+
   /* (end of) block 0 */
   bsi = bsi_for_stmt (info.arr_ref_first);
   tmp_u = make_rename_temp (utype, "csui");
 
-  cast = build1 (NOP_EXPR, utype, info.index_expr);
-  cast_assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, tmp_u, cast);
+  cast = fold_convert (utype, info.index_expr);
+  cast_assign = build_gimple_modify_stmt (tmp_u, cast);
   find_new_referenced_vars (&cast_assign);
   bsi_insert_before (&bsi, cast_assign, BSI_SAME_STMT);
   mark_symbols_for_renaming (cast_assign);
 
   ulb = fold_convert (utype, info.range_min);
-  minus = build2 (MINUS_EXPR, utype, tmp_u, ulb);
-  minus_assign = build2 (GIMPLE_MODIFY_STMT, void_type_node, tmp_u, minus);
+  minus = fold_build2 (MINUS_EXPR, utype, tmp_u, ulb);
+  minus = force_gimple_operand_bsi (&bsi, minus, false, NULL, true,
+				    BSI_SAME_STMT);
+  minus_assign = build_gimple_modify_stmt (tmp_u, minus);
   find_new_referenced_vars (&minus_assign);
   bsi_insert_before (&bsi, minus_assign, BSI_SAME_STMT);
   mark_symbols_for_renaming (minus_assign);

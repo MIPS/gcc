@@ -57,7 +57,7 @@ JAVA_TARGET_INDEPENDENT_BIN_TOOLS = jcf-dump
 .PHONY: java
 
 jvspec.o: $(srcdir)/java/jvspec.c $(SYSTEM_H) coretypes.h $(TM_H) \
-  $(GCC_H) $(CONFIG_H)
+  $(GCC_H) $(CONFIG_H) java/jcf.h java/javaop.h
 	(SHLIB_LINK='$(SHLIB_LINK)'; \
 	$(CXX) -x c++ -c $(ALL_CXXFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
 		$(INCLUDES) $(srcdir)/java/jvspec.c $(OUTPUT_OPTION))
@@ -97,12 +97,6 @@ java-warn = $(STRICT_WARN)
 
 # String length warnings
 jvspec.o-warn = -Wno-error
-
-# Bison-1.75 output often yields (harmless) -Wtraditional warnings
-java/parse.o-warn = -Wno-error
-
-# java/jcf-io.c contains a -Wc++compat warning.
-java/jcf-io.o-warn = -Wno-error
 
 jc1$(exeext): $(JAVA_OBJS) $(BACKEND) $(LIBDEPS) attribs.o
 	rm -f $@

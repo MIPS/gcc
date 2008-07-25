@@ -1,3 +1,36 @@
+2008-07-24  Jan Hubicka  <jh@suse.cz>
+
+	* java/decl.c: Include cgraph.h
+	(end_java_method): Remove non-unit-at-a-time code.
+	(java_mark_decl_local): Likewise; sanity check that we don't touch
+	finalized nodes.
+
+2008-07-15  Jan Hubicka  <jh@suse.cz>
+
+	* lang.c (java_init_options): Enable unit-at-a-time by default.
+
+2008-07-14  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* Make-lang.in (jvspec.o): Fix dependencies.
+
+2008-07-06  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (java/parse.o-warn): Remove.
+	(java/jcf-io.o-warn): Remove.
+
+2008-07-05  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-io.c: Don't include fnmatch.h.  Don't use JCF_USE_SCANDIR.
+	(compare_path): Remove.
+	(java_or_class_file): Likewise.
+	(memoized_dirlist_entry): Likewise.
+	(memoized_dirlist_hash): Likewise.
+	(memoized_dirlist_lookup_eq): Likewise.
+	(memoized_dirlists): Likewise.
+	(caching_stat): Likewise.
+	(find_class): Use stat.
+	* jcf.h (JCF_USE_SCANDIR): Remove.
+
 2008-06-30  Joshua Sumali  <jsumali@redhat.com>
 
 	* Make-lang.in (JAVA_MANFILES): Add doc/aot-compile.1 and

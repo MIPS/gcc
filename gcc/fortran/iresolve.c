@@ -705,7 +705,7 @@ gfc_resolve_dot_product (gfc_expr *f, gfc_expr *a, gfc_expr *b)
 
   temp.expr_type = EXPR_OP;
   gfc_clear_ts (&temp.ts);
-  temp.value.op.operator = INTRINSIC_NONE;
+  temp.value.op.op = INTRINSIC_NONE;
   temp.value.op.op1 = a;
   temp.value.op.op2 = b;
   gfc_type_convert_binary (&temp);
@@ -1332,7 +1332,7 @@ gfc_resolve_matmul (gfc_expr *f, gfc_expr *a, gfc_expr *b)
     {
       temp.expr_type = EXPR_OP;
       gfc_clear_ts (&temp.ts);
-      temp.value.op.operator = INTRINSIC_NONE;
+      temp.value.op.op = INTRINSIC_NONE;
       temp.value.op.op1 = a;
       temp.value.op.op2 = b;
       gfc_type_convert_binary (&temp);
@@ -1788,6 +1788,7 @@ gfc_resolve_product (gfc_expr *f, gfc_expr *array, gfc_expr *dim,
   if (dim != NULL)
     {
       f->rank = array->rank - 1;
+      f->shape = gfc_copy_shape_excluding (array->shape, array->rank, dim);
       gfc_resolve_dim_arg (dim);
     }
 
@@ -2271,6 +2272,7 @@ gfc_resolve_sum (gfc_expr *f, gfc_expr *array, gfc_expr *dim, gfc_expr *mask)
   if (dim != NULL)
     {
       f->rank = array->rank - 1;
+      f->shape = gfc_copy_shape_excluding (array->shape, array->rank, dim);
       gfc_resolve_dim_arg (dim);
     }
 

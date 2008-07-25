@@ -28,8 +28,14 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
+/** @file initializer_list
+ *  This is a Standard C++ Library header.
+ */
+
 #ifndef __CXX_INITIALIZER_LIST
 #define __CXX_INITIALIZER_LIST
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
 
 #pragma GCC visibility push(default)
 
@@ -37,28 +43,35 @@
 
 namespace std
 {
-  template<class E>
-  class initializer_list
-  {
-    const E* _array;
-    size_t _len;
+  /// initializer_list
+  template<class _E>
+    class initializer_list
+    {
+      const _E* __array;
+      size_t __len;
 
-    // The compiler can call a private constructor.
-    initializer_list(const E* _a, size_t _l)
-      : _array(_a), _len(_l) { }
+      // The compiler can call a private constructor.
+      initializer_list(const _E* __a, size_t __l)
+      : __array(__a), __len(__l) { }
 
-  public:
-    initializer_list()
-      : _array(NULL), _len(0) {}
-    
-    size_t size() const		// number of elements
-    { return _len; }
-    const E* begin() const	// first element
-    { return _array; }
-    const E* end() const	// one past the last element
-    { return begin() + size(); }
+    public:
+      initializer_list()
+      : __array(NULL), __len(0) { }
+
+      // Number of elements.
+      size_t size() const
+      { return __len; }
+
+      // First element.
+      const _E* begin() const
+      { return __array; }
+
+      // One past the last element.
+      const _E* end() const
+      { return begin() + size(); }
   };
 }
 
 #pragma GCC visibility pop
+#endif // C++0x
 #endif // __CXX_INITIALIZER_LIST
