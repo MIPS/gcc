@@ -3347,7 +3347,9 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      the equivalent inlined version either.  */
   if (is_gimple_assign (stmt))
     {
-      gcc_assert (gimple_assign_single_p (stmt));
+      gcc_assert (gimple_assign_single_p (stmt)
+		  || gimple_assign_rhs_code (stmt) == NOP_EXPR
+		  || gimple_assign_rhs_code (stmt) == CONVERT_EXPR);
       TREE_USED (gimple_assign_rhs1 (stmt)) = 1;
     }
 

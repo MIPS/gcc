@@ -1,3 +1,7 @@
+2008-07-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-inline.c (expand_call_inline): Allow casts in assert.
+
 2008-07-24  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/36885
