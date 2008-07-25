@@ -107,9 +107,6 @@ struct output_block
 
   /* Map global decls and types to indices in the main stream.  */
   htab_t main_hash_table;
-
-  /* Index in main stream of next node. */
-  unsigned int next_main_index;
 };
 
 struct output_block *create_output_block (enum lto_section_type);

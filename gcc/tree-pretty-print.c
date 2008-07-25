@@ -752,7 +752,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
         if (TYPE_NAME (node))
 	  dump_generic_node (buffer, TYPE_NAME (node), spc, flags, false);
-        else
+	else if (!(flags & TDF_SLIM))
+	  /* FIXME: If we eliminate the 'else' above and attempt
+	     to show the fields for named types, we may get stuck
+	     following a cycle of pointers to structs.  The alleged
+	     self-reference check in print_struct_decl will not detect
+	     cycles involving more than one pointer or struct type.  */
 	  print_struct_decl (buffer, node, spc, flags);
         break;
       }
@@ -2364,8 +2369,8 @@ print_struct_decl (pretty_printer *buffer, const_tree node, int spc, int flags)
 	   Maybe this could be solved by looking at the scope in which the
 	   structure was declared.  */
 	if (TREE_TYPE (tmp) != node
-	    || (TREE_CODE (TREE_TYPE (tmp)) == POINTER_TYPE
-		&& TREE_TYPE (TREE_TYPE (tmp)) != node))
+	    && (TREE_CODE (TREE_TYPE (tmp)) != POINTER_TYPE
+		|| TREE_TYPE (TREE_TYPE (tmp)) != node))
 	  {
 	    print_declaration (buffer, tmp, spc+2, flags);
 	    pp_newline (buffer);

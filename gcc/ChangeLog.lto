@@ -1,3 +1,27 @@
+2008-07-25  Diego Novillo  <dnovillo@google.com>
+	    Bill Maddox  <maddox@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Always call
+	print_struct_decl for structures.
+	* tree.c (free_lang_specifics): Force ptrdiff_type_node
+	to be integer_type_node.
+	* lto-function-out.c (output_tree): Reformat debug output.
+	Call get_ref_idx_for.
+	* lto-function-in.c (input_tree_operand): Reformat debug
+	output.
+	* lto-tree-out.h (struct output_block): Remove field
+	next_main_index.
+	* tree-flow.h (tree_node_can_be_shared): Declare.
+	* tree-cfg.c (tree_node_can_be_shared): Declare extern.
+	* lto-section-out.c: Remove includes of ctype.h and
+	strings.h
+	(get_ref_idx_for): Factor out of ...
+	(preload_common_node): ... here.
+	Call it.
+	(preload_common_nodes): Add debugging output.
+	* lto-section-out.h (preload_common_node): Declare.
+	(get_ref_idx_for): Declare.
+
 2008-07-23  Rafael Espindola  <espindola@google.com>
 
 	Mainline merge @138073

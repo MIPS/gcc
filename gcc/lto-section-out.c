@@ -47,9 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-section.h"
 #include "lto-section-out.h"
 #include "lto-tree-out.h"
-#include <ctype.h>
-#include <strings.h>
-
 
 /* Add FLAG onto the end of BASE.  */
  
@@ -705,40 +702,94 @@ lto_get_out_decl_state (void)
 }
 
 
-/* Assign an index to tree node T and enter it in the global streamer
-   hash table OB->MAIN_HASH_TABLE.  */
+/* Return a reference index for tree node T from hash table H.  If
+   node T does not already exist in table H, a new entry is created
+   for it.  The returned reference is used to identify multiple
+   instances of T on the file stream.  This is used in two ways:
 
-static void
-preload_common_node (struct output_block *ob, tree t)
+   - On the writing side, the first time T is added to H, a new reference
+     index is created for T and T is emitted on the stream.  If T
+     needs to be emitted again to the stream, instead of pickling it
+     again, the reference index is emitted.
+
+   - On the reading side, the first time T is read from the stream,
+     it is reconstructed in memory and a new reference index created
+     for T.  The reconstructed T is inserted in some array so that 
+     when the reference index for T is found in the input stream, it
+     can be used to look up into the array to get the reconstructed T.
+
+   *NEXT_REF_P points to the next available reference index to be
+   handed out.  If T is inserted into H, this value is updated.
+
+   The reference index for T is returned in *REF_P.  The function
+   returns true if T was already in H.  Otherwise, it returns false.  */
+
+bool
+get_ref_idx_for (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
 {
   void **slot;
   struct lto_decl_slot d_slot;
+  unsigned next_ref_idx = htab_elements (h);
+  bool retval;
 
+  retval = true;
   d_slot.t = t;
-  slot = htab_find_slot (ob->main_hash_table, &d_slot, INSERT);
-
-  /* If well-known trees are not unique, we don't create duplicate entries.  */
+  slot = htab_find_slot (h, &d_slot, INSERT);
   if (*slot == NULL)
     {
-      struct lto_decl_slot *new_slot
-	= (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
-      unsigned index = ob->next_main_index++;
+      struct lto_decl_slot *new_slot = XNEW (struct lto_decl_slot);
       new_slot->t = t;
-      new_slot->slot_num = index;
+      new_slot->slot_num = next_ref_idx;
       *slot = new_slot;
-#ifdef GLOBAL_STREAMER_TRACE
-      fprintf (stderr, "preloaded 0x%x: ", index);
-      print_generic_expr (stderr, t, 0);
-      fprintf (stderr, "\n");
-#endif
+
+      if (v)
+	{
+	  gcc_assert (next_ref_idx == VEC_length (tree, *v));
+	  VEC_safe_push (tree, heap, *v, t);
+	}
+
+      /* Indicate that the item was not in the table before by
+	 returning false.  */
+      retval = false;
     }
-  else
-    /* Skip the index, which will leave an unused slot in the
-       globals vector in the reader.  Otherwise, the reader
-       initialization must perform a similar duplicate-removal
-       process to reconstruct a valid vector.  NOTE: This isn't
-       difficult.  Perhaps  we should just do it.  */
-    ob->next_main_index++;
+
+  if (ref_p)
+    *ref_p = ((struct lto_decl_slot *) *slot)->slot_num;
+
+  return retval;
+}
+
+
+/* Assign an index to tree node T and enter it in the global streamer
+   hash table OB->MAIN_HASH_TABLE.  */
+
+void
+preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
+{
+  /* Skip empty slots.  Note that we will be in trouble if
+     the empty slots do not match on both the writer and reader side.  */
+  if (!t) return;
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "Preloading common node: [%s] ",
+	   tree_code_name[TREE_CODE (t)]);
+  print_generic_expr (stderr, t, 0);
+  fprintf (stderr, "\n");
+#endif
+
+  if (get_ref_idx_for (t, h, v, ref_p))
+    return;
+
+  /* FIXME: In principle, we should perform a walk over all nodes reachable
+     from each preloaded node.  This is going to be a lot of work.  At present,
+     we catch the case that was causing test failures.  A small step.  */
+  if (tree_node_can_be_shared (t))
+    {
+      if (TYPE_P (t))
+	{
+	  get_ref_idx_for (TYPE_MAIN_VARIANT (t), h, v, ref_p);
+	}
+    }
 }
 
 
@@ -760,11 +811,29 @@ preload_common_nodes (struct output_block *ob)
       gcc_assert (strcmp (main_name, "main") == 0);
     }
 
+  gcc_assert (ptrdiff_type_node == integer_type_node);
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloading all global_trees[]\n");
+#endif
+
   for (i = 0; i < TI_MAX; i++)
-    preload_common_node (ob, global_trees[i]);
+    preload_common_node (global_trees[i], ob->main_hash_table, NULL, NULL);
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloaded %u entries in global_trees[]\n", i - 1);
+#endif
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloading all integer_types[]\n");
+#endif
 
   for (i = 0; i < itk_none; i++)
-    preload_common_node (ob, integer_types[i]);
+    preload_common_node (integer_types[i], ob->main_hash_table, NULL, NULL);
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloaded %u entries in integer_types[]\n", i - 1);
+#endif
 }
 
 
@@ -854,7 +923,6 @@ produce_asm_for_decls (void)
   ob->global = true;
   ob->main_hash_table = htab_create (37, lto_hash_global_slot_node,
 				     lto_eq_global_slot_node, free);
-  ob->next_main_index = 0;
 
   /* Assign reference indices for predefined trees.  These need not be
      serialized.  */

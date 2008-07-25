@@ -2956,7 +2956,8 @@ output_tree (struct output_block *ob, tree expr)
   }
 
 #ifdef GLOBAL_STREAMER_TRACE
-  fprintf (stderr, "%p : ", expr);
+  fprintf (stderr, "Emitting tree %p : [%s] ", (void *) expr,
+	   tree_code_name[TREE_CODE (expr)]);
   print_generic_expr (stderr, expr, 0);
   fprintf (stderr, "\n");
 #endif
@@ -2964,47 +2965,35 @@ output_tree (struct output_block *ob, tree expr)
   if (TYPE_P (expr) || DECL_P (expr) || TREE_CODE (expr) == TREE_BINFO)
     {
       unsigned int global_index;
-      struct lto_decl_slot *new_slot;
 
       /* If we've already pickled this node, emit a reference.
          Otherwise, assign an index for the node we are about to emit.  */
-
-      d_slot.t = expr;
-      slot = htab_find_slot (ob->main_hash_table, &d_slot, INSERT);
-      if (*slot != NULL)
+      if (get_ref_idx_for (expr, ob->main_hash_table, NULL, &global_index))
         {
-          struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
 #ifdef GLOBAL_STREAMER_TRACE
-          fprintf (stderr, "%p -> OLD %d\n", expr, old_slot->slot_num);
+          fprintf (stderr, "%p -> OLD %d\n", (void *) expr, global_index);
 #endif
-          output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
-          output_uleb128 (ob, old_slot->slot_num);
+          output_global_record_start (ob, NULL, NULL,
+				      LTO_tree_pickle_reference);
+          output_uleb128 (ob, global_index);
           LTO_DEBUG_UNDENT ();
           return;
         }
-
-    global_index = ob->next_main_index++;
-    new_slot = (struct lto_decl_slot *) xmalloc (sizeof (struct lto_decl_slot));
-    new_slot->t = expr;
-    new_slot->slot_num = global_index;
-    *slot = new_slot;
-
 #ifdef GLOBAL_STREAMER_TRACE
-    fprintf (stderr, "%p -> NEW %d\n", expr, new_slot->slot_num);
+    fprintf (stderr, "%p -> NEW %d\n", (void *) expr, global_index);
 #endif
     }
   else
     {
       /* We don't share new instances of other classes of tree nodes,
          but we always want to share the preloaded "well-known" nodes.  */
-
       d_slot.t = expr;
       slot = htab_find_slot (ob->main_hash_table, &d_slot, NO_INSERT);
       if (slot != NULL)
         {
           struct lto_decl_slot *old_slot = (struct lto_decl_slot *)*slot;
 #ifdef GLOBAL_STREAMER_TRACE
-          fprintf (stderr, "%p -> OLD %d\n", expr, old_slot->slot_num);
+          fprintf (stderr, "%p -> OLD %d\n", (void *) expr, old_slot->slot_num);
 #endif
           output_global_record_start (ob, NULL, NULL, LTO_tree_pickle_reference);
           output_uleb128 (ob, old_slot->slot_num);

@@ -1,3 +1,13 @@
+2008-07-25  Diego Novillo  <dnovillo@google.com>
+	    Bill Maddox  <maddox@google.com>
+
+	* lto.c: Re-order include files.
+	Include lto-section-out.h.
+	(preload_common_nodes): Add debugging output.
+	Add new local INDEX_TABLE.
+	Call preload_common_node.
+	* Make-lang.in (lto.o): Add dependency on lto-section-out.h
+
 2008-07-13  Bill Maddox  <maddox@google.com>
 
 	* lto.c (lto_read_decls): Cast pointer to const char * to avoid

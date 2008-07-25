@@ -29,16 +29,16 @@ Boston, MA 02110-1301, USA.  */
 #include "tm.h"
 #include "cgraph.h"
 #include "ggc.h"
+#include "tree-ssa-operands.h"
+#include "tree-pass.h"
+#include "langhooks.h"
 #include "lto.h"
 #include "lto-tree.h"
-#include "tree-ssa-operands.h"  /* For init_ssa_operands.  */
-#include "langhooks.h"
 #include "lto-section.h"
 #include "lto-section-in.h"
+#include "lto-section-out.h"
 #include "lto-tree-in.h"
-#include "lto-tags.h"  		/* For LTO_tree_tag_names.  */
-#include "tree-pass.h"
-
+#include "lto-tags.h"
 
 /* Read the constructors and inits.  */
 
@@ -104,13 +104,14 @@ lto_materialize_function (struct cgraph_node *node)
     cgraph_mark_reachable_node (cgraph_node (decl));
 }
 
-/* ### */
+
 /* Initialize the globals vector with pointers to well-known trees.  */
 
 static void
 preload_common_nodes (struct data_in *data_in)
 {
   unsigned i;
+  htab_t index_table;
 
   /* The global tree for the main identifier is filled in by language-specific
      front-end initialization that is not run in the LTO back-end.  It appears
@@ -119,28 +120,38 @@ preload_common_nodes (struct data_in *data_in)
   if (!main_identifier_node)
     main_identifier_node = get_identifier ("main");
 
-  for (i = 0; i < TI_MAX; i++)
-    {
+  ptrdiff_type_node = integer_type_node;
+
+  index_table = htab_create (37, lto_hash_global_slot_node,
+			     lto_eq_global_slot_node, free);
+
 #ifdef GLOBAL_STREAMER_TRACE
-      fprintf (stderr, "preloaded 0x%x: ", i);
-      print_generic_expr (stderr, global_trees[i], 0);
-      fprintf (stderr, "\n");
+  fprintf (stderr, "\n\nPreloading all global_trees[]\n");
 #endif
-      VEC_safe_push (tree, heap, data_in->globals_index, global_trees[i]);
-    }
+
+  for (i = 0; i < TI_MAX; i++)
+    preload_common_node (global_trees[i], index_table, &data_in->globals_index,
+			 NULL);
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloaded %u entries in global_trees[]\n", i - 1);
+#endif
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "\n\nPreloading all integer_types[]\n");
+#endif
 
   for (i = 0; i < itk_none; i++)
-    {
+    preload_common_node (integer_types[i], index_table, &data_in->globals_index,
+			 NULL);
+
 #ifdef GLOBAL_STREAMER_TRACE
-      fprintf (stderr, "preloaded 0x%x: ", i);
-      print_generic_expr (stderr, integer_types[i], 0);
-      fprintf (stderr, "\n");
+  fprintf (stderr, "\n\nPreloaded %u entries in integer_types[]\n", i - 1);
 #endif
-      VEC_safe_push (tree, heap, data_in->globals_index, integer_types[i]);
-    }
+
+  htab_delete (index_table);
 }
 
-/* ### */
 /* Load in the global vars and all of the types from the main symbol
    table.  */
 

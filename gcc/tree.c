@@ -4004,6 +4004,11 @@ free_lang_specifics (void)
 {
   htab_traverse (uid2type_map, reset_type_lang_specific, NULL);
   htab_traverse (decl_for_uid_map, reset_lang_specific, NULL);
+
+  /* FIXME lto.  This is a hack.  ptrdiff_type_node is only created
+     by the C/C++ FE.  This should be converted to some similar
+     type shared by all FEs (i.e., converted to a "GIMPLE type").  */
+  ptrdiff_type_node = integer_type_node;
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,

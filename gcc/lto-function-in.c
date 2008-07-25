@@ -2971,21 +2971,28 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       unsigned int index = lto_input_uleb128 (ib);
       gcc_assert (data_in->globals_index);
 #ifdef GLOBAL_STREAMER_TRACE
-      fprintf (stderr, "index 0x%x  length 0x%x\n", index, VEC_length (tree, data_in->globals_index));
+      fprintf (stderr, "Found LTO_tree_pickle_reference index %u length %u\n",
+	       index, VEC_length (tree, data_in->globals_index));
 #endif
       gcc_assert (index < VEC_length (tree, data_in->globals_index));
       result = VEC_index (tree, data_in->globals_index, index);
       gcc_assert (result);
 #ifdef GLOBAL_STREAMER_TRACE
-      fprintf (stderr, "0x%x -> REF %p\n", index, result);
+      fprintf (stderr, "%u -> REF 0x%p\n", index, (void *) result);
+      /* We cannot print the node, as we may be processing a recursive
+	 reference to the node before we have finished reading all of
+	 its fields.  */
 #endif
       LTO_DEBUG_UNDENT();
       return result;
     }
-  
-  code = tag_to_expr[tag];
 
+  code = tag_to_expr[tag];
   gcc_assert (code);
+
+#ifdef GLOBAL_STREAMER_TRACE
+  fprintf (stderr, "Re-building tree code %s from stream\n", tree_code_name[code]);
+#endif
 
   if (TREE_CODE_CLASS (code) != tcc_type
       && TREE_CODE_CLASS (code) != tcc_declaration
@@ -3568,10 +3575,11 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
       recompute_tree_invariant_for_addr_expr (result);
     }
 
-#ifdef GLOBAL_STREAMER_DEBUG
+#ifdef GLOBAL_STREAMER_TRACE
   {
     unsigned int next_index = VEC_length (tree, data_in->globals_index);
-    fprintf (stderr, "0x%x -> NEW %p : ", next_index-1, result);
+    fprintf (stderr, "%u -> NEW %p: [%s] ", next_index - 1, (void *) result,
+	     tree_code_name[TREE_CODE (result)]);
     print_generic_expr (stderr, result, 0);
     fprintf (stderr, "\n");
   }

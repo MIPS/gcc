@@ -175,4 +175,7 @@ struct lto_out_decl_state *lto_get_out_decl_state (void);
 
 bool gate_lto_out (void);
 
+void preload_common_node (tree, htab_t, VEC(tree, heap) **, unsigned *);
+bool get_ref_idx_for (tree, htab_t, VEC(tree, heap) **, unsigned *);
+
 #endif  /* GCC_LTO_SECTION_OUT_H  */
