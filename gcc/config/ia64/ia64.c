@@ -4360,7 +4360,7 @@ ia64_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
 		  size_int (-2 * UNITS_PER_WORD));
       t = fold_convert (TREE_TYPE (valist), t);
-      gimplify_assign (valist, t, pre_p);
+      gimplify_assign (unshare_expr (valist), t, pre_p);
     }
 
   return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
