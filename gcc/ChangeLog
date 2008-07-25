@@ -1,3 +1,8 @@
+2008-07-25  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-tailcall.c (process_assignment): Prevent tail call
+	optimization if the modes of the return types don't match.
+
 2008-07-22  Rafael Avila de Espindola  <espindola@google.com>
 
        * c-typeck.c (build_external_ref): Don't call assemble_external.

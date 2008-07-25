@@ -281,6 +281,12 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
   if ((rhs_class == GIMPLE_SINGLE_RHS || gimple_assign_cast_p (stmt))
       && (TREE_CODE (src_var) == SSA_NAME))
     {
+      /* Reject a tailcall if the type conversion might need
+	 additional code.  */
+      if (IS_CONVERT_EXPR_CODE_P (code)
+	  && TYPE_MODE (TREE_TYPE (dest)) != TYPE_MODE (TREE_TYPE (src_var)))
+	return false;
+
       if (src_var != *ass_var)
 	return false;
 
