@@ -821,7 +821,25 @@ grokfield (const cp_declarator *declarator,
 	{
 	  /* Initializers for functions are rejected early in the parser.
 	     If we get here, it must be a pure specifier for a method.  */
-	  if (TREE_CODE (TREE_TYPE (value)) == METHOD_TYPE)
+	  if (init == ridpointers[(int)RID_DELETE])
+	    {
+	      DECL_DELETED_FN (value) = 1;
+	      DECL_DECLARED_INLINE_P (value) = 1;
+	      DECL_INITIAL (value) = error_mark_node;
+	    }
+	  else if (init == ridpointers[(int)RID_DEFAULT])
+	    {
+	      if (!defaultable_fn_p (value))
+		error ("%qD cannot be defaulted", value);
+	      else
+		{
+		  DECL_DEFAULTED_FN (value) = 1;
+		  DECL_INITIALIZED_IN_CLASS_P (value) = 1;
+		  DECL_DECLARED_INLINE_P (value) = 1;
+		  DECL_INLINE (value) = 1;
+		}
+	    }
+	  else if (TREE_CODE (TREE_TYPE (value)) == METHOD_TYPE)
 	    {
 	      gcc_assert (error_operand_p (init) || integer_zerop (init));
 	      DECL_PURE_VIRTUAL_P (value) = 1;
@@ -3404,7 +3422,7 @@ cp_write_global_declarations (void)
 	{
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
-	      && (! DECL_REALLY_EXTERN (decl) || DECL_INLINE (decl)))
+	      && (! DECL_REALLY_EXTERN (decl) || possibly_inlined_p (decl)))
 	    {
 	      /* Even though we're already at the top-level, we push
 		 there again.  That way, when we pop back a few lines
@@ -3665,6 +3683,22 @@ check_default_args (tree x)
     }
 }
 
+/* Return true if function DECL can be inlined.  This is used to force
+   instantiation of methods that might be interesting for inlining.  */
+bool
+possibly_inlined_p (tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
+  if (DECL_UNINLINABLE (decl))
+    return false;
+  if (!optimize)
+    return DECL_DECLARED_INLINE_P (decl);
+  /* When optimizing, we might inline everything when flatten
+     attribute or heuristics inlining for size or autoinlining
+     is used.  */
+  return true;
+}
+
 /* Mark DECL (either a _DECL or a BASELINK) as "used" in the program.
    If DECL is a specialization or implicitly declared class member,
    generate the actual definition.  */
@@ -3739,7 +3773,7 @@ mark_used (tree decl)
   /* Is it a synthesized method that needs to be synthesized?  */
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl)
-      && DECL_ARTIFICIAL (decl)
+      && DECL_DEFAULTED_FN (decl)
       && !DECL_THUNK_P (decl)
       && ! DECL_INITIAL (decl)
       /* Kludge: don't synthesize for default args.  Unfortunately this
@@ -3752,12 +3786,19 @@ mark_used (tree decl)
       /* If we've already synthesized the method we don't need to
 	 do the instantiation test below.  */
     }
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_DELETED_FN (decl))
+    {
+      error ("deleted function %q+D", decl);
+      error ("used here");
+    }
   else if ((DECL_NON_THUNK_FUNCTION_P (decl) || TREE_CODE (decl) == VAR_DECL)
 	   && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
 	   && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	       || (TREE_CODE (decl) == FUNCTION_DECL
-		   && DECL_INLINE (DECL_TEMPLATE_RESULT
-				   (template_for_substitution (decl))))
+		   && possibly_inlined_p
+		       (DECL_TEMPLATE_RESULT (
+		         template_for_substitution (decl))))
 	       /* We need to instantiate static data members so that there
 		  initializers are available in integral constant
 		  expressions.  */

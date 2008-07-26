@@ -1,3 +1,120 @@
+2008-07-25  Jan Hubicka  <jh@suse.cz>
+
+	* typeck.c (inline_conversion): Remove.
+	(cp_build_function_call): Do not use inline_conversion.
+	* decl.c (duplicate_decls): Do not insist on inline being declared
+	early.
+	(start_cleanup_fn): Do not assume that INLINE flags prevent function
+	from being output.  We now remove static functions always.
+	(finish_function): Do return warning on all static functions.
+	* call.c (build_over_call): Do not use inline_conversion.
+	* cp-tree.h (possibly_inlined_p): Declare.
+	(inline_conversion): Remove.
+	* pt.c (instantiate_decl): Use possibly_inlined_p predicate.
+	* decl2.c (cp_write_global_declarations): Likewise.
+	(mark_used): Likewise.
+	(possibly_inlined_p): New functions.
+
+2008-07-25  Jason Merrill  <jason@redhat.com>
+
+	* class.c (type_has_user_provided_default_constructor): Handle
+	templates.
+
+2008-07-23  Jan Hubicka  <jh@suse.cz>
+
+	* decl.c (duplicate_decls): Update comment and unit-at-a-time.
+	(grogfndecl): Drop flag_inline_trees code.
+	* pt.c (instantiate_decl): Drop flag_iline_trees code.
+	* lex.c (cxx_init): Do not set unit-at-a-time.
+
+2008-07-23  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (write_unqualified_name): Avoid infinite recursion when
+	trying to mangle a decl with no name.
+
+	Implement defaulted/deleted functions as per N2346
+	* cp-tree.h (struct lang_decl_flags): Add defaulted_p bitfield.
+	(DECL_DELETED_FN): New macro.
+	(DECL_DEFAULTED_FN): New macro.
+	* class.c (user_provided_p): New fn.
+	(defaultable_fn_p): New fn.
+	(type_has_user_provided_constructor): New fn.
+	(type_has_user_provided_default_constructor): New fn.
+	(check_methods): A defaulted fn is still trivial.
+	(check_bases_and_members): Likewise.
+	* decl.c (grok_special_member_properties): Likewise.
+	(duplicate_decls): Complain about redeclaring a function as deleted.
+	(start_decl): initialized==2 means deleted.
+	(cp_finish_decl): Handle deleted/defaulted semantics.
+	* decl2.c (grokfield): Likewise.
+	(mark_used): Check DECL_DEFAULTED_FN instead of DECL_ARTIFICIAL.
+	Complain about using a deleted fn.
+	* init.c (build_value_init_1): Use type_has_user_provided_constructor.
+	(perform_member_init): Check for a user-provided default constructor
+	even if TYPE_NEEDS_CONSTRUCTING.
+	(build_new_1): Likewise.
+	* call.c (build_over_call): Don't call mark_used twice.
+	* method.c (implicitly_declare_fn): Set DECL_DEFAULTED_FN.
+	* search.c (check_final_overrider): Check for deleted mismatch.
+	* parser.c (cp_parser_init_declarator): Tell start_decl about =delete.
+	(cp_parser_pure_specifier): Handle =default and =delete.
+
+	* error.c (maybe_warn_cpp0x): Suggest -std=gnu++0x as well.
+
+2008-07-23  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 35058
+	* typeck.c: All calls to pedwarn changed.
+	* decl.c: All calls to pedwarn changed.
+	* call.c: All calls to pedwarn changed.
+	* error.c: All calls to pedwarn changed.
+	* typeck2.c: All calls to pedwarn changed.
+	* pt.c: All calls to pedwarn changed.
+	* name-lookup.c: All calls to pedwarn changed.
+	* parser.c: All calls to pedwarn changed.
+
+2008-07-21  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* call.c: Fix comment typos.
+	* class.c: Likewise.
+	* cp-tree.h: Likewise.
+	* cxx-pretty-print.c: Likewise.
+	* decl.c: Likewise.
+	* init.c: Likewise.
+	* name-lookup.c: Likewise.
+	* operators.def: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+
+2008-07-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36871
+	PR c++/36872
+	* semantics.c (classtype_has_nothrow_assign_or_copy_p): Only check
+	copy constructors and copy assignment operators proper.
+
+2008-07-21  Rafael Avila de Espindola  <espindola@google.com>
+
+	* parser.c (cp_token): Remove in_system_header.
+	(eof_token): Remove in_system_header.
+	(cp_lexer_get_preprocessor_token): Don't set in_system_header.
+	(cp_lexer_set_source_position_from_token): Don't set in_system_header.
+	(cp_parser_member_declaration):  Use in_system_header_at.
+	* pt.c (lookup_template_class): Don't set DECL_IN_SYSTEM_HEADER.
+	(pop_tinst_level): Don't set in_system_header.
+	(instantiate_class_template): Don't set in_system_header.
+	(instantiate_decl): Don't set in_system_header.
+	(instantiate_pending_templates): Don't set in_system_header.
+
+2008-07-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/36870
+	* semantics.c (classtype_has_nothrow_assign_or_copy_p): Use
+	TYPE_NOTHROW_P, not TREE_NOTHROW.
+	(trait_expr_value): Likewise.
+
 2008-07-18  Dodji Seketeli  <dseketel@redhat.com>
 
 	PR c++/36407

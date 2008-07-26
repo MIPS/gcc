@@ -762,7 +762,7 @@ get_proc_name (const char *name, gfc_symbol **result, bool module_fcn_entry)
 	  (*result)->ts = sym->ts;
 
 	  /* Put the symbol in the procedure namespace so that, should
-	     the ENTRY preceed its specification, the specification
+	     the ENTRY precede its specification, the specification
 	     can be applied.  */
 	  (*result)->ns = gfc_current_ns;
 
@@ -4120,8 +4120,8 @@ match_procedure_decl (void)
       /* Handle intrinsic procedures.  */
       if (!(proc_if->attr.external || proc_if->attr.use_assoc
 	    || proc_if->attr.if_source == IFSRC_IFBODY)
-	  && (gfc_intrinsic_name (proc_if->name, 0)
-	      || gfc_intrinsic_name (proc_if->name, 1)))
+	  && (gfc_is_intrinsic (proc_if, 0, gfc_current_locus)
+	      || gfc_is_intrinsic (proc_if, 1, gfc_current_locus)))
 	proc_if->attr.intrinsic = 1;
       if (proc_if->attr.intrinsic
 	  && !gfc_intrinsic_actual_ok (proc_if->name, 0))
@@ -4336,6 +4336,22 @@ gfc_match_procedure (void)
 }
 
 
+/* Warn if a matched procedure has the same name as an intrinsic; this is
+   simply a wrapper around gfc_warn_intrinsic_shadow that interprets the current
+   parser-state-stack to find out whether we're in a module.  */
+
+static void
+warn_intrinsic_shadow (const gfc_symbol* sym, bool func)
+{
+  bool in_module;
+
+  in_module = (gfc_state_stack->previous
+	       && gfc_state_stack->previous->state == COMP_MODULE);
+
+  gfc_warn_intrinsic_shadow (sym, in_module, func);
+}
+
+
 /* Match a function declaration.  */
 
 match
@@ -4459,6 +4475,9 @@ gfc_match_function_decl (void)
 	  result->ts = current_ts;
 	  sym->result = result;
 	}
+
+      /* Warn if this procedure has the same name as an intrinsic.  */
+      warn_intrinsic_shadow (sym, true);
 
       return MATCH_YES;
     }
@@ -4841,6 +4860,9 @@ gfc_match_subroutine (void)
 
   if (copy_prefix (&sym->attr, &sym->declared_at) == FAILURE)
     return MATCH_ERROR;
+
+  /* Warn if it has the same name as an intrinsic.  */
+  warn_intrinsic_shadow (sym, false);
 
   return MATCH_YES;
 }
@@ -5770,7 +5792,7 @@ syntax:
 
 
 /* The PRIVATE statement is a bit weird in that it can be an attribute
-   declaration, but also works as a standlone statement inside of a
+   declaration, but also works as a standalone statement inside of a
    type declaration or a module.  */
 
 match
@@ -6341,7 +6363,7 @@ gfc_match_derived_decl (void)
      components.  The ways this can happen is via a function
      definition, an INTRINSIC statement or a subtype in another
      derived type that is a pointer.  The first part of the AND clause
-     is true if a the symbol is not the return value of a function.  */
+     is true if the symbol is not the return value of a function.  */
   if (sym->attr.flavor != FL_DERIVED
       && gfc_add_flavor (&sym->attr, FL_DERIVED, sym->name, NULL) == FAILURE)
     return MATCH_ERROR;

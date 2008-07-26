@@ -1927,7 +1927,7 @@ gfc_apply_interface_mapping_to_expr (gfc_interface_mapping * mapping,
 
   /* ...and to the expression's symbol, if it has one.  */
   /* TODO Find out why the condition on expr->symtree had to be moved into
-     the loop rather than being ouside it, as originally.  */
+     the loop rather than being outside it, as originally.  */
   for (sym = mapping->syms; sym; sym = sym->next)
     if (expr->symtree && sym->old == expr->symtree->n.sym)
       {
@@ -2059,7 +2059,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr,
   gfc_add_ss_to_loop (&loop, loop.temp_ss);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop);
+  gfc_conv_loop_setup (&loop, &expr->where);
 
   /* Pass the temporary descriptor back to the caller.  */
   info = &loop.temp_ss->data.info;
@@ -2124,7 +2124,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr,
   gfc_conv_ss_startstride (&loop2);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop2);
+  gfc_conv_loop_setup (&loop2, &expr->where);
 
   gfc_copy_loopinfo_to_se (&lse, &loop2);
   gfc_copy_loopinfo_to_se (&rse, &loop2);
@@ -2691,7 +2691,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
     {
       if (se->direct_byref)
 	{
-	  /* Sometimes, too much indirection can be applied; eg. for
+	  /* Sometimes, too much indirection can be applied; e.g. for
 	     function_result = array_valued_recursive_function.  */
 	  if (TREE_TYPE (TREE_TYPE (se->expr))
 		&& TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr)))
@@ -2717,7 +2717,8 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	     mustn't be deallocated.  */
 	  callee_alloc = sym->attr.allocatable || sym->attr.pointer;
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
-				       false, !sym->attr.pointer, callee_alloc);
+				       false, !sym->attr.pointer, callee_alloc,
+				       &se->ss->expr->where);
 
 	  /* Pass the temporary as the first argument.  */
 	  tmp = info->descriptor;
@@ -3335,7 +3336,7 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_conv_ss_startstride (&loop);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop);
+  gfc_conv_loop_setup (&loop, &expr->where);
 
   /* Setup the gfc_se structures.  */
   gfc_copy_loopinfo_to_se (&lse, &loop);
@@ -3934,7 +3935,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 
 
 /* Makes sure se is suitable for passing as a function string parameter.  */
-/* TODO: Need to check all callers fo this function.  It may be abused.  */
+/* TODO: Need to check all callers of this function.  It may be abused.  */
 
 void
 gfc_conv_string_parameter (gfc_se * se)
@@ -4415,7 +4416,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag)
       /* Resolve any data dependencies in the statement.  */
       gfc_conv_resolve_dependencies (&loop, lss, rss);
       /* Setup the scalarizing loops.  */
-      gfc_conv_loop_setup (&loop);
+      gfc_conv_loop_setup (&loop, &expr2->where);
 
       /* Setup the gfc_se structures.  */
       gfc_copy_loopinfo_to_se (&lse, &loop);
