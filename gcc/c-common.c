@@ -5047,7 +5047,6 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		   name, "cold");
 	  *no_add_attrs = true;
 	}
-
       else
 	{
 	  tree old_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node);
@@ -5055,6 +5054,7 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	  /* If we are not at -O3, but are optimizing, turn on -O3
 	     optimizations just for this one function.  */
 	  if (((optimize > 0 && optimize < 3) || optimize_size)
+	      && targetm.target_option.hot_attribute_sets_optimization
 	      && (!old_opts || old_opts == optimization_default_node))
 	    {
 	      /* Create the hot optimization node if needed.  */
@@ -5072,9 +5072,9 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
 		= optimization_hot_node;
 	    }
+	  /* Most of the rest of the hot processing is done later with
+	     lookup_attribute.  */
 	}
-      /* Most of the rest of the hot processing is done later with
-	 lookup_attribute.  */
     }
   else
     {
@@ -5106,6 +5106,7 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	  /* If we are optimizing, but not optimizing for space, turn on -Os
 	     optimizations just for this one function.  */
 	  if (optimize && !optimize_size
+	      && targetm.target_option.cold_attribute_sets_optimization
 	      && (!old_opts || old_opts == optimization_default_node))
 	    {
 	      /* Create the cold optimization node if needed.  */
@@ -5123,6 +5124,8 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
 		= optimization_cold_node;
 	    }
+	  /* Most of the rest of the cold processing is done later with
+	     lookup_attribute.  */
 	}
     }
   else

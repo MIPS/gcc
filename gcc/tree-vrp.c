@@ -3603,7 +3603,9 @@ infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_
 
   /* We can only assume that a pointer dereference will yield
      non-NULL if -fdelete-null-pointer-checks is enabled.  */
-  if (flag_delete_null_pointer_checks && POINTER_TYPE_P (TREE_TYPE (op)))
+  if (flag_delete_null_pointer_checks
+      && POINTER_TYPE_P (TREE_TYPE (op))
+      && gimple_code (stmt) != GIMPLE_ASM)
     {
       unsigned num_uses, num_loads, num_stores;
 

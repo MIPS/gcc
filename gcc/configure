@@ -1090,7 +1090,7 @@ Optional Packages:
                           use sysroot as the system root during the build
   --with-sysroot=DIR Search for usr/lib, usr/include, et al, within DIR.
   --with-pkgversion=PKG   Use PKG in the version string in place of
-                          "gimple-tuples-branch merged with rev 138092"
+                          "gimple-tuples-branch merged with rev 138159"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
@@ -8055,7 +8055,7 @@ echo "$as_me: error: package version not specified" >&2;}
       *)   PKGVERSION="($withval) " ;;
      esac
 else
-  PKGVERSION="(gimple-tuples-branch merged with rev 138092) "
+  PKGVERSION="(gimple-tuples-branch merged with rev 138159) "
 
 fi;
 
@@ -8550,7 +8550,7 @@ else
 
                     case $ac_prog_version in
                       '')  gcc_cv_prog_makeinfo_modern=no;;
-                      4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
+                      4.[7-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*)  gcc_cv_prog_makeinfo_modern=yes;;
                       *)   gcc_cv_prog_makeinfo_modern=no;;
                     esac
 

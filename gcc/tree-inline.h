@@ -166,11 +166,4 @@ extern gimple_seq copy_gimple_seq_and_replace_locals (gimple_seq seq);
 
 extern HOST_WIDE_INT estimated_stack_frame_size (void);
 
-/* 0 if we should not perform inlining.
-   1 if we should expand functions calls inline at the tree level.
-   2 if we should consider *all* functions to be inline
-   candidates.  */
-
-extern int flag_inline_trees;
-
 #endif /* GCC_TREE_INLINE_H */

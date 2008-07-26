@@ -777,7 +777,7 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
-ACX_PKGVERSION([gimple-tuples-branch merged with rev 138092])
+ACX_PKGVERSION([gimple-tuples-branch merged with rev 138159])
 ACX_BUGURL([http://gcc.gnu.org/bugs.html])
 
 # Sanity check enable_languages in case someone does not run the toplevel
@@ -849,7 +849,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
+  [4.[7-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.

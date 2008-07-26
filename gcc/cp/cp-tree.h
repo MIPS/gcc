@@ -1609,7 +1609,7 @@ struct lang_decl_flags GTY(())
   unsigned repo_available_p : 1;
   unsigned hidden_friend_p : 1;
   unsigned threadprivate_p : 1;
-  /* One unused bit.  */
+  unsigned defaulted_p : 1;
 
   union lang_decl_u {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -2625,6 +2625,14 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    #pragma omp threadprivate.  */
 #define CP_DECL_THREADPRIVATE_P(DECL) \
   (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+
+/* Nonzero if DECL was declared with '= delete'.  */
+#define DECL_DELETED_FN(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+
+/* Nonzero if DECL was declared with '= default'.  */
+#define DECL_DEFAULTED_FN(DECL) \
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.defaulted_p)
 
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
@@ -4171,6 +4179,9 @@ extern void check_for_override			(tree, tree);
 extern void push_class_stack			(void);
 extern void pop_class_stack			(void);
 extern bool type_has_user_nondefault_constructor (tree);
+extern bool type_has_user_provided_constructor  (tree);
+extern bool type_has_user_provided_default_constructor (tree);
+extern bool defaultable_fn_p			(tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -4323,6 +4334,7 @@ extern void mark_needed				(tree);
 extern bool decl_needed_p			(tree);
 extern void note_vague_linkage_fn		(tree);
 extern tree build_artificial_parm		(tree, tree);
+extern bool possibly_inlined_p			(tree);
 
 /* in error.c */
 extern void init_error				(void);
@@ -4801,7 +4813,6 @@ extern int comp_cv_qual_signature		(tree, tree);
 extern tree cxx_sizeof_or_alignof_expr		(tree, enum tree_code, bool);
 extern tree cxx_sizeof_or_alignof_type		(tree, enum tree_code, bool);
 extern tree cxx_sizeof_nowarn                   (tree);
-extern tree inline_conversion			(tree);
 extern tree is_bitfield_expr_with_lowered_type  (const_tree);
 extern tree unlowered_expr_type                 (const_tree);
 extern tree decay_conversion			(tree);
