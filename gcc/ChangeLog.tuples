@@ -1,3 +1,7 @@
+2008-07-26  Richard Guenther  <rguenther@suse.de>
+
+	Merge with mainline @138091.
+
 2008-07-25  Richard Guenther  <rguenther@suse.de>
 
 	* config/ia64/ia64.c (ia64_gimplify_va_arg): Unshare valist
