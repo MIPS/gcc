@@ -1,5 +1,12 @@
 2008-07-26  Richard Guenther  <rguenther@suse.de>
 
+	Merge with mainline @138092.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
+2008-07-26  Richard Guenther  <rguenther@suse.de>
+
 	Merge with mainline @138091.
 
 2008-07-25  Richard Guenther  <rguenther@suse.de>

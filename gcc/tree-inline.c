@@ -1372,7 +1372,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
-	  if (is_gimple_call (stmt) && (decl = gimple_call_fndecl (stmt)))
+	  if (is_gimple_call (stmt))
 	    {
 	      struct cgraph_node *node;
 	      struct cgraph_edge *edge;
@@ -1383,7 +1383,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		edge = cgraph_edge (id->src_node, orig_stmt);
 		if (edge)
 		  cgraph_clone_edge (edge, id->dst_node, stmt,
-		      REG_BR_PROB_BASE, 1, edge->frequency, true);
+					   REG_BR_PROB_BASE, 1,
+					   edge->frequency, true);
 		break;
 
 	      case CB_CGE_MOVE_CLONES:
@@ -1392,8 +1393,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		    node = node->next_clone)
 		  {
 		    edge = cgraph_edge (node, orig_stmt);
-		    gcc_assert (edge);
-		    cgraph_set_call_stmt (edge, stmt);
+			  if (edge)
+			    cgraph_set_call_stmt (edge, stmt);
 		  }
 		/* FALLTHRU */
 
@@ -3044,6 +3045,20 @@ add_lexical_block (tree current_block, tree new_block)
   BLOCK_SUPERCONTEXT (new_block) = current_block;
 }
 
+/* Fetch callee declaration from the call graph edge going from NODE and
+   associated with STMR call statement.  Return NULL_TREE if not found.  */
+static tree
+get_indirect_callee_fndecl (struct cgraph_node *node, gimple stmt)
+{
+  struct cgraph_edge *cs;
+
+  cs = cgraph_edge (node, stmt);
+  if (cs)
+    return cs->callee->decl;
+
+  return NULL_TREE;
+}
+
 /* If STMT is a GIMPLE_CALL, replace it with its inline expansion.  */
 
 static bool
@@ -3079,7 +3094,11 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      If we cannot, then there is no hope of inlining the function.  */
   fn = gimple_call_fndecl (stmt);
   if (!fn)
-    goto egress;
+    {
+      fn = get_indirect_callee_fndecl (id->dst_node, stmt);
+      if (!fn)
+	goto egress;
+    }
 
   /* Turn forward declarations into real ones.  */
   fn = cgraph_node (fn)->decl;
@@ -3130,6 +3149,12 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      inlining.  */
   if (!cgraph_inline_p (cg_edge, &reason))
     {
+      /* If this call was originally indirect, we do not want to emit any
+	 inlining related warnings or sorry messages because there are no
+	 guarantees regarding those.  */
+      if (cg_edge->indirect_call)
+	goto egress;
+
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn))
 	  /* Avoid warnings during early inline pass. */
 	  && (!flag_unit_at_a_time || cgraph_global_info_ready))
