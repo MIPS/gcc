@@ -3,6 +3,11 @@
 	* config/ia64/ia64.c (ia64_gimplify_va_arg): Unshare valist
 	before reusing it.
 
+2008-07-25  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* tree-tailcall.c (process_assignment): Prevent tail call
+	optimization if the modes of the return types don't match.
+
 2008-07-24  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-inline.c (expand_call_inline): Allow casts in assert.
