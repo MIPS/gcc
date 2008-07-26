@@ -412,17 +412,6 @@ cgraph_node (tree decl)
       node->master_clone = node;
     }
 
-  /* This code can go away once flag_unit_at_a_mode is removed.  */
-  if (assembler_name_hash)
-    {
-      tree name = DECL_ASSEMBLER_NAME (node->decl);
-      slot = ((struct cgraph_node **)
-              htab_find_slot_with_hash (assembler_name_hash, name,
-				        decl_assembler_name_hash (name),
-				        INSERT));
-      if (!*slot)
-        *slot = node;
-    }
   return node;
 }
 
@@ -625,6 +614,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   gcc_assert (freq >= 0);
   gcc_assert (freq <= CGRAPH_FREQ_MAX);
   edge->loop_nest = nest;
+  edge->indirect_call = 0;
   edge->uid = cgraph_edge_max_uid++;
   if (caller->call_site_hash)
     {
@@ -893,7 +883,7 @@ cgraph_remove_node (struct cgraph_node *node)
         htab_clear_slot (assembler_name_hash, slot);
     }
 
-  if (kill_body && flag_unit_at_a_time)
+  if (kill_body)
     cgraph_release_function_body (node);
   node->decl = NULL;
   if (node->call_site_hash)
@@ -1048,6 +1038,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 		 edge->frequency / (double)CGRAPH_FREQ_BASE);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->indirect_call)
+	fprintf(f, "(indirect) ");
     }
 
   fprintf (f, "\n  calls: ");
@@ -1057,6 +1049,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->callee->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->indirect_call)
+	fprintf(f, "(indirect) ");
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
 		 (HOST_WIDEST_INT)edge->count);
@@ -1146,7 +1140,7 @@ bool
 cgraph_function_possibly_inlined_p (tree decl)
 {
   if (!cgraph_global_info_ready)
-    return (DECL_INLINE (decl) && !flag_really_no_inline);
+    return !DECL_UNINLINABLE (decl) && !flag_really_no_inline;
   return DECL_POSSIBLY_INLINED (decl);
 }
 
@@ -1166,6 +1160,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 			    e->loop_nest + loop_nest);
 
   new->inline_failed = e->inline_failed;
+  new->indirect_call = e->indirect_call;
   if (update_original)
     {
       e->count -= new->count;
@@ -1366,7 +1361,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	if (!lowered)
           tree_lowering_passes (fndecl);
 	bitmap_obstack_initialize (NULL);
-	if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)) && optimize)
+	if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
 	  execute_pass_list (pass_early_local_passes.pass.sub);
 	bitmap_obstack_release (NULL);
 	tree_rest_of_compilation (fndecl);

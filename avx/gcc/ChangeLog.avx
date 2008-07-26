@@ -1,3 +1,8 @@
+2008-07-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-c.c (ix86_target_macros_internal): Handle
+	OPTION_MASK_ISA_AVX and OPTION_MASK_ISA_FMA.
+
 2008-07-08  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* Correct merge trunk revision to 137621.

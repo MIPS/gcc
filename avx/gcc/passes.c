@@ -180,7 +180,7 @@ rest_of_decl_compilation (tree decl,
       /* Don't output anything when a tentative file-scope definition
 	 is seen.  But at end of compilation, do output code for them.
 
-	 We do output all variables when unit-at-a-time is active and rely on
+	 We do output all variables and rely on
 	 callgraph code to defer them except for forward declarations
 	 (see gcc.c-torture/compile/920624-1.c) */
       if ((at_end
@@ -523,9 +523,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_inline_parameters);
   *p = NULL;
 
-  /* Interprocedural optimization passes. 
-     All these passes are ignored in -fno-unit-at-a-time
-     except for subpasses of early_local_passes.  */
+  /* Interprocedural optimization passes.  */
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
   NEXT_PASS (pass_ipa_early_inline);
@@ -542,12 +540,13 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cleanup_cfg);
       NEXT_PASS (pass_init_datastructures);
       NEXT_PASS (pass_expand_omp);
+
+      NEXT_PASS (pass_referenced_vars);
+      NEXT_PASS (pass_reset_cc_flags);
+      NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
-	  NEXT_PASS (pass_referenced_vars);
-	  NEXT_PASS (pass_reset_cc_flags);
-	  NEXT_PASS (pass_build_ssa);
 	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
@@ -574,8 +573,8 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_tail_recursion);
 	  NEXT_PASS (pass_convert_switch);
           NEXT_PASS (pass_profile);
-	  NEXT_PASS (pass_release_ssa_names);
 	}
+      NEXT_PASS (pass_release_ssa_names);
       NEXT_PASS (pass_rebuild_cgraph_edges);
     }
   NEXT_PASS (pass_ipa_increase_alignment);
@@ -592,7 +591,6 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
-  NEXT_PASS (pass_O0_always_inline);
   NEXT_PASS (pass_all_optimizations);
     {
       struct opt_pass **p = &pass_all_optimizations.pass.sub;
@@ -712,11 +710,12 @@ init_optimization_passes (void)
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
-      NEXT_PASS (pass_del_ssa);
-      NEXT_PASS (pass_nrv);
-      NEXT_PASS (pass_mark_used_blocks);
-      NEXT_PASS (pass_cleanup_cfg_post_optimizing);
     }
+  NEXT_PASS (pass_del_ssa);
+  NEXT_PASS (pass_nrv);
+  NEXT_PASS (pass_mark_used_blocks);
+  NEXT_PASS (pass_cleanup_cfg_post_optimizing);
+
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_free_datastructures);
   NEXT_PASS (pass_mudflap_2);
@@ -1226,8 +1225,6 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   pass_fini_dump_file (pass);
 
   current_pass = NULL;
-  /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
-  in_gimple_form = false;
 }
 
 static bool
@@ -1327,8 +1324,6 @@ execute_one_pass (struct opt_pass *pass)
 		|| pass->type != RTL_PASS);
 
   current_pass = NULL;
-  /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
-  in_gimple_form = false;
 
   return true;
 }
