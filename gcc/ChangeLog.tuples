@@ -1,3 +1,8 @@
+2008-07-26  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_function, cgraph_decide_inlining,
+	cgraph_decide_inlining_incrementally):  Use gimple_call_set_cannot_inline.
+
 2008-07-26  Richard Guenther  <rguenther@suse.de>
 
 	Merge with mainline @138092.

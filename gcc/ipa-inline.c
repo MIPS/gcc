@@ -981,7 +981,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	}
       if (!tree_can_inline_p (edge->caller->decl, edge->callee->decl))
 	{
-	  CALL_STMT_CANNOT_INLINE_P (edge->call_stmt) = true;
+	  gimple_call_set_cannot_inline (edge->call_stmt, true);
 	  edge->inline_failed = N_("target specific option mismatch");
 	  if (dump_file)
 	    fprintf (dump_file, " inline_failed:%s.\n", edge->inline_failed);
@@ -1143,7 +1143,7 @@ cgraph_decide_inlining (void)
 	    continue;
 	  if (!tree_can_inline_p (e->caller->decl, e->callee->decl))
 	    {
-	      CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	      gimple_call_set_cannot_inline (e->call_stmt, true);
 	      continue;
 	    }
 	  cgraph_mark_inline_edge (e, true);
@@ -1382,7 +1382,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	}
       if (!tree_can_inline_p (node->decl, e->callee->decl))
 	{
-	  CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	  gimple_call_set_cannot_inline (e->call_stmt, true);
 	  if (dump_file)
 	    {
 	      indent_to (dump_file, depth);
@@ -1490,7 +1490,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node,
 	  }
 	if (!tree_can_inline_p (node->decl, e->callee->decl))
 	  {
-	    CALL_STMT_CANNOT_INLINE_P (e->call_stmt) = true;
+	    gimple_call_set_cannot_inline (e->call_stmt, true);
 	    if (dump_file)
 	      {
 		indent_to (dump_file, depth);
