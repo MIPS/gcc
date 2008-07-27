@@ -4861,6 +4861,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   gsi = gsi_last_bb (load_bb);
   gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ATOMIC_LOAD);
   call = build_call_expr (decl, 2, addr, fold_convert (itype, rhs));
+  call = fold_convert (void_type_node, call);
   force_gimple_operand_gsi (&gsi, call, true, NULL_TREE, true, GSI_SAME_STMT);
   gsi_remove (&gsi, true);
 
