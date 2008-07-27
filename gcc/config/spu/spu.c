@@ -3303,20 +3303,21 @@ spu_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
   /* build conditional expression to calculate addr. The expression
      will be gimplified later. */
   paddedsize = size_int (rsize);
-  tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, args, paddedsize);
+  tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, unshare_expr (args), paddedsize);
   tmp = build2 (TRUTH_AND_EXPR, boolean_type_node,
-		build2 (GT_EXPR, boolean_type_node, tmp, skip),
-		build2 (LE_EXPR, boolean_type_node, args, skip));
+		build2 (GT_EXPR, boolean_type_node, tmp, unshare_expr (skip)),
+		build2 (LE_EXPR, boolean_type_node, unshare_expr (args),
+		unshare_expr (skip)));
 
   tmp = build3 (COND_EXPR, ptr_type_node, tmp,
-		build2 (POINTER_PLUS_EXPR, ptr_type_node, skip,
-			size_int (32)), args);
+		build2 (POINTER_PLUS_EXPR, ptr_type_node, unshare_expr (skip),
+			size_int (32)), unshare_expr (args));
 
   gimplify_assign (addr, tmp, pre_p);
 
   /* update VALIST.__args */
   tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node, addr, paddedsize);
-  gimplify_assign (args, tmp, pre_p);
+  gimplify_assign (unshare_expr (args), tmp, pre_p);
 
   addr = fold_convert (build_pointer_type (type), addr);
 
