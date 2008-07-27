@@ -219,8 +219,9 @@ lookup_expr_eh_region (tree t)
 
   if (t && EXPR_P (t))
     {
-      tree_ann_common_t ann = get_tree_common_ann (t);
-      return (int) ann->rn;
+      tree_ann_common_t ann = tree_common_ann (t);
+      if (ann)
+	return (int) ann->rn;
     }
 
   return -1;

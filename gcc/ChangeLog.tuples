@@ -1,3 +1,11 @@
+2008-07-27  Richard Guenther  <rguenther@suse.de>
+
+	* tree-eh.c (lookup_expr_eh_region): Do not allocate a tree
+	annotation.
+	* tree-dfa.c (create_tree_common_ann): Set eh region to -1.
+	* tree-flow.h (struct tree_ann_common_d): Reorder rn member
+	to pack with type.
+
 2008-07-26  Richard Guenther  <rguenther@suse.de>
 
 	Merge with mainline @138159.
