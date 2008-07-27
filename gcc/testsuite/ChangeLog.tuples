@@ -1,3 +1,8 @@
+2008-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/fold-alloca-1.c: Look into cleanup_cfg1 dump instead of
+	useless dump.
+
 2008-07-25  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* gcc.dg/tree-ssa/tailcall-3.c: New testcase.
