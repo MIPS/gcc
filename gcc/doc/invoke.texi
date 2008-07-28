@@ -231,8 +231,9 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wc++-compat -Wc++0x-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-deprecated  @gol
--Wno-deprecated-declarations -Wdisabled-optimization  -Wno-div-by-zero  @gol
--Wempty-body  -Wenum-compare -Wno-endif-labels @gol
+-Wno-deprecated-declarations -Wdisabled-optimization  @gol
+-Wdisallowed-function-list=@var{sym},@var{sym},@dots{} @gol
+-Wno-div-by-zero -Wempty-body  -Wenum-compare -Wno-endif-labels @gol
 -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
@@ -311,7 +312,7 @@ Objective-C and Objective-C++ Dialects}.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
--print-sysroot-headers-suffix @gol
+-print-sysroot -print-sysroot-headers-suffix @gol
 -save-temps  -time}
 
 @item Optimization Options
@@ -328,8 +329,8 @@ Objective-C and Objective-C++ Dialects}.
 -fearly-inlining -fexpensive-optimizations -ffast-math @gol
 -ffinite-math-only -ffloat-store -fforward-propagate @gol
 -ffunction-sections -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm @gol
--fgcse-sm -fif-conversion -fif-conversion2 -finline-functions @gol
--finline-functions-called-once -finline-limit=@var{n} @gol
+-fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
+-finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-marix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
@@ -564,6 +565,7 @@ Objective-C and Objective-C++ Dialects}.
 -maes -mpclmul @gol
 -msse4a -m3dnow -mpopcnt -mabm -msse5 @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
+-minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
 -mveclibabi=@var{type} -mpc32 -mpc64 -mpc80 -mstackrealign @gol
@@ -4105,6 +4107,13 @@ minimum maximum, so we do not diagnose overlength strings in C++@.
 
 This option is implied by @option{-pedantic}, and can be disabled with
 @option{-Wno-overlength-strings}.
+
+@item -Wdisallowed-function-list=@var{sym},@var{sym},@dots{}
+@opindex Wdisallowed-function-list
+
+If any of @var{sym} is called, GCC will issue a warning. This can be useful
+in enforcing coding conventions that ban calls to certain functions, for
+example, @code{alloca}, @code{malloc}, etc.
 @end table
 
 @node Debugging Options
@@ -5069,6 +5078,14 @@ variable @env{GCC_EXEC_PREFIX} to the directory where you installed them.
 Don't forget the trailing @samp{/}.
 @xref{Environment Variables}.
 
+@item -print-sysroot
+@opindex print-sysroot
+Print the target sysroot directory that will be used during
+compilation.  This is the target sysroot specified either at configure
+time or or using the @option{--sysroot} option, possibly with an extra
+suffix that depends on compilation options.  If no target sysroot is
+specified, the option prints nothing.
+
 @item -print-sysroot-headers-suffix
 @opindex print-sysroot-headers-suffix
 Print the suffix added to the target sysroot when searching for
@@ -5122,14 +5139,10 @@ Turning on optimization flags makes the compiler attempt to improve
 the performance and/or code size at the expense of compilation time
 and possibly the ability to debug the program.
 
-The compiler performs optimization based on the knowledge it has of
-the program.  Optimization levels @option{-O} and above, in
-particular, enable @emph{unit-at-a-time} mode, which allows the
-compiler to consider information gained from later functions in
-the file when compiling a function.  Compiling multiple files at
-once to a single output file in @emph{unit-at-a-time} mode allows
-the compiler to use information gained from all of the files when
-compiling each of them.
+The compiler performs optimization based on the knowledge it has of the
+program.  Compiling multiple files at once to a single output file mode allows
+the compiler to use information gained from all of the files when compiling
+each of them.
 
 Not all optimizations are controlled directly by a flag.  Only
 optimizations that have a flag are listed.
@@ -5196,6 +5209,7 @@ also turns on the following optimization flags:
 -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations @gol
 -fgcse  -fgcse-lm  @gol
+-findirect-inlining @gol
 -foptimize-sibling-calls @gol
 -fpeephole2 @gol
 -fregmove @gol
@@ -5213,8 +5227,8 @@ invoking @option{-O2} on programs that use computed gotos.
 
 @item -O3
 @opindex O3
-Optimize yet more.  @option{-O3} turns on all optimizations specified by
-@option{-O2} and also turns on the @option{-finline-functions},
+Optimize yet more.  @option{-O3} turns on all optimizations specified
+by @option{-O2} and also turns on the @option{-finline-functions},
 @option{-funswitch-loops}, @option{-fpredictive-commoning},
 @option{-fgcse-after-reload} and @option{-ftree-vectorize} options.
 
@@ -5316,6 +5330,15 @@ in this way.
 
 Enabled at level @option{-O2}.
 
+@item -findirect-inlining
+@opindex findirect-inlining
+Inline also indirect calls that are discovered to be known at compile
+time thanks to previous inlining.  This option has any effect only
+when inlining itself is turned on by the @option{-finline-functions}
+or @option{-finline-small-functions} options.
+
+Enabled at level @option{-O2}.
+
 @item -finline-functions
 @opindex finline-functions
 Integrate all simple functions into their callers.  The compiler
@@ -5335,7 +5358,7 @@ caller even if they are not marked @code{inline}.  If a call to a given
 function is integrated, then the function is not output as assembler code
 in its own right.
 
-Enabled if @option{-funit-at-a-time} is enabled.
+Enabled at levels @option{-O1}, @option{-O2}, @option{-O3} and @option{-Os}.
 
 @item -fearly-inlining
 @opindex fearly-inlining
@@ -6356,39 +6379,11 @@ Enabled at levels @option{-O2}, @option{-O3}.
 
 @item -funit-at-a-time
 @opindex funit-at-a-time
-Parse the whole compilation unit before starting to produce code.
-This allows some extra optimizations to take place but consumes
-more memory (in general).  There are some compatibility issues
-with @emph{unit-at-a-time} mode:
-@itemize @bullet
-@item
-enabling @emph{unit-at-a-time} mode may change the order
-in which functions, variables, and top-level @code{asm} statements
-are emitted, and will likely break code relying on some particular
-ordering.  The majority of such top-level @code{asm} statements,
-though, can be replaced by @code{section} attributes.  The
-@option{fno-toplevel-reorder} option may be used to keep the ordering
-used in the input file, at the cost of some optimizations.
+This option is left for compatibility reasons. @option{-funit-at-a-time}
+has no effect, while @option{-fno-unit-at-a-time} implies
+@option{-fno-toplevel-reorder} and @option{-fno-section-anchors}.
 
-@item
-@emph{unit-at-a-time} mode removes unreferenced static variables
-and functions.  This may result in undefined references
-when an @code{asm} statement refers directly to variables or functions
-that are otherwise unused.  In that case either the variable/function
-shall be listed as an operand of the @code{asm} statement operand or,
-in the case of top-level @code{asm} statements the attribute @code{used}
-shall be used on the declaration.
-
-@item
-Static functions now can use non-standard passing conventions that
-may break @code{asm} statements calling functions directly.  Again,
-attribute @code{used} will prevent this behavior.
-@end itemize
-
-As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
-but this scheme may not be supported by future releases of GCC@.
-
-Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+Enabled by default.
 
 @item -fno-toplevel-reorder
 @opindex fno-toplevel-reorder
@@ -6398,6 +6393,10 @@ input file.  When this option is used, unreferenced static variables
 will not be removed.  This option is intended to support existing code
 which relies on a particular ordering.  For new code, it is better to
 use attributes.
+
+Enabled at level @option{-O0}.  When disabled explicitly, it also imply
+@option{-fno-section-anchors} that is otherwise enabled at @option{-O0} on some
+targets.
 
 @item -fweb
 @opindex fweb
@@ -6984,12 +6983,10 @@ limit after inlining inlining is constrained by
 @option{--param large-function-growth}.  This parameter is useful primarily
 to avoid extreme compilation time caused by non-linear algorithms used by the
 backend.
-This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 2700.
 
 @item large-function-growth
 Specifies maximal growth of large function caused by inlining in percents.
-This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 100 which limits large function growth to 2.0 times
 the original size.
 
@@ -7006,7 +7003,6 @@ before applying @option{--param inline-unit-growth}.  The default is 10000
 
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
-This parameter is ignored when @option{-funit-at-a-time} is not used.
 The default value is 30 which limits unit growth to 1.3 times the original
 size.
 
@@ -7380,7 +7376,8 @@ duplicated when threading jumps.
 
 @item max-fields-for-field-sensitive
 Maximum number of fields in a structure we will treat in
-a field sensitive manner during pointer analysis.
+a field sensitive manner during pointer analysis.  The default is zero
+for -O0, and -O1 and 100 for -Os, -O2, and -O3.
 
 @item prefetch-latency
 Estimate on average number of instructions that are executed before
@@ -10620,6 +10617,8 @@ code that expects temporaries to be 80bit.
 This is the default choice for the x86-64 compiler.
 
 @item sse,387
+@itemx sse+387
+@itemx both
 Attempt to utilize both instruction sets at once.  This effectively double the
 amount of available registers and on chips with separate execution units for
 387 and SSE the execution resources too.  Use this option with care, as it is
@@ -15662,7 +15661,7 @@ for any cases where this rule is relaxed.
 @item Each of the following options must be the same when building and using
 the precompiled header:
 
-@gccoptlist{-fexceptions -funit-at-a-time}
+@gccoptlist{-fexceptions}
 
 @item
 Some other command-line options starting with @option{-f},

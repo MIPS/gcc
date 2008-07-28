@@ -78,7 +78,7 @@ char *alloca ();
 #define stringize(x) expand_macro(x)
 #define expand_macro(x) # x
 
-/* For a the runtime library, a standard prefix is a requirement to
+/* For the runtime library, a standard prefix is a requirement to
    avoid cluttering the namespace with things nobody asked for.  It's
    ugly to look at and a pain to type when you add the prefix by hand,
    so we hide it behind a macro.  */
@@ -114,9 +114,11 @@ io_kind;
    following enum makes things much more readable.  We also start
    values off at one instead of zero.  */
 
+/* FIXME: This macro is temporary until we convert everything.  */
+#define try gfc_try
 typedef enum
 { SUCCESS = 1, FAILURE }
-try;
+gfc_try;
 
 /* This is returned by gfc_notification_std to know if, given the flags
    that were given (-std=, -pedantic) we should issue an error, a warning
@@ -302,7 +304,7 @@ extern const mstring save_status[];
 enum gfc_isym_id
 {
   /* GFC_ISYM_NONE is used for intrinsics which will never be seen by
-     the backend (eg. KIND).  */
+     the backend (e.g. KIND).  */
   GFC_ISYM_NONE = 0,
   GFC_ISYM_ABORT,
   GFC_ISYM_ABS,
@@ -625,7 +627,7 @@ typedef struct
   ENUM_BITFIELD (save_state) save:2;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
-    protected:1,		/* Symbol has been marked as protected.  */
+    is_protected:1,		/* Symbol has been marked as protected.  */
     use_assoc:1,		/* Symbol has been use-associated.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
     use_rename:1,		/* Symbol has been use-associated and renamed.  */
@@ -691,7 +693,7 @@ typedef struct
   unsigned cray_pointer:1, cray_pointee:1;
 
   /* The symbol is a derived type with allocatable components, pointer 
-     components or private components, possibly nested.  zer_comp
+     components or private components, possibly nested.  zero_comp
      is true if the derived type has no component at all.  */
   unsigned alloc_comp:1, pointer_comp:1, private_comp:1, zero_comp:1;
 
@@ -980,13 +982,12 @@ gfc_interface;
 
 #define gfc_get_interface() XCNEW (gfc_interface)
 
-
 /* User operator nodes.  These are like stripped down symbols.  */
 typedef struct
 {
   const char *name;
 
-  gfc_interface *operator;
+  gfc_interface *op;
   struct gfc_namespace *ns;
   gfc_access access;
 }
@@ -1052,7 +1053,7 @@ typedef struct gfc_symbol
      the old symbol.  */
 
   struct gfc_symbol *old_symbol, *tlink;
-  unsigned mark:1, new:1;
+  unsigned mark:1, gfc_new:1;
   /* Nonzero if all equivalences associated with this symbol have been
      processed.  */
   unsigned equiv_built:1;
@@ -1179,7 +1180,7 @@ typedef struct gfc_namespace
   /* Points to the equivalence groups produced by trans_common.  */
   struct gfc_equiv_list *equiv_lists;
 
-  gfc_interface *operator[GFC_INTRINSIC_OPS];
+  gfc_interface *op[GFC_INTRINSIC_OPS];
 
   /* Points to the parent namespace, i.e. the namespace of a module or
      procedure in which the procedure belonging to this namespace is
@@ -1490,7 +1491,7 @@ typedef struct gfc_expr
 
     struct
     {
-      gfc_intrinsic_op operator;
+      gfc_intrinsic_op op;
       gfc_user_op *uop;
       struct gfc_expr *op1, *op2;
     }
@@ -1871,7 +1872,10 @@ typedef struct
   int warn_surprising;
   int warn_tabs;
   int warn_underflow;
+  int warn_intrinsic_shadow;
+  int warn_intrinsics_std;
   int warn_character_truncation;
+  int warn_array_temp;
   int max_errors;
 
   int flag_all_intrinsics;
@@ -1891,6 +1895,7 @@ typedef struct
   int flag_automatic;
   int flag_backslash;
   int flag_backtrace;
+  int flag_check_array_temporaries;
   int flag_allow_leading_underscore;
   int flag_dump_core;
   int flag_external_blas;
@@ -1913,7 +1918,6 @@ typedef struct
 
   int warn_std;
   int allow_std;
-  int warn_nonstd_intrinsics;
   int fshort_enums;
   int convert;
   int record_marker;
@@ -1959,7 +1963,7 @@ typedef struct gfc_finalizer
 {
   struct gfc_finalizer* next;
   gfc_symbol* procedure;
-  locus where; /* Where the FINAL declaration occured.  */
+  locus where; /* Where the FINAL declaration occurred.  */
 }
 gfc_finalizer;
 
@@ -2253,13 +2257,17 @@ try gfc_convert_type_warn (gfc_expr *, gfc_typespec *, int, int);
 try gfc_convert_chartype (gfc_expr *, gfc_typespec *);
 int gfc_generic_intrinsic (const char *);
 int gfc_specific_intrinsic (const char *);
-int gfc_intrinsic_name (const char *, int);
+bool gfc_is_intrinsic (gfc_symbol*, int, locus);
 int gfc_intrinsic_actual_ok (const char *, const bool);
 gfc_intrinsic_sym *gfc_find_function (const char *);
 gfc_intrinsic_sym *gfc_find_subroutine (const char *);
 
 match gfc_intrinsic_func_interface (gfc_expr *, int);
 match gfc_intrinsic_sub_interface (gfc_code *, int);
+
+void gfc_warn_intrinsic_shadow (const gfc_symbol*, bool, bool);
+try gfc_check_intrinsic_standard (const gfc_intrinsic_sym*, const char**,
+				  bool, locus);
 
 /* match.c -- FIXME */
 void gfc_free_iterator (gfc_iterator *, int);

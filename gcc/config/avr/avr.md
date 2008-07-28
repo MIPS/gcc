@@ -262,8 +262,7 @@
     && operands[1] != constm1_rtx)"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (clobber (match_dup 2))])]
-  "if (!avr_peep2_scratch_safe (operands[2]))
-     FAIL;")
+  "")
 
 ;;============================================================================
 ;; move word (16 bit)
@@ -321,8 +320,7 @@
     && operands[1] != constm1_rtx)"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (clobber (match_dup 2))])]
-  "if (!avr_peep2_scratch_safe (operands[2]))
-     FAIL;")
+  "")
 
 ;; '*' because it is not used in rtl generation, only in above peephole
 (define_insn "*reload_inhi"
@@ -398,8 +396,7 @@
     && operands[1] != constm1_rtx)"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (clobber (match_dup 2))])]
-  "if (!avr_peep2_scratch_safe (operands[2]))
-     FAIL;")
+  "")
 
 ;; '*' because it is not used in rtl generation.
 (define_insn "*reload_insi"
@@ -1433,8 +1430,7 @@
   ""
   [(parallel [(set (match_dup 0) (ashift:HI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*ashlhi3_const"
   [(set (match_operand:HI 0 "register_operand"            "=r,r,r,r,r")
@@ -1454,8 +1450,7 @@
   ""
   [(parallel [(set (match_dup 0) (ashift:SI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*ashlsi3_const"
   [(set (match_operand:SI 0 "register_operand"            "=r,r,r,r")
@@ -1507,8 +1502,7 @@
   ""
   [(parallel [(set (match_dup 0) (ashiftrt:HI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*ashrhi3_const"
   [(set (match_operand:HI 0 "register_operand"              "=r,r,r,r,r")
@@ -1528,8 +1522,7 @@
   ""
   [(parallel [(set (match_dup 0) (ashiftrt:SI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*ashrsi3_const"
   [(set (match_operand:SI 0 "register_operand"              "=r,r,r,r")
@@ -1581,8 +1574,7 @@
   ""
   [(parallel [(set (match_dup 0) (lshiftrt:HI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*lshrhi3_const"
   [(set (match_operand:HI 0 "register_operand"              "=r,r,r,r,r")
@@ -1602,8 +1594,7 @@
   ""
   [(parallel [(set (match_dup 0) (lshiftrt:SI (match_dup 1) (match_dup 2)))
 	      (clobber (match_dup 3))])]
-  "if (!avr_peep2_scratch_safe (operands[3]))
-     FAIL;")
+  "")
 
 (define_insn "*lshrsi3_const"
   [(set (match_operand:SI 0 "register_operand"              "=r,r,r,r")

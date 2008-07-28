@@ -833,10 +833,9 @@ specified, 1 if @option{-O} is specified, and 0 if neither is specified.
 
 @var{size} is nonzero if @option{-Os} is specified and zero otherwise.
 
-You should not use this macro to change options that are not
-machine-specific.  These should uniformly selected by the same
-optimization level on all supported machines.  Use this macro to enable
-machine-specific optimizations.
+This macro is run once at program startup and when the optimization
+options are changed via @code{#pragma GCC optimize} or by using the
+@code{optimize} attribute.
 
 @strong{Do not examine @code{write_symbols} in
 this macro!} The debugging options are not supposed to alter the
@@ -1093,6 +1092,11 @@ Alignment required for a function entry point, in bits.
 Biggest alignment that any data type can require on this machine, in
 bits.  Note that this is not the biggest alignment that is supported,
 just the biggest alignment that, when violated, may cause a fault.
+@end defmac
+
+@defmac MALLOC_ABI_ALIGNMENT
+Alignment, in bits, a C conformant malloc implementation has to
+provide.  If not defined, the default value is @code{BITS_PER_WORD}.
 @end defmac
 
 @defmac MINIMUM_ATOMIC_ALIGNMENT
@@ -2253,6 +2257,16 @@ You should define this macro to return nonzero in as many cases as
 possible since doing so will allow GCC to perform better register
 allocation.
 @end defmac
+
+@deftypefn {Target Hook} bool TARGET_HARD_REGNO_SCRATCH_OK (unsigned int @var{regno})
+This target hook should return @code{true} if it is OK to use a hard register
+@var{regno} as scratch reg in peephole2.
+
+One common use of this macro is to prevent using of a register that
+is not saved by a prologue in an interrupt handler.
+
+The default version of this hook always returns @code{true}.
+@end deftypefn
 
 @defmac AVOID_CCMODE_COPIES
 Define this macro if the compiler should avoid copies to/from @code{CCmode}
@@ -4212,6 +4226,18 @@ This hook returns a type node for @code{va_list} for the target.
 The default version of the hook returns @code{void*}.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST (tree @var{fndecl})
+This hook returns the va_list type of the calling convention specified by
+@var{fndecl}.
+The default version of this hook returns @code{va_list_type_node}.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_CANONICAL_VA_LIST_TYPE (tree @var{type})
+This hook returns the va_list type of the calling convention specified by the
+type of @var{type}. If @var{type} is not a valid va_list type, it returns
+@code{NULL_TREE}.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_GIMPLIFY_VA_ARG_EXPR (tree @var{valist}, tree @var{type}, tree *@var{pre_p}, tree *@var{post_p})
 This hook performs target-specific gimplification of
 @code{VA_ARG_EXPR}.  The first two parameters correspond to the
@@ -4340,6 +4366,20 @@ suffices:
 If the machine has register windows, so that the caller and the called
 function use different registers for the return value, this macro
 should recognize only the caller's register numbers.
+@end defmac
+
+@defmac TARGET_ENUM_VA_LIST (@var{idx}, @var{pname}, @var{ptype})
+This target macro is used in function @code{c_common_nodes_and_builtins}
+to iterate through the target specific builtin types for va_list. The
+variable @var{idx} is used as iterator. @var{pname} has to be a pointer
+to a @code{const char *} and @var{ptype} a pointer to a @code{tree} typed
+variable.
+The arguments @var{pname} and @var{ptype} are used to store the result of
+this macro and are set to the name of the va_list builtin type and its
+internal type.
+If the return value of this macro is zero, then there is no more element.
+Otherwise the @var{IDX} should be increased for the next call of this
+macro to iterate through all types.
 @end defmac
 
 @defmac APPLY_RESULT_SIZE
@@ -9253,6 +9293,51 @@ This target hook returns @code{true} if it is ok to inline @var{fndecl}
 into the current function, despite its having target-specific
 attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_VALID_OPTION_ATTRIBUTE_P (tree @var{fndecl}, tree @var{name}, tree @var{args}, int @var{flags})
+This hook is called to parse the @code{attribute(option("..."))}, and
+it allows the function to set different target machine compile time
+options for the current function that might be different than the
+options specified on the command line.  The hook should return
+@code{true} if the options are valid.
+
+The hook should set the @var{DECL_FUNCTION_SPECIFIC_TARGET} field in
+the function declaration to hold a pointer to a target specific
+@var{struct cl_target_option} structure.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_OPTION_SAVE (struct cl_target_option *@var{ptr})
+This hook is called to save any additional target specific information
+in the @var{struct cl_target_option} structure for function specific
+options.
+@xref{Option file format}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_OPTION_RESTORE (struct cl_target_option *@var{ptr})
+This hook is called to restore any additional target specific
+information in the @var{struct cl_target_option} structure for
+function specific options.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_OPTION_PRINT (struct cl_target_option *@var{ptr})
+This hook is called to print any additional target specific
+information in the @var{struct cl_target_option} structure for
+function specific options.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_OPTION_PRAGMA_PARSE (target @var{args})
+This target hook parses the options for @code{#pragma GCC option} to
+set the machine specific options for functions that occur later in the
+input stream.  The options should be the same as handled by the
+@code{TARGET_VALID_OPTION_ATTRIBUTE_P} hook.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CAN_INLINE_P (tree @var{caller}, tree @var{callee})
+This target hook returns @code{false} if the @var{caller} function
+cannot inline @var{callee}, based on target specific information.  By
+default, inlining is not allowed if the callee function has function
+specific target options and the caller does not use the same options.
 @end deftypefn
 
 @node Emulated TLS

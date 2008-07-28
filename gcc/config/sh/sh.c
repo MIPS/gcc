@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "sched-int.h"
 #include "ggc.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "cfgloop.h"
 #include "alloc-pool.h"
 #include "tm-constrs.h"
@@ -260,8 +260,9 @@ static void sh_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode, tre
 static bool sh_strict_argument_naming (CUMULATIVE_ARGS *);
 static bool sh_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *);
 static tree sh_build_builtin_va_list (void);
+static tree sh_canonical_va_list_type (tree);
 static void sh_va_start (tree, rtx);
-static tree sh_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static tree sh_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static bool sh_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				  const_tree, bool);
 static bool sh_callee_copies (CUMULATIVE_ARGS *, enum machine_mode,
@@ -441,6 +442,8 @@ static int sh2a_function_vector_p (tree);
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST sh_build_builtin_va_list
+#undef TARGET_CANONICAL_VA_LIST_TYPE
+#define TARGET_CANONICAL_VA_LIST_TYPE sh_canonical_va_list_type
 #undef TARGET_EXPAND_BUILTIN_VA_START
 #define TARGET_EXPAND_BUILTIN_VA_START sh_va_start
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
@@ -7145,6 +7148,14 @@ sh_build_builtin_va_list (void)
   return record;
 }
 
+/* Return always va_list_type_node.  */
+
+static tree
+sh_canonical_va_list_type (tree type ATTRIBUTE_UNUSED)
+{
+  return va_list_type_node;
+}
+
 /* Implement `va_start' for varargs and stdarg.  */
 
 static void
@@ -7189,7 +7200,7 @@ sh_va_start (tree valist, rtx nextarg)
   /* Call __builtin_saveregs.  */
   u = make_tree (sizetype, expand_builtin_saveregs ());
   u = fold_convert (ptr_type_node, u);
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -7200,11 +7211,11 @@ sh_va_start (tree valist, rtx nextarg)
     nfp = 0;
   u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
 		   size_int (UNITS_PER_WORD * nfp));
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_limit, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_o, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -7215,12 +7226,12 @@ sh_va_start (tree valist, rtx nextarg)
     nint = 0;
   u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u,
 		   size_int (UNITS_PER_WORD * nint));
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_o_limit, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   u = make_tree (ptr_type_node, nextarg);
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_stack, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_stack, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -7249,8 +7260,8 @@ find_sole_member (tree type)
 /* Implement `va_arg'.  */
 
 static tree
-sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-			 tree *post_p ATTRIBUTE_UNUSED)
+sh_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			 gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT size, rsize;
   tree tmp, pptr_type_node;
@@ -7340,11 +7351,9 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  bool is_double = size == 8 && TREE_CODE (eff_type) == REAL_TYPE;
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_fp);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
-	  gimplify_and_add (tmp, pre_p);
+	  gimplify_assign (addr, tmp, pre_p);
 
-	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_tmp, valist);
-	  gimplify_and_add (tmp, pre_p);
+	  gimplify_assign (next_fp_tmp, valist, pre_p);
 	  tmp = next_fp_limit;
 	  if (size > 4 && !is_double)
 	    tmp = build2 (POINTER_PLUS_EXPR, TREE_TYPE (tmp), tmp,
@@ -7364,9 +7373,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 			    size_int (UNITS_PER_WORD));
 	      tmp = build2 (POINTER_PLUS_EXPR, ptr_type_node,
 			    next_fp_tmp, tmp);
-	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
-		  	    next_fp_tmp, tmp);
-	      gimplify_and_add (tmp, pre_p);
+	      gimplify_assign (next_fp_tmp, tmp, pre_p);
 	    }
 	  if (is_double)
 	    gimplify_and_add (cmp, pre_p);
@@ -7398,13 +7405,10 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
-	  gimplify_and_add (tmp, pre_p);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, next_fp_tmp, valist);
-	  gimplify_and_add (tmp, pre_p);
+	  gimplify_assign (addr, tmp, pre_p);
+	  gimplify_assign (next_fp_tmp, valist, pre_p);
 
-	  tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, next_fp_tmp);
-	  gimplify_and_add (tmp, post_p);
+	  gimplify_assign (valist, next_fp_tmp, post_p);
 	  valist = next_fp_tmp;
 	}
       else
@@ -7418,8 +7422,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_o);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
-	  gimplify_and_add (tmp, pre_p);
+	  gimplify_assign (addr, tmp, pre_p);
 
 	  tmp = build1 (GOTO_EXPR, void_type_node, lab_over);
 	  gimplify_and_add (tmp, pre_p);
@@ -7428,15 +7431,10 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  gimplify_and_add (tmp, pre_p);
 
 	  if (size > 4 && ! (TARGET_SH4 || TARGET_SH2A))
-	    {
-	      tmp = build2 (GIMPLE_MODIFY_STMT, ptr_type_node,
-		  	    next_o, next_o_limit);
-	      gimplify_and_add (tmp, pre_p);
-	    }
+	    gimplify_assign (next_o, next_o_limit, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, tmp);
-	  gimplify_and_add (tmp, pre_p);
+	  gimplify_assign (addr, tmp, pre_p);
 	}
 
       if (!result)
@@ -7452,8 +7450,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   tmp = std_gimplify_va_arg_expr (valist, type, pre_p, NULL);
   if (result)
     {
-      tmp = build2 (GIMPLE_MODIFY_STMT, void_type_node, result, tmp);
-      gimplify_and_add (tmp, pre_p);
+      gimplify_assign (result, tmp, pre_p);
 
       tmp = build1 (LABEL_EXPR, void_type_node, lab_over);
       gimplify_and_add (tmp, pre_p);

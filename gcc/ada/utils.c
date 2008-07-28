@@ -43,7 +43,8 @@
 #include "function.h"
 #include "cgraph.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "tree-iterator.h"
+#include "gimple.h"
 #include "tree-dump.h"
 #include "pointer-set.h"
 #include "langhooks.h"
@@ -418,9 +419,11 @@ gnat_poplevel ()
 void
 gnat_pushdecl (tree decl, Node_Id gnat_node)
 {
-  /* If at top level, there is no context. But PARM_DECLs always go in the
-     level of its function.  */
-  if (global_bindings_p () && TREE_CODE (decl) != PARM_DECL)
+  /* If this decl is public external or at toplevel, there is no context.
+     But PARM_DECLs always go in the level of its function.  */
+  if (TREE_CODE (decl) != PARM_DECL
+      && ((DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
+	  || global_bindings_p ()))
     DECL_CONTEXT (decl) = 0;
   else
     {
@@ -1471,9 +1474,9 @@ create_type_decl (tree type_name, tree type, struct attrib *attr_list,
    CONST_FLAG is true if this variable is constant, in which case we might
    return a CONST_DECL node unless CONST_DECL_ALLOWED_P is false.
 
-   PUBLIC_FLAG is true if this definition is to be made visible outside of
-   the current compilation unit. This flag should be set when processing the
-   variable definitions in a package specification.
+   PUBLIC_FLAG is true if this is for a reference to a public entity or for a
+   definition to be made visible outside of the current compilation unit, for
+   instance variable definitions in a package specification.
 
    EXTERN_FLAG is nonzero when processing an external variable declaration (as
    opposed to a definition: no storage is to be allocated for the variable).
@@ -1549,7 +1552,7 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
      variable if and only if it's not external. If we are not at the top level
      we allocate automatic storage unless requested not to.  */
   TREE_STATIC (var_decl)
-    = public_flag || (global_bindings_p () ? !extern_flag : static_flag);
+    = !extern_flag && (public_flag || static_flag || global_bindings_p ());
 
   if (asm_name && VAR_OR_FUNCTION_DECL_P (var_decl))
     SET_DECL_ASSEMBLER_NAME (var_decl, asm_name);
@@ -2197,12 +2200,12 @@ gnat_genericize (tree fndecl)
   pointer_set_destroy (p_set);
 }
 
-/* Finish the definition of the current subprogram and compile it all the way
-   to assembler language output.  BODY is the tree corresponding to
-   the subprogram.  */
+/* Finish the definition of the current subprogram BODY and compile it all the
+   way to assembler language output.  ELAB_P tells if this is called for an
+   elaboration routine, to be entirely discarded if empty.  */
 
 void
-end_subprog_body (tree body)
+end_subprog_body (tree body, bool elab_p)
 {
   tree fndecl = current_function_decl;
 
@@ -2215,8 +2218,7 @@ end_subprog_body (tree body)
 
   /* Deal with inline.  If declared inline or we should default to inline,
      set the flag in the decl.  */
-  DECL_INLINE (fndecl)
-    = DECL_DECLARED_INLINE_P (fndecl) || flag_inline_trees == 2;
+  DECL_INLINE (fndecl) = 1;
 
   /* We handle pending sizes via the elaboration of types, so we don't
      need to save them.  */
@@ -2245,7 +2247,13 @@ end_subprog_body (tree body)
   if (!DECL_CONTEXT (fndecl))
     {
       gnat_gimplify_function (fndecl);
-      cgraph_finalize_function (fndecl, false);
+
+      /* If this is an empty elaboration proc, just discard the node.
+	 Otherwise, compile further.  */
+      if (elab_p && empty_body_p (gimple_body (fndecl)))
+	cgraph_remove_node (cgraph_node (fndecl));
+      else
+	cgraph_finalize_function (fndecl, false);
     }
   else
     /* Register this function with cgraph just far enough to get it
@@ -3116,7 +3124,7 @@ build_function_stub (tree gnu_subprog, Entity_Id gnat_subprog)
   gnat_poplevel ();
 
   allocate_struct_function (gnu_stub_decl, false);
-  end_subprog_body (gnu_body);
+  end_subprog_body (gnu_body, false);
 }
 
 /* Build a type to be used to represent an aliased object whose nominal

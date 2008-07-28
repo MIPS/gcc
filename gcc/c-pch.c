@@ -45,7 +45,6 @@ static const struct c_pch_matching
   const char *flag_name;
 } pch_matching[] = {
   { &flag_exceptions, "-fexceptions" },
-  { &flag_unit_at_a_time, "-funit-at-a-time" }
 };
 
 enum {
@@ -93,10 +92,10 @@ static const char *
 get_ident (void)
 {
   static char result[IDENT_LENGTH];
-  static const char template[IDENT_LENGTH] = "gpch.013";
+  static const char templ[IDENT_LENGTH] = "gpch.013";
   static const char c_language_chars[] = "Co+O";
 
-  memcpy (result, template, IDENT_LENGTH);
+  memcpy (result, templ, IDENT_LENGTH);
   result[4] = c_language_chars[c_language];
 
   return result;
