@@ -1,3 +1,36 @@
+2008-07-27  Victor Kaplansky  <victork@il.ibm.com>
+
+	PR tree-optimization/35252
+	* tree-vect-analyze.c (vect_build_slp_tree): Make IMAGPART_EXPR and
+	REALPART_EXPR to be considered as same load operation.
+
+2008-07-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/36830
+	* tree-ssa-sccvn.c (vn_reference_op_compute_hash): Hash operand #2.
+	(expressions_equal_p): Return false if only one operand is null.
+
+2008-07-26  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi (powerpc-*-netbsd*): Remove redundant texinfo
+	version requirements.
+
+2008-07-26  Olivier Hainque  <hainque@adacore.com>
+
+	* collect2.c (symkind): New enum.  Symbol kinds we care about.
+	(is_ctor_dtor): Return symkind instead of int.  Adjust prototype,
+	code and head comment accordingly.
+	(scan_prog_file): Use symkind names instead of bare integers.
+	
+2008-07-25  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_function_possibly_inlined_p): Do not rely on DECL_INLINE.
+	* cgraphunit.c (record_cdtor_fn): Do not initialize DECL_INLINE
+	(cgraph_preserve_function_body_p): Do not rely on DECL_INLINE.
+	* dojump.c (clear_pending_stack_adjust): Likewise.
+	* print-tree.c (print_node): Ignore DECL_INLINE.
+	* tree-inline.c (inlinable_function_p): Likewise.
+	
 2008-07-25  Michael Meissner  <gnu@the-meissners.org>
 
 	* doc/extend.texi (hot attribute): Document that the hot attribute

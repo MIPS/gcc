@@ -2756,7 +2756,11 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
 	}
       else
 	{
-	  if (first_stmt_code != rhs_code)
+	  if (first_stmt_code != rhs_code
+	      && (first_stmt_code != IMAGPART_EXPR
+		  || rhs_code != REALPART_EXPR)
+	      && (first_stmt_code != REALPART_EXPR
+		  || rhs_code != IMAGPART_EXPR))
 	    {
 	      if (vect_print_dump_info (REPORT_SLP)) 
 		{

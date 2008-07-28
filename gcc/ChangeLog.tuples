@@ -1,3 +1,10 @@
+2008-07-28  Richard Guenther  <rguenther@suse.de>
+
+	Merge with mainline @138201.
+
+	* configure.ac (ACX_PKGVERSION): Update revision merge string.
+	* configure: Regenerate.
+
 2008-07-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_atomic_fetch_op): Fix a merge glitch.
