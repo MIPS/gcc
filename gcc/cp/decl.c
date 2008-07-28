@@ -1613,6 +1613,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  warning (OPT_Wredundant_decls, "redundant redeclaration of %qD in same scope", newdecl);
 	  warning (OPT_Wredundant_decls, "previous declaration of %q+D", olddecl);
 	}
+
+      if (DECL_DELETED_FN (newdecl))
+	{
+	  error ("deleted definition of %qD", newdecl);
+	  error ("after previous declaration %q+D", olddecl);
+	}
     }
 
   /* Deal with C++: must preserve virtual function table size.  */
@@ -1948,8 +1954,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	}
       else if (new_defines_function && DECL_INITIAL (olddecl))
 	{
-	  /* C++ is always in in unit-at-a-time mode, so we never
-	     inline re-defined extern inline functions.  */
+	  /* Never inline re-defined extern inline functions.
+	     FIXME: this could be better handled by keeping both
+	     function as separate declarations.  */
 	  DECL_INLINE (newdecl) = 0;
 	  DECL_UNINLINABLE (newdecl) = 1;
 	}
@@ -3814,9 +3821,8 @@ check_tag_decl (cp_decl_specifier_seq *declspecs)
       /* Anonymous unions are objects, so they can have specifiers.  */;
       SET_ANON_AGGR_TYPE_P (declared_type);
 
-      if (TREE_CODE (declared_type) != UNION_TYPE && pedantic
-	  && !in_system_header)
-	pedwarn ("ISO C++ prohibits anonymous structs");
+      if (TREE_CODE (declared_type) != UNION_TYPE && !in_system_header)
+	pedwarn (OPT_pedantic, "ISO C++ prohibits anonymous structs");
     }
 
   else
@@ -3933,13 +3939,14 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
    grokfield.)  The DECL corresponding to the DECLARATOR is returned.
    If an error occurs, the error_mark_node is returned instead.
    
-   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED
-   is true if an explicit initializer is present, but false if this is
-   a variable implicitly initialized via a default constructor.
-   ATTRIBUTES and PREFIX_ATTRIBUTES are GNU attributes associated with
-   this declaration.  *PUSHED_SCOPE_P is set to the scope entered in
-   this function, if any; if set, the caller is responsible for
-   calling pop_scope.  */
+   DECLSPECS are the decl-specifiers for the declaration.  INITIALIZED is 1
+   if an explicit initializer is present, or 2 for an explicitly defaulted
+   function, or 3 for an explicitly deleted function, but 0 if this is a
+   variable implicitly initialized via a default constructor.  ATTRIBUTES
+   and PREFIX_ATTRIBUTES are GNU attributes associated with this
+   declaration.  *PUSHED_SCOPE_P is set to the scope entered in this
+   function, if any; if set, the caller is responsible for calling
+   pop_scope.  */
 
 tree
 start_decl (const cp_declarator *declarator,
@@ -3993,12 +4000,15 @@ start_decl (const cp_declarator *declarator,
     switch (TREE_CODE (decl))
       {
       case TYPE_DECL:
-	error ("typedef %qD is initialized (use __typeof__ instead)", decl);
+	error ("typedef %qD is initialized (use decltype instead)", decl);
 	return error_mark_node;
 
       case FUNCTION_DECL:
-	error ("function %q#D is initialized like a variable", decl);
-	return error_mark_node;
+	if (initialized == 3)
+	  /* We'll handle the rest of the semantics later, but we need to
+	     set this now so it's visible to duplicate_decls.  */
+	  DECL_DELETED_FN (decl) = 1;
+	break;
 
       default:
 	break;
@@ -5688,10 +5698,38 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       else
 	abstract_virtuals_error (decl, type);
 
-      if (TREE_CODE (decl) == FUNCTION_DECL
-	  || TREE_TYPE (decl) == error_mark_node)
+      if (TREE_TYPE (decl) == error_mark_node)
 	/* No initialization required.  */
 	;
+      else if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  if (init)
+	    {
+	      if (init == ridpointers[(int)RID_DELETE])
+		{
+		  /* fixme check this is 1st decl */
+		  DECL_DELETED_FN (decl) = 1;
+		  DECL_DECLARED_INLINE_P (decl) = 1;
+		  DECL_INITIAL (decl) = error_mark_node;
+		}
+	      else if (init == ridpointers[(int)RID_DEFAULT])
+		{
+		  if (!defaultable_fn_p (decl))
+		    error ("%qD cannot be defaulted", decl);
+		  else
+		    {
+		      /* An out-of-class default definition is defined at
+			 the point where it is explicitly defaulted.  */
+		      DECL_DEFAULTED_FN (decl) = 1;
+		      if (DECL_INITIAL (decl) == error_mark_node)
+			synthesize_method (decl);
+		    }
+		}
+	      else
+		error ("function %q#D is initialized like a variable", decl);
+	    }
+	  /* else no initialization required.  */
+	}
       else if (DECL_EXTERNAL (decl)
 	       && ! (DECL_LANG_SPECIFIC (decl)
 		     && DECL_NOT_REALLY_EXTERN (decl)))
@@ -6607,7 +6645,7 @@ grokfndecl (tree ctype,
   /* We inline functions that are explicitly declared inline, or, when
      the user explicitly asks us to, all functions.  */
   if (DECL_DECLARED_INLINE_P (decl)
-      || (flag_inline_trees == 2 && !DECL_INLINE (decl) && funcdef_flag))
+      || (!DECL_INLINE (decl) && funcdef_flag))
     DECL_INLINE (decl) = 1;
 
   DECL_EXTERNAL (decl) = 1;
@@ -7005,8 +7043,8 @@ check_static_variable_definition (tree decl, tree type)
     error ("ISO C++ forbids in-class initialization of non-const "
 	   "static member %qD",
 	   decl);
-  else if (pedantic && !INTEGRAL_TYPE_P (type))
-    pedwarn ("ISO C++ forbids initialization of member constant "
+  else if (!INTEGRAL_TYPE_P (type))
+    pedwarn (OPT_pedantic, "ISO C++ forbids initialization of member constant "
 	     "%qD of non-integral type %qT", decl, type);
 
   return 0;
@@ -7083,12 +7121,12 @@ compute_array_index_type (tree name, tree size)
 	}
       /* As an extension we allow zero-sized arrays.  We always allow
 	 them in system headers because glibc uses them.  */
-      else if (integer_zerop (size) && pedantic && !in_system_header)
+      else if (integer_zerop (size) && !in_system_header)
 	{
 	  if (name)
-	    pedwarn ("ISO C++ forbids zero-size array %qD", name);
+	    pedwarn (OPT_pedantic, "ISO C++ forbids zero-size array %qD", name);
 	  else
-	    pedwarn ("ISO C++ forbids zero-size array");
+	    pedwarn (OPT_pedantic, "ISO C++ forbids zero-size array");
 	}
     }
   else if (TREE_CONSTANT (size))
@@ -7104,9 +7142,9 @@ compute_array_index_type (tree name, tree size)
   else if (pedantic && warn_vla != 0)
     {
       if (name)
-	pedwarn ("ISO C++ forbids variable length array %qD", name);
+	pedwarn (OPT_Wvla, "ISO C++ forbids variable length array %qD", name);
       else
-	pedwarn ("ISO C++ forbids variable length array");
+	pedwarn (OPT_Wvla, "ISO C++ forbids variable length array");
     }
   else if (warn_vla > 0)
     {
@@ -7363,7 +7401,7 @@ check_var_type (tree identifier, tree type)
       Don't make a DECL node; just return the ..._TYPE node.
      FIELD for a struct or union field; make a FIELD_DECL.
      BITFIELD for a field with specified width.
-   INITIALIZED is 1 if the decl has an initializer.
+   INITIALIZED is as for start_decl.
 
    ATTRLIST is a pointer to the list of attributes, which may be NULL
    if there are none; *ATTRLIST may be modified if attributes from inside
@@ -7460,6 +7498,9 @@ grokdeclarator (const cp_declarator *declarator,
     funcdef_flag = true, decl_context = FIELD;
   else if (decl_context == BITFIELD)
     bitfield = 1, decl_context = FIELD;
+
+  if (initialized > 1)
+    funcdef_flag = true;
 
   /* Look inside a declarator for the name being declared
      and get it as a string, for an error message.  */
@@ -7737,7 +7778,8 @@ grokdeclarator (const cp_declarator *declarator,
       else if (! is_main)
 	permerror ("ISO C++ forbids declaration of %qs with no type", name);
       else if (pedantic)
-	pedwarn ("ISO C++ forbids declaration of %qs with no type", name);
+	pedwarn (OPT_pedantic,
+		 "ISO C++ forbids declaration of %qs with no type", name);
       else
 	warning (OPT_Wreturn_type,
                  "ISO C++ forbids declaration of %qs with no type", name);
@@ -7792,7 +7834,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  ok = 1;
 	  if (!explicit_int && !defaulted_int && !explicit_char && pedantic)
 	    {
-	      pedwarn ("long, short, signed or unsigned used invalidly for %qs",
+	      pedwarn (OPT_pedantic, 
+		       "long, short, signed or unsigned used invalidly for %qs",
 		       name);
 	      if (flag_pedantic_errors)
 		ok = 0;
@@ -7897,7 +7940,8 @@ grokdeclarator (const cp_declarator *declarator,
       if (pedantic)
 	{
 	  tree bad_type = build_qualified_type (type, type_quals);
-	  pedwarn ("ignoring %qV qualifiers added to function type %qT",
+	  pedwarn (OPT_pedantic, 
+		   "ignoring %qV qualifiers added to function type %qT",
 		   bad_type, type);
 	}
       type_quals = TYPE_UNQUALIFIED;
@@ -9125,10 +9169,12 @@ grokdeclarator (const cp_declarator *declarator,
 	    && pedantic)
 	  {
 	    if (storage_class == sc_static)
-	      pedwarn ("%<static%> specified invalid for function %qs "
+	      pedwarn (OPT_pedantic, 
+		       "%<static%> specified invalid for function %qs "
 		       "declared out of global scope", name);
 	    else
-	      pedwarn ("%<inline%> specifier invalid for function %qs "
+	      pedwarn (OPT_pedantic, 
+		       "%<inline%> specifier invalid for function %qs "
 		       "declared out of global scope", name);
 	  }
 
@@ -9216,9 +9262,9 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 	    if (storage_class == sc_extern && pedantic)
 	      {
-		pedwarn ("cannot explicitly declare member %q#D to have "
-			 "extern linkage",
-			 decl);
+		pedwarn (OPT_pedantic, 
+			 "cannot explicitly declare member %q#D to have "
+			 "extern linkage", decl);
 		storage_class = sc_none;
 	      }
 	  }
@@ -9667,6 +9713,8 @@ grok_special_member_properties (tree decl)
 	     are no other parameters or else all other parameters have
 	     default arguments.  */
 	  TYPE_HAS_INIT_REF (class_type) = 1;
+	  if (!DECL_DEFAULTED_FN (decl))
+	    TYPE_HAS_COMPLEX_INIT_REF (class_type) = 1;
 	  if (ctor > 1)
 	    TYPE_HAS_CONST_INIT_REF (class_type) = 1;
 	}
@@ -9688,6 +9736,8 @@ grok_special_member_properties (tree decl)
       if (assop)
 	{
 	  TYPE_HAS_ASSIGN_REF (class_type) = 1;
+	  if (!DECL_DEFAULTED_FN (decl))
+	    TYPE_HAS_COMPLEX_ASSIGN_REF (class_type) = 1;
 	  if (assop != 1)
 	    TYPE_HAS_CONST_ASSIGN_REF (class_type) = 1;
 	}
@@ -10105,8 +10155,8 @@ grok_op_properties (tree decl, bool complain)
 	    if (operator_code == POSTINCREMENT_EXPR
 		|| operator_code == POSTDECREMENT_EXPR)
 	      {
-		if (pedantic)
-		  pedwarn ("%qD cannot have default arguments", decl);
+		pedwarn (OPT_pedantic, "%qD cannot have default arguments", 
+			 decl);
 	      }
 	    else
 	      {

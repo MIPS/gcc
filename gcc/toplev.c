@@ -832,7 +832,7 @@ check_global_declaration_1 (tree decl)
 	  || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
     {
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
-	pedwarn ("%q+F used but never defined", decl);
+	pedwarn (0, "%q+F used but never defined", decl);
       else
 	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
       /* This symbol is effectively an "extern" declaration now.  */
@@ -1712,9 +1712,6 @@ process_options (void)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
-
-  if (!flag_unit_at_a_time)
-    flag_section_anchors = 0;
 
   if (flag_value_profile_transformations)
     flag_profile_values = 1;

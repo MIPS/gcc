@@ -308,24 +308,6 @@ lto_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value ATT
 static bool
 lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 {
-  /* Use tree inlining.  */
-  flag_inline_trees = 1;
-
-  /* Other front ends have code like:
-
-       if (!flag_no_inline)
-	 flag_no_inline = 1;
-       if (flag_inline_functions)
-	 flag_inline_trees = 2;
-
-     As far as I can tell, though, the flag_no_inline assignment doesn't do
-     anything because flag_really_no_inline has already been set.
-
-     The (flag_inline_trees == 2) condition is *only* used inside
-     grokdeclarator, which is never invoked inside lto1.
-
-     I think inlining is in need of some serious cleanup.  */
-
   /* Initialize the compiler back end.  */
   return false;
 }
