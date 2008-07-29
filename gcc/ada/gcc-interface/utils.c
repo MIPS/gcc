@@ -4217,7 +4217,7 @@ gnat_write_global_declarations (void)
  * ************************************************************************ */
 
 /* The general scheme is fairly simple:
-   
+
    For each builtin function/type to be declared, gnat_install_builtins calls
    internal facilities which eventually get to gnat_push_decl, which in turn
    tracks the so declared builtin function decls in the 'builtin_decls' global
@@ -4248,7 +4248,7 @@ builtin_decl_for (tree name)
    ??? This is a first implementation shot, still in rough shape.  It is
    heavily inspired from the "C" family implementation, with chunks copied
    verbatim from there.
-   
+
    Two obvious TODO candidates are
    o Use a more efficient name/decl mapping scheme
    o Devise a middle-end infrastructure to avoid having to copy
@@ -4699,7 +4699,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = true;
 	}
     }
-  
+
   if (args)
     {
       tree position = TREE_VALUE (args);
@@ -4718,7 +4718,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 	    }
 	}
     }
-  
+
   return NULL_TREE;
 }
 
@@ -4769,7 +4769,7 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 }
 
 /* Fake handler for attributes we don't properly support.  */
-   
+
 tree
 fake_attribute_handler (tree * ARG_UNUSED (node),
 			tree ARG_UNUSED (name),
@@ -4823,10 +4823,10 @@ def_builtin_1 (enum built_in_function fncode,
   const char *libname;
 
   /* Preserve an already installed decl.  It most likely was setup in advance
-     (e.g. as part of the internal builtins) for specific reasons.  */ 
+     (e.g. as part of the internal builtins) for specific reasons.  */
   if (built_in_decls[(int) fncode] != NULL_TREE)
     return;
-  
+
   gcc_assert ((!both_p && !fallback_p)
 	      || !strncmp (name, "__builtin_",
 			   strlen ("__builtin_")));
