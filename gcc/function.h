@@ -414,6 +414,9 @@ struct rtl_data GTY(())
      Set in global.c if anything is allocated on the stack there.  */
   bool frame_pointer_needed;
 
+  /* When set, expand should optimize for speed.  */
+  bool maybe_hot_insn_p;
+
   /* Nonzero if function stack realignment is needed. This flag may be
      set twice: before and after reload. It is set before reload wrt
      stack alignment estimation before reload. It will be changed after 
@@ -466,6 +469,10 @@ struct function GTY(())
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
+
+  /* GIMPLE body for this function.  */
+  struct gimple_seq_d *gimple_body;
+
   /* SSA and dataflow information.  */
   struct gimple_df *gimple_df;
 

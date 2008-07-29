@@ -105,7 +105,8 @@ void gfc_conv_tmp_ref (gfc_se *);
 /* Evaluate an array expression.  */
 void gfc_conv_expr_descriptor (gfc_se *, gfc_expr *, gfc_ss *);
 /* Convert an array for passing as an actual function parameter.  */
-void gfc_conv_array_parameter (gfc_se *, gfc_expr *, gfc_ss *, int);
+void gfc_conv_array_parameter (gfc_se *, gfc_expr *, gfc_ss *, int,
+			       const gfc_symbol *, const char *);
 /* Evaluate and transpose a matrix expression.  */
 void gfc_conv_array_transpose (gfc_se *, gfc_expr *);
 
@@ -119,11 +120,7 @@ tree gfc_conv_array_ubound (tree, int);
 
 /* Build expressions for accessing components of an array descriptor.  */
 tree gfc_conv_descriptor_data_get (tree);
-void gfc_conv_descriptor_data_set_internal (stmtblock_t *, tree, tree, bool);
-#define gfc_conv_descriptor_data_set(BLOCK, T1, T2)			\
-  gfc_conv_descriptor_data_set_internal ((BLOCK), (T1), (T2), false)
-#define gfc_conv_descriptor_data_set_tuples(BLOCK, T1, T2)		\
-  gfc_conv_descriptor_data_set_internal ((BLOCK), (T1), (T2), true)
+void gfc_conv_descriptor_data_set (stmtblock_t *, tree, tree);
 tree gfc_conv_descriptor_data_addr (tree);
 tree gfc_conv_descriptor_offset (tree);
 tree gfc_conv_descriptor_dtype (tree);

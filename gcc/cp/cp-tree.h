@@ -534,7 +534,7 @@ enum cp_tree_node_structure_enum {
 
 /* The resulting tree type.  */
 union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
-       chain_next ("(union lang_tree_node *)GENERIC_NEXT (&%h.generic)")))
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
@@ -4225,10 +4225,9 @@ extern bool check_omp_return			(void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree check_for_out_of_scope_variable	(tree);
-extern tree build_library_fn			(tree, tree);
 extern tree build_library_fn_ptr		(const char *, tree);
 extern tree build_cp_library_fn_ptr		(const char *, tree);
-extern tree push_library_fn			(tree, tree);
+extern tree push_library_fn			(tree, tree, tree);
 extern tree push_void_library_fn		(tree, tree);
 extern tree push_throw_library_fn		(tree, tree);
 extern tree check_tag_decl			(cp_decl_specifier_seq *);
@@ -4939,7 +4938,8 @@ extern void init_shadowed_var_for_decl		(void);
 extern tree cxx_staticp                         (tree);
 
 /* in cp-gimplify.c */
-extern int cp_gimplify_expr			(tree *, tree *, tree *);
+extern int cp_gimplify_expr			(tree *, gimple_seq *,
+						 gimple_seq *);
 extern void cp_genericize			(tree);
 
 /* -- end of C++ */
