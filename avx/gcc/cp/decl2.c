@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "tree-dump.h"
 #include "intl.h"
+#include "gimple.h"
 
 extern cpp_reader *parse_in;
 
@@ -836,7 +837,6 @@ grokfield (const cp_declarator *declarator,
 		  DECL_DEFAULTED_FN (value) = 1;
 		  DECL_INITIALIZED_IN_CLASS_P (value) = 1;
 		  DECL_DECLARED_INLINE_P (value) = 1;
-		  DECL_INLINE (value) = 1;
 		}
 	    }
 	  else if (TREE_CODE (TREE_TYPE (value)) == METHOD_TYPE)
@@ -2701,7 +2701,6 @@ start_static_storage_duration_function (unsigned count)
 			       type);
   TREE_PUBLIC (ssdf_decl) = 0;
   DECL_ARTIFICIAL (ssdf_decl) = 1;
-  DECL_INLINE (ssdf_decl) = 1;
 
   /* Put this function in the list of functions to be called from the
      static constructors and destructors.  */
@@ -3439,7 +3438,7 @@ cp_write_global_declarations (void)
 	      reconsider = true;
 	    }
 
-	  if (!DECL_SAVED_TREE (decl))
+	  if (!gimple_body (decl))
 	    continue;
 
 	  /* We lie to the back end, pretending that some functions
