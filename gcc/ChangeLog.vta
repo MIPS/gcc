@@ -1,3 +1,9 @@
+2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cfgloopanal.c (num_loop_insns): Don't let bb-ending debug insns
+	get an otherwise-bb-ending non-debug insns counted.
+	(average_num_loop_insns): Likewise.
+
 2008-06-10  Alexandre Oliva  <aoliva@redhat.com>
 
 	* print-rtl.c: Include cselib.h

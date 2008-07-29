@@ -1,5 +1,6 @@
 /* Natural loop analysis code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -171,8 +172,8 @@ num_loop_insns (const struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       bb = bbs[i];
-      ninsns++;
-      for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
+
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  ninsns++;
     }
@@ -195,8 +196,8 @@ average_num_loop_insns (const struct loop *loop)
     {
       bb = bbs[i];
 
-      binsns = 1;
-      for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
+      binsns = 0;
+      FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn) && !DEBUG_INSN_P (insn))
 	  binsns++;
 
