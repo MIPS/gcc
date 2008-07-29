@@ -1,3 +1,9 @@
+2008-07-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (dwarf2out_args_size_adjust): New.
+	(dwarf2out_stack_adjust): Use it.
+	(dwarf2out_frame_debug_expr): Likewise.
+
 2008-07-22  Xuepeng Guo  <xuepeng.guo@intel.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
 
