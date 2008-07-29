@@ -1767,9 +1767,9 @@ dataflow_set_union (dataflow_set *dst, dataflow_set *src)
 #define VALUE_RECURSED_INTO(x) \
   (RTL_FLAG_CHECK1 ("VALUE_RECURSED_INTO", (x), VALUE)->used)
 
-/* Return true if loc is rtx_equal to any element in the location list
-   of a one-part variable or value VAR, or in that of any values
-   recursively mentioned in the location lists.  */
+/* Return a location list node whose loc is rtx_equal to LOC, in the
+   location list of a one-part variable or value VAR, or in that of
+   any values recursively mentioned in the location lists.  */
 
 static location_chain
 find_loc_in_1pdv (rtx loc, variable var, htab_t vars)
@@ -2487,8 +2487,153 @@ dataflow_set_remove_unavailable (dataflow_set *set)
   while (dsu.removed);
 }
 
+/* Return a node whose loc is a MEM that refers to EXPR in the
+   location list of a one-part variable or value VAR, or in that of
+   any values recursively mentioned in the location lists.  */
+
+static location_chain
+find_mem_expr_in_1pdv (tree expr, rtx val, htab_t vars)
+{
+  location_chain node;
+  decl_or_value dv;
+  void **slot;
+  variable var;
+  location_chain where = NULL;
+
+  if (!val)
+    return NULL;
+
+  gcc_assert (GET_CODE (val) == VALUE);
+
+  gcc_assert (!VALUE_RECURSED_INTO (val));
+
+  dv = dv_from_value (val);
+  slot = htab_find_slot_with_hash (vars, &dv, dv_htab_hash (dv), NO_INSERT);
+
+  if (!slot)
+    return NULL;
+
+  var = (variable)*slot;
+
+  gcc_assert (var);
+  gcc_assert (dv_onepart_p (var->dv));
+
+  if (!var->n_var_parts)
+    return NULL;
+
+  gcc_assert (var->var_part[0].offset == 0);
+
+  VALUE_RECURSED_INTO (val) = true;
+
+  for (node = var->var_part[0].loc_chain; node; node = node->next)
+    if (MEM_P (node->loc) && MEM_EXPR (node->loc) == expr
+	&& MEM_OFFSET (node->loc) == 0)
+      {
+	where = node;
+	break;
+      }
+    else if (GET_CODE (node->loc) == VALUE
+	     && !VALUE_RECURSED_INTO (node->loc)
+	     && (where = find_mem_expr_in_1pdv (expr, node->loc, vars)))
+      break;
+
+  VALUE_RECURSED_INTO (val) = false;
+
+  return where;
+}
+
 /* Remove all MEMs from the location list of a hash table entry for a
-   one-part variable.  */
+   one-part variable, except those whose MEM attributes map back to
+   the variable itself, directly or within a VALUE.
+
+   ??? We could also preserve MEMs that reference stack slots that are
+   annotated as not addressable.  This is arguably even more reliable
+   than the current heuristic.  */
+
+static int
+dataflow_set_preserve_mem_locs (void **slot, void *data)
+{
+  htab_t vars = (htab_t) data;
+  variable var = (variable) *slot;
+
+  if (dv_is_decl_p (var->dv) && dv_onepart_p (var->dv))
+    {
+      tree decl = dv_as_decl (var->dv);
+      location_chain loc, *locp;
+
+      if (!var->n_var_parts)
+	return 1;
+
+      gcc_assert (var->n_var_parts == 1);
+
+      if (var->refcount > 1)
+	{
+	  for (loc = var->var_part[0].loc_chain; loc; loc = loc->next)
+	    {
+	      /* We want to remove a MEM that doesn't refer to DECL.  */
+	      if (GET_CODE (loc->loc) == MEM
+		  && (MEM_EXPR (loc->loc) != decl
+		      || MEM_OFFSET (loc->loc)))
+		break;
+	      /* We want to move here a MEM that does refer to DECL.  */
+	      else if (GET_CODE (loc->loc) == VALUE
+		       && find_mem_expr_in_1pdv (decl, loc->loc, vars))
+	      break;
+	    }
+
+	  if (!loc)
+	    return 1;
+
+	  var = unshare_variable (slot, var, VAR_INIT_STATUS_UNKNOWN);
+	  gcc_assert (var->n_var_parts == 1);
+	}
+
+      for (locp = &var->var_part[0].loc_chain, loc = *locp;
+	   loc; loc = *locp)
+	{
+	  if (GET_CODE (loc->loc) == VALUE)
+	    {
+	      location_chain mem_node = find_mem_expr_in_1pdv (decl, loc->loc,
+							       vars);
+
+	      /* ??? This picks up only one out of multiple MEMs that
+		 refer to the same variable.  Do we ever need to be
+		 concerned about dealing with more than one, or, given
+		 that they should all map to the same variable
+		 location, their addresses will have been merged and
+		 they will be regarded as equivalent?  */
+	      if (mem_node)
+		{
+		  loc->loc = mem_node->loc;
+		  loc->set_src = mem_node->set_src;
+		  loc->init = MIN (loc->init, mem_node->init);
+		}
+	    }
+
+	  if (GET_CODE (loc->loc) != MEM
+	      || (MEM_EXPR (loc->loc) == decl
+		  && MEM_OFFSET (loc->loc) == 0))
+	    {
+	      locp = &loc->next;
+	      continue;
+	    }
+
+	  *locp = loc->next;
+	  pool_free (loc_chain_pool, loc);
+	}
+
+      if (!var->var_part[0].loc_chain)
+	{
+	  var->n_var_parts--;
+	  variable_was_changed (var, vars);
+	}
+    }
+
+  return 1;
+}
+
+/* Remove all MEMs from the location list of a hash table entry for a
+   value.  */
 
 static int
 dataflow_set_remove_mem_locs (void **slot, void *data)
@@ -2554,7 +2699,10 @@ dataflow_set_clear_at_call (dataflow_set *set)
       var_regno_delete (set, r);
 
   if (MAY_HAVE_DEBUG_INSNS)
-    htab_traverse (set->vars, dataflow_set_remove_mem_locs, set->vars);
+    {
+      htab_traverse (set->vars, dataflow_set_preserve_mem_locs, set->vars);
+      htab_traverse (set->vars, dataflow_set_remove_mem_locs, set->vars);
+    }
 }
 
 /* Flag whether two dataflow sets being compared contain different data.  */

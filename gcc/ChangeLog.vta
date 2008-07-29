@@ -1,5 +1,11 @@
 2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	* var-tracking.c (find_mem_expr_in_1pdv): New.
+	(dataflow_set_preserve_mem_locs): New.
+	(dataflow_set_clear_at_call): Call it.
+
+2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cfgloopanal.c (num_loop_insns): Don't let bb-ending debug insns
 	get an otherwise-bb-ending non-debug insns counted.
 	(average_num_loop_insns): Likewise.
