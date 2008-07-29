@@ -1563,9 +1563,12 @@ determine_specialization (tree template_id,
 	     no partial specializations of functions.  Therefore, if
 	     the type of DECL does not match FN, there is no
 	     match.  */
-	  if (tsk == tsk_template
-	      && !compparms (fn_arg_types, decl_arg_types))
-	    continue;
+	  if (tsk == tsk_template)
+	    {
+	      if (compparms (fn_arg_types, decl_arg_types))
+		candidates = tree_cons (NULL_TREE, fn, candidates);
+	      continue;
+	    }
 
 	  /* See whether this function might be a specialization of this
 	     template.  */
@@ -4737,6 +4740,10 @@ bool
 template_template_parm_bindings_ok_p (tree tparms, tree targs)
 {
   int i, ntparms = TREE_VEC_LENGTH (tparms);
+  bool ret = true;
+
+  /* We're dealing with template parms in this process.  */
+  ++processing_template_decl;
 
   targs = INNERMOST_TEMPLATE_ARGS (targs);
 
@@ -4787,13 +4794,18 @@ template_template_parm_bindings_ok_p (tree tparms, tree targs)
 			tf_none,
 			tparm,
 			targs))
-		return false;
+		{
+		  ret = false;
+		  goto out;
+		}
 	    }
 	}
     }
 
-  /* Everything is okay.  */
-  return true;
+ out:
+
+  --processing_template_decl;
+  return ret;
 }
 
 /* Convert the indicated template ARG as necessary to match the
@@ -6714,9 +6726,29 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 	    {
 	      *p = TREE_CHAIN (t);
 	      TREE_CHAIN (t) = NULL_TREE;
-	      TREE_VALUE (t)
-		= tsubst_expr (TREE_VALUE (t), args, complain, in_decl,
-			       /*integral_constant_expression_p=*/false);
+	      /* If the first attribute argument is an identifier, don't
+		 pass it through tsubst.  Attributes like mode, format,
+		 cleanup and several target specific attributes expect it
+		 unmodified.  */
+	      if (TREE_VALUE (t)
+		  && TREE_CODE (TREE_VALUE (t)) == TREE_LIST
+		  && TREE_VALUE (TREE_VALUE (t))
+		  && (TREE_CODE (TREE_VALUE (TREE_VALUE (t)))
+		      == IDENTIFIER_NODE))
+		{
+		  tree chain
+		    = tsubst_expr (TREE_CHAIN (TREE_VALUE (t)), args, complain,
+				   in_decl,
+				   /*integral_constant_expression_p=*/false);
+		  if (chain != TREE_CHAIN (TREE_VALUE (t)))
+		    TREE_VALUE (t)
+		      = tree_cons (NULL_TREE, TREE_VALUE (TREE_VALUE (t)),
+				   chain);
+		}
+	      else
+		TREE_VALUE (t)
+		  = tsubst_expr (TREE_VALUE (t), args, complain, in_decl,
+				 /*integral_constant_expression_p=*/false);
 	      *q = t;
 	      q = &TREE_CHAIN (t);
 	    }
@@ -12137,6 +12169,7 @@ resolve_overloaded_unification (tree tparms,
 	  if (TREE_CODE (fn) != TEMPLATE_DECL)
 	    continue;
 
+	  ++processing_template_decl;
 	  subargs = get_bindings (fn, DECL_TEMPLATE_RESULT (fn),
 				  expl_subargs, /*check_ret=*/false);
 	  if (subargs)
@@ -12145,6 +12178,7 @@ resolve_overloaded_unification (tree tparms,
 	      good += try_one_overload (tparms, targs, tempargs, parm,
 					elem, strict, sub_strict, addr_p);
 	    }
+	  --processing_template_decl;
 	}
     }
   else if (TREE_CODE (arg) != OVERLOAD
@@ -13525,7 +13559,9 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
   processing_template_decl++;
 
-  while (len--)
+  while (len--
+	 /* Stop when an ellipsis is seen.  */
+	 && args1 != NULL_TREE && args2 != NULL_TREE)
     {
       tree arg1 = TREE_VALUE (args1);
       tree arg2 = TREE_VALUE (args2);
@@ -13688,10 +13724,6 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
       args1 = TREE_CHAIN (args1);
       args2 = TREE_CHAIN (args2);
-
-      /* Stop when an ellipsis is seen.  */
-      if (args1 == NULL_TREE || args2 == NULL_TREE)
-	break;
     }
 
   processing_template_decl--;

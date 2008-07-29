@@ -935,16 +935,14 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
       switch (kind)
 	{
 	case 4:
-	  fndecl = gfor_fndecl_math_cpowf;
+	  fndecl = built_in_decls[BUILT_IN_CPOWF];
 	  break;
 	case 8:
-	  fndecl = gfor_fndecl_math_cpow;
+	  fndecl = built_in_decls[BUILT_IN_CPOW];
 	  break;
 	case 10:
-	  fndecl = gfor_fndecl_math_cpowl10;
-	  break;
 	case 16:
-	  fndecl = gfor_fndecl_math_cpowl16;
+	  fndecl = built_in_decls[BUILT_IN_CPOWL];
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -2261,7 +2259,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      f = f || !sym->attr.always_explicit;
 	  
 	      argss = gfc_walk_expr (arg->expr);
-	      gfc_conv_array_parameter (se, arg->expr, argss, f);
+	      gfc_conv_array_parameter (se, arg->expr, argss, f, NULL);
 	    }
 
 	  /* TODO -- the following two lines shouldn't be necessary, but
@@ -2468,7 +2466,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		gfc_conv_subref_array_arg (&parmse, e, f,
 			fsym ? fsym->attr.intent : INTENT_INOUT);
 	      else
-	        gfc_conv_array_parameter (&parmse, e, argss, f);
+	        gfc_conv_array_parameter (&parmse, e, argss, f, fsym);
 
               /* If an ALLOCATABLE dummy argument has INTENT(OUT) and is 
                  allocated on entry, it must be deallocated.  */
@@ -2846,7 +2844,9 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
     dsc = gfc_to_single_character (dlen, dest);
 
 
-  if (dsc != NULL_TREE && ssc != NULL_TREE)
+  /* Assign directly if the types are compatible.  */
+  if (dsc != NULL_TREE && ssc != NULL_TREE
+	&& TREE_TYPE (dsc) == TREE_TYPE (ssc))
     {
       gfc_add_modify_expr (block, dsc, ssc);
       return;
@@ -3989,7 +3989,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   gfc_start_block (&se.pre);
   se.want_pointer = 1;
 
-  gfc_conv_array_parameter (&se, expr1, ss, 0);
+  gfc_conv_array_parameter (&se, expr1, ss, 0, NULL);
 
   se.direct_byref = 1;
   se.ss = gfc_walk_expr (expr2);

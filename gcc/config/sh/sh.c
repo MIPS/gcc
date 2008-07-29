@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -3838,6 +3838,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
   rtx barrier_before_mova = 0, found_barrier = 0, good_barrier = 0;
   int si_limit;
   int hi_limit;
+  rtx orig = from;
 
   /* For HImode: range is 510, add 4 because pc counts from address of
      second instruction after this one, subtract 2 for the jump instruction
@@ -3897,6 +3898,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 
       if (GET_CODE (from) == BARRIER)
 	{
+	  rtx next;
 
 	  found_barrier = from;
 
@@ -3905,6 +3907,14 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	     this kind of barrier.  */
 	  if (barrier_align (from) > 2)
 	    good_barrier = from;
+
+	  /* If we are at the end of a hot/cold block, dump the constants
+	     here.  */
+	  next = NEXT_INSN (from);
+	  if (next
+	      && NOTE_P (next)
+	      && NOTE_KIND (next) == NOTE_INSN_SWITCH_TEXT_SECTIONS)
+	    break;
 	}
 
       if (broken_move (from))
@@ -4061,7 +4071,8 @@ find_barrier (int num_mova, rtx mova, rtx from)
       /* If we exceeded the range, then we must back up over the last
 	 instruction we looked at.  Otherwise, we just need to undo the
 	 NEXT_INSN at the end of the loop.  */
-      if (count_hi > hi_limit || count_si > si_limit)
+      if (PREV_INSN (from) != orig
+	  && (count_hi > hi_limit || count_si > si_limit))
 	from = PREV_INSN (PREV_INSN (from));
       else
 	from = PREV_INSN (from);
@@ -5269,7 +5280,7 @@ split_branches (rtx first)
 		    bp->insert_place = insn;
 		    bp->address = addr;
 		  }
-		ok = redirect_jump (insn, label, 1);
+		ok = redirect_jump (insn, label, 0);
 		gcc_assert (ok);
 	      }
 	    else
@@ -10864,8 +10875,10 @@ sh_secondary_reload (bool in_p, rtx x, enum reg_class class,
         return GENERAL_REGS;
       if (class == FPUL_REGS && immediate_operand (x, mode))
 	{
-	  if (satisfies_constraint_I08 (x))
+	  if (satisfies_constraint_I08 (x) || fp_zero_operand (x))
 	    return GENERAL_REGS;
+	  else if (mode == SFmode)
+	    return FP_REGS;
 	  sri->icode = CODE_FOR_reload_insi__i_fpul;
 	  return NO_REGS;
 	}

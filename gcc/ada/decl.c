@@ -636,8 +636,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   clause, as we would lose useful information on the view size
 	   (e.g. for null array slices) and we are not allocating the object
 	   here anyway.  */
-	if (((gnu_size && integer_zerop (gnu_size))
-	     || (TYPE_SIZE (gnu_type) && integer_zerop (TYPE_SIZE (gnu_type))))
+	if (((gnu_size
+	      && integer_zerop (gnu_size)
+	      && !TREE_OVERFLOW (gnu_size))
+	     || (TYPE_SIZE (gnu_type)
+		 && integer_zerop (TYPE_SIZE (gnu_type))
+		 && !TREE_OVERFLOW (TYPE_SIZE (gnu_type))))
 	    && (!Is_Constr_Subt_For_UN_Aliased (Etype (gnat_entity))
 		|| !Is_Array_Type (Etype (gnat_entity)))
 	    && !Present (Renamed_Object (gnat_entity))
@@ -5864,18 +5868,17 @@ is_variable_size (tree type)
 {
   tree field;
 
-  /* We need not be concerned about this at all if we don't have
-     strict alignment.  */
-  if (!STRICT_ALIGNMENT)
-    return false;
-  else if (!TREE_CONSTANT (TYPE_SIZE (type)))
+  if (!TREE_CONSTANT (TYPE_SIZE (type)))
     return true;
-  else if (TREE_CODE (type) == RECORD_TYPE && TYPE_IS_PADDING_P (type)
-	   && !TREE_CONSTANT (DECL_SIZE (TYPE_FIELDS (type))))
+
+  if (TREE_CODE (type) == RECORD_TYPE
+      && TYPE_IS_PADDING_P (type)
+      && !TREE_CONSTANT (DECL_SIZE (TYPE_FIELDS (type))))
     return true;
-  else if (TREE_CODE (type) != RECORD_TYPE
-	   && TREE_CODE (type) != UNION_TYPE
-	   && TREE_CODE (type) != QUAL_UNION_TYPE)
+
+  if (TREE_CODE (type) != RECORD_TYPE
+      && TREE_CODE (type) != UNION_TYPE
+      && TREE_CODE (type) != QUAL_UNION_TYPE)
     return false;
 
   for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -6106,6 +6109,8 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
       /* Only make the QUAL_UNION_TYPE if there are any non-empty variants.  */
       if (gnu_variant_list)
 	{
+	  int union_field_packed;
+
 	  if (all_rep_and_size)
 	    {
 	      TYPE_SIZE (gnu_union_type) = TYPE_SIZE (gnu_record_type);
@@ -6127,9 +6132,13 @@ components_to_record (tree gnu_record_type, Node_Id component_list,
 	      return;
 	    }
 
+	  /* Deal with packedness like in gnat_to_gnu_field.  */
+	  union_field_packed
+	    = adjust_packed (gnu_union_type, gnu_record_type, packed);
+
 	  gnu_union_field
 	    = create_field_decl (gnu_var_name, gnu_union_type, gnu_record_type,
-				 packed,
+				 union_field_packed,
 				 all_rep ? TYPE_SIZE (gnu_union_type) : 0,
 				 all_rep ? bitsize_zero_node : 0, 0);
 

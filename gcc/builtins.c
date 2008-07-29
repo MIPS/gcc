@@ -1804,6 +1804,9 @@ expand_errno_check (tree exp, rtx target)
     }
 #endif
 
+  /* Make sure the library call isn't expanded as a tail call.  */
+  CALL_EXPR_TAILCALL (exp) = 0;
+
   /* We can't set errno=EDOM directly; let the library call do it.
      Pop the arguments right away in case the call gets deleted.  */
   NO_DEFER_POP;
@@ -5777,7 +5780,7 @@ expand_builtin_signbit (tree exp, rtx target)
 	  lo = 0;
 	}
 
-      if (imode != rmode)
+      if (GET_MODE_SIZE (imode) > GET_MODE_SIZE (rmode))
 	temp = gen_lowpart (rmode, temp);
       temp = expand_binop (rmode, and_optab, temp,
 			   immed_double_const (lo, hi, rmode),
@@ -10749,6 +10752,8 @@ validate_arg (const_tree arg, enum tree_code code)
     return false;
   else if (code == POINTER_TYPE)
     return POINTER_TYPE_P (TREE_TYPE (arg));
+  else if (code == INTEGER_TYPE)
+    return INTEGRAL_TYPE_P (TREE_TYPE (arg));
   return code == TREE_CODE (TREE_TYPE (arg));
 }
 

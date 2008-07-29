@@ -504,9 +504,9 @@ cplus_array_hash (const void* k)
   hashval_t hash;
   const_tree const t = (const_tree) k;
 
-  hash = (htab_hash_pointer (TREE_TYPE (t))
-	  ^ htab_hash_pointer (TYPE_DOMAIN (t)));
-
+  hash = TYPE_UID (TREE_TYPE (t));
+  if (TYPE_DOMAIN (t))
+    hash ^= TYPE_UID (TYPE_DOMAIN (t));
   return hash;
 }
 
@@ -553,8 +553,9 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
 	cplus_array_htab = htab_create_ggc (61, &cplus_array_hash,
 					    &cplus_array_compare, NULL);
       
-      hash = (htab_hash_pointer (elt_type)
-	      ^ htab_hash_pointer (index_type));
+      hash = TYPE_UID (elt_type);
+      if (index_type)
+	hash ^= TYPE_UID (index_type);
       cai.type = elt_type;
       cai.domain = index_type;
 
@@ -1733,6 +1734,10 @@ cp_tree_equal (tree t1, tree t2)
       return TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
 	&& !memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 		    TREE_STRING_LENGTH (t1));
+
+    case FIXED_CST:
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1),
+				     TREE_FIXED_CST (t2));
 
     case COMPLEX_CST:
       return cp_tree_equal (TREE_REALPART (t1), TREE_REALPART (t2))

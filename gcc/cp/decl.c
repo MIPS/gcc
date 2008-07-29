@@ -1675,6 +1675,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		= DECL_INTERFACE_KNOWN (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
+
 	    }
 	  else
 	    {
@@ -1682,6 +1685,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		|= DECL_INLINE (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		|= DECL_DECLARED_INLINE_P (new_result);
+	      DECL_DISREGARD_INLINE_LIMITS (old_result)
+	        |= DECL_DISREGARD_INLINE_LIMITS (new_result);
 	      check_redeclaration_exception_specification (newdecl, olddecl);
 	    }
 	}
@@ -3159,19 +3164,10 @@ record_builtin_java_type (const char* name, int size)
   tree type, decl;
   if (size > 0)
     type = make_signed_type (size);
-  else if (size == -1)
-    { /* "__java_boolean".  */
-      if ((TYPE_MODE (boolean_type_node)
-	   == smallest_mode_for_size (1, MODE_INT)))
-        type = build_variant_type_copy (boolean_type_node);
-      else
-	/* ppc-darwin has SImode bool, make jboolean a 1-bit
-	   integer type without boolean semantics there.  */
-	type = make_unsigned_type (1);
-    }
   else if (size > -32)
-    { /* "__java_char".  */
+    { /* "__java_char" or ""__java_boolean".  */
       type = make_unsigned_type (-size);
+      /*if (size == -1)	TREE_SET_CODE (type, BOOLEAN_TYPE);*/
     }
   else
     { /* "__java_float" or ""__java_double".  */
@@ -4441,7 +4437,10 @@ layout_var_decl (tree decl)
       if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
 	constant_expression_warning (DECL_SIZE (decl));
       else
-	error ("storage size of %qD isn't constant", decl);
+	{
+	  error ("storage size of %qD isn't constant", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	}
     }
 }
 
@@ -4888,6 +4887,38 @@ reshape_init (tree type, tree init)
   return new_init;
 }
 
+/* Verify array initializer.  Returns true if errors have been reported.  */
+
+bool
+check_array_initializer (tree decl, tree type, tree init)
+{
+  tree element_type = TREE_TYPE (type);
+
+  /* The array type itself need not be complete, because the
+     initializer may tell us how many elements are in the array.
+     But, the elements of the array must be complete.  */
+  if (!COMPLETE_TYPE_P (complete_type (element_type)))
+    {
+      if (decl)
+	error ("elements of array %q#D have incomplete type", decl);
+      else
+	error ("elements of array %q#T have incomplete type", type);
+      return true;
+    }
+  /* It is not valid to initialize a VLA.  */
+  if (init
+      && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
+	  || !TREE_CONSTANT (TYPE_SIZE (element_type))))
+    {
+      if (decl)
+	error ("variable-sized object %qD may not be initialized", decl);
+      else
+	error ("variable-sized compound literal");
+      return true;
+    }
+  return false;
+}
+
 /* Verify INIT (the initializer for DECL), and record the
    initialization in DECL_INITIAL, if appropriate.  CLEANUP is as for
    grok_reference_init.
@@ -4911,24 +4942,8 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree element_type = TREE_TYPE (type);
-
-      /* The array type itself need not be complete, because the
-	 initializer may tell us how many elements are in the array.
-	 But, the elements of the array must be complete.  */
-      if (!COMPLETE_TYPE_P (complete_type (element_type)))
-	{
-	  error ("elements of array %q#D have incomplete type", decl);
-	  return NULL_TREE;
-	}
-      /* It is not valid to initialize a VLA.  */
-      if (init
-	  && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
-	      || !TREE_CONSTANT (TYPE_SIZE (element_type))))
-	{
-	  error ("variable-sized object %qD may not be initialized", decl);
-	  return NULL_TREE;
-	}
+      if (check_array_initializer (decl, type, init))
+	return NULL_TREE;
     }
   else if (!COMPLETE_TYPE_P (type))
     {
@@ -7980,7 +7995,11 @@ grokdeclarator (const cp_declarator *declarator,
     }
 
   if (storage_class && friendp)
-    error ("storage class specifiers invalid in friend function declarations");
+    {
+      error ("storage class specifiers invalid in friend function declarations");
+      storage_class = sc_none;
+      staticp = 0;
+    }
 
   if (!id_declarator)
     unqualified_id = NULL_TREE;

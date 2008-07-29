@@ -2,8 +2,8 @@
 # Run 'configure' to generate Makefile from Makefile.in
 
 # Copyright (C) 1987, 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-# 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
-# Free Software Foundation, Inc.
+# 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
+# 2008 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -253,6 +253,10 @@ POD2MAN = pod2man --center="GNU" --release="gcc-$(version)"
 # do not correctly set the timestamp due to buggy versions of `utime'
 # in the kernel.  So, we use `echo' instead.
 STAMP = echo timestamp >
+# If necessary (e.g., when using the MSYS shell on Microsoft Windows)
+# translate the shell's notion of absolute pathnames to the native
+# spelling.
+build_file_translate = @build_file_translate@
 
 # Make sure the $(MAKE) variable is defined.
 @SET_MAKE@
@@ -1693,14 +1697,14 @@ $(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
 
 # Compile the start modules crt0.o and mcrt0.o that are linked with
 # every program
-crt0.o: s-crt0 ; @true
-mcrt0.o: s-crt0; @true
+$(T)crt0.o: s-crt0 ; @true
+$(T)mcrt0.o: s-crt0; @true
 
 s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(CRT0STUFF_T_CFLAGS) \
-	  -o crt0.o -c $(CRT0_S)
+	  -o $(T)crt0.o -c $(CRT0_S)
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(CRT0STUFF_T_CFLAGS) \
-	  -o mcrt0.o -c $(MCRT0_S)
+	  -o $(T)mcrt0.o -c $(MCRT0_S)
 	$(STAMP) s-crt0
 #
 # Compiling object files from source files.
@@ -2577,7 +2581,7 @@ tree-ssa-ccp.o : tree-ssa-ccp.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    $(DIAGNOSTIC_H) $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) $(BASIC_BLOCK_H) tree-pass.h langhooks.h \
-   tree-ssa-propagate.h $(FLAGS_H) $(TARGET_H) toplev.h
+   tree-ssa-propagate.h value-prof.h $(FLAGS_H) $(TARGET_H) toplev.h
 tree-sra.o : tree-sra.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
     $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_H) $(TREE_INLINE_H) \
     $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_GIMPLE_H) \
@@ -3629,7 +3633,7 @@ TEXI_CPP_FILES = cpp.texi fdl.texi cppenv.texi cppopts.texi		\
 TEXI_GCC_FILES = gcc.texi gcc-common.texi gcc-vers.texi frontends.texi	\
 	 standards.texi invoke.texi extend.texi md.texi objc.texi	\
 	 gcov.texi trouble.texi bugreport.texi service.texi		\
-	 contribute.texi compat.texi funding.texi gnu.texi gpl.texi	\
+	 contribute.texi compat.texi funding.texi gnu.texi gpl_v3.texi	\
 	 fdl.texi contrib.texi cppenv.texi cppopts.texi			\
 	 implement-c.texi arm-neon-intrinsics.texi
 
@@ -3638,7 +3642,7 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 portability.texi interface.texi passes.texi c-tree.texi	\
 	 rtl.texi md.texi tm.texi hostconfig.texi fragments.texi	\
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi	\
-	 gnu.texi gpl.texi fdl.texi contrib.texi languages.texi		\
+	 gnu.texi gpl_v3.texi fdl.texi contrib.texi languages.texi	\
 	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
 	 loop.texi
 
@@ -3654,7 +3658,7 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 	 then echo "@set DEVELOPMENT"; \
 	 else echo "@clear DEVELOPMENT"; \
 	 fi) > $@T
-	echo "@set srcdir $(abs_srcdir)" >> $@T
+	$(build_file_translate) echo @set srcdir $(abs_srcdir) >> $@T
 	if [ -n "$(PKGVERSION)" ]; then \
 	  echo "@set VERSION_PACKAGE $(PKGVERSION)" >> $@T; \
 	fi
@@ -3787,6 +3791,9 @@ gfdl.pod: fdl.texi
 	$(STAMP) $@
 	-$(TEXI2POD) $< > $@
 fsf-funding.pod: funding.texi
+	$(STAMP) $@
+	-$(TEXI2POD) $< > $@
+gpl.pod: gpl_v3.texi
 	$(STAMP) $@
 	-$(TEXI2POD) $< > $@
 

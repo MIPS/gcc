@@ -1306,141 +1306,6 @@ AC_DEFUN([GLIBCXX_CHECK_RANDOM_TR1], [
 
 ])
 
-dnl
-dnl Check whether macros, etc are present for <system_error>
-dnl
-AC_DEFUN([GLIBCXX_CHECK_SYSTEM_ERROR], [
-
-  AC_MSG_CHECKING([for EOWNERDEAD])
-  AC_CACHE_VAL(ac_system_error1, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = EOWNERDEAD; ],
-             [ac_system_error1=yes], [ac_system_error1=no])
-  ])
-  AC_MSG_RESULT($ac_system_error1)
-  if test x"$ac_system_error1" = x"yes"; then
-    AC_DEFINE(HAVE_EOWNERDEAD, 1, [Define if EOWNERDEAD exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENOTRECOVERABLE])
-  AC_CACHE_VAL(ac_system_error2, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOTRECOVERABLE; ],
-             [ac_system_error2=yes], [ac_system_error2=no])
-  ])
-  AC_MSG_RESULT($ac_system_error2)
-  if test x"$ac_system_error2" = x"yes"; then
-    AC_DEFINE(HAVE_ENOTRECOVERABLE, 1, [Define if ENOTRECOVERABLE exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENOLINK])
-  AC_CACHE_VAL(ac_system_error3, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOLINK; ],
-             [ac_system_error3=yes], [ac_system_error3=no])
-  ])
-  AC_MSG_RESULT($ac_system_error3)
-  if test x"$ac_system_error3" = x"yes"; then
-    AC_DEFINE(HAVE_ENOLINK, 1, [Define if ENOLINK exists.])
-  fi
-
-  AC_MSG_CHECKING([for EPROTO])
-  AC_CACHE_VAL(ac_system_error_4, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = EPROTO; ],
-             [ac_system_error_4=yes], [ac_system_error_4=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_4)
-  if test x"$ac_system_error_4" = x"yes"; then
-    AC_DEFINE(HAVE_EPROTO, 1, [Define if EPROTO exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENODATA])
-  AC_CACHE_VAL(ac_system_error_5, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENODATA; ],
-             [ac_system_error_5=yes], [ac_system_error_5=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_5)
-  if test x"$ac_system_error_5" = x"yes"; then
-    AC_DEFINE(HAVE_ENODATA, 1, [Define if ENODATA exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENOSR])
-  AC_CACHE_VAL(ac_system_error_6, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOSR; ],
-             [ac_system_error_6=yes], [ac_system_error_6=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_6)
-  if test x"$ac_system_error_6" = x"yes"; then
-    AC_DEFINE(HAVE_ENOSR, 1, [Define if ENOSR exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENOSTR])
-  AC_CACHE_VAL(ac_system_error_7, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOSTR; ],
-             [ac_system_error_7=yes], [ac_system_error_7=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_7)
-  if test x"$ac_system_error_7" = x"yes"; then
-    AC_DEFINE(HAVE_ENOSTR, 1, [Define if ENOSTR exists.])
-  fi
-
-  AC_MSG_CHECKING([for ETIME])
-  AC_CACHE_VAL(ac_system_error_8, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ETIME; ],
-             [ac_system_error_8=yes], [ac_system_error_8=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_8)
-  if test x"$ac_system_error_8" = x"yes"; then
-    AC_DEFINE(HAVE_ETIME, 1, [Define if ETIME exists.])
-  fi
-
-  AC_MSG_CHECKING([for sys_nerr])
-  AC_CACHE_VAL(ac_system_error9, [
-  AC_TRY_COMPILE([#include <errno.h> ], [ int i = sys_nerr; ],
-             [ac_system_error9=yes], [ac_system_error9=no])
-  ])
-  AC_MSG_RESULT($ac_system_error9)
-  if test x"$ac_system_error9" = x"yes"; then
-    AC_DEFINE(HAVE_SYS_NERR, 1, [Define if sys_nerr exists.])
-  fi
-
-  AC_MSG_CHECKING([for EBADMSG])
-  AC_CACHE_VAL(ac_system_error_10, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = EBADMSG; ],
-             [ac_system_error_10=yes], [ac_system_error_10=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_10)
-  if test x"$ac_system_error_10" = x"yes"; then
-    AC_DEFINE(HAVE_EBADMSG, 1, [Define if EBADMSG exists.])
-  fi
-
-  AC_MSG_CHECKING([for ECANCELED])
-  AC_CACHE_VAL(ac_system_error_11, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ECANCELED; ],
-             [ac_system_error_11=yes], [ac_system_error_11=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_11)
-  if test x"$ac_system_error_11" = x"yes"; then
-    AC_DEFINE(HAVE_ECANCELED, 1, [Define if ECANCELED exists.])
-  fi
-
-  AC_MSG_CHECKING([for EOVERFLOW])
-  AC_CACHE_VAL(ac_system_error_12, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = EOVERFLOW; ],
-             [ac_system_error_12=yes], [ac_system_error_12=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_12)
-  if test x"$ac_system_error_12" = x"yes"; then
-    AC_DEFINE(HAVE_EOVERFLOW, 1, [Define if EOVERFLOW exists.])
-  fi
-
-  AC_MSG_CHECKING([for ENOTSUP])
-  AC_CACHE_VAL(ac_system_error_13, [
-  AC_TRY_COMPILE([#include <errno.h>], [ int i = ENOTSUP; ],
-             [ac_system_error_13=yes], [ac_system_error_13=no])
-  ])
-  AC_MSG_RESULT($ac_system_error_13)
-  if test x"$ac_system_error_13" = x"yes"; then
-    AC_DEFINE(HAVE_ENOTSUP, 1, [Define if ENOTSUP exists.])
-  fi
-])
 
 dnl
 dnl Check for what type of C headers to use.
@@ -2218,7 +2083,7 @@ int main()
 }
 EOF
     old_CXXFLAGS="$CXXFLAGS"
-    CXXFLAGS=-S
+    CXXFLAGS='-O0 -S'
     if AC_TRY_EVAL(ac_compile); then
       if grep __sync_fetch_and_add conftest.s >/dev/null 2>&1 ; then
         enable_atomic_builtins=no
@@ -2229,6 +2094,7 @@ EOF
 	atomicity_dir=cpu/generic/atomicity_builtins
       fi
     fi
+    AC_MSG_RESULT($enable_atomic_builtins)
     CXXFLAGS="$old_CXXFLAGS"
     rm -f conftest*
 
@@ -2237,7 +2103,6 @@ EOF
 	atomicity_dir=cpu/generic/atomicity_mutex
   fi
  AC_LANG_RESTORE
- AC_MSG_RESULT($enable_atomic_builtins)
 ])
 
 

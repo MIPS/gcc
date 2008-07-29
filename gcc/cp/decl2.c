@@ -1,6 +1,7 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -914,9 +915,10 @@ grokfield (const cp_declarator *declarator,
 
 tree
 grokbitfield (const cp_declarator *declarator,
-	      cp_decl_specifier_seq *declspecs, tree width)
+	      cp_decl_specifier_seq *declspecs, tree width,
+	      tree attrlist)
 {
-  tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, NULL);
+  tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, &attrlist);
 
   if (value == error_mark_node) 
     return NULL_TREE; /* friends went bad.  */
@@ -972,6 +974,10 @@ grokbitfield (const cp_declarator *declarator,
     }
 
   DECL_IN_AGGR_P (value) = 1;
+
+  if (attrlist)
+    cplus_decl_attributes (&value, attrlist, /*flags=*/0);
+
   return value;
 }
 
@@ -991,11 +997,8 @@ is_late_template_attribute (tree attr, tree decl)
     /* Unknown attribute.  */
     return false;
 
-  /* Attribute vector_size handling wants to dive into the back end array
-     building code, which breaks during template processing.  */
-  if (is_attribute_p ("vector_size", name)
-      /* Attribute weak handling wants to write out assembly right away.  */
-      || is_attribute_p ("weak", name))
+  /* Attribute weak handling wants to write out assembly right away.  */
+  if (is_attribute_p ("weak", name))
     return true;
 
   /* If any of the arguments are dependent expressions, we can't evaluate
@@ -1003,6 +1006,14 @@ is_late_template_attribute (tree attr, tree decl)
   for (arg = args; arg; arg = TREE_CHAIN (arg))
     {
       tree t = TREE_VALUE (arg);
+
+      /* If the first attribute argument is an identifier, only consider
+	 second and following arguments.  Attributes like mode, format,
+	 cleanup and several target specific attributes aren't late
+	 just because they have an IDENTIFIER_NODE as first argument.  */
+      if (arg == args && TREE_CODE (t) == IDENTIFIER_NODE)
+	continue;
+
       if (value_dependent_expression_p (t)
 	  || type_dependent_expression_p (t))
 	return true;
@@ -1118,6 +1129,62 @@ save_template_attributes (tree *attr_p, tree *decl_p)
 	  TYPE_ATTRIBUTES (variant) = TYPE_ATTRIBUTES (*decl_p);
 	}
     }
+}
+
+/* Like reconstruct_complex_type, but handle also template trees.  */
+
+tree
+cp_reconstruct_complex_type (tree type, tree bottom)
+{
+  tree inner, outer;
+
+  if (TREE_CODE (type) == POINTER_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_pointer_type_for_mode (inner, TYPE_MODE (type),
+					   TYPE_REF_CAN_ALIAS_ALL (type));
+    }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_reference_type_for_mode (inner, TYPE_MODE (type),
+					     TYPE_REF_CAN_ALIAS_ALL (type));
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_cplus_array_type (inner, TYPE_DOMAIN (type));
+      /* Don't call cp_build_qualified_type on ARRAY_TYPEs, the
+	 element type qualification will be handled by the recursive
+	 cp_reconstruct_complex_type call and cp_build_qualified_type
+	 for ARRAY_TYPEs changes the element type.  */
+      return outer;
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+    }
+  else if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      /* The build_method_type_directly() routine prepends 'this' to argument list,
+	 so we must compensate by getting rid of it.  */
+      outer
+	= build_method_type_directly
+	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type))),
+	     inner,
+	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
+    }
+  else if (TREE_CODE (type) == OFFSET_TYPE)
+    {
+      inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
+      outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
+    }
+  else
+    return bottom;
+
+  return cp_build_qualified_type (outer, TYPE_QUALS (type));
 }
 
 /* Like decl_attributes, but handle C++ complexity.  */

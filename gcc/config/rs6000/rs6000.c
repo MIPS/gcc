@@ -171,7 +171,7 @@ int rs6000_long_double_type_size;
 /* IEEE quad extended precision long double. */
 int rs6000_ieeequad;
 
-/* Whether -mabi=altivec has appeared.  */
+/* Nonzero to use AltiVec ABI.  */
 int rs6000_altivec_abi;
 
 /* Nonzero if we want SPE ABI extensions.  */
@@ -262,12 +262,14 @@ int rs6000_alignment_flags;
 struct {
   bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
   bool alignment;		/* True if -malign- was used.  */
-  bool abi;			/* True if -mabi=spe/nospe was used.  */
+  bool spe_abi;			/* True if -mabi=spe/no-spe was used.  */
+  bool altivec_abi;		/* True if -mabi=altivec/no-altivec used.  */
   bool spe;			/* True if -mspe= was used.  */
   bool float_gprs;		/* True if -mfloat-gprs= was used.  */
   bool isel;			/* True if -misel was used. */
   bool long_double;	        /* True if -mlong-double- was used.  */
   bool ieee;			/* True if -mabi=ieee/ibmlongdouble used.  */
+  bool vrsave;			/* True if -mvrsave was used.  */
 } rs6000_explicit_options;
 
 struct builtin_description
@@ -1594,11 +1596,18 @@ rs6000_override_options (const char *default_cpu)
   if (TARGET_XCOFF && TARGET_ALTIVEC)
     rs6000_altivec_abi = 1;
 
-  /* Set Altivec ABI as default for PowerPC64 Linux.  */
-  if (TARGET_ELF && TARGET_64BIT)
+  /* The AltiVec ABI is the default for PowerPC-64 GNU/Linux.  For
+     PowerPC-32 GNU/Linux, -maltivec implies the AltiVec ABI.  It can
+     be explicitly overridden in either case.  */
+  if (TARGET_ELF)
     {
-      rs6000_altivec_abi = 1;
-      TARGET_ALTIVEC_VRSAVE = 1;
+      if (!rs6000_explicit_options.altivec_abi
+	  && (TARGET_64BIT || TARGET_ALTIVEC))
+	rs6000_altivec_abi = 1;
+
+      /* Enable VRSAVE for AltiVec ABI, unless explicitly overridden.  */
+      if (!rs6000_explicit_options.vrsave)
+	TARGET_ALTIVEC_VRSAVE = rs6000_altivec_abi;
     }
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  */
@@ -1642,7 +1651,7 @@ rs6000_override_options (const char *default_cpu)
       /* For the powerpc-eabispe configuration, we set all these by
 	 default, so let's unset them if we manually set another
 	 CPU that is not the E500.  */
-      if (!rs6000_explicit_options.abi)
+      if (!rs6000_explicit_options.spe_abi)
 	rs6000_spe_abi = 0;
       if (!rs6000_explicit_options.spe)
 	rs6000_spe = 0;
@@ -2135,6 +2144,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
       break;
 
     case OPT_mvrsave_:
+      rs6000_explicit_options.vrsave = true;
       rs6000_parse_yes_no_option ("vrsave", arg, &(TARGET_ALTIVEC_VRSAVE));
       break;
 
@@ -2192,19 +2202,20 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mabi_:
       if (!strcmp (arg, "altivec"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.altivec_abi = true;
 	  rs6000_altivec_abi = 1;
+
+	  /* Enabling the AltiVec ABI turns off the SPE ABI.  */
 	  rs6000_spe_abi = 0;
 	}
       else if (! strcmp (arg, "no-altivec"))
 	{
-	  /* ??? Don't set rs6000_explicit_options.abi here, to allow
-	     the default for rs6000_spe_abi to be chosen later.  */
+	  rs6000_explicit_options.altivec_abi = true;
 	  rs6000_altivec_abi = 0;
 	}
       else if (! strcmp (arg, "spe"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.spe_abi = true;
 	  rs6000_spe_abi = 1;
 	  rs6000_altivec_abi = 0;
 	  if (!TARGET_SPE_ABI)
@@ -2212,7 +2223,7 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 	}
       else if (! strcmp (arg, "no-spe"))
 	{
-	  rs6000_explicit_options.abi = true;
+	  rs6000_explicit_options.spe_abi = true;
 	  rs6000_spe_abi = 0;
 	}
 
@@ -6828,7 +6839,9 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
       /* _Decimal32 varargs are located in the second word of the 64-bit
 	 FP register for 32-bit binaries.  */
-      if (!TARGET_POWERPC64 && TYPE_MODE (type) == SDmode)
+      if (!TARGET_POWERPC64
+	  && TARGET_HARD_FLOAT && TARGET_FPRS
+	  && TYPE_MODE (type) == SDmode)
 	t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (t), t, size_int (size));
 
       t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
@@ -9060,6 +9073,7 @@ build_opaque_vector_type (tree node, int nunits)
 {
   node = copy_node (node);
   TYPE_MAIN_VARIANT (node) = node;
+  TYPE_CANONICAL (node) = node;
   return build_vector_type (node, nunits);
 }
 
@@ -9196,6 +9210,10 @@ rs6000_init_builtins (void)
   /* AIX libm provides clog as __clog.  */
   if (built_in_decls [BUILT_IN_CLOG])
     set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
+#endif
+
+#ifdef SUBTARGET_INIT_BUILTINS
+  SUBTARGET_INIT_BUILTINS;
 #endif
 }
 
@@ -12307,6 +12325,10 @@ print_operand_address (FILE *file, rtx x)
 	      XSTR (symref, 0) = newname;
 	    }
 	  output_addr_const (file, XEXP (x, 1));
+	  if (GET_CODE (XEXP (minus, 1)) == CONST
+	      && (GET_CODE (XEXP (XEXP (minus, 1), 0)) == PLUS))
+	    fprintf (file, "+"HOST_WIDE_INT_PRINT_DEC,
+		     -INTVAL (XEXP (XEXP (XEXP (minus, 1), 0), 1)));
 	  if (TARGET_ELF)
 	    XSTR (symref, 0) = name;
 	  XEXP (contains_minus, 0) = minus;
@@ -13873,6 +13895,9 @@ rs6000_expand_compare_and_swapqhi (rtx dst, rtx mem, rtx oldval, rtx newval)
   wdst = gen_reg_rtx (SImode);
   emit_insn (gen_sync_compare_and_swapqhi_internal (wdst, mask,
 						    oldval, newval, mem));
+
+  /* Shift the result back.  */
+  emit_insn (gen_lshrsi3 (wdst, wdst, shift));
 
   emit_move_insn (dst, gen_lowpart (mode, wdst));
 }
@@ -16394,8 +16419,108 @@ rs6000_emit_epilogue (int sibcall)
   if (info->push_p)
     sp_offset = info->total_size;
 
-  /* Restore AltiVec registers if needed.  */
-  if (TARGET_ALTIVEC_ABI && info->altivec_size != 0)
+  /* Restore AltiVec registers if we must do so before adjusting the
+     stack.  */
+  if (TARGET_ALTIVEC_ABI
+      && info->altivec_size != 0
+      && DEFAULT_ABI != ABI_V4
+      && info->altivec_save_offset < (TARGET_32BIT ? -220 : -288))
+    {
+      int i;
+
+      if (use_backchain_to_restore_sp)
+	{
+	  frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+	  emit_move_insn (frame_reg_rtx,
+			  gen_rtx_MEM (Pmode, sp_reg_rtx));
+	  sp_offset = 0;
+	}
+
+      for (i = info->first_altivec_reg_save; i <= LAST_ALTIVEC_REGNO; ++i)
+	if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
+	  {
+	    rtx addr, areg, mem;
+
+	    areg = gen_rtx_REG (Pmode, 0);
+	    emit_move_insn
+	      (areg, GEN_INT (info->altivec_save_offset
+			      + sp_offset
+			      + 16 * (i - info->first_altivec_reg_save)));
+
+	    /* AltiVec addressing mode is [reg+reg].  */
+	    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
+	    mem = gen_frame_mem (V4SImode, addr);
+
+	    emit_move_insn (gen_rtx_REG (V4SImode, i), mem);
+	  }
+    }
+
+  /* Restore VRSAVE if we must do so before adjusting the stack.  */
+  if (TARGET_ALTIVEC
+      && TARGET_ALTIVEC_VRSAVE
+      && info->vrsave_mask != 0
+      && DEFAULT_ABI != ABI_V4
+      && info->vrsave_save_offset < (TARGET_32BIT ? -220 : -288))
+    {
+      rtx addr, mem, reg;
+
+      if (use_backchain_to_restore_sp
+	  && frame_reg_rtx == sp_reg_rtx)
+	{
+	  frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+	  emit_move_insn (frame_reg_rtx,
+			  gen_rtx_MEM (Pmode, sp_reg_rtx));
+	  sp_offset = 0;
+	}
+
+      addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
+			   GEN_INT (info->vrsave_save_offset + sp_offset));
+      mem = gen_frame_mem (SImode, addr);
+      reg = gen_rtx_REG (SImode, 12);
+      emit_move_insn (reg, mem);
+
+      emit_insn (generate_set_vrsave (reg, info, 1));
+    }
+
+  /* If we have a frame pointer, a call to alloca,  or a large stack
+     frame, restore the old stack pointer using the backchain.  Otherwise,
+     we know what size to update it with.  */
+  if (use_backchain_to_restore_sp)
+    {
+      if (frame_reg_rtx != sp_reg_rtx)
+	{
+	  emit_move_insn (sp_reg_rtx, frame_reg_rtx);
+	  frame_reg_rtx = sp_reg_rtx;
+	}
+      else
+	{
+	  /* Under V.4, don't reset the stack pointer until after we're done
+	     loading the saved registers.  */
+	  if (DEFAULT_ABI == ABI_V4)
+	    frame_reg_rtx = gen_rtx_REG (Pmode, 11);
+
+	  emit_move_insn (frame_reg_rtx,
+			  gen_rtx_MEM (Pmode, sp_reg_rtx));
+	  sp_offset = 0;
+	}
+    }
+  else if (info->push_p
+	   && DEFAULT_ABI != ABI_V4
+	   && !current_function_calls_eh_return)
+    {
+      emit_insn (TARGET_32BIT
+		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
+			       GEN_INT (info->total_size))
+		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
+			       GEN_INT (info->total_size)));
+      sp_offset = 0;
+    }
+
+  /* Restore AltiVec registers if we have not done so already.  */
+  if (TARGET_ALTIVEC_ABI
+      && info->altivec_size != 0
+      && (DEFAULT_ABI == ABI_V4
+	  || info->altivec_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
       int i;
 
@@ -16418,35 +16543,12 @@ rs6000_emit_epilogue (int sibcall)
 	  }
     }
 
-  /* If we have a frame pointer, a call to alloca,  or a large stack
-     frame, restore the old stack pointer using the backchain.  Otherwise,
-     we know what size to update it with.  */
-  if (use_backchain_to_restore_sp)
-    {
-      /* Under V.4, don't reset the stack pointer until after we're done
-	 loading the saved registers.  */
-      if (DEFAULT_ABI == ABI_V4)
-	frame_reg_rtx = gen_rtx_REG (Pmode, 11);
-
-      emit_move_insn (frame_reg_rtx,
-		      gen_rtx_MEM (Pmode, sp_reg_rtx));
-      sp_offset = 0;
-    }
-  else if (info->push_p
-	   && DEFAULT_ABI != ABI_V4
-	   && !current_function_calls_eh_return)
-    {
-      emit_insn (TARGET_32BIT
-		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx,
-			       GEN_INT (info->total_size))
-		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx,
-			       GEN_INT (info->total_size)));
-      sp_offset = 0;
-    }
-
-  /* Restore VRSAVE if needed.  */
-  if (TARGET_ALTIVEC && TARGET_ALTIVEC_VRSAVE
-      && info->vrsave_mask != 0)
+  /* Restore VRSAVE if we have not done so already.  */
+  if (TARGET_ALTIVEC
+      && TARGET_ALTIVEC_VRSAVE
+      && info->vrsave_mask != 0
+      && (DEFAULT_ABI == ABI_V4
+	  || info->vrsave_save_offset >= (TARGET_32BIT ? -220 : -288)))
     {
       rtx addr, mem, reg;
 
@@ -19766,7 +19868,7 @@ rs6000_handle_altivec_attribute (tree *node,
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
   if (result)
-    *node = reconstruct_complex_type (*node, result);
+    *node = lang_hooks.types.reconstruct_complex_type (*node, result);
 
   return NULL_TREE;
 }

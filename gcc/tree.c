@@ -2423,8 +2423,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 {
   enum tree_code code = TREE_CODE (exp);
   tree op0, op1, op2, op3;
-  tree new;
-  tree inner;
+  tree new, inner;
 
   /* We handle TREE_LIST and COMPONENT_REF separately.  */
   if (code == TREE_LIST)
@@ -2534,13 +2533,15 @@ substitute_in_expr (tree exp, tree f, tree r)
 	  for (i = 1; i < TREE_OPERAND_LENGTH (exp); i++)
 	    {
 	      tree op = TREE_OPERAND (exp, i);
-	      tree newop = SUBSTITUTE_IN_EXPR (op, f, r);
-	      if (newop != op)
+	      tree new_op = SUBSTITUTE_IN_EXPR (op, f, r);
+	      if (new_op != op)
 		{
-		  copy = copy_node (exp);
-		  TREE_OPERAND (copy, i) = newop;
+		  if (!copy)
+		    copy = copy_node (exp);
+		  TREE_OPERAND (copy, i) = new_op;
 		}
 	    }
+
 	  if (copy)
 	    new = fold (copy);
 	  else
@@ -4082,6 +4083,16 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
       return NULL_TREE;
     }
 
+  if (TREE_CODE (node) == TYPE_DECL
+      && TREE_CODE (TREE_TYPE (node)) != RECORD_TYPE
+      && TREE_CODE (TREE_TYPE (node)) != UNION_TYPE)
+    {
+      *no_add_attrs = true;
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
+      return NULL_TREE;
+    }
+
   /* Report error on dllimport ambiguities seen now before they cause
      any damage.  */
   else if (is_attribute_p ("dllimport", name))
@@ -5423,6 +5434,11 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
   if (to_type == error_mark_node)
     return error_mark_node;
 
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
+
   /* In some cases, languages will have things that aren't a POINTER_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_POINTER_TO.
      In that case, return that type without regard to the rest of our
@@ -5478,6 +5494,14 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
 			       bool can_alias_all)
 {
   tree t;
+
+  if (to_type == error_mark_node)
+    return error_mark_node;
+
+  /* If the pointed-to type has the may_alias attribute set, force
+     a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+    can_alias_all = true;
 
   /* In some cases, languages will have things that aren't a REFERENCE_TYPE
      (such as a RECORD_TYPE for fat pointers in Ada) as TYPE_REFERENCE_TO.

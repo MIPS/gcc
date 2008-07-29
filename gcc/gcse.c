@@ -4458,8 +4458,7 @@ pre_delete (void)
 		   expressions into.  Get the mode for the new pseudo from
 		   the mode of the original destination pseudo.  */
 		if (expr->reaching_reg == NULL)
-		  expr->reaching_reg
-		    = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+		  expr->reaching_reg = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		delete_insn (insn);
@@ -4983,7 +4982,7 @@ hoist_code (void)
 			 from the mode of the original destination pseudo.  */
 		      if (expr->reaching_reg == NULL)
 			expr->reaching_reg
-			  = gen_reg_rtx (GET_MODE (SET_DEST (set)));
+			  = gen_reg_rtx_and_attrs (SET_DEST (set));
 
 		      gcse_emit_move_after (expr->reaching_reg, SET_DEST (set), insn);
 		      delete_insn (insn);
@@ -6116,7 +6115,7 @@ build_store_vectors (void)
 	     are any side effects.  */
 	  if (TEST_BIT (ae_gen[bb->index], ptr->index))
 	    {
-	      rtx r = gen_reg_rtx (GET_MODE (ptr->pattern));
+	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
 		fprintf (dump_file, "Removing redundant store:\n");
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
@@ -6439,7 +6438,7 @@ delete_store (struct ls_expr * expr, basic_block bb)
   rtx reg, i, del;
 
   if (expr->reaching_reg == NULL_RTX)
-    expr->reaching_reg = gen_reg_rtx (GET_MODE (expr->pattern));
+    expr->reaching_reg = gen_reg_rtx_and_attrs (expr->pattern);
 
   reg = expr->reaching_reg;
 

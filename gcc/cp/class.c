@@ -4054,7 +4054,9 @@ type_has_user_nondefault_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (!DECL_ARTIFICIAL (fn)
-	  && skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn)) != NULL_TREE)
+	  && (TREE_CODE (fn) == TEMPLATE_DECL
+	      || (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
+		  != NULL_TREE)))
 	return true;
     }
 
@@ -4121,6 +4123,10 @@ type_requires_array_cookie (tree type)
       second_parm = TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (fn)));
       if (second_parm == void_list_node)
 	return false;
+      /* Do not consider this function if its second argument is an
+	 ellipsis.  */
+      if (!second_parm)
+	continue;
       /* Otherwise, if we have a two-argument function and the second
 	 argument is `size_t', it will be the usual deallocation
 	 function -- unless there is one-argument function, too.  */

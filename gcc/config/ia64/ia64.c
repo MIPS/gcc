@@ -781,6 +781,8 @@ ia64_legitimate_constant_p (rtx x)
 static bool
 ia64_cannot_force_const_mem (rtx x)
 {
+  if (GET_MODE (x) == RFmode)
+    return true;
   return tls_symbolic_operand_type (x) != 0;
 }
 
@@ -5900,6 +5902,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_FR_RECIP_APPROX:
 	case UNSPEC_SHRP:
 	case UNSPEC_COPYSIGN:
+	case UNSPEC_FR_RECIP_APPROX_RES:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;

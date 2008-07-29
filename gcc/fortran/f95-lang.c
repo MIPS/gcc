@@ -1,5 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Paul Brook.
 
@@ -853,21 +853,21 @@ gfc_init_builtin_functions (void)
   ptype = build_pointer_type (float_type_node);
   tmp = tree_cons (NULL_TREE, float_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_float_floatp_floatp =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (double_type_node);
   tmp = tree_cons (NULL_TREE, double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_double_doublep_doublep =
     build_function_type (void_type_node, tmp);
 
   ptype = build_pointer_type (long_double_type_node);
   tmp = tree_cons (NULL_TREE, long_double_type_node,
 		   tree_cons (NULL_TREE, ptype,
-		   	      build_tree_list (NULL_TREE, ptype)));
+		   	      tree_cons (NULL_TREE, ptype, void_list_node)));
   func_longdouble_longdoublep_longdoublep =
     build_function_type (void_type_node, tmp);
 
@@ -942,6 +942,12 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_POW, "pow", true);
   gfc_define_builtin ("__builtin_powf", mfunc_float[1], 
 		      BUILT_IN_POWF, "powf", true);
+  gfc_define_builtin ("__builtin_cpowl", mfunc_clongdouble[1], 
+		      BUILT_IN_CPOWL, "cpowl", true);
+  gfc_define_builtin ("__builtin_cpow", mfunc_cdouble[1], 
+		      BUILT_IN_CPOW, "cpow", true);
+  gfc_define_builtin ("__builtin_cpowf", mfunc_cfloat[1], 
+		      BUILT_IN_CPOWF, "cpowf", true);
   gfc_define_builtin ("__builtin_powil", mfunc_longdouble[2], 
 		      BUILT_IN_POWIL, "powil", true);
   gfc_define_builtin ("__builtin_powi", mfunc_double[2], 

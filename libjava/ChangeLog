@@ -1,3 +1,55 @@
+2008-07-02  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.ac: Substitute gcjsubdir.
+	* Makefile.am (db_pathtail): Use it.
+	* Makefile.in include/Makefile.in, testsuite/Makefile.in,
+	gcj/Makefile.in, configure: Regenerate.
+
+2008-06-06  Release Manager
+
+	* GCC 4.3.1 released.
+
+2008-05-20  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/36252
+	* java/lang/natString.ccn: Add
+	#include <java/io/CharConversionException.h>.
+	(init (byte[], int, int, String)): Catch and ignore
+	CharConversionException.  Break out of conversion loop
+	on incomplete input.
+	* testsuite/libjava.lang/PR36252.java: New test.
+	* testsuite/libjava.lang/PR36252.out: New file, its expected output.
+	* testsuite/libjava.lang/PR36252.jar: New file, its pre-compiled
+	jar file.
+
+2008-03-13  Andrew Haley  <aph@redhat.com>
+
+	* link.cc (_Jv_Linker::resolve_method_entry): Remove broken class
+	loader test.
+
+2008-03-05  Release Manager
+
+	* GCC 4.3.0 released.
+
+2008-03-04  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/lib/libjava.exp (libjava_arguments): Use regexp
+	instead of string match when checking for linux targets.
+
+2008-03-03  Matthias Klose  <doko@ubuntu.com>
+
+	* classpath/tools/classes/gnu/classpath/tools/orbd/Main.class,
+	classpath/lib/gnu/java/locale/LocaleData.class
+	classpath/lib/gnu/java/rmi/registry/RegistryImpl.class
+	classpath/lib/gnu/gcj/convert/Convert.class
+	classpath/lib/gnu/gcj/tools/gcj_dbtool/Main.class: Regenerate.
+
+2008-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnu/gcj/convert/Convert.java (version): Update copyright notice
+	dates.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Likewise.
+
 2008-02-16  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	PR libgcj/33085

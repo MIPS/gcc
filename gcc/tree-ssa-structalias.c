@@ -3552,8 +3552,7 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   unsigned int i = 0;
   unsigned int j = 0;
   VEC (ce_s, heap) *temp = NULL;
-  unsigned int rhsoffset = 0;
-  bool unknown_addend = false;
+  unsigned HOST_WIDE_INT rhsunitoffset, rhsoffset;
 
   if (TREE_CODE (expr) != POINTER_PLUS_EXPR)
     return false;
@@ -3562,13 +3561,18 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   op1 = TREE_OPERAND (expr, 1);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (op0)));
 
-  get_constraint_for (op0, &temp);
+  /* If the offset is not a non-negative integer constant that fits
+     in a HOST_WIDE_INT, we cannot handle it here.  */
+  if (!host_integerp (op1, 1))
+    return false;
 
-  /* Handle non-constants by making constraints from integer.  */
-  if (TREE_CODE (op1) == INTEGER_CST)
-    rhsoffset = TREE_INT_CST_LOW (op1) * BITS_PER_UNIT;
-  else
-    unknown_addend = true;
+  /* Make sure the bit-offset also fits.  */
+  rhsunitoffset = TREE_INT_CST_LOW (op1);
+  rhsoffset = rhsunitoffset * BITS_PER_UNIT;
+  if (rhsunitoffset != rhsoffset / BITS_PER_UNIT)
+    return false;
+
+  get_constraint_for (op0, &temp);
 
   for (i = 0; VEC_iterate (ce_s, lhsc, i, c); i++)
     for (j = 0; VEC_iterate (ce_s, temp, j, c2); j++)
@@ -3584,30 +3588,6 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
 	      continue;
 	    c2->var = temp->id;
 	    c2->offset = 0;
-	  }
-	else if (unknown_addend)
-	  {
-	    /* Can't handle *a + integer where integer is unknown.  */
-	    if (c2->type != SCALAR)
-	      {
-		struct constraint_expr intc;
-		intc.var = integer_id;
-		intc.offset = 0;
-		intc.type = SCALAR;
-		process_constraint (new_constraint (*c, intc));
-	      }
-	    else
-	      {
-		/* We known it lives somewhere within c2->var.  */
-		varinfo_t tmp = get_varinfo (c2->var);
-		for (; tmp; tmp = tmp->next)
-		  {
-		    struct constraint_expr tmpc = *c2;
-		    c2->var = tmp->id;
-		    c2->offset = 0;
-		    process_constraint (new_constraint (*c, tmpc));
-		  }
-	      }
 	  }
 	else
 	  c2->offset = rhsoffset;
@@ -4021,14 +4001,20 @@ fieldoff_compare (const void *pa, const void *pb)
 {
   const fieldoff_s *foa = (const fieldoff_s *)pa;
   const fieldoff_s *fob = (const fieldoff_s *)pb;
-  HOST_WIDE_INT foasize, fobsize;
+  unsigned HOST_WIDE_INT foasize, fobsize;
 
-  if (foa->offset != fob->offset)
-    return foa->offset - fob->offset;
+  if (foa->offset < fob->offset)
+    return -1;
+  else if (foa->offset > fob->offset)
+    return 1;
 
   foasize = TREE_INT_CST_LOW (foa->size);
   fobsize = TREE_INT_CST_LOW (fob->size);
-  return foasize - fobsize;
+  if (foasize < fobsize)
+    return - 1;
+  else if (foasize > fobsize)
+    return 1;
+  return 0;
 }
 
 /* Sort a fieldstack according to the field offset and sizes.  */
@@ -4180,11 +4166,15 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack,
 		        (DECL_NONADDRESSABLE_P (field)
 		         ? addressable_type
 		         : TREE_TYPE (field))))
-		     && DECL_SIZE (field)
-		     && !integer_zerop (DECL_SIZE (field)))
-	      /* Empty structures may have actual size, like in C++. So
+		     && ((DECL_SIZE (field)
+			  && !integer_zerop (DECL_SIZE (field)))
+			 || (!DECL_SIZE (field)
+			     && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)))
+	      /* Empty structures may have actual size, like in C++.  So
 	         see if we didn't push any subfields and the size is
-	         nonzero, push the field onto the stack */
+	         nonzero, push the field onto the stack.  Trailing flexible
+		 array members also need a representative to be able to
+		 treat taking their address in PTA.  */
 	      push = true;
 
 	    if (push)
@@ -4753,7 +4743,19 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	  /* Variables containing unions may need to be converted to
 	     their SFT's, because SFT's can have unions and we cannot.  */
 	  for (i = 0; VEC_iterate (tree, sv, i, subvar); ++i)
-	    bitmap_set_bit (into, DECL_UID (subvar));
+	    {
+	      /* Pointed-to SFTs are needed by the operand scanner
+		 to adjust offsets when adding operands to memory
+		 expressions that dereference PTR.  This means
+		 that memory partitioning may not partition
+		 this SFT because the operand scanner will not
+		 be able to find the other SFTs next to this
+		 one.  But we only need to do this if the pointed
+		 to type is aggregate.  */
+	      if (SFT_BASE_FOR_COMPONENTS_P (subvar))
+		SFT_UNPARTITIONABLE_P (subvar) = true;
+	      bitmap_set_bit (into, DECL_UID (subvar));
+	    }
 	}
       else if (TREE_CODE (vi->decl) == VAR_DECL
 	       || TREE_CODE (vi->decl) == PARM_DECL

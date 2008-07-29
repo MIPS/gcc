@@ -827,6 +827,16 @@ resolve_structure_cons (gfc_expr *expr)
 	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
 	}
 
+      if (cons->expr->expr_type == EXPR_NULL
+	    && !(comp->pointer || comp->allocatable))
+	{
+	  t = FAILURE;
+	  gfc_error ("The NULL in the derived type constructor at %L is "
+		     "being applied to component '%s', which is neither "
+		     "a POINTER nor ALLOCATABLE", &cons->expr->where,
+		     comp->name);
+	}
+
       if (!comp->pointer || cons->expr->expr_type == EXPR_NULL)
 	continue;
 
@@ -2365,7 +2375,12 @@ resolve_function (gfc_expr *expr)
       gfc_expr_set_symbols_referenced (expr->ts.cl->length);
     }
 
-  if (t == SUCCESS)
+  if (t == SUCCESS
+	&& !((expr->value.function.esym
+		&& expr->value.function.esym->attr.elemental)
+			||
+	     (expr->value.function.isym
+		&& expr->value.function.isym->elemental)))
     find_noncopying_intrinsics (expr->value.function.esym,
 				expr->value.function.actual);
 
@@ -2836,7 +2851,7 @@ resolve_call (gfc_code *c)
   if (resolve_elemental_actual (NULL, c) == FAILURE)
     return FAILURE;
 
-  if (t == SUCCESS)
+  if (t == SUCCESS && !(c->resolved_sym && c->resolved_sym->attr.elemental))
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
   return t;
 }
@@ -7452,13 +7467,33 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 }
 
 
+/* Add a derived type to the dt_list.  The dt_list is used in trans-types.c
+   to give all identical derived types the same backend_decl.  */
+static void
+add_dt_to_dt_list (gfc_symbol *derived)
+{
+  gfc_dt_list *dt_list;
+
+  for (dt_list = gfc_derived_types; dt_list; dt_list = dt_list->next)
+    if (derived == dt_list->derived)
+      break;
+
+  if (dt_list == NULL)
+    {
+      dt_list = gfc_get_dt_list ();
+      dt_list->next = gfc_derived_types;
+      dt_list->derived = derived;
+      gfc_derived_types = dt_list;
+    }
+}
+
+
 /* Resolve the components of a derived type.  */
 
 static try
 resolve_fl_derived (gfc_symbol *sym)
 {
   gfc_component *c;
-  gfc_dt_list * dt_list;
   int i;
 
   for (c = sym->components; c != NULL; c = c->next)
@@ -7510,14 +7545,24 @@ resolve_fl_derived (gfc_symbol *sym)
 	  return FAILURE;
 	}
 
+      /* Ensure that all the derived type components are put on the
+	 derived type list; even in formal namespaces, where derived type
+	 pointer components might not have been declared.  */
+      if (c->ts.type == BT_DERIVED
+	    && c->ts.derived
+	    && c->ts.derived->components
+	    && c->pointer
+	    && sym != c->ts.derived)
+	add_dt_to_dt_list (c->ts.derived);
+
       if (c->pointer || c->allocatable ||  c->as == NULL)
 	continue;
 
       for (i = 0; i < c->as->rank; i++)
 	{
 	  if (c->as->lower[i] == NULL
-	      || !gfc_is_constant_expr (c->as->lower[i])
 	      || (resolve_index_expr (c->as->lower[i]) == FAILURE)
+	      || !gfc_is_constant_expr (c->as->lower[i])
 	      || c->as->upper[i] == NULL
 	      || (resolve_index_expr (c->as->upper[i]) == FAILURE)
 	      || !gfc_is_constant_expr (c->as->upper[i]))
@@ -7531,17 +7576,7 @@ resolve_fl_derived (gfc_symbol *sym)
     }
 
   /* Add derived type to the derived type list.  */
-  for (dt_list = gfc_derived_types; dt_list; dt_list = dt_list->next)
-    if (sym == dt_list->derived)
-      break;
-
-  if (dt_list == NULL)
-    {
-      dt_list = gfc_get_dt_list ();
-      dt_list->next = gfc_derived_types;
-      dt_list->derived = sym;
-      gfc_derived_types = dt_list;
-    }
+  add_dt_to_dt_list (sym);
 
   return SUCCESS;
 }
@@ -7972,6 +8007,29 @@ resolve_symbol (gfc_symbol *sym)
 		  &sym->declared_at, sym->ts.derived->name);
       sym->ts.type = BT_UNKNOWN;
       return;
+    }
+
+  /* Make sure that the derived type has been resolved and that the
+     derived type is visible in the symbol's namespace, if it is a
+     module function and is not PRIVATE.  */
+  if (sym->ts.type == BT_DERIVED
+	&& sym->ts.derived->attr.use_assoc
+	&& sym->ns->proc_name->attr.flavor == FL_MODULE)
+    {
+      gfc_symbol *ds;
+
+      if (resolve_fl_derived (sym->ts.derived) == FAILURE)
+	return;
+
+      gfc_find_symbol (sym->ts.derived->name, sym->ns, 1, &ds);
+      if (!ds && sym->attr.function
+	    && gfc_check_access (sym->attr.access, sym->ns->default_access))
+	{
+	  symtree = gfc_new_symtree (&sym->ns->sym_root,
+				     sym->ts.derived->name);
+	  symtree->n.sym = sym->ts.derived;
+	  sym->ts.derived->refs++;
+	}
     }
 
   /* Unless the derived-type declaration is use associated, Fortran 95

@@ -8093,7 +8093,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	case RID_FRIEND:
 	  if (!at_class_scope_p ())
 	    {
-	      error ("%<friend%> used outside of class");
+	      error ("%H%<friend%> used outside of class", &token->location);
 	      cp_lexer_purge_token (parser->lexer);
 	    }
 	  else
@@ -15046,9 +15046,8 @@ cp_parser_member_declaration (cp_parser* parser)
 							 sfk_none)
 				   : NULL,
 				   &decl_specifiers,
-				   width);
-	      /* Apply the attributes.  */
-	      cplus_decl_attributes (&decl, attributes, /*flags=*/0);
+				   width,
+				   attributes);
 	    }
 	  else
 	    {
@@ -15787,7 +15786,7 @@ cp_parser_asm_specification_opt (cp_parser* parser)
   asm_specification = cp_parser_string_literal (parser, false, false);
 
   /* Look for the `)'.  */
-  cp_parser_require (parser, CPP_CLOSE_PAREN, "`('");
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "%<)%>");
 
   return asm_specification;
 }
@@ -16262,6 +16261,13 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	  decl = lookup_qualified_name (parser->scope, name,
 					tag_type != none_type,
 					/*complain=*/true);
+
+	  /* If we have a single function from a using decl, pull it out.  */
+	  if (decl
+	      && TREE_CODE (decl) == OVERLOAD
+	      && !really_overloaded_fn (decl))
+	    decl = OVL_FUNCTION (decl);
+
 	  if (pushed_scope)
 	    pop_scope (pushed_scope);
 	}
@@ -18954,11 +18960,10 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	  attributes = chainon (prefix_attributes, attributes);
 
 	  if (width)
-	    {
 	      /* Create the bitfield declaration.  */
-	      decl = grokbitfield (declarator, &declspecs, width);
-	      cplus_decl_attributes (&decl, attributes, /*flags=*/0);
-	    }
+	      decl = grokbitfield (declarator, &declspecs,
+				   width,
+				   attributes);
 	  else
 	    decl = grokfield (declarator, &declspecs,
 			      NULL_TREE, /*init_const_expr_p=*/false,
@@ -19625,7 +19630,8 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
       code = TRUTH_ORIF_EXPR;
       break;
     default:
-      cp_parser_error (parser, "`+', `*', `-', `&', `^', `|', `&&', or `||'");
+      cp_parser_error (parser, "expected `+', `*', `-', `&', `^', `|', "
+			       "`&&', or `||'");
     resync_fail:
       cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					     /*or_comma=*/false,
@@ -19656,7 +19662,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list)
 {
   tree c, t;
 
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, "%<(%>"))
     return list;
 
   c = build_omp_clause (OMP_CLAUSE_SCHEDULE);
@@ -20074,8 +20080,11 @@ cp_parser_omp_for_loop (cp_parser *parser)
 
 	      init = cp_parser_assignment_expression (parser, false);
 
-	      cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
-			      asm_specification, LOOKUP_ONLYCONVERTING);
+	      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+		init = error_mark_node;
+	      else
+		cp_finish_decl (decl, NULL_TREE, /*init_const_expr_p=*/false,
+				asm_specification, LOOKUP_ONLYCONVERTING);
 
 	      if (pushed_scope)
 		pop_scope (pushed_scope);

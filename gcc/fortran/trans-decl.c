@@ -99,10 +99,6 @@ tree gfor_fndecl_associated;
    trans-intrinsic.c.  */
 
 gfc_powdecl_list gfor_fndecl_math_powi[4][3];
-tree gfor_fndecl_math_cpowf;
-tree gfor_fndecl_math_cpow;
-tree gfor_fndecl_math_cpowl10;
-tree gfor_fndecl_math_cpowl16;
 tree gfor_fndecl_math_ishftc4;
 tree gfor_fndecl_math_ishftc8;
 tree gfor_fndecl_math_ishftc16;
@@ -525,9 +521,6 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
      SAVE_EXPLICIT.  */
   if (!sym->attr.use_assoc
 	&& (sym->attr.save != SAVE_NONE || sym->attr.data
-	      || (sym->ts.type == BT_DERIVED
-		    && sym->ts.derived->attr.alloc_comp
-		    && sym->value)
 	      || (sym->value && sym->ns->proc_name->attr.is_main_program)))
     TREE_STATIC (decl) = 1;
 
@@ -2024,10 +2017,6 @@ gfc_build_intrinsic_function_decls (void)
   tree gfc_real8_type_node = gfc_get_real_type (8);
   tree gfc_real10_type_node = gfc_get_real_type (10);
   tree gfc_real16_type_node = gfc_get_real_type (16);
-  tree gfc_complex4_type_node = gfc_get_complex_type (4);
-  tree gfc_complex8_type_node = gfc_get_complex_type (8);
-  tree gfc_complex10_type_node = gfc_get_complex_type (10);
-  tree gfc_complex16_type_node = gfc_get_complex_type (16);
 
   /* String functions.  */
   gfor_fndecl_compare_string =
@@ -2194,25 +2183,6 @@ gfc_build_intrinsic_function_decls (void)
 #undef NIKINDS
 #undef NRKINDS
   }
-
-  gfor_fndecl_math_cpowf =
-    gfc_build_library_function_decl (get_identifier ("cpowf"),
-				     gfc_complex4_type_node,
-				     1, gfc_complex4_type_node);
-  gfor_fndecl_math_cpow =
-    gfc_build_library_function_decl (get_identifier ("cpow"),
-				     gfc_complex8_type_node,
-				     1, gfc_complex8_type_node);
-  if (gfc_complex10_type_node)
-    gfor_fndecl_math_cpowl10 =
-      gfc_build_library_function_decl (get_identifier ("cpowl"),
-				       gfc_complex10_type_node, 1,
-				       gfc_complex10_type_node);
-  if (gfc_complex16_type_node)
-    gfor_fndecl_math_cpowl16 =
-      gfc_build_library_function_decl (get_identifier ("cpowl"),
-				       gfc_complex16_type_node, 1,
-				       gfc_complex16_type_node);
 
   gfor_fndecl_math_ishftc4 =
     gfc_build_library_function_decl (get_identifier (PREFIX("ishftc4")),
@@ -2592,8 +2562,8 @@ gfc_trans_vla_type_sizes (gfc_symbol *sym, stmtblock_t *body)
 
 /* Initialize a derived type by building an lvalue from the symbol
    and using trans_assignment to do the work.  */
-static tree
-init_default_dt (gfc_symbol * sym, tree body)
+tree
+gfc_init_default_dt (gfc_symbol * sym, tree body)
 {
   stmtblock_t fnblock;
   gfc_expr *e;
@@ -2613,7 +2583,8 @@ init_default_dt (gfc_symbol * sym, tree body)
     }
   gfc_add_expr_to_block (&fnblock, tmp);
   gfc_free_expr (e);
-  gfc_add_expr_to_block (&fnblock, body);
+  if (body)
+    gfc_add_expr_to_block (&fnblock, body);
   return gfc_finish_block (&fnblock);
 }
 
@@ -2631,7 +2602,7 @@ init_intent_out_dt (gfc_symbol * proc_sym, tree body)
 	  && f->sym->ts.type == BT_DERIVED
 	  && !f->sym->ts.derived->attr.alloc_comp
 	  && f->sym->value)
-      body = init_default_dt (f->sym, body);
+      body = gfc_init_default_dt (f->sym, body);
 
   gfc_add_expr_to_block (&fnblock, body);
   return gfc_finish_block (&fnblock);
@@ -2730,7 +2701,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 			     && sym->value
 			     && !sym->attr.data
 			     && sym->attr.save == SAVE_NONE)
-		    fnbody = init_default_dt (sym, fnbody);
+		    fnbody = gfc_init_default_dt (sym, fnbody);
 
 		  gfc_get_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
@@ -2790,7 +2761,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 		 && sym->value
 		 && !sym->attr.data
 		 && sym->attr.save == SAVE_NONE)
-	fnbody = init_default_dt (sym, fnbody);
+	fnbody = gfc_init_default_dt (sym, fnbody);
       else
 	gcc_unreachable ();
     }
