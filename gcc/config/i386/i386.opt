@@ -114,7 +114,7 @@ Generate sin, cos, sqrt for FPU
 
 mforce-drap
 Target Report Var(ix86_force_drap)
-Always use Dynamic Realigned Argument Pointer (DRAP) to realign stack.
+Always use Dynamic Realigned Argument Pointer (DRAP) to realign stack
 
 mfp-ret-in-387
 Target Report Mask(FLOAT_RETURNS) Save

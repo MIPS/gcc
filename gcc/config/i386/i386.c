@@ -4259,8 +4259,8 @@ ix86_function_regparm (const_tree type, const_tree decl)
 	     the callee DECL_STRUCT_FUNCTION is gone, so we fall back to
 	     scanning the attributes for the self-realigning property.  */
 	  f = DECL_STRUCT_FUNCTION (decl);
-          /* Since current internal arg pointer will won't conflict
-	     with parameter passing regs, so no need to change stack
+          /* Since current internal arg pointer won't conflict with
+	     parameter passing regs, so no need to change stack
 	     realignment and adjust regparm number.
 
 	     Each fixed register usage increases register pressure,

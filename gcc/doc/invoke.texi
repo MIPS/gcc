@@ -10741,14 +10741,12 @@ when this option is used to set the precision to less than extended precision.
 
 @item -mstackrealign
 @opindex mstackrealign
-Realign the stack at entry.  The @option{-mstackrealign} option will
-assume that the runtime stack is aligned according to the psABI and
-generate an alternate prologue/epilogue that realigns the runtime stack
-if necessary.  On the Intel x86, this supports mixing codes that keep a
-4-byte aligned stack, as specified by i386 psABI, with codes that need
-a 16-byte aligned stack, as required by SSE instructions.  See also the
-attribute @code{force_align_arg_pointer}, applicable to individual
-functions.
+Realign the stack at entry.  On the Intel x86, the @option{-mstackrealign}
+option will generate an alternate prologue and epilogue that realigns the
+runtime stack if necessary.  This supports mixing legacy codes that keep
+a 4-byte aligned stack with modern codes that keep a 16-byte stack for
+SSE compatibility.  See also the attribute @code{force_align_arg_pointer},
+applicable to individual functions.
 
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary
