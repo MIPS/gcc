@@ -1,5 +1,9 @@
 2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
 
+	Merged with gcc-4_3-branch @138264.
+
+2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
+
 	* var-tracking.c (find_mem_expr_in_1pdv): New.
 	(dataflow_set_preserve_mem_locs): New.
 	(dataflow_set_clear_at_call): Call it.
