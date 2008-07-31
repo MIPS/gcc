@@ -26,6 +26,8 @@ Boston, MA 02110-1301, USA.  */
 #include "tree.h"
 #include "lto.h"
 #include "lto-tree.h"
+#include "ggc.h"	/* lambda.h needs this */
+#include "lambda.h"	/* gcd */
 
 /* Vector to keep track of external variables we've seen so far.  */
 VEC(tree,gc) *lto_global_var_decls;
@@ -219,7 +221,6 @@ lto_merge_types (tree type_1, tree type_2)
   return NULL_TREE;
 }
 
-
 /* Returns true iff the union of ATTRIBUTES_1 and ATTRIBUTES_2 can be
    applied to DECL.  */
 static bool
@@ -232,13 +233,19 @@ lto_compatible_attributes_p (tree decl ATTRIBUTE_UNUSED,
      are both empty.  */
   return !attributes_1 && !attributes_2;
 #else
-  /* ### */
-  /* For the moment, live dangerously, and assume the user knows what he's doing.
-     I don't think the linker would distinguish these cases.  */
+  /* FIXME.  For the moment, live dangerously, and assume the user knows
+     what he's doing. I don't think the linker would distinguish these cases.  */
   return true || (!attributes_1 && !attributes_2);
 #endif
 }
 
+/* Compute the least common multiple of A and B.  */
+
+static inline unsigned
+lto_least_common_multiple (unsigned a, unsigned b)
+{
+  return (a * b) / gcd (a, b);
+}
 
 /* Common helper function for merging variable and function declarations.  */
 static tree 
@@ -398,7 +405,9 @@ lto_symtab_merge_decl (tree new_decl)
 	  return error_mark_node;
 	}
     }
-  if (DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
+  /* Report an error if user-specified alignments do not match.  */
+  if ((DECL_USER_ALIGN (old_decl) && DECL_USER_ALIGN (new_decl))
+      && DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
     {
       error ("alignment of %qD does not match original declaration",
 	     new_decl);
@@ -469,7 +478,14 @@ lto_symtab_merge_decl (tree new_decl)
   TREE_THIS_VOLATILE (old_decl) |= TREE_THIS_VOLATILE (new_decl);
   TREE_READONLY (old_decl) |= TREE_READONLY (new_decl);
   DECL_EXTERNAL (old_decl) &= DECL_EXTERNAL (new_decl);
-    
+
+  /* Adjust the alignment to the smallest common alignment.  */
+  if (DECL_ALIGN (old_decl) != DECL_ALIGN (new_decl))
+    DECL_ALIGN (old_decl) = lto_least_common_multiple (DECL_ALIGN (old_decl),
+						       DECL_ALIGN (new_decl));
+  /* If either alignment is user-specified, regard the merged alignment as such.  */
+  DECL_USER_ALIGN (old_decl) |= DECL_USER_ALIGN (new_decl);
+
   DECL_WEAK (old_decl) &= DECL_WEAK (new_decl);
   DECL_PRESERVE_P (old_decl) |= DECL_PRESERVE_P (new_decl);
   if (merged_type)

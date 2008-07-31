@@ -1,3 +1,18 @@
+2008-07-30  Bill Maddox  <maddox@google.com>
+
+	* lto-function-in.c (input_function_decl): Save the
+	old assembler name before renaming static functions.
+	* lto-tree-in.h (struct data_in): Removed field global.
+	Tidy up comments.
+	* lto-section-in.c (struct lto_renaming_slot): New type.
+	(hash_name, eq_name, renaming_slot_free, lto_create_renaming_table,
+	lto_record_renamed_decl, lto_original_decl_name): New functions.
+	* lto-section-in.h (struct lto_file_decl_data): Add field
+	renaming_hash_table.  Fix comments.
+	(lto_create_renaming_table, lto_record_renamed_decl,
+	lto_original_decl_name): Declare.
+	* lto-section-out.c: Remove marker comments.
+	
 2008-07-28  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	Mainline merge @138147

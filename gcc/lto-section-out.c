@@ -77,7 +77,6 @@ lto_hash_decl_slot_node (const void *p)
 {
   const struct lto_decl_slot *ds = (const struct lto_decl_slot *) p;
 
-  /* ### */
   /*
     return (hashval_t) DECL_UID (ds->t);
   */
@@ -95,7 +94,6 @@ lto_eq_decl_slot_node (const void *p1, const void *p2)
   const struct lto_decl_slot *ds2 =
     (const struct lto_decl_slot *) p2;
 
-  /* ### */
   /*
   return DECL_UID (ds1->t) == DECL_UID (ds2->t);
   */

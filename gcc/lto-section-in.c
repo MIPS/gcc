@@ -332,6 +332,103 @@ lto_destroy_simple_input_block (struct lto_file_decl_data *file_data,
 }
 
 /*****************************************************************************/
+/* Record renamings of static declarations                                   */
+/*****************************************************************************/
+
+struct lto_renaming_slot
+{
+  const char *old_name;
+  const char *new_name;
+};
+
+/* Returns a hash code for P.  */
+
+static hashval_t
+hash_name (const void *p)
+{
+  const struct lto_renaming_slot *ds = (const struct lto_renaming_slot *) p;
+  return (hashval_t) htab_hash_string (ds->new_name);
+}
+
+/* Returns nonzero if P1 and P2 are equal.  */
+
+static int
+eq_name (const void *p1, const void *p2)
+{
+  const struct lto_renaming_slot *s1 =
+    (const struct lto_renaming_slot *) p1;
+  const struct lto_renaming_slot *s2 =
+    (const struct lto_renaming_slot *) p2;
+
+  return strcmp (s1->new_name, s2->new_name) == 0;
+}
+
+/* Free a renaming table entry.  */
+
+static void
+renaming_slot_free (void *slot)
+{
+  struct lto_renaming_slot *s = (struct lto_renaming_slot *) slot;
+
+  free (CONST_CAST (void *, (const void *) s->old_name));
+  free (CONST_CAST (void *, (const void *) s->new_name));
+  free ((void *) s);
+}
+
+/* Create an empty hash table for recording declaration renamings.  */
+
+htab_t
+lto_create_renaming_table (void)
+{
+  return htab_create (37, hash_name, eq_name, renaming_slot_free);
+}
+
+/* Record a declaration renaming.  */
+
+void
+lto_record_renamed_decl (struct lto_file_decl_data *decl_data,
+			 const char *old_name, const char *new_name)
+{
+  void **slot;
+  struct lto_renaming_slot r_slot;
+
+  r_slot.new_name = new_name;
+  slot = htab_find_slot (decl_data->renaming_hash_table, &r_slot, INSERT);
+  if (*slot == NULL)
+    {
+      struct lto_renaming_slot *new_slot
+	= ((struct lto_renaming_slot *)
+	   xmalloc (sizeof (struct lto_renaming_slot)));
+      
+      new_slot->old_name = xstrdup (old_name);
+      new_slot->new_name = xstrdup (new_name);
+      *slot = new_slot;
+    }
+  else
+    gcc_unreachable ();
+}
+
+/* Return the original name of a declaration.  If the declaration was not
+   renamed, then this is the name we were given, else it is the name that
+   the declaration was previously renamed to.  */
+
+const char *
+lto_original_decl_name (struct lto_file_decl_data *decl_data,
+			const char *name)
+{
+  htab_t renaming_hash_table = decl_data->renaming_hash_table;
+  struct lto_renaming_slot *slot;
+  struct lto_renaming_slot r_slot;
+
+  r_slot.new_name = name;
+  slot = (struct lto_renaming_slot *)htab_find (renaming_hash_table, &r_slot);
+  if (slot)
+    return slot->old_name;
+  else
+    return name;
+}
+
+/*****************************************************************************/
 /* Stream debugging support code.                                            */
 /*****************************************************************************/
 

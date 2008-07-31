@@ -39,22 +39,17 @@ Boston, MA 02110-1301, USA.  */
 #include "lto-section-out.h"
 
 
-/* ### Moved lto_file_init and lto_file_close here from lto.c.
-   The lto_file vs. lto_elf_file distinction now appears superfluous.  */
-
 /* Initialize FILE, an LTO file object for FILENAME.  */
 static void
 lto_file_init (lto_file *file, const char *filename)
 {
   file->filename = filename;
-  /* ### We no longer use the debug_info and debug_abbrev fields. */
 }
 
 /* Close FILE.  */
 static void
 lto_file_close (lto_file *file ATTRIBUTE_UNUSED)
 {
-  /* ### We no longer use the debug_info and debug_abbrev fields. */
   ggc_free (file);
 }
 

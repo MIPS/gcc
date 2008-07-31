@@ -73,8 +73,11 @@ struct lto_file_decl_data
      the file has not yet been opened.  */
   int fd;
 
-  /* Hash table to contains the location of the lto bodies in file_name. */
+  /* Hash table maps lto-related section names to location in file.  */
   htab_t section_hash_table;
+
+  /* Hash new name of renamed global declaration to its original name.  */
+  htab_t renaming_hash_table;
 };
 
 struct lto_file_decl_data;
@@ -154,6 +157,12 @@ extern unsigned HOST_WIDE_INT lto_input_uleb128 (struct lto_input_block *);
 extern unsigned HOST_WIDEST_INT lto_input_widest_uint_uleb128 (struct lto_input_block *);
 extern HOST_WIDE_INT lto_input_sleb128 (struct lto_input_block *);
 extern tree lto_input_integer (struct lto_input_block *, tree);
+
+extern htab_t lto_create_renaming_table (void);
+extern void lto_record_renamed_decl (struct lto_file_decl_data *,
+				     const char *, const char *);
+extern const char *lto_original_decl_name (struct lto_file_decl_data *,
+					   const char *);
 
 #ifdef LTO_STREAM_DEBUGGING
 extern void lto_debug_in_fun (struct lto_debug_context *, char);

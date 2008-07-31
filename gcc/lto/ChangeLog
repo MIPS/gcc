@@ -1,3 +1,16 @@
+2008-07-30  Bill Maddox  <maddox@google.com>
+
+ 	* lto.c (lto_materialize_function): Call lto_original_decl_name.
+ 	Remove obsolete comments.
+ 	(lto_read_decls): Remove initialization of deleted field data_in.global.
+ 	Tidy up comments.
+ 	(lto_main): Remove redundant initialization of section_hash_table.
+ 	* lto-elf.c: Removed obsolete comments.
+ 	* lto.h: Tidy up comments.
+ 	* lto-symtab.c (lto_least_common_multiple): New function.
+ 	(lto_symtab_merge_decl): Merge variable alignments in some cases.
+ 	Tidy up comments.
+
 2008-07-25  Diego Novillo  <dnovillo@google.com>
 	    Bill Maddox  <maddox@google.com>
 

@@ -1550,7 +1550,7 @@ input_local_type (struct lto_input_block *ib, struct data_in *data_in,
   type->type.pointer_to = input_local_tree (ib, data_in, fn);
   LTO_DEBUG_TOKEN ("reference_to");
   type->type.reference_to = input_local_tree (ib, data_in, fn);
-  /* FXIME: Read symtab here, if required.  */
+  /* FIXME: Read symtab here, if required.  */
   LTO_DEBUG_TOKEN ("name");
   type->type.name = input_local_tree (ib, data_in, fn);
   LTO_DEBUG_TOKEN ("minval");
@@ -2499,11 +2499,33 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
 
   /* struct function is filled in when body is read */
 
-  /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
+  /* Need to ensure static entities between different files
+     don't clash unexpectedly.  */
   if (!TREE_PUBLIC (decl))
-    /* Need to ensure static entities between different files
-       don't clash unexpectedly.  */
-    lang_hooks.set_decl_assembler_name (decl);
+    {
+      /* We must not use the DECL_ASSEMBLER_NAME macro here, as it
+	 may set the assembler name where it was previously empty.  */
+      tree old_assembler_name = decl->decl_with_vis.assembler_name;
+
+      lang_hooks.set_decl_assembler_name (decl);
+
+      /* We may arrive here with the old assembler name not set
+	 if the function body is not needed, e.g., it has been
+	 inlined away and does not appear in the cgraph.  */
+      if (old_assembler_name)
+	{
+	  tree new_assembler_name = decl->decl_with_vis.assembler_name;
+
+	  /* Make the original assembler name available for later use.
+	     We may have used it to indicate the section within its
+	     object file where the function body may be found.
+	     FIXME lto: Find a better way to maintain the function decl
+	     to body section mapping so we don't need this hack.  */
+	  lto_record_renamed_decl (data_in->file_data,
+				   IDENTIFIER_POINTER (old_assembler_name),
+				   IDENTIFIER_POINTER (new_assembler_name));
+	}				   
+    }
 
   /* If the function has already been declared, merge the
      declarations.  */

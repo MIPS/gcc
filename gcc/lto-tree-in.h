@@ -60,16 +60,11 @@ struct data_in
   int current_line;
   int current_col;
 
-  /* ### */
   /* Context for reading global variables and types.
      When a new variable or type is read in from the stream,
      it is pushed onto this vector.  Subsequent references
      to the variable or type specify the vector index.  */
   VEC(tree,heap) *globals_index;
-
-  /* ### */
-  /* True if reading globals and types.  */
-  bool global;
 };
 
 /* Used in lto/lto.c */

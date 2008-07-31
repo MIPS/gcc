@@ -64,6 +64,9 @@ lto_materialize_function (struct cgraph_node *node)
   tree step;
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)); 
 
+  /* We may have renamed the declaration, e.g., a static function.  */
+  name = lto_original_decl_name (file_data, name);
+
   data = lto_get_section_data (file_data, LTO_section_function_body,
 			       name, &len);
   if (data)
@@ -93,7 +96,6 @@ lto_materialize_function (struct cgraph_node *node)
 	}
     }
   else
-    /* ### Shouldn't we just check this and assert if not?  */
     DECL_EXTERNAL (decl) = 1;
 
   /* Let the middle end know about the function.  */
@@ -215,10 +217,9 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   data_in.strings            = (const char *) data + string_offset;
   data_in.strings_len        = header->string_size;
   data_in.globals_index	     = NULL;
-  data_in.global	     = true;  /* ### unused */
 
-  /* ### This doesn't belong here */
-  /* ### Need initialization not done in lto_static_init () */
+  /* FIXME: This doesn't belong here.
+     Need initialization not done in lto_static_init ().  */
   lto_static_init_local ();
 
 #ifdef LTO_STREAM_DEBUGGING
@@ -232,7 +233,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data)
   preload_common_nodes (&data_in);
 
   /* Read the global declarations and types.  */
-  /* ### We should be a bit more graceful regarding truncated files. */
+  /* FIXME: We should be a bit more graceful regarding truncated files. */
   while (ib_main.p < ib_main.len)
     {
       input_tree (&ib_main, &data_in);
@@ -295,6 +296,7 @@ lto_file_read (lto_file *file)
   const char *data;
   size_t len;
   htab_t section_hash_table;
+  htab_t renaming_hash_table;
 
   file_data = XNEW (struct lto_file_decl_data);
 
@@ -303,12 +305,15 @@ lto_file_read (lto_file *file)
 
   section_hash_table = lto_elf_build_section_table (file);
   file_data->section_hash_table = section_hash_table;
+
+  renaming_hash_table = lto_create_renaming_table ();
+  file_data->renaming_hash_table = renaming_hash_table;
   
   data = lto_get_section_data (file_data, LTO_section_decls, NULL, &len);
   lto_read_decls (file_data, data);
   lto_free_section_data (file_data, LTO_section_decls, NULL, data, len);
 
-  /* ### We never free file_data.  */
+  /* FIXME: We never free file_data.  */
 
   return file_data;
 }
@@ -441,16 +446,12 @@ lto_main (int debug_p ATTRIBUTE_UNUSED)
   /* Read all of the object files specified on the command line.  */
   for (i = 0; i < num_in_fnames; ++i)
     {
-      htab_t section_hash_table;
       current_lto_file = lto_elf_file_open (in_fnames[i], /*writable=*/false);
       if (!current_lto_file)
 	break;
       file_data = lto_file_read (current_lto_file);
       if (!file_data)
 	break;
-
-      section_hash_table = lto_elf_build_section_table (current_lto_file);
-      file_data->section_hash_table = section_hash_table;
 
       all_file_decl_data [j++] = file_data;
 

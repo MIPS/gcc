@@ -38,8 +38,7 @@ typedef struct lto_file_struct GTY(())
   /* The name of the file.  */
   const char *filename;
 
-  /* ### */
-  /* The debug_info and debug_abbrev fields are no longer used.
+  /* FIXME: The debug_info and debug_abbrev fields are no longer used.
      As a result, the lto_file vs. lto_elf_file distinction is
      no longer useful, and should be eliminated.  */
 }
