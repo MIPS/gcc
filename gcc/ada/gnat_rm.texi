@@ -8,14 +8,22 @@
 @c                                                                            o
 @c                              G N A T _ RM                                  o
 @c                                                                            o
-@c              Copyright (C) 1995-2008, Free Software Foundation             o
-@c                                                                            o
-@c                                                                            o
 @c  GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).    o
 @c                                                                            o
 @c oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
 @setfilename gnat_rm.info
+
+@copying
+Copyright @copyright{} 1995-2008, Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover Texts being ``GNAT Reference
+Manual'', and with no Back-Cover Texts.  A copy of the license is
+included in the section entitled ``GNU Free Documentation License''.
+@end copying
 
 @set EDITION GNAT
 @set DEFAULTLANGUAGEVERSION Ada 2005
@@ -32,18 +40,6 @@
 @direntry
 * GNAT Reference Manual: (gnat_rm).  Reference Manual for GNU Ada tools.
 @end direntry
-
-@copying
-Copyright @copyright{} 1995-2008, Free Software Foundation, Inc.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.2
-or any later version published by the Free Software Foundation;
-with the Invariant Sections being ``GNU Free Documentation License'',
-with the Front-Cover Texts being ``GNAT Reference Manual'', and with
-no Back-Cover Texts. A copy of the license is included in the section
-entitled ``GNU Free Documentation License''.
-@end copying
 
 @titlepage
 @title GNAT Reference Manual
@@ -108,6 +104,7 @@ Implementation Defined Pragmas
 * Pragma Assert::
 * Pragma Ast_Entry::
 * Pragma C_Pass_By_Copy::
+* Pragma Canonical_Streams::
 * Pragma Check::
 * Pragma Check_Name::
 * Pragma Check_Policy::
@@ -709,6 +706,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Assert::
 * Pragma Ast_Entry::
 * Pragma C_Pass_By_Copy::
+* Pragma Canonical_Streams::
 * Pragma Check::
 * Pragma Check_Name::
 * Pragma Check_Policy::
@@ -1060,6 +1058,27 @@ You can also pass records by copy by specifying the convention
 @code{C_Pass_By_Copy} for the record type, or by using the extended
 @code{Import} and @code{Export} pragmas, which allow specification of
 passing mechanisms on a parameter by parameter basis.
+
+@node Pragma Canonical_Streams
+@unnumberedsec Canonical Streams
+@cindex Canonical streams
+@findex Canonical_Streams
+@noindent
+Syntax:
+@smallexample @c ada
+pragma Canonical_Streams;
+@end smallexample
+
+@noindent
+This configuration pragma affects the behavior of stream attributes of any 
+@code{String}, @code{Wide_String} or @code{Wide_Wide_String} based type. When 
+this pragma is present, @code{'Input}, @code{'Output}, @code{'Read} and 
+@code{'Write} exibit Ada 95 canonical behavior, in other words, streaming of 
+values is done character by character.
+
+@noindent
+The use of this pragma is intended to bypass any implementation-related 
+optimizations allowed by Ada 2005 RM 13.13.2 (56/2) Implementation Permission.
 
 @node Pragma Check
 @unnumberedsec Pragma Check
@@ -3796,6 +3815,13 @@ package Sort is
 end Sort;
 @end smallexample
 
+@noindent
+Note: postcondition pragmas associated with subprograms that are
+marked as Inline_Always, or those marked as Inline with front-end
+inlining (-gnatN option set) are accepted and legality-checked
+by the compiler, but are ignored at run-time even if postcondition
+checking is enabled.
+
 @node Pragma Precondition
 @unnumberedsec Pragma Precondition
 @cindex Preconditions
@@ -3830,12 +3856,21 @@ package Math_Functions is
 end Math_Functions;
 @end smallexample
 
-@code{Postcondition} pragmas may appear either immediate following the
+@noindent
+@code{Precondition} pragmas may appear either immediate following the
 (separate) declaration of a subprogram, or at the start of the
 declarations of a subprogram body. Only other pragmas may intervene
 (that is appear between the subprogram declaration and its
 postconditions, or appear before the postcondition in the
 declaration sequence in a subprogram body).
+
+Note: postcondition pragmas associated with subprograms that are
+marked as Inline_Always, or those marked as Inline with front-end
+inlining (-gnatN option set) are accepted and legality-checked
+by the compiler, but are ignored at run-time even if postcondition
+checking is enabled.
+
+
 
 @node Pragma Profile (Ravenscar)
 @unnumberedsec Pragma Profile (Ravenscar)

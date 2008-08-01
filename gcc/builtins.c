@@ -207,6 +207,7 @@ static rtx expand_builtin_memory_chk (tree, rtx, enum machine_mode,
 				      enum built_in_function);
 static void maybe_emit_chk_warning (tree, enum built_in_function);
 static void maybe_emit_sprintf_chk_warning (tree, enum built_in_function);
+static void maybe_emit_free_warning (tree);
 static tree fold_builtin_object_size (tree, tree);
 static tree fold_builtin_strcat_chk (tree, tree, tree, tree);
 static tree fold_builtin_strncat_chk (tree, tree, tree, tree, tree);
@@ -743,7 +744,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 	{
 	  /* Now restore our arg pointer from the address at which it
 	     was saved in our stack frame.  */
-	  emit_move_insn (virtual_incoming_args_rtx,
+	  emit_move_insn (crtl->args.internal_arg_pointer,
 			  copy_to_reg (get_arg_pointer_save_area ()));
 	}
     }
@@ -777,6 +778,11 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 {
   rtx fp, lab, stack, insn, last;
   enum machine_mode sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
+
+  /* DRAP is needed for stack realign if longjmp is expanded to current 
+     function  */
+  if (SUPPORTS_STACK_ALIGNMENT)
+    crtl->need_drap = true;
 
   if (setjmp_alias_set == -1)
     setjmp_alias_set = new_alias_set ();
@@ -1345,7 +1351,7 @@ expand_builtin_apply_args_1 (void)
       }
 
   /* Save the arg pointer to the block.  */
-  tem = copy_to_reg (virtual_incoming_args_rtx);
+  tem = copy_to_reg (crtl->args.internal_arg_pointer);
 #ifdef STACK_GROWS_DOWNWARD
   /* We need the pointer as the caller actually passed them to us, not
      as we might have pretended they were passed.  Make sure it's a valid
@@ -1453,6 +1459,14 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   /* Allocate a block of memory onto the stack and copy the memory
      arguments to the outgoing arguments address.  */
   allocate_dynamic_stack_space (argsize, 0, BITS_PER_UNIT);
+
+  /* Set DRAP flag to true, even though allocate_dynamic_stack_space
+     may have already set current_function_calls_alloca to true.
+     current_function_calls_alloca won't be set if argsize is zero,
+     so we have to guarantee need_drap is true here.  */
+  if (SUPPORTS_STACK_ALIGNMENT)
+    crtl->need_drap = true;
+
   dest = virtual_outgoing_args_rtx;
 #ifndef STACK_GROWS_DOWNWARD
   if (GET_CODE (argsize) == CONST_INT)
@@ -4785,11 +4799,11 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   boundary = FUNCTION_ARG_BOUNDARY (TYPE_MODE (type), type);
 
   /* When we align parameter on stack for caller, if the parameter
-     alignment is beyond PREFERRED_STACK_BOUNDARY, it will be
-     aligned at PREFERRED_STACK_BOUNDARY.  We will match callee
+     alignment is beyond MAX_SUPPORTED_STACK_ALIGNMENT, it will be
+     aligned at MAX_SUPPORTED_STACK_ALIGNMENT.  We will match callee
      here with caller.  */
-  if (boundary > PREFERRED_STACK_BOUNDARY)
-    boundary = PREFERRED_STACK_BOUNDARY;
+  if (boundary > MAX_SUPPORTED_STACK_ALIGNMENT)
+    boundary = MAX_SUPPORTED_STACK_ALIGNMENT;
 
   boundary /= BITS_PER_UNIT;
 
@@ -6117,7 +6131,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   if (!optimize
       && !called_as_built_in (fndecl)
       && DECL_ASSEMBLER_NAME_SET_P (fndecl)
-      && fcode != BUILT_IN_ALLOCA)
+      && fcode != BUILT_IN_ALLOCA
+      && fcode != BUILT_IN_FREE)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -6992,6 +7007,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SPRINTF_CHK:
     case BUILT_IN_VSPRINTF_CHK:
       maybe_emit_sprintf_chk_warning (exp, fcode);
+      break;
+
+    case BUILT_IN_FREE:
+      maybe_emit_free_warning (exp);
       break;
 
     default:	/* just do library call, if unknown builtin */
@@ -11966,6 +11985,27 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
       warning (0, "%Kcall to %D will always overflow destination buffer",
 	       exp, get_callee_fndecl (exp));
     }
+}
+
+/* Emit warning if a free is called with address of a variable.  */
+
+static void
+maybe_emit_free_warning (tree exp)
+{
+  tree arg = CALL_EXPR_ARG (exp, 0);
+
+  STRIP_NOPS (arg);
+  if (TREE_CODE (arg) != ADDR_EXPR)
+    return;
+
+  arg = get_base_address (TREE_OPERAND (arg, 0));
+  if (arg == NULL || INDIRECT_REF_P (arg))
+    return;
+
+  if (SSA_VAR_P (arg))
+    warning (0, "%Kattempt to free a non-heap object %qD", exp, arg);
+  else
+    warning (0, "%Kattempt to free a non-heap object", exp);
 }
 
 /* Fold a call to __builtin_object_size with arguments PTR and OST,

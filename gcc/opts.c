@@ -1072,35 +1072,15 @@ decode_options (unsigned int argc, const char **argv)
 	flag_pic = flag_pie;
       if (flag_pic && !flag_pie)
 	flag_shlib = 1;
-
-      if (flag_no_inline == 2)
-	flag_no_inline = 0;
-      else
-	flag_really_no_inline = flag_no_inline;
     }
 
-  /* Set flag_no_inline before the post_options () hook.  The C front
-     ends use it to determine tree inlining defaults.  FIXME: such
-     code should be lang-independent when all front ends use tree
-     inlining, in which case it, and this condition, should be moved
-     to the top of process_options() instead.  */
   if (optimize == 0)
     {
       /* Inlining does not work if not optimizing,
 	 so force it not to be done.  */
-      flag_no_inline = 1;
       warn_inline = 0;
-
-      /* The c_decode_option function and decode_option hook set
-	 this to `2' if -Wall is used, so we can avoid giving out
-	 lots of errors for people who don't realize what -Wall does.  */
-      if (warn_uninitialized == 1)
-	warning (OPT_Wuninitialized,
-		 "-Wuninitialized is not supported without -O");
+      flag_no_inline = 1;
     }
-
-  if (flag_really_no_inline == 2)
-    flag_really_no_inline = flag_no_inline;
 
   /* The optimization to partition hot and cold basic blocks into separate
      sections of the .o and executable files does not work (currently)

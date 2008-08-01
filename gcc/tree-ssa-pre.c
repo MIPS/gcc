@@ -2421,64 +2421,56 @@ static VEC(gimple,heap) *inserted_exprs;
    to see which expressions need to be put into GC'able memory  */
 static VEC(gimple, heap) *need_creation;
 
-/* For COMPONENT_REF's and ARRAY_REF's, we can't have any intermediates for the
-   COMPONENT_REF or INDIRECT_REF or ARRAY_REF portion, because we'd end up with
-   trying to rename aggregates into ssa form directly, which is a no
-   no.
+/* The actual worker for create_component_ref_by_pieces.  */
 
-   Thus, this routine doesn't create temporaries, it just builds a
-   single access expression for the array, calling
-   find_or_generate_expression to build the innermost pieces.
-
-   This function is a subroutine of create_expression_by_pieces, and
-   should not be called on it's own unless you really know what you
-   are doing.
-*/
 static tree
-create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
-				unsigned int operand,
-				gimple_seq *stmts,
-				gimple domstmt,
-				bool in_call)
+create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
+				  unsigned int *operand, gimple_seq *stmts,
+				  gimple domstmt)
 {
   vn_reference_op_t currop = VEC_index (vn_reference_op_s, ref->operands,
-					operand);
+					*operand);
   tree genop;
+  ++*operand;
   switch (currop->opcode)
     {
     case CALL_EXPR:
       {
 	tree folded;
-	unsigned int i;
-	vn_reference_op_t declop = VEC_index (vn_reference_op_s,
-					      ref->operands, 1);
-	unsigned int nargs = VEC_length (vn_reference_op_s, ref->operands) - 2;
-	tree *args = XNEWVEC (tree, nargs);
-
-	for (i = 0; i < nargs; i++)
+	unsigned int nargs = 0;
+	tree *args = XNEWVEC (tree, VEC_length (vn_reference_op_s,
+						ref->operands) - 1);
+	while (*operand < VEC_length (vn_reference_op_s, ref->operands))
 	  {
-	    args[i] = create_component_ref_by_pieces (block, ref,
-						      operand + 2 + i, stmts,
-						      domstmt, true);
+	    args[nargs] = create_component_ref_by_pieces_1 (block, ref,
+							    operand, stmts,
+							    domstmt);
+	    nargs++;
 	  }
 	folded = build_call_array (currop->type,
-				   TREE_CODE (declop->op0) == FUNCTION_DECL
-				   ? build_fold_addr_expr (declop->op0)
-				   : declop->op0,
+				   TREE_CODE (currop->op0) == FUNCTION_DECL
+				   ? build_fold_addr_expr (currop->op0)
+				   : currop->op0,
 				   nargs, args);
 	free (args);
 	return folded;
       }
       break;
+    case ADDR_EXPR:
+      if (currop->op0)
+	{
+	  gcc_assert (is_gimple_min_invariant (currop->op0));
+	  return currop->op0;
+	}
+      /* Fallthrough.  */
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case VIEW_CONVERT_EXPR:
       {
 	tree folded;
-	tree genop0 = create_component_ref_by_pieces (block, ref,
-						      operand + 1,
-						      stmts, domstmt,
-						      in_call);
+	tree genop0 = create_component_ref_by_pieces_1 (block, ref,
+							operand,
+							stmts, domstmt);
 	if (!genop0)
 	  return NULL_TREE;
 	folded = fold_build1 (currop->opcode, currop->type,
@@ -2490,45 +2482,25 @@ create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
     case MISALIGNED_INDIRECT_REF:
     case INDIRECT_REF:
       {
-	/* Inside a CALL_EXPR op0 is the actual indirect_ref.  */
-	if (in_call)
-	  {
-	    tree folded;
-	    tree op0 = TREE_OPERAND (currop->op0, 0);
-	    pre_expr op0expr = get_or_alloc_expr_for (op0);
-	    tree genop0 = find_or_generate_expression (block, op0expr, stmts,
-						       domstmt);
-	    if (!genop0)
-	      return NULL_TREE;
-	    folded = fold_build1 (currop->opcode, currop->type,
-				  genop0);
-	    return folded;
-	  }
-	else
-	  {
+	tree folded;
+	tree genop1 = create_component_ref_by_pieces_1 (block, ref,
+							operand,
+							stmts, domstmt);
+	if (!genop1)
+	  return NULL_TREE;
+	genop1 = fold_convert (build_pointer_type (currop->type),
+			       genop1);
 
-	    tree folded;
-	    tree genop1 = create_component_ref_by_pieces (block, ref,
-							  operand + 1,
-							  stmts, domstmt,
-							  in_call);
-	    if (!genop1)
-	      return NULL_TREE;
-	    genop1 = fold_convert (build_pointer_type (currop->type),
-				   genop1);
-
-	    folded = fold_build1 (currop->opcode, currop->type,
-				  genop1);
-	    return folded;
-	  }
+	folded = fold_build1 (currop->opcode, currop->type,
+			      genop1);
+	return folded;
       }
       break;
     case BIT_FIELD_REF:
       {
 	tree folded;
-	tree genop0 = create_component_ref_by_pieces (block, ref, operand + 1,
-						      stmts, domstmt,
-						      in_call);
+	tree genop0 = create_component_ref_by_pieces_1 (block, ref, operand,
+							stmts, domstmt);
 	pre_expr op1expr = get_or_alloc_expr_for (currop->op0);
 	pre_expr op2expr = get_or_alloc_expr_for (currop->op1);
 	tree genop1;
@@ -2553,17 +2525,14 @@ create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
     case ARRAY_RANGE_REF:
     case ARRAY_REF:
       {
-	vn_reference_op_t op0expr;
 	tree genop0;
 	tree genop1 = currop->op0;
 	pre_expr op1expr;
 	tree genop2 = currop->op1;
 	pre_expr op2expr;
 	tree genop3;
-	op0expr = VEC_index (vn_reference_op_s, ref->operands, operand + 1);
-	genop0 = create_component_ref_by_pieces (block, ref, operand + 1,
-						 stmts, domstmt,
-						 in_call);
+	genop0 = create_component_ref_by_pieces_1 (block, ref, operand,
+						   stmts, domstmt);
 	if (!genop0)
 	  return NULL_TREE;
 	op1expr = get_or_alloc_expr_for (genop1);
@@ -2589,8 +2558,8 @@ create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
 	tree op1;
 	tree genop2 = currop->op1;
 	pre_expr op2expr;
-	op0 = create_component_ref_by_pieces (block, ref, operand + 1,
-					      stmts, domstmt, in_call);
+	op0 = create_component_ref_by_pieces_1 (block, ref, operand,
+						stmts, domstmt);
 	if (!op0)
 	  return NULL_TREE;
 	/* op1 should be a FIELD_DECL, which are represented by
@@ -2626,16 +2595,31 @@ create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
     case CONST_DECL:
     case RESULT_DECL:
     case FUNCTION_DECL:
-      /* For ADDR_EXPR in a CALL_EXPR, op0 is actually the entire
-	 ADDR_EXPR, not just it's operand.  */
-    case ADDR_EXPR:
-      if (currop->opcode == ADDR_EXPR)
-	gcc_assert (currop->op0 != NULL);
       return currop->op0;
 
     default:
       gcc_unreachable ();
     }
+}
+
+/* For COMPONENT_REF's and ARRAY_REF's, we can't have any intermediates for the
+   COMPONENT_REF or INDIRECT_REF or ARRAY_REF portion, because we'd end up with
+   trying to rename aggregates into ssa form directly, which is a no no.
+
+   Thus, this routine doesn't create temporaries, it just builds a
+   single access expression for the array, calling
+   find_or_generate_expression to build the innermost pieces.
+
+   This function is a subroutine of create_expression_by_pieces, and
+   should not be called on it's own unless you really know what you
+   are doing.  */
+
+static tree
+create_component_ref_by_pieces (basic_block block, vn_reference_t ref,
+				gimple_seq *stmts, gimple domstmt)
+{
+  unsigned int op = 0;
+  return create_component_ref_by_pieces_1 (block, ref, &op, stmts, domstmt);
 }
 
 /* Find a leader for an expression, or generate one using
@@ -2743,8 +2727,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
     case REFERENCE:
       {
 	vn_reference_t ref = PRE_EXPR_REFERENCE (expr);
-	folded = create_component_ref_by_pieces (block, ref, 0, stmts,
-						 domstmt, false);
+	folded = create_component_ref_by_pieces (block, ref, stmts, domstmt);
       }
       break;
     case NARY:
@@ -2991,8 +2974,6 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 			    }
 			  gsi_insert_seq_on_edge (pred, stmts);
 			}
-		      /* FIXME tuples
-		      gimple_set_plf (forcedexpr, NECESSARY, false); */
 		      avail[bprime->index] = get_or_alloc_expr_for_name (forcedexpr);
 		    }
 		}
@@ -3032,8 +3013,6 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 		    }
 		  gsi_insert_seq_on_edge (pred, stmts);
 		}
-	      /* FIXME tuples
-	      gimple_set_plf (forcedexpr, NECESSARY, false); */
 	      avail[bprime->index] = get_or_alloc_expr_for_name (forcedexpr);
 	    }
 	}
@@ -3452,120 +3431,6 @@ add_to_exp_gen (basic_block block, tree op)
     }
 }
 
-/* FIXME tuples */
-#if 0
-/* For each real store operation of the form
-   *a = <value> that we see, create a corresponding fake store of the
-   form storetmp_<version> = *a.
-
-   This enables AVAIL computation to mark the results of stores as
-   available.  Without this, you'd need to do some computation to
-   mark the result of stores as ANTIC and AVAIL at all the right
-   points.
-   To save memory, we keep the store
-   statements pool allocated until we decide whether they are
-   necessary or not.  */
-
-static void
-insert_fake_stores (void)
-{
-  basic_block block;
-
-  FOR_ALL_BB (block)
-    {
-      gimple_stmt_iterator gsi;
-      for (gsi = gsi_start_bb (block); !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple stmt = gsi_stmt (gsi);
-
-	  /* We can't generate SSA names for stores that are complex
-	     or aggregate.  We also want to ignore things whose
-	     virtual uses occur in abnormal phis.  */
-
-	  if (TREE_CODE (stmt) == GIMPLE_MODIFY_STMT
-	      && (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == INDIRECT_REF
-		  || handled_component_p (GIMPLE_STMT_OPERAND (stmt, 0)))
-	      && !AGGREGATE_TYPE_P (TREE_TYPE (GIMPLE_STMT_OPERAND (stmt, 0))))
-	    {
-	      ssa_op_iter iter;
-	      def_operand_p defp;
-	      tree lhs = GIMPLE_STMT_OPERAND (stmt, 0);
-	      tree rhs = GIMPLE_STMT_OPERAND (stmt, 1);
-	      tree new_tree, new_lhs;
-	      bool notokay = false;
-
-	      FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_VIRTUAL_DEFS)
-		{
-		  tree defvar = DEF_FROM_PTR (defp);
-		  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (defvar))
-		    {
-		      notokay = true;
-		      break;
-		    }
-		}
-
-	      if (notokay)
-		continue;
-
-	      if (!storetemp || TREE_TYPE (rhs) != TREE_TYPE (storetemp))
-		{
-		  storetemp = create_tmp_var (TREE_TYPE (rhs), "storetmp");
-		  if (TREE_CODE (TREE_TYPE (storetemp)) == VECTOR_TYPE
-		      || TREE_CODE (TREE_TYPE (storetemp)) == COMPLEX_TYPE)
-		    DECL_GIMPLE_REG_P (storetemp) = 1;
-		  get_var_ann (storetemp);
-		}
-
-	      new_tree = build_gimple_modify_stmt (NULL_TREE, lhs);
-	      new_lhs = make_ssa_name (storetemp, new_tree);
-	      GIMPLE_STMT_OPERAND (new_tree, 0) = new_lhs;
-	      create_ssa_artificial_load_stmt (new_tree, stmt, false);
-
-	      gimple_set_plf (new_tree, NECESSARY, false);
-	      VEC_safe_push (gimple, heap, inserted_exprs, new_tree);
-	      VEC_safe_push (gimple, heap, need_creation, new_tree);
-	      bsi_insert_after (&bsi, new_tree, BSI_NEW_STMT);
-	    }
-	}
-    }
-}
-
-/* Turn the pool allocated fake stores that we created back into real
-   GC allocated ones if they turned out to be necessary to PRE some
-   expressions.  */
-
-static void
-realify_fake_stores (void)
-{
-  unsigned int i;
-  tree stmt;
-
-  for (i = 0; VEC_iterate (gimple, need_creation, i, stmt); i++)
-    {
-      if (gimple_plf (stmt, NECESSARY))
-	{
-	  block_stmt_iterator bsi, bsi2;
-	  tree rhs;
-
-	  /* Mark the temp variable as referenced */
-	  add_referenced_var (SSA_NAME_VAR (GIMPLE_STMT_OPERAND (stmt, 0)));
-
-	  /* Put the statement before the store in the IR stream
-	     as a plain ssa name copy.  */
-	  bsi = bsi_for_stmt (stmt);
-	  bsi_prev (&bsi);
-	  rhs = GIMPLE_STMT_OPERAND (bsi_stmt (bsi), 1);
-	  GIMPLE_STMT_OPERAND (stmt, 1) = rhs;
-	  bsi2 = bsi_for_stmt (stmt);
-	  bsi_remove (&bsi2, true);
-	  bsi_insert_before (&bsi, stmt, BSI_SAME_STMT);
-	}
-      else
-	release_defs (stmt);
-    }
-}
-#endif
-
 /* Create value ids for PHI in BLOCK.  */
 
 static void
@@ -3734,6 +3599,8 @@ compute_avail (void)
 		      add_to_exp_gen (block, vro->op0);
 		    if (vro->op1 && TREE_CODE (vro->op1) == SSA_NAME)
 		      add_to_exp_gen (block, vro->op1);
+		    if (vro->op2 && TREE_CODE (vro->op2) == SSA_NAME)
+		      add_to_exp_gen (block, vro->op2);
 		  }
 		result = (pre_expr) pool_alloc (pre_expr_pool);
 		result->kind = REFERENCE;
@@ -3806,6 +3673,8 @@ compute_avail (void)
 			    add_to_exp_gen (block, vro->op0);
 			  if (vro->op1 && TREE_CODE (vro->op1) == SSA_NAME)
 			    add_to_exp_gen (block, vro->op1);
+			  if (vro->op2 && TREE_CODE (vro->op2) == SSA_NAME)
+			    add_to_exp_gen (block, vro->op2);
 			}
 		      result = (pre_expr) pool_alloc (pre_expr_pool);
 		      result->kind = REFERENCE;
@@ -4266,11 +4135,6 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
      loop_optimizer_init may create new phis, etc.  */
   if (!do_fre)
     loop_optimizer_init (LOOPS_NORMAL);
-  /* FIXME tuples */
-#if 0
-  if (0 && !do_fre)
-    insert_fake_stores ();
-#endif
 
   if (!run_scc_vn (do_fre))
     {
@@ -4326,14 +4190,7 @@ execute_pre (bool do_fre ATTRIBUTE_UNUSED)
   clear_expression_ids ();
   free_scc_vn ();
   if (!do_fre)
-    {
-      remove_dead_inserted_code ();
-  /* FIXME tuples */
-#if 0
-      if (0)
-	realify_fake_stores ();
-#endif
-    }
+    remove_dead_inserted_code ();
 
   fini_pre ();
 
