@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
@@ -50,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "cfglayout.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "intl.h"
 #include "df.h"
 #include "debug.h"
@@ -275,7 +275,7 @@ static tree ia64_handle_model_attribute (tree *, tree, tree, int, bool *);
 static tree ia64_handle_version_id_attribute (tree *, tree, tree, int, bool *);
 static void ia64_encode_section_info (tree, rtx, int);
 static rtx ia64_struct_value_rtx (tree, int);
-static tree ia64_gimplify_va_arg (tree, tree, tree *, tree *);
+static tree ia64_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool ia64_scalar_mode_supported_p (enum machine_mode mode);
 static bool ia64_vector_mode_supported_p (enum machine_mode mode);
 static bool ia64_cannot_force_const_mem (rtx);
@@ -492,6 +492,12 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ia64_c_mode_for_suffix
+
+#undef TARGET_OPTION_COLD_ATTRIBUTE_SETS_OPTIMIZATION
+#define TARGET_OPTION_COLD_ATTRIBUTE_SETS_OPTIMIZATION true
+
+#undef TARGET_OPTION_HOT_ATTRIBUTE_SETS_OPTIMIZATION
+#define TARGET_OPTION_HOT_ATTRIBUTE_SETS_OPTIMIZATION true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -781,6 +787,8 @@ ia64_legitimate_constant_p (rtx x)
 static bool
 ia64_cannot_force_const_mem (rtx x)
 {
+  if (GET_MODE (x) == RFmode)
+    return true;
   return tls_symbolic_operand_type (x) != 0;
 }
 
@@ -1117,8 +1125,8 @@ ia64_split_tmode (rtx out[2], rtx in, bool reversed, bool dead)
 	    }
 	  else
 	    {
-	      p[0] = (((unsigned HOST_WIDE_INT) l[3]) << 32) + l[2];
-	      p[1] = (((unsigned HOST_WIDE_INT) l[1]) << 32) + l[0];
+	      p[0] = (((unsigned HOST_WIDE_INT) l[1]) << 32) + l[0];
+	      p[1] = (((unsigned HOST_WIDE_INT) l[3]) << 32) + l[2];
 	    }
 	  out[0] = GEN_INT (p[0]);
 	  out[1] = GEN_INT (p[1]);
@@ -2379,7 +2387,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      Likewise for -a profiling for the bb_init_func argument.  For -ax
      profiling, we need two output registers for the two bb_init_trace_func
      arguments.  */
-  if (current_function_profile)
+  if (crtl->profile)
     i = MAX (i, 1);
 #endif
   current_frame_info.n_output_regs = i;
@@ -2460,7 +2468,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       /* Similarly for gp.  Note that if we're calling setjmp, the stacked
 	 registers are clobbered, so we fall back to the stack.  */
       current_frame_info.r[reg_save_gp]
-	= (current_function_calls_setjmp ? 0 : find_gr_spill (reg_save_gp, 1));
+	= (cfun->calls_setjmp ? 0 : find_gr_spill (reg_save_gp, 1));
       if (current_frame_info.r[reg_save_gp] == 0)
 	{
 	  SET_HARD_REG_BIT (mask, GR_REG (1));
@@ -2575,12 +2583,12 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
      the stack, then the FR save area will be unaligned.  We round the
      size of this area up to keep things 16 byte aligned.  */
   if (spilled_fr_p)
-    pretend_args_size = IA64_STACK_ALIGN (current_function_pretend_args_size);
+    pretend_args_size = IA64_STACK_ALIGN (crtl->args.pretend_args_size);
   else
-    pretend_args_size = current_function_pretend_args_size;
+    pretend_args_size = crtl->args.pretend_args_size;
 
   total_size = (spill_size + extra_spill_size + size + pretend_args_size
-		+ current_function_outgoing_args_size);
+		+ crtl->outgoing_args_size);
   total_size = IA64_STACK_ALIGN (total_size);
 
   /* We always use the 16-byte scratch area provided by the caller, but
@@ -2616,14 +2624,14 @@ ia64_initial_elimination_offset (int from, int to)
 	    offset = -current_frame_info.total_size;
 	  else
 	    offset = -(current_frame_info.total_size
-		       - current_function_outgoing_args_size - 16);
+		       - crtl->outgoing_args_size - 16);
 	  break;
 
 	case STACK_POINTER_REGNUM:
 	  if (current_function_is_leaf)
 	    offset = 0;
 	  else
-	    offset = 16 + current_function_outgoing_args_size;
+	    offset = 16 + crtl->outgoing_args_size;
 	  break;
 
 	default:
@@ -2637,12 +2645,12 @@ ia64_initial_elimination_offset (int from, int to)
       switch (to)
 	{
 	case HARD_FRAME_POINTER_REGNUM:
-	  offset = 16 - current_function_pretend_args_size;
+	  offset = 16 - crtl->args.pretend_args_size;
 	  break;
 
 	case STACK_POINTER_REGNUM:
 	  offset = (current_frame_info.total_size
-		    + 16 - current_function_pretend_args_size);
+		    + 16 - crtl->args.pretend_args_size);
 	  break;
 
 	default:
@@ -2994,7 +3002,7 @@ ia64_expand_prologue (void)
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= current_function_args_info.int_regs
+      && current_frame_info.n_input_regs <= crtl->args.info.int_regs
       && !TEST_HARD_REG_BIT (current_frame_info.mask, AR_PFS_REGNUM))
     {
       /* If there is no alloc, but there are input registers used, then we
@@ -4334,7 +4342,8 @@ ia64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 /* Implement va_arg.  */
 
 static tree
-ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+ia64_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+		      gimple_seq *post_p)
 {
   /* Variable sized types are passed by reference.  */
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
@@ -4357,8 +4366,7 @@ ia64_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t,
 		  size_int (-2 * UNITS_PER_WORD));
       t = fold_convert (TREE_TYPE (valist), t);
-      t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist, t);
-      gimplify_and_add (t, pre_p);
+      gimplify_assign (unshare_expr (valist), t, pre_p);
     }
 
   return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
@@ -5058,7 +5066,7 @@ ia64_secondary_reload_class (enum reg_class class,
       /* ??? This happens if we cse/gcse a BImode value across a call,
 	 and the function has a nonlocal goto.  This is because global
 	 does not allocate call crossing pseudos to hard registers when
-	 current_function_has_nonlocal_goto is true.  This is relatively
+	 crtl->has_nonlocal_goto is true.  This is relatively
 	 common for C++ programs that use exceptions.  To reproduce,
 	 return NO_REGS and compile libstdc++.  */
       if (GET_CODE (x) == MEM)
@@ -5230,9 +5238,6 @@ ia64_override_options (void)
       TARGET_INLINE_SQRT = INL_MAX_THR;
     }
 
-  ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
-  flag_schedule_insns_after_reload = 0;
-
   ia64_section_threshold = g_switch_set ? g_switch_value : IA64_DEFAULT_GVALUE;
 
   init_machine_status = ia64_init_machine_status;
@@ -5248,7 +5253,7 @@ void ia64_init_expanders (void)
 static struct machine_function *
 ia64_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 static enum attr_itanium_class ia64_safe_itanium_class (rtx);
@@ -5889,6 +5894,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_SETF_EXP:
         case UNSPEC_ADDP4:
 	case UNSPEC_FR_SQRT_RECIP_APPROX:
+	case UNSPEC_FR_SQRT_RECIP_APPROX_RES:
 	case UNSPEC_LDA:
 	case UNSPEC_LDS:
 	case UNSPEC_LDSA:
@@ -5900,6 +5906,7 @@ rtx_needs_barrier (rtx x, struct reg_flags flags, int pred)
 	case UNSPEC_FR_RECIP_APPROX:
 	case UNSPEC_SHRP:
 	case UNSPEC_COPYSIGN:
+	case UNSPEC_FR_RECIP_APPROX_RES:
 	  need_barrier = rtx_needs_barrier (XVECEXP (x, 0, 0), flags, pred);
 	  need_barrier |= rtx_needs_barrier (XVECEXP (x, 0, 1), flags, pred);
 	  break;
@@ -6779,7 +6786,7 @@ ia64_h_i_d_extended (void)
     {
       int new_max_uid = get_max_uid () + 1;
 
-      spec_check_no = xrecalloc (spec_check_no, new_max_uid,
+      spec_check_no = (int *) xrecalloc (spec_check_no, new_max_uid,
 				 max_uid, sizeof (*spec_check_no));
       max_uid = new_max_uid;
     }
@@ -6788,14 +6795,14 @@ ia64_h_i_d_extended (void)
     {
       int new_clocks_length = get_max_uid () + 1;
       
-      stops_p = xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
+      stops_p = (char *) xrecalloc (stops_p, new_clocks_length, clocks_length, 1);
       
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
-	  clocks = xrecalloc (clocks, new_clocks_length, clocks_length,
-			      sizeof (int));
-	  add_cycles = xrecalloc (add_cycles, new_clocks_length, clocks_length,
-				  sizeof (int));
+	  clocks = (int *) xrecalloc (clocks, new_clocks_length, clocks_length,
+				      sizeof (int));
+	  add_cycles = (int *) xrecalloc (add_cycles, new_clocks_length,
+					  clocks_length, sizeof (int));
 	}
       
       clocks_length = new_clocks_length;
@@ -7417,7 +7424,7 @@ get_free_bundle_state (void)
     }
   else
     {
-      result = xmalloc (sizeof (struct bundle_state));
+      result = XNEW (struct bundle_state);
       result->dfa_state = xmalloc (dfa_state_size);
       result->allocated_states_chain = allocated_bundle_states_chain;
       allocated_bundle_states_chain = result;
@@ -7927,8 +7934,7 @@ bundling (FILE *dump, int verbose, rtx prev_head_insn, rtx tail)
   bundling_p = 1;
   dfa_clean_insn_cache ();
   initiate_bundle_state_table ();
-  index_to_bundle_states = xmalloc ((insn_num + 2)
-				    * sizeof (struct bundle_state *));
+  index_to_bundle_states = XNEWVEC (struct bundle_state *, insn_num + 2);
   /* First (forward) pass -- generation of bundle states.  */
   curr_state = get_free_bundle_state ();
   curr_state->insn = NULL;
@@ -8634,11 +8640,11 @@ ia64_reorg (void)
       PREV_INSN (ia64_nop) = NEXT_INSN (ia64_nop) = NULL_RTX;
       recog_memoized (ia64_nop);
       clocks_length = get_max_uid () + 1;
-      stops_p = xcalloc (1, clocks_length);
+      stops_p = XCNEWVEC (char, clocks_length);
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{
-	  clocks = xcalloc (clocks_length, sizeof (int));
-	  add_cycles = xcalloc (clocks_length, sizeof (int));
+	  clocks = XCNEWVEC (int, clocks_length);
+	  add_cycles = XCNEWVEC (int, clocks_length);
 	}
       if (ia64_tune == PROCESSOR_ITANIUM2)
 	{
@@ -9717,6 +9723,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
+  free_after_compilation (cfun);
 
   reload_completed = 0;
   epilogue_completed = 0;
@@ -9947,6 +9954,13 @@ void
 ia64_optimization_options (int level ATTRIBUTE_UNUSED,
                            int size ATTRIBUTE_UNUSED)
 {
+  /* Disable the second machine independent scheduling pass and use one for the
+     IA-64.  This needs to be here instead of in OVERRIDE_OPTIONS because this
+     is done whenever the optimization is changed via #pragma GCC optimize or
+     attribute((optimize(...))).  */
+  ia64_flag_schedule_insns2 = flag_schedule_insns_after_reload;
+  flag_schedule_insns_after_reload = 0;
+
   /* Let the scheduler form additional regions.  */
   set_param_value ("max-sched-extend-regions-iters", 2);
 

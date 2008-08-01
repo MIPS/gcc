@@ -123,10 +123,6 @@ Wall
 C ObjC C++ ObjC++ Warning
 Enable most warning messages
 
-Wtype-limits
-C ObjC C++ ObjC++ Var(warn_type_limits) Init(-1) Warning
-Warn if a comparison is always true or always false due to the limited range of the data type
-
 Wassign-intercept
 ObjC ObjC++ Var(warn_assign_intercept) Warning
 Warn whenever an Objective-C assignment is being intercepted by the garbage collector
@@ -180,7 +176,7 @@ C ObjC Var(warn_declaration_after_statement) Warning
 Warn when a declaration is found after a statement
 
 Wdeprecated
-C++ ObjC++ Var(warn_deprecated) Init(1) Warning
+C C++ ObjC ObjC++ Var(warn_deprecated) Init(1) Warning
 Warn about deprecated compiler features
 
 Wdiv-by-zero
@@ -198,6 +194,10 @@ Warn about an empty body in an if or else statement
 Wendif-labels
 C ObjC C++ ObjC++ Warning
 Warn about stray tokens after #elif and #endif
+
+Wenum-compare
+C++ ObjC++ Var(warn_enum_compare) Init(1) Warning
+Warn about comparison of different enum types
 
 Werror
 C ObjC C++ ObjC++
@@ -262,8 +262,7 @@ C ObjC Var(warn_implicit_int) Warning
 Warn when a declaration does not specify a type
 
 Wimport
-C ObjC C++ ObjC++
-Deprecated.  This switch has no effect
+C ObjC C++ ObjC++ Undocumented
 
 Wint-to-pointer-cast
 C ObjC Var(warn_int_to_pointer_cast) Init(1) Warning
@@ -427,7 +426,7 @@ Warn if type signatures of candidate methods do not match exactly
 
 Wsynth
 C++ ObjC++ Var(warn_synth) Warning
-Warn when synthesis behavior differs from Cfront
+Deprecated.  This switch has no effect
 
 Wsystem-headers
 C ObjC C++ ObjC++ Warning
@@ -468,6 +467,10 @@ Do not warn about using variadic macros when -pedantic
 Wvla
 C ObjC C++ ObjC++ Var(warn_vla) Init(-1) Warning
 Warn if a variable length array is used
+
+Wvolatile-register-var
+C ObjC C++ ObjC++ Var(warn_volatile_register_var) Warning
+Warn when a register variable is declared volatile
 
 Wwrite-strings
 C ObjC C++ ObjC++ Var(warn_write_strings) Warning
@@ -676,7 +679,7 @@ Enable OpenMP
 
 foperator-names
 C++ ObjC++
-Recognize C++ kewords like \"compl\" and \"xor\"
+Recognize C++ keywords like \"compl\" and \"xor\"
 
 foptional-diags
 C++ ObjC++
@@ -865,9 +868,6 @@ C ObjC C++ ObjC++ Joined Separate
 lang-asm
 C Undocumented
 
-lang-fortran
-C Undocumented
-
 lang-objc
 C ObjC C++ ObjC++ Undocumented
 
@@ -978,7 +978,7 @@ C ObjC C++ ObjC++
 Do not predefine system-specific and GCC-specific macros
 
 v
-C ObjC C++ ObjC++
+Common C ObjC C++ ObjC++
 Enable verbose output
 
 w

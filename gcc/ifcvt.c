@@ -45,6 +45,7 @@
 #include "df.h"
 #include "vec.h"
 #include "vecprim.h"
+#include "dbgcnt.h"
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -1738,6 +1739,10 @@ noce_try_abs (struct noce_if_info *if_info)
   rtx cond, earliest, target, seq, a, b, c;
   int negate;
 
+  /* Reject modes with signed zeros.  */
+  if (HONOR_SIGNED_ZEROS (GET_MODE (if_info->x)))
+    return FALSE;
+
   /* Recognize A and B as constituting an ABS or NABS.  The canonical
      form is a branch around the negation, taken when the object is the
      first operand of a comparison against 0 that evaluates to true.  */
@@ -2164,9 +2169,7 @@ noce_can_store_speculate_p (basic_block top_bb, const_rtx mem)
 	     unconditionally before the barrier.  */
 	  if (INSN_P (insn)
 	      && (volatile_insn_p (PATTERN (insn))
-		  || (CALL_P (insn)
-		      && (!CONST_OR_PURE_CALL_P (insn)
-			  || pure_call_p (insn)))))
+		  || (CALL_P (insn) && (!RTL_CONST_CALL_P (insn)))))
 	    return false;
 
 	  if (memory_modified_in_insn_p (mem, insn))
@@ -2616,7 +2619,11 @@ cond_move_process_if_block (struct noce_if_info *if_info)
   /* Make sure the blocks are suitable.  */
   if (!check_cond_move_block (then_bb, then_vals, then_regs, cond)
       || (else_bb && !check_cond_move_block (else_bb, else_vals, else_regs, cond)))
-    return FALSE;
+    {
+      VEC_free (int, heap, then_regs);
+      VEC_free (int, heap, else_regs);
+      return FALSE;
+    }
 
   /* Make sure the blocks can be used together.  If the same register
      is set in both blocks, and is not set to a constant in both
@@ -2637,7 +2644,11 @@ cond_move_process_if_block (struct noce_if_info *if_info)
 	  if (!CONSTANT_P (then_vals[reg])
 	      && !CONSTANT_P (else_vals[reg])
 	      && !rtx_equal_p (then_vals[reg], else_vals[reg]))
-	    return FALSE;
+	    {
+	      VEC_free (int, heap, then_regs);
+	      VEC_free (int, heap, else_regs);
+	      return FALSE;
+	    }
 	}
     }
 
@@ -2651,7 +2662,11 @@ cond_move_process_if_block (struct noce_if_info *if_info)
      branches, since if we convert we are going to always execute
      them.  */
   if (c > MAX_CONDITIONAL_EXECUTE)
-    return FALSE;
+    {
+      VEC_free (int, heap, then_regs);
+      VEC_free (int, heap, else_regs);
+      return FALSE;
+    }
 
   /* Try to emit the conditional moves.  First do the then block,
      then do anything left in the else blocks.  */
@@ -2663,11 +2678,17 @@ cond_move_process_if_block (struct noce_if_info *if_info)
 					  then_vals, else_vals, true)))
     {
       end_sequence ();
+      VEC_free (int, heap, then_regs);
+      VEC_free (int, heap, else_regs);
       return FALSE;
     }
   seq = end_ifcvt_sequence (if_info);
   if (!seq)
-    return FALSE;
+    {
+      VEC_free (int, heap, then_regs);
+      VEC_free (int, heap, else_regs);
+      return FALSE;
+    }
 
   loc_insn = first_active_insn (then_bb);
   if (!loc_insn)
@@ -2700,7 +2721,6 @@ cond_move_process_if_block (struct noce_if_info *if_info)
 
   VEC_free (int, heap, then_regs);
   VEC_free (int, heap, else_regs);
-
   return TRUE;
 }
 
@@ -3925,7 +3945,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  if (INSN_P (insn))
 	    {
 	      df_simulate_find_defs (insn, test_set);
-	      df_simulate_one_insn_backwards (test_bb, insn, test_live);
+	      df_simulate_one_insn (test_bb, insn, test_live);
 	    }
 	  prev = PREV_INSN (insn);
 	  if (insn == earliest)
@@ -4133,7 +4153,8 @@ if_convert (void)
 static bool
 gate_handle_if_conversion (void)
 {
-  return (optimize > 0);
+  return (optimize > 0)
+    && dbg_cnt (if_conversion);
 }
 
 /* If-conversion and CFG cleanup.  */
@@ -4152,8 +4173,10 @@ rest_of_handle_if_conversion (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_ifcvt =
+struct rtl_opt_pass pass_rtl_ifcvt =
 {
+ {
+  RTL_PASS,
   "ce1",                                /* name */
   gate_handle_if_conversion,            /* gate */
   rest_of_handle_if_conversion,         /* execute */
@@ -4166,14 +4189,15 @@ struct tree_opt_pass pass_rtl_ifcvt =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  'C'                                   /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static bool
 gate_handle_if_after_combine (void)
 {
-  return (optimize > 0 && flag_if_conversion);
+  return optimize > 0 && flag_if_conversion
+    && dbg_cnt (if_after_combine);
 }
 
 
@@ -4186,8 +4210,10 @@ rest_of_handle_if_after_combine (void)
   return 0;
 }
 
-struct tree_opt_pass pass_if_after_combine =
+struct rtl_opt_pass pass_if_after_combine =
 {
+ {
+  RTL_PASS,
   "ce2",                                /* name */
   gate_handle_if_after_combine,         /* gate */
   rest_of_handle_if_after_combine,      /* execute */
@@ -4201,15 +4227,16 @@ struct tree_opt_pass pass_if_after_combine =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'C'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
 
 static bool
 gate_handle_if_after_reload (void)
 {
-  return (optimize > 0 && flag_if_conversion2);
+  return optimize > 0 && flag_if_conversion2
+    && dbg_cnt (if_after_reload);
 }
 
 static unsigned int
@@ -4220,8 +4247,10 @@ rest_of_handle_if_after_reload (void)
 }
 
 
-struct tree_opt_pass pass_if_after_reload =
+struct rtl_opt_pass pass_if_after_reload =
 {
+ {
+  RTL_PASS,
   "ce3",                                /* name */
   gate_handle_if_after_reload,          /* gate */
   rest_of_handle_if_after_reload,       /* execute */
@@ -4235,6 +4264,6 @@ struct tree_opt_pass pass_if_after_reload =
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'E'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };

@@ -137,10 +137,11 @@ extern void set_Wstrict_aliasing (int onoff);
 extern bool warn_larger_than;
 extern HOST_WIDE_INT larger_than_size;
 
-/* Temporarily suppress certain warnings.
-   This is set while reading code from a system header file.  */
+/* Nonzero means warn about any function whose frame size is larger
+   than N bytes. */
 
-extern int in_system_header;
+extern bool warn_frame_larger_than;
+extern HOST_WIDE_INT frame_larger_than_size;
 
 /* Nonzero for -dp: annotate the assembly with a comment describing the
    pattern and alternative used.  */
@@ -168,11 +169,6 @@ extern int flag_pcc_struct_return;
 
 extern int flag_complex_method;
 
-/* Nonzero means that we don't want inlining by virtue of -fno-inline,
-   not just because the tree inliner turned us off.  */
-
-extern int flag_really_no_inline;
-
 /* Nonzero if we are only using compiler to check syntax errors.  */
 
 extern int rtl_dump_and_exit;
@@ -190,6 +186,10 @@ extern int flag_dump_unnumbered;
    Usually these are warnings about failure to conform to some standard.  */
 
 extern int flag_pedantic_errors;
+
+/* Nonzero means make permerror produce warnings instead of errors.  */
+
+extern int flag_permissive;
 
 /* Nonzero if we are compiling code for a shared library, zero for
    executable.  */
@@ -212,12 +212,6 @@ extern int flag_next_runtime;
 extern int flag_dump_rtl_in_asm;
 
 /* Other basic status info about current function.  */
-
-/* Nonzero means current function must be given a frame pointer.
-   Set in stmt.c if anything is allocated on the stack there.
-   Set in reload1.c if anything is allocated on the stack there.  */
-
-extern int frame_pointer_needed;
 
 /* Nonzero if subexpressions must be evaluated from left-to-right.  */
 extern int flag_evaluation_order;
@@ -275,6 +269,13 @@ extern bool flag_speculative_prefetching_set;
    instrumentation.  */
 extern bool flag_instrument_functions_exclude_p (tree fndecl);
 
+/* Emit warning if the function call is disallowed under
+   -Wdisallowed-function-list=...  */
+extern void warn_if_disallowed_function_p (const_tree fncall);
+
+/* True, if the -Wdisallowed-function-list=... option has been specified.  */
+extern bool warn_disallowed_functions;
+
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding
    x * 0 into 0, are not correct for NaN operands, and are normally
@@ -321,6 +322,9 @@ extern bool flag_instrument_functions_exclude_p (tree fndecl);
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!TYPE_UNSIGNED (TYPE) && flag_trapv)
+
+/* True if pointer types have undefined overflow.  */
+#define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
 /* Names for the different levels of -Wstrict-overflow=N.  The numeric
    values here correspond to N.  */

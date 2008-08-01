@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "tree.h"
 #include "tree-inline.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
@@ -133,7 +133,7 @@ lhd_warn_unused_global_decl (const_tree decl)
   /* This is what used to exist in check_global_declarations.  Probably
      not many of these actually apply to non-C languages.  */
 
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
     return false;
   if (TREE_CODE (decl) == VAR_DECL && TREE_READONLY (decl))
     return false;
@@ -303,8 +303,9 @@ lhd_expr_size (const_tree exp)
 /* lang_hooks.gimplify_expr re-writes *EXPR_P into GIMPLE form.  */
 
 int
-lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED, tree *pre_p ATTRIBUTE_UNUSED,
-		   tree *post_p ATTRIBUTE_UNUSED)
+lhd_gimplify_expr (tree *expr_p ATTRIBUTE_UNUSED,
+		   gimple_seq *pre_p ATTRIBUTE_UNUSED,
+		   gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   return GS_UNHANDLED;
 }
@@ -394,7 +395,9 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 	  if (abstract_origin)
 	    {
 	      ao = BLOCK_ABSTRACT_ORIGIN (abstract_origin);
-	      while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+	      while (TREE_CODE (ao) == BLOCK
+		     && BLOCK_ABSTRACT_ORIGIN (ao)
+		     && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
 		ao = BLOCK_ABSTRACT_ORIGIN (ao);
 	      gcc_assert (TREE_CODE (ao) == FUNCTION_DECL);
 	      fndecl = ao;
@@ -424,7 +427,9 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 		{
 		  ao = BLOCK_ABSTRACT_ORIGIN (block);
 
-		  while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		  while (TREE_CODE (ao) == BLOCK
+			 && BLOCK_ABSTRACT_ORIGIN (ao)
+			 && BLOCK_ABSTRACT_ORIGIN (ao) != ao)
 		    ao = BLOCK_ABSTRACT_ORIGIN (ao);
 
 		  if (TREE_CODE (ao) == FUNCTION_DECL)
@@ -455,14 +460,12 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 		  pp_newline (context->printer);
 		  if (s.file != NULL)
 		    {
-#ifdef USE_MAPPED_LOCATION
 		      if (flag_show_column && s.column != 0)
 			pp_printf (context->printer,
 				   _("    inlined from %qs at %s:%d:%d"),
 				   lang_hooks.decl_printable_name (fndecl, 2),
 				   s.file, s.line, s.column);
 		      else
-#endif
 			pp_printf (context->printer,
 				   _("    inlined from %qs at %s:%d"),
 				   lang_hooks.decl_printable_name (fndecl, 2),
@@ -504,8 +507,7 @@ lhd_to_target_charset (HOST_WIDE_INT c)
 }
 
 tree
-lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
-		  bool *ti ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
+lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
 {
   return expr;
 }
@@ -526,7 +528,7 @@ lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
 tree
 lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
 {
-  return build_gimple_modify_stmt (dst, src);
+  return build2 (MODIFY_EXPR, TREE_TYPE (dst), dst, src);
 }
 
 /* Register language specific type size variables as potentially OpenMP

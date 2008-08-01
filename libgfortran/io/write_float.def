@@ -1,6 +1,7 @@
-/* Copyright (C) 2007 Free Software Foundation, Inc.
+/* Copyright (C) 2007, 2008 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Write float code factoring to this file by Jerry DeLisle   
+   F2003 I/O support contributed by Jerry DeLisle
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
@@ -31,7 +32,7 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 
 typedef enum
-{ SIGN_NONE, SIGN_MINUS, SIGN_PLUS }
+{ S_NONE, S_MINUS, S_PLUS }
 sign_t;
 
 /* Given a flag that indicates if a value is negative or not, return a
@@ -40,21 +41,21 @@ sign_t;
 static sign_t
 calculate_sign (st_parameter_dt *dtp, int negative_flag)
 {
-  sign_t s = SIGN_NONE;
+  sign_t s = S_NONE;
 
   if (negative_flag)
-    s = SIGN_MINUS;
+    s = S_MINUS;
   else
     switch (dtp->u.p.sign_status)
       {
-      case SIGN_SP:
-	s = SIGN_PLUS;
+      case SIGN_SP:	/* Show sign. */
+	s = S_PLUS;
 	break;
-      case SIGN_SS:
-	s = SIGN_NONE;
+      case SIGN_SS:	/* Suppress sign. */
+	s = S_NONE;
 	break;
-      case SIGN_S:
-	s = options.optional_plus ? SIGN_PLUS : SIGN_NONE;
+      case SIGN_S:	/* Processor defined. */
+	s = options.optional_plus ? S_PLUS : S_NONE;
 	break;
       }
 
@@ -98,32 +99,13 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
   if (d < 0)
     internal_error (&dtp->common, "Unspecified precision");
 
-  /* Use sprintf to print the number in the format +D.DDDDe+ddd
-     For an N digit exponent, this gives us (MIN_FIELD_WIDTH-5)-N digits
-     after the decimal point, plus another one before the decimal point.  */
-
   sign = calculate_sign (dtp, sign_bit);
-
-  /* #   The result will always contain a decimal point, even if no
-   *     digits follow it
-   *
-   * -   The converted value is to be left adjusted on the field boundary
-   *
-   * +   A sign (+ or -) always be placed before a number
-   *
-   * MIN_FIELD_WIDTH  minimum field width
-   *
-   * *   (ndigits-1) is used as the precision
-   *
-   *   e format: [-]d.dddeÂ±dd where there is one digit before the
-   *   decimal-point character and the number of digits after it is
-   *   equal to the precision. The exponent always contains at least two
-   *   digits; if the value is zero, the exponent is 00.
-   */
-
-  /* Check the given string has punctuation in the correct places.  */
-  if (d != 0 && (buffer[2] != '.' || buffer[ndigits + 2] != 'e'))
-      internal_error (&dtp->common, "printf is broken");
+  
+  /* The following code checks the given string has punctuation in the correct
+     places.  Uncomment if needed for debugging.
+     if (d != 0 && ((buffer[2] != '.' && buffer[2] != ',')
+		    || buffer[ndigits + 2] != 'e'))
+       internal_error (&dtp->common, "printf is broken");  */
 
   /* Read the exponent back in.  */
   e = atoi (&buffer[ndigits + 3]) + 1;
@@ -167,6 +149,19 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
     case FMT_E:
     case FMT_D:
       i = dtp->u.p.scale_factor;
+      if (d <= 0 && i == 0)
+	{
+	  generate_error (&dtp->common, LIBERROR_FORMAT, "Precision not "
+			  "greater than zero in format specifier 'E' or 'D'");
+	  return;
+	}
+      if (i <= -d || i >= d + 2)
+	{
+	  generate_error (&dtp->common, LIBERROR_FORMAT, "Scale factor "
+			  "out of range in format specifier 'E' or 'D'");
+	  return;
+	}
+
       if (!zero_flag)
 	e -= i;
       if (i < 0)
@@ -323,7 +318,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
 
   /* Pick a field size if none was specified.  */
   if (w <= 0)
-    w = nbefore + nzero + nafter + (sign != SIGN_NONE ? 2 : 1);
+    w = nbefore + nzero + nafter + (sign != S_NONE ? 2 : 1);
 
   /* Create the ouput buffer.  */
   out = write_block (dtp, w);
@@ -349,7 +344,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
 
   /* Work out how much padding is needed.  */
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
-  if (sign != SIGN_NONE)
+  if (sign != S_NONE)
     nblanks--;
 
   /* Check the value fits in the specified field width.  */
@@ -377,9 +372,9 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
     }
 
   /* Output the initial sign (if any).  */
-  if (sign == SIGN_PLUS)
+  if (sign == S_PLUS)
     *(out++) = '+';
-  else if (sign == SIGN_MINUS)
+  else if (sign == S_MINUS)
     *(out++) = '-';
 
   /* Output an optional leading zero.  */
@@ -408,7 +403,7 @@ output_float (st_parameter_dt *dtp, const fnode *f, char *buffer, size_t size,
       out += nbefore;
     }
   /* Output the decimal point.  */
-  *(out++) = '.';
+  *(out++) = dtp->u.p.decimal_status == DECIMAL_POINT ? '.' : ',';
 
   /* Output leading zeros after the decimal point.  */
   if (nzero > 0)
@@ -688,7 +683,29 @@ OUTPUT_FLOAT_FMT_G(16)
 
 #undef OUTPUT_FLOAT_FMT_G
 
+
 /* Define a macro to build code for write_float.  */
+
+  /* Note: Before output_float is called, sprintf is used to print to buffer the
+     number in the format +D.DDDDe+ddd. For an N digit exponent, this gives us
+     (MIN_FIELD_WIDTH-5)-N digits after the decimal point, plus another one
+     before the decimal point.
+
+     #   The result will always contain a decimal point, even if no
+	 digits follow it
+
+     -   The converted value is to be left adjusted on the field boundary
+
+     +   A sign (+ or -) always be placed before a number
+
+     MIN_FIELD_WIDTH  minimum field width
+
+     *   (ndigits-1) is used as the precision
+
+     e format: [-]d.dddeÂ±dd where there is one digit before the
+       decimal-point character and the number of digits after it is
+       equal to the precision. The exponent always contains at least two
+       digits; if the value is zero, the exponent is 00.  */
 
 #ifdef HAVE_SNPRINTF
 

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -463,7 +463,7 @@ do { \
 do {									\
   if (LEVEL)								\
     {									\
-      flag_omit_frame_pointer = -1;					\
+      flag_omit_frame_pointer = 2;					\
       if (! SIZE)							\
 	sh_div_str = "inv:minlat";					\
     }									\
@@ -532,6 +532,8 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #endif
 
 #define SUBTARGET_OVERRIDE_OPTIONS (void) 0
+
+extern const char *sh_fixed_range_str;
 
 #define OVERRIDE_OPTIONS 						\
 do {									\
@@ -623,12 +625,6 @@ do {									\
 	    }								\
 	  TARGET_CBRANCHDI4 = 0;					\
 	}								\
-      /* -fprofile-arcs needs a working libgcov .  In unified tree	\
-	 configurations with newlib, this requires to configure with	\
-	 --with-newlib --with-headers.  But there is no way to check	\
-	 here we have a working libgcov, so just assume that we have.  */\
-      if (profile_flag)							\
-	warning (0, "profiling is still experimental for this target");\
     }									\
   else									\
     {									\
@@ -694,7 +690,7 @@ do {									\
     if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))			\
       sh_additional_register_names[regno][0] = '\0';			\
 									\
-  if (flag_omit_frame_pointer < 0)					\
+  if (flag_omit_frame_pointer == 2)					\
    {									\
      /* The debugging information is sufficient,			\
         but gdb doesn't implement this yet */				\
@@ -716,8 +712,8 @@ do {									\
 	 to the pressure on R0.  */					\
       /* Enable sched1 for SH4; ready queue will be reordered by	\
 	 the target hooks when pressure is high. We can not do this for \
-	 SH3 and lower as they give spill failures for R0.  */		\
-      if (!TARGET_HARD_SH4) 						\
+	 PIC, SH3 and lower as they give spill failures for R0.  */	\
+      if (!TARGET_HARD_SH4 || flag_pic)					\
         flag_schedule_insns = 0;		 			\
       /* ??? Current exception handling places basic block boundaries	\
 	 after call_insns.  It causes the high pressure on R0 and gives	\
@@ -760,6 +756,9 @@ do {									\
       if (align_functions < min_align)					\
 	align_functions = min_align;					\
     }									\
+									\
+  if (sh_fixed_range_str)						\
+    sh_fix_range (sh_fixed_range_str);					\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -1365,7 +1364,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
 #define SHMEDIA_REGS_STACK_ADJUST() \
-  (TARGET_SHCOMPACT && current_function_saves_all_registers \
+  (TARGET_SHCOMPACT && crtl->saves_all_registers \
    ? (8 * (/* r28-r35 */ 8 + /* r44-r59 */ 16 + /* tr5-tr7 */ 3) \
       + (TARGET_FPU_ANY ? 4 * (/* fr36 - fr63 */ 28) : 0)) \
    : 0)
@@ -2454,6 +2453,12 @@ struct sh_args {
 	      goto LABEL;						\
 	    else							\
 	      break;							\
+	  }								\
+	if (TARGET_SH2A)						\
+	  {								\
+	    if (GET_MODE_SIZE (MODE) == 1				\
+		&& (unsigned) INTVAL (OP) < 4096)			\
+	    goto LABEL;							\
 	  }								\
 	if (MODE_DISP_OK_4 ((OP), (MODE)))  goto LABEL;		      	\
 	if (MODE_DISP_OK_8 ((OP), (MODE)))  goto LABEL;		      	\

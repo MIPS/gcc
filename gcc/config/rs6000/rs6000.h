@@ -60,6 +60,18 @@
 #define TARGET_PAIRED_FLOAT 0
 #endif
 
+#ifdef HAVE_AS_POPCNTB
+#define ASM_CPU_POWER5_SPEC "-mpower5"
+#else
+#define ASM_CPU_POWER5_SPEC "-mpower4"
+#endif
+
+#ifdef HAVE_AS_DFP
+#define ASM_CPU_POWER6_SPEC "-mpower6 -maltivec"
+#else
+#define ASM_CPU_POWER6_SPEC "-mpower4 -maltivec"
+#endif
+
 /* Common ASM definitions used by ASM_SPEC among the various targets
    for handling -mcpu=xxx switches.  */
 #define ASM_CPU_SPEC \
@@ -76,10 +88,10 @@
 %{mcpu=power2: -mpwrx} \
 %{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
-%{mcpu=power5: -mpower4} \
-%{mcpu=power5+: -mpower4} \
-%{mcpu=power6: -mpower4 -maltivec} \
-%{mcpu=power6x: -mpower4 -maltivec} \
+%{mcpu=power5: %(asm_cpu_power5)} \
+%{mcpu=power5+: %(asm_cpu_power5)} \
+%{mcpu=power6: %(asm_cpu_power6) -maltivec} \
+%{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
@@ -93,6 +105,8 @@
 %{mcpu=405fp: -m405} \
 %{mcpu=440: -m440} \
 %{mcpu=440fp: -m440} \
+%{mcpu=464: -m440} \
+%{mcpu=464fp: -m440} \
 %{mcpu=505: -mppc} \
 %{mcpu=601: -m601} \
 %{mcpu=602: -mppc} \
@@ -117,6 +131,9 @@
 %{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
 %{mcpu=8548: -me500} \
+%{mcpu=e300c2: -me300} \
+%{mcpu=e300c3: -me300} \
+%{mcpu=e500mc: -me500mc} \
 %{maltivec: -maltivec} \
 -many"
 
@@ -141,6 +158,8 @@
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
   { "cc1_cpu",			CC1_CPU_SPEC },				\
+  { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
+  { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
 /* -mcpu=native handling only makes sense with compiler running on
@@ -262,6 +281,9 @@ enum processor_type
    PROCESSOR_PPC7400,
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
+   PROCESSOR_PPCE300C2,
+   PROCESSOR_PPCE300C3,
+   PROCESSOR_PPCE500MC,
    PROCESSOR_POWER4,
    PROCESSOR_POWER5,
    PROCESSOR_POWER6,
@@ -349,6 +371,8 @@ extern int rs6000_long_double_type_size;
 extern int rs6000_ieeequad;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
+extern int rs6000_spe;
+extern int rs6000_isel;
 extern int rs6000_float_gprs;
 extern int rs6000_alignment_flags;
 extern const char *rs6000_sched_insert_nops_str;
@@ -378,7 +402,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
 #define TARGET_E500 0
-#define TARGET_ISEL 0
+#define TARGET_ISEL rs6000_isel
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
 #define TARGET_E500_DOUBLE 0
@@ -561,7 +585,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
     (TARGET_E500_DOUBLE						\
-     && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 : \
+     && TYPE_MODE (TYPE) == DFmode) ? 64 : \
     ((TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE \
      && SPE_VECTOR_MODE (TYPE_MODE (TYPE))) || (TARGET_PAIRED_FLOAT \
         && TREE_CODE (TYPE) == VECTOR_TYPE \
@@ -587,7 +611,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    fit into 1, whereas DI still needs two.  */
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
   ((TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE) \
-   || (TARGET_E500_DOUBLE && ((MODE) == DFmode || (MODE) == DDmode)))
+   || (TARGET_E500_DOUBLE && (MODE) == DFmode))
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
@@ -596,6 +620,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
    Make vector constants quadword aligned.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
   (TREE_CODE (EXP) == STRING_CST	                         \
+   && (STRICT_ALIGNMENT || !optimize_size)                       \
    && (ALIGN) < BITS_PER_WORD                                    \
    ? BITS_PER_WORD                                               \
    : (ALIGN))
@@ -607,7 +632,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
   (TREE_CODE (TYPE) == VECTOR_TYPE ? ((TARGET_SPE_ABI \
    || TARGET_PAIRED_FLOAT) ? 64 : 128)	\
    : (TARGET_E500_DOUBLE			\
-      && (TYPE_MODE (TYPE) == DFmode || TYPE_MODE (TYPE) == DDmode)) ? 64 \
+      && TYPE_MODE (TYPE) == DFmode) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
@@ -876,7 +901,7 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 #define PAIRED_VECTOR_MODE(MODE)        \
          ((MODE) == V2SFmode)            
 
-#define UNITS_PER_SIMD_WORD					     \
+#define UNITS_PER_SIMD_WORD(MODE)				     \
 	(TARGET_ALTIVEC ? UNITS_PER_ALTIVEC_WORD		     \
 	 : (TARGET_SPE ? UNITS_PER_SPE_WORD : (TARGET_PAIRED_FLOAT ? \
 	 UNITS_PER_PAIRED_WORD : UNITS_PER_WORD)))
@@ -1189,7 +1214,7 @@ enum reg_class
  (((CLASS) == FLOAT_REGS) 						\
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
   : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS			\
-     && ((MODE) == DFmode || (MODE) == DDmode))				\
+     && (MODE) == DFmode)				\
   ? 1                                                                   \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
@@ -1269,7 +1294,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define STARTING_FRAME_OFFSET						\
   (FRAME_GROWS_DOWNWARD							\
    ? 0									\
-   : (RS6000_ALIGN (current_function_outgoing_args_size,		\
+   : (RS6000_ALIGN (crtl->outgoing_args_size,		\
 		    TARGET_ALTIVEC ? 16 : 8)				\
       + RS6000_SAVE_AREA))
 
@@ -1280,7 +1305,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    length of the outgoing arguments.  The default is correct for most
    machines.  See `function.c' for details.  */
 #define STACK_DYNAMIC_OFFSET(FUNDECL)					\
-  (RS6000_ALIGN (current_function_outgoing_args_size,			\
+  (RS6000_ALIGN (crtl->outgoing_args_size,			\
 		 TARGET_ALTIVEC ? 16 : 8)				\
    + (STACK_POINTER_OFFSET))
 
@@ -1306,7 +1331,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 /* This is the difference between the logical top of stack and the actual sp.
 
@@ -1315,7 +1340,7 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable current_function_outgoing_args_size.  */
+   found in the variable crtl->outgoing_args_size.  */
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Value is the number of bytes of arguments automatically
@@ -1531,7 +1556,7 @@ typedef struct rs6000_args
 #define	EPILOGUE_USES(REGNO)					\
   ((reload_completed && (REGNO) == LR_REGNO)			\
    || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
-   || (current_function_calls_eh_return				\
+   || (crtl->calls_eh_return				\
        && TARGET_AIX						\
        && (REGNO) == 2))
 

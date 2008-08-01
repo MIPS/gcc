@@ -60,7 +60,7 @@ regstat_init_n_sets_and_refs (void)
   df_grow_reg_info ();
   gcc_assert (!regstat_n_sets_and_refs);
 
-  regstat_n_sets_and_refs = xmalloc (max_regno * sizeof (struct regstat_n_sets_and_refs_t));
+  regstat_n_sets_and_refs = XNEWVEC (struct regstat_n_sets_and_refs_t, max_regno);
 
   if (MAY_HAVE_DEBUG_INSNS)
     for (i = 0; i < max_regno; i++)
@@ -70,7 +70,7 @@ regstat_init_n_sets_and_refs (void)
 
 	use_count = DF_REG_USE_COUNT (i);
 	for (use = DF_REG_USE_CHAIN (i); use; use = DF_REF_NEXT_REG (use))
-	  if (DF_REF_INSN (use) && DEBUG_INSN_P (DF_REF_INSN (use)))
+	  if (DF_REF_INSN_INFO (use) && DEBUG_INSN_P (DF_REF_INSN (use)))
 	    use_count--;
 
 
@@ -360,7 +360,7 @@ regstat_compute_ri (void)
   setjmp_crosses = BITMAP_ALLOC (&df_bitmap_obstack);
   max_regno = max_reg_num ();
   reg_info_p_size = max_regno;
-  reg_info_p = xcalloc (max_regno, sizeof (struct reg_info_t));
+  reg_info_p = XCNEWVEC (struct reg_info_t, max_regno);
 
   FOR_EACH_BB (bb)
     {
@@ -504,7 +504,7 @@ regstat_compute_calls_crossed (void)
   timevar_push (TV_REG_STATS);
   max_regno = max_reg_num ();
   reg_info_p_size = max_regno;
-  reg_info_p = xcalloc (max_regno, sizeof (struct reg_info_t));
+  reg_info_p = XCNEWVEC (struct reg_info_t, max_regno);
 
   FOR_EACH_BB (bb)
     {

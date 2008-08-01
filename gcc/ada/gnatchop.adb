@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2007, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -280,7 +280,7 @@ procedure Gnatchop is
 
    function Report_Duplicate_Units return Boolean;
    --  Output messages about duplicate units in the input files in Unit.Table
-   --  Returns True if any duplicates found, Fals if no duplicates found.
+   --  Returns True if any duplicates found, False if no duplicates found.
 
    function Scan_Arguments return Boolean;
    --  Scan command line options and set global variables accordingly.
@@ -425,7 +425,7 @@ procedure Gnatchop is
       Info    : Unit_Info renames Unit.Table (U);
       FD      : File_Descriptor;
       Name    : aliased constant String :=
-                  File.Table (Input).Name.all & ASCII.Nul;
+                  File.Table (Input).Name.all & ASCII.NUL;
       Length  : File_Offset;
       Buffer  : String_Access;
       Result  : String_Access;
@@ -524,13 +524,16 @@ procedure Gnatchop is
      (Program_Name    : String;
       Look_For_Prefix : Boolean := True) return String_Access
    is
+      Gnatchop_Str    : constant String := "gnatchop";
       Current_Command : constant String := Normalize_Pathname (Command_Name);
       End_Of_Prefix   : Natural;
       Start_Of_Prefix : Positive;
+      Start_Of_Suffix : Positive;
       Result          : String_Access;
 
    begin
       Start_Of_Prefix := Current_Command'First;
+      Start_Of_Suffix := Current_Command'Last + 1;
       End_Of_Prefix   := Start_Of_Prefix - 1;
 
       if Look_For_Prefix then
@@ -549,18 +552,28 @@ procedure Gnatchop is
 
          --  Find End_Of_Prefix
 
-         for J in reverse Start_Of_Prefix .. Current_Command'Last loop
-            if Current_Command (J) = '-' then
-               End_Of_Prefix := J;
+         for J in Start_Of_Prefix ..
+                  Current_Command'Last - Gnatchop_Str'Length + 1
+         loop
+            if Current_Command (J .. J + Gnatchop_Str'Length - 1) =
+                                                                  Gnatchop_Str
+            then
+               End_Of_Prefix := J - 1;
                exit;
             end if;
          end loop;
       end if;
 
+      if End_Of_Prefix > Current_Command'First then
+         Start_Of_Suffix := End_Of_Prefix + Gnatchop_Str'Length + 1;
+      end if;
+
       declare
          Command : constant String :=
-                     Current_Command (Start_Of_Prefix .. End_Of_Prefix) &
-                                                                Program_Name;
+                     Current_Command (Start_Of_Prefix .. End_Of_Prefix)
+                       & Program_Name
+                       & Current_Command (Start_Of_Suffix ..
+                                          Current_Command'Last);
       begin
          Result := Locate_Exec_On_Path (Command);
 
@@ -761,7 +774,7 @@ procedure Gnatchop is
 
          --  Note that the unit name can be an operator name in quotes.
          --  This is of course illegal, but both GNAT and gnatchop handle
-         --  the case so that this error does not intefere with chopping.
+         --  the case so that this error does not interfere with chopping.
 
          --  The SR ir present indicates that a source reference pragma
          --  was processed as part of this unit (and that therefore no
@@ -1413,7 +1426,7 @@ procedure Gnatchop is
 
    function Write_Chopped_Files (Input : File_Num) return Boolean is
       Name    : aliased constant String :=
-                  File.Table (Input).Name.all & ASCII.Nul;
+                  File.Table (Input).Name.all & ASCII.NUL;
       FD      : File_Descriptor;
       Buffer  : String_Access;
       Success : Boolean;
@@ -1660,7 +1673,7 @@ procedure Gnatchop is
 
       declare
          E_Name      : constant String := OS_Name (1 .. O_Length);
-         C_Name      : aliased constant String := E_Name & ASCII.Nul;
+         C_Name      : aliased constant String := E_Name & ASCII.NUL;
          OS_Encoding : constant String := Encoding (1 .. E_Length);
          File        : Stream_IO.File_Type;
       begin

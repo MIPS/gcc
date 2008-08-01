@@ -52,7 +52,8 @@ dw2_assemble_integer (int size, rtx x)
     {
       fputs (op, asm_out_file);
       if (GET_CODE (x) == CONST_INT)
-	fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX, INTVAL (x));
+	fprintf (asm_out_file, HOST_WIDE_INT_PRINT_HEX,
+		 (unsigned HOST_WIDE_INT) INTVAL (x));
       else
 	output_addr_const (asm_out_file, x);
     }
@@ -61,7 +62,7 @@ dw2_assemble_integer (int size, rtx x)
 }
 
 
-/* Output an immediate constant in a given size.  */
+/* Output an immediate constant in a given SIZE in bytes.  */
 
 void
 dw2_asm_output_data (int size, unsigned HOST_WIDE_INT value,
@@ -729,11 +730,11 @@ splay_tree_compare_strings (splay_tree_key k1, splay_tree_key k2)
 /* Put X, a SYMBOL_REF, in memory.  Return a SYMBOL_REF to the allocated
    memory.  Differs from force_const_mem in that a single pool is used for
    the entire unit of translation, and the memory is not guaranteed to be
-   "near" the function in any interesting sense.  PUBLIC controls whether
+   "near" the function in any interesting sense.  IS_PUBLIC controls whether
    the symbol can be shared across the entire application (or DSO).  */
 
 static rtx
-dw2_force_const_mem (rtx x, bool public)
+dw2_force_const_mem (rtx x, bool is_public)
 {
   splay_tree_node node;
   const char *str;
@@ -754,9 +755,9 @@ dw2_force_const_mem (rtx x, bool public)
     {
       tree id;
 
-      if (public && USE_LINKONCE_INDIRECT)
+      if (is_public && USE_LINKONCE_INDIRECT)
 	{
-	  char *ref_name = alloca (strlen (str) + sizeof "DW.ref.");
+	  char *ref_name = XALLOCAVEC (char, strlen (str) + sizeof "DW.ref.");
 
 	  sprintf (ref_name, "DW.ref.%s", str);
 	  id = get_identifier (ref_name);
@@ -828,7 +829,7 @@ dw2_output_indirect_constants (void)
    reference is shared across the entire application (or DSO).  */
 
 void
-dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool public,
+dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool is_public,
 				 const char *comment, ...)
 {
   int size;
@@ -869,7 +870,7 @@ dw2_asm_output_encoded_addr_rtx (int encoding, rtx addr, bool public,
 	     the constant pool for this function.  Moreover, we'd like to
 	     share these constants across the entire unit of translation and
 	     even, if possible, across the entire application (or DSO).  */
-	  addr = dw2_force_const_mem (addr, public);
+	  addr = dw2_force_const_mem (addr, is_public);
 	  encoding &= ~DW_EH_PE_indirect;
 	  goto restart;
 	}

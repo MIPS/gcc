@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -85,7 +85,15 @@
 
 #include "mingw32.h"
 #include <sys/utime.h>
+
+/* For isalpha-like tests in the compiler, we're expected to resort to
+   safe-ctype.h/ISALPHA.  This isn't available for the runtime library
+   build, so we fallback on ctype.h/isalpha there.  */
+
+#ifdef IN_RTS
 #include <ctype.h>
+#define ISALPHA isalpha
+#endif
 
 #elif defined (__Lynx__)
 
@@ -359,6 +367,30 @@ __gnat_current_time
   return (OS_Time) res;
 }
 
+/* Return the current local time as a string in the ISO 8601 format of
+   "YYYY-MM-DD HH:MM:SS.SS". The returned string is 22 + 1 (NULL) characters
+   long. */
+
+void
+__gnat_current_time_string
+  (char *result)
+{
+  const char *format = "%Y-%m-%d %H:%M:%S";
+  /* Format string necessary to describe the ISO 8601 format */
+
+  const time_t t_val = time (NULL);
+
+  strftime (result, 22, format, localtime (&t_val));
+  /* Convert the local time into a string following the ISO format, copying
+     at most 22 characters into the result string. */
+
+  result [19] = '.';
+  result [20] = '0';
+  result [21] = '0';
+  /* The sub-seconds are manually set to zero since type time_t lacks the
+     precision necessary for nanoseconds. */
+}
+
 void
 __gnat_to_gm_time
   (OS_Time *p_time,
@@ -434,7 +466,8 @@ __gnat_symlink (char *oldpath ATTRIBUTE_UNUSED,
 
 /* Try to lock a file, return 1 if success.  */
 
-#if defined (__vxworks) || defined (__nucleus__) || defined (MSDOS) || defined (_WIN32)
+#if defined (__vxworks) || defined (__nucleus__) || defined (MSDOS) \
+  || defined (_WIN32)
 
 /* Version that does not use link. */
 
@@ -643,9 +676,9 @@ __gnat_get_debuggable_suffix_ptr (int *len, const char **value)
 /* Returns the OS filename and corresponding encoding.  */
 
 void
-__gnat_os_filename (char *filename, char *w_filename,
+__gnat_os_filename (char *filename, char *w_filename ATTRIBUTE_UNUSED,
 		    char *os_name, int *o_length,
-		    char *encoding, int *e_length)
+		    char *encoding ATTRIBUTE_UNUSED, int *e_length)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   WS2SU (os_name, (TCHAR *)w_filename, o_length);
@@ -660,7 +693,7 @@ __gnat_os_filename (char *filename, char *w_filename,
 }
 
 FILE *
-__gnat_fopen (char *path, char *mode, int encoding)
+__gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -682,7 +715,7 @@ __gnat_fopen (char *path, char *mode, int encoding)
 }
 
 FILE *
-__gnat_freopen (char *path, char *mode, FILE *stream, int encoding)
+__gnat_freopen (char *path, char *mode, FILE *stream, int encoding ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (CROSS_DIRECTORY_STRUCTURE)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -888,7 +921,7 @@ __gnat_open_new_temp (char *path, int fmode)
   strcpy (path, "GNAT-XXXXXX");
 
 #if (defined (__FreeBSD__) || defined (__NetBSD__) || defined (__OpenBSD__) \
-  || defined (linux)) && !defined (__vxworks)
+  || defined (linux) || defined(__GLIBC__)) && !defined (__vxworks)
   return mkstemp (path);
 #elif defined (__Lynx__)
   mktemp (path);
@@ -981,7 +1014,7 @@ __gnat_tmp_name (char *tmp_filename)
   }
 
 #elif defined (linux) || defined (__FreeBSD__) || defined (__NetBSD__) \
-  || defined (__OpenBSD__)
+  || defined (__OpenBSD__) || defined(__GLIBC__)
 #define MAX_SAFE_PATH 1000
   char *tmpdir = getenv ("TMPDIR");
 
@@ -1617,7 +1650,7 @@ __gnat_is_absolute_path (char *name, int length)
   return (length != 0) &&
      (*name == '/' || *name == DIR_SEPARATOR
 #if defined (__EMX__) || defined (MSDOS) || defined (WINNT)
-      || (length > 1 && isalpha (name[0]) && name[1] == ':')
+      || (length > 1 && ISALPHA (name[0]) && name[1] == ':')
 #endif
 	  );
 #endif
@@ -2122,7 +2155,7 @@ char *
 __gnat_locate_regular_file (char *file_name, char *path_val)
 {
   char *ptr;
-  char *file_path = alloca (strlen (file_name) + 1);
+  char *file_path = (char *) alloca (strlen (file_name) + 1);
   int absolute;
 
   /* Return immediately if file_name is empty */
@@ -2171,7 +2204,7 @@ __gnat_locate_regular_file (char *file_name, char *path_val)
 
   {
     /* The result has to be smaller than path_val + file_name.  */
-    char *file_path = alloca (strlen (path_val) + strlen (file_name) + 2);
+    char *file_path = (char *) alloca (strlen (path_val) + strlen (file_name) + 2);
 
     for (;;)
       {
@@ -2220,7 +2253,7 @@ __gnat_locate_exec (char *exec_name, char *path_val)
   if (!strstr (exec_name, HOST_EXECUTABLE_SUFFIX))
     {
       char *full_exec_name
-        = alloca (strlen (exec_name) + strlen (HOST_EXECUTABLE_SUFFIX) + 1);
+        = (char *) alloca (strlen (exec_name) + strlen (HOST_EXECUTABLE_SUFFIX) + 1);
 
       strcpy (full_exec_name, exec_name);
       strcat (full_exec_name, HOST_EXECUTABLE_SUFFIX);
@@ -2273,7 +2306,7 @@ __gnat_locate_exec_on_path (char *exec_name)
   char *path_val = getenv ("PATH");
 #endif
   if (path_val == NULL) return NULL;
-  apath_val = alloca (strlen (path_val) + 1);
+  apath_val = (char *) alloca (strlen (path_val) + 1);
   strcpy (apath_val, path_val);
   return __gnat_locate_exec (exec_name, apath_val);
 #endif
@@ -2857,6 +2890,7 @@ _flush_cache()
       && defined (__SVR4)) \
       && ! (defined (linux) && (defined (i386) || defined (__x86_64__))) \
       && ! (defined (linux) && defined (__ia64__)) \
+      && ! (defined (linux) && defined (powerpc)) \
       && ! defined (__FreeBSD__) \
       && ! defined (__hpux__) \
       && ! defined (__APPLE__) \
@@ -3030,8 +3064,12 @@ void GetTimeAsFileTime(LPFILETIME pTime)
 }
 #endif
 
-#if defined (linux)
+#if defined (linux) || defined(__GLIBC__)
 /* pthread affinity support */
+
+int __gnat_pthread_setaffinity_np (pthread_t th,
+			           size_t cpusetsize,
+			           const void *cpuset);
 
 #ifdef CPU_SETSIZE
 #include <pthread.h>
@@ -3044,9 +3082,9 @@ __gnat_pthread_setaffinity_np (pthread_t th,
 }
 #else
 int
-__gnat_pthread_setaffinity_np (pthread_t th,
-			       size_t cpusetsize,
-			       const void *cpuset)
+__gnat_pthread_setaffinity_np (pthread_t th ATTRIBUTE_UNUSED,
+			       size_t cpusetsize ATTRIBUTE_UNUSED,
+			       const void *cpuset ATTRIBUTE_UNUSED)
 {
   return 0;
 }

@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Functions in i386.c */
-extern void override_options (void);
+extern void override_options (bool);
 extern void optimization_options (int, int);
 
 extern int ix86_can_use_return_insn_p (void);
@@ -36,8 +36,6 @@ extern void ix86_output_addr_vec_elt (FILE *, int);
 extern void ix86_output_addr_diff_elt (FILE *, int, int);
 
 #ifdef RTX_CODE
-extern int ix86_aligned_p (rtx);
-
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
 extern rtx standard_80387_constant_rtx (int);
@@ -91,6 +89,7 @@ extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 extern rtx ix86_build_const_vector (enum machine_mode, bool, rtx);
 extern void ix86_split_convert_uns_si_sse (rtx[]);
 extern void ix86_expand_convert_uns_didf_sse (rtx, rtx);
+extern void ix86_expand_convert_uns_sixf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sidf_sse (rtx, rtx);
 extern void ix86_expand_convert_uns_sisf_sse (rtx, rtx);
 extern void ix86_expand_convert_sign_didf_sse (rtx, rtx);
@@ -135,11 +134,18 @@ extern rtx ix86_libcall_value (enum machine_mode);
 extern bool ix86_function_value_regno_p (int);
 extern bool ix86_function_arg_regno_p (int);
 extern int ix86_function_arg_boundary (enum machine_mode, tree);
-extern int ix86_return_in_memory (const_tree);
-extern int ix86_sol10_return_in_memory (const_tree);
-
+extern bool ix86_sol10_return_in_memory (const_tree,const_tree);
 extern rtx ix86_force_to_memory (enum machine_mode, rtx);
 extern void ix86_free_from_memory (enum machine_mode);
+extern int ix86_cfun_abi (void);
+extern int ix86_function_abi (const_tree);
+extern int ix86_function_type_abi (const_tree);
+extern void ix86_call_abi_override (const_tree);
+extern tree ix86_fn_abi_va_list (tree);
+extern tree ix86_canonical_va_list_type (tree);
+extern int ix86_enum_va_list (int, const char **, tree *);
+extern int ix86_reg_parm_stack_space (const_tree);
+
 extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
 				  rtx, rtx, rtx, rtx);
 extern bool ix86_hard_regno_mode_ok (int, enum machine_mode);
@@ -190,11 +196,13 @@ extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 extern int ix86_return_pops_args (tree, tree, int);
 
 extern int ix86_data_alignment (tree, int);
-extern int ix86_local_alignment (tree, int);
+extern unsigned int ix86_local_alignment (tree, enum machine_mode,
+					  unsigned int);
 extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 extern int x86_field_alignment (tree, int);
+extern tree ix86_valid_option_attribute_tree (tree);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
@@ -205,8 +213,12 @@ extern void ix86_expand_vector_set (bool, rtx, rtx, int);
 extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
 extern void ix86_expand_reduc_v4sf (rtx (*)(rtx, rtx, rtx), rtx, rtx);
 
-extern bool ix86_sse5_valid_op_p (rtx [], rtx, int, bool, int);
+extern bool ix86_sse5_valid_op_p (rtx [], rtx, int, bool, int, bool);
 extern void ix86_expand_sse5_multiple_memory (rtx [], int, enum machine_mode);
+
+/* In i386-c.c  */
+extern void ix86_target_macros (void);
+extern void ix86_register_pragmas (void);
 
 /* In winnt.c  */
 extern void i386_pe_unique_section (tree, int);

@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    
 This file is part of GCC.
@@ -621,8 +621,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
     }
 
   /* Record that this insn has an implicit side effect.  */
-  REG_NOTES (mem_insn.insn) 
-    = alloc_EXPR_LIST (REG_INC, inc_reg, REG_NOTES (mem_insn.insn));
+  add_reg_note (mem_insn.insn, REG_INC, inc_reg);
 
   if (dump_file)
     {
@@ -636,7 +635,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
 
 /* Try to combine the instruction in INC_INSN with the instruction in
    MEM_INSN.  First the form is determined using the DECISION_TABLE
-   and and the results of parsing the INC_INSN and the MEM_INSN.
+   and the results of parsing the INC_INSN and the MEM_INSN.
    Assuming the form is ok, a prototype new address is built which is
    passed to ATTEMPT_CHANGE for final processing.  */
 
@@ -1540,8 +1539,10 @@ gate_auto_inc_dec (void)
 }
 
 
-struct tree_opt_pass pass_inc_dec =
+struct rtl_opt_pass pass_inc_dec =
 {
+ {
+  RTL_PASS,
   "auto-inc-dec",                       /* name */
   gate_auto_inc_dec,                    /* gate */
   rest_of_handle_auto_inc_dec,          /* execute */
@@ -1555,6 +1556,6 @@ struct tree_opt_pass pass_inc_dec =
   0,                                    /* todo_flags_start */
   TODO_dump_func | 
   TODO_df_finish,                       /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 

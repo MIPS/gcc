@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "target-def.h"
 #include "cfglayout.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "langhooks.h"
 #include "params.h"
 #include "df.h"
@@ -410,7 +410,7 @@ static rtx sparc_struct_value_rtx (tree, int);
 static bool sparc_return_in_memory (const_tree, const_tree);
 static bool sparc_strict_argument_naming (CUMULATIVE_ARGS *);
 static void sparc_va_start (tree, rtx);
-static tree sparc_gimplify_va_arg (tree, tree, tree *, tree *);
+static tree sparc_gimplify_va_arg (tree, tree, gimple_seq *, gimple_seq *);
 static bool sparc_vector_mode_supported_p (enum machine_mode);
 static bool sparc_pass_by_reference (CUMULATIVE_ARGS *,
 				     enum machine_mode, const_tree, bool);
@@ -2639,7 +2639,7 @@ eligible_for_return_delay (rtx trial)
 
   /* If the function uses __builtin_eh_return, the eh_return machinery
      occupies the delay slot.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     return 0;
 
   /* In the case of a true leaf function, anything can go into the slot.  */
@@ -3084,7 +3084,7 @@ sparc_tls_got (void)
   rtx temp;
   if (flag_pic)
     {
-      current_function_uses_pic_offset_table = 1;
+      crtl->uses_pic_offset_table = 1;
       return pic_offset_table_rtx;
     }
 
@@ -3300,7 +3300,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
       pic_ref = gen_const_mem (Pmode,
 			       gen_rtx_PLUS (Pmode,
 					     pic_offset_table_rtx, address));
-      current_function_uses_pic_offset_table = 1;
+      crtl->uses_pic_offset_table = 1;
       insn = emit_move_insn (reg, pic_ref);
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
 	 by loop.  */
@@ -3342,7 +3342,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode ATTRIBUTE_UNUSED,
     /* ??? Why do we do this?  */
     /* Now movsi_pic_label_ref uses it, but we ought to be checking that
        the register is live instead, in case it is eliminated.  */
-    current_function_uses_pic_offset_table = 1;
+    crtl->uses_pic_offset_table = 1;
 
   return orig;
 }
@@ -3427,7 +3427,7 @@ load_pic_register (bool delay_pic_helper)
   if (TARGET_VXWORKS_RTP)
     {
       emit_insn (gen_vxworks_load_got ());
-      emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+      emit_use (pic_offset_table_rtx);
       return;
     }
 
@@ -3457,7 +3457,7 @@ load_pic_register (bool delay_pic_helper)
      since setjmp/longjmp can cause life info to screw up.
      ??? In the case where we don't obey regdecls, this is not sufficient
      since we may not fall out the bottom.  */
-  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+  emit_use (pic_offset_table_rtx);
 }
 
 /* Emit a call instruction with the pattern given by PAT.  ADDR is the
@@ -3479,7 +3479,7 @@ sparc_emit_call_insn (rtx pat, rtx addr)
 	  : !SYMBOL_REF_LOCAL_P (addr)))
     {
       use_reg (&CALL_INSN_FUNCTION_USAGE (insn), pic_offset_table_rtx);
-      current_function_uses_pic_offset_table = 1;
+      crtl->uses_pic_offset_table = 1;
     }
 }
 
@@ -3769,7 +3769,7 @@ sparc_init_modes (void)
 HOST_WIDE_INT
 sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
 {
-  int outgoing_args_size = (current_function_outgoing_args_size
+  int outgoing_args_size = (crtl->outgoing_args_size
 			    + REG_PARM_STACK_SPACE (current_function_decl));
   int n_regs = 0;  /* N_REGS is the number of 4-byte regs saved thus far.  */
   int i;
@@ -3799,7 +3799,7 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function_p)
   if (leaf_function_p
       && n_regs == 0
       && size == 0
-      && current_function_outgoing_args_size == 0)
+      && crtl->outgoing_args_size == 0)
     actual_fsize = apparent_fsize = 0;
   else
     {
@@ -4099,7 +4099,7 @@ sparc_expand_prologue (void)
     emit_save_or_restore_regs (SORR_SAVE);
 
   /* Load the PIC register if needed.  */
-  if (flag_pic && current_function_uses_pic_offset_table)
+  if (flag_pic && crtl->uses_pic_offset_table)
     load_pic_register (false);
 }
  
@@ -4235,7 +4235,7 @@ output_return (rtx insn)
 	 semantics of restore/return.  We simply output the jump to the
 	 return address and the insn in the delay slot (if any).  */
 
-      gcc_assert (! current_function_calls_eh_return);
+      gcc_assert (! crtl->calls_eh_return);
 
       return "jmp\t%%o7+%)%#";
     }
@@ -4246,7 +4246,7 @@ output_return (rtx insn)
 	 combined with the 'restore' instruction or put in the delay slot of
 	 the 'return' instruction.  */
 
-      if (current_function_calls_eh_return)
+      if (crtl->calls_eh_return)
 	{
 	  /* If the function uses __builtin_eh_return, the eh_return
 	     machinery occupies the delay slot.  */
@@ -5675,7 +5675,7 @@ function_value (const_tree type, enum machine_mode mode, int incoming_p)
 static rtx
 sparc_builtin_saveregs (void)
 {
-  int first_reg = current_function_args_info.words;
+  int first_reg = crtl->args.info.words;
   rtx address;
   int regno;
 
@@ -5709,7 +5709,8 @@ sparc_va_start (tree valist, rtx nextarg)
 /* Implement `va_arg' for stdarg.  */
 
 static tree
-sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
+sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
+		       gimple_seq *post_p)
 {
   HOST_WIDE_INT size, rsize, align;
   tree addr, incr;
@@ -5792,8 +5793,7 @@ sparc_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
     addr = fold_convert (ptrtype, addr);
 
   incr = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, incr, size_int (rsize));
-  incr = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, valist, incr);
-  gimplify_and_add (incr, post_p);
+  gimplify_assign (valist, incr, post_p);
 
   return build_va_arg_indirect_ref (addr);
 }
@@ -6780,7 +6780,7 @@ print_operand (FILE *file, rtx x, int code)
 	 The call emitted is the same when sparc_std_struct_return is 
 	 present. */
      if (! TARGET_ARCH64
-	 && current_function_returns_struct
+	 && cfun->returns_struct
 	 && ! sparc_std_struct_return
 	 && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
 	     == INTEGER_CST)
@@ -7800,11 +7800,17 @@ sparc_profile_hook (int labelno)
   char buf[32];
   rtx lab, fun;
 
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
-  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
   fun = gen_rtx_SYMBOL_REF (Pmode, MCOUNT_FUNCTION);
-
-  emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lab, Pmode);
+  if (NO_PROFILE_COUNTERS)
+    {
+      emit_library_call (fun, LCT_NORMAL, VOIDmode, 0);
+    }
+  else
+    {
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+      lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lab, Pmode);
+    }
 }
 
 #ifdef OBJECT_FORMAT_ELF
@@ -7863,7 +7869,7 @@ sparc_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   return (decl
 	  && flag_delayed_branch
-	  && (TARGET_ARCH64 || ! current_function_returns_struct)
+	  && (TARGET_ARCH64 || ! cfun->returns_struct)
 	  && !(TARGET_VXWORKS_RTP
 	       && flag_pic
 	       && !targetm.binds_local_p (decl)));
@@ -8818,6 +8824,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   final_start_function (insn, file, 1);
   final (insn, file, 1);
   final_end_function ();
+  free_after_compilation (cfun);
 
   reload_completed = 0;
   epilogue_completed = 0;
@@ -8841,7 +8848,7 @@ sparc_can_output_mi_thunk (const_tree thunk_fndecl ATTRIBUTE_UNUSED,
 static struct machine_function *
 sparc_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 /* Locate some local-dynamic symbol still in use by this function

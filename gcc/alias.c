@@ -133,6 +133,10 @@ struct alias_set_entry GTY(())
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   alias_set_type alias_set;
 
+  /* Nonzero if would have a child of zero: this effectively makes this
+     alias set the same as alias set zero.  */
+  int has_zero_child;
+
   /* The children of the alias set.  These are not just the immediate
      children, but, in fact, all descendants.  So, if we have:
 
@@ -141,10 +145,6 @@ struct alias_set_entry GTY(())
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
   splay_tree GTY((param1_is (int), param2_is (int))) children;
-
-  /* Nonzero if would have a child of zero: this effectively makes this
-     alias set the same as alias set zero.  */
-  int has_zero_child;
 };
 typedef struct alias_set_entry *alias_set_entry;
 
@@ -164,7 +164,6 @@ static int aliases_everything_p (const_rtx);
 static bool nonoverlapping_component_refs_p (const_tree, const_tree);
 static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
-static int nonoverlapping_memrefs_p (const_rtx, const_rtx);
 static int write_dependence_p (const_rtx, const_rtx, int);
 
 static void memory_modified_1 (rtx, const_rtx, void *);
@@ -306,8 +305,9 @@ alias_set_subset_of (alias_set_type set1, alias_set_type set2)
   /* Otherwise, check if set1 is a subset of set2.  */
   ase = get_alias_set_entry (set2);
   if (ase != 0
-      && (splay_tree_lookup (ase->children,
-			     (splay_tree_key) set1)))
+      && ((ase->has_zero_child && set1 == 0)
+	  || splay_tree_lookup (ase->children,
+			        (splay_tree_key) set1)))
     return true;
   return false;
 }
@@ -584,13 +584,6 @@ get_alias_set (tree t)
 	    return 0;
 	}
 
-      /* For non-addressable fields we return the alias set of the
-	 outermost object that could have its address taken.  If this
-	 is an SFT use the precomputed value.  */
-      if (TREE_CODE (t) == STRUCT_FIELD_TAG
-	  && SFT_NONADDRESSABLE_P (t))
-	return SFT_ALIAS_SET (t);
-
       /* Otherwise, pick up the outermost object that we could have a pointer
 	 to, processing conversions as above.  */
       while (component_uses_parent_alias_set (t))
@@ -645,6 +638,18 @@ get_alias_set (tree t)
      normal usage.  And indeed lets vectors be treated more like an
      array slice.  */
   else if (TREE_CODE (t) == VECTOR_TYPE)
+    set = get_alias_set (TREE_TYPE (t));
+
+  /* Unless the language specifies otherwise, treat array types the
+     same as their components.  This avoids the asymmetry we get
+     through recording the components.  Consider accessing a
+     character(kind=1) through a reference to a character(kind=1)[1:1].
+     Or consider if we want to assign integer(kind=4)[0:D.1387] and
+     integer(kind=4)[4] the same alias set or not.
+     Just be pragmatic here and make sure the array and its element
+     type get the same alias set assigned.  */
+  else if (TREE_CODE (t) == ARRAY_TYPE
+	   && !TYPE_NONALIASED_COMPONENT (t))
     set = get_alias_set (TREE_TYPE (t));
 
   else
@@ -708,7 +713,7 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
-      superset_entry = ggc_alloc (sizeof (struct alias_set_entry));
+      superset_entry = GGC_NEW (struct alias_set_entry);
       superset_entry->alias_set = superset;
       superset_entry->children
 	= splay_tree_new_ggc (splay_tree_compare_ints);
@@ -740,9 +745,8 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
 
 /* Record that component types of TYPE, if any, are part of that type for
    aliasing purposes.  For record types, we only record component types
-   for fields that are marked addressable.  For array types, we always
-   record the component types, so the front end should not call this
-   function if the individual component aren't addressable.  */
+   for fields that are not marked non-addressable.  For array types, we
+   only record the component type if it is not marked non-aliased.  */
 
 void
 record_component_aliases (tree type)
@@ -755,11 +759,6 @@ record_component_aliases (tree type)
 
   switch (TREE_CODE (type))
     {
-    case ARRAY_TYPE:
-      if (! TYPE_NONALIASED_COMPONENT (type))
-	record_alias_subset (superset, get_alias_set (TREE_TYPE (type)));
-      break;
-
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
@@ -775,13 +774,16 @@ record_component_aliases (tree type)
 				 get_alias_set (BINFO_TYPE (base_binfo)));
 	}
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
+	if (TREE_CODE (field) == FIELD_DECL && !DECL_NONADDRESSABLE_P (field))
 	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
       break;
 
     case COMPLEX_TYPE:
       record_alias_subset (superset, get_alias_set (TREE_TYPE (type)));
       break;
+
+    /* VECTOR_TYPE and ARRAY_TYPE share the alias set with their
+       element type.  */
 
     default:
       break;
@@ -1976,7 +1978,7 @@ adjust_offset_for_component_ref (tree x, rtx offset)
 /* Return nonzero if we can determine the exprs corresponding to memrefs
    X and Y and they do not overlap.  */
 
-static int
+int
 nonoverlapping_memrefs_p (const_rtx x, const_rtx y)
 {
   tree exprx = MEM_EXPR (x), expry = MEM_EXPR (y);
@@ -2410,8 +2412,8 @@ init_alias_analysis (void)
   timevar_push (TV_ALIAS_ANALYSIS);
 
   reg_known_value_size = maxreg - FIRST_PSEUDO_REGISTER;
-  reg_known_value = ggc_calloc (reg_known_value_size, sizeof (rtx));
-  reg_known_equiv_p = xcalloc (reg_known_value_size, sizeof (bool));
+  reg_known_value = GGC_CNEWVEC (rtx, reg_known_value_size);
+  reg_known_equiv_p = XCNEWVEC (bool, reg_known_value_size);
 
   /* If we have memory allocated from the previous run, use it.  */
   if (old_reg_base_value)

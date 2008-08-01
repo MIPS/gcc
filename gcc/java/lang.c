@@ -1,6 +1,6 @@
 /* Java(TM) language-specific utility routines.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -62,50 +62,12 @@ static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (const_tree);
 static tree java_get_callee_fndecl (const_tree);
-static void java_clear_binding_stack (void);
 
 static enum classify_record java_classify_record (tree type);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
 #endif
-
-/* Table indexed by tree code giving a string containing a character
-   classifying the tree code.  Possibilities are
-   t, d, s, c, r, <, 1 and 2.  See java/java-tree.def for details.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
-
-const enum tree_code_class tree_code_type[] = {
-#include "tree.def"
-  tcc_exceptional,
-#include "java-tree.def"
-};
-#undef DEFTREECODE
-
-/* Table indexed by tree code giving number of expression
-   operands beyond the fixed part of the node structure.
-   Not used for types or decls.  */
-
-#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
-
-const unsigned char tree_code_length[] = {
-#include "tree.def"
-  0,
-#include "java-tree.def"
-};
-#undef DEFTREECODE
-
-/* Names of tree components.
-   Used for printing out the tree and error messages.  */
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
-
-const char *const tree_code_name[] = {
-#include "tree.def"
-  "@@dummy",
-#include "java-tree.def"
-};
-#undef DEFTREECODE
 
 /* Table of machine-independent attributes.  */
 const struct attribute_spec java_attribute_table[] =
@@ -196,9 +158,6 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_GET_CALLEE_FNDECL
 #define LANG_HOOKS_GET_CALLEE_FNDECL java_get_callee_fndecl
-
-#undef LANG_HOOKS_CLEAR_BINDING_STACK
-#define LANG_HOOKS_CLEAR_BINDING_STACK java_clear_binding_stack
 
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
@@ -393,7 +352,7 @@ put_decl_string (const char *str, int len)
       else
 	{
 	  decl_buflen *= 2;
-	  decl_buf = xrealloc (decl_buf, decl_buflen);
+	  decl_buf = XRESIZEVAR (char, decl_buf, decl_buflen);
 	}
     }
   strcpy (decl_buf + decl_bufpos, str);
@@ -562,10 +521,6 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* Java requires left-to-right evaluation of subexpressions.  */
   flag_evaluation_order = 1;
 
-  /* Unit at a time is disabled for Java because it is considered
-     too expensive.  */
-  no_unit_at_a_time_default = 1;
-
   jcf_path_init ();
 
   return CL_Java;
@@ -576,12 +531,6 @@ static bool
 java_post_options (const char **pfilename)
 {
   const char *filename = *pfilename;
-
-  /* Use tree inlining.  */
-  if (!flag_no_inline)
-    flag_no_inline = 1;
-  if (flag_inline_functions)
-    flag_inline_trees = 2;
 
   /* An absolute requirement: if we're not using indirect dispatch, we
      must always verify everything.  */
@@ -655,10 +604,8 @@ java_post_options (const char **pfilename)
 	    }
 	}
     }
-#ifdef USE_MAPPED_LOCATION
   linemap_add (line_table, LC_ENTER, false, filename, 0);
   linemap_add (line_table, LC_RENAME, false, "<built-in>", 0);
-#endif
 
   /* Initialize the compiler back end.  */
   return false;
@@ -950,14 +897,6 @@ java_get_callee_fndecl (const_tree call_expr)
   return NULL;
 }
 
-
-/* Clear the binding stack.  */
-static void
-java_clear_binding_stack (void)
-{
-  while (!global_bindings_p ())
-    poplevel (0, 0, 0);
-}
 
 static enum classify_record
 java_classify_record (tree type)

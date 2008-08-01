@@ -184,71 +184,100 @@ canonicalize_address (rtx x)
    for a memory access in the given MODE.  */
 
 static bool
-should_replace_address (rtx old, rtx new, enum machine_mode mode)
+should_replace_address (rtx old_rtx, rtx new_rtx, enum machine_mode mode)
 {
   int gain;
 
-  if (rtx_equal_p (old, new) || !memory_address_p (mode, new))
+  if (rtx_equal_p (old_rtx, new_rtx) || !memory_address_p (mode, new_rtx))
     return false;
 
   /* Copy propagation is always ok.  */
-  if (REG_P (old) && REG_P (new))
+  if (REG_P (old_rtx) && REG_P (new_rtx))
     return true;
 
   /* Prefer the new address if it is less expensive.  */
-  gain = address_cost (old, mode) - address_cost (new, mode);
+  gain = address_cost (old_rtx, mode) - address_cost (new_rtx, mode);
 
   /* If the addresses have equivalent cost, prefer the new address
      if it has the highest `rtx_cost'.  That has the potential of
      eliminating the most insns without additional costs, and it
      is the same that cse.c used to do.  */
   if (gain == 0)
-    gain = rtx_cost (new, SET) - rtx_cost (old, SET);
+    gain = rtx_cost (new_rtx, SET) - rtx_cost (old_rtx, SET);
 
   return (gain > 0);
 }
 
+
+/* Flags for the last parameter of propagate_rtx_1.  */
+
+enum {
+  /* If PR_CAN_APPEAR is true, propagate_rtx_1 always returns true;
+     if it is false, propagate_rtx_1 returns false if, for at least
+     one occurrence OLD, it failed to collapse the result to a constant.
+     For example, (mult:M (reg:M A) (minus:M (reg:M B) (reg:M A))) may
+     collapse to zero if replacing (reg:M B) with (reg:M A).
+
+     PR_CAN_APPEAR is disregarded inside MEMs: in that case,
+     propagate_rtx_1 just tries to make cheaper and valid memory
+     addresses.  */
+  PR_CAN_APPEAR = 1,
+
+  /* If PR_HANDLE_MEM is not set, propagate_rtx_1 won't attempt any replacement
+     outside memory addresses.  This is needed because propagate_rtx_1 does
+     not do any analysis on memory; thus it is very conservative and in general
+     it will fail if non-read-only MEMs are found in the source expression.
+
+     PR_HANDLE_MEM is set when the source of the propagation was not
+     another MEM.  Then, it is safe not to treat non-read-only MEMs as
+     ``opaque'' objects.  */
+  PR_HANDLE_MEM = 2
+};
+
+
 /* Replace all occurrences of OLD in *PX with NEW and try to simplify the
    resulting expression.  Replace *PX with a new RTL expression if an
    occurrence of OLD was found.
-
-   If CAN_APPEAR is true, we always return true; if it is false, we
-   can return false if, for at least one occurrence OLD, we failed to
-   collapse the result to a constant.  For example, (mult:M (reg:M A)
-   (minus:M (reg:M B) (reg:M A))) may collapse to zero if replacing
-   (reg:M B) with (reg:M A).
-
-   CAN_APPEAR is disregarded inside MEMs: in that case, we always return
-   true if the simplification is a cheaper and valid memory address.
 
    This is only a wrapper around simplify-rtx.c: do not add any pattern
    matching code here.  (The sole exception is the handling of LO_SUM, but
    that is because there is no simplify_gen_* function for LO_SUM).  */
 
 static bool
-propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
+propagate_rtx_1 (rtx *px, rtx old_rtx, rtx new_rtx, int flags)
 {
   rtx x = *px, tem = NULL_RTX, op0, op1, op2;
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
   enum machine_mode op_mode;
+  bool can_appear = (flags & PR_CAN_APPEAR) != 0;
   bool valid_ops = true;
 
-  /* If X is OLD_RTX, return NEW_RTX.  Otherwise, if this is an expression,
-     try to build a new expression from recursive substitution.  */
-
-  if (x == old)
+  if (!(flags & PR_HANDLE_MEM) && MEM_P (x) && !MEM_READONLY_P (x))
     {
-      *px = new;
+      /* If unsafe, change MEMs to CLOBBERs or SCRATCHes (to preserve whether
+	 they have side effects or not).  */
+      *px = (side_effects_p (x)
+	     ? gen_rtx_CLOBBER (GET_MODE (x), const0_rtx)
+	     : gen_rtx_SCRATCH (GET_MODE (x)));
+      return false;
+    }
+
+  /* If X is OLD_RTX, return NEW_RTX.  But not if replacing only within an
+     address, and we are *not* inside one.  */
+  if (x == old_rtx)
+    {
+      *px = new_rtx;
       return can_appear;
     }
 
+  /* If this is an expression, try recursive substitution.  */
   switch (GET_RTX_CLASS (code))
     {
     case RTX_UNARY:
       op0 = XEXP (x, 0);
       op_mode = GET_MODE (op0);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0))
 	return true;
       tem = simplify_gen_unary (code, mode, op0, op_mode);
@@ -258,8 +287,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
     case RTX_COMM_ARITH:
       op0 = XEXP (x, 0);
       op1 = XEXP (x, 1);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return true;
       tem = simplify_gen_binary (code, mode, op0, op1);
@@ -270,8 +299,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       op0 = XEXP (x, 0);
       op1 = XEXP (x, 1);
       op_mode = GET_MODE (op0) != VOIDmode ? GET_MODE (op0) : GET_MODE (op1);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	return true;
       tem = simplify_gen_relational (code, mode, op_mode, op0, op1);
@@ -283,9 +312,9 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       op1 = XEXP (x, 1);
       op2 = XEXP (x, 2);
       op_mode = GET_MODE (op0);
-      valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
-      valid_ops &= propagate_rtx_1 (&op2, old, new, can_appear);
+      valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
+      valid_ops &= propagate_rtx_1 (&op2, old_rtx, new_rtx, flags);
       if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1) && op2 == XEXP (x, 2))
 	return true;
       if (op_mode == VOIDmode)
@@ -298,7 +327,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       if (code == SUBREG)
 	{
           op0 = XEXP (x, 0);
-	  valid_ops &= propagate_rtx_1 (&op0, old, new, can_appear);
+	  valid_ops &= propagate_rtx_1 (&op0, old_rtx, new_rtx, flags);
           if (op0 == XEXP (x, 0))
 	    return true;
 	  tem = simplify_gen_subreg (mode, op0, GET_MODE (SUBREG_REG (x)),
@@ -307,7 +336,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
       break;
 
     case RTX_OBJ:
-      if (code == MEM && x != new)
+      if (code == MEM && x != new_rtx)
 	{
 	  rtx new_op0;
 	  op0 = XEXP (x, 0);
@@ -317,7 +346,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	    return true;
 
 	  op0 = new_op0 = targetm.delegitimize_address (op0);
-	  valid_ops &= propagate_rtx_1 (&new_op0, old, new, true);
+	  valid_ops &= propagate_rtx_1 (&new_op0, old_rtx, new_rtx,
+					flags | PR_CAN_APPEAR);
 
 	  /* Dismiss transformation that we do not want to carry on.  */
 	  if (!valid_ops
@@ -329,7 +359,7 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  canonicalize_address (new_op0);
 
 	  /* Copy propagations are always ok.  Otherwise check the costs.  */
-	  if (!(REG_P (old) && REG_P (new))
+	  if (!(REG_P (old_rtx) && REG_P (new_rtx))
 	      && !should_replace_address (op0, new_op0, GET_MODE (x)))
 	    return true;
 
@@ -344,8 +374,8 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 	  /* The only simplification we do attempts to remove references to op0
 	     or make it constant -- in both cases, op0's invalidity will not
 	     make the result invalid.  */
-	  propagate_rtx_1 (&op0, old, new, true);
-	  valid_ops &= propagate_rtx_1 (&op1, old, new, can_appear);
+	  propagate_rtx_1 (&op0, old_rtx, new_rtx, flags | PR_CAN_APPEAR);
+	  valid_ops &= propagate_rtx_1 (&op1, old_rtx, new_rtx, flags);
           if (op0 == XEXP (x, 0) && op1 == XEXP (x, 1))
 	    return true;
 
@@ -363,9 +393,9 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
 
       else if (code == REG)
 	{
-	  if (rtx_equal_p (x, old))
+	  if (rtx_equal_p (x, old_rtx))
 	    {
-              *px = new;
+              *px = new_rtx;
               return can_appear;
 	    }
 	}
@@ -387,6 +417,18 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
   return valid_ops || can_appear || CONSTANT_P (tem);
 }
 
+
+/* for_each_rtx traversal function that returns 1 if BODY points to
+   a non-constant mem.  */
+
+static int
+varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
+{
+  rtx x = *body;
+  return MEM_P (x) && !MEM_READONLY_P (x);
+}
+
+
 /* Replace all occurrences of OLD in X with NEW and try to simplify the
    resulting expression (in mode MODE).  Return a new expression if it is
    a constant, otherwise X.
@@ -396,18 +438,23 @@ propagate_rtx_1 (rtx *px, rtx old, rtx new, bool can_appear)
    Otherwise, we accept simplifications that have a lower or equal cost.  */
 
 static rtx
-propagate_rtx (rtx x, enum machine_mode mode, rtx old, rtx new)
+propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx)
 {
   rtx tem;
   bool collapsed;
+  int flags;
 
-  if (REG_P (new) && REGNO (new) < FIRST_PSEUDO_REGISTER)
+  if (REG_P (new_rtx) && REGNO (new_rtx) < FIRST_PSEUDO_REGISTER)
     return NULL_RTX;
 
-  new = copy_rtx (new);
+  flags = 0;
+  if (REG_P (new_rtx) || CONSTANT_P (new_rtx))
+    flags |= PR_CAN_APPEAR;
+  if (!for_each_rtx (&new_rtx, varying_mem_p, NULL))
+    flags |= PR_HANDLE_MEM;
 
   tem = x;
-  collapsed = propagate_rtx_1 (&tem, old, new, REG_P (new) || CONSTANT_P (new));
+  collapsed = propagate_rtx_1 (&tem, old_rtx, copy_rtx (new_rtx), flags);
   if (tem == x || !collapsed)
     return NULL_RTX;
 
@@ -480,10 +527,15 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
     return true;
 
   /* Check if the reg in USE has only one definition.  We already
-     know that this definition reaches use, or we wouldn't be here.  */
+     know that this definition reaches use, or we wouldn't be here.
+     However, this is invalid for hard registers because if they are
+     live at the beginning of the function it does not mean that we
+     have an uninitialized access.  */
   regno = DF_REF_REGNO (use);
   def = DF_REG_DEF_CHAIN (regno);
-  if (def && (def->next_reg == NULL))
+  if (def
+      && def->next_reg == NULL
+      && regno >= FIRST_PSEUDO_REGISTER)
     return false;
 
   /* Check locally if we are in the same basic block.  */
@@ -499,13 +551,13 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
       /* See if USE is killed between DEF_INSN and the last insn in the
 	 basic block containing DEF_INSN.  */
       x = df_bb_regno_last_def_find (def_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) >= DF_INSN_LUID (def_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) >= DF_INSN_LUID (def_insn))
 	return true;
 
       /* See if USE is killed between TARGET_INSN and the first insn in the
 	 basic block containing TARGET_INSN.  */
       x = df_bb_regno_first_def_find (target_bb, regno);
-      if (x && DF_INSN_LUID (x->insn) < DF_INSN_LUID (target_insn))
+      if (x && DF_INSN_LUID (DF_REF_INSN (x)) < DF_INSN_LUID (target_insn))
 	return true;
 
       return false;
@@ -516,16 +568,6 @@ use_killed_between (struct df_ref *use, rtx def_insn, rtx target_insn)
 }
 
 
-/* for_each_rtx traversal function that returns 1 if BODY points to
-   a non-constant mem.  */
-
-static int
-varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *body;
-  return MEM_P (x) && !MEM_READONLY_P (x);
-}
-
 /* Check if all uses in DEF_INSN can be used in TARGET_INSN.  This
    would require full computation of available expressions;
    we check only restricted conditions, see use_killed_between.  */
@@ -533,6 +575,7 @@ static bool
 all_uses_available_at (rtx def_insn, rtx target_insn)
 {
   struct df_ref **use_rec;
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
   rtx def_set = single_set (def_insn);
 
   gcc_assert (def_set);
@@ -546,13 +589,13 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 
       /* If the insn uses the reg that it defines, the substitution is
          invalid.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (rtx_equal_p (DF_REF_REG (use), def_reg))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (rtx_equal_p (use->reg, def_reg))
@@ -563,13 +606,13 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
     {
       /* Look at all the uses of DEF_INSN, and see if they are not
 	 killed between DEF_INSN and TARGET_INSN.  */
-      for (use_rec = DF_INSN_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
 	    return false;
 	}
-      for (use_rec = DF_INSN_EQ_USES (def_insn); *use_rec; use_rec++)
+      for (use_rec = DF_INSN_INFO_EQ_USES (insn_info); *use_rec; use_rec++)
 	{
 	  struct df_ref *use = *use_rec;
 	  if (use_killed_between (use, def_insn, target_insn))
@@ -577,9 +620,7 @@ all_uses_available_at (rtx def_insn, rtx target_insn)
 	}
     }
 
-  /* We don't do any analysis of memories or aliasing.  Reject any
-     instruction that involves references to non-constant memory.  */
-  return !for_each_rtx (&SET_SRC (def_set), varying_mem_p, NULL);
+  return true;
 }
 
 
@@ -642,17 +683,28 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
     {
       struct df_ref *use = *use_rec;
       struct df_ref *orig_use = use, *new_use;
+      int width = -1;
+      int offset = -1;
+      enum machine_mode mode = 0;
       rtx *new_loc = find_occurrence (loc, DF_REF_REG (orig_use));
       use_rec++;
 
       if (!new_loc)
 	continue;
 
+      if (DF_REF_FLAGS_IS_SET (orig_use, DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT))
+	{
+	  width = DF_REF_EXTRACT_WIDTH (orig_use);
+	  offset = DF_REF_EXTRACT_OFFSET (orig_use);
+	  mode = DF_REF_EXTRACT_MODE (orig_use);
+	}
+
       /* Add a new insn use.  Use the original type, because it says if the
          use was within a MEM.  */
       new_use = df_ref_create (DF_REF_REG (orig_use), new_loc,
 			       insn, BLOCK_FOR_INSN (insn),
-			       type, DF_REF_FLAGS (orig_use) | new_flags);
+			       type, DF_REF_FLAGS (orig_use) | new_flags, 
+			       width, offset, mode);
 
       /* Set up the use-def chain.  */
       df_chain_copy (new_use, DF_REF_CHAIN (orig_use));
@@ -670,7 +722,7 @@ update_df (rtx insn, rtx *loc, struct df_ref **use_rec, enum df_ref_type type,
    performed.  */
 
 static bool
-try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_reg_equal)
+try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new_rtx, rtx def_insn, bool set_reg_equal)
 {
   rtx insn = DF_REF_INSN (use);
   enum df_ref_type type = DF_REF_TYPE (use);
@@ -684,11 +736,11 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       fprintf (dump_file, "\nIn insn %d, replacing\n ", INSN_UID (insn));
       print_inline_rtx (dump_file, *loc, 2);
       fprintf (dump_file, "\n with ");
-      print_inline_rtx (dump_file, new, 2);
+      print_inline_rtx (dump_file, new_rtx, 2);
       fprintf (dump_file, "\n");
     }
 
-  validate_unshare_change (insn, loc, new, true);
+  validate_unshare_change (insn, loc, new_rtx, true);
   if (!verify_changes (0))
     {
       if (dump_file)
@@ -719,10 +771,11 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       num_changes++;
 
       df_ref_remove (use);
-      if (!CONSTANT_P (new))
+      if (!CONSTANT_P (new_rtx))
 	{
-	  update_df (insn, loc, DF_INSN_USES (def_insn), type, flags);
-	  update_df (insn, loc, DF_INSN_EQ_USES (def_insn), type, flags);
+	  struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	  update_df (insn, loc, DF_INSN_INFO_USES (insn_info), type, flags);
+	  update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info), type, flags);
 	}
     }
   else
@@ -730,24 +783,22 @@ try_fwprop_subst (struct df_ref *use, rtx *loc, rtx new, rtx def_insn, bool set_
       cancel_changes (0);
 
       /* Can also record a simplified value in a REG_EQUAL note,
-	 making a new one if one does not already exist.
-	 Don't do this if the insn has a REG_RETVAL note, because the
-	 combined presence means that the REG_EQUAL note refers to the
-	 (full) contents of the libcall value.  */
-      if (set_reg_equal && !find_reg_note (insn, REG_RETVAL, NULL_RTX))
+	 making a new one if one does not already exist.  */
+      if (set_reg_equal)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, " Setting REG_EQUAL note\n");
 
-	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new));
+	  set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new_rtx));
 
 	  /* ??? Is this still necessary if we add the note through
 	     set_unique_reg_note?  */
-          if (!CONSTANT_P (new))
+          if (!CONSTANT_P (new_rtx))
 	    {
-	      update_df (insn, loc, DF_INSN_USES (def_insn),
+	      struct df_insn_info *insn_info = DF_INSN_INFO_GET (def_insn);
+	      update_df (insn, loc, DF_INSN_INFO_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
-	      update_df (insn, loc, DF_INSN_EQ_USES (def_insn),
+	      update_df (insn, loc, DF_INSN_INFO_EQ_USES (insn_info),
 			 type, DF_REF_IN_NOTE);
 	    }
 	}
@@ -799,7 +850,7 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
 {
   rtx use_insn = DF_REF_INSN (use);
   rtx use_set = single_set (use_insn);
-  rtx src, reg, new, *loc;
+  rtx src, reg, new_rtx, *loc;
   bool set_reg_equal;
   enum machine_mode mode;
 
@@ -842,10 +893,10 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
       if (use_set && x != src)
 	{
           rtx note = find_reg_note (use_insn, REG_EQUAL, NULL_RTX);
-	  rtx old = note ? XEXP (note, 0) : SET_SRC (use_set);
-	  rtx new = simplify_replace_rtx (old, src, x);
-	  if (old != new)
-            set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new));
+	  rtx old_rtx = note ? XEXP (note, 0) : SET_SRC (use_set);
+	  rtx new_rtx = simplify_replace_rtx (old_rtx, src, x);
+	  if (old_rtx != new_rtx)
+            set_unique_reg_note (use_insn, REG_EQUAL, copy_rtx (new_rtx));
 	}
       return false;
     }
@@ -882,16 +933,16 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   else
     mode = GET_MODE (*loc);
 
-  new = propagate_rtx (*loc, mode, reg, src);
+  new_rtx = propagate_rtx (*loc, mode, reg, src);
 
-  if (!new)
+  if (!new_rtx)
     return false;
 
   /* Do this only for debug insns, implied by a NULL use_set.  */
-  if (!use_set && mode != GET_MODE (new))
-    new = wrap_constant (mode, new);
+  if (!use_set && mode != GET_MODE (new_rtx))
+    new_rtx = wrap_constant (mode, new_rtx);
 
-  return try_fwprop_subst (use, loc, new, def_insn, set_reg_equal);
+  return try_fwprop_subst (use, loc, new_rtx, def_insn, set_reg_equal);
 }
 
 
@@ -1022,8 +1073,10 @@ fwprop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop =
+struct rtl_opt_pass pass_rtl_fwprop =
 {
+ {
+  RTL_PASS,
   "fwprop1",                            /* name */
   gate_fwprop,				/* gate */
   fwprop,				/* execute */
@@ -1036,8 +1089,8 @@ struct tree_opt_pass pass_rtl_fwprop =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };
 
 static unsigned int
@@ -1064,8 +1117,10 @@ fwprop_addr (void)
   return 0;
 }
 
-struct tree_opt_pass pass_rtl_fwprop_addr =
+struct rtl_opt_pass pass_rtl_fwprop_addr =
 {
+ {
+  RTL_PASS,
   "fwprop2",                            /* name */
   gate_fwprop,				/* gate */
   fwprop_addr,				/* execute */
@@ -1078,6 +1133,6 @@ struct tree_opt_pass pass_rtl_fwprop_addr =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
 };

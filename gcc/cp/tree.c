@@ -504,9 +504,9 @@ cplus_array_hash (const void* k)
   hashval_t hash;
   const_tree const t = (const_tree) k;
 
-  hash = (htab_hash_pointer (TREE_TYPE (t))
-	  ^ htab_hash_pointer (TYPE_DOMAIN (t)));
-
+  hash = TYPE_UID (TREE_TYPE (t));
+  if (TYPE_DOMAIN (t))
+    hash ^= TYPE_UID (TYPE_DOMAIN (t));
   return hash;
 }
 
@@ -553,8 +553,9 @@ build_cplus_array_type_1 (tree elt_type, tree index_type)
 	cplus_array_htab = htab_create_ggc (61, &cplus_array_hash,
 					    &cplus_array_compare, NULL);
       
-      hash = (htab_hash_pointer (elt_type)
-	      ^ htab_hash_pointer (index_type));
+      hash = TYPE_UID (elt_type);
+      if (index_type)
+	hash ^= TYPE_UID (index_type);
       cai.type = elt_type;
       cai.domain = index_type;
 
@@ -616,6 +617,14 @@ build_cplus_array_type (tree elt_type, tree index_type)
   return t;
 }
 
+/* Return an ARRAY_TYPE with element type ELT and length N.  */
+
+tree
+build_array_of_n_type (tree elt, int n)
+{
+  return build_cplus_array_type (elt, build_index_type (size_int (n - 1)));
+}
+
 /* Return a reference type node referring to TO_TYPE.  If RVAL is
    true, return an rvalue reference type, otherwise return an lvalue
    reference type.  If a type node exists, reuse it, otherwise create
@@ -675,7 +684,7 @@ c_build_qualified_type (tree type, int type_quals)
    arrays correctly.  In particular, if TYPE is an array of T's, and
    TYPE_QUALS is non-empty, returns an array of qualified T's.
 
-   FLAGS determines how to deal with illformed qualifications. If
+   FLAGS determines how to deal with ill-formed qualifications. If
    tf_ignore_bad_quals is set, then bad qualifications are dropped
    (this is permitted if TYPE was introduced via a typedef or template
    type parameter). If bad qualifications are dropped and tf_warning
@@ -787,8 +796,8 @@ cp_build_qualified_type_real (tree type,
       return make_pack_expansion (t);
     }
 
-  /* A reference or method type shall not be cv qualified.
-     [dcl.ref], [dct.fct]  */
+  /* A reference or method type shall not be cv-qualified.
+     [dcl.ref], [dcl.fct]  */
   if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)
       && (TREE_CODE (type) == REFERENCE_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
@@ -1238,7 +1247,7 @@ bind_template_template_parm (tree t, tree newargs)
   tree decl = TYPE_NAME (t);
   tree t2;
 
-  t2 = make_aggr_type (BOUND_TEMPLATE_TEMPLATE_PARM);
+  t2 = cxx_make_type (BOUND_TEMPLATE_TEMPLATE_PARM);
   decl = build_decl (TYPE_DECL, DECL_NAME (decl), NULL_TREE);
 
   /* These nodes have to be created to reflect new TYPE_DECL and template
@@ -1734,6 +1743,10 @@ cp_tree_equal (tree t1, tree t2)
 	&& !memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 		    TREE_STRING_LENGTH (t1));
 
+    case FIXED_CST:
+      return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1),
+				     TREE_FIXED_CST (t2));
+
     case COMPLEX_CST:
       return cp_tree_equal (TREE_REALPART (t1), TREE_REALPART (t2))
 	&& cp_tree_equal (TREE_IMAGPART (t1), TREE_IMAGPART (t2));
@@ -1958,7 +1971,7 @@ error_type (tree arg)
     ;
   else if (real_lvalue_p (arg))
     type = build_reference_type (lvalue_type (arg));
-  else if (IS_AGGR_TYPE (type))
+  else if (MAYBE_CLASS_TYPE_P (type))
     type = lvalue_type (arg);
 
   return type;
@@ -1992,7 +2005,7 @@ tree
 build_dummy_object (tree type)
 {
   tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_zero_node);
-  return build_indirect_ref (decl, NULL);
+  return cp_build_indirect_ref (decl, NULL, tf_warning_or_error);
 }
 
 /* We've gotten a reference to a member of TYPE.  Return *this if appropriate,
@@ -2474,6 +2487,8 @@ char_type_p (tree type)
   return (same_type_p (type, char_type_node)
 	  || same_type_p (type, unsigned_char_type_node)
 	  || same_type_p (type, signed_char_type_node)
+	  || same_type_p (type, char16_type_node)
+	  || same_type_p (type, char32_type_node)
 	  || same_type_p (type, wchar_type_node));
 }
 
@@ -2569,10 +2584,10 @@ stabilize_expr (tree exp, tree* initp)
     }
   else
     {
-      exp = build_unary_op (ADDR_EXPR, exp, 1);
+      exp = cp_build_unary_op (ADDR_EXPR, exp, 1, tf_warning_or_error);
       init_expr = get_target_expr (exp);
       exp = TARGET_EXPR_SLOT (init_expr);
-      exp = build_indirect_ref (exp, 0);
+      exp = cp_build_indirect_ref (exp, 0, tf_warning_or_error);
     }
   *initp = init_expr;
 
@@ -2580,17 +2595,17 @@ stabilize_expr (tree exp, tree* initp)
   return exp;
 }
 
-/* Add NEW, an expression whose value we don't care about, after the
+/* Add NEW_EXPR, an expression whose value we don't care about, after the
    similar expression ORIG.  */
 
 tree
-add_stmt_to_compound (tree orig, tree new)
+add_stmt_to_compound (tree orig, tree new_expr)
 {
-  if (!new || !TREE_SIDE_EFFECTS (new))
+  if (!new_expr || !TREE_SIDE_EFFECTS (new_expr))
     return orig;
   if (!orig || !TREE_SIDE_EFFECTS (orig))
-    return new;
-  return build2 (COMPOUND_EXPR, void_type_node, orig, new);
+    return new_expr;
+  return build2 (COMPOUND_EXPR, void_type_node, orig, new_expr);
 }
 
 /* Like stabilize_expr, but for a call whose arguments we want to

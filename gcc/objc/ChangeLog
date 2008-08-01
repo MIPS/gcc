@@ -1,3 +1,103 @@
+2008-07-28  Richard Guenther  <rguenther@suse.de>
+
+	Merge from gimple-tuples-branch.
+
+	2008-07-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Make-lang.in (objc-lang.o): Depend on GIMPLE_H.
+	(objc-act.o): Rename TREE_GIMPLE_H to GIMPLE_H.
+	* objc-act.h: Include gimple.h instead of tree-gimple.h.
+	* ipa-reference.c: Same.
+
+	2007-11-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* objc-act.c (objc_gimplify_expr): Change pre and post to sequences.
+	* objc-act.h (objc_gimplify_expr): Change prototype accordingly.
+
+2008-07-21  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* objc-act.c: Fix comment typos.
+
+2008-07-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc-act.c (objc_start_class_interface,
+	objc_start_category_interface, objc_start_class_implementation,
+	objc_start_category_implementation, objc_build_struct,
+	generate_static_references, build_private_template,
+	lookup_category, objc_add_method, add_category,
+	add_instance_variable, objc_is_public, conforms_to_protocol,
+	start_class, continue_class, finish_class): Avoid C++ keywords.
+
+2008-07-14  Jason Merrill  <jason@redhat.com>
+
+	PR objc++/36723
+	* objc-act.c (objc_build_constructor): Update C++ tweak.
+
+2007-07-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* objc-act.c (synth_module_prologue): Use TREE_NO_WARNING instead
+	of DECL_IN_SYSTEM_HEADER.
+
+2008-07-11  Ian Lance Taylor  <iant@google.com>
+
+	* objc-act.c (objc_is_reserved_word): Always check for RID_CLASS,
+	etc., not just when OBJCPLUS is defined.
+
+2008-06-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* objc-act.c (setup_string_decl, objc_build_string_object,
+	hash_interface, eq_interface, objc_begin_try_stmt,
+	encode_method_prototype, build_ivar_list_initializer,
+	objc_build_encode_expr): Fix for -Wc++-compat.
+
+2008-05-12  Tomas Bily  <tbily@suse.cz>
+
+        * objc-act.c (objc_generate_write_barrier, objc_finish_message_expr):
+        Use CONVERT_EXPR_P.
+
+2008-04-23  Paolo Bonzini  <bonzini@gnu.org>
+
+	* objc-act.c (objc_build_string_object): Don't set TREE_INVARIANT.
+
+2008-04-03  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (objc_OBJS): New variable.
+
+2008-03-27  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in: Revert automatic dependency patch.
+
+2008-03-27  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR obj-c++/35704
+	* objc-act.c (objc_build_component_ref): Fix call to
+	finish_class_member_access_expr.
+	(objc_generate_cxx_ctor_or_dtor): Fix call to
+	build_special_member_call.
+
+2008-03-25  Andrew Pinski  <pinskia@gmail.com>
+
+	PR objc/29197
+	* objc-act.c (encode_type): Handle when type is error_mark_node.
+	(objc_push_parm): Handle when the type of parm is error_mark_node.
+
+2008-03-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (objc_OBJS): New variable.
+	(cc1obj-checksum.o, objc/objc-lang.o, objc/objc-act.o): Remove.
+
+2008-03-21  Andreas Tobler  <a.tobler@schweiz.org>
+
+	PR bootstrap/35660
+	* objc-act.c (objc_generate_cxx_ctor_or_dtor): Rename IS_AGGR_TYPE to
+	MAYBE_CLASS_TYPE_P.
+	(objc_generate_cxx_cdtors): Likewise.
+	(add_instance_variable): Likewise.
+
+2008-02-26  Tom Tromey  <tromey@redhat.com>
+
+	* objc-act.c (objc_init): Remove old location code.
+
 2008-02-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	PR other/35107

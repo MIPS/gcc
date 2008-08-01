@@ -110,7 +110,7 @@
    </para>
 
    <para>
-     C++98/03 include files. These are available in the default compilation mode, ie <code>-std=c++98</code> or <code>-std=gnu++98</code>. 
+     C++98/03 include files. These are available in the default compilation mode, i.e. <code>-std=c++98</code> or <code>-std=gnu++98</code>.
    </para>
 
 <table frame='all'>
@@ -149,7 +149,7 @@
 </tgroup>
 </table>
 
-<para>C++0x include files. These are only available in C++0x compilation mode, ie <code>-std=c++0x</code> or <code>-std=gnu++0x</code>. 
+<para>C++0x include files. These are only available in C++0x compilation mode, i.e. <code>-std=c++0x</code> or <code>-std=gnu++0x</code>.
 </para>
 
 <para></para>
@@ -169,6 +169,7 @@
 <row><entry><filename class="headerfile">exception</filename></entry><entry><filename class="headerfile">iterator</filename></entry><entry><filename class="headerfile">ostream</filename></entry><entry><filename class="headerfile">streambuf</filename></entry><entry><filename class="headerfile">utility</filename></entry></row>
 <row><entry><filename class="headerfile">fstream</filename></entry><entry><filename class="headerfile">limits</filename></entry><entry><filename class="headerfile">queue</filename></entry><entry><filename class="headerfile">string</filename></entry><entry><filename class="headerfile">valarray</filename></entry></row>
 <row><entry><filename class="headerfile">functional</filename></entry><entry><filename class="headerfile">list</filename></entry><entry><filename class="headerfile">random</filename></entry><entry><filename class="headerfile">system_error</filename></entry><entry><filename class="headerfile">vector</filename></entry></row>
+<row><entry><filename class="headerfile">condition_variable</filename></entry><entry><filename class="headerfile">mutex</filename></entry><entry><filename class="headerfile">thread</filename></entry><entry></entry><entry></entry></row>
 </tbody>
 </tgroup>
 </table>
@@ -189,6 +190,7 @@
 <row><entry><filename class="headerfile">cctype</filename></entry><entry><filename class="headerfile">ciso646</filename></entry><entry><filename class="headerfile">csignal</filename></entry><entry><filename class="headerfile">cstdio</filename></entry><entry><filename class="headerfile">cuchar</filename></entry></row>
 <row><entry><filename class="headerfile">cerrno</filename></entry><entry><filename class="headerfile">climits</filename></entry><entry><filename class="headerfile">cstdarg</filename></entry><entry><filename class="headerfile">cstdlib</filename></entry><entry><filename class="headerfile">cwchar</filename></entry></row>
 <row><entry><filename class="headerfile">cfenv</filename></entry><entry><filename class="headerfile">clocale</filename></entry><entry><filename class="headerfile">cstdbool</filename></entry><entry><filename class="headerfile">cstring</filename></entry><entry><filename class="headerfile">cwctype</filename></entry></row>
+<row><entry><filename class="headerfile">cstdatomic</filename></entry><entry></entry><entry></entry><entry></entry><entry></entry></row>
 </tbody>
 </tgroup>
 </table>
@@ -470,7 +472,7 @@ g++ -Winvalid-pch -I. -include stdc++.h -H -g -O2 hello.cc -o test.exe
 <itemizedlist>
   <listitem><para>std</para>
 <para>The ISO C++ standards specify that "all library entities are defined
-within namespace std." This includes namepaces nested
+within namespace std." This includes namespaces nested
 within <code>namespace std</code>, such as <code>namespace
 std::tr1</code>.
 </para>
@@ -521,7 +523,7 @@ cases where the qualified verbiage becomes unwieldy.)
 
     </sect2>
 
-    <sect2 id="manual.intro.using.namespaces.comp" xreflabel="Using Namepace Composition">
+    <sect2 id="manual.intro.using.namespaces.comp" xreflabel="Using Namespace Composition">
       <title>Using Namespace Composition</title>
 
 <para>
@@ -1011,9 +1013,28 @@ gcc version 4.1.2 20070925 (Red Hat 4.1.2-33)
     </sect2>
   </sect1>
 
-  <sect1 id="manual.intro.using.exception_safety" xreflabel="Exception Safety">
+  <sect1 id="manual.intro.using.exception" xreflabel="Exceptions">
+    <title>Exceptions</title>
+
+  <sect2 id="intro.using.exception.propagating" xreflabel="Propagating Exceptions">
+
+    <title>Propagating Exceptions aka Exception Neutrality</title>
+  <para> 
+  </para>
+  </sect2>
+
+  <sect2 id="intro.using.exception.safety" xreflabel="Exception Safety">
     <title>Exception Safety</title>
-    <para></para>
+  <para> 
+  </para>
+  </sect2>
+
+  <sect2 id="intro.using.exception.no" xreflabel="-fno-exceptions">
+    <title>Support for <literal>-fno-exceptions</literal></title>
+  <para> 
+  </para>
+  </sect2>
+
   </sect1>  
 
 <!-- Section 0x : Debug -->

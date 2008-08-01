@@ -31,7 +31,6 @@
 #ifndef _TESTSUITE_COMMON_TYPES_H
 #define _TESTSUITE_COMMON_TYPES_H 1
 
-#include <testsuite_visualization.h>
 #include <ext/typelist.h>
 
 #include <ext/new_allocator.h>
@@ -52,6 +51,10 @@
 #include <tr1/functional>
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
+
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#include <cstdatomic>
+#endif
 
 namespace __gnu_test
 {
@@ -260,123 +263,118 @@ namespace __gnu_test
       typedef typename append<a1, a2>::type type;
     };
 
-} // namespace __gnu_test
-
-
-// Function template, function objects for the tests.
-template<typename TestType>
-  struct value_type : public std::pair<const TestType, TestType>
+  // A typelist of all integral types.
+  struct integral_types
   {
-    inline value_type& operator++() 
-    { 
-      ++this->second;
-      return *this; 
-    }
-    
-    inline operator TestType() const { return this->second; }
+    typedef bool 		a1;
+    typedef char 		a2;
+    typedef signed char 	a3;
+    typedef unsigned char 	a4;
+    typedef short 		a5;
+    typedef unsigned short 	a6;
+    typedef int 		a7;
+    typedef unsigned int 	a8;
+    typedef long 		a9;
+    typedef unsigned long 	a10;
+    typedef long long 		a11;
+    typedef unsigned long long 	a12;
+    typedef wchar_t 		a13;
+    // typedef char16_t 		a14;
+    // typedef char16_t 		a15;
+
+    typedef node<_GLIBCXX_TYPELIST_CHAIN13(a1, a2, a3, a4, a5, a6, a7, a8, a9, 
+					   a10, a11, a12, a13)> type;
   };
 
-template<typename Container, int Iter>
-  void
-  do_loop();
-
-template<typename Container, int Iter>
-  void*
-  do_thread(void* p = NULL)
-  {
-    do_loop<Container, Iter>();
-    return p;
-  }
-
-template<typename Container, int Iter, bool Thread>
-  void
-  test_container(const char* filename)
-  {
-    using namespace __gnu_test;
-    time_counter time;
-    resource_counter resource;
+#ifdef __GXX_EXPERIMENTAL_CXX0X__
+  template<typename Tp>
+    struct atomics
     {
-      start_counters(time, resource);
-      if (!Thread)
-	{
-	  // No threads, so run 4x.
-	  do_loop<Container, Iter * 4>();
-	}
-      else
-	{
-#if defined (_GLIBCXX_GCC_GTHR_POSIX_H) && !defined (NOTHREAD)
-	  pthread_t  t1, t2, t3, t4;
-	  pthread_create(&t1, 0, &do_thread<Container, Iter>, 0);
-	  pthread_create(&t2, 0, &do_thread<Container, Iter>, 0);
-	  pthread_create(&t3, 0, &do_thread<Container, Iter>, 0);
-	  pthread_create(&t4, 0, &do_thread<Container, Iter>, 0);
-	  
-	  pthread_join(t1, NULL);
-	  pthread_join(t2, NULL);
-	  pthread_join(t3, NULL);
-	  pthread_join(t4, NULL);
+      typedef Tp			value_type;
+      typedef std::atomic<value_type>	type;
+    };
+
+  typedef transform<integral_types::type, atomics>::type atomics_tl;
 #endif
-	}
-      stop_counters(time, resource);
 
-      // Detailed text data.
-      Container obj;
-      int status;
-      std::ostringstream comment;
-      comment << "type: " << abi::__cxa_demangle(typeid(obj).name(),
-                                                 0, 0, &status);
-      report_header(filename, comment.str());
-      report_performance("", "", time, resource);
-
-      // Detailed data for visualization.
-      std::string vizfilename(filename);
-      vizfilename += ".dat";
-      write_viz_data(time, vizfilename.c_str());
-    }
-  }
-
-template<bool Thread>
-  struct test_sequence
+  // Generator to test assignment operator.
+  struct assignable
   {
-    test_sequence(const char* filename) : _M_filename(filename) { }
-
-    template<class Container>
-      void
-      operator()(Container)
+    template<typename _Tp>
+      void 
+      operator()()
       {
-	const int i = 20000;
-	test_container<Container, i, Thread>(_M_filename); 
-      }
+	struct _Concept
+	{
+	  void __constraint()
+	  { __v1 = __v2; }
 
-  private:
-    const char* _M_filename;
+	  _Tp __v1;
+	  _Tp __v2;
+	};
+
+	void (_Concept::*__x)() __attribute__((unused))
+	  = &_Concept::__constraint;
+      }
   };
 
+  // Generator to test default constructor.
+  struct default_constructible
+  {
+    template<typename _Tp>
+      void 
+      operator()()
+      {
+	struct _Concept
+	{
+	  void __constraint()
+	  { _Tp __v; }
+	};
 
-inline std::string::size_type
-sequence_find_container(std::string& type)
-{
-  const std::string::size_type npos = std::string::npos;
-  std::string::size_type n1 = type.find("vector");
-  std::string::size_type n2 = type.find("list");
-  std::string::size_type n3 = type.find("deque");
-  std::string::size_type n4 = type.find("string");
-  
-  if (n1 != npos || n2 != npos || n3 != npos || n4 != npos)
-    return std::min(std::min(n1, n2), std::min(n3, n4));
-  else
-    throw std::runtime_error("sequence_find_container not found");
-}
+	void (_Concept::*__x)() __attribute__((unused))
+	  = &_Concept::__constraint;
+      }
+  };
 
-inline std::string::size_type
-associative_find_container(std::string& type)
-{
-  using std::string;
-  string::size_type n1 = type.find("map");
-  string::size_type n2 = type.find("set");
-  if (n1 != string::npos || n2 != string::npos)
-    return std::min(n1, n2);
-  else
-    throw std::runtime_error("associative_find_container not found");
-}
+  // Generator to test copy constructor.
+  struct copy_constructible
+  {
+    template<typename _Tp>
+      void 
+      operator()()
+      {
+	struct _Concept
+	{
+	  void __constraint()
+	  { _Tp __v2(__v1); }
+
+	  _Tp __v1;
+	};
+
+	void (_Concept::*__x)() __attribute__((unused))
+	  = &_Concept::__constraint;
+      }
+  };
+
+  // Generator to test explicit value constructor.
+  struct explicit_value_constructible
+  {
+    template<typename _Ttype, typename _Tvalue>
+      void 
+      operator()()
+      {
+	struct _Concept
+	{
+	  void __constraint()
+	  { _Ttype __v(__a); }
+	  
+	  _Tvalue __a;
+	};
+
+	void (_Concept::*__x)() __attribute__((unused))
+	  = &_Concept::__constraint;
+      }
+  };
+
+} // namespace __gnu_test
 #endif

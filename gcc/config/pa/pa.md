@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+;;   2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -63,6 +63,16 @@
   [(MAX_12BIT_OFFSET     8184)	; 12-bit branch
    (MAX_17BIT_OFFSET   262100)	; 17-bit branch
   ])
+
+;; Mode and code iterators
+
+;; This mode iterator allows :P to be used for patterns that operate on
+;; pointer-sized quantities.  Exactly one of the two alternatives will match.
+(define_mode_iterator P [(SI "Pmode == SImode") (DI "Pmode == DImode")])
+
+;; This attribute defines the condition prefix for word and double word
+;; add, compare, subtract and logical instructions.
+(define_mode_attr dwc [(SI "") (DI "*")])
 
 ;; Insn type.  Used to default other attribute values.
 
@@ -7265,7 +7275,7 @@
    (use (reg:SI 2))]
   "!TARGET_NO_SPACE_REGS
    && !TARGET_PA_20
-   && flag_pic && current_function_calls_eh_return"
+   && flag_pic && crtl->calls_eh_return"
   "ldsid (%%sr0,%%r2),%%r1\;mtsp %%r1,%%sr0\;be%* 0(%%sr0,%%r2)"
   [(set_attr "type" "branch")
    (set_attr "length" "12")])
@@ -7307,7 +7317,7 @@
 	 using space registers.  */
       if (!TARGET_NO_SPACE_REGS
 	  && !TARGET_PA_20
-	  && flag_pic && current_function_calls_eh_return)
+	  && flag_pic && crtl->calls_eh_return)
 	x = gen_return_external_pic ();
       else
 	x = gen_return_internal ();
@@ -7422,12 +7432,8 @@
 
   lab = copy_to_reg (lab);
 
-  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-			      gen_rtx_MEM (BLKmode,
-					   gen_rtx_SCRATCH (VOIDmode))));
-  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-			      gen_rtx_MEM (BLKmode,
-					   hard_frame_pointer_rtx)));
+  emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+  emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
 
   /* Restore the frame pointer.  The virtual_stack_vars_rtx is saved
      instead of the hard_frame_pointer_rtx in the save area.  As a
@@ -7439,8 +7445,8 @@
 
   emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
 
-  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+  emit_use (hard_frame_pointer_rtx);
+  emit_use (stack_pointer_rtx);
 
   /* Nonlocal goto jumps are only used between functions in the same
      translation unit.  Thus, we can avoid the extra overhead of an
@@ -7628,7 +7634,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
+	  gcc_assert (INTVAL (nb) <= crtl->outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8127,7 +8133,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
+	  gcc_assert (INTVAL (nb) <= crtl->outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8645,7 +8651,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
+	  gcc_assert (INTVAL (nb) <= crtl->outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8726,7 +8732,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	     the only method that we have for doing DImode multiplication
 	     is with a libcall.  This could be trouble if we haven't
 	     allocated enough space for the outgoing arguments.  */
-	  gcc_assert (INTVAL (nb) <= current_function_outgoing_args_size);
+	  gcc_assert (INTVAL (nb) <= crtl->outgoing_args_size);
 
 	  emit_move_insn (arg_pointer_rtx,
 			  gen_rtx_PLUS (word_mode, stack_pointer_rtx,
@@ -8882,12 +8888,8 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 			   (POINTER_SIZE * 2) / BITS_PER_UNIT));
   rtx pv = gen_rtx_REG (Pmode, 1);
 
-  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-			      gen_rtx_MEM (BLKmode,
-					   gen_rtx_SCRATCH (VOIDmode))));
-  emit_insn (gen_rtx_CLOBBER (VOIDmode,
-			      gen_rtx_MEM (BLKmode,
-					   hard_frame_pointer_rtx)));
+  emit_clobber (gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (VOIDmode)));
+  emit_clobber (gen_rtx_MEM (BLKmode, hard_frame_pointer_rtx));
 
   /* Restore the frame pointer.  The virtual_stack_vars_rtx is saved
      instead of the hard_frame_pointer_rtx in the save area.  We need
@@ -8903,8 +8905,8 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 
   /* This bit is the same as expand_builtin_longjmp.  */
   emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
-  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
-  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+  emit_use (hard_frame_pointer_rtx);
+  emit_use (stack_pointer_rtx);
 
   /* Load the label we are jumping through into r1 so that we know
      where to look for it when we get back to setjmp's function for
@@ -9610,42 +9612,34 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   [(set_attr "type" "fpalu")
    (set_attr "length" "4")])
 
-;; Flush the I and D cache lines from the start address (operand0)
-;; to the end address (operand1).  No lines are flushed if the end
-;; address is less than the start address (unsigned).
+;; The following two patterns are used by the trampoline code for nested
+;; functions.  They flush the I and D cache lines from the start address
+;; (operand0) to the end address (operand1).  No lines are flushed if the
+;; end address is less than the start address (unsigned).
 ;;
-;; Because the range of memory flushed is variable and the size of
-;; a MEM can only be a CONST_INT, the patterns specify that they
-;; perform an unspecified volatile operation on all memory.
+;; Because the range of memory flushed is variable and the size of a MEM
+;; can only be a CONST_INT, the patterns specify that they perform an
+;; unspecified volatile operation on all memory.
 ;;
 ;; The address range for an icache flush must lie within a single
 ;; space on targets with non-equivalent space registers.
 ;;
-;; This is used by the trampoline code for nested functions.
-;;
 ;; Operand 0 contains the start address.
 ;; Operand 1 contains the end address.
 ;; Operand 2 contains the line length to use.
-;; Operands 3 and 4 (icacheflush) are clobbered scratch registers.
-(define_insn "dcacheflush"
+(define_insn "dcacheflush<P:mode>"
   [(const_int 1)
    (unspec_volatile [(mem:BLK (scratch))] UNSPECV_DCACHE)
    (use (match_operand 0 "pmode_register_operand" "r"))
    (use (match_operand 1 "pmode_register_operand" "r"))
    (use (match_operand 2 "pmode_register_operand" "r"))
-   (clobber (match_scratch 3 "=&0"))]
+   (clobber (match_scratch:P 3 "=&0"))]
   ""
-  "*
-{
-  if (TARGET_64BIT)
-    return \"cmpb,*<<=,n %3,%1,.\;fdc,m %2(%3)\;sync\";
-  else
-    return \"cmpb,<<=,n %3,%1,.\;fdc,m %2(%3)\;sync\";
-}"
+  "cmpb,<dwc><<=,n %3,%1,.\;fdc,m %2(%3)\;sync"
   [(set_attr "type" "multi")
    (set_attr "length" "12")])
 
-(define_insn "icacheflush"
+(define_insn "icacheflush<P:mode>"
   [(const_int 2)
    (unspec_volatile [(mem:BLK (scratch))] UNSPECV_ICACHE)
    (use (match_operand 0 "pmode_register_operand" "r"))
@@ -9653,15 +9647,9 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (use (match_operand 2 "pmode_register_operand" "r"))
    (clobber (match_operand 3 "pmode_register_operand" "=&r"))
    (clobber (match_operand 4 "pmode_register_operand" "=&r"))
-   (clobber (match_scratch 5 "=&0"))]
+   (clobber (match_scratch:P 5 "=&0"))]
   ""
-  "*
-{
-  if (TARGET_64BIT)
-    return \"mfsp %%sr0,%4\;ldsid (%5),%3\;mtsp %3,%%sr0\;cmpb,*<<=,n %5,%1,.\;fic,m %2(%%sr0,%5)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
-  else
-    return \"mfsp %%sr0,%4\;ldsid (%5),%3\;mtsp %3,%%sr0\;cmpb,<<=,n %5,%1,.\;fic,m %2(%%sr0,%5)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop\";
-}"
+  "mfsp %%sr0,%4\;ldsid (%5),%3\;mtsp %3,%%sr0\;cmpb,<dwc><<=,n %5,%1,.\;fic,m %2(%%sr0,%5)\;sync\;mtsp %4,%%sr0\;nop\;nop\;nop\;nop\;nop\;nop"
   [(set_attr "type" "multi")
    (set_attr "length" "52")])
 
@@ -9677,8 +9665,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   ""
   "*
 {
-  extern int frame_pointer_needed;
-
+ 
   /* We need two different versions depending on whether or not we
      need a frame pointer.   Also note that we return to the instruction
      immediately after the branch rather than two instructions after the
@@ -9730,7 +9717,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   ""
   "*
 {
-  extern int frame_pointer_needed;
 
   /* We need two different versions depending on whether or not we
      need a frame pointer.   Also note that we return to the instruction

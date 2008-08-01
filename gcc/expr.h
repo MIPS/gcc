@@ -342,6 +342,9 @@ extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern tree std_build_builtin_va_list (void);
+extern tree std_fn_abi_va_list (tree);
+extern tree std_canonical_va_list_type (tree);
+
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
@@ -520,8 +523,6 @@ expand_normal (tree exp)
   return expand_expr_real (exp, NULL_RTX, VOIDmode, EXPAND_NORMAL, NULL);
 }
 
-extern void expand_var (tree);
-
 /* At the start of a function, record that we have no previously-pushed
    arguments waiting to be popped.  */
 extern void init_pending_stack_adjust (void);
@@ -557,7 +558,7 @@ extern void do_compare_rtx_and_jump (rtx, rtx, enum rtx_code, int,
 				     enum machine_mode, rtx, rtx, rtx);
 
 /* Two different ways of generating switch statements.  */
-extern int try_casesi (tree, tree, tree, tree, rtx, rtx);
+extern int try_casesi (tree, tree, tree, tree, rtx, rtx, rtx);
 extern int try_tablejump (tree, tree, tree, tree, rtx, rtx);
 
 /* Smallest number of adjacent cases before we use a jump table.
@@ -744,6 +745,7 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
+extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);
 

@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
@@ -59,14 +59,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-flow.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
-
+
 static struct stmt_stats
 {
   int total;
@@ -75,7 +75,9 @@ static struct stmt_stats
   int removed_phis;
 } stats;
 
-static VEC(tree,heap) *worklist;
+#define STMT_NECESSARY GF_PLF_1
+
+static VEC(gimple,heap) *worklist;
 
 /* Vector indicating an SSA name has already been processed and marked
    as necessary.  */
@@ -196,30 +198,26 @@ find_all_control_dependences (struct edge_list *el)
     find_control_dependence (el, i);
 }
 
-
-#define NECESSARY(stmt)		stmt->base.asm_written_flag
-
 /* If STMT is not already marked necessary, mark it, and add it to the
    worklist if ADD_TO_WORKLIST is true.  */
 static inline void
-mark_stmt_necessary (tree stmt, bool add_to_worklist)
+mark_stmt_necessary (gimple stmt, bool add_to_worklist)
 {
   gcc_assert (stmt);
-  gcc_assert (!DECL_P (stmt));
 
-  if (NECESSARY (stmt))
+  if (gimple_plf (stmt, STMT_NECESSARY))
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Marking useful stmt: ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
-  NECESSARY (stmt) = 1;
+  gimple_set_plf (stmt, STMT_NECESSARY, true);
   if (add_to_worklist)
-    VEC_safe_push (tree, heap, worklist, stmt);
+    VEC_safe_push (gimple, heap, worklist, stmt);
 }
 
 
@@ -228,7 +226,7 @@ mark_stmt_necessary (tree stmt, bool add_to_worklist)
 static inline void
 mark_operand_necessary (tree op)
 {
-  tree stmt;
+  gimple stmt;
   int ver;
 
   gcc_assert (op);
@@ -241,11 +239,11 @@ mark_operand_necessary (tree op)
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (stmt);
 
-  if (NECESSARY (stmt) || IS_EMPTY_STMT (stmt))
+  if (gimple_plf (stmt, STMT_NECESSARY) || gimple_nop_p (stmt))
     return;
 
-  NECESSARY (stmt) = 1;
-  VEC_safe_push (tree, heap, worklist, stmt);
+  gimple_set_plf (stmt, STMT_NECESSARY, true);
+  VEC_safe_push (gimple, heap, worklist, stmt);
 }
 
 
@@ -256,61 +254,60 @@ mark_operand_necessary (tree op)
    necessary.  */
 
 static void
-mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
+mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 {
-  stmt_ann_t ann;
-  tree op;
-
+  tree lhs = NULL_TREE;
   /* With non-call exceptions, we have to assume that all statements could
      throw.  If a statement may throw, it is inherently necessary.  */
   if (flag_non_call_exceptions
-      && tree_could_throw_p (stmt))
+      && stmt_could_throw_p (stmt))
     {
       mark_stmt_necessary (stmt, true);
       return;
     }
 
-  /* Statements that are implicitly live.  Most function calls, asm and return
-     statements are required.  Labels and BIND_EXPR nodes are kept because
-     they are control flow, and we have no way of knowing whether they can be
-     removed.  DCE can eliminate all the other statements in a block, and CFG
-     can then remove the block and labels.  */
-  switch (TREE_CODE (stmt))
+  /* Statements that are implicitly live.  Most function calls, asm
+     and return statements are required.  Labels and GIMPLE_BIND nodes
+     are kept because they are control flow, and we have no way of
+     knowing whether they can be removed.  DCE can eliminate all the
+     other statements in a block, and CFG can then remove the block
+     and labels.  */
+  switch (gimple_code (stmt))
     {
-    case BIND_EXPR:
-    case LABEL_EXPR:
-    case CASE_LABEL_EXPR:
+    case GIMPLE_PREDICT:
+    case GIMPLE_LABEL:
       mark_stmt_necessary (stmt, false);
       return;
 
-    case ASM_EXPR:
-    case RESX_EXPR:
-    case RETURN_EXPR:
-    case CHANGE_DYNAMIC_TYPE_EXPR:
+    case GIMPLE_ASM:
+    case GIMPLE_RESX:
+    case GIMPLE_RETURN:
+    case GIMPLE_CHANGE_DYNAMIC_TYPE:
       mark_stmt_necessary (stmt, true);
       return;
 
-    case CALL_EXPR:
+    case GIMPLE_CALL:
       /* Most, but not all function calls are required.  Function calls that
 	 produce no result and have no side effects (i.e. const pure
 	 functions) are unnecessary.  */
-      if (TREE_SIDE_EFFECTS (stmt))
-	mark_stmt_necessary (stmt, true);
-      return;
-
-    case GIMPLE_MODIFY_STMT:
-      op = get_call_expr_in (stmt);
-      if (op && TREE_SIDE_EFFECTS (op))
+      if (gimple_has_side_effects (stmt))
 	{
 	  mark_stmt_necessary (stmt, true);
 	  return;
 	}
+      if (!gimple_call_lhs (stmt))
+        return;
+      lhs = gimple_call_lhs (stmt);
+      /* Fall through */
 
+    case GIMPLE_ASSIGN:
+      if (!lhs)
+        lhs = gimple_assign_lhs (stmt);
       /* These values are mildly magic bits of the EH runtime.  We can't
 	 see the entire lifetime of these values until landing pads are
 	 generated.  */
-      if (TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == EXC_PTR_EXPR
-	  || TREE_CODE (GIMPLE_STMT_OPERAND (stmt, 0)) == FILTER_EXPR)
+      if (TREE_CODE (lhs) == EXC_PTR_EXPR
+	  || TREE_CODE (lhs) == FILTER_EXPR)
 	{
 	  mark_stmt_necessary (stmt, true);
 	  return;
@@ -321,16 +318,16 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       mark_stmt_necessary (stmt, false);
       return;
 
-    case GOTO_EXPR:
+    case GIMPLE_GOTO:
       gcc_assert (!simple_goto_p (stmt));
       mark_stmt_necessary (stmt, true);
       return;
 
-    case COND_EXPR:
-      gcc_assert (EDGE_COUNT (bb_for_stmt (stmt)->succs) == 2);
+    case GIMPLE_COND:
+      gcc_assert (EDGE_COUNT (gimple_bb (stmt)->succs) == 2);
       /* Fall through.  */
 
-    case SWITCH_EXPR:
+    case GIMPLE_SWITCH:
       if (! aggressive)
 	mark_stmt_necessary (stmt, true);
       break;
@@ -339,12 +336,10 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       break;
     }
 
-  ann = stmt_ann (stmt);
-
   /* If the statement has volatile operands, it needs to be preserved.
      Same for statements that can alter control flow in unpredictable
      ways.  */
-  if (ann->has_volatile_ops || is_ctrl_altering_stmt (stmt))
+  if (gimple_has_volatile_ops (stmt) || is_ctrl_altering_stmt (stmt))
     {
       mark_stmt_necessary (stmt, true);
       return;
@@ -376,16 +371,16 @@ mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 
   EXECUTE_IF_CONTROL_DEPENDENT (bi, bb->index, edge_number)
     {
-      tree t;
+      gimple stmt;
       basic_block cd_bb = INDEX_EDGE_PRED_BB (el, edge_number);
 
       if (TEST_BIT (last_stmt_necessary, cd_bb->index))
 	continue;
       SET_BIT (last_stmt_necessary, cd_bb->index);
 
-      t = last_stmt (cd_bb);
-      if (t && is_ctrl_stmt (t))
-	mark_stmt_necessary (t, true);
+      stmt = last_stmt (cd_bb);
+      if (stmt && is_ctrl_stmt (stmt))
+	mark_stmt_necessary (stmt, true);
     }
 }
 
@@ -401,22 +396,24 @@ static void
 find_obviously_necessary_stmts (struct edge_list *el)
 {
   basic_block bb;
-  block_stmt_iterator i;
+  gimple_stmt_iterator gsi;
   edge e;
+  gimple phi, stmt;
 
   FOR_EACH_BB (bb)
     {
-      tree phi;
-
       /* PHI nodes are never inherently necessary.  */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	NECESSARY (phi) = 0;
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  phi = gsi_stmt (gsi);
+	  gimple_set_plf (phi, STMT_NECESSARY, false);
+	}
 
       /* Check all statements in the block.  */
-      for (i = bsi_start (bb); ! bsi_end_p (i); bsi_next (&i))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  tree stmt = bsi_stmt (i);
-	  NECESSARY (stmt) = 0;
+	  stmt = gsi_stmt (gsi);
+	  gimple_set_plf (stmt, STMT_NECESSARY, false);
 	  mark_stmt_if_obviously_necessary (stmt, el != NULL);
 	}
     }
@@ -446,21 +443,21 @@ find_obviously_necessary_stmts (struct edge_list *el)
 static void
 propagate_necessity (struct edge_list *el)
 {
-  tree stmt;
+  gimple stmt;
   bool aggressive = (el ? true : false); 
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nProcessing worklist:\n");
 
-  while (VEC_length (tree, worklist) > 0)
+  while (VEC_length (gimple, worklist) > 0)
     {
       /* Take STMT from worklist.  */
-      stmt = VEC_pop (tree, worklist);
+      stmt = VEC_pop (gimple, worklist);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "processing: ");
-	  print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	  fprintf (dump_file, "\n");
 	}
 
@@ -469,7 +466,7 @@ propagate_necessity (struct edge_list *el)
 	  /* Mark the last statements of the basic blocks that the block
 	     containing STMT is control dependent on, but only if we haven't
 	     already done so.  */
-	  basic_block bb = bb_for_stmt (stmt);
+	  basic_block bb = gimple_bb (stmt);
 	  if (bb != ENTRY_BLOCK_PTR
 	      && ! TEST_BIT (visited_control_parents, bb->index))
 	    {
@@ -478,7 +475,7 @@ propagate_necessity (struct edge_list *el)
 	    }
 	}
 
-      if (TREE_CODE (stmt) == PHI_NODE)
+      if (gimple_code (stmt) == GIMPLE_PHI)
 	{
 	  /* PHI nodes are somewhat special in that each PHI alternative has
 	     data and control dependencies.  All the statements feeding the
@@ -486,9 +483,9 @@ propagate_necessity (struct edge_list *el)
 	     we also consider the control dependent edges leading to the
 	     predecessor block associated with each PHI alternative as
 	     necessary.  */
-	  int k;
+	  size_t k;
 
-	  for (k = 0; k < PHI_NUM_ARGS (stmt); k++)
+	  for (k = 0; k < gimple_phi_num_args (stmt); k++)
             {
 	      tree arg = PHI_ARG_DEF (stmt, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
@@ -497,9 +494,9 @@ propagate_necessity (struct edge_list *el)
 
 	  if (aggressive)
 	    {
-	      for (k = 0; k < PHI_NUM_ARGS (stmt); k++)
+	      for (k = 0; k < gimple_phi_num_args (stmt); k++)
 		{
-		  basic_block arg_bb = PHI_ARG_EDGE (stmt, k)->src;
+		  basic_block arg_bb = gimple_phi_arg_edge (stmt, k)->src;
 		  if (arg_bb != ENTRY_BLOCK_PTR
 		      && ! TEST_BIT (visited_control_parents, arg_bb->index))
 		    {
@@ -533,35 +530,33 @@ propagate_necessity (struct edge_list *el)
 static bool
 remove_dead_phis (basic_block bb)
 {
-  tree prev, phi;
   bool something_changed = false;
+  gimple_seq phis;
+  gimple phi;
+  gimple_stmt_iterator gsi;
+  phis = phi_nodes (bb);
 
-  prev = NULL_TREE;
-  phi = phi_nodes (bb);
-  while (phi)
+  for (gsi = gsi_start (phis); !gsi_end_p (gsi);)
     {
       stats.total_phis++;
+      phi = gsi_stmt (gsi);
 
-      if (! NECESSARY (phi))
+      if (!gimple_plf (phi, STMT_NECESSARY))
 	{
-	  tree next = PHI_CHAIN (phi);
-
 	  something_changed = true;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Deleting : ");
-	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	      print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
 	      fprintf (dump_file, "\n");
 	    }
 
-	  remove_phi_node (phi, prev, true);
+	  remove_phi_node (&gsi, true);
 	  stats.removed_phis++;
-	  phi = next;
 	}
       else
 	{
-	  prev = phi;
-	  phi = PHI_CHAIN (phi);
+          gsi_next (&gsi);
 	}
     }
   return something_changed;
@@ -572,14 +567,14 @@ remove_dead_phis (basic_block bb)
    containing I so that we don't have to look it up.  */
 
 static void
-remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
+remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 {
-  tree t = bsi_stmt (*i);
+  gimple stmt = gsi_stmt (*i);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Deleting : ");
-      print_generic_stmt (dump_file, t, TDF_SLIM);
+      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
@@ -591,7 +586,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
      immediate post-dominator.  The blocks we are circumventing will be
      removed by cleanup_tree_cfg if this change in the flow graph makes them
      unreachable.  */
-  if (is_ctrl_stmt (t))
+  if (is_ctrl_stmt (stmt))
     {
       basic_block post_dom_bb;
 
@@ -653,8 +648,8 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
     }
   
-  bsi_remove (i, true);  
-  release_defs (t); 
+  gsi_remove (i, true);  
+  release_defs (stmt); 
 }
 
 /* Predicate used by check_and_update_debug_stmt.  Return TRUE if the
@@ -664,7 +659,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 static bool
 necessary_p (tree t)
 {
-  return NECESSARY (SSA_NAME_DEF_STMT (t));
+  return gimple_plf (SSA_NAME_DEF_STMT (t), STMT_NECESSARY);
 }
 
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
@@ -675,7 +670,9 @@ eliminate_unnecessary_stmts (void)
 {
   bool something_changed = false;
   basic_block bb;
-  block_stmt_iterator i;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree call;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEliminating unnecessary statements:\n");
@@ -690,58 +687,62 @@ eliminate_unnecessary_stmts (void)
   FOR_EACH_BB (bb)
     {
       /* Remove dead statements.  */
-      for (i = bsi_start (bb); ! bsi_end_p (i) ; )
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
-	  tree t = bsi_stmt (i);
+	  stmt = gsi_stmt (gsi);
 
 	  stats.total++;
 
-	  /* If `i' is not necessary then remove it.  */
-	  if (! NECESSARY (t))
+	  /* If GSI is not necessary then remove it.  */
+	  if (!gimple_plf (stmt, STMT_NECESSARY))
 	    {
-	      remove_dead_stmt (&i, bb);
+	      remove_dead_stmt (&gsi, bb);
 	      something_changed = true;
 	    }
-	  else
+	  else if (is_gimple_call (stmt))
 	    {
-	      tree call;
-
-	      if (TREE_CODE (t) == VAR_DEBUG_VALUE)
+	      if (IS_DEBUG_STMT (stmt) == VAR_DEBUG_VALUE)
 		{
 		  if (something_changed
-		      && VAR_DEBUG_VALUE_VALUE (t) != VAR_DEBUG_VALUE_NOVALUE)
-		    check_and_update_debug_stmt (t, necessary_p);
+		      && (VAR_DEBUG_VALUE_VALUE (stmt)
+			  != VAR_DEBUG_VALUE_NOVALUE))
+		    check_and_update_debug_stmt (stmt, necessary_p);
 		}
-	      else if ((call = get_call_expr_in (t)))
+	      else if ((call = gimple_call_fndecl (stmt)))
 		{
 		  tree name;
+		  gimple g;
 
 		  /* When LHS of var = call (); is dead, simplify it into
 		     call (); saving one operand.  */
-		  if (TREE_CODE (t) == GIMPLE_MODIFY_STMT
-		      && (TREE_CODE ((name = GIMPLE_STMT_OPERAND (t, 0)))
-			  == SSA_NAME)
-		      && !TEST_BIT (processed, SSA_NAME_VERSION (name)))
+		  name = gimple_call_lhs (stmt);
+		  if (name && TREE_CODE (name) == SSA_NAME
+		           && !TEST_BIT (processed, SSA_NAME_VERSION (name)))
 		    {
-		      tree oldlhs = GIMPLE_STMT_OPERAND (t, 0);
 		      something_changed = true;
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			{
 			  fprintf (dump_file, "Deleting LHS of call: ");
-			  print_generic_stmt (dump_file, t, TDF_SLIM);
+			  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 			  fprintf (dump_file, "\n");
 			}
-		      push_stmt_changes (bsi_stmt_ptr (i));
-		      TREE_BLOCK (call) = TREE_BLOCK (t);
-		      bsi_replace (&i, call, false);
-		      maybe_clean_or_replace_eh_stmt (t, call);
-		      mark_symbols_for_renaming (call);
-		      pop_stmt_changes (bsi_stmt_ptr (i));
-		      release_ssa_name (oldlhs);
+		      
+		      push_stmt_changes (gsi_stmt_ptr (&gsi));
+		      g = gimple_copy (stmt);
+		      gimple_call_set_lhs (g, NULL_TREE);
+		      gsi_replace (&gsi, g, false);
+		      maybe_clean_or_replace_eh_stmt (stmt, g);
+		      mark_symbols_for_renaming (g);
+		      pop_stmt_changes (gsi_stmt_ptr (&gsi));
+		      release_ssa_name (name);
 		    }
-		  notice_special_calls (call);
+		  notice_special_calls (stmt);
 		}
-	      bsi_next (&i);
+	      gsi_next (&gsi);
+	    }
+	  else
+	    {
+	      gsi_next (&gsi);
 	    }
 	}
     }
@@ -755,24 +756,21 @@ eliminate_unnecessary_stmts (void)
 static void
 print_stats (void)
 {
-  if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
-    {
-      float percg;
+  float percg;
 
-      percg = ((float) stats.removed / (float) stats.total) * 100;
-      fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
-	       stats.removed, stats.total, (int) percg);
+  percg = ((float) stats.removed / (float) stats.total) * 100;
+  fprintf (dump_file, "Removed %d of %d statements (%d%%)\n",
+	   stats.removed, stats.total, (int) percg);
 
-      if (stats.total_phis == 0)
-	percg = 0;
-      else
-	percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
+  if (stats.total_phis == 0)
+    percg = 0;
+  else
+    percg = ((float) stats.removed_phis / (float) stats.total_phis) * 100;
 
-      fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
-	       stats.removed_phis, stats.total_phis, (int) percg);
-    }
+  fprintf (dump_file, "Removed %d of %d PHI nodes (%d%%)\n",
+	   stats.removed_phis, stats.total_phis, (int) percg);
 }
-
+
 /* Initialization for this pass.  Set up the used data structures.  */
 
 static void
@@ -795,7 +793,7 @@ tree_dce_init (bool aggressive)
   processed = sbitmap_alloc (num_ssa_names + 1);
   sbitmap_zero (processed);
 
-  worklist = VEC_alloc (tree, heap, 64);
+  worklist = VEC_alloc (gimple, heap, 64);
   cfg_altered = false;
 }
 
@@ -818,9 +816,9 @@ tree_dce_done (bool aggressive)
 
   sbitmap_free (processed);
 
-  VEC_free (tree, heap, worklist);
+  VEC_free (gimple, heap, worklist);
 }
-
+
 /* Main routine to eliminate dead code.
 
    AGGRESSIVE controls the aggressiveness of the algorithm.
@@ -874,8 +872,11 @@ perform_tree_ssa_dce (bool aggressive)
   if (cfg_altered)
     free_dominance_info (CDI_DOMINATORS);
 
+  statistics_counter_event (cfun, "Statements deleted", stats.removed);
+  statistics_counter_event (cfun, "PHI nodes deleted", stats.removed_phis);
+
   /* Debugging dumps.  */
-  if (dump_file)
+  if (dump_file && (dump_flags & (TDF_STATS|TDF_DETAILS)))
     print_stats ();
 
   tree_dce_done (aggressive);
@@ -921,8 +922,10 @@ gate_dce (void)
   return flag_tree_dce != 0;
 }
 
-struct tree_opt_pass pass_dce =
+struct gimple_opt_pass pass_dce =
 {
+ {
+  GIMPLE_PASS,
   "dce",				/* name */
   gate_dce,				/* gate */
   tree_ssa_dce,				/* execute */
@@ -934,12 +937,14 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_dce_loop =
+struct gimple_opt_pass pass_dce_loop =
 {
+ {
+  GIMPLE_PASS,
   "dceloop",				/* name */
   gate_dce,				/* gate */
   tree_ssa_dce_loop,			/* execute */
@@ -951,12 +956,14 @@ struct tree_opt_pass pass_dce_loop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
-  0					/* letter */
+  TODO_dump_func | TODO_verify_ssa	/* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_cd_dce =
+struct gimple_opt_pass pass_cd_dce =
 {
+ {
+  GIMPLE_PASS,
   "cddce",				/* name */
   gate_dce,				/* gate */
   tree_ssa_cd_dce,			/* execute */
@@ -969,6 +976,6 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_verify_ssa
-  | TODO_verify_flow,			/* todo_flags_finish */
-  0					/* letter */
+  | TODO_verify_flow			/* todo_flags_finish */
+ }
 };

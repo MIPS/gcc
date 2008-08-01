@@ -1,5 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -39,10 +39,10 @@ struct token_spelling
 };
 
 static const unsigned char *const digraph_spellings[] =
-{ U"%:", U"%:%:", U"<:", U":>", U"<%", U"%>" };
+{ UC"%:", UC"%:%:", UC"<:", UC":>", UC"<%", UC"%>" };
 
-#define OP(e, s) { SPELL_OPERATOR, U s  },
-#define TK(e, s) { SPELL_ ## s,    U #e },
+#define OP(e, s) { SPELL_OPERATOR, UC s  },
+#define TK(e, s) { SPELL_ ## s,    UC #e },
 static const struct token_spelling token_spellings[N_TTYPES] = { TTYPE_TABLE };
 #undef OP
 #undef TK
@@ -384,7 +384,7 @@ static int
 skip_line_comment (cpp_reader *pfile)
 {
   cpp_buffer *buffer = pfile->buffer;
-  unsigned int orig_line = pfile->line_table->highest_line;
+  source_location orig_line = pfile->line_table->highest_line;
 
   while (*buffer->cur != '\n')
     buffer->cur++;
@@ -538,8 +538,8 @@ lex_identifier (cpp_reader *pfile, const uchar *base, bool starts_ucn,
       len = cur - base;
       hash = HT_HASHFINISH (hash, len);
 
-      result = (cpp_hashnode *)
-	ht_lookup_with_hash (pfile->hash_table, base, len, hash, HT_ALLOC);
+      result = CPP_HASHNODE (ht_lookup_with_hash (pfile->hash_table,
+						  base, len, hash, HT_ALLOC));
     }
 
   /* Rarely, identifiers require diagnostics when lexed.  */
@@ -611,8 +611,8 @@ create_literal (cpp_reader *pfile, cpp_token *token, const uchar *base,
 
 /* Lexes a string, character constant, or angle-bracketed header file
    name.  The stored string contains the spelling, including opening
-   quote and leading any leading 'L'.  It returns the type of the
-   literal, or CPP_OTHER if it was not properly terminated.
+   quote and leading any leading 'L', 'u' or 'U'.  It returns the type
+   of the literal, or CPP_OTHER if it was not properly terminated.
 
    The spelling is NUL-terminated, but it is not guaranteed that this
    is the first NUL since embedded NULs are preserved.  */
@@ -626,12 +626,16 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
 
   cur = base;
   terminator = *cur++;
-  if (terminator == 'L')
+  if (terminator == 'L' || terminator == 'u' || terminator == 'U')
     terminator = *cur++;
   if (terminator == '\"')
-    type = *base == 'L' ? CPP_WSTRING: CPP_STRING;
+    type = (*base == 'L' ? CPP_WSTRING :
+	    *base == 'U' ? CPP_STRING32 :
+	    *base == 'u' ? CPP_STRING16 : CPP_STRING);
   else if (terminator == '\'')
-    type = *base == 'L' ? CPP_WCHAR: CPP_CHAR;
+    type = (*base == 'L' ? CPP_WCHAR :
+	    *base == 'U' ? CPP_CHAR32 :
+	    *base == 'u' ? CPP_CHAR16 : CPP_CHAR);
   else
     terminator = '>', type = CPP_HEADER_NAME;
 
@@ -730,6 +734,49 @@ next_tokenrun (tokenrun *run)
   return run->next;
 }
 
+/* Look ahead in the input stream.  */
+const cpp_token *
+cpp_peek_token (cpp_reader *pfile, int index)
+{
+  cpp_context *context = pfile->context;
+  const cpp_token *peektok;
+  int count;
+
+  /* First, scan through any pending cpp_context objects.  */
+  while (context->prev)
+    {
+      ptrdiff_t sz = (context->direct_p
+                      ? LAST (context).token - FIRST (context).token
+                      : LAST (context).ptoken - FIRST (context).ptoken);
+
+      if (index < (int) sz)
+        return (context->direct_p
+                ? FIRST (context).token + index
+                : *(FIRST (context).ptoken + index));
+
+      index -= (int) sz;
+      context = context->prev;
+    }
+
+  /* We will have to read some new tokens after all (and do so
+     without invalidating preceding tokens).  */
+  count = index;
+  pfile->keep_tokens++;
+
+  do
+    {
+      peektok = _cpp_lex_token (pfile);
+      if (peektok->type == CPP_EOF)
+	return peektok;
+    }
+  while (index--);
+
+  _cpp_backup_tokens_direct (pfile, count + 1);
+  pfile->keep_tokens--;
+
+  return peektok;
+}
+
 /* Allocate a single token that is invalidated at the same time as the
    rest of the tokens on the line.  Has its line and col set to the
    same as the last lexed token, so that diagnostics appear in the
@@ -738,9 +785,30 @@ cpp_token *
 _cpp_temp_token (cpp_reader *pfile)
 {
   cpp_token *old, *result;
+  ptrdiff_t sz = pfile->cur_run->limit - pfile->cur_token;
+  ptrdiff_t la = (ptrdiff_t) pfile->lookaheads;
 
   old = pfile->cur_token - 1;
-  if (pfile->cur_token == pfile->cur_run->limit)
+  /* Any pre-existing lookaheads must not be clobbered.  */
+  if (la)
+    {
+      if (sz <= la)
+        {
+          tokenrun *next = next_tokenrun (pfile->cur_run);
+
+          if (sz < la)
+            memmove (next->base + 1, next->base,
+                     (la - sz) * sizeof (cpp_token));
+
+          next->base[0] = pfile->cur_run->limit[-1];
+        }
+
+      if (sz > 1)
+        memmove (pfile->cur_token + 1, pfile->cur_token,
+                 MIN (la, sz - 1) * sizeof (cpp_token));
+    }
+
+  if (!sz && pfile->cur_token == pfile->cur_run->limit)
     {
       pfile->cur_run = next_tokenrun (pfile->cur_run);
       pfile->cur_token = pfile->cur_run->base;
@@ -965,11 +1033,16 @@ _cpp_lex_direct (cpp_reader *pfile)
       }
 
     case 'L':
-      /* 'L' may introduce wide characters or strings.  */
-      if (*buffer->cur == '\'' || *buffer->cur == '"')
+    case 'u':
+    case 'U':
+      /* 'L', 'u' or 'U' may introduce wide characters or strings.  */
+      if (c == 'L' || CPP_OPTION (pfile, uliterals))
 	{
-	  lex_string (pfile, result, buffer->cur - 1);
-	  break;
+	  if (*buffer->cur == '\'' || *buffer->cur == '"')
+	    {
+	      lex_string (pfile, result, buffer->cur - 1);
+	      break;
+	    }
 	}
       /* Fall through.  */
 
@@ -977,12 +1050,12 @@ _cpp_lex_direct (cpp_reader *pfile)
     case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
     case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
     case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
-    case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+    case 's': case 't':           case 'v': case 'w': case 'x':
     case 'y': case 'z':
     case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
     case 'G': case 'H': case 'I': case 'J': case 'K':
     case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
-    case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+    case 'S': case 'T':           case 'V': case 'W': case 'X':
     case 'Y': case 'Z':
       result->type = CPP_NAME;
       {
@@ -1528,6 +1601,51 @@ cpp_output_line (cpp_reader *pfile, FILE *fp)
     }
 
   putc ('\n', fp);
+}
+
+/* Return a string representation of all the remaining tokens on the
+   current line.  The result is allocated using xmalloc and must be
+   freed by the caller.  */
+unsigned char *
+cpp_output_line_to_string (cpp_reader *pfile, const unsigned char *dir_name)
+{
+  const cpp_token *token;
+  unsigned int out = dir_name ? ustrlen (dir_name) : 0;
+  unsigned int alloced = 120 + out;
+  unsigned char *result = (unsigned char *) xmalloc (alloced);
+
+  /* If DIR_NAME is empty, there are no initial contents.  */
+  if (dir_name)
+    {
+      sprintf ((char *) result, "#%s ", dir_name);
+      out += 2;
+    }
+
+  token = cpp_get_token (pfile);
+  while (token->type != CPP_EOF)
+    {
+      unsigned char *last;
+      /* Include room for a possible space and the terminating nul.  */
+      unsigned int len = cpp_token_len (token) + 2;
+
+      if (out + len > alloced)
+	{
+	  alloced *= 2;
+	  if (out + len > alloced)
+	    alloced = out + len;
+	  result = (unsigned char *) xrealloc (result, alloced);
+	}
+
+      last = cpp_spell_token (pfile, token, &result[out], 0);
+      out = last - result;
+
+      token = cpp_get_token (pfile);
+      if (token->flags & PREV_WHITE)
+	result[out++] = ' ';
+    }
+
+  result[out] = '\0';
+  return result;
 }
 
 /* Memory buffers.  Changing these three constants can have a dramatic

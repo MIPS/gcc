@@ -239,22 +239,29 @@ namespace __gnu_parallel
 			   std::iterator_traits<RandomAccessIterator1>::
 			   difference_type max_length, Comparator comp)
     {
-      typedef typename std::iterator_traits<RandomAccessIterator1>::value_type
-	value_type;
+      typedef typename
+          std::iterator_traits<RandomAccessIterator1>::value_type value_type;
       typedef typename std::iterator_traits<RandomAccessIterator1>::
 	difference_type difference_type1 /* == difference_type2 */;
       typedef typename std::iterator_traits<RandomAccessIterator3>::
 	difference_type difference_type3;
+      typedef typename std::pair<RandomAccessIterator1, RandomAccessIterator1>
+        iterator_pair;
 
-      std::pair<RandomAccessIterator1, RandomAccessIterator1>
+      iterator_pair
 	seqs[2] = { std::make_pair(begin1, end1),
 		    std::make_pair(begin2, end2) };
-      RandomAccessIterator3 
-	target_end = parallel_multiway_merge(seqs, seqs + 2, target,
-					     comp, max_length, true, false);
+      RandomAccessIterator3
+        target_end = parallel_multiway_merge
+          < /* stable = */ true, /* sentinels = */ false>(
+            seqs, seqs + 2, target,
+            multiway_merge_exact_splitting
+              < /* stable = */ true, iterator_pair*,
+                Comparator, difference_type1>,
+            max_length, comp, omp_get_max_threads());
 
       return target_end;
     }
 }	//namespace __gnu_parallel
 
-#endif
+#endif /* _GLIBCXX_PARALLEL_MERGE_H */

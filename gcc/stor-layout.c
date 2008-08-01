@@ -138,7 +138,7 @@ variable_size (tree size)
      places.  */
   save = skip_simple_arithmetic (size);
 
-  if (cfun && cfun->x_dont_save_pending_sizes_p)
+  if (cfun && cfun->dont_save_pending_sizes_p)
     /* The front-end doesn't want us to keep a list of the expressions
        that determine sizes for variable size objects.  Trust it.  */
     return size;
@@ -163,12 +163,12 @@ variable_size (tree size)
 #endif
 
 /* Return the machine mode to use for a nonscalar of SIZE bits.  The
-   mode must be in class CLASS, and have exactly that many value bits;
+   mode must be in class MCLASS, and have exactly that many value bits;
    it may have padding as well.  If LIMIT is nonzero, modes of wider
    than MAX_FIXED_MODE_SIZE will not be used.  */
 
 enum machine_mode
-mode_for_size (unsigned int size, enum mode_class class, int limit)
+mode_for_size (unsigned int size, enum mode_class mclass, int limit)
 {
   enum machine_mode mode;
 
@@ -176,7 +176,7 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
     return BLKmode;
 
   /* Get the first mode which has this size, in the specified class.  */
-  for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
+  for (mode = GET_CLASS_NARROWEST_MODE (mclass); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_PRECISION (mode) == size)
       return mode;
@@ -187,7 +187,7 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
 /* Similar, except passed a tree node.  */
 
 enum machine_mode
-mode_for_size_tree (const_tree size, enum mode_class class, int limit)
+mode_for_size_tree (const_tree size, enum mode_class mclass, int limit)
 {
   unsigned HOST_WIDE_INT uhwi;
   unsigned int ui;
@@ -198,20 +198,20 @@ mode_for_size_tree (const_tree size, enum mode_class class, int limit)
   ui = uhwi;
   if (uhwi != ui)
     return BLKmode;
-  return mode_for_size (ui, class, limit);
+  return mode_for_size (ui, mclass, limit);
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
    contains at least the requested number of value bits.  */
 
 enum machine_mode
-smallest_mode_for_size (unsigned int size, enum mode_class class)
+smallest_mode_for_size (unsigned int size, enum mode_class mclass)
 {
   enum machine_mode mode;
 
   /* Get the first mode which has at least this size, in the
      specified class.  */
-  for (mode = GET_CLASS_NARROWEST_MODE (class); mode != VOIDmode;
+  for (mode = GET_CLASS_NARROWEST_MODE (mclass); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_PRECISION (mode) >= size)
       return mode;
@@ -388,13 +388,13 @@ layout_decl (tree decl, unsigned int known_align)
 	    {
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
+	      unsigned int xalign = GET_MODE_ALIGNMENT (xmode);
 
 	      if (xmode != BLKmode
-		  && (known_align == 0
-		      || known_align >= GET_MODE_ALIGNMENT (xmode)))
+		  && !(xalign > BITS_PER_UNIT && DECL_PACKED (decl))
+		  && (known_align == 0 || known_align >= xalign))
 		{
-		  DECL_ALIGN (decl) = MAX (GET_MODE_ALIGNMENT (xmode),
-					   DECL_ALIGN (decl));
+		  DECL_ALIGN (decl) = MAX (xalign, DECL_ALIGN (decl));
 		  DECL_MODE (decl) = xmode;
 		  DECL_BIT_FIELD (decl) = 0;
 		}
@@ -464,9 +464,9 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning (OPT_Wlarger_than_, "size of %q+D is %d bytes", decl, size_as_int);
+	    warning (OPT_Wlarger_than_eq, "size of %q+D is %d bytes", decl, size_as_int);
 	  else
-	    warning (OPT_Wlarger_than_, "size of %q+D is larger than %wd bytes",
+	    warning (OPT_Wlarger_than_eq, "size of %q+D is larger than %wd bytes",
                      decl, larger_than_size);
 	}
     }
@@ -506,7 +506,7 @@ relayout_decl (tree decl)
 record_layout_info
 start_record_layout (tree t)
 {
-  record_layout_info rli = xmalloc (sizeof (struct record_layout_info_s));
+  record_layout_info rli = XNEW (struct record_layout_info_s);
 
   rli->t = t;
 

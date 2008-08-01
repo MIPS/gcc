@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_TOPLEV_H
 #define GCC_TOPLEV_H
+#include "input.h"
 
 /* If non-NULL, return one past-the-end of the matching SUBPART of
    the WHOLE string.  */
@@ -58,10 +59,15 @@ extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
 extern void warning0 (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 /* Pass one of the OPT_W* from options.h as the first parameter.  */
 extern void warning (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void warning_at (location_t, int, const char *, ...)
+    ATTRIBUTE_GCC_DIAG(3,4);
 extern void error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+extern void pedwarn0 (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
+/* Pass one of the OPT_W* from options.h as the first parameter.  */
+extern void pedwarn (int, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
+extern void permerror (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void sorry (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 extern void verbatim (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
@@ -71,13 +77,14 @@ extern void rest_of_type_compilation (tree, int);
 extern void tree_rest_of_compilation (tree);
 extern void init_optimization_passes (void);
 extern void finish_optimization_passes (void);
-extern bool enable_rtl_dump_file (int);
+extern bool enable_rtl_dump_file (void);
 
 extern void announce_function (tree);
 
 extern void error_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (const_rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
+extern bool parse_optimize_options (tree, bool);
 
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
@@ -110,6 +117,7 @@ extern const char *progname;
 extern const char *dump_base_name;
 extern const char *aux_base_name;
 extern const char *aux_info_file_name;
+extern const char *profile_data_prefix;
 extern const char *asm_file_name;
 extern bool exit_after_options;
 
@@ -153,6 +161,7 @@ extern void decode_d_option		(const char *);
 
 /* Return true iff flags are set as if -ffast-math.  */
 extern bool fast_math_flags_set_p	(void);
+extern bool fast_math_flags_struct_set_p (struct cl_optimization *);
 
 /* Return log2, or -1 if not exact.  */
 extern int exact_log2                  (unsigned HOST_WIDE_INT);

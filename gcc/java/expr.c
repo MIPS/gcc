@@ -1,6 +1,6 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
    Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007 Free Software Foundation, Inc.
+   2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,7 +42,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "toplev.h"
 #include "except.h"
 #include "ggc.h"
-#include "tree-gimple.h"
+#include "tree-iterator.h"
+#include "gimple.h"
 #include "target.h"
 
 static void flush_quick_stack (void);
@@ -430,7 +431,7 @@ type_assertion_eq (const void * k1_p, const void * k2_p)
 static hashval_t
 type_assertion_hash (const void *p)
 {
-  const type_assertion *k_p = p;
+  const type_assertion *k_p = (const type_assertion *) p;
   hashval_t hash = iterative_hash (&k_p->assertion_code, sizeof
 				   k_p->assertion_code, 0);
 
@@ -457,20 +458,20 @@ type_assertion_hash (const void *p)
 }
 
 /* Add an entry to the type assertion table for the given class.  
-   CLASS is the class for which this assertion will be evaluated by the 
+   KLASS is the class for which this assertion will be evaluated by the 
    runtime during loading/initialization.
    ASSERTION_CODE is the 'opcode' or type of this assertion: see java-tree.h.
    OP1 and OP2 are the operands. The tree type of these arguments may be
    specific to each assertion_code. */
 
 void
-add_type_assertion (tree class, int assertion_code, tree op1, tree op2)
+add_type_assertion (tree klass, int assertion_code, tree op1, tree op2)
 {
   htab_t assertions_htab;
   type_assertion as;
   void **as_pp;
 
-  assertions_htab = TYPE_ASSERTIONS (class);
+  assertions_htab = TYPE_ASSERTIONS (klass);
   if (assertions_htab == NULL)
     {
       assertions_htab = htab_create_ggc (7, type_assertion_hash, 
@@ -814,10 +815,20 @@ encode_newarray_type (tree type)
 static tree
 build_java_throw_out_of_bounds_exception (tree index)
 {
-  tree node = build_call_nary (int_type_node,
+  tree node;
+
+  /* We need to build a COMPOUND_EXPR because _Jv_ThrowBadArrayIndex()
+     has void return type.  We cannot just set the type of the CALL_EXPR below
+     to int_type_node because we would lose it during gimplification.  */
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (soft_badarrayindex_node))));
+  node = build_call_nary (void_type_node,
 			       build_address_of (soft_badarrayindex_node),
 			       1, index);
+  TREE_SIDE_EFFECTS (node) = 1;
+
+  node = build2 (COMPOUND_EXPR, int_type_node, node, integer_zero_node);
   TREE_SIDE_EFFECTS (node) = 1;	/* Allows expansion within ANDIF */
+
   return (node);
 }
 
@@ -893,7 +904,7 @@ build_java_indirect_ref (tree type, tree expr, int check)
 tree
 build_java_arrayaccess (tree array, tree type, tree index)
 {
-  tree node, throw = NULL_TREE;
+  tree node, throw_expr = NULL_TREE;
   tree data_field;
   tree ref;
   tree array_type = TREE_TYPE (TREE_TYPE (array));
@@ -921,17 +932,18 @@ build_java_arrayaccess (tree array, tree type, tree index)
 			  len);
       if (! integer_zerop (test))
 	{
-	  throw = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
-			  build_java_throw_out_of_bounds_exception (index));
+	  throw_expr
+	    = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
+		      build_java_throw_out_of_bounds_exception (index));
 	  /* allows expansion within COMPOUND */
-	  TREE_SIDE_EFFECTS( throw ) = 1;
+	  TREE_SIDE_EFFECTS( throw_expr ) = 1;
 	}
     }
 
   /* If checking bounds, wrap the index expr with a COMPOUND_EXPR in order
      to have the bounds check evaluated first. */
-  if (throw != NULL_TREE)
-    index = build2 (COMPOUND_EXPR, int_type_node, throw, index);
+  if (throw_expr != NULL_TREE)
+    index = build2 (COMPOUND_EXPR, int_type_node, throw_expr, index);
 
   data_field = lookup_field (&array_type, get_identifier ("data"));
 
@@ -3009,7 +3021,7 @@ note_instructions (JCF *jcf, tree method)
 
   JCF_SEEK (jcf, DECL_CODE_OFFSET (method));
   byte_ops = jcf->read_ptr;
-  instruction_bits = xrealloc (instruction_bits, length + 1);
+  instruction_bits = XRESIZEVAR (char, instruction_bits, length + 1);
   memset (instruction_bits, 0, length + 1);
   type_states = VEC_alloc (tree, gc, length + 1);
   VEC_safe_grow_cleared (tree, gc, type_states, length + 1);
@@ -3132,6 +3144,7 @@ expand_byte_code (JCF *jcf, tree method)
   int dead_code_index = -1;
   unsigned char* byte_ops;
   long length = DECL_CODE_LENGTH (method);
+  location_t max_location = input_location;
 
   stack_pointer = 0;
   JCF_SEEK (jcf, DECL_CODE_OFFSET (method));
@@ -3218,11 +3231,9 @@ expand_byte_code (JCF *jcf, tree method)
 	      if (pc == PC)
 		{
 		  int line = GET_u2 (linenumber_pointer - 2);
-#ifdef USE_MAPPED_LOCATION
 		  input_location = linemap_line_start (line_table, line, 1);
-#else
-		  input_location.line = line;
-#endif
+		  if (input_location > max_location)
+		    max_location = input_location;
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3242,6 +3253,8 @@ expand_byte_code (JCF *jcf, tree method)
 	warning (0, "unreachable bytecode from %d to the end of the method", 
 		 dead_code_index);
     }
+
+  DECL_FUNCTION_LAST_LINE (method) = max_location;
 }
 
 static void
@@ -3446,9 +3459,9 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   }
 #define ARRAY_NEW_MULTI()					\
   {								\
-    tree class = get_class_constant (current_jcf, IMMEDIATE_u2 );	\
+    tree klass = get_class_constant (current_jcf, IMMEDIATE_u2 );	\
     int  ndims = IMMEDIATE_u1;					\
-    expand_java_multianewarray( class, ndims );			\
+    expand_java_multianewarray( klass, ndims );			\
   }
 
 #define UNOP(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3808,7 +3821,6 @@ cache_cpool_data_ref (void)
       tree cpool_ptr = build_decl (VAR_DECL, NULL_TREE, 
 				   build_pointer_type (TREE_TYPE (d)));
       java_add_local_var (cpool_ptr);
-      TREE_INVARIANT (cpool_ptr) = 1;
       TREE_CONSTANT (cpool_ptr) = 1;
 
       java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (cpool_ptr), 

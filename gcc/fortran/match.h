@@ -1,5 +1,5 @@
 /* All matcher functions.
-   Copyright (C) 2003, 2005, 2007
+   Copyright (C) 2003, 2005, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
@@ -33,12 +33,14 @@ extern gfc_symbol *gfc_new_block;
    separate.  */
 extern gfc_st_label *gfc_statement_label;
 
+extern int gfc_matching_procptr_assignment;
+
 /****************** All gfc_match* routines *****************/
 
 /* match.c.  */
 
 /* Generic match subroutines.  */
-match gfc_match_special_char (int *);
+match gfc_match_special_char (gfc_char_t *);
 match gfc_match_space (void);
 match gfc_match_eos (void);
 match gfc_match_small_literal_int (int *, int *);
@@ -119,6 +121,8 @@ match gfc_match_omp_parallel_sections (void);
 match gfc_match_omp_parallel_workshare (void);
 match gfc_match_omp_sections (void);
 match gfc_match_omp_single (void);
+match gfc_match_omp_task (void);
+match gfc_match_omp_taskwait (void);
 match gfc_match_omp_threadprivate (void);
 match gfc_match_omp_workshare (void);
 match gfc_match_omp_end_nowait (void);
@@ -140,11 +144,12 @@ match gfc_match_function_decl (void);
 match gfc_match_entry (void);
 match gfc_match_subroutine (void);
 match gfc_match_derived_decl (void);
+match gfc_match_final_decl (void);
 
 match gfc_match_implicit_none (void);
 match gfc_match_implicit (void);
 
-void gfc_set_constant_character_len (int, gfc_expr *, bool);
+void gfc_set_constant_character_len (int, gfc_expr *, int);
 
 /* Matchers for attribute declarations.  */
 match gfc_match_allocatable (void);
@@ -170,10 +175,10 @@ match gfc_match_volatile (void);
 /* Fortran 2003 c interop.
    TODO: some of these should be moved to another file rather than decl.c */
 void set_com_block_bind_c (gfc_common_head *, int);
-try set_binding_label (char *, const char *, int);
-try set_verify_bind_c_sym (gfc_symbol *, int);
-try set_verify_bind_c_com_block (gfc_common_head *, int);
-try get_bind_c_idents (void);
+gfc_try set_binding_label (char *, const char *, int);
+gfc_try set_verify_bind_c_sym (gfc_symbol *, int);
+gfc_try set_verify_bind_c_com_block (gfc_common_head *, int);
+gfc_try get_bind_c_idents (void);
 match gfc_match_bind_c_stmt (void);
 match gfc_match_suffix (gfc_symbol *, gfc_symbol **);
 match gfc_match_bind_c (gfc_symbol *, bool);
@@ -212,6 +217,7 @@ match gfc_match_rewind (void);
 match gfc_match_flush (void);
 match gfc_match_inquire (void);
 match gfc_match_read (void);
+match gfc_match_wait (void);
 match gfc_match_write (void);
 match gfc_match_print (void);
 

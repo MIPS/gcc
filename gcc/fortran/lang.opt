@@ -1,5 +1,6 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+; Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -24,6 +25,29 @@
 Language
 Fortran
 
+A
+Fortran Joined Separate
+; Documented in C
+
+C
+Fortran
+; Documented in C
+
+CC
+Fortran
+; Documented in C
+
+D
+Fortran Joined Separate
+; Documented in C
+
+E
+Fortran Undocumented
+
+H
+Fortran
+; Documented in C
+
 I
 Fortran Joined Separate
 -I<directory>	Add a directory for INCLUDE and MODULE searching
@@ -31,6 +55,14 @@ Fortran Joined Separate
 J
 Fortran Joined Separate
 -J<directory>	Put MODULE files in 'directory'
+
+P
+Fortran
+; Documented in C
+
+U
+Fortran Joined Separate
+; Documented in C
 
 Wall
 Fortran
@@ -43,6 +75,10 @@ Warn about possible aliasing of dummy arguments
 Wampersand
 Fortran Warning
 Warn about missing ampersand in continued character constants
+
+Warray-temporaries
+Fortran Warning
+Warn about creation of array temporaries
 
 Wcharacter-truncation
 Fortran Warning
@@ -60,9 +96,13 @@ Wline-truncation
 Fortran Warning
 Warn about truncated source lines
 
-Wnonstd-intrinsics
+Wintrinsics-std
 Fortran Warning
-Warn about usage of non-standard intrinsics
+Warn on intrinsics not part of the selected standard
+
+Wreturn-type
+Fortran Warning
+; Documented in C
 
 Wsurprising
 Fortran Warning
@@ -75,6 +115,22 @@ Permit nonconforming uses of the tab character
 Wunderflow
 Fortran Warning
 Warn about underflow of numerical constant expressions
+
+Wintrinsic-shadow
+Fortran Warning
+Warn if a user-procedure has the same name as an intrinsic
+
+cpp
+Fortran Joined Separate Negative(nocpp)
+Enable preprocessing
+
+nocpp
+Fortran Negative(cpp)
+Disable preprocessing
+
+d
+Fortran Joined
+-d[DIMNU]	Dump details about macro names and definitions during preprocessing
 
 fall-intrinsics
 Fortran RejectNegative
@@ -99,6 +155,10 @@ Produce a backtrace when a runtime error is encountered
 fblas-matmul-limit=
 Fortran RejectNegative Joined UInteger
 -fblas-matmul-limit=<n>        Size of the smallest matrix for which matmul will use BLAS
+
+fcheck-array-temporaries
+Fortran
+Produce a warning at runtime if a array temporary has been created for a procedure argument
 
 fconvert=big-endian
 Fortran RejectNegative
@@ -284,6 +344,38 @@ funderscoring
 Fortran
 Append underscores to externally visible names
 
+fworking-directory
+Fortran
+; Documented in C
+
+imultilib
+Fortran Joined Separate
+; Documented in C
+
+iprefix
+Fortran Joined Separate
+; Documented in C
+
+iquote
+Fortran Joined Separate
+; Documented in C
+
+isysroot
+Fortran Joined Separate
+; Documented in C
+
+isystem
+Fortran Joined Separate
+; Documented in C
+
+nostdinc
+Fortran
+; Documented in C
+
+o
+Fortran Joined Separate
+; Documented in common.opt
+
 static-libgfortran
 Fortran
 Statically link the GNU Fortran helper library (libgfortran)
@@ -291,6 +383,10 @@ Statically link the GNU Fortran helper library (libgfortran)
 std=f2003
 Fortran
 Conform to the ISO Fortran 2003 standard
+
+std=f2008
+Fortran
+Conform to the ISO Fortran 2008 standard
 
 std=f95
 Fortran
@@ -303,5 +399,13 @@ Conform to nothing in particular
 std=legacy
 Fortran
 Accept extensions to support legacy code
+
+undef
+Fortran
+; Documented in C
+
+v
+Fortran
+; Documented in C
 
 ; This comment is to ensure we retain the blank line above.

@@ -629,6 +629,12 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 1, 31)")))
 
+;; Return nonzero if OP is CONST_INT >= 1 and <= 63 (a valid operand
+;; for 64bit shift & compare patterns, as shifting by 0 does not change flags).
+(define_predicate "const_1_to_63_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 63)")))
+
 ;; Match 2 or 3.
 (define_predicate "const_2_to_3_operand"
   (and (match_code "const_int")
@@ -920,6 +926,9 @@
 (define_predicate "ix86_comparison_uns_operator"
   (match_code "ne,eq,geu,gtu,leu,ltu"))
 
+(define_predicate "bt_comparison_operator"
+  (match_code "ne,eq"))
+
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"
   (match_operand 0 "comparison_operator")
@@ -1043,3 +1052,8 @@
 
 (define_predicate "absneg_operator"
   (match_code "abs,neg"))
+
+;; Return 1 if OP is misaligned memory operand
+(define_predicate "misaligned_operand"
+  (and (match_code "mem")
+       (match_test "MEM_ALIGN (op) < GET_MODE_ALIGNMENT (mode)")))

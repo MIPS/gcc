@@ -33,10 +33,6 @@
 
 extern int target_flags;
 
-#ifndef DEFAULT_CPU_TYPE
-#define DEFAULT_CPU_TYPE BFIN_CPU_BF532
-#endif
-
 /* Predefinition in the preprocessor for this target machine */
 #ifndef TARGET_CPU_CPP_BUILTINS
 #define TARGET_CPU_CPP_BUILTINS()		\
@@ -125,7 +121,7 @@ extern int target_flags;
       if (bfin_si_revision != -1)		\
 	{					\
 	  /* space of 0xnnnn and a NUL */	\
-	  char *buf = alloca (7);		\
+	  char *buf = XALLOCAVEC (char, 7);	\
 						\
 	  sprintf (buf, "0x%04x", bfin_si_revision);			\
 	  builtin_define_with_value ("__SILICON_REVISION__", buf, 0);	\
@@ -137,6 +133,8 @@ extern int target_flags;
 	builtin_define ("__WORKAROUND_SPECULATIVE_LOADS");		\
       if (ENABLE_WA_SPECULATIVE_SYNCS)					\
 	builtin_define ("__WORKAROUND_SPECULATIVE_SYNCS");		\
+      if (ENABLE_WA_RETS)						\
+	builtin_define ("__WORKAROUND_RETS");		\
 						\
       if (TARGET_FDPIC)				\
 	{					\
@@ -148,12 +146,19 @@ extern int target_flags;
 	builtin_define ("__ID_SHARED_LIB__");	\
       if (flag_no_builtin)			\
 	builtin_define ("__NO_BUILTIN");	\
+      if (TARGET_MULTICORE)			\
+	builtin_define ("__BFIN_MULTICORE");	\
+      if (TARGET_COREA)				\
+	builtin_define ("__BFIN_COREA");	\
+      if (TARGET_COREB)				\
+	builtin_define ("__BFIN_COREB");	\
+      if (TARGET_SDRAM)				\
+	builtin_define ("__BFIN_SDRAM");	\
     }						\
   while (0)
 #endif
 
 #define DRIVER_SELF_SPECS SUBTARGET_DRIVER_SELF_SPECS	"\
- %{!mcpu=*:-mcpu=bf532} \
  %{mleaf-id-shared-library:%{!mid-shared-library:-mid-shared-library}} \
  %{mfdpic:%{!fpic:%{!fpie:%{!fPIC:%{!fPIE:\
    	    %{!fno-pic:%{!fno-pie:%{!fno-PIC:%{!fno-PIE:-fpie}}}}}}}}} \
@@ -283,11 +288,11 @@ extern const char *bfin_library_id_string;
 
 /* Define this if the above stack space is to be considered part of the
  * space allocated by the caller.  */
-#define OUTGOING_REG_PARM_STACK_SPACE 1
+#define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 	  
 /* Define this if the maximum size of all the outgoing args is to be
    accumulated and pushed during the prologue.  The amount can be
-   found in the variable current_function_outgoing_args_size. */ 
+   found in the variable crtl->outgoing_args_size. */ 
 #define ACCUMULATE_OUTGOING_ARGS 1
 
 /* Value should be nonzero if functions must have frame pointers.
@@ -677,43 +682,6 @@ enum reg_class
 
 #define REGNO_OK_FOR_INDEX_P(X)   0
 
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_CONSTRAINT(LETTER, STR)	\
-  ((LETTER) == 'a' ? PREGS :            \
-   (LETTER) == 'Z' ? FDPIC_REGS :	\
-   (LETTER) == 'Y' ? FDPIC_FPTR_REGS :	\
-   (LETTER) == 'd' ? DREGS : 		\
-   (LETTER) == 'z' ? PREGS_CLOBBERED :	\
-   (LETTER) == 'D' ? EVEN_DREGS : 	\
-   (LETTER) == 'W' ? ODD_DREGS : 	\
-   (LETTER) == 'e' ? AREGS : 		\
-   (LETTER) == 'A' ? EVEN_AREGS : 	\
-   (LETTER) == 'B' ? ODD_AREGS : 	\
-   (LETTER) == 'b' ? IREGS :            \
-   (LETTER) == 'v' ? BREGS :            \
-   (LETTER) == 'f' ? MREGS : 		\
-   (LETTER) == 'c' ? CIRCREGS :         \
-   (LETTER) == 'C' ? CCREGS : 		\
-   (LETTER) == 't' ? LT_REGS : 		\
-   (LETTER) == 'k' ? LC_REGS : 		\
-   (LETTER) == 'u' ? LB_REGS : 		\
-   (LETTER) == 'x' ? MOST_REGS :	\
-   (LETTER) == 'y' ? PROLOGUE_REGS :	\
-   (LETTER) == 'w' ? NON_A_CC_REGS :	\
-   (LETTER) == 'q' \
-    ? ((STR)[1] == '0' ? D0REGS \
-       : (STR)[1] == '1' ? D1REGS \
-       : (STR)[1] == '2' ? D2REGS \
-       : (STR)[1] == '3' ? D3REGS \
-       : (STR)[1] == '4' ? D4REGS \
-       : (STR)[1] == '5' ? D5REGS \
-       : (STR)[1] == '6' ? D6REGS \
-       : (STR)[1] == '7' ? D7REGS \
-       : (STR)[1] == 'A' ? P0REGS \
-       : NO_REGS) : \
-   NO_REGS)
-
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
@@ -878,7 +846,6 @@ typedef struct {
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == REG_R0)
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
-#define RETURN_IN_MEMORY(TYPE) bfin_return_in_memory(TYPE)
 
 /* Before the prologue, the return address is in the RETS register.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, REG_RETS)
@@ -1197,89 +1164,6 @@ do {					       \
    on the full register even if a narrower mode is specified. 
 #define WORD_REGISTER_OPERATIONS
 */
-
-#define CONST_18UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 262140)
-#define CONST_16BIT_IMM_P(VALUE) ((VALUE) >= -32768 && (VALUE) <= 32767)
-#define CONST_16UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 65535)
-#define CONST_7BIT_IMM_P(VALUE) ((VALUE) >= -64 && (VALUE) <= 63)
-#define CONST_7NBIT_IMM_P(VALUE) ((VALUE) >= -64 && (VALUE) <= 0)
-#define CONST_5UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 31)
-#define CONST_4BIT_IMM_P(VALUE) ((VALUE) >= -8 && (VALUE) <= 7)
-#define CONST_4UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 15)
-#define CONST_3BIT_IMM_P(VALUE) ((VALUE) >= -4 && (VALUE) <= 3)
-#define CONST_3UBIT_IMM_P(VALUE) ((VALUE) >= 0 && (VALUE) <= 7)
-
-#define CONSTRAINT_LEN(C, STR)			\
-    ((C) == 'P' || (C) == 'M' || (C) == 'N' || (C) == 'q' ? 2	\
-     : (C) == 'K' ? 3				\
-     : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
-
-#define CONST_OK_FOR_P(VALUE, STR)    \
-    ((STR)[1] == '0' ? (VALUE) == 0   \
-     : (STR)[1] == '1' ? (VALUE) == 1 \
-     : (STR)[1] == '2' ? (VALUE) == 2 \
-     : (STR)[1] == '3' ? (VALUE) == 3 \
-     : (STR)[1] == '4' ? (VALUE) == 4 \
-     : (STR)[1] == 'A' ? (VALUE) != MACFLAG_M && (VALUE) != MACFLAG_IS_M \
-     : (STR)[1] == 'B' ? (VALUE) == MACFLAG_M || (VALUE) == MACFLAG_IS_M \
-     : 0)
-
-#define CONST_OK_FOR_K(VALUE, STR)			\
-    ((STR)[1] == 'u'					\
-     ? ((STR)[2] == '3' ? CONST_3UBIT_IMM_P (VALUE)	\
-	: (STR)[2] == '4' ? CONST_4UBIT_IMM_P (VALUE)	\
-	: (STR)[2] == '5' ? CONST_5UBIT_IMM_P (VALUE)	\
-	: (STR)[2] == 'h' ? CONST_16UBIT_IMM_P (VALUE)	\
-	: 0)						\
-     : (STR)[1] == 's'					\
-     ? ((STR)[2] == '3' ? CONST_3BIT_IMM_P (VALUE)	\
-	: (STR)[2] == '4' ? CONST_4BIT_IMM_P (VALUE)	\
-	: (STR)[2] == '7' ? CONST_7BIT_IMM_P (VALUE)	\
-	: (STR)[2] == 'h' ? CONST_16BIT_IMM_P (VALUE)	\
-	: 0)						\
-     : (STR)[1] == 'n'					\
-     ? ((STR)[2] == '7' ? CONST_7NBIT_IMM_P (VALUE)	\
-	: 0)						\
-     : (STR)[1] == 'N'					\
-     ? ((STR)[2] == '7' ? CONST_7BIT_IMM_P (-(VALUE))	\
-	: 0)						\
-     : 0)
-
-#define CONST_OK_FOR_M(VALUE, STR)			\
-    ((STR)[1] == '1' ? (VALUE) == 255			\
-     : (STR)[1] == '2' ? (VALUE) == 65535		\
-     : 0)
-
-/* The letters I, J, K, L and M in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C. 
-   
-   bfin constant operands are as follows
-   
-     J   2**N       5bit imm scaled
-     Ks7 -64 .. 63  signed 7bit imm
-     Ku5 0..31      unsigned 5bit imm
-     Ks4 -8 .. 7    signed 4bit imm
-     Ks3 -4 .. 3    signed 3bit imm
-     Ku3 0 .. 7     unsigned 3bit imm
-     Pn  0, 1, 2    constants 0, 1 or 2, corresponding to n
-*/
-#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)		\
-  ((C) == 'J' ? (log2constp (VALUE))				\
-   : (C) == 'K' ? CONST_OK_FOR_K (VALUE, STR)			\
-   : (C) == 'L' ? log2constp (~(VALUE))				\
-   : (C) == 'M' ? CONST_OK_FOR_M (VALUE, STR)			\
-   : (C) == 'P' ? CONST_OK_FOR_P (VALUE, STR)			\
-   : 0)
-
-     /*Constant Output Formats */
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-  ((C) == 'H' ? 1 : 0)
-
-#define EXTRA_CONSTRAINT(VALUE, D) \
-    ((D) == 'Q' ? GET_CODE (VALUE) == SYMBOL_REF : 0)
 
 /* Evaluates to true if A and B are mac flags that can be used
    together in a single multiply insn.  That is the case if they are

@@ -1,6 +1,6 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -20,7 +20,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* The syntax of gfortran modules resembles that of lisp lists, ie a
+/* The syntax of gfortran modules resembles that of lisp lists, i.e. a
    sequence of atoms, which can be left or right parenthesis, names,
    integers or strings.  Parenthesis are always matched which allows
    us to skip over sections at high speed without having to know
@@ -91,6 +91,7 @@ typedef struct
   int id;
   const char *name;
   int value;
+  int standard;
 }
 intmod_sym;
 
@@ -158,7 +159,7 @@ typedef struct pointer_info
 }
 pointer_info;
 
-#define gfc_get_pointer_info() gfc_getmem(sizeof(pointer_info))
+#define gfc_get_pointer_info() XCNEW (pointer_info)
 
 
 /* Lists of rename info for the USE statement.  */
@@ -168,12 +169,12 @@ typedef struct gfc_use_rename
   char local_name[GFC_MAX_SYMBOL_LEN + 1], use_name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_use_rename *next;
   int found;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op op;
   locus where;
 }
 gfc_use_rename;
 
-#define gfc_get_use_rename() gfc_getmem(sizeof(gfc_use_rename))
+#define gfc_get_use_rename() XCNEW (gfc_use_rename);
 
 /* Local variables */
 
@@ -445,7 +446,7 @@ associate_integer_pointer (pointer_info *p, void *gp)
    either store the pointer from an already-known value or create a
    fixup structure in order to store things later.  Returns zero if
    the reference has been actually stored, or nonzero if the reference
-   must be fixed later (ie associate_integer_pointer must be called
+   must be fixed later (i.e., associate_integer_pointer must be called
    sometime later.  Returns the pointer_info structure.  */
 
 static pointer_info *
@@ -459,17 +460,17 @@ add_fixup (int integer, void *gp)
 
   if (p->integer == 0 || p->u.pointer != NULL)
     {
-      cp = gp;
-      *cp = p->u.pointer;
+      cp = (char **) gp;
+      *cp = (char *) p->u.pointer;
     }
   else
     {
-      f = gfc_getmem (sizeof (fixup_t));
+      f = XCNEW (fixup_t);
 
       f->next = p->fixup;
       p->fixup = f;
 
-      f->pointer = gp;
+      f->pointer = (void **) gp;
     }
 
   return p;
@@ -501,9 +502,9 @@ match
 gfc_match_use (void)
 {
   char name[GFC_MAX_SYMBOL_LEN + 1], module_nature[GFC_MAX_SYMBOL_LEN + 1];
-  gfc_use_rename *tail = NULL, *new;
+  gfc_use_rename *tail = NULL, *new_use;
   interface_type type, type2;
-  gfc_intrinsic_op operator;
+  gfc_intrinsic_op op;
   match m;
 
   specified_int = false;
@@ -580,20 +581,20 @@ gfc_match_use (void)
   for (;;)
     {
       /* Get a new rename struct and add it to the rename list.  */
-      new = gfc_get_use_rename ();
-      new->where = gfc_current_locus;
-      new->found = 0;
+      new_use = gfc_get_use_rename ();
+      new_use->where = gfc_current_locus;
+      new_use->found = 0;
 
       if (gfc_rename_list == NULL)
-	gfc_rename_list = new;
+	gfc_rename_list = new_use;
       else
-	tail->next = new;
-      tail = new;
+	tail->next = new_use;
+      tail = new_use;
 
       /* See what kind of interface we're dealing with.  Assume it is
 	 not an operator.  */
-      new->operator = INTRINSIC_NONE;
-      if (gfc_match_generic_spec (&type, name, &operator) == MATCH_ERROR)
+      new_use->op = INTRINSIC_NONE;
+      if (gfc_match_generic_spec (&type, name, &op) == MATCH_ERROR)
 	goto cleanup;
 
       switch (type)
@@ -613,16 +614,16 @@ gfc_match_use (void)
 	    goto cleanup;
 
 	  if (type == INTERFACE_USER_OP)
-	    new->operator = INTRINSIC_USER;
+	    new_use->op = INTRINSIC_USER;
 
 	  if (only_flag)
 	    {
 	      if (m != MATCH_YES)
-		strcpy (new->use_name, name);
+		strcpy (new_use->use_name, name);
 	      else
 		{
-		  strcpy (new->local_name, name);
-		  m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+		  strcpy (new_use->local_name, name);
+		  m = gfc_match_generic_spec (&type2, new_use->use_name, &op);
 		  if (type != type2)
 		    goto syntax;
 		  if (m == MATCH_NO)
@@ -635,9 +636,9 @@ gfc_match_use (void)
 	    {
 	      if (m != MATCH_YES)
 		goto syntax;
-	      strcpy (new->local_name, name);
+	      strcpy (new_use->local_name, name);
 
-	      m = gfc_match_generic_spec (&type2, new->use_name, &operator);
+	      m = gfc_match_generic_spec (&type2, new_use->use_name, &op);
 	      if (type != type2)
 		goto syntax;
 	      if (m == MATCH_NO)
@@ -646,8 +647,8 @@ gfc_match_use (void)
 		goto cleanup;
 	    }
 
-	  if (strcmp (new->use_name, module_name) == 0
-	      || strcmp (new->local_name, module_name) == 0)
+	  if (strcmp (new_use->use_name, module_name) == 0
+	      || strcmp (new_use->local_name, module_name) == 0)
 	    {
 	      gfc_error ("The name '%s' at %C has already been used as "
 			 "an external module name.", module_name);
@@ -656,7 +657,7 @@ gfc_match_use (void)
 	  break;
 
 	case INTERFACE_INTRINSIC_OP:
-	  new->operator = operator;
+	  new_use->op = op;
 	  break;
 
 	default:
@@ -697,8 +698,8 @@ find_use_name_n (const char *name, int *inst, bool interface)
   for (u = gfc_rename_list; u; u = u->next)
     {
       if (strcmp (u->use_name, name) != 0
-	  || (u->operator == INTRINSIC_USER && !interface)
-	  || (u->operator != INTRINSIC_USER &&  interface))
+	  || (u->op == INTRINSIC_USER && !interface)
+	  || (u->op != INTRINSIC_USER &&  interface))
 	continue;
       if (++i == *inst)
 	break;
@@ -745,12 +746,12 @@ number_use_names (const char *name, bool interface)
 /* Try to find the operator in the current list.  */
 
 static gfc_use_rename *
-find_use_operator (gfc_intrinsic_op operator)
+find_use_operator (gfc_intrinsic_op op)
 {
   gfc_use_rename *u;
 
   for (u = gfc_rename_list; u; u = u->next)
-    if (u->operator == operator)
+    if (u->op == op)
       return u;
 
   return NULL;
@@ -838,7 +839,7 @@ add_true_name (gfc_symbol *sym)
 {
   true_name *t;
 
-  t = gfc_getmem (sizeof (true_name));
+  t = XCNEW (true_name);
   t->sym = sym;
 
   gfc_insert_bbt (&true_name_root, t, compare_true_names);
@@ -1027,7 +1028,7 @@ parse_string (void)
 
   set_module_locus (&start);
 
-  atom_string = p = gfc_getmem (len + 1);
+  atom_string = p = XCNEWVEC (char, len + 1);
 
   for (; len > 0; len--)
     {
@@ -1323,7 +1324,7 @@ write_atom (atom_type atom, const void *v)
     {
     case ATOM_STRING:
     case ATOM_NAME:
-      p = v;
+      p = (const char *) v;
       break;
 
     case ATOM_LPAREN:
@@ -1474,6 +1475,130 @@ mio_allocated_string (const char *s)
 }
 
 
+/* Functions for quoting and unquoting strings.  */
+
+static char *
+quote_string (const gfc_char_t *s, const size_t slength)
+{
+  const gfc_char_t *p;
+  char *res, *q;
+  size_t len = 0, i;
+
+  /* Calculate the length we'll need: a backslash takes two ("\\"),
+     non-printable characters take 10 ("\Uxxxxxxxx") and others take 1.  */
+  for (p = s, i = 0; i < slength; p++, i++)
+    {
+      if (*p == '\\')
+	len += 2;
+      else if (!gfc_wide_is_printable (*p))
+	len += 10;
+      else
+	len++;
+    }
+
+  q = res = XCNEWVEC (char, len + 1);
+  for (p = s, i = 0; i < slength; p++, i++)
+    {
+      if (*p == '\\')
+	*q++ = '\\', *q++ = '\\';
+      else if (!gfc_wide_is_printable (*p))
+	{
+	  sprintf (q, "\\U%08" HOST_WIDE_INT_PRINT "x",
+		   (unsigned HOST_WIDE_INT) *p);
+	  q += 10;
+	}
+      else
+	*q++ = (unsigned char) *p;
+    }
+
+  res[len] = '\0';
+  return res;
+}
+
+static gfc_char_t *
+unquote_string (const char *s)
+{
+  size_t len, i;
+  const char *p;
+  gfc_char_t *res;
+
+  for (p = s, len = 0; *p; p++, len++)
+    {
+      if (*p != '\\')
+	continue;
+	
+      if (p[1] == '\\')
+	p++;
+      else if (p[1] == 'U')
+	p += 9; /* That is a "\U????????". */
+      else
+	gfc_internal_error ("unquote_string(): got bad string");
+    }
+
+  res = gfc_get_wide_string (len + 1);
+  for (i = 0, p = s; i < len; i++, p++)
+    {
+      gcc_assert (*p);
+
+      if (*p != '\\')
+	res[i] = (unsigned char) *p;
+      else if (p[1] == '\\')
+	{
+	  res[i] = (unsigned char) '\\';
+	  p++;
+	}
+      else
+	{
+	  /* We read the 8-digits hexadecimal constant that follows.  */
+	  int j;
+	  unsigned n;
+	  gfc_char_t c = 0;
+
+	  gcc_assert (p[1] == 'U');
+	  for (j = 0; j < 8; j++)
+	    {
+	      c = c << 4;
+	      gcc_assert (sscanf (&p[j+2], "%01x", &n) == 1);
+	      c += n;
+	    }
+
+	  res[i] = c;
+	  p += 9;
+	}
+    }
+
+  res[len] = '\0';
+  return res;
+}
+
+
+/* Read or write a character pointer that points to a wide string on the
+   heap, performing quoting/unquoting of nonprintable characters using the
+   form \U???????? (where each ? is a hexadecimal digit).
+   Length is the length of the string, only known and used in output mode.  */
+
+static const gfc_char_t *
+mio_allocated_wide_string (const gfc_char_t *s, const size_t length)
+{
+  if (iomode == IO_OUTPUT)
+    {
+      char *quoted = quote_string (s, length);
+      write_atom (ATOM_STRING, quoted);
+      gfc_free (quoted);
+      return s;
+    }
+  else
+    {
+      gfc_char_t *unquoted;
+
+      require_atom (ATOM_STRING);
+      unquoted = unquote_string (atom_string);
+      gfc_free (atom_string);
+      return unquoted;
+    }
+}
+
+
 /* Read or write a string that is in static memory.  */
 
 static void
@@ -1616,7 +1741,7 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_OPTIONAL, attr_bits);
       if (attr->pointer)
 	MIO_NAME (ab_attribute) (AB_POINTER, attr_bits);
-      if (attr->protected)
+      if (attr->is_protected)
 	MIO_NAME (ab_attribute) (AB_PROTECTED, attr_bits);
       if (attr->value)
 	MIO_NAME (ab_attribute) (AB_VALUE, attr_bits);
@@ -1711,7 +1836,7 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      attr->pointer = 1;
 	      break;
 	    case AB_PROTECTED:
-	      attr->protected = 1;
+	      attr->is_protected = 1;
 	      break;
 	    case AB_VALUE:
 	      attr->value = 1;
@@ -2310,6 +2435,12 @@ mio_symtree_ref (gfc_symtree **stp)
 	  p->u.rsym.symtree->n.sym = p->u.rsym.sym;
 	  p->u.rsym.symtree->n.sym->refs++;
 	  p->u.rsym.referenced = 1;
+
+	  /* If the symbol is PRIVATE and in COMMON, load_commons will
+	     generate a fixup symbol, which must be associated.  */
+	  if (p->fixup)
+	    resolve_fixups (p->fixup, p->u.rsym.sym);
+	  p->fixup = NULL;
 	}
       
       if (p->type == P_UNKNOWN)
@@ -2324,7 +2455,7 @@ mio_symtree_ref (gfc_symtree **stp)
 	}
       else
 	{
-	  f = gfc_getmem (sizeof (fixup_t));
+	  f = XCNEW (fixup_t);
 
 	  f->next = p->u.rsym.stfixup;
 	  p->u.rsym.stfixup = f;
@@ -2543,7 +2674,7 @@ mio_gmp_real (mpfr_t *real)
 	  return;
 	}
 
-      atom_string = gfc_getmem (strlen (p) + 20);
+      atom_string = XCNEWVEC (char, strlen (p) + 20);
 
       sprintf (atom_string, "0.%s@%ld", p, exponent);
 
@@ -2742,10 +2873,10 @@ mio_expr (gfc_expr **ep)
   switch (e->expr_type)
     {
     case EXPR_OP:
-      e->value.op.operator
-	= MIO_NAME (gfc_intrinsic_op) (e->value.op.operator, intrinsics);
+      e->value.op.op
+	= MIO_NAME (gfc_intrinsic_op) (e->value.op.op, intrinsics);
 
-      switch (e->value.op.operator)
+      switch (e->value.op.op)
 	{
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
@@ -2827,7 +2958,9 @@ mio_expr (gfc_expr **ep)
 
     case EXPR_SUBSTRING:
       e->value.character.string
-	= CONST_CAST (char *, mio_allocated_string (e->value.character.string));
+	= CONST_CAST (gfc_char_t *,
+		      mio_allocated_wide_string (e->value.character.string,
+						 e->value.character.length));
       mio_ref_list (&e->ref);
       break;
 
@@ -2862,7 +2995,9 @@ mio_expr (gfc_expr **ep)
 	case BT_CHARACTER:
 	  mio_integer (&e->value.character.length);
 	  e->value.character.string
-	    = CONST_CAST (char *, mio_allocated_string (e->value.character.string));
+	    = CONST_CAST (gfc_char_t *,
+			  mio_allocated_wide_string (e->value.character.string,
+						     e->value.character.length));
 	  break;
 
 	default:
@@ -2927,7 +3062,7 @@ mio_namelist (gfc_symbol *sym)
 }
 
 
-/* Save/restore lists of gfc_interface stuctures.  When loading an
+/* Save/restore lists of gfc_interface structures.  When loading an
    interface, we are really appending to the existing list of
    interfaces.  Checking for duplicate and ambiguous interfaces has to
    be done later when all symbols have been loaded.  */
@@ -3137,16 +3272,17 @@ find_symtree_for_symbol (gfc_symtree *st, gfc_symbol *sym)
 }
 
 
-/* A recursive function to look for a speficic symbol by name and by
+/* A recursive function to look for a specific symbol by name and by
    module.  Whilst several symtrees might point to one symbol, its
    is sufficient for the purposes here than one exist.  Note that
-   generic interfaces are distinguished.  */
+   generic interfaces are distinguished as are symbols that have been
+   renamed in another module.  */
 static gfc_symtree *
 find_symbol (gfc_symtree *st, const char *name,
 	     const char *module, int generic)
 {
   int c;
-  gfc_symtree *retval;
+  gfc_symtree *retval, *s;
 
   if (st == NULL || st->n.sym == NULL)
     return NULL;
@@ -3156,8 +3292,14 @@ find_symbol (gfc_symtree *st, const char *name,
 	     && strcmp (module, st->n.sym->module) == 0
 	     && !check_unique_name (st->name))
     {
-      if ((!generic && !st->n.sym->attr.generic)
-	     || (generic && st->n.sym->attr.generic))
+      s = gfc_find_symtree (gfc_current_ns->sym_root, name);
+
+      /* Detect symbols that are renamed by use association in another
+	 module by the absence of a symtree and null attr.use_rename,
+	 since the latter is not transmitted in the module file.  */
+      if (((!generic && !st->n.sym->attr.generic)
+		|| (generic && st->n.sym->attr.generic))
+	    && !(s == NULL && !st->n.sym->attr.use_rename))
 	return st;
     }
 
@@ -3241,16 +3383,16 @@ load_operator_interfaces (void)
 	  if (i == 1)
 	    {
 	      uop = gfc_get_uop (p);
-	      pi = mio_interface_rest (&uop->operator);
+	      pi = mio_interface_rest (&uop->op);
 	    }
 	  else
 	    {
 	      if (gfc_find_uop (p, NULL))
 		continue;
 	      uop = gfc_get_uop (p);
-	      uop->operator = gfc_get_interface ();
-	      uop->operator->where = gfc_current_locus;
-	      add_fixup (pi->integer, &uop->operator->sym);
+	      uop->op = gfc_get_interface ();
+	      uop->op->where = gfc_current_locus;
+	      add_fixup (pi->integer, &uop->op->sym);
 	    }
 	}
     }
@@ -3812,7 +3954,7 @@ read_module (void)
 	  u->found = 1;
 	}
 
-      mio_interface (&gfc_current_ns->operator[i]);
+      mio_interface (&gfc_current_ns->op[i]);
     }
 
   mio_rparen ();
@@ -3842,14 +3984,14 @@ read_module (void)
       if (u->found)
 	continue;
 
-      if (u->operator == INTRINSIC_NONE)
+      if (u->op == INTRINSIC_NONE)
 	{
 	  gfc_error ("Symbol '%s' referenced at %L not found in module '%s'",
 		     u->use_name, &u->where, module_name);
 	  continue;
 	}
 
-      if (u->operator == INTRINSIC_USER)
+      if (u->op == INTRINSIC_USER)
 	{
 	  gfc_error ("User operator '%s' referenced at %L not found "
 		     "in module '%s'", u->use_name, &u->where, module_name);
@@ -3857,7 +3999,7 @@ read_module (void)
 	}
 
       gfc_error ("Intrinsic operator '%s' referenced at %L not found "
-		 "in module '%s'", gfc_op2string (u->operator), &u->where,
+		 "in module '%s'", gfc_op2string (u->op), &u->where,
 		 module_name);
     }
 
@@ -3984,7 +4126,7 @@ write_common_0 (gfc_symtree *st)
       mio_rparen ();
 
       /* Record that we have written this common.  */
-      w = gfc_getmem (sizeof (struct written_common));
+      w = XCNEW (struct written_common);
       w->name = p->name;
       w->label = label;
       gfc_insert_bbt (&written_commons, w, compare_written_commons);
@@ -4177,11 +4319,11 @@ write_operator (gfc_user_op *uop)
   static char nullstring[] = "";
   const char *p = nullstring;
 
-  if (uop->operator == NULL
+  if (uop->op == NULL
       || !gfc_check_access (uop->access, uop->ns->default_access))
     return;
 
-  mio_symbol_interface (&uop->name, &p, &uop->operator);
+  mio_symbol_interface (&uop->name, &p, &uop->op);
 }
 
 
@@ -4253,7 +4395,7 @@ write_module (void)
 
       mio_interface (gfc_check_access (gfc_current_ns->operator_access[i],
 				       gfc_current_ns->default_access)
-		     ? &gfc_current_ns->operator[i] : NULL);
+		     ? &gfc_current_ns->op[i] : NULL);
     }
 
   mio_rparen ();
@@ -4630,13 +4772,13 @@ use_iso_fortran_env_module (void)
   int i;
 
   intmod_sym symbol[] = {
-#define NAMED_INTCST(a,b,c) { a, b, 0 },
+#define NAMED_INTCST(a,b,c,d) { a, b, 0, d },
 #include "iso-fortran-env.def"
 #undef NAMED_INTCST
-    { ISOFORTRANENV_INVALID, NULL, -1234 } };
+    { ISOFORTRANENV_INVALID, NULL, -1234, 0 } };
 
   i = 0;
-#define NAMED_INTCST(a,b,c) symbol[i++].value = c;
+#define NAMED_INTCST(a,b,c,d) symbol[i++].value = c;
 #include "iso-fortran-env.def"
 #undef NAMED_INTCST
 

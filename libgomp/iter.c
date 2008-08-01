@@ -1,4 +1,4 @@
-/* Copyright (C) 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2005, 2008 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU OpenMP Library (libgomp).
@@ -154,7 +154,7 @@ gomp_iter_dynamic_next_locked (long *pstart, long *pend)
   if (start == ws->end)
     return false;
 
-  chunk = ws->chunk_size * ws->incr;
+  chunk = ws->chunk_size;
   left = ws->end - start;
   if (ws->incr < 0)
     {
@@ -186,11 +186,38 @@ gomp_iter_dynamic_next (long *pstart, long *pend)
   struct gomp_work_share *ws = thr->ts.work_share;
   long start, end, nend, chunk, incr;
 
-  start = ws->next;
   end = ws->end;
   incr = ws->incr;
-  chunk = ws->chunk_size * incr;
+  chunk = ws->chunk_size;
 
+  if (__builtin_expect (ws->mode, 1))
+    {
+      long tmp = __sync_fetch_and_add (&ws->next, chunk);
+      if (incr > 0)
+	{
+	  if (tmp >= end)
+	    return false;
+	  nend = tmp + chunk;
+	  if (nend > end)
+	    nend = end;
+	  *pstart = tmp;
+	  *pend = nend;
+	  return true;
+	}
+      else
+	{
+	  if (tmp <= end)
+	    return false;
+	  nend = tmp + chunk;
+	  if (nend < end)
+	    nend = end;
+	  *pstart = tmp;
+	  *pend = nend;
+	  return true;
+	}
+    }
+
+  start = ws->next;
   while (1)
     {
       long left = end - start;
@@ -242,16 +269,16 @@ gomp_iter_guided_next_locked (long *pstart, long *pend)
   if (ws->next == ws->end)
     return false;
 
-  n = (ws->end - ws->next) / ws->incr;
+  start = ws->next;
+  n = (ws->end - start) / ws->incr;
   q = (n + nthreads - 1) / nthreads;
 
   if (q < ws->chunk_size)
     q = ws->chunk_size;
-  if (q > n)
-    q = n;
-
-  start = ws->next;
-  end = start + q * ws->incr;
+  if (q <= n)
+    end = start + q * ws->incr;
+  else
+    end = ws->end;
 
   ws->next = end;
   *pstart = start;
@@ -286,15 +313,15 @@ gomp_iter_guided_next (long *pstart, long *pend)
       if (start == end)
 	return false;
 
-      n = (end - start) / ws->incr;
+      n = (end - start) / incr;
       q = (n + nthreads - 1) / nthreads;
 
       if (q < chunk_size)
 	q = chunk_size;
-      if (q > n)
-	q = n;
-
-      nend = start + q * incr;
+      if (__builtin_expect (q <= n, 1))
+	nend = start + q * incr;
+      else
+	nend = end;
 
       tmp = __sync_val_compare_and_swap (&ws->next, start, nend);
       if (__builtin_expect (tmp == start, 1))

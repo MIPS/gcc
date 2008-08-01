@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "df.h"
 
 
@@ -142,7 +142,9 @@ static section *xtensa_select_rtx_section (enum machine_mode, rtx,
 static bool xtensa_rtx_costs (rtx, int, int, int *);
 static tree xtensa_build_builtin_va_list (void);
 static bool xtensa_return_in_memory (const_tree, const_tree);
-static tree xtensa_gimplify_va_arg_expr (tree, tree, tree *, tree *);
+static tree xtensa_gimplify_va_arg_expr (tree, tree, gimple_seq *,
+					 gimple_seq *);
+static rtx xtensa_function_value (const_tree, const_tree, bool);
 static void xtensa_init_builtins (void);
 static tree xtensa_fold_builtin (tree, tree, bool);
 static rtx xtensa_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -192,6 +194,8 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY xtensa_return_in_memory
+#undef TARGET_FUNCTION_VALUE
+#define TARGET_FUNCTION_VALUE xtensa_function_value
 #undef TARGET_SPLIT_COMPLEX_ARG
 #define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_MUST_PASS_IN_STACK
@@ -652,6 +656,16 @@ gen_float_relational (enum rtx_code test_code, /* relational test (EQ, etc) */
     case GT: reverse_regs = 1; invert = 0; gen_fn = gen_slt_sf; break;
     case LT: reverse_regs = 0; invert = 0; gen_fn = gen_slt_sf; break;
     case GE: reverse_regs = 1; invert = 0; gen_fn = gen_sle_sf; break;
+    case UNEQ: reverse_regs = 0; invert = 0; gen_fn = gen_suneq_sf; break;
+    case LTGT: reverse_regs = 0; invert = 1; gen_fn = gen_suneq_sf; break;
+    case UNLE: reverse_regs = 0; invert = 0; gen_fn = gen_sunle_sf; break;
+    case UNGT: reverse_regs = 1; invert = 0; gen_fn = gen_sunlt_sf; break;
+    case UNLT: reverse_regs = 0; invert = 0; gen_fn = gen_sunlt_sf; break;
+    case UNGE: reverse_regs = 1; invert = 0; gen_fn = gen_sunle_sf; break;
+    case UNORDERED:
+      reverse_regs = 0; invert = 0; gen_fn = gen_sunordered_sf; break;
+    case ORDERED:
+      reverse_regs = 0; invert = 1; gen_fn = gen_sunordered_sf; break;
     default:
       fatal_insn ("bad test", gen_rtx_fmt_ee (test_code, VOIDmode, cmp0, cmp1));
       reverse_regs = 0; invert = 0; gen_fn = 0; /* avoid compiler warnings */
@@ -1198,7 +1212,7 @@ xtensa_expand_nonlocal_goto (rtx *operands)
 static struct machine_function *
 xtensa_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 
@@ -1991,7 +2005,7 @@ print_operand (FILE *file, rtx x, int letter)
 	{
 	  /* For a volatile memory reference, emit a MEMW before the
 	     load or store.  */
-	  if (MEM_VOLATILE_P (x))
+	  if (MEM_VOLATILE_P (x) && TARGET_SERIALIZE_VOLATILE)
 	    fprintf (file, "memw\n\t");
 	}
       else
@@ -2282,7 +2296,7 @@ compute_frame_size (int size)
 
   xtensa_current_frame_size =
     XTENSA_STACK_ALIGN (size
-			+ current_function_outgoing_args_size
+			+ crtl->outgoing_args_size
 			+ (WINDOW_SIZE * UNITS_PER_WORD));
   return xtensa_current_frame_size;
 }
@@ -2475,7 +2489,7 @@ static rtx
 xtensa_builtin_saveregs (void)
 {
   rtx gp_regs;
-  int arg_words = current_function_args_info.arg_words;
+  int arg_words = crtl->args.info.arg_words;
   int gp_left = MAX_ARGS_IN_REGISTERS - arg_words;
 
   if (gp_left <= 0)
@@ -2512,7 +2526,7 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   tree t, u;
   int arg_words;
 
-  arg_words = current_function_args_info.arg_words;
+  arg_words = crtl->args.info.arg_words;
 
   f_stk = TYPE_FIELDS (va_list_type_node);
   f_reg = TREE_CHAIN (f_stk);
@@ -2525,14 +2539,14 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   /* Call __builtin_saveregs; save the result in __va_reg */
   u = make_tree (sizetype, expand_builtin_saveregs ());
   u = fold_convert (ptr_type_node, u);
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, reg, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, reg, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Set the __va_stk member to ($arg_ptr - 32).  */
   u = make_tree (ptr_type_node, virtual_incoming_args_rtx);
   u = fold_build2 (POINTER_PLUS_EXPR, ptr_type_node, u, size_int (-32));
-  t = build2 (GIMPLE_MODIFY_STMT, ptr_type_node, stk, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, stk, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -2541,8 +2555,8 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
      alignment offset for __va_stk.  */
   if (arg_words >= MAX_ARGS_IN_REGISTERS)
     arg_words += 2;
-  t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, ndx,
-	      size_int (arg_words * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, integer_type_node, ndx,
+	      build_int_cst (integer_type_node, arg_words * UNITS_PER_WORD));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -2551,8 +2565,8 @@ xtensa_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 /* Implement `va_arg'.  */
 
 static tree
-xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-			     tree *post_p ATTRIBUTE_UNUSED)
+xtensa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+			     gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree f_stk, stk;
   tree f_reg, reg;
@@ -2607,10 +2621,11 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
     {
       int align = MIN (TYPE_ALIGN (type), STACK_BOUNDARY) / BITS_PER_UNIT;
 
-      t = build2 (PLUS_EXPR, integer_type_node, orig_ndx, size_int (align - 1));
-      t = build2 (BIT_AND_EXPR, integer_type_node, t, size_int (-align));
-      t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, orig_ndx, t);
-      gimplify_and_add (t, pre_p);
+      t = build2 (PLUS_EXPR, integer_type_node, orig_ndx,
+		  build_int_cst (integer_type_node, align - 1));
+      t = build2 (BIT_AND_EXPR, integer_type_node, t,
+		  build_int_cst (integer_type_node, -align));
+      gimplify_assign (orig_ndx, t, pre_p);
     }
 
 
@@ -2620,8 +2635,7 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
   t = fold_convert (integer_type_node, va_size);
   t = build2 (PLUS_EXPR, integer_type_node, orig_ndx, t);
-  t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, ndx, t);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (ndx, t, pre_p);
 
 
   /* Check if the argument is in registers:
@@ -2639,14 +2653,14 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       lab_over = create_artificial_label ();
 
       t = build2 (GT_EXPR, boolean_type_node, ndx,
-		  size_int (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
+		  build_int_cst (integer_type_node,
+				 MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
       t = build3 (COND_EXPR, void_type_node, t,
 		  build1 (GOTO_EXPR, void_type_node, lab_false),
 		  NULL_TREE);
       gimplify_and_add (t, pre_p);
 
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, array, reg);
-      gimplify_and_add (t, pre_p);
+      gimplify_assign (array, reg, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_over);
       gimplify_and_add (t, pre_p);
@@ -2669,7 +2683,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   lab_false2 = create_artificial_label ();
 
   t = build2 (GT_EXPR, boolean_type_node, orig_ndx,
-	      size_int (MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
+	      build_int_cst (integer_type_node,
+			     MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD));
   t = build3 (COND_EXPR, void_type_node, t,
 	      build1 (GOTO_EXPR, void_type_node, lab_false2),
 	      NULL_TREE);
@@ -2677,14 +2692,12 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 
   t = size_binop (PLUS_EXPR, va_size, size_int (32));
   t = fold_convert (integer_type_node, t);
-  t = build2 (GIMPLE_MODIFY_STMT, integer_type_node, ndx, t);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (ndx, t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, lab_false2);
   gimplify_and_add (t, pre_p);
 
-  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, array, stk);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (array, stk, pre_p);
 
   if (lab_over)
     {
@@ -2714,7 +2727,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   else
     size = va_size;
 
-  t = build2 (MINUS_EXPR, sizetype, ndx, size);
+  t = fold_convert (sizetype, ndx);
+  t = build2 (MINUS_EXPR, sizetype, t, size);
   addr = build2 (POINTER_PLUS_EXPR, ptr_type_node, array, t);
 
   addr = fold_convert (build_pointer_type (type), addr);
@@ -2824,7 +2838,8 @@ xtensa_secondary_reload_class (enum reg_class class,
 
   if (!isoutput)
     {
-      if (class == FP_REGS && constantpool_mem_p (x))
+      if ((class == FP_REGS || GET_MODE_SIZE (mode) < UNITS_PER_WORD)
+	  && constantpool_mem_p (x))
 	return RL_REGS;
     }
 
@@ -2852,7 +2867,7 @@ order_regs_for_local_alloc (void)
 
       /* Use the AR registers in increasing order (skipping a0 and a1)
 	 but save the incoming argument registers for a last resort.  */
-      num_arg_regs = current_function_args_info.arg_words;
+      num_arg_regs = crtl->args.info.arg_words;
       if (num_arg_regs > MAX_ARGS_IN_REGISTERS)
 	num_arg_regs = MAX_ARGS_IN_REGISTERS;
       for (i = GP_ARG_FIRST; i < 16 - num_arg_regs; i++)
@@ -3147,6 +3162,17 @@ xtensa_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 	  > 4 * UNITS_PER_WORD);
 }
 
+/* Worker function for TARGET_FUNCTION_VALUE.  */
+
+rtx
+xtensa_function_value (const_tree valtype, const_tree func ATTRIBUTE_UNUSED, 
+                      bool outgoing)
+{
+  return gen_rtx_REG ((INTEGRAL_TYPE_P (valtype)
+                      && TYPE_PRECISION (valtype) < BITS_PER_WORD)
+                     ? SImode : TYPE_MODE (valtype),
+                     outgoing ? GP_OUTGOING_RETURN : GP_RETURN);
+}
 
 /* TRAMPOLINE_TEMPLATE: For Xtensa, the trampoline must perform an ENTRY
    instruction with a minimal stack frame in order to get some free

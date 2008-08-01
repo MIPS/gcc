@@ -1651,7 +1651,7 @@ layout_mcore_frame (struct mcore_frame * infp)
 
   /* Might have to spill bytes to re-assemble a big argument that
      was passed partially in registers and partially on the stack.  */
-  nbytes = current_function_pretend_args_size;
+  nbytes = crtl->args.pretend_args_size;
   
   /* Determine how much space for spilled anonymous args (e.g., stdarg).  */
   if (current_function_anonymous_args)
@@ -1665,7 +1665,7 @@ layout_mcore_frame (struct mcore_frame * infp)
 
   /* And the rest of it... locals and space for overflowed outbounds.  */
   infp->local_size = get_frame_size ();
-  infp->outbound_size = current_function_outgoing_args_size;
+  infp->outbound_size = crtl->outgoing_args_size;
 
   /* Make sure we have a whole number of words for the locals.  */
   if (infp->local_size % STACK_BYTES)
@@ -1938,7 +1938,7 @@ mcore_expand_prolog (void)
       
       ASM_OUTPUT_CG_NODE (asm_out_file, mcore_current_function_name, space_allocated);
 
-      if (current_function_calls_alloca)
+      if (cfun->calls_alloca)
 	ASM_OUTPUT_CG_EDGE (asm_out_file, mcore_current_function_name, "alloca", 1);
 
       /* 970425: RBE:
@@ -1962,7 +1962,7 @@ mcore_expand_prolog (void)
   /* If we have a parameter passed partially in regs and partially in memory,
      the registers will have been stored to memory already in function.c.  So
      we only need to do something here for varargs functions.  */
-  if (fi.arg_size != 0 && current_function_pretend_args_size == 0)
+  if (fi.arg_size != 0 && crtl->args.pretend_args_size == 0)
     {
       int offset;
       int rn = FIRST_PARM_REG + NPARM_REGS - 1;
@@ -2851,7 +2851,7 @@ mcore_mark_dllexport (tree decl)
   if (mcore_dllexport_name_p (oldname))
     return;  /* Already done.  */
 
-  newname = alloca (strlen (oldname) + 4);
+  newname = XALLOCAVEC (char, strlen (oldname) + 4);
   sprintf (newname, "@e.%s", oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
@@ -2909,7 +2909,7 @@ mcore_mark_dllimport (tree decl)
       TREE_PUBLIC (decl) = 1;
     }
 
-  newname = alloca (strlen (oldname) + 11);
+  newname = XALLOCAVEC (char, strlen (oldname) + 11);
   sprintf (newname, "@i.__imp_%s", oldname);
 
   /* We pass newname through get_identifier to ensure it has a unique
@@ -3066,7 +3066,7 @@ mcore_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
     prefix = ".data$";
   
   len = strlen (name) + strlen (prefix);
-  string = alloca (len + 1);
+  string = XALLOCAVEC (char, len + 1);
   
   sprintf (string, "%s%s", prefix, name);
 

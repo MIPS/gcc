@@ -832,8 +832,8 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 	  high = ~high + !low;
 	  low = -low;
 	}
-      sprintf (pp_buffer (pp)->digit_buffer,
-	       HOST_WIDE_INT_PRINT_DOUBLE_HEX, high, low);
+      sprintf (pp_buffer (pp)->digit_buffer, HOST_WIDE_INT_PRINT_DOUBLE_HEX, 
+	       (unsigned HOST_WIDE_INT) high, (unsigned HOST_WIDE_INT) low);
       pp_string (pp, pp_buffer (pp)->digit_buffer);
     }
   if (TYPE_UNSIGNED (type))
@@ -1019,7 +1019,7 @@ pp_c_constant (c_pretty_printer *pp, tree e)
     case COMPLEX_CST:
       /* Sometimes, we are confused and we think a complex literal
          is a constant.  Such thing is a compound literal which
-         grammatically belongs to postifx-expr production.  */
+         grammatically belongs to postfix-expr production.  */
       pp_c_compound_literal (pp, e);
       break;
 
@@ -1096,7 +1096,7 @@ pp_c_primary_expression (c_pretty_printer *pp, tree e)
       break;
 
     default:
-      /* FIXME:  Make sure we won't get into an infinie loop.  */
+      /* FIXME:  Make sure we won't get into an infinite loop.  */
       pp_c_left_paren (pp);
       pp_expression (pp, e);
       pp_c_right_paren (pp);
@@ -1173,6 +1173,12 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
   tree type = TREE_TYPE (e);
   const enum tree_code code = TREE_CODE (type);
 
+  if (TREE_CODE (e) == CONSTRUCTOR)
+    {
+      pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
+      return;
+    }
+
   switch (code)
     {
     case RECORD_TYPE:
@@ -1207,16 +1213,12 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
     case VECTOR_TYPE:
       if (TREE_CODE (e) == VECTOR_CST)
 	pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
-      else if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else
 	break;
       return;
 
     case COMPLEX_TYPE:
-      if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
-      else if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
+      if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
 	{
 	  const bool cst = TREE_CODE (e) == COMPLEX_CST;
 	  pp_expression (pp, cst ? TREE_REALPART (e) : TREE_OPERAND (e, 0));
@@ -1553,8 +1555,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     {
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1851,14 +1852,13 @@ static void
 pp_c_assignment_expression (c_pretty_printer *pp, tree e)
 {
   if (TREE_CODE (e) == MODIFY_EXPR 
-      || TREE_CODE (e) == GIMPLE_MODIFY_STMT
       || TREE_CODE (e) == INIT_EXPR)
     {
-      pp_c_unary_expression (pp, GENERIC_TREE_OPERAND (e, 0));
+      pp_c_unary_expression (pp, TREE_OPERAND (e, 0));
       pp_c_whitespace (pp);
       pp_equal (pp);
       pp_space (pp);
-      pp_c_expression (pp, GENERIC_TREE_OPERAND (e, 1));
+      pp_c_expression (pp, TREE_OPERAND (e, 1));
     }
   else
     pp_c_conditional_expression (pp, e);
@@ -1945,8 +1945,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
 
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
-    case CONVERT_EXPR:
-    case NOP_EXPR:
+    CASE_CONVERT:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -2007,7 +2006,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       break;
 
     case MODIFY_EXPR:
-    case GIMPLE_MODIFY_STMT:
     case INIT_EXPR:
       pp_assignment_expression (pp, e);
       break;

@@ -21,6 +21,7 @@ load_gcc_lib prune.exp
 load_gcc_lib target-libpath.exp
 load_gcc_lib wrapper.exp
 load_gcc_lib gcc-defs.exp
+load_gcc_lib torture-options.exp
 load_gcc_lib gcc-dg.exp
 load_gcc_lib gfortran-dg.exp
 
@@ -95,6 +96,10 @@ proc libgomp_init { args } {
 
     # Compute what needs to be added to the existing LD_LIBRARY_PATH.
     if {$gccdir != ""} {
+	# Add AIX pthread directory first.
+	if { [llength [glob -nocomplain ${gccdir}/pthread/libgcc_s*.a]] >= 1 } {
+	    append always_ld_library_path ":${gccdir}/pthread"
+	}
 	append always_ld_library_path ":${gccdir}"
 	set compiler [lindex $GCC_UNDER_TEST 0]
 

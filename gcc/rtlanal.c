@@ -1,6 +1,6 @@
 /* Analyze RTL for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software
    Foundation, Inc.
 
 This file is part of GCC.
@@ -841,7 +841,7 @@ reg_set_p (const_rtx reg, const_rtx insn)
 
 /* Similar to reg_set_between_p, but check all registers in X.  Return 0
    only if none of them are modified between START and END.  Return 1 if
-   X contains a MEM; this routine does usememory aliasing.  */
+   X contains a MEM; this routine does use memory aliasing.  */
 
 int
 modified_between_p (const_rtx x, const_rtx start, const_rtx end)
@@ -1121,11 +1121,6 @@ noop_move_p (const_rtx insn)
 
   /* Insns carrying these notes are useful later on.  */
   if (find_reg_note (insn, REG_EQUAL, NULL_RTX))
-    return 0;
-
-  /* For now treat an insn with a REG_RETVAL note as a
-     a special insn which should not be considered a no-op.  */
-  if (find_reg_note (insn, REG_RETVAL, NULL_RTX))
     return 0;
 
   if (GET_CODE (pat) == SET && set_noop_p (pat))
@@ -1846,30 +1841,35 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
   return 0;
 }
 
-/* Return true if INSN is a call to a pure function.  */
+
+/* Add register note with kind KIND and datum DATUM to INSN.  */
 
-int
-pure_call_p (const_rtx insn)
+void
+add_reg_note (rtx insn, enum reg_note kind, rtx datum)
 {
-  const_rtx link;
+  rtx note;
 
-  if (!CALL_P (insn) || ! CONST_OR_PURE_CALL_P (insn))
-    return 0;
-
-  /* Look for the note that differentiates const and pure functions.  */
-  for (link = CALL_INSN_FUNCTION_USAGE (insn); link; link = XEXP (link, 1))
+  switch (kind)
     {
-      rtx u, m;
+    case REG_CC_SETTER:
+    case REG_CC_USER:
+    case REG_LABEL_TARGET:
+    case REG_LABEL_OPERAND:
+      /* These types of register notes use an INSN_LIST rather than an
+	 EXPR_LIST, so that copying is done right and dumps look
+	 better.  */
+      note = alloc_INSN_LIST (datum, REG_NOTES (insn));
+      PUT_REG_NOTE_KIND (note, kind);
+      break;
 
-      if (GET_CODE (u = XEXP (link, 0)) == USE
-	  && MEM_P (m = XEXP (u, 0)) && GET_MODE (m) == BLKmode
-	  && GET_CODE (XEXP (m, 0)) == SCRATCH)
-	return 1;
+    default:
+      note = alloc_EXPR_LIST (kind, datum, REG_NOTES (insn));
+      break;
     }
 
-  return 0;
+  REG_NOTES (insn) = note;
 }
-
+
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
 
 void
@@ -2470,32 +2470,32 @@ replace_rtx (rtx x, rtx from, rtx to)
 
   if (GET_CODE (x) == SUBREG)
     {
-      rtx new = replace_rtx (SUBREG_REG (x), from, to);
+      rtx new_rtx = replace_rtx (SUBREG_REG (x), from, to);
 
-      if (GET_CODE (new) == CONST_INT)
+      if (GET_CODE (new_rtx) == CONST_INT)
 	{
-	  x = simplify_subreg (GET_MODE (x), new,
+	  x = simplify_subreg (GET_MODE (x), new_rtx,
 			       GET_MODE (SUBREG_REG (x)),
 			       SUBREG_BYTE (x));
 	  gcc_assert (x);
 	}
       else
-	SUBREG_REG (x) = new;
+	SUBREG_REG (x) = new_rtx;
 
       return x;
     }
   else if (GET_CODE (x) == ZERO_EXTEND)
     {
-      rtx new = replace_rtx (XEXP (x, 0), from, to);
+      rtx new_rtx = replace_rtx (XEXP (x, 0), from, to);
 
-      if (GET_CODE (new) == CONST_INT)
+      if (GET_CODE (new_rtx) == CONST_INT)
 	{
 	  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
-					new, GET_MODE (XEXP (x, 0)));
+					new_rtx, GET_MODE (XEXP (x, 0)));
 	  gcc_assert (x);
 	}
       else
-	XEXP (x, 0) = new;
+	XEXP (x, 0) = new_rtx;
 
       return x;
     }
@@ -3294,7 +3294,7 @@ struct parms_set_data
 static void
 parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  struct parms_set_data *d = data;
+  struct parms_set_data *const d = (struct parms_set_data *) data;
   if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (d->regs, REGNO (x)))
     {
@@ -3692,12 +3692,12 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 
       {
 	unsigned HOST_WIDE_INT nonzero_for_hook = nonzero;
-	rtx new = rtl_hooks.reg_nonzero_bits (x, mode, known_x,
+	rtx new_rtx = rtl_hooks.reg_nonzero_bits (x, mode, known_x,
 					      known_mode, known_ret,
 					      &nonzero_for_hook);
 
-	if (new)
-	  nonzero_for_hook &= cached_nonzero_bits (new, mode, known_x,
+	if (new_rtx)
+	  nonzero_for_hook &= cached_nonzero_bits (new_rtx, mode, known_x,
 						   known_mode, known_ret);
 
 	return nonzero_for_hook;
@@ -4177,12 +4177,12 @@ num_sign_bit_copies1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 
       {
 	unsigned int copies_for_hook = 1, copies = 1;
-	rtx new = rtl_hooks.reg_num_sign_bit_copies (x, mode, known_x,
+	rtx new_rtx = rtl_hooks.reg_num_sign_bit_copies (x, mode, known_x,
 						     known_mode, known_ret,
 						     &copies_for_hook);
 
-	if (new)
-	  copies = cached_num_sign_bit_copies (new, mode, known_x,
+	if (new_rtx)
+	  copies = cached_num_sign_bit_copies (new_rtx, mode, known_x,
 					       known_mode, known_ret);
 
 	if (copies > 1 || copies_for_hook > 1)

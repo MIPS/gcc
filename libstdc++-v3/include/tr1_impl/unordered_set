@@ -150,10 +150,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
   template<class _Value, class _Hash, class _Pred, class _Alloc,
 	   bool __cache_hash_code>
     inline void
-    swap (__unordered_set<_Value, _Hash, _Pred,
-	  _Alloc, __cache_hash_code>& __x,
-	  __unordered_set<_Value, _Hash, _Pred,
-	  _Alloc, __cache_hash_code>& __y)
+    swap(__unordered_set<_Value, _Hash, _Pred, _Alloc, __cache_hash_code>& __x,
+	 __unordered_set<_Value, _Hash, _Pred, _Alloc, __cache_hash_code>& __y)
     { __x.swap(__y); }
 
   template<class _Value, class _Hash, class _Pred, class _Alloc,
@@ -166,6 +164,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     { __x.swap(__y); }
 
 
+  /// class unordered_set
   template<class _Value,
 	   class _Hash = hash<_Value>,
 	   class _Pred = std::equal_to<_Value>,
@@ -176,6 +175,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_set<_Value, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -202,6 +202,14 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       unordered_set(unordered_set&& __x)
       : _Base(std::forward<_Base>(__x)) { }
 
+      unordered_set(initializer_list<value_type> __l,
+		    size_type __n = 10,
+		    const hasher& __hf = hasher(),
+		    const key_equal& __eql = key_equal(),
+		    const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
       unordered_set&
       operator=(unordered_set&& __x)
       {
@@ -210,9 +218,18 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	this->swap(__x); 
 	return *this;	
       }
+
+      unordered_set&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
+      }
 #endif
     };
 
+  /// class unordered_multiset
   template<class _Value,
 	   class _Hash = hash<_Value>,
 	   class _Pred = std::equal_to<_Value>,
@@ -223,6 +240,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       typedef __unordered_multiset<_Value, _Hash, _Pred, _Alloc>  _Base;
 
     public:
+      typedef typename _Base::value_type      value_type;
       typedef typename _Base::size_type       size_type;
       typedef typename _Base::hasher          hasher;
       typedef typename _Base::key_equal       key_equal;
@@ -250,6 +268,14 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       unordered_multiset(unordered_multiset&& __x)
       : _Base(std::forward<_Base>(__x)) { }
 
+      unordered_multiset(initializer_list<value_type> __l,
+			 size_type __n = 10,
+			 const hasher& __hf = hasher(),
+			 const key_equal& __eql = key_equal(),
+			 const allocator_type& __a = allocator_type())
+	: _Base(__l.begin(), __l.end(), __n, __hf, __eql, __a)
+      { }
+
       unordered_multiset&
       operator=(unordered_multiset&& __x)
       {
@@ -257,6 +283,14 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	this->clear();
 	this->swap(__x); 
 	return *this;	
+      }
+
+      unordered_multiset&
+      operator=(initializer_list<value_type> __l)
+      {
+	this->clear();
+	this->insert(__l.begin(), __l.end());
+	return *this;
       }
 #endif
     };

@@ -102,13 +102,13 @@ ignore_bb_p (const_basic_block bb)
 static int
 count_insns (basic_block bb)
 {
-  block_stmt_iterator bsi;
-  tree stmt;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
   int n = 0;
 
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = bsi_stmt (bsi);
+      stmt = gsi_stmt (gsi);
       n += estimate_num_insns (stmt, &eni_size_weights);
     }
   return n;
@@ -265,7 +265,7 @@ tail_duplicate (void)
   while (traced_insns < cover_insns && nduplicated < max_dup_insns
          && !fibheap_empty (heap))
     {
-      basic_block bb = fibheap_extract_min (heap);
+      basic_block bb = (basic_block) fibheap_extract_min (heap);
       int n, pos;
 
       if (!bb)
@@ -378,8 +378,10 @@ gate_tracer (void)
   return (optimize > 0 && flag_tracer && flag_reorder_blocks);
 }
 
-struct tree_opt_pass pass_tracer =
+struct gimple_opt_pass pass_tracer =
 {
+ {
+  GIMPLE_PASS,
   "tracer",                             /* name */
   gate_tracer,                          /* gate */
   tracer,                               /* execute */
@@ -393,6 +395,6 @@ struct tree_opt_pass pass_tracer =
   0,                                    /* todo_flags_start */
   TODO_dump_func
     | TODO_update_ssa
-    | TODO_verify_ssa,                  /* todo_flags_finish */
-  'T'                                   /* letter */
+    | TODO_verify_ssa                   /* todo_flags_finish */
+ }
 };

@@ -444,7 +444,7 @@ package body GPrep is
 
       Symbol := Index_Of (Data.Symbol);
 
-      --  If symbol does not alrady exist, create a new entry in the mapping
+      --  If symbol does not already exist, create a new entry in the mapping
       --  table.
 
       if Symbol = No_Symbol then
@@ -778,7 +778,7 @@ package body GPrep is
             elsif Deffile_Name = No_Name then
                Deffile_Name := Name_Find;
             else
-               Fail ("too many arguments specifed");
+               Fail ("too many arguments specified");
             end if;
          end;
       end loop;

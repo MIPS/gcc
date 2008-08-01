@@ -1,6 +1,6 @@
 // <tr1_impl/boost_shared_ptr.h> -*- C++ -*-
 
-// Copyright (C) 2007 Free Software Foundation, Inc.
+// Copyright (C) 2007, 2008 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -195,7 +195,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 #endif
 
   /**
-   *  @class shared_ptr <tr1/memory>
+   *  @class __shared_ptr 
    *
    *  A smart pointer with reference-counted copy semantics.
    *  The object pointed to is deleted when the last shared_ptr pointing to
@@ -230,7 +230,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
 	}
 
       //
-      // Requirements: _Deleter's copy constructor and destructor must not throw
+      // Requirements: _Deleter's copy constructor and destructor must
+      // not throw
       //
       // __shared_ptr will release __p by calling __d(__p)
       //
@@ -252,8 +253,9 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       
 #ifdef _GLIBCXX_INCLUDE_AS_CXX0X
       //
-      // Requirements: _Deleter's copy constructor and destructor must not throw
-      // _Alloc's copy constructor and destructor must not throw.
+      // Requirements: _Deleter's copy constructor and destructor must
+      // not throw _Alloc's copy constructor and destructor must not
+      // throw.
       //
       // __shared_ptr will release __p by calling __d(__p)
       //
@@ -503,13 +505,14 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       // This constructor is non-standard, it is used by allocate_shared.
       template<typename _Alloc, typename... _Args>
         __shared_ptr(_Sp_make_shared_tag __tag, _Alloc __a, _Args&&... __args)
-        : _M_ptr()
-        , _M_refcount(__tag, (_Tp*)0, __a, std::forward<_Args>(__args)...)
+        : _M_ptr(), _M_refcount(__tag, (_Tp*)0, __a,
+				std::forward<_Args>(__args)...)
         {
           // _M_ptr needs to point to the newly constructed object.
           // This relies on _Sp_counted_ptr_inplace::_M_get_deleter.
-          void * __p = _M_refcount._M_get_deleter(typeid(__tag));
+          void* __p = _M_refcount._M_get_deleter(typeid(__tag));
           _M_ptr = static_cast<_Tp*>(__p);
+	  __enable_shared_from_this_helper(_M_refcount, _M_ptr, _M_ptr);
         }
 
       template<typename _Tp1, _Lock_policy _Lp1, typename _Alloc,
@@ -811,7 +814,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     };
 
 
-  // The actual TR1 shared_ptr, with forwarding constructors and
+  /// shared_ptr
+  // The actual shared_ptr, with forwarding constructors and
   // assignment operators.
   template<typename _Tp>
     class shared_ptr
@@ -965,7 +969,8 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
     }
 
 
-  // The actual TR1 weak_ptr, with forwarding constructors and
+  /// weak_ptr
+  // The actual weak_ptr, with forwarding constructors and
   // assignment operators.
   template<typename _Tp>
     class weak_ptr
@@ -1021,7 +1026,7 @@ _GLIBCXX_BEGIN_NAMESPACE_TR1
       }
     };
 
-
+  /// enable_shared_from_this
   template<typename _Tp>
     class enable_shared_from_this
     {

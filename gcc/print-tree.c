@@ -1,6 +1,6 @@
 /* Prints out tree in human readable form - GCC
    Copyright (C) 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
+#include "diagnostic.h"
+#include "tree-flow.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -127,7 +129,8 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
 		 -TREE_INT_CST_LOW (node));
       else
 	fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		 TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		 (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
     }
   if (TREE_CODE (node) == REAL_CST)
     {
@@ -220,21 +223,25 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       return;
     }
 
-  hash = ((unsigned long) node) % HASH_SIZE;
-
-  /* If node is in the table, just mention its address.  */
-  for (b = table[hash]; b; b = b->next)
-    if (b->node == node)
-      {
-	print_node_brief (file, prefix, node, indent);
-	return;
-      }
-
-  /* Add this node to the table.  */
-  b = XNEW (struct bucket);
-  b->node = node;
-  b->next = table[hash];
-  table[hash] = b;
+  /* Allow this function to be called if the table is not there.  */
+  if (table)
+    {
+      hash = ((unsigned long) node) % HASH_SIZE;
+      
+      /* If node is in the table, just mention its address.  */
+      for (b = table[hash]; b; b = b->next)
+	if (b->node == node)
+	  {
+	    print_node_brief (file, prefix, node, indent);
+	    return;
+	  }
+      
+      /* Add this node to the table.  */
+      b = XNEW (struct bucket);
+      b->node = node;
+      b->next = table[hash];
+      table[hash] = b;
+    }
 
   /* Indent to the specified column, since this is the long form.  */
   indent_to (file, indent);
@@ -275,7 +282,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (indent <= 4)
 	print_node_brief (file, "type", TREE_TYPE (node), indent + 4);
     }
-  else if (!GIMPLE_TUPLE_P (node))
+  else
     {
       print_node (file, "type", TREE_TYPE (node), indent + 4);
       if (TREE_TYPE (node))
@@ -292,8 +299,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
     fputs (" sizes-gimplified", file);
 
-  if (TREE_INVARIANT (node))
-    fputs (" invariant", file);
   if (TREE_ADDRESSABLE (node))
     fputs (" addressable", file);
   if (TREE_THIS_VOLATILE (node))
@@ -365,8 +370,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);
 
-      if (TREE_CODE (node) == FUNCTION_DECL && DECL_INLINE (node))
-	fputs (DECL_DECLARED_INLINE_P (node) ? " inline" : " autoinline", file);
+      if (TREE_CODE (node) == FUNCTION_DECL
+	  && DECL_FUNCTION_SPECIFIC_TARGET (node))
+	fputs (" function-specific-target", file);
+      if (TREE_CODE (node) == FUNCTION_DECL
+	  && DECL_FUNCTION_SPECIFIC_OPTIMIZATION (node))
+	fputs (" function-specific-opt", file);
+      if (TREE_CODE (node) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (node))
+	fputs (" autoinline", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN (node))
 	fputs (" built-in", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_NO_STATIC_CHAIN (node))
@@ -442,18 +453,15 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 
       xloc = expand_location (DECL_SOURCE_LOCATION (node));
-      fprintf (file, " file %s line %d", xloc.file, xloc.line);
-#ifdef USE_MAPPED_LOCATION
-      fprintf (file, " col %d", xloc.column);
-#endif
+      fprintf (file, " file %s line %d col %d", xloc.file, xloc.line,
+	       xloc.column);
 
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
 	{	  
 	  print_node (file, "size", DECL_SIZE (node), indent + 4);
 	  print_node (file, "unit size", DECL_SIZE_UNIT (node), indent + 4);
 	  
-	  if (TREE_CODE (node) != FUNCTION_DECL
-	      || DECL_INLINE (node) || DECL_BUILT_IN (node))
+	  if (TREE_CODE (node) != FUNCTION_DECL || DECL_BUILT_IN (node))
 	    indent_to (file, indent + 3);
 	  
 	  if (DECL_USER_ALIGN (node))
@@ -537,15 +545,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  && DECL_HAS_VALUE_EXPR_P (node))
 	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
 
-      if (TREE_CODE (node) == STRUCT_FIELD_TAG)
-	{
-	  fprintf (file, " sft size " HOST_WIDE_INT_PRINT_DEC, 
-		   SFT_SIZE (node));
-	  fprintf (file, " sft offset " HOST_WIDE_INT_PRINT_DEC,
-		   SFT_OFFSET (node));
-	  print_node_brief (file, "parent var", SFT_PARENT_VAR (node), 
-			    indent + 4);
-	}
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -567,9 +566,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       else if (TREE_CODE (node) == INTEGER_TYPE
 	       && TYPE_IS_SIZETYPE (node))
 	fputs (" sizetype", file);
-      else if (TREE_CODE (node) == FUNCTION_TYPE
-	       && TYPE_RETURNS_STACK_DEPRESSED (node))
-	fputs (" returns-stack-depressed", file);
 
       if (TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
@@ -678,8 +674,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     case tcc_reference:
     case tcc_statement:
     case tcc_vl_exp:
-      if (TREE_CODE (node) == BIT_FIELD_REF && BIT_FIELD_REF_UNSIGNED (node))
-	fputs (" unsigned", file);
       if (TREE_CODE (node) == BIND_EXPR)
 	{
 	  print_node (file, "vars", TREE_OPERAND (node, 0), indent + 4);
@@ -718,18 +712,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       print_node (file, "chain", TREE_CHAIN (node), indent + 4);
       break;
 
-    case tcc_gimple_stmt:
-      len = TREE_CODE_LENGTH (TREE_CODE (node));
-
-      for (i = 0; i < len; i++)
-	{
-	  char temp[10];
-
-	  sprintf (temp, "arg %d", i);
-	  print_node (file, temp, GIMPLE_STMT_OPERAND (node, i), indent + 4);
-	}
-      break;
-
     case tcc_constant:
     case tcc_exceptional:
       switch (TREE_CODE (node))
@@ -748,7 +730,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		     -TREE_INT_CST_LOW (node));
 	  else
 	    fprintf (file, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-		     TREE_INT_CST_HIGH (node), TREE_INT_CST_LOW (node));
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (node),
+		     (unsigned HOST_WIDE_INT) TREE_INT_CST_LOW (node));
 	  break;
 
 	case REAL_CST:
@@ -901,8 +884,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case SSA_NAME:
 	  print_node_brief (file, "var", SSA_NAME_VAR (node), indent + 4);
-	  print_node_brief (file, "def_stmt",
-			    SSA_NAME_DEF_STMT (node), indent + 4);
+	  fprintf (file, "def_stmt ");
+	  print_gimple_stmt (file, SSA_NAME_DEF_STMT (node), indent + 4, 0);
 
 	  indent_to (file, indent + 4);
 	  fprintf (file, "version %u", SSA_NAME_VERSION (node));
@@ -936,6 +919,14 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	    }
 	  break;
 
+	case OPTIMIZATION_NODE:
+	  cl_optimization_print (file, indent + 4, TREE_OPTIMIZATION (node));
+	  break;
+
+	case TARGET_OPTION_NODE:
+	  cl_target_option_print (file, indent + 4, TREE_TARGET_OPTION (node));
+	  break;
+
 	default:
 	  if (EXCEPTIONAL_CLASS_P (node))
 	    lang_hooks.print_xnode (file, node, indent);
@@ -949,10 +940,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     {
       expanded_location xloc = expand_location (EXPR_LOCATION (node));
       indent_to (file, indent+4);
-      fprintf (file, "%s:%d", xloc.file, xloc.line);
-#ifdef USE_MAPPED_LOCATION
-      fprintf (file, ":%d", xloc.column);
-#endif
+      fprintf (file, "%s:%d:%d", xloc.file, xloc.line, xloc.column);
     }
 
   fprintf (file, ">");

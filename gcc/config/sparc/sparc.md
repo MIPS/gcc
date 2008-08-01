@@ -137,10 +137,10 @@
   (symbol_ref "flag_pic != 0"))
 
 (define_attr "calls_alloca" "false,true"
-  (symbol_ref "current_function_calls_alloca != 0"))
+  (symbol_ref "cfun->calls_alloca != 0"))
 
 (define_attr "calls_eh_return" "false,true"
-   (symbol_ref "current_function_calls_eh_return !=0 "))
+   (symbol_ref "crtl->calls_eh_return !=0 "))
    
 (define_attr "leaf_function" "false,true"
   (symbol_ref "current_function_uses_only_leaf_regs != 0"))
@@ -1844,7 +1844,7 @@
 	(minus:SI (match_dup 5) (match_dup 4)))]
   "flag_pic"
 {
-  current_function_uses_pic_offset_table = 1;
+  crtl->uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
   if (!can_create_pseudo_p ())
     {
@@ -1993,7 +1993,7 @@
         (minus:DI (match_dup 5) (match_dup 4)))]
   "TARGET_ARCH64 && flag_pic"
 {
-  current_function_uses_pic_offset_table = 1;
+  crtl->uses_pic_offset_table = 1;
   operands[2] = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
   if (!can_create_pseudo_p ())
     {
@@ -7104,8 +7104,8 @@
 		  adjust_address (result, TARGET_ARCH64 ? TFmode : DFmode, 8));
 
   /* Put USE insns before the return.  */
-  emit_insn (gen_rtx_USE (VOIDmode, valreg1));
-  emit_insn (gen_rtx_USE (VOIDmode, valreg2));
+  emit_use (valreg1);
+  emit_use (valreg2);
 
   /* Construct the return.  */
   expand_naked_return ();
@@ -7191,8 +7191,8 @@
      and reload the appropriate value into %fp.  */
   emit_move_insn (hard_frame_pointer_rtx, stack);
 
-  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
-  emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
+  emit_use (stack_pointer_rtx);
+  emit_use (static_chain_rtx);
 
   /* ??? The V9-specific version was disabled in rev 1.65.  */
   emit_jump_insn (gen_goto_handler_and_restore (labreg));
@@ -7237,7 +7237,7 @@
   [(unspec_volatile [(const_int 0)] UNSPECV_SETJMP)]
   ""
 {
-  if (! current_function_calls_alloca)
+  if (! cfun->calls_alloca)
     return "";
   if (! TARGET_V9)
     return "\tta\t3\n";

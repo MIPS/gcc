@@ -131,31 +131,6 @@ static int local_reg_live_length[FIRST_PSEUDO_REGISTER];
 
 #define SET_REGBIT(TABLE, I, J)  SET_HARD_REG_BIT (allocno[I].TABLE, J)
 
-/* This is turned off because it doesn't work right for DImode.
-   (And it is only used for DImode, so the other cases are worthless.)
-   The problem is that it isn't true that there is NO possibility of conflict;
-   only that there is no conflict if the two pseudos get the exact same regs.
-   If they were allocated with a partial overlap, there would be a conflict.
-   We can't safely turn off the conflict unless we have another way to
-   prevent the partial overlap.
-
-   Idea: change hard_reg_conflicts so that instead of recording which
-   hard regs the allocno may not overlap, it records where the allocno
-   may not start.  Change both where it is used and where it is updated.
-   Then there is a way to record that (reg:DI 108) may start at 10
-   but not at 9 or 11.  There is still the question of how to record
-   this semi-conflict between two pseudos.  */
-#if 0
-/* Reg pairs for which conflict after the current insn
-   is inhibited by a REG_NO_CONFLICT note.
-   If the table gets full, we ignore any other notes--that is conservative.  */
-#define NUM_NO_CONFLICT_PAIRS 4
-/* Number of pairs in use in this insn.  */
-int n_no_conflict_pairs;
-static struct { int allocno1, allocno2;}
-  no_conflict_pairs[NUM_NO_CONFLICT_PAIRS];
-#endif /* 0 */
-
 /* Return true if *LOC contains an asm.  */
 
 static int
@@ -231,7 +206,9 @@ static void build_insn_chain (void);
 
    This will normally be called with ELIM_SET as the file static
    variable eliminable_regset, and NO_GLOBAL_SET as the file static
-   variable NO_GLOBAL_ALLOC_REGS.  */
+   variable NO_GLOBAL_ALLOC_REGS.
+
+   It also initializes global flag frame_pointer_needed.  */
 
 static void
 compute_regsets (HARD_REG_SET *elim_set, 
@@ -241,16 +218,24 @@ compute_regsets (HARD_REG_SET *elim_set,
 /* Like regs_ever_live, but 1 if a reg is set or clobbered from an asm.
    Unlike regs_ever_live, elements of this array corresponding to
    eliminable regs like the frame pointer are set if an asm sets them.  */
-  char *regs_asm_clobbered = alloca (FIRST_PSEUDO_REGISTER * sizeof (char));
+  char *regs_asm_clobbered = XALLOCAVEC (char, FIRST_PSEUDO_REGISTER);
 
 #ifdef ELIMINABLE_REGS
   static const struct {const int from, to; } eliminables[] = ELIMINABLE_REGS;
   size_t i;
 #endif
+
+  /* FIXME: If EXIT_IGNORE_STACK is set, we will not save and restore
+     sp for alloca.  So we can't eliminate the frame pointer in that
+     case.  At some point, we should improve this by emitting the
+     sp-adjusting insns for this case.  */
   int need_fp
     = (! flag_omit_frame_pointer
-       || (current_function_calls_alloca && EXIT_IGNORE_STACK)
+       || (cfun->calls_alloca && EXIT_IGNORE_STACK)
+       || crtl->accesses_prior_frames
        || FRAME_POINTER_REQUIRED);
+
+  frame_pointer_needed = need_fp;
 
   max_regno = max_reg_num ();
   compact_blocks ();
@@ -378,7 +363,7 @@ global_alloc (void)
     if (REG_N_REFS (i) != 0 && REG_LIVE_LENGTH (i) != -1
 	/* Don't allocate pseudos that cross calls,
 	   if this function receives a nonlocal goto.  */
-	&& (! current_function_has_nonlocal_label
+	&& (! cfun->has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
 	int blk = regno_basic_block (i);
@@ -993,7 +978,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
   int i, best_reg, pass;
   HARD_REG_SET used, used1, used2;
 
-  enum reg_class class = (alt_regs_p
+  enum reg_class rclass = (alt_regs_p
 			  ? reg_alternate_class (allocno[num].reg)
 			  : reg_preferred_class (allocno[num].reg));
   enum machine_mode mode = PSEUDO_REGNO_MODE (allocno[num].reg);
@@ -1010,7 +995,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
   if (losers)
     IOR_HARD_REG_SET (used1, losers);
 
-  IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[(int) class]);
+  IOR_COMPL_HARD_REG_SET (used1, reg_class_contents[(int) rclass]);
 
 #ifdef EH_RETURN_DATA_REGNO
   if (allocno[num].no_eh_reg)
@@ -1490,7 +1475,7 @@ build_insn_chain (void)
 			/* We can model subregs, but not if they are
 			   wrapped in ZERO_EXTRACTS.  */
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_EXTRACT))
+			    && !DF_REF_FLAGS_IS_SET (def, DF_REF_ZERO_EXTRACT))
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1503,7 +1488,7 @@ build_insn_chain (void)
 						  regno, reg);
 
 			    if (!DF_REF_FLAGS_IS_SET
-				(def, DF_REF_STRICT_LOWER_PART))
+				(def, DF_REF_STRICT_LOW_PART))
 			      {
 				/* Expand the range to cover entire words.
 				   Bytes added here are "don't care".  */
@@ -1566,7 +1551,7 @@ build_insn_chain (void)
 		       precisely so we do not need to look at the
 		       fabricated use. */
 		    if (DF_REF_FLAGS_IS_SET (use, DF_REF_READ_WRITE) 
-			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT) 
+			&& !DF_REF_FLAGS_IS_SET (use, DF_REF_ZERO_EXTRACT) 
 			&& DF_REF_FLAGS_IS_SET (use, DF_REF_SUBREG))
 		      continue;
 		    
@@ -1585,7 +1570,8 @@ build_insn_chain (void)
 		    if (regno < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
 		      {
 			if (GET_CODE (reg) == SUBREG
-			    && !DF_REF_FLAGS_IS_SET (use, DF_REF_EXTRACT)) 
+			    && !DF_REF_FLAGS_IS_SET (use,
+						     DF_REF_SIGN_EXTRACT | DF_REF_ZERO_EXTRACT)) 
 			  {
 			    unsigned int start = SUBREG_BYTE (reg);
 			    unsigned int last = start 
@@ -1782,7 +1768,7 @@ rest_of_handle_global_alloc (void)
       failure = reload (get_insns (), 0);
     }
 
-  if (dump_enabled_p (pass_global_alloc.static_pass_number))
+  if (dump_enabled_p (pass_global_alloc.pass.static_pass_number))
     {
       timevar_push (TV_DUMP);
       dump_global_regs (dump_file);
@@ -1816,8 +1802,10 @@ rest_of_handle_global_alloc (void)
   return 0;
 }
 
-struct tree_opt_pass pass_global_alloc =
+struct rtl_opt_pass pass_global_alloc =
 {
+ {
+  RTL_PASS,
   "greg",                               /* name */
   NULL,                                 /* gate */
   rest_of_handle_global_alloc,          /* execute */
@@ -1830,7 +1818,7 @@ struct tree_opt_pass pass_global_alloc =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_verify_rtl_sharing
-  | TODO_ggc_collect,                   /* todo_flags_finish */
-  'g'                                   /* letter */
+  | TODO_ggc_collect                    /* todo_flags_finish */
+ }
 };
 

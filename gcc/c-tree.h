@@ -455,7 +455,6 @@ extern tree c_cont_label;
 extern int global_bindings_p (void);
 extern void push_scope (void);
 extern tree pop_scope (void);
-extern void insert_block (tree);
 
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
@@ -483,8 +482,8 @@ extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
 extern void pending_xref_error (void);
-extern void c_push_function_context (struct function *);
-extern void c_pop_function_context (struct function *);
+extern void c_push_function_context (void);
+extern void c_pop_function_context (void);
 extern void push_parm_decl (const struct c_parm *);
 extern struct c_declarator *set_array_declarator_inner (struct c_declarator *,
 							struct c_declarator *);
@@ -564,7 +563,7 @@ extern tree c_cast_expr (struct c_type_name *, tree);
 extern tree build_c_cast (tree, tree);
 extern void store_init_value (tree, tree);
 extern void error_init (const char *);
-extern void pedwarn_init (const char *);
+extern void pedwarn_init (int opt, const char *);
 extern void maybe_warn_string_init (tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
@@ -594,9 +593,11 @@ extern tree c_finish_goto_label (tree);
 extern tree c_finish_goto_ptr (tree);
 extern void c_begin_vm_scope (unsigned int);
 extern void c_end_vm_scope (unsigned int);
-extern tree c_expr_to_decl (tree, bool *, bool *, bool *);
+extern tree c_expr_to_decl (tree, bool *, bool *);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (tree, tree);
+extern tree c_begin_omp_task (void);
+extern tree c_finish_omp_task (tree, tree);
 extern tree c_finish_omp_clauses (tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
@@ -639,7 +640,7 @@ extern void c_write_global_declarations (void);
 #define ATTRIBUTE_GCC_CDIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 
-extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
-extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
+extern void pedwarn_c90 (int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(2,3);
+extern void pedwarn_c99 (int opt, const char *, ...) ATTRIBUTE_GCC_CDIAG(2,3);
 
 #endif /* ! GCC_C_TREE_H */

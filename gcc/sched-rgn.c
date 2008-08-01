@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
@@ -720,7 +720,7 @@ find_rgns (void)
       extend_regions_p = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS) > 0;
       if (extend_regions_p)
         {
-          degree1 = xmalloc (last_basic_block * sizeof (int));
+          degree1 = XNEWVEC (int, last_basic_block);
           extended_rgn_header = sbitmap_alloc (last_basic_block);
           sbitmap_zero (extended_rgn_header);
 	}
@@ -1009,7 +1009,7 @@ gather_region_statistics (int **rsp)
 
       if (nr_blocks > a_sz)
 	{	 
-	  a = xrealloc (a, nr_blocks * sizeof (*a));
+	  a = XRESIZEVEC (int, a, nr_blocks);
 	  do
 	    a[a_sz++] = 0;
 	  while (a_sz != nr_blocks);
@@ -1066,9 +1066,9 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 
   max_iter = PARAM_VALUE (PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS);
 
-  max_hdr = xmalloc (last_basic_block * sizeof (*max_hdr));
+  max_hdr = XNEWVEC (int, last_basic_block);
 
-  order = xmalloc (last_basic_block * sizeof (*order));
+  order = XNEWVEC (int, last_basic_block);
   post_order_compute (order, false, false);
 
   for (i = nblocks - 1; i >= 0; i--)
@@ -1585,7 +1585,7 @@ check_live_1 (int src, rtx x)
 		  int t = bitmap_bit_p (&not_in_df, b->index);
 
 		  /* We can have split blocks, that were recently generated.
-		     such blocks are always outside current region.  */
+		     Such blocks are always outside current region.  */
 		  gcc_assert (!t || (CONTAINING_RGN (b->index)
 				     != CONTAINING_RGN (BB_TO_BLOCK (src))));
 
@@ -1772,11 +1772,11 @@ find_conditional_protection (rtx insn, int load_insn_bb)
 
 /* Returns 1 if the same insn1 that participates in the computation
    of load_insn's address is feeding a conditional branch that is
-   guarding on load_insn. This is true if we find a the two DEF-USE
+   guarding on load_insn. This is true if we find two DEF-USE
    chains:
    insn1 -> ... -> conditional-branch
    insn1 -> ... -> load_insn,
-   and if a flow path exist:
+   and if a flow path exists:
    insn1 -> ... -> conditional-branch -> ... -> load_insn,
    and if insn1 is on the path
    region-entry -> ... -> bb_trg -> ... load_insn.
@@ -2412,10 +2412,10 @@ static struct deps *bb_deps;
 static rtx
 concat_INSN_LIST (rtx copy, rtx old)
 {
-  rtx new = old;
+  rtx new_rtx = old;
   for (; copy ; copy = XEXP (copy, 1))
-    new = alloc_INSN_LIST (XEXP (copy, 0), new);
-  return new;
+    new_rtx = alloc_INSN_LIST (XEXP (copy, 0), new_rtx);
+  return new_rtx;
 }
 
 static void
@@ -2709,7 +2709,7 @@ schedule_region (int rgn)
   current_blocks = RGN_BLOCKS (rgn);
   
   /* See comments in add_block1, for what reasons we allocate +1 element.  */ 
-  ebb_head = xrealloc (ebb_head, (current_nr_blocks + 1) * sizeof (*ebb_head));
+  ebb_head = XRESIZEVEC (int, ebb_head, current_nr_blocks + 1);
   for (bb = 0; bb <= current_nr_blocks; bb++)
     ebb_head[bb] = current_blocks + bb;
 
@@ -3216,8 +3216,10 @@ rest_of_handle_sched2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sched =
+struct rtl_opt_pass pass_sched =
 {
+ {
+  RTL_PASS,
   "sched1",                             /* name */
   gate_handle_sched,                    /* gate */
   rest_of_handle_sched,                 /* execute */
@@ -3232,12 +3234,14 @@ struct tree_opt_pass pass_sched =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'S'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
-struct tree_opt_pass pass_sched2 =
+struct rtl_opt_pass pass_sched2 =
 {
+ {
+  RTL_PASS,
   "sched2",                             /* name */
   gate_handle_sched2,                   /* gate */
   rest_of_handle_sched2,                /* execute */
@@ -3252,7 +3256,7 @@ struct tree_opt_pass pass_sched2 =
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
   TODO_verify_flow |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'R'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 

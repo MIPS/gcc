@@ -199,7 +199,7 @@ gen_stdcall_or_fastcall_suffix (tree decl, tree id, bool fastcall)
 	}
       }
   /* Assume max of 8 base 10 digits in the suffix.  */
-  p = new_str = alloca (1 + strlen (old_str) + 1 + 8 + 1);
+  p = new_str = XALLOCAVEC (char, 1 + strlen (old_str) + 1 + 8 + 1);
   if (fastcall)
     *p++ = FASTCALL_PREFIX;
   sprintf (p, "%s@" HOST_WIDE_INT_PRINT_DEC, old_str, total);
@@ -380,7 +380,7 @@ i386_pe_unique_section (tree decl, int reloc)
   else
     prefix = ".data$";
   len = strlen (name) + strlen (prefix);
-  string = alloca (len + 1);
+  string = XALLOCAVEC (char, len + 1);
   sprintf (string, "%s%s", prefix, name);
 
   DECL_SECTION_NAME (decl) = build_string (len, string);
@@ -420,6 +420,15 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
     flags = SECTION_CODE;
   else if (decl && decl_readonly_section (decl, reloc))
     flags = 0;
+  else if (current_function_decl
+	   && cfun
+	   && crtl->subsections.unlikely_text_section_name
+	   && strcmp (name, crtl->subsections.unlikely_text_section_name) == 0)
+    flags = SECTION_CODE;
+  else if (!decl
+	   && (!current_function_decl || !cfun)
+	   && strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)
+    flags = SECTION_CODE;
   else
     {
       flags = SECTION_WRITE;

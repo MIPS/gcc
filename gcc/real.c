@@ -1471,7 +1471,8 @@ real_to_decimal (char *str, const REAL_VALUE_TYPE *r_orig, size_t buf_size,
       return;
     case rvc_nan:
       /* ??? Print the significand as well, if not canonical?  */
-      strcpy (str, (r.sign ? "-NaN" : "+NaN"));
+      sprintf (str, "%c%cNaN", (r_orig->sign ? '-' : '+'),
+	       (r_orig->signalling ? 'S' : 'Q'));
       return;
     default:
       gcc_unreachable ();
@@ -1743,7 +1744,8 @@ real_to_hexadecimal (char *str, const REAL_VALUE_TYPE *r, size_t buf_size,
       return;
     case rvc_nan:
       /* ??? Print the significand as well, if not canonical?  */
-      strcpy (str, (r->sign ? "-NaN" : "+NaN"));
+      sprintf (str, "%c%cNaN", (r->sign ? '-' : '+'),
+	       (r->signalling ? 'S' : 'Q'));
       return;
     default:
       gcc_unreachable ();
@@ -1811,6 +1813,22 @@ real_from_string (REAL_VALUE_TYPE *r, const char *str)
     }
   else if (*str == '+')
     str++;
+
+  if (!strncmp (str, "QNaN", 4))
+    {
+      get_canonical_qnan (r, sign);
+      return 0;
+    }
+  else if (!strncmp (str, "SNaN", 4))
+    {
+      get_canonical_snan (r, sign);
+      return 0;
+    }
+  else if (!strncmp (str, "Inf", 3))
+    {
+      get_inf (r, sign);
+      return 0;
+    }
 
   if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
     {
@@ -2161,6 +2179,49 @@ times_pten (REAL_VALUE_TYPE *r, int exp)
 
   if (negative)
     do_divide (r, r, &pten);
+}
+
+/* Returns the special REAL_VALUE_TYPE enumerated by E.  */
+
+const REAL_VALUE_TYPE *
+get_real_const (enum real_value_const e)
+{
+  static REAL_VALUE_TYPE value[rv_max];
+
+  gcc_assert (e < rv_max);
+
+  /* Initialize mathematical constants for constant folding builtins.
+     These constants need to be given to at least 160 bits precision.  */
+  if (value[e].cl == rvc_zero)
+    switch (e)
+    {
+    case rv_e:
+      {
+	mpfr_t m;
+	mpfr_init2 (m, SIGNIFICAND_BITS);
+	mpfr_set_ui (m, 1, GMP_RNDN);
+	mpfr_exp (m, m, GMP_RNDN);
+	real_from_mpfr (&value[e], m, NULL_TREE, GMP_RNDN);
+	mpfr_clear (m);
+      }
+      break;
+    case rv_third:
+      real_arithmetic (&value[e], RDIV_EXPR, &dconst1, real_digit (3));
+      break;
+    case rv_sqrt2:
+      {
+	mpfr_t m;
+	mpfr_init2 (m, SIGNIFICAND_BITS);
+	mpfr_sqrt_ui (m, 2, GMP_RNDN);
+	real_from_mpfr (&value[e], m, NULL_TREE, GMP_RNDN);
+	mpfr_clear (m);
+      }
+      break;
+    default:
+      gcc_unreachable();
+    }
+
+  return &value[e];
 }
 
 /* Fills R with +Inf.  */
@@ -3465,7 +3526,7 @@ encode_ibm_extended (const struct real_format *fmt, long *buf,
 
   base_fmt = fmt->qnan_msb_set ? &ieee_double_format : &mips_double_format;
 
-  /* Renormlize R before doing any arithmetic on it.  */
+  /* Renormalize R before doing any arithmetic on it.  */
   normr = *r;
   if (normr.cl == rvc_normal)
     normalize (&normr);
@@ -4218,7 +4279,7 @@ decode_decimal_quad (const struct real_format *fmt ATTRIBUTE_UNUSED,
   decode_decimal128 (fmt, r, buf);
 }
 
-/* Single precision decimal floating point (IEEE 754R). */
+/* Single precision decimal floating point (IEEE 754). */
 const struct real_format decimal_single_format =
   {
     encode_decimal_single,
@@ -4238,7 +4299,7 @@ const struct real_format decimal_single_format =
     false
   };
 
-/* Double precision decimal floating point (IEEE 754R). */
+/* Double precision decimal floating point (IEEE 754). */
 const struct real_format decimal_double_format =
   {
     encode_decimal_double,
@@ -4258,7 +4319,7 @@ const struct real_format decimal_double_format =
     false
   };
 
-/* Quad precision decimal floating point (IEEE 754R). */
+/* Quad precision decimal floating point (IEEE 754). */
 const struct real_format decimal_quad_format =
   {
     encode_decimal_quad,

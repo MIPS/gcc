@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
    frame, so we cannot allow profiling without a frame pointer.  */
 
 #undef SUBTARGET_FRAME_POINTER_REQUIRED
-#define SUBTARGET_FRAME_POINTER_REQUIRED current_function_profile
+#define SUBTARGET_FRAME_POINTER_REQUIRED crtl->profile
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -188,6 +188,12 @@ along with GCC; see the file COPYING3.  If not see
 		   "|%0,_GLOBAL_OFFSET_TABLE_+(.-.LPR%=)}"		\
 	   : "=d"(BASE))
 #endif
+
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#define LIBGCC2_TF_CEXT q
+#define TF_SIZE 113
 
 #undef NEED_INDICATE_EXEC_STACK
 #define NEED_INDICATE_EXEC_STACK 1

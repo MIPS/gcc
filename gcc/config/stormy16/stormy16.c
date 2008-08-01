@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "tree-gimple.h"
+#include "gimple.h"
 #include "df.h"
 #include "ggc.h"
 
@@ -629,7 +629,12 @@ xstormy16_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 
   if (GET_CODE (x) == PLUS
       && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (x, 1), 0))
-    x = XEXP (x, 0);
+    {
+      x = XEXP (x, 0);
+      /* PR 31232: Do not allow INT+INT as an address.  */
+      if (GET_CODE (x) == CONST_INT)
+	return 0;
+    }
   
   if ((GET_CODE (x) == PRE_MODIFY
        && GET_CODE (XEXP (XEXP (x, 1), 1)) == CONST_INT)
@@ -991,7 +996,7 @@ xstormy16_compute_stack_layout (void)
     if (REG_NEEDS_SAVE (regno, ifun))
       layout.register_save_size += UNITS_PER_WORD;
   
-  if (current_function_stdarg)
+  if (cfun->stdarg)
     layout.stdarg_save_size = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD;
   else
     layout.stdarg_save_size = 0;
@@ -1000,13 +1005,13 @@ xstormy16_compute_stack_layout (void)
 		       + layout.register_save_size 
 		       + layout.stdarg_save_size);
   
-  if (current_function_args_size <= 2048 && current_function_args_size != -1)
+  if (crtl->args.size <= 2048 && crtl->args.size != -1)
     {
       if (layout.frame_size + INCOMING_FRAME_SP_OFFSET 
-	  + current_function_args_size <= 2048)
+	  + crtl->args.size <= 2048)
 	layout.fp_minus_ap = layout.frame_size + INCOMING_FRAME_SP_OFFSET;
       else
-	layout.fp_minus_ap = 2048 - current_function_args_size;
+	layout.fp_minus_ap = 2048 - crtl->args.size;
     }
   else
     layout.fp_minus_ap = (layout.stdarg_save_size 
@@ -1345,13 +1350,13 @@ xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   u = build_int_cst (NULL_TREE, INCOMING_FRAME_SP_OFFSET);
   u = fold_convert (TREE_TYPE (count), u);
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (base), t, u);
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (base), base, t);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (base), base, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (count), count, 
+  t = build2 (MODIFY_EXPR, TREE_TYPE (count), count, 
 	      build_int_cst (NULL_TREE,
-			     current_function_args_info * UNITS_PER_WORD));
+			     crtl->args.info * UNITS_PER_WORD));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -1361,8 +1366,8 @@ xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
    Note:  This algorithm is documented in stormy-abi.  */
    
 static tree
-xstormy16_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
-				tree *post_p ATTRIBUTE_UNUSED)
+xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
+				gimple_seq *post_p ATTRIBUTE_UNUSED)
 {
   tree f_base, f_count;
   tree base, count;
@@ -1403,8 +1408,7 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       gimplify_and_add (t, pre_p);
 
       t = build2 (POINTER_PLUS_EXPR, ptr_type_node, base, count_tmp);
-      t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
-      gimplify_and_add (t, pre_p);
+      gimplify_assign (addr, t, pre_p);
 
       t = build1 (GOTO_EXPR, void_type_node, lab_gotaddr);
       gimplify_and_add (t, pre_p);
@@ -1422,7 +1426,7 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       tree r, u;
 
       r = size_int (NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD);
-      u = build2 (GIMPLE_MODIFY_STMT, void_type_node, count_tmp, r);
+      u = build2 (MODIFY_EXPR, TREE_TYPE (count_tmp), count_tmp, r);
 
       t = fold_convert (TREE_TYPE (count), r);
       t = build2 (GE_EXPR, boolean_type_node, count_tmp, t);
@@ -1439,16 +1443,14 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   t = fold_convert (TREE_TYPE (t), fold (t));
   t = fold_build1 (NEGATE_EXPR, TREE_TYPE (t), t);
   t = build2 (POINTER_PLUS_EXPR, TREE_TYPE (base), base, t);
-  t = build2 (GIMPLE_MODIFY_STMT, void_type_node, addr, t);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (addr, t, pre_p);
 
   t = build1 (LABEL_EXPR, void_type_node, lab_gotaddr);
   gimplify_and_add (t, pre_p);
 
   t = fold_convert (TREE_TYPE (count), size_tree);
   t = build2 (PLUS_EXPR, TREE_TYPE (count), count_tmp, t);
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (count), count, t);
-  gimplify_and_add (t, pre_p);
+  gimplify_assign (count, t, pre_p);
   
   addr = fold_convert (build_pointer_type (type), addr);
   return build_va_arg_indirect_ref (addr);

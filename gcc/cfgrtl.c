@@ -76,7 +76,7 @@ static void rtl_delete_block (basic_block);
 static basic_block rtl_redirect_edge_and_branch_force (edge, basic_block);
 static edge rtl_redirect_edge_and_branch (edge, basic_block);
 static basic_block rtl_split_block (basic_block, void *);
-static void rtl_dump_bb (basic_block, FILE *, int);
+static void rtl_dump_bb (basic_block, FILE *, int, int);
 static int rtl_verify_flow_info_1 (void);
 static void rtl_make_forwarder_block (edge);
 
@@ -427,8 +427,10 @@ free_bb_for_insn (void)
   return 0;
 }
 
-struct tree_opt_pass pass_free_cfg =
+struct rtl_opt_pass pass_free_cfg =
 {
+ {
+  RTL_PASS,
   NULL,                                 /* name */
   NULL,                                 /* gate */
   free_bb_for_insn,                     /* execute */
@@ -441,7 +443,7 @@ struct tree_opt_pass pass_free_cfg =
   PROP_cfg,                             /* properties_destroyed */
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
-  0                                     /* letter */
+ }
 };
 
 /* Return RTX to emit after when we want to emit code on the entry of function.  */
@@ -1109,11 +1111,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	  && JUMP_P (BB_END (jump_block))
 	  && !any_condjump_p (BB_END (jump_block))
 	  && (EDGE_SUCC (jump_block, 0)->flags & EDGE_CROSSING))
-	REG_NOTES (BB_END (jump_block)) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP,
-							     NULL_RTX,
-							     REG_NOTES
-							     (BB_END
-							      (jump_block)));
+	add_reg_note (BB_END (jump_block), REG_CROSSING_JUMP, NULL_RTX);
 
       /* Wire edge in.  */
       new_edge = make_edge (e->src, jump_block, EDGE_FALLTHRU);
@@ -1416,8 +1414,7 @@ commit_one_edge_insertion (edge e)
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
 		  && (single_succ_edge (bb)->flags & EDGE_CROSSING))
-		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST
-		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
+		add_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX);
 	    }
 	}
     }
@@ -1513,7 +1510,7 @@ commit_edge_insertions (void)
    at start and end).  */
 
 static void
-rtl_dump_bb (basic_block bb, FILE *outf, int indent)
+rtl_dump_bb (basic_block bb, FILE *outf, int indent, int flags ATTRIBUTE_UNUSED)
 {
   rtx insn;
   rtx last;
@@ -1649,10 +1646,10 @@ print_rtl_with_bb (FILE *outf, const_rtx rtx_first)
       free (in_bb_p);
     }
 
-  if (current_function_epilogue_delay_list != 0)
+  if (crtl->epilogue_delay_list != 0)
     {
       fprintf (outf, "\n;; Insns in epilogue delay list:\n\n");
-      for (tmp_rtx = current_function_epilogue_delay_list; tmp_rtx != 0;
+      for (tmp_rtx = crtl->epilogue_delay_list; tmp_rtx != 0;
 	   tmp_rtx = XEXP (tmp_rtx, 1))
 	print_rtl_single (outf, XEXP (tmp_rtx, 0));
     }
@@ -2744,7 +2741,7 @@ need_fake_edge_p (const_rtx insn)
   if ((CALL_P (insn)
        && !SIBLING_CALL_P (insn)
        && !find_reg_note (insn, REG_NORETURN, NULL)
-       && !CONST_OR_PURE_CALL_P (insn)))
+       && !(RTL_CONST_OR_PURE_CALL_P (insn))))
     return true;
 
   return ((GET_CODE (PATTERN (insn)) == ASM_OPERANDS
@@ -2808,7 +2805,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
 	  e = find_edge (bb, EXIT_BLOCK_PTR);
 	  if (e)
 	    {
-	      insert_insn_on_edge (gen_rtx_USE (VOIDmode, const0_rtx), e);
+	      insert_insn_on_edge (gen_use (const0_rtx), e);
 	      commit_edge_insertions ();
 	    }
 	}

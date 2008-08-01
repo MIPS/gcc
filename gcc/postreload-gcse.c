@@ -1,5 +1,5 @@
 /* Post reload partially redundant load elimination
-   Copyright (C) 2004, 2005, 2006, 2007
+   Copyright (C) 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -758,7 +758,7 @@ record_opr_changes (rtx insn)
 	      }
 	  }
 
-      if (! CONST_OR_PURE_CALL_P (insn))
+      if (! RTL_CONST_OR_PURE_CALL_P (insn))
 	record_last_mem_set_info (insn);
     }
 }
@@ -1269,7 +1269,7 @@ gcse_after_reload_main (rtx f ATTRIBUTE_UNUSED)
 
   memset (&stats, 0, sizeof (stats));
 
-  /* Allocate ememory for this pass.
+  /* Allocate memory for this pass.
      Also computes and initializes the insns' CUIDs.  */
   alloc_mem ();
 
@@ -1318,8 +1318,10 @@ rest_of_handle_gcse2 (void)
   return 0;
 }
 
-struct tree_opt_pass pass_gcse2 =
+struct rtl_opt_pass pass_gcse2 =
 {
+ {
+  RTL_PASS,
   "gcse2",                              /* name */
   gate_handle_gcse2,                    /* gate */
   rest_of_handle_gcse2,                 /* execute */
@@ -1332,7 +1334,7 @@ struct tree_opt_pass pass_gcse2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_verify_rtl_sharing
-  | TODO_verify_flow | TODO_ggc_collect,/* todo_flags_finish */
-  'J'                                   /* letter */
+  | TODO_verify_flow | TODO_ggc_collect /* todo_flags_finish */
+ }
 };
 

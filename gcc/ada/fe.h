@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2007, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2008, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -46,10 +46,7 @@ extern char Fold_Lower[], Fold_Upper[];
 
 /* debug: */
 
-#define Debug_Flag_XX debug__debug_flag_xx
 #define Debug_Flag_NN debug__debug_flag_nn
-
-extern Boolean Debug_Flag_XX;
 extern Boolean Debug_Flag_NN;
 
 /* einfo: We will be setting Esize for types, Component_Bit_Offset for fields,

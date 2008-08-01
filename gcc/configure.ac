@@ -276,6 +276,8 @@ rm -f a.out a.exe b.out
 # Find the native compiler
 AC_PROG_CC
 AM_PROG_CC_C_O
+ACX_PROG_GNAT([-I"$srcdir"/ada])
+
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -297,6 +299,7 @@ AC_SUBST(CFLAGS)
 # Check C compiler features
 # -------------------------
 
+AC_USE_SYSTEM_EXTENSIONS
 AC_PROG_CPP
 AC_C_INLINE
 
@@ -319,13 +322,15 @@ AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 # * overlong strings
 # So, we only use -pedantic if we can disable those warnings.
 
-ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes], [loose_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wc++-compat], [cxx_compat_warn])
-ACX_PROG_CC_WARNING_OPTS([-Wold-style-definition \
-                          -Wmissing-format-attribute], [strict_warn])
-ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long -Wno-variadic-macros \
-				     -Wno-overlength-strings], [strict_warn])
+ACX_PROG_CC_WARNING_OPTS(
+	[m4_do([-W -Wall -Wwrite-strings -Wstrict-prototypes ],
+	       [-Wmissing-prototypes -Wcast-qual])], [loose_warn])
+ACX_PROG_CC_WARNING_OPTS(
+	[m4_do([-Wold-style-definition -Wc++-compat ], 
+	       [-Wmissing-format-attribute])], [strict_warn])
+ACX_PROG_CC_WARNING_ALMOST_PEDANTIC(
+	[m4_do([-Wno-long-long -Wno-variadic-macros ], 
+	       [-Wno-overlength-strings])], [strict_warn])
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual], [strict_warn])
 
 # The above macros do nothing if the compiler is not GCC.  However, the
@@ -348,7 +353,7 @@ AC_ARG_ENABLE(checking,
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
 			  Categories are: yes,no,all,none,release.
-			  Flags are: assert,df,fold,gc,gcac,misc,
+			  Flags are: assert,df,fold,gc,gcac,gimple,misc,
 			  rtlflag,rtl,runtime,tree,valgrind,types.],
 [ac_checking_flags="${enableval}"],[
 # Determine the default checks.
@@ -364,25 +369,25 @@ do
 	# these set all the flags to specific states
 	yes)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking=1 ;
-			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_gc_always_collect= ; ac_gimple_checking=1 ; ac_rtl_checking= ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;
-			ac_types_checking= ;;
+			ac_types_checking=1 ;;
 	no|none)	ac_assert_checking= ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
-			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_gc_always_collect= ; ac_gimple_checking= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking= ;
 			ac_tree_checking= ; ac_valgrind_checking= ;
 			ac_types_checking= ;;
 	all)		ac_assert_checking=1 ; ac_checking=1 ; ac_df_checking=1 ;
 			ac_fold_checking=1 ; ac_gc_checking=1 ;
-			ac_gc_always_collect=1 ; ac_rtl_checking=1 ;
+			ac_gc_always_collect=1 ; ac_gimple_checking=1 ; ac_rtl_checking=1 ;
 			ac_rtlflag_checking=1 ; ac_runtime_checking=1 ;
 			ac_tree_checking=1 ; ac_valgrind_checking= ;
 			ac_types_checking=1 ;;
 	release)	ac_assert_checking=1 ; ac_checking= ; ac_df_checking= ;
 			ac_fold_checking= ; ac_gc_checking= ;
-			ac_gc_always_collect= ; ac_rtl_checking= ;
+			ac_gc_always_collect= ; ac_gimple_checking= ; ac_rtl_checking= ;
 			ac_rtlflag_checking= ; ac_runtime_checking=1 ;
 			ac_tree_checking= ; ac_valgrind_checking= ;
 			ac_types_checking= ;;
@@ -392,6 +397,7 @@ do
 	fold)		ac_fold_checking=1 ;;
 	gc)		ac_gc_checking=1 ;;
 	gcac)		ac_gc_always_collect=1 ;;
+	gimple)		ac_gimple_checking=1 ;;
 	misc)		ac_checking=1 ;;
 	rtl)		ac_rtl_checking=1 ;;
 	rtlflag)	ac_rtlflag_checking=1 ;;
@@ -419,6 +425,12 @@ fi
 if test x$ac_assert_checking != x ; then
   AC_DEFINE(ENABLE_ASSERT_CHECKING, 1,
 [Define if you want assertions enabled.  This is a cheap check.])
+fi
+if test x$ac_gimple_checking != x ; then
+  AC_DEFINE(ENABLE_GIMPLE_CHECKING, 1,
+[Define if you want operations on GIMPLE (the basic data structure of
+the high-level optimizers) to be checked for dynamic type safety at
+runtime.  This is moderately expensive.])
 fi
 GCC_TARGET_TEMPLATE(ENABLE_RUNTIME_CHECKING)
 if test x$ac_runtime_checking != x ; then
@@ -522,15 +534,6 @@ if test x$ac_valgrind_checking != x ; then
 fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
-
-AC_ARG_ENABLE(mapped-location,
-[  --enable-mapped-location   location_t is fileline integer cookie],,
-enable_mapped_location=yes)
-
-if test "$enable_mapped_location" = yes ; then
-  AC_DEFINE(USE_MAPPED_LOCATION, 1,
-[Define if location_t is fileline integer cookie.])
-fi
 
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
@@ -849,7 +852,7 @@ AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 # that we can use it.
 ACX_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[4-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
+  [4.[7-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
@@ -904,20 +907,6 @@ fi
 # --------------------
 # Checks for C headers
 # --------------------
-
-AC_MSG_CHECKING(for GNU C library)
-AC_CACHE_VAL(gcc_cv_glibc,
-[AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
-  [[#include <features.h>]], [[
-#if ! (defined __GLIBC__ || defined __GNU_LIBRARY__)
-#error Not a GNU C library system
-#endif]])],
-  [gcc_cv_glibc=yes],
-  [gcc_cv_glibc=no])])
-AC_MSG_RESULT($gcc_cv_glibc)
-if test $gcc_cv_glibc = yes; then
-  AC_DEFINE(_GNU_SOURCE, 1, [Always define this when using the GNU C Library])
-fi
 
 # Need to reject headers which give warnings, so that the -Werror bootstrap
 # works later. *sigh*  This needs to come before all header checks.
@@ -1008,7 +997,7 @@ define(gcc_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(times clock kill getrlimit setrlimit atoll atoq \
-	sysconf strsignal getrusage nl_langinfo scandir alphasort \
+	sysconf strsignal getrusage nl_langinfo \
 	gettimeofday mbstowcs wcswidth mmap mincore setlocale \
 	gcc_UNLOCKED_FUNCS)
 
@@ -1031,6 +1020,7 @@ int main()
 fi
 
 AC_CHECK_TYPE(ssize_t, int)
+AC_CHECK_TYPE(caddr_t, char *)
 
 # Try to determine the array type of the second argument of getgroups
 # for the target system (int or gid_t).
@@ -1098,7 +1088,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/resource.h>
 #endif
 ]], [[rlim_t l = 0;]])],[],[AC_DEFINE([rlim_t],[long],
-[Define to \`long' if <sys/resource.h> doesn't define.])])
+[Define to `long' if <sys/resource.h> doesn't define.])])
 
 # On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
 # FREAD and FWRITE macros.  Fortunately, for GCC's single usage of ldgetname
@@ -1172,9 +1162,29 @@ AC_SUBST(objext)
 AC_ARG_ENABLE(sjlj-exceptions,
 [  --enable-sjlj-exceptions
                           arrange to use setjmp/longjmp exception handling],
-[sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
-AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
-  [Define 0/1 to force the choice for exception handling model.])])
+[case $target in
+  *-*-hpux10*)
+    if test $enableval != yes; then
+      AC_MSG_WARN([dwarf2 exceptions not supported, sjlj exceptions forced])
+      enableval=yes
+    fi
+    ;;
+esac
+force_sjlj_exceptions=yes],
+[case $target in
+  *-*-hpux10*)
+    force_sjlj_exceptions=yes
+    enableval=yes
+    ;;
+  *)
+    force_sjlj_exceptions=no
+    ;;
+esac])
+if test $force_sjlj_exceptions = yes; then
+  sjlj=`if test $enableval = yes; then echo 1; else echo 0; fi`
+  AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
+    [Define 0/1 to force the choice for exception handling model.])
+fi
 
 # For platforms with the unwind ABI which includes an unwind library,
 # libunwind, we can choose to use the system libunwind.
@@ -1368,8 +1378,12 @@ fi
 # Make gthr-default.h if we have a thread file.
 gthread_flags=
 if test $thread_file != single; then
-  rm -f gthr-default.h
-  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h
+  echo "#include \"gthr-${thread_file}.h\"" > gthr-default.h-t
+  if diff gthr-default.h-t gthr-default.h 2>/dev/null; then
+    rm -f gthr-default.h-t
+  else
+    mv -f gthr-default.h-t gthr-default.h
+  fi
   gthread_flags=-DHAVE_GTHR_DEFAULT
 fi
 AC_SUBST(gthread_flags)
@@ -1460,6 +1474,7 @@ else
 	esac
 	saved_CFLAGS="${CFLAGS}"
 	CC="${CC_FOR_BUILD}" CFLAGS="${CFLAGS_FOR_BUILD}" \
+	LDFLAGS="${LDFLAGS_FOR_BUILD}" \
 	${realsrcdir}/configure \
 		--enable-languages=${enable_languages-all} \
 		--target=$target_alias --host=$build_alias --build=$build_alias
@@ -1527,6 +1542,10 @@ esac
 AC_ARG_ENABLE(secureplt,
 [  --enable-secureplt      enable -msecure-plt by default for PowerPC],
 [], [])
+
+AC_ARG_ENABLE(cld,
+[  --enable-cld            enable -mcld by default for 32bit x86], [],
+[enable_cld=no])
 
 # Windows32 Registry support for specifying GCC installation paths.
 AC_ARG_ENABLE(win32-registry,
@@ -1737,7 +1756,7 @@ fi
 # then define inhibit_libc in LIBGCC2_CFLAGS.
 # This prevents libgcc2 from containing any code which requires libc
 # support.
-inhibit_libc=false
+: ${inhibit_libc=false}
 if { { test x$host != x$target && test "x$with_sysroot" = x ; } ||
        test x$with_newlib = xyes ; } &&
      { test "x$with_headers" = x || test "x$with_headers" = xno ; } ; then
@@ -1752,6 +1771,7 @@ AC_SUBST(inhibit_libc)
 # These are the normal (build=host) settings:
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
+BUILD_LDFLAGS='$(LDFLAGS)'	AC_SUBST(BUILD_LDFLAGS)
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
 # Possibly disable fixproto, on a per-target basis.
@@ -1769,6 +1789,7 @@ AC_SUBST(STMP_FIXPROTO)
 if test x$build != x$host || test "x$coverage_flags" != x
 then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
+    BUILD_LDFLAGS='$(LDFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
 	if test "x$STMP_FIXPROTO" != x; then
@@ -1815,6 +1836,21 @@ esac
 # ---------------------------
 # Assembler & linker features
 # ---------------------------
+
+# During stage 2, ld is actually gcc/collect-ld, which is a small script to
+# discern between when to use prev-ld/ld-new and when to use ld/ld-new.
+# However when ld-new is first executed from the build tree, libtool will
+# relink it as .libs/lt-ld-new, so that it can give it an RPATH that refers
+# to the build tree.  While doing this we need to use the previous-stage
+# linker, or we have an infinite loop.  The presence of a shell script as
+# ld/ld-new, and the fact that the script *uses ld itself*, is what confuses
+# the gcc/collect-ld script.  So we need to know how libtool works, or
+# exec-tool will fail.
+
+m4_defun([_LT_CONFIG_COMMANDS], [])
+AC_PROG_LIBTOOL
+AC_SUBST(objdir)
+AC_SUBST(enable_fast_install)
 
 # Identify the assembler which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the assembler
@@ -3037,8 +3073,9 @@ esac
 # version to the per-target configury.
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
-  | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* | spu-*-*)
+  | x86_64*-*-* | hppa*-*-* | arm*-*-* \
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-* | score*-*-* \
+  | spu-*-* | fido*-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3566,11 +3603,32 @@ changequote(,)dnl
         fi
         subdir="`echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
         subdirs="$subdirs $subdir"
+
+	# $gcc_subdir is where the gcc integration files are to be found
+	# for a language, both for internal compiler purposes (compiler
+	# sources implementing front-end to GCC tree converters), and for
+	# build infrastructure purposes (Make-lang.in, etc.)
+	#
+	# This will be <subdir> (relative to $srcdir) if a line like 
+	# gcc_subdir="<subdir>" or gcc_subdir=<subdir>
+	# is found in <langdir>/config-lang.in, and will remain <langdir>
+	# otherwise.
+	#
+	# Except for the language alias (fetched above), the regular
+	# "config-lang.in" contents are always retrieved from $gcc_subdir,
+	# so a <langdir>/config-lang.in setting gcc_subdir typically sets
+	# only this and the language alias.
+
+        gcc_subdir=`sed -n -e 's,^gcc_subdir=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^gcc_subdir=\([^   ]*\).*$,\1,p' $lang`
+        if [ "$gcc_subdir" = "" ]; then
+           gcc_subdir="$subdir"
+        fi
+
         case ",$enable_languages," in
         *,$lang_alias,*)
             all_selected_languages="$all_selected_languages $lang_alias"
-	    if test -f $srcdir/$subdir/lang-specs.h; then
-	        lang_specs_files="$lang_specs_files $srcdir/$subdir/lang-specs.h"
+            if test -f $srcdir/$gcc_subdir/lang-specs.h; then
+                lang_specs_files="$lang_specs_files $srcdir/$gcc_subdir/lang-specs.h"
 	    fi
 	    ;;
         esac
@@ -3582,10 +3640,10 @@ changequote([,])dnl
 	outputs=
 	gtfiles=
 	subdir_requires=
-	. ${srcdir}/$subdir/config-lang.in
+	. ${srcdir}/$gcc_subdir/config-lang.in
 	if test "x$language" = x
 	then
-		echo "${srcdir}/$subdir/config-lang.in doesn't set \$language." 1>&2
+		echo "${srcdir}/$gcc_subdir/config-lang.in doesn't set \$language." 1>&2
 		exit 1
 	fi
 
@@ -3602,15 +3660,15 @@ changequote([,])dnl
 	esac
 	$ok || continue
 
-	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$subdir/Make-lang.in"
-	if test -f $srcdir/$subdir/lang.opt; then
-	    lang_opt_files="$lang_opt_files $srcdir/$subdir/lang.opt"
+	all_lang_makefrags="$all_lang_makefrags \$(srcdir)/$gcc_subdir/Make-lang.in"
+	if test -f $srcdir/$gcc_subdir/lang.opt; then
+	    lang_opt_files="$lang_opt_files $srcdir/$gcc_subdir/lang.opt"
 	fi
-	if test -f $srcdir/$subdir/$subdir-tree.def; then
-	    lang_tree_files="$lang_tree_files $srcdir/$subdir/$subdir-tree.def"
+	if test -f $srcdir/$gcc_subdir/$subdir-tree.def; then
+	    lang_tree_files="$lang_tree_files $srcdir/$gcc_subdir/$subdir-tree.def"
 	fi
-	if test -f ${srcdir}/$subdir/Makefile.in
-		then all_lang_makefiles="$subdir/Makefile"
+	if test -f ${srcdir}/$gcc_subdir/Makefile.in
+		then all_lang_makefiles="$gcc_subdir/Makefile"
 	fi
 	all_languages="$all_languages $language"
 	all_compilers="$all_compilers $compilers"
@@ -3692,9 +3750,6 @@ else
 fi)
 AC_SUBST(slibdir)
 
-objdir=`${PWDCMD-pwd}`
-AC_SUBST(objdir)
-
 AC_ARG_WITH(datarootdir,
 [  --with-datarootdir=DIR  Use DIR as the data root [[PREFIX/share]]],
 datarootdir="\${prefix}/$with_datarootdir",
@@ -3727,6 +3782,7 @@ AC_SUBST(build_install_headers_dir)
 AC_SUBST(build_xm_file_list)
 AC_SUBST(build_xm_include_list)
 AC_SUBST(build_xm_defines)
+AC_SUBST(build_file_translate)
 AC_SUBST(check_languages)
 AC_SUBST(cpp_install_dir)
 AC_SUBST(xmake_file)
@@ -3765,6 +3821,7 @@ AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
+AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)

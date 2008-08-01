@@ -1172,10 +1172,10 @@ frv_stack_info (void)
 	  for (regno = first; regno <= last; regno++)
 	    {
 	      if ((df_regs_ever_live_p (regno) && !call_used_regs[regno])
-		  || (current_function_calls_eh_return
+		  || (crtl->calls_eh_return
 		      && (regno >= FIRST_EH_REGNUM && regno <= LAST_EH_REGNUM))
 		  || (!TARGET_FDPIC && flag_pic
-		      && cfun->uses_pic_offset_table && regno == PIC_REGNO))
+		      && crtl->uses_pic_offset_table && regno == PIC_REGNO))
 		{
 		  info_ptr->save_p[regno] = REG_SAVE_1WORD;
 		  size_1word += UNITS_PER_WORD;
@@ -1195,7 +1195,7 @@ frv_stack_info (void)
 	      || cfun->machine->frame_needed
               || (TARGET_LINKED_FP && frame_pointer_needed)
               || (!TARGET_FDPIC && flag_pic
-		  && cfun->uses_pic_offset_table))
+		  && crtl->uses_pic_offset_table))
 	    {
 	      info_ptr->save_p[LR_REGNO] = REG_SAVE_1WORD;
 	      size_1word += UNITS_PER_WORD;
@@ -1208,7 +1208,7 @@ frv_stack_info (void)
 	      /* If this is a stdarg function with a non varardic
 		 argument split between registers and the stack,
 		 adjust the saved registers downward.  */
-	      last -= (ADDR_ALIGN (cfun->pretend_args_size, UNITS_PER_WORD)
+	      last -= (ADDR_ALIGN (crtl->args.pretend_args_size, UNITS_PER_WORD)
 		       / UNITS_PER_WORD);
 
 	      for (regno = first; regno <= last; regno++)
@@ -1268,13 +1268,13 @@ frv_stack_info (void)
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);
 
-  info_ptr->parameter_size = ADDR_ALIGN (cfun->outgoing_args_size, alignment);
+  info_ptr->parameter_size = ADDR_ALIGN (crtl->outgoing_args_size, alignment);
   info_ptr->regs_size = ADDR_ALIGN (info_ptr->regs_size_2words
 				    + info_ptr->regs_size_1word,
 				    alignment);
   info_ptr->vars_size = ADDR_ALIGN (get_frame_size (), alignment);
 
-  info_ptr->pretend_size = cfun->pretend_args_size;
+  info_ptr->pretend_size = crtl->args.pretend_args_size;
 
   /* Work out the size of the frame, excluding the header.  Both the frame
      body and register parameter area will be dword-aligned.  */
@@ -1682,7 +1682,7 @@ frv_frame_access (frv_frame_accessor_t *accessor, rtx reg, int stack_offset)
 	}
       else
 	emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
-      emit_insn (gen_rtx_USE (VOIDmode, reg));
+      emit_use (reg);
     }
   else
     {
@@ -1864,7 +1864,7 @@ frv_expand_prologue (void)
     emit_insn (gen_blockage ());
 
   /* Set up pic register/small data register for this function.  */
-  if (!TARGET_FDPIC && flag_pic && cfun->uses_pic_offset_table)
+  if (!TARGET_FDPIC && flag_pic && crtl->uses_pic_offset_table)
     emit_insn (gen_pic_prologue (gen_rtx_REG (Pmode, PIC_REGNO),
 				 gen_rtx_REG (Pmode, LR_REGNO),
 				 gen_rtx_REG (SImode, OFFSET_REGNO)));
@@ -1946,7 +1946,7 @@ frv_expand_epilogue (bool emit_return)
   if (frame_pointer_needed)
     {
       emit_insn (gen_rtx_SET (VOIDmode, fp, gen_rtx_MEM (Pmode, fp)));
-      emit_insn (gen_rtx_USE (VOIDmode, fp));
+      emit_use (fp);
     }
 
   /* Deallocate the stack frame.  */
@@ -1957,7 +1957,7 @@ frv_expand_epilogue (bool emit_return)
     }
 
   /* If this function uses eh_return, add the final stack adjustment now.  */
-  if (current_function_calls_eh_return)
+  if (crtl->calls_eh_return)
     emit_insn (gen_stack_adjust (sp, sp, EH_RETURN_STACKADJ_RTX));
 
   if (emit_return)
@@ -1972,7 +1972,7 @@ frv_expand_epilogue (bool emit_return)
 	  emit_move_insn (lr, return_addr);
 	}
 
-      emit_insn (gen_rtx_USE (VOIDmode, lr));
+      emit_use (lr);
     }
 }
 
@@ -2110,7 +2110,7 @@ frv_frame_pointer_required (void)
   if (!current_function_sp_is_unchanging)
     return TRUE;
 
-  if (!TARGET_FDPIC && flag_pic && cfun->uses_pic_offset_table)
+  if (!TARGET_FDPIC && flag_pic && crtl->uses_pic_offset_table)
     return TRUE;
 
   if (profile_flag)
@@ -2194,7 +2194,7 @@ static void
 frv_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   tree t;
-  int num = cfun->args_info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
+  int num = crtl->args.info - FIRST_ARG_REGNUM - FRV_NUM_ARG_REGS;
 
   nextarg = gen_rtx_PLUS (Pmode, virtual_incoming_args_rtx,
 			  GEN_INT (UNITS_PER_WORD * num));
@@ -2202,12 +2202,12 @@ frv_expand_builtin_va_start (tree valist, rtx nextarg)
   if (TARGET_DEBUG_ARG)
     {
       fprintf (stderr, "va_start: args_info = %d, num = %d\n",
-	       cfun->args_info, num);
+	       crtl->args.info, num);
 
       debug_rtx (nextarg);
     }
 
-  t = build2 (GIMPLE_MODIFY_STMT, TREE_TYPE (valist), valist,
+  t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
 	      fold_convert (TREE_TYPE (valist),
 			    make_tree (sizetype, nextarg)));
   TREE_SIDE_EFFECTS (t) = 1;
@@ -3799,7 +3799,7 @@ frv_expand_fdpic_call (rtx *operands, bool ret_value, bool sibcall)
 	x = gen_symGOTOFF2reg (dest, addr, OUR_FDPIC_REG,
 			       GEN_INT (R_FRV_FUNCDESC_GOTOFF12));
       emit_insn (x);
-      cfun->uses_pic_offset_table = TRUE;
+      crtl->uses_pic_offset_table = TRUE;
       addr = dest;
     }
   else if (GET_CODE (addr) == SYMBOL_REF)
@@ -4160,7 +4160,7 @@ frv_emit_movsi (rtx dest, rtx src)
 					   gen_rtx_REG (Pmode, base_regno),
 					   GEN_INT (R_FRV_GPREL12)));
       if (base_regno == PIC_REGNO)
-	cfun->uses_pic_offset_table = TRUE;
+	crtl->uses_pic_offset_table = TRUE;
       return TRUE;
     }
 
@@ -4204,7 +4204,7 @@ frv_emit_movsi (rtx dest, rtx src)
 	  break;
 	}
       emit_insn (x);
-      cfun->uses_pic_offset_table = TRUE;
+      crtl->uses_pic_offset_table = TRUE;
       return TRUE;
     }
 
@@ -5999,7 +5999,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
 		goto fail;
 	    }
 
-	  frv_ifcvt_add_insn (gen_rtx_USE (VOIDmode, dest), insn, FALSE);
+	  frv_ifcvt_add_insn (gen_use (dest), insn, FALSE);
 	}
 
       /* If we are just loading a constant created for a nested conditional
@@ -6950,7 +6950,7 @@ frv_assemble_integer (rtx value, unsigned int size, int aligned_p)
 static struct machine_function *
 frv_init_machine_status (void)
 {
-  return ggc_alloc_cleared (sizeof (struct machine_function));
+  return GGC_CNEW (struct machine_function);
 }
 
 /* Implement TARGET_SCHED_ISSUE_RATE.  */
@@ -7525,7 +7525,8 @@ frv_sort_insn_group_1 (enum frv_insn_group group,
 static int
 frv_compare_insns (const void *first, const void *second)
 {
-  const rtx *insn1 = first, *insn2 = second;
+  const rtx *const insn1 = (rtx const *) first,
+    *const insn2 = (rtx const *) second;
   return frv_insn_unit (*insn1) - frv_insn_unit (*insn2);
 }
 
@@ -7758,7 +7759,7 @@ frv_extract_membar (struct frv_io *io, rtx insn)
 static void
 frv_io_check_address (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  rtx *other = data;
+  rtx *other = (rtx *) data;
 
   if (REG_P (x) && *other != 0 && reg_overlap_mentioned_p (x, *other))
     *other = 0;
@@ -7770,7 +7771,7 @@ frv_io_check_address (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 static void
 frv_io_handle_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 {
-  HARD_REG_SET *set = data;
+  HARD_REG_SET *set = (HARD_REG_SET *) data;
   unsigned int regno;
 
   if (REG_P (x))
@@ -7784,7 +7785,7 @@ frv_io_handle_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
 static int
 frv_io_handle_use_1 (rtx *x, void *data)
 {
-  HARD_REG_SET *set = data;
+  HARD_REG_SET *set = (HARD_REG_SET *) data;
   unsigned int regno;
 
   if (REG_P (*x))
@@ -8005,8 +8006,8 @@ frv_optimize_membar (void)
   rtx *last_membar;
 
   compute_bb_for_insn ();
-  first_io = xcalloc (last_basic_block, sizeof (struct frv_io));
-  last_membar = xcalloc (last_basic_block, sizeof (rtx));
+  first_io = XCNEWVEC (struct frv_io, last_basic_block);
+  last_membar = XCNEWVEC (rtx, last_basic_block);
 
   FOR_EACH_BB (bb)
     frv_optimize_membar_local (bb, &first_io[bb->index],
@@ -9099,8 +9100,8 @@ frv_expand_mdpackh_builtin (tree call, rtx target)
 
   /* The high half of each word is not explicitly initialized, so indicate
      that the input operands are not live before this point.  */
-  emit_insn (gen_rtx_CLOBBER (DImode, op0));
-  emit_insn (gen_rtx_CLOBBER (DImode, op1));
+  emit_clobber (op0);
+  emit_clobber (op1);
 
   /* Move each argument into the low half of its associated input word.  */
   emit_move_insn (simplify_gen_subreg (HImode, op0, DImode, 2), arg1);

@@ -600,6 +600,7 @@ enum reg_class
 #define REG_CLASS_FROM_LETTER(C)		\
   (						\
    (C) == 'a' ? ACR_REGS :			\
+   (C) == 'b' ? GENNONACR_REGS :		\
    (C) == 'h' ? MOF_REGS :			\
    (C) == 'x' ? SPECIAL_REGS :			\
    (C) == 'c' ? CC0_REGS :			\
@@ -667,7 +668,7 @@ enum reg_class
 
 /* We are now out of letters; we could use ten more.  This forces us to
    use C-code in the 'md' file.  FIXME: Use some EXTRA_CONSTRAINTS.  */
-#define CONST_OK_FOR_LETTER_P(VALUE, C)			\
+#define CRIS_CONST_OK_FOR_LETTER_P(VALUE, C)		\
  (							\
   /* MOVEQ, CMPQ, ANDQ, ORQ.  */			\
   (C) == 'I' ? (VALUE) >= -32 && (VALUE) <= 31 :	\
@@ -689,6 +690,16 @@ enum reg_class
   /* A 16-bit number signed *or* unsigned.  */		\
   (C) == 'P' ? (VALUE) >= -32768 && (VALUE) <= 65535 :	\
   0)
+
+#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, S)	\
+ (						\
+  ((C) != 'K' || (S)[1] == 'c')			\
+   ? CRIS_CONST_OK_FOR_LETTER_P (VALUE, C) :	\
+  ((C) == 'K' && (S)[1] == 'p')			\
+   ? exact_log2 (VALUE) >= 0 :			\
+  0)
+
+#define CONSTRAINT_LEN(C, S) ((C) == 'K' ? 2 : DEFAULT_CONSTRAINT_LEN (C, S))
 
 /* It is really simple to make up a 0.0; it is the same as int-0 in
    IEEE754.  */
@@ -921,14 +932,6 @@ struct cum_args {int regs;};
 
 
 /* Node: Aggregate Return */
-
-#if 0
-/* FIXME: Let's try this some time, so we return structures in registers.
-   We would cast the result of int_size_in_bytes to unsigned, so we will
-   get a huge number for "structures" of variable size (-1).  */
-#define RETURN_IN_MEMORY(TYPE) \
- ((unsigned) int_size_in_bytes (TYPE) > CRIS_MAX_ARGS_IN_REGS * UNITS_PER_WORD)
-#endif
 
 #define CRIS_STRUCT_VALUE_REGNUM ((CRIS_FIRST_ARG_REG) - 1)
 

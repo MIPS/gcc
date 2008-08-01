@@ -307,12 +307,6 @@ struct deps
      the call.  */
   enum { not_post_call, post_call, post_call_initial } in_post_call_group_p;
 
-  /* Set to the tail insn of the outermost libcall block.
-
-     When nonzero, we will mark each insn processed by sched_analyze_insn
-     with SCHED_GROUP_P to ensure libcalls are scheduled as a unit.  */
-  rtx libcall_block_tail_insn;
-
   /* The last debug insn we've seen.  */
   rtx last_debug_insn;
 

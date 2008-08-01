@@ -1,3 +1,36 @@
+2008-07-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	Merged with trunk @138264.
+	* common.opt (ftree-coalesce-vars): Don't use negative values.
+	* tree-ssa-copyrename.c (copy_rename_partition_coalesce): Adjust.
+	* tree-cfg.c (verify_expr): Moved debug bind code...
+	(verify_stmt): ... here.
+	* gimple.def (GIMPLE_DEBUG): New.
+	* gimple.h (gsi_next_nondebug, gsi_prev_nondebug,
+	gsi_start_bb_nondebug, gsi_last_bb_nondebug): New.
+	(gimple_debug_bind_get_var, gimple_debug_bind_get_value): New.
+	(gimple_debug_bind_set_var, gimple_debug_bind_set_value): New.
+	(gimple_build_debug_bind, gimple_build_debug_bind_stat): New.
+	* tree.h (IS_DEBUG_STMT, VAR_DEBUG_VALUE_SET_VAR,
+	VAR_DEBUG_VALUE_VAR, VAR_DEBUG_VALUE_VALUE): Adjust.
+	* tree-inline.c (estimate_num_insns): Handle GIMPLE_DEBUG.
+	* gimple.c (empty_body_p): Ignore debug stmts.
+	(gimple_build_debug_bind_stat): New.
+	(gss_for_code): Add GIMPLE_DEBUG.
+	(gimple_has_side_effects, gimple_rhs_has_side_effects): Never for
+	debug stmts.
+	* tree.c (build_var_debug_value_stat): Delete.
+	* tree-ssa-sink.c (statement_sink_location): Tuplify.
+	* tree-dump.c (dequeue_and_dump): Remove VAR_DEBUG_VALUE support.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* gimple-pretty-print.c (dump_gimple_debug): New.
+	(dump_gimple_stmt): Use it.
+	* tree-into-ssa.c (adjust_debug_stmts_for_var_def_move): Avoid
+	zeroed-out SSA_NAMEs when re-creating rhs trees out of gimple
+	assign.
+	* var-tracking.c (count_uses): Preserve value of MEM address
+	before that of the MEM itself.
+
 2008-07-29  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c (find_mem_expr_in_1pdv): New.
@@ -293,6 +326,17 @@
 2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* haifa-sched.c (move_insn): Revert previous change.
+
+2008-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* df-scan.c (df_ref_chain_change_bb): Simplify.
+	(df_insn_change_bb): Add new_bb argument.  Simplify.  Call
+	set_block_for_insn if there's any change.
+	* df.h ((df_insn_change_bb): Fix prototype.
+	* cfgrtl.c (update_bb_for_insn_chain): Pass bb to
+	df_insn_change_bb, don't call set_block_for_insn.
+	* emit-rtl.c (reorder_insns): Likewise.
+	* haifa-sched.c (move_insn): Likewise.
 
 2008-02-27  Alexandre Oliva  <aoliva@redhat.com>
 

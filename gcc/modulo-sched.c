@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006, 2007
+   Copyright (C) 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -965,7 +965,7 @@ sms_schedule (void)
       if (single_exit (loop)->count)
 	trip_count = latch_edge->count / single_exit (loop)->count;
 
-      /* Perfrom SMS only on loops that their average count is above threshold.  */
+      /* Perform SMS only on loops that their average count is above threshold.  */
 
       if ( latch_edge->count
           && (latch_edge->count < single_exit (loop)->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD))
@@ -1045,7 +1045,7 @@ sms_schedule (void)
       if (! (g = create_ddg (bb, 0)))
         {
           if (dump_file)
-	    fprintf (dump_file, "SMS doloop\n");
+	    fprintf (dump_file, "SMS create_ddg failed\n");
 	  continue;
         }
 
@@ -1587,18 +1587,17 @@ get_sched_window (partial_schedule_ptr ps, int *nodes_order, int i,
 
 /* Calculate MUST_PRECEDE/MUST_FOLLOW bitmaps of U_NODE; which is the
    node currently been scheduled.  At the end of the calculation
-   MUST_PRECEDE/MUST_FOLLOW contains all predecessors/successors of U_NODE
-   which are in SCHED_NODES (already scheduled nodes) and scheduled at
-   the same row as the first/last row of U_NODE's scheduling window.
+   MUST_PRECEDE/MUST_FOLLOW contains all predecessors/successors of
+   U_NODE which are (1) already scheduled in the first/last row of
+   U_NODE's scheduling window, (2) whose dependence inequality with U
+   becomes an equality when U is scheduled in this same row, and (3)
+   whose dependence latency is zero.
+
    The first and last rows are calculated using the following parameters:
    START/END rows - The cycles that begins/ends the traversal on the window;
    searching for an empty cycle to schedule U_NODE.
    STEP - The direction in which we traverse the window.
-   II - The initiation interval.
-   TODO: We can add an insn to the must_precede/must_follow bitmap only
-   if it has tight dependence to U and they are both scheduled in the
-   same row.  The current check is more conservative and content with
-   the fact that both U and the insn are scheduled in the same row.  */
+   II - The initiation interval.  */
 
 static void
 calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
@@ -1607,7 +1606,6 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 {
   ddg_edge_ptr e;
   int first_cycle_in_window, last_cycle_in_window;
-  int first_row_in_window, last_row_in_window;
 
   gcc_assert (must_precede && must_follow);
 
@@ -1621,18 +1619,27 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
   first_cycle_in_window = (step == 1) ? start : end - step;
   last_cycle_in_window = (step == 1) ? end - step : start;
 
-  first_row_in_window = SMODULO (first_cycle_in_window, ii);
-  last_row_in_window = SMODULO (last_cycle_in_window, ii);
-
   sbitmap_zero (must_precede);
   sbitmap_zero (must_follow);
 
   if (dump_file)
     fprintf (dump_file, "\nmust_precede: ");
 
+  /* Instead of checking if:
+      (SMODULO (SCHED_TIME (e->src), ii) == first_row_in_window)
+      && ((SCHED_TIME (e->src) + e->latency - (e->distance * ii)) ==
+             first_cycle_in_window)
+      && e->latency == 0
+     we use the fact that latency is non-negative:
+      SCHED_TIME (e->src) - (e->distance * ii) <=
+      SCHED_TIME (e->src) + e->latency - (e->distance * ii)) <=
+      first_cycle_in_window
+     and check only if
+      SCHED_TIME (e->src) - (e->distance * ii) == first_cycle_in_window  */
   for (e = u_node->in; e != 0; e = e->next_in)
     if (TEST_BIT (sched_nodes, e->src->cuid)
-	&& (SMODULO (SCHED_TIME (e->src), ii) == first_row_in_window))
+	&& ((SCHED_TIME (e->src) - (e->distance * ii)) ==
+             first_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->src->cuid);
@@ -1643,9 +1650,21 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
   if (dump_file)
     fprintf (dump_file, "\nmust_follow: ");
 
+  /* Instead of checking if:
+      (SMODULO (SCHED_TIME (e->dest), ii) == last_row_in_window)
+      && ((SCHED_TIME (e->dest) - e->latency + (e->distance * ii)) ==
+             last_cycle_in_window)
+      && e->latency == 0
+     we use the fact that latency is non-negative:
+      SCHED_TIME (e->dest) + (e->distance * ii) >=
+      SCHED_TIME (e->dest) - e->latency + (e->distance * ii)) >= 
+      last_cycle_in_window
+     and check only if
+      SCHED_TIME (e->dest) + (e->distance * ii) == last_cycle_in_window  */
   for (e = u_node->out; e != 0; e = e->next_out)
     if (TEST_BIT (sched_nodes, e->dest->cuid)
-	&& (SMODULO (SCHED_TIME (e->dest), ii) == last_row_in_window))
+	&& ((SCHED_TIME (e->dest) + (e->distance * ii)) ==
+             last_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->dest->cuid);
@@ -1661,7 +1680,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
    parameters to decide if that's possible:
    PS - The partial schedule.
    U - The serial number of U_NODE.
-   NUM_SPLITS - The number of row spilts made so far.
+   NUM_SPLITS - The number of row splits made so far.
    MUST_PRECEDE - The nodes that must precede U_NODE. (only valid at
    the first row of the scheduling window)
    MUST_FOLLOW - The nodes that must follow U_NODE. (only valid at the
@@ -1669,7 +1688,7 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
 
 static bool
 try_scheduling_node_in_cycle (partial_schedule_ptr ps, ddg_node_ptr u_node,
-			      int u, int row, sbitmap sched_nodes,
+			      int u, int cycle, sbitmap sched_nodes,
 			      int *num_splits, sbitmap must_precede,
 			      sbitmap must_follow)
 {
@@ -1677,16 +1696,16 @@ try_scheduling_node_in_cycle (partial_schedule_ptr ps, ddg_node_ptr u_node,
   bool success = 0;
 
   verify_partial_schedule (ps, sched_nodes);
-  psi = ps_add_node_check_conflicts (ps, u_node, row,
+  psi = ps_add_node_check_conflicts (ps, u_node, cycle,
 				     must_precede, must_follow);
   if (psi)
     {
-      SCHED_TIME (u_node) = row;
+      SCHED_TIME (u_node) = cycle;
       SET_BIT (sched_nodes, u);
       success = 1;
       *num_splits = 0;
       if (dump_file)
-	fprintf (dump_file, "Scheduled w/o split in %d\n", row);
+	fprintf (dump_file, "Scheduled w/o split in %d\n", cycle);
 
     }
 
@@ -2106,7 +2125,7 @@ order_nodes_of_sccs (ddg_all_sccs_ptr all_sccs, int * node_order)
   sbitmap_zero (prev_sccs);
   sbitmap_ones (ones);
 
-  /* Perfrom the node ordering starting from the SCC with the highest recMII.
+  /* Perform the node ordering starting from the SCC with the highest recMII.
      For each SCC order the nodes according to their ASAP/ALAP/HEIGHT etc.  */
   for (i = 0; i < all_sccs->num_sccs; i++)
     {
@@ -2472,7 +2491,7 @@ print_partial_schedule (partial_schedule_ptr ps, FILE *dump)
     {
       ps_insn_ptr ps_i = ps->rows[i];
 
-      fprintf (dump, "\n[CYCLE %d ]: ", i);
+      fprintf (dump, "\n[ROW %d ]: ", i);
       while (ps_i)
 	{
 	  fprintf (dump, "%d, ",
@@ -2721,7 +2740,7 @@ ps_has_conflicts (partial_schedule_ptr ps, int from, int to)
 	    return true;
 
 	  /* Update the DFA state and return with failure if the DFA found
-	     recource conflicts.  */
+	     resource conflicts.  */
 	  if (state_transition (curr_state, insn) >= 0)
 	    return true;
 
@@ -2852,8 +2871,10 @@ rest_of_handle_sms (void)
   return 0;
 }
 
-struct tree_opt_pass pass_sms =
+struct rtl_opt_pass pass_sms =
 {
+ {
+  RTL_PASS,
   "sms",                                /* name */
   gate_handle_sms,                      /* gate */
   rest_of_handle_sms,                   /* execute */
@@ -2867,7 +2888,7 @@ struct tree_opt_pass pass_sms =
   TODO_dump_func,                       /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'm'                                   /* letter */
+  TODO_ggc_collect                      /* todo_flags_finish */
+ }
 };
 
