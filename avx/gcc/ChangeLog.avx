@@ -1,3 +1,9 @@
+2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (avx_maskloadp<avxmodesuffixf2c><avxmodesuffix>):
+	Add (match_dup 0).
+	(avx_maskstorep<avxmodesuffixf2c><avxmodesuffix>): Likewise.
+
 2008-07-26  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386-c.c (ix86_target_macros_internal): Handle

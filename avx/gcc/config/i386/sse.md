@@ -11658,7 +11658,8 @@
   [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
 	(unspec:AVXMODEF2P
 	  [(match_operand:AVXMODEF2P 1 "memory_operand" "m")
-	   (match_operand:AVXMODEF2P 2 "register_operand" "x")]
+	   (match_operand:AVXMODEF2P 2 "register_operand" "x")
+	   (match_dup 0)]
 	  UNSPEC_MASKLOAD))]
   "TARGET_AVX"
   "vmaskmovp<avxmodesuffixf2c>\t{%1, %2, %0|%0, %2, %1}"
@@ -11670,7 +11671,8 @@
   [(set (match_operand:AVXMODEF2P 0 "memory_operand" "=m")
 	(unspec:AVXMODEF2P
 	  [(match_operand:AVXMODEF2P 1 "register_operand" "x")
-	   (match_operand:AVXMODEF2P 2 "register_operand" "x")]
+	   (match_operand:AVXMODEF2P 2 "register_operand" "x")
+	   (match_dup 0)]
 	  UNSPEC_MASKSTORE))]
   "TARGET_AVX"
   "vmaskmovp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
