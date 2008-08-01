@@ -982,7 +982,15 @@ __gnat_named_file_length (char *name)
 void
 __gnat_tmp_name (char *tmp_filename)
 {
-#ifdef __MINGW32__
+#ifdef RTX
+  /* Variable used to create a series of unique names */
+  static int counter = 0;
+
+  /* RTX in RTSS mode does not support tempnam nor tmpnam so we emulate it */
+  strcpy (tmp_filename, "c:\\WINDOWS\\Temp\\gnat-");
+  sprintf (&tmp_filename[strlen (tmp_filename)], "%d\0", counter++);
+
+#elif defined (__MINGW32__)
   {
     char *pname;
 

@@ -254,8 +254,8 @@ extern unsigned char Get_Pragma_Id (int);
 #define  Pragma_No_Strict_Aliasing            30
 #define  Pragma_Normalize_Scalars             31
 #define  Pragma_Optimize_Alignment            32
-#define  Pragma_Polling                       33
-#define  Pragma_Persistent_BSS                34
+#define  Pragma_Persistent_BSS                33
+#define  Pragma_Polling                       34
 #define  Pragma_Priority_Specific_Dispatching 35
 #define  Pragma_Profile                       36
 #define  Pragma_Profile_Warnings              37

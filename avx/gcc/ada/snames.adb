@@ -414,6 +414,7 @@ package body Snames is
      "secondary_stack_size#" &
      "section#" &
      "semaphore#" &
+     "short_descriptor#" &
      "simple_barriers#" &
      "spec_file_name#" &
      "state#" &
@@ -778,6 +779,7 @@ package body Snames is
      "objects_path#" &
      "objects_path_file#" &
      "object_dir#" &
+     "path_syntax#" &
      "pic_option#" &
      "pretty_printer#" &
      "prefix#" &

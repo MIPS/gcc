@@ -2413,10 +2413,9 @@ package body Sem_Ch12 is
                Error_Msg_N ("no visible entity matches specification", Def);
             end if;
 
+         --  More than one interpretation, so disambiguate as for a renaming
+
          else
-
-            --  Several interpretations. Disambiguate as for a renaming.
-
             declare
                I   : Interp_Index;
                I1  : Interp_Index := 0;
@@ -2427,7 +2426,6 @@ package body Sem_Ch12 is
                Subp := Any_Id;
                Get_First_Interp (Def, I, It);
                while Present (It.Nam) loop
-
                   if Entity_Matches_Spec (It.Nam, Nam) then
                      if Subp /= Any_Id then
                         It1 := Disambiguate (Def, I1, I, Etype (Subp));
@@ -3755,6 +3753,38 @@ package body Sem_Ch12 is
       Analyze_Subprogram_Instantiation (N, E_Procedure);
    end Analyze_Procedure_Instantiation;
 
+   -----------------------------------
+   -- Need_Subprogram_Instance_Body --
+   -----------------------------------
+
+   function Need_Subprogram_Instance_Body
+     (N    : Node_Id;
+      Subp : Entity_Id) return Boolean
+   is
+   begin
+      if (Is_In_Main_Unit (N)
+            or else Is_Inlined (Subp)
+            or else Is_Inlined (Alias (Subp)))
+        and then (Operating_Mode = Generate_Code
+                    or else (Operating_Mode = Check_Semantics
+                               and then ASIS_Mode))
+        and then (Expander_Active or else ASIS_Mode)
+        and then not ABE_Is_Certain (N)
+        and then not Is_Eliminated (Subp)
+      then
+         Pending_Instantiations.Append
+           ((Inst_Node                => N,
+             Act_Decl                 => Unit_Declaration_Node (Subp),
+             Expander_Status          => Expander_Active,
+             Current_Sem_Unit         => Current_Sem_Unit,
+             Scope_Suppress           => Scope_Suppress,
+             Local_Suppress_Stack_Top => Local_Suppress_Stack_Top));
+         return True;
+      else
+         return False;
+      end if;
+   end Need_Subprogram_Instance_Body;
+
    --------------------------------------
    -- Analyze_Subprogram_Instantiation --
    --------------------------------------
@@ -4146,22 +4176,7 @@ package body Sem_Ch12 is
             --  If the context requires a full instantiation, mark node for
             --  subsequent construction of the body.
 
-            if (Is_In_Main_Unit (N)
-                  or else Is_Inlined (Act_Decl_Id))
-              and then (Operating_Mode = Generate_Code
-                          or else (Operating_Mode = Check_Semantics
-                                     and then ASIS_Mode))
-              and then (Expander_Active or else ASIS_Mode)
-              and then not ABE_Is_Certain (N)
-              and then not Is_Eliminated (Act_Decl_Id)
-            then
-               Pending_Instantiations.Append
-                 ((Inst_Node                => N,
-                   Act_Decl                 => Act_Decl,
-                   Expander_Status          => Expander_Active,
-                   Current_Sem_Unit         => Current_Sem_Unit,
-                   Scope_Suppress           => Scope_Suppress,
-                   Local_Suppress_Stack_Top => Local_Suppress_Stack_Top));
+            if Need_Subprogram_Instance_Body (N, Act_Decl_Id) then
 
                Check_Forward_Instantiation (Gen_Decl);
 
@@ -8701,6 +8716,13 @@ package body Sem_Ch12 is
    begin
       Gen_Body_Id := Corresponding_Body (Gen_Decl);
 
+      --  Subprogram body may have been created already because of
+      --  an inline pragma.
+
+      if Present (Corresponding_Body (Act_Decl)) then
+         return;
+      end if;
+
       Expander_Mode_Save_And_Set (Body_Info.Expander_Status);
 
       --  Re-establish the state of information on which checks are suppressed.
@@ -10855,11 +10877,11 @@ package body Sem_Ch12 is
                Set_Is_Immediately_Visible (P, False);
 
             --  If the current scope is itself an instantiation of a generic
-            --  nested within P, and we are in the private part of body of
-            --  this instantiation, restore the full views of P, that were
-            --  removed in End_Package_Scope above. This obscure case can
-            --  occur when a subunit of a generic contains an instance of
-            --  of a child unit of its generic parent unit.
+            --  nested within P, and we are in the private part of body of this
+            --  instantiation, restore the full views of P, that were removed
+            --  in End_Package_Scope above. This obscure case can occur when a
+            --  subunit of a generic contains an instance of a child unit of
+            --  its generic parent unit.
 
             elsif S = Current_Scope
               and then Is_Generic_Instance (S)

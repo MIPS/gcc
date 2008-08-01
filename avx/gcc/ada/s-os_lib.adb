@@ -792,9 +792,9 @@ package body System.OS_Lib is
 
                      --  If it is not a digit, then there are no available
                      --  temp file names. Return Invalid_FD. There is almost
-                     --  no that this code will be ever be executed, since
-                     --  it would mean that there are one million temp files
-                     --  in the same directory!
+                     --  no chance that this code will be ever be executed,
+                     --  since it would mean that there are one million temp
+                     --  files in the same directory!
 
                      SSL.Unlock_Task.all;
                      FD := Invalid_FD;
@@ -1918,6 +1918,26 @@ package body System.OS_Lib is
                  Cur_Dir (Cur_Dir'First .. Cur_Dir'First + 1);
                End_Path := End_Path + 2;
             end if;
+         end;
+      end if;
+
+      --  On Windows, remove all double-quotes that are possibly part of the
+      --  path but can cause problems with other methods.
+
+      if On_Windows then
+         declare
+            Index : Natural;
+
+         begin
+            Index := Path_Buffer'First;
+            for Current in Path_Buffer'First .. End_Path loop
+               if Path_Buffer (Current) /= '"' then
+                  Path_Buffer (Index) := Path_Buffer (Current);
+                  Index := Index + 1;
+               end if;
+            end loop;
+
+            End_Path := Index - 1;
          end;
       end if;
 

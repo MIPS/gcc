@@ -2368,13 +2368,19 @@ that for inlining to actually occur as a result of the use of this switch,
 it is necessary to compile in optimizing mode.
 
 @cindex @option{-gnatN} switch
-The use of @option{-gnatN} activates a more extensive inlining optimization
+The use of @option{-gnatN} activates  inlining optimization
 that is performed by the front end of the compiler. This inlining does
 not require that the code generation be optimized. Like @option{-gnatn},
 the use of this switch generates additional dependencies.
 Note that
 @option{-gnatN} automatically implies @option{-gnatn} so it is not necessary
 to specify both options.
+
+When using a gcc-based back end (in practice this means using any version
+of GNAT other than the JGNAT, .NET or GNAAMP versions), then the use of
+@option{-gnatN} is deprecated, and the use of @option{-gnatn} is preferred.
+Historically front end inlining was more extensive than the gcc back end
+inlining, but that is no longer the case.
 
 @item
 If an object file @file{O} depends on the proper body of a subunit through
@@ -4028,11 +4034,11 @@ details.
 
 @item -gnatq
 @cindex @option{-gnatq} (@command{gcc})
-Don't quit; try semantics, even if parse errors.
+Don't quit. Try semantics, even if parse errors.
 
 @item -gnatQ
 @cindex @option{-gnatQ} (@command{gcc})
-Don't quit; generate @file{ALI} and tree files even if illegalities.
+Don't quit. Generate @file{ALI} and tree files even if illegalities.
 
 @item -gnatr
 @cindex @option{-gnatr} (@command{gcc})
@@ -21535,7 +21541,7 @@ The control structures checked are the following:
 @end itemize
 
 @noindent
-The rule may have the following parameter for the @option{+R} option:
+The rule has the following parameter for the @option{+R} option:
 
 @table @emph
 @item N
@@ -21544,17 +21550,11 @@ level that is not flagged
 @end table
 
 @noindent
-If the parameter for the @option{+R} option is not a positive integer,
-the parameter is ignored and the rule is turned ON with the most recently
-specified maximal non-flagged nesting level.
+If the parameter for the @option{+R} option is not specified or
+if it is not a positive integer, @option{+R} option is ignored.
 
 If more then one  option is specified for the gnatcheck call, the later option and
 new parameter override the previous one(s).
-
-A @option{+R} option with no parameter turns the rule ON using the maximal
-non-flagged nesting level specified by the most recent @option{+R} option with
-a parameter, or the value 4 if there is no such previous @option{+R} option.
-
 
 
 @node Parameters_Out_Of_Order
@@ -25508,6 +25508,7 @@ information about several specific platforms.
 * Linux-Specific Considerations::
 * AIX-Specific Considerations::
 * Irix-Specific Considerations::
+* RTX-Specific Considerations::
 @end menu
 
 @node Summary of Run-Time Configurations
@@ -25617,6 +25618,15 @@ information about several specific platforms.
 @item @code{@ @ }@i{rts-sjlj (default)}
 @item @code{@ @ @ @ }Tasking    @tab native Win32 threads
 @item @code{@ @ @ @ }Exceptions @tab SJLJ
+@*
+@item @b{x86-windows-rtx}
+@item @code{@ @ }@i{rts-rtx-rtss (default)}
+@item @code{@ @ @ @ }Tasking    @tab RTX real-time subsystem RTSS threads (kernel mode)
+@item @code{@ @ @ @ }Exceptions @tab SJLJ
+@*
+@item @code{@ @ }@i{rts-rtx-w32}
+@item @code{@ @ @ @ }Tasking    @tab RTX Win32 threads (user mode)
+@item @code{@ @ @ @ }Exceptions @tab ZCX
 @*
 @item @b{x86_64-linux}
 @item @code{@ @ }@i{rts-native (default)}
@@ -25841,6 +25851,26 @@ following command line on a bash prompt:
 $  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`dirname \`gcc --print-file-name=libgcc_s.so\``
 @end group
 @end smallexample
+
+@node RTX-Specific Considerations
+@section RTX-Specific Considerations
+@cindex RTX libraries
+
+@noindent
+The Real-time Extension (RTX) to Windows is based on the Windows Win32
+API. Applications can be built to work in two different modes:
+
+@itemize @bullet
+@item
+Windows executables that run in Ring 3 to utilize memory protection
+(@emph{rts-rtx-w32}).
+
+@item
+Real-time subsystem (RTSS) executables that run in Ring 0, where
+performance can be optimized with RTSS applications taking precedent
+over all Windows applications (@emph{rts-rtx-rtss}).
+
+@end itemize
 
 @c *******************************
 @node Example of Binder Output File
