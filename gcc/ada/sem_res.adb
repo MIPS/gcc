@@ -754,7 +754,22 @@ package body Sem_Res is
       C := N;
       loop
          P := Parent (C);
+
+         --  If no parent, then we were not inside a subprogram, this can for
+         --  example happen when processing certain pragmas in a spec. Just
+         --  return False in this case.
+
+         if No (P) then
+            return False;
+         end if;
+
+         --  Done if we get to subprogram body, this is definitely an infinite
+         --  recursion case if we did not find anything to stop us.
+
          exit when Nkind (P) = N_Subprogram_Body;
+
+         --  If appearing in conditional, result is false
+
          if Nkind_In (P, N_Or_Else,
                          N_And_Then,
                          N_If_Statement,
@@ -3218,16 +3233,48 @@ package body Sem_Res is
                --   or because it is a generic actual, so use base type to
                --   locate concurrent type.
 
-               if Is_Concurrent_Type (Etype (A))
-                 and then Etype (F) =
-                            Corresponding_Record_Type (Base_Type (Etype (A)))
-               then
-                  Rewrite (A,
-                    Unchecked_Convert_To
-                      (Corresponding_Record_Type (Etype (A)), A));
-               end if;
+               A_Typ := Base_Type (Etype (A));
+               F_Typ := Base_Type (Etype (F));
 
-               Resolve (A, Etype (F));
+               declare
+                  Full_A_Typ : Entity_Id;
+
+               begin
+                  if Present (Full_View (A_Typ)) then
+                     Full_A_Typ := Base_Type (Full_View (A_Typ));
+                  else
+                     Full_A_Typ := A_Typ;
+                  end if;
+
+                  --  Tagged synchronized type (case 1): the actual is a
+                  --  concurrent type
+
+                  if Is_Concurrent_Type (A_Typ)
+                    and then Corresponding_Record_Type (A_Typ) = F_Typ
+                  then
+                     Rewrite (A,
+                       Unchecked_Convert_To
+                         (Corresponding_Record_Type (A_Typ), A));
+                     Resolve (A, Etype (F));
+
+                  --  Tagged synchronized type (case 2): the formal is a
+                  --  concurrent type
+
+                  elsif Ekind (Full_A_Typ) = E_Record_Type
+                    and then Present
+                               (Corresponding_Concurrent_Type (Full_A_Typ))
+                    and then Is_Concurrent_Type (F_Typ)
+                    and then Present (Corresponding_Record_Type (F_Typ))
+                    and then Full_A_Typ = Corresponding_Record_Type (F_Typ)
+                  then
+                     Resolve (A, Corresponding_Record_Type (F_Typ));
+
+                  --  Common case
+
+                  else
+                     Resolve (A, Etype (F));
+                  end if;
+               end;
             end if;
 
             A_Typ := Etype (A);

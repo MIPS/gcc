@@ -406,7 +406,7 @@ register_dump_files_1 (struct opt_pass *pass, int properties)
       int new_properties = (properties | pass->properties_provided)
 			   & ~pass->properties_destroyed;
 
-      if (pass->name)
+      if (pass->name && pass->name[0] != '*')
         register_one_dump_file (pass);
 
       if (pass->sub)
@@ -544,10 +544,10 @@ init_optimization_passes (void)
       NEXT_PASS (pass_referenced_vars);
       NEXT_PASS (pass_reset_cc_flags);
       NEXT_PASS (pass_build_ssa);
+      NEXT_PASS (pass_early_warn_uninitialized);
       NEXT_PASS (pass_all_early_optimizations);
 	{
 	  struct opt_pass **p = &pass_all_early_optimizations.pass.sub;
-	  NEXT_PASS (pass_early_warn_uninitialized);
 	  NEXT_PASS (pass_rebuild_cgraph_edges);
 	  NEXT_PASS (pass_early_inline);
 	  NEXT_PASS (pass_cleanup_cfg);

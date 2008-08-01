@@ -53,6 +53,7 @@ with Sem_Aux;  use Sem_Aux;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
@@ -583,6 +584,7 @@ package body Sem_Prag is
       --  expression, returns True if so, False if non-static or not String.
 
       procedure Pragma_Misplaced;
+      pragma No_Return (Pragma_Misplaced);
       --  Issue fatal error message for misplaced pragma
 
       procedure Process_Atomic_Shared_Volatile;
@@ -1350,8 +1352,56 @@ package body Sem_Prag is
 
       procedure Check_Precondition_Postcondition (In_Body : out Boolean) is
          P  : Node_Id;
-         S  : Entity_Id;
          PO : Node_Id;
+
+         procedure Chain_PPC (PO : Node_Id);
+         --  If PO is a subprogram declaration node (or a generic subprogram
+         --  declaration node), then the precondition/postcondition applies
+         --  to this subprogram and the processing for the pragma is completed.
+         --  Otherwise the pragma is misplaced.
+
+         ---------------
+         -- Chain_PPC --
+         ---------------
+
+         procedure Chain_PPC (PO : Node_Id) is
+            S : Node_Id;
+
+         begin
+            if not Nkind_In (PO, N_Subprogram_Declaration,
+                                 N_Generic_Subprogram_Declaration)
+            then
+               Pragma_Misplaced;
+            end if;
+
+            --  Here if we have subprogram or generic subprogram declaration
+
+            S := Defining_Unit_Name (Specification (PO));
+
+            --  Analyze the pragma unless it appears within a package spec,
+            --  which is the case where we delay the analysis of the PPC until
+            --  the end of the package declarations (for details, see
+            --  Analyze_Package_Specification.Analyze_PPCs).
+
+            if Ekind (Scope (S)) /= E_Package
+                 and then
+               Ekind (Scope (S)) /= E_Generic_Package
+            then
+               Analyze_PPC_In_Decl_Part (N, S);
+            end if;
+
+            --  Chain spec PPC pragma to list for subprogram
+
+            Set_Next_Pragma (N, Spec_PPC_List (S));
+            Set_Spec_PPC_List (S, N);
+
+            --  Return indicating spec case
+
+            In_Body := False;
+            return;
+         end Chain_PPC;
+
+         --  Start of processing for Check_Precondition_Postcondition
 
       begin
          if not Is_List_Member (N) then
@@ -1361,6 +1411,14 @@ package body Sem_Prag is
          --  Record whether pragma is enabled
 
          Set_PPC_Enabled (N, Check_Enabled (Pname));
+
+         --  If we are within an inlined body, the legality of the pragma
+         --  has been checked already.
+
+         if In_Inlined_Body then
+            In_Body := True;
+            return;
+         end if;
 
          --  Search prior declarations
 
@@ -1379,37 +1437,11 @@ package body Sem_Prag is
             elsif not Comes_From_Source (PO) then
                null;
 
-            --  Here if we hit a subprogram declaration
-
-            elsif Nkind (PO) = N_Subprogram_Declaration then
-               S := Defining_Unit_Name (Specification (PO));
-
-               --  Analyze the pragma unless it appears within a package spec,
-               --  which is the case where we delay the analysis of the PPC
-               --  until the end of the package declarations (for details,
-               --  see Analyze_Package_Specification.Analyze_PPCs).
-
-               if Ekind (Scope (S)) /= E_Package
-                    and then
-                  Ekind (Scope (S)) /= E_Generic_Package
-               then
-                  Analyze_PPC_In_Decl_Part (N, S);
-               end if;
-
-               --  Chain spec PPC pragma to list for subprogram
-
-               Set_Next_Pragma (N, Spec_PPC_List (S));
-               Set_Spec_PPC_List (S, N);
-
-               --  Return indicating spec case
-
-               In_Body := False;
-               return;
-
-            --  If we encounter any other declaration moving back, misplaced
+            --  Only remaining possibility is subprogram declaration
 
             else
-               Pragma_Misplaced;
+               Chain_PPC (PO);
+               return;
             end if;
          end loop;
 
@@ -1419,14 +1451,28 @@ package body Sem_Prag is
          if Nkind (Parent (N)) = N_Subprogram_Body
            and then List_Containing (N) = Declarations (Parent (N))
          then
+            if Operating_Mode /= Generate_Code then
+
+               --  Analyze expression in pragma, for correctness
+               --  and for ASIS use.
+
+               Preanalyze_Spec_Expression
+                 (Get_Pragma_Arg (Arg1), Standard_Boolean);
+            end if;
+
             In_Body := True;
             return;
 
-         --  If not, it was misplaced
+         --  See if it is in the pragmas after a library level subprogram
 
-         else
-            Pragma_Misplaced;
+         elsif Nkind (Parent (N)) = N_Compilation_Unit_Aux then
+            Chain_PPC (Unit (Parent (Parent (N))));
+            return;
          end if;
+
+         --  If we fall through, pragma was misplaced
+
+         Pragma_Misplaced;
       end Check_Precondition_Postcondition;
 
       -----------------------------
@@ -2185,7 +2231,6 @@ package body Sem_Prag is
          Arg1x : constant Node_Id := Get_Pragma_Arg (Arg1);
 
       begin
-         GNAT_Pragma;
          Check_Arg_Count (2);
          Check_No_Identifiers;
          Check_Arg_Is_Static_Expression (Arg2, Standard_String);
@@ -2602,8 +2647,6 @@ package body Sem_Prag is
          Code_Val : Uint;
 
       begin
-         GNAT_Pragma;
-
          if not OpenVMS_On_Target then
             Error_Pragma
               ("?pragma% ignored (applies only to Open'V'M'S)");
@@ -2661,8 +2704,6 @@ package body Sem_Prag is
         (Arg_Internal : Node_Id := Empty)
       is
       begin
-         GNAT_Pragma;
-
          if No (Arg_Internal) then
             Error_Pragma ("Internal parameter required for pragma%");
          end if;
@@ -3279,7 +3320,6 @@ package body Sem_Prag is
          Exp : Node_Id;
 
       begin
-         GNAT_Pragma;
          Check_No_Identifiers;
          Check_At_Least_N_Arguments (1);
 
@@ -3716,6 +3756,22 @@ package body Sem_Prag is
                     and then Present (Corresponding_Body (Decl))
                   then
                      Set_Inline_Flags (Corresponding_Body (Decl));
+
+                  elsif Is_Generic_Instance (Subp) then
+
+                     --  Indicate that the body needs to be created for
+                     --  inlining subsequent calls. The instantiation
+                     --  node follows the declaration of the wrapper
+                     --  package created for it.
+
+                     if Scope (Subp) /= Standard_Standard
+                       and then
+                         Need_Subprogram_Instance_Body
+                          (Next (Unit_Declaration_Node (Scope (Alias (Subp)))),
+                              Subp)
+                     then
+                        null;
+                     end if;
                   end if;
                end if;
 
@@ -3834,17 +3890,23 @@ package body Sem_Prag is
          Link_Nam   : Node_Id;
          String_Val : String_Id;
 
-         procedure Check_Form_Of_Interface_Name (SN : Node_Id);
+         procedure Check_Form_Of_Interface_Name
+           (SN            : Node_Id;
+            Ext_Name_Case : Boolean);
          --  SN is a string literal node for an interface name. This routine
          --  performs some minimal checks that the name is reasonable. In
          --  particular that no spaces or other obviously incorrect characters
          --  appear. This is only a warning, since any characters are allowed.
+         --  Ext_Name_Case is True for an External_Name, False for a Link_Name.
 
          ----------------------------------
          -- Check_Form_Of_Interface_Name --
          ----------------------------------
 
-         procedure Check_Form_Of_Interface_Name (SN : Node_Id) is
+         procedure Check_Form_Of_Interface_Name
+           (SN            : Node_Id;
+            Ext_Name_Case : Boolean)
+         is
             S  : constant String_Id := Strval (Expr_Value_S (SN));
             SL : constant Nat       := String_Length (S);
             C  : Char_Code;
@@ -3857,15 +3919,31 @@ package body Sem_Prag is
             for J in 1 .. SL loop
                C := Get_String_Char (S, J);
 
-               if Warn_On_Export_Import
-                 and then
-                   (not In_Character_Range (C)
-                     or else (Get_Character (C) = ' '
-                               and then VM_Target /= CLI_Target)
-                     or else Get_Character (C) = ',')
+               --  Look for dubious character and issue unconditional warning.
+               --  Definitely dubious if not in character range.
+
+               if not In_Character_Range (C)
+
+                  --  Dubious if comma
+
+                  or else Get_Character (C) = ','
+
+                  --  For all cases except link names on a CLI target, spaces
+                  --  and slashes are also dubious (in CLI for link names, we
+                  --  use spaces and possibly slashes for special purposes).
+
+                  --  Where is this usage documented ???
+
+                  or else ((Ext_Name_Case or else VM_Target /= CLI_Target)
+                             and then (Get_Character (C) = ' '
+                                         or else
+                                       Get_Character (C) = '/'
+                                         or else
+                                       Get_Character (C) = '\'))
                then
-                  Error_Msg_N
-                    ("?interface name contains illegal character", SN);
+                  Error_Msg
+                    ("?interface name contains illegal character",
+                     Sloc (SN) + Source_Ptr (J));
                end if;
             end loop;
          end Check_Form_Of_Interface_Name;
@@ -3910,13 +3988,13 @@ package body Sem_Prag is
 
          if Present (Ext_Nam) then
             Check_Arg_Is_Static_Expression (Ext_Nam, Standard_String);
-            Check_Form_Of_Interface_Name (Ext_Nam);
+            Check_Form_Of_Interface_Name (Ext_Nam, Ext_Name_Case => True);
 
-            --  Verify that the external name is not the name of a local
-            --  entity, which would hide the imported one and lead to
-            --  run-time surprises. The problem can only arise for entities
-            --  declared in a package body (otherwise the external name is
-            --  fully qualified and won't conflict).
+            --  Verify that external name is not the name of a local entity,
+            --  which would hide the imported one and could lead to run-time
+            --  surprises. The problem can only arise for entities declared in
+            --  a package body (otherwise the external name is fully qualified
+            --  and will not conflict).
 
             declare
                Nam : Name_Id;
@@ -3939,10 +4017,10 @@ package body Sem_Prag is
                      Par := Parent (E);
                      while Present (Par) loop
                         if Nkind (Par) = N_Package_Body then
-                           Error_Msg_Sloc  := Sloc (E);
+                           Error_Msg_Sloc := Sloc (E);
                            Error_Msg_NE
                              ("imported entity is hidden by & declared#",
-                                 Ext_Arg, E);
+                              Ext_Arg, E);
                            exit;
                         end if;
 
@@ -3955,7 +4033,7 @@ package body Sem_Prag is
 
          if Present (Link_Nam) then
             Check_Arg_Is_Static_Expression (Link_Nam, Standard_String);
-            Check_Form_Of_Interface_Name (Link_Nam);
+            Check_Form_Of_Interface_Name (Link_Nam, Ext_Name_Case => False);
          end if;
 
          --  If there is no link name, just set the external name
@@ -4586,6 +4664,7 @@ package body Sem_Prag is
       procedure Set_Mechanism_Value (Ent : Entity_Id; Mech_Name : Node_Id) is
          Class : Node_Id;
          Param : Node_Id;
+         Mech_Name_Id : Name_Id;
 
          procedure Bad_Class;
          --  Signal bad descriptor class name
@@ -4619,7 +4698,8 @@ package body Sem_Prag is
               ("mechanism for & has already been set", Mech_Name, Ent);
          end if;
 
-         --  MECHANISM_NAME ::= value | reference | descriptor
+         --  MECHANISM_NAME ::= value | reference | descriptor |
+         --                     short_descriptor
 
          if Nkind (Mech_Name) = N_Identifier then
             if Chars (Mech_Name) = Name_Value then
@@ -4635,6 +4715,11 @@ package body Sem_Prag is
                Set_Mechanism (Ent, By_Descriptor);
                return;
 
+            elsif Chars (Mech_Name) = Name_Short_Descriptor then
+               Check_VMS (Mech_Name);
+               Set_Mechanism (Ent, By_Short_Descriptor);
+               return;
+
             elsif Chars (Mech_Name) = Name_Copy then
                Error_Pragma_Arg
                  ("bad mechanism name, Value assumed", Mech_Name);
@@ -4643,22 +4728,28 @@ package body Sem_Prag is
                Bad_Mechanism;
             end if;
 
-         --  MECHANISM_NAME ::= descriptor (CLASS_NAME)
+         --  MECHANISM_NAME ::= descriptor (CLASS_NAME) |
+         --                     short_descriptor (CLASS_NAME)
          --  CLASS_NAME     ::= ubs | ubsb | uba | s | sb | a | nca
 
          --  Note: this form is parsed as an indexed component
 
          elsif Nkind (Mech_Name) = N_Indexed_Component then
+
             Class := First (Expressions (Mech_Name));
 
             if Nkind (Prefix (Mech_Name)) /= N_Identifier
-              or else Chars (Prefix (Mech_Name)) /= Name_Descriptor
-              or else Present (Next (Class))
+             or else not (Chars (Prefix (Mech_Name)) = Name_Descriptor or else
+                          Chars (Prefix (Mech_Name)) = Name_Short_Descriptor)
+             or else Present (Next (Class))
             then
                Bad_Mechanism;
+            else
+               Mech_Name_Id := Chars (Prefix (Mech_Name));
             end if;
 
-         --  MECHANISM_NAME ::= descriptor (Class => CLASS_NAME)
+         --  MECHANISM_NAME ::= descriptor (Class => CLASS_NAME) |
+         --                     short_descriptor (Class => CLASS_NAME)
          --  CLASS_NAME     ::= ubs | ubsb | uba | s | sb | a | nca
 
          --  Note: this form is parsed as a function call
@@ -4668,7 +4759,8 @@ package body Sem_Prag is
             Param := First (Parameter_Associations (Mech_Name));
 
             if Nkind (Name (Mech_Name)) /= N_Identifier
-              or else Chars (Name (Mech_Name)) /= Name_Descriptor
+              or else not (Chars (Name (Mech_Name)) = Name_Descriptor or else
+                           Chars (Name (Mech_Name)) = Name_Short_Descriptor)
               or else Present (Next (Param))
               or else No (Selector_Name (Param))
               or else Chars (Selector_Name (Param)) /= Name_Class
@@ -4676,6 +4768,7 @@ package body Sem_Prag is
                Bad_Mechanism;
             else
                Class := Explicit_Actual_Parameter (Param);
+               Mech_Name_Id := Chars (Name (Mech_Name));
             end if;
 
          else
@@ -4689,26 +4782,75 @@ package body Sem_Prag is
          if Nkind (Class) /= N_Identifier then
             Bad_Class;
 
-         elsif Chars (Class) = Name_UBS then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBS
+         then
             Set_Mechanism (Ent, By_Descriptor_UBS);
 
-         elsif Chars (Class) = Name_UBSB then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBSB
+         then
             Set_Mechanism (Ent, By_Descriptor_UBSB);
 
-         elsif Chars (Class) = Name_UBA then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_UBA
+         then
             Set_Mechanism (Ent, By_Descriptor_UBA);
 
-         elsif Chars (Class) = Name_S then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_S
+         then
             Set_Mechanism (Ent, By_Descriptor_S);
 
-         elsif Chars (Class) = Name_SB then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_SB
+         then
             Set_Mechanism (Ent, By_Descriptor_SB);
 
-         elsif Chars (Class) = Name_A then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_A
+         then
             Set_Mechanism (Ent, By_Descriptor_A);
 
-         elsif Chars (Class) = Name_NCA then
+         elsif Mech_Name_Id = Name_Descriptor
+               and then Chars (Class) = Name_NCA
+         then
             Set_Mechanism (Ent, By_Descriptor_NCA);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBS
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBS);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBSB
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBSB);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_UBA
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_UBA);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_S
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_S);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_SB
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_SB);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_A
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_A);
+
+         elsif Mech_Name_Id = Name_Short_Descriptor
+               and then Chars (Class) = Name_NCA
+         then
+            Set_Mechanism (Ent, By_Short_Descriptor_NCA);
 
          else
             Bad_Class;
@@ -5667,11 +5809,11 @@ package body Sem_Prag is
 
          --  pragma Comment (static_string_EXPRESSION)
 
-         --  Processing for pragma Comment shares the circuitry for
-         --  pragma Ident. The only differences are that Ident enforces
-         --  a limit of 31 characters on its argument, and also enforces
-         --  limitations on placement for DEC compatibility. Pragma
-         --  Comment shares neither of these restrictions.
+         --  Processing for pragma Comment shares the circuitry for pragma
+         --  Ident. The only differences are that Ident enforces a limit of 31
+         --  characters on its argument, and also enforces limitations on
+         --  placement for DEC compatibility. Pragma Comment shares neither of
+         --  these restrictions.
 
          -------------------
          -- Common_Object --
@@ -5692,6 +5834,7 @@ package body Sem_Prag is
          --    (boolean_EXPRESSION, static_string_EXPRESSION);
 
          when Pragma_Compile_Time_Error =>
+            GNAT_Pragma;
             Process_Compile_Time_Warning_Or_Error;
 
          --------------------------
@@ -5702,6 +5845,7 @@ package body Sem_Prag is
          --    (boolean_EXPRESSION, static_string_EXPRESSION);
 
          when Pragma_Compile_Time_Warning =>
+            GNAT_Pragma;
             Process_Compile_Time_Warning_Or_Error;
 
          -------------------
@@ -6076,6 +6220,8 @@ package body Sem_Prag is
 
          when Pragma_CPP_Virtual => CPP_Virtual : declare
          begin
+            GNAT_Pragma;
+
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
                  ("'G'N'A'T pragma cpp'_virtual is now obsolete and has " &
@@ -6089,6 +6235,8 @@ package body Sem_Prag is
 
          when Pragma_CPP_Vtable => CPP_Vtable : declare
          begin
+            GNAT_Pragma;
+
             if Warn_On_Obsolescent_Feature then
                Error_Msg_N
                  ("'G'N'A'T pragma cpp'_vtable is now obsolete and has " &
@@ -6608,6 +6756,8 @@ package body Sem_Prag is
             Code     : Node_Id renames Args (4);
 
          begin
+            GNAT_Pragma;
+
             if Inside_A_Generic then
                Error_Pragma ("pragma% cannot be used for generic entities");
             end if;
@@ -7077,6 +7227,7 @@ package body Sem_Prag is
             Typ     : Entity_Id;
 
          begin
+            GNAT_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_Local_Name (Arg1);
@@ -7410,6 +7561,7 @@ package body Sem_Prag is
             Code     : Node_Id renames Args (4);
 
          begin
+            GNAT_Pragma;
             Gather_Associations (Names, Args);
 
             if Present (External) and then Present (Code) then
@@ -7695,6 +7847,7 @@ package body Sem_Prag is
          --  pragma Inline_Always ( NAME {, NAME} );
 
          when Pragma_Inline_Always =>
+            GNAT_Pragma;
             Process_Inline (True);
 
          --------------------
@@ -7704,6 +7857,7 @@ package body Sem_Prag is
          --  pragma Inline_Generic (NAME {, NAME});
 
          when Pragma_Inline_Generic =>
+            GNAT_Pragma;
             Process_Generic_List;
 
          ----------------------
@@ -8734,6 +8888,7 @@ package body Sem_Prag is
          --  it was misplaced.
 
          when Pragma_No_Body =>
+            GNAT_Pragma;
             Pragma_Misplaced;
 
          ---------------
@@ -8800,13 +8955,43 @@ package body Sem_Prag is
             end loop;
          end No_Return;
 
+         -----------------
+         -- No_Run_Time --
+         -----------------
+
+         --  pragma No_Run_Time;
+
+         --  Note: this pragma is retained for backwards compatibility.
+         --  See body of Rtsfind for full details on its handling.
+
+         when Pragma_No_Run_Time =>
+            GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
+            Check_Arg_Count (0);
+
+            No_Run_Time_Mode           := True;
+            Configurable_Run_Time_Mode := True;
+
+            --  Set Duration to 32 bits if word size is 32
+
+            if Ttypes.System_Word_Size = 32 then
+               Duration_32_Bits_On_Target := True;
+            end if;
+
+            --  Set appropriate restrictions
+
+            Set_Restriction (No_Finalization, N);
+            Set_Restriction (No_Exception_Handlers, N);
+            Set_Restriction (Max_Tasks, N, 0);
+            Set_Restriction (No_Tasking, N);
+
          ------------------------
          -- No_Strict_Aliasing --
          ------------------------
 
          --  pragma No_Strict_Aliasing [([Entity =>] type_LOCAL_NAME)];
 
-         when Pragma_No_Strict_Aliasing => No_Strict_Alias : declare
+         when Pragma_No_Strict_Aliasing => No_Strict_Aliasing : declare
             E_Id : Entity_Id;
 
          begin
@@ -8830,7 +9015,20 @@ package body Sem_Prag is
 
                Set_No_Strict_Aliasing (Implementation_Base_Type (E_Id));
             end if;
-         end No_Strict_Alias;
+         end No_Strict_Aliasing;
+
+         -----------------------
+         -- Normalize_Scalars --
+         -----------------------
+
+         --  pragma Normalize_Scalars;
+
+         when Pragma_Normalize_Scalars =>
+            Check_Ada_83_Warning;
+            Check_Arg_Count (0);
+            Check_Valid_Configuration_Pragma;
+            Normalize_Scalars := True;
+            Init_Or_Norm_Scalars := True;
 
          -----------------
          -- Obsolescent --
@@ -9037,49 +9235,6 @@ package body Sem_Prag is
                end if;
             end if;
          end Obsolescent;
-
-         -----------------
-         -- No_Run_Time --
-         -----------------
-
-         --  pragma No_Run_Time
-
-         --  Note: this pragma is retained for backwards compatibility.
-         --  See body of Rtsfind for full details on its handling.
-
-         when Pragma_No_Run_Time =>
-            GNAT_Pragma;
-            Check_Valid_Configuration_Pragma;
-            Check_Arg_Count (0);
-
-            No_Run_Time_Mode           := True;
-            Configurable_Run_Time_Mode := True;
-
-            --  Set Duration to 32 bits if word size is 32
-
-            if Ttypes.System_Word_Size = 32 then
-               Duration_32_Bits_On_Target := True;
-            end if;
-
-            --  Set appropriate restrictions
-
-            Set_Restriction (No_Finalization, N);
-            Set_Restriction (No_Exception_Handlers, N);
-            Set_Restriction (Max_Tasks, N, 0);
-            Set_Restriction (No_Tasking, N);
-
-         -----------------------
-         -- Normalize_Scalars --
-         -----------------------
-
-         --  pragma Normalize_Scalars;
-
-         when Pragma_Normalize_Scalars =>
-            Check_Ada_83_Warning;
-            Check_Arg_Count (0);
-            Check_Valid_Configuration_Pragma;
-            Normalize_Scalars := True;
-            Init_Or_Norm_Scalars := True;
 
          --------------
          -- Optimize --
@@ -9317,19 +9472,6 @@ package body Sem_Prag is
             end if;
          end Preelab_Init;
 
-         -------------
-         -- Polling --
-         -------------
-
-         --  pragma Polling (ON | OFF);
-
-         when Pragma_Polling =>
-            GNAT_Pragma;
-            Check_Arg_Count (1);
-            Check_No_Identifiers;
-            Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
-            Polling_Required := (Chars (Expression (Arg1)) = Name_On);
-
          --------------------
          -- Persistent_BSS --
          --------------------
@@ -9387,6 +9529,19 @@ package body Sem_Prag is
                Persistent_BSS_Mode := True;
             end if;
          end Persistent_BSS;
+
+         -------------
+         -- Polling --
+         -------------
+
+         --  pragma Polling (ON | OFF);
+
+         when Pragma_Polling =>
+            GNAT_Pragma;
+            Check_Arg_Count (1);
+            Check_No_Identifiers;
+            Check_Arg_Is_One_Of (Arg1, Name_On, Name_Off);
+            Polling_Required := (Chars (Expression (Arg1)) = Name_On);
 
          -------------------
          -- Postcondition --
@@ -10904,6 +11059,7 @@ package body Sem_Prag is
          --  or the identifier GCC, no other identifiers are acceptable.
 
          when Pragma_System_Name =>
+            GNAT_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_One_Of (Arg1, Name_Gcc, Name_Gnat);
@@ -11152,7 +11308,7 @@ package body Sem_Prag is
             Variant : Node_Id;
 
          begin
-            GNAT_Pragma;
+            Ada_2005_Pragma;
             Check_No_Identifiers;
             Check_Arg_Count (1);
             Check_Arg_Is_Local_Name (Arg1);
@@ -11519,7 +11675,7 @@ package body Sem_Prag is
          --  pragma Unsuppress (IDENTIFIER [, [On =>] NAME]);
 
          when Pragma_Unsuppress =>
-            GNAT_Pragma;
+            Ada_2005_Pragma;
             Process_Suppress_Unsuppress (False);
 
          -------------------
@@ -11843,6 +11999,7 @@ package body Sem_Prag is
          --  pragma Wide_Character_Encoding (IDENTIFIER);
 
          when Pragma_Wide_Character_Encoding =>
+            GNAT_Pragma;
 
             --  Nothing to do, handled in parser. Note that we do not enforce
             --  configuration pragma placement, this pragma can appear at any

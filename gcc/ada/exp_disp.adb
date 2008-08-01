@@ -766,6 +766,13 @@ package body Exp_Disp is
          Iface_Typ := Root_Type (Iface_Typ);
       end if;
 
+      --  If the target type is a tagged synchronized type, the dispatch table
+      --  info is in the correspondoing record type.
+
+      if Is_Concurrent_Type (Iface_Typ) then
+         Iface_Typ := Corresponding_Record_Type (Iface_Typ);
+      end if;
+
       pragma Assert (not Is_Static
         or else (not Is_Class_Wide_Type (Iface_Typ)
                   and then Is_Interface (Iface_Typ)));
@@ -6040,6 +6047,13 @@ package body Exp_Disp is
         and then Present (Corresponding_Concurrent_Type (Typ))
       then
          Full_Typ := Corresponding_Concurrent_Type (Typ);
+      end if;
+
+      --  When a private tagged type is completed by a concurrent type,
+      --  retrieve the full view.
+
+      if Is_Private_Type (Full_Typ) then
+         Full_Typ := Full_View (Full_Typ);
       end if;
 
       if Ekind (Prim_Op) = E_Function then

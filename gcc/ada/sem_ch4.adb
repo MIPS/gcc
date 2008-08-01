@@ -684,11 +684,15 @@ package body Sem_Ch4 is
 
    procedure Analyze_Call (N : Node_Id) is
       Actuals : constant List_Id := Parameter_Associations (N);
-      Nam     : Node_Id          := Name (N);
+      Nam     : Node_Id;
       X       : Interp_Index;
       It      : Interp;
       Nam_Ent : Entity_Id;
       Success : Boolean := False;
+
+      Deref : Boolean := False;
+      --  Flag indicates whether an interpretation of the prefix is a
+      --  parameterless call that returns an access_to_subprogram.
 
       function Name_Denotes_Function return Boolean;
       --  If the type of the name is an access to subprogram, this may be the
@@ -761,6 +765,8 @@ package body Sem_Ch4 is
       --  which will be reset if the type is successfully resolved.
 
       Set_Etype (N, Any_Type);
+
+      Nam := Name (N);
 
       if not Is_Overloaded (Nam) then
 
@@ -874,6 +880,7 @@ package body Sem_Ch4 is
 
          while Present (It.Nam) loop
             Nam_Ent := It.Nam;
+            Deref   := False;
 
             --  Name may be call that returns an access to subprogram, or more
             --  generally an overloaded expression one of whose interpretations
@@ -888,11 +895,17 @@ package body Sem_Ch4 is
                Nam_Ent := Designated_Type (Nam_Ent);
 
             elsif Is_Access_Type (Etype (Nam_Ent))
-              and then not Is_Entity_Name (Nam)
+              and then
+                (not Is_Entity_Name (Nam)
+                   or else Nkind (N) = N_Procedure_Call_Statement)
               and then Ekind (Designated_Type (Etype (Nam_Ent)))
                                                           = E_Subprogram_Type
             then
                Nam_Ent := Designated_Type (Etype (Nam_Ent));
+
+               if Is_Entity_Name (Nam) then
+                  Deref := True;
+               end if;
             end if;
 
             Analyze_One_Call (N, Nam_Ent, False, Success);
@@ -904,7 +917,16 @@ package body Sem_Ch4 is
             --  guation is done directly in Resolve.
 
             if Success then
-               Set_Etype (Nam, It.Typ);
+               if Deref
+                 and then Nkind (Parent (N)) /= N_Explicit_Dereference
+               then
+                  Set_Entity (Nam, It.Nam);
+                  Insert_Explicit_Dereference (Nam);
+                  Set_Etype (Nam, Nam_Ent);
+
+               else
+                  Set_Etype (Nam, It.Typ);
+               end if;
 
             elsif Nkind_In (Name (N), N_Selected_Component,
                                       N_Function_Call)
@@ -1480,14 +1502,15 @@ package body Sem_Ch4 is
         and then Is_Overloaded (N)
       then
          --  The prefix may include access to subprograms and other access
-         --  types. If the context selects the interpretation that is a call,
-         --  we cannot rewrite the node yet, but we include the result of
-         --  the call interpretation.
+         --  types. If the context selects the interpretation that is a
+         --  function  call (not a procedure call) we cannot rewrite the
+         --  node yet, but we include the result of the call interpretation.
 
          Get_First_Interp (N, I, It);
          while Present (It.Nam) loop
             if Ekind (Base_Type (It.Typ)) = E_Subprogram_Type
                and then Etype (Base_Type (It.Typ)) /= Standard_Void_Type
+               and then Nkind (Parent (N)) /= N_Procedure_Call_Statement
             then
                Add_One_Interp (N, Etype (It.Typ), Etype (It.Typ));
             end if;
@@ -6380,9 +6403,15 @@ package body Sem_Ch4 is
          -----------------------------
 
          function Valid_First_Argument_Of (Op : Entity_Id) return Boolean is
-            Typ : constant Entity_Id := Etype (First_Formal (Op));
+            Typ : Entity_Id := Etype (First_Formal (Op));
 
          begin
+            if Is_Concurrent_Type (Typ)
+              and then Present (Corresponding_Record_Type (Typ))
+            then
+               Typ := Corresponding_Record_Type (Typ);
+            end if;
+
             --  Simple case. Object may be a subtype of the tagged type or
             --  may be the corresponding record of a synchronized type.
 
@@ -6414,6 +6443,10 @@ package body Sem_Ch4 is
          --  corresponding record (base) type.
 
          if Is_Concurrent_Type (Obj_Type) then
+            if not Present (Corresponding_Record_Type (Obj_Type)) then
+               return False;
+            end if;
+
             Corr_Type := Base_Type (Corresponding_Record_Type (Obj_Type));
             Elmt := First_Elmt (Primitive_Operations (Corr_Type));
 

@@ -470,7 +470,11 @@ package body Checks is
    -- Apply_Accessibility_Check --
    -------------------------------
 
-   procedure Apply_Accessibility_Check (N : Node_Id; Typ : Entity_Id) is
+   procedure Apply_Accessibility_Check
+     (N           : Node_Id;
+      Typ         : Entity_Id;
+      Insert_Node : Node_Id)
+   is
       Loc         : constant Source_Ptr := Sloc (N);
       Param_Ent   : constant Entity_Id  := Param_Entity (N);
       Param_Level : Node_Id;
@@ -501,7 +505,7 @@ package body Checks is
          --  Raise Program_Error if the accessibility level of the the access
          --  parameter is deeper than the level of the target access type.
 
-         Insert_Action (N,
+         Insert_Action (Insert_Node,
            Make_Raise_Program_Error (Loc,
              Condition =>
                Make_Op_Gt (Loc,
@@ -1629,10 +1633,35 @@ package body Checks is
          end;
       end if;
 
-      --  Get the bounds of the target type
+      --  Get the (static) bounds of the target type
 
       Ifirst := Expr_Value (LB);
       Ilast  := Expr_Value (HB);
+
+      --  A simple optimization: if the expression is a universal literal,
+      --  we can do the comparison with the bounds and the conversion to
+      --  an integer type statically. The range checks are unchanged.
+
+      if Nkind (Ck_Node) = N_Real_Literal
+        and then Etype (Ck_Node) = Universal_Real
+        and then Is_Integer_Type (Target_Typ)
+        and then Nkind (Parent (Ck_Node)) = N_Type_Conversion
+      then
+         declare
+            Int_Val : constant Uint := UR_To_Uint (Realval (Ck_Node));
+
+         begin
+            if Int_Val <= Ilast and then Int_Val >= Ifirst then
+
+               --  Conversion is safe.
+
+               Rewrite (Parent (Ck_Node),
+                 Make_Integer_Literal (Loc, UI_To_Int (Int_Val)));
+               Analyze_And_Resolve (Parent (Ck_Node), Target_Typ);
+               return;
+            end if;
+         end;
+      end if;
 
       --  Check against lower bound
 
