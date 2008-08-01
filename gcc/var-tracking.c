@@ -785,24 +785,27 @@ variable_htab_eq (const void *x, const void *y)
 {
   const_variable const v = (const_variable) x;
   decl_or_value dv = *(decl_or_value const*)y;
-  bool visv, dvisv;
 
   if (dv_as_opaque (v->dv) == dv_as_opaque (dv))
     return true;
 
 #ifdef ENABLE_CHECKING
-  visv = dv_is_value_p (v->dv);
-  dvisv = dv_is_value_p (dv);
+  {
+    bool visv, dvisv;
 
-  if (visv != dvisv)
-    return false;
+    visv = dv_is_value_p (v->dv);
+    dvisv = dv_is_value_p (dv);
 
-  if (visv)
-    gcc_assert (CSELIB_VAL_PTR (dv_as_value (v->dv))
-		!= CSELIB_VAL_PTR (dv_as_value (dv)));
-  else
-    gcc_assert (VARIABLE_HASH_VAL (dv_as_decl (v->dv))
-		!= VARIABLE_HASH_VAL (dv_as_decl (dv)));
+    if (visv != dvisv)
+      return false;
+
+    if (visv)
+      gcc_assert (CSELIB_VAL_PTR (dv_as_value (v->dv))
+		  != CSELIB_VAL_PTR (dv_as_value (dv)));
+    else
+      gcc_assert (VARIABLE_HASH_VAL (dv_as_decl (v->dv))
+		  != VARIABLE_HASH_VAL (dv_as_decl (dv)));
+  }
 #endif
 
   return false;

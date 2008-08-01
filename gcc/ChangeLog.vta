@@ -1,3 +1,8 @@
+2008-08-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* var-tracking.c (variable_htab_eq): Move checking-only variables
+	into ENABLE_CHECKING block.
+
 2008-07-31  Alexandre Oliva  <aoliva@redhat.com>
 
 	Merged with trunk @138264.
