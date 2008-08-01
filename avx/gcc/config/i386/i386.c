@@ -1764,6 +1764,7 @@ enum x86_64_reg_class
     X86_64_NO_CLASS,
     X86_64_INTEGER_CLASS,
     X86_64_INTEGERSI_CLASS,
+    X86_64_AVX_CLASS,
     X86_64_SSE_CLASS,
     X86_64_SSESF_CLASS,
     X86_64_SSEDF_CLASS,
@@ -5007,6 +5008,8 @@ classify_argument (enum machine_mode mode, const_tree type,
       classes[0] = classes[1] = X86_64_INTEGER_CLASS;
       return 2;
     case CTImode:
+    case COImode:
+    case OImode:
       return 0;
     case SFmode:
       if (!(bit_offset % 64))
@@ -5044,6 +5047,8 @@ classify_argument (enum machine_mode mode, const_tree type,
     case V16HImode:
     case V4DFmode:
     case V4DImode:
+      classes[0] = X86_64_AVX_CLASS;
+      return 1;
     case V4SFmode:
     case V4SImode:
     case V16QImode:
@@ -5100,6 +5105,7 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_INTEGERSI_CLASS:
 	(*int_nregs)++;
 	break;
+      case X86_64_AVX_CLASS:
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
       case X86_64_SSEDF_CLASS:
@@ -5198,6 +5204,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	return gen_rtx_REG (mode, intreg[0]);
+      case X86_64_AVX_CLASS:
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
       case X86_64_SSEDF_CLASS:
@@ -5331,13 +5338,14 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	break;
       /* FALLTHRU */
 
-    case TImode:
+    case OImode:
     case V8SFmode:
     case V8SImode:
     case V32QImode:
     case V16HImode:
     case V4DFmode:
     case V4DImode:
+    case TImode:
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -5379,9 +5387,25 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static void
 function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-			 tree type, HOST_WIDE_INT words)
+			 tree type, HOST_WIDE_INT words, int named)
 {
   int int_nregs, sse_nregs;
+
+  switch (mode)
+    {
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
+      /* Unnamed 256bit vector mode parameters are passed on stack.  */
+      if (!named)
+	return;
+
+    default:
+      break;
+    }
 
   if (!examine_argument (mode, type, 0, &int_nregs, &sse_nregs))
     cum->words += words;
@@ -5413,7 +5437,7 @@ function_arg_advance_ms_64 (CUMULATIVE_ARGS *cum, HOST_WIDE_INT bytes,
 
 void
 function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		      tree type, int named ATTRIBUTE_UNUSED)
+		      tree type, int named)
 {
   HOST_WIDE_INT bytes, words;
 
@@ -5429,7 +5453,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (TARGET_64BIT && (cum ? cum->call_abi : DEFAULT_ABI) == MS_ABI)
     function_arg_advance_ms_64 (cum, bytes, words);
   else if (TARGET_64BIT)
-    function_arg_advance_64 (cum, mode, type, words);
+    function_arg_advance_64 (cum, mode, type, words, named);
   else
     function_arg_advance_32 (cum, mode, type, bytes, words);
 }
@@ -5501,6 +5525,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	break;
       /* FALLTHRU */
     case TImode:
+      /* In 32bit, we pass TImode in xmm registers.  */
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -5522,6 +5547,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       break;
 
     case OImode:
+      /* In 32bit, we pass OImode in ymm registers.  */
     case V8SFmode:
     case V8SImode:
     case V32QImode:
@@ -5567,7 +5593,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 static rtx
 function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
-		 enum machine_mode orig_mode, tree type)
+		 enum machine_mode orig_mode, tree type, int named)
 {
   static bool warnedavx;
 
@@ -5588,13 +5614,14 @@ function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     default:
       break;
 
-    case OImode:
     case V8SFmode:
     case V8SImode:
     case V32QImode:
     case V16HImode:
     case V4DFmode:
     case V4DImode:
+      /* In 64bit, we pass TImode in interger registers and OImode on
+	 stack.  */
       if (!type || !AGGREGATE_TYPE_P (type))
 	{
 	  if (!TARGET_AVX && !warnedavx && cum->warn_avx)
@@ -5604,6 +5631,10 @@ function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		       "changes the ABI");
 	    }
 	}
+
+      /* Unnamed 256bit vector mode parameters are passed on stack.  */
+      if (!named)
+	return NULL;
       break;
     }
 
@@ -5681,7 +5712,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode omode,
   if (TARGET_64BIT && (cum ? cum->call_abi : DEFAULT_ABI) == MS_ABI)
     return function_arg_ms_64 (cum, mode, omode, named, bytes);
   else if (TARGET_64BIT)
-    return function_arg_64 (cum, mode, omode, type);
+    return function_arg_64 (cum, mode, omode, type, named);
   else
     return function_arg_32 (cum, mode, omode, type, bytes, words);
 }
@@ -6530,9 +6561,28 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   rsize = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   nat_mode = type_natural_mode (type);
-  container = construct_container (nat_mode, TYPE_MODE (type), type, 0,
-				   X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
-				   intreg, 0);
+  switch (nat_mode)
+    {
+    case V8SFmode:
+    case V8SImode:
+    case V32QImode:
+    case V16HImode:
+    case V4DFmode:
+    case V4DImode:
+      /* Unnamed 256bit vector mode parameters are passed on stack.  */
+      if (ix86_cfun_abi () == SYSV_ABI)
+	{
+	  container = NULL;
+	  break;
+	}
+
+    default:
+      container = construct_container (nat_mode, TYPE_MODE (type),
+				       type, 0, X86_64_REGPARM_MAX,
+				       X86_64_SSE_REGPARM_MAX, intreg,
+				       0);
+      break;
+    }
 
   /* Pull the value out of the saved registers.  */
 

@@ -1,5 +1,25 @@
 2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (x86_64_reg_class): Add X86_64_AVX_CLASS.
+	(classify_argument): Return 0 for COImode and OImode.  Return
+	1 and X86_64_AVX_CLASS for 256bit vector types.
+	(examine_argument): Handle X86_64_AVX_CLASS.
+	(construct_container): Likewise.
+	(function_arg_advance_32): Pass OImode in AVX register.
+	(function_arg_advance_64): Take a new argument to indicate if a
+	parameter is named.  Return immediately for unnamed 256bit
+	vector mode parameters.
+	(function_arg_advance): Updated.
+	(function_arg_32): Add comments for TImode and OImode.
+	(function_arg_64): Take a new argument to indicate if a
+	parameter is named.  Don't pass OImode in AVX register.
+	Return NULL for unnamed 256bit vector mode parameters.
+	(function_arg): Updated.
+	(ix86_gimplify_va_arg): Handle unnamed 256bit vector mode
+	parameters.
+
+2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (avx_maskloadp<avxmodesuffixf2c><avxmodesuffix>):
 	Add (match_dup 0).
 	(avx_maskstorep<avxmodesuffixf2c><avxmodesuffix>): Likewise.
