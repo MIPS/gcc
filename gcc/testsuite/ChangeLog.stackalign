@@ -1,3 +1,14 @@
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37009
+	* gcc.dg/torture/stackalign/alloca-2.c: New.
+	* gcc.dg/torture/stackalign/alloca-3.c: Likewise.
+	* gcc.dg/torture/stackalign/vararg-3.c: Likewise.
+	* gcc.target/i386/incoming-1.c: Likewise.
+	* gcc.target/i386/incoming-2.c: Likewise.
+	* gcc.target/i386/incoming-3.c: Likewise.
+	* gcc.target/i386/incoming-4.c: Likewise.
+
 2008-06-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/36584
