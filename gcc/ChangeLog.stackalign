@@ -1,5 +1,10 @@
 2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_expand_push): Set memory alignment
+	to function argument boundary.
+
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
 	PR middle-end/37009
 	* cfgexpand.c (expand_stack_alignment): Check parm_stack_boundary
 	for incoming stack boundary.
