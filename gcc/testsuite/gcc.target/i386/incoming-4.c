@@ -17,4 +17,4 @@ foo(va_list arg)
   return va_arg (arg, __m128);
 }
 
-/* { dg-final { scan-assembler "and\[l\]\[ \t\]" } } */
+/* { dg-final { scan-assembler "andl\[\\t \]*\\$-16,\[\\t \]*%esp" } } */

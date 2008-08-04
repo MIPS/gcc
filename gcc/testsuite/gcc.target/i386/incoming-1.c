@@ -16,4 +16,4 @@ foo(__m128 x, __m128 y, __m128 z, int size)
   return size;
 }
 
-/* { dg-final { scan-assembler "and\[l\]\[ \t\]" } } */
+/* { dg-final { scan-assembler "andl\[\\t \]*\\$-16,\[\\t \]*%esp" } } */
