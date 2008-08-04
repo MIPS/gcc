@@ -5,7 +5,7 @@
 --                               S Y S T E M                                --
 --                                                                          --
 --                                 S p e c                                  --
---                          (Darwin/x86 Version)                            --
+--                            (Windows Version)                             --
 --                                                                          --
 --          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
@@ -68,8 +68,8 @@ package System is
    Null_Address : constant Address;
 
    Storage_Unit : constant := 8;
-   Word_Size    : constant := 32;
-   Memory_Size  : constant := 2 ** 32;
+   Word_Size    : constant := 64;
+   Memory_Size  : constant := 2 ** 64;
 
    --  Address comparison
 
@@ -93,40 +93,14 @@ package System is
 
    --  Priority-related Declarations (RM D.1)
 
-   --  The values defined here are derived from the following Darwin
-   --  sources:
-   --
-   --  Libc/pthreads/pthread.c
-   --    pthread_init calls host_info to retrieve the HOST_PRIORITY_INFO.
-   --    This file includes "pthread_internals".
-   --  Libc/pthreads/pthread_internals.h
-   --    This file includes <mach/mach.h>.
-   --  xnu/osfmk/mach/mach.h
-   --    This file includes <mach/mach_types.h>.
-   --  xnu/osfmk/mach/mach_types.h
-   --    This file includes <mach/host_info.h>.
-   --  xnu/osfmk/mach/host_info.h
-   --    This file contains the definition of the host_info_t data structure
-   --    and the function prototype for host_info.
-   --  xnu/osfmk/kern/host.c
-   --    This file defines the function host_info which sets the
-   --    priority_info field of struct host_info_t. This file includes
-   --    <kern/processor.h>.
-   --  xnu/osfmk/kern/processor.h
-   --    This file includes <kern/sched.h>.
-   --  xnu/osfmk/kern/sched.h
-   --    This file defines the values for each level of priority.
+   Max_Priority           : constant Positive := 30;
+   Max_Interrupt_Priority : constant Positive := 31;
 
-   Max_Interrupt_Priority : constant Positive := 63;
-   Max_Priority           : constant Positive := Max_Interrupt_Priority - 1;
+   subtype Any_Priority       is Integer      range  0 .. 31;
+   subtype Priority           is Any_Priority range  0 .. 30;
+   subtype Interrupt_Priority is Any_Priority range 31 .. 31;
 
-   subtype Any_Priority is Integer range 0 .. Max_Interrupt_Priority;
-   subtype Priority is Any_Priority range 0 .. Max_Priority;
-   subtype Interrupt_Priority is Any_Priority
-     range Priority'Last + 1 .. Max_Interrupt_Priority;
-
-   Default_Priority : constant Priority :=
-     (Priority'Last - Priority'First) / 2;
+   Default_Priority : constant Priority := 15;
 
 private
 
@@ -157,7 +131,7 @@ private
    Preallocated_Stacks       : constant Boolean := False;
    Signed_Zeros              : constant Boolean := True;
    Stack_Check_Default       : constant Boolean := False;
-   Stack_Check_Probes        : constant Boolean := False;
+   Stack_Check_Probes        : constant Boolean := True;
    Stack_Check_Limits        : constant Boolean := False;
    Support_64_Bit_Divides    : constant Boolean := True;
    Support_Aggregates        : constant Boolean := True;
@@ -169,5 +143,57 @@ private
    Use_Ada_Main_Program_Name : constant Boolean := False;
    ZCX_By_Default            : constant Boolean := True;
    GCC_ZCX_Support           : constant Boolean := True;
+
+   ---------------------------
+   -- Underlying Priorities --
+   ---------------------------
+
+   --  Important note: this section of the file must come AFTER the
+   --  definition of the system implementation parameters to ensure
+   --  that the value of these parameters is available for analysis
+   --  of the declarations here (using Rtsfind at compile time).
+
+   --  The underlying priorities table provides a generalized mechanism
+   --  for mapping from Ada priorities to system priorities. In some
+   --  cases a 1-1 mapping is not the convenient or optimal choice.
+
+   type Priorities_Mapping is array (Any_Priority) of Integer;
+   pragma Suppress_Initialization (Priorities_Mapping);
+   --  Suppress initialization in case gnat.adc specifies Normalize_Scalars
+
+   Underlying_Priorities : constant Priorities_Mapping :=
+     (Priority'First ..
+      Default_Priority - 8    => -15,
+      Default_Priority - 7    => -7,
+      Default_Priority - 6    => -6,
+      Default_Priority - 5    => -5,
+      Default_Priority - 4    => -4,
+      Default_Priority - 3    => -3,
+      Default_Priority - 2    => -2,
+      Default_Priority - 1    => -1,
+      Default_Priority        => 0,
+      Default_Priority + 1    => 1,
+      Default_Priority + 2    => 2,
+      Default_Priority + 3    => 3,
+      Default_Priority + 4    => 4,
+      Default_Priority + 5    => 5,
+      Default_Priority + 6 ..
+      Priority'Last           => 6,
+      Interrupt_Priority      => 15);
+   --  The default mapping preserves the standard 31 priorities of the Ada
+   --  model, but maps them using compression onto the 7 priority levels
+   --  available in NT and on the 16 priority levels available in 2000/XP.
+
+   --  To replace the default values of the Underlying_Priorities mapping,
+   --  copy this source file into your build directory, edit the file to
+   --  reflect your desired behavior, and recompile using Makefile.adalib
+   --  which can be found under the adalib directory of your gnat installation
+
+   pragma Linker_Options ("-Wl,--stack=0x2000000");
+   --  This is used to change the default stack (32 MB) size for non tasking
+   --  programs. We change this value for GNAT on Windows here because the
+   --  binutils on this platform have switched to a too low value for Ada
+   --  programs. Note that we also set the stack size for tasking programs in
+   --  System.Task_Primitives.Operations.
 
 end System;

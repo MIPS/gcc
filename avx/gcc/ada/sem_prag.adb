@@ -1425,7 +1425,18 @@ package body Sem_Prag is
          P := N;
          while Present (Prev (P)) loop
             P := Prev (P);
-            PO := Original_Node (P);
+
+            --  If the previous node is a generic subprogram, do not go to
+            --  to the original node, which is the unanalyzed tree: we need
+            --  to attach the pre/postconditions to the analyzed version
+            --  at this point. They get propagated to the original tree when
+            --  analyzing the corresponding body.
+
+            if Nkind (P) not in N_Generic_Declaration then
+               PO := Original_Node (P);
+            else
+               PO := P;
+            end if;
 
             --  Skip past prior pragma
 
@@ -3924,18 +3935,15 @@ package body Sem_Prag is
 
                if not In_Character_Range (C)
 
-                  --  Dubious if comma
+                  --  For all cases except external names on CLI target,
+                  --  commas, spaces and slashes are dubious (in CLI, we use
+                  --  spaces and commas in external names to specify assembly
+                  --  version and public key).
 
-                  or else Get_Character (C) = ','
-
-                  --  For all cases except link names on a CLI target, spaces
-                  --  and slashes are also dubious (in CLI for link names, we
-                  --  use spaces and possibly slashes for special purposes).
-
-                  --  Where is this usage documented ???
-
-                  or else ((Ext_Name_Case or else VM_Target /= CLI_Target)
+                  or else ((not Ext_Name_Case or else VM_Target /= CLI_Target)
                              and then (Get_Character (C) = ' '
+                                         or else
+                                       Get_Character (C) = ','
                                          or else
                                        Get_Character (C) = '/'
                                          or else

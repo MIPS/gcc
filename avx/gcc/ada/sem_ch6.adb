@@ -542,16 +542,33 @@ package body Sem_Ch6 is
 
          --  "return access T" case; check that the return statement also has
          --  "access T", and that the subtypes statically match:
+         --   if this is an access to subprogram the signatures must match.
 
          if R_Type_Is_Anon_Access then
             if R_Stm_Type_Is_Anon_Access then
-               if Base_Type (Designated_Type (R_Stm_Type)) /=
-                    Base_Type (Designated_Type (R_Type))
-                 or else not Subtypes_Statically_Match (R_Stm_Type, R_Type)
+               if
+                 Ekind (Designated_Type (R_Stm_Type)) /= E_Subprogram_Type
                then
-                  Error_Msg_N
-                    ("subtype must statically match function result subtype",
-                     Subtype_Mark (Subtype_Ind));
+                  if Base_Type (Designated_Type (R_Stm_Type)) /=
+                     Base_Type (Designated_Type (R_Type))
+                    or else not Subtypes_Statically_Match (R_Stm_Type, R_Type)
+                  then
+                     Error_Msg_N
+                      ("subtype must statically match function result subtype",
+                       Subtype_Mark (Subtype_Ind));
+                  end if;
+
+               else
+                  --  For two anonymous access to subprogram types, the
+                  --  types themselves must be type conformant.
+
+                  if not Conforming_Types
+                    (R_Stm_Type, R_Type, Fully_Conformant)
+                  then
+                     Error_Msg_N
+                      ("subtype must statically match function result subtype",
+                         Subtype_Ind);
+                  end if;
                end if;
 
             else
@@ -589,17 +606,22 @@ package body Sem_Ch6 is
          --  definition matches the class-wide type. This prevents rejection
          --  in the case where the object declaration is initialized by a call
          --  to a build-in-place function with a specific result type and the
-         --  object entity had its type changed to that specific type. (Note
-         --  that the ARG believes that return objects should be allowed to
-         --  have a type covered by a class-wide result type in any case, so
-         --  once that relaxation is made (see AI05-32), the above check for
-         --  type compatibility should be changed to test Covers rather than
-         --  equality, and then the following special test will no longer be
-         --  needed. ???)
+         --  object entity had its type changed to that specific type. This is
+         --  also allowed in the case where Obj_Decl does not come from source,
+         --  which can occur for an expansion of a simple return statement of
+         --  a build-in-place class-wide function when the result expression
+         --  has a specific type, because a return object with a specific type
+         --  is created. (Note that the ARG believes that return objects should
+         --  be allowed to have a type covered by a class-wide result type in
+         --  any case, so once that relaxation is made (see AI05-32), the above
+         --  check for type compatibility should be changed to test Covers
+         --  rather than equality, and the following special test will no
+         --  longer be needed. ???)
 
          elsif Is_Class_Wide_Type (R_Type)
            and then
-             R_Type = Etype (Object_Definition (Original_Node (Obj_Decl)))
+             (R_Type = Etype (Object_Definition (Original_Node (Obj_Decl)))
+               or else not Comes_From_Source (Obj_Decl))
          then
             null;
 
@@ -1240,7 +1262,20 @@ package body Sem_Ch6 is
 
       if Result_Definition (N) /= Error then
          if Nkind (Result_Definition (N)) = N_Access_Definition then
-            Typ := Access_Definition (N, Result_Definition (N));
+
+            --  Ada 2005 (AI-254): Handle anonymous access to subprograms
+
+            declare
+               AD : constant Node_Id :=
+                      Access_To_Subprogram_Definition (Result_Definition (N));
+            begin
+               if Present (AD) and then Protected_Present (AD) then
+                  Typ := Replace_Anonymous_Access_To_Protected_Subprogram (N);
+               else
+                  Typ := Access_Definition (N, Result_Definition (N));
+               end if;
+            end;
+
             Set_Parent (Typ, Result_Definition (N));
             Set_Is_Local_Anonymous_Access (Typ);
             Set_Etype (Designator, Typ);

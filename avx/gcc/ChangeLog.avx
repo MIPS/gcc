@@ -1,3 +1,10 @@
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_shufps_1): Removed.
+	(*avx_shufpd_1): Likewise.
+	(*avx_shufps_<mode>): New.
+	(*avx_shufpd_<mode>): Likewise.
+
 2008-08-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (x86_64_reg_class): Add X86_64_AVX_CLASS.
