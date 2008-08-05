@@ -1,5 +1,5 @@
 /* { dg-do compile }
-/* { dg-options "-O2 -msse2" } */
+/* { dg-options "-O2 -msse4" } */
 
 #include <emmintrin.h>
 

@@ -1,3 +1,11 @@
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36992
+	* gcc.target/i386/pr36992-1.c: Scan movq.
+	* gcc.target/i386/pr36992-2.c: Likewise.
+
+	* gcc.target/i386/pr36992-3.c: New.
+
 2008-07-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.dg/compat/vector-1b_main.c: New.
