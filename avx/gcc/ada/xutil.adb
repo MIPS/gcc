@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT COMPILER COMPONENTS                         --
+--                          GNAT SYSTEM UTILITIES                           --
 --                                                                          --
---                          P R J . A T T R . P M                           --
+--                                X U T I L                                 --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,49 +23,55 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-package body Prj.Attr.PM is
+package body XUtil is
 
-   -------------------
-   -- Add_Attribute --
-   -------------------
+   use Ada.Strings.Unbounded;
+   use Ada.Streams.Stream_IO;
 
-   procedure Add_Attribute
-     (To_Package     : Package_Node_Id;
-      Attribute_Name : Name_Id;
-      Attribute_Node : out Attribute_Node_Id)
-   is
+   --------------
+   -- New_Line --
+   --------------
+
+   procedure New_Line (F : Sfile) is
    begin
-      --  Only add the attribute if the package is already defined
+      Character'Write (Stream (F), ASCII.LF);
+   end New_Line;
 
-      if To_Package /= Empty_Package then
-         Attrs.Increment_Last;
-         Attrs.Table (Attrs.Last) :=
-           (Name              => Attribute_Name,
-            Var_Kind          => Undefined,
-            Optional_Index    => False,
-            Attr_Kind         => Unknown,
-            Read_Only         => False,
-            Others_Allowed    => False,
-            Next              =>
-              Package_Attributes.Table (To_Package.Value).First_Attribute);
-         Package_Attributes.Table (To_Package.Value).First_Attribute :=
-           Attrs.Last;
-         Attribute_Node := (Value => Attrs.Last);
-      end if;
-   end Add_Attribute;
+   ---------
+   -- Put --
+   ---------
 
-   -------------------------
-   -- Add_Unknown_Package --
-   -------------------------
-
-   procedure Add_Unknown_Package (Name : Name_Id; Id : out Package_Node_Id) is
+   procedure Put (F : Sfile; S : String) is
    begin
-      Package_Attributes.Increment_Last;
-      Id := (Value => Package_Attributes.Last);
-      Package_Attributes.Table (Id.Value) :=
-        (Name             => Name,
-         Known            => False,
-         First_Attribute  => Empty_Attr);
-   end Add_Unknown_Package;
+      String'Write (Stream (F), S);
+   end Put;
 
-end Prj.Attr.PM;
+   ---------
+   -- Put --
+   ---------
+
+   procedure Put (F : Sfile; S : VString) is
+   begin
+      Put (F, To_String (S));
+   end Put;
+
+   --------------
+   -- Put_Line --
+   --------------
+
+   procedure Put_Line (F : Sfile; S : String) is
+   begin
+      Put (F, S);
+      New_Line (F);
+   end Put_Line;
+
+   --------------
+   -- Put_Line --
+   --------------
+
+   procedure Put_Line (F : Sfile; S : VString) is
+   begin
+      Put_Line (F, To_String (S));
+   end Put_Line;
+
+end XUtil;

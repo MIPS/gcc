@@ -2550,6 +2550,14 @@ package body Sem_Ch3 is
          Set_Etype (Id, T);
          Resolve (E, T);
 
+         --  If E is null and has been replaced by an N_Raise_Constraint_Error
+         --  node (which was marked already-analyzed), we need to set the type
+         --  to something other than Any_Access in order to keep gigi happy.
+
+         if Etype (E) = Any_Access then
+            Set_Etype (E, T);
+         end if;
+
          --  If the object is an access to variable, the initialization
          --  expression cannot be an access to constant.
 
@@ -4480,6 +4488,7 @@ package body Sem_Ch3 is
       --  the enclosing scope.
 
       P := Parent (N);
+
       if Nkind (P) = N_Subprogram_Body
         and then Nkind (N) = N_Function_Specification
       then
@@ -16498,7 +16507,9 @@ package body Sem_Ch3 is
              or else
            Nkind_In (P, N_Derived_Type_Definition,
                         N_Discriminant_Specification,
+                        N_Formal_Object_Declaration,
                         N_Object_Declaration,
+                        N_Object_Renaming_Declaration,
                         N_Parameter_Specification,
                         N_Subtype_Declaration);
 
@@ -16542,6 +16553,9 @@ package body Sem_Ch3 is
                   when N_Component_Declaration =>
                      Error_Node :=
                        Subtype_Indication (Component_Definition (Related_Nod));
+
+                  when N_Allocator =>
+                     Error_Node := Expression (Related_Nod);
 
                   when others =>
                      pragma Assert (False);

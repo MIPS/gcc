@@ -1810,6 +1810,16 @@ package body Sem_Ch12 is
          Find_Type (Subtype_Mark (N));
          T := Entity (Subtype_Mark (N));
 
+         --  Verify that there is no redundant null exclusion.
+
+         if Null_Exclusion_Present (N)
+           and then Can_Never_Be_Null (T)
+         then
+            Error_Msg_NE
+              ("`NOT NULL` not allowed (& already excludes null)",
+                 N, T);
+         end if;
+
       --  Ada 2005 (AI-423): Formal object with an access definition
 
       else
@@ -8366,8 +8376,8 @@ package body Sem_Ch12 is
                 Defining_Identifier => New_Copy (Formal_Id),
                 Constant_Present    => True,
                 Object_Definition   => New_Copy (Def),
-                Expression          => New_Copy_Tree (Default_Expression
-                                        (Formal)));
+                Expression          => New_Copy_Tree
+                                         (Default_Expression (Formal)));
 
             Append (Decl_Node, List);
             Set_Analyzed (Expression (Decl_Node), False);
@@ -8398,9 +8408,9 @@ package body Sem_Ch12 is
                    Constant_Present    => True,
                    Object_Definition   => New_Copy (Def),
                    Expression          =>
-                      Make_Attribute_Reference (Sloc (Formal_Id),
-                        Attribute_Name => Name_First,
-                        Prefix         => New_Copy (Def)));
+                     Make_Attribute_Reference (Sloc (Formal_Id),
+                       Attribute_Name => Name_First,
+                       Prefix         => New_Copy (Def)));
 
                Append (Decl_Node, List);
 
@@ -9246,10 +9256,20 @@ package body Sem_Ch12 is
             Next_Index (I2);
          end loop;
 
-         if not Subtypes_Match
-                  (Find_Actual_Type (Component_Type (A_Gen_T), A_Gen_T),
-                   Component_Type (Act_T))
+         --  Check matching subtypes. Note that there are complex visibility
+         --  issues when the generic is a child unit and some aspect of the
+         --  generic type is declared in a parent unit of the generic. We do
+         --  the test to handle this special case only after a direct check
+         --  for static matching has failed.
+
+         if Subtypes_Match
+           (Component_Type (A_Gen_T), Component_Type (Act_T))
+             or else Subtypes_Match
+                      (Find_Actual_Type (Component_Type (A_Gen_T), A_Gen_T),
+                       Component_Type (Act_T))
          then
+            null;
+         else
             Error_Msg_NE
               ("component subtype of actual does not match that of formal &",
                Actual, Gen_T);
