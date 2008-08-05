@@ -357,8 +357,9 @@
 	    (parallel [(const_int 0)]))
 	  (match_operand:DI 2 "const0_operand" "")))]
   "TARGET_SSE2"
-  "movq\t{%1, %0|%0, %1}"
+  "%vmovq\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssemov")
+   (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
 (define_insn "<sse>_movup<ssemodesuffixf2c>"
