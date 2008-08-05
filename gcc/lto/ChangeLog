@@ -1,3 +1,8 @@
+2008-08-05  Doug Kwan  <dougkwan@google.com>
+	
+	* Make-lang.in (lto-symtab.o): Add missing dependencies to fix
+	build breakage.
+
 2008-07-30  Bill Maddox  <maddox@google.com>
 
  	* lto.c (lto_materialize_function): Call lto_original_decl_name.
