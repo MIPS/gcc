@@ -1,3 +1,285 @@
+2008-08-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* freeze.adb:
+	(Freeze_Entity): A deferred constant does not violate the restriction
+	No_Default_Initialization, 
+
+	* sem_ch3.adb (Process_Subtype): An allocator is a valid construct that
+	can carry a null exclusion indicator, and on which an error may be
+	posted if the indicator is redundant.
+
+	* sem_ch8.adb (Analyze_Object_Renaming): Verify that a null exclusion
+	does not apply to a subtype mark that already excludes null.
+
+	* sem_ch12.adb (Formal_Object_Declaration): Verify that a null
+	exclusion does not apply to a subtype mark that already excludes null.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* Makefile.rtl: Compile s-oscons.ads as part of the runtime library.
+
+2008-08-05  Doug Rupp  <rupp@adacore.com>
+
+	* vms_data.ads: Translation for /POINTER_SIZE qualifier.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* gsocket.h: Make this file includable in a Nucleus environment, which
+	does not support sockets.
+
+	* socket.c: Remove Nucleus-specific hack.
+
+2008-08-05  Pascal Obry  <obry@adacore.com>
+
+	* adaint.c: Remove support for readable attribute on vxworks and nucleus
+
+2008-08-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb:
+	(Analyze_Attribute, case 'Result): handle properly the case where some
+	operand of the expression in a post-condition generates a transient
+	block.
+
+	* sem_ch5.adb (Analyze_Assignment_Statement): Apply conversion to
+	right-hand side when it is an anonymous access_to_subprogram, to force
+	static accessibility check when needed.
+
+2008-08-05  Sergey Rybin  <rybin@adacore.com>
+
+	* gnat_ugn.texi: Changing the description of the gnatcheck metrics
+	rule according to the change in the rule option.
+	Add documentation for -gnatw.b/-gnatw.B
+
+2008-08-05  Robert Dewar  <dewar@adacore.com>
+
+	* ug_words: Add entries for -gnatw.b/-gnatw.B
+
+	* vms_data.ads: Add entries for -gnatw.b/-gnatw.B
+
+2008-08-05  Vincent Celier  <celier@adacore.com>
+
+	* a-wtdeio.adb (Put (Current_Output)): Use Fore in the call to Put
+	(File).
+	
+	* a-ztdeio.adb: Ditto.
+
+2008-08-05  Pascal Obry  <obry@adacore.com>
+
+	* adaint.c, adaint.h, s-os_lib.adb, s-os_lib.ads: Add support for the
+	readable attribute.
+
+2008-08-05  Vincent Celier  <celier@adacore.com>
+
+	* s-wchwts.adb:
+	(Wide_String_To_String): Returns a String with the same 'First as its
+	parameter S.
+	(Wide_Wide_String_To_String): Ditto
+	
+	* s-wchwts.ads:
+	(Wide_String_To_String): Document that the lowest index of the returned
+	String is equal to S'First.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* xoscons.adb, xutil.ads, xutil.adb, s-oscons-tmplt.c: New files.
+
+	* gcc-interface/Makefile.in, gcc-interface/Make-lang.in: Generate
+	s-oscons.ads
+
+2008-08-05  Robert Dewar  <dewar@adacore.com>
+
+	* opt.ads (Warn_On_Biased_Representation): New flag
+	
+	* sem_ch13.adb:
+	(Analyze_Attribute_Definition_Clause): Issue warning when biased
+	representation is required.
+	(Minimum_Size): Don't allow biasing if enum rep clause case
+	
+	* sem_warn.adb:
+	(Set_Dot_Warning_Switch): Add handling of -gnatw.b/B switches
+	(Set_Warning_Switch): Include -gnatw.b in -gnatwa, -gnatw.B in gnatws
+	
+	* usage.adb: Add lines for -gnatw.b/B switches
+
+2008-08-05  Pascal Obry  <obry@adacore.com>
+
+	* a-coinve.adb: Reorder the code to avoid uninitialized warning.
+
+	* adaint.c: In UNIX cases do not call __gnat_stat but stat directly.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* socket.c: Minor reformatting.
+
+2008-08-05  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb: Minor reformatting
+
+	* prj-nmsc.adb: Minor reformatting
+
+2008-08-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Validate_Array_Type_Instance): Only apply complex
+	visibility check on the component type if the simple test fails.
+
+2008-08-05  Jose Ruiz  <ruiz@adacore.com>
+
+	* init.c (__gnat_install_handler for linux): If we are building the
+	Xenomai run time then we need to do two additional things: avoid
+	memory swapping and transform the Linux environment task into a native
+	Xenomai task.
+
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS for xenomai run
+	time): Use interface to Xenomai native skin and avoid linux-specific
+	way of setting CPU affinity.
+	(EH_MECHANISM for the xenomai run time): Use sjlj exception mechanism.
+
+2008-08-05  Bob Duff  <duff@adacore.com>
+
+	* checks.ads: Minor comment fix
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* g-sercom.adb, g-sercom.ads, g-sercom-mingw.adb,
+	g-sercom-linux.adb (Data_Bits): Change literals B7 and B8 to CS7 and
+	CS8.
+
+2008-08-05  Robert Dewar  <dewar@adacore.com>
+
+	* mlib.adb: Minor code reorganization
+	Minor reformatting
+
+	* make.adb: Minor reformatting
+
+	* prj-attr.ads: Minor reformatting
+
+	* s-os_lib.adb: Minor reformatting
+
+	* s-fileio.adb: Minor code reorganization
+	Minor reformatting
+
+	* prj.ads: Minor reformatting
+
+2008-08-05  Bob Duff  <duff@adacore.com>
+
+	* sem_ch3.adb (Analyze_Object_Declaration): Avoid type Any_Access in
+	unresolved initial value of "null", because it causes implicitly
+	generated "=" operators to be ambiguous, and because this type should
+	not be passed to gigi.
+
+2008-08-05  Vincent Celier  <celier@adacore.com>
+
+	* mlib.adb: Update comments.
+
+	* make.adb (Switches_Of): Check for Switches (others), before checking
+	for Default_Switches ("Ada").
+	(Gnatmake): Use Builder'Switches (others) in preference to
+	Builder'Default_Switches ("Ada") if there are several mains.
+
+	* prj-attr-pm.adb:
+	(Add_Attribute): Add component Others_Allowed in Attribute_Record
+	aggregate.
+
+	* prj-attr.adb:
+	Add markers to indicates that attributes Switches allow others as index
+	(Others_Allowed_For): New Boolean function, returning True for
+	attributes with the mark.
+	(Initialize): Recognize optional letter 'O' as the marker for
+	associative array attributes where others is allowed as the index.
+
+	* prj-attr.ads:
+	(Others_Allowed_For): New Boolean function
+	(Attribute_Record): New Boolean component Others_Allowed
+	
+	* prj-dect.adb:
+	(Parse_Attribute_Declaration): For associative array attribute where
+	others is allowed as the index, allow others as an index.
+
+	* prj-nmsc.adb:
+	(Process_Binder): Skip associative array attributes with index others
+	(Process_Compiler): Ditto
+
+	* prj-util.adb:
+	(Value_Of (Index, In_Array)): Make no attempt to put in lower case when
+	index is All_Other_Names.
+
+	* prj.ads:
+	(All_Other_Names): New constant
+
+	* prj-proc.adb:
+	(Process_Declarative_Items): Skip associative array attribute when index
+	is reserved word "others".
+
+2008-08-05  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* gen-oscons.c: Adapt for VMS where termios.h is not available.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* a-rttiev.adb: Minor reformatting (comments)
+
+	* gen-soccon.c: Rename to gen-oscons.c
+
+	* gen-oscons.c: New file. Now generate System.OS_Constants instead of
+	GNAT.Sockets.Constants.
+	Add new constants for GNAT.Serial_Communications and System.File_IO.
+
+2008-08-05  Javier Miranda  <miranda@adacore.com>
+
+	* sem_util.adb (Collect_Interfaces_Info): Minor reformating.
+	* exp_ch3.adb (Build_Offset_To_Top_Functions): Code cleanup: the
+	implementation of this routine has been simplified.
+
+2008-08-05  Pascal Obry  <obry@adacore.com>
+
+	* adaint.c, adaint.h, s-os_lib.adb, s-os_lib.ads: Fix the
+	Set_Read_Only Win32 implementation.
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_strm.adb: Minor reformatting (comments)
+
+	* sem_ch12.adb: Minor reformatting.
+
+2008-08-05  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch3.adb: Minor reformatting
+
+	* checks.adb: Minor reformatting
+
+2008-08-05  Thomas Quinot  <quinot@adacore.com>
+
+	* tbuild.ads (New_External_Name): Update spec to reflect relaxed
+	restriction on Prefix.
+
+2008-08-05  Jerome Lambourg  <lambourg@adacore.com>
+
+	* g-comlin.adb (Sort_Sections, Group_Switches): New/Modified internal
+	methods needed to handle switch sections when building a command line.
+	(Define_Section, Add_Switch, Remove_Switch, Is_New_Section,
+	Current_Section): New public methods or methods modified to handle
+	building command lines with sections.
+	(Set_Command_Line): Take into account sections when analysing a switch
+	string.
+	(Start): Sort the switches by sections before iterating the command line
+	elements.
+	
+	* g-comlin.ads (Define_Section, Add_Switch, Remove_Switch,
+	Is_New_Section, Current_Section): New methods or methods modified to
+	handle building command lines with sections.
+
+2008-08-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_strm.adb (Build_Record_Or_Elementary_Input_Function): For access
+	discriminants, indicate that the corresponding object declaration has
+	no initialization, to prevent spurious warnings when the access type is
+	null-excluding.
+
+2008-08-05  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_res.adb (Resolve_Call): If this is a call to the predefined
+	Abort_Task, warn if the call appears within a protected operation.
+
 2008-08-04  Robert Dewar  <dewar@adacore.com>
 
 	* exp_ch4.adb (Expand_N_In): Suppress range warnings in instances
