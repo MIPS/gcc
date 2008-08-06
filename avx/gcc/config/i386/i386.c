@@ -23712,7 +23712,7 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case V4SF_FTYPE_PCV4SF_V4SF:
     case V2DF_FTYPE_PCV2DF_V2DF:
       nargs = 2;
-      class = load;
+      klass = load;
       memory = 0;
       break;
     case VOID_FTYPE_PV8SF_V8SF_V8SF:
@@ -23720,7 +23720,7 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case VOID_FTYPE_PV4SF_V4SF_V4SF:
     case VOID_FTYPE_PV2DF_V2DF_V2DF:
       nargs = 2;
-      class = store;
+      klass = store;
       /* Reserve memory operand for target.  */
       memory = ARRAY_SIZE (args);
       break;

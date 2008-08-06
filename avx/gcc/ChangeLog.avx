@@ -1,5 +1,10 @@
 2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/i386.c (ix86_expand_special_args_builtin): Replace
+	class with klass.
+
+2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (sse2_movq128): Removed.
 	(*sse2_movq128): Renamd to ...
 	(sse2_movq128): This.  Updated.
