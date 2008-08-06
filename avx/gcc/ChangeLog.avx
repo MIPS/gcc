@@ -1,5 +1,10 @@
 2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
 
+	* config/i386/sse.md (sse2_movq128): Remove "=x" and "x".
+	(*sse2_movq128): Use "xm" on nonimmediate_operand.
+
+2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
 	* config/i386/sse.md (*sse2_movq128): Support AVX.
 
 2008-08-05  H.J. Lu  <hongjiu.lu@intel.com>

@@ -340,10 +340,10 @@
    (set_attr "mode" "<MODE>")])
 
 (define_expand "sse2_movq128"
-  [(set (match_operand:V2DI 0 "register_operand" "=x")
+  [(set (match_operand:V2DI 0 "register_operand" "")
 	(vec_concat:V2DI
 	  (vec_select:DI
-	    (match_operand:V2DI 1 "nonimmediate_operand" "x")
+	    (match_operand:V2DI 1 "nonimmediate_operand" "")
 	    (parallel [(const_int 0)]))
 	  (match_dup 2)))]
   "TARGET_SSE2"
@@ -353,7 +353,7 @@
   [(set (match_operand:V2DI 0 "register_operand" "=x")
 	(vec_concat:V2DI
 	  (vec_select:DI
-	    (match_operand:V2DI 1 "nonimmediate_operand" "x")
+	    (match_operand:V2DI 1 "nonimmediate_operand" "xm")
 	    (parallel [(const_int 0)]))
 	  (match_operand:DI 2 "const0_operand" "")))]
   "TARGET_SSE2"
