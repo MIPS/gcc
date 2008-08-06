@@ -1,3 +1,78 @@
+2008-08-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/Wcxx-compat-2.c: Adjust test for more warnings.
+
+2008-08-06  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 26785
+	* g++.dg/warn/pr26785.C: New.
+		
+2008-08-06  Victor Kaplansky  <victork@il.ibm.com>
+
+	* gcc.dg/vect/costmodel/ppc/costmodel-slp-34.c: New test.
+
+2008-08-06  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 8715
+	* gcc.dg/pr8715.c: New.
+	* g++.dg/warn/pr8715.C: New.
+	
+2008-08-06  Marc Gauthier  <marc@tensilica.com>
+
+	* lib/target-supports.exp (check_profiling_available): Match more
+	processor names for Xtensa.
+	* g++.old-deja/g++.jason/thunk3.C: Likewise.
+	* gcc.dg/intmax_t-1.c: Likewise.
+	* gcc.dg/sibcall-3.c: Likewise.
+	* gcc.dg/sibcall-4.c: Likewise.
+	* gcc.c-torture/compile/20001226-1.c: Likewise.
+
+2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37010
+	* gcc.dg/torture/stackalign/push-1.c: New.
+
+2008-08-06  Michael Matz  <matz@suse.de>
+
+	PR target/36613
+	* gcc.target/i386/pr36613.c: New testcase.
+
+2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37009
+	* gcc.dg/torture/stackalign/alloca-2.c: New.
+	* gcc.dg/torture/stackalign/alloca-3.c: Likewise.
+	* gcc.dg/torture/stackalign/alloca-4.c: Likewise.
+	* gcc.dg/torture/stackalign/vararg-3.c: Likewise.
+	* gcc.target/i386/incoming-1.c: Likewise.
+	* gcc.target/i386/incoming-2.c: Likewise.
+	* gcc.target/i386/incoming-3.c: Likewise.
+	* gcc.target/i386/incoming-4.c: Likewise.
+	* gcc.target/i386/incoming-5.c: Likewise.
+
+2008-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/35432
+	* gcc.c-torture/compile/pr35432.c: New file.
+
+2008-08-06  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat.dg/iface_test.ad[s,b]: New test.
+	* gnat.dg/test_call.adb: New test.
+
+2008-08-06  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.c-torture/compile/20080806-1.c: New testcase.
+
+2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* gcc.target/ia64/20080802-1.c: New test.
+
+2008-08-05  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR tree-opt/37024
+	* gcc.dg/tree-ssa/tailcall-4.c: New testcase.
+
 2008-08-05  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/37026
