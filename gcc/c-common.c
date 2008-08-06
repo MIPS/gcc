@@ -6924,7 +6924,15 @@ handle_guarded_by_attribute (tree *node, tree name, tree args,
     {
       /* If the decl node is a class member, delay the binding until
          after the class specification is parsed as its attribute
-         arguments could reference another class member declared later.  */
+         arguments could reference another class member declared later.
+         Note that checking if the decl is a FIELD_DECL does not work for
+         static data members as they are actually VAR_DECLs. (And checking
+         its DECL_CONTEXT doesn't work either as the decl's DECL_CONTEXT
+         is not set at this point.) But it's fine if we are not able to bind
+         the lock identifier here because the late binding mechanism in
+         thread-safety analysis will most likely bind the identifier to
+         its correct decl tree later. (See the uses of unbound_lock_map in
+         tree-threadsafe-analyze.c.)  */
       if (TREE_CODE (decl) == FIELD_DECL)
         {
           tree new_list_node = build_tree_list (NULL_TREE, args);
@@ -7299,8 +7307,13 @@ check_lock_unlock_attr_args (tree *node, tree name, tree args,
               /* If the decl node is a class member, delay the binding until
                  after the class specification is parsed as the attribute
                  arguments could reference another class member declared
-                 later.  */
-              if (TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+                 later. Note that checking if the decl type is a METHOD_TYPE
+                 is not sufficient to determine if it is a class member as
+                 the type of a static member function is a FUNCTION_TYPE.  */
+              tree decl_context = DECL_CONTEXT (*node);
+              if (decl_context
+                  && (TREE_CODE (decl_context) == RECORD_TYPE
+                      || TREE_CODE (decl_context) == UNION_TYPE))
                 {
                   tree new_list_node = build_tree_list (NULL_TREE, args);
                   TREE_CHAIN (new_list_node) = unbound_attribute_args;
@@ -7463,8 +7476,14 @@ handle_lock_returned_attribute (tree *node, tree name, tree args,
     {
       /* If the decl node is a class member, delay the binding until
          after the class specification is parsed as the attribute
-         arguments could reference another class member declared later.  */
-      if (TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+         arguments could reference another class member declared later.
+         Note that checking if the decl type is a METHOD_TYPE is not
+         sufficient to determine if it is a class member as the type of
+         a static member function is a FUNCTION_TYPE.  */
+      tree decl_context = DECL_CONTEXT (*node);
+      if (decl_context
+          && (TREE_CODE (decl_context) == RECORD_TYPE
+              || TREE_CODE (decl_context) == UNION_TYPE))
         {
           tree new_list_node = build_tree_list (NULL_TREE, args);
           TREE_CHAIN (new_list_node) = unbound_attribute_args;

@@ -1,3 +1,9 @@
+2008-08-05  Le-Chun Wu  <lcwu@google.com>
+
+	* g++.dg/thread-ann/thread_annot_lock-18.C: New test.
+	* g++.dg/thread-ann/thread_annot_lock-19.C: New test.
+	* g++.dg/thread-ann/thread_annot_lock-20.C: New test.
+
 2008-07-15  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/36369

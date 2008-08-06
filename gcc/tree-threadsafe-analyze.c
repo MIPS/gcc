@@ -228,6 +228,7 @@ static pretty_printer pp_buf;
 static void analyze_expr (tree, tree, struct pointer_set_t *,
                           struct pointer_set_t *, const location_t *,
                           enum access_mode);
+static tree get_canonical_expr (tree lock, bool is_temp_expr);
 
 
 /* This function hashes an expr tree to a hash value by doing the following:
@@ -536,6 +537,62 @@ get_lockable_decl (tree lockable)
     }
 }
 
+/* Build a fully-qualified name of a lock that is a class member with the
+   given BASE object tree and the LOCK_FIELD tree. This helper function is
+   usually used when handling lock_returned, lock, and unlock attributes.
+   For example, given the following code
+
+   class Bar {
+     public:
+       bool MyLock() __attributes__ ((exclusive_lock(mu1_)));
+       void MyUnlock() __attributes__ ((unlock(mu1_)));
+       int a_ __attribute__ ((guarded_by(mu1_)));
+     private:
+       Mutex mu1_;
+   };
+
+   Bar *b1, *b2;
+
+   void func()
+   {
+     b1->MyLock();    // S1
+     b1->a_ = 5;      // S2
+     b2->a_ = 3;      // S3
+     b1->MyUnlock();  // S4
+   }
+
+   When analyzing statement S1, instead of adding "mu1_" to the live lock
+   set, we need to build the fully-qualified name, b1->mu1, first and add
+   the fully-qualified name to the live lock set. The same goes for the unlock
+   statement in S4. Without using the fully-qualified lock names, we won't
+   be able to tell the lock requirement difference between S2 and S3.  */
+static tree
+build_fully_qualified_lock (tree lock_field, tree base)
+{
+  tree lock;
+  tree canon_base = get_canonical_expr (base, true /* is_temp_expr */);
+
+  /* When the base is a pointer, i.e. b1->MyLock() (or MyLock(base)
+     internally), we need to create a new base that is INDIRECT_REF so that
+     we could form a correct fully-qualified lock expression with the
+     lock_field (e.g. b1->lock_field). On the other hand, if the base is an
+     address_taken operation (i.e. base.foo() or foo(&base)), we need to get
+     rid of the ADDR_EXPR operator before we form the new lock expression.  */
+  if (TREE_CODE (canon_base) != ADDR_EXPR)
+    {
+      gcc_assert (POINTER_TYPE_P (TREE_TYPE (canon_base)));
+      canon_base = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (canon_base)),
+                           canon_base);
+    }
+  else
+    canon_base = TREE_OPERAND (canon_base, 0);
+
+  lock = build3 (COMPONENT_REF, TREE_TYPE (lock_field), canon_base,
+                 lock_field, NULL_TREE);
+
+  return lock;
+}
+
 /* Given a lock expression, this function returns a canonicalized
    expression (for matching locks in the analysis). Basically this
    function does the following to canonicalize the expression:
@@ -680,31 +737,12 @@ get_canonical_expr (tree lock, bool is_temp_expr)
             {
               call_expr_arg_iterator iter;
               tree base = first_call_expr_arg (lock, &iter);
-              tree canon_base = get_canonical_expr (base,
-                                                    true /* is_temp_expr */);
               if (attr)
-                {
-                  /* When the base is a pointer, i.e. base->foo() (or
-                     foo(base) internally), we will need to create a new base
-                     that is INDIRECT_REF so that we could form a correct full
-                     lock expression with the real_lock. If the base is an
-                     address_taken operation, we need to get rid of the
-                     ADDR_EXPR operator before we form the full lock
-                     expression.  */
-                  if (TREE_CODE (canon_base) != ADDR_EXPR)
-                    {
-                      gcc_assert (POINTER_TYPE_P (TREE_TYPE (canon_base)));
-                      canon_base = build1 (INDIRECT_REF,
-                                           TREE_TYPE (TREE_TYPE (canon_base)),
-                                           canon_base);
-                    }
-                  else
-                    canon_base = TREE_OPERAND (canon_base, 0);
-                  lock = build3 (COMPONENT_REF, TREE_TYPE (real_lock),
-                                 canon_base, real_lock, NULL_TREE);
-                }
+                lock = build_fully_qualified_lock (real_lock, base);
               else
                 {
+                  tree canon_base = get_canonical_expr (
+                      base, true /* is_temp_expr */);
                   if (base != canon_base)
                     {
                       tree arglist = build_tree_list (NULL_TREE, canon_base);
@@ -1305,6 +1343,8 @@ handle_lock_primitive_attrs (tree call, tree arg, tree base_obj,
      through the call's actual parameter list to grab the lock.  */
   else if (TREE_CODE (arg) == INTEGER_CST)
     arg = get_actual_argument_from_position (call, arg);
+  else if (base_obj)
+    arg = build_fully_qualified_lock (arg, base_obj);
 
   gcc_assert (arg);
 
@@ -1437,6 +1477,8 @@ handle_unlock_primitive_attr (tree call, tree arg, tree base_obj,
     {
       if (TREE_CODE (arg) == INTEGER_CST)
         lockable = get_actual_argument_from_position (call, arg);
+      else if (base_obj)
+        lockable = build_fully_qualified_lock (arg, base_obj);
       else
         lockable = arg;
       gcc_assert (lockable);

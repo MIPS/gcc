@@ -1,3 +1,18 @@
+2008-08-05  Le-Chun Wu  <lcwu@google.com>
+
+	* c-common.c (handle_guarded_by_attribute): Add comments to explain
+	why we cannot identify static class data members at this point of
+	compilation.
+	(check_lock_unlock_attr_args, handle_lock_returned_attribute): Use the
+	DECL_CONTEXT of a function decl node to determine whether the decl is
+	a class member.
+	* tree-threadsafe-analyze.c (build_fully_qualified_lock): New function
+	to build a fully-qualified name of a lock that is a class member.
+	(get_canonical_expr): Refactor the code to use
+	build_fully_qualified_lock.
+	(handle_lock_primitive_attrs): Call build_fully_qualified_lock.
+	(handle_unlock_primitive_attr): Call build_fully_qualified_lock.
+
 2008-07-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* df-problems.c (df_set_note): Avoid C++ keywords.
