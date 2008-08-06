@@ -1,3 +1,10 @@
+2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36450
+	* caller-save.c (insert_restore): Replace
+	PREFERRED_STACK_BOUNDARY with MAX_SUPPORTED_STACK_ALIGNMENT.
+	(insert_save): Likewise.
+
 2008-07-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR debug/36976
