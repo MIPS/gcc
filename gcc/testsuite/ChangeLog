@@ -1,3 +1,152 @@
+2008-08-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/36238
+	* gcc.c-torture/compile/pr36238.c: New testcase.
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/target-supports.exp (check_profiling_available): Return false
+	for -p and -pg on MIPS16 targets.
+
+2008-08-09  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/inline-2.c: New testcase.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/17880
+	* gcc.dg/sequence-pt-pr17880.c: New.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/12242
+	* g++.dg/warn/pr12242.C: New.
+	
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 36901
+	* gcc.dg/pr36901-1.c: New.
+	* gcc.dg/pr36901-3.c: New.
+	* gcc.dg/pr36901-2.c: New.
+	* gcc.dg/pr36901-4.c: New.
+	* gcc.dg/pr36901-system.h: New.
+	* gcc.dg/pr36901.h: New.
+	* gcc.target/powerpc/altivec-macros.c: Update.
+	* gcc.target/i386/regparm.c: Update.
+	* gcc.dg/funcdef-var-1.c: Update.
+	* gcc.dg/parm-mismatch-1.c: Update.
+	* gcc.dg/attr-noinline.c: Update.
+	* gcc.dg/wtr-static-1.c: Update.
+	* gcc.dg/redecl-11.c: Update.
+	* gcc.dg/pr27953.c: Update.
+	* gcc.dg/proto-1.c: Update.
+	* gcc.dg/decl-3.c: Update.
+	* gcc.dg/redecl-13.c: Update.
+	* gcc.dg/pr15360-1.c: Update.
+	* gcc.dg/redecl-15.c: Update.
+	* gcc.dg/enum-compat-1.c: Update.
+	* gcc.dg/dll-3.c: Update.
+	* gcc.dg/array-5.c: Update.
+	* gcc.dg/Wredundant-decls-2.c: Update.
+	* gcc.dg/inline4.c: Update.
+	* gcc.dg/redecl-2.c: Update.
+	* gcc.dg/inline-14.c: Update.
+	* gcc.dg/tls/diag-3.c: Update.
+	* gcc.dg/funcdef-var-2.c: Update.
+	* gcc.dg/20041213-1.c: Update.
+	* gcc.dg/old-style-then-proto-1.c: Update.
+	* gcc.dg/decl-2.c: Update.
+	* gcc.dg/redecl-12.c: Update.
+	* gcc.dg/decl-4.c: Update.
+	* gcc.dg/Wshadow-1.c: Update.
+	* gcc.dg/transparent-union-2.c: Update.
+	* gcc.dg/visibility-7.c: Update.
+	* gcc.dg/dll-2.c: Update.
+	* gcc.dg/redecl-16.c: Update.
+	* gcc.dg/inline1.c: Update.
+	* gcc.dg/decl-8.c: Update.
+	* gcc.dg/nested-redef-1.c: Update.
+	* gcc.dg/inline3.c: Update.
+	* gcc.dg/redecl-1.c: Update.
+	* gcc.dg/inline5.c: Update.
+	* gcc.dg/pr35899.c: Update.
+	* gcc.dg/noncompile/label-lineno-1.c: Update.
+	* gcc.dg/noncompile/label-1.c: Update.
+	* gcc.dg/noncompile/20020220-1.c: Update.
+	* gcc.dg/noncompile/redecl-1.c: Update.
+	* gcc.dg/redecl-5.c: Update.
+	* gcc.dg/qual-return-3.c: Update.
+	* gcc.dg/label-decl-4.c: Update.
+	
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 7651
+	* g++.dg/warn/Wuninitializable-member.C: New.
+	* g++.dg/warn/Wuninitializable-member-no.C: New.
+	
+2008-08-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 28875
+	* gcc.dg/unused-6-no.c: New.
+	* gcc.dg/unused-6-WallWextra.c: New.
+
+2008-08-08  Volker Reichelt  <v.reichelt@netcologne.de>
+
+	PR c++/35985
+	* g++.dg/inherit/base3.C: New.
+
+2008-08-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_floatint_cvt): 
+	Add powerpc. 
+
+2008-08-08  Daniel Kraft  <d@domob.eu>
+
+	* gfortran.dg/finalize_9.f03:  New test.
+	* gfortran.dg/module_md5_1.f90:  Adapted MD5-sum for changed module
+	file format.
+
+2008-08-08  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-ccp-20.c: New testcase.
+
+2008-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37056
+	* gcc.c-torture/compile/pr37056.c: New testcase.
+
+2008-08-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/Wcxx-compat-2.c: Check for bool/_Bool.
+
+2008-08-07  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* g++.dg/cpp0x/decltype12.C: New.
+
+2008-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36992
+	* gcc.target/i386/pr36992-1.c: Scan movq.
+	* gcc.target/i386/pr36992-2.c: Use "-O2 -msse4" instead of
+	"-O0 -msse2".  Scan movq.
+
+2008-08-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37042
+	* gcc.dg/Wstrict-aliasing-bogus-ref-all-2.c: New testcase.
+
+2008-08-07  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.c-torture/compile/20080806-1.c: Move testcase ...
+	* gcc.target/s390/20080806-1.c: ... to here.
+
+2008-08-06  Douglas Gregor  <doug.gregor@gmail.com>
+
+	PR c++/36460
+	* g++.dg/cpp0x/bracket3.C: Add another test case for the >>
+	warning under -Wc++0x-compat.
+	* g++.dg/cpp0x/bracket4.C: Add testcase for PR c++/36460.
+
 2008-08-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gcc.dg/Wcxx-compat-2.c: Adjust test for more warnings.

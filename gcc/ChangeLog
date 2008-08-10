@@ -1,3 +1,450 @@
+2008-08-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR middle-end/36238
+	* reload1.c (gen_reload): Guard calls to get_secondary_mem
+	for memory subregs.
+
+2008-08-09  Jan Hubicka  <jh@suse.cz>
+
+	PR target/37055
+	* optabs.c (maybe_emit_unop_insn): Remove produced code if
+	expansion failed.
+	(expand_fix): Be prepared for expansion to fail.
+	(expand_sfix_optab): Remove instructions if expansion failed.
+
+2008-08-09  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/avr/avr.c (avr_mcu_types): Move the AT43USB320 device to
+	avr31 architecture.
+	* config/avr/avr.h (CRT_BINUTILS_SPECS): (Ditto.).
+	* config/avr/t-avr (MULTILIB_MATCHES): (Ditto.).
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mips*-*-linux*, mips64*-*-linux*): Add
+	mips/t-libgcc-mips16 to tmake_file.
+	* config/mips/mips-protos.h (mips_call_type): New enum.
+	(mips_pic_base_register, mips_got_load): Declare.
+	(mips_restore_gp): Take an rtx argument.
+	(mips_use_pic_fn_addr_reg_p): Declare.
+	(mips_expand_call): Replace the sibcall_p argument with
+	a mips_call_type argument.  Add a lazy_p parameter.
+	(mips_split_call): Declare.
+	* config/mips/mips.h (MIPS16_PIC_TEMP_REGNUM): New macro.
+	(MIPS16_PIC_TEMP): Likewise.
+	(reg_class): Delete M16_NA_REGS.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Update accordingly.
+	(SYMBOL_FLAG_BIND_NOW, SYMBOL_REF_BIND_NOW_P): New macros.
+	(mips_split_hi_p): Declare.
+	* config/mips/mips.c (mips_split_hi_p): New array.
+	(mips_regno_to_class): Change M16_NA_REGS entries to M16_REGS.
+	(mips_got_symbol_type_p): New function.
+	(mips_global_symbol_p): Check SYMBOL_REF_EXTERNAL_P.
+	(mips16_stub_function_p): New function.
+	(mips16_local_function_p): Likewise.
+	(mips_use_pic_fn_addr_reg_p): Likewise.
+	(mips_cannot_force_const_mem): Return false for HIGHs.
+	Extend CONST_INT and symbolic handling to MIPS16, using
+	mips_symbol_insns to check that the base symbol type is a
+	legitimate constant.  Reject GOT-based constants if
+	TARGET_MIPS16_PCREL_LOADS.
+	(mips_const_insns): Check targetm.cannot_force_const_mem when
+	decomposing a symbolic base and a large offset.
+	(mips_emit_call_insn): Add ORIG_ADDR and ADDR parameters.
+	When calling a function that needs $25 from MIPS16 code,
+	move the target address into $25 separately and add a USE
+	to the call insn.
+	(mips16_gp_pseudo_reg): Insert the initializer immediately
+	before the first real insn.
+	(mips_pic_base_register, mips_got_load): New functions.
+	(mips_split_symbol): Generalize the name of the LO_SUM_OUT
+	parameter to LOW_OUT.  Say that it can be any valid SET_SRC
+	when splitting a load-address operation.  Split SYMBOL_GOT_DISP
+	constants and highs of SYMBOL_GOT_PAGE_OFST constants.
+	(mips_call_tls_get_addr): Update the call to mips_expand_call,
+	also passing NULL_RTX rather than const0_rtx as the aux argument.
+	(mips_rewrite_small_data_p): Check mips_lo_relocs and mips_split_p
+	instead of TARGET_EXPLICIT_RELOCS.
+	(mips_ok_for_lazy_binding_p): Check SYMBOL_REF_BIND_NOW_P.
+	(mips_load_call_address): Replace the sibcall_p argument with
+	a mips_call_type argument.  Use mips_got_load.
+	(mips16_local_alias): New structure.
+	(mips16_local_aliases): New variable.
+	(mips16_local_aliases_hash): New function.
+	(mips16_local_aliases_eq): Likewise.
+	(mips16_local_alias): Likewise.
+	(mips16_stub_function): Likewise.
+	(mips16_build_function_stub): Create a local alias for the target
+	function.  Handle TARGET_ABICALLS.  For PIC abicalls, emit a
+	.cpload directive and an R_MIPS_NONE relocation for the target
+	function, then load the alias rather than the function itself.
+	Wrap the non-PIC abicalls version in ".option pic0/.option pic2".
+	(mips16_copy_fpr_return_value): Use mips16_stub_function and
+	mips_expand_call.  Set SYMBOL_REF_BIND_NOW on the symbol.
+	(mips16_build_call_stub): Replace the FN parameter with an
+	FN_PTR parameter.  Force the address into a register if it
+	isn't a call_insn_operand; don't rely on the caller to do this.
+	If a call to a locally-defined and locally-binding MIPS16
+	function must be made indirectly, redirect the call to the
+	function's local alias.  Use mips16_stub_function_p,
+	mips16_stub_function, mips_expand_call and use_reg.
+	Set SYMBOL_FLAG_BIND_NOW on __mips_call_* symbols.
+	Use explicit %hi and %lo accesses where possible.
+	Use MIPS_CALL to generate the correct code form of a
+	jal instruction.  Add clobbers of $18 instead of uses.
+	Update the call to mips_emit_call_insn.
+	(mips_expand_call): Replace the SIBCALL_P argument with a
+	mips_call_type argument and handle the new MIPS_CALL_EPILOGUE value.
+	Take a LAZY_P parameter.  Call mips16_build_call_stub first,
+	allowing it to modify the call address.  Update the calls to
+	mips_load_call_address and mips_emit_call_insn.
+	(mips_split_call): New function.
+	(mips_init_relocs): Clear mips_split_hi_p.  Only use %gp_rel if
+	!TARGET_MIPS16.  Split SYMBOL_GOT_DISP, and the high parts of
+	SYMBOL_GOT_PAGE_OFST, for MIPS16 code.
+	(mips_global_pointer): Check mips16_cfun_returns_in_fpr_p.
+	(mips_extra_live_on_entry): Include MIPS16_PIC_TEMP_REGNUM
+	if TARGET_MIPS16.
+	(mips_cprestore_slot): New function.
+	(mips_restore_gp): Take a TEMP parameter.  Handle TARGET_MIPS16
+	and use mips_cprestore_slot.
+	(mips_output_function_prologue): Handle TARGET_MIPS16 for
+	LOADGP_OLDABI.
+	(mips_emit_loadgp): Move into MIPS16_PIC_TEMP for MIPS16,
+	then use a copygp_mips16 instruction to set up $28.
+	(mips_expand_prologue): Initialize the cprestore slot for MIPS16 too.
+	(mips16_lay_out_constants): Call split_all_insns_noflow.
+	(mips_reorg_process_insns): Explicitly set all_noreorder_p to
+	false if TARGET_MIPS16.
+	(mips_reorg): Don't call vr4130_align_insns if TARGET_MIPS16.
+	(mips_output_mi_thunk): Use mips_got_symbol_type_p.  Use the
+	mips_dangerous_for_la25_p approach for MIPS16 PIC calls too.
+	(mips_set_mips16_mode): Always set MASK_EXPLICIT_RELOCS for
+	MIPS16 code.  Allow MIPS16 o32 PIC.
+	(mips_override_options): Allow MIPS16 o32 PIC.
+	* config/mips/mips.md: Lower CONST_GP_P moves into register moves
+	after reload if TARGET_USE_GOT.
+	(UNSPEC_COPYGP): New constant.
+	(length): Use a default length of 8 for MIPS16 GOT loads.
+	(*got_disp<mode>): Check mips_split_p instead of TARGET_XGOT.
+	(*got_page<mode>): Check mips_split_hi_p.
+	(*got_disp<mode>, *got_page<mode>): Use mips_got_load.
+	(unspec_got<mode>, unspec_call<mode>): New expanders.
+	(load_got<mode>, load_call<mode>): Remove the length attributes.
+	Use a got attribute instead of a type attribute.
+	(copygp_mips16): New insn.
+	(restore_gp): Add a scratch clobber and pass it to mips_restore_gp.
+	(load_call<mode>): Use a "d" constraint instead of an "r" constraint.
+	(sibcall, sibcall_value, call, call_value): Update the calls
+	to mips_expand_call.
+	(call_internal, call_value_internal): Use mips_split_call.
+	(call_value_multiple_internal): Likewise.
+	(call_split): Move after call_internal (the insn it is split from).
+	(call_internal_direct, call_value_internal_direct): Turn into
+	define_insn_and_splits.  Split if TARGET_SPLIT_CALLS.
+	(call_direct_split, call_value_direct_split): New patterns.
+	* config/mips/constraints.md (c): Handle TARGET_MIPS16 first
+	and use M16_REGS instead of M16_NA_REGS.
+	* config/mips/predicates.md (const_call_insn_operand): Replace
+	the TARGET_ABSOLUTE_ABICALLS-based check with a more general
+	mips_use_pic_fn_addr_reg_p check.
+	(move_operand): Reject HIGHs if mips_split_hi_p.
+	* config/mips/mips16.S: Assembly as empty if the ABI is not suitable.
+	(__mips16_floatunsisf): Inline __mips16_floatsisf.
+	(CALL_STUB_NO_RET, CALL_STUB_REG): Copy the target register to $25.
+	* config/mips/libgcc-mips16.ver: New file.
+	* config/mips/t-libgcc-mips16 (SHLIB_MAPFILES): Add
+	$(srcdir)/config/mips/libgcc-mips16.ver.
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_unspec_address_offset): Move earlier in file.
+	(mips_unspec_address, mips_unspec_offset_high): Likewise.
+	(mips_ok_for_lazy_binding_p, mips_load_call_address): Likewise.
+	(mips16_cfun_returns_in_fpr_p): Likewise.
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.h (MASK_RETURN_ADDR): Expand commentary.
+	* config/mips/linux-unwind.h (mips_fallback_frame_state): Add 2
+	rather than 4 to PC.
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.h (STATIC_CHAIN_REGNUM): Remap to $15.
+	(FUNCTION_PROFILER): Save the static chain pointer into $2
+	beforehand and restore it aftewards.
+	(TRAMPOLINE_TEMPLATE): Adjust accordingly.  Load the target
+	address directly into $25 and call the function through $25;
+	do not clobber $3.  Pad the DImode version to cover the space
+	left by the deleted $25 <- $3 move.
+	(TRAMPOLINE_SIZE): Adjust the size of the SImode version after
+	the removal of the $25 <- $3 move.
+	(INITIALIZE_TRAMPOLINE): Update offsets accordingly.
+	* config/mips/sdemtk.h (FUNCTION_PROFILER): As for mips.h.
+
+2008-08-09  Richard Sandiford  <rdsandiford@googlemail.com>
+	    Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/mips/mips.h (FUNCTION_NAME_ALREADY_DECLARED): Delete.
+	* config/mips/linux.h (ASM_DECLARE_FUNCTION_NAME): Delete.
+	(ASM_DECLARE_FUNCTION_SIZE, FUNCTION_NAME_ALREADY_DECLARED): Delete.
+	* config/mips/mips.c (mips_start_function_definition): New function.
+	(mips_end_function_definition): Likewise.
+	(mips_output_function_prologue): Use mips_start_function_definition.
+	(mips_output_function_epilogue): Use mips_end_function_definition.
+	(build_mips16_function_stub): Use mips_start_function_definition
+	and mips_end_function_definition.
+	(build_mips16_call_stub): Likewise.
+
+2008-08-09  Richard Guenther  <rguenther@suse.de>
+
+	* gimple.c (gimple_build_call_1): Deal with FUNCTION_DECL fn.
+	* gimple.h (gimple_call_fn): Adjust comment.
+	(gimple_call_set_fndecl): New function.
+	(gimple_call_fndecl): Adjust for GIMPLE_CALL no
+	longer having bare FUNCTION_DECL operand.
+	(gimple_call_return_type): Likewise.
+	* tree-cfg.c (verify_stmt): Verify function operand of a GIMPLE_CALL.
+
+	* value-prof.c (gimple_divmod_fixed_value): Do not emit labels.
+	(gimple_mod_pow2): Likewise.
+	(gimple_mod_subtract): Likewise.
+	(gimple_ic): Likewise.
+	(gimple_stringop_fixed_value): Likewise.
+	(gimple_indirect_call_to_profile): Fix for GIMPLE_CALL no
+	longer having bare FUNCTION_DECL operand.
+	* ipa-cp.c (ipcp_update_callgraph): Use gimple_call_set_fndecl.
+	* omp-low.c (optimize_omp_library_calls): Likewise.
+	* cgraphunit.c (update_call_expr): Likewise.
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Likewise.
+	(execute_convert_to_rsqrt): Likewise.
+	* cfgexpand.c (gimple_to_tree): Simplify.
+	(release_stmt_tree): Fix for GIMPLE_CALL no longer having
+	bare FUNCTION_DECL operand.
+	* tree-nested.c (init_tmp_var_with_call): Use gimple_call_return_type.
+	(convert_gimple_call): Use gimple_call_fndecl.
+	* c-common.c (c_warn_unused_result): Likewise.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/17880
+	* c-typeck.c (digest_init): Call verify_sequence_points from here.
+	(c_finish_return): Likewise.
+	(c_start_case): Likewise.
+	* c-common.c (warn_for_collisions_1): Use explicit location in
+	warning.
+	* c-parser.c (c_parser_condition): New. Call
+	verify_sequence_points.
+	(c_parser_paren_condition): Call c_parser_condition.
+	(c_parser_for_statement): Call c_parser_condition.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 36901
+	* diagnostic.def (DK_PEDWARN, DK_PERMERROR): New.  
+	* diagnostic.c (pedantic_warning_kind, permissive_error_kind):
+	Moved from diagnostic.h
+	(diagnostic_report_diagnostic): Return bool. Handle DK_PEDWARN and
+	DK_PERMERROR.
+	(emit_diagnostic): New.
+	(warning0, pedwarn0): Delete.
+	(warning, warning_at, pedwarn, permerror): Return bool.  
+	* diagnostic.h (pedantic_warning_kind, permissive_error_kind):
+	Moved to diagnostic.c.
+	(struct diagnostic_context): Use correct type for
+	classify_diagnostic.
+	(diagnostic_report_diagnostic): Update declaration.
+	(emit_diagnostic): Declare.
+	* errors.c (warning): Return bool.  
+	* errors.h (warning): Update declaration.
+	* toplev.h (warning0, pedwarn0): Delete.
+	(warning, warning_at, pedwarn, permerror): Return bool.
+	* c-errors.c (pedwarn_c99, pedwarn_c90): Use DK_PEDWARN.
+	* c-decl.c (locate_old_decl): Delete 'diag' argument. Always use
+	inform. Update all calls.
+	(diagnose_mismatched_decls): Check return value of warning/pedwarn
+	before giving informative note.
+	(implicit_decl_warning): Likewise.  
+	* c-typeck.c (build_function_call): Likewise.  
+	* tree-sssa.c (warn_uninit): Likewise.  
+	* builtins.c (gimplify_va_arg_expr): Likewise.
+
+2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 7651
+	* doc/invoke.texi (-Wextra): Move warning from here...
+	(-Wuninitialized): ... to here.
+	
+2008-08-08  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 28875
+	* flags.h (set_Wunused): Delete
+	* toplev.c (process_options): Handle Wunused flags here.
+	* opts.c (maybe_warn_unused_parameter): Delete.
+	(common_handle_option): Replace set_Wunused by warn_unused.
+	(set_Wextra): Do not handle Wunused-parameter here.
+	(set_Wunused): Delete.
+	* c-opts.c (c_common_handle_option): Replace set_Wunused by
+	warn_unused.
+	* common.opt (Wunused): Add Var and Init.
+	(Wunused-function): Likewise.
+	(Wunused-label): Likewise.
+	(Wunused-parameter): Likewise.
+	(Wunused-value): Likewise.
+	(Wunused-variable): Likewise.
+	
+2008-08-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi: Add cpu_type power7.
+	* config.in (HAVE_AS_VSX): New.
+	* config.gcc: Add cpu_type power7.
+	* configure.ac (HAVE_AS_VSX): Check for assembler support of the
+	VSX instructions.
+	* configure: Regenerate.
+	* config/rs6000/rs6000.c (rs6000_override_options): Alias power7 to
+	power5.
+	* config/rs6000/rs6000.h (ASM_CPU_POWER7_SPEC): Define.
+	(ASM_CPU_SPEC): Pass %(asm_cpu_power7) for -mcpu=power7.
+	(EXTRA_SPECS): Add asm_cpu_power7 spec string.
+
+2008-08-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vectorizable_conversion): Pass the integral
+	type to vectorize.builtin_conversion.
+	(vectorizable_conversion): Likewise.
+	* config/i386/i386.c (ix86_vectorize_builtin_conversion): Always takes
+	integral type as input.
+	* config/rs6000/rs6000.c (rs6000_builtin_conversion): Add case for
+	FIX_TRUNC_EXPR.
+	(rs6000_expand_builtin): Add case for ALTIVEC_BUILTIN_VCTUXS
+	and ALTIVEC_BUILTIN_VCTSXS.
+	(rs6000_builtin_mul_widen_even. rs6000_builtin_mul_widen_odd): Fix
+	formatting. 
+
+2008-08-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-ccp.c (likely_value): Calls are not all varying.
+	(surely_varying_stmt_p): Calls are varying only if they are
+	non-builtin and not indirect or have no result.
+	(ccp_fold): Re-instantiate code before the tuples merge.
+
+2008-08-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/37056
+	* gimple.h (gimple_assign_rhs_class): New helper function.
+	* tree-ssa-loop-niter.c (get_val_for): Fix tuplification, handle
+	unary operations properly.
+
+2008-08-07  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (ix86_size_cost): Declare.
+	(ix86_cur_cost): New function macro.
+	* i386.md (peepholes expanding size and splitters): Predicate by
+	optimize_insn_for_speed_p.
+	(peepholes reduce size and splitters): Predicate by
+	optimize_insn_for_size_p.
+	* i386.c (ix86_size_cost): Rename from ...
+	(size_cost): This one.
+	(override_options): Update.
+	(decide_alg): Likewise.
+	(ix86_expand_clear): Use RTL profile.
+	(ix86_pad_returns): Use RTL profile.
+
+2008-08-07  Jan Hubicka  <jh@suse.cz>
+
+	* recog.c (split_all_insns): Set RTL profile
+	(peephole2_optimize): Likewise.
+	* function.c (thread_prologue_and_epilogue_insns): Likewise.
+	* combine.c (combine_instructions): Likewise.
+
+2008-08-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* c-common.c (c_common_reswords): Also warn about keyword "bool".
+
+2008-08-07  Bob Wilson  <bob.wilson@acm.org>
+	
+	* config/xtensa/xtensa.c (xtensa_copy_incoming_a7): Copy incoming value
+	in a6 after the set_frame_ptr insn.
+	
+2008-08-07  Richard Henderson  <rth@redhat.com>
+
+	PR debug/37033
+	* gcc.c (cpp_options): Pass along -g*.
+
+2008-08-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/arm.c (output_move_neon): Update comment describing
+	big-endian vector layout.
+	(arm_assemble_integer): Do not handle big-endian NEON vectors
+	specially.
+	* config/arm/neon.md (vec_set<mode>_internal, vec_extract<mode>,
+	neon_vget_lane<mode>_sext_internal,
+	neon_vget_lane<mode>_zext_internal, neon_vget_lane<mode>): Adjust
+	element indices for big-endian.
+
+2008-08-07  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac (HAVE_GAS_CFI_PERSONALITY_DIRECTIVE): New.
+	* configure, config.in: Rebuild.
+	* debug.h (dwarf2out_do_cfi_asm): Declare.
+	* c-cppbuiltin.c (c_cpp_builtins): Use it.
+	* dwarf2out.c (dwarf2out_do_cfi_asm): New.
+	(dwarf2out_cfi_label, add_fde_cfi, output_call_frame_info,
+	dwarf2out_begin_prologue, dwarf2out_end_epilogue): Use it.
+
+2008-08-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/iwmmxt.md (movv8qi_internal, movv4hi_internal,
+	movv2si_internal): Combine into mov<mode>_internal.
+	(movv2si_internal_2): Remove.
+
+2008-08-07  Jan Hubicka  <jh@suse.cz>
+
+	PR target/37048
+	* i386.md (single stringop patterns): Enable unconditionally. 
+
+2008-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/36992
+	* config/i386/emmintrin.h (_mm_move_epi64): Use
+	__builtin_ia32_movq128.
+
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_MOVQ128.
+	(bdesc_args): Add IX86_BUILTIN_MOVQ128.
+
+	* config/i386/sse.md (sse2_movq128): New.
+
+	* doc/extend.texi: Document __builtin_ia32_movq128.
+
+2008-08-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37042
+	* tree-ssa-alias-warnings.c (nonstandard_alias_p): Ref-all
+	pointers can access anything.
+
+2008-08-06  Jan Hubicka  <jh@suse.cz>
+
+	* optabs.c (emit_unop_insn): Break out to ...
+	(maybe_emit_unop_insn): ... this one.
+	(expand_sfix_optab): Use maybe variant.
+	* optabs.h (maybe_emit_unop_insn): Declare.
+
+	* i386.md (mov0 patterns): Enable by default.
+	(FP conversion expanders): Disable expansion of code expanding
+	sequences when instruction should be optimized for size.
+	(single strinop patterns): Enable when optimizing for size.
+	(string expanders): Disable expanding of code expanding sequences
+	when optimizning instruction for size.
+	* i386.c (ix86_expand_vector_move_misalign): Do code size optimization
+	per BB basis.
+	(ix86_fp_comparison_sahf_cost): Likewise.
+	(ix86_expand_branch): Likewise.
+	(ix86_expand_ashl_const): Likewise.
+	(ix86_split_ashl): Likewise.
+	(ix86_expand_strlen): Likewise.
+	(ix86_emit_fp_unordered_jump): Likewie.
+
 2008-08-06  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* c-common.c: Fix typo.

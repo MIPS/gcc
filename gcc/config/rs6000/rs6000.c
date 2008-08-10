@@ -1507,6 +1507,9 @@ rs6000_override_options (const char *default_cpu)
 	 {"power6x", PROCESSOR_POWER6,
 	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
 	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP | MASK_MFPGPR},
+	 {"power7", PROCESSOR_POWER5,
+	  POWERPC_7400_MASK | MASK_POWERPC64 | MASK_PPC_GPOPT | MASK_MFCRF
+	  | MASK_POPCNTB | MASK_FPRND | MASK_CMPB | MASK_DFP},
 	 {"powerpc", PROCESSOR_POWERPC, POWERPC_BASE_MASK},
 	 {"powerpc64", PROCESSOR_POWERPC64,
 	  POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_POWERPC64},
@@ -1960,7 +1963,11 @@ rs6000_builtin_mask_for_load (void)
     return 0;
 }
 
-/* Implement targetm.vectorize.builtin_conversion.  */
+/* Implement targetm.vectorize.builtin_conversion.
+   Returns a decl of a function that implements conversion of an integer vector
+   into a floating-point vector, or vice-versa. TYPE is the type of the integer
+   side of the conversion.
+   Return NULL_TREE if it is not available.  */
 static tree
 rs6000_builtin_conversion (enum tree_code code, tree type)
 {
@@ -1969,16 +1976,28 @@ rs6000_builtin_conversion (enum tree_code code, tree type)
 
   switch (code)
     {
+    case FIX_TRUNC_EXPR:
+      switch (TYPE_MODE (type))
+	{
+	case V4SImode:
+	  return TYPE_UNSIGNED (type)
+	    ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VCTUXS]
+	    : rs6000_builtin_decls[ALTIVEC_BUILTIN_VCTSXS];
+	default:
+	  return NULL_TREE;
+	}
+
     case FLOAT_EXPR:
       switch (TYPE_MODE (type))
 	{
 	case V4SImode:
-	  return TYPE_UNSIGNED (type) ?
-	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFUX] :
-	    rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFSX];
+	  return TYPE_UNSIGNED (type)
+	    ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFUX]
+	    : rs6000_builtin_decls[ALTIVEC_BUILTIN_VCFSX];
 	default:
 	  return NULL_TREE;
 	}
+
     default:
       return NULL_TREE;
     }
@@ -1994,14 +2013,14 @@ rs6000_builtin_mul_widen_even (tree type)
   switch (TYPE_MODE (type))
     {
     case V8HImode:
-      return TYPE_UNSIGNED (type) ?
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH] :
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
+      return TYPE_UNSIGNED (type)
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH]
+            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
 
     case V16QImode:
-      return TYPE_UNSIGNED (type) ?
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB] :
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
+      return TYPE_UNSIGNED (type)
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB]
+            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
     default:
       return NULL_TREE;
     }
@@ -2017,14 +2036,14 @@ rs6000_builtin_mul_widen_odd (tree type)
   switch (TYPE_MODE (type))
     {
     case V8HImode:
-      return TYPE_UNSIGNED (type) ?
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH] :
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
+      return TYPE_UNSIGNED (type)
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH]
+            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
 
     case V16QImode:
-      return TYPE_UNSIGNED (type) ?
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB] :
-            rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
+      return TYPE_UNSIGNED (type)
+            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB]
+            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
     default:
       return NULL_TREE;
     }
@@ -9102,7 +9121,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   /* FIXME: There's got to be a nicer way to handle this case than
      constructing a new CALL_EXPR.  */
   if (fcode == ALTIVEC_BUILTIN_VCFUX
-      || fcode == ALTIVEC_BUILTIN_VCFSX)
+      || fcode == ALTIVEC_BUILTIN_VCFSX
+      || fcode == ALTIVEC_BUILTIN_VCTUXS
+      || fcode == ALTIVEC_BUILTIN_VCTSXS)
     {
       if (call_expr_nargs (exp) == 1)
 	exp = build_call_nary (TREE_TYPE (exp), CALL_EXPR_FN (exp),

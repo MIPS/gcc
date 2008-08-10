@@ -2408,11 +2408,10 @@ build_function_call (tree function, tree params)
       /* This situation leads to run-time undefined behavior.  We can't,
 	 therefore, simply error unless we can prove that all possible
 	 executions of the program must execute the code.  */
-      warning (0, "function called through a non-compatible type");
-
-      /* We can, however, treat "undefined" any way we please.
-	 Call abort to encourage the user to fix the program.  */
-      inform ("if this code is reached, the program will abort");
+      if (warning (0, "function called through a non-compatible type"))
+	/* We can, however, treat "undefined" any way we please.
+	   Call abort to encourage the user to fix the program.  */
+	inform ("if this code is reached, the program will abort");
 
       if (VOID_TYPE_P (return_type))
 	return trap;
@@ -4802,6 +4801,9 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	}
     }
 
+  if (warn_sequence_point)
+    verify_sequence_points (inside_init);
+
   /* Any type can be initialized
      from an expression of the same type, optionally with braces.  */
 
@@ -7167,6 +7169,9 @@ c_finish_return (tree retval)
 	}
 
       retval = build2 (MODIFY_EXPR, TREE_TYPE (res), res, t);
+
+      if (warn_sequence_point)
+	verify_sequence_points (retval);
     }
 
   ret_stmt = build_stmt (RETURN_EXPR, retval);
@@ -7244,6 +7249,9 @@ c_start_case (tree exp)
 		     "converted to %<int%> in ISO C");
 
 	  exp = default_conversion (exp);
+
+	  if (warn_sequence_point)
+	    verify_sequence_points (exp);
 	}
     }
 

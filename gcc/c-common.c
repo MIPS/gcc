@@ -665,7 +665,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__volatile__",	RID_VOLATILE,	0 },
   { "asm",		RID_ASM,	D_ASM },
   { "auto",		RID_AUTO,	0 },
-  { "bool",		RID_BOOL,	D_CXXONLY },
+  { "bool",		RID_BOOL,	D_CXXONLY | D_CXXWARN },
   { "break",		RID_BREAK,	0 },
   { "case",		RID_CASE,	0 },
   { "catch",		RID_CATCH,	D_CXX_OBJC | D_CXXWARN },
@@ -1902,8 +1902,10 @@ warn_for_collisions_1 (tree written, tree writer, struct tlist *list,
 	  && DECL_NAME (list->expr))
 	{
 	  warned_ids = new_tlist (warned_ids, written, NULL_TREE);
-	  warning (OPT_Wsequence_point, "operation on %qE may be undefined",
-		   list->expr);
+	  warning_at (EXPR_HAS_LOCATION (writer)
+		      ? EXPR_LOCATION (writer) : input_location,
+		      OPT_Wsequence_point, "operation on %qE may be undefined",
+		      list->expr);
 	}
       list = list->next;
     }
@@ -7544,15 +7546,8 @@ c_warn_unused_result (gimple_seq seq)
 	  /* This is a naked call, as opposed to a GIMPLE_CALL with an
 	     LHS.  All calls whose value is ignored should be
 	     represented like this.  Look for the attribute.  */
-	  fdecl = gimple_call_fn (g);
-	  if (TREE_CODE (fdecl) == FUNCTION_DECL)
-	    ftype = TREE_TYPE (fdecl);
-	  else
-	    {
-	      ftype = TREE_TYPE (fdecl);
-	      /* Look past pointer-to-function to the function type itself.  */
-	      ftype = TREE_TYPE (ftype);
-	    }
+	  fdecl = gimple_call_fndecl (g);
+	  ftype = TREE_TYPE (TREE_TYPE (gimple_call_fn (g)));
 
 	  if (lookup_attribute ("warn_unused_result", TYPE_ATTRIBUTES (ftype)))
 	    {
