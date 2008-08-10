@@ -75,8 +75,8 @@ static rtx legitimize_dllimport_symbol (rtx, bool);
 
 #define DUMMY_STRINGOP_ALGS {libcall, {{-1, libcall}}}
 
-static const
-struct processor_costs size_cost = {	/* costs for tuning for size */
+const
+struct processor_costs ix86_size_cost = {/* costs for tuning for size */
   COSTS_N_BYTES (2),			/* cost of an add instruction */
   COSTS_N_BYTES (3),			/* cost of a lea instruction */
   COSTS_N_BYTES (2),			/* variable shift costs */
@@ -2884,7 +2884,7 @@ override_options (bool main_args_p)
     ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
 
   if (optimize_size)
-    ix86_cost = &size_cost;
+    ix86_cost = &ix86_size_cost;
   else
     ix86_cost = processor_target_table[ix86_tune].cost;
 
@@ -11846,7 +11846,7 @@ ix86_expand_clear (rtx dest)
   tmp = gen_rtx_SET (VOIDmode, dest, const0_rtx);
 
   /* This predicate should match that for movsi_xor and movdi_xor_rex64.  */
-  if (reload_completed && (!TARGET_USE_MOV0 || optimize_size))
+  if (reload_completed && (!TARGET_USE_MOV0 || optimize_insn_for_speed_p ()))
     {
       rtx clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
       tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
@@ -12160,7 +12160,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
   if (MEM_P (op1))
     {
       /* If we're optimizing for size, movups is the smallest.  */
-      if (optimize_size)
+      if (optimize_insn_for_size_p ())
 	{
 	  op0 = gen_lowpart (V4SFmode, op0);
 	  op1 = gen_lowpart (V4SFmode, op1);
@@ -12242,7 +12242,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
   else if (MEM_P (op0))
     {
       /* If we're optimizing for size, movups is the smallest.  */
-      if (optimize_size)
+      if (optimize_insn_for_size_p ())
 	{
 	  op0 = gen_lowpart (V4SFmode, op0);
 	  op1 = gen_lowpart (V4SFmode, op1);
@@ -13446,7 +13446,7 @@ ix86_fp_comparison_sahf_cost (enum rtx_code code)
   enum rtx_code bypass_code, first_code, second_code;
   /* Return arbitrarily high cost when instruction is not preferred - this
      avoids gcc from using it.  */
-  if (!(TARGET_SAHF && (TARGET_USE_SAHF || optimize_size)))
+  if (!(TARGET_SAHF && (TARGET_USE_SAHF || optimize_insn_for_size_p ())))
     return 1024;
   ix86_fp_comparison_codes (code, &bypass_code, &first_code, &second_code);
   return (bypass_code != UNKNOWN || second_code != UNKNOWN) + 3;
@@ -13931,7 +13931,7 @@ ix86_expand_branch (enum rtx_code code, rtx label)
 	   optimizing for size.  */
 
 	if ((code == EQ || code == NE)
-	    && (!optimize_size
+	    && (!optimize_insn_for_size_p ()
 	        || hi[1] == const0_rtx || lo[1] == const0_rtx))
 	  {
 	    rtx xor0, xor1;
@@ -15983,7 +15983,7 @@ ix86_split_long_move (rtx operands[])
     }
 
   /* If optimizing for size, attempt to locally unCSE nonzero constants.  */
-  if (optimize_size)
+  if (optimize_insn_for_size_p ())
     {
       for (j = 0; j < nparts - 1; j++)
 	if (CONST_INT_P (operands[6 + j])
@@ -16014,7 +16014,7 @@ ix86_expand_ashl_const (rtx operand, int count, enum machine_mode mode)
 		  ? gen_addsi3
 		  : gen_adddi3) (operand, operand, operand));
     }
-  else if (!optimize_size
+  else if (!optimize_insn_for_size_p ()
 	   && count * ix86_cost->add <= ix86_cost->shift_const)
     {
       int i;
@@ -16097,7 +16097,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
 	{
 	  rtx x;
 
-	  if (TARGET_PARTIAL_REG_STALL && !optimize_size)
+	  if (TARGET_PARTIAL_REG_STALL && !optimize_insn_for_size_p ())
 	    x = gen_rtx_ZERO_EXTEND (mode == DImode ? SImode : DImode, operands[2]);
 	  else
 	    x = gen_lowpart (mode == DImode ? SImode : DImode, operands[2]);
@@ -16129,7 +16129,7 @@ ix86_split_ashl (rtx *operands, rtx scratch, enum machine_mode mode)
       /* For -1 << N, we can avoid the shld instruction, because we
 	 know that we're shifting 0...31/63 ones into a -1.  */
       emit_move_insn (low[0], constm1_rtx);
-      if (optimize_size)
+      if (optimize_insn_for_size_p ())
 	emit_move_insn (high[0], low[0]);
       else
 	emit_move_insn (high[0], constm1_rtx);
@@ -16984,7 +16984,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 			       && alg != rep_prefix_8_byte))
   const struct processor_costs *cost;
   
-  cost = optimize_insn_for_size_p () ? &size_cost : ix86_cost;
+  cost = optimize_insn_for_size_p () ? &ix86_size_cost : ix86_cost;
 
   *dynamic_check = -1;
   if (memset)
@@ -16994,7 +16994,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
   if (stringop_alg != no_stringop && ALG_USABLE_P (stringop_alg))
     return stringop_alg;
   /* rep; movq or rep; movl is the smallest variant.  */
-  else if (optimize_size)
+  else if (optimize_insn_for_size_p ())
     {
       if (!count || (count & 3))
 	return rep_prefix_usable ? rep_prefix_1_byte : loop_1_byte;
@@ -17909,7 +17909,7 @@ ix86_expand_strlen (rtx out, rtx src, rtx eoschar, rtx align)
 
   if (TARGET_UNROLL_STRLEN && eoschar == const0_rtx && optimize > 1
       && !TARGET_INLINE_ALL_STRINGOPS
-      && !optimize_size
+      && !optimize_insn_for_size_p ()
       && (!CONST_INT_P (align) || INTVAL (align) < 4))
     return 0;
 
@@ -17917,7 +17917,7 @@ ix86_expand_strlen (rtx out, rtx src, rtx eoschar, rtx align)
   scratch1 = gen_reg_rtx (Pmode);
 
   if (TARGET_UNROLL_STRLEN && eoschar == const0_rtx && optimize > 1
-      && !optimize_size)
+      && !optimize_insn_for_size_p ())
     {
       /* Well it seems that some optimizer does not combine a call like
          foo(strlen(bar), strlen(bar));
@@ -24401,8 +24401,10 @@ ix86_veclibabi_acml (enum built_in_function fn, tree type_out, tree type_in)
 }
 
 
-/* Returns a decl of a function that implements conversion of the
-   input vector of type TYPE, or NULL_TREE if it is not available.  */
+/* Returns a decl of a function that implements conversion of an integer vector
+   into a floating-point vector, or vice-versa. TYPE is the type of the integer
+   side of the conversion.
+   Return NULL_TREE if it is not available.  */
 
 static tree
 ix86_vectorize_builtin_conversion (unsigned int code, tree type)
@@ -24424,7 +24426,7 @@ ix86_vectorize_builtin_conversion (unsigned int code, tree type)
     case FIX_TRUNC_EXPR:
       switch (TYPE_MODE (type))
 	{
-	case V4SFmode:
+	case V4SImode:
 	  return ix86_builtins[IX86_BUILTIN_CVTTPS2DQ];
 	default:
 	  return NULL_TREE;
@@ -24442,7 +24444,7 @@ static tree
 ix86_builtin_reciprocal (unsigned int fn, bool md_fn,
 			 bool sqrt ATTRIBUTE_UNUSED)
 {
-  if (! (TARGET_SSE_MATH && TARGET_RECIP && !optimize_size
+  if (! (TARGET_SSE_MATH && TARGET_RECIP && !optimize_insn_for_size_p ()
 	 && flag_finite_math_only && !flag_trapping_math
 	 && flag_unsafe_math_optimizations))
     return NULL_TREE;
@@ -26084,7 +26086,7 @@ ix86_pad_returns (void)
       bool replace = false;
 
       if (!JUMP_P (ret) || GET_CODE (PATTERN (ret)) != RETURN
-	  || !maybe_hot_bb_p (bb))
+	  || optimize_bb_for_size_p (bb))
 	continue;
       for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
 	if (active_insn_p (prev) || LABEL_P (prev))
@@ -27578,7 +27580,7 @@ ix86_emit_fp_unordered_jump (rtx label)
 
   emit_insn (gen_x86_fnstsw_1 (reg));
 
-  if (TARGET_SAHF && (TARGET_USE_SAHF || optimize_size))
+  if (TARGET_SAHF && (TARGET_USE_SAHF || optimize_insn_for_size_p ()))
     {
       emit_insn (gen_x86_sahf_1 (reg));
 
