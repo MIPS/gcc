@@ -124,6 +124,12 @@ preload_common_nodes (struct data_in *data_in)
 
   ptrdiff_type_node = integer_type_node;
 
+  /* FIXME lto.  In the C++ front-end, fileptr_type_node is defined as a
+     variant copy of of ptr_type_node, rather than ptr_node itself.  The
+     distinction should only be relevant to the front-end, so we always
+     use the C definition here in lto1.  */
+  gcc_assert (fileptr_type_node == ptr_type_node);
+
   index_table = htab_create (37, lto_hash_global_slot_node,
 			     lto_eq_global_slot_node, free);
 

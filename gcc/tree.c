@@ -3954,38 +3954,86 @@ build_type_attribute_variant (tree ttype, tree attribute)
 static int
 reset_type_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 {
-  tree decl = *(tree*)slot;
-  lang_hooks.reset_lang_specifics (decl);
+  tree type = *(tree*)slot;
+  lang_hooks.reset_lang_specifics (type);
 
-  if (TREE_CODE (decl) == ARRAY_TYPE
-      || TREE_CODE (decl) == RECORD_TYPE)
+  if (TREE_CODE (type) == ARRAY_TYPE
+      || TREE_CODE (type) == RECORD_TYPE)
     {
-      tree unit_size = TYPE_SIZE_UNIT (decl);
-      tree size = TYPE_SIZE (decl);
+      tree unit_size = TYPE_SIZE_UNIT (type);
+      tree size = TYPE_SIZE (type);
 
       if ((unit_size && TREE_CODE (unit_size) != INTEGER_CST)
 	  || (size && TREE_CODE (size) != INTEGER_CST))
 	{
-	  TYPE_SIZE_UNIT (decl) = NULL_TREE;
-	  TYPE_SIZE (decl) = NULL_TREE;
+	  TYPE_SIZE_UNIT (type) = NULL_TREE;
+	  TYPE_SIZE (type) = NULL_TREE;
 	}
     }
 
-  if (TREE_CODE (decl) == INTEGER_TYPE)
+  /* Remove members that are not actually FIELD_DECLs
+     from the field list of a record.  These occur in C++.  */
+  
+  if (TREE_CODE (type) == RECORD_TYPE)
     {
-      tree old_max = TYPE_MAX_VALUE (decl);
-      tree old_min = TYPE_MIN_VALUE (decl);
+      tree prev = NULL_TREE;
+      tree member = TYPE_FIELDS (type);
+
+      TYPE_FIELDS (type) = NULL_TREE;
+      while (member)
+	{
+	  tree next = TREE_CHAIN (member);
+
+	  TREE_CHAIN (member) = NULL_TREE;
+	  if (TREE_CODE (member) == FIELD_DECL)
+	    {
+	      if (prev)
+		TREE_CHAIN (prev) = member;
+	      else
+		TYPE_FIELDS (type) = member;
+	      prev = member;
+	    }
+	  member = next;
+	}
+
+      /* Remove similar junk from the method list.  */
+
+      prev = NULL_TREE;
+      member = TYPE_METHODS (type);
+
+      TYPE_METHODS (type) = NULL_TREE;
+      while (member)
+	{
+	  tree next = TREE_CHAIN (member);
+
+	  TREE_CHAIN (member) = NULL_TREE;
+	  if (TREE_CODE (member) == FUNCTION_DECL)
+	    {
+	      if (prev)
+		TREE_CHAIN (prev) = member;
+	      else
+		TYPE_METHODS (type) = member;
+	      prev = member;
+	    }
+	  member = next;
+	}
+    }
+
+  if (TREE_CODE (type) == INTEGER_TYPE)
+    {
+      tree old_max = TYPE_MAX_VALUE (type);
+      tree old_min = TYPE_MIN_VALUE (type);
 
       if ((old_max && TREE_CODE (old_max) != INTEGER_CST)
 	  || (old_min && TREE_CODE (old_min) != INTEGER_CST))
-	  set_min_and_max_values_for_integral_type (decl,
-						    TYPE_PRECISION (decl),
-				 		    TYPE_UNSIGNED (decl));
+	  set_min_and_max_values_for_integral_type (type,
+						    TYPE_PRECISION (type),
+				 		    TYPE_UNSIGNED (type));
 
       if (old_max && TREE_CODE (old_max) == INTEGER_CST)
-	TYPE_MAX_VALUE (decl) = old_max;
+	TYPE_MAX_VALUE (type) = old_max;
       if (old_min && TREE_CODE (old_min) == INTEGER_CST)
-	TYPE_MIN_VALUE (decl) = old_min;
+	TYPE_MIN_VALUE (type) = old_min;
     }
 
   return 1;
@@ -4016,6 +4064,13 @@ reset_lang_specific (void **slot, void *unused ATTRIBUTE_UNUSED)
 	  && !TREE_STATIC (expr) && !DECL_EXTERNAL (expr))
 	SET_DECL_DEBUG_EXPR (decl, NULL_TREE);
     }
+  if (TREE_CODE (decl) == TYPE_DECL)
+    {
+      /* According to tree.h, the DECL_INITIAL field isn't
+	 used for TYPE_DECLs, but in C++, I've seen a TREE_LIST
+	 here full of language-specific stuff.  Omit it.  */
+      DECL_INITIAL (decl) = NULL_TREE;
+    }
   return 1;
 }
 
@@ -4031,6 +4086,10 @@ free_lang_specifics (void)
      by the C/C++ FE.  This should be converted to some similar
      type shared by all FEs (i.e., converted to a "GIMPLE type").  */
   ptrdiff_type_node = integer_type_node;
+
+  /* FIXME lto.  This is a hack.  fileptr_type_node may be set to
+     a variant copy of ptr_type_node for front-end purposes.  */
+  fileptr_type_node = ptr_type_node;
 }
 
 /* Return nonzero if IDENT is a valid name for attribute ATTR,

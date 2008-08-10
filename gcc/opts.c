@@ -1079,6 +1079,12 @@ decode_options (unsigned int argc, const char **argv)
 	flag_really_no_inline = flag_no_inline;
     }
 
+  /* FIXME lto: With -flto, debug information will be incomplete or
+     inaccurate, or worse, may be sufficiently corrupt as to crash the
+     debug info writer.  */
+  if (flag_generate_lto && debug_info_level != DINFO_LEVEL_NONE)
+    inform ("-g is presently unsupported with -flto");
+
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
      code should be lang-independent when all front ends use tree
@@ -1967,14 +1973,6 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_funroll_loops:
       flag_unroll_loops_set = true;
-      break;
-
-    case OPT_flto:
-      /* FIXME: This is most surely the wrong thing to do because it
-	 will depend on the order of the options on the command line.
-	 However, if you specify -flto, you must have dwarf2 debugging
-	 records.  */  
-      set_debug_level (DWARF2_DEBUG, false, "2");
       break;
 
     case OPT_g:

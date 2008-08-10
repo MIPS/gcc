@@ -775,10 +775,9 @@ preload_common_node (tree t, htab_t h, VEC(tree, heap) **v, unsigned *ref_p)
   fprintf (stderr, "\n");
 #endif
 
-  if (get_ref_idx_for (t, h, v, ref_p))
-    return;
+  get_ref_idx_for (t, h, v, ref_p);
 
-  /* FIXME: In principle, we should perform a walk over all nodes reachable
+  /* FIXME lto: In principle, we should perform a walk over all nodes reachable
      from each preloaded node.  This is going to be a lot of work.  At present,
      we catch the case that was causing test failures.  A small step.  */
   if (tree_node_can_be_shared (t))
@@ -810,7 +809,10 @@ preload_common_nodes (struct output_block *ob)
     }
 
   gcc_assert (ptrdiff_type_node == integer_type_node);
-
+  /* These should be assured in free_lang_specifics.  */
+  gcc_assert (fileptr_type_node == ptr_type_node);
+  gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
+  
 #ifdef GLOBAL_STREAMER_TRACE
   fprintf (stderr, "\n\nPreloading all global_trees[]\n");
 #endif

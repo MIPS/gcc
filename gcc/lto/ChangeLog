@@ -1,3 +1,8 @@
+2008-08-09  Bill Maddox  <maddox@google.com>
+
+	* lto.c (preload_common_nodes): Verify that fileptr_type_node
+	has not been set to a front-end-specific value.
+	
 2008-08-05  Doug Kwan  <dougkwan@google.com>
 	
 	* Make-lang.in (lto-symtab.o): Add missing dependencies to fix

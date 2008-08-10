@@ -1,3 +1,57 @@
+2008-08-09  Bill Maddox <maddox@google.com>
+
+	* tree-pretty-print.c (dump_generic_node): Add
+	missing break after case.
+	* tree.c (reset_type_lang_specific): Rename parameter
+	decl to type.  Strip members other than FIELD_DECL
+	from record field list.  Strip members other than
+	FUNCTION_DECL from record method list.
+	(free_lang_specifics): Force FE-independent definition
+	of fileptr_type_node.
+	* lto-function-out.c (output_expr_operand): Abort on
+	unhandled CONST_DECL nodes.
+	(output_local_type): Abort if this bit-rotted code is
+	configured in and used.
+	(output_function): Call output_type_ref_1 to handle
+	either local or global type reference correctly.
+	(global_vector_debug): New function.
+	(output_field_decl, output_function_decl, output_var_decl,
+	output_parm_decl, output_result_decl, output_type_decl,
+	output_namespace_decl, output_label_decl,
+	output_translation_unit_decl, output_binfo, output_type):
+	Improved streamer debug tracing, including calls to
+	global_vector_debug and LTO_DEBUG_TOKEN.
+	(output_type_decl): Do not stream out DECL_INITIAL.
+	(output_namespace_decl): Do not stream out DECL_ALIGN.
+	(output_type): Do not stream out TYPE_UID.  Handle record
+	fields separately from other overloaded uses of TYPE_VALUES.
+	(output_global_record_start_1): New function.
+	(output_global_constructor): Use output_global_record_start_1.
+	Fix statement indentation.
+	(output_tree): Check for unhandled types and decls.
+	Abort on unhandled CONST_DECL.  Improve error diagnostic
+	for language-specific tree codes.
+	* lto-function-in.c: Removed extra space before array subscripts.
+	(input_expr_operand): Handle type references.  Abort on
+	unexpected CONST_DECL.
+	(global_vector_enter): Cast pointer to void * for printing.
+	Show symbolic name for tree code of the new node in debug trace.
+	(global_vector_fixup): Cast pointer to void * for printing.
+	(input_field_decl, input_function_decl, input_var_decl,
+	input_parm_decl, input_result_decl, input_type_decl,
+	input_label_decl, input_namespace_decl, input_translation_unit_decl,
+	input_binfo, input_type): Add calls to LTO_DEBUG_TOKEN.
+	(input_type_decl): Do not read DECL_INITIAL.
+	(input_type): Do not read TYPE_UID.  Handle record fields
+	separately from other uses of TYPE_VALUES.
+	(input_tree_operand): Abort on unexpected CONST_DECL.
+	(input_type_tree): Allow for NULL_TREE as type.
+	* opts.c (common_handle_option): Do not force debug info
+	generation when -flto is specified.
+	* lto-section-out.c (preload_common_node): Do not return
+	prematurely if the type has been seen before.  Check for
+	expected values of fileptr_type_node and its main variant.
+
 2008-07-30  Bill Maddox  <maddox@google.com>
 
 	* lto-function-in.c (input_function_decl): Save the

@@ -530,6 +530,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case TREE_BINFO:
       dump_generic_node (buffer, BINFO_TYPE (node), spc, flags, false);
+      break;
 
     case TREE_VEC:
       {
