@@ -36,7 +36,10 @@ target_triplet = @target@
 subdir = native/jni/native-lib
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/ac_prog_javac.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/ac_prog_antlr.m4 \
+	$(top_srcdir)/m4/ac_prog_java.m4 \
+	$(top_srcdir)/m4/ac_prog_java_works.m4 \
+	$(top_srcdir)/m4/ac_prog_javac.m4 \
 	$(top_srcdir)/m4/ac_prog_javac_works.m4 \
 	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
 	$(top_srcdir)/m4/acinclude.m4 \
@@ -74,6 +77,8 @@ CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
+ANTLR = @ANTLR@
+ANTLR_JAR = @ANTLR_JAR@
 AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
@@ -110,8 +115,8 @@ EGREP = @EGREP@
 ERROR_CFLAGS = @ERROR_CFLAGS@
 EXAMPLESDIR = @EXAMPLESDIR@
 EXEEXT = @EXEEXT@
+EXTRA_CFLAGS = @EXTRA_CFLAGS@
 F77 = @F77@
-FASTJAR = @FASTJAR@
 FFLAGS = @FFLAGS@
 FIND = @FIND@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
@@ -123,6 +128,8 @@ GDK_LIBS = @GDK_LIBS@
 GJDOC = @GJDOC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
+GMP_CFLAGS = @GMP_CFLAGS@
+GMP_LIBS = @GMP_LIBS@
 GREP = @GREP@
 GSTREAMER_BASE_CFLAGS = @GSTREAMER_BASE_CFLAGS@
 GSTREAMER_BASE_LIBS = @GSTREAMER_BASE_LIBS@
@@ -141,6 +148,8 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JAR = @JAR@
+JAVA = @JAVA@
 JAVAC = @JAVAC@
 JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
@@ -192,7 +201,7 @@ STRIP = @STRIP@
 TOOLSDIR = @TOOLSDIR@
 USER_JAVAH = @USER_JAVAH@
 VERSION = @VERSION@
-VM_BINARY = @VM_BINARY@
+WANT_NATIVE_BIG_INTEGER = @WANT_NATIVE_BIG_INTEGER@
 WARNING_CFLAGS = @WARNING_CFLAGS@
 XMKMF = @XMKMF@
 XML_CFLAGS = @XML_CFLAGS@
@@ -263,6 +272,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+uudecode = @uudecode@
 vm_classes = @vm_classes@
 noinst_LTLIBRARIES = libclasspathnative.la
 libclasspathnative_la_SOURCES = cpnet.c \
@@ -275,7 +285,9 @@ libclasspathnative_la_SOURCES = cpnet.c \
 
 AM_LDFLAGS = @CLASSPATH_CONVENIENCE@
 AM_CPPFLAGS = @CLASSPATH_INCLUDES@
-AM_CFLAGS = @WARNING_CFLAGS@ @STRICT_WARNING_CFLAGS@ @ERROR_CFLAGS@
+AM_CFLAGS = @WARNING_CFLAGS@ @STRICT_WARNING_CFLAGS@ @ERROR_CFLAGS@ \
+            @EXTRA_CFLAGS@
+
 all: all-am
 
 .SUFFIXES:

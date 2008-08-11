@@ -55,18 +55,45 @@ dnl -----------------------------------------------------------
 AC_DEFUN([CLASSPATH_WITH_GLIBJ],
 [
   AC_PATH_PROG(ZIP, zip)
-  AC_ARG_WITH([fastjar],
-	      [AS_HELP_STRING([--with-fastjar=PATH], [define to use a fastjar style tool])],
+
+  AC_MSG_CHECKING(for a jar-like tool)
+  AC_ARG_WITH([jar],
+	      [AS_HELP_STRING([--with-jar=PATH], [define to use a jar style tool])],
 	      [
-		AC_MSG_CHECKING([for user supplied fastjar])
-		FASTJAR=${withval}
-		AC_MSG_RESULT([${FASTJAR}])
-	      ],
-	      [AC_PATH_PROGS([FASTJAR], [fastjar gjar jar])])
-dnl We disable ZIP by default if we find fastjar.
-  if test x"${FASTJAR}" != x; then
-    ZIP=""
+	        case "${withval}" in
+      		  yes)
+		    JAR=yes
+        	    ;;
+      		  no)
+		    JAR=no
+  		    AC_MSG_RESULT(${JAR})
+		    ;;
+		  *)
+    		    if test -f "${withval}"; then
+          	      JAR="${withval}"
+		      AC_MSG_RESULT(${JAR})
+        	    else
+	  	      AC_MSG_RESULT([not found])
+	              AC_MSG_ERROR([The jar tool ${withval} was not found.])
+        	    fi
+		    ;;
+     		esac
+  	      ],
+	      [
+		JAR=yes
+	      ])
+  if test x"${JAR}" = "xyes"; then
+    AC_MSG_RESULT([trying fastjar, gjar and jar])
+    AC_PATH_PROGS([JAR], [fastjar gjar jar])
+    if test x"${RHINO_JAR}" = "xyes"; then
+      AC_MSG_RESULT([not found])
+    fi
   fi
+  if test x"${JAR}" = "xno" && test x"${ZIP}" = ""; then
+    AC_MSG_ERROR([No zip or jar tool found.])
+  fi
+  AM_CONDITIONAL(WITH_JAR, test x"${JAR}" != "xno" && test x"${JAR}" != "xyes")
+  AC_SUBST(JAR)
   
   AC_ARG_WITH([glibj],
               [AS_HELP_STRING([--with-glibj],[define what to install (zip|flat|both|none|build) [default=zip]])],
@@ -233,3 +260,19 @@ EOF
   rm -f $JAVA_TEST $CLASS_TEST
   AC_SUBST(JAVAC_MEM_OPT)
 ])
+
+dnl ---------------------------------------------------------------
+dnl CLASSPATH_COND_IF(COND, SHELL-CONDITION, [IF-TRUE], [IF-FALSE])
+dnl ---------------------------------------------------------------
+dnl Automake 1.11 can emit conditional rules for AC_CONFIG_FILES,
+dnl using AM_COND_IF.  This wrapper uses it if it is available,
+dnl otherwise falls back to code compatible with Automake 1.9.6.
+AC_DEFUN([CLASSPATH_COND_IF],
+[m4_ifdef([AM_COND_IF],
+  [AM_COND_IF([$1], [$3], [$4])],
+  [if $2; then
+     m4_default([$3], [:])
+   else
+     m4_default([$4], [:])
+   fi
+])])

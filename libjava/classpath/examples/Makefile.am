@@ -84,15 +84,21 @@ dist-hook:
 # To generate the example zip just depend on the sources and ignore the
 # class files. Always regenerate all .class files and remove them immediatly.
 # And copy the png icons we use to the classes dir so they get also included.
+
+if WITH_JAR
+CREATE_EXAMPLE_ZIP=$(JAR) cf ../$(EXAMPLE_ZIP) .
+else
+CREATE_EXAMPLE_ZIP=$(ZIP) -r ../$(EXAMPLE_ZIP) .
+endif
+
 $(EXAMPLE_ZIP): $(EXAMPLE_JAVA_FILES)
-	mkdir -p classes/gnu/classpath/examples/icons
+	@mkdir_p@ classes/gnu/classpath/examples/icons
 	cp $(EXAMPLE_ICONS) classes/gnu/classpath/examples/icons
-	mkdir -p classes/gnu/classpath/examples/swing
+	@mkdir_p@ classes/gnu/classpath/examples/swing
 	cp $(EXAMPLE_HTML) classes/gnu/classpath/examples/swing
 	$(JCOMPILER) -d classes $(EXAMPLE_JAVA_FILES) 
 	(cd classes; \
-	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(EXAMPLE_ZIP) .; fi; \
-	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(EXAMPLE_ZIP) .; fi; \
+	$(CREATE_EXAMPLE_ZIP); \
 	cd ..)
 	rm -rf classes
 
