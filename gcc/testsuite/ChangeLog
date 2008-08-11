@@ -1,3 +1,31 @@
+2008-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36998
+	* gcc.dg/pr36998.c: New test.
+
+2008-08-11  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.target/s390/20080806-1.c: Move testcase ...
+ 	* gcc.c-torture/compile/20080806-1.c: ... to here and make it
+	stack size sensitive.
+
+2008-08-10  Samuel Tardieu  <sam@rfc1149.net>
+
+	* gnat.dg/exp0_eval.adb: New.
+
+2008-08-10  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR middle-end/20644
+	* gcc.dg/uninit-pr20644-O0.c: New.
+	* gcc.dg/uninit-pr20644.c: New.
+
+2008-08-10  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 36901
+	* gcc.dg/pr36901.h: Do not depend on limits.h.
+	* gcc.dg/pr36901-3.c: Update.
+	* gcc.dg/pr36901-4.c: Update.
+
 2008-08-09  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR middle-end/36238
