@@ -52,7 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
-#include "tree-gimple.h"
+#include "gimple.h"
+#include "tree-iterator.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "cgraph.h"
@@ -61,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "langhooks-def.h"
 #include "pointer-set.h"
+#include "gimple.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -248,7 +250,7 @@ extern char C_SIZEOF_STRUCT_LANG_IDENTIFIER_isnt_accurate
 
 union lang_tree_node
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) GENERIC_NEXT (&%h.generic))")))
+       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *) TYPE_NEXT_VARIANT (&%h.generic) : ((union lang_tree_node *) TREE_CHAIN (&%h.generic))")))
 {
   union tree_node GTY ((tag ("0"),
 			desc ("tree_node_structure (&%h)")))
@@ -1113,16 +1115,16 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
    first in a pair of mismatched declarations, using the diagnostic
    function DIAG.  */
 static void
-locate_old_decl (tree decl, void (*diag)(const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2))
+locate_old_decl (tree decl)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
     ;
   else if (DECL_INITIAL (decl))
-    diag (G_("previous definition of %q+D was here"), decl);
+    inform ("previous definition of %q+D was here", decl);
   else if (C_DECL_IMPLICIT (decl))
-    diag (G_("previous implicit declaration of %q+D was here"), decl);
+    inform ("previous implicit declaration of %q+D was here", decl);
   else
-    diag (G_("previous declaration of %q+D was here"), decl);
+    inform ("previous declaration of %q+D was here", decl);
 }
 
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
@@ -1163,7 +1165,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    && !C_DECL_DECLARED_BUILTIN (olddecl)))
 	{
 	  error ("%q+D redeclared as different kind of symbol", newdecl);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	}
       else if (TREE_PUBLIC (newdecl))
 	warning (0, "built-in function %q+D declared as non-function",
@@ -1179,7 +1181,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   if (TREE_CODE (olddecl) == CONST_DECL)
     {
       error ("redeclaration of enumerator %q+D", newdecl);
-      locate_old_decl (olddecl, error);
+      locate_old_decl (olddecl);
       return false;
     }
 
@@ -1223,11 +1225,10 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (newtype)) == integer_type_node
 	       && C_FUNCTION_IMPLICIT_INT (newdecl) && !DECL_INITIAL (olddecl))
 	{
-	  pedwarn (0, "conflicting types for %q+D", newdecl);
+	  pedwarned = pedwarn (0, "conflicting types for %q+D", newdecl);
 	  /* Make sure we keep void as the return type.  */
 	  TREE_TYPE (newdecl) = *newtypep = newtype = oldtype;
 	  C_FUNCTION_IMPLICIT_INT (newdecl) = 0;
-	  pedwarned = true;
 	}
       /* Permit void foo (...) to match an earlier call to foo (...) with
 	 no declared type (thus, implicitly int).  */
@@ -1236,10 +1237,9 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	       && TYPE_MAIN_VARIANT (TREE_TYPE (oldtype)) == integer_type_node
 	       && C_DECL_IMPLICIT (olddecl) && !DECL_INITIAL (olddecl))
 	{
-	  pedwarn (0, "conflicting types for %q+D", newdecl);
+	  pedwarned = pedwarn (0, "conflicting types for %q+D", newdecl);
 	  /* Make sure we keep void as the return type.  */
 	  TREE_TYPE (olddecl) = *oldtypep = oldtype = newtype;
-	  pedwarned = true;
 	}
       else
 	{
@@ -1248,7 +1248,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  else
 	    error ("conflicting types for %q+D", newdecl);
 	  diagnose_arglist_conflict (newdecl, olddecl, newtype, oldtype);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	  return false;
 	}
     }
@@ -1265,7 +1265,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	return true;  /* Allow OLDDECL to continue in use.  */
 
       error ("redefinition of typedef %q+D", newdecl);
-      locate_old_decl (olddecl, error);
+      locate_old_decl (olddecl);
       return false;
     }
 
@@ -1316,7 +1316,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		  && same_translation_unit_p (newdecl, olddecl))
 		{
 		  error ("redefinition of %q+D", newdecl);
-		  locate_old_decl (olddecl, error);
+		  locate_old_decl (olddecl);
 		  return false;
 		}
 	    }
@@ -1328,7 +1328,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	       && TYPE_ACTUAL_ARG_TYPES (oldtype)
 	       && !validate_proto_after_old_defn (newdecl, newtype, oldtype))
 	{
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	  return false;
 	}
       /* A non-static declaration (even an "extern") followed by a
@@ -1352,7 +1352,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      error ("static declaration of %q+D follows "
 		     "non-static declaration", newdecl);
-	      locate_old_decl (olddecl, error);
+	      locate_old_decl (olddecl);
 	    }
 	  return false;
 	}
@@ -1362,14 +1362,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      error ("non-static declaration of %q+D follows "
 		     "static declaration", newdecl);
-	      locate_old_decl (olddecl, error);
+	      locate_old_decl (olddecl);
 	      return false;
 	    }
 	  else if (warn_traditional)
 	    {
-	      warning (OPT_Wtraditional, "non-static declaration of %q+D "
-		       "follows static declaration", newdecl);
-	      warned = true;
+	      warned |= warning (OPT_Wtraditional, 
+				 "non-static declaration of %q+D "
+				 "follows static declaration", newdecl);
 	    }
 	}
 
@@ -1410,7 +1410,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    error ("non-thread-local declaration of %q+D follows "
 		   "thread-local declaration", newdecl);
 
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	  return false;
 	}
 
@@ -1418,7 +1418,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (DECL_INITIAL (newdecl) && DECL_INITIAL (olddecl))
 	{
 	  error ("redefinition of %q+D", newdecl);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	  return false;
 	}
 
@@ -1439,14 +1439,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		{
 		  error ("extern declaration of %q+D follows "
 			 "declaration with no linkage", newdecl);
-		  locate_old_decl (olddecl, error);
+		  locate_old_decl (olddecl);
 		  return false;
 		}
 	      else if (warn_traditional)
 		{
-		  warning (OPT_Wtraditional, "non-static declaration of %q+D "
-			   "follows static declaration", newdecl);
-		  warned = true;
+		  warned |= warning (OPT_Wtraditional, 
+				     "non-static declaration of %q+D "
+				     "follows static declaration", newdecl);
 		}
 	    }
 	  else
@@ -1458,7 +1458,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 		error ("static declaration of %q+D follows "
 		       "non-static declaration", newdecl);
 
-	      locate_old_decl (olddecl, error);
+	      locate_old_decl (olddecl);
 	      return false;
 	    }
 	}
@@ -1475,12 +1475,12 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    {
 	      error ("declaration of %q+D with no linkage follows "
 		     "extern declaration", newdecl);
-	      locate_old_decl (olddecl, error);
+	      locate_old_decl (olddecl);
 	    }
 	  else
 	    {
 	      error ("redeclaration of %q+D with no linkage", newdecl);
-	      locate_old_decl (olddecl, error);
+	      locate_old_decl (olddecl);
 	    }
 
 	  return false;
@@ -1493,9 +1493,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && DECL_VISIBILITY_SPECIFIED (newdecl) && DECL_VISIBILITY_SPECIFIED (olddecl)
       && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
     {
-      warning (0, "redeclaration of %q+D with different visibility "
-	       "(old visibility preserved)", newdecl);
-      warned = true;
+      warned |= warning (0, "redeclaration of %q+D with different visibility "
+			 "(old visibility preserved)", newdecl);
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -1504,16 +1503,16 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (DECL_DECLARED_INLINE_P (newdecl)
 	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (OPT_Wattributes, "inline declaration of %qD follows "
-		   "declaration with attribute noinline", newdecl);
-	  warned = true;
+	  warned |= warning (OPT_Wattributes, 
+			     "inline declaration of %qD follows "
+			     "declaration with attribute noinline", newdecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (OPT_Wattributes, "declaration of %q+D with attribute "
-		   "noinline follows inline declaration ", newdecl);
-	  warned = true;
+	  warned |= warning (OPT_Wattributes, 
+			     "declaration of %q+D with attribute "
+			     "noinline follows inline declaration ", newdecl);
 	}
     }
   else /* PARM_DECL, VAR_DECL */
@@ -1531,7 +1530,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	  && (!TREE_ASM_WRITTEN (olddecl) || TREE_ASM_WRITTEN (newdecl)))
 	{
 	  error ("redefinition of parameter %q+D", newdecl);
-	  locate_old_decl (olddecl, error);
+	  locate_old_decl (olddecl);
 	  return false;
 	}
     }
@@ -1557,14 +1556,13 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && !(TREE_CODE (newdecl) == VAR_DECL
 	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl)))
     {
-      warning (OPT_Wredundant_decls, "redundant redeclaration of %q+D",
-	       newdecl);
-      warned = true;
+      warned = warning (OPT_Wredundant_decls, "redundant redeclaration of %q+D",
+			newdecl);
     }
 
-  /* Report location of previous decl/defn in a consistent manner.  */
+  /* Report location of previous decl/defn.  */
   if (warned || pedwarned)
-    locate_old_decl (olddecl, pedwarned ? pedwarn0 : warning0);
+    locate_old_decl (olddecl);
 
 #undef DECL_EXTERN_INLINE
 
@@ -1784,7 +1782,6 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	    (*debug_hooks->outlining_inline_function) (olddecl);
 
 	  /* The new defn must not be inline.  */
-	  DECL_INLINE (newdecl) = 0;
 	  DECL_UNINLINABLE (newdecl) = 1;
 	}
       else
@@ -1836,28 +1833,23 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 	  DECL_STRUCT_FUNCTION (newdecl) = DECL_STRUCT_FUNCTION (olddecl);
 	  DECL_SAVED_TREE (newdecl) = DECL_SAVED_TREE (olddecl);
+	  gimple_set_body (newdecl, gimple_body (olddecl));
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 
-	  /* Set DECL_INLINE on the declaration if we've got a body
-	     from which to instantiate.  */
-	  if (DECL_INLINE (olddecl) && !DECL_UNINLINABLE (newdecl))
-	    {
-	      DECL_INLINE (newdecl) = 1;
-	      DECL_ABSTRACT_ORIGIN (newdecl)
-		= DECL_ABSTRACT_ORIGIN (olddecl);
-	    }
-	}
-      else
-	{
-	  /* If a previous declaration said inline, mark the
-	     definition as inlinable.  */
-	  if (DECL_DECLARED_INLINE_P (newdecl)
-	      && !DECL_UNINLINABLE (newdecl))
-	    DECL_INLINE (newdecl) = 1;
+	  /* See if we've got a function to instantiate from.  */
+	  if (DECL_SAVED_TREE (olddecl))
+	    DECL_ABSTRACT_ORIGIN (newdecl)
+	      = DECL_ABSTRACT_ORIGIN (olddecl);
 	}
     }
 
    extern_changed = DECL_EXTERNAL (olddecl) && !DECL_EXTERNAL (newdecl);
+
+   /* Merge the USED information.  */
+   if (TREE_USED (olddecl))
+     TREE_USED (newdecl) = 1;
+   else if (TREE_USED (newdecl))
+     TREE_USED (olddecl) = 1;
 
   /* Copy most of the decl-specific fields of NEWDECL into OLDDECL.
      But preserve OLDDECL's DECL_UID and DECL_CONTEXT.  */
@@ -1870,6 +1862,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	    sizeof (struct tree_decl_common) - sizeof (struct tree_common));
     switch (TREE_CODE (olddecl))
       {
+      case FUNCTION_DECL:
+	gimple_set_body (olddecl, gimple_body (newdecl));
+	/* fall through */
+
       case FIELD_DECL:
       case VAR_DECL:
       case PARM_DECL:
@@ -1877,7 +1873,6 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       case RESULT_DECL:
       case CONST_DECL:
       case TYPE_DECL:
-      case FUNCTION_DECL:
 	memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		(char *) newdecl + sizeof (struct tree_decl_common),
 		tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
@@ -2331,14 +2326,16 @@ implicit_decl_warning (tree id, tree olddecl)
 {
   if (warn_implicit_function_declaration)
     {
+      bool warned;
+
       if (flag_isoc99)
-	pedwarn (OPT_Wimplicit_function_declaration, 
-		 G_("implicit declaration of function %qE"), id);
+	warned = pedwarn (OPT_Wimplicit_function_declaration, 
+			  G_("implicit declaration of function %qE"), id);
       else 
-	warning (OPT_Wimplicit_function_declaration, 
-		 G_("implicit declaration of function %qE"), id);
-      if (olddecl)
-	locate_old_decl (olddecl, inform);
+	warned = warning (OPT_Wimplicit_function_declaration, 
+			  G_("implicit declaration of function %qE"), id);
+      if (olddecl && warned)
+	locate_old_decl (olddecl);
     }
 }
 
@@ -2409,7 +2406,7 @@ implicitly_declare (tree functionid)
 		{
 		  error ("incompatible implicit declaration of function %qD",
 			 decl);
-		  locate_old_decl (decl, error);
+		  locate_old_decl (decl);
 		}
 	    }
 	  b->type = TREE_TYPE (decl);
@@ -2551,7 +2548,7 @@ declare_label (tree name)
   if (b && B_IN_CURRENT_SCOPE (b))
     {
       error ("duplicate label declaration %qE", name);
-      locate_old_decl (b->decl, error);
+      locate_old_decl (b->decl);
 
       /* Just use the previous declaration.  */
       return b->decl;
@@ -2587,7 +2584,7 @@ define_label (location_t location, tree name)
 	      && C_DECLARED_LABEL_FLAG (label))))
     {
       error ("%Hduplicate label %qD", &location, label);
-      locate_old_decl (label, error);
+      locate_old_decl (label);
       return 0;
     }
   else if (label && DECL_CONTEXT (label) == current_function_decl)
@@ -4050,7 +4047,7 @@ grokdeclarator (const struct c_declarator *declarator,
      "signed".  */
   if (bitfield && !flag_signed_bitfields && !declspecs->explicit_signed_p
       && TREE_CODE (type) == INTEGER_TYPE)
-    type = c_common_unsigned_type (type);
+    type = unsigned_type_for (type);
 
   /* Figure out the type qualifiers for the declaration.  There are
      two ways a declaration can become qualified.  One is something
@@ -4839,19 +4836,8 @@ grokdeclarator (const struct c_declarator *declarator,
 	      pedwarn (0, "cannot inline function %<main%>");
 	  }
 	else if (declspecs->inline_p)
-	  {
-	    /* Record that the function is declared `inline'.  */
-	    DECL_DECLARED_INLINE_P (decl) = 1;
-
-	    /* Do not mark bare declarations as DECL_INLINE.  Doing so
-	       in the presence of multiple declarations can result in
-	       the abstract origin pointing between the declarations,
-	       which will confuse dwarf2out.  */
-	    if (initialized)
-	      DECL_INLINE (decl) = 1;
-	  }
-	else if (initialized)
-	  DECL_INLINE (decl) = 1;
+	  /* Record that the function is declared `inline'.  */
+	  DECL_DECLARED_INLINE_P (decl) = 1;
       }
     else
       {
@@ -6634,9 +6620,10 @@ static void
 c_gimple_diagnostics_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
+  gimple_seq body = gimple_body (fndecl);
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-  c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+  c_warn_unused_result (body);
 
   /* Notice when OpenMP structured block constraints are violated.  */
   if (flag_openmp)

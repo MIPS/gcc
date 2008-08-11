@@ -184,6 +184,12 @@
 /* Define if int64_t is available in <stdint.h>. */
 #undef HAVE_INT64_T
 
+/* Define if int64_t is a long. */
+#undef HAVE_INT64_T_LONG
+
+/* Define if int64_t is a long long. */
+#undef HAVE_INT64_T_LONG_LONG
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -760,6 +766,9 @@
 
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef _GLIBCXX_SJLJ_EXCEPTIONS
+
+/* Define if EOF == -1, SEEK_CUR == 1, SEEK_END == 2. */
+#undef _GLIBCXX_STDIO_MACROS
 
 /* Define to use symbol versioning in the shared library. */
 #undef _GLIBCXX_SYMVER

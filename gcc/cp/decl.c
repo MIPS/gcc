@@ -1551,14 +1551,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 				 olddecl);
 		  }
 	      }
-
-	  if (DECL_DECLARED_INLINE_P (newdecl)
-	      && ! DECL_DECLARED_INLINE_P (olddecl)
-	      && TREE_ADDRESSABLE (olddecl) && warn_inline)
-	    {
-	      warning (0, "%q#D was used before it was declared inline", newdecl);
-	      warning (0, "%Jprevious non-inline declaration here", olddecl);
-	    }
 	}
     }
 
@@ -1660,15 +1652,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      && DECL_INITIAL (new_result))
 	    {
 	      if (DECL_INITIAL (old_result))
-		{
-		  DECL_INLINE (old_result) = 0;
-		  DECL_UNINLINABLE (old_result) = 1;
-		}
+		DECL_UNINLINABLE (old_result) = 1;
 	      else
-		{
-		  DECL_INLINE (old_result) = DECL_INLINE (new_result);
-		  DECL_UNINLINABLE (old_result) = DECL_UNINLINABLE (new_result);
-		}
+		DECL_UNINLINABLE (old_result) = DECL_UNINLINABLE (new_result);
 	      DECL_EXTERNAL (old_result) = DECL_EXTERNAL (new_result);
 	      DECL_NOT_REALLY_EXTERN (old_result)
 		= DECL_NOT_REALLY_EXTERN (new_result);
@@ -1682,8 +1668,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	  else
 	    {
-	      DECL_INLINE (old_result)
-		|= DECL_INLINE (new_result);
 	      DECL_DECLARED_INLINE_P (old_result)
 		|= DECL_DECLARED_INLINE_P (new_result);
 	      DECL_DISREGARD_INLINE_LIMITS (old_result)
@@ -1957,7 +1941,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  /* Never inline re-defined extern inline functions.
 	     FIXME: this could be better handled by keeping both
 	     function as separate declarations.  */
-	  DECL_INLINE (newdecl) = 0;
 	  DECL_UNINLINABLE (newdecl) = 1;
 	}
       else
@@ -1966,12 +1949,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    DECL_PENDING_INLINE_INFO (newdecl) = DECL_PENDING_INLINE_INFO (olddecl);
 
 	  DECL_DECLARED_INLINE_P (newdecl) |= DECL_DECLARED_INLINE_P (olddecl);
-
-	  /* If either decl says `inline', this fn is inline, unless
-	     its definition was passed already.  */
-	  if (DECL_INLINE (newdecl) && DECL_INITIAL (olddecl) == NULL_TREE)
-	    DECL_INLINE (olddecl) = 1;
-	  DECL_INLINE (newdecl) = DECL_INLINE (olddecl);
 
 	  DECL_UNINLINABLE (newdecl) = DECL_UNINLINABLE (olddecl)
 	    = (DECL_UNINLINABLE (newdecl) || DECL_UNINLINABLE (olddecl));
@@ -2063,6 +2040,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		  != DECL_LANG_SPECIFIC (newdecl));
       ggc_free (DECL_LANG_SPECIFIC (olddecl));
     }
+
+   /* Merge the USED information.  */
+   if (TREE_USED (olddecl))
+     TREE_USED (newdecl) = 1;
+   else if (TREE_USED (newdecl))
+     TREE_USED (olddecl) = 1;
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
@@ -3598,7 +3581,7 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
    We assume that such functions never throw; if this is incorrect,
    callers should unset TREE_NOTHROW.  */
 
-tree
+static tree
 build_library_fn (tree name, tree type)
 {
   tree fn = build_library_fn_1 (name, ERROR_MARK, type);
@@ -3637,12 +3620,18 @@ build_cp_library_fn_ptr (const char* name, tree type)
 }
 
 /* Like build_library_fn, but also pushes the function so that we will
-   be able to find it via IDENTIFIER_GLOBAL_VALUE.  */
+   be able to find it via IDENTIFIER_GLOBAL_VALUE.  Also, the function
+   may throw exceptions listed in RAISES.  */
 
 tree
-push_library_fn (tree name, tree type)
+push_library_fn (tree name, tree type, tree raises)
 {
-  tree fn = build_library_fn (name, type);
+  tree fn;
+
+  if (raises)
+    type = build_exception_variant (type, raises);
+
+  fn = build_library_fn (name, type);
   pushdecl_top_level (fn);
   return fn;
 }
@@ -3667,7 +3656,7 @@ tree
 push_void_library_fn (tree name, tree parmtypes)
 {
   tree type = build_function_type (void_type_node, parmtypes);
-  return push_library_fn (name, type);
+  return push_library_fn (name, type, NULL_TREE);
 }
 
 /* Like push_library_fn, but also note that this function throws
@@ -3676,7 +3665,7 @@ push_void_library_fn (tree name, tree parmtypes)
 tree
 push_throw_library_fn (tree name, tree type)
 {
-  tree fn = push_library_fn (name, type);
+  tree fn = push_library_fn (name, type, NULL_TREE);
   TREE_THIS_VOLATILE (fn) = 1;
   TREE_NOTHROW (fn) = 0;
   return fn;
@@ -4788,15 +4777,20 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
   if (!CP_AGGREGATE_TYPE_P (type))
     {
       /* It is invalid to initialize a non-aggregate type with a
-	 brace-enclosed initializer.
+	 brace-enclosed initializer before C++0x.
 	 We need to check for BRACE_ENCLOSED_INITIALIZER_P here because
 	 of g++.old-deja/g++.mike/p7626.C: a pointer-to-member constant is
 	 a CONSTRUCTOR (with a record type).  */
       if (TREE_CODE (init) == CONSTRUCTOR
 	  && BRACE_ENCLOSED_INITIALIZER_P (init))  /* p7626.C */
 	{
-	  error ("braces around scalar initializer for type %qT", type);
-	  init = error_mark_node;
+	  if (SCALAR_TYPE_P (type))
+	    {
+	      error ("braces around scalar initializer for type %qT", type);
+	      init = error_mark_node;
+	    }
+	  else
+	    maybe_warn_cpp0x ("extended initializer lists");
 	}
 
       d->cur++;
@@ -5954,8 +5948,6 @@ start_cleanup_fn (void)
      actually needed.  It is unlikely that it will be inlined, since
      it is only called via a function pointer, but we avoid unnecessary
      emissions this way.  */
-  DECL_INLINE (fndecl) = 1;
-  DECL_DECLARED_INLINE_P (fndecl) = 1;
   DECL_INTERFACE_KNOWN (fndecl) = 1;
   /* Build the parameter.  */
   if (use_cxa_atexit)
@@ -6179,9 +6171,10 @@ expand_static_init (tree decl, tree init)
 					 void_list_node);
 	      tree vfntype = build_function_type (void_type_node, argtypes);
 	      acquire_fn = push_library_fn
-		(acquire_fn, build_function_type (integer_type_node, argtypes));
-	      release_fn = push_library_fn (release_fn, vfntype);
-	      abort_fn = push_library_fn (abort_fn, vfntype);
+		(acquire_fn, build_function_type (integer_type_node, argtypes),
+		 NULL_TREE);
+	      release_fn = push_library_fn (release_fn, vfntype, NULL_TREE);
+	      abort_fn = push_library_fn (abort_fn, vfntype, NULL_TREE);
 	    }
 	  else
 	    {
@@ -6641,11 +6634,6 @@ grokfndecl (tree ctype,
   /* If the declaration was declared inline, mark it as such.  */
   if (inlinep)
     DECL_DECLARED_INLINE_P (decl) = 1;
-  /* We inline functions that are explicitly declared inline, or, when
-     the user explicitly asks us to, all functions.  */
-  if (DECL_DECLARED_INLINE_P (decl)
-      || (!DECL_INLINE (decl) && funcdef_flag))
-    DECL_INLINE (decl) = 1;
 
   DECL_EXTERNAL (decl) = 1;
   if (quals && TREE_CODE (type) == FUNCTION_TYPE)
@@ -6973,16 +6961,17 @@ build_ptrmemfunc_type (tree type)
       TYPE_MAIN_VARIANT (t) = unqualified_variant;
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (unqualified_variant);
       TYPE_NEXT_VARIANT (unqualified_variant) = t;
+      TREE_TYPE (TYPE_BINFO (t)) = t;
     }
 
   /* Cache this pointer-to-member type so that we can find it again
      later.  */
   TYPE_SET_PTRMEMFUNC_TYPE (type, t);
 
-  /* Managing canonical types for the RECORD_TYPE behind a
-     pointer-to-member function is a nightmare, so use structural
-     equality for now.  */
-  SET_TYPE_STRUCTURAL_EQUALITY (t);
+  if (TYPE_STRUCTURAL_EQUALITY_P (type))
+    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  else if (TYPE_CANONICAL (type) != type)
+    TYPE_CANONICAL (t) = build_ptrmemfunc_type (TYPE_CANONICAL (type));
 
   return t;
 }
@@ -8448,8 +8437,9 @@ grokdeclarator (const cp_declarator *declarator,
 	      friendp = 0;
 	    }
 	  else
-	    permerror ("extra qualification %<%T::%> on member %qs",
-		       ctype, name);
+	    permerror_at (declarator->id_loc, 
+			  "extra qualification %<%T::%> on member %qs",
+			  ctype, name);
 	}
       else if (/* If the qualifying type is already complete, then we
 		  can skip the following checks.  */
@@ -10626,10 +10616,7 @@ xref_basetypes (tree ref, tree base_list)
         basetype = PACK_EXPANSION_PATTERN (basetype);
       if (TREE_CODE (basetype) == TYPE_DECL)
 	basetype = TREE_TYPE (basetype);
-      if (TREE_CODE (basetype) != RECORD_TYPE
-	  && TREE_CODE (basetype) != TYPENAME_TYPE
-	  && TREE_CODE (basetype) != TEMPLATE_TYPE_PARM
-	  && TREE_CODE (basetype) != BOUND_TEMPLATE_TEMPLATE_PARM)
+      if (!MAYBE_CLASS_TYPE_P (basetype) || TREE_CODE (basetype) == UNION_TYPE)
 	{
 	  error ("base type %qT fails to be a struct or class type",
 		 basetype);
@@ -12011,13 +11998,15 @@ finish_function (int flags)
       /* Don't complain if we abort or throw.  */
       && !current_function_returns_abnormally
       && !DECL_NAME (DECL_RESULT (fndecl))
-      /* Normally, with -Wreturn-type, flow will complain.  Unless we're an
-	 inline function, as we might never be compiled separately.  */
-      && (DECL_INLINE (fndecl) || processing_template_decl)
+      && !TREE_NO_WARNING (fndecl)
       /* Structor return values (if any) are set by the compiler.  */
       && !DECL_CONSTRUCTOR_P (fndecl)
       && !DECL_DESTRUCTOR_P (fndecl))
-    warning (OPT_Wreturn_type, "no return statement in function returning non-void");
+    {
+      warning (OPT_Wreturn_type,
+ 	       "no return statement in function returning non-void");
+      TREE_NO_WARNING (fndecl) = 1;
+    }
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */
@@ -12039,7 +12028,7 @@ finish_function (int flags)
       f->extern_decl_map = NULL;
 
       /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
-      c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
+      c_warn_unused_result (gimple_body (fndecl));
     }
   /* Clear out the bits we don't need.  */
   local_names = NULL;
@@ -12128,8 +12117,6 @@ start_method (cp_decl_specifier_seq *declspecs,
   check_template_shadow (fndecl);
 
   DECL_DECLARED_INLINE_P (fndecl) = 1;
-  if (flag_default_inline)
-    DECL_INLINE (fndecl) = 1;
 
   /* We process method specializations in finish_struct_1.  */
   if (processing_template_decl && !DECL_TEMPLATE_SPECIALIZATION (fndecl))

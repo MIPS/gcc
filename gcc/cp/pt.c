@@ -1289,12 +1289,8 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend)
 		to the primary function; now copy the inline bits to
 		the various clones.  */
 	      FOR_EACH_CLONE (clone, fn)
-		{
-		  DECL_DECLARED_INLINE_P (clone)
-		    = DECL_DECLARED_INLINE_P (fn);
-		  DECL_INLINE (clone)
-		    = DECL_INLINE (fn);
-		}
+		DECL_DECLARED_INLINE_P (clone)
+		  = DECL_DECLARED_INLINE_P (fn);
 	      check_specialization_namespace (fn);
 
 	      return fn;
@@ -8147,7 +8143,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* Clear out the mangled name and RTL for the instantiation.  */
 	SET_DECL_ASSEMBLER_NAME (r, NULL_TREE);
 	SET_DECL_RTL (r, NULL_RTX);
-	DECL_INITIAL (r) = NULL_TREE;
+	/* Leave DECL_INITIAL set on deleted instantiations.  */
+	if (!DECL_DELETED_FN (r))
+	  DECL_INITIAL (r) = NULL_TREE;
 	DECL_CONTEXT (r) = ctx;
 
 	if (member && DECL_CONV_FN_P (r))
@@ -14921,8 +14919,6 @@ regenerate_decl_from_template (tree decl, tree tmpl)
       if (DECL_DECLARED_INLINE_P (code_pattern)
 	  && !DECL_DECLARED_INLINE_P (decl))
 	DECL_DECLARED_INLINE_P (decl) = 1;
-      if (DECL_INLINE (code_pattern) && !DECL_INLINE (decl))
-	DECL_INLINE (decl) = 1;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     DECL_INITIAL (decl) =
@@ -15144,7 +15140,8 @@ instantiate_decl (tree d, int defer_ok,
   if (external_p
       /* ... but we instantiate inline functions so that we can inline
 	 them and ... */
-      && ! (TREE_CODE (d) == FUNCTION_DECL && DECL_INLINE (d))
+      && ! (TREE_CODE (d) == FUNCTION_DECL
+	    && possibly_inlined_p (d))
       /* ... we instantiate static data members whose values are
 	 needed in integral constant expressions.  */
       && ! (TREE_CODE (d) == VAR_DECL
@@ -15221,8 +15218,7 @@ instantiate_decl (tree d, int defer_ok,
       /* Instantiate inline functions so that the inliner can do its
 	 job, even though we'll not be emitting a copy of this
 	 function.  */
-      if (!(TREE_CODE (d) == FUNCTION_DECL
-	    && DECL_DECLARED_INLINE_P (d)))
+      if (!(TREE_CODE (d) == FUNCTION_DECL && possibly_inlined_p (d)))
 	goto out;
     }
 

@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
+#include "gimple.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -243,11 +244,6 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
    2 means C99-like requirements for complex multiply and divide.  */
 
 int flag_complex_method = 1;
-
-/* Nonzero means that we don't want inlining by virtue of -fno-inline,
-   not just because the tree inliner turned us off.  */
-
-int flag_really_no_inline = 2;
 
 /* Nonzero means we should be saving declaration info into a .X file.  */
 
@@ -1648,6 +1644,19 @@ process_options (void)
      This can happen with incorrect pre-processed input. */
   debug_hooks = &do_nothing_debug_hooks;
 
+  /* This replaces set_Wunused.  */
+  if (warn_unused_function == -1)
+    warn_unused_function = warn_unused;
+  if (warn_unused_label == -1)
+    warn_unused_label = warn_unused;
+  /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
+  if (warn_unused_parameter == -1)
+    warn_unused_parameter = (warn_unused && extra_warnings);
+  if (warn_unused_variable == -1)
+    warn_unused_variable = warn_unused;
+  if (warn_unused_value == -1)
+    warn_unused_value = warn_unused;
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -2084,6 +2093,7 @@ dump_memory_report (bool final)
   ggc_print_statistics ();
   stringpool_statistics ();
   dump_tree_statistics ();
+  dump_gimple_statistics ();
   dump_rtx_statistics ();
   dump_varray_statistics ();
   dump_alloc_pool_statistics ();

@@ -63,9 +63,6 @@ HOST_WIDE_INT larger_than_size;
 bool warn_frame_larger_than;
 HOST_WIDE_INT frame_larger_than_size;
 
-/* Hack for cooperation between set_Wunused and set_Wextra.  */
-static bool maybe_warn_unused_parameter;
-
 /* Type(s) of debugging information we are producing (if any).  See
    flags.h for the definitions of the different possible types of
    debugging information.  */
@@ -1072,35 +1069,15 @@ decode_options (unsigned int argc, const char **argv)
 	flag_pic = flag_pie;
       if (flag_pic && !flag_pie)
 	flag_shlib = 1;
-
-      if (flag_no_inline == 2)
-	flag_no_inline = 0;
-      else
-	flag_really_no_inline = flag_no_inline;
     }
 
-  /* Set flag_no_inline before the post_options () hook.  The C front
-     ends use it to determine tree inlining defaults.  FIXME: such
-     code should be lang-independent when all front ends use tree
-     inlining, in which case it, and this condition, should be moved
-     to the top of process_options() instead.  */
   if (optimize == 0)
     {
       /* Inlining does not work if not optimizing,
 	 so force it not to be done.  */
-      flag_no_inline = 1;
       warn_inline = 0;
-
-      /* The c_decode_option function and decode_option hook set
-	 this to `2' if -Wall is used, so we can avoid giving out
-	 lots of errors for people who don't realize what -Wall does.  */
-      if (warn_uninitialized == 1)
-	warning (OPT_Wuninitialized,
-		 "-Wuninitialized is not supported without -O");
+      flag_no_inline = 1;
     }
-
-  if (flag_really_no_inline == 2)
-    flag_really_no_inline = flag_no_inline;
 
   /* The optimization to partition hot and cold basic blocks into separate
      sections of the .o and executable files does not work (currently)
@@ -1687,7 +1664,7 @@ common_handle_option (size_t scode, const char *arg, int value,
       break;
 
     case OPT_Wunused:
-      set_Wunused (value);
+      warn_unused = value;
       break;
 
     case OPT_aux_info:
@@ -2057,7 +2034,6 @@ static void
 set_Wextra (int setting)
 {
   extra_warnings = setting;
-  warn_unused_parameter = (setting && maybe_warn_unused_parameter);
 
   /* We save the value of warn_uninitialized, since if they put
      -Wuninitialized on the command line, we need to generate a
@@ -2066,23 +2042,6 @@ set_Wextra (int setting)
     warn_uninitialized = 0;
   else if (warn_uninitialized != 1)
     warn_uninitialized = 2;
-}
-
-/* Initialize unused warning flags.  */
-void
-set_Wunused (int setting)
-{
-  warn_unused_function = setting;
-  warn_unused_label = setting;
-  /* Unused function parameter warnings are reported when either
-     ``-Wextra -Wunused'' or ``-Wunused-parameter'' is specified.
-     Thus, if -Wextra has already been seen, set warn_unused_parameter;
-     otherwise set maybe_warn_extra_parameter, which will be picked up
-     by set_Wextra.  */
-  maybe_warn_unused_parameter = setting;
-  warn_unused_parameter = (setting && extra_warnings);
-  warn_unused_variable = setting;
-  warn_unused_value = setting;
 }
 
 /* Used to set the level of strict aliasing warnings, 

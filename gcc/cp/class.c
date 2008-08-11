@@ -4107,7 +4107,7 @@ type_has_user_provided_constructor (tree t)
 bool
 type_has_user_provided_default_constructor (tree t)
 {
-  tree fns;
+  tree fns, args;
 
   if (!TYPE_HAS_USER_CONSTRUCTOR (t))
     return false;
@@ -4116,10 +4116,14 @@ type_has_user_provided_default_constructor (tree t)
     {
       tree fn = OVL_CURRENT (fns);
       if (TREE_CODE (fn) == FUNCTION_DECL
-	  && user_provided_p (fn)
-	  && (skip_artificial_parms_for (fn, DECL_ARGUMENTS (fn))
-	      == NULL_TREE))
-	return true;
+	  && user_provided_p (fn))
+	{
+	  args = FUNCTION_FIRST_USER_PARMTYPE (fn);
+	  while (args && TREE_PURPOSE (args))
+	    args = TREE_CHAIN (args);
+	  if (!args || args == void_list_node)
+	    return true;
+	}
     }
 
   return false;
@@ -4302,7 +4306,7 @@ check_bases_and_members (tree t)
   /* If the class has no user-declared constructor, but does have
      non-static const or reference data members that can never be
      initialized, issue a warning.  */
-  if (extra_warnings
+  if (warn_uninitialized
       /* Classes with user-declared constructors are presumed to
 	 initialize these members.  */
       && !TYPE_HAS_USER_CONSTRUCTOR (t)
@@ -4321,13 +4325,13 @@ check_bases_and_members (tree t)
 
 	  type = TREE_TYPE (field);
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
-	    warning (OPT_Wextra, "non-static reference %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static reference %q+#D "
+		     "in class without a constructor", field);
 	  else if (CP_TYPE_CONST_P (type)
 		   && (!CLASS_TYPE_P (type)
 		       || !TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
-	    warning (OPT_Wextra, "non-static const member %q+#D in class "
-		     "without a constructor", field);
+	    warning (OPT_Wuninitialized, "non-static const member %q+#D "
+		     "in class without a constructor", field);
 	}
     }
 

@@ -115,12 +115,6 @@ extern int optimize_size;
 
 extern bool extra_warnings;
 
-/* Nonzero to warn about unused variables, functions et.al.  Use
-   set_Wunused() to update the -Wunused-* flags that correspond to the
-   -Wunused option.  */
-
-extern void set_Wunused (int setting);
-
 /* Used to set the level of -Wstrict-aliasing, when no level is specified.  
    The external way to set the default level is to use
    -Wstrict-aliasing=level.  
@@ -168,11 +162,6 @@ extern int flag_pcc_struct_return;
    2 means C99-like requirements for complex multiply and divide.  */
 
 extern int flag_complex_method;
-
-/* Nonzero means that we don't want inlining by virtue of -fno-inline,
-   not just because the tree inliner turned us off.  */
-
-extern int flag_really_no_inline;
 
 /* Nonzero if we are only using compiler to check syntax errors.  */
 

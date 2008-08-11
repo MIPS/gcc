@@ -743,6 +743,9 @@ extern bool same_scalar_type_ignoring_signedness (tree, tree);
 #define c_sizeof(T)  c_sizeof_or_alignof_type (T, true, 1)
 #define c_alignof(T) c_sizeof_or_alignof_type (T, false, 1)
 
+/* Subroutine of build_binary_op, used for certain operations.  */
+extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
+
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
    and, if so, perhaps change them both back to their original type.  */
@@ -897,7 +900,7 @@ extern void dump_time_statistics (void);
 
 extern bool c_dump_tree (void *, tree);
 
-extern void c_warn_unused_result (tree *);
+extern void c_warn_unused_result (gimple_seq);
 
 extern void verify_sequence_points (tree);
 
@@ -925,10 +928,14 @@ extern void warn_about_parentheses (enum tree_code, enum tree_code,
 				    enum tree_code);
 extern void warn_for_unused_label (tree label);
 extern void warn_for_div_by_zero (tree divisor);
+extern void warn_for_sign_compare (tree orig_op0, tree orig_op1, 
+				   tree op0, tree op1, 
+				   tree result_type, 
+				   enum tree_code resultcode);
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
-extern int c_gimplify_expr (tree *, tree *, tree *);
+extern int c_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
 extern tree c_build_bind_expr (tree, tree);
 
 /* In c-pch.c  */
