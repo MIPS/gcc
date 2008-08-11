@@ -107,6 +107,8 @@
    (V8SF "SF") (V4DF "DF")])
 (define_mode_attr avxcvtvecmode
   [(V4SF "V4SI") (V8SF "V8SI") (V4SI "V4SF") (V8SI "V8SF")])
+(define_mode_attr avxpermvecmode
+  [(V2DF "V2DI") (V4SF "V4SI") (V4DF "V4DI") (V8SF "V8SI")])
 (define_mode_attr avxmodesuffixf2c
   [(V4SF "s") (V2DF "d") (V8SF "s") (V4DF "d")])
 (define_mode_attr avxmodesuffixp
@@ -11526,7 +11528,7 @@
   [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
 	(unspec:AVXMODEF2P
 	  [(match_operand:AVXMODEF2P 1 "register_operand" "x")
-	   (match_operand:AVXMODEF2P 2 "nonimmediate_operand" "xm")]
+	   (match_operand:<avxpermvecmode> 2 "nonimmediate_operand" "xm")]
 	  UNSPEC_VPERMIL))]
   "TARGET_AVX"
   "vpermilp<avxmodesuffixf2c>\t{%2, %1, %0|%0, %1, %2}"
@@ -11539,7 +11541,7 @@
 	(unspec:AVXMODEF2P
 	  [(match_operand:AVXMODEF2P 1 "register_operand" "x,x")
 	   (match_operand:AVXMODEF2P 2 "nonimmediate_operand" "x,xm")
-	   (match_operand:AVXMODEF2P 3 "nonimmediate_operand" "xm,x")
+	   (match_operand:<avxpermvecmode> 3 "nonimmediate_operand" "xm,x")
 	   (match_operand:SI 4 "const_0_to_3_operand" "n,n")]
 	  UNSPEC_VPERMIL2))]
   "TARGET_AVX"

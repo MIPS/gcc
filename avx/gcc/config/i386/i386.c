@@ -19957,6 +19957,7 @@ enum ix86_builtin_type
   V8HI_FTYPE_V4SI_V4SI,
   V8HI_FTYPE_V8HI_SI_COUNT,
   V8SF_FTYPE_V8SF_V8SF,
+  V8SF_FTYPE_V8SF_V8SI,
   V4SI_FTYPE_V4SI_V4SI,
   V4SI_FTYPE_V4SI_V4SI_COUNT,
   V4SI_FTYPE_V8HI_V8HI,
@@ -19969,8 +19970,10 @@ enum ix86_builtin_type
   V4HI_FTYPE_V2SI_V2SI,
   V4HI_FTYPE_V4HI_SI_COUNT,
   V4DF_FTYPE_V4DF_V4DF,
+  V4DF_FTYPE_V4DF_V4DI,
   V4SF_FTYPE_V4SF_V4SF,
   V4SF_FTYPE_V4SF_V4SF_SWAP,
+  V4SF_FTYPE_V4SF_V4SI,
   V4SF_FTYPE_V4SF_V2SI,
   V4SF_FTYPE_V4SF_V2DF,
   V4SF_FTYPE_V4SF_DI,
@@ -19990,6 +19993,7 @@ enum ix86_builtin_type
   V2DF_FTYPE_V2DF_V2DF,
   V2DF_FTYPE_V2DF_V2DF_SWAP,
   V2DF_FTYPE_V2DF_V4SF,
+  V2DF_FTYPE_V2DF_V2DI,
   V2DF_FTYPE_V2DF_DI,
   V2DF_FTYPE_V2DF_SI,
   V2SF_FTYPE_V2SF_V2SF,
@@ -20033,10 +20037,10 @@ enum ix86_builtin_type
   V2DI2TI_FTYPE_V2DI_V2DI_INT,
   V1DI2DI_FTYPE_V1DI_V1DI_INT,
   V2DF_FTYPE_V2DF_V2DF_INT,
-  V8SF_FTYPE_V8SF_V8SF_V8SF_INT,
-  V4DF_FTYPE_V4DF_V4DF_V4DF_INT,
-  V4SF_FTYPE_V4SF_V4SF_V4SF_INT,
-  V2DF_FTYPE_V2DF_V2DF_V2DF_INT,
+  V8SF_FTYPE_V8SF_V8SF_V8SI_INT,
+  V4DF_FTYPE_V4DF_V4DF_V4DI_INT,
+  V4SF_FTYPE_V4SF_V4SF_V4SI_INT,
+  V2DF_FTYPE_V2DF_V2DF_V2DI_INT,
   V2DI_FTYPE_V2DI_UINT_UINT,
   V2DI_FTYPE_V2DI_V2DI_UINT_UINT
 };
@@ -20628,10 +20632,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_xorv4df3, "__builtin_ia32_xorpd256", IX86_BUILTIN_XORPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_xorv8sf3, "__builtin_ia32_xorps256", IX86_BUILTIN_XORPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
 
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv2df3, "__builtin_ia32_vpermilvarpd", IX86_BUILTIN_VPERMILVARPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4sf3, "__builtin_ia32_vpermilvarps", IX86_BUILTIN_VPERMILVARPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4df3, "__builtin_ia32_vpermilvarpd256", IX86_BUILTIN_VPERMILVARPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv8sf3, "__builtin_ia32_vpermilvarps256", IX86_BUILTIN_VPERMILVARPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv2df3, "__builtin_ia32_vpermilvarpd", IX86_BUILTIN_VPERMILVARPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DI },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4sf3, "__builtin_ia32_vpermilvarps", IX86_BUILTIN_VPERMILVARPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SI },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv4df3, "__builtin_ia32_vpermilvarpd256", IX86_BUILTIN_VPERMILVARPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DI },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilvarv8sf3, "__builtin_ia32_vpermilvarps256", IX86_BUILTIN_VPERMILVARPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SI },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendpd256, "__builtin_ia32_blendpd256", IX86_BUILTIN_BLENDPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_blendps256, "__builtin_ia32_blendps256", IX86_BUILTIN_BLENDPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_INT },
@@ -20664,10 +20668,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv4sf, "__builtin_ia32_vpermilps", IX86_BUILTIN_VPERMILPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv4df, "__builtin_ia32_vpermilpd256", IX86_BUILTIN_VPERMILPD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermilv8sf, "__builtin_ia32_vpermilps256", IX86_BUILTIN_VPERMILPS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v2df3,  "__builtin_ia32_vpermil2pd", IX86_BUILTIN_VPERMIL2PD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_V2DF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4sf3,  "__builtin_ia32_vpermil2ps", IX86_BUILTIN_VPERMIL2PS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_V4SF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4df3,  "__builtin_ia32_vpermil2pd256", IX86_BUILTIN_VPERMIL2PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DF_INT },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v8sf3,  "__builtin_ia32_vpermil2ps256", IX86_BUILTIN_VPERMIL2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SF_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v2df3,  "__builtin_ia32_vpermil2pd", IX86_BUILTIN_VPERMIL2PD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_V2DI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4sf3,  "__builtin_ia32_vpermil2ps", IX86_BUILTIN_VPERMIL2PS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_V4SI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v4df3,  "__builtin_ia32_vpermil2pd256", IX86_BUILTIN_VPERMIL2PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DI_INT },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vpermil2v8sf3,  "__builtin_ia32_vpermil2ps256", IX86_BUILTIN_VPERMIL2PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SI_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v4df, "__builtin_ia32_vinsertf128_pd256", IX86_BUILTIN_VINSERTF128PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V2DF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v8sf, "__builtin_ia32_vinsertf128_ps256", IX86_BUILTIN_VINSERTF128PS256, UNKNOWN, (int) V8SF_FTYPE_V8SF_V4SF_INT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vinsertf128v8si, "__builtin_ia32_vinsertf128_si256", IX86_BUILTIN_VINSERTF128SI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_INT },
@@ -21609,25 +21613,25 @@ ix86_init_mmx_sse_builtins (void)
 				V4DF_type_node, V4DF_type_node,
 				integer_type_node,
 				NULL_TREE);
-  tree v8sf_ftype_v8sf_v8sf_v8sf_int
+  tree v8sf_ftype_v8sf_v8sf_v8si_int
     = build_function_type_list (V8SF_type_node,
 				V8SF_type_node, V8SF_type_node,
-				V8SF_type_node, integer_type_node,
+				V8SI_type_node, integer_type_node,
 				NULL_TREE);
-  tree v4df_ftype_v4df_v4df_v4df_int
+  tree v4df_ftype_v4df_v4df_v4di_int
     = build_function_type_list (V4DF_type_node,
 				V4DF_type_node, V4DF_type_node,
-				V4DF_type_node, integer_type_node,
+				V4DI_type_node, integer_type_node,
 				NULL_TREE);
-  tree v4sf_ftype_v4sf_v4sf_v4sf_int
+  tree v4sf_ftype_v4sf_v4sf_v4si_int
     = build_function_type_list (V4SF_type_node,
 				V4SF_type_node, V4SF_type_node,
-				V4SF_type_node, integer_type_node,
+				V4SI_type_node, integer_type_node,
 				NULL_TREE);
-  tree v2df_ftype_v2df_v2df_v2df_int
+  tree v2df_ftype_v2df_v2df_v2di_int
     = build_function_type_list (V2DF_type_node,
 				V2DF_type_node, V2DF_type_node,
-				V2DF_type_node, integer_type_node,
+				V2DI_type_node, integer_type_node,
 				NULL_TREE);
   tree v8sf_ftype_pcfloat
     = build_function_type_list (V8SF_type_node,
@@ -21768,6 +21772,20 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (integer_type_node,
 				V4DF_type_node, V4DF_type_node,
 				NULL_TREE);
+  tree v8sf_ftype_v8sf_v8si
+    = build_function_type_list (V8SF_type_node,
+				V8SF_type_node, V8SI_type_node,
+				NULL_TREE);
+  tree v4df_ftype_v4df_v4di
+    = build_function_type_list (V4DF_type_node,
+				V4DF_type_node, V4DI_type_node,
+				NULL_TREE);
+  tree v4sf_ftype_v4sf_v4si
+    = build_function_type_list (V4SF_type_node,
+				V4SF_type_node, V4SI_type_node, NULL_TREE);
+  tree v2df_ftype_v2df_v2di
+    = build_function_type_list (V2DF_type_node,
+				V2DF_type_node, V2DI_type_node, NULL_TREE);
 
   tree ftype;
 
@@ -22090,6 +22108,9 @@ ix86_init_mmx_sse_builtins (void)
 	case V8SF_FTYPE_V8SF_V8SF:
 	  type = v8sf_ftype_v8sf_v8sf;
 	  break;
+	case V8SF_FTYPE_V8SF_V8SI:
+	  type = v8sf_ftype_v8sf_v8si;
+	  break;
 	case V4SI_FTYPE_V4SI_V4SI:
 	case V4SI_FTYPE_V4SI_V4SI_COUNT:
 	  type = v4si_ftype_v4si_v4si;
@@ -22122,9 +22143,15 @@ ix86_init_mmx_sse_builtins (void)
 	case V4DF_FTYPE_V4DF_V4DF:
 	  type = v4df_ftype_v4df_v4df;
 	  break;
+	case V4DF_FTYPE_V4DF_V4DI:
+	  type = v4df_ftype_v4df_v4di;
+	  break;
 	case V4SF_FTYPE_V4SF_V4SF:
 	case V4SF_FTYPE_V4SF_V4SF_SWAP:
 	  type = v4sf_ftype_v4sf_v4sf;
+	  break;
+	case V4SF_FTYPE_V4SF_V4SI:
+	  type = v4sf_ftype_v4sf_v4si;
 	  break;
 	case V4SF_FTYPE_V4SF_V2SI:
 	  type = v4sf_ftype_v4sf_v2si;
@@ -22176,6 +22203,9 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case V2DF_FTYPE_V2DF_V4SF:
 	  type = v2df_ftype_v2df_v4sf;
+	  break;
+	case V2DF_FTYPE_V2DF_V2DI:
+	  type = v2df_ftype_v2df_v2di;
 	  break;
 	case V2DF_FTYPE_V2DF_DI:
 	  type = v2df_ftype_v2df_int64;
@@ -22306,17 +22336,17 @@ ix86_init_mmx_sse_builtins (void)
 	case V1DI2DI_FTYPE_V1DI_V1DI_INT:
 	  type = v1di_ftype_v1di_v1di_int;
 	  break;
-	case V8SF_FTYPE_V8SF_V8SF_V8SF_INT:
-	  type = v8sf_ftype_v8sf_v8sf_v8sf_int;
+	case V8SF_FTYPE_V8SF_V8SF_V8SI_INT:
+	  type = v8sf_ftype_v8sf_v8sf_v8si_int;
 	  break;
-	case V4DF_FTYPE_V4DF_V4DF_V4DF_INT:
-	  type = v4df_ftype_v4df_v4df_v4df_int;
+	case V4DF_FTYPE_V4DF_V4DF_V4DI_INT:
+	  type = v4df_ftype_v4df_v4df_v4di_int;
 	  break;
-	case V4SF_FTYPE_V4SF_V4SF_V4SF_INT:
-	  type = v4sf_ftype_v4sf_v4sf_v4sf_int;
+	case V4SF_FTYPE_V4SF_V4SF_V4SI_INT:
+	  type = v4sf_ftype_v4sf_v4sf_v4si_int;
 	  break;
-	case V2DF_FTYPE_V2DF_V2DF_V2DF_INT:
-	  type = v2df_ftype_v2df_v2df_v2df_int;
+	case V2DF_FTYPE_V2DF_V2DF_V2DI_INT:
+	  type = v2df_ftype_v2df_v2df_v2di_int;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -23360,6 +23390,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V8HI_FTYPE_V16QI_V16QI:
     case V8HI_FTYPE_V4SI_V4SI:
     case V8SF_FTYPE_V8SF_V8SF:
+    case V8SF_FTYPE_V8SF_V8SI:
     case V4SI_FTYPE_V4SI_V4SI:
     case V4SI_FTYPE_V8HI_V8HI:
     case V4SI_FTYPE_V4SF_V4SF:
@@ -23368,7 +23399,9 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V4HI_FTYPE_V8QI_V8QI:
     case V4HI_FTYPE_V2SI_V2SI:
     case V4DF_FTYPE_V4DF_V4DF:
+    case V4DF_FTYPE_V4DF_V4DI:
     case V4SF_FTYPE_V4SF_V4SF:
+    case V4SF_FTYPE_V4SF_V4SI:
     case V4SF_FTYPE_V4SF_V2SI:
     case V4SF_FTYPE_V4SF_V2DF:
     case V4SF_FTYPE_V4SF_DI:
@@ -23383,6 +23416,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V2SI_FTYPE_V2SF_V2SF:
     case V2DF_FTYPE_V2DF_V2DF:
     case V2DF_FTYPE_V2DF_V4SF:
+    case V2DF_FTYPE_V2DF_V2DI:
     case V2DF_FTYPE_V2DF_DI:
     case V2DF_FTYPE_V2DF_SI:
     case V2SF_FTYPE_V2SF_V2SF:
@@ -23475,10 +23509,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
       nargs = 3;
       nargs_constant = 2;
       break;
-    case V8SF_FTYPE_V8SF_V8SF_V8SF_INT:
-    case V4DF_FTYPE_V4DF_V4DF_V4DF_INT:
-    case V4SF_FTYPE_V4SF_V4SF_V4SF_INT:
-    case V2DF_FTYPE_V2DF_V2DF_V2DF_INT:
+    case V8SF_FTYPE_V8SF_V8SF_V8SI_INT:
+    case V4DF_FTYPE_V4DF_V4DF_V4DI_INT:
+    case V4SF_FTYPE_V4SF_V4SF_V4SI_INT:
+    case V2DF_FTYPE_V2DF_V2DF_V2DI_INT:
       nargs = 4;
       nargs_constant = 1;
       break;

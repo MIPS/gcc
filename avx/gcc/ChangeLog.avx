@@ -1,3 +1,49 @@
+2008-08-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_builtin_type): Add
+	V8SF_FTYPE_V8SF_V8SI, V4DF_FTYPE_V4DF_V4DI,
+	V4SF_FTYPE_V4SF_V4SI and V2DF_FTYPE_V2DF_V2DI.  Replace
+	V8SF_FTYPE_V8SF_V8SF_V8SF_INT, V4DF_FTYPE_V4DF_V4DF_V4DF_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SF_INT and V2DF_FTYPE_V2DF_V2DF_V2DF_INT
+	with V8SF_FTYPE_V8SF_V8SF_V8SI_INT, V4DF_FTYPE_V4DF_V4DF_V4DI_INT,
+	V4SF_FTYPE_V4SF_V4SF_V4SI_INT and V2DF_FTYPE_V2DF_V2DF_V2DI_INT,
+	respectively.
+	(bdesc_args): Correct the type of control parameter for
+	__builtin_ia32_vpermilvarpd, __builtin_ia32_vpermilvarps,
+	__builtin_ia32_vpermilvarpd256, __builtin_ia32_vpermilvarps256,
+	__builtin_ia32_vpermil2pd, __builtin_ia32_vpermil2ps,
+	__builtin_ia32_vpermil2pd256 and __builtin_ia32_vpermil2ps256.
+	(ix86_init_mmx_sse_builtins): Replace
+	v8sf_ftype_v8sf_v8sf_v8sf_int, v4df_ftype_v4df_v4df_v4df_int,
+	v4sf_ftype_v4sf_v4sf_v4sf_int and v2df_ftype_v2df_v2df_v2df_int
+	with v8sf_ftype_v8sf_v8sf_v8si_int, v4df_ftype_v4df_v4df_v4di_int,
+	v4sf_ftype_v4sf_v4sf_v4si_int and v2df_ftype_v2df_v2df_v2di_int,
+	respectively.  Add v8sf_ftype_v8sf_v8si, v4df_ftype_v4df_v4di,
+	v4sf_ftype_v4sf_v4si and v2df_ftype_v2df_v2di.  Handle
+	V8SF_FTYPE_V8SF_V8SI, V4DF_FTYPE_V4DF_V4DI,
+	V4SF_FTYPE_V4SF_V4SI and V2DF_FTYPE_V2DF_V2DI.
+	(ix86_expand_args_builtin): Handle V8SF_FTYPE_V8SF_V8SI,
+	V4DF_FTYPE_V4DF_V4DI, V4SF_FTYPE_V4SF_V4SI and
+	V2DF_FTYPE_V2DF_V2DI.  Replace V8SF_FTYPE_V8SF_V8SF_V8SF_INT,
+	V4DF_FTYPE_V4DF_V4DF_V4DF_INT, V4SF_FTYPE_V4SF_V4SF_V4SF_INT and
+	V2DF_FTYPE_V2DF_V2DF_V2DF_INT with V8SF_FTYPE_V8SF_V8SF_V8SI_INT,
+	V4DF_FTYPE_V4DF_V4DF_V4DI_INT, V4SF_FTYPE_V4SF_V4SF_V4SI_INT and
+	V2DF_FTYPE_V2DF_V2DF_V2DI_INT, respectively.
+
+	* config/i386/gmmintrin.h (_mm_permutevar_pd): Correct the
+	type of control parameter.
+	(_mm256_permutevar_pd): Likewise.
+	(_mm_permutevar_ps): Likewise.
+	(_mm256_permutevar_ps): Likewise.
+	(_mm_permute2_pd): Likewise.
+	(_mm256_permute2_pd): Likewise.
+	(_mm_permute2_ps): Likewise.
+	(_mm256_permute2_ps): Likewise.
+
+	* config/i386/sse.md (avxpermvecmode): New.
+	(avx_vpermilvar<mode>3): Use <avxpermvecmode>.
+	(avx_vpermil2<mode>3): Likewise.
+
 2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_expand_special_args_builtin): Replace
