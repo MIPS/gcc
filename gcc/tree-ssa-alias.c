@@ -2731,7 +2731,11 @@ update_alias_info (struct alias_info *ai)
 	}
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	update_alias_info_1 (gsi_stmt (gsi), ai);
+	{
+	  if (IS_DEBUG_STMT (gsi_stmt (gsi)))
+	    continue;
+	  update_alias_info_1 (gsi_stmt (gsi), ai);
+	}
     }
 }
 

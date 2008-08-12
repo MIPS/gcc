@@ -1223,6 +1223,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
   gimple_set_block (copy, new_block);
 
+  if (IS_DEBUG_STMT (copy))
+    return copy;
+
   /* Remap all the operands in COPY.  */
   memset (&wi, 0, sizeof (wi));
   wi.info = id;
@@ -1459,7 +1462,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		add_stmt_to_eh_region (stmt, id->eh_region);
 	    }
 
-	  if (gimple_in_ssa_p (cfun))
+	  if (gimple_in_ssa_p (cfun) && !IS_DEBUG_STMT (stmt))
 	    {
 	      ssa_op_iter i;
 	      tree def;
@@ -1852,17 +1855,24 @@ static void
 copy_debug_stmt (gimple stmt, copy_body_data *id)
 {
   tree t;
+  struct walk_stmt_info wi;
+
+  /* Remap all the operands in COPY.  */
+  memset (&wi, 0, sizeof (wi));
+  wi.info = id;
 
   processing_debug_stmt = 1;
 
   t = VAR_DEBUG_VALUE_VAR (stmt);
-  walk_tree (&t, copy_tree_body_r, id, NULL);
+  walk_tree (&t, remap_gimple_op_r, &wi, NULL);
   VAR_DEBUG_VALUE_SET_VAR (stmt, t);
 
   gcc_assert (processing_debug_stmt == 1);
 
-  walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), copy_tree_body_r, id, NULL);
+  if (VAR_DEBUG_VALUE_VALUE (stmt) != VAR_DEBUG_VALUE_NOVALUE)
+    walk_tree (&VAR_DEBUG_VALUE_VALUE (stmt), remap_gimple_op_r, &wi, NULL);
 
+  /* Punt if any decl couldn't be remapped.  */
   if (processing_debug_stmt < 0)
     VAR_DEBUG_VALUE_VALUE (stmt) = VAR_DEBUG_VALUE_NOVALUE;
 

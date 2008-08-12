@@ -239,7 +239,7 @@ tree_if_convert_stmt (struct loop *  loop, gimple t, tree cond,
     case GIMPLE_LABEL:
       break;
 
-    case VAR_DEBUG_VALUE:
+    case GIMPLE_DEBUG:
       /* ??? Should there be conditional VAR_DEBUG_VALUEs?  */
       VAR_DEBUG_VALUE_VALUE (gsi_stmt (*gsi)) = VAR_DEBUG_VALUE_NOVALUE;
       update_stmt (gsi_stmt (*gsi));
@@ -428,7 +428,7 @@ if_convertible_stmt_p (struct loop *loop, basic_block bb, gimple stmt)
     case GIMPLE_LABEL:
       break;
 
-    case VAR_DEBUG_VALUE:
+    case GIMPLE_DEBUG:
       break;
 
     case GIMPLE_ASSIGN:

@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -554,6 +554,10 @@ scan_stmt_for_static_refs (gimple_stmt_iterator *gsip, bool *handled_ops_p,
       *handled_ops_p = true;
       break;
       
+    case GIMPLE_DEBUG:
+      *handled_ops_p = true;
+      break;
+
     default:
       break;
     }

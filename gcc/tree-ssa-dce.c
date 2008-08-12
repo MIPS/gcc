@@ -314,7 +314,7 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 	}
       break;
 
-    case VAR_DEBUG_VALUE:
+    case GIMPLE_DEBUG:
       mark_stmt_necessary (stmt, false);
       return;
 
@@ -701,14 +701,8 @@ eliminate_unnecessary_stmts (void)
 	    }
 	  else if (is_gimple_call (stmt))
 	    {
-	      if (IS_DEBUG_STMT (stmt) == VAR_DEBUG_VALUE)
-		{
-		  if (something_changed
-		      && (VAR_DEBUG_VALUE_VALUE (stmt)
-			  != VAR_DEBUG_VALUE_NOVALUE))
-		    check_and_update_debug_stmt (stmt, necessary_p);
-		}
-	      else if ((call = gimple_call_fndecl (stmt)))
+	      call = gimple_call_fndecl (stmt);
+	      if (call)
 		{
 		  tree name;
 		  gimple g;
@@ -742,6 +736,13 @@ eliminate_unnecessary_stmts (void)
 	    }
 	  else
 	    {
+	      if (IS_DEBUG_STMT (stmt))
+		{
+		  if (something_changed
+		      && (VAR_DEBUG_VALUE_VALUE (stmt)
+			  != VAR_DEBUG_VALUE_NOVALUE))
+		    check_and_update_debug_stmt (stmt, necessary_p);
+		}
 	      gsi_next (&gsi);
 	    }
 	}

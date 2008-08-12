@@ -257,7 +257,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
 	  /* ??? For now, hope there's a corresponding debug
 	     assignment at the destination.  */
-	case VAR_DEBUG_VALUE:
+	case GIMPLE_DEBUG:
 	  break;
 
 	default:
