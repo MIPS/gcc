@@ -670,7 +670,18 @@ print_insn (char *buf, rtx x, int verbose)
 	const char *name = "?";
 
 	if (DECL_P (INSN_VAR_LOCATION_DECL (insn)))
-	  name = IDENTIFIER_POINTER (DECL_NAME (INSN_VAR_LOCATION_DECL (insn)));
+	  {
+	    tree id = DECL_NAME (INSN_VAR_LOCATION_DECL (insn));
+	    if (id)
+	      name = IDENTIFIER_POINTER (id);
+	    else
+	      {
+		char idbuf[32];
+		sprintf (idbuf, "D.%i",
+			 DECL_UID (INSN_VAR_LOCATION_DECL (insn)));
+		name = idbuf;
+	      }
+	  }
 	if (VAR_LOC_UNKNOWN_P (INSN_VAR_LOCATION_LOC (insn)))
 	  sprintf (buf, " %4d: debug %s optimized away", INSN_UID (insn), name);
 	else
