@@ -1,5 +1,9 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* sched-vis.c (print_insn): Dump anonymous variables.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* var-tracking.c (count_uses, add_uses, add_stores): Use Pmode for
 	addresses.
 	(add_uses): Compute value-based loc for MO_VAL_USE out of original
