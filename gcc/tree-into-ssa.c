@@ -1099,6 +1099,20 @@ var_debug_value_for_decl (tree var)
   if (DECL_IGNORED_P (var))
     return false;
 
+  if (!DECL_NAME (var))
+    {
+      tree origin = DECL_ABSTRACT_ORIGIN (var);
+
+      if (!origin)
+	return false;
+
+      if (!DECL_P (origin))
+	return false;
+
+      if (!DECL_NAME (origin))
+	return false;
+    }
+
   if (!MAY_HAVE_DEBUG_STMTS)
     return false;
 

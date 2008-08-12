@@ -1,5 +1,10 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-into-ssa.c (var_debug_value_for_decl): Don't track
+	anonymous variables.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* sched-vis.c (print_insn): Dump anonymous variables.
 
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
