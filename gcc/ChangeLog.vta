@@ -1,3 +1,8 @@
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* see.c (see_merge_one_def_extension): Avoid bogus? uninitialized
+	warning.
+
 2008-08-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	* var-tracking.c (variable_htab_eq): Move checking-only variables
