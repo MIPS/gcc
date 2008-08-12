@@ -4,7 +4,8 @@ AutoGen definitions Makefile.tpl;
 // Makefile.in is generated from Makefile.tpl by 'autogen Makefile.def'.
 // This file was originally written by Nathanael Nerode.
 //
-//   Copyright 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation
+//   Copyright 2002, 2003, 2004, 2005, 2006, 2007, 2008
+//   Free Software Foundation
 //
 // This file is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -563,7 +564,8 @@ bootstrap_stage = {
 	compare_target=compare3-debug ;
 	bootstrap_target=bootstrap4-debug ;
 	stage_configure_flags="@stage2_werror_flag@" ;
-	stage_cflags="$(STAGE4_CFLAGS) -g2" ; };
+	stage_cflags="$(STAGE4_CFLAGS) -g2" ;
+	stage_libcflags="$(STAGE4_LIBCFLAGS) -g2" ; };
 bootstrap_stage = {
 	id=profile ; prev=1 ;
 	stage_configure_flags="@stage2_werror_flag@" ;

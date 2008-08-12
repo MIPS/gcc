@@ -5045,9 +5045,9 @@ configure-stageb4g-bfd:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/bfd/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/bfd ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/bfd ; \
 	cd $(HOST_SUBDIR)/bfd || exit 1; \
@@ -5391,8 +5391,11 @@ all-stageb4g-bfd: configure-stageb4g-bfd
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/bfd && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-bfd)
 
 maybe-clean-stageb4g-bfd: clean-stageb4g-bfd
@@ -5405,7 +5408,7 @@ clean-stageb4g-bfd:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/bfd && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif bfd-bootstrap
@@ -6074,9 +6077,9 @@ configure-stageb4g-opcodes:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/opcodes/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/opcodes ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/opcodes ; \
 	cd $(HOST_SUBDIR)/opcodes || exit 1; \
@@ -6420,8 +6423,11 @@ all-stageb4g-opcodes: configure-stageb4g-opcodes
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/opcodes && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-opcodes)
 
 maybe-clean-stageb4g-opcodes: clean-stageb4g-opcodes
@@ -6434,7 +6440,7 @@ clean-stageb4g-opcodes:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/opcodes && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif opcodes-bootstrap
@@ -7103,9 +7109,9 @@ configure-stageb4g-binutils:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/binutils/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/binutils ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/binutils ; \
 	cd $(HOST_SUBDIR)/binutils || exit 1; \
@@ -7449,8 +7455,11 @@ all-stageb4g-binutils: configure-stageb4g-binutils
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/binutils && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-binutils)
 
 maybe-clean-stageb4g-binutils: clean-stageb4g-binutils
@@ -7463,7 +7472,7 @@ clean-stageb4g-binutils:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/binutils && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif binutils-bootstrap
@@ -13647,9 +13656,9 @@ configure-stageb4g-gas:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/gas/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/gas ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gas ; \
 	cd $(HOST_SUBDIR)/gas || exit 1; \
@@ -13993,8 +14002,11 @@ all-stageb4g-gas: configure-stageb4g-gas
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/gas && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-gas)
 
 maybe-clean-stageb4g-gas: clean-stageb4g-gas
@@ -14007,7 +14019,7 @@ clean-stageb4g-gas:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gas && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif gas-bootstrap
@@ -14676,9 +14688,9 @@ configure-stageb4g-gcc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/gcc/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/gcc ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gcc ; \
 	cd $(HOST_SUBDIR)/gcc || exit 1; \
@@ -15022,8 +15034,11 @@ all-stageb4g-gcc: configure-stageb4g-gcc
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		$(TARGET-stageb4g-gcc)
 
 maybe-clean-stageb4g-gcc: clean-stageb4g-gcc
@@ -15036,7 +15051,7 @@ clean-stageb4g-gcc:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
@@ -16555,9 +16570,9 @@ configure-stageb4g-gmp:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/gmp/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/gmp ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gmp ; \
 	cd $(HOST_SUBDIR)/gmp || exit 1; \
@@ -16901,8 +16916,11 @@ all-stageb4g-gmp: configure-stageb4g-gmp
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/gmp && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-gmp)
 
 maybe-clean-stageb4g-gmp: clean-stageb4g-gmp
@@ -16915,7 +16933,7 @@ clean-stageb4g-gmp:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gmp && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif gmp-bootstrap
@@ -17578,9 +17596,9 @@ configure-stageb4g-mpfr:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/mpfr/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/mpfr ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/mpfr ; \
 	cd $(HOST_SUBDIR)/mpfr || exit 1; \
@@ -17924,8 +17942,11 @@ all-stageb4g-mpfr: configure-stageb4g-mpfr
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/mpfr && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-mpfr)
 
 maybe-clean-stageb4g-mpfr: clean-stageb4g-mpfr
@@ -17938,7 +17959,7 @@ clean-stageb4g-mpfr:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/mpfr && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif mpfr-bootstrap
@@ -19015,6 +19036,37 @@ configure-stage4-gold:
 	  @stage2_werror_flag@ 
 @endif gold-bootstrap
 
+.PHONY: configure-stageb4g-gold maybe-configure-stageb4g-gold
+maybe-configure-stageb4g-gold:
+@if gold-bootstrap
+maybe-configure-stageb4g-gold: configure-stageb4g-gold
+configure-stageb4g-gold:
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gold
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/gold/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
+	echo Configuring stage b4g in $(HOST_SUBDIR)/gold ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/gold ; \
+	cd $(HOST_SUBDIR)/gold || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/gold/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/gold"; \
+	libsrcdir="$$s/gold"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  @stage2_werror_flag@ 
+@endif gold-bootstrap
+
 .PHONY: configure-stageprofile-gold maybe-configure-stageprofile-gold
 maybe-configure-stageprofile-gold:
 @if gold-bootstrap
@@ -19318,6 +19370,44 @@ clean-stage4-gold:
 	else \
 	  [ -f $(HOST_SUBDIR)/stage4-gold/Makefile ] || exit 0; \
 	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/gold && \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
+		$(POSTSTAGE1_FLAGS_TO_PASS)  \
+		 clean
+@endif gold-bootstrap
+
+
+.PHONY: all-stageb4g-gold maybe-all-stageb4g-gold
+.PHONY: clean-stageb4g-gold maybe-clean-stageb4g-gold
+maybe-all-stageb4g-gold:
+maybe-clean-stageb4g-gold:
+@if gold-bootstrap
+maybe-all-stageb4g-gold: all-stageb4g-gold
+all-stageb4g: all-stageb4g-gold
+TARGET-stageb4g-gold = $(TARGET-gold)
+all-stageb4g-gold: configure-stageb4g-gold
+	@[ $(current_stage) = stageb4g ] || $(MAKE) stageb4g-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	cd $(HOST_SUBDIR)/gold && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
+		$(TARGET-stageb4g-gold)
+
+maybe-clean-stageb4g-gold: clean-stageb4g-gold
+clean-stageb4g: clean-stageb4g-gold
+clean-stageb4g-gold:
+	@if [ $(current_stage) = stageb4g ]; then \
+	  [ -f $(HOST_SUBDIR)/gold/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageb4g-gold/Makefile ] || exit 0; \
+	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gold && \
 	$(MAKE) $(EXTRA_HOST_FLAGS)  \
@@ -21689,9 +21779,9 @@ configure-stageb4g-intl:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/intl/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/intl ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/intl ; \
 	cd $(HOST_SUBDIR)/intl || exit 1; \
@@ -22035,8 +22125,11 @@ all-stageb4g-intl: configure-stageb4g-intl
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/intl && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-intl)
 
 maybe-clean-stageb4g-intl: clean-stageb4g-intl
@@ -22049,7 +22142,7 @@ clean-stageb4g-intl:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/intl && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif intl-bootstrap
@@ -23553,9 +23646,9 @@ configure-stageb4g-ld:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/ld/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/ld ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/ld ; \
 	cd $(HOST_SUBDIR)/ld || exit 1; \
@@ -23899,8 +23992,11 @@ all-stageb4g-ld: configure-stageb4g-ld
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/ld && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-ld)
 
 maybe-clean-stageb4g-ld: clean-stageb4g-ld
@@ -23913,7 +24009,7 @@ clean-stageb4g-ld:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/ld && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif ld-bootstrap
@@ -24582,9 +24678,9 @@ configure-stageb4g-libcpp:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/libcpp/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/libcpp ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libcpp ; \
 	cd $(HOST_SUBDIR)/libcpp || exit 1; \
@@ -24928,8 +25024,11 @@ all-stageb4g-libcpp: configure-stageb4g-libcpp
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/libcpp && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-libcpp)
 
 maybe-clean-stageb4g-libcpp: clean-stageb4g-libcpp
@@ -24942,7 +25041,7 @@ clean-stageb4g-libcpp:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libcpp && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif libcpp-bootstrap
@@ -25611,9 +25710,9 @@ configure-stageb4g-libdecnumber:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/libdecnumber/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/libdecnumber ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libdecnumber ; \
 	cd $(HOST_SUBDIR)/libdecnumber || exit 1; \
@@ -25957,8 +26056,11 @@ all-stageb4g-libdecnumber: configure-stageb4g-libdecnumber
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/libdecnumber && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-libdecnumber)
 
 maybe-clean-stageb4g-libdecnumber: clean-stageb4g-libdecnumber
@@ -25971,7 +26073,7 @@ clean-stageb4g-libdecnumber:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libdecnumber && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif libdecnumber-bootstrap
@@ -27065,9 +27167,9 @@ configure-stageb4g-libiberty:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/libiberty/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/libiberty ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libiberty ; \
 	cd $(HOST_SUBDIR)/libiberty || exit 1; \
@@ -27411,8 +27513,11 @@ all-stageb4g-libiberty: configure-stageb4g-libiberty
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/libiberty && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-libiberty)
 
 maybe-clean-stageb4g-libiberty: clean-stageb4g-libiberty
@@ -27425,7 +27530,7 @@ clean-stageb4g-libiberty:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/libiberty && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif libiberty-bootstrap
@@ -37848,9 +37953,9 @@ configure-stageb4g-zlib:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	test ! -f $(HOST_SUBDIR)/zlib/Makefile || exit 0; \
 	$(HOST_EXPORTS) \
-	$(POSTSTAGE1_HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
 	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	CXXFLAGS="$(STAGE4_CFLAGS) -g2"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(HOST_SUBDIR)/zlib ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/zlib ; \
 	cd $(HOST_SUBDIR)/zlib || exit 1; \
@@ -38194,8 +38299,11 @@ all-stageb4g-zlib: configure-stageb4g-zlib
 	$(HOST_EXPORTS) \
 	$(POSTSTAGE1_HOST_EXPORTS) \
 	cd $(HOST_SUBDIR)/zlib && \
-	$(MAKE) $(FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2" $(POSTSTAGE1_FLAGS_TO_PASS)  \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-stageb4g-zlib)
 
 maybe-clean-stageb4g-zlib: clean-stageb4g-zlib
@@ -38208,7 +38316,7 @@ clean-stageb4g-zlib:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/zlib && \
-	$(MAKE) $(FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
 		$(POSTSTAGE1_FLAGS_TO_PASS)  \
 		 clean
 @endif zlib-bootstrap
@@ -43641,9 +43749,9 @@ configure-stageb4g-target-libgcc:
 	fi; \
 	test ! -f $(TARGET_SUBDIR)/libgcc/Makefile || exit 0; \
 	$(NORMAL_TARGET_EXPORTS) \
-	 \
-	CFLAGS="$(STAGE4_CFLAGS) -g2"; export CFLAGS; \
-	LIBCFLAGS="$(STAGE4_CFLAGS) -g2"; export LIBCFLAGS; \
+	  \
+	CFLAGS="$(STAGE4_LIBCFLAGS) -g2 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE4_LIBCFLAGS) -g2 $(SYSROOT_CFLAGS_FOR_TARGET) $(DEBUG_PREFIX_CFLAGS_FOR_TARGET)"; export CXXFLAGS;  \
 	echo Configuring stage b4g in $(TARGET_SUBDIR)/libgcc ; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/libgcc ; \
 	cd $(TARGET_SUBDIR)/libgcc || exit 1; \
@@ -44011,8 +44119,11 @@ all-stageb4g-target-libgcc: configure-stageb4g-target-libgcc
 	$(NORMAL_TARGET_EXPORTS) \
 	 \
 	cd $(TARGET_SUBDIR)/libgcc && \
-	$(MAKE) $(TARGET_FLAGS_TO_PASS) \
-		CFLAGS="$(STAGE4_CFLAGS) -g2" LIBCFLAGS="$(STAGE4_CFLAGS) -g2"   \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS) -g2" CXXFLAGS="$(STAGE4_CFLAGS) -g2" \
+		LIBCFLAGS="$(STAGE4_LIBCFLAGS) -g2" \
+		CFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" \
+		CXXFLAGS_FOR_TARGET="$(STAGE4_LIBCFLAGS) -g2" $(EXTRA_TARGET_FLAGS)   \
 		$(TARGET-stageb4g-target-libgcc)
 
 maybe-clean-stageb4g-target-libgcc: clean-stageb4g-target-libgcc
@@ -44025,7 +44136,7 @@ clean-stageb4g-target-libgcc:
 	  $(MAKE) stageb4g-start; \
 	fi; \
 	cd $(TARGET_SUBDIR)/libgcc && \
-	$(MAKE) $(TARGET_FLAGS_TO_PASS)  \
+	$(MAKE) $(EXTRA_TARGET_FLAGS)  \
 		  \
 		 clean
 @endif target-libgcc-bootstrap
@@ -53191,6 +53302,12 @@ stageb4g-start::
 	mv stageb4g-mpfr mpfr  ; \
 	mv stageb3g2-mpfr prev-mpfr || test -f stageb3g2-lean 
 @endif mpfr
+@if gold
+	@cd $(HOST_SUBDIR); [ -d stageb4g-gold ] || \
+	  mkdir stageb4g-gold; \
+	mv stageb4g-gold gold  ; \
+	mv stageb3g2-gold prev-gold || test -f stageb3g2-lean 
+@endif gold
 @if intl
 	@cd $(HOST_SUBDIR); [ -d stageb4g-intl ] || \
 	  mkdir stageb4g-intl; \
@@ -53275,6 +53392,12 @@ stageb4g-end::
 	  mv prev-mpfr stageb3g2-mpfr ; :  ; \
 	fi
 @endif mpfr
+@if gold
+	@if test -d $(HOST_SUBDIR)/gold ; then \
+	  cd $(HOST_SUBDIR); mv gold stageb4g-gold ; \
+	  mv prev-gold stageb3g2-gold ; :  ; \
+	fi
+@endif gold
 @if intl
 	@if test -d $(HOST_SUBDIR)/intl ; then \
 	  cd $(HOST_SUBDIR); mv intl stageb4g-intl ; \
@@ -53319,7 +53442,7 @@ stageb4g-end::
 
 # Bubble a bug fix through all the stages up to stage b4g.  They are
 # remade, but not reconfigured.  The next stage (if any) will not be
-# reconfigured as well.
+# reconfigured either.
 .PHONY: stageb4g-bubble
 stageb4g-bubble:: stageb3g2-bubble
 	@r=`${PWD_COMMAND}`; export r; \
@@ -54059,6 +54182,7 @@ configure-stageb2g0-gcc: maybe-all-stageb2g0-gold
 configure-stage3-gcc: maybe-all-stage3-gold
 configure-stageb3g2-gcc: maybe-all-stageb3g2-gold
 configure-stage4-gcc: maybe-all-stage4-gold
+configure-stageb4g-gcc: maybe-all-stageb4g-gold
 configure-stageprofile-gcc: maybe-all-stageprofile-gold
 configure-stagefeedback-gcc: maybe-all-stagefeedback-gold
 all-gcc: all-libiberty
@@ -54579,6 +54703,7 @@ configure-stageb2g0-gold: maybe-configure-stageb2g0-intl
 configure-stage3-gold: maybe-configure-stage3-intl
 configure-stageb3g2-gold: maybe-configure-stageb3g2-intl
 configure-stage4-gold: maybe-configure-stage4-intl
+configure-stageb4g-gold: maybe-configure-stageb4g-intl
 configure-stageprofile-gold: maybe-configure-stageprofile-intl
 configure-stagefeedback-gold: maybe-configure-stagefeedback-intl
 all-gold: maybe-all-libiberty
@@ -54589,6 +54714,7 @@ all-stageb2g0-gold: maybe-all-stageb2g0-libiberty
 all-stage3-gold: maybe-all-stage3-libiberty
 all-stageb3g2-gold: maybe-all-stageb3g2-libiberty
 all-stage4-gold: maybe-all-stage4-libiberty
+all-stageb4g-gold: maybe-all-stageb4g-libiberty
 all-stageprofile-gold: maybe-all-stageprofile-libiberty
 all-stagefeedback-gold: maybe-all-stagefeedback-libiberty
 all-gold: maybe-all-intl
@@ -54599,6 +54725,7 @@ all-stageb2g0-gold: maybe-all-stageb2g0-intl
 all-stage3-gold: maybe-all-stage3-intl
 all-stageb3g2-gold: maybe-all-stageb3g2-intl
 all-stage4-gold: maybe-all-stage4-intl
+all-stageb4g-gold: maybe-all-stageb4g-intl
 all-stageprofile-gold: maybe-all-stageprofile-intl
 all-stagefeedback-gold: maybe-all-stagefeedback-intl
 all-gold: maybe-all-bfd
@@ -54609,6 +54736,7 @@ all-stageb2g0-gold: maybe-all-stageb2g0-bfd
 all-stage3-gold: maybe-all-stage3-bfd
 all-stageb3g2-gold: maybe-all-stageb3g2-bfd
 all-stage4-gold: maybe-all-stage4-bfd
+all-stageb4g-gold: maybe-all-stageb4g-bfd
 all-stageprofile-gold: maybe-all-stageprofile-bfd
 all-stagefeedback-gold: maybe-all-stagefeedback-bfd
 all-gold: maybe-all-build-bison
@@ -54619,6 +54747,7 @@ all-stageb2g0-gold: maybe-all-build-bison
 all-stage3-gold: maybe-all-build-bison
 all-stageb3g2-gold: maybe-all-build-bison
 all-stage4-gold: maybe-all-build-bison
+all-stageb4g-gold: maybe-all-build-bison
 all-stageprofile-gold: maybe-all-build-bison
 all-stagefeedback-gold: maybe-all-build-bison
 all-gold: maybe-all-build-byacc
@@ -54629,6 +54758,7 @@ all-stageb2g0-gold: maybe-all-build-byacc
 all-stage3-gold: maybe-all-build-byacc
 all-stageb3g2-gold: maybe-all-build-byacc
 all-stage4-gold: maybe-all-build-byacc
+all-stageb4g-gold: maybe-all-build-byacc
 all-stageprofile-gold: maybe-all-build-byacc
 all-stagefeedback-gold: maybe-all-build-byacc
 check-gold: maybe-all-binutils
@@ -54639,6 +54769,7 @@ check-stageb2g0-gold: maybe-all-stageb2g0-binutils
 check-stage3-gold: maybe-all-stage3-binutils
 check-stageb3g2-gold: maybe-all-stageb3g2-binutils
 check-stage4-gold: maybe-all-stage4-binutils
+check-stageb4g-gold: maybe-all-stageb4g-binutils
 check-stageprofile-gold: maybe-all-stageprofile-binutils
 check-stagefeedback-gold: maybe-all-stagefeedback-binutils
 configure-opcodes: maybe-configure-intl
