@@ -869,7 +869,11 @@ new_cselib_val (unsigned int value, enum machine_mode mode, rtx x)
 
   if (dump_file)
     {
-      fprintf (dump_file, "cselib value %u %p ", value, (void*)e);
+      fprintf (dump_file, "cselib value %u ", value);
+      if (flag_dump_noaddr || flag_dump_unnumbered)
+	fputs ("# ", dump_file);
+      else
+	fprintf (dump_file, "%p ", (void*)e);
       print_rtl_single (dump_file, x);
       fputc ('\n', dump_file);
     }
