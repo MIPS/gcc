@@ -1,5 +1,16 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* var-tracking.c (count_uses, add_uses, add_stores): Use Pmode for
+	addresses.
+	(add_uses): Compute value-based loc for MO_VAL_USE out of original
+	loc, not tracked loc.
+	(add_stores): Restore correct handling of MO_SET mode in
+	MO_VAL_SET.
+	(compute_bb_dataflow, emit_notes_in_bb): Always use value-based
+	loc for resolution.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree.h (IS_DEBUG_BIND): New.
 	* tree-ssa-loop-ivopts.c (remove_unused_ivopts): Use it.
 	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
