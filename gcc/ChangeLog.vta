@@ -1,5 +1,10 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-ssa-propagate.c (substitute_and_fold): Don't let debug
+	stmts trigger changes.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* rtlanal.c (side_effects_p): Not in VAR_LOCATION.
 
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>

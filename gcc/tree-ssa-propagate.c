@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -1358,7 +1358,8 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
 	      /* Determine what needs to be done to update the SSA form.  */
 	      pop_stmt_changes (gsi_stmt_ptr (&i));
-	      something_changed = true;
+	      if (!IS_DEBUG_STMT (stmt))
+		something_changed = true;
 	    }
 	  else
 	    {
