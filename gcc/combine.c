@@ -2272,31 +2272,48 @@ struct rtx_subst_pair
 #endif
 };
 
+/* Clean up any auto-updates in PAIR->to the first time it is called
+   for a PAIR.  PAIR->adjusted is used to tell whether we've cleaned
+   up before.  */
+
+static void
+auto_adjust_pair (struct rtx_subst_pair *pair ATTRIBUTE_UNUSED)
+{
+#ifdef AUTO_INC_DEC
+  if (!pair->adjusted)
+    {
+      pair->adjusted = true;
+      pair->to = cleanup_auto_inc_dec (pair->to, pair->after, VOIDmode);
+    }
+#endif
+}
+
 /* If *LOC is the same as FROM in the struct rtx_subst_pair passed as
-   DATA, replace it with a copy of TO.  */
+   DATA, replace it with a copy of TO.  Handle SUBREGs of *LOC as
+   well.  */
 
 static int
 propagate_for_debug_subst (rtx *loc, void *data)
 {
-  struct rtx_subst_pair *pair = data;
+  struct rtx_subst_pair *pair = (struct rtx_subst_pair *)data;
   rtx from = pair->from, to = pair->to;
-  rtx x = *loc;
+  rtx x = *loc, s = x;
 
-  if (rtx_equal_p (x, from))
+  if (rtx_equal_p (x, from)
+      || (GET_CODE (x) == SUBREG && rtx_equal_p ((s = SUBREG_REG (x)), from)))
     {
-#ifdef AUTO_INC_DEC
-      if (!pair->adjusted)
-	{
-	  to = cleanup_auto_inc_dec (to, pair->after, VOIDmode);
-	  pair->adjusted = true;
-	  if (pair->to != to)
-	    *loc = pair->to = to;
-	  else
-	    *loc = copy_rtx (to);
-	}
+      auto_adjust_pair (pair);
+      if (pair->to != to)
+	to = pair->to;
       else
-#endif
-	*loc = copy_rtx (to);
+	to = copy_rtx (to);
+      if (s != x)
+	{
+	  gcc_assert (GET_CODE (x) == SUBREG && SUBREG_REG (x) == s);
+	  to = simplify_gen_subreg (GET_MODE (x), to,
+				    GET_MODE (from), SUBREG_BYTE (x));
+	}
+      *loc = to;
       pair->changed = true;
       return -1;
     }
@@ -2315,8 +2332,6 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src, bool move)
   rtx next, move_pos = move ? last : NULL_RTX;
 
   p.from = dest;
-  if (GET_MODE (src) == VOIDmode)
-    src = wrap_constant (GET_MODE (dest), src);
   p.to = src;
   p.changed = false;
 

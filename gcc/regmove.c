@@ -1,6 +1,6 @@
 /* Move registers around to reduce number of move instructions needed.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1472,7 +1472,7 @@ regmove_optimize (rtx f, int nregs)
 		    {
 		      if (DEBUG_INSN_P (p))
 			validate_change (p, &INSN_VAR_LOCATION_LOC (p),
-					 gen_rtx_UNKNOWN_VAR_LOC (VOIDmode), 1);
+					 gen_rtx_UNKNOWN_VAR_LOC (), 1);
 		      else
 			break;
 		    }
@@ -1886,7 +1886,7 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	  if (DEBUG_INSN_P (p))
 	    /* ??? Can we do better?  */
 	    validate_change (p, &INSN_VAR_LOCATION_LOC (p),
-			     gen_rtx_UNKNOWN_VAR_LOC (VOIDmode), 1);
+			     gen_rtx_UNKNOWN_VAR_LOC (), 1);
 	  else
 	    {
 	      /* INSN was already checked to be movable wrt. the

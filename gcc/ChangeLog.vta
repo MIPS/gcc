@@ -1,5 +1,28 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* rtl.h (gen_rtx_UNKNOWN_VAR_LOC): Drop mode argument.  Adjust all
+	callers.
+	* cfgexpand.c (expand_debug_expr_1): Removed.
+	(expand_debug_expr): Remove wrapping of constants.  Expand pointer
+	to CONST_STRING with Pmode.  Handle DECL and TYPE mode mismatches.
+	(expand_gimple_basic_block): Hold the mode in VAR_LOCATION.
+	* var-tracking.c (find_use_val): Take mode as argument, adjust all
+	callers.  Don't unwrap constants.
+	(use_type): Don't unwrap constants.  Take mode from VAR_LOCATION.
+	(count_uses): Take mode from VAR_LOCATION.
+	* combine.c (auto_adjust_pair): New, moved out of...
+	(propagate_for_debug_subst): ... this.  Handle SUBREGs.
+	(propagate_for_debug): Don't unwrap constants.
+	* fwprop.c (forward_propagate_and_simplify): Don't wrap
+	constants.
+	* local-alloc.c (adjust_debug_insns_equivs): Don't wrap
+	constants.
+	* cse.c (insn_live_p): Adjusted.
+	* df-problems.c (df_note_bb_compute): Adjusted.
+	* regmove.c (regmove_optimize): Adjusted.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-dfa.c (find_referenced_vars): Not in debug stmts.
 	* tree-inline.c (copy_body_r): Don't add vars to referenced set
 	when processing debug stmts.
