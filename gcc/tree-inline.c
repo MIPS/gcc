@@ -960,10 +960,11 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
       copy_tree_r (tp, walk_subtrees, NULL);
 
       /* Global variables we haven't seen yet needs to go into referenced
-	 vars.  If not referenced from types only.  */
+	 vars.  If not referenced from types or debug stmts only.  */
       if (gimple_in_ssa_p (cfun)
 	  && TREE_CODE (*tp) == VAR_DECL
-	  && id->remapping_type_depth == 0)
+	  && id->remapping_type_depth == 0
+	  && !processing_debug_stmt)
 	add_referenced_var (*tp);
        
       /* If EXPR has block defined, map it to newly constructed block.

@@ -1,5 +1,11 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-dfa.c (find_referenced_vars): Not in debug stmts.
+	* tree-inline.c (copy_tree_body_r): Don't add vars to referenced
+	set when processing debug stmts.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-ssa-propagate.c (substitute_and_fold): Don't let debug
 	stmts trigger changes.
 
