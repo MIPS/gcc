@@ -938,10 +938,6 @@ forward_propagate_and_simplify (struct df_ref *use, rtx def_insn, rtx def_set)
   if (!new_rtx)
     return false;
 
-  /* Do this only for debug insns, implied by a NULL use_set.  */
-  if (!use_set && mode != GET_MODE (new_rtx))
-    new_rtx = wrap_constant (mode, new_rtx);
-
   return try_fwprop_subst (use, loc, new_rtx, def_insn, set_reg_equal);
 }
 

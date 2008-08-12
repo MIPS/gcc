@@ -804,7 +804,6 @@ adjust_debug_insns_equivs (unsigned regno)
   for (use = DF_REG_USE_CHAIN (regno); use; use = DF_REF_NEXT_REG (use))
     {
       rtx insn = DF_REF_INSN (use), *loc, x;
-      bool wrap = false;
 
       if (!DEBUG_INSN_P (insn))
 	continue;
@@ -824,18 +823,6 @@ adjust_debug_insns_equivs (unsigned regno)
 	    reg = SUBREG_REG (x);
 	  else
 	    reg = x;
-
-	  if (GET_MODE (eqv) != GET_MODE (reg))
-	    {
-	      rtx save = eqv;
-
-	      eqv = wrap_constant (GET_MODE (reg), eqv);
-
-	      if (save != eqv && GET_CODE (eqv) == CONST)
-		wrap = true;
-
-	      gcc_assert (GET_MODE (eqv) == GET_MODE (reg));
-	    }
 	}
 
       if (REG_P (x) && REGNO (x) == regno)
@@ -849,13 +836,9 @@ adjust_debug_insns_equivs (unsigned regno)
 	  gcc_assert (GET_MODE (eqv) == VOIDmode
 		      || GET_MODE (eqv) == GET_MODE (SUBREG_REG (x)));
 
-
 	  sreqv = simplify_gen_subreg (GET_MODE (x), copy_rtx (eqv),
 				       GET_MODE (SUBREG_REG (x)),
 				       SUBREG_BYTE (x));
-
-	  if (wrap)
-	    sreqv = wrap_constant (GET_MODE (x), sreqv);
 
 	  validate_change (insn, loc, sreqv, true);
 	}

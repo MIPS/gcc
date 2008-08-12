@@ -911,7 +911,7 @@ extern const char * const reg_note_name[];
 
 /* Expand to the RTL that denotes an unknown variable location in a
    DEBUG_INSN.  */
-#define gen_rtx_UNKNOWN_VAR_LOC(M) (gen_rtx_CLOBBER (M, const0_rtx))
+#define gen_rtx_UNKNOWN_VAR_LOC() (gen_rtx_CLOBBER (VOIDmode, const0_rtx))
 
 /* Determine whether X is such an unknown location.  */
 #define VAR_LOC_UNKNOWN_P(X) \

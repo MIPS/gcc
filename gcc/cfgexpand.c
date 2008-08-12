@@ -1934,31 +1934,12 @@ unwrap_constant (rtx x)
   return x;
 }
 
-#ifdef ENABLE_CHECKING
-static rtx expand_debug_expr_1 (tree exp);
-#endif
-
 /* Return an RTX equivalent to the value of the tree expression
    EXP.  */
 
 static rtx
 expand_debug_expr (tree exp)
 {
-#ifdef ENABLE_CHECKING
-  rtx ret = expand_debug_expr_1 (exp);
-
-  gcc_assert (!ret || GET_MODE (ret) != VOIDmode
-	      || (GET_CODE (ret) != CONST_INT
-		  && GET_CODE (ret) != CONST_FIXED
-		  && GET_CODE (ret) != CONST_DOUBLE));
-
-  return ret;
-}
-
-static rtx
-expand_debug_expr_1 (tree exp)
-{
-#endif
   rtx op0 = NULL_RTX, op1 = NULL_RTX, op2 = NULL_RTX;
   enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
@@ -2021,23 +2002,11 @@ expand_debug_expr_1 (tree exp)
 
   switch (TREE_CODE (exp))
     {
-    case VAR_DECL:
-    case PARM_DECL:
-    case FUNCTION_DECL:
-    case LABEL_DECL:
-    case CONST_DECL:
-    case RESULT_DECL:
-      /* This decl was optimized away.  */
-      if (!DECL_RTL_SET_P (exp))
-	return NULL;
-
-      return DECL_RTL (exp);
-
     case STRING_CST:
       if (!lookup_constant_def (exp))
 	{
 	  op0 = gen_rtx_CONST_STRING (mode, TREE_STRING_POINTER (exp));
-	  op0 = gen_rtx_VAR_LOCATION (mode, exp, op0, 0);
+	  op0 = gen_rtx_VAR_LOCATION (Pmode, exp, op0, 0);
 	  op0 = gen_rtx_MEM (mode, op0);
 	  debug_string_constants_p = true;
 	  return op0;
@@ -2049,8 +2018,28 @@ expand_debug_expr_1 (tree exp)
     case FIXED_CST:
     case COMPLEX_CST:
       op0 = expand_expr (exp, NULL_RTX, mode, EXPAND_INITIALIZER);
-      op0 = wrap_constant (mode, op0);
       return op0;
+
+    case VAR_DECL:
+    case PARM_DECL:
+    case FUNCTION_DECL:
+    case LABEL_DECL:
+    case CONST_DECL:
+    case RESULT_DECL:
+      /* This decl was optimized away.  */
+      if (!DECL_RTL_SET_P (exp))
+	return NULL;
+
+      op0 = DECL_RTL (exp);
+
+      if (GET_MODE (op0) == BLKmode)
+	{
+	  gcc_assert (MEM_P (op0));
+	  op0 = adjust_address_nv (op0, mode, 0);
+	  return op0;
+	}
+
+      /* Fall through.  */
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -2110,7 +2099,9 @@ expand_debug_expr_1 (tree exp)
       if (!op0)
 	return NULL;
 
-      gcc_assert (GET_MODE (op0) == Pmode);
+      gcc_assert (GET_MODE (op0) == Pmode
+		  || GET_CODE (op0) == CONST_INT
+		  || GET_CODE (op0) == CONST_DOUBLE);
 
       if (TREE_CODE (exp) == ALIGN_INDIRECT_REF)
 	{
@@ -2134,7 +2125,9 @@ expand_debug_expr_1 (tree exp)
       if (!op0)
 	return NULL;
 
-      gcc_assert (GET_MODE (op0) == Pmode);
+      gcc_assert (GET_MODE (op0) == Pmode
+		  || GET_CODE (op0) == CONST_INT
+		  || GET_CODE (op0) == CONST_DOUBLE);
 
       op0 = gen_rtx_MEM (mode, op0);
 
@@ -2466,7 +2459,7 @@ expand_debug_expr_1 (tree exp)
       if (!op0 || !MEM_P (op0))
 	return NULL;
 
-      return wrap_constant (mode, XEXP (op0, 0));
+      return XEXP (op0, 0);
 
     case VECTOR_CST:
       exp = build_constructor_from_list (TREE_TYPE (exp),
@@ -2644,6 +2637,7 @@ expand_gimple_basic_block (basic_block bb)
 	  tree var = VAR_DEBUG_VALUE_VAR (stmt);
 	  tree value = VAR_DEBUG_VALUE_VALUE (stmt);
 	  rtx val;
+	  enum machine_mode mode;
 
 	  last = get_last_insn ();
 
@@ -2652,11 +2646,21 @@ expand_gimple_basic_block (basic_block bb)
 	  else
 	    val = expand_debug_expr (value);
 
+	  if (DECL_P (var))
+	    mode = DECL_MODE (var);
+	  else
+	    mode = TYPE_MODE (TREE_TYPE (var));
+
 	  if (!val)
-	    val = gen_rtx_UNKNOWN_VAR_LOC (VOIDmode);
+	    val = gen_rtx_UNKNOWN_VAR_LOC ();
+	  else
+	    gcc_assert (mode == GET_MODE (val)
+			|| GET_CODE (val) == CONST_INT
+			|| GET_CODE (val) == CONST_FIXED
+			|| GET_CODE (val) == CONST_DOUBLE);
 
 	  val = gen_rtx_VAR_LOCATION
-	    (VOIDmode, var, val, VAR_INIT_STATUS_INITIALIZED);
+	    (mode, var, val, VAR_INIT_STATUS_INITIALIZED);
 
 	  val = emit_debug_insn (val);
 

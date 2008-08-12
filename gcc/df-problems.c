@@ -3624,7 +3624,7 @@ df_note_bb_compute (unsigned int bb_index,
 	{
 	  /* ??? We could probably do better here, replacing dead
 	     registers with their definitions.  */
-	  INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC (VOIDmode);
+	  INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC ();
 	  df_insn_rescan_debug_internal (insn);
 	}
     }
