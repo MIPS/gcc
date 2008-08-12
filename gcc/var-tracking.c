@@ -3305,7 +3305,7 @@ count_uses (rtx *loc, void *cuip)
 	  if (MEM_P (*loc)
 	      && !REG_P (XEXP (*loc, 0)) && !MEM_P (XEXP (*loc, 0)))
 	    {
-	      val = cselib_lookup (XEXP (*loc, 0), mode, false);
+	      val = cselib_lookup (XEXP (*loc, 0), Pmode, false);
 
 	      if (val && !cselib_preserved_value_p (val))
 		{
@@ -3425,8 +3425,7 @@ add_uses (rtx *loc, void *data)
 	      && !REG_P (XEXP (vloc, 0)) && !MEM_P (XEXP (vloc, 0)))
 	    {
 	      rtx mloc = vloc;
-	      cselib_val *val = cselib_lookup (XEXP (mloc, 0),
-					       GET_MODE (mloc), 0);
+	      cselib_val *val = cselib_lookup (XEXP (mloc, 0), Pmode, 0);
 
 	      if (val && !cselib_preserved_value_p (val))
 		{
@@ -3437,7 +3436,7 @@ add_uses (rtx *loc, void *data)
 		  cselib_preserve_value (val);
 		  mo->type = MO_VAL_USE;
 		  mloc = cselib_subst_to_values (XEXP (mloc, 0));
-		  mo->u.loc = gen_rtx_CONCAT (mode, val->val_rtx, mloc);
+		  mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
 		  if (dump_file)
 		    log_op_type (mo->u.loc, cui->bb, cui->insn,
 				 mo->type, dump_file);
@@ -3485,16 +3484,15 @@ add_uses (rtx *loc, void *data)
 	  enum machine_mode mode2 = VOIDmode;
 	  enum micro_operation_type type2;
 	  cselib_val *val = find_use_val (*loc, GET_MODE (*loc), cui);
-	  rtx vloc, oloc, nloc;
+	  rtx vloc, oloc = *loc, nloc;
 
 	  gcc_assert (cui->sets);
 
-	  if (MEM_P (*loc)
-	      && !REG_P (XEXP (*loc, 0)) && !MEM_P (XEXP (*loc, 0)))
+	  if (MEM_P (oloc)
+	      && !REG_P (XEXP (oloc, 0)) && !MEM_P (XEXP (oloc, 0)))
 	    {
-	      rtx mloc = *loc;
-	      cselib_val *val = cselib_lookup (XEXP (mloc, 0),
-					       GET_MODE (mloc), 0);
+	      rtx mloc = oloc;
+	      cselib_val *val = cselib_lookup (XEXP (mloc, 0), Pmode, 0);
 
 	      if (val && !cselib_preserved_value_p (val))
 		{
@@ -3505,7 +3503,7 @@ add_uses (rtx *loc, void *data)
 		  cselib_preserve_value (val);
 		  mo->type = MO_VAL_USE;
 		  mloc = cselib_subst_to_values (XEXP (mloc, 0));
-		  mo->u.loc = gen_rtx_CONCAT (mode, val->val_rtx, mloc);
+		  mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
 		  mo->insn = cui->insn;
 		  if (dump_file)
 		    log_op_type (mo->u.loc, cui->bb, cui->insn,
@@ -3522,18 +3520,28 @@ add_uses (rtx *loc, void *data)
 	  if (type2 == MO_USE)
 	    vloc = var_lowpart (mode2, *loc);
 	  else
-	    vloc = *loc;
+	    vloc = oloc;
 
-	  nloc = replace_expr_with_values (vloc);
-	  if (nloc)
-	    vloc = nloc;
+	  /* The loc of a MO_VAL_USE may have two forms:
 
-	  if (vloc != *loc)
+	     (concat val src): val is at src, a value-based
+	     representation.
+
+	     (concat (concat val use) src): same as above, with use as
+	     the MO_USE tracked value, if it differs from src.
+
+	  */
+
+	  nloc = replace_expr_with_values (*loc);
+	  if (!nloc)
+	    nloc = oloc;
+
+	  if (vloc != nloc)
 	    oloc = gen_rtx_CONCAT (mode2, val->val_rtx, vloc);
 	  else
 	    oloc = val->val_rtx;
 
-	  mo->u.loc = gen_rtx_CONCAT (mode, oloc, *loc);
+	  mo->u.loc = gen_rtx_CONCAT (mode, oloc, nloc);
 
 	  if (type2 == MO_USE)
 	    VAL_HOLDS_TRACK_EXPR (mo->u.loc) = 1;
@@ -3568,7 +3576,7 @@ add_uses_1 (rtx *x, void *cui)
 static void
 add_stores (rtx loc, const_rtx expr, void *cuip)
 {
-  enum machine_mode mode = VOIDmode;
+  enum machine_mode mode = VOIDmode, mode2;
   struct count_use_info *cui = (struct count_use_info *)cuip;
   basic_block bb = cui->bb;
   micro_operation *mo;
@@ -3581,12 +3589,14 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
   if (type == MO_CLOBBER)
     return;
 
+  mode2 = mode;
+
   if (REG_P (loc))
     {
       mo = VTI (bb)->mos + VTI (bb)->n_mos++;
 
       if ((GET_CODE (expr) == CLOBBER && type != MO_VAL_SET)
-	  || !(track_p = use_type (&loc, NULL, NULL) == MO_USE)
+	  || !(track_p = use_type (&loc, NULL, &mode2) == MO_USE)
 	  || GET_CODE (expr) == CLOBBER)
 	{
 	  mo->type = MO_CLOBBER;
@@ -3595,8 +3605,8 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
       else
 	{
 	  if (GET_CODE (expr) == SET && SET_DEST (expr) == loc)
-	    src = var_lowpart (mode, SET_SRC (expr));
-	  loc = var_lowpart (mode, loc);
+	    src = var_lowpart (mode2, SET_SRC (expr));
+	  loc = var_lowpart (mode2, loc);
 
 	  if (src == NULL)
 	    {
@@ -3617,7 +3627,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
       mo->insn = cui->insn;
     }
   else if (MEM_P (loc)
-	   && ((track_p = use_type (&loc, NULL, NULL) == MO_USE)
+	   && ((track_p = use_type (&loc, NULL, &mode2) == MO_USE)
 	       || cui->sets))
     {
       mo = VTI (bb)->mos + VTI (bb)->n_mos++;
@@ -3626,14 +3636,14 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 	  && !REG_P (XEXP (loc, 0)) && !MEM_P (XEXP (loc, 0)))
 	{
 	  rtx mloc = loc;
-	  cselib_val *val = cselib_lookup (XEXP (mloc, 0), GET_MODE (mloc), 0);
+	  cselib_val *val = cselib_lookup (XEXP (mloc, 0), Pmode, 0);
 
 	  if (val && !cselib_preserved_value_p (val))
 	    {
 	      cselib_preserve_value (val);
 	      mo->type = MO_VAL_USE;
 	      mloc = cselib_subst_to_values (XEXP (mloc, 0));
-	      mo->u.loc = gen_rtx_CONCAT (mode, val->val_rtx, mloc);
+	      mo->u.loc = gen_rtx_CONCAT (Pmode, val->val_rtx, mloc);
 	      mo->insn = cui->insn;
 	      if (dump_file)
 		log_op_type (mo->u.loc, cui->bb, cui->insn,
@@ -3645,13 +3655,13 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
       if (GET_CODE (expr) == CLOBBER || !track_p)
 	{
 	  mo->type = MO_CLOBBER;
-	  mo->u.loc = track_p ? var_lowpart (mode, loc) : loc;
+	  mo->u.loc = track_p ? var_lowpart (mode2, loc) : loc;
 	}
       else
 	{
 	  if (GET_CODE (expr) == SET && SET_DEST (expr) == loc)
-	    src = var_lowpart (mode, SET_SRC (expr));
-	  loc = var_lowpart (mode, loc);
+	    src = var_lowpart (mode2, SET_SRC (expr));
+	  loc = var_lowpart (mode2, loc);
 
 	  if (src == NULL)
 	    {
@@ -3723,7 +3733,7 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 
      (concat val (set dst src)): dst now holds val, copied from src
 
-     (concat (concat val dstv)) dst): dst now holds val; dstv is dst
+     (concat (concat val dstv) dst): dst now holds val; dstv is dst
      after replacing mems and non-top-level regs with values.
 
      (concat (concat val dstv) (set dst src)): dst now holds val,
@@ -3986,7 +3996,7 @@ compute_bb_dataflow (basic_block bb)
 
 	      if (GET_CODE (val) == CONCAT)
 		{
-		  vloc = XEXP (val, 1);
+		  uloc = XEXP (val, 1);
 		  val = XEXP (val, 0);
 		}
 
@@ -5364,7 +5374,7 @@ emit_notes_in_bb (basic_block bb)
 
 	      if (GET_CODE (val) == CONCAT)
 		{
-		  vloc = XEXP (val, 1);
+		  uloc = XEXP (val, 1);
 		  val = XEXP (val, 0);
 		}
 
