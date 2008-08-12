@@ -5332,7 +5332,7 @@ remove_unused_ivs (struct ivopts_data *data)
 
 	      FOR_EACH_IMM_USE_STMT (stmt, iter, info->iv->ssa_name)
 		{
-		  if (!IS_DEBUG_STMT (stmt))
+		  if (!IS_DEBUG_BIND (stmt))
 		    continue;
 
 		  /* ??? We can probably do better than this.  */

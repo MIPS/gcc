@@ -1614,6 +1614,9 @@ struct tree_constructor GTY(())
 /* Nonzero if NODE is a debug statement (VAR_DEBUG_VALUE).  */
 #define IS_DEBUG_STMT(NODE)     (TREE_CODE (NODE) == VAR_DEBUG_VALUE)
 
+/* Nonzero if NODE is a debug bind statement.  */
+#define IS_DEBUG_BIND(NODE)	(IS_DEBUG_STMT (NODE))
+
 /* Nonzero if IS_DEBUG_STMT may possibly.  */
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 

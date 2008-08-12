@@ -1,5 +1,6 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -699,7 +700,7 @@ verify_ssa (bool check_modified_stmt)
 		  goto err;
 		}
 	    }
-	  else if (TREE_CODE (stmt) == VAR_DEBUG_VALUE
+	  else if (IS_DEBUG_BIND (stmt)
 		   && VAR_DEBUG_VALUE_VALUE (stmt) == VAR_DEBUG_VALUE_NOVALUE)
 	    continue;
 

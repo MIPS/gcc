@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
    Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
@@ -706,7 +706,7 @@ eliminate_unnecessary_stmts (void)
 	    {
 	      tree call;
 
-	      if (TREE_CODE (t) == VAR_DEBUG_VALUE)
+	      if (IS_DEBUG_BIND (t))
 		{
 		  if (something_changed
 		      && VAR_DEBUG_VALUE_VALUE (t) != VAR_DEBUG_VALUE_NOVALUE)

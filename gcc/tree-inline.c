@@ -735,7 +735,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      return NULL;
 	    }
 	}
-      else if (IS_DEBUG_STMT (*tp))
+      else if (IS_DEBUG_BIND (*tp))
 	{
 	  *tp = copy_node (*tp);
 	  VARRAY_PUSH_TREE (id->debug_stmts, *tp);
@@ -870,7 +870,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale, int count_scal
 	      tree *stmtp = bsi_stmt_ptr (copy_bsi);
 	      tree stmt = *stmtp;
 
-	      if (IS_DEBUG_STMT (stmt))
+	      if (IS_DEBUG_BIND (stmt))
 		{
 		  bsi_next (&copy_bsi);
 		  continue;

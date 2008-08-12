@@ -1,5 +1,14 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree.h (IS_DEBUG_BIND): New.
+	* tree-ssa-loop-ivopts.c (remove_unused_ivopts): Use it.
+	* tree-ssa-dom.c (propagate_rhs_into_lhs): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	* tree-inline.c (copy_body_r, copy_bb): Likewise.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* rtl.h (gen_rtx_UNKNOWN_VAR_LOC): Drop mode argument.  Adjust all
 	callers.
 	* cfgexpand.c (expand_debug_expr_1): Removed.
