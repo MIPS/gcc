@@ -1,3 +1,7 @@
+2008-08-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vect-transform.c (vectorizable_call): Fix tuplification.
+
 2008-07-29  Jan Hubicka  <jh@suse.cz>
 
 	* c-decl.c (merge_decls): Do not handle DECL_INLINE.
