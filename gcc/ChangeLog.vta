@@ -1,5 +1,9 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* rtlanal.c (side_effects_p): Not in VAR_LOCATION.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* tree-outof-ssa.c (not_ssa_name_p): New.
 	(rewrite_trees): Use it to clean up debug stmts.
 

@@ -2116,6 +2116,7 @@ side_effects_p (const_rtx x)
     case SCRATCH:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
+    case VAR_LOCATION:
       return 0;
 
     case CLOBBER:
