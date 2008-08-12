@@ -419,7 +419,8 @@ valid_subreg (rtx op)
   enum machine_mode im = GET_MODE (SUBREG_REG (op));
   return om != VOIDmode && im != VOIDmode
     && (GET_MODE_SIZE (im) == GET_MODE_SIZE (om)
-	|| (GET_MODE_SIZE (im) <= 4 && GET_MODE_SIZE (om) <= 4));
+	|| (GET_MODE_SIZE (im) <= 4 && GET_MODE_SIZE (om) <= 4)
+	|| (GET_MODE_SIZE (im) >= 16 && GET_MODE_SIZE (om) >= 16));
 }
 
 /* When insv and ext[sz]v ar passed a TI SUBREG, we want to strip it off
@@ -429,8 +430,10 @@ adjust_operand (rtx op, HOST_WIDE_INT * start)
 {
   enum machine_mode mode;
   int op_size;
-  /* Strip any SUBREG */
-  if (GET_CODE (op) == SUBREG)
+  /* Strip any paradoxical SUBREG.  */
+  if (GET_CODE (op) == SUBREG
+      && (GET_MODE_BITSIZE (GET_MODE (op))
+	  > GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op)))))
     {
       if (start)
 	*start -=
@@ -4410,6 +4413,13 @@ spu_init_libfuncs (void)
 
   set_conv_libfunc (ufloat_optab, DFmode, SImode, "__float_unssidf");
   set_conv_libfunc (ufloat_optab, DFmode, DImode, "__float_unsdidf");
+
+  set_optab_libfunc (smul_optab, TImode, "__multi3");
+  set_optab_libfunc (sdiv_optab, TImode, "__divti3");
+  set_optab_libfunc (smod_optab, TImode, "__modti3");
+  set_optab_libfunc (udiv_optab, TImode, "__udivti3");
+  set_optab_libfunc (umod_optab, TImode, "__umodti3");
+  set_optab_libfunc (udivmod_optab, TImode, "__udivmodti4");
 }
 
 /* Make a subreg, stripping any existing subreg.  We could possibly just
@@ -4555,7 +4565,7 @@ spu_restore_stack_block (rtx op0 ATTRIBUTE_UNUSED, rtx op1)
 int
 spu_safe_dma (HOST_WIDE_INT channel)
 {
-  return (channel >= 21 && channel <= 27);
+  return TARGET_SAFE_DMA && channel >= 21 && channel <= 27;
 }
 
 void

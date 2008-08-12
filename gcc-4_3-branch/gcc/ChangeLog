@@ -1,3 +1,330 @@
+2008-08-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR c/35746
+	* gimplify.c (gimplify_expr): Do not convert MODIFY_EXPR to
+	GIMPLE_MODIFY_STMT upon GS_ERROR.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_safe_dma): Respect TARGET_SAFE_DMA.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.h (DWARF_FRAME_RETURN_COLUMN): Define.
+
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36688
+	* gimplify.c (gimplify_modify_expr_rhs): Test TREE_READONLY
+	on the VAR_DECL instead of TYPE_READONLY on its type.
+
+2008-08-11  Michael Matz  <matz@suse.de>
+
+	PR target/36613
+	* reload.c (push_reload): Merge in,out,in_reg,out_reg members
+	for reused reload, instead of overwriting them.
+
+2008-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36998
+	* dwarf2out.c (compute_barrier_args_size_1,
+	compute_barrier_args_size): Temporarily remove assertions.
+
+2008-08-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37042
+	* tree-ssa-alias-warnings.c (nonstandard_alias_p): Ref-all
+	pointers can access anything.
+
+2008-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/35432
+	* gimplify.c (gimplify_modify_expr): Do not optimize zero-sized types
+	if want_value.
+
+2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Backport from mainline:
+	2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	PR target/35659
+	* haifa-sched.c (sched_insn_is_legitimate_for_speculation_p): Move ...
+	* sched-deps.c (sched_insn_is_legitimate_for_speculation_p): ... here.
+	Don't allow predicated instructions for data speculation.
+	* sched-int.h (sched_insn_is_legitimate_for_speculation_p): Move
+	declaration.
+
+2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Backport from mainline:
+	2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* haifa-sched.c (extend_global): Split to extend_global_data and
+	extend_region_data.  Update all uses.
+	(extend_all): Rename to extend_block_data.
+
+2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Backport from mainline:
+	2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* sched-rgn.c (new_ready): Check if instruction can be
+	speculatively scheduled before attempting speculation.
+	(debug_rgn_dependencies): Remove wrongful assert.	
+
+2008-08-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37016
+	* tree-ssa.c (useless_type_conversion_p_1): Call langhook
+	if TYPE_STRUCTURAL_EQUALITY_P is true for both types.
+
+2008-08-05  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu_spu_mfcio.h: Wrap in extern "C" if __cplusplus.
+	Reword some comments throughout the file.
+
+	(MFC_MIN_DMA_LIST_ELEMENTS): New define.
+	(MFC_MAX_DMA_LIST_ELEMENTS): Likewise.
+	(MFC_MIN_DMA_LIST_SIZE): Redefine in terms of MFC_MIN_DMA_LIST_ELEMENTS.
+	(MFC_MAX_DMA_LIST_SIZE): Redefine in terms of MFC_MAX_DMA_LIST_ELEMENTS.
+
+	(MFC_START_ENABLE): Remove PPU-only define.
+	(MFC_PUTS_CMD, MFC_PUTFS_CMD, MFC_PUTBS_CMD): Likewise.
+	(MFC_GETS_CMD, MFC_GETFS_CMD, MFC_GETBS_CMD): Likewise.
+
+	(MFC_PUTB_CMD, MFC_PUTF_CMD): Reimplement using symbolic constants.
+	(MFC_PUTL_CMD, MFC_PUTLB_CMD, MFC_PUTLF_CMD): Likewise.
+	(MFC_PUTR_CMD, MFC_PUTRB_CMD, MFC_PUTRF_CMD): Likewise.
+	(MFC_PUTRL_CMD, MFC_PUTRLB_CMD, MFC_PUTRLF_CMD): Likewise.
+	(MFC_GETB_CMD, MFC_GETF_CMD): Likewise.
+	(MFC_GETL_CMD, MFC_GETLB_CMD, MFC_GETLF_CMD): Likewise.
+	(MFC_SNDSIGB_CMD, MFC_SNDSIGF_CMD): Likewise.
+
+	(MFC_SDCRT_CMD, MFC_SDCRTST_CMD): New defines.
+	(MFC_SDCRZ_CMD, MFC_SDCRST_CMD, MFC_SDCRF_CMD): Likewise.
+	(mfc_sdcrt, mfc_sdcrtst): Likewise.
+	(mfc_sdcrz, mfc_sdcrst, mfc_sdcrf): Likewise.
+
+	(spu_read_machine_status): Fix typo.
+
+2008-08-05  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.h (CANNOT_CHANGE_MODE_CLASS): Allow (multi)word-sized
+	SUBREG of multi-word hard register.
+	* config/spu/spu.c (valid_subreg): Likewise.
+	(adjust_operand): Handle SUBREGs of multi-word hard registers.
+
+2008-08-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37026
+	* gimplify.c (gimplify_init_constructor): Do not call
+	tree_to_gimple_tuple with NULL_TREE.
+
+2008-08-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36691
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Correctly
+	check for no_overflow.
+
+2008-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (compute_barrier_args_size): Set barrier_args_size
+	for labels for which it hasn't been set yet.  If it has been set,
+	stop walking insns and continue with next worklist item.
+	(dwarf2out_stack_adjust): Don't call compute_barrier_args_size
+	if the only BARRIER is at the very end of a function.
+
+	PR tree-optimization/36991
+	* gimplify.c (gimplify_init_constructor): Call tree_to_gimple_tuple
+	on expr_p before appending it to pre_p.
+
+2008-08-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	Backport from mainline:
+	2008-04-02  Andy Hutchinson <hutchinsonamdy@aim.com>
+
+	PR rtl-optimization/35542
+	* fwprop.c (forward_propagate_and_simplify): Replace
+	loc_reg_mentioned_in_p with reg_mentioned_p.
+
+2008-08-01  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/35752
+	* Makefile.in (objdir): Set it here.
+	* configure.ac: Not here.  Find dynamic linker characteristics.
+	* exec-tool.in: Use them.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2008-08-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	* fwprop.c (PR_HANDLE_MEM): Remove trailing comma in enum.
+
+2008-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36419
+	* dwarf2out.c (barrier_args_size): New variable.
+	(compute_barrier_args_size, compute_barrier_args_size_1): New
+	functions.
+	(dwarf2out_stack_adjust): For BARRIERs call compute_barrier_args_size
+	if not called yet in the current function, use barrier_args_size
+	array to find the new args_size value.
+	(dwarf2out_frame_debug): Free and clear barrier_args_size.
+
+	PR debug/36278
+	* dwarf2out.c (get_context_die): New function.
+	(force_decl_die, force_type_die): Use it.
+	(dwarf2out_imported_module_or_decl): Likewise.  If base_type_die
+	returns NULL, force generation of DW_TAG_typedef and put that into
+	DW_AT_import.
+
+	PR preprocessor/36649
+	* c-pch.c (c_common_read_pch): Save and restore
+	line_table->trace_includes across PCH restore.
+
+2008-07-30  Andreas Schwab  <schwab@suse.de>
+
+	PR rtl-optimization/36929
+	* dse.c (replace_inc_dec): Use emit_insn_before instead of
+	add_insn_before and fix argument order.
+	(replace_inc_dec_mem): Handle NULL rtx.
+
+2008-07-30  Olivier Hainque  <hainque@adacore.com>
+
+	* config/mips/irix-crti.asm: .hide __gcc_init and __gcc_fini.
+	* config/mips/iris6.h (IRIX_SUBTARGET_LINK_SPEC, irix ld): Hide
+	__dso_handle explicitly here.
+
+2008-07-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/36830
+	* tree-vn.c (expressions_equal_p): Return false if only one operand
+	is null.
+
+2008-07-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/arm/iwmmxt.md (movv8qi_internal, movv4hi_internal,
+	movv2si_internal): Add mem = reg alternative.
+
+2008-07-23  Ian Lance Taylor  <iant@google.com>
+
+	* tree-vrp.c (infer_value_range): Ignore asm statements when
+	looking for memory accesses for -fdelete-null-pointer-checks.
+
+2008-07-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.md ("div<mode>3"): Convert into expander, move
+	original insn and splitter contents into ...
+	("*div<mode>3_fast"): ... this new pattern.  Enable only if
+	flag_unsafe_math_optimizations.  Add dummy scratch register.
+	("*div<mode>3_adjusted"): New insn and splitter.  Enable only if
+	!flag_unsafe_math_optimizations.  Returns number with next
+	highest magnitude if this is still less or equal to the true
+	quotient in magnitude.
+
+2008-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36877
+	* omp-low.c (expand_omp_atomic_fetch_op): Make sure the
+	return value of the builtin is ignored.
+
+2008-07-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/36780
+	PR target/36827
+	* reload.c (find_reloads_subreg_address): Only reload address if
+	reloaded == 0, not for reloaded != 1.
+
+	Revert:
+	2008-07-16  Joseph Myers  <joseph@codesourcery.com>
+	* config/m32c/m32c.c (BIG_FB_ADJ): Move definition earlier.
+	(m32c_legitimate_address_p): Handle "++rii" addresses created by
+	m32c_legitimize_reload_address.
+
+	2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+	* config/sh/sh.h (GO_IF_LEGITIMATE_ADDRESS): Allow
+	(plus (plus (reg) (const_int)) (const_int)) when reload_in_progress.
+
+2008-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/35281
+	* expr.c (convert_move): Use a new pseudo for the intermediate
+	from_mode->word_mode result.
+	* fwprop.c (PR_CAN_APPEAR, PR_HANDLE_MEM): New.
+	(propagate_rtx_1): Handle PR_HANDLE_MEM.
+	(propagate_rtx): Pass PR_HANDLE_MEM if appropriate.
+	(varying_mem_p): Move above propagate_rtx.
+	(all_uses_available_at): Do not check MEMs.
+
+2008-07-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+
+	2008-05-27  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+		    Sa Liu  <saliu@de.ibm.com>
+
+	* config/spu/spu.c (spu_init_libfuncs): Add __multi3, __divti3,
+	__modti3, __udivti3, __umodti3 and __udivmodti4.
+	* config/spu/t-spu-elf (LIB2FUNCS_STATIC_EXTRA): Add files
+	that implement TImode mul and div functions.
+	* config/spu/multi3.c: New. Implement __multi3.
+	* config/spu/divmodti4.c: New. Implement _udivmodti4 and others.
+
+	2008-05-08  Sa Liu  <saliu@de.ibm.com>
+
+	* config/spu/spu.md: Fixed subti3 pattern.
+
+2008-07-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/36753
+	* fwprop.c (use_killed_between): Don't shortcut
+	single-definition global registers.
+
+2008-07-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/36827
+	* config/m32c/m32c.c (BIG_FB_ADJ): Move definition earlier.
+	(m32c_legitimate_address_p): Handle "++rii" addresses created by
+	m32c_legitimize_reload_address.
+
+2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/36784
+	2008-03-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (split_branches): Pass zero to	redirect_jump
+	as 'delete_unused' argument.
+
+2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/36782
+	* config/sh/sh.md (symGOT_load): Don't add REG_EQUAL note.
+
+2008-07-15  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/libgcc-xtensa.ver: New file.
+	* config/xtensa/t-linux (SHLIB_MAPFILES): Append libgcc-xtensa.ver.
+
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36369
+	* c-common.c (strict_aliasing_warning): Do not warn for
+	TYPE_REF_CAN_ALIAS_ALL pointers.
+	(c_common_get_alias_set): may_alias types are not special.
+	* tree.c (build_pointer_type_for_mode): Look up the may_alias
+	attribute and set can_ref_all accordingly.
+	(build_reference_type_for_mode): Likewise.
+	* doc/extend.texi (may_alias): Clarify.
+
+2008-07-15  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	PR target/36780
+	* config/sh/sh.h (GO_IF_LEGITIMATE_ADDRESS): Allow
+	(plus (plus (reg) (const_int)) (const_int)) when reload_in_progress.
+
 2008-07-14  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR target/35492.
@@ -60,7 +387,7 @@
 	of address in original mode before reloading address.
 
 2008-07-07  Kaz Kojima  <kkojima@gcc.gnu.org>
-	
+
 	Backport from mainline:
 	PR target/36736
 	2008-02-29  Kaz Kojima  <kkojima@gcc.gnu.org>
@@ -114,7 +441,7 @@
        	(df_scan_free_internal): Free data structures not
 	allocated in storage pools.
 	(df_mw_hardreg_chain_delete_eq_uses): Use df_scan_free_mws_vec.
-	(df_refs_add_to_chains): Use df_scan_free_ref_vec and 
+	(df_refs_add_to_chains): Use df_scan_free_ref_vec and
 	df_scan_free_mws_vec.
 	* dse.c (dse_step6): Free offset_map_p and offset_map_n
 	unconditionally.
@@ -277,13 +604,13 @@
 
 	PR target/36424
 	* config/avr/avr.h (HARD_REGNO_RENAME_OK): Define.
-	* config/avr/avr.c (avr_hard_regno_rename_ok): New function. 
-	* config/avr/avr-protos.h (avr_hard_regno_rename_ok): New prototype. 
+	* config/avr/avr.c (avr_hard_regno_rename_ok): New function.
+	* config/avr/avr-protos.h (avr_hard_regno_rename_ok): New prototype.
 
 2008-06-15  Andy Hutchinson  <hutchinsonandy@aim.com>
 
 	PR target/36336
-	* config/avr/avr.h (LEGITIMIZE_RELOAD_ADDRESS): Add check for 
+	* config/avr/avr.h (LEGITIMIZE_RELOAD_ADDRESS): Add check for
 	reg_equiv_constant.
 
 2008-06-13  Jakub Jelinek  <jakub@redhat.com>
@@ -382,17 +709,17 @@
 
 	PR target/27386
 	* config/avr/avr.h: (PUSH_ROUNDING): Remove.
-	
+
 	PR target/30243
 	* builtins.c (expand_builtin_signbit): Don't take lowpart when
-	register is already smaller or equal to required mode. 	
+	register is already smaller or equal to required mode.
 
 	PR target/34932
 	* config/avr/avr.md (*addhi3_zero_extend2): Remove.
-	
+
 	* config/avr/avr.h (MAX_OFILE_ALIGNMENT): Define.
 
-	
+
 2008-06-06  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/36291
@@ -485,7 +812,7 @@
 2008-05-26  Kai Tietz  <kai.tietz@onevision.com>
 
 	PR target/36321
-	* config/i386/i386.md (allocate_stack_worker_64): Make sure 
+	* config/i386/i386.md (allocate_stack_worker_64): Make sure
 	argument operand in rax isn't removed.
 
 2008-05-23  Uros Bizjak  <ubizjak@gmail.com>
@@ -840,7 +1167,7 @@
 2008-04-25  Pompapathi V Gadad <Pompapathi.V.Gadad@nsc.com>
 
 	* config.gcc (crx-*-elf): Remove deprecation.
-	
+
 2008-04-24  David Edelsohn  <edelsohn@gnu.org>
 
 	Backport from mainline:
@@ -1070,7 +1397,7 @@
 
 	* doc/invoke.texi (-O3): Add -ftree-vectorize to the list of
 	optimizations turned on under -O3.
-	(ftree-vectorize): Add that the flag is turned on with -O3.	
+	(ftree-vectorize): Add that the flag is turned on with -O3.
 
 2008-03-19  Michael Matz  <matz@suse.de>
 
@@ -1378,7 +1705,7 @@
 	* config/rs6000/rs6000.c (rs6000_init_builtins): Call
 	SUBTARGET_INIT_BUILTINS if defined.
 	* config/darwin.c (darwin_patch_builtin,
-	darwin_patch_builtins): New functions. 
+	darwin_patch_builtins): New functions.
 
 2008-02-27  Richard Guenther  <rguenther@suse.de>
 
@@ -1455,7 +1782,7 @@
 
 	* config/h8300/h8300.c (h8300_expand_epilogue): Emit return insn
 	as a jump, not as a plain insn.
-	
+
 2008-02-20  Joseph Myers  <joseph@codesourcery.com>
 
 	* doc/invoke.texi, doc/standards.texi: Refer to
@@ -1523,7 +1850,7 @@
 
 	Revert:
 
-	2008-02-15  Uros Bizjak  <ubizjak@gmail.com>	
+	2008-02-15  Uros Bizjak  <ubizjak@gmail.com>
 	* config/i386/sfp-machine.h (CMPtype): Define as typedef using
 	libgcc_cmp_return mode.
 
@@ -1699,7 +2026,7 @@
 	Add -fdump-ipa-inline.
 	* tree-dump.c (dump_files): Remove tree-inlined dump.
 	* tree-pass.h (tree_dump_index): Remove TDI_inlined.
-	
+
 2008-02-12  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/35171
@@ -1789,7 +2116,7 @@
 
 2008-02-08  Sa Liu  <saliu@de.ibm.com>
 
-	* config/spu/spu-builtins.def: Fixed wrong parameter type in spu 
+	* config/spu/spu-builtins.def: Fixed wrong parameter type in spu
 	intrinsics spu_convts, spu_convtu, spu_convtf.
 	* testsuite/gcc.target/spu/intrinsics-3.c: New. Test error messages.
 
@@ -1805,7 +2132,7 @@
 	optc-gen.awk.
 	* opts-common.c: Likewise.
 	* optc-gen.awk: Likewise.
-	
+
 2008-02-07  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.h (FUNCTION_ARG_REGNO_P): Fix fprs for 64 bit.
@@ -1814,7 +2141,7 @@
 
 	PR rtl-opt/33410
 	* config/alpha/alpha.c (alpha_emit_xfloating_compare): Use an
-	EXPR_LIST for the REG_EQUAL instead of a comparison with a 
+	EXPR_LIST for the REG_EQUAL instead of a comparison with a
 	funny mode.
 
 2008-02-07  Uros Bizjak  <ubizjak@gmail.com>
@@ -1851,7 +2178,7 @@
 
 2008-02-06  Ralf Corsepius  <ralf.corsepius@rtems.org>
 
-	* config/arm/rtems-elf.h (TARGET_OS_CPP_BUILTINS): Add 
+	* config/arm/rtems-elf.h (TARGET_OS_CPP_BUILTINS): Add
 	builtin_define ("__USE_INIT_FINI__").
 	* config/h8300/t-rtems (MULTILIB_OPTION,MULTILIB_DIRNAMES): Add
 	-msx multilibs.
@@ -1984,16 +2311,16 @@
 	* doc/c-tree.texi (Types): Fix grammar.
 	(Expression trees): Ditto.
 	* doc/passes.texi (Tree-SSA passes): Ditto.
-	
+
 	* doc/configterms.texi (Configure Terms): Fix typo.
 	* doc/cpp.texi (Common Predefined Macros): Ditto.
 	* doc/md.texi (Machine Constraints): Ditto.
-	
+
 	* doc/makefile.texi (Makefile): Add comma.
 
 2008-01-31  Tom Browder  <tom.browder@gmail.com>
 	    Gerald Pfeifer  <gerald@pfeifer.com>
-	
+
 	* doc/sourcebuild.texi (Front End): Remove references to CVS
 	and CVSROOT/modules.
 	(Texinfo Manuals): Replace reference to CVS by one to SVN.
@@ -2014,7 +2341,7 @@
 	options. Minor fixes.
 	(-std): Move reference to standards closer to where language
 	standards are first mentioned.
-	
+
 2008-01-31  Richard Sandiford  <rsandifo@nildram.co.uk>
 
 	PR rtl-optimization/34995
@@ -2110,7 +2437,7 @@
 2008-01-28  Andy Hutchinson   <hutchinsonandy@netscape.net>
 
 	PR target/34412
-	* config/avr/avr.c (expand_prologue): Use correct QI mode frame 
+	* config/avr/avr.c (expand_prologue): Use correct QI mode frame
 	pointer for tiny stack.
 
 2008-01-28  Bernhard Fischer  <aldot@gcc.gnu.org>
@@ -2195,7 +2522,7 @@
 	Change type of cost to comp_cost.
 	(determine_iv_cost): Increase cost of non-original ivs, instead
 	of decreasing the cost of original ones.
-	(get_address_cost): Indicate the complexity of the addressing mode 
+	(get_address_cost): Indicate the complexity of the addressing mode
 	in comp_cost.
 	(try_add_cand_for): Prefer using ivs not specific to some object.
 	* tree-flow.h (force_expr_to_var_cost): Declaration removed.
@@ -2438,10 +2765,10 @@
 	* ipa-struct-reorg.c (remove_str_allocs_in_func, remove_str_allocs):
 	New functions.
 	(remove_structure): Update allocations list before removing structure.
-	
+
 2008-01-25  Golovanevsky Olga  <olga@il.ibm.com>
 
-	* ipa-struct-reorg.c (is_safe_cond_expr, 
+	* ipa-struct-reorg.c (is_safe_cond_expr,
 	create_new_stmts_for_cond_expr): Use integer_zerop function,
 	that recognize not only zero-pointer, but zero-integer too.
 
@@ -2497,7 +2824,7 @@
 
 	PR c++/25701
 	* doc/gcc.texi (Software development): Add a direntry for g++.
-	
+
 2008-01-23  Hans-Peter Nilsson  <hp@axis.com>
 
 	* config/cris/cris.h (CC1PLUS_SPEC, OPTIMIZATION_OPTIONS): Drop
@@ -2525,17 +2852,17 @@
 	(avr_arch_types): Add 'avr31' and 'avr51' entries.
 	(avr_arch): Add 'ARCH_AVR31' and 'ARCH_AVR51'.
 	(avr_mcu_types): Add 'avr31' and 'avr51' architectures.
-	(avr_override_options): Init 'avr_current_arch'. 
+	(avr_override_options): Init 'avr_current_arch'.
 	(base_arch_s): Move from here...
-	* config/avr/avr.h (base_arch_s): ... here. Add new members 
-	'have_elpm', 'have_elpmx', 'have_eijmp_eicall', 'reserved'. Rename 
+	* config/avr/avr.h (base_arch_s): ... here. Add new members
+	'have_elpm', 'have_elpmx', 'have_eijmp_eicall', 'reserved'. Rename
 	'mega' to 'have_jmp_call'.
-	(TARGET_CPU_CPP_BUILTINS): Define "__AVR_HAVE_JMP_CALL__", 
+	(TARGET_CPU_CPP_BUILTINS): Define "__AVR_HAVE_JMP_CALL__",
 	"__AVR_HAVE_RAMPZ__", 	"__AVR_HAVE_ELPM__" and  "__AVR_HAVE_ELPMX__"
 	macros.
-	(LINK_SPEC, CRT_BINUTILS_SPECS, ASM_SPEC): Add 'avr31' and 'avr51' 
+	(LINK_SPEC, CRT_BINUTILS_SPECS, ASM_SPEC): Add 'avr31' and 'avr51'
 	architectures.
-	* config/avr/t-avr (MULTILIB_OPTIONS, MULTILIB_DIRNAMES, 
+	* config/avr/t-avr (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
 	MULTILIB_MATCHES): (Ditto.).
 
 2008-01-23  Richard Guenther  <rguenther@suse.de>
@@ -2705,7 +3032,7 @@
 
 2008-01-21  Alon Dayan  <alond@il.ibm.com>
 	    Olga Golovanevsky  <olga@il.ibm.com>
-	
+
 	PR tree-optimization/34701
 	* ipa-struct-reorg.c (gen_size): Fix the malloc parameter calculation
 	when the structure size is not a power of 2.
@@ -2713,7 +3040,7 @@
 2008-01-20  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* doc/install.texi: Add doc for --enable-checking=df.
-	
+
 2008-01-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	PR rtl-optimization/34808
@@ -2787,7 +3114,7 @@
 	(df_live_init): Init the df_live sets only with the variables
 	found live by df_lr.
 	(df_live_transfer_function): Use the df_lr sets to prune the
-	df_live sets as they are being computed.  
+	df_live sets as they are being computed.
 	(df_live_free): Free df_live_scratch.
 
 2008-01-18  Ian Lance Taylor  <iant@google.com>
@@ -2969,7 +3296,7 @@
 
 2008-01-16  Sebastian Pop  <sebastian.pop@amd.com>
 
-	* tree-data-ref.c (subscript_dependence_tester_1): Call 
+	* tree-data-ref.c (subscript_dependence_tester_1): Call
 	free_conflict_function.
 	(compute_self_dependence): Same.
 
@@ -3008,7 +3335,7 @@
 	PR c++/24924
 	* c-opts (c_common_post_options): Do not enable CPP
 	flag_pedantic_errors by default.
-	
+
 2008-01-14  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR rtl-optimization/31944
@@ -3070,9 +3397,9 @@
 	correct type.
 
 2008-01-11  Bob Wilson  <bob.wilson@acm.org>
-	
+
 	* config/xtensa/xtensa.c (override_options): Set flag_shlib.
-	
+
 2008-01-11  James E. Wilson  <wilson@specifix.com>
 
 	PR target/26015
@@ -3080,8 +3407,8 @@
 
 2008-01-11  Anatoly Sokolov <aesok@post.ru>
 
-	* config/avr/avr.c (expand_prologue, expand_epilogue): Don't 
-	save/restore frame pointer register and don't use 'call-prologues' 
+	* config/avr/avr.c (expand_prologue, expand_epilogue): Don't
+	save/restore frame pointer register and don't use 'call-prologues'
 	optimization in function with "OS_task" attribute.
 
 2008-01-11  Eric Botcazou  <ebotcazou@adacore.com>
@@ -3207,13 +3534,13 @@
 
 	2008-01-05  Uros Bizjak  <ubizjak@gmail.com>
 	* config/i386/i386.c (ix86_builtin_reciprocal): Remove check
-	for TARGET_RECIP.	
-	
+	for TARGET_RECIP.
+
 2008-01-08  Jan Sjodin  <jan.sjodin@amd.com>
-	
+
 	* config/i386/i386.c (k8_cost, amdfam10_cost): Branch costs
 	for vectorization tuned.
-	
+
 2008-01-08  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/34683

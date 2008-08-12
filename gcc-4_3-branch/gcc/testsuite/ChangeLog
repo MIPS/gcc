@@ -1,3 +1,186 @@
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36688
+	* g++.dg/init/const6.C: New test.
+
+2008-08-11  Michael Matz  <matz@suse.de>
+
+	PR target/36613
+	* gcc.target/i386/pr36613.c: New testcase.
+
+2008-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/36998
+	* gcc.dg/pr36998.c: New test.
+
+2008-08-07  Simon Baldwin  <simonb@google.com>
+
+	Backport from mainline:
+	2008-08-04  Simon Baldwin  <simonb@google.com>
+
+	PR c++/36999
+	* g++.dg/warn/pr36999.C: New.
+
+2008-08-07  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37042
+	* gcc.dg/Wstrict-aliasing-bogus-ref-all-2.c: New testcase.
+
+2008-08-06  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/35432
+	* gcc.c-torture/compile/pr35432.c: Remove duplicate.
+
+2008-08-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/35432
+	* gcc.c-torture/compile/pr35432.c: New file.
+
+2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	Backport from mainline:
+	2008-08-06  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* gcc.target/ia64/20080802-1.c: New test.
+
+2008-08-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/37026
+	* gcc.c-torture/compile/pr37026.c: New testcase.
+
+2008-08-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36691
+	* gcc.c-torture/execute/pr36691.c: New testcase.
+
+2008-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/36991
+	* gcc.dg/pr36991.c: New test.
+
+2008-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/36649
+	* gcc.dg/pch/cpp-3.hs: Add include guards.
+	* gcc.dg/pch/cpp-3a.h: Likewise.
+	* gcc.dg/pch/cpp-3b.h: Likewise.
+	* gcc.dg/cpp/mi8.c: New test.
+	* gcc.dg/cpp/mi8a.h: New file.
+	* gcc.dg/cpp/mi8b.h: New file.
+	* gcc.dg/cpp/mi8c.h: New file.
+	* gcc.dg/cpp/mi8d.h: New file.
+
+	PR rtl-optimization/36419
+	* g++.dg/eh/async-unwind2.C: New test.
+
+	PR c++/36405
+	* g++.dg/rtti/typeid8.C: New test.
+
+	PR debug/36278
+	* g++.dg/debug/namespace2.C: New test.
+
+	PR preprocessor/36649
+	* gcc.dg/pch/cpp-3.c: New test.
+	* gcc.dg/pch/cpp-3.hs: New file.
+	* gcc.dg/pch/cpp-3a.h: New file.
+	* gcc.dg/pch/cpp-3b.h: New file.
+
+2008-07-30  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/36767
+	* g++.dg/parse/crash41.C: New test.
+
+2008-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36852
+	* g++.dg/pch/array-1.C: New test.
+	* g++.dg/pch/array-1.Hs: New file.
+
+2008-07-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36132
+	* gfortran.dg/internal_pack_4.f90: New.
+
+2008-07-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/36852
+	* gfortran.dg/namelist_52.f90: New test.
+
+2008-07-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_thumb1_ok):
+	New.
+	* g++.dg/inherit/thunk8.C: Use it.
+
+2008-07-23  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.target/i386/20080723-1.c: New test.
+
+2008-07-22  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_spu_auto_overlay):
+	New procedure.
+	* lib/compat.exp (compat-execute): Use it to test whether toolchain
+	supports automatic overlay generation for the SPU.
+
+2008-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36877
+	* gcc.dg/gomp/atomic-11.c: New test.
+
+2008-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/36366
+	* gfortran.dg/used_types_20.f90: New test.
+
+2008-07-18  Dodji Seketeli  <dseketel@redhat.com>
+
+	PR c++/36407
+	* g++.dg/conversion/op5.C: New testcase.
+
+2008-07-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/35281
+	* gcc.target/i386/pr35281.c: New.
+
+2008-07-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+
+	2008-06-02  Andy Hutchinson  <hutchinsonandy@aim.com>
+	* gcc.dg/torture/pr34330.c: Skip test for targets without pthread.
+	* gcc.dg/torture/pr36244.c: Ditto.
+	* gcc.dg/tree-ssa/pr36181.c: Ditto.
+
+2008-07-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+
+	2008-05-27  Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+		    Sa Liu  <saliu@de.ibm.com> 
+
+	* gcc.target/spu/muldivti3.c: New. Test TImode mul and div
+	functions on SPU.
+
+	2008-05-08  Sa Liu  <saliu@de.ibm.com>
+
+	* gcc.target/spu/subti3.c: New.
+
+2008-07-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36824
+	* gfortran.dg/array_4.f90: New.
+
+2008-07-17  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/36753
+	* gcc.target/i386/pr36753.c: New.
+
+2008-07-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/36369
+	* gcc.dg/Wstrict-aliasing-bogus-ref-all.c: New testcase.
+
 2008-07-14  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR target/35492
@@ -10147,7 +10330,7 @@
 	vectorizable.
 
 2007-07-01  Uros Bizjak  <ubizjak@gmail.com>
-	    Volker Reichelt  <reichelt@netcologne.de>
+	    Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR middle-end/32559
 	* gcc.dg/pr32559.c: New test.
@@ -13762,7 +13945,7 @@
 	PR fortran/31011
 	* gfortran.dg/parameter_array_section_2.f90: New test.
 
-2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-08  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR c++/30852
 	* g++.dg/ext/offsetof1.C: Add cases with volatile.
