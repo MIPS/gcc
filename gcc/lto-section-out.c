@@ -989,6 +989,7 @@ produce_asm_for_decls (void)
 #endif
 
   /* Deallocate memory and clean up.  */
+  htab_delete (ob->main_hash_table);
   destroy_output_block (ob);
 
   htab_delete (out_state->field_decl_hash_table);
@@ -997,7 +998,6 @@ produce_asm_for_decls (void)
   htab_delete (out_state->type_decl_hash_table);
   htab_delete (out_state->namespace_decl_hash_table);
   htab_delete (out_state->type_hash_table);
-  htab_delete (ob->main_hash_table);
 
   VEC_free (tree, heap, out_state->field_decls);
   VEC_free (tree, heap, out_state->fn_decls);
