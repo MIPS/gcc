@@ -190,6 +190,9 @@ dfp.o-warn = -Wno-error
 bitmap.o-warn = -Wno-error
 # dominance.c contains a -Wc++compat warning.
 dominance.o-warn = -Wno-error
+# emit-rtl.c triggers comparison-is-always-false if gen_rtvec_v is
+# inlined into gen_rtvec.
+emit-rtl.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
