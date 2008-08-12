@@ -736,7 +736,7 @@ eliminate_unnecessary_stmts (void)
 	    }
 	  else
 	    {
-	      if (IS_DEBUG_STMT (stmt))
+	      if (IS_DEBUG_BIND (stmt))
 		{
 		  if (something_changed
 		      && (VAR_DEBUG_VALUE_VALUE (stmt)

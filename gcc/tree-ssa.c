@@ -824,7 +824,7 @@ verify_ssa (bool check_modified_stmt)
 		  goto err;
 		}
 	    }
-	  else if (IS_DEBUG_STMT (stmt)
+	  else if (IS_DEBUG_BIND (stmt)
 		   && VAR_DEBUG_VALUE_VALUE (stmt) == VAR_DEBUG_VALUE_NOVALUE)
 	    continue;
 

@@ -1199,7 +1199,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	    }
 	}
 
-      if (IS_DEBUG_STMT (stmt))
+      if (IS_DEBUG_BIND (stmt))
 	{
 	  copy = gimple_build_debug_bind (VAR_DEBUG_VALUE_VAR (stmt),
 					  VAR_DEBUG_VALUE_VALUE (stmt));
@@ -1224,7 +1224,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
   gimple_set_block (copy, new_block);
 
-  if (IS_DEBUG_STMT (copy))
+  if (IS_DEBUG_BIND (copy))
     return copy;
 
   /* Remap all the operands in COPY.  */

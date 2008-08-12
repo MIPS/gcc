@@ -1549,6 +1549,10 @@ struct tree_constructor GTY(())
 /* Nonzero if NODE is a debug statement.  */
 #define IS_DEBUG_STMT(NODE)     (gimple_code (NODE) == GIMPLE_DEBUG)
 
+/* Nonzero if NODE is a debug bind statement.  */
+#define IS_DEBUG_BIND(NODE)	(IS_DEBUG_STMT (NODE) && \
+				 (NODE)->gsbase.subcode == VAR_DEBUG_VALUE)
+
 /* Nonzero if IS_DEBUG_STMT may possibly.  */
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 
