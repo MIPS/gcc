@@ -646,6 +646,14 @@ eliminate_virtual_phis (void)
 }
 
 
+/* Return true if T is not an SSA_NAME.  */
+
+static bool
+not_ssa_name_p (tree t)
+{
+  return !(t && TREE_CODE (t) == SSA_NAME);
+}
+
 /* This function will rewrite the current program using the variable mapping
    found in MAP.  If the replacement vector VALUES is provided, any 
    occurrences of partitions with non-null entries in the vector will be 
@@ -760,6 +768,8 @@ rewrite_trees (var_map map, tree *values)
 	    bsi_remove (&si, true);
 	  else
 	    {
+	      if (IS_DEBUG_STMT (stmt))
+		check_and_update_debug_stmt (stmt, not_ssa_name_p);
 	      if (changed)
 		if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		  tree_purge_dead_eh_edges (bb);

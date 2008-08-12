@@ -1,5 +1,10 @@
 2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
 
+	* tree-outof-ssa.c (not_ssa_name_p): New.
+	(rewrite_trees): Use it to clean up debug stmts.
+
+2008-08-12  Alexandre Oliva  <aoliva@redhat.com>
+
 	* cselib.c (new_cselib_val): Honor -fdump-noaddr.
 
 2008-08-01  Alexandre Oliva  <aoliva@redhat.com>
