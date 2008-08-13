@@ -1,3 +1,10 @@
+2008-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/37087
+	* parser.c (cp_parser_class_head): Early return error_mark_node in
+	case of global qualification of class name or qualified name that
+	does not name a class.
+
 2008-08-09  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR c++/12242
@@ -5163,7 +5170,7 @@
 
 	* call.c (build_new_op): Call warn_logical_operator.
 
-2007-03-08  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-08  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	PR c++/30852
 	* semantics.c (finish_offsetof): Handle COMPOUND_EXPR.
@@ -5177,7 +5184,7 @@
 	* decl.c (grokdeclarator): Disable warnings for anonymous
 	bitfields.
 
-2007-03-05  Volker Reichelt  <reichelt@netcologne.de>
+2007-03-05  Volker Reichelt  <v.reichelt@netcologne.de>
 
 	* typeck2.c (readonly_error): Always emit a hard error.
 	Remove last argument.

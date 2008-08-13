@@ -1,3 +1,219 @@
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* toplev.h (pedwarn_at): Fix declaration.
+	
+2008-08-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/sparc/linux64.h (LINK_ARCH32_SPEC, LINK_ARCH64_SPEC,
+	LINK_SPEC): Use %R in -Y P argument.
+
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/15236
+	* diagnostic.c (pedwarn_at): New.
+	* toplev.h (pedwarn_at): Declare.
+	* c-tree.h (build_enumerator): Update declaration.
+	* c-decl.c (finish_enum): Update comment.
+	(build_enumerator): Take a location parameter. Give a pedwarn but do
+	not perform any conversion.
+	* c-parser.c (c_parser_enum_specifier): Set correct location for
+	enumerator.
+
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 35635
+	* c-common.c (conversion_warning): Use a switch. Ignore boolean
+	expressions except for conversions to signed:1 bitfields. Handle
+	COND_EXPR with constant operands.
+	
+2008-08-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/15255
+	* tree-ssa-reassoc.c (linearize_expr_tree): Declare.
+	(struct oecount_s): New struct and VEC types.
+	(cvec): New global.
+	(oecount_hash): New function.
+	(oecount_eq): Likewise.
+	(oecount_cmp): Likewise.
+	(zero_one_operation): New function.
+	(build_and_add_sum): Likewise.
+	(undistribute_ops_list): Perform un-distribution of multiplication
+	and division on the chain of summands.
+	(should_break_up_subtract): Also break up subtracts for factors.
+	(reassociate_bb): Delete dead visited statements.
+	Call undistribute_ops_list.  Re-sort and optimize if it did something.
+	* passes.c (init_optimization_passes): Move DSE before
+	reassociation.
+	* tree-ssa-loop-niter.c (stmt_dominates_stmt_p): Correctly handle
+	PHI nodes.
+
+2008-08-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/invoke.texi (-fipa-pta): Say the option is experimental.
+
+	* doc/invoke.texi: Revert unintended checkin.
+
+2008-08-12  Nathan Froyd  <froydnj@codesourcery.com>
+
+	PR libgomp/26165
+
+	* gcc.c (include_spec_function): Tweak call to find_a_file.
+
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37014
+	* expr.c (expand_expr_real_1): Handle TRUTH_ANDIF_EXPR
+	and TRUTH_ORIF_EXPR.
+	* dojump.c (do_jump): Likewise.
+
+	PR tree-optimization/37084
+	* tree-inline.c (copy_bb): Call gimple_regimplify_operands
+	if id->regimplify, don't assume stmt is a cast assignment.
+
+2008-08-12  Anatoly Sokolov  <aesok@post.ru>
+
+        * final.c (final_scan_insn): Use app_enable/app_disable functions.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	PR bootstrap/37097
+	* builtins.c (do_mpfr_bessel_n): Fix copy-and-paste bug introduced
+	by last change.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* defaults.h (TARGET_FLOAT_FORMAT): Remove.
+	(UNKNOWN_FLOAT_FORMAT, IEEE_FLOAT_FORMAT, VAX_FLOAT_FORMAT): Remove.
+
+	* config/alpha/alpha.h (TARGET_FLOAT_FORMAT): Remove.
+	* config/iq2000/iq2000.h (TARGET_FLOAT_FORMAT): Remove.
+	* config/pdp11/pdp11.h (TARGET_FLOAT_FORMAT): Remove.
+	* config/score/score.h (TARGET_FLOAT_FORMAT): Remove.
+	* config/vax/vax.h (TARGET_FLOAT_FORMAT): Remove.
+
+	* doc/tm.texi (Storage Layout): Remove documentation for
+	TARGET_FLOAT_FORMAT.
+
+	* simplify-rtx.c (simplify_binary_operation_1): Replace
+	TARGET_FLOAT_FORMAT check by appropriate HONOR_... checks.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* real.h (struct real_format): New member has_sign_dependent_rounding.
+	* real.c (ieee_single_format, mips_single_format, motorola_single_format,
+	spu_single_format, ieee_double_format, mips_double_format,
+	motorola_double_format, ieee_extended_motorola_format,
+	ieee_extended_intel_96_format, ieee_extended_intel_128_format,
+	ieee_extended_intel_96_round_53_format, ibm_extended_format,
+	mips_extended_format, ieee_quad_format, mips_quad_format,
+	vax_f_format, vax_d_format, vax_g_format): Initialize it.
+	* config/pdp11/pdp11.c (pdp11_f_format, pdp11_d_format): Likewise.
+
+	* defaults.h (MODE_HAS_NANS, MODE_HAS_INFINITIES,
+	MODE_HAS_SIGNED_ZEROS, MODE_HAS_SIGN_DEPENDENT_ROUNDING): Remove.
+	* config/spu/spu.h (MODE_HAS_NANS, MODE_HAS_INFINITIES,
+	MODE_HAS_SIGN_DEPENDENT_ROUNDING): Remove.
+	(ROUND_TOWARDS_ZERO): Likewise.
+
+	* real.h (REAL_MODE_FORMAT): Protect MODE against macro expansion.
+	(FLOAT_MODE_FORMAT): New macro.
+	(REAL_MODE_FORMAT_COMPOSITE_P): Remove, replace by ...
+	(MODE_COMPOSITE_P): ... this new macro.
+	(MODE_HAS_NANS, MODE_HAS_INFINITIES, MODE_HAS_SIGNED_ZEROS,
+	MODE_HAS_SIGN_DEPENDENT_ROUNDING): New macros.
+	* machmode.h (GET_MODE_INNER): Cast result to enum machine_mode.
+
+	* flags.h: Include "real.h".
+
+	* fold-const.c (const_binop): Use MODE_COMPOSITE_P instead of
+	REAL_MODE_FORMAT_COMPOSITE_P.
+	* simplify-rtx.c (simplify_const_binary_operation): Likewise.
+
+	* doc/tm.texi (Storage Layout): Remove documentation of
+	MODE_HAS_NANS, MODE_HAS_INFINITIES, MODE_HAS_SIGNED_ZEROS,
+	MODE_HAS_SIGN_DEPENDENT_ROUNDING.  Update documentation of
+	ROUND_TOWARDS_ZERO and LARGEST_EXPONENT_IS_NORMAL to clarify
+	they only apply to libgcc2.a.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/float_disf.c: New file.
+	* config/spu/float_unsdisf.c: New file.
+	* config/spu/t-elf (LIB2FUNCS_STATIC_EXTRA): Add them.
+	(LIB2FUNCS_EXCLUDE): Define.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+	    Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+
+	* real.h (struct real_format): New member round_towards_zero.
+	* real.c (round_for_format): Respect fmt->round_towards_zero.
+	(ieee_single_format, mips_single_format, motorola_single_format,
+	spu_single_format, ieee_double_format, mips_double_format,
+	motorola_double_format, ieee_extended_motorola_format,
+	ieee_extended_intel_96_format, ieee_extended_intel_128_format,
+	ieee_extended_intel_96_round_53_format, ibm_extended_format,
+	mips_extended_format, ieee_quad_format, mips_quad_format,
+	vax_f_format, vax_d_format, vax_g_format): Initialize it.
+	* config/pdp11/pdp11.c (pdp11_f_format, pdp11_d_format): Likewise.
+
+	* builtins.s (do_mpfr_arg1): Consider round_towards_zero member of
+	real_format to choose rounding mode when calling MPFR functions.
+	(do_mpfr_arg2, do_mpfr_arg3, do_mpfr_sincos): Likewise.
+	(do_mpfr_bessel_n, do_mpfr_remquo, do_mpfr_lgamma_r): Likewise.
+
+	* real.h (real_to_decimal_for_mode): Add prototype.
+	* real.c (real_to_decimal_for_mode): Renames old real_to_decimal.
+	Respect target rounding mode when generating decimal representation.
+	(real_to_decimal): New stub for backwards compatibility.
+	* c-cppbuiltin.c (builtin_define_with_hex_fp_value): Use
+	real_to_decimal_for_mode instead of real_to_decimal.
+
+	* config/spu/spu.md ("floatdisf2", "floatunsdisf2"): New.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+	    Trevor Smigiel  <trevor_smigiel@playstation.sony.com>
+
+	* real.c (spu_single_format): New variable.
+	* real.h (spu_single_format): Declare.
+
+	* config/spu/spu.c (spu_override_options): Install SFmode format.
+	(spu_split_immediate): Use integer mode to operate on pieces of
+	floating-point values in all cases.
+
+	* config/spu/spu.md (UNSPEC_FLOAT_EXTEND, UNSPEC_FLOAT_TRUNCATE): New.
+	("extendsfdf2"): Use UNSPEC_FLOAT_EXTEND instead of FLOAT_EXTEND.
+	("truncdfsf2"): Use UNSPEC_FLOAT_TRUNCATE instead of FLOAT_TRUNCATE.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_safe_dma): Respect TARGET_SAFE_DMA.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.h (DWARF_FRAME_RETURN_COLUMN): Define.
+
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36688
+	* gimplify.c (gimplify_modify_expr_rhs): Test TREE_READONLY
+	on the VAR_DECL instead of TYPE_READONLY on its type.
+
+2008-08-12  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.c: Depend on langhooks.h.
+	(supportable_widening_operation): Add two arguments. Support double
+	type conversions.
+	(supportable_narrowing_operation): Likewise.
+	* tree-vectorizer.h (supportable_widening_operation): Add two 
+	arguments.
+	(supportable_narrowing_operation): Likewise.
+	* tree-vect-patterns.c (vect_recog_widen_mult_pattern) : Call
+	supportable_widening_operation with correct arguments.
+	* tree-vect-transform.c (vectorizable_conversion): Likewise.
+	(vectorizable_type_demotion): Support double type conversions.
+	(vectorizable_type_promotion): Likewise.
+	* Makefile.in (tree-vectorizer.o): Depend on langhooks.h.
+
 2008-08-11  Michael Matz  <matz@suse.de>
 
 	* i386/i386.c (override_options): Move initialisation from
