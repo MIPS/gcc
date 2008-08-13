@@ -1,3 +1,54 @@
+2008-08-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2out.c (dwarf_stack_op_name): Remove prototype.
+	(new_loc_descr): Likewise.
+	(add_loc_descr): Likewise.
+	(size_of_loc_descr): Likewise.
+	(size_of_locs): Likewise.
+	(output_loc_operands): Likewise.
+	(output_loc_sequence): Likewise.
+	(new_reg_loc_descr): New.
+	(build_cfa_loc): Use it.
+	(build_cfa_aligned_loc): Likewise.
+	(one_reg_loc_descriptor): Likewise.
+	(based_loc_descr): Likewise.
+
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 30551
+	* doc/invoke.texi (Wmain): Update.
+	* c-decl.c (start_decl): warn_main is only 0 or 1.
+	(start_function): Likewise. Fix formatting.
+	(finish_function): Delete redundant warning.
+	* c.opt (Wmain): Add Var(warn_main) and Init(-1).
+	* c-opts (c_common_handle_option): -Wall only has effect if
+	warn_main is uninitialized. OPT_Wmain is automatically
+	handled. -pedantic also enables Wmain.
+	(c_common_post_options): Handle all logic for Wmain here.
+	* c-common.c (warn_main): Delete.
+	(check_main_parameter_types): Make pedwarns conditional on
+	OPT_Wmain.
+	* c-common.h (warn_main): Delete.
+
+2008-08-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/36701
+	* expr.c (emit_group_store): Allocate stack temp with the
+	largest alignment when copying from register to stack.
+
+2008-08-13  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (maybe_fold_offset_to_address): Declare.
+	* tree-ssa-ccp.c (surely_varying_stmt_p): Fix typo in last commit.
+	(ccp_fold): Handle pointer conversions the same as fold_stmt.
+	Likewise for POINTER_PLUS_EXPR.
+	(maybe_fold_offset_to_reference): Enable disabled code.
+	(maybe_fold_offset_to_address): New function.
+	(fold_stmt_r): Use it.
+	(fold_gimple_assign): Likewise.
+	* gimplify.c (gimplify_conversion): Use maybe_fold_offset_to_address.
+	(gimplify_expr): Likewise.
+
 2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	* toplev.h (pedwarn_at): Fix declaration.
