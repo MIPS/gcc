@@ -1,3 +1,108 @@
+2008-08-13  Samuel Tardieu  <sam@rfc1149.net>
+
+	PR ada/36777
+	* gnat.dg/protected_self_ref1.adb, gnat.dg/protected_self_ref2.adb:
+	New.
+
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c/15236
+	* gcc.dg/pr15236.c: New.
+	* gcc.dg/torture/pr25183.c: Update.
+
+2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR 35635
+	* gcc.dg/pr35635.c: New.
+	* gcc.dg/Wconversion-integer.c: Update.
+	* gcc.dg/Wconversion-integer-no-sign.c: Update.
+	* gcc.dg/Wsign-conversion.c: Update.
+	* g++.dg/warn/pr35635.C: New.
+	* g++.dg/warn/Wconversion-integer.C: Update.
+	* g++.dg/warn/Wsign-conversion.C: Update.
+	
+2008-08-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/15255
+	* gcc.dg/tree-ssa/reassoc-14.c: New testcase.
+	* gcc.dg/tree-ssa/reassoc-15.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-16.c: Likewise.
+	* gcc.dg/torture/reassoc-1.c: Likewise.
+	* gcc.dg/tree-ssa/recip-2.c: Adjust.
+	* gcc.dg/tree-ssa/recip-6.c: Likewise.
+	* gcc.dg/tree-ssa/recip-7.c: Likewise.
+	* gfortran.dg/reassoc_4.f: Likewise.
+
+2008-08-12  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.target/i386/pr32000-2.c: Use dg-skip-if for target expression.
+	* gcc.target/i386/stackalign/return-3.c: Ditto.
+	* gcc.target/sparc/ultrasp3.c: Ditto.
+	* lib/target-supports-dg.exp (dg-require-effective-target): Error
+	if argument is not a single effective-target keyword.
+
+	PR testsuite/36087
+	* gcc.dg/var-expand3.c: Fix name of dump file.
+
+2008-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.old-deja/g++.other/decl5.C: Expand new expected errors.
+	
+2008-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/37087
+	* g++.dg/template/crash80.C: New.
+	* g++.old-deja/g++.other/decl5.C: Adjust.
+
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37014
+	* gcc.c-torture/compile/20080812-1.c: New test.
+
+	PR tree-optimization/37084
+	* g++.dg/tree-ssa/pr37084.C: New test.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/execute/20031003-1.c (main): Update test to
+	accommodate SPU single-precision rounding mode.
+	* gcc.c-torture/execute/conversion.c (test_float_to_integer,
+	test_float_to_longlong_integer): Likewise.
+	* gcc.c-torture/execute/ieee/rbug.c (main): Likewise.
+	* gcc.dg/hex-round-1.c: Skip test on SPU.
+	* gcc.dg/hex-round-2.c: Likewise.
+
+2008-08-12  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/execute/ieee/inf-2.c (testf): Skip on the SPU.
+
+2008-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/36688
+	* g++.dg/init/const6.C: New test.
+
+2008-08-12  Ira Rosen  <irar@il.ibm.com>
+
+	* gcc.dg/vect/vect-multitypes-12.c: New.
+	* gcc.dg/vect/vect-multitypes-13.c, gcc.dg/vect/vect-multitypes-14.c,
+	gcc.dg/vect/vect-multitypes-15.c : Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u8a.c: Avoid vectorization of the
+	init loop.
+	* gcc.dg/vect/vect-72.c, gcc.dg/vect/vect-strided-store-a-u8-i2.c:
+	Likewise.
+	* gcc.dg/vect/vect-reduc-dot-u8b.c: Avoid vectorization of the init
+	loop.
+	Should be vectorizable on targets that support vector unpack.
+	* gcc.dg/vect/vect-widen-mult-u8.c,
+	gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c,.
+	gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c: Likewise.
+	* gcc.dg/vect/vect-35.c: Should be vectorizable on targets that
+	support vector pack. Avoid vectorization of the init loop.
+	* gcc.dg/vect/vect-reduc-pattern-1b.c: Should be vectorizable on
+	targets that support vector unpack.
+	* gcc.dg/vect/vect-reduc-pattern-2b.c,
+	gcc.dg/vect/vect-reduc-dot-s8c.c, gcc.dg/vect/vect-112.c: Likewise.
+
 2008-08-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/36998
