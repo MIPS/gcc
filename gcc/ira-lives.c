@@ -937,51 +937,6 @@ ira_debug_live_ranges (void)
   print_live_ranges (stderr);
 }
 
-/* Propagate new info about allocno A (see comments about accumulated
-   info in allocno definition) to the corresponding allocno on upper
-   loop tree level.  So allocnos on upper levels accumulate
-   information about the corresponding allocnos in nested regions.
-   The new info means allocno info finally calculated in this
-   file.  */
-static void
-propagate_new_allocno_info (ira_allocno_t a)
-{
-  int regno;
-  ira_allocno_t parent_a;
-  ira_loop_tree_node_t parent;
-
-  regno = ALLOCNO_REGNO (a);
-  if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) != NULL
-      && (parent_a = parent->regno_allocno_map[regno]) != NULL)
-    {
-      ALLOCNO_CALL_FREQ (parent_a) += ALLOCNO_CALL_FREQ (a);
-#ifdef STACK_REGS
-      if (ALLOCNO_TOTAL_NO_STACK_REG_P (a))
-	ALLOCNO_TOTAL_NO_STACK_REG_P (parent_a) = true;
-#endif
-      IOR_HARD_REG_SET (ALLOCNO_TOTAL_CONFLICT_HARD_REGS (parent_a),
-			ALLOCNO_TOTAL_CONFLICT_HARD_REGS (a));
-      ALLOCNO_CALLS_CROSSED_NUM (parent_a) += ALLOCNO_CALLS_CROSSED_NUM (a);
-      ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (parent_a)
-	+= ALLOCNO_EXCESS_PRESSURE_POINTS_NUM (a);
-    }
-}
-
-/* Propagate new info about allocnos to the corresponding allocnos on
-   upper loop tree level.  */
-static void
-propagate_new_info (void)
-{
-  int i;
-  ira_allocno_t a;
-
-  for (i = max_reg_num () - 1; i >= FIRST_PSEUDO_REGISTER; i--)
-    for (a = ira_regno_allocno_map[i];
-	 a != NULL;
-	 a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
-      propagate_new_allocno_info (a);
-}
-
 /* The main entry function creates live ranges, set up
    CONFLICT_HARD_REGS and TOTAL_CONFLICT_HARD_REGS for allocnos, and
    calculate register pressure info.  */
@@ -999,7 +954,6 @@ ira_create_allocno_live_ranges (void)
   create_start_finish_chains ();
   if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL)
     print_live_ranges (ira_dump_file);
-  propagate_new_info ();
   /* Clean up.  */
   sparseset_free (allocnos_live);
 }

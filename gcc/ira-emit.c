@@ -267,6 +267,8 @@ not_modified_p (ira_allocno_t src_allocno, ira_allocno_t dest_allocno)
   ira_allocno_t a;
   ira_loop_tree_node_t node;
 
+  ira_assert (ALLOCNO_CAP_MEMBER (src_allocno) == NULL
+	      && ALLOCNO_CAP_MEMBER (dest_allocno) == NULL);
   orig_regno = ALLOCNO_REGNO (src_allocno);
   regno = REGNO (ALLOCNO_REG (dest_allocno));
   for (node = ALLOCNO_LOOP_TREE_NODE (src_allocno);
@@ -800,8 +802,10 @@ update_costs (ira_allocno_t a, bool read_p, int freq)
       ALLOCNO_MEMORY_COST (a)
 	+= (ira_memory_move_cost[ALLOCNO_MODE (a)][ALLOCNO_COVER_CLASS (a)]
 	    [read_p ? 1 : 0] * freq);
-      if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
-	  || (a = parent->regno_allocno_map[ALLOCNO_REGNO (a)]) == NULL)
+      if (ALLOCNO_CAP (a) != NULL)
+	a = ALLOCNO_CAP (a);
+      else if ((parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) == NULL
+	       || (a = parent->regno_allocno_map[ALLOCNO_REGNO (a)]) == NULL)
 	break;
     }
 }

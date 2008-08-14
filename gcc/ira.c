@@ -140,28 +140,29 @@ along with GCC; see the file COPYING3.  If not see
          ira-build.c) and initializes most of their attributes.
 
        * Then IRA finds a cover class for each allocno and calculates
-         its initial cost of memory and each hard-register of its
-         cover class (file ira-cost.c).
-
-       * IRA creates all caps (file ira-build.c).
+         its initial (non-accumulated) cost of memory and each
+         hard-register of its cover class (file ira-cost.c).
 
        * IRA creates live ranges of each allocno, calulates register
          pressure for each cover class in each region, sets up
-         conflict hard registers for each allocno and call insns the
-         allocno lives through (file ira-lives.c).
+         conflict hard registers for each allocno and info about calls
+         the allocno lives through (file ira-lives.c).
+
+       * IRA removes low register pressure loops from the regions
+         mostly to speed IRA up (file ira-build.c).
+
+       * IRA propagates accumulated allocno info from lower region
+         allocnos to corresponding upper region allocnos (file
+         ira-build.c).
+
+       * IRA creates all caps (file ira-build.c).
 
        * Having live-ranges of allocnos and their cover classes, IRA
          creates conflicting allocnos of the same cover class for each
          allocno.  Conflicting allocnos are stored as a bit vector or
-         array of pointers to the conflicting allocnos whatever is more
-         profitable (file ira-conflicts.c).  At this point IRA creates
-         allocno copies and after that accumulates allocno info
-         (conflicts, copies, call insns lived through) in upper level
-         allocnos from lower levels ones.
-
-       * Having all conflicts and other info for regular allocnos, IRA
-         propagates this info to caps (file ira-build.c) and modifies
-         costs of callee-clobbered hard-registers (file ira-costs.c).
+         array of pointers to the conflicting allocnos whatever is
+         more profitable (file ira-conflicts.c).  At this point IRA
+         creates allocno copies.
 
      o Coloring.  Now IRA has all necessary info to start graph coloring
        process.  It is done in each region on top-down traverse of the
@@ -604,8 +605,8 @@ ira_free_bitmap (bitmap b ATTRIBUTE_UNUSED)
 
 
 
-/* Output information about allocation of all allocnos
-   into file F.  */
+/* Output information about allocation of all allocnos (except for
+   caps) into file F.  */
 void
 ira_print_disposition (FILE *f)
 {

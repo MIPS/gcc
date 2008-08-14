@@ -661,10 +661,6 @@ fira-coalesce
 Common Report Var(flag_ira_coalesce) Init(0)
 Do optimistic coalescing.
 
-fira-propagate-cost
-Common Report Var(flag_ira_propagate_cost) Init(0)
-Propagate hard reg costs down for regional or mixed ira allocation algorithm.
-
 fira-share-save-slots
 Common Report Var(flag_ira_share_save_slots) Init(1)
 Share slots for saving different hard registers.

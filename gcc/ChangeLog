@@ -1,3 +1,66 @@
+2008-08-1  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-conflicts.c (process_regs_for_copy): Don't add copy for
+	conflicting allocnos.
+	(propagate_allocno_copy_info, propagate_copy_info): Remove.
+	(propagate_copies): New.
+	(collected_conflict_allocnos): New.
+	(remove_conflict_allocno_copies): Remove.
+	(build_allocno_conflicts): Add parameter.  Build conflicts only
+	for one allocno. Check cap too.  Don't free conflict table row.
+	(build_conflicts): New.
+	(ira_build_conflicts): Build conflicts before adding copies.  Free
+	conflict bit table rows.
+
+	* ira-color.c (color_pass): Check cap.  Process caps only once.
+	Remove propagation code.
+	(move_spill_restore): Check caps and border allocnos.
+
+	* ira-lives.c (propagate_new_allocno_info, propagate_new_info):
+	Remove.
+	(ira_create_allocno_live_ranges): Don't propagate info of new
+	allocnos.
+
+	* ira-emit.c (not_modified_p, update_costs): Check caps.
+
+	* ira-build.c (allocnos_bitmap): Remove.
+	(create_cap_allocno): Set up all cap attributes.
+	(propagate_info_to_cap): Remove.
+	(create_loop_allocnos): Create allocnos in parent for border
+	allocnos if there is no one.
+	(propagate_allocno_info): New.
+	(create_allocnos): Don't propagate allocno info.
+	(remove_unnecessary_allocnos): Accumulate all allocno info.
+	(setup_min_max_allocno_live_range_point): Set up min/max for caps
+	too.
+	(create_loop_tree_node_caps): Remove.
+	(create_caps): New.
+	(propagate_info_to_loop_tree_node_caps): Remove.
+	(ira_flattening): Check cap.  Stop decrease call info after
+	reaching allocno which is destination of removed store.  Check
+	allocno nrefs and freq.
+	(calculate_high_pressure_loops): Remove.
+	(check_allocno_creation): New.
+	(ira_build): Call propagate_allocno_info, call_caps, and
+	check_allocno_creation.  Move
+	ira_tune_allocno_costs_and_cover_classes before
+	setup_min_max_allocno_live_range_point.
+
+	* ira.c: Update comments about IRA.
+	(ira_print_disposition): Add comment.
+
+	* ira-costs.c (total_costs): Rename to allocno_costs.
+	(total_costs): New.
+	(print_costs): Print accumulated costs too.
+	(find_allocno_class_costs): Check border allocnos for propagation
+	costs.  Setup non-accumulated costs for allocnos.
+	(process_bb_node_for_hard_reg_moves): Don't propagate costs.
+	(ira_costs): Add allocation/freeing allocno_costs.
+
+	* common.opt (fira-propagate-cost): Remove.
+
+	* doc/invoke.texi (-fira-propagate-cost): Remove.
+	
 2008-08-04  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR middle-end/36450

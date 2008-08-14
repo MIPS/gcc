@@ -1593,7 +1593,42 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
     }
   /* Color all mentioned allocnos including transparent ones.  */
   color_allocnos ();
-  /* Update costs of the corresponding allocnos in the subloops.  */
+  /* Process caps.  They are processed just once.  */
+  if (flag_ira_algorithm == IRA_ALGORITHM_MIXED
+      || flag_ira_algorithm == IRA_ALGORITHM_REGIONAL)
+    EXECUTE_IF_SET_IN_BITMAP (loop_tree_node->mentioned_allocnos, 0, j, bi)
+      {
+	a = ira_allocnos[j];
+	if (ALLOCNO_CAP_MEMBER (a) == NULL)
+	  continue;
+	/* Remove from processing in the next loop.  */
+	bitmap_clear_bit (consideration_allocno_bitmap, j);
+	class = ALLOCNO_COVER_CLASS (a);
+	if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
+	     && loop_tree_node->reg_pressure[class]
+	     <= ira_available_class_regs[class]))
+	  {
+	    mode = ALLOCNO_MODE (a);
+	    hard_regno = ALLOCNO_HARD_REGNO (a);
+	    if (hard_regno >= 0)
+	      {
+		index = ira_class_hard_reg_index[class][hard_regno];
+		ira_assert (index >= 0);
+	      }
+	    regno = ALLOCNO_REGNO (a);
+	    subloop_allocno = ALLOCNO_CAP_MEMBER (a);
+	    subloop_node = ALLOCNO_LOOP_TREE_NODE (subloop_allocno);
+	    ira_assert (!ALLOCNO_ASSIGNED_P (subloop_allocno));
+	    ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
+	    ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
+	    if (hard_regno >= 0)
+	      update_copy_costs (subloop_allocno, true);
+	    /* We don't need updated costs anymore: */
+	    ira_free_allocno_updated_costs (subloop_allocno);
+	  }
+      }
+  /* Update costs of the corresponding allocnos (not caps) in the
+     subloops.  */
   for (subloop_node = loop_tree_node->subloops;
        subloop_node != NULL;
        subloop_node = subloop_node->subloop_next)
@@ -1602,6 +1637,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
       EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, j, bi)
         {
 	  a = ira_allocnos[j];
+	  ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
 	  mode = ALLOCNO_MODE (a);
 	  class = ALLOCNO_COVER_CLASS (a);
 	  hard_regno = ALLOCNO_HARD_REGNO (a);
@@ -1612,120 +1648,71 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	    }
 	  regno = ALLOCNO_REGNO (a);
 	  /* ??? conflict costs */
-	  if (ALLOCNO_CAP_MEMBER (a) == NULL)
+	  subloop_allocno = subloop_node->regno_allocno_map[regno];
+	  if (subloop_allocno == NULL
+	      || ALLOCNO_CAP (subloop_allocno) != NULL)
+	    continue;
+	  if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
+	       && (loop_tree_node->reg_pressure[class]
+		   <= ira_available_class_regs[class]))
+	      || (hard_regno < 0
+		  && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
+				     ALLOCNO_NUM (subloop_allocno))))
 	    {
-	      subloop_allocno = subloop_node->regno_allocno_map[regno];
-	      if (subloop_allocno == NULL)
-		continue;
-	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
-		   && (loop_tree_node->reg_pressure[class]
-		       <= ira_available_class_regs[class]))
-		  || (hard_regno < 0
-		      && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
-					 ALLOCNO_NUM (subloop_allocno))))
+	      if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		{
-		  if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
-		    {
-		      ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
-		      ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
-		      if (hard_regno >= 0)
-			update_copy_costs (subloop_allocno, true);
-		      /* We don't need updated costs anymore: */
-		      ira_free_allocno_updated_costs (subloop_allocno);
-		    }
-		  continue;
+		  ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
+		  ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
+		  if (hard_regno >= 0)
+		    update_copy_costs (subloop_allocno, true);
+		  /* We don't need updated costs anymore: */
+		  ira_free_allocno_updated_costs (subloop_allocno);
 		}
-	      exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
-	      enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
-	      ira_assert (regno < ira_reg_equiv_len);
-	      if (ira_reg_equiv_invariant_p[regno]
-		  || ira_reg_equiv_const[regno] != NULL_RTX)
+	      continue;
+	    }
+	  exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
+	  enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
+	  ira_assert (regno < ira_reg_equiv_len);
+	  if (ira_reg_equiv_invariant_p[regno]
+	      || ira_reg_equiv_const[regno] != NULL_RTX)
+	    {
+	      if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		{
-		  if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
-		    {
-		      ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
-		      ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
-		      if (hard_regno >= 0)
-			update_copy_costs (subloop_allocno, true);
-		      /* We don't need updated costs anymore: */
-		      ira_free_allocno_updated_costs (subloop_allocno);
-		    }
+		  ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
+		  ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
+		  if (hard_regno >= 0)
+		    update_copy_costs (subloop_allocno, true);
+		  /* We don't need updated costs anymore: */
+		  ira_free_allocno_updated_costs (subloop_allocno);
 		}
-	      else if (hard_regno < 0)
-		{
-		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    -= ((ira_memory_move_cost[mode][class][1] * enter_freq)
-			+ (ira_memory_move_cost[mode][class][0] * exit_freq));
-		}
-	      else
-		{
-		  cover_class = ALLOCNO_COVER_CLASS (subloop_allocno);
-		  ira_allocate_and_set_costs
-		    (&ALLOCNO_HARD_REG_COSTS (subloop_allocno), cover_class,
-		     ALLOCNO_COVER_CLASS_COST (subloop_allocno));
-		  ira_allocate_and_set_costs
-		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
-		     cover_class, 0);
-		  cost = (ira_register_move_cost[mode][class][class] 
-			  * (exit_freq + enter_freq));
-		  ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
-		  ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
-		    -= cost;
-		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    += (ira_memory_move_cost[mode][class][0] * enter_freq
-			+ ira_memory_move_cost[mode][class][1] * exit_freq);
-		  if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
-		      > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
-		    ALLOCNO_COVER_CLASS_COST (subloop_allocno)
-		      = ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index];
-		}
+	    }
+	  else if (hard_regno < 0)
+	    {
+	      ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
+		-= ((ira_memory_move_cost[mode][class][1] * enter_freq)
+		    + (ira_memory_move_cost[mode][class][0] * exit_freq));
 	    }
 	  else
 	    {
-	      subloop_allocno = ALLOCNO_CAP_MEMBER (a);
-	      if (ALLOCNO_LOOP_TREE_NODE (subloop_allocno) != subloop_node)
-		continue;
-	      if ((flag_ira_algorithm == IRA_ALGORITHM_MIXED
-		   && loop_tree_node->reg_pressure[class]
-		      <= ira_available_class_regs[class])
-		  || (hard_regno < 0
-		      && ! bitmap_bit_p (subloop_node->mentioned_allocnos,
-					 ALLOCNO_NUM (subloop_allocno))))
-		{
-		  if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
-		    {
-		      ALLOCNO_HARD_REGNO (subloop_allocno) = hard_regno;
-		      ALLOCNO_ASSIGNED_P (subloop_allocno) = true;
-		      if (hard_regno >= 0)
-			update_copy_costs (subloop_allocno, true);
-		      /* We don't need updated costs anymore: */
-		      ira_free_allocno_updated_costs (subloop_allocno);
-		    }
-		}
-	      else if (flag_ira_propagate_cost && hard_regno >= 0)
-		{
-		  exit_freq = ira_loop_edge_freq (subloop_node, -1, true);
-		  enter_freq = ira_loop_edge_freq (subloop_node, -1, false);
-		  cost = (ira_register_move_cost[mode][class][class] 
-			  * (exit_freq + enter_freq));
-		  cover_class = ALLOCNO_COVER_CLASS (subloop_allocno);
-		  ira_allocate_and_set_costs
-		    (&ALLOCNO_HARD_REG_COSTS (subloop_allocno), cover_class,
-		     ALLOCNO_COVER_CLASS_COST (subloop_allocno));
-		  ira_allocate_and_set_costs
-		    (&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
-		     cover_class, 0);
-		  ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
-		  ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
-		    -= cost;
-		  ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
-		    += (ira_memory_move_cost[mode][class][0] * enter_freq
-			+ ira_memory_move_cost[mode][class][1] * exit_freq);
-		  if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
-		      > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
-		    ALLOCNO_COVER_CLASS_COST (subloop_allocno)
-		      = ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index];
-		}
+	      cover_class = ALLOCNO_COVER_CLASS (subloop_allocno);
+	      ira_allocate_and_set_costs
+		(&ALLOCNO_HARD_REG_COSTS (subloop_allocno), cover_class,
+		 ALLOCNO_COVER_CLASS_COST (subloop_allocno));
+	      ira_allocate_and_set_costs
+		(&ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno),
+		 cover_class, 0);
+	      cost = (ira_register_move_cost[mode][class][class] 
+		      * (exit_freq + enter_freq));
+	      ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index] -= cost;
+	      ALLOCNO_CONFLICT_HARD_REG_COSTS (subloop_allocno)[index]
+		-= cost;
+	      ALLOCNO_UPDATED_MEMORY_COST (subloop_allocno)
+		+= (ira_memory_move_cost[mode][class][0] * enter_freq
+		    + ira_memory_move_cost[mode][class][1] * exit_freq);
+	      if (ALLOCNO_COVER_CLASS_COST (subloop_allocno)
+		  > ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index])
+		ALLOCNO_COVER_CLASS_COST (subloop_allocno)
+		  = ALLOCNO_HARD_REG_COSTS (subloop_allocno)[index];
 	    }
 	}
     }
@@ -1785,6 +1772,7 @@ move_spill_restore (void)
 	  regno = ALLOCNO_REGNO (a);
 	  loop_node = ALLOCNO_LOOP_TREE_NODE (a);
 	  if (ALLOCNO_CAP_MEMBER (a) != NULL
+	      || ALLOCNO_CAP (a) != NULL
 	      || (hard_regno = ALLOCNO_HARD_REGNO (a)) < 0
 	      || loop_node->children == NULL
 	      /* don't do the optimization because it can create
@@ -1792,7 +1780,8 @@ move_spill_restore (void)
 		 by copy although the allocno will not get memory
 		 slot.  */
 	      || ira_reg_equiv_invariant_p[regno]
-	      || ira_reg_equiv_const[regno] != NULL_RTX)
+	      || ira_reg_equiv_const[regno] != NULL_RTX
+	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a)))
 	    continue;
 	  mode = ALLOCNO_MODE (a);
 	  class = ALLOCNO_COVER_CLASS (a);
