@@ -214,6 +214,22 @@ DEF_VEC_P(tree);
 DEF_VEC_ALLOC_P(tree,gc);
 DEF_VEC_ALLOC_P(tree,heap);
 
+/* We have to be able to tell cgraph about the needed-ness of the target
+   of an alias.  This requires that the decl have been defined.  Aliases
+   that precede their definition have to be queued for later processing.  */
+
+typedef struct alias_pair GTY(())
+{
+  tree decl;
+  tree target;
+} alias_pair;
+
+/* Define gc'd vector type.  */
+DEF_VEC_O(alias_pair);
+DEF_VEC_ALLOC_O(alias_pair,gc);
+
+extern GTY(()) VEC(alias_pair,gc) * alias_pairs;
+
 
 /* Classify which part of the compiler has defined a given builtin function.
    Note that we assume below that this is no more than two bits.  */

@@ -2098,6 +2098,18 @@ input_constructors_or_inits (struct data_in *data_in,
 	DECL_INITIAL (var) = input_expr_operand (ib, data_in, NULL, tag);
       tag = input_record_start (ib);
     }
+
+  tag = input_record_start (ib);
+  while (tag)
+    {
+      alias_pair *p = VEC_safe_push (alias_pair, gc, alias_pairs, NULL);
+      p->decl = input_expr_operand (ib, data_in, NULL, tag);
+      LTO_DEBUG_TOKEN ("alias_target");
+      tag = input_record_start (ib);
+      p->target = input_expr_operand (ib, data_in, NULL, tag);
+      tag = input_record_start (ib);
+    }
+
 }
 
 

@@ -1,3 +1,12 @@
+2008-08-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-function-in.c (input_constructors_or_inits): Input aliases.
+	* lto-function-out.c (output_constructors_and_inits): Output aliases.
+	* tree.h (alias_pair): Moved from varasm.c.
+	(alias_pairs): Moved from varasm.c.
+	* varasm.c (alias_pair): Move to tree.h.
+	(alias_pairs): Move to tree.h.
+
 2008-08-12  Simon Baldwin  <simonb@google.com>
 
 	* lto-section-out.c (produce_asm_for_decls): Move htab_delete()

@@ -2295,6 +2295,8 @@ output_constructors_and_inits (void)
 {
   struct output_block *ob = create_output_block (LTO_section_static_initializer);
   struct varpool_node *vnode;
+  unsigned i;
+  alias_pair *p;
 
   ob->cgraph_node = NULL;
 
@@ -2324,6 +2326,14 @@ output_constructors_and_inits (void)
   /* The terminator for the constructor.  */
   output_zero (ob);
 
+  for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p); i++)
+    {
+      output_expr_operand (ob, p->decl);
+      LTO_DEBUG_TOKEN ("alias_target");
+      output_expr_operand (ob, p->target);
+    }
+
+  output_zero (ob);
   LTO_SET_DEBUGGING_STREAM (debug_label_stream, label_data);
   output_named_labels (ob);
 
