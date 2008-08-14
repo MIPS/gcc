@@ -1,3 +1,38 @@
+2008-08-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+        PR c/28152
+	* gcc.dg/parser-pr28152.c: New.
+	* gcc.dg/parser-pr28152-2.c: New.
+
+2008-08-14  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* gcc.dg/vect/vect-outer-4g.c: Change loop bound.
+	* gcc.dg/vect/vect-outer-4k.c: Likewise.
+	* gcc.dg/vect/vect-outer-4l.c: Likewise.
+	* gcc.dg/vect/vect-outer-4f.c: Likewise.
+	* gcc.dg/vect/vect-outer-4a.c: Vectorizable. Remove obsolete comment.
+	* gcc.dg/vect/vect-outer-4i.c: Likewise.
+	* gcc.dg/vect/vect-outer-4b.c: Likewise.
+	* gcc.dg/vect/vect-outer-4j.c: Likewise.
+
+2008-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/37101
+	* gcc.target/i386/pr37101.c: New test.
+
+2008-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/37103
+	* gcc.c-torture/execute/20080813-1.c: New test.
+
+2008-08-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/incoming-1.c: Skip *-*-darwin*.
+	* gcc.target/i386/incoming-2.c: Likewise.
+	* gcc.target/i386/incoming-3.c: Likewise.
+	* gcc.target/i386/incoming-4.c: Likewise.
+	* gcc.target/i386/incoming-5.c: Likewise.
+
 2008-08-13  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
 	PR 30551
@@ -113,7 +148,7 @@
 	loop.
 	Should be vectorizable on targets that support vector unpack.
 	* gcc.dg/vect/vect-widen-mult-u8.c,
-	gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c,.
+	gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c,
 	gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c: Likewise.
 	* gcc.dg/vect/vect-35.c: Should be vectorizable on targets that
 	support vector pack. Avoid vectorization of the init loop.
