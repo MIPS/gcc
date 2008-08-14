@@ -1,3 +1,10 @@
+2008-08-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/37101
+	* config/i386/sse.md (*vec_concatv2di_avx): Remove vmovlps
+	alternative.
+	(*vec_concatv2di_rex64_avx): Likewise.
+
 2008-08-11  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (ix86_builtin_type): Add
