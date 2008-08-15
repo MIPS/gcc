@@ -796,14 +796,20 @@ extern int get_av_level (insn_t);
 /* A list of fences currently in the works.  */
 extern flist_t fences;
 
-extern void sel_register_rtl_hooks (void);
-extern void sel_unregister_rtl_hooks (void);
-
 /* A NOP pattern used as a placeholder for real insns.  */
 extern rtx nop_pattern;
 
 /* An insn that 'contained' in EXIT block.  */
 extern rtx exit_insn;
+
+/* Provide a separate luid for the insn.  */
+#define INSN_INIT_TODO_LUID (1)
+
+/* Initialize s_s_i_d.  */
+#define INSN_INIT_TODO_SSID (2)
+
+/* Initialize data for simplejump.  */
+#define INSN_INIT_TODO_SIMPLEJUMP (4)
 
 /* Return true is INSN is a local NOP.  The nop is local in the sense that
    it was emitted by the scheduler as a temporary insn and will soon be
@@ -832,55 +838,23 @@ extern rtx exit_insn;
                                                    ? BLOCKS             \
                                                    : (LOOP)->aux))
 
-/* When false, only notes may be added.  */
-extern bool can_add_real_insns_p;
-
-/* FALSE if we add bb to another region, so we don't need to initialize it.  */
-extern bool adding_bb_to_current_region_p;
-
 extern bitmap blocks_to_reschedule;
-
-
-
-/* Types used when initializing insn data.  */
-
-enum insn_init_what { INSN_INIT_WHAT_INSN, INSN_INIT_WHAT_INSN_RTX };
-
-/* Provide a separate luid for the insn.  */
-#define INSN_INIT_TODO_LUID (1)
-
-/* Initialize s_s_i_d.  */
-#define INSN_INIT_TODO_SSID (2)
-
-/* Initialize data for simplejump.  */
-#define INSN_INIT_TODO_SIMPLEJUMP (4)
-
-/* A container to hold information about insn initialization.  */
-struct _insn_init
-{
-  /* What is being initialized.  */
-  enum insn_init_what what;
-
-  /* This is a set of INSN_INIT_TODO_* flags.  */
-  int todo;
-};
-extern struct _insn_init insn_init;
 
 
 /* A variable to track which part of rtx we are scanning in
    sched-deps.c: sched_analyze_insn ().  */
-enum _deps_where
+enum deps_where_def
   {
     DEPS_IN_INSN,
     DEPS_IN_LHS,
     DEPS_IN_RHS,
     DEPS_IN_NOWHERE
   };
-typedef enum _deps_where deps_where_t;
+typedef enum deps_where_def deps_where_t;
 
 
 /* Per basic block data for the whole CFG.  */
-struct _sel_global_bb_info
+typedef struct
 {
   /* For each bb header this field contains a set of live registers.
      For all other insns this field has a NULL.
@@ -892,9 +866,8 @@ struct _sel_global_bb_info
      true - block has usable LV_SET.
      false - block's LV_SET should be recomputed.  */
   bool lv_set_valid_p;
-};
+} sel_global_bb_info_def;
 
-typedef struct _sel_global_bb_info sel_global_bb_info_def;
 typedef sel_global_bb_info_def *sel_global_bb_info_t;
 
 DEF_VEC_O (sel_global_bb_info_def);
@@ -915,7 +888,7 @@ extern void sel_finish_global_bb_info (void);
 #define BB_LV_SET_VALID_P(BB) (SEL_GLOBAL_BB_INFO (BB)->lv_set_valid_p)
 
 /* Per basic block data for the region.  */
-struct _sel_region_bb_info
+typedef struct 
 {
   /* This insn stream is constructed in such a way that it should be
      traversed by PREV_INSN field - (*not* NEXT_INSN).  */
@@ -927,9 +900,8 @@ struct _sel_region_bb_info
 
   /* If (AV_LEVEL == GLOBAL_LEVEL) then AV is valid.  */
   int av_level;
-};
+} sel_region_bb_info_def;
 
-typedef struct _sel_region_bb_info sel_region_bb_info_def;
 typedef sel_region_bb_info_def *sel_region_bb_info_t;
 
 DEF_VEC_O (sel_region_bb_info_def);
@@ -1311,7 +1283,6 @@ _succ_iter_cond (succ_iterator *ip, rtx *succp, rtx insn,
 
               gcc_assert (ip->flags != SUCCS_NORMAL
                           || *succp == NEXT_INSN (bb_note (bb)));
-
 	      gcc_assert (BLOCK_FOR_INSN (*succp) == bb);
 	    }
 
@@ -1416,13 +1387,13 @@ _eligible_successor_edge_p (edge e1, succ_iterator *ip)
   return !!(flags & SUCCS_OUT);
 }
 
-#define FOR_EACH_SUCC_1(SUCC, ITER, INSN, FLAGS) \
-  for ((ITER) = _succ_iter_start (&(SUCC), (INSN), (FLAGS)); \
-       _succ_iter_cond (&(ITER), &(SUCC), (INSN), _eligible_successor_edge_p);\
+#define FOR_EACH_SUCC_1(SUCC, ITER, INSN, FLAGS)                        \
+  for ((ITER) = _succ_iter_start (&(SUCC), (INSN), (FLAGS));            \
+       _succ_iter_cond (&(ITER), &(SUCC), (INSN), _eligible_successor_edge_p); \
        _succ_iter_next (&(ITER)))
 
-#define FOR_EACH_SUCC(SUCC, ITER, INSN) \
-FOR_EACH_SUCC_1 (SUCC, ITER, INSN, SUCCS_NORMAL)
+#define FOR_EACH_SUCC(SUCC, ITER, INSN)                 \
+  FOR_EACH_SUCC_1 (SUCC, ITER, INSN, SUCCS_NORMAL)
 
 /* Return the current edge along which a successor was built.  */
 #define SUCC_ITER_EDGE(ITER) ((ITER)->e1)
@@ -1552,9 +1523,6 @@ extern bool lhs_of_insn_equals_to_dest_p (insn_t, rtx);
 extern bool insn_rtx_valid (rtx);
 extern bool insn_eligible_for_subst_p (insn_t);
 extern void get_dest_and_mode (rtx, rtx *, enum machine_mode *);
-
-extern void sel_init_new_insns (void);
-extern void sel_finish_new_insns (void);
 
 extern bool bookkeeping_can_be_created_if_moved_through_p (insn_t);
 extern bool sel_remove_insn (insn_t, bool, bool);

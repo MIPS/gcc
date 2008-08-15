@@ -3430,9 +3430,6 @@ add_insn (rtx insn)
     first_insn = insn;
 
   last_insn = insn;
-
-  if (rtl_hooks.insn_added)
-    rtl_hooks.insn_added (insn);
 }
 
 /* Add INSN into the doubly-linked list after insn AFTER.  This and
@@ -3494,9 +3491,6 @@ add_insn_after (rtx insn, rtx after, basic_block bb)
       rtx sequence = PATTERN (after);
       NEXT_INSN (XVECEXP (sequence, 0, XVECLEN (sequence, 0) - 1)) = insn;
     }
-
-  if (rtl_hooks.insn_added)
-    rtl_hooks.insn_added (insn);  
 }
 
 /* Add INSN into the doubly-linked list before insn BEFORE.  This and
@@ -3561,9 +3555,6 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
   PREV_INSN (before) = insn;
   if (NONJUMP_INSN_P (before) && GET_CODE (PATTERN (before)) == SEQUENCE)
     PREV_INSN (XVECEXP (PATTERN (before), 0, 0)) = insn;
-
-  if (rtl_hooks.insn_added)
-    rtl_hooks.insn_added (insn);
 }
 
 
@@ -3999,9 +3990,6 @@ emit_insn_after_1 (rtx first, rtx after, basic_block bb)
 
   if (after == last_insn)
     last_insn = last;
-
-  if (rtl_hooks.insn_added)
-    rtl_hooks.insn_added (last);
 
   return last;
 }

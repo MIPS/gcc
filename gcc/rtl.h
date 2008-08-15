@@ -2329,8 +2329,6 @@ struct rtl_hooks
 				  unsigned int, unsigned int *);
   bool (*reg_truncated_to_mode) (enum machine_mode, const_rtx);
 
-  void (*insn_added) (rtx insn);
-
   /* Whenever you add entries here, make sure you adjust rtlhooks-def.h.  */
 };
 

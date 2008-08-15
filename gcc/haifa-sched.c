@@ -3832,7 +3832,7 @@ sched_create_recovery_block (basic_block *before_recovery_ptr)
 
   rec = create_basic_block (label, label, before_recovery);
 
-  /* Recovery block always end with an unconditional jump.  */
+  /* A recovery block always ends with an unconditional jump.  */
   emit_barrier_after (BB_END (rec));
 
   if (BB_PARTITION (before_recovery) != BB_UNPARTITIONED)
@@ -3875,10 +3875,8 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
     {
       /* Rewritten from cfgrtl.c.  */
       if (flag_reorder_blocks_and_partition
-	  && targetm.have_named_sections
-	  /*&& !any_condjump_p (jump)*/)
-	/* any_condjump_p (jump) == false.
-	   We don't need the same note for the check because
+	  && targetm.have_named_sections)
+	/* We don't need the same note for the check because
 	   any_condjump_p (check) == true.  */
 	{
 	  REG_NOTES (jump) = gen_rtx_EXPR_LIST (REG_CROSSING_JUMP,
