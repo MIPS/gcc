@@ -148,9 +148,6 @@
   DONE;
 })
 
-;; FIXME: If standard_sse_constant_opcode returns 2 instructions to
-;; fill 256bit AVX register with all 1s, instruction length will be
-;; incorrect.
 (define_insn "*avx_mov<mode>_internal"
   [(set (match_operand:AVXMODE 0 "nonimmediate_operand" "=x,x ,m")
 	(match_operand:AVXMODE 1 "nonimmediate_or_sse_const_operand"  "C ,xm,x"))]

@@ -6938,7 +6938,9 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* Return 1 if mode is a valid mode for sse.  */
+/* Return 1 if mode is a valid mode for sse and return 2 if mode is a
+   valid mode for AVX.  */
+
 static int
 standard_sse_mode_p (enum machine_mode mode)
 {
@@ -6950,6 +6952,8 @@ standard_sse_mode_p (enum machine_mode mode)
     case V8SFmode:
     case V4DImode:
     case V4DFmode:
+      return 2;
+
     case V16QImode:
     case V8HImode:
     case V4SImode:
@@ -6963,8 +6967,10 @@ standard_sse_mode_p (enum machine_mode mode)
     }
 }
 
-/* Return 1 if X is FP constant we can load to SSE register w/o using memory.
- */
+/* Return 1 if X is all 0s.  For all 1s, return 2 if X is in 128bit
+   SSE modes and SSE2 is enabled,  return 3 if X is in 256bit AVX
+   modes and AVX is enabled.  */
+
 int
 standard_sse_constant_p (rtx x)
 {
@@ -6972,9 +6978,16 @@ standard_sse_constant_p (rtx x)
 
   if (x == const0_rtx || x == CONST0_RTX (GET_MODE (x)))
     return 1;
-  if (vector_all_ones_operand (x, mode)
-      && standard_sse_mode_p (mode))
-    return TARGET_SSE2 ? 2 : -1;
+  if (vector_all_ones_operand (x, mode))
+    switch (standard_sse_mode_p (mode))
+      {
+      case 1:
+	return TARGET_SSE2 ? 2 : -2;
+      case 2:
+	return TARGET_AVX ? 3 : -3;
+      default:
+	break;
+      }
 
   return 0;
 }
@@ -7013,12 +7026,6 @@ standard_sse_constant_opcode (rtx insn, rtx x)
 	  case MODE_V2DF:
 	  case MODE_TI:
 	    return "vpcmpeqd\t%0, %0, %0";
-	    break;
-	  case MODE_V8SF:
-	  case MODE_V4DF:
-	  case MODE_OI:
-	    return "vpcmpeqd\t%0, %0, %0\n\t"
-		   "vperm2f128\t{$0x0, %0, %0, %0|%0, %0, %0, 0x0}";
 	    break;
 	  default:
 	    gcc_unreachable ();

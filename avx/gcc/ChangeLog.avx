@@ -1,3 +1,15 @@
+2008-08-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (standard_sse_mode_p): Return 2 for 256bit
+	AVX modes.
+	(standard_sse_constant_p): Return -2 for all 1s if SSE2 isn't
+	enabled.  For all 1s in 256bit AVX modes, return 3 if AVX is
+	enabled, otherwise return -3.
+	(standard_sse_constant_opcode): Remove MODE_V8SF, MODE_V4DF
+	and MODE_OI.
+
+	* config/i386/sse.md (*avx_mov<mode>_internal): Remove FIXME.
+
 2008-08-14  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/37101
