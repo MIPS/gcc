@@ -1,3 +1,21 @@
+2008-08-15  Matthias Klose  <doko@ubuntu.com>
+
+	Import GNU Classpath (libgcj-import-20080811).
+
+	* Regenerate class and header files.
+	* Regenerate auto* files.
+	* configure.ac: Don't pass --with-fastjar to classpath, substitute new
+	dummy value in classpath/gnu/classpath/Configuration.java.in, pass
+	--disable-gjdoc to classpath.
+	* scripts/makemake.tcl:
+	* sources.am: Regenerated.
+	* java/lang/AbstractStringBuffer.java, gnu/java/lang/VMCPStringBuilder.java:
+	New, copied from classpath, use System instead of VMSystem.
+	* java/lang/StringBuffer.java: Merge from classpath.
+	* java/lang/ClassLoader.java: Merge from classpath.
+	* gcj/javaprims.h: Update class definitions,
+	remove _Jv_jobjectRefType, jobjectRefType definitions.
+
 2008-08-07  Andrew Haley  <aph@redhat.com>
 
 	* testsuite/libjava.lang/StackTrace2.java: Rewrite to prevent

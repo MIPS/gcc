@@ -38,7 +38,10 @@ exception statement from your version. */
 
 package gnu.java.util.regex;
 
-import java.util.ArrayList;
+import gnu.java.lang.CPStringBuilder;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 final class RETokenRepeated extends REToken {
     private REToken token;
@@ -167,18 +170,6 @@ final class RETokenRepeated extends REToken {
 	}
     }
 
-    private static class FindMatchControlStack extends ArrayList {
-	private void push(FindMatchControl control) {
-	    add(control);
-	}
-	private FindMatchControl pop() {
-	    return (FindMatchControl)remove(size()-1);
-	}
-	private boolean empty() {
-	    return isEmpty();
-	}
-    }
-
     private static class FindMatchControl {
 	DoablesFinder finder;
 	FindMatchControl(DoablesFinder finder) {
@@ -187,11 +178,11 @@ final class RETokenRepeated extends REToken {
     }
 
     private REMatch findMatch(BacktrackStack stack) {
-	return findMatch(stack, new FindMatchControlStack());
+	return findMatch(stack, new ArrayDeque<FindMatchControl>());
     }
 
     private REMatch findMatch(BacktrackStack stack,
-		FindMatchControlStack controlStack) {
+		Deque<FindMatchControl> controlStack) {
 	REMatch result = null;
 	StackedInfo si = null;
 	CharIndexed input = null;
@@ -322,7 +313,7 @@ final class RETokenRepeated extends REToken {
 
 	} // MAIN_LOOP
 
-	if (controlStack.empty()) return result;
+	if (controlStack.isEmpty()) return result;
 	FindMatchControl control = controlStack.pop();
 	if (possessive) {
 	    return result;
@@ -509,7 +500,7 @@ final class RETokenRepeated extends REToken {
 	}
     }		    
 
-    void dump(StringBuffer os) {
+    void dump(CPStringBuilder os) {
 	os.append("(?:");
 	token.dumpAll(os);
 	os.append(')');

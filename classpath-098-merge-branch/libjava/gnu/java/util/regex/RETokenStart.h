@@ -13,6 +13,10 @@ extern "Java"
   {
     namespace java
     {
+      namespace lang
+      {
+          class CPStringBuilder;
+      }
       namespace util
       {
         namespace regex
@@ -36,7 +40,7 @@ public: // actually package-private
   virtual ::gnu::java::util::regex::REMatch * matchThis(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *);
   virtual jboolean returnsFixedLengthmatches();
   virtual jint findFixedLengthMatches(::gnu::java::util::regex::CharIndexed *, ::gnu::java::util::regex::REMatch *, jint);
-  virtual void dump(::java::lang::StringBuffer *);
+  virtual void dump(::gnu::java::lang::CPStringBuilder *);
 private:
   ::java::lang::String * __attribute__((aligned(__alignof__( ::gnu::java::util::regex::REToken)))) newline;
   jboolean check_java_line_terminators;

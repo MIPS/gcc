@@ -386,7 +386,6 @@ test -f libgcj.spec || touch libgcj.spec
 
 # Set up to configure Classpath.
 # FIXME: no supported way to pass args in autoconf.
-ac_configure_args="$ac_configure_args --with-fastjar=$JAR"
 # Disable tool wrappers to avoid ltdl.h configure check.
 ac_configure_args="$ac_configure_args --disable-tool-wrappers"
 ac_configure_args="$ac_configure_args --disable-load-library"
@@ -430,7 +429,8 @@ ac_configure_args="$ac_configure_args --disable-regen-headers"
 ac_configure_args="$ac_configure_args --disable-Werror"
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
-dnl gjdoc?
+dnl FIXME: make gjdoc configurable
+ac_configure_args="$ac_configure_args --disable-gjdoc"
 dnl gtk-cairo -- just export here...
 dnl --enable-regen-headers?
 
@@ -1316,6 +1316,7 @@ if test ! -f gnu/classpath/Configuration.java; then
       -e "s,@JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@,false," \
       -e "s,@GTK_CAIRO_ENABLED@,false," \
       -e "s,@ECJ_JAR@,," \
+      -e "s,@WANT_NATIVE_BIG_INTEGER@,false," \
 	< $srcdir/classpath/gnu/classpath/Configuration.java.in \
 	> gnu/classpath/Configuration.java
   # We do not want to redirect the output of the grep below to /dev/null,

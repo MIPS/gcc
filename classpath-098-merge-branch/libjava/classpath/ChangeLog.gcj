@@ -1,3 +1,8 @@
+2008-08-15  Matthias Klose  <doko@ubuntu.com>
+
+	* m4/acinclude.m4 (CLASSPATH_JAVAC_MEM_CHECK): Remove unknown
+	args for javac.
+
 2008-06-28  Matthias Klose  <doko@ubuntu.com>
 
 	* m4/ac_prog_javac.m4: Disable check for JAVAC, when

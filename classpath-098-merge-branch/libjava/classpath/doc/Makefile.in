@@ -49,6 +49,9 @@ am__aclocal_m4_deps = $(top_srcdir)/../../config/depstand.m4 \
 	$(top_srcdir)/../../ltoptions.m4 \
 	$(top_srcdir)/../../ltsugar.m4 \
 	$(top_srcdir)/../../ltversion.m4 \
+	$(top_srcdir)/m4/ac_prog_antlr.m4 \
+	$(top_srcdir)/m4/ac_prog_java.m4 \
+	$(top_srcdir)/m4/ac_prog_java_works.m4 \
 	$(top_srcdir)/m4/ac_prog_javac.m4 \
 	$(top_srcdir)/m4/ac_prog_javac_works.m4 \
 	$(top_srcdir)/m4/acattribute.m4 $(top_srcdir)/m4/accross.m4 \
@@ -96,6 +99,8 @@ ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
+ANTLR = @ANTLR@
+ANTLR_JAR = @ANTLR_JAR@
 AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
@@ -127,6 +132,10 @@ CREATE_DSSI_LIBRARIES_FALSE = @CREATE_DSSI_LIBRARIES_FALSE@
 CREATE_DSSI_LIBRARIES_TRUE = @CREATE_DSSI_LIBRARIES_TRUE@
 CREATE_GCONF_PEER_LIBRARIES_FALSE = @CREATE_GCONF_PEER_LIBRARIES_FALSE@
 CREATE_GCONF_PEER_LIBRARIES_TRUE = @CREATE_GCONF_PEER_LIBRARIES_TRUE@
+CREATE_GJDOC_FALSE = @CREATE_GJDOC_FALSE@
+CREATE_GJDOC_TRUE = @CREATE_GJDOC_TRUE@
+CREATE_GMPBI_LIBRARY_FALSE = @CREATE_GMPBI_LIBRARY_FALSE@
+CREATE_GMPBI_LIBRARY_TRUE = @CREATE_GMPBI_LIBRARY_TRUE@
 CREATE_GSTREAMER_PEER_LIBRARIES_FALSE = @CREATE_GSTREAMER_PEER_LIBRARIES_FALSE@
 CREATE_GSTREAMER_PEER_LIBRARIES_TRUE = @CREATE_GSTREAMER_PEER_LIBRARIES_TRUE@
 CREATE_GTK_PEER_LIBRARIES_FALSE = @CREATE_GTK_PEER_LIBRARIES_FALSE@
@@ -164,7 +173,6 @@ ERROR_CFLAGS = @ERROR_CFLAGS@
 EXAMPLESDIR = @EXAMPLESDIR@
 EXEEXT = @EXEEXT@
 EXTRA_CFLAGS = @EXTRA_CFLAGS@
-FASTJAR = @FASTJAR@
 FGREP = @FGREP@
 FIND = @FIND@
 FREETYPE2_CFLAGS = @FREETYPE2_CFLAGS@
@@ -178,6 +186,8 @@ GENINSRC_TRUE = @GENINSRC_TRUE@
 GJDOC = @GJDOC@
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
+GMP_CFLAGS = @GMP_CFLAGS@
+GMP_LIBS = @GMP_LIBS@
 GREP = @GREP@
 GSTREAMER_BASE_CFLAGS = @GSTREAMER_BASE_CFLAGS@
 GSTREAMER_BASE_LIBS = @GSTREAMER_BASE_LIBS@
@@ -199,6 +209,8 @@ INSTALL_GLIBJ_ZIP_TRUE = @INSTALL_GLIBJ_ZIP_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JAR = @JAR@
+JAVA = @JAVA@
 JAVAC = @JAVAC@
 JAVAC_MEM_OPT = @JAVAC_MEM_OPT@
 JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION = @JAVA_LANG_SYSTEM_EXPLICIT_INITIALIZATION@
@@ -260,8 +272,10 @@ USE_ESCHER_TRUE = @USE_ESCHER_TRUE@
 USE_PREBUILT_GLIBJ_ZIP_FALSE = @USE_PREBUILT_GLIBJ_ZIP_FALSE@
 USE_PREBUILT_GLIBJ_ZIP_TRUE = @USE_PREBUILT_GLIBJ_ZIP_TRUE@
 VERSION = @VERSION@
-VM_BINARY = @VM_BINARY@
+WANT_NATIVE_BIG_INTEGER = @WANT_NATIVE_BIG_INTEGER@
 WARNING_CFLAGS = @WARNING_CFLAGS@
+WITH_JAR_FALSE = @WITH_JAR_FALSE@
+WITH_JAR_TRUE = @WITH_JAR_TRUE@
 XML_CFLAGS = @XML_CFLAGS@
 XML_LIBS = @XML_LIBS@
 XSLT_CFLAGS = @XSLT_CFLAGS@
@@ -325,9 +339,10 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 toolexeclibdir = @toolexeclibdir@
+uudecode = @uudecode@
 vm_classes = @vm_classes@
 SUBDIRS = api
-EXTRA_DIST = README.jaxp texi2pod.pl $(man_MANS)
+EXTRA_DIST = README.jaxp texi2pod.pl invoke.texi $(man_MANS)
 TEXINFO_TEX = ../../gcc/doc/include/texinfo.tex
 info_TEXINFOS = cp-tools.texinfo
 man_MANS = $(TOOLS_MANFILES)
@@ -343,12 +358,16 @@ TOOLS_MANFILES = \
 	grmid.1 \
 	grmiregistry.1 \
 	gserialver.1 \
-	gtnameserv.1
+	gtnameserv.1 \
+	gjdoc.1
 
 POD2MAN = pod2man --center="GNU" --release="$(VERSION)"
 TEXI2POD = perl $(srcdir)/texi2pod.pl
 STAMP = echo timestamp >
 @GENINSRC_FALSE@STAMP_GENINSRC = 
+
+# GCJ LOCAL CHANGE
+#CLEANFILES = $(TOOLS_MANFILES)
 
 # GCJ LOCAL CHANGE
 # The following commands allow us to release tarballs with the man pages
@@ -879,7 +898,7 @@ docs: cp-hacking.ps cp-vmintegration.ps cp-tools.ps $(TOOLS_MANFILES)
 
 .INTERMEDIATE: gappletviewer.pod gjarsigner.pod gjar.pod gjavah.pod \
 	gkeytool.pod gnative2ascii.pod gorbd.pod grmid.pod grmiregistry.pod \
-	gserialver.pod gtnameserv.pod gcjh.pod
+	gserialver.pod gtnameserv.pod gcjh.pod gjdoc.pod
 
 gappletviewer.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gappletviewer < $< > $@
@@ -921,6 +940,9 @@ gserialver.pod: $(srcdir)/cp-tools.texinfo
 gtnameserv.pod: $(srcdir)/cp-tools.texinfo
 	-$(TEXI2POD) -D gtnameserv < $< > $@
 
+gjdoc.pod: $(srcdir)/invoke.texi
+	-$(TEXI2POD) -D gjdoc < $< > $@
+
 all-local: $(STAMP_GENINSRC) 
 
 stamp-geninsrc: $(TOOLS_MANFILES) cp-tools.info
@@ -928,6 +950,7 @@ stamp-geninsrc: $(TOOLS_MANFILES) cp-tools.info
 	-cp -p gjar.1 $(srcdir)/gjar.1
 	-cp -p gjarsigner.1 $(srcdir)/gjarsigner.1
 	-cp -p gjavah.1 $(srcdir)/gjavah.1
+	-cp -p gjdoc.1 $(srcdir)/gjdoc.1
 	-cp -p gkeytool.1 $(srcdir)/gkeytool.1
 	-cp -p gnative2ascii.1 $(srcdir)/gnative2ascii.1
 	-cp -p gorbd.1 $(srcdir)/gorbd.1

@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package gnu.java.util.regex;
 
+import gnu.java.lang.CPStringBuilder;
+
 /**
  * @author Ito Kazumitsu
  */
@@ -60,8 +62,6 @@ final class RETokenLookBehind extends REToken
     int max = re.getMaximumLength();
     CharIndexed behind = input.lookBehind(mymatch.index, max);
     REMatch trymatch = (REMatch)mymatch.clone();
-    REMatch trymatch1 = (REMatch)mymatch.clone();
-    REMatch newMatch = null;
     int diff = behind.length() - input.length();
     int curIndex = trymatch.index + diff;
     trymatch.index = 0;
@@ -89,7 +89,7 @@ final class RETokenLookBehind extends REToken
     }
   }
 
-    void dump(StringBuffer os) {
+    void dump(CPStringBuilder os) {
 	os.append("(?<");
 	os.append(negative ? '!' : '=');
 	re.dumpAll(os);
@@ -111,7 +111,7 @@ final class RETokenLookBehind extends REToken
 	    return (index == mymatch.index ? mymatch : null);
 	}
 
-        void dump(StringBuffer os) {}
+        void dump(CPStringBuilder os) {}
 
     }
 }

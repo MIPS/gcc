@@ -36,6 +36,9 @@ obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
 package gnu.java.util.regex;
+
+import gnu.java.lang.CPStringBuilder;
+
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.NoSuchElementException;
@@ -66,17 +69,18 @@ import java.util.NoSuchElementException;
  * 
  * @author <A HREF="mailto:wes@cacas.org">Wes Biggs</A> 
  */
-public class REMatchEnumeration implements Enumeration, Serializable {
+public class REMatchEnumeration 
+  implements Enumeration<REMatch>, Serializable {
   private static final int YES = 1;
   private static final int MAYBE = 0;
   private static final int NO = -1;
   
   private int more;
   private REMatch match;
-  private RE expr;
-  private CharIndexed input;
-  private int eflags;
-    private int index;
+  private final RE expr;
+  private final CharIndexed input;
+  private final int eflags;
+  private int index;
 
   // Package scope constructor is used by RE.getMatchEnumeration()
   REMatchEnumeration(RE expr, CharIndexed input, int index, int eflags) {
@@ -101,7 +105,7 @@ public class REMatchEnumeration implements Enumeration, Serializable {
    * Saves the text leading up to the match (or to the end of the input)
    * in the specified buffer.
    */
-  public boolean hasMoreMatches(StringBuffer buffer) {
+  public boolean hasMoreMatches(CPStringBuilder buffer) {
     if (more == MAYBE) {
 	match = expr.getMatchImpl(input,index,eflags,buffer);
 	if (match != null) {
@@ -115,20 +119,14 @@ public class REMatchEnumeration implements Enumeration, Serializable {
   }
 
   /** Returns the next match in the input text. */
-  public Object nextElement() throws NoSuchElementException {
-    return nextMatch();
-  }
-
-  /** 
-   * Returns the next match in the input text. This method is provided
-   * for convenience to avoid having to explicitly cast the return value
-   * to class REMatch.
-   */
-  public REMatch nextMatch() throws NoSuchElementException {
-    if (hasMoreElements()) {
+  public REMatch nextElement() 
+    throws NoSuchElementException 
+  {
+    if (hasMoreElements()) 
+      {
 	more = (input.isValid()) ? MAYBE : NO;
 	return match;
-    }
+      }
     throw new NoSuchElementException();
   }
 }
