@@ -1527,7 +1527,6 @@ extern bool av_set_is_in_p (av_set_t, vinsn_t);
 extern av_set_t av_set_copy (av_set_t);
 extern void av_set_union_and_clear (av_set_t *, av_set_t *, insn_t);
 extern void av_set_union_and_live (av_set_t *, av_set_t *, regset, regset, insn_t);
-extern void av_set_truncate (av_set_t);
 extern void av_set_clear (av_set_t *);
 extern void av_set_leave_one_nonspec (av_set_t *);
 extern expr_t av_set_element (av_set_t, int);

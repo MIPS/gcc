@@ -1058,8 +1058,8 @@ haifa_find_rgns (void)
 
 
 /* Wrapper function.
-   If FLAG_SEL_SCHED_PIPELINING_OUTER_LOOPS is set, then use custom
-   function to form a region.  Otherwise just call find_rgns_haifa.  */
+   If FLAG_SEL_SCHED_PIPELINING is set, then use custom function to form
+   regions.  Otherwise just call find_rgns_haifa.  */
 static void
 find_rgns (void)
 {

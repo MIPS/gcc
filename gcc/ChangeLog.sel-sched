@@ -1,3 +1,17 @@
+2008-08-15  Alexander Monakov  <amonakov@ispras.ru>
+
+	* common.opt (fsel-sched-restrict-pipelining): Remove.
+	* sched-rgn.c (find_rgns): Update comment.
+	* sel-sched-ir.c (expr_greater_p): Remove.
+	(av_set_add_element): Simplify.  Update all callers.
+	(join_distinct_sets): Simplify.  Update all callers.
+	(av_set_truncate): Remove.
+	* sel-sched-ir.h (av_set_truncate): Remove.
+	* sel-sched.c (create_speculation_check): Decrease priority of
+	generated check instructions.
+        (fill_vec_av_set): Rewrite pipelining heuristics.
+        (fill_insns): Do not stall for too long without updating fence.
+
 2008-07-22  Andrey Belevantsev  <abel@ispras.ru>
 
 	* sel-sched-ir.c (sel_add_or_remove_bb): Remove prototype.

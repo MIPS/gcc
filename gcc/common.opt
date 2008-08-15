@@ -945,10 +945,6 @@ fsel-sched-reschedule-pipelined
 Common Report Var(flag_sel_sched_reschedule_pipelined) Init(0) Optimization
 Reschedule pipelined regions without pipelining
 
-fsel-sched-restrict-pipelining=
-Common RejectNegative Joined Report UInteger Var(flag_sel_sched_restrict_pipelining) Init(0)
-Restrict the aggressiveness of selective pipelining
-
 fsel-sched-renaming
 Common Report Var(flag_sel_sched_renaming) Init(1) Optimization
 Do register renaming in selective scheduling

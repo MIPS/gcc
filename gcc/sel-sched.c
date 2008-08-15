@@ -1833,6 +1833,11 @@ create_speculation_check (expr_t c_expr, ds_t check_ds, insn_t orig_insn)
   EXPR_SPEC_DONE_DS (INSN_EXPR (insn)) = 0;
   INSN_SPEC_CHECKED_DS (insn) = check_ds;
 
+  /* Decrease priority of check by difference of load/check instruction
+     latencies.  */
+  EXPR_PRIORITY (INSN_EXPR (insn)) -= (sel_vinsn_cost (INSN_VINSN (orig_insn))
+				       - sel_vinsn_cost (INSN_VINSN (insn)));
+
   /* Emit copy of original insn (though with replaced target register,
      if needed) to the recovery block.  */
   if (recovery_block != NULL)
@@ -3529,7 +3534,8 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
 {
   av_set_iterator si;
   expr_t expr;
-  int sched_next_worked = 0, stalled, n, av0_prio;
+  int sched_next_worked = 0, stalled, n;
+  static int av_max_prio, est_ticks_till_branch;
   int min_need_stall = -1;
   deps_t dc = BND_DC (BLIST_BND (bnds));
 
@@ -3551,14 +3557,21 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
   qsort (VEC_address (expr_t, vec_av_set), VEC_length (expr_t, vec_av_set),
          sizeof (expr_t), sel_rank_for_schedule);
 
-  /* Filter out inappropriate expressions.  */
-  av0_prio = 0;
-  for (n = 0, stalled = 0; VEC_iterate (expr_t, vec_av_set, n, expr); )
+  /* We record maximal priority of insns in av set for current instruction
+     group.  */
+  if (FENCE_STARTS_CYCLE_P (fence))
+    av_max_prio = est_ticks_till_branch = INT_MIN;
+
+  /* Filter out inappropriate expressions.  Loop's direction is reversed to
+     visit "best" instructions first.  We assume that VEC_unordered_remove
+     moves last element in place of one being deleted.  */
+  for (n = VEC_length (expr_t, vec_av_set) - 1, stalled = 0; n >= 0; n--)
     {
+      expr_t expr = VEC_index (expr_t, vec_av_set, n);
       insn_t insn = EXPR_INSN_RTX (expr);
       char target_available;
       bool is_orig_reg_p = true;
-      int need_cycles, new_prio;
+      int need_cycles;
 
       /* Don't allow any insns other than from SCHED_GROUP if we have one.  */
       if (FENCE_SCHED_NEXT (fence) && insn != FENCE_SCHED_NEXT (fence))
@@ -3606,7 +3619,7 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
                (target_available == false
                 && !EXPR_SEPARABLE_P (expr))
                /* Don't try to find a register for low-priority expression.  */
-               || n >= max_insns_to_rename
+               || (int) VEC_length (expr_t, vec_av_set) - 1 - n >= max_insns_to_rename
                /* ??? FIXME: Don't try to rename data speculation.  */
                || (EXPR_SPEC_DONE_DS (expr) & BEGIN_DATA)
                || ! find_best_reg_for_expr (expr, bnds, &is_orig_reg_p))
@@ -3622,36 +3635,25 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
 	 pipelining, because compensating register copies or speculation
 	 checks are likely to be placed near the beginning of the loop,
 	 causing a stall.  */
-      if ((flag_sel_sched_restrict_pipelining & 1)
-	  && pipelining_p && EXPR_ORIG_SCHED_CYCLE (expr) > 0
+      if (pipelining_p && EXPR_ORIG_SCHED_CYCLE (expr) > 0
 	  && (!is_orig_reg_p || EXPR_SPEC_DONE_DS (expr) != 0))
 	{
 	  /* Estimation of number of cycles until loop branch for
 	     renaming/speculation to be successful.  */
 	  int need_n_ticks_till_branch = sel_vinsn_cost (EXPR_VINSN (expr));
 
-	  if ((int) current_loop_nest->ninsns < 2 * issue_rate)
-	     {
-	       VEC_unordered_remove (expr_t, vec_av_set, n);
-	       if (sched_verbose >= 4)
-		 sel_print ("Pipelining expr %d will likely cause stall\n",
-			    INSN_UID (insn));
-	       continue;
-	     }
-
-	  if (!is_orig_reg_p)
+	  if ((int) current_loop_nest->ninsns < 9)
 	    {
-	      if (EXPR_SPEC_DONE_DS (expr) != 0)
-		need_n_ticks_till_branch -= 0;
-	      else
-		need_n_ticks_till_branch -= 2;
+	      VEC_unordered_remove (expr_t, vec_av_set, n);
+	      if (sched_verbose >= 4)
+		sel_print ("Pipelining expr %d will likely cause stall\n",
+			   INSN_UID (insn));
+	      continue;
 	    }
-	  else
-	    need_n_ticks_till_branch -= 3;
 
 	  if ((int) current_loop_nest->ninsns - num_insns_scheduled
 	      < need_n_ticks_till_branch * issue_rate / 2
-	      && av0_prio <= need_n_ticks_till_branch)
+	      && est_ticks_till_branch < need_n_ticks_till_branch)
 	     {
 	       VEC_unordered_remove (expr_t, vec_av_set, n);
 	       if (sched_verbose >= 4)
@@ -3661,46 +3663,57 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
 	     }
 	}
 
-      /* While rescheduling, delay a check until its calculated cycle.  */
-      if ((flag_sel_sched_restrict_pipelining & 2)
-	  && !pipelining_p
-	  && INSN_SCHED_CYCLE (insn) > FENCE_CYCLE (fence)
-	  && sel_insn_is_speculation_check (insn))
+      /* We want to schedule speculation checks as late as possible.  Discard
+	 them from av set if there are instructions with higher priority.  */
+      if (sel_insn_is_speculation_check (insn)
+	  && EXPR_PRIORITY (expr) < av_max_prio)
 	{
           stalled++;
           min_need_stall = min_need_stall < 0 ? 1 : MIN (min_need_stall, 1);
           VEC_unordered_remove (expr_t, vec_av_set, n);
 	  if (sched_verbose >= 4)
-	    sel_print ("Scheduling expr %d will likely cause stall\n",
+	    sel_print ("Delaying speculation check %d until its first use\n",
 		       INSN_UID (insn));
 	  continue;
 	}
 
-      /* Don't allow any insns whose data is not yet ready.  
+      /* Ignore EXPRs available from pipelining to update AV_MAX_PRIO.  */
+      if (EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
+	av_max_prio = MAX (av_max_prio, EXPR_PRIORITY (expr));
+
+      /* Don't allow any insns whose data is not yet ready.
          Check first whether we've already tried them and failed.  */
-      if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence)
-          && (need_cycles = (FENCE_READY_TICKS (fence)[INSN_UID (insn)]
-                             - FENCE_CYCLE (fence))) > 0)
-        {
-          stalled++;
-          min_need_stall = (min_need_stall < 0 
-                            ? need_cycles
-                            : MIN (min_need_stall, need_cycles));
-          VEC_unordered_remove (expr_t, vec_av_set, n);
-          
-          if (sched_verbose >= 4)
-            sel_print ("Expr %d is not ready until cycle %d (cached)\n", 
-                       INSN_UID (insn),
-                       FENCE_READY_TICKS (fence)[INSN_UID (insn)]);
-          continue;
-        }
+      if (INSN_UID (insn) < FENCE_READY_TICKS_SIZE (fence))
+	{
+          need_cycles = (FENCE_READY_TICKS (fence)[INSN_UID (insn)]
+			 - FENCE_CYCLE (fence));
+	  if (EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
+	    est_ticks_till_branch = MAX (est_ticks_till_branch,
+					 EXPR_PRIORITY (expr) + need_cycles);
+
+	  if (need_cycles > 0)
+	    {
+	      stalled++;
+	      min_need_stall = (min_need_stall < 0 
+				? need_cycles
+				: MIN (min_need_stall, need_cycles));
+	      VEC_unordered_remove (expr_t, vec_av_set, n);
+
+	      if (sched_verbose >= 4)
+		sel_print ("Expr %d is not ready until cycle %d (cached)\n", 
+			   INSN_UID (insn),
+			   FENCE_READY_TICKS (fence)[INSN_UID (insn)]);
+	      continue;
+	    }
+	}
 
       /* Now resort to dependence analysis to find whether EXPR might be 
          stalled due to dependencies from FENCE's context.  */
       need_cycles = tick_check_p (expr, dc, fence);
-      new_prio = EXPR_PRIORITY (expr) + need_cycles;
-      if (av0_prio < new_prio && EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
-        av0_prio = new_prio;
+      if (EXPR_ORIG_SCHED_CYCLE (expr) <= 0)
+	est_ticks_till_branch = MAX (est_ticks_till_branch,
+				     EXPR_PRIORITY (expr) + need_cycles);
+
       if (need_cycles > 0)
         {
           if (INSN_UID (insn) >= FENCE_READY_TICKS_SIZE (fence))
@@ -3731,7 +3744,6 @@ fill_vec_av_set (av_set_t av, blist_t bnds, fence_t fence,
 
       if (sched_verbose >= 4)
         sel_print ("Expr %d is ok\n", INSN_UID (insn));
-      n++;
       min_need_stall = 0;
     }
 
@@ -5181,11 +5193,19 @@ fill_insns (fence_t fence, int seqno, ilist_t **scheduled_insns_tailpp)
             {
               /* All expressions required a stall.  Do not recompute av sets
                  as we'll get the same answer (modulo the insns between
-                 the fence and its boundary, which will be available for 
+                 the fence and its boundary, which will not be available for
                  pipelining).  */
               gcc_assert (! expr_vliw && stall_iterations < 2);
-	      stall_for_cycles (fence, need_stall);
               was_stall++;
+	      /* If we are going to stall for too long, break to recompute av
+		 sets and bring more insns for pipelining.  */
+	      if (need_stall <= 3)
+		stall_for_cycles (fence, need_stall);
+	      else
+		{
+		  stall_for_cycles (fence, 1);
+		  break;
+		}
             }
         }
       while (! expr_vliw && need_stall);

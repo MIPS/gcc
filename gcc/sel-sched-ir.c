@@ -1965,47 +1965,14 @@ mark_unavailable_targets (av_set_t join_set, av_set_t av_set, regset lv_set)
 
 /* Av set functions.  */
 
-/* Return true if we think that EXPR2 must be before EXPR1 in av set.  */
-static inline bool
-expr_greater_p (expr_t expr1, expr_t expr2)
-{
-  int tmp;
-
-  tmp = EXPR_USEFULNESS (expr2) - EXPR_USEFULNESS (expr1);
-  if (tmp) 
-    return tmp > 0;
-  tmp = EXPR_PRIORITY (expr2) - EXPR_PRIORITY (expr1);
-  if (tmp) 
-    return tmp > 0;
-  return INSN_UID (EXPR_INSN_RTX (expr2)) < INSN_UID (EXPR_INSN_RTX (expr1));
-}
-
-/* Add a new element to av set SETP, having in mind the priority.  
+/* Add a new element to av set SETP.
    Return the element added.  */
-static av_set_t 
-av_set_add_element (av_set_t *setp, expr_t expr)
+static av_set_t
+av_set_add_element (av_set_t *setp)
 {
-  av_set_t *prevp = NULL, elem;
-
-  while (*setp && ! expr_greater_p (_AV_SET_EXPR (*setp), expr))
-    {
-      prevp = setp;
-      setp = &_AV_SET_NEXT (*setp);
-    }
-
-  if (prevp == NULL)
-    {
-      /* Insert at the beginning of the list.  */
-      _list_add (setp);
-      return *setp;
-    }
-
-  /* Insert somewhere in the middle.  */
-  elem = _list_alloc ();
-  _AV_SET_NEXT (elem) = _AV_SET_NEXT (*prevp);
-  _AV_SET_NEXT (*prevp) = elem;
-
-  return elem;
+  /* Insert at the beginning of the list.  */
+  _list_add (setp);
+  return *setp;
 }
 
 /* Add EXPR to SETP.  */
@@ -2015,7 +1982,7 @@ av_set_add (av_set_t *setp, expr_t expr)
   av_set_t elem;
   
   gcc_assert (!INSN_NOP_P (EXPR_INSN_RTX (expr)));
-  elem = av_set_add_element (setp, expr);
+  elem = av_set_add_element (setp);
   copy_expr (_AV_SET_EXPR (elem), expr);
 }
 
@@ -2025,7 +1992,7 @@ av_set_add_nocopy (av_set_t *setp, expr_t expr)
 {
   av_set_t elem;
 
-  elem = av_set_add_element (setp, expr);
+  elem = av_set_add_element (setp);
   *_AV_SET_EXPR (elem) = *expr;
 }
 
@@ -2135,53 +2102,16 @@ av_set_copy (av_set_t set)
   return res;
 }
 
-/* Join two av sets that do not have common elements and save the resulting
-   set in TOP.  FROMP will be null after this.  */
-static void 
-join_distinct_sets (av_set_t *top, av_set_t *fromp)
+/* Join two av sets that do not have common elements by attaching second set
+   (pointed to by FROMP) to the end of first set (TO_TAILP must point to
+   _AV_SET_NEXT of first set's last element).  */
+static void
+join_distinct_sets (av_set_t *to_tailp, av_set_t *fromp)
 {
-  av_set_t *oldp = fromp, from = *fromp;
-
-  while (from)
-    {
-      av_set_t prev = NULL, tmp = *top;
-      av_set_t next = _AV_SET_NEXT (from);
-      
-      while (tmp && ! expr_greater_p (_AV_SET_EXPR (tmp), 
-                                      _AV_SET_EXPR (from)))
-        {
-          prev = tmp;
-          tmp = _AV_SET_NEXT (tmp);
-        }
-      
-      _AV_SET_NEXT (from) = tmp;
-      if (prev == NULL)
-        *top = from;
-      else
-        _AV_SET_NEXT (prev) = from;
-
-      from = next;
-    }
-  
-  *oldp = NULL;
+  gcc_assert (*to_tailp == NULL);
+  *to_tailp = *fromp;
+  *fromp = NULL;
 }
-
-/* Truncate the set so it doesn't grow too much.  */
-void
-av_set_truncate (av_set_t set)
-{
-  int n = 0;
-  av_set_t prev;
-
-  while (set && ++n <= 9)
-    {
-      prev = set;
-      set = _AV_SET_NEXT (set);
-    }
-  if (set)
-    av_set_clear (&_AV_SET_NEXT (prev));
-}
-
 
 /* Makes set pointed to by TO to be the union of TO and FROM.  Clear av_set
    pointed to by FROMP afterwards.  */
@@ -2203,7 +2133,7 @@ av_set_union_and_clear (av_set_t *top, av_set_t *fromp, insn_t insn)
 	}
     }
 
-  join_distinct_sets (top, fromp);
+  join_distinct_sets (i.lp, fromp);
 }
 
 /* Same as above, but also update availability of target register in 
@@ -2214,7 +2144,7 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
 {
   expr_t expr1;
   av_set_iterator i;
-  av_set_t in_both_set = NULL;
+  av_set_t *to_tailp, in_both_set = NULL;
 
   /* Delete from TOP all expres, that present in FROMP.  */
   FOR_EACH_EXPR_1 (expr1, i, top)
@@ -2250,14 +2180,15 @@ av_set_union_and_live (av_set_t *top, av_set_t *fromp, regset to_lv_set,
            FROM_LV_SET.  */
         set_unavailable_target_for_expr (expr1, from_lv_set);
     }
+  to_tailp = i.lp;
 
   /* These expressions are not present in TOP.  Check liveness
      restrictions on TO_LV_SET.  */
   FOR_EACH_EXPR (expr1, i, *fromp)
     set_unavailable_target_for_expr (expr1, to_lv_set);
 
-  join_distinct_sets (top, &in_both_set);
-  join_distinct_sets (top, fromp);
+  join_distinct_sets (i.lp, &in_both_set);
+  join_distinct_sets (to_tailp, fromp);
 }
 
 /* Clear av_set pointed to by SETP.  */
