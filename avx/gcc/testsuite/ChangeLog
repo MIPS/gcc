@@ -1,3 +1,58 @@
+2008-08-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/36825
+	* gfortran.dg/rank_1.f90: Modify error message.
+
+2008-08-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35863
+	* gfortran.dg/utf8_1.f03: New test.
+	* gfortran.dg/utf8_2.f03: New test.
+
+2008-08-15  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* gcc.dg/pr30551-6.c: Skip for SPU.
+	* gcc.dg/pr30551-3.c: Likewise.
+	* gcc.dg/pr30551.c: Likewise.
+	* g++.dg/warn/pr30551-2.C: Likewise.
+	* g++.dg/warn/pr30551.C: Likewise.
+	
+2008-08-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/36705
+	* gfortran.dg/argument_checking_7.f90: Modified.
+	* gfortran.dg/conflicts.f90: Modified.
+	* gfortran.dg/proc_decl_1.f90: Modified.
+	* gfortran.dg/proc_ptr_9.f90: New.
+
+2008-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34485
+	* g++.dg/template/crash81.C: New.
+	* g++.old-deja/g++.benjamin/tem03.C: Adjust.
+	* g++.old-deja/g++.benjamin/tem04.C: Likewise.
+	* g++.old-deja/g++.brendan/crash7.C: Likewise.
+
+2008-08-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/36886
+	* gfortran.dg/cshift_char_3.f90:  New test case.
+	* gfortran.dg/cshift_nan_1.f90:  New test case.
+
+2008-08-14  Rafael Avila de Espindola  <espindola@google.com>
+
+	* gcc.dg/visibility-14.c: New test.
+	* gcc.dg/visibility-15.c: New test.
+	* gcc.dg/visibility-16.c: New test.
+	* gcc.dg/visibility-17.c: New test.
+	* gcc.dg/visibility-18.c: New test.
+	* gcc.dg/visibility-19.c: New test.
+
+2008-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34600
+	* g++.dg/parse/crash43.C: New.
+
 2008-08-14  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
 
         PR c/28152
