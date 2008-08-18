@@ -2211,9 +2211,22 @@ new_ready (rtx next, ds_t ts)
 		 But we possibly can handle that with control speculation.  */
 	      && sched_deps_info->generate_spec_deps
 	      && spec_info->mask & BEGIN_CONTROL)
-            /* Here we got new control-speculative instruction.  */
-            ts = set_dep_weak (ts, BEGIN_CONTROL, MAX_DEP_WEAK);
+	    {
+	      ds_t new_ds;
+
+	      /* Add control speculation to NEXT's dependency type.  */
+	      new_ds = set_dep_weak (ts, BEGIN_CONTROL, MAX_DEP_WEAK);
+
+	      /* Check if NEXT can be speculated with new dependency type.  */
+	      if (sched_insn_is_legitimate_for_speculation_p (next, new_ds))
+		/* Here we got new control-speculative instruction.  */
+		ts = new_ds;
+	      else
+		/* NEXT isn't ready yet.  */
+		ts = (ts & ~SPECULATIVE) | HARD_DEP;
+	    }
 	  else
+	    /* NEXT isn't ready yet.  */
             ts = (ts & ~SPECULATIVE) | HARD_DEP;
 	}
     }
@@ -2511,10 +2524,10 @@ static struct deps *bb_deps;
 static rtx
 concat_INSN_LIST (rtx copy, rtx old)
 {
-  rtx new = old;
+  rtx new_rtx = old;
   for (; copy ; copy = XEXP (copy, 1))
-    new = alloc_INSN_LIST (XEXP (copy, 0), new);
-  return new;
+    new_rtx = alloc_INSN_LIST (XEXP (copy, 0), new_rtx);
+  return new_rtx;
 }
 
 static void
@@ -2721,7 +2734,6 @@ debug_rgn_dependencies (int from_bb)
     {
       rtx head, tail;
 
-      gcc_assert (EBB_FIRST_BB (bb) == EBB_LAST_BB (bb));
       get_ebb_head_tail (EBB_FIRST_BB (bb), EBB_LAST_BB (bb), &head, &tail);
       fprintf (sched_dump, "\n;;   --- Region Dependences --- b %d bb %d \n",
 	       BB_TO_BLOCK (bb), bb);

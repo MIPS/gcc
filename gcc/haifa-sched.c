@@ -553,6 +553,8 @@ static void change_queue_index (rtx, int);
 /* The following functions are used to implement scheduling of data/control
    speculative instructions.  */
 
+static void extend_h_i_d (void);
+static void init_h_i_d (rtx);
 static void generate_recovery_code (rtx);
 static void process_insn_forw_deps_be_in_spec (rtx, rtx, ds_t);
 static void begin_speculative_block (rtx);
@@ -4256,32 +4258,6 @@ haifa_change_pattern (rtx insn, rtx new_pat)
   INSN_COST (insn) = -1;
   /* Invalidate INSN_TICK, so it'll be recalculated.  */
   INSN_TICK (insn) = INVALID_TICK;
-}
-
-/* Return true if INSN can potentially be speculated with type DS.  */
-bool
-sched_insn_is_legitimate_for_speculation_p (const_rtx insn, ds_t ds)
-{
-  if (HAS_INTERNAL_DEP (insn))
-    return false;
-
-  if (!NONJUMP_INSN_P (insn))
-    return false;
-
-  if (SCHED_GROUP_P (insn))
-    return false;
-
-  if (IS_SPECULATION_CHECK_P (CONST_CAST_RTX (insn)))
-    return false;
-
-  if (side_effects_p (PATTERN (insn)))
-    return false;
-
-  if ((ds & BE_IN_SPEC)
-      && may_trap_p (PATTERN (insn)))
-    return false;
-
-  return true;
 }
 
 /* -1 - can't speculate,

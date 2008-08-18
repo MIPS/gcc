@@ -1083,6 +1083,7 @@ extern struct sched_deps_info_def *sched_deps_info;
 
 /* Functions in sched-deps.c.  */
 extern bool sched_insns_conditions_mutex_p (const_rtx, const_rtx);
+extern bool sched_insn_is_legitimate_for_speculation_p (const_rtx, ds_t);
 extern void add_dependence (rtx, rtx, enum reg_note);
 extern void sched_analyze (struct deps *, rtx, rtx);
 extern void init_deps (struct deps *);
@@ -1153,7 +1154,6 @@ extern void sched_extend_ready_list (int);
 extern void sched_finish_ready_list (void);
 extern void sched_change_pattern (rtx, rtx);
 extern int sched_speculate_insn (rtx, ds_t, rtx *);
-extern bool sched_insn_is_legitimate_for_speculation_p (const_rtx, ds_t);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx bb_note (basic_block);

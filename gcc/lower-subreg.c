@@ -551,8 +551,7 @@ move_eh_region_note (rtx insn, rtx insns)
 	  || (flag_non_call_exceptions
 	      && INSN_P (p)
 	      && may_trap_p (PATTERN (p))))
-	REG_NOTES (p) = gen_rtx_EXPR_LIST (REG_EH_REGION, XEXP (note, 0),
-					   REG_NOTES (p));
+	add_reg_note (p, REG_EH_REGION, XEXP (note, 0));
     }
 }
 
@@ -578,7 +577,7 @@ resolve_reg_notes (rtx insn)
   pnote = &REG_NOTES (insn);
   while (*pnote != NULL_RTX)
     {
-      bool delete = false;
+      bool del = false;
 
       note = *pnote;
       switch (REG_NOTE_KIND (note))
@@ -586,14 +585,14 @@ resolve_reg_notes (rtx insn)
 	case REG_DEAD:
 	case REG_UNUSED:
 	  if (resolve_reg_p (XEXP (note, 0)))
-	    delete = true;
+	    del = true;
 	  break;
 
 	default:
 	  break;
 	}
 
-      if (delete)
+      if (del)
 	*pnote = XEXP (note, 1);
       else
 	pnote = &XEXP (note, 1);

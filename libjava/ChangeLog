@@ -1,3 +1,68 @@
+2008-08-07  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/StackTrace2.java: Rewrite to prevent
+	spurious failure when some methods are inlined.
+
+2008-08-05  Matthias Klose  <doko@ubuntu.com>
+
+	* HACKING: Update instructions how to build gcj/javaprims.h.
+
+2008-08-04  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/31890:
+	* gcj/javaprims.h: Regenerate class list.
+
+2008-07-16  Roger Sayle  <roger@eyesopen.com>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* scripts/jar.in: Fix portability problems with Solaris /bin/sh.
+
+2008-07-08  Matthias Klose  <doko@ubuntu.com>
+
+	* libtool-version: Bump soversion.
+
+2008-07-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* gnu/gcj/convert/make-trie.h: New.
+	* gnu/gcj/convert/gen-from-JIS.c: Include it.
+	* gnu/gcj/convert/make-trie.c: Likewise.
+	Fix typos and compiler warnings, diagnose a missing argument.
+	* Makefile.am (gen_from_JIS_SOURCES): Add gnu/gcj/convert/make-trie.h.
+	* Makefile.in: Regenerate.
+
+2008-06-30  Joshua Sumali  <jsumali@redhat.com>
+	Andrew Haley  <aph@redhat.com>
+	
+	* configure.ac (java-home): new AC_ARG_ENABLE.
+	(aot-compile-rpm): Likewise.
+	(CREATE_JAVA_HOME): new AM_CONDITIONAL.
+	(INSTALL_AOT_RPM): Likewise.
+	(gcc-suffix): new AC_ARG_WITH.
+	(arch-directory): Likewise.
+	(os-directory): Likewise.
+	(origin-name): Likewise.
+	(arch-suffix): Likewise.
+	(jvm-root-dir): Likewise.
+	(jvm-jar-dir): Likewise.
+	(python-dir): Likewise.
+	(AC_CONFIG_FILES): Add contrib/aotcompile.py, contrib/aot-compile,
+	contrib/aot-compile-rpm, contrib/rebuild-gcj-db.
+	(gcjsubdir): New AC_SUBST.
+	* Makefile.am (install-data-local): Install Python modules for
+	aot-compile. Also install an sdk style directory if
+	--enable-java-home is passed to configure.
+	(bin_SCRIPTS): Add 
+	contrib/rebuild-gcj-db and contrib/aot-compile.
+	(gcjsubdir): Add.
+	(db_pathtail): Redefine in terms of gcjsubdir.
+	* contrib/aot-compile.in: New file.
+	* contrib/aotcompile.py.in: Likewise.
+	* contrib/aot-compile-rpm.in: Likewise.
+	* contrib/classfile.py: Likewise.
+	* contrib/rebuild-gcj-db.in: Likewise.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate. 
+
 2008-06-28  Matthias Klose  <doko@ubuntu.com>
 
 	Import GNU Classpath (classpath-0_97_2-release).

@@ -722,8 +722,7 @@ substitute_reg_in_expr (expr_t expr, insn_t insn, bool undo)
   bool new_insn_valid;
   vinsn_t *vi = &EXPR_VINSN (expr);
   bool has_rhs = VINSN_RHS (*vi) != NULL;
-  rtx old, new;
-  
+  rtx old, new_rtx;
 
   /* Do not try to replace in SET_DEST.  Although we'll choose new
      register for the RHS, we don't want to change RHS' original reg.  
@@ -742,7 +741,7 @@ substitute_reg_in_expr (expr_t expr, insn_t insn, bool undo)
       rtx *where_replace;
 
       /* We should copy these rtxes before substitution.  */
-      new = copy_rtx (undo ? INSN_LHS (insn) : INSN_RHS (insn));
+      new_rtx = copy_rtx (undo ? INSN_LHS (insn) : INSN_RHS (insn));
       new_insn = create_copy_of_insn_rtx (VINSN_INSN_RTX (*vi));
 
       /* Where we'll replace.  
@@ -753,7 +752,7 @@ substitute_reg_in_expr (expr_t expr, insn_t insn, bool undo)
 		       : &PATTERN (new_insn));
 
       new_insn_valid 
-        = validate_replace_rtx_part_nosimplify (old, new, where_replace, 
+        = validate_replace_rtx_part_nosimplify (old, new_rtx, where_replace, 
                                                 new_insn);
 
       /* ??? Actually, constrain_operands result depends upon choice of

@@ -3170,28 +3170,28 @@ df_kill_notes (rtx insn, rtx *old_dead_notes, rtx *old_unused_notes)
 static inline rtx
 df_set_note (enum reg_note note_type, rtx insn, rtx old, rtx reg)
 {
-  rtx this = old;
+  rtx curr = old;
   rtx prev = NULL;
 
-  while (this)
-    if (XEXP (this, 0) == reg)
+  while (curr)
+    if (XEXP (curr, 0) == reg)
       {
 	if (prev)
-	  XEXP (prev, 1) = XEXP (this, 1);
+	  XEXP (prev, 1) = XEXP (curr, 1);
 	else
-	  old = XEXP (this, 1);
-	XEXP (this, 1) = REG_NOTES (insn);
-	REG_NOTES (insn) = this;
+	  old = XEXP (curr, 1);
+	XEXP (curr, 1) = REG_NOTES (insn);
+	REG_NOTES (insn) = curr;
 	return old;
       }
     else
       {
-	prev = this;
-	this = XEXP (this, 1);
+	prev = curr;
+	curr = XEXP (curr, 1);
       }
   
   /* Did not find the note.  */
-  REG_NOTES (insn) = alloc_EXPR_LIST (note_type, reg, REG_NOTES (insn));
+  add_reg_note (insn, note_type, reg);
   return old;
 }
 

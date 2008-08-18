@@ -314,6 +314,10 @@ read_input_line (FILE *list, char **herep, char **linep,
   char *line;
   int c = getc (list);
 
+  /* Read over whitespace.  */
+  while (c == '\n' || c == ' ')
+    c = getc (list);
+
   if (c == EOF)
     {
       *linep = 0;
@@ -1537,7 +1541,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", "cfgloop.h", NULL
+      "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -3529,22 +3533,22 @@ write_roots (pair_p variables)
    where the GTY(()) tags are only present if is_scalar is _false_.  */
 
 void
-note_def_vec (const char *typename, bool is_scalar, struct fileloc *pos)
+note_def_vec (const char *type_name, bool is_scalar, struct fileloc *pos)
 {
   pair_p fields;
   type_p t;
   options_p o;
   type_p len_ty = create_scalar_type ("unsigned");
-  const char *name = concat ("VEC_", typename, "_base", (char *)0);
+  const char *name = concat ("VEC_", type_name, "_base", (char *)0);
 
   if (is_scalar)
     {
-      t = create_scalar_type (typename);
+      t = create_scalar_type (type_name);
       o = 0;
     }
   else
     {
-      t = resolve_typedef (typename, pos);
+      t = resolve_typedef (type_name, pos);
       o = create_option (0, "length", "%h.num");
     }
 

@@ -85,6 +85,7 @@ static int avr_address_cost (rtx);
 static bool avr_return_in_memory (const_tree, const_tree);
 static struct machine_function * avr_init_machine_status (void);
 static rtx avr_builtin_setjmp_frame_value (void);
+static bool avr_hard_regno_scratch_ok (unsigned int);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
@@ -191,12 +192,12 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at86rf401",    ARCH_AVR25, "__AVR_AT86RF401__" },
     /* Classic, > 8K, <= 64K.  */
   { "avr3",         ARCH_AVR3, NULL },
-  { "at43usb320",   ARCH_AVR3, "__AVR_AT43USB320__" },
   { "at43usb355",   ARCH_AVR3, "__AVR_AT43USB355__" },
   { "at76c711",     ARCH_AVR3, "__AVR_AT76C711__" },
     /* Classic, == 128K.  */
   { "avr31",        ARCH_AVR31, NULL },
   { "atmega103",    ARCH_AVR31, "__AVR_ATmega103__" },
+  { "at43usb320",   ARCH_AVR31, "__AVR_AT43USB320__" },
     /* Classic + MOVW + JMP/CALL.  */
   { "avr35",        ARCH_AVR35, NULL },
   { "at90usb82",    ARCH_AVR35, "__AVR_AT90USB82__" },
@@ -334,6 +335,9 @@ int avr_case_values_threshold = 30000;
 
 #undef TARGET_BUILTIN_SETJMP_FRAME_VALUE
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE avr_builtin_setjmp_frame_value
+
+#undef TARGET_HARD_REGNO_SCRATCH_OK
+#define TARGET_HARD_REGNO_SCRATCH_OK avr_hard_regno_scratch_ok
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1399,7 +1403,7 @@ notice_update_cc (rtx body ATTRIBUTE_UNUSED, rtx insn)
    class CLASS needed to hold a value of mode MODE.  */
 
 int
-class_max_nregs (enum reg_class class ATTRIBUTE_UNUSED,enum machine_mode mode)
+class_max_nregs (enum reg_class rclass ATTRIBUTE_UNUSED,enum machine_mode mode)
 {
   return ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD);
 }
@@ -1562,14 +1566,14 @@ final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
 /* Return 0 if undefined, 1 if always true or always false.  */
 
 int
-avr_simplify_comparison_p (enum machine_mode mode, RTX_CODE operator, rtx x)
+avr_simplify_comparison_p (enum machine_mode mode, RTX_CODE op, rtx x)
 {
   unsigned int max = (mode == QImode ? 0xff :
                       mode == HImode ? 0xffff :
                       mode == SImode ? 0xffffffff : 0);
-  if (max && operator && GET_CODE (x) == CONST_INT)
+  if (max && op && GET_CODE (x) == CONST_INT)
     {
-      if (unsigned_condition (operator) != operator)
+      if (unsigned_condition (op) != op)
 	max >>= 1;
 
       if (max != (INTVAL (x) & max)
@@ -1739,15 +1743,15 @@ output_movqi (rtx insn, rtx operands[], int *l)
     }
   else if (GET_CODE (dest) == MEM)
     {
-      const char *template;
+      const char *templ;
 
       if (src == const0_rtx)
 	operands[1] = zero_reg_rtx;
 
-      template = out_movqi_mr_r (insn, operands, real_l);
+      templ = out_movqi_mr_r (insn, operands, real_l);
 
       if (!real_l)
-	output_asm_insn (template, operands);
+	output_asm_insn (templ, operands);
 
       operands[1] = src;
     }
@@ -1889,15 +1893,15 @@ output_movhi (rtx insn, rtx operands[], int *l)
     }
   else if (GET_CODE (dest) == MEM)
     {
-      const char *template;
+      const char *templ;
 
       if (src == const0_rtx)
 	operands[1] = zero_reg_rtx;
 
-      template = out_movhi_mr_r (insn, operands, real_l);
+      templ = out_movhi_mr_r (insn, operands, real_l);
 
       if (!real_l)
-	output_asm_insn (template, operands);
+	output_asm_insn (templ, operands);
 
       operands[1] = src;
       return "";
@@ -2577,15 +2581,15 @@ output_movsisf(rtx insn, rtx operands[], int *l)
     }
   else if (GET_CODE (dest) == MEM)
     {
-      const char *template;
+      const char *templ;
 
       if (src == const0_rtx)
 	  operands[1] = zero_reg_rtx;
 
-      template = out_movsi_mr_r (insn, operands, real_l);
+      templ = out_movsi_mr_r (insn, operands, real_l);
 
       if (!real_l)
-	output_asm_insn (template, operands);
+	output_asm_insn (templ, operands);
 
       operands[1] = src;
       return "";
@@ -2926,7 +2930,7 @@ out_tstsi (rtx insn, int *l)
    carefully hand-optimized in ?sh??i3_out.  */
 
 void
-out_shift_with_cnt (const char *template, rtx insn, rtx operands[],
+out_shift_with_cnt (const char *templ, rtx insn, rtx operands[],
 		    int *len, int t_len)
 {
   rtx op[10];
@@ -2971,7 +2975,7 @@ out_shift_with_cnt (const char *template, rtx insn, rtx operands[],
 	  else
 	    {
 	      while (count-- > 0)
-		output_asm_insn (template, op);
+		output_asm_insn (templ, op);
 	    }
 
 	  return;
@@ -3052,7 +3056,7 @@ out_shift_with_cnt (const char *template, rtx insn, rtx operands[],
   else
     {
       strcat (str, "\n1:\t");
-      strcat (str, template);
+      strcat (str, templ);
       strcat (str, second_label ? "\n2:\t" : "\n\t");
       strcat (str, use_zero_reg ? AS1 (lsr,%3) : AS1 (dec,%3));
       strcat (str, CR_TAB);
@@ -5731,19 +5735,19 @@ avr_function_value (const_tree type,
    in class CLASS.  */
 
 enum reg_class
-preferred_reload_class (rtx x ATTRIBUTE_UNUSED, enum reg_class class)
+preferred_reload_class (rtx x ATTRIBUTE_UNUSED, enum reg_class rclass)
 {
-  return class;
+  return rclass;
 }
 
 int
-test_hard_reg_class (enum reg_class class, rtx x)
+test_hard_reg_class (enum reg_class rclass, rtx x)
 {
   int regno = true_regnum (x);
   if (regno < 0)
     return 0;
 
-  if (TEST_HARD_REG_CLASS (class, regno))
+  if (TEST_HARD_REG_CLASS (rclass, regno))
     return 1;
 
   return 0;
@@ -5902,27 +5906,20 @@ avr_output_addr_vec_elt (FILE *stream, int value)
     fprintf (stream, "\trjmp .L%d\n", value);
 }
 
-/* Returns 1 if SCRATCH are safe to be allocated as a scratch
+/* Returns true if SCRATCH are safe to be allocated as a scratch
    registers (for a define_peephole2) in the current function.  */
 
-int
-avr_peep2_scratch_safe (rtx scratch)
+bool
+avr_hard_regno_scratch_ok (unsigned int regno)
 {
-  if ((interrupt_function_p (current_function_decl)
-       || signal_function_p (current_function_decl))
-      && leaf_function_p ())
-    {
-      int first_reg = true_regnum (scratch);
-      int last_reg = first_reg + GET_MODE_SIZE (GET_MODE (scratch)) - 1;
-      int reg;
+  /* Interrupt functions can only use registers that have already been saved
+     by the prologue, even if they would normally be call-clobbered.  */
 
-      for (reg = first_reg; reg <= last_reg; reg++)
-	{
-	  if (!df_regs_ever_live_p (reg))
-	    return 0;
-	}
-    }
-  return 1;
+  if ((cfun->machine->is_interrupt || cfun->machine->is_signal)
+      && !df_regs_ever_live_p (regno))
+    return false;
+
+  return true;
 }
 
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */

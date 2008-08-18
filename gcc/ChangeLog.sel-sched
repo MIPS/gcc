@@ -1,3 +1,10 @@
+2008-08-18  Andrey Belevantsev  <abel@ispras.ru>
+
+	Merge with trunk rev. 139128.
+
+	* sel-sched-ir.c (vinsn_init): Rename `class' to `insn_class'.
+	* sel-sched.c (substitute_reg_in_expr): Rename `new' to `new_rtx'.
+	
 2008-08-15  Andrey Belevantsev  <abel@ispras.ru>
 
 	* emit-rtl.c (add_insn, add_insn_after, add_insn_before, 

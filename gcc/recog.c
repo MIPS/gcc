@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "target.h"
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
@@ -182,7 +183,7 @@ static int changes_allocated;
 static int num_changes = 0;
 
 /* Validate a proposed change to OBJECT.  LOC is the location in the rtl
-   at which NEW will be placed.  If OBJECT is zero, no validation is done,
+   at which NEW_RTX will be placed.  If OBJECT is zero, no validation is done,
    the change is simply made.
 
    Two types of objects are supported:  If OBJECT is a MEM, memory_address_p
@@ -200,16 +201,16 @@ static int num_changes = 0;
    Otherwise, perform the change and return 1.  */
 
 static bool
-validate_change_1 (rtx object, rtx *loc, rtx new, bool in_group, bool unshare)
+validate_change_1 (rtx object, rtx *loc, rtx new_rtx, bool in_group, bool unshare)
 {
   rtx old = *loc;
 
-  if (old == new || rtx_equal_p (old, new))
+  if (old == new_rtx || rtx_equal_p (old, new_rtx))
     return 1;
 
   gcc_assert (in_group != 0 || num_changes == 0);
 
-  *loc = new;
+  *loc = new_rtx;
 
   /* Save the information describing this change.  */
   if (num_changes >= changes_allocated)
@@ -252,18 +253,18 @@ validate_change_1 (rtx object, rtx *loc, rtx new, bool in_group, bool unshare)
    UNSHARE to false.  */
 
 bool
-validate_change (rtx object, rtx *loc, rtx new, bool in_group)
+validate_change (rtx object, rtx *loc, rtx new_rtx, bool in_group)
 {
-  return validate_change_1 (object, loc, new, in_group, false);
+  return validate_change_1 (object, loc, new_rtx, in_group, false);
 }
 
 /* Wrapper for validate_change_1 without the UNSHARE argument defaulting
    UNSHARE to true.  */
 
 bool
-validate_unshare_change (rtx object, rtx *loc, rtx new, bool in_group)
+validate_unshare_change (rtx object, rtx *loc, rtx new_rtx, bool in_group)
 {
-  return validate_change_1 (object, loc, new, in_group, true);
+  return validate_change_1 (object, loc, new_rtx, in_group, true);
 }
 
 
@@ -521,7 +522,7 @@ simplify_while_replacing (rtx *loc, rtx to, rtx object,
 {
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
-  rtx new;
+  rtx new_rtx;
 
   if (SWAPPABLE_OPERANDS_P (x)
       && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
@@ -561,25 +562,25 @@ simplify_while_replacing (rtx *loc, rtx to, rtx object,
     case SIGN_EXTEND:
       if (GET_MODE (XEXP (x, 0)) == VOIDmode)
 	{
-	  new = simplify_gen_unary (code, GET_MODE (x), XEXP (x, 0),
+	  new_rtx = simplify_gen_unary (code, GET_MODE (x), XEXP (x, 0),
 				    op0_mode);
 	  /* If any of the above failed, substitute in something that
 	     we know won't be recognized.  */
-	  if (!new)
-	    new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-	  validate_change (object, loc, new, 1);
+	  if (!new_rtx)
+	    new_rtx = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+	  validate_change (object, loc, new_rtx, 1);
 	}
       break;
     case SUBREG:
       /* All subregs possible to simplify should be simplified.  */
-      new = simplify_subreg (GET_MODE (x), SUBREG_REG (x), op0_mode,
+      new_rtx = simplify_subreg (GET_MODE (x), SUBREG_REG (x), op0_mode,
 			     SUBREG_BYTE (x));
 
       /* Subregs of VOIDmode operands are incorrect.  */
-      if (!new && GET_MODE (SUBREG_REG (x)) == VOIDmode)
-	new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-      if (new)
-	validate_change (object, loc, new, 1);
+      if (!new_rtx && GET_MODE (SUBREG_REG (x)) == VOIDmode)
+	new_rtx = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+      if (new_rtx)
+	validate_change (object, loc, new_rtx, 1);
       break;
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
@@ -1724,15 +1725,13 @@ asm_operand_ok (rtx op, const char *constraint)
 		result = 1;
 	    }
 #ifdef EXTRA_CONSTRAINT_STR
+	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint))
+	    /* Every memory operand can be reloaded to fit.  */
+	    result = result || memory_operand (op, VOIDmode);
+	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint))
+	    /* Every address operand can be reloaded to fit.  */
+	    result = result || address_operand (op, VOIDmode);
 	  else if (EXTRA_CONSTRAINT_STR (op, c, constraint))
-	    result = 1;
-	  else if (EXTRA_MEMORY_CONSTRAINT (c, constraint)
-		   /* Every memory operand can be reloaded to fit.  */
-		   && memory_operand (op, VOIDmode))
-	    result = 1;
-	  else if (EXTRA_ADDRESS_CONSTRAINT (c, constraint)
-		   /* Every address operand can be reloaded to fit.  */
-		   && address_operand (op, VOIDmode))
 	    result = 1;
 #endif
 	  break;
@@ -2238,7 +2237,7 @@ preprocess_constraints (void)
 
 struct funny_match
 {
-  int this, other;
+  int this_op, other;
 };
 
 int
@@ -2388,7 +2387,7 @@ constrain_operands (int strict)
 		     output op is the one that will be printed.  */
 		  if (val == 2 && strict > 0)
 		    {
-		      funny_match[funny_match_index].this = opno;
+		      funny_match[funny_match_index].this_op = opno;
 		      funny_match[funny_match_index++].other = match;
 		    }
 		}
@@ -2621,7 +2620,7 @@ constrain_operands (int strict)
 	      while (--funny_match_index >= 0)
 		{
 		  recog_data.operand[funny_match[funny_match_index].other]
-		    = recog_data.operand[funny_match[funny_match_index].this];
+		    = recog_data.operand[funny_match[funny_match_index].this_op];
 		}
 
 	      return 1;
@@ -2712,6 +2711,7 @@ split_all_insns (void)
       rtx insn, next;
       bool finish = false;
 
+      rtl_profile_for_bb (bb);
       for (insn = BB_HEAD (bb); !finish ; insn = next)
 	{
 	  /* Can't use `next_real_insn' because that might go across
@@ -2754,6 +2754,7 @@ split_all_insns (void)
 	}
     }
 
+  default_rtl_profile ();
   if (changed)
     find_many_sub_basic_blocks (blocks);
 
@@ -2937,6 +2938,9 @@ peep2_find_free_register (int from, int to, const char *class_str,
       /* Don't allocate fixed registers.  */
       if (fixed_regs[regno])
 	continue;
+      /* Don't allocate global registers.  */
+      if (global_regs[regno])
+	continue;
       /* Make sure the register is of the right class.  */
       if (! TEST_HARD_REG_BIT (reg_class_contents[cl], regno))
 	continue;
@@ -2946,6 +2950,9 @@ peep2_find_free_register (int from, int to, const char *class_str,
       /* And that we don't create an extra save/restore.  */
       if (! call_used_regs[regno] && ! df_regs_ever_live_p (regno))
 	continue;
+      if (! targetm.hard_regno_scratch_ok (regno))
+	continue;
+
       /* And we don't clobber traceback for noreturn functions.  */
       if ((regno == FRAME_POINTER_REGNUM || regno == HARD_FRAME_POINTER_REGNUM)
 	  && (! reload_completed || frame_pointer_needed))
@@ -3000,6 +3007,7 @@ peephole2_optimize (void)
 
   FOR_EACH_BB_REVERSE (bb)
     {
+      rtl_profile_for_bb (bb);
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
@@ -3019,7 +3027,7 @@ peephole2_optimize (void)
 	  prev = PREV_INSN (insn);
 	  if (INSN_P (insn))
 	    {
-	      rtx try, before_try, x;
+	      rtx attempt, before_try, x;
 	      int match_len;
 	      rtx note;
 	      bool was_call = false;
@@ -3040,13 +3048,13 @@ peephole2_optimize (void)
 		     substitution would lose the
 		     REG_FRAME_RELATED_EXPR that is attached.  */
 		  peep2_current_count = 0;
-		  try = NULL;
+		  attempt = NULL;
 		}
 	      else
 		/* Match the peephole.  */
-		try = peephole2_insns (PATTERN (insn), insn, &match_len);
+		attempt = peephole2_insns (PATTERN (insn), insn, &match_len);
 
-	      if (try != NULL)
+	      if (attempt != NULL)
 		{
 		  /* If we are splitting a CALL_INSN, look for the CALL_INSN
 		     in SEQ and copy our CALL_INSN_FUNCTION_USAGE and other
@@ -3064,7 +3072,7 @@ peephole2_optimize (void)
 			continue;
 		      was_call = true;
 
-		      new_insn = try;
+		      new_insn = attempt;
 		      while (new_insn != NULL_RTX)
 			{
 			  if (CALL_P (new_insn))
@@ -3084,10 +3092,9 @@ peephole2_optimize (void)
 			  {
 			  case REG_NORETURN:
 			  case REG_SETJMP:
-			    REG_NOTES (new_insn)
-			      = gen_rtx_EXPR_LIST (REG_NOTE_KIND (note),
-						   XEXP (note, 0),
-						   REG_NOTES (new_insn));
+			    add_reg_note (new_insn, REG_NOTE_KIND (note),
+					  XEXP (note, 0));
+			    break;
 			  default:
 			    /* Discard all other reg notes.  */
 			    break;
@@ -3113,8 +3120,9 @@ peephole2_optimize (void)
 					REG_EH_REGION, NULL_RTX);
 
 		  /* Replace the old sequence with the new.  */
-		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
-					        INSN_LOCATOR (peep2_insn_data[i].insn));
+		  attempt = emit_insn_after_setloc (attempt,
+						    peep2_insn_data[i].insn,
+				       INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
 		  delete_insn_chain (insn, peep2_insn_data[i].insn, false);
 
@@ -3128,17 +3136,14 @@ peephole2_optimize (void)
 			if (eh_edge->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
 			  break;
 
-		      for (x = try ; x != before_try ; x = PREV_INSN (x))
+		      for (x = attempt ; x != before_try ; x = PREV_INSN (x))
 			if (CALL_P (x)
 			    || (flag_non_call_exceptions
 				&& may_trap_p (PATTERN (x))
 				&& !find_reg_note (x, REG_EH_REGION, NULL)))
 			  {
 			    if (note)
-			      REG_NOTES (x)
-			        = gen_rtx_EXPR_LIST (REG_EH_REGION,
-						     XEXP (note, 0),
-						     REG_NOTES (x));
+			      add_reg_note (x, REG_EH_REGION, XEXP (note, 0));
 
 			    if (x != BB_END (bb) && eh_edge)
 			      {
@@ -3181,7 +3186,7 @@ peephole2_optimize (void)
 		  bitmap_copy (live, peep2_insn_data[i].live_before);
 
 		  /* Update life information for the new sequence.  */
-		  x = try;
+		  x = attempt;
 		  do
 		    {
 		      if (INSN_P (x))
@@ -3205,7 +3210,7 @@ peephole2_optimize (void)
 
 		  /* If we generated a jump instruction, it won't have
 		     JUMP_LABEL set.  Recompute after we're done.  */
-		  for (x = try; x != before_try; x = PREV_INSN (x))
+		  for (x = attempt; x != before_try; x = PREV_INSN (x))
 		    if (JUMP_P (x))
 		      {
 		        do_rebuild_jump_labels = true;
@@ -3219,6 +3224,7 @@ peephole2_optimize (void)
 	}
     }
 
+  default_rtl_profile ();
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     BITMAP_FREE (peep2_insn_data[i].live_before);
   BITMAP_FREE (live);

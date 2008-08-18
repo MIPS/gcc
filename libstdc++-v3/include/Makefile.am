@@ -32,9 +32,9 @@ std_headers = \
 	${std_srcdir}/array \
 	${std_srcdir}/bitset \
 	${std_srcdir}/c++0x_warning.h \
+	${std_srcdir}/chrono \
 	${std_srcdir}/complex \
 	${std_srcdir}/condition_variable \
-	${std_srcdir}/date_time \
 	${std_srcdir}/deque \
 	${std_srcdir}/fstream \
 	${std_srcdir}/functional \
@@ -54,6 +54,7 @@ std_headers = \
 	${std_srcdir}/ostream \
 	${std_srcdir}/queue \
 	${std_srcdir}/random \
+	${std_srcdir}/ratio \
 	${std_srcdir}/regex \
 	${std_srcdir}/set \
 	${std_srcdir}/sstream \

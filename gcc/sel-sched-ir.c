@@ -1120,7 +1120,7 @@ static void
 vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
 {
   hash_rtx_callback_function hrcf;
-  int class;
+  int insn_class;
 
   VINSN_INSN_RTX (vi) = insn;
   VINSN_COUNT (vi) = 0;
@@ -1150,8 +1150,8 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
       VINSN_HASH_RTX (vi) = VINSN_HASH (vi);
     }
     
-  class = haifa_classify_insn (insn);
-  if (class >= 2
+  insn_class = haifa_classify_insn (insn);
+  if (insn_class >= 2
       && (!targetm.sched.get_insn_spec_ds
           || ((targetm.sched.get_insn_spec_ds (insn) & BEGIN_CONTROL)
               == 0)))

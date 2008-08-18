@@ -43,8 +43,10 @@
 (define_register_constraint "b" "ALL_REGS"
   "@internal")
 
-(define_register_constraint "c" "TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
-				 : TARGET_MIPS16 ? M16_NA_REGS
+;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
+;; for details.
+(define_register_constraint "c" "TARGET_MIPS16 ? M16_REGS
+				 : TARGET_USE_PIC_FN_ADDR_REG ? PIC_FN_ADDR_REG
 				 : GR_REGS"
   "A register suitable for use in an indirect jump.  This will always be
    @code{$25} for @option{-mabicalls}.")
@@ -55,8 +57,11 @@
 (define_register_constraint "j" "PIC_FN_ADDR_REG"
   "@internal")
 
+;; Don't use this constraint in gcc code!  It runs the risk of
+;; introducing a spill failure; see tls_get_tp_<mode>.
 (define_register_constraint "v" "V1_REG"
-  "@internal")
+  "Register @code{$3}.  Do not use this constraint in new code;
+   it is retained only for compatibility with glibc.")
 
 (define_register_constraint "y" "GR_REGS"
   "Equivalent to @code{r}; retained for backwards compatibility.")

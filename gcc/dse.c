@@ -783,10 +783,9 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, data->size);
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, 
-				      gen_rtx_PLUS (Pmode, r1, c)),
-			 NULL);
+	emit_insn_before (gen_rtx_SET (Pmode, r1, 
+				       gen_rtx_PLUS (Pmode, r1, c)),
+			  data->insn);
 	return -1;
       }
 		 
@@ -795,10 +794,9 @@ replace_inc_dec (rtx *r, void *d)
       {
 	rtx r1 = XEXP (x, 0);
 	rtx c = gen_int_mode (Pmode, -data->size);
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, 
-				      gen_rtx_PLUS (Pmode, r1, c)),
-			 NULL);
+	emit_insn_before (gen_rtx_SET (Pmode, r1, 
+				       gen_rtx_PLUS (Pmode, r1, c)),
+			  data->insn);
 	return -1;
       }
 	
@@ -809,8 +807,7 @@ replace_inc_dec (rtx *r, void *d)
 	   insn that contained it.  */
 	rtx add = XEXP (x, 0);
 	rtx r1 = XEXP (add, 0);
-	add_insn_before (data->insn, 
-			 gen_rtx_SET (Pmode, r1, add), NULL);
+	emit_insn_before (gen_rtx_SET (Pmode, r1, add), data->insn);
 	return -1;
       }
 
@@ -827,12 +824,12 @@ static int
 replace_inc_dec_mem (rtx *r, void *d)
 {
   rtx x = *r;
-  if (GET_CODE (x) == MEM)
+  if (x != NULL_RTX && MEM_P (x))
     {
       struct insn_size data;
 
       data.size = GET_MODE_SIZE (GET_MODE (x));
-      data.insn = (rtx)d;
+      data.insn = (rtx) d;
 
       for_each_rtx (&XEXP (x, 0), replace_inc_dec, &data);
 	
@@ -1295,7 +1292,7 @@ record_store (rtx body, bb_info_t bb_info)
     {
       insn_info_t next = ptr->next_local_store;
       store_info_t s_info = ptr->store_rec;
-      bool delete = true;
+      bool del = true;
 
       /* Skip the clobbers. We delete the active insn if this insn
 	 shadows the set.  To have been put on the active list, it
@@ -1304,7 +1301,7 @@ record_store (rtx body, bb_info_t bb_info)
 	s_info = s_info->next;
 
       if (s_info->alias_set != spill_alias_set)
-	delete = false;
+	del = false;
       else if (s_info->alias_set)
 	{
 	  struct clear_alias_mode_holder *entry 
@@ -1317,7 +1314,7 @@ record_store (rtx body, bb_info_t bb_info)
 	  if ((GET_MODE (mem) == GET_MODE (s_info->mem))
 	      && (GET_MODE (mem) == entry->mode))
 	    {
-	      delete = true;
+	      del = true;
 	      s_info->positions_needed = (unsigned HOST_WIDE_INT) 0;
 	    }
 	  if (dump_file)
@@ -1352,9 +1349,9 @@ record_store (rtx body, bb_info_t bb_info)
       /* An insn can be deleted if every position of every one of
 	 its s_infos is zero.  */
       if (s_info->positions_needed != (unsigned HOST_WIDE_INT) 0)
-	delete = false;
+	del = false;
       
-      if (delete)
+      if (del)
 	{
 	  insn_info_t insn_to_delete = ptr;
 	  
@@ -2080,7 +2077,7 @@ remove_useless_values (cselib_val *base)
   while (insn_info)
     {
       store_info_t store_info = insn_info->store_rec;
-      bool delete = false;
+      bool del = false;
 
       /* If ANY of the store_infos match the cselib group that is
 	 being deleted, then the insn can not be deleted.  */
@@ -2089,13 +2086,13 @@ remove_useless_values (cselib_val *base)
 	  if ((store_info->group_id == -1) 
 	      && (store_info->cse_base == base))
 	    {
-	      delete = true;
+	      del = true;
 	      break;
 	    }
 	  store_info = store_info->next;
 	}
 
-      if (delete)
+      if (del)
 	{
 	  if (last)
 	    last->next_local_store = insn_info->next_local_store;

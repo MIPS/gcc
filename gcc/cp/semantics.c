@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"
+#include "gimple.h"
 
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
@@ -2099,21 +2100,17 @@ finish_unary_op_expr (enum tree_code code, tree expr)
 }
 
 /* Finish a compound-literal expression.  TYPE is the type to which
-   the INITIALIZER_LIST is being cast.  */
+   the CONSTRUCTOR in COMPOUND_LITERAL is being cast.  */
 
 tree
-finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
+finish_compound_literal (tree type, tree compound_literal)
 {
-  tree compound_literal;
-
   if (!TYPE_OBJ_P (type))
     {
       error ("compound literal of non-object type %qT", type);
       return error_mark_node;
     }
 
-  /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
-  compound_literal = build_constructor (NULL_TREE, initializer_list);
   if (processing_template_decl)
     {
       TREE_TYPE (compound_literal) = type;
@@ -2123,6 +2120,18 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
     }
 
   type = complete_type (type);
+
+  if (TYPE_NON_AGGREGATE_CLASS (type))
+    {
+      /* Trying to deal with a CONSTRUCTOR instead of a TREE_LIST
+	 everywhere that deals with function arguments would be a pain, so
+	 just wrap it in a TREE_LIST.  The parser set a flag so we know
+	 that it came from T{} rather than T({}).  */
+      CONSTRUCTOR_IS_DIRECT_INIT (compound_literal) = 1;
+      compound_literal = build_tree_list (NULL_TREE, compound_literal);
+      return build_functional_cast (type, compound_literal, tf_error);
+    }
+
   if (TREE_CODE (type) == ARRAY_TYPE
       && check_array_initializer (NULL_TREE, type, compound_literal))
     return error_mark_node;
@@ -2130,7 +2139,19 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
   if (TREE_CODE (type) == ARRAY_TYPE)
     cp_complete_array_type (&type, compound_literal, false);
   compound_literal = digest_init (type, compound_literal);
-  return get_target_expr (compound_literal);
+  if ((!at_function_scope_p () || cp_type_readonly (type))
+      && initializer_constant_valid_p (compound_literal, type))
+    {
+      tree decl = create_temporary_var (type);
+      DECL_INITIAL (decl) = compound_literal;
+      TREE_STATIC (decl) = 1;
+      decl = pushdecl_top_level (decl);
+      DECL_NAME (decl) = make_anon_name ();
+      SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+      return decl;
+    }
+  else
+    return get_target_expr (compound_literal);
 }
 
 /* Return the declaration for the function-name variable indicated by
@@ -2482,29 +2503,33 @@ finish_base_specifier (tree base, tree access, bool virtual_p)
 }
 
 /* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is
-   what we found when we tried to do the lookup.  */
+   what we found when we tried to do the lookup.
+   LOCATION is the location of the NAME identifier;
+   The location is used in the error message*/
 
 void
-qualified_name_lookup_error (tree scope, tree name, tree decl)
+qualified_name_lookup_error (tree scope, tree name,
+			     tree decl, location_t location)
 {
   if (scope == error_mark_node)
     ; /* We already complained.  */
   else if (TYPE_P (scope))
     {
       if (!COMPLETE_TYPE_P (scope))
-	error ("incomplete type %qT used in nested name specifier", scope);
+	error ("%Hincomplete type %qT used in nested name specifier",
+	       &location, scope);
       else if (TREE_CODE (decl) == TREE_LIST)
 	{
-	  error ("reference to %<%T::%D%> is ambiguous", scope, name);
+	  error ("%Hreference to %<%T::%D%> is ambiguous", &location, scope, name);
 	  print_candidates (decl);
 	}
       else
-	error ("%qD is not a member of %qT", name, scope);
+	error ("%H%qD is not a member of %qT", &location, name, scope);
     }
   else if (scope != global_namespace)
-    error ("%qD is not a member of %qD", name, scope);
+    error ("%H%qD is not a member of %qD", &location, name, scope);
   else
-    error ("%<::%D%> has not been declared", name);
+    error ("%H%<::%D%> has not been declared", &location, name);
 }
 
 /* If FNS is a member function, a set of member functions, or a
@@ -2569,7 +2594,6 @@ baselink_for_fns (tree fns)
    the use of "this" explicit.
 
    Upon return, *IDK will be filled in appropriately.  */
-
 tree
 finish_id_expression (tree id_expression,
 		      tree decl,
@@ -2582,7 +2606,8 @@ finish_id_expression (tree id_expression,
 		      bool done,
 		      bool address_p,
 		      bool template_arg_p,
-		      const char **error_msg)
+		      const char **error_msg,
+		      location_t location)
 {
   /* Initialize the output parameters.  */
   *idk = CP_ID_KIND_NONE;
@@ -2612,7 +2637,7 @@ finish_id_expression (tree id_expression,
 	      /* If the qualifying type is non-dependent (and the name
 		 does not name a conversion operator to a dependent
 		 type), issue an error.  */
-	      qualified_name_lookup_error (scope, id_expression, decl);
+	      qualified_name_lookup_error (scope, id_expression, decl, location);
 	      return error_mark_node;
 	    }
 	  else if (!scope)
@@ -3176,6 +3201,8 @@ expand_or_defer_fn (tree fn)
 	ggc_collect ();
       return;
     }
+
+  gcc_assert (gimple_body (fn));
 
   /* Replace AGGR_INIT_EXPRs with appropriate CALL_EXPRs.  */
   cp_walk_tree_without_duplicates (&DECL_SAVED_TREE (fn),
@@ -4448,7 +4475,7 @@ tree
 finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 {
   tree orig_expr = expr;
-  tree type;
+  tree type = NULL_TREE;
 
   if (!expr || error_operand_p (expr))
     return error_mark_node;
@@ -4559,8 +4586,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
     }
   else
     {
-      tree fndecl;
-
       /* Expressions of reference type are sometimes wrapped in
          INDIRECT_REFs.  INDIRECT_REFs are just internal compiler
          representation, not part of the language, so we have to look
@@ -4570,14 +4595,28 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
   	  == REFERENCE_TYPE)
         expr = TREE_OPERAND (expr, 0);
 
-      if (TREE_CODE (expr) == CALL_EXPR
-          && (fndecl = get_callee_fndecl (expr))
-          && (fndecl != error_mark_node))
-        /* If e is a function call (5.2.2 [expr.call]) or an
+      if (TREE_CODE (expr) == CALL_EXPR)
+        {
+          /* If e is a function call (5.2.2 [expr.call]) or an
            invocation of an overloaded operator (parentheses around e
            are ignored), decltype(e) is defined as the return type of
            that function.  */
-        type = TREE_TYPE (TREE_TYPE (fndecl));
+          tree fndecl = get_callee_fndecl (expr);
+          if (fndecl && fndecl != error_mark_node)
+            type = TREE_TYPE (TREE_TYPE (fndecl));
+          else 
+            {
+              tree target_type = TREE_TYPE (CALL_EXPR_FN (expr));
+              if ((TREE_CODE (target_type) == REFERENCE_TYPE
+                   || TREE_CODE (target_type) == POINTER_TYPE)
+                  && (TREE_CODE (TREE_TYPE (target_type)) == FUNCTION_TYPE
+                      || TREE_CODE (TREE_TYPE (target_type)) == METHOD_TYPE))
+                type = TREE_TYPE (TREE_TYPE (target_type));
+              else
+                sorry ("unable to determine the declared type of expression %<%E%>",
+                       expr);
+            }
+        }
       else 
         {
           type = is_bitfield_expr_with_lowered_type (expr);
@@ -4653,8 +4692,20 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
     return false;
 
   for (; fns; fns = OVL_NEXT (fns))
-    if (!TREE_NOTHROW (OVL_CURRENT (fns)))
-      return false;
+    {
+      tree fn = OVL_CURRENT (fns);
+ 
+      if (assign_p)
+	{
+	  if (copy_fn_p (fn) == 0)
+	    continue;
+	}
+      else if (copy_fn_p (fn) <= 0)
+	continue;
+
+      if (!TYPE_NOTHROW_P (TREE_TYPE (fn)))
+	return false;
+    }
 
   return true;
 }
@@ -4688,7 +4739,8 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
       type1 = strip_array_types (type1);
       return (trait_expr_value (CPTK_HAS_TRIVIAL_CONSTRUCTOR, type1, type2) 
 	      || (CLASS_TYPE_P (type1)
-		  && (t = locate_ctor (type1, NULL)) && TREE_NOTHROW (t)));
+		  && (t = locate_ctor (type1, NULL))
+		  && TYPE_NOTHROW_P (TREE_TYPE (t))));
 
     case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
       type1 = strip_array_types (type1);
@@ -4706,7 +4758,7 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_HAS_TRIVIAL_DESTRUCTOR:
       type1 = strip_array_types (type1);
-      return (pod_type_p (type1)
+      return (pod_type_p (type1) || type_code1 == REFERENCE_TYPE
 	      || (CLASS_TYPE_P (type1)
 		  && TYPE_HAS_TRIVIAL_DESTRUCTOR (type1)));
 
