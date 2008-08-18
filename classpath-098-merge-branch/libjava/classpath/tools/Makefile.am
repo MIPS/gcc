@@ -320,6 +320,7 @@ $(TOOLS_ZIP): $(ALL_TOOLS_FILES)
 	     $(srcdir)/com/sun/tools/javac \
 	     $(srcdir)/com/sun/tools/javah \
 	     $(srcdir)/sun/rmi/rmic \
+	     $(GJDOC_EX) \
 	     -name '*.java' -print > classes.lst
 	if [ -f $(top_builddir)/../vm-tools-packages ]; then \
 	    : > vm-tools.lst; \

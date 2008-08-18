@@ -1859,6 +1859,7 @@ classpath/gnu/java/lang/CharData.java \
 classpath/gnu/java/lang/ClassHelper.java \
 classpath/gnu/java/lang/InstrumentationImpl.java \
 gnu/java/lang/MainThread.java \
+gnu/java/lang/VMCPStringBuilder.java \
 gnu/java/lang/VMInstrumentationImpl.java
 
 gnu_java_lang_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(gnu_java_lang_source_files)))
@@ -4213,7 +4214,7 @@ classpath/java/io/Writer.java
 java_io_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_io_source_files)))
 java_lang_source_files = \
 classpath/java/lang/AbstractMethodError.java \
-classpath/java/lang/AbstractStringBuffer.java \
+java/lang/AbstractStringBuffer.java \
 classpath/java/lang/Appendable.java \
 classpath/java/lang/ArithmeticException.java \
 classpath/java/lang/ArrayIndexOutOfBoundsException.java \
