@@ -10,8 +10,20 @@ typedef union
 typedef union
 {
   __m128i x;
+  unsigned char a[16];
+} union128i_ub;
+
+typedef union
+{
+  __m128i x;
   short a[8];
 } union128i_w;
+
+typedef union
+{
+  __m128i x;
+  unsigned short a[8];
+} union128i_uw;
 
 typedef union
 {
@@ -66,8 +78,55 @@ check_##UINON_TYPE (UINON_TYPE u, const VALUE_TYPE *v)	\
 }
 
 CHECK_EXP (union128i_b, char, "%d")
+CHECK_EXP (union128i_ub, unsigned char, "%d")
 CHECK_EXP (union128i_w, short, "%d")
+CHECK_EXP (union128i_uw, unsigned short, "%d")
 CHECK_EXP (union128i_d, int, "0x%x")
 CHECK_EXP (union128i_q, long long, "0x%llx")
 CHECK_EXP (union128, float, "%f")
 CHECK_EXP (union128d, double, "%f")
+
+#define ESP_FLOAT 0.000001
+#define ESP_DOUBLE 0.000001
+#define CHECK_ARRAY(ARRAY, TYPE, FMT)                   \
+static int                                              \
+__attribute__((noinline, unused))                       \
+checkV##ARRAY (const TYPE *v, const TYPE *e, int n)     \
+{                                                       \
+  int i;                                                \
+  int err = 0;                                          \
+                                                        \
+  for (i = 0; i < n; i++)                               \
+    if (v[i] != e[i])                                   \
+      {                                                 \
+        err++;                                          \
+        PRINTF ("%i: " FMT " != " FMT "\n",             \
+                i, v[i], e[i]);                 \
+      }                                                 \
+  return err;                                           \
+}
+
+CHECK_ARRAY(i, int, "0x%x")
+CHECK_ARRAY(l, long long, "0x%llx")
+
+#define CHECK_FP_ARRAY(ARRAY, TYPE, ESP, FMT)                   \
+static int                                              \
+__attribute__((noinline, unused))                       \
+checkV##ARRAY (const TYPE *v, const TYPE *e, int n)     \
+{                                                       \
+  int i;                                                \
+  int err = 0;                                          \
+                                                        \
+  for (i = 0; i < n; i++)                               \
+    if (v[i] > (e[i] + (ESP)) || v[i] < (e[i] - (ESP))) \
+    if (e[i] != v[i])                                   \
+      {                                                 \
+        err++;                                          \
+        PRINTF ("%i: " FMT " != " FMT "\n",             \
+                i, v[i], e[i]);                 \
+      }                                                 \
+  return err;                                           \
+}
+
+CHECK_FP_ARRAY (d, double, ESP_DOUBLE, "%f")
+CHECK_FP_ARRAY (f, float, ESP_FLOAT, "%f")

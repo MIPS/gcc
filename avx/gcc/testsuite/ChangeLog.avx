@@ -1,3 +1,31 @@
+2008-08-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx-check.h: New.
+	* gcc.target/i386/m256-check.h: Likewise.
+	* gcc.target/i386/m256-1.c: Likewise.
+	* gcc.target/i386/m256-2.c: Likewise.
+	* gcc.target/i386/vararg-3.c: Likewise.
+	* gcc.target/i386/vararg-4.c: Likewise.
+	* gcc.target/i386/vararg-5.c: Likewise.
+	* gcc.target/i386/vararg-6.c: Likewise.
+	* gcc.target/i386/vararg-7.c: Likewise.
+	* gcc.target/i386/vararg-8.c: Likewise.
+	* gcc.target/i386/vararg-9.c: Likewise.
+	* gcc.target/i386/vararg-10.c: Likewise.
+
+	* gcc.target/i386/m128-check.h (union128i_ub): New.
+	(union128i_uw): Likewise.
+	(check_union128i_ub): Likewise.
+	(check_union128i_uw): Likewise.
+	(ESP_FLOAT): Likewise.
+	(ESP_DOUBLE): Likewise.
+	(CHECK_ARRAY): Likewise.
+	(checkVi): Likewise.
+	(checkVl): Likewise.
+	(CHECK_FP_ARRAY): Likewise.
+	(checkVd): Likewise.
+	(checkVf): Likewise.
+
 2008-08-06  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.target/i386/pr36992-2.c: Use "-O2 -msse4" instead of
