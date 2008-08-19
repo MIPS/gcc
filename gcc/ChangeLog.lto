@@ -1,3 +1,7 @@
+2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
+
+	* lto-tree-flags.def (CONSTRUCTOR): Add constant_flag.
+
 2008-08-14  Rafael Avila de Espindola  <espindola@google.com>
 
 	* lto-function-in.c (input_constructors_or_inits): Input aliases.

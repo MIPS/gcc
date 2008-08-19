@@ -263,6 +263,7 @@
     START_EXPR_CASE (CONSTRUCTOR)
       ADD_EXPR_FLAG (addressable_flag)
       ADD_EXPR_FLAG (static_flag)
+      ADD_EXPR_FLAG (constant_flag)
     END_EXPR_CASE (CONSTRUCTOR)
 
     START_EXPR_CASE (CONVERT_EXPR)
