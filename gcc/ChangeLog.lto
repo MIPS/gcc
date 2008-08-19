@@ -1,5 +1,9 @@
 2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
 
+       Backport revisions 138310, 138347 and 139100 from trunk.
+
+2008-08-19  Rafael Avila de Espindola  <espindola@google.com>
+
 	* lto-tree-flags.def (CONSTRUCTOR): Add constant_flag.
 
 2008-08-14  Rafael Avila de Espindola  <espindola@google.com>
