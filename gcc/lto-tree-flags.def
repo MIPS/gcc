@@ -578,6 +578,7 @@
       
     START_EXPR_CASE (PARM_DECL)
       ADD_EXPR_FLAG (addressable_flag)
+      ADD_EXPR_FLAG (private_flag)	/* DECL_BY_REFERENCE */
       ADD_DECL_FLAG (nonlocal_flag)
       ADD_DECL_FLAG (virtual_flag)
       ADD_DECL_FLAG (abstract_flag)
@@ -671,6 +672,7 @@
       
     START_EXPR_CASE (RESULT_DECL)
       /* ### Missing flags when used as declaration, not expression. */
+      ADD_EXPR_FLAG (private_flag)	/* DECL_BY_REFERENCE */
       ADD_DECL_FLAG (gimple_reg_flag)
 
     END_EXPR_CASE (RESULT_DECL)

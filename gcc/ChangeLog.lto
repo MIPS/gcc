@@ -1,3 +1,35 @@
+2008-08-20  Bill Maddox <maddox@google.com>
+
+	* lto-tree-flags.def: Stream private_flag for
+	PARM_DECL and RESULT_DECL.
+	* lto-function-out.c (output_type): Use debug token
+	"fields" for unions as well as records.
+	* lto-function-in.c (typedef tree_ptr): New.
+	Also, declared vec.h-style vector of same.
+	(global_vector_enter): Added need_fixups parameter,
+	and code to mark vector entry for backpatching.
+	(global_vector_fixup): Implement backpatching of
+	references to the replaced vector entry.  Add comments.
+	Call ggc_free on the replaced node.
+	(input_field_decl, input_function_decl, input_var_decl,
+	input_parm_decl, input_result_decl, input_type_decl,
+	input_namespace_decl, input_translation_unit_decl,
+	input_binfo, input_type): Use new API for reading
+	backpatchable fields.
+	(input_type): Use debug token "fields" for unions
+	as well as records.
+	(input_tree_operand): Assert if reference is resolved
+	to a backpatchable node without providing a location
+	to backpatch.  Add comment.  Allow for backpatching
+	of operands of TREE_VEC, TREE_LIST, and various
+	expression operators.
+	(input_tree): Added slot parameter, providing location
+	to backpatch.  Added code to register this location
+	for backpatching if needed.
+	(input_type_tree): Made static.
+	* lto-tree-in.h (input_tree): Added slot parameter
+	to function prototype.
+
 2008-08-20  Doug Kwan  <dougkwan@google.com>
 
 	* lto-section-out.c (produce_symtab_1): Fix a 32-bit bootstrap

@@ -516,9 +516,13 @@ lto_symtab_merge_decl (tree new_decl)
       TREE_STATIC (old_decl) |= TREE_STATIC (new_decl);
       DECL_DECLARED_INLINE_P (old_decl) &= DECL_DECLARED_INLINE_P (new_decl);
     }
-  /* Callers should use the value returned.  So, we no longer need
-     NEW_DECL.  */
-  ggc_free (new_decl);
+
+  /* We cannot free NEW_DECL just yet, as we still have a reference
+     to it in the globals vector and possibly other places that need
+     to be backpatched.  Function global_vector_fixup is responsible
+     for performing the backpatching, and then freeing the previous
+     node that it replaced, which will be the node discarded here by
+     the merge.  */
 
   return old_decl;
 }

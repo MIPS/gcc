@@ -53,6 +53,13 @@ Boston, MA 02110-1301, USA.  */
 #include <ctype.h>
 #include "cpplib.h"
 
+
+/* Vector of tree-pointer locations for backpatching.  */
+
+typedef tree * tree_ptr;
+DEF_VEC_P (tree_ptr);
+DEF_VEC_ALLOC_P (tree_ptr, heap);
+
 static enum tree_code tag_to_expr[LTO_tree_last_tag];
 
 /* The number of flags that are defined for each tree code.  */
@@ -2443,19 +2450,24 @@ lto_input_constructors_and_inits (struct lto_file_decl_data* file_data,
 
 /* Read types and globals.  */
 
-tree input_tree (struct lto_input_block *, struct data_in *);
-tree input_type_tree (struct data_in *, struct lto_input_block *);
+void input_tree (tree *slot, struct lto_input_block *, struct data_in *);
+
+static tree input_type_tree (struct data_in *, struct lto_input_block *);
 
 static tree input_tree_operand (struct lto_input_block *,
                                 struct data_in *,
                                 struct function *, enum LTO_tags);
 
-/* Any potentially self-referential node must be entered into
-   the global vector before any fields are read from which it
+/* Push NODE as the next sequential entry in the globals index vector
+   obtained from DATA_IN.  If NEED_FIXUPS is true, we prepare for
+   (and require) a subsequent call to global_vector_fixup, which may
+   specify a new node to replace NODE in the globals index vector.
+   Any potentially self-referential node must be entered into
+   the globals index vector before any fields are read from which it
    might be reachable.  */
 
 static unsigned
-global_vector_enter (struct data_in *data_in, tree node)
+global_vector_enter (struct data_in *data_in, tree node, bool need_fixups)
 {
   unsigned index = VEC_length (tree, data_in->globals_index);
 
@@ -2474,17 +2486,103 @@ global_vector_enter (struct data_in *data_in, tree node)
   LTO_DEBUG_TOKEN ("]");
 #endif
 
+  /* In some cases, we may need to replace a node with another
+     after it has been entered in the global vector and references
+     to it have been resolved.  Such references must be adjusted
+     to refer to the replacement object.  Any such replacement
+     must occur immediately after the object is constructed,
+     e.g., as in declaration merging, so that only references
+     resolved while the object is under construction may require
+     adjustment.  While a node that may require replacement is under
+     construction, the TREE_VISITED flag is set, signalling that
+     references that resolve to the node must be tracked for later
+     backpatching.  */
+  if (node)
+    {
+      /* At present, only references to declarations
+	 may be backpatched, and the code relies upon this.  */
+      gcc_assert (!need_fixups || DECL_P (node));
+      /* Make sure that TREE_VISITED is initially clear, as expected.  */
+      gcc_assert (!TREE_VISITED (node));
+      
+      TREE_VISITED (node) = need_fixups;
+    }
+
   return index;
 }
+
+/* After reading a declaration, we may merge it with an existing
+   declaration, in which case all references to the declaration
+   we just read should point to the merged result.  For future
+   references, it suffices to replace the entry for this object
+   in the globals index vector with the merged declaration.  If
+   references were resolved while the object was being read,
+   however, they must be backpatched.  Both of these cases are
+   handled here.  */
+
+/* Replace the entry at position INDEX in the globals index vector
+   obtained from DATA_IN with NODE.  If any references were resolved
+   to the previous entry, they are backpatched to refer to NODE.  */
 
 static void
 global_vector_fixup (struct data_in *data_in, unsigned index, tree node)
 {
+  tree old_node;
+
+  gcc_assert (index < VEC_length (tree, data_in->globals_index));
+  old_node = VEC_index (tree, data_in->globals_index, index);
+  
 #ifdef LTO_GLOBAL_VECTOR_TRACE
-  fprintf (stderr, "FIXUP %06u -> %p\n", index, (void *) node);
+  fprintf (stderr, "FIXUP %u: %p [", index, (void *) old_node);
+  print_generic_expr (stderr, old_node, 0);
+  fprintf (stderr, "] -> %p [", (void *) node);
+  print_generic_expr (stderr, node, 0);
+  fprintf (stderr, "]");
 #endif
 
   VEC_replace (tree, data_in->globals_index, index, node);
+
+  /* Backpatch locations where we have stored references to
+     the old GLOBALS_INDEX entry for INDEX, now replaced by NODE.  */ 
+  if (old_node)
+    {
+      VEC(tree_ptr, heap) *fixups;
+
+      gcc_assert (DECL_P (old_node));
+      gcc_assert (TREE_VISITED (old_node));
+
+      fixups = (VEC(tree_ptr, heap) *) DECL_LANG_SPECIFIC (old_node);
+      if (fixups)
+	{
+	  unsigned ix;
+	  tree_ptr elt;
+
+	  for (ix = 0; VEC_iterate(tree_ptr, fixups, ix, elt); ix++)
+	    {
+#ifdef LTO_GLOBAL_VECTOR_TRACE
+	      fprintf (stderr, " %p", (void *) elt);
+#endif
+	      *elt = node;
+	    }
+
+	  VEC_free (tree_ptr, heap, fixups);
+	  DECL_LANG_SPECIFIC (old_node) = (struct lang_decl *) NULL;
+	}
+
+      TREE_VISITED (old_node) = false;
+
+      /* Note that we cannot do the ggc_free when we merge the declaration,
+	 but must wait until we have finished using it above. */
+      if (old_node != node)
+	{
+	  remove_decl_from_map (old_node);
+	  ggc_free (old_node);
+	}
+    }
+
+#ifdef LTO_GLOBAL_VECTOR_TRACE
+  fprintf (stderr, "\n");
+#endif
 }
 
 static tree
@@ -2497,49 +2595,49 @@ input_field_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
   LTO_DEBUG_TOKEN ("name");
-  decl->decl_minimal.name = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
   LTO_DEBUG_TOKEN ("context");
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
   LTO_DEBUG_TOKEN ("type");
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
   LTO_DEBUG_TOKEN ("attributes");
-  decl->decl_common.attributes = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
   LTO_DEBUG_TOKEN ("abstract_origin");
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   decl->decl_common.off_align = lto_input_uleb128 (ib);
 
   LTO_DEBUG_TOKEN ("size");
-  decl->decl_common.size = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
   LTO_DEBUG_TOKEN ("size_unit");
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
   LTO_DEBUG_TOKEN ("offset");
-  decl->field_decl.offset = input_tree (ib, data_in);
+  input_tree (&decl->field_decl.offset, ib, data_in);
   LTO_DEBUG_TOKEN ("bit_field_type");
-  decl->field_decl.bit_field_type = input_tree (ib, data_in);
+  input_tree (&decl->field_decl.bit_field_type, ib, data_in);
   LTO_DEBUG_TOKEN ("qualifier");
-  decl->field_decl.qualifier = input_tree (ib, data_in);
+  input_tree (&decl->field_decl.qualifier, ib, data_in);
   LTO_DEBUG_TOKEN ("bit_offset");
-  decl->field_decl.bit_offset = input_tree (ib, data_in);
+  input_tree (&decl->field_decl.bit_offset, ib, data_in);
   LTO_DEBUG_TOKEN ("fcontext");
-  decl->field_decl.fcontext = input_tree (ib, data_in);
+  input_tree (&decl->field_decl.fcontext, ib, data_in);
 
   /* lang_specific */
 
   LTO_DEBUG_TOKEN ("initial");
-  decl->decl_common.initial = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.initial, ib, data_in);
 
   LTO_DEBUG_TOKEN ("chain");
-  decl->common.chain = input_tree (ib, data_in);
+  input_tree (&decl->common.chain, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_field_decl");
 
@@ -2558,31 +2656,31 @@ input_function_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  index = global_vector_enter (data_in, decl);
+  index = global_vector_enter (data_in, decl, true);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
+  input_tree (&decl->decl_with_vis.section_name, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
-  decl->decl_common.size = input_tree (ib, data_in);
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
   /* saved_tree -- this is a function body, so omit it here */
-  decl->decl_non_common.arguments = input_tree (ib, data_in);
-  decl->decl_non_common.result = input_tree (ib, data_in);
-  decl->decl_non_common.vindex = input_tree (ib, data_in);
+  input_tree (&decl->decl_non_common.arguments, ib, data_in);
+  input_tree (&decl->decl_non_common.result, ib, data_in);
+  input_tree (&decl->decl_non_common.vindex, ib, data_in);
 
   /* lang_specific */
   /* omit initial -- should be read with body */
@@ -2652,28 +2750,28 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
      we must reserve the slot in the globals vector here,
      because the writer allocates the indices before writing
      out the type, etc.  */
-  index = global_vector_enter (data_in, NULL);
+  index = global_vector_enter (data_in, NULL, true);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
   LTO_DEBUG_TOKEN ("var_decl_assembler_name");
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
+  input_tree (&decl->decl_with_vis.section_name, ib, data_in);
    
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
   LTO_DEBUG_TOKEN ("var_decl_size");
-  decl->decl_common.size = input_tree (ib, data_in);
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
   /* lang_specific */
   /* omit rtl */
@@ -2682,10 +2780,18 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
      not in the VAR_DECL node itself.  */
   LTO_DEBUG_TOKEN ("var_decl_debug_expr");
   {
-    tree debug_expr = input_tree (ib, data_in);
+    tree debug_expr = NULL_TREE;
+    enum LTO_tags tag = input_record_start (ib);
+
+    if (tag)
+      debug_expr = input_tree_operand (ib, data_in, NULL, tag);
 
     if (debug_expr)
       SET_DECL_DEBUG_EXPR (decl, debug_expr);
+
+    /* FIXME lto: We can't backpatch these correctly,
+       but we shouldn't be seeing them anyway. */
+    gcc_assert (!debug_expr);
   }
 
   /* FIXME: Adapted from DWARF reader. Probably needs more thought.  */
@@ -2721,7 +2827,7 @@ input_var_decl (struct lto_input_block *ib, struct data_in *data_in)
   global_vector_fixup (data_in, index, decl);
   
   /* Read initial value expression last, after the global_vector_fixup.  */
-  decl->decl_common.initial = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.initial, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_var_decl");
 
@@ -2738,30 +2844,30 @@ input_parm_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
-  decl->decl_common.size = input_tree (ib, data_in);
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
-  decl->decl_common.initial = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.initial, ib, data_in);
 
   /* lang_specific */
   /* omit rtl, incoming_rtl */
 
-  decl->common.chain = input_tree (ib, data_in);
+  input_tree (&decl->common.chain, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_parm_decl");
 
@@ -2778,28 +2884,28 @@ input_result_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align */
 
-  decl->decl_common.size = input_tree (ib, data_in);
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
   /* lang_specific */
   /* omit rtl */
 
-  decl->decl_common.initial = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.initial, ib, data_in);
 
   /* omit chain */
 
@@ -2818,35 +2924,35 @@ input_type_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
   /* Must output name before type.  */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
+  input_tree (&decl->decl_with_vis.section_name, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
 
-  decl->decl_common.size = input_tree (ib, data_in);
-  decl->decl_common.size_unit = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.size, ib, data_in);
+  input_tree (&decl->decl_common.size_unit, ib, data_in);
 
   /* lang_specific */
   /* omit rtl */
   /* omit initial */
 
-  decl->decl_non_common.saved_tree = input_tree (ib, data_in);
-  decl->decl_non_common.arguments = input_tree (ib, data_in);
-  decl->decl_non_common.result = input_tree (ib, data_in);
-  decl->decl_non_common.vindex = input_tree (ib, data_in);
+  input_tree (&decl->decl_non_common.saved_tree, ib, data_in);
+  input_tree (&decl->decl_non_common.arguments, ib, data_in);
+  input_tree (&decl->decl_non_common.result, ib, data_in);
+  input_tree (&decl->decl_non_common.vindex, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_type_decl");
 
@@ -2863,22 +2969,22 @@ input_label_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   decl->decl_common.mode = lto_input_uleb128 (ib);
   decl->decl_common.align = lto_input_uleb128 (ib);
   /* omit off_align, size, size_unit */
 
-  decl->decl_common.initial = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.initial, ib, data_in);
 
   /* lang_specific */
   /* omit rtl, incoming_rtl */
@@ -2899,19 +3005,19 @@ input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
+  input_tree (&decl->decl_with_vis.section_name, ib, data_in);
 
   /* omit type */
 
-  decl->decl_common.attributes = input_tree (ib, data_in);
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.attributes, ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   /* omit mode */
 
@@ -2923,9 +3029,9 @@ input_namespace_decl (struct lto_input_block *ib, struct data_in *data_in)
   /* lang_specific */
   /* omit rtl */
 
-  decl->decl_non_common.saved_tree = input_tree (ib, data_in);
+  input_tree (&decl->decl_non_common.saved_tree, ib, data_in);
   /* omit arguments, result */
-  decl->decl_non_common.vindex = input_tree (ib, data_in);
+  input_tree (&decl->decl_non_common.vindex, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_namespace_decl");
 
@@ -2942,19 +3048,19 @@ input_translation_unit_decl (struct lto_input_block *ib, struct data_in *data_in
     set_line_info (data_in, decl);
   process_tree_flags (decl, flags);
 
-  global_vector_enter (data_in, decl);
+  global_vector_enter (data_in, decl, false);
 
   /* omit locus, uid */
-  decl->decl_minimal.name = input_tree (ib, data_in);
-  decl->decl_minimal.context = input_tree (ib, data_in);
+  input_tree (&decl->decl_minimal.name, ib, data_in);
+  input_tree (&decl->decl_minimal.context, ib, data_in);
 
-  decl->decl_with_vis.assembler_name = input_tree (ib, data_in);
-  decl->decl_with_vis.section_name = input_tree (ib, data_in);
+  input_tree (&decl->decl_with_vis.assembler_name, ib, data_in);
+  input_tree (&decl->decl_with_vis.section_name, ib, data_in);
 
-  decl->common.type = input_tree (ib, data_in);
+  input_tree (&decl->common.type, ib, data_in);
 
   /* omit attributes */
-  decl->decl_common.abstract_origin = input_tree (ib, data_in);
+  input_tree (&decl->decl_common.abstract_origin, ib, data_in);
 
   /* omit mode */
   decl->decl_common.align  = lto_input_uleb128 (ib);
@@ -2987,28 +3093,36 @@ input_binfo (struct lto_input_block *ib, struct data_in *data_in)
   gcc_assert (!input_line_info (ib, data_in, flags));
   process_tree_flags (binfo, flags);
 
-  global_vector_enter (data_in, binfo);
+  global_vector_enter (data_in, binfo, false);
 
-  binfo->common.type = input_tree (ib, data_in);
+  input_tree (&binfo->common.type, ib, data_in);
 
-  binfo->binfo.offset = input_tree (ib, data_in);
-  binfo->binfo.vtable = input_tree (ib, data_in);
-  binfo->binfo.virtuals = input_tree (ib, data_in);
-  binfo->binfo.vptr_field = input_tree (ib, data_in);
-  binfo->binfo.inheritance = input_tree (ib, data_in);
-  binfo->binfo.vtt_subvtt = input_tree (ib, data_in);
-  binfo->binfo.vtt_vptr = input_tree (ib, data_in);
+  input_tree (&binfo->binfo.offset, ib, data_in);
+  input_tree (&binfo->binfo.vtable, ib, data_in);
+  input_tree (&binfo->binfo.virtuals, ib, data_in);
+  input_tree (&binfo->binfo.vptr_field, ib, data_in);
+  input_tree (&binfo->binfo.inheritance, ib, data_in);
+  input_tree (&binfo->binfo.vtt_subvtt, ib, data_in);
+  input_tree (&binfo->binfo.vtt_vptr, ib, data_in);
 
   binfo->binfo.base_accesses = VEC_alloc (tree, gc, num_base_accesses);
   LTO_DEBUG_TOKEN ("base_accesses");
   for (i = 0; i < num_base_accesses; ++i)
-    VEC_quick_push (tree, binfo->binfo.base_accesses, input_tree (ib, data_in));
+    /* These should all reference well-known nodes defined in GLOBAL_TREES,
+       (e.g., access_public_node) and should never need to be backpatched.  */
+    VEC_quick_push (tree, binfo->binfo.base_accesses,
+		    input_tree_operand (ib, data_in, NULL,
+					input_record_start (ib)));
 
   LTO_DEBUG_TOKEN ("base_binfos");
   for (i = 0; i < num_base_binfos; ++i)
-    VEC_quick_push (tree, &binfo->binfo.base_binfos, input_tree (ib, data_in));
+    /* These are all references to binfos, which should never need to be
+       backpatched.  */
+    VEC_quick_push (tree, &binfo->binfo.base_binfos,
+		    input_tree_operand (ib, data_in, NULL,
+					input_record_start (ib)));
 
-  binfo->common.chain = input_tree (ib, data_in);
+  input_tree (&binfo->common.chain, ib, data_in);
 
   LTO_DEBUG_TOKEN ("end_binfo");
 
@@ -3024,17 +3138,17 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   /* Clear this flag, since we didn't stream the values cache. */
   TYPE_CACHED_VALUES_P (type) = 0;
 
-  global_vector_enter (data_in, type);
+  global_vector_enter (data_in, type, false);
     
   LTO_DEBUG_TOKEN ("type");
-  type->common.type = input_tree (ib, data_in);
+  input_tree (&type->common.type, ib, data_in);
 
   LTO_DEBUG_TOKEN ("size");
-  type->type.size = input_tree (ib, data_in);
+  input_tree (&type->type.size, ib, data_in);
   LTO_DEBUG_TOKEN ("size_unit");
-  type->type.size_unit = input_tree (ib, data_in);
+  input_tree (&type->type.size_unit, ib, data_in);
   LTO_DEBUG_TOKEN ("attributes");
-  type->type.attributes = input_tree (ib, data_in);
+  input_tree (&type->type.attributes, ib, data_in);
   /* Do not read UID.  Let make_node assign a new one.  */
   LTO_DEBUG_TOKEN ("precision");
   type->type.precision = lto_input_uleb128 (ib);
@@ -3044,48 +3158,60 @@ input_type (struct lto_input_block *ib, struct data_in *data_in, enum tree_code 
   type->type.align = lto_input_uleb128 (ib);
   LTO_DEBUG_TOKEN ("pointer_to");
   /* FIXME lto: I think this is a cache that should not be streamed. */
-  type->type.pointer_to = input_tree (ib, data_in);
+  input_tree (&type->type.pointer_to, ib, data_in);
   LTO_DEBUG_TOKEN ("reference_to");
-  type->type.reference_to = input_tree (ib, data_in);
+  input_tree (&type->type.reference_to, ib, data_in);
   /* omit symtab */
   LTO_DEBUG_TOKEN ("name");
-  type->type.name = input_tree (ib, data_in);
+  input_tree (&type->type.name, ib, data_in);
   LTO_DEBUG_TOKEN ("minval");
-  type->type.minval = input_tree (ib, data_in);
+  input_tree (&type->type.minval, ib, data_in);
   LTO_DEBUG_TOKEN ("maxval");
-  type->type.maxval = input_tree (ib, data_in);
+  input_tree (&type->type.maxval, ib, data_in);
   LTO_DEBUG_TOKEN ("next_variant");
-  type->type.next_variant = input_tree (ib, data_in);
+  input_tree (&type->type.next_variant, ib, data_in);
   LTO_DEBUG_TOKEN ("main_variant");
-  type->type.main_variant = input_tree (ib, data_in);
+  input_tree (&type->type.main_variant, ib, data_in);
   LTO_DEBUG_TOKEN ("binfo");
-  type->type.binfo = input_tree (ib, data_in);
+  input_tree (&type->type.binfo, ib, data_in);
   LTO_DEBUG_TOKEN ("context");
-  type->type.context = input_tree (ib, data_in);
+  input_tree (&type->type.context, ib, data_in);
   LTO_DEBUG_TOKEN ("canonical");
-  type->type.canonical = input_tree (ib, data_in);
+  input_tree (&type->type.canonical, ib, data_in);
 
   /* Do components last */
-  if (code == RECORD_TYPE)
+  if (code == RECORD_TYPE || code == UNION_TYPE)
     {
       LTO_DEBUG_TOKEN ("fields");
-      type->type.values = input_tree (ib, data_in);
+      /* At present, we don't merge DECL_FIELD nodes,
+	 so backpatching should never actually occur here.  */
+      input_tree (&type->type.values, ib, data_in);
     }
   else
     {
       LTO_DEBUG_TOKEN ("values");
-      {
-	tree values = input_tree (ib, data_in);
-	/* If using values cache, creation of integer
-	   literals above may have allocated a new cache.
-	   In this case, don't clobber it.  */
-	if (!type->type.values)
-	  type->type.values = values;
-      }
+      /* FIXME lto:  At present, we do not merge types or enumeration
+	 literals, so backpatching will not be required here, but I
+	 anticipate that such merging will occur in the future.  I'm
+	 going to keep the machinery in place for the time being.  */
+      gcc_assert (TYPE_CACHED_VALUES_P (type) || !type->type.values);
+      if (type->type.values)
+	{
+	  /* We have constructed a new values cache while reading the
+	     type, presumably due to literal creation above.  Don't
+	     clobber it.  */
+	  enum LTO_tags tag = input_record_start (ib);
+
+	  /* A values cache is streamed out as NULL_TREE, so check
+	     that the input stream agrees with our assumption.  */
+	  gcc_assert (!tag);
+	}
+      else
+	input_tree (&type->type.values, ib, data_in);	
     }
 
   LTO_DEBUG_TOKEN ("chain");
-  type->common.chain = input_tree (ib, data_in);  /* TYPE_STUB_DECL */
+  input_tree (&type->common.chain, ib, data_in);  /* TYPE_STUB_DECL */
 
   LTO_DEBUG_TOKEN ("end_type");
 
@@ -3125,6 +3251,13 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 	 its fields.  */
 #endif
       LTO_DEBUG_UNDENT();
+
+      /* If we read a node reference from the stream with input_tree_operand,
+	 we cannot backpatch it if we subsequently decide to replace it, e.g.,
+	 as a result of declaration merging.  We thus abort if the reference
+	 is to a backpatchable node currently under construction.  */
+      gcc_assert (!TREE_VISITED (result));
+
       return result;
     }
 
@@ -3350,7 +3483,8 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 				    input_record_start (ib));
         gcc_assert (label && TREE_CODE (label) == LABEL_DECL);
         result = build1 (code, void_type_node, label);
-        /* FIXME: We may need this. */
+        /* FIXME: We may need this.  Because we are not using this
+	   code at present, the FN argument is actually unnecessary.  */
         /*
           if (!DECL_CONTEXT (LABEL_EXPR_LABEL (result)))
           DECL_CONTEXT (LABEL_EXPR_LABEL (result)) = fn->decl;
@@ -3541,22 +3675,11 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 	result = NULL_TREE;
 	while (count--)
 	  {
-	    tree value;
-	    tree purpose;
-	    tree elt;
-	    enum LTO_tags tag = input_record_start (ib);
+	    tree elt = make_node (TREE_LIST);
 
-	    if (tag)
-	      value = input_tree_operand (ib, data_in, fn, tag);
-	    else 
-	      value = NULL_TREE;
-	    tag = input_record_start (ib);
-	    if (tag)
-	      purpose = input_tree_operand (ib, data_in, fn, tag);
-	    else 
-	      purpose = NULL_TREE;
+	    input_tree (&TREE_VALUE (elt), ib, data_in);
+	    input_tree (&TREE_PURPOSE (elt), ib, data_in);
 
-	    elt = build_tree_list (purpose, value);
 	    if (result)
 	      TREE_CHAIN (next) = elt;
 	    else
@@ -3574,7 +3697,7 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 	tree result = make_tree_vec (len);
 	
 	for (i = 0; i < len; ++i)
-	  TREE_VEC_ELT (result, i) = input_tree (ib, data_in);
+	  input_tree (&TREE_VEC_ELT (result, i), ib, data_in);
       }
       break;
 
@@ -3619,44 +3742,23 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
 #undef MAP_EXPR_TAG
 #undef TREE_SINGLE_MECHANICAL_TRUE
 #undef SET_NAME
+
       {
-	tree ops[7];
+
 	int len = TREE_CODE_LENGTH (code);
 	int i;
+
+	result = make_node (code);
+	TREE_TYPE (result) = type;
 	for (i = 0; i<len; i++)
-	  ops[i] = input_tree_operand (ib, data_in, fn, 
-				       input_record_start (ib));
-	switch (len)
-	  {
-	  case 0:
-	    result = build0 (code, type);
-	    break;
-	  case 1:
-	    result = build1 (code, type, ops[0]);
-	    break;
-	  case 2:
-	    result = build2 (code, type, ops[0], ops[1]);
-	    break;
-	  case 3:
-	    result = build3 (code, type, ops[0], ops[1], ops[2]);
-	    break;
-	  case 4:
-	    result = build4 (code, type, ops[0], ops[1], ops[2], ops[3]);
-	    break;
-          case 5:
-	    result = build5 (code, type, ops[0], ops[1], ops[2], ops[3], 
-			     ops[4]);
-	    break;
-            /* No 'case 6'.  */
-	  case 7:
-	    result = build7 (code, type, ops[0], ops[1], ops[2], ops[3], 
-			     ops[4], ops[5], ops[6]);
-	    break;
-	  default:
-	    gcc_unreachable ();
-	  }
+	  /* Calling input_tree here results in NULL being passed as the FN
+	     argument to recursive calls to input_tree_operand.  This is only
+	     correct because no one actually examines FN at present.  See the
+	     LABEL_EXPR case above.  */
+	  input_tree (&TREE_OPERAND (result, i), ib, data_in);
       }
       break;
+
       /* This is the error case, these are type codes that will either
 	 never happen or that we have not gotten around to dealing
 	 with are here.  */
@@ -3729,21 +3831,76 @@ input_tree_operand (struct lto_input_block *ib, struct data_in *data_in,
   return result;
 }
 
-/* Input a generic tree, allowing for NULL_TREE.  */
-tree
-input_tree (struct lto_input_block *ib, struct data_in *data_in)
+/* Input a generic tree from the LTO IR input stream IB using the per-file
+   context in DATA_IN.  This context is used, for example, to resolve
+   references to previously input nodes.  The tree is placed in the location
+   pointed to by SLOT.  This pointer may be saved for future backpatching,
+   and the caller must presume that location may subsequently change.  */
+
+void
+input_tree (tree *slot, struct lto_input_block *ib, struct data_in *data_in)
 {
   enum LTO_tags tag = input_record_start (ib);
 
-  if (tag)
-    return input_tree_operand (ib, data_in, NULL, tag);
-  else
-    return NULL_TREE;
+  if (!tag)
+    *slot = NULL_TREE;
+  /* If tree reference, resolve to previously-read node.  */
+  else if (tag == LTO_tree_pickle_reference)
+    {
+      tree result;
+      unsigned int index = lto_input_uleb128 (ib);
+      gcc_assert (data_in->globals_index);
+#ifdef GLOBAL_STREAMER_TRACE
+      fprintf (stderr, "Found LTO_tree_pickle_reference index %u length %u\n",
+	       index, VEC_length (tree, data_in->globals_index));
+#endif
+      gcc_assert (index < VEC_length (tree, data_in->globals_index));
+      result = VEC_index (tree, data_in->globals_index, index);
+      gcc_assert (result);
+#ifdef GLOBAL_STREAMER_TRACE
+      fprintf (stderr, "%u -> REF 0x%p\n", index, (void *) result);
+      /* We cannot print the node, as we may be processing a recursive
+	 reference to the node before we have finished reading all of
+	 its fields.  */
+#endif
+      LTO_DEBUG_UNDENT();
+
+      *slot = result;
+
+      /* If the TREE_VISITED flag is set, the node may be replaced
+	 by another in global_vector_fixup, and references to it must
+	 be backpatched.  Add the address of the slot that we just
+	 read into a vector of locations to backpatch associated with
+	 this object.  The vector of locations to backpatch is stored
+	 in the otherwise unused DECL_LANG_SPECIFIC slot.  */
+      if (TREE_VISITED (result))
+	{
+	  VEC(tree_ptr, heap) *fixups;
+
+	  /* At present, only declaration nodes are backpatched,
+	     and the use of the DECL_LANG_SPECIFIC slot relies on this.  */
+	  gcc_assert (DECL_P (result));
+
+	  fixups = (VEC(tree_ptr, heap) *) DECL_LANG_SPECIFIC (result);
+	  if (!fixups)
+	    {
+	      /* FIXME lto: It likely makes sense to preallocate a
+		 small number of vector elements greater than one.  */
+	      fixups = VEC_alloc (tree_ptr, heap, 1);
+	      DECL_LANG_SPECIFIC (result) = (struct lang_decl *) fixups;
+	    }
+
+	  VEC_safe_push (tree_ptr, heap, fixups, slot);
+	  /* Handle the case that the vector was resized.  */
+	  DECL_LANG_SPECIFIC (result) = (struct lang_decl *) fixups;
+	}
+    } else
+      *slot = input_tree_operand (ib, data_in, NULL, tag);
 }
 
 /* FIXME: Note reversed argument order.  */
-tree
-input_type_tree ( struct data_in *data_in, struct lto_input_block *ib)
+static tree
+input_type_tree (struct data_in *data_in, struct lto_input_block *ib)
 {
   enum LTO_tags tag;
   tree type;

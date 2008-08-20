@@ -1,3 +1,10 @@
+2008-08-20  Bill Maddox  <maddox@google.com>
+
+	* lto.c (lto_read_decls): Provide dummy argument to input_tree
+	to conform to its new signature.
+	* lto-symtab.c (lto_symtab_merge_decl): Do not invoke ggc_free
+	on discarded node here, now called in global_vector_fixup.
+	
 2008-08-09  Bill Maddox  <maddox@google.com>
 
 	* lto.c (preload_common_nodes): Verify that fileptr_type_node

@@ -2964,7 +2964,7 @@ output_type (struct output_block *ob, tree type, enum LTO_tags tag)
 
   /* Slot 'values' may be the structures fields, so do them last,
      after other slots of the structure type have been filled in.  */
-  if (tag == LTO_record_type)
+  if (tag == LTO_record_type || tag == LTO_union_type)
     {
       LTO_DEBUG_TOKEN ("fields");
       output_tree (ob, TYPE_FIELDS (type));
